@@ -255,6 +255,36 @@ public static class UserEndpoints
         })
         .WithName("SaveAccountPreferences");
 
+        // ── 로그인한 뒤 처음 열리는 화면 ────────────────────────
+        //
+        // 위의 `/preferences` 와 담기는 곳이 다르다. 저것은 **프론트가 만든
+        // JSON 덩어리**를 서버가 해석하지 않고 보관하는 자리고, 이것은
+        // `UserInfoDto.HomePath` 라는 **이미 있는 칸 하나**다 — 부트스트랩이
+        // 내려보내는 값이라 포털이 한 번 더 물을 것이 없다.
+        //
+        // **자기 것만 다룬다.** 바꿀 계정을 요청에서 받지 않고 게이트웨이가
+        // 넘긴 신원을 쓴다(`/preferences` 와 같은 규칙).
+
+        group.MapPut("/home-path", async (
+            UserContext? user,
+            [FromBody] UpdateHomePathDto request,
+            [FromServices] IUserService userService) =>
+        {
+            if (user is null)
+            {
+                return Results.Json(ApiResponse<object>.Fail("인증 정보가 없습니다.", "401"), statusCode: 401);
+            }
+
+            var (success, error) = await userService.UpdateHomePathAsync(user.UserId, request.HomePath);
+
+            return success
+                ? Results.Ok(ApiResponse<object>.Ok(null))
+                : Results.Json(
+                    ApiResponse<object>.Fail(error ?? "홈 화면을 저장하지 못했습니다.", "400"),
+                    statusCode: 400);
+        })
+        .WithName("UpdateHomePath");
+
         group.MapPost("/settings", async (UserContext? user, [FromBody] UpdateSettingDto request, [FromServices] IUserService userService) =>
         {
             if (user is null) 

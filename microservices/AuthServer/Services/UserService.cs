@@ -929,4 +929,82 @@ public class UserService : IUserService
         await _db.SaveChangesAsync();
         return true;
     }
+
+    /// <summary>
+    /// 로그인한 뒤 처음 열리는 화면을 정한다. 계약은 <see cref="IUserService"/> 에 있다.
+    /// </summary>
+    public async Task<(bool Success, string? Error)> UpdateHomePathAsync(string userId, string? homePath)
+    {
+        var path = (homePath ?? string.Empty).Trim();
+
+        if (path.Length > 0 && !IsSiteRelativePath(path))
+        {
+            return (false, "홈 화면 경로가 올바르지 않습니다.");
+        }
+
+        var account = await _db.Accounts
+            .Include(a => a.ProfileDetails)
+            .FirstOrDefaultAsync(a => a.UserId == userId || a.Id == userId);
+
+        if (account == null) return (false, "계정을 찾을 수 없습니다.");
+
+        var detail = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "HomePath");
+
+        // 비웠으면 **줄을 지운다.** 「지정 안 함」을 글자로 적어 두면
+        // (`/workspace` 같은 것) 나중에 기본이 바뀌어도 그 사람만 옛 화면에
+        // 묶인다 — 띠의 「기본값으로」가 열쇠를 지우는 것과 같은 규칙이다.
+        if (path.Length == 0)
+        {
+            if (detail is not null)
+            {
+                _db.AccountProfileDetails.Remove(detail);
+                await _db.SaveChangesAsync();
+            }
+
+            return (true, null);
+        }
+
+        if (detail is not null)
+        {
+            detail.Content = path;
+            _db.Entry(detail).State = EntityState.Modified;
+        }
+        else
+        {
+            _db.AccountProfileDetails.Add(new AccountProfileDetail
+            {
+                AccountId = account.Id,
+                DetailType = "HomePath",
+                Content = path,
+                IsPrimary = true
+            });
+        }
+
+        await _db.SaveChangesAsync();
+        return (true, null);
+    }
+
+    /// <summary>
+    /// 이 사이트 안을 가리키는 절대 경로인가.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 로그인 화면의 <c>SafeReturnUrl</c> 과 <b>같은 규칙</b>이다. 다를 이유가
+    /// 없다 — 둘 다 「로그인 직후 사용자를 보낼 주소」이고, 그 시점은 사람이
+    /// 주소창을 가장 안 보는 때다. <c>//evil.com</c> 은 프로토콜 상대 URL 이라
+    /// <c>/</c> 로 시작해도 밖으로 나간다.
+    /// </para>
+    /// <para>
+    /// <b>「그런 화면이 있는가」는 보지 않는다.</b> 라우트는 프론트의
+    /// <c>@page</c> 가 갖고 있어서 서버가 알 길이 없다(web/CLAUDE.md 의
+    /// 「라우팅 소유권이 뒤집혔다」). 없는 화면을 고르는 길은 고르개 쪽에서
+    /// 막는다 — 권한이 있는 메뉴만 목록에 올린다.
+    /// </para>
+    /// </remarks>
+    private static bool IsSiteRelativePath(string path) =>
+        path.Length <= 200
+        && path[0] == '/'
+        && !path.StartsWith("//", StringComparison.Ordinal)
+        && !path.Any(char.IsWhiteSpace)
+        && !path.Any(char.IsControl);
 }

@@ -69,6 +69,26 @@ public interface IUserService
     /// 로그인한 사용자의 설정을 업데이트합니다.
     /// </summary>
     Task<bool> UpdateSettingAsync(string userId, UpdateSettingDto dto);
+
+    /// <summary>
+    /// 로그인한 뒤 처음 열리는 화면을 정한다.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="UpdateSettingAsync"/> 와 담기는 표가 같은데도 따로 두는 까닭은
+    /// <b>담기는 값의 꼴이 다르기</b> 때문이다 — 저쪽은 켬·끔(<c>bool</c>)만
+    /// 받아 <c>"true"</c>/<c>"false"</c> 로 적는다. 여기에 글자를 실으려면
+    /// 저 DTO 에 칸을 하나 더해야 하고, 그러면 <b>어느 칸이든 임의의 글자를
+    /// 임의의 <c>DetailType</c> 에 적을 수 있는 길</b>이 열린다.
+    /// </remarks>
+    /// <param name="userId">로그인 아이디 또는 계정 식별자.</param>
+    /// <param name="homePath">
+    /// 메뉴 경로. 비었으면 지정을 <b>푼다</b>(줄을 지운다).
+    /// </param>
+    /// <returns>
+    /// 저장했으면 <c>(true, null)</c>. 경로가 이 사이트 밖을 가리키거나 계정을
+    /// 못 찾으면 <c>(false, 까닭)</c>.
+    /// </returns>
+    Task<(bool Success, string? Error)> UpdateHomePathAsync(string userId, string? homePath);
 }
 
 /// <summary>

@@ -337,6 +337,11 @@ public static class JSiniWebApp
         // 있기 때문**이다 — 헤더는 레이아웃이라 업무 모듈을 이름으로 알지 못한다.
         services.AddScoped<Settings.NoteClient>();
 
+        // 로그인한 뒤 처음 열리는 화면. 고르는 자리는 장례식장의 환경설정이지만
+        // **쓰는 자리는 셸의 홈**이라 여기 둔다 — 셸은 업무 모듈을 이름으로
+        // 알지 못한다(의존 규칙 4번). 규칙은 `Layout/PortalHome` 이 갖고 있다.
+        services.AddScoped<Settings.HomePathClient>();
+
         // 그중 **공개 공지만** 회로 바깥에서 잠깐 들고 있는 통.
         //
         // **싱글턴이어야 한다.** 로그인 화면 HTML 을 만드는 길 위에 있는

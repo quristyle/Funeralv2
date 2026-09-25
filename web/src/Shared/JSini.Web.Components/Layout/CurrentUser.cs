@@ -106,6 +106,18 @@ public sealed class CurrentUser(GatewayClient gateway, ILogger<CurrentUser> logg
     public bool IsLoaded { get; private set; }
 
     /// <summary>
+    /// 로그인한 뒤 처음 열릴 화면. <b>DB 의 메뉴 경로</b>다
+    /// (<c>/setting/environment</c> — 브라우저가 갈 주소가 아니다).
+    ///
+    /// <para>
+    /// 안 골랐으면 서버가 <c>/workspace</c> 를 채워 보낸다. 그 값을 「골랐다」로
+    /// 읽지 않는 까닭은 <see cref="PortalHome.IsUnset"/> 에 있다 — 푸는 것도
+    /// 거기 한 곳에서 한다. 여기서는 <b>받은 그대로</b> 들고 있는다.
+    /// </para>
+    /// </summary>
+    public string? HomePath { get; private set; }
+
+    /// <summary>
     /// 화면에 워터마크를 깔지. <b>관리자가 정한 값</b>이고 셸이 이것을 보고
     /// 깔거나 걷는다.
     ///
@@ -170,6 +182,7 @@ public sealed class CurrentUser(GatewayClient gateway, ILogger<CurrentUser> logg
             AvatarUrl = OwnFileUrl(info.Avatar);
             AvatarThumbnailUrl = OwnThumbnailUrl(info.Avatar);
             Watermark = info.Watermark;
+            HomePath = info.HomePath;
             IsSystemAdmin = info.Roles?.Any(r =>
                 string.Equals(r, SystemAdministratorRole, StringComparison.OrdinalIgnoreCase)) == true;
             IsLoaded = true;
@@ -186,6 +199,17 @@ public sealed class CurrentUser(GatewayClient gateway, ILogger<CurrentUser> logg
     {
         AvatarUrl = OwnFileUrl(avatar);
         AvatarThumbnailUrl = OwnThumbnailUrl(avatar);
+        Changed?.Invoke();
+    }
+
+    /// <summary>
+    /// 환경설정이 첫 화면을 바꾼 뒤 알려 준다. <b>다시 조회하지 않는다</b> —
+    /// 방금 그 화면이 서버에 보낸 값이라 한 번 더 물을 이유가 없다
+    /// (<see cref="SetAvatar"/> 와 같은 규칙).
+    /// </summary>
+    public void SetHomePath(string? homePath)
+    {
+        HomePath = homePath;
         Changed?.Invoke();
     }
 
@@ -275,5 +299,8 @@ public sealed class CurrentUser(GatewayClient gateway, ILogger<CurrentUser> logg
 
         /// <summary>워터마크를 깔지. 관리자가 정한 값이다.</summary>
         public bool Watermark { get; set; } = true;
+
+        /// <summary>로그인 뒤 처음 열릴 화면(<see cref="CurrentUser.HomePath"/>).</summary>
+        public string? HomePath { get; set; }
     }
 }
