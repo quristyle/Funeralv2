@@ -3974,6 +3974,19 @@ button.jsini-crumbs__item:hover { opacity: 1; }
 
 .jsini-pushask__facts li + li { margin-top: 0.35rem; }
 
+/* 사파리에 적어 주는 설치 순서. **단추를 놓을 수 없는 자리를 글이 대신한다**
+   (`PushAskPopup` 머리말) — 그래서 위 목록과 달리 흐리게 두지 않는다. 여기가
+   시키는 대로 따라 해야 하는 유일한 대목이다. */
+.jsini-pushask__howto {
+  margin: 0.75rem 0 0;
+  padding: 0.6rem 0.75rem 0.6rem 1.9rem;
+  border-radius: var(--jsini-radius-md);
+  background: var(--jsini-surface-muted);
+  font-size: var(--jsini-fs-sm);
+}
+
+.jsini-pushask__howto li + li { margin-top: 0.35rem; }
+
 /* ── 알림 판의 덩어리 셋 (`NotificationPanel`) ──────────────
 
    **상자를 만들지 않는다**(`display: contents`). 이 판을 그냥 쓰면 덩어리

@@ -185,6 +185,36 @@ public sealed class PushBrowserResult
     /// </summary>
     public bool Installable { get; set; }
 
+    /// <summary>
+    /// <b>이 탭에서 설치를 마쳤는가.</b>
+    ///
+    /// <para>
+    /// 설치가 끝나도 보고 있던 탭은 탭 그대로라 <see cref="Standalone"/> 은
+    /// 거짓으로 남고, 한 번 쓴 설치 신호는 사라져 <see cref="Installable"/> 도
+    /// 거짓이 된다. 그 둘만 보면 <b>방금 설치한 사람이 「아직 안 했다」로
+    /// 읽힌다</b> — 권유 창이 설치를 또 권하지 않게 하려고 있는 값이다.
+    /// </para>
+    /// </summary>
+    public bool Installed { get; set; }
+
+    /// <summary>
+    /// 설치를 <b>어떻게</b> 해야 하는가 — <c>prompt</c>(단추 하나로 된다) ·
+    /// <c>ios</c>(공유 → 홈 화면에 추가) · <c>menu</c>(길이 없다) ·
+    /// <c>none</c>(이미 앱이다).
+    /// </summary>
+    /// <remarks>
+    /// <c>menu</c> 와 <c>none</c> 에서 화면은 <b>아무 말도 하지 않는다</b> —
+    /// 신호를 안 주는 브라우저와 이미 설치해 둔 브라우저가 거기서 구분되지
+    /// 않아서, 말을 얹으면 설치한 사람에게 설치를 권하게 된다(<c>pwa.js</c>).
+    /// </remarks>
+    public string? InstallHint { get; set; }
+
+    /// <summary>
+    /// <b>휴대폰·태블릿인가.</b> 창 폭이 아니라 기기로 본다 — 좁게 줄여 놓은
+    /// 데스크톱까지 걸리면 되풀이 권유가 거기서도 뜬다(<c>PushAskPopup</c>).
+    /// </summary>
+    public bool Mobile { get; set; }
+
     public string? Endpoint { get; set; }
     public string? P256dh { get; set; }
     public string? Auth { get; set; }

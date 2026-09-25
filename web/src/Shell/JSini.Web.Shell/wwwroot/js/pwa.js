@@ -44,9 +44,23 @@
         installPrompt = event;
     });
 
+    /**
+     * **이 탭에서 설치를 마쳤는가.**
+     *
+     * 설치가 끝나도 **보고 있던 탭은 탭 그대로다** — `display-mode` 는
+     * 여전히 `browser` 이고, 한 번 쓴 설치 신호는 사라진다. 그 둘만 보면
+     * 방금 설치한 사람이 「아직 설치 안 했다」로 읽혀서, 권유 창이 설치를
+     * 또 권한다(그것도 이제는 할 수 있는 일이 없는 「메뉴로 설치하세요」로).
+     *
+     * 새로고침하면 도로 거짓이 되지만 그때는 설치 신호도 다시 오지 않으므로
+     * (이미 설치된 사이트다) 권유 창이 설치를 권하지 않는다.
+     */
+    let installed = false;
+
     // 설치가 끝나면 그 신호는 더 이상 뜻이 없다.
     window.addEventListener('appinstalled', () => {
         installPrompt = null;
+        installed = true;
     });
 
     /**
@@ -61,6 +75,54 @@
 
         return modes.some((mode) => window.matchMedia('(display-mode: ' + mode + ')').matches)
             || window.navigator.standalone === true;
+    }
+
+    /** 사파리가 도는 애플 기기인가. 아이패드는 자기를 맥이라고 말한다. */
+    function isApple() {
+        const ua = navigator.userAgent || '';
+
+        return /iPhone|iPad|iPod/i.test(ua)
+            || (/Macintosh/i.test(ua) && (navigator.maxTouchPoints || 0) > 1);
+    }
+
+    /**
+     * **휴대폰·태블릿인가.**
+     *
+     * 창 폭으로 보지 않는다. 좁게 줄여 놓은 데스크톱 브라우저까지 걸리면
+     * 설치·구독 권유가 **거기서 되풀이해 뜬다** — 그쪽은 한 번 묻고 마는
+     * 자리다(`PushAskPopup`).
+     *
+     * 아이패드가 자기를 맥이라고 말하는 것만 손가락 자리 수로 가려낸다.
+     */
+    function isMobileDevice() {
+        const ua = navigator.userAgent || '';
+        const uaData = navigator.userAgentData;
+
+        if (uaData && typeof uaData.mobile === 'boolean' && uaData.mobile) return true;
+        if (isApple()) return true;
+
+        return /Android|iPhone|iPad|iPod|Mobile|Silk|Kindle|Tablet/i.test(ua);
+    }
+
+    /**
+     * 설치를 **어떻게** 해야 하는가. 화면이 단추를 놓을지 길을 적을지 정한다.
+     *
+     * | 값 | 뜻 | 화면이 하는 일 |
+     * |---|---|---|
+     * | `prompt` | 브라우저가 설치 신호를 줬다 | 단추 하나로 끝낸다 |
+     * | `ios` | 사파리다 | 「공유 → 홈 화면에 추가」를 적어 준다 |
+     * | `menu` | 설치는 되는데 신호가 없다 | **아무 말도 하지 않는다** |
+     * | `none` | 이미 앱이다 | 〃 |
+     *
+     * `menu` 에서 입을 다무는 까닭 — 신호를 안 주는 브라우저(파이어폭스)와
+     * **이미 설치해 둔 브라우저**가 여기서 구분되지 않는다. 설치한 사람에게
+     * 「메뉴로 설치하세요」를 되풀이하면 그것은 권유가 아니라 고장이다.
+     */
+    function installHint(standalone) {
+        if (standalone || installed) return 'none';
+        if (installPrompt) return 'prompt';
+
+        return isApple() ? 'ios' : 'menu';
     }
 
     /** 서비스워커 등록. 실패해도 앱을 죽이지 않는다. */
@@ -261,6 +323,9 @@
                 standalone: standalone,
                 serviceWorker: false,
                 installable: false,
+                installed: installed,
+                installHint: installHint(standalone),
+                mobile: isMobileDevice(),
             };
         }
 
@@ -281,6 +346,9 @@
             standalone: standalone,
             serviceWorker: !!(registration && registration.active),
             installable: !!installPrompt,
+            installed: installed,
+            installHint: installHint(standalone),
+            mobile: isMobileDevice(),
         };
     }
 
@@ -302,7 +370,15 @@
             // 맞을 때 새 신호를 준다.
             installPrompt = null;
 
-            return { ok: choice && choice.outcome === 'accepted' };
+            const accepted = !!(choice && choice.outcome === 'accepted');
+
+            // **받아들였으면 여기서 찍는다.** `appinstalled` 를 기다리지
+            // 않는 이유는 그 사건이 브라우저에 따라 늦거나 아예 안 오기
+            // 때문이다 — 그 사이에 권유 창이 상태를 다시 읽으면 방금 설치한
+            // 사람에게 설치를 또 권한다.
+            if (accepted) installed = true;
+
+            return { ok: accepted, installed: installed, standalone: isStandalone() };
         } catch (error) {
             return { ok: false, error: '설치 창을 띄우지 못했습니다: ' + (error && error.message ? error.message : error) };
         }

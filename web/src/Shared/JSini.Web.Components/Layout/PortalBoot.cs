@@ -122,6 +122,24 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
     public const string PushAskNeverKey = "jsini-push-ask-never";
 
     /// <summary>
+    /// 휴대폰에서 그 창을 <b>언제까지 접어 둘 것인가</b>(UTC, <c>o</c> 꼴).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 휴대폰에서는 권유를 <b>되풀이한다</b> — 설치와 구독이 거기서 실제로
+    /// 값을 하는데, 한 번 「나중에」로 접히면 다시 물을 길이 없었다. 그래서
+    /// 「닫았다/영영 그만」 대신 <b>기한</b>을 적어 둔다
+    /// (<c>PushAskPopup.ReofferAfter</c>).
+    /// </para>
+    /// <para>
+    /// <b>기기에 남는다</b>(localStorage). 탭 하나에만 남기면 홈 화면 앱을
+    /// 껐다 켜는 것만으로 기한이 사라져 열 때마다 권유가 뜬다 —
+    /// <see cref="ScreenLockedKey"/> 가 세션이었을 때 겪은 것과 같은 꼴이다.
+    /// </para>
+    /// </remarks>
+    public const string PushAskSnoozeKey = "jsini-push-ask-snooze";
+
+    /// <summary>
     /// 위치 권유 창을 <b>이 탭에서 닫았다</b>(<c>LocationAskPopup</c>).
     /// 「나중에」의 뜻이 그것이다 — 다음에 새로 열면 다시 묻는다.
     /// </summary>
@@ -287,6 +305,7 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         PinnedTabsKey,
         SidebarWidthKey,
         PushAskNeverKey,
+        PushAskSnoozeKey,
         GeoAskNeverKey,
         GeoSyncedAtKey,
         FabPositionKey,
@@ -455,6 +474,34 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         {
             logger.LogDebug(ex, "워터마크를 걷지 못했다.");
         }
+    }
+
+    /// <summary>
+    /// 설치·구독 권유 창을 <paramref name="span"/> 동안 접어 둔다. 지난 뒤에는
+    /// 다시 뜬다 — 휴대폰에서 권유를 되풀이하는 길이 이것이다
+    /// (<see cref="PushAskSnoozeKey"/>).
+    /// </summary>
+    /// <returns>
+    /// 적어 둔 기한. <b>돌려주는 이유는 부르는 쪽이 그때까지 기다리기</b>
+    /// 때문이다 — 저장에 실패해도 이 탭에서는 그 시각을 지킨다.
+    /// </returns>
+    public async Task<DateTime> SnoozePushAskAsync(TimeSpan span)
+    {
+        var until = DateTime.UtcNow.Add(span);
+
+        try
+        {
+            await js.InvokeVoidAsync("localStorage.setItem", PushAskSnoozeKey,
+                until.ToString("o", System.Globalization.CultureInfo.InvariantCulture));
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException)
+        {
+            // 사생활 보호 모드에서는 setItem 이 던진다. 이 탭에서만 기한을
+            // 지키게 되는 것이 전부라 사용자에게 말할 일이 아니다.
+            logger.LogDebug(ex, "설치·구독 권유를 접어 둘 기한을 남기지 못했다.");
+        }
+
+        return until;
     }
 
     /// <summary>모바일 메뉴 단추(FAB) 위치가 바뀌었을 때 알린다.</summary>
@@ -791,6 +838,12 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         /// <summary>그 창을 이 브라우저에서 영영 안 보기로 했는가.</summary>
         public bool PushAskNever { get; private init; }
 
+        /// <summary>
+        /// 휴대폰에서 그 창을 <b>언제까지 접어 두기로</b> 했는가(UTC).
+        /// 적어 둔 적이 없거나 읽을 수 없으면 <c>null</c> — 즉 지금 물어도 된다.
+        /// </summary>
+        public DateTime? PushAskSnoozedUntil { get; private init; }
+
         /// <summary>위치 권유 창을 이 탭에서 닫았는가(「나중에」).</summary>
         public bool GeoAskClosed { get; private init; }
 
@@ -874,6 +927,7 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
             NoticeDismissedJson = Get(wire.Local, NoticeDismissedKey),
             PushAskClosed = Has(wire.Session, PushAskClosedKey),
             PushAskNever = Has(wire.Local, PushAskNeverKey),
+            PushAskSnoozedUntil = Moment(Get(wire.Local, PushAskSnoozeKey)),
             GeoAskClosed = Has(wire.Session, GeoAskClosedKey),
             GeoAskNever = Has(wire.Local, GeoAskNeverKey),
             GeoSyncedAt = Moment(Get(wire.Local, GeoSyncedAtKey)),
