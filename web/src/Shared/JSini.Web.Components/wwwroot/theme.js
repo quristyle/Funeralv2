@@ -1602,6 +1602,188 @@
   }
 
   /**
+   * 토스트를 옆으로 쓸면 **기다리지 않고 바로 걷힌다.**
+   *
+   * [왜 필요한가]
+   *
+   * 알림은 5초, 실패는 60초를 머문다(`Toasts`). 다 읽은 뒤의 남은 시간은
+   * 쓸모가 없는데 치우려면 오른쪽 위 닫기 단추를 정확히 눌러야 하고,
+   * 그 단추가 손가락보다 작아 휴대폰에서는 두어 번 빗나간다. 그래서 대개
+   * 그냥 기다리게 되고, 넷까지 쌓이면(`MaxToastCount`) 아래 것이 가린다.
+   *
+   * [치우는 일은 우리가 하지 않는다]
+   *
+   * 다 쓸고 나서 부르는 것은 **그 닫기 단추**다. DOM 에서 직접 지우면
+   * DevExpress 의 목록에는 그대로 남아 상한(`MaxToastCount`)이 어긋나고,
+   * 그쪽 타이머가 나중에 없는 것을 지우려 든다. 그래서 닫기 단추가 없는
+   * 토스트는 **아예 끌리지 않게** 한다 — 끌 수는 있는데 안 없어지는 것이
+   * 제일 나쁘다.
+   *
+   * [손가락과 펜만 받는다]
+   *
+   * 실패 문구는 끌어서 고르고 복사하는 것이 쓰임새다(`Toasts` 머리말).
+   * 마우스 끌기까지 가로채면 그것이 막힌다.
+   *
+   * [끌고 난 뒤의 click 은 삼킨다]
+   *
+   * 쓸고 손을 떼면 브라우저가 click 을 하나 더 준다. 그대로 두면 눌린 것으로
+   * 보여 DevExpress 가 그 토스트를 **영영 붙들고**(`FreezeOnClick`) 아래
+   * 표시도 멈춘다 — 되돌아온 토스트가 다시는 안 걷히는 것이다. 문서에서
+   * 잡기(capture)로 먼저 받아 끊는다.
+   */
+
+  /** 누름과 끌기를 가르는 거리. 이보다 적게 움직인 것은 누름이다. */
+  var SWIPE_START = 8;
+
+  /** 손을 뗐을 때 치우는 거리. 모자라면 제자리로 돌아간다. */
+  var SWIPE_AWAY = 56;
+
+  /** 다 흐려지는 거리. 얼마나 갔는지를 투명도로도 보여 준다. */
+  var SWIPE_FADE = 160;
+
+  /** 되돌아가거나 날아가는 데 걸리는 밀리초. app.css 의 transition 과 같다. */
+  var SWIPE_SETTLE = 180;
+
+  /** 지금 끌고 있는 것. `{ el, id, x, y, dx, moved }` 또는 `null`. */
+  var swiping = null;
+
+  /** 끌고 난 뒤 따라오는 click 하나를 삼킬 차례인가. */
+  var swallowClick = false;
+
+  /** 그 토스트를 닫는 단추. 없으면 `null` — 그러면 끌지 않는다. */
+  function toastCloseButton(toast) {
+    return toast.querySelector('.dxbl-toast-close-btn')
+        || toast.querySelector('.dxbl-toast-close button');
+  }
+
+  /** 손가락을 따라간다. 그리는 것은 여기서만 한다. */
+  function swipeDraw(el, dx) {
+    el.style.transform = 'translateX(' + dx + 'px)';
+    el.style.opacity = String(Math.max(0, 1 - Math.abs(dx) / SWIPE_FADE));
+  }
+
+  /** 우리가 적은 것을 걷는다. 판이 그리던 그림으로 돌아간다. */
+  function swipeClear(el) {
+    el.classList.remove('jsini-toast-swipe--dragging');
+    el.classList.remove('jsini-toast-swipe--settling');
+    el.style.transform = '';
+    el.style.opacity = '';
+  }
+
+  /** 모자라게 갔다 — 제자리로 돌려놓는다. */
+  function swipeSettle(el) {
+    el.classList.remove('jsini-toast-swipe--dragging');
+    el.classList.add('jsini-toast-swipe--settling');
+    swipeDraw(el, 0);
+
+    window.setTimeout(function () { swipeClear(el); }, SWIPE_SETTLE);
+  }
+
+  /** 충분히 갔다 — 마저 날려 보내고 나서 닫기 단추를 누른다. */
+  function swipeAway(el, dx) {
+    var out = (dx < 0 ? -1 : 1) * (el.offsetWidth + 32);
+
+    el.classList.remove('jsini-toast-swipe--dragging');
+    el.classList.add('jsini-toast-swipe--settling');
+    el.style.transform = 'translateX(' + out + 'px)';
+    el.style.opacity = '0';
+
+    window.setTimeout(function () {
+      var close = toastCloseButton(el);
+
+      // 우리가 누르는 것은 삼키지 않는다. 쓸고 난 뒤 진짜 click 이 오지
+      // 않는 경우(손가락이 창 밖에서 떨어지는 등)에 표가 남아 있을 수 있다.
+      swallowClick = false;
+
+      if (close) close.click();
+    }, SWIPE_SETTLE);
+  }
+
+  document.addEventListener('pointerdown', function (e) {
+    // 마우스는 그대로 둔다(머리말). 두 번째 손가락도 받지 않는다.
+    if (e.pointerType === 'mouse' || !e.isPrimary) return;
+
+    var toast = e.target && e.target.closest
+      ? e.target.closest('.dxbl-toast')
+      : null;
+
+    if (!toast || !toastCloseButton(toast)) return;
+
+    // 닫기 단추 위에서 시작한 것은 그 단추의 일이다.
+    if (e.target.closest('.dxbl-toast-close')) return;
+
+    swiping = { el: toast, id: e.pointerId, x: e.clientX, y: e.clientY, dx: 0, moved: false };
+  }, true);
+
+  document.addEventListener('pointermove', function (e) {
+    if (!swiping || e.pointerId !== swiping.id) return;
+
+    var dx = e.clientX - swiping.x;
+    var dy = e.clientY - swiping.y;
+
+    if (!swiping.moved) {
+      // 세로로 먼저 갔으면 스크롤이다 — 이번 누름은 놓아 준다.
+      if (Math.abs(dy) >= SWIPE_START && Math.abs(dy) > Math.abs(dx)) {
+        swiping = null;
+        return;
+      }
+
+      if (Math.abs(dx) < SWIPE_START) return;
+
+      swiping.moved = true;
+      swiping.el.classList.add('jsini-toast-swipe--dragging');
+    }
+
+    swiping.dx = dx;
+    swipeDraw(swiping.el, dx);
+  }, true);
+
+  document.addEventListener('pointerup', function (e) {
+    if (!swiping || e.pointerId !== swiping.id) return;
+
+    var held = swiping;
+
+    swiping = null;
+
+    // 안 움직였으면 그냥 누른 것이다. 붙들어 두는 것은 그쪽 일이다.
+    if (!held.moved) return;
+
+    swallowClick = true;
+
+    if (Math.abs(held.dx) >= SWIPE_AWAY) swipeAway(held.el, held.dx);
+    else swipeSettle(held.el);
+  }, true);
+
+  // 브라우저가 가져간 경우(세로 스크롤로 넘어감 · 전화가 옴). 그림만 되돌린다.
+  document.addEventListener('pointercancel', function (e) {
+    if (!swiping || e.pointerId !== swiping.id) return;
+
+    var held = swiping;
+
+    swiping = null;
+
+    if (held.moved) swipeSettle(held.el);
+  }, true);
+
+  // 끌고 난 뒤의 click 하나. **아래 「멈춘다」 보다 먼저 등록되어 있어야**
+  // 그쪽까지 함께 끊긴다(`stopImmediatePropagation`).
+  document.addEventListener('click', function (e) {
+    if (!swallowClick) return;
+
+    swallowClick = false;
+
+    var toast = e.target && e.target.closest
+      ? e.target.closest('.dxbl-toast')
+      : null;
+
+    if (!toast) return;
+
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    e.stopPropagation();
+  }, true);
+
+  /**
    * 토스트를 누르면 **남은 시간 표시도 함께 멈춘다.**
    *
    * [왜 필요한가]

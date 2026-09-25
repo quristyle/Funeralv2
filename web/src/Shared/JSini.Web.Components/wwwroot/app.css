@@ -7688,6 +7688,56 @@ body {
   --jsini-toast-secs: 60;
 }
 
+/* ── 토스트 쓸어 치우기 (`theme.js` 의 「쓸어 치우기」) ─────────
+
+   [무엇이 불편했나]
+
+   알림은 5초, 실패는 60초를 머문다(`Toasts`). **다 읽은 뒤 남는 시간**은
+   쓸모가 없는데, 치우려면 오른쪽 위 닫기 단추를 정확히 눌러야 한다 —
+   그 단추가 손가락보다 작아서 휴대폰에서는 두어 번 빗나간다. 그래서
+   대개 그냥 기다리고, 넷까지 쌓이면(`MaxToastCount`) 아래 것이 가린다.
+
+   [손가락이 가는 대로 둔다]
+
+   옆으로 쓸면 바로 걷힌다. 끄는 동안은 토스트가 손가락을 그대로 따라가고
+   (transform 을 theme.js 가 직접 적는다), 손을 뗄 때 충분히 갔으면 마저
+   날아가고 모자라면 제자리로 돌아온다. 왼쪽·오른쪽 둘 다 받는다 — 판의
+   자리를 사람이 고를 수 있어(환경설정의 토스트 위치) **바깥쪽이 어느
+   쪽인지 정해져 있지 않다.**
+
+   [마우스는 건드리지 않는다]
+
+   실패 문구는 **끌어서 고르고 복사하는** 것이 쓰임새다(`Toasts` 머리말).
+   마우스 끌기를 가로채면 그것이 막힌다. 그래서 손가락과 펜에서만 받는다. */
+
+/* 가로는 우리가 받고 세로는 브라우저에 남긴다. 이 줄이 없으면 첫 움직임을
+   브라우저가 스크롤로 채 가서 토스트가 손가락을 안 따라온다. */
+.dxbl-toast {
+  touch-action: pan-y;
+}
+
+/* 손을 뗀 뒤 — 날아가거나 제자리로 돌아오는 동안만 곁들인다. 끄는 동안은
+   이 클래스가 없어야 손가락과 어긋나지 않는다. */
+.dxbl-toast.jsini-toast-swipe--settling {
+  transition: transform 0.18s ease-out, opacity 0.18s ease-out;
+}
+
+/* 판이 그리는 등장 애니메이션(`--dxbl-toast-animation-type`)을 멈춘다.
+   안 멈추면 뜬 직후에 쓸었을 때 그쪽 transform 이 우리 것을 이겨
+   **토스트가 제자리에 붙어 있는다.** 애니메이션이 inline 스타일보다
+   세기 때문이다. 판의 규칙(`.dxbl-toast-portal .dxbl-toast`)보다 앞서야
+   해서 판 이름을 하나 더 붙였다. */
+.dxbl-toast-portal .dxbl-toast.jsini-toast-swipe--dragging,
+.dxbl-toast-portal .dxbl-toast.jsini-toast-swipe--settling {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dxbl-toast.jsini-toast-swipe--settling {
+    transition: none;
+  }
+}
+
 /* ── 쪽지 (`NoteWritePanel` · `NoteWritePopup`) ────────────────
 
    상단 띠의 ✉ 가 어디서나 여는 판이고 메뉴의 「쪽지 쓰기」 화면도 같은 것을

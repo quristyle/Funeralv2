@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.RegularExpressions;
 using JSini.Web.Components.Layout;
 using Xunit;
@@ -158,6 +159,65 @@ public sealed class ToastTests
             + "「토스트의 남은 시간」 절에 그 초짜리 규칙을 더한다.\n  "
             + string.Join("\n  ", missing));
     }
+
+    /// <summary>
+    /// 쓸어 치우기가 붙이는 클래스는 <b>app.css 에도 있어야 한다.</b>
+    ///
+    /// <para>
+    /// 끌기를 알아채고 클래스를 붙이는 일은 theme.js 가 하고, 그때 어떻게
+    /// 보일지(따라오는가 · 되돌아가는가 · 판의 등장 애니메이션을 멈추는가)는
+    /// app.css 가 정한다. 이름을 한쪽에서만 바꾸면 <b>끌리기는 하는데 그림이
+    /// 안 따라오는</b> 상태가 되는데, 오류가 아니라 움직임이 없는 것이라
+    /// 눈에 띄지 않는다.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void 쓸어치우기_클래스가_CSS_에도_있다()
+    {
+        var css = File.ReadAllText(AppCss());
+
+        var missing = Regex
+            .Matches(File.ReadAllText(ThemeJs()), @"jsini-toast-swipe--[a-z-]+")
+            .Select(m => m.Value)
+            .Distinct(StringComparer.Ordinal)
+            .Where(name => !css.Contains(name, StringComparison.Ordinal))
+            .OrderBy(name => name, StringComparer.Ordinal)
+            .ToArray();
+
+        Assert.True(
+            missing.Length == 0,
+            "theme.js 가 붙이는 쓸어 치우기 클래스 중 app.css 에 규칙이 없는 것이 있다. "
+            + "「토스트 쓸어 치우기」 절에 더한다.\n  "
+            + string.Join("\n  ", missing));
+    }
+
+    /// <summary>
+    /// 날아가는 데 걸리는 시간이 <b>두 파일에서 같아야 한다.</b>
+    ///
+    /// <para>
+    /// theme.js 는 그 시간이 지난 뒤에 닫기 단추를 대신 누르고, 움직임 자체는
+    /// app.css 의 <c>transition</c> 이 그린다. JS 쪽이 짧으면 <b>토스트가
+    /// 날아가다 말고 사라지고</b>, 길면 다 날아간 자리에 빈 시간이 남는다.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void 날아가는_시간이_두_파일에서_같다()
+    {
+        var js = Regex.Match(File.ReadAllText(ThemeJs()), @"SWIPE_SETTLE\s*=\s*(\d+)");
+        var css = Regex.Match(
+            File.ReadAllText(AppCss()),
+            @"\.jsini-toast-swipe--settling[^{}]*\{[^}]*transition:\s*transform\s+([\d.]+)s");
+
+        Assert.True(js.Success, "theme.js 에서 `SWIPE_SETTLE` 을 찾지 못했다.");
+        Assert.True(css.Success, "app.css 에서 `--settling` 의 `transition` 을 찾지 못했다.");
+
+        Assert.Equal(
+            double.Parse(css.Groups[1].Value, CultureInfo.InvariantCulture) * 1000,
+            double.Parse(js.Groups[1].Value, CultureInfo.InvariantCulture));
+    }
+
+    private static string ThemeJs() => Path.Combine(
+        SolutionRoot(), "src", "Shared", "JSini.Web.Components", "wwwroot", "theme.js");
 
     private static string AppCss() => Path.Combine(
         SolutionRoot(), "src", "Shared", "JSini.Web.Components", "wwwroot", "app.css");
