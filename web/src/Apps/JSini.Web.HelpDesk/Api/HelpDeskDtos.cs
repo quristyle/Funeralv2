@@ -328,3 +328,34 @@ public sealed class KeyCount
     public string Key { get; set; } = string.Empty;
     public int Value { get; set; }
 }
+
+/// <summary>
+/// 본문에 붙여넣은 그림 한 장을 올린 결과 (<c>POST files/image</c>).
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>첨부(<see cref="Attachment"/>)와 다르다.</b> 이쪽은 <c>attachment</c> 에 줄을
+/// 남기지 않는다 — 그림의 자리는 글 안이고, 첨부 목록에까지 또 뜨면 같은 그림이
+/// 두 번 보인다. 그래서 돌아오는 것도 번호가 아니라 파일 아이디 하나다.
+/// </para>
+/// <para>
+/// <see cref="Url"/> 은 <b>백엔드 정본</b>(<c>/api/file/download/id/{guid}</c>)이라
+/// 브라우저에 그대로 걸 수 없다(포털에는 <c>/api</c> 가 없다). 화면은
+/// <see cref="FileId"/> 로 셸 중계 주소를 만들어 쓴다
+/// (<c>JSini.Web.Components.Data.FileDownload.UrlFor</c>).
+/// </para>
+/// </remarks>
+public sealed class UploadedImage
+{
+    /// <summary>FileServer 가 발급한 파일 아이디.</summary>
+    public string? FileId { get; set; }
+
+    /// <summary>본문에 저장할 주소. 백엔드 정본이다.</summary>
+    public string? Url { get; set; }
+
+    public string? FileName { get; set; }
+
+    public string? ContentType { get; set; }
+
+    public long? FileSize { get; set; }
+}
