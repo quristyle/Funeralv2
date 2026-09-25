@@ -137,10 +137,17 @@
                 한 번 더 해 보거나 화면을 새로 열어 주십시오.
             </p>
 
+            @*
+                거절당했다 — 하던 일이 서버에 없다. 화면은 이미 죽었으므로
+                **세고 나서 스스로 새로 연다**(js/reconnect.js 머리말 [2]).
+                숫자는 그 스크립트가 이 id 를 찾아 채운다.
+            *@
             <p class="jsini-reconnect__rejected">
                 <strong>하던 작업이 서버에 남아 있지 않습니다</strong>
                 너무 오래 끊겨 있었거나 서버가 다시 시작됐습니다.
-                화면을 새로 열어야 이어서 쓸 수 있습니다.
+                <span class="jsini-reconnect__reloading">
+                    <span id="jsini-reconnect-reload-seconds">5</span>초 뒤에 화면을 새로 엽니다.
+                </span>
             </p>
 
             <div class="jsini-reconnect__acts">
@@ -150,6 +157,10 @@
                         data-reconnect-action="resume">이어서 하기</button>
                 <button type="button" class="jsini-reconnect__btn jsini-reconnect__btn--quiet jsini-reconnect__act--reload"
                         data-reconnect-action="reload">새로고침</button>
+
+                @* 세는 것을 멈춘다. 적어 둔 것을 옮겨 적을 틈이 더 필요한 사람 몫이다. *@
+                <button type="button" class="jsini-reconnect__btn jsini-reconnect__btn--quiet jsini-reconnect__act--hold"
+                        data-reconnect-action="hold">잠시 멈추기</button>
             </div>
         </div>
     </div>

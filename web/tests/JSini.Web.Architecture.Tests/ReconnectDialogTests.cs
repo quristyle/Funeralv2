@@ -1,12 +1,15 @@
+using System.Text.RegularExpressions;
 using Xunit;
 
 namespace JSini.Web.Architecture.Tests;
 
 /// <summary>
-/// 연결이 끊겼을 때 뜨는 대화상자가 <b>일곱 상태를 모두</b> 그리는가.
+/// 연결이 끊겼을 때 뜨는 대화상자가 <b>일곱 상태를 모두</b> 그리고, 거절당한
+/// 자리에서 <b>스스로 화면을 새로 여는가</b>, 그리고 그 손놀림이 향상된 이동
+/// 뒤에도 살아 있는가.
 ///
 /// <para>
-/// [왜 기계가 세야 하는가 — 이 자리를 두 번 오갔다]
+/// [왜 기계가 세야 하는가 — 이 자리를 세 번 오갔다]
 /// </para>
 ///
 /// <para>
@@ -23,15 +26,21 @@ namespace JSini.Web.Architecture.Tests;
 /// </para>
 ///
 /// <para>
-/// [되돌아가면 무엇을 잃는가]
+/// [새로고침은 되돌아왔다 — 2026-09-25]
 /// </para>
 ///
 /// <para>
-/// 상자를 지우면 프레임워크의 기본 상자가 돌아오는데, 그것은 거절당한 자리에서
-/// 곧바로 <c>location.reload()</c> 를 한다 — 사용자에게는 「다시 붙자마자
-/// 화면이 통째로 새로 뜨는 것」이고, 서버에 닿지 못한 입력은 그때 사라진다.
-/// 그것을 없애려고 상자를 도로 가져왔으므로, <b>상자가 사라지는 것 자체</b>도
-/// 여기서 막는다.
+/// 한동안 <b>어디에서도 스스로 새로고침하지 않는 것</b>이 이 상자의 존재
+/// 이유였다. 기본 상자가 거절당한 자리에서 곧바로 <c>location.reload()</c> 를
+/// 하는 것이 거칠어 보였기 때문이다. 그런데 거절당했다는 것은 <b>하던 일이
+/// 서버에 없다</b>는 뜻이고, 그때 화면은 이미 죽어 있다 — 말만 하고 사람이
+/// 누르기를 기다리는 것은 죽은 화면 앞에 사람을 세워 두는 것이었다.
+/// </para>
+///
+/// <para>
+/// 그래서 <b>거절당한 자리에서만</b> 세고 나서 스스로 연다. 서버에 닿지도
+/// 못한 상태(failed · resume-failed)에서는 여전히 스스로 열지 않는다 —
+/// 새로 열어 봐야 브라우저 오류 화면이 뜨고 하던 것만 잃는다.
 /// </para>
 /// </summary>
 public sealed class ReconnectDialogTests
@@ -94,23 +103,131 @@ public sealed class ReconnectDialogTests
     }
 
     /// <summary>
-    /// 새로고침은 <b>사람이 고를 때만</b> 한다.
+    /// 거절당하면 <b>스스로 새로 연다.</b>
     ///
     /// <para>
-    /// 이 상자를 만든 이유가 그것이라, 어딘가에서 다시 자동으로 부르면
-    /// 기본 상자를 쓰던 때로 되돌아간다. <c>reconnect.js</c> 안의
-    /// <c>location.reload()</c> 는 「새로고침」 단추를 받는 자리 하나뿐이다.
+    /// 세는 줄과 멈추는 단추가 함께 있어야 뜻이 선다 — 세기만 하고 멈출 수
+    /// 없으면 적어 둔 것을 옮겨 적을 틈이 없고, 멈출 수만 있고 세지 않으면
+    /// 예전처럼 죽은 화면 앞에 사람을 세워 둔다.
     /// </para>
     /// </summary>
     [Fact]
-    public void 스스로_새로고침하지_않는다()
+    public void 거절당하면_스스로_새로_연다()
     {
-        var js = File.ReadAllText(ReconnectScriptPath());
+        var js = ReconnectScript();
+        var app = App();
 
-        var reloads = js.Split("location.reload(").Length - 1;
+        Assert.Contains("location.reload(", js, StringComparison.Ordinal);
 
-        Assert.True(reloads == 1, $"reconnect.js 의 location.reload() 가 {reloads}곳이다 — 한 곳이어야 한다");
-        Assert.Contains("data-reconnect-action", App(), StringComparison.Ordinal);
+        // 세는 것을 시작하는 자리가 둘이다 — 프레임워크가 알려 준 rejected 와
+        // 우리가 손으로 이어 보다 거절당한 자리.
+        var starts = js.Split("startReloadCountdown()").Length - 1;
+        Assert.True(starts >= 3, $"startReloadCountdown 을 부르는 곳이 모자란다({starts}곳)");
+
+        Assert.Contains("jsini-reconnect-reload-seconds", js, StringComparison.Ordinal);
+        Assert.Contains("jsini-reconnect-reload-seconds", app, StringComparison.Ordinal);
+        Assert.Contains("data-reconnect-action=\"hold\"", app, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// 서버에 <b>닿지도 못한</b> 상태에서는 스스로 열지 않는다.
+    ///
+    /// <para>
+    /// failed · resume-failed 갈래에서 새로고침을 부르면 서버가 죽어 있는
+    /// 동안 브라우저 오류 화면으로 넘어가면서 하던 것이 통째로 사라진다.
+    /// 그 갈래가 하는 일은 <c>startAuto</c>(조용히 다시 이어 보기)뿐이어야 한다.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void 닿지_못한_상태에서는_스스로_열지_않는다()
+    {
+        var js = ReconnectScript();
+
+        foreach (var state in new[] { "case 'failed':", "case 'resume-failed':" })
+        {
+            var at = js.IndexOf(state, StringComparison.Ordinal);
+            Assert.True(at >= 0, $"{state} 갈래가 없다");
+
+            var body = js[at..js.IndexOf("break;", at, StringComparison.Ordinal)];
+
+            Assert.DoesNotContain("startReloadCountdown", body, StringComparison.Ordinal);
+            Assert.DoesNotContain("reloadNow", body, StringComparison.Ordinal);
+        }
+    }
+
+    /// <summary>
+    /// 상자를 <b>붙들어 두지 않는다.</b>
+    ///
+    /// <para>
+    /// 향상된 이동(enhanced navigation)은 문서를 다시 파싱하지 않고
+    /// <c>&lt;body&gt;</c> 를 기워 맞추면서 이 <c>&lt;div&gt;</c> 를 통째로
+    /// 갈아 끼운다. 기동할 때 잡아 둔 요소에 손을 걸어 두면 그 손놀림이
+    /// <b>떨어져 나간 옛 요소</b>에 남는다 — 그런데 프레임워크는 끊길 때마다
+    /// 요소를 새로 찾으므로 <b>상자는 멀쩡히 뜬다.</b>
+    /// </para>
+    ///
+    /// <para>
+    /// 그래서 증상이 「상자는 뜨는데 단추가 하나도 안 눌린다」 하나로 보이고,
+    /// 새로고침하고 나면 저절로 멀쩡해져서 재현조차 어렵다. 실제로 그렇게
+    /// 한 판 통째로 죽어 있었다.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void 상자를_붙들어_두지_않는다()
+    {
+        var js = ReconnectScript();
+
+        // 누름은 문서에 걸어야 상자가 갈려도 안 끊긴다.
+        Assert.Contains("document.addEventListener('click'", js, StringComparison.Ordinal);
+
+        // 상태 변화 이벤트는 거품이 일지 않아 상자에 직접 걸어야 한다 —
+        // 그래서 향상된 이동마다 다시 건다.
+        Assert.Contains("'enhancedload'", js, StringComparison.Ordinal);
+
+        // 기동할 때 한 번 잡아 두는 옛 방식으로 되돌아가지 않는다.
+        Assert.DoesNotContain(
+            "const dialog = document.getElementById", js, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// 상자는 <b>잠금화면보다 위다.</b>
+    ///
+    /// <para>
+    /// 잠긴 화면은 서버가 있어야 풀린다(비밀번호·지문을 서버가 대조한다).
+    /// 덮개가 위에 있으면 상자가 비쳐 보이기만 하고 단추는 덮개에 먹혀서
+    /// <b>화면을 되찾을 길이 아예 없다.</b> 자리를 비운 사이에 끊기는 것은
+    /// 가장 흔한 조합이기도 하다.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void 상자가_잠금화면보다_위다()
+    {
+        var css = File.ReadAllText(AppCssPath());
+
+        Assert.True(
+            ZIndexOf(css, "#components-reconnect-modal.components-reconnect-show") is { } dialog
+            && ZIndexOf(css, ".jsini-lock") is { } lockScreen
+            && dialog > lockScreen,
+            "재연결 상자의 z-index 가 잠금화면(.jsini-lock)보다 높아야 한다.");
+    }
+
+    /// <summary>선택자가 든 규칙 덩이에서 <c>z-index</c> 를 꺼낸다.</summary>
+    private static int? ZIndexOf(string css, string selector)
+    {
+        var at = css.IndexOf(selector, StringComparison.Ordinal);
+        if (at < 0)
+        {
+            return null;
+        }
+
+        var close = css.IndexOf('}', at);
+        if (close < 0)
+        {
+            return null;
+        }
+
+        var match = Regex.Match(css[at..close], @"z-index:\s*(\d+)");
+        return match.Success ? int.Parse(match.Groups[1].Value) : null;
     }
 
     private static string App() => File.ReadAllText(Path.Combine(
@@ -121,6 +238,8 @@ public sealed class ReconnectDialogTests
 
     private static string ReconnectScriptPath() => Path.Combine(
         SolutionRoot(), "src", "Shell", "JSini.Web.Shell", "wwwroot", "js", "reconnect.js");
+
+    private static string ReconnectScript() => File.ReadAllText(ReconnectScriptPath());
 
     private static string SolutionRoot()
     {
