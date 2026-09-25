@@ -156,9 +156,23 @@ public sealed class AiRequestAlerter(
 
         if (res.IsSuccessStatusCode)
         {
-            logger.LogInformation(
-                "작업 요청 {TaskKey} 를 역할 {Roles} 에게 알렸습니다.",
-                task.TaskKey, string.Join(",", _roles));
+            // 2xx 가 곧 배달은 아니다 — 한 대도 못 보내면 202 와 까닭이 온다
+            // (<see cref="PushOutcome"/>). 「알렸습니다」로 적어 두면
+            // 아무에게도 안 간 날이 로그에서 성공한 날과 구별되지 않는다.
+            var notSent = PushOutcome.NotSent(res.StatusCode, await res.Content.ReadAsStringAsync(ct));
+
+            if (notSent is null)
+            {
+                logger.LogInformation(
+                    "작업 요청 {TaskKey} 를 역할 {Roles} 에게 알렸습니다.",
+                    task.TaskKey, string.Join(",", _roles));
+            }
+            else
+            {
+                logger.LogWarning(
+                    "작업 요청 {TaskKey} 알림이 역할 {Roles} 중 아무에게도 가지 않았습니다: {Why}",
+                    task.TaskKey, string.Join(",", _roles), notSent);
+            }
         }
         else
         {
@@ -309,9 +323,21 @@ public sealed class AiRequestAlerter(
 
         if (res.IsSuccessStatusCode)
         {
-            logger.LogInformation(
-                "작업 요청 {TaskKey} 의 남긴말 {NoteKey} 를 {To} 에게 알렸습니다.",
-                task.TaskKey, note.NoteKey, byOwner ? string.Join(",", _roles) : owner);
+            var notSent = PushOutcome.NotSent(res.StatusCode, await res.Content.ReadAsStringAsync(ct));
+            var to = byOwner ? string.Join(",", _roles) : owner;
+
+            if (notSent is null)
+            {
+                logger.LogInformation(
+                    "작업 요청 {TaskKey} 의 남긴말 {NoteKey} 를 {To} 에게 알렸습니다.",
+                    task.TaskKey, note.NoteKey, to);
+            }
+            else
+            {
+                logger.LogWarning(
+                    "작업 요청 {TaskKey} 의 남긴말 {NoteKey} 가 {To} 에게 한 건도 가지 않았습니다: {Why}",
+                    task.TaskKey, note.NoteKey, to, notSent);
+            }
         }
         else
         {

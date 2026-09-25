@@ -339,7 +339,7 @@
 
             @if (!string.IsNullOrWhiteSpace(_edit.NotifyError))
             {
-                <PageNotice Tone="NoticeTone.Warning" Text="@($"결과 메일: {_edit.NotifyError}")" />
+                <PageNotice Tone="NoticeTone.Warning" Text="@($"결과 알림: {_edit.NotifyError}")" />
             }
 
             @* ── 실행 처리별 상태 정보와 시간, 경과 시간 (탭 밖 상단) ──

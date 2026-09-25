@@ -249,7 +249,23 @@ public sealed class AiTaskNotifier(
 
                 if (res.IsSuccessStatusCode)
                 {
-                    logger.LogInformation("작업 {TaskKey} 결과를 {To} 에게 PWA로 보냈습니다.", row.TaskKey, toUser);
+                    // **「보냈다」와 「보낼 곳이 없었다」는 다른 것이다.**
+                    // 2xx 만 보고 넘기면 후자가 여기서 사라진다 —
+                    // 까닭은 <see cref="PushOutcome"/> 머리말에 있다.
+                    var body = await res.Content.ReadAsStringAsync(ct);
+                    var notSent = PushOutcome.NotSent(res.StatusCode, body);
+
+                    if (notSent is null)
+                    {
+                        logger.LogInformation("작업 {TaskKey} 결과를 {To} 에게 PWA로 보냈습니다.", row.TaskKey, toUser);
+                    }
+                    else
+                    {
+                        errorMessages.Add($"PWA 미발송: {notSent}".Trim());
+                        logger.LogWarning(
+                            "작업 {TaskKey} 결과 PWA 알림이 {To} 에게 한 건도 가지 않았습니다: {Why}",
+                            row.TaskKey, toUser, notSent);
+                    }
                 }
                 else
                 {
