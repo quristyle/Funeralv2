@@ -6,6 +6,9 @@ namespace JSini.Web.Components.Layout;
 public sealed class UserMenuDrawer
 {
     public event Action<bool>? OpenRequested;
+    public event Action? ToggleRequested;
+
     public void Open() => OpenRequested?.Invoke(true);
     public void Close() => OpenRequested?.Invoke(false);
+    public void Toggle() => ToggleRequested?.Invoke();
 }

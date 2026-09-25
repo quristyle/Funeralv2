@@ -211,12 +211,14 @@
     {
         Me.Changed += OnMeChanged;
         UserDrawer.OpenRequested += OnDrawerRequested;
+        UserDrawer.ToggleRequested += OnDrawerToggleRequested;
     }
 
     public void Dispose()
     {
         Me.Changed -= OnMeChanged;
         UserDrawer.OpenRequested -= OnDrawerRequested;
+        UserDrawer.ToggleRequested -= OnDrawerToggleRequested;
     }
 
     private void OnDrawerRequested(bool open)
@@ -226,6 +228,12 @@
             _open = open;
             InvokeAsync(StateHasChanged);
         }
+    }
+
+    private void OnDrawerToggleRequested()
+    {
+        _open = !_open;
+        InvokeAsync(StateHasChanged);
     }
 
     private void OnMeChanged() => InvokeAsync(StateHasChanged);
