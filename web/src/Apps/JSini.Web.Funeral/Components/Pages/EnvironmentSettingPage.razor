@@ -77,6 +77,19 @@
     (`.jsini-shell--fab-hidden`) 표시를 붙이는 쪽은 `MainLayout.ShellCss` 다.
     저장되는 곳은 위치와 같은 갈래다 — 브라우저의 `jsini-fab-hidden`.
 
+    [화면 확대 잠금은 기본이 켜짐이다 — 여기서 유일하다]
+
+    홈 화면 앱(PWA)에서 두 손가락이 스치면 화면이 통째로 확대되는데,
+    **되돌리는 길이 잘 안 보인다** — 브라우저 창이 아니라서 주소창도 없다.
+    그리드를 옆으로 미는 동작에서 손가락 둘이 닿는 일이 잦아, 쓰려던 적이
+    없는 확대가 걸린 채 남고 그것이 「앱이 고장 났다」로 읽힌다.
+
+    그래서 이 스위치만 **켜진 채로 시작한다.** 대신 끌 수 있어야 한다 —
+    작은 글씨를 키워서 읽는 사람이 있다. 막는 일 자체는 `js/zoom.js` 가
+    세 겹으로 하고(브라우저마다 듣는 것이 다르다) **넓은 화면은 건드리지
+    않는다.** 저장은 반대말(`jsini-zoom-unlocked`)로 적힌다 —
+    까닭은 `PortalBoot.ZoomUnlockedKey` 머리말에.
+
     [휴대폰 아래 띠도 여기서 다룬다]
 
     휴대폰에서 화면 아래에 붙는 띠(홈 · 빠른지시 · 알림 · 설정 · 내 정보)는
@@ -130,7 +143,7 @@
 
     [넓은 화면에서는 가로로 셋, 좁으면 하나 — 기기 표는 그 아래 한 줄]
 
-    이 화면에 있는 것은 **스위치 다섯 · 상태 넷 · 길잡이 몇 줄 · 기기 표**다.
+    이 화면에 있는 것은 **스위치 여섯 · 상태 넷 · 길잡이 몇 줄 · 기기 표**다.
     세로로 쌓으면 어느 것도 길지 않은데 화면은 끝까지 구르고, 오른쪽 절반이
     통째로 빈다 — 스위치를 켜 놓고 「이 브라우저」를 확인하려면 스크롤을 해야
     했다.
@@ -256,6 +269,32 @@
                     ValueChanged="@((string val) => OnFabPositionChangedAsync(val))"
                     Enabled="@(!_fabHidden)"
                     Style="width: 160px;" />
+    </div>
+
+    @* [스위치가 「잠금」이고 기본이 켜짐이다]
+
+       다른 스위치들과 방향이 반대다. 여기 있는 것들은 전부 기본이 꺼짐인데
+       이것만 기본이 켜짐이다 — 홈 화면 앱에서 두 손가락이 스쳐 걸린 확대는
+       주소창이 없어 되돌리기가 어렵고, 그 상태가 「앱이 고장 났다」로 읽힌다.
+       그래서 **막아 둔 채로 시작하고, 확대해서 읽어야 하는 사람이 끈다.**
+
+       저장은 반대말(「풀었다」)로 적힌다 — 까닭은 `PortalBoot.ZoomUnlockedKey`
+       머리말에 있다. 이 화면은 그 뒤집기를 한 곳(`OnZoomLockedChangedAsync`)
+       에서만 한다. *@
+    <div class="jsini-setting">
+        <div>
+            <div class="jsini-setting__name">모바일 화면 확대 잠금</div>
+            <div class="jsini-setting__desc">
+                휴대폰·태블릿에서 <b>두 손가락으로 화면이 확대되는 것</b>을 막습니다.
+                자리에 앉아 쓰는 넓은 화면은 <b>이 스위치와 무관합니다</b> —
+                Ctrl+휠·Ctrl+＋ 는 그대로 됩니다.
+                작은 글씨를 키워서 읽으신다면 끄십시오.
+                <b>이 브라우저에만 남습니다</b>.
+            </div>
+        </div>
+
+        <DxCheckBox Checked="@(!_zoomUnlocked)"
+                    CheckedChanged="@((bool v) => OnZoomLockedChangedAsync(v))" />
     </div>
 
     @* **테마 서랍에서 옮겨 온 것이다.** 저 서랍이 정하는 것은 테마(밝기·
@@ -510,6 +549,7 @@
         _selectedFabPosition = state.FabPosition;
         _fabHidden = state.FabHidden;
         _selectedToastPosition = state.ToastPosition;
+        _zoomUnlocked = state.ZoomUnlocked;
         _bottomNavHidden = state.BottomNavHidden;
         _navItems = [.. BottomNav.Parse(state.BottomNavItemsJson)];
         StateHasChanged();
@@ -525,6 +565,23 @@
     {
         _fabHidden = value;
         await Boot.SetFabHiddenAsync(value);
+    }
+
+    /// <summary>
+    /// 확대 잠금을 <b>풀어 두었는가</b>. 기본은 <c>false</c> — 즉 잠근다.
+    /// 화면의 스위치는 이것을 뒤집어 보인다.
+    /// </summary>
+    private bool _zoomUnlocked;
+
+    /// <summary>
+    /// 스위치가 말하는 것은 <b>「잠글까」</b>이고 저장되는 것은 <b>「풀었나」</b>다.
+    /// <b>뒤집는 자리를 여기 하나로 둔다</b> — 화면 쪽과 저장 쪽 양쪽에서
+    /// 뒤집으면 한쪽만 고치는 날 스위치가 거꾸로 선다.
+    /// </summary>
+    private async Task OnZoomLockedChangedAsync(bool locked)
+    {
+        _zoomUnlocked = !locked;
+        await Boot.SetZoomUnlockedAsync(_zoomUnlocked);
     }
 
     // ── 휴대폰 아래 띠 ──────────────────────────────────────────

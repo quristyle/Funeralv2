@@ -13,6 +13,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
 
+    @*
+        휴대폰·태블릿에서 두 손가락 확대를 잠근다. **이 태그 바로 뒤여야 한다** —
+        위 `<meta name="viewport">` 를 고쳐 쓰는 것이 세 겹 중 하나다.
+
+        `defer` 도 `async` 도 아니다. 첫 그림 전에 확대 규칙이 서 있어야
+        하고(늦으면 그 사이에 걸린 확대가 남는다), 로그인 화면처럼 **회로가
+        없는 정적 SSR** 에서도 걸려야 해서 스스로 돌아야 한다.
+
+        넓은 화면은 건드리지 않는다 — 왜 그런지와 왜 한 겹으로는 안 되는지는
+        그 파일 머리말에 적어 두었다.
+    *@
+    <script src="@Assets["js/zoom.js"]"></script>
+
     <JSiniHead />
 
     @*

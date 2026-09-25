@@ -239,6 +239,31 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
     public const string GeoSyncIntervalKey = "jsini-geo-sync-interval";
 
     /// <summary>
+    /// 휴대폰·태블릿에서 두 손가락 확대(핀치 줌)를 <b>풀어 두었는가</b>.
+    /// 열쇠가 있으면 푼 것이다 — 즉 <b>없는 것이 기본이고, 기본은 잠근다</b>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>「잠근다」가 아니라 「풀었다」를 적는다.</b> 읽는 쪽의 판정이
+    /// 「열쇠가 있으면 그렇다는 뜻」(<see cref="BrowserState.From"/>)이라,
+    /// 기본값과 반대되는 쪽을 적어야 한 번도 안 고친 사람이 기본값을 받는다.
+    /// <see cref="FabHiddenKey"/> · <see cref="BottomNavHiddenKey"/> 와 같은 꼴인데
+    /// <b>기본이 반대라 적히는 말도 반대</b>다.
+    /// </para>
+    /// <para>
+    /// <b>이 브라우저의 것이다</b> — 잠금이 걸리는 것은 좁은 화면뿐이라
+    /// (<c>js/zoom.js</c>) 계정에 담아 봐야 큰 모니터에서는 쓰이지 않는다.
+    /// </para>
+    /// <para>
+    /// <b>이 값을 실제로 읽는 것은 C# 이 아니라 <c>js/zoom.js</c> 다.</b> 그 파일이
+    /// 회로보다 먼저 돌면서 같은 열쇠를 스스로 읽는다 — 여기 있는 것은 환경설정
+    /// 스위치가 「지금 무엇으로 되어 있나」를 보여 주기 위해서다. <b>열쇠 글자가
+    /// 두 곳에 적혀 있으므로 한쪽만 고치면 조용히 어긋난다.</b>
+    /// </para>
+    /// </remarks>
+    public const string ZoomUnlockedKey = "jsini-zoom-unlocked";
+
+    /// <summary>
     /// 고르지 않았을 때의 확인 간격 — <b>한 시간</b>이다.
     /// </summary>
     /// <remarks>
@@ -270,6 +295,7 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         BottomNavItemsKey,
         ToastPositionKey,
         GeoSyncIntervalKey,
+        ZoomUnlockedKey,
     ];
 
     /// <summary>
@@ -487,6 +513,47 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         }
 
         FabHiddenChanged?.Invoke(hidden);
+    }
+
+    /// <summary>확대 잠금을 풀지가 바뀌었을 때 알린다.</summary>
+    public event Action<bool>? ZoomUnlockedChanged;
+
+    /// <summary>
+    /// 휴대폰 확대 잠금을 <b>풀지</b>를 저장하고, <b>지금 화면에도 곧바로 바른다</b>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 다시 잠글 때는 <b>열쇠를 지운다</b> — 잠금이 기본이라 적어 둘 것이 없다
+    /// (<see cref="ZoomUnlockedKey"/>).
+    /// </para>
+    /// <para>
+    /// <b>저장만 하면 안 된다.</b> <c>js/zoom.js</c> 는 문서가 열릴 때 한 번
+    /// 읽으므로, 여기서 <c>jsiniZoom.lock</c> 을 부르지 않으면 <b>새로고침하기
+    /// 전까지 스위치가 아무 일도 안 한 것으로 보인다.</b> 넓은 화면에서는 그
+    /// 함수가 스스로 「걸지 않는다」로 판단하므로 여기서 화면 크기를 따지지 않는다.
+    /// </para>
+    /// </remarks>
+    public async Task SetZoomUnlockedAsync(bool unlocked)
+    {
+        try
+        {
+            if (unlocked)
+            {
+                await js.InvokeVoidAsync("localStorage.setItem", ZoomUnlockedKey, "1");
+            }
+            else
+            {
+                await js.InvokeVoidAsync("localStorage.removeItem", ZoomUnlockedKey);
+            }
+
+            await js.InvokeVoidAsync("jsiniZoom.lock", !unlocked);
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException)
+        {
+            logger.LogDebug(ex, "화면 확대 잠금 여부를 브라우저에 반영하지 못했다.");
+        }
+
+        ZoomUnlockedChanged?.Invoke(unlocked);
     }
 
     /// <summary>아래 띠를 쓸지가 바뀌었을 때 알린다.</summary>
@@ -791,6 +858,12 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         /// <summary>그 간격을 <see cref="TimeSpan"/> 으로. 판정하는 쪽이 이것을 쓴다.</summary>
         public TimeSpan GeoSyncInterval => TimeSpan.FromMinutes(GeoSyncMinutes);
 
+        /// <summary>
+        /// 휴대폰 확대 잠금을 <b>풀어 두었는가</b>. 고른 적이 없으면
+        /// <c>false</c> — 즉 잠근다.
+        /// </summary>
+        public bool ZoomUnlocked { get; private init; }
+
         internal static BrowserState From(BootWire wire) => new()
         {
             // 값이 "1" 이든 무엇이든 **있으면 그렇다는 뜻**이다. 옛 코드가
@@ -813,6 +886,7 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
             BottomNavItemsJson = Get(wire.Local, BottomNavItemsKey),
             ToastPosition = NormalizeToastPosition(Get(wire.Local, ToastPositionKey)),
             GeoSyncMinutes = NormalizeGeoSyncMinutes(Minutes(Get(wire.Local, GeoSyncIntervalKey))),
+            ZoomUnlocked = Has(wire.Local, ZoomUnlockedKey),
         };
 
         /// <summary>
