@@ -169,7 +169,6 @@ builder.Services.AddSingleton<IWebPushService>(sp => new WebPushService(
     sp.GetRequiredService<IServiceScopeFactory>(),
     sp.GetRequiredService<ILogger<WebPushService>>()
 ));
-builder.Services.AddScoped<ContactService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 
 // funeralv2 계정 단일화: AuthServer 계정을 헬프데스크 계정으로 해석한다.
@@ -266,7 +265,6 @@ app.MapFileUploadEndpoints();
 // 프로젝트·WBS·일정 **레코드**와 표는 그대로다.
 app.MapWbsEndpoints();
 app.MapWbsDiagramEndpoints();
-app.MapContactEndpoints();
 app.MapAuthLinkEndpoints();
 
 // Push Endpoints
