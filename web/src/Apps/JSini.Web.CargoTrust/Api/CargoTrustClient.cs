@@ -153,6 +153,55 @@ public sealed class CargoTrustClient(GatewayClient gateway)
     public Task<ReceivablesInfo?> GetReceivablesAsync(CancellationToken ct = default)
         => gateway.GetOneAsync<ReceivablesInfo>($"{Prefix}/receivables", ct);
 
+    // ── 미지급 거래 ──────────────────────────────────────────
+
+    /// <summary>
+    /// 미지급 거래 목록. <b>내 것만이 아니다</b> — 누가 적었든 <c>UNPAID</c> 로 남은
+    /// 거래를 모아 준다(줄마다 등록자가 가린 이름으로 실린다).
+    ///
+    /// <para>
+    /// 미수금(<see cref="GetReceivablesAsync"/>)과 섞지 않는다. 그쪽은 내가 못 받은
+    /// 돈이고 상태 넷을 담지만, 여기는 <c>UNPAID</c> 하나다.
+    /// </para>
+    /// </summary>
+    public Task<UnpaidList?> GetUnpaidTransactionsAsync(
+        long? companyId = null, string? q = null, DateOnly? from = null, DateOnly? to = null,
+        bool mine = false, CancellationToken ct = default)
+    {
+        var query = new List<string>();
+
+        if (companyId is not null)
+        {
+            query.Add($"companyId={companyId}");
+        }
+
+        if (!string.IsNullOrWhiteSpace(q))
+        {
+            query.Add($"q={Uri.EscapeDataString(q.Trim())}");
+        }
+
+        if (from is not null)
+        {
+            query.Add($"from={Date(from.Value)}");
+        }
+
+        if (to is not null)
+        {
+            query.Add($"to={Date(to.Value)}");
+        }
+
+        if (mine)
+        {
+            query.Add("mine=true");
+        }
+
+        var path = query.Count == 0
+            ? $"{Prefix}/unpaid-transactions"
+            : $"{Prefix}/unpaid-transactions?{string.Join('&', query)}";
+
+        return gateway.GetOneAsync<UnpaidList>(path, ct);
+    }
+
     // ── 신고 ─────────────────────────────────────────────────
 
     /// <summary>신고. 같은 대상에 처리 안 된 내 신고가 있으면 409.</summary>

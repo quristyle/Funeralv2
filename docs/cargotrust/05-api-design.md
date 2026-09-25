@@ -54,6 +54,18 @@
 - 내보낼 때는 `123-45-67890` 꼴. **관리자가 아니면 뒤 5자리를 가린다**(`123-45-*****`, 설계안 29).
   검색은 전체 번호로 하므로 가려도 찾을 수 있다.
 
+## 등록자 이름
+
+설계안 29 는 사용자 이름을 비공개로 둔다. 그렇다고 거래를 **누가 적었는지 없이** 늘어놓으면
+그 줄은 출처 없는 주장이 된다 — 한 사람이 열 건을 몰아 올린 것과 열 사람이 한 건씩 올린 것을
+가릴 수 없다. 그래서 사업자번호와 같은 길을 쓴다: **가운데를 가려서** 내보낸다.
+
+- `홍길동` → `홍*동`, `김수` → `김*`, 한 글자는 그대로(가릴 가운데가 없다).
+- 이름이 없는 계정(`display_name` 이 빈 줄)은 `이름 없음`.
+- **관리자에게는 그대로 간다** — 신고·이의제기를 처리하려면 누가 적었는지를 알아야 한다.
+- 싣는 곳은 `PublicTransaction` 과 `UnpaidTransaction` 이다. **후기(`PublicReview`)에는 없다** —
+  글은 거래보다 사람을 더 가리킨다.
+
 ## 통계 계산 (설계안 26·27)
 
 원본 거래에서 매번 계산한다(집계 테이블 없음). **`is_deleted` 와 `review_status = HIDDEN` 은 뺀다.**
@@ -99,10 +111,23 @@
   "recentUnpaid": [PublicTransaction],        // 최근 UNPAID 5건
   "myTransactionCount": 3 }           // 내가 이 회사와 등록한 거래 수
 
-// PublicTransaction — 누가 등록했는지는 싣지 않는다
+// PublicTransaction — 등록자는 가린 이름으로(위 「등록자 이름」)
 { "transactionId", "transportDate", "originRegion", "destinationRegion", "transportType",
-  "amount", "expectedPaymentDate", "actualPaymentDate", "paymentStatus", "delayDays" }
+  "amount", "expectedPaymentDate", "actualPaymentDate", "paymentStatus", "delayDays",
+  "registeredBy" }
   // originRegion = origin 의 첫 낱말(「경기 평택시 …」→「경기」)
+  // registeredBy = 「이*열」. 관리자에게만 그대로 간다
+
+// UnpaidTransaction — 미지급 거래 목록의 한 줄. 남의 거래가 섞여 있다
+{ "transactionId", "companyId", "companyName", "businessNumber", "transportDate",
+  "originRegion", "destinationRegion", "transportType", "amount", "paidAmount", "outstanding",
+  "expectedPaymentDate", "overdueDays", "registeredBy", "mine", "createdAt" }
+  // businessNumber · registeredBy 는 가린 꼴, mine = 내가 등록한 거래인가
+
+// UnpaidList — 실제로 실린 줄만 센 요약이 함께 온다(상한 500 에 잘리면 그만큼만)
+{ "summary": { "count", "amount", "companyCount", "registrantCount", "mineCount" },
+  "items": [UnpaidTransaction] }
+  // amount = outstanding 의 합, registrantCount = 등록한 사람 수
 
 // PublicReview
 { "reviewId", "transportDate", "amount", "paymentStatus", "content", "createdAt" }
@@ -191,6 +216,7 @@
 | POST | `/transactions/payments` | `BulkPaymentRequest` → `BulkPaymentResult` | 한 번에 ≤100건. 건마다 **남은 금액 전액**으로 같은 판정을 거친다. 아래 「한 번에 처리」 |
 | POST | `/transactions/{id}/review` | `{content}` → `Review` | 등록자만. 있으면 고친다(거래당 하나) |
 | GET | `/receivables` | → `Receivables` | 내 거래 중 `SCHEDULED·PARTIAL·UNPAID·DISPUTE` |
+| GET | `/unpaid-transactions?companyId=&q=&from=&to=&mine=` | → `UnpaidList` (≤500) | **내 것만이 아니다** — 누가 적었든 `UNPAID` 로 남은 거래. 통계와 같은 거래만 센다(`is_deleted`·`HIDDEN` 제외), 숨긴 거래처는 관리자에게만. `q` 는 회사명 부분 일치 또는 사업자번호 10자리 전체. 오래 밀린 것(예정일 이른 것)부터 |
 | POST | `/reports` | `ReportRequest` → `Report` | 같은 사람이 같은 대상에 **처리 안 된 신고**가 있으면 409 |
 | GET | `/reports/mine` | → `[Report]` | |
 | GET | `/reports/{id}` | → `Report` | 신고자 또는 관리자 |

@@ -110,6 +110,11 @@ public sealed record PaymentTarget(
     public static PaymentTarget From(ReceivableItem r) =>
         new(r.TransactionId, r.CompanyName, r.TransportDate, r.Amount, r.PaidAmount,
             r.ExpectedPaymentDate, r.PaymentStatus);
+
+    /// <summary>미지급 거래 목록에서. 그 목록은 <c>UNPAID</c> 만 모으므로 상태가 칸에 없다.</summary>
+    public static PaymentTarget From(UnpaidTransaction u) =>
+        new(u.TransactionId, u.CompanyName, u.TransportDate, u.Amount, u.PaidAmount,
+            u.ExpectedPaymentDate, CargoCodes.Unpaid);
 }
 
 /// <summary>결제 등록 폼. 결과를 셋 중에서 고른다 — 받았다 · 미지급 확정 · 분쟁.</summary>

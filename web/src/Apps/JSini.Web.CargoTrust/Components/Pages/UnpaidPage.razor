@@ -1,0 +1,232 @@
+@page "/cargotrust/unpaid"
+@attribute [RouteKey("cargotrust.unpaid")]
+
+@*
+    미지급 거래(설계안 12 「최근 미지급 사례」를 목록으로).
+
+    [미수금과 다른 화면이다]
+
+    미수금(/cargotrust/receivables)은 **내가** 못 받은 돈이고 상태 넷을 담는다.
+    이 화면은 **누가 적었든** 미지급(UNPAID)으로 남은 거래를 모은다 — 거래처를
+    살피러 오는 자리라, 한 거래처에 여러 사람이 같은 일을 겪었는지가 전부다.
+    예정·일부·분쟁을 여기 섞지 않는다. 그 셋은 아직 약속이 남았거나 다툼이
+    끝나지 않은 것이라 「안 준 거래」라는 한 이름으로 묶으면 없는 말을 보탠다.
+
+    [등록자를 적는다 — 가린 이름으로]
+
+    누가 적었는지 없는 목록은 출처 없는 주장이 된다. 한 사람이 열 건을 몰아
+    올린 것과 열 사람이 한 건씩 올린 것을 가릴 수 없기 때문이다. 이름을 그대로
+    싣는 것은 설계안 29 가 막으므로 **서버가 가운데를 가려서 준다**(「이*열」).
+    화면은 받은 값을 그대로 적는다 — 여기서 또 가리면 관리자가 봐야 할 것까지
+    가려진다. 머리 타일의 「등록한 사람」 수가 같은 말을 숫자로 한다.
+
+    [등록자를 거래처 바로 옆에 둔다]
+
+    칸이 열이 넘어 표가 화면보다 넓다. 「누가 적었나」가 오른쪽 끝에 있으면 가로로
+    굴려야 보이는데, 그것이 이 화면을 여는 까닭이라 앞으로 당겼다. 구간·유형·
+    사업자번호는 뒤로 밀었다 — 없으면 아쉽지만 먼저 볼 것은 아니다.
+
+    [내 거래에만 「결제 등록」이 뜬다]
+
+    남의 거래에는 손댈 수 없다(서버가 등록자인지로 막는다). 대신 사실과 다른
+    줄은 「신고」로 올린다 — 거래처 상세의 표와 같은 길이다.
+
+    판정어(「악성」「위험」)는 쓰지 않는다(설계안 12). 숫자와 기간만 적는다.
+*@
+
+@inherits DataPage
+@inject CargoTrustClient Api
+@inject NavigationManager Navigation
+
+<PageTitle>미지급 거래 · 운송관리</PageTitle>
+
+<CommSch OnSearch="@ReloadAsync" OnReset="@ResetAsync" Busy="@Loading" MobileSummary="@ConditionSummary">
+    <Fields>
+        @* 라벨이 「번호」까지 말한다 — 자리표시 글을 따로 두지 않는 규칙이다(CommSchItem). *@
+        <CommSchItem Label="거래처(회사명·번호 10자리)">
+            <DxTextBox @bind-Text="_keyword"
+                       ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" Style="width: 210px" />
+        </CommSchItem>
+        <CommSchItem Label="운송일(부터)">
+            <DxDateEdit @bind-Date="_from" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" Style="width: 150px" />
+        </CommSchItem>
+        <CommSchItem Label="운송일(까지)">
+            <DxDateEdit @bind-Date="_to" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" Style="width: 150px" />
+        </CommSchItem>
+        <CommSchItem>
+            <DxCheckBox @bind-Checked="_mine">내가 등록한 것만</DxCheckBox>
+        </CommSchItem>
+    </Fields>
+</CommSch>
+
+<div class="ct-page">
+    @{ var s = _data?.Summary ?? new UnpaidSummary(); }
+
+    <div class="jsini-stats ct-stats">
+        <div class="jsini-stat ct-stat--total">
+            <div class="jsini-stat__label">못 받은 금액</div>
+            <div class="jsini-stat__value">@CargoCodes.Won(s.Amount)</div>
+            <div class="jsini-hint">@(s.Count)건 · 남은 금액 기준</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">거래처</div>
+            <div class="jsini-stat__value">@(s.CompanyCount)곳</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">등록한 사람</div>
+            <div class="jsini-stat__value">@(s.RegistrantCount)명</div>
+            <div class="jsini-hint">한 사람이 몰아 올린 것인지 본다</div>
+        </div>
+        <div class="jsini-stat">
+            <div class="jsini-stat__label">내가 등록한 것</div>
+            <div class="jsini-stat__value">@(s.MineCount)건</div>
+        </div>
+    </div>
+
+    <CommCont Title="미지급 거래" Hint="오래 밀린 것부터 · 통계에서 뺀 거래(삭제·통계 제외)는 없다">
+        @* 거래처를 좁힌 채 들어왔으면 그 사실을 적는다 — 조건 칸에는 안 보여서
+           이 줄이 없으면 「왜 한 곳만 나오나」를 알 길이 없다. *@
+        <Actions>
+            @if (_companyId is not null)
+            {
+                <span class="jsini-hint">@(_rows.FirstOrDefault()?.CompanyName ?? "거래처 한 곳")만 보고 있습니다</span>
+                <DxButton Text="전체 거래처 보기" RenderStyle="ButtonRenderStyle.Link" Click="@ClearCompanyAsync" />
+            }
+        </Actions>
+        <ChildContent>
+        <CommGrd TItem="UnpaidTransaction" Data="@_rows" ExportName="미지급거래"
+                 Reload="@ReloadAsync" RowActions="@RowButtons" ActionsWidth="175"
+                 EmptyText="조건에 맞는 미지급 거래가 없습니다.">
+            <Columns>
+                <DxGridDataColumn FieldName="@nameof(UnpaidTransaction.TransportDate)" Caption="운송일" Width="105" DisplayFormat="yyyy-MM-dd" />
+                <DxGridDataColumn FieldName="@nameof(UnpaidTransaction.CompanyName)" Caption="거래처" MinWidth="150">
+                    <CellDisplayTemplate Context="cell">
+                        @{ var t = (UnpaidTransaction)cell.DataItem; }
+                        <a href="@($"/cargotrust/companies/{t.CompanyId}")">@t.CompanyName</a>
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+                <DxGridDataColumn FieldName="@nameof(UnpaidTransaction.RegisteredBy)" Caption="등록자" Width="115">
+                    <CellDisplayTemplate Context="cell">
+                        @{ var t = (UnpaidTransaction)cell.DataItem; }
+                        <span>@(string.IsNullOrWhiteSpace(t.RegisteredBy) ? "-" : t.RegisteredBy)</span>
+                        @if (t.Mine)
+                        {
+                            <span class="jsini-badge jsini-badge--on">나</span>
+                        }
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+                <DxGridDataColumn FieldName="@nameof(UnpaidTransaction.Amount)" Caption="운송료" Width="105"
+                                  DisplayFormat="#,0" TextAlignment="GridTextAlignment.Right" />
+                <DxGridDataColumn FieldName="@nameof(UnpaidTransaction.Outstanding)" Caption="못 받은 금액" Width="115"
+                                  DisplayFormat="#,0" TextAlignment="GridTextAlignment.Right" />
+                <DxGridDataColumn FieldName="@nameof(UnpaidTransaction.ExpectedPaymentDate)" Caption="예정 지급일" Width="105" DisplayFormat="yyyy-MM-dd" />
+                <DxGridDataColumn FieldName="@nameof(UnpaidTransaction.OverdueDays)" Caption="지남" Width="85">
+                    <CellDisplayTemplate Context="cell">
+                        @{ var t = (UnpaidTransaction)cell.DataItem; }
+                        @if (t.OverdueDays is > 0)
+                        {
+                            <span class="ct-num--err">@(t.OverdueDays)일</span>
+                        }
+                        else
+                        {
+                            <span>-</span>
+                        }
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+                <DxGridDataColumn FieldName="@nameof(UnpaidTransaction.Route)" Caption="구간" Width="120" />
+                <DxGridDataColumn FieldName="@nameof(UnpaidTransaction.TransportType)" Caption="유형" Width="90" />
+                <DxGridDataColumn FieldName="@nameof(UnpaidTransaction.BusinessNumber)" Caption="사업자번호" Width="130" />
+                <DxGridDataColumn FieldName="@nameof(UnpaidTransaction.CreatedAt)" Caption="등록일" Width="105" DisplayFormat="yyyy-MM-dd" />
+            </Columns>
+        </CommGrd>
+        </ChildContent>
+    </CommCont>
+</div>
+
+<PaymentPopup @ref="_payment" OnSaved="@(_ => ReloadAsync())" />
+<ReportPopup @ref="_report" />
+
+@code {
+    /// <summary>거래처 상세의 「미지급 전체 보기」에서 넘어올 때.</summary>
+    [Parameter, SupplyParameterFromQuery(Name = "companyId")]
+    public long? CompanyIdQuery { get; set; }
+
+    private string ConditionSummary => SchSummary.Of(
+        string.IsNullOrWhiteSpace(_keyword) ? null : _keyword,
+        SchSummary.Period(_from, _to),
+        _mine ? "내가 등록한 것만" : null,
+        _companyId is null ? null : "거래처 한 곳");
+
+    private string? _keyword;
+    private DateTime? _from;
+    private DateTime? _to;
+    private bool _mine;
+
+    /// <summary>
+    /// 주소로 넘어온 거래처. 조회 칸에 없으므로 <see cref="ClearCompanyAsync"/>(표 머리의
+    /// 「전체 거래처 보기」)나 「초기화」로 푼다 — 「조회」를 눌러도 그대로 남는다.
+    /// </summary>
+    private long? _companyId;
+
+    private UnpaidList? _data;
+    private IReadOnlyList<UnpaidTransaction> _rows = [];
+
+    private PaymentPopup? _payment;
+    private ReportPopup? _report;
+
+    private RenderFragment<UnpaidTransaction> RowButtons => t =>
+        @<div class="jsini-actions">
+            @if (t.Mine)
+            {
+                @* 남의 거래에는 뜨지 않는다 — 서버가 등록자만 받는다. *@
+                <DxButton Text="결제 등록" RenderStyle="ButtonRenderStyle.Link"
+                          Click="@(() => _payment?.Open(PaymentTarget.From(t)))" />
+                <DxButton Text="상세" RenderStyle="ButtonRenderStyle.Link"
+                          Click="@(() => Navigation.NavigateTo($"/cargotrust/transactions/{t.TransactionId}"))" />
+            }
+            else
+            {
+                <DxButton Text="신고" RenderStyle="ButtonRenderStyle.Link"
+                          Click="@(() => _report?.Open("TRANSACTION", t.TransactionId,
+                              $"{t.CompanyName} · {CargoCodes.Day(t.TransportDate)} · {CargoCodes.Won(t.Amount)}"))" />
+            }
+        </div>;
+
+    protected override Task OnInitializedAsync()
+    {
+        _companyId = CompanyIdQuery;
+        return ReloadAsync();
+    }
+
+    /// <summary>거래처 조건만 푼다. 나머지 조건은 그대로 둔다.</summary>
+    private Task ClearCompanyAsync()
+    {
+        _companyId = null;
+        return ReloadAsync();
+    }
+
+    private Task ResetAsync()
+    {
+        _keyword = null;
+        _from = null;
+        _to = null;
+        _mine = false;
+        _companyId = null;
+        return ReloadAsync();
+    }
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        _data = await Api.GetUnpaidTransactionsAsync(
+            _companyId,
+            _keyword,
+            _from is null ? null : DateOnly.FromDateTime(_from.Value),
+            _to is null ? null : DateOnly.FromDateTime(_to.Value),
+            _mine);
+
+        _rows = _data?.Items ?? [];
+
+        // 빈 목록은 표 안의 안내가 말한다 — 머리 타일이 0 으로 남아야 조건을 되짚을 수 있다.
+        return -1;
+    }, failMessage: "미지급 거래를 읽지 못했습니다");
+}

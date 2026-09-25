@@ -176,11 +176,12 @@ public static class TransactionEndpoints
 
         // HIDDEN 거래도 싣는다. 통계에서 빠졌더라도 운송사가 이의를 걸 수는 있어야 한다.
         var items = await db.Transactions.AsNoTracking()
+            .Include(t => t.User)
             .Where(t => t.CompanyId == companyId && !t.IsDeleted)
             .OrderByDescending(t => t.TransportDate).ThenByDescending(t => t.TransactionId)
             .Take(options.Value.ListLimit)
             .ToListAsync(ct);
-        return Results.Ok(items.Select(TransactionMap.Public).ToList());
+        return Results.Ok(items.Select(t => TransactionMap.Public(t, me.IsAdmin)).ToList());
     }
 
     /// <summary>후기가 달린 거래 번호들.</summary>

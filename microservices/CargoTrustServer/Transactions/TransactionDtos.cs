@@ -7,7 +7,10 @@ using CargoTrustServer.Statistics;
 
 namespace CargoTrustServer.Transactions;
 
-/// <summary>PublicTransaction — 누가 등록했는지는 싣지 않는다.</summary>
+/// <summary>
+/// PublicTransaction — 등록자는 **가린 이름**으로 싣는다(<see cref="PersonName.Display"/>).
+/// 출발·도착은 첫 낱말만 간다.
+/// </summary>
 public record PublicTransactionDto(
     long TransactionId,
     DateOnly TransportDate,
@@ -18,7 +21,8 @@ public record PublicTransactionDto(
     DateOnly? ExpectedPaymentDate,
     DateOnly? ActualPaymentDate,
     PaymentStatus PaymentStatus,
-    int? DelayDays);
+    int? DelayDays,
+    string RegisteredBy);
 
 /// <summary>MyTransaction — 등록자 본인(과 관리자)이 보는 거래.</summary>
 public class MyTransactionDto
@@ -47,6 +51,44 @@ public class MyTransactionDto
     public DateTimeOffset UpdatedAt { get; set; }
 }
 
+/// <summary>
+/// UnpaidTransaction — 미지급 거래 목록의 한 줄(<see cref="UnpaidEndpoints"/>).
+///
+/// <para>
+/// <see cref="MyTransactionDto"/> 와 비슷해 보이지만 **남의 거래가 섞인 목록**이다.
+/// 그래서 메모·검증 상태처럼 등록자만 볼 것은 없고, 사업자번호와 등록자 이름은
+/// 가린 꼴로 온다(설계안 29). 출발·도착도 첫 낱말만이다.
+/// </para>
+/// </summary>
+public record UnpaidTransactionDto(
+    long TransactionId,
+    long CompanyId,
+    string CompanyName,
+    string BusinessNumber,
+    DateOnly TransportDate,
+    string? OriginRegion,
+    string? DestinationRegion,
+    string? TransportType,
+    decimal Amount,
+    decimal PaidAmount,
+    decimal Outstanding,
+    DateOnly? ExpectedPaymentDate,
+    int? OverdueDays,
+    string RegisteredBy,
+    bool Mine,
+    DateTimeOffset CreatedAt);
+
+/// <summary>UnpaidSummary — 목록에 실제로 실린 줄만 센 값이다(상한에 잘리면 그만큼만).</summary>
+public record UnpaidSummaryDto(
+    int Count,
+    decimal Amount,
+    int CompanyCount,
+    int RegistrantCount,
+    int MineCount);
+
+/// <summary>UnpaidList</summary>
+public record UnpaidListDto(UnpaidSummaryDto Summary, List<UnpaidTransactionDto> Items);
+
 /// <summary>TransactionSaveRequest</summary>
 public class TransactionSaveRequest
 {
@@ -70,7 +112,11 @@ public record TransactionDetailDto(
 
 public static class TransactionMap
 {
-    public static PublicTransactionDto Public(CargoTransaction t) => new(
+    /// <summary>
+    /// <paramref name="t"/> 는 <see cref="CargoTransaction.User"/> 가 실려 있어야 한다
+    /// (<c>Include(t =&gt; t.User)</c>). 안 실으면 등록자가 「이름 없음」으로 나간다.
+    /// </summary>
+    public static PublicTransactionDto Public(CargoTransaction t, bool isAdmin) => new(
         t.TransactionId,
         t.TransportDate,
         FirstWord(t.Origin),
@@ -80,7 +126,8 @@ public static class TransactionMap
         t.ExpectedPaymentDate,
         t.ActualPaymentDate,
         t.PaymentStatus,
-        CompanyStatsService.DelayDays(t.ExpectedPaymentDate, t.ActualPaymentDate));
+        CompanyStatsService.DelayDays(t.ExpectedPaymentDate, t.ActualPaymentDate),
+        PersonName.Display(t.User?.DisplayName, isAdmin));
 
     /// <summary><paramref name="t"/> 는 Company 가 실려 있어야 한다.</summary>
     public static T Mine<T>(CargoTransaction t, bool hasReview, bool isAdmin, DateOnly today) where T : MyTransactionDto, new() => new()

@@ -126,6 +126,7 @@ var api = app.MapGroup("/")
 api.MapMeEndpoints();
 api.MapCompanyEndpoints();
 api.MapTransactionEndpoints();
+api.MapUnpaidEndpoints();
 api.MapPaymentEndpoints();
 api.MapReviewEndpoints();
 api.MapReportEndpoints();

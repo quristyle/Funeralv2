@@ -110,8 +110,8 @@ public sealed class CompanyDetail
 }
 
 /// <summary>
-/// 공개 거래 한 줄. <b>누가 등록했는지는 싣지 않는다</b>(설계안 29) —
-/// 출발·도착도 첫 낱말(「경기」)만 온다.
+/// 공개 거래 한 줄. 출발·도착은 첫 낱말(「경기」)만 오고, 등록자는
+/// <b>가린 이름</b>으로 온다(「이*열」 — 설계안 29). 관리자에게만 그대로 온다.
 /// </summary>
 public sealed class PublicTransaction
 {
@@ -126,8 +126,74 @@ public sealed class PublicTransaction
     public string PaymentStatus { get; set; } = "SCHEDULED";
     public int? DelayDays { get; set; }
 
+    /// <summary>이 거래를 등록한 사람(가린 이름). 서버가 가려서 준다 — 화면이 더 가리지 않는다.</summary>
+    public string? RegisteredBy { get; set; }
+
     /// <summary>표에 「경기 → 부산」 한 칸으로 싣는다.</summary>
     public string Route => CargoCodes.RouteText(OriginRegion, DestinationRegion);
+}
+
+/// <summary>
+/// 미지급 거래 목록의 한 줄(<c>/unpaid-transactions</c>).
+///
+/// <para>
+/// <see cref="MyTransaction"/> 과 달리 <b>남의 거래가 섞여 있다.</b> 그래서 메모·검증
+/// 상태처럼 등록자만 볼 칸이 없고, 사업자번호와 등록자 이름은 가린 꼴로 온다.
+/// </para>
+/// </summary>
+public sealed class UnpaidTransaction
+{
+    public long TransactionId { get; set; }
+    public long CompanyId { get; set; }
+    public string CompanyName { get; set; } = string.Empty;
+    public string? BusinessNumber { get; set; }
+    public DateOnly? TransportDate { get; set; }
+    public string? OriginRegion { get; set; }
+    public string? DestinationRegion { get; set; }
+    public string? TransportType { get; set; }
+    public decimal Amount { get; set; }
+    public decimal PaidAmount { get; set; }
+
+    /// <summary>아직 못 받은 금액. 일부를 받아 둔 미지급이면 운송료보다 작다.</summary>
+    public decimal Outstanding { get; set; }
+
+    public DateOnly? ExpectedPaymentDate { get; set; }
+
+    /// <summary>예정일이 지났으면 오늘까지 지난 날수. 예정일이 없으면 <c>null</c>.</summary>
+    public int? OverdueDays { get; set; }
+
+    /// <summary>등록한 사람(가린 이름). 관리자에게만 그대로 온다.</summary>
+    public string? RegisteredBy { get; set; }
+
+    /// <summary>내가 등록한 거래인가. 결제 등록은 이것이 참인 줄에만 뜬다.</summary>
+    public bool Mine { get; set; }
+
+    public DateTime? CreatedAt { get; set; }
+
+    public string Route => CargoCodes.RouteText(OriginRegion, DestinationRegion);
+}
+
+/// <summary>미지급 거래 목록의 머리 숫자. <b>실제로 실린 줄만</b> 센 값이다(상한 500).</summary>
+public sealed class UnpaidSummary
+{
+    public int Count { get; set; }
+
+    /// <summary>못 받은 금액의 합.</summary>
+    public decimal Amount { get; set; }
+
+    public int CompanyCount { get; set; }
+
+    /// <summary>등록한 사람 수. 한 사람이 몰아 올린 목록인지가 이 숫자로 읽힌다.</summary>
+    public int RegistrantCount { get; set; }
+
+    public int MineCount { get; set; }
+}
+
+/// <summary>미지급 거래 목록 한 벌.</summary>
+public sealed class UnpaidList
+{
+    public UnpaidSummary Summary { get; set; } = new();
+    public List<UnpaidTransaction> Items { get; set; } = [];
 }
 
 /// <summary>거래처 상세에 뜨는 후기. 거래 요약이 함께 온다 — 후기만 떠 있으면 감정인지 사실인지 가를 수 없다.</summary>

@@ -137,7 +137,10 @@ public static class CompanyEndpoints
         var rows = await stats.LoadRowsAsync([id], ct);
         var today = KstDate.Today;
 
-        var counted = stats.CountedTransactions().AsNoTracking().Where(t => t.CompanyId == id);
+        // 등록자를 함께 싣는다(가린 이름) — 안 실으면 「이름 없음」으로 나간다.
+        var counted = stats.CountedTransactions().AsNoTracking()
+            .Include(t => t.User)
+            .Where(t => t.CompanyId == id);
         var recent = await counted
             .OrderByDescending(t => t.TransportDate).ThenByDescending(t => t.TransactionId)
             .Take(20).ToListAsync(ct);
@@ -152,8 +155,8 @@ public static class CompanyEndpoints
             CompanyMap.Info(company, me.IsAdmin),
             CompanyStatsService.Compute(rows, periodDays, today),
             CompanyStatsService.StandardPeriods.Select(p => CompanyStatsService.Compute(rows, p, today)).ToList(),
-            recent.Select(TransactionMap.Public).ToList(),
-            recentUnpaid.Select(TransactionMap.Public).ToList(),
+            recent.Select(t => TransactionMap.Public(t, me.IsAdmin)).ToList(),
+            recentUnpaid.Select(t => TransactionMap.Public(t, me.IsAdmin)).ToList(),
             mine));
     }
 
