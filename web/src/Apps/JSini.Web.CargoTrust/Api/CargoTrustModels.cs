@@ -208,6 +208,35 @@ public sealed class PaymentRequest
     public string? Memo { get; set; }
 }
 
+/// <summary>
+/// 여러 거래를 한 번에 처리하는 요청. 금액이 없는 것이 단건(<see cref="PaymentRequest"/>)과의
+/// 차이다 — 건마다 <b>남은 금액 전액</b>을 넣는다고 서버가 읽는다.
+/// </summary>
+public sealed class BulkPaymentRequest
+{
+    public List<long> TransactionIds { get; set; } = [];
+    public DateOnly? PaidDate { get; set; }
+
+    /// <summary><c>null</c> · <c>UNPAID</c> · <c>DISPUTE</c>.</summary>
+    public string? Result { get; set; }
+
+    public string? Memo { get; set; }
+}
+
+/// <summary>한 번에 처리한 결과. 된 것과 안 된 것이 함께 온다.</summary>
+public sealed class BulkPaymentResult
+{
+    public List<MyTransaction> Updated { get; set; } = [];
+    public List<BulkPaymentFailure> Failed { get; set; } = [];
+}
+
+/// <summary>한 번에 처리하다 걸러진 한 건.</summary>
+public sealed class BulkPaymentFailure
+{
+    public long TransactionId { get; set; }
+    public string? Message { get; set; }
+}
+
 /// <summary>결제 기록 한 줄. 받을 때마다 한 줄씩 쌓인다.</summary>
 public sealed class PaymentRecord
 {

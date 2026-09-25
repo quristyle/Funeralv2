@@ -70,10 +70,18 @@ public sealed class CargoTrustClient(GatewayClient gateway)
 
     // ── 내 거래 ──────────────────────────────────────────────
 
-    /// <summary>내 거래(내 것만). 조건은 모두 고를 수 있다.</summary>
+    /// <summary>
+    /// 내 거래(내 것만). 조건은 모두 고를 수 있다.
+    ///
+    /// <para>
+    /// <paramref name="open"/> 은 「아직 처리가 안 된 것」이다 — 상태 넷
+    /// (<c>SCHEDULED·PARTIAL·UNPAID·DISPUTE</c>)이라 <paramref name="status"/> 하나로는
+    /// 못 고른다. 서버가 거르므로 목록 상한에 옛 미처리가 잘리지 않는다.
+    /// </para>
+    /// </summary>
     public Task<IReadOnlyList<MyTransaction>> GetMyTransactionsAsync(
         string? status = null, DateOnly? from = null, DateOnly? to = null, long? companyId = null,
-        CancellationToken ct = default)
+        bool open = false, CancellationToken ct = default)
     {
         var query = new List<string>();
         if (!string.IsNullOrEmpty(status))
@@ -94,6 +102,11 @@ public sealed class CargoTrustClient(GatewayClient gateway)
         if (companyId is not null)
         {
             query.Add($"companyId={companyId}");
+        }
+
+        if (open)
+        {
+            query.Add("open=true");
         }
 
         var path = query.Count == 0
@@ -121,6 +134,14 @@ public sealed class CargoTrustClient(GatewayClient gateway)
     public Task<MyTransaction?> RegisterPaymentAsync(
         long transactionId, PaymentRequest request, CancellationToken ct = default)
         => gateway.PostAsync<MyTransaction>($"{Prefix}/transactions/{transactionId}/payment", request, ct);
+
+    /// <summary>
+    /// 고른 거래를 한 번에 처리한다. 건마다 <b>남은 금액 전액</b>을 넣은 것과 같고,
+    /// 된 것과 안 된 것이 함께 온다 — 한 건이 걸려도 나머지는 처리된다.
+    /// </summary>
+    public Task<BulkPaymentResult?> RegisterPaymentsAsync(
+        BulkPaymentRequest request, CancellationToken ct = default)
+        => gateway.PostAsync<BulkPaymentResult>($"{Prefix}/transactions/payments", request, ct);
 
     /// <summary>후기 저장. 거래당 하나라 이미 있으면 고친다.</summary>
     public Task<ReviewInfo?> SaveReviewAsync(long transactionId, string content, CancellationToken ct = default)

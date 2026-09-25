@@ -17,6 +17,14 @@
     묻힌다. 고른 기간은 타일에, 다섯 기간을 나란히 놓은 것은 「기간별 변화」 표에
     둔다(설계안 7.4). 표는 늘 다섯 줄이라 기간을 바꿔도 달라지지 않는다.
 
+    [보는 화면에 하나뿐인 「할 일」]
+
+    맨 위 회사 정보 바로 아래가 **내 미처리 거래**다(OpenTransactions). 나머지는
+    전부 판단을 돕는 숫자인데 그 줄만 손을 쓰는 자리라, 통계 사이에 끼워 두면
+    받은 돈을 적으러 온 사람이 기간 고르개와 표 넷을 지나쳐 내려가야 한다.
+    처리하고 나면 통계가 그 자리에서 달라지므로 상세를 다시 읽는다(후기는 빼고 —
+    거래를 처리해도 후기는 그대로다).
+
     [누가 등록했는지는 없다]
 
     최근 거래 · 최근 미지급 · 후기 어디에도 등록한 사람이 없다(서버가 싣지 않는다 —
@@ -76,6 +84,10 @@
                 </div>
             </dl>
         </section>
+
+        @* 판단(통계)보다 앞에 둔다 — 이 화면에서 **할 일이 있는 유일한 자리**다. *@
+        <OpenTransactions CompanyId="@c.CompanyId" CompanyName="@c.CompanyName"
+                          OnChanged="@(() => ReloadAsync(withReviews: false))" />
 
         <div class="ct-segment" role="group" aria-label="기간">
             @foreach (var p in Periods)

@@ -1,0 +1,260 @@
+@*
+    이 거래처와의 **내 미처리 거래**. 거래처 상세(CompanyDetailPage)가 연다.
+
+    [왜 상세 화면에 있나]
+
+    거래처를 열어 보는 까닭은 둘이다 — 이 회사와 거래해도 되는지 보려고, 그리고
+    **이 회사에서 받을 돈이 어떻게 됐는지** 보려고. 뒤엣것은 보는 것으로 끝나지
+    않는다. 방금 입금을 확인하고 들어온 사람이 그것을 적으려면 여기서 미수금
+    화면이나 내 거래 목록으로 옮겨 그 회사를 다시 골라야 했다.
+
+    [한 번에 처리하는 것이 요점이다]
+
+    운송사는 여러 건을 묶어 한 번에 입금한다. 그런데 결제 등록은 거래 한 건짜리라
+    다섯 건을 받으면 팝업을 다섯 번 열어 같은 날짜를 다섯 번 넣어야 했다. 고른
+    것을 한 번에 보내고(`transactions/payments`) 건마다 **남은 금액 전액**을
+    받은 것으로 적는다 — 나눠 받은 건은 줄의 「따로」로 열어 금액을 적는다.
+
+    [「받았다」만이 아니다]
+
+    단건 팝업과 같은 셋을 고른다(받았다 · 미지급으로 확정 · 분쟁). 여기서만
+    받는 것만 되면, 안 들어온 것을 정리하려는 사람이 다시 한 건씩 열게 된다.
+    상태(정상·지연·일부)를 사람이 고르지 않는 것도 그대로다 — 서버가 정한다.
+
+    [지운 뒤에 한 번 더 읽는다]
+
+    처리한 줄은 목록에서 빠져야 하는데, 서버가 돌려준 거래로 그 자리를 지우는
+    대신 다시 읽는다. 다른 창에서 사이에 등록한 거래가 있을 수 있고, 무엇보다
+    **일부 지급은 여전히 미처리**라 목록에 남아야 한다 — 빼는 규칙을 화면에
+    또 적으면 서버의 「미수금에 드는 상태」와 갈라진다.
+*@
+
+@inherits DataPage
+@inject CargoTrustClient Api
+
+<CommCont Title="내 미처리 거래" Hint="@Hint">
+    @if (_rows.Count > 0)
+    {
+        <div class="ct-open__sum">
+            <span>고른 <strong>@_picked.Count</strong>건 · 남은 금액 @CargoCodes.Won(PickedAmount)</span>
+            @if (_overdue > 0)
+            {
+                <span class="ct-num--err">예정일 지남 @(_overdue)건</span>
+            }
+        </div>
+
+        <div class="ct-open__bar">
+            <DxCheckBox Checked="@AllPicked" CheckedChanged="@((bool v) => PickAll(v))">전체 고르기</DxCheckBox>
+
+            <DxRadioGroup Items="@PaymentDraft.Outcomes" @bind-Value="_outcome"
+                          TextFieldName="@nameof(SchOption.Text)" ValueFieldName="@nameof(SchOption.Value)"
+                          Layout="RadioGroupLayout.Horizontal" />
+
+            @if (IsReceived)
+            {
+                <span class="ct-open__date">
+                    <span class="jsini-hint">받은 날</span>
+                    <DxDateEdit @bind-Date="_paidDate" Style="width: 150px" />
+                </span>
+            }
+
+            <DxButton Text="@ApplyText" RenderStyle="ButtonRenderStyle.Primary"
+                      Enabled="@(!Loading && _picked.Count > 0)" Click="@ApplyAsync" />
+        </div>
+
+        <ul class="ct-open">
+            @foreach (var t in _rows)
+            {
+                <li class="ct-open__row">
+                    <DxCheckBox Checked="@_picked.Contains(t.TransactionId)"
+                                CheckedChanged="@((bool v) => Pick(t.TransactionId, v))" />
+                    <span class="ct-open__day">@CargoCodes.Day(t.TransportDate)</span>
+                    <span class="ct-open__route">@t.Route</span>
+                    <span class="ct-open__amount">@CargoCodes.Won(t.Outstanding)</span>
+                    <span class="ct-open__due">
+                        예정 @CargoCodes.Day(t.ExpectedPaymentDate)
+                        @if (t.OverdueDays is > 0)
+                        {
+                            <span class="ct-num--err"> · @(t.OverdueDays)일 지남</span>
+                        }
+                    </span>
+                    <PayBadge Code="@t.PaymentStatus" />
+                    <span class="jsini-actions">
+                        <DxButton Text="따로" RenderStyle="ButtonRenderStyle.Link" Title="금액을 적어 따로 처리"
+                                  Click="@(() => _payment?.Open(PaymentTarget.From(t)))" />
+                        <a href="@($"/cargotrust/transactions/{t.TransactionId}")">상세</a>
+                    </span>
+                </li>
+            }
+        </ul>
+    }
+    else if (!Loading)
+    {
+        <div class="jsini-hint">이 거래처에서 받을 것이 남은 거래가 없습니다.</div>
+    }
+</CommCont>
+
+<PaymentPopup @ref="_payment" OnSaved="@(_ => AfterChangeAsync())" />
+<ConfirmDialog @ref="_confirm" />
+
+@code {
+    [Parameter, EditorRequired] public long CompanyId { get; set; }
+
+    /// <summary>확인 창에 적을 거래처 이름. 무엇에 적는 것인지 그 자리에서 읽혀야 한다.</summary>
+    [Parameter] public string? CompanyName { get; set; }
+
+    /// <summary>
+    /// 거래가 바뀌었다. 부르는 화면이 통계를 다시 읽는다 — 결제를 적으면 이
+    /// 거래처의 정상률·평균 지연이 그 자리에서 달라진다.
+    /// </summary>
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private long _loadedFor;
+    private IReadOnlyList<MyTransaction> _rows = [];
+    private readonly HashSet<long> _picked = [];
+    private int _overdue;
+
+    private string _outcome = PaymentDraft.Received;
+    private DateTime? _paidDate = DateTime.Today;
+
+    private PaymentPopup? _payment;
+    private ConfirmDialog? _confirm;
+
+    private bool IsReceived => _outcome == PaymentDraft.Received;
+
+    private string Hint => _rows.Count == 0
+        ? "아직 못 받은 내 거래"
+        : $"{_rows.Count}건 · 남은 금액 {CargoCodes.Won(_rows.Sum(t => t.Outstanding))}";
+
+    private decimal PickedAmount => _rows.Where(t => _picked.Contains(t.TransactionId)).Sum(t => t.Outstanding);
+
+    private bool AllPicked => _rows.Count > 0 && _picked.Count == _rows.Count;
+
+    private string ApplyText => IsReceived ? "고른 것 받음 처리" : $"고른 것 {OutcomeName}";
+
+    private string OutcomeName =>
+        PaymentDraft.Outcomes.FirstOrDefault(o => o.Value == _outcome)?.Text ?? "처리";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (_loadedFor == CompanyId)
+        {
+            return;
+        }
+
+        _loadedFor = CompanyId;
+        _picked.Clear();
+        await ReloadAsync();
+    }
+
+    private Task ReloadAsync() => LoadAsync(async () =>
+    {
+        var rows = await Api.GetMyTransactionsAsync(companyId: CompanyId, open: true);
+
+        // 늦은 것부터 — 미수금 화면과 같은 차례다. 서버는 운송일 내림차순으로 주는데
+        // 여기서 먼저 보여야 하는 것은 새 거래가 아니라 **오래 안 들어온 돈**이다.
+        _rows = [.. rows
+            .OrderByDescending(t => t.OverdueDays ?? -1)
+            .ThenBy(t => t.ExpectedPaymentDate ?? DateOnly.MaxValue)];
+        _overdue = _rows.Count(t => t.OverdueDays is > 0);
+
+        // 없어진 거래가 골라진 채로 남으면 「고른 3건」이라 적어 놓고 2건만 보낸다.
+        _picked.RemoveWhere(id => _rows.All(t => t.TransactionId != id));
+
+        // 비어 있는 것은 안내 줄이 말한다 — 「처리할 것이 없다」는 좋은 소식이라
+        // 토스트로 띄우면 거래처를 열 때마다 알림이 하나씩 뜬다.
+        return -1;
+    }, failMessage: "미처리 거래를 읽지 못했습니다");
+
+    private void Pick(long id, bool on)
+    {
+        if (on)
+        {
+            _picked.Add(id);
+        }
+        else
+        {
+            _picked.Remove(id);
+        }
+    }
+
+    private void PickAll(bool on)
+    {
+        _picked.Clear();
+        if (on)
+        {
+            foreach (var t in _rows)
+            {
+                _picked.Add(t.TransactionId);
+            }
+        }
+    }
+
+    private async Task ApplyAsync()
+    {
+        var ids = _rows.Where(t => _picked.Contains(t.TransactionId)).Select(t => t.TransactionId).ToList();
+        if (ids.Count == 0)
+        {
+            Say("처리할 거래를 고르십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        if (IsReceived && _paidDate is null)
+        {
+            Say("받은 날을 넣으십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        // 무엇이 얼마나 적히는지 그 자리에서 읽혀야 한다 — 결제 기록은 쌓이는 것이라
+        // 잘못 누른 것을 지우는 길이 없다(금액을 되돌리려면 반대로 또 적는 수밖에 없다).
+        var what = IsReceived
+            ? $"{CargoCodes.Day(DateOnly.FromDateTime(_paidDate!.Value))} 에 {CargoCodes.Won(PickedAmount)} 을(를) 받은 것으로 적습니다."
+            : $"「{OutcomeName}」 로 적습니다. 받은 금액은 그대로 둡니다.";
+
+        if (!await _confirm!.AskAsync(
+                $"{CompanyName ?? "이 거래처"} 의 거래 {ids.Count}건을 한 번에 처리합니다.\n{what}",
+                confirmText: "등록",
+                confirmStyle: ButtonRenderStyle.Primary))
+        {
+            return;
+        }
+
+        var request = new BulkPaymentRequest
+        {
+            TransactionIds = ids,
+            PaidDate = IsReceived ? DateOnly.FromDateTime(_paidDate!.Value) : null,
+            Result = IsReceived ? null : _outcome,
+        };
+
+        BulkPaymentResult? result = null;
+        if (!await RunAsync(async () => result = await Api.RegisterPaymentsAsync(request),
+                okMessage: string.Empty, failMessage: "한 번에 처리하지 못했습니다"))
+        {
+            return;
+        }
+
+        var done = result?.Updated.Count ?? 0;
+        var failed = result?.Failed ?? [];
+
+        // 걸린 것이 있으면 **몇 건이 걸렸는지와 첫 이유**를 말한다. 「처리했습니다」만
+        // 띄우면 목록에 남은 줄을 보고 화면이 안 고쳐진 것으로 읽는다.
+        if (failed.Count > 0)
+        {
+            Say($"{done}건을 처리했습니다. {failed.Count}건은 처리하지 못했습니다 — {failed[0].Message}",
+                NoticeTone.Warning);
+        }
+        else
+        {
+            Say($"{done}건을 처리했습니다.");
+        }
+
+        _picked.Clear();
+        await AfterChangeAsync();
+    }
+
+    private async Task AfterChangeAsync()
+    {
+        await ReloadAsync();
+        await OnChanged.InvokeAsync();
+    }
+}

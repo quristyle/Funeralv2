@@ -122,6 +122,13 @@
 // PaymentRequest
 { "paidDate": "2026-10-02" | null, "paidAmount": 450000, "result": null | "UNPAID" | "DISPUTE", "memo" }
 
+// BulkPaymentRequest — 여러 건을 한 번에. 금액 칸이 없다(건마다 남은 금액 전액)
+{ "transactionIds": [12, 13, 14], "paidDate": "2026-10-02" | null,
+  "result": null | "UNPAID" | "DISPUTE", "memo" }
+
+// BulkPaymentResult — 된 것과 안 된 것을 함께 준다
+{ "updated": [MyTransaction], "failed": [{ "transactionId", "message" }] }
+
 // PaymentRecord
 { "paymentId", "paidDate", "paidAmount", "resultStatus", "delayDays", "memo", "createdAt" }
 
@@ -175,12 +182,13 @@
 | GET | `/companies/{id}?period=90` | → `CompanyDetail` | `period`: 30·90·180·365·`all`. 부를 때 `company_view` 갱신 |
 | GET | `/companies/{id}/reviews` | → `[PublicReview]` | `VISIBLE` 만, 최신순 |
 | POST | `/companies` | `CompanyCreateRequest` → `CompanyInfo` | 번호 검증, 이미 있으면 **409** + 메시지 「이미 등록된 사업자번호입니다」 |
-| GET | `/transactions?status=&from=&to=&companyId=` | → `[MyTransaction]` | **내 것만** |
+| GET | `/transactions?status=&from=&to=&companyId=&open=` | → `[MyTransaction]` | **내 것만**. `open=true` 는 아직 다 못 받은 것(`SCHEDULED·PARTIAL·UNPAID·DISPUTE`) — 상태 넷이라 `status` 하나로는 못 고른다 |
 | GET | `/transactions/{id}` | → `TransactionDetail` | 등록자 또는 관리자 |
 | POST | `/transactions` | `TransactionSaveRequest` → `MyTransaction` | 아래 「거래 등록 검사」 |
 | PUT | `/transactions/{id}` | `TransactionSaveRequest` → `MyTransaction` | 등록자만. 바뀌기 전·후를 `audit_log` |
 | DELETE | `/transactions/{id}` | → 없음 | 등록자만, 논리 삭제, `audit_log` |
 | POST | `/transactions/{id}/payment` | `PaymentRequest` → `MyTransaction` | 아래 「결제 판정」 |
+| POST | `/transactions/payments` | `BulkPaymentRequest` → `BulkPaymentResult` | 한 번에 ≤100건. 건마다 **남은 금액 전액**으로 같은 판정을 거친다. 아래 「한 번에 처리」 |
 | POST | `/transactions/{id}/review` | `{content}` → `Review` | 등록자만. 있으면 고친다(거래당 하나) |
 | GET | `/receivables` | → `Receivables` | 내 거래 중 `SCHEDULED·PARTIAL·UNPAID·DISPUTE` |
 | POST | `/reports` | `ReportRequest` → `Report` | 같은 사람이 같은 대상에 **처리 안 된 신고**가 있으면 409 |
@@ -211,6 +219,19 @@
   - 누적 < 운송료 → `PARTIAL`
 - `delay_days = max(0, paidDate − 예정일)`
 - 매번 `payment_record` 한 줄을 남긴다.
+
+### 한 번에 처리
+
+한 거래처가 여러 건을 묶어 입금한 경우다(거래처 상세의 「내 미처리 거래」).
+
+- 판정은 **단건과 같은 규칙**이다. 건마다 `paidAmount = outstanding` 인 `PaymentRequest`
+  를 만들어 그대로 태운다 — 여기서 따로 계산하면 같은 사실이 어느 화면에서 적었는지에
+  따라 다른 상태로 쌓인다. **나눠 받은 건은 단건으로 적는다.**
+- 내 거래가 아니거나 없는 번호, 이미 다 받은 거래는 **걸러서 `failed` 로 돌려준다** —
+  한 건 때문에 전부 물리면 고를 것을 하나씩 빼 가며 다시 눌러야 한다. 남의 거래와
+  없는 번호를 가르지 않는다(번호를 바꿔 가며 떠볼 수 있다).
+- 실제로 처리된 것만 **한 트랜잭션**으로 저장한다.
+- 같은 번호가 두 번 실려 오면 한 번만 센다.
 
 ## 관리자 엔드포인트 (`/admin/*`)
 

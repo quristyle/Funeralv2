@@ -30,7 +30,7 @@ public static class TransactionEndpoints
 
     private static async Task<IResult> List(
         CargoTrustDbContext db, CurrentUser me, IOptions<CargoTrustOptions> options,
-        string? status, DateOnly? from, DateOnly? to, long? companyId, CancellationToken ct)
+        string? status, DateOnly? from, DateOnly? to, long? companyId, bool? open, CancellationToken ct)
     {
         if (!Code.TryParse<PaymentStatus>(status, out var paymentStatus))
             return ApiError.BadRequest($"status 는 {Code.Allowed<PaymentStatus>()} 중 하나입니다.");
@@ -38,6 +38,9 @@ public static class TransactionEndpoints
         var query = db.Transactions.AsNoTracking().Include(t => t.Company)
             .Where(t => t.UserId == me.UserId && !t.IsDeleted);
         if (paymentStatus is { } s) query = query.Where(t => t.PaymentStatus == s);
+        // 「아직 처리가 안 된 것」을 상태 하나로는 고를 수 없다(넷이다). 화면이 다 읽어
+        // 걸러도 되지만, 목록 상한에 걸리면 오래된 미처리부터 조용히 잘린다.
+        if (open is true) query = query.Where(t => PaymentEndpoints.ReceivableStatuses.Contains(t.PaymentStatus));
         if (from is { } f) query = query.Where(t => t.TransportDate >= f);
         if (to is { } until) query = query.Where(t => t.TransportDate <= until);
         if (companyId is { } cid) query = query.Where(t => t.CompanyId == cid);
