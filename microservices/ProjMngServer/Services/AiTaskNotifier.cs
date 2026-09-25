@@ -42,6 +42,33 @@ public sealed class AiTaskNotifier(
     private readonly string? _portalUrl = configuration["AiTasks:PortalUrl"];
 
     /// <summary>
+    /// 결과 앱푸시를 <b>시킨 사람 말고도</b> 받는 역할. 비우면 시킨 사람에게만 간다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>왜 있나.</b> 결과 알림은 오래도록 <c>notify_to</c> 또는 <c>cre_id</c>
+    /// 한 사람에게만 갔다. 그런데 실제로 이 포털에서 AI 작업을 살피는 사람은
+    /// 시킨 사람 하나가 아니라 <b>시스템 관리자 전원</b>이다 — 실행기가 멈췄는지,
+    /// 남의 지시가 실패로 끝났는지를 알아야 하는 쪽이 그들이다. 받는 길이
+    /// 없으면 「AI 작업 지시」 화면을 스스로 열어 보기 전까지 아무것도 모른다.
+    /// </para>
+    /// <para>
+    /// <b>역할을 사람으로 푸는 것은 알림 서비스다</b>(<c>SendPushDto.Roles</c>) —
+    /// 역할표는 포털 계정 DB(<c>jsiniportal</c> 의 <c>scom.role_accounts</c>)에 있고
+    /// 프로젝트관리는 다른 데이터베이스를 봐서 여기서는 조회조차 못 한다.
+    /// 시킨 사람이 그 역할이어도 <b>한 번만</b> 간다(저쪽이 겹친 주인을 접는다).
+    /// </para>
+    /// <para>
+    /// 「요청이 올라왔다」 알림(<see cref="AiRequestAlerter"/>)과 <b>목록을 따로
+    /// 둔다.</b> 그쪽은 올라온 요청을 <b>처리할</b> 사람이고 이쪽은 끝난 일을
+    /// <b>지켜볼</b> 사람이라, 한 값으로 묶으면 한쪽을 줄이려다 다른 쪽이 멎는다.
+    /// </para>
+    /// </remarks>
+    private readonly string[] _resultRoles =
+        configuration.GetSection("AiTasks:ResultNotifyRoles").Get<string[]>()
+        ?? ["SYSTEM_ADMINISTRATOR"];
+
+    /// <summary>
     /// 그 건 하나를 펴 놓는 화면의 <b>상대 주소</b>
     /// (<c>web/.../Pages/AiTaskViewPage.razor</c> 의 <c>@@page</c>).
     /// </summary>
@@ -57,6 +84,28 @@ public sealed class AiTaskNotifier(
     /// </para>
     /// </remarks>
     private static string TaskUrl(long taskKey) => $"/projmng/ai/task/{taskKey}";
+
+    /// <summary>
+    /// 기록에 적을 <b>받는 쪽</b> 한 줄. 사람 하나가 아니라 「시킨 사람 + 지켜보는
+    /// 역할」이 되었으므로, 로그가 여전히 아이디 하나만 말하면 <b>역할로 간 몫이
+    /// 통째로 안 보인다</b> — 「왜 안 왔나」를 되짚을 때 가장 먼저 보는 줄이다.
+    /// </summary>
+    private string Who(Target target)
+    {
+        var parts = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(target.ToUser))
+        {
+            parts.Add(target.ToUser!);
+        }
+
+        if (_resultRoles.Length > 0)
+        {
+            parts.Add($"역할 {string.Join("·", _resultRoles)}");
+        }
+
+        return parts.Count == 0 ? "(없음)" : string.Join(" + ", parts);
+    }
 
     /// <summary>
     /// 이 실행의 <b>앱푸시</b>를 보낸다. <b>끝난 직후 맨 먼저 부르는 걸음</b>이다.
@@ -110,9 +159,15 @@ public sealed class AiTaskNotifier(
 
             var row = target.Row;
 
-            // 「받는 사람」에 남의 메일 주소를 적은 건은 푸시로 보낼 곳이 없다 —
-            // 우리가 아는 것은 포털 아이디뿐이고 그 칸은 주소다.
-            if (string.IsNullOrWhiteSpace(target.ToUser))
+            // 「받는 사람」에 남의 메일 주소를 적은 건은 **그 사람에게는** 푸시로
+            // 보낼 곳이 없다 — 우리가 아는 것은 포털 아이디뿐이고 그 칸은 주소다.
+            // 그래도 지켜보는 역할(<see cref="_resultRoles"/>)이 있으면 그쪽으로는
+            // 간다. 둘 다 없을 때만 조용히 끝낸다.
+            var owners = string.IsNullOrWhiteSpace(target.ToUser)
+                ? Array.Empty<object>()
+                : new object[] { new { ownerType = "jsini", ownerKey = target.ToUser } };
+
+            if (owners.Length == 0 && _resultRoles.Length == 0)
             {
                 return;
             }
@@ -125,7 +180,12 @@ public sealed class AiTaskNotifier(
             {
                 Content = JsonContent.Create(new
                 {
-                    owners = new[] { new { ownerType = "jsini", ownerKey = target.ToUser } },
+                    owners,
+
+                    // **시킨 사람 말고 지켜보는 사람도 받는다**(<see cref="_resultRoles"/>).
+                    // 겹치면 저쪽이 접으므로 여기서 덜어 내지 않는다.
+                    roles = _resultRoles,
+
                     message = new
                     {
                         title = "AI 작업 끝남",
@@ -178,14 +238,15 @@ public sealed class AiTaskNotifier(
 
                 if (notSent is null)
                 {
-                    logger.LogInformation("작업 {TaskKey} 결과를 {To} 에게 PWA로 보냈습니다.", row.TaskKey, target.ToUser);
+                    logger.LogInformation(
+                        "작업 {TaskKey} 결과를 {To} 에게 PWA로 보냈습니다.", row.TaskKey, Who(target));
                 }
                 else
                 {
                     await MarkAsync(db, runKey, $"PWA 미발송: {notSent}".Trim(), reset: false);
                     logger.LogWarning(
                         "작업 {TaskKey} 결과 PWA 알림이 {To} 에게 한 건도 가지 않았습니다: {Why}",
-                        row.TaskKey, target.ToUser, notSent);
+                        row.TaskKey, Who(target), notSent);
                 }
             }
             else
