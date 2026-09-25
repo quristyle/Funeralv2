@@ -587,8 +587,13 @@ FileServer 의 `PublicFileAccessFilter` 가 판정한다 — 익명이면 `is_pu
 - 화면은 [`LockScreen.razor`](../src/Shared/JSini.Web.Components/Layout/LockScreen.razor).
   레이아웃 격자 **바깥**에 덮는다(안에 두면 본문 자리에만 깔린다).
   잠그는 자리는 오른쪽 위 사용자 차림표의 「화면 잠금」이다.
-- 표시를 `sessionStorage` 에 남겨 **새로고침해도 덮개가 다시 덮인다.**
-  `localStorage` 가 아닌 이유는 창을 닫으면 잠금도 사라져야 하기 때문이다.
+- 표시를 `localStorage` 에 남겨 **새로고침해도, 앱을 껐다 켜도 덮개가 다시
+  덮인다.** 처음에는 `sessionStorage` 였다(창을 닫으면 잠금도 사라져야 한다고
+  보았다). 2026-09-25 에 옮겼다 — 이 포털은 **PWA 로 설치해서 앱처럼 쓰는데**,
+  앱을 내리는 것은 자리를 비우는 흔한 방법이지 잠금을 푸는 방법이 아니다.
+  걷는 자리는 **로그인 화면 하나**다(`Login.razor` → `jsiniLock.forget`) —
+  로그인한 채로 `/login` 을 연 경우에는 지우지 않는다(그러면 주소창으로
+  잠금을 풀 수 있다).
 
 **밟은 것** — 처음에 `EditForm` 으로 만들었더니 잠금 해제가 회로 안에서
 처리되지 않고 **진짜 POST 로 나가** 「어느 폼이 제출됐는지 모르겠다」 오류

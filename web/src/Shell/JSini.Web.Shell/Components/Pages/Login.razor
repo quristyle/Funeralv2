@@ -291,6 +291,31 @@
 
 </AuthShell>
 
+@*
+    [잠금화면 표시를 여기서 지운다]
+
+    잠금 표시는 **기기에 남는다**(`PortalBoot.ScreenLockedKey`). 그래야 PWA
+    앱을 껐다 켜도 덮개가 그대로인데, 대신 걷어 줄 길목이 하나 필요하다.
+    그 길목이 이 화면이다 — **로그인 화면을 본다는 것은 곧 로그인한다는 뜻**
+    이고(공지 닫힘 표시를 여기서 지우는 것과 같은 까닭이다), 안 지우면
+    잠금화면에서 로그아웃한 사람이 **같은 비밀번호를 연달아 두 번** 친다.
+
+    **로그인한 채로 이 주소를 연 경우에는 지우지 않는다.** 그때는 로그아웃도
+    만료도 아니라 잠긴 사람이 주소창으로 들어온 것일 수 있고, 지우면
+    `/login` 을 한 번 찍었다 돌아오는 것이 잠금 해제가 된다. 이 잠금이
+    보안 경계는 아니지만(`ScreenLock` 머리말) 개발자 도구보다 쉬운 우회를
+    일부러 내줄 까닭은 없다.
+
+    열쇠 글자는 서버(`PortalBoot`)에만 있다. 양쪽에 적으면 한쪽만 고치는
+    날이 오고, 그때 증상은 「로그인했는데 잠금화면이 뜬다」다.
+*@
+@if (HttpContext.User.Identity?.IsAuthenticated != true)
+{
+    <script>
+        window.jsiniLock && window.jsiniLock.forget('@PortalBoot.ScreenLockedKey');
+    </script>
+}
+
 @* 파싱되는 동안 곧바로 돈다. 이유는 `PublicNoticePopup` 의 같은 줄과 같다 —
    `DOMContentLoaded` 를 기다리면 DevExpress 모듈을 해석한 뒤가 된다. *@
 <script>

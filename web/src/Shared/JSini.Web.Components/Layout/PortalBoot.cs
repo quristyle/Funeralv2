@@ -37,8 +37,8 @@ namespace JSini.Web.Components.Layout;
 /// <see cref="PortalBootstrapStore"/> 는 싱글턴 통으로 전환마다 나던 왕복을
 /// 아예 없앴다. 여기서 같은 것을 하지 않는 이유는 <b>담긴 값의 임자가
 /// 다르다</b>는 것이다 — 저것은 사용자의 것(어느 탭에서 봐도 같다)이고
-/// 이것은 <b>탭의 것</b>이다. 탭 하나를 잠그면 그 탭만 잠겨야 하고, 고정
-/// 탭도 창마다 다르다.
+/// 이것은 <b>브라우저의 것</b>이다 — 고정 탭도 창마다 다르고, 공지를 닫은
+/// 표시는 탭마다 다르다.
 ///
 /// 사용자로 열쇠를 만들어 담으면 <b>두 탭이 서로의 상태를 물려받는다.</b>
 /// 그런데 Blazor 는 부품에게 자기 회로 아이디를 알려 주지 않아서, 탭을
@@ -60,7 +60,25 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
     // theme.js 에는 적지 않는다. 양쪽에 적으면 한쪽만 고치는 날이 오고,
     // 그때 증상은 「그 표시가 조용히 안 읽힌다」다.
 
-    /// <summary>잠금화면(D7). 창을 닫으면 함께 사라져야 해서 세션이다.</summary>
+    /// <summary>
+    /// 잠금화면(D7). <b>기기에 남는다</b>(localStorage).
+    ///
+    /// <para>
+    /// 처음에는 세션이었다 — 「창을 닫으면 잠금도 함께 사라져야 한다」고 보았다.
+    /// 그런데 이 포털은 <b>PWA 로 설치해서 앱처럼 쓴다.</b> 앱을 내리는 것은
+    /// 자리를 비우는 흔한 방법이지 잠금을 푸는 방법이 아닌데, 세션이면
+    /// <b>앱을 껐다 켜는 것만으로 덮개가 걷혔다.</b> 새로고침은 버티고 앱 재시작은
+    /// 못 버티는 잠금은 잠금이 아니다.
+    /// </para>
+    ///
+    /// <para>
+    /// 그래서 기기에 남긴다. 대신 <b>로그인 화면을 지나면 지운다</b>
+    /// (<c>Login.razor</c> 가 <c>jsiniLock.forget</c> 을 부른다) — 남겨 두면
+    /// 잠금화면에서 로그아웃하고 다시 들어온 사람이 <b>방금 친 비밀번호를
+    /// 한 번 더</b> 쳐야 하고, 남의 기기를 빌려 로그인한 사람에게는 자기가
+    /// 잠근 적 없는 덮개가 뜬다.
+    /// </para>
+    /// </summary>
     public const string ScreenLockedKey = "jsini.screen-locked";
 
     /// <summary>로그인 뒤 공지를 이 탭에서 닫았다.</summary>
@@ -232,7 +250,6 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
 
     private static readonly string[] SessionKeys =
     [
-        ScreenLockedKey,
         NoticeClosedUserKey,
         PushAskClosedKey,
         GeoAskClosedKey,
@@ -240,6 +257,7 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
 
     private static readonly string[] LocalKeys =
     [
+        ScreenLockedKey,
         NoticeDismissedKey,
         PinnedTabsKey,
         SidebarWidthKey,
@@ -778,7 +796,7 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
             // 값이 "1" 이든 무엇이든 **있으면 그렇다는 뜻**이다. 옛 코드가
             // 잠금은 "1" 로만 인정하고 공지는 길이만 보았는데, 굽는 곳이
             // 우리뿐이라 둘을 가릴 이유가 없었다.
-            ScreenLocked = Has(wire.Session, ScreenLockedKey),
+            ScreenLocked = Has(wire.Local, ScreenLockedKey),
             NoticeClosed = Has(wire.Session, NoticeClosedUserKey),
             NoticeDismissedJson = Get(wire.Local, NoticeDismissedKey),
             PushAskClosed = Has(wire.Session, PushAskClosedKey),

@@ -19,10 +19,27 @@ namespace JSini.Web.Components.Security;
 ///
 /// <para>
 /// <b>왜 브라우저에 남기나</b> — 회로 안에만 두면 새로고침 한 번으로 풀린다.
-/// 그러면 「덮어 둔다」는 목적조차 못 한다. 그래서 <c>sessionStorage</c> 에
-/// 표시를 남기고 회로가 새로 붙을 때 다시 읽는다. <c>localStorage</c> 가 아닌
-/// 이유는 창을 닫으면 잠금도 함께 사라져야 하기 때문이다 — 새 창을 열었는데
-/// 지난주에 잠가 둔 화면이 뜨면 그건 고장으로 읽힌다.
+/// 그러면 「덮어 둔다」는 목적조차 못 한다. 그래서 저장소에 표시를 남기고
+/// 회로가 새로 붙을 때 다시 읽는다.
+/// </para>
+///
+/// <para>
+/// <b>그 저장소가 <c>localStorage</c> 다</b>(2026-09-25에 <c>sessionStorage</c>
+/// 에서 옮겼다). 처음에는 「창을 닫으면 잠금도 함께 사라져야 한다」고 보았는데,
+/// 이 포털은 <b>PWA 로 설치해서 앱처럼 쓴다</b> — 앱을 내리는 것은 자리를 비우는
+/// 흔한 방법이지 잠금을 푸는 방법이 아니다. 세션이면 <b>앱을 껐다 켜는 것만으로
+/// 덮개가 걷혔고</b>, 새로고침은 버티는데 앱 재시작은 못 버티는 잠금은 잠금이
+/// 아니다.
+/// </para>
+///
+/// <para>
+/// <b>지우는 자리는 로그인 화면이다.</b> 기기에 남기면 「지난주에 잠가 둔 화면이
+/// 새 창에 뜬다」가 실제로 생기는데, 그 창을 걷는 유일한 길목이 로그인이다 —
+/// 로그인 화면을 본다는 것은 <b>지금 잠겨 있지 않다</b>는 뜻이고(쿠키가 없거나
+/// 방금 로그아웃했다), 곧 비밀번호를 칠 참이라 덮개를 또 씌울 까닭이 없다.
+/// <c>Login.razor</c> 가 <c>jsiniLock.forget</c> 을 부른다. 안 지우면 잠금화면에서
+/// 로그아웃한 사람이 <b>같은 비밀번호를 연달아 두 번</b> 치게 되고, 남의 기기를
+/// 빌린 사람에게는 자기가 잠근 적 없는 덮개가 뜬다.
 /// </para>
 /// </summary>
 public sealed class ScreenLock(IJSRuntime js, Layout.PortalBoot boot)
@@ -93,11 +110,11 @@ public sealed class ScreenLock(IJSRuntime js, Layout.PortalBoot boot)
         {
             if (locked)
             {
-                await js.InvokeVoidAsync("sessionStorage.setItem", StorageKey, "1");
+                await js.InvokeVoidAsync("localStorage.setItem", StorageKey, "1");
             }
             else
             {
-                await js.InvokeVoidAsync("sessionStorage.removeItem", StorageKey);
+                await js.InvokeVoidAsync("localStorage.removeItem", StorageKey);
             }
         }
         catch (JSException)
