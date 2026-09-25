@@ -108,6 +108,31 @@ public static class JSiniWebApp
                 // 일시적인 패킷 지연이나 모바일 망 전환 시 섣부른 연결 끊김을 방지한다.
                 options.ClientTimeoutInterval = TimeSpan.FromSeconds(60);
                 options.HandshakeTimeout = TimeSpan.FromSeconds(30);
+
+                // **브라우저가 서버로 보내는 바이트 흐름을 되살린다.**
+                //
+                // 이것이 없으면 화면에서 고른 파일이 **서버에 영영 닿지 않는다.**
+                // 첨부도, 본문에 넣는 그림도, 서식 편집기가 제 글을 서버에
+                // 돌려주는 일(`DxHtmlEditor.MarkupChanged`)도 전부 이 길이다.
+                // 오류가 뜨지도 않는다 — 화면은 「올리는 중…」에서 멈춘 채
+                // 1분을 기다리다 회로가 끊긴다.
+                //
+                // [무엇이 어긋났나]
+                //
+                // 브라우저는 조각을 `ReceiveJSDataChunk(흐름번호, 조각번호,
+                // **바이트**, 오류)` 넷으로 보낸다. 그런데 SignalR 은 허브
+                // 메서드의 인자 중 **DI 에 등록된 타입이면 사람이 보낸 값이
+                // 아니라 서비스로 보고 빼 버린다**(암묵적 `[FromServices]`,
+                // .NET 8 부터). 셸의 DI 는 Piral.Blazor 때문에 Autofac 이고,
+                // **Autofac 은 `byte[]` 를 언제나 「등록된 것」이라고 답한다**
+                // (배열을 컬렉션으로 풀어 주는 규칙 때문이다). 그래서 서버는
+                // 셋만 기다리고, 넷이 오면 바인딩에서 버린다 —
+                // `Invocation provides 4 argument(s) but target expects 3`.
+                //
+                // 켜 두면 `[FromServices]` 를 명시한 인자만 서비스로 본다.
+                // Blazor 의 허브(`ComponentHub`)는 애초에 그런 인자가 없으므로
+                // 잃는 것이 없다.
+                options.DisableImplicitFromServicesParameters = true;
             });
 
         // ── 응답 압축 ────────────────────────────────────────────

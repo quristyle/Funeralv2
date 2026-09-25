@@ -139,6 +139,15 @@ services:
     environment:
       <<: *common-env
       Kestrel__Endpoints__Http__Url: http://0.0.0.0:8080
+
+      # 첨부와 본문 그림이 FileServer 로 가는 길. **컨테이너망 이름으로 부른다** —
+      # 기본값(localhost:5265)은 개발 장비에서 게이트웨이를 가리키는 값이라,
+      # 컨테이너 안에서는 자기 자신의 5265 를 두드리고 거기에는 아무도 없다.
+      # 실제로 그래서 `POST /api/helpdesk/files/image` 가 운영에서 늘
+      # `502 … Connection refused (localhost:5265)` 였다(2026-09-25 확인).
+      # 게이트웨이를 그대로 거치는 것은 FileServer 가 신원을 게이트웨이가
+      # 붙여 주는 헤더로 읽기 때문이다 — 직접 부르면 그 헤더가 없다.
+      FileServer__UploadUrl: http://gateway:8080/api/file/upload
     volumes:
       - /srv/jsini/config/HelpDeskServer/appsettings.Local.json:/app/appsettings.Local.json:ro
 
