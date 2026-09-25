@@ -2847,6 +2847,183 @@
   opacity: 0.75;
 }
 
+/* 목록 줄의 남긴말 배지.
+
+   **안 읽은 것이 있을 때와 없을 때가 다른 글자다.** 상태 배지(`pm-req__stage`)
+   로는 답할 수 없는 물음이라 따로 세운다 — 관리자가 말만 남기고 아직 대상을
+   안 채웠으면 상태는 그대로 「접수 대기」다.
+
+   색을 새로 만들지 않는다. 안 읽은 것은 줄의 색띠와 무관하게 **눈에 걸려야**
+   하므로 채운 칩이고, 다 읽은 것은 곁글이라 흐린 글자만 남긴다. */
+.pm-req__new,
+.pm-req__notes {
+  flex: 0 0 auto;
+  margin-left: 0.4rem;
+  font-size: 0.75em;
+  white-space: nowrap;
+}
+
+.pm-req__new {
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  font-weight: 700;
+  color: #fff;
+  background: #d32f2f;
+}
+
+.pm-req__notes {
+  color: var(--jsini-text-muted);
+}
+
+/* 남긴 말 판을 담는 자리. 위아래 판과 같은 간격을 쓰되 **왼쪽에 띠를 둔다** —
+   이 판만 「고른 건 하나에 딸린 것」이라 목록·적는 자리와 성격이 다르다. */
+.pm-req__notepane {
+  border-left: 0.2rem solid color-mix(in srgb, var(--jsini-accent) 55%, transparent);
+  padding-left: 0.75rem;
+}
+
+/* ── 오간 남길말 (`pm-note`) ─────────────────────────────────
+
+   요청 하나에 관리자와 올린 사람이 번갈아 남기는 말이다(`AiTaskNotes`).
+   **서는 자리가 둘이고 모양은 하나다** — 「AI 작업 요청」 화면의 판과
+   관리자 상세(창·탭)의 「지시와 결과」 판 끝.
+
+   대화라서 **말풍선**이다. 표로 두면 누가 누구에게 한 말인지를 글자로만
+   읽어야 하는데, 그 판단이 이 화면에서 가장 잦다.
+
+   왼쪽이 올린 사람, 오른쪽이 관리자다. **로그인한 사람으로 가르지 않는다** —
+   가르면 같은 대화가 두 화면에서 좌우가 뒤집혀 보인다(그 부품 머리말).
+   ---------------------------------------------------------- */
+
+.pm-note {
+  margin-top: 1rem;
+}
+
+.pm-note__head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.5rem;
+  font-size: 0.95em;
+  font-weight: 700;
+}
+
+.pm-note__count {
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.8em;
+  font-weight: 600;
+  color: var(--jsini-text-muted);
+  border: 1px solid var(--jsini-border);
+}
+
+.pm-note__empty {
+  margin: 0 0 0.75rem;
+  color: var(--jsini-text-muted);
+}
+
+.pm-note__list {
+  list-style: none;
+  margin: 0 0 0.75rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+/* 줄 하나. 얼굴과 말풍선이 가로로 서고, 관리자 줄은 **차례를 뒤집는다**. */
+.pm-note__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  max-width: 100%;
+}
+
+.pm-note__item--admin {
+  flex-direction: row-reverse;
+}
+
+/* 말풍선. **폭을 다 쓰지 않는다** — 좌우 차이가 보이려면 반대편에 빈자리가
+   남아 있어야 한다. 휴대폰에서는 그 여백이 아까우므로 아래에서 넓힌다. */
+.pm-note__bubble {
+  flex: 0 1 auto;
+  max-width: 85%;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid var(--jsini-border);
+  border-radius: var(--jsini-radius-md);
+  background: color-mix(in srgb, var(--jsini-surface) 70%, transparent);
+}
+
+/* 관리자 줄은 옅게 칠한다. 테두리만으로 가르면 어두운 테마에서 둘이 같아진다. */
+.pm-note__item--admin .pm-note__bubble {
+  background: color-mix(in srgb, var(--jsini-accent) 10%, var(--jsini-surface));
+}
+
+.pm-note__meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-bottom: 0.2rem;
+  font-size: 0.78em;
+  color: var(--jsini-text-muted);
+}
+
+.pm-note__who {
+  font-weight: 600;
+  color: var(--jsini-text);
+}
+
+/* 아직 안 읽은 줄. **관리자 쪽에서 뜻이 있다** — 「내 말이 닿았나」에 답한다. */
+.pm-note__unread {
+  padding: 0.02rem 0.35rem;
+  border-radius: 999px;
+  font-weight: 700;
+  color: #fff;
+  background: #b26a00;
+}
+
+/* 본문. 적은 그대로 편다 — 상자 안이 구르지 않는다(`pm-peek__pre` 와 같은 규칙). */
+.pm-note__text {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.5;
+  font-family: inherit;
+  font-size: 0.92em;
+  color: var(--jsini-text);
+}
+
+/* 적는 줄. 글상자가 남는 폭을 다 먹고 단추는 오른쪽 아래에 붙는다. */
+.pm-note__write {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.pm-note__box {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.pm-note__save {
+  flex: 0 0 auto;
+  min-height: 2.5rem;
+}
+
+/* 좁은 화면에서는 단추가 아래로 내려가 폭을 다 쓴다 — 글상자 옆에 두면
+   둘 다 손가락이 닿기 어려운 넓이가 된다. */
+@media (max-width: 40rem) {
+  .pm-note__bubble {
+    max-width: 92%;
+  }
+
+  .pm-note__write {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
 /* ── 들여다보는 창 (`pm-peek`) ───────────────────────────────
 
    카드를 누르면 뜨는 창이다(`AiTaskPeek`). 탭이 둘이다 —

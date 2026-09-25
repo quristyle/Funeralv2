@@ -38,6 +38,17 @@ public sealed class AiTaskService(
         -- 정작 이름은 눌러서 여는 자리에서만 쓴다.
         ( SELECT COUNT(*)::int FROM projmng.ai_task_file f
            WHERE f.task_key = a.task_key ) AS FileCount,
+        -- 오간 남길말 수와 **올린 사람이 아직 안 읽은 수**. 목록이 배지
+        -- 둘을 세운다 — 「AI 작업 요청」 화면에서 「관리자가 답했나」는
+        -- 상태 배지가 답하지 못하는 물음이다(상태는 그대로 「접수 대기」다).
+        --
+        -- 여기서도 개수만 센다. 첫 줄까지 끌고 오면 목록 한 번에 본문
+        -- 스물이 더 실리는데, 정작 그 글은 눌러서 여는 자리에서만 읽는다.
+        ( SELECT COUNT(*)::int FROM projmng.ai_task_note n
+           WHERE n.task_key = a.task_key AND n.is_deleted = false ) AS NoteCount,
+        ( SELECT COUNT(*)::int FROM projmng.ai_task_note n
+           WHERE n.task_key = a.task_key AND n.is_deleted = false
+             AND n.read_dt IS NULL ) AS UnreadNoteCount,
         a.target_key      AS TargetKey,
         b.target_nm       AS TargetNm,
         b.target_path     AS TargetPath,

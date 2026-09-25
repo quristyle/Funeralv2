@@ -65,6 +65,17 @@ public sealed class AiRequestAlerter(
     private static string TaskUrl(long taskKey) => $"/projmng/ai/task/{taskKey}";
 
     /// <summary>
+    /// 올린 사람이 <b>자기 요청을 펴 보는 화면</b>. 관리자용 상세와 주소가
+    /// 다르다 — 그쪽은 일반 사용자에게 메뉴가 없다.
+    /// </summary>
+    /// <remarks>
+    /// 번호를 물음표 뒤에 실어 <b>그 건이 열린 채로</b> 뜨게 한다
+    /// (<c>AiRequestList</c> 의 <c>Task</c> 매개변수). 목록만 열어 주면
+    /// 알림을 누른 사람이 어느 줄에 말이 붙었는지 눈으로 다시 찾아야 한다.
+    /// </remarks>
+    private static string RequestUrl(long taskKey) => $"/projmng/ai/request?task={taskKey}";
+
+    /// <summary>
     /// 알림을 띄우고 <b>기다리지 않는다.</b> 실패해도 부른 쪽은 알지 못한다 —
     /// 알아야 할 쪽은 로그다(머리말).
     /// </summary>
@@ -156,5 +167,170 @@ public sealed class AiRequestAlerter(
                 "작업 요청 {TaskKey} 알림 실패 (HTTP {Status}): {Why}",
                 task.TaskKey, (int)res.StatusCode, why);
         }
+    }
+
+    // ── 남길말 ──────────────────────────────────────────────
+    //
+    // 설계는 `AiTaskNoteService` 머리말. 요청 하나에 관리자와 올린 사람이
+    // 번갈아 말을 남기고, **적힌 쪽이 아니라 상대에게** 알림이 간다.
+
+    /// <summary>
+    /// <b>남긴 말을 상대에게 알린다.</b> 기다리지 않는다 — 말은 이미 표에 있다.
+    /// </summary>
+    /// <param name="task">말이 붙은 요청.</param>
+    /// <param name="note">방금 저장된 말.</param>
+    /// <param name="writerName">적은 사람의 이름. 없으면 아이디로 적는다.</param>
+    public void FireNote(AiTask? task, AiTaskNote? note, string? writerName = null)
+    {
+        if (task is null || note is null) return;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await SendNoteAsync(task, note, writerName, CancellationToken.None);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(
+                    ex, "작업 요청 {TaskKey} 의 남긴말 알림을 보내지 못했습니다.", task.TaskKey);
+            }
+        });
+    }
+
+    /// <summary>실제로 보낸다. 시험에서 결과를 보려고 따로 열어 둔다.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b>가는 곳이 둘이다.</b> 관리자가 적었으면 <b>올린 사람 한 명</b>에게
+    /// 가고(<c>owners</c>), 올린 사람이 적었으면 <b>관리자 역할 전원</b>에게
+    /// 간다(<c>roles</c>) — 뒤엣것이 없으면 사용자가 되물어도 아무도 모른다.
+    /// </para>
+    /// <para>
+    /// <b>줄에서 겹치게 둔다</b>(<c>topic</c>). 한 요청에 말이 여러 줄
+    /// 달리는 동안 휴대폰이 꺼져 있으면, 겹치지 않을 때 그 줄 수만큼이
+    /// 한꺼번에 쏟아진다. 열어 보면 어차피 붙은 말이 다 보이므로 마지막
+    /// 하나면 된다(docs/push-delivery.md).
+    /// </para>
+    /// <para>
+    /// <b>수명은 하루다.</b> 결과 알림(두 시간)보다 길게 잡는 이유는, 그쪽은
+    /// 지나고 나면 화면에서 확인하면 그만인 통보지만 이 말은 <b>답을
+    /// 기다리는 말</b>이라 늦게라도 닿는 편이 낫기 때문이다.
+    /// </para>
+    /// </remarks>
+    public async Task SendNoteAsync(
+        AiTask task, AiTaskNote note, string? writerName, CancellationToken ct)
+    {
+        var owner = task.CreId?.Trim();
+        var writer = note.CreId?.Trim();
+
+        // 올린 사람이 적었나. `AiTaskNoteService` 가 넣을 때 정해 둔 값을
+        // 그대로 믿는다 — 같은 비교를 두 벌 두면 한쪽만 고쳐져 어긋난다.
+        var byOwner = note.IsOwner;
+
+        if (!byOwner && string.IsNullOrWhiteSpace(owner))
+        {
+            logger.LogDebug("작업 요청 {TaskKey} 에 올린 사람이 없어 남긴말 알림을 건너뜁니다.", task.TaskKey);
+            return;
+        }
+
+        if (byOwner && _roles.Length == 0)
+        {
+            logger.LogDebug("AiTasks:RequestNotifyRoles 가 비어 남긴말 알림을 건너뜁니다.");
+            return;
+        }
+
+        var who = string.IsNullOrWhiteSpace(writerName) ? writer : writerName.Trim();
+        var title = string.IsNullOrWhiteSpace(task.Title) ? "(제목 없음)" : task.Title.Trim();
+
+        // 잠금화면에는 두 줄이 전부다. **누가 무슨 말을 남겼나**를 담고
+        // 어느 요청인지는 그 뒤에 붙인다 — 눌러 들어가면 전문이 있다.
+        var said = Shorten(note.Contents, 60);
+
+        // 받는 쪽을 먼저 세운다. **삼항 안에서 만들지 않는다** — 익명 형식의
+        // 배열과 빈 배열은 형이 달라 그 자리에서 합쳐지지 않는다.
+        var owners = new List<object>();
+
+        if (!byOwner)
+        {
+            owners.Add(new { ownerType = "jsini", ownerKey = owner! });
+        }
+
+        using var req = new HttpRequestMessage(
+            HttpMethod.Post, $"{_notifyUrl.TrimEnd('/')}/notifications/push")
+        {
+            Content = JsonContent.Create(new
+            {
+                owners,
+
+                roles = byOwner ? _roles : null,
+
+                // 적은 사람 본인에게는 안 울린다. 관리자가 관리자 역할로
+                // 묶여 있을 때 자기 글로 자기 휴대폰이 울리는 것을 막는다.
+                excludeOwnerKeys = string.IsNullOrWhiteSpace(writer)
+                    ? Array.Empty<string>()
+                    : new[] { writer },
+
+                message = new
+                {
+                    // **가는 쪽에 맞춘 제목이다.** 올린 사람이 받는 것은
+                    // 「내가 부탁한 건에 답이 왔다」이고, 관리자가 받는 것은
+                    // 「그 사람이 무언가를 덧붙였다」다.
+                    title = byOwner ? "AI 작업 요청에 남긴 말" : "AI 작업 요청에 답이 달렸습니다",
+
+                    body = string.IsNullOrWhiteSpace(who)
+                        ? $"{title} — {said}"
+                        : $"{who} 님: {said}",
+
+                    // **가는 사람에 따라 주소가 갈린다.** 올린 사람에게는
+                    // 자기 요청 화면이고(메뉴가 그것뿐이다), 관리자에게는
+                    // 대상·AI 를 채울 수 있는 상세 화면이다.
+                    url = byOwner ? TaskUrl(task.TaskKey) : RequestUrl(task.TaskKey),
+
+                    // 아이콘은 **말을 남긴 사람의 얼굴**이다 — 받는 사람이
+                    // 가장 먼저 묻는 것이 「누가 뭐래」라서.
+                    iconOwnerKey = writer,
+
+                    // 창은 건마다 따로 뜨고(태그), 밀려 있는 줄은 요청마다
+                    // 하나로 줄인다(토픽). 위 머리말 참고.
+                    tag = $"ai-note-{note.NoteKey}",
+                    topic = $"ai-note-t{task.TaskKey}",
+
+                    ttlSeconds = 86400,
+                }
+            }),
+        };
+
+        req.Headers.Add("X-User-Id", "AI_TASK");
+
+        var client = http.CreateClient();
+        client.Timeout = TimeSpan.FromSeconds(15);
+
+        using var res = await client.SendAsync(req, ct);
+
+        if (res.IsSuccessStatusCode)
+        {
+            logger.LogInformation(
+                "작업 요청 {TaskKey} 의 남긴말 {NoteKey} 를 {To} 에게 알렸습니다.",
+                task.TaskKey, note.NoteKey, byOwner ? string.Join(",", _roles) : owner);
+        }
+        else
+        {
+            var why = await res.Content.ReadAsStringAsync(ct);
+            logger.LogWarning(
+                "작업 요청 {TaskKey} 남긴말 알림 실패 (HTTP {Status}): {Why}",
+                task.TaskKey, (int)res.StatusCode, why);
+        }
+    }
+
+    /// <summary>
+    /// 알림 본문에 실을 만큼만 자른다. <b>줄바꿈을 공백으로 편다</b> —
+    /// 잠금화면은 어차피 두 줄이라 원문의 줄 모양이 남아 봐야 자리만 먹는다.
+    /// </summary>
+    private static string Shorten(string? text, int max)
+    {
+        var one = string.Join(' ', (text ?? string.Empty)
+            .Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+
+        return one.Length <= max ? one : $"{one[..max]}…";
     }
 }

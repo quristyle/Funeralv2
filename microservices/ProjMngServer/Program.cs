@@ -83,6 +83,10 @@ builder.Services.AddScoped<AiTaskFileService>();
 builder.Services.AddScoped<AiTaskService>();
 builder.Services.AddScoped<AiRunService>();
 
+// 요청 하나에 오가는 남길말. 관리자와 올린 사람이 번갈아 적고, 적으면
+// **상대에게** 앱 푸시가 간다(AiTaskNoteService 머리말).
+builder.Services.AddScoped<AiTaskNoteService>();
+
 // AI 작업 현황. **읽기뿐이다** — 집계만 한다.
 builder.Services.AddScoped<AiDashboardService>();
 

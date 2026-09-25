@@ -66,6 +66,27 @@ public sealed class AiTask
     /// </remarks>
     public long[]? FileKeys { get; set; }
 
+    // ── 오간 남길말 ─────────────────────────────────────────
+
+    /// <summary>
+    /// 이 건에 오간 남길말 수. 조인해 온다 — <b>읽기 전용</b>.
+    /// </summary>
+    /// <remarks>
+    /// 본문은 여기 오지 않는다. 읽는 길은 <c>AiTaskNoteService.ListAsync</c>
+    /// 하나뿐이고 목록은 배지 하나만 세운다.
+    /// </remarks>
+    public int NoteCount { get; set; }
+
+    /// <summary>
+    /// <b>올린 사람이 아직 안 읽은</b> 남길말 수. 조인해 온다 — <b>읽기 전용</b>.
+    /// </summary>
+    /// <remarks>
+    /// 「AI 작업 요청」 화면이 이 값으로 「새 남긴말」 배지를 세운다. 상태
+    /// 배지로는 답할 수 없는 물음이다 — 관리자가 말만 남기고 아직 대상을
+    /// 안 채웠으면 상태는 여전히 「접수 대기」다.
+    /// </remarks>
+    public int UnreadNoteCount { get; set; }
+
     // ── 대상 ────────────────────────────────────────────────
 
     /// <summary>어디에서 일할 것인가(<c>ai_target</c>). 화면에서 고른다.</summary>

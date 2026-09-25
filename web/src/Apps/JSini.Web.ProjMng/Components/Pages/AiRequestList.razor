@@ -70,6 +70,23 @@
     고치는 중인 건이 잘리는 자리 밖이면 **보일 때까지 늘려서** 연다 — 위 판은
     「고치는 중」인데 목록에는 그 줄이 없는 자리가 되지 않게 한다.
 
+    [관리자와 말을 주고받는다 (2026-09-25)]
+
+    올려 두면 저장만 되고 아무 데서도 안 돌아, 관리자가 대상·AI 를 채워 줄
+    때까지가 짧지 않다. 그 사이에 **「이건 이렇게 하겠습니다」·「무엇을 더
+    알려 주십시오」를 말할 자리가 없었다** — 올린 사람 쪽에서 그것은 무시당한
+    것과 구분되지 않는다.
+
+    그래서 줄을 하나 고르면 그 아래에 **남긴 말** 판이 선다(`AiTaskNotes`).
+    적으면 상대에게 앱푸시가 가고, 그 알림을 누르면 `?task=번호` 로 이 화면에
+    돌아와 **그 건이 열린 채로** 뜬다.
+
+    지시문에 적지 않는 까닭과 말풍선의 좌우를 가르는 규칙은 그 부품의
+    머리말에 있다.
+
+    **읽기 전용이 된 건에도 판은 선다.** 관리자가 처리를 시작하면 지시문은
+    더 못 고치지만, 그때야말로 물어볼 것이 생긴다.
+
     [따라가기(자동 새로고침)를 걸지 않았다]
 
     「빠른 지시」는 몇 초마다 목록을 다시 읽는다. 그쪽은 **방금 보낸 것이
@@ -173,13 +190,26 @@
         </div>
     </CommCont>
 
+    @* ── 남긴 말 ──────────────────────────────────────────
+       고른 건이 있을 때만 선다. **읽기 전용인 건에도 선다** — 지시문을 더
+       못 고치는 때가 오히려 물어볼 것이 생기는 때다.
+
+       제목(`남긴 말`)은 부품이 제 안에 들고 있으므로 판에는 적지 않는다. *@
+    @if (_editing is not null)
+    {
+        <CommCont CssClass="pm-req__notepane">
+            <AiTaskNotes @ref="_notes" Item="@_editing" Mine="true"
+                         OnRead="@LoadMineAsync" OnAdded="@LoadMineAsync" />
+        </CommCont>
+    }
+
     @* ── 내가 올린 것 ────────────────────────────────────── *@
     <CommCont Title="내가 올린 요청" Hint="@ListHint">
         <Actions>
             <DxButton Text="새로고침"
                       RenderStyle="ButtonRenderStyle.Secondary"
                       Enabled="@(!Loading)"
-                      Click="@LoadMineAsync" />
+                      Click="@RefreshAsync" />
         </Actions>
 
         <ChildContent>
@@ -212,6 +242,20 @@
 
                                     <span class="pm-req__line pm-req__line--sub">
                                         <span class="pm-req__title-text">@t.Title</span>
+
+                                        @* 오간 말. **안 읽은 것이 있으면 그 수를
+                                           먼저 적는다** — 상태 배지로는 답할 수
+                                           없는 물음이다(관리자가 말만 남기고 아직
+                                           대상을 안 채웠으면 상태는 그대로
+                                           「접수 대기」다). *@
+                                        @if (t.UnreadNoteCount > 0)
+                                        {
+                                            <span class="pm-req__new">새 남긴말 @t.UnreadNoteCount</span>
+                                        }
+                                        else if (t.NoteCount > 0)
+                                        {
+                                            <span class="pm-req__notes">남긴말 @t.NoteCount</span>
+                                        }
                                     </span>
                                 </span>
                             </button>
@@ -290,6 +334,38 @@
     private ConfirmDialog? _confirm;
 
     /// <summary>
+    /// 남긴 말 판. <b>손에 쥐는 이유는 하나뿐이다</b> — 「새로고침」을 눌렀을
+    /// 때 고른 건이 그대로면 그 부품은 번호로 걸러 다시 읽지 않으므로,
+    /// 여기서 직접 불러 준다.
+    /// </summary>
+    private AiTaskNotes? _notes;
+
+    /// <summary>
+    /// <b>앱푸시를 누르고 들어온 사람이 실어 오는 번호</b>(<c>?task=123</c>).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 관리자가 남긴 말의 알림이 이 주소를 싣는다
+    /// (<c>AiRequestAlerter.RequestUrl</c>). 목록만 열어 주면 알림을 누른
+    /// 사람이 <b>어느 줄에 말이 붙었는지 눈으로 다시 찾아야</b> 한다.
+    /// </para>
+    /// <para>
+    /// 이름을 <c>Task</c> 로 두지 않는다 — 화면 안에서 <c>Task</c> 는
+    /// <see cref="System.Threading.Tasks.Task"/> 라, 가리면 <c>async</c>
+    /// 메서드가 통째로 안 컴파일된다.
+    /// </para>
+    /// </remarks>
+    [Parameter]
+    [SupplyParameterFromQuery(Name = "task")]
+    public long? TaskKey { get; set; }
+
+    /// <summary>
+    /// 주소로 실려 온 번호를 <b>이미 한 번 열었나</b>. 한 번만 연다 —
+    /// 열어 놓고 「고치기 취소」로 닫은 사람에게 다시 열어 주면 닫을 길이 없다.
+    /// </summary>
+    private bool _opened;
+
+    /// <summary>
     /// 글상자의 id. <c>label</c> 이 <c>for</c> 로 이것을 가리킨다 —
     /// 칸 이름을 눌러도 칸에 커서가 가고, 읽어 주는 도구가 이름을 말할 수 있다.
     /// </summary>
@@ -343,6 +419,21 @@
 
     protected override Task OnInitializedAsync() => LoadMineAsync();
 
+    /// <summary>
+    /// 「새로고침」. 목록과 함께 <b>남긴 말도 다시 읽는다</b> — 관리자가 그
+    /// 사이에 답을 달았는지가 이 화면에서 가장 알고 싶은 것이고, 고른 건이
+    /// 그대로면 그 부품은 스스로 다시 읽지 않는다.
+    /// </summary>
+    private async Task RefreshAsync()
+    {
+        await LoadMineAsync();
+
+        if (_notes is not null)
+        {
+            await _notes.ReloadAsync();
+        }
+    }
+
     private async Task LoadMineAsync()
     {
         await LoadAsync(async () =>
@@ -350,6 +441,26 @@
             _rows = await Api.MineAsync();
             return _rows.Count;
         }, emptyMessage: string.Empty, failMessage: "올린 요청을 읽지 못했습니다");
+
+        // 앱푸시를 누르고 들어왔다. **목록을 읽은 뒤라야 연다** — 이 화면은
+        // 번호 하나만 따로 받아 오는 길이 없고, 열 건은 방금 받은 목록 안에 있다.
+        if (!_opened && TaskKey is { } wanted)
+        {
+            _opened = true;
+
+            if (_rows.FirstOrDefault(r => r.TaskKey == wanted) is { } found)
+            {
+                Pick(found);
+            }
+            else
+            {
+                // 그 사이에 거둬들였거나 남의 건 번호다(서버가 내 것만 준다).
+                // **말없이 넘기지 않는다** — 알림을 누르고 들어왔는데 아무
+                // 일도 안 일어나면 고장으로 읽힌다.
+                Say("그 요청을 찾지 못했습니다. 거둬들였거나 다른 사람의 것입니다.",
+                    NoticeTone.Warning);
+            }
+        }
 
         // 고치던 건이 그 사이에 관리자에게 넘어갔을 수 있다. **손에 쥔 옛
         // 자료를 그대로 두면** 읽기 전용이어야 할 건에 저장 단추가 남는다.

@@ -66,6 +66,45 @@ public sealed class AiTaskClient(GatewayClient gateway)
     public Task DeleteMineAsync(long taskKey, CancellationToken ct = default)
         => gateway.DeleteAsync($"{Url}/mine/{taskKey}", ct);
 
+    // ── 남길말 ──────────────────────────────────────────────
+    //
+    // 화면: Components/Shared/AiTaskNotes.razor
+    //
+    // **여기도 입구가 둘이다.** `mine/…` 은 서버가 「그 요청을 올린
+    // 사람인지」를 먼저 보고, 아니면 「없다」로 답한다. 관리자 화면
+    // (`AiTaskView`)은 위의 것을 쓴다.
+
+    /// <summary><b>내가 올린 요청에 붙은 말.</b> 남의 건은 한 줄도 오지 않는다.</summary>
+    public Task<IReadOnlyList<AiTaskNoteDto>> MineNotesAsync(
+        long taskKey, CancellationToken ct = default)
+        => gateway.GetListAsync<AiTaskNoteDto>($"{Url}/mine/{taskKey}/notes", ct);
+
+    /// <summary><b>내가 올린 요청에 말을 남긴다.</b> 관리자에게 앱푸시가 간다.</summary>
+    public Task<AiTaskNoteDto?> AddMineNoteAsync(
+        long taskKey, string contents, CancellationToken ct = default)
+        => gateway.PostAsync<AiTaskNoteDto>($"{Url}/mine/{taskKey}/notes", new { contents }, ct);
+
+    /// <summary>
+    /// <b>붙은 말을 전부 읽은 것으로 찍는다.</b> 그 건을 펼 때 한 번 부른다.
+    /// </summary>
+    /// <remarks>
+    /// 몇 줄이 바뀌었는지는 <b>안 받는다.</b> 부르는 쪽이 이미 알고 있다 —
+    /// 펴기 전의 <see cref="AiTaskDto.UnreadNoteCount"/> 가 그 수이고,
+    /// 그 값이 0 이면 애초에 부르지도 않는다.
+    /// </remarks>
+    public Task ReadMineNotesAsync(long taskKey, CancellationToken ct = default)
+        => gateway.PostAsync($"{Url}/mine/{taskKey}/notes/read", new { }, ct);
+
+    /// <summary>한 건에 붙은 말 전부 — <b>관리자 쪽 입구</b>.</summary>
+    public Task<IReadOnlyList<AiTaskNoteDto>> NotesAsync(
+        long taskKey, CancellationToken ct = default)
+        => gateway.GetListAsync<AiTaskNoteDto>($"{Url}/{taskKey}/notes", ct);
+
+    /// <summary><b>말을 남긴다 — 관리자 쪽 입구.</b> 올린 사람에게 앱푸시가 간다.</summary>
+    public Task<AiTaskNoteDto?> AddNoteAsync(
+        long taskKey, string contents, CancellationToken ct = default)
+        => gateway.PostAsync<AiTaskNoteDto>($"{Url}/{taskKey}/notes", new { contents }, ct);
+
     public Task<AiTaskDto?> GetAsync(long taskKey, CancellationToken ct = default)
         => gateway.GetOneAsync<AiTaskDto>($"{Url}/{taskKey}", ct);
 
@@ -314,6 +353,43 @@ public sealed class AiTaskFileDto
     };
 }
 
+/// <summary>
+/// 요청 하나에 남긴 말 한 줄.
+/// </summary>
+/// <remarks>
+/// <b>지시문과 다른 자리다.</b> 지시문(<see cref="AiTaskDto.Contents"/>)은
+/// AI 에게 그대로 가는 글이라, 관리자가 「이렇게 처리하겠습니다」를 거기
+/// 적으면 대화가 지시에 섞여 실행기까지 따라간다.
+/// </remarks>
+public sealed class AiTaskNoteDto
+{
+    public long NoteKey { get; set; }
+
+    public long TaskKey { get; set; }
+
+    public string? Contents { get; set; }
+
+    /// <summary>올린 사람이 확인한 시각. <b>널이면 아직 안 읽은 말</b>이다.</summary>
+    public DateTime? ReadDt { get; set; }
+
+    public string? CreId { get; set; }
+    public DateTime? CreDt { get; set; }
+
+    /// <summary>
+    /// <b>요청을 올린 사람이 적은 줄인가.</b> 서버가 견주어 준다 — 읽기 전용.
+    /// </summary>
+    /// <remarks>
+    /// 화면이 이 값으로 말풍선을 좌우로 가른다. 로그인한 사람이 누구인지로
+    /// 가르지 않는 이유는, <b>관리자 화면에서도 같은 부품이 서기</b> 때문이다 —
+    /// 거기서 「나」는 관리자지만 왼쪽에 서야 하는 것은 여전히 올린 사람이다.
+    /// </remarks>
+    public bool IsOwner { get; set; }
+
+    /// <summary>적은 시각. <b><c>ToLocalTime()</c> 을 부르지 않는다</b> — 까닭은
+    /// <c>AiTaskWhen</c> 머리말에 있다(부르면 아홉 시간이 더해진다).</summary>
+    public string WhenText => CreDt?.ToString("yyyy-MM-dd HH:mm") ?? string.Empty;
+}
+
 /// <summary>AI 작업 한 건.</summary>
 /// <remarks>
 /// <b>요청여부와 상태가 따로 있다.</b> 앞엣것은 사람의 의사이고 뒤엣것은
@@ -354,6 +430,21 @@ public sealed class AiTaskDto
     /// 때 그 번호를 여기 실으면 서버가 작업에 묶는다. <b>조회로는 오지 않는다.</b>
     /// </remarks>
     public long[]? FileKeys { get; set; }
+
+    // ── 오간 남길말 ─────────────────────────────────────────
+
+    /// <summary>이 건에 오간 남길말 수. 읽기 전용 — 서버가 세어 준다.</summary>
+    public int NoteCount { get; set; }
+
+    /// <summary>
+    /// <b>올린 사람이 아직 안 읽은</b> 남길말 수. 읽기 전용.
+    /// </summary>
+    /// <remarks>
+    /// 「AI 작업 요청」 목록이 이 값으로 「새 남긴말」 배지를 세운다.
+    /// <b>상태 배지로는 답할 수 없는 물음이다</b> — 관리자가 말만 남기고
+    /// 아직 대상을 안 채웠으면 상태는 여전히 「접수 대기」다.
+    /// </remarks>
+    public int UnreadNoteCount { get; set; }
 
     public long? TargetKey { get; set; }
 

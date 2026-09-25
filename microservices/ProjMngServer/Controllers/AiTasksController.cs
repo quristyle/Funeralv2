@@ -23,7 +23,8 @@ namespace ProjMngServer.Controllers;
 /// </remarks>
 [ApiController]
 [Route("api/ai-tasks")]
-public sealed class AiTasksController(AiTaskService service, AiRunService runs) : ControllerBase
+public sealed class AiTasksController(
+    AiTaskService service, AiRunService runs, AiTaskNoteService notes) : ControllerBase
 {
     /// <summary>요청을 보낸 사람. 없으면 <c>system</c>.</summary>
     private string UserId =>
@@ -114,6 +115,60 @@ public sealed class AiTasksController(AiTaskService service, AiRunService runs) 
     [HttpDelete("mine/{taskKey:long}")]
     public async Task<IActionResult> DeleteMineAsync(long taskKey)
         => Respond(await service.DeleteUserRequestAsync(taskKey, UserId));
+
+    // ── 남길말 ──────────────────────────────────────────────
+    //
+    // 설계는 `AiTaskNoteService` 머리말. 요청 하나에 관리자와 올린 사람이
+    // 번갈아 말을 남기고, 남기면 **상대에게 앱푸시**가 간다.
+    //
+    // 여기도 입구가 둘이다. `mine/…` 은 **그 요청을 올린 사람인지**를 서비스가
+    // 먼저 보고, 아니면 「없다」로 답한다 — 남의 요청에 붙은 말은 그 번호에
+    // 무엇이 있다는 사실조차 알려 주지 않는다.
+
+    /// <summary><b>내가 올린 요청에 붙은 말.</b> 남의 건은 한 줄도 오지 않는다.</summary>
+    [HttpGet("mine/{taskKey:long}/notes")]
+    public async Task<IActionResult> MineNotesAsync(long taskKey)
+    {
+        var rows = await notes.MineListAsync(taskKey, UserId);
+
+        return rows is null
+            ? NotFound(ApiResponse<List<AiTaskNote>>.Fail(message: "그런 요청이 없습니다.", code: "NOT_FOUND"))
+            : Ok(ApiResponse<List<AiTaskNote>>.Ok(rows));
+    }
+
+    /// <summary><b>내가 올린 요청에 말을 남긴다.</b> 관리자에게 앱푸시가 간다.</summary>
+    [HttpPost("mine/{taskKey:long}/notes")]
+    public async Task<IActionResult> AddMineNoteAsync(long taskKey, [FromBody] AiTaskNote item)
+        => RespondNote(await notes.MineAddAsync(taskKey, item.Contents, UserId, UserName));
+
+    /// <summary>
+    /// <b>붙은 말을 전부 읽은 것으로 찍는다.</b> 화면이 그 건을 펼 때 부른다.
+    /// </summary>
+    /// <remarks>
+    /// 줄마다 따로 찍지 않는 까닭은 <c>AiTaskNoteService.MineMarkReadAsync</c>
+    /// 머리말에 있다.
+    /// </remarks>
+    [HttpPost("mine/{taskKey:long}/notes/read")]
+    public async Task<IActionResult> ReadMineNotesAsync(long taskKey)
+    {
+        var marked = await notes.MineMarkReadAsync(taskKey, UserId);
+
+        return marked is null
+            ? NotFound(ApiResponse<int>.Fail(message: "그런 요청이 없습니다.", code: "NOT_FOUND"))
+            : Ok(ApiResponse<int>.Ok(marked.Value));
+    }
+
+    /// <summary>한 건에 붙은 말 전부 — <b>관리자 쪽 입구</b>.</summary>
+    [HttpGet("{taskKey:long}/notes")]
+    public async Task<IActionResult> NotesAsync(long taskKey)
+        => Ok(ApiResponse<List<AiTaskNote>>.Ok(await notes.ListAsync(taskKey)));
+
+    /// <summary>
+    /// <b>말을 남긴다 — 관리자 쪽 입구.</b> 올린 사람에게 앱푸시가 간다.
+    /// </summary>
+    [HttpPost("{taskKey:long}/notes")]
+    public async Task<IActionResult> AddNoteAsync(long taskKey, [FromBody] AiTaskNote item)
+        => RespondNote(await notes.AddAsync(taskKey, item.Contents, UserId, UserName));
 
     [HttpGet("{taskKey:long}")]
     public async Task<IActionResult> GetAsync(long taskKey)
@@ -231,5 +286,24 @@ public sealed class AiTasksController(AiTaskService service, AiRunService runs) 
         }
 
         return Ok(ApiResponse<AiTask>.Ok(result.Item));
+    }
+
+    /// <summary>
+    /// 남길말 저장의 답. <see cref="Respond"/> 와 <b>같은 세 갈래</b>다 —
+    /// 없는 번호는 404, 적을 수 없는 사정은 409.
+    /// </summary>
+    private IActionResult RespondNote(AiTaskNoteResult result)
+    {
+        if (!result.Found)
+        {
+            return NotFound(ApiResponse<AiTaskNote>.Fail(message: "그런 요청이 없습니다.", code: "NOT_FOUND"));
+        }
+
+        if (result.ConflictMessage is { } message)
+        {
+            return Conflict(ApiResponse<AiTaskNote>.Fail(message: message, code: "CONFLICT"));
+        }
+
+        return Ok(ApiResponse<AiTaskNote>.Ok(result.Item));
     }
 }
