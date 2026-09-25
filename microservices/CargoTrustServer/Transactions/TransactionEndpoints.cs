@@ -28,15 +28,34 @@ public static class TransactionEndpoints
             .WithSummary("운송사 — 자기 회사에 관한 거래 (이의제기 고르기용)");
     }
 
+    /// <summary>
+    /// 내 거래 목록.
+    ///
+    /// <para>
+    /// [<c>openOnly</c> — 화면에서 거르면 오래된 미수금이 사라진다]
+    /// </para>
+    ///
+    /// <para>
+    /// 이 목록은 <c>ListLimit</c>(500) 에서 잘리고 자르는 순서가 <b>운송일 내림차순</b>
+    /// 이다. 결제 등록 화면이 「전부 받아다 화면에서 받을 것만 고르는」 방식이던 동안,
+    /// 거래가 500건을 넘는 사람은 <b>가장 오래된 미수금부터</b> 그 창 밖으로 밀려
+    /// 났다 — 정작 먼저 챙겨야 할 것들이다. 미수금 화면(<c>/receivables</c>)은 서버가
+    /// 걸러서 그런 일이 없었으므로, 같은 돈이 한 화면에는 있고 다른 화면에는 없었다.
+    /// 그래서 거르는 자리를 여기로 옮겼다(<see cref="Receivable.Statuses"/> — 미수금과
+    /// 같은 정의 한 벌).
+    /// </para>
+    /// </summary>
     private static async Task<IResult> List(
         CargoTrustDbContext db, CurrentUser me, IOptions<CargoTrustOptions> options,
-        string? status, DateOnly? from, DateOnly? to, long? companyId, CancellationToken ct)
+        string? status, DateOnly? from, DateOnly? to, long? companyId, bool? openOnly,
+        CancellationToken ct)
     {
         if (!Code.TryParse<PaymentStatus>(status, out var paymentStatus))
             return ApiError.BadRequest($"status 는 {Code.Allowed<PaymentStatus>()} 중 하나입니다.");
 
         var query = db.Transactions.AsNoTracking().Include(t => t.Company)
             .Where(t => t.UserId == me.UserId && !t.IsDeleted);
+        if (openOnly is true) query = query.Where(t => Receivable.Statuses.Contains(t.PaymentStatus));
         if (paymentStatus is { } s) query = query.Where(t => t.PaymentStatus == s);
         if (from is { } f) query = query.Where(t => t.TransportDate >= f);
         if (to is { } until) query = query.Where(t => t.TransportDate <= until);

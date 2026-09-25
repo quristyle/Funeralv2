@@ -175,7 +175,7 @@
 | GET | `/companies/{id}?period=90` | → `CompanyDetail` | `period`: 30·90·180·365·`all`. 부를 때 `company_view` 갱신 |
 | GET | `/companies/{id}/reviews` | → `[PublicReview]` | `VISIBLE` 만, 최신순 |
 | POST | `/companies` | `CompanyCreateRequest` → `CompanyInfo` | 번호 검증, 이미 있으면 **409** + 메시지 「이미 등록된 사업자번호입니다」 |
-| GET | `/transactions?status=&from=&to=&companyId=` | → `[MyTransaction]` | **내 것만** |
+| GET | `/transactions?status=&from=&to=&companyId=&openOnly=` | → `[MyTransaction]` | **내 것만**. `openOnly=true` 면 아직 다 받지 못한 것(`SCHEDULED·PARTIAL·UNPAID·DISPUTE` — `/receivables` 와 같은 묶음)만. 목록 상한(500)이 운송일 내림차순으로 자르므로 **화면이 아니라 여기서 걸러야** 오래된 미수금이 밀려나지 않는다 |
 | GET | `/transactions/{id}` | → `TransactionDetail` | 등록자 또는 관리자 |
 | POST | `/transactions` | `TransactionSaveRequest` → `MyTransaction` | 아래 「거래 등록 검사」 |
 | PUT | `/transactions/{id}` | `TransactionSaveRequest` → `MyTransaction` | 등록자만. 바뀌기 전·후를 `audit_log` |

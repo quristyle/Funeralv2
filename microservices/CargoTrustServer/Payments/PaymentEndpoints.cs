@@ -9,10 +9,6 @@ namespace CargoTrustServer.Payments;
 /// <summary>결제 등록 · 미수금</summary>
 public static class PaymentEndpoints
 {
-    /// <summary>미수금에 드는 상태 — 다 받은 것(PAID · DELAYED)을 뺀 나머지.</summary>
-    private static readonly PaymentStatus[] ReceivableStatuses =
-        [PaymentStatus.SCHEDULED, PaymentStatus.PARTIAL, PaymentStatus.UNPAID, PaymentStatus.DISPUTE];
-
     public static void MapPaymentEndpoints(this RouteGroupBuilder api)
     {
         api.MapPost("/transactions/{id:long}/payment", RegisterPayment)
@@ -46,7 +42,7 @@ public static class PaymentEndpoints
     public static async Task<ReceivablesDto> BuildAsync(CargoTrustDbContext db, long userId, CancellationToken ct)
     {
         var rows = await db.Transactions.AsNoTracking().Include(t => t.Company)
-            .Where(t => t.UserId == userId && !t.IsDeleted && ReceivableStatuses.Contains(t.PaymentStatus))
+            .Where(t => t.UserId == userId && !t.IsDeleted && Receivable.Statuses.Contains(t.PaymentStatus))
             .OrderBy(t => t.ExpectedPaymentDate == null)
             .ThenBy(t => t.ExpectedPaymentDate)
             .ThenBy(t => t.TransportDate)

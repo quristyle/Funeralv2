@@ -71,14 +71,33 @@ public sealed class CargoTrustClient(GatewayClient gateway)
     // ── 내 거래 ──────────────────────────────────────────────
 
     /// <summary>내 거래(내 것만). 조건은 모두 고를 수 있다.</summary>
+    /// <param name="status">결제 상태 코드 하나. 비우면 전부.</param>
+    /// <param name="from">운송일(부터)</param>
+    /// <param name="to">운송일(까지)</param>
+    /// <param name="companyId">거래처</param>
+    /// <param name="openOnly">
+    /// 아직 다 받지 못한 것만(예정 · 일부 지급 · 미지급 · 분쟁).
+    ///
+    /// <para>
+    /// <b>화면에서 거르지 않는다.</b> 서버 목록은 상한(500건)에서 운송일이 오래된
+    /// 것부터 잘리므로, 전부 받아다 화면에서 고르면 <b>가장 오래된 미수금이 먼저
+    /// 사라진다</b> — 미수금 화면에는 있는 돈이 결제 등록 화면에는 없게 된다.
+    /// </para>
+    /// </param>
+    /// <param name="ct">취소 토큰</param>
     public Task<IReadOnlyList<MyTransaction>> GetMyTransactionsAsync(
         string? status = null, DateOnly? from = null, DateOnly? to = null, long? companyId = null,
-        CancellationToken ct = default)
+        bool openOnly = false, CancellationToken ct = default)
     {
         var query = new List<string>();
         if (!string.IsNullOrEmpty(status))
         {
             query.Add($"status={Uri.EscapeDataString(status)}");
+        }
+
+        if (openOnly)
+        {
+            query.Add("openOnly=true");
         }
 
         if (from is not null)
