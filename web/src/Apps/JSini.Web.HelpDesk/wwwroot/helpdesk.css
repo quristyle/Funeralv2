@@ -23,8 +23,29 @@
 
 /* ── 입력 폼 (요청 등록 · 파서) ─────────────────────────── */
 
+/*
+   [칸 하나를 `minmax(0, 1fr)` 로 못박는 까닭 — 실제로 재어 보고 적는다]
+
+   격자 줄의 기본 크기는 `auto` 이고, 그것의 아래끝은 **내용의 min-content** 다.
+   폼에 `max-width` 를 걸어 두어도 줄은 그 한계를 모른 채 내용만큼 넓어지고,
+   넘친 만큼이 그대로 본문 밖으로 삐져나간다(`overflow` 가 `visible` 이다).
+
+   여기 `DxHtmlEditor` 가 들어오면서 그 일이 실제로 났다. 편집기의 도구줄
+   (`dxbl-toolbar-adaptive`)은 **줄일 수 있는 것이지 줄어 있는 것이 아니다** —
+   min-content 는 여전히 단추를 모두 펼친 폭이라, 800px 짜리 폼 안에서
+   `.hd-field` 줄이 **1540px** 로 벌어졌다(1200px 창에서 잰 값). 제목 입력칸까지
+   같은 줄에 앉아 있어 함께 늘어났고, 본문 영역이 가로로 굴렀다.
+
+   `minmax(0, 1fr)` 은 그 아래끝을 0 으로 낮춘다. 그러면 편집기가 제 폭을 알게
+   되고, 도구줄은 **스스로 접는다** — 좁아지면 단추가 「…」와 묶음 드롭다운으로
+   들어간다. 고치고 다시 재니 900px·500px·360px 모두 넘치는 요소가 0 이었다.
+
+   `.hd-field` 에도 같은 것을 적는 이유는 그것 역시 격자이기 때문이다. 바깥만
+   묶으면 `.hd-field` 자신은 제자리를 지키지만 그 안의 편집기가 다시 벌어진다.
+*/
 .hd-form {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
   max-width: 46rem;
   margin-bottom: 1.25rem;
@@ -32,7 +53,9 @@
 
 .hd-field {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.35rem;
+  min-width: 0;
 }
 
 .hd-field__label {
