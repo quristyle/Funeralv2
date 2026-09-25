@@ -455,19 +455,11 @@ public static class RequestEndpoints {
 
 
     // 요청 생성
-    group.MapPost("/", async (IAdminService adminService, HttpRequest httpRequest, AppDbContext db, IRabbitMqConnectionProvider provider, ILoggerFactory loggerFactory, IConfiguration configuration, IPushSubscriptionStore store, IWebPushService sender) => {
+    group.MapPost("/", async (IAdminService adminService, HttpRequest httpRequest, AppDbContext db, IRequesterProvisioner requesters, IRabbitMqConnectionProvider provider, ILoggerFactory loggerFactory, IConfiguration configuration, IPushSubscriptionStore store, IWebPushService sender) => {
       var form = await httpRequest.ReadFormAsync();
       var me = httpRequest.HttpContext.GetHelpdeskPrincipal();
 
-      // 요청의 주인(CustomerId)을 폼 값으로 받고 있었다. 고객이 **남의 회사 이름으로**
-      // 요청을 만들 수 있는 상태였다. 담당자는 대신 등록할 일이 있으니 그대로 두고,
-      // 고객으로 연결된 계정은 자기 것으로 고정한다.
-      var formCustomerId = int.TryParse(form["CustomerId"], out var parsed) ? parsed : 0;
-      var customerId = me.IsCustomer && me.HelpdeskUserId.HasValue
-          ? me.HelpdeskUserId.Value
-          : formCustomerId;
-
-      // [요청자를 못 정하면 여기서 끝낸다]
+      // [이 요청의 주인은 누구인가]
       //
       // `improvementrequest.customerid` 는 `customer` 를 가리키는 **NOT NULL 외래키**다.
       // 값이 0 이거나 없는 고객을 가리키면 `SaveChangesAsync` 가 `DbUpdateException` 을
@@ -475,21 +467,21 @@ public static class RequestEndpoints {
       // 「An error occurred while saving the entity changes.」 한 줄이다.
       // 글을 다 쓰고 「등록」을 누른 사람은 **무엇이 잘못됐는지 알 길이 없었다.**
       //
-      // 실제로 그 자리에 빠진 계정이 둘이다.
+      // 운영에서 그 자리에 빠진 사람이 **거의 전부**였다. 새 DB 로 옮기면서
+      // 자료를 가져오지 않기로 했기 때문이다(decisions-needed.md D14) — 그래서
+      // **고객이 0명**이고, 고를 수 있는 요청자 자체가 없었다.
       //
-      //   · 연결이 없는 담당자(포털 역할만으로 담당자인 계정) — 화면이 보내 줄
-      //     헬프데스크 ID 자체가 없어 0 이 온다. 포털 계정 46 개 중 연결된 것은
-      //     하나뿐이라 **사실상 거의 모두**가 여기에 걸렸다.
-      //   · 담당자로 연결된 계정 — 화면이 자기 `admin.id` 를 고객 번호로 보냈다.
-      //     그 번호의 고객이 우연히 있으면 **남의 이름으로 요청이 들어갔다.**
-      //     오류보다 나쁜 쪽이라, 화면도 함께 고쳤다(RequestNew.razor).
-      //
-      // 그래서 저장하기 전에 실재를 확인하고, 사람이 알아들을 말로 막는다.
-      if (customerId <= 0 || !await db.Customers.AnyAsync(c => c.Id == customerId)) {
-        return ApiResponseBuilder.Fail(
-            me.IsCustomer
-                ? "요청자(고객) 정보를 찾지 못했습니다. 헬프데스크 관리자에게 계정 연결을 확인해 주십시오."
-                : "요청자(고객)를 고른 뒤 등록하십시오.");
+      // 그러니 「고객을 먼저 등록하라」고 미루지 않는다. 누가 썼는지는 포털
+      // 신원으로 이미 알고 있으므로, 가리킬 줄이 없으면 그 자리에서 만든다
+      // (`IRequesterProvisioner`). 담당자가 남을 대신해 올리는 길은 그대로 둔다.
+      var formCustomerId = int.TryParse(form["CustomerId"], out var parsed) ? parsed : 0;
+      var auditUser = httpRequest.HttpContext.AuditUser();
+      var requesterId = await requesters.ResolveAsync(me, formCustomerId, auditUser, httpRequest.HttpContext.RequestAborted);
+
+      // 포털 신원조차 없는 요청(헬프데스크 자체 토큰)만 여기로 온다.
+      // 예외를 던지면 「An error occurred: 」 뒤에 붙어 나가므로 안내로 돌려준다.
+      if (requesterId is not { } customerId) {
+        return ApiResponseBuilder.Fail("요청자(고객)를 정하지 못했습니다. 포털로 다시 로그인한 뒤 등록해 주십시오.");
       }
 
       var requestDto = new RequestCreateDto(
@@ -497,7 +489,7 @@ public static class RequestEndpoints {
               Description: form["Description"],
               CustomerId: customerId,
               // 작성자는 폼 값이 아니라 로그인한 JSini 계정에서 정한다.
-              CreatedBy: httpRequest.HttpContext.AuditUser(),
+              CreatedBy: auditUser,
               MenuContext: form["MenuContext"]
          , MainPhoto: string.Empty // form["MainPhoto"]
           );

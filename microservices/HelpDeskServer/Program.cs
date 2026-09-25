@@ -178,6 +178,7 @@ builder.Services.Configure<AccountLinkOptions>(builder.Configuration.GetSection(
 builder.Services.Configure<HelpdeskIdentityOptions>(builder.Configuration.GetSection(HelpdeskIdentityOptions.SectionName));
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<IFuneralAccountLinkService, FuneralAccountLinkService>();
+builder.Services.AddScoped<IRequesterProvisioner, RequesterProvisioner>();
 
 // ============================================================
 // 8. 백그라운드 워커

@@ -137,45 +137,37 @@
 else
 {
     <div class="hd-form">
-        @* [요청자] — **담당자에게만 보인다.**
+        @* [요청자] — **담당자가 남을 대신해 올릴 때만 쓴다.**
 
            요청 한 줄은 반드시 고객 하나를 가리킨다(`improvementrequest.customerid`
-           는 `customer` 를 가리키는 NOT NULL 외래키다). 고객으로 연결된 계정은
-           그것이 자기 자신이라 물을 것이 없지만, 담당자는 **누구의 요청인지**를
-           정해 줘야 한다.
+           는 `customer` 를 가리키는 NOT NULL 외래키다). 그런데 **비워 두어도 된다** —
+           안 고르면 서버가 글을 쓴 사람 자신을 요청자로 삼는다.
 
            전에는 묻지 않고 `Context.HelpdeskUserId` 를 그대로 보냈다. 그 값은
            담당자에게는 `admin.id` 라, 같은 번호의 고객이 있으면 **남의 이름으로
-           요청이 들어갔고**(운영에서 admin#4 → customer#4 「여우선」),
-           없으면 저장이 통째로 터져 화면에 DB 오류가 그대로 떴다. *@
-        @if (!Context.IsCustomer)
+           요청이 들어갔고**(옛 DB 에서 admin#4 → customer#4 「여우선」),
+           없으면 저장이 통째로 터져 화면에 DB 오류가 그대로 떴다.
+
+           고를 것이 없을 때 칸을 통째로 감추는 것도 그래서다. 운영 헬프데스크는
+           자료를 가져오지 않은 새 DB 라 **고객이 0명**이다. 빈 콤보를 두고
+           「고르십시오」라고 하면, 사람이 할 수 있는 일이 없는데 사람의 잘못처럼
+           보인다. *@
+        @if (!Context.IsCustomer && Context.CustomerOptions.Count > 0)
         {
-            @* 고를 것이 하나도 없으면 **그 사실을 먼저 말한다.** 빈 콤보만 두면
-               「요청자를 고르십시오」를 읽고 눌러 보다가 목록이 안 열리는 것으로
-               끝난다 — 사람이 할 수 있는 일이 없는데 사람의 잘못처럼 보인다.
-               고객 자료가 통째로 비어 있는 상태는 실제로 있었다. *@
-            @if (Context.CustomerOptions.Count == 0)
-            {
-                <PageNotice Tone="NoticeTone.Warning"
-                            Text="등록할 수 있는 요청자(고객)가 없습니다. 헬프데스크 고객 자료를 확인하십시오." />
-            }
-            else
-            {
-                <label class="hd-field">
-                    <span class="hd-field__label">요청자</span>
-                    <DxComboBox Data="@Context.CustomerOptions"
-                                TextFieldName="@nameof(BizOption.Label)"
-                                ValueFieldName="@nameof(BizOption.Value)"
-                                NullText="요청자를 고르십시오"
-                                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
-                                @bind-Value="_requester"
-                                SearchMode="ListSearchMode.AutoSearch"
-                                SearchFilterCondition="ListSearchFilterCondition.Contains" />
-                    <span class="jsini-hint">
-                        담당자 계정이라 <b>누구의 요청인지</b>를 골라야 합니다.
-                    </span>
-                </label>
-            }
+            <label class="hd-field">
+                <span class="hd-field__label">요청자</span>
+                <DxComboBox Data="@Context.CustomerOptions"
+                            TextFieldName="@nameof(BizOption.Label)"
+                            ValueFieldName="@nameof(BizOption.Value)"
+                            NullText="나 자신"
+                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                            @bind-Value="_requester"
+                            SearchMode="ListSearchMode.AutoSearch"
+                            SearchFilterCondition="ListSearchFilterCondition.Contains" />
+                <span class="jsini-hint">
+                    남을 대신해 올릴 때만 고릅니다. <b>비워 두면 내 이름으로</b> 등록됩니다.
+                </span>
+            </label>
         }
 
         @* 제목 칸에도 **이름표를 단다.** 쓰던 글을 적어 두는 JS 가 이 이름으로
@@ -369,10 +361,11 @@ else
     private bool _draftBlocked;
 
     /// <summary>
-    /// 이 요청의 주인이 될 <b>고객 번호</b>. 정할 수 없으면 <c>null</c>.
+    /// 이 요청의 주인으로 <b>보낼 고객 번호</b>. 안 보내면 <c>null</c>.
     /// </summary>
     /// <remarks>
     /// 고객으로 연결된 계정은 자기 자신, 담당자는 위에서 고른 사람이다.
+    /// <b>비어 있어도 된다</b> — 서버가 글을 쓴 사람 자신을 요청자로 삼는다.
     /// <b><see cref="HelpDeskContext.HelpdeskUserId"/> 를 그대로 쓰지 않는다</b> —
     /// 담당자에게 그 값은 <c>admin.id</c> 라 고객 번호가 아니다.
     /// </remarks>
@@ -820,14 +813,6 @@ else
             return;
         }
 
-        // 요청자를 못 정하면 **글을 보내기 전에** 막는다. 서버도 다시 보지만,
-        // 여기서 걸러야 다 써 놓고 누른 사람이 무엇을 골라야 하는지 바로 안다.
-        if (RequesterId is null)
-        {
-            Say("요청자를 고른 뒤 등록하십시오.", NoticeTone.Warning);
-            return;
-        }
-
         _saving = true;
         try
         {
@@ -980,6 +965,7 @@ else
 
             // 고객으로 연결된 계정이면 서버가 자기 것으로 고정하므로 이 값을
             // 무시한다. 담당자가 대신 등록하는 길만 이 값을 쓴다.
+            // 안 보내도 된다 — 서버가 글을 쓴 사람 자신을 요청자로 삼는다.
             //
             // **`Context.HelpdeskUserId` 를 보내면 안 된다** — 담당자에게 그 값은
             // `admin.id` 다. 보내던 시절에는 번호가 겹치는 고객이 있으면 남의

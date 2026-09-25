@@ -845,6 +845,41 @@ does not exist`) 곧바로 되돌렸다. 지금 운영은 손대기 전과 **바
 그 포트(31015)는 개발 장비에서 바로 붙을 만큼 밖에서 닿는다. 옮기기 전에
 비밀번호를 바꾸는 편이 낫다. 바꾸면 이 문서의 2단계 값도 함께 바뀐다.
 
+### 옮긴 뒤에 드러난 것 — **아무도 요청을 쓸 수 없었다** (2026-09-25)
+
+옮기기는 끝났다. 운영 HelpDeskServer 는 지금 `helpdesk` DB(스키마 `helpdesk`)를
+본다 — 그 DB 에 줄을 하나 넣고 게이트웨이로 조회해 확인했다.
+
+그런데 **고객이 0명**이다(결정대로 자료를 안 옮겼으니 당연하다). 요청 한 줄은
+반드시 고객 하나를 가리켜야 하므로(`improvementrequest.customerid` 는 NOT NULL
+외래키다), 글을 다 쓰고 「등록」을 누르면 저장이 통째로 터졌다 —
+
+```
+error occurred: An error occurred while saving the entity changes.
+```
+
+담당자에게 「요청자」 콤보를 줘도 **고를 것이 없다.** 고객을 먼저 등록하라고
+미루면 포털 계정 마흔 남짓을 헬프데스크에 다시 만들어 이어 주는 일을 사람이
+해야 한다.
+
+**한 일** — 가리킬 줄이 없으면 **그 자리에서 만든다**
+([`RequesterProvisioner`](../../microservices/HelpDeskServer/Services/RequesterProvisioner.cs)).
+인증·권한은 포털이 단독으로 맡고 헬프데스크의 `customer` 줄은 업무 자료가
+가리킬 대상일 뿐이므로, 처음 글을 쓸 때 포털 신원에서 만들어 주면 된다
+(운송관리가 `app_user` 를 그렇게 만든다). 회사는 「포털 사용자」 하나로 모은다 —
+포털 토큰이 실어 주는 회사는 이름이 아니라 식별자(`jsini` · GUID)라 그대로
+회사 이름으로 쓸 수 없다.
+
+확인은 시험 포트(55312)에 띄운 인스턴스로 운영 DB 를 향해 했다 — 고객 0명에서
+등록하면 201 이고 `customer` · `customercompany` · `auth_user_links` 가 한 벌
+생긴다. 두 번째 등록은 그 줄을 다시 쓴다(늘지 않는다). 담당자가 요청자를 고르면
+그 고객으로 들어간다. **확인한 줄은 전부 지웠다**(네 표 모두 0 으로 되돌림).
+
+**남은 것** — 옛 DB 의 요청 705건·고객 27명은 그대로 `jinrecept.jsini` 에 있다.
+필요해지면 그때 옮긴다. 그리고 **요청 목록(`GET /api/requests`)이 오류로 끝난다** —
+「An error occurred: Exception has been thrown by the target of an invocation.」
+자료가 0건인데도 그렇다. 이 건은 아직 안 봤다.
+
 ---
 
 ## D15. 토큰 갱신 경로가 없다
