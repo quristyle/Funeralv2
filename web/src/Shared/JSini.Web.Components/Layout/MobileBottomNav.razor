@@ -4,6 +4,7 @@
 @inject MenuReveal Reveal
 @inject UserMenuDrawer UserDrawer
 @inject IMenuProvider Menus
+@inject CurrentUser Me
 @inject PortalBoot Boot
 
 @*
@@ -34,8 +35,33 @@
     @foreach (var item in _items)
     {
         <button type="button" class="jsini-bottom-nav__item" @onclick="@(() => Go(item))">
-            <span class="@BottomNav.IconClass(item, Menus.AllMenus) jsini-bottom-nav__icon"
-                  aria-hidden="true"></span>
+            @if (IsProfile(item))
+            {
+                @*
+                    [프로필 칸만 그림이 사람마다 다르다]
+
+                    이 칸이 여는 것은 헤더 오른쪽 위의 그 판이다. 거기 붙은
+                    얼굴과 띠의 그림이 다르면 **같은 것을 여는 단추로 안
+                    보인다.** 그래서 헤더와 같은 차례로 그린다 —
+                    사진 → 없으면 첫 글자 → 못 받아 오면 다시 첫 글자
+                    (`CurrentUser.MarkAvatarUnavailable`).
+                *@
+                @if ((Me.AvatarThumbnailUrl ?? Me.AvatarUrl) is { Length: > 0 } avatar)
+                {
+                    <img class="jsini-bottom-nav__avatar" src="@avatar" alt=""
+                         @onerror="@(() => Me.MarkAvatarUnavailable())" />
+                }
+                else
+                {
+                    <span class="jsini-bottom-nav__avatar jsini-bottom-nav__initial"
+                          aria-hidden="true">@Me.Initial</span>
+                }
+            }
+            else
+            {
+                <span class="@BottomNav.IconClass(item, Menus.AllMenus) jsini-bottom-nav__icon"
+                      aria-hidden="true"></span>
+            }
             <span>@item.Title</span>
         </button>
     }
@@ -59,6 +85,10 @@
         // 아이콘을 메뉴에서 찾으므로(`BottomNav.IconClass`) 메뉴가 늦게 오면
         // 그때 다시 그려야 한다 — 안 그러면 고른 칸이 임의 아이콘으로 남는다.
         Menus.MenusChanged += OnMenusChanged;
+
+        // 얼굴도 같은 까닭이다. 내 정보는 부트스트랩이 끝나야 들어오므로,
+        // 안 듣고 있으면 프로필 칸이 첫 글자(또는 `?`)인 채로 남는다.
+        Me.Changed += OnMeChanged;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -88,6 +118,12 @@
     }
 
     private void OnMenusChanged() => InvokeAsync(StateHasChanged);
+
+    private void OnMeChanged() => InvokeAsync(StateHasChanged);
+
+    /// <summary>이 칸이 프로필(내 정보)을 여는 칸인가.</summary>
+    private static bool IsProfile(BottomNavItem item) =>
+        string.Equals(item.Path, BottomNav.ProfilePath, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// 칸을 눌렀다. 테마 서랍만 주소가 아니고, 나머지는 <b>메뉴를 한 번
@@ -135,5 +171,6 @@
     {
         Boot.BottomNavItemsChanged -= OnItemsChanged;
         Menus.MenusChanged -= OnMenusChanged;
+        Me.Changed -= OnMeChanged;
     }
 }

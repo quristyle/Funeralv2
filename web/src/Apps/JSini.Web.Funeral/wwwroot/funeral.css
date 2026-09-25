@@ -829,3 +829,23 @@
   gap: 0.4rem;
   margin-top: 0.25rem;
 }
+
+/* 「바로 넣기」 줄 — 메뉴가 아닌 넷(홈 · 설정 · 메뉴 단추 · 프로필 아바타).
+
+   고르개는 메뉴 179건이 들어 있는 목록이라 **메뉴가 아닌 것은 줄기 이름으로
+   찾을 수 없다.** 단추로 내놓아 한 번에 넣게 한다. 줄이 넘치면 감긴다 —
+   이 판이 앉는 자리가 좁고(환경설정 셋째 칸) 단추가 넷이다. */
+.fn-bnav__quick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+}
+
+/* 「바로 넣기」 라는 말은 단추들의 라벨이라 위아래 여백을 뗀다 —
+   `jsini-hint` 는 문단에 붙는 값을 들고 있다. */
+.fn-bnav__quick > .jsini-hint {
+  margin: 0;
+  flex: 0 0 auto;
+}

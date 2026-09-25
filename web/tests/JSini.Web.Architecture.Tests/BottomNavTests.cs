@@ -154,6 +154,8 @@ public sealed class BottomNavTests
     [Theory]
     [InlineData(BottomNav.HomePath, "jsini-icon-home")]
     [InlineData(BottomNav.ThemePath, "jsini-icon-palette")]
+    [InlineData(BottomNav.MenuPath, "jsini-icon-menu")]
+    [InlineData(BottomNav.ProfilePath, "jsini-icon-user")]
     public void 메뉴가_아닌_칸은_제_그림이_있다(string path, string expected) =>
         Assert.Equal(expected, BottomNav.IconClass(new BottomNavItem { Path = path, Title = "x" }, Menus));
 
@@ -210,6 +212,48 @@ public sealed class BottomNavTests
 
         Assert.Contains(choices, c => c.Path == BottomNav.HomePath);
         Assert.Contains(choices, c => c.Path == BottomNav.ThemePath);
+    }
+
+    /// <summary>
+    /// 메뉴 단추(햄버거)와 사용자 프로필 아바타는 <b>메뉴가 아니라서</b>
+    /// 트리에서 나오지 않는다. 고르개에 없으면 띠에 놓을 길이 아예 없다.
+    /// </summary>
+    [Theory]
+    [InlineData(BottomNav.MenuPath)]
+    [InlineData(BottomNav.ProfilePath)]
+    public void 고르개에_메뉴_단추와_프로필이_있다(string path)
+    {
+        Assert.Contains(BottomNav.Choices(Menus), c => c.Path == path);
+        Assert.Contains(BottomNav.Choices([]), c => c.Path == path);
+    }
+
+    /// <summary>
+    /// 메뉴가 아닌 넷은 고르개 <b>맨 위</b>에 선다. 179건 아래로 내려가면
+    /// 찾을 길이 글자를 쳐 보는 것뿐이다.
+    /// </summary>
+    [Fact]
+    public void 메뉴가_아닌_넷이_고르개_맨_위다() =>
+        Assert.Equal(
+            [.. BottomNav.Fixed.Select(c => c.Path)],
+            [.. BottomNav.Choices(Menus).Take(BottomNav.Fixed.Count).Select(c => c.Path)]);
+
+    /// <summary>
+    /// 고르개 이름에는 괄호 설명이 붙지만(「메뉴 단추 (햄버거 — …)」) 띠에
+    /// 적히는 것은 <b>그것이 아니다.</b> 72px 칸이라 그대로 넣으면 두 글자에서
+    /// 끊긴다 — 환경설정이 <see cref="BottomNavChoice.Title"/> 을 쓴다.
+    /// </summary>
+    [Fact]
+    public void 띠에_적을_이름은_짧다()
+    {
+        foreach (var choice in BottomNav.Fixed)
+        {
+            Assert.DoesNotContain('(', choice.Title);
+            Assert.InRange(choice.Title.Length, 1, 4);
+        }
+
+        Assert.All(
+            BottomNav.Choices(Menus),
+            c => Assert.False(string.IsNullOrWhiteSpace(c.Title)));
     }
 
     /// <summary>

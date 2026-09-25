@@ -240,6 +240,36 @@ public static class BottomNav
     }
 
     /// <summary>
+    /// 메뉴가 아닌 넷. <b>고르개 맨 위에 선다</b>(<see cref="Choices"/>).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 넷 다 <b>갈 주소가 없다</b> — 홈만 주소이고 나머지 셋은 그 자리에서
+    /// 무언가를 여는 표시다(<c>#</c> 로 시작해 메뉴 경로와 겹치지 않는다).
+    /// 메뉴 트리에서 나올 수 없으므로 여기 손으로 적는다.
+    /// </para>
+    /// <para>
+    /// [이름에 괄호를 붙인 까닭]
+    /// </para>
+    /// <para>
+    /// 「메뉴」·「내 정보」로만 적으면 <b>같은 이름의 메뉴와 섞인다</b> — 고르개는
+    /// 179건짜리 목록이고 사람은 글자를 쳐서 찾는다. 괄호 안에 <b>누르면 무슨
+    /// 일이 나는지</b>를 적어 두면 목록에서 갈라 보이고, 「아바타」·「햄버거」
+    /// 처럼 사람이 부르는 말로 쳐도 걸린다.
+    /// </para>
+    /// <para>
+    /// 띠에 적힐 이름은 그 괄호를 뗀 <see cref="BottomNavChoice.Title"/> 다.
+    /// </para>
+    /// </remarks>
+    public static readonly IReadOnlyList<BottomNavChoice> Fixed =
+    [
+        new(HomePath, null, "홈", "jsini-icon-home", "홈"),
+        new(ThemePath, null, "테마 · 크기 (설정 서랍 열기)", "jsini-icon-palette", "설정"),
+        new(MenuPath, null, "메뉴 단추 (햄버거 — 전체 메뉴 열기)", "jsini-icon-menu", "메뉴"),
+        new(ProfilePath, null, "사용자 프로필 아바타 (내 정보 열기)", "jsini-icon-user", "프로필"),
+    ];
+
+    /// <summary>
     /// 환경설정의 고르개에 놓을 것들. <b>묶음(CATALOG)은 뺀다</b> — 제 화면이
     /// 없어서 골라 봐야 "준비 중" 이 뜬다.
     /// </summary>
@@ -250,13 +280,7 @@ public static class BottomNav
     /// </remarks>
     public static IReadOnlyList<BottomNavChoice> Choices(IReadOnlyList<MenuNode> menus)
     {
-        var choices = new List<BottomNavChoice>
-        {
-            new(HomePath, null, "홈", "jsini-icon-home"),
-            new(ThemePath, null, "설정 (테마 서랍 열기)", "jsini-icon-palette"),
-            new(MenuPath, null, "전체 메뉴 (사이드바 열기)", "jsini-icon-menu"),
-            new(ProfilePath, null, "내 정보 (프로필 열기)", "jsini-icon-user"),
-        };
+        var choices = new List<BottomNavChoice>(Fixed);
 
         Walk(menus, null);
 
@@ -276,7 +300,8 @@ public static class BottomNav
                         label,
                         MenuIcons.CssClass(string.IsNullOrWhiteSpace(node.Icon)
                             ? Fallback(node.LinkTarget)
-                            : node.Icon)));
+                            : node.Icon),
+                        node.Title));
                 }
 
                 Walk(node.Children, label);
@@ -401,5 +426,10 @@ public sealed record BottomNavItem
 /// <param name="RouteKey">그 화면의 열쇠. 메뉴가 아닌 것(홈·설정)은 <c>null</c>.</param>
 /// <param name="Label">줄기를 붙인 이름 — 「포털관리 › 알림 이력」.</param>
 /// <param name="Icon">미리 보여 줄 아이콘 클래스.</param>
+/// <param name="Title">
+/// 고르면 띠에 적힐 이름. <b><see cref="Label"/> 과 따로 둔다</b> — 고르개는
+/// 「어느 것인지」를 말해야 해서 줄기와 괄호 설명이 붙고(「메뉴 단추 (전체
+/// 메뉴 열기)」), 띠는 72px 이라 그 글자가 두 글자에서 끊긴다.
+/// </param>
 public sealed record BottomNavChoice(
-    string Path, string? RouteKey, string Label, string Icon);
+    string Path, string? RouteKey, string Label, string Icon, string Title);

@@ -7376,6 +7376,30 @@ body {
     height: 20px;
 }
 
+/* 프로필 칸의 얼굴. **아이콘 자리를 그대로 쓴다**(20px + 아래 4px) — 조금만
+   키워도 그 칸만 글자가 한 픽셀 내려앉아 띠가 어긋나 보인다.
+   동그라미와 테두리는 헤더의 얼굴(`.jsini-user__face`)과 같은 뜻이다. */
+.jsini-bottom-nav__avatar {
+    width: 20px;
+    height: 20px;
+    margin-bottom: 4px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: color-mix(in srgb, currentColor 12%, transparent);
+    flex: 0 0 auto;
+}
+
+/* 사진이 없는 계정이 훨씬 많다. 첫 글자를 넣어 **비어 보이지 않게** 한다
+   (헤더와 같은 처리). 20px 동그라미라 글자는 사다리 맨 아래 단이다. */
+.jsini-bottom-nav__initial {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--jsini-fs-2xs);
+    font-weight: 700;
+    line-height: 1;
+}
+
 /* 띠의 글자는 한 줄로 자른다. 이름을 사람이 짓는 자리라(환경설정) 길게
    적으면 칸 하나가 두 줄이 되고, 그 칸만 높아져 띠가 어긋난다. */
 .jsini-bottom-nav__item > span:last-child {

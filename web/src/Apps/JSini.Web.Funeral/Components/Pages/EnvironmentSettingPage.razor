@@ -90,8 +90,17 @@
     |---|---|
     | 쓸지 | 스위치 하나. 끄면 띠도 자리도 사라진다 |
     | 무엇을 | 메뉴에서 고른다(최대 다섯) |
+    | 메뉴가 아닌 것 | 홈 · 설정 서랍 · **메뉴 단추** · **프로필 아바타** 넷은 「바로 넣기」 단추로 (`BottomNav.Fixed`) |
     | 아이콘 | **고른 메뉴에 달린 것**을 따라간다. 없으면 경로로 정한 아무 그림 |
     | 이름 | 사람이 적는다 — 메뉴 이름이 길면 72px 칸에서 끊긴다 |
+
+    [메뉴가 아닌 넷에는 들어오는 길이 따로 있어야 했다]
+
+    그 넷은 메뉴 트리에서 나오지 않으므로 고르개 맨 위에 손으로 세워 둔다.
+    그런데 고르개는 **179건짜리 목록**이라 맨 위에 있어도 안 보인다 —
+    펼쳐서 첫 네 줄을 읽기보다 아래로 굴려 자기 업무를 찾는 자리다.
+    실제로 「메뉴 단추와 프로필 아바타는 어떻게 넣느냐」는 물음이 나왔다.
+    그래서 같은 넷을 **단추로도** 내놓는다. 고르개에서도 여전히 고를 수 있다.
 
     **쓰지 않기로 하면 고르개를 잠근다.** 위 「모바일 메뉴 단추」와 같은
     까닭이다 — 아무 일도 일어나지 않는 조작을 두면 사람은 「안 먹는다」고 읽는다.
@@ -290,10 +299,34 @@
 @* 끈 동안에는 통째로 잠근다. 값은 지우지 않아 다시 켜면 고르던 그대로다. *@
 <div class="fn-bnav @(_bottomNavHidden ? "fn-bnav--off" : "")">
     <p class="jsini-hint">
-        띠에 놓을 메뉴를 최대 @BottomNav.MaxItems 개까지 고릅니다.
+        띠에 놓을 칸을 최대 @BottomNav.MaxItems 개까지 고릅니다 — 메뉴뿐
+        아니라 메뉴 단추·프로필 아바타도 놓을 수 있습니다.
         아이콘은 <b>고른 메뉴에 달린 것</b>을 씁니다 — 없으면 임의의 그림이
         붙고, 이름은 짧게 고쳐 적을 수 있습니다.
     </p>
+
+    @*
+        [메뉴가 아닌 넷은 목록에서 찾기 어렵다]
+
+        고르개에는 179건이 들어 있고 메뉴 단추·프로필은 **메뉴가 아니라서**
+        줄기 이름으로 찾을 수가 없다. 「어떻게 넣느냐」는 물음이 실제로
+        나왔다. 그래서 그 넷을 단추로 내놓는다 — 누르면 칸이 하나 붙는다.
+        이미 놓은 것은 잠근다(같은 칸을 둘 두면 띠에 같은 그림이 나란히 선다).
+    *@
+    <div class="fn-bnav__quick">
+        <span class="jsini-hint">바로 넣기</span>
+
+        @foreach (var quick in BottomNav.Fixed)
+        {
+            var pick = quick;
+
+            <DxButton Text="@pick.Title" IconCssClass="@pick.Icon"
+                      RenderStyle="ButtonRenderStyle.Secondary"
+                      Enabled="@CanQuickAdd(pick)"
+                      Title="@pick.Label"
+                      Click="@(() => OnNavQuickAddAsync(pick))" />
+        }
+    </div>
 
     @for (var i = 0; i < _navItems.Count; i++)
     {
@@ -526,7 +559,7 @@
         {
             Path = path,
             RouteKey = choice?.RouteKey,
-            Title = LeafOf(choice?.Label) ?? _navItems[index].Title,
+            Title = choice?.Title ?? _navItems[index].Title,
         };
 
         await SaveNavAsync();
@@ -594,11 +627,43 @@
             return;
         }
 
+        await AddAsync(pick);
+    }
+
+    /// <summary>
+    /// 메뉴가 아닌 것(홈 · 설정 서랍 · 메뉴 단추 · 프로필 아바타)을 바로
+    /// 넣을 수 있는가. <b>이미 놓았으면 잠근다</b> — 같은 칸이 둘이면 띠에
+    /// 같은 그림이 나란히 서고, 다섯 중 하나를 헛되이 쓴다.
+    /// </summary>
+    private bool CanQuickAdd(BottomNavChoice choice) =>
+        !_bottomNavHidden
+        && _navItems.Count < BottomNav.MaxItems
+        && !_navItems.Any(i => string.Equals(
+            i.Path, choice.Path, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>「바로 넣기」 단추. 고르개를 열지 않고 칸을 하나 붙인다.</summary>
+    private async Task OnNavQuickAddAsync(BottomNavChoice choice)
+    {
+        if (!CanQuickAdd(choice))
+        {
+            return;
+        }
+
+        await AddAsync(choice);
+    }
+
+    /// <summary>
+    /// 칸을 하나 붙이고 저장한다. <b>아이콘은 담지 않는다</b> — 그릴 때마다
+    /// 찾으므로(<see cref="BottomNav.IconClass"/>) 관리자가 메뉴 아이콘을
+    /// 바꾸면 띠도 따라간다.
+    /// </summary>
+    private async Task AddAsync(BottomNavChoice choice)
+    {
         _navItems.Add(new BottomNavItem
         {
-            Path = pick.Path,
-            RouteKey = pick.RouteKey,
-            Title = LeafOf(pick.Label) ?? pick.Label,
+            Path = choice.Path,
+            RouteKey = choice.RouteKey,
+            Title = choice.Title,
         });
 
         await SaveNavAsync();
@@ -615,17 +680,4 @@
     }
 
     private Task SaveNavAsync() => Boot.SetBottomNavItemsAsync(BottomNav.Serialize(_navItems));
-
-    /// <summary>줄기를 뗀 끝 이름. 「포털관리 › 알림 이력」 → 「알림 이력」.</summary>
-    private static string? LeafOf(string? label)
-    {
-        if (string.IsNullOrWhiteSpace(label))
-        {
-            return null;
-        }
-
-        var cut = label.LastIndexOf('›');
-
-        return cut < 0 ? label.Trim() : label[(cut + 1)..].Trim();
-    }
 }
