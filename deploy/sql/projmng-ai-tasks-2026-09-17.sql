@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS projmng.ai_task (
     task_status     varchar(20)   NOT NULL DEFAULT 'idle',
 
     priority        int           NOT NULL DEFAULT 0,
-    timeout_minutes int           NOT NULL DEFAULT 30,
+    timeout_minutes int           NOT NULL DEFAULT 60,
     attempt_count   int           NOT NULL DEFAULT 0,
     -- 기본 1 — 파일을 고치는 작업이라 자동 재시도가 안전하지 않다(문서 6.11)
     attempt_max     int           NOT NULL DEFAULT 1,

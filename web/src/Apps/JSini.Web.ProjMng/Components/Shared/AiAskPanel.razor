@@ -1641,7 +1641,8 @@
                     ContentFormat = "markdown",
                     TargetKey = _targetKey,
                     RunnerKind = _kind,
-                    TimeoutMinutes = 30,
+                    // 화면에 제한 칸이 없다 — 「AI 작업」의 기본과 같은 값을 박는다.
+                    TimeoutMinutes = 60,
                     AttemptMax = 3,
 
                     // 화면이 아니라 `PushOn` 을 싣는다 — 대상을 바꾸는 사이에

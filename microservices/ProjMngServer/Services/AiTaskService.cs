@@ -956,7 +956,11 @@ public sealed class AiTaskService(
             item.NotifyWhen = "always";
         }
 
-        item.TimeoutMinutes = Math.Clamp(item.TimeoutMinutes, 1, 24 * 60);
+        // 0 을 그냥 Clamp 하면 **1분**이 된다 — 값을 안 실어 보낸 쪽이
+        // 가장 짧은 제한을 받는 꼴이라, 아래 AttemptMax 와 같이 기본으로 되돌린다.
+        item.TimeoutMinutes = item.TimeoutMinutes <= 0
+            ? 60
+            : Math.Clamp(item.TimeoutMinutes, 1, 24 * 60);
         item.AttemptMax = item.AttemptMax <= 0 ? 3 : Math.Clamp(item.AttemptMax, 1, 5);
 
         // **대상이 허용하지 않으면 push 를 켤 수 없다.** 화면에서도 막지만

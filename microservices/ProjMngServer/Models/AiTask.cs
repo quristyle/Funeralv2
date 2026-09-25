@@ -128,7 +128,17 @@ public sealed class AiTask
 
     public int Priority { get; set; }
 
-    public int TimeoutMinutes { get; set; } = 30;
+    /// <summary>
+    /// 제한 시간(분). <b>기본 60 이다</b>(1~1440).
+    ///
+    /// <para>
+    /// 한동안 30 이었는데, 파일을 여럿 고치고 빌드·시험까지 돌리는 건이
+    /// <b>거의 다 해 놓고 잘렸다.</b> 잘린 것은 화면에 「실패」로 앉아
+    /// 무엇이 모자랐는지 보이지 않는다. 한 시간을 기본으로 둔다 —
+    /// 짧게 끝날 건은 어차피 일찍 끝나므로 이 값이 손해가 아니다.
+    /// </para>
+    /// </summary>
+    public int TimeoutMinutes { get; set; } = 60;
 
     public int AttemptCount { get; set; }
 

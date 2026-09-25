@@ -1,0 +1,44 @@
+-- ============================================================
+-- AI 작업 제한 시간 기본값을 30분 → 60분 (projmng DB)
+-- ============================================================
+--
+-- 표는 `projmng.ai_task` 이고 칸은 `timeout_minutes` 다.
+--
+-- 30분으로는 **파일을 여럿 고치고 빌드·시험까지 돌리는 건이 거의 다 해 놓고
+-- 잘렸다.** 잘린 것은 화면에 그냥 「실패」로 앉아, 모자랐던 것이 시간인지
+-- 지시인지 보이지 않는다. 한 시간을 기본으로 둔다 — 짧게 끝날 건은 어차피
+-- 일찍 끝나므로 이 값이 손해가 아니다.
+--
+-- 같이 고친 곳(코드에도 같은 기본값이 박혀 있다):
+--   microservices/ProjMngServer/Models/AiTask.cs            새 건의 기본값
+--   microservices/ProjMngServer/Services/AiTaskService.cs   0 이 와도 60 으로
+--   web/.../ProjMng/Api/AiTaskClient.cs                     프론트 DTO
+--   web/.../ProjMng/Components/Pages/AiTaskList.razor       「AI 작업」 새 건
+--   web/.../ProjMng/Components/Shared/AiAskPanel.razor      「빠른 지시」
+--   tools/AiTaskRunner/RunnerOptions.cs · appsettings.json  실행기 어댑터
+--
+-- 실행기 설정의 `--print-timeout` 도 함께 60m 으로 늘렸다. **그것이 30m 인 채로
+-- 두면 서버가 60분을 줘도 agy 가 먼저 끊는다.**
+--
+-- ── 고치기 전에 본 것 (2026-09-25) ──────────────────────────
+--
+--   column_default          30
+--   timeout_minutes 분포    5분 3건 · 10분 2건 · 15분 1건 · 20분 2건 · 30분 177건
+--
+-- **이미 있는 줄은 건드리지 않는다.** 사람이 골라 넣은 값일 수 있고,
+-- 돌고 있는 건의 제한을 중간에 바꾸면 그 건이 어디서 끊길지 알 수 없다.
+-- 여기서 바꾸는 것은 **앞으로 만들어질 줄의 기본값**뿐이다.
+--
+-- ── 반영 ────────────────────────────────────────────────────
+
+ALTER TABLE projmng.ai_task ALTER COLUMN timeout_minutes SET DEFAULT 60;
+
+-- ── 확인 ────────────────────────────────────────────────────
+--
+-- 아래가 60 을 돌려주면 된 것이다.
+--
+-- SELECT column_default
+--   FROM information_schema.columns
+--  WHERE table_schema = 'projmng'
+--    AND table_name   = 'ai_task'
+--    AND column_name  = 'timeout_minutes';

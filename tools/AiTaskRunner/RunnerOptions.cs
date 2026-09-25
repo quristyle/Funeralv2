@@ -251,7 +251,10 @@ public sealed class AdapterOptions
     /// </summary>
     public string PromptFileFallback { get; set; } = "{path} 를 읽고 그대로 수행하라.";
 
-    public int TimeoutMinutes { get; set; } = 30;
+    /// <summary>
+    /// 건에 제한 시간이 안 실려 왔을 때 쓸 값(분). 서버 기본과 같은 <b>60</b> 이다.
+    /// </summary>
+    public int TimeoutMinutes { get; set; } = 60;
 
     /// <summary>
     /// 결과문(<c>result_text</c>)을 어디서 가려내나 — <c>stream-json</c> · <c>tail</c>.

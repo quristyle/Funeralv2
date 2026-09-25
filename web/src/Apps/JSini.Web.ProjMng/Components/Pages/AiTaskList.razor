@@ -1532,7 +1532,7 @@
     private void FillNewTask(AiTaskDto task)
     {
         task.RunnerKind = RunnerKinds.FirstOrDefault()?.Value ?? "claude";
-        task.TimeoutMinutes = 30;
+        task.TimeoutMinutes = 60;
         task.AttemptMax = 3;
         task.NotifyEmail = true;
         task.NotifyWhen = "always";

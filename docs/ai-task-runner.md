@@ -866,17 +866,17 @@ await File.WriteAllTextAsync(promptPath, task.Contents, new UTF8Encoding(false))
     "Args": ["-p", "--dangerously-skip-permissions",
              "--output-format", "stream-json", "--verbose"],
     "PromptVia": "stdin",
-    "TimeoutMinutes": 30
+    "TimeoutMinutes": 60
   },
   "antigravity": {
     "Executable": "/home/lee/.local/bin/agy",
-    "Args": ["--print-timeout", "30m", "--dangerously-skip-permissions",
+    "Args": ["--print-timeout", "60m", "--dangerously-skip-permissions",
              "--output-format", "stream-json"],
     "PromptVia": "arg",
     "PromptArgPrefix": "-p=",
     "PromptMaxBytes": 61440,
     "PromptFileFallback": "{path} 를 읽고 그대로 수행하라.",
-    "TimeoutMinutes": 30
+    "TimeoutMinutes": 60
   },
   "copilot": {
     "Executable": "/home/lee/.local/bin/copilot",
@@ -885,7 +885,7 @@ await File.WriteAllTextAsync(promptPath, task.Contents, new UTF8Encoding(false))
     "PromptArgPrefix": "--prompt=",
     "PromptMaxBytes": 61440,
     "PromptFileFallback": "{path} 를 읽고 그대로 수행하라.",
-    "TimeoutMinutes": 30,
+    "TimeoutMinutes": 60,
     "ResultFrom": "tail"
   }
 }
