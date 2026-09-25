@@ -97,6 +97,28 @@ builder.Services.AddSingleton<IAvatarIconTokenFactory, AvatarIconTokenFactory>()
 builder.Services.AddScoped<IAvatarIconResolver, AvatarIconResolver>();
 builder.Services.AddScoped<IPushSender, PushSender>();
 
+// 푸시 서비스(FCM 등)로 나가는 연결. **발송마다 새로 맺지 않는다.**
+//
+// WebPushClient 는 아무것도 안 주면 제 HttpClient 를 하나 만든다. 그것을 발송마다
+// 새로 만들면 알림 한 통마다 손잡기를 다시 하고, 쓰고 버린 소켓이 TIME_WAIT 로
+// 남는다. 팩토리가 들고 있는 것을 건네 연결을 물려 쓴다.
+//
+// **핸들러 수명을 늘려 두는 것이 함께 가야 한다.** 기본값은 2분인데 이 알림은
+// 하루 수십 건이 산발로 나가므로, 그대로 두면 거의 모든 발송이 어차피 새 연결로
+// 시작해서 물려 쓰는 뜻이 한 발송 안(기기 여러 대)으로 줄어든다.
+//
+// **제한 시간은 30초다.** 기본값 100초는 이 발송이 기기마다 차례로 도는 자리라
+// 너무 길다 — 한 대가 매달리면 그 뒤의 기기가 전부 그만큼 늦는다. 그렇다고
+// 짧게 잡을 수도 없다: 이 값은 손잡기만이 아니라 **응답까지의 전체 왕복**
+// 한도이고, 운영 실측 왕복이 기기당 중앙 0.62초에 **최대 7.97초**였다
+// (docs/push-delivery.md). 잘 가던 발송을 「전달 실패」로 만들지 않을 만큼
+// 여유를 둔다.
+builder.Services.AddHttpClient(PushSender.HttpClientName, c =>
+{
+    c.Timeout = TimeSpan.FromSeconds(30);
+})
+.SetHandlerLifetime(TimeSpan.FromMinutes(10));
+
 // 쪽지의 받는 사람을 아이디·이메일로 푼다. 이메일을 푸는 것(EmailEndpoints)과
 // 같은 자리이고 scom 을 읽기만 한다 (NoteRecipientResolver 머리말).
 builder.Services.AddScoped<INoteRecipientResolver, NoteRecipientResolver>();

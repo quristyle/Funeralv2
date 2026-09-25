@@ -500,7 +500,7 @@ public sealed class AiRunService(
             return true;
         }
 
-        // 요약·제목·메일은 **기다리지 않는다.** 실행기의 완료 보고가 그 시간만큼
+        // 알림·요약·제목은 **기다리지 않는다.** 실행기의 완료 보고가 그 시간만큼
         // 늦어질 이유가 없다 — 그 사이 실행 슬롯이 묶인다.
         _ = SummarizeThenNotifyAsync(runKey);
 
@@ -508,9 +508,19 @@ public sealed class AiRunService(
     }
 
     /// <summary>
-    /// 끝난 실행의 뒤처리 — <b>요약을 적고, 제목을 짓고, 그다음에 알린다.</b>
+    /// 끝난 실행의 뒤처리 — <b>앱푸시를 먼저 쏘고, 요약을 적고, 제목을 짓고,
+    /// 그다음에 메일을 보낸다.</b>
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// <b>앱푸시가 맨 앞이다.</b> 아래 둘은 모델을 부르는 일이라 십수 초에서 몇
+    /// 분까지 걸린다 — 요약은 45초에서 끊고 두 번까지 다시 부르며
+    /// (<see cref="AiRunSummaryWriter"/>), 제목 짓기가 한 번 더 부른다.
+    /// 그 뒤에 알리던 때의 운영 실측이 <b>끝난 시각에서 푸시까지 중앙 13초 ·
+    /// 상위 10% 45초 · 최대 177초</b>였다(2026-09-25, <c>scom.push_send_logs</c>
+    /// 와 <c>ai_task_run.finished_at</c> 대조). <b>푸시에 실리는 것은 상태와
+    /// 제목뿐</b>이라 그 둘을 기다릴 까닭이 없다.
+    /// </para>
     /// <para>
     /// <b>요약은 알림 설정과 무관하다.</b> 메일도 앱푸시도 끄고 시킨 건은 화면의
     /// 「처리 요약」 칸이 결과를 읽는 유일한 자리다 — 그런데 요약을 만드는 일이
@@ -518,11 +528,10 @@ public sealed class AiRunService(
     /// 그래서 여기서 걸음을 나눠 부른다.
     /// </para>
     /// <para>
-    /// <b>순서가 전부다.</b> 셋이 앞의 것을 읽는다 —
-    /// 제목 짓기(<see cref="AiTaskTitler"/>)는 요약의 첫 줄을 읽어 모델 호출을
-    /// 아끼고, 결과 메일은 그 요약과 <b>새로 지어진 제목</b>을 싣는다.
-    /// 나란히 돌리면 메일이 요약 없이 나가거나, 메일과 화면에 같은 건이
-    /// 서로 다른 제목으로 남는다.
+    /// <b>뒤의 순서는 그대로 전부다.</b> 제목 짓기(<see cref="AiTaskTitler"/>)는
+    /// 요약의 첫 줄을 읽어 모델 호출을 아끼고, 결과 메일은 그 요약과 <b>새로
+    /// 지어진 제목</b>을 싣는다. 나란히 돌리면 메일이 요약 없이 나가거나,
+    /// 메일과 화면에 같은 건이 서로 다른 제목으로 남는다.
     /// </para>
     /// <para>
     /// <b>중간 실패는 여기까지 오지 않는다.</b> 다시 시도할 건은 위에서 돌아간다 —
@@ -534,9 +543,20 @@ public sealed class AiRunService(
     {
         try
         {
+            // **띄워 놓고 기다리지 않는다.** 앞세우는 것이 목적이지 앞을 막는
+            // 것이 목적이 아니다 — 알림 서버가 굼뜬 날 여기서 기다리면 이번에는
+            // **처리 요약이 그만큼 늦게 적힌다**(아래 두 번째 문단의 불변식).
+            var push = notifier.SendPushAsync(runKey);
+
             await summaries.EnsureAsync(runKey);
             await titler.TitleAsync(runKey);
-            await notifier.SendAsync(runKey);
+
+            // **메일보다 먼저 거둔다.** 둘이 같은 칸(`ai_task.notify_error`)에
+            // 적는데 푸시가 그 칸을 비우는 쪽이라, 순서가 뒤집히면 메일이 남긴
+            // 사유를 푸시가 지운다.
+            await push;
+
+            await notifier.SendMailAsync(runKey);
         }
         catch (Exception ex)
         {

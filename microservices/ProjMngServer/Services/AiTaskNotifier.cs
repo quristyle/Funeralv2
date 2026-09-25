@@ -59,9 +59,33 @@ public sealed class AiTaskNotifier(
     private static string TaskUrl(long taskKey) => $"/projmng/ai/task/{taskKey}";
 
     /// <summary>
-    /// 이 실행의 결과를 메일로 보낸다. <b>보낼 이유가 없으면 조용히 끝낸다.</b>
+    /// 이 실행의 <b>앱푸시</b>를 보낸다. <b>끝난 직후 맨 먼저 부르는 걸음</b>이다.
     /// </summary>
-    public async Task SendAsync(long runKey, CancellationToken ct = default)
+    /// <remarks>
+    /// <para>
+    /// [왜 메일과 갈라 놓았나 — 푸시가 요약을 기다리고 서 있었다]
+    /// </para>
+    /// <para>
+    /// 예전에는 한 함수가 메일과 푸시를 차례로 보냈고, 그 함수는 끝난 실행의
+    /// <b>처리 요약과 자동 제목이 다 만들어진 뒤에야</b> 불렸다
+    /// (<see cref="AiRunSummaryWriter"/> · <see cref="AiTaskTitler"/>, 둘 다 모델을
+    /// 부른다). 그래서 작업이 끝난 시각과 푸시가 나간 시각 사이가
+    /// <b>운영 실측으로 중앙 13초 · 상위 10% 45초 · 최대 177초</b>였다
+    /// (<c>scom.push_send_logs</c> 와 <c>ai_task_run.finished_at</c> 대조, 2026-09-25).
+    /// 받는 사람에게 그것은 그냥 <b>「푸시가 느려졌다」</b>이다.
+    /// </para>
+    /// <para>
+    /// <b>푸시에 실리는 것은 상태와 제목뿐이다</b> — 요약은 메일 본문에만 들어간다.
+    /// 기다릴 까닭이 없으므로 푸시를 앞으로 빼고, 요약을 싣는 메일만 뒤에 남긴다.
+    /// </para>
+    /// <para>
+    /// 대신 제목은 <b>AI 가 다시 짓기 전의 것</b>이 실린다. 그것은 사람이 적은
+    /// 제목이거나(그대로가 맞다) 지시문의 첫 제목 줄에서 뽑은 것이라
+    /// (<c>AiTaskService.NormalizeAsync</c>) 알림 한 줄로는 충분히 읽힌다.
+    /// 다시 지어진 제목은 <b>누르고 들어간 화면</b>과 목록에 있다.
+    /// </para>
+    /// </remarks>
+    public async Task SendPushAsync(long runKey, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(_connectionString))
         {
@@ -72,80 +96,145 @@ public sealed class AiTaskNotifier(
         {
             await using var db = new NpgsqlConnection(_connectionString);
 
-            var row = await db.QuerySingleOrDefaultAsync<MailRow>("""
-                SELECT t.task_key      AS TaskKey,
-                       t.title         AS Title,
-                       t.notify_email  AS NotifyEmail,
-                       t.notify_pwa    AS NotifyPwa,
-                       t.notify_to     AS NotifyTo,
-                       t.notify_when   AS NotifyWhen,
-                       t.task_status   AS TaskStatus,
-                       t.duration_ms   AS DurationMs,
-                       t.pushed_commit AS PushedCommit,
-                       t.cre_id        AS CreId,
-                       b.target_nm     AS TargetNm,
-                       r.seq           AS Seq,
-                       r.exit_code     AS ExitCode,
-                       r.result_text   AS ResultText,
-                       r.diff_stat     AS DiffStat,
-                       r.error_summary AS ErrorSummary,
-                       r.git_branch    AS GitBranch,
-                       r.instruction   AS Instruction,
-                       r.summary_text  AS SummaryText
-                  FROM projmng.ai_task_run r
-                  JOIN projmng.ai_task t   ON t.task_key = r.task_key
-                  LEFT JOIN projmng.ai_target b ON b.target_key = t.target_key
-                 WHERE r.run_key = @runKey
-                """, new { runKey });
+            // **이 실행의 알림 사유를 여기서 비운다.** 푸시가 알림의 첫 걸음이라
+            // 앞선 실행이 남긴 사유를 지우는 자리도 여기다 — 뒤따르는 메일은
+            // 덧붙이기만 한다(<see cref="MarkAsync"/> 의 reset).
+            await MarkAsync(db, runKey, null, reset: true);
 
-            if (row is null)
+            var target = await LoadAsync(db, runKey, wantEmail: false, ct);
+
+            if (target is null)
             {
                 return;
             }
 
-            // **처리 요약은 여기서 만들지 않는다.** 완료 처리가 알림과 무관하게
-            // 먼저 만들어 적어 두고(<see cref="AiRunSummaryWriter"/>), 우리는 그것을
-            // 읽기만 한다. 요약을 만드는 일이 이 함수 안에 있으면 그 수명이 아래
-            // 관문들(받기 꺼짐·받는 사람 없음·주소 틀림)에 매달려서, **알림을 끈
-            // 사람에게만 요약이 없는** 상태로 언제든 되돌아간다.
-            //
-            // 그래도 없으면 여기서 한 번 더 청한다 — 그 사이에 실패했더라도
-            // 메일 본문의 「무엇을 했다나」 칸은 채워 보내는 편이 낫다.
-            var summary = AiResultSummary.Parse(row.SummaryText)
-                ?? await summaries.EnsureAsync(runKey, ct: ct);
+            var row = target.Row;
 
-            if (!row.NotifyEmail && !row.NotifyPwa)
+            // 「받는 사람」에 남의 메일 주소를 적은 건은 푸시로 보낼 곳이 없다 —
+            // 우리가 아는 것은 포털 아이디뿐이고 그 칸은 주소다.
+            if (string.IsNullOrWhiteSpace(target.ToUser))
             {
                 return;
             }
 
-            // 「언제 보내나」를 본다. 실패만 받겠다고 한 사람에게 성공 메일을
-            // 보내면 그 옵션이 있으나 마나다.
-            var ok = row.TaskStatus == "succeeded";
+            var client = http.CreateClient();
+            client.Timeout = TimeSpan.FromSeconds(20);
 
-            if ((row.NotifyWhen == "on_success" && !ok)
-                || (row.NotifyWhen == "on_failure" && ok))
+            using var req = new HttpRequestMessage(
+                HttpMethod.Post, $"{_notifyUrl.TrimEnd('/')}/notifications/push")
+            {
+                Content = JsonContent.Create(new
+                {
+                    owners = new[] { new { ownerType = "jsini", ownerKey = target.ToUser } },
+                    message = new
+                    {
+                        title = "AI 작업 끝남",
+                        body = $"[{StatusText(row.TaskStatus)}] {row.Title}",
+                        // **그 건 하나를 펴 놓는 주소다.** 예전에는 목록
+                        // (`/projmng/ai/tasks`)으로 보냈고, 누른 사람이
+                        // 편집기를 받은 뒤 목록에서 그 건을 눈으로 다시
+                        // 찾아야 했다. 메일의 단추도 같은 주소를 쓴다.
+                        url = TaskUrl(row.TaskKey),
+
+                        // **아이콘에 지시한 사람의 얼굴을 띄운다.**
+                        //
+                        // 아이디만 넘기고 사진은 알림 서비스가 푼다 — 이 DB
+                        // (projmng)에는 사람의 사진도 메일 주소도 없다(위 주석).
+                        // 사진이 없는 계정이면 저쪽이 사람 형상 그림자를 쓴다.
+                        //
+                        // **받는 사람(`ToUser`)이 아니라 `CreId` 다.** 지금은
+                        // 둘이 같지만, 「받는 사람」 칸을 적어 남에게 보내게
+                        // 되면 갈린다 — 그때 아이콘이 답해야 하는 것은
+                        // 「누가 시킨 일인가」 쪽이다.
+                        iconOwnerKey = row.CreId?.Trim(),
+
+                        // **두 시간 지나면 배달하지 않는다.**
+                        //
+                        // 이 알림이 이 포털에서 가장 잦다 — 최근 일주일
+                        // 발송 254건 중 241건이 이것이다. 웹푸시는 브라우저가
+                        // 꺼져 있으면 푸시 서비스가 들고 기다렸다가 다시 켤 때
+                        // 한꺼번에 내보내므로, 수명을 안 주면(라이브러리 기본
+                        // 28일) 며칠 쉬고 온 사람의 화면에 수십 개가 쏟아진다.
+                        //
+                        // 끝난 작업은 작업 화면과 「내 알림함」에 그대로
+                        // 있으므로 배달을 포기해도 잃는 것이 없다. 사정은
+                        // docs/push-delivery.md 참고.
+                        ttlSeconds = 7200
+                    }
+                }),
+            };
+
+            req.Headers.Add("X-User-Id", "AI_TASK");
+
+            using var res = await client.SendAsync(req, ct);
+
+            if (res.IsSuccessStatusCode)
+            {
+                // **「보냈다」와 「보낼 곳이 없었다」는 다른 것이다.**
+                // 2xx 만 보고 넘기면 후자가 여기서 사라진다 —
+                // 까닭은 <see cref="PushOutcome"/> 머리말에 있다.
+                var body = await res.Content.ReadAsStringAsync(ct);
+                var notSent = PushOutcome.NotSent(res.StatusCode, body);
+
+                if (notSent is null)
+                {
+                    logger.LogInformation("작업 {TaskKey} 결과를 {To} 에게 PWA로 보냈습니다.", row.TaskKey, target.ToUser);
+                }
+                else
+                {
+                    await MarkAsync(db, runKey, $"PWA 미발송: {notSent}".Trim(), reset: false);
+                    logger.LogWarning(
+                        "작업 {TaskKey} 결과 PWA 알림이 {To} 에게 한 건도 가지 않았습니다: {Why}",
+                        row.TaskKey, target.ToUser, notSent);
+                }
+            }
+            else
+            {
+                var why = await res.Content.ReadAsStringAsync(ct);
+                await MarkAsync(db, runKey, $"PWA 실패 (HTTP {(int)res.StatusCode}): {Reason(why)}".Trim(), reset: false);
+            }
+        }
+        catch (Exception ex)
+        {
+            // **작업 상태는 건드리지 않는다.** 알림이 안 갔다고 성공한 일이
+            // 실패가 되면 안 된다.
+            logger.LogWarning(ex, "결과 앱푸시를 보내지 못했습니다 (run {RunKey}).", runKey);
+
+            // **덮어쓴다.** 푸시는 이 실행의 첫 걸음이라 여기서 나는 예외는 언제나
+            // 이번 사유다 — 이어 붙이면 위의 비우기(reset)에 닿기도 전에 터진 갈래
+            // (DB 가 안 열리는 등)에서 **앞 실행의 사유 뒤에 이번 것이 붙는다.**
+            await TryMarkAsync(runKey, ex.Message, reset: true);
+        }
+    }
+
+    /// <summary>
+    /// 이 실행의 결과를 <b>메일로</b> 보낸다. <b>보낼 이유가 없으면 조용히 끝낸다.</b>
+    /// </summary>
+    /// <remarks>
+    /// <b>이것만 요약을 기다린다.</b> 메일 본문의 「무엇을 했다나」 칸이 처리 요약을
+    /// 싣기 때문이다. 앱푸시는 그것을 안 쓰므로 먼저 나간다
+    /// (<see cref="SendPushAsync"/>).
+    /// </remarks>
+    public async Task SendMailAsync(long runKey, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(_connectionString))
+        {
+            return;
+        }
+
+        try
+        {
+            await using var db = new NpgsqlConnection(_connectionString);
+
+            var target = await LoadAsync(db, runKey, wantEmail: true, ct);
+
+            if (target is null)
             {
                 return;
             }
 
-            // **주소와 아이디를 구분해서 보낸다.**
-            //
-            // 이 DB(projmng)에는 사람의 메일 주소가 없다 — 계정은 scom 에 있고
-            // 그쪽은 알림 서비스의 DB 다. 그래서 「요청한 사람에게」는 아이디를
-            // toUser 로 넘겨 저쪽에서 풀게 한다.
-            //
-            // 예전에는 아이디(cre_id)를 그대로 to 에 실었다. 주소 꼴이 아니라서
-            // 알림 서비스가 걸러 버렸고 **「받는 사람」을 비워 둔 건은 한 통도
-            // 나가지 않았다** — notify_error 에 HTTP 400 만 쌓였다.
-            var to = row.NotifyTo?.Trim();
-            var toUser = string.IsNullOrWhiteSpace(to) ? row.CreId?.Trim() : null;
-
-            if (string.IsNullOrWhiteSpace(to) && string.IsNullOrWhiteSpace(toUser))
-            {
-                await MarkAsync(db, runKey, "받는 사람을 알 수 없습니다.");
-                return;
-            }
+            var row = target.Row;
+            var to = target.To;
 
             // 사람이 적은 값이 주소가 아니면 **여기서 말한다.** 저쪽까지 갔다
             // 오면 「받는 사람이 없습니다」가 되어 어느 칸이 틀렸는지가 흐려진다.
@@ -154,133 +243,56 @@ public sealed class AiTaskNotifier(
                      .Any(one => !System.Net.Mail.MailAddress.TryCreate(one, out _)))
             {
                 await MarkAsync(db, runKey,
-                    $"「받는 사람」이 메일 주소가 아닙니다: {to} — 비워 두면 요청한 사람에게 갑니다.");
+                    $"「받는 사람」이 메일 주소가 아닙니다: {to} — 비워 두면 요청한 사람에게 갑니다.",
+                    reset: false);
                 return;
             }
+
+            // **처리 요약을 만드는 자리는 여기가 아니다.** 완료 처리가 알림과
+            // 무관하게 먼저 만들어 적어 둔다(<c>AiRunService.SummarizeThenNotifyAsync</c>
+            // → <see cref="AiRunSummaryWriter"/>). 그 자리가 여기로 돌아오면 요약의
+            // 수명이 위 관문들(받기 꺼짐·받는 사람 없음·주소 틀림)에 매달려서
+            // **알림을 끈 사람에게만 요약이 없는** 상태가 된다.
+            //
+            // 아래 한 줄은 **되읽기이고, 없을 때의 재청일 뿐**이다 — 앞에서 만들다
+            // 실패했더라도 메일 본문의 「무엇을 했다나」 칸은 채워 보내는 편이 낫다.
+            // 그래서 관문 밑에 있어도 위의 걱정에 걸리지 않는다.
+            var summary = AiResultSummary.Parse(row.SummaryText)
+                ?? await summaries.EnsureAsync(runKey, ct: ct);
 
             var client = http.CreateClient();
             client.Timeout = TimeSpan.FromSeconds(20);
 
-            var errorMessages = new List<string>();
-
-            if (row.NotifyEmail)
+            using var req = new HttpRequestMessage(
+                HttpMethod.Post, $"{_notifyUrl.TrimEnd('/')}/emails/send")
             {
-                using var req = new HttpRequestMessage(
-                    HttpMethod.Post, $"{_notifyUrl.TrimEnd('/')}/emails/send")
+                Content = JsonContent.Create(new
                 {
-                    Content = JsonContent.Create(new
-                    {
-                        to,
-                        toUser,
-                        subject = $"[AI 작업] {row.Title} — {StatusText(row.TaskStatus)}",
-                        body = Body(row, summary),
-                        // 저쪽 DTO 의 속성 이름은 `Html` 이다. `isHtml` 로 적으면
-                        // 붙지 않고 조용히 기본값이 쓰인다 — 그러면 본문이 태그
-                        // 그대로 보인다.
-                        html = true,
-                    }),
-                };
+                    to,
+                    toUser = target.ToUser,
+                    subject = $"[AI 작업] {row.Title} — {StatusText(row.TaskStatus)}",
+                    body = Body(row, summary),
+                    // 저쪽 DTO 의 속성 이름은 `Html` 이다. `isHtml` 로 적으면
+                    // 붙지 않고 조용히 기본값이 쓰인다 — 그러면 본문이 태그
+                    // 그대로 보인다.
+                    html = true,
+                }),
+            };
 
-                // 서비스 간 직접 호출이라 자기 이름을 적어 보낸다
-                req.Headers.Add("X-User-Id", "AI_TASK");
+            // 서비스 간 직접 호출이라 자기 이름을 적어 보낸다
+            req.Headers.Add("X-User-Id", "AI_TASK");
 
-                using var res = await client.SendAsync(req, ct);
+            using var res = await client.SendAsync(req, ct);
 
-                if (res.IsSuccessStatusCode)
-                {
-                    logger.LogInformation("작업 {TaskKey} 결과를 {To} 에게 메일로 보냈습니다.", row.TaskKey, to ?? toUser);
-                }
-                else
-                {
-                    var why = await res.Content.ReadAsStringAsync(ct);
-                    errorMessages.Add($"메일 실패 (HTTP {(int)res.StatusCode}): {Reason(why)}".Trim());
-                }
-            }
-
-            if (row.NotifyPwa && !string.IsNullOrWhiteSpace(toUser))
+            if (res.IsSuccessStatusCode)
             {
-                using var req = new HttpRequestMessage(
-                    HttpMethod.Post, $"{_notifyUrl.TrimEnd('/')}/notifications/push")
-                {
-                    Content = JsonContent.Create(new
-                    {
-                        owners = new[] { new { ownerType = "jsini", ownerKey = toUser } },
-                        message = new
-                        {
-                            title = "AI 작업 끝남",
-                            body = $"[{StatusText(row.TaskStatus)}] {row.Title}",
-                            // **그 건 하나를 펴 놓는 주소다.** 예전에는 목록
-                            // (`/projmng/ai/tasks`)으로 보냈고, 누른 사람이
-                            // 편집기를 받은 뒤 목록에서 그 건을 눈으로 다시
-                            // 찾아야 했다. 메일의 단추도 같은 주소를 쓴다.
-                            url = TaskUrl(row.TaskKey),
-
-                            // **아이콘에 지시한 사람의 얼굴을 띄운다.**
-                            //
-                            // 아이디만 넘기고 사진은 알림 서비스가 푼다 — 이 DB
-                            // (projmng)에는 사람의 사진도 메일 주소도 없다(위 주석).
-                            // 사진이 없는 계정이면 저쪽이 사람 형상 그림자를 쓴다.
-                            //
-                            // **받는 사람(`toUser`)이 아니라 `CreId` 다.** 지금은
-                            // 둘이 같지만, 「받는 사람」 칸을 적어 남에게 보내게
-                            // 되면 갈린다 — 그때 아이콘이 답해야 하는 것은
-                            // 「누가 시킨 일인가」 쪽이다.
-                            iconOwnerKey = row.CreId?.Trim(),
-
-                            // **두 시간 지나면 배달하지 않는다.**
-                            //
-                            // 이 알림이 이 포털에서 가장 잦다 — 최근 일주일
-                            // 발송 254건 중 241건이 이것이다. 웹푸시는 브라우저가
-                            // 꺼져 있으면 푸시 서비스가 들고 기다렸다가 다시 켤 때
-                            // 한꺼번에 내보내므로, 수명을 안 주면(라이브러리 기본
-                            // 28일) 며칠 쉬고 온 사람의 화면에 수십 개가 쏟아진다.
-                            //
-                            // 끝난 작업은 작업 화면과 「내 알림함」에 그대로
-                            // 있으므로 배달을 포기해도 잃는 것이 없다. 사정은
-                            // docs/push-delivery.md 참고.
-                            ttlSeconds = 7200
-                        }
-                    }),
-                };
-
-                req.Headers.Add("X-User-Id", "AI_TASK");
-
-                using var res = await client.SendAsync(req, ct);
-
-                if (res.IsSuccessStatusCode)
-                {
-                    // **「보냈다」와 「보낼 곳이 없었다」는 다른 것이다.**
-                    // 2xx 만 보고 넘기면 후자가 여기서 사라진다 —
-                    // 까닭은 <see cref="PushOutcome"/> 머리말에 있다.
-                    var body = await res.Content.ReadAsStringAsync(ct);
-                    var notSent = PushOutcome.NotSent(res.StatusCode, body);
-
-                    if (notSent is null)
-                    {
-                        logger.LogInformation("작업 {TaskKey} 결과를 {To} 에게 PWA로 보냈습니다.", row.TaskKey, toUser);
-                    }
-                    else
-                    {
-                        errorMessages.Add($"PWA 미발송: {notSent}".Trim());
-                        logger.LogWarning(
-                            "작업 {TaskKey} 결과 PWA 알림이 {To} 에게 한 건도 가지 않았습니다: {Why}",
-                            row.TaskKey, toUser, notSent);
-                    }
-                }
-                else
-                {
-                    var why = await res.Content.ReadAsStringAsync(ct);
-                    errorMessages.Add($"PWA 실패 (HTTP {(int)res.StatusCode}): {Reason(why)}".Trim());
-                }
-            }
-
-            if (errorMessages.Count == 0)
-            {
-                await MarkAsync(db, runKey, null);
+                logger.LogInformation("작업 {TaskKey} 결과를 {To} 에게 메일로 보냈습니다.", row.TaskKey, to ?? target.ToUser);
             }
             else
             {
-                await MarkAsync(db, runKey, string.Join(" / ", errorMessages));
+                var why = await res.Content.ReadAsStringAsync(ct);
+                await MarkAsync(db, runKey,
+                    $"메일 실패 (HTTP {(int)res.StatusCode}): {Reason(why)}".Trim(), reset: false);
             }
         }
         catch (Exception ex)
@@ -289,15 +301,110 @@ public sealed class AiTaskNotifier(
             // 실패가 되면 안 된다.
             logger.LogWarning(ex, "결과 메일을 보내지 못했습니다 (run {RunKey}).", runKey);
 
-            try
-            {
-                await using var db = new NpgsqlConnection(_connectionString);
-                await MarkAsync(db, runKey, ex.Message);
-            }
-            catch
-            {
-                // 여기서 또 실패하면 남길 곳이 없다. 로그로 끝낸다.
-            }
+            // 메일은 뒤 걸음이라 앞이 남긴 사유를 지우지 않는다.
+            await TryMarkAsync(runKey, ex.Message, reset: false);
+        }
+    }
+
+    /// <summary>알림 한 통을 만들 때 필요한 것 — 읽어 온 줄과 받는 곳.</summary>
+    /// <param name="Row">실행·작업을 한 줄로 편 것.</param>
+    /// <param name="To">사람이 적은 메일 주소. 비어 있으면 <paramref name="ToUser"/> 가 찬다.</param>
+    /// <param name="ToUser">요청한 사람의 포털 아이디. 주소를 적었으면 <c>null</c>.</param>
+    private sealed record Target(MailRow Row, string? To, string? ToUser);
+
+    /// <summary>
+    /// 보낼 줄을 읽고 <b>보낼 이유가 있는지</b>까지 가린다. 없으면 <c>null</c>.
+    /// </summary>
+    /// <remarks>
+    /// <b>두 길(푸시·메일)이 같은 관문을 쓴다.</b> 갈래마다 따로 적으면 한쪽만
+    /// 고쳐져 「메일은 왔는데 푸시는 안 온다」가 된다 — 받는 사람이 가장
+    /// 설명하기 어려워하는 갈래다.
+    /// </remarks>
+    /// <param name="wantEmail">메일 길인가. 아니면 앱푸시 길이다.</param>
+    private async Task<Target?> LoadAsync(
+        NpgsqlConnection db, long runKey, bool wantEmail, CancellationToken ct)
+    {
+        var row = await db.QuerySingleOrDefaultAsync<MailRow>(new CommandDefinition("""
+            SELECT t.task_key      AS TaskKey,
+                   t.title         AS Title,
+                   t.notify_email  AS NotifyEmail,
+                   t.notify_pwa    AS NotifyPwa,
+                   t.notify_to     AS NotifyTo,
+                   t.notify_when   AS NotifyWhen,
+                   t.task_status   AS TaskStatus,
+                   t.duration_ms   AS DurationMs,
+                   t.pushed_commit AS PushedCommit,
+                   t.cre_id        AS CreId,
+                   b.target_nm     AS TargetNm,
+                   r.seq           AS Seq,
+                   r.exit_code     AS ExitCode,
+                   r.result_text   AS ResultText,
+                   r.diff_stat     AS DiffStat,
+                   r.error_summary AS ErrorSummary,
+                   r.git_branch    AS GitBranch,
+                   r.instruction   AS Instruction,
+                   r.summary_text  AS SummaryText
+              FROM projmng.ai_task_run r
+              JOIN projmng.ai_task t   ON t.task_key = r.task_key
+              LEFT JOIN projmng.ai_target b ON b.target_key = t.target_key
+             WHERE r.run_key = @runKey
+            """, new { runKey }, cancellationToken: ct));
+
+        if (row is null)
+        {
+            return null;
+        }
+
+        if (!(wantEmail ? row.NotifyEmail : row.NotifyPwa))
+        {
+            return null;
+        }
+
+        // 「언제 보내나」를 본다. 실패만 받겠다고 한 사람에게 성공 메일을
+        // 보내면 그 옵션이 있으나 마나다.
+        var ok = row.TaskStatus == "succeeded";
+
+        if ((row.NotifyWhen == "on_success" && !ok)
+            || (row.NotifyWhen == "on_failure" && ok))
+        {
+            return null;
+        }
+
+        // **주소와 아이디를 구분해서 보낸다.**
+        //
+        // 이 DB(projmng)에는 사람의 메일 주소가 없다 — 계정은 scom 에 있고
+        // 그쪽은 알림 서비스의 DB 다. 그래서 「요청한 사람에게」는 아이디를
+        // toUser 로 넘겨 저쪽에서 풀게 한다.
+        //
+        // 예전에는 아이디(cre_id)를 그대로 to 에 실었다. 주소 꼴이 아니라서
+        // 알림 서비스가 걸러 버렸고 **「받는 사람」을 비워 둔 건은 한 통도
+        // 나가지 않았다** — notify_error 에 HTTP 400 만 쌓였다.
+        var to = row.NotifyTo?.Trim();
+        var toUser = string.IsNullOrWhiteSpace(to) ? row.CreId?.Trim() : null;
+
+        if (string.IsNullOrWhiteSpace(to) && string.IsNullOrWhiteSpace(toUser))
+        {
+            await MarkAsync(db, runKey, "받는 사람을 알 수 없습니다.", reset: false);
+            return null;
+        }
+
+        return new Target(row, to, toUser);
+    }
+
+    /// <summary>
+    /// 사유를 남겨 보되 <b>남기지 못해도 그만인</b> 자리. 이미 예외를 처리하는
+    /// 중이라 여기서 또 던지면 남길 곳이 없다.
+    /// </summary>
+    private async Task TryMarkAsync(long runKey, string? error, bool reset)
+    {
+        try
+        {
+            await using var db = new NpgsqlConnection(_connectionString);
+            await MarkAsync(db, runKey, error, reset);
+        }
+        catch
+        {
+            // 로그로 끝낸다.
         }
     }
 
@@ -330,12 +437,57 @@ public sealed class AiTaskNotifier(
         return body.Trim()[..Math.Min(body.Trim().Length, 200)];
     }
 
-    private static async Task MarkAsync(NpgsqlConnection db, long runKey, string? error)
-        => await db.ExecuteAsync("""
+    /// <summary>
+    /// 이 실행의 알림 사유(<c>ai_task.notify_error</c>)를 적는다.
+    /// </summary>
+    /// <remarks>
+    /// <b>걸음이 둘이라 덮어쓰기와 덧붙이기를 가른다.</b> 앱푸시가 먼저 나가고
+    /// (<see cref="SendPushAsync"/>) 메일이 나중에 나가는데, 뒤엣것이 그냥 덮으면
+    /// <b>「푸시는 안 갔고 메일은 갔다」가 아무 데도 안 남는다.</b> 그래서 첫
+    /// 걸음만 <paramref name="reset"/> 으로 비우고 나머지는 <c> / </c> 로 잇는다.
+    /// </remarks>
+    /// <param name="reset">
+    /// 참이면 앞의 것을 지우고 이 값만 남긴다(새 실행의 첫 걸음).
+    /// 거짓이면 뒤에 잇는다 — <paramref name="error"/> 가 비면 아무것도 안 한다.
+    /// </param>
+    private static async Task MarkAsync(
+        NpgsqlConnection db, long runKey, string? error, bool reset)
+    {
+        var clipped = string.IsNullOrWhiteSpace(error)
+            ? null
+            : error[..Math.Min(error.Length, 480)];
+
+        if (reset)
+        {
+            await db.ExecuteAsync("""
+                UPDATE projmng.ai_task
+                   SET notify_error = @error
+                 WHERE task_key = ( SELECT task_key FROM projmng.ai_task_run WHERE run_key = @runKey )
+                """, new { runKey, error = clipped });
+            return;
+        }
+
+        if (clipped is null)
+        {
+            // 잘 갔다는 것은 적지 않는다 — 앞 걸음이 남긴 사유를 지우게 된다.
+            return;
+        }
+
+        // **이미 적힌 말은 다시 적지 않는다.** 두 걸음이 같은 관문에 걸리는 갈래가
+        // 있다(받는 사람을 알 수 없음 — 푸시도 메일도 같은 말을 한다). 그대로
+        // 이으면 화면에 같은 문장이 두 번 뜬다.
+        //
+        // `LIKE` 가 아니라 `POSITION` 이다 — 사유에 `%` 나 `_` 가 섞여 들어오면
+        // (HTTP 응답을 그대로 실어 나르는 자리가 있다) 패턴으로 읽혀 엉뚱하게 맞는다.
+        await db.ExecuteAsync("""
             UPDATE projmng.ai_task
-               SET notify_error = @error
+               SET notify_error = CASE
+                     WHEN POSITION(@error IN COALESCE(notify_error, '')) > 0 THEN notify_error
+                     ELSE LEFT(CONCAT_WS(' / ', NULLIF(notify_error, ''), @error), 480)
+                   END
              WHERE task_key = ( SELECT task_key FROM projmng.ai_task_run WHERE run_key = @runKey )
-            """, new { runKey, error = error?[..Math.Min(error.Length, 480)] });
+            """, new { runKey, error = clipped });
+    }
 
     /// <summary>
     /// 메일 한 통. <b>맨 위 요약만 읽어도 다 알 수 있게</b> 짠다.

@@ -17,10 +17,14 @@ public interface IPushSender
     /// <summary>
     /// 주인 목록에게 보낸다. 주인 한 명이 기기 여러 대를 가질 수 있다.
     /// </summary>
+    /// <param name="request">보낼 대상과 내용.</param>
     /// <param name="sentBy">
     /// 보낸 사람(포털 로그인 아이디). <b>기록에만 쓴다</b> — 누가 보냈는지는
     /// 발송 뒤에 가장 먼저 묻는 것이고, 그때 로그에 없으면 답할 길이 없다.
     /// 시스템이 저절로 보내는 것은 <c>null</c> 이다.
+    /// </param>
+    /// <param name="ct">
+    /// 끊김표. <b>끊겨도 여기까지의 기록은 남는다</b> — 구현부의 저장 주석 참고.
     /// </param>
     Task<SendPushResultDto> SendAsync(
         SendPushDto request, string? sentBy = null, CancellationToken ct = default);
@@ -46,7 +50,14 @@ public class PushSender : IPushSender
     private readonly PushDeliveryOptions _delivery;
     private readonly INotificationPreferenceService _preferences;
     private readonly IAvatarIconResolver _avatars;
+    private readonly IHttpClientFactory _http;
     private readonly ILogger<PushSender> _logger;
+
+    /// <summary>
+    /// 푸시 서비스로 나가는 연결의 이름. 등록은 <c>Program.cs</c> 에 있다 —
+    /// <b>연결을 물려 쓰고 제한 시간을 못 박는 것</b>이 거기 있는 이유다.
+    /// </summary>
+    public const string HttpClientName = "webpush";
 
     public PushSender(
         AppDbContext db,
@@ -54,6 +65,7 @@ public class PushSender : IPushSender
         IOptions<PushDeliveryOptions> delivery,
         INotificationPreferenceService preferences,
         IAvatarIconResolver avatars,
+        IHttpClientFactory http,
         ILogger<PushSender> logger)
     {
         _db = db;
@@ -61,6 +73,7 @@ public class PushSender : IPushSender
         _delivery = delivery.Value;
         _preferences = preferences;
         _avatars = avatars;
+        _http = http;
         _logger = logger;
     }
 
@@ -269,7 +282,11 @@ public class PushSender : IPushSender
         var topic = BuildTopic(request.Message);
 
         var payload = BuildPayload(request.Message, batchId, ttl);
-        var client = new WebPushClient();
+
+        // **연결은 팩토리가 들고 있는 것을 쓴다.** 인자 없이 만들면 이 클라이언트가
+        // HttpClient 를 스스로 하나 만들고, 그러면 알림 한 통마다 푸시 서비스와
+        // TLS 손잡기를 다시 한다 (Program.cs 의 등록 주석).
+        var client = new WebPushClient(_http.CreateClient(HttpClientName));
         var vapid = new VapidDetails(_vapid.Subject, _vapid.PublicKey, _vapid.PrivateKey);
 
         // 라이브러리 기본 TTL 은 28일이라 **반드시 덮어야 한다.** 옵션 이름은
@@ -289,9 +306,17 @@ public class PushSender : IPushSender
         var failed = 0;
         var dead = new List<Entities.PushSubscription>();
 
+        // 부르는 쪽이 도중에 끊었나. **끊겨도 여기까지의 기록은 남겨야 한다** —
+        // 아래 저장 주석에 까닭이 있다.
+        var cancelled = false;
+
         foreach (var sub in subscriptions)
         {
-            ct.ThrowIfCancellationRequested();
+            if (ct.IsCancellationRequested)
+            {
+                cancelled = true;
+                break;
+            }
 
             try
             {
@@ -317,6 +342,13 @@ public class PushSender : IPushSender
                     "죽은 구독을 지웁니다. owner={Type}:{Key} status={Status}",
                     sub.OwnerType, sub.OwnerKey, (int)ex.StatusCode);
             }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                // **부르는 쪽이 끊은 것은 이 기기의 실패가 아니다.** 시도가 끝나지
+                // 않았으므로 세지 않고, 여기까지의 기록만 남기고 나온다.
+                cancelled = true;
+                break;
+            }
             catch (Exception ex)
             {
                 // 일시적인 문제일 수 있다(네트워크·푸시 서비스 장애). 세어 두고 넘어간다.
@@ -331,7 +363,11 @@ public class PushSender : IPushSender
         }
 
         if (dead.Count > 0) _db.PushSubscriptions.RemoveRange(dead);
-        await _db.SaveChangesAsync(ct);
+
+        // **끊겼을 때는 취소표를 넘기지 않는다.** 그대로 넘기면 저장까지 함께
+        // 취소되어 **이 발송의 기록이 통째로 사라진다** — 「몇 대까지 갔고 어디서
+        // 멈췄나」가 가장 알고 싶은 갈래인데 하필 그때 아무것도 안 남는다.
+        await _db.SaveChangesAsync(cancelled ? CancellationToken.None : ct);
 
         return new SendPushResultDto
         {

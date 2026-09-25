@@ -15,8 +15,8 @@
   - `AIAgentServer` (:5029) · `FileServer` (:5350) · `HelpDeskServer` (:5400)
   - `ProjMngServer` (:5450) · `SiteServer` (:5480) 회사 소개 사이트 백엔드
   - `NotificationServer` (:5460) 푸시·이메일 알림 (포털·장례식장·헬프데스크 공용).
-    알림이 **한꺼번에 몰려 오는** 까닭과 그것을 막는 수명(TTL)·겹침(Topic) 설정은
-    [docs/push-delivery.md](docs/push-delivery.md)
+    알림이 **한꺼번에 몰려 오거나 늦게 오는** 까닭 — 수명(TTL)·겹침(Topic) 설정과
+    **보내기까지의 지연** 실측은 [docs/push-delivery.md](docs/push-delivery.md)
   - `LifeEnvServer` (:5490) 생활과환경(기상·생일)
   - `CargoTrustServer` (:5500) JSini 운송관리 — 화물 거래처 신뢰정보. 계약은 [docs/cargotrust/05-api-design.md](docs/cargotrust/05-api-design.md)
   - `Common/` — 서비스 간 공유 코드
