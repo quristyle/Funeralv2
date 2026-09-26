@@ -854,6 +854,17 @@ a { color: var(--tb-primary); }
   color: var(--tb-muted);
 }
 
+/* 표만 담은 판은 안쪽 여백을 없애 표를 판 가장자리에 붙인다(Tabler `.card > .table`).
+   테를 한 번 더 두르면 휴대폰에서 폭만 잃는다. */
+.commcont:has(> .commcont__body > :is(.commgrd, .commtree):only-child) {
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+.commcont:has(> .commcont__body > :is(.commgrd, .commtree):only-child) .dxbl-grid {
+  border-radius: 0;
+}
+
 /* 판 안의 표는 판 테두리와 겹치지 않게 제 테두리를 걷는다. */
 .commcont .dxbl-grid,
 .commcont .dxbl-treelist {
@@ -1068,4 +1079,129 @@ a { color: var(--tb-primary); }
 /* 스크롤 막대 — 얇고 옅게. */
 * {
   scrollbar-color: color-mix(in srgb, var(--tb-muted) 45%, transparent) transparent;
+}
+
+/* ── 9. 창 머리 · 탭 테 ─────────────────────────────────── */
+
+.dxbl-popup .dxbl-modal-header,
+.dxbl-popup .dxbl-popup-header {
+  background: var(--tb-surface);
+}
+
+.dxbl-tabs {
+  --dxbl-tabs-tab-border-color: transparent;
+}
+
+/* ── 10. 휴대폰 (≤767px) ───────────────────────────────────
+   preview.tabler.io 를 375px 로 잰 값이다 — 헤더 56px, 좌우 여백 8px,
+   카드는 폭을 다 쓰고 안쪽 16~20px, 칸 40px, 창은 좌우 8px 만 남긴다.
+   높이 사슬·아래 탭 줄 자리는 app.css 의 휴대폰 규칙이 그대로 쥐고 있다 —
+   여기서는 여백과 겉모양만 고친다. */
+
+@media (width < 768px) {
+  .jsini-shell__content {
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+    padding-top: 0.5rem !important;
+  }
+
+  .jsini-header {
+    box-shadow: none;
+  }
+
+  /* 판 사이 8px, 판 안쪽 16px. */
+  .commsch,
+  .commcont,
+  .jsini-dashboard-section,
+  .ad-vsplit__pane {
+    margin-bottom: 0.5rem;
+  }
+
+  .commsch {
+    padding: 0.75rem 1rem;
+  }
+
+  .commcont__head,
+  .jsini-dashboard-section__head {
+    padding: 0.75rem 1rem;
+  }
+
+  /* 카드 안의 표는 카드 가장자리에 붙인다 — 테를 한 번 더 두르면 폭만 잃는다. */
+  .commcont__body {
+    padding: 0 !important;
+  }
+
+  .commcont .dxbl-grid,
+  .commcont .dxbl-treelist,
+  .ad-vsplit__pane .dxbl-grid {
+    border-radius: 0 0 var(--tb-radius-lg) var(--tb-radius-lg);
+  }
+
+  .ad-vsplit__pane--right {
+    padding: 0.75rem 1rem;
+  }
+
+  .ad-company__head {
+    margin: 0 0 0.5rem;
+  }
+
+  /* 통계 타일은 두 칸으로 — 한 줄에 하나면 숫자 넷이 화면 하나를 먹는다. */
+  .jsini-stats {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+
+  .jsini-stat {
+    padding: 0.75rem 1rem;
+  }
+
+  .jsini-stat__value {
+    font-size: 1.25rem;
+  }
+
+  /* 창 — 좌우 8px 만 남기고, 머리·발은 Tabler 모달처럼. */
+  .dxbl-modal > .dxbl-modal-root > .dxbl-popup,
+  .dxbl-modal > .dxbl-modal-root > .dxbl-popup.ad-editpopup {
+    --dxbl-popup-margin: 0.5rem;
+    --dxbl-popup-max-width: calc(100vw - 1rem);
+    width: calc(100vw - 1rem) !important;
+    max-width: calc(100vw - 1rem) !important;
+    --dxbl-popup-header-padding-x: 1rem;
+    --dxbl-popup-body-padding-x: 1rem;
+    --dxbl-popup-footer-padding-x: 1rem;
+  }
+
+  /* 폼 칸은 한 줄에 하나 — DevExpress 의 반 칸(ColSpanMd=6)은 이미 풀린다. 칸 사이만 좁힌다. */
+  .dxbl-fl {
+    --dxbl-fl-item-spacing-y: 0.875rem;
+  }
+
+  /* 아래 탭 줄 — Tabler 의 판 색 + 윗선, 글자는 작고 흐리게. */
+  .jsini-bottom-nav {
+    background: var(--tb-surface) !important;
+    border-top: 1px solid var(--tb-border-soft) !important;
+    box-shadow: 0 -1px 2px rgba(0, 0, 0, 0.04);
+  }
+
+  .jsini-bottom-nav__item {
+    color: var(--tb-muted);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    gap: 0.125rem;
+  }
+
+  .jsini-bottom-nav__item:hover,
+  .jsini-bottom-nav__item:active {
+    color: var(--tb-primary);
+  }
+
+  /* 메뉴 서랍이 열리면 본문을 Tabler 덮개 색으로 가린다. */
+  .jsini-shell__scrim {
+    background: var(--tb-scrim) !important;
+  }
+
+  .jsini-shell__sidebar {
+    box-shadow: var(--tb-shadow-dropdown) !important;
+  }
 }
