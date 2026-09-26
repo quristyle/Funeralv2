@@ -455,7 +455,7 @@ public static class RequestEndpoints {
 
 
     // 요청 생성
-    group.MapPost("/", async (IAdminService adminService, HttpRequest httpRequest, AppDbContext db, IRequesterProvisioner requesters, IRabbitMqConnectionProvider provider, ILoggerFactory loggerFactory, IConfiguration configuration, IPushSubscriptionStore store, IWebPushService sender) => {
+    group.MapPost("/", async (IAdminService adminService, HttpRequest httpRequest, AppDbContext db, IRequesterProvisioner requesters, IRabbitMqConnectionProvider provider, ILoggerFactory loggerFactory, IConfiguration configuration, IHttpClientFactory httpClientFactory) => {
       var form = await httpRequest.ReadFormAsync();
       var me = httpRequest.HttpContext.GetHelpdeskPrincipal();
 
@@ -564,14 +564,56 @@ public static class RequestEndpoints {
 
 
 
-
-
         var logger = loggerFactory.CreateLogger("RequestEndpoints");
+        var customer = await db.Customers.FindAsync(requestDto.CustomerId);
+        var notificationUrl = configuration["Notify:BaseUrl"] ?? "http://127.0.0.1:5460";
+        using var notificationClient = httpClientFactory.CreateClient();
+        notificationClient.Timeout = TimeSpan.FromSeconds(15);
+
+        using var notificationRequest = new HttpRequestMessage(
+          HttpMethod.Post,
+          $"{notificationUrl.TrimEnd('/')}/notifications/push")
+        {
+          Content = System.Net.Http.Json.JsonContent.Create(new {
+            roles = new[] { "SYSTEM_ADMINISTRATOR" },
+            message = new {
+              title = "새 헬프데스크 요청",
+              body = $"{customer?.UserName ?? auditUser} 님이 요청을 등록했습니다: {request.Title}",
+              url = $"/helpdesk/request/detail/{request.Id}",
+              iconOwnerKey = auditUser,
+              tag = $"helpdesk-request-{request.Id}"
+            }
+          })
+        };
+        notificationRequest.Headers.Add("X-User-Id", "HELPDESK_REQUEST");
+
+        try {
+          using var notificationResponse = await notificationClient.SendAsync(
+            notificationRequest, CancellationToken.None);
+          var responseBody = await notificationResponse.Content.ReadAsStringAsync();
+
+          if (notificationResponse.StatusCode == System.Net.HttpStatusCode.Accepted) {
+            logger.LogWarning(
+              "요청 {RequestId} 시스템관리자 푸시를 보냈으나 수신 가능한 기기가 없습니다: {Response}",
+              request.Id, responseBody);
+          }
+          else if (!notificationResponse.IsSuccessStatusCode) {
+            logger.LogError(
+              "요청 {RequestId} 시스템관리자 푸시 발송에 실패했습니다 ({StatusCode}): {Response}",
+              request.Id, notificationResponse.StatusCode, responseBody);
+          }
+          else {
+            logger.LogInformation("요청 {RequestId} 시스템관리자 푸시를 발송했습니다.", request.Id);
+          }
+        }
+        catch (HttpRequestException ex) {
+          logger.LogError(ex, "요청 {RequestId} 시스템관리자 푸시 서비스에 연결할 수 없습니다.", request.Id);
+        }
+        catch (TaskCanceledException ex) {
+          logger.LogError(ex, "요청 {RequestId} 시스템관리자 푸시 발송 시간이 초과됐습니다.", request.Id);
+        }
+
         if (provider.IsConnected) {
-
-
-          var adminSubscriptions = await store.GetAdminSubscriptionsAsync();
-
           string mailBody = request.Description + "<br/><br/>" +
             $"<a href='https://help.jin114.co.kr/request_detail?id={request.Id}' target='_blank'>접수글 보기</a><br/><br/><br/><br/>";
 
@@ -581,18 +623,6 @@ public static class RequestEndpoints {
           string mailTos = string.Join(";", adminEmails);
 
           await EMailUtil.SendEmailJinNets(mailTos, requestDto.Title, mailBody, provider, loggerFactory, configuration);
-
-
-
-          // 푸시 알림 전송  
-          var customer = await db.Customers.FindAsync(requestDto.CustomerId);
-          await PushUtil.SendPushMsg(
-            $"신규 - {customer?.UserName}",
-            $"{request.Title} : {request.Description}",
-            $"/request_detail?id={request.Id}",
-            adminSubscriptions,
-            sender
-            );
         }
 
         return request;

@@ -28,7 +28,8 @@
         <dt>요청번호</dt><dd>@Text("reqNo")</dd>
         <dt>제목</dt><dd>@Text("title")</dd>
         <dt>고객사</dt><dd>@Text("companyName")</dd>
-        <dt>요청자</dt><dd>@Text("requesterName")</dd>
+        <dt>요청자</dt><dd>@RequesterName()</dd>
+        <dt>작성자(계정)</dt><dd>@Text("createdBy")</dd>
         <dt>담당자</dt><dd>@Text("adminName")</dd>
         <dt>상태</dt><dd>@Text("statusName")</dd>
         <dt>접수</dt><dd>@Text("createdAt")</dd>
@@ -122,6 +123,20 @@
     }
 
     private string Text(string name) => Value(name) ?? "-";
+
+    private string RequesterName() =>
+        Value("requesterName")
+        ?? NestedValue("customer", "userName")
+        ?? "-";
+
+    private string? NestedValue(string parentName, string name) =>
+        _request is { ValueKind: JsonValueKind.Object } obj
+        && obj.TryGetProperty(parentName, out var parent)
+        && parent.ValueKind == JsonValueKind.Object
+        && parent.TryGetProperty(name, out var value)
+        && value.ValueKind is not (JsonValueKind.Null or JsonValueKind.Undefined)
+            ? value.ToString()
+            : null;
 
     /// <summary>
     /// 본문을 화면에 넣을 수 있는 HTML 로 만든다.
