@@ -1,0 +1,20 @@
+@* 부서 나무의 관리 칸 — 하위 추가 · 수정 · 삭제. *@
+
+<div class="jsini-actions">
+    <PermissionView Action="MenuAction.Create">
+        <DxButton IconCssClass="jsini-icon-child-plus" Title="하위 추가"
+                  RenderStyle="ButtonRenderStyle.Link"
+                  Click="@(() => OnAddChild.InvokeAsync(Dept))" />
+    </PermissionView>
+    <PermissionView Action="MenuAction.Update">
+        <DxButton IconCssClass="jsini-icon-edit" Title="수정"
+                  RenderStyle="ButtonRenderStyle.Link"
+                  Click="@(() => OnEdit.InvokeAsync(Dept))" />
+    </PermissionView>
+    <PermissionView Action="MenuAction.Delete">
+        <DxButton IconCssClass="jsini-icon-trash" Title="삭제"
+                  CssClass="commtree__icon--warn"
+                  RenderStyle="ButtonRenderStyle.Link"
+                  Click="@(() => OnDelete.InvokeAsync(Dept))" />
+    </PermissionView>
+</div>

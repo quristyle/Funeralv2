@@ -93,7 +93,7 @@ public sealed class ReconnectDialogTests
     [Fact]
     public void 일곱_상태가_모두_CSS_에_있다()
     {
-        var css = File.ReadAllText(AppCssPath());
+        var css = RazorSource.Read(AppCssPath());
         var missing = States.Where(s => !css.Contains(s, StringComparison.Ordinal)).ToArray();
 
         Assert.True(
@@ -202,7 +202,7 @@ public sealed class ReconnectDialogTests
     [Fact]
     public void 상자가_잠금화면보다_위다()
     {
-        var css = File.ReadAllText(AppCssPath());
+        var css = RazorSource.Read(AppCssPath());
 
         Assert.True(
             ZIndexOf(css, "#components-reconnect-modal.components-reconnect-show") is { } dialog
@@ -230,7 +230,7 @@ public sealed class ReconnectDialogTests
         return match.Success ? int.Parse(match.Groups[1].Value) : null;
     }
 
-    private static string App() => File.ReadAllText(Path.Combine(
+    private static string App() => RazorSource.Read(Path.Combine(
         SolutionRoot(), "src", "Shell", "JSini.Web.Shell", "Components", "App.razor"));
 
     private static string AppCssPath() => Path.Combine(
@@ -239,7 +239,7 @@ public sealed class ReconnectDialogTests
     private static string ReconnectScriptPath() => Path.Combine(
         SolutionRoot(), "src", "Shell", "JSini.Web.Shell", "wwwroot", "js", "reconnect.js");
 
-    private static string ReconnectScript() => File.ReadAllText(ReconnectScriptPath());
+    private static string ReconnectScript() => RazorSource.Read(ReconnectScriptPath());
 
     private static string SolutionRoot()
     {

@@ -13,7 +13,6 @@
 *@
 
 @inherits DataPage
-@inject FuneralApi Api
 
 <PageTitle>미리보기 · 장례식장</PageTitle>
 
@@ -56,17 +55,3 @@
         </figure>
     }
 </div>
-
-@code {
-    private string? _buildingId;
-    private string? _roomId;
-    private IReadOnlyList<DevicePreview> _rows = [];
-
-    protected override Task OnInitializedAsync() => ReloadAsync();
-
-    private Task ReloadAsync() => LoadAsync(async () =>
-    {
-        _rows = await Api.GetDevicePreviewsAsync(_buildingId, _roomId);
-        return _rows.Count;
-    }, "조건에 맞는 장비가 없습니다.", "미리보기를 읽지 못했습니다");
-}

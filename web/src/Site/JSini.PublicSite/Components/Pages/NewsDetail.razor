@@ -9,8 +9,6 @@
     완성된 HTML 을 받는다.
 *@
 
-@inject SiteApi Api
-
 <PageTitle>@(_post is null ? "JSINI" : $"{_post.Title} — JSINI")</PageTitle>
 <HeadContent>
     @if (_post is not null)
@@ -49,21 +47,3 @@
         <RichText Text="@_post.Body" Class="mt-10 text-sm body-copy body-copy--loose" />
     }
 </article>
-
-@code {
-    [Parameter] public string? Locale { get; set; }
-
-    /// <summary>자료의 주소 조각. DB 의 <c>slug</c> 다.</summary>
-    [Parameter] public string Slug { get; set; } = string.Empty;
-
-    private Messages T => SiteMessages.For(Locale);
-    private string L => SiteMessages.Normalize(Locale);
-
-    private PostDetail? _post;
-
-    protected override async Task OnInitializedAsync()
-    {
-        _post = await Api.PostAsync(L, Slug);
-        Api.RecordVisit($"/{L}/news/{Slug}", L);
-    }
-}

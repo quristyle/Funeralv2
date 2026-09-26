@@ -107,7 +107,7 @@ public sealed class WeatherTrendDeckTests
     [Fact]
     public void 카드는_제자리에_붙는다()
     {
-        var css = File.ReadAllText(Path.Combine(WebRoot(),
+        var css = RazorSource.Read(Path.Combine(WebRoot(),
             "src", "Apps", "JSini.Web.LifeEnv", "wwwroot", "lifeenv.css"));
 
         Assert.Contains("scroll-snap-type: x mandatory", css, StringComparison.Ordinal);
@@ -117,10 +117,10 @@ public sealed class WeatherTrendDeckTests
         Assert.Contains("overscroll-behavior-x: contain", css, StringComparison.Ordinal);
     }
 
-    private static string Razor() => File.ReadAllText(Path.Combine(WebRoot(),
+    private static string Razor() => RazorSource.Read(Path.Combine(WebRoot(),
         "src", "Apps", "JSini.Web.LifeEnv", "Components", "Pages", Page));
 
-    private static string Js() => File.ReadAllText(Path.Combine(WebRoot(),
+    private static string Js() => RazorSource.Read(Path.Combine(WebRoot(),
         "src", "Apps", "JSini.Web.LifeEnv", "wwwroot", "js", "weather-trend.js"));
 
     private static string WebRoot()

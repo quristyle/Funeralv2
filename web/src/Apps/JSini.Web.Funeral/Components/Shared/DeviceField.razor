@@ -13,12 +13,3 @@
     <span class="fn-field__label">@Label</span>
     <span class="fn-field__input">@ChildContent</span>
 </label>
-
-@code {
-    [Parameter, EditorRequired] public string Label { get; set; } = string.Empty;
-
-    /// <summary>한 줄을 통째로 쓰는 칸인가.</summary>
-    [Parameter] public bool Wide { get; set; }
-
-    [Parameter] public RenderFragment? ChildContent { get; set; }
-}

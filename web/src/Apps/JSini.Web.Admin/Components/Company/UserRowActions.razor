@@ -1,0 +1,7 @@
+@* 회사 사용자 표의 관리 칸 — 소속 빼기. 계정은 남으므로 휴지통을 쓰지 않는다. *@
+
+<PermissionView Action="MenuAction.Delete">
+    <DxButton IconCssClass="jsini-icon-subtract" RenderStyle="ButtonRenderStyle.Link"
+              Title="회사 소속을 풉니다. 계정은 남습니다"
+              Click="@(() => OnRemove.InvokeAsync(User))" />
+</PermissionView>

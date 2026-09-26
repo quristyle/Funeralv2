@@ -72,7 +72,7 @@ public sealed class BottomNavSettingRowTests
         return match.Groups[1].Value;
     }
 
-    private static string FuneralCss() => File.ReadAllText(Path.Combine(
+    private static string FuneralCss() => RazorSource.Read(Path.Combine(
         SolutionRoot(), "src", "Apps", "JSini.Web.Funeral", "wwwroot", "funeral.css"));
 
     private static string SolutionRoot()

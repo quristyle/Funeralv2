@@ -49,7 +49,7 @@ public sealed class RazorCommentTests
 
         foreach (var file in RazorFiles())
         {
-            var text = File.ReadAllText(file);
+            var text = RazorSource.Read(file);
 
             foreach (Match match in CommentInsideOpeningTag.Matches(text))
             {

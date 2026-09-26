@@ -7,9 +7,3 @@
 *@
 
 <span class="@(Bucket ? CargoCodes.BucketBadge(Code) : CargoCodes.PaymentStatusBadge(Code))">@(Bucket ? CargoCodes.BucketName(Code) : CargoCodes.PaymentStatusName(Code))</span>
-
-@code {
-    [Parameter] public string? Code { get; set; }
-
-    [Parameter] public bool Bucket { get; set; }
-}

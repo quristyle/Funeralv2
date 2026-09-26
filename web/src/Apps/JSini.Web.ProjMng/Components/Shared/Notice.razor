@@ -10,10 +10,3 @@
 *@
 
 <PageNotice Tone="@Tone">@ChildContent</PageNotice>
-
-@code {
-    [Parameter] public RenderFragment? ChildContent { get; set; }
-
-    /// <summary>안내의 성격. 색만 바뀐다.</summary>
-    [Parameter] public NoticeTone Tone { get; set; } = NoticeTone.Info;
-}

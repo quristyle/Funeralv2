@@ -46,10 +46,10 @@ public sealed class RequestAuthorAndPushTests
         return text[start..end];
     }
 
-    private static string DetailPage() => File.ReadAllText(Path.Combine(
+    private static string DetailPage() => RazorSource.Read(Path.Combine(
         SolutionRoot(), "src", "Apps", "JSini.Web.HelpDesk", "Components", "Pages", "RequestDetail.razor"));
 
-    private static string Endpoint() => File.ReadAllText(Path.Combine(
+    private static string Endpoint() => RazorSource.Read(Path.Combine(
         RepoRoot(), "microservices", "HelpDeskServer", "Endpoints", "RequestEndpoints.cs"));
 
     private static string SolutionRoot()

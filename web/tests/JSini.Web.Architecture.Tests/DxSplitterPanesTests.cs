@@ -63,7 +63,7 @@ public sealed class DxSplitterPanesTests
 
         foreach (var file in RazorFiles())
         {
-            var text = MaskComments(File.ReadAllText(file));
+            var text = MaskComments(RazorSource.Read(file));
 
             foreach (var (start, tag) in OpeningTags(text, "DxSplitter"))
             {

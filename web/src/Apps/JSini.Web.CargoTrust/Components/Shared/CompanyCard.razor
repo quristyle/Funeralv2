@@ -48,9 +48,3 @@
         <span class="jsini-hint">@(S.PeriodLabel ?? "전체") · 운송일 기준</span>
     </div>
 </a>
-
-@code {
-    [Parameter, EditorRequired] public CompanySummary Company { get; set; } = default!;
-
-    private CompanyStats S => Company.Stats ?? new CompanyStats();
-}

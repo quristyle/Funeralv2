@@ -65,7 +65,7 @@ public sealed class CircuitDataStreamTests
     [Fact]
     public void 회로_허브가_인자를_서비스로_오인하지_않는다()
     {
-        var source = File.ReadAllText(Path.Combine(
+        var source = RazorSource.Read(Path.Combine(
             SolutionRoot(), "src", "Shared", "JSini.Web.Components", "JSiniWebApp.cs"));
 
         Assert.Contains("options.DisableImplicitFromServicesParameters = true;", source);

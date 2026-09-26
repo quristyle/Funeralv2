@@ -2155,7 +2155,19 @@ BlazorMonaco 는 스크립트 세 장이 전역에 있기를 기대한다. 없�
 모듈마다 뼈대가 같다. **화면이 백 개가 넘어서 그 열 줄을 손으로 적으면 반드시
 갈라진다** — 갈라지는 곳은 늘 실패 처리다.
 
-- `DataPage` 를 상속한다 (`@inherits DataPage`). 조회·빈 결과·실패를 한 곳에서 처리한다.
+- **마크업과 코드를 나눈다** — `X.razor` 는 마크업, `X.razor.cs` 는 `public partial class X`.
+  주입은 `.cs` 에 `[Inject]` 속성으로 두고 razor 에 `@inject` 를 쓰지 않는다.
+  razor 에 남기는 `@code` 는 **마크업 템플릿을 돌려주는 멤버**(`@<div>…` ·
+  `__builder => { <X /> }`)뿐이다 — C# 파일에서는 마크업을 쓸 수 없다.
+  `.razor.cs` 에는 `_Imports.razor` 가 걸리지 않으므로 using 을 직접 적는다.
+  `CodeBehindTests` 가 지킨다. 글자로 화면을 검사하는 테스트는 `RazorSource.Read`
+  로 두 파일을 한 덩어리로 읽는다.
+- 상속 줄기는 **`BasePage` → `DataPage` → `AutoRefreshPage`** 다(`Components/Data`).
+  `BasePage` 가 `Navigation` · `Permissions` 를 주입하고 `Can(MenuAction)` ·
+  `CurrentPath` 를 준다 — 화면이 `@inject NavigationManager` 나
+  `Permissions.Can(PermissionPath.Current(Navigation), …)` 를 다시 적지 않는다.
+  조회·저장을 하는 화면은 `DataPage` 를, 아니면 `BasePage` 를 상속한다.
+- `DataPage` 는 조회·빈 결과·실패를 한 곳에서 처리한다.
   `LoadAsync` 는 건수를 돌려주고, 0 이면 "없습니다" 를 띄운다. `RunAsync` 는 저장·삭제용이다.
 - **제목 줄을 두지 않는다.** 어느 화면인지는 사이드바와 브레드크럼이 이미
   말해 준다 — 세 곳에 같은 글자가 있으면 본문만 좁아진다. `PageHeading` 은
@@ -2247,6 +2259,13 @@ BlazorMonaco 는 스크립트 세 장이 전역에 있기를 기대한다. 없�
   300자가 캔버스를 네댓 줄 밀어낸다. 그리는 화면 셋(마인드맵 · 유즈케이스 ·
   업무 흐름)이 그 길로 갔다. 여닫는 일은 브라우저가 한다 — `bool` 로 들고
   `@onclick` 을 걸면 여닫을 때마다 회로 왕복이 나고 캔버스가 다시 그려진다.
+- **표·나무의 동작은 오른쪽 클릭 창에 있다**(2026-09-26). 등록·다시 읽기·칸별 검색·엑셀
+  (나무는 모두 펼치기·접기까지)은 `CommGrd`·`CommTree` 가 알아서 올리고, 화면만의
+  동작(「사람 넣기」·「단계 추가」…)은 `ContextMenuItems` 안에 `CommMenuItem` 으로 적는다 — 권한은 단추 때처럼
+  `PermissionView` 로 감싼다. **아래 띠(`FooterLeft`/`FooterRight`)에 단추·링크를
+  두지 않는다** — 같은 표의 동작이 두 자리로 갈린다. `CommGrdFooterTests` 가 막는다.
+  페이저도 기본으로 감춘다(가상 스크롤). 쪽나누기가 필요하면 `PagerVisible="true"`.
+  > 휴대폰 사파리는 길게 눌러도 오른쪽 클릭이 오지 않는다 — 그 기기에서는 창이 안 뜬다.
 - 편집 창은 `CommPopup` 이다(`DxPopup` 을 감싼 것). 머리를 잡아 옮길 수 있고,
   바깥을 눌러도 닫히지 않고, 폼이 화면보다 길면 본문만 구른다 — 셋 다
   기본값이라 화면에서 적지 않는다. **묻는 창은 `ConfirmDialog`** 다.
@@ -2335,7 +2354,7 @@ SelectedItemChanged="@OnGroupChangedAsync"
 | | 표(`CommGrd`) | 나무(`CommTree`) |
 |---|---|---|
 | 순번 칸 | 기본으로 붙는다(`ShowRowNumber`) | **없다** |
-| 쪽나누기 | 15줄씩 | **안 쓴다**(`ShowAllRows`) |
+| 쪽나누기 | 안 쓴다 — 페이저를 감추고 가상 스크롤(`PagerVisible="true"` 로 켠다) | **안 쓴다**(`ShowAllRows`) |
 | 새 줄 | `OnNew(item)` | `OnNew(item, parent)` |
 | 저장 | `OnSave((item, isNew))` | `OnSave((item, isNew, parent))` |
 
@@ -2348,7 +2367,7 @@ DevExpress 가 그 셀 안에 들여쓰기와 펼침 화살표를 그린다. 앞
 **쪽나누기를 쓰지 않는 것은 뿌리 줄만 세기 때문이다.** DevExpress 기본값이
 한 쪽에 10줄인데 그 10이 **뿌리의 수**다. 메뉴 관리 화면은 뿌리가 34개라
 두 쪽으로 갈려 있었고, 2쪽에 무엇이 있는지 알 단서가 아무것도 없었다.
-나무는 접었다 펴는 것으로 크기를 다스린다(아래 띠의 펼치기·접기).
+나무는 접었다 펴는 것으로 크기를 다스린다(오른쪽 클릭 창의 「모두 펼치기 · 접기」).
 
 **「나무에는 팝업 편집이 없다」는 말은 사실이 아니다.** 화면 주석 두 곳에
 그렇게 적혀 있는데 `TreeListEditMode.PopupEditForm` 이 있다. 그래서

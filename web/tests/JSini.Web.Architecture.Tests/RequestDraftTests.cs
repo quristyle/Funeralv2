@@ -106,10 +106,10 @@ public sealed class RequestDraftTests
         Assert.Matches(@"DraftKeyPrefix\s*\+[\s\S]{0,200}?JsiniUserId|JsiniUserId[\s\S]{0,200}?DraftKeyPrefix\s*\+", Page());
     }
 
-    private static string Page() => File.ReadAllText(Path.Combine(
+    private static string Page() => RazorSource.Read(Path.Combine(
         SolutionRoot(), "src", "Apps", "JSini.Web.HelpDesk", "Components", "Pages", "RequestNew.razor"));
 
-    private static string Script() => File.ReadAllText(Path.Combine(
+    private static string Script() => RazorSource.Read(Path.Combine(
         SolutionRoot(), "src", "Apps", "JSini.Web.HelpDesk", "wwwroot", "js", "request-draft.js"));
 
     private static string SolutionRoot()

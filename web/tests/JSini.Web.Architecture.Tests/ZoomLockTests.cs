@@ -161,7 +161,7 @@ public sealed class ZoomLockTests
         Assert.Contains("Checked=\"@(!_zoomUnlocked)\"", EnvironmentSettingPage(), StringComparison.Ordinal);
     }
 
-    private static string App() => File.ReadAllText(Path.Combine(
+    private static string App() => RazorSource.Read(Path.Combine(
         SolutionRoot(), "src", "Shell", "JSini.Web.Shell", "Components", "App.razor"));
 
     /// <summary><c>zoom.js</c> 를 싣는 <c>&lt;script&gt;</c> 태그 한 줄.</summary>
@@ -173,13 +173,13 @@ public sealed class ZoomLockTests
         return match.Value;
     }
 
-    private static string ZoomScript() => File.ReadAllText(Path.Combine(
+    private static string ZoomScript() => RazorSource.Read(Path.Combine(
         SolutionRoot(), "src", "Shell", "JSini.Web.Shell", "wwwroot", "js", "zoom.js"));
 
-    private static string PortalBootSource() => File.ReadAllText(Path.Combine(
+    private static string PortalBootSource() => RazorSource.Read(Path.Combine(
         SolutionRoot(), "src", "Shared", "JSini.Web.Components", "Layout", "PortalBoot.cs"));
 
-    private static string EnvironmentSettingPage() => File.ReadAllText(Path.Combine(
+    private static string EnvironmentSettingPage() => RazorSource.Read(Path.Combine(
         SolutionRoot(), "src", "Apps", "JSini.Web.Funeral", "Components", "Pages",
         "EnvironmentSettingPage.razor"));
 

@@ -41,8 +41,6 @@
 *@
 
 @inherits DataPage
-@inject CargoTrustClient Api
-@inject NavigationManager Navigation
 
 <PageTitle>@(_detail?.Company.CompanyName ?? "거래처 상세") · 운송관리</PageTitle>
 
@@ -197,26 +195,6 @@
 <ReportPopup @ref="_report" />
 
 @code {
-    [Parameter] public long CompanyId { get; set; }
-
-    private sealed record PeriodOption(int? Days, string Text);
-
-    /// <summary>기간 고르개. <c>null</c> 이 전체다(서버에는 <c>all</c> 로 간다).</summary>
-    private static readonly PeriodOption[] Periods =
-    [
-        new(30, "30일"),
-        new(90, "90일"),
-        new(180, "180일"),
-        new(365, "1년"),
-        new(null, "전체"),
-    ];
-
-    private int? _period = 90;
-    private long _loadedFor;
-    private CompanyDetail? _detail;
-    private IReadOnlyList<PublicReview> _reviews = [];
-    private ReportPopup? _report;
-
     /// <summary>
     /// 공개 거래 표의 칸. 최근 거래와 최근 미지급이 같은 칸을 쓴다 — 두 벌로 적으면
     /// 한쪽에만 칸이 더해져 같은 거래가 두 표에서 다르게 보인다.
@@ -250,33 +228,4 @@
         @<DxButton Text="신고" RenderStyle="ButtonRenderStyle.Link"
                    Click="@(() => _report?.Open("TRANSACTION", t.TransactionId,
                        $"{_detail?.Company.CompanyName} · {CargoCodes.Day(t.TransportDate)} · {CargoCodes.Won(t.Amount)}"))" />;
-
-    protected override async Task OnParametersSetAsync()
-    {
-        if (_loadedFor == CompanyId)
-        {
-            return;
-        }
-
-        _loadedFor = CompanyId;
-        _period = 90;
-        await ReloadAsync(withReviews: true);
-    }
-
-    private Task ChangePeriodAsync(int? days)
-    {
-        _period = days;
-        return ReloadAsync(withReviews: false);
-    }
-
-    private Task ReloadAsync(bool withReviews) => LoadAsync(async () =>
-    {
-        // 후기는 기간과 무관하다 — 기간을 바꿀 때마다 다시 읽지 않는다.
-        var detail = Api.GetCompanyAsync(CompanyId, _period);
-        var reviews = withReviews ? Api.GetCompanyReviewsAsync(CompanyId) : Task.FromResult(_reviews);
-
-        _detail = await detail;
-        _reviews = await reviews;
-        return _detail is null ? 0 : -1;
-    }, "거래처를 찾지 못했습니다.", "거래처를 읽지 못했습니다");
 }

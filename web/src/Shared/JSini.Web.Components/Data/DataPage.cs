@@ -24,7 +24,7 @@ namespace JSini.Web.Components.Data;
 /// 화면에 옮길 말이 있다. 그 밖의 예외(널 참조 등)는 우리 잘못이므로 그대로
 /// 올려 보낸다 — 삼키면 못 고친다.
 /// </summary>
-public abstract class DataPage : ComponentBase
+public abstract class DataPage : BasePage
 {
     /// <summary>
     /// 지금 조회해도 되는가 — <b>회로가 붙어 있는가</b>.

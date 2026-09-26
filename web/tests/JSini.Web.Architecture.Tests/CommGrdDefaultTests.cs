@@ -52,7 +52,7 @@ public sealed class CommGrdDefaultTests
 
         foreach (var file in RazorFiles().Where(f => Path.GetFileName(f) != "CommGrd.razor"))
         {
-            var text = File.ReadAllText(file);
+            var text = RazorSource.Read(file);
 
             foreach (var tag in OpeningTags(text, "CommGrd"))
             {
@@ -88,7 +88,7 @@ public sealed class CommGrdDefaultTests
     /// </summary>
     private static IReadOnlyDictionary<string, string> ReadDefaults()
     {
-        var text = File.ReadAllText(Path.Combine(
+        var text = RazorSource.Read(Path.Combine(
             SolutionRoot(), "src", "Shared", "JSini.Web.Components", "Data", "CommGrd.razor"));
 
         var found = new Dictionary<string, string>(StringComparer.Ordinal);

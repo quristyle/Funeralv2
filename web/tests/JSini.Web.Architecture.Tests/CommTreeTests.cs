@@ -46,7 +46,7 @@ public sealed class CommTreeTests
 
         foreach (var file in RazorFiles().Where(f => Path.GetFileName(f) != "CommTree.razor"))
         {
-            var text = File.ReadAllText(file);
+            var text = RazorSource.Read(file);
 
             foreach (var (start, tag) in OpeningTags(text, "CommTree"))
             {
@@ -84,7 +84,7 @@ public sealed class CommTreeTests
 
         foreach (var file in RazorFiles().Where(f => Path.GetFileName(f) != "CommTree.razor"))
         {
-            var text = File.ReadAllText(file);
+            var text = RazorSource.Read(file);
 
             foreach (var (start, tag) in OpeningTags(text, "CommTree"))
             {
@@ -132,7 +132,7 @@ public sealed class CommTreeTests
     /// </summary>
     private static IReadOnlyDictionary<string, string> ReadDefaults()
     {
-        var text = File.ReadAllText(Path.Combine(
+        var text = RazorSource.Read(Path.Combine(
             SolutionRoot(), "src", "Shared", "JSini.Web.Components", "Data", "CommTree.razor"));
 
         var found = new Dictionary<string, string>(StringComparer.Ordinal);

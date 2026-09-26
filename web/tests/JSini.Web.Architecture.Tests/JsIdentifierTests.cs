@@ -71,7 +71,7 @@ public class JsIdentifierTests
             // **줄 단위로 본다.** 주석을 건너뛰어야 하기 때문이다 — 고친 자리에
             // 「전에는 이렇게 적혀 있었다」를 남겨 두는 것이 이 저장소의 관례이고,
             // 그 줄까지 잡으면 함정을 설명해 둔 주석을 지우게 된다.
-            var lines = File.ReadAllLines(file);
+            var lines = RazorSource.ReadLines(file);
 
             for (var i = 0; i < lines.Length; i++)
             {

@@ -61,7 +61,7 @@ public sealed class CommGrdSplatTests
 
         foreach (var file in RazorFiles().Where(f => Path.GetFileName(f) != "CommGrd.razor"))
         {
-            var text = File.ReadAllText(file);
+            var text = RazorSource.Read(file);
 
             foreach (var (start, tag) in OpeningTags(text, "CommGrd"))
             {

@@ -16,8 +16,6 @@
 *@
 
 @inherits DataPage
-@inject FuneralApi Api
-@inject NavigationManager Navigation
 
 <PageTitle>내 정보 · 장례식장</PageTitle>
 
@@ -82,12 +80,4 @@
     </CommGrd>
         </ChildContent>
     </CommCont>
-}
-
-@code {
-    private MyInfo? _info;
-
-    protected override Task OnInitializedAsync()
-        => LoadOneAsync(() => Api.GetMyInfoAsync(), v => _info = v,
-            "내 정보를 찾지 못했습니다.", "내 정보를 읽지 못했습니다");
 }

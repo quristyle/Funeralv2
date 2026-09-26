@@ -174,13 +174,13 @@ public sealed class RequestRequesterTests
         return text[start..end];
     }
 
-    private static string Page() => File.ReadAllText(Path.Combine(
+    private static string Page() => RazorSource.Read(Path.Combine(
         SolutionRoot(), "src", "Apps", "JSini.Web.HelpDesk", "Components", "Pages", "RequestNew.razor"));
 
-    private static string Endpoint() => File.ReadAllText(Path.Combine(
+    private static string Endpoint() => RazorSource.Read(Path.Combine(
         RepoRoot(), "microservices", "HelpDeskServer", "Endpoints", "RequestEndpoints.cs"));
 
-    private static string Provisioner() => File.ReadAllText(Path.Combine(
+    private static string Provisioner() => RazorSource.Read(Path.Combine(
         RepoRoot(), "microservices", "HelpDeskServer", "Services", "RequesterProvisioner.cs"));
 
     private static string SolutionRoot()

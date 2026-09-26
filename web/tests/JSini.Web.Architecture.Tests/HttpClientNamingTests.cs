@@ -65,7 +65,7 @@ public sealed class HttpClientNamingTests
 
         foreach (var file in SourceFiles())
         {
-            foreach (Match match in TypedClient.Matches(File.ReadAllText(file)))
+            foreach (Match match in TypedClient.Matches(RazorSource.Read(file)))
             {
                 var name = match.Groups[1].Value;
 

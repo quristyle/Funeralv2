@@ -70,7 +70,7 @@ public sealed class EditFormBindingTests
 
         foreach (var file in RazorFiles())
         {
-            var text = File.ReadAllText(file);
+            var text = RazorSource.Read(file);
 
             foreach (Match form in EditFormBlock.Matches(text))
             {

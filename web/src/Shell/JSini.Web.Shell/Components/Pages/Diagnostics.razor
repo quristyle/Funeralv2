@@ -18,12 +18,6 @@
     DB 메뉴에 없는 경로다 — 주소를 알고 오는 화면이다.
 *@
 
-@inject IReadOnlyList<PortalApp> Expected
-@inject IReadOnlyList<IPortalModule> Loaded
-@inject RouteInventory Routes
-@inject IMenuProvider Menus
-@inject IPermissionContext Permissions
-
 <PageTitle>합성 진단 · JSini 포털</PageTitle>
 
 <section class="jsini-diagnostics">
@@ -51,57 +45,3 @@
         <dd>@(Permissions.IsLoaded ? "읽음" : "아직 못 읽음 — 지금은 아무것도 거르지 않는다")</dd>
     </dl>
 </section>
-
-@code {
-    private sealed record Row(
-        string Key,
-        string DisplayName,
-        string RoutePrefix,
-        int RouteCount,
-        string Status);
-
-    private IReadOnlyList<Row> Rows => BuildRows();
-
-    private List<Row> BuildRows()
-    {
-        var rows = new List<Row>();
-
-        foreach (var expected in Expected)
-        {
-            var module = Loaded.FirstOrDefault(m =>
-                string.Equals(m.Key, expected.Key, StringComparison.OrdinalIgnoreCase));
-
-            var status = module is null ? "❌ 안 붙음"
-                : module.RoutePrefix != expected.RoutePrefix ? "⚠ 접두사 어긋남"
-                : "✅ 정상";
-
-            rows.Add(new Row(
-                expected.Key,
-                expected.DisplayName,
-                module?.RoutePrefix ?? expected.RoutePrefix,
-                CountRoutes(expected.RoutePrefix),
-                status));
-        }
-
-        // 설정에 없는데 붙어 있는 모듈. 있으면 안 되는 상태는 아니지만
-        // (누가 참조만 넣고 설정을 잊었을 수 있다) 보이지 않으면 안 된다.
-        foreach (var module in Loaded)
-        {
-            if (!Expected.Any(e => string.Equals(e.Key, module.Key, StringComparison.OrdinalIgnoreCase)))
-            {
-                rows.Add(new Row(
-                    module.Key,
-                    module.DisplayName,
-                    module.RoutePrefix,
-                    CountRoutes(module.RoutePrefix),
-                    "⚠ 설정에 없음"));
-            }
-        }
-
-        return rows;
-    }
-
-    private int CountRoutes(string prefix) => Routes.Paths.Count(p =>
-        p.StartsWith(prefix + "/", StringComparison.OrdinalIgnoreCase)
-        || string.Equals(p, prefix, StringComparison.OrdinalIgnoreCase));
-}

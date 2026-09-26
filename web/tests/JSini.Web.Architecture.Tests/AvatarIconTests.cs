@@ -39,7 +39,7 @@ public class AvatarIconTests
     [Fact]
     public void 알림_서비스가_같은_경로를_만든다()
     {
-        var source = File.ReadAllText(Path.Combine(
+        var source = RazorSource.Read(Path.Combine(
             RepoRoot(), "microservices", "NotificationServer", "Services", "AvatarIconResolver.cs"));
 
         // 사진이 있는 사람 — /files/avatar/{파일아이디}?t={열쇠}
@@ -80,7 +80,7 @@ public class AvatarIconTests
             ("FileServer", Path.Combine("microservices", "FileServer", "Endpoints", "PublicFileAccessFilter.cs")),
         })
         {
-            var source = File.ReadAllText(Path.Combine(RepoRoot(), file));
+            var source = RazorSource.Read(Path.Combine(RepoRoot(), file));
             Assert.True(source.Contains(prefix), $"{service} 가 {prefix} 를 모른다 ({file}).");
         }
     }
@@ -96,7 +96,7 @@ public class AvatarIconTests
     [Fact]
     public void 열쇠는_파일_읽기_경로에서만_통한다()
     {
-        var source = File.ReadAllText(Path.Combine(RepoRoot(), "ApiGateway", "Program.cs"));
+        var source = RazorSource.Read(Path.Combine(RepoRoot(), "ApiGateway", "Program.cs"));
 
         Assert.Contains("OnTokenValidated", source);
         Assert.Contains("iconTokenSubjectPrefix", source);

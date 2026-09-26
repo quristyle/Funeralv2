@@ -80,7 +80,7 @@ public class GeoLocatorTests
     [Fact]
     public void C샤프가_부르는_jsiniGeo_함수가_geo_js_에_다_있다()
     {
-        var js = File.ReadAllText(Path.Combine(WebRoot(),
+        var js = RazorSource.Read(Path.Combine(WebRoot(),
             "src", "Shell", "JSini.Web.Shell", "wwwroot", "js", "geo.js"));
 
         var exported = Regex.Matches(js, @"function\s+(?<name>\w+)\s*\(")
@@ -101,7 +101,7 @@ public class GeoLocatorTests
 
         foreach (var file in SourceFiles())
         {
-            foreach (var match in Regex.Matches(File.ReadAllText(file),
+            foreach (var match in Regex.Matches(RazorSource.Read(file),
                          @"""jsiniGeo\.(?<fn>\w+)""").Cast<Match>())
             {
                 var fn = match.Groups["fn"].Value;
@@ -127,7 +127,7 @@ public class GeoLocatorTests
     [Fact]
     public void 조용한_확인은_권한을_먼저_본다()
     {
-        var js = File.ReadAllText(Path.Combine(WebRoot(),
+        var js = RazorSource.Read(Path.Combine(WebRoot(),
             "src", "Shell", "JSini.Web.Shell", "wwwroot", "js", "geo.js"));
 
         var quiet = js[js.IndexOf("async function quiet(", StringComparison.Ordinal)..];

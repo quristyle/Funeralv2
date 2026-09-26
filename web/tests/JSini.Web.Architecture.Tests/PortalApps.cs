@@ -82,7 +82,7 @@ internal static class PortalApps
             PropertyNameCaseInsensitive = true,
         };
 
-        using var document = JsonDocument.Parse(File.ReadAllText(path), new JsonDocumentOptions
+        using var document = JsonDocument.Parse(RazorSource.Read(path), new JsonDocumentOptions
         {
             CommentHandling = JsonCommentHandling.Skip,
             AllowTrailingCommas = true,

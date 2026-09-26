@@ -1,0 +1,78 @@
+@* 고른 회사의 부서 나무. 등록·하위 추가·수정·삭제와 끌어 옮기기를 여기서 한다. *@
+
+@inherits DataPage
+
+<CommTree TItem="DeptDto" Data="@_depts"
+          KeyFieldName="@nameof(DeptDto.Id)"
+          ChildrenFieldName="@nameof(DeptDto.Children)"
+          ExportName="@($"{CompanyName} 부서")"
+          EmptyText="등록된 부서가 없습니다."
+          Reload="@ReloadAsync"
+          RowActions="@RowActions"
+          ActionsWidth="130"
+          AllowDragRows="@_canMove"
+          ItemsDropped="@OnDroppedAsync">
+    <ContextMenuItems>
+        <PermissionView Action="MenuAction.Create">
+            <CommMenuItem Text="부서 등록" IconCssClass="jsini-icon-plus" Click="@OpenNew" />
+        </PermissionView>
+    </ContextMenuItems>
+
+    <Columns>
+        <DxTreeListDataColumn FieldName="@nameof(DeptDto.Name)" Caption="부서" MinWidth="200" />
+        <DxTreeListDataColumn FieldName="@nameof(DeptDto.UserCount)" Caption="직접" Width="80" />
+        <DxTreeListDataColumn FieldName="@nameof(DeptDto.TotalUserCount)" Caption="하위 포함" Width="100" />
+        <DxTreeListDataColumn FieldName="@nameof(DeptDto.SortOrder)" Caption="순서" Width="70" />
+
+        <DxTreeListDataColumn Caption="상태" Width="80">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var d = (DeptDto)cell.DataItem;
+                }
+                <span class="jsini-badge @(d.Status == 1 ? "jsini-badge--on" : "jsini-badge--off")">
+                    @(d.Status == 1 ? "사용" : "중지")
+                </span>
+            </CellDisplayTemplate>
+        </DxTreeListDataColumn>
+
+        <DxTreeListDataColumn FieldName="@nameof(DeptDto.Remark)" Caption="비고" MinWidth="120" />
+    </Columns>
+</CommTree>
+
+<CommPopup @bind-Visible="_editing" HeaderText="@(_editingId is null ? "부서 등록" : "부서 수정")"
+           Width="520px">
+    <BodyContentTemplate Context="popup">
+        <DxFormLayout>
+            <DxFormLayoutItem Caption="부서명" ColSpanMd="12">
+                <DxTextBox @bind-Text="_form.Name" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="상위 부서" ColSpanMd="12">
+                <DxComboBox Data="@ParentChoices" TextFieldName="@nameof(DeptDto.Name)"
+                            ValueFieldName="@nameof(DeptDto.Id)"
+                            @bind-Value="_form.Pid"
+                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="순서" ColSpanMd="6">
+                <DxSpinEdit @bind-Value="_form.SortOrder" MinValue="0" />
+            </DxFormLayoutItem>
+            <DxFormLayoutItem Caption="상태" ColSpanMd="6">
+                <DxComboBox Data="@CompanyForm.Statuses" TextFieldName="Name" ValueFieldName="Code"
+                            @bind-Value="_form.Status" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="비고" ColSpanMd="12">
+                <DxTextBox @bind-Text="_form.Remark" />
+            </DxFormLayoutItem>
+        </DxFormLayout>
+    </BodyContentTemplate>
+
+    <FooterContentTemplate Context="popupContext">
+        <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveAsync" />
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
+                  Click="@(() => _editing = false)" />
+    </FooterContentTemplate>
+</CommPopup>
+
+<ConfirmDialog @ref="_confirm" />

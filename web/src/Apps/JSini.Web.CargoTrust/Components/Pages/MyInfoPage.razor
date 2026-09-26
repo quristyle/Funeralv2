@@ -12,7 +12,6 @@
 *@
 
 @inherits DataPage
-@inject CargoTrustClient Api
 
 <PageTitle>내 정보 · 운송관리</PageTitle>
 
@@ -53,13 +52,3 @@
         </section>
     }
 </div>
-
-@code {
-    private MeInfo? _me;
-
-    protected override Task OnInitializedAsync() => LoadOneAsync(
-        () => Api.GetMeAsync(),
-        m => _me = m,
-        "내 정보를 찾지 못했습니다.",
-        "내 정보를 읽지 못했습니다");
-}

@@ -1,0 +1,996 @@
+using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
+using DevExpress.Blazor;
+using JSini.Web.Abstractions;
+using JSini.Web.Components.Layout;
+
+namespace JSini.Web.Components.Data;
+
+public partial class CommGrd<TItem>
+{
+    [Inject] private ThemeSize Size { get; set; } = default!;
+
+    /// <summary>표에 넣을 자료.</summary>
+    [Parameter, EditorRequired] public object Data { get; set; } = default!;
+
+    /// <summary>표의 칸들. 순번·관리 칸은 이 부품이 붙인다.</summary>
+    [Parameter, EditorRequired] public RenderFragment? Columns { get; set; }
+
+    /// <summary>팝업 편집 폼.</summary>
+    [Parameter] public RenderFragment<GridEditFormTemplateContext>? EditFormTemplate { get; set; }
+
+    /// <summary>표 위에 놓을 것. 보통은 비운다 — 조건은 CommSch 로 간다.</summary>
+    [Parameter] public RenderFragment? Toolbar { get; set; }
+
+    /// <summary>
+    /// 아래 띠의 왼쪽. <b>동작 단추를 두지 않는다</b> — 그것은
+    /// <see cref="ContextMenuItems"/> 로 간다. 상태 표시처럼 누를 것이 아닌 것만 둔다.
+    /// </summary>
+    [Parameter] public RenderFragment? FooterLeft { get; set; }
+
+    /// <summary>아래 띠의 오른쪽 끝. <see cref="FooterLeft"/> 와 같은 규칙이다.</summary>
+    [Parameter] public RenderFragment? FooterRight { get; set; }
+
+    /// <summary>
+    /// 오른쪽 클릭 창에 보탤 화면만의 동작. 안에 <see cref="CommMenuItem"/> 을
+    /// 적는다(권한은 <c>PermissionView</c> 로 감싼다). 「등록」 바로 아래,
+    /// 다시 읽기·칸별 검색·엑셀보다 위에 선다.
+    /// </summary>
+    [Parameter] public RenderFragment? ContextMenuItems { get; set; }
+
+    /// <summary>빈 목록 자리를 통째로 갈아 끼울 때.</summary>
+    [Parameter] public RenderFragment? EmptyArea { get; set; }
+
+    /// <summary>줄을 펼쳤을 때 안에 그릴 것.</summary>
+    [Parameter] public RenderFragment<GridDetailRowTemplateContext>? DetailRowTemplate { get; set; }
+
+    /// <summary>
+    /// 관리 칸에서 「수정」 앞에 놓을 단추들. 그 줄의 자료를 그대로 받는다.
+    ///
+    /// <para>
+    /// 미리보기·복제처럼 <b>그 화면에만 있는 동작</b>을 두는 자리다. 제목 칸의
+    /// <c>CellDisplayTemplate</c> 에 끼워 넣으면 화면마다 조작 자리가 달라져,
+    /// 「관리 칸에 있겠거니」 하고 오른쪽 끝을 보는 사람이 못 찾는다.
+    /// </para>
+    /// </summary>
+    [Parameter] public RenderFragment<TItem>? RowActions { get; set; }
+
+    /// <summary>
+    /// 관리 칸의 너비(px). 비우면 단추 수에 맞춘 기본값을 쓴다 —
+    /// 수정·삭제 둘이면 84, <see cref="RowActions"/> 가 있으면 116.
+    /// 단추를 셋 이상 넣으면 여기서 직접 정한다.
+    /// </summary>
+    [Parameter] public int? ActionsWidth { get; set; }
+
+    /// <summary>자료가 없을 때 보여 줄 문구.</summary>
+    [Parameter] public string EmptyText { get; set; } = "표시할 자료가 없습니다.";
+
+    /// <summary>팝업 편집 폼의 제목.</summary>
+    [Parameter] public string EditFormTitle { get; set; } = "편집";
+
+    /// <summary>
+    /// 아래 띠와 오른쪽 클릭 창을 쓸지. 끄면 등록·다시 읽기·칸별 검색·엑셀이
+    /// 함께 사라지고, 오른쪽 클릭에는 브라우저 기본 창이 뜬다.
+    /// </summary>
+    [Parameter] public bool ShowFooter { get; set; } = true;
+
+    /// <summary>맨 왼쪽 순번 칸. 쪽을 넘겨도 이어지는 번호다.</summary>
+    [Parameter] public bool ShowRowNumber { get; set; } = true;
+
+    /// <summary>칸별 검색 줄 토글 단추. 시작 상태는 화면의 <c>ShowFilterRow</c> 가 정한다.</summary>
+    [Parameter] public bool ShowFilterToggle { get; set; } = true;
+
+    /// <summary>엑셀 내보내기. 켜져 있어도 <c>use_excel</c> 권한이 없으면 안 보인다.</summary>
+    [Parameter] public bool ShowExcelExport { get; set; } = true;
+
+    /// <summary>
+    /// 짝수 줄에 옅은 바탕을 깐다(줄무늬).
+    ///
+    /// <para>
+    /// 칸이 열몇 개인 표에서 오른쪽 끝 값을 읽다가 한 줄 위아래를 잘못
+    /// 짚는 것을 막는다. 끄는 자리는 줄이 서넛뿐인 대시보드 안의 작은 표다.
+    /// </para>
+    /// </summary>
+    [Parameter] public bool AlternateRows { get; set; } = true;
+
+    /// <summary>내려받을 파일 이름(확장자 없이).</summary>
+    [Parameter] public string ExportName { get; set; } = "목록";
+
+    /// <summary>새 행의 기본값을 채운다. 부모 키를 여기서 넣는다.</summary>
+    [Parameter] public Action<TItem>? OnNew { get; set; }
+
+    /// <summary>
+    /// 편집 창이 열릴 때. 등록이든 수정이든 부른다 —
+    /// <c>bool</c> 이 「새로 만드는 것인가」다.
+    ///
+    /// <para>
+    /// <b><see cref="OnNew"/> 로는 모자란 자리가 있어 두었다.</b> 폼 안의
+    /// 상태를 화면이 들고 있어야 하는 경우(고른 첨부파일 같은 것)에는
+    /// <b>수정 창을 열 때도</b> 그 상태를 비우거나 채워야 하는데, 그쪽은
+    /// 등록일 때만 불린다. 앞선 편집에서 고른 파일이 그대로 남아 다음
+    /// 공지에 붙는 식으로 틀린다.
+    /// </para>
+    ///
+    /// <para>
+    /// 넘어오는 것은 DevExpress 가 만든 <b>편집 모델</b>(원본의 사본)이다.
+    /// 여기서 고쳐도 저장을 취소하면 표에는 남지 않는다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>편집 자리가 표 밖인 화면</b>(폼을 주지 않은 화면)에서는 아래 띠의
+    /// ＋ 가 이것을 부른다 — 그때 넘어오는 것은 이 부품이 방금 만든 빈 줄이고
+    /// <c>bool</c> 은 늘 참이다. 받은 줄을 화면이 자기 편집 자리에 앉힌다.
+    /// </para>
+    /// </summary>
+    [Parameter] public Action<TItem, bool>? OnEditOpen { get; set; }
+
+    /// <summary>
+    /// 저장. <b>주면 아래 띠에 ＋ 가 생긴다</b> — 이 표가 고칠 수 있는
+    /// 목록이라는 말이 이 하나다.
+    ///
+    /// <para>
+    /// 팝업 편집 창을 쓰는 화면(<see cref="EditFormTemplate"/> 를 준 화면)에서는
+    /// 창의 「저장」이 이것을 부르고, 관리 칸에 「수정」도 함께 생긴다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>편집 자리가 표 밖인 화면</b>(좌우로 갈라 왼쪽에서 고르고 오른쪽에서
+    /// 고치는 AI 작업 지시 …)은 화면이 <see cref="SaveAsync"/> 로 직접 부른다.
+    /// 어느 쪽이든 <b>쓰고 저장하는 일은 이 한 길로 간다</b> — 성공·실패 문구도,
+    /// 저장 뒤 목록을 다시 읽는 것도 갈리지 않는다.
+    /// </para>
+    /// </summary>
+    [Parameter] public EventCallback<(TItem Item, bool IsNew)> OnSave { get; set; }
+
+    /// <summary>＋ 에 붙는 말풍선. 「새 작업」처럼 화면의 말이 따로 있으면 적는다.</summary>
+    [Parameter] public string CreateTitle { get; set; } = "등록";
+
+    /// <summary>삭제. 주면 「삭제」가 생긴다.</summary>
+    [Parameter] public EventCallback<TItem> OnDelete { get; set; }
+
+    /// <summary>목록을 다시 읽는다. 저장·삭제 뒤에도 부른다.</summary>
+    [Parameter] public EventCallback Reload { get; set; }
+
+    /// <summary>
+    /// 삭제 확인 문구를 화면이 정한다. 주면 DevExpress 기본 확인창 대신
+    /// <c>ConfirmDialog</c> 로 묻는다.
+    ///
+    /// <para>
+    /// <b>딸린 것이 함께 사라지는 자리에 쓴다.</b> 기본 확인창은 어느 줄을
+    /// 눌렀는지도, 무엇이 함께 사라지는지도 말해 주지 않아서 묻는 의미가
+    /// 절반쯤 없어진다. 코드 묶음을 지우면 그 안의 코드가 함께 사라지는 것이
+    /// 그런 자리다(<c>PortalCommonCode</c>).
+    /// </para>
+    /// </summary>
+    [Parameter] public Func<TItem, string>? DeleteConfirm { get; set; }
+
+    /// <summary>
+    /// 고른 줄. <see cref="SelectedItemChanged"/> 와 함께 주면
+    /// <c>@bind-SelectedItem</c> 처럼 화면이 선택의 주인이 된다.
+    ///
+    /// <para>
+    /// <b>둘 중 하나만 주지 않는다.</b> 값 없이 알림만 받으면 화면이 고른 줄을
+    /// 보관하지 않는다는 뜻이 되어, 매 렌더마다 선택이 <c>null</c> 로 되돌아간다
+    /// (줄을 눌러도 강조가 곧 풀린다). 값을 주지 않은 렌더에서는 표가 스스로
+    /// 들고 있는 선택을 건드리지 않으므로 그 사고는 나지 않지만, 그때는
+    /// 화면과 표의 선택이 어긋난 채로 돈다.
+    /// </para>
+    /// </summary>
+    [Parameter] public TItem? SelectedItem { get; set; }
+
+    /// <summary>고른 줄이 바뀌었을 때. 여기서 받은 값이 다음 렌더의 선택이 된다.</summary>
+    [Parameter] public EventCallback<TItem?> SelectedItemChanged { get; set; }
+
+    /// <summary>
+    /// 한 줄만 고를 수 있는가. 기본은 한 줄이다.
+    ///
+    /// <para>
+    /// <b>여럿으로 바꾸면 체크 칸을 <c>&lt;Columns&gt;</c> 맨 앞에 손으로
+    /// 넣어야 한다</b>(<c>&lt;DxGridSelectionColumn /&gt;</c>). 여기서 자동으로
+    /// 붙이지 않는 이유는 그 칸의 자리·폭·「모두 고르기」 여부가 화면마다
+    /// 다르기 때문이다 — 순번 칸 앞이냐 뒤냐부터 갈린다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>이름을 선언해 둔 이유는 splat 으로 넘길 수 없기 때문이다.</b>
+    /// 값이 enum 이라 <c>Coerce</c> 가 글자를 그대로 넘겨 형이 안 맞는다
+    /// (<c>CommTree</c> 의 끌어 옮기기 파라미터와 같은 사정).
+    /// </para>
+    /// </summary>
+    [Parameter] public GridSelectionMode SelectionMode { get; set; } = GridSelectionMode.Single;
+
+    /// <summary>
+    /// 자료가 들어오면 <b>첫 줄을 스스로 고른다.</b> 기본으로 켜 둔다.
+    ///
+    /// <para>
+    /// 표 옆이나 아래에 「고른 줄」의 자세한 내용을 붙여 두는 화면이 많은데,
+    /// 그런 화면은 열자마자 빈 칸을 보여 주고 사람이 아무 줄이나 한 번 눌러야
+    /// 비로소 쓸모가 생긴다. 첫 줄을 미리 골라 두면 그 한 번이 없어진다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>이미 고른 줄이 있으면 건드리지 않는다.</b> 조회를 다시 해서 자료가
+    /// 바뀌었을 때만 새로 고른다 — 사람이 고른 줄을 다시 그릴 때마다 첫 줄로
+    /// 되돌리면 그것대로 못 쓴다.
+    /// </para>
+    ///
+    /// <para>
+    /// 여러 줄 고르기(<see cref="SelectionMode"/> 가 Multiple)에서는 하지
+    /// 않는다. 거기서 「첫 줄이 체크되어 있다」는 뜻이 다르다 — 일괄 처리
+    /// 대상이 하나 들어가 있는 것이라, 모르고 누르면 그 줄까지 함께 처리된다.
+    /// </para>
+    /// </summary>
+    [Parameter] public bool AutoSelectFirstRow { get; set; } = true;
+
+    /// <summary>
+    /// 체크한 줄들. <see cref="SelectedItemsChanged"/> 와 <b>함께</b> 준다 —
+    /// 한쪽만 주면 화면이 고른 줄을 보관하지 않는다는 뜻이 되어 체크가 곧 풀린다
+    /// (<see cref="SelectedItem"/> 과 같은 사정).
+    /// </summary>
+    [Parameter] public IReadOnlyList<TItem>? SelectedItems { get; set; }
+
+    /// <summary>체크가 바뀌었을 때. 여기서 받은 값이 다음 렌더의 선택이 된다.</summary>
+    [Parameter] public EventCallback<IReadOnlyList<TItem>> SelectedItemsChanged { get; set; }
+
+    /// <summary>
+    /// 줄을 끌어 옮길 수 있는가. <b>권한으로 켜고 끄는 자리</b>다 —
+    /// <c>AllowDragRows="@(_canMove)"</c>.
+    ///
+    /// <para>
+    /// 「수정」 단추를 감추는 것과 <b>같은 판정</b>을 써야 한다
+    /// (<c>PermissionPath</c>). 두 판정이 갈리면 「단추는 없는데 끌어
+    /// 옮기기는 된다」가 된다. <c>PermissionView</c> 로는 할 수 없다 —
+    /// 그릴지 말지가 아니라 파라미터로 켜고 끄는 것이라서.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>차례가 뜻을 갖는 표에서만 켠다.</b> 정렬·필터로 보는 표에서 켜면
+    /// 끌어 놓은 자리가 다음 조회에 그대로 없어져, 옮긴 것이 저장이 안 된
+    /// 것처럼 보인다.
+    /// </para>
+    /// </summary>
+    [Parameter] public bool AllowDragRows { get; set; }
+
+    /// <summary>
+    /// 어디에 놓을 수 있는가. 기본은 <b>이 표 안</b>이다.
+    ///
+    /// <para>
+    /// 다른 부품으로 끌고 나가는 길(<c>External</c>)을 열어 두면 받을 곳이
+    /// 없는 화면에서 <b>끌다가 사라지는 것처럼</b> 보인다. 받을 부품을 실제로
+    /// 둔 화면만 이 값을 바꾼다.
+    /// </para>
+    /// </summary>
+    [Parameter] public GridAllowedDropTarget AllowedDropTarget { get; set; } = GridAllowedDropTarget.Internal;
+
+    /// <summary>
+    /// 놓을 자리를 줄 <b>사이</b>까지 잡는다. 기본이 그렇다.
+    ///
+    /// <para>
+    /// <c>Component</c> 로 두면 놓을 자리가 「이 표 안」 하나뿐이라 <b>차례를
+    /// 바꿀 수가 없다</b> — 표에서 끌어 옮기는 이유가 대개 그것이다.
+    /// </para>
+    /// </summary>
+    [Parameter] public GridDropTargetMode DropTargetMode { get; set; } = GridDropTargetMode.BetweenRows;
+
+    /// <summary>
+    /// 줄을 끌어다 놓았을 때. 어디서 어디로 갔는지는 이 알림이 준다 —
+    /// 놓은 줄(<c>DroppedItems</c>) · 놓인 자리(<c>TargetItem</c> ·
+    /// <c>DropPosition</c>).
+    ///
+    /// <para>
+    /// <b>이 이름을 선언해 둔 이유는 splat 으로 넘길 수 없기 때문이다.</b>
+    /// <c>EventCallback</c> 은 Razor 가 화면 쪽에서 감싸 줘야 하고, 그러려면
+    /// 이 부품이 그 이름을 파라미터로 알고 있어야 한다. 나머지 셋도 같이
+    /// 선언한 이유는 <c>CommTree</c> 와 같다 — enum 두 개는 splat 으로 주면
+    /// Coerce 가 글자를 그대로 넘겨 형이 안 맞는다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>표는 스스로 줄을 옮기지 않는다.</b> 옮긴 결과를 자료에 반영하고
+    /// 다시 읽는 것은 화면 몫이다 — 저장에 실패했을 때 되돌릴 수 있어야 한다.
+    /// </para>
+    /// </summary>
+    [Parameter] public EventCallback<GridItemsDroppedEventArgs> ItemsDropped { get; set; }
+
+    /// <summary>선언하지 않은 모든 DxGrid 파라미터.</summary>
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? Extra { get; set; }
+
+    /// <summary>감싼 DxGrid. 화면이 DevExpress API 를 직접 불러야 할 때.</summary>
+    public IGrid? Grid => _grid;
+
+    /// <summary>관리 칸 너비(px).</summary>
+    private int ActionsPixels => ActionsWidth ?? (RowActions is null ? 84 : 116);
+
+    /// <summary><c>Width</c> 는 글자로, <c>MinWidth</c> 는 정수로 받는다.</summary>
+    private string ActionsColumnWidth =>
+        ActionsPixels.ToString(System.Globalization.CultureInfo.InvariantCulture);
+
+    private IGrid? _grid;
+    private IReadOnlyDictionary<string, object>? _forwarded;
+
+    /// <summary>표가 지금 들고 있는 선택. 화면이 값을 주면 그것을 따른다.</summary>
+    private object? _selected;
+
+    /// <summary>첫 줄 자동 고르기를 이미 해 준 자료 묶음. 같은 것이면 다시 안 한다.</summary>
+    private object? _autoPickedFor;
+
+    /// <summary>
+    /// 표에 넘길 체크 목록. <b>화면이 준 것을 그대로 쓰지 않는다</b> —
+    /// DevExpress 가 <c>IReadOnlyList&lt;object&gt;</c> 를 받으므로 한 겹 옮긴다.
+    /// </summary>
+    private IReadOnlyList<object>? _selectedMany;
+
+    /// <summary>이번 렌더에 화면이 <see cref="SelectedItems"/> 를 주었는가.</summary>
+    private bool _manyBound;
+
+    /// <summary><see cref="DeleteConfirm"/> 을 준 화면에서만 쓰는 확인창.</summary>
+    private ConfirmDialog? _confirm;
+
+    /// <summary>이번 렌더에 화면이 <see cref="SelectedItem"/> 을 주었는가.</summary>
+    private bool _selectionBound;
+
+    private bool _filterRow;
+    private bool _filterRowSeeded;
+    private bool _hasFilter;
+    private bool _virtualScroll;
+
+    private static readonly Dictionary<string, Type> DxGridParameterTypes =
+        typeof(DxGrid)
+            .GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance)
+            .Where(p => p.IsDefined(typeof(ParameterAttribute), inherit: true))
+            .ToDictionary(p => p.Name, p => p.PropertyType, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// 화면이 <see cref="SelectedItem"/> 을 <b>주었는지</b> 본다.
+    ///
+    /// <para>
+    /// 값이 <c>null</c> 인 것과 아예 주지 않은 것을 갈라야 해서 파라미터로는
+    /// 알 수 없다 — 둘 다 <c>null</c> 로 보인다. <c>ParameterView</c> 에는
+    /// 화면이 실제로 적어 준 것만 들어 있으므로 여기서만 구분이 된다.
+    /// </para>
+    /// </summary>
+    public override Task SetParametersAsync(ParameterView parameters)
+    {
+        // object 로 받는다. TItem 으로 받으면 값 형식일 때 null 을 캐스팅하다 죽는다.
+        _selectionBound = parameters.TryGetValue<object>(nameof(SelectedItem), out _);
+        _manyBound = parameters.TryGetValue<object>(nameof(SelectedItems), out _);
+
+        return base.SetParametersAsync(parameters);
+    }
+
+    protected override void OnParametersSet()
+    {
+        _forwarded = Coerce(Extra);
+
+        // 선택의 주인이 화면이면 그 값을 따른다. 아니면 표가 들고 있는 것을
+        // 그대로 둔다 — 여기서 안 준 값(늘 null)을 덮어쓰면 줄을 눌러도
+        // 강조가 곧 풀린다.
+        if (_selectionBound)
+        {
+            _selected = SelectedItem;
+        }
+
+        // 체크도 같은 규칙이다. **빈 목록과 안 준 것은 다르다** — 빈 목록은
+        // 「전부 풀어라」이고, 안 준 것은 「표가 들고 있는 것을 그대로 둬라」다.
+        if (_manyBound)
+        {
+            _selectedMany = SelectedItems is null ? null : [.. SelectedItems.Cast<object>()];
+        }
+
+        // 시작값이라 한 번만 읽는다. 매번 읽으면 사람이 끈 것을 다시 켜게 된다.
+        if (!_filterRowSeeded)
+        {
+            _filterRowSeeded = true;
+            _filterRow = Read("ShowFilterRow") is bool flag && flag;
+        }
+
+        _virtualScroll = VirtualScrolling();
+    }
+
+    /// <summary>
+    /// 쪽나누기를 끈 화면에서 가상 스크롤을 켠다. 둘은 함께 못 쓴다 —
+    /// 가상 스크롤을 켜면 DevExpress 가 페이저를 감춘다.
+    ///
+    /// <para>
+    /// <b>페이저는 기본으로 감춘다</b> — 쪽을 넘기는 것보다 표 안에서 굴리는
+    /// 것이 낫다. 쪽나누기가 필요한 화면만 <c>PagerVisible="true"</c> 를 적는다.
+    /// 페이저만 감추고 쪽나누기(<c>PageSize</c>)를 그대로 두면 <b>첫 쪽 뒤의
+    /// 줄에 갈 길이 없어진다</b> — 그래서 감출 때는 반드시 가상 스크롤을 켠다.
+    /// </para>
+    /// </summary>
+    private bool VirtualScrolling()
+    {
+        if (Read("VirtualScrollingEnabled") is bool explicitly)
+        {
+            return explicitly;
+        }
+
+        if (Read("PageSize") is int pageSize && pageSize <= 0)
+        {
+            return true;
+        }
+
+        return Read("PagerVisible") is not true;
+    }
+
+    /// <summary>splat 으로 들어온 값 하나를 이름으로 찾는다.</summary>
+    private object? Read(string name)
+    {
+        if (_forwarded is null)
+        {
+            return null;
+        }
+
+        foreach (var (key, value) in _forwarded)
+        {
+            if (string.Equals(key, name, StringComparison.OrdinalIgnoreCase))
+            {
+                return value;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// 줄 번호.
+    ///
+    /// <para>
+    /// <c>VisibleIndex</c> 는 <b>쪽 안의 자리가 아니라 전체에서의 자리</b>다.
+    /// 한동안 여기에 앞 쪽들의 건수를 더하고 있어서 2쪽이 16 이 아니라 31 로
+    /// 시작했다. 문서로는 갈리지 않아 화면에서 재어 확인했다 — 2쪽 첫 줄에
+    /// 줄무늬가 걸렸고(홀수), 그것이 15 라는 뜻이다.
+    /// </para>
+    /// </summary>
+    private static int RowNumber(int visibleIndex) => visibleIndex + 1;
+
+    /// <summary>
+    /// 자료가 들어오면 첫 줄을 골라 준다(<see cref="AutoSelectFirstRow"/>).
+    ///
+    /// <para>
+    /// <b>렌더 뒤여야 한다.</b> 줄이 몇 개인지·첫 줄이 무엇인지는 거르기와
+    /// 정렬이 끝난 뒤에야 표가 안다. <c>OnParametersSet</c> 에서 <c>Data</c>
+    /// 의 첫 원소를 집으면 거르개가 걸린 화면에서 <b>보이지도 않는 줄</b>을
+    /// 고르게 된다.
+    /// </para>
+    ///
+    /// <para>
+    /// 표 안에서만 끝나는 일(정렬 · 쪽 넘기기)에는 이 메서드가 불리지 않는다 —
+    /// 그때는 부모인 우리가 다시 그려지지 않기 때문이다(<c>OnLayoutChanged</c>
+    /// 머리말). 우리가 노리는 것은 화면이 자료를 새로 넣는 순간이고, 그때는
+    /// 화면이 다시 그려지므로 여기까지 온다.
+    /// </para>
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+
+        if (!AutoSelectFirstRow
+            || SelectionMode != GridSelectionMode.Single
+            || _grid is null
+            || ReferenceEquals(_autoPickedFor, Data))
+        {
+            return;
+        }
+
+        // 이미 고른 줄이 있으면 그대로 둔다. 다만 이 자료 묶음은 처리한
+        // 것으로 표시해 두어야 사람이 선택을 푼 뒤에 되살아나지 않는다.
+        if (_selected is not null)
+        {
+            _autoPickedFor = Data;
+            return;
+        }
+
+        // 아직 줄이 안 그려졌으면 다음 렌더에 다시 온다. 여기서 표시해 두면
+        // **조회 결과가 늦게 도착하는 화면**이 영영 자동 선택을 못 받는다.
+        if (_grid.GetVisibleRowCount() <= 0)
+        {
+            return;
+        }
+
+        if (_grid.GetDataItem(0) is not { } first)
+        {
+            return;
+        }
+
+        _autoPickedFor = Data;
+        await OnSelectedDataItemChangedAsync(first);
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// 표의 편집 창에 붙는 클래스.
+    ///
+    /// <para>
+    /// <b>이 창은 우리 <c>CommPopup</c> 이 아니다.</b> DevExpress 그리드가
+    /// 자기 편집 창을 직접 그린다(<c>GridEditMode.PopupEditForm</c>). 그래서
+    /// 부품을 갈아 끼울 수는 없고, 대신 <c>jsini-gridpopup</c> 으로
+    /// <b>모양과 몸가짐만 CommPopup 과 맞춘다</b> — 키가 큰 폼에서 본문만
+    /// 구르게 하고(안 그러면 바닥의 「저장」이 화면 밖으로 나간다), 머리를
+    /// 잡는 손 모양을 같게 한다. 규칙은 app.css 에 있다.
+    /// </para>
+    ///
+    /// <para>
+    /// 화면이 splat 으로 같은 이름을 주면(창을 넓히려고 그렇게 하는 화면이
+    /// 있다) <b>덮지 않고 뒤에 잇는다.</b> 덮으면 그 화면만 구르지 않는 창이
+    /// 되고, 그 차이는 폼이 길어진 뒤에야 드러난다.
+    /// </para>
+    /// </summary>
+    private string PopupClass =>
+        Read("PopupEditFormCssClass") is string extra && extra.Length > 0
+            ? $"jsini-gridpopup {extra}"
+            : "jsini-gridpopup";
+
+    /// <summary>이 쪽의 첫 줄이 전체에서 몇 번째인가. 쪽이 없으면 0 이다.</summary>
+    private int PageOffset => _grid is null ? 0 : _grid.PageIndex * Math.Max(_grid.PageSize, 0);
+
+    private readonly Dictionary<string, GridColumnSortOrder> _sortSeen = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// 칸 머리 클릭을 오름 → 내림 → 없음으로 돌린다. DevExpress 는 둘만 오가서
+    /// 원래 차례로 되돌릴 길이 없다. 내림이던 칸이 다시 오름이 되면 세 번째
+    /// 클릭이므로 정렬을 푼다.
+    ///
+    /// <para>
+    /// [왜 <c>OnAfterRender</c> 가 아닌가 — 한동안 안 돌고 있었다]
+    /// </para>
+    ///
+    /// <para>
+    /// 정렬은 <c>DxGrid</c> <b>안에서 끝나는 일</b>이라 부모인 우리는 다시
+    /// 그려지지 않는다. <c>OnAfterRender</c> 에 두었을 때 칸 머리를 세 번
+    /// 눌러도 아무 일이 없던 이유가 그것이다 — 코드가 틀린 것이 아니라
+    /// 아예 불리지 않았다. 대신 layout 이 바뀔 때 알려 주는
+    /// <c>LayoutAutoSaving</c> 에 건다.
+    /// </para>
+    /// </summary>
+    private Task OnLayoutChanged(GridPersistentLayoutEventArgs e)
+    {
+        if (_grid is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        string? release = null;
+        var now = new Dictionary<string, GridColumnSortOrder>(StringComparer.Ordinal);
+
+        foreach (var column in _grid.GetSortedColumns())
+        {
+            if (column.FieldName is not { Length: > 0 } field)
+            {
+                continue;
+            }
+
+            now[field] = column.SortOrder;
+
+            if (_sortSeen.TryGetValue(field, out var before)
+                && before == GridColumnSortOrder.Descending
+                && column.SortOrder == GridColumnSortOrder.Ascending)
+            {
+                release = field;
+            }
+        }
+
+        _sortSeen.Clear();
+
+        foreach (var (name, order) in now)
+        {
+            _sortSeen[name] = order;
+        }
+
+        if (release is null)
+        {
+            return Task.CompletedTask;
+        }
+
+        // 기억에서도 지운다. 안 지우면 다음 첫 클릭이 또 세 번째로 읽힌다.
+        _sortSeen.Remove(release);
+
+        // 알림을 받는 도중에 layout 을 또 건드리지 않는다. 한 박자 뒤로 미룬다.
+        var target = release;
+        _ = InvokeAsync(() => _grid.SortBy(target, GridColumnSortOrder.None));
+
+        return Task.CompletedTask;
+    }
+
+    private void ToggleFilterRow()
+    {
+        _filterRow = !_filterRow;
+
+        // 줄을 감출 때 조건도 지운다. 안 지우면 보이지 않는 조건에 걸러진 표가 남는다.
+        if (!_filterRow && _hasFilter)
+        {
+            ClearFilter();
+        }
+    }
+
+    private void ClearFilter()
+    {
+        _grid?.ClearFilter();
+        _hasFilter = false;
+    }
+
+    private DxContextMenu? _menu;
+
+    /// <summary>창을 여는 순간 세운 항목. 연 뒤에 권한·상태가 바뀌어도 창은 그대로다.</summary>
+    private IReadOnlyList<GridMenuItem> _menuItems = [];
+
+    private sealed record GridMenuItem(
+        string Text, string? Icon, Func<Task> Run, bool BeginGroup = false, bool Enabled = true);
+
+    /// <summary>화면이 <see cref="ContextMenuItems"/> 로 보탠 항목. 적힌 차례대로다.</summary>
+    private readonly List<CommMenuItem> _screenItems = [];
+
+    void ICommMenuHost.Add(CommMenuItem item)
+    {
+        _screenItems.Add(item);
+
+        // 표의 기본 동작이 하나도 없는 표는 첫 항목이 들어오는 순간에야 창이
+        // 생긴다. 브라우저 창을 막을지는 렌더 때 정해지므로 한 번 다시 그린다.
+        if (_screenItems.Count == 1)
+        {
+            StateHasChanged();
+        }
+    }
+
+    void ICommMenuHost.Remove(CommMenuItem item) => _screenItems.Remove(item);
+
+    /// <summary>
+    /// 오른쪽 클릭 창에 올릴 것. 옛 아래 띠의 아이콘과 **같은 조건**이다 —
+    /// 등록·엑셀은 권한을 보고(`PermissionView` 와 같은 판정), 칸별 검색
+    /// 지우기는 걸린 조건이 있을 때만 올린다. 화면의 항목은 「등록」 바로 아래다.
+    /// </summary>
+    private List<GridMenuItem> BuildMenu()
+    {
+        var items = new List<GridMenuItem>();
+
+        if (!ShowFooter)
+        {
+            return items;
+        }
+
+        if (OnSave.HasDelegate && Can(MenuAction.Create))
+        {
+            items.Add(new(CreateTitle, "jsini-icon-plus", CreateAsync));
+        }
+
+        foreach (var mine in _screenItems)
+        {
+            items.Add(new(mine.Text, mine.IconCssClass, () => mine.Click.InvokeAsync(),
+                BeginGroup: mine.BeginGroup, Enabled: mine.Enabled));
+        }
+
+        if (Reload.HasDelegate)
+        {
+            items.Add(new("다시 읽기", "jsini-icon-refresh", () => Reload.InvokeAsync(),
+                BeginGroup: _screenItems.Count > 0));
+        }
+
+        if (ShowFilterToggle)
+        {
+            items.Add(new(_filterRow ? "칸별 검색 줄 감추기" : "칸별 검색 줄 보이기", "jsini-icon-filter",
+                () => { ToggleFilterRow(); return Task.CompletedTask; },
+                BeginGroup: items.Count > 0));
+        }
+
+        if (_hasFilter)
+        {
+            items.Add(new("칸별 검색 지우기", "jsini-icon-filter-off",
+                () => { ClearFilter(); return Task.CompletedTask; },
+                BeginGroup: !ShowFilterToggle && items.Count > 0));
+        }
+
+        if (ShowExcelExport && Can(MenuAction.Excel))
+        {
+            items.Add(new("엑셀로 내려받기", "jsini-icon-excel", ExportAsync, BeginGroup: items.Count > 0));
+        }
+
+        return items;
+    }
+
+    /// <summary>
+    /// 브라우저 창을 막을지. **렌더할 때 정해진다** — 누른 뒤에 막을 수는 없다.
+    /// 올릴 것이 하나도 없는 표에서 막으면 오른쪽 클릭이 아무 일도 안 하게 된다.
+    /// </summary>
+    private bool HasMenu => BuildMenu().Count > 0;
+
+    private async Task OpenMenuAsync(MouseEventArgs args)
+    {
+        _menuItems = BuildMenu();
+
+        if (_menu is null || _menuItems.Count == 0)
+        {
+            return;
+        }
+
+        // 항목을 먼저 그려 놓고 연다. 같은 렌더에서 열면 창이 옛 항목으로 뜬다.
+        StateHasChanged();
+        await _menu.ShowAsync(args);
+    }
+
+    private void OnFilterCriteriaChanged(GridFilterCriteriaChangedEventArgs e)
+    {
+        // CriteriaOperator 는 `==` 를 재정의해서 null 비교가 예상과 다르게 돈다.
+        _hasFilter = !ReferenceEquals(_grid?.GetFilterCriteria(), null);
+    }
+
+    /// <summary>
+    /// 짝수 줄에 표시 클래스를 붙인다. 색은 CSS 가 정한다.
+    ///
+    /// <para>
+    /// DevExpress 에는 줄무늬 파라미터가 없다 — 공식으로 안내하는 길이
+    /// 이 <c>CustomizeElement</c> 다. 색은 CSS 가 정하므로 선택색을 이기지 않는다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>쪽 안의 자리</b>로 센다. <c>VisibleIndex</c> 는 전체 기준이라
+    /// 그대로 쓰면 홀수 개짜리 쪽 다음부터 무늬가 뒤집혀, 쪽을 넘길 때마다
+    /// 첫 줄이 칠해졌다 말았다 한다.
+    /// </para>
+    /// </summary>
+    private void OnCustomizeElement(GridCustomizeElementEventArgs e)
+    {
+        if (AlternateRows
+            && e.ElementType == GridElementType.DataRow
+            && (e.VisibleIndex - PageOffset) % 2 == 1)
+        {
+            e.CssClass = "commgrd__row--alt";
+            return;
+        }
+
+        // 자료 칸의 기본 정렬은 가운데다. 칸이 TextAlignment 를 직접 정했으면(Auto 가 아니면)
+        // 건드리지 않는다 — 그 값이 그 칸의 뜻이다.
+        //
+        // CSS 로만 하면 이 구분을 할 수 없다. DevExpress 는 우리가 정한 것과
+        // 자기가 자료형을 보고 정한 것(숫자는 오른쪽)에 **같은 클래스**를
+        // 붙이기 때문이다. 여기서는 칸이 선언한 값을 그대로 읽을 수 있다.
+        if (e.ElementType == GridElementType.DataCell
+            && e.Column?.TextAlignment == GridTextAlignment.Auto)
+        {
+            e.CssClass = "commgrd__cell--center";
+        }
+    }
+
+    /// <summary>splat 으로 들어온 문자열을 DxGrid 가 기다리는 형으로 바꾼다.</summary>
+    private static IReadOnlyDictionary<string, object>? Coerce(IReadOnlyDictionary<string, object>? source)
+    {
+        if (source is null || source.Count == 0)
+        {
+            return source;
+        }
+
+        // 바꿀 것이 없으면 원본을 그대로 쓴다. 새 사전을 만들면 표가 다시 그려진다.
+        Dictionary<string, object>? changed = null;
+
+        foreach (var (name, value) in source)
+        {
+            if (!DxGridParameterTypes.TryGetValue(name, out var declared))
+            {
+                continue;
+            }
+
+            // 대리자는 감쌀 수 없다 — 감싸면 알림 받는이가 이 부품이 되어
+            // 화면이 다시 그려지지 않는다(OnSelectedDataItemChangedAsync 주석).
+            // 그래서 바꿔 주는 대신 여기서 막는다. 안 막으면 DevExpress 가
+            // 대입할 때 죽고, 그때 나오는 말은
+            // "Unable to cast … Func`2 … to EventCallback`1" 뿐이라
+            // 어느 화면의 어느 줄인지 알 수 없다.
+            if (value is Delegate && IsEventCallback(declared))
+            {
+                throw new InvalidOperationException(
+                    $"CommGrd: DxGrid 의 '{name}' 은 EventCallback 이라 splat 으로 넘길 수 없습니다. "
+                    + "CommGrd 가 선언한 파라미터를 쓰십시오 — 선택은 SelectedItem · SelectedItemChanged 입니다. "
+                    + $"그런 파라미터가 없으면 CommGrd 에 먼저 만드십시오({name} 을(를) 그대로 내려보내면 됩니다).");
+            }
+
+            if (value is not string text)
+            {
+                continue;
+            }
+
+            var want = Nullable.GetUnderlyingType(declared) ?? declared;
+
+            if (want == typeof(string) || want == typeof(object))
+            {
+                continue;
+            }
+
+            object converted;
+
+            try
+            {
+                converted = want.IsEnum
+                    ? Enum.Parse(want, text, ignoreCase: true)
+                    : Convert.ChangeType(text, want, System.Globalization.CultureInfo.InvariantCulture);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException(
+                    $"CommGrd: DxGrid 의 '{name}' 에 준 값 \"{text}\" 을(를) {want.Name} 으로 읽지 못했습니다. "
+                    + $"식으로 주려면 {name}=\"@(…)\" 로 적으십시오.", ex);
+            }
+
+            changed ??= new Dictionary<string, object>(source, StringComparer.Ordinal);
+            changed[name] = converted;
+        }
+
+        return changed ?? source;
+    }
+
+    /// <summary>
+    /// DxGrid 의 선택 알림을 화면이 아는 형으로 옮긴다.
+    ///
+    /// <para>
+    /// 이 다리가 있어야 하는 이유는 <b>알림을 누가 받는가</b>다. Razor 가
+    /// 화면의 <c>SelectedItemChanged</c> 를 감쌀 때 받는이로 <b>화면</b>을
+    /// 적어 주므로, 알림이 끝나면 화면이 다시 그려진다. 여기서 대리자를
+    /// 직접 감싸면 받는이가 이 부품이 되어 <b>표만</b> 다시 그려진다 —
+    /// 고른 줄에 딸린 오른쪽 칸이 안 바뀌는 쪽으로 조용히 틀린다.
+    /// </para>
+    /// </summary>
+    private Task OnSelectedDataItemChangedAsync(object? item)
+    {
+        _selected = item;
+
+        return SelectedItemChanged.InvokeAsync(item is TItem typed ? typed : default);
+    }
+
+    /// <summary>
+    /// 체크가 바뀌었다. 화면이 들고 있는 형(<typeparamref name="TItem"/>)으로
+    /// 되돌려 올린다 — 표는 <c>object</c> 로 다룬다.
+    /// </summary>
+    private Task OnSelectedDataItemsChangedAsync(IReadOnlyList<object> items)
+    {
+        _selectedMany = items;
+
+        return SelectedItemsChanged.InvokeAsync([.. items.OfType<TItem>()]);
+    }
+
+    private static bool IsEventCallback(Type type) =>
+        type == typeof(EventCallback)
+        || (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(EventCallback<>));
+
+    /// <summary>등록 팝업을 연다. 바깥에서도 부를 수 있다.</summary>
+    public Task StartNewAsync() => _grid?.StartEditNewRowAsync() ?? Task.CompletedTask;
+
+    /// <summary>
+    /// 고치는 자리가 <b>팝업 편집 창</b>인가.
+    ///
+    /// <para>
+    /// 폼을 주지 않은 화면은 고치는 자리를 표 밖에 따로 두었다는 뜻이다 —
+    /// 그런 화면에서 창을 열면 <b>빈 창</b>이 뜬다. 따로 켜는 값을 두지 않는
+    /// 이유는 그것이 두 벌의 진실이 되기 때문이다. 폼이 어디 있는지는
+    /// <see cref="EditFormTemplate"/> 하나가 이미 말하고 있다.
+    /// </para>
+    /// </summary>
+    private bool EditsInPopup => OnSave.HasDelegate && EditFormTemplate is not null;
+
+    /// <summary>
+    /// 아래 띠의 ＋. 팝업으로 고치는 화면은 편집 창을 열고, <b>편집 자리가
+    /// 표 밖인 화면은 새 줄을 화면에 넘긴다</b> — <see cref="OnNew"/> 로
+    /// 기본값을 채워 <see cref="OnEditOpen"/> 으로 준다. 팝업이 열릴 때와
+    /// 같은 순서라, 화면은 자리가 어디든 같은 두 자리만 채우면 된다.
+    /// </summary>
+    private Task CreateAsync()
+    {
+        if (EditsInPopup)
+        {
+            return StartNewAsync();
+        }
+
+        var fresh = Activator.CreateInstance<TItem>();
+
+        OnNew?.Invoke(fresh);
+        OnEditOpen?.Invoke(fresh, true);
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// <b>표 밖에서 고친 것을 저장한다.</b> 팝업의 「저장」과 같은 길이다 —
+    /// <see cref="OnSave"/> 를 부르고, 성공하면 문구를 띄우고 목록을 다시 읽는다.
+    /// </summary>
+    /// <returns>저장했으면 <c>true</c>. 뒤처리는 부르는 화면이 정한다.</returns>
+    public async Task<bool> SaveAsync(TItem item, bool isNew)
+    {
+        var saved = await RunAsync(
+            () => OnSave.InvokeAsync((item, isNew)),
+            isNew ? "등록했습니다." : "저장했습니다.",
+            isNew ? "등록하지 못했습니다" : "저장하지 못했습니다");
+
+        if (saved)
+        {
+            await Reload.InvokeAsync();
+        }
+
+        return saved;
+    }
+
+    private Task EditAsync(int visibleIndex) => _grid?.StartEditRowAsync(visibleIndex) ?? Task.CompletedTask;
+
+    /// <summary>
+    /// 삭제 확인. <see cref="DeleteConfirm"/> 을 준 화면만 우리 확인창을 쓴다.
+    ///
+    /// <para>
+    /// 우리 확인창을 쓸 때는 DevExpress 에 삭제를 맡기지 않는다 — 맡기면
+    /// 기본 확인창이 <b>한 번 더</b> 뜬다. 지우고 목록을 다시 읽는 일은
+    /// <see cref="DeleteAsync"/> 한 곳에 모아 두어 두 길이 갈리지 않는다.
+    /// </para>
+    /// </summary>
+    private async Task ConfirmDeleteAsync(int visibleIndex, object? dataItem)
+    {
+        if (DeleteConfirm is null || dataItem is not TItem item)
+        {
+            _grid?.ShowRowDeleteConfirmation(visibleIndex);
+            return;
+        }
+
+        if (await _confirm!.AskAsync(DeleteConfirm(item)))
+        {
+            await DeleteAsync(item);
+        }
+    }
+
+    /// <summary>지금 보이는 그대로(정렬·필터가 걸린 상태) 내린다.</summary>
+    private Task ExportAsync() =>
+        _grid?.ExportToXlsxAsync($"{ExportName}.xlsx", new GridXlExportOptions
+        {
+            ExportSelectedRowsOnly = false,
+        }) ?? Task.CompletedTask;
+
+    private void OnCustomizeEditModel(GridCustomizeEditModelEventArgs e)
+    {
+        if (e.EditModel is not TItem item)
+        {
+            return;
+        }
+
+        if (e.IsNew)
+        {
+            OnNew?.Invoke(item);
+        }
+
+        OnEditOpen?.Invoke(item, e.IsNew);
+    }
+
+    private async Task OnEditModelSavingAsync(GridEditModelSavingEventArgs e)
+    {
+        if (e.EditModel is not TItem model)
+        {
+            return;
+        }
+
+        if (!await SaveAsync(model, e.IsNew))
+        {
+            // 실패하면 팝업을 닫지 않는다. 닫으면 쓴 내용이 사라진다.
+            e.Cancel = true;
+        }
+    }
+
+    private async Task OnDataItemDeletingAsync(GridDataItemDeletingEventArgs e)
+    {
+        if (e.DataItem is not TItem item)
+        {
+            return;
+        }
+
+        // 실패하면 표에서 줄을 걷어내지 않는다. 걷어내면 서버에는 남아 있는데
+        // 화면에서는 사라져, 다시 읽을 때까지 지운 줄 안다.
+        if (!await DeleteAsync(item))
+        {
+            e.Cancel = true;
+        }
+    }
+
+    /// <summary>지우고 목록을 다시 읽는다. 성공했으면 <c>true</c>.</summary>
+    private async Task<bool> DeleteAsync(TItem item)
+    {
+        if (!await RunAsync(() => OnDelete.InvokeAsync(item), "삭제했습니다.", "삭제하지 못했습니다"))
+        {
+            return false;
+        }
+
+        await Reload.InvokeAsync();
+        return true;
+    }
+}

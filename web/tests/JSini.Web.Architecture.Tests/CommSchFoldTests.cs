@@ -46,7 +46,7 @@ public sealed class CommSchFoldTests
                 continue;
             }
 
-            var text = File.ReadAllText(file);
+            var text = RazorSource.Read(file);
 
             foreach (Match match in OpeningTag.Matches(text))
             {

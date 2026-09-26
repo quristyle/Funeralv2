@@ -27,9 +27,3 @@
         <div class="site-footer__rights">© @DateTime.Now.Year @T.Footer.Rights</div>
     </div>
 </footer>
-
-@code {
-    [Parameter, EditorRequired] public string Locale { get; set; } = SiteMessages.DefaultLocale;
-
-    private Messages T => SiteMessages.For(Locale);
-}

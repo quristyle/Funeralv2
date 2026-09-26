@@ -2,36 +2,17 @@
 @attribute [RouteKey("admin.company.list")]
 
 @*
-    [회사 목록] — DB 메뉴 `/system/company`.
-    이력: Vue `views/portal/system/company/list` → 여기.
+    [회사 관리] — DB 메뉴 `/system/company`.
 
-    [읽기만 되는 「관리」 화면이었다]
+        왼쪽   회사 목록 — 고르고, 끌어서 차례를 바꾸고, 지운다
+        오른쪽 고른 회사의 탭 — 수정(Company/CompanyInfoTab) ·
+               부서(CompanyDeptTab) · 사용자(CompanyUserTab)
 
-    등록·수정·삭제가 하나도 없었다. 클라이언트에는 셋 다 있었고
-    (`CreateCompanyAsync` · `UpdateCompanyAsync` · `DeleteCompanyAsync`)
-    화면이 부르지 않았을 뿐이다. 회사는 포털에서만 만들 수 있으므로,
-    여기서 못 하면 어디서도 못 한다.
-
-    [사용처가 화면에 없었다]
-
-    서버가 `usageLocations` 를 주는데 모델에 그릇이 없어 **받자마자 버려지고
-    있었다.** 그런데 이 값이 회사 관리에서 가장 중요하다 — 어느 업무 시스템에
-    그 회사를 노출할지가 여기서 정해진다. 장례식장 화면들은
-    `FUNERAL_HOME_MANAGEMENT_SYSTEM` 이 걸린 회사만 읽으므로, 비워 두면
-    그 화면들의 회사 드롭다운에서 조용히 사라진다.
-
-    고를 값은 공통코드(`COMPANY_USAGE_LOCATION`)가 정한다 — 화면에 적어 두지
-    않는다. 업무 시스템이 늘 때마다 화면을 고치게 된다.
-
-    [사람·부서 수는 서버가 세어 준다]
-
-    보내지 않는다. 저장 폼에도 없다 — 있으면 사람이 고칠 수 있는 값처럼 보인다.
+    사용처(`COMPANY_USAGE_LOCATION`)를 비워 두면 그 업무 시스템의 회사
+    드롭다운에서 사라진다 — 목록에서 「없음」으로 드러내는 이유다.
 *@
 
 @inherits DataPage
-@inject AdminClient Api
-@inject IPermissionContext Permissions
-@inject NavigationManager Navigation
 
 <PageTitle>회사 목록 · 포털관리</PageTitle>
 
@@ -51,323 +32,126 @@
     </Fields>
 </CommSch>
 
-<CommCont>
-    <CommGrd TItem="CompanyDto"
-             Data="@Shown"
-             EditFormTitle="회사"
-             ExportName="회사목록"
-             PageSize="20"
-             OnNew="@FillNew"
-             OnSave="@SaveAsync"
-             OnDelete="@DeleteAsync"
-             Reload="@ReloadAsync"
-             AllowDragRows="@_canReorder"
-             ItemsDropped="@OnRowsDroppedAsync">
-        <Columns>
-            @* 끌어 놓은 자리가 곧 이 숫자다. 보여 주는 이유는 **업무 화면의
-               회사 고르개가 어떤 차례로 그리는지**가 여기서만 보이기 때문이다. *@
-            <DxGridDataColumn FieldName="@nameof(CompanyDto.SortOrder)" Caption="순서" Width="70" />
-            <DxGridDataColumn FieldName="@nameof(CompanyDto.Name)" Caption="회사명" MinWidth="180" />
-            <DxGridDataColumn FieldName="@nameof(CompanyDto.ShortName)" Caption="약칭" Width="110" />
-            <DxGridDataColumn FieldName="@nameof(CompanyDto.BusinessNumber)" Caption="사업자번호" Width="140" />
-            <DxGridDataColumn FieldName="@nameof(CompanyDto.Representative)" Caption="대표자" Width="110" />
+<DxSplitter CssClass="ad-vsplit" Orientation="Orientation.Horizontal" SeparatorSize="2">
+    <Panes>
 
-            <DxGridDataColumn Caption="사용처" MinWidth="200" AllowSort="false">
-                <CellDisplayTemplate Context="cell">
-                    @{
-                        var c = (CompanyDto)cell.DataItem;
-                    }
-                    @if (c.UsageLocations.Count == 0)
-                    {
-                        @* 어디에도 안 걸린 회사는 업무 화면의 드롭다운에서 사라진다.
-                           빈칸으로 두면 그것이 눈에 안 띈다. *@
-                        <span class="jsini-badge jsini-badge--off">없음</span>
-                    }
-                    else
-                    {
-                        @foreach (var code in c.UsageLocations)
-                        {
-                            <span class="jsini-badge">@UsageName(code)</span>
+    <DxSplitterPane Size="45%" MinSize="320px" MaxSize="75%">
+    <section class="ad-vsplit__pane ad-vsplit__pane--left">
+        @* 편집 폼을 주지 않으면 표가 「수정」 단추를 달지 않고 ＋ 는 OnEditOpen 으로 온다. *@
+        <CommGrd TItem="CompanyDto"
+                 @ref="_grid"
+                 Data="@Shown"
+                 ExportName="회사목록"
+                 PageSize="20"
+                 CreateTitle="회사 등록"
+                 OnNew="@FillNew"
+                 OnEditOpen="@OnEditOpen"
+                 OnSave="@PersistAsync"
+                 OnDelete="@DeleteAsync"
+                 DeleteConfirm="@DeleteMessage"
+                 Reload="@ReloadAsync"
+                 SelectedItem="@_selected"
+                 SelectedItemChanged="@SelectAsync"
+                 AutoSelectFirstRow="false"
+                 AllowDragRows="@_canUpdate"
+                 ItemsDropped="@OnRowsDroppedAsync">
+            <Columns>
+                <DxGridDataColumn FieldName="@nameof(CompanyDto.SortOrder)" Caption="순서" Width="70" />
+                <DxGridDataColumn FieldName="@nameof(CompanyDto.Name)" Caption="회사명" MinWidth="160" />
+                <DxGridDataColumn FieldName="@nameof(CompanyDto.ShortName)" Caption="약칭" Width="110" />
+
+                <DxGridDataColumn Caption="사용처" MinWidth="180" AllowSort="false">
+                    <CellDisplayTemplate Context="cell">
+                        @{
+                            var c = (CompanyDto)cell.DataItem;
                         }
-                    }
-                </CellDisplayTemplate>
-            </DxGridDataColumn>
+                        @if (c.UsageLocations.Count == 0)
+                        {
+                            <span class="jsini-badge jsini-badge--off">없음</span>
+                        }
+                        else
+                        {
+                            @foreach (var code in c.UsageLocations)
+                            {
+                                <span class="jsini-badge">@UsageName(code)</span>
+                            }
+                        }
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
 
-            <DxGridDataColumn Caption="사람 · 부서" Width="110" AllowSort="false">
-                <CellDisplayTemplate Context="cell">
-                    @{
-                        var c = (CompanyDto)cell.DataItem;
-                    }
-                    <span class="ad-stamp">@c.UserCount 명 · @c.DeptCount 부서</span>
-                </CellDisplayTemplate>
-            </DxGridDataColumn>
+                <DxGridDataColumn Caption="사람 · 부서" Width="110" AllowSort="false">
+                    <CellDisplayTemplate Context="cell">
+                        @{
+                            var c = (CompanyDto)cell.DataItem;
+                        }
+                        <span class="ad-stamp">@c.UserCount 명 · @c.DeptCount 부서</span>
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
 
-            <DxGridDataColumn Caption="상태" Width="90">
-                <CellDisplayTemplate Context="cell">
-                    @{
-                        var c = (CompanyDto)cell.DataItem;
-                    }
-                    <span class="jsini-badge @(c.Status == 1 ? "jsini-badge--on" : "jsini-badge--off")">
-                        @(c.Status == 1 ? "사용" : "중지")
-                    </span>
-                </CellDisplayTemplate>
-            </DxGridDataColumn>
+                <DxGridDataColumn Caption="상태" Width="80">
+                    <CellDisplayTemplate Context="cell">
+                        @{
+                            var c = (CompanyDto)cell.DataItem;
+                        }
+                        <span class="jsini-badge @(c.Status == 1 ? "jsini-badge--on" : "jsini-badge--off")">
+                            @(c.Status == 1 ? "사용" : "중지")
+                        </span>
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+            </Columns>
+        </CommGrd>
+    </section>
+    </DxSplitterPane>
 
-            <DxGridDataColumn FieldName="@nameof(CompanyDto.Remark)" Caption="비고" MinWidth="140" />
-        </Columns>
-
-        <EditFormTemplate Context="edit">
-            @{
-                var company = (CompanyDto)edit.EditModel;
-            }
-
-            <DxFormLayout>
-                <DxFormLayoutItem Caption="회사명" ColSpanMd="6">
-                    <DxTextBox @bind-Text="company.Name" />
-                </DxFormLayoutItem>
-                <DxFormLayoutItem Caption="약칭" ColSpanMd="6">
-                    <DxTextBox @bind-Text="company.ShortName" />
-                </DxFormLayoutItem>
-
-                <DxFormLayoutItem Caption="사업자번호" ColSpanMd="6">
-                    <DxTextBox @bind-Text="company.BusinessNumber" />
-                </DxFormLayoutItem>
-                <DxFormLayoutItem Caption="대표자" ColSpanMd="6">
-                    <DxTextBox @bind-Text="company.Representative" />
-                </DxFormLayoutItem>
-
-                @* 찾아 넣는 값이라 손으로 칠 일이 거의 없다. 그래도 막지는
-                   않는다 — 바깥 CDN 이 막힌 자리에서는 이 두 칸이 유일한 길이다. *@
-                <DxFormLayoutItem Caption="우편번호" ColSpanMd="3">
-                    <DxTextBox @bind-Text="company.ZipCode" />
-                </DxFormLayoutItem>
-                <DxFormLayoutItem Caption="주소" ColSpanMd="9">
-                    @* 단추를 우편번호 칸이 아니라 **주소 칸 옆**에 둔다. 우편번호
-                       칸은 다섯 자리라 좁게 잡아 두는데, 거기에 단추까지 넣으면
-                       글자가 한 자씩 세로로 접힌다. *@
-                    <div class="ad-addr-row">
-                        <DxTextBox @bind-Text="company.Address" CssClass="ad-addr-row__grow" />
-                        <AddrFind OnPicked="@(p => FillAddress(company, p))" />
-                    </div>
-                </DxFormLayoutItem>
-                <DxFormLayoutItem Caption="상세 주소" ColSpanMd="12">
-                    <DxTextBox @bind-Text="company.AddressDetail" />
-                </DxFormLayoutItem>
-
-                <DxFormLayoutItem Caption="사용처" ColSpanMd="12">
-                    @* 여러 곳에 걸릴 수 있다. 하나만 고르게 두면 헬프데스크에도
-                       장례식장에도 나오는 회사를 표현할 수 없다. *@
-                    <DxTagBox Data="@_usages"
-                              TextFieldName="@nameof(CommonCodeDto.CodeName)"
-                              ValueFieldName="@nameof(CommonCodeDto.CodeValue)"
-                              @bind-Values="company.Usages" />
-                </DxFormLayoutItem>
-
-                <DxFormLayoutItem Caption="승인일" ColSpanMd="4">
-                    <DxDateEdit @bind-Date="company.ApprovalDate" />
-                </DxFormLayoutItem>
-                <DxFormLayoutItem Caption="순서" ColSpanMd="4">
-                    <DxSpinEdit @bind-Value="company.SortOrder" MinValue="0" />
-                </DxFormLayoutItem>
-                <DxFormLayoutItem Caption="상태" ColSpanMd="4">
-                    <DxComboBox Data="@Statuses" TextFieldName="Name" ValueFieldName="Code"
-                                @bind-Value="company.Status" />
-                </DxFormLayoutItem>
-
-                <DxFormLayoutItem Caption="비고" ColSpanMd="12">
-                    <DxTextBox @bind-Text="company.Remark" />
-                </DxFormLayoutItem>
-            </DxFormLayout>
-        </EditFormTemplate>
-    </CommGrd>
-</CommCont>
-
-@code {
-    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
-    private string ConditionSummary => SchSummary.Of(
-        SchSummary.Or(_keyword),
-        SchSummary.NameOf(_usages, c => c.CodeValue, c => c.CodeName, _usageFilter));
-
-    private sealed record StatusOption(int Code, string Name);
-
-    private static readonly StatusOption[] Statuses =
-    [
-        new(1, "사용"),
-        new(0, "중지"),
-    ];
-
-    private IReadOnlyList<CompanyDto> _all = [];
-    private IReadOnlyList<CommonCodeDto> _usages = [];
-
-    private string? _keyword;
-    private string? _usageFilter;
-
-    /// <summary>
-    /// 끌어 옮길 수 있는가. <b>「수정」 단추를 감추는 것과 같은 판정</b>이다 —
-    /// 갈라지면 「단추는 없는데 끌어 옮기기는 된다」가 된다.
-    /// </summary>
-    private bool _canReorder;
-
-    private IReadOnlyList<CompanyDto> Shown
-    {
-        get
+    <DxSplitterPane>
+    <section class="ad-vsplit__pane ad-vsplit__pane--right">
+        @if (_edit is null || _original is null)
         {
-            var rows = _all.AsEnumerable();
-
-            if (!string.IsNullOrWhiteSpace(_keyword))
-            {
-                rows = rows.Where(c =>
-                    c.Name.Contains(_keyword, StringComparison.OrdinalIgnoreCase)
-                    || (c.ShortName?.Contains(_keyword, StringComparison.OrdinalIgnoreCase) ?? false));
-            }
-
-            if (!string.IsNullOrEmpty(_usageFilter))
-            {
-                rows = rows.Where(c => c.UsageLocations.Contains(_usageFilter, StringComparer.Ordinal));
-            }
-
-            return [.. rows];
-        }
-    }
-
-    protected override Task OnInitializedAsync()
-    {
-        // `PermissionView` 와 **똑같이** 묻는다. 끌어 옮기기는 그릴지 말지가
-        // 아니라 표의 파라미터로 켜고 끄는 것이라 직접 판정한다.
-        _canReorder = Permissions.Can(PermissionPath.Current(Navigation), MenuAction.Update);
-
-        return ReloadAsync();
-    }
-
-    private Task ReloadAsync() => LoadAsync(async () =>
-    {
-        // 사용처 코드는 회사 목록과 무관하게 늘 같다. 나란히 부른다.
-        var companies = Api.GetCompaniesAsync();
-        var usages = Api.GetCodesAsync("COMPANY_USAGE_LOCATION");
-
-        await Task.WhenAll(companies, usages);
-
-        _all = companies.Result;
-        _usages = usages.Result;
-
-        return _all.Count;
-    }, "등록된 회사가 없습니다.", "회사 목록을 읽지 못했습니다");
-
-    /// <summary>코드값을 사람이 읽는 이름으로. 모르는 코드는 값 그대로 보여 준다.</summary>
-    private string UsageName(string code) =>
-        _usages.FirstOrDefault(u => string.Equals(u.CodeValue, code, StringComparison.Ordinal))?.CodeName ?? code;
-
-    private void FillNew(CompanyDto company)
-    {
-        company.Status = 1;
-
-        // 새 회사는 목록 끝에 붙인다. 0 으로 두면 이미 있는 회사들 사이에
-        // 끼어들어 순서가 뒤섞인다.
-        company.SortOrder = _all.Count == 0 ? 0 : _all.Max(c => c.SortOrder) + 1;
-
-        // 조건줄에서 사용처를 골라 두고 등록을 누르는 흐름이 자연스럽다.
-        company.UsageLocations = string.IsNullOrEmpty(_usageFilter) ? [] : [_usageFilter];
-    }
-
-    private async Task SaveAsync((CompanyDto Item, bool IsNew) e)
-    {
-        var payload = new SaveCompanyDto
-        {
-            Name = e.Item.Name,
-            ShortName = e.Item.ShortName,
-            BusinessNumber = e.Item.BusinessNumber,
-            Representative = e.Item.Representative,
-            ZipCode = e.Item.ZipCode,
-            Address = e.Item.Address,
-            AddressDetail = e.Item.AddressDetail,
-            Remark = e.Item.Remark,
-            Status = e.Item.Status,
-            SortOrder = e.Item.SortOrder,
-            ApprovalDate = e.Item.ApprovalDate,
-
-            // 화면은 늘 전체를 보낸다. 그래서 빈 목록이 '전부 해제' 로 통한다 —
-            // 서버는 값을 안 실은 요청과 빈 목록을 구별한다.
-            UsageLocations = e.Item.UsageLocations,
-        };
-
-        if (e.IsNew)
-        {
-            await Api.CreateCompanyAsync(payload);
+            <PageNotice Tone="NoticeTone.Info"
+                        Text="왼쪽에서 회사를 고르십시오. 새 회사는 표 아래 ＋ 로 등록합니다." />
         }
         else
         {
-            await Api.UpdateCompanyAsync(e.Item.Id, payload);
+            <h2 class="ad-subhead ad-company__head">
+                <span>@(_isNew ? "새 회사" : _original.Name)</span>
+                @if (!_isNew)
+                {
+                    <span class="ad-stamp">@_original.UserCount 명 · @_original.DeptCount 부서</span>
+                }
+            </h2>
+
+            @* 새 회사는 아직 아이디가 없어 부서·사용자 탭을 세우지 않는다. *@
+            <DxTabs CssClass="ad-roletabs" @bind-ActiveTabIndex="_tab">
+                <DxTabPage Text="수정">
+                    <div class="ad-roletabs__body">
+                        <CompanyInfoTab Edit="@_edit" Original="@_original" IsNew="@_isNew"
+                                        Usages="@_usages" CanSave="@CanSave" Saving="@_saving"
+                                        OnSave="@SaveEditAsync" OnRevert="@Revert" />
+                    </div>
+                </DxTabPage>
+
+                @if (!_isNew)
+                {
+                    <DxTabPage Text="@($"부서 ({_original.DeptCount})")">
+                        <div class="ad-roletabs__body">
+                            <CompanyDeptTab CompanyId="@_original.Id" CompanyName="@_original.Name"
+                                            OnChanged="@ReloadAsync" />
+                        </div>
+                    </DxTabPage>
+
+                    <DxTabPage Text="@($"사용자 ({_original.UserCount})")">
+                        <div class="ad-roletabs__body">
+                            <CompanyUserTab CompanyId="@_original.Id" CompanyName="@_original.Name"
+                                            OnChanged="@ReloadAsync" />
+                        </div>
+                    </DxTabPage>
+                }
+            </DxTabs>
         }
-    }
+    </section>
+    </DxSplitterPane>
 
-    private Task DeleteAsync(CompanyDto company) => Api.DeleteCompanyAsync(company.Id);
+    </Panes>
+</DxSplitter>
 
-    /// <summary>
-    /// 찾아 온 주소를 칸에 넣는다.
-    ///
-    /// <b>상세 주소는 건드리지 않는다</b> — 층·호수는 사람이 적는 값이라,
-    /// 주소를 다시 찾았다고 지우면 이미 적어 둔 것을 다시 치게 된다.
-    /// </summary>
-    private void FillAddress(CompanyDto company, AddrFind.AddrPick picked)
-    {
-        company.ZipCode = picked.ZipCode;
-        company.Address = picked.Address;
-    }
-
-    /// <summary>
-    /// 줄을 끌어다 놓았다. <b>놓는 즉시 저장한다</b> — 따로 「순서 저장」 단추를
-    /// 두면 옮겨 놓고 안 누른 채 화면을 떠나는 일이 반드시 생긴다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 자리를 <b>거른 목록이 아니라 <c>_all</c> 에서</b> 옮긴다. 검색어나
-    /// 사용처로 좁혀 놓고 끌면 화면에 보이는 것은 일부인데, 보이는 것만 모아
-    /// 보내면 <b>가려져 있던 회사들의 차례가 통째로 날아간다.</b>
-    /// 전체 목록에서 「목표 줄의 앞/뒤」로 옮기면 걸러진 상태에서도 뜻이 같다.
-    /// </para>
-    ///
-    /// <para>
-    /// 표는 스스로 줄을 옮기지 않는다. 우리가 새 차례를 만들어 통째로 보내고
-    /// 다시 읽는다 — 저장이 실패하면 화면이 서버의 차례로 되돌아가야 한다.
-    /// </para>
-    /// </remarks>
-    private async Task OnRowsDroppedAsync(GridItemsDroppedEventArgs e)
-    {
-        if (e.DroppedItems.FirstOrDefault() is not CompanyDto moved
-            || e.TargetItem is not CompanyDto target
-            || ReferenceEquals(moved, target))
-        {
-            return;
-        }
-
-        var order = _all.ToList();
-        var from = order.IndexOf(moved);
-
-        if (from < 0)
-        {
-            return;
-        }
-
-        order.RemoveAt(from);
-
-        // **뽑아낸 뒤에 자리를 찾는다.** 먼저 찾아 두면 위에서 아래로 옮길 때
-        // 목표의 자리가 하나씩 밀려 한 칸 어긋난다.
-        var at = order.IndexOf(target);
-
-        if (at < 0)
-        {
-            return;
-        }
-
-        order.Insert(e.DropPosition == GridItemDropPosition.Before ? at : at + 1, moved);
-
-        await RunAsync(
-            () => Api.ReorderCompaniesAsync([.. order.Select(c => c.Id)]),
-            "차례를 바꿨습니다.", "차례를 바꾸지 못했습니다");
-
-        // **성공이든 실패든 되읽는다.** 표는 놓는 순간 이미 줄을 옮겨 그렸다 —
-        // 실패했으면 서버의 차례로 되돌려야 하고, 성공했으면 새 숫자를 받아야
-        // 「순서」 칸이 화면과 맞는다.
-        await ReloadAsync();
-    }
-}
+<ConfirmDialog @ref="_confirm" />

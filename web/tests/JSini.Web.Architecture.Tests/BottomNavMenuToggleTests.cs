@@ -95,10 +95,10 @@ public sealed class BottomNavMenuToggleTests
         return source[start..end];
     }
 
-    private static string MainLayoutRazor() => File.ReadAllText(Path.Combine(
+    private static string MainLayoutRazor() => RazorSource.Read(Path.Combine(
         SolutionRoot(), "src", "Shared", "JSini.Web.Components", "Layout", "MainLayout.razor"));
 
-    private static string BottomNavRazor() => File.ReadAllText(Path.Combine(
+    private static string BottomNavRazor() => RazorSource.Read(Path.Combine(
         SolutionRoot(), "src", "Shared", "JSini.Web.Components", "Layout", "MobileBottomNav.razor"));
 
     private static string SolutionRoot()

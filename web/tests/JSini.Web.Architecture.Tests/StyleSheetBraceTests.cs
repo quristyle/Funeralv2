@@ -43,7 +43,7 @@ public sealed class StyleSheetBraceTests
 
         foreach (var path in StyleSheets())
         {
-            var (depth, stray) = Balance(File.ReadAllText(path));
+            var (depth, stray) = Balance(RazorSource.Read(path));
             var name = Path.GetRelativePath(SolutionRoot(), path);
 
             if (stray.Count > 0)

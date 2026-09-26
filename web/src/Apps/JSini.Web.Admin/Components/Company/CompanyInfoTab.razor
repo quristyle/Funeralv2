@@ -1,0 +1,77 @@
+@* 회사 속성 수정 탭. 고치는 값은 화면(CompanyList)이 들고 있고, 여기는 폼만 그린다. *@
+
+<div class="ad-company__body">
+    <DxFormLayout CssClass="ad-editform" ReadOnly="@(!CanSave)">
+        <DxFormLayoutItem Caption="회사명" ColSpanMd="6">
+            <DxTextBox @bind-Text="Edit.Name" />
+        </DxFormLayoutItem>
+        <DxFormLayoutItem Caption="약칭" ColSpanMd="6">
+            <DxTextBox @bind-Text="Edit.ShortName" />
+        </DxFormLayoutItem>
+
+        <DxFormLayoutItem Caption="사업자번호" ColSpanMd="6">
+            <DxTextBox @bind-Text="Edit.BusinessNumber" />
+        </DxFormLayoutItem>
+        <DxFormLayoutItem Caption="대표자" ColSpanMd="6">
+            <DxTextBox @bind-Text="Edit.Representative" />
+        </DxFormLayoutItem>
+
+        <DxFormLayoutItem Caption="우편번호" ColSpanMd="3">
+            <DxTextBox @bind-Text="Edit.ZipCode" />
+        </DxFormLayoutItem>
+        <DxFormLayoutItem Caption="주소" ColSpanMd="9">
+            <div class="ad-addr-row">
+                <DxTextBox @bind-Text="Edit.Address" CssClass="ad-addr-row__grow" />
+                @if (CanSave)
+                {
+                    <AddrFind OnPicked="@FillAddress" />
+                }
+            </div>
+        </DxFormLayoutItem>
+        <DxFormLayoutItem Caption="상세 주소" ColSpanMd="12">
+            <DxTextBox @bind-Text="Edit.AddressDetail" />
+        </DxFormLayoutItem>
+
+        @* 비워 두면 그 업무 시스템의 회사 드롭다운에서 사라진다. *@
+        <DxFormLayoutItem Caption="사용처" ColSpanMd="12">
+            <DxTagBox Data="@Usages"
+                      TextFieldName="@nameof(CommonCodeDto.CodeName)"
+                      ValueFieldName="@nameof(CommonCodeDto.CodeValue)"
+                      @bind-Values="Edit.Usages" />
+        </DxFormLayoutItem>
+
+        <DxFormLayoutItem Caption="승인일" ColSpanMd="4">
+            <DxDateEdit @bind-Date="Edit.ApprovalDate" />
+        </DxFormLayoutItem>
+        <DxFormLayoutItem Caption="순서" ColSpanMd="4">
+            <DxSpinEdit @bind-Value="Edit.SortOrder" MinValue="0" />
+        </DxFormLayoutItem>
+        <DxFormLayoutItem Caption="상태" ColSpanMd="4">
+            <DxComboBox Data="@CompanyForm.Statuses" TextFieldName="Name" ValueFieldName="Code"
+                        @bind-Value="Edit.Status" />
+        </DxFormLayoutItem>
+
+        <DxFormLayoutItem Caption="비고" ColSpanMd="12">
+            <DxMemo @bind-Text="Edit.Remark" Rows="3" />
+        </DxFormLayoutItem>
+    </DxFormLayout>
+</div>
+
+@if (CanSave)
+{
+    <div class="ad-company__foot">
+        <DxButton Text="@(IsNew ? "등록" : "저장")"
+                  RenderStyle="ButtonRenderStyle.Primary"
+                  Enabled="@(!Saving && (IsNew || IsDirty))"
+                  Click="@(() => OnSave.InvokeAsync())" />
+        <DxButton Text="@(IsNew ? "취소" : "되돌리기")"
+                  RenderStyle="ButtonRenderStyle.Secondary"
+                  Enabled="@(!Saving && (IsNew || IsDirty))"
+                  Click="@(() => OnRevert.InvokeAsync())" />
+
+        @if (IsDirty)
+        {
+            <span class="jsini-badge jsini-badge--off">저장 안 함</span>
+        }
+    </div>
+}

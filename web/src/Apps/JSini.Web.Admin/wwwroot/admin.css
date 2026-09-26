@@ -785,6 +785,44 @@
   .ad-vsplit__pane--left > .ad-targets { max-height: 60vh; }
 }
 
+/* ── 회사 관리: 오른쪽 탭 ───────────────────────────────
+   탭 틀은 역할 관리의 `ad-roletabs` 를 그대로 쓴다. 수정 탭은 폼만 구르고
+   저장 단추는 제자리다.
+   ---------------------------------------------------------- */
+
+.ad-company__head {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin-top: 0;
+}
+
+.ad-company__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+
+  /* 스크롤 막대가 칸 테두리에 붙지 않게 한다. */
+  padding-right: 0.4rem;
+}
+
+.ad-company__foot {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--jsini-border);
+  margin-top: 0.5rem;
+}
+
+@media (width < 992px) {
+  .ad-company__body { overflow: visible; padding-right: 0; }
+  .ad-company__head { margin-top: 1.5rem; }
+}
+
 /* ── 역할 관리: 오른쪽 판의 탭 ────────────────────────────
 
    **사람롤과 달리 여기는 탭이다.** 그쪽은 권한과 메뉴를 가로로 나란히 두는데,

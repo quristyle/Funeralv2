@@ -55,7 +55,7 @@ public sealed class ToastTests
     public void 화면이_결과를_안내줄로_그리지_않는다()
     {
         var offenders = RazorFiles()
-            .Where(f => ResultNotice.IsMatch(File.ReadAllText(f)))
+            .Where(f => ResultNotice.IsMatch(RazorSource.Read(f)))
             .Select(Relative)
             .ToArray();
 
@@ -80,7 +80,7 @@ public sealed class ToastTests
     public void 토스트_판은_레이아웃_한_곳이다()
     {
         var hosts = RazorFiles()
-            .Where(f => File.ReadAllText(f).Contains("<DxToastProvider", StringComparison.Ordinal))
+            .Where(f => RazorSource.Read(f).Contains("<DxToastProvider", StringComparison.Ordinal))
             .Select(Relative)
             .OrderBy(f => f, StringComparer.Ordinal)
             .ToArray();
@@ -146,7 +146,7 @@ public sealed class ToastTests
     [Fact]
     public void 남은_시간표가_CSS_에도_있다()
     {
-        var css = File.ReadAllText(AppCss());
+        var css = RazorSource.Read(AppCss());
 
         var missing = Toasts.DisplayTimes
             .Select(span => $".jsini-toast-time--{(int)span.TotalSeconds}s")
@@ -174,10 +174,10 @@ public sealed class ToastTests
     [Fact]
     public void 쓸어치우기_클래스가_CSS_에도_있다()
     {
-        var css = File.ReadAllText(AppCss());
+        var css = RazorSource.Read(AppCss());
 
         var missing = Regex
-            .Matches(File.ReadAllText(ThemeJs()), @"jsini-toast-swipe--[a-z-]+")
+            .Matches(RazorSource.Read(ThemeJs()), @"jsini-toast-swipe--[a-z-]+")
             .Select(m => m.Value)
             .Distinct(StringComparer.Ordinal)
             .Where(name => !css.Contains(name, StringComparison.Ordinal))
@@ -203,9 +203,9 @@ public sealed class ToastTests
     [Fact]
     public void 날아가는_시간이_두_파일에서_같다()
     {
-        var js = Regex.Match(File.ReadAllText(ThemeJs()), @"SWIPE_SETTLE\s*=\s*(\d+)");
+        var js = Regex.Match(RazorSource.Read(ThemeJs()), @"SWIPE_SETTLE\s*=\s*(\d+)");
         var css = Regex.Match(
-            File.ReadAllText(AppCss()),
+            RazorSource.Read(AppCss()),
             @"\.jsini-toast-swipe--settling[^{}]*\{[^}]*transition:\s*transform\s+([\d.]+)s");
 
         Assert.True(js.Success, "theme.js 에서 `SWIPE_SETTLE` 을 찾지 못했다.");

@@ -34,7 +34,6 @@
 *@
 
 @inherits DataPage
-@inject CargoAdminClient Api
 
 <PageTitle>통계 · 운송관리 관리자</PageTitle>
 
@@ -84,7 +83,7 @@
 }
 
 <div class="ca-section">
-    <CommGrd TItem="AdminMonthly" Data="@Monthly" ExportName="운송관리월별거래" PagerVisible="false" PageSize="36">
+    <CommGrd TItem="AdminMonthly" Data="@Monthly" ExportName="운송관리월별거래" PageSize="36">
         <Columns>
             <DxGridDataColumn FieldName="@nameof(AdminMonthly.Month)" Caption="달" Width="90" />
             <DxGridDataColumn FieldName="@nameof(AdminMonthly.Count)" Caption="거래" Width="80" />
@@ -102,7 +101,7 @@
 <h2 class="ca-subhead">지연 · 미지급 건수가 많은 거래처</h2>
 
 <div class="ca-section">
-    <CommGrd TItem="AdminDelayCompany" Data="@TopDelay" ExportName="운송관리지연거래처" PagerVisible="false">
+    <CommGrd TItem="AdminDelayCompany" Data="@TopDelay" ExportName="운송관리지연거래처">
         <Columns>
             <DxGridDataColumn FieldName="@nameof(AdminDelayCompany.CompanyName)" Caption="거래처" MinWidth="180" />
             <DxGridDataColumn FieldName="@nameof(AdminDelayCompany.BusinessNumber)" Caption="사업자번호" Width="130" />
@@ -125,40 +124,9 @@
             <DxGridDataColumn FieldName="@nameof(AdminFlaggedUser.FlaggedCount)" Caption="의심 표시" Width="90" />
             <DxGridDataColumn FieldName="@nameof(AdminFlaggedUser.TransactionCount)" Caption="전체 거래" Width="90" />
         </Columns>
-        <FooterRight>
-            <a class="jsini-hint" href="/cargoadmin/transactions?reviewStatus=FLAGGED">의심 표시 거래 보기</a>
-        </FooterRight>
+        <ContextMenuItems>
+            <CommMenuItem Text="의심 표시 거래 보기" IconCssClass="jsini-icon-expand"
+                             Click="@(() => Navigation.NavigateTo("/cargoadmin/transactions?reviewStatus=FLAGGED"))" />
+        </ContextMenuItems>
     </CommGrd>
 </div>
-
-@code {
-    private static readonly int[] MonthOptions = [6, 12, 24];
-
-    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
-    private string ConditionSummary => $"최근 {_months}개월";
-
-    private int _months = 12;
-    private int _shownMonths = 12;
-    private AdminStatistics? _stats;
-
-    private IReadOnlyList<AdminMonthly> Monthly => _stats?.Monthly ?? [];
-    private IReadOnlyList<AdminDelayCompany> TopDelay => _stats?.TopDelayCompanies ?? [];
-    private IReadOnlyList<AdminFlaggedUser> Flagged => _stats?.FlaggedUsers ?? [];
-
-    protected override Task OnInitializedAsync() => ReloadAsync();
-
-    private Task ReloadAsync()
-    {
-        var months = _months;
-
-        return LoadOneAsync(
-            () => Api.GetStatisticsAsync(months),
-            stats =>
-            {
-                _stats = stats;
-                _shownMonths = months;
-            },
-            "통계 자료를 받지 못했습니다.",
-            "통계를 읽지 못했습니다");
-    }
-}

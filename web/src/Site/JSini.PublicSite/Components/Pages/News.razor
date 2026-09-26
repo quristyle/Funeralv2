@@ -1,7 +1,5 @@
 @page "/{Locale}/news"
 
-@inject SiteApi Api
-
 <PageTitle>@T.Nav.News — JSINI</PageTitle>
 <HeadContent>
     <meta name="description" content="@($"JSINI — {T.Nav.News}")" />
@@ -49,18 +47,3 @@
         </div>
     }
 </section>
-
-@code {
-    [Parameter] public string? Locale { get; set; }
-
-    private Messages T => SiteMessages.For(Locale);
-    private string L => SiteMessages.Normalize(Locale);
-
-    private List<PostListItem> _posts = [];
-
-    protected override async Task OnInitializedAsync()
-    {
-        _posts = await Api.PostsAsync(L, 50);
-        Api.RecordVisit($"/{L}/news", L);
-    }
-}

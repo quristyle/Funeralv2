@@ -65,7 +65,7 @@ public sealed class AiTaskAlwaysTests
             .Where(f => Relative(f) != Home)
             .Where(f =>
             {
-                var text = File.ReadAllText(f);
+                var text = RazorSource.Read(f);
                 return Must.Any(m => text.Contains(m, StringComparison.Ordinal));
             })
             .Select(Relative)
@@ -89,7 +89,7 @@ public sealed class AiTaskAlwaysTests
                 var path = Path.Combine(SolutionRoot(), rel.Replace('/', Path.DirectorySeparatorChar));
                 Assert.True(File.Exists(path), $"검사 대상이 없어졌습니다: {rel}");
 
-                return !File.ReadAllText(path)
+                return !RazorSource.Read(path)
                     .Contains("AiTaskAlways.Append", StringComparison.Ordinal);
             })
             .ToArray();
@@ -110,7 +110,7 @@ public sealed class AiTaskAlwaysTests
     [Fact]
     public void 빈_글에는_붙이지_않는다()
     {
-        var text = File.ReadAllText(Path.Combine(
+        var text = RazorSource.Read(Path.Combine(
             SolutionRoot(), Home.Replace('/', Path.DirectorySeparatorChar)));
 
         Assert.Contains("IsNullOrWhiteSpace(written)", text, StringComparison.Ordinal);
@@ -123,7 +123,7 @@ public sealed class AiTaskAlwaysTests
     [Fact]
     public void 두_번_붙이지_않는다()
     {
-        var text = File.ReadAllText(Path.Combine(
+        var text = RazorSource.Read(Path.Combine(
             SolutionRoot(), Home.Replace('/', Path.DirectorySeparatorChar)));
 
         Assert.Contains("written.Contains(Text", text, StringComparison.Ordinal);

@@ -24,12 +24,3 @@
 
     <a href="/">첫 화면으로</a>
 </div>
-
-@code {
-    [CascadingParameter] private HttpContext? HttpContext { get; set; }
-
-    private string? _requestId;
-
-    protected override void OnInitialized() =>
-        _requestId = Activity.Current?.Id ?? HttpContext?.TraceIdentifier;
-}

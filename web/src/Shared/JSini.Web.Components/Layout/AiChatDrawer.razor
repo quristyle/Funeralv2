@@ -1,6 +1,4 @@
 @* 껍데기 크기를 캡에서 멈추려고 받는다 — `ThemeSize.Chrome` 머리말 참고. *@
-@inject ThemeSize Size
-@inject CurrentUser Me
 @implements IDisposable
 @*
     헤더에서 여는 AI 대화 서랍 (D11).
@@ -65,17 +63,4 @@
         <a href="/site/ai/chat">AI 에이전트 대화</a> 화면에서 이어가세요.
     </p>
 </aside>
-}
-
-@code {
-    private bool _open;
-
-    private void Toggle() => _open = !_open;
-
-    protected override void OnInitialized() => Me.Changed += OnMeChanged;
-
-    /// <summary>내 정보가 늦게 오면 그때 단추를 세운다.</summary>
-    private void OnMeChanged() => InvokeAsync(StateHasChanged);
-
-    public void Dispose() => Me.Changed -= OnMeChanged;
 }
