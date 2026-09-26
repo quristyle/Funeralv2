@@ -3109,3 +3109,59 @@
   cursor: default;
   opacity: 0.5;
 }
+
+/* ── 가입 신청: 신청자 얼굴과 가입 경로 ──────────────────────────────
+
+   사진은 소셜 공급자가 준 것뿐이다. 없으면 이름 첫 글자를 같은 크기의
+   동그라미에 담아 줄이 들쭉날쭉하지 않게 한다. */
+.ad-signup__who {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-width: 0;
+}
+
+.ad-signup__face {
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--jsini-border, #e5e7eb);
+}
+
+.ad-signup__face--letter {
+  display: grid;
+  place-items: center;
+  color: var(--jsini-text-muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.ad-signup__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 가입 경로. 소셜은 공급자 색 — 로그인·가입 화면의 단추와 같은 색이라
+   「어느 단추로 들어왔는지」가 한눈에 이어진다(app.css 의 `.jsini-social__btn--*`). */
+.ad-signup__route {
+  display: inline-block;
+  padding: 0.125rem 0.5rem;
+  border: 1px solid var(--jsini-border, #e5e7eb);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.ad-signup__route--kakao { border-color: #fee500; background: #fee500; color: rgb(0 0 0 / 85%); }
+.ad-signup__route--naver { border-color: #03c75a; background: #03c75a; color: #fff; }
+.ad-signup__route--google { border-color: #dadce0; background: #fff; color: #1f1f1f; }
+
+.ad-signup__route--direct {
+  color: var(--jsini-text-muted);
+  font-weight: 500;
+}

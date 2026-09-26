@@ -36,6 +36,12 @@ public class SignupService(
     /// <summary>신청자가 적은 말을 담아 두는 칸.</summary>
     public const string NoteDetail = "SignupNote";
 
+    /// <summary>
+    /// 소셜로 신청한 사람의 프로필 사진 주소(공급자 쪽). 계정 사진(<c>Avatar</c>)과
+    /// 다른 칸이다 — 사연은 <c>SocialProviderOptions.PicturePath</c> 머리말.
+    /// </summary>
+    public const string PictureDetail = "SocialPicture";
+
     /// <summary>승인 대기. 이 상태로는 로그인할 수 없다.</summary>
     public const string StatusPending = "PENDING";
 
@@ -176,6 +182,17 @@ public class SignupService(
             .OrderBy(a => a.CreatedAt)
             .ToListAsync(ct);
 
+        // 어느 공급자로 들어왔는가. 신청을 만들 때 연결도 함께 만들므로
+        // (`SocialLoginService.CreateSignupAsync`) 연결이 있으면 소셜 신청이다.
+        // 한 계정에 둘 이상 붙는 일은 승인 뒤에나 생기므로 가장 먼저 붙은 것을 본다.
+        var providers = (await db.AccountSocialLogins
+                .Where(l => pendingIds.Contains(l.AccountId))
+                .OrderBy(l => l.CreatedAt)
+                .Select(l => new { l.AccountId, l.Provider })
+                .ToListAsync(ct))
+            .GroupBy(l => l.AccountId)
+            .ToDictionary(g => g.Key, g => g.First().Provider);
+
         return [.. accounts.Select(a => new SignupPendingDto
         {
             Id = a.Id,
@@ -185,8 +202,19 @@ public class SignupService(
             Phone = Content(a, "Phone"),
             Note = Content(a, NoteDetail),
             RequestedAt = a.CreatedAt,
+            SocialProvider = providers.GetValueOrDefault(a.Id),
+            PictureUrl = Content(a, PictureDetail),
         })];
     }
+
+    /// <summary>공급자 열쇠 → 안내 메일에 적을 이름. 모르는 것은 열쇠 그대로다.</summary>
+    private static string ProviderName(string provider) => provider.ToLowerInvariant() switch
+    {
+        "kakao" => "카카오",
+        "naver" => "네이버",
+        "google" => "구글",
+        var other => other,
+    };
 
     /// <inheritdoc />
     public async Task<bool> ApproveAsync(string accountId, string approver, CancellationToken ct = default)
@@ -205,19 +233,39 @@ public class SignupService(
         }
 
         status.Content = StatusActive;
+
+        // 승인과 **같은 저장**으로 기본 역할(ALL_USERS)을 붙인다. 따로 저장하면
+        // 그 사이에 실패했을 때 「승인됐는데 메뉴가 하나도 없는」 계정이 남는다.
+        var granted = await SignupDefaultRoles.AddAsync(db, configuration, logger, account.Id, approver, ct);
+
         await db.SaveChangesAsync(ct);
 
-        logger.LogInformation("가입 신청 승인: {LoginId} (승인자 {Approver})", account.UserId, approver);
+        logger.LogInformation(
+            "가입 신청 승인: {LoginId} (승인자 {Approver}, 기본 역할 {Roles})",
+            account.UserId, approver, granted.Count > 0 ? string.Join(",", granted) : "없음");
 
         var email = Content(account, "Email");
         if (!string.IsNullOrWhiteSpace(email))
         {
+            // 소셜로 신청한 사람은 비밀번호를 정한 적이 없다(무작위 값이다).
+            // 「정한 비밀번호로」라고 쓰면 로그인 화면에서 막힌다.
+            var provider = await db.AccountSocialLogins
+                .Where(l => l.AccountId == account.Id)
+                .OrderBy(l => l.CreatedAt)
+                .Select(l => l.Provider)
+                .FirstOrDefaultAsync(ct);
+
+            var how = provider is null
+                ? $"<p>신청하실 때 정한 아이디({Escape(account.UserId)})와 비밀번호로 로그인하실 수 있습니다.</p>"
+                : $"<p>로그인 화면의 <b>{Escape(ProviderName(provider))}로 로그인</b> 단추로 들어오실 수 있습니다."
+                  + $" 아이디({Escape(account.UserId)})와 비밀번호로도 들어오시려면 [비밀번호 찾기]로 비밀번호를 정하십시오.</p>";
+
             await mail.SendAsync(
                 email,
                 "[JSini 포털] 가입이 승인되었습니다",
                 $"""
                  <p>{Escape(account.UserName ?? account.UserId)} 님, 가입이 승인되었습니다.</p>
-                 <p>신청하실 때 정한 아이디({Escape(account.UserId)})와 비밀번호로 로그인하실 수 있습니다.</p>
+                 {how}
                  """,
                 Sender, ct);
         }

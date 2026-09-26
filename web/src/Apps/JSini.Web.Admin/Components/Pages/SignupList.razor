@@ -56,8 +56,38 @@
              Reload="@ReloadAsync"
              ActionsWidth="150">
         <Columns>
+            @* 이름 칸에 얼굴을 함께 그린다. 사진은 소셜 공급자가 준 것뿐이라
+               직접 입력한 신청은 이름 첫 글자로 대신한다.
+
+               `referrerpolicy` — 카카오 CDN 에 「어느 관리자 화면에서 열었는지」를
+               흘리지 않는다. 신청자 사진 한 장을 보려고 우리 주소를 바깥에
+               알려 줄 까닭이 없다. *@
+            <DxGridDataColumn FieldName="@nameof(SignupPendingDto.UserName)" Caption="신청자" MinWidth="170">
+                <CellDisplayTemplate Context="cell">
+                    @{ var row = (SignupPendingDto)cell.DataItem; }
+                    <div class="ad-signup__who">
+                        @if (row.PictureUrl is { Length: > 0 } picture)
+                        {
+                            <img class="ad-signup__face" src="@picture" alt=""
+                                 loading="lazy" referrerpolicy="no-referrer" />
+                        }
+                        else
+                        {
+                            <span class="ad-signup__face ad-signup__face--letter" aria-hidden="true">@row.Initial</span>
+                        }
+                        <strong class="ad-signup__name">@row.UserName</strong>
+                    </div>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
             <DxGridDataColumn FieldName="@nameof(SignupPendingDto.LoginId)" Caption="아이디" Width="130" />
-            <DxGridDataColumn FieldName="@nameof(SignupPendingDto.UserName)" Caption="이름" Width="110" />
+
+            <DxGridDataColumn FieldName="@nameof(SignupPendingDto.Route)" Caption="가입 경로" Width="110">
+                <CellDisplayTemplate Context="cell">
+                    @{ var row = (SignupPendingDto)cell.DataItem; }
+                    <span class="ad-signup__route ad-signup__route--@(row.SocialProvider?.ToLowerInvariant() ?? "direct")">@row.Route</span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
             <DxGridDataColumn FieldName="@nameof(SignupPendingDto.Email)" Caption="이메일" MinWidth="180" />
             <DxGridDataColumn FieldName="@nameof(SignupPendingDto.Phone)" Caption="연락처" Width="130" />
             <DxGridDataColumn FieldName="@nameof(SignupPendingDto.Note)" Caption="하실 말씀" MinWidth="200" />

@@ -51,4 +51,13 @@ public class SignupPendingDto
 
     /// <summary>신청 시각.</summary>
     public DateTime RequestedAt { get; set; }
+
+    /// <summary>
+    /// 소셜로 들어온 신청이면 그 공급자 열쇠(<c>kakao</c> · <c>naver</c> · <c>google</c>).
+    /// 아이디·비밀번호로 직접 신청했으면 <c>null</c>.
+    /// </summary>
+    public string? SocialProvider { get; set; }
+
+    /// <summary>공급자에게서 받아 둔 프로필 사진 주소. 없으면 <c>null</c>.</summary>
+    public string? PictureUrl { get; set; }
 }

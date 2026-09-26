@@ -76,6 +76,27 @@ public sealed class SocialProviderOptions
     public string EmailVerifiedPath { get; set; } = string.Empty;
 
     /// <summary>
+    /// 프로필 응답에서 <b>프로필 사진 주소</b>가 있는 자리. 없는 공급자는 비워 둔다.
+    /// <para>
+    /// 쓰는 곳이 둘이다. 주소 그대로는 가입 신청 목록·알림 메일·푸시 아이콘이
+    /// 쓰고(<c>SocialPicture</c> 칸), 바이트는 FileServer 로 옮겨 <b>계정 대표 사진</b>
+    /// (<c>Avatar</c>)이 된다. 주소를 <c>Avatar</c> 에 그대로 적지 않는 것은 포털이
+    /// 바깥 주소 사진을 「사진 없음」으로 보기 때문이다(<c>FileDownload.FileIdOf</c>).
+    /// </para>
+    /// </summary>
+    public string PicturePath { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 사진을 <b>받아 와도 되는 호스트</b>. 끝이 같으면 된다(<c>kakaocdn.net</c> 은
+    /// <c>k.kakaocdn.net</c> 도 받는다). 비어 있으면 사진을 옮기지 않는다.
+    /// <para>
+    /// 서버가 바깥 주소를 대신 여는 자리라 목록으로 좁힌다
+    /// (<c>SocialAvatarImporter</c> 머리말).
+    /// </para>
+    /// </summary>
+    public string[] PictureHosts { get; set; } = [];
+
+    /// <summary>
     /// 인가 주소에 덧붙일 매개변수. 구글이 <c>access_type=offline</c> 같은 것을
     /// 요구하거나, 카카오가 <c>prompt=login</c> 을 받는 자리다.
     /// </summary>

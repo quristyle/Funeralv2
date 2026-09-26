@@ -49,4 +49,32 @@ public sealed class SignupPendingDto
     public string? Note { get; set; }
 
     public DateTime RequestedAt { get; set; }
+
+    /// <summary>
+    /// 소셜로 들어온 신청이면 공급자 열쇠(<c>kakao</c> · <c>naver</c> · <c>google</c>).
+    /// 아이디·비밀번호로 직접 신청했으면 <c>null</c>.
+    /// </summary>
+    public string? SocialProvider { get; set; }
+
+    /// <summary>공급자에게서 받은 프로필 사진(https). 없으면 <c>null</c>.</summary>
+    public string? PictureUrl { get; set; }
+
+    /// <summary>
+    /// 「가입 경로」 칸에 적을 말. 엑셀로 내보낼 때도 이 값이 나가도록 칸의
+    /// <c>FieldName</c> 을 여기에 건다.
+    /// </summary>
+    public string Route => SocialProvider?.ToLowerInvariant() switch
+    {
+        null or "" => "직접 입력",
+        "kakao" => "카카오",
+        "naver" => "네이버",
+        "google" => "구글",
+        var other => other,
+    };
+
+    /// <summary>사진이 없을 때 동그라미에 넣을 한 글자.</summary>
+    public string Initial =>
+        (string.IsNullOrWhiteSpace(UserName) ? LoginId : UserName).Trim() is { Length: > 0 } s
+            ? s[..1].ToUpperInvariant()
+            : "?";
 }

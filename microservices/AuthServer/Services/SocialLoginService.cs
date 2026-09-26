@@ -14,8 +14,10 @@ namespace AuthServer.Services;
 /// <param name="Email">이메일. 공급자가 안 주면 <c>null</c>.</param>
 /// <param name="EmailVerified">공급자가 「확인된 주소」라고 말했는가. 모르면 <c>false</c>.</param>
 /// <param name="Name">이름·별명. 공급자가 안 주면 <c>null</c>.</param>
+/// <param name="PictureUrl">프로필 사진 주소. <b>https 만</b> 받는다. 없으면 <c>null</c>.</param>
 public sealed record SocialIdentity(
-    string Provider, string ProviderUserId, string? Email, bool EmailVerified, string? Name);
+    string Provider, string ProviderUserId, string? Email, bool EmailVerified, string? Name,
+    string? PictureUrl = null);
 
 /// <summary>소셜로 들어왔을 때 갈리는 세 갈래.</summary>
 public enum SocialLoginStatus
@@ -96,6 +98,8 @@ public sealed class SocialLoginService(
     IHttpClientFactory httpClientFactory,
     IOptionsMonitor<SocialLoginOptions> options,
     AccountMailClient mail,
+    SignupNotifyClient push,
+    SocialAvatarImporter avatars,
     IConfiguration configuration,
     ILogger<SocialLoginService> logger)
 {
@@ -262,7 +266,34 @@ public sealed class SocialLoginService(
             providerUserId,
             email,
             verified,
-            Normalize(ReadPath(profile, settings.NamePath))), null);
+            Normalize(ReadPath(profile, settings.NamePath)),
+            SafePicture(ReadPath(profile, settings.PicturePath))), null);
+    }
+
+    /// <summary>
+    /// 사진 주소는 <b>https 절대 주소로만</b> 남긴다. 관리자 화면의 <c>&lt;img&gt;</c>
+    /// 에 그대로 걸리는 값이라 <c>javascript:</c> · <c>data:</c> 같은 것이 들어오면
+    /// 안 된다.
+    /// </summary>
+    /// <remarks>
+    /// <c>http:</c> 는 버리지 않고 <c>https:</c> 로 올린다. 카카오는
+    /// <c>secure_resource=true</c> 를 빠뜨리면 사진을 <c>http://k.kakaocdn.net/…</c>
+    /// 로 주는데, 그 주소는 https 로도 열린다. 그대로 두면 https 포털에서는
+    /// 브라우저가 섞인 콘텐츠로 막는다.
+    /// </remarks>
+    private static string? SafePicture(string? url)
+    {
+        if (!Uri.TryCreate(url?.Trim(), UriKind.Absolute, out var uri))
+        {
+            return null;
+        }
+
+        if (uri.Scheme == Uri.UriSchemeHttp)
+        {
+            uri = new UriBuilder(uri) { Scheme = Uri.UriSchemeHttps, Port = -1 }.Uri;
+        }
+
+        return uri.Scheme == Uri.UriSchemeHttps ? uri.AbsoluteUri : null;
     }
 
     /// <summary>인가 코드 → access token. 공급자 셋이 모두 폼 POST 를 받는다.</summary>
@@ -471,12 +502,94 @@ public sealed class SocialLoginService(
 
         var link = NewLink(account.Id, identity, lastLoginAt: null);
         db.AccountSocialLogins.Add(link);
+
+        await AddLinkedPictureAsync(account, identity, ct);
+
         await db.SaveChangesAsync(ct);
 
         logger.LogInformation(
             "소셜 계정을 연결했다: {LoginId} ← {Provider}", account.UserId, identity.Provider);
 
         return (true, null, ToDto(link, DisplayNameOf(link.Provider)));
+    }
+
+    /// <summary>
+    /// 연결한 소셜 계정의 프로필 사진을 <b>[내 정보 → 프로필 사진] 에 한 장 더한다.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>더할 뿐 바꾸지 않는다.</b> 이미 대표 사진을 정해 둔 사람의 얼굴을 연결
+    /// 단추 하나로 갈아 끼우면 「카카오를 붙였더니 사진이 바뀌었다」가 된다. 그래서
+    /// 대표는 <b>비어 있을 때만</b> 이 사진으로 채운다 — 사진 그룹이 없던 사람(새
+    /// 그룹의 첫 장)과, 그룹은 있는데 대표 사진이 비어 있던 사람이다. 나머지는
+    /// 사진 관리에서 골라 대표로 바꾸면 된다.
+    /// </para>
+    /// <para>
+    /// 한 번 연결할 때 한 장이다. 두 번 누른 연결(이미 내 것)은 여기 오지 않는다.
+    /// 끊었다 다시 붙이면 한 장이 더 들어오는데, 그때는 사진 관리에서 지우면 된다.
+    /// </para>
+    /// <para>
+    /// 실패해도 연결은 그대로 된다 — 사진은 곁들이는 것이다.
+    /// </para>
+    /// </remarks>
+    private async Task AddLinkedPictureAsync(Account account, SocialIdentity identity, CancellationToken ct)
+    {
+        if (identity.PictureUrl is not { Length: > 0 } picture)
+        {
+            return;
+        }
+
+        var settings = Find(identity.Provider);
+        var createdBy = account.UserId;
+
+        var imported = await avatars.ImportAsync(
+            picture, settings?.PictureHosts ?? [], identity.Provider, createdBy,
+            groupId: account.AvatarGroupId, ct: ct);
+
+        if (imported is null)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(account.AvatarGroupId))
+        {
+            account.AvatarGroupId = imported.GroupId;
+        }
+
+        var avatar = await db.AccountProfileDetails
+            .Where(d => d.AccountId == account.Id && d.DetailType == "Avatar")
+            .OrderByDescending(d => d.IsPrimary)
+            .FirstOrDefaultAsync(ct);
+
+        // 대표 사진이 이미 있으면 거기서 멈춘다 — 사진 관리에 한 장 늘었을 뿐이다.
+        if (avatar is not null && !string.IsNullOrWhiteSpace(avatar.Content))
+        {
+            logger.LogInformation(
+                "{Provider} 프로필 사진을 사진 관리에 더했다: {LoginId} (대표는 그대로)",
+                identity.Provider, account.UserId);
+            return;
+        }
+
+        // 대표가 비어 있다. FileServer 가 이미 대표로 정했으면(그룹에 대표가 없었다)
+        // 그대로 쓰고, 아니면 이 사진을 대표로 지정한다 — 둘이 어긋나면 사진 관리의
+        // 별표와 헤더의 얼굴이 서로 다른 사진을 가리킨다.
+        if (!imported.IsRepresentative)
+        {
+            await avatars.SetRepresentativeAsync(imported.GroupId, imported.FileId, createdBy, ct);
+        }
+
+        if (avatar is null)
+        {
+            db.AccountProfileDetails.Add(Detail(account.Id, "Avatar", imported.DownloadUrl));
+        }
+        else
+        {
+            avatar.Content = imported.DownloadUrl;
+            avatar.IsPrimary = true;
+        }
+
+        logger.LogInformation(
+            "{Provider} 프로필 사진을 대표 사진으로 걸었다: {LoginId}", identity.Provider, account.UserId);
     }
 
     /// <summary>설정에 적힌 공급자 이름. 설정에서 지워졌으면 열쇠를 그대로 돌려준다.</summary>
@@ -562,7 +675,33 @@ public sealed class SocialLoginService(
 
         db.AccountProfileDetails.Add(Detail(account.Id, "HomePath", Options.HomePath));
 
+        // 가입 신청 목록·알림이 얼굴을 그리는 데 쓴다(`SignupService.PictureDetail`).
+        if (identity.PictureUrl is { Length: > 0 } picture)
+        {
+            db.AccountProfileDetails.Add(Detail(account.Id, SignupService.PictureDetail, picture));
+
+            // 같은 사진을 우리 FileServer 로 옮겨 **계정 대표 사진**으로 건다.
+            // 승인 뒤 헤더·조직도·알림 아이콘이 이 얼굴로 뜬다. 못 옮겨도
+            // 신청은 그대로 간다 — 사진은 나중에 [내 정보] 에서 올리면 된다.
+            var settings = Find(identity.Provider);
+            var imported = await avatars.ImportAsync(
+                picture, settings?.PictureHosts ?? [], identity.Provider, Sender, ct: ct);
+
+            if (imported is not null)
+            {
+                account.AvatarGroupId = imported.GroupId;
+                db.AccountProfileDetails.Add(Detail(account.Id, "Avatar", imported.DownloadUrl));
+            }
+        }
+
         db.AccountSocialLogins.Add(NewLink(account.Id, identity, lastLoginAt: null));
+
+        // 자동 승인이면 관리자의 승인 단추를 거치지 않으므로 기본 역할을
+        // 여기서 붙인다. 안 그러면 이 길로 들어온 사람만 메뉴가 비어 있다.
+        if (approved)
+        {
+            await SignupDefaultRoles.AddAsync(db, configuration, logger, account.Id, Sender, ct);
+        }
 
         await db.SaveChangesAsync(ct);
 
@@ -571,20 +710,29 @@ public sealed class SocialLoginService(
             loginId, identity.Provider, approved);
 
         // 알림은 곁들이는 일이다. 못 보내도 신청은 이미 저장되었다.
-        await mail.SendToRoleAsync(
-            configuration["Auth:Signup:NotifyRole"] ?? "SYSTEM_ADMINISTRATOR",
+        // 메일과 푸시를 **둘 다** 보낸다 — 메일은 자리를 비운 관리자에게 남는
+        // 기록이고, 푸시는 그 자리에서 곧바로 승인하게 하는 길이다.
+        var notifyRole = configuration["Auth:Signup:NotifyRole"] ?? "SYSTEM_ADMINISTRATOR";
+
+        var mailed = await mail.SendToRoleAsync(
+            notifyRole,
             "[JSini 포털] 소셜 계정으로 가입 신청이 들어왔습니다",
-            $"""
-             <p>새 가입 신청이 있습니다.</p>
-             <ul>
-               <li>아이디: {Escape(loginId)}</li>
-               <li>이름: {Escape(userName)}</li>
-               <li>이메일: {Escape(identity.Email ?? "-")}</li>
-               <li>들어온 길: {Escape(providerName)}</li>
-             </ul>
-             <p>포털의 [계정 관리 → 가입 신청] 에서 승인하거나 거절할 수 있습니다.</p>
-             """,
+            SignupMailBody(loginId, userName, identity, providerName, now),
             Sender, ct);
+
+        if (!mailed)
+        {
+            logger.LogError("소셜 가입 신청 알림 메일을 보내지 못했다: {LoginId}", loginId);
+        }
+
+        await push.NotifyRoleAsync(
+            notifyRole,
+            account.Id,
+            "새 가입 신청",
+            $"{userName} 님이 {providerName} 계정으로 가입을 신청했습니다. 눌러서 승인하세요.",
+            identity.PictureUrl,
+            Sender,
+            ct);
 
         if (approved)
         {
@@ -740,6 +888,92 @@ public sealed class SocialLoginService(
 
     private static string Escape(string? value) =>
         System.Net.WebUtility.HtmlEncode(value ?? string.Empty);
+
+    /// <summary>
+    /// 관리자에게 가는 「소셜 가입 신청」 메일 본문.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>틀을 스스로 입는다.</b> HTML 로 보내는 메일은 NotificationServer 가 회사
+    /// 메일 틀을 씌우지 않으므로(<c>NoticeEmailTemplate</c> 머리말) 여기서 모양을
+    /// 다 짓는다. 메일 프로그램은 CSS 파일도 <c>&lt;style&gt;</c> 도 믿을 수 없어서
+    /// 표와 인라인 스타일만 쓴다.
+    /// </para>
+    /// <para>
+    /// 사진은 공급자 주소(https)를 그대로 건다. 메일 프로그램이 바깥 그림을 막아
+    /// 두었으면 그 자리에 이름 첫 글자가 대신 보이도록 <c>alt</c> 를 둔다 — 그래서
+    /// 사진이 없어도 본문은 그대로 읽힌다.
+    /// </para>
+    /// </remarks>
+    private string SignupMailBody(
+        string loginId, string userName, SocialIdentity identity, string providerName, DateTime requestedAt)
+    {
+        var portal = (configuration["Portal:BaseUrl"] ?? "http://localhost:5557").TrimEnd('/');
+        var approveUrl = $"{portal}/admin/system/signup";
+        var initial = string.IsNullOrWhiteSpace(userName) ? "?" : userName.Trim()[..1];
+        // 한국 시각. 서머타임이 없어 +9 로 충분하다 — 시간대 이름으로 풀면
+        // 시간대 자료가 없는 컨테이너 이미지에서 예외가 나고, 그러면 신청은
+        // 저장됐는데 신청자 화면이 오류로 끝난다.
+        var at = DateTime.SpecifyKind(requestedAt, DateTimeKind.Utc).AddHours(9);
+
+        var (chipBack, chipFore, chipBorder) = identity.Provider switch
+        {
+            "kakao" => ("#fee500", "#191600", "#fee500"),
+            "naver" => ("#03c75a", "#ffffff", "#03c75a"),
+            "google" => ("#ffffff", "#1f1f1f", "#dadce0"),
+            _ => ("#f3f4f6", "#374151", "#e5e7eb"),
+        };
+
+        var face = identity.PictureUrl is { Length: > 0 } picture
+            ? $"""<img src="{Escape(picture)}" width="64" height="64" alt="{Escape(initial)}" style="display:block;width:64px;height:64px;border-radius:32px;object-fit:cover;background:#e5e7eb;border:0;" />"""
+            : $"""<div style="width:64px;height:64px;border-radius:32px;background:#e5e7eb;color:#6b7280;font-size:26px;font-weight:700;line-height:64px;text-align:center;">{Escape(initial)}</div>""";
+
+        return $"""
+            <div style="margin:0;padding:24px 12px;background:#f5f5f7;font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:#1c1c1e;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;margin:0 auto;background:#ffffff;border:1px solid #e8e8ed;">
+                <tr>
+                  <td style="padding:28px 28px 8px;">
+                    <div style="font-size:12px;letter-spacing:.08em;color:#6e6e73;">JSini 포털 · 가입 신청</div>
+                    <div style="margin-top:6px;font-size:20px;font-weight:700;">새 가입 신청이 들어왔습니다</div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:16px 28px;">
+                    <table role="presentation" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="vertical-align:middle;">{face}</td>
+                        <td style="vertical-align:middle;padding-left:16px;">
+                          <div style="font-size:17px;font-weight:700;">{Escape(userName)}</div>
+                          <div style="margin-top:6px;">
+                            <span style="display:inline-block;padding:2px 10px;border-radius:999px;border:1px solid {chipBorder};background:{chipBack};color:{chipFore};font-size:12px;font-weight:700;">{Escape(providerName)} 계정으로 신청</span>
+                          </div>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:0 28px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;border-top:1px solid #e8e8ed;">
+                      <tr><td style="padding:10px 0;color:#6e6e73;width:90px;">아이디</td><td style="padding:10px 0;">{Escape(loginId)}</td></tr>
+                      <tr><td style="padding:10px 0;color:#6e6e73;border-top:1px solid #f0f0f3;">이메일</td><td style="padding:10px 0;border-top:1px solid #f0f0f3;">{Escape(identity.Email ?? "-")}</td></tr>
+                      <tr><td style="padding:10px 0;color:#6e6e73;border-top:1px solid #f0f0f3;">신청 시각</td><td style="padding:10px 0;border-top:1px solid #f0f0f3;">{at:yyyy-MM-dd HH:mm}</td></tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:20px 28px 28px;">
+                    <a href="{Escape(approveUrl)}" style="display:inline-block;padding:12px 22px;background:#0a0a0a;color:#ffffff;font-size:14px;font-weight:700;text-decoration:none;">가입 신청 확인하기</a>
+                    <div style="margin-top:14px;font-size:12px;line-height:1.6;color:#6e6e73;">
+                      포털의 [계정 관리 → 가입 신청] 에서 승인하거나 거절할 수 있습니다.
+                      승인 전에는 이 사람이 로그인할 수 없습니다.
+                    </div>
+                  </td>
+                </tr>
+              </table>
+            </div>
+            """;
+    }
 
     /// <summary>로그에 남길 본문을 잘라 둔다. 토큰 응답이 통째로 남는 것을 막는다.</summary>
     private static string Clip(string value) =>

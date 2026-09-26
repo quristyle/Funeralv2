@@ -142,6 +142,29 @@ builder.Services.AddHttpClient<AuthServer.Services.BirthdayNotifyClient>();
 // 계정 안내 메일 (비밀번호 재설정 · 가입 신청·승인). 같은 NotificationServer 의
 // /emails/send 를 부른다. 실패를 삼키지 않는 이유는 그 클래스 주석에 있다.
 builder.Services.AddHttpClient<AuthServer.Services.AccountMailClient>();
+
+// 가입 신청 앱푸시 — 메일과 짝으로 관리자에게 곧바로 알린다. 같은 /notifications/push.
+builder.Services.AddHttpClient<AuthServer.Services.SignupNotifyClient>();
+
+// 소셜 프로필 사진 → FileServer → 계정 대표 사진. 바깥 사진을 받는 통과
+// FileServer 를 부르는 통을 나눈다 — 받는 쪽은 짧게 끊고 쿠키·자동 이동을 끈다.
+builder.Services.AddHttpClient(AuthServer.Services.SocialAvatarImporter.PictureClient, c =>
+    {
+        c.Timeout = TimeSpan.FromSeconds(8);
+        c.DefaultRequestHeaders.UserAgent.ParseAdd("JSini-Portal/1.0");
+    })
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+    {
+        AllowAutoRedirect = false,
+        UseCookies = false,
+    });
+builder.Services.AddHttpClient(AuthServer.Services.SocialAvatarImporter.FileClient, (sp, c) =>
+{
+    var baseUrl = sp.GetRequiredService<IConfiguration>()["FileServer:BaseUrl"] ?? "http://127.0.0.1:5350";
+    c.BaseAddress = new Uri(baseUrl.TrimEnd('/'));
+    c.Timeout = TimeSpan.FromSeconds(20);
+});
+builder.Services.AddScoped<AuthServer.Services.SocialAvatarImporter>();
 builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
 builder.Services.AddScoped<ISignupService, SignupService>();
 
