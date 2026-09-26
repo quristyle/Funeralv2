@@ -165,6 +165,7 @@ builder.Services.AddHttpClient(AuthServer.Services.SocialAvatarImporter.FileClie
     c.Timeout = TimeSpan.FromSeconds(20);
 });
 builder.Services.AddScoped<AuthServer.Services.SocialAvatarImporter>();
+builder.Services.AddSingleton<AuthServer.Services.MailPhotoToken>();
 builder.Services.AddScoped<IPasswordResetService, PasswordResetService>();
 builder.Services.AddScoped<ISignupService, SignupService>();
 

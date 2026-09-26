@@ -59,6 +59,18 @@ public sealed class SignupPendingDto
     /// <summary>공급자에게서 받은 프로필 사진(https). 없으면 <c>null</c>.</summary>
     public string? PictureUrl { get; set; }
 
+    /// <summary>우리 FileServer 로 옮겨 둔 계정 대표 사진. 없으면 <c>null</c>.</summary>
+    public string? Avatar { get; set; }
+
+    /// <summary>
+    /// 표에 그릴 얼굴. <b>옮겨 둔 사진이 먼저다</b> — 공급자 주소는 공급자가 바꾸거나
+    /// 막을 수 있어서, 우리 사진이 없을 때만 물러선다.
+    /// </summary>
+    public string? FaceUrl =>
+        Avatar is { Length: > 0 } && JSini.Web.Components.Data.FileDownload.FileIdOf(Avatar) is { } fileId
+            ? JSini.Web.Components.Data.FileDownload.ThumbnailUrlFor(fileId)
+            : PictureUrl;
+
     /// <summary>
     /// 「가입 경로」 칸에 적을 말. 엑셀로 내보낼 때도 이 값이 나가도록 칸의
     /// <c>FieldName</c> 을 여기에 건다.

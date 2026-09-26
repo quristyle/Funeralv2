@@ -204,6 +204,7 @@ public class SignupService(
             RequestedAt = a.CreatedAt,
             SocialProvider = providers.GetValueOrDefault(a.Id),
             PictureUrl = Content(a, PictureDetail),
+            Avatar = Content(a, "Avatar"),
         })];
     }
 

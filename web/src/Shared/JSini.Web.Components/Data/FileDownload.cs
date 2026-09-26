@@ -448,14 +448,20 @@ public static class FileDownload
         // 신원이 그대로 올라간다 — 이 중계의 원래 규칙이다.
         var token = http.Request.Query[AvatarTokenKey].ToString();
 
+        // `o=1` — 썸네일(WebP)을 건너뛰고 원본을 준다. 메일 본문에 싣는 사진이
+        // 쓴다(AuthServer 의 가입 신청 알림). Outlook 은 WebP 를 그리지 못한다.
+        var original = http.Request.Query["o"] == "1";
+
         if (Guid.TryParse(fileId, out var id))
         {
             try
             {
                 // 썸네일(150x150 WebP)을 먼저 받고, 아직 안 만들어졌으면 원본으로 한 번 물러선다.
-                var upstream = await gateway.SendRawAsync(
-                    HttpMethod.Get, $"file/thumbnail/{id}",
-                    bearer: token, cancellationToken: cancellationToken);
+                var upstream = original
+                    ? new HttpResponseMessage(System.Net.HttpStatusCode.NotFound)
+                    : await gateway.SendRawAsync(
+                        HttpMethod.Get, $"file/thumbnail/{id}",
+                        bearer: token, cancellationToken: cancellationToken);
 
                 if (!upstream.IsSuccessStatusCode)
                 {

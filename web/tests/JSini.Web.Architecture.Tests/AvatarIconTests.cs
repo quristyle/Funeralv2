@@ -69,13 +69,14 @@ public class AvatarIconTests
     /// 방향으로 틀린다.
     /// </remarks>
     [Fact]
-    public void 열쇠_이름을_세_서비스가_같이_안다()
+    public void 열쇠_이름을_서비스들이_같이_안다()
     {
         const string prefix = "\"push-icon:\"";
 
         foreach (var (service, file) in new[]
         {
             ("NotificationServer", Path.Combine("microservices", "NotificationServer", "Services", "AvatarIconToken.cs")),
+            ("AuthServer", Path.Combine("microservices", "AuthServer", "Services", "MailPhotoToken.cs")),
             ("ApiGateway", Path.Combine("ApiGateway", "Program.cs")),
             ("FileServer", Path.Combine("microservices", "FileServer", "Endpoints", "PublicFileAccessFilter.cs")),
         })

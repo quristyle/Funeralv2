@@ -100,6 +100,7 @@ public sealed class SocialLoginService(
     AccountMailClient mail,
     SignupNotifyClient push,
     SocialAvatarImporter avatars,
+    MailPhotoToken mailPhotos,
     IConfiguration configuration,
     ILogger<SocialLoginService> logger)
 {
@@ -675,6 +676,9 @@ public sealed class SocialLoginService(
 
         db.AccountProfileDetails.Add(Detail(account.Id, "HomePath", Options.HomePath));
 
+        // 우리 서버로 옮겨 둔 사진. 메일은 공급자 주소가 아니라 이것을 싣는다.
+        string? storedPictureId = null;
+
         // 가입 신청 목록·알림이 얼굴을 그리는 데 쓴다(`SignupService.PictureDetail`).
         if (identity.PictureUrl is { Length: > 0 } picture)
         {
@@ -691,6 +695,7 @@ public sealed class SocialLoginService(
             {
                 account.AvatarGroupId = imported.GroupId;
                 db.AccountProfileDetails.Add(Detail(account.Id, "Avatar", imported.DownloadUrl));
+                storedPictureId = imported.FileId;
             }
         }
 
@@ -717,7 +722,7 @@ public sealed class SocialLoginService(
         var mailed = await mail.SendToRoleAsync(
             notifyRole,
             "[JSini 포털] 소셜 계정으로 가입 신청이 들어왔습니다",
-            SignupMailBody(loginId, userName, identity, providerName, now),
+            SignupMailBody(loginId, userName, identity, providerName, now, storedPictureId),
             Sender, ct);
 
         if (!mailed)
@@ -730,7 +735,7 @@ public sealed class SocialLoginService(
             account.Id,
             "새 가입 신청",
             $"{userName} 님이 {providerName} 계정으로 가입을 신청했습니다. 눌러서 승인하세요.",
-            identity.PictureUrl,
+            loginId,
             Sender,
             ct);
 
@@ -890,6 +895,15 @@ public sealed class SocialLoginService(
         System.Net.WebUtility.HtmlEncode(value ?? string.Empty);
 
     /// <summary>
+    /// 관리자 알림 메일에 싣는 포털 주소. <c>Portal:PublicUrl</c> 이 먼저다 — 개발
+    /// 장비에서 처리된 신청도 운영 관리자에게 가기 때문이다(appsettings 머리말).
+    /// </summary>
+    private string PublicPortalUrl =>
+        (configuration["Portal:PublicUrl"] is { Length: > 0 } pub
+            ? pub
+            : configuration["Portal:BaseUrl"] ?? "http://localhost:5557").TrimEnd('/');
+
+    /// <summary>
     /// 관리자에게 가는 「소셜 가입 신청」 메일 본문.
     /// </summary>
     /// <remarks>
@@ -900,15 +914,26 @@ public sealed class SocialLoginService(
     /// 표와 인라인 스타일만 쓴다.
     /// </para>
     /// <para>
-    /// 사진은 공급자 주소(https)를 그대로 건다. 메일 프로그램이 바깥 그림을 막아
-    /// 두었으면 그 자리에 이름 첫 글자가 대신 보이도록 <c>alt</c> 를 둔다 — 그래서
-    /// 사진이 없어도 본문은 그대로 읽힌다.
+    /// <b>사진은 우리 서버로 옮겨 둔 것을 건다.</b> 공급자 주소를 그대로 걸면
+    /// 공급자가 주소를 바꾸거나 막을 때 깨지고, 메일 프로그램도 낯선 도메인의
+    /// 그림을 막는 일이 많다. 그래서 포털의 사진 중계(<c>/files/avatar/{파일}</c>)에
+    /// 사진 한 장짜리 열쇠(<see cref="MailPhotoToken"/>)를 붙여 싣는다. 원본(JPEG)을
+    /// 받게 <c>o=1</c> 을 붙인다 — 썸네일은 WebP 라 Outlook 이 그리지 못한다.
+    /// </para>
+    /// <para>
+    /// 주소의 앞부분은 <c>Portal:PublicUrl</c>(운영 주소)이다. 받는 관리자는 바깥에서
+    /// 메일을 열기 때문이다(appsettings 의 머리말).
+    /// </para>
+    /// <para>
+    /// 옮기지 못했으면 이름 첫 글자 동그라미를 그린다. 메일 프로그램이 그림을
+    /// 막아 둔 경우에도 <c>alt</c> 로 첫 글자가 보이게 해서 본문은 그대로 읽힌다.
     /// </para>
     /// </remarks>
     private string SignupMailBody(
-        string loginId, string userName, SocialIdentity identity, string providerName, DateTime requestedAt)
+        string loginId, string userName, SocialIdentity identity, string providerName, DateTime requestedAt,
+        string? storedPictureId)
     {
-        var portal = (configuration["Portal:BaseUrl"] ?? "http://localhost:5557").TrimEnd('/');
+        var portal = PublicPortalUrl;
         var approveUrl = $"{portal}/admin/system/signup";
         var initial = string.IsNullOrWhiteSpace(userName) ? "?" : userName.Trim()[..1];
         // 한국 시각. 서머타임이 없어 +9 로 충분하다 — 시간대 이름으로 풀면
@@ -924,7 +949,12 @@ public sealed class SocialLoginService(
             _ => ("#f3f4f6", "#374151", "#e5e7eb"),
         };
 
-        var face = identity.PictureUrl is { Length: > 0 } picture
+        var photoKey = storedPictureId is null ? null : mailPhotos.Create(storedPictureId);
+        var photoUrl = photoKey is null
+            ? null
+            : $"{portal}/files/avatar/{Uri.EscapeDataString(storedPictureId!)}?o=1&t={Uri.EscapeDataString(photoKey)}";
+
+        var face = photoUrl is { Length: > 0 } picture
             ? $"""<img src="{Escape(picture)}" width="64" height="64" alt="{Escape(initial)}" style="display:block;width:64px;height:64px;border-radius:32px;object-fit:cover;background:#e5e7eb;border:0;" />"""
             : $"""<div style="width:64px;height:64px;border-radius:32px;background:#e5e7eb;color:#6b7280;font-size:26px;font-weight:700;line-height:64px;text-align:center;">{Escape(initial)}</div>""";
 

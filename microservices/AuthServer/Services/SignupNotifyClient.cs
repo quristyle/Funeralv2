@@ -21,10 +21,12 @@ namespace AuthServer.Services;
 /// [아이콘은 신청자의 얼굴이다]
 /// </para>
 /// <para>
-/// 공급자가 준 사진(https)을 <c>icon</c> 에 그대로 싣는다. 다른 알림은
-/// <c>iconOwnerKey</c> 로 계정 사진을 찾게 하지만, 신청자는 아직 계정 사진이
-/// 없다 — 그 길로 보내면 언제나 기본 그림이 나온다. 사진이 없으면 그쪽
-/// 기본값(앱 아이콘)에 맡긴다.
+/// 다른 알림과 같이 <c>iconOwnerKey</c> 에 신청자 아이디를 싣는다. 신청할 때
+/// 공급자 사진을 우리 FileServer 로 옮겨 계정 대표 사진으로 걸어 두었으므로
+/// (<c>SocialAvatarImporter</c>) NotificationServer 가 그 사진을 찾아 사진 한 장짜리
+/// 열쇠를 붙인 우리 주소로 채운다. <b>공급자 주소를 그대로 싣지 않는다</b> — 공급자가
+/// 주소를 바꾸거나 막으면 아이콘이 깨지고, 받는 기기마다 바깥으로 요청이 나간다.
+/// 사진을 못 옮겼으면 그쪽 기본 그림이 나온다.
 /// </para>
 /// <para>
 /// 실패해도 신청은 이미 저장되었고 메일도 따로 간다. 그래서 로그만 남긴다.
@@ -52,11 +54,11 @@ public class SignupNotifyClient
     /// <param name="accountId">신청 계정 아이디. 같은 신청의 알림을 한 장으로 겹치는 데 쓴다.</param>
     /// <param name="title">알림 제목.</param>
     /// <param name="body">알림 본문.</param>
-    /// <param name="iconUrl">아이콘으로 쓸 사진(https). 없으면 <c>null</c>.</param>
+    /// <param name="iconOwnerKey">아이콘으로 쓸 사진의 주인(신청자 로그인 아이디).</param>
     /// <param name="sender"><c>X-User-Id</c> 에 실을 기능 이름.</param>
     /// <param name="ct">취소 토큰.</param>
     public async Task NotifyRoleAsync(
-        string role, string accountId, string title, string body, string? iconUrl, string sender,
+        string role, string accountId, string title, string body, string? iconOwnerKey, string sender,
         CancellationToken ct = default)
     {
         try
@@ -71,7 +73,7 @@ public class SignupNotifyClient
 
                     // 누르면 곧바로 승인 화면으로 간다.
                     url = "/admin/system/signup",
-                    icon = iconUrl,
+                    iconOwnerKey,
                     tag = $"signup-{accountId}",
                 },
             });

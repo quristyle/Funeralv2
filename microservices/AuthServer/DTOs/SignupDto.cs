@@ -60,4 +60,10 @@ public class SignupPendingDto
 
     /// <summary>공급자에게서 받아 둔 프로필 사진 주소. 없으면 <c>null</c>.</summary>
     public string? PictureUrl { get; set; }
+
+    /// <summary>
+    /// 우리 FileServer 로 옮겨 둔 계정 대표 사진(<c>/api/file/download/{guid}</c>).
+    /// 화면은 <b>이것을 먼저</b> 쓰고, 없을 때만 <see cref="PictureUrl"/> 로 물러선다.
+    /// </summary>
+    public string? Avatar { get; set; }
 }

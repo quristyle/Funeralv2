@@ -66,7 +66,7 @@
                 <CellDisplayTemplate Context="cell">
                     @{ var row = (SignupPendingDto)cell.DataItem; }
                     <div class="ad-signup__who">
-                        @if (row.PictureUrl is { Length: > 0 } picture)
+                        @if (row.FaceUrl is { Length: > 0 } picture)
                         {
                             <img class="ad-signup__face" src="@picture" alt=""
                                  loading="lazy" referrerpolicy="no-referrer" />
