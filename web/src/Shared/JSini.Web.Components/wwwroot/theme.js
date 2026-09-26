@@ -146,6 +146,18 @@
     { id: '2', name: '2' },
   ];
 
+  /**
+   * 글꼴. 값은 app.css 의 `[data-tb-font]` 에 있다 — 여기는 이름만.
+   *
+   * `system` 이 **지금 쓰는 글꼴**이다(tabler.css 의 `--tb-font`, 맑은 고딕 ·
+   * Apple SD 고딕 등 기기 글꼴). 그때는 표시를 세우지 않아 원래 값이 그대로 쓰인다.
+   */
+  var FONTS = [
+    { id: 'system', name: '기본 (시스템)' },
+    { id: 'scoredream', name: 'S-CoreDream' },
+    { id: 'play', name: 'Play' },
+  ];
+
   function find(list, id) {
     for (var i = 0; i < list.length; i++) {
       if (list[i].id === id) return list[i];
@@ -163,7 +175,7 @@
     }
   }
 
-  var DEFAULT = { family: 'tabler', mode: systemMode(), color: 'blue', base: 'neutral', radius: '1', size: 'medium' };
+  var DEFAULT = { family: 'tabler', mode: systemMode(), color: 'blue', base: 'neutral', radius: '1', size: 'medium', font: 'system' };
 
   // ── 스타일시트 관리 ───────────────────────────────────────
 
@@ -366,6 +378,9 @@
     root.setAttribute('data-tb-color', color.id);
     root.setAttribute('data-tb-base', spec.base);
     root.setAttribute('data-tb-radius', spec.radius);
+
+    if (spec.font && spec.font !== 'system') root.setAttribute('data-tb-font', spec.font);
+    else root.removeAttribute('data-tb-font');
     root.setAttribute('data-dx-size', spec.size);
 
     root.style.setProperty('--tb-primary', color.swatch);
@@ -468,6 +483,7 @@
       base: find(BASES, spec.base) ? spec.base : DEFAULT.base,
       radius: find(RADII, spec.radius) ? spec.radius : DEFAULT.radius,
       size: normalizeSize(spec.size),
+      font: find(FONTS, spec.font) ? spec.font : DEFAULT.font,
     };
   }
 
@@ -492,7 +508,7 @@
   window.jsiniTheme = {
     /** 고를 수 있는 것들. 테마 서랍이 이 목록을 그린다. */
     catalog: function () {
-      return { modes: MODES, colors: COLORS, bases: BASES, radii: RADII, sizes: SIZES };
+      return { modes: MODES, colors: COLORS, bases: BASES, radii: RADII, sizes: SIZES, fonts: FONTS };
     },
 
     /** 지금 고른 것. */
@@ -509,6 +525,7 @@
     setColor: function (id) { return with1('color', id); },
     setBase: function (id) { return with1('base', id); },
     setRadius: function (id) { return with1('radius', id); },
+    setFont: function (id) { return with1('font', id); },
 
     /**
      * 크기를 고른다. 테마는 그대로 두고 크기만 바꾼다.

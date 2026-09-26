@@ -5,7 +5,7 @@ namespace JSini.Web.Components.Layout;
 
 /// <summary>
 /// 테마 서랍. 고르는 것은 Tabler 의 Customize 판과 같다 — 밝기 · 강조색 ·
-/// 바탕 톤 · 모서리, 그리고 우리가 더한 크기. 값을 적용하고 저장하는 일은
+/// 바탕 톤 · 모서리, 그리고 우리가 더한 크기 · 글꼴. 값을 적용하고 저장하는 일은
 /// 전부 theme.js 가 한다. 여기는 목록을 그리고 고른 것을 넘길 뿐이다.
 /// </summary>
 public partial class ThemeToggle
@@ -22,16 +22,18 @@ public partial class ThemeToggle
         IReadOnlyList<ColorInfo> Colors,
         IReadOnlyList<ColorInfo> Bases,
         IReadOnlyList<Choice> Radii,
-        IReadOnlyList<Choice> Sizes);
+        IReadOnlyList<Choice> Sizes,
+        IReadOnlyList<Choice>? Fonts);
 
     private sealed record ModeInfo(string Id, string Name, bool Dark);
     private sealed record ColorInfo(string Id, string Name, string Swatch);
     private sealed record Choice(string Id, string Name);
 
     /// <summary>지금 고른 것. theme.js 의 모양 그대로다.</summary>
-    private sealed record Current(string? Mode, string? Color, string? Base, string? Radius, string? Size);
+    private sealed record Current(
+        string? Mode, string? Color, string? Base, string? Radius, string? Size, string? Font = null);
 
-    private Catalog _catalog = new([], [], [], [], []);
+    private Catalog _catalog = new([], [], [], [], [], []);
 
     /// <summary>목록을 이미 받았는가. 서랍을 처음 열 때 한 번만 받는다.</summary>
     private bool _catalogLoaded;
@@ -41,6 +43,7 @@ public partial class ThemeToggle
     private string _color = "blue";
     private string _base = "neutral";
     private string _radius = "1";
+    private string _font = "system";
 
     // 크기는 **단계로 견준다.** SizeMode 로 견주면 아주작게·작게·조금작게가
     // 모두 Small 이라 세 칸에 동시에 표시가 붙는다.
@@ -78,7 +81,7 @@ public partial class ThemeToggle
 
         if ((await Boot.ReadAsync()).Theme is { } theme)
         {
-            Read(new Current(theme.Mode, theme.Color, theme.Base, theme.Radius, theme.Size));
+            Read(new Current(theme.Mode, theme.Color, theme.Base, theme.Radius, theme.Size, theme.Font));
             StateHasChanged();
         }
     }
@@ -135,6 +138,7 @@ public partial class ThemeToggle
         _color = c.Color ?? "blue";
         _base = c.Base ?? "neutral";
         _radius = c.Radius ?? "1";
+        _font = c.Font ?? "system";
 
         // 쿠키를 막아 둔 브라우저에서는 브라우저 쪽이 정답이라 여기서 맞춘다.
         Size.Set(c.Size);

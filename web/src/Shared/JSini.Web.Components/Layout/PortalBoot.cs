@@ -803,6 +803,7 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         public string? Base { get; init; }
         public string? Radius { get; init; }
         public string? Size { get; init; }
+        public string? Font { get; init; }
     }
 
     /// <summary>

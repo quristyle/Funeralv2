@@ -7539,3 +7539,75 @@ body {
 .jsini-header__tool--request .jsini-icon-bolt {
   background-color: var(--jsini-request-bolt, #f2a900);
 }
+
+/* ----------------------------------------------------------
+   글꼴 고르기 — [화면 설정 → 글꼴]
+
+   theme.js 가 `<html data-tb-font="…">` 를 세우면 여기서 `--tb-font` 를 갈아
+   끼운다. 본문·DevExpress 부품·Bootstrap 이 모두 그 변수 하나를 읽으므로
+   (tabler.css 의 `--bs-body-font-family: var(--tb-font)`) 한 줄이면 화면 전체가 바뀐다.
+
+   **기본(system)에는 표시를 세우지 않는다.** tabler.css 의 원래 값이 그대로
+   쓰여야 「지금 쓰는 글꼴」이 정말 지금과 같다.
+
+   파일은 **고른 사람만 받는다** — `@font-face` 는 그 글꼴로 그릴 글자가
+   생겨야 내려받는다. 그래서 기본을 쓰는 사람의 첫 화면은 조금도 무거워지지
+   않는다(로그인 카드 머리말의 「글꼴을 가져오지 않았다」와 같은 걱정이다).
+
+   뒤따르는 한글 글꼴을 꼭 적는다. Play 는 라틴 문자뿐이라 한글을 모르고,
+   S-CoreDream 도 파일을 받기 전 잠깐은 뒤엣것으로 그린다(`swap`).
+   ---------------------------------------------------------- */
+
+/* S-CoreDream 은 무게 둘만 가져왔다(하나에 350KB). 범위로 선언해 보통 글자는
+   Light 로, 500 이상은 Bold 로 그리게 한다 — 브라우저가 가짜 굵기를 만들면
+   획이 뭉개진다. */
+@font-face {
+  font-family: 'S-CoreDream';
+  font-style: normal;
+  font-weight: 100 450;
+  font-display: swap;
+  src: url('fonts/S-CoreDream-3Light.woff') format('woff');
+}
+
+@font-face {
+  font-family: 'S-CoreDream';
+  font-style: normal;
+  font-weight: 451 900;
+  font-display: swap;
+  src: url('fonts/S-CoreDream-6Bold.woff') format('woff');
+}
+
+@font-face {
+  font-family: 'Play';
+  font-style: normal;
+  font-weight: 100 550;
+  font-display: swap;
+  src: url('fonts/Play-400-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+2122;
+}
+
+@font-face {
+  font-family: 'Play';
+  font-style: normal;
+  font-weight: 551 900;
+  font-display: swap;
+  src: url('fonts/Play-700-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+2122;
+}
+
+:root[data-tb-font='scoredream'] {
+  --tb-font: 'S-CoreDream', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR',
+    system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+:root[data-tb-font='play'] {
+  --tb-font: 'Play', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR',
+    system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+/* 서랍의 글꼴 단추는 **자기 글꼴로** 이름을 쓴다 — 눌러 보기 전에 모양을 본다.
+   선택자를 두 겹으로 둔다. tabler.css 가 이 파일보다 **뒤에** 실리면서 단추에
+   `font: inherit` 를 걸어, 한 겹이면 그쪽이 이긴다. */
+.tb-custom .tb-pill.tb-pill--font-system { font-family: system-ui, -apple-system, 'Segoe UI', 'Malgun Gothic', sans-serif; }
+.tb-custom .tb-pill.tb-pill--font-scoredream { font-family: 'S-CoreDream', 'Malgun Gothic', sans-serif; }
+.tb-custom .tb-pill.tb-pill--font-play { font-family: 'Play', 'Malgun Gothic', sans-serif; }

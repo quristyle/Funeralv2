@@ -1,6 +1,6 @@
 @*
     테마 서랍. preview.tabler.io 의 Customize 판과 같은 구성이다 —
-    밝기 · 강조색 · 바탕 톤 · 모서리, 그리고 우리가 더한 크기.
+    밝기 · 강조색 · 바탕 톤 · 모서리, 그리고 우리가 더한 크기 · 글꼴.
 
     오른쪽 서랍이다. 떠 있는 창으로 두면 창 밖을 스치기만 해도 닫혀
     여러 값을 눌러 비교할 수 없다. 덮개는 헤더를 덮지 않는다 — 덮으면
@@ -81,6 +81,22 @@
                             class="tb-pill @(_radius == radius.Id ? "tb-pill--on" : "")"
                             @onclick="@(() => SetAsync("setRadius", radius.Id))">
                         @radius.Name
+                    </button>
+                }
+            </div>
+        </section>
+
+        @* 글꼴. 단추마다 **자기 글꼴로** 이름을 쓴다(app.css 의 `.tb-pill--font-*`) —
+           눌러 보기 전에 모양을 본다. 「기본」이 지금까지 쓰던 기기 글꼴이다. *@
+        <section class="tb-custom">
+            <div class="tb-custom__label">글꼴</div>
+            <div class="tb-custom__options">
+                @foreach (var font in _catalog.Fonts ?? [])
+                {
+                    <button type="button"
+                            class="tb-pill tb-pill--font-@font.Id @(_font == font.Id ? "tb-pill--on" : "")"
+                            @onclick="@(() => SetAsync("setFont", font.Id))">
+                        @font.Name
                     </button>
                 }
             </div>
