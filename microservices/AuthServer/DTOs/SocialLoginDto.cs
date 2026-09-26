@@ -97,6 +97,21 @@ public sealed class SocialProviderOptions
     public string[] PictureHosts { get; set; } = [];
 
     /// <summary>
+    /// 프로필 응답에서 「사진이 공급자의 <b>기본 그림</b>인가」를 알려 주는 자리
+    /// (<c>true</c>/<c>false</c>). 카카오의 <c>kakao_account.profile.is_default_image</c>.
+    /// 참이면 사진이 없는 것으로 본다.
+    /// </summary>
+    public string PictureIsDefaultPath { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 공급자의 <b>기본 그림 주소</b>(일부만 맞아도 된다). 알려 주는 칸이 없는 공급자
+    /// (네이버)는 주소로 가린다. 사진을 올리지 않은 사람에게 네이버는 회색 사람
+    /// 그림 주소를 준다 — 그것을 대표 사진으로 옮기면 「사진 있음」으로 보여서
+    /// 이름 첫 글자 대신 모두가 같은 그림자를 쓰게 된다.
+    /// </summary>
+    public string[] DefaultPictureUrls { get; set; } = [];
+
+    /// <summary>
     /// 인가 주소에 덧붙일 매개변수. 구글이 <c>access_type=offline</c> 같은 것을
     /// 요구하거나, 카카오가 <c>prompt=login</c> 을 받는 자리다.
     /// </summary>

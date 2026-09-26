@@ -268,7 +268,24 @@ public sealed class SocialLoginService(
             email,
             verified,
             Normalize(ReadPath(profile, settings.NamePath)),
-            SafePicture(ReadPath(profile, settings.PicturePath))), null);
+            IsDefaultPicture(profile, settings) ? null : SafePicture(ReadPath(profile, settings.PicturePath))), null);
+    }
+
+    /// <summary>
+    /// 공급자가 준 사진이 <b>기본 그림</b>인가. 알려 주는 칸(카카오)을 먼저 보고,
+    /// 없으면 알려진 기본 그림 주소(네이버)와 견준다.
+    /// </summary>
+    private static bool IsDefaultPicture(JsonElement profile, SocialProviderOptions settings)
+    {
+        if (string.Equals(ReadPath(profile, settings.PictureIsDefaultPath), "true", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var url = ReadPath(profile, settings.PicturePath);
+        return url is { Length: > 0 }
+            && settings.DefaultPictureUrls.Any(d =>
+                !string.IsNullOrWhiteSpace(d) && url.Contains(d.Trim(), StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>
@@ -760,19 +777,31 @@ public sealed class SocialLoginService(
     /// </remarks>
     private async Task<string> IssueLoginIdAsync(SocialIdentity identity, CancellationToken ct)
     {
+        // 사람이 알아보고 받아 적을 수 있는 순서로 써 본다.
+        //   이메일 앞부분 → 앞부분_공급자 → 앞부분2, 앞부분3 … → 공급자_번호앞10자리
+        //
+        // **공급자 번호를 통째로 쓰지 않는다.** 카카오는 숫자 열 자리라 괜찮았지만
+        // 네이버는 43자짜리 무작위 글자라(`naver_8nrnme6iux…`) 아무도 외우지 못하고,
+        // 나중에 비밀번호로 들어오려는 사람이 받아 적을 수도 없다.
         var candidates = new List<string>();
+        string? local = null;
 
         if (identity.Email is { Length: > 0 } email)
         {
-            var local = Sanitize(email.Split('@')[0]);
-            if (local.Length >= 3)
+            var part = Sanitize(email.Split('@')[0]);
+            if (part.Length >= 3)
             {
-                candidates.Add(local);
+                local = part;
+                candidates.Add(part);
+                candidates.Add(Sanitize($"{part}_{identity.Provider}"));
             }
         }
 
-        var fallback = Sanitize($"{identity.Provider}_{identity.ProviderUserId}");
-        candidates.Add(fallback.Length >= 3 ? fallback : $"{identity.Provider}_user");
+        var shortId = identity.ProviderUserId.Length > 10
+            ? identity.ProviderUserId[..10]
+            : identity.ProviderUserId;
+        var fallback = Sanitize($"{identity.Provider}_{shortId}");
+        var providerSeed = fallback.Length >= 3 ? fallback : $"{identity.Provider}_user";
 
         foreach (var candidate in candidates)
         {
@@ -782,7 +811,24 @@ public sealed class SocialLoginService(
             }
         }
 
-        var seed = candidates[^1];
+        if (local is not null)
+        {
+            for (var i = 2; i < 100; i++)
+            {
+                var next = $"{local}{i}";
+                if (!await db.Accounts.AnyAsync(a => a.UserId == next, ct))
+                {
+                    return next;
+                }
+            }
+        }
+
+        if (!await db.Accounts.AnyAsync(a => a.UserId == providerSeed, ct))
+        {
+            return providerSeed;
+        }
+
+        var seed = providerSeed;
         for (var i = 2; i < 1000; i++)
         {
             var next = $"{seed}{i}";
