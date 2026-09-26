@@ -1,88 +1,16 @@
 @*
-    테마 전환. DevExpress 데모(demos.devexpress.com/blazor) 오른쪽 위의 그것을
-    그대로 본떴다 — 같은 묶음, 같은 항목, 같은 생김새.
+    테마 서랍. preview.tabler.io 의 Customize 판과 같은 구성이다 —
+    밝기 · 강조색 · 바탕 톤 · 모서리, 그리고 우리가 더한 크기.
 
-    **정본은 `docs/테마캡쳐.png` 다.** 데모 창을 찍어 둔 것이고, 아래 치수와
-    색은 눈대중이 아니라 그 그림의 픽셀에서 읽었다.
+    오른쪽 서랍이다. 떠 있는 창으로 두면 창 밖을 스치기만 해도 닫혀
+    여러 값을 눌러 비교할 수 없다. 덮개는 헤더를 덮지 않는다 — 덮으면
+    방금 누른 테마 아이콘으로 다시 닫을 수 없다.
 
-        크기                        ← 데모에는 없다. 우리가 더한 묶음이다
-        ───────────────────────
-        [ Small │ Medium │ Large ]
-
-        DevExpress Fluent
-        ───────────────────────
-        [ ☀ Light │ ☾ Dark ]
-        Preset Colors
-        ■ Blue          ■ Cool Blue
-        ■ Desert        ■ Mint
-        …                          (DevExpress 열한 개 + 우리 둘, 두 칸)
-        Custom Color
-        [ #hex                ][■]
-
-        DevExpress Classic
-        ───────────────────────
-        ■ Blazing Berry  ■ Blazing Dark
-        ■ Purple         ■ Office White
-
-        Bootstrap
-        ───────────────────────
-        ■ Default        ■ Default Dark
-        …                          (여섯 개, 두 칸)
-
-    [색 네모에 이름을 붙인다 — 동그라미만 놓지 않는다]
-
-    한동안 동그라미 열한 개를 격자로 놓고 이름은 `title` 로만 두었다. Moss 와
-    Steel 처럼 어두운 색끼리는 **눈으로 구별이 안 되고**, 이름을 보려면 얹어
-    봐야 했다. 고를 때마다 얹어 볼 수는 없다. 데모가 네모+이름인 이유다.
-
-    고른 것은 **면으로** 칠한다(테두리가 아니다). 테두리를 두르면 그 줄만
-    키가 커져 목록이 들썩인다.
-
-    [고를 수 있는 것은 DevExpress 가 주는 것뿐이다 — 이름 붙인 둘만 예외]
-
-    색을 우리가 만들지 않는다. DevExpress 컴포넌트가 그 테마의 변수로 그려지므로,
-    우리가 색을 따로 정하면 그리드·달력·팝업만 다른 색이 된다.
-    Custom Color 도 마찬가지다 — 우리가 색을 칠하는 것이 아니라 DevExpress 가
-    **덮어쓸 수 있게 열어 둔 변수**(`--dxbl-accent-color-*`)를 채운다.
-
-    프리셋 둘(`new berry` · `Ubuntu`)은 그 Custom Color 와 **같은 길**로 간다.
-    다른 것은 색이 이름을 갖는다는 점뿐이다 — 브랜드 색을 쓰는 사람이 hex 를
-    외워 다시 넣지 않아도 된다. 자세한 것은 theme.js 의 그 표에 적었다.
-
-    [Bootstrap 묶음은 파일을 저장소에 넣었다]
-
-    Bootstrap 5.3.3 과 Bootswatch 넷(Cerulean · Flatly · Journal · Lumen)은
-    DevExpress 가 주는 것이 아니라 따로 실어야 한다. CDN 을 부르지 않는 것이
-    이 저장소의 규칙이라 `wwwroot/bootstrap/` 에 넣어 두었다(MIT, 1.2MB).
-    왜 넣었는지는 그 폴더의 README 에 적어 두었다.
-
-    고르면 스타일시트가 **두 장** 실린다 — Bootstrap 본체와, 그 색을 DevExpress
-    부품으로 옮겨 주는 `bootstrap-external.bs5.min.css`. 순서는 theme.js 가 지킨다.
-
-    [정적 SSR 에서는 창이 비어 있다]
-
-    회로가 붙기 전에는 JS 를 부를 수 없어 `OnAfterRenderAsync` 에서 읽는다.
-    그 전까지는 단추만 있고 눌러도 아무 일도 없다 — 로그인 화면이 그 상태다.
-
-    [떠 있는 창이 아니라 오른쪽 서랍이다]
-
-    데모도 그렇게 한다 — 헤더 아래부터 화면 바닥까지 오른쪽을 채우는 판이
-    옆에서 밀려 들어온다. 묶음이 셋(Fluent · Classic · Bootstrap)이라 항목이
-    스물이 넘는데, 떠 있는 창으로 두면 그 안에서 또 굴려야 하고 창 밖을
-    스치기만 해도 닫힌다. 서랍은 열어 둔 채로 여러 개를 눌러 볼 수 있다.
-
-    `DxDropDown` 을 쓰지 않는다. 위치를 잡아 주는 것이 그 부품의 일인데
-    여기서는 자리가 고정(오른쪽 전체)이라 잡아 줄 것이 없고, 밀려 들어오는
-    움직임은 CSS transform 한 줄이다.
-
-    `DxDrawer` 도 아니다. 그건 본문을 안고 밀어내는 부품이라 레이아웃을
-    통째로 감싸야 한다 — 셸이 이미 격자로 서 있어서 얹을 자리가 없다.
+    회로가 붙기 전(로그인 화면)에는 JS 를 부를 수 없어 단추만 있다.
 *@
 
 @implements IDisposable
 
-@* 덮개. 서랍 밖을 누르면 닫힌다. 헤더는 덮지 않는다 —
-   덮으면 방금 누른 테마 아이콘으로 다시 닫을 수 없다. *@
 <div class="jsini-theme-scrim @(_open ? "jsini-theme-scrim--on" : "")"
      @onclick="@(() => _open = false)"></div>
 
@@ -90,7 +18,7 @@
        aria-hidden="@(_open ? "false" : "true")">
 
     <div class="jsini-theme-panel__head">
-        <span class="jsini-theme-panel__title">테마</span>
+        <span class="jsini-theme-panel__title">화면 설정</span>
         <DxButton RenderStyle="ButtonRenderStyle.Link"
                   IconCssClass="jsini-icon-close"
                   Title="닫기"
@@ -99,117 +27,79 @@
 
     <div class="jsini-theme">
 
-        @* 크기가 맨 위다. 테마 스물둘 중 하나를 고르는 일보다 글씨가 작다·
-           크다를 고치는 일이 훨씬 잦고, 아래에 두면 굴려 내려가야 보인다.
+        <section class="tb-custom">
+            <div class="tb-custom__label">밝기</div>
+            <div class="tb-custom__options">
+                @foreach (var mode in _catalog.Modes)
+                {
+                    <button type="button"
+                            class="tb-pill @(_mode == mode.Id ? "tb-pill--on" : "")"
+                            @onclick="@(() => SetAsync("setMode", mode.Id))">
+                        <span class="@(mode.Dark ? "jsini-icon-moon" : "jsini-icon-sun")" aria-hidden="true"></span>
+                        @mode.Name
+                    </button>
+                }
+            </div>
+        </section>
 
-           데모에는 없는 묶음이라 생김새를 정해야 했는데, 밝기(Light/Dark)와
-           같은 것을 쓴다 — 둘 다 「한 줄에서 하나만 고르는」 것이다. *@
-        <div class="jsini-theme__group">크기</div>
+        <section class="tb-custom">
+            <div class="tb-custom__label">강조색</div>
+            <div class="tb-custom__swatches">
+                @foreach (var color in _catalog.Colors)
+                {
+                    <button type="button"
+                            class="tb-swatch @(_color == color.Id ? "tb-swatch--on" : "")"
+                            style="--swatch: @color.Swatch"
+                            title="@color.Name"
+                            aria-label="@color.Name"
+                            @onclick="@(() => SetAsync("setColor", color.Id))"></button>
+                }
+            </div>
+        </section>
 
-        @* 칸이 다섯이라 판 너비를 채운다 — `width: max-content` 로 두면
-           판을 넘어가 마지막 칸이 잘린다(app.css). *@
-        <div class="jsini-theme__segmented jsini-theme__segmented--fill">
-            @foreach (var size in _catalog.Sizes)
-            {
-                <button type="button"
-                        class="jsini-theme__seg @(IsSize(size.Id) ? "jsini-theme__seg--on" : "")"
-                        @onclick="@(() => SetSizeAsync(size.Id))">
-                    @size.Name
-                </button>
-            }
-        </div>
+        <section class="tb-custom">
+            <div class="tb-custom__label">바탕 톤</div>
+            <div class="tb-custom__options">
+                @foreach (var tone in _catalog.Bases)
+                {
+                    <button type="button"
+                            class="tb-pill @(_base == tone.Id ? "tb-pill--on" : "")"
+                            @onclick="@(() => SetAsync("setBase", tone.Id))">
+                        <span class="tb-pill__dot" style="--swatch: @tone.Swatch" aria-hidden="true"></span>
+                        @tone.Name
+                    </button>
+                }
+            </div>
+        </section>
 
-        @* [알림(토스트) 위치는 여기 없다 — 환경설정으로 옮겼다]
+        <section class="tb-custom">
+            <div class="tb-custom__label">모서리</div>
+            <div class="tb-custom__options">
+                @foreach (var radius in _catalog.Radii)
+                {
+                    <button type="button"
+                            class="tb-pill @(_radius == radius.Id ? "tb-pill--on" : "")"
+                            @onclick="@(() => SetAsync("setRadius", radius.Id))">
+                        @radius.Name
+                    </button>
+                }
+            </div>
+        </section>
 
-           이 서랍이 정하는 것은 **테마**다(밝기·강조색·글자 크기). 토스트가
-           뜨는 자리는 테마가 아니라 **그 사람이 화면을 쓰는 버릇**이라,
-           고르는 자리도 개인 환경설정(`/funeral/setting/environment`)이다.
-
-           고른 값이 어디에 남는지는 그대로다(`PortalBoot.ToastPositionKey`) —
-           옮긴 것은 고르는 자리뿐이다. *@
-
-        <div class="jsini-theme__group">Fluent</div>
-
-        <div class="jsini-theme__segmented">
-            @foreach (var mode in _catalog.Modes)
-            {
-                <button type="button"
-                        class="jsini-theme__seg @(IsFluentMode(mode.Id) ? "jsini-theme__seg--on" : "")"
-                        @onclick="@(() => SetFluentAsync(mode.Id, _accent))">
-                    <span class="@(mode.Dark ? "jsini-icon-moon" : "jsini-icon-sun")"
-                          aria-hidden="true"></span>
-                    @mode.Name
-                </button>
-            }
-        </div>
-
-        <div class="jsini-theme__label">Preset Colors</div>
-
-        @* 색 네모만 놓지 않고 **이름을 함께** 놓는다(데모와 같다). 동그라미
-           열한 개만 늘어놓으면 Moss 와 Steel 처럼 어두운 색끼리는 구별이
-           안 되고, 얹어 봐야 이름이 뜬다 — 고를 때마다 얹어 볼 수는 없다. *@
-        <div class="jsini-theme__list">
-            @foreach (var accent in _catalog.Accents)
-            {
-                <button type="button"
-                        class="jsini-theme__item @(IsFluentAccent(accent.Id) ? "jsini-theme__item--on" : "")"
-                        @onclick="@(() => SetFluentAsync(_mode, accent.Id))">
-                    <span class="jsini-theme__chip" aria-hidden="true" style="--swatch: @accent.Swatch"></span>
-                    <span class="jsini-theme__name">@accent.Name</span>
-                </button>
-            }
-        </div>
-
-        <div class="jsini-theme__label">Custom Color</div>
-
-        <div class="jsini-theme__custom">
-            @* 글자 칸이 넓고 색 고르개가 오른쪽 끝의 네모다 — 데모의 배치다.
-               둘 다 두는 이유: 눈으로 고르는 사람과 브랜드 색 코드를 가진
-               사람이 다르다. *@
-            <DxTextBox Text="@_custom" TextChanged="@((string v) => SetCustomAsync(v))"
-                       CssClass="jsini-theme__hex" />
-
-            <input type="color" class="jsini-theme__picker"
-                   title="색 고르기"
-                   value="@(_custom ?? "#0f6cbd")"
-                   @onchange="@(e => SetCustomAsync(e.Value?.ToString()))" />
-
-            @if (_custom is not null)
-            {
-                <DxButton IconCssClass="jsini-icon-close"
-                          Title="사용자 지정 색 지우기"
-                          RenderStyle="ButtonRenderStyle.Link"
-                          Click="@(() => SetCustomAsync(null))" />
-            }
-        </div>
-
-        <div class="jsini-theme__group">Classic</div>
-
-        <div class="jsini-theme__list">
-            @foreach (var theme in _catalog.Classic)
-            {
-                <button type="button"
-                        class="jsini-theme__item @(IsClassic(theme.Id) ? "jsini-theme__item--on" : "")"
-                        @onclick="@(() => SetClassicAsync(theme.Id))">
-                    <span class="jsini-theme__chip" aria-hidden="true" style="--swatch: @theme.Swatch"></span>
-                    <span class="jsini-theme__name">@theme.Name</span>
-                </button>
-            }
-        </div>
-
-        <div class="jsini-theme__group">Bootstrap</div>
-
-        <div class="jsini-theme__list">
-            @foreach (var theme in _catalog.Bootstrap)
-            {
-                <button type="button"
-                        class="jsini-theme__item @(IsBootstrap(theme.Id) ? "jsini-theme__item--on" : "")"
-                        @onclick="@(() => SetBootstrapAsync(theme.Id))">
-                    <span class="jsini-theme__chip" aria-hidden="true" style="--swatch: @theme.Swatch"></span>
-                    <span class="jsini-theme__name">@theme.Name</span>
-                </button>
-            }
-        </div>
+        @* 알림 위치는 여기 없다 — 테마가 아니라 화면을 쓰는 버릇이라 개인 환경설정에 있다. *@
+        <section class="tb-custom">
+            <div class="tb-custom__label">크기</div>
+            <div class="tb-custom__options">
+                @foreach (var size in _catalog.Sizes)
+                {
+                    <button type="button"
+                            class="tb-pill @(IsSize(size.Id) ? "tb-pill--on" : "")"
+                            @onclick="@(() => SetSizeAsync(size.Id))">
+                        @size.Name
+                    </button>
+                }
+            </div>
+        </section>
 
     </div>
 </aside>

@@ -90,133 +90,80 @@
   ];
 
   /**
-   * Bootstrap 을 고르면 스타일시트가 **두 장**이다.
+   * [테마는 Tabler 하나다 (2026-09-26)]
    *
-   *   1) Bootstrap(또는 Bootswatch) 본체 — 색과 변수를 정한다
-   *   2) DevExpress 의 bootstrap-external.bs5.min.css — 그 변수를 읽어
-   *      그리드 · 달력 · 팝업에 옮긴다
+   * preview.tabler.io 의 생김새를 따른다. DevExpress 부품은 Bootstrap 테마
+   * (`bootstrap-external.bs5.min.css`)로 그리고, 그 테마가 읽는 `--bs-*` 변수를
+   * **Tabler 값으로 채운다**(tabler/tabler.css). 그래서 스타일시트는 늘 같은 두 장이고,
+   * 밝기·강조색·바탕 톤·모서리를 바꾸는 것은 `<html>` 의 표시와 변수뿐이다 —
+   * 다시 받는 파일이 없다.
    *
-   * **순서가 뒤집히면 안 된다.** 2) 가 1) 의 --bs-* 를 읽는 쪽이라,
-   * 1) 이 뒤에 오면 DevExpress 부품만 옛 색으로 남는다.
-   * 그 순서는 priorityOf 가 지킨다.
+   * 고르는 것은 Tabler 의 Customize 판과 같다.
+   *
+   *   밝기      light · dark
+   *   강조색    Tabler 기본 색 열둘
+   *   바탕 톤   slate · gray · zinc · neutral · stone (Tailwind 회색 계열)
+   *   모서리    0 · 0.5 · 1 · 1.5 · 2 배
+   *
+   * 옛 선택(Fluent · Classic · Bootstrap)은 읽을 때 밝기만 살려 옮긴다.
    */
-  var BOOTSTRAP_THEMES = [
-    { id: 'default', name: 'Default', file: 'bootstrap.min.css', dark: false, swatch: '#027bff' },
-    { id: 'default-dark', name: 'Default Dark', file: 'bootstrap.min.css', dark: true, swatch: '#212529' },
-    { id: 'cerulean', name: 'Cerulean', file: 'cerulean.min.css', dark: false, swatch: '#2ea4e7' },
-    { id: 'flatly', name: 'Flatly', file: 'flatly.min.css', dark: false, swatch: '#dbe4ec' },
-    { id: 'journal', name: 'Journal', file: 'journal.min.css', dark: false, swatch: '#eb6864' },
-    { id: 'lumen', name: 'Lumen', file: 'lumen.min.css', dark: false, swatch: '#158cba' },
+  var MODES = [
+    { id: 'light', name: '밝게', dark: false },
+    { id: 'dark', name: '어둡게', dark: true },
   ];
 
-  function bootstrapTheme(id) {
-    for (var i = 0; i < BOOTSTRAP_THEMES.length; i++) {
-      if (BOOTSTRAP_THEMES[i].id === id) return BOOTSTRAP_THEMES[i];
+  /** Tabler 의 기본 색. 이름과 값은 Tabler 가 정한 그대로다. */
+  var COLORS = [
+    { id: 'blue', name: 'Blue', swatch: '#066fd1' },
+    { id: 'azure', name: 'Azure', swatch: '#4299e1' },
+    { id: 'indigo', name: 'Indigo', swatch: '#4263eb' },
+    { id: 'purple', name: 'Purple', swatch: '#ae3ec9' },
+    { id: 'pink', name: 'Pink', swatch: '#d6336c' },
+    { id: 'red', name: 'Red', swatch: '#d63939' },
+    { id: 'orange', name: 'Orange', swatch: '#f76707' },
+    { id: 'yellow', name: 'Yellow', swatch: '#f59f00' },
+    { id: 'lime', name: 'Lime', swatch: '#74b816' },
+    { id: 'green', name: 'Green', swatch: '#2fb344' },
+    { id: 'teal', name: 'Teal', swatch: '#0ca678' },
+    { id: 'cyan', name: 'Cyan', swatch: '#17a2b8' },
+  ];
+
+  /** 바탕 톤. 색 값은 tabler.css 의 `[data-tb-base]` 에 있다 — 여기는 네모 색만. */
+  var BASES = [
+    { id: 'neutral', name: 'Neutral', swatch: '#737373' },
+    { id: 'slate', name: 'Slate', swatch: '#64748b' },
+    { id: 'gray', name: 'Gray', swatch: '#6b7280' },
+    { id: 'zinc', name: 'Zinc', swatch: '#71717a' },
+    { id: 'stone', name: 'Stone', swatch: '#78716c' },
+  ];
+
+  /** 모서리 배율. 뿌리 값(6px · 8px)에 곱한다. */
+  var RADII = [
+    { id: '0', name: '0' },
+    { id: '0.5', name: '0.5' },
+    { id: '1', name: '1' },
+    { id: '1.5', name: '1.5' },
+    { id: '2', name: '2' },
+  ];
+
+  function find(list, id) {
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].id === id) return list[i];
     }
     return null;
   }
 
-  /** 현재 선택한 DevExpress/Bootstrap 테마의 대표 강조색. */
-  function primaryColor(spec) {
-    if (spec.family === 'fluent') {
-      var fluent = fluentAccent(spec.accent);
-      return (spec.custom || (fluent && (fluent.custom || fluent.swatch)) || '#0f6cbd');
+  /** 처음 온 사람은 기기의 밝기를 따른다(Tabler 미리보기와 같다). */
+  function systemMode() {
+    try {
+      return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+        ? 'dark' : 'light';
+    } catch (e) {
+      return 'light';
     }
-
-    if (spec.family === 'classic') {
-      for (var i = 0; i < CLASSIC_THEMES.length; i++) {
-        if (CLASSIC_THEMES[i].id === spec.classic) return CLASSIC_THEMES[i].swatch;
-      }
-    }
-
-    var bootstrap = bootstrapTheme(spec.bootstrap);
-    return bootstrap ? bootstrap.swatch : '#206bc4';
   }
 
-  /**
-   * 고를 수 있는 것들. DevExpress 데모의 테마 창과 같은 구성이다.
-   *
-   * Fluent 은 **조각을 합쳐** 만든다 — 공통(core+global) + 밝기(mode) + 강조색(accent).
-   * Classic 은 한 장짜리다.
-   */
-  var FLUENT_MODES = [
-    { id: 'light', name: 'Light', dark: false },
-    { id: 'dark', name: 'Dark', dark: true },
-  ];
-
-  /**
-   * 강조색 프리셋. 파일 이름이 곧 식별자다.
-   *
-   * **`swatch` 는 눈대중이 아니다.** 데모 테마 창 캡처(docs/테마캡쳐.png)에서
-   * 색 네모의 픽셀을 그대로 읽었다. 한동안 비슷해 보이는 색을 손으로 적어
-   * 두었는데, 고르기 전과 고른 뒤의 화면 색이 서로 달라 **어느 것을 골랐는지
-   * 네모만 보고는 알 수 없었다.**
-   */
-  var FLUENT_ACCENTS = [
-    { id: 'blue', name: 'Blue', swatch: '#0f6cbd' },
-    { id: 'cool-blue', name: 'Cool Blue', swatch: '#2d7d9a' },
-    { id: 'desert', name: 'Desert', swatch: '#847545' },
-    { id: 'mint', name: 'Mint', swatch: '#018574' },
-    { id: 'moss', name: 'Moss', swatch: '#486860' },
-    { id: 'orchid', name: 'Orchid', swatch: '#c239b3' },
-    { id: 'purple', name: 'Purple', swatch: '#5b5fc7' },
-    { id: 'rose', name: 'Rose', swatch: '#ea005e' },
-    { id: 'rust', name: 'Rust', swatch: '#da3b01' },
-    { id: 'steel', name: 'Steel', swatch: '#68768a' },
-    { id: 'storm', name: 'Storm', swatch: '#6d6a68' },
-
-    // ── 우리가 더한 것 ─────────────────────────────────────
-    //
-    // DevExpress 가 주는 강조색 파일은 위 열한 개뿐이다. 그래서 이 둘은
-    // **파일이 아니라 색**이다 — `base` 의 파일을 싣고 그 위에 `custom` 의
-    // 색으로 `--dxbl-accent-color-*` 를 채운다. Custom Color 칸이 하는 일과
-    // 같은 길이고, 다른 것은 색이 이름을 갖는다는 점뿐이다.
-    //
-    // `base` 를 **색이 가까운 것**으로 고른다. 16단계를 우리가 만들어 덮지만
-    // 강조색 파일에는 그 변수를 쓰지 않는 자리가 남아 있어(그림자·테두리
-    // 일부), 먼 색을 밑에 깔면 그 자리만 딴 색으로 뜬다.
-    { id: 'new-berry', name: 'new berry', swatch: '#5c3d85', base: 'purple', custom: '#5c3d85' },
-
-    // 우분투의 그 주황. 공식 브랜드 색이 #E95420 이다.
-    { id: 'ubuntu', name: 'Ubuntu', swatch: '#e95420', base: 'rust', custom: '#e95420' },
-
-    // 사내 서비스 브랜드 네이비. 가장 가까운 파일이 steel 이라 밑에 깐다.
-    { id: 'tables', name: 'tables', swatch: '#1a3145', base: 'steel', custom: '#1a3145' },
-  ];
-
-  /** 프리셋 하나. 없는 이름이면 `null`. */
-  function fluentAccent(id) {
-    for (var i = 0; i < FLUENT_ACCENTS.length; i++) {
-      if (FLUENT_ACCENTS[i].id === id) return FLUENT_ACCENTS[i];
-    }
-    return null;
-  }
-
-  /**
-   * 그 프리셋이 실제로 실을 강조색 **파일** 이름.
-   *
-   * 우리가 더한 프리셋은 자기 파일이 없으므로 밑에 깔 것(`base`)을 준다.
-   */
-  function accentFile(id) {
-    var accent = fluentAccent(id);
-    return accent && accent.base ? accent.base : id;
-  }
-
-  var CLASSIC_THEMES = [
-    { id: 'blazing-berry', name: 'Blazing Berry', dark: false, swatch: '#5c2d91' },
-    { id: 'blazing-dark', name: 'Blazing Dark', dark: true, swatch: '#46444a' },
-    { id: 'purple', name: 'Purple', dark: false, swatch: '#7989ff' },
-    { id: 'office-white', name: 'Office White', dark: false, swatch: '#fe7109' },
-  ];
-
-  /**
-   * 기본값.
-   *
-   * DevExpress 데모의 기본과 같은 자리 — Fluent Light + Blue.
-   * Classic 을 기본으로 두지 않는 이유는 파일이 2.8MB 라 첫 방문이 느려서다
-   * (Fluent 은 core 1.6MB 에 밝기·강조색이 100KB 남짓이다).
-   */
-  var DEFAULT = { family: 'fluent', mode: 'dark', accent: 'blue', custom: null, size: 'medium' };
+  var DEFAULT = { family: 'tabler', mode: systemMode(), color: 'blue', base: 'neutral', radius: '1', size: 'medium' };
 
   // ── 스타일시트 관리 ───────────────────────────────────────
 
@@ -369,84 +316,13 @@
     return link;
   }
 
-  /** 지금 고른 것에 필요한 스타일시트 주소들. */
-  function sheetsFor(spec) {
-    if (spec.family === 'classic') {
-      return [CLASSIC + spec.classic + '.bs5.min.css'];
-    }
-
-    if (spec.family === 'bootstrap') {
-      var theme = bootstrapTheme(spec.bootstrap) || BOOTSTRAP_THEMES[0];
-
-      // Default 와 Default Dark 는 **같은 파일**이다. 5.3 부터 어두운 쪽이
-      // 별도 파일이 아니라 data-bs-theme="dark" 로 켜지기 때문이다.
-      return [BOOTSTRAP + theme.file, CLASSIC + 'bootstrap-external.bs5.min.css'];
-    }
-
-    return [
-      FLUENT + 'core.min.css',
-      FLUENT + 'global.min.css',
-      FLUENT + 'modes/' + spec.mode + '.min.css',
-      FLUENT + 'accents/' + accentFile(spec.accent) + '.min.css',
-    ];
-  }
-
   /**
-   * 사용자가 고른 색을 강조색으로 쓴다.
-   *
-   * DevExpress 의 강조색 파일은 `var(--dxbl-accent-color-90, #0f6cbd)` 처럼
-   * **덮어쓸 수 있게** 되어 있다. 그래서 파일을 새로 만들 필요 없이 그 변수만
-   * 채워 주면 된다 — 데모의 Custom Color 도 같은 방식이다.
-   *
-   * 16단계를 고른 색 하나에서 만든다. 90 을 기준으로 잡고 위로는 흰색,
-   * 아래로는 검정 쪽으로 섞는다. DevExpress 가 손으로 고른 값만큼 곱지는
-   * 않지만, 한 색에서 만드는 이상 이보다 나은 방법이 없다.
+   * 실을 스타일시트. **늘 같은 두 장이다** — Bootstrap 본체가 먼저, DevExpress 의
+   * 다리(`bootstrap-external`)가 나중. 뒤집히면 DevExpress 부품만 옛 색으로 남는다
+   * (priorityOf 가 지킨다). Tabler 값은 app 쪽 tabler.css 가 `--bs-*` 로 채운다.
    */
-  /** 우리가 더한 프리셋이 들고 있는 색. DevExpress 것에는 없어서 `null`. */
-  function presetColor(id) {
-    var accent = fluentAccent(id);
-    return accent && accent.custom ? accent.custom : null;
-  }
-
-  function applyCustomAccent(hex) {
-    var id = 'jsini-accent';
-    var style = document.getElementById(id);
-
-    if (!hex) {
-      if (style) style.remove();
-      return;
-    }
-
-    var rgb = parseHex(hex);
-    if (!rgb) return;
-
-    var steps = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150, 160];
-    var rules = [];
-
-    for (var i = 0; i < steps.length; i++) {
-      var step = steps[i];
-      var mixed;
-
-      if (step < 90) {
-        // 90 에서 10 으로 갈수록 흰색에 가깝게. 0.92 까지 섞는다.
-        mixed = mix(rgb, [255, 255, 255], ((90 - step) / 80) * 0.92);
-      } else if (step > 90) {
-        // 90 에서 160 으로 갈수록 검정에 가깝게.
-        mixed = mix(rgb, [0, 0, 0], ((step - 90) / 70) * 0.88);
-      } else {
-        mixed = rgb;
-      }
-
-      rules.push('--dxbl-accent-color-' + step + ':' + toHex(mixed));
-    }
-
-    if (!style) {
-      style = document.createElement('style');
-      style.id = id;
-      document.head.appendChild(style);
-    }
-
-    style.textContent = ':root{' + rules.join(';') + '}';
+  function sheetsFor() {
+    return [BOOTSTRAP + 'bootstrap.min.css', CLASSIC + 'bootstrap-external.bs5.min.css'];
   }
 
   function parseHex(hex) {
@@ -455,20 +331,6 @@
 
     var n = parseInt(m[1], 16);
     return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-  }
-
-  function mix(a, b, ratio) {
-    return [
-      Math.round(a[0] + (b[0] - a[0]) * ratio),
-      Math.round(a[1] + (b[1] - a[1]) * ratio),
-      Math.round(a[2] + (b[2] - a[2]) * ratio),
-    ];
-  }
-
-  function toHex(rgb) {
-    return '#' + rgb.map(function (v) {
-      return ('0' + Math.max(0, Math.min(255, v)).toString(16)).slice(-2);
-    }).join('');
   }
 
   // ── 적용 ──────────────────────────────────────────────────
@@ -486,66 +348,48 @@
   var chosen = null;
 
   function isDark(spec) {
-    if (spec.family === 'bootstrap') {
-      var bs = bootstrapTheme(spec.bootstrap);
-      return bs ? bs.dark : false;
-    }
+    return !!spec && spec.mode === 'dark';
+  }
 
-    if (spec.family === 'classic') {
-      for (var i = 0; i < CLASSIC_THEMES.length; i++) {
-        if (CLASSIC_THEMES[i].id === spec.classic) return CLASSIC_THEMES[i].dark;
-      }
-      return false;
-    }
-    return spec.mode === 'dark';
+  /**
+   * 표시와 변수를 세운다. **스타일시트를 기다리지 않는다** — 파일은 늘 같고,
+   * 바뀌는 것은 이 값들뿐이라 기다리면 첫 그림이 한 번 다른 색으로 스친다.
+   */
+  function mark(spec) {
+    var root = document.documentElement;
+    var color = find(COLORS, spec.color) || COLORS[0];
+    var rgb = parseHex(color.swatch);
+
+    root.setAttribute('data-theme', isDark(spec) ? 'dark' : 'light');
+    root.setAttribute('data-bs-theme', isDark(spec) ? 'dark' : 'light');
+    root.setAttribute('data-dx-family', 'tabler');
+    root.setAttribute('data-tb-color', color.id);
+    root.setAttribute('data-tb-base', spec.base);
+    root.setAttribute('data-tb-radius', spec.radius);
+    root.setAttribute('data-dx-size', spec.size);
+
+    root.style.setProperty('--tb-primary', color.swatch);
+    if (rgb) root.style.setProperty('--tb-primary-rgb', rgb.join(', '));
+    root.style.setProperty('--jsini-theme-primary', color.swatch);
+
+    // 옛 Fluent 테마가 남긴 표시. 남아 있으면 그 테마의 규칙이 걸린다.
+    root.classList.remove('dxbl-theme-fluent-mode-light', 'dxbl-theme-fluent-mode-dark');
   }
 
   function apply(spec, done) {
-    var wanted = sheetsFor(spec);
+    var wanted = sheetsFor();
     var pending = wanted.length;
     var initial = current === null;
 
     chosen = spec;
-
-    // **크기는 스타일시트를 기다리지 않는다.**
-    //
-    // 아래 ready() 안에 두면 테마 CSS 를 다 받은 뒤에야 글자 크기가 잡혀
-    // 본문이 한 번 출렁인다. 크기는 우리 CSS 변수(app.css 의 --jsini-fs-*)
-    // 하나로 끝나고 어느 테마를 골랐는지와 무관하므로 지금 바로 세운다.
-    document.documentElement.setAttribute('data-dx-size', spec.size);
+    mark(spec);
 
     function ready() {
       if (--pending > 0) return;
 
-      // **다 실린 뒤에** 갈아 끼운다. 순서를 바꾸면 화면이 번쩍인다.
       for (var href in links) {
         setActive(links[href], wanted.indexOf(href) >= 0);
       }
-
-      // 사용자 지정 색이 있으면 그것, 없으면 프리셋이 들고 있는 색(우리가 더한
-      // 둘). 둘 다 없으면 DevExpress 파일의 색이 그대로 쓰인다.
-      applyCustomAccent(spec.family === 'fluent' ? (spec.custom || presetColor(spec.accent)) : null);
-
-      // 우리 CSS 가 보는 표시. 사이드바·헤더 색이 DevExpress 테마와 함께 움직인다.
-      var root = document.documentElement;
-      root.setAttribute('data-theme', isDark(spec) ? 'dark' : 'light');
-      root.setAttribute('data-dx-family', spec.family);
-      root.style.setProperty('--jsini-theme-primary', primaryColor(spec));
-
-      // Bootstrap 5.3 의 어두운 쪽 스위치. 다른 테마에서는 붙어 있으면 안 된다 —
-      // Bootstrap 이 안 실린 채로 이 표시만 남으면 아무 일도 안 하지만,
-      // Bootstrap 으로 돌아왔을 때 Default 인데 어둡게 나온다.
-      if (spec.family === 'bootstrap' && isDark(spec)) {
-        root.setAttribute('data-bs-theme', 'dark');
-      } else {
-        root.removeAttribute('data-bs-theme');
-      }
-
-      // DevExpress Fluent 이 밝기별 클래스를 본다.
-      root.classList.toggle('dxbl-theme-fluent-mode-light',
-        spec.family === 'fluent' && spec.mode === 'light');
-      root.classList.toggle('dxbl-theme-fluent-mode-dark',
-        spec.family === 'fluent' && spec.mode === 'dark');
 
       current = spec;
       if (done) done();
@@ -600,51 +444,30 @@
   }
 
   /**
-   * 저장된 값을 지금 아는 모양으로 좁힌다. 모르는 값이면 기본값으로.
+   * 저장된 값을 지금 아는 모양으로 좁힌다. 모르는 값은 기본값으로.
    *
-   * **크기는 테마 묶음과 따로 논다.** 테마를 Classic 으로 바꿔도 고른 크기는
-   * 그대로여야 하므로, 어느 갈래로 빠지든 크기는 따로 실어 준다.
+   * 옛 선택(Fluent · Classic · Bootstrap)은 **밝기만** 살린다 — 어둡게 쓰던
+   * 사람이 하루아침에 흰 화면을 받지 않게.
    */
   function normalize(spec) {
     if (!spec || typeof spec !== 'object') return DEFAULT;
 
-    var size = normalizeSize(spec.size);
+    var mode = spec.mode === 'dark' || spec.mode === 'light' ? spec.mode : null;
 
-    if (spec.family === 'classic') {
-      for (var i = 0; i < CLASSIC_THEMES.length; i++) {
-        if (CLASSIC_THEMES[i].id === spec.classic) {
-          return { family: 'classic', classic: spec.classic, size: size };
-        }
-      }
-      return fallback(size);
+    if (spec.family && spec.family !== 'tabler') {
+      var dark = spec.mode === 'dark'
+        || spec.classic === 'blazing-dark'
+        || spec.bootstrap === 'default-dark';
+      mode = dark ? 'dark' : 'light';
     }
 
-    if (spec.family === 'bootstrap') {
-      return bootstrapTheme(spec.bootstrap)
-        ? { family: 'bootstrap', bootstrap: spec.bootstrap, size: size }
-        : fallback(size);
-    }
-
-    var mode = spec.mode === 'dark' ? 'dark' : 'light';
-    var accent = fluentAccent(spec.accent) ? spec.accent : DEFAULT.accent;
-
     return {
-      family: 'fluent',
-      mode: mode,
-      accent: accent,
-      custom: parseHex(spec.custom) ? spec.custom : null,
-      size: size,
-    };
-  }
-
-  /** 테마는 기본값으로 돌리되 크기는 살린다. */
-  function fallback(size) {
-    return {
-      family: DEFAULT.family,
-      mode: DEFAULT.mode,
-      accent: DEFAULT.accent,
-      custom: DEFAULT.custom,
-      size: size,
+      family: 'tabler',
+      mode: mode || DEFAULT.mode,
+      color: find(COLORS, spec.color) ? spec.color : DEFAULT.color,
+      base: find(BASES, spec.base) ? spec.base : DEFAULT.base,
+      radius: find(RADII, spec.radius) ? spec.radius : DEFAULT.radius,
+      size: normalizeSize(spec.size),
     };
   }
 
@@ -654,67 +477,47 @@
   // 서랍을 열어 보지 않아도 다음 새로고침부터는 서버가 알도록 지금 구워 둔다.
   saveSizeCookie(chosen.size);
 
+  /** 지금 고른 것에서 한 값만 바꾼 새 선택. */
+  function with1(key, value) {
+    var spec = {};
+
+    for (var k in chosen) {
+      if (Object.prototype.hasOwnProperty.call(chosen, k)) spec[k] = chosen[k];
+    }
+
+    spec[key] = value;
+    return commit(spec);
+  }
+
   window.jsiniTheme = {
-    /** 고를 수 있는 것들. 테마 창이 이 목록을 그린다. */
+    /** 고를 수 있는 것들. 테마 서랍이 이 목록을 그린다. */
     catalog: function () {
-      return {
-        modes: FLUENT_MODES,
-        accents: FLUENT_ACCENTS,
-        classic: CLASSIC_THEMES,
-        bootstrap: BOOTSTRAP_THEMES,
-        sizes: SIZES,
-      };
+      return { modes: MODES, colors: COLORS, bases: BASES, radii: RADII, sizes: SIZES };
     },
 
-    /** 지금 고른 것. 스타일시트가 아직 오는 중이면 방금 고른 쪽을 준다. */
+    /** 지금 고른 것. */
     current: function () {
       return current || chosen;
     },
 
-    /** 지금 테마가 어두운가. */
+    /** 지금 어두운가. */
     isDark: function () {
-      return isDark(current);
+      return isDark(current || chosen);
     },
 
-    /** Fluent 을 고른다. 밝기와 강조색을 함께 넘긴다. */
-    setFluent: function (mode, accent, custom) {
-      return commit({
-        family: 'fluent', mode: mode, accent: accent, custom: custom, size: chosen.size,
-      });
-    },
-
-    /** Classic 한 장짜리 테마를 고른다. */
-    setClassic: function (id) {
-      return commit({ family: 'classic', classic: id, size: chosen.size });
-    },
-
-    /** Bootstrap(또는 Bootswatch) 테마를 고른다. */
-    setBootstrap: function (id) {
-      return commit({ family: 'bootstrap', bootstrap: id, size: chosen.size });
-    },
+    setMode: function (id) { return with1('mode', id); },
+    setColor: function (id) { return with1('color', id); },
+    setBase: function (id) { return with1('base', id); },
+    setRadius: function (id) { return with1('radius', id); },
 
     /**
-     * 크기를 고른다 (small · medium · large).
-     *
-     * 테마는 건드리지 않는다 — 지금 것을 그대로 두고 크기만 갈아 끼운다.
-     * 스타일시트가 바뀌지 않으므로 다시 받는 것도 없다.
-     *
+     * 크기를 고른다. 테마는 그대로 두고 크기만 바꾼다.
      * 화면(ThemeToggle)이 이 뒤에 DevExpress 쪽 SizeMode 도 함께 바꾼다.
-     * 여기서 하는 일은 우리 CSS 변수와 저장뿐이다.
      */
-    setSize: function (id) {
-      var spec = {};
-
-      for (var key in chosen) {
-        if (Object.prototype.hasOwnProperty.call(chosen, key)) spec[key] = chosen[key];
-      }
-
-      spec.size = id;
-      return commit(spec);
-    },
+    setSize: function (id) { return with1('size', id); },
   };
 
-  /** 좁히고 · 적용하고 · 저장한다. 네 setter 가 똑같이 하던 일이다. */
+  /** 좁히고 · 적용하고 · 저장한다. */
   function commit(raw) {
     var spec = normalize(raw);
     apply(spec);

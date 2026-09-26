@@ -798,12 +798,10 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
     /// </summary>
     public sealed class ThemeWire
     {
-        public string Family { get; init; } = "fluent";
         public string? Mode { get; init; }
-        public string? Accent { get; init; }
-        public string? Custom { get; init; }
-        public string? Classic { get; init; }
-        public string? Bootstrap { get; init; }
+        public string? Color { get; init; }
+        public string? Base { get; init; }
+        public string? Radius { get; init; }
         public string? Size { get; init; }
     }
 

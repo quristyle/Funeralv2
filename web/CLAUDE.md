@@ -630,6 +630,26 @@ CI(GitHub Actions)에서도 같은 파일이 필요하다 — 시크릿으로 �
 25.1 대로 내리지 않는다: net8.0 타겟이고, 취약점이 있는
 `System.Security.Cryptography.Xml` 8.0.2 를 끌고 온다(NU1903, 고위험 8건).
 
+### 테마는 Tabler 하나다 (2026-09-26)
+
+preview.tabler.io 의 생김새를 옮겼다. Fluent · Classic · Bootswatch 선택지는 걷었다.
+
+| 층 | 파일 | 하는 일 |
+|---|---|---|
+| 부품 | Bootstrap 5.3 + DevExpress `bootstrap-external.bs5.min.css` | DevExpress 부품을 Bootstrap 변수(`--bs-*`)로 그린다. theme.js 가 싣는다 |
+| 값 | `Components/wwwroot/tabler.css` | 그 `--bs-*` 와 우리 `--jsini-*` 를 **Tabler 값으로 채우고**, 편집기·표·팝업·폼·셸을 Tabler 치수로 입힌다. `<head>` 의 **맨 마지막**에 실린다 |
+| 고르기 | `theme.js` · `ThemeToggle` | 밝기 · 강조색 12 · 바탕 톤 5(slate/gray/zinc/neutral/stone) · 모서리 · 크기. `<html>` 의 `data-bs-theme` · `data-tb-base` · `data-tb-radius` 와 `--tb-primary` 만 바꾼다 — 파일을 다시 받지 않는다 |
+
+- **폼 라벨은 칸 위에 둔다**(Tabler `.form-label`). 떠 있는 라벨(`float-label.js`)은 걷었다.
+  `DxFormLayout` 은 기본이 가로 배치라 tabler.css 가 세로로 세운다 — 선택자 자릿수를
+  DevExpress 규칙(`.dxbl-fl .dxbl-fl-item.dxbl-fl-item-horizontal`)과 **같게** 적어야 이긴다.
+- 치수는 Tabler 1.6 미리보기에서 잰 값이다(칸·단추 40px · 모서리 6px/카드 8px ·
+  라벨 14px/500 · 칸 사이 16px · 표 머리 12px 대문자). 눈대중으로 고치지 않는다.
+- 옛 선택(localStorage `jsini.theme`)은 밝기만 살려 옮긴다.
+
+아래 절들은 여러 테마를 고르던 시절의 기록이다. 스타일시트를 번쩍임 없이 갈아
+끼우는 장치(`media='not all'`)와 크기 모드는 지금도 그대로 쓴다.
+
 ### 테마 — `<head>` 에 테마 `<link>` 를 적지 않는다
 
 고를 수 있는 것이 스물둘이고(Fluent 22조합 · Classic 넷 · Bootstrap 여섯)
