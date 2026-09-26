@@ -825,3 +825,108 @@ a {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ── 바닥글의 방침 · 약관 링크 ─────────────────────────────── */
+
+.site-footer__rights {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem 1.5rem;
+}
+
+.site-footer__legal {
+  display: flex;
+  gap: 1.25rem;
+}
+
+.site-footer__legal a { color: var(--steel); }
+.site-footer__legal a:hover { color: var(--paper); }
+
+/* 개인정보처리방침은 다른 링크보다 눈에 띄게 둔다(법이 「쉽게 확인할 수 있게」를 요구한다). */
+.site-footer__legal .site-footer__legal-strong {
+  color: var(--mist);
+  font-weight: 700;
+}
+
+/* ── 개인정보처리방침 · 이용약관 본문 ─────────────────────────
+
+   길게 읽는 문서라 글자를 조금 키우고 줄 간격을 넓힌다. 표는 좁은 화면에서
+   가로로 밀리므로 틀(`legal__table`) 안에서만 넘치게 한다 — 쪽 전체가 옆으로
+   밀리지 않게. */
+.legal {
+  font-size: 0.9375rem;
+  line-height: 1.8;
+  color: var(--graphite);
+}
+
+.legal__intro { margin-bottom: 2rem; }
+
+.legal h2 {
+  margin: 2.75rem 0 0.875rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--mist);
+  font-size: 1.125rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+.legal p { margin: 0.75rem 0; }
+
+.legal ul {
+  margin: 0.75rem 0;
+  padding-left: 1.25rem;
+}
+
+.legal li { margin: 0.375rem 0; }
+.legal li ul { margin: 0.375rem 0; }
+
+.legal a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.legal__table {
+  margin: 1rem 0;
+  overflow-x: auto;
+}
+
+.legal table {
+  width: 100%;
+  min-width: 32rem;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.legal th,
+.legal td {
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--mist);
+  text-align: left;
+  vertical-align: top;
+}
+
+.legal thead th,
+.legal tbody th {
+  background: #f5f5f7;
+  font-weight: 700;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.legal__operator {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.375rem 1.5rem;
+  margin: 3rem 0 0;
+  padding: 1.25rem 1.5rem;
+  background: #f5f5f7;
+  font-size: 0.875rem;
+}
+
+.legal__operator dt { color: var(--steel); }
+.legal__operator dd { margin: 0; }

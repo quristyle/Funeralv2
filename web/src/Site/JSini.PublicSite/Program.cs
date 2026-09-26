@@ -19,6 +19,9 @@ builder.Services.AddRazorComponents();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ClientIpHandler>();
 
+// 개인정보처리방침 · 이용약관에 적는 회사 정보. 사람이 바뀌면 설정만 고친다(LegalInfo).
+builder.Services.Configure<LegalInfo>(builder.Configuration.GetSection("Legal"));
+
 // SiteServer 공개 API. 인증이 없다 — 공개 사이트라 BFF 토큰 처리가 필요 없다.
 builder.Services.AddHttpClient<SiteApi>(client =>
 {

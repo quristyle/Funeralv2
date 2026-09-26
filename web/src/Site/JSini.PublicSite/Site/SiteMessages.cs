@@ -102,6 +102,8 @@ public static class SiteMessages
             {
                 Rights = "JSINI. All rights reserved.",
                 Portal = "관리 포털",
+                Privacy = "개인정보처리방침",
+                Terms = "이용약관",
             },
         },
 
@@ -166,6 +168,8 @@ public static class SiteMessages
             {
                 Rights = "JSINI. All rights reserved.",
                 Portal = "Admin portal",
+                Privacy = "Privacy Policy",
+                Terms = "Terms of Service",
             },
         },
     };
@@ -275,4 +279,9 @@ public sealed class FooterMessages
 {
     public required string Rights { get; init; }
     public required string Portal { get; init; }
+
+    /// <summary>개인정보처리방침 링크 글자. 소셜 로그인 공급자(구글 브랜딩 인증)가 첫 화면에서 이 링크를 찾는다.</summary>
+    public required string Privacy { get; init; }
+
+    public required string Terms { get; init; }
 }

@@ -1,0 +1,158 @@
+@page "/{Locale}/terms"
+
+@*
+    [서비스 이용약관] — 업무 포털(portal.jsini.co.kr)과 소개 사이트의 이용 조건.
+
+    포털은 **가입 신청 → 관리자 승인**으로만 쓸 수 있다(SignupService). 약관의
+    「이용 계약의 성립」(4조)이 그 흐름을 그대로 적는다 — 흐름을 바꾸면 여기도
+    고친다. 소셜 로그인(5조)도 같다.
+
+    회사 정보는 설정(`Legal`)에서 읽는다(LegalInfo).
+*@
+
+<PageTitle>@(Ko ? "서비스 이용약관" : "Terms of Service") — JSINI</PageTitle>
+<HeadContent>
+    <meta name="description" content="@(Ko ? "JSINI 서비스 이용약관" : "JSINI Terms of Service")" />
+</HeadContent>
+
+<section class="page-head">
+    <div class="wrap">
+        <h1 class="h-display text-4xl">@(Ko ? "서비스 이용약관" : "Terms of Service")</h1>
+        @if (!string.IsNullOrWhiteSpace(Legal.EffectiveDate))
+        {
+            <p class="page-head__lead">@(Ko ? "시행일" : "Effective") @Legal.EffectiveDate</p>
+        }
+    </div>
+</section>
+
+<section class="wrap wrap--narrow section legal">
+@if (Ko)
+{
+    <h2>제1조 (목적)</h2>
+    <p>
+        이 약관은 @(Legal.OperatorName)(이하 「회사」)가 제공하는 업무 포털(portal.jsini.co.kr)과 회사 소개
+        사이트(jsini.co.kr)(이하 「서비스」)의 이용 조건과 절차, 회사와 이용자의 권리·의무를 정합니다.
+    </p>
+
+    <h2>제2조 (정의)</h2>
+    <ul>
+        <li>「이용자」란 이 약관에 따라 서비스를 이용하는 사람을 말합니다.</li>
+        <li>「회원」이란 가입 신청이 승인되어 계정을 받은 이용자를 말합니다.</li>
+        <li>「계정」이란 회원을 식별하는 아이디와 비밀번호, 또는 연결된 소셜 계정을 말합니다.</li>
+    </ul>
+
+    <h2>제3조 (약관의 효력과 변경)</h2>
+    <p>
+        이 약관은 서비스 화면에 게시하여 효력이 생깁니다. 회사는 관련 법령을 어기지 않는 범위에서 약관을
+        바꿀 수 있으며, 바꿀 때에는 시행 7일 전(이용자에게 불리한 변경은 30일 전)부터 알립니다.
+        바뀐 약관에 동의하지 않는 회원은 이용을 멈추고 탈퇴할 수 있습니다.
+    </p>
+
+    <h2>제4조 (이용 계약의 성립)</h2>
+    <p>
+        업무 포털은 회사와 업무 관계가 있는 사람(임직원, 고객사 담당자 등)을 위한 서비스입니다.
+        이용을 원하는 사람이 가입 신청을 하고 <b>회사가 승인하면</b> 이용 계약이 성립합니다.
+        회사는 신청 내용이 사실과 다르거나 업무 관계를 확인할 수 없는 경우 승인하지 않을 수 있습니다.
+        승인 전에는 로그인할 수 없습니다.
+    </p>
+
+    <h2>제5조 (소셜 계정 이용)</h2>
+    <p>
+        이용자는 카카오 · 네이버 · 구글 계정으로 가입을 신청하거나 로그인할 수 있습니다. 이때 회사는 해당
+        서비스로부터 개인정보처리방침에 적은 항목만 받습니다. 소셜 계정 자체의 이용은 각 서비스의 약관을
+        따르며, 회원은 [내 정보 → 보안 설정]에서 언제든 연결을 끊을 수 있습니다.
+    </p>
+
+    <h2>제6조 (회원의 의무)</h2>
+    <ul>
+        <li>회원은 자신의 계정을 스스로 관리해야 하며, 다른 사람에게 빌려주거나 넘길 수 없습니다.</li>
+        <li>계정이 도용되었음을 알게 되면 즉시 회사에 알려야 합니다.</li>
+        <li>회원은 다음 행위를 해서는 안 됩니다.
+            <ul>
+                <li>다른 사람의 정보를 도용하거나 거짓 정보로 신청하는 행위</li>
+                <li>권한 없이 다른 사람의 정보나 업무 자료에 접근하는 행위</li>
+                <li>서비스의 정상 운영을 방해하거나 보안을 우회하려는 행위</li>
+                <li>서비스로 얻은 정보를 업무 목적 밖으로 쓰거나 무단으로 외부에 알리는 행위</li>
+                <li>법령이나 공공질서에 어긋나는 행위</li>
+            </ul>
+        </li>
+    </ul>
+
+    <h2>제7조 (서비스의 제공과 변경·중단)</h2>
+    <p>
+        회사는 연중 계속 서비스를 제공하도록 노력합니다. 다만 점검 · 교체 · 장애 · 천재지변 등 불가피한
+        사유가 있으면 서비스의 전부 또는 일부를 일시 중단할 수 있으며, 가능한 경우 미리 알립니다.
+        회사는 운영상 필요에 따라 서비스의 내용을 바꿀 수 있습니다.
+    </p>
+
+    <h2>제8조 (자료의 권리)</h2>
+    <p>
+        서비스와 그 화면 · 프로그램에 대한 권리는 회사에 있습니다. 회원이 업무 수행 중 서비스에 올린
+        자료의 권리는 그 자료를 만든 사람이나 소속 기관에 있으며, 회사는 서비스 제공에 필요한 범위에서만 이를 처리합니다.
+    </p>
+
+    <h2>제9조 (이용 제한과 계약 해지)</h2>
+    <p>
+        회원이 제6조를 어기면 회사는 사전 통지 후(긴급한 경우 사후 통지) 이용을 제한하거나 계정을 정지할 수 있습니다.
+        회원은 언제든 회사에 탈퇴를 요청할 수 있으며, 회사는 지체 없이 처리합니다. 업무 관계가 끝난 경우에도 계정을 정지하거나 삭제할 수 있습니다.
+    </p>
+
+    <h2>제10조 (책임의 제한)</h2>
+    <p>
+        회사는 천재지변, 회원의 귀책 사유, 제3자 서비스(소셜 로그인 · 메일 · 푸시 등)의 장애로 생긴 손해에
+        대해서는 책임을 지지 않습니다. 다만 회사의 고의 또는 중대한 과실로 인한 손해는 그러하지 않습니다.
+    </p>
+
+    <h2>제11조 (개인정보 보호)</h2>
+    <p>회사는 <a href="/ko/privacy">개인정보처리방침</a>에 따라 이용자의 개인정보를 보호합니다.</p>
+
+    <h2>제12조 (준거법과 분쟁 해결)</h2>
+    <p>
+        이 약관은 대한민국 법률에 따릅니다. 서비스 이용으로 분쟁이 생기면 회사와 이용자는 성실히 협의하며,
+        협의로 해결되지 않으면 「민사소송법」에 따른 관할 법원에 소를 제기할 수 있습니다.
+    </p>
+
+    <h2>부칙</h2>
+    <p>이 약관은 @(string.IsNullOrWhiteSpace(Legal.EffectiveDate) ? "게시한 날" : Legal.EffectiveDate)부터 시행합니다.</p>
+
+    <OperatorBlock Legal="@Legal" Ko="true" />
+}
+else
+{
+    <p class="legal__intro">The Korean version of these terms prevails.</p>
+
+    <h2>1. Purpose</h2>
+    <p>These terms set out the conditions for using the business portal (portal.jsini.co.kr) and the company website (jsini.co.kr) provided by @(Legal.OperatorName) ("the Company").</p>
+
+    <h2>2. Accounts and approval</h2>
+    <p>The portal is for people who work with the Company (staff, client contacts, etc.). An account exists only after you request it and <b>the Company approves the request</b>. You cannot sign in before approval. We may decline requests we cannot verify.</p>
+
+    <h2>3. Social sign-in</h2>
+    <p>You may request an account or sign in with Kakao, Naver, or Google. We receive only the data listed in our Privacy Policy. You can disconnect a social account at any time under My Info → Security.</p>
+
+    <h2>4. Your obligations</h2>
+    <p>Keep your account to yourself. Do not use false or someone else's details, access data you are not authorised to see, interfere with or try to bypass the Service's security, or use information from the Service outside its business purpose.</p>
+
+    <h2>5. Availability</h2>
+    <p>We aim to run the Service continuously but may suspend it for maintenance, failures, or events beyond our control, with notice where possible.</p>
+
+    <h2>6. Rights to content</h2>
+    <p>The Service belongs to the Company. Material you upload while working remains with its author or organisation; we process it only as needed to provide the Service.</p>
+
+    <h2>7. Suspension and termination</h2>
+    <p>We may restrict or suspend accounts that breach these terms or when the working relationship ends. You may ask us to delete your account at any time.</p>
+
+    <h2>8. Liability</h2>
+    <p>We are not liable for losses caused by force majeure, your own fault, or failures of third-party services (social sign-in, mail, push), except in cases of our wilful misconduct or gross negligence.</p>
+
+    <h2>9. Privacy</h2>
+    <p>We protect your personal data as described in our <a href="/en/privacy">Privacy Policy</a>.</p>
+
+    <h2>10. Governing law</h2>
+    <p>These terms are governed by the laws of the Republic of Korea.</p>
+
+    <p>Effective @(string.IsNullOrWhiteSpace(Legal.EffectiveDate) ? "from the date posted" : Legal.EffectiveDate).</p>
+
+    <OperatorBlock Legal="@Legal" Ko="false" />
+}
+</section>

@@ -1,0 +1,27 @@
+@*
+    개인정보처리방침 · 이용약관 끝의 운영자 정보. 두 문서가 같은 칸을 같은 순서로 쓴다.
+    비어 있는 칸은 그리지 않는다(LegalInfo 머리말). 사업자등록번호는 싣지 않는다.
+*@
+
+<dl class="legal__operator">
+    <dt>@(Ko ? "운영자" : "Operator")</dt>
+    <dd>@Legal.OperatorName</dd>
+
+    @if (!string.IsNullOrWhiteSpace(Legal.Representative))
+    {
+        <dt>@(Ko ? "대표자" : "Representative")</dt>
+        <dd>@Legal.Representative</dd>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(Legal.Address))
+    {
+        <dt>@(Ko ? "주소" : "Address")</dt>
+        <dd>@Legal.Address</dd>
+    }
+
+    @if (!string.IsNullOrWhiteSpace(Legal.ContactEmail))
+    {
+        <dt>@(Ko ? "문의" : "Contact")</dt>
+        <dd><a href="mailto:@Legal.ContactEmail">@Legal.ContactEmail</a></dd>
+    }
+</dl>

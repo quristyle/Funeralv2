@@ -1,0 +1,303 @@
+@page "/{Locale}/privacy"
+
+@*
+    [개인정보처리방침] — 개인정보 보호법 제30조가 정한 항목을 적는다.
+
+    [사실만 적는다]
+
+    항목은 **코드에서 확인한 것**이다(2026-09-27). 기능을 더하거나 뺄 때 여기도
+    함께 고친다 — 특히 수집 항목(2)과 위탁·국외 이전(5 · 6). 문서가 실제와 다르면
+    그것이 곧 법 위반이다.
+
+      포털 계정       AuthServer  accounts · account_profile_details
+      소셜 가입       AuthServer  account_social_logins · SocialPicture · Avatar
+      문의            SiteServer  문의 접수 (3년 — 문의 화면의 동의 문구와 같다)
+      알림 구독·위치  NotificationServer  push_subscriptions · notification_preferences
+      메일 발송       NotificationServer  EmailSettings (jinnets.co.kr)
+      AI 기능         AIAgentServer  (Groq · OpenRouter · Gemini · Anthropic 등)
+
+    회사 정보(운영자 · 대표자 · 주소 · 보호책임자)는 설정(`Legal`)에서 읽고,
+    **비어 있는 칸은 줄째 그리지 않는다**(LegalInfo 머리말).
+*@
+
+<PageTitle>@(Ko ? "개인정보처리방침" : "Privacy Policy") — JSINI</PageTitle>
+<HeadContent>
+    <meta name="description" content="@(Ko ? "JSINI 개인정보처리방침" : "JSINI Privacy Policy")" />
+</HeadContent>
+
+<section class="page-head">
+    <div class="wrap">
+        <h1 class="h-display text-4xl">@(Ko ? "개인정보처리방침" : "Privacy Policy")</h1>
+        @if (!string.IsNullOrWhiteSpace(Legal.EffectiveDate))
+        {
+            <p class="page-head__lead">@(Ko ? "시행일" : "Effective") @Legal.EffectiveDate</p>
+        }
+    </div>
+</section>
+
+<section class="wrap wrap--narrow section legal">
+@if (Ko)
+{
+    <p class="legal__intro">
+        @(Legal.OperatorName)(이하 「회사」)는 「개인정보 보호법」에 따라 정보주체의 개인정보를 보호하고
+        이와 관련한 고충을 신속하고 원활하게 처리하기 위하여 다음과 같이 개인정보처리방침을 둡니다.
+        이 방침은 회사 소개 사이트(jsini.co.kr)와 업무 포털(portal.jsini.co.kr, 이하 「서비스」)에 적용됩니다.
+    </p>
+
+    <h2>1. 개인정보의 처리 목적</h2>
+    <ul>
+        <li><b>회원 가입과 관리</b> — 가입 신청 접수·승인, 본인 식별, 로그인, 계정 관리, 비밀번호 재설정</li>
+        <li><b>서비스 제공</b> — 업무 포털 기능 제공, 알림(메일·앱 알림) 발송, 화면 설정 유지</li>
+        <li><b>문의 응대</b> — 회사 소개 사이트로 접수된 제안·도입 문의 확인과 회신</li>
+        <li><b>보안과 부정 이용 방지</b> — 접속 기록 관리, 비정상 이용 차단</li>
+    </ul>
+
+    <h2>2. 처리하는 개인정보 항목</h2>
+    <div class="legal__table">
+        <table>
+            <thead>
+                <tr><th>구분</th><th>항목</th><th>수집 방법</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>포털 가입 신청</td>
+                    <td>(필수) 아이디, 이름, 이메일, 비밀번호<br />(선택) 연락처, 신청 메모(소속·담당 업무 등)</td>
+                    <td>가입 신청 화면</td>
+                </tr>
+                <tr>
+                    <td>소셜 계정 가입·연결<br />(카카오 · 네이버 · 구글)</td>
+                    <td>(필수) 해당 서비스의 회원 식별값, 이름 또는 닉네임, 이메일<br />(선택) 프로필 사진</td>
+                    <td>이용자가 소셜 로그인에 동의할 때 해당 서비스로부터 받음</td>
+                </tr>
+                <tr>
+                    <td>업무 포털 이용</td>
+                    <td>업무 수행 중 이용자가 입력한 정보(프로필 사진, 부서·직책, 업무 기록 등)</td>
+                    <td>포털 화면</td>
+                </tr>
+                <tr>
+                    <td>문의</td>
+                    <td>(필수) 이름, 이메일, 문의 내용<br />(선택) 회사명, 연락처</td>
+                    <td>회사 소개 사이트 문의 화면</td>
+                </tr>
+                <tr>
+                    <td>알림·위치(선택 기능)</td>
+                    <td>앱 알림 구독 정보(브라우저 푸시 주소·키), 알림 설정<br />「내 위치 날씨」를 켠 경우 위치(위도·경도)</td>
+                    <td>이용자가 해당 기능을 켤 때</td>
+                </tr>
+                <tr>
+                    <td>자동 수집</td>
+                    <td>접속 일시, IP 주소, 브라우저 정보, 접속·이용 기록, 쿠키</td>
+                    <td>서비스 이용 과정에서 자동 생성</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <p>비밀번호는 복원할 수 없는 방식(단방향 해시)으로만 저장합니다. 소셜 가입 시 받은 프로필 사진은 회사 서버에 사본으로 보관하여 프로필 사진으로 사용합니다.</p>
+
+    <h2>3. 개인정보의 보유 및 이용 기간</h2>
+    <ul>
+        <li><b>회원 정보</b> — 회원 탈퇴 또는 계정 삭제 시까지. 가입 신청이 거절되면 그 신청 정보는 즉시 삭제합니다.</li>
+        <li><b>문의 정보</b> — 접수일로부터 3년</li>
+        <li><b>접속 기록</b> — 관계 법령이 정한 기간(「통신비밀보호법」에 따른 접속 로그 3개월 등)</li>
+        <li><b>알림 구독·위치 정보</b> — 이용자가 기능을 끄거나 구독을 해지할 때까지</li>
+    </ul>
+    <p>다른 법령에서 보존을 요구하는 경우에는 그 기간 동안 분리하여 보관합니다.</p>
+
+    <h2>4. 개인정보의 제3자 제공</h2>
+    <p>
+        회사는 정보주체의 개인정보를 1항의 목적 범위에서만 처리하며, 정보주체의 동의가 있거나
+        법률에 특별한 규정이 있는 경우를 제외하고는 제3자에게 제공하지 않습니다.
+    </p>
+
+    <h2>5. 개인정보 처리의 위탁 및 연동 서비스</h2>
+    <div class="legal__table">
+        <table>
+            <thead>
+                <tr><th>받는 곳</th><th>내용</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>메일 발송 서버 운영자(jinnets.co.kr)</td><td>가입 승인·비밀번호 재설정·알림 메일 발송</td></tr>
+                <tr><td>브라우저 푸시 서비스(Google Firebase Cloud Messaging 등)</td><td>이용자가 켠 앱 알림의 전달</td></tr>
+                <tr><td>㈜카카오 · 네이버㈜ · Google LLC</td><td>이용자가 선택한 소셜 로그인의 본인 확인</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <h2>6. 개인정보의 국외 이전</h2>
+    <p>다음 서비스는 해외 사업자가 운영하므로, 이용 과정에서 개인정보가 국외로 전송될 수 있습니다.</p>
+    <div class="legal__table">
+        <table>
+            <thead>
+                <tr><th>이전받는 자(국가)</th><th>항목</th><th>목적 · 시기</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Google LLC (미국)</td>
+                    <td>구글 회원 식별값·이름·이메일·프로필 사진, 앱 알림 내용</td>
+                    <td>구글 로그인 시 본인 확인 · 앱 알림 전달 시</td>
+                </tr>
+                <tr>
+                    <td>AI 서비스 사업자 (미국 등)<br />Groq, OpenRouter, Google, Anthropic 등</td>
+                    <td>이용자가 AI 기능에 입력한 내용</td>
+                    <td>이용자가 AI 기능을 쓸 때 응답 생성</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+    <p>이전은 암호화된 통신(HTTPS)으로 이루어지며, 각 사업자의 방침에 따라 보관됩니다. AI 기능에는 개인정보를 입력하지 않도록 안내합니다. 국외 이전을 원하지 않으시면 해당 기능(구글 로그인·앱 알림·AI 기능)을 쓰지 않으시면 됩니다.</p>
+
+    <h2>7. 개인정보의 파기 절차 및 방법</h2>
+    <p>
+        보유 기간이 지나거나 처리 목적을 이룬 개인정보는 지체 없이 파기합니다. 전자 파일은 복구할 수 없는
+        방법으로 삭제하고, 종이 문서는 분쇄하거나 소각합니다.
+    </p>
+
+    <h2>8. 정보주체의 권리와 행사 방법</h2>
+    <p>
+        정보주체는 언제든지 자신의 개인정보에 대해 열람·정정·삭제·처리정지를 요구할 수 있습니다.
+        업무 포털의 [내 정보]에서 직접 고치거나, 아래 보호책임자에게 이메일로 요청하시면 지체 없이 처리합니다.
+        소셜 계정 연결은 [내 정보 → 보안 설정]에서 언제든 끊을 수 있습니다. 법정대리인이나 위임받은 사람을 통해서도 행사할 수 있습니다.
+    </p>
+
+    <h2>9. 개인정보의 안전성 확보 조치</h2>
+    <ul>
+        <li>비밀번호 단방향 암호화 저장, 전 구간 암호화 통신(HTTPS)</li>
+        <li>역할에 따른 접근 권한 관리, 가입은 관리자 승인 후에만 이용 가능</li>
+        <li>접속 기록 보관과 비정상 접근 차단(요청 횟수 제한 등)</li>
+        <li>프로필 사진 등 파일은 로그인한 사용자에게만 제공</li>
+    </ul>
+
+    <h2>10. 쿠키 등 자동 수집 장치</h2>
+    <p>
+        회사는 로그인 상태 유지와 보안(위조 요청 방지)을 위해 쿠키를 쓰고, 화면 설정(밝기·글꼴 등)을
+        이용자의 브라우저 저장소에 보관합니다. 광고나 행태 분석을 위한 쿠키는 쓰지 않습니다.
+        브라우저 설정에서 쿠키를 거부할 수 있으나, 그 경우 로그인이 필요한 서비스를 이용할 수 없습니다.
+    </p>
+
+    <h2>11. 개인정보 보호책임자</h2>
+    <div class="legal__table">
+        <table>
+            <tbody>
+                @if (!string.IsNullOrWhiteSpace(Legal.Officer.Name))
+                {
+                    <tr><th>성명</th><td>@Legal.Officer.Name</td></tr>
+                }
+                @if (!string.IsNullOrWhiteSpace(Legal.Officer.Title))
+                {
+                    <tr><th>직책</th><td>@Legal.Officer.Title</td></tr>
+                }
+                @if (!string.IsNullOrWhiteSpace(OfficerEmail))
+                {
+                    <tr><th>이메일</th><td><a href="mailto:@OfficerEmail">@OfficerEmail</a></td></tr>
+                }
+                @if (!string.IsNullOrWhiteSpace(Legal.Officer.Phone))
+                {
+                    <tr><th>전화</th><td>@Legal.Officer.Phone</td></tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <h2>12. 권익침해 구제 방법</h2>
+    <p>개인정보 침해에 대한 신고나 상담이 필요하시면 아래 기관에 문의하실 수 있습니다.</p>
+    <ul>
+        <li>개인정보침해 신고센터 (privacy.kisa.or.kr / 국번 없이 118)</li>
+        <li>개인정보 분쟁조정위원회 (www.kopico.go.kr / 1833-6972)</li>
+        <li>대검찰청 사이버수사과 (www.spo.go.kr / 국번 없이 1301)</li>
+        <li>경찰청 사이버수사국 (ecrm.police.go.kr / 국번 없이 182)</li>
+    </ul>
+
+    <h2>13. 개인정보처리방침의 변경</h2>
+    <p>
+        이 방침은 @(string.IsNullOrWhiteSpace(Legal.EffectiveDate) ? "게시한 날" : Legal.EffectiveDate)부터 적용됩니다.
+        내용이 바뀌면 시행 7일 전(이용자에게 불리한 변경은 30일 전)부터 이 페이지로 알립니다.
+    </p>
+
+    <OperatorBlock Legal="@Legal" Ko="true" />
+}
+else
+{
+    <p class="legal__intro">
+        @(Legal.OperatorName) ("the Company") handles personal data in accordance with the Personal Information
+        Protection Act of the Republic of Korea. This policy applies to our company website (jsini.co.kr) and
+        our business portal (portal.jsini.co.kr) (together, "the Service"). The Korean version prevails.
+    </p>
+
+    <h2>1. Purposes</h2>
+    <ul>
+        <li><b>Accounts</b> — receiving and approving sign-up requests, identification, sign-in, password reset</li>
+        <li><b>The Service</b> — portal features, email and app notifications, keeping your display settings</li>
+        <li><b>Enquiries</b> — answering enquiries sent through the company website</li>
+        <li><b>Security</b> — keeping access records and blocking abuse</li>
+    </ul>
+
+    <h2>2. Data we process</h2>
+    <ul>
+        <li><b>Portal sign-up</b> — username, name, email, password (required); phone, a note about yourself (optional)</li>
+        <li><b>Social sign-in (Kakao, Naver, Google)</b> — the provider's user ID, name or nickname, email; profile photo (optional)</li>
+        <li><b>Using the portal</b> — what you enter while working (profile photo, department, work records, etc.)</li>
+        <li><b>Enquiries</b> — name, email, message (required); company, phone (optional)</li>
+        <li><b>Optional features</b> — push subscription data and notification settings; your location (latitude/longitude) if you turn on local weather</li>
+        <li><b>Collected automatically</b> — access time, IP address, browser details, usage records, cookies</li>
+    </ul>
+    <p>Passwords are stored only as one-way hashes. A profile photo received through social sign-in is copied to our servers and used as your profile photo.</p>
+
+    <h2>3. Retention</h2>
+    <ul>
+        <li>Account data — until the account is deleted. Rejected sign-up requests are deleted immediately.</li>
+        <li>Enquiries — three years from receipt</li>
+        <li>Access records — as required by law (e.g. three months under the Protection of Communications Secrets Act)</li>
+        <li>Push subscriptions and location — until you turn the feature off or unsubscribe</li>
+    </ul>
+
+    <h2>4. Disclosure to third parties</h2>
+    <p>We do not provide personal data to third parties except with your consent or where the law requires it.</p>
+
+    <h2>5. Processors and connected services</h2>
+    <ul>
+        <li>Mail server operator (jinnets.co.kr) — sending account and notification emails</li>
+        <li>Browser push services (e.g. Google Firebase Cloud Messaging) — delivering app notifications you turned on</li>
+        <li>Kakao Corp., NAVER Corp., Google LLC — verifying your identity for the social sign-in you choose</li>
+    </ul>
+
+    <h2>6. Transfers abroad</h2>
+    <ul>
+        <li><b>Google LLC (USA)</b> — Google account ID, name, email, profile photo, notification content; for Google sign-in and push delivery</li>
+        <li><b>AI providers (USA and others: Groq, OpenRouter, Google, Anthropic)</b> — what you type into AI features; to generate responses</li>
+    </ul>
+    <p>Transfers use encrypted connections (HTTPS). If you do not want your data transferred abroad, do not use those features. Please do not enter personal data into AI features.</p>
+
+    <h2>7. Destruction</h2>
+    <p>Data is destroyed without delay once it is no longer needed: electronic files are deleted irrecoverably and paper is shredded.</p>
+
+    <h2>8. Your rights</h2>
+    <p>You may ask to access, correct, delete, or stop the processing of your data at any time — in the portal under My Info, or by emailing the privacy officer below. You can disconnect a social account under My Info → Security.</p>
+
+    <h2>9. Security measures</h2>
+    <p>One-way password hashing, HTTPS everywhere, role-based access, administrator approval before use, access logging and rate limiting, and files served only to signed-in users.</p>
+
+    <h2>10. Cookies</h2>
+    <p>We use cookies to keep you signed in and to protect against forged requests, and keep display settings in your browser's storage. We do not use advertising or tracking cookies.</p>
+
+    <h2>11. Privacy officer</h2>
+    <p>
+        @if (!string.IsNullOrWhiteSpace(Legal.Officer.Name))
+        {
+            @Legal.Officer.Name<br />
+        }
+        @if (!string.IsNullOrWhiteSpace(OfficerEmail))
+        {
+            <a href="mailto:@OfficerEmail">@OfficerEmail</a><br />
+        }
+        @if (!string.IsNullOrWhiteSpace(Legal.Officer.Phone))
+        {
+            @Legal.Officer.Phone
+        }
+    </p>
+
+    <h2>12. Changes</h2>
+    <p>This policy applies from @(string.IsNullOrWhiteSpace(Legal.EffectiveDate) ? "the date it is posted" : Legal.EffectiveDate). Changes are announced on this page at least seven days in advance (30 days for changes against your interest).</p>
+
+    <OperatorBlock Legal="@Legal" Ko="false" />
+}
+</section>

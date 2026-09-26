@@ -7611,3 +7611,24 @@ body {
 .tb-custom .tb-pill.tb-pill--font-system { font-family: system-ui, -apple-system, 'Segoe UI', 'Malgun Gothic', sans-serif; }
 .tb-custom .tb-pill.tb-pill--font-scoredream { font-family: 'S-CoreDream', 'Malgun Gothic', sans-serif; }
 .tb-custom .tb-pill.tb-pill--font-play { font-family: 'Play', 'Malgun Gothic', sans-serif; }
+
+/* 로그인 · 가입 신청 카드 맨 아래의 개인정보처리방침 · 이용약관. 조용히 두되
+   방침만 굵게 — 법이 「쉽게 확인할 수 있게」를 요구한다. */
+.jsini-login__legal {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 1.25rem 0 0;
+  font-size: 0.75rem;
+  color: #86868b;
+}
+
+.jsini-login__legal a {
+  color: #6e6e73;
+  text-decoration: none;
+}
+
+.jsini-login__legal a:hover {
+  color: #0a0a0a;
+  text-decoration: underline;
+}
