@@ -1,0 +1,92 @@
+@*
+    [소셜 단추] — 로그인 · 가입 신청 두 화면이 함께 쓴다.
+
+    [켜지 않은 공급자도 자리를 보인다]
+
+    구글 · 네이버 · 카카오는 **늘 셋 다 그린다.** 서버가 알려 준 것(열쇠가
+    채워진 것)만 누를 수 있는 링크가 되고, 나머지는 「준비 중」 표시를 단
+    잠긴 단추로 선다. 목록에 없는 공급자를 서버가 더 알려 주면(설정만으로
+    붙인 깃허브 등) 뒤에 이어 붙인다 — 그 공급자의 그림은 없으므로 머리글자로
+    대신한다.
+
+    [공급자의 색을 쓴다]
+
+    이 카드의 다른 곳은 색 없이 대비로만 말하지만 여기만은 예외다. 카카오와
+    네이버는 로그인 단추의 **바탕색과 상징을 지키라는 규정**을 두고 있고,
+    사람들도 그 색으로 단추를 찾는다. 대신 크기와 모양은 우리 단추와 같게 둔다.
+
+    [그림을 파일로 받지 않는다]
+
+    상징 셋이 합쳐 1KB 남짓이라 마크업에 그대로 싣는다. 파일로 두면 모두가
+    가장 먼저 받는 화면에 요청이 셋 더 붙는다.
+*@
+
+<div class="jsini-social">
+    @foreach (var item in Items)
+    {
+        if (item.Enabled)
+        {
+            @if (CarryKeepSignedIn)
+            {
+                <a class="jsini-social__btn jsini-social__btn--@item.Key"
+                   data-social-link
+                   data-social-base="@Href(item.Key)"
+                   href="@Href(item.Key)">
+                    @Icon(item)
+                    <span class="jsini-social__label">@Label(item)</span>
+                </a>
+            }
+            else
+            {
+                <a class="jsini-social__btn jsini-social__btn--@item.Key"
+                   href="@Href(item.Key)">
+                    @Icon(item)
+                    <span class="jsini-social__label">@Label(item)</span>
+                </a>
+            }
+        }
+        else
+        {
+            <span class="jsini-social__btn jsini-social__btn--@item.Key is-soon"
+                  aria-disabled="true" title="@item.DisplayName 연동은 준비 중입니다">
+                @Icon(item)
+                <span class="jsini-social__label">@Label(item)</span>
+                <span class="jsini-social__soon">준비 중</span>
+            </span>
+        }
+    }
+</div>
+
+@code {
+    /// <summary>공급자의 상징. 모르는 공급자는 이름 첫 글자다.</summary>
+    private RenderFragment Icon(SocialButtonItem item) => __builder =>
+    {
+        switch (item.Key)
+        {
+            case "kakao":
+                <svg class="jsini-social__icon" viewBox="0 0 24 24" aria-hidden="true">
+                    <path fill="currentColor" d="M12 3.2c-5.3 0-9.6 3.37-9.6 7.52 0 2.68 1.79 5.03 4.48 6.36-.2.73-.71 2.64-.82 3.05-.13.51.19.5.39.36.16-.1 2.54-1.72 3.57-2.42.64.09 1.3.14 1.98.14 5.3 0 9.6-3.37 9.6-7.5S17.3 3.2 12 3.2z" />
+                </svg>
+                break;
+
+            case "naver":
+                <svg class="jsini-social__icon jsini-social__icon--sm" viewBox="0 0 24 24" aria-hidden="true">
+                    <path fill="currentColor" d="M16.27 12.85 7.38 0H0v24h7.73V11.15L16.62 24H24V0h-7.73z" />
+                </svg>
+                break;
+
+            case "google":
+                <svg class="jsini-social__icon" viewBox="0 0 48 48" aria-hidden="true">
+                    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+                    <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+                    <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+                    <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+                </svg>
+                break;
+
+            default:
+                <span class="jsini-social__icon jsini-social__icon--letter" aria-hidden="true">@Initial(item)</span>
+                break;
+        }
+    };
+}

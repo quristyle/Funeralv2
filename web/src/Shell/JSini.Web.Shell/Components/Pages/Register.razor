@@ -34,7 +34,7 @@
 
     [소셜로도 신청할 수 있다]
 
-    구글 · 네이버 · 카카오 단추가 아래에 선다. 누르면 공급자에 다녀와서
+    구글 · 네이버 · 카카오 단추가 폼 위에 선다. 누르면 공급자에 다녀와서
     **여기 폼을 채운 것과 똑같은 승인 대기 계정**이 만들어진다 — 아이디·이름·
     이메일을 공급자에게서 받아 오므로 일곱 칸을 채우지 않아도 된다.
 
@@ -47,83 +47,104 @@
 
 <PageTitle>가입 신청 · JSini 포털</PageTitle>
 
-<div class="jsini-login__card jsini-login__card--wide">
+<div class="jsini-login__card jsini-login__card--wide jsini-login__card--panel">
     <h1 class="jsini-login__title">가입 신청</h1>
 
     @if (_sent)
     {
-        <p class="jsini-hint">
+        <p class="jsini-login__sub">
             관리자가 승인하면 신청하실 때 적으신 이메일로 알려 드립니다.
             승인 전에는 로그인하실 수 없습니다.
         </p>
 
-        <a class="jsini-password__back" href="/login">로그인 화면으로</a>
+        <a class="jsini-login__submit jsini-password__go" href="/login">로그인 화면으로</a>
     }
     else
     {
-        <label class="jsini-login__label" for="reg-id">아이디</label>
-        <input id="reg-id" class="jsini-login__input"
-               autocomplete="username" @bind="_input.LoginId" />
-
-        <label class="jsini-login__label" for="reg-name">이름</label>
-        <input id="reg-name" class="jsini-login__input"
-               autocomplete="name" @bind="_input.UserName" />
-
-        <label class="jsini-login__label" for="reg-email">이메일</label>
-        <input id="reg-email" type="email" class="jsini-login__input"
-               autocomplete="email" @bind="_input.Email" />
-
-        <label class="jsini-login__label" for="reg-phone">연락처 (없어도 됩니다)</label>
-        <input id="reg-phone" class="jsini-login__input"
-               autocomplete="tel" @bind="_input.Phone" />
-
-        <label class="jsini-login__label" for="reg-pw">비밀번호</label>
-        <input id="reg-pw" type="password" class="jsini-login__input"
-               autocomplete="new-password" @bind="_input.Password" />
-
-        <label class="jsini-login__label" for="reg-confirm">비밀번호 확인</label>
-        <input id="reg-confirm" type="password" class="jsini-login__input"
-               autocomplete="new-password" @bind="_input.Confirm" />
-
-        <label class="jsini-login__label" for="reg-note">하실 말씀 (소속 · 담당 업무 등)</label>
-        <textarea id="reg-note" class="jsini-login__input jsini-login__textarea"
-                  rows="3" @bind="_input.Note"></textarea>
-
-        <button type="button" class="jsini-login__submit"
-                disabled="@Loading" @onclick="@SubmitAsync">
-            신청하기
-        </button>
+        <p class="jsini-login__sub">
+            관리자가 승인하면 로그인하실 수 있습니다.
+        </p>
 
         @*
             ── 소셜 계정으로 신청 ──────────────────────────────
 
+            **위에 둔다.** 일곱 칸을 채우는 것보다 단추 하나가 빠르고, 칸을 다
+            채운 뒤에야 「이걸로 하면 됐구나」를 알게 하면 헛수고가 된다.
+
             **폼 밖의 평범한 링크다.** 공급자에 다녀오는 왕복이라 폼 제출로는
-            할 수 없고, 위 칸들과 함께 보낼 것도 없다 — 이름·이메일을 공급자가
-            알려 준다.
-
-            로그인 화면과 같은 마크업·같은 CSS 를 쓴다. 두 벌로 두면 다음에
-            공급자를 하나 더 켰을 때 **한 화면에만 단추가 선다.**
+            할 수 없고, 아래 칸들과 함께 보낼 것도 없다 — 이름·이메일을 공급자가
+            알려 준다. 단추는 로그인 화면과 같은 부품(`SocialButtons`)이다.
         *@
-        @if (_socialProviders.Count > 0)
-        {
-            <div class="jsini-login__social">
-                <div class="jsini-login__or"><span>소셜 계정으로 신청</span></div>
+        <div class="jsini-login__social jsini-login__social--top">
+            <SocialButtons Providers="_socialProviders" Verb="로 신청하기" />
 
-                <div class="jsini-login__social-btns">
-                    @foreach (var provider in _socialProviders)
-                    {
-                        <a class="jsini-login__social-btn"
-                           href="@($"/social/{provider.Key}/start")">@provider.DisplayName</a>
-                    }
-                </div>
+            <p class="jsini-login__social-note">
+                이름과 이메일을 공급자에게서 받아 신청서를 대신 채웁니다.
+            </p>
+        </div>
 
-                <p class="jsini-login__social-note">
-                    누르시면 이름과 이메일을 공급자에게서 받아 신청서를 대신 채웁니다.
-                    승인 절차는 위와 같습니다.
-                </p>
+        <div class="jsini-login__or"><span>또는 직접 입력</span></div>
+
+        <div class="jsini-login__row">
+            <div class="jsini-login__field">
+                <label class="jsini-login__label" for="reg-id">아이디</label>
+                <input id="reg-id" class="jsini-login__input"
+                       autocomplete="username" @bind="_input.LoginId" />
             </div>
-        }
 
-        <a class="jsini-password__back" href="/login">로그인 화면으로</a>
+            <div class="jsini-login__field">
+                <label class="jsini-login__label" for="reg-name">이름</label>
+                <input id="reg-name" class="jsini-login__input"
+                       autocomplete="name" @bind="_input.UserName" />
+            </div>
+        </div>
+
+        <div class="jsini-login__field">
+            <label class="jsini-login__label" for="reg-email">이메일</label>
+            <input id="reg-email" type="email" class="jsini-login__input"
+                   placeholder="승인 안내를 이 주소로 보냅니다"
+                   autocomplete="email" @bind="_input.Email" />
+        </div>
+
+        <div class="jsini-login__field">
+            <label class="jsini-login__label" for="reg-phone">
+                연락처 <span class="jsini-login__optional">선택</span>
+            </label>
+            <input id="reg-phone" type="tel" class="jsini-login__input"
+                   placeholder="010-0000-0000"
+                   autocomplete="tel" @bind="_input.Phone" />
+        </div>
+
+        <div class="jsini-login__row">
+            <div class="jsini-login__field">
+                <label class="jsini-login__label" for="reg-pw">비밀번호</label>
+                <input id="reg-pw" type="password" class="jsini-login__input"
+                       autocomplete="new-password" @bind="_input.Password" />
+            </div>
+
+            <div class="jsini-login__field">
+                <label class="jsini-login__label" for="reg-confirm">비밀번호 확인</label>
+                <input id="reg-confirm" type="password" class="jsini-login__input"
+                       autocomplete="new-password" @bind="_input.Confirm" />
+            </div>
+        </div>
+
+        <div class="jsini-login__field">
+            <label class="jsini-login__label" for="reg-note">
+                하실 말씀 <span class="jsini-login__optional">선택</span>
+            </label>
+            <textarea id="reg-note" class="jsini-login__input jsini-login__textarea"
+                      placeholder="소속 · 담당 업무를 적어 주시면 승인이 빨라집니다"
+                      rows="3" @bind="_input.Note"></textarea>
+        </div>
+
+        <button type="button" class="jsini-login__submit jsini-login__submit--solid"
+                disabled="@Loading" @onclick="@SubmitAsync">
+            신청하기
+        </button>
+
+        <p class="jsini-login__foot">
+            이미 계정이 있으신가요? <a href="/login">로그인</a>
+        </p>
     }
 </div>

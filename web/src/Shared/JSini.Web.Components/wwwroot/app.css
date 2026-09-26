@@ -3498,10 +3498,14 @@ button.jsini-crumbs__item:hover { opacity: 1; }
 
 /* ── 소셜로 로그인 · 가입 ─────────────────────────────────────────────
 
-   구글 · 네이버 · 카카오. **공급자의 브랜드 색을 쓰지 않는다** — 이 화면의
-   규칙이 「강조는 색이 아니라 대비로 낸다」이고, 색 단추 셋을 들이면 카드에서
-   그것만 보인다(로고도 같은 이유로 넣지 않았다: 셋을 받아 오면 첫 화면이
-   그만큼 무거워진다).
+   구글 · 네이버 · 카카오. **여기만은 공급자의 색을 쓴다** — 카드의 다른 곳은
+   「강조는 색이 아니라 대비로」가 규칙이지만, 카카오와 네이버는 로그인 단추의
+   바탕색과 상징을 지키라는 규정을 두고 있고 사람들도 그 색으로 단추를 찾는다.
+   대신 높이·글자 크기는 로그인 단추와 같게 두어 카드의 결을 지킨다.
+
+   켜지 않은 공급자도 「준비 중」으로 자리를 보인다(`SocialButtons`). 그
+   단추는 색을 걷어 회색으로 가라앉힌다 — 누를 수 없는 것이 색을 가지면
+   누를 수 있는 것과 구별되지 않는다.
 
    지문 판과 달리 기본이 감춤이 아니다. 여기는 브라우저가 할 수 있는지를
    따질 것이 없고, 그릴지 말지는 **서버가 준 목록**이 이미 정했다. */
@@ -3509,34 +3513,121 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   margin-top: 1.75rem;
 }
 
-/* 단추가 하나일 수도 셋일 수도 있다. 나눠 가지게 두면 하나일 때 폭이
-   가득 차고, 셋일 때 나란히 선다 — 개수별로 규칙을 두지 않아도 된다. */
-.jsini-login__social-btns {
+/* 한 줄에 하나씩 쌓는다. 셋을 나란히 두면 「카카오로 신청하기」가 두 줄로
+   접히고, 휴대폰에서는 과녁이 좁아진다. */
+.jsini-social {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 0.5rem;
 }
 
-/* 지문 단추와 같은 무게다(회색 테두리) — 둘 다 「비밀번호 말고 다른 길」이라
-   같은 말투여야 한다. 링크지만 단추처럼 보여야 하므로 밑줄을 지운다. */
-.jsini-login__social-btn {
-  flex: 1 1 8rem;
-  /* 손가락 과녁 44px 를 넘긴다. 휴대폰에서 누르는 단추다. */
-  padding: 0.75rem 1rem;
-  border: 1px solid #d2d2d7;
-  background: transparent;
-  color: #1c1c1e;
+/* 상징은 왼쪽에 박고 글자는 가운데에 둔다 — 카카오·네이버·구글의 단추 규정이
+   모두 이 배치다. 손가락 과녁 44px 를 넘긴다. */
+.jsini-social__btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.875rem;
+  padding: 0 3rem;
+  border: 1px solid transparent;
   font-size: 0.875rem;
-  line-height: 1.4;
-  text-align: center;
+  font-weight: 600;
+  line-height: 1.3;
   text-decoration: none;
-  transition: border-color 0.2s, color 0.2s;
+  transition: filter 0.15s, box-shadow 0.15s;
 }
 
-.jsini-login__social-btn:hover,
-.jsini-login__social-btn:focus-visible {
-  border-color: #0a0a0a;
-  color: #0a0a0a;
+a.jsini-social__btn:hover,
+a.jsini-social__btn:focus-visible {
+  filter: brightness(0.96);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 10%);
+}
+
+a.jsini-social__btn:focus-visible {
+  outline: 2px solid #0a0a0a;
+  outline-offset: 2px;
+}
+
+.jsini-social__icon {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  width: 1.25rem;
+  height: 1.25rem;
+  transform: translateY(-50%);
+}
+
+/* 네이버의 N 은 네모를 꽉 채우는 글자라 같은 크기면 혼자 커 보인다. */
+.jsini-social__icon--sm {
+  width: 0.875rem;
+  height: 0.875rem;
+  left: 1.1875rem;
+}
+
+/* 그림이 없는 공급자(설정만으로 붙인 것). 머리글자를 동그라미에 담는다. */
+.jsini-social__icon--letter {
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #0a0a0a;
+  color: #fff;
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.jsini-social__btn--kakao {
+  background: #fee500;
+  color: rgb(0 0 0 / 85%);
+}
+
+.jsini-social__btn--kakao .jsini-social__icon { color: #000; }
+
+.jsini-social__btn--naver {
+  background: #03c75a;
+  color: #fff;
+}
+
+.jsini-social__btn--google {
+  border-color: #dadce0;
+  background: #fff;
+  color: #1f1f1f;
+}
+
+/* 모르는 공급자는 이 카드의 보통 단추 말투를 쓴다. */
+.jsini-social__btn:not(.jsini-social__btn--kakao, .jsini-social__btn--naver, .jsini-social__btn--google) {
+  border-color: #d2d2d7;
+  background: #fff;
+  color: #1c1c1e;
+}
+
+/* 준비 중. 색을 전부 걷고 점선으로 「아직 없는 자리」임을 보인다. */
+.jsini-social__btn.is-soon {
+  border: 1px dashed #d2d2d7;
+  background: #fafafa;
+  color: #aeaeb2;
+  font-weight: 500;
+  cursor: not-allowed;
+}
+
+.jsini-social__btn.is-soon .jsini-social__icon {
+  color: #c7c7cc;
+  filter: grayscale(1);
+  opacity: 0.45;
+}
+
+.jsini-social__soon {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  background: #ececf0;
+  color: #8e8e93;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
 /* 처음 누르는 사람이 「로그인」을 기대했다가 승인 대기를 만나면 고장으로
@@ -3557,6 +3648,122 @@ button.jsini-crumbs__item:hover { opacity: 1; }
 /* 가입 신청은 칸이 일곱이라 로그인 카드보다 넓어야 한다. */
 .jsini-login__card--wide {
   width: min(30rem, 100%);
+}
+
+/* ── 가입 신청: 판 위에 올린 카드 ───────────────────────────────────
+
+   로그인은 좌우로 갈린 판이 흰 바탕을 깔아 주지만, 가입 신청은 회색 바탕에
+   카드만 선다. 테두리도 여백도 없으면 칸들이 바탕 위에 흩어져 보여서
+   카드를 **종이 한 장**으로 세운다.
+
+   이름표도 여기서는 로그인의 대문자·넓은 자간을 풀어 준다. 그 말투는 영문
+   두어 단어짜리에 맞춘 것이라, 한글 일곱 줄에 걸면 「아 이 디」처럼 글자가
+   흩어진다. */
+.jsini-login__card--panel {
+  margin: 2rem 0;
+  padding: 2.5rem 2.25rem 2rem;
+  border: 1px solid #e8e8ed;
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 4%),
+    0 16px 40px -16px rgb(0 0 0 / 14%);
+  box-sizing: border-box;
+}
+
+.jsini-login__card--panel .jsini-login__sub {
+  margin-bottom: 1.75rem;
+}
+
+.jsini-login__card--panel .jsini-login__field {
+  gap: 0.375rem;
+  margin-bottom: 1rem;
+  min-width: 0;
+}
+
+.jsini-login__card--panel .jsini-login__label {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  color: #1c1c1e;
+}
+
+.jsini-login__card--panel .jsini-login__input {
+  padding: 0.6875rem 0.875rem;
+}
+
+.jsini-login__card--panel .jsini-login__or {
+  margin: 1.75rem 0 1.5rem;
+  letter-spacing: 0.02em;
+}
+
+/* 소셜이 맨 위에 올 때는 위 여백이 제목 아래 여백과 겹친다. */
+.jsini-login__social--top {
+  margin-top: 0;
+}
+
+/* 「선택」 꼬리표. 반드시 넣을 칸과 아닌 칸을 이름표에서 가른다. */
+.jsini-login__optional {
+  margin-left: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: #86868b;
+}
+
+/* 짧은 칸 둘을 나란히. 좁은 화면에서는 한 줄씩 떨어진다. */
+.jsini-login__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 0.75rem;
+}
+
+/* 가입 신청의 단추는 칸을 다 채운 뒤 누르는 **하나뿐인 끝**이라 먹으로 채운다.
+   로그인의 테두리 단추는 지문·소셜과 나란히 서야 해서 가볍게 둔 것이다. */
+.jsini-login__submit--solid {
+  margin-top: 0.5rem;
+  padding-block: 0.875rem;
+  background: #0a0a0a;
+  color: #fff;
+  font-weight: 600;
+}
+
+.jsini-login__submit--solid:hover,
+.jsini-login__submit--solid:focus-visible {
+  background: #2c2c2e;
+}
+
+.jsini-login__submit:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+
+/* 카드 맨 아래 「이미 계정이 있으신가요? 로그인」. */
+.jsini-login__foot {
+  margin: 1.5rem 0 0;
+  text-align: center;
+  font-size: 0.875rem;
+  color: #6e6e73;
+}
+
+.jsini-login__foot a {
+  margin-left: 0.25rem;
+  color: #0a0a0a;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+/* 휴대폰: 종이를 걷고 화면 전체를 카드로 쓴다. 테두리가 화면 가장자리와
+   겹치면 틀만 두 겹이 된다. */
+@media (width < 34rem) {
+  .jsini-login__card--panel {
+    margin: 0;
+    padding: 1.75rem 0.25rem;
+    border: 0;
+    box-shadow: none;
+    background: transparent;
+  }
+
+  .jsini-login__row { grid-template-columns: 1fr; }
 }
 
 /* 여러 줄 입력도 같은 칸 모양을 쓴다. 높이만 내용에 맡긴다. */
