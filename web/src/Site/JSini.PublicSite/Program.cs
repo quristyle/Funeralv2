@@ -36,6 +36,38 @@ builder.Services.AddHttpClient<SiteApi>(client =>
 
 var app = builder.Build();
 
+// ── HEAD 를 GET 처럼 받는다 ───────────────────────────────
+//
+// 화면 끝점(MapRazorComponents)은 GET · POST 만 받아서 HEAD 에 **405** 를 준다.
+// 사람의 브라우저는 HEAD 를 쓰지 않으므로 여태 드러나지 않았는데, 주소가
+// 살아 있는지 보는 검사기들이 HEAD 부터 보낸다 — 구글 OAuth 브랜딩 인증이
+// 개인정보처리방침 주소를 「응답하지 않습니다」로 거절했다(2026-09-27).
+//
+// GET 으로 바꿔 그대로 그리고 **본문만 버린다.** 헤더(형식 · 길이 · 캐시)는
+// GET 과 같아야 HEAD 의 뜻이 선다. 본문을 버리는 일은 Kestrel 도 HEAD 에 하지만,
+// 방법을 GET 으로 바꾼 뒤라 그쪽이 HEAD 인 줄 모를 수 있어 여기서 한다.
+app.Use(async (context, next) =>
+{
+    if (!HttpMethods.IsHead(context.Request.Method))
+    {
+        await next();
+        return;
+    }
+
+    context.Request.Method = HttpMethods.Get;
+    var body = context.Response.Body;
+    context.Response.Body = Stream.Null;
+
+    try
+    {
+        await next();
+    }
+    finally
+    {
+        context.Response.Body = body;
+    }
+});
+
 if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/error", createScopeForErrors: true);
