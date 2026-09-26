@@ -270,6 +270,26 @@ a {
 
 .site-header__lang:hover { border-color: var(--ink); color: var(--ink); }
 
+/* 업무 포털 단추. 사이트의 다른 단추(`.btn-outline-dark`)처럼 먹으로 채우고,
+   누르면 안팎이 뒤집힌다. 차림표 글자보다 한 단계 무겁게 두어 「밖으로 나가는
+   곳」임이 보이게 한다. */
+.site-header__portal {
+  border: 1px solid var(--ink);
+  padding: 0.375rem 0.875rem;
+  background: var(--ink);
+  color: var(--paper);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.site-header__portal:hover,
+.site-header__portal:focus-visible {
+  background: transparent;
+  color: var(--ink);
+}
+
 /* 모바일 차림표. <details> 라 자바스크립트가 필요 없다. */
 .site-header__mobile { position: relative; }
 
@@ -308,6 +328,11 @@ a {
   padding: 0.75rem 1.5rem;
   font-size: 0.875rem;
   color: var(--steel);
+}
+
+.site-header__drawer-link--portal {
+  font-weight: 700;
+  color: var(--ink);
 }
 
 @media (width >= 768px) {

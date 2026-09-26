@@ -11,6 +11,13 @@ public partial class SiteHeader
 
     private Messages T => SiteMessages.For(Locale);
 
+    /// <summary>
+    /// 업무 포털 주소. **다른 오리진이다** — 공개 사이트와 업무 시스템의 쿠키·토큰
+    /// 표면을 섞지 않으려고 도메인을 나눴다(바닥글의 관리 포털 링크와 같은 까닭).
+    /// 그래서 사이트 안 경로(<see cref="Link"/>)로 만들지 않는다.
+    /// </summary>
+    private const string PortalUrl = "https://portal.jsini.co.kr";
+
     private string Link(string path) => $"/{Locale}{(path == "/" ? string.Empty : path)}";
 
     private (string Href, string Label)[] Items =>

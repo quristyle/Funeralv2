@@ -51,6 +51,7 @@ public static class SiteMessages
                 News = "뉴스",
                 Downloads = "자료실",
                 Contact = "문의",
+                Portal = "업무 포털",
             },
             Hero = new HeroMessages
             {
@@ -117,6 +118,7 @@ public static class SiteMessages
                 News = "News",
                 Downloads = "Resources",
                 Contact = "Contact",
+                Portal = "Portal",
             },
             Hero = new HeroMessages
             {
@@ -195,6 +197,9 @@ public sealed class NavMessages
     public required string News { get; init; }
     public required string Downloads { get; init; }
     public required string Contact { get; init; }
+
+    /// <summary>머리글의 업무 포털 단추. 사이트 안 차림표가 아니라 바깥으로 나가는 단추다.</summary>
+    public required string Portal { get; init; }
 }
 
 /// <summary>첫 화면 머리말.</summary>

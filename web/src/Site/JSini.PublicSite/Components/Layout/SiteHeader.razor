@@ -20,6 +20,10 @@
                 <NavLink class="site-header__link" href="@item.Href" Match="NavLinkMatch.All">@item.Label</NavLink>
             }
 
+            @* 업무 포털. 사이트 안 차림표와 섞이지 않게 단추 모양으로 둔다 —
+               눌렀을 때 **다른 곳(로그인 화면)으로 나간다**는 것이 모양에서 보여야 한다. *@
+            <a class="site-header__portal" href="@PortalUrl" rel="noopener">@T.Nav.Portal →</a>
+
             @* 언어 전환. 지금 보고 있는 화면의 다른 언어 주소로 간다. *@
             <a class="site-header__lang"
                href="@OtherLocalePath"
@@ -38,6 +42,8 @@
                 {
                     <a class="site-header__drawer-link" href="@item.Href">@item.Label</a>
                 }
+                <a class="site-header__drawer-link site-header__drawer-link--portal"
+                   href="@PortalUrl" rel="noopener">@T.Nav.Portal →</a>
                 <a class="site-header__drawer-link" href="@OtherLocalePath">
                     @SiteMessages.Other(Locale).ToUpperInvariant()
                 </a>
