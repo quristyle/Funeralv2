@@ -1,0 +1,32 @@
+@using JSini.Web.Models
+
+<CommPopup Visible="@Visible"
+           VisibleChanged="@OnVisibleChangedAsync"
+           HeaderText="알림"
+           Width="min(40rem, calc(100vw - 2rem))"
+           ShowFooter="false"
+           CssClass="jsini-note-popup">
+    
+    <BodyContentTemplate>
+        <div style="display: flex; justify-content: flex-end; margin-bottom: 8px;">
+            <DxButton Text="모두 읽음 처리" RenderStyle="ButtonRenderStyle.Secondary" Click="@MarkAllReadAsync" Enabled="@(_notifications.Count > 0)" />
+        </div>
+        <CommGrd TItem="NotificationDto" Data="@_notifications" PageSize="10">
+            <Columns>
+                <DxGridDataColumn FieldName="@nameof(NotificationDto.CreatedAt)" Caption="받은 때" Width="150">
+                    <CellDisplayTemplate Context="cell">
+                        @(((NotificationDto)cell.DataItem).CreatedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm"))
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+                <DxGridDataColumn FieldName="@nameof(NotificationDto.Title)" Caption="제목" MinWidth="150" />
+                <DxGridDataColumn FieldName="@nameof(NotificationDto.Body)" Caption="내용" MinWidth="250" />
+                <DxGridDataColumn Caption="" Width="80">
+                    <CellDisplayTemplate Context="cell">
+                        <DxButton Text="열기" RenderStyle="ButtonRenderStyle.Link" Click="@(() => OpenAsync((NotificationDto)cell.DataItem))" />
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+            </Columns>
+        </CommGrd>
+    </BodyContentTemplate>
+
+</CommPopup>

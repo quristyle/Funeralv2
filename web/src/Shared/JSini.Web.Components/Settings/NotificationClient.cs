@@ -166,4 +166,16 @@ public sealed class NotificationClient(GatewayClient gateway)
         double lat, double lon, CancellationToken ct = default)
         => gateway.GetOneAsync<PointPlaceDto>(
             FormattableString.Invariant($"life/weather/place?lat={lat}&lon={lon}"), ct);
+
+    public Task<NotificationUnreadDto?> GetUnreadCountAsync(CancellationToken ct = default)
+        => gateway.GetOneAsync<NotificationUnreadDto>("notification/notifications/inbox/unread-count", ct);
+
+    public Task<IReadOnlyList<NotificationDto>> GetMyNotificationsAsync(
+        bool unreadOnly = false,
+        CancellationToken ct = default)
+        => gateway.GetFlexibleListAsync<NotificationDto>(
+            "notification/notifications/inbox" + (unreadOnly ? "?unreadOnly=true" : ""), ct);
+
+    public Task MarkAllInboxReadAsync(CancellationToken ct = default)
+        => gateway.PostAsync("notification/notifications/inbox/read-all", new { }, ct);
 }

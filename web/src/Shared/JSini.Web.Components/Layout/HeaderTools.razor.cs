@@ -17,6 +17,7 @@ public partial class HeaderTools
     [Inject] private IJSRuntime Js { get; set; } = default!;
     [Inject] private QuickAskReveal Ask { get; set; } = default!;
     [Inject] private NoteClient Notes { get; set; } = default!;
+    [Inject] private NotificationClient Notifications { get; set; } = default!;
     [Inject] private ThemeSize Size { get; set; } = default!;
 
     /// <summary>
@@ -49,8 +50,14 @@ public partial class HeaderTools
     /// <summary>쪽지 쓰기 창이 열려 있나.</summary>
     private bool _writing;
 
+    /// <summary>알림 목록 창이 열려 있나.</summary>
+    private bool _readingNotifications;
+
     /// <summary>안 읽은 쪽지 수. 0 이면 숫자를 안 붙인다.</summary>
     private int _unread;
+
+    /// <summary>안 읽은 알림 수. 0 이면 숫자를 안 붙인다.</summary>
+    private int _unreadNotifications;
 
     /// <summary>
     /// ✉ 에 얹는 글. <b>안 읽은 것이 있으면 그 수를 함께 적는다</b> — 작은
@@ -59,6 +66,13 @@ public partial class HeaderTools
     private string NoteTitle => _unread > 0
         ? $"쪽지 쓰기 — 안 읽은 쪽지 {_unread}통"
         : "쪽지 쓰기";
+
+    /// <summary>
+    /// 🔔 에 얹는 글.
+    /// </summary>
+    private string NotificationTitle => _unreadNotifications > 0
+        ? $"알림 — 안 읽은 알림 {_unreadNotifications}건"
+        : "알림";
 
     /// <summary>서랍으로 열리나. 휴대폰이거나 알맹이가 없으면 거짓이다.</summary>
     private bool AskDocks => !IsPhone && Ask.CanDock;
@@ -185,11 +199,13 @@ public partial class HeaderTools
     {
         try
         {
-            var count = (await Notes.GetUnreadCountAsync())?.Unread ?? 0;
+            var noteCount = (await Notes.GetUnreadCountAsync())?.Unread ?? 0;
+            var notiCount = (await Notifications.GetUnreadCountAsync())?.Unread ?? 0;
 
-            if (count != _unread)
+            if (noteCount != _unread || notiCount != _unreadNotifications)
             {
-                _unread = count;
+                _unread = noteCount;
+                _unreadNotifications = notiCount;
                 await InvokeAsync(StateHasChanged);
             }
         }
@@ -205,6 +221,8 @@ public partial class HeaderTools
 
     /// <summary>보내고 난 뒤. 내가 나에게 보낼 수도 있으므로 다시 센다.</summary>
     private Task OnNoteSentAsync(NoteSendResultDto result) => CountUnreadAsync();
+
+    private Task OnNotificationReadAsync() => CountUnreadAsync();
 
     private async Task ToggleFavoriteAsync()
     {

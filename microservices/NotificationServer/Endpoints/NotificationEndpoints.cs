@@ -999,6 +999,53 @@ public static class NotificationEndpoints
         .WithName("GetMyInbox");
 
         // 읽음 처리. 열쇠는 묶음이고, **그 묶음의 내 줄을 전부** 찍는다.
+        group.MapGet("/inbox/unread-count", async (
+            UserContext? user,
+            [FromServices] AppDbContext db,
+            CancellationToken ct) =>
+        {
+            if (user is null) return Results.Unauthorized();
+
+            var mine = db.PushSendLogs
+                .Where(l => l.OwnerType == "jsini" && l.OwnerKey == user.UserId);
+            
+            var readBatches = mine.Where(l => l.ReadAt != null).Select(l => l.BatchId ?? l.Id);
+            var unreadQuery = mine.Where(l => !readBatches.Contains(l.BatchId ?? l.Id));
+
+            var count = await unreadQuery
+                .Select(l => l.BatchId ?? l.Id)
+                .Distinct()
+                .CountAsync(ct);
+
+            return Results.Ok(ApiResponse<object>.Ok(new { Unread = count }));
+        })
+        .WithName("GetNotificationUnreadCount");
+
+        group.MapPost("/inbox/read-all", async (
+            UserContext? user,
+            [FromServices] AppDbContext db,
+            CancellationToken ct) =>
+        {
+            if (user is null) return Results.Unauthorized();
+
+            var mine = await db.PushSendLogs
+                .Where(l => l.OwnerType == "jsini" && l.OwnerKey == user.UserId && l.ReadAt == null)
+                .ToListAsync(ct);
+
+            var now = DateTime.UtcNow;
+            foreach (var row in mine)
+            {
+                row.ReadAt = now;
+            }
+
+            if (mine.Count > 0)
+            {
+                await db.SaveChangesAsync(ct);
+            }
+            return Results.Ok(ApiResponse<bool>.Ok(true));
+        })
+        .WithName("MarkAllInboxRead");
+
         group.MapPost("/inbox/{id}/read", async (
             string id,
             UserContext? user,

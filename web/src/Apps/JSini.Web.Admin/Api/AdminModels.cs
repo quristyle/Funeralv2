@@ -614,39 +614,6 @@ public sealed class PushLogDto
 /// <summary>
 /// 알림함의 알림 한 건. <b>발송 한 번이 한 건</b>이다(기기 수와 무관).
 /// </summary>
-public sealed class NotificationDto
-{
-    /// <summary>묶음 열쇠. 읽음 처리가 이 값으로 그 묶음을 통째로 찍는다.</summary>
-    public string Id { get; set; } = string.Empty;
-
-    public string? Title { get; set; }
-    public string? Body { get; set; }
-    public bool IsRead { get; set; }
-    public DateTime? CreatedAt { get; set; }
-
-    /// <summary>알림구분 코드값(공통코드 <c>NOTI_CATEGORY</c>). 이름은 화면이 붙인다.</summary>
-    public string? Category { get; set; }
-
-    /// <summary>
-    /// 알림을 눌렀을 때 열리는 주소. <b>알림함에서 줄을 두 번 누르면 여기로 간다.</b>
-    /// </summary>
-    /// <remarks>
-    /// 보낸 쪽이 실어 준 값이라 <b>옛 주소가 그대로 남아 있을 수 있다</b>
-    /// (AI 작업이 목록 주소를 싣던 시절 따위). 여는 쪽에서 지금 화면으로
-    /// 옮겨 준다 — <c>NotificationHistory.OpenUrl</c>.
-    /// </remarks>
-    public string? Url { get; set; }
-
-    /// <summary>기기 한 대에라도 도착했는가.</summary>
-    public bool Delivered { get; set; }
-
-    /// <summary>
-    /// 한 대도 못 갔을 때의 까닭(구독한 기기 없음 · 본인이 푸시를 끔 …).
-    /// <b>이 화면에 남는 값어치가 여기 있다</b> — 알림을 못 받은 사람이
-    /// 나중에라도 무엇이 왔는지, 왜 못 받았는지 본다.
-    /// </summary>
-    public string? FailureReason { get; set; }
-}
 
 /// <summary>
 /// 로그인한 사람의 정보. <c>GET auth/user/info</c> 가 주는 것 <b>전부</b>다.

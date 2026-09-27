@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.Logging;
 
 using JSini.Web.Http;
+using JSini.Web.Models;
 using JSini.Web.Components.Data;
 using JSini.Web.Components.Layout;
 using JSini.Web.Admin.Api;
