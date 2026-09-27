@@ -8,7 +8,21 @@
            CssClass="jsini-note-popup">
     
     <BodyContentTemplate>
-        @if (_notifications.Count == 0)
+        @* **빈 목록과 못 읽어 온 것을 가른다.** 둘을 같은 말로 덮으면 알림이
+           분명히 와 있는 사람이 「없다」는 안내를 보게 된다. *@
+        @if (_error is { Length: > 0 })
+        {
+            <div class="text-center p-4 text-danger">
+                @_error
+            </div>
+        }
+        else if (_loading)
+        {
+            <div class="text-center p-4 text-muted">
+                알림을 읽어 오는 중입니다…
+            </div>
+        }
+        else if (_notifications.Count == 0)
         {
             <div class="text-center p-4 text-muted">
                 새로운 알림이 없습니다.

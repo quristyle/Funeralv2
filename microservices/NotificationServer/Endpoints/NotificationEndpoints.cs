@@ -998,7 +998,22 @@ public static class NotificationEndpoints
         })
         .WithName("GetMyInbox");
 
-        // 읽음 처리. 열쇠는 묶음이고, **그 묶음의 내 줄을 전부** 찍는다.
+        // 안 읽은 건수. **상단 띠의 종에 붙는 숫자가 이것이다.**
+        //
+        // [세는 조건이 위 목록과 한 글자도 어긋나면 안 된다]
+        //
+        // 이 숫자를 보고 사람이 여는 것은 바로 위 `/inbox?unreadOnly=true` 다.
+        // 그래서 여기서 세는 것과 거기서 나오는 것이 다르면 **「3건이라더니
+        // 2건만 있다」** 가 된다. 자료가 아니라 숫자가 틀린 것인데, 화면에는
+        // 목록이 모자란 것으로 보인다.
+        //
+        // 실제로 어긋나 있었다 — 목록은 `LogQuery` 가 **푸시만** 보는데
+        // (갈래를 안 주면 그렇다) 여기서는 갈래를 안 가려 **메일로 간 줄까지**
+        // 세고 있었다. 메일만 받은 사람은 종에 숫자가 붙은 채 창을 열면
+        // 「새로운 알림이 없습니다」를 봤다.
+        //
+        // 그래서 목록과 **같은 길**(`LogQuery`)로 센다. 기간은 주지 않는다 —
+        // 목록도 안 주므로 둘 다 전체를 본다.
         group.MapGet("/inbox/unread-count", async (
             UserContext? user,
             [FromServices] AppDbContext db,
@@ -1006,9 +1021,9 @@ public static class NotificationEndpoints
         {
             if (user is null) return Results.Unauthorized();
 
-            var mine = db.PushSendLogs
+            var mine = LogQuery(db, null, null)
                 .Where(l => l.OwnerType == "jsini" && l.OwnerKey == user.UserId);
-            
+
             var readBatches = mine.Where(l => l.ReadAt != null).Select(l => l.BatchId ?? l.Id);
             var unreadQuery = mine.Where(l => !readBatches.Contains(l.BatchId ?? l.Id));
 
