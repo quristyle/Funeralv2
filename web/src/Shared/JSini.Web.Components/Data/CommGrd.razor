@@ -34,6 +34,41 @@
      @oncontextmenu="@OpenMenuAsync"
      @oncontextmenu:preventDefault="@HasMenu">
 
+    @* 표의 머리줄 — 제목과 건수. **표 자신이 그리고, 기본으로 켜져 있다.**
+
+       건수를 화면마다 `CommCont Hint="@($"{_rows.Count}건")"` 으로 적어 두면
+       (열몇 화면이 그러고 있었다) 거르개가 걸린 표에서 조용히 틀린다 —
+       칸별 검색은 표 안에서 끝나는 일이라 화면이 든 목록은 그대로다.
+       여기서 그리면 표에 물어볼 수 있다(`_filtered`).
+
+       동작은 두지 않는다 — 표의 동작은 오른쪽 클릭 창이다(`BuildMenu`). *@
+    @if (HeadVisible)
+    {
+        <div class="commgrd__head">
+            @if (!string.IsNullOrWhiteSpace(Title))
+            {
+                <h3 class="commgrd__title">@Title</h3>
+            }
+
+            @if (_total is { } total)
+            {
+                @* 숫자만 진하게. 「총」·낱자(「건」)는 읽을 값이 아니라 단위라서
+                   옅게 두면 눈이 수에 먼저 닿는다. 거르개가 걸렸을 때는
+                   **거른 뒤의 수**가 지금 보고 있는 것이라 그쪽을 진하게 한다. *@
+                <span class="commgrd__total">
+                    @if (_filtered is { } shown && shown != total)
+                    {
+                        <text>총 @Count(total)<span class="commgrd__unit">@Unit</span> 중 <b>@Count(shown)</b><span class="commgrd__unit">@Unit</span></text>
+                    }
+                    else
+                    {
+                        <text>총 <b>@Count(total)</b><span class="commgrd__unit">@Unit</span></text>
+                    }
+                </span>
+            }
+        </div>
+    }
+
     @if (Toolbar is not null)
     {
         <div class="commgrd__toolbar">@Toolbar</div>
@@ -63,6 +98,7 @@
             AllowedDropTarget="@AllowedDropTarget"
             DropTargetMode="@DropTargetMode"
             ItemsDropped="@ItemsDropped"
+            RowDoubleClick="@OnRowDoubleClickAsync"
             SelectedDataItem="@_selected"
             SelectedDataItemChanged="@OnSelectedDataItemChangedAsync"
             SelectedDataItems="@_selectedMany"

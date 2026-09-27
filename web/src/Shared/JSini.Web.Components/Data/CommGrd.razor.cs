@@ -62,6 +62,58 @@ public partial class CommGrd<TItem>
     /// </summary>
     [Parameter] public int? ActionsWidth { get; set; }
 
+    /// <summary>
+    /// 표 위 머리줄의 제목. 안 주면 머리줄에 건수만 선다.
+    ///
+    /// <para>
+    /// <b>자료 영역이 하나뿐인 화면에는 적지 않는다.</b> 사이드바와
+    /// 브레드크럼이 이미 그 이름을 말하고 있어 같은 글자가 세 곳에 선다
+    /// (<c>CommCont.Title</c> 과 같은 규칙이다). 표가 둘 이상 놓인 화면에서
+    /// 「무엇의 목록인가」를 가를 때 쓴다.
+    /// </para>
+    /// </summary>
+    [Parameter] public string? Title { get; set; }
+
+    /// <summary>
+    /// 머리줄에 적을 건수를 화면이 직접 준다. <b>안 주면 <see cref="Data"/> 를
+    /// 센다</b> — 셀 수 있는 자료일 때만이다(목록 · <c>DataTable</c>).
+    ///
+    /// <para>
+    /// 적는 자리는 <b>표가 든 것이 전부가 아닐 때</b>다 — 서버가 한 쪽씩
+    /// 잘라 주는 화면에서 표를 세면 「15건」만 나온다.
+    /// </para>
+    /// </summary>
+    [Parameter] public int? Total { get; set; }
+
+    /// <summary>
+    /// 건수를 세는 낱자. 기본은 「건」이다.
+    ///
+    /// <para>
+    /// 줄 하나가 <b>건이라고 부르기 어색한 것</b>일 때만 바꾼다 —
+    /// 기기는 「대」, 회사는 「곳」, 문서의 쪽은 「쪽」이다. 그 화면이
+    /// 이미 쓰던 말을 표가 뺏지 않으려고 둔 자리다.
+    /// </para>
+    /// </summary>
+    [Parameter] public string Unit { get; set; } = "건";
+
+    /// <summary>
+    /// 머리줄(제목 · 건수)을 그릴지. <b>기본으로 켜 둔다</b> —
+    /// 「지금 보는 것이 몇 건인가」는 어느 목록에서나 묻는 것이라,
+    /// 화면마다 켜게 두면 켠 화면과 안 켠 화면이 갈린다.
+    ///
+    /// <para>
+    /// 끄는 자리는 <b>한 줄이 아까운 표</b>다 — 줄이 서넛뿐인 대시보드 안의
+    /// 작은 표, 곁들이로 붙인 표처럼 건수 자체가 물음이 아닌 자리.
+    /// <see cref="ShowFooter"/> 를 끈 표가 대개 그런 자리다.
+    /// </para>
+    ///
+    /// <para>
+    /// 제목도 건수도 없으면(셀 수 없는 자료에 <see cref="Total"/> 도 안 준
+    /// 표) 켜 두어도 그리지 않는다 — 빈 줄이 자리만 먹는다.
+    /// </para>
+    /// </summary>
+    [Parameter] public bool ShowHeader { get; set; } = true;
+
     /// <summary>자료가 없을 때 보여 줄 문구.</summary>
     [Parameter] public string EmptyText { get; set; } = "표시할 자료가 없습니다.";
 
@@ -182,6 +234,23 @@ public partial class CommGrd<TItem>
     [Parameter] public EventCallback<TItem?> SelectedItemChanged { get; set; }
 
     /// <summary>
+    /// 줄을 <b>두 번 눌렀을 때</b>. 그 줄을 준다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>여는 동작에만 쓴다</b> — 그 줄의 상세 화면으로 가거나 창을 띄우는
+    /// 일이다. 지우기·보내기처럼 되돌리기 어려운 것은 걸지 않는다. 두 번
+    /// 누르기는 <b>화면 어디에도 안 보이는 몸짓</b>이라, 모르고 눌렀을 때
+    /// 일어나도 되는 일만 걸 수 있다(보이는 동작은 오른쪽 클릭 창에 둔다).
+    /// </para>
+    /// <para>
+    /// <b>이것도 파라미터로 선언한다</b> — splat 으로 넘기면 Razor 가 대리자를
+    /// 감싸 주지 않아 화면이 그리기도 전에 500 으로 죽는다(머리말 4번).
+    /// </para>
+    /// </remarks>
+    [Parameter] public EventCallback<TItem> OnRowDoubleClick { get; set; }
+
+    /// <summary>
     /// 한 줄만 고를 수 있는가. 기본은 한 줄이다.
     ///
     /// <para>
@@ -299,6 +368,34 @@ public partial class CommGrd<TItem>
     /// <summary>감싼 DxGrid. 화면이 DevExpress API 를 직접 불러야 할 때.</summary>
     public IGrid? Grid => _grid;
 
+    /// <summary>
+    /// 머리줄을 그리는가. 적을 것이 하나도 없으면 켜 두어도 안 그린다.
+    /// </summary>
+    private bool HeadVisible =>
+        ShowHeader && (!string.IsNullOrWhiteSpace(Title) || _total is not null);
+
+    /// <summary>천 단위를 끊어 적는다. 서식은 자리에 따라 흔들리면 안 되므로 불변 문화다.</summary>
+    private static string Count(int value) =>
+        value.ToString("N0", System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>
+    /// <see cref="Data"/> 가 몇 건인가. <b>셀 수 있는 것만 센다</b> —
+    /// 목록(<c>ICollection</c>)과 <c>DataTable</c> 이다.
+    ///
+    /// <para>
+    /// 아직 안 돌린 질의(<c>IQueryable</c>)나 느린 열거를 여기서 세면
+    /// <b>다시 그릴 때마다 자료를 한 번 더 읽는다.</b> 그런 자료를 주는
+    /// 화면은 건수를 <see cref="Total"/> 로 적는다.
+    /// </para>
+    /// </summary>
+    private static int? CountOf(object? data) => data switch
+    {
+        null => null,
+        System.Data.DataTable table => table.Rows.Count,
+        System.Collections.ICollection rows => rows.Count,
+        _ => null,
+    };
+
     /// <summary>관리 칸 너비(px).</summary>
     private int ActionsPixels => ActionsWidth ?? (RowActions is null ? 84 : 116);
 
@@ -329,6 +426,21 @@ public partial class CommGrd<TItem>
 
     /// <summary>이번 렌더에 화면이 <see cref="SelectedItem"/> 을 주었는가.</summary>
     private bool _selectionBound;
+
+    /// <summary>머리줄에 적을 전체 건수. 화면이 준 값이거나 <c>Data</c> 를 센 값이다.</summary>
+    private int? _total;
+
+    /// <summary>
+    /// 칸별 검색이 걸렸을 때 남은 줄 수. <b>표에 물어야 나온다</b> —
+    /// 거르기는 표 안에서 끝나는 일이라 화면이 든 목록은 그대로다.
+    ///
+    /// <para>
+    /// 표가 세는 것은 <b>보이는 줄</b>이라 묶어 본 표(<c>GroupBy</c>)에서는
+    /// 묶음 줄까지 들어간다. 거르개가 걸렸을 때만 적으므로 평소에는 드러나지
+    /// 않지만, 묶어 보는 화면이 생기면 여기를 다시 봐야 한다.
+    /// </para>
+    /// </summary>
+    private int? _filtered;
 
     private bool _filterRow;
     private bool _filterRowSeeded;
@@ -386,6 +498,10 @@ public partial class CommGrd<TItem>
         }
 
         _virtualScroll = VirtualScrolling();
+
+        // 건수는 자료가 바뀔 때만 달라진다. 거른 뒤의 수는 렌더가 끝나야
+        // 알 수 있어 OnAfterRenderAsync 에서 따로 읽는다.
+        _total = Total ?? CountOf(Data);
     }
 
     /// <summary>
@@ -465,6 +581,23 @@ public partial class CommGrd<TItem>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await base.OnAfterRenderAsync(firstRender);
+
+        // 머리줄의 「거른 뒤 건수」. 표가 세어야 나오는 값이라 렌더 뒤에 읽고,
+        // **값이 바뀌었을 때만** 한 번 더 그린다 — 그냥 부르면 끝없이 돈다.
+        //
+        // 칸별 검색은 표 안에서 끝나는 일이라 우리가 다시 그려지지 않지만,
+        // 조건이 바뀌면 DxGrid 가 FilterCriteriaChanged 로 알려 주므로
+        // 그때 여기까지 온다(OnLayoutChanged 머리말의 사정과 같다).
+        if (HeadVisible && _grid is not null)
+        {
+            var shown = _hasFilter ? _grid.GetVisibleRowCount() : (int?)null;
+
+            if (shown != _filtered)
+            {
+                _filtered = shown;
+                StateHasChanged();
+            }
+        }
 
         if (!AutoSelectFirstRow
             || SelectionMode != GridSelectionMode.Single
@@ -833,6 +966,31 @@ public partial class CommGrd<TItem>
         _selected = item;
 
         return SelectedItemChanged.InvokeAsync(item is TItem typed ? typed : default);
+    }
+
+    /// <summary>
+    /// 두 번 누른 줄을 화면에 넘긴다.
+    /// </summary>
+    /// <remarks>
+    /// DevExpress 는 줄 자체가 아니라 <b>몇 번째 줄인지</b>를 준다. 그 번호는
+    /// 정렬·거르기·쪽넘김을 거친 <b>보이는 차례</b>라 화면이 든 목록에서 세면
+    /// 엉뚱한 줄이 잡힌다 — 표에 물어야 한다(<c>GetDataItem</c>).
+    ///
+    /// <para>
+    /// 머리줄이나 묶음줄을 두 번 눌러도 이 일이 온다. 그때는 자료가 없으므로
+    /// 아무 일도 하지 않는다.
+    /// </para>
+    /// </remarks>
+    private Task OnRowDoubleClickAsync(GridRowClickEventArgs e)
+    {
+        if (!OnRowDoubleClick.HasDelegate)
+        {
+            return Task.CompletedTask;
+        }
+
+        return e.Grid.GetDataItem(e.VisibleIndex) is TItem item
+            ? OnRowDoubleClick.InvokeAsync(item)
+            : Task.CompletedTask;
     }
 
     /// <summary>

@@ -39,7 +39,7 @@
             Text="프로젝트관리 전용 코드입니다. 포털 화면의 드롭다운은 [포털관리 › 공통코드]에서 정합니다." />
 
 <div class="pm-split">
-    <CommCont Title="묶음" Hint="@($"{_groups.Count}건")" CssClass="pm-split__side">
+    <CommCont Title="묶음" CssClass="pm-split__side">
         <CommGrd TItem="DevCommonCodeDto"
                  Data="@_groups"
                  EditFormTitle="코드 묶음"
@@ -68,7 +68,6 @@
     </CommCont>
 
     <CommCont Title="@(_group is null ? "코드" : $"{_group.CmNm} 의 코드")"
-              Hint="@(_group is null ? string.Empty : $"{_codes.Count}건")"
               CssClass="pm-split__main">
         @if (_group is null)
         {

@@ -2521,6 +2521,15 @@ button.jsini-crumbs__item:hover { opacity: 1; }
     width: min(100%, 18rem) !important;
   }
 
+  /* 라벨이 칸 앞에 서는데(tabler.css) 라벨 길이가 제각각이라, 칸 하나에
+     한 줄씩 쌓이는 좁은 화면에서는 **칸의 왼쪽 끝이 들쭉날쭉해진다.**
+     짧은 라벨에 최소 폭을 주어 기둥을 맞춘다 — 그보다 긴 라벨(「등록일(시작)」)은
+     제 폭을 쓴다. */
+  .commsch__item > .commsch__label {
+    flex: 0 0 auto;
+    min-width: 3.25rem;
+  }
+
   .commgrd:has(.dxbl-grid-bottom-panel) .dxbl-grid-bottom-panel {
     flex-wrap: wrap;
     min-height: 3.5rem;
@@ -2660,6 +2669,91 @@ button.jsini-crumbs__item:hover { opacity: 1; }
     화면에서 이 변수만 덮으면 된다.
   */
   --commgrd-max-height: 58vh;
+}
+
+/* ── 표의 머리줄 (제목 · 건수) ─────────────────────────────
+
+   **표에 붙은 띠다. 표 위에 뜬 글자가 아니다.**
+
+   처음에는 글자만 놓고 아래로 0.5rem 을 띄웠는데, 표만 담은 판은
+   `padding: 0` 이라(tabler.css) 그 글자가 **카드 왼쪽 테두리에 바짝
+   붙고** 표와의 사이에는 빈 틈만 남아, 판 안에 글자 한 줄이 떠 있는
+   그림이 됐다. 그래서 안쪽 여백을 스스로 갖고, 아래에 선을 그어 칸 머리
+   위에 얹는다 — 표의 일부로 읽힌다.
+
+   `--commgrd-bar-height` 를 쓰지 않는다. 그것은 아래 띠와 페이저 줄을
+   한 줄로 맞추려고 둔 값이고(3rem), 머리줄은 아이콘 단추가 없어 그만큼
+   높을 까닭이 없다.
+
+   **단추를 두지 않는다** — 표의 동작은 오른쪽 클릭 창이고
+   (`CommGrd.BuildMenu`), 여기에 하나라도 두면 같은 표의 동작이 두 자리로
+   갈린다(아래 띠에서 걷어낸 것과 같은 사정).
+
+   제목은 `h3` 다. 화면 제목(`h1`)도 `CommCont` 의 구역 제목(`h2`)도 아닌
+   **그 아래**라, 표가 둘 놓인 화면에서 차례가 뒤집히지 않는다. */
+.commgrd__head {
+  display: flex;
+  flex-wrap: wrap;
+
+  /* **밑줄을 맞춘다.** 제목과 건수는 크기가 다른 글자라 가운데로 맞추면
+     작은 쪽이 떠 보인다 — 글줄의 밑선을 맞춰야 한 줄로 읽힌다. */
+  align-items: baseline;
+  gap: 0.1rem 0.6rem;
+  min-width: 0;
+  min-height: 2.5rem;
+  padding: 0.35rem 0.75rem;
+  border-bottom: 1px solid var(--jsini-border);
+}
+
+/* 제목이 선 머리줄은 **왼쪽 여백을 갖지 않는다** — 제목 앞의 막대가
+   표의 왼쪽 끝 선과 같은 자리에 서야 하기 때문이다(아래). */
+.commgrd__head:has(.commgrd__title) {
+  padding-left: 0;
+}
+
+/* 제목. 앞에 테마색 막대를 세운다 — 카드가 여럿 놓인 화면에서 **무엇의
+   표인가**가 한눈에 잡히고, 막대가 표의 왼쪽 끝 선 위에 서므로 그 아래
+   자료와 한 기둥으로 읽힌다.
+
+   막대는 글자 높이만큼만 선다(`em` 으로 잡는다). 띠 높이에 맞추면 글자보다
+   길어져 제목이 아니라 띠를 가리키는 것처럼 보인다. */
+.commgrd__title {
+  position: relative;
+  margin: 0;
+  padding-left: 0.7rem;
+  font-size: var(--jsini-fs-lg);
+  line-height: 1.35;
+}
+
+.commgrd__title::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.14em;
+  bottom: 0.14em;
+  width: 3px;
+  border-radius: 1px;
+  background: var(--jsini-accent);
+}
+
+/* 건수. 「총」·「건」은 단위라 옅게 두고 **수만 진하게** 한다 — 눈이 수에
+   먼저 닿는다. 자릿수가 늘어도 옆 글자가 안 밀리게 등폭 숫자를 쓴다. */
+.commgrd__total {
+  color: var(--jsini-text-muted);
+  font-size: var(--jsini-fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.commgrd__total b {
+  font-weight: 600;
+  color: var(--jsini-text);
+}
+
+/* 낱자(「건」·「대」·「개」)는 수가 아니다. 수와 같은 색으로 두면 「525건」이
+   한 덩어리로 보여 자릿수가 한눈에 안 들어온다. */
+.commgrd__unit {
+  color: var(--jsini-text-muted);
+  font-weight: 400;
 }
 
 /* 표 위 도구줄. 조회 영역(CommSch)을 따로 둔 화면에서는 그려지지 않는다. */
@@ -2919,6 +3013,16 @@ button.jsini-crumbs__item:hover { opacity: 1; }
 .commcont__body > .commgrd > .dxbl-grid {
   height: 100%;
   max-height: none;
+}
+
+/* 머리줄이 선 표는 `height: 100%` 로 두면 **판을 머리줄 높이만큼 넘는다** —
+   그 높이는 판 전체를 가리키므로 위에 한 줄이 생긴 만큼 아래가 밀린다.
+   본문이 `overflow: hidden` 이라 넘은 부분은 잘리고, 잘리는 것이 하필
+   페이저 줄과 아래 띠다. 남은 높이를 flex 로 받게 한다. */
+.commcont__body > .commgrd:has(> .commgrd__head) > .dxbl-grid {
+  flex: 1;
+  min-height: 0;
+  height: auto;
 }
 
 .commgrd:has(.dxbl-grid-bottom-panel) { position: relative; }

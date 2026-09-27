@@ -88,7 +88,7 @@
 </CommSch>
 
 <div class="pm-split">
-    <CommCont Title="소스 뿌리" Hint="@($"{_sources.Count}건")" CssClass="pm-split__side">
+    <CommCont Title="소스 뿌리" CssClass="pm-split__side">
         <CommGrd TItem="SourceInfoDto"
                  Data="@_sources"
                  ExportName="소스정보"
@@ -110,7 +110,6 @@
     </CommCont>
 
     <CommCont Title="@(_source is null ? "상세" : $"{_source.SrcNick} 의 패턴")"
-              Hint="@(_source is null ? string.Empty : $"{_details.Count}건")"
               CssClass="pm-split__main">
         @if (_source is null)
         {

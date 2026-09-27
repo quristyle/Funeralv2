@@ -97,7 +97,7 @@ else
                 <SplitPane Size="45">
                     <First>
                         @* 칸이 실행 시점에 정해진다 — 등록된 질의가 DB 종류마다 다르다. *@
-                        <CommCont Title="테이블" Hint="@($"{_tables.Table.Rows.Count}건")">
+                        <CommCont Title="테이블">
                             <CommGrd TItem="DataRowView" Data="@_tables.Table" ExportName="테이블목록"
                                      PageSize="30" EmptyText="테이블이 없습니다." Reload="@ReloadAsync"
                                      SelectedItem="@_pickedTable" SelectedItemChanged="@PreviewAsync">
@@ -131,7 +131,7 @@ else
             <div class="pm-tab-body">
                 <SplitPane Size="45">
                     <First>
-                        <CommCont Title="프로시저" Hint="@($"{_procs.Table.Rows.Count}건")">
+                        <CommCont Title="프로시저">
                             <CommGrd TItem="DataRowView" Data="@_procs.Table" ExportName="프로시저목록"
                                      PageSize="30" EmptyText="프로시저가 없습니다." Reload="@ReloadAsync"
                                      SelectedItem="@_pickedRoutine" SelectedItemChanged="@ShowRoutineAsync">
@@ -165,7 +165,7 @@ else
             <div class="pm-tab-body">
                 <SplitPane Size="45">
                     <First>
-                        <CommCont Title="함수" Hint="@($"{_funcs.Table.Rows.Count}건")">
+                        <CommCont Title="함수">
                             <CommGrd TItem="DataRowView" Data="@_funcs.Table" ExportName="함수목록"
                                      PageSize="30" EmptyText="함수가 없습니다." Reload="@ReloadAsync"
                                      SelectedItem="@_pickedRoutine" SelectedItemChanged="@ShowRoutineAsync">

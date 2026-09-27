@@ -88,8 +88,9 @@
     </CommGrd>
 </CommCont>
 
-<CommCont Title="러너" Hint="@($"{Runners.Count}대")">
+<CommCont Title="러너">
     <CommGrd TItem="GithubRunnerDto" Data="@Runners"
+             Unit="대"
              PageSizeSelectorVisible="false"
              ExportName="러너"
              Reload="@ReloadAsync">

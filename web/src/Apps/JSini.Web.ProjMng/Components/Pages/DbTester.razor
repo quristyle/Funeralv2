@@ -73,7 +73,7 @@
         </DxSplitterPane>
         <DxSplitterPane>
             @* 칸이 실행 시점에 정해진다 — 사람이 친 문장의 결과이기 때문이다. *@
-            <CommCont Title="결과" Hint="@($"{_result.Table.Rows.Count}건")">
+            <CommCont Title="결과">
                 <CommGrd TItem="DataRowView"
                          Data="@_result.Table"
                          ExportName="쿼리결과"

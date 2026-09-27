@@ -34,7 +34,7 @@
    줄로, 다시 읽기는 표 아래 띠로 갔다. *@
 
 <div class="hd-two">
-    <CommCont Title="설비 모델" Hint="@($"{_models.Count}개")">
+    <CommCont Title="설비 모델">
         <Actions>
             <PermissionView Action="MenuAction.Create">
                 <DxButton Text="모델 등록" RenderStyle="ButtonRenderStyle.Secondary"
@@ -44,6 +44,7 @@
 
         <ChildContent>
         <CommGrd TItem="McModel" Data="@_models"
+                 Unit="개"
                  ExportName="설비모델"
                  ActionsWidth="190"
                  Reload="@ReloadAsync">
@@ -77,8 +78,7 @@
         </ChildContent>
     </CommCont>
 
-    <CommCont Title="@($"해석 규칙{(_modelName is { Length: > 0 } name ? $" — {name}" : "")}")"
-              Hint="@(_modelId is null ? null : $"{_items.Count}건")">
+    <CommCont Title="@($"해석 규칙{(_modelName is { Length: > 0 } name ? $" — {name}" : "")}")">
         <Actions>
             @if (_modelId is not null)
             {

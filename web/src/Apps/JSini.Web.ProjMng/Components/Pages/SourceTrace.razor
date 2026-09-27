@@ -57,7 +57,7 @@
 <SplitPane Size="45">
     <First>
         @* 칸이 실행 시점에 정해진다 — 소스에 등록한 패턴에 따라 늘고 준다. *@
-        <CommCont Title="파일" Hint="@($"{_files.Table.Rows.Count}건")">
+        <CommCont Title="파일">
             <CommGrd TItem="DataRowView"
                      Data="@_files.Table"
                      ExportName="소스추적"

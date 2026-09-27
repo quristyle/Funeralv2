@@ -46,7 +46,7 @@
 
 @* 칸이 실행 시점에 정해진다 — 훑은 소스의 등록 패턴에 따라 늘고 준다.
    저장·삭제 콜백을 주지 않으므로 표가 그 단추들을 아예 그리지 않는다. *@
-<CommCont Title="스캔 결과" Hint="@($"{_data.Table.Rows.Count}건")">
+<CommCont Title="스캔 결과">
     <CommGrd TItem="DataRowView"
              Data="@_data.Table"
              ExportName="소스스캔"

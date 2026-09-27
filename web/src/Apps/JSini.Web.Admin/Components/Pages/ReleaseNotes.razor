@@ -110,7 +110,7 @@
     </CommGrd>
 </CommCont>
 
-<CommCont Title="최근 실행" Hint="@($"{_runs.Count}건")">
+<CommCont Title="최근 실행">
     <CommGrd TItem="ReleaseRunDto" Data="@_runs" PageSize="20"
              ExportName="배포실행"
              Reload="@ReloadAsync">
