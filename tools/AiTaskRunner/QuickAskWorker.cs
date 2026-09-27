@@ -10,14 +10,14 @@ using RabbitMQ.Client.Events;
 namespace AiTaskRunner;
 
 /// <summary>
-/// 「한 줄 물어보기」 — AI 서버의 무료 공급자가 전부 막혔을 때 쓰는 마지막 자리.
+/// 「한 줄 물어보기」 — AI 서버의 무료 공급자가 전부 막혔을 때 CLI 로 답하는 마지막 자리.
 /// </summary>
 /// <remarks>
 /// <para>
 /// <b>무엇을 위한 것인가.</b> 공통코드 · 역할 식별자 추천은 한 단어짜리 답이다.
 /// AI 서버(<c>AIAgentServer</c>)가 로컬 LLM → Gemini → Groq → OpenRouter 를 다 돌고도
-/// 한도에 막히면, 구독 인증이 끝나 있는 이 장비의 <c>agy</c> 에게 한 번 묻는다.
-/// AI 서버는 컨테이너 안이라 <c>agy</c> 를 직접 띄울 수 없다 — 그래서 여기를 거친다.
+/// 한도에 막히면, 구독 인증이 끝나 있는 이 장비의 <c>agy</c> · <c>claude</c> ·
+/// <c>copilot</c> 을 차례로 시도한다. AI 서버는 컨테이너 안이라 CLI 를 직접 띄울 수 없다.
 /// </para>
 /// <para>
 /// <b>작업 대기열(<c>ai_task</c>)과 다른 길이다.</b> 그쪽은 DB 가 정본이고 큐는 종이지만,
@@ -32,7 +32,7 @@ namespace AiTaskRunner;
 /// <list type="bullet">
 ///   <item><c>--dangerously-skip-permissions</c> 를 <b>주지 않는다.</b> 답은 글자뿐이라
 ///     도구가 필요 없다. 도구를 쓰려 들면 허락을 기다리다 제한 시간에 끊긴다.</item>
-///   <item><c>--sandbox</c> · <c>--disable-slash-commands</c> 를 준다(설정의 <c>Args</c>).</item>
+///   <item>각 CLI 에 별도 인자만 주며 작업 실행용 권한 인자는 재사용하지 않는다.</item>
 ///   <item>매번 <b>빈 폴더</b>에서 띄우고 끝나면 지운다. 저장소를 보여 주지 않는다.</item>
 ///   <item>들어오는 글의 길이를 자른다(<see cref="QuickAskOptions.MaxPromptChars"/>).</item>
 /// </list>
@@ -44,6 +44,9 @@ namespace AiTaskRunner;
 public sealed class QuickAskWorker(
     IOptions<RunnerOptions> optionsAccessor, ILogger<QuickAskWorker> logger) : BackgroundService
 {
+    private static readonly HashSet<string> SupportedAdapters =
+        new(["antigravity", "claude", "copilot"], StringComparer.OrdinalIgnoreCase);
+
     private readonly RunnerOptions _options = optionsAccessor.Value;
 
     protected override async Task ExecuteAsync(CancellationToken ct)
@@ -56,23 +59,15 @@ public sealed class QuickAskWorker(
             return;
         }
 
-        if (!_options.Adapters.TryGetValue(quick.Adapter, out var adapter)
-            || string.IsNullOrWhiteSpace(adapter.Executable))
-        {
-            logger.LogWarning(
-                "한 줄 물어보기: '{Adapter}' 어댑터가 없어 켜지 않습니다.", quick.Adapter);
-            return;
-        }
-
         logger.LogInformation(
-            "한 줄 물어보기 대기 · 큐 {Queue} · CLI {Adapter} · 동시 {Parallel}",
-            quick.QueueName, quick.Adapter, quick.MaxParallel);
+            "한 줄 물어보기 대기 · 큐 {Queue} · CLI {Adapters} · 동시 {Parallel}",
+            quick.QueueName, string.Join(",", quick.Adapters.Keys), quick.MaxParallel);
 
         while (!ct.IsCancellationRequested)
         {
             try
             {
-                await ListenAsync(quick, adapter, ct);
+                await ListenAsync(quick, ct);
             }
             catch (OperationCanceledException)
             {
@@ -87,7 +82,7 @@ public sealed class QuickAskWorker(
         }
     }
 
-    private async Task ListenAsync(QuickAskOptions quick, AdapterOptions adapter, CancellationToken ct)
+    private async Task ListenAsync(QuickAskOptions quick, CancellationToken ct)
     {
         // CLI 를 동시에 몇 개까지 띄울지. 한 번에 10초 남짓이라 크게 둘 필요가 없다.
         //
@@ -127,7 +122,7 @@ public sealed class QuickAskWorker(
 
             await channel.BasicAckAsync(ea.DeliveryTag, multiple: false, ct);
 
-            var reply = await AnswerAsync(quick, adapter, body, ct);
+            var reply = await AnswerAsync(quick, body, ct);
 
             if (string.IsNullOrEmpty(replyTo)) return;
 
@@ -159,7 +154,7 @@ public sealed class QuickAskWorker(
     }
 
     private async Task<QuickAskReply> AnswerAsync(
-        QuickAskOptions quick, AdapterOptions adapter, byte[] body, CancellationToken ct)
+        QuickAskOptions quick, byte[] body, CancellationToken ct)
     {
         QuickAskRequest? request;
 
@@ -172,24 +167,32 @@ public sealed class QuickAskWorker(
             request = null;
         }
 
-        if (request is null || string.IsNullOrWhiteSpace(request.Prompt))
+        if (request is null
+            || string.IsNullOrWhiteSpace(request.Adapter)
+            || string.IsNullOrWhiteSpace(request.Prompt))
         {
             return QuickAskReply.Fail("질문이 비어 있습니다.");
         }
 
-        var prompt = request.Prompt.Length > quick.MaxPromptChars
-            ? request.Prompt[..quick.MaxPromptChars]
-            : request.Prompt;
+        if (!SupportedAdapters.Contains(request.Adapter)
+            || !quick.Adapters.TryGetValue(request.Adapter, out var quickAdapter)
+            || !_options.Adapters.TryGetValue(request.Adapter, out var adapter)
+            || string.IsNullOrWhiteSpace(adapter.Executable))
+        {
+            return QuickAskReply.Fail($"'{request.Adapter}' CLI 가 설정되어 있지 않습니다.");
+        }
+
+        var prompt = LimitPrompt(request.Prompt, quick.MaxPromptChars);
 
         // 매번 빈 폴더. agy 는 cwd 만으로는 작업 폴더를 못 찾으므로 --add-dir 로도 준다.
         var folder = Path.Combine(_options.WorkspaceRoot, "_quick", Guid.NewGuid().ToString("N"));
-        Directory.CreateDirectory(folder);
-
         var watch = Stopwatch.StartNew();
 
         try
         {
-            var (ok, text) = await RunAsync(quick, adapter, folder, prompt, ct);
+            Directory.CreateDirectory(folder);
+            var (ok, text) = await RunAsync(
+                quick, request.Adapter, quickAdapter, adapter, folder, prompt, ct);
 
             logger.LogInformation(
                 "한 줄 물어보기 {Result} · {Elapsed}ms",
@@ -201,13 +204,16 @@ public sealed class QuickAskWorker(
         {
             // 여기서 던지면 답이 안 가고, 부른 쪽은 시간 초과까지 기다린다.
             logger.LogWarning(ex, "한 줄 물어보기: CLI 를 띄우지 못했습니다.");
-            return QuickAskReply.Fail($"{quick.Adapter} 을 띄우지 못했습니다. ({ex.Message})");
+            return QuickAskReply.Fail($"{DisplayName(request.Adapter)} 을 띄우지 못했습니다. ({ex.Message})");
         }
         finally
         {
             try
             {
-                Directory.Delete(folder, recursive: true);
+                if (Directory.Exists(folder))
+                {
+                    Directory.Delete(folder, recursive: true);
+                }
             }
             catch (Exception ex)
             {
@@ -221,7 +227,13 @@ public sealed class QuickAskWorker(
     /// CLI 를 띄워 답을 받는다. <b>셸을 거치지 않는다</b> — <see cref="CliRunner"/> 와 같은 규칙이다.
     /// </summary>
     private async Task<(bool Ok, string Text)> RunAsync(
-        QuickAskOptions quick, AdapterOptions adapter, string folder, string prompt, CancellationToken ct)
+        QuickAskOptions quick,
+        string adapterName,
+        QuickAskAdapterOptions quickAdapter,
+        AdapterOptions adapter,
+        string folder,
+        string prompt,
+        CancellationToken ct)
     {
         var psi = new ProcessStartInfo(adapter.Executable)
         {
@@ -236,23 +248,34 @@ public sealed class QuickAskWorker(
 
         // 작업 실행용 Args(--dangerously-skip-permissions 가 든 것)를 쓰지 않는다.
         // 이 길은 자기 인자를 따로 든다.
-        foreach (var arg in quick.Args)
+        foreach (var arg in quickAdapter.Args)
         {
             psi.ArgumentList.Add(arg);
         }
 
-        foreach (var arg in adapter.WorkspaceArgs)
+        foreach (var arg in quickAdapter.WorkspaceArgs)
         {
             psi.ArgumentList.Add(arg.Replace("{path}", folder));
         }
 
-        // agy 는 -p 뒤에 플래그를 두면 그 플래그를 프롬프트로 먹는다. 맨 끝에 둔다.
-        psi.ArgumentList.Add(adapter.PromptArgPrefix + prompt);
+        if (quickAdapter.PromptVia == "arg")
+        {
+            psi.ArgumentList.Add(quickAdapter.PromptArgPrefix + prompt);
+        }
+        else if (quickAdapter.PromptVia != "stdin")
+        {
+            return (false, $"{adapterName} CLI 의 PromptVia 설정이 잘못되었습니다.");
+        }
 
         var timeout = TimeSpan.FromSeconds(Math.Clamp(quick.TimeoutSeconds, 10, 300));
 
         using var proc = Process.Start(psi)
             ?? throw new InvalidOperationException("프로세스를 띄우지 못했습니다.");
+
+        if (quickAdapter.PromptVia == "stdin")
+        {
+            await proc.StandardInput.WriteAsync(prompt);
+        }
 
         proc.StandardInput.Close();
 
@@ -272,11 +295,11 @@ public sealed class QuickAskWorker(
             {
                 var error = (await stderr).Trim();
                 return (false,
-                    $"{quick.Adapter} 이 답하지 못했습니다(종료 코드 {proc.ExitCode}). "
+                    $"{DisplayName(adapterName)} 이 답하지 못했습니다(종료 코드 {proc.ExitCode}). "
                     + Cut(error.Length > 0 ? error : output, 300));
             }
 
-            return (true, Cut(output, 2000));
+            return (true, Cut(output, quick.MaxResponseChars));
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
@@ -289,16 +312,39 @@ public sealed class QuickAskWorker(
                 // 이미 끝났다.
             }
 
-            return (false, $"{quick.Adapter} 이 {timeout.TotalSeconds:0}초 안에 답하지 않았습니다.");
+            return (false, $"{DisplayName(adapterName)} 이 {timeout.TotalSeconds:0}초 안에 답하지 않았습니다.");
         }
     }
 
-    private static string Cut(string value, int max) =>
-        value.Length <= max ? value : value[..max] + "…";
+    private static string LimitPrompt(string prompt, int configuredLimit)
+    {
+        var limit = Math.Max(512, configuredLimit);
+        if (prompt.Length <= limit) return prompt;
+
+        const string marker = "\n\n[중간 대화 생략]\n\n";
+        var retained = limit - marker.Length;
+        var prefixLength = retained / 3;
+        var suffixLength = retained - prefixLength;
+        return prompt[..prefixLength] + marker + prompt[^suffixLength..];
+    }
+
+    private static string DisplayName(string adapter) => adapter.ToLowerInvariant() switch
+    {
+        "antigravity" => "안티그래비티 CLI",
+        "claude" => "Claude CLI",
+        "copilot" => "Copilot CLI",
+        _ => adapter,
+    };
+
+    private static string Cut(string value, int max)
+    {
+        var limit = Math.Max(1, max);
+        return value.Length <= limit ? value : value[..limit] + "…";
+    }
 }
 
 /// <summary>AI 서버가 보내는 질문. 약속은 이 JSON 한 벌뿐이다.</summary>
-public sealed record QuickAskRequest(string Prompt);
+public sealed record QuickAskRequest(string Adapter, string Prompt);
 
 /// <summary>돌려주는 답.</summary>
 public sealed record QuickAskReply(bool Success, string? Text, string? Error)

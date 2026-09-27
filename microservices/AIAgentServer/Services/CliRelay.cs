@@ -17,9 +17,8 @@ namespace AIAgentServer.Services;
 /// 실행기는 받는 포트가 없다는 원칙을 그대로 지킨다 — 둘 다 브로커로 나가기만 한다.
 /// </para>
 /// <para>
-/// <b>한 줄 추천(공통코드 · 다국어)에만 쓴다.</b> 대화는 흘려 보내야 하는데 CLI 는
-/// 한 번에 답을 주고, 한 번에 10초 남짓 걸린다. 사람이 단추를 누르고 기다리는
-/// 한 단어짜리 답에는 맞고, 대화에는 맞지 않는다.
+/// 공통코드 추천뿐 아니라 대화의 무료 공급자 폴백에도 쓴다. 대화 스트림은 공급자
+/// 응답 전에 CLI 호출을 끝낸 뒤 한 번에 돌려준다.
 /// </para>
 /// <para>
 /// <b>실행기가 없으면 곧바로 안다.</b> 큐를 선언하면 브로커가 듣는 쪽 수를 알려 준다.
@@ -29,6 +28,9 @@ namespace AIAgentServer.Services;
 public sealed class CliRelay(IConfiguration configuration, ILogger<CliRelay> logger)
 {
     private const string DirectReplyTo = "amq.rabbitmq.reply-to";
+    private static readonly string[] DefaultAdapters = ["antigravity", "claude", "copilot"];
+    private static readonly HashSet<string> SupportedAdapters =
+        new(DefaultAdapters, StringComparer.OrdinalIgnoreCase);
 
     /// <summary>켜져 있는지. 브로커가 없는 장비(로컬 개발)에서는 끈다.</summary>
     public bool Enabled { get; } = configuration.GetValue("AI:CliRelay:Enabled", true);
@@ -36,6 +38,9 @@ public sealed class CliRelay(IConfiguration configuration, ILogger<CliRelay> log
     /// <summary>화면·로그에 보일 이름.</summary>
     public string DisplayName { get; } =
         configuration["AI:CliRelay:DisplayName"] is { Length: > 0 } n ? n : "안티그래비티 CLI";
+
+    private readonly string[] _adapters =
+        configuration.GetSection("AI:CliRelay:Adapters").Get<string[]>() ?? DefaultAdapters;
 
     private readonly string _host =
         configuration["AI:CliRelay:QueueHost"] is { Length: > 0 } h ? h : "localhost";
@@ -52,15 +57,51 @@ public sealed class CliRelay(IConfiguration configuration, ILogger<CliRelay> log
     /// <summary>
     /// 한 번 묻는다. 실패는 <see cref="AiProviderException"/> 으로 던진다.
     /// </summary>
-    public async Task<string> AskAsync(string prompt, CancellationToken ct = default)
+    public async Task<CliRelayAnswer> AskAsync(string prompt, CancellationToken ct = default)
     {
-        const string key = "antigravity-cli";
-
         if (!Enabled)
         {
-            throw new AiProviderException($"{DisplayName} 대체가 꺼져 있습니다.", key);
+            throw new AiProviderException(
+                $"{DisplayName} 대체가 꺼져 있습니다.", "antigravity-cli");
         }
 
+        AiProviderException? lastFailure = null;
+        foreach (var adapter in _adapters.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            if (!SupportedAdapters.Contains(adapter))
+            {
+                logger.LogWarning("지원하지 않는 CLI 대체 항목을 건너뜁니다: {Adapter}", adapter);
+                continue;
+            }
+
+            try
+            {
+                var text = await AskAdapterAsync(adapter, prompt, ct);
+                return new CliRelayAnswer(text, adapter, DisplayNameFor(adapter));
+            }
+            catch (AiProviderException ex)
+            {
+                lastFailure = ex;
+                logger.LogWarning("{Adapter} 대체가 실패했습니다. {Reason}", adapter, ex.Message);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+            {
+                lastFailure = new AiProviderException(
+                    $"{DisplayNameFor(adapter)} 중계에 실패했습니다.", $"{adapter}-cli",
+                    isConnectFailure: true);
+                logger.LogWarning(
+                    ex, "{Adapter} 중계에 실패했습니다. 다음 CLI 를 시도합니다.", adapter);
+            }
+        }
+
+        throw lastFailure ?? new AiProviderException(
+            "사용할 수 있는 CLI 대체가 설정되지 않았습니다.", "antigravity-cli");
+    }
+
+    private async Task<string> AskAdapterAsync(
+        string adapter, string prompt, CancellationToken ct)
+    {
+        var key = $"{adapter}-cli";
         IConnection connection;
 
         try
@@ -81,7 +122,8 @@ public sealed class CliRelay(IConfiguration configuration, ILogger<CliRelay> log
         {
             logger.LogWarning("{Relay}: 브로커({Host})에 닿지 못했습니다. {Message}", DisplayName, _host, ex.Message);
             throw new AiProviderException(
-                $"{DisplayName} 에 물을 통로(브로커)에 닿지 못했습니다.", key, isConnectFailure: true);
+                $"{DisplayNameFor(adapter)} 에 물을 통로(브로커)에 닿지 못했습니다.",
+                key, isConnectFailure: true);
         }
 
         await using (connection)
@@ -99,9 +141,10 @@ public sealed class CliRelay(IConfiguration configuration, ILogger<CliRelay> log
 
             if (declared.ConsumerCount == 0)
             {
-                logger.LogWarning("{Relay}: 듣는 실행기가 없습니다(큐 {Queue}).", DisplayName, _queue);
+                logger.LogWarning("{Adapter}: 듣는 실행기가 없습니다(큐 {Queue}).", adapter, _queue);
                 throw new AiProviderException(
-                    $"{DisplayName} 을 돌릴 실행기가 떠 있지 않습니다.", key, isConnectFailure: true);
+                    $"{DisplayNameFor(adapter)} 을 돌릴 실행기가 떠 있지 않습니다.",
+                    key, isConnectFailure: true);
             }
 
             var correlationId = Guid.NewGuid().ToString("N");
@@ -143,7 +186,7 @@ public sealed class CliRelay(IConfiguration configuration, ILogger<CliRelay> log
                 routingKey: _queue,
                 mandatory: false,
                 basicProperties: props,
-                body: JsonSerializer.SerializeToUtf8Bytes(new QuickAskRequest(prompt)),
+                body: JsonSerializer.SerializeToUtf8Bytes(new QuickAskRequest(adapter, prompt)),
                 cancellationToken: ct);
 
             QuickAskReply? reply;
@@ -155,27 +198,39 @@ public sealed class CliRelay(IConfiguration configuration, ILogger<CliRelay> log
             catch (TimeoutException)
             {
                 throw new AiProviderException(
-                    $"{DisplayName} 이 {_timeout.TotalSeconds:0}초 안에 답하지 않았습니다.", key);
+                    $"{DisplayNameFor(adapter)} 이 {_timeout.TotalSeconds:0}초 안에 답하지 않았습니다.",
+                    key);
             }
 
             if (reply is null)
             {
-                throw new AiProviderException($"{DisplayName} 의 답을 읽지 못했습니다.", key);
+                throw new AiProviderException(
+                    $"{DisplayNameFor(adapter)} 의 답을 읽지 못했습니다.", key);
             }
 
             if (!reply.Success || string.IsNullOrWhiteSpace(reply.Text))
             {
                 throw new AiProviderException(
-                    $"{DisplayName} 이 답하지 못했습니다. {reply.Error}".Trim(), key);
+                    $"{DisplayNameFor(adapter)} 이 답하지 못했습니다. {reply.Error}".Trim(), key);
             }
 
             return reply.Text;
         }
     }
 
+    private string DisplayNameFor(string adapter) => adapter.ToLowerInvariant() switch
+    {
+        "antigravity" => DisplayName,
+        "claude" => "Claude CLI",
+        "copilot" => "Copilot CLI",
+        _ => adapter,
+    };
+
     // 실행기와 오가는 약속. **실행기의 QuickAskWorker 쪽 레코드와 이름·모양이 같아야 한다.**
     // 공유 프로젝트로 묶지 않는다 — 실행기는 서버 코드를 참조하지 않는다(그쪽 csproj 주석).
-    private sealed record QuickAskRequest(string Prompt);
+    private sealed record QuickAskRequest(string Adapter, string Prompt);
 
     private sealed record QuickAskReply(bool Success, string? Text, string? Error);
 }
+
+public sealed record CliRelayAnswer(string Text, string Adapter, string DisplayName);

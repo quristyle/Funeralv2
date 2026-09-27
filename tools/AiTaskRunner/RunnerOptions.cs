@@ -342,19 +342,31 @@ public sealed class QuickAskOptions
     /// </summary>
     public string QueueName { get; set; } = "ai_quick";
 
-    /// <summary>어느 어댑터의 실행 파일을 쓸지. 실행 파일 경로만 빌려 오고 인자는 아래 것을 쓴다.</summary>
-    public string Adapter { get; set; } = "antigravity";
-
     /// <summary>
-    /// CLI 에 줄 인자. <b>작업 실행용 <c>Args</c> 를 쓰지 않는다</b> — 그쪽에는
-    /// <c>--dangerously-skip-permissions</c> 가 들어 있다.
+    /// 한 줄 응답용 CLI 설정. 작업 실행 어댑터의 인자와 분리해
+    /// 위험 권한 옵션이 여기로 섞이지 않게 한다.
     /// </summary>
-    public string[] Args { get; set; } = [];
+    public Dictionary<string, QuickAskAdapterOptions> Adapters { get; set; } = [];
 
     public int TimeoutSeconds { get; set; } = 60;
 
     public int MaxParallel { get; set; } = 2;
 
-    /// <summary>들어오는 질문의 길이 상한. 한 줄 추천에는 수백 자면 넉넉하다.</summary>
-    public int MaxPromptChars { get; set; } = 2000;
+    /// <summary>들어오는 대화 문맥의 길이 상한.</summary>
+    public int MaxPromptChars { get; set; } = 12000;
+
+    /// <summary>CLI 응답의 길이 상한.</summary>
+    public int MaxResponseChars { get; set; } = 12000;
+}
+
+public sealed class QuickAskAdapterOptions
+{
+    public string[] Args { get; set; } = [];
+
+    public string[] WorkspaceArgs { get; set; } = [];
+
+    /// <summary><c>arg</c> 또는 <c>stdin</c>.</summary>
+    public string PromptVia { get; set; } = "arg";
+
+    public string PromptArgPrefix { get; set; } = string.Empty;
 }
