@@ -59,6 +59,22 @@ public class AvatarIconTests
     }
 
     /// <summary>
+    /// 새 기기 구독 알림은 구독자의 얼굴을 아이콘으로 쓴다.
+    /// </summary>
+    [Fact]
+    public void 새_기기_구독_알림은_구독자의_프로필_사진을_쓴다()
+    {
+        var source = RazorSource.Read(Path.Combine(
+            RepoRoot(), "microservices", "NotificationServer", "Endpoints", "NotificationEndpoints.cs"));
+        var title = source.IndexOf("Title = \"새로운 알림 구독\"", StringComparison.Ordinal);
+
+        Assert.True(title >= 0, "새 기기 구독 알림의 메시지 정의를 찾지 못했다.");
+        var category = source.IndexOf("Category = PushCategories.Subscription", title, StringComparison.Ordinal);
+        Assert.True(category > title, "새 기기 구독 알림의 구분을 찾지 못했다.");
+        Assert.Contains("IconOwnerKey = user.UserId", source[title..category]);
+    }
+
+    /// <summary>
     /// <b>열쇠의 주인 이름 앞머리를 세 서비스가 같은 글자로 안다.</b>
     /// </summary>
     /// <remarks>

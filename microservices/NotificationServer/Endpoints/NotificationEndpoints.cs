@@ -179,6 +179,8 @@ public static class NotificationEndpoints
                             // 알림이 말하는 것과 화면이 답하는 것이 같은 물음이다 —
                             // 「누가 어느 기기로 구독했고 그것이 제대로 닿는가」.
                             Url = AccountAppUrl(user.UserId),
+                            // 새 기기를 등록한 사람의 프로필 사진을 알림 아이콘으로 쓴다.
+                            IconOwnerKey = user.UserId,
                             // 지나고 나면 알림함에서 봐도 되는 소식이다. 하루 뒤에
                             // 배달돼 봐야 관리자 알림창만 채운다.
                             TtlSeconds = 3600,
