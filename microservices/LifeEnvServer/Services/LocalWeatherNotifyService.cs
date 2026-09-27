@@ -1,4 +1,5 @@
 using LifeEnvServer.Utilities;
+using JSini.Shared.DTOs;
 
 namespace LifeEnvServer.Services;
 
@@ -120,6 +121,9 @@ public class LocalWeatherNotifyService : BackgroundService
             }
 
             var place = point.Place ?? subscriber.Place;
+            var condition = point.Now?.Condition;
+            if (string.IsNullOrWhiteSpace(condition))
+                condition = point.Days.FirstOrDefault(d => !string.IsNullOrWhiteSpace(d.Condition))?.Condition;
 
             await notify.NotifyLocalAsync(
                 subscriber.OwnerType,
@@ -127,6 +131,7 @@ public class LocalWeatherNotifyService : BackgroundService
                 title: string.IsNullOrWhiteSpace(place) ? "내 위치 날씨" : $"[날씨] {place}",
                 body: point.Summary,
                 place: point.Place,
+                weatherKind: WeatherIconKinds.FromCondition(condition),
                 ct);
         }
     }

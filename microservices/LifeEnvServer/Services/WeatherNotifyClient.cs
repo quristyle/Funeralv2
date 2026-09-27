@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using JSini.Shared.DTOs;
 
 namespace LifeEnvServer.Services;
 
@@ -58,6 +59,7 @@ public class WeatherNotifyClient
                 standardName,
                 location,
                 category,
+                weatherKind = WeatherIconKinds.FromStandardCategory(category),
                 measuredValue,
                 unit,
                 eventTime,
@@ -114,6 +116,7 @@ public class WeatherNotifyClient
                 warningNum,
                 locations,
                 summary,
+                weatherKind = WeatherIconKinds.FromWarning(summary ?? title),
                 announcedAt,
             });
             using var content = new StringContent(payload, Encoding.UTF8, "application/json");
@@ -175,19 +178,26 @@ public class WeatherNotifyClient
     }
 
     /// <summary>한 사람에게 「내 위치 날씨」 한 통을 보내 달라고 한다.</summary>
+    /// <param name="ownerType">받는 사람의 종류.</param>
+    /// <param name="ownerKey">받는 사람의 식별자.</param>
+    /// <param name="title">알림 제목.</param>
+    /// <param name="body">날씨 요약.</param>
     /// <param name="place">
     /// 찾아낸 지역 이름. 설정에 이름이 비어 있으면 알림 서비스가 이것을 적어 둔다 —
     /// 사람이 처음 위치를 잡을 때는 이름을 모르는 채 저장될 수 있다.
     /// </param>
+    /// <param name="weatherKind">현재 날씨의 아이콘 분류.</param>
+    /// <param name="ct">요청 취소 토큰.</param>
     public async Task NotifyLocalAsync(
         string ownerType, string ownerKey, string title, string? body, string? place,
+        string weatherKind,
         CancellationToken ct = default)
     {
         if (!_enabled) return;
 
         try
         {
-            var payload = JsonSerializer.Serialize(new { ownerType, ownerKey, title, body, place });
+            var payload = JsonSerializer.Serialize(new { ownerType, ownerKey, title, body, place, weatherKind });
             using var content = new StringContent(payload, Encoding.UTF8, "application/json");
             using var response = await _http.PostAsync("/weather-local", content, ct);
 

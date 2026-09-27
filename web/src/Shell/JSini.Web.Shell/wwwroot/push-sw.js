@@ -119,11 +119,10 @@ self.addEventListener('push', (event) => {
 
     const title = data.title || 'JSini 포털';
     const options = {
-        // icon 은 **누가 시킨 일인가**를 그린다. 보내는 쪽이 사람을 지목하면
-        // (NotificationServer 의 PushMessageDto.iconOwnerKey) 서버가 그 사람의
-        // 프로필 사진 주소(/files/avatar/{파일아이디})를 채워 보내고, 사진이
-        // 없는 계정이면 사람 형상 그림자(/avatar-fallback.png)를 채워 보낸다.
-        // 지목하지 않은 알림(배포 알림 등)은 여기 기본값인 앱 아이콘으로 뜬다.
+        // icon 은 보내는 쪽이 고른 그림이다. 날씨 알림은 날씨 상태별 포털 아이콘을
+        // 직접 싣고, 사람을 지목한 알림(PushMessageDto.iconOwnerKey)은 서버가
+        // 프로필 사진이나 사람 형상 그림자(/avatar-fallback.png)를 채워 보낸다.
+        // 둘 다 지정하지 않은 알림(배포 알림 등)은 기본 앱 아이콘으로 뜬다.
         //
         // badge 는 아이콘이 무엇으로 바뀌든 **앱 아이콘 그대로** 둔다 —
         // 안드로이드의 상태 표시줄에 서는 작은 표시라, 여기까지 얼굴로 바꾸면

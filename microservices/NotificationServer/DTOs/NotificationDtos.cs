@@ -476,6 +476,9 @@ public class SendLocalWeatherDto
     public string Title { get; set; } = string.Empty;
     public string? Body { get; set; }
 
+    /// <summary>날씨 상태 아이콘 분류.</summary>
+    public string? WeatherKind { get; set; }
+
     /// <summary>
     /// 찾아낸 지역 이름. 주면 설정에 적어 둔다 — 사람이 처음 위치를 잡을 때는
     /// 이름을 모르는 채로 저장될 수 있고, 그때 화면에 좌표만 남는다.

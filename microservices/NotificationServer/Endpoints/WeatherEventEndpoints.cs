@@ -67,6 +67,7 @@ public static class WeatherEventEndpoints
                 Title = $"[기상] {request.StandardName}",
                 Body = $"{request.Location} · 측정 {valueText} — 기준 충족",
                 Url = "/life/weather/events",
+                Icon = WeatherPushIcons.ForKind(request.WeatherKind),
                 // **한 시간 지난 실황은 알릴 값이 없다.** 브라우저를 안 켜 두면
                 // 푸시 서비스가 들고 기다리는데, 그 줄이 길어진 채로 나중에
                 // 쏟아지는 것이 「알림이 한꺼번에 온다」의 정체다. 기록은
@@ -135,6 +136,7 @@ public static class WeatherEventEndpoints
                 Title = BuildWarningTitle(request),
                 Body = BuildWarningBody(request),
                 Url = "/life/weather/warning",
+                Icon = WeatherPushIcons.ForKind(request.WeatherKind),
                 // 같은 특보 번호의 발표 → 변경 → 해제는 한 줄로 겹쳐 보이는 편이 낫다.
                 // 번호가 없으면 태그를 주지 않는다 — 빈 태그로 묶으면 서로 다른 특보가 합쳐진다.
                 Tag = string.IsNullOrWhiteSpace(request.WarningNum) ? null : $"weather-warning:{request.WarningNum}",
@@ -219,6 +221,7 @@ public static class WeatherEventEndpoints
                 Title = string.IsNullOrWhiteSpace(request.Title) ? "내 위치 날씨" : request.Title,
                 Body = request.Body,
                 Url = "/life/weather/dashboard",
+                Icon = WeatherPushIcons.ForKind(request.WeatherKind),
                 // 같은 사람의 날씨 알림은 **한 줄로 겹쳐 보이는 편이 낫다.** 아침에
                 // 받은 것을 안 지우고 저녁 것을 받으면 알림창에 같은 모양이 쌓인다.
                 Tag = "weather-local",
@@ -253,6 +256,12 @@ public static class WeatherEventEndpoints
         })
         .WithName("SendLocalWeather")
         .WithTags("Weather");
+    }
+
+    internal static class WeatherPushIcons
+    {
+        public static string ForKind(string? kind) =>
+            $"/weather-icons/{WeatherIconKinds.Normalize(kind)}.svg";
     }
 
     /// <summary>
@@ -330,6 +339,9 @@ public class WeatherWarningEventDto
     /// </summary>
     public string? Summary { get; set; }
 
+    /// <summary>날씨 상태 아이콘 분류.</summary>
+    public string? WeatherKind { get; set; }
+
     /// <summary>발표 시각</summary>
     public DateTimeOffset? AnnouncedAt { get; set; }
 }
@@ -345,6 +357,9 @@ public class WeatherEventDto
 
     /// <summary>측정 분류 (WIND · RAIN · SNOW · HEAT · COLD …)</summary>
     public string Category { get; set; } = string.Empty;
+
+    /// <summary>날씨 상태 아이콘 분류.</summary>
+    public string? WeatherKind { get; set; }
 
     /// <summary>측정값</summary>
     public double MeasuredValue { get; set; }
