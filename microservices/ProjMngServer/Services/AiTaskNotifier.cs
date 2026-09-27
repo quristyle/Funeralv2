@@ -109,9 +109,27 @@ public sealed class AiTaskNotifier(
     }
 
     /// <summary>
-    /// 이 실행의 <b>앱푸시</b>를 보낸다. <b>끝난 직후 맨 먼저 부르는 걸음</b>이다.
+    /// 이 실행의 <b>앱푸시</b>를 보낸다. <b>알림 세 걸음 중 첫째</b>다.
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// [무엇이 실리나 — 상태·제목만이 아니라 <b>처리 요약</b>까지]
+    /// </para>
+    /// <para>
+    /// 오래도록 푸시 본문은 <c>[완료] 제목</c> 한 줄이었다. 받는 사람이 그
+    /// 한 줄에서 아는 것은 <b>「끝났다」뿐</b>이라, 무엇을 했는지 보려면 늘
+    /// 눌러 들어가야 했다. 지금은 <b>제목 줄에 상태와 작업 제목을, 본문에
+    /// 처리 요약을</b> 싣는다(<see cref="Body"/> 의 「AI 의 답」 칸과 같은 값이다).
+    /// 알림창 두 줄로 「무엇을 했나」까지 읽히는 것이 목적이다.
+    /// </para>
+    /// <para>
+    /// <b>요약이 없으면 기다리지 않는다.</b> 이 함수는 <c>summary_text</c> 를
+    /// 읽기만 한다 — 적혀 있으면 싣고, 없으면 대체 본문으로 나간다
+    /// (<see cref="PushFallback"/>). <b>요약을 만드는 일도 기다리는 일도 부르는
+    /// 쪽이 정한다</b>(<c>AiRunService.SummarizeThenNotifyAsync</c>) —
+    /// 여기서 모델을 부르면 「알림을 끈 사람에게만 요약이 없는」 옛 문제가
+    /// 되살아난다.
+    /// </para>
     /// <para>
     /// [왜 메일과 갈라 놓았나 — 푸시가 요약을 기다리고 서 있었다]
     /// </para>
@@ -125,14 +143,16 @@ public sealed class AiTaskNotifier(
     /// 받는 사람에게 그것은 그냥 <b>「푸시가 느려졌다」</b>이다.
     /// </para>
     /// <para>
-    /// <b>푸시에 실리는 것은 상태와 제목뿐이다</b> — 요약은 메일 본문에만 들어간다.
-    /// 기다릴 까닭이 없으므로 푸시를 앞으로 빼고, 요약을 싣는 메일만 뒤에 남긴다.
+    /// 그래서 <b>제목 짓기(<see cref="AiTaskTitler"/>)는 여전히 안 기다린다.</b>
+    /// 기다리는 것은 요약 하나뿐이고, 그것도 <b>정해진 시간까지만</b>이다 —
+    /// 늦으면 위의 대체 본문으로 그냥 나간다. 최악이 177초에서 그 상한으로
+    /// 내려간다.
     /// </para>
     /// <para>
-    /// 대신 제목은 <b>AI 가 다시 짓기 전의 것</b>이 실린다. 그것은 사람이 적은
-    /// 제목이거나(그대로가 맞다) 지시문의 첫 제목 줄에서 뽑은 것이라
-    /// (<c>AiTaskService.NormalizeAsync</c>) 알림 한 줄로는 충분히 읽힌다.
-    /// 다시 지어진 제목은 <b>누르고 들어간 화면</b>과 목록에 있다.
+    /// 제목 줄에 실리는 작업 제목은 <b>요약이 제때 왔으면 AI 가 다시 지은 것</b>
+    /// 이다(<see cref="AiRunSummaryWriter"/> 가 요약의 첫 문장으로 제목을 고쳐
+    /// 적는다). 늦었으면 사람이 적은 제목이거나 지시문의 첫 제목 줄에서 뽑은 것이
+    /// 실린다(<c>AiTaskService.NormalizeAsync</c>) — 둘 다 알림 한 줄로는 읽힌다.
     /// </para>
     /// </remarks>
     public async Task SendPushAsync(long runKey, CancellationToken ct = default)
@@ -189,8 +209,17 @@ public sealed class AiTaskNotifier(
 
                     message = new
                     {
-                        title = "AI 작업 끝남",
-                        body = $"[{StatusText(row.TaskStatus)}] {row.Title}",
+                        // **제목 줄은 「어느 건이 어떻게 됐나」다.** 예전에는
+                        // 여기에 「AI 작업 끝남」이라는 붙박이 한 줄이 있었고
+                        // 본문이 그 물음에 답했다 — 알림창에서 가장 크게
+                        // 보이는 자리가 어느 건이든 똑같은 글자에 쓰인 셈이다.
+                        // 그 자리를 상태와 작업 제목에 내주고, 본문은 아래
+                        // 처리 요약에 쓴다.
+                        title = $"[{StatusText(row.TaskStatus)}] {Trim(row.Title, 60)}",
+
+                        // **무엇을 했는지가 여기 실린다**(<see cref="PushBody"/>).
+                        body = PushBody(row),
+
                         // **그 건 하나를 펴 놓는 주소다.** 예전에는 목록
                         // (`/projmng/ai/tasks`)으로 보냈고, 누른 사람이
                         // 편집기를 받은 뒤 목록에서 그 건을 눈으로 다시
@@ -885,6 +914,135 @@ public sealed class AiTaskNotifier(
         "failed" or "timeout" => "#fff5f5",
         _ => "#f8f9fa",
     };
+
+    /// <summary>
+    /// 앱푸시 본문 — <b>「무엇을 했나」 몇 줄.</b> 제목 줄이 이미 상태와 작업
+    /// 제목을 말하므로, 여기는 그것을 되풀이하지 않는다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>메일의 「AI 의 답」 칸과 같은 값을 쓴다</b>(<see cref="Said"/>). 같은
+    /// 실행을 두 곳에서 다르게 요약하면 「메일에는 이렇게 왔는데 알림에는
+    /// 저렇게 왔다」가 되고, 그때 어느 쪽이 맞는지 가릴 방법이 없다. 다른 것은
+    /// <b>꼴뿐</b>이다 — 저쪽은 HTML 이고 이쪽은 줄바꿈 하나로 쓴다.
+    /// </para>
+    /// <para>
+    /// <b>줄머리를 <c>·</c> 로 찍는 까닭.</b> 알림창은 줄바꿈을 살려 주지만
+    /// 「내 알림함」의 카드는 본문을 <c>&lt;p&gt;</c> 하나에 담아 줄바꿈이
+    /// 공백으로 접힌다. 점이 없으면 그 자리에서 <b>여러 줄이 한 문장처럼</b>
+    /// 붙어 읽힌다.
+    /// </para>
+    /// <para>
+    /// <b>요약이 없어도 빈손으로 두지 않는다.</b> 아직 안 적혔거나(부르는 쪽이
+    /// 기다리다 만 것) 모델이 못 만든 건은 <see cref="PushFallback"/> 이 그
+    /// 자리를 채운다. <b>제목만 있고 본문이 빈 알림은 고장처럼 보인다.</b>
+    /// </para>
+    /// <para>
+    /// 길이를 <see cref="PushBodyMax"/> 에서 끊는다. 웹푸시 규격이 짐을
+    /// 4KB 로 묶기도 하지만, 그보다 <b>알림창이 두어 줄에서 말줄임</b>이라
+    /// 그 뒤는 어차피 아무도 못 읽는다.
+    /// </para>
+    /// </remarks>
+    private string PushBody(MailRow r)
+    {
+        var lines = new List<string>();
+
+        if (AiResultSummary.Parse(r.SummaryText) is { } summary)
+        {
+            // **제목 줄과 같은 말을 두 번 하지 않는다.** 요약이 적히는 순간
+            // 작업 제목도 그 첫 문장으로 바뀌므로(<see cref="AiRunSummaryWriter"/>
+            // 의 retitle), 제때 온 요약에서는 이 둘이 거의 늘 같은 글이다.
+            // 그대로 실으면 알림창 두 줄이 같은 문장을 반복한다 — 그때는
+            // 한 일(<c>Points</c>)부터 적는 편이 한 줄을 더 쓰는 것이다.
+            if (summary.Headline.Length > 0 && !SameLine(summary.Headline, r.Title))
+            {
+                lines.Add(Trim(summary.Headline, 110));
+            }
+
+            // **한 일은 둘까지만.** 다섯 줄을 다 실어도 알림창은 두어 줄에서
+            // 끊고, 「내 알림함」에서는 그것이 한 문단으로 뭉친다.
+            lines.AddRange(summary.Points.Take(2).Select(p => $"· {Trim(p, 80)}"));
+
+            // **「확인할 것」은 한 줄이라도 싣는다.** 사람이 가서 해야 할 일이
+            // 있는지가 알림 앞에서 가장 크게 갈리는 물음이다.
+            if (summary.Checks.Count > 0)
+            {
+                lines.Add($"확인할 것 · {Trim(summary.Checks[0], 80)}");
+            }
+        }
+
+        if (lines.Count == 0)
+        {
+            lines.AddRange(PushFallback(r));
+        }
+
+        return Trim(string.Join("\n", lines), PushBodyMax);
+    }
+
+    /// <summary>
+    /// 요약이 없을 때의 푸시 본문. <b>그 건의 「답」이 어디 있느냐에 따라 갈린다.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>결과문 앞줄을 무턱대고 뜨지 않는다.</b> 메일의 대체 요약
+    /// (<see cref="Gist"/>)이 그렇게 하는데, 결과문은 「먼저 파일을
+    /// 찾아보겠습니다」 같은 서론이나 <c>## 작업 내용</c> 같은 머리글로 시작하는
+    /// 일이 잦다 — 메일은 그 아래로 전문이 이어지니 견딜 만하지만, <b>두 줄이
+    /// 전부인 알림창에서는 그 두 줄이 통째로 서론이 된다.</b> 애초에 그 어긋남이
+    /// <see cref="AiResultSummarizer"/> 가 생긴 까닭이다.
+    /// </para>
+    /// <para>그래서 셋으로 가른다.</para>
+    /// <list type="number">
+    ///   <item><description><b>실패한 건</b> — 답은 오류 한 줄이다.</description></item>
+    ///   <item><description><b>고친 것이 있는 건</b> — 답은 글이 아니라 고침이다.
+    ///   무엇이 바뀌었고(<see cref="ChangeGist"/>) 내가 할 일이 있는지
+    ///   (<see cref="NextStep"/>)를 적는다. <b>둘 다 적힌 값에서 나오므로 서론이
+    ///   섞일 자리가 없다.</b></description></item>
+    ///   <item><description><b>고친 것이 없는 건</b>(물어보기만 한 건) — 답이
+    ///   글에 있으니 그때는 앞줄을 뜬다.</description></item>
+    /// </list>
+    /// </remarks>
+    private IReadOnlyList<string> PushFallback(MailRow r)
+    {
+        if (r.TaskStatus != "succeeded" && !string.IsNullOrWhiteSpace(r.ErrorSummary))
+        {
+            return [Trim(SecretMask.Apply(r.ErrorSummary), 140)];
+        }
+
+        if (!string.IsNullOrWhiteSpace(r.DiffStat))
+        {
+            return [ChangeGist(r), NextStep(r)];
+        }
+
+        return Gist(r.ResultText, lines: 2) is { Count: > 0 } gist
+            ? [.. gist.Select(l => Trim(l, 110))]
+            : (IReadOnlyList<string>)[$"{StatusText(r.TaskStatus)} · {r.Seq}차{Took(r)}"];
+    }
+
+    /// <summary>앱푸시 본문의 글자 상한. 까닭은 <see cref="PushBody"/> 머리말에 있다.</summary>
+    private const int PushBodyMax = 240;
+
+    /// <summary>
+    /// 두 줄이 <b>사실상 같은 말인가.</b> 한쪽이 다른 쪽의 앞부분이기만 해도 같다고 본다 —
+    /// 제목 칸은 길이 상한에 걸려 잘린 채 저장되는 길이 있다.
+    /// </summary>
+    private static bool SameLine(string? a, string? b)
+    {
+        var x = (a ?? string.Empty).Trim();
+        var y = (b ?? string.Empty).Trim();
+
+        if (x.Length == 0 || y.Length == 0)
+        {
+            return false;
+        }
+
+        var (shorter, longer) = x.Length <= y.Length ? (x, y) : (y, x);
+
+        // 너무 짧은 앞부분이 우연히 겹치는 것까지 같다고 보면, 제목이 짧은 건의
+        // 헤드라인이 통째로 빠진다. 열 글자는 그 경계다.
+        return shorter.Length >= 10
+            && longer.StartsWith(shorter, StringComparison.Ordinal);
+    }
 
     /// <summary>
     /// 요약의 첫 줄. <b>이 한 줄만 읽어도 「무엇이 어떻게 됐는지」가 나와야 한다.</b>
