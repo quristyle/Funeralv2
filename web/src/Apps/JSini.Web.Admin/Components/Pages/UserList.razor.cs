@@ -16,7 +16,13 @@ public partial class UserList
 
     private IReadOnlyList<AccountDto> _all = [];
     private IReadOnlyList<RoleDto> _roles = [];
+    private IReadOnlyList<CompanyDto> _companies = [];
     private IReadOnlyList<DeptDto> _depts = [];
+    private IReadOnlyList<DeptDto> _newAccountDepts = [];
+    private readonly Dictionary<string, IReadOnlyList<DeptDto>> _deptsByCompany =
+        new(StringComparer.Ordinal);
+    private AccountDto? _editingAccount;
+    private int _departmentLoadVersion;
 
     private string? _keyword;
     private string? _status;
@@ -69,9 +75,32 @@ public partial class UserList
     /// </summary>
     protected override Task OnInitializedAsync() => LoadAsync(async () =>
     {
-        _roles = await Api.GetRolesAsync();
-        _depts = Flatten(await Api.GetDeptsAsync());
-        _all = await Api.GetAccountsAsync();
+        var rolesTask = Api.GetRolesAsync();
+        var companiesTask = Api.GetCompaniesAsync();
+        var deptsTask = Api.GetDeptsAsync();
+        var accountsTask = Api.GetAccountsAsync();
+
+        await Task.WhenAll(rolesTask, companiesTask, deptsTask, accountsTask);
+
+        _roles = rolesTask.Result;
+        _companies = companiesTask.Result;
+        _newAccountDepts = Flatten(deptsTask.Result);
+        _depts = _newAccountDepts;
+        _all = accountsTask.Result;
+
+        var companyIds = _all
+            .Select(a => a.CompanyId)
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        var companyDepartments = await Task.WhenAll(companyIds.Select(async id =>
+            (CompanyId: id!, Departments: Flatten(await Api.GetDeptsAsync(id)))));
+
+        _deptsByCompany.Clear();
+        foreach (var (companyId, departments) in companyDepartments)
+        {
+            _deptsByCompany[companyId] = departments;
+        }
 
         return _all.Count;
     }, "계정이 없습니다.", "계정 목록을 읽지 못했습니다");
@@ -198,6 +227,55 @@ public partial class UserList
         a.RoleIds = [];
     }
 
+    /// <summary>편집 창을 열 때 그 계정의 회사 부서를 표시한다.</summary>
+    private void PrepareEdit(AccountDto account, bool isNew)
+    {
+        _departmentLoadVersion++;
+        _editingAccount = isNew ? null : account;
+        _depts = isNew
+            ? _newAccountDepts
+            : account.CompanyId is { } companyId
+                && _deptsByCompany.TryGetValue(companyId, out var departments)
+                    ? departments
+                    : [];
+    }
+
+    /// <summary>회사를 바꾸면 이전 회사의 부서 선택을 버리고 새 부서 목록을 읽는다.</summary>
+    private async Task CompanyChangedAsync(AccountDto account)
+    {
+        account.DeptId = null;
+        var version = ++_departmentLoadVersion;
+        var companyId = account.CompanyId;
+
+        if (string.IsNullOrWhiteSpace(companyId))
+        {
+            _depts = [];
+            return;
+        }
+
+        if (_deptsByCompany.TryGetValue(companyId, out var cached))
+        {
+            _depts = cached;
+            return;
+        }
+
+        _depts = [];
+        await LoadAsync(async () =>
+        {
+            var departments = Flatten(await Api.GetDeptsAsync(companyId));
+            _deptsByCompany[companyId] = departments;
+
+            if (version == _departmentLoadVersion
+                && ReferenceEquals(_editingAccount, account)
+                && string.Equals(account.CompanyId, companyId, StringComparison.Ordinal))
+            {
+                _depts = departments;
+            }
+
+            return -1;
+        }, string.Empty, "부서 목록을 읽지 못했습니다");
+    }
+
     /// <summary>
     /// 저장한다. 등록이면 서버가 발급한 첫 비밀번호를 받아 창에 띄운다 —
     /// <b>그 응답이 그 값을 볼 수 있는 유일한 자리다.</b>
@@ -211,6 +289,7 @@ public partial class UserList
             Email = e.Item.Email,
             Phone = e.Item.Phone,
             Status = e.Item.Status,
+            CompanyId = e.Item.CompanyId,
             DeptId = e.Item.DeptId,
             RoleIds = e.Item.RoleIds,
             BirthDate = e.Item.BirthDate,

@@ -1041,6 +1041,7 @@ public sealed class SaveAccountDto
     /// <summary>ACTIVE · LOCKED · RESIGNED.</summary>
     public string Status { get; set; } = "ACTIVE";
 
+    public string? CompanyId { get; set; }
     public string? DeptId { get; set; }
     public List<string> RoleIds { get; set; } = [];
 

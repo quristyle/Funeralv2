@@ -100,6 +100,7 @@
              ExportName="계정"
              EmptyText="조건에 맞는 계정이 없습니다."
              OnNew="@FillNew"
+             OnEditOpen="@PrepareEdit"
              OnSave="@SaveAsync"
              OnDelete="@DeleteAsync"
              Reload="@ReloadAsync">
@@ -221,6 +222,17 @@
                 <DxFormLayoutItem Caption="연락처" ColSpanMd="6">
                     <DxTextBox @bind-Text="a.Phone" />
                 </DxFormLayoutItem>
+
+                @if (!isNew)
+                {
+                    <DxFormLayoutItem Caption="회사" ColSpanMd="6">
+                        <DxComboBox Data="@_companies" @bind-Value="a.CompanyId"
+                                    @bind-Value:after="() => CompanyChangedAsync(a)"
+                                    TextFieldName="@nameof(CompanyDto.Name)"
+                                    ValueFieldName="@nameof(CompanyDto.Id)"
+                                    ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                    </DxFormLayoutItem>
+                }
 
                 <DxFormLayoutItem Caption="부서" ColSpanMd="6">
                     <DxComboBox Data="@_depts" @bind-Value="a.DeptId"

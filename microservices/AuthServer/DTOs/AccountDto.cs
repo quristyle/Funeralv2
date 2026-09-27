@@ -135,6 +135,7 @@ public class UpdateAccountDto
     public string? Email { get; set; }
     public string? Phone { get; set; }
     public string Status { get; set; } = "ACTIVE";
+    public string? CompanyId { get; set; }
     public string? DeptId { get; set; }
     public List<string> RoleIds { get; set; } = new();
 

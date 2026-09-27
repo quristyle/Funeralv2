@@ -529,7 +529,8 @@ public class UserService : IUserService
         // 개발 업무용 확장 속성. `null` 이면 건드리지 않는다(머리말).
         SyncDevAttributes(account, dto.DevAttributes);
 
-        // 부서 ID 검증 및 소속 회사 자동 할당
+        // 부서가 있으면 그 부서의 회사를 소속으로 삼는다. 부서 없이 회사만
+        // 고른 계정은 회사 소속을 유지한다.
         if (!string.IsNullOrEmpty(dto.DeptId))
         {
             var dept = await _db.Departments.FindAsync(dto.DeptId);
@@ -543,6 +544,13 @@ public class UserService : IUserService
                 account.DepartmentId = null;
                 account.CompanyId = null;
             }
+        }
+        else if (!string.IsNullOrEmpty(dto.CompanyId))
+        {
+            var companyExists = await _db.Companies
+                .AnyAsync(c => c.Id == dto.CompanyId);
+            account.DepartmentId = null;
+            account.CompanyId = companyExists ? dto.CompanyId : null;
         }
         else
         {
