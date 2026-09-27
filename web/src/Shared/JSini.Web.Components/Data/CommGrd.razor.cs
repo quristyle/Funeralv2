@@ -126,8 +126,23 @@ public partial class CommGrd<TItem>
     /// </summary>
     [Parameter] public bool ShowFooter { get; set; } = true;
 
-    /// <summary>맨 왼쪽 순번 칸. 쪽을 넘겨도 이어지는 번호다.</summary>
-    [Parameter] public bool ShowRowNumber { get; set; } = true;
+    /// <summary>
+    /// 맨 왼쪽 순번 칸. <b>기본으로 그리지 않는다</b>(2026-09-27).
+    ///
+    /// <para>
+    /// 그 번호는 <b>자료가 아니라 자리</b>다 — 정렬을 바꾸면 같은 줄이 다른
+    /// 번호를 달고, 걸러 보면 번호가 건너뛴다. 그래서 그것으로 무엇을 가리킬
+    /// 수도, 적어 둘 수도 없는데 칸 하나(58px)는 늘 먹는다. 건수는 이제
+    /// 머리줄이 말한다(<see cref="ShowHeader"/>).
+    /// </para>
+    ///
+    /// <para>
+    /// 켜는 자리는 <b>번호를 소리 내어 부르는 표</b>다 — 「셋째 줄을 보라」로
+    /// 이야기하는 회의용 목록이나 출력물처럼. <c>ShowRowNumber="true"</c>.
+    /// 쪽을 넘겨도 이어지는 번호다.
+    /// </para>
+    /// </summary>
+    [Parameter] public bool ShowRowNumber { get; set; }
 
     /// <summary>칸별 검색 줄 토글 단추. 시작 상태는 화면의 <c>ShowFilterRow</c> 가 정한다.</summary>
     [Parameter] public bool ShowFilterToggle { get; set; } = true;

@@ -881,7 +881,8 @@ a { color: var(--tb-primary); }
    높이는 구역 제목보다 한 단 낮다 — 이름이 아니라 곁들이 표시라서. */
 .commgrd__head {
   padding: 0.6rem var(--tb-space-card);
-  border-bottom: 1px solid var(--tb-border-soft);
+  background: transparent;
+  border: 0;
 }
 
 /* 제목이 선 머리줄은 왼쪽 여백이 없다 — 앞의 막대가 표의 왼쪽 끝 선에
@@ -891,15 +892,13 @@ a { color: var(--tb-primary); }
   padding-left: 0;
 }
 
-/* 구역 제목 띠가 바로 위에 있으면 **선을 한 겹 덜 긋는다.** 제목 띠 아래 선 ·
-   건수 줄 아래 선 · 칸 머리 위 선이 80px 안에 셋이 겹치면 표가 시작하기도 전에
-   줄만 세 개다. 그 자리에서 건수는 띠가 아니라 **제목에 딸린 한마디**로 읽히는
-   편이 낫다 — 위에 바짝 붙이고 아래로 띄운다. */
+/* 구역 제목 띠가 바로 위에 있으면 **한 줄로 붙인다.** 제목 바로 밑이라
+   건수는 띠가 아니라 제목에 딸린 한마디로 읽히는 편이 낫다 — 위에 바짝
+   붙이고 아래로 띄운다. */
 .commcont__head + .commcont__body .commgrd__head {
   min-height: 0;
   padding-top: 0.5rem;
   padding-bottom: 0.15rem;
-  border-bottom: 0;
 }
 
 .commgrd__total {

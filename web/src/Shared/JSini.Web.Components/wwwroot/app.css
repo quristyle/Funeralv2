@@ -2678,8 +2678,11 @@ button.jsini-crumbs__item:hover { opacity: 1; }
    처음에는 글자만 놓고 아래로 0.5rem 을 띄웠는데, 표만 담은 판은
    `padding: 0` 이라(tabler.css) 그 글자가 **카드 왼쪽 테두리에 바짝
    붙고** 표와의 사이에는 빈 틈만 남아, 판 안에 글자 한 줄이 떠 있는
-   그림이 됐다. 그래서 안쪽 여백을 스스로 갖고, 아래에 선을 그어 칸 머리
-   위에 얹는다 — 표의 일부로 읽힌다.
+   그림이 됐다. 그래서 안쪽 여백을 스스로 갖는다.
+
+   **바탕도 선도 두지 않는다.** 한동안 아래에 선을 그어 두었는데, 바로
+   아래 칸 머리가 이미 제 바탕으로 경계를 내고 있어 선이 한 겹 더 붙는
+   꼴이었다. 띠는 자리만 잡고 카드 바탕 위에 그대로 앉는다.
 
    `--commgrd-bar-height` 를 쓰지 않는다. 그것은 아래 띠와 페이저 줄을
    한 줄로 맞추려고 둔 값이고(3rem), 머리줄은 아이콘 단추가 없어 그만큼
@@ -2702,7 +2705,8 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   min-width: 0;
   min-height: 2.5rem;
   padding: 0.35rem 0.75rem;
-  border-bottom: 1px solid var(--jsini-border);
+  background: transparent;
+  border: 0;
 }
 
 /* 제목이 선 머리줄은 **왼쪽 여백을 갖지 않는다** — 제목 앞의 막대가

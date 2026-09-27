@@ -107,7 +107,7 @@
         <StatsTiles Stats="@d.Stats" />
 
         <CommCont Title="기간별 변화" Hint="운송일 기준 · 기간마다 따로 센 값">
-            <CommGrd TItem="CompanyStats" Data="@d.Periods" ShowFooter="false" ShowRowNumber="false"
+            <CommGrd TItem="CompanyStats" Data="@d.Periods" ShowFooter="false"
                      ExportName="기간별변화">
                 <Columns>
                     <DxGridDataColumn FieldName="@nameof(CompanyStats.PeriodLabel)" Caption="기간" Width="110" />

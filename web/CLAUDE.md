@@ -2351,6 +2351,12 @@ BlazorMonaco 는 스크립트 세 장이 전역에 있기를 기대한다. 없�
   위에 있으면 **그 선을 긋지 않는다** — 가로선 셋이 80px 안에 겹친다.
   수만 진하게(`commgrd__total b`), 「총」·「건」은 옅게 둔다.
 
+  **순번 칸은 기본으로 안 붙는다**(2026-09-27). 그 번호는 자료가 아니라
+  자리라서 정렬을 바꾸면 같은 줄이 다른 번호를 달고, 걸러 보면 건너뛴다 —
+  가리킬 수도 적어 둘 수도 없는 값이 칸 하나(58px)를 늘 먹고 있었다. 건수는
+  이제 머리줄이 말한다. 번호를 **소리 내어 부르는 표**(「셋째 줄을 보라」)만
+  `ShowRowNumber="true"` 로 켠다.
+
   **`CommCont Hint="@($"{_rows.Count}건")"` 으로 손수 적지 않는다.** 그 수는
   칸별 검색이 걸리면 조용히 틀리고(거르기는 표 안에서 끝나는 일이라 화면이
   든 목록은 그대로다), 이제는 같은 수가 두 줄에 선다. 그렇게 적어 두었던
@@ -2443,7 +2449,7 @@ SelectedItemChanged="@OnGroupChangedAsync"
 
 | | 표(`CommGrd`) | 나무(`CommTree`) |
 |---|---|---|
-| 순번 칸 | 기본으로 붙는다(`ShowRowNumber`) | **없다** |
+| 순번 칸 | **기본으로 안 붙는다** — 쓰려면 `ShowRowNumber="true"` | **없다**(붙일 자리가 없다) |
 | 쪽나누기 | 안 쓴다 — 페이저를 감추고 가상 스크롤(`PagerVisible="true"` 로 켠다) | **안 쓴다**(`ShowAllRows`) |
 | 새 줄 | `OnNew(item)` | `OnNew(item, parent)` |
 | 저장 | `OnSave((item, isNew))` | `OnSave((item, isNew, parent))` |

@@ -292,7 +292,7 @@
         else
         {
             <CommGrd TItem="AiProviderItem" Data="@_providers.Providers" PageSize="10"
-                     ShowRowNumber="false" ExportName="AI공급자한도"
+ ExportName="AI공급자한도"
                      EmptyText="설정된 공급자가 없습니다.">
                 <Columns>
                     <DxGridDataColumn Caption="공급자" MinWidth="140">
@@ -496,7 +496,7 @@
    숫자만 있는 대시보드는 「그래서 무슨 일이 있었나」에 답하지 못한다. *@
 <CommCont Title="최근 실행" Hint="줄을 누르면 그 작업으로 갑니다." CssClass="pm-aidash__panel">
     <CommGrd TItem="AiDashboardRecent" Data="@Data.Recent" PageSize="10"
-             ShowRowNumber="false" ExportName="AI최근실행"
+ ExportName="AI최근실행"
              EmptyText="이 기간에 실행된 것이 없습니다."
              Reload="@SearchAsync">
         <Columns>
