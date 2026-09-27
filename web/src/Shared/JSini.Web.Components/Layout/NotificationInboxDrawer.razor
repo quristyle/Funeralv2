@@ -1,13 +1,61 @@
+@*
+    알림함 서랍. **오른쪽에서 밀려 들어온다** — 테마 서랍(`ThemeToggle`)과
+    같은 자리·같은 움직임이다.
+
+    한동안 이것은 가운데 뜨는 창(`CommPopup`)이었다. 두 가지가 걸렸다.
+
+    [「모두 읽음 처리」가 목록 끝에 딸려 있었다]
+
+    단추가 카드 목록 **아래**에 있어서, 안 읽은 알림이 여남은 건만 쌓여도
+    창을 끝까지 굴려야 보였다. 정작 그 단추를 찾는 때가 바로 **알림이 많이
+    쌓였을 때**라 늘 어긋났다. 서랍은 머리·몸통·발을 가르고 발(footer)을
+    붙박이로 두므로 몇 건이 쌓이든 단추는 늘 같은 자리에 있다.
+
+    [휴대폰에서 뜨는 창은 어중간했다]
+
+    `min(40rem, 100vw - 2rem)` 은 360px 화면에서 사실상 화면을 다 덮으면서도
+    가장자리에 여백만 남겨, 창인지 화면인지 알 수 없는 모양이 됐다. 좁은
+    화면에서는 **아예 화면을 다 채운다**(아래 CSS 의 `max-width: 767px`).
+    그때는 헤더까지 덮으므로 머리의 닫기 단추가 유일한 출구다 — 그래서
+    닫기 단추는 화면 크기와 무관하게 늘 있다.
+
+    [닫혀 있어도 마크업에 있다]
+
+    `display: none` 이 아니라 화면 밖으로 밀어 둔다. 그래야 여닫는 것이
+    미끄러져 보인다. 대신 접힌 동안에는 `visibility: hidden` 이라 탭 이동이
+    안 보이는 단추로 들어가지 않는다.
+
+    [여는 종은 헤더에 있고 이 판은 격자 바깥에 있다]
+
+    뜨는 창이던 때는 이것이 종 바로 옆(`HeaderTools`)에 있었다. 서랍이 되면서
+    거기 둘 수 없게 됐다 — `.jsini-header` 가 `z-index: 1030` 으로 제 쌓임
+    맥락을 만들어서, 그 안의 판은 `z-index` 를 아무리 올려도 맥락 **바깥**의
+    형제를 넘지 못한다. 휴대폰에서 화면을 다 채웠는데 **그 위로 아래 띠와
+    떠다니는 메뉴 단추가 그대로 떠 있었다.**
+
+    그래서 판은 `MainLayout` 맨 끝(잠금 덮개 옆)으로 나왔고, 종과는
+    `NotificationDrawer` 로 잇는다. 오가는 것이 두 방향인 까닭도 그쪽 머리말에.
+*@
+
 @using JSini.Web.Models
 
-<CommPopup Visible="@Visible"
-           VisibleChanged="@OnVisibleChangedAsync"
-           HeaderText="알림"
-           Width="min(40rem, calc(100vw - 2rem))"
-           ShowFooter="false"
-           CssClass="jsini-note-popup">
-    
-    <BodyContentTemplate>
+@implements IDisposable
+
+<div class="jsini-note-scrim @(_open ? "jsini-note-scrim--on" : "")"
+     @onclick="@(() => Drawer.Close())"></div>
+
+<aside class="jsini-note-drawer @(_open ? "jsini-note-drawer--on" : "")"
+       aria-hidden="@(_open ? "false" : "true")">
+
+    <header class="jsini-note-drawer__head">
+        <span class="jsini-note-drawer__title">알림</span>
+        <DxButton RenderStyle="ButtonRenderStyle.Link"
+                  IconCssClass="jsini-icon-close"
+                  Title="닫기"
+                  Click="@(() => Drawer.Close())" />
+    </header>
+
+    <div class="jsini-note-drawer__body">
         @* **빈 목록과 못 읽어 온 것을 가른다.** 둘을 같은 말로 덮으면 알림이
            분명히 와 있는 사람이 「없다」는 안내를 보게 된다. *@
         @if (_error is { Length: > 0 })
@@ -30,24 +78,63 @@
         }
         else
         {
-            <div class="d-flex flex-column gap-2 mb-3">
+            <div class="d-flex flex-column gap-2">
                 @foreach (var note in _notifications)
                 {
-                    <div class="card shadow-sm" @onclick="@(() => OpenAsync(note))" style="cursor: pointer;">
-                        <div class="card-body">
-                            <h6 class="card-title text-primary mb-1">@note.Title</h6>
-                            <p class="card-text mb-2" style="font-size: 0.9rem;">@note.Body</p>
-                            <div class="text-end text-muted" style="font-size: 0.75rem;">
-                                @(note.CreatedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm"))
+                    <div class="card shadow-sm jsini-note-drawer__card" @onclick="@(() => OpenAsync(note))">
+                        <div class="card-body jsini-note-drawer__row">
+
+                            @* **앱 알림에 떴던 바로 그 그림이다.** 대개 그 일을
+                               시킨 사람의 얼굴이다 — 목록에서 제목보다 먼저
+                               답하는 물음이 「누가 보낸 것인가」라서, 휴대폰의
+                               알림창과 같은 것을 여기서도 보게 한다.
+
+                               `loading="lazy"` 인 이유: 안 읽은 알림이 백 건을
+                               넘는 사람이 있고, 서랍을 펴는 순간 그만큼의 그림
+                               요청이 한꺼번에 나간다. 눈에 들어온 것만 받는다. *@
+                            <img class="jsini-note-drawer__face"
+                                 src="@IconOf(note)" alt="" loading="lazy"
+                                 onerror="this.src='/pwa-icon-192.png'" />
+
+                            <div class="jsini-note-drawer__text">
+                                <h6 class="card-title text-primary mb-1">@note.Title</h6>
+                                <p class="card-text mb-2" style="font-size: 0.9rem;">@note.Body</p>
+                                <div class="text-end text-muted" style="font-size: 0.75rem;">
+                                    @(note.CreatedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm"))
+                                </div>
                             </div>
+
+                            @* 이 한 건만 읽음으로 찍는다. **카드를 누르는 것과
+                               다르다** — 그쪽은 읽음으로 찍고 그 화면으로 데려
+                               간다. 볼 것 없이 치우기만 하려는 알림이 그보다
+                               훨씬 잦아서, 「읽었다」와 「보러 간다」를 가른다.
+
+                               `stopPropagation` 이 없으면 카드의 클릭이 함께
+                               울려서 **치우려던 것이 그 화면을 연다.** *@
+                            <span class="jsini-note-drawer__mark"
+                                  @onclick="@(() => MarkOneReadAsync(note))"
+                                  @onclick:stopPropagation="true">
+                                <DxButton RenderStyle="ButtonRenderStyle.Link"
+                                          IconCssClass="jsini-icon-check-circle"
+                                          Title="읽음으로 표시" />
+                            </span>
+
                         </div>
                     </div>
                 }
             </div>
-            <div class="d-flex justify-content-end border-top pt-3">
-                <DxButton Text="모두 읽음 처리" RenderStyle="ButtonRenderStyle.Secondary" Click="@MarkAllReadAsync" />
-            </div>
         }
-    </BodyContentTemplate>
+    </div>
 
-</CommPopup>
+    @* **읽을 것이 없어도 발은 그린다.** 목록이 비었을 때만 걷으면 마지막
+       한 건을 누르는 순간 발이 사라져 몸통이 튀어 오른다. 대신 누를 것이
+       없으면 단추를 죽여 둔다. *@
+    <footer class="jsini-note-drawer__foot">
+        <DxButton Text="모두 읽음 처리"
+                  RenderStyle="ButtonRenderStyle.Secondary"
+                  CssClass="jsini-note-drawer__readall"
+                  Enabled="@(_notifications.Count > 0)"
+                  Click="@MarkAllReadAsync" />
+    </footer>
+
+</aside>

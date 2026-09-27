@@ -962,6 +962,7 @@ public static class NotificationEndpoints
                         l.IsSuccess,
                         l.FailureReason,
                         l.Category,
+                        l.Icon,
                     })
                     .ToListAsync(ct))
                 .GroupBy(l => l.Key)
@@ -985,6 +986,12 @@ public static class NotificationEndpoints
                         IsRead = g.Any(x => x.ReadAt != null),
 
                         Delivered = delivered,
+
+                        // **비어 있지 않은 것을 고른다.** 기기 줄마다 같은 값이
+                        // 들어가지만, 칸이 생기기 전에 보낸 줄이 묶음에 섞여
+                        // 있으면 `First()` 가 빈 줄을 집을 수 있다.
+                        Icon = g.Select(x => x.Icon).FirstOrDefault(i => !string.IsNullOrWhiteSpace(i)),
+
                         FailureReason = delivered
                             ? null
                             : g.Select(x => x.FailureReason).FirstOrDefault(r => r != null),

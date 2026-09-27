@@ -5528,6 +5528,189 @@ a.jsini-social__btn:focus-visible {
   line-height: 1.5;
 }
 
+/* ── 알림함 서랍 ────────────────────────────────────────────
+   헤더의 종을 누르면 오른쪽에서 밀려 들어온다. 테마 서랍과 같은 자리·같은
+   움직임이라 값도 그쪽에 맞췄다(덮개 28%, 0.22s, 왼쪽 그림자).
+
+   [머리 · 몸통 · 발로 가른다]
+
+   가운데 뜨는 창이던 때는 「모두 읽음 처리」가 카드 목록 **뒤에** 딸려 있어서
+   알림이 쌓일수록 멀어졌다 — 정작 그 단추가 필요한 때가 그때인데. 굴리는
+   것을 몸통에만 주고 발을 붙박이로 두면 몇 건이 쌓이든 단추는 제자리다.
+
+   [휴대폰에서는 화면을 다 채운다]
+
+   360px 에서 옆으로 밀려 들어오는 판은 이미 화면 전체다. 가장자리 여백만
+   남겨 두면 창도 화면도 아닌 것이 되므로 아래에서 `inset: 0` 으로 편다.
+   그때는 **헤더까지 덮으므로** 머리의 닫기 단추가 유일한 출구다.
+
+   [닫혀 있을 때도 화면에 있다]
+
+   `display: none` 이 아니라 화면 밖으로 밀어 둔다 — 그래야 미끄러져 보인다.
+   `position: fixed` 라 자리를 차지하지도, 가로 스크롤을 만들지도 않는다.
+   ---------------------------------------------------------- */
+
+/* 덮개. 헤더 아래부터 깐다 — 헤더까지 덮으면 방금 누른 종으로 다시 닫을 수
+   없다. 테마 서랍과 같은 까닭이고 같은 자리다. */
+.jsini-note-scrim {
+  position: fixed;
+  inset: var(--jsini-header-height) 0 0 0;
+  background: rgb(0 0 0 / 28%);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease-in-out, visibility 0.2s;
+  z-index: 1042;
+}
+
+.jsini-note-scrim--on {
+  opacity: 1;
+  visibility: visible;
+}
+
+.jsini-note-drawer {
+  position: fixed;
+  top: var(--jsini-header-height);
+  right: 0;
+  bottom: 0;
+  width: min(24rem, 100vw);
+  display: flex;
+  flex-direction: column;
+  background: var(--jsini-bg);
+  color: var(--jsini-text);
+  border-left: 1px solid var(--jsini-border);
+  box-shadow: -10px 0 28px rgb(0 0 0 / 14%);
+  transform: translateX(100%);
+  transition: transform 0.22s ease-in-out;
+  z-index: 1043;
+}
+
+.jsini-note-drawer--on { transform: none; }
+
+/* 접힌 서랍 안으로 탭 이동이 들어가면 안 된다 — 보이지도 않는 카드에
+   초점이 가서 화면이 엉뚱한 곳으로 굴러간다. */
+.jsini-note-drawer:not(.jsini-note-drawer--on) {
+  visibility: hidden;
+  transition: transform 0.22s ease-in-out, visibility 0.22s;
+}
+
+.jsini-note-drawer__head {
+  display: flex;
+  align-items: center;
+  height: 3rem;
+  min-height: 3rem;
+  padding: 0 0.5rem 0 1rem;
+  background: var(--jsini-surface);
+  border-bottom: 1px solid var(--jsini-border);
+}
+
+.jsini-note-drawer__title {
+  flex: 1;
+  font-weight: 600;
+}
+
+/* **여기만 구른다.** `min-height: 0` 이 없으면 세로 flex 의 자식이 알맹이
+   높이만큼 벌어져서, 카드가 늘어날 때 발(모두 읽음 처리)을 화면 밖으로
+   밀어낸다 — 붙박이로 두려던 것이 도로 목록 뒤로 간다. */
+.jsini-note-drawer__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0.75rem;
+}
+
+.jsini-note-drawer__card { cursor: pointer; }
+
+/* 한 줄의 짜임 — [얼굴] [글] [✓]. 가운데 글만 늘어난다. */
+.jsini-note-drawer__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+
+/* 앱 알림에 떴던 그림. **동그랗게 자른다** — 대개 사람 얼굴이라 휴대폰
+   알림창의 모양과 같아야 「같은 그것」으로 읽힌다.
+
+   `object-fit: cover` 가 없으면 세로로 긴 사진이 눌려 납작해진다.
+   바탕을 깔아 두는 것은 **받아 오기 전의 빈 네모** 때문이다 — 없으면
+   카드 위에 구멍이 뚫린 것처럼 보인다. */
+.jsini-note-drawer__face {
+  flex: 0 0 auto;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--jsini-surface);
+  border: 1px solid var(--jsini-border);
+}
+
+/* **`min-width: 0` 이 있어야 긴 글이 접힌다.** flex 자식의 기본 최소 너비가
+   「내용 크기」라, 이것이 없으면 띄어쓰기 없는 긴 제목 하나가 줄을 통째로
+   밀어내 ✓ 단추를 카드 밖으로 내보낸다. */
+.jsini-note-drawer__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.jsini-note-drawer__text .card-title,
+.jsini-note-drawer__text .card-text {
+  overflow-wrap: anywhere;
+}
+
+/* 읽음 단추. 평소에는 눈에 안 띄게 두고 카드에 손이 오면 또렷해진다 —
+   목록에서 먼저 읽혀야 하는 것은 알림 내용이지 이 단추가 아니다.
+
+   **손가락에는 늘 보인다**(아래 `hover: none`). 휴대폰에는 「마우스를
+   올린 상태」가 없어서, 흐릿하게 둔 채로 두면 있는 줄도 모르고 지나간다. */
+.jsini-note-drawer__mark {
+  flex: 0 0 auto;
+  display: inline-flex;
+  opacity: 0.45;
+  transition: opacity 0.15s ease-in-out;
+}
+
+.jsini-note-drawer__card:hover .jsini-note-drawer__mark,
+.jsini-note-drawer__mark:hover {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .jsini-note-drawer__mark { opacity: 0.8; }
+}
+
+/* 발. 휴대폰에서 화면을 다 채울 때 아래 턱(홈 바)에 단추가 물리지 않게
+   `safe-area` 만큼 더 띄운다 — 넓은 화면에서는 그 값이 0 이다. */
+.jsini-note-drawer__foot {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: flex-end;
+  padding: 0.75rem;
+  padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+  background: var(--jsini-surface);
+  border-top: 1px solid var(--jsini-border);
+}
+
+/* 좁은 화면에서는 단추가 발을 꽉 채운다 — 한 줄에 그것 하나뿐이라
+   오른쪽 끝에 작게 붙어 있으면 누를 데를 찾게 된다. */
+@media (max-width: 767px) {
+  .jsini-note-scrim {
+    inset: 0;
+  }
+
+  .jsini-note-drawer {
+    top: 0;
+    width: 100vw;
+    border-left: none;
+  }
+
+  .jsini-note-drawer__readall {
+    width: 100%;
+  }
+
+  .jsini-note-drawer__foot {
+    justify-content: stretch;
+  }
+}
+
 /* ── 빠른 지시 서랍 ──────────────────────────────────────────
    AI 대화 서랍과 같은 자리·같은 움직임이다. 다른 것이 둘이다.
 

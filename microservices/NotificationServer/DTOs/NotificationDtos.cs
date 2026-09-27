@@ -623,4 +623,15 @@ public class NotificationRowDto
 
     /// <summary>한 대도 못 갔을 때의 까닭. 갔으면 <c>null</c>.</summary>
     public string? FailureReason { get; set; }
+
+    /// <summary>
+    /// 앱 알림이 띄웠던 아이콘 주소 — 대개 시킨 사람의 프로필 사진이다.
+    /// 지목한 사람이 없는 알림(배포 알림 등)은 <c>null</c>.
+    /// </summary>
+    /// <remarks>
+    /// 왜 이것을 기록에 남겨야 했는지는 <see cref="Entities.PushSendLog.Icon"/>
+    /// 머리말에 있다. <b>칸을 만들기 전에 보낸 줄은 비어 있다</b> — 화면은
+    /// 그때 갈래 그림으로 떨어진다.
+    /// </remarks>
+    public string? Icon { get; set; }
 }

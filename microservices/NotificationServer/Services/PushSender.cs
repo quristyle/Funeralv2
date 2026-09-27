@@ -172,6 +172,19 @@ public class PushSender : IPushSender
         // 「내 알림함」이 그것으로 묶어 한 줄로 보여 주고, 읽음도 그 단위다.
         var batchId = Guid.NewGuid().ToString();
 
+        // **얼굴을 맨 앞에서 채운다.** 부르는 쪽은 사람의 아이디까지만 알고
+        // 사진이 어디 있는지는 모른다 (IAvatarIconResolver 머리말).
+        //
+        // 한동안 이것이 **발송 직전**에 있었다. 한 번만 풀려고 그랬는데(아래
+        // 반복은 기기마다 도는 자리다) 그 자리는 아래 되돌아가는 갈래 넷보다
+        // 뒤였다 — 대상이 없다 · 다들 껐다 · 구독이 없다 · VAPID 가 없다.
+        // 그래서 **못 보낸 줄에는 얼굴이 안 실렸고**, 하필 그 사람들이
+        // 알림함을 가장 많이 보는 사람들이다(푸시를 못 받으니까).
+        //
+        // 여기서도 한 번뿐이다. 되돌아가는 갈래에서 조회 하나가 더 붙지만
+        // 드문 길이고, 그 대가로 알림함의 얼굴이 성공·실패를 가리지 않는다.
+        await FillIconAsync(request.Message, ct);
+
         if (!_vapid.IsConfigured)
         {
             // **이것도 기록에 남긴다.** 화면에서는 「보냈는데 아무 일도 없었다」로
@@ -269,13 +282,6 @@ public class PushSender : IPushSender
             .Where(o => !withSubs.Contains((o.OwnerType, o.OwnerKey)))
             .Select(o => (o.OwnerType, o.OwnerKey))
             .ToList(), ReasonNoSubscription, ct);
-
-        // **얼굴을 여기서 채운다.** 부르는 쪽은 사람의 아이디까지만 알고
-        // 사진이 어디 있는지는 모른다 (IAvatarIconResolver 머리말).
-        //
-        // 발송 직전 한 번뿐이다 — 아래 반복은 기기마다 도는 자리라 그 안에서
-        // 풀면 같은 사람의 사진을 기기 수만큼 조회하게 된다.
-        await FillIconAsync(request.Message, ct);
 
         // **언제까지 배달할 것인가.** 이 두 값이 「오래 안 켜다 켜면 한꺼번에 쏟아진다」
         // 를 막는 손잡이다 — 자세한 사정은 PushDeliveryOptions 머리말에 있다.
@@ -414,7 +420,52 @@ public class PushSender : IPushSender
             IsSuccess = success,
             FailureReason = reason,
             SentBy = sentBy,
+
+            // **띄운 얼굴도 함께 보관한다.** 이 값이 없으면 알림함은 그 얼굴을
+            // 되짚을 길이 없다 — 부르는 쪽이 준 것은 아이디뿐이고 그것도 어디에
+            // 안 남는다(`PushSendLog.Icon` 머리말).
+            Icon = IconForLog(request.Message?.Icon),
         };
+
+    /// <summary>
+    /// 기록에 남길 아이콘 주소. <b>한 시간짜리 열쇠(<c>?t=</c>)는 떼어 낸다.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 그 열쇠는 <b>로그인해 있지 않은 기기</b>가 사진 한 장을 열 수 있게 실어
+    /// 보내는 것이라 60분이면 시효가 끝난다(<c>AvatarIconTokenFactory</c>).
+    /// 알림창은 그 안에 뜨고 마니 상관이 없지만, <b>기록은 몇 달을 남는다.</b>
+    /// </para>
+    /// <para>
+    /// 떼지 않으면 <b>알림함의 얼굴이 한 시간 뒤에 조용히 그림자로 바뀐다.</b>
+    /// 셸의 중계가 열쇠를 <c>Bearer</c> 로 그대로 올려 보내는데(<c>FileDownload</c>
+    /// 의 <c>HandleAvatarAsync</c>), 그러면 <b>지금 사람의 신원 대신 그 열쇠가
+    /// 쓰인다</b> — 시효가 지난 열쇠는 401 이고, 중계는 그림자로 물러선다.
+    /// 로그인해서 보고 있어도 그렇다. 실제로 확인했다.
+    /// </para>
+    /// <para>
+    /// 떼고 나면 그 주소는 <b>지금 보는 사람의 신원</b>으로 열린다. 알림함을
+    /// 보는 사람은 언제나 로그인해 있으므로 그것으로 충분하다.
+    /// </para>
+    /// <para>
+    /// <b>우리가 만든 얼굴 주소일 때만 손댄다.</b> 부르는 쪽이 <c>Icon</c> 에
+    /// 직접 적어 넣은 주소에는 뜻이 있는 질의가 달려 있을 수 있다.
+    /// </para>
+    /// </remarks>
+    internal static string? IconForLog(string? icon)
+    {
+        if (string.IsNullOrWhiteSpace(icon)) return icon;
+
+        var query = icon.IndexOf('?');
+        if (query < 0) return icon;
+
+        return icon.AsSpan(0, query).StartsWith(AvatarPathPrefix, StringComparison.OrdinalIgnoreCase)
+            ? icon[..query]
+            : icon;
+    }
+
+    /// <summary>얼굴 주소의 앞머리. <c>AvatarIconResolver</c> 가 만드는 모양이다.</summary>
+    private const string AvatarPathPrefix = "/files/avatar/";
 
     /// <summary>
     /// 보내지 <b>못한</b> 사람들을 기록하고 바로 저장한다.

@@ -409,6 +409,10 @@ public static class JSiniWebApp
         services.AddScoped<ThemeDrawer>();
         services.AddScoped<UserMenuDrawer>();
 
+        // 알림함 서랍. 여는 종은 헤더에 있고 판은 격자 바깥에 있어서 — 헤더가
+        // 제 쌓임 맥락을 만드는 탓이다(NotificationDrawer 머리말) — 둘을 잇는다.
+        services.AddScoped<NotificationDrawer>();
+
         // 「빠른 지시」 서랍을 헤더 단추에서 여닫는 손잡이. 같은 이유로 scoped 다.
         // 그 안에 그릴 알맹이는 업무 모듈이 따로 등록한다(QuickAskContent).
         services.AddScoped<QuickAskReveal>();

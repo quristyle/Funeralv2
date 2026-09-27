@@ -18,6 +18,7 @@ public partial class HeaderTools
     [Inject] private QuickAskReveal Ask { get; set; } = default!;
     [Inject] private NoteClient Notes { get; set; } = default!;
     [Inject] private NotificationClient Notifications { get; set; } = default!;
+    [Inject] private NotificationDrawer NotificationDrawerHandle { get; set; } = default!;
     [Inject] private ThemeSize Size { get; set; } = default!;
 
     /// <summary>
@@ -49,9 +50,6 @@ public partial class HeaderTools
 
     /// <summary>쪽지 쓰기 창이 열려 있나.</summary>
     private bool _writing;
-
-    /// <summary>알림 목록 창이 열려 있나.</summary>
-    private bool _readingNotifications;
 
     /// <summary>안 읽은 쪽지 수. 0 이면 숫자를 안 붙인다.</summary>
     private int _unread;
@@ -163,6 +161,12 @@ public partial class HeaderTools
         // 뒤의 둘은 여기를 거치지 않아서, 안 듣고 있으면 ⚡ 에 얹히는 글만
         // 옛 상태에 남는다.
         Ask.Changed += OnFavoritesChanged;
+
+        // 알림함 서랍에서 읽음을 찍으면 **종의 빨간 숫자를 다시 세야 한다.**
+        // 판이 헤더 바깥으로 나가면서 콜백으로 직접 받던 길이 끊겼다
+        // (`NotificationDrawer` 머리말). 안 듣고 있으면 모두 읽음을 눌러도
+        // 숫자가 그대로 남아, 읽었는데 안 읽은 것처럼 보인다.
+        NotificationDrawerHandle.Read += CountUnreadAsync;
     }
 
     private void OnFavoritesChanged() => InvokeAsync(StateHasChanged);
@@ -222,8 +226,6 @@ public partial class HeaderTools
     /// <summary>보내고 난 뒤. 내가 나에게 보낼 수도 있으므로 다시 센다.</summary>
     private Task OnNoteSentAsync(NoteSendResultDto result) => CountUnreadAsync();
 
-    private Task OnNotificationReadAsync() => CountUnreadAsync();
-
     private async Task ToggleFavoriteAsync()
     {
         if (MenuPath is { Length: > 0 } path)
@@ -249,6 +251,7 @@ public partial class HeaderTools
         Favorites.Changed -= OnFavoritesChanged;
         Menus.MenusChanged -= OnFavoritesChanged;
         Ask.Changed -= OnFavoritesChanged;
+        NotificationDrawerHandle.Read -= CountUnreadAsync;
         Navigation.LocationChanged -= OnLocationChanged;
     }
 }
