@@ -7,6 +7,22 @@ namespace CargoTrustServer.Common;
 /// <summary>결제 상태</summary>
 public enum PaymentStatus { SCHEDULED, PAID, DELAYED, PARTIAL, UNPAID, DISPUTE }
 
+/// <summary>
+/// 「아직 다 받지 못한 것」의 정의. <b>한 곳에만 둔다.</b>
+///
+/// <para>
+/// 미수금(<c>/receivables</c>)과 결제 등록 화면이 같은 묶음을 봐야 한다 —
+/// 한쪽에 있고 다른 쪽에 없으면 사용자는 「받을 돈이 사라졌다」로 읽는다.
+/// 예전에는 이 목록이 서버의 미수금 쪽과 화면 쪽에 따로 적혀 있었다.
+/// </para>
+/// </summary>
+public static class Receivable
+{
+    /// <summary>미수금에 드는 상태 — 다 받은 것(PAID · DELAYED)을 뺀 나머지.</summary>
+    public static readonly PaymentStatus[] Statuses =
+        [PaymentStatus.SCHEDULED, PaymentStatus.PARTIAL, PaymentStatus.UNPAID, PaymentStatus.DISPUTE];
+}
+
 /// <summary>거래 검증 상태</summary>
 public enum ReviewStatus { NORMAL, FLAGGED, VERIFIED, HIDDEN }
 

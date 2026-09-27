@@ -207,7 +207,7 @@
 | GET | `/companies/{id}?period=90` | → `CompanyDetail` | `period`: 30·90·180·365·`all`. 부를 때 `company_view` 갱신 |
 | GET | `/companies/{id}/reviews` | → `[PublicReview]` | `VISIBLE` 만, 최신순 |
 | POST | `/companies` | `CompanyCreateRequest` → `CompanyInfo` | 번호 검증, 이미 있으면 **409** + 메시지 「이미 등록된 사업자번호입니다」 |
-| GET | `/transactions?status=&from=&to=&companyId=&open=` | → `[MyTransaction]` | **내 것만**. `open=true` 는 아직 다 못 받은 것(`SCHEDULED·PARTIAL·UNPAID·DISPUTE`) — 상태 넷이라 `status` 하나로는 못 고른다 |
+| GET | `/transactions?status=&from=&to=&companyId=&open=` | → `[MyTransaction]` | **내 것만**. `open=true` 는 아직 다 못 받은 것(`SCHEDULED·PARTIAL·UNPAID·DISPUTE`) — 상태 넷이라 `status` 하나로는 못 고른다. 서버가 목록 상한(500건) 전에 걸러 오래된 미수금이 밀려나지 않게 하며, `/receivables` 와 같은 `Receivable.Statuses` 를 쓴다 |
 | GET | `/transactions/{id}` | → `TransactionDetail` | 등록자 또는 관리자 |
 | POST | `/transactions` | `TransactionSaveRequest` → `MyTransaction` | 아래 「거래 등록 검사」 |
 | PUT | `/transactions/{id}` | `TransactionSaveRequest` → `MyTransaction` | 등록자만. 바뀌기 전·후를 `audit_log` |

@@ -9,14 +9,6 @@ namespace CargoTrustServer.Payments;
 /// <summary>결제 등록 · 미수금</summary>
 public static class PaymentEndpoints
 {
-    /// <summary>
-    /// 미수금에 드는 상태 — 다 받은 것(PAID · DELAYED)을 뺀 나머지.
-    /// 내 거래 목록의 <c>open=true</c> 도 이 목록을 그대로 쓴다(<see cref="Transactions.TransactionEndpoints"/>) —
-    /// 두 곳에 적으면 미수금 화면과 「미처리」 목록에 다른 거래가 뜬다.
-    /// </summary>
-    public static readonly PaymentStatus[] ReceivableStatuses =
-        [PaymentStatus.SCHEDULED, PaymentStatus.PARTIAL, PaymentStatus.UNPAID, PaymentStatus.DISPUTE];
-
     /// <summary>한 번에 처리할 수 있는 거래 수. 실수로 전체를 고른 채 누르는 일을 막는 선이다.</summary>
     private const int BulkLimit = 100;
 
@@ -142,7 +134,7 @@ public static class PaymentEndpoints
     public static async Task<ReceivablesDto> BuildAsync(CargoTrustDbContext db, long userId, CancellationToken ct)
     {
         var rows = await db.Transactions.AsNoTracking().Include(t => t.Company)
-            .Where(t => t.UserId == userId && !t.IsDeleted && ReceivableStatuses.Contains(t.PaymentStatus))
+            .Where(t => t.UserId == userId && !t.IsDeleted && Receivable.Statuses.Contains(t.PaymentStatus))
             .OrderBy(t => t.ExpectedPaymentDate == null)
             .ThenBy(t => t.ExpectedPaymentDate)
             .ThenBy(t => t.TransportDate)
