@@ -44,9 +44,9 @@ public static class CustomerEndpoints {
       if (me.IsAdmin) {
         // 담당자는 전체를 본다. 연결이 없어도 포털 관리자 역할이면 여기에 해당한다.
       }
-      else if (me.IsCustomer && me.CompanyId.HasValue) {
-        // 고객은 자기 회사만 본다.
-        query = query.Where(c => c.CompanyId == me.CompanyId.Value);
+      else if (me.IsCustomer && me.HasCompany) {
+        // 고객은 자기 회사만 본다. 회사는 포털 아이디다.
+        query = query.Where(c => c.CompanyId == me.CompanyId);
       }
       else {
         // 담당자도 아니고 회사를 알 수 있는 고객도 아니다 — 아무것도 주지 않는다.

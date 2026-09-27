@@ -11,7 +11,7 @@ namespace HelpDeskServer.Dtos;
 /// <param name="LoginId">로그인 ID</param>
 /// <param name="UserName">사용자 이름</param>
 /// <param name="Email">이메일 주소</param>
-/// <param name="CompanyId">소속 고객사 ID</param>
+/// <param name="CompanyId">소속 고객사 식별자 — 포털(<c>scom.companies.id</c>)의 값</param>
 /// <param name="Sex">성별</param>
 /// <param name="Photo">사진 URL</param>
 /// <param name="CreatedBy">생성한 사용자</param>
@@ -20,7 +20,7 @@ public record CustomerCreateDto(
     [Required] string LoginId,
     [Required] string UserName,
     [Required] string Email,
-    int CompanyId,
+    string? CompanyId,
     string? Sex,
     string? Photo,
     string? CreatedBy,

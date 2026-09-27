@@ -74,8 +74,12 @@ public class AppDbContext : DbContext {
     _httpContextAccessor = httpContextAccessor;
   }
 
-  /// <summary>고객사 테이블</summary>
-  public DbSet<CustomerCompany> Companies { get; set; }
+  // 고객사 표(`customercompany`)는 없다.
+  //
+  // 회사는 **포털이 단독으로 관리한다**(`scom.companies`). 헬프데스크가 제
+  // 회사 표를 들고 있던 것은 단독 시스템이던 시절의 잔재라, 표와 DbSet 을 함께
+  // 걷어냈다. 업무 자료는 회사를 **포털 아이디(글자)** 로 가리키고,
+  // 이름이 필요하면 `IPortalCompanyDirectory` 로 푼다.
 
   /// <summary>고객 테이블</summary>
   public DbSet<Customer> Customers { get; set; }
@@ -103,11 +107,6 @@ public class AppDbContext : DbContext {
 
   /// <summary>공지사항 테이블</summary>
   public DbSet<Notice> Notices { get; set; }
-
-
-  /// <summary>고객사 테이블 (Companies와 동일)</summary>
-  public DbSet<CustomerCompany> CustomerCompanies => Set<CustomerCompany>();
-
 
 
 
@@ -355,10 +354,8 @@ public class AppDbContext : DbContext {
         .WithMany(t => t.TeamCompanies)
         .HasForeignKey(tc => tc.TeamId);
 
-    modelBuilder.Entity<TeamCompany>()
-        .HasOne(tc => tc.Company)
-        .WithMany()
-        .HasForeignKey(tc => tc.CompanyId);
+    // 회사 쪽 탐색 속성은 없다 — 회사 표가 헬프데스크에 없기 때문이다.
+    // `CompanyId` 는 포털 회사 아이디를 그대로 담는 글자이고 외래키가 아니다.
 
     // 관리자-팀 N:N 관계 키 설정
     modelBuilder.Entity<AdminTeam>()

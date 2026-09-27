@@ -38,13 +38,20 @@ public class Customer : BaseEntity, IPasswordEnabled
     /// </summary>
     public DateTime? LockoutEnd { get; set; }
 
-    /// <summary>소속 회사 ID</summary>
-    public int CompanyId { get; set; }
-
     /// <summary>
-    /// 소속 회사 (Navigation property)
+    /// 소속 회사 식별자 — <b>포털(<c>scom.companies.id</c>)의 값</b>이다.
     /// </summary>
-    public CustomerCompany? Company { get; set; }
+    /// <remarks>
+    /// 헬프데스크는 회사를 스스로 관리하지 않는다. 옛 단독 시스템 시절의
+    /// <c>customercompany</c> 표를 걷어내고, 포털이 정본으로 들고 있는 회사를
+    /// 그대로 가리킨다. 그래서 형이 <c>int</c> 가 아니라 <c>string</c> 이다
+    /// (포털 회사 아이디는 <c>jsini</c> · GUID 같은 글자다).
+    ///
+    /// 회사를 알 수 없는 줄이 있을 수 있어 <c>null</c> 을 허용한다 — 전에는
+    /// NOT NULL 외래키라 회사가 없으면 고객 줄조차 만들 수 없었다.
+    /// 이름은 <see cref="Services.IPortalCompanyDirectory"/> 로 푼다.
+    /// </remarks>
+    public string? CompanyId { get; set; }
 
     /// <summary>
     /// 이 고객이 생성한 개선 요청 목록

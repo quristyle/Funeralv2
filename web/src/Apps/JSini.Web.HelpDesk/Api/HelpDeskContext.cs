@@ -1,7 +1,4 @@
-﻿using System.Text.Json;
-using JSini.Web.Http;
-
-namespace JSini.Web.HelpDesk.Api;
+﻿namespace JSini.Web.HelpDesk.Api;
 
 /// <summary>
 /// 헬프데스크 공용 상태 — Vue 의 <c>store/helpdesk.ts</c> 를 잇는 자리.
@@ -12,7 +9,7 @@ namespace JSini.Web.HelpDesk.Api;
 /// 둘 다 여러 화면이 반복해서 필요로 하는데 자주 바뀌지 않아 한 번 받아 캐싱한다.
 /// Blazor Server 의 scoped 는 회로(사용자) 하나에 대응하므로 수명이 Pinia 스토어와 같다.
 /// </summary>
-public sealed class HelpDeskContext(HelpDeskApi api, BizOptionService bizOptions, GatewayClient gateway)
+public sealed class HelpDeskContext(HelpDeskApi api, BizOptionService bizOptions)
 {
     private Task? _identityLoading;
     private Task? _orgLoading;
@@ -70,16 +67,29 @@ public sealed class HelpDeskContext(HelpDeskApi api, BizOptionService bizOptions
     /// </summary>
     public int? HelpdeskUserId => Identity?.HelpdeskUserId;
 
-    /// <summary>고객으로 연결된 경우의 소속 회사 ID.</summary>
-    public int? CompanyId =>
-        int.TryParse(Identity?.CompanyId, out var id) ? id : null;
+    /// <summary>
+    /// 소속 회사 식별자. 헬프데스크가 아니라 <b>포털</b>(<c>scom.companies.id</c>)의
+    /// 값이라 숫자가 아니라 글자다(<c>jsini</c> · GUID).
+    /// </summary>
+    public string? CompanyId =>
+        string.IsNullOrWhiteSpace(Identity?.CompanyId) ? null : Identity!.CompanyId;
 
     // ── 조직 목록 (셀렉트용) ─────────────────────────────────────
 
     public IReadOnlyList<BizOption> AdminOptions { get; private set; } = [];
+
+    /// <summary>
+    /// 회사 고르개에 쓰는 목록. <b>포털이 준다</b> — 헬프데스크는 회사를 스스로
+    /// 관리하지 않는다. 사용처가 헬프데스크(<c>HELP_DESK</c>)로 배정된 회사만 온다.
+    /// </summary>
     public IReadOnlyList<BizOption> CompanyOptions { get; private set; } = [];
-    public IReadOnlyList<BizOption> RequestManageCompanyOptions { get; private set; } = [];
     public IReadOnlyList<BizOption> CustomerOptions { get; private set; } = [];
+
+    /// <summary>회사 아이디를 이름으로 바꾼다. 모르는 아이디면 아이디를 그대로 준다.</summary>
+    public string CompanyName(string? companyId) =>
+        string.IsNullOrWhiteSpace(companyId)
+            ? "-"
+            : CompanyOptions.FirstOrDefault(o => o.Value == companyId)?.Label ?? companyId;
 
     /// <summary>
     /// 현재 계정이 연결된 헬프데스크 사용자를 조회한다. 연결이 없으면 Identity 는
@@ -118,6 +128,11 @@ public sealed class HelpDeskContext(HelpDeskApi api, BizOptionService bizOptions
     /// 조회 조건 셀렉트에 쓰는 조직 목록을 한 번에 받아 캐싱한다.
     /// 어느 API 를 부르는지는 여기 없다 — DB 메타데이터(scom.biz_select_configs 의
     /// helpdesk_admin · helpdesk_company · helpdesk_customer)가 정한다.
+    ///
+    /// <c>helpdesk_company</c> 는 <b>포털</b>(<c>auth</c> 의
+    /// <c>/system/companies?usageLocation=HELP_DESK</c>)을 가리킨다. 헬프데스크의
+    /// <c>/companys</c> 를 가리키던 것을 옮겼다 — 회사를 관리하는 곳이 포털 하나이기
+    /// 때문이다. 화면 코드는 그대로 두고 메타데이터만 바꾼 것이라 여기 손댈 것이 없다.
     /// </summary>
     public Task LoadOrganizationsAsync(bool forceRefresh = false)
     {
@@ -138,15 +153,6 @@ public sealed class HelpDeskContext(HelpDeskApi api, BizOptionService bizOptions
 
         AdminOptions = admins.Result.Options;
         CompanyOptions = companies.Result.Options;
-        RequestManageCompanyOptions = [];
-        if (IsSystemAdmin)
-        {
-            var portalCompanies = await gateway.GetListAsync<JsonElement>(
-                "auth/system/companies?usageLocation=HELPDESK");
-            RequestManageCompanyOptions = HelpdeskCompanyOptionMapper.ForPortalCompanies(
-                companies.Result.Options, portalCompanies);
-        }
-
         CustomerOptions = customers.Result.Options;
     }
 }

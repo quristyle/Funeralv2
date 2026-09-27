@@ -45,7 +45,7 @@ public static class RegisterEndpoints {
     // 들어 있었다(제거함). 그 문자열만 알면 어떤 계정으로든 헬프데스크 토큰을 받을 수 있었다.
     // 게이트웨이가 이제 익명 접근을 막지만, 포털 토큰을 가진 사용자라면 이 경로로
     // 헬프데스크 관리자 토큰을 만들 수 있었다.
-    group.MapPost("/login", (AppDbContext db, IConfiguration config, LoginRequest req) => {
+    group.MapPost("/login", (AppDbContext db, IConfiguration config, IPortalCompanyDirectory companies, LoginRequest req) => {
       // ApiResponseBuilder는 성공/실패만 다루므로, 인증 실패는 별도 처리합니다.
       return ApiResponseBuilder.CreateAsync(async () => {
 
@@ -71,7 +71,7 @@ public static class RegisterEndpoints {
 
         // 1. 사용자 또는 관리자 계정 찾기
         // Use IgnoreQueryFilters to check IsDeleted status specifically
-        var customer = await db.Customers.IgnoreQueryFilters().Include(u => u.Company).FirstOrDefaultAsync(u => u.LoginId == req.LoginId);
+        var customer = await db.Customers.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.LoginId == req.LoginId);
         // Ignore global filter for login to check IsDeleted status if needed, 
         // but since we want to handle IsDeleted specifically, we query it.
         var admin = await db.Admins.IgnoreQueryFilters().Include(a => a.AdminTeams).ThenInclude(at => at.Team).FirstOrDefaultAsync(a => a.LoginId == req.LoginId);
@@ -139,9 +139,10 @@ public static class RegisterEndpoints {
           Photo = customer.Photo;
           email = customer.Email;
           user_uid = customer.Id.ToString();
-          affiliation = customer.Company?.Name ?? "";
+          // 회사 이름은 포털에서 푼다 — 헬프데스크에는 회사 표가 없다.
+          affiliation = await companies.GetNameAsync(customer.CompanyId) ?? "";
 
-          company_id = customer.Company?.Id.ToString() ?? ""; // 소속 회사 ID
+          company_id = customer.CompanyId ?? ""; // 소속 회사 ID(포털 scom.companies.id)
           team_id = ""; // 소속 팀 ID
 
           isAdmin = false;
@@ -226,7 +227,7 @@ public static class RegisterEndpoints {
     });
 
 
-    group.MapGet("/info", (AppDbContext db, HttpContext http) => ApiResponseBuilder.CreateAsync<object?>(async () => {
+    group.MapGet("/info", (AppDbContext db, HttpContext http, IPortalCompanyDirectory companies) => ApiResponseBuilder.CreateAsync<object?>(async () => {
       var loginType = http.User.Claims.FirstOrDefault(c => c.Type == "login_type")?.Value;
       var token_uid = http.User.Claims.FirstOrDefault(c => c.Type == "uid")?.Value;
 
@@ -305,7 +306,7 @@ public static class RegisterEndpoints {
         };
       }
       else {
-        var cus = await db.Customers.Include(u => u.Company).FirstOrDefaultAsync(u => u.Id == uid);
+        var cus = await db.Customers.FirstOrDefaultAsync(u => u.Id == uid);
         if (cus == null) return null;
 
         string? thumb = null;
@@ -336,7 +337,7 @@ public static class RegisterEndpoints {
           helpdeskUserName = cus.UserName,
           helpdeskEmail = cus.Email,
           cus.CompanyId,
-          companyName = cus.Company?.Name,
+          companyName = await companies.GetNameAsync(cus.CompanyId),
           loginType,
           linked = true,
           isAdmin = me.IsAdmin,

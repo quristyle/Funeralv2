@@ -41,8 +41,8 @@ public interface IPushSubscriptionStore {
   /// <summary>
   /// 특정 고객사에 속한 모든 사용자의 구독 정보를 조회합니다.
   /// </summary>
-  /// <param name="companyId">고객사 ID</param>
-  Task<IReadOnlyCollection<Models.PushSubscription>> GetSubscriptionsByCompanyAsync(int companyId);
+  /// <param name="companyId">고객사 식별자 — 포털(<c>scom.companies.id</c>)의 값</param>
+  Task<IReadOnlyCollection<Models.PushSubscription>> GetSubscriptionsByCompanyAsync(string companyId);
   /// <summary>
   /// 특정 팀에 속한 모든 관리자의 구독 정보를 조회합니다.
   /// </summary>
@@ -134,7 +134,7 @@ public sealed class DbPushSubscriptionStore : IPushSubscriptionStore {
   }
 
   /// <inheritdoc />
-  public async Task<IReadOnlyCollection<Models.PushSubscription>> GetSubscriptionsByCompanyAsync(int companyId) {
+  public async Task<IReadOnlyCollection<Models.PushSubscription>> GetSubscriptionsByCompanyAsync(string companyId) {
     // 1. 지정된 고객사 ID에 속한 모든 고객(사용자)의 ID를 조회합니다.
     var customerIdsInCompany = await _db.Customers
         .Where(c => c.CompanyId == companyId)

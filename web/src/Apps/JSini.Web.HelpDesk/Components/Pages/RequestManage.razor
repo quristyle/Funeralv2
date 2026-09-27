@@ -97,9 +97,9 @@
                     @{
                         var r = (ImprovementRequest)cell.DataItem;
                     }
-                    @* 회사가 요청에 직접 붙기도 하고 고객을 거쳐 붙기도 한다.
-                       한쪽만 보면 표의 절반이 빈다. *@
-                    @(r.Company?.Name ?? r.Customer?.Company?.Name ?? "-")
+                    @* 회사는 요청자(고객)를 거쳐 붙는다. 서버가 주는 것은
+                       포털 회사 **아이디**뿐이라, 이름은 회사 목록에서 푼다. *@
+                    @Context.CompanyName(r.Customer?.CompanyId)
                 </CellDisplayTemplate>
             </DxGridDataColumn>
 

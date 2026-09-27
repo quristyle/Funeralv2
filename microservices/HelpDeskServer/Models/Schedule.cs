@@ -32,9 +32,10 @@ public class Schedule
     public bool IsCommon { get; set; } = false;
 
     /// <summary>
-    /// 특정 회사 ID (IsCommon이 false일 때 사용)
+    /// 특정 회사 식별자 (IsCommon 이 false 일 때 사용).
+    /// 포털(<c>scom.companies.id</c>)의 값이다.
     /// </summary>
-    public int? CompanyId { get; set; }
+    public string? CompanyId { get; set; }
 
     /// <summary>
     /// 완료 여부

@@ -71,7 +71,10 @@ public class HelpdeskIdentityOptions {
 /// <param name="JsiniRoles">포털에서 배정된 역할 식별자 목록</param>
 /// <param name="HelpdeskUserId">연결된 헬프데스크 내부 계정 ID. 연결이 없으면 null</param>
 /// <param name="LinkedUserType">연결된 계정 종류 — <c>admin</c> / <c>customer</c> / null</param>
-/// <param name="CompanyId">고객으로 연결된 경우의 소속 회사 ID</param>
+/// <param name="CompanyId">
+/// 소속 회사 식별자 — <b>포털</b>(<c>scom.companies.id</c>)의 값이다.
+/// 포털 토큰이 실어 주는 값을 먼저 보고, 없으면 연결된 고객 줄에 적힌 값을 쓴다.
+/// </param>
 /// <param name="IsAdmin">담당자 권한이 있는가 (연결이 admin 이거나 포털 역할이 관리자)</param>
 public sealed record HelpdeskPrincipal(
     string? JsiniUserId,
@@ -80,11 +83,14 @@ public sealed record HelpdeskPrincipal(
     IReadOnlyList<string> JsiniRoles,
     int? HelpdeskUserId,
     string? LinkedUserType,
-    int? CompanyId,
+    string? CompanyId,
     bool IsAdmin) {
 
   /// <summary>헬프데스크 내부 레코드에 이어져 있는가. 내 것을 가리키는 일에 필요하다.</summary>
   public bool IsLinked => HelpdeskUserId.HasValue;
+
+  /// <summary>소속 회사를 알 수 있는가. 회사 단위로 범위를 좁힐 때 먼저 본다.</summary>
+  public bool HasCompany => !string.IsNullOrWhiteSpace(CompanyId);
 
   /// <summary>고객으로 연결된 계정인가. 회사 단위로 범위를 좁힐 때 쓴다.</summary>
   public bool IsCustomer =>
@@ -114,6 +120,10 @@ public static class HelpdeskPrincipalExtensions {
   /// </summary>
   public const string AdminByRoleClaim = "helpdesk_admin_by_role";
 
+  /// <summary>비어 있지 않은 첫 값. 없으면 null.</summary>
+  private static string? FirstNonBlank(params string?[] values) =>
+      values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
+
   /// <summary>지금 요청을 보낸 사람을 돌려준다.</summary>
   public static HelpdeskPrincipal GetHelpdeskPrincipal(this HttpContext context) {
     var jsini = context.GetJsiniUser();
@@ -121,7 +131,12 @@ public static class HelpdeskPrincipalExtensions {
 
     int? helpdeskUserId = int.TryParse(principal.FindFirst("uid")?.Value, out var uid) ? uid : null;
     var linkedUserType = principal.FindFirst("login_type")?.Value;
-    int? companyId = int.TryParse(principal.FindFirst("company_id")?.Value, out var cid) ? cid : null;
+    // 회사는 포털이 단독으로 관리한다. 그래서 **포털 토큰이 실어 주는 회사를
+    // 먼저 믿는다** — 헬프데스크의 `company_id` 클레임은 연결된 고객 줄에 적힌
+    // 값이고, 그 값 자체도 이제 포털 회사 아이디다.
+    var companyId = FirstNonBlank(
+        jsini?.CompanyId,
+        principal.FindFirst("company_id")?.Value);
 
     var isLinkedAdmin = string.Equals(linkedUserType, "admin", StringComparison.OrdinalIgnoreCase);
     var isAdminByRole = string.Equals(

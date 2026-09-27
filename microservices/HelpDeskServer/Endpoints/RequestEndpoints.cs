@@ -70,7 +70,7 @@ public static class RequestEndpoints {
 
 
     // 월간 보고서
-    group.MapGet("/report/monthly", (AppDbContext db, int year, int month, int? companyId) => ApiResponseBuilder.CreateAsync(async () => {
+    group.MapGet("/report/monthly", (AppDbContext db, int year, int month, string? companyId) => ApiResponseBuilder.CreateAsync(async () => {
       var startDate = new DateTime(year, month, 1, 0, 0, 0, DateTimeKind.Utc);
       var endDate = startDate.AddMonths(1);
 
@@ -79,8 +79,8 @@ public static class RequestEndpoints {
           .Include(r => r.Customer)
           .Where(r => r.RequestedAt >= startDate && r.RequestedAt < endDate);
 
-      if (companyId.HasValue) {
-        createdQuery = createdQuery.Where(r => r.Customer != null && r.Customer.CompanyId == companyId.Value);
+      if (!string.IsNullOrWhiteSpace(companyId)) {
+        createdQuery = createdQuery.Where(r => r.Customer != null && r.Customer.CompanyId == companyId);
       }
       var createdRequests = await createdQuery.ToListAsync();
 
@@ -90,8 +90,8 @@ public static class RequestEndpoints {
           .Where(r => (r.CompletededAt >= startDate && r.CompletededAt < endDate) ||
                       (r.UserCompletededAt >= startDate && r.UserCompletededAt < endDate));
 
-      if (companyId.HasValue) {
-        completedQuery = completedQuery.Where(r => r.Customer != null && r.Customer.CompanyId == companyId.Value);
+      if (!string.IsNullOrWhiteSpace(companyId)) {
+        completedQuery = completedQuery.Where(r => r.Customer != null && r.Customer.CompanyId == companyId);
       }
       var completedRequests = await completedQuery.ToListAsync();
 
@@ -188,14 +188,13 @@ public static class RequestEndpoints {
     }, "Monthly report generated successfully."));
 
     // 사용자 협업 보고서
-    group.MapGet("/report/collaboration", (AppDbContext db, int year, int month) => ApiResponseBuilder.CreateAsync(async () => {
+    group.MapGet("/report/collaboration", (AppDbContext db, IPortalCompanyDirectory companies, int year, int month, CancellationToken ct) => ApiResponseBuilder.CreateAsync(async () => {
       var startDate = new DateTime(year, month, 1, 0, 0, 0, DateTimeKind.Utc);
       var endDate = startDate.AddMonths(1);
 
       // 해당 월의 요청들 (생성되거나 완료된 것 포함)
       var requests = await db.Requests
           .Include(r => r.Customer)
-          .ThenInclude(c => c!.Company)
           .Include(r => r.Comments)
           .Where(r => (r.RequestedAt >= startDate && r.RequestedAt < endDate) ||
                       (r.CompletededAt >= startDate && r.CompletededAt < endDate) ||
@@ -227,6 +226,10 @@ public static class RequestEndpoints {
       double avgUserFeedbackHours = feedbackCount > 0 ? Math.Round(totalFeedbackHours / feedbackCount, 1) : 0;
 
       // 2. 우수 협업 사용자 (Top Engaged Users)
+      //
+      // 회사 이름은 포털에서 푼다 — 헬프데스크에는 회사 표가 없다.
+      var companyNames = await companies.GetNamesAsync(ct);
+
       var userStats = requests
           .Where(r => r.Customer != null)
           .GroupBy(r => r.CustomerId)
@@ -236,7 +239,7 @@ public static class RequestEndpoints {
             var confirms = g.Count(r => r.Status == ImprovementStatus.UserCompleted);
             return new {
               Name = customer?.UserName ?? "Unknown",
-              Company = customer?.Company?.Name ?? "Unknown",
+              Company = companyNames.GetValueOrDefault(customer?.CompanyId ?? string.Empty) ?? "Unknown",
               Interactions = interactions,
               Confirms = confirms,
               Total = interactions + (confirms * 2) // 가중치 부여
@@ -311,7 +314,6 @@ public static class RequestEndpoints {
       // 1. 접수 정보 중 타입이 '긴급/장애'이고 아직 완료되지 않은 건 조회
       var activeEmergencies = await db.Requests
           .Include(r => r.Customer)
-          .ThenInclude(c => c!.Company)
           .Where(r => r.IpType == ImprovementType.Emergency && 
                       r.Status != ImprovementStatus.Completed && 
                       r.Status != ImprovementStatus.UserCompleted &&

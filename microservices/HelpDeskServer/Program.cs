@@ -179,6 +179,10 @@ builder.Services.AddMemoryCache();
 builder.Services.AddScoped<IFuneralAccountLinkService, FuneralAccountLinkService>();
 builder.Services.AddScoped<IRequesterProvisioner, RequesterProvisioner>();
 
+// 회사는 포털이 단독으로 관리한다. 헬프데스크에는 회사 표가 없고, 이름이
+// 필요하면 이 통로로 AuthServer 에 묻는다(5분 캐시).
+builder.Services.AddSingleton<IPortalCompanyDirectory, PortalCompanyDirectory>();
+
 // ============================================================
 // 8. 백그라운드 워커
 // ============================================================
@@ -242,7 +246,10 @@ app.UseAuthorization();
 // ============================================================
 app.MapRegistEndpoints();
 
-app.MapCompanyEndpoints();
+// 고객사 엔드포인트(/api/companys)는 제거했다. 회사를 만들고 고치는 곳은
+// 포털의 회사 관리 화면 하나뿐이고, 목록도 포털이 준다
+// (`GET /api/auth/system/companies`). 헬프데스크 쪽 회사 표까지 걷어냈으므로
+// 여기서 내려줄 것이 남아 있지 않다 — 자세한 것은 `IPortalCompanyDirectory`.
 app.MapCustomerEndpoints();
 // 조직 관리 엔드포인트(/api/admins · /api/teams)는 제거했다. 조직과 계정은
 // JSini 관리 포털(AuthServer)이 단독으로 맡는다 — 헬프데스크 쪽 「조직 관리」

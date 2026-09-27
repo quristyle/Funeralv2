@@ -152,8 +152,12 @@ public sealed class RequestRequesterTests
         Assert.Matches(@"c\.LoginId == loginId && c\.UserName == userName", code);
         Assert.Contains("_db.Customers.Add(", code);
 
-        // 회사도 NOT NULL 외래키다. 없으면 고객을 만들 수 없다.
-        Assert.Contains("EnsureCompanyAsync", code);
+        // 회사는 **포털이 정본**이다. 헬프데스크에는 회사 표가 없으므로
+        // 만들어 붙이지 않고 토큰이 실어 준 포털 회사 아이디를 그대로 적는다.
+        // 여기가 헐거워지면 요청자가 다시 「포털 사용자」 같은 가짜 회사로 모인다.
+        Assert.Contains("CompanyId = me.CompanyId", code);
+        Assert.DoesNotContain("EnsureCompanyAsync", code);
+        Assert.DoesNotContain("CustomerCompany", code);
 
         // 이미 있는 연결(담당자로 이어 둔 계정)을 고객으로 덮으면 권한이 사라진다.
         Assert.Matches(@"AuthUserLinks\.AnyAsync\([\s\S]{0,120}?\)\) return;", code);

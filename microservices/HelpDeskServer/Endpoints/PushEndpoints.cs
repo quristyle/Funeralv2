@@ -80,7 +80,7 @@ public static class PushEndpoints {
     .RequireAuthorization(); // 인증된 사용자만 호출 가능
 
     // 특정 고객사(Company)의 모든 사용자에게 푸시 알림을 보냅니다.
-    group.MapPost("/notify-company/{companyId:int}", async (int companyId, PushMessageDto message, IPushSubscriptionStore store, IWebPushService sender, CancellationToken ct) => {
+    group.MapPost("/notify-company/{companyId}", async (string companyId, PushMessageDto message, IPushSubscriptionStore store, IWebPushService sender, CancellationToken ct) => {
       Console.WriteLine($"/api/push/notify-company/{companyId}");
       var companySubs = await store.GetSubscriptionsByCompanyAsync(companyId);
       var sent = await sender.BroadcastAsync(companySubs, message, ct);

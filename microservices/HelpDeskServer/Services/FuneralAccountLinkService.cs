@@ -62,9 +62,9 @@ public class AccountLinkOptions {
 /// </summary>
 /// <param name="UserType">admin 또는 customer</param>
 /// <param name="HelpdeskUserId">헬프데스크 내부 계정 ID</param>
-/// <param name="CompanyId">고객인 경우 소속 회사 ID</param>
+/// <param name="CompanyId">고객인 경우 소속 회사 식별자(포털 <c>scom.companies.id</c>)</param>
 /// <param name="UserName">표시용 이름</param>
-public record HelpdeskIdentity(string UserType, int HelpdeskUserId, int? CompanyId, string UserName);
+public record HelpdeskIdentity(string UserType, int HelpdeskUserId, string? CompanyId, string UserName);
 
 /// <summary>
 /// funeralv2(AuthServer) 계정을 헬프데스크 계정으로 해석한다.
@@ -303,8 +303,8 @@ public class FuneralIdentityMiddleware {
             new("helpdesk_user_name", identity.UserName),
           };
 
-          if (identity.CompanyId.HasValue) {
-            claims.Add(new Claim("company_id", identity.CompanyId.Value.ToString()));
+          if (!string.IsNullOrWhiteSpace(identity.CompanyId)) {
+            claims.Add(new Claim("company_id", identity.CompanyId));
           }
 
           context.User.AddIdentity(new ClaimsIdentity(claims));

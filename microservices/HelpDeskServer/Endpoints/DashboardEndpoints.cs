@@ -20,15 +20,18 @@ public static class DashboardEndpoints {
     var group = routes.MapGroup("/api/dashboard");
 
     // 고객사별 요청 통계를 조회합니다.
-    group.MapGet("/company-stats", (AppDbContext db) => ApiResponseBuilder.CreateAsync(async () => {
+    //
+    // 회사 이름은 **포털에서 온다**. 헬프데스크에 회사 표가 없으므로 join 할 것이
+    // 없고, 아이디로 묶은 뒤 이름만 나중에 붙인다.
+    group.MapGet("/company-stats", (AppDbContext db, IPortalCompanyDirectory companies, CancellationToken ct) =>
+        ApiResponseBuilder.CreateAsync(async () => {
       var stats = await db.Requests
+          .Where(r => r.Customer != null && r.Customer.CompanyId != null)
           // 앞의 Where 가 걸러 낸 뒤라 SQL 로는 null 이 올 수 없다. 컴파일러는 그것을
           // 따라가지 못하므로 ! 로 알려 준다 (검사를 한 번 더 넣으면 SQL 도 그만큼 늘어난다).
-          .Where(r => r.Customer != null && r.Customer.Company != null)
-          .GroupBy(r => r.Customer!.Company)
+          .GroupBy(r => r.Customer!.CompanyId!)
           .Select(g => new {
-            Id = g.Key!.Id,
-            CompanyName = g.Key.Name,
+            Id = g.Key,
             LastPendingDate = g.Where(r => r.Status == ImprovementStatus.Pending)
                               .OrderByDescending(r => r.CreatedAt)
                               .Select(r => (DateTime?)r.CreatedAt)
@@ -41,7 +44,9 @@ public static class DashboardEndpoints {
             RejectedCount = g.Count(r => r.Status == ImprovementStatus.Rejected),
             TotalCount = g.Count()
           })
-          .ToListAsync();
+          .ToListAsync(ct);
+
+      var names = await companies.GetNamesAsync(ct);
 
       return stats.Select(s => {
         double completionRate = (s.TotalCount - s.RejectedCount) > 0
@@ -50,7 +55,8 @@ public static class DashboardEndpoints {
 
         return new CompanyStatsDto {
           Id = s.Id,
-          CompanyName = s.CompanyName,
+          // 이름을 못 읽었으면 아이디라도 보여 준다. 빈 칸보다는 낫다.
+          CompanyName = names.GetValueOrDefault(s.Id, s.Id),
           LastPendingDate = s.LastPendingDate,
           PendingCount = s.PendingCount,
           InProgressCount = s.InProgressCount,
@@ -99,6 +105,7 @@ public static class DashboardEndpoints {
         pendingCount = await db.Requests
                                    .CountAsync(r => r.Status == ImprovementStatus.Pending &&
                                                    r.Customer != null &&
+                                                   r.Customer.CompanyId != null &&
                                                    managedCompanyIds.Contains(r.Customer.CompanyId));
       }
       else {
@@ -176,6 +183,7 @@ public static class DashboardEndpoints {
         var pendingCount = await db.Requests
             .CountAsync(r => r.Status == ImprovementStatus.Pending && 
                              r.Customer != null && 
+                             r.Customer.CompanyId != null &&
                              managedCompanyIds.Contains(r.Customer.CompanyId));
 
         var grouped = await db.Requests
@@ -329,8 +337,7 @@ public static class DashboardEndpoints {
       }
 
       var customer = await db.Customers.FindAsync(me.HelpdeskUserId.Value);
-      // CompanyId 는 int 다 — null 검사는 늘 거짓이라 걷어냈다.
-      if (customer == null) {
+      if (customer == null || string.IsNullOrWhiteSpace(customer.CompanyId)) {
         return Results.NotFound("Customer or company not found.");
       }
 
@@ -367,8 +374,7 @@ public static class DashboardEndpoints {
       }
 
       var customer = await db.Customers.FindAsync(me.HelpdeskUserId.Value);
-      // CompanyId 는 int 다 — null 검사는 늘 거짓이라 걷어냈다.
-      if (customer == null) {
+      if (customer == null || string.IsNullOrWhiteSpace(customer.CompanyId)) {
         return Results.NotFound("Customer or company not found.");
       }
 
@@ -409,13 +415,28 @@ public static class DashboardEndpoints {
             .ToListAsync()));
 
     // 각 고객사별 요청 수를 조회합니다.
-    group.MapGet("/companies/requests", (AppDbContext db) => ApiResponseBuilder.CreateAsync(
-        () => db.Companies
-            .Select(c => new {
-              c.Id,
-              c.Name,
-              RequestCount = db.Requests.Count(r => r.Customer!.CompanyId == c.Id)
-            }).ToListAsync()));
+    //
+    // 회사 목록은 포털이 준다. 요청이 한 건도 없는 회사까지 0 으로 보여 주려면
+    // 목록 쪽이 기준이어야 한다 — 요청에서 뽑아 묶으면 그런 회사가 통째로 빠진다.
+    group.MapGet("/companies/requests", (AppDbContext db, IPortalCompanyDirectory companies, CancellationToken ct) =>
+        ApiResponseBuilder.CreateAsync(async () => {
+          var names = await companies.GetNamesAsync(ct);
+
+          var counts = await db.Requests
+              .Where(r => r.Customer != null && r.Customer.CompanyId != null)
+              .GroupBy(r => r.Customer!.CompanyId!)
+              .Select(g => new { CompanyId = g.Key, Count = g.Count() })
+              .ToDictionaryAsync(x => x.CompanyId, x => x.Count, ct);
+
+          return names
+              .Select(c => new {
+                Id = c.Key,
+                Name = c.Value,
+                RequestCount = counts.GetValueOrDefault(c.Key)
+              })
+              .OrderBy(c => c.Name, StringComparer.Ordinal)
+              .ToList();
+        }));
 
     // 팀별 부하(/teams/workload)는 제거했다.
     //

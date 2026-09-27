@@ -47,17 +47,6 @@ public interface IRequesterProvisioner {
 
 /// <inheritdoc />
 public class RequesterProvisioner : IRequesterProvisioner {
-  /// <summary>
-  /// 포털 계정으로 만들어 주는 고객이 들어갈 회사 이름.
-  /// </summary>
-  /// <remarks>
-  /// <c>customer.companyid</c> 도 NOT NULL 외래키라 회사가 하나는 있어야 한다.
-  /// 포털 토큰이 실어 주는 회사는 <b>이름이 아니라 식별자</b>(<c>jsini</c> ·
-  /// GUID)라 그대로 회사 이름으로 쓸 수 없다. 그래서 한 곳으로 모으고, 제
-  /// 회사로 옮기는 것은 담당자가 고객 관리에서 한다.
-  /// </remarks>
-  public const string DefaultCompanyName = "포털 사용자";
-
   private readonly AppDbContext _db;
   private readonly IFuneralAccountLinkService _linkService;
   private readonly ILogger<RequesterProvisioner> _logger;
@@ -124,7 +113,13 @@ public class RequesterProvisioner : IRequesterProvisioner {
         // 비밀번호로는 못 들어온다. 로그인은 포털에서만 한다.
         PasswordHash = string.Empty,
         Status = CustomerStatus.Approved,
-        CompanyId = await EnsureCompanyAsync(auditUser, ct),
+        // 회사는 포털이 정본이다. 토큰이 실어 준 포털 회사 아이디를 그대로 적는다.
+        //
+        // 전에는 `customer.companyid` 가 헬프데스크 제 회사 표를 가리키는
+        // NOT NULL 외래키라, 포털 아이디를 넣을 수 없어 「포털 사용자」라는
+        // 회사를 하나 만들어 모두 거기에 넣었다. 그 표를 걷어낸 지금은
+        // **처음부터 제 회사로 들어간다** — 옮겨 주는 일이 필요 없다.
+        CompanyId = me.CompanyId,
         CreatedBy = auditUser,
       };
 
@@ -160,19 +155,5 @@ public class RequesterProvisioner : IRequesterProvisioner {
 
     await _db.SaveChangesAsync(ct);
     _linkService.InvalidateCache(loginId);
-  }
-
-  /// <summary>포털 계정이 들어갈 회사를 찾고, 없으면 만든다.</summary>
-  private async Task<int> EnsureCompanyAsync(string auditUser, CancellationToken ct) {
-    var company = await _db.Companies
-        .FirstOrDefaultAsync(c => c.Name == DefaultCompanyName, ct);
-
-    if (company is not null) return company.Id;
-
-    company = new CustomerCompany { Name = DefaultCompanyName, CreatedBy = auditUser };
-    _db.Companies.Add(company);
-    await _db.SaveChangesAsync(ct);
-
-    return company.Id;
   }
 }

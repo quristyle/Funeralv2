@@ -16,12 +16,6 @@ public abstract class HdEntity
     public string? ModifiedBy { get; set; }
 }
 
-/// <summary>고객사.</summary>
-public sealed class Company : HdEntity
-{
-    public string Name { get; set; } = string.Empty;
-}
-
 /// <summary>관리자(담당자).</summary>
 public sealed class Admin : HdEntity
 {
@@ -37,8 +31,13 @@ public sealed class Customer : HdEntity
 {
     public string LoginId { get; set; } = string.Empty;
     public string UserName { get; set; } = string.Empty;
-    public int CompanyId { get; set; }
-    public Company? Company { get; set; }
+
+    /// <summary>
+    /// 소속 회사 식별자 — <b>포털</b>(<c>scom.companies.id</c>)의 값이다.
+    /// 헬프데스크에는 회사 표가 없어 이름이 함께 오지 않는다.
+    /// 이름은 <c>HelpDeskContext.CompanyName</c> 으로 푼다.
+    /// </summary>
+    public string? CompanyId { get; set; }
     public string? Email { get; set; }
     public string? Photo { get; set; }
     public string? Sex { get; set; }
@@ -65,8 +64,6 @@ public sealed class ImprovementRequest : HdEntity
     public bool? IsEmergency { get; set; }
     public int? CustomerId { get; set; }
     public Customer? Customer { get; set; }
-    public int? CompanyId { get; set; }
-    public Company? Company { get; set; }
     public int? AdminId { get; set; }
     public Admin? Admin { get; set; }
     public int? AssignedAdminId { get; set; }

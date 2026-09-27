@@ -37,7 +37,7 @@ public partial class MaintenanceMonitor
         await Context.LoadIdentityAsync();
 
         // 고객으로 연결된 계정은 자기 회사만 본다. 관리자는 비워 전체를 본다.
-        _report = Context.CompanyId is { } companyId
+        _report = Context.CompanyId is { Length: > 0 } companyId
             ? await Api.GetAsync<MonthlyReport>(
                 "requests/report/monthly", new { year = _year, month = _month, companyId })
             : await Api.GetAsync<MonthlyReport>(

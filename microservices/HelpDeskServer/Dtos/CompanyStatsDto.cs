@@ -7,8 +7,8 @@ namespace HelpDeskServer.Dtos;
 public class CompanyStatsDto {
 
 
-  /// <summary>고객사 Id</summary>
-  public int? Id { get; set; }
+  /// <summary>고객사 Id — 포털(<c>scom.companies.id</c>)의 값이다.</summary>
+  public string? Id { get; set; }
   /// <summary>고객사 이름</summary>
   public string? CompanyName { get; set; }
   /// <summary>마지막 접수대기 요청 일시</summary>

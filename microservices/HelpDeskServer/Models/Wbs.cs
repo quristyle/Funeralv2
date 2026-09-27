@@ -51,10 +51,8 @@ public class Wbs : BaseEntity
     /// <summary>관련 고객 (Navigation property)</summary>
     public Customer? Customer { get; set; }
 
-    /// <summary>고객사 ID (Foreign Key)</summary>
-    public int? CustomerCompanyId { get; set; }
-    /// <summary>관련 고객사 (Navigation property)</summary>
-    public CustomerCompany? CustomerCompany { get; set; }
+    /// <summary>관련 고객사 식별자 — 포털(<c>scom.companies.id</c>)의 값이다.</summary>
+    public string? CustomerCompanyId { get; set; }
 
 
    /// <summary>부모 WBS ID (Foreign Key)</summary>
@@ -94,7 +92,7 @@ public class Wbs : BaseEntity
     //public Customer? Customer { get; set; }
 
     // 고객 회사 ID (Foreign Key)
-    //public CustomerCompany? CustomerCompany { get; set; }
+    // 회사 탐색 속성은 없다 — 회사 표는 포털에만 있다.
 
     // 프로젝트 관리자 ID (Foreign Key)
     //public Admin? ManagerId { get; set; }

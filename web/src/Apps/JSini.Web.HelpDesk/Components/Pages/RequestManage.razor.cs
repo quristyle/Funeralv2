@@ -31,7 +31,7 @@ public partial class RequestManage
     private bool _onlyOpen = true;
 
     private IReadOnlyList<BizOption> CompanyFilterOptions =>
-        [new("전체", null), .. Context.RequestManageCompanyOptions];
+        [new("전체", null), .. Context.CompanyOptions];
 
     private static readonly SchOption[] StatusOptions =
     [
@@ -60,7 +60,7 @@ public partial class RequestManage
 
         if (!Context.IsSystemAdmin)
         {
-            _companyId = Context.CompanyId?.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            _companyId = Context.CompanyId;
         }
 
         await ReloadAsync();
@@ -116,9 +116,7 @@ public partial class RequestManage
                 query["adminId"] = _adminId;
             }
 
-            var companyId = Context.IsSystemAdmin
-                ? _companyId
-                : Context.CompanyId?.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            var companyId = Context.IsSystemAdmin ? _companyId : Context.CompanyId;
             if (!string.IsNullOrWhiteSpace(companyId))
             {
                 query["customer.companyId"] = companyId;
