@@ -5677,6 +5677,128 @@ a.jsini-social__btn:focus-visible {
   .jsini-note-drawer__mark { opacity: 0.8; }
 }
 
+/* ── 밀어서 읽음 · 밀어서 삭제 ──────────────────────────────
+
+   ✓ 단추 하나로는 치우기의 절반만 된다 — 읽음은 「봤다」라서 「안 읽은 것만」을
+   풀면 도로 나오고, 볼 일이 영영 없는 알림은 그래도 남는다. **오른쪽은 읽음,
+   왼쪽은 삭제**다. 휴대폰 알림함에서 손이 이미 아는 짝이다.
+
+   움직이는 값을 **전부 인라인 사용자 지정 속성으로** 받는다. 클래스로 받지
+   않는 이유는 이 목록이 손짓 한 번에 다시 그려지기 때문이다 — Blazor 가 카드의
+   `class` 를 제 손으로 쥐고 있어서, 손짓 중에 그 갱신이 한 번 끼면 **JS 가
+   붙인 클래스가 소리 없이 지워지고 카드가 밀린 자리에 굳는다.** `style` 은
+   Blazor 가 아예 그리지 않으므로(카드에 `style` 속성이 없다) 그 자리는
+   건드리지 않는다. 대는 쪽은 `js/note-swipe.js`.
+
+     --note-swipe     밀린 거리. **부호가 있다** — 양수 오른쪽, 음수 왼쪽
+     --note-swipe-ms  본문과 띠의 전환 시간. 끄는 동안은 0
+     --note-ready     문턱을 넘었나(0/1)
+     --note-alive     살아 있나(1) 스러지는 중인가(0)
+
+   `touch-action: pan-y` 가 이 기능의 핵심 한 줄이다. 알림함은 백 건이 쌓이는
+   목록이라 **굴리는 것이 미는 것보다 잦다** — 세로 끌기는 브라우저가 제
+   스크롤로 가져가고 가로 끌기만 우리에게 온다. 안 걸면 옆으로 밀어도
+   브라우저가 스크롤로 삼키고, 통째로 막으면 이번엔 카드 위에서 목록을
+   위아래로 굴릴 수 없다.
+
+   `overflow: hidden` 은 밀려난 본문이 카드 밖으로 비어져 나오지 않게 한다 —
+   서랍 몸통에 가로 스크롤이 생기면 미는 동안 판이 함께 흔들린다. */
+.jsini-note-drawer__card[data-note] {
+  --note-swipe: 0px;
+  --note-swipe-ms: 0ms;
+  --note-ready: 0;
+  --note-alive: 1;
+
+  position: relative;
+  overflow: hidden;
+  touch-action: pan-y;
+  opacity: var(--note-alive);
+  transition: opacity 180ms ease;
+}
+
+/* 좌우에서 열리는 띠. **미는 만큼만 넓어진다**(`max()` 가 부호 하나에서 두
+   폭을 뽑는다) — 가만히 있을 때는 둘 다 폭이 0 이라 보이지 않는다.
+
+   카드 밑에 깔아 두고 본문으로 덮는 흔한 방법을 쓰지 않았다. 그러려면 본문에
+   불투명한 바탕을 깔아야 하는데, 카드 바탕은 테마가 정하는 값이라 어긋나는
+   쪽이 반드시 나온다. 미는 만큼만 넓어지면 덮을 일이 없다.
+
+   **안쪽 여백을 주지 않는다.** 주면 폭이 0 이어도 상자가 그만큼 남아
+   (`width` 는 여백 아래로 못 내려간다) 카드마다 양옆에 **실오라기**가 늘 선다.
+   밀기 전에는 한 픽셀도 없어야 한다 — 글자를 들이는 일은 안의 그림이 제
+   바깥 여백으로 한다. */
+.jsini-note-drawer__act {
+  position: absolute;
+  inset-block: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  overflow: hidden;
+  color: #fff;
+  font-size: var(--jsini-fs-2xs);
+  white-space: nowrap;
+  pointer-events: none;
+  transition: width var(--note-swipe-ms) ease;
+}
+
+/* 초록은 ✓ 단추가 하는 일과 같은 뜻이다. 빨강은 **되돌릴 수 없다**는 뜻이고,
+   둘이 갈려야 문턱 앞에서 「지금 놓으면 어느 쪽이 되나」를 눈으로 가린다. */
+.jsini-note-drawer__act--read {
+  left: 0;
+  width: max(0px, var(--note-swipe));
+  background: #2e7d32;
+}
+
+.jsini-note-drawer__act--del {
+  right: 0;
+  justify-content: flex-end;
+  width: max(0px, calc(-1 * var(--note-swipe)));
+  background: #c62828;
+}
+
+/* 문턱을 넘으면 그림이 커지고 글자가 또렷해진다. **손을 떼기 전에**
+   「놓으면 처리된다」를 알려 주는 것이 이 둘의 일이다 — 넘기 전에 놓으면
+   카드는 제자리로 돌아간다. */
+.jsini-note-drawer__act-mark {
+  flex: 0 0 auto;
+  font-size: var(--jsini-fs-sm);
+  line-height: 1;
+  transform: scale(calc(0.7 + (0.3 * var(--note-ready))));
+  transition: transform 120ms ease;
+}
+
+.jsini-note-drawer__act--read .jsini-note-drawer__act-mark { margin-left: 0.6rem; }
+.jsini-note-drawer__act--del .jsini-note-drawer__act-mark { margin-right: 0.6rem; }
+
+.jsini-note-drawer__act-text {
+  opacity: calc(0.45 + (0.55 * var(--note-ready)));
+  transition: opacity 120ms ease;
+}
+
+/* 밀리는 것은 카드가 아니라 **본문**이다. 카드 자신을 옮기면 띠도 함께 가서
+   아무것도 열리지 않는다. 띠 위에 놓는 것(`z-index`)도 필요하다 — 띠가 절대
+   자리라 그대로 두면 문서에서 뒤인 띠가 본문을 덮어 제목이 색에 가린다. */
+.jsini-note-drawer__card[data-note] > .jsini-note-drawer__row {
+  position: relative;
+  z-index: 2;
+  transform: translateX(var(--note-swipe));
+  transition: transform var(--note-swipe-ms) ease;
+}
+
+/* 움직임을 줄여 달라고 한 사람에게는 **결과만** 준다. 카드는 그 자리에서
+   바로 사라지고 띠는 미끄러지지 않는다 — 처리됐다는 것은 카드가 목록에서
+   빠지는 것으로 이미 말한다. */
+@media (prefers-reduced-motion: reduce) {
+  .jsini-note-drawer__card[data-note],
+  .jsini-note-drawer__card[data-note] > .jsini-note-drawer__row,
+  .jsini-note-drawer__act,
+  .jsini-note-drawer__act-mark,
+  .jsini-note-drawer__act-text {
+    transition: none;
+  }
+}
+
 /* 발. 휴대폰에서 화면을 다 채울 때 아래 턱(홈 바)에 단추가 물리지 않게
    `safe-area` 만큼 더 띄운다 — 넓은 화면에서는 그 값이 0 이다. */
 .jsini-note-drawer__foot {

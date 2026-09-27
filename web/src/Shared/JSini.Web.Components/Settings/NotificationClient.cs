@@ -178,4 +178,22 @@ public sealed class NotificationClient(GatewayClient gateway)
 
     public Task MarkAllInboxReadAsync(CancellationToken ct = default)
         => gateway.PostAsync("notification/notifications/inbox/read-all", new { }, ct);
+
+    /// <summary>
+    /// 알림함에서 한 건을 <b>치운다</b>. 읽음 처리와 다른 것이다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 읽음은 「봤다」이고 이쪽은 「안 볼 것이다」이다. 읽을 것도 없이 치우려는
+    /// 알림을 읽음으로 찍어 두면 <b>「안 읽은 것만」을 풀어 보는 순간 도로 다
+    /// 나온다.</b>
+    /// </para>
+    /// <para>
+    /// 서버는 줄을 지우지 않고 <c>deleted_at</c> 만 찍는다 — 같은 표가 발송
+    /// 기록이기도 해서, 받는 사람의 정리가 「푸시 현황」의 건수를 깎으면 안 된다.
+    /// </para>
+    /// </remarks>
+    public Task DeleteInboxAsync(string id, CancellationToken ct = default)
+        => gateway.DeleteAsync(
+            $"notification/notifications/inbox/{Uri.EscapeDataString(id)}", ct);
 }

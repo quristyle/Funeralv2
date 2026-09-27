@@ -184,6 +184,46 @@ public class PushSendLog
     public DateTime? ReadAt { get; set; }
 
     /// <summary>
+    /// 받는 사람이 <b>제 알림함에서 치운 때</b>(UTC). 안 치웠으면 <c>null</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// [읽음과 다른 것이다]
+    /// </para>
+    ///
+    /// <para>
+    /// <see cref="ReadAt"/> 은 「봤다」이고 이것은 「안 볼 것이다」이다. 읽을
+    /// 것도 없이 치우려는 알림이 꽤 있는데, 그것을 읽음으로 찍어 두면
+    /// 「안 읽은 것만」을 풀어 보는 순간 도로 다 나온다.
+    /// </para>
+    ///
+    /// <para>
+    /// [줄을 지우지 않는 까닭]
+    /// </para>
+    ///
+    /// <para>
+    /// 이 표는 <b>받는 사람의 알림함이면서 동시에 보낸 쪽의 발송 기록</b>이다.
+    /// 진짜로 지우면 「푸시 현황」·「발송 이력」의 건수가 함께 줄어든다 —
+    /// 받는 사람이 제 목록을 정리한 것뿐인데 보낸 통계가 바뀐다. 못 간 알림의
+    /// 실패 사유(<see cref="FailureReason"/>)를 모아 보는 자리도 같은 이유로
+    /// 무너진다.
+    /// </para>
+    ///
+    /// <para>
+    /// 그래서 <b>거르는 곳이 알림함 세 길뿐이다</b>(<c>/inbox</c> ·
+    /// <c>/inbox/unread-count</c> · <c>/inbox/read-all</c>). 발송 쪽 화면은
+    /// 이 값을 보지 않는다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>기기가 아니라 사람의 상태다</b> — 읽음과 같이 그 묶음
+    /// (<see cref="BatchId"/>)에 딸린 그 사람의 줄을 전부 찍는다.
+    /// </para>
+    /// </remarks>
+    [Column("deleted_at")]
+    public DateTime? DeletedAt { get; set; }
+
+    /// <summary>
     /// 이 알림이 <b>실제로 띄운 아이콘 주소</b>. 대개 시킨 사람의 프로필 사진이다.
     /// </summary>
     /// <remarks>

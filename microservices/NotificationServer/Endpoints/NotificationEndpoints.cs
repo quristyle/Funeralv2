@@ -921,7 +921,12 @@ public static class NotificationEndpoints
             if (user is null) return Results.Unauthorized();
 
             var mine = LogQuery(db, startDate, endDate)
-                .Where(l => l.OwnerType == "jsini" && l.OwnerKey == user.UserId);
+                .Where(l => l.OwnerType == "jsini" && l.OwnerKey == user.UserId)
+
+                // **치운 것은 안 보인다.** 줄은 남아 있다 — 이 표는 발송
+                // 기록이기도 해서, 받는 사람이 제 목록을 정리한 것이
+                // 「푸시 현황」의 건수를 깎으면 안 된다(`DeleteInbox` 머리말).
+                .Where(l => l.DeletedAt == null);
 
             mine = ByCategory(mine, category);
 
@@ -1028,8 +1033,11 @@ public static class NotificationEndpoints
         {
             if (user is null) return Results.Unauthorized();
 
+            // **목록과 한 글자도 어긋나면 안 된다** — 위 머리말 참고.
+            // 치운 줄을 여기서만 안 거르면 종에 붙은 숫자가 목록보다 많아진다.
             var mine = LogQuery(db, null, null)
-                .Where(l => l.OwnerType == "jsini" && l.OwnerKey == user.UserId);
+                .Where(l => l.OwnerType == "jsini" && l.OwnerKey == user.UserId
+                            && l.DeletedAt == null);
 
             var readBatches = mine.Where(l => l.ReadAt != null).Select(l => l.BatchId ?? l.Id);
             var unreadQuery = mine.Where(l => !readBatches.Contains(l.BatchId ?? l.Id));
@@ -1050,8 +1058,11 @@ public static class NotificationEndpoints
         {
             if (user is null) return Results.Unauthorized();
 
+            // 치운 것은 목록에 없으니 찍을 것도 없다. 안 걸러도 겉보기는
+            // 같지만, 치워 둔 옛 줄 수백 개를 함께 갱신하게 된다.
             var mine = await db.PushSendLogs
-                .Where(l => l.OwnerType == "jsini" && l.OwnerKey == user.UserId && l.ReadAt == null)
+                .Where(l => l.OwnerType == "jsini" && l.OwnerKey == user.UserId
+                            && l.ReadAt == null && l.DeletedAt == null)
                 .ToListAsync(ct);
 
             var now = DateTime.UtcNow;
@@ -1099,6 +1110,65 @@ public static class NotificationEndpoints
             return Results.Ok(ApiResponse<bool>.Ok(true));
         })
         .WithName("MarkInboxRead");
+
+        // 알림함에서 한 건을 **치운다.**
+        //
+        // [읽음으로는 안 되는 자리가 있다]
+        //
+        // 읽을 것도 없이 치우려는 알림이 꽤 있다. 그것을 읽음(`/read`)으로
+        // 찍으면 목록에서는 빠지지만 뜻은 「봤다」라서, 「안 읽은 것만」을
+        // 풀어 보는 순간 도로 다 나온다. 화면에서는 **카드를 왼쪽으로 미는
+        // 것**이 이 길이고 오른쪽이 읽음이다.
+        //
+        // [줄은 지우지 않는다]
+        //
+        // 이 표는 받는 사람의 알림함이면서 **보낸 쪽의 발송 기록**이다
+        // (`PushSendLog` 머리말). 진짜로 지우면 「푸시 현황」·「발송 이력」의
+        // 건수가 함께 줄어든다 — 받는 사람이 제 목록을 정리한 것뿐인데
+        // 보낸 통계가 바뀐다. 못 간 알림의 실패 사유를 모아 보는 자리도
+        // 같은 이유로 무너진다. 그래서 `deleted_at` 을 찍고 알림함 세 길
+        // (`/inbox` · `/inbox/unread-count` · `/inbox/read-all`)에서만 거른다.
+        //
+        // [묶음 단위다]
+        //
+        // 읽음과 같다 — 그 묶음(`batch_id`)에 딸린 그 사람의 줄을 전부
+        // 찍는다. 한 줄만 찍으면 기기 둘을 쓰는 사람의 목록에 나머지가 남는다.
+        //
+        // [남의 것을 못 지운다]
+        //
+        // 열쇠만 보고 갱신하지 않는다. 소유자를 함께 본다.
+        group.MapDelete("/inbox/{id}", async (
+            string id,
+            UserContext? user,
+            [FromServices] AppDbContext db,
+            CancellationToken ct) =>
+        {
+            if (user is null) return Results.Unauthorized();
+
+            var mine = await db.PushSendLogs
+                .Where(l => l.OwnerType == "jsini" && l.OwnerKey == user.UserId
+                            && (l.BatchId == id || l.Id == id))
+                .ToListAsync(ct);
+
+            if (mine.Count == 0)
+            {
+                return Results.NotFound(ApiResponse<bool>.Fail(
+                    message: "그런 알림이 없습니다.", code: "NOT_FOUND"));
+            }
+
+            // **두 번 눌러도 처음 시각이 남는다.** 이미 치운 줄을 다시 찍으면
+            // 「언제 치웠나」가 마지막 손짓 시각으로 밀린다 — 알림함에서
+            // 보이지 않는 것은 어차피 같으니 덮을 까닭이 없다.
+            var now = DateTime.UtcNow;
+            foreach (var row in mine.Where(r => r.DeletedAt is null))
+            {
+                row.DeletedAt = now;
+            }
+
+            await db.SaveChangesAsync(ct);
+            return Results.Ok(ApiResponse<bool>.Ok(true));
+        })
+        .WithName("DeleteInbox");
 
         // ── 이메일 발송 ─────────────────────────────────────
         //
