@@ -1003,8 +1003,8 @@ public partial class AiAskPanel
                     ContentFormat = "markdown",
                     TargetKey = _targetKey,
                     RunnerKind = _kind,
-                    // 화면에 제한 칸이 없다 — 「AI 작업」의 기본과 같은 값을 박는다.
-                    TimeoutMinutes = 60,
+                    // 화면에 제한 칸이 없다 — 「AI 작업」의 기본값인 2시간을 쓴다.
+                    TimeoutMinutes = 120,
                     AttemptMax = 3,
 
                     // 화면이 아니라 `PushOn` 을 싣는다 — 대상을 바꾸는 사이에

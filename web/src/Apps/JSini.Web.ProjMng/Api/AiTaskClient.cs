@@ -475,8 +475,8 @@ public sealed class AiTaskDto
     public string? TaskStatus { get; set; } = "idle";
 
     public int Priority { get; set; }
-    /// <summary>제한 시간(분). 서버(<c>AiTask</c>)와 같은 <b>기본 60</b> 이다.</summary>
-    public int TimeoutMinutes { get; set; } = 60;
+    /// <summary>제한 시간(분). 서버(<c>AiTask</c>)와 같은 <b>기본 120</b> 이다.</summary>
+    public int TimeoutMinutes { get; set; } = 120;
     public int AttemptCount { get; set; }
     public int AttemptMax { get; set; } = 3;
 

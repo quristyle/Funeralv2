@@ -924,7 +924,7 @@ public partial class AiTaskList
     private void FillNewTask(AiTaskDto task)
     {
         task.RunnerKind = RunnerKinds.FirstOrDefault()?.Value ?? "claude";
-        task.TimeoutMinutes = 60;
+        task.TimeoutMinutes = 120;
         task.AttemptMax = 3;
         task.NotifyEmail = true;
         task.NotifyWhen = "always";

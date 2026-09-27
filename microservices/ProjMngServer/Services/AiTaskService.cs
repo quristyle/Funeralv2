@@ -959,7 +959,7 @@ public sealed class AiTaskService(
         // 0 을 그냥 Clamp 하면 **1분**이 된다 — 값을 안 실어 보낸 쪽이
         // 가장 짧은 제한을 받는 꼴이라, 아래 AttemptMax 와 같이 기본으로 되돌린다.
         item.TimeoutMinutes = item.TimeoutMinutes <= 0
-            ? 60
+            ? 120
             : Math.Clamp(item.TimeoutMinutes, 1, 24 * 60);
         item.AttemptMax = item.AttemptMax <= 0 ? 3 : Math.Clamp(item.AttemptMax, 1, 5);
 

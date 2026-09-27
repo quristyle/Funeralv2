@@ -185,7 +185,7 @@ DB 는 **프로젝트관리 DB**(`jsini`), 스키마 **`projmng`** — `ProjMngS
 | `target_id` | **작업 대상**(`ai_target` 의 열쇠). 화면에서 고른다 — 4.5 |
 | `target_ref` | 저장소 대상일 때 기준 브랜치. 비우면 대상의 기본값 |
 | `priority` | 같은 시각에 여럿이면 순서 |
-| `timeout_minutes` | 건별 상한(기본 30) |
+| `timeout_minutes` | 건별 상한(기본 120분, 1~1440) |
 | `attempt_count` · `attempt_max` | 재실행 횟수·상한(기본 1 — 6.4 참고) |
 | `requested_at` · `started_at` · `finished_at` · `duration_ms` | **시간** |
 | `notify_email` · `notify_to` · `notify_when` | **끝나면 메일로 받기.** 받는 이(기본 요청자), 시점(`always` · `on_success` · `on_failure`) — 8장 |
@@ -866,17 +866,17 @@ await File.WriteAllTextAsync(promptPath, task.Contents, new UTF8Encoding(false))
     "Args": ["-p", "--dangerously-skip-permissions",
              "--output-format", "stream-json", "--verbose"],
     "PromptVia": "stdin",
-    "TimeoutMinutes": 60
+    "TimeoutMinutes": 120
   },
   "antigravity": {
     "Executable": "/home/lee/.local/bin/agy",
-    "Args": ["--print-timeout", "60m", "--dangerously-skip-permissions",
+    "Args": ["--print-timeout", "120m", "--dangerously-skip-permissions",
              "--output-format", "stream-json"],
     "PromptVia": "arg",
     "PromptArgPrefix": "-p=",
     "PromptMaxBytes": 61440,
     "PromptFileFallback": "{path} 를 읽고 그대로 수행하라.",
-    "TimeoutMinutes": 60
+    "TimeoutMinutes": 120
   },
   "copilot": {
     "Executable": "/home/lee/.local/bin/copilot",
@@ -885,7 +885,7 @@ await File.WriteAllTextAsync(promptPath, task.Contents, new UTF8Encoding(false))
     "PromptArgPrefix": "--prompt=",
     "PromptMaxBytes": 61440,
     "PromptFileFallback": "{path} 를 읽고 그대로 수행하라.",
-    "TimeoutMinutes": 60,
+    "TimeoutMinutes": 120,
     "ResultFrom": "tail"
   }
 }
