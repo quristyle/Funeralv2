@@ -8,25 +8,32 @@
            CssClass="jsini-note-popup">
     
     <BodyContentTemplate>
-        <div style="display: flex; justify-content: flex-end; margin-bottom: 8px;">
-            <DxButton Text="모두 읽음 처리" RenderStyle="ButtonRenderStyle.Secondary" Click="@MarkAllReadAsync" Enabled="@(_notifications.Count > 0)" />
-        </div>
-        <CommGrd TItem="NotificationDto" Data="@_notifications" PageSize="10">
-            <Columns>
-                <DxGridDataColumn FieldName="@nameof(NotificationDto.CreatedAt)" Caption="받은 때" Width="150">
-                    <CellDisplayTemplate Context="cell">
-                        @(((NotificationDto)cell.DataItem).CreatedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm"))
-                    </CellDisplayTemplate>
-                </DxGridDataColumn>
-                <DxGridDataColumn FieldName="@nameof(NotificationDto.Title)" Caption="제목" MinWidth="150" />
-                <DxGridDataColumn FieldName="@nameof(NotificationDto.Body)" Caption="내용" MinWidth="250" />
-                <DxGridDataColumn Caption="" Width="80">
-                    <CellDisplayTemplate Context="cell">
-                        <DxButton Text="열기" RenderStyle="ButtonRenderStyle.Link" Click="@(() => OpenAsync((NotificationDto)cell.DataItem))" />
-                    </CellDisplayTemplate>
-                </DxGridDataColumn>
-            </Columns>
-        </CommGrd>
+        @if (_notifications.Count == 0)
+        {
+            <div class="text-center p-4 text-muted">
+                새로운 알림이 없습니다.
+            </div>
+        }
+        else
+        {
+            <div class="d-flex flex-column gap-2 mb-3">
+                @foreach (var note in _notifications)
+                {
+                    <div class="card shadow-sm" @onclick="@(() => OpenAsync(note))" style="cursor: pointer;">
+                        <div class="card-body">
+                            <h6 class="card-title text-primary mb-1">@note.Title</h6>
+                            <p class="card-text mb-2" style="font-size: 0.9rem;">@note.Body</p>
+                            <div class="text-end text-muted" style="font-size: 0.75rem;">
+                                @(note.CreatedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm"))
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+            <div class="d-flex justify-content-end border-top pt-3">
+                <DxButton Text="모두 읽음 처리" RenderStyle="ButtonRenderStyle.Secondary" Click="@MarkAllReadAsync" />
+            </div>
+        }
     </BodyContentTemplate>
 
 </CommPopup>
