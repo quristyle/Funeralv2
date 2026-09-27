@@ -41,7 +41,7 @@
 <CommCont>
     <CommGrd TItem="MyTransaction" Data="@_rows" ExportName="결제대기"
              Reload="@ReloadAsync" RowActions="@PayButton" ActionsWidth="100"
-             EmptyText="아직 받지 않은 거래가 없습니다.">
+             EmptyText="@_empty">
         <Columns>
             <DxGridDataColumn FieldName="@nameof(MyTransaction.TransportDate)" Caption="운송일" Width="105" DisplayFormat="yyyy-MM-dd" />
             <DxGridDataColumn FieldName="@nameof(MyTransaction.CompanyName)" Caption="거래처" MinWidth="150" />

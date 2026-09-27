@@ -25,17 +25,34 @@ public partial class PaymentsPage
     private string? _status;
     private IReadOnlyList<MyTransaction> _rows = [];
     private PaymentPopup? _payment;
+    private string _empty = NothingOpen;
+
+    private const string NothingOpen = "아직 받지 않은 거래가 없습니다.";
+
+    private const string NothingAtAll =
+        "등록한 거래가 없습니다. 「거래 등록」으로 운송 건을 먼저 적으면 여기에 받을 것이 모입니다.";
 
     protected override Task OnInitializedAsync() => ReloadAsync();
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
+        _empty = NothingOpen;
         var rows = await Api.GetMyTransactionsAsync(_status, open: true);
 
         _rows = [.. rows
             .OrderByDescending(t => t.OverdueDays ?? -1)
             .ThenBy(t => t.ExpectedPaymentDate ?? DateOnly.MaxValue)];
 
-        return _rows.Count;
-    }, "아직 받지 않은 거래가 없습니다.", "거래를 읽지 못했습니다");
+        if (_rows.Count == 0)
+        {
+            // 상태를 고른 빈 결과는 그 조건 탓이므로, 전체 조회일 때만 등록 이력을 확인한다.
+            _empty = _status is null && (await Api.GetMyTransactionsAsync()).Count == 0
+                ? NothingAtAll
+                : NothingOpen;
+            Say(_empty);
+        }
+
+        // 빈 결과 문구를 위에서 결정하므로 LoadAsync의 기본 안내는 끈다.
+        return -1;
+    }, failMessage: "거래를 읽지 못했습니다");
 }
