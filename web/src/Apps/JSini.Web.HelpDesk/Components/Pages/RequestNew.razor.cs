@@ -14,6 +14,7 @@ public partial class RequestNew
 {
     [Inject] private HelpDeskApi Api { get; set; } = default!;
     [Inject] private HelpDeskContext Context { get; set; } = default!;
+    [Inject] private ContentImages Images { get; set; } = default!;
     [Inject] private IJSRuntime JS { get; set; } = default!;
 
     /// <summary>편집기를 짚는 이름. JS 와 CSS 가 같은 글자를 본다.</summary>
@@ -39,11 +40,11 @@ public partial class RequestNew
     private const string PictureButtonClass = "hd-pick-image";
 
     /// <summary>
-    /// 본문에 붙이는 그림 한 장의 상한. <b>서버와 같은 값이다</b>
-    /// (<c>FileUploadEndpoints.MaxImageBytes</c>) — 여기서 막는 것은 먼저
-    /// 말해 주려는 것이고, 정작 막는 쪽은 서버다.
+    /// 본문에 붙이는 그림 한 장의 상한. 값은 <see cref="ContentImages.MaxBytes"/>
+    /// 하나뿐이다 — 댓글 쓰는 칸과 같은 값을 써야 하고, 두 벌로 두면 화면마다
+    /// 다른 크기에서 막힌다.
     /// </summary>
-    private const long MaxImageBytes = 20L * 1024 * 1024;
+    private const long MaxImageBytes = ContentImages.MaxBytes;
 
     /// <summary>한 번에 붙여넣을 수 있는 장수.</summary>
     private const int MaxPastedImages = 10;
@@ -484,41 +485,14 @@ public partial class RequestNew
     /// </remarks>
     private async Task<string?> UploadImageAsync(Stream content, string fileName, string contentType)
     {
-        try
+        var uploaded = await Images.UploadAsync(content, fileName, contentType);
+
+        if (uploaded.Url is null)
         {
-            using var form = new MultipartFormDataContent();
-            var part = new StreamContent(content);
-
-            // **종류만 떼어 쓴다.** `MediaTypeHeaderValue` 는 뒤에 딸린 것
-            // (`image/png; charset=…`)이 있으면 던지는데, 그 예외가 여기서
-            // 새어 나가면 회로가 끊긴다 — 붙여넣기 한 번에 화면이 죽는다.
-            part.Headers.ContentType =
-                new System.Net.Http.Headers.MediaTypeHeaderValue(contentType.Split(';')[0].Trim());
-
-            // 칸 이름이 `file` 이어야 한다 — 서버가 그 이름으로 찾는다.
-            form.Add(part, "file", fileName);
-
-            var uploaded = await Api.PostMultipartAsync<UploadedImage>("files/image", form);
-
-            if (uploaded is null || string.IsNullOrWhiteSpace(uploaded.FileId))
-            {
-                Say($"{fileName} 을(를) 올렸는데 주소를 받지 못했습니다.", NoticeTone.Error);
-                return null;
-            }
-
-            return FileDownload.UrlFor(uploaded.FileId);
+            Say(uploaded.Error ?? $"{fileName} 을(를) 올리지 못했습니다.", NoticeTone.Error);
         }
-        catch (ApiException ex)
-        {
-            Say($"{fileName} 을(를) 올리지 못했습니다 — {ex.Message}", NoticeTone.Error);
-            return null;
-        }
-        catch (FormatException)
-        {
-            // 브라우저가 준 종류를 읽지 못했다. 여기서 던지면 회로가 끊긴다.
-            Say($"{fileName} 의 파일 종류를 읽지 못했습니다.", NoticeTone.Warning);
-            return null;
-        }
+
+        return uploaded.Url;
     }
 
     /// <summary>올린 그림을 편집기의 <b>고르던 자리</b>에 꽂는다.</summary>
@@ -654,42 +628,19 @@ public partial class RequestNew
     /// </remarks>
     private async Task<string?> AbsorbPendingImagesAsync(string content)
     {
-        var pending = RequestContentHtml.PendingImages(content);
+        var absorbed = await Images.AbsorbAsync(content);
 
-        if (pending.Count == 0)
+        if (absorbed.Url is null)
         {
-            return content;
+            Say(absorbed.Error ?? "본문에 든 그림을 올리지 못했습니다.", NoticeTone.Error);
+            return null;
         }
-
-        var uploaded = new Dictionary<string, string>(StringComparer.Ordinal);
-
-        foreach (var image in pending)
-        {
-            if (image.Bytes.LongLength > MaxImageBytes)
-            {
-                Say($"본문에 든 그림 한 장이 너무 큽니다 — 한 장 {MaxImageBytes / 1024 / 1024}MB 까지입니다.",
-                    NoticeTone.Warning);
-                return null;
-            }
-
-            using var buffer = new MemoryStream(image.Bytes, writable: false);
-            var url = await UploadImageAsync(buffer, image.FileName, image.ContentType);
-
-            if (url is null)
-            {
-                return null;
-            }
-
-            uploaded[image.Source] = url;
-        }
-
-        var replaced = RequestContentHtml.ReplaceAll(content, uploaded);
 
         // 화면에도 반영해 둔다. 등록이 뒤에서 실패했을 때 편집기에 남아 있는
         // 것이 다시 base64 이면 누를 때마다 같은 일을 되풀이한다.
-        _content = replaced;
+        _content = absorbed.Url;
 
-        return replaced;
+        return absorbed.Url;
     }
 
     /// <summary>

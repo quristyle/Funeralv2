@@ -163,8 +163,13 @@ public static class CommentEndpoints {
       if (request == null) return comment; // 요청글이 없으면 알림 발송 중단
 
       var pushTitle = $"댓글 - {authorName}";
+      // 본문은 HTML 이다. 태그를 걷고 앞부분만 싣는 일은 `PushUtil.SendPushMsg`
+      // 가 이미 한다(`StripHtml` + 50자) — 여기서 한 번 더 하면 두 벌이 된다.
       var pushBody = $"\"{comment.CommentText}\"";
-      var pushUrl = $"/request_detail?id={comment.RequestId}#comment-{comment.Id}";
+      // **Blazor 포털의 주소다.** 옛 Vue 경로(`/request_detail?id=…`)를 싣고
+      // 있었는데 그 화면은 이제 없다 — 알림을 눌러도 "준비 중" 안내로 떨어졌다.
+      // 뒤의 조각(`#comment-…`)은 상세 화면이 댓글마다 달아 둔 자리 이름이다.
+      var pushUrl = $"/helpdesk/request/detail/{comment.RequestId}#comment-{comment.Id}";
 
       Console.WriteLine($"cccccccccccccccccc");
       // 3. 알림 수신자 결정 및 발송

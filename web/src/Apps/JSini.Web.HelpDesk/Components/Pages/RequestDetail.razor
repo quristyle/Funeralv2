@@ -4,81 +4,121 @@
 @*
     [요청 상세] — DB 메뉴 `/helpdesk/request/detail/:id`.
     이력: Vue `views/helpdesk/request/detail.vue` → 여기.
-    엔드포인트: `requests/{id}` · `requests/{id}/comments`
+    엔드포인트: `requests/{id}` · `requests/{id}/comments` · `POST comments`
 
     주소에 자료 키가 들어간다(`{id}`). DB 메뉴는 vben 표기 `:id` 로 적혀 있고,
     `RouteAliases` 가 Blazor 표기로 옮겨 대조한다 — 그 둘이 어긋나면 이 화면이
     늘 "메뉴에는 있는데 화면이 없다" 로 잘못 보고된다.
 
-    [처리 이력을 보기만 하고 남길 수는 없었다]
+    ────────────────────────────────────────────────────────────
+    [요청마다 **제 탭**으로 열린다 (2026-09-28)]
 
-    헬프데스크에서 요청 하나를 두고 오가는 말이 **업무 그 자체**인데, 이력을
-    표로 보여 주기만 하고 한 줄 남길 자리가 없었다. 서버에는 있다
-    (`POST /api/comments`).
+    목록(`/helpdesk/request/manage`)에서 「상세」를 누르면 여기로 온다. 그런데
+    탭 줄에는 아무 일도 일어나지 않았다 — 레이아웃은 **메뉴에 있는 주소**만
+    탭으로 만드는데(`MainLayout.Track`), 이 주소는 번호가 박혀 있어 메뉴 표의
+    `/helpdesk/request/detail/:id` 와 글자가 맞지 않기 때문이다. 그래서 화면은
+    바뀌었는데 탭 줄은 「요청 처리」를 켜 놓은 채였고, 요청 둘을 나란히 놓고
+    비교할 길이 없어 목록↔상세를 오가야 했다.
+
+    **탭은 우리가 직접 연다**(`PortalTabs.Open`, `standalone: true`). 주소가
+    건마다 다르므로 여러 건을 열면 탭이 여러 개 선다. 프로젝트관리의
+    `AiTaskViewPage` 가 같은 까닭으로 같은 일을 한다.
+
+    `standalone` 은 **메뉴에 없는 화면**이라는 표시다 — 탭 줄이 즐겨찾기 항목을
+    내놓지 않는다. 즐겨찾기는 DB 메뉴 경로를 열쇠로 쌓이는데 이 주소는 그 표에
+    없어서, 담기게 두면 사이드바에서 영영 못 푸는 줄이 하나 남는다.
+
+    ────────────────────────────────────────────────────────────
+    [처리 이력이 표였다 — 오가는 말은 표에 안 담긴다 (2026-09-28)]
+
+    전에는 댓글을 `AutoGrid` 한 장으로 늘어놓고 여러 줄 입력칸 하나를 두었다.
+    거기에는 세 가지가 없었다.
+
+      - **누가 누구에게 한 말인지.** 요청 하나에 오가는 말은 대개 가지를 친다
+        (「어느 화면입니까」 → 「이 화면입니다」 → 「그러면 …」). 표는 그것을
+        시간순 한 줄로 뭉개서, 답이 어느 물음에 붙은 것인지 읽을 수 없었다.
+      - **그림.** 댓글 본문도 요청 본문과 같은 HTML 인데 표 칸에 글자로
+        들어가 `<img …>` 가 그대로 보였다.
+      - **쓸 자리.** 여러 줄 입력칸으로는 증상 화면을 붙여넣을 수 없었다.
+
+    지금은 `parentCommentId` 로 이어진 나무를 그대로 그린다(`CommentTree`).
+    깊이 제한이 없다 — 댓글에 대댓글, 대댓글에 또 대댓글이 붙는다.
+    쓰는 칸은 요청 등록과 **같은 서식 편집기**다(`CommentEditor`).
 
     [계정이 연결돼 있어야 남길 수 있다]
 
     댓글은 작성자를 헬프데스크 내부 아이디로 가리킨다(`authorId`). 포털 계정만
     있고 연결이 없으면 **가리킬 값이 없다** — 그때는 입력칸 대신 그 사실을
-    말하고 「계정 연결」로 보낸다. 빈 칸을 두고 저장에서 실패하게 두면 무엇이
-    잘못됐는지 알 수 없다.
+    말한다. 빈 칸을 두고 저장에서 실패하게 두면 무엇이 잘못됐는지 알 수 없다.
 *@
 
 @inherits DataPage
 
-<PageTitle>요청 상세 · 헬프데스크</PageTitle>
+<PageTitle>@TabTitle · 헬프데스크</PageTitle>
 
-@if (_request is not null)
-{
-    <dl class="hd-facts">
-        <dt>요청번호</dt><dd>@Text("reqNo")</dd>
-        <dt>제목</dt><dd>@Text("title")</dd>
-        <dt>고객사</dt><dd>@Text("companyName")</dd>
-        <dt>요청자</dt><dd>@RequesterName()</dd>
-        <dt>작성자(계정)</dt><dd>@Text("createdBy")</dd>
-        <dt>담당자</dt><dd>@Text("adminName")</dd>
-        <dt>상태</dt><dd>@Text("statusName")</dd>
-        <dt>접수</dt><dd>@Text("createdAt")</dd>
-    </dl>
+<div class="hd-detail">
+    <div class="hd-detail__head">
+        @* 돌아갈 자리를 둔다. 알림을 누르고 들어온 사람에게는 **이 화면이
+           첫 화면**이라, 없으면 사이드바에서 「요청 처리」를 다시 찾아야 한다. *@
+        <a class="hd-detail__back" href="/helpdesk/request/manage">← 요청 처리</a>
 
-    @* 본문은 **HTML 이다.** 등록 화면이 서식 편집기(`DxHtmlEditor`)로 쓰고,
-       붙여넣은 그림이 `<img src="/api/file/download/id/{guid}">` 로 박혀 있다.
-       글자로 뭉개 놓으면 그 태그가 그대로 보이고 **그림은 영영 안 보인다** —
-       읽는 사람이 증상을 못 보는 것이 이 화면에서 가장 나쁜 일이다. *@
-    <div class="hd-content">@Body()</div>
-
-    <div class="hd-actions">
-        <a class="jsini-badge" href="@($"/helpdesk/request/edit/{Id}")">수정</a>
+        <h2 class="hd-detail__title">@TabTitle</h2>
     </div>
 
-}
-
-<h2 class="hd-subhead">처리 이력</h2>
-<AutoGrid Data="@_comments" Loading="@Loading" Captions="@CommentCaptions" PageSize="20" />
-
-@if (Context.IdentityChecked)
-{
-    @if (Context.IsLinked)
+    @if (_request is not null)
     {
-        <div class="hd-form">
-            <div class="hd-field">
-                <label class="hd-field__label">처리 내용 남기기</label>
-                <DxMemo @bind-Text="_comment" Rows="4" />
+        <dl class="hd-facts">
+            <dt>요청번호</dt><dd>@Text("reqNo")</dd>
+            <dt>제목</dt><dd>@Text("title")</dd>
+            <dt>고객사</dt><dd>@Text("companyName")</dd>
+            <dt>요청자</dt><dd>@RequesterName()</dd>
+            <dt>작성자(계정)</dt><dd>@Text("createdBy")</dd>
+            <dt>담당자</dt><dd>@Text("adminName")</dd>
+            <dt>상태</dt><dd>@Text("statusName")</dd>
+            <dt>접수</dt><dd>@Text("createdAt")</dd>
+        </dl>
+
+        @* 본문은 **HTML 이다.** 등록 화면이 서식 편집기(`DxHtmlEditor`)로 쓰고,
+           붙여넣은 그림이 `<img src="/api/file/download/id/{guid}">` 로 박혀 있다.
+           글자로 뭉개 놓으면 그 태그가 그대로 보이고 **그림은 영영 안 보인다** —
+           읽는 사람이 증상을 못 보는 것이 이 화면에서 가장 나쁜 일이다. *@
+        <div class="hd-content">@Body()</div>
+
+        <div class="hd-actions">
+            <a class="jsini-badge" href="@($"/helpdesk/request/edit/{Id}")">수정</a>
+        </div>
+    }
+
+    <h2 class="hd-subhead">댓글 @_commentCount</h2>
+
+    @if (_roots.Count > 0)
+    {
+        <CommentThread Nodes="@_roots"
+                       CanReply="@CanWrite"
+                       ReplyTo="@_replyTo"
+                       OnToggle="@ToggleReply"
+                       OnReply="@AddReplyAsync" />
+    }
+    else if (!Loading)
+    {
+        <PageNotice>아직 댓글이 없습니다. 첫 댓글을 남겨 보십시오.</PageNotice>
+    }
+
+    @if (Context.IdentityChecked)
+    {
+        @if (CanWrite)
+        {
+            <div class="hd-cmt-root">
+                <CommentEditor Id="new" Label="댓글 남기기" OnSubmit="@AddRootAsync" />
             </div>
-        </div>
-
-        <div class="jsini-toolbar">
-            <PermissionView Action="MenuAction.Create">
-                <DxButton Text="남기기" RenderStyle="ButtonRenderStyle.Primary" Click="@AddCommentAsync" />
-            </PermissionView>
-        </div>
+        }
+        else if (!Context.IsLinked)
+        {
+            @* 작성자를 가리킬 값이 없다. 빈 칸을 두고 저장에서 실패하게 두면
+               무엇이 잘못됐는지 알 수 없다. *@
+            <PageNotice Tone="NoticeTone.Warning">
+                헬프데스크 시스템에 권한이 없어 댓글을 남길 수 없습니다.
+            </PageNotice>
+        }
     }
-    else
-    {
-        @* 작성자를 가리킬 값이 없다. 빈 칸을 두고 저장에서 실패하게 두면
-           무엇이 잘못됐는지 알 수 없다. *@
-        <PageNotice Tone="NoticeTone.Warning">
-            헬프데스크 시스템에 권한이 없어 처리 내용을 남길 수 없습니다.
-        </PageNotice>
-    }
-}
+</div>

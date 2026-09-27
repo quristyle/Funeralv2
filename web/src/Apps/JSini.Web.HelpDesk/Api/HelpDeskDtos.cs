@@ -78,16 +78,63 @@ public sealed class ImprovementRequest : HdEntity
     public List<ImprovementComment>? Comments { get; set; }
 }
 
-/// <summary>요청 댓글.</summary>
+/// <summary>
+/// 요청 댓글 한 줄. <c>GET requests/{id}/comments</c> 가 주는 모양 그대로다.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>칸 이름을 서버에 맞춰 두었다.</b> 한동안 <c>content</c> · <c>authorName</c> ·
+/// <c>parentId</c> 로 적혀 있었는데 서버가 내려주는 것은 <c>commentText</c> ·
+/// <c>author</c> · <c>parentCommentId</c> 다. 이름이 어긋나면 역직렬화가
+/// <b>오류 없이</b> 빈 값을 채우므로, 증상이 「댓글은 몇 건이라는데 내용이
+/// 전부 비어 있다」로 나타난다.
+/// </para>
+/// <para>
+/// <c>commentText</c> 는 <b>HTML 이다</b> — 요청 본문과 같은 서식 편집기로
+/// 쓰고 붙여넣은 그림이 <c>&lt;img&gt;</c> 로 박힌다. 화면에 넣을 때는 반드시
+/// <c>NoticeHtml.Sanitize</c> 를 거친다.
+/// </para>
+/// </remarks>
 public sealed class ImprovementComment : HdEntity
 {
     public int RequestId { get; set; }
-    public string Content { get; set; } = string.Empty;
-    public string? AuthorName { get; set; }
+
+    /// <summary>본문(HTML). 지워진 댓글이면 서버가 안내 문구로 바꿔 준다.</summary>
+    public string CommentText { get; set; } = string.Empty;
+
     /// <summary>admin | customer.</summary>
     public string? AuthorType { get; set; }
-    public int? ParentId { get; set; }
+
+    /// <summary>작성자의 <b>헬프데스크 내부</b> 번호. 포털 아이디가 아니다.</summary>
+    public int AuthorId { get; set; }
+
+    /// <summary>
+    /// 이 댓글이 달린 부모 댓글. 요청글에 바로 단 댓글이면 <c>null</c> 이다.
+    /// 깊이에 제한이 없다 — 대댓글의 대댓글도 같은 칸 하나로 이어진다.
+    /// </summary>
+    public int? ParentCommentId { get; set; }
+
+    /// <summary>지워진 댓글인가. 자리와 딸린 답글은 남고 내용만 가려진다.</summary>
+    public bool IsDel { get; set; }
+
+    /// <summary>작성자. 담당자·고객 어느 쪽이든 이름을 여기로 풀어서 준다.</summary>
+    public CommentAuthor? Author { get; set; }
+
     public List<Attachment>? Attachments { get; set; }
+}
+
+/// <summary>
+/// 댓글 작성자. 담당자(<c>admin</c>)와 고객(<c>customer</c>)은 번호 체계가
+/// 달라서 서버가 <see cref="ImprovementComment.AuthorType"/> 으로 갈라 푼 뒤
+/// 이 모양으로 내려준다.
+/// </summary>
+public sealed class CommentAuthor
+{
+    public int Id { get; set; }
+
+    public string? UserName { get; set; }
+
+    public string? Photo { get; set; }
 }
 
 /// <summary>첨부파일.</summary>

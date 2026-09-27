@@ -1,0 +1,70 @@
+@*
+    [댓글을 쓰는 칸] — 요청 본문과 **같은 서식 편집기**(`DxHtmlEditor`)다.
+
+    엔드포인트: `POST files/image` (붙여넣은 그림)
+
+    ────────────────────────────────────────────────────────────
+    [왜 여러 줄 입력칸이 아니라 편집기인가]
+
+    헬프데스크에서 요청 하나를 두고 오가는 말의 알맹이는 대개 **화면**이다 —
+    「여기를 누르면 이렇게 나옵니다」. 글자만 받는 칸에서는 그것을 넣을 자리가
+    없어서, 답하는 쪽이 요청 본문에는 그림을 넣고 댓글에는 못 넣는 일이 났다.
+
+    ────────────────────────────────────────────────────────────
+    [붙여넣은 그림은 **그 자리에서** 파일이 된다]
+
+    편집기는 붙여넣은 그림을 `data:image/png;base64,…` 로 본문에 박는다.
+    그대로 두면 회로(SignalR) 수신 한도 4MB 를 넘겨 **쓰던 글이 통째로 날아간다.**
+    까닭과 막는 방법은 `wwwroot/js/request-editor.js` 머리말에 있고, 여기서는
+    요청 등록 화면과 **같은 것**을 쓴다.
+
+    [칸이 여럿 뜬다 — 그래서 이름이 저마다 달라야 한다]
+
+    상세 화면에는 뿌리 댓글을 쓰는 칸 하나와, 답글을 쓰는 칸 하나가 동시에 떠
+    있을 수 있다. `request-editor.js` 는 **문서 전체에서** 이름으로 칸을 찾으므로
+    이름이 겹치면 **A 에 붙여넣은 그림이 B 에 꽂힌다.** `Id` 를 받아 편집기
+    이름·숨긴 파일 칸·도구줄 단추 이름을 전부 그것으로 가른다.
+*@
+
+<div class="hd-cmt-write">
+    @if (!string.IsNullOrWhiteSpace(Label))
+    {
+        <span class="hd-field__label">@Label</span>
+    }
+
+    <DxHtmlEditor Markup="@_markup"
+                  MarkupChanged="@(v => _markup = v ?? string.Empty)"
+                  BindMarkupMode="HtmlEditorBindMarkupMode.OnDelayedInput"
+                  CustomizeToolbar="@MarkPictureButton"
+                  CssClass="@EditorClass" />
+
+    @* 그림이 지나가는 칸. 화면에는 안 보인다 — `request-editor.js` 가 여기에
+       파일을 밀어 넣거나(붙여넣기·끌어놓기) 이것을 열어 준다(도구줄 단추). *@
+    <InputFile id="@PasteInputId" class="hd-paste-input" accept="image/*"
+               multiple OnChange="@OnPastedAsync" />
+
+    <span class="jsini-hint">
+        증상 화면은 <b>복사해서 그대로 붙여넣으십시오(Ctrl+V)</b> —
+        붙이는 즉시 파일로 보관되고 글 안에 그림으로 남습니다.
+    </span>
+
+    @if (_pasting > 0)
+    {
+        <span class="jsini-hint">그림 @_pasting 장을 올리는 중입니다…</span>
+    }
+
+    <div class="jsini-toolbar">
+        <DxButton Text="@(_saving ? "남기는 중…" : SubmitText)"
+                  RenderStyle="ButtonRenderStyle.Primary"
+                  Enabled="@(!_saving && _pasting == 0)"
+                  Click="@SubmitAsync" />
+
+        @if (OnCancel.HasDelegate)
+        {
+            <DxButton Text="취소"
+                      RenderStyle="ButtonRenderStyle.Secondary"
+                      Enabled="@(!_saving)"
+                      Click="@OnCancel" />
+        }
+    </div>
+</div>

@@ -326,3 +326,154 @@
 .hd-content p:last-child {
   margin-bottom: 0;
 }
+
+/* ── 요청 상세 머리 ──────────────────────────────────────
+
+   이 화면은 **탭으로 따로 선다**(`RequestDetail.razor` 머리말). 그래서 사이드바
+   에서 고른 흔적도, 브레드크럼도 없다 — 메뉴에 없는 주소라 레이아웃이 줄기를
+   찾지 못한다. 알림을 누르고 들어온 사람에게는 이 화면이 **첫 화면**이므로
+   돌아갈 자리를 화면이 직접 둔다.
+   ---------------------------------------------------------- */
+
+.hd-detail__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.hd-detail__back {
+  font-size: var(--jsini-fs-md);
+  color: var(--jsini-text-muted);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.hd-detail__back:hover {
+  color: var(--jsini-text);
+  text-decoration: underline;
+}
+
+.hd-detail__title {
+  margin: 0;
+  font-size: var(--jsini-fs-lg);
+  font-weight: 700;
+
+  /* 제목이 길면 줄이 접히는 대신 머리 전체가 가로로 늘어난다. */
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* ── 댓글 나무 ───────────────────────────────────────────
+
+   `CommentThread` 가 자기를 다시 부르며 그린다. 여기서 정하는 것은
+   **한 층 들여쓰는 폭**과 층을 눈으로 가르는 세로줄이다.
+
+   깊이에 제한이 없으므로(자료가 정한다) 폭을 크게 잡으면 몇 층 안 가
+   본문이 한 글자 폭이 된다. 휴대폰에서는 더 좁힌다.
+   ---------------------------------------------------------- */
+
+.hd-cmts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.hd-cmt {
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--jsini-border);
+  min-width: 0;
+}
+
+.hd-cmt__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin-bottom: 0.35rem;
+}
+
+.hd-cmt__who {
+  font-weight: 600;
+  font-size: var(--jsini-fs-md);
+}
+
+.hd-cmt__when,
+.hd-cmt__count {
+  font-size: var(--jsini-fs-xs);
+  color: var(--jsini-text-muted);
+}
+
+/* 앞의 것과 붙어 보이지 않게 한 칸 민다. */
+.hd-cmt__count { margin-left: auto; }
+
+.hd-cmt__body {
+  font-size: var(--jsini-fs-md);
+  line-height: 1.7;
+  min-width: 0;
+}
+
+/* 지워진 댓글. 자리와 딸린 답글은 남기고 내용만 가린다 —
+   줄째로 빼면 그 아래 답글이 부모를 잃는다. */
+.hd-cmt__body--gone {
+  color: var(--jsini-text-muted);
+  font-style: italic;
+}
+
+.hd-cmt__acts {
+  margin-top: 0.2rem;
+}
+
+.hd-cmt__write {
+  margin-top: 0.5rem;
+}
+
+/* 한 층 들어간 답글들. 세로줄이 어느 말에 붙은 답인지를 보여 준다. */
+.hd-cmt__kids {
+  margin-top: 0.75rem;
+  margin-left: 1.25rem;
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--jsini-border);
+  min-width: 0;
+}
+
+@media (width <= 767px) {
+  /* 360px 짜리 화면에서 네 층만 들어가도 본문이 사라진다. */
+  .hd-cmt__kids {
+    margin-left: 0.35rem;
+    padding-left: 0.5rem;
+  }
+}
+
+/* ── 댓글 쓰는 칸 ────────────────────────────────────────
+
+   요청 본문과 같은 부품(`DxHtmlEditor`)이라 생김새는 그쪽이 그린다.
+   여기서 정하는 것은 **높이**와 **격자 안에서 안 벌어지게 묶는 것**이다 —
+   까닭은 이 파일 위쪽 `.hd-form` 주석에 적어 두었다(도구줄의 min-content 가
+   단추를 모두 펼친 폭이라, 안 묶으면 편집기가 칸을 밀어 넓힌다).
+   ---------------------------------------------------------- */
+
+.hd-cmt-write {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.hd-cmt-root {
+  margin-top: 1rem;
+}
+
+.hd-cmt-editor {
+  /* 요청 본문(20rem)보다 낮다. 댓글은 대개 몇 줄이고, 높게 잡으면
+     답글 칸이 열릴 때마다 아래 글이 한 화면씩 밀린다. */
+  min-height: 9rem;
+}
+
+.hd-cmt-editor img {
+  max-width: 100%;
+  height: auto;
+}

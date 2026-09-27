@@ -58,5 +58,9 @@ public sealed class HelpDeskModule : IPortalModule
         // 회로(사용자) 수명의 캐시들 — Vue 의 Pinia 스토어와 같은 폭이다.
         services.AddScoped<BizOptionService>();
         services.AddScoped<HelpDeskContext>();
+
+        // 서식 편집기에 붙는 그림을 파일로 보내는 창구. 상태가 없지만
+        // `HelpDeskApi` 가 회로마다 토큰을 달고 있어 폭을 그쪽에 맞춘다.
+        services.AddScoped<ContentImages>();
     }
 }

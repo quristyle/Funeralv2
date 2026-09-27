@@ -376,6 +376,9 @@ public static class RequestEndpoints {
           c.AuthorType,
           c.AuthorId,
           c.ParentCommentId,
+          // 지워진 줄도 목록에 남긴다 — 빼면 거기 달린 답글이 부모를 잃는다.
+          // 화면이 이 값을 보고 내용만 흐리게 그린다.
+          c.IsDel,
           c.CreatedAt,
           c.CreatedBy,
           Author = author
