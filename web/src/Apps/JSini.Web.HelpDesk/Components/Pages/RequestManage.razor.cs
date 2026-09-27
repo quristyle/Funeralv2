@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using System.Data;
 using JSini.Web.Components.Data;
+using JSini.Web.Components.Layout;
 using JSini.Web.HelpDesk.Api;
 
 namespace JSini.Web.HelpDesk.Components.Pages;
@@ -14,6 +15,9 @@ public partial class RequestManage
     private string ConditionSummary => SchSummary.Of(
         SchSummary.Or(_keyword),
         SchSummary.NameOf(StatusOptions, o => o.Value, o => o.Text, _status),
+        Context.IsSystemAdmin
+            ? SchSummary.NameOf(CompanyFilterOptions, o => o.Value, o => o.Label, _companyId)
+            : null,
         SchSummary.NameOf(Context.AdminOptions, o => o.Value, o => o.Label, _adminId),
         SchSummary.On(_onlyOpen, "처리 중인 것만"));
 
@@ -22,8 +26,12 @@ public partial class RequestManage
 
     private string? _keyword;
     private string? _status;
+    private string? _companyId;
     private string? _adminId;
     private bool _onlyOpen = true;
+
+    private IReadOnlyList<BizOption> CompanyFilterOptions =>
+        [new("전체", null), .. Context.RequestManageCompanyOptions];
 
     private static readonly SchOption[] StatusOptions =
     [
@@ -50,71 +58,95 @@ public partial class RequestManage
         await Context.LoadIdentityAsync();
         await Context.LoadOrganizationsAsync();
 
+        if (!Context.IsSystemAdmin)
+        {
+            _companyId = Context.CompanyId?.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        }
+
         await ReloadAsync();
     }
 
-    private Task ReloadAsync() => LoadAsync(async () =>
+    private Task ReloadAsync()
     {
-        var query = new Dictionary<string, object?>
+        if (!Context.IsSystemAdmin && Context.CompanyId is null)
         {
-            ["page"] = 1,
-            ["pageSize"] = 300,
-            ["remove"] = "description,content",
-            // 최근 순. **`isEmergency` 로는 정렬하지 못한다** — 서버가 그 칸으로
-            // 정렬하면 EF 가 질의를 번역하지 못해 400 이 난다. 긴급을 앞으로
-            // 올리는 것은 받아 온 뒤에 이 화면에서 한다(`Ordered`).
-            ["sorts"] = new[]
+            _rows = [];
+            _total = 0;
+            Say("소속 회사 정보를 확인할 수 없어 요청을 조회하지 않았습니다.", NoticeTone.Warning);
+            return Task.CompletedTask;
+        }
+
+        return LoadAsync(async () =>
+        {
+            var query = new Dictionary<string, object?>
             {
-                new { field = "createdAt", dir = "desc" },
-            },
-        };
+                ["page"] = 1,
+                ["pageSize"] = 300,
+                ["remove"] = "description,content",
+                // 최근 순. **`isEmergency` 로는 정렬하지 못한다** — 서버가 그 칸으로
+                // 정렬하면 EF 가 질의를 번역하지 못해 400 이 난다. 긴급을 앞으로
+                // 올리는 것은 받아 온 뒤에 이 화면에서 한다(`Ordered`).
+                ["sorts"] = new[]
+                {
+                    new { field = "createdAt", dir = "desc" },
+                },
+            };
 
-        if (!string.IsNullOrWhiteSpace(_keyword))
-        {
-            query["title_or_like"] = _keyword.Trim();
-        }
+            if (!string.IsNullOrWhiteSpace(_keyword))
+            {
+                query["title_or_like"] = _keyword.Trim();
+            }
 
-        if (!string.IsNullOrWhiteSpace(_status))
-        {
-            query["status"] = _status;
-        }
-        else if (_onlyOpen)
-        {
-            // 상태를 따로 고르지 않았을 때만 「처리 중」으로 좁힌다. 둘을 함께
-            // 걸면 고른 상태가 조용히 무시되어 화면과 결과가 어긋난다.
-            //
-            // **여러 값의 구분자는 `|` 다.** 쉼표로 이으면 서버가 그 전체를
-            // 값 하나로 읽어 400 이 난다(DynamicFilterHelper 의 `in`).
-            query["status_in"] = string.Join("|", OpenStatuses);
-        }
+            if (!string.IsNullOrWhiteSpace(_status))
+            {
+                query["status"] = _status;
+            }
+            else if (_onlyOpen)
+            {
+                // 상태를 따로 고르지 않았을 때만 「처리 중」으로 좁힌다. 둘을 함께
+                // 걸면 고른 상태가 조용히 무시되어 화면과 결과가 어긋난다.
+                //
+                // **여러 값의 구분자는 `|` 다.** 쉼표로 이으면 서버가 그 전체를
+                // 값 하나로 읽어 400 이 난다(DynamicFilterHelper 의 `in`).
+                query["status_in"] = string.Join("|", OpenStatuses);
+            }
 
-        if (!string.IsNullOrWhiteSpace(_adminId))
-        {
-            query["adminId"] = _adminId;
-        }
+            if (!string.IsNullOrWhiteSpace(_adminId))
+            {
+                query["adminId"] = _adminId;
+            }
 
-        var page = await Api.SearchAsync<ImprovementRequest>("requests/srch", query);
+            var companyId = Context.IsSystemAdmin
+                ? _companyId
+                : Context.CompanyId?.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            if (!string.IsNullOrWhiteSpace(companyId))
+            {
+                query["customer.companyId"] = companyId;
+            }
 
-        // 긴급을 맨 앞으로. 서버가 이 칸으로 정렬하지 못해 여기서 한다.
-        // 한 번에 300건까지만 받으므로 브라우저에서 줄 세워도 무겁지 않다.
-        _rows =
-        [
-            .. page.Items
-                .OrderByDescending(r => r.IsEmergency == true)
-                .ThenByDescending(r => r.CreatedAt)
-        ];
+            var page = await Api.SearchAsync<ImprovementRequest>("requests/srch", query);
 
-        _total = page.TotalCount;
+            // 긴급을 맨 앞으로. 서버가 이 칸으로 정렬하지 못해 여기서 한다.
+            // 한 번에 300건까지만 받으므로 브라우저에서 줄 세워도 무겁지 않다.
+            _rows =
+            [
+                .. page.Items
+                    .OrderByDescending(r => r.IsEmergency == true)
+                    .ThenByDescending(r => r.CreatedAt)
+            ];
 
-        // **잘렸으면 반드시 말한다.** 「전부다」로 읽고 넘어가면 없는 것을
-        // 찾게 된다. 조회의 **결과**라 안내 줄이 아니라 토스트로 나간다.
-        if (_total > _rows.Count)
-        {
-            Say($"전체 {_total}건 중 {_rows.Count}건을 읽었습니다. 조건을 좁히면 나머지가 보입니다.");
-        }
+            _total = page.TotalCount;
 
-        return _rows.Count;
-    }, "조건에 맞는 요청이 없습니다.", "요청 목록을 읽지 못했습니다");
+            // **잘렸으면 반드시 말한다.** 「전부다」로 읽고 넘어가면 없는 것을
+            // 찾게 된다. 조회의 **결과**라 안내 줄이 아니라 토스트로 나간다.
+            if (_total > _rows.Count)
+            {
+                Say($"전체 {_total}건 중 {_rows.Count}건을 읽었습니다. 조건을 좁히면 나머지가 보입니다.");
+            }
+
+            return _rows.Count;
+        }, "조건에 맞는 요청이 없습니다.", "요청 목록을 읽지 못했습니다");
+    }
 
     /// <summary>접수하고 얼마나 지났는가. 끝난 것은 처리에 걸린 시간.</summary>
     private static string Elapsed(ImprovementRequest r)

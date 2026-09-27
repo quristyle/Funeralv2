@@ -1,3 +1,6 @@
+﻿using System.Text.Json;
+using JSini.Web.Http;
+
 namespace JSini.Web.HelpDesk.Api;
 
 /// <summary>
@@ -9,7 +12,7 @@ namespace JSini.Web.HelpDesk.Api;
 /// 둘 다 여러 화면이 반복해서 필요로 하는데 자주 바뀌지 않아 한 번 받아 캐싱한다.
 /// Blazor Server 의 scoped 는 회로(사용자) 하나에 대응하므로 수명이 Pinia 스토어와 같다.
 /// </summary>
-public sealed class HelpDeskContext(HelpDeskApi api, BizOptionService bizOptions)
+public sealed class HelpDeskContext(HelpDeskApi api, BizOptionService bizOptions, GatewayClient gateway)
 {
     private Task? _identityLoading;
     private Task? _orgLoading;
@@ -25,6 +28,10 @@ public sealed class HelpDeskContext(HelpDeskApi api, BizOptionService bizOptions
     /// 쓴다 — 계정 연결이 없는 관리자도 조회·관리 화면을 열 수 있어야 한다.
     /// </summary>
     public bool IsAdmin => Identity?.IsAdmin ?? string.Equals(Identity?.LoginType, "admin", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>시스템관리자인가. 일반 헬프데스크 담당자 권한과는 구분한다.</summary>
+    public bool IsSystemAdmin => Identity?.JsiniRoles.Any(role =>
+        string.Equals(role, "SYSTEM_ADMINISTRATOR", StringComparison.OrdinalIgnoreCase)) == true;
 
     /// <summary>헬프데스크 내부 레코드에 이어져 있는가.</summary>
     public bool IsLinked => Identity?.HelpdeskUserId is not null;
@@ -71,6 +78,7 @@ public sealed class HelpDeskContext(HelpDeskApi api, BizOptionService bizOptions
 
     public IReadOnlyList<BizOption> AdminOptions { get; private set; } = [];
     public IReadOnlyList<BizOption> CompanyOptions { get; private set; } = [];
+    public IReadOnlyList<BizOption> RequestManageCompanyOptions { get; private set; } = [];
     public IReadOnlyList<BizOption> CustomerOptions { get; private set; } = [];
 
     /// <summary>
@@ -130,6 +138,26 @@ public sealed class HelpDeskContext(HelpDeskApi api, BizOptionService bizOptions
 
         AdminOptions = admins.Result.Options;
         CompanyOptions = companies.Result.Options;
+        RequestManageCompanyOptions = [];
+        if (IsSystemAdmin)
+        {
+            // Auth 회사 ID 는 GUID, 헬프데스크 회사 ID 는 정수라 이름으로 대응한다.
+            // 조회 조건에는 HELPDESK 사용처 회사와 이름이 일치하는 헬프데스크 ID 를 쓴다.
+            var portalCompanies = await gateway.GetListAsync<JsonElement>(
+                "auth/system/companies?usageLocation=HELPDESK");
+            var helpdeskCompanyNames = portalCompanies
+                .Select(company => BizOptionService.GetText(company, "name"))
+                .OfType<string>()
+                .Select(NormalizeCompanyName)
+                .Where(name => name.Length > 0)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            RequestManageCompanyOptions = companies.Result.Options
+                .Where(option => helpdeskCompanyNames.Contains(NormalizeCompanyName(option.Label)))
+                .ToArray();
+        }
+
         CustomerOptions = customers.Result.Options;
     }
+
+    private static string NormalizeCompanyName(string name) => name.Trim();
 }
