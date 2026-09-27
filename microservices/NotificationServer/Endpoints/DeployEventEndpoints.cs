@@ -182,6 +182,7 @@ public static class DeployEventEndpoints
             // 날이면 브라우저를 안 켠 사람의 줄에 그만큼 쌓이고, 나중에 켤 때
             // 한꺼번에 내려온다. 지난 배포는 배포 현황 화면에 다 있다.
             TtlSeconds = 3600,
+            Category = PushCategories.Deploy,
         };
     }
 

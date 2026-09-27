@@ -12,6 +12,9 @@ public partial class MessageSendPage
     [Inject] private AdminClient Api { get; set; } = default!;
     [Inject] private IJSRuntime JS { get; set; } = default!;
 
+    /// <summary>알림구분 목록. 정본은 공통코드(<c>NOTI_CATEGORY</c>)다.</summary>
+    [Inject] private PushCategoryClient Categories { get; set; } = default!;
+
     /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
     private string ConditionSummary => SchSummary.Of(
         SchSummary.Or(_filter),
@@ -65,7 +68,19 @@ public partial class MessageSendPage
     /// <summary>문자 내용의 바이트 수. 한글은 두 바이트라 글자 수로는 못 센다.</summary>
     private int SmsBytes => System.Text.Encoding.UTF8.GetByteCount(_sms.Body ?? string.Empty);
 
-    private readonly PushMessageDto _push = new();
+    /// <summary>
+    /// 푸시 칸이 들고 있는 값.
+    /// </summary>
+    /// <remarks>
+    /// <b>알림구분의 바닥값을 여기서 준다</b>(<see cref="PushCategoryClient.Notice"/>).
+    /// 비운 채로 보낼 수 있게 두면 사람이 손으로 보낸 알림이 구분 없는 줄로
+    /// 쌓이고, 그것이 곧 「어디서 빠뜨렸나」를 못 찾게 만든다.
+    /// </remarks>
+    private readonly PushMessageDto _push = new() { Category = PushCategoryClient.Notice };
+
+    /// <summary>알림구분 고르개의 항목들. <b>「전체」는 없다</b> — 보내는 자리다.</summary>
+    private IReadOnlyList<SchOption> _categoryOptions = [];
+
     private readonly EmailSendRequest _mail = new();
 
     /// <summary>
@@ -108,7 +123,14 @@ public partial class MessageSendPage
         ("큰 아이콘", "/icons/icon-512.png"),
     ];
 
-    protected override Task OnInitializedAsync() => LoadAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        // **사람 목록 조회와 묶지 않는다.** 공통코드를 못 읽어도 발송은 되어야
+        // 한다 — 그때는 고르개가 비고 바닥값(`NOTICE`)이 그대로 실려 간다.
+        _categoryOptions = await Categories.SendOptionsAsync();
+
+        await LoadAsync();
+    }
 
     private Task LoadAsync() => LoadAsync(async () =>
     {

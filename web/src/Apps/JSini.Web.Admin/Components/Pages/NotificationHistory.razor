@@ -31,33 +31,90 @@
 
 <PageTitle>내 알림함 · 포털관리</PageTitle>
 
-<CommSch OnSearch="@ReloadAsync" MobileSummary="@ConditionSummary">
+@* **조건을 고치면 그 자리에서 다시 읽는다.** 그래서 칸마다 `@@bind-` 대신
+   값과 변경을 따로 받는다 — `@@bind-` 는 값만 넣고 알려 주지 않는다.
+
+   「조회」 단추는 그대로 둔다. 조건을 안 바꾸고 **새로 온 알림만 확인**하는
+   것이 이 화면에서 가장 잦은 일이고, 휴대폰에서 조건 판을 도로 접는 것도
+   그 단추다(`CommSch.SearchAsync`). *@
+<CommSch OnSearch="@ReloadAsync" SearchText="다시 읽기" Busy="@Loading"
+         MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="기간">
-            <DxDateEdit @bind-Date="_from" Style="width: 140px" />
+            <DxDateEdit Date="@_from" DateChanged="@((DateTime? d) => OnFromChangedAsync(d))"
+                        Style="width: 140px" />
         </CommSchItem>
         <CommSchItem Label="~">
-            <DxDateEdit @bind-Date="_to" Style="width: 140px" />
+            <DxDateEdit Date="@_to" DateChanged="@((DateTime? d) => OnToChangedAsync(d))"
+                        Style="width: 140px" />
         </CommSchItem>
+        <CommSchItem Label="구분">
+            @* 갈래 목록은 **공통코드**가 갖는다(`NOTI_CATEGORY`). 화면에 박아
+               두면 갈래 하나 늘리는 데 배포가 필요하다 — `PushCategoryClient` 머리말.
+
+               이건 서버로 보낸다. 아래 스위치와 달리 **기간 안에 없는 것까지
+               좁히는 조건**이고, 서버가 색인으로 거르는 편이 싸다. *@
+            <DxComboBox Data="@_categoryOptions" TData="SchOption" TValue="string"
+                        Value="@_category" ValueChanged="@((string? v) => OnCategoryChangedAsync(v))"
+                        TextFieldName="@nameof(SchOption.Text)" ValueFieldName="@nameof(SchOption.Value)"
+                        Style="width: 150px" />
+        </CommSchItem>
+
         <CommSchItem>
             @* 라벨을 안 붙인다. 스위치 옆 글자가 이미 무엇인지 말한다.
 
-               **이건 서버에 보내지 않는다.** 받아 둔 것에서 거르므로 누르는
-               즉시 반영된다 — 서버로 보내면 「조회」를 한 번 더 눌러야 한다. *@
-            <DxCheckBox @bind-Checked="_unreadOnly">안 읽은 것만</DxCheckBox>
+               **기본이 켜짐이다.** 알림함을 여는 까닭이 대개 「안 본 것이
+               있나」라서, 읽은 것까지 섞여 있으면 볼 것을 눈으로 골라내야 한다.
+               다 보려면 끄면 된다.
+
+               받아 둔 것에서 먼저 거르고(누르는 즉시 그림이 바뀐다) 이어서
+               서버에도 조건을 실어 다시 읽는다 — 끌 때 읽은 알림을 그때
+               받아 와야 하기 때문이다(`GetMyNotificationsAsync` 머리말). *@
+            <DxCheckBox Checked="@_unreadOnly" CheckedChanged="@((bool on) => OnUnreadChangedAsync(on))">
+                안 읽은 것만
+            </DxCheckBox>
         </CommSchItem>
     </Fields>
 </CommSch>
 
 <CommCont>
+    @* 줄을 **두 번 누르면 그 알림이 가리키는 화면**이 열린다(탭이 하나 선다).
+       AI 작업 지시가 그렇게 열리는 첫 갈래다 — `/projmng/ai/task/{번호}` 가
+       이미 탭으로 펼쳐 보는 화면이다(`AiTaskViewPage`).
+
+       **여는 김에 읽음으로 찍는다.** 앱 알림을 눌러 들어올 때와 같다
+       (`PushClickRead`) — 그 화면을 연 사람에게 다시 「봤다」를 누르게 할
+       까닭이 없다. 못 찍어도 조용하다.
+
+       **두 번 누르기는 화면 어디에도 안 보이는 몸짓**이라 오른쪽 클릭 창에
+       같은 것을 「열기」로 둔다. 보이는 자리가 없으면 아무도 안 쓴다. *@
     <CommGrd TItem="NotificationDto" Data="@Shown" PageSize="30"
              ExportName="알림함"
+             SelectedItem="@_picked"
+             SelectedItemChanged="@(n => _picked = n)"
+             OnRowDoubleClick="@OpenAsync"
              Reload="@ReloadAsync">
+        <ContextMenuItems>
+            <CommMenuItem Text="열기" IconCssClass="jsini-icon-eye"
+                          Enabled="@(_picked is not null)"
+                          Click="@(() => OpenAsync(_picked!))" />
+        </ContextMenuItems>
         <Columns>
             @* 서버가 주는 것은 UTC 라 그대로 그리면 아홉 시간 전으로 보인다. *@
             <DxGridDataColumn FieldName="@nameof(NotificationDto.CreatedAt)" Caption="받은 때" Width="150">
                 <CellDisplayTemplate Context="cell">
                     @(((NotificationDto)cell.DataItem).CreatedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm"))
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+            @* 갈래. 공통코드의 이름으로 그린다 — 목록에서 지워진 옛 값이면
+               코드값이 그대로 보인다(`PushCategoryClient.Labeler`). *@
+            <DxGridDataColumn FieldName="@nameof(NotificationDto.Category)" Caption="구분" Width="110">
+                <CellDisplayTemplate Context="cell">
+                    @{ var c = ((NotificationDto)cell.DataItem).Category; }
+                    @if (!string.IsNullOrWhiteSpace(c))
+                    {
+                        <span class="jsini-badge">@_categoryName(c)</span>
+                    }
                 </CellDisplayTemplate>
             </DxGridDataColumn>
             <DxGridDataColumn FieldName="@nameof(NotificationDto.Title)" Caption="제목" MinWidth="200" />

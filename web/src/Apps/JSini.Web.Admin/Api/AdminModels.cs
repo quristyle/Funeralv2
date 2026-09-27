@@ -600,6 +600,13 @@ public sealed class PushLogDto
     public string? FailureReason { get; set; }
     public DateTime? SentAt { get; set; }
 
+    /// <summary>
+    /// 알림구분 코드값(공통코드 <c>NOTI_CATEGORY</c>). 사람이 읽는 이름은
+    /// 화면이 <see cref="PushCategoryClient"/> 로 붙인다. 구분을 붙이기 전에
+    /// 쌓인 줄과 구분 없이 보낸 것은 비어 있다.
+    /// </summary>
+    public string? Category { get; set; }
+
     /// <summary>보낸 사람. 시스템이 저절로 보낸 것은 비어 있다.</summary>
     public string? SentBy { get; set; }
 }
@@ -616,6 +623,19 @@ public sealed class NotificationDto
     public string? Body { get; set; }
     public bool IsRead { get; set; }
     public DateTime? CreatedAt { get; set; }
+
+    /// <summary>알림구분 코드값(공통코드 <c>NOTI_CATEGORY</c>). 이름은 화면이 붙인다.</summary>
+    public string? Category { get; set; }
+
+    /// <summary>
+    /// 알림을 눌렀을 때 열리는 주소. <b>알림함에서 줄을 두 번 누르면 여기로 간다.</b>
+    /// </summary>
+    /// <remarks>
+    /// 보낸 쪽이 실어 준 값이라 <b>옛 주소가 그대로 남아 있을 수 있다</b>
+    /// (AI 작업이 목록 주소를 싣던 시절 따위). 여는 쪽에서 지금 화면으로
+    /// 옮겨 준다 — <c>NotificationHistory.OpenUrl</c>.
+    /// </remarks>
+    public string? Url { get; set; }
 
     /// <summary>기기 한 대에라도 도착했는가.</summary>
     public bool Delivered { get; set; }
@@ -1846,6 +1866,16 @@ public sealed class PushMessageDto
     /// 연달아 보낼 때 쓰고, 비워 두면 올 때마다 새 알림으로 쌓인다.
     /// </summary>
     public string? Tag { get; set; }
+
+    /// <summary>
+    /// <b>알림구분</b>. 공통코드 <c>NOTI_CATEGORY</c> 에서 고른 코드값이고,
+    /// 서버가 발송 기록에 함께 보관한다.
+    /// </summary>
+    /// <remarks>
+    /// <b>알림창에는 안 뜬다</b> — 받는 사람이 보는 것은 제목·본문·아이콘이다.
+    /// 이 값은 나중에 「내 알림함」과 「발송 이력」이 갈래로 거를 때 쓴다.
+    /// </remarks>
+    public string? Category { get; set; }
 }
 
 /// <summary>푸시 발송 요청. 대상은 <b>부르는 쪽이 정한다.</b></summary>

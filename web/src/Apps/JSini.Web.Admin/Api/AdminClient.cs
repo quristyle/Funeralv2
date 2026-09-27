@@ -392,12 +392,17 @@ public sealed class AdminClient(GatewayClient gateway)
         string? reason = null,
         DateTime? from = null,
         DateTime? to = null,
+        string? category = null,
         CancellationToken ct = default)
         => gateway.GetFlexibleCountedListAsync<PushLogDto>(
             "notification/notifications/push/logs" + Query(
                 ("page", 1),
                 ("pageSize", pageSize),
                 ("failureReason", reason),
+                // 알림구분은 **서버가 거른다.** 사유(부분 일치)와 달리 공통코드에서
+                // 고른 값이라 한 글자도 안 틀리고, 상한(위 `pageSize`)에 걸리기
+                // 전에 좁혀야 「배포 알림만」이 이레치에서 다 보인다.
+                ("category", category),
                 ("startDate", from?.ToString("yyyy-MM-dd")),
                 ("endDate", to?.ToString("yyyy-MM-dd"))), ct);
 
@@ -426,11 +431,21 @@ public sealed class AdminClient(GatewayClient gateway)
     /// </para>
     /// </remarks>
     public Task<IReadOnlyList<NotificationDto>> GetMyNotificationsAsync(
-        DateTime? from = null, DateTime? to = null, CancellationToken ct = default)
+        DateTime? from = null,
+        DateTime? to = null,
+        string? category = null,
+        bool unreadOnly = false,
+        CancellationToken ct = default)
         => gateway.GetFlexibleListAsync<NotificationDto>(
             "notification/notifications/inbox" + Query(
                 ("startDate", from?.ToString("yyyy-MM-dd")),
-                ("endDate", to?.ToString("yyyy-MM-dd"))), ct);
+                ("endDate", to?.ToString("yyyy-MM-dd")),
+                ("category", category),
+                // **안 읽은 것만도 서버로 보낸다.** 화면이 받아 둔 것에서 또
+                // 거르지만(누르는 즉시 반영된다) 그것만으로는 상한(2,000줄)을
+                // 읽은 줄이 먼저 먹는다 — 이 화면의 기본 조건이 그것이라
+                // 한 달치를 받아 몇 줄만 그리게 된다.
+                ("unreadOnly", unreadOnly ? "true" : null)), ct);
 
     /// <summary>
     /// 읽음으로 표시한다. <b>열쇠는 「발송 한 번」</b>이라 기기가 여럿이어도

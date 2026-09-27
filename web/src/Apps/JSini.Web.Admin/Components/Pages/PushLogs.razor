@@ -31,6 +31,14 @@
         <CommSchItem Label="~">
             <DxDateEdit @bind-Date="_to" Style="width: 140px" />
         </CommSchItem>
+        <CommSchItem Label="구분">
+            @* 갈래 목록의 정본은 **공통코드**(`NOTI_CATEGORY`)다. 마지막 항목
+               「구분 없음」은 코드가 아니라 **구분이 안 붙은 줄**을 찾는 조건이다 —
+               구분을 빠뜨린 발송 자리를 찾는 자리다(`PushCategoryClient.Unset`). *@
+            <DxComboBox Data="@_categoryOptions" @bind-Value="_category"
+                        TextFieldName="@nameof(SchOption.Text)" ValueFieldName="@nameof(SchOption.Value)"
+                        Style="width: 150px" />
+        </CommSchItem>
         <CommSchItem Label="실패 사유">
             <DxTextBox @bind-Text="_reason" Style="width: 240px"
                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
@@ -51,6 +59,18 @@
                 </CellDisplayTemplate>
             </DxGridDataColumn>
             <DxGridDataColumn FieldName="@nameof(PushLogDto.TargetUser)" Caption="대상" Width="140" />
+
+            @* 공통코드의 이름으로 그린다. 목록에서 지워진 옛 갈래면 코드값이
+               그대로 보인다 — 빈칸으로 두면 구분이 없는 줄과 섞인다. *@
+            <DxGridDataColumn FieldName="@nameof(PushLogDto.Category)" Caption="구분" Width="110">
+                <CellDisplayTemplate Context="cell">
+                    @{ var c = ((PushLogDto)cell.DataItem).Category; }
+                    @if (!string.IsNullOrWhiteSpace(c))
+                    {
+                        <span class="jsini-badge">@_categoryName(c)</span>
+                    }
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
             <DxGridDataColumn FieldName="@nameof(PushLogDto.Title)" Caption="제목" MinWidth="180" />
             <DxGridDataColumn FieldName="@nameof(PushLogDto.Body)" Caption="내용" MinWidth="240" />
             <DxGridDataColumn Caption="결과" Width="90">

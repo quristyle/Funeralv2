@@ -1,6 +1,8 @@
 using System.Text;
 using System.Text.Json;
 
+using JSini.Shared.DTOs;
+
 namespace AuthServer.Services;
 
 /// <summary>
@@ -49,6 +51,10 @@ public class BirthdayNotifyClient
                     title = "생일 축하 메시지가 도착했어요 🎂",
                     body = $"{(string.IsNullOrWhiteSpace(senderName) ? senderId : senderName)} 님이 축하 메시지를 보냈습니다.",
                     url = "/life/birthday",
+
+                    // 알림구분. 받는 쪽 「내 알림함」이 이 값으로 거른다
+                    // (공통코드 NOTI_CATEGORY).
+                    category = PushCategories.Birthday,
                 },
             });
             using var request = new HttpRequestMessage(HttpMethod.Post, "/notifications/push")

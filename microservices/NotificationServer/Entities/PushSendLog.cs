@@ -82,6 +82,36 @@ public class PushSendLog
     [Column("channel")]
     public string Channel { get; set; } = "push";
 
+    /// <summary>
+    /// <b>알림구분</b>. 공통코드 묶음 <c>NOTI_CATEGORY</c> 의 코드값이다
+    /// (<c>DEPLOY</c> · <c>HELPDESK</c> · <c>NOTICE</c> …).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// [제목으로는 못 거른다]
+    /// </para>
+    ///
+    /// <para>
+    /// 「배포 알림만 보자」를 제목 부분일치로 하고 있으면, 제목 문구를 한 번
+    /// 다듬는 순간 옛 줄과 새 줄이 갈라진다. <b>보낸 쪽이 자기 갈래를
+    /// 적어 두는 것</b>이 조회의 유일한 단단한 근거다.
+    /// </para>
+    ///
+    /// <para>
+    /// 값의 목록은 코드가 아니라 <b>공통코드가 갖는다</b>
+    /// (<see cref="JSini.Shared.DTOs.PushCategories"/> 머리말). 여기 적힌 값이
+    /// 공통코드에 없어도 저장은 되고, 화면에는 코드값 그대로 뜬다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>구분을 붙이기 전에 쌓인 줄은 비어 있다</b>(<c>null</c>). 채워 넣을
+    /// 길이 없다 — 그 줄에는 어디서 보냈는지가 아무 데도 안 남아 있다.
+    /// 화면은 그것을 「구분 없음」으로 모아 본다.
+    /// </para>
+    /// </remarks>
+    [Column("category")]
+    public string? Category { get; set; }
+
     /// <summary>받는 이의 종류(<c>jsini</c> · <c>helpdesk-admin</c> …).</summary>
     [Column("owner_type")]
     public string OwnerType { get; set; } = string.Empty;

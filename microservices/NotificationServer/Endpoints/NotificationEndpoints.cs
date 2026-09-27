@@ -182,6 +182,7 @@ public static class NotificationEndpoints
                             // 지나고 나면 알림함에서 봐도 되는 소식이다. 하루 뒤에
                             // 배달돼 봐야 관리자 알림창만 채운다.
                             TtlSeconds = 3600,
+                            Category = PushCategories.Subscription,
                         }
                     };
                     
@@ -674,6 +675,10 @@ public static class NotificationEndpoints
             message.TtlSeconds ??= 300;
             message.Topic ??= "push-test";
 
+            // **구분은 부르는 쪽 말을 안 듣는다.** 이 주소로 온 것은 무엇이든
+            // 시험이고, 시험 줄이 공지나 배포로 섞이면 그 갈래의 건수가 틀어진다.
+            message.Category = PushCategories.Test;
+
             var result = await sender.SendAsync(new SendPushDto
             {
                 Owners = new List<OwnerRefDto>
@@ -718,6 +723,7 @@ public static class NotificationEndpoints
             [FromQuery] string? failureReason = null,
             [FromQuery] string? ownerKey = null,
             [FromQuery] string? channel = null,
+            [FromQuery] string? category = null,
             [FromQuery] DateTime? startDate = null,
             [FromQuery] DateTime? endDate = null,
             CancellationToken ct = default) =>
@@ -743,6 +749,8 @@ public static class NotificationEndpoints
                 query = query.Where(l => l.OwnerKey == ownerKey);
             }
 
+            query = ByCategory(query, category);
+
             var total = await query.CountAsync(ct);
 
             // 쪽 크기를 묶어 둔다. 화면이 실수로 0 이나 십만을 보내면 서버가
@@ -764,6 +772,7 @@ public static class NotificationEndpoints
                     Body = l.Body,
                     Success = l.IsSuccess,
                     FailureReason = l.FailureReason,
+                    Category = l.Category,
                     SentBy = l.SentBy,
                 })
                 .ToListAsync(ct);
@@ -902,6 +911,8 @@ public static class NotificationEndpoints
             [FromServices] AppDbContext db,
             [FromQuery] DateTime? startDate = null,
             [FromQuery] DateTime? endDate = null,
+            [FromQuery] string? category = null,
+            [FromQuery] bool unreadOnly = false,
             [FromQuery] int take = 500,
             CancellationToken ct = default) =>
         {
@@ -909,6 +920,23 @@ public static class NotificationEndpoints
 
             var mine = LogQuery(db, startDate, endDate)
                 .Where(l => l.OwnerType == "jsini" && l.OwnerKey == user.UserId);
+
+            mine = ByCategory(mine, category);
+
+            // **안 읽은 것만 보기는 여기서도 거른다.**
+            //
+            // 화면도 받아 둔 것에서 거르지만(누르는 즉시 반영된다) 그것만으로는
+            // 부족하다 — 이 화면의 기본 조건이 「안 읽은 것만」이라, 서버가
+            // 다 보내면 **거의 다 읽은 한 달치를 받아 와 몇 줄만 그리게** 된다.
+            // 상한(아래 `take`)도 읽은 줄이 먼저 먹는다.
+            //
+            // 묶음 단위로 본다 — 기기 하나만 찍힌 줄이 있으면 그 묶음은
+            // 읽은 것이다(읽음은 사람의 상태다).
+            if (unreadOnly)
+            {
+                var readBatches = mine.Where(l => l.ReadAt != null).Select(l => l.BatchId ?? l.Id);
+                mine = mine.Where(l => !readBatches.Contains(l.BatchId ?? l.Id));
+            }
 
             // **줄을 받아 와서 묶는다.**
             //
@@ -931,6 +959,7 @@ public static class NotificationEndpoints
                         l.ReadAt,
                         l.IsSuccess,
                         l.FailureReason,
+                        l.Category,
                     })
                     .ToListAsync(ct))
                 .GroupBy(l => l.Key)
@@ -946,6 +975,7 @@ public static class NotificationEndpoints
                         Title = g.First().Title,
                         Body = g.First().Body,
                         Url = g.First().Url,
+                        Category = g.First().Category,
                         CreatedAt = g.Max(x => x.SentAt),
 
                         // **한 기기라도 읽었으면 읽은 것이다.** 읽음은 사람의
@@ -1054,6 +1084,35 @@ public static class NotificationEndpoints
         }
 
         return query;
+    }
+
+    /// <summary>
+    /// 알림구분으로 거른다. 「내 알림함」과 「발송 이력」이 같은 규칙을 써야 한다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 코드값은 <b>한 글자도 틀리지 않게</b> 맞춘다 — 실패 사유와 달리 이것은
+    /// 공통코드에서 고른 값이라 부분 일치로 풀 이유가 없고, 풀어 두면
+    /// <c>AI_TASK</c> 를 찾을 때 <c>AI</c> 로 시작하는 다른 구분까지 딸려 온다.
+    /// </para>
+    /// <para>
+    /// <see cref="PushCategories.Unset"/> 은 <b>구분이 안 붙은 줄</b>을 찾는
+    /// 이름표다. 구분을 붙이기 전에 쌓인 기록과 구분을 빠뜨린 발송이 거기
+    /// 모인다 — 그 자리가 곧 「어디서 빠뜨렸나」를 찾는 자리다.
+    /// </para>
+    /// </remarks>
+    private static IQueryable<Entities.PushSendLog> ByCategory(
+        IQueryable<Entities.PushSendLog> query, string? category)
+    {
+        if (string.IsNullOrWhiteSpace(category)) return query;
+
+        if (string.Equals(category.Trim(), PushCategories.Unset, StringComparison.OrdinalIgnoreCase))
+        {
+            return query.Where(l => l.Category == null || l.Category == "");
+        }
+
+        var wanted = PushCategories.Normalize(category);
+        return wanted is null ? query : query.Where(l => l.Category == wanted);
     }
 
     /// <summary>「최근 N 일」의 시작. 0 이나 음수가 와도 하루는 본다.</summary>

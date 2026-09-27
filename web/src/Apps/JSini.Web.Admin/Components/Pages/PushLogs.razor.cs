@@ -9,9 +9,13 @@ public partial class PushLogs
 {
     [Inject] private AdminClient Api { get; set; } = default!;
 
+    /// <summary>알림구분 목록. 정본은 공통코드(<c>NOTI_CATEGORY</c>)다.</summary>
+    [Inject] private PushCategoryClient Categories { get; set; } = default!;
+
     /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
     private string ConditionSummary => SchSummary.Of(
         SchSummary.Period(_from, _to),
+        SchSummary.NameOf(_categoryOptions, o => o.Value, o => o.Text, _category),
         _reason);
 
     /// <summary>
@@ -43,21 +47,41 @@ public partial class PushLogs
     private DateTime? _to = DateTime.Today;
 
     private string? _reason;
+
+    /// <summary>
+    /// 고른 알림구분. 비면 전체다.
+    /// <see cref="PushCategoryClient.Unset"/> 이면 <b>구분이 안 붙은 줄</b>만 본다.
+    /// </summary>
+    private string? _category;
+
+    private IReadOnlyList<SchOption> _categoryOptions = [new SchOption(null, "전체")];
+
+    /// <summary>코드값 → 이름. 표가 줄마다 부른다.</summary>
+    private Func<string?, string> _categoryName = v => v ?? string.Empty;
+
     private IReadOnlyList<PushLogDto> _logs = [];
     private int _total;
 
-    protected override Task OnInitializedAsync() => ReloadAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        // **조회와 묶지 않는다.** 공통코드를 못 읽어도 이력은 열려야 한다 —
+        // 그때는 고르개에 「전체」만 남는다.
+        _categoryOptions = await Categories.OptionsAsync();
+        _categoryName = PushCategoryClient.Labeler(await Categories.GetAsync());
+
+        await ReloadAsync();
+    }
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        (_logs, _total) = await Api.GetPushLogsAsync(Cap, _reason, _from, _to);
+        (_logs, _total) = await Api.GetPushLogsAsync(Cap, _reason, _from, _to, _category);
 
         // **잘렸으면 반드시 말한다.** 「전부다」로 읽고 넘어가면 없는 것을
         // 찾게 된다. 조회의 **결과**라 안내 줄이 아니라 토스트로 나간다.
         // 문구는 Q&A 목록과 같게 둔다 — 같은 상황에 다른 말을 하면 다른 일로 읽는다.
         if (_total > _logs.Count)
         {
-            Say($"전체 {_total}건 중 {_logs.Count}건입니다. 기간이나 사유로 좁히십시오.",
+            Say($"전체 {_total}건 중 {_logs.Count}건입니다. 기간·구분·사유로 좁히십시오.",
                 NoticeTone.Warning);
         }
 

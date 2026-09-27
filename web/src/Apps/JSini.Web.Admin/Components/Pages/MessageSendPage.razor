@@ -188,6 +188,22 @@
                     </div>
 
                     <div class="ad-field">
+                        <label class="ad-field__label">알림구분</label>
+                        @* 목록은 **공통코드**(`NOTI_CATEGORY`)가 갖는다 —
+                           갈래를 늘리는 데 배포가 필요 없다.
+
+                           **알림창에는 안 뜬다.** 받는 사람이 보는 것은 제목·내용·
+                           아이콘이고, 이 값은 발송 기록에 함께 남아 나중에 「내
+                           알림함」과 「발송 이력」이 갈래로 거를 때 쓴다. *@
+                        <DxComboBox Data="@_categoryOptions" @bind-Value="_push.Category"
+                                    TextFieldName="@nameof(SchOption.Text)" ValueFieldName="@nameof(SchOption.Value)"
+                                    ValidationEnabled="false" Style="width: 200px" />
+                        <div class="jsini-hint">
+                            보낸 기록에 함께 남습니다. 받는 사람의 알림창에는 보이지 않습니다.
+                        </div>
+                    </div>
+
+                    <div class="ad-field">
                         <label class="ad-field__label">내용</label>
                         <DxMemo @bind-Text="_push.Body" Rows="4" ValidationEnabled="false" />
                     </div>

@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using System.Text;
+using JSini.Shared.DTOs;
 
 using Dapper;
 using Npgsql;
@@ -219,7 +220,10 @@ public sealed class AiTaskNotifier(
                         // 끝난 작업은 작업 화면과 「내 알림함」에 그대로
                         // 있으므로 배달을 포기해도 잃는 것이 없다. 사정은
                         // docs/push-delivery.md 참고.
-                        ttlSeconds = 7200
+                        ttlSeconds = 7200,
+
+                        // 알림구분(공통코드 NOTI_CATEGORY). 요청 알림과 같은 갈래다.
+                        category = PushCategories.AiTask
                     }
                 }),
             };

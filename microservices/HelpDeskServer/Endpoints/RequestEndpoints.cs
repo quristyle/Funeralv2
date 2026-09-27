@@ -581,7 +581,10 @@ public static class RequestEndpoints {
               body = $"{customer?.UserName ?? auditUser} 님이 요청을 등록했습니다: {request.Title}",
               url = $"/helpdesk/request/detail/{request.Id}",
               iconOwnerKey = auditUser,
-              tag = $"helpdesk-request-{request.Id}"
+              tag = $"helpdesk-request-{request.Id}",
+
+              // 알림구분(공통코드 NOTI_CATEGORY). 받는 쪽이 갈래로 거른다.
+              category = JSini.Shared.DTOs.PushCategories.HelpDesk
             }
           })
         };

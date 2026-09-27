@@ -78,6 +78,11 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<PushSendLog>()
             .HasIndex(l => new { l.OwnerType, l.OwnerKey });
 
+        // 알림구분으로 거르는 조회는 **언제나 기간과 함께** 온다(알림함·발송
+        // 이력의 조건줄이 그렇다). 그래서 구분만 담지 않고 시각을 함께 담는다.
+        modelBuilder.Entity<PushSendLog>()
+            .HasIndex(l => new { l.Category, l.SentAt });
+
         // 쪽지는 **받은함과 보낸함**으로만 훑는다. 둘 다 사람 한 명 + 시간순이라
         // 색인이 둘 필요하다 — 하나로 두면 보낸함이 표를 통째로 읽는다.
         modelBuilder.Entity<Note>()

@@ -1,5 +1,6 @@
 using System.Text.Json;
 
+using JSini.Shared.DTOs;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using NotificationServer.Data;
@@ -405,6 +406,11 @@ public class PushSender : IPushSender
             Title = request.Message?.Title,
             Body = request.Message?.Body,
             Url = request.Message?.Url,
+
+            // **보낼 때 함께 보관한다.** 나중에 제목으로 갈래를 되짚으려 하면
+            // 문구 한 번 다듬는 것으로 옛 줄과 새 줄이 갈라진다
+            // (`PushSendLog.Category` 머리말).
+            Category = PushCategories.Normalize(request.Message?.Category),
             IsSuccess = success,
             FailureReason = reason,
             SentBy = sentBy,

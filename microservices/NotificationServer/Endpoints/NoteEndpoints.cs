@@ -248,6 +248,7 @@ public static class NoteEndpoints
                             Body = title,
                             Url = InboxUrl,
                             IconOwnerKey = user.UserId,
+                            Category = PushCategories.Note,
                         },
                     }, user.UserId, ct);
 

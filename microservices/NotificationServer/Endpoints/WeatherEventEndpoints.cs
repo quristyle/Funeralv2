@@ -75,6 +75,7 @@ public static class WeatherEventEndpoints
                 // 같은 기준이 반복해서 걸리면 줄에서는 최신 한 건만 남긴다.
                 // 화면에서 겹치지는 않게 Tag 는 주지 않는다(둘의 차이는 PushMessageDto.Topic).
                 Topic = $"weather-standard:{request.StandardName}",
+                Category = PushCategories.Weather,
             };
 
             var pushResult = owners.Count > 0
@@ -140,6 +141,7 @@ public static class WeatherEventEndpoints
                 // 특보도 한 시간이면 낡는다 — 위 기준 알림과 같은 까닭이다.
                 // 태그가 있으면 그것이 그대로 줄에서의 겹침 열쇠가 된다.
                 TtlSeconds = 3600,
+                Category = PushCategories.Weather,
             };
 
             var pushResult = owners.Count > 0
@@ -223,6 +225,7 @@ public static class WeatherEventEndpoints
                 // 정해진 시각에 한 번 보내는 것이라 **그 시간대를 넘기면 버린다.**
                 // 저녁에 브라우저를 켰는데 아침 날씨가 뜨는 것은 알림이 아니라 소음이다.
                 TtlSeconds = 10800,
+                Category = PushCategories.Weather,
             };
 
             var result = await push.SendAsync(

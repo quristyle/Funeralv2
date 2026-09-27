@@ -27,6 +27,10 @@ public sealed class AdminModule : IPortalModule
         // 가입 신청 승인. 계정 관리와 갈라 둔 이유는 그 클래스 주석에 있다.
         services.AddScoped<SignupClient>();
 
+        // 알림구분(공통코드 NOTI_CATEGORY). 알림 화면 셋이 함께 읽고
+        // 참조자료 통에 담아 둔다 — 그 클래스 머리말 참고.
+        services.AddScoped<PushCategoryClient>();
+
         // 공지 첨부 업로드 (D5). GatewayClient 에는 멀티파트가 없어 따로 두지만
         // 같은 BaseAddress·같은 토큰 처리로 등록해 인증이 갈라지지 않게 한다.
         var baseUrl = configuration["Gateway:BaseUrl"] ?? "http://localhost:5265/api/";

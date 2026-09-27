@@ -127,6 +127,23 @@ public class PushMessageDto
     /// </remarks>
     public int? TtlSeconds { get; set; }
 
+    /// <summary>
+    /// <b>알림구분</b>. 공통코드 묶음 <c>NOTI_CATEGORY</c> 의 코드값이다
+    /// (<see cref="JSini.Shared.DTOs.PushCategories"/>).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>브라우저까지 가지 않는다</b> — 기록에만 남는다. 알림창에 뜨는 것은
+    /// 제목·본문·아이콘이고, 이 값은 「내 알림함」과 「발송 이력」이 갈래로
+    /// 거르는 데 쓴다.
+    /// </para>
+    /// <para>
+    /// 비워도 보내진다. 그때 그 줄은 「구분 없음」으로 남는다 —
+    /// <b>구분을 빠뜨린 발송 자리를 찾는 실마리</b>가 그것이다.
+    /// </para>
+    /// </remarks>
+    public string? Category { get; set; }
+
     /// <summary>화면이 알아서 쓰는 부가 값.</summary>
     public Dictionary<string, string>? Data { get; set; }
 }
@@ -573,6 +590,9 @@ public class PushLogRowDto
     public bool Success { get; set; }
     public string? FailureReason { get; set; }
 
+    /// <summary>알림구분 코드값(<c>NOTI_CATEGORY</c>). 옛 줄과 구분 없이 보낸 것은 비어 있다.</summary>
+    public string? Category { get; set; }
+
     /// <summary>보낸 사람. 시스템이 보낸 것은 비어 있다.</summary>
     public string? SentBy { get; set; }
 }
@@ -590,6 +610,13 @@ public class NotificationRowDto
     public string? Url { get; set; }
     public DateTime CreatedAt { get; set; }
     public bool IsRead { get; set; }
+
+    /// <summary>
+    /// 알림구분 코드값(<c>NOTI_CATEGORY</c>). <b>이름은 주지 않는다</b> —
+    /// 화면이 공통코드를 이미 읽고 있어서, 여기서 함께 보내면 같은 이름이
+    /// 두 곳에서 오고 공통코드를 고쳤을 때 둘이 어긋난다.
+    /// </summary>
+    public string? Category { get; set; }
 
     /// <summary>기기 한 대에라도 갔는가.</summary>
     public bool Delivered { get; set; }

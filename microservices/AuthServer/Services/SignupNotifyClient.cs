@@ -1,6 +1,8 @@
 using System.Text;
 using System.Text.Json;
 
+using JSini.Shared.DTOs;
+
 namespace AuthServer.Services;
 
 /// <summary>
@@ -73,6 +75,9 @@ public class SignupNotifyClient
 
                     // 누르면 곧바로 승인 화면으로 간다.
                     url = "/admin/system/signup",
+
+                    // 알림구분(공통코드 NOTI_CATEGORY). 기록에만 남고 알림창에는 안 뜬다.
+                    category = PushCategories.Signup,
                     iconOwnerKey,
                     tag = $"signup-{accountId}",
                 },

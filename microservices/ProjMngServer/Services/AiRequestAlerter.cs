@@ -1,4 +1,5 @@
 using System.Net.Http.Json;
+using JSini.Shared.DTOs;
 
 using ProjMngServer.Models;
 
@@ -141,6 +142,10 @@ public sealed class AiRequestAlerter(
                     // **건마다 다른 태그다.** 고정값을 쓰면 요청 둘이 연달아
                     // 올라올 때 뒤엣것이 앞엣것을 덮어 하나만 보인다.
                     tag = $"ai-request-{task.TaskKey}",
+
+                    // 알림구분(공통코드 NOTI_CATEGORY). 받는 쪽 알림함이
+                    // 이 값으로 갈래를 거른다.
+                    category = PushCategories.AiTask,
                 }
             }),
         };
@@ -310,6 +315,9 @@ public sealed class AiRequestAlerter(
                     topic = $"ai-note-t{task.TaskKey}",
 
                     ttlSeconds = 86400,
+
+                    // 위와 같은 갈래다 — 요청과 그 요청에 달린 말은 한 묶음이다.
+                    category = PushCategories.AiTask,
                 }
             }),
         };
