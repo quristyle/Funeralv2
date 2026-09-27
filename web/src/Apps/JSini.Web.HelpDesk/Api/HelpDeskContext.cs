@@ -141,23 +141,12 @@ public sealed class HelpDeskContext(HelpDeskApi api, BizOptionService bizOptions
         RequestManageCompanyOptions = [];
         if (IsSystemAdmin)
         {
-            // Auth 회사 ID 는 GUID, 헬프데스크 회사 ID 는 정수라 이름으로 대응한다.
-            // 조회 조건에는 HELPDESK 사용처 회사와 이름이 일치하는 헬프데스크 ID 를 쓴다.
             var portalCompanies = await gateway.GetListAsync<JsonElement>(
                 "auth/system/companies?usageLocation=HELPDESK");
-            var helpdeskCompanyNames = portalCompanies
-                .Select(company => BizOptionService.GetText(company, "name"))
-                .OfType<string>()
-                .Select(NormalizeCompanyName)
-                .Where(name => name.Length > 0)
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
-            RequestManageCompanyOptions = companies.Result.Options
-                .Where(option => helpdeskCompanyNames.Contains(NormalizeCompanyName(option.Label)))
-                .ToArray();
+            RequestManageCompanyOptions = HelpdeskCompanyOptionMapper.ForPortalCompanies(
+                companies.Result.Options, portalCompanies);
         }
 
         CustomerOptions = customers.Result.Options;
     }
-
-    private static string NormalizeCompanyName(string name) => name.Trim();
 }
