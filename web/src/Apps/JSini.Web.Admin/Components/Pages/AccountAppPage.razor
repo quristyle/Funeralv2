@@ -195,6 +195,16 @@ else if (DeadDevices > 0)
             <dt>쪽지 메일 전달</dt>
             <dd>@Switch(_status.Preference.NoteEmailEnabled)</dd>
         </div>
+        @* 위의 「푸시 알림」·「이메일 알림」 아래 갈래다. 그것을 끄면 이 둘을
+           켜 두어도 안 가므로, 「왜 안 왔나」를 볼 때 넷을 나란히 봐야 한다. *@
+        <div class="jsini-fact">
+            <dt>댓글 앱알림</dt>
+            <dd>@Switch(_status.Preference.CommentPushEnabled)</dd>
+        </div>
+        <div class="jsini-fact">
+            <dt>댓글 이메일</dt>
+            <dd>@Switch(_status.Preference.CommentEmailEnabled)</dd>
+        </div>
         <div class="jsini-fact">
             <dt>기상특보</dt>
             <dd>@Switch(_status.Preference.WeatherEnabled)</dd>

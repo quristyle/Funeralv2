@@ -279,6 +279,8 @@ public static class NotificationEndpoints
                     p.EmailEnabled,
                     p.WeatherEnabled,
                     p.NoteEmailEnabled,
+                    p.CommentPushEnabled,
+                    p.CommentEmailEnabled,
                     p.UpdatedAt,
                 })
                 .ToListAsync(ct);
@@ -308,6 +310,8 @@ public static class NotificationEndpoints
                     EmailEnabled = p.EmailEnabled,
                     WeatherEnabled = p.WeatherEnabled,
                     NoteEmailEnabled = p.NoteEmailEnabled,
+                    CommentPushEnabled = p.CommentPushEnabled,
+                    CommentEmailEnabled = p.CommentEmailEnabled,
                     Saved = true,
                     UpdatedAt = p.UpdatedAt,
                 };
@@ -606,6 +610,8 @@ public static class NotificationEndpoints
                 request.EmailEnabled is null &&
                 request.WeatherEnabled is null &&
                 request.NoteEmailEnabled is null &&
+                request.CommentPushEnabled is null &&
+                request.CommentEmailEnabled is null &&
                 request.WeatherLocalEnabled is null &&
                 request.WeatherHours is null &&
                 request.WeatherPlace is null &&

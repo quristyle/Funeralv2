@@ -58,6 +58,18 @@ public static class PushCategories
     /// <summary>헬프데스크 요청 알림.</summary>
     public const string HelpDesk = "HELPDESK";
 
+    /// <summary>
+    /// <b>내 요청글에 댓글이 달렸다</b>는 알림. 위 <see cref="HelpDesk"/> 와 갈래를
+    /// 나눈 까닭은 <b>받는 사람이 이것만 따로 끌 수 있기 때문</b>이다.
+    /// </summary>
+    /// <remarks>
+    /// 「요청이 올라왔다」(<see cref="HelpDesk"/>)는 <b>처리할 사람</b>에게 역할로
+    /// 가는 업무 알림이라 본인이 끄는 것이 아니다. 이쪽은 <b>내가 쓴 글에 달린
+    /// 답</b>이라 갈래가 다르고, 설정 화면의 「댓글 알림」 스위치가 이 값을 본다
+    /// (알림 서비스의 <c>NotificationPreference.CommentPushEnabled</c>).
+    /// </remarks>
+    public const string HelpDeskComment = "HELPDESK_COMMENT";
+
     /// <summary>AI 작업 요청·결과 알림.</summary>
     public const string AiTask = "AI_TASK";
 

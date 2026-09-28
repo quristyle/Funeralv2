@@ -132,7 +132,7 @@ public static class CommentEndpoints {
       return comment;
     }));
 
-    group.MapPost("/", (AppDbContext db, ImprovementComment comment, ILoggerFactory loggerFactory, IConfiguration configuration, IPushSubscriptionStore store, IWebPushService sender) => ApiResponseBuilder.CreateAsync(async () => {
+    group.MapPost("/", (AppDbContext db, ImprovementComment comment, HttpContext http, ILoggerFactory loggerFactory, IConfiguration configuration, IPushSubscriptionStore store, IWebPushService sender, ICommentNotifier notifier) => ApiResponseBuilder.CreateAsync(async () => {
 
       db.Comments.Add(comment);
       await db.SaveChangesAsync();
@@ -208,6 +208,19 @@ public static class CommentEndpoints {
 
       Console.WriteLine($"fffffffffffffffff");
 
+      // ── 글 주인에게 알린다 (앱 푸시 · 이메일) ──────────────
+      //
+      // **위의 발송과 길이 다르다.** 위엣것은 헬프데스크가 제 구독표
+      // (`pushsubscription`)로 보내는 옛 길인데, 그 표를 채우던 Vue 포털은
+      // 이제 없다 — 지금 포털에서 알림을 켜면 구독은 **알림 서비스** 쪽에
+      // 들어간다. 그래서 「내가 쓴 글에 댓글이 달렸다」가 실제로는 한 대에도
+      // 닿지 않았다. 이메일은 아예 없었다.
+      //
+      // 옛 길을 걷어내지 않고 나란히 둔다. 거기 남아 있는 구독(담당자 몫)이
+      // 아직 살아 있을 수 있고, 그것을 정리하는 일은 이 고침의 몫이 아니다.
+      //
+      // **알림이 실패해도 댓글은 남는다** — `ICommentNotifier` 머리말 참고.
+      await notifier.NotifyAsync(comment, request, authorName, http.AuditUser());
 
       return comment;
     }, "Comment created successfully.", 201));

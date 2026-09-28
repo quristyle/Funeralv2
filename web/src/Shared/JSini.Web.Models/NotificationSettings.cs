@@ -37,6 +37,25 @@ public sealed class NotificationPreferenceDto
     public bool NoteEmailEnabled { get; set; }
 
     /// <summary>
+    /// <b>내 글에 달린 댓글</b>을 앱 푸시로 받는가. 기본은 켜짐이다.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="PushEnabled"/> 아래의 <b>갈래 스위치</b>다 — 그것을 끄면 아무것도
+    /// 안 오고, 이것만 끄면 댓글 알림만 멎는다. 판정은 알림 서비스가 발송 직전에
+    /// 한다(알림구분 <c>HELPDESK_COMMENT</c>).
+    /// </remarks>
+    public bool CommentPushEnabled { get; set; } = true;
+
+    /// <summary>
+    /// <b>내 글에 달린 댓글</b>을 이메일로 받는가. 기본은 켜짐이다.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="EmailEnabled"/>(역할로 오는 업무 메일)와 갈래가 다르다. 헬프데스크
+    /// 댓글은 <b>그 요청글을 열어야만 보이므로</b>, 쪽지 메일과 달리 기본이 켜짐이다.
+    /// </remarks>
+    public bool CommentEmailEnabled { get; set; } = true;
+
+    /// <summary>
     /// <b>내 위치 날씨</b>를 받는가. 위 <see cref="WeatherEnabled"/>(기상 특보)와
     /// 다른 스위치다 — 그쪽은 특보가 떴을 때만, 이쪽은 <b>고른 시각마다</b> 온다.
     /// </summary>

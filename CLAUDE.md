@@ -13,6 +13,8 @@
 - `microservices/` — .NET 10 백엔드 서비스들 (EF Core + PostgreSQL)
   - `AuthServer` (:5264) 인증 · `funeralv2Api` (:5320) 장례식장 핵심 API
   - `AIAgentServer` (:5029) · `FileServer` (:5350) · `HelpDeskServer` (:5400)
+    내 요청글에 **댓글이 달렸을 때** 글 주인에게 가는 앱푸시·이메일과 그것을
+    끄는 자리는 [docs/helpdesk-comment-notify.md](docs/helpdesk-comment-notify.md)
   - `ProjMngServer` (:5450) · `SiteServer` (:5480) 회사 소개 사이트 백엔드
   - `NotificationServer` (:5460) 푸시·이메일 알림 (포털·장례식장·헬프데스크 공용).
     알림이 **한꺼번에 몰려 오거나 늦게 오는** 까닭 — 수명(TTL)·겹침(Topic) 설정과

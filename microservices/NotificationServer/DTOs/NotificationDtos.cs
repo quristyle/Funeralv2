@@ -278,6 +278,25 @@ public class SendEmailDto
     public string? SenderName { get; set; }
 
     /// <summary>
+    /// <b>알림구분</b>. 공통코드 묶음 <c>NOTI_CATEGORY</c> 의 코드값이다
+    /// (<see cref="JSini.Shared.DTOs.PushCategories"/>).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>받는 사람이 그 갈래를 껐는지 보는 데 쓴다.</b> 지금 걸리는 것은
+    /// <c>HELPDESK_COMMENT</c> 하나다 — <see cref="ToUser"/> 로 지목해 보내는
+    /// 메일은 원래 본인의 뜻을 보지 않지만(그 칸 머리말), 댓글 알림은
+    /// <b>업무 메일이 아니라 두드림</b>이라 설정 화면에 스위치를 두었다.
+    /// </para>
+    /// <para>
+    /// 비워도 나간다 — 갈래가 없는 메일은 아무도 끈 적이 없는 메일이다.
+    /// <see cref="To"/> 에 주소를 직접 적은 몫은 <b>갈래가 있어도 안 거른다</b>
+    /// (어느 계정인지 확실치 않다).
+    /// </para>
+    /// </remarks>
+    public string? Category { get; set; }
+
+    /// <summary>
     /// 붙일 파일들. <b>직발송(<c>/emails/send</c>)만 본다</b> — 큐 방식은
     /// 스풀 JSON 에 제목·본문·받는이 셋만 담는 규약이라 실을 자리가 없다.
     /// </summary>
@@ -349,6 +368,17 @@ public class NotificationPreferenceDto
     public bool NoteEmailEnabled { get; set; }
 
     /// <summary>
+    /// <b>내 글에 달린 댓글</b>을 앱 푸시로 받는가. 기본은 켜짐이다.
+    /// </summary>
+    public bool CommentPushEnabled { get; set; } = true;
+
+    /// <summary>
+    /// <b>내 글에 달린 댓글</b>을 이메일로 받는가. 기본은 켜짐이다
+    /// (<c>Entities/NotificationPreference.CommentEmailEnabled</c> 머리말).
+    /// </summary>
+    public bool CommentEmailEnabled { get; set; } = true;
+
+    /// <summary>
     /// <b>내 위치 날씨</b>를 받는가. 위 <see cref="WeatherEnabled"/>(기상 특보)와
     /// 다른 스위치다 — 그쪽은 사건이 있을 때만, 이쪽은 시각마다 온다.
     /// </summary>
@@ -398,6 +428,13 @@ public class UpdateNotificationPreferenceDto
     public bool? EmailEnabled { get; set; }
     public bool? WeatherEnabled { get; set; }
     public bool? NoteEmailEnabled { get; set; }
+
+    /// <summary>내 글에 달린 댓글을 앱 푸시로 받을지.</summary>
+    public bool? CommentPushEnabled { get; set; }
+
+    /// <summary>내 글에 달린 댓글을 이메일로 받을지.</summary>
+    public bool? CommentEmailEnabled { get; set; }
+
     public bool? WeatherLocalEnabled { get; set; }
 
     /// <summary>
@@ -531,7 +568,13 @@ public class OwnerNotificationStateDto
     /// <summary>쪽지를 메일로도 받는가. 기본은 꺼짐이다.</summary>
     public bool NoteEmailEnabled { get; set; }
 
-    /// <summary>저장한 적이 있나. 거짓이면 위 넷은 기본값이다.</summary>
+    /// <summary>내 글에 달린 댓글을 앱 푸시로 받는가. 기본은 켜짐이다.</summary>
+    public bool CommentPushEnabled { get; set; } = true;
+
+    /// <summary>내 글에 달린 댓글을 이메일로 받는가. 기본은 켜짐이다.</summary>
+    public bool CommentEmailEnabled { get; set; } = true;
+
+    /// <summary>저장한 적이 있나. 거짓이면 위 스위치들은 기본값이다.</summary>
     public bool Saved { get; set; }
 
     /// <summary>

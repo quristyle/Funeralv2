@@ -88,6 +88,12 @@ public class PushSender : IPushSender
 
     private const string ReasonNoSubscription = "구독한 기기 없음";
     private const string ReasonOptedOut = "본인이 푸시를 끔";
+
+    /// <summary>
+    /// 푸시는 켜 두었는데 <b>댓글 갈래만</b> 껐을 때. 위의 것과 <b>가려 적는다</b> —
+    /// 「왜 저 사람만 안 왔나」의 답이 「다 껐다」와 「댓글만 껐다」로 갈린다.
+    /// </summary>
+    private const string ReasonCommentOptedOut = "본인이 댓글 알림을 끔";
     private const string ReasonExpired = "구독 만료(정리함)";
     private const string ReasonDeliveryFailed = "전달 실패";
     private const string ReasonNoVapid = "서버에 VAPID 설정 없음";
@@ -240,6 +246,44 @@ public class PushSender : IPushSender
             // 남은 사람에게는 보내되, **빠진 사람도 기록한다** — 「저 사람만
             // 왜 안 왔나」의 답이 여기 있다.
             await LogAsync(request, sentBy, batchId, pushDisabled.ToList(), ReasonOptedOut, ct);
+        }
+
+        // ── 갈래 스위치 ─────────────────────────────────────
+        //
+        // **댓글 알림은 따로 끌 수 있다.** 위의 것은 푸시 전체를 끄는 스위치이고
+        // 이것은 그 아래 갈래 하나다 — 헬프데스크에 글을 자주 쓰는 사람은 답글마다
+        // 울리는 것을 버거워하지만, 그렇다고 배포·쪽지까지 막으려는 것은 아니다.
+        //
+        // **알림구분으로 가른다.** 「요청이 올라왔다」(HELPDESK)는 처리할 사람에게
+        // 역할로 가는 업무 알림이라 여기 걸리지 않는다. 걸리는 것은 내가 쓴 글에
+        // 달린 답(HELPDESK_COMMENT) 하나다.
+        if (string.Equals(
+                PushCategories.Normalize(request.Message.Category),
+                PushCategories.HelpDeskComment,
+                StringComparison.Ordinal))
+        {
+            var commentDisabled = await _preferences.GetCommentPushDisabledAsync(owners, ct);
+
+            if (commentDisabled.Count > 0)
+            {
+                var before = owners.Count;
+                owners = owners
+                    .Where(o => !commentDisabled.Contains((o.OwnerType, o.OwnerKey)))
+                    .ToList();
+                optedOut += before - owners.Count;
+
+                await LogAsync(request, sentBy, batchId, commentDisabled.ToList(),
+                    ReasonCommentOptedOut, ct);
+
+                if (owners.Count == 0)
+                {
+                    return new SendPushResultDto
+                    {
+                        OptedOut = optedOut,
+                        Message = "대상이 모두 댓글 알림을 끄고 있습니다."
+                    };
+                }
+            }
         }
 
         // 주인 목록으로 구독을 모은다.

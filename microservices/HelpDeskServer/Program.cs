@@ -183,6 +183,10 @@ builder.Services.AddScoped<IRequesterProvisioner, RequesterProvisioner>();
 // 필요하면 이 통로로 AuthServer 에 묻는다(5분 캐시).
 builder.Services.AddSingleton<IPortalCompanyDirectory, PortalCompanyDirectory>();
 
+// 「내 요청글에 댓글이 달렸다」를 글 주인에게 알린다(앱 푸시 · 이메일).
+// DB 를 읽으므로 Scoped 다.
+builder.Services.AddScoped<ICommentNotifier, CommentNotifier>();
+
 // ============================================================
 // 8. 백그라운드 워커
 // ============================================================

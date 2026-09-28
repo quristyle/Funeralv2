@@ -151,11 +151,33 @@ public static class EmailEndpoints
 
             var unknownUsers = new List<string>();
 
+            // 갈래를 껐다는 까닭으로 빠진 사람. **「이메일이 없다」와 갈라 둔다** —
+            // 아래에서 받는 사람이 0 이 됐을 때 할 말이 전혀 다르다.
+            var optedOutUsers = new List<string>();
+
             if (!string.IsNullOrWhiteSpace(request.ToUser))
             {
                 var ids = request.ToUser
                     .Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                     .ToList();
+
+                // **갈래를 끈 사람을 여기서 던다.** 사람을 지목해 보내는 메일은
+                // 본인의 뜻을 보지 않는 것이 규칙이지만(`ResolveUserEmailsAsync`
+                // 머리말), 댓글 알림은 업무 메일이 아니라 두드림이라 설정 화면에
+                // 스위치가 있다. 부르는 쪽이 이 판정을 기억하게 하지 않는다 —
+                // 한 곳만 잊으면 새는 설정이 된다.
+                if (string.Equals(
+                        PushCategories.Normalize(request.Category),
+                        PushCategories.HelpDeskComment,
+                        StringComparison.Ordinal))
+                {
+                    var off = await prefs.GetCommentEmailDisabledLoginIdsAsync(ids, ct);
+                    if (off.Count > 0)
+                    {
+                        optedOutUsers.AddRange(ids.Where(off.Contains));
+                        ids = ids.Where(i => !off.Contains(i)).ToList();
+                    }
+                }
 
                 var found = await ResolveUserEmailsAsync(db, ids, ct);
 
@@ -180,6 +202,20 @@ public static class EmailEndpoints
                 .Where(r => System.Net.Mail.MailAddress.TryCreate(r, out _))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
+
+            // **본인이 껐을 뿐인 것은 실패가 아니다.** 400 으로 답하면 부르는 쪽
+            // 로그에 오류가 쌓이고, 설정을 존중한 결과가 고장으로 읽힌다.
+            // 그렇다고 「보냈습니다」라고도 하지 않는다 — 자료는 거짓(false)이다.
+            if (recipients.Count == 0 && optedOutUsers.Count > 0)
+            {
+                logger.LogInformation(
+                    "받는 사람이 모두 해당 갈래의 메일을 끄고 있어 보내지 않았습니다. "
+                    + "category={Category} toUser={User} by={By}",
+                    request.Category, request.ToUser, user.UserId);
+
+                return Results.Ok(ApiResponse<bool>.Ok(false,
+                    $"받는 사람이 알림을 끄고 있어 보내지 않았습니다: {string.Join(", ", optedOutUsers)}"));
+            }
 
             if (recipients.Count == 0)
             {

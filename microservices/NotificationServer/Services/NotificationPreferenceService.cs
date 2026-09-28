@@ -1,3 +1,5 @@
+using System.Linq.Expressions;
+
 using Microsoft.EntityFrameworkCore;
 using NotificationServer.Data;
 using NotificationServer.DTOs;
@@ -31,6 +33,29 @@ public interface INotificationPreferenceService
 
     /// <summary>이메일을 <b>끈</b> 포털 로그인 아이디들.</summary>
     Task<HashSet<string>> GetEmailDisabledLoginIdsAsync(
+        IEnumerable<string> loginIds, CancellationToken ct = default);
+
+    /// <summary>
+    /// <b>댓글 앱 푸시</b>를 끈 주인들. <see cref="GetPushDisabledAsync"/> 와 같은
+    /// 자리에서, 알림구분이 <c>HELPDESK_COMMENT</c> 일 때만 더 본다.
+    /// </summary>
+    /// <remarks>
+    /// 위의 것과 <b>겹쳐 쓰는</b> 값이다 — 푸시 자체를 끈 사람은 이미 저기서
+    /// 빠지고, 이것은 「푸시는 받되 댓글만 안 받겠다」는 사람을 더 덜어 낸다.
+    /// 행이 없으면 켜짐인 것도 같다.
+    /// </remarks>
+    Task<HashSet<(string OwnerType, string OwnerKey)>> GetCommentPushDisabledAsync(
+        IEnumerable<OwnerRefDto> owners, CancellationToken ct = default);
+
+    /// <summary>
+    /// <b>댓글 이메일</b>을 끈 포털 로그인 아이디들.
+    /// </summary>
+    /// <remarks>
+    /// 업무 메일 스위치(<see cref="GetEmailDisabledLoginIdsAsync"/>)와 갈래가
+    /// 다르다 — 그쪽은 역할로 가는 메일에만 걸리고, 댓글 메일은 사람을 지목해
+    /// 보내므로 그 길로는 걸러지지 않는다.
+    /// </remarks>
+    Task<HashSet<string>> GetCommentEmailDisabledLoginIdsAsync(
         IEnumerable<string> loginIds, CancellationToken ct = default);
 
     /// <summary>
@@ -118,6 +143,8 @@ public class NotificationPreferenceService : INotificationPreferenceService
         if (request.EmailEnabled.HasValue) row.EmailEnabled = request.EmailEnabled.Value;
         if (request.WeatherEnabled.HasValue) row.WeatherEnabled = request.WeatherEnabled.Value;
         if (request.NoteEmailEnabled.HasValue) row.NoteEmailEnabled = request.NoteEmailEnabled.Value;
+        if (request.CommentPushEnabled.HasValue) row.CommentPushEnabled = request.CommentPushEnabled.Value;
+        if (request.CommentEmailEnabled.HasValue) row.CommentEmailEnabled = request.CommentEmailEnabled.Value;
         if (request.WeatherLocalEnabled.HasValue) row.WeatherLocalEnabled = request.WeatherLocalEnabled.Value;
         if (request.WeatherHours is not null) row.WeatherHours = NormalizeHours(request.WeatherHours);
 
@@ -158,8 +185,26 @@ public class NotificationPreferenceService : INotificationPreferenceService
     }
 
     /// <inheritdoc />
-    public async Task<HashSet<(string OwnerType, string OwnerKey)>> GetPushDisabledAsync(
+    public Task<HashSet<(string OwnerType, string OwnerKey)>> GetPushDisabledAsync(
         IEnumerable<OwnerRefDto> owners, CancellationToken ct = default)
+        => DisabledOwnersAsync(owners, p => !p.PushEnabled, ct);
+
+    /// <inheritdoc />
+    public Task<HashSet<(string OwnerType, string OwnerKey)>> GetCommentPushDisabledAsync(
+        IEnumerable<OwnerRefDto> owners, CancellationToken ct = default)
+        => DisabledOwnersAsync(owners, p => !p.CommentPushEnabled, ct);
+
+    /// <summary>
+    /// 스위치 하나를 <b>끈</b> 주인들을 고른다. 위의 둘이 같은 몸을 쓴다.
+    /// </summary>
+    /// <remarks>
+    /// <b>"켠 사람" 이 아니라 "끈 사람" 을 묻는 모양이 중요하다</b> — 행이 없으면
+    /// 켜짐이므로 켠 사람을 물으면 표에 없는 대다수가 빠진다.
+    /// </remarks>
+    private async Task<HashSet<(string OwnerType, string OwnerKey)>> DisabledOwnersAsync(
+        IEnumerable<OwnerRefDto> owners,
+        Expression<Func<Entities.NotificationPreference, bool>> isOff,
+        CancellationToken ct)
     {
         var list = owners
             .Where(o => !string.IsNullOrWhiteSpace(o.OwnerType) && !string.IsNullOrWhiteSpace(o.OwnerKey))
@@ -173,7 +218,8 @@ public class NotificationPreferenceService : INotificationPreferenceService
         {
             var keys = group.Select(o => o.OwnerKey).Distinct().ToList();
             var rows = await _db.NotificationPreferences
-                .Where(p => p.OwnerType == group.Key && keys.Contains(p.OwnerKey) && !p.PushEnabled)
+                .Where(p => p.OwnerType == group.Key && keys.Contains(p.OwnerKey))
+                .Where(isOff)
                 .Select(p => new { p.OwnerType, p.OwnerKey })
                 .ToListAsync(ct);
 
@@ -196,6 +242,24 @@ public class NotificationPreferenceService : INotificationPreferenceService
             .ToListAsync(ct);
 
         return rows.ToHashSet(StringComparer.Ordinal);
+    }
+
+    /// <inheritdoc />
+    public async Task<HashSet<string>> GetCommentEmailDisabledLoginIdsAsync(
+        IEnumerable<string> loginIds, CancellationToken ct = default)
+    {
+        var keys = loginIds.Where(k => !string.IsNullOrWhiteSpace(k)).Distinct().ToList();
+        if (keys.Count == 0) return new HashSet<string>(StringComparer.Ordinal);
+
+        var rows = await _db.NotificationPreferences
+            .Where(p => p.OwnerType == "jsini" && keys.Contains(p.OwnerKey) && !p.CommentEmailEnabled)
+            .Select(p => p.OwnerKey)
+            .ToListAsync(ct);
+
+        // **대소문자를 가리지 않는다.** 부르는 쪽이 아이디를 적어 보내는 자리라
+        // (`toUser`) 사람이 친 글자가 그대로 올 수 있는데, 위의 업무 메일 쪽과
+        // 달리 이쪽은 그 목록이 곧 「빼야 할 사람」이다 — 못 알아보면 껐는데도 간다.
+        return rows.ToHashSet(StringComparer.OrdinalIgnoreCase);
     }
 
     /// <inheritdoc />
@@ -285,6 +349,8 @@ public class NotificationPreferenceService : INotificationPreferenceService
         EmailEnabled = row.EmailEnabled,
         WeatherEnabled = row.WeatherEnabled,
         NoteEmailEnabled = row.NoteEmailEnabled,
+        CommentPushEnabled = row.CommentPushEnabled,
+        CommentEmailEnabled = row.CommentEmailEnabled,
         WeatherLocalEnabled = row.WeatherLocalEnabled,
         WeatherLat = row.WeatherLat,
         WeatherLon = row.WeatherLon,

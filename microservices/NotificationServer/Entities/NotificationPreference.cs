@@ -82,6 +82,44 @@ public class NotificationPreference : BaseEntity<string>
     public bool NoteEmailEnabled { get; set; }
 
     /// <summary>
+    /// <b>내 글에 달린 댓글</b>을 앱 푸시로 받을지. 기본은 켜짐이다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="PushEnabled"/> 아래에 있는 <b>갈래 스위치</b>다. 그것을 끄면
+    /// 아무것도 안 오고, 이것만 끄면 <b>댓글 알림만</b> 멎는다 — 헬프데스크에
+    /// 글을 자주 쓰는 사람은 답글 하나하나가 다 울리는 것을 버거워하는데,
+    /// 그렇다고 배포·쪽지까지 막으려는 것은 아니다.
+    /// </para>
+    /// <para>
+    /// 판정은 발송 직전에 <c>PushSender</c> 가 한다 — 알림구분이
+    /// <c>HELPDESK_COMMENT</c>(<see cref="JSini.Shared.DTOs.PushCategories.HelpDeskComment"/>)
+    /// 인 발송에만 걸린다.
+    /// </para>
+    /// </remarks>
+    [Column("comment_push_enabled")]
+    public bool CommentPushEnabled { get; set; } = true;
+
+    /// <summary>
+    /// <b>내 글에 달린 댓글</b>을 이메일로 받을지. 기본은 켜짐이다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="EmailEnabled"/> 와 갈래가 다르다. 그쪽은 <b>역할로 오는</b> 업무
+    /// 메일이고, 이쪽은 내가 <b>이름을 걸고 쓴 글</b>에 달린 답이라 받는 사람이
+    /// 지목돼 온다 — 그래서 역할 메일의 스위치로는 가려지지 않는다
+    /// (<c>EmailEndpoints.ResolveUserEmailsAsync</c> 머리말).
+    /// </para>
+    /// <para>
+    /// <see cref="NoteEmailEnabled"/>(쪽지 메일)와 기본값이 반대인 것도 뜻이 있다.
+    /// 쪽지는 쪽지함에 남지만 <b>헬프데스크 댓글은 그 요청글을 열어야만 보인다</b> —
+    /// 답이 달린 줄 모르고 며칠이 지나는 쪽이 메일 한 통보다 나쁘다.
+    /// </para>
+    /// </remarks>
+    [Column("comment_email_enabled")]
+    public bool CommentEmailEnabled { get; set; } = true;
+
+    /// <summary>
     /// 날씨(기상 특보 · 임계치) 알림을 받을지. <b>기본은 꺼짐이다.</b>
     /// </summary>
     /// <remarks>
