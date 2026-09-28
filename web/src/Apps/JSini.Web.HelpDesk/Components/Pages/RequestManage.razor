@@ -80,7 +80,8 @@
 <CommCont>
     <CommGrd TItem="ImprovementRequest" Data="@_rows" PageSize="25"
              ExportName="요청관리"
-             Reload="@ReloadAsync">
+             Reload="@ReloadAsync"
+             OnRowClick="@OnRowClick">
         <Columns>
             <DxGridDataColumn FieldName="@nameof(ImprovementRequest.Id)" Caption="번호" Width="80" />
 

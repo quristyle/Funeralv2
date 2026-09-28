@@ -264,6 +264,9 @@ public partial class CommGrd<TItem>
     /// </para>
     /// </remarks>
     [Parameter] public EventCallback<TItem> OnRowDoubleClick { get; set; }
+    /// <summary>줄을 눌렀을 때.</summary>
+    [Parameter] public EventCallback<TItem> OnRowClick { get; set; }
+
 
     /// <summary>
     /// 한 줄만 고를 수 있는가. 기본은 한 줄이다.
@@ -981,6 +984,21 @@ public partial class CommGrd<TItem>
         _selected = item;
 
         return SelectedItemChanged.InvokeAsync(item is TItem typed ? typed : default);
+    }
+
+    /// <summary>
+    /// 누른 줄을 화면에 넘긴다.
+    /// </summary>
+    private Task OnRowClickAsync(GridRowClickEventArgs e)
+    {
+        if (!OnRowClick.HasDelegate)
+        {
+            return Task.CompletedTask;
+        }
+
+        return e.Grid.GetDataItem(e.VisibleIndex) is TItem item
+            ? OnRowClick.InvokeAsync(item)
+            : Task.CompletedTask;
     }
 
     /// <summary>

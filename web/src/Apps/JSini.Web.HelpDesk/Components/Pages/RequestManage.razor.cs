@@ -146,7 +146,11 @@ public partial class RequestManage
         }, "조건에 맞는 요청이 없습니다.", "요청 목록을 읽지 못했습니다");
     }
 
-    /// <summary>접수하고 얼마나 지났는가. 끝난 것은 처리에 걸린 시간.</summary>
+    private void OnRowClick(ImprovementRequest r)
+    {
+            Navigation.NavigateTo($"/helpdesk/request/detail/{r.Id}");
+    }
+
     private static string Elapsed(ImprovementRequest r)
     {
         if (r.CreatedAt is not { } from)
