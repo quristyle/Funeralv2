@@ -21,7 +21,7 @@
 ## HelpDesk (:5562, /helpdesk) — DB path 그대로
 
 /helpdesk/dashboard, /helpdesk/dashboard/customer, /helpdesk/request/{list,manage,new,monitor,my-comments},
-/helpdesk/request/detail/{id}, /helpdesk/request/edit/{id},
+/helpdesk/request/detail/{id},
 /helpdesk/monitor/{sm,maintenance}, /helpdesk/util/{ascii-parser,binary-parser,mc-model,diagram},
 /helpdesk/hanju/{health-check,collection-status,equipment-log,fms-log,procedure-result},
 /helpdesk/report/{monitoring,weekly,monthly,prediction,io-deep-dive,availability,capacity-planning,root-cause},
@@ -29,6 +29,10 @@
 (그룹 노드: /helpdesk, /helpdesk/{request,monitor,util,hanju,report,system})
 ※ 조직 관리(`/helpdesk/org/*`)는 2026-09-25 에 통째로 걷어냈다 — 조직과 계정은
   JSini 관리 포털(AuthServer)이 단독으로 맡는다.
+※ 요청 수정(`/helpdesk/request/edit/:id` — `HD_REQ_EDIT`)은 2026-09-28 에
+  걷어냈다. 그 화면이 하던 일은 상태 고르기 하나였고 지금은 요청 상세가
+  「접수」·「완료」·「종료」 단추로 한다. DB 메뉴는 `status = 0` 으로 재웠다
+  (`deploy/sql/helpdesk-request-close-2026-09-28.sql`).
 ※ 프로젝트(`/helpdesk/project/*`)와 일정(`/helpdesk/schedule/*`)도 같은 날
   걷어냈다. `/helpdesk/util/diagram`(다이어그램)은 이름만 WBS 고 「도구」
   묶음이라 남는다 — 그 화면만 `GET /api/wbs` 를 계속 쓴다.

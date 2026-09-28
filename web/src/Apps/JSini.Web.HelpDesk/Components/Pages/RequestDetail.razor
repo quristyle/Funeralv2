@@ -71,6 +71,28 @@
     박힌다.** 그래서 이 화면은 상태만 보낸다.
 
     ────────────────────────────────────────────────────────────
+    [수정을 걷어내고 그 자리에 「종료」를 둔다 (2026-09-28)]
+
+    머리 오른쪽 끝에 「수정」이 있었고 `/helpdesk/request/edit/{id}` 로
+    건너갔다. 그 화면이 하던 일은 **상태를 골라 저장하는 것 하나**였는데,
+    지금은 같은 일을 이 화면이 「접수」·「완료」 단추로 한다. 남겨 두면
+    상태를 바꾸는 길이 **두 벌**이 되고, 그중 한 벌은 접수자를 안 정한 채
+    상태만 갈아 버려 접수자 없는 「진행」이 생긴다. 그래서 화면째 지웠다
+    (`RequestEdit.razor` · DB 메뉴 `HD_REQ_EDIT`).
+
+    대신 **글 주인이 닫는 자리**를 만들었다.
+
+      - **종료(최종확인)** — 접수자가 「완료」로 닫아 둔 글에, **그 글을 쓴
+        사람에게만** 나온다. 누르면 `UserCompleted` 로 넘어가고 서버가
+        사용자완료일자를 박는다(`requests/accept/{id}`).
+      - 여기까지 와야 한 건이 끝난다. 전에는 접수자의 「완료」가 마지막이라
+        **고친 것이 실제로 맞는지 물어보는 자리가 없었다** — 화면에 길이
+        없었을 뿐 상태값(`UserCompleted`)과 알림은 서버에 이미 있었다.
+      - 담당자에게는 안 나온다. 남의 글을 대신 닫으면 「최종확인」이라는
+        말이 뜻을 잃는다. 자기가 쓴 글이면 담당자여도 나온다 —
+        판정은 직책이 아니라 **작성자인가** 하나다.
+
+    ────────────────────────────────────────────────────────────
     [두 줄짜리 판을 한 줄 띠로 줄였다 (2026-09-28)]
 
     아래 손질로 머릿값이 네 칸 격자가 되었지만 칸 하나가 여전히 **두 줄**
@@ -132,8 +154,6 @@
             <span class="jsini-badge @StatusClass()">@StatusText()</span>
 
             <div class="hd-actions">
-                <a class="jsini-badge" href="@($"/helpdesk/request/edit/{Id}")">수정</a>
-
                 @* 「대기」에서는 둘 다 나온다 — 맡을 수도 있고, 이미 끝난 일이면
                    바로 닫을 수도 있다. `Loading` 을 보는 것은 두 번 눌러 알림이
                    두 번 나가는 것을 막기 위해서다. *@
@@ -152,6 +172,19 @@
                                   SizeMode="SizeMode.Small"
                                   Enabled="@(!Loading)" Click="@CompleteAsync" />
                     }
+                }
+
+                @* 「종료(최종확인)」 — **글을 쓴 사람의 자리**다. 접수자가
+                   「완료」로 닫아 둔 글에만 나오므로 위의 둘과 **같은 때에
+                   같이 나오는 일이 없다**(「완료」는 아직 안 끝난 글에만
+                   나온다). 담당자 권한을 보지 않는 것은 일부러다 — 이 단추를
+                   눌러야 하는 사람은 대개 고객이고, 그 사람에게 담당자
+                   권한이 있을 리 없다. *@
+                @if (CanClose)
+                {
+                    <DxButton Text="종료(최종확인)" RenderStyle="ButtonRenderStyle.Primary"
+                              SizeMode="SizeMode.Small"
+                              Enabled="@(!Loading)" Click="@CloseAsync" />
                 }
             </div>
         }
@@ -190,6 +223,16 @@
             <div class="hd-fact"><dt>요청일</dt><dd>@When("createdAt")</dd></div>
             <div class="hd-fact"><dt>접수일</dt><dd>@When("acceptedAt")</dd></div>
             <div class="hd-fact"><dt>완료일</dt><dd>@When("completededAt")</dd></div>
+
+            @* 「종료일」만 **있을 때만** 내놓는다. 나머지 여섯은 넓은 화면에서
+               한 줄에 들어가는데 일곱째가 붙으면 줄이 갈린다 — 그리고 이 값이
+               있는 글은 이미 끝난 글이라, 머릿값이 한 줄 늘어도 읽는 사람이
+               더 굴려 내려갈 일이 없다. 칸 이름의 `-ded-` 는 서버 쪽 오타가
+               그대로 굳은 것이다(`UserCompletededAt`) — 고치면 여기도 함께. *@
+            @if (Value("userCompletededAt") is not null)
+            {
+                <div class="hd-fact"><dt>종료일</dt><dd>@When("userCompletededAt")</dd></div>
+            }
         </dl>
 
         @* 본문은 **HTML 이다.** 등록 화면이 서식 편집기(`DxHtmlEditor`)로 쓰고,

@@ -82,11 +82,71 @@ public partial class RequestDetail
     /// <b>아무도 아무것도 못 맡는다</b> — 담당자가 0명이기 때문이다.
     /// </para>
     /// <para>
-    /// 고객은 여기 들어오지 못한다. 자기 글을 스스로 「완료」로 닫는 길은
-    /// 따로 있다(<c>UserCompleted</c> — 종료).
+    /// 고객은 여기 들어오지 못한다. 자기 글을 스스로 닫는 길은 따로 있다 —
+    /// <see cref="CanClose"/>(<c>UserCompleted</c> — 종료).
     /// </para>
     /// </remarks>
     private bool CanHandle => Context.IsAdmin && Permissions.Can(MenuPath, MenuAction.Update);
+
+    /// <summary>
+    /// 이 글을 <b>쓴 사람</b>이 지금 보고 있는 사람인가.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>createdBy</c> 가 먼저다. 그 칸에는 <b>글을 쓸 때 로그인해 있던 포털
+    /// 계정</b>이 들어간다 — 서버가 폼 값이 아니라 신원에서 박고
+    /// (<c>HttpContext.AuditUser()</c>), 그 값은 신원 조회가 주는
+    /// <see cref="HelpdeskIdentity.JsiniUserId"/> 와 같은 것이다.
+    /// </para>
+    /// <para>
+    /// 그 다음이 <b>고객 번호</b>다. 옛 글(옛 헬프데스크에서 들어온 것)은
+    /// <c>createdBy</c> 에 포털 계정이 아니라 내부 값이 들어 있거나 아예
+    /// 비어 있어서, 그것만 보면 <b>제 글을 쓴 사람이 제 글을 못 닫는다.</b>
+    /// 고객으로 이어 둔 계정일 때만 쓸 수 있는 값이라
+    /// (<see cref="HelpDeskContext.CustomerId"/>) 담당자 연결에서는 null 이고,
+    /// 그때는 첫째 잣대만 선다.
+    /// </para>
+    /// <para>
+    /// <b>담당자인지는 보지 않는다.</b> 자기가 쓴 글이면 담당자여도 그 사람이
+    /// 글 주인이다. 반대로 남의 글은 담당자라도 이 값이 거짓이다.
+    /// </para>
+    /// </remarks>
+    private bool IsAuthor
+    {
+        get
+        {
+            var me = Context.Identity?.JsiniUserId;
+
+            if (!string.IsNullOrWhiteSpace(me)
+                && string.Equals(Value("createdBy"), me, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            return Context.CustomerId is { } mine
+                && int.TryParse(Value("customerId") ?? NestedValue("customer", "id"), out var owner)
+                && owner == mine;
+        }
+    }
+
+    /// <summary>
+    /// 「종료(최종확인)」을 내놓을 자리인가 — <b>접수자가 완료로 닫아 둔 내 글</b>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>Completed</c> 하나만 본다. 「대기」·「진행」에서 내놓으면 <b>고친
+    /// 것을 보지도 않고 닫는</b> 길이 열리고, 이미 <c>UserCompleted</c> 인
+    /// 글에 또 내놓으면 같은 알림이 두 번 나간다.
+    /// </para>
+    /// <para>
+    /// <b>메뉴 권한(<c>Update</c>)을 보지 않는다</b> — <see cref="CanHandle"/>
+    /// 과 다른 점이다. 이 단추를 누를 사람은 대개 고객이고, 고객 역할에
+    /// 「요청 상세」의 수정 권한이 있으리라고 기대할 수 없다. 요구했다가
+    /// 꺼지면 <b>단추가 말없이 사라져</b> 글 주인이 제 글을 영영 못 닫는다.
+    /// 무엇을 바꾸는지가 제 글 하나뿐이라 권한으로 가를 것이 없다.
+    /// </para>
+    /// </remarks>
+    private bool CanClose => IsAuthor && Status is "Completed";
 
     /// <summary>아직 아무도 안 맡은 글인가.</summary>
     private bool IsPending => Status is "Pending";
@@ -137,10 +197,17 @@ public partial class RequestDetail
             return;
         }
 
-        var ask = status == "Completed" && IsPending
+        var ask = (status, IsPending) switch
+        {
             // 「대기」에서 바로 닫는 길이라 무슨 일이 한꺼번에 일어나는지 적는다.
-            ? $"「{TabTitle}」 을(를) 접수하고 바로 완료로 닫습니다."
-            : $"「{TabTitle}」 을(를) {label} 처리합니다.";
+            ("Completed", true) => $"「{TabTitle}」 을(를) 접수하고 바로 완료로 닫습니다.",
+
+            // 글 주인의 마지막 걸음이라 **무엇을 확인하는 것인지** 적는다.
+            // 여기서 「예」를 누르면 담당자 전원에게 종료 알림이 나간다.
+            ("UserCompleted", _) => $"「{TabTitle}」 의 처리 결과를 확인했습니다. 요청을 종료합니다.",
+
+            _ => $"「{TabTitle}」 을(를) {label} 처리합니다.",
+        };
 
         if (_confirm is not null && !await _confirm.AskAsync(ask, "요청 처리", label, ButtonRenderStyle.Primary))
         {
@@ -166,6 +233,17 @@ public partial class RequestDetail
     /// 「완료」 — 끝났다. 「대기」에서 눌렀으면 접수까지 함께 반영된다.
     /// </summary>
     private Task CompleteAsync() => ChangeStatusAsync("Completed", "완료");
+
+    /// <summary>
+    /// 「종료(최종확인)」 — <b>글 주인이 결과를 보고 닫는다.</b>
+    /// </summary>
+    /// <remarks>
+    /// 서버는 이 상태에서만 다르게 움직인다(<c>PUT requests/accept/{id}</c>) —
+    /// 사용자완료일자(<c>UserCompletededAt</c>)를 박고 <b>접수자는 건드리지
+    /// 않는다.</b> 그래서 글 주인이 눌러도 접수자 자리에 그 사람이 들어가지
+    /// 않는다. 알림은 담당자 전원에게 나간다.
+    /// </remarks>
+    private Task CloseAsync() => ChangeStatusAsync("UserCompleted", "종료");
 
     /// <summary>
     /// 주소가 바뀌면 다시 읽는다.
