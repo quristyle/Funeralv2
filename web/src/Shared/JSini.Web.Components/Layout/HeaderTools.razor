@@ -75,6 +75,7 @@
 *@
 
 @implements IDisposable
+@implements IAsyncDisposable
 
 @* 껍데기 크기를 캡에서 멈추려고 받는다 — `ThemeSize.Chrome` 머리말 참고. *@
 
@@ -184,12 +185,26 @@
     </span>
 
     @* 알림. **권한을 보지 않는다.**
-       숫자는 안 읽은 알림 수다. 0 이면 붙이지 않는다. *@
+       숫자는 안 읽은 알림 수다. 0 이면 붙이지 않는다.
+
+       [숫자는 **네 갈래로** 다시 센다 (2026-09-28)]
+
+       한동안 회로가 붙는 순간과 화면을 옮길 때만 셌다. 한 장비만 쓰면 그것으로
+       맞는데, **장비를 둘 쓰면 반드시 어긋난다** — 휴대폰에서 다 읽어도 책상
+       화면의 종은 그대로고, 그 종을 눌러 목록을 열어도(목록과 숫자는 서로 다른
+       길로 온다) 빈 목록 옆에 옛 숫자가 그대로 붙어 있었다.
+
+         · 종을 누를 때      `OpenNotificationsAsync` — 열어 본 그 자리에서 맞는다
+         · 탭으로 돌아올 때  `unread-sync.js` — 다른 장비에서 읽고 온 사람이 지나는 문
+         · 푸시가 도착할 때  `push-sw.js` 가 알려 준다 — 울리는 그 순간 숫자도 오른다
+         · 1분마다          아무 손짓도 없는 화면의 마지막 그물 (안 보이는 탭은 쉰다)
+
+       뒤의 셋은 **펴 둔 서랍의 목록까지 함께** 맞춘다(`NotificationDrawer.Changed`). *@
     <span class="jsini-header__badged">
         <DxButton RenderStyle="ButtonRenderStyle.Link"
                   IconCssClass="jsini-icon-bell"
                   Title="@NotificationTitle"
-                  Click="@NotificationDrawerHandle.Open" />
+                  Click="@OpenNotificationsAsync" />
 
         @if (_unreadNotifications > 0)
         {

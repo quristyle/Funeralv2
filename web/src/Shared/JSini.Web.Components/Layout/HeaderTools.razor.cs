@@ -58,6 +58,31 @@ public partial class HeaderTools
     private int _unreadNotifications;
 
     /// <summary>
+    /// 스스로 다시 세는 시계. <b>다른 장비에서 읽은 것이 여기로 넘어오는
+    /// 마지막 길</b>이다 — 아무 손짓도 없는 화면에서도 숫자가 따라온다.
+    /// </summary>
+    /// <remarks>
+    /// 1분이다. 안 읽은 수는 <b>틀려도 조용한 값</b>이라 더 촘촘히 물을 까닭이
+    /// 없고(급한 소식은 푸시가 이미 울린다), 열어 둔 탭마다 게이트웨이를
+    /// 두드리는 일이라 더 성기게 두면 「읽었는데 그대로다」가 길어진다.
+    /// </remarks>
+    private static readonly TimeSpan PollInterval = TimeSpan.FromMinutes(1);
+
+    private Timer? _poll;
+
+    /// <summary>
+    /// 이 탭이 <b>보이고 있나</b>. 안 보이는 동안은 시계가 쉰다 —
+    /// 돌아오는 순간 브라우저가 알려 주고 그때 한 번 세면 된다.
+    /// </summary>
+    private bool _visible = true;
+
+    /// <summary>바깥 사정을 들어다 주는 브라우저 쪽(<c>unread-sync.js</c>).</summary>
+    private IJSObjectReference? _syncModule;
+
+    /// <summary>그쪽이 우리를 부를 손잡이. <b>반드시 버린다</b>(회로마다 하나씩 샌다).</summary>
+    private DotNetObjectReference<HeaderTools>? _syncRef;
+
+    /// <summary>
     /// ✉ 에 얹는 글. <b>안 읽은 것이 있으면 그 수를 함께 적는다</b> — 작은
     /// 숫자만으로는 그것이 무엇을 세는 값인지 알 수 없다.
     /// </summary>
@@ -185,7 +210,105 @@ public partial class HeaderTools
         if (firstRender)
         {
             await CountUnreadAsync();
+            await AttachSyncAsync();
+            StartPoll();
         }
+    }
+
+    /// <summary>
+    /// 바깥 사정을 듣기 시작한다 — <b>탭으로 돌아왔다 · 망이 붙었다 ·
+    /// 이 기기에 푸시가 막 도착했다.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 이 셋이 <b>여러 장비를 쓰는 사람의 숫자가 어긋나는 자리</b>를 덮는다.
+    /// 휴대폰에서 알림을 읽고 책상 화면으로 돌아오면 그 순간 다시 세고,
+    /// 새 알림이 와서 휴대폰이 울리면 열어 둔 화면의 숫자도 함께 오른다.
+    /// </para>
+    /// <para>
+    /// <b>못 걸어도 조용히 지나간다.</b> 서비스워커가 없는 브라우저도 있고
+    /// 회로가 닫히는 중일 수도 있다 — 그때는 시계와 화면 이동이 그대로
+    /// 남으므로 숫자가 안 맞는 시간이 길어질 뿐 고장은 아니다.
+    /// </para>
+    /// </remarks>
+    private async Task AttachSyncAsync()
+    {
+        try
+        {
+            _syncModule ??= await Js.InvokeAsync<IJSObjectReference>(
+                "import", "./_content/JSini.Web.Components/js/unread-sync.js");
+            _syncRef ??= DotNetObjectReference.Create(this);
+
+            await _syncModule.InvokeVoidAsync("attachUnreadSync", _syncRef);
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or ObjectDisposedException)
+        {
+        }
+    }
+
+    /// <summary>
+    /// 시계를 켠다. <b>회로 안에서만 켠다</b> — 프리렌더된 부품은 HTML 을
+    /// 만들고 곧 버려지는데 시계는 그것을 모르고 1분 뒤에 깨어난다
+    /// (<c>AutoRefreshPage.StartAutoRefresh</c> 와 같은 자리다).
+    /// </summary>
+    private void StartPoll()
+    {
+        if (!RendererInfo.IsInteractive)
+        {
+            return;
+        }
+
+        _poll?.Dispose();
+        _poll = new Timer(_ => _ = PollAsync(), null, PollInterval, PollInterval);
+    }
+
+    /// <summary>
+    /// 시계가 깨어났다. <b>안 보이는 탭에서는 아무것도 하지 않는다</b> —
+    /// 돌아오는 순간 브라우저가 알려 주고 그때 센다.
+    /// </summary>
+    private async Task PollAsync()
+    {
+        if (!_visible) return;
+
+        try
+        {
+            await SyncUnreadAsync();
+        }
+        catch (Exception)
+        {
+            // **스스로 도는 일이라 아무에게도 말하지 않는다.** 여기서 새는
+            // 예외는 아무도 안 받아(시계가 부른 것이라 기다리는 쪽이 없다)
+            // 조용히 사라지는데, 그렇다고 두면 다음 차례까지 무슨 일이
+            // 있었는지 알 길이 없다 — 숫자는 직전 값 그대로 두고 다음
+            // 차례에 다시 해 본다(<c>AutoRefreshPage.TickAsync</c> 와 같다).
+        }
+    }
+
+    /// <summary>
+    /// <b>지금 당장 다시 센다.</b> 브라우저 쪽(<c>unread-sync.js</c>)과
+    /// 시계가 부른다.
+    /// </summary>
+    /// <remarks>
+    /// 숫자만 고치지 않고 <b>펴 둔 서랍의 목록까지 함께 맞춘다</b> — 다른
+    /// 장비에서 읽은 알림이 숫자에서는 빠졌는데 눈앞의 카드로는 남아 있으면,
+    /// 눌러 봐야 아무 일도 안 일어나는 줄을 사람이 계속 누르게 된다.
+    /// </remarks>
+    [JSInvokable]
+    public async Task SyncUnreadAsync()
+    {
+        await CountUnreadAsync();
+        await NotificationDrawerHandle.NotifyChangedAsync();
+    }
+
+    /// <summary>
+    /// 이 탭이 보이는지를 브라우저가 알려 온다. <b>값만 갈아 둔다</b> —
+    /// 다시 보이게 됐을 때 세는 일은 그쪽이 따로 부른다.
+    /// </summary>
+    [JSInvokable]
+    public Task SetVisibleAsync(bool visible)
+    {
+        _visible = visible;
+        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -226,6 +349,28 @@ public partial class HeaderTools
     /// <summary>보내고 난 뒤. 내가 나에게 보낼 수도 있으므로 다시 센다.</summary>
     private Task OnNoteSentAsync(NoteSendResultDto result) => CountUnreadAsync();
 
+    /// <summary>
+    /// 🔔 를 눌렀다. 서랍을 펴면서 <b>그 자리에서 숫자를 다시 센다.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 목록과 숫자는 <b>서로 다른 길로 온다</b>(<c>/inbox</c> ·
+    /// <c>/inbox/unread-count</c>). 서랍은 펼 때마다 목록을 새로 읽는데 종은
+    /// 안 세고 있어서, 다른 장비에서 읽고 온 사람이 종을 누르면
+    /// <b>「3」이 붙은 채로 빈 목록</b>을 봤다 — 열어 확인했는데도 숫자가
+    /// 그대로라 그것이 고장으로 읽힌다.
+    /// </para>
+    /// <para>
+    /// <b>여는 것을 기다리지 않는다.</b> 세는 동안 서랍이 안 열리면 누른
+    /// 보람이 없다 — 먼저 펴고 숫자는 뒤따라 맞춘다.
+    /// </para>
+    /// </remarks>
+    private async Task OpenNotificationsAsync()
+    {
+        NotificationDrawerHandle.Open();
+        await CountUnreadAsync();
+    }
+
     private async Task ToggleFavoriteAsync()
     {
         if (MenuPath is { Length: > 0 } path)
@@ -253,5 +398,41 @@ public partial class HeaderTools
         Ask.Changed -= OnFavoritesChanged;
         NotificationDrawerHandle.Read -= CountUnreadAsync;
         Navigation.LocationChanged -= OnLocationChanged;
+
+        // **빠뜨리면 화면을 닫아도 1분마다 조회가 계속 나간다.**
+        _poll?.Dispose();
+        _poll = null;
+    }
+
+    /// <summary>
+    /// 브라우저 쪽에 걸어 둔 것까지 거둔다.
+    /// </summary>
+    /// <remarks>
+    /// <b>떼는 일이 특히 중요하다.</b> <c>unread-sync.js</c> 는 브라우저가 한 번만
+    /// 싣고 계속 돌려쓰므로, 안 떼면 죽은 회로의 손잡이가 문서에 매달린 채
+    /// 남는다. 회로가 이미 닫혔으면 조용히 넘어간다 — 이 부품은 모든 화면에
+    /// 실려 있어서, 여기서 예외가 새면 <b>사람이 창을 닫는 것만으로</b> 오류가 난다.
+    /// </remarks>
+    public async ValueTask DisposeAsync()
+    {
+        Dispose();
+
+        try
+        {
+            if (_syncModule is not null)
+            {
+                await _syncModule.InvokeVoidAsync("detachUnreadSync");
+                await _syncModule.DisposeAsync();
+            }
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or ObjectDisposedException)
+        {
+        }
+        finally
+        {
+            _syncModule = null;
+            _syncRef?.Dispose();
+            _syncRef = null;
+        }
     }
 }

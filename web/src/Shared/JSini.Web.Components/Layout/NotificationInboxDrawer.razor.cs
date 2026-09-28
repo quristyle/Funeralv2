@@ -33,12 +33,34 @@ public partial class NotificationInboxDrawer : IDisposable
     protected override void OnInitialized()
     {
         Drawer.OpenRequested += OnOpenRequested;
+
+        // 바깥에서 달라진 것이 있으면(다른 장비에서 읽었다 · 방금 푸시가 왔다)
+        // **펴 둔 목록도 따라가야 한다.** 안 들으면 종의 숫자만 맞고 그 옆에
+        // 펼쳐 둔 카드는 이미 없는 알림으로 남는다.
+        Drawer.Changed += OnChangedAsync;
     }
 
     public void Dispose()
     {
         Drawer.OpenRequested -= OnOpenRequested;
+        Drawer.Changed -= OnChangedAsync;
         _swipeRef?.Dispose();
+    }
+
+    /// <summary>
+    /// 바깥 사정이 달라졌다. <b>펴져 있을 때만 다시 읽는다</b> — 접힌 서랍은
+    /// 펼 때 어차피 새로 읽으므로, 여기서 읽으면 아무도 안 보는 목록 때문에
+    /// 게이트웨이를 탄다.
+    /// </summary>
+    private async Task OnChangedAsync()
+    {
+        if (!_open) return;
+
+        await InvokeAsync(async () =>
+        {
+            await LoadUnreadAsync();
+            StateHasChanged();
+        });
     }
 
     /// <summary>

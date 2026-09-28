@@ -101,6 +101,31 @@ async function showStaleDigest() {
     });
 }
 
+/**
+ * 열려 있는 화면에 **「알림이 하나 왔다」**고 알린다.
+ *
+ * 상단 띠의 종에 붙는 숫자는 서버에 물어야 아는 값이라, 이 소식이 없으면
+ * 휴대폰이 울리는 동안에도 열어 둔 화면의 숫자는 그대로다 — 화면을 옮기기
+ * 전에는 오르지 않는다. 받는 쪽은 `unread-sync.js` 이고 그쪽이 다시 세게 한다.
+ *
+ * **여기서 세지 않는다.** 서비스워커에는 로그인한 사람의 토큰이 없어
+ * 알림 API 를 부를 수 없다(BFF — `withReadMark` 머리말과 같은 사정이다).
+ * 우리가 아는 것은 「무언가 왔다」뿐이고, 세는 일은 회로가 한다.
+ *
+ * 받는 창이 없으면 아무 일도 아니다 — 그때는 사람이 화면을 여는 순간
+ * 첫 렌더에서 어차피 센다.
+ */
+async function notifyClients() {
+    try {
+        const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+        for (const win of windows) {
+            win.postMessage({ type: 'jsini-unread' });
+        }
+    } catch {
+        // 알리지 못해도 알림 자체는 이미 떴다. 숫자는 다음 기회에 맞춰진다.
+    }
+}
+
 self.addEventListener('push', (event) => {
     // 페이로드가 JSON 이 아니거나 비어 있어도 알림 자체는 띄운다 —
     // 조용히 버리면 푸시 권한이 있는데 아무 일도 없는 것처럼 보인다.
@@ -113,7 +138,7 @@ self.addEventListener('push', (event) => {
 
     // 시효가 지나 도착한 것은 낱낱이 띄우지 않는다. 위 머리말 참조.
     if (isStale(data)) {
-        event.waitUntil(showStaleDigest());
+        event.waitUntil(Promise.all([showStaleDigest(), notifyClients()]));
         return;
     }
 
@@ -136,7 +161,13 @@ self.addEventListener('push', (event) => {
         data: { url: data.url || '/', nid: data.nid || null },
     };
 
-    event.waitUntil(self.registration.showNotification(title, options));
+    // 알림을 띄우는 것과 **열려 있는 화면에 알리는 것**을 함께 기다린다 —
+    // `waitUntil` 밖으로 내면 브라우저가 처리기가 끝난 줄 알고 서비스워커를
+    // 재워, 소식이 가다 말고 끊긴다.
+    event.waitUntil(Promise.all([
+        self.registration.showNotification(title, options),
+        notifyClients(),
+    ]));
 });
 
 /**

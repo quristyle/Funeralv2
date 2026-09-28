@@ -20,9 +20,13 @@ namespace JSini.Web.Components.Layout;
 /// </para>
 ///
 /// <para>
-/// <b>오가는 것이 두 방향이다.</b> 종 → 서랍은 <see cref="Open"/>(열어라),
-/// 서랍 → 종은 <see cref="NotifyReadAsync"/>(읽었으니 숫자를 다시 세라)다. 뒤엣것이
-/// 없으면 서랍에서 모두 읽음을 눌러도 <b>종의 빨간 숫자가 그대로 남는다.</b>
+/// <b>오가는 것이 세 방향이다.</b> 종 → 서랍은 <see cref="Open"/>(열어라),
+/// 서랍 → 종은 <see cref="NotifyReadAsync"/>(읽었으니 숫자를 다시 세라),
+/// 그리고 종 → 서랍이 하나 더 있다 — <see cref="NotifyChangedAsync"/>
+/// (<b>바깥에서 무언가 달라졌다</b>, 펴져 있으면 목록도 다시 읽어라).
+/// 가운데 것이 없으면 서랍에서 모두 읽음을 눌러도 <b>종의 빨간 숫자가 그대로
+/// 남고</b>, 마지막 것이 없으면 다른 장비에서 읽거나 새 알림이 온 사이
+/// <b>펴 둔 목록만 옛것으로 남는다.</b>
 /// </para>
 ///
 /// <para>scoped 다. 한 사람이 열었다고 모두의 서랍이 열리면 안 된다.</para>
@@ -35,6 +39,16 @@ public sealed class NotificationDrawer
     /// <summary>읽음이 찍혔다는 알림. 종(<c>HeaderTools</c>)이 받아 다시 센다.</summary>
     public event Func<Task>? Read;
 
+    /// <summary>
+    /// 바깥 사정이 달라졌다는 알림. <b>서랍이 받아 펴져 있을 때만 다시 읽는다.</b>
+    /// </summary>
+    /// <remarks>
+    /// 종이 숫자를 다시 셀 때(다른 장비에서 읽었거나 새 알림이 왔을 때) 함께
+    /// 울린다. 접혀 있는 서랍은 <b>아무 일도 하지 않는다</b> — 펼 때 어차피
+    /// 새로 읽는다(<c>NotificationInboxDrawer.OnOpenRequested</c>).
+    /// </remarks>
+    public event Func<Task>? Changed;
+
     /// <summary>서랍을 편다.</summary>
     public void Open() => OpenRequested?.Invoke(true);
 
@@ -43,4 +57,7 @@ public sealed class NotificationDrawer
 
     /// <summary>읽음을 찍었다고 알린다.</summary>
     public Task NotifyReadAsync() => Read?.Invoke() ?? Task.CompletedTask;
+
+    /// <summary>바깥에서 달라진 것이 있다고 알린다.</summary>
+    public Task NotifyChangedAsync() => Changed?.Invoke() ?? Task.CompletedTask;
 }
