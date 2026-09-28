@@ -552,10 +552,33 @@ public sealed class AdminClient(GatewayClient gateway)
     /// 실패한다. 대신 <b>실패를 즉시 안다</b> — 큐 방식은 「넣었다」까지만
     /// 알고 실제로 갔는지는 끝내 모른다.
     /// </para>
+    ///
+    /// <para>
+    /// [<b>돌아오는 것은 참·거짓 하나다 — 객체가 아니다</b>]
+    /// </para>
+    ///
+    /// <para>
+    /// 서버는 <c>ApiResponse&lt;bool&gt;</c> 로 답한다. 봉투에는
+    /// <c>data.result: [true]</c> 가 실려 오는데, 이것을 객체로 읽으려 들면
+    /// <see cref="System.Text.Json.JsonException"/> 이 나고 화면에는
+    /// <b>「메일을 보내지 못했습니다 — 응답을 해석하지 못했습니다.
+    /// (notification/emails/send)」</b> 가 뜬다. <b>메일은 이미 나간 뒤다</b> —
+    /// 200 은 SMTP 가 받아 준 다음에만 오기 때문이다. 그래서 보낸 사람은
+    /// 실패한 줄 알고 다시 누르고, 받는 사람은 같은 메일을 여러 통 받는다
+    /// (2026-09-28 에 실제로 세 통이 나갔다).
+    /// </para>
+    ///
+    /// <para>
+    /// 거짓이 오는 자리도 있다 — <b>받는 사람이 모두 그 갈래의 메일을 꺼 둔
+    /// 경우</b>다. 그것은 실패가 아니라서 서버가 200 으로 답하므로
+    /// <see cref="ApiException"/> 이 나지 않는다. 부르는 쪽이 이 값을 보고
+    /// 「보냈습니다」를 띄울지 정해야 한다.
+    /// </para>
     /// </remarks>
-    public Task<EmailSendResultDto?> SendEmailAsync(
+    /// <returns>실제로 보냈으면 <c>true</c>.</returns>
+    public Task<bool> SendEmailAsync(
         EmailSendRequest request, CancellationToken ct = default)
-        => gateway.PostAsync<EmailSendResultDto>("notification/emails/send", request, ct);
+        => gateway.PostAsync<bool>("notification/emails/send", request, ct);
 
     /// <summary>
     /// <b>여러 사람</b>의 알림 상태를 한 번에 읽는다 — 계정 관리 화면이

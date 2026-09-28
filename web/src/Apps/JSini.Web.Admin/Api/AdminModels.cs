@@ -1890,26 +1890,6 @@ public sealed class EmailAttachmentDto
     public string Content { get; set; } = string.Empty;
 }
 
-/// <summary>
-/// 이메일 발송 결과.
-///
-/// <para>
-/// <b>「보냈다」가 아니라 「넣었다」다.</b> 이 시스템에는 SMTP 설정이 없고
-/// 실제 발송은 배포 장비의 스크립트가 큐를 읽어 한다 — 화면도 그렇게 말해야
-/// 「보냈다는데 안 왔다」는 신고가 발송 실패로 오해되지 않는다.
-/// </para>
-/// </summary>
-public sealed class EmailSendResultDto
-{
-    /// <summary>
-    /// 큐에 넣었나. <b>직발송(<c>emails/send</c>)에서는 늘 거짓</b>이다 —
-    /// 그쪽은 보내고 나서 답하므로 「넣었다」라는 중간 상태가 없다.
-    /// </summary>
-    public bool Queued { get; set; }
-
-    public string? Message { get; set; }
-}
-
 /// <summary>푸시 도달·열람 요약. 발송 성공과 열람은 다른 이야기다.</summary>
 public sealed class PushEngagementDto
 {

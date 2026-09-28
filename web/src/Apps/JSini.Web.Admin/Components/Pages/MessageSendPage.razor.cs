@@ -569,8 +569,14 @@ public partial class MessageSendPage
                 return;
             }
 
+            // **서버가 「보냈다(true)」라고 해야 보냈다고 말한다.** 200 이라도
+            // 거짓이 오는 자리가 있다 — 받는 사람이 모두 메일을 꺼 둔 경우다
+            // (`AdminClient.SendEmailAsync` 머리말). 그때 「보냈습니다」를
+            // 띄우면 안 간 메일을 간 것으로 적게 된다.
+            var sent = false;
+
             var ok = await RunAsync(
-                () => Api.SendEmailAsync(new EmailSendRequest
+                async () => sent = await Api.SendEmailAsync(new EmailSendRequest
                 {
                     To = to,
                     Subject = _mail.Subject,
@@ -584,6 +590,13 @@ public partial class MessageSendPage
                 okMessage: string.Empty, "메일을 보내지 못했습니다");
 
             if (!ok) return;
+
+            if (!sent)
+            {
+                Say("보내지 않았습니다 — 받는 사람이 메일 수신을 꺼 두었습니다.",
+                    NoticeTone.Warning);
+                return;
+            }
 
             Say(files.Count > 0
                     ? $"{targets.Count}곳으로 보냈습니다. (첨부 {files.Count}개)"
