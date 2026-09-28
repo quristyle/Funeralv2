@@ -50,6 +50,24 @@
     고르는 규칙은 `RequestThumb` 에 있고, 주소는 **반드시 썸네일 경로**다 —
     원본을 걸면 줄 스물다섯에 원본 스물다섯 장이 걸린다.
 
+    [현황판 타일이 이리로 온다 (2026-09-28)]
+
+    `/helpdesk/dashboard` 「한눈에 보기」의 타일 열을 누르면 그 타일이 센 것과
+    **같은 것**이 여기 목록으로 열린다. 타일은 조건을 주소에 실어 보내고
+    (`?status=…&basis=…&from=…&to=…&company=…&open=false`), 이 화면이 들어오면서
+    그것을 조회 조건으로 푼다(`ApplyQueryConditions`).
+
+    그 대가로 조건 칸이 셋 늘었다 —
+
+      상태      **여럿 고른다.** 「협의」 타일 하나가 협의·논의 둘을 세고
+                「오늘 완료」는 완료·종료 둘을 센다.
+      기간 기준 접수 · 완료. 「오늘 접수」와 「오늘 완료」를 가르는 것이 이것뿐이다.
+      기간      고른 날짜는 **우리 시계의 하루**이고, 서버에는 그 하루의
+                시작·끝을 UTC 순간으로 바꿔 보낸다(`ApplyPeriod`).
+
+    **맡겨 둔 짐보다 주소가 먼저다.** 안 그러면 눌러서 고른 조건이 지난번
+    조건에 덮여 엉뚱한 목록이 열리고, 누른 사람은 왜 그 숫자가 아닌지 알 길이 없다.
+
     [목록(`/helpdesk/request/list`)과 무엇이 다른가]
 
     자료는 같고 **보는 사람이 다르다.** 그쪽은 요청자가 자기 것만 보고,
@@ -82,10 +100,17 @@
                         ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
         </CommSchItem>
 
+        @* 상태는 **여럿 고른다.** 현황판의 「협의」 타일 하나가 협의·논의 둘을
+           세고, 「오늘 완료」는 완료·종료 둘을 센다 — 하나짜리 고르개로는 그
+           타일이 센 것과 같은 목록을 열 수가 없다. 아무것도 안 고른 상태가
+           이미 「전체」라 「전체」 항목은 두지 않는다. *@
         <CommSchItem Label="상태">
-            <DxComboBox Data="@StatusOptions" @bind-Value="_status" @bind-Value:after="ReloadAsync"
-                        TextFieldName="Text" ValueFieldName="Value" Style="width: 120px"
-                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+            <DxTagBox TData="SchOption" TValue="string"
+                      Data="@StatusOptions"
+                      TextFieldName="@nameof(SchOption.Text)" ValueFieldName="@nameof(SchOption.Value)"
+                      Values="@_statuses" ValuesChanged="@OnStatusesChangedAsync"
+                      Style="width: 210px"
+                      ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
         </CommSchItem>
 
         <CommSchItem Label="담당자">
@@ -98,6 +123,28 @@
         <CommSchItem Label="제목">
             <DxTextBox @bind-Text="_keyword" @bind-Text:after="ReloadAsync" Style="width: 200px"
                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
+
+        @* 「접수 9.28 ~ 9.28」인지 「완료 9.28 ~ 9.28」인지를 먼저 고른다.
+           기준을 안 두면 「오늘 접수」와 「오늘 완료」가 같은 조건이 되어
+           현황판 타일 둘 중 하나는 반드시 어긋난다. *@
+        <CommSchItem Label="기간 기준">
+            <DxComboBox Data="@BasisOptions" @bind-Value="_basis" @bind-Value:after="ReloadAsync"
+                        TextFieldName="@nameof(SchOption.Text)" ValueFieldName="@nameof(SchOption.Value)"
+                        Style="width: 90px" />
+        </CommSchItem>
+
+        @* 195px 이다. 재어 본 값 — 지우개(✕) 48 · 달력 29 · 글상자 좌우 여백 24 를
+           빼고 나면 글자가 앉을 자리가 남아야 하는데 「2026-09-28」이 73px 이다.
+           170 으로 두면 67px 만 남아 「2026-09…」로 잘린다. *@
+        <CommSchItem Label="기간">
+            <DxDateEdit @bind-Date="_from" @bind-Date:after="ReloadAsync" Style="width: 195px"
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
+
+        <CommSchItem Label="~">
+            <DxDateEdit @bind-Date="_to" @bind-Date:after="ReloadAsync" Style="width: 195px"
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
         </CommSchItem>
 
         <CommSchItem>
@@ -192,8 +239,15 @@
                 </CellDisplayTemplate>
             </DxGridDataColumn>
 
-            <DxGridDataColumn FieldName="@nameof(ImprovementRequest.CreatedAt)" Caption="접수" Width="150"
-                              DisplayFormat="yyyy-MM-dd HH:mm" />
+            @* **우리 시간으로 적는다.** 서버가 주는 것은 UTC 라 그대로 그리면
+               아홉 시간 전으로 보인다 — 오늘 오전에 올린 글이 목록에는 어제로
+               적혀서, 「오늘 접수」로 걸러 놓고 어제 날짜만 보게 된다. *@
+            <DxGridDataColumn FieldName="@nameof(ImprovementRequest.CreatedAt)" Caption="접수"
+                              Width="150" MinWidth="150">
+                <CellDisplayTemplate Context="cell">
+                    @(((ImprovementRequest)cell.DataItem).CreatedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm"))
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
 
             <DxGridDataColumn Caption="경과" Width="80">
                 <CellDisplayTemplate Context="cell">

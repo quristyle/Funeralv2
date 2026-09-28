@@ -231,6 +231,47 @@
   color: var(--jsini-text-muted);
 }
 
+/* ── 눌리는 타일 ─────────────────────────────────────────
+
+   「한눈에 보기」의 타일은 눌러서 그 목록(`/helpdesk/request/manage`)을 연다.
+
+   누를 자리를 타일 전체로 만들려고 **링크 한 장을 타일 위에 깔았다**
+   (`hd-stat__hit`). 그래서 타일 자신이 자리의 기준(`relative`)이 되어야 한다 —
+   안 그러면 링크가 화면 전체로 늘어나 **아무 데나 눌러도 그 목록이 열린다.**
+
+   초점 테두리는 `:focus-within` 으로 타일에 그린다. 깔아 둔 링크는 속이
+   비어 있어서 거기에 테두리를 그리면 아무것도 안 보인다.
+   ---------------------------------------------------------- */
+
+.hd-stat--link {
+  position: relative;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background-color 0.12s ease;
+}
+
+.hd-stat--link:hover {
+  border-color: var(--jsini-accent);
+  background-color: color-mix(in srgb, var(--jsini-accent) 8%, var(--jsini-surface));
+}
+
+.hd-stat--link:focus-within {
+  outline: 2px solid var(--jsini-accent);
+  outline-offset: 1px;
+}
+
+.hd-stat__hit {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+/* 깔아 둔 링크는 속이 비어 있다. 초점 테두리는 타일이 그리므로(위) 여기서는
+   지운다 — 둘 다 그리면 테두리가 두 겹으로 겹친다. */
+.hd-stat__hit:focus,
+.hd-stat__hit:focus-visible {
+  outline: none;
+}
+
 /* ── 타일의 곁말 ─────────────────────────────────────────
 
    큰 숫자 아래 한 줄. 「지난달 23건 ▲ 12%」 · 「표본 145건」처럼 **그 수를

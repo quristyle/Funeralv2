@@ -66,23 +66,128 @@ public partial class HelpDeskDashboard
 
     // ── 타일 ────────────────────────────────────────────────
 
-    /// <summary>타일 한 칸. 값 아래 곁말이 붙는다.</summary>
-    private sealed record Tile(string Label, string Value, string? Note = null);
+    /// <summary>
+    /// 타일 한 칸. 값 아래 곁말이 붙는다.
+    /// </summary>
+    /// <param name="Label">타일 이름.</param>
+    /// <param name="Value">큰 숫자.</param>
+    /// <param name="Note">숫자 아래 곁말 — 그 수를 어떻게 읽어야 하는지.</param>
+    /// <param name="Href">
+    /// 누르면 열리는 목록. <c>null</c> 이면 <b>안 눌린다</b> — 눌리지 않는 타일을
+    /// 눌리는 것처럼 그리면 「눌러 봤는데 아무 일도 안 난다」가 된다.
+    /// </param>
+    private sealed record Tile(string Label, string Value, string? Note = null, string? Href = null);
 
-    /// <summary>얼마나 들어오고 얼마나 나갔나.</summary>
+    /// <summary>
+    /// 얼마나 들어오고 얼마나 나갔나.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// [타일을 누르면 그 목록이 열린다 (2026-09-28)]
+    /// </para>
+    /// <para>
+    /// 열 칸 모두 <c>/helpdesk/request/manage</c> 로 간다. 주소에 싣는 조건은
+    /// <b>이 타일이 센 조건 그대로</b>여야 한다 — 하나라도 어긋나면 타일의
+    /// 숫자와 열린 목록의 건수가 다르고, 그 순간 현황판 전체가 못 믿을 것이 된다.
+    /// 그래서 셈의 기준(<c>DashboardOverviewService</c>)과 여기를 나란히 적어 둔다.
+    /// </para>
+    /// <list type="table">
+    ///   <item><term>전체</term><description>지운 것 말고 다. 그래서 목록 쪽도 <c>Delete</c> 를 뺀다.</description></item>
+    ///   <item><term>협의</term><description>협의 + 논의 <b>둘</b>이다.</description></item>
+    ///   <item><term>완료</term><description>담당자 완료만. 요청자 종료는 곁말로 따로 센다.</description></item>
+    ///   <item><term>오늘 완료</term><description>끝난 <b>날</b>로 센다 — 접수한 날이 아니다.</description></item>
+    /// </list>
+    /// </remarks>
     private IReadOnlyList<Tile> VolumeTiles =>
     [
-        new("전체", Num(Data.Summary.Total), $"완료 {Data.Summary.Completed + Data.Summary.UserCompleted}건 · 반려 {Data.Summary.Rejected}건"),
-        new("대기", Num(Data.Summary.Pending), $"미배정 {Data.Summary.Unassigned}건"),
-        new("진행", Num(Data.Summary.InProgress), null),
-        new("협의", Num(Data.Summary.Consultation + Data.Summary.Negotiation), $"협의 {Data.Summary.Consultation} · 논의 {Data.Summary.Negotiation}"),
-        new("완료", Num(Data.Summary.Completed), $"종료 {Data.Summary.UserCompleted}건"),
-        new("반려", Num(Data.Summary.Rejected), null),
-        new("오늘 접수", Num(Data.Summary.Today), $"어제 {Data.Summary.Yesterday}건"),
-        new("이번 주", Num(Data.Summary.ThisWeek), "월요일부터"),
-        new("이번 달", Num(Data.Summary.ThisMonth), MonthOverMonthNote),
-        new("오늘 완료", Num(Data.Summary.CompletedToday), $"이번 달 {Data.Summary.CompletedThisMonth}건"),
+        new("전체", Num(Data.Summary.Total), $"완료 {Data.Summary.Completed + Data.Summary.UserCompleted}건 · 반려 {Data.Summary.Rejected}건",
+            ManageHref()),
+        new("대기", Num(Data.Summary.Pending), $"미배정 {Data.Summary.Unassigned}건",
+            ManageHref("Pending")),
+        new("진행", Num(Data.Summary.InProgress), null,
+            ManageHref("InProgress")),
+        new("협의", Num(Data.Summary.Consultation + Data.Summary.Negotiation), $"협의 {Data.Summary.Consultation} · 논의 {Data.Summary.Negotiation}",
+            ManageHref("Consultation|Negotiation")),
+        new("완료", Num(Data.Summary.Completed), $"종료 {Data.Summary.UserCompleted}건",
+            ManageHref("Completed")),
+        new("반려", Num(Data.Summary.Rejected), null,
+            ManageHref("Rejected")),
+        new("오늘 접수", Num(Data.Summary.Today), $"어제 {Data.Summary.Yesterday}건",
+            ManageHref(from: Today, to: Today)),
+        new("이번 주", Num(Data.Summary.ThisWeek), "월요일부터",
+            ManageHref(from: WeekStart, to: Today)),
+        new("이번 달", Num(Data.Summary.ThisMonth), MonthOverMonthNote,
+            ManageHref(from: MonthStart, to: Today)),
+        new("오늘 완료", Num(Data.Summary.CompletedToday), $"이번 달 {Data.Summary.CompletedThisMonth}건",
+            ManageHref("Completed|UserCompleted", Today, Today, byResolved: true)),
     ];
+
+    // ── 타일 → 요청 처리 목록 ───────────────────────────────
+
+    private const string ManagePath = "/helpdesk/request/manage";
+
+    /// <summary>
+    /// 오늘(우리 시계). 서버도 KST 로 세므로(<c>Kst.Today</c>) 같은 날이다 —
+    /// 운영 컨테이너는 전부 <c>TZ=Asia/Seoul</c> 이다(<c>deploy/docker</c>).
+    /// </summary>
+    private static DateTime Today => DateTime.Today;
+
+    /// <summary>이번 주 월요일. 서버의 주 시작과 같아야 「이번 주」가 맞는다.</summary>
+    private static DateTime WeekStart => Today.AddDays(-(((int)Today.DayOfWeek + 6) % 7));
+
+    private static DateTime MonthStart => new(Today.Year, Today.Month, 1);
+
+    /// <summary>
+    /// 이 타일이 센 것과 같은 것을 여는 목록 주소.
+    /// </summary>
+    /// <param name="statuses">상태. 여럿이면 <c>|</c> 로 잇는다. 비우면 안 거른다.</param>
+    /// <param name="from">기간 시작(그 날 포함).</param>
+    /// <param name="to">기간 끝(<b>그 날 포함</b>).</param>
+    /// <param name="byResolved">기간을 완료 시각으로 재나. 거짓이면 접수 시각이다.</param>
+    private string ManageHref(
+        string? statuses = null,
+        DateTime? from = null,
+        DateTime? to = null,
+        bool byResolved = false)
+    {
+        var parts = new List<string>();
+
+        if (!string.IsNullOrEmpty(statuses))
+        {
+            parts.Add($"status={Uri.EscapeDataString(statuses)}");
+        }
+
+        if (byResolved)
+        {
+            parts.Add("basis=resolved");
+        }
+
+        if (from is { } f)
+        {
+            parts.Add($"from={Day(f)}");
+        }
+
+        if (to is { } t)
+        {
+            parts.Add($"to={Day(t)}");
+        }
+
+        // **보고 있는 회사를 함께 싣는다.** 안 실으면 회사 하나로 좁혀 놓고
+        // 타일을 눌렀을 때 전체가 열린다 — 숫자가 안 맞는다.
+        // 고객 계정은 서버가 제 회사로 묶으므로(`Scope.CompanyScoped`) 안 싣는다.
+        if (CanPickCompany && !string.IsNullOrEmpty(_companyId))
+        {
+            parts.Add($"company={Uri.EscapeDataString(_companyId)}");
+        }
+
+        // **「처리 중인 것만」을 반드시 꺼서 보낸다.** 목록 화면의 기본값이
+        // 켜짐이라, 안 끄면 완료·반려 타일이 빈 목록으로 열린다.
+        parts.Add("open=false");
+
+        return $"{ManagePath}?{string.Join("&", parts)}";
+    }
+
+    private static string Day(DateTime at) => at.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
     /// <summary>얼마나 빨리, 얼마나 제대로 처리했나.</summary>
     private IReadOnlyList<Tile> QualityTiles =>

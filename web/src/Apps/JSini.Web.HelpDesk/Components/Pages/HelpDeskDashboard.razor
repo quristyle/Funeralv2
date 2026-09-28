@@ -103,7 +103,9 @@
 
 @* ── 요약 ──────────────────────────────────────────────── *@
 
-<DashboardSection Title="한눈에 보기" Hint="@ScopeHint">
+@* 곁말에 「눌러 보라」를 적어 둔다. 타일이 눌린다는 것은 손을 올려 보기
+   전에는 안 보이고, 그래서 아무도 안 누른다. *@
+<DashboardSection Title="한눈에 보기" Hint="@($"{ScopeHint} · 타일을 누르면 그 목록이 열린다")">
     <div class="jsini-stats hd-stats">
         @foreach (var tile in VolumeTiles)
         {
@@ -447,7 +449,22 @@
     /// </summary>
     private RenderFragment TileMarkup(Tile tile) => __builder =>
     {
-        <div class="jsini-stat">
+        <div class="jsini-stat @(tile.Href is null ? null : "hd-stat--link")">
+            @* [타일을 통째로 누르게 만드는 법]
+
+               제목만 링크로 만들면 **누를 곳이 글자 두 자**다. 숫자가 큰
+               타일에서 사람은 숫자를 누른다. 그렇다고 `div` 에 `onclick` 을
+               걸면 탭·엔터로는 못 가고 가운데 클릭으로 새 탭도 못 연다.
+
+               그래서 진짜 `a` 를 한 장 깔고 타일 전체로 늘린다(`hd-stat__hit`).
+               누르는 자리는 타일 전체이고, 키보드와 새 탭은 링크 그대로다.
+               글자는 링크가 덮으므로 읽을 이름을 `aria-label` 로 적어 준다. *@
+            @if (tile.Href is { } href)
+            {
+                <a class="hd-stat__hit" href="@href"
+                   aria-label="@($"{tile.Label} {tile.Value}건 — 요청 목록 열기")"></a>
+            }
+
             <span class="jsini-stat__label">@tile.Label</span>
             <span class="jsini-stat__value">@tile.Value</span>
             @if (!string.IsNullOrWhiteSpace(tile.Note))

@@ -10,6 +10,7 @@ using System.Linq.Dynamic.Core.Parser;
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 
 namespace HelpDeskServer.Data {
   /// <summary>
@@ -678,7 +679,30 @@ namespace HelpDeskServer.Data {
         }
 
         // DateTime ISO parse
+        //
+        // [시간대가 붙은 글자는 UTC 로 굳힌다 (2026-09-28)]
+        //
+        // 그냥 TryParse 하면 "2026-09-28T00:00:00Z" 가 **Kind=Local** 로 나온다.
+        // 그 값이 Dynamic LINQ 식에 박혀 Npgsql 로 내려가면 timestamptz 칸에는
+        // 쓸 수 없어 질의가 통째로 터진다 —
+        //
+        //     'timestamp with time zone' literal cannot be generated for
+        //     Local DateTime: a UTC DateTime is required
+        //
+        // 그래서 **날짜 조건이 이 API 에서 한 번도 동작한 적이 없었다.** 증상이
+        // 빈 목록이 아니라 500 이라 「서버가 죽었나」로 읽힌다.
+        //
+        // 시간대가 없는 글자(`2026-09-28`)는 그대로 Unspecified 로 둔다 — 이 DB 에는
+        // `timestamp without time zone` 칸도 있어서(pushmessage 계열) 거기에는
+        // Utc 를 쓸 수 없다. 부르는 쪽이 시간대를 적으면 그 뜻대로, 안 적으면
+        // 예전 그대로다.
         if (destType == typeof(DateTime)) {
+          if (HasTimeZone(raw)
+              && DateTimeOffset.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dto)) {
+            converted = dto.UtcDateTime; // Kind = Utc
+            return true;
+          }
+
           if (DateTime.TryParse(raw, out var dt)) {
             converted = dt;
             return true;
@@ -692,6 +716,26 @@ namespace HelpDeskServer.Data {
       catch {
         return false;
       }
+    }
+
+    /// <summary>
+    /// 이 날짜 글자에 시간대가 붙어 있는가 — 끝의 <c>Z</c> 이거나 시각 뒤의
+    /// <c>+09:00</c> · <c>-05:00</c>.
+    /// </summary>
+    /// <remarks>
+    /// 날짜 부분의 구분자(<c>2026-09-28</c>)를 음수 오프셋으로 읽지 않도록
+    /// <b>시각이 시작된 뒤</b>만 본다.
+    /// </remarks>
+    private static bool HasTimeZone(string raw) {
+      var s = raw.Trim();
+      if (s.Length == 0) return false;
+      if (s.EndsWith("Z", StringComparison.OrdinalIgnoreCase)) return true;
+
+      var timeAt = s.IndexOfAny(new[] { 'T', 't', ' ' });
+      if (timeAt < 0) return false;
+
+      var tail = s.Substring(timeAt + 1);
+      return tail.IndexOf('+') >= 0 || tail.IndexOf('-') >= 0;
     }
   }
 }
