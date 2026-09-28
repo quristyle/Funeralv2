@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Microsoft.JSInterop;
 
 namespace JSini.Web.Components.Layout;
@@ -208,6 +208,41 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
     public const string FabHiddenKey = "jsini-fab-hidden";
 
     /// <summary>
+    /// 헬프데스크 <b>요청 등록</b> 단추의 위치.
+    /// <c>bottom-right</c>(기본), <c>bottom-left</c>, <c>top-left</c>, <c>top-right</c>.
+    /// </summary>
+    /// <remarks>
+    /// <b>기본이 메뉴 단추와 반대 귀퉁이다.</b> 둘 다 왼쪽 아래로 두면 한 번도
+    /// 고치지 않은 사람에게 동그라미 둘이 포개져 나온다 — 겹치지 않게 세로로
+    /// 미는 규칙은 있지만(<c>.jsini-shell__fab--stacked</c>) 그것은 <b>같은
+    /// 귀퉁이를 일부러 고른 사람</b>을 위한 것이고, 기본값끼리 부딪칠 까닭이 없다.
+    /// </remarks>
+    public const string HelpDeskFabPositionKey = "jsini-hdfab-position";
+
+    /// <summary>
+    /// 헬프데스크 <b>요청 등록</b> 단추를 <b>감출 것인가</b>. 열쇠가 있으면 감춘다 —
+    /// 즉 <b>없는 것이 기본이고, 기본은 보인다</b>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="FabHiddenKey"/> 와 같은 꼴이다. 「감춘다」를 적는 이유도 같다 —
+    /// 읽는 쪽의 판정이 「열쇠가 있으면 그렇다는 뜻」(<see cref="BrowserState.From"/>)
+    /// 이라 「보인다」를 적으면 한 번도 안 고친 사람에게 단추가 사라진다.
+    /// </para>
+    /// <para>
+    /// <b>이 열쇠가 권한을 대신하지 않는다.</b> 단추를 그릴지는
+    /// <c>/helpdesk/request/new</c> 를 열 수 있는가로 먼저 갈리고
+    /// (<c>MainLayout.HelpDeskFabAllowed</c>), 이 값은 <b>그 권한이 있는 사람이
+    /// 그럼에도 안 보겠다</b>고 한 것만 뜻한다. 권한이 없으면 감추고 말고가 없다.
+    /// </para>
+    /// <para>
+    /// <b>이 브라우저의 것이다</b> — 메뉴 단추와 같은 갈래다(휴대폰에서 귀퉁이를
+    /// 무엇이 가리는지는 기기마다 다르다).
+    /// </para>
+    /// </remarks>
+    public const string HelpDeskFabHiddenKey = "jsini-hdfab-hidden";
+
+    /// <summary>
     /// 휴대폰 화면 아래의 띠(<c>MobileBottomNav</c>)를 <b>쓰지 않을 것인가</b>.
     /// 열쇠가 있으면 안 쓴다 — 즉 <b>없는 것이 기본이고, 기본은 쓴다</b>.
     /// </summary>
@@ -310,6 +345,8 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         GeoSyncedAtKey,
         FabPositionKey,
         FabHiddenKey,
+        HelpDeskFabPositionKey,
+        HelpDeskFabHiddenKey,
         BottomNavHiddenKey,
         BottomNavItemsKey,
         ToastPositionKey,
@@ -562,6 +599,60 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         FabHiddenChanged?.Invoke(hidden);
     }
 
+    /// <summary>헬프데스크 요청 등록 단추 위치가 바뀌었을 때 알린다.</summary>
+    public event Action<string>? HelpDeskFabPositionChanged;
+
+    /// <summary>
+    /// 헬프데스크 요청 등록 단추 위치를 저장하고 화면에 알린다.
+    /// </summary>
+    public async Task SetHelpDeskFabPositionAsync(string position)
+    {
+        var normalized = NormalizeHelpDeskFabPosition(position);
+
+        try
+        {
+            await js.InvokeVoidAsync("localStorage.setItem", HelpDeskFabPositionKey, normalized);
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException)
+        {
+            logger.LogDebug(ex, "헬프데스크 요청 등록 단추 위치를 브라우저에 저장하지 못했다.");
+        }
+
+        HelpDeskFabPositionChanged?.Invoke(normalized);
+    }
+
+    /// <summary>헬프데스크 요청 등록 단추를 감출지가 바뀌었을 때 알린다.</summary>
+    public event Action<bool>? HelpDeskFabHiddenChanged;
+
+    /// <summary>
+    /// 헬프데스크 요청 등록 단추를 감출지를 저장하고 화면에 알린다.
+    /// </summary>
+    /// <remarks>
+    /// <b>보이기로 할 때는 열쇠를 지운다.</b> <c>"0"</c> 을 적어 두면 읽는 쪽의
+    /// 「있으면 그렇다는 뜻」 판정(<see cref="BrowserState.From"/>)에 걸려
+    /// <b>보이기로 한 것이 감춘 것으로 읽힌다</b>(<see cref="SetFabHiddenAsync"/> 와 같다).
+    /// </remarks>
+    public async Task SetHelpDeskFabHiddenAsync(bool hidden)
+    {
+        try
+        {
+            if (hidden)
+            {
+                await js.InvokeVoidAsync("localStorage.setItem", HelpDeskFabHiddenKey, "1");
+            }
+            else
+            {
+                await js.InvokeVoidAsync("localStorage.removeItem", HelpDeskFabHiddenKey);
+            }
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException)
+        {
+            logger.LogDebug(ex, "헬프데스크 요청 등록 단추 숨김 여부를 브라우저에 저장하지 못했다.");
+        }
+
+        HelpDeskFabHiddenChanged?.Invoke(hidden);
+    }
+
     /// <summary>확대 잠금을 풀지가 바뀌었을 때 알린다.</summary>
     public event Action<bool>? ZoomUnlockedChanged;
 
@@ -759,12 +850,30 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
     /// 모바일 메뉴 단추 위치 식별자를 검증하고 표준화한다.
     /// 알 수 없는 값이면 기본값인 <c>bottom-left</c> 다.
     /// </summary>
-    public static string NormalizeFabPosition(string? position) => position switch
+    public static string NormalizeFabPosition(string? position) =>
+        NormalizeCorner(position, "bottom-left");
+
+    /// <summary>
+    /// 헬프데스크 요청 등록 단추 위치를 검증하고 표준화한다.
+    /// 알 수 없는 값이면 기본값인 <c>bottom-right</c> 다.
+    /// </summary>
+    /// <remarks>
+    /// 고를 수 있는 네 귀퉁이는 메뉴 단추와 같고 <b>기본값만 다르다</b>
+    /// (<see cref="HelpDeskFabPositionKey"/> 머리말). 그래서 아는 값의 목록을
+    /// <see cref="NormalizeCorner"/> 한 자리에 둔다 — 갈라 두면 한쪽에만 귀퉁이를
+    /// 더하는 날 그 값이 다른 쪽에서 조용히 기본값으로 되돌아간다.
+    /// </remarks>
+    public static string NormalizeHelpDeskFabPosition(string? position) =>
+        NormalizeCorner(position, "bottom-right");
+
+    /// <summary>떠다니는 단추가 설 수 있는 네 귀퉁이. 모르는 값이면 <paramref name="fallback"/> 이다.</summary>
+    private static string NormalizeCorner(string? position, string fallback) => position switch
     {
         "top-left" => "top-left",
         "top-right" => "top-right",
         "bottom-right" => "bottom-right",
-        _ => "bottom-left",
+        "bottom-left" => "bottom-left",
+        _ => fallback,
     };
 
     // ── 오가는 모양 ───────────────────────────────────────────
@@ -885,6 +994,17 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         public bool FabHidden { get; private init; }
 
         /// <summary>
+        /// 헬프데스크 요청 등록 단추 위치. 없거나 잘못된 값이면 <c>bottom-right</c> 다.
+        /// </summary>
+        public string HelpDeskFabPosition { get; private init; } = "bottom-right";
+
+        /// <summary>
+        /// 그 단추를 감춰 두었는가. 고른 적이 없으면 <c>false</c> — 즉 보인다
+        /// (권한이 있을 때에 한한다 — <see cref="HelpDeskFabHiddenKey"/> 머리말).
+        /// </summary>
+        public bool HelpDeskFabHidden { get; private init; }
+
+        /// <summary>
         /// 휴대폰 아래 띠를 <b>쓰지 않기로</b> 했는가. 고른 적이 없으면
         /// <c>false</c> — 즉 쓴다.
         /// </summary>
@@ -935,6 +1055,8 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
             Theme = wire.Theme,
             FabPosition = NormalizeFabPosition(Get(wire.Local, FabPositionKey)),
             FabHidden = Has(wire.Local, FabHiddenKey),
+            HelpDeskFabPosition = NormalizeHelpDeskFabPosition(Get(wire.Local, HelpDeskFabPositionKey)),
+            HelpDeskFabHidden = Has(wire.Local, HelpDeskFabHiddenKey),
             BottomNavHidden = Has(wire.Local, BottomNavHiddenKey),
             BottomNavItemsJson = Get(wire.Local, BottomNavItemsKey),
             ToastPosition = NormalizeToastPosition(Get(wire.Local, ToastPositionKey)),

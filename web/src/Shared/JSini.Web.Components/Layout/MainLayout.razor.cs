@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Components;
+﻿using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.JSInterop;
@@ -54,6 +54,14 @@ public partial class MainLayout
             if (_fabHidden)
             {
                 css += " jsini-shell--fab-hidden";
+            }
+
+            // 헬프데스크 요청 등록 단추를 감춘 사람에게 붙는 표시. **메뉴 단추와
+            // 따로다** — 한 표시로 묶으면 둘 중 하나만 감출 수가 없다.
+            // 권한이 없으면 아예 안 그리므로(`HelpDeskFabAllowed`) 여기 오지 않는다.
+            if (_hdFabHidden)
+            {
+                css += " jsini-shell--hdfab-hidden";
             }
 
             // 아래 띠를 쓰지 않기로 한 사람에게 붙는 표시. 띠 자체는 아래에서
@@ -131,6 +139,45 @@ public partial class MainLayout
     /// </summary>
     private bool _fabHidden;
 
+    /// <summary>헬프데스크 요청 등록 단추의 위치. 기본은 메뉴 단추의 반대 귀퉁이다.</summary>
+    private string _hdFabPosition = "bottom-right";
+
+    /// <summary>그 단추를 감춰 두었는가. 기본은 <c>false</c> — 권한이 있으면 보인다.</summary>
+    private bool _hdFabHidden;
+
+    /// <summary>요청 등록 단추가 여는 화면. 권한을 묻는 열쇠도 이 경로다.</summary>
+    private const string HelpDeskNewPath = "/helpdesk/request/new";
+
+    /// <summary>
+    /// 요청 등록 단추를 <b>그려도 되는가</b>. 그 화면을 열 수 있는 사람만이다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>권한표를 받기 전에는 그리지 않는다.</b> <see cref="MayOpen"/> 는 반대로
+    /// (받기 전에는 막지 않는다) 판정하는데, 저기는 <b>이미 있던 메뉴가 한 번
+    /// 깜빡이는</b> 일이고 여기는 <b>없던 단추가 떴다가 사라지는</b> 일이라 눈에
+    /// 띄는 쪽이 다르다. 권한표는 부트스트랩 한 방에 실려 오므로 늦어 봐야
+    /// 첫 그림 하나다.
+    /// </para>
+    /// <para>
+    /// <b>감췄는지는 여기서 안 따진다.</b> 그쪽은 CSS 가 한다
+    /// (<c>.jsini-shell--hdfab-hidden</c>) — 화면 크기로 마크업을 갈아 끼우지
+    /// 않는 이 파일의 규칙 그대로다.
+    /// </para>
+    /// </remarks>
+    private bool HelpDeskFabAllowed => Permissions.IsLoaded && Permissions.CanView(HelpDeskNewPath);
+
+    /// <summary>
+    /// 요청 등록 단추를 <b>한 칸 밀어야 하는가</b>. 메뉴 단추와 같은 귀퉁이에
+    /// 둘 다 서 있을 때다.
+    /// </summary>
+    /// <remarks>
+    /// 미는 일 자체는 CSS 가 한다(<c>.jsini-shell__fab--stacked</c>). 여기서 정하는
+    /// 것은 <b>밀지 말지</b>뿐이다 — 메뉴 단추를 감춰 둔 사람에게까지 밀면 귀퉁이가
+    /// 비었는데 단추만 3rem 떠 있는 그림이 된다.
+    /// </remarks>
+    private bool HelpDeskFabStacked => !_fabHidden && _hdFabPosition == _fabPosition;
+
     /// <summary>
     /// 휴대폰 아래 띠를 <b>쓰지 않기로</b> 했는가. 기본은 <c>false</c> — 쓴다.
     /// 읽어 오기 전에도 그 값이라 한 번도 안 고친 사람에게 띠가 깜빡이지 않는다.
@@ -165,6 +212,8 @@ public partial class MainLayout
         // 환경설정 등에서 모바일 메뉴 단추 위치가 바뀌면 즉시 화면에 반영한다.
         Boot.FabPositionChanged += OnFabPositionChanged;
         Boot.FabHiddenChanged += OnFabHiddenChanged;
+        Boot.HelpDeskFabPositionChanged += OnHelpDeskFabPositionChanged;
+        Boot.HelpDeskFabHiddenChanged += OnHelpDeskFabHiddenChanged;
         Boot.BottomNavHiddenChanged += OnBottomNavHiddenChanged;
         Boot.ToastPositionChanged += OnToastPositionChanged;
     }
@@ -196,6 +245,18 @@ public partial class MainLayout
     private void OnFabHiddenChanged(bool hidden)
     {
         _fabHidden = hidden;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnHelpDeskFabPositionChanged(string position)
+    {
+        _hdFabPosition = position;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnHelpDeskFabHiddenChanged(bool hidden)
+    {
+        _hdFabHidden = hidden;
         InvokeAsync(StateHasChanged);
     }
 
@@ -442,6 +503,18 @@ public partial class MainLayout
             changed = true;
         }
 
+        if (state.HelpDeskFabHidden != _hdFabHidden)
+        {
+            _hdFabHidden = state.HelpDeskFabHidden;
+            changed = true;
+        }
+
+        if (state.HelpDeskFabPosition != _hdFabPosition)
+        {
+            _hdFabPosition = state.HelpDeskFabPosition;
+            changed = true;
+        }
+
         if (state.BottomNavHidden != _bottomNavHidden)
         {
             _bottomNavHidden = state.BottomNavHidden;
@@ -618,6 +691,35 @@ public partial class MainLayout
     {
         _sidebarOpen = false;
         _popsAtOpen = null;
+    }
+
+    /// <summary>
+    /// 떠다니는 <b>요청 등록</b> 단추를 눌렀다. 헬프데스크 요청 등록 화면으로 간다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>메뉴가 펴져 있으면 먼저 접는다.</b> 이 단추는 덮개보다 위에 떠 있어
+    /// (z-index 1031) 메뉴를 펴 둔 채로도 눌리는데, 접지 않고 옮기면 <b>새 화면
+    /// 위에 사이드바가 덮인 채</b>로 도착한다 — 휴대폰에서는 그것이 화면 전체다.
+    /// </para>
+    /// <para>
+    /// <b>이미 그 화면이면 아무것도 하지 않는다.</b> 같은 주소로 다시 옮기면
+    /// 적던 글이 비워진다.
+    /// </para>
+    /// </remarks>
+    private void OpenHelpDeskRequest()
+    {
+        if (_sidebarOpen)
+        {
+            CloseSidebar();
+        }
+
+        if (string.Equals(CurrentHref(), HelpDeskNewPath, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        Navigation.NavigateTo(HelpDeskNewPath);
     }
 
     /// <summary>
@@ -950,6 +1052,8 @@ public partial class MainLayout
         Me.Changed -= OnMeChanged;
         Boot.FabPositionChanged -= OnFabPositionChanged;
         Boot.FabHiddenChanged -= OnFabHiddenChanged;
+        Boot.HelpDeskFabPositionChanged -= OnHelpDeskFabPositionChanged;
+        Boot.HelpDeskFabHiddenChanged -= OnHelpDeskFabHiddenChanged;
         Boot.BottomNavHiddenChanged -= OnBottomNavHiddenChanged;
         Boot.ToastPositionChanged -= OnToastPositionChanged;
         _watermarkWatch?.Dispose();

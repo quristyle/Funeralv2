@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Components;
+﻿using Microsoft.AspNetCore.Components;
 using JSini.Web.Abstractions;
 using JSini.Web.Components.Data;
 using JSini.Web.Components.Layout;
@@ -171,6 +171,8 @@ public partial class EnvironmentSettingPage
         var state = await Boot.ReadAsync();
         _selectedFabPosition = state.FabPosition;
         _fabHidden = state.FabHidden;
+        _selectedHelpDeskFabPosition = state.HelpDeskFabPosition;
+        _helpDeskFabHidden = state.HelpDeskFabHidden;
         _selectedToastPosition = state.ToastPosition;
         _zoomUnlocked = state.ZoomUnlocked;
         _bottomNavHidden = state.BottomNavHidden;
@@ -188,6 +190,64 @@ public partial class EnvironmentSettingPage
     {
         _fabHidden = value;
         await Boot.SetFabHiddenAsync(value);
+    }
+
+    // ── 헬프데스크 요청 등록 단추 ───────────────────────────────
+    //
+    // 메뉴 단추와 **같은 두 가지**(감출까 · 어느 귀퉁이에)를 다룬다. 다른
+    // 점은 하나 — **아무나 볼 수 있는 줄이 아니다.**
+
+    /// <summary>요청 등록 단추가 여는 화면. 권한을 묻는 열쇠도 이 경로다.</summary>
+    private const string HelpDeskNewPath = "/helpdesk/request/new";
+
+    /// <summary>
+    /// 이 사람에게 그 두 줄을 보여도 되는가 — <c>/helpdesk/request/new</c> 를
+    /// 열 수 있는 사람만이다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>셸과 같은 판정을 쓴다</b>(<c>MainLayout.HelpDeskFabAllowed</c>). 갈라
+    /// 두면 「설정은 있는데 단추가 안 나온다」거나 그 반대가 생기고, 둘 다
+    /// 사람 눈에는 <b>설정이 안 먹는 것</b>으로 보인다.
+    /// </para>
+    /// <para>
+    /// <b>값을 들고 있지 않고 물을 때마다 묻는다.</b> 권한표는 부트스트랩이
+    /// 실어 오므로 이 화면이 그려지는 시점엔 대개 와 있지만, 아직이면
+    /// <see cref="OnAfterRenderAsync"/> 의 다시 그리기에서 살아난다.
+    /// </para>
+    /// </remarks>
+    private bool CanSetHelpDeskFab =>
+        Permissions.IsLoaded && Permissions.CanView(HelpDeskNewPath);
+
+    /// <summary>
+    /// 고를 수 있는 귀퉁이 넷. <b>메뉴 단추와 같고 「(기본)」이 붙는 줄만 다르다</b> —
+    /// 이쪽 기본은 오른쪽 아래다(<see cref="PortalBoot.HelpDeskFabPositionKey"/>).
+    /// 목록을 나눠 둔 것은 그 한 글자 때문이다. 같은 목록을 함께 쓰면 두 고르개가
+    /// <b>서로 다른 값을 「기본」이라고 말한다.</b>
+    /// </summary>
+    private static readonly IReadOnlyList<FabPosOption> _helpDeskFabPositions =
+    [
+        new("bottom-right", "오른쪽 아래 (기본)"),
+        new("bottom-left", "왼쪽 아래"),
+        new("top-left", "왼쪽 위"),
+        new("top-right", "오른쪽 위"),
+    ];
+
+    private string _selectedHelpDeskFabPosition = "bottom-right";
+
+    /// <summary>요청 등록 단추를 감춰 두었는가. 기본은 <c>false</c> — 보인다.</summary>
+    private bool _helpDeskFabHidden;
+
+    private async Task OnHelpDeskFabPositionChangedAsync(string value)
+    {
+        _selectedHelpDeskFabPosition = PortalBoot.NormalizeHelpDeskFabPosition(value);
+        await Boot.SetHelpDeskFabPositionAsync(_selectedHelpDeskFabPosition);
+    }
+
+    private async Task OnHelpDeskFabHiddenChangedAsync(bool value)
+    {
+        _helpDeskFabHidden = value;
+        await Boot.SetHelpDeskFabHiddenAsync(value);
     }
 
     /// <summary>

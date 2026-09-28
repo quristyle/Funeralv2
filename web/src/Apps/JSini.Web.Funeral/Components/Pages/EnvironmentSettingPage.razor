@@ -1,4 +1,4 @@
-@page "/funeral/setting/environment"
+﻿@page "/funeral/setting/environment"
 @attribute [RouteKey("funeral.setting.environment")]
 
 @*
@@ -76,6 +76,36 @@
     그래서 감추면 정말로 아무것도 안 보인다. 판정은 CSS 가 하고
     (`.jsini-shell--fab-hidden`) 표시를 붙이는 쪽은 `MainLayout.ShellCss` 다.
     저장되는 곳은 위치와 같은 갈래다 — 브라우저의 `jsini-fab-hidden`.
+
+    [헬프데스크 요청등록 단추 — 여기만 사람마다 줄이 있다 없다 한다]
+
+    그 아래 둘은 **떠다니는 요청 등록 단추**(`/helpdesk/request/new`)의 것이다.
+    고장·문의를 적는 일은 자리에 앉아서 하는 일이 아니라 현장에서 휴대폰으로
+    하는 일인데, 거기까지 가려면 메뉴를 열고 업무를 고르고 두 단계를 더
+    내려가야 했다.
+
+    짜임새는 위 둘과 똑같다(감출까 · 어느 귀퉁이에). 다른 것이 셋이다.
+
+    | | 모바일 메뉴 단추 | 요청 등록 단추 |
+    |---|---|---|
+    | 기본 자리 | 왼쪽 아래 | **오른쪽 아래** — 기본값끼리 포개지지 않게 |
+    | 누구에게 보이나 | 모두 | **그 화면을 열 수 있는 사람만** |
+    | 감추면 | 메뉴는 로고로 연다 | 메뉴로 그대로 들어간다 |
+
+    **권한이 없으면 이 두 줄이 아예 안 그려진다**(`CanSetHelpDeskFab`). 남겨
+    두면 아무 일도 일어나지 않는 스위치가 하나 생기고, 그 자리에서 사람은
+    「설정이 안 먹는다」고 읽는다. 판정은 셸이 단추를 그릴 때 쓰는 것과 **같은
+    것**이어야 한다(`MainLayout.HelpDeskFabAllowed`) — 갈라 두면 「설정은 있는데
+    단추가 안 나온다」거나 그 반대가 생긴다.
+
+    **둘이 같은 귀퉁이에 서면 세로로 벌어진다**(`.jsini-shell__fab--stacked`).
+    포개지면 위엣것만 눌리고 아래엣것은 있는 줄도 모른다. 미는 쪽은 이 단추이고,
+    **메뉴 단추를 감춰 둔 사람에게는 밀지 않는다** — 귀퉁이가 비었는데 단추만
+    한 칸 떠 있는 그림이 된다. 미는 일을 `margin` 으로 하는 까닭은 app.css 의
+    그 규칙 머리말에 있다(자리 칸은 아래 띠 규칙이 `!important` 로 덮어쓴다).
+
+    저장되는 곳도 같은 갈래다 — 브라우저의 `jsini-hdfab-hidden` ·
+    `jsini-hdfab-position`.
 
     [화면 확대 잠금은 기본이 켜짐이다 — 여기서 유일하다]
 
@@ -314,6 +344,55 @@
                     Enabled="@(!_fabHidden)"
                     Style="width: 160px;" />
     </div>
+
+    @* [요청 등록 단추는 권한이 있는 사람에게만 묻는다]
+
+       위 둘과 짜임새는 같다(감출까 · 어느 귀퉁이에). 다른 점은 **이 두 줄이
+       아예 안 보이는 사람이 있다**는 것 — 헬프데스크 요청 등록
+       (`/helpdesk/request/new`)을 열 수 없으면 단추도 안 그려지므로
+       (`MainLayout.HelpDeskFabAllowed`) 고를 것이 없다. 그런 사람에게 줄만
+       남겨 두면 **아무 일도 일어나지 않는 스위치**가 하나 생기고, 그 자리에서
+       사람은 「설정이 안 먹는다」고 읽는다.
+
+       판정은 셸과 같은 것을 쓴다(`CanSetHelpDeskFab`). 갈라 두면 「설정은
+       있는데 단추가 안 나온다」가 생긴다. *@
+    @if (CanSetHelpDeskFab)
+    {
+        <div class="jsini-setting">
+            <div>
+                <div class="jsini-setting__name">헬프데스크 요청등록 단추 숨기기</div>
+                <div class="jsini-setting__desc">
+                    휴대폰 화면에서 <b>헬프데스크 요청 등록</b>으로 바로 가는
+                    떠다니는 단추를 감춥니다. 감춰도 메뉴에서는 그대로 들어갑니다.
+                    <b>이 브라우저에만 남습니다</b>.
+                </div>
+            </div>
+
+            <DxCheckBox Checked="@_helpDeskFabHidden"
+                        CheckedChanged="@((bool v) => OnHelpDeskFabHiddenChangedAsync(v))" />
+        </div>
+
+        <div class="jsini-setting">
+            <div>
+                <div class="jsini-setting__name">헬프데스크 요청등록 단추 위치</div>
+                <div class="jsini-setting__desc">
+                    그 단추가 설 자리를 고릅니다. <b>모바일 메뉴 단추와 같은
+                    귀퉁이를 고르면 두 단추가 세로로 섭니다</b> — 포개지지 않습니다.
+                    <b>이 브라우저에만 남습니다</b>.
+                </div>
+            </div>
+
+            @* 위 고르개와 같은 까닭으로 감춰 둔 동안은 잠근다. 값은 지우지
+               않아 다시 켜면 고르던 자리 그대로다. *@
+            <DxComboBox Data="@_helpDeskFabPositions"
+                        TextFieldName="@nameof(FabPosOption.Name)"
+                        ValueFieldName="@nameof(FabPosOption.Value)"
+                        Value="@_selectedHelpDeskFabPosition"
+                        ValueChanged="@((string val) => OnHelpDeskFabPositionChangedAsync(val))"
+                        Enabled="@(!_helpDeskFabHidden)"
+                        Style="width: 160px;" />
+        </div>
+    }
 
     @* [스위치가 「잠금」이고 기본이 켜짐이다]
 

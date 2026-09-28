@@ -1,4 +1,4 @@
-/*
+﻿/*
   셸 레이아웃. DevExpress 테마 **뒤에** 실린다(JSiniHead 의 link 순서).
 
   [DevExpress 데모의 껍데기를 본떴다]
@@ -442,6 +442,49 @@ body {
   top: calc(var(--jsini-header-height) + 0.75rem + env(safe-area-inset-top));
   bottom: auto;
   left: auto;
+}
+
+/* ── 떠다니는 요청 등록 단추 (`--help`) ────────────────────────
+
+   헬프데스크 요청 등록으로 바로 가는 단추다. 메뉴 단추와 **같은 동그라미
+   꼴을 쓰되 속을 채우지 않는다** — 같은 색 동그라미 둘이 한 화면에 서면
+   어느 쪽이 메뉴인지 눌러 봐야 알기 때문이다. 테두리만 두른 쪽이 「딸린
+   조작」으로 읽힌다.
+
+   강조색은 그대로 따라간다(글자와 테두리). 테마를 바꿨을 때 이것만 옛 색으로
+   남으면 그 자리가 가장 먼저 눈에 띈다. */
+.jsini-shell__fab--help {
+  background: var(--jsini-surface, #fff);
+  color: var(--jsini-accent);
+  border: 1px solid color-mix(in srgb, var(--jsini-accent) 45%, transparent);
+}
+
+.jsini-shell__fab--help:active {
+  background: color-mix(in srgb, var(--jsini-accent) 12%, var(--jsini-surface, #fff));
+}
+
+/* ── 같은 귀퉁이에 둘이 설 때 (`--stacked`) ────────────────────
+
+   [왜 `margin` 인가]
+
+   자리를 정하는 `top`·`bottom` 은 **다른 규칙이 `!important` 로 덮어쓰는
+   값**이다(아래 띠를 쓰는 사람에게 76px 로 올리는 규칙). 여기서 같은 칸을
+   다시 쓰면 둘 중 하나가 조용히 지고, 어느 쪽이 이기는지는 띠를 쓰는지에
+   따라 갈린다 — 「띠를 껐더니 단추 둘이 포개진다」가 된다.
+
+   `margin` 은 그 계산에 **더해진다.** 붙는 자리가 위든 아래든, 띠가 있든
+   없든 언제나 한 칸(단추 3rem + 틈 0.75rem)만큼 민다.
+
+   미는 것은 **요청 등록 단추 쪽**이다(`MainLayout.HelpDeskFabStacked`) —
+   메뉴 단추를 감춘 사람에게는 밀지 않는다. */
+.jsini-shell__fab--stacked.jsini-shell__fab--bottom-left,
+.jsini-shell__fab--stacked.jsini-shell__fab--bottom-right {
+  margin-bottom: 3.75rem;
+}
+
+.jsini-shell__fab--stacked.jsini-shell__fab--top-left,
+.jsini-shell__fab--stacked.jsini-shell__fab--top-right {
+  margin-top: 3.75rem;
 }
 
 /* ── 사이드바 ↔ 본문 사이의 구분선 (DxSplitter) ───────────
@@ -2100,7 +2143,18 @@ button.jsini-crumbs__item:hover { opacity: 1; }
 
      그래서 감추면 **정말로 아무것도 안 보인다.** 여는 길은 로고, 닫는 길은
      로고·덮개·뒤로 가기·헤더 누르기다. */
-  .jsini-shell--fab-hidden .jsini-shell__fab { display: none; }
+  .jsini-shell--fab-hidden .jsini-shell__fab--menu { display: none; }
+
+  /* 환경설정에서 **요청 등록 단추를 감춘 사람**(`jsini-hdfab-hidden`).
+     표시를 붙이는 쪽은 `MainLayout.ShellCss` 다.
+
+     **위 규칙과 갈라 둔다.** 한동안 위엣것이 `.jsini-shell__fab` 전부를
+     잡고 있었는데, 그대로 두면 메뉴 단추를 감춘 사람에게서 **요청 등록
+     단추까지 함께 사라진다** — 둘은 따로 켜고 끄는 것이다.
+
+     **권한이 없는 사람은 여기 오지 않는다.** 그때는 마크업 자체가 없다
+     (`MainLayout.HelpDeskFabAllowed`). */
+  .jsini-shell--hdfab-hidden .jsini-shell__fab--help { display: none; }
 
   /* 헤더의 ☰ 는 휴대폰에서 뺀다. **떠다니는 단추와 하는 일이 똑같아서**
      (`_sidebarOpen` 하나를 여닫는다) 같은 화면에 둘을 놓을 까닭이 없고,

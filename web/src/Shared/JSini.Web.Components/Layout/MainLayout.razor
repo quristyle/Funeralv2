@@ -1,4 +1,4 @@
-@*
+﻿@*
     포털 레이아웃. DevExpress 데모(demos.devexpress.com/blazor)의 껍데기를 본떴다.
 
         ┌──────────────────────────────────────────────────────┐
@@ -283,13 +283,44 @@
 
        **늘 그린다.** 보이고 안 보이고는 CSS 가 정한다 — 화면 크기로 마크업을
        갈아 끼우지 않는 이 파일의 규칙 그대로다. *@
-    <button type="button" class="jsini-shell__fab jsini-shell__fab--@_fabPosition"
+    <button type="button" class="jsini-shell__fab jsini-shell__fab--menu jsini-shell__fab--@_fabPosition"
             title="메뉴 접기/펴기" aria-label="메뉴 접기/펴기"
             aria-expanded="@(_sidebarOpen ? "true" : "false")"
             @onclick="@ToggleSidebarAsync">
         <span class="@(_sidebarOpen ? "jsini-icon-close" : "jsini-icon-menu")"
               aria-hidden="true"></span>
     </button>
+
+    @* ── 떠다니는 요청 등록 단추 ───────────────────────────
+
+       헬프데스크 요청 등록(`/helpdesk/request/new`)으로 바로 가는 단추다.
+       고장·문의를 적는 일은 **자리에 앉아서 하는 일이 아니라** 현장에서
+       휴대폰으로 하는 일인데, 거기까지 가려면 메뉴를 열고 업무를 고르고
+       두 단계를 더 내려가야 했다.
+
+       **그릴지 말지를 여기서 가린다.** 위 메뉴 단추와 다른 점이다 — 저것은
+       누구나 쓰는 것이라 늘 그리고 CSS 가 보일지만 정하는데, 이것은 **그
+       화면에 권한이 있는 사람**만의 것이라 없는 사람에게는 마크업도 없어야
+       한다. 감춰 둔 사람에게 안 보이게 하는 일은 그대로 CSS 가 한다
+       (`.jsini-shell--hdfab-hidden`).
+
+       **같은 귀퉁이를 고르면 한 칸 민다**(`--stacked`). 두 단추가 포개지면
+       위엣것만 눌리고 아래엣것은 있는 줄도 모른다. 미는 쪽이 이것인 까닭은
+       메뉴 단추가 이 화면의 기본 조작이기 때문이다 — 자리를 옮기는 쪽은
+       나중에 더한 것이 맡는다.
+
+       **생김새를 갈라 둔다**(`--help`). 같은 색 동그라미 둘이 세로로 서면
+       어느 쪽이 무엇인지 눌러 봐야 안다. 속을 채우지 않고 테두리만 둘러
+       「딸린 조작」으로 보이게 한다(app.css 의 같은 이름). *@
+    @if (HelpDeskFabAllowed)
+    {
+        <button type="button"
+                class="jsini-shell__fab jsini-shell__fab--help jsini-shell__fab--@_hdFabPosition @(HelpDeskFabStacked ? "jsini-shell__fab--stacked" : "")"
+                title="요청 등록" aria-label="헬프데스크 요청 등록"
+                @onclick="@OpenHelpDeskRequest">
+            <span class="jsini-icon-edit" aria-hidden="true"></span>
+        </button>
+    }
 
     @* 휴대폰 화면 아래의 띠. **쓰지 않기로 한 사람에게는 아예 안 그린다** —
        CSS 로만 감추면 회로가 붙어 있는 내내 안 보이는 단추 다섯이 살아 있고,
