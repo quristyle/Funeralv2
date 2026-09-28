@@ -1,4 +1,6 @@
+using DevExpress.Blazor;
 using Microsoft.AspNetCore.Components;
+using System.Globalization;
 using System.Text.Json;
 using JSini.Web.Abstractions;
 using JSini.Web.Components.Layout;
@@ -36,6 +38,9 @@ public partial class RequestDetail
 
     private JsonElement? _request;
 
+    /// <summary>접수·완료를 묻는 창. 화면 맨 아래에 하나만 둔다.</summary>
+    private ConfirmDialog? _confirm;
+
     /// <summary>뿌리 댓글들. 그 아래 답글이 나무로 달려 있다.</summary>
     private IReadOnlyList<CommentNode> _roots = [];
 
@@ -63,6 +68,104 @@ public partial class RequestDetail
     /// 「답글 단추는 있는데 누르면 아무 일도 없다」가 생긴다.
     /// </remarks>
     private bool CanWrite => Context.IsLinked && Permissions.Can(MenuPath, MenuAction.Create);
+
+    /// <summary>
+    /// 접수·완료를 누를 수 있는가 — <b>담당자</b>이고 이 화면에 수정 권한이 있는가.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="HelpDeskContext.IsLinked"/> 가 아니라
+    /// <see cref="HelpDeskContext.IsAdmin"/> 을 본다. 포털 역할로만 담당자인
+    /// 사람(헬프데스크에 줄이 없는 관리자)도 접수할 수 있어야 하고, 그 사람의
+    /// <c>admin</c> 줄은 <b>서버가 접수하는 그 순간 만든다</b>
+    /// (<c>IAssigneeProvisioner</c>). 연결을 먼저 요구하면 새 DB 에서는
+    /// <b>아무도 아무것도 못 맡는다</b> — 담당자가 0명이기 때문이다.
+    /// </para>
+    /// <para>
+    /// 고객은 여기 들어오지 못한다. 자기 글을 스스로 「완료」로 닫는 길은
+    /// 따로 있다(<c>UserCompleted</c> — 종료).
+    /// </para>
+    /// </remarks>
+    private bool CanHandle => Context.IsAdmin && Permissions.Can(MenuPath, MenuAction.Update);
+
+    /// <summary>아직 아무도 안 맡은 글인가.</summary>
+    private bool IsPending => Status is "Pending";
+
+    /// <summary>
+    /// 아직 끝나지 않은 글인가 — 「완료」를 내놓을지 가른다.
+    ///
+    /// <para>
+    /// <b>「대기」도 들어간다.</b> 묻고 답하다 그 자리에서 끝난 글을
+    /// 「접수」부터 두 번 누르게 하지 않는다 — 서버가 접수와 완료를 한 번에
+    /// 반영한다.
+    /// </para>
+    /// </summary>
+    private bool IsOpen =>
+        Status is "Pending" or "InProgress" or "Consultation" or "Negotiation";
+
+    /// <summary>
+    /// 지금 상태의 <b>열거형 이름</b>. 서버는 <c>status</c> 에 이름을 싣는다
+    /// (<c>JsonStringEnumConverter</c>) — 숫자로 올 때를 대비해 그것도 푼다.
+    /// </summary>
+    private string? Status => Value("status") switch
+    {
+        null => null,
+        var raw when int.TryParse(raw, out var code) => StatusName(code),
+        var raw => raw,
+    };
+
+    /// <summary>
+    /// 접수·완료를 서버에 반영한다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>상태만 보낸다.</b> 접수자는 서버가 지금 부른 사람으로 정한다 —
+    /// 이 화면이 아는 번호(<see cref="HelpDeskContext.HelpdeskUserId"/>)는
+    /// 담당자로 이어 둔 계정일 때만 <c>admin.id</c> 라, 그대로 실어 보내면
+    /// <b>번호가 겹치는 남이 접수자로 박힌다.</b>
+    /// </para>
+    /// <para>
+    /// 「완료」는 접수일자까지 한 번에 넣으므로 <b>「대기」에서 바로 눌러도</b>
+    /// 접수자·접수일자·완료일자가 모두 남는다.
+    /// </para>
+    /// </remarks>
+    private async Task ChangeStatusAsync(string status, string label)
+    {
+        if (!int.TryParse(Id, out _))
+        {
+            Say("요청 번호를 읽지 못했습니다.", NoticeTone.Error);
+            return;
+        }
+
+        var ask = status == "Completed" && IsPending
+            // 「대기」에서 바로 닫는 길이라 무슨 일이 한꺼번에 일어나는지 적는다.
+            ? $"「{TabTitle}」 을(를) 접수하고 바로 완료로 닫습니다."
+            : $"「{TabTitle}」 을(를) {label} 처리합니다.";
+
+        if (_confirm is not null && !await _confirm.AskAsync(ask, "요청 처리", label, ButtonRenderStyle.Primary))
+        {
+            return;
+        }
+
+        var done = await RunAsync(
+            () => Api.PutAsync($"requests/accept/{Id}", new { status }),
+            $"{label} 처리했습니다.", $"{label} 처리하지 못했습니다");
+
+        if (done)
+        {
+            await ReloadAsync();
+        }
+
+        StateHasChanged();
+    }
+
+    /// <summary>「접수」 — 내가 맡는다. 접수자와 접수일자가 박힌다.</summary>
+    private Task AcceptAsync() => ChangeStatusAsync("InProgress", "접수");
+
+    /// <summary>
+    /// 「완료」 — 끝났다. 「대기」에서 눌렀으면 접수까지 함께 반영된다.
+    /// </summary>
+    private Task CompleteAsync() => ChangeStatusAsync("Completed", "완료");
 
     /// <summary>
     /// 주소가 바뀌면 다시 읽는다.
@@ -173,6 +276,87 @@ public partial class RequestDetail
         Value("requesterName")
         ?? NestedValue("customer", "userName")
         ?? "-";
+
+    /// <summary>
+    /// 접수자 이름. 아직 아무도 안 맡았으면 <b>그렇다고 말한다.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>칸 이름이 <c>adminName</c> 이 아니다.</b> 여기서 오래 그 이름을 읽고
+    /// 있었는데 서버 응답에 그런 칸이 없어서 담당자 자리가 <b>늘 <c>-</c></b>
+    /// 였다 — 서버는 <c>Include(r =&gt; r.Admin)</c> 한 것을 그대로 내려주므로
+    /// 이름은 <c>admin.userName</c> 에 있다. 옛 이름도 함께 본다.
+    /// </para>
+    /// <para>
+    /// 비었을 때 <c>-</c> 가 아니라 「미배정」인 것은, 이 칸이 <b>「접수」
+    /// 단추를 눌러야 하는지</b>를 말해 주는 자리이기 때문이다. 목록 화면도
+    /// 같은 말을 쓴다(<c>RequestManage</c>).
+    /// </para>
+    /// </remarks>
+    private string AssigneeName() =>
+        NestedValue("admin", "userName")
+        ?? Value("adminName")
+        ?? "미배정";
+
+    /// <summary>상태를 사람이 읽는 말로. 서버가 준 <c>statusName</c> 이 먼저다.</summary>
+    private string StatusText() =>
+        Value("statusName") is { Length: > 0 } given ? given : StatusLabel(Status);
+
+    /// <summary>
+    /// 날짜 칸 하나. <b>없으면 <c>-</c> 다</b> — 아직 안 일어난 일이라는 뜻이다.
+    /// </summary>
+    /// <remarks>
+    /// 서버는 UTC 로 담고 ISO 로 내려준다. 그대로 적으면 <c>T</c> 와 밀리초가
+    /// 보이므로 분까지만 끊어 적는다. 읽지 못하는 값은 <b>온 그대로</b> 둔다 —
+    /// 서식을 못 맞췄다고 값을 감추면 무엇이 잘못됐는지 알 수 없다.
+    /// </remarks>
+    private string When(string name)
+    {
+        var raw = Value(name);
+
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return "-";
+        }
+
+        return DateTime.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var at)
+            ? at.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+            : raw;
+    }
+
+    /// <summary>열거형 이름 → 사람이 읽는 말. 목록 화면과 같은 표다.</summary>
+    private static string StatusLabel(string? status) => status switch
+    {
+        "Pending" => "대기",
+        "InProgress" => "진행",
+        "Rejected" => "반려",
+        "Completed" => "완료",
+        "UserCompleted" => "종료",
+        "Consultation" => "협의",
+        "Negotiation" => "논의",
+        _ => status ?? "-",
+    };
+
+    /// <summary>
+    /// 상태 <b>순번</b> → 열거형 이름. 서버가 숫자로 줄 때를 위한 것이다.
+    ///
+    /// <para>
+    /// 번호는 <c>ImprovementStatus</c> 의 선언 차례이고 <b>중간이 비지 않는다</b> —
+    /// 그 열거형에 값을 끼워 넣으면 여기도 함께 고친다.
+    /// </para>
+    /// </summary>
+    private static string? StatusName(int code) => code switch
+    {
+        0 => "Pending",
+        1 => "InProgress",
+        2 => "Rejected",
+        3 => "Completed",
+        4 => "Delete",
+        5 => "Consultation",
+        6 => "Negotiation",
+        7 => "UserCompleted",
+        _ => null,
+    };
 
     private string? NestedValue(string parentName, string name) =>
         _request is { ValueKind: JsonValueKind.Object } obj

@@ -645,7 +645,25 @@ public static class RequestEndpoints {
 
 
     //접수, 반려, 완료 등을 반영한다.
-    group.MapPut("/accept/{id}", (IAdminService adminService, AppDbContext db, int id, ImprovementRequest input, IRabbitMqConnectionProvider provider, ILoggerFactory loggerFactory, IConfiguration configuration, IPushSubscriptionStore store, IWebPushService sender) => ApiResponseBuilder.CreateAsync(async () => {
+    //
+    // ────────────────────────────────────────────────────────────
+    // [접수자와 접수일자는 **여기서** 정해진다 (2026-09-28)]
+    //
+    // 상세 화면의 「접수」·「완료」가 이 길로 온다. 그 두 단추는 접수자를
+    // 고르지 않는다 — **누른 사람이 곧 접수자**다. 그래서 `adminId` 를
+    // 실어 보내지 않고, 그 자리를 이 엔드포인트가 지금 부른 사람으로 채운다
+    // (`IAssigneeProvisioner`).
+    //
+    // 화면이 직접 채울 수 없는 까닭이 있다. 화면이 아는 번호는
+    // `HelpDeskContext.HelpdeskUserId` 인데, 그 값은 **담당자로 이어 둔
+    // 계정일 때만** `admin.id` 다. 고객으로 이어 두었거나 연결이 아예 없는
+    // 관리자(포털 역할로만 담당자인 사람)는 그 번호가 `customer.id` 이거나
+    // 없다. 그대로 넣으면 **번호가 겹치는 남이 접수자로 박힌다.**
+    //
+    // 「대기」에서 「완료」를 바로 누르면 접수자·접수일자·완료일자가 한 번에
+    // 들어간다 — 접수를 건너뛴 것이 아니라 그 순간 접수까지 함께 한 것이다.
+    // ────────────────────────────────────────────────────────────
+    group.MapPut("/accept/{id}", (IAdminService adminService, HttpContext http, AppDbContext db, int id, ImprovementRequest input, IAssigneeProvisioner assignees, IRabbitMqConnectionProvider provider, ILoggerFactory loggerFactory, IConfiguration configuration, IPushSubscriptionStore store, IWebPushService sender) => ApiResponseBuilder.CreateAsync(async () => {
       //return null;
       var req = await db.Requests.FindAsync(id);
       if (req is null) return null;
@@ -660,15 +678,33 @@ public static class RequestEndpoints {
         req.CompletededAt = DateTime.UtcNow;
       }
 
-      if (input.Status != ImprovementStatus.UserCompleted) { // 사용자 완료시 에는 관리자 코드 변경 안함. 
-        req.AdminId = input.AdminId;
+      if (input.Status != ImprovementStatus.UserCompleted) { // 사용자 완료시 에는 관리자 코드 변경 안함.
+        // 접수자를 정하는 차례 — 골라 보낸 값이 먼저, 그 다음이 이미 박혀
+        // 있는 접수자, 마지막이 **지금 누른 사람**이다.
+        //
+        // 두 번째 칸이 요점이다. 전에는 `req.AdminId = input.AdminId` 라
+        // 값을 안 실어 보내면 **이미 맡고 있던 사람이 조용히 지워졌다** —
+        // 진행 중인 글을 완료로 넘기는 것만으로 접수자가 사라졌다.
+        // 접수를 풀려면 `PUT /reset/{id}` 를 쓴다.
+        var ct = http.RequestAborted;
+        var assigneeId = input.AdminId is > 0 ? input.AdminId
+            : req.AdminId
+              ?? await assignees.ResolveAsync(http.GetHelpdeskPrincipal(), http.AuditUser(), ct);
+
+        if (assigneeId is > 0) {
+          req.AdminId = assigneeId;
+
+          // 접수일자는 접수자와 **짝**이고, 한 번 박히면 다시 움직이지 않는다.
+          // 완료로 넘어갈 때 다시 찍으면 응답 시간이 0 이 되어 버린다.
+          req.AcceptedAt ??= DateTime.UtcNow;
+        }
       }
 
       await db.SaveChangesAsync();
 
       // 접수 시 (InProgress) 알림
-      if (input.Status == ImprovementStatus.InProgress && input.AdminId.HasValue) {
-        var adm = await db.Admins.FindAsync(input.AdminId.Value);
+      if (input.Status == ImprovementStatus.InProgress && req.AdminId.HasValue) {
+        var adm = await db.Admins.FindAsync(req.AdminId.Value);
         if (adm != null) {
           var customerSubscriptions = await store.GetSubscriptionsByUserAsync(req.CustomerId, "customer");
           await PushUtil.SendPushMsg($"배정 - {adm.UserName}", $"{req.Title} ", $"/request_detail?id={req.Id}", customerSubscriptions, sender);
@@ -682,7 +718,9 @@ public static class RequestEndpoints {
 
       if (input.Status == ImprovementStatus.Completed) { // 관리자 완료시 모든 관리자, 작성 접수자 에게 알림.
 
-        var adm = await db.Admins.FindAsync(input.AdminId);
+        // 알림에 적는 이름도 **저장된 접수자**를 본다. `input.AdminId` 를
+        // 보면 화면이 그 값을 안 실어 보냈을 때 「완료 - 」로 끝난다.
+        var adm = req.AdminId is { } assigned ? await db.Admins.FindAsync(assigned) : null;
 
         var adminSubscriptions = await store.GetAdminSubscriptionsAsync();
         var customerSubscriptions = await store.GetSubscriptionsByUserAsync(req.CustomerId, "customer");
@@ -739,6 +777,10 @@ public static class RequestEndpoints {
 
       req.Status = 0;
       req.AdminId = null;
+
+      // 접수자와 **짝**이라 함께 지운다. 남겨 두면 「대기인데 접수일자가
+      // 있는」 줄이 되어 응답 시간 집계가 그 글을 이미 맡은 것으로 센다.
+      req.AcceptedAt = null;
 
       await db.SaveChangesAsync();
       return req;

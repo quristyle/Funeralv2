@@ -178,6 +178,9 @@ builder.Services.Configure<HelpdeskIdentityOptions>(builder.Configuration.GetSec
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<IFuneralAccountLinkService, FuneralAccountLinkService>();
 builder.Services.AddScoped<IRequesterProvisioner, RequesterProvisioner>();
+// 접수자(담당자)도 같은 사정이다 — 새 DB 라 `admin` 이 0명이어서
+// 「접수」를 누른 사람을 가리킬 줄이 없다.
+builder.Services.AddScoped<IAssigneeProvisioner, AssigneeProvisioner>();
 
 // 회사는 포털이 단독으로 관리한다. 헬프데스크에는 회사 표가 없고, 이름이
 // 필요하면 이 통로로 AuthServer 에 묻는다(5분 캐시).
