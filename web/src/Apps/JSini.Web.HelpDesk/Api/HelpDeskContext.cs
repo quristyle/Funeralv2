@@ -1,4 +1,4 @@
-﻿namespace JSini.Web.HelpDesk.Api;
+namespace JSini.Web.HelpDesk.Api;
 
 /// <summary>
 /// 헬프데스크 공용 상태 — Vue 의 <c>store/helpdesk.ts</c> 를 잇는 자리.
@@ -84,6 +84,7 @@ public sealed class HelpDeskContext(HelpDeskApi api, BizOptionService bizOptions
     /// </summary>
     public IReadOnlyList<BizOption> CompanyOptions { get; private set; } = [];
     public IReadOnlyList<BizOption> CustomerOptions { get; private set; } = [];
+    public IReadOnlyList<System.Text.Json.JsonElement> CustomerItems { get; private set; } = [];
 
     /// <summary>회사 아이디를 이름으로 바꾼다. 모르는 아이디면 아이디를 그대로 준다.</summary>
     public string CompanyName(string? companyId) =>
@@ -154,5 +155,6 @@ public sealed class HelpDeskContext(HelpDeskApi api, BizOptionService bizOptions
         AdminOptions = admins.Result.Options;
         CompanyOptions = companies.Result.Options;
         CustomerOptions = customers.Result.Options;
+        CustomerItems = customers.Result.Items;
     }
 }

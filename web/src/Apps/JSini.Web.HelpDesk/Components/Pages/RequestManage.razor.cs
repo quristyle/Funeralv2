@@ -13,12 +13,11 @@ public partial class RequestManage
 
     /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
     private string ConditionSummary => SchSummary.Of(
-        SchSummary.Or(_keyword),
+        Context.IsSystemAdmin ? SchSummary.NameOf(CompanyFilterOptions, o => o.Value, o => o.Label, _companyId) : null,
+        SchSummary.NameOf(RequesterFilterOptions, o => o.Value, o => o.Label, _requesterId),
         SchSummary.NameOf(StatusOptions, o => o.Value, o => o.Text, _status),
-        Context.IsSystemAdmin
-            ? SchSummary.NameOf(CompanyFilterOptions, o => o.Value, o => o.Label, _companyId)
-            : null,
         SchSummary.NameOf(Context.AdminOptions, o => o.Value, o => o.Label, _adminId),
+        SchSummary.Or(_keyword),
         SchSummary.On(_onlyOpen, "처리 중인 것만"));
 
     private IReadOnlyList<ImprovementRequest> _rows = [];
@@ -27,8 +26,26 @@ public partial class RequestManage
     private string? _keyword;
     private string? _status;
     private string? _companyId;
+    private string? _requesterId;
     private string? _adminId;
     private bool _onlyOpen = true;
+
+    private IReadOnlyList<BizOption> RequesterFilterOptions
+    {
+        get
+        {
+            var companyId = Context.IsSystemAdmin ? _companyId : Context.CompanyId;
+            var items = string.IsNullOrEmpty(companyId) 
+                ? Context.CustomerItems 
+                : Context.CustomerItems.Where(item => 
+                    BizOptionService.GetText(item, "companyId") == companyId);
+            var filtered = items.Select(item => new BizOption(
+                BizOptionService.GetText(item, "userName") ?? "",
+                BizOptionService.GetText(item, "id")
+            )).ToList();
+            return [new("전체", null), .. filtered];
+        }
+    }
 
     private IReadOnlyList<BizOption> CompanyFilterOptions =>
         [new("전체", null), .. Context.CompanyOptions];
@@ -109,6 +126,11 @@ public partial class RequestManage
                 // **여러 값의 구분자는 `|` 다.** 쉼표로 이으면 서버가 그 전체를
                 // 값 하나로 읽어 400 이 난다(DynamicFilterHelper 의 `in`).
                 query["status_in"] = string.Join("|", OpenStatuses);
+            }
+
+            if (!string.IsNullOrWhiteSpace(_requesterId))
+            {
+                query["customerId"] = _requesterId;
             }
 
             if (!string.IsNullOrWhiteSpace(_adminId))
