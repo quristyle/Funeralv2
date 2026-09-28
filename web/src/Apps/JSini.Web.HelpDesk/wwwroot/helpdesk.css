@@ -16,7 +16,7 @@
 }
 
 .hd-subhead {
-  margin: 1.5rem 0 0.75rem;
+  margin: 1rem 0 0.6rem;
   font-size: var(--jsini-fs-lg);
   font-weight: 700;
 }
@@ -67,42 +67,51 @@
 
 /* ── 요청 상세 ──────────────────────────────────────────── */
 
-/* 요청 한 건의 머릿값들(요청번호·상태·고객사·사람·날짜 셋).
+/* 요청 한 건의 머릿값들(고객사·사람 둘·날짜 셋).
 
-   [세로로 쌓인 열 줄을 격자로 눕혔다 (2026-09-28)]
+   [격자 여덟 칸을 한 줄짜리 띠로 눕혔다 (2026-09-28)]
 
-   전에는 `max-content 1fr` 두 칸짜리 격자에 `dt`/`dd` 를 **열 쌍** 흘려
-   넣었다. 그러면 칸 수만큼 줄이 생겨서(열 줄) 이 판 하나가 노트북
-   화면의 첫 한 뼘을 통째로 먹었고, **정작 읽으러 온 본문이 접힌 아래로
-   밀려났다.** 제목이 바로 위 머리글과 겹쳐 두 번 나오던 것도 거들었다.
+   바로 앞에는 `dt` 를 위·`dd` 를 아래로 쌓은 덩이를 네 칸 격자에 늘어놓았다.
+   세로로 열 줄 쌓였던 것보다는 나았지만 **덩이 하나가 두 줄**이라 판 자체가
+   여전히 124px 이었고(1440px 에서 잰 값), 칸마다 줄 높이가 두 벌이라
+   판이 화면에서 큰 덩어리로 보였다.
 
-   지금은 값 하나가 `.hd-fact` 한 덩이(이름 위·값 아래)이고, 그 덩이를
-   가로로 늘어놓는다. 칸 여덟이 데스크톱에서 두 줄, 휴대폰에서 네 줄이다.
+   지금은 값 하나가 **`이름 값` 한 줄**이고(`.hd-fact` 가 제 안에서 가로
+   flex), 그 줄들을 흘려 넣는다. 여섯 칸이 넓은 화면에서 **한 줄**로 끝난다.
 
-   칸 수를 `auto-fit` 에 맡기지 않고 못박은 까닭 — `auto-fit` 은 와이드
-   모니터에서 여덟 칸을 **한 줄로** 펴 버린다. 그러면 이름과 값이 각각
-   한 글자 폭이 되어 날짜가 세 줄로 접힌다. 읽는 폭은 화면 폭이 아니라
-   값의 길이(`2026-09-28 14:04`)가 정한다.
+   격자가 아니라 `flex-wrap` 인 까닭 — 값의 길이가 칸마다 크게 다르다
+   (`-` 한 글자부터 「주식회사 …」까지). 격자는 제일 긴 칸에 맞춰 나머지를
+   모두 넓히지만, 흘려 넣으면 **각 칸이 제 폭만** 먹고 남는 자리에 다음
+   칸이 붙는다. 좁아지면 스스로 줄을 내린다 — 휴대폰용 규칙이 따로 없다.
+
+   `dt` 를 `nowrap` 으로 못박는 것은 이름이 두 글자(「접수일」)뿐이라
+   접히면 값보다 이름이 높아져 줄 높이가 들쭉날쭉해지기 때문이다.
    ---------------------------------------------------------- */
 
 .hd-facts {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.65rem 1.25rem;
-  margin: 0 0 1rem;
-  padding: 0.8rem 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.2rem 1.15rem;
+  margin: 0 0 0.6rem;
+  padding: 0.4rem 0.7rem;
   border: 1px solid var(--jsini-border);
-  font-size: var(--jsini-fs-md);
+  font-size: var(--jsini-fs-sm);
 }
 
-/* 격자 자식은 `min-width: auto` 라 내용보다 좁아지지 않는다 —
-   묶지 않으면 긴 회사 이름 하나가 칸 둘의 폭을 밀어 벌린다. */
-.hd-fact { min-width: 0; }
+/* 이름과 값이 **한 덩이로** 접힌다 — 묶지 않으면 좁은 화면에서
+   「접수일」과 그 날짜가 서로 다른 줄로 갈린다. */
+.hd-fact {
+  display: flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  min-width: 0;
+}
 
 .hd-facts dt {
-  margin-bottom: 0.1rem;
   font-size: var(--jsini-fs-xs);
   color: var(--jsini-text-muted);
+  white-space: nowrap;
 }
 
 .hd-facts dd {
@@ -113,33 +122,38 @@
   overflow-wrap: anywhere;
 }
 
-@media (width >= 768px) {
-  .hd-facts { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-}
-
 /* 본문. 줄바꿈을 살린다 — 폼에서 여러 줄로 쓴 글이라
    한 줄로 뭉개면 재현 방법을 읽을 수 없다. */
 .hd-content {
-  padding: 0.9rem 1rem;
+  padding: 0.7rem 0.9rem;
   background: color-mix(in srgb, var(--jsini-text-muted) 8%, transparent);
   font-size: var(--jsini-fs-md);
   line-height: 1.7;
   white-space: pre-line;
 }
 
-/* 「수정」·「접수」·「완료」. 휴대폰에서는 셋이 한 줄에 안 들어가므로
-   접히게 둔다 — 안 접으면 마지막 단추가 화면 밖으로 나간다. */
+/* 「수정」·「접수」·「완료」.
+
+   [본문 아래에 있던 것을 머리 오른쪽으로 올렸다 (2026-09-28)]
+
+   전에는 본문 다음에 제 줄로 서 있어서, 판 하나가 통째로 세로를 먹는
+   데다 **본문이 길면 단추가 화면 밖으로 밀려났다** — 맡을지 말지를
+   정하려고 글을 끝까지 굴려 내려야 했다. 지금은 제목과 같은 줄
+   오른쪽 끝에 붙어 늘 첫 화면에 있다(`margin-left: auto`).
+
+   휴대폰에서는 머리 자체가 접히므로 단추 줄이 스스로 아래로 내려간다 —
+   좁은 폭을 위한 규칙을 따로 두지 않는다. */
 .hd-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
+  gap: 0.4rem;
+  margin-left: auto;
 }
 
 .hd-actions a {
   text-decoration: none;
-  padding: 0.25rem 0.75rem;
+  padding: 0.2rem 0.7rem;
 }
 
 /* ── 현황 타일 ───────────────────────────────────────────
@@ -376,12 +390,25 @@
    돌아갈 자리를 화면이 직접 둔다.
    ---------------------------------------------------------- */
 
+/* 한 줄에 넷이 앉는다 — 돌아갈 자리 · 제목 · 상태 배지 · 단추 줄.
+
+   상태를 머릿값 판에서 여기로 꺼낸 것은, 그것이 **값이 아니라 이 글이
+   지금 어떤 것인가**여서다. 제목 옆에 붙어 있으면 「대기」인지 「완료」인지를
+   글자를 읽기 전에 알고, 바로 옆 단추(접수·완료)와 짝이 맞는다.
+
+   **제목은 늘어나지 않고 줄어들기만 한다**(`flex: 0 1 auto`). 늘게 두면
+   제목이 남는 자리를 전부 먹어서 **상태 배지가 제목에서 떨어져 나가
+   단추 옆에 가 붙는다** — 그러면 배지를 여기 올린 까닭이 없어진다.
+   오른쪽으로 미는 일은 단추 줄의 `margin-left: auto` 가 한다.
+
+   긴 제목이 들어오면 제목만 줄어들어 스스로 접히고(`min-width: 0` +
+   `overflow-wrap`), 배지와 단추는 제 폭을 지킨다. */
 .hd-detail__head {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 0.75rem;
-  margin-bottom: 0.75rem;
+  gap: 0.5rem 0.75rem;
+  margin-bottom: 0.6rem;
 }
 
 .hd-detail__back {
@@ -402,6 +429,7 @@
   font-weight: 700;
 
   /* 제목이 길면 줄이 접히는 대신 머리 전체가 가로로 늘어난다. */
+  flex: 0 1 auto;
   min-width: 0;
   overflow-wrap: anywhere;
 }
