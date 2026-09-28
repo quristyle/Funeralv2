@@ -542,7 +542,6 @@ FileServer 의 `PublicFileAccessFilter` 가 판정한다 — 익명이면 `is_pu
 | 화면 | 옛 Vue 줄 수 |
 |---|---|
 | `/helpdesk/request/manage` 요청 처리 | 563 |
-| `/helpdesk/request/monitor` 요청 모니터 | 503 |
 | `/helpdesk/monitor/sm` SM 모니터링 | 480 |
 | `/helpdesk/util/mc-model` MC 모델 관리 | 874 |
 

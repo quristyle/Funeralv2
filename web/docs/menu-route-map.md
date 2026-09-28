@@ -20,7 +20,7 @@
 
 ## HelpDesk (:5562, /helpdesk) — DB path 그대로
 
-/helpdesk/dashboard, /helpdesk/dashboard/customer, /helpdesk/request/{list,manage,new,monitor,my-comments},
+/helpdesk/dashboard, /helpdesk/dashboard/customer, /helpdesk/request/{list,manage,new,my-comments},
 /helpdesk/request/detail/{id},
 /helpdesk/monitor/{sm,maintenance}, /helpdesk/util/{ascii-parser,binary-parser,mc-model,diagram},
 /helpdesk/hanju/{health-check,collection-status,equipment-log,fms-log,procedure-result},
@@ -33,6 +33,10 @@
   걷어냈다. 그 화면이 하던 일은 상태 고르기 하나였고 지금은 요청 상세가
   「접수」·「완료」·「종료」 단추로 한다. DB 메뉴는 `status = 0` 으로 재웠다
   (`deploy/sql/helpdesk-request-close-2026-09-28.sql`).
+※ 요청 모니터(`/helpdesk/request/monitor` — `HD_REQ_MONITOR`)는 2026-09-28 에
+  걷어냈다. 담당자별·고객사별·최근 접수 셋을 보여 주던 화면인데 그 셋이
+  모두 헬프데스크 현황(`/helpdesk/dashboard`)에 있다
+  (`deploy/sql/portal-menu-helpdesk-request-monitor-remove-2026-09-28.sql`).
 ※ 프로젝트(`/helpdesk/project/*`)와 일정(`/helpdesk/schedule/*`)도 같은 날
   걷어냈다. `/helpdesk/util/diagram`(다이어그램)은 이름만 WBS 고 「도구」
   묶음이라 남는다 — 그 화면만 `GET /api/wbs` 를 계속 쓴다.

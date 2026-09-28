@@ -662,7 +662,18 @@ SM 은 「밀린 것이 몇 건인가」보다 **「누가 몰려 있고 무엇�
 - 고객으로 연결된 계정은 자기 회사만 본다 — 화면이 판단하지 않고 신원을 서버로
   넘긴다(`companyId`)
 
-### 103. `/helpdesk/request/monitor` — 요청 모니터 · **보완**
+### 103. `/helpdesk/request/monitor` — 요청 모니터 · **보완** → **2026-09-28 제거**
+
+> 이 화면이 보여 주던 셋(담당자별 · 고객사별 · 최근 접수)이 **헬프데스크 현황
+> (`/helpdesk/dashboard`)에 모두 있다.** 앞의 둘은 2026-09-28 에 카드로 다시
+> 그렸고 최근 접수는 두 번 누르면 상세로 간다. 같은 자료를 두 자리에서 보는
+> 셈이라 화면(`RequestMonitor.razor`)을 걷어냈다. 아래는 걷어내기 전 기록이다.
+>
+> 엔드포인트는 그대로 둔다 — `dashboard/all-admin-stats` ·
+> `dashboard/company-stats` · `dashboard/requests/recent` 는 현황 화면이 쓴다.
+>
+> 운영 메뉴(`HD_REQ_MONITOR`)와 그 권한 여섯 줄은
+> `deploy/sql/portal-menu-helpdesk-request-monitor-remove-2026-09-28.sql` 로 지웠다.
 
 원본: `helpdesk/request/monitor.vue` (502줄)
 
