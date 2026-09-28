@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components;
+using JSini.Web.Components.Data;
 using JSini.Web.Components.Layout;
 using JSini.Web.HelpDesk.Api;
 
@@ -19,7 +20,18 @@ public partial class MyComments
     }, "작성한 댓글이 없습니다.", "댓글을 읽지 못했습니다");
 
     private static MarkupString Body(MyCommentItem comment) =>
-        new(NoticeHtml.Sanitize(comment.CommentText));
+        new(NoticeHtml.Sanitize(comment.CommentText, ThumbnailImage, lazyLoadImages: true));
+
+    private static string ThumbnailImage(string source)
+    {
+        if (!source.StartsWith($"{FileDownload.Path}/", StringComparison.OrdinalIgnoreCase))
+        {
+            return source;
+        }
+
+        var fileId = FileDownload.FileIdOf(source);
+        return fileId is null ? source : FileDownload.ThumbnailUrlFor(fileId);
+    }
 
     private static string RequestTitle(MyCommentItem comment) =>
         string.IsNullOrWhiteSpace(comment.RequestTitle)

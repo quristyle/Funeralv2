@@ -113,8 +113,14 @@ public static class NoticeHtml
     /// </summary>
     private static readonly string[] StyleBanned = ["url(", "expression", "javascript:", "@import", "behavior", "/*"];
 
-    /// <summary>공지 본문을 화면에 넣어도 되는 HTML 로 바꾼다.</summary>
-    public static string Sanitize(string? html)
+    /// <summary>본문을 화면에 넣어도 되는 HTML 로 바꾼다.</summary>
+    /// <param name="html">정화할 원본 HTML.</param>
+    /// <param name="imageSourceTransform">정화·중계된 그림 주소를 바꿀 선택 변환기.</param>
+    /// <param name="lazyLoadImages">그림을 브라우저가 필요할 때 불러오게 할지 여부.</param>
+    public static string Sanitize(
+        string? html,
+        Func<string, string>? imageSourceTransform = null,
+        bool lazyLoadImages = false)
     {
         if (string.IsNullOrWhiteSpace(html))
         {
@@ -188,7 +194,7 @@ public static class NoticeHtml
                 continue;
             }
 
-            AppendOpenTag(output, tag);
+            AppendOpenTag(output, tag, imageSourceTransform, lazyLoadImages);
 
             if (!Void.Contains(tag.Name) && !tag.SelfClosing)
             {
@@ -207,7 +213,11 @@ public static class NoticeHtml
     /// <summary>
     /// 여는 태그를 걸러 낸 속성만 붙여 내보낸다.
     /// </summary>
-    private static void AppendOpenTag(StringBuilder output, Tag tag)
+    private static void AppendOpenTag(
+        StringBuilder output,
+        Tag tag,
+        Func<string, string>? imageSourceTransform,
+        bool lazyLoadImages)
     {
         output.Append('<').Append(tag.Name.ToLowerInvariant());
 
@@ -227,6 +237,13 @@ public static class NoticeHtml
                 continue;
             }
 
+            if (tag.Name.Equals("img", StringComparison.OrdinalIgnoreCase)
+                && name.Equals("src", StringComparison.OrdinalIgnoreCase)
+                && imageSourceTransform is not null)
+            {
+                clean = imageSourceTransform(clean);
+            }
+
             if (name.Equals("rel", StringComparison.OrdinalIgnoreCase))
             {
                 // 아래에서 우리가 붙인다. 여기서도 붙이면 두 번 나온다.
@@ -241,6 +258,11 @@ public static class NoticeHtml
 
             output.Append(' ').Append(name.ToLowerInvariant())
                   .Append("=\"").Append(EscapeAttribute(clean)).Append('"');
+        }
+
+        if (lazyLoadImages && tag.Name.Equals("img", StringComparison.OrdinalIgnoreCase))
+        {
+            output.Append(" loading=\"lazy\"");
         }
 
         // 새 창으로 여는 링크에는 반드시 rel 을 붙인다. 없으면 열린 쪽이

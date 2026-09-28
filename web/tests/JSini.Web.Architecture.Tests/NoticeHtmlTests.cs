@@ -125,6 +125,15 @@ public sealed class NoticeHtmlTests
             "<p><img src=\"/files/79b266d9-16ff-49f9-809d-0957f8705ac6\" /></p>",
             NoticeHtml.Sanitize(html));
 
+    [Fact]
+    public void 그림_주소_변환과_지연_로딩을_선택할_수_있다() =>
+        Assert.Equal(
+            "<p><img src=\"/files/thumbnail/79b266d9-16ff-49f9-809d-0957f8705ac6\" loading=\"lazy\" /></p>",
+            NoticeHtml.Sanitize(
+                "<p><img src=\"/api/file/download/79b266d9-16ff-49f9-809d-0957f8705ac6\"></p>",
+                source => source.Replace("/files/", "/files/thumbnail/", StringComparison.Ordinal),
+                lazyLoadImages: true));
+
     /// <summary>파일 주소가 아닌 것은 그대로 둔다.</summary>
     [Fact]
     public void 파일_주소가_아니면_건드리지_않는다() =>
