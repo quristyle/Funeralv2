@@ -109,7 +109,7 @@ public class LocalWeatherNotifyService : BackgroundService
                 continue;
             }
 
-            var point = await weather.GetAsync(subscriber.Lat, subscriber.Lon, ct);
+            var point = await weather.GetAsync(subscriber.Lat, subscriber.Lon, ct: ct);
 
             // 기상청이 아무것도 주지 않았으면 보내지 않는다. 「자료를 받지 못했습니다」만
             // 적힌 알림은 받는 사람이 할 수 있는 일이 없고, 시각 칸도 찍히지 않아

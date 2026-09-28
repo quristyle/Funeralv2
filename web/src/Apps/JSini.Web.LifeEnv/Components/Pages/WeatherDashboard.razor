@@ -9,7 +9,8 @@
     호출: `life/weather`(전 지역 실황) · `life/weather/locations` ·
           `life/weather/current/{id}` · `life/weather/mid-term/{id}` ·
           `life/weather/forecast/{id}`(-10h~+10h 타임라인, 추이 차트 재료) ·
-          `life/weather/point?lat&lon`(내 위치 — 등록 지역이 아닌 한 지점)
+          `life/weather/point?lat&lon&weekly=true`(내 위치 — 등록 지역이 아닌
+          한 지점. 실황·사흘 예보·주간 예보를 한 번에 받는다)
 
     전 지역 최신 실황을 카드로 늘어놓고, 고른 지역의 실황 상세·오늘의 예보·
     주간 예보·예보 추이 차트를 아래에 편다.
@@ -34,9 +35,17 @@
     일이고 그 자리는 알림 설정 화면이다(`GeoLocator.SaveAsync`). 날씨를 한 번
     보는 것으로 알림 설정이 바뀌면 아무도 그것을 예상하지 못한다.
 
-    내 위치에는 **주간 예보와 예보 추이가 없다** — 중기예보 구역 코드와 수집
-    이력이 표에 있어야 만들어지는 것이라 등록 지역에만 있다. 그래서 그 두 줄이
-    없어지는 것이 맞고, 화면이 그 까닭을 한 줄로 적는다.
+    내 위치에는 **예보 추이가 없다** — 지난 10시간 실측이 수집 이력에서 나오는
+    것이라 등록 지역에만 있다. 그 줄이 없어지는 것이 맞고, 화면이 까닭을 적는다.
+
+    [주간 예보는 내 위치에도 선다 (2026-09-28)]
+
+    처음에는 주간 예보도 없었다. 중기예보는 격자로 못 묻고 기상청이 따로 매긴
+    **구역코드**로만 묻는데, 등록 지역은 그 코드를 사람이 적어 넣었고 한 지점에는
+    적을 자리가 없었기 때문이다. 이제 서버가 좌표에서 찾은 시·도·시·군으로 코드를
+    골라 준다(`MidTermRegions`) — `point?weekly=true` 로 물으면 응답에 `weekly` 가
+    실려 온다. 그 구역은 **시·군 단위**(하늘 상태는 도 단위)라 위 사흘 예보의 5km
+    격자보다 성기고, 화면이 그 말을 힌트에 적는다.
 
     [오늘과 열흘 사이가 비어 있었다 (2026-09-25)]
 
@@ -286,7 +295,7 @@ else
             </DashboardSection>
 
             <DashboardSection Title="사흘 예보"
-                              Hint="주간 예보와 예보 추이는 등록된 관측 지역에만 있습니다.">
+                              Hint="기상청 5km 격자 예보입니다. 오늘이 있는 줄은 여기뿐입니다.">
                 <ChildContent>
                     @if (_point.Days.Count == 0)
                     {
@@ -319,6 +328,38 @@ else
                                 </div>
                             }
                         </div>
+                    }
+                </ChildContent>
+            </DashboardSection>
+
+            @*
+                [내 위치에도 주간 예보가 선다 (2026-09-28)]
+
+                중기예보는 격자로 못 묻는다 — 기상청이 따로 매긴 **구역코드**
+                하나로만 묻고, 등록 지역은 그 코드를 사람이 적어 넣어 두었다.
+                한 지점에는 적을 자리가 없어 전에는 이 줄이 통째로 없었다.
+
+                이제 서버가 좌표에서 찾은 시·도·시·군으로 코드를 골라 준다
+                (`MidTermRegions`). 그래서 **등록되지 않은 곳에 선 사람도**
+                열흘을 본다. 다만 구역이 시·군 단위(하늘 상태는 도 단위)라
+                위 사흘 예보의 5km 격자보다 성기다 — 그 말을 힌트에 적는다.
+
+                바로 위 사흘 예보와 내일·모레가 겹친다. 겹치는 것이 맞다 —
+                저쪽에만 **오늘**이 있고, 이쪽에만 **오전·오후 나눔**이 있다.
+            *@
+            <DashboardSection Title="주간 예보" Hint="@WeekHint">
+                <ChildContent>
+                    @if (_midTerm.Count == 0)
+                    {
+                        <p class="le-today__empty">
+                            @(_point.Place is null
+                                ? "지역 이름을 찾지 못해 주간 예보를 만들 수 없습니다. 바다 위 좌표일 수 있습니다."
+                                : "내 위치의 주간 예보가 아직 없습니다.")
+                        </p>
+                    }
+                    else
+                    {
+                        <WeekForecastRow Days="_midTerm" />
                     }
                 </ChildContent>
             </DashboardSection>
@@ -410,30 +451,9 @@ else
                 }
                 else
                 {
-                    <div class="le-week">
-                        @foreach (var day in _midTerm)
-                        {
-                            <div class="le-week__day">
-                                <span class="le-week__when">@day.DayDisplay</span>
-                                <span class="le-week__date">@day.Date</span>
-
-                                <span class="le-week__sky">
-                                    @* 하루 단위 예보는 오전·오후가 갈리지 않는다.
-                                       그때 빈칸 둘을 보여 주면 자료가 없는 것처럼 읽힌다. *@
-                                    @(string.IsNullOrWhiteSpace(day.AmSky) && string.IsNullOrWhiteSpace(day.PmSky)
-                                        ? "-"
-                                        : $"{day.AmSky} / {day.PmSky}")
-                                </span>
-
-                                <span class="le-week__temp">
-                                    <span class="lf-down">@day.MinTemp°</span>
-                                    <span class="lf-up">@day.MaxTemp°</span>
-                                </span>
-
-                                <span class="le-week__pop">강수 @day.AmPop% / @day.PmPop%</span>
-                            </div>
-                        }
-                    </div>
+                    @* 내 위치 쪽과 **같은 줄**이다(WeekForecastRow). 붙여 넣어 두 벌로
+                       두면 한쪽만 고친 날 같은 화면의 위아래가 다른 모양이 된다. *@
+                    <WeekForecastRow Days="_midTerm" />
                 }
             </ChildContent>
         </DashboardSection>

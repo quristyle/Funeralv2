@@ -58,7 +58,17 @@ public class PointWeatherService
     }
 
     /// <summary>한 지점의 날씨. 기상청이 답하지 않아도 지역 이름과 격자는 채워 돌려준다.</summary>
-    public async Task<PointWeatherDto> GetAsync(double lat, double lon, CancellationToken ct = default)
+    /// <param name="lat">위도.</param>
+    /// <param name="lon">경도.</param>
+    /// <param name="ct">중단 신호.</param>
+    /// <param name="weekly">
+    /// 참이면 <b>주간 예보</b>(<see cref="PointWeatherDto.Weekly"/>)까지 채운다 —
+    /// 기상청 왕복이 둘 늘어난다(중기 육상 · 중기 기온). 기본이 거짓인 까닭은
+    /// 이 응답을 쓰는 세 자리 중 둘(알림 본문 · 설정 화면 미리보기)이 그것을
+    /// 쓰지 않기 때문이다. 늘 채우면 알림이 그만큼 늦게 나간다.
+    /// </param>
+    public async Task<PointWeatherDto> GetAsync(
+        double lat, double lon, bool weekly = false, CancellationToken ct = default)
     {
         var (nx, ny) = GridConverter.ToGrid(lat, lon);
         var found = await ResolvePlaceAsync(lat, lon, ct);
@@ -94,9 +104,201 @@ public class PointWeatherService
         var forecast = await _api.GetVilageForecastAsync(nx, ny);
         if (forecast != null) result.Days = SummarizeDays(forecast);
 
+        // **단기예보를 다시 받지 않는다.** 주간 예보의 앞쪽 이틀은 위에서 이미
+        // 받아 둔 그 응답에서 갈라 낸다 — 등록 지역의 `mid-term/{id}` 도 같은
+        // 식으로 단기와 중기를 이어 붙인다.
+        if (weekly) result.Weekly = await BuildWeeklyAsync(forecast, found, ct);
+
         result.Summary = BuildSummary(result);
         return result;
     }
+
+    /// <summary>
+    /// 한 지점의 <b>주간 예보</b> — 내일부터 열흘. 앞쪽은 단기예보, 뒤쪽은 중기예보다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>중기예보는 격자로 못 묻는다.</b> 기상청이 따로 매긴 구역코드 하나로만
+    /// 묻는데, 등록 지역은 그 코드를 사람이 적어 넣어 두었고 한 지점에는 적을
+    /// 자리가 없다. 그래서 좌표에서 찾아낸 시·도·시·군으로 코드를 고른다
+    /// (<see cref="MidTermRegions"/>). <b>이름을 못 찾았으면 주간 예보도 없다</b> —
+    /// 바다 한가운데의 좌표가 그렇고, 그때는 빈 목록이 맞다.
+    /// </para>
+    /// <para>
+    /// <b>중기예보 구역은 시·군 단위다.</b> 단기예보의 5km 격자보다 훨씬 성기고,
+    /// 하늘 상태·강수확률은 아예 도(道) 단위다. 화면이 그 사실을 한 줄로 말해야
+    /// 사람이 이 숫자를 격자 예보와 같은 것으로 읽지 않는다.
+    /// </para>
+    /// </remarks>
+    private async Task<List<MidTermForecastDto>> BuildWeeklyAsync(
+        List<Dictionary<string, string>>? forecast, PlaceName? place, CancellationToken ct)
+    {
+        var today = Kst.Now.Date;
+
+        // 단기예보에서 **오늘을 뺀** 나머지 날. 오늘은 위의 실황과 사흘 예보가
+        // 이미 말했고, 주간 예보 줄의 첫 칸이 「오늘」이면 같은 말이 두 번 선다.
+        List<MidTermForecastDto> shortTerm = forecast is null
+            ? []
+            : SummarizeHalfDays(forecast, today);
+
+        var (landCode, tempCode) = MidTermRegions.Resolve(place?.Region1, place?.Region2);
+
+        if (landCode is null || tempCode is null)
+        {
+            return shortTerm;
+        }
+
+        var baseDate = MidTermForecastReader.BaseDate(Kst.Now);
+
+        string? landJson, tempJson;
+
+        try
+        {
+            // 나란히 부른다. 서로 기다릴 이유가 없고 둘 다 있어야 한 줄이 된다.
+            var land = _api.GetMidLandForecastAsync(landCode);
+            var temp = _api.GetMidTaAsync(tempCode);
+
+            await Task.WhenAll(land, temp).WaitAsync(ct);
+
+            landJson = land.Result;
+            tempJson = temp.Result;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // 중기예보를 못 받아도 앞쪽 단기예보는 보여 줄 수 있다. 여기서
+            // 던지면 실황까지 통째로 사라진다.
+            _logger.LogWarning(ex, "중기예보 조회 실패 (land={Land}, temp={Temp})", landCode, tempCode);
+            return shortTerm;
+        }
+
+        var seen = shortTerm.Select(d => d.Date).ToHashSet(StringComparer.Ordinal);
+
+        foreach (var day in MidTermForecastReader.Read(landJson, tempJson, baseDate))
+        {
+            var date = day.Date.ToString("yyyy-MM-dd");
+            if (!seen.Add(date)) continue;
+
+            shortTerm.Add(new MidTermForecastDto(
+                date,
+                WeekLabel(day.Date.ToDateTime(TimeOnly.MinValue), today),
+                day.MinTemp,
+                day.MaxTemp,
+                day.AmSky,
+                day.PmSky,
+                day.AmPop,
+                day.PmPop));
+        }
+
+        return [.. shortTerm.OrderBy(d => d.Date, StringComparer.Ordinal)];
+    }
+
+    /// <summary>
+    /// 단기예보를 <b>오전·오후로 갈라</b> 하루 한 줄로 접는다 — 중기예보와 같은 모양.
+    /// </summary>
+    /// <remarks>
+    /// 위 <see cref="SummarizeDays"/> 와 접는 단위가 다르다. 저쪽은 알림 한 줄에
+    /// 실을 「오늘 몇 도에 비가 오나」라 하루를 통째로 접고, 이쪽은 주간 예보
+    /// 카드가 <b>오전 / 오후</b> 두 칸을 그리므로 반나절이 단위다.
+    /// </remarks>
+    private static List<MidTermForecastDto> SummarizeHalfDays(
+        List<Dictionary<string, string>> forecast, DateTime today)
+    {
+        var days = new List<MidTermForecastDto>();
+
+        var grouped = forecast
+            .Where(f => f.ContainsKey("fcstDate") && f.ContainsKey("fcstTime"))
+            .GroupBy(f => f["fcstDate"])
+            .OrderBy(g => g.Key, StringComparer.Ordinal);
+
+        foreach (var g in grouped)
+        {
+            if (!DateTime.TryParseExact(g.Key, "yyyyMMdd", null,
+                    System.Globalization.DateTimeStyles.None, out var date))
+            {
+                continue;
+            }
+
+            if (date.Date <= today) continue;
+
+            var rows = g.ToList();
+
+            // **하루가 다 찬 날만 센다.** 단기예보의 마지막 날은 잘려 온다 —
+            // 오전 몇 시간만 실려 오고(기상청이 거기까지만 내거나 numOfRows 에서
+            // 잘리거나), 그 몇 시간으로 접으면 「최고 21℃ · 맑음」 같은 <b>반나절
+            // 짜리 하루</b>가 나온다. 그 날은 중기예보가 제대로 말해 주므로 여기서
+            // 비워 둔다(아래에서 중기가 그 자리를 채운다).
+            //
+            // 다 찼는지는 <b>TMN·TMX 로 본다</b>. 기상청이 그 둘을 하루에 한 번씩
+            // (06시·15시 칸) 싣기 때문에, 둘이 다 있으면 아침과 오후가 다 온 것이다.
+            double? min = FirstValue(rows, "TMN");
+            double? max = FirstValue(rows, "TMX");
+
+            if (min is not { } lo || max is not { } hi) continue;
+
+            var am = rows.Where(r => Hour(r) < 12).ToList();
+            var pm = rows.Where(r => Hour(r) >= 12).ToList();
+
+            days.Add(new MidTermForecastDto(
+                date.ToString("yyyy-MM-dd"),
+                WeekLabel(date, today),
+                (int)Math.Round(lo),
+                (int)Math.Round(hi),
+                HalfSky(am),
+                HalfSky(pm),
+                HalfPop(am),
+                HalfPop(pm)));
+        }
+
+        return days;
+    }
+
+    private static int Hour(Dictionary<string, string> row)
+        => row.TryGetValue("fcstTime", out var t) && int.TryParse(t, out var v) ? v / 100 : 0;
+
+    /// <summary>
+    /// 반나절을 한 낱말로. <b>비·눈이 하늘 상태를 이긴다</b> —
+    /// <see cref="DayCondition"/> 와 같은 규칙이다.
+    /// </summary>
+    private static string HalfSky(List<Dictionary<string, string>> rows)
+    {
+        if (rows.Count == 0) return "";
+
+        var ptys = rows
+            .Where(r => r.TryGetValue("PTY", out var p) && int.TryParse(p, out _))
+            .Select(r => int.Parse(r["PTY"]))
+            .Where(p => p > 0)
+            .ToList();
+
+        if (ptys.Count > 0)
+        {
+            if (ptys.Contains(3) || ptys.Contains(7)) return "눈";
+            if (ptys.Contains(2) || ptys.Contains(6)) return "비/눈";
+            return "비";
+        }
+
+        var sky = rows
+            .Where(r => r.TryGetValue("SKY", out var s) && int.TryParse(s, out _))
+            .Select(r => int.Parse(r["SKY"]))
+            .GroupBy(s => s)
+            .OrderByDescending(gr => gr.Count())
+            .Select(gr => (int?)gr.Key)
+            .FirstOrDefault();
+
+        return sky switch
+        {
+            1 => "맑음",
+            3 => "구름많음",
+            4 => "흐림",
+            _ => "",
+        };
+    }
+
+    private static int HalfPop(List<Dictionary<string, string>> rows)
+        => rows
+            .Where(r => r.TryGetValue("POP", out var p) && int.TryParse(p, out _))
+            .Select(r => int.Parse(r["POP"]))
+            .DefaultIfEmpty(0)
+            .Max();
 
     /// <summary>
     /// 가장 가까운 행정구역 이름. 격자표(<c>ghub.grid_coordinates</c>)에서 찾는다.
@@ -297,6 +499,27 @@ public class PointWeatherService
         if (cloudy * 2 > skies.Count) return "흐림";
         if ((cloudy + partly) * 2 > skies.Count) return "구름많음";
         return "맑음";
+    }
+
+    /// <summary>
+    /// 주간 예보 칸의 이름 — <c>내일</c> · <c>모레</c> · <c>3일후</c>.
+    /// </summary>
+    /// <remarks>
+    /// 위 <see cref="LabelFor"/> 와 갈라 둔 까닭은 <b>등록 지역과 같은 말을 쓰기
+    /// 위해서</b>다. 등록 지역의 주간 예보는 사흘 뒤부터 「3일후」로 적는데
+    /// (<c>mid-term/{id}</c>), 내 위치만 「10/1」로 적으면 같은 화면의 위아래가
+    /// 다른 말을 한다. 사흘 예보 줄은 날짜를 그대로 보여 주므로 저쪽이 <c>M/d</c> 다.
+    /// </remarks>
+    private static string WeekLabel(DateTime date, DateTime today)
+    {
+        var diff = (date.Date - today).Days;
+        return diff switch
+        {
+            0 => "오늘",
+            1 => "내일",
+            2 => "모레",
+            _ => $"{diff}일후",
+        };
     }
 
     private static string LabelFor(DateTime date, DateTime today)

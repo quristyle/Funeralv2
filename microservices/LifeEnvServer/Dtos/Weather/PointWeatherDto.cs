@@ -47,6 +47,24 @@ public class PointWeatherDto
     public List<PointWeatherDayDto> Days { get; set; } = new();
 
     /// <summary>
+    /// <b>주간 예보</b> — 내일부터 열흘. <c>weekly=true</c> 로 물었을 때만 찬다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 등록 지역의 <c>mid-term/{id}</c> 와 <b>같은 모양</b>(<see cref="MidTermForecastDto"/>)
+    /// 이다 — 화면이 같은 카드 줄을 그대로 쓴다.
+    /// </para>
+    /// <para>
+    /// <b>기본이 꺼져 있는 까닭.</b> 이것을 채우려면 기상청을 두 번 더 불러야 하는데
+    /// (중기 육상 · 중기 기온), 이 응답을 쓰는 곳 셋 중 둘은 그것이 필요 없다 —
+    /// 알림 본문(<see cref="Services.LocalWeatherNotifyService"/>)은 오늘·내일만 싣고,
+    /// 설정 화면의 미리보기는 「여기가 맞나」를 묻는 자리다. 늘 채우면 그 둘이
+    /// 기상청 왕복 둘만큼 느려지고 알림이 그만큼 늦게 나간다.
+    /// </para>
+    /// </remarks>
+    public List<MidTermForecastDto> Weekly { get; set; } = new();
+
+    /// <summary>
     /// 알림 본문으로 쓸 한 덩이 글. <b>서버가 만든다</b> —
     /// 푸시를 보내는 쪽(NotificationServer)은 기상청 코드값을 모른다.
     /// </summary>

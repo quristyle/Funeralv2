@@ -471,10 +471,46 @@ public sealed class PointWeatherDto
     public List<PointWeatherDayDto> Days { get; set; } = [];
 
     /// <summary>
+    /// <b>주간 예보</b> — 내일부터 열흘. <c>weekly=true</c> 로 물었을 때만 온다.
+    /// </summary>
+    /// <remarks>
+    /// 설정 화면은 이것을 쓰지 않는다(「여기가 맞나」를 되묻는 자리라 오늘·내일이면
+    /// 족하다). 쓰는 곳은 기상 현황판의 <b>내 위치 주간 예보</b> 하나다 —
+    /// 채우려면 서버가 기상청을 두 번 더 불러야 해서 <b>물은 쪽에만</b> 온다.
+    /// </remarks>
+    public List<PointWeekDayDto> Weekly { get; set; } = [];
+
+    /// <summary>
     /// 알림 본문으로 나갈 글. <b>화면은 이것을 그대로 보여 준다</b> — 미리 본 것과
     /// 실제로 오는 알림의 말이 다르면 사람은 둘 중 하나를 믿지 못한다.
     /// </summary>
     public string? Summary { get; set; }
+}
+
+/// <summary>
+/// 한 지점 <b>주간 예보</b> 하루치 — 등록 지역의 <c>mid-term/{id}</c> 와 같은 모양.
+/// </summary>
+/// <remarks>
+/// <b>칸 이름을 서버의 <c>MidTermForecastDto</c> 와 글자까지 맞춘다.</b> 어긋나도
+/// 예외가 나지 않고 값만 조용히 사라진다.
+/// </remarks>
+public sealed class PointWeekDayDto
+{
+    /// <summary><c>yyyy-MM-dd</c>.</summary>
+    public string Date { get; set; } = string.Empty;
+
+    /// <summary><c>내일</c> · <c>모레</c> · <c>3일후</c>.</summary>
+    public string DayDisplay { get; set; } = string.Empty;
+
+    public int MinTemp { get; set; }
+    public int MaxTemp { get; set; }
+
+    /// <summary>오전·오후 하늘 상태. 8~10일치는 둘이 같다(기상청이 안 가른다).</summary>
+    public string AmSky { get; set; } = string.Empty;
+    public string PmSky { get; set; } = string.Empty;
+
+    public int AmPop { get; set; }
+    public int PmPop { get; set; }
 }
 
 /// <summary>

@@ -1,0 +1,37 @@
+@*
+    주간 예보 카드 줄 — 하루가 한 칸이고, 좁으면 옆으로 구른다(`le-week`).
+
+    [등록 지역과 내 위치가 같은 줄을 쓴다 (2026-09-28)]
+
+    전에는 이 마크업이 화면 안에 한 벌뿐이었고 **등록 지역 쪽에만** 있었다.
+    내 위치에도 주간 예보가 생기면서 같은 줄이 둘 필요해졌는데, 붙여 넣어
+    두 벌로 두면 한쪽만 고친 날 **같은 화면의 위아래가 다른 모양**이 된다.
+    그래서 여기로 뺀다 — 재료(`MidTermForecast`)도 한 가지다.
+
+    [오전·오후가 같으면 한 번만 적는다]
+
+    중기예보는 8~10일치를 오전·오후로 가르지 않는다. 그때 서버가 같은 값을
+    양쪽에 넣어 주는데, 그것을 「구름많음 / 구름많음」으로 그대로 적으면
+    사람은 **둘을 견주려다** 같은 말임을 뒤늦게 안다.
+*@
+
+<div class="le-week">
+    @foreach (var day in Days)
+    {
+        <div class="le-week__day">
+            <span class="le-week__when">@day.DayDisplay</span>
+            <span class="le-week__date">@day.Date</span>
+
+            @* 하루 단위 예보는 오전·오후가 갈리지 않는다.
+               그때 빈칸 둘을 보여 주면 자료가 없는 것처럼 읽힌다. *@
+            <span class="le-week__sky">@Sky(day)</span>
+
+            <span class="le-week__temp">
+                <span class="lf-down">@day.MinTemp°</span>
+                <span class="lf-up">@day.MaxTemp°</span>
+            </span>
+
+            <span class="le-week__pop">@Pop(day)</span>
+        </div>
+    }
+</div>

@@ -55,10 +55,14 @@ public partial class WeatherDashboard
     // 미리보기와 발송기가 같은 길을 쓰므로, **여기서 보는 글과 알림으로 오는
     // 글이 같은 재료**다.
     //
-    // 다만 그 길이 주는 것은 **실황과 사흘 예보**뿐이다. 주간 예보와 예보
-    // 추이는 등록 지역에만 있다(중기예보 구역 코드·수집 이력이 표에 있어야
-    // 한다). 그래서 내 위치를 고르면 아래 두 줄이 **없어지는 것이 맞고**,
-    // 화면이 그 까닭을 한 줄로 말한다 — 안 말하면 「자료가 빠졌다」로 읽힌다.
+    // 그 길에 `weekly=true` 를 붙이면 **주간 예보까지** 온다. 중기예보는 격자로
+    // 못 묻고 기상청이 따로 매긴 구역코드로만 묻는데, 서버가 좌표에서 찾은
+    // 시·도·시·군으로 그 코드를 골라 준다(`MidTermRegions`). 구역이 시·군 단위라
+    // 사흘 예보의 5km 격자보다 성기고, 화면이 그 말을 힌트에 적는다.
+    //
+    // **예보 추이만 여전히 없다** — 지난 10시간 실측이 수집 이력에서 나오는
+    // 것이라 등록 지역에만 있다. 그 줄이 없어지는 것이 맞고, 화면이 그 까닭을
+    // 한 줄로 말한다 — 안 말하면 「자료가 빠졌다」로 읽힌다.
 
     /// <summary>
     /// 지역 고르개에서 <b>내 위치</b>를 가리키는 값.
@@ -333,7 +337,8 @@ public partial class WeatherDashboard
         _myError = null;
         _detailError = false;
 
-        // 앞서 고른 지역의 상세를 비운다. 내 위치에는 주간 예보도 추이도 없다.
+        // 앞서 고른 지역의 상세를 비운다. 주간 예보는 아래에서 내 위치 것으로
+        // 다시 차고(FetchPointAsync), 추이는 내 위치에 없다.
         _current = null;
         _midTerm = [];
         _trend = [];
@@ -394,7 +399,26 @@ public partial class WeatherDashboard
     {
         try
         {
-            _point = await Client.GetPointWeatherAsync(_myLat, _myLon);
+            // **주간 예보까지 한 번에 받는다.** 따로 부르면 왕복이 하나 더 붙고,
+            // 서버가 단기예보를 두 번 받게 된다 — 주간 예보의 앞쪽 이틀이 바로
+            // 그 단기예보에서 나오기 때문이다.
+            //
+            // **지금 내 위치를 보고 있을 때만 받는다**(`MyOn`). 이 길은 아무도
+            // 시키지 않은 자리에서도 돈다(TryQuietLocationAsync — 카드 한 장만
+            // 올리고 아래는 등록 지역의 것을 그대로 둔다). 거기서까지 받으면
+            // 아무도 안 보는 주간 예보 때문에 서버가 기상청을 두 번 더 부른다.
+            _point = await Client.GetPointWeatherAsync(_myLat, _myLon, weekly: MyOn);
+
+            // **내 위치를 보고 있을 때만 담는다.** 이 칸은 지금 고른 것의 주간
+            // 예보이고, 조용한 길에서 덮어쓰면 **등록 지역을 보고 있는 화면의
+            // 주간 예보가 내 위치 것으로 바뀐다** — 사람이 아무것도 안 했는데.
+            //
+            // 등록 지역과 같은 칸을 쓰는 까닭은 화면이 같은 줄(WeekForecastRow)을
+            // 그리기 때문이다. 담는 자리를 갈라 두면 둘이 다른 모양으로 갈라진다.
+            if (MyOn)
+            {
+                _midTerm = _point is null ? [] : [.. _point.Weekly.Select(ToMidTerm)];
+            }
 
             if (_point is null && !quiet)
             {
@@ -405,12 +429,50 @@ public partial class WeatherDashboard
         {
             _point = null;
 
+            if (MyOn)
+            {
+                _midTerm = [];
+            }
+
             if (!quiet)
             {
                 _myError = $"내 위치의 날씨를 읽지 못했습니다 — {ex.Message}";
             }
         }
     }
+
+    /// <summary>
+    /// 한 지점의 주간 예보 하루치를 <b>등록 지역과 같은 모양</b>으로 옮긴다.
+    /// </summary>
+    /// <remarks>
+    /// 두 타입이 갈려 있는 까닭은 사는 곳이 달라서다 — <see cref="PointWeekDayDto"/>
+    /// 는 알림 설정 화면도 쓰는 <c>JSini.Web.Models</c> 에 있고,
+    /// <see cref="MidTermForecast"/> 는 이 모듈의 것이다. 칸은 하나도 다르지 않다.
+    /// </remarks>
+    private static MidTermForecast ToMidTerm(PointWeekDayDto day) => new()
+    {
+        Date = day.Date,
+        DayDisplay = day.DayDisplay,
+        MinTemp = day.MinTemp,
+        MaxTemp = day.MaxTemp,
+        AmSky = day.AmSky,
+        PmSky = day.PmSky,
+        AmPop = day.AmPop,
+        PmPop = day.PmPop,
+    };
+
+    /// <summary>
+    /// 내 위치 주간 예보 밑에 붙는 한 줄 — <b>이 숫자가 어느 구역의 것인가</b>.
+    /// </summary>
+    /// <remarks>
+    /// 위 사흘 예보는 5km 격자라 「내가 선 자리」에 가깝지만, 중기예보 구역은
+    /// 시·군 단위이고 하늘 상태·강수확률은 아예 도(道) 단위다. 그 말을 안 적으면
+    /// 사람은 두 줄을 같은 정밀도로 읽고, 어긋나는 날에 <b>둘 중 하나가
+    /// 틀렸다</b>고 생각한다.
+    /// </remarks>
+    private string WeekHint => _point?.Region1 is { Length: > 0 } sido
+        ? $"{sido} 기준 기상청 중기예보입니다. 시·군 단위라 위 사흘 예보보다 성깁니다."
+        : "기상청 중기예보입니다. 시·군 단위라 위 사흘 예보보다 성깁니다.";
 
     /// <summary>
     /// <b>물음창 없이</b> 위치를 한 번 재어 카드 한 장을 미리 올려 둔다.

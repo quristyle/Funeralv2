@@ -292,11 +292,7 @@ public class WeatherCollectionService : BackgroundService
           if (locations.Count == 0) return;
 
           // 중기 예보는 하루 2회(06, 18시 KST) 발표되므로, 최신 발표 시각 계산
-          var now = Kst.Now;
-          string baseDate = "";
-          if (now.Hour < 6) baseDate = now.AddDays(-1).ToString("yyyyMMdd") + "1800";
-          else if (now.Hour < 18) baseDate = now.ToString("yyyyMMdd") + "0600";
-          else baseDate = now.ToString("yyyyMMdd") + "1800";
+          var baseDate = MidTermForecastReader.BaseDate(Kst.Now);
 
           // 이미 수집된 BaseDate인지 확인 (지역별로 다를 수 있으니 여기선 생략하고, 각 지역 처리 시 중복 체크)
 
@@ -309,68 +305,33 @@ public class WeatherCollectionService : BackgroundService
                   var landJson = await weatherApi.GetMidLandForecastAsync(loc.MidTermLandCode!);
                   var tempJson = await weatherApi.GetMidTaAsync(loc.MidTermTempCode!);
 
-                  if (string.IsNullOrEmpty(landJson) || string.IsNullOrEmpty(tempJson)) continue;
+                  // 읽어 내는 일은 내 위치 주간 예보와 **같은 자리**를 쓴다
+                  // (MidTermForecastReader) — 한쪽만 고치면 같은 화면에서
+                  // 등록 지역과 내 위치가 다른 말을 한다.
+                  var days = MidTermForecastReader.Read(landJson, tempJson, baseDate);
 
-                  using var landDoc = JsonDocument.Parse(landJson);
-                  using var tempDoc = JsonDocument.Parse(tempJson);
-
-                  var landItem = landDoc.RootElement.GetProperty("response").GetProperty("body").GetProperty("items").GetProperty("item").EnumerateArray().FirstOrDefault();
-                  var tempItem = tempDoc.RootElement.GetProperty("response").GetProperty("body").GetProperty("items").GetProperty("item").EnumerateArray().FirstOrDefault();
-
-                  // Helper functions
-                  string GetStr(JsonElement el, string key) {
-                      if (!el.TryGetProperty(key, out var p)) return "";
-                      return p.ValueKind == JsonValueKind.String ? (p.GetString() ?? "") : p.GetRawText();
-                  }
-                  int GetInt(JsonElement el, string key) {
-                      if (!el.TryGetProperty(key, out var p)) return 0;
-                      if (p.ValueKind == JsonValueKind.Number) return p.GetInt32();
-                      if (p.ValueKind == JsonValueKind.String && int.TryParse(p.GetString(), out var v)) return v;
-                      return 0;
+                  if (days.Count == 0) {
+                      // 읽어 낸 날이 하나도 없다 — 기상청이 아직 안 냈거나 키가
+                      // 없거나 응답 모양이 바뀐 것이다. 조용히 넘어가면 며칠 뒤
+                      // 「주간 예보가 안 채워진다」만 남고 언제부터인지를 못 찾는다.
+                      _logger.LogWarning("Mid-Term forecast empty for {Name} ({BaseDate})", loc.Name, baseDate);
+                      continue;
                   }
 
-                  // 발표 기준일 (KST 날짜 — 날짜 계산에만 쓴다)
-                  var announceDate = DateTime.ParseExact(baseDate.Substring(0, 8), "yyyyMMdd", null);
-
-                  for (int i = 3; i <= 10; i++) {
-                      var forecastDate = DateOnly.FromDateTime(announceDate.AddDays(i));
-
-                      string amSky = "", pmSky = "";
-                      int amPop = 0, pmPop = 0;
-
-                      if (i <= 7) {
-                          amSky = GetStr(landItem, $"wf{i}Am");
-                          pmSky = GetStr(landItem, $"wf{i}Pm");
-                          amPop = GetInt(landItem, $"rnSt{i}Am");
-                          pmPop = GetInt(landItem, $"rnSt{i}Pm");
-                      } else {
-                          // 8~10일은 오전/오후 구분 없음
-                          string sky = GetStr(landItem, $"wf{i}");
-                          int pop = GetInt(landItem, $"rnSt{i}");
-                          amSky = pmSky = sky;
-                          amPop = pmPop = pop;
-                      }
-
-                      int min = GetInt(tempItem, $"taMin{i}");
-                      int max = GetInt(tempItem, $"taMax{i}");
-
-                      if (string.IsNullOrEmpty(amSky) && string.IsNullOrEmpty(pmSky)) continue;
-
-                      var forecast = new WeatherMidTermForecast {
+                  foreach (var day in days) {
+                      db.WeatherMidTermForecasts.Add(new WeatherMidTermForecast {
                           WeatherLocationId = loc.Id,
                           BaseDate = baseDate,
-                          ForecastDate = forecastDate,
-                          DayAfter = i,
-                          AmSky = amSky,
-                          PmSky = pmSky,
-                          AmPop = amPop,
-                          PmPop = pmPop,
-                          MinTemp = min,
-                          MaxTemp = max,
+                          ForecastDate = day.Date,
+                          DayAfter = day.DayAfter,
+                          AmSky = day.AmSky,
+                          PmSky = day.PmSky,
+                          AmPop = day.AmPop,
+                          PmPop = day.PmPop,
+                          MinTemp = day.MinTemp,
+                          MaxTemp = day.MaxTemp,
                           CreatedAt = DateTimeOffset.UtcNow
-                      };
-
-                      db.WeatherMidTermForecasts.Add(forecast);
+                      });
                   }
 
                   await db.SaveChangesAsync(stoppingToken);

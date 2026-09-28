@@ -70,10 +70,19 @@ public sealed class LifeEnvClient(GatewayClient gateway)
     /// 으로 받으므로 갈라질 자리가 없다.
     /// </para>
     /// </remarks>
+    /// <param name="lat">위도.</param>
+    /// <param name="lon">경도.</param>
+    /// <param name="ct">중단 신호.</param>
+    /// <param name="weekly">
+    /// 참이면 <b>주간 예보</b>(<see cref="PointWeatherDto.Weekly"/>)까지 받는다 —
+    /// 서버가 기상청을 두 번 더 부른다(중기 육상 · 중기 기온). 현황판만 참으로
+    /// 부르고, 설정 화면의 미리보기는 거짓 그대로다.
+    /// </param>
     public Task<PointWeatherDto?> GetPointWeatherAsync(
-        double lat, double lon, CancellationToken ct = default)
+        double lat, double lon, bool weekly = false, CancellationToken ct = default)
         => gateway.GetOneAsync<PointWeatherDto>(
-            FormattableString.Invariant($"{Prefix}/point?lat={lat}&lon={lon}"), ct);
+            FormattableString.Invariant(
+                $"{Prefix}/point?lat={lat}&lon={lon}{(weekly ? "&weekly=true" : "")}"), ct);
 
     // ── 특보 ─────────────────────────────────────────────────
 

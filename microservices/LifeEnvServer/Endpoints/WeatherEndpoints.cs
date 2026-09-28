@@ -39,7 +39,11 @@ public static class WeatherEndpoints {
     //
     // 부르는 곳이 둘이다 — 알림 설정 화면의 미리보기(「여기가 맞나」)와
     // 「내 위치 날씨」 발송기(LocalWeatherNotifyService). 둘이 같은 말을 해야 한다.
-    group.MapGet("/point", async (double? lat, double? lon, PointWeatherService points) => {
+    //
+    // **주간 예보는 `weekly=true` 로 물어야 온다.** 그것을 채우려면 기상청을 두 번
+    // 더 부르는데(중기 육상 · 중기 기온), 부르는 셋 중 둘(알림 본문 · 설정 화면
+    // 미리보기)은 쓰지 않는다 — 늘 채우면 알림이 그만큼 늦게 나간다.
+    group.MapGet("/point", async (double? lat, double? lon, bool? weekly, PointWeatherService points, CancellationToken ct) => {
       if (lat is not { } latitude || lon is not { } longitude) {
         return Results.BadRequest("위도(lat)와 경도(lon)가 필요합니다.");
       }
@@ -50,7 +54,7 @@ public static class WeatherEndpoints {
         return Results.BadRequest("국내 좌표가 아닙니다. 기상청 예보가 닿지 않는 지점입니다.");
       }
 
-      return Results.Ok(await points.GetAsync(latitude, longitude));
+      return Results.Ok(await points.GetAsync(latitude, longitude, weekly == true, ct));
     })
     .WithName("GetPointWeather")
     .WithSummary("위경도 한 지점의 현재 날씨와 예보 (내 위치 날씨)");
