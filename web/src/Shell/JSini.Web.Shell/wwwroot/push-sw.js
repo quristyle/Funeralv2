@@ -91,7 +91,7 @@ async function showStaleDigest() {
     await self.registration.showNotification(`지난 알림 ${count}건`, {
         body: '자리를 비운 사이에 온 알림입니다. 눌러서 알림함에서 확인하세요.',
         icon: '/pwa-icon-192.png',
-        badge: '/pwa-icon-192.png',
+        badge: '/pwa-badge-96.png',
         tag: STALE_TAG,
         // 이미 떠 있는 묶음을 조용히 고쳐 쓴다. 한 건 들어올 때마다 울리면
         // 창만 하나일 뿐 소리는 그대로 쏟아지는 것이라 뜻이 없다.
@@ -149,12 +149,19 @@ self.addEventListener('push', (event) => {
         // 프로필 사진이나 사람 형상 그림자(/avatar-fallback.png)를 채워 보낸다.
         // 둘 다 지정하지 않은 알림(배포 알림 등)은 기본 앱 아이콘으로 뜬다.
         //
-        // badge 는 아이콘이 무엇으로 바뀌든 **앱 아이콘 그대로** 둔다 —
+        // badge 는 아이콘이 무엇으로 바뀌든 **전용 그림 한 장으로** 둔다 —
         // 안드로이드의 상태 표시줄에 서는 작은 표시라, 여기까지 얼굴로 바꾸면
         // 어느 앱이 보낸 알림인지 알 수 없게 된다.
+        //
+        // **앱 아이콘(`/pwa-icon-192.png`)을 그대로 쓰면 안 된다.** 안드로이드는
+        // 이 그림의 **알파 채널만** 읽어 흰 실루엣으로 칠한다(색·모양은 버린다).
+        // 앱 아이콘은 네모가 통째로 불투명해서 — 36,864픽셀 중 35,688이 그렇다 —
+        // 실루엣이 **하얀 네모**가 된다. 다른 앱이 구름·핀 모양으로 보이는 것은
+        // 색이 있어서가 아니라 **투명 바탕에 글자꼴만 뚫어 둔 그림**을 주기 때문이다.
+        // `/pwa-badge-96.png` 이 그것이다(96×96, 「JS」 자리만 불투명).
         body: data.body || '',
         icon: data.icon || '/pwa-icon-192.png',
-        badge: '/pwa-icon-192.png',
+        badge: '/pwa-badge-96.png',
         tag: data.tag || undefined,
         // nid 는 「내 알림함」의 열쇠(NotificationServer 의 batch_id)다. 눌렀을 때
         // 주소에 실어 보내면 화면이 그 한 건을 읽음으로 찍는다 — 아래 참조.
