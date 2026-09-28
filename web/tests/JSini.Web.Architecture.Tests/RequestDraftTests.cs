@@ -106,6 +106,71 @@ public sealed class RequestDraftTests
         Assert.Matches(@"DraftKeyPrefix\s*\+[\s\S]{0,200}?JsiniUserId|JsiniUserId[\s\S]{0,200}?DraftKeyPrefix\s*\+", Page());
     }
 
+    /// <summary>
+    /// 골라 둔 <b>요청자</b>도 함께 적어 두는가.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 이 칸만 적는 길이 다르다. 제목·본문은 브라우저가 화면에서 그대로 긁어
+    /// 오는데, 요청자는 <c>DxComboBox</c> 라 <b>화면에 보이는 것이 이름이고
+    /// 적어야 하는 것은 번호</b>다 — DOM 을 긁으면 「여우선」이 나오지 그
+    /// 번호가 안 나온다. 그래서 C# 이 고르는 순간 넘겨 준다.
+    /// </para>
+    /// <para>
+    /// 끊어지기 쉬운 자리다. 누가 <c>@bind-Value</c> 로 되돌려 놓으면
+    /// <b>빌드도 되고 화면도 멀쩡한데</b> 새로고침 뒤에 요청자만 비어 있고,
+    /// 그 상태로 등록하면 <b>내 이름으로</b> 들어간다.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void 고른_요청자도_함께_적어_둔다()
+    {
+        var page = Page();
+
+        // 고르면 C# 이 받아 JS 로 넘긴다.
+        Assert.Matches(@"ValueChanged=""@\(\(string\? v\) => RequesterChangedAsync\(v\)\)""", page);
+        Assert.Matches(@"RequesterChangedAsync[\s\S]{0,800}?InvokeVoidAsync\(""remember"",\s*_draftKey", page);
+
+        // 되살릴 때 도로 얹는다.
+        Assert.Matches(@"_requester\s*=\s*KnownRequester\(saved\.Requester\)", page);
+
+        // 그리고 JS 가 그것을 한 벌에 실어 적는다.
+        Assert.Contains("export function remember", Script(), StringComparison.Ordinal);
+        Assert.Matches(@"JSON\.stringify\(\{[^}]*\br:\s*requester", Script());
+    }
+
+    /// <summary>
+    /// 되살린 요청자가 <b>지금도 고를 수 있는 사람</b>인지 보는가.
+    /// </summary>
+    /// <remarks>
+    /// 임시본은 이레를 살고 그 사이에 고객이 지워질 수 있다. 목록에 없는 값을
+    /// 콤보에 넣으면 <b>칸은 「나 자신」으로 보이는데 뒤에는 없는 번호가</b>
+    /// 들려 있고, 그대로 등록하면 서버가 외래키에서 막는다.
+    /// </remarks>
+    [Fact]
+    public void 되살린_요청자가_아직_고를_수_있는_사람인지_본다() =>
+        Assert.Matches(
+            @"KnownRequester\([\s\S]{0,600}?Context\.CustomerOptions\.Any",
+            Page());
+
+    /// <summary>
+    /// 「지우고 새로 쓰기」가 <b>요청자까지</b> 지우는가.
+    /// </summary>
+    /// <remarks>
+    /// 안 지우면 비운 화면에 <b>남의 이름만 남아</b> 있고, 남아 있는 줄 모른 채
+    /// 새로 적으면 엉뚱한 사람 이름으로 요청이 들어간다.
+    /// </remarks>
+    [Fact]
+    public void 지우고_새로_쓰기가_요청자도_지운다()
+    {
+        var discard = Regex.Match(
+            Page(),
+            @"private async Task DiscardDraftAsync\(\)[\s\S]{0,600}?ForgetDraftAsync");
+
+        Assert.True(discard.Success, "`DiscardDraftAsync` 를 찾지 못했다.");
+        Assert.Contains("_requester = null", discard.Value, StringComparison.Ordinal);
+    }
+
     private static string Page() => RazorSource.Read(Path.Combine(
         SolutionRoot(), "src", "Apps", "JSini.Web.HelpDesk", "Components", "Pages", "RequestNew.razor"));
 

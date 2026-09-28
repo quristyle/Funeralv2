@@ -262,6 +262,7 @@ public partial class RequestNew
             {
                 _title = saved.Title;
                 _content = saved.Html ?? string.Empty;
+                _requester = KnownRequester(saved.Requester);
                 _restoredAt = DateTimeOffset.FromUnixTimeMilliseconds((long)saved.SavedAt).LocalDateTime;
             }
         }
@@ -275,6 +276,60 @@ public partial class RequestNew
         }
 
         StateHasChanged();
+    }
+
+    /// <summary>
+    /// 적어 두었던 요청자 번호 가운데 <b>지금도 고를 수 있는 것</b>만 돌려준다.
+    /// </summary>
+    /// <remarks>
+    /// 적어 둔 뒤에 그 고객이 지워질 수 있고(임시본은 이레를 산다), 목록에 없는
+    /// 값을 <c>DxComboBox</c> 에 넣으면 <b>칸이 빈 채로 뜬다</b> — 화면에는
+    /// 「나 자신」이라 적혀 있는데 뒤에는 없는 번호가 들려 있는 상태다. 그대로
+    /// 등록하면 서버가 외래키에서 막는다. 못 고르는 값은 없던 것으로 본다.
+    /// </remarks>
+    private string? KnownRequester(string? saved)
+    {
+        if (string.IsNullOrWhiteSpace(saved))
+        {
+            return null;
+        }
+
+        return Context.CustomerOptions.Any(o => string.Equals(o.Value, saved, StringComparison.Ordinal))
+            ? saved
+            : null;
+    }
+
+    /// <summary>
+    /// 요청자를 골랐다. <b>그 번호를 임시 보관에도 맡긴다.</b>
+    /// </summary>
+    /// <remarks>
+    /// 제목·본문과 달리 이 칸만 C# 이 옮겨 준다. 적는 일을 브라우저가 하는 까닭은
+    /// 회로가 끊긴 채로도 적혀야 하기 때문인데(<c>request-draft.js</c> 머리말),
+    /// <b>콤보에서 읽히는 것은 이름이고 우리가 적어야 하는 것은 번호</b>라 그쪽이
+    /// DOM 에서 알아낼 방법이 없다. 대신 이 칸은 <b>고르는 즉시 C# 에 닿으므로</b>
+    /// (글칸과 달리 초점을 떼기를 기다리지 않는다) 회로가 살아 있는 동안에는
+    /// 늦지 않는다. 회로가 죽은 뒤에 고르는 일은 애초에 일어나지 않는다 — 그때는
+    /// 콤보도 안 열린다.
+    /// </remarks>
+    private async Task RequesterChangedAsync(string? value)
+    {
+        _requester = value;
+
+        if (_draftJs is null || _draftStopped)
+        {
+            return;
+        }
+
+        try
+        {
+            await _draftJs.InvokeVoidAsync("remember", _draftKey, value);
+        }
+        catch (JSException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
     }
 
     /// <summary>제목 칸과 편집기를 지켜보게 한다. 이때부터 치는 글이 적힌다.</summary>
@@ -352,6 +407,11 @@ public partial class RequestNew
         _title = null;
         _content = string.Empty;
 
+        // 요청자도 함께 지운다. 남겨 두면 「지우고 새로 쓰기」로 비운 화면에
+        // **남의 이름만 남아** 있고, 그것이 남아 있는 줄 모른 채 새 글을 적으면
+        // 엉뚱한 사람 이름으로 요청이 들어간다.
+        _requester = null;
+
         await ForgetDraftAsync(andStop: false);
     }
 
@@ -376,6 +436,11 @@ public partial class RequestNew
         public string? Title { get; set; }
 
         public string? Html { get; set; }
+
+        /// <summary>
+        /// 골라 두었던 요청자(고객) 번호. 고른 적이 없으면 <c>null</c> 이다.
+        /// </summary>
+        public string? Requester { get; set; }
 
         /// <summary>적은 때. 브라우저가 주는 값이라 <b>1970 년부터의 밀리초</b>다.</summary>
         public double SavedAt { get; set; }

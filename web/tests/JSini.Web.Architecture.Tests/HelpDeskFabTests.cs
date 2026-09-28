@@ -237,6 +237,67 @@ public sealed class HelpDeskFabTests
             EnvironmentPage(),
             StringComparison.Ordinal);
 
+    // ── 그 화면에서는 안 그린다 ─────────────────────────────────
+
+    /// <summary>
+    /// <b>이미 요청 등록 화면이면</b> 단추를 안 그리는가.
+    /// </summary>
+    /// <remarks>
+    /// 거기서 이 단추는 <b>눌러도 아무 일도 안 일어난다</b> —
+    /// <c>OpenHelpDeskRequest</c> 가 같은 주소로는 안 옮긴다(옮기면 적던 글이
+    /// 비워진다). 아무 일도 안 일어나는 단추는 「고장」으로 읽힌다.
+    /// </remarks>
+    [Fact]
+    public void 그_화면에서는_단추를_안_그린다()
+    {
+        Assert.Contains("!OnHelpDeskNewPage", Member("private bool HelpDeskFabAllowed"),
+            StringComparison.Ordinal);
+
+        var onPage = Member("private bool OnHelpDeskNewPage");
+
+        Assert.Contains("CurrentHref()", onPage, StringComparison.Ordinal);
+        Assert.Contains("HelpDeskNewPath", onPage, StringComparison.Ordinal);
+    }
+
+    // ── 생김새 ──────────────────────────────────────────────────
+
+    /// <summary>
+    /// 두 단추가 <b>같은 꼴</b>인가 — 속을 채우지 않는다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 한동안 메뉴 단추만 강조색으로 통째로 칠해져 있었다. <c>opacity: 0.8</c>
+    /// 은 그때도 걸려 있었지만 짙은 색이 깔린 동그라미는 <b>뒤가 안 비친다</b> —
+    /// 귀퉁이에 걸린 글줄이 통째로 지워졌다.
+    /// </para>
+    /// <para>
+    /// 되돌아가기 쉬운 자리다. 바탕 한 줄을 <c>var(--jsini-accent)</c> 로
+    /// 바꾸는 것만으로 되고, <b>빌드도 테스트도 그 자리만 없으면 다 통과한다.</b>
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void 두_단추의_바탕이_같다()
+    {
+        var baseRule = Rule(@"\.jsini-shell__fab\s*\{");
+
+        Assert.Contains("background: var(--jsini-surface", baseRule, StringComparison.Ordinal);
+        Assert.Contains("opacity: 0.8", baseRule, StringComparison.Ordinal);
+
+        // 요청 등록 단추가 **제 바탕을 따로 갖지 않는다.** 가지면 다시 갈린다.
+        Assert.DoesNotMatch(
+            new Regex(@"\.jsini-shell__fab--help\s*\{[^}]*background:"),
+            AppCss());
+    }
+
+    /// <summary>규칙 하나의 선언 부분. 첫 <c>{</c> 부터 <c>}</c> 까지다.</summary>
+    private static string Rule(string selector)
+    {
+        var match = Regex.Match(AppCss(), selector + @"(?<body>[^}]*)\}");
+
+        Assert.True(match.Success, $"app.css 에서 `{selector}` 규칙을 찾지 못했다.");
+        return match.Groups["body"].Value;
+    }
+
     // ── 읽는 자리들 ─────────────────────────────────────────────
 
     /// <summary><c>NormalizeXxx</c> 가 모르는 값에 돌려주는 기본 자리.</summary>

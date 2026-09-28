@@ -53,6 +53,15 @@ const MAX_CHARS = 512 * 1024;
 /// 지금 지켜보고 있는 화면들. 화면 하나에 하나다.
 const watchers = new Set();
 
+/// 화면에서 **읽어 낼 수 없는 칸**을 C# 이 맡겨 둔 자리. 열쇠마다 하나다.
+///
+/// 지금 든 것은 요청자(고객 번호) 하나다. 제목·본문과 달리 그 칸은 `DxComboBox`
+/// 라 **화면에 보이는 것이 이름이고 우리가 적어야 하는 것은 번호**다 — DOM 에서
+/// 긁으면 「여우선」이 나오지 그 번호가 안 나온다. 그래서 고르는 순간 C# 이
+/// `remember` 로 번호를 넘겨 준다(콤보는 고르는 즉시 C# 에 닿는다 — 글칸과
+/// 달라서 이 길이 된다).
+const extras = new Map();
+
 /// 편집기의 글 쓰는 칸. 찾는 시점을 미루는 까닭은 `request-editor.js` 와 같다.
 function areaIn(box) {
     return box ? box.querySelector('[contenteditable="true"]') : null;
@@ -126,7 +135,46 @@ export function read(key) {
         return null;
     }
 
-    return { title, html, savedAt: at };
+    // 요청자만 골라 두고 아무것도 안 쓴 것은 위에서 이미 버렸다 — 되살릴 것이
+    // 없는 한 벌이라 그렇다. 여기 오는 요청자는 **글에 딸려 온 것**이다.
+    const requester = typeof saved.r === 'string' && saved.r !== '' ? saved.r : null;
+
+    // 읽어 간 값을 **적는 쪽에도 되돌려 둔다.** 안 그러면 되살린 사람이 제목만
+    // 한 자 고쳐도 다음 `write` 가 요청자를 잃은 채로 덮어쓴다 — 그 화면에서는
+    // 콤보에 이름이 그대로 떠 있으므로 **두 번째 새로고침에야** 드러난다.
+    if (requester) {
+        extras.set(key, requester);
+    } else {
+        extras.delete(key);
+    }
+
+    return { title, html, requester, savedAt: at };
+}
+
+/// 화면에서 못 읽는 칸(요청자)을 맡아 둔다. `null`·빈 값이면 잊는다.
+///
+/// 맡기자마자 **한 벌을 다시 적는다** — 고르기만 하고 글을 한 자도 안 건드리면
+/// `input` 이 안 일어나 적을 기회가 영영 없다. 적을 것이 아직 없으면
+/// (`write` 안에서 제목·본문이 둘 다 비었다고 판정되면) 그냥 지나간다.
+export function remember(key, value) {
+    const v = typeof value === 'string' && value !== '' ? value : null;
+
+    if (v) {
+        extras.set(key, v);
+    } else {
+        extras.delete(key);
+    }
+
+    for (const w of watchers) {
+        if (w.key !== key) continue;
+
+        if (w.timer) {
+            clearTimeout(w.timer);
+            w.timer = null;
+        }
+
+        write(w);
+    }
 }
 
 // [**되살리는 쪽은 여기 없다** — 편집기가 받아 준다]
@@ -152,6 +200,11 @@ export function forget(key) {
         }
     }
 
+    // 맡아 둔 요청자도 함께 버린다. 남겨 두면 「지우고 새로 쓰기」로 비운 화면에
+    // 다시 글을 적는 순간 **지운 줄 알았던 요청자가 되살아나** 다음 새로고침에
+    // 남의 이름으로 뜬다.
+    extras.delete(key);
+
     drop(key);
 }
 
@@ -164,7 +217,10 @@ export function stop(key, alsoForget) {
         if (w.key === key) detach(w);
     }
 
-    if (alsoForget) drop(key);
+    if (alsoForget) {
+        extras.delete(key);
+        drop(key);
+    }
 }
 
 function detach(w) {
@@ -195,16 +251,21 @@ function write(w) {
     const text = title.value || '';
     const html = blank(area) ? '' : area.innerHTML;
 
+    // **요청자 하나만 고른 것은 적지 않는다.** 되살려도 화면에 아무 글이 없어
+    // 「전에 쓰다 만 것이 있다」는 안내만 뜨는데, 그건 도움이 아니라 군더더기다.
     if (text.trim() === '' && html === '') {
         drop(w.key);
         return;
     }
 
-    let payload = JSON.stringify({ t: text, h: html, at: Date.now() });
+    const requester = extras.get(w.key) || '';
+
+    let payload = JSON.stringify({ t: text, h: html, r: requester, at: Date.now() });
     let short = false;
 
+    // 줄일 때도 요청자는 남긴다 — 그 한 줄이 자리를 먹는 것이 아니다.
     if (payload.length > MAX_CHARS) {
-        payload = JSON.stringify({ t: text, h: '', at: Date.now() });
+        payload = JSON.stringify({ t: text, h: '', r: requester, at: Date.now() });
         short = true;
     }
 

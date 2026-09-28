@@ -383,12 +383,30 @@ body {
   align-items: center;
   justify-content: center;
   padding: 0;
-  border: none;
   border-radius: 50%;
-  background: var(--jsini-accent);
-  color: #fff;
   box-shadow: 0 3px 10px rgb(0 0 0 / 30%);
   cursor: pointer;
+
+  /* ── 속을 채우지 않는다 ──────────────────────────────────────
+
+     한동안 이 단추만 강조색으로 **통째로 칠해져** 있었다. `opacity: 0.8` 은
+     그때도 똑같이 걸려 있었는데, 짙은 색이 깔린 동그라미는 0.8 이어도 뒤가
+     안 비친다 — **재어 봤다**(390px 폭 · 글줄 위에 겹쳐 찍어 비교).
+     왼쪽 아래 귀퉁이에 걸린 글줄이 통째로 지워졌다.
+
+     그래서 요청 등록 단추(`--help`)와 **같은 꼴로 맞춘다** — 판 색을 깔고
+     테두리와 그림만 강조색으로 둔다. 둘의 `opacity` 는 원래 같았으므로
+     여기서 달라지는 것은 **바탕 하나**이고, 그것이 사람이 「투명도」로
+     읽던 바로 그 차이다.
+
+     구분은 **그림이 한다**(☰ ↔ ✎, 메뉴가 펴지면 ✕). 색으로 가르던 것을
+     그림으로 옮기는 셈인데, 색은 테마마다 달라지고 그림은 안 달라진다.
+
+     `--jsini-surface` 는 판 색이라 본문 배경과 가깝다. 뒤가 아예 안 비치는
+     것이 아니라 **0.8 만큼 비친다** — 글줄 위에 서도 글자가 읽힌다. */
+  background: var(--jsini-surface, #fff);
+  color: var(--jsini-accent);
+  border: 1px solid color-mix(in srgb, var(--jsini-accent) 45%, transparent);
 
   /* 뒤에 글자가 가려져도 존재를 인지할 수 있도록 평상시 살짝 반투명하게 둔다. */
   opacity: 0.8;
@@ -403,7 +421,7 @@ body {
 }
 
 .jsini-shell__fab:active {
-  background: color-mix(in srgb, var(--jsini-accent) 88%, #000);
+  background: color-mix(in srgb, var(--jsini-accent) 12%, var(--jsini-surface, #fff));
 }
 
 /* 그림은 단추보다 한 뼘 크게. 기본값(1.35rem)으로 두면 동그라미 가운데가
@@ -446,22 +464,13 @@ body {
 
 /* ── 떠다니는 요청 등록 단추 (`--help`) ────────────────────────
 
-   헬프데스크 요청 등록으로 바로 가는 단추다. 메뉴 단추와 **같은 동그라미
-   꼴을 쓰되 속을 채우지 않는다** — 같은 색 동그라미 둘이 한 화면에 서면
-   어느 쪽이 메뉴인지 눌러 봐야 알기 때문이다. 테두리만 두른 쪽이 「딸린
-   조작」으로 읽힌다.
+   헬프데스크 요청 등록으로 바로 가는 단추다. **생김새를 여기 따로 적지
+   않는다** — 속을 채우지 않는 그 꼴이 위의 `.jsini-shell__fab` 로 올라갔고,
+   이제 메뉴 단추도 같은 꼴이다(그 규칙의 주석 참고).
 
-   강조색은 그대로 따라간다(글자와 테두리). 테마를 바꿨을 때 이것만 옛 색으로
-   남으면 그 자리가 가장 먼저 눈에 띈다. */
-.jsini-shell__fab--help {
-  background: var(--jsini-surface, #fff);
-  color: var(--jsini-accent);
-  border: 1px solid color-mix(in srgb, var(--jsini-accent) 45%, transparent);
-}
-
-.jsini-shell__fab--help:active {
-  background: color-mix(in srgb, var(--jsini-accent) 12%, var(--jsini-surface, #fff));
-}
+   그러므로 `--help` 는 **자리를 가리키는 이름표**로만 남는다 —
+   감추기(`.jsini-shell--hdfab-hidden`)와 밀기(`--stacked`)가 이 이름으로
+   이 단추만 집는다. 구분은 안에 든 그림이 한다(☰ ↔ ✎). */
 
 /* ── 같은 귀퉁이에 둘이 설 때 (`--stacked`) ────────────────────
 

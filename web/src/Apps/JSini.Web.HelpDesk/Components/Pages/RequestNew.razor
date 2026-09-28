@@ -98,6 +98,12 @@
     길로는 바로 그때를 못 잡는다. 프로젝트관리의 `ask-draft.js` 가 같은
     까닭으로 같은 자리에 있다.
 
+    적어 두는 것은 **제목 · 본문 · 요청자** 셋이다. 앞의 둘은 화면에서 그대로
+    긁어 오는데 요청자만 C# 이 넘겨 준다(`RequesterChangedAsync`) — 콤보에서
+    읽히는 것은 이름이고 적어야 하는 것은 번호라, 브라우저 쪽이 알아낼 길이
+    없다. **첨부는 못 적는다** — 브라우저가 고른 파일을 새로고침 너머로
+    넘겨 주지 않는다.
+
     열쇠에 **포털 로그인 아이디**를 섞는다. 안 그러면 공용 PC 에서 남이 쓰다
     만 글이 내 화면에 뜬다.
 
@@ -148,6 +154,11 @@ else
            보인다. *@
         @if (!Context.IsCustomer && Context.CustomerOptions.Count > 0)
         {
+            @* **`@bind-Value` 가 아니다.** 고른 번호를 임시 보관에도 맡겨야 해서
+               바꿈을 직접 받는다(`RequesterChangedAsync`). 화면에 보이는 것은
+               이름이고 적어야 하는 것은 번호라, 아래 제목·본문과 달리 이 칸만
+               브라우저가 스스로 알아낼 수가 없다 — 왜 그런지는 그 메서드의
+               주석에 적었다. *@
             <label class="hd-field">
                 <span class="hd-field__label">요청자</span>
                 <DxComboBox Data="@Context.CustomerOptions"
@@ -155,7 +166,9 @@ else
                             ValueFieldName="@nameof(BizOption.Value)"
                             NullText="나 자신"
                             ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
-                            @bind-Value="_requester"
+                            Value="@_requester"
+                            ValueChanged="@((string? v) => RequesterChangedAsync(v))"
+                            ValueExpression="@(() => _requester)"
                             SearchMode="ListSearchMode.AutoSearch"
                             SearchFilterCondition="ListSearchFilterCondition.Contains" />
                 <span class="jsini-hint">

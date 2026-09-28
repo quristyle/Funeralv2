@@ -93,7 +93,14 @@ public sealed class RequestRequesterTests
 
         Assert.Matches(@"@if\s*\(!Context\.IsCustomer && Context\.CustomerOptions\.Count > 0\)", page);
         Assert.Matches(@"DxComboBox[\s\S]{0,400}?Context\.CustomerOptions", page);
-        Assert.Matches(@"@bind-Value=""_requester""", page);
+
+        // 고른 값이 `_requester` 에 들어가는가. **`@bind-Value` 를 못 박지 않는다** —
+        // 고른 번호를 임시 보관에도 맡겨야 해서(`RequesterChangedAsync`) 바꿈을
+        // 직접 받는 꼴로 바뀌었다. 여기서 지킬 것은 「그 칸에 묶여 있다」이지
+        // 어느 문법을 쓰는가가 아니다.
+        Assert.Matches(
+            @"(@bind-Value=""_requester""|Value=""@_requester""[\s\S]{0,300}?ValueChanged)",
+            page);
 
         // 목록을 안 받아 오면 콤보가 늘 비어 있다.
         Assert.Contains("LoadOrganizationsAsync", page);

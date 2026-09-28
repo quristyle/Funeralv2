@@ -164,8 +164,25 @@ public partial class MainLayout
     /// (<c>.jsini-shell--hdfab-hidden</c>) — 화면 크기로 마크업을 갈아 끼우지
     /// 않는 이 파일의 규칙 그대로다.
     /// </para>
+    /// <para>
+    /// <b>이미 그 화면이면 그리지 않는다</b>(<see cref="OnHelpDeskNewPage"/>).
+    /// 거기서 이 단추는 <b>눌러도 아무 일도 안 일어난다</b>
+    /// (<see cref="OpenHelpDeskRequest"/> 가 같은 주소로는 안 옮긴다 — 옮기면
+    /// 적던 글이 비워진다). 아무 일도 안 일어나는 단추는 사람에게 「고장」으로
+    /// 읽히고, 게다가 그 화면은 글칸이 화면을 가득 채우는 자리라 귀퉁이
+    /// 한 칸이 아깝다.
+    /// </para>
+    /// <para>
+    /// 주소가 바뀌면 다시 셈한다 — <see cref="OnLocationChanged"/> 가
+    /// <c>StateHasChanged</c> 를 부른다.
+    /// </para>
     /// </remarks>
-    private bool HelpDeskFabAllowed => Permissions.IsLoaded && Permissions.CanView(HelpDeskNewPath);
+    private bool HelpDeskFabAllowed =>
+        Permissions.IsLoaded && Permissions.CanView(HelpDeskNewPath) && !OnHelpDeskNewPage;
+
+    /// <summary>지금 보고 있는 것이 요청 등록 화면인가.</summary>
+    private bool OnHelpDeskNewPage =>
+        string.Equals(CurrentHref(), HelpDeskNewPath, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// 요청 등록 단추를 <b>한 칸 밀어야 하는가</b>. 메뉴 단추와 같은 귀퉁이에
@@ -704,7 +721,9 @@ public partial class MainLayout
     /// </para>
     /// <para>
     /// <b>이미 그 화면이면 아무것도 하지 않는다.</b> 같은 주소로 다시 옮기면
-    /// 적던 글이 비워진다.
+    /// 적던 글이 비워진다. 이제는 거기서 단추 자체를 안 그리므로
+    /// (<see cref="HelpDeskFabAllowed"/>) 이 갈래로 오는 길이 없지만,
+    /// <b>두 판정이 갈라지면 글이 날아가는 쪽으로 틀린다</b> — 남겨 둔다.
     /// </para>
     /// </remarks>
     private void OpenHelpDeskRequest()
@@ -714,7 +733,7 @@ public partial class MainLayout
             CloseSidebar();
         }
 
-        if (string.Equals(CurrentHref(), HelpDeskNewPath, StringComparison.OrdinalIgnoreCase))
+        if (OnHelpDeskNewPage)
         {
             return;
         }
