@@ -46,7 +46,7 @@
         @if (Context.IsSystemAdmin)
         {
             <CommSchItem Label="회사">
-                <DxComboBox Data="@CompanyFilterOptions" @bind-Value="_companyId"
+                <DxComboBox Data="@CompanyFilterOptions" @bind-Value="_companyId" @bind-Value:after="ReloadAsync"
                             TextFieldName="@nameof(BizOption.Label)" ValueFieldName="@nameof(BizOption.Value)"
                             Style="width: 180px"
                             ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
@@ -54,32 +54,32 @@
         }
 
         <CommSchItem Label="요청자">
-            <DxComboBox Data="@RequesterFilterOptions" @bind-Value="_requesterId"
+            <DxComboBox Data="@RequesterFilterOptions" @bind-Value="_requesterId" @bind-Value:after="ReloadAsync"
                         TextFieldName="@nameof(BizOption.Label)" ValueFieldName="@nameof(BizOption.Value)"
                         Style="width: 120px"
                         ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
         </CommSchItem>
 
         <CommSchItem Label="상태">
-            <DxComboBox Data="@StatusOptions" @bind-Value="_status"
+            <DxComboBox Data="@StatusOptions" @bind-Value="_status" @bind-Value:after="ReloadAsync"
                         TextFieldName="Text" ValueFieldName="Value" Style="width: 120px"
                         ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
         </CommSchItem>
 
         <CommSchItem Label="담당자">
-            <DxComboBox Data="@Context.AdminOptions" @bind-Value="_adminId"
+            <DxComboBox Data="@Context.AdminOptions" @bind-Value="_adminId" @bind-Value:after="ReloadAsync"
                         TextFieldName="@nameof(BizOption.Label)" ValueFieldName="@nameof(BizOption.Value)"
                         Style="width: 150px"
                         ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
         </CommSchItem>
 
         <CommSchItem Label="제목">
-            <DxTextBox @bind-Text="_keyword" Style="width: 200px"
+            <DxTextBox @bind-Text="_keyword" @bind-Text:after="ReloadAsync" Style="width: 200px"
                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
         </CommSchItem>
 
         <CommSchItem>
-            <DxCheckBox @bind-Checked="_onlyOpen">처리 중인 것만</DxCheckBox>
+            <DxCheckBox @bind-Checked="_onlyOpen" @bind-Checked:after="ReloadAsync">처리 중인 것만</DxCheckBox>
         </CommSchItem>
     </Fields>
 </CommSch>
@@ -158,19 +158,6 @@
                 </CellDisplayTemplate>
             </DxGridDataColumn>
 
-            @* 상세는 **요청마다 제 탭으로 열린다.** 여기서 하는 일은 주소를
-               옮기는 것뿐이고, 탭을 세우는 쪽은 상세 화면이다
-               (`RequestDetail` 머리말) — 이 표를 켜 둔 탭은 그대로 남으므로
-               여러 건을 열어 놓고 오갈 수 있다. *@
-            <DxGridDataColumn Caption="" Width="80" AllowSort="false">
-                <CellDisplayTemplate Context="cell">
-                    @{
-                        var r = (ImprovementRequest)cell.DataItem;
-                    }
-                    <DxButton Text="상세" RenderStyle="ButtonRenderStyle.Link"
-                              Click="@(() => { Navigation.NavigateTo($"/helpdesk/request/detail/{r.Id}"); })" />
-                </CellDisplayTemplate>
-            </DxGridDataColumn>
         </Columns>
     </CommGrd>
 </CommCont>
