@@ -25,6 +25,7 @@ public partial class NotificationHistory
     private string ConditionSummary => SchSummary.Of(
         SchSummary.Period(_from, _to),
         SchSummary.NameOf(_categoryOptions, o => o.Value, o => o.Text, _category),
+        SchSummary.Or(_keyword.Trim()),
         SchSummary.On(_unreadOnly, "안 읽은 것만"));
 
     /// <summary>
@@ -47,6 +48,9 @@ public partial class NotificationHistory
     /// 본다 — 구분을 붙이기 전에 쌓인 알림이 거기 있다.
     /// </remarks>
     private string? _category;
+
+    /// <summary>제목 또는 내용에 들어 있는 글자를 찾는다.</summary>
+    private string _keyword = string.Empty;
 
     /// <summary>고르개에 담는 항목들. 「전체」와 「구분 없음」이 함께 들어 있다.</summary>
     private IReadOnlyList<SchOption> _categoryOptions = [new SchOption(null, "전체")];
@@ -117,6 +121,12 @@ public partial class NotificationHistory
         return ReloadAsync();
     }
 
+    private Task OnKeywordChangedAsync(string value)
+    {
+        _keyword = value ?? string.Empty;
+        return ReloadAsync();
+    }
+
     private Task OnUnreadChangedAsync(bool value)
     {
         _unreadOnly = value;
@@ -146,7 +156,7 @@ public partial class NotificationHistory
     private Task ReloadAsync() => LoadAsync(async () =>
     {
         var mine = ++_latest;
-        var rows = await Api.GetMyNotificationsAsync(_from, _to, _category, _unreadOnly);
+        var rows = await Api.GetMyNotificationsAsync(_from, _to, _category, _unreadOnly, _keyword);
 
         // 내가 낸 것보다 새 조회가 이미 나갔으면 받은 것을 버린다(위 머리말).
         // 버린 답은 「없습니다」도 말하지 않는다 — 곧 오는 최신 답이 말한다.

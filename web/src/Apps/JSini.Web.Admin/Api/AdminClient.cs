@@ -427,7 +427,8 @@ public sealed class AdminClient(GatewayClient gateway)
     ///
     /// <para>
     /// 페이징은 여전히 없다 — 기간으로 자른다(화면 기본이 최근 한 달). 서버가
-    /// 상한(2,000줄)을 들고 있다.
+    /// 상한(2,000줄)을 들고 있다. 제목·내용 검색도 이 상한에 걸리기 전에 서버에서
+    /// 거른다.
     /// </para>
     /// </remarks>
     public Task<IReadOnlyList<NotificationDto>> GetMyNotificationsAsync(
@@ -435,12 +436,14 @@ public sealed class AdminClient(GatewayClient gateway)
         DateTime? to = null,
         string? category = null,
         bool unreadOnly = false,
+        string? keyword = null,
         CancellationToken ct = default)
         => gateway.GetFlexibleListAsync<NotificationDto>(
             "notification/notifications/inbox" + Query(
                 ("startDate", from?.ToString("yyyy-MM-dd")),
                 ("endDate", to?.ToString("yyyy-MM-dd")),
                 ("category", category),
+                ("keyword", keyword),
                 // **안 읽은 것만도 서버로 보낸다.** 화면이 받아 둔 것에서 또
                 // 거르지만(누르는 즉시 반영된다) 그것만으로는 상한(2,000줄)을
                 // 읽은 줄이 먼저 먹는다 — 이 화면의 기본 조건이 그것이라

@@ -59,6 +59,11 @@
                         TextFieldName="@nameof(SchOption.Text)" ValueFieldName="@nameof(SchOption.Value)"
                         Style="width: 150px" />
         </CommSchItem>
+        <CommSchItem Label="제목·내용">
+            <DxTextBox Text="@_keyword" TextChanged="@OnKeywordChangedAsync"
+                       BindValueMode="BindValueMode.OnInput" InputDelay="500"
+                       ValidationEnabled="false" Style="width: 220px" />
+        </CommSchItem>
 
         <CommSchItem>
             @* 라벨을 안 붙인다. 스위치 옆 글자가 이미 무엇인지 말한다.

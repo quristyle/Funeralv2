@@ -920,6 +920,7 @@ public static class NotificationEndpoints
             [FromQuery] DateTime? startDate = null,
             [FromQuery] DateTime? endDate = null,
             [FromQuery] string? category = null,
+            [FromQuery] string? keyword = null,
             [FromQuery] bool unreadOnly = false,
             [FromQuery] int take = 500,
             CancellationToken ct = default) =>
@@ -935,6 +936,18 @@ public static class NotificationEndpoints
                 .Where(l => l.DeletedAt == null);
 
             mine = ByCategory(mine, category);
+
+            if (!string.IsNullOrWhiteSpace(keyword))
+            {
+                var escaped = keyword.Trim()
+                    .Replace("\\", "\\\\")
+                    .Replace("%", "\\%")
+                    .Replace("_", "\\_");
+                var pattern = $"%{escaped}%";
+                mine = mine.Where(l =>
+                    (l.Title != null && EF.Functions.ILike(l.Title, pattern, "\\"))
+                    || (l.Body != null && EF.Functions.ILike(l.Body, pattern, "\\")));
+            }
 
             // **안 읽은 것만 보기는 여기서도 거른다.**
             //
