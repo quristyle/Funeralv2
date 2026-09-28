@@ -190,6 +190,9 @@ builder.Services.AddSingleton<IPortalCompanyDirectory, PortalCompanyDirectory>()
 // DB 를 읽으므로 Scoped 다.
 builder.Services.AddScoped<ICommentNotifier, CommentNotifier>();
 
+// 현황판(/api/dashboard/overview)이 쓰는 집계. DB 를 읽으므로 Scoped 다.
+builder.Services.AddScoped<DashboardOverviewService>();
+
 // ============================================================
 // 8. 백그라운드 워커
 // ============================================================

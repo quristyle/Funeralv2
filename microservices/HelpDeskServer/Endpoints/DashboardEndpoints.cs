@@ -19,6 +19,24 @@ public static class DashboardEndpoints {
   public static void MapDashboardEndpoints(this IEndpointRouteBuilder routes) {
     var group = routes.MapGroup("/api/dashboard");
 
+    // 현황판 한 판. 요약 · 상태 · 유형 · 월별 · 일별 · 요일 · 시간대 ·
+    // 회사별 · 담당자별 · 대기 적체 · 요청자 · 최근 접수를 한 번에 준다.
+    //
+    // 통로를 하나로 둔 까닭과 메모리에서 접는 까닭은 DashboardOverviewService
+    // 머리말에 있다. 고객으로 연결된 계정은 **제 회사로 범위가 강제된다** —
+    // companyId 를 적어 보내도 서비스가 덮어쓴다.
+    group.MapGet("/overview", (
+        HttpContext http,
+        DashboardOverviewService overview,
+        CancellationToken ct,
+        [FromQuery] string? companyId = null,
+        [FromQuery] int days = 30,
+        [FromQuery] int months = 12,
+        [FromQuery] int topN = 10) =>
+        ApiResponseBuilder.CreateAsync(
+            () => overview.BuildAsync(http.GetHelpdeskPrincipal(), companyId, days, months, topN, ct)))
+        .RequireAuthorization();
+
     // 고객사별 요청 통계를 조회합니다.
     //
     // 회사 이름은 **포털에서 온다**. 헬프데스크에 회사 표가 없으므로 join 할 것이
