@@ -8,10 +8,35 @@
     이력: Vue `views/life/weather/dashboard.vue` → 여기.
     호출: `life/weather`(전 지역 실황) · `life/weather/locations` ·
           `life/weather/current/{id}` · `life/weather/mid-term/{id}` ·
-          `life/weather/forecast/{id}`(-10h~+10h 타임라인, 추이 차트 재료)
+          `life/weather/forecast/{id}`(-10h~+10h 타임라인, 추이 차트 재료) ·
+          `life/weather/point?lat&lon`(내 위치 — 등록 지역이 아닌 한 지점)
 
     전 지역 최신 실황을 카드로 늘어놓고, 고른 지역의 실황 상세·오늘의 예보·
     주간 예보·예보 추이 차트를 아래에 편다.
+
+    [등록 지역이 아닌 곳에 있는 사람이 볼 것이 없었다 (2026-09-28)]
+
+    이 화면이 보여 주던 것은 회사가 등록해 둔 관측 지역뿐이었다
+    (`ghub.weather_locations`). 출장 중이거나 지사가 없는 도시에 사는 사람은
+    가장 가까운 등록 지역을 골라 「대충 이쯤이겠지」로 읽어야 했다.
+
+    브라우저가 준 좌표 한 쌍으로 **그 지점**의 날씨를 만드는 길이 서버에 이미
+    있었다(`life/weather/point`). 알림 설정 화면의 「내 위치 날씨」 미리보기와
+    발송기가 같은 길을 쓰므로, **여기서 보는 글과 알림으로 오는 글이 같은
+    재료**다. 고르는 자리는 셋이다 — 고르개의 맨 윗줄 · 실황 줄 맨 앞의 카드 ·
+    「📍 내 위치」 단추.
+
+    **단추만 위치를 다시 묻는다.** 카드와 고르개는 잡아 둔 좌표로 날씨만 다시
+    받는다 — 볼 때마다 물으면 휴대폰이 GPS 를 켜고 몇 초씩 기다리게 되는데,
+    기상청 격자가 5km 칸이라 그 사이 움직임은 대개 같은 칸 안이다.
+
+    **좌표를 서버에 저장하지 않는다.** 저장은 「내 위치 날씨 *알림*」을 켜는
+    일이고 그 자리는 알림 설정 화면이다(`GeoLocator.SaveAsync`). 날씨를 한 번
+    보는 것으로 알림 설정이 바뀌면 아무도 그것을 예상하지 못한다.
+
+    내 위치에는 **주간 예보와 예보 추이가 없다** — 중기예보 구역 코드와 수집
+    이력이 표에 있어야 만들어지는 것이라 등록 지역에만 있다. 그래서 그 두 줄이
+    없어지는 것이 맞고, 화면이 그 까닭을 한 줄로 적는다.
 
     [오늘과 열흘 사이가 비어 있었다 (2026-09-25)]
 
@@ -84,7 +109,11 @@
     <div class="jsini-split">
         <div class="jsini-inline">
             <span class="le-pick__label">지역 선택:</span>
-            <DxComboBox Data="@_locations"
+            @* 목록 맨 앞에 **내 위치**가 한 줄 더 있다(`_picks`). 등록 지역
+               목록(`_locations`)과 갈라 둔 까닭은 기본값이 여전히 등록 지역의
+               첫 줄이어야 하기 때문이다 — 내 위치가 기본이면 화면이 열리자마자
+               아무도 부르지 않은 위치 물음창이 뜬다. *@
+            <DxComboBox Data="@_picks"
                         TextFieldName="Name"
                         ValueFieldName="Id"
                         Value="@_selectedLocationId"
@@ -92,6 +121,15 @@
                         Style="width: 200px" />
         </div>
         <div class="jsini-inline">
+            @* 고르개에 이미 「내 위치」 줄이 있는데 단추를 따로 둔 까닭은
+               **다시 재는 길**이 필요해서다. 고르개는 같은 값을 다시 고를 수
+               없어(`OnLocationSelected` 가 막는다) 자리를 옮긴 사람이 새 좌표로
+               바꿀 방법이 없다. 이 단추는 누를 때마다 다시 묻는다. *@
+            <DxButton Text="📍 내 위치"
+                      RenderStyle="@(MyOn ? ButtonRenderStyle.Primary : ButtonRenderStyle.Secondary)"
+                      Enabled="@(!_myBusy)"
+                      Click="@UseMyLocationAsync" />
+
             @* 두 단추는 다른 화면으로 가는 길이다. 한동안 Click 이 안 걸려
                있어서 눌러도 아무 일이 없었다 — 기능이 있는 줄 알고 누르게
                되므로 없는 것보다 나빴다.
@@ -123,6 +161,51 @@ else
     }
 
     <div class="le-obs">
+        @*
+            [내 위치 카드는 등록 지역 앞에 선다 (2026-09-28)]
+
+            한 번이라도 위치를 잡았으면 이 카드가 실황 줄 맨 앞에 남는다 —
+            다른 지역을 보다가 돌아올 때 **다시 재지 않고** 누르기만 하면
+            된다(좌표는 이미 있고 날씨만 다시 받는다).
+
+            앞에 두는 까닭은 「내 것」이라서다. 등록 지역 열댓 개 사이에
+            섞어 두면 찾는 데 드는 눈이 남의 지역과 같아진다.
+        *@
+        @if (_point is not null)
+        {
+            <div class="le-obs__card le-obs__card--me @(MyOn ? "is-on" : "")"
+                 @onclick="@SelectMyLocationAsync">
+                <div class="jsini-split">
+                    <h3 class="le-obs__where">📍 @MyPlaceName</h3>
+                    <span class="jsini-hint">
+                        @(_point.Now is { } seen ? SeenAt(seen.ObservedAt) : "실황 없음")
+                    </span>
+                </div>
+
+                @if (_point.Now is { } mine)
+                {
+                    <div class="le-obs__now">
+                        <span class="le-obs__temp">@mine.TemperatureC.ToString("F1")°C</span>
+                        <span class="le-obs__cond">@mine.Condition</span>
+                    </div>
+                    <div class="le-obs__facts">
+                        <span>습도: @(mine.Humidity?.ToString() ?? "-")%</span>
+                        <span>풍속: @(mine.WindSpeed?.ToString("F1") ?? "-")m/s</span>
+                        <span>강수: @(mine.Rainfall?.ToString("F1") ?? "0")mm</span>
+                    </div>
+                }
+                else
+                {
+                    @* 지역 이름은 우리 표에서 찾으므로 기상청이 답하지 않아도
+                       카드는 선다. 그때 빈 칸 셋을 보여 주면 자료가 빠진 것처럼
+                       읽히므로 무슨 일인지 적는다. *@
+                    <div class="le-obs__now">
+                        <span class="le-obs__cond">기상청 실황을 받지 못했습니다.</span>
+                    </div>
+                }
+            </div>
+        }
+
         @foreach (var w in _weatherList)
         {
             @* 카드를 누르면 아래 실황·주간 예보·추이가 그 지역으로 바뀐다. *@
@@ -145,7 +228,103 @@ else
         }
     </div>
 
-    @if (_current is not null)
+    @*
+        [내 위치를 고르면 이 아래가 그 지점의 것으로 바뀐다]
+
+        등록 지역과 **줄 수가 다르다.** 여기 오는 것은 실황과 사흘 예보
+        둘뿐이고 주간 예보·예보 추이는 없다 — 중기예보 구역 코드와 수집
+        이력이 표에 있어야 만들어지는 것이라 등록 지역에만 있다. 없는 것을
+        빈 카드로 그리지 않고 **왜 없는지를 한 줄로 적는다.**
+    *@
+    @if (MyOn)
+    {
+        @if (_myBusy)
+        {
+            <PageNotice Tone="NoticeTone.Info" Text="내 위치를 확인하는 중입니다…" />
+        }
+        else if (!string.IsNullOrWhiteSpace(_myError))
+        {
+            @* 토스트로 띄우지 않는다. 대개 「권한을 허용하지 않았다」라
+               사람이 읽고 무언가를 해야 하는데, 토스트는 읽기 전에 사라진다. *@
+            <PageNotice Tone="NoticeTone.Warning" Text="@_myError" />
+        }
+
+        @if (_point is not null)
+        {
+            <DashboardSection Title="@($"{MyPlaceName} 실황")" Hint="@MyPlaceHint">
+                <ChildContent>
+                    @if (_point.Now is { } now)
+                    {
+                        <div class="le-cur">
+                            <div class="le-cur__now">
+                                <span class="le-cur__temp">@now.TemperatureC.ToString("F1")°C</span>
+                                <span class="le-cur__cond">@now.Condition</span>
+                            </div>
+
+                            @* 등록 지역 쪽에는 「어제보다 ▲」가 있는데 여기에는
+                               없다. 어제 기온은 우리가 그 지역을 계속 모아 둔
+                               이력에서 나오는 것이고, 한 지점에는 그 이력이
+                               없다 — 없는 것을 0 으로 적으면 거짓말이 된다. *@
+                            @if (now.SensibleTemp is { } feels)
+                            {
+                                <span class="le-dept">체감 @feels.ToString("F1")°C</span>
+                            }
+
+                            <span class="le-dept">습도 @(now.Humidity?.ToString() ?? "-")%</span>
+                            <span class="le-dept">풍속 @(now.WindSpeed?.ToString("F1") ?? "-")m/s</span>
+                            <span class="le-dept">강수 @(now.Rainfall?.ToString("F1") ?? "0")mm</span>
+                            <span class="jsini-hint">@SeenAt(now.ObservedAt)</span>
+                        </div>
+                    }
+                    else
+                    {
+                        <p class="le-today__empty">
+                            기상청 실황을 받지 못했습니다. 아래 예보만 보여 드립니다.
+                        </p>
+                    }
+                </ChildContent>
+            </DashboardSection>
+
+            <DashboardSection Title="사흘 예보"
+                              Hint="주간 예보와 예보 추이는 등록된 관측 지역에만 있습니다.">
+                <ChildContent>
+                    @if (_point.Days.Count == 0)
+                    {
+                        <p class="le-today__empty">내 위치의 예보가 아직 없습니다.</p>
+                    }
+                    else
+                    {
+                        @* 주간 예보 줄과 같은 몸짓이다 — 칸 수만 셋이다. *@
+                        <div class="le-week">
+                            @foreach (var day in _point.Days)
+                            {
+                                <div class="le-week__day">
+                                    <span class="le-week__when">@day.Label</span>
+                                    <span class="le-week__date">@DayLabel(day.Date)</span>
+
+                                    <span class="le-week__sky">
+                                        @(string.IsNullOrWhiteSpace(day.Condition) ? "-" : day.Condition)
+                                    </span>
+
+                                    <span class="le-week__temp">
+                                        <span class="lf-down">@(day.MinC is { } lo ? $"{lo:0}°" : "-")</span>
+                                        <span class="lf-up">@(day.MaxC is { } hi ? $"{hi:0}°" : "-")</span>
+                                    </span>
+
+                                    @* 강수확률이 없는 날이 있다. 그 칸에 0% 를
+                                       적으면 「비 안 온다」로 읽히므로 비워 둔다. *@
+                                    <span class="le-week__pop">
+                                        강수 @(day.RainProbability is { } pop ? $"{pop}%" : "-")
+                                    </span>
+                                </div>
+                            }
+                        </div>
+                    }
+                </ChildContent>
+            </DashboardSection>
+        }
+    }
+    else if (_current is not null)
     {
         <DashboardSection Title="@($"{_current.Location} 실황")">
             <ChildContent>

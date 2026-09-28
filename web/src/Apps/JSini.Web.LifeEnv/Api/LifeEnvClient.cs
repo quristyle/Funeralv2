@@ -1,4 +1,5 @@
 using JSini.Web.Http;
+using JSini.Web.Models;
 
 namespace JSini.Web.LifeEnv.Api;
 
@@ -48,6 +49,31 @@ public sealed class LifeEnvClient(GatewayClient gateway)
     public Task<IReadOnlyList<MidTermForecast>> GetMidTermForecastAsync(
         int locationId, CancellationToken ct = default)
         => gateway.GetListAsync<MidTermForecast>($"{Prefix}/mid-term/{locationId}", ct);
+
+    // ── 한 지점(내 위치) ─────────────────────────────────────
+
+    /// <summary>
+    /// <b>등록된 지역이 아닌 한 지점</b>의 지금 날씨와 사흘 예보.
+    /// 브라우저가 준 위경도를 그대로 보낸다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 응답에 <b>어디인가</b>(격자·행정구역 이름)가 함께 실려 온다 — 화면이
+    /// 「여기가 맞나」를 사람에게 되물을 수 있어야 하기 때문이다. 지역 이름은
+    /// 우리 표(<c>grid_coordinates</c>)에서 찾으므로 기상청이 느려도 이름은 온다.
+    /// </para>
+    /// <para>
+    /// <b>같은 길을 <c>NotificationClient</c> 도 부른다</b>(알림 설정 화면의
+    /// 「내 위치 날씨」 미리보기). 엔드포인트 주인은 LifeEnvServer 라 여기에도
+    /// 둔다 — 기상 화면이 날씨 하나 보려고 알림 배관을 끌어오지 않게 하려는
+    /// 것이고, 둘이 <b>같은 응답을 같은 모양</b>(<see cref="PointWeatherDto"/>)
+    /// 으로 받으므로 갈라질 자리가 없다.
+    /// </para>
+    /// </remarks>
+    public Task<PointWeatherDto?> GetPointWeatherAsync(
+        double lat, double lon, CancellationToken ct = default)
+        => gateway.GetOneAsync<PointWeatherDto>(
+            FormattableString.Invariant($"{Prefix}/point?lat={lat}&lon={lon}"), ct);
 
     // ── 특보 ─────────────────────────────────────────────────
 

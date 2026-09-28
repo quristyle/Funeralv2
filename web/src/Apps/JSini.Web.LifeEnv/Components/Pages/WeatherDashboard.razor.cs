@@ -2,8 +2,10 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 using DevExpress.Blazor;
+using JSini.Web.Components.Settings;
 using JSini.Web.Http;
 using JSini.Web.LifeEnv.Api;
+using JSini.Web.Models;
 
 namespace JSini.Web.LifeEnv.Components.Pages;
 
@@ -11,6 +13,19 @@ public partial class WeatherDashboard
 {
     [Inject] private LifeEnvClient Client { get; set; } = default!;
     [Inject] private IJSRuntime Js { get; set; } = default!;
+
+    /// <summary>
+    /// 브라우저에게 「지금 어디인가」를 묻는 <b>절차 한 벌</b>. 이 화면은 그중
+    /// 재는 것만 쓴다(<see cref="GeoLocator.LocateAsync"/> ·
+    /// <see cref="GeoLocator.QuietAsync"/>) — <b>저장은 하지 않는다.</b>
+    /// </summary>
+    /// <remarks>
+    /// 좌표를 서버에 남기는 것은 「내 위치 날씨 <b>알림</b>」을 켜는 일이고
+    /// (<c>GeoLocator.SaveAsync</c>), 그 자리는 알림 설정 화면이다. 여기서
+    /// 날씨를 한 번 보는 것만으로 알림 설정이 바뀌면 아무도 그것을 예상하지
+    /// 못한다 — 화면이 하는 말과 실제로 벌어지는 일이 달라진다.
+    /// </remarks>
+    [Inject] private GeoLocator Geo { get; set; } = default!;
 
     private List<WeatherInfo> _weatherList = [];
     private List<WeatherLocation> _locations = [];
@@ -27,6 +42,70 @@ public partial class WeatherDashboard
     private List<HourPoint> _todayHours = [];
     private TrendMetric _metric = TrendMetric.Temp;
     private bool _detailError;
+
+    // ── 내 위치 ──────────────────────────────────────────────
+    //
+    // 이 화면이 원래 보여 주던 것은 **회사가 등록해 둔 관측 지역**뿐이었다
+    // (`ghub.weather_locations`). 그 목록에 없는 곳에 있는 사람 — 출장 중이거나
+    // 지사가 없는 도시에 사는 사람 — 은 가장 가까운 등록 지역을 골라 「대충
+    // 이쯤이겠지」로 읽어야 했다.
+    //
+    // 브라우저가 준 좌표 한 쌍으로 **그 지점**의 날씨를 만드는 길이 서버에
+    // 이미 있다(`GET life/weather/point`). 알림 설정 화면의 「내 위치 날씨」
+    // 미리보기와 발송기가 같은 길을 쓰므로, **여기서 보는 글과 알림으로 오는
+    // 글이 같은 재료**다.
+    //
+    // 다만 그 길이 주는 것은 **실황과 사흘 예보**뿐이다. 주간 예보와 예보
+    // 추이는 등록 지역에만 있다(중기예보 구역 코드·수집 이력이 표에 있어야
+    // 한다). 그래서 내 위치를 고르면 아래 두 줄이 **없어지는 것이 맞고**,
+    // 화면이 그 까닭을 한 줄로 말한다 — 안 말하면 「자료가 빠졌다」로 읽힌다.
+
+    /// <summary>
+    /// 지역 고르개에서 <b>내 위치</b>를 가리키는 값.
+    /// </summary>
+    /// <remarks>
+    /// <b>음수여야 한다.</b> 0 은 「아직 안 골랐다」이고(<see cref="OnLocationSelected"/>
+    /// 가 그것으로 막는다) 양수는 실제 지역 Id 다. 셋이 겹치면 내 위치를 고른
+    /// 것이 어떤 지역을 고른 것으로 읽힌다.
+    /// </remarks>
+    private const int MyLocationId = -1;
+
+    /// <summary>지금 보고 있는 것이 내 위치인가.</summary>
+    private bool MyOn => _selectedLocationId == MyLocationId;
+
+    /// <summary>
+    /// 고르개에 얹는 목록 — <b>내 위치가 맨 앞, 그 뒤가 등록 지역</b>이다.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="_locations"/> 를 그대로 두고 따로 만든다. 저쪽은 <b>등록
+    /// 지역만</b>이라는 뜻이고, 첫 지역을 기본으로 고르는 자리가 그것을 본다
+    /// (<see cref="LoadDataAsync"/>) — 섞어 두면 화면이 열리자마자 위치
+    /// 물음창이 튀어나온다.
+    /// </remarks>
+    private List<WeatherLocation> _picks = [MyPick];
+
+    /// <summary>고르개에 얹는 <b>가짜 지역</b> 한 줄. 서버에는 이런 행이 없다.</summary>
+    private static WeatherLocation MyPick => new() { Id = MyLocationId, Name = "📍 내 위치" };
+
+    /// <summary>브라우저가 준 좌표로 받아 온 그 지점의 날씨.</summary>
+    private PointWeatherDto? _point;
+
+    /// <summary>마지막으로 잰 좌표. 「새로고침」이 위치를 다시 묻지 않고 쓴다.</summary>
+    private double _myLat;
+    private double _myLon;
+
+    /// <summary>위치를 묻는 중인가. 브라우저가 10초까지 붙들 수 있다.</summary>
+    private bool _myBusy;
+
+    /// <summary>
+    /// 내 위치를 못 잡았거나 그 지점의 날씨를 못 읽은 까닭.
+    /// </summary>
+    /// <remarks>
+    /// <b>토스트가 아니라 화면에 붙박아 둔다.</b> 이 자리의 실패는 대부분
+    /// 「권한을 허용하지 않았다」라 사람이 <b>읽고 무언가를 해야</b> 하는데,
+    /// 토스트는 읽기 전에 사라진다.
+    /// </remarks>
+    private string? _myError;
 
     /// <summary>추이 차트를 감싼 담장. 여기서 터진 것이 회로를 끌어내리지 않게 막는다.</summary>
     private ErrorBoundary? _chartGuard;
@@ -98,6 +177,11 @@ public partial class WeatherDashboard
                     _touchOnly = touchOnly;
                     StateHasChanged();
                 }
+
+                // 위치를 이미 허용해 둔 브라우저면 물음창 없이 한 번 재어
+                // 내 위치 카드를 올려 둔다. 허용한 적이 없으면 재어 보지도
+                // 않고 물러난다 — 여기서 물음창이 뜰 일은 없다.
+                await TryQuietLocationAsync();
             }
 
             // **아래 마크업과 같은 조건이어야 한다.** 칸이 없는데 지켜보라고
@@ -148,12 +232,27 @@ public partial class WeatherDashboard
         _weatherList = [.. weather.Result];
         _locations = [.. locations.Result];
 
+        // 고르개에는 내 위치가 한 줄 더 선다. **기본값은 여전히 등록 지역의
+        // 첫 줄이다** — 내 위치를 기본으로 두면 화면이 열리자마자 아무도
+        // 부르지 않은 위치 물음창이 뜬다.
+        _picks = [MyPick, .. _locations];
+
         if (_selectedLocationId == 0 && _locations.Count > 0)
         {
             _selectedLocationId = _locations[0].Id;
         }
 
-        await LoadSelectedAsync();
+        // 내 위치를 보고 있는 중에 새로고침을 누른 것이면 **위치를 다시 묻지
+        // 않는다** — 이미 잰 좌표로 날씨만 새로 받는다. 물음창은 사람이
+        // 「내 위치」를 고르거나 단추를 눌렀을 때만 뜬다.
+        if (MyOn)
+        {
+            await FetchPointAsync(quiet: false);
+        }
+        else
+        {
+            await LoadSelectedAsync();
+        }
 
         return _weatherList.Count;
     }, "등록된 관측 지역의 실황이 아직 없습니다.", "실황을 읽지 못했습니다");
@@ -165,9 +264,240 @@ public partial class WeatherDashboard
             return;
         }
 
+        if (id == MyLocationId)
+        {
+            await SelectMyLocationAsync();
+            return;
+        }
+
         _selectedLocationId = id;
+        _myError = null;
         await LoadSelectedAsync();
     }
+
+    /// <summary>
+    /// 내 위치로 <b>돌아온다</b> — 이미 잡아 둔 좌표의 날씨만 다시 받는다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>위치를 다시 묻지 않는다.</b> 카드를 누르거나 고르개에서 고르는 것은
+    /// 「그것을 보겠다」이지 「다시 재겠다」가 아니다. 볼 때마다 물으면
+    /// 브라우저가 GPS 를 켜고(휴대폰에서는 배터리를 쓴다) 몇 초를 기다리게
+    /// 되는데, 격자가 5km 칸이라 그 사이 움직임은 대개 같은 칸 안이다.
+    /// </para>
+    /// <para>
+    /// 자리를 옮겼으면 <b>단추</b>를 누른다(<see cref="UseMyLocationAsync"/>).
+    /// 아직 한 번도 안 잡았으면 여기서도 그쪽으로 넘긴다 — 보여 줄 좌표가
+    /// 없어서다.
+    /// </para>
+    /// </remarks>
+    private async Task SelectMyLocationAsync()
+    {
+        if (_point is null)
+        {
+            await UseMyLocationAsync();
+            return;
+        }
+
+        _selectedLocationId = MyLocationId;
+        _myError = null;
+        _detailError = false;
+
+        _current = null;
+        _midTerm = [];
+        _trend = [];
+        _todayHours = [];
+
+        await FetchPointAsync(quiet: false);
+    }
+
+    /// <summary>
+    /// <b>지금 여기</b>의 날씨로 바꾼다 — 위치를 묻고, 그 좌표의 날씨를 받는다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>사람이 시킨 자리에서만 부른다</b>(고르개에서 「내 위치」를 고르거나
+    /// 단추를 눌렀을 때). <see cref="GeoLocator.LocateAsync"/> 는 브라우저의
+    /// 물음창을 띄울 수 있어서, 화면이 뜨자마자 부르면 아무도 부르지 않은
+    /// 창이 튀어나온다. 뒤에서 도는 쪽은 <see cref="TryQuietLocationAsync"/> 다.
+    /// </para>
+    /// <para>
+    /// <b>먼저 화면을 내 위치로 바꾸고 나서 묻는다.</b> 브라우저가 위치를
+    /// 잡는 데 10초까지 걸릴 수 있는데(geo.js 의 <c>timeout</c>), 그동안 앞
+    /// 지역의 예보가 그대로 서 있으면 고른 것과 보이는 것이 어긋난다.
+    /// </para>
+    /// </remarks>
+    private async Task UseMyLocationAsync()
+    {
+        _selectedLocationId = MyLocationId;
+        _myError = null;
+        _detailError = false;
+
+        // 앞서 고른 지역의 상세를 비운다. 내 위치에는 주간 예보도 추이도 없다.
+        _current = null;
+        _midTerm = [];
+        _trend = [];
+        _todayHours = [];
+
+        _myBusy = true;
+        StateHasChanged();
+
+        try
+        {
+            var geo = await Geo.LocateAsync();
+
+            if (!geo.Ok)
+            {
+                // 까닭을 그대로 옮긴다 — 권한을 거절한 것인지, 기기가 못 잡은
+                // 것인지, HTTPS 가 아니라 막힌 것인지에 따라 할 일이 다르다.
+                var why = string.IsNullOrWhiteSpace(geo.Error)
+                    ? "위치를 받지 못했습니다."
+                    : geo.Error!;
+
+                // **앞서 잡아 둔 것이 있으면 버리지 않는다.** 실외에서 GPS 가
+                // 한 번 늦은 것 때문에 보고 있던 날씨까지 사라지면, 사람은
+                // 「고장났다」로 읽고 단추를 연달아 누른다. 다만 **그것이 지난
+                // 자리의 것**이라는 말을 함께 붙인다 — 안 붙이면 옮긴 자리의
+                // 날씨를 보고 있는 줄 안다.
+                if (_point is null)
+                {
+                    _myError = why;
+                }
+                else
+                {
+                    _myError = $"{why} 앞서 잡은 위치({MyPlaceName})를 그대로 보여 줍니다.";
+                }
+
+                return;
+            }
+
+            _myLat = geo.Latitude;
+            _myLon = geo.Longitude;
+
+            await FetchPointAsync(quiet: false);
+        }
+        finally
+        {
+            _myBusy = false;
+        }
+    }
+
+    /// <summary>
+    /// 잡아 둔 좌표(<see cref="_myLat"/> · <see cref="_myLon"/>)의 날씨를 받는다.
+    /// </summary>
+    /// <param name="quiet">
+    /// 참이면 <b>실패를 말하지 않는다.</b> 아무도 시키지 않고 뒤에서 도는
+    /// 길에서만 참이다 — 사람이 누른 적 없는 일의 실패를 화면에 붙여 두면
+    /// 무엇을 하라는 말인지 알 수 없다.
+    /// </param>
+    private async Task FetchPointAsync(bool quiet)
+    {
+        try
+        {
+            _point = await Client.GetPointWeatherAsync(_myLat, _myLon);
+
+            if (_point is null && !quiet)
+            {
+                _myError = "내 위치의 날씨를 받지 못했습니다.";
+            }
+        }
+        catch (ApiException ex)
+        {
+            _point = null;
+
+            if (!quiet)
+            {
+                _myError = $"내 위치의 날씨를 읽지 못했습니다 — {ex.Message}";
+            }
+        }
+    }
+
+    /// <summary>
+    /// <b>물음창 없이</b> 위치를 한 번 재어 카드 한 장을 미리 올려 둔다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 위치 권한을 이미 허용한 브라우저는 <c>getCurrentPosition</c> 을 물음창
+    /// 없이 돌려준다. 그 사람에게는 화면이 열릴 때부터 실황 카드 줄 맨 앞에
+    /// 내 위치가 서 있는 것이 맞다 — <b>고를 것이 있다는 사실 자체</b>를
+    /// 단추 글자보다 카드가 먼저 알린다.
+    /// </para>
+    /// <para>
+    /// <b>고른 것을 바꾸지 않는다.</b> 카드만 올리고 아래 상세는 그대로 둔다 —
+    /// 사람이 아무것도 안 했는데 보던 지역이 바뀌면 그것은 고장으로 읽힌다.
+    /// </para>
+    /// <para>
+    /// 허용한 적이 없으면 <see cref="GeoLocator.QuietAsync"/> 가 재어 보지도
+    /// 않고 물러난다(<see cref="GeoResult.Skipped"/>). 이 길로는 물음창이
+    /// 뜨지 않는다.
+    /// </para>
+    /// </remarks>
+    private async Task TryQuietLocationAsync()
+    {
+        if (_point is not null)
+        {
+            return;
+        }
+
+        var geo = await Geo.QuietAsync();
+
+        if (!geo.Ok)
+        {
+            return;
+        }
+
+        _myLat = geo.Latitude;
+        _myLon = geo.Longitude;
+
+        await FetchPointAsync(quiet: true);
+
+        if (_point is not null)
+        {
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// 한 지점 실황이 <b>언제 것인가</b>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>KST 로 옮겨 적는다.</b> 서버가 주는 값은 UTC 고(<c>DateTimeOffset.UtcNow</c>),
+    /// 이 화면을 그리는 것은 브라우저가 아니라 서버인데 그 서버의 표준시가
+    /// KST 라는 보장이 없다 — 그대로 찍으면 아홉 시간 어긋난 시각이 나온다.
+    /// 「오늘의 예보」가 서버 시계를 안 쓰는 것과 같은 까닭이다
+    /// (<see cref="BuildToday"/>).
+    /// </para>
+    /// <para>
+    /// <b>「관측」이 아니라 「기준」이다.</b> 이 값은 기상청이 잰 시각이 아니라
+    /// <b>우리가 받아 온 시각</b>이다(초단기 실황의 기준 시각은 정시라 최대 한
+    /// 시간 앞선다). 옆에 선 등록 지역 카드의 「관측」은 수집 이력에 찍힌 진짜
+    /// 시각이라, 같은 말을 쓰면 둘이 같은 뜻인 줄로 읽힌다.
+    /// </para>
+    /// </remarks>
+    private static string SeenAt(DateTimeOffset at)
+        => at.ToOffset(TimeSpan.FromHours(9)).ToString("HH:mm 기준");
+
+    /// <summary>
+    /// 내 위치를 사람이 읽는 이름으로. 이름을 못 찾았으면
+    /// (좌표가 바다 위일 수도 있다) 「내 위치」로 둔다 — 빈 제목보다 낫다.
+    /// </summary>
+    private string MyPlaceName => string.IsNullOrWhiteSpace(_point?.Place)
+        ? "내 위치"
+        : _point!.Place!;
+
+    /// <summary>
+    /// 「여기가 맞나」를 되묻는 줄 — 좌표와 기상청 격자.
+    /// </summary>
+    /// <remarks>
+    /// 이름만 보여 주면 <b>틀렸을 때 틀린 줄 모른다.</b> 격자가 5km 칸이라
+    /// 옆 동네 이름이 나오는 일이 있는데, 좌표가 함께 있으면 사람이 그것을
+    /// 지도에 찍어 확인할 수 있다.
+    /// </remarks>
+    private string? MyPlaceHint => _point is null
+        ? null
+        : FormattableString.Invariant(
+            $"위도 {_point.Lat:0.####} · 경도 {_point.Lon:0.####} · 격자 {_point.Nx},{_point.Ny}");
 
     /// <summary>
     /// 고른 지역의 실황 상세 · 주간 예보 · 예보 추이(차트 재료).
@@ -183,7 +513,9 @@ public partial class WeatherDashboard
         _todayHours = [];
         _detailError = false;
 
-        if (_selectedLocationId == 0)
+        // 0 은 「아직 안 골랐다」, 음수는 내 위치다(MyLocationId). 둘 다 여기서
+        // 부를 것이 없다 — 내 위치는 <see cref="FetchPointAsync"/> 가 맡는다.
+        if (_selectedLocationId <= 0)
         {
             return;
         }
