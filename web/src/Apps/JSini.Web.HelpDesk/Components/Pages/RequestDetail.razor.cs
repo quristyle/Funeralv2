@@ -1,10 +1,12 @@
 using DevExpress.Blazor;
 using Microsoft.AspNetCore.Components;
 using System.Globalization;
+using System.Net;
 using System.Text.Json;
 using JSini.Web.Abstractions;
 using JSini.Web.Components.Layout;
 using JSini.Web.HelpDesk.Api;
+using JSini.Web.Http;
 
 namespace JSini.Web.HelpDesk.Components.Pages;
 
@@ -37,6 +39,23 @@ public partial class RequestDetail
     private const string MenuPath = "/helpdesk/request/detail/:id";
 
     private JsonElement? _request;
+
+    /// <summary>
+    /// 그런 요청이 <b>없다</b>(서버가 404 로 답했다).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 「못 읽었다」와 <b>다른 것</b>이라 따로 든다. 못 읽은 것은 다시 눌러
+    /// 볼 일이지만 없는 것은 다시 눌러도 없다 — 화면이 그 둘을 같은 말로
+    /// 하면 읽는 사람이 새로고침만 반복한다.
+    /// </para>
+    /// <para>
+    /// <b>드물지 않다.</b> 이 화면으로 오는 길 하나가 알림(앱푸시·알림함)인데,
+    /// 알림은 글보다 오래 산다 — 글을 지워도 알림함의 줄은 남아 그 주소를
+    /// 계속 가리킨다. 그것을 누르면 여기로 와서 404 를 받는다.
+    /// </para>
+    /// </remarks>
+    private bool _notFound;
 
     /// <summary>접수·완료를 묻는 창. 화면 맨 아래에 하나만 둔다.</summary>
     private ConfirmDialog? _confirm;
@@ -263,11 +282,13 @@ public partial class RequestDetail
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
+        _notFound = false;
+
         // 내가 누구인지 먼저 안다 — 댓글을 남길 수 있는지가 그것으로 갈린다.
         await Context.LoadIdentityAsync();
 
         // 본문과 댓글을 나란히. 서로 기다릴 이유가 없다.
-        var request = Api.GetAsync<JsonElement>($"requests/{Id}");
+        var request = FetchRequestAsync();
         var comments = Api.GetListAsync<ImprovementComment>($"requests/{Id}/comments");
 
         await Task.WhenAll(request, comments);
@@ -280,7 +301,49 @@ public partial class RequestDetail
         Tabs.Open(Href, TabTitle, standalone: true);
 
         return _request is null ? 0 : 1;
-    }, "그런 요청을 찾지 못했습니다.", "요청을 읽지 못했습니다");
+    }, NotFoundMessage, "요청을 읽지 못했습니다");
+
+    /// <summary>
+    /// 요청 하나를 읽는다. <b>없으면 <c>null</c></b> — 예외로 올리지 않는다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 서버는 없는 번호에 <b>404 + <c>"Resource not found."</c></b> 로 답한다
+    /// (<c>ApiResponseBuilder.CreateAsync</c> — 결과가 <c>null</c> 이면 그 길이다).
+    /// 그대로 두면 <see cref="HelpDeskApi"/> 가 그 글귀를 담아 예외를 던지고,
+    /// 화면에는 <b>「요청을 읽지 못했습니다 — Resource not found.」</b> 가 떴다.
+    /// 영어인 데다 <b>서버가 터진 것과 구별이 안 된다.</b>
+    /// </para>
+    /// <para>
+    /// 404 만 여기서 삼켜 <c>null</c> 로 바꾼다. 그러면 <c>LoadAsync</c> 가
+    /// 「없다」쪽(<see cref="NotFoundMessage"/>)으로 흐르고, 화면도 빈 껍데기
+    /// 대신 그 사실을 적는다. <b>나머지 실패는 그대로 올린다</b> — 401·500 을
+    /// 「없는 글」로 바꿔 버리면 로그인이 풀린 것이 글이 지워진 것처럼 보인다.
+    /// </para>
+    /// </remarks>
+    private async Task<JsonElement?> FetchRequestAsync()
+    {
+        try
+        {
+            return await Api.GetAsync<JsonElement>($"requests/{Id}");
+        }
+        catch (ApiException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
+        {
+            _notFound = true;
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 없는 요청을 열었을 때 할 말. 토스트와 화면이 <b>같은 것</b>을 쓴다.
+    /// </summary>
+    /// <remarks>
+    /// 번호를 <b>앞에</b> 두고 「…번 요청을」로 잇는다. 「요청 #9 을(를)」처럼
+    /// 숫자 뒤에 조사를 붙이면 읽는 소리에 따라 을·를이 갈려
+    /// (9→구<b>를</b> · 8→팔<b>을</b>) 어느 쪽도 늘 맞지가 않는다.
+    /// </remarks>
+    private string NotFoundMessage =>
+        $"{Id}번 요청을 찾지 못했습니다. 지워졌거나 주소가 잘못되었습니다.";
 
     /// <summary>답글 칸을 열고 닫는다. <c>null</c> 이면 닫기다.</summary>
     private void ToggleReply(int? commentId) => _replyTo = commentId;

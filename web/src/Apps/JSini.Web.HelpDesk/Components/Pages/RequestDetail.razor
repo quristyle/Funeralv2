@@ -11,6 +11,27 @@
     늘 "메뉴에는 있는데 화면이 없다" 로 잘못 보고된다.
 
     ────────────────────────────────────────────────────────────
+    [없는 요청을 열면 그렇다고 말한다 (2026-09-28)]
+
+    지워진 요청의 주소로 들어오면 **「요청을 읽지 못했습니다 — Resource not
+    found.」** 가 토스트로 스쳐 지나가고, 화면에는 「댓글 0 · 아직 댓글이
+    없습니다 · 댓글 남기기」만 남은 껍데기가 섰다. 세 가지가 나빴다.
+
+      - 영어가 섞여 있고, **서버가 터진 것과 구별이 안 된다.** 읽는 사람이
+        할 수 있는 일은 새로고침뿐인데 다시 눌러도 결과가 같다.
+      - 토스트는 사라진다. 잠깐 한눈팔면 **빈 화면만 남는다.**
+      - 없는 글에 **댓글을 쓸 수 있는 것처럼** 보인다(보내면 서버가 외래키로
+        막는다).
+
+    이 길은 드물지 않다 — 이 화면으로 오는 길 하나가 알림(앱푸시·알림함)이고,
+    **알림은 글보다 오래 산다.** 글을 지워도 알림함의 줄은 남아 그 주소를
+    계속 가리킨다.
+
+    그래서 화면이 404 만 따로 받아(`FetchRequestAsync`) 「없다」고 적는다.
+    나머지 실패는 그대로 올린다 — 401·500 을 「없는 글」로 바꾸면 로그인이
+    풀린 것이 글이 지워진 것처럼 보인다.
+
+    ────────────────────────────────────────────────────────────
     [요청마다 **제 탭**으로 열린다 (2026-09-28)]
 
     목록(`/helpdesk/request/manage`)에서 「상세」를 누르면 여기로 온다. 그런데
@@ -242,36 +263,47 @@
         <div class="hd-content">@Body()</div>
     }
 
-    <h2 class="hd-subhead">댓글 @_commentCount</h2>
-
-    @if (_roots.Count > 0)
+    @if (_notFound)
     {
-        <CommentThread Nodes="@_roots"
-                       CanReply="@CanWrite"
-                       ReplyTo="@_replyTo"
-                       OnToggle="@ToggleReply"
-                       OnReply="@AddReplyAsync" />
+        @* 그런 요청이 **없다**. 전에는 이 자리에 아무것도 없었고 화면은
+           「댓글 0 · 아직 댓글이 없습니다 · 댓글 남기기」만 남은 껍데기였다 —
+           없는 글에 댓글을 쓸 수 있는 것처럼 보이고(보내면 서버가 외래키로
+           막는다), 왜 비었는지는 스쳐 지나간 토스트에만 적혀 있었다. *@
+        <PageNotice Tone="NoticeTone.Warning">@NotFoundMessage</PageNotice>
     }
-    else if (!Loading)
+    else
     {
-        <PageNotice>아직 댓글이 없습니다. 첫 댓글을 남겨 보십시오.</PageNotice>
-    }
+        <h2 class="hd-subhead">댓글 @_commentCount</h2>
 
-    @if (Context.IdentityChecked)
-    {
-        @if (CanWrite)
+        @if (_roots.Count > 0)
         {
-            <div class="hd-cmt-root">
-                <CommentEditor Id="new" Label="댓글 남기기" OnSubmit="@AddRootAsync" />
-            </div>
+            <CommentThread Nodes="@_roots"
+                           CanReply="@CanWrite"
+                           ReplyTo="@_replyTo"
+                           OnToggle="@ToggleReply"
+                           OnReply="@AddReplyAsync" />
         }
-        else if (!Context.IsLinked)
+        else if (!Loading)
         {
-            @* 작성자를 가리킬 값이 없다. 빈 칸을 두고 저장에서 실패하게 두면
-               무엇이 잘못됐는지 알 수 없다. *@
-            <PageNotice Tone="NoticeTone.Warning">
-                헬프데스크 시스템에 권한이 없어 댓글을 남길 수 없습니다.
-            </PageNotice>
+            <PageNotice>아직 댓글이 없습니다. 첫 댓글을 남겨 보십시오.</PageNotice>
+        }
+
+        @if (Context.IdentityChecked)
+        {
+            @if (CanWrite)
+            {
+                <div class="hd-cmt-root">
+                    <CommentEditor Id="new" Label="댓글 남기기" OnSubmit="@AddRootAsync" />
+                </div>
+            }
+            else if (!Context.IsLinked)
+            {
+                @* 작성자를 가리킬 값이 없다. 빈 칸을 두고 저장에서 실패하게 두면
+                   무엇이 잘못됐는지 알 수 없다. *@
+                <PageNotice Tone="NoticeTone.Warning">
+                    헬프데스크 시스템에 권한이 없어 댓글을 남길 수 없습니다.
+                </PageNotice>
+            }
         }
     }
 </div>
