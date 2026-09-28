@@ -89,6 +89,41 @@ public partial class MainLayout
     private int _sidebarWidth = 330;
 
     /// <summary>
+    /// 끌어서 이 폭 <b>이하</b>로 좁히면 붙잡지 않고 접는다(px).
+    ///
+    /// <para>
+    /// 100px 안쪽은 메뉴 글자가 거의 남지 않아 쓸 수 있는 폭이 아니다. 거기까지
+    /// 끌었다는 것은 「좁게 쓰겠다」가 아니라 「치우겠다」이므로, 그 뜻대로
+    /// 접는다 — ☰ 로 접은 것과 <b>같은 접힘</b>이라 아무 길로나 다시 펴진다.
+    /// </para>
+    ///
+    /// <para>
+    /// 판의 <c>MinSize</c>(90px)보다 커야 한다. 같거나 작으면 끌어서는 닿을
+    /// 수 없는 값이라 이 갈래가 영영 안 걸린다. <b>지금은 그 사이가 10px 뿐</b>이라,
+    /// 더 왼쪽으로 끌면 부품이 90px 에 붙잡아 주는 덕에 그대로 접힘으로 간다.
+    /// </para>
+    /// </summary>
+    private const int SidebarSnapPx = 100;
+
+    /// <summary>
+    /// 끌어 접은 그 순간의 <b>이전 폭</b>(px). 다시 펼 때 이 폭으로 되돌린다.
+    ///
+    /// <para>
+    /// 끌어 놓은 좁은 폭(예: 120px)을 그대로 두면 다시 폈을 때 <b>글자가 잘린
+    /// 사이드바</b>가 나온다. 접는 것이 뜻이었으므로 폭은 접기 직전에 쓰던
+    /// 것을 그대로 기억해 둔다 — 저장소에도 좁은 폭은 담지 않는다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>접힌 동안에는 <see cref="_sidebarWidth"/> 가 끌어 놓은 좁은 값이다.</b>
+    /// 부품이 알고 있는 폭과 우리가 그리는 폭을 어긋나지 않게 두려는 것이다 —
+    /// 어긋나면 <c>Size</c> 속성이 「안 바뀐 값」으로 보여 다시 펼 때 부품에
+    /// 전해지지 않는다.
+    /// </para>
+    /// </summary>
+    private int? _widthBeforeSnap;
+
+    /// <summary>
     /// 저장해 둔 폭을 이미 읽었나. <b>한 번만 읽는다</b> — 읽기는
     /// <see cref="PortalBoot"/> 의 공용 왕복에 실려 오고, 두 번째부터는
     /// 사용자가 방금 끌어 놓은 값을 옛 값으로 되돌리게 된다.
@@ -680,6 +715,7 @@ public partial class MainLayout
     private async Task OpenSidebarAsync()
     {
         _sidebarOpen = true;
+        RestoreSnappedWidth();
 
         if (!_isPhone)
         {
@@ -764,6 +800,26 @@ public partial class MainLayout
         }
 
         _sidebarOpen = true;
+        RestoreSnappedWidth();
+    }
+
+    /// <summary>
+    /// 끌어서 접었다면(<see cref="SidebarSnapPx"/>) 그때의 폭으로 되돌린다.
+    /// 다시 펴는 모든 길에서 부른다.
+    /// </summary>
+    /// <remarks>
+    /// <b>펴는 그 그림에서 함께 바꾼다.</b> 접을 때 미리 되돌려 놓으면
+    /// <c>Size</c> 속성 값이 접기 전과 같아져 Blazor 가 「안 바뀌었다」고 보고
+    /// 부품에 전하지 않는다 — 그러면 다시 편 사이드바가 끌어 놓았던 좁은
+    /// 폭 그대로 나온다.
+    /// </remarks>
+    private void RestoreSnappedWidth()
+    {
+        if (_widthBeforeSnap is int px)
+        {
+            _sidebarWidth = px;
+            _widthBeforeSnap = null;
+        }
     }
 
     /// <summary>
@@ -789,6 +845,18 @@ public partial class MainLayout
             return;
         }
 
+        // 쓸 수 없을 만큼 좁혔으면 붙잡지 않고 접는다. 폭은 접기 직전 것을
+        // 기억해 두었다가 다시 펼 때 되돌리고(`RestoreSnappedWidth`),
+        // **저장소에는 담지 않는다** — 다음에 들어와도 쓰던 폭이라야 한다.
+        if (px <= SidebarSnapPx)
+        {
+            _widthBeforeSnap ??= _sidebarWidth;
+            _sidebarWidth = px;
+            CloseSidebar();
+            return;
+        }
+
+        _widthBeforeSnap = null;
         _sidebarWidth = px;
 
         try

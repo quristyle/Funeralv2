@@ -6,6 +6,12 @@ JSini 개발 서버 제어판 — backend_run_ubuntu.sh 를 감싸는 로컬 웹
 읽어서 쓴다. 표가 이 파일과 스크립트 양쪽에 있으면 반드시 어긋나기 때문이다.
 기동·중지도 전부 그 스크립트에 넘긴다. 이 파일은 버튼과 상태 표시만 한다.
 
+작업은 **서비스마다 따로** 돈다. 하나를 재기동하는 동안에도 다른 것을 만질 수 있다.
+겹치는 것을 막는 규칙은 Runner 주석에 적었다.
+
+서비스는 DEV_BACKGROUND=1 로 띄운다 — 터미널 창이 뜨지 않고, 출력은
+logs/<이름>.log 에 쌓여 이 화면의 "로그" 단추로 본다.
+
 실행:  python3 scripts/devui/server.py        (127.0.0.1:5600)
 """
 import html
@@ -17,11 +23,15 @@ import sys
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "backend_run_ubuntu.sh"
+LOG_DIR = ROOT / "logs"
 PORT = int(os.environ.get("DEVUI_PORT", "5600"))
 MAX_LINES = 4000          # 작업 하나당 보관할 출력 줄 수
+MAX_JOBS = 30             # 끝난 작업을 이만큼만 남긴다
+TAIL_BYTES = 64 * 1024    # 서비스 로그를 처음 열 때 거슬러 올라가는 양
 
 
 # ---------------------------------------------------------------- 서비스 표
@@ -114,12 +124,39 @@ def listening_ports():
     return ports
 
 
+def read_tail(path, pos):
+    """서비스 로그 파일을 pos 바이트부터 읽는다. (내용, 다음 위치, 파일 있음)
+
+    재기동하면 스크립트가 로그를 새로 쓰기 때문에(`>` 로 자른다) 파일이 줄어든다.
+    그때는 pos 를 0 으로 되돌려야 한다 — 안 그러면 새 출력이 영영 안 보인다.
+    """
+    try:
+        size = path.stat().st_size
+    except OSError:
+        return "", 0, False
+    if pos > size:
+        pos = 0
+    if pos <= 0 and size > TAIL_BYTES:
+        pos = size - TAIL_BYTES     # 처음 열 때 전체를 다 보내지 않는다
+    if pos >= size:
+        return "", size, True
+    try:
+        with open(path, "rb") as f:
+            f.seek(pos)
+            data = f.read(size - pos)
+    except OSError:
+        return "", pos, True
+    return data.decode("utf-8", "replace"), size, True
+
+
 # ---------------------------------------------------------------- 작업 실행
 
 class Job:
     """스크립트 한 번 실행. 출력은 줄 단위로 모아 두고 프런트가 오프셋으로 받아 간다."""
 
-    def __init__(self, title, args):
+    def __init__(self, jid, key, title, args):
+        self.id = jid
+        self.key = key            # 대상 서비스. 전체 작업(all·allstop)이면 None
         self.title = title
         self.args = args
         self.lines = []
@@ -137,6 +174,10 @@ class Job:
 
     def _run(self):
         self._add(f"$ ./{SCRIPT.name} {' '.join(self.args)}")
+        env = os.environ.copy()
+        # 서비스마다 터미널 창을 여는 대신 백그라운드로 띄우게 한다.
+        # 제어판에서 열두 개를 만지는데 창이 열두 개 뜨면 화면을 덮는다.
+        env["DEV_BACKGROUND"] = "1"
         try:
             self._proc = subprocess.Popen(
                 [str(SCRIPT), *self.args],
@@ -145,7 +186,7 @@ class Job:
                 stderr=subprocess.STDOUT,
                 text=True,
                 bufsize=1,
-                env=os.environ.copy(),   # DISPLAY·DBUS 를 물려줘야 터미널이 뜬다
+                env=env,
             )
         except OSError as e:
             self._add(f"실행 실패: {e}")
@@ -166,18 +207,63 @@ class Job:
 
 
 class Runner:
-    """한 번에 하나만 돌린다. 빌드가 겹치면 서로 느려지고 포트 경합이 난다."""
+    """작업을 서비스마다 따로 돌린다.
+
+    예전에는 한 번에 하나만 돌렸다. 빌드가 겹치면 서로 느려지고 포트 경합이
+    난다는 이유였는데, 그 대가로 auth 를 재기동하는 3 분 동안 화면 전체가
+    잠겨 아무것도 못 눌렀다. 겹쳐서 곤란한 것은 사실 둘뿐이라 그것만 막는다.
+
+      · 같은 서비스에 두 작업   — 한쪽이 방금 띄운 것을 다른 쪽이 죽인다
+      · 전체 작업과 다른 작업   — all/allstop 은 모든 서비스를 건드린다
+
+    포트는 서비스마다 다르므로 서로 다른 서비스끼리는 경합하지 않는다.
+    빌드가 겹치는 문제는 backend_run_ubuntu.sh 의 flock 이 맡는다 — 함께 쓰는
+    프로젝트(microservices/Common)를 두 빌드가 동시에 건드리지 못하게 한다.
+    """
 
     def __init__(self):
-        self.job = None
+        self.jobs = {}          # id -> Job (끝난 것도 로그를 보려고 남겨 둔다)
+        self._seq = 0
         self._lock = threading.Lock()
 
-    def start(self, title, args):
+    def _live(self):
+        return [j for j in self.jobs.values() if j.running]
+
+    def start(self, key, title, args):
         with self._lock:
-            if self.job and self.job.running:
-                return None, f"'{self.job.title}' 작업이 아직 실행 중입니다."
-            self.job = Job(title, args)
-            return self.job, None
+            live = self._live()
+            glob = next((j for j in live if j.key is None), None)
+            if glob:
+                return None, f"'{glob.title}' 작업이 끝나야 합니다. 전체 작업 중에는 다른 작업을 받지 않습니다."
+            if key is None:
+                if live:
+                    names = ", ".join(j.title for j in live)
+                    return None, f"실행 중인 작업이 있습니다: {names}"
+            else:
+                same = next((j for j in live if j.key == key), None)
+                if same:
+                    return None, f"'{same.title}' 작업이 아직 실행 중입니다."
+
+            self._seq += 1
+            jid = str(self._seq)
+            job = Job(jid, key, title, args)
+            self.jobs[jid] = job
+
+            # 끝난 작업이 쌓이지 않게 오래된 것부터 버린다.
+            done = sorted((j for j in self.jobs.values() if not j.running),
+                          key=lambda j: int(j.id))
+            for old in done[:max(0, len(self.jobs) - MAX_JOBS)]:
+                self.jobs.pop(old.id, None)
+            return job, None
+
+    def state(self):
+        with self._lock:
+            jobs = sorted(self.jobs.values(), key=lambda j: int(j.id))
+        return [{"id": j.id, "key": j.key, "title": j.title,
+                 "running": j.running, "exit": j.exit} for j in jobs]
+
+    def get(self, jid):
+        return self.jobs.get(jid)
 
 
 RUNNER = Runner()
@@ -196,11 +282,11 @@ PAGE = """<!doctype html>
 <title>JSini 개발 서버 제어판</title>
 <style>
 :root{--bg:#f6f7f9;--card:#fff;--fg:#1a1d21;--muted:#6b7280;--line:#e3e6ea;--subtle:#fafbfc;
-      --up:#17974e;--upline:#9cd9b6;--down:#c2c7cd;
+      --up:#17974e;--upline:#9cd9b6;--down:#c2c7cd;--work:#c98a17;--workline:#e8c98a;
       --btn:#fff;--btnline:#cfd4da;--accent:#1f6feb;--logbg:#0f1216;--logfg:#d7dde4;}
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]){
       --bg:#14171a;--card:#1c2025;--fg:#e6e9ed;--muted:#9aa4b0;--line:#2b3138;--subtle:#181c21;
-      --up:#4ec98a;--upline:#2f6446;--down:#4a525b;
+      --up:#4ec98a;--upline:#2f6446;--down:#4a525b;--work:#e0a83c;--workline:#6b5324;
       --btn:#252a31;--btnline:#3a424b;--accent:#589bff;--logbg:#0b0e11;--logfg:#cfd6dd;}}
 *{box-sizing:border-box}
 body{margin:0;padding:18px 20px 24px;background:var(--bg);color:var(--fg);
@@ -212,7 +298,6 @@ header{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:4
 h1{font-size:17px;margin:0}
 header .sum{color:var(--muted);font-size:13px}
 header .grow{flex:1}
-header button{font-size:13px}
 .hint{color:var(--muted);font-size:12px;margin-bottom:14px}
 
 h2{font-size:12px;margin:0 0 8px;color:var(--muted);font-weight:600;letter-spacing:.06em;
@@ -221,24 +306,54 @@ h2 .count{font-weight:400;text-transform:none;letter-spacing:0;margin-left:6px}
 section{margin-bottom:16px}
 
 /* 카드 격자 — 13개가 한 화면에 들어오도록 폭을 좁게 잡는다. */
-.grid{display:grid;gap:9px;grid-template-columns:repeat(auto-fill,minmax(196px,1fr))}
+.grid{display:grid;gap:9px;grid-template-columns:repeat(auto-fill,minmax(212px,1fr))}
 .svc{background:var(--card);border:1px solid var(--line);border-radius:9px;padding:10px 11px 9px}
 .svc.on{border-color:var(--upline)}
+.svc.work{border-color:var(--workline)}
 .svc .top{display:flex;align-items:center;gap:7px}
 .dot{width:8px;height:8px;border-radius:99px;background:var(--down);flex:none}
 .svc.on .dot{background:var(--up)}
+.svc.work .dot{background:var(--work);animation:pulse 1.1s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.25}}
 .svc .name{font-family:ui-monospace,monospace;font-weight:600;font-size:13px}
 .svc .port{margin-left:auto;font-family:ui-monospace,monospace;font-size:12px;color:var(--muted)}
-.svc .label{color:var(--muted);font-size:12px;margin:2px 0 9px;
+.svc .label{color:var(--muted);font-size:12px;margin:2px 0 4px;
             white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.svc .btns{display:flex;gap:6px}
-.svc .btns button{flex:1;padding:4px 0;font-size:12px}
+.svc.work .label{color:var(--work)}
+/* 프론트 카드의 "브라우저로 열기". 모양은 .ico 를 그대로 쓰고, 이름·포트 줄
+   끝에 붙으므로 조금 작게 둔다. 꺼져 있으면 누를 수 없다(.off) —
+   안 뜬 주소를 열면 빈 오류 탭만 남는다. */
+.svc .open{width:22px;height:22px;font-size:13px;margin-left:4px}
+.svc .btns{display:flex;gap:2px;margin-left:-5px}
 
 button{font:inherit;padding:5px 11px;border:1px solid var(--btnline);background:var(--btn);
        color:var(--fg);border-radius:6px;cursor:pointer}
 button:hover:not(:disabled){border-color:var(--accent);color:var(--accent)}
 button:disabled{opacity:.42;cursor:not-allowed}
 .danger:hover:not(:disabled){border-color:#d9534f;color:#d9534f}
+
+/* 아이콘 단추 — 글자 대신 기호 하나만 둔다. 무엇을 하는 단추인지는 title 이
+   말해 주고, 되돌릴 수 없는 전체 작업은 누른 뒤 확인 창이 다시 한번 말해 준다.
+   기호는 일부러 흔한 것만 골랐다(⟳ ■ ☰ ↗) — 이모지나 최신 기호는 글꼴에
+   따라 네모(두부)로 나온다.
+
+   평소에는 테두리도 바탕도 없이 기호만 두고, 마우스를 올렸을 때만 단추 모양이
+   나온다. 카드 열셋에 단추 마흔 개가 늘 상자로 깔려 있으면 정작 봐야 할 것
+   — 서비스 이름과 켜짐/꺼짐 점 — 이 묻힌다.
+
+   크기는 머리글의 전체 단추와 카드 단추가 같다. 기호 하나가 들어갈 만큼만 잡아,
+   글자 단추였을 때처럼 카드 폭을 삼등분해 늘어나지 않는다. */
+.ico{display:inline-flex;align-items:center;justify-content:center;flex:none;
+     width:28px;height:28px;padding:0;font-size:16px;line-height:1;
+     border:1px solid transparent;background:none;color:var(--muted);
+     border-radius:7px;cursor:pointer;text-decoration:none;
+     font-family:"DejaVu Sans","Noto Sans Symbols2",system-ui,sans-serif;
+     transition:background .12s,border-color .12s,color .12s}
+.ico:hover:not(:disabled):not(.off){border-color:var(--btnline);background:var(--btn);
+                                    color:var(--accent)}
+.ico:disabled{opacity:.28;cursor:not-allowed}
+.ico.danger:hover:not(:disabled){border-color:#d9534f;background:var(--btn);color:#d9534f}
+.ico.off{opacity:.28;pointer-events:none}
 
 /* MFE 는 셸 카드 옆이 아니라 아래 띠로 뺀다. 카드 안에 넣으면 그 카드만
    길어져서 격자가 어긋난다. */
@@ -252,45 +367,78 @@ button:disabled{opacity:.42;cursor:not-allowed}
 details{border:1px solid var(--line);border-radius:9px;background:var(--card);overflow:hidden}
 summary{cursor:pointer;padding:8px 12px;font-size:13px;color:var(--muted);user-select:none}
 summary::marker{color:var(--muted)}
+
+/* 로그 탭 — 작업이 여럿 동시에 돌므로 어느 것을 보는지 고를 수 있어야 한다. */
+.tabs{display:flex;gap:6px;flex-wrap:wrap;padding:0 10px 9px;border-bottom:1px solid var(--line)}
+.tabs:empty{display:none}
+.tab{border:1px solid var(--btnline);background:var(--btn);color:var(--fg);border-radius:6px;
+     padding:3px 9px;font-size:12px;cursor:pointer;display:flex;align-items:center;gap:6px}
+.tab.sel{border-color:var(--accent);color:var(--accent)}
+.tab .st{width:7px;height:7px;border-radius:99px;background:var(--down);flex:none}
+.tab.run .st{background:var(--work);animation:pulse 1.1s ease-in-out infinite}
+.tab.fail .st{background:#d9534f}
+.tab.done .st{background:var(--up)}
+.tab.off .st{background:var(--down)}
+.tab .x{color:var(--muted);font-size:13px;line-height:1}
 #log{background:var(--logbg);color:var(--logfg);padding:12px;
      font:12px/1.5 ui-monospace,monospace;white-space:pre-wrap;word-break:break-all;
-     height:240px;overflow:auto}
+     height:260px;overflow:auto}
 #log:empty::before{content:"작업을 실행하면 출력이 여기에 표시됩니다.";color:var(--muted)}
-.warn{background:#fff4e5;border:1px solid #ffd8a8;color:#8a5200;padding:9px 13px;
-      border-radius:8px;margin-bottom:14px;font-size:13px}
-@media (prefers-color-scheme:dark){:root:not([data-theme=light]) .warn{
-      background:#2e2413;border-color:#5b4620;color:#e8c98a}}
 </style></head><body><div class="wrap">
 
 <header>
   <h1>JSini 개발 서버 제어판</h1>
   <span class="sum" id="summary">…</span>
   <span class="grow"></span>
-  <button id="allstop" class="danger">전체 중지</button>
-  <button id="all">전체 재기동</button>
+  <button id="allstop" class="ico danger" title="전체 중지" aria-label="전체 중지">■</button>
+  <button id="all" class="ico" title="전체 재기동" aria-label="전체 재기동">⟳</button>
 </header>
-<div class="hint">backend_run_ubuntu.sh 를 그대로 호출합니다.</div>
-<div id="warn"></div>
+<div class="hint">backend_run_ubuntu.sh 를 그대로 호출합니다.
+  <b>⟳</b> 재기동 · <b>■</b> 중지 · <b>☰</b> 로그 · <b>↗</b> 브라우저로 열기 —
+  단추에 마우스를 올리면 무엇인지 나옵니다.
+  서비스는 터미널 창 없이 백그라운드로 뜨고, 서비스마다 작업이 따로 돌기 때문에
+  하나를 재기동하는 동안에도 다른 것을 만질 수 있습니다.</div>
 
 <section id="sec-back"></section>
 <section id="sec-front"></section>
 
-<details id="logbox"><summary>작업 로그</summary><div id="log"></div></details>
+<details id="logbox" open><summary>로그</summary>
+  <div class="tabs" id="tabs"></div>
+  <div id="log"></div>
+</details>
 
 </div><script>
-let offset = 0, busy = false, lastJob = null;
+// view: 지금 보고 있는 로그. {kind:"job",id} 또는 {kind:"svc",key}
+let view = null, pos = 0, jobs = [], services = [], svcTabs = [], globalBusy = false;
 const logEl = document.getElementById("log");
 const logBox = document.getElementById("logbox");
+const tabsEl = document.getElementById("tabs");
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const viewKey = v => v ? v.kind + ":" + (v.id || v.key) : "";
 
 function card(s) {
-  return `<div class="svc ${s.up ? "on" : ""}">
+  const busy = s.busy || globalBusy;
+  const cls = s.busy ? "work" : (s.up ? "on" : "");
+  const label = s.busy ? (s.jobTitle || "작업 중…") : s.label;
+  // 화면이 있는 것(프론트)만 열기 아이콘을 준다. 백엔드는 열어 봐야 API 라
+  // 볼 것이 없고, 아이콘이 있으면 눌러 보게 된다.
+  const open = s.url
+    ? `<a class="ico open ${s.up ? "" : "off"}" href="${esc(s.url)}" target="_blank" rel="noopener"
+         aria-label="브라우저로 열기"
+         title="${s.up ? esc(s.url) + " 를 새 탭에서 엽니다" : "기동한 뒤에 열 수 있습니다"}">↗</a>`
+    : "";
+  return `<div class="svc ${cls}">
     <div class="top"><span class="dot"></span>
-      <span class="name">${esc(s.key)}</span><span class="port">${s.port}</span></div>
-    <div class="label" title="${esc(s.label)}">${esc(s.label)}</div>
+      <span class="name">${esc(s.key)}</span><span class="port">${s.port}</span>${open}</div>
+    <div class="label" title="${esc(label)}">${esc(label)}</div>
     <div class="btns">
-      <button data-a="restart" data-s="${esc(s.key)}">재기동</button>
-      <button data-a="stop" data-s="${esc(s.key)}" ${s.up ? "" : "disabled"}>중지</button>
+      <button class="ico" data-a="restart" data-s="${esc(s.key)}" ${busy ? "disabled" : ""}
+              title="${esc(s.key)} 재기동" aria-label="재기동">⟳</button>
+      <button class="ico" data-a="stop" data-s="${esc(s.key)}" ${busy || !s.up ? "disabled" : ""}
+              title="${esc(s.key)} 중지" aria-label="중지">■</button>
+      <button class="ico" data-a="log" data-s="${esc(s.key)}"
+              title="${esc(s.key)} 로그 보기" aria-label="로그 보기">☰</button>
     </div></div>`;
 }
 
@@ -311,42 +459,102 @@ function section(el, title, list, strip) {
     <div class="grid">${list.map(card).join("")}</div>${strip || ""}`;
 }
 
+// 탭의 점이 뜻하는 것.
+//
+// 예전에는 작업이 0 으로 끝나면 초록이었다. 그런데 재기동 작업은 `dotnet watch` 를
+// **띄우기만 하고** 끝나므로, 서버가 실제로 포트를 열기까지 20~60초가 더 걸린다.
+// 그 사이 카드의 점은 회색인데 탭의 점만 초록이라 같은 화면에서 서로 다른 말을
+// 했다. 그래서 작업이 끝난 뒤의 점은 **카드와 똑같이 지금 포트가 열려 있는지**로
+// 판정한다. 작업 자체의 성패는 실패했을 때(빨강)만 남긴다.
+function tabState(key, job) {
+  if (job && job.running) return {cls: "run", why: "작업 중"};
+  if (job && job.exit !== 0) return {cls: "fail", why: `작업 실패 (종료 코드 ${job.exit})`};
+  if (!key) return {cls: "done", why: "작업 완료"};       // all·allstop 은 한 서비스가 아니다
+  const s = services.find(x => x.key === key);
+  if (!s) return {cls: "", why: ""};
+  return s.up ? {cls: "done", why: `${key} 실행 중 (포트 ${s.port})`}
+              : {cls: "off", why: `${key} 내려가 있음`};
+}
+
+function renderTabs() {
+  // 작업 탭은 최근 것이 앞에 오도록 뒤집어 놓는다. 끝난 작업도 로그를 볼 수 있게 남긴다.
+  const jt = jobs.slice().reverse().slice(0, 8).map(j => {
+    const st = tabState(j.key, j);
+    const sel = view && view.kind === "job" && view.id === j.id ? "sel" : "";
+    return `<button class="tab ${st.cls} ${sel}" data-t="job" data-v="${esc(j.id)}"
+              title="${esc(j.title)} — ${esc(st.why)}">
+      <span class="st"></span>${esc(j.title)}</button>`;
+  }).join("");
+  const sv = svcTabs.map(k => {
+    const st = tabState(k, null);
+    const sel = view && view.kind === "svc" && view.key === k ? "sel" : "";
+    return `<button class="tab ${st.cls} ${sel}" data-t="svc" data-v="${esc(k)}"
+              title="${esc(k)} 서비스 로그 — ${esc(st.why)}">
+      <span class="st"></span>${esc(k)} 로그<span class="x" data-close="${esc(k)}"
+        title="이 탭 닫기">×</span></button>`;
+  }).join("");
+  tabsEl.innerHTML = jt + sv;
+}
+
+function show(v) {
+  if (viewKey(v) === viewKey(view)) return;
+  view = v; pos = 0; logEl.textContent = "";
+  logBox.open = true;
+  renderTabs();
+}
+
 async function refresh() {
   const r = await fetch("/api/state");
   const d = await r.json();
-  const back = d.services.filter(s => s.group === "back");
-  const front = d.services.filter(s => s.group === "front");
-  section(document.getElementById("sec-back"), "백엔드", back, "");
-  section(document.getElementById("sec-front"), "프론트", front,
+  services = d.services; jobs = d.jobs; globalBusy = d.globalBusy;
+
+  section(document.getElementById("sec-back"), "백엔드",
+          services.filter(s => s.group === "back"), "");
+  section(document.getElementById("sec-front"), "프론트",
+          services.filter(s => s.group === "front"),
           d.modules.length ? mfeStrip(d.modules) : "");
 
-  const n = d.services.filter(s => s.up).length;
-  document.getElementById("summary").textContent = `${n}/${d.services.length} 실행 중`;
-  document.getElementById("warn").innerHTML = d.display ? "" :
-    `<div class="warn">DISPLAY 가 없습니다. 이 서버는 데스크톱 세션 안에서 실행해야 합니다 —
-     스크립트가 서비스마다 gnome-terminal 을 띄우므로, 없으면 기동이 조용히 실패합니다.</div>`;
+  const n = services.filter(s => s.up).length;
+  const run = jobs.filter(j => j.running).length;
+  document.getElementById("summary").textContent =
+    `${n}/${services.length} 실행 중` + (run ? ` · 작업 ${run}개 진행 중` : "");
 
-  busy = d.busy;
-  if (d.job && d.job !== lastJob) { lastJob = d.job; offset = 0; logEl.textContent = ""; }
-  document.querySelectorAll("button[data-a],#all,#allstop")
-          .forEach(b => { if (b.dataset.a !== "stop" || !b.disabled) b.disabled = busy; });
-  if (busy) pollLog();
+  const anyBusy = run > 0 || globalBusy;
+  document.getElementById("all").disabled = anyBusy;
+  document.getElementById("allstop").disabled = anyBusy;
+
+  // 보고 있던 작업 탭이 밀려 사라졌으면 선택을 푼다.
+  if (view && view.kind === "job" && !jobs.some(j => j.id === view.id)) {
+    view = null; logEl.textContent = "";
+  }
+  renderTabs();
 }
 
-async function pollLog() {
-  const r = await fetch("/api/log?offset=" + offset);
-  const d = await r.json();
-  if (d.lines.length) {
-    const stick = logEl.scrollTop + logEl.clientHeight >= logEl.scrollHeight - 30;
-    logEl.textContent += d.lines.join("\\n") + "\\n";
-    offset = d.offset;
-    if (stick) logEl.scrollTop = logEl.scrollHeight;
+async function pullLog() {
+  if (!view) return;
+  if (view.kind === "job") {
+    const r = await fetch("/api/log?job=" + encodeURIComponent(view.id) + "&offset=" + pos);
+    const d = await r.json();
+    if (d.lines && d.lines.length) { append(d.lines.join("\\n") + "\\n"); pos = d.offset; }
+  } else {
+    const r = await fetch("/api/svclog?svc=" + encodeURIComponent(view.key) + "&pos=" + pos);
+    const d = await r.json();
+    if (!d.exists && pos === 0 && !logEl.textContent) {
+      logEl.textContent = "아직 로그가 없습니다 — 이 서비스를 제어판에서 한 번 기동하면 생깁니다.";
+      return;
+    }
+    if (d.text) { append(d.text); }
+    pos = d.pos;
   }
-  if (d.running) setTimeout(pollLog, 700); else refresh();
+}
+
+function append(text) {
+  const stick = logEl.scrollTop + logEl.clientHeight >= logEl.scrollHeight - 30;
+  logEl.textContent += text;
+  if (stick) logEl.scrollTop = logEl.scrollHeight;
 }
 
 async function run(action, svc, confirmMsg) {
-  if (busy) return;
   if (confirmMsg && !confirm(confirmMsg)) return;
   const r = await fetch("/api/run", {
     method: "POST", headers: {"Content-Type": "application/json"},
@@ -354,23 +562,53 @@ async function run(action, svc, confirmMsg) {
   });
   const d = await r.json();
   if (d.error) { alert(d.error); return; }
-  offset = 0; lastJob = d.job; logEl.textContent = ""; busy = true;
-  logBox.open = true;                      // 작업이 시작되면 로그를 펼친다
-  refresh(); pollLog();
+  show({kind: "job", id: d.job});
+  refresh();
 }
 
 document.querySelector(".wrap").addEventListener("click", e => {
+  const close = e.target.closest("[data-close]");
+  if (close) {
+    e.stopPropagation();
+    const k = close.dataset.close;
+    svcTabs = svcTabs.filter(x => x !== k);
+    if (view && view.kind === "svc" && view.key === k) { view = null; logEl.textContent = ""; }
+    renderTabs();
+    return;
+  }
+  const tab = e.target.closest(".tab");
+  if (tab) {
+    show(tab.dataset.t === "job" ? {kind: "job", id: tab.dataset.v}
+                                 : {kind: "svc", key: tab.dataset.v});
+    pullLog();
+    return;
+  }
   const b = e.target.closest("button[data-a]");
-  if (b) run(b.dataset.a, b.dataset.s);
+  if (!b || b.disabled) return;
+  if (b.dataset.a === "log") {
+    if (!svcTabs.includes(b.dataset.s)) svcTabs.push(b.dataset.s);
+    show({kind: "svc", key: b.dataset.s});
+    pullLog();
+  } else {
+    run(b.dataset.a, b.dataset.s);
+  }
 });
 document.getElementById("allstop").onclick =
   () => run("allstop", null, "백엔드와 프론트를 전부 내립니다. 계속할까요?");
 document.getElementById("all").onclick =
   () => run("all", null, "전체를 중지하고 다시 빌드합니다. 몇 분 걸립니다. 계속할까요?");
 
-refresh();
-// 탭이 보이지 않을 때는 폴링하지 않는다 (노트북 배터리).
-setInterval(() => { if (!document.hidden && !busy) refresh(); }, 2500);
+// 한 바퀴에 상태와 로그를 함께 받아 온다. 돌고 있는 작업이 있으면 더 자주 돈다.
+// 탭이 보이지 않을 때는 쉰다 (노트북 배터리) — 다만 첫 바퀴는 무조건 돈다.
+// 배경 탭으로 열어 두면 화면이 빈 채로 남기 때문이다.
+(async function loop() {
+  for (let first = true; ; first = false) {
+    if (first || !document.hidden) {
+      try { await refresh(); await pullLog(); } catch (e) { /* 서버가 잠깐 없을 수 있다 */ }
+    }
+    await sleep(jobs.some(j => j.running) ? 800 : 2500);
+  }
+})();
 document.addEventListener("visibilitychange", () => { if (!document.hidden) refresh(); });
 </script></body></html>
 """
@@ -393,41 +631,62 @@ class Handler(BaseHTTPRequestHandler):
     def _json(self, obj, code=200):
         self._send(code, json.dumps(obj), "application/json; charset=utf-8")
 
+    def _query(self):
+        return parse_qs(urlparse(self.path).query)
+
     def do_GET(self):
-        path = self.path.split("?")[0]
+        path = urlparse(self.path).path
         if path == "/":
             self._send(200, PAGE, "text/html; charset=utf-8")
         elif path == "/api/state":
             open_ports = listening_ports()
-            job = RUNNER.job
+            jobs = RUNNER.state()
+            # 서비스마다 "지금 이 서비스를 건드리는 작업" 을 붙여 준다.
+            busy_of = {j["key"]: j["title"] for j in jobs if j["running"] and j["key"]}
+            global_busy = any(j["running"] and j["key"] is None for j in jobs)
             self._json({
                 "services": [{**{k: s[k] for k in ("key", "label", "port", "group")},
-                              "up": s["port"] in open_ports} for s in SERVICES],
+                              "up": s["port"] in open_ports,
+                              "busy": s["key"] in busy_of or global_busy,
+                              "jobTitle": busy_of.get(s["key"]),
+                              # 화면이 있는 것만 주소를 준다 (프론트). 백엔드는 API 라 열 것이 없다.
+                              "url": f"http://localhost:{s['port']}" if s["group"] == "front" else None}
+                             for s in SERVICES],
                 "modules": MODULES,
                 "moduleHost": MODULE_HOST,
-                "busy": bool(job and job.running),
-                "job": job.title if job else None,
-                "display": bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")),
+                "jobs": jobs,
+                "globalBusy": global_busy,
             })
         elif path == "/api/log":
-            job = RUNNER.job
+            q = self._query()
+            job = RUNNER.get(q.get("job", [""])[0])
             if not job:
                 self._json({"lines": [], "offset": 0, "running": False})
                 return
-            q = self.path.split("?", 1)[1] if "?" in self.path else ""
             try:
-                offset = int(dict(p.split("=", 1) for p in q.split("&") if "=" in p)
-                             .get("offset", 0))
+                offset = int(q.get("offset", ["0"])[0])
             except ValueError:
                 offset = 0
             lines, total = job.snapshot(offset)
             self._json({"lines": lines, "offset": total,
                         "running": job.running, "exit": job.exit})
+        elif path == "/api/svclog":
+            q = self._query()
+            key = q.get("svc", [""])[0]
+            if key not in BY_KEY:
+                self._json({"error": f"알 수 없는 서비스: {key}"}, 400)
+                return
+            try:
+                pos = int(q.get("pos", ["0"])[0])
+            except ValueError:
+                pos = 0
+            text, nxt, exists = read_tail(LOG_DIR / f"{key}.log", pos)
+            self._json({"text": text, "pos": nxt, "exists": exists})
         else:
             self._send(404, "not found", "text/plain; charset=utf-8")
 
     def do_POST(self):
-        if self.path != "/api/run":
+        if urlparse(self.path).path != "/api/run":
             self._send(404, "not found", "text/plain; charset=utf-8")
             return
         try:
@@ -443,22 +702,22 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         if action == "restart":
-            title, args = f"{svc} 재기동", [svc]
+            key, title, args = svc, f"{svc} 재기동", [svc]
         elif action == "stop":
-            title, args = f"{svc} 중지", ["stop", svc]
+            key, title, args = svc, f"{svc} 중지", ["stop", svc]
         elif action == "allstop":
-            title, args = "전체 중지", ["allstop"]
+            key, title, args = None, "전체 중지", ["allstop"]
         elif action == "all":
-            title, args = "전체 재기동", ["all"]
+            key, title, args = None, "전체 재기동", ["all"]
         else:
             self._json({"error": f"알 수 없는 동작: {action}"}, 400)
             return
 
-        job, err = RUNNER.start(title, args)
+        job, err = RUNNER.start(key, title, args)
         if err:
             self._json({"error": err}, 409)
         else:
-            self._json({"job": job.title})
+            self._json({"job": job.id, "title": job.title})
 
 
 def main():
@@ -467,8 +726,7 @@ def main():
     srv = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
     print(f"JSini 개발 서버 제어판  →  http://127.0.0.1:{PORT}", flush=True)
     print(f"  서비스 {len(SERVICES)}개를 {SCRIPT.name} 에서 읽었습니다.")
-    if not (os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY")):
-        print("  ⚠ DISPLAY 가 없습니다 — 데스크톱 세션 안에서 실행해야 기동이 됩니다.")
+    print(f"  서비스는 창 없이 백그라운드로 띄웁니다 — 출력은 logs/<이름>.log.")
     print("  Ctrl+C 로 종료합니다.")
     try:
         srv.serve_forever()

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
+using JSini.Web.Http;
 using JSini.Web.Models;
 using JSini.Web.Components.Layout;
 
@@ -41,23 +42,60 @@ public partial class NotificationPanel
 
     protected override Task OnInitializedAsync() => ReloadAsync();
 
+    // ── 알림 서버에 못 닿았을 때 ────────────────────────────────
+    //
+    // **이 판은 자기 자리에서 접힌다.** 스위치 값도, 구독에 쓸 VAPID 공개
+    // 키도, 기기 목록도 전부 NotificationServer 한 곳에 있어서(호출 둘 —
+    // `preferences/me` · `subscriptions/me`) 그쪽이 내려가면 채울 것이
+    // 하나도 없다.
+    //
+    // 그런데 이 판은 **환경설정 화면의 한 구역일 뿐**이다. 같은 화면의 홈
+    // 화면 · 떠다니는 단추 · 아래 띠 설정은 브라우저 저장소 값이라 멀쩡한데,
+    // 실패를 토스트로만 말하면 제목 셋이 빈 채로 남아 **화면이 통째로
+    // 망가진 것처럼 보인다.** 실제로 그렇게 보였다.
+    //
+    // 그래서 까닭을 들고 있다가 이 구역 자리에 한 덩어리로 접어 두고,
+    // 나머지 구역은 건드리지 않는다. 서버가 돌아오면 「다시 시도」다.
+    //
+    // **로그인이 풀린 것과 권한이 막힌 것은 접지 않는다**(`when` 절).
+    // 그 둘은 알림 서버의 사정이 아니라 **이 사람의 사정**이고, 셸이 따로
+    // 받는 길이 있다(비밀번호 만료 403 은 화면 여럿이 한꺼번에 403 을 받아도
+    // 안내를 한 번만 띄운다). 여기서 삼키면 그 길이 끊긴다.
+
+    /// <summary>알림 서버에 닿지 못한 까닭. 닿았으면 <c>null</c> 이다.</summary>
+    private string? _loadError;
+
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        var settings = Api.GetMyPreferencesAsync();
-        var subs = Api.GetMySubscriptionsAsync();
+        _loadError = null;
 
-        await Task.WhenAll(settings, subs);
+        try
+        {
+            var settings = Api.GetMyPreferencesAsync();
+            var subs = Api.GetMySubscriptionsAsync();
 
-        _settings = settings.Result ?? new NotificationSettingsDto();
-        _subscriptions = subs.Result;
+            await Task.WhenAll(settings, subs);
 
-        // **좌표를 알았으니 그것이 어디인지도 묻는다.** 저장된 이름이 비어 있는
-        // 사람이 실제로 있어(위 「여기가 어디인가」), 안 물으면 화면에 숫자
-        // 두 개만 남는다. 실패해도 이 조회를 실패로 만들지 않는다.
-        await LoadPlaceAsync();
+            _settings = settings.Result ?? new NotificationSettingsDto();
+            _subscriptions = subs.Result;
+
+            // **좌표를 알았으니 그것이 어디인지도 묻는다.** 저장된 이름이 비어 있는
+            // 사람이 실제로 있어(위 「여기가 어디인가」), 안 물으면 화면에 숫자
+            // 두 개만 남는다. 실패해도 이 조회를 실패로 만들지 않는다.
+            await LoadPlaceAsync();
+        }
+        catch (ApiException ex) when (!ex.IsUnauthorized && !ex.IsForbidden)
+        {
+            _loadError = ex.Message;
+            _settings = null;
+            _subscriptions = null;
+            _place = null;
+        }
 
         // 설정을 읽었으면 화면은 채워진 것이다. 기기가 없다고 「없습니다」를
-        // 띄우면 설정을 못 읽은 것처럼 보인다.
+        // 띄우면 설정을 못 읽은 것처럼 보인다. **접힌 때도 1 이다** — 그쪽은
+        // 이미 제 자리에서 까닭을 말하고 있어, 토스트까지 뜨면 같은 말이
+        // 두 번 난다.
         return 1;
     }, "설정을 받지 못했습니다.", "설정을 읽지 못했습니다");
 

@@ -891,3 +891,82 @@
   vertical-align: middle;
   background: var(--jsini-surface);
 }
+
+/* ── 요청 처리 표 — 줄 하나가 80px 다 (`.hd-manage-grid`) ─────
+
+   그림이 2rem 짜리 우표만 해서 **무엇이 찍힌 그림인지 알아볼 수가
+   없었다.** 줄 높이를 못 박고 「그림」 칸이 그 높이를 통째로 쓴다.
+
+   **높이를 줄(`td`)에 준다.** 그림에만 주면 그림이 있는 줄과 없는 줄이
+   들쭉날쭉해진다 — 스물다섯 줄짜리 표에서 그것이 제일 먼저 눈에 띈다.
+
+   그 높이가 두 줄을 내주므로 제목 칸이 제목 위에 상태·요청자·접수·경과를
+   얹는다(아래 `.hd-req-*`).
+
+   클래스는 화면이 `CommGrd CssClass=` 로 건다 — 그 값은 `DxGrid` 뿌리로
+   흘러가므로 `.commgrd` 가 아니라 **표 자신**에 붙는다.
+   ---------------------------------------------------------- */
+
+.hd-manage-grid .dxbl-grid-table > tbody > tr > td {
+  height: 80px;
+}
+
+/* 「그림」 칸만 여백을 걷는다. DevExpress 가 `.dxbl-grid …> td` 자릿수로
+   여백을 그려서 우리 선택자로는 못 이긴다 — `:has()` 로 자릿수를 올려도
+   테마가 그 값을 다시 잡는 자리가 있어 `!important` 로 못 박는다. */
+.hd-manage-grid .dxbl-grid-table > tbody > tr > td:has(> .hd-row-thumb) {
+  padding: 0 !important;
+}
+
+/* **비율은 그대로 두고 가운데를 잘라** 칸을 채운다(`object-fit: cover` 는
+   위 기본 규칙에서 온다). 맞춰 줄이면(`contain`) 줄마다 그림 폭이 달라져
+   칸이 흔들린다. 칸 폭이 80px 라 결과는 정사각이다. */
+.hd-manage-grid .hd-row-thumb {
+  display: block;
+  width: 100%;
+  height: 80px;
+  border: 0;
+  border-right: 1px solid var(--jsini-border);
+  border-radius: 0;
+}
+
+/* ── 제목 칸 — 얹은 한 줄 + 제목 ──────────────────────────── */
+
+.hd-req-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+  width: 100%;
+  min-width: 0;
+  text-align: left;
+}
+
+.hd-req-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.2rem 0.35rem;
+  font-size: var(--jsini-fs-xs);
+  line-height: 1.2;
+  color: var(--jsini-text-muted);
+}
+
+.hd-req-meta__dot {
+  opacity: 0.5;
+}
+
+/* 표가 `TextWrapEnabled="false"` 라 칸이 `nowrap` 이다. 제목만 풀어 두 줄까지
+   받고 그 뒤는 … 로 자른다 — 안 자르면 긴 제목 하나가 줄 높이를 밀어 올려
+   80px 못이 풀린다. */
+.hd-req-title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: normal;
+  max-width: 100%;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--jsini-text);
+}

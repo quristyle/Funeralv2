@@ -711,6 +711,149 @@
   };
 
   /**
+   * ── 구분선을 끄는 동안 사이드바를 미리 접어 보인다 ──────────
+   *
+   * [왜 JS 가 하나]
+   *
+   * DevExpress 는 **끌기를 놓는 순간에만** 서버에 알린다(`separator-dragged`).
+   * 그래서 C# 만으로는 「놓고 나서 접히는」 것이 되고, 끌던 손이 되돌아와도
+   * 접힐지 말지를 미리 알 수 없다. 끄는 중의 그림은 브라우저만 그릴 수 있다.
+   *
+   * [하는 일은 표시 하나뿐이다]
+   *
+   * 문턱을 넘으면 셸에 `jsini-shell--snap` 을 붙인다. 판 폭을 0 으로 만드는
+   * 일은 CSS 가 하고(app.css 의 같은 이름), **부품의 상태는 건드리지 않는다** —
+   * 끄는 도중에 판을 접어 버리면 DevExpress 가 처음에 재 둔 치수로 셈하던
+   * 끌기가 어긋나 놓는 순간의 폭이 엉뚱해진다.
+   *
+   * 진짜 접힘은 놓을 때 C# 이 한다(`MainLayout.OnSidebarResizedAsync`,
+   * 문턱 `SidebarSnapPx`). **두 문턱이 같은 값이라야** 미리 접어 보인 것과
+   * 놓은 뒤가 어긋나지 않는다.
+   *
+   * [폭은 판이 아니라 셈으로 안다]
+   *
+   * 미리 접어 보이는 동안 판은 이미 0 이라, 판을 재면 끌고 있는 폭을 알 수
+   * 없다. 그래서 **잡은 순간의 폭 + 마우스가 간 거리**로 셈한다 —
+   * DevExpress 가 쓰는 셈과 같다(처음 치수 + 이동량). 90~640px 로 붙잡는
+   * 것은 넘겨도 된다. 어느 쪽으로 붙잡히든 문턱 판정은 같기 때문이다.
+   */
+  var SIDEBAR_SNAP_PX = 100;
+
+  (function () {
+    var SNAP_CLASS = 'jsini-shell--snap';
+
+    /** 끌기 한 번 동안 쓰는 것들. 놓으면 비운다. */
+    var drag = null;
+
+    function pane(shell) {
+      return shell.querySelector('.jsini-shell__split > .dxbl-splitter-pane');
+    }
+
+    /** 표시를 붙이고 뗀다. 접히고 펴지는 모습은 CSS 가 그린다. */
+    function snap(on) {
+      if (!drag || drag.snapped === on) return;
+
+      drag.snapped = on;
+      drag.shell.classList.toggle(SNAP_CLASS, on);
+    }
+
+    function move(e) {
+      if (!drag) return;
+
+      snap(drag.width0 + (e.clientX - drag.x0) <= SIDEBAR_SNAP_PX);
+    }
+
+    /** 끌기 중에만 걸어 두는 것들을 함께 붙이고 뗀다. */
+    function listen(on) {
+      var f = on ? 'addEventListener' : 'removeEventListener';
+
+      document[f]('pointermove', move, true);
+      document[f]('pointerup', stop, true);
+      document[f]('pointercancel', cancel, true);
+      document[f]('keydown', onKey, true);
+    }
+
+    /**
+     * 끌기를 무른다(ESC · 창 밖으로 나간 포인터). **표시를 곧바로 뗀다** —
+     * 무른 끌기는 서버에 알리지 않으므로 기다릴 접힘이 없다.
+     */
+    function cancel() {
+      listen(false);
+
+      if (!drag) return;
+
+      drag.shell.classList.remove(SNAP_CLASS);
+      drag = null;
+    }
+
+    function onKey(e) {
+      if (e.key === 'Escape') cancel();
+    }
+
+    /**
+     * 놓았다. **미리 접어 보이던 중이면 표시를 바로 떼지 않는다** —
+     * 여기서 떼면 C# 의 접힘이 회로를 타고 돌아올 때까지(운영에서 수십 ms)
+     * 사이드바가 한 번 번쩍 펴졌다 접힌다. 접힘이 도착하면 그때 뗀다.
+     */
+    function stop() {
+      listen(false);
+
+      if (!drag) return;
+
+      var shell = drag.shell;
+      var snapped = drag.snapped;
+
+      drag = null;
+
+      if (!snapped) return;
+
+      var done = function () {
+        window.clearTimeout(timer);
+        watch.disconnect();
+        shell.classList.remove(SNAP_CLASS);
+      };
+
+      var watch = new MutationObserver(function () {
+        if (shell.classList.contains('jsini-shell--collapsed')) done();
+      });
+
+      // 접힘이 영영 안 오는 경우(회로가 끊겼거나 부품이 끌기를 물렸다)에도
+      // 표시를 남기지 않는다. 남으면 사이드바가 사라진 채로 굳는다.
+      // 회로 한 바퀴는 운영에서 수십 ms 라 넉넉한 값이다.
+      var timer = window.setTimeout(done, 800);
+
+      watch.observe(shell, { attributes: true, attributeFilter: ['class'] });
+    }
+
+    document.addEventListener('pointerdown', function (e) {
+      if (drag || e.button !== 0) return;
+
+      var sep = e.target.closest && e.target.closest('dxbl-splitter-separator');
+
+      if (!sep) return;
+
+      var shell = sep.closest('.jsini-shell');
+      var el = shell && pane(shell);
+
+      // 접기 화살표를 누른 것은 끌기가 아니다 — 그쪽은 부품이 알아서 한다.
+      if (!el || e.target.closest('.dxbl-btn')) return;
+
+      // **이미 접혀 있으면 아무것도 하지 않는다.** 접힌 판을 끄는 것은
+      // 펴는 일이라 미리 접어 보일 것이 없고, 잡은 폭이 0 이라 셈도 어긋난다.
+      if (shell.classList.contains('jsini-shell--collapsed')) return;
+
+      drag = {
+        shell: shell,
+        x0: e.clientX,
+        width0: el.getBoundingClientRect().width,
+        snapped: false,
+      };
+
+      listen(true);
+    }, true);
+  })();
+
+  /**
    * **뒤로 가기가 몇 번 눌렸나.** 눌릴 때마다 하나씩 오른다.
    *
    * [무엇에 쓰나]

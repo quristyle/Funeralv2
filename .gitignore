@@ -45,3 +45,11 @@ __pycache__/
 # 셸과 업무 MFE 일곱 개가 이 키로 같은 인증 쿠키를 읽는다(web/CLAUDE.md).
 # 키 자체는 비밀값이라 커밋하지 않는다 — 개발 장비마다 처음 기동할 때 만들어진다.
 web/.keys/
+
+# 개발 서버를 창 없이 띄울 때(DEV_BACKGROUND=1 · ./devui.sh) 쌓이는 서비스 출력.
+logs/
+# 빌드를 줄 세우는 잠금 파일 (backend_run_ubuntu.sh)
+.dev-build.lock
+
+# 제어판(devui.sh) 프로세스 번호
+.devui.pid

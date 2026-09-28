@@ -18,6 +18,9 @@
 #
 # 한 서비스만 재기동할 때는 그 서비스만 빌드한다. 전체 빌드를 기다리지 않으므로
 # 코드 한 곳을 고치고 확인하는 흐름이 빨라진다.
+#
+# DEV_BACKGROUND=1 을 주면 서비스마다 터미널 창을 여는 대신 백그라운드로 띄우고
+# 출력을 logs/<이름>.log 에 쌓는다. 개발 서버 제어판(./devui.sh)이 그 모드로 부른다.
 # ============================================================
 
 #############################################
@@ -26,6 +29,15 @@
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 SECRETS_FILE="$ROOT_DIR/scripts/secrets.env"   # 있으면 서비스에 환경변수로 실어 준다 (git 제외)
+
+# 터미널 창 없이 띄우는 모드. DEV_BACKGROUND=1 이면 서비스마다 창을 여는 대신
+# setsid 로 떼어 내고 출력을 logs/<이름>.log 에 쌓는다. 개발 서버 제어판
+# (scripts/devui/server.py)이 이 모드로 부른다 — 창 열두 개가 화면을 덮지 않도록.
+DEV_BACKGROUND="${DEV_BACKGROUND:-}"
+LOG_DIR="$ROOT_DIR/logs"
+
+# 빌드 줄 세우기용 잠금 파일. 아래 build_service 주석 참고.
+BUILD_LOCK="$ROOT_DIR/.dev-build.lock"
 
 #############################################
 # 서비스 목록
@@ -263,7 +275,32 @@ build_service() {   # build_service <이름>
 
 
     echo "   · $(svc_label "$key") 빌드..."
-    (cd "$(svc_dir "$key")" && dotnet build) || return 1
+
+    # 이 스크립트를 서비스마다 따로(동시에) 부를 수 있게 되면서, 두 빌드가
+    # microservices/Common 처럼 **함께 쓰는 프로젝트**를 같은 순간에 건드리면
+    # obj/ 의 중간 산출물이 깨진다. 기동·중지는 서로 겹쳐도 되지만 빌드만은
+    # 줄을 세운다. 기다리는 동안에도 제어판은 멈추지 않는다.
+    if ! command -v flock >/dev/null 2>&1; then
+        (cd "$(svc_dir "$key")" && dotnet build) || return 1
+        return 0
+    fi
+
+    # 잠금은 이 서브셸이 fd 9 로 쥐고, dotnet build 에는 `9>&-` 로 그 fd 를 닫아
+    # 넘긴다. 닫지 않으면 빌드가 끝나도 잠금이 풀리지 않는다 — `dotnet build` 가
+    # 남기는 **MSBuild 노드 프로세스**(다음 빌드에서 재사용하려고 15 분쯤 살아
+    # 있다)가 물려받은 fd 를 그대로 물고 있기 때문이다. `flock <파일> dotnet build`
+    # 로 짧게 썼을 때 첫 빌드 뒤로 모든 빌드가 영영 멈춰 있던 까닭이다.
+    (
+        exec 9>"$BUILD_LOCK" || exit 1
+        # -w 로 시간을 끊는다. 잠금을 물고 있는 유령 프로세스가 남으면 무한정
+        # 기다리게 되는데, 그때는 빌드가 겹치는 위험을 안더라도 진행하는 편이 낫다.
+        if ! flock -n 9; then
+            echo "     (다른 빌드가 끝나기를 기다립니다...)"
+            flock -w 600 9 || echo "     ⚠ 10분을 기다렸습니다. 잠금 없이 그대로 빌드합니다."
+        fi
+        cd "$(svc_dir "$key")" || exit 1
+        dotnet build 9>&-
+    ) || return 1
 }
 
 start_service() {   # start_service <이름>
@@ -284,8 +321,26 @@ start_service() {   # start_service <이름>
     #    0 으로 박아 두면 watch 로 띄워도 고친 것이 반영되지 않는다.
     #  · rude edit(형식 추가·서명 변경)은 물어보지 않고 재기동한다. 물어보면
     #    누군가 그 창을 볼 때까지 서비스가 멈춰 있다.
-    run_terminal "cd \"$(svc_dir "$key")\" || { echo '❌ 서비스 디렉터리를 찾을 수 없습니다.'; exec bash; }; { [ -f \"$SECRETS_FILE\" ] && set -a && . \"$SECRETS_FILE\"; set +a; }; SERVER_NAME=$(svc_name "$key") DOTNET_WATCH_HOT_RELOAD=1 DOTNET_WATCH_RESTART_ON_RUDE_EDIT=1 dotnet watch run; exec bash" &
-    echo "   ✓ $(svc_label "$key") 기동 (포트 $(svc_port "$key") — watch, 고친 것이 바로 반영된다)"
+    local cmd
+    cmd="cd \"$(svc_dir "$key")\" || { echo '❌ 서비스 디렉터리를 찾을 수 없습니다.'; exit 1; }; { [ -f \"$SECRETS_FILE\" ] && set -a && . \"$SECRETS_FILE\"; set +a; }; SERVER_NAME=$(svc_name "$key") DOTNET_WATCH_HOT_RELOAD=1 DOTNET_WATCH_RESTART_ON_RUDE_EDIT=1 dotnet watch run"
+
+    if [ -n "$DEV_BACKGROUND" ]; then
+        # 창을 열지 않고 띄운다. 출력은 logs/<이름>.log 로 간다.
+        #
+        # setsid 로 세션을 떼어 내는 것이 핵심이다. 이렇게 해야 부른 쪽(제어판의
+        # 작업 프로세스)이 끝나거나 그 프로세스 그룹이 정리될 때 서비스가 함께
+        # 딸려 죽지 않는다.
+        #
+        # 명령줄이 `bash -lc cd ...` 로 남는 것도 그대로다 — pids_in_dir 가
+        # 그 꼴을 보고 중지 대상을 고르므로 바꾸면 중지가 깨진다.
+        mkdir -p "$LOG_DIR"
+        setsid bash -lc "$cmd" >"$LOG_DIR/$key.log" 2>&1 </dev/null &
+        echo "   ✓ $(svc_label "$key") 기동 (포트 $(svc_port "$key") — watch, 백그라운드 · 로그 logs/$key.log)"
+    else
+        # `exec bash` 는 dotnet watch 가 끝나도 창을 남겨 두려는 것이다.
+        run_terminal "$cmd; exec bash" &
+        echo "   ✓ $(svc_label "$key") 기동 (포트 $(svc_port "$key") — watch, 고친 것이 바로 반영된다)"
+    fi
 
     # dev.bat 과 같이 2초씩 벌린다. 열두 개를 한꺼번에 던지면 dotnet watch 들이
     # 동시에 복원·빌드에 들어가 서로 느려진다.
@@ -397,9 +452,11 @@ restart_services() {   # restart_services <이름>...
     echo ">>> [3/3] 기동"
     # 기동 직전에 터미널을 한 번 확인한다. start_service 안에서는 늦다 —
     # 거기서 run_terminal 은 백그라운드로 떨어져 실패가 전달되지 않는다.
-    if ! have_terminal; then
+    # 백그라운드 모드는 창을 쓰지 않으므로 이 검사가 필요 없다.
+    if [ -z "$DEV_BACKGROUND" ] && ! have_terminal; then
         echo "❌ 실행 가능한 터미널을 찾을 수 없어 기동하지 못했습니다."
         echo "   빌드는 끝났습니다. 터미널을 쓸 수 있는 환경에서 다시 실행하세요."
+        echo "   창 없이 띄우려면 DEV_BACKGROUND=1 을 주면 됩니다."
         exit 1
     fi
     for key in "${targets[@]}"; do
