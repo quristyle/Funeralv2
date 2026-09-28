@@ -1,6 +1,7 @@
 using System;
 using HelpDeskServer.Services;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace HelpDeskServer.Models {
 
@@ -25,6 +26,30 @@ namespace HelpDeskServer.Models {
     /// 요청을 생성한 고객 (Navigation property)
     /// </summary>
     public Customer? Customer { get; set; }
+
+    /// <summary>
+    /// <b>고객사 이름</b> — 글을 쓴 사람이 그때 속해 있던 회사. <b>DB 에는 없다.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 회사의 정본은 포털(<c>scom.companies</c>)이고, 헬프데스크가 들고 있는 것은
+    /// 고객 줄에 박힌 <b>포털 회사 아이디</b>뿐이다(<see cref="Models.Customer.CompanyId"/> —
+    /// 글을 쓸 때 포털 토큰의 회사가 그대로 들어간다). 그래서 응답에는 회사
+    /// <b>아이디</b>만 있었고, 상세 화면의 「고객사」는 <b>늘 <c>-</c></b> 였다.
+    /// </para>
+    /// <para>
+    /// 이름을 푸는 일은 바깥(포털)을 한 번 부르는 일이라 목록·집계처럼 줄이 많은
+    /// 길에서는 하지 않는다. 한 줄만 내려주는 <b>상세 엔드포인트</b>가
+    /// <see cref="IPortalCompanyDirectory"/> 로 풀어 여기 담고, 그 밖의 길로 나간
+    /// 응답에서는 <c>null</c> 이다 — 화면은 비면 회사 아이디로 물러선다.
+    /// </para>
+    /// <para>
+    /// 칸으로 두지 않은 것은 회사 이름이 <b>포털에서 바뀌는 값</b>이기 때문이다.
+    /// 베껴 두면 회사 이름을 고친 뒤 옛 글만 옛 이름으로 남는다.
+    /// </para>
+    /// </remarks>
+    [NotMapped]
+    public string? CompanyName { get; set; }
 
     /// <summary>담당 관리자 ID</summary>
     public int? AdminId { get; set; }

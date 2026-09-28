@@ -69,6 +69,26 @@
     아는 번호(`HelpDeskContext.HelpdeskUserId`)는 담당자로 이어 둔 계정일
     때만 `admin.id` 라, 그대로 실어 보내면 **번호가 겹치는 남이 접수자로
     박힌다.** 그래서 이 화면은 상태만 보낸다.
+
+    ────────────────────────────────────────────────────────────
+    [머릿값 열 줄을 두 줄로 눕혔다 (2026-09-28)]
+
+    요청번호·제목·고객사·요청자·작성자(계정)·상태·요청일·접수자·접수일·
+    완료일이 **한 줄에 하나씩** 세로로 쌓여 있었다. 노트북 화면의 첫 한 뼘을
+    그 판 하나가 통째로 먹어서, 정작 읽으러 온 **본문이 접힌 아래로 밀렸다.**
+    네 가지를 고쳤다.
+
+      - **제목을 뺐다.** 바로 위 머리글(`hd-detail__title`)이 같은 글자를
+        적고 있어 한 화면에 두 번 나왔다.
+      - **요청자와 작성자(계정)를 한 칸으로 합쳤다** — 「이순열(quristyle)」.
+        둘은 거의 언제나 같은 사람이다(글을 쓴 포털 계정이 그대로 요청자가
+        된다 — 서버의 `IRequesterProvisioner`). 따로 두면 줄만 하나 더 먹고
+        읽는 사람이 위아래를 짝지어 봐야 했다. **접수자도 같은 모양**이다.
+      - **고객사가 이제 이름으로 나온다.** 헬프데스크에는 회사 표가 없어
+        응답에 회사 **아이디**만 있었고 그래서 늘 `-` 였다. 이름을 푸는 쪽은
+        서버다(`GET requests/{id}` → `IPortalCompanyDirectory`).
+      - **격자로 늘어놓는다** — 데스크톱 네 칸, 휴대폰 두 칸(`.hd-facts`).
+        여덟 칸이 두 줄·네 줄로 끝난다.
 *@
 
 @inherits DataPage
@@ -88,20 +108,43 @@
     {
         @* 「접수」 한 줄에 등록일을 적어 두었던 것을 갈랐다. 요청이 들어온
            때와 누군가 그것을 맡은 때는 다른 시각이고, 그 사이가 이 조직이
-           재는 응답 시간이다. 셋을 나란히 두어야 어디서 멈춰 있는지 보인다. *@
+           재는 응답 시간이다. 셋을 나란히 두어야 어디서 멈춰 있는지 보인다.
+
+           칸을 **격자로 눕혔다.** 전에는 `dt`·`dd` 열 쌍이 위에서 아래로
+           열 줄을 차지해, 정작 읽으러 온 본문이 첫 화면에서 밀려나 있었다.
+           지금은 데스크톱 네 칸·휴대폰 두 칸이라 두 줄이면 끝난다
+           (`.hd-facts` — helpdesk.css).
+
+           `dl` 안의 `div` 는 HTML5 가 허락하는 묶음이다. 이것이 있어야
+           이름과 값이 **한 덩이로** 접히고, 없으면 좁은 화면에서 이름과
+           값이 서로 다른 칸으로 갈라진다. *@
         <dl class="hd-facts">
             @* 요청번호는 주소에 있는 그 번호다. 오래 `reqNo` 를 읽고 있었는데
-               서버 응답에 그런 칸이 없어 **늘 `-`** 였다. *@
-            <dt>요청번호</dt><dd>@Id</dd>
-            <dt>제목</dt><dd>@Text("title")</dd>
-            <dt>고객사</dt><dd>@Text("companyName")</dd>
-            <dt>요청자</dt><dd>@RequesterName()</dd>
-            <dt>작성자(계정)</dt><dd>@Text("createdBy")</dd>
-            <dt>상태</dt><dd>@StatusText()</dd>
-            <dt>요청일</dt><dd>@When("createdAt")</dd>
-            <dt>접수자</dt><dd>@AssigneeName()</dd>
-            <dt>접수일</dt><dd>@When("acceptedAt")</dd>
-            <dt>완료일</dt><dd>@When("completededAt")</dd>
+               서버 응답에 그런 칸이 없어 **늘 `-`** 였다.
+
+               제목은 여기서 뺐다 — 바로 위 머리글이 같은 글자를 적고 있어
+               한 화면에 두 번 나왔다. *@
+            <div class="hd-fact"><dt>요청번호</dt><dd>@Id</dd></div>
+
+            <div class="hd-fact">
+                <dt>상태</dt>
+                <dd><span class="jsini-badge @StatusClass()">@StatusText()</span></dd>
+            </div>
+
+            @* 회사 이름은 **서버가 푼다**(`GET requests/{id}`). 헬프데스크에는
+               회사 표가 없어 고객 줄에 든 것은 포털 회사 아이디뿐이고, 그
+               아이디만 내려오던 동안 이 자리는 늘 `-` 였다. *@
+            <div class="hd-fact"><dt>고객사</dt><dd>@CompanyName()</dd></div>
+
+            @* 이름과 계정을 **한 칸에** 적는다. 전에는 「요청자」와
+               「작성자(계정)」이 따로 서 있었는데, 둘은 거의 언제나 같은
+               사람이라 줄만 하나 더 먹고 읽는 사람이 짝을 맞춰야 했다. *@
+            <div class="hd-fact"><dt>요청자</dt><dd>@RequesterName()</dd></div>
+            <div class="hd-fact"><dt>접수자</dt><dd>@AssigneeName()</dd></div>
+
+            <div class="hd-fact"><dt>요청일</dt><dd>@When("createdAt")</dd></div>
+            <div class="hd-fact"><dt>접수일</dt><dd>@When("acceptedAt")</dd></div>
+            <div class="hd-fact"><dt>완료일</dt><dd>@When("completededAt")</dd></div>
         </dl>
 
         @* 본문은 **HTML 이다.** 등록 화면이 서식 편집기(`DxHtmlEditor`)로 쓰고,

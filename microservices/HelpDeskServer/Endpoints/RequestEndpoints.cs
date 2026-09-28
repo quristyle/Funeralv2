@@ -333,13 +333,40 @@ public static class RequestEndpoints {
 
 
     // 요청 상세
-    group.MapGet("/{id}", (AppDbContext db, int id) => ApiResponseBuilder.CreateAsync(
-        () => db.Requests
-        .Include(r => r.Comments)
-        .Include(r => r.Customer)
-        .Include(r => r.Admin)
-        .FirstOrDefaultAsync(r => r.Id == id)
-    ));
+    //
+    // ────────────────────────────────────────────────────────────
+    // [고객사 이름을 여기서 푼다 (2026-09-28)]
+    //
+    // 상세 화면의 「고객사」가 **늘 `-`** 였다. 응답에 회사 이름이 없었기
+    // 때문이다 — 헬프데스크는 회사를 스스로 관리하지 않아서, 고객 줄에 있는
+    // 것은 **포털 회사 아이디**(`customer.companyid` = `jsini` 같은 글자)뿐이다.
+    //
+    // 이름은 포털에만 있으므로 여기서 한 번 물어 담는다
+    // (`IPortalCompanyDirectory` — 5분 캐시라 줄마다 나가지 않는다).
+    // 못 풀면 **아이디를 그대로** 둔다: 이름을 못 읽었다고 회사를 통째로
+    // 감추면 화면에서 「회사가 없는 사람」과 구별이 안 된다.
+    //
+    // 목록·집계에는 하지 않는다. 줄이 많은 길에서 바깥을 부르면 그 값이
+    // 늦어지는 만큼 표가 통째로 늦어진다.
+    // ────────────────────────────────────────────────────────────
+    group.MapGet("/{id}", (AppDbContext db, IPortalCompanyDirectory companies, HttpContext http, int id) =>
+        ApiResponseBuilder.CreateAsync(async () => {
+          var ct = http.RequestAborted;
+
+          var request = await db.Requests
+              .Include(r => r.Comments)
+              .Include(r => r.Customer)
+              .Include(r => r.Admin)
+              .FirstOrDefaultAsync(r => r.Id == id, ct);
+
+          if (request is null) return null;
+
+          request.CompanyName =
+              await companies.GetNameAsync(request.Customer?.CompanyId, ct)
+              ?? request.Customer?.CompanyId;
+
+          return request;
+        }));
 
     // 특정 요청에 대한 덧글 목록 조회
     group.MapGet("/{id}/comments", (AppDbContext db, int id) => ApiResponseBuilder.CreateAsync(async () => {

@@ -272,10 +272,81 @@ public partial class RequestDetail
     /// </summary>
     private string Text(string name) => Value(name) ?? "-";
 
+    /// <summary>
+    /// 사람 하나를 <b>「이름(계정)」 한 덩이</b>로 적는다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 전에는 「요청자」와 「작성자(계정)」이 <b>따로 선 두 줄</b>이었다. 그 둘은
+    /// 거의 언제나 같은 사람이라(글을 쓴 포털 계정이 그대로 요청자가 된다 —
+    /// 서버의 <c>IRequesterProvisioner</c>) 줄만 하나 더 먹으면서, 읽는 사람이
+    /// 위아래를 짝지어 봐야 「이순열이 곧 quristyle」임을 알 수 있었다.
+    /// </para>
+    /// <para>
+    /// <b>이름과 계정이 같으면 한 번만 적는다.</b> 헬프데스크 고객 줄은 이름을
+    /// 모를 때 로그인 아이디를 이름 자리에 넣으므로(<c>RequesterProvisioner</c>),
+    /// 그대로 이으면 <c>quristyle(quristyle)</c> 이 된다.
+    /// </para>
+    /// <para>
+    /// 한쪽만 있으면 있는 쪽을 적는다. 둘 다 없을 때만 <c>-</c> 다 —
+    /// 괄호만 남은 <c>(quristyle)</c> 같은 글자를 내놓지 않는다.
+    /// </para>
+    /// </remarks>
+    private static string Who(string? name, string? loginId)
+    {
+        var hasName = !string.IsNullOrWhiteSpace(name);
+        var hasId = !string.IsNullOrWhiteSpace(loginId);
+
+        return (hasName, hasId) switch
+        {
+            (true, true) when !string.Equals(name, loginId, StringComparison.Ordinal) => $"{name}({loginId})",
+            (true, _) => name!,
+            (_, true) => loginId!,
+            _ => "-",
+        };
+    }
+
+    /// <summary>
+    /// 요청자 — <b>이름과 계정을 함께</b> 적는다.
+    /// </summary>
+    /// <remarks>
+    /// 계정은 <c>createdBy</c> 가 먼저다. 그것이 <b>실제로 이 글을 쓴 포털
+    /// 계정</b>이고(서버가 폼 값이 아니라 로그인 신원에서 박는다), 담당자가
+    /// 남을 대신해 올린 글에서는 고객 줄의 아이디와 갈린다.
+    /// </remarks>
     private string RequesterName() =>
-        Value("requesterName")
-        ?? NestedValue("customer", "userName")
+        Who(Value("requesterName") ?? NestedValue("customer", "userName"),
+            Value("createdBy") ?? NestedValue("customer", "loginId"));
+
+    /// <summary>
+    /// 고객사 — <b>글을 쓴 사람의 소속 회사</b>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 이름은 서버가 풀어 <c>companyName</c> 에 담아 준다. 헬프데스크는 회사를
+    /// 스스로 관리하지 않아서, 고객 줄에 박혀 있는 것은 <b>포털 회사 아이디</b>
+    /// 뿐이다(<c>customer.companyId</c> — 글을 쓸 때 포털 토큰의 회사가 그대로
+    /// 들어간다). 그 아이디만 내려오던 동안 이 자리는 <b>늘 <c>-</c></b> 였다.
+    /// </para>
+    /// <para>
+    /// 서버가 포털을 못 불렀으면 아이디가 대신 온다. 그래도 여기서 한 번 더
+    /// 물러서는 것은 <b>옛 응답</b>(아직 안 올라간 백엔드) 때문이다 — 회사를
+    /// 통째로 감추는 것보다 아이디라도 보이는 편이 낫다.
+    /// </para>
+    /// </remarks>
+    private string CompanyName() =>
+        Value("companyName")
+        ?? NestedValue("customer", "companyId")
         ?? "-";
+
+    /// <summary>상태 배지의 색. 목록 화면(<c>RequestManage</c>)과 같은 표다.</summary>
+    private string StatusClass() => Status switch
+    {
+        "Completed" or "UserCompleted" => "jsini-badge--on",
+        "InProgress" or "Consultation" or "Negotiation" => "jsini-badge--warn",
+        "Rejected" => "jsini-badge--off",
+        _ => string.Empty,
+    };
 
     /// <summary>
     /// 접수자 이름. 아직 아무도 안 맡았으면 <b>그렇다고 말한다.</b>
@@ -292,11 +363,19 @@ public partial class RequestDetail
     /// 단추를 눌러야 하는지</b>를 말해 주는 자리이기 때문이다. 목록 화면도
     /// 같은 말을 쓴다(<c>RequestManage</c>).
     /// </para>
+    /// <para>
+    /// 요청자와 <b>같은 모양</b>으로 이름과 계정을 함께 적는다(<see cref="Who"/>).
+    /// 담당자는 이름이 겹치는 일이 있어(같은 이름의 계정 둘) 계정이 없으면
+    /// 누구에게 물어야 할지 가려지지 않는다.
+    /// </para>
     /// </remarks>
-    private string AssigneeName() =>
-        NestedValue("admin", "userName")
-        ?? Value("adminName")
-        ?? "미배정";
+    private string AssigneeName()
+    {
+        var name = NestedValue("admin", "userName") ?? Value("adminName");
+        var loginId = NestedValue("admin", "loginId");
+
+        return name is null && loginId is null ? "미배정" : Who(name, loginId);
+    }
 
     /// <summary>상태를 사람이 읽는 말로. 서버가 준 <c>statusName</c> 이 먼저다.</summary>
     private string StatusText() =>
