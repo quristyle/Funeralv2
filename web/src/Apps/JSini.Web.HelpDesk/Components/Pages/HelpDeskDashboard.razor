@@ -305,84 +305,79 @@
     </CommGrd>
 </DashboardSection>
 
-@* ── 회사별 · 담당자별 ───────────────────────────────────── *@
+@* ── 회사별 · 담당자별 ─────────────────────────────────────
 
-<DashboardSection Title="고객사별" Hint="건수 많은 곳부터">
-    <CommGrd TItem="DashboardCompany" Data="@Data.Companies"
-             Unit="곳" ExportName="고객사별현황"
-             Reload="@ReloadAsync">
-        <Columns>
-            <DxGridDataColumn FieldName="@nameof(DashboardCompany.CompanyName)" Caption="고객사"
-                              MinWidth="150" TextAlignment="GridTextAlignment.Left" />
-            <DxGridDataColumn FieldName="@nameof(DashboardCompany.Total)" Caption="전체" Width="80" MinWidth="80" />
-            <DxGridDataColumn FieldName="@nameof(DashboardCompany.Pending)" Caption="대기" Width="80" MinWidth="80" />
-            <DxGridDataColumn FieldName="@nameof(DashboardCompany.InProgress)" Caption="진행" Width="80" MinWidth="80" />
-            <DxGridDataColumn FieldName="@nameof(DashboardCompany.Talking)" Caption="협의" Width="80" MinWidth="80" />
-            <DxGridDataColumn FieldName="@nameof(DashboardCompany.Completed)" Caption="완료" Width="80" MinWidth="80" />
-            <DxGridDataColumn FieldName="@nameof(DashboardCompany.Rejected)" Caption="반려" Width="80" MinWidth="80" />
-            <DxGridDataColumn Caption="완료율" Width="95" MinWidth="95">
-                <CellDisplayTemplate Context="cell">
-                    @Rate(((DashboardCompany)cell.DataItem).CompletionRate)
-                </CellDisplayTemplate>
-            </DxGridDataColumn>
-            <DxGridDataColumn Caption="평균 접수" Width="110" MinWidth="110">
-                <CellDisplayTemplate Context="cell">
-                    @Hours(((DashboardCompany)cell.DataItem).AvgResponseHours)
-                </CellDisplayTemplate>
-            </DxGridDataColumn>
-            <DxGridDataColumn Caption="평균 처리" Width="110" MinWidth="110">
-                <CellDisplayTemplate Context="cell">
-                    @Hours(((DashboardCompany)cell.DataItem).AvgResolutionHours)
-                </CellDisplayTemplate>
-            </DxGridDataColumn>
-            <DxGridDataColumn FieldName="@nameof(DashboardCompany.ThisMonth)" Caption="이번달" Width="90" MinWidth="90" />
-            <DxGridDataColumn Caption="최장 대기" Width="110" MinWidth="110">
-                <CellDisplayTemplate Context="cell">
-                    @Days(((DashboardCompany)cell.DataItem).OldestPendingDays)
-                </CellDisplayTemplate>
-            </DxGridDataColumn>
-            <DxGridDataColumn FieldName="@nameof(DashboardCompany.Requesters)" Caption="요청자" Width="90" MinWidth="90" />
-            <DxGridDataColumn FieldName="@nameof(DashboardCompany.LastRequestedAt)" Caption="마지막 접수"
-                              Width="130" MinWidth="130" DisplayFormat="yyyy-MM-dd" />
-        </Columns>
-    </CommGrd>
+   표가 아니라 **카드**다. 전에는 칸이 열넷(고객사) · 열둘(담당자)인 표였는데,
+   한 줄을 끝까지 가로로 읽어야 「이 회사가 어떤가」가 잡혔고 굵기가 고른
+   숫자 열넷 사이에서 눈이 붙잡을 곳이 없었다. 카드는 그것을 이름과 대푯값
+   하나 · 상태 띠 · 나머지 지표 셋으로 나눈다. 치수와 까닭은 helpdesk.css
+   `.hd-cards` 머리말에 적어 두었다.
+
+   표에 있던 상태 칸 다섯(대기·진행·협의·완료·반려)은 **띠와 범례**로 옮겼다.
+   숫자는 범례에 그대로 남아 있고, 그 위에 「무엇이 얼마나」가 폭으로 얹힌다.
+*@
+
+<DashboardSection Title="고객사별" Hint="@CompanyHint">
+    @if (Data.Companies.Count == 0)
+    {
+        <p class="hd-cards__empty">셀 고객사가 없습니다.</p>
+    }
+    else
+    {
+        <div class="hd-cards">
+            @foreach (var c in Data.Companies)
+            {
+                <article class="jsini-card hd-card">
+                    <header class="hd-card__head">
+                        <span class="hd-card__name" title="@c.CompanyName">@c.CompanyName</span>
+                        <span class="hd-card__lead">@Num(c.Total)<small>건</small></span>
+                    </header>
+
+                    @SegmentBar(CompanySegments(c), c.Total)
+
+                    <dl class="hd-card__facts">
+                        @Fact("완료율", Rate(c.CompletionRate))
+                        @Fact("이번달", $"{Num(c.ThisMonth)}건")
+                        @Fact("평균 접수", Hours(c.AvgResponseHours))
+                        @Fact("평균 처리", Hours(c.AvgResolutionHours))
+                        @Fact("최장 대기", Days(c.OldestPendingDays))
+                        @Fact("긴급 미처리", $"{Num(c.EmergencyOpen)}건")
+                        @Fact("요청자", $"{Num(c.Requesters)}명")
+                        @Fact("마지막 접수", Date(c.LastRequestedAt))
+                    </dl>
+                </article>
+            }
+        </div>
+    }
 </DashboardSection>
 
 @if (Data.Admins.Count > 0)
 {
-    <DashboardSection Title="담당자별" Hint="완료 많은 사람부터">
-        <CommGrd TItem="DashboardAdmin" Data="@Data.Admins"
-                 Unit="명" ExportName="담당자별현황"
-                 Reload="@ReloadAsync">
-            <Columns>
-                <DxGridDataColumn FieldName="@nameof(DashboardAdmin.AdminName)" Caption="담당자"
-                                  MinWidth="140" TextAlignment="GridTextAlignment.Left" />
-                <DxGridDataColumn FieldName="@nameof(DashboardAdmin.Assigned)" Caption="배정" Width="80" MinWidth="80" />
-                <DxGridDataColumn FieldName="@nameof(DashboardAdmin.Open)" Caption="남은 짐" Width="100" MinWidth="100" />
-                <DxGridDataColumn FieldName="@nameof(DashboardAdmin.InProgress)" Caption="진행" Width="80" MinWidth="80" />
-                <DxGridDataColumn FieldName="@nameof(DashboardAdmin.Talking)" Caption="협의" Width="80" MinWidth="80" />
-                <DxGridDataColumn FieldName="@nameof(DashboardAdmin.Completed)" Caption="완료" Width="80" MinWidth="80" />
-                <DxGridDataColumn FieldName="@nameof(DashboardAdmin.Rejected)" Caption="반려" Width="80" MinWidth="80" />
-                <DxGridDataColumn Caption="완료율" Width="95" MinWidth="95">
-                    <CellDisplayTemplate Context="cell">
-                        @Rate(((DashboardAdmin)cell.DataItem).CompletionRate)
-                    </CellDisplayTemplate>
-                </DxGridDataColumn>
-                <DxGridDataColumn Caption="평균 처리" Width="110" MinWidth="110">
-                    <CellDisplayTemplate Context="cell">
-                        @Hours(((DashboardAdmin)cell.DataItem).AvgResolutionHours)
-                    </CellDisplayTemplate>
-                </DxGridDataColumn>
-                <DxGridDataColumn FieldName="@nameof(DashboardAdmin.CompletedThisMonth)" Caption="이번달 완료" Width="120" MinWidth="120" />
-                <DxGridDataColumn Caption="점유율" Width="95" MinWidth="95">
-                    <CellDisplayTemplate Context="cell">
-                        @Rate(((DashboardAdmin)cell.DataItem).Share)
-                    </CellDisplayTemplate>
-                </DxGridDataColumn>
-                <DxGridDataColumn FieldName="@nameof(DashboardAdmin.LastCompletedAt)" Caption="마지막 완료"
-                                  Width="130" MinWidth="130" DisplayFormat="yyyy-MM-dd" />
-            </Columns>
-        </CommGrd>
+    <DashboardSection Title="담당자별" Hint="@AdminHint">
+        <div class="hd-cards">
+            @foreach (var a in Data.Admins)
+            {
+                <article class="jsini-card hd-card">
+                    <header class="hd-card__head">
+                        <span class="hd-card__avatar" aria-hidden="true">@Initial(a.AdminName)</span>
+                        <span class="hd-card__name" title="@a.AdminName">@a.AdminName</span>
+                        <span class="hd-card__lead">@Num(a.Completed)<small>완료</small></span>
+                    </header>
+
+                    @SegmentBar(AdminSegments(a), a.Assigned)
+
+                    <dl class="hd-card__facts">
+                        @Fact("배정", $"{Num(a.Assigned)}건")
+                        @Fact("남은 짐", $"{Num(a.Open)}건")
+                        @Fact("완료율", Rate(a.CompletionRate))
+                        @Fact("점유율", Rate(a.Share))
+                        @Fact("평균 처리", Hours(a.AvgResolutionHours))
+                        @Fact("이번달 완료", $"{Num(a.CompletedThisMonth)}건")
+                        @Fact("마지막 완료", Date(a.LastCompletedAt))
+                    </dl>
+                </article>
+            }
+        </div>
     </DashboardSection>
 }
 
@@ -471,6 +466,54 @@
                 <span class="jsini-badge jsini-badge--err">긴급</span>
             }
             <span>@r.Title</span>
+        </div>
+    };
+
+    /// <summary>
+    /// 카드 하나의 상태 분해. <b>0 건인 조각은 뺀다</b> — 도넛에서 빈 조각을
+    /// 빼는 것과 같은 까닭이다. 폭이 0 인 조각은 안 보이는데 범례에만 남으면
+    /// 「색이 하나 더 있다」로 읽힌다.
+    ///
+    /// 폭은 <c>style</c> 로 준다. 비율 자체가 자료라 CSS 로는 못 적는다.
+    /// </summary>
+    private RenderFragment SegmentBar(IReadOnlyList<Seg> segments, int total) => __builder =>
+    {
+        var shown = segments.Where(s => s.Count > 0).ToList();
+
+        <div class="hd-bar" role="img" aria-label="@BarLabel(shown)">
+            @foreach (var s in shown)
+            {
+                <span class="hd-bar__seg"
+                      style="width: @Pct(s.Count, total); background: @s.Color"
+                      title="@s.Label @(s.Count)건"></span>
+            }
+        </div>
+
+        @if (shown.Count > 0)
+        {
+            <div class="hd-legend">
+                @foreach (var s in shown)
+                {
+                    <span class="hd-legend__item">
+                        <span class="hd-legend__dot" style="background: @s.Color"></span>
+                        @s.Label
+                        <span class="hd-legend__count">@Num(s.Count)</span>
+                    </span>
+                }
+            </div>
+        }
+    };
+
+    /// <summary>
+    /// 카드 아래쪽 이름·값 한 쌍. <c>&lt;dl&gt;</c> 안의 <c>&lt;div&gt;</c> 묶음이라야
+    /// 이름과 값이 한 칸에 붙어 접힌다 — 안 묶으면 격자가 dt 와 dd 를 따로
+    /// 흩어 놓아 이름과 값이 다른 줄에 선다.
+    /// </summary>
+    private RenderFragment Fact(string label, string value) => __builder =>
+    {
+        <div class="hd-card__fact">
+            <dt>@label</dt>
+            <dd>@value</dd>
         </div>
     };
 }

@@ -219,6 +219,89 @@ public partial class HelpDeskDashboard
     private Task OpenSelectedAsync() =>
         _selectedRecent is null ? Task.CompletedTask : OpenRequestAsync(_selectedRecent);
 
+    // ── 카드 (고객사별 · 담당자별) ──────────────────────────
+
+    /// <summary>
+    /// 카드 머리에 적는 곁말. 몇 장인지 먼저 말한다 — 카드는 표와 달리
+    /// 「총 N건」을 그려 주는 띠가 없어서(그 일은 <c>CommGrd</c> 가 했다)
+    /// 안 적으면 화면을 끝까지 굴려야 몇 곳인지 알 수 있다.
+    /// </summary>
+    private string CompanyHint => $"{Data.Companies.Count}곳 · 건수 많은 곳부터";
+
+    private string AdminHint => $"{Data.Admins.Count}명 · 완료 많은 사람부터";
+
+    /// <summary>상태 띠의 조각 하나. 색은 도넛과 같은 팔레트에서 꺼낸다.</summary>
+    private sealed record Seg(string Label, int Count, string Color);
+
+    /// <summary>
+    /// 고객사 한 곳의 상태 분해. 다섯을 더하면 <see cref="DashboardCompany.Total"/>
+    /// 과 정확히 같다 — 서버가 상태 일곱을 이 다섯 칸에 빠짐없이 접어 담기
+    /// 때문이다(완료에 「종료」가, 협의에 「논의」가 들어 있다). 그래서 띠가
+    /// 폭을 다 채우고, 안 채워진 자리가 보이면 그것이 곧 집계가 새고 있다는 표다.
+    /// </summary>
+    private static IReadOnlyList<Seg> CompanySegments(DashboardCompany c) =>
+    [
+        new("대기", c.Pending, StatusColors["Pending"]),
+        new("진행", c.InProgress, StatusColors["InProgress"]),
+        new("협의", c.Talking, StatusColors["Consultation"]),
+        new("완료", c.Completed, StatusColors["Completed"]),
+        new("반려", c.Rejected, StatusColors["Rejected"]),
+    ];
+
+    /// <summary>
+    /// 담당자 한 사람의 상태 분해. <b>대기 칸은 서버가 안 준다</b> — 남은 짐
+    /// (<c>Open</c>)에서 진행·협의를 덜어 낸 나머지가 그것이다.
+    /// 음수로 떨어지지 않게 묶는다: 집계가 어긋나도 띠가 뒤집히지는 않게.
+    /// </summary>
+    private static IReadOnlyList<Seg> AdminSegments(DashboardAdmin a) =>
+    [
+        new("대기", Math.Max(0, a.Open - a.InProgress - a.Talking), StatusColors["Pending"]),
+        new("진행", a.InProgress, StatusColors["InProgress"]),
+        new("협의", a.Talking, StatusColors["Consultation"]),
+        new("완료", a.Completed, StatusColors["Completed"]),
+        new("반려", a.Rejected, StatusColors["Rejected"]),
+    ];
+
+    /// <summary>
+    /// 조각 폭. <b>반드시 InvariantCulture 다</b> — 소수점을 쉼표로 찍는
+    /// 문화권에서 <c>width: 33,3%</c> 가 나가면 브라우저가 그 선언을 통째로
+    /// 버려서, 조각이 전부 0 폭이 되고 띠가 빈 회색 막대로만 남는다.
+    /// </summary>
+    private static string Pct(int part, int whole) => whole <= 0
+        ? "0%"
+        : ((double)part / whole * 100).ToString("0.##", CultureInfo.InvariantCulture) + "%";
+
+    /// <summary>
+    /// 띠를 소리 내어 읽을 때의 한 줄. 띠 자체는 <c>span</c> 덩어리라
+    /// 화면 낭독기에게는 아무 뜻이 없다.
+    /// </summary>
+    private static string BarLabel(IEnumerable<Seg> shown) =>
+        string.Join(" · ", shown.Select(s => $"{s.Label} {s.Count}건"));
+
+    /// <summary>
+    /// 얼굴 자리에 넣을 첫 글자. 이모지처럼 두 칸을 쓰는 글자는 잘라 내면
+    /// 깨진 네모가 되므로 짝을 지켜 두 칸을 가져온다.
+    /// </summary>
+    private static string Initial(string? name)
+    {
+        var t = name?.Trim();
+
+        if (string.IsNullOrEmpty(t))
+        {
+            return "?";
+        }
+
+        return char.IsHighSurrogate(t[0]) && t.Length > 1 ? t[..2] : t[..1];
+    }
+
+    /// <summary>
+    /// 날짜 한 칸. <b>표에 있던 그대로 서버가 준 값을 그냥 찍는다</b> —
+    /// 시간대를 여기서 옮기면 표를 보던 사람과 카드를 보는 사람이 하루
+    /// 어긋난 날짜를 보게 된다. 없으면 빈 칸이 아니라 「-」다(빈 칸은
+    /// 「아직 안 불러왔다」로 읽힌다).
+    /// </summary>
+    private static string Date(DateTime? at) => at?.ToString("yyyy-MM-dd") ?? "-";
+
     // ── 글자 맞추기 ─────────────────────────────────────────
 
     private static string Num(int value) => value.ToString("#,##0", CultureInfo.InvariantCulture);
