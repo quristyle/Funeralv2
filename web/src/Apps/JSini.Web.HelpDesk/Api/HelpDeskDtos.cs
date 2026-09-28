@@ -151,12 +151,40 @@ public sealed class CommentAuthor
 }
 
 /// <summary>첨부파일.</summary>
+/// <remarks>
+/// <para>
+/// <b>칸 이름을 서버에 맞춰 두었다.</b> 한동안 <c>fileName</c> · <c>contentType</c>
+/// 으로 적혀 있었는데 서버(<c>HelpDeskServer/Models/Attachment.cs</c>)가 내려주는
+/// 것은 <c>originalFileName</c> · <c>fileType</c> 이다. 이름이 어긋나면
+/// 역직렬화가 <b>오류 없이</b> 빈 값을 채우므로, 증상이 「첨부는 몇 건이라는데
+/// 이름도 종류도 전부 비어 있다」로 나타난다(<see cref="ImprovementComment"/> 와
+/// 같은 함정이다). 실제 응답으로 대조해 고쳤다 — 2026-09-28.
+/// </para>
+/// <para>
+/// 그림을 그리는 쪽이 보는 것은 <see cref="FileId"/> 다. 그것이 FileServer 가
+/// 발급한 아이디이고, <c>FilePath</c> · <c>StoredFileName</c> 은 FileServer 로
+/// 옮기기 전의 흔적이라 <b>옮긴 첨부에서는 쓰지 않는다</b>.
+/// </para>
+/// </remarks>
 public sealed class Attachment : HdEntity
 {
-    public string FileName { get; set; } = string.Empty;
+    /// <summary>올릴 때의 파일 이름.</summary>
+    public string OriginalFileName { get; set; } = string.Empty;
+
+    /// <summary>저장 파일 이름. FileServer 로 옮기기 전의 흔적이다.</summary>
+    public string? StoredFileName { get; set; }
+
+    /// <summary>파일 경로. FileServer 로 옮기기 전의 흔적이다.</summary>
     public string? FilePath { get; set; }
+
+    /// <summary>MIME 타입. 브라우저가 올릴 때 적어 준 값 그대로다.</summary>
+    public string? FileType { get; set; }
+
     public long? FileSize { get; set; }
-    public string? ContentType { get; set; }
+
+    /// <summary>FileServer 가 발급한 파일 아이디. 내려받기·썸네일이 이것으로 간다.</summary>
+    public string? FileId { get; set; }
+
     public string? EntityType { get; set; }
     public int? EntityId { get; set; }
 }

@@ -797,3 +797,26 @@
   max-width: 100%;
   height: auto;
 }
+
+/* ── 요청 처리 표의 「그림」 칸 ──────────────────────────
+
+   요청 한 건을 대신하는 그림 한 장(`RequestThumb`). 파일 서버가 주는 것은
+   150×150 이라 여기서 다시 줄여 건다.
+
+   **높이를 줄 높이 안에서 잡는다.** 그림의 제 높이를 그대로 두면 줄이
+   그림만큼 키가 커져서, 그림이 있는 줄과 없는 줄이 들쭉날쭉해진다 —
+   스물다섯 줄짜리 표에서 그것이 제일 먼저 눈에 띈다.
+
+   `object-fit: cover` 라 가로로 긴 사진도 가운데를 잘라 네모로 선다.
+   맞춰 줄이면(`contain`) 줄마다 그림 폭이 달라져 칸이 흔들린다.
+   ---------------------------------------------------------- */
+
+.hd-row-thumb {
+  width: 2rem;
+  height: 2rem;
+  object-fit: cover;
+  border-radius: 3px;
+  border: 1px solid var(--jsini-border);
+  vertical-align: middle;
+  background: var(--jsini-surface);
+}

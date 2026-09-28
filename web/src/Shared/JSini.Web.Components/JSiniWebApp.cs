@@ -360,6 +360,11 @@ public static class JSiniWebApp
         // 화면을 옮기는 동안의 표시. 레이아웃이 켜고 `DataPage` 가 끈다.
         services.AddScoped<PageTransition>();
 
+        // 떠난 화면이 맡겨 둔 짐(조건 · 읽어 둔 목록 · 표의 모습). 돌아오면
+        // 그것으로 제 모습을 되살린다 — vben 의 keep-alive 자리다.
+        // **회로마다 하나**여야 한다(ScreenState 머리말).
+        services.AddScoped<ScreenState>();
+
         // 동작의 결과를 알리는 토스트. **회로마다 하나** — 싱글턴으로 두면
         // 남이 저장한 것이 내 화면에 뜬다(Toasts 머리말).
         services.AddScoped<Toasts>();

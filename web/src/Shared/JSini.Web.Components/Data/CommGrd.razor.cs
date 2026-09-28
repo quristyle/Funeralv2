@@ -3,12 +3,18 @@ using Microsoft.AspNetCore.Components.Web;
 using DevExpress.Blazor;
 using JSini.Web.Abstractions;
 using JSini.Web.Components.Layout;
+using Microsoft.JSInterop;
 
 namespace JSini.Web.Components.Data;
 
 public partial class CommGrd<TItem>
 {
     [Inject] private ThemeSize Size { get; set; } = default!;
+
+    /// <summary><see cref="StateKey"/> 를 적은 표의 모습을 맡아 두는 곳.</summary>
+    [Inject] private ScreenState Screen { get; set; } = default!;
+
+    [Inject] private IJSRuntime Js { get; set; } = default!;
 
     /// <summary>표에 넣을 자료.</summary>
     [Parameter, EditorRequired] public object Data { get; set; } = default!;
@@ -379,6 +385,31 @@ public partial class CommGrd<TItem>
     /// </summary>
     [Parameter] public EventCallback<GridItemsDroppedEventArgs> ItemsDropped { get; set; }
 
+    /// <summary>
+    /// 표의 <b>모습</b>을 화면을 떠났다 돌아와도 그대로 두고 싶을 때 적는 이름.
+    /// 비우면(기본) 아무것도 기억하지 않는다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 남는 것은 DevExpress 가 <c>SaveLayout</c> 으로 내놓는 것 전부다 —
+    /// 칸 너비 · 숨긴 칸 · 정렬 · 칸별 검색 조건 · 검색어 · 쪽 번호. 담아 두는
+    /// 곳은 <see cref="ScreenState"/> 라 <b>회로가 살아 있는 동안</b>만
+    /// 남는다(새로고침하면 처음 모습이다).
+    /// </para>
+    ///
+    /// <para>
+    /// <b>구른 자리는 여기 안 들어간다.</b> 그것은 layout 이 아니라 DOM 의
+    /// 값이라 <see cref="ScrollSlot"/> 쪽에서 따로 재어 둔다.
+    /// </para>
+    ///
+    /// <para>
+    /// 이름은 화면끼리 겹치지 않게 짓는다 — 관례는 화면 경로다
+    /// (<c>helpdesk/request/manage</c>). 겹치면 칸 구성이 다른 표끼리 서로의
+    /// 모습을 덮어쓰고, 그때는 <b>칸이 엉뚱한 너비로 서거나 빈 표가 된다.</b>
+    /// </para>
+    /// </remarks>
+    [Parameter] public string? StateKey { get; set; }
+
     /// <summary>선언하지 않은 모든 DxGrid 파라미터.</summary>
     [Parameter(CaptureUnmatchedValues = true)]
     public IReadOnlyDictionary<string, object>? Extra { get; set; }
@@ -423,6 +454,14 @@ public partial class CommGrd<TItem>
 
     private IGrid? _grid;
     private IReadOnlyDictionary<string, object>? _forwarded;
+
+    /// <summary>표를 감싼 칸. 구를 칸을 이 안에서 찾는다(<c>grid-scroll.js</c>).</summary>
+    private ElementReference _root;
+
+    private IJSObjectReference? _scrollJs;
+
+    /// <summary>구른 자리를 되돌리는 일이 끝났는가. 끝나면 더 부르지 않는다.</summary>
+    private bool _scrollSynced;
 
     /// <summary>표가 지금 들고 있는 선택. 화면이 값을 주면 그것을 따른다.</summary>
     private object? _selected;
@@ -600,6 +639,8 @@ public partial class CommGrd<TItem>
     {
         await base.OnAfterRenderAsync(firstRender);
 
+        await SyncScrollAsync();
+
         // 머리줄의 「거른 뒤 건수」. 표가 세어야 나오는 값이라 렌더 뒤에 읽고,
         // **값이 바뀌었을 때만** 한 번 더 그린다 — 그냥 부르면 끝없이 돈다.
         //
@@ -697,6 +738,14 @@ public partial class CommGrd<TItem>
     /// </summary>
     private Task OnLayoutChanged(GridPersistentLayoutEventArgs e)
     {
+        // 화면이 이름을 적어 두었으면 바뀐 모습을 그대로 맡긴다. 이 알림은
+        // 정렬 · 칸 너비 · 칸별 검색 · 쪽 넘기기마다 오므로, 떠나는 순간을
+        // 따로 붙잡지 않아도 늘 최신이다.
+        if (LayoutSlot is { } slot && e.Layout is { } layout)
+        {
+            Screen.Set(slot, layout);
+        }
+
         if (_grid is null)
         {
             return Task.CompletedTask;
@@ -740,6 +789,66 @@ public partial class CommGrd<TItem>
         // 알림을 받는 도중에 layout 을 또 건드리지 않는다. 한 박자 뒤로 미룬다.
         var target = release;
         _ = InvokeAsync(() => _grid.SortBy(target, GridColumnSortOrder.None));
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// 구른 자리를 맡기고 되돌린다. <see cref="StateKey"/> 를 적은 표만 한다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>될 때까지 다시 부른다.</b> 되돌릴 자리를 아는데도 표가 아직 그만큼
+    /// 길지 않을 수 있다 — 가상 스크롤은 줄을 다 그리기 전에는 높이를 잡지
+    /// 못한다. 그때 한 번 시도하고 끝내면 표는 늘 맨 위에 선다.
+    /// </para>
+    /// <para>
+    /// 회로가 이미 닫혔으면 조용히 넘어간다. 구른 자리 하나 때문에 화면을
+    /// 떠나는 것이 오류가 되어서는 안 된다.
+    /// </para>
+    /// </remarks>
+    private async Task SyncScrollAsync()
+    {
+        if (_scrollSynced || ScrollSlot is not { } slot)
+        {
+            return;
+        }
+
+        try
+        {
+            _scrollJs ??= await Js.InvokeAsync<IJSObjectReference>(
+                "import", "./_content/JSini.Web.Components/js/grid-scroll.js");
+
+            _scrollSynced = await _scrollJs.InvokeAsync<bool>("sync", _root, slot);
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or ObjectDisposedException)
+        {
+            // 더 두드리지 않는다. 최악이라야 표가 맨 위에서 시작할 뿐이다.
+            _scrollSynced = true;
+        }
+    }
+
+    /// <summary>표의 모습을 맡겨 둘 열쇠. <see cref="StateKey"/> 가 비면 없다.</summary>
+    private string? LayoutSlot =>
+        string.IsNullOrWhiteSpace(StateKey) ? null : $"grd:{StateKey}";
+
+    /// <summary>구른 자리를 맡겨 둘 열쇠. layout 과 따로 둔다 — 재는 법이 다르다.</summary>
+    private string? ScrollSlot =>
+        string.IsNullOrWhiteSpace(StateKey) ? null : $"grd-scroll:{StateKey}";
+
+    /// <summary>
+    /// 표가 제 모습을 읽어 갈 차례. 맡아 둔 것이 있으면 그것을 건넨다.
+    /// </summary>
+    /// <remarks>
+    /// <b>이 자리여야 한다.</b> <c>LoadLayout</c> 을 렌더 뒤에 부르면 표가 한 번
+    /// 처음 모습으로 그려졌다가 바뀌어서, 돌아올 때마다 칸이 눈앞에서 뛴다.
+    /// </remarks>
+    private Task OnLayoutLoading(GridPersistentLayoutEventArgs e)
+    {
+        if (LayoutSlot is { } slot && Screen.Get<GridPersistentLayout>(slot) is { } saved)
+        {
+            e.Layout = saved;
+        }
 
         return Task.CompletedTask;
     }

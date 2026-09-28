@@ -31,6 +31,7 @@
 @* 껍데기 크기를 캡에서 멈추려고 받는다 — `ThemeSize.Chrome` 머리말 참고. *@
 
 <div class="commgrd"
+     @ref="_root"
      @oncontextmenu="@OpenMenuAsync"
      @oncontextmenu:preventDefault="@HasMenu">
 
@@ -93,6 +94,7 @@
             DataItemDeleting="@OnDataItemDeletingAsync"
             FilterCriteriaChanged="@OnFilterCriteriaChanged"
             CustomizeElement="@OnCustomizeElement"
+            LayoutAutoLoading="@OnLayoutLoading"
             LayoutAutoSaving="@OnLayoutChanged"
             AllowDragRows="@AllowDragRows"
             AllowedDropTarget="@AllowedDropTarget"
