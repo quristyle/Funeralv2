@@ -123,6 +123,19 @@ public sealed class ImprovementComment : HdEntity
     public List<Attachment>? Attachments { get; set; }
 }
 
+/// <summary>「내 댓글」 목록에서 요청 정보와 함께 보여 주는 댓글.</summary>
+public sealed class MyCommentItem
+{
+    public int CommentId { get; set; }
+    public string? CommentText { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public int RequestId { get; set; }
+    public string? RequestTitle { get; set; }
+    public string? RequestStatus { get; set; }
+    public int? ParentCommentId { get; set; }
+    public int ReplyCount { get; set; }
+}
+
 /// <summary>
 /// 댓글 작성자. 담당자(<c>admin</c>)와 고객(<c>customer</c>)은 번호 체계가
 /// 달라서 서버가 <see cref="ImprovementComment.AuthorType"/> 으로 갈라 푼 뒤

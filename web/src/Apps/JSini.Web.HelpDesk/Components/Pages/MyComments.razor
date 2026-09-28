@@ -5,16 +5,49 @@
     [내 댓글] — DB 메뉴 `/helpdesk/request/my-comments`.
     이력: Vue `views/helpdesk/request/my-comments` → 여기.
     엔드포인트: `comments/my`
-
-    **서버가 준 대로 보여 주는 화면이다**(AutoGrid). 칸을 손으로 적지 않은
-    이유는 그 부품의 주석에 있다 — 요약하면, 이런 화면이 마흔 개고 백엔드가
-    칸을 더할 때마다 화면을 고치러 가는 것이 이득이 아니기 때문이다.
-
-    매일 들여다보는 화면이 되면 그때 칸을 손으로 적는다.
 *@
 
 @inherits DataPage
 
 <PageTitle>내 댓글 · 헬프데스크</PageTitle>
 
-<AutoGrid Data="@_rows" Loading="@Loading" Captions="@Captions" HiddenCols="id" PageSize="20" />
+@if (_comments.Count == 0 && !Loading)
+{
+    <p class="hd-cards__empty">작성한 댓글이 없습니다.</p>
+}
+else
+{
+    <div class="hd-my-comments">
+        @foreach (var comment in _comments)
+        {
+            <article class="jsini-card hd-my-comment" @key="comment.CommentId">
+                <header class="hd-my-comment__head">
+                    <a class="hd-my-comment__request"
+                       href="@($"/helpdesk/request/detail/{comment.RequestId}")">
+                        @RequestTitle(comment)
+                    </a>
+                    @if (!string.IsNullOrWhiteSpace(comment.RequestStatus))
+                    {
+                        <span class="jsini-badge">@comment.RequestStatus</span>
+                    }
+                </header>
+
+                <div class="hd-my-comment__content hd-content">
+                    @Body(comment)
+                </div>
+
+                <footer class="hd-my-comment__foot">
+                    <time datetime="@comment.CreatedAt.ToString("O")">@When(comment.CreatedAt)</time>
+                    @if (comment.ParentCommentId.HasValue)
+                    {
+                        <span class="hd-my-comment__reply">답글</span>
+                    }
+                    @if (comment.ReplyCount > 0)
+                    {
+                        <span>답글 @comment.ReplyCount</span>
+                    }
+                </footer>
+            </article>
+        }
+    </div>
+}
