@@ -18,7 +18,7 @@ public partial class MessageSendPage
     /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
     private string ConditionSummary => SchSummary.Of(
         SchSummary.Or(_filter),
-        _activeOnly ? "재직자만" : "그만둔 사람까지");
+        SchSummary.NameOf(ScopeOptions, o => o.Value, o => o.Text, _scope));
 
     /// <summary>보낼 수 있는 사람들. 한 번 읽어 두고 거르기는 브라우저에서 한다.</summary>
     private IReadOnlyList<AccountDto> _accounts = [];
@@ -30,16 +30,89 @@ public partial class MessageSendPage
     private readonly HashSet<string> _picked = new(StringComparer.OrdinalIgnoreCase);
 
     private string _filter = string.Empty;
-    private bool _activeOnly = true;
     private bool _busy;
+
+    // ── 목록에 누구까지 보일까 ──────────────────────────────────
+
+    /// <summary>재직 중인 계정의 상태 값.</summary>
+    private const string StatusActive = "ACTIVE";
+
+    /// <summary>
+    /// 가입 신청이 아직 승인되지 않은 계정의 상태 값
+    /// (AuthServer 의 <c>SignupService.StatusPending</c>). 그 사람은 아직
+    /// 로그인하지 못하지만 <b>계정과 이메일 주소는 이미 있다.</b>
+    /// </summary>
+    private const string StatusPending = "PENDING";
+
+    /// <summary>재직자만 보는 조건 값.</summary>
+    private const string ScopeActive = StatusActive;
+
+    /// <summary>재직자에 승인 대기까지 더해 보는 조건 값.</summary>
+    private const string ScopeWithPending = "ACTIVE_PENDING";
+
+    /// <summary>
+    /// 「상태」 고르개. 한동안 <b>재직자만 / 전부</b> 두 갈래(체크 하나)였다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 가운데 칸을 하나 더 둔 까닭은 <b>승인 대기</b> 때문이다. 가입 신청을
+    /// 받아 두고 「소속을 적어 다시 보내 달라」·「승인했으니 들어와 보시라」
+    /// 같은 말을 메일로 해야 하는데, 그 사람은 아직 재직자가 아니라 기본
+    /// 목록에 없다. 그렇다고 체크를 풀어 전부 보이게 하면 <b>퇴사·잠금까지
+    /// 함께 올라와</b> 그만둔 사람에게 메일이 나갈 길이 열린다.
+    /// </para>
+    /// <para>
+    /// 「전체」는 그대로 남긴다 — 잠긴 계정에 안내를 보내는 일이 있다.
+    /// </para>
+    /// </remarks>
+    private static readonly IReadOnlyList<SchOption> ScopeOptions =
+    [
+        new(ScopeActive, "재직자만"),
+        new(ScopeWithPending, "재직자 + 승인 대기"),
+        new(null, SchSummary.Any),
+    ];
+
+    private string? _scope = ScopeActive;
 
     /// <summary>거르개에 걸린 사람들. 고르기와 「모두 고르기」가 이것을 본다.</summary>
     private IReadOnlyList<AccountDto> Matched =>
         [.. _accounts.Where(a =>
-              (!_activeOnly || string.Equals(a.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase))
+              InScope(a)
               && (string.IsNullOrWhiteSpace(_filter)
                   || $"{a.UserName} {a.LoginId} {a.DeptName} {a.CompanyName}"
                        .Contains(_filter, StringComparison.OrdinalIgnoreCase)))];
+
+    /// <summary>「상태」 조건에 걸리는가. 모르는 값(<c>null</c>)은 전체다.</summary>
+    private bool InScope(AccountDto a) => _scope switch
+    {
+        ScopeActive => IsActive(a),
+        ScopeWithPending => IsActive(a) || IsPending(a),
+        _ => true,
+    };
+
+    private static bool IsActive(AccountDto a) =>
+        string.Equals(a.Status, StatusActive, StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsPending(AccountDto a) =>
+        string.Equals(a.Status, StatusPending, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>계정 관리 화면과 같은 말로 적는다.</summary>
+    private static string StatusText(string? status) => status?.ToUpperInvariant() switch
+    {
+        StatusActive => "정상",
+        "LOCKED" => "잠금",
+        "RESIGNED" => "퇴사",
+        StatusPending => "승인 대기",
+        null or "" => "-",
+        var other => other,
+    };
+
+    private static string StatusClass(string? status) => status?.ToUpperInvariant() switch
+    {
+        StatusActive => "jsini-badge--on",
+        "LOCKED" or StatusPending => "jsini-badge--warn",
+        _ => "jsini-badge--off",
+    };
 
     /// <summary>
     /// 고른 사람들의 실제 계정. 아이디만 들고 있으면 주소를 알 수 없다.
@@ -64,6 +137,83 @@ public partial class MessageSendPage
 
     private IReadOnlyList<string> NoPhone =>
         [.. Picked.Where(a => string.IsNullOrWhiteSpace(a.Phone)).Select(a => a.UserName)];
+
+    /// <summary>
+    /// 고른 사람 중 아직 승인되지 않은 사람의 이름. 메일 칸이 그 수를 적는다 —
+    /// <b>일부러 고른 것</b>이라 막지는 않고 「알고 보내는 것이 맞나」만 묻는다.
+    /// </summary>
+    private IReadOnlyList<string> PickedPending =>
+        [.. Picked.Where(IsPending).Select(a => a.UserName)];
+
+    // ── 메일 받는 사람 ──────────────────────────────────────────
+
+    /// <summary>
+    /// 사람이 손으로 고친 받는 사람 칸. <c>null</c> 이면 <b>아직 안 고쳤다</b>는
+    /// 뜻이고, 그때는 왼쪽에서 고른 사람의 주소가 그대로 보인다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 「고쳤다/안 고쳤다」를 <c>bool</c> 로 따로 들지 않는다. 값 하나로 두면
+    /// <b>맞출 일이 없다</b> — 왼쪽에서 사람을 더 고르거나 조건을 바꾸면
+    /// <see cref="MailToText"/> 가 그때그때 다시 계산되고, 손으로 고친 뒤에는
+    /// 그 값이 그대로 남는다. 고를 때마다 칸을 따라 고쳐 주는 길로 가면
+    /// 고르기·모두 고르기·비우기·다시 읽기 <b>네 곳을 전부 기억해야</b> 하고,
+    /// 한 곳만 잊으면 「고쳐 놓은 주소가 가끔 되돌아간다」가 된다.
+    /// </para>
+    /// </remarks>
+    private string? _mailTo;
+
+    /// <summary>왼쪽에서 고른 사람의 주소를 이은 것. 중복은 한 번만.</summary>
+    private string PickedMailTo =>
+        string.Join(", ", MailTargets
+            .Select(a => a.Email!.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase));
+
+    /// <summary>받는 사람 칸에 지금 들어 있는 글자.</summary>
+    private string MailToText => _mailTo ?? PickedMailTo;
+
+    /// <summary>사람이 손으로 고쳤는가. 고쳤으면 화면이 그 사실을 적는다.</summary>
+    private bool MailToEdited => _mailTo is not null;
+
+    /// <summary>
+    /// 받는 사람 칸을 주소 하나씩으로 가른다. 쉼표·세미콜론에 <b>줄바꿈까지</b>
+    /// 받는다 — 어디선가 복사해 붙이면 줄로 오는 일이 흔하다. 서버는 쉼표·
+    /// 세미콜론만 가르므로 <b>보낼 때 쉼표로 다시 잇는다.</b>
+    /// </summary>
+    private static IEnumerable<string> SplitAddresses(string? text) =>
+        (text ?? string.Empty)
+            .Split([',', ';', '\n', '\r', '\t'],
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>주소 꼴인가. <b>서버와 같은 판정</b>을 쓴다(<c>EmailEndpoints</c>).</summary>
+    private static bool IsAddress(string value) =>
+        System.Net.Mail.MailAddress.TryCreate(value, out _);
+
+    /// <summary>실제로 보낼 주소들.</summary>
+    private IReadOnlyList<string> MailRecipients =>
+        [.. SplitAddresses(MailToText).Where(IsAddress)];
+
+    /// <summary>
+    /// 주소 꼴이 아닌 것들. <b>조용히 빼지 않는다</b> — 서버도 걸러 주지만
+    /// 그때는 이미 나머지에게 나간 뒤라, 오타 하나를 고쳐 다시 보내면
+    /// 받은 사람은 같은 메일을 두 번 받는다.
+    /// </summary>
+    private IReadOnlyList<string> MailBadAddresses =>
+        [.. SplitAddresses(MailToText).Where(v => !IsAddress(v))];
+
+    /// <summary>받는 사람 칸 옆에 적는 한 줄.</summary>
+    private string MailToHint =>
+        MailToEdited
+            ? $"주소 {MailRecipients.Count}곳 · 직접 고친 값이라 왼쪽에서 더 골라도 채우지 않습니다."
+            : $"주소 {MailRecipients.Count}곳 · 왼쪽에서 고른 사람으로 채웁니다.";
+
+    /// <summary>손으로 고친 것을 버리고 고른 사람의 주소로 되돌린다.</summary>
+    private Task ResetMailToAsync()
+    {
+        _mailTo = null;
+        return Task.CompletedTask;
+    }
 
     /// <summary>문자 내용의 바이트 수. 한글은 두 바이트라 글자 수로는 못 센다.</summary>
     private int SmsBytes => System.Text.Encoding.UTF8.GetByteCount(_sms.Body ?? string.Empty);
@@ -342,18 +492,38 @@ public partial class MessageSendPage
     }
 
     /// <summary>
-    /// 메일을 <b>SMTP 로 바로</b> 보낸다. 주소가 없는 사람은 뺀다 — 그 수는
-    /// 위 안내가 미리 말해 두었다.
+    /// 메일을 <b>SMTP 로 바로</b> 보낸다.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>「받는 사람」 칸이 정본이다 — 고른 사람이 아니라.</b> 그 칸은 왼쪽에서
+    /// 고른 사람의 주소로 채워지지만 손으로 고칠 수 있다. 명단에 없는 사람
+    /// (거래처 · 아직 계정이 없는 사람)에게 같은 글을 함께 보내는 일이 있고,
+    /// 그때까지는 그 사람의 계정을 만들거나 다른 메일 프로그램을 여는 수밖에
+    /// 없었다.
+    /// </para>
+    /// </remarks>
     private async Task SendEmailAsync()
     {
         if (_busy) return;
 
-        var targets = MailTargets;
+        var bad = MailBadAddresses;
+
+        if (bad.Count > 0)
+        {
+            // **보내기 전에 막는다.** 그냥 빼고 보내면 오타 하나가 조용히
+            // 사라지고, 나머지에게는 이미 나간 뒤라 되돌릴 수가 없다.
+            Say($"주소 꼴이 아닙니다 — {string.Join(" · ", bad.Take(5))}{(bad.Count > 5 ? " 외" : "")}",
+                NoticeTone.Warning);
+            return;
+        }
+
+        var targets = MailRecipients;
 
         if (targets.Count == 0)
         {
-            Say("메일 주소가 있는 사람을 고르십시오.", NoticeTone.Warning);
+            Say("받는 사람 주소를 적으십시오. 왼쪽에서 사람을 고르면 그 주소로 채워집니다.",
+                NoticeTone.Warning);
             return;
         }
 
@@ -380,11 +550,10 @@ public partial class MessageSendPage
         _busy = true;
         try
         {
-            // **받는 사람은 쉼표로 잇는다**(서버 규약). 중복 주소는 한 번만 —
-            // 같은 주소를 두 번 적으면 같은 메일이 두 통 간다.
-            var to = string.Join(",", targets
-                .Select(a => a.Email!.Trim())
-                .Distinct(StringComparer.OrdinalIgnoreCase));
+            // **받는 사람은 쉼표로 잇는다**(서버 규약). 중복은 가를 때 이미
+            // 걸렀다(`SplitAddresses`) — 같은 주소를 두 번 적으면 같은 메일이
+            // 두 통 간다.
+            var to = string.Join(",", targets);
 
             List<EmailAttachmentDto> files;
 
@@ -417,8 +586,8 @@ public partial class MessageSendPage
             if (!ok) return;
 
             Say(files.Count > 0
-                    ? $"{targets.Count}명에게 보냈습니다. (첨부 {files.Count}개)"
-                    : $"{targets.Count}명에게 보냈습니다.");
+                    ? $"{targets.Count}곳으로 보냈습니다. (첨부 {files.Count}개)"
+                    : $"{targets.Count}곳으로 보냈습니다.");
         }
         finally
         {

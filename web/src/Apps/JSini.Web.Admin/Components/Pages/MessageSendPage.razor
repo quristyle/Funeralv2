@@ -30,11 +30,37 @@
     | 길 | 열쇠 | 없는 사람은 |
     |---|---|---|
     | 푸시 | 로그인 아이디 | 보낼 수는 있다(구독이 없으면 서버가 센다) |
-    | 이메일 | 이메일 주소 | **뺀다** — 주소가 없으면 보낼 데가 없다 |
-    | 문자 | 휴대폰 번호 | 〃 |
+    | 이메일 | 이메일 주소 | **못 채운다** — 대신 그 자리에 손으로 적을 수 있다 |
+    | 문자 | 휴대폰 번호 | **뺀다** — 번호가 없으면 보낼 데가 없다 |
 
     그래서 고른 사람 중 **그 길로 보낼 수 없는 사람이 몇인지**를 칸마다 적어
     둔다. 조용히 빼면 「열 명 골랐는데 왜 일곱만 갔나」를 알 수 없다.
+
+    [메일만 「받는 사람」 칸이 따로 있다]
+
+    다른 길은 왼쪽에서 고른 사람이 곧 받는 사람이다. **메일만 그 사이에 칸이
+    하나 있다** — 고른 사람의 주소로 채워지지만 손으로 고칠 수 있고, 명단에
+    아예 없는 주소를 적어도 나간다.
+
+    까닭이 둘이다. 하나는 **거래처·아직 계정이 없는 사람**에게 같은 글을 함께
+    보내는 일이 흔한데 그때까지는 계정을 만들거나 다른 메일 프로그램을 여는
+    수밖에 없었다는 것. 또 하나는 **계정에 적힌 주소가 그 사람의 지금 주소가
+    아닐 때**가 있다는 것이다.
+
+    한 번 고치면 **왼쪽에서 더 골라도 따라 바뀌지 않는다.** 적어 둔 주소가
+    조용히 되돌아가는 것이 훨씬 나쁘다 — 되돌리는 단추를 칸 옆에 둔다.
+
+    [승인 대기인 사람에게도 보낸다]
+
+    가입 신청을 받아 둔 계정은 상태가 `PENDING` 이고 **아직 로그인하지 못하지만
+    계정과 이메일 주소는 이미 있다.** 그런데 그 사람에게 할 말이 가장 많은
+    때가 바로 그때다 — 「소속을 적어 다시 보내 달라」·「승인했으니 들어와
+    보시라」.
+
+    왼쪽 「상태」 고르개의 가운데 칸(**재직자 + 승인 대기**)이 그 사람들을
+    불러온다. 체크 하나로 전부 켜는 옛 길로 두지 않은 까닭은 **퇴사·잠금까지
+    함께 올라오기** 때문이다. 골라 두면 메일 칸이 「그중 몇이 승인 대기인지」를
+    적어 준다 — 막지는 않는다. 일부러 고른 것이다.
 
     [보낸 것이 0 이어도 실패가 아니다]
 
@@ -68,11 +94,17 @@
         </CommSchItem>
 
         <CommSchItem Label="상태">
-            @* 그만둔 사람에게 보낼 일은 없다. 기본은 재직자만. *@
-            <DxCheckBox Checked="@_activeOnly"
-                        CheckedChanged="@((bool on) => _activeOnly = on)">
-                재직자만
-            </DxCheckBox>
+            @* 그만둔 사람에게 보낼 일은 없다. 기본은 재직자만이다.
+
+               가운데 칸(「재직자 + 승인 대기」)이 **가입 신청을 받아 둔 사람**을
+               불러온다 — 그 사람은 아직 로그인하지 못하지만 계정과 이메일
+               주소는 이미 있어서, 「소속을 적어 다시 보내 달라」 같은 말을
+               메일로 해야 한다. 체크 하나로 전부 켜는 길로 두면 퇴사·잠금까지
+               함께 올라와 그만둔 사람에게 메일이 나갈 길이 열린다. *@
+            <DxComboBox Data="@ScopeOptions" @bind-Value="_scope"
+                        TextFieldName="@nameof(SchOption.Text)"
+                        ValueFieldName="@nameof(SchOption.Value)"
+                        ValidationEnabled="false" Style="width: 180px" />
         </CommSchItem>
     </Fields>
 
@@ -133,14 +165,29 @@
 
                 <DxGridDataColumn FieldName="@nameof(AccountDto.UserName)" Caption="이름" Width="90"
                                   TextAlignment="GridTextAlignment.Left" />
-                <DxGridDataColumn FieldName="@nameof(AccountDto.LoginId)" Caption="아이디" Width="110"
+                <DxGridDataColumn FieldName="@nameof(AccountDto.LoginId)" Caption="아이디" Width="100"
                                   TextAlignment="GridTextAlignment.Left" />
                 <DxGridDataColumn FieldName="@nameof(AccountDto.DeptName)" Caption="부서" MinWidth="90"
                                   TextAlignment="GridTextAlignment.Left" />
 
+                @* 상태는 **재직자가 아닌 줄에만** 적는다. 예순 줄이 「정상」으로
+                   같은 말을 하면 정작 눈에 걸려야 하는 「승인 대기」가 묻힌다 —
+                   조건을 넓혀 놓고 고를 때 그 한 줄이 보이는 것이 이 칸의 전부다. *@
+                <DxGridDataColumn Caption="상태" Width="84" TextAlignment="GridTextAlignment.Left">
+                    <CellDisplayTemplate Context="cell">
+                        @{
+                            var row = (AccountDto)cell.DataItem;
+                        }
+                        @if (!IsActive(row))
+                        {
+                            <span class="jsini-badge @StatusClass(row.Status)">@StatusText(row.Status)</span>
+                        }
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+
                 @* 어느 길로 못 받는지 그 자리에서 보인다 — 고르고 나서 「왜
                    빠졌지」를 오른쪽 칸에서 찾게 하지 않는다. *@
-                <DxGridDataColumn Caption="빠짐" Width="110" TextAlignment="GridTextAlignment.Left">
+                <DxGridDataColumn Caption="빠짐" Width="100" TextAlignment="GridTextAlignment.Left">
                     <CellDisplayTemplate Context="cell">
                         @{
                             var a = (AccountDto)cell.DataItem;
@@ -265,11 +312,66 @@
                        사람이 할 일을 바꾸지 않고, 성공·실패는 보낸 뒤 토스트가
                        말한다 — 미리 적어 두면 아래 「고른 N 명 중…」 같은
                        **정말 봐야 하는 주의**가 그 틈에 묻힌다. *@
-                    @if (_picked.Count > 0 && NoEmail.Count > 0)
+                    @* 주소가 없는 사람은 아래 칸에 안 들어간다. **손으로 적을 수
+                       있게 된 다음부터는 「제외」가 아니라 「몰라서 못 채웠다」**라
+                       고 말해야 한다 — 알면 그 자리에 적으면 된다.
+
+                       칸을 손으로 고친 뒤에는 접는다. 그때는 아래 칸이 고른
+                       사람과 무관해서 이 수가 아무것도 설명하지 못한다. *@
+                    @if (!MailToEdited && _picked.Count > 0 && NoEmail.Count > 0)
                     {
                         <PageNotice Tone="NoticeTone.Warning"
-                                    Text="@($"고른 {_picked.Count}명 중 {NoEmail.Count}명은 이메일 주소가 없어 제외됩니다 — {string.Join(" · ", NoEmail.Take(5))}{(NoEmail.Count > 5 ? " 외" : "")}")" />
+                                    Text="@($"고른 {_picked.Count}명 중 {NoEmail.Count}명은 이메일 주소가 없어 아래 받는 사람에 안 들어갔습니다 — {string.Join(" · ", NoEmail.Take(5))}{(NoEmail.Count > 5 ? " 외" : "")}. 주소를 알면 직접 적을 수 있습니다.")" />
                     }
+
+                    @* 승인 대기인 사람을 고를 수 있게 되었으니(왼쪽 「상태」)
+                       **골랐다는 사실을 화면이 말한다.** 막지는 않는다 —
+                       가입 안내·보완 요청이 이 화면에서 나가는 메일이다. *@
+                    @if (PickedPending.Count > 0)
+                    {
+                        <PageNotice Tone="NoticeTone.Info"
+                                    Text="@($"고른 사람 중 {PickedPending.Count}명은 아직 승인 대기입니다 — {string.Join(" · ", PickedPending.Take(5))}{(PickedPending.Count > 5 ? " 외" : "")}. 주소가 있으면 메일은 그대로 나갑니다.")" />
+                    }
+
+                    @* 주소 꼴이 아닌 것은 **적는 동안** 말한다. 서버도 걸러
+                       주지만 그때는 나머지에게 이미 나간 뒤라, 고쳐 다시 보내면
+                       받은 사람은 같은 메일을 두 번 받는다. *@
+                    @if (MailBadAddresses.Count > 0)
+                    {
+                        <PageNotice Tone="NoticeTone.Warning"
+                                    Text="@($"주소 꼴이 아닌 것이 {MailBadAddresses.Count}개 있습니다 — {string.Join(" · ", MailBadAddresses.Take(5))}{(MailBadAddresses.Count > 5 ? " 외" : "")}")" />
+                    }
+
+                    @* ── 받는 사람 ──────────────────────────────────────
+                       한동안 이 칸이 없었다. 받는 사람은 왼쪽에서 고른 사람이
+                       전부였고, 주소를 **하나 더하거나 고치는 길이 없었다** —
+                       거래처나 아직 계정이 없는 사람에게 같은 글을 함께 보내려면
+                       계정을 만들거나 다른 메일 프로그램을 여는 수밖에 없었다.
+
+                       그래서 **고친 값이 정본**이다(`_mailTo`). 안 고쳤으면
+                       고른 사람의 주소가 그대로 보이고, 한 번 고치면 왼쪽에서
+                       더 골라도 따라 바뀌지 않는다 — 적어 둔 주소가 조용히
+                       되돌아가는 것이 훨씬 나쁘다. 되돌리는 단추를 옆에 둔다. *@
+                    <div class="ad-field">
+                        <label class="ad-field__label">받는 사람 <span class="ad-field__must">*</span></label>
+
+                        <DxMemo Text="@MailToText"
+                                TextChanged="@((string v) => _mailTo = v ?? string.Empty)"
+                                BindValueMode="BindValueMode.OnInput"
+                                Rows="3" ValidationEnabled="false" />
+
+                        <div class="jsini-inline">
+                            <DxButton Text="고른 사람 주소로 되돌리기"
+                                      RenderStyle="ButtonRenderStyle.Secondary"
+                                      Enabled="@MailToEdited" Click="@ResetMailToAsync" />
+                            <span class="jsini-text-muted">@MailToHint</span>
+                        </div>
+
+                        <div class="jsini-hint">
+                            쉼표·세미콜론·줄바꿈으로 나눕니다. <b>왼쪽에서 고르지 않은 사람에게도</b>
+                            주소만 적으면 나갑니다.
+                        </div>
+                    </div>
 
                     <div class="ad-field">
                         <label class="ad-field__label">제목 <span class="ad-field__must">*</span></label>
@@ -321,9 +423,9 @@
 
                     <div class="jsini-toolbar">
                         <PermissionView Action="MenuAction.Create">
-                            <DxButton Text="@($"{MailTargets.Count}명에게 메일 보내기")"
+                            <DxButton Text="@($"{MailRecipients.Count}곳으로 메일 보내기")"
                                       RenderStyle="ButtonRenderStyle.Primary"
-                                      Enabled="@(MailTargets.Count > 0 && !_busy)"
+                                      Enabled="@(MailRecipients.Count > 0 && !_busy)"
                                       Click="@SendEmailAsync" />
                         </PermissionView>
                     </div>
