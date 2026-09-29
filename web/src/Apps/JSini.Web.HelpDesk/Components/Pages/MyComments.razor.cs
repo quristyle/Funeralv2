@@ -9,13 +9,20 @@ public partial class MyComments
 {
     [Inject] private HelpDeskApi Api { get; set; } = default!;
 
+    [SupplyParameterFromQuery(Name = "company")] public string? CompanyQuery { get; set; }
+    [SupplyParameterFromQuery(Name = "all")] public bool? AllQuery { get; set; }
+
     private List<MyCommentItem> _comments = [];
 
     protected override Task OnInitializedAsync() => ReloadAsync();
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        _comments = await Api.GetListAsync<MyCommentItem>("comments/my");
+        var parameters = new Dictionary<string, object?>();
+        if (!string.IsNullOrEmpty(CompanyQuery)) parameters["companyId"] = CompanyQuery;
+        if (AllQuery == true) parameters["all"] = true;
+
+        _comments = await Api.GetListAsync<MyCommentItem>("comments/my", parameters);
         return _comments.Count;
     }, "작성한 댓글이 없습니다.", "댓글을 읽지 못했습니다");
 

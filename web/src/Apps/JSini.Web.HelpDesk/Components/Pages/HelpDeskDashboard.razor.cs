@@ -152,7 +152,8 @@ public partial class HelpDeskDashboard
         DateTime? to = null,
         bool byResolved = false,
         string? overrideCompanyId = null,
-        int? adminId = null)
+        int? adminId = null,
+        bool? open = null)
     {
         var parts = new List<string>();
 
@@ -192,9 +193,29 @@ public partial class HelpDeskDashboard
 
         // **「처리 중인 것만」을 반드시 꺼서 보낸다.** 목록 화면의 기본값이
         // 켜짐이라, 안 끄면 완료·반려 타일이 빈 목록으로 열린다.
-        parts.Add("open=false");
+        if (open.HasValue)
+        {
+            parts.Add($"open={open.Value.ToString().ToLowerInvariant()}");
+        }
+        else
+        {
+            parts.Add("open=false");
+        }
 
         return $"{ManagePath}?{string.Join("&", parts)}";
+    }
+
+    private string ManageCommentHref()
+    {
+        var parts = new List<string> { "all=true" };
+
+        var targetCompanyId = CanPickCompany ? _companyId : null;
+        if (!string.IsNullOrEmpty(targetCompanyId))
+        {
+            parts.Add($"company={Uri.EscapeDataString(targetCompanyId)}");
+        }
+
+        return $"/helpdesk/request/my-comments?{string.Join("&", parts)}";
     }
 
     private string ManageCompanyHref(string companyId) => ManageHref(overrideCompanyId: companyId);
@@ -216,14 +237,14 @@ public partial class HelpDeskDashboard
     /// <summary>지금 손에 남아 있는 짐.</summary>
     private IReadOnlyList<Tile> BacklogTiles =>
     [
-        new("미처리", Num(Data.Summary.Open), $"전체의 {Rate(Share(Data.Summary.Open, Data.Summary.Total))}"),
-        new("미배정", Num(Data.Summary.Unassigned), "담당자가 아직 없다"),
-        new("긴급 미처리", Num(Data.Summary.EmergencyOpen), "유형이 긴급/장애"),
-        new("최장 대기", Days(Data.Summary.OldestPendingDays), "가장 오래 기다린 건"),
-        new("평균 경과", Days(Data.Summary.AvgOpenAgeDays), "미처리 건의 평균"),
-        new("무응답", Num(Data.Summary.NoReplyOpen), "댓글이 한 줄도 없다"),
-        new("댓글", Num(Data.Summary.Comments), $"건당 {Data.Summary.CommentsPerRequest:0.#}개"),
-        new("담당자", Num(Data.Summary.ActiveAdmins), "한 건이라도 맡은 사람"),
+        new("미처리", Num(Data.Summary.Open), $"전체의 {Rate(Share(Data.Summary.Open, Data.Summary.Total))}", ManageHref(open: true)),
+        new("미배정", Num(Data.Summary.Unassigned), "담당자가 아직 없다", ManageHref(open: true)),
+        new("긴급 미처리", Num(Data.Summary.EmergencyOpen), "유형이 긴급/장애", ManageHref(open: true)),
+        new("최장 대기", Days(Data.Summary.OldestPendingDays), "가장 오래 기다린 건", ManageHref(open: true)),
+        new("평균 경과", Days(Data.Summary.AvgOpenAgeDays), "미처리 건의 평균", ManageHref(open: true)),
+        new("무응답", Num(Data.Summary.NoReplyOpen), "댓글이 한 줄도 없다", ManageHref(open: true)),
+        new("댓글", Num(Data.Summary.Comments), $"건당 {Data.Summary.CommentsPerRequest:0.#}개", ManageCommentHref()),
+        new("담당자", Num(Data.Summary.ActiveAdmins), "한 건이라도 맡은 사람", null),
     ];
 
     private string? MonthOverMonthNote
