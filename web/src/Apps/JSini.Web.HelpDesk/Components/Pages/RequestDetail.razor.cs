@@ -254,6 +254,33 @@ public partial class RequestDetail
     private Task CompleteAsync() => ChangeStatusAsync("Completed", "완료");
 
     /// <summary>
+    /// 「삭제」 — 시스템 관리자가 요청을 삭제한다.
+    /// </summary>
+    private async Task DeleteAsync()
+    {
+        if (!int.TryParse(Id, out _))
+        {
+            Say("요청 번호를 읽지 못했습니다.", NoticeTone.Error);
+            return;
+        }
+
+        if (_confirm is not null && !await _confirm.AskAsync($"「{TabTitle}」 을(를) 삭제하시겠습니까?", "요청 삭제", "삭제", ButtonRenderStyle.Danger))
+        {
+            return;
+        }
+
+        var done = await RunAsync(
+            () => Api.DeleteAsync($"requests/{Id}"),
+            "삭제했습니다.", "삭제하지 못했습니다");
+
+        if (done)
+        {
+            var fallback = Tabs.Close(Href);
+            Navigation.NavigateTo(fallback ?? "/helpdesk/request/manage");
+        }
+    }
+
+    /// <summary>
     /// 「종료(최종확인)」 — <b>글 주인이 결과를 보고 닫는다.</b>
     /// </summary>
     /// <remarks>

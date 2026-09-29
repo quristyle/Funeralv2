@@ -207,6 +207,13 @@
                               SizeMode="SizeMode.Small"
                               Enabled="@(!Loading)" Click="@CloseAsync" />
                 }
+
+                @if (Context.IsSystemAdmin)
+                {
+                    <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Danger"
+                              SizeMode="SizeMode.Small"
+                              Enabled="@(!Loading)" Click="@DeleteAsync" />
+                }
             </div>
         }
     </div>
