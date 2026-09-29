@@ -207,16 +207,22 @@ public partial class RequestDetail
     /// 「완료」는 접수일자까지 한 번에 넣으므로 <b>「대기」에서 바로 눌러도</b>
     /// 접수자·접수일자·완료일자가 모두 남는다.
     /// </para>
+    /// <para>
+    /// <b>반영했는지를 돌려준다.</b> 부르는 쪽이 그 뒤에 할 일이 갈리기
+    /// 때문이다 — 「재요청」은 상태가 실제로 넘어갔을 때만 등록 화면으로
+    /// 건너가야 한다(<see cref="ResubmitAsync"/>). 안 넘어갔는데 건너가면
+    /// <b>닫히지 않은 글이 남은 채 같은 내용이 하나 더</b> 들어간다.
+    /// </para>
     /// </remarks>
-    private async Task ChangeStatusAsync(string status, string label)
+    private async Task<bool> ChangeStatusAsync(string status, string label, string? ask = null)
     {
         if (!int.TryParse(Id, out _))
         {
             Say("요청 번호를 읽지 못했습니다.", NoticeTone.Error);
-            return;
+            return false;
         }
 
-        var ask = (status, IsPending) switch
+        ask ??= (status, IsPending) switch
         {
             // 「대기」에서 바로 닫는 길이라 무슨 일이 한꺼번에 일어나는지 적는다.
             ("Completed", true) => $"「{TabTitle}」 을(를) 접수하고 바로 완료로 닫습니다.",
@@ -230,7 +236,7 @@ public partial class RequestDetail
 
         if (_confirm is not null && !await _confirm.AskAsync(ask, "요청 처리", label, ButtonRenderStyle.Primary))
         {
-            return;
+            return false;
         }
 
         var done = await RunAsync(
@@ -243,6 +249,8 @@ public partial class RequestDetail
         }
 
         StateHasChanged();
+
+        return done;
     }
 
     /// <summary>「접수」 — 내가 맡는다. 접수자와 접수일자가 박힌다.</summary>
@@ -290,6 +298,41 @@ public partial class RequestDetail
     /// 않는다. 알림은 담당자 전원에게 나간다.
     /// </remarks>
     private Task CloseAsync() => ChangeStatusAsync("UserCompleted", "종료");
+
+    /// <summary>
+    /// 「재요청」 — <b>이 글을 닫으면서 같은 내용으로 새 글을 시작한다.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 하는 일의 앞쪽 절반은 <see cref="CloseAsync"/> 와 <b>글자 그대로 같다</b> —
+    /// 같은 상태(<c>UserCompleted</c>)를 같은 길로 보낸다. 고친 결과가 성에 차지
+    /// 않아 다시 부탁하는 자리라도 <b>이 건은 끝난 건이다.</b> 닫지 않고 새 글만
+    /// 만들면 같은 이야기가 두 곳에서 동시에 열려 있게 되고, 담당자 쪽 목록에서
+    /// 어느 것이 살아 있는 것인지 가릴 길이 없어진다.
+    /// </para>
+    /// <para>
+    /// 뒤쪽 절반은 <b>등록 화면으로 건너가는 것</b>이다. 여기서 새 글을 대신
+    /// 만들어 주지 않는다 — 다시 부탁하는 사람에게는 <b>덧붙일 말</b>이 있고
+    /// (「이 화면은 아직 그대로입니다」), 그것을 적을 자리가 등록 화면이다.
+    /// 그래서 <b>등록까지 하지 않고 「작성 중」인 모습</b>까지만 만들어 준다.
+    /// 제목·본문을 채우는 쪽은 <c>RequestNew</c> 다(<c>?resubmit={번호}</c>).
+    /// </para>
+    /// <para>
+    /// <b>상태가 실제로 넘어갔을 때만 건너간다.</b> 서버가 막았는데 건너가면
+    /// 닫히지 않은 글이 남은 채 같은 내용이 하나 더 들어간다.
+    /// </para>
+    /// </remarks>
+    private async Task ResubmitAsync()
+    {
+        var ask = $"「{TabTitle}」 을(를) 종료하고, 같은 내용으로 새 요청을 작성합니다.";
+
+        if (!await ChangeStatusAsync("UserCompleted", "재요청", ask))
+        {
+            return;
+        }
+
+        Navigation.NavigateTo($"/helpdesk/request/new?resubmit={Id}");
+    }
 
     /// <summary>
     /// 주소가 바뀌면 다시 읽는다.

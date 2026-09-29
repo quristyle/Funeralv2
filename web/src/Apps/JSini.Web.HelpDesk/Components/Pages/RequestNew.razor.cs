@@ -213,6 +213,123 @@ public partial class RequestNew
         }
     }
 
+    // ── 재요청 ───────────────────────────────────────────────
+    //
+    // 상세 화면의 「재요청」이 이 화면으로 보낸다(`?resubmit={번호}`). 거기서
+    // 하는 일은 그 글을 닫는 것까지고, **같은 내용으로 새 글을 채우는 일은
+    // 여기서** 한다 — 왜 그렇게 갈랐는지는 `RequestDetail.ResubmitAsync` 에.
+
+    /// <summary>
+    /// 「재요청」으로 들어왔을 때 <b>바탕이 되는 요청 번호</b>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>본문을 주소에 싣지 않는다.</b> 요청 본문에는 화면 캡처가 통째로 들어
+    /// 있어(<c>&lt;img&gt;</c> 가 여러 장) 주소가 쉽게 브라우저·역프록시의 길이
+    /// 한도를 넘는다. 번호만 넘기고 내용은 여기서 다시 읽는다.
+    /// </para>
+    /// <para>
+    /// 이 값이 주소에 남아 있는 것이 도움이 된다 — 새로고침이 나도
+    /// <b>같은 내용으로 다시 채워진다</b>(임시 보관이 막힌 브라우저에서도).
+    /// </para>
+    /// </remarks>
+    [Parameter, SupplyParameterFromQuery(Name = "resubmit")]
+    public string? ResubmitId { get; set; }
+
+    /// <summary>재요청 글의 제목 앞에 붙는 말.</summary>
+    private const string ResubmitPrefix = "[재요청] ";
+
+    /// <summary>
+    /// 재요청의 바탕이 되는 글을 읽어 제목·본문을 채운다. 채웠으면 <c>true</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>본문을 한 번 거른다</b>(<c>NoticeHtml.Sanitize</c>). 두 가지를 한꺼번에
+    /// 하기 때문이다 — 못 믿을 태그를 걷어내는 일과, 저장된 그림 주소
+    /// (<c>/api/file/download/id/…</c>)를 브라우저가 부를 수 있는 중계 주소
+    /// (<c>/files/…</c>)로 옮기는 일. 뒤엣것을 빼먹으면 편집기 안에서 이전
+    /// 글의 캡처가 <b>전부 깨진 네모</b>로 뜬다. 등록할 때 정본으로 되돌리는
+    /// 쪽은 <see cref="RequestContentHtml.ToStored"/> 다.
+    /// </para>
+    /// <para>
+    /// <b>제목의 <c>[재요청]</c> 은 겹쳐 붙이지 않는다.</b> 재요청을 또 재요청
+    /// 하는 일이 있고(같은 증상이 두 번 되살아나는 자리), 그때마다 앞에 쌓으면
+    /// 목록에서 제목이 말머리에 먹힌다. 몇 번째인지는 본문 맨 위의 링크를
+    /// 따라가면 나온다.
+    /// </para>
+    /// <para>
+    /// <b>못 읽어도 화면을 세우지 않는다.</b> 그 글이 지워졌거나 볼 권한이
+    /// 없을 수 있다 — 그때는 그 사실만 말하고 빈 화면으로 시작한다. 여기서
+    /// 던지면 새 요청을 쓸 자리 자체가 사라진다.
+    /// </para>
+    /// </remarks>
+    private async Task<bool> SeedFromSourceAsync()
+    {
+        if (!int.TryParse(ResubmitId, out var source) || source <= 0)
+        {
+            return false;
+        }
+
+        JsonElement? origin;
+        try
+        {
+            origin = await Api.GetAsync<JsonElement>($"requests/{source}");
+        }
+        catch (ApiException)
+        {
+            origin = null;
+        }
+
+        if (origin is not { ValueKind: JsonValueKind.Object } found)
+        {
+            Say($"{source}번 요청을 읽지 못해 빈 화면으로 시작합니다.", NoticeTone.Warning);
+            return false;
+        }
+
+        var title = Field(found, "title") ?? string.Empty;
+
+        // 칸 이름이 `description` 이다. 옛 이름도 함께 본다 — 상세 화면과 같다.
+        var body = Field(found, "description") ?? Field(found, "content");
+
+        _title = title.StartsWith(ResubmitPrefix, StringComparison.Ordinal)
+            ? title
+            : ResubmitPrefix + title;
+
+        _content = ResubmitBody(source, title, body);
+
+        return true;
+    }
+
+    /// <summary>
+    /// 재요청 본문 — <b>이전 글로 가는 링크 · 빈 줄 · 이전 본문</b>.
+    /// </summary>
+    /// <remarks>
+    /// 링크와 이전 본문 사이에 <b>빈 줄을 하나 둔다.</b> 다시 부탁하는 사람이
+    /// 적어야 하는 것은 「무엇이 아직 안 됐는가」이고, 그 자리가 없으면 긴
+    /// 옛 글 끝까지 굴려 내려가 거기에 적게 된다 — 읽는 담당자는 맨 위부터
+    /// 읽으므로 그 말을 맨 나중에 본다.
+    /// </remarks>
+    private static string ResubmitBody(int source, string title, string? body)
+    {
+        var label = string.IsNullOrWhiteSpace(title) ? $"요청 #{source}" : $"#{source} {title}";
+
+        return $"<p><a href=\"/helpdesk/request/detail/{source}\">◀ 이전 요청 — {Escape(label)}</a></p>"
+            + "<p><br></p>"
+            + "<hr />"
+            + NoticeHtml.Sanitize(body);
+    }
+
+    /// <summary>글자를 HTML 안에 넣어도 되게 만든다. 제목에 <c>&lt;</c> 가 들어 있을 수 있다.</summary>
+    private static string Escape(string text) =>
+        text.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
+
+    /// <summary>응답에서 칸 하나를 글자로 꺼낸다. 없으면 <c>null</c>.</summary>
+    private static string? Field(JsonElement obj, string name) =>
+        obj.TryGetProperty(name, out var value)
+        && value.ValueKind is not (JsonValueKind.Null or JsonValueKind.Undefined)
+            ? value.ToString()
+            : null;
+
     // ── 쓰던 글 ──────────────────────────────────────────────
     //
     // 무엇을 고친 것인지는 이 파일 머리말에, 어디에 어떻게 적는지는
@@ -251,12 +368,19 @@ public partial class RequestNew
         var owner = Context.Identity?.JsiniUserId?.Trim();
         _draftKey = DraftKeyPrefix + (string.IsNullOrEmpty(owner) ? "?" : owner);
 
+        // 「재요청」으로 들어왔으면 **그쪽이 먼저다**. 사람이 방금 누른 단추가
+        // 시킨 일이라, 여러 날 전에 적어 둔 임시본이 그것을 덮으면 화면에
+        // 엉뚱한 글이 뜬다. 적어 둔 것은 버리지 않는다 — 지켜보기가 곧 이
+        // 내용으로 덮어쓸 참이고, 여기서 미리 지우면 사람이 마음을 바꿔
+        // 나가 버렸을 때 **아무 데도 없는 글**이 된다.
+        var seeded = await SeedFromSourceAsync();
+
         try
         {
             _draftJs ??= await JS.InvokeAsync<IJSObjectReference>(
                 "import", "./_content/JSini.Web.HelpDesk/js/request-draft.js");
 
-            var saved = await _draftJs.InvokeAsync<SavedDraft?>("read", _draftKey);
+            var saved = seeded ? null : await _draftJs.InvokeAsync<SavedDraft?>("read", _draftKey);
 
             if (saved is not null)
             {
