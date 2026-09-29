@@ -15,6 +15,9 @@ public partial class RequestManage : IDisposable
     /// <summary>떠날 때 쓰던 모습을 맡기는 곳. 돌아오면 그대로 되찾는다.</summary>
     [Inject] private ScreenState Screen { get; set; } = default!;
 
+    /// <summary>줄의 그림을 눌렀을 때 뜨는 미리보기 창. 레이아웃이 한 벌 들고 있다.</summary>
+    [Inject] private ImagePreview Preview { get; set; } = default!;
+
     // ── 현황판이 싣고 오는 조건 ─────────────────────────────
     //
     // 현황판(`/helpdesk/dashboard`)의 「한눈에 보기」 타일을 누르면 그 타일이
@@ -573,10 +576,30 @@ public partial class RequestManage : IDisposable
     /// <summary>
     /// 이 줄을 대신할 그림. 한 번 못 받은 것은 다시 걸지 않는다.
     /// </summary>
-    private string? ThumbOf(ImprovementRequest r)
+    private RequestImage? ThumbOf(ImprovementRequest r)
     {
-        var url = RequestThumb.UrlOf(r);
-        return url is not null && _brokenThumbs.Contains(url) ? null : url;
+        var picked = RequestThumb.PickOf(r);
+        return picked is not null && _brokenThumbs.Contains(picked.ThumbnailUrl) ? null : picked;
+    }
+
+    /// <summary>
+    /// 줄의 그림을 눌렀다 — <b>원본</b>을 미리보기로 띄운다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 한 장만 넘기지 않는다. 그 요청에 붙은 그림을 전부 넘기면 창 안에서
+    /// 앞뒤로 넘어가므로, 사진이 여러 장인 장애 신고를 상세 화면까지 가지
+    /// 않고도 훑어볼 수 있다.
+    /// </para>
+    /// <para>
+    /// 이름이 없는 그림(본문에 박은 것)은 <b>글 제목</b>으로 적는다 —
+    /// 머리띠에 「그림」만 떠 있으면 어느 요청의 사진인지 알 수 없다.
+    /// </para>
+    /// </remarks>
+    private void PreviewImages(ImprovementRequest r)
+    {
+        Preview.OpenAll(RequestThumb.ImagesOf(r)
+            .Select(i => new ImagePreviewItem(i.OriginalUrl, i.Name ?? r.Title)));
     }
 
     /// <summary>

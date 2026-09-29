@@ -1665,16 +1665,6 @@
   border-radius: 0.35rem;
 }
 
-/* 크게 보기 창 안의 그림. 창이 화면보다 커지지 않게 여기서 가둔다 —
-   DxPopup 은 내용 크기를 따라간다. */
-.ad-photo__full {
-  display: block;
-  max-width: 100%;
-  max-height: 70vh;
-  margin: 0 auto;
-  object-fit: contain;
-}
-
 /* ── 내 정보 — 휴대폰 ─────────────────────────────────────
 
    경계 767px 는 **`Profile.razor` 의 `DxLayoutBreakpoint MaxWidth`** 와 같은

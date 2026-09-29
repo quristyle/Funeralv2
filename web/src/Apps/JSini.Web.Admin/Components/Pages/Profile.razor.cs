@@ -19,6 +19,9 @@ public partial class Profile
     [Inject] private IMenuProvider Menus { get; set; } = default!;
     [Inject] private CurrentUser Me { get; set; } = default!;
 
+    /// <summary>사진을 크게 보는 공통 창. 레이아웃이 한 벌 들고 있다.</summary>
+    [Inject] private ImagePreview ImgView { get; set; } = default!;
+
     /// <summary>사진은 서른 장까지. Vue 의 <c>:limit="30"</c> 을 그대로 옮겼다.</summary>
     private const int PhotoLimit = 30;
 
@@ -264,9 +267,6 @@ public partial class Profile
 
     private IReadOnlyList<GroupFileDto> _photos = [];
     private string? _avatarGroupId;
-
-    /// <summary>크게 보고 있는 사진. <c>null</c> 이면 창이 닫혀 있다.</summary>
-    private GroupFileDto? _preview;
 
     // ── 켬·끔 한 줄 ─────────────────────────────────────────
 
@@ -1298,7 +1298,32 @@ public partial class Profile
 
     // ── 사진 ────────────────────────────────────────────────
 
-    private void Preview(GroupFileDto photo) => _preview = photo;
+    /// <summary>
+    /// 사진을 크게 본다. <b>창은 우리 것이 아니다</b> — 레이아웃이 들고 있는
+    /// 공통 미리보기(<see cref="ImagePreview"/>)에 맡긴다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 전에는 이 화면이 <c>CommPopup</c> 으로 직접 창을 지었다. 크게 보이기는
+    /// 했지만 <b>확대도 회전도 없어서</b>, 세로로 찍힌 증명사진을 바로 세워
+    /// 보려면 받아서 열어야 했다.
+    /// </para>
+    /// <para>
+    /// <b>한 장이 아니라 목록을 넘긴다.</b> 사진첩이라 여러 장이 있고, 창
+    /// 안에서 앞뒤로 넘어가면 한 장씩 닫았다 여는 일이 없어진다.
+    /// </para>
+    /// </remarks>
+    private void Preview(GroupFileDto photo)
+    {
+        // 아이디가 없는 줄은 뺀다 — 주소를 만들 수가 없다. 그래서 자리(index)도
+        // 거른 뒤의 목록에서 센다. 거르기 전 자리로 세면 한 칸씩 밀린다.
+        var photos = _photos.Where(p => !string.IsNullOrWhiteSpace(p.Id)).ToList();
+
+        ImgView.OpenAll(
+            photos.Select(p => new ImagePreviewItem(
+                FileDownload.UrlFor(p.Id!, p.OriginalName), p.OriginalName)),
+            Math.Max(0, photos.FindIndex(p => p.Id == photo.Id)));
+    }
 
     private async Task LoadPhotosAsync()
     {
@@ -1396,10 +1421,11 @@ public partial class Profile
             return;
         }
 
-        // 지운 것을 크게 보고 있었으면 창을 닫는다.
-        if (_preview?.Id == fileId)
+        // 지운 것을 크게 보고 있었으면 창을 닫는다. 남겨 두면 이미 없는
+        // 파일을 가리키는 창이 깨진 네모로 떠 있는다.
+        if (ImgView.Current?.Url.Contains(fileId, StringComparison.OrdinalIgnoreCase) == true)
         {
-            _preview = null;
+            ImgView.Close();
         }
 
         await LoadPhotosAsync();

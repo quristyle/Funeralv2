@@ -1,0 +1,98 @@
+@*
+    그림 미리보기 창. **레이아웃에 한 벌만 선다**(`MainLayout`).
+
+    ────────────────────────────────────────────────────────────
+    [화면은 이 부품을 적지 않는다]
+
+    여는 자리는 `ImagePreview` 손잡이다(여러 장이면 `OpenAll`).
+
+        [Inject] private ImagePreview Preview { get; set; } = default!;
+        ...
+        Preview.Open(FileDownload.UrlFor(fileId), "장애 사진.jpg");
+
+    본문처럼 `<img>` 가 HTML 안에 박혀 있어 손댈 수 없는 자리는 감싼 칸에
+    `data-imgview-scope` 만 적는다 — 그 칸의 그림 전부가 목록이 된다.
+
+    ────────────────────────────────────────────────────────────
+    [`<img>` 에 `style` 을 그리지 않는다 — 일부러다]
+
+    확대·회전·색은 브라우저가 인라인 스타일로 직접 그린다(image-preview.js).
+    여기서 `style` 을 한 글자라도 그리면 Blazor 가 그 속성을 제 것으로 알고,
+    창이 다시 그려질 때마다(다음 장으로 넘기면 그렇다) **키워 놓은 그림이
+    제자리로 튄다.** 안 그리면 Blazor 는 그 속성을 건드리지 않는다.
+
+    ────────────────────────────────────────────────────────────
+    [빈자리를 눌러 닫는 것도 JS 가 가른다]
+
+    `@onclick` 으로 두면 그림을 끌어 옮기고 손을 뗄 때도 닫힌다 — 브라우저는
+    끌기 끝에도 `click` 을 한 번 주기 때문이다. 움직인 거리를 아는 쪽이
+    JS 라 그쪽이 가른다.
+*@
+
+@implements IAsyncDisposable
+
+@if (Preview.Current is { } cur)
+{
+    <div class="jsini-imgview" role="dialog" aria-modal="true" aria-label="그림 미리보기">
+
+        <div class="jsini-imgview__bar">
+            <span class="jsini-imgview__title" title="@cur.Title">@TitleOf(cur)</span>
+
+            @if (Preview.Count > 1)
+            {
+                <span class="jsini-imgview__count">@(Preview.Index + 1) / @Preview.Count</span>
+            }
+
+            <span class="jsini-imgview__gap"></span>
+
+            <a class="jsini-imgview__btn" href="@cur.Download" target="_blank" rel="noopener"
+               title="원본을 새 탭에서 연다">원본</a>
+
+            <button type="button" class="jsini-imgview__btn jsini-imgview__btn--close"
+                    title="닫기 (Esc)" @onclick="Close">✕</button>
+        </div>
+
+        <div class="jsini-imgview__stage" @ref="_stage">
+
+            @if (Preview.Count > 1)
+            {
+                <button type="button" class="jsini-imgview__nav jsini-imgview__nav--prev"
+                        title="이전 그림 (←)" @onclick="Prev">‹</button>
+
+                <button type="button" class="jsini-imgview__nav jsini-imgview__nav--next"
+                        title="다음 그림 (→)" @onclick="Next">›</button>
+            }
+
+            @* 두 번 눌러도 키워지고 휠로도 키워진다 — 그 손짓은 전부 JS 쪽이다. *@
+            <img class="jsini-imgview__img" @key="cur.Url" @ref="_img"
+                 src="@cur.Url" alt="@cur.Title" draggable="false" />
+        </div>
+
+        <div class="jsini-imgview__tools">
+
+            <button type="button" class="jsini-imgview__btn" title="축소 (− 키)"
+                    @onclick="ZoomOutAsync">−</button>
+
+            <span class="jsini-imgview__read" title="확대율">@ZoomText</span>
+
+            <button type="button" class="jsini-imgview__btn" title="확대 (+ 키)"
+                    @onclick="ZoomInAsync">+</button>
+
+            @foreach (var tool in Tools)
+            {
+                @if (tool.Divider)
+                {
+                    <span class="jsini-imgview__sep"></span>
+                }
+
+                <button type="button" class="@ClassOf(tool)" title="@tool.Hint"
+                        @onclick="@(() => CommandAsync(tool.Name))">@tool.Label</button>
+            }
+
+            @if (LevelText is { Length: > 0 } level)
+            {
+                <span class="jsini-imgview__read" title="밝기 · 대비">@level</span>
+            }
+        </div>
+    </div>
+}

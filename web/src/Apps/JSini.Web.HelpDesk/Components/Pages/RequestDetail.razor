@@ -303,7 +303,13 @@
            붙여넣은 그림이 `<img src="/api/file/download/id/{guid}">` 로 박혀 있다.
            글자로 뭉개 놓으면 그 태그가 그대로 보이고 **그림은 영영 안 보인다** —
            읽는 사람이 증상을 못 보는 것이 이 화면에서 가장 나쁜 일이다. *@
-        <div class="hd-content">@Body()</div>
+        @* `data-imgview-scope` 한 마디가 이 칸의 그림을 전부 눌리게 한다
+           (`ImagePreviewHost`). 본문은 서식 편집기가 쓴 HTML 이라 `<img>` 하나하나에
+           손짓을 걸 자리가 없다 — 문서에 세워 둔 문지기가 대신 받는다.
+
+           화면 사진이 대부분이라 **글자를 읽으려면 키워야 하고**, 스캔해 올린
+           것은 옆으로 누워 있는 일이 잦다. *@
+        <div class="hd-content" data-imgview-scope>@Body()</div>
     }
 
     @if (_notFound)

@@ -8366,3 +8366,214 @@ html.jsini-toast-zoomed .dxbl-toast-portal {
   color: #0a0a0a;
   text-decoration: underline;
 }
+
+/* ── 그림 미리보기 (`ImagePreviewHost`) ───────────────────────
+
+   화면을 통째로 덮는다. 창(`CommPopup`)으로 두지 않은 이유는 **이 창의 본문이
+   그림 한 장뿐**이어서다 — 키울 수 있는 만큼 키워 보려고 여는 자리라, 창틀이
+   차지하는 만큼이 그대로 손해다.
+
+   확대·회전·색은 여기서 정하지 않는다. 그것은 브라우저가 인라인 스타일로
+   직접 그리고(`js/image-preview.js`), 이 파일은 **창틀과 도구띠만** 쥔다.
+
+   [쌓임 차례]
+
+   19000 이다. DevExpress 의 창·드롭다운(1000대)과 알림함 서랍(1040대)보다
+   위고, **잠금 덮개(20000)와 다시 붙는 상자(20500)보다는 아래**다 — 자리를
+   비운 사이에 미리보기가 열려 있었다고 해서 그 위로 그림이 보이면 잠금이
+   아니고, 회로가 끊긴 뒤에 걷을 수 없는 그림이 화면을 덮고 있으면 되돌릴
+   길이 없다.
+
+   [단추 선택자가 두 겹인 까닭]
+
+   tabler.css 가 이 파일보다 **뒤에** 실리면서 단추에 제 값을 건다. 한 겹으로
+   적으면 그쪽이 이겨서 도구띠 글자가 검게 나온다(서랍의 글꼴 단추와 같은 일). */
+
+.jsini-imgview {
+  position: fixed;
+  inset: 0;
+  z-index: 19000;
+  display: flex;
+  flex-direction: column;
+  /* 96% 다. 완전한 검정으로 두지 않는 것은 **덮개라는 것을 알리기 위해서**다 —
+     뒤가 희미하게 비쳐야 「다른 화면으로 옮겨 온 것」이 아니라 「위에 덮인 것」
+     으로 읽힌다.
+
+     처음에 88% 로 두고 헤드리스로 찍어 보니 **뒤 화면의 제목이 그대로
+     읽혔다.** 사진의 어두운 자리와 겹치면 그 글자가 사진의 일부처럼 보인다.
+     96% 면 뒤 화면이 제 밝기의 4% 로 남아 자취만 비친다. */
+  background: rgb(0 0 0 / 96%);
+  color: #f5f5f7;
+  user-select: none;
+}
+
+/* 뒤 화면이 함께 구르지 않게 한다. 켜고 끄는 것은 JS 쪽이다. */
+body.jsini-imgview-open {
+  overflow: hidden;
+}
+
+.jsini-imgview__bar,
+.jsini-imgview__tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  background: rgb(0 0 0 / 35%);
+}
+
+.jsini-imgview__bar {
+  border-bottom: 1px solid rgb(255 255 255 / 12%);
+}
+
+.jsini-imgview__tools {
+  justify-content: center;
+  border-top: 1px solid rgb(255 255 255 / 12%);
+}
+
+/* 이름이 길어도 도구가 밀려나지 않는다. 파일 이름은 잘려도 읽을 수 있지만
+   닫기 단추가 화면 밖으로 나가면 창을 걷을 수가 없다. */
+.jsini-imgview__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.875rem;
+}
+
+.jsini-imgview__count,
+.jsini-imgview__read {
+  flex: none;
+  padding: 0 0.375rem;
+  font-size: 0.8125rem;
+  color: #c7c7cc;
+  font-variant-numeric: tabular-nums;
+}
+
+.jsini-imgview__gap {
+  flex: 1 1 auto;
+}
+
+.jsini-imgview .jsini-imgview__btn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 0.5rem;
+  border: 1px solid rgb(255 255 255 / 18%);
+  border-radius: 4px;
+  background: rgb(255 255 255 / 8%);
+  color: #f5f5f7;
+  font-size: 0.8125rem;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.jsini-imgview .jsini-imgview__btn:hover {
+  background: rgb(255 255 255 / 18%);
+}
+
+/* 켜진 것은 눌린 채로 둔다 — 흑백으로 보는 중인지 아닌지가 그림만 봐서는
+   헷갈린다(원래 흑백인 사진이 있다). */
+.jsini-imgview .jsini-imgview__btn--on {
+  background: #f5f5f7;
+  border-color: #f5f5f7;
+  color: #1c1c1e;
+}
+
+.jsini-imgview .jsini-imgview__btn--close {
+  font-size: 1rem;
+}
+
+.jsini-imgview__sep {
+  flex: none;
+  width: 1px;
+  height: 1.25rem;
+  margin: 0 0.25rem;
+  background: rgb(255 255 255 / 18%);
+}
+
+/* 그림이 노는 칸. 남는 높이를 전부 먹는다.
+
+   `overflow: hidden` 이라야 한다 — 키운 그림이 이 칸 밖으로 나가면 문서가
+   길어져서 창 아래에 스크롤 막대가 생긴다.
+
+   `touch-action: none` 은 **두 손가락 확대를 우리가 받기 위해서**다. 안 걸면
+   브라우저가 제 확대를 먼저 해 버려서 그림이 아니라 화면 전체가 커진다. */
+.jsini-imgview__stage {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  touch-action: none;
+}
+
+/* 처음에는 화면에 맞춰 선다. 그 크기가 곧 확대율 100% 다 — 「원래 크기」는
+   따로 있고(1:1), 그쪽은 파일의 실제 픽셀을 뜻한다. */
+.jsini-imgview__img {
+  max-width: 100%;
+  max-height: 100%;
+  transform-origin: center center;
+  -webkit-user-drag: none;
+}
+
+.jsini-imgview .jsini-imgview__nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 1;
+  width: 2.75rem;
+  height: 2.75rem;
+  border: 0;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 45%);
+  color: #f5f5f7;
+  font-size: 1.75rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.jsini-imgview .jsini-imgview__nav:hover {
+  background: rgb(0 0 0 / 70%);
+}
+
+.jsini-imgview .jsini-imgview__nav--prev {
+  left: 0.75rem;
+}
+
+.jsini-imgview .jsini-imgview__nav--next {
+  right: 0.75rem;
+}
+
+/* 눌러서 크게 볼 수 있는 그림이라는 표시. 본문에 박힌 그림은 화면이 하나씩
+   손댈 수 없으므로(`data-imgview-scope`) 여기서 한 번에 준다. */
+[data-imgview-scope] img {
+  cursor: zoom-in;
+}
+
+/* 휴대폰. 도구가 열여섯 개라 두 줄이 되는데, 그 줄만큼 그림이 눌린다.
+   글자를 줄이고 사이를 좁혀 한 줄에 더 담는다. */
+@media (max-width: 575.98px) {
+  .jsini-imgview__bar,
+  .jsini-imgview__tools {
+    padding: 0.375rem 0.5rem;
+    gap: 0.1875rem;
+  }
+
+  .jsini-imgview .jsini-imgview__btn {
+    min-width: 1.75rem;
+    height: 1.75rem;
+    padding: 0 0.375rem;
+    font-size: 0.75rem;
+  }
+
+  .jsini-imgview__sep {
+    margin: 0 0.125rem;
+  }
+}

@@ -199,7 +199,14 @@
         <Columns>
             @* 그림 한 장. 본문에 박은 것이 있으면 그것이고, 없으면 첨부에서
                고른다(`RequestThumb`). 정렬·거르기가 의미 없는 칸이라 둘 다 끈다 —
-               켜 두면 칸 머리를 눌렀을 때 아무 일도 안 일어나는 것처럼 보인다. *@
+               켜 두면 칸 머리를 눌렀을 때 아무 일도 안 일어나는 것처럼 보인다.
+
+               **누르면 원본이 미리보기로 열린다**(`ImagePreview`). 80px 짜리로는
+               장애 사진의 글자를 읽을 수 없고, 스캔해 올린 사진은 옆으로 누워
+               있는 일이 잦아 돌려 볼 자리가 필요하다.
+
+               `stopPropagation` 이 없으면 줄 누르기가 함께 먹어서 미리보기가
+               열리자마자 상세 화면으로 떠난다. *@
             @* 80px 이다 — 줄 높이와 같은 수라 그림이 정사각으로 선다.
                64 로 두면 칸 머리의 「그림」이 「그.」로 잘린다(재어 봤다). *@
             <DxGridDataColumn Caption="그림" Width="80" MinWidth="80"
@@ -210,8 +217,11 @@
                     }
                     @if (ThumbOf(r) is { } thumb)
                     {
-                        <img class="hd-row-thumb" src="@thumb" alt="" loading="lazy"
-                             @onerror="@(() => ThumbFailed(thumb))" />
+                        <img class="hd-row-thumb" src="@thumb.ThumbnailUrl" alt="" loading="lazy"
+                             role="button" title="눌러서 크게 봅니다"
+                             @onclick="@(() => PreviewImages(r))"
+                             @onclick:stopPropagation="true"
+                             @onerror="@(() => ThumbFailed(thumb.ThumbnailUrl))" />
                     }
                 </CellDisplayTemplate>
             </DxGridDataColumn>

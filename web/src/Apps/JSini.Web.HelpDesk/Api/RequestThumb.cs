@@ -49,12 +49,15 @@ namespace JSini.Web.HelpDesk.Api;
 public static class RequestThumb
 {
     /// <summary>이 요청을 대신할 그림의 썸네일 주소. 그림이 없으면 <c>null</c>.</summary>
-    public static string? UrlOf(ImprovementRequest request)
+    public static string? UrlOf(ImprovementRequest request) => PickOf(request)?.ThumbnailUrl;
+
+    /// <summary>이 요청을 대신할 그림 한 장. 그림이 없으면 <c>null</c>.</summary>
+    public static RequestImage? PickOf(ImprovementRequest request)
     {
         // ① 본문의 첫 그림. 저장된 값은 백엔드 정본 주소라 아이디만 꺼낸다.
         if (FileDownload.FileIdOf(request.MainPhoto) is { Length: > 0 } inBody)
         {
-            return FileDownload.ThumbnailUrlFor(inBody);
+            return new RequestImage(inBody, null);
         }
 
         // ② 첨부한 그림 중 가장 가벼운 것.
@@ -64,8 +67,47 @@ public static class RequestThumb
             .FirstOrDefault();
 
         return attached?.FileId is { Length: > 0 } fileId
-            ? FileDownload.ThumbnailUrlFor(fileId)
+            ? new RequestImage(fileId, attached.OriginalFileName)
             : null;
+    }
+
+    /// <summary>
+    /// 이 요청에 붙은 <b>그림 전부</b>. 미리보기에서 앞뒤로 넘길 목록이다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 줄에 걸린 한 장(<see cref="PickOf"/>)이 <b>맨 앞</b>이다 — 누른 그림이
+    /// 첫 장으로 떠야 「내가 누른 것이 열렸다」로 읽힌다.
+    /// </para>
+    /// <para>
+    /// <b>같은 파일을 두 번 담지 않는다.</b> 본문에 박은 그림을 첨부로도 올린
+    /// 글이 흔한데(편집기가 붙여넣기를 첨부로도 남긴다), 그대로 두면 미리보기가
+    /// 「1 / 3」인데 같은 사진이 두 번 나온다.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<RequestImage> ImagesOf(ImprovementRequest request)
+    {
+        var picked = PickOf(request);
+
+        if (picked is null)
+        {
+            return [];
+        }
+
+        var images = new List<RequestImage> { picked };
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { picked.FileId };
+
+        foreach (var a in request.Attachments ?? [])
+        {
+            if (!IsImage(a) || a.FileId is not { Length: > 0 } fileId || !seen.Add(fileId))
+            {
+                continue;
+            }
+
+            images.Add(new RequestImage(fileId, a.OriginalFileName));
+        }
+
+        return images;
     }
 
     /// <summary>
@@ -93,4 +135,16 @@ public static class RequestThumb
 
     private static readonly string[] ImageExtensions =
         [".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".svg"];
+}
+
+/// <summary>요청에 붙은 그림 한 장.</summary>
+/// <param name="FileId">FileServer 가 발급한 파일 아이디.</param>
+/// <param name="Name">원본 파일 이름. 본문에 박힌 그림에는 없다.</param>
+public sealed record RequestImage(string FileId, string? Name)
+{
+    /// <summary>목록의 줄에 거는 작은 그림(150×150 WebP).</summary>
+    public string ThumbnailUrl => FileDownload.ThumbnailUrlFor(FileId);
+
+    /// <summary>미리보기로 키워 볼 원본.</summary>
+    public string OriginalUrl => FileDownload.UrlFor(FileId, Name);
 }

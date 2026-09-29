@@ -430,6 +430,12 @@ public static class JSiniWebApp
         // 화면이 덮이면 안 된다.
         services.AddScoped<ScreenLock>();
 
+        // 그림 미리보기. **여는 자리가 화면 수만큼 는다** — 목록의 썸네일,
+        // 본문에 박힌 그림, 첨부, 프로필 사진. 창을 화면마다 지으면 되는 일이
+        // 화면마다 달라지므로(회전은 어디에도 없었다) 손잡이 하나로 모은다.
+        // scoped 인 까닭은 위 서랍들과 같다 — 남이 연 그림이 내 화면에 뜨면 안 된다.
+        services.AddScoped<ImagePreview>();
+
         // DevExpress 크기 모드(Small · Medium · Large)도 사람마다 다르다.
         // 값을 흘리는 것은 SizeModeScope 가 하고, 여기는 그것이 읽을 자리다.
         services.AddScoped<ThemeSize>();

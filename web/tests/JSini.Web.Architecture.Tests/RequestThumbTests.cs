@@ -184,6 +184,81 @@ public sealed class RequestThumbTests
     }
 
     /// <summary>
+    /// 미리보기에 넘기는 목록은 <b>그림 전부</b>이고 <b>줄에 걸린 것이 맨 앞</b>이다.
+    /// </summary>
+    /// <remarks>
+    /// 누른 그림이 첫 장으로 떠야 「내가 누른 것이 열렸다」로 읽힌다. 그리고
+    /// 목록의 주소는 <b>썸네일이 아니라 원본</b>이다 — 키워 보려고 여는 창인데
+    /// 150×150 을 키우면 뭉개진 네모만 커진다.
+    /// </remarks>
+    [Fact]
+    public void 미리보기_목록은_고른_것이_맨_앞이고_원본_주소다()
+    {
+        var request = Parse("""
+            {
+              "id": 11,
+              "mainPhoto": "",
+              "attachments": [
+                { "originalFileName": "big.jpg",   "fileType": "image/jpeg", "fileSize": 9000000,
+                  "fileId": "11111111-1111-1111-1111-111111111111" },
+                { "originalFileName": "small.png", "fileType": "image/png",  "fileSize": 1200,
+                  "fileId": "22222222-2222-2222-2222-222222222222" },
+                { "originalFileName": "명세.xlsx", "fileType": "application/vnd.ms-excel",
+                  "fileSize": 100, "fileId": "44444444-4444-4444-4444-444444444444" }
+              ]
+            }
+            """);
+
+        var images = RequestThumb.ImagesOf(request);
+
+        Assert.Equal(2, images.Count);
+        Assert.Equal("22222222-2222-2222-2222-222222222222", images[0].FileId);
+        Assert.Equal("11111111-1111-1111-1111-111111111111", images[1].FileId);
+
+        Assert.Equal(
+            "/files/22222222-2222-2222-2222-222222222222?name=small.png",
+            images[0].OriginalUrl);
+
+        Assert.Equal(
+            "/files/thumbnail/22222222-2222-2222-2222-222222222222",
+            images[0].ThumbnailUrl);
+    }
+
+    /// <summary>
+    /// 본문에 박은 그림을 첨부로도 올렸으면 <b>한 번만</b> 담는다.
+    /// </summary>
+    /// <remarks>
+    /// 서식 편집기가 붙여넣은 그림을 첨부로도 남기는 일이 있다. 그대로 두면
+    /// 미리보기가 「1 / 2」인데 같은 사진이 두 번 나온다.
+    /// </remarks>
+    [Fact]
+    public void 같은_파일은_미리보기_목록에_한_번만_담는다()
+    {
+        var request = Parse("""
+            {
+              "id": 12,
+              "mainPhoto": "/api/file/download/id/6d9292df-5b6d-42e8-b6e3-8c15a5918d92",
+              "attachments": [
+                { "originalFileName": "붙여넣기.png", "fileType": "image/png", "fileSize": 500,
+                  "fileId": "6d9292df-5b6d-42e8-b6e3-8c15a5918d92" }
+              ]
+            }
+            """);
+
+        var images = RequestThumb.ImagesOf(request);
+
+        Assert.Single(images);
+        Assert.Equal("6d9292df-5b6d-42e8-b6e3-8c15a5918d92", images[0].FileId);
+    }
+
+    /// <summary>그림이 없으면 미리보기에 넘길 것도 없다.</summary>
+    [Fact]
+    public void 그림이_없으면_미리보기_목록도_빈다()
+    {
+        Assert.Empty(RequestThumb.ImagesOf(Parse("""{ "id": 13 }""")));
+    }
+
+    /// <summary>
     /// <b>원본이 아니라 썸네일</b>을 건다.
     /// </summary>
     /// <remarks>

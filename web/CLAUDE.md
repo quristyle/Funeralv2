@@ -2565,6 +2565,60 @@ BlazorMonaco 는 스크립트 세 장이 전역에 있기를 기대한다. 없�
 - 모듈 전용 스타일은 그 모듈 `wwwroot/*.css` 에 두고
   `IPortalModule.StyleSheet` 로 알린다. 셸은 모듈 이름을 알지 못한다.
 
+### 그림을 크게 보는 자리는 **하나다** — `ImagePreview` (2026-09-29)
+
+썸네일·첨부·프로필 사진·본문에 박힌 그림… **크게 볼 일이 화면마다 생긴다.**
+전에는 화면마다 `CommPopup` 으로 창을 직접 짓거나(`내 정보`) `target="_blank"`
+로 새 탭을 열었는데(`AiTaskView`), 그러면 **되는 일이 화면마다 다르다** —
+어디서도 돌려 볼 수가 없어서, 스캔해 올린 사진이 옆으로 누워 있으면 받아서
+열어야 했다. 헬프데스크 요청에 붙는 그림이 대부분 그런 사진이다.
+
+그래서 창은 **레이아웃에 한 벌만** 둔다(`ImagePreviewHost` — `MainLayout` 끝).
+화면은 손잡이 하나로 부른다.
+
+```csharp
+[Inject] private ImagePreview Preview { get; set; } = default!;
+
+Preview.Open(FileDownload.UrlFor(fileId), "장애 사진.jpg");   // 한 장
+Preview.OpenAll(items, index);                                // 여러 장 (앞뒤로 넘어간다)
+```
+
+본문처럼 `<img>` 가 HTML 안에 박혀 있어 손댈 자리가 없는 곳은 **감싼 칸에
+한 마디만** 적는다. 문서에 세워 둔 문지기가 받아서 그 칸의 그림 **전부**를
+목록으로 띄운다.
+
+```razor
+<div class="hd-content" data-imgview-scope>@Body()</div>
+```
+
+되는 일 — 확대·축소(휠·두 손가락·두 번 누르기) · 끌어 옮기기 · 90° 회전 ·
+좌우·상하 뒤집기 · 흑백 · 색 반전 · 밝기 · 대비 · 앞뒤로 넘기기 ·
+단축키(`Esc` `←` `→` `+` `-` `0` `1` `R` `G`).
+
+#### 보이는 모습의 정본은 **브라우저에 있다**
+
+확대율은 휠로도 바뀌고 단추로도 바뀐다. 두 곳에 상태를 두면 반드시 어긋나고,
+어긋나면 도구띠의 「100%」가 거짓말을 한다. 그래서 값은 전부
+`wwwroot/js/image-preview.js` 가 쥐고, C# 은 돌려받은 사본으로 도구띠만 그린다
+(끄는 동안 `pointermove` 를 서버로 보내지 않는 것은 `note-swipe.js` 와 같은
+까닭이다).
+
+그 짝이 어긋나도 **아무 일도 일어나지 않는다** — System.Text.Json 이 모르는
+칸을 조용히 버리기 때문이다. `ImagePreviewTests` 가 JS 의 `snapshot()` 과
+`ImagePreviewState` 의 칸, 그리고 도구띠 단추 이름이 JS 의 `switch` 에 다
+있는지를 빌드 때 대조한다.
+
+#### `<img>` 에 `style` 을 그리지 않는다
+
+확대·회전·색은 JS 가 인라인 스타일로 직접 쓴다. C# 이 그 속성을 한 글자라도
+그리면 Blazor 가 그것을 제 것으로 알고, 다시 그릴 때마다 **키워 놓은 그림이
+제자리로 튄다.** 안 그리면 Blazor 는 건드리지 않는다.
+
+#### 목록의 그림을 눌렀을 때 줄 누르기가 함께 먹지 않게 한다
+
+`@onclick:stopPropagation="true"` 가 없으면 미리보기가 열리자마자 줄 누르기가
+상세 화면으로 데려간다(`RequestManage`).
+
 ### 갔다 와도 쓰던 모습 그대로 — `ScreenState` · `CommGrd StateKey`
 
 vben 의 `keep-alive` 자리다. **떠난 화면의 부품을 살려 두지 않는다** — 그러면

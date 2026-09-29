@@ -35,7 +35,7 @@
     | 이름·값 목록 | `<dl class="ad-desc">` | `DxFormLayout` + `DxFormLayoutItem` |
     | 묶음 제목 | `<h2 class="ad-section">` | `DxFormLayoutGroup` |
     | 고정탭 두 판 | `<ul>` + 끌어놓기 | `DxListBox` × 2 + `DxButton` |
-    | 사진 미리보기 | `target="_blank"` 링크 | `DxPopup` |
+    | 사진 미리보기 | `target="_blank"` 링크 | 공통 미리보기(`ImagePreview` — 확대·회전·흑백) |
     | 조회 중 | `<p>읽는 중…</p>` | `DxLoadingPanel` |
     | 사진 올리기 | `FilePicker`(`InputFile`) + 「올리기」 단추 | `DxUpload` |
 
@@ -1063,24 +1063,6 @@
         </DxLoadingPanel>
     </div>
 </div>
-
-@* 사진 크게 보기. Vue 원본에도 있던 미리보기 창이고, 한동안 새 창으로
-   여는 링크로 대신하고 있었다 — 창을 옮겨 다니지 않아도 되는 쪽이 맞다. *@
-<CommPopup Visible="@(_preview is not null)"
-         VisibleChanged="@((bool v) => { if (!v) _preview = null; })"
-         HeaderText="@(_preview?.OriginalName ?? "사진")"
-         Width="min(720px, 92vw)"
-         CloseOnOutsideClick="true"
-         ShowFooter="false">
-    <BodyContentTemplate>
-        @if (_preview?.Id is { Length: > 0 } previewId)
-        {
-            <img class="ad-photo__full"
-                 src="@FileDownload.UrlFor(previewId, _preview.OriginalName)"
-                 alt="@_preview.OriginalName" />
-        }
-    </BodyContentTemplate>
-</CommPopup>
 
 @* 기기 이름 바꾸기. 목록에서 바로 고치게 두면 줄마다 입력칸과 저장 단추가
    서서 목록이 폼이 된다 — 흔한 일이 아니라 창으로 뺀다. *@

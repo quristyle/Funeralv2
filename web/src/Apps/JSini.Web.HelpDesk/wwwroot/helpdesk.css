@@ -890,6 +890,10 @@
   border: 1px solid var(--jsini-border);
   vertical-align: middle;
   background: var(--jsini-surface);
+
+  /* 눌러서 크게 볼 수 있다는 표시. 줄 전체도 눌리는 자리라(상세로 간다)
+     여기만 손가락이 아니라 **돋보기**여야 다른 일이 난다는 것이 보인다. */
+  cursor: zoom-in;
 }
 
 /* ── 요청 처리 표 — 줄 하나가 80px 다 (`.hd-manage-grid`) ─────
