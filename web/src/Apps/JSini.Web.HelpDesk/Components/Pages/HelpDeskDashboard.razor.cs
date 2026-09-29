@@ -144,11 +144,15 @@ public partial class HelpDeskDashboard
     /// <param name="from">기간 시작(그 날 포함).</param>
     /// <param name="to">기간 끝(<b>그 날 포함</b>).</param>
     /// <param name="byResolved">기간을 완료 시각으로 재나. 거짓이면 접수 시각이다.</param>
+    /// <param name="overrideCompanyId">조회할 고객사 (없으면 화면 필터 사용).</param>
+    /// <param name="adminId">조회할 담당자 번호.</param>
     private string ManageHref(
         string? statuses = null,
         DateTime? from = null,
         DateTime? to = null,
-        bool byResolved = false)
+        bool byResolved = false,
+        string? overrideCompanyId = null,
+        int? adminId = null)
     {
         var parts = new List<string>();
 
@@ -175,9 +179,15 @@ public partial class HelpDeskDashboard
         // **보고 있는 회사를 함께 싣는다.** 안 실으면 회사 하나로 좁혀 놓고
         // 타일을 눌렀을 때 전체가 열린다 — 숫자가 안 맞는다.
         // 고객 계정은 서버가 제 회사로 묶으므로(`Scope.CompanyScoped`) 안 싣는다.
-        if (CanPickCompany && !string.IsNullOrEmpty(_companyId))
+        var targetCompanyId = overrideCompanyId ?? (CanPickCompany ? _companyId : null);
+        if (!string.IsNullOrEmpty(targetCompanyId))
         {
-            parts.Add($"company={Uri.EscapeDataString(_companyId)}");
+            parts.Add($"company={Uri.EscapeDataString(targetCompanyId)}");
+        }
+
+        if (adminId.HasValue)
+        {
+            parts.Add($"admin={adminId.Value}");
         }
 
         // **「처리 중인 것만」을 반드시 꺼서 보낸다.** 목록 화면의 기본값이
@@ -186,6 +196,9 @@ public partial class HelpDeskDashboard
 
         return $"{ManagePath}?{string.Join("&", parts)}";
     }
+
+    private string ManageCompanyHref(string companyId) => ManageHref(overrideCompanyId: companyId);
+    private string ManageAdminHref(int adminId) => ManageHref(adminId: adminId);
 
     private static string Day(DateTime at) => at.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 

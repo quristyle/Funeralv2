@@ -970,3 +970,31 @@
   line-height: 1.35;
   color: var(--jsini-text);
 }
+
+/* ── 눌리는 카드 ───────────────────────────────────────── */
+
+.hd-card--link {
+  position: relative;
+  transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.hd-card--link:hover {
+  border-color: var(--jsini-accent);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.hd-card--link:focus-within {
+  outline: 2px solid var(--jsini-accent);
+  outline-offset: 1px;
+}
+
+.hd-card__hit {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.hd-card__hit:focus,
+.hd-card__hit:focus-visible {
+  outline: none;
+}

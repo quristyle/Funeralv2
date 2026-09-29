@@ -45,6 +45,9 @@ public partial class RequestManage : IDisposable
     /// </summary>
     [SupplyParameterFromQuery(Name = "open")] public string? OpenQuery { get; set; }
 
+    /// <summary>담당자.</summary>
+    [SupplyParameterFromQuery(Name = "admin")] public string? AdminQuery { get; set; }
+
     /// <summary>
     /// 이 화면이 맡겨 두는 짐의 이름. 표의 모습(칸 너비·정렬·칸별 검색)은
     /// <c>CommGrd</c> 가 같은 이름으로 따로 맡는다(<c>StateKey</c>).
@@ -312,7 +315,7 @@ public partial class RequestManage : IDisposable
     /// 화면 어디에도 안 보인다.
     /// </para>
     /// <para>
-    /// 요청자·담당자·제목은 주소로 안 받는다. 현황판 타일이 그 셋으로는 세지
+    /// 요청자·제목은 주소로 안 받는다. 현황판 타일이 그것으로는 세지
     /// 않기 때문이고, 받을 곳이 늘면 그만큼 「주소와 화면이 어긋나는」 자리가
     /// 늘어난다.
     /// </para>
@@ -331,7 +334,8 @@ public partial class RequestManage : IDisposable
             || to is not null
             || basis is not null
             || !string.IsNullOrWhiteSpace(CompanyQuery)
-            || !string.IsNullOrWhiteSpace(OpenQuery);
+            || !string.IsNullOrWhiteSpace(OpenQuery)
+            || !string.IsNullOrWhiteSpace(AdminQuery);
 
         if (!carried)
         {
@@ -343,6 +347,7 @@ public partial class RequestManage : IDisposable
         _to = to;
         _basis = basis ?? RequestedBasis;
         _companyId = string.IsNullOrWhiteSpace(CompanyQuery) ? null : CompanyQuery;
+        _adminId = string.IsNullOrWhiteSpace(AdminQuery) ? null : AdminQuery;
 
         // 「처리 중인 것만」은 **적어 보냈을 때만** 건드린다. 안 적었으면 이
         // 화면의 기본값(켜짐)이 그대로다.
