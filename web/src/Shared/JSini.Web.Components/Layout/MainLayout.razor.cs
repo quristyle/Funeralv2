@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.JSInterop;
@@ -172,13 +172,13 @@ public partial class MainLayout
     /// 그 단추를 감춰 두었는가. 감춰도 <b>헤더의 ☰ 는 되살리지 않는다</b> —
     /// 휴대폰에서 메뉴를 여는 일은 로고가 한다(<see cref="OnBrandClick"/>).
     /// </summary>
-    private bool _fabHidden;
+    private bool _fabHidden = true;
 
     /// <summary>헬프데스크 요청 등록 단추의 위치. 기본은 메뉴 단추의 반대 귀퉁이다.</summary>
     private string _hdFabPosition = "bottom-right";
 
-    /// <summary>그 단추를 감춰 두었는가. 기본은 <c>false</c> — 권한이 있으면 보인다.</summary>
-    private bool _hdFabHidden;
+    /// <summary>그 단추를 감춰 두었는가. 기본은 <c>true</c> — 권한이 있으면 보인다.</summary>
+    private bool _hdFabHidden = true;
 
     /// <summary>요청 등록 단추가 여는 화면. 권한을 묻는 열쇠도 이 경로다.</summary>
     private const string HelpDeskNewPath = "/helpdesk/request/new";
