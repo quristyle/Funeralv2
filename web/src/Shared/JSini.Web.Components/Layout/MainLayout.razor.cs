@@ -27,6 +27,7 @@ public partial class MainLayout
     [Inject] private NavigationManager Navigation { get; set; } = default!;
     [Inject] private IJSRuntime Js { get; set; } = default!;
     [Inject] private ILogger<MainLayout> Log { get; set; } = default!;
+    [Inject] private Microsoft.AspNetCore.Http.IHttpContextAccessor HttpContextAccessor { get; set; } = default!;
 
     /// <summary>
     /// 셸의 클래스. 접힘은 <c>--collapsed</c>, <b>휴대폰에서 펴진 것은
@@ -242,6 +243,15 @@ public partial class MainLayout
 
     protected override void OnInitialized()
     {
+        if (HttpContextAccessor.HttpContext != null)
+        {
+            var ua = HttpContextAccessor.HttpContext.Request.Headers.UserAgent.ToString();
+            if (ua.Contains("Mobi", StringComparison.OrdinalIgnoreCase))
+            {
+                _sidebarOpen = false;
+            }
+        }
+
         // 탭 줄이 볼 수 없는 화면을 세우지 않게 한다 — 고정 탭을 되살릴 때와
         // 이미 열린 탭을 걷을 때 같은 판정을 쓴다(`PortalTabs.CanShow`).
         // 레이아웃은 업무를 옮길 때마다 새로 생기지만 서비스는 회로마다 하나라

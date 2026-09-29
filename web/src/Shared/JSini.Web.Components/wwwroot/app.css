@@ -1,4 +1,4 @@
-﻿/*
+/*
   셸 레이아웃. DevExpress 테마 **뒤에** 실린다(JSiniHead 의 link 순서).
 
   [DevExpress 데모의 껍데기를 본떴다]
@@ -2132,11 +2132,11 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   .jsini-shell__split,
   .jsini-shell__split > .dxbl-splitter-pane,
   .jsini-shell__split > .dxbl-splitter-pane > .dxbl-splitter-pane-content {
-    display: contents;
+    display: contents !important;
   }
 
   .jsini-shell__split > .dxbl-splitter-separator {
-    display: none;
+    display: none !important;
   }
 
   /* 데모의 330px 를 그대로 두면 360px 짜리 화면을 거의 다 덮어서 본문이
