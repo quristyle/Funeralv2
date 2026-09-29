@@ -1619,10 +1619,27 @@
         || toast.querySelector('.dxbl-toast-close button');
   }
 
-  /** 손가락을 따라간다. 그리는 것은 여기서만 한다. */
+  /**
+   * 손가락을 따라간다. 그리는 것은 여기서만 한다.
+   *
+   * 받는 `dx` 는 <b>눈에 보이는 거리</b>다(아래 `swipeAt`). 확대한
+   * 동안에는 판이 `1/배율` 로 줄어 있어서, 그 안쪽에서 1px 을 옮기면
+   * 화면에서도 꼭 1px 이 움직인다 — 그래서 여기서 다시 고칠 것이 없다.
+   */
   function swipeDraw(el, dx) {
     el.style.transform = 'translateX(' + dx + 'px)';
     el.style.opacity = String(Math.max(0, 1 - Math.abs(dx) / SWIPE_FADE));
+  }
+
+  /**
+   * 누름이 시작한 자리에서 <b>눈에 보이는 거리</b>로 얼마나 갔나.
+   *
+   * `clientX` 는 레이아웃 뷰포트의 CSS px 이라, 확대한 동안에는 같은
+   * 손가락 거리가 <b>배율만큼 작은 수</b>로 온다. 그대로 재면 2.5 배로
+   * 키워 놓은 화면에서는 치우는 데 손가락이 2.5 배 멀리 가야 한다.
+   */
+  function swipeAt(now, from) {
+    return (now - from) * toastScale;
   }
 
   /** 우리가 적은 것을 걷는다. 판이 그리던 그림으로 돌아간다. */
@@ -1681,8 +1698,8 @@
   document.addEventListener('pointermove', function (e) {
     if (!swiping || e.pointerId !== swiping.id) return;
 
-    var dx = e.clientX - swiping.x;
-    var dy = e.clientY - swiping.y;
+    var dx = swipeAt(e.clientX, swiping.x);
+    var dy = swipeAt(e.clientY, swiping.y);
 
     if (!swiping.moved) {
       // 세로로 먼저 갔으면 스크롤이다 — 이번 누름은 놓아 준다.
@@ -1770,6 +1787,123 @@
 
     if (toast) toast.classList.add('jsini-toast-time--held');
   }, true);
+
+  /**
+   * 토스트를 <b>보이는 화면 안</b>에 세운다.
+   *
+   * [무엇이 안 보였나]
+   *
+   * 판은 화면에 붙어 있다(`MainLayout` 의 `StickToViewport` → `position:
+   * fixed`). 그런데 `fixed` 가 붙잡는 것은 **레이아웃 뷰포트**고 사람이
+   * 보고 있는 것은 **비주얼 뷰포트**다. 손가락으로 확대했을 때 ·
+   * 휴대폰 주소창이 드나들 때 · 화면 자판이 올라왔을 때 둘이 갈라지고,
+   * 그때 「오른쪽 아래」 토스트는 보이는 자리 **밖**에 뜬다. 스크롤해서
+   * 찾아가야 보이므로 사람에게는 **아무 일도 안 일어난 것**으로 보인다.
+   *
+   * [하는 일은 칸 넷을 적는 것뿐이다]
+   *
+   * 보이는 자리가 레이아웃 뷰포트 안쪽으로 얼마나 들어와 있는지를 네
+   * 방향으로 재어 `--jsini-toast-inset-*` 에 적는다. 그것을 읽어 판을
+   * 옮기는 일은 app.css 가 한다(「토스트는 「보이는 화면」 안에 선다」).
+   * **사람이 고른 자리는 건드리지 않는다** — 그 자리를 재는 기준만
+   * 「창」에서 「보이는 곳」으로 바뀐다.
+   *
+   * 확대한 동안에는 배율도 함께 적고 표(`jsini-toast-zoomed`)를 붙인다.
+   * 300px 짜리 토스트가 2.5 배 화면에서 750px 를 먹어 가로로 넘치기
+   * 때문이다.
+   *
+   * [판을 직접 찾지 않는다]
+   *
+   * 토스트 판은 회로가 그때그때 만들어 넣고 화면을 옮길 때 갈릴 수 있다.
+   * 뿌리(`<html>`)에 적어 두면 **그다음에 생기는 판도 그대로 읽는다** —
+   * 요소를 붙들어 두면 갈린 뒤로는 옛 것에만 적히고, 오류는 나지 않는데
+   * 자리만 안 맞는 상태가 된다.
+   */
+
+  /** 판이 읽는 칸 넷. 이름은 app.css 와 짝이다. */
+  var TOAST_INSETS = ['top', 'right', 'bottom', 'left'];
+
+  /** 확대한 동안에만 붙이는 표. app.css 가 이것으로 크기를 되돌린다. */
+  var TOAST_ZOOMED = 'jsini-toast-zoomed';
+
+  /** 지금 판이 줄어 있는 배율(1 이면 그대로). 쓸어 치우기가 읽는다. */
+  var toastScale = 1;
+
+  /** 다음 그림에 한 번만 다시 잰다 — 확대·밀기는 초당 수십 번 온다. */
+  var toastFitPending = false;
+
+  function toastFit() {
+    toastFitPending = false;
+
+    var vv = window.visualViewport;
+    var root = document.documentElement;
+
+    // 비주얼 뷰포트를 모르는 브라우저는 그냥 둔다. 칸이 비어 있으면
+    // app.css 의 기본값(0)이 살아나 고치기 전과 똑같이 움직인다.
+    if (!vv || !root) return;
+
+    // **스크롤막대를 뺀 크기**여야 한다. 보이는 자리(`visualViewport`)도 그것을
+    // 빼고 세므로, `innerWidth` 로 재면 막대 두께만큼이 늘 어긋남으로 잡혀
+    // 확대하지 않았는데도 토스트가 10px 옆으로 선다(재어 확인했다).
+    var layoutW = root.clientWidth;
+    var layoutH = root.clientHeight;
+
+    // `<head>` 에서 처음 돌 때는 아직 0 이다. 그때 적으면 그 어긋남이 그대로
+    // 굳는다 — 다시 잴 일이 없기 때문이다. 아래 `DOMContentLoaded` 가 곧 부른다.
+    if (layoutW <= 0 || layoutH <= 0) {
+      return;
+    }
+
+    var inset = {
+      top: vv.offsetTop,
+      left: vv.offsetLeft,
+      right: layoutW - vv.offsetLeft - vv.width,
+      bottom: layoutH - vv.offsetTop - vv.height
+    };
+
+    for (var i = 0; i < TOAST_INSETS.length; i++) {
+      var side = TOAST_INSETS[i];
+
+      // 음수는 적지 않는다. 브라우저마다 반올림이 조금씩 달라 1px 쯤
+      // 넘치는 값이 오는데, 그대로 적으면 토스트가 오히려 밖으로 나간다.
+      root.style.setProperty(
+        '--jsini-toast-inset-' + side,
+        Math.max(0, Math.round(inset[side])) + 'px');
+    }
+
+    toastScale = vv.scale > 0 ? vv.scale : 1;
+
+    root.style.setProperty('--jsini-toast-scale', String(1 / toastScale));
+
+    // 0.01 은 반올림 여유다. 확대하지 않았는데 1.0000001 이 오는 브라우저가
+    // 있고, 그때 표를 붙이면 확대한 적도 없는 화면이 래스터 층으로 올라간다.
+    root.classList.toggle(TOAST_ZOOMED, Math.abs(toastScale - 1) > 0.01);
+  }
+
+  function toastFitSoon() {
+    if (toastFitPending) return;
+
+    toastFitPending = true;
+
+    window.requestAnimationFrame(toastFit);
+  }
+
+  if (window.visualViewport) {
+    // 확대·밀기는 `scroll`, 주소창과 화면 자판은 `resize` 로 온다.
+    window.visualViewport.addEventListener('resize', toastFitSoon);
+    window.visualViewport.addEventListener('scroll', toastFitSoon);
+  }
+
+  // 창 크기가 바뀌면 레이아웃 뷰포트도 바뀐다 — 칸은 그 둘의 차이다.
+  window.addEventListener('resize', toastFitSoon);
+  window.addEventListener('orientationchange', toastFitSoon);
+
+  // **첫 셈은 여기서 끝난다.** 이 파일은 `<head>` 에서 도는데 그때는 `<html>`
+  // 의 크기가 아직 0 이라 위에서 되돌아 나간다.
+  document.addEventListener('DOMContentLoaded', toastFitSoon);
+  window.addEventListener('load', toastFitSoon);
+
+  toastFitSoon();
 
   /**
    * 창 안에서 초점이 갈 수 있는 것들. 감춰 둔 공지의 첨부 링크는 뺀다 —

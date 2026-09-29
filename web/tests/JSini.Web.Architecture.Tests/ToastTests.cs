@@ -216,6 +216,48 @@ public sealed class ToastTests
             double.Parse(js.Groups[1].Value, CultureInfo.InvariantCulture));
     }
 
+    /// <summary>
+    /// <b>보이는 화면</b>에 맞추는 칸 이름이 두 파일에서 같아야 한다.
+    ///
+    /// <para>
+    /// 재는 일은 theme.js 가 하고(<c>visualViewport</c>), 그 값을 읽어 판을
+    /// 옮기는 일은 app.css 가 한다. 이름을 한쪽에서만 바꾸면 <b>칸은 적히는데
+    /// 아무도 안 읽는</b> 상태가 되어, 손가락으로 확대했을 때 토스트가 다시
+    /// 화면 밖으로 나간다 — 오류가 없고 평소에는 멀쩡해서 눈에 안 띈다.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void 보이는_화면_칸이_두_파일에_다_있다()
+    {
+        var js = RazorSource.Read(ThemeJs());
+        var css = RazorSource.Read(AppCss());
+
+        var sides = Regex.Match(js, @"TOAST_INSETS\s*=\s*\[([^\]]*)\]");
+        var zoomed = Regex.Match(js, @"TOAST_ZOOMED\s*=\s*'([a-z-]+)'");
+
+        Assert.True(sides.Success, "theme.js 에서 `TOAST_INSETS` 를 찾지 못했다.");
+        Assert.True(zoomed.Success, "theme.js 에서 `TOAST_ZOOMED` 를 찾지 못했다.");
+
+        var names = Regex
+            .Matches(sides.Groups[1].Value, @"'([a-z]+)'")
+            .Select(m => $"--jsini-toast-inset-{m.Groups[1].Value}")
+            .Append("--jsini-toast-scale")
+            .Append(zoomed.Groups[1].Value)
+            .ToArray();
+
+        Assert.True(names.Length >= 6, "theme.js 가 적는 칸을 하나도 읽어내지 못했다.");
+
+        var missing = names
+            .Where(name => !css.Contains(name, StringComparison.Ordinal))
+            .ToArray();
+
+        Assert.True(
+            missing.Length == 0,
+            "theme.js 가 적는 칸 중 app.css 가 읽지 않는 것이 있다. "
+            + "「토스트는 「보이는 화면」 안에 선다」 절에 더한다.\n  "
+            + string.Join("\n  ", missing));
+    }
+
     private static string ThemeJs() => Path.Combine(
         SolutionRoot(), "src", "Shared", "JSini.Web.Components", "wwwroot", "theme.js");
 
