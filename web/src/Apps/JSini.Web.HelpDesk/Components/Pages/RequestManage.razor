@@ -245,7 +245,13 @@
                             <span class="hd-req-meta__dot">·</span>
                             <span class="hd-req-meta__item">@Elapsed(r)</span>
                         </div>
-                        <div class="hd-req-title">@r.Title</div>
+                        <div class="hd-req-title">
+                            @r.Title
+                            @if (r.Comments?.Count > 0)
+                            {
+                                <span class="jsini-badge" style="margin-left: 6px; font-weight: normal;">댓글 @r.Comments.Count</span>
+                            }
+                        </div>
                     </div>
                 </CellDisplayTemplate>
             </DxGridDataColumn>
