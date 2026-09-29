@@ -1012,9 +1012,17 @@ public partial class AiAskPanel
     {
         var allowed = AllowedKinds;
 
-        if (allowed.Count > 0 && !allowed.Any(k => k.Value == _kind))
+        if (allowed.Count > 0)
         {
-            _kind = allowed[0].Value;
+            var matched = allowed.FirstOrDefault(k => string.Equals(k.Value, _kind, StringComparison.OrdinalIgnoreCase));
+            if (matched is not null)
+            {
+                _kind = matched.Value;
+            }
+            else
+            {
+                _kind = allowed[0].Value;
+            }
         }
     }
 

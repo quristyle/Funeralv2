@@ -896,7 +896,12 @@ public partial class AiTaskList
             return;
         }
 
-        if (!allowed.Any(o => o.Value == _edit.RunnerKind))
+        var matched = allowed.FirstOrDefault(o => string.Equals(o.Value, _edit.RunnerKind, StringComparison.OrdinalIgnoreCase));
+        if (matched is not null)
+        {
+            _edit.RunnerKind = matched.Value;
+        }
+        else
         {
             _edit.RunnerKind = allowed[0].Value;
         }

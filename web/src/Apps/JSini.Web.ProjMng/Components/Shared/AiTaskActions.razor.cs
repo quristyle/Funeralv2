@@ -104,13 +104,14 @@ public partial class AiTaskActions
     {
         _retryAddition = null;
         _retryError = null;
-        _retryKind = Item?.RunnerKind;
 
         if (!_kindsRead)
         {
             _kinds = await ModelCodes.GetAsync();
             _kindsRead = _kinds.Count > 0;
         }
+
+        _retryKind = MatchKindCase(Item?.RunnerKind);
 
         _retryOpen = true;
     }
@@ -294,6 +295,13 @@ public partial class AiTaskActions
             k => string.Equals(k.Value, kind, StringComparison.OrdinalIgnoreCase))?.Text ?? kind;
     }
 
+    private string? MatchKindCase(string? kind)
+    {
+        if (string.IsNullOrWhiteSpace(kind)) return kind;
+        return _kinds.FirstOrDefault(
+            k => string.Equals(k.Value, kind, StringComparison.OrdinalIgnoreCase))?.Value ?? kind;
+    }
+
     private async Task OpenContinueModalAsync()
     {
         _continueAddition = null;
@@ -302,10 +310,6 @@ public partial class AiTaskActions
         _continueSavedAt = null;
         _continueTaskKey = Item?.TaskKey ?? 0;
 
-        // **지난 회차의 AI 로 채운다.** 열자마자 다른 것이 골라져 있으면
-        // 바꾼 줄 모르고 보내는 쪽이 생긴다(머리말).
-        _continueKind = Item?.RunnerKind;
-
         if (!_kindsRead)
         {
             // 목록을 못 읽어도 창은 연다 — `AiModelCodes` 는 실패를 빈 목록으로
@@ -313,6 +317,11 @@ public partial class AiTaskActions
             _kinds = await ModelCodes.GetAsync();
             _kindsRead = _kinds.Count > 0;
         }
+
+        // **지난 회차의 AI 로 채운다.** 열자마자 다른 것이 골라져 있으면
+        // 바꾼 줄 모르고 보내는 쪽이 생긴다(머리말).
+        _continueKind = MatchKindCase(Item?.RunnerKind);
+
 
         // 적다 만 것이 있으면 되살린다. **못 읽어도 창은 연다** — 임시저장이
         // 없는 것은 불편이고, 여기서 막으면 이어서 지시 자체를 못 한다.
@@ -328,7 +337,7 @@ public partial class AiTaskActions
 
                 if (!string.IsNullOrWhiteSpace(draft.RunnerKind))
                 {
-                    _continueKind = draft.RunnerKind;
+                    _continueKind = MatchKindCase(draft.RunnerKind);
                 }
             }
         }
