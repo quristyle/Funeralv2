@@ -146,6 +146,7 @@ public partial class HelpDeskDashboard
     /// <param name="byResolved">기간을 완료 시각으로 재나. 거짓이면 접수 시각이다.</param>
     /// <param name="overrideCompanyId">조회할 고객사 (없으면 화면 필터 사용).</param>
     /// <param name="adminId">조회할 담당자 번호.</param>
+    /// <param name="open">처리 중인 것만 볼지 여부.</param>
     private string ManageHref(
         string? statuses = null,
         DateTime? from = null,
