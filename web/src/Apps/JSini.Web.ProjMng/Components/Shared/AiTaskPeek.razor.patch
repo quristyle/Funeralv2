@@ -1,0 +1,11 @@
+--- web/src/Apps/JSini.Web.ProjMng/Components/Shared/AiTaskPeek.razor
++++ web/src/Apps/JSini.Web.ProjMng/Components/Shared/AiTaskPeek.razor
+@@ -58,7 +58,7 @@
+                        OnDeleted="@OnConfirmedAsync" />
+ 
+         <DxButton RenderStyle="ButtonRenderStyle.Secondary" Click="@CloseAsync">
+-            닫기
++            확인
+         </DxButton>
+     </FooterContentTemplate>
+ </CommPopup>
