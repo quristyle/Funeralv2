@@ -60,7 +60,7 @@
                         Style="width: 150px" />
         </CommSchItem>
         <CommSchItem Label="제목·내용">
-            <DxTextBox Text="@_keyword" TextChanged="@OnKeywordChangedAsync"
+            <DxTextBox @bind-Text="_keyword" @bind-Text:after="ReloadAsync"
                        BindValueMode="BindValueMode.OnInput" InputDelay="1000"
                        ValidationEnabled="false" Style="width: 220px" />
         </CommSchItem>

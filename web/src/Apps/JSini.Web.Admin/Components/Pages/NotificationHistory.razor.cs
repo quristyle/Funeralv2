@@ -121,12 +121,6 @@ public partial class NotificationHistory
         return ReloadAsync();
     }
 
-    private Task OnKeywordChangedAsync(string value)
-    {
-        _keyword = value ?? string.Empty;
-        return ReloadAsync();
-    }
-
     private Task OnUnreadChangedAsync(bool value)
     {
         _unreadOnly = value;
