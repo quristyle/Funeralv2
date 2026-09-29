@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 using DevExpress.Blazor;
+using JSini.Web.Abstractions;
 using JSini.Web.Components.Menu;
 using System.Text.Json;
 
@@ -17,13 +18,33 @@ public partial class TabBar
     [Inject] private PortalBoot Boot { get; set; } = default!;
     [Inject] private Toasts Toasts { get; set; } = default!;
 
+    /// <summary>
+    /// 아래 띠에 넣을 때 <b>화면 열쇠와 이름</b>을 여기서 꺼낸다. 탭이 들고 있는
+    /// 것은 주소와 탭 이름뿐이라, 그것만으로 넣으면 경로가 옮겨 갔을 때 띠의
+    /// 칸이 「준비 중」으로 떨어진다(<see cref="BottomNav.Resolve"/>).
+    /// </summary>
+    [Inject] private IMenuProvider Menus { get; set; } = default!;
+
     private DxContextMenu? _menu;
+
+    /// <summary>다섯이 다 찼을 때 무엇과 바꿀지 묻는 창.</summary>
+    private BottomNavSwapDialog? _swap;
 
     /// <summary>오른쪽 클릭한 탭. 창이 열려 있는 동안만 값이 있다.</summary>
     private PortalTab? _target;
 
     /// <summary>적어 둔 고정 탭을 이미 되살렸는가. 회로마다 한 번만 읽는다.</summary>
     private bool _restored;
+
+    /// <summary>
+    /// 휴대폰 아래 띠에 지금 선 칸들. <b>읽기 전에는 기본 다섯</b>이다 —
+    /// <c>MobileBottomNav</c> 가 그리는 것과 같은 값이고, 같은 자리에서
+    /// 읽는다(<see cref="PortalBoot.ReadAsync"/> 의 단일 왕복).
+    /// </summary>
+    private List<BottomNavItem> _navItems = [.. BottomNav.Defaults];
+
+    /// <summary>띠를 <b>쓰지 않기로</b> 했는가. 그러면 넣고 빼는 항목을 안 그린다.</summary>
+    private bool _navHidden;
 
     /// <summary>
     /// 고정 탭을 적어 두는 자리. 브라우저(이 기기)에 남는다.
@@ -44,6 +65,15 @@ public partial class TabBar
         // 휴대폰에서 헤더의 화면 이름을 누른 것. 이 줄은 그때 감춰져 있지만
         // 창은 이 부품이 들고 있다(TabMenuRequest 머리말).
         TabMenu.Requested += OnTabMenuRequested;
+
+        // 띠를 환경설정에서 고쳐도 **같은 회로**라 바로 들어온다. 안 듣고
+        // 있으면 이 창의 「넣기/빼기」가 옛 다섯을 보고 판정해서, 이미 넣어 둔
+        // 화면에 또 「넣기」가 뜬다.
+        Boot.BottomNavItemsChanged += OnNavItemsChanged;
+        Boot.BottomNavHiddenChanged += OnNavHiddenChanged;
+
+        // 아이콘과 열쇠를 메뉴에서 찾으므로 메뉴가 늦게 오면 다시 그린다.
+        Menus.MenusChanged += OnTabsChanged;
     }
 
     private void OnTabsChanged() => InvokeAsync(StateHasChanged);
@@ -195,6 +225,126 @@ public partial class TabBar
             copied ? NoticeTone.Info : NoticeTone.Error);
     }
 
+    /* ── 휴대폰 아래 띠에 넣고 빼기 ──────────────────────────────
+
+       칸은 다섯이다(`BottomNav.MaxItems`). 다 찼으면 **무엇과 바꿀지 묻고**
+       고른 자리에 그대로 끼운다 — 까닭은 `BottomNavSwapDialog` 머리말.
+
+       고친 것은 `PortalBoot` 가 브라우저에 적고, 띠(`MobileBottomNav`)는
+       같은 회로에서 그 알림을 듣고 있어서 **그 자리에서 바뀐다.** */
+
+    private void OnNavItemsChanged(string? json)
+    {
+        _navItems = [.. BottomNav.Parse(json)];
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnNavHiddenChanged(bool hidden)
+    {
+        _navHidden = hidden;
+        InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>
+    /// 이 탭이 가리키는 메뉴. 없으면 <c>null</c> 이다(메뉴에 없는 화면).
+    /// </summary>
+    private MenuNode? MenuOf(PortalTab tab) =>
+        BottomNav.Find(new BottomNavItem { Path = tab.Href }, Menus.AllMenus);
+
+    /// <summary>이 탭이 띠에 이미 서 있으면 그 자리, 없으면 <c>-1</c>.</summary>
+    private int NavIndexOf(PortalTab tab) =>
+        BottomNav.IndexOf(_navItems, tab.Href, MenuOf(tab)?.RouteKey);
+
+    private bool InBottomNav(PortalTab tab) => NavIndexOf(tab) >= 0;
+
+    /// <summary>
+    /// 이 탭을 띠에 넣거나 뺀다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>아이콘은 담지 않는다</b> — 비워 두면 그릴 때마다 메뉴에서 찾으므로
+    /// (<see cref="BottomNav.IconClass"/>) 관리자가 메뉴 아이콘을 바꾸면 띠도
+    /// 따라간다. 환경설정에서 넣을 때와 같은 규칙이다.
+    /// </para>
+    /// <para>
+    /// 주소는 <b>메뉴의 링크 주소</b>로 적는다 — 탭의 주소에는 쿼리가 붙어
+    /// 있을 수 있고, 그대로 담으면 띠의 칸이 「그때 보던 조건」에 묶인다.
+    /// 메뉴에 없는 화면이면 탭의 주소 그대로다.
+    /// </para>
+    /// </remarks>
+    private async Task ToggleBottomNavAsync(PortalTab tab)
+    {
+        if (_navHidden)
+        {
+            return;
+        }
+
+        var at = NavIndexOf(tab);
+
+        if (at >= 0)
+        {
+            var dropped = _navItems[at].Title;
+
+            _navItems.RemoveAt(at);
+
+            // **다 빼면 기본 다섯으로 되돌린다.** 빈 목록을 적어 두면 읽는 쪽이
+            // 기본값을 돌려주어(`BottomNav.Parse`) 화면과 저장된 것이 갈라진다.
+            // 띠를 없애는 길은 환경설정의 스위치다.
+            if (_navItems.Count == 0)
+            {
+                _navItems = [.. BottomNav.Defaults];
+                await Boot.SetBottomNavItemsAsync(null);
+                Toasts.Show($"「{dropped}」을(를) 빼고 기본 다섯으로 되돌렸습니다.");
+                return;
+            }
+
+            await SaveNavAsync();
+            Toasts.Show($"「{dropped}」을(를) 아래 띠에서 뺐습니다.");
+            return;
+        }
+
+        var node = MenuOf(tab);
+
+        var item = new BottomNavItem
+        {
+            Path = node?.LinkTarget ?? tab.Href,
+            RouteKey = node?.RouteKey,
+            Title = node?.Title ?? tab.Title,
+        };
+
+        if (_navItems.Count < BottomNav.MaxItems)
+        {
+            _navItems.Add(item);
+            await SaveNavAsync();
+            Toasts.Show($"「{item.Title}」을(를) 아래 띠에 넣었습니다.");
+            return;
+        }
+
+        if (_swap is null)
+        {
+            return;
+        }
+
+        // 다섯이 다 찼다. **아무거나 밀어내지 않는다** — 어느 칸을 내줄지 묻고
+        // 고른 자리에 그대로 끼운다(뒤에 붙이면 건드리지도 않은 칸의 자리가 바뀐다).
+        var slot = await _swap.AskAsync(_navItems, item.Title);
+
+        // 그만두었거나, 묻는 동안 환경설정에서 칸이 줄었다.
+        if (slot < 0 || slot >= _navItems.Count)
+        {
+            return;
+        }
+
+        var replaced = _navItems[slot].Title;
+
+        _navItems[slot] = item;
+        await SaveNavAsync();
+
+        Toasts.Show($"「{replaced}」 자리에 「{item.Title}」을(를) 놓았습니다.");
+    }
+
+    private Task SaveNavAsync() => Boot.SetBottomNavItemsAsync(BottomNav.Serialize(_navItems));
+
     /// <summary>그쪽에 닫을 것이 하나라도 있는가. 없으면 항목을 꺼 둔다.</summary>
     private bool HasClosableSide(PortalTab tab, bool left)
     {
@@ -245,7 +395,14 @@ public partial class TabBar
 
         // 저장소를 직접 읽지 않는다. `PortalBoot` 가 잠금 표시·공지 표시·테마와
         // **한 왕복으로** 읽어 온다 — 이유는 그 클래스 머리말에 있다.
-        var saved = (await Boot.ReadAsync()).PinnedTabsJson;
+        var state = await Boot.ReadAsync();
+
+        // 아래 띠의 칸들도 같은 왕복에 얹혀 온다. 우리 때문에 왕복이 늘지 않는다.
+        _navHidden = state.BottomNavHidden;
+        _navItems = [.. BottomNav.Parse(state.BottomNavItemsJson)];
+        StateHasChanged();
+
+        var saved = state.PinnedTabsJson;
 
         if (string.IsNullOrWhiteSpace(saved))
         {
@@ -305,5 +462,8 @@ public partial class TabBar
         Tabs.PinsChanged -= OnPinsChanged;
         Favorites.Changed -= OnTabsChanged;
         TabMenu.Requested -= OnTabMenuRequested;
+        Boot.BottomNavItemsChanged -= OnNavItemsChanged;
+        Boot.BottomNavHiddenChanged -= OnNavHiddenChanged;
+        Menus.MenusChanged -= OnTabsChanged;
     }
 }

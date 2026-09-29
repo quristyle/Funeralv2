@@ -265,6 +265,48 @@ public static class BottomNav
     }
 
     /// <summary>
+    /// 이 화면이 띠에 <b>이미 서 있는가</b>. 있으면 그 자리, 없으면 <c>-1</c>.
+    /// </summary>
+    /// <param name="items">지금 띠에 선 칸들.</param>
+    /// <param name="path">찾을 화면의 링크 주소.</param>
+    /// <param name="routeKey">그 화면의 열쇠(<see cref="MenuNode.RouteKey"/>). 없으면 <c>null</c>.</param>
+    /// <remarks>
+    /// <para>
+    /// <b>열쇠를 먼저 본다</b> — <see cref="Find"/> 와 같은 까닭이다. 적어 둔
+    /// 경로는 옛 경로일 수 있어서(라우트가 옮겨 갔다) 경로만 맞대 보면 이미
+    /// 놓아 둔 칸을 「없다」고 읽는다. 그러면 <b>같은 화면이 띠에 둘 서고</b>
+    /// 다섯 중 하나를 헛되이 쓴다.
+    /// </para>
+    /// <para>
+    /// 넣고 빼는 자리가 둘이라(환경설정 판 · 탭 메뉴) 판정을 여기 하나로 둔다 —
+    /// 양쪽이 제각각 맞대 보면 한쪽에서 「이미 있다」가 다른 쪽에서 「없다」가 된다.
+    /// </para>
+    /// </remarks>
+    public static int IndexOf(IReadOnlyList<BottomNavItem> items, string path, string? routeKey)
+    {
+        if (!string.IsNullOrWhiteSpace(routeKey))
+        {
+            for (var i = 0; i < items.Count; i++)
+            {
+                if (Same(items[i].RouteKey, routeKey))
+                {
+                    return i;
+                }
+            }
+        }
+
+        for (var i = 0; i < items.Count; i++)
+        {
+            if (Same(items[i].Path, path))
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>
     /// 이 칸에 붙일 아이콘 CSS 클래스.
     /// </summary>
     /// <remarks>
