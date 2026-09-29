@@ -44,7 +44,13 @@ DB 의 시각 칸이 **두 가지로 섞여 있었다.**
 
 반영 SQL 은 [`deploy/sql/utc-timestamptz-2026-09-29.sql`](../deploy/sql/utc-timestamptz-2026-09-29.sql)
 이고 **두 번 돌려도 안전하다**(이미 `timestamptz` 인 칸은 건너뛴다).
-운영 DB(`projmng` · `helpdesk`)에는 반영했다.
+운영 DB **일곱 곳 전부**(`projmng` · `helpdesk` · `cargotrust` · `funeralv2` ·
+`ghub` · `jsiniportal` · `jsinisite`)에 반영했고, 시간대 없는 시각 칸은 이제
+**한 곳에도 없다**.
+
+일부러 놔둔 DB 가 둘 있다. `jinrecept`(옛 헬프데스크 자료)는 이 저장소의 어느
+서비스도 읽지 않고 바깥의 옛 시스템이 아직 naive KST 로 읽고 있을 수 있어서,
+`goldb` 는 아예 다른 제품이라서다.
 
 ---
 

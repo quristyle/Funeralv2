@@ -42,10 +42,23 @@
 --
 -- [쓰는 법]
 --
---   psql -h <호스트> -p <포트> -U <슈퍼유저> -d projmng  -v ON_ERROR_STOP=1 -f 이파일
---   psql -h <호스트> -p <포트> -U <슈퍼유저> -d helpdesk -v ON_ERROR_STOP=1 -f 이파일
+-- 이 시스템이 쓰는 DB **일곱 곳 전부**에 돌린다. 칸을 바꿀 것이 있는 곳은
+-- projmng(45) 와 helpdesk(7) 뿐이지만, 나머지도 기본 시간대를 UTC 로 맞춰
+-- 둬야 `psql`·로그·`::text` 가 한곳만 KST 로 보이는 일이 없다.
+--
+--   for db in projmng helpdesk cargotrust funeralv2 ghub jsiniportal jsinisite; do
+--     psql -h <호스트> -p <포트> -U <슈퍼유저> -d $db -v ON_ERROR_STOP=1 -f 이파일
+--   done
 --
 -- 두 번 돌려도 안전하다 — 이미 timestamptz 인 칸은 건너뛴다.
+--
+-- [일부러 손대지 않은 DB]
+--
+--   jinrecept  옛 헬프데스크 자료(스키마 `jsini`). 시간대 없는 칸이 8개 남아
+--              있지만 **이 저장소의 어느 서비스도 읽지 않는다**(운영
+--              HelpDeskServer 가 보는 것은 빈 `helpdesk` 쪽이다). 바깥의 옛
+--              시스템이 아직 그것을 naive KST 로 읽고 있을 수 있어 놔둔다.
+--   goldb      다른 제품의 DB 다. 96칸이 시간대 없는 값이지만 이 시스템이 아니다.
 -- ============================================================================
 
 BEGIN;
