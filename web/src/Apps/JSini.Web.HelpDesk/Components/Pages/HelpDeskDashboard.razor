@@ -329,8 +329,7 @@
         <div class="hd-cards">
             @foreach (var c in Data.Companies)
             {
-                <article class="jsini-card hd-card hd-card--link">
-                    <a class="hd-card__hit" href="@ManageCompanyHref(c.CompanyId)" aria-label="@($"{c.CompanyName} {c.Total}건 — 요청 목록 열기")"></a>
+                <article class="jsini-card hd-card">
                     <header class="hd-card__head">
                         <span class="hd-card__name" title="@c.CompanyName">@c.CompanyName</span>
                         <span class="hd-card__lead">@Num(c.Total)<small>건</small></span>
@@ -360,8 +359,7 @@
         <div class="hd-cards">
             @foreach (var a in Data.Admins)
             {
-                <article class="jsini-card hd-card hd-card--link">
-                    <a class="hd-card__hit" href="@ManageAdminHref(a.AdminId)" aria-label="@($"{a.AdminName} {a.Completed}건 완료 — 요청 목록 열기")"></a>
+                <article class="jsini-card hd-card">
                     <header class="hd-card__head">
                         <span class="hd-card__avatar" aria-hidden="true">@Initial(a.AdminName)</span>
                         <span class="hd-card__name" title="@a.AdminName">@a.AdminName</span>
@@ -502,9 +500,9 @@
         <div class="hd-bar" role="img" aria-label="@BarLabel(shown)">
             @foreach (var s in shown)
             {
-                <span class="hd-bar__seg"
-                      style="width: @Pct(s.Count, total); background: @s.Color"
-                      title="@s.Label @(s.Count)건"></span>
+                <a href="@s.Href" class="hd-bar__seg"
+                   style="width: @Pct(s.Count, total); background: @s.Color; display: block;"
+                   title="@s.Label @(s.Count)건"></a>
             }
         </div>
 
@@ -513,11 +511,11 @@
             <div class="hd-legend">
                 @foreach (var s in shown)
                 {
-                    <span class="hd-legend__item">
+                    <a href="@s.Href" class="hd-legend__item" style="text-decoration: none; color: inherit;">
                         <span class="hd-legend__dot" style="background: @s.Color"></span>
                         @s.Label
                         <span class="hd-legend__count">@Num(s.Count)</span>
-                    </span>
+                    </a>
                 }
             </div>
         }

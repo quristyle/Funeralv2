@@ -219,8 +219,8 @@ public partial class HelpDeskDashboard
         return $"/helpdesk/request/my-comments?{string.Join("&", parts)}";
     }
 
-    private string ManageCompanyHref(string companyId) => ManageHref(overrideCompanyId: companyId);
-    private string ManageAdminHref(int adminId) => ManageHref(adminId: adminId);
+    private string ManageCompanyHref(string companyId, string? statuses = null) => ManageHref(statuses: statuses, overrideCompanyId: companyId);
+    private string ManageAdminHref(int adminId, string? statuses = null) => ManageHref(statuses: statuses, adminId: adminId);
 
     private static string Day(DateTime at) => at.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
@@ -371,7 +371,7 @@ public partial class HelpDeskDashboard
     private string AdminHint => $"{Data.Admins.Count}명 · 완료 많은 사람부터";
 
     /// <summary>상태 띠의 조각 하나. 색은 도넛과 같은 팔레트에서 꺼낸다.</summary>
-    private sealed record Seg(string Label, int Count, string Color);
+    private sealed record Seg(string Label, int Count, string Color, string? Href = null);
 
     /// <summary>
     /// 고객사 한 곳의 상태 분해. 다섯을 더하면 <see cref="DashboardCompany.Total"/>
@@ -379,13 +379,13 @@ public partial class HelpDeskDashboard
     /// 때문이다(완료에 「종료」가, 협의에 「논의」가 들어 있다). 그래서 띠가
     /// 폭을 다 채우고, 안 채워진 자리가 보이면 그것이 곧 집계가 새고 있다는 표다.
     /// </summary>
-    private static IReadOnlyList<Seg> CompanySegments(DashboardCompany c) =>
+    private IReadOnlyList<Seg> CompanySegments(DashboardCompany c) =>
     [
-        new("대기", c.Pending, StatusColors["Pending"]),
-        new("진행", c.InProgress, StatusColors["InProgress"]),
-        new("협의", c.Talking, StatusColors["Consultation"]),
-        new("완료", c.Completed, StatusColors["Completed"]),
-        new("반려", c.Rejected, StatusColors["Rejected"]),
+        new("대기", c.Pending, StatusColors["Pending"], ManageCompanyHref(c.CompanyId, "Pending")),
+        new("진행", c.InProgress, StatusColors["InProgress"], ManageCompanyHref(c.CompanyId, "InProgress")),
+        new("협의", c.Talking, StatusColors["Consultation"], ManageCompanyHref(c.CompanyId, "Consultation|Negotiation")),
+        new("완료", c.Completed, StatusColors["Completed"], ManageCompanyHref(c.CompanyId, "Completed|UserCompleted")),
+        new("반려", c.Rejected, StatusColors["Rejected"], ManageCompanyHref(c.CompanyId, "Rejected")),
     ];
 
     /// <summary>
@@ -393,13 +393,13 @@ public partial class HelpDeskDashboard
     /// (<c>Open</c>)에서 진행·협의를 덜어 낸 나머지가 그것이다.
     /// 음수로 떨어지지 않게 묶는다: 집계가 어긋나도 띠가 뒤집히지는 않게.
     /// </summary>
-    private static IReadOnlyList<Seg> AdminSegments(DashboardAdmin a) =>
+    private IReadOnlyList<Seg> AdminSegments(DashboardAdmin a) =>
     [
-        new("대기", Math.Max(0, a.Open - a.InProgress - a.Talking), StatusColors["Pending"]),
-        new("진행", a.InProgress, StatusColors["InProgress"]),
-        new("협의", a.Talking, StatusColors["Consultation"]),
-        new("완료", a.Completed, StatusColors["Completed"]),
-        new("반려", a.Rejected, StatusColors["Rejected"]),
+        new("대기", Math.Max(0, a.Open - a.InProgress - a.Talking), StatusColors["Pending"], ManageAdminHref(a.AdminId, "Pending")),
+        new("진행", a.InProgress, StatusColors["InProgress"], ManageAdminHref(a.AdminId, "InProgress")),
+        new("협의", a.Talking, StatusColors["Consultation"], ManageAdminHref(a.AdminId, "Consultation|Negotiation")),
+        new("완료", a.Completed, StatusColors["Completed"], ManageAdminHref(a.AdminId, "Completed|UserCompleted")),
+        new("반려", a.Rejected, StatusColors["Rejected"], ManageAdminHref(a.AdminId, "Rejected")),
     ];
 
     /// <summary>
