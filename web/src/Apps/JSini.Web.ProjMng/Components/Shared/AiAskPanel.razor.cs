@@ -13,6 +13,12 @@ public partial class AiAskPanel
     [Inject] private AiTaskClient Api { get; set; } = default!;
     [Inject] private AiTargetClient TargetApi { get; set; } = default!;
     [Inject] private AiModelCodes ModelCodes { get; set; } = default!;
+
+    /// <summary>
+    /// AI 고르개에 한도를 적으려고 둔다. <b>대시보드를 부르는 것이 아니다</b> —
+    /// 한도 표 하나만 읽는 자리를 따로 쓴다(<see cref="AiDashboardClient.UsageAsync"/>).
+    /// </summary>
+    [Inject] private AiDashboardClient Dashboard { get; set; } = default!;
     [Inject] private AiAskPrefs Prefs { get; set; } = default!;
     [Inject] private UserFaceClient Faces { get; set; } = default!;
     [Inject] private IJSRuntime JS { get; set; } = default!;
@@ -290,6 +296,67 @@ public partial class AiAskPanel
     private IReadOnlyList<PickOption> RunnerKinds => AllowedKinds;
 
     /// <summary>
+    /// 실행기가 올려 둔 AI 별 한도. <b>고르개 목록에 그대로 적는다.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>왜 고르는 자리에 적나.</b> 여기서 AI 를 고른 사람은 그것이 얼마나
+    /// 남았는지 모른 채 보낸다 — 다 쓴 CLI 로 보내면 실행기가 집어가서
+    /// <i>실패로 끝난 뒤에야</i> 알게 되고, 그때는 자리를 뜬 뒤다. 한도는
+    /// 이미 「AI 작업 현황」에 있지만 <b>다른 화면을 열어 확인하고 돌아올
+    /// 상황이 아닌 것</b>이 이 화면의 전제다.
+    /// </para>
+    /// <para>
+    /// <b>못 읽어도 조용하다.</b> 곁들이는 값이라 빈 목록이 되고, 그때
+    /// 고르개는 한도 없이 이름만 보여 준다 — 지시를 보내는 데는 지장이 없다.
+    /// </para>
+    /// </remarks>
+    private IReadOnlyList<AiUsageSnapshot> _usage = [];
+
+    /// <summary>그 CLI 의 한도 줄들. 한 CLI 가 여럿을 가질 수 있다.</summary>
+    private List<AiUsageSnapshot> UsageOf(string? kind)
+        => string.IsNullOrWhiteSpace(kind)
+            ? []
+            : [.. _usage.Where(u => string.Equals(u.RunnerKind, kind, StringComparison.OrdinalIgnoreCase))];
+
+    /// <summary>고르개 한 줄에 다는 배지.</summary>
+    private AiUsageText.Badge KindBadge(string? kind) => AiUsageText.Of(UsageOf(kind));
+
+    /// <summary>
+    /// 고르개 한 줄의 둘째 줄. 세션·주간·월간을 있는 것만 적는다.
+    /// </summary>
+    private string KindLimit(string? kind)
+    {
+        var rows = UsageOf(kind);
+
+        return rows.Count == 0
+            ? "실행기가 아직 한도를 올리지 않았습니다."
+            : AiUsageText.Summary(rows);
+    }
+
+    /// <summary>
+    /// 지금 고른 AI 의 한도 한 줄. <b>고르개는 닫혀 있는 시간이 훨씬 길다</b> —
+    /// 목록에만 적으면 펼치지 않는 사람에게는 없는 것과 같다.
+    /// </summary>
+    private string PickedLimit => KindLimit(_kind);
+
+    /// <summary>지금 고른 AI 의 배지. 닫힌 고르개 옆에 선다.</summary>
+    private AiUsageText.Badge PickedBadge => KindBadge(_kind);
+
+    /// <summary>
+    /// 한도를 읽어 둔다. <b>화면을 막지 않는다</b> — 못 읽으면 고르개가
+    /// 이름만 보여 주고 지시는 그대로 나간다.
+    /// </summary>
+    /// <remarks>
+    /// <b>따라가기(폴링)에 태우지 않는다.</b> 실행기는 15분에 한 번 보고하므로
+    /// 몇 초마다 다시 읽어 봐야 같은 값이고, 이 화면은 안 끝난 건이 있는 동안
+    /// 계속 도는 화면이다 — 태우면 <b>바뀌지도 않는 값을 하루 수백 번</b> 묻는다.
+    /// 화면이 열릴 때와 서랍이 다시 펴질 때만 읽는다.
+    /// </remarks>
+    private async Task LoadUsageAsync()
+        => _usage = await Dashboard.UsageAsync();
+
+    /// <summary>
     /// 카드의 AI 배지에 달 전체 이름. <b>고르는 칸과 같은 글자</b>를 쓴다 —
     /// 공통코드(<c>AI_MODEL</c>)에서 읽은 <see cref="AllKinds"/> 에서 집는다.
     /// </summary>
@@ -443,6 +510,7 @@ public partial class AiAskPanel
         }
 
         await LoadModelsAsync();
+        await LoadUsageAsync();
         await LoadTargetsAsync();
         await LoadStagedFilesAsync();
         await LoadRecentAsync();
@@ -587,6 +655,11 @@ public partial class AiAskPanel
     private async Task ReopenAsync()
     {
         await RefreshAsync(CancellationToken.None);
+
+        // 한도도 여기서 다시 읽는다. 서랍은 한 번 열면 계속 살아 있는 부품이라
+        // **하루 종일 안 다시 읽으면** 어제 값을 오늘 값인 척 보여 준다.
+        await LoadUsageAsync();
+
         Follow();
     }
 

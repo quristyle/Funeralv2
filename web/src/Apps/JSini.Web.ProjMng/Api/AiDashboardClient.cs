@@ -46,6 +46,33 @@ public sealed class AiDashboardClient(GatewayClient gateway)
     }
 
     /// <summary>
+    /// AI CLI 한도만.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>대시보드 화면이 쓰는 자리가 아니다.</b> 그쪽은 한 판을 통째로 받아
+    /// 그 안의 <see cref="AiDashboardData.Usage"/> 를 그린다. 이것은 「빠른
+    /// 지시」의 AI 고르개가 부른다 — 한도 한 줄 적으려고 30일치 집계를 끌고
+    /// 오지 않으려는 것이다.
+    /// </para>
+    /// <para>
+    /// <b>곁들이는 값이라 실패를 삼킨다.</b> 한도를 못 읽는 것과 지시를 못
+    /// 보내는 것은 다른 일이고, 여기서 예외를 올리면 <b>글상자가 안 뜬다.</b>
+    /// </para>
+    /// </remarks>
+    public async Task<IReadOnlyList<AiUsageSnapshot>> UsageAsync(CancellationToken ct = default)
+    {
+        try
+        {
+            return await gateway.GetListAsync<AiUsageSnapshot>($"{Url}/usage", ct);
+        }
+        catch (ApiException)
+        {
+            return [];
+        }
+    }
+
+    /// <summary>
     /// AI 공급자 한도. <b>곁들이는 값이다</b> — 못 읽어도 대시보드는 그린다.
     /// </summary>
     public async Task<AiProviderStatus?> ProvidersAsync(CancellationToken ct = default)

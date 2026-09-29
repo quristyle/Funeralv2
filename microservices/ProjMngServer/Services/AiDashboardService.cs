@@ -100,6 +100,28 @@ public sealed class AiDashboardService(
         return data;
     }
 
+    /// <summary>
+    /// AI CLI 한도만 따로.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>대시보드 한 판을 부르게 하지 않으려고 낸 자리다.</b> 「빠른 지시」의
+    /// AI 고르개가 목록에 한도를 적는데, 그것 하나 때문에 30일치 집계 열두
+    /// 벌(<see cref="LoadAsync"/>)을 돌리면 <b>글 한 줄 적으러 들어온 화면이
+    /// 가장 무거운 질의를 끌고 온다.</b> 여기는 표 하나를 그대로 읽는다.
+    /// </para>
+    /// <para>
+    /// 대시보드가 쓰는 것과 <b>같은 <see cref="UsageAsync"/></b> 다 — 두 화면이
+    /// 다른 숫자를 말하는 일이 생기지 않는다.
+    /// </para>
+    /// </remarks>
+    public async Task<List<AiUsageSnapshot>> LoadUsageAsync()
+    {
+        using var db = Open();
+
+        return await UsageAsync(db);
+    }
+
     // ── 머리 숫자 ───────────────────────────────────────────
 
     private async Task<AiDashboardSummary> SummaryAsync(IDbConnection db, object args)

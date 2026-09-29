@@ -155,11 +155,11 @@ public partial class AiDashboard
     }
 
     /// <summary>
-    /// 한도 값이 오래됐나. <b>보고 주기(15분)의 네 배</b>를 기준으로 한다 —
-    /// 한두 번 걸러도 소란을 떨지 않되, 반나절 묵은 값을 최신인 척하지 않게.
+    /// 한도 값이 오래됐나. <b>「빠른 지시」의 고르개와 같은 잣대를 쓴다</b>
+    /// (<see cref="AiUsageText"/>) — 같은 값을 한쪽은 오래됐다 하고 다른 쪽은
+    /// 아니라고 하면, 둘 다 못 믿게 된다.
     /// </summary>
-    private static bool Stale(DateTime observedAt)
-        => DateTime.Now - observedAt > TimeSpan.FromMinutes(60);
+    private static bool Stale(DateTime observedAt) => AiUsageText.Stale(observedAt);
 
     private string MomText => Forecast.MonthOverMonth is { } mom
         ? $"{(mom >= 0 ? "+" : string.Empty)}{mom:0.#}%"
@@ -193,34 +193,19 @@ public partial class AiDashboard
                     && !KnownKinds.Contains(k, StringComparer.OrdinalIgnoreCase))
                 .Distinct(StringComparer.OrdinalIgnoreCase));
 
-    private static string KindText(string? kind) => kind switch
-    {
-        "claude" => "Claude",
-        "antigravity" => "안티그래비티",
-        "copilot" => "Copilot",
-        null or "" => "(없음)",
-        _ => kind,
-    };
+    private static string KindText(string? kind) => AiUsageText.Kind(kind);
 
     /// <summary>
     /// 같은 CLI 안에서 무엇의 한도인가. <b>CLI 가 쓰는 이름을 크게 바꾸지 않는다</b> —
     /// 원문을 펴 봤을 때 화면의 어느 칸인지 바로 짚을 수 있어야 한다.
     /// </summary>
-    private static string BucketText(AiUsageSnapshot usage) => usage.BucketNm switch
-    {
-        null or "" => string.Empty,
-        "chat" => "대화",
-        "completions" => "자동완성",
-        "premium_interactions" => "프리미엄 요청",
-        var other => other,
-    };
+    private static string BucketText(AiUsageSnapshot usage) => AiUsageText.Bucket(usage);
 
     /// <summary>
     /// 토큰이냐 크레딧이냐. 세는 단위가 다른데 같은 말로 적으면 숫자의 크기가
     /// 엉뚱하게 읽힌다 — 200 크레딧과 200 토큰은 전혀 다른 이야기다.
     /// </summary>
-    private static string UnitText(string? kind)
-        => kind == "copilot" ? "남은 크레딧" : "남은 토큰";
+    private static string UnitText(string? kind) => AiUsageText.Unit(kind);
 
     private static string StatusText(string? status) => status switch
     {

@@ -33,4 +33,19 @@ public sealed class AiDashboardController(AiDashboardService dashboard) : Contro
     [HttpGet]
     public async Task<IActionResult> GetAsync([FromQuery] DateTime? from, [FromQuery] DateTime? to)
         => Ok(ApiResponse<AiDashboardData>.Ok(await dashboard.LoadAsync(from, to)));
+
+    /// <summary>
+    /// AI CLI 한도만.
+    /// </summary>
+    /// <remarks>
+    /// <b>위의 「주소가 하나다」에 대한 예외다.</b> 대시보드가 조각을 나누지
+    /// 않는 것은 <i>한 화면</i>이 여러 번 왕복하지 않게 하려는 것인데, 이것을
+    /// 쓰는 곳은 다른 화면이다 — 「빠른 지시」의 AI 고르개가 한도를 적으려고
+    /// 부른다. 그쪽에 대시보드 한 판을 주면 <b>표 하나면 될 일에 30일치 집계가
+    /// 따라붙는다.</b> 자료를 만드는 자리는 그대로 하나다
+    /// (<c>AiDashboardService.UsageAsync</c>).
+    /// </remarks>
+    [HttpGet("usage")]
+    public async Task<IActionResult> UsageAsync()
+        => Ok(ApiResponse<List<AiUsageSnapshot>>.Ok(await dashboard.LoadUsageAsync()));
 }

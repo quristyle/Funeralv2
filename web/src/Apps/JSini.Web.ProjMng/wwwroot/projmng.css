@@ -1943,6 +1943,88 @@
 .pm-ask__target { flex: 3 1 14rem; }
 .pm-ask__kind { flex: 1 1 9rem; }
 
+/* AI 고르개 한 줄 — 이름과 한도가 두 층이다.
+
+   **목록 칸의 높이를 고정하지 않는다.** CLI 마다 한도 줄 수가 달라서
+   (claude 는 하나, antigravity 는 둘) 높이를 못 박으면 긴 쪽이 잘린다.
+   DevExpress 가 칸 안쪽 여백을 이미 주므로 여기서는 세로만 세운다. */
+.pm-ask__kinditem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.pm-ask__kindhead {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+/* 이름이 길어도 배지를 밀어내지 않는다 — 배지가 밀리면 「사용 92%」가
+   목록 밖으로 나가 **가장 봐야 할 값이 안 보인다.** */
+.pm-ask__kindname {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pm-ask__kindhead .jsini-badge {
+  flex: 0 0 auto;
+}
+
+/* 한도 줄. 이름보다 작고 흐리다 — 고르는 눈은 이름을 먼저 짚는다. */
+.pm-ask__kindlimit {
+  font-size: 0.8em;
+  line-height: 1.35;
+  color: var(--jsini-text-muted);
+  white-space: normal;
+  word-break: break-word;
+}
+
+/* 고른 줄·마우스가 올라간 줄은 **바탕이 강조색으로 칠해진다.** 그 위에서
+   흐린 회색(`--jsini-text-muted`)과 초록 배지는 거의 안 읽힌다 — 실제로
+   고른 줄의 한도가 파란 바탕에 묻혀 있었다(헤드리스로 색을 재어 확인).
+
+   DevExpress 가 그 줄의 글자색을 흰색으로 바꿔 주므로 **그 색을 물려받는다.**
+   여기서 흰색을 박으면 밝기·강조색을 바꿨을 때 그것만 안 따라온다. */
+.dxbl-list-box-item-selected .pm-ask__kindlimit,
+.dxbl-list-box-item-focused .pm-ask__kindlimit,
+li:hover > * > .pm-ask__kinditem .pm-ask__kindlimit {
+  color: inherit;
+  opacity: 0.85;
+}
+
+.dxbl-list-box-item-selected .pm-ask__kindhead .jsini-badge,
+.dxbl-list-box-item-focused .pm-ask__kindhead .jsini-badge,
+li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
+  color: inherit;
+  border-color: currentColor;
+}
+
+/* 닫힌 고르개 아래 한 줄. 고른 AI 의 한도다.
+
+   **자리를 늘 차지하게 두지 않는다** — 값이 없으면 마크업째 안 그린다.
+   글상자 위에 빈 줄이 하나 늘면 자판이 올라온 화면에서 단추가 그만큼
+   내려간다(단추 줄을 한 줄로 묶은 것과 같은 까닭). */
+.pm-ask__limit {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: -0.35rem 0 0.75rem;
+  font-size: 0.85em;
+  color: var(--jsini-text-muted);
+}
+
+.pm-ask__limittext {
+  min-width: 0;
+  word-break: break-word;
+}
+
 /* 글상자. 화면 세로 길이의 30%를 넘지 않게 한다 —
    모바일 자판이 올라와도 화면을 가리지 않게 한다. */
 .pm-ask__text,

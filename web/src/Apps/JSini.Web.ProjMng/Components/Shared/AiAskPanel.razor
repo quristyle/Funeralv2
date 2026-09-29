@@ -257,12 +257,43 @@
                         CssClass="pm-ask__target"
                         Enabled="@(!Busy && _targets.Count > 0)" />
 
+            @* AI 고르개는 **이름만 보여 주지 않는다.** 한도를 모른 채 고르면
+               다 쓴 CLI 로 보내게 되고, 그것은 실행기가 집어가 실패로 끝난
+               뒤에야 드러난다 — 이 화면을 쓰는 사람은 그때 이미 자리를 뜬
+               뒤다(까닭은 코드 쪽 `_usage` 머리말에).
+
+               `TextFieldName` 은 그대로 둔다. 닫힌 칸은 DevExpress 가 그것으로
+               그리므로, 지우면 **고르고 나면 칸이 비어 보인다.** *@
             <DxComboBox Data="@RunnerKinds" @bind-Value="PickKind"
                         TextFieldName="@nameof(PickOption.Text)"
                         ValueFieldName="@nameof(PickOption.Value)"
                         CssClass="pm-ask__kind"
-                        Enabled="@(!Busy && AllowedKinds.Count > 1)" />
+                        Enabled="@(!Busy && AllowedKinds.Count > 1)">
+                <ItemTemplate>
+                    @{
+                        var badge = KindBadge(context.Value);
+                    }
+                    <div class="pm-ask__kinditem">
+                        <div class="pm-ask__kindhead">
+                            <span class="pm-ask__kindname">@context.Text</span>
+                            <span class="jsini-badge @badge.Css">@badge.Text</span>
+                        </div>
+                        <div class="pm-ask__kindlimit">@KindLimit(context.Value)</div>
+                    </div>
+                </ItemTemplate>
+            </DxComboBox>
         </div>
+
+        @* 고른 것의 한도를 **닫힌 칸 아래에도** 한 줄로 적는다. 고르개는 펴
+           있는 시간이 잠깐이라, 목록에만 적으면 펼치지 않는 사람에게는 없는
+           것과 같다. 고를 것이 하나뿐이어서 칸이 회색일 때도 여기는 보인다. *@
+        @if (AllKinds.Count > 0)
+        {
+            <div class="pm-ask__limit">
+                <span class="jsini-badge @PickedBadge.Css">@PickedBadge.Text</span>
+                <span class="pm-ask__limittext">@PickedLimit</span>
+            </div>
+        }
 
         @* 글상자 하나. `autofocus` 를 걸지 않는다 — 모바일에서 그것은
            **들어오자마자 자판이 올라와 화면 절반을 먹는다**는 뜻이고,

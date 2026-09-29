@@ -178,111 +178,113 @@
         <Actions>
             <DxButton IconCssClass="jsini-icon-refresh" RenderStyle="ButtonRenderStyle.Secondary" Click="@SearchAsync" ToolTip="다시 조회" />
         </Actions>
-        @* **쓰는 CLI 셋을 늘 늘어놓는다.** 올라온 것만 그리면 한 CLI 가
-           조용히 빠진 것과 그 CLI 를 안 쓰는 것이 화면에서 같아 보인다 —
-           실제로 antigravity·copilot 이 그렇게 몇 주를 비어 있었다. *@
-        <div class="pm-aidash__meters">
-            @foreach (var kind in UsageKinds)
-            {
-                var rows = Data.Usage
-                    .Where(u => string.Equals(u.RunnerKind, kind, StringComparison.OrdinalIgnoreCase))
-                    .ToList();
-
-                if (rows.Count == 0)
+        <ChildContent>
+            @* **쓰는 CLI 셋을 늘 늘어놓는다.** 올라온 것만 그리면 한 CLI 가
+               조용히 빠진 것과 그 CLI 를 안 쓰는 것이 화면에서 같아 보인다 —
+               실제로 antigravity·copilot 이 그렇게 몇 주를 비어 있었다. *@
+            <div class="pm-aidash__meters">
+                @foreach (var kind in UsageKinds)
                 {
-                    <div class="pm-aidash__meter-card">
-                        <div class="pm-aidash__meter-head">
-                            <strong>@KindText(kind)</strong>
-                            <span class="jsini-badge jsini-badge--off">보고 없음</span>
-                        </div>
-                        <div class="pm-aidash__meter-error">
-                            아직 올라온 값이 없습니다. 실행기의 Runner:UsageEnabled 와
-                            이 CLI 어댑터의 UsageArgs · UsageUrl 을 확인하십시오 —
-                            둘 다 비어 있으면 아예 묻지 않습니다.
-                        </div>
-                    </div>
+                    var rows = Data.Usage
+                        .Where(u => string.Equals(u.RunnerKind, kind, StringComparison.OrdinalIgnoreCase))
+                        .ToList();
 
-                    continue;
+                    if (rows.Count == 0)
+                    {
+                        <div class="pm-aidash__meter-card">
+                            <div class="pm-aidash__meter-head">
+                                <strong>@KindText(kind)</strong>
+                                <span class="jsini-badge jsini-badge--off">보고 없음</span>
+                            </div>
+                            <div class="pm-aidash__meter-error">
+                                아직 올라온 값이 없습니다. 실행기의 Runner:UsageEnabled 와
+                                이 CLI 어댑터의 UsageArgs · UsageUrl 을 확인하십시오 —
+                                둘 다 비어 있으면 아예 묻지 않습니다.
+                            </div>
+                        </div>
+
+                        continue;
+                    }
+
+                    foreach (var usage in rows)
+                    {
+                        <div class="pm-aidash__meter-card">
+                            <div class="pm-aidash__meter-head">
+                                <strong>@KindText(usage.RunnerKind)</strong>
+
+                                @if (BucketText(usage) is { Length: > 0 } bucket)
+                                {
+                                    @* 「무엇의 한도인가」를 CLI 이름 옆에 붙인다.
+                                       없으면 Gemini 가 바닥난 것과 Claude 가 바닥난 것이
+                                       같은 칸으로 보인다. *@
+                                    <span class="jsini-badge">@bucket</span>
+                                }
+
+                                <span class="pm-aidash__stamp">@usage.RunnerNm</span>
+
+                                @if (usage.PlanNm is { Length: > 0 })
+                                {
+                                    <span class="jsini-badge">@usage.PlanNm</span>
+                                }
+
+                                @if (!usage.Ok)
+                                {
+                                    <span class="jsini-badge jsini-badge--err">읽지 못함</span>
+                                }
+                                else if (Stale(usage.ObservedAt))
+                                {
+                                    @* 오래된 값을 최신인 척 보여 주지 않는다. *@
+                                    <span class="jsini-badge jsini-badge--warn">오래된 값</span>
+                                }
+                            </div>
+
+                            @if (usage.Ok)
+                            {
+                                @Meter("세션", usage.SessionPct, usage.SessionResetAt)
+                                @Meter("주간", usage.WeekPct, usage.WeekResetAt)
+                                @Meter("주간 Opus", usage.WeekOpusPct, usage.WeekOpusResetAt)
+                                @Meter("월간", usage.MonthPct, usage.MonthResetAt)
+
+                                @if (usage.RemainingTokens is { } left)
+                                {
+                                    <div class="pm-aidash__tokens">
+                                        @UnitText(usage.RunnerKind) <strong>@left.ToString("N0")</strong>
+                                        @if (usage.LimitTokens is { } limit)
+                                        {
+                                            <span> / @limit.ToString("N0")</span>
+                                        }
+                                    </div>
+                                }
+
+                                @if (usage.ErrorText is { Length: > 0 } note)
+                                {
+                                    @* 읽기에 성공했는데 까닭이 적혀 있는 경우 —
+                                       「무제한」처럼 **숫자가 없는 것이 맞는** 상태다.
+                                       실패와 같은 빨강으로 보이면 안 된다. *@
+                                    <div class="pm-aidash__stamp">@note</div>
+                                }
+                            }
+                            else
+                            {
+                                <div class="pm-aidash__meter-error">@(usage.ErrorText ?? "이유가 적혀 있지 않습니다.")</div>
+                            }
+
+                            <div class="pm-aidash__stamp">@Ago(usage.ObservedAt) 기준</div>
+
+                            @if (usage.RawText is { Length: > 0 })
+                            {
+                                @* 가려낸 숫자가 전부가 아니다. 출력 형식이 바뀌면
+                                   여기를 봐야 무엇이 바뀌었는지 안다. *@
+                                <details class="pm-aidash__raw">
+                                    <summary>원문</summary>
+                                    <pre>@usage.RawText</pre>
+                                </details>
+                            }
+                        </div>
+                    }
                 }
-
-                foreach (var usage in rows)
-                {
-                    <div class="pm-aidash__meter-card">
-                        <div class="pm-aidash__meter-head">
-                            <strong>@KindText(usage.RunnerKind)</strong>
-
-                            @if (BucketText(usage) is { Length: > 0 } bucket)
-                            {
-                                @* 「무엇의 한도인가」를 CLI 이름 옆에 붙인다.
-                                   없으면 Gemini 가 바닥난 것과 Claude 가 바닥난 것이
-                                   같은 칸으로 보인다. *@
-                                <span class="jsini-badge">@bucket</span>
-                            }
-
-                            <span class="pm-aidash__stamp">@usage.RunnerNm</span>
-
-                            @if (usage.PlanNm is { Length: > 0 })
-                            {
-                                <span class="jsini-badge">@usage.PlanNm</span>
-                            }
-
-                            @if (!usage.Ok)
-                            {
-                                <span class="jsini-badge jsini-badge--err">읽지 못함</span>
-                            }
-                            else if (Stale(usage.ObservedAt))
-                            {
-                                @* 오래된 값을 최신인 척 보여 주지 않는다. *@
-                                <span class="jsini-badge jsini-badge--warn">오래된 값</span>
-                            }
-                        </div>
-
-                        @if (usage.Ok)
-                        {
-                            @Meter("세션", usage.SessionPct, usage.SessionResetAt)
-                            @Meter("주간", usage.WeekPct, usage.WeekResetAt)
-                            @Meter("주간 Opus", usage.WeekOpusPct, usage.WeekOpusResetAt)
-                            @Meter("월간", usage.MonthPct, usage.MonthResetAt)
-
-                            @if (usage.RemainingTokens is { } left)
-                            {
-                                <div class="pm-aidash__tokens">
-                                    @UnitText(usage.RunnerKind) <strong>@left.ToString("N0")</strong>
-                                    @if (usage.LimitTokens is { } limit)
-                                    {
-                                        <span> / @limit.ToString("N0")</span>
-                                    }
-                                </div>
-                            }
-
-                            @if (usage.ErrorText is { Length: > 0 } note)
-                            {
-                                @* 읽기에 성공했는데 까닭이 적혀 있는 경우 —
-                                   「무제한」처럼 **숫자가 없는 것이 맞는** 상태다.
-                                   실패와 같은 빨강으로 보이면 안 된다. *@
-                                <div class="pm-aidash__stamp">@note</div>
-                            }
-                        }
-                        else
-                        {
-                            <div class="pm-aidash__meter-error">@(usage.ErrorText ?? "이유가 적혀 있지 않습니다.")</div>
-                        }
-
-                        <div class="pm-aidash__stamp">@Ago(usage.ObservedAt) 기준</div>
-
-                        @if (usage.RawText is { Length: > 0 })
-                        {
-                            @* 가려낸 숫자가 전부가 아니다. 출력 형식이 바뀌면
-                               여기를 봐야 무엇이 바뀌었는지 안다. *@
-                            <details class="pm-aidash__raw">
-                                <summary>원문</summary>
-                                <pre>@usage.RawText</pre>
-                            </details>
-                        }
-                    </div>
-                }
-            }
-        </div>
+            </div>
+        </ChildContent>
     </CommCont>
 
     <CommCont Title="AI 공급자 한도"
