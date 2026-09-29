@@ -175,6 +175,9 @@
     <CommCont Title="작업지시 CLI 한도"
               Hint="실행기가 CLI 마다 읽어 올린 마지막 값입니다. 퍼센트는 「쓴 비율」이고, CLI 하나가 한도를 여럿 가질 수 있습니다."
               CssClass="pm-aidash__panel">
+        <Actions>
+            <DxButton IconCssClass="jsini-icon-refresh" RenderStyle="ButtonRenderStyle.Secondary" Click="@SearchAsync" ToolTip="다시 조회" />
+        </Actions>
         @* **쓰는 CLI 셋을 늘 늘어놓는다.** 올라온 것만 그리면 한 CLI 가
            조용히 빠진 것과 그 CLI 를 안 쓰는 것이 화면에서 같아 보인다 —
            실제로 antigravity·copilot 이 그렇게 몇 주를 비어 있었다. *@

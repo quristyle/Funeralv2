@@ -95,6 +95,19 @@ public static class UsageCopilot
                 MonthResetAt = resetAt,
             };
 
+            if (value.TryGetProperty("is_exhausted", out var exhausted)
+                && exhausted.ValueKind == JsonValueKind.True)
+            {
+                item.MonthPct = 100m; // 100% used
+                item.ErrorText = "한도 소진됨";
+                
+                item.LimitTokens = Whole(value, "entitlement");
+                item.RemainingTokens = Whole(value, "remaining");
+                
+                items.Add(item);
+                continue;
+            }
+
             if (value.TryGetProperty("unlimited", out var unlimited)
                 && unlimited.ValueKind == JsonValueKind.True)
             {
