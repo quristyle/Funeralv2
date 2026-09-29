@@ -221,8 +221,8 @@ public sealed class WbsService(IConfiguration configuration) {
         SELECT @PrjRid, COALESCE(MAX(wbs_id), 0) + 1,
                @ProcId, @Gb1, @Gb2, @ProcNm, @ProcTp, @ProcLvl,
                @BuildUser, @BuildStatus, COALESCE(@DevUser, ''),
-               COALESCE(@PlanSdt, @DevSdt, CURRENT_DATE),
-               COALESCE(@PlanEdt, @DevEdt, CURRENT_DATE),
+               COALESCE(@PlanSdt, @DevSdt, projmng.today_kst()),
+               COALESCE(@PlanEdt, @DevEdt, projmng.today_kst()),
                @DevSdt, @DevEdt,
                @QcUser, @userId, now(), @userId, now(),
                COALESCE(@ScheduleType, 'WBS'), @Comm
@@ -261,8 +261,8 @@ public sealed class WbsService(IConfiguration configuration) {
                dev_user      = COALESCE(@DevUser, ''),
                dev_sdt       = @DevSdt,
                dev_edt       = @DevEdt,
-               plan_sdt      = COALESCE(@PlanSdt, @DevSdt, @DevEdt, CURRENT_DATE),
-               plan_edt      = COALESCE(@PlanEdt, @DevEdt, CURRENT_DATE),
+               plan_sdt      = COALESCE(@PlanSdt, @DevSdt, @DevEdt, projmng.today_kst()),
+               plan_edt      = COALESCE(@PlanEdt, @DevEdt, projmng.today_kst()),
                qc_user       = @QcUser,
                schedule_type = COALESCE(@ScheduleType, 'WBS'),
                comm          = @Comm,
@@ -318,14 +318,14 @@ public sealed class WbsService(IConfiguration configuration) {
                 COUNT(*) FILTER (WHERE dev_edt IS NOT NULL
                                    AND dev_edt <= plan_edt) AS completed_within_plan_count,
                 COUNT(*) FILTER (WHERE dev_edt IS NULL
-                                   AND plan_edt < CURRENT_DATE) AS delayed_task_count,
+                                   AND plan_edt < projmng.today_kst()) AS delayed_task_count,
                 COUNT(*) FILTER (WHERE dev_edt IS NULL
-                                   AND plan_sdt <= CURRENT_DATE
-                                   AND plan_edt >= CURRENT_DATE) AS in_progress_task_count,
+                                   AND plan_sdt <= projmng.today_kst()
+                                   AND plan_edt >= projmng.today_kst()) AS in_progress_task_count,
                 COUNT(*) FILTER (WHERE dev_edt IS NULL
-                                   AND plan_sdt > CURRENT_DATE) AS not_started_yet_task_count,
-                COUNT(*) FILTER (WHERE plan_sdt <= CURRENT_DATE) AS planneds_until_now_count,
-                COUNT(*) FILTER (WHERE plan_edt <= CURRENT_DATE) AS planned_until_now_count
+                                   AND plan_sdt > projmng.today_kst()) AS not_started_yet_task_count,
+                COUNT(*) FILTER (WHERE plan_sdt <= projmng.today_kst()) AS planneds_until_now_count,
+                COUNT(*) FILTER (WHERE plan_edt <= projmng.today_kst()) AS planned_until_now_count
               FROM base
         )
         SELECT total_task_count             AS TotalTaskCount,

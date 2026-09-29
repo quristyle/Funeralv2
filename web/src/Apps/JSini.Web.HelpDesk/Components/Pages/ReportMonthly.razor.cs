@@ -1,3 +1,4 @@
+using JSini.Web.Components.Data;
 using Microsoft.AspNetCore.Components;
 using System.Data;
 using System.Text.Json;
@@ -37,7 +38,7 @@ public partial class ReportMonthly
     {
         // 보고서는 `dashboard` 가 아니라 **`requests` 묶음** 밑에 있다.
         // `year`·`month` 가 필수다 — 없으면 400 이 난다.
-        var now = DateTime.Now;
+        var now = AppTime.TodayDate;
         _periodLabel = $"{now.Year}년 {now.Month}월";
 
         var json = await Api.GetAsync<JsonElement>(

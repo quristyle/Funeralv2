@@ -1,3 +1,4 @@
+using JSini.Web.Components.Data;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
@@ -178,7 +179,7 @@ public sealed class AiAskPrefs(IJSRuntime js, ILogger<AiAskPrefs> logger)
         else
         {
             _current.DraftText = text;
-            _current.DraftSavedAt = DateTime.Now;
+            _current.DraftSavedAt = AppTime.UtcNow;
         }
 
         await SaveAsync(_current);

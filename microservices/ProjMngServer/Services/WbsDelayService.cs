@@ -34,14 +34,14 @@ public sealed class WbsDelayService(IConfiguration configuration)
         using var db = Open();
 
         return await db.QuerySingleAsync<WbsBoardDelay>($"""
-            select current_date::text                                           as Asof
+            select projmng.today_kst()::text                                           as Asof
                  , count(*)::int                                                as Total
                  , count(*) filter (where {StartLate})::int                      as StartLate
                  , count(*) filter (where {FinishLate})::int                     as FinishLate
                  , count(*) filter (where {StartLate} and {FinishLate})::int      as BothLate
                  , count(*) filter (where {StartLate} or {FinishLate})::int       as AnyLate
-                 , max(current_date - w.plan_sdt) filter (where {StartLate})      as MaxStartDays
-                 , max(current_date - w.plan_edt) filter (where {FinishLate})     as MaxFinishDays
+                 , max(projmng.today_kst() - w.plan_sdt) filter (where {StartLate})      as MaxStartDays
+                 , max(projmng.today_kst() - w.plan_edt) filter (where {FinishLate})     as MaxFinishDays
               from projmng.wbs_work w
              where w.prj_rid = @prjRid
                and {DevWhere(scope, "w")}
@@ -97,8 +97,8 @@ public sealed class WbsDelayService(IConfiguration configuration)
                  , w.complate_real_yn as ComplateRealYn
                  , {StartLate}        as StartLate
                  , {FinishLate}       as FinishLate
-                 , case when {StartLate}  then current_date - w.plan_sdt end as StartDays
-                 , case when {FinishLate} then current_date - w.plan_edt end as FinishDays
+                 , case when {StartLate}  then projmng.today_kst() - w.plan_sdt end as StartDays
+                 , case when {FinishLate} then projmng.today_kst() - w.plan_edt end as FinishDays
                  , w.priority_order   as PriorityOrder
                  , w.prog_type        as ProgType
               from projmng.wbs_work w
@@ -108,8 +108,8 @@ public sealed class WbsDelayService(IConfiguration configuration)
                and (@user::text is null or coalesce(w.user_bp_id, '(미지정)') = @user)
                and (@realUser::text is null or coalesce(w.user_real_id, '(미지정)') = @realUser)
              -- 오래 밀린 것부터. 착수·종료 중 <더 밀린 쪽>으로 줄을 세운다.
-             order by greatest(coalesce(current_date - w.plan_sdt, 0),
-                               coalesce(current_date - w.plan_edt, 0)) desc
+             order by greatest(coalesce(projmng.today_kst() - w.plan_sdt, 0),
+                               coalesce(projmng.today_kst() - w.plan_edt, 0)) desc
                     , w.systemcode, w.menu_nm
             """, new { prjRid, user = Nz(user), realUser = Nz(realUser) });
 

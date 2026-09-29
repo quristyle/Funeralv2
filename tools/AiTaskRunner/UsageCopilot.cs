@@ -71,7 +71,7 @@ public static class UsageCopilot
             ? p.GetString()
             : null;
 
-        var resetAt = Local(root, "quota_reset_date_utc") ?? Local(root, "quota_reset_date");
+        var resetAt = Utc(root, "quota_reset_date_utc") ?? Utc(root, "quota_reset_date");
 
         if (!root.TryGetProperty("quota_snapshots", out var snapshots)
             || snapshots.ValueKind != JsonValueKind.Object)
@@ -193,12 +193,12 @@ public static class UsageCopilot
     private static long? Whole(JsonElement parent, string name)
         => Number(parent, name) is { } value ? (long)Math.Round(value) : null;
 
-    /// <summary>UTC 로 적힌 시각·날짜를 장비의 지역 시각으로. 못 읽으면 비운다.</summary>
-    private static DateTime? Local(JsonElement parent, string name)
+    /// <summary>UTC 로 적힌 시각·날짜를 그대로 UTC 로. 못 읽으면 비운다.</summary>
+    private static DateTime? Utc(JsonElement parent, string name)
         => parent.TryGetProperty(name, out var v)
             && v.ValueKind == JsonValueKind.String
             && DateTimeOffset.TryParse(v.GetString(), CultureInfo.InvariantCulture,
                    DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var when)
-            ? when.ToLocalTime().DateTime
+            ? when.UtcDateTime
             : null;
 }

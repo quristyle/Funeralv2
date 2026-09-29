@@ -17,7 +17,7 @@ public partial class TodoMonitor
     private IReadOnlyList<HomeTodoPayDto> _pay = [];
     private IReadOnlyList<HomeTodoDto> _todos = [];
 
-    private DateTime? _targetDate = DateTime.Today;
+    private DateTime? _targetDate = AppTime.TodayDate;
     private string? _userCode;
 
     private string TodoHint => $"{_todos.Count(t => t.IsComplete)} / {_todos.Count}건 완료";

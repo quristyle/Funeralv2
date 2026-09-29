@@ -79,7 +79,7 @@ public static class SchSummary
 
     /// <inheritdoc cref="Day(DateTime?)"/>
     public static string Day(DateTime day) =>
-        day.Year == DateTime.Today.Year
+        day.Year == AppTime.Today.Year
             ? day.ToString("M.d", CultureInfo.InvariantCulture)
             : day.ToString("yyyy.M.d", CultureInfo.InvariantCulture);
 

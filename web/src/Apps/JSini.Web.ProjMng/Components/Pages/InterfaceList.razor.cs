@@ -464,7 +464,7 @@ public partial class InterfaceList
         {
             NoteTypeCd = "MEMO",
             DoneYn = "N",
-            NoteDt = DateTime.Today.ToString("yyyy-MM-dd"),
+            NoteDt = AppTime.Today.ToString("yyyy-MM-dd"),
         };
 
         _noteStepId = null;

@@ -1,3 +1,4 @@
+using JSini.Shared.Infrastructure.Time;
 using System.Collections.Concurrent;
 using System.Text.Json;
 using ProjMngServer.Models;
@@ -93,7 +94,8 @@ public sealed class GitService(IConfiguration configuration, GitHubClient github
     private GitResult<GitRunRow> Fill(GitResult<GitRunRow> result, Entry entry)
     {
         result.Rows = entry.Rows;
-        result.LoadedAt = entry.At.ToLocalTime().ToString("HH:mm:ss");
+        // 사람이 읽는 글자라 한국 시각으로. 장비 시계(UTC)에 기대지 않는다.
+        result.LoadedAt = AppTime.ToKorea(entry.At.UtcDateTime).ToString("HH:mm:ss");
         result.RateRemaining = entry.RateRemaining;
         result.RateLimit = entry.RateLimit;
 

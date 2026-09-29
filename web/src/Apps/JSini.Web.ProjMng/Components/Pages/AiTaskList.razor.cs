@@ -822,10 +822,10 @@ public partial class AiTaskList
     /// 그 실행이 <b>얼마나 돌았나</b>. 돌고 있으면 지금까지, 끝났으면 걸린 만큼.
     /// </summary>
     /// <remarks>
-    /// 시각은 DB 가 <c>now()</c> 로 찍은 시간대 없는 값이고 컨테이너는 전부
-    /// <c>Asia/Seoul</c> 이라(<c>deploy/docker</c>) <see cref="DateTime.Now"/> 와
-    /// 같은 시계다. <b>그래도 음수는 막는다</b> — 두 시계가 몇 초 어긋나면
-    /// 방금 시작한 실행이 「-0:01」로 보인다.
+    /// 시각은 DB 가 <c>now()</c> 로 찍은 <b>UTC</b> 다(<c>timestamptz</c>) —
+    /// 그래서 <see cref="AppTime.UtcNow"/> 와 견준다(<c>docs/utc-time.md</c>).
+    /// <b>그래도 음수는 막는다</b> — 두 시계가 몇 초 어긋나면 방금 시작한
+    /// 실행이 「-0:01」로 보인다.
     /// </remarks>
     private static string RunElapsedText(AiTaskRunDto run)
     {
@@ -836,7 +836,7 @@ public partial class AiTaskList
 
         // 끝났으면 끝난 시각까지, 도는 중이면 지금까지. 끝나지도 않았는데
         // 도는 것도 아니면(취소·중단으로 끝시각이 안 남은 경우) 셀 것이 없다.
-        var ended = run.FinishedAt ?? (run.IsRunning ? DateTime.Now : null);
+        var ended = run.FinishedAt ?? (run.IsRunning ? AppTime.UtcNow : null);
 
         if (ended is not { } stop)
         {
@@ -1602,7 +1602,7 @@ public partial class AiTaskList
 
         // 오래된 것은 열지 않는다. 있다는 것만 알린다 — 목록에는 「임시」 표가
         // 붙어 있으므로 누르면 그때 얹힌다.
-        if (DateTime.Now - latest.SavedAt > ResumeWindow)
+        if (AppTime.UtcNow - latest.SavedAt > ResumeWindow)
         {
             Say($"적어 둔 임시본이 {drafts.Count}건 있습니다. 목록의 「임시」 표시를 누르면 이어서 쓸 수 있습니다.");
             return;
@@ -1612,7 +1612,7 @@ public partial class AiTaskList
         {
             NewTask();
             Overlay(latest);
-            Say($"적어 두었던 새 작업을 이어서 씁니다 ({latest.SavedAt:MM-dd HH:mm}).");
+            Say($"적어 두었던 새 작업을 이어서 씁니다 ({latest.SavedAt.Kst("MM-dd HH:mm")}).");
             return;
         }
 
@@ -1634,7 +1634,7 @@ public partial class AiTaskList
         if (_draftAt is not null)
         {
             var name = string.IsNullOrWhiteSpace(_edit?.Title) ? $"#{latest.TaskKey}" : _edit!.Title;
-            Say($"「{name}」 에 적어 두었던 내용을 이어서 씁니다 ({latest.SavedAt:MM-dd HH:mm}).");
+            Say($"「{name}」 에 적어 두었던 내용을 이어서 씁니다 ({latest.SavedAt.Kst("MM-dd HH:mm")}).");
         }
     }
 

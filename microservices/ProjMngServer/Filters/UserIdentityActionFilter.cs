@@ -102,7 +102,7 @@ public class UserIdentityActionFilter : IActionFilter {
         dto.SSUserId = userId;
       }
 
-      dto.Start = DateTime.Now;
+      dto.Start = DateTime.UtcNow;
     }
   }
 

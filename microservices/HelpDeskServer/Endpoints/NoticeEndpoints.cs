@@ -56,7 +56,7 @@ public static class NoticeEndpoints
                 Content = dto.Content,
                 // 작성자는 로그인한 JSini 계정에서 정한다(요청 본문 값은 쓰지 않는다).
                 CreatedBy = http.AuditUser(),
-                CreatedAt = DateTime.Now
+                CreatedAt = DateTime.UtcNow
             };
 
             db.Notices.Add(notice);

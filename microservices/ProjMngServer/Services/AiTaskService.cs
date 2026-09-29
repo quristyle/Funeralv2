@@ -1,6 +1,7 @@
 using System.Data;
 
 using Dapper;
+using JSini.Shared.Infrastructure.Time;
 using Npgsql;
 using ProjMngServer.Models;
 
@@ -1004,7 +1005,9 @@ public sealed class AiTaskService(
             }
         }
 
-        return $"제목 없는 작업 {DateTime.Now:yyyy-MM-dd HH:mm}";
+        // 사람이 목록에서 읽는 글자라 **한국 시각**으로 적는다. 시스템의
+        // 시각은 UTC 지만(docs/utc-time.md) 이것은 저장값이 아니라 이름이다.
+        return $"제목 없는 작업 {AppTime.ToKorea(AppTime.UtcNow):yyyy-MM-dd HH:mm}";
     }
 
     private static bool RunnerAllowed(string? kinds, string? runnerKind)

@@ -296,8 +296,8 @@ public sealed class WbsBoardService(IConfiguration configuration)
                  , {PlanRate}              as PlanRate
                  , {StartLate}             as StartLate
                  , {FinishLate}            as FinishLate
-                 , case when {StartLate}  then current_date - w.plan_sdt end as StartDays
-                 , case when {FinishLate} then current_date - w.plan_edt end as FinishDays
+                 , case when {StartLate}  then projmng.today_kst() - w.plan_sdt end as StartDays
+                 , case when {FinishLate} then projmng.today_kst() - w.plan_edt end as FinishDays
               from projmng.wbs_work w
              where w.prj_rid = @prjRid
                and {DevWhere(query.Scope, "w")}

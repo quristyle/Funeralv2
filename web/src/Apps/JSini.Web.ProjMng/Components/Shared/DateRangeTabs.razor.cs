@@ -1,3 +1,4 @@
+using JSini.Web.Components.Data;
 using Microsoft.AspNetCore.Components;
 
 namespace JSini.Web.ProjMng.Components.Shared;
@@ -5,7 +6,7 @@ namespace JSini.Web.ProjMng.Components.Shared;
 public partial class DateRangeTabs
 {
     /// <summary>기준일. 이 날이 속한 프리셋 구간이 곧 조회 구간이다.</summary>
-    [Parameter] public DateTime Anchor { get; set; } = DateTime.Today;
+    [Parameter] public DateTime Anchor { get; set; } = AppTime.TodayDate;
 
     [Parameter] public EventCallback<DateTime> AnchorChanged { get; set; }
 
@@ -54,7 +55,7 @@ public partial class DateRangeTabs
         // 지난달의 같은 날이 나오면 이름이 거짓말이 된다.
         if (preset == DateRangePreset.Day)
         {
-            Anchor = DateTime.Today;
+            Anchor = AppTime.TodayDate;
             await AnchorChanged.InvokeAsync(Anchor);
         }
 

@@ -1,3 +1,4 @@
+using JSini.Web.Components.Data;
 using Microsoft.AspNetCore.Components;
 using JSini.Web.CargoTrust.Api;
 using JSini.Web.CargoTrust.Components.Shared;
@@ -27,7 +28,7 @@ public partial class ReceivablesPage
 
     private static string DaysLeft(DateOnly due)
     {
-        var left = due.DayNumber - DateOnly.FromDateTime(DateTime.Today).DayNumber;
+        var left = due.DayNumber - AppTime.Today.DayNumber;
         return left <= 0 ? "오늘이 예정 지급일" : $"예정일까지 {left}일";
     }
 }

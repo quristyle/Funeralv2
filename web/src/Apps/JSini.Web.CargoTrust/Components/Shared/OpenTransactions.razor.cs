@@ -1,3 +1,4 @@
+using JSini.Web.Components.Data;
 using Microsoft.AspNetCore.Components;
 using DevExpress.Blazor;
 using JSini.Web.Components.Layout;
@@ -26,7 +27,7 @@ public partial class OpenTransactions
     private int _overdue;
 
     private string _outcome = PaymentDraft.Received;
-    private DateTime? _paidDate = DateTime.Today;
+    private DateTime? _paidDate = AppTime.TodayDate;
 
     private PaymentPopup? _payment;
     private ConfirmDialog? _confirm;

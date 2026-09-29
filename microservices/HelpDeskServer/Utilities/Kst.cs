@@ -34,12 +34,12 @@ public static class Kst {
   /// UTC 시각 → KST 벽시계.
   ///
   /// <para>
-  /// <b><c>Kind</c> 를 따지지 않고 전부 UTC 로 읽는다.</b> 이 DB 에는
-  /// <c>timestamp with time zone</c>(대부분)과 <c>timestamp without time zone</c>
-  /// (<c>usercompletededat</c> 하나)이 섞여 있어서, 앞엣것은 <c>Utc</c> 로
-  /// 뒤엣것은 <c>Unspecified</c> 로 올라온다. 둘 다 실제로는 UTC 로 적힌
-  /// 값이므로 여기서 한 줄로 맞춘다 — 안 맞추면 <c>ConvertTimeFromUtc</c> 가
-  /// <c>Unspecified</c> 를 현지 시각으로 오해해 그 칸만 아홉 시간 어긋난다.
+  /// <b><c>Kind</c> 를 따지지 않고 전부 UTC 로 읽는다.</b> 2026-09-29 에 이 DB 의
+  /// 시각 칸을 전부 <c>timestamp with time zone</c> 으로 맞췄으므로
+  /// (<c>deploy/sql/utc-timestamptz-2026-09-29.sql</c>) 이제는 대개 <c>Utc</c> 로
+  /// 올라온다. 그래도 한 줄을 남겨 둔다 — 원시 SQL 이나 <c>::timestamp</c> 캐스팅을
+  /// 거친 값은 <c>Unspecified</c> 로 오고, 그때 <c>ConvertTimeFromUtc</c> 가 그것을
+  /// 현지 시각으로 오해해 <b>그 칸만</b> 아홉 시간 어긋난다.
   /// </para>
   /// </summary>
   public static DateTime FromUtc(DateTime value) =>

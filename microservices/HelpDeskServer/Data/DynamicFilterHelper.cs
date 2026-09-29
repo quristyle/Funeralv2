@@ -692,10 +692,11 @@ namespace HelpDeskServer.Data {
         // 그래서 **날짜 조건이 이 API 에서 한 번도 동작한 적이 없었다.** 증상이
         // 빈 목록이 아니라 500 이라 「서버가 죽었나」로 읽힌다.
         //
-        // 시간대가 없는 글자(`2026-09-28`)는 그대로 Unspecified 로 둔다 — 이 DB 에는
-        // `timestamp without time zone` 칸도 있어서(pushmessage 계열) 거기에는
-        // Utc 를 쓸 수 없다. 부르는 쪽이 시간대를 적으면 그 뜻대로, 안 적으면
-        // 예전 그대로다.
+        // 시간대가 없는 글자(`2026-09-28`)는 그대로 Unspecified 로 둔다. Npgsql 이
+        // timestamptz 리터럴을 만들 때 Unspecified 를 **UTC 로 친다** — 이 DB 의
+        // 시각 칸은 2026-09-29 부터 전부 timestamptz 이므로
+        // (`deploy/sql/utc-timestamptz-2026-09-29.sql`) 그 뜻이 이 시스템의 규칙과
+        // 맞는다(docs/utc-time.md). 부르는 쪽이 시간대를 적으면 그 뜻대로 간다.
         if (destType == typeof(DateTime)) {
           if (HasTimeZone(raw)
               && DateTimeOffset.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dto)) {

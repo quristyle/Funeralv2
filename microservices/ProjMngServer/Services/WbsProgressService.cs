@@ -17,7 +17,7 @@ namespace ProjMngServer.Services;
 /// </para>
 ///
 /// <para>
-/// 기준일은 <b>DB 의 <c>current_date</c></b> 다. 브라우저 시각을 쓰면 시차가
+/// 기준일은 <b>DB 의 <c>projmng.today_kst()</c></b> 다. 브라우저 시각을 쓰면 시차가
 /// 다른 자리에서 같은 화면이 다른 숫자를 낸다.
 /// </para>
 /// </remarks>
@@ -43,7 +43,7 @@ public sealed class WbsProgressService(IConfiguration configuration)
                where w.prj_rid = @prjRid
                  and {DevWhere(scope, "w")}
             )
-            select current_date::text                                     as Asof
+            select projmng.today_kst()::text                                     as Asof
                  , count(*)::int                                          as Total
                  , count(rate)::int                                       as Dated
                  , round(avg(rate), 1)                                    as PlanRate
@@ -135,7 +135,7 @@ public sealed class WbsProgressService(IConfiguration configuration)
                  , w.plan_sdt_c::text as PlanSdtC
                  , w.plan_edt_c::text as PlanEdtC
                  , (w.plan_edt - w.plan_sdt)                                       as SpanDays
-                 , greatest(0, least(current_date - w.plan_sdt,
+                 , greatest(0, least(projmng.today_kst() - w.plan_sdt,
                                      w.plan_edt - w.plan_sdt))                     as PassedDays
                  , {PlanRate}         as PlanRate
                  , w.complate_yn      as ComplateYn

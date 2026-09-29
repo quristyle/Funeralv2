@@ -142,7 +142,7 @@ public partial class RoomStatus
 
             _board = board;
             _rooms = board?.Rooms ?? [];
-            _lastRefreshAt = DateTime.Now;
+            _lastRefreshAt = AppTime.UtcNow;
             _backgroundRefreshError = false;
             StateHasChanged();
         }
@@ -168,7 +168,7 @@ public partial class RoomStatus
             burialStartDate: _burialFrom,
             burialEndDate: _burialTo);
         _rooms = _board?.Rooms ?? [];
-        _lastRefreshAt = DateTime.Now;
+        _lastRefreshAt = AppTime.UtcNow;
         _backgroundRefreshError = false;
 
         return _rooms.Count;

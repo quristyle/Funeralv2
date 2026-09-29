@@ -231,7 +231,7 @@
                한 화면에서 같은 뜻의 줄이 둘로 보일 까닭이 없다. *@
             <div class="pm-ask__draft">
                 <span class="pm-ask__draft-text">
-                    작성 중이던 내용을 복원했습니다@(_continueSavedAt.HasValue ? $" ({_continueSavedAt.Value:MM-dd HH:mm})" : "").
+                    작성 중이던 내용을 복원했습니다@(_continueSavedAt.HasValue ? $" ({_continueSavedAt.Value.Kst("MM-dd HH:mm")})" : "").
                 </span>
                 <button type="button" class="pm-ask__draft-clear" @onclick="ClearContinueDraftAsync">
                     내용 비우기

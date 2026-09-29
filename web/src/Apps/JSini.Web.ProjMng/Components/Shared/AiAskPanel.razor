@@ -330,7 +330,7 @@
         {
             <div class="pm-ask__draft">
                 <span class="pm-ask__draft-text">
-                    작성 중이던 내용을 복원했습니다@(_draftSavedAt.HasValue ? $" ({_draftSavedAt.Value:MM-dd HH:mm})" : "").
+                    작성 중이던 내용을 복원했습니다@(_draftSavedAt.HasValue ? $" ({_draftSavedAt.Value.Kst("MM-dd HH:mm")})" : "").
                 </span>
                 <button type="button" class="pm-ask__draft-clear" @onclick="ClearDraftAsync">
                     내용 비우기

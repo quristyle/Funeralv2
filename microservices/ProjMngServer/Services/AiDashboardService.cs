@@ -1,6 +1,7 @@
 using System.Data;
 
 using Dapper;
+using JSini.Shared.Infrastructure.Time;
 using Npgsql;
 using ProjMngServer.Models;
 
@@ -46,16 +47,41 @@ public sealed class AiDashboardService(
     private const int AliveMinutes = 60;
 
     /// <summary>
+    /// 시작 시각을 <b>한국 벽시계</b>로 본 것. 날짜·요일·시간대 칸을 가르는 기준이다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>저장은 UTC 다</b>(<c>ai_task_run.started_at</c> 은 <c>timestamptz</c>,
+    /// DB 세션 시간대도 UTC). 그런데 이 화면이 묻는 것은 「<b>무슨 요일</b>에
+    /// 몰리나」 · 「몇 <b>시</b>에 몰리나」 · 「<b>오늘</b> 몇 건인가」다. 그
+    /// 판정을 UTC 로 하면 한국의 오전 9시 전 아홉 시간이 전날 칸으로 밀려
+    /// 하루 집계가 통째로 어긋나고, 「새벽 3시에 일한다」는 없는 습관이 생긴다.
+    /// </para>
+    /// <para>
+    /// 그래서 <b>저장과 견주기는 UTC, 달력 칸 가르기만 한국 시각</b>으로 한다.
+    /// 바꾸는 자리는 여기 둘뿐이라 흩어지지 않는다(<c>docs/utc-time.md</c>).
+    /// </para>
+    /// </remarks>
+    private const string StartedKst = "(r.started_at AT TIME ZONE 'Asia/Seoul')";
+
+    /// <summary>지금을 한국 벽시계로. <see cref="StartedKst"/> 와 견주는 값이다.</summary>
+    private const string NowKst = "(now() AT TIME ZONE 'Asia/Seoul')";
+
+    /// <summary>
     /// 기간 안의 실행만 고른다. <b>모든 집계가 이 조건을 그대로 쓴다</b> —
     /// 한 군데만 달라지면 머리 숫자와 차트의 합이 안 맞는다.
     /// </summary>
-    private const string Scope = """
+    /// <remarks>
+    /// <c>@from</c> · <c>@to</c> 는 화면이 고른 <b>한국 달력의 날짜</b>라
+    /// 한국 벽시계끼리 견준다(<see cref="StartedKst"/>).
+    /// </remarks>
+    private const string Scope = $"""
           FROM projmng.ai_task_run r
           JOIN projmng.ai_task t ON t.task_key = r.task_key
           LEFT JOIN projmng.ai_target g ON g.target_key = t.target_key
          WHERE t.is_deleted = false
-           AND r.started_at >= @from
-           AND r.started_at <  @to
+           AND {StartedKst} >= @from
+           AND {StartedKst} <  @to
         """;
 
     /// <summary>처리시간(초). 아직 안 끝난 실행은 <c>NULL</c> 이라 평균에서 저절로 빠진다.</summary>
@@ -69,7 +95,8 @@ public sealed class AiDashboardService(
     public async Task<AiDashboardData> LoadAsync(DateTime? from, DateTime? to)
     {
         // 기본은 최근 30일. 자정으로 잘라야 일별 칸과 경계가 맞는다.
-        var end = (to?.Date ?? DateTime.Today).AddDays(1);
+        // 「오늘」은 **한국 달력의 오늘**이다 — 화면이 고르는 것이 달력 날짜다.
+        var end = (to?.Date ?? AppTime.ToKorea(AppTime.UtcNow).Date).AddDays(1);
         var start = from?.Date ?? end.AddDays(-30);
 
         if (start >= end)
@@ -166,21 +193,23 @@ public sealed class AiDashboardService(
             RetryRate = Rate(row.RetryRuns, row.Runs),
         };
 
-        summary.CreatedTasks = await db.ExecuteScalarAsync<int>("""
+        summary.CreatedTasks = await db.ExecuteScalarAsync<int>($"""
             SELECT COUNT(*)::int
               FROM projmng.ai_task
              WHERE is_deleted = false
-               AND cre_dt >= @from AND cre_dt < @to
+               AND (cre_dt AT TIME ZONE 'Asia/Seoul') >= @from
+               AND (cre_dt AT TIME ZONE 'Asia/Seoul') <  @to
             """, args);
 
         // push 는 실행이 아니라 **작업**에 적힌다(`ai_task.pushed_commit`).
         // 비어 있지 않으면 그 건이 운영 배포를 일으켰다는 뜻이다.
-        summary.Pushed = await db.ExecuteScalarAsync<int>("""
+        summary.Pushed = await db.ExecuteScalarAsync<int>($"""
             SELECT COUNT(*)::int
               FROM projmng.ai_task
              WHERE is_deleted = false
                AND pushed_commit IS NOT NULL
-               AND finished_at >= @from AND finished_at < @to
+               AND (finished_at AT TIME ZONE 'Asia/Seoul') >= @from
+               AND (finished_at AT TIME ZONE 'Asia/Seoul') <  @to
             """, args);
 
         // ── 여기부터는 「지금」이다. 기간을 타지 않는다. ──────
@@ -230,7 +259,7 @@ public sealed class AiDashboardService(
               FROM generate_series(@from::timestamp, @to::timestamp - interval '1 day',
                                    interval '1 day') AS d(day)
               LEFT JOIN (
-                    SELECT date_trunc('day', r.started_at)                  AS bucket,
+                    SELECT date_trunc('day', {StartedKst})                 AS bucket,
                            COUNT(*)                                          AS runs,
                            COUNT(*) FILTER (WHERE r.run_status = 'succeeded') AS succeeded,
                            COUNT(*) FILTER (WHERE r.run_status IN
@@ -261,11 +290,11 @@ public sealed class AiDashboardService(
                    COALESCE(s.avg_minutes, 0)         AS AvgMinutes,
                    COALESCE(s.total_minutes, 0)       AS TotalMinutes
               FROM generate_series(
-                        date_trunc('month', now()) - interval '11 months',
-                        date_trunc('month', now()),
+                        date_trunc('month', {NowKst}) - interval '11 months',
+                        date_trunc('month', {NowKst}),
                         interval '1 month') AS m(mon)
               LEFT JOIN (
-                    SELECT date_trunc('month', r.started_at)                AS bucket,
+                    SELECT date_trunc('month', {StartedKst})              AS bucket,
                            COUNT(*)                                          AS runs,
                            COUNT(*) FILTER (WHERE r.run_status = 'succeeded') AS succeeded,
                            COUNT(*) FILTER (WHERE r.run_status IN
@@ -275,7 +304,7 @@ public sealed class AiDashboardService(
                       FROM projmng.ai_task_run r
                       JOIN projmng.ai_task t ON t.task_key = r.task_key
                      WHERE t.is_deleted = false
-                       AND r.started_at >= date_trunc('month', now()) - interval '11 months'
+                       AND {StartedKst} >= date_trunc('month', {NowKst}) - interval '11 months'
                      GROUP BY 1
               ) s ON s.bucket = m.mon
              ORDER BY m.mon
@@ -291,7 +320,7 @@ public sealed class AiDashboardService(
                    COALESCE(s.runs, 0)::int AS Runs
               FROM generate_series(0, 23) AS h(slot)
               LEFT JOIN (
-                    SELECT EXTRACT(HOUR FROM r.started_at)::int AS slot, COUNT(*) AS runs
+                    SELECT EXTRACT(HOUR FROM {StartedKst})::int AS slot, COUNT(*) AS runs
                     {Scope}
                      GROUP BY 1
               ) s ON s.slot = h.slot
@@ -309,7 +338,7 @@ public sealed class AiDashboardService(
                    COALESCE(s.runs, 0)::int AS Runs
               FROM generate_series(0, 6) AS w(slot)
               LEFT JOIN (
-                    SELECT EXTRACT(DOW FROM r.started_at)::int AS slot, COUNT(*) AS runs
+                    SELECT EXTRACT(DOW FROM {StartedKst})::int AS slot, COUNT(*) AS runs
                     {Scope}
                      GROUP BY 1
               ) s ON s.slot = w.slot
@@ -397,20 +426,20 @@ public sealed class AiDashboardService(
         var row = await db.QuerySingleAsync<ForecastRow>($"""
             SELECT COUNT(*) FILTER (WHERE r.started_at >= now()
                         - make_interval(days => {BasisDays}))::int          AS BasisRuns,
-                   COUNT(*) FILTER (WHERE r.started_at >= date_trunc('day', now()))::int   AS Today,
-                   COUNT(*) FILTER (WHERE r.started_at >= date_trunc('week', now()))::int  AS ThisWeek,
-                   COUNT(*) FILTER (WHERE r.started_at >= date_trunc('month', now()))::int AS ThisMonth,
+                   COUNT(*) FILTER (WHERE {StartedKst} >= date_trunc('day', {NowKst}))::int   AS Today,
+                   COUNT(*) FILTER (WHERE {StartedKst} >= date_trunc('week', {NowKst}))::int  AS ThisWeek,
+                   COUNT(*) FILTER (WHERE {StartedKst} >= date_trunc('month', {NowKst}))::int AS ThisMonth,
                    -- 지난달 **같은 기간**. 달을 통째로 비교하면 3일째인 달이
                    -- 늘 「크게 줄었다」로 나온다.
                    COUNT(*) FILTER (
-                        WHERE r.started_at >= date_trunc('month', now()) - interval '1 month'
-                          AND r.started_at <  date_trunc('month', now()) - interval '1 month'
-                                            + (now() - date_trunc('month', now()))
+                        WHERE {StartedKst} >= date_trunc('month', {NowKst}) - interval '1 month'
+                          AND {StartedKst} <  date_trunc('month', {NowKst}) - interval '1 month'
+                                            + ({NowKst} - date_trunc('month', {NowKst}))
                    )::int AS LastMonthSoFar
               FROM projmng.ai_task_run r
               JOIN projmng.ai_task t ON t.task_key = r.task_key
              WHERE t.is_deleted = false
-               AND r.started_at >= date_trunc('month', now()) - interval '2 months'
+               AND {StartedKst} >= date_trunc('month', {NowKst}) - interval '2 months'
             """);
 
         var perDay = Math.Round(row.BasisRuns / (decimal)BasisDays, 2);
@@ -418,9 +447,10 @@ public sealed class AiDashboardService(
         // 오늘이 얼마나 지났나(0~1). 남은 몫을 일평균으로 채운다 —
         // 오늘 실적을 지난 비율로 나누는 방식은 새벽 한 건이 하루 백 건으로
         // 부풀어 예상치가 쓸모없어진다.
-        var dayPassed = (decimal)(DateTime.Now - DateTime.Today).TotalDays;
-        var daysLeftInMonth = DateTime.DaysInMonth(DateTime.Today.Year, DateTime.Today.Month)
-            - DateTime.Today.Day;
+        // 위 SQL 이 한국 달력으로 셌으므로 「오늘이 얼마나 지났나」도 한국 시각이다.
+        var nowKst = AppTime.ToKorea(AppTime.UtcNow);
+        var dayPassed = (decimal)(nowKst - nowKst.Date).TotalDays;
+        var daysLeftInMonth = DateTime.DaysInMonth(nowKst.Year, nowKst.Month) - nowKst.Day;
 
         return new AiDashboardForecast
         {

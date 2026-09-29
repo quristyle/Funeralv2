@@ -1,3 +1,4 @@
+using JSini.Web.Components.Data;
 using JSini.Web.Http;
 
 namespace JSini.Web.ProjMng.Api;
@@ -239,6 +240,16 @@ public sealed class AiDashboardRecent
     public DateTime? FinishedAt { get; set; }
     public decimal? Seconds { get; set; }
     public string? ErrorSummary { get; set; }
+
+    /// <summary>
+    /// 시작 시각을 <b>한국 시각</b>으로. 그리드 칸이 이것을 묶는다.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="StartedAt"/> 은 서버가 준 UTC 다(<c>docs/utc-time.md</c>).
+    /// <c>DxGridDataColumn</c> 은 값을 그대로 <c>DisplayFormat</c> 에 넣으므로
+    /// 칸에서 옮길 자리가 없다 — 그래서 여기에 옮긴 값을 하나 더 둔다.
+    /// </remarks>
+    public DateTime? StartedAtKst => StartedAt.KstTime();
 }
 
 // ── AI 공급자 (AIAgentServer) ───────────────────────────────

@@ -1,3 +1,4 @@
+using JSini.Web.Components.Data;
 using JSini.Web.ProjMng.Api;
 
 namespace JSini.Web.ProjMng.Components.Shared;
@@ -17,25 +18,28 @@ namespace JSini.Web.ProjMng.Components.Shared;
 /// <b>좁은 화면에서 자리를 아끼려고</b> 고른 모양이다.
 /// </para>
 /// <para>
-/// [<c>ToLocalTime()</c> 을 부르지 않는다 — 부르면 아홉 시간이 더해진다]
+/// [시각은 UTC 로 온다 — 보여 줄 때만 한국 시각으로 옮긴다]
 /// </para>
 /// <para>
-/// <c>projmng.ai_task</c> 의 시각 칸은 <b>시간대 없는</b> <c>timestamp</c> 이고
-/// 서버가 <c>now()</c> 로 찍는다. 컨테이너는 전부 <c>Asia/Seoul</c> 이라
-/// (<c>deploy/docker</c>) 거기 앉는 값은 <b>이미 우리 시계의 벽시계 시각</b>이다.
-/// 그 값은 전선을 타고 <c>Kind=Unspecified</c> 로 오는데,
-/// <see cref="DateTime.ToLocalTime"/> 은 <b><c>Unspecified</c> 를 UTC 로 치고</b>
-/// 옮긴다 — 08:00 이 17:00 이 된다.
+/// <c>projmng.ai_task</c> 의 시각 칸은 <c>timestamptz</c> 이고 DB 세션도 UTC 라
+/// 서버가 주는 값은 <b>UTC</b> 다(<c>Kind = Utc</c>, 전선에는 <c>...Z</c> 로 실린다).
+/// 그래서 규칙이 두 줄로 갈린다.
+/// </para>
+/// <list type="bullet">
+///   <item><b>견주기</b>(얼마나 지났나)는 <see cref="AppTime.UtcNow"/> 와.</item>
+///   <item><b>보여 주기</b>는 <c>Kst(...)</c> 로 한국 시각으로 옮겨서.</item>
+/// </list>
+/// <para>
+/// <see cref="DateTime.Now"/> · <see cref="DateTime.Today"/> 는 쓰지 않는다.
+/// Blazor Server 라 그것은 <b>서버 프로세스의 시각</b>인데, 운영 컨테이너는
+/// UTC 이고 개발 장비는 한국 시각이라 <b>개발에서만 아홉 시간 어긋난다</b> —
+/// 가장 늦게 들키는 종류의 틀림이다. 아키텍처 테스트가 막는다.
 /// </para>
 /// <para>
-/// 그래서 실제로 <b>도는 건의 시간이 「-」로 보였다.</b> 지금까지가 음수(미래에
-/// 시작한 것으로 보이니)라 아래 <see cref="Elapsed"/> 가 포기하고 「-」를 적었다.
-/// 「AI 작업」 화면의 같은 계산(<c>RunElapsedText</c>)은 처음부터 그냥 뺐다 —
-/// 이 파일만 어긋나 있었다.
-/// </para>
-/// <para>
-/// 진짜 UTC 로 오는 자료(<c>AuthServer</c> 의 접속 기록 같은 것)와 규칙이 다르니
-/// <b>여기 값을 다른 화면으로 옮길 때 그대로 베끼지 않는다.</b>
+/// 예전에는 이 칸이 <c>timestamp</c>(시간대 없음)라 한국 벽시계 숫자가 그대로
+/// 앉아 있었고, 그래서 이 파일은 「옮기지 않는다」가 규칙이었다. 2026-09-29 에
+/// DB 의 시각 칸을 전부 <c>timestamptz</c> 로 바꾸면서 뒤집혔다
+/// (<c>deploy/sql/utc-timestamptz-2026-09-29.sql</c> · <c>docs/utc-time.md</c>).
 /// </para>
 /// </remarks>
 internal static class AiTaskWhen
@@ -59,15 +63,15 @@ internal static class AiTaskWhen
             return "-";
         }
 
-        // 옮기지 않는다. 위 머리말 참고 — 이 값은 이미 우리 시계다.
-        var local = at.Value;
+        // 서버가 준 값은 UTC 다. 보여 주기 직전에 한국 시각으로 옮긴다.
+        var local = AppTime.ToKorea(at.Value);
 
         if (!compact)
         {
             return local.ToString("yyyy-MM-dd HH:mm");
         }
 
-        return local.Date == DateTime.Today
+        return DateOnly.FromDateTime(local) == AppTime.Today
             ? local.ToString("HH:mm")
             : local.ToString("MM-dd HH:mm");
     }
@@ -104,7 +108,7 @@ internal static class AiTaskWhen
         {
             // 아직 집어 가지 않았다. 「0초」라고 적으면 **돌다가 즉시 끝난 것**과
             // 구별이 안 된다.
-            return t.StartedAt is { } running ? Span(DateTime.Now - running) : "대기 중";
+            return t.StartedAt is { } running ? Span(AppTime.UtcNow - running) : "대기 중";
         }
 
         if (t.DurationMs is > 0)

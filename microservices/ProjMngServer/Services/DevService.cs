@@ -27,7 +27,7 @@ public class DevService : BaseService {
 
     ResultInfo<dynamic> ri = new ResultInfo<dynamic>();
 
-    DateTime sdt = DateTime.Now;
+    DateTime sdt = DateTime.UtcNow;
 
     // 등록되지 않은 별칭이면 null 이다. 전에는 바로 아래에서 NullReferenceException 이 났다.
     DbInfo? di = GetDbInfo(dbNick);
@@ -55,8 +55,8 @@ public class DevService : BaseService {
         return ri;
       }
 
-      DateTime spdt = DateTime.Now;
-      DateTime epdt = DateTime.Now;
+      DateTime spdt = DateTime.UtcNow;
+      DateTime epdt = DateTime.UtcNow;
 
       rdr = db.ExecuteReader(sql: query, commandTimeout: 240);
 
@@ -100,7 +100,7 @@ public class DevService : BaseService {
 
 
 
-      epdt = DateTime.Now;
+      epdt = DateTime.UtcNow;
       GetRes(ref ri, null, sdt, spdt, epdt);
 
 
@@ -128,7 +128,7 @@ public class DevService : BaseService {
 
     //ResultInfo<dynamic> ri = new ResultInfo<dynamic>();
 
-    DateTime sdt = DateTime.Now;
+    DateTime sdt = DateTime.UtcNow;
     string dbtype = param.TryGetValue("db", out var dbValue) && dbValue != null ? dbValue.ToString() : string.Empty;
     string stp = param.TryGetValue("stp", out var stpValue) && stpValue != null ? stpValue.ToString() : string.Empty;
     string sta = param.TryGetValue("sta", out var staValue) && staValue != null ? staValue.ToString() : string.Empty;
@@ -137,11 +137,11 @@ public class DevService : BaseService {
     string dbNick = param.TryGetValue("dbnick", out var dbNickValue) && dbNickValue != null ? dbNickValue.ToString() : string.Empty;
     string sva = param.TryGetValue("sva", out var svaValue) && svaValue != null ? svaValue.ToString() : string.Empty;
 
-    DateTime spdt = DateTime.Now;
-    DateTime epdt = DateTime.Now;
+    DateTime spdt = DateTime.UtcNow;
+    DateTime epdt = DateTime.UtcNow;
 
     ResultInfo<dynamic> ri = DevExecuteQuery(dbNick, stp, param);
-    epdt = DateTime.Now;
+    epdt = DateTime.UtcNow;
     GetRes(ref ri, param, sdt, spdt, epdt);
 
     return ri;
@@ -152,7 +152,7 @@ public class DevService : BaseService {
 
     var param = dto.MainParam;
 
-    DateTime sdt = DateTime.Now;
+    DateTime sdt = DateTime.UtcNow;
     string dbtype = param.TryGetValue("db", out var dbValue) && dbValue != null ? dbValue.ToString() : string.Empty;
     //string stp = param.TryGetValue("stp", out var stpValue) && stpValue != null ? stpValue.ToString() : string.Empty;
     string sta = param.TryGetValue("sta", out var staValue) && staValue != null ? staValue.ToString() : string.Empty;
@@ -161,8 +161,8 @@ public class DevService : BaseService {
     string dbNick = param.TryGetValue("dbnick", out var dbNickValue) && dbNickValue != null ? dbNickValue.ToString() : string.Empty;
     string sva = param.TryGetValue("sva", out var svaValue) && svaValue != null ? svaValue.ToString() : string.Empty;
 
-    DateTime spdt = DateTime.Now;
-    DateTime epdt = DateTime.Now;
+    DateTime spdt = DateTime.UtcNow;
+    DateTime epdt = DateTime.UtcNow;
 
     //ResultInfo<dynamic> ri = DevExecuteQuery(dbNick, stp, param);
     ResultInfo<dynamic>? ri = null; // DevExecuteQuery(dbNick, dto.ProcName, param);
@@ -187,7 +187,7 @@ public class DevService : BaseService {
     }
 
 
-    epdt = DateTime.Now;
+    epdt = DateTime.UtcNow;
     GetRes(ref ri, param, sdt, spdt, epdt);
 
     return ri;
@@ -198,7 +198,7 @@ public class DevService : BaseService {
 
     var param = dto.MainParam;
 
-    DateTime sdt = DateTime.Now;
+    DateTime sdt = DateTime.UtcNow;
     string dbtype = param.TryGetValue("db", out var dbValue) && dbValue != null ? dbValue.ToString() : string.Empty;
     string stp = param.TryGetValue("stp", out var stpValue) && stpValue != null ? stpValue.ToString() : string.Empty;
     string sta = param.TryGetValue("sta", out var staValue) && staValue != null ? staValue.ToString() : string.Empty;
@@ -207,11 +207,11 @@ public class DevService : BaseService {
     string dbNick = param.TryGetValue("dbnick", out var dbNickValue) && dbNickValue != null ? dbNickValue.ToString() : string.Empty;
     string sva = param.TryGetValue("sva", out var svaValue) && svaValue != null ? svaValue.ToString() : string.Empty;
 
-    DateTime spdt = DateTime.Now;
-    DateTime epdt = DateTime.Now;
+    DateTime spdt = DateTime.UtcNow;
+    DateTime epdt = DateTime.UtcNow;
 
     ResultInfo<dynamic> ri = DevExecuteQuery(dbNick, stp, param);
-    epdt = DateTime.Now;
+    epdt = DateTime.UtcNow;
     GetRes(ref ri, param, sdt, spdt, epdt);
 
     return ri;

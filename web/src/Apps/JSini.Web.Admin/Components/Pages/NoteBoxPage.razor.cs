@@ -38,8 +38,8 @@ public partial class NoteBoxPage
     /// 조회 기간. <b>기본이 최근 한 달이다.</b> 쪽지는 지우지 않으면 자라기만
     /// 하고, 자기 쪽지함은 드물게 열어 보므로 이레로는 짧다.
     /// </summary>
-    private DateTime? _from = DateTime.Today.AddMonths(-1);
-    private DateTime? _to = DateTime.Today;
+    private DateTime? _from = AppTime.TodayDate.AddMonths(-1);
+    private DateTime? _to = AppTime.TodayDate;
 
     private bool _unreadOnly;
 

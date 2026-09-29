@@ -2369,6 +2369,30 @@ BlazorMonaco 는 스크립트 세 장이 전역에 있기를 기대한다. 없�
   - 문의 본문 → 서식 편집기 대신 여러 줄 입력 (서버가 어차피 태그를 걷어낸다)
 - 히어로 배경 모션은 Blazor 와 무관한 평범한 JS 한 장이다(`wwwroot/shard-motion.js`).
 
+## 시각은 UTC 다 — 화면이 따로 고려하지 않는다
+
+**서버가 주는 시각 값은 전부 UTC 다**(DB 의 시각 칸이 모두 `timestamptz` 다).
+컨테이너 시계도 UTC 다(`TZ=Etc/UTC`). 그래서 화면이 할 일은 셋뿐이고,
+`DateTime.Now`·`DateTime.Today` 는 **쓰지 않는다**(`UtcTimeTests` 가 막는다).
+
+| 하려는 것 | 쓸 것 |
+|---|---|
+| 얼마나 지났나 · 오래됐나 | `AppTime.UtcNow - 서버가준시각` |
+| 사람이 읽을 시각 | `at.Kst("yyyy-MM-dd HH:mm")` |
+| 기간 고르개의 기본값 · 날짜 셈 | `AppTime.Today`(DateOnly) · `AppTime.TodayDate`(DateTime) |
+
+**`DateTime.Now` 가 Blazor Server 에서 특히 고약하다** — 그것은 「보는 사람의
+시각」이 아니라 **서버 프로세스의 시각**이다. 운영 컨테이너는 UTC 라 맞고
+**개발 장비(한국 시각)에서만 아홉 시간 어긋나서**, 재현되는 자리와 드러나는
+자리가 반대다. 반대로 「오늘」을 `DateTime.Today` 로 물으면 **운영에서만**
+틀린다(한국의 오전 9시 전 아홉 시간이 어제다).
+
+**그리드 칸은 `DisplayFormat` 안에서 옮길 자리가 없다.** `DxGridDataColumn` 은
+값을 그대로 서식에 넣으므로, 시각 칸을 묶을 때는 한국 시각으로 옮긴 속성을
+DTO 에 하나 더 둔다(`AiDashboardRecent.StartedAtKst`).
+
+자세한 것과 「한국 시각이 남아 있는 자리」 목록은 [docs/utc-time.md](../docs/utc-time.md).
+
 ## 화면을 새로 만들 때
 
 모듈마다 뼈대가 같다. **화면이 백 개가 넘어서 그 열 줄을 손으로 적으면 반드시

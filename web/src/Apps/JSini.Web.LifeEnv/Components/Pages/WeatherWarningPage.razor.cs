@@ -76,7 +76,10 @@ public partial class WeatherWarningPage
                 .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
 
             // 서버는 7일치를 준다. 이틀 안의 것만 현황으로 본다.
-            var cutoff = DateTime.Now.AddHours(-48);
+            // **`tmFc` 는 기상청이 적은 한국 벽시계 시각**이라(`ParseMoment`)
+            // 견주는 「지금」도 한국 시각이어야 한다 — 프로세스 시계는 UTC 다
+            // (docs/utc-time.md).
+            var cutoff = AppTime.ToKorea(AppTime.UtcNow).AddHours(-48);
 
             _warnings = [.. warnings.Result
                 .Where(w => ParseMoment(w.TmFc) is { } at && at >= cutoff)
@@ -223,7 +226,8 @@ public partial class WeatherWarningPage
             return string.Empty;
         }
 
-        var gap = DateTime.Now - at;
+        // `at` 은 기상청이 적은 한국 벽시계 시각이다(`ParseMoment`).
+        var gap = AppTime.ToKorea(AppTime.UtcNow) - at;
 
         return gap switch
         {

@@ -140,10 +140,10 @@ public sealed class AiTaskNoteService(
             // 올린 사람이 적은 줄은 넣을 때 이미 찍었다. **여기도 같이 채운다** —
             // 되읽지 않고 이 값을 그대로 돌려주므로, 비워 두면 화면이 방금
             // 적은 제 글을 「안 읽음」으로 그린다.
-            ReadDt = byOwner ? DateTime.Now : null,
+            ReadDt = byOwner ? DateTime.UtcNow : null,
 
             CreId = userId,
-            CreDt = DateTime.Now,
+            CreDt = DateTime.UtcNow,
             IsOwner = byOwner,
         };
 

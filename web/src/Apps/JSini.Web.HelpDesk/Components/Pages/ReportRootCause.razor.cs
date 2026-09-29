@@ -1,3 +1,4 @@
+using JSini.Web.Components.Data;
 using Microsoft.AspNetCore.Components;
 using System.Data;
 using System.Text.Json;
@@ -38,7 +39,7 @@ public partial class ReportRootCause
     private Task ReloadAsync() => LoadAsync(async () =>
     {
         // 보고서는 `requests` 묶음 밑이고 `year`·`month` 가 필수다.
-        var now = DateTime.Now;
+        var now = AppTime.TodayDate;
         _periodLabel = $"{now.Year}년 {now.Month}월";
 
         var json = await Api.GetAsync<JsonElement>(

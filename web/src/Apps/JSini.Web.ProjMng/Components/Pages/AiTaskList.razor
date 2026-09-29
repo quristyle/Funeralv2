@@ -230,7 +230,7 @@
                                 @t.TargetNm
                                 @if (t.RequestedAt is { } at)
                                 {
-                                    <span class="pm-ai-dim">· @at.ToString("MM-dd HH:mm")</span>
+                                    <span class="pm-ai-dim">· @at.Kst("MM-dd HH:mm")</span>
                                 }
                             </span>
                         </div>
@@ -313,7 +313,7 @@
             @if (_draftAt is { } at)
             {
                 <PageNotice Tone="NoticeTone.Info"
-                            Text="@($"임시저장 {at:MM-dd HH:mm:ss} — 「저장」을 눌러야 서버에 들어갑니다.")" />
+                            Text="@($"임시저장 {at.Kst("MM-dd HH:mm:ss")} — 「저장」을 눌러야 서버에 들어갑니다.")" />
             }
 
             @* 저장소를 막아 둔 브라우저(사생활 보호 모드)이거나 가득 찼다.
@@ -358,7 +358,7 @@
                                     @onclick="@(() => OpenRunAsync(run))">
                                 <span class="jsini-badge jsini-badge--@run.StatusTone">@run.StatusText</span>
                                 <span class="pm-ai-run__seq">@run.Seq 차</span>
-                                <span class="pm-ai-dim">@run.StartedAt?.ToString("MM-dd HH:mm")</span>
+                                <span class="pm-ai-dim">@run.StartedAt.Kst("MM-dd HH:mm", string.Empty)</span>
                                 @* 시작한 시각 옆에 얼마나 돌았는지를 같이 둔다. *@
                                 @if (RunElapsedText(run) is { Length: > 0 } elapsed)
                                 {

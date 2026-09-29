@@ -1,3 +1,4 @@
+using JSini.Web.Components.Data;
 using Microsoft.AspNetCore.Components;
 using System.Data;
 using System.Text.Json;
@@ -35,8 +36,8 @@ public partial class SmMonitor
         ["inProgressCount"] = "진행 중",
     };
 
-    private int _year = DateTime.Today.Year;
-    private int _month = DateTime.Today.Month;
+    private int _year = AppTime.Today.Year;
+    private int _month = AppTime.Today.Month;
 
     private MonthlyReport? _report;
     private DataTable _emergency = JsonTable.Empty;

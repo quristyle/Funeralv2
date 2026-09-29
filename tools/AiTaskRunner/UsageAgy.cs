@@ -72,7 +72,7 @@ public static class UsageAgy
             // 원문과 숫자가 어긋나는 것을 눈으로 확인할 길이 없어진다.
             var used = Math.Clamp(100m - remaining, 0m, 100m);
 
-            var resetAt = cells.Length > 3 ? Local(cells[3].Trim()) : null;
+            var resetAt = cells.Length > 3 ? Utc(cells[3].Trim()) : null;
 
             var item = items.FirstOrDefault(i => i.BucketNm == group);
 
@@ -109,15 +109,15 @@ public static class UsageAgy
     }
 
     /// <summary>
-    /// <c>2026-09-24T13:30:29Z</c> 를 장비의 지역 시각으로.
+    /// <c>2026-09-24T13:30:29Z</c> 를 UTC 시각으로.
     /// </summary>
     /// <remarks>
     /// 못 읽으면 <c>null</c> 이다. <b>0 이나 「지금」으로 채우지 않는다</b> —
     /// 「갱신 시각 모름」과 「방금 갱신됨」은 사람이 할 일이 정반대다.
     /// </remarks>
-    private static DateTime? Local(string text)
+    private static DateTime? Utc(string text)
         => DateTimeOffset.TryParse(text, CultureInfo.InvariantCulture,
                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out var when)
-            ? when.ToLocalTime().DateTime
+            ? when.UtcDateTime
             : null;
 }

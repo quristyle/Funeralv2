@@ -120,7 +120,10 @@ public sealed class WbsBoardUserOption
 /// <summary>계획 진척률 요약.</summary>
 public sealed class WbsBoardProgress
 {
-    /// <summary>기준일. <b>DB 의 <c>current_date</c></b> 다 — 브라우저 시각이 아니다.</summary>
+    /// <summary>
+    /// 기준일. <b>DB 의 <c>projmng.today_kst()</c></b> 다 — 브라우저 시각이 아니다.
+    /// (DB 세션은 UTC 로 돌지만 <b>계획일은 달력 날짜</b>라 한국 달력의 오늘을 쓴다)
+    /// </summary>
     public string? Asof { get; set; }
 
     public int Total { get; set; }

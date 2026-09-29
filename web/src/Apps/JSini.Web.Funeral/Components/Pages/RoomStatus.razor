@@ -149,7 +149,7 @@
         </div>
         <div class="jsini-refresh-status" aria-label="자료 갱신 상태">
             <span class="jsini-icon-refresh" aria-hidden="true"></span>
-            <span>마지막 갱신: @(_lastRefreshAt?.ToString("yyyy-MM-dd HH:mm:ss") ?? "아직 없음")</span>
+            <span>마지막 갱신: @_lastRefreshAt.Kst("yyyy-MM-dd HH:mm:ss", "아직 없음")</span>
             @if (_backgroundRefreshError)
             {
                 <span class="jsini-refresh-status__error">

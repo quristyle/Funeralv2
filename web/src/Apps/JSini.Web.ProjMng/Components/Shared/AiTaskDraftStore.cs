@@ -1,3 +1,4 @@
+using JSini.Web.Components.Data;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
@@ -174,7 +175,7 @@ public sealed class AiTaskDraftStore(IJSRuntime js, ILogger<AiTaskDraftStore> lo
     /// </summary>
     public Task SaveAsync(AiTaskDraft draft)
     {
-        draft.SavedAt = DateTime.Now;
+        draft.SavedAt = AppTime.UtcNow;
         _map[draft.TaskKey] = draft;
 
         Prune();
@@ -219,7 +220,7 @@ public sealed class AiTaskDraftStore(IJSRuntime js, ILogger<AiTaskDraftStore> lo
     /// </summary>
     private void Prune()
     {
-        var old = DateTime.Now - Keep;
+        var old = AppTime.UtcNow - Keep;
 
         foreach (var key in _map.Where(p => p.Value.SavedAt < old).Select(p => p.Key).ToList())
         {

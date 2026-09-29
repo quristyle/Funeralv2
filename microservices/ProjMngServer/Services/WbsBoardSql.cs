@@ -60,9 +60,9 @@ internal static class WbsBoardSql
     /// </remarks>
     public const string PlanRate = """
         case when w.plan_sdt is null or w.plan_edt is null then null
-             when current_date <  w.plan_sdt then 0
-             when current_date >= w.plan_edt then 100
-             else round((current_date - w.plan_sdt)::numeric / (w.plan_edt - w.plan_sdt) * 100, 1)
+             when projmng.today_kst() <  w.plan_sdt then 0
+             when projmng.today_kst() >= w.plan_edt then 100
+             else round((projmng.today_kst() - w.plan_sdt)::numeric / (w.plan_edt - w.plan_sdt) * 100, 1)
         end
         """;
 
@@ -74,11 +74,11 @@ internal static class WbsBoardSql
 
     /// <summary>착수지연 — 계획시작일이 도래했는데 실적시작일이 비어 있다.</summary>
     public const string StartLate =
-        "(w.plan_sdt is not null and w.plan_sdt <= current_date and w.plan_sdt_c is null)";
+        "(w.plan_sdt is not null and w.plan_sdt <= projmng.today_kst() and w.plan_sdt_c is null)";
 
     /// <summary>종료지연 — 계획종료일이 도래했는데 실적종료일이 비어 있다.</summary>
     public const string FinishLate =
-        "(w.plan_edt is not null and w.plan_edt <= current_date and w.plan_edt_c is null)";
+        "(w.plan_edt is not null and w.plan_edt <= projmng.today_kst() and w.plan_edt_c is null)";
 
     /// <summary>
     /// 상세 목록에서 고칠 수 있는 칸.

@@ -106,7 +106,7 @@ public sealed class TargetStatusWorker(
             return;
         }
 
-        var now = DateTime.Now;
+        var now = DateTime.UtcNow;
         var due = TimeSpan.FromSeconds(_options.StatusSeconds);
 
         var picked = targets

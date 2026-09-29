@@ -1,3 +1,4 @@
+using JSini.Web.Components.Data;
 using Microsoft.AspNetCore.Components;
 using JSini.Web.Http;
 using JSini.Web.Components.Layout;
@@ -195,7 +196,7 @@ public partial class ServerStatus
 
         _gateway = status.Gateway;
         _services = status.Services;
-        _readAt = DateTime.Now;
+        _readAt = AppTime.UtcNow;
     }
 
     // ── 카드 꾸밈 ───────────────────────────────────────────

@@ -43,8 +43,8 @@ public partial class PushLogs
     /// 부딪히고, 그때 사용자가 할 수 있는 일이 없다. 기본값을 두면 화면이
     /// 열리는 순간부터 조회가 유계다.
     /// </remarks>
-    private DateTime? _from = DateTime.Today.AddDays(-7);
-    private DateTime? _to = DateTime.Today;
+    private DateTime? _from = AppTime.TodayDate.AddDays(-7);
+    private DateTime? _to = AppTime.TodayDate;
 
     private string? _reason;
 

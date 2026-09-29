@@ -1,3 +1,5 @@
+using JSini.Web.Components.Data;
+
 namespace JSini.Web.ProjMng.Api;
 
 /// <summary>
@@ -21,8 +23,9 @@ public static class AiUsageText
     /// 한도 값이 오래됐나. <b>보고 주기(15분)의 네 배</b>를 기준으로 한다 —
     /// 한두 번 걸러도 소란을 떨지 않되, 반나절 묵은 값을 최신인 척하지 않게.
     /// </summary>
+    /// <remarks><paramref name="observedAt"/> 은 서버가 준 UTC 다 — UTC 끼리 잰다.</remarks>
     public static bool Stale(DateTime observedAt)
-        => DateTime.Now - observedAt > TimeSpan.FromMinutes(60);
+        => AppTime.UtcNow - observedAt > TimeSpan.FromMinutes(60);
 
     /// <summary>CLI 이름.</summary>
     public static string Kind(string? kind) => kind switch

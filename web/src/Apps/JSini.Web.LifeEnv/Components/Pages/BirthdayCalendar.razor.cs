@@ -1,3 +1,4 @@
+using JSini.Web.Components.Data;
 using Microsoft.AspNetCore.Components;
 using JSini.Web.LifeEnv.Api;
 
@@ -7,7 +8,7 @@ public partial class BirthdayCalendar
 {
     [Inject] private BirthdayClient Api { get; set; } = default!;
 
-    private DateTime _anchor = new(DateTime.Today.Year, DateTime.Today.Month, 1);
+    private DateTime _anchor = new(AppTime.Today.Year, AppTime.Today.Month, 1);
 
     private IReadOnlyList<BirthdayCalendarEvent> _events = [];
     private IReadOnlyList<BirthdayMonthStat> _stats = [];
@@ -47,7 +48,7 @@ public partial class BirthdayCalendar
 
     private Task MoveToTodayAsync()
     {
-        _anchor = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1);
+        _anchor = new DateTime(AppTime.Today.Year, AppTime.Today.Month, 1);
         return ReloadAsync();
     }
 

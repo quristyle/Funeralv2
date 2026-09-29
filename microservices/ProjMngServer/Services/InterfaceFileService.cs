@@ -138,7 +138,7 @@ public sealed class InterfaceFileService(IWebHostEnvironment env)
         {
             if (f.Length == 0) continue;
 
-            var id = $"{DateTime.Now:yyyyMMddHHmmss}-{Guid.NewGuid():N}"[..22];
+            var id = $"{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid():N}"[..22];
             var path = Path.Combine(dir, $"{id}{Sep}{SafeName(f.FileName)}");
 
             await using (var fs = File.Create(path)) await f.CopyToAsync(fs);

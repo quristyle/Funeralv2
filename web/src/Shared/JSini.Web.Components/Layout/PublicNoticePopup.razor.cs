@@ -1,3 +1,4 @@
+using JSini.Web.Components.Data;
 using Microsoft.AspNetCore.Components;
 using JSini.Web.Models;
 
@@ -21,7 +22,7 @@ public partial class PublicNoticePopup
     /// 몇 시간 어긋나는데, 어긋난 결과는 공지를 한 번 더 보는 것뿐이다.
     /// </para>
     /// </summary>
-    private static string Today => DateTime.Now.ToString("yyyy-MM-dd");
+    private static string Today => AppTime.Today.ToString("yyyy-MM-dd");
 
     protected override async Task OnInitializedAsync()
     {

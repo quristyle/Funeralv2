@@ -210,7 +210,7 @@ public static class PushEndpoints {
 
       // 대상 알림을 찾아 '읽음'으로 표시합니다.
       await db.PushMessageRecipients.Where(r => r.Id == id)
-          .ExecuteUpdateAsync(s => s.SetProperty(b => b.IsRead, true).SetProperty(b => b.ReadAt, DateTime.Now));
+          .ExecuteUpdateAsync(s => s.SetProperty(b => b.IsRead, true).SetProperty(b => b.ReadAt, DateTime.UtcNow));
 
       await db.SaveChangesAsync();
 

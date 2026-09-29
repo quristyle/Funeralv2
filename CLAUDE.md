@@ -106,6 +106,11 @@ nginx 설정 정본은 [deploy/nginx/](deploy/nginx/) 에 있다 — Blazor 회�
 - 설정 우선순위: 환경변수(`scripts/secrets.env`) > appsettings. `Jwt__Key` 같은 이중 밑줄 표기.
 - 비밀값(JWT 키, VAPID 키, DB 비밀번호 등)은 절대 커밋하지 않는다. `scripts/secrets.env.example`만 갱신한다.
 - EF Core 마이그레이션을 추가하면 배포 전 운영 DB 반영 여부를 반드시 확인한다.
+- **시각은 전부 UTC 다.** DB 의 시각 칸은 모두 `timestamptz` 이고 컨테이너 시계도
+  UTC 다(`TZ=Etc/UTC`). 코드에서 `DateTime.Now`·`DateTime.Today` 를 쓰지 않는다 —
+  `AppTime` 을 쓴다. 한국 시각은 **보여 주기 직전에 한 번만** 만들고, 달력
+  날짜(`date` 칸)만 한국 달력으로 센다. 경계가 어디에 그어져 있는지는
+  [docs/utc-time.md](docs/utc-time.md).
 - lefthook 설정이 루트에 있다 (`lefthook.yml` — 지금은 예시 주석뿐이라 거는 훅이 없다).
 - 개발 장비에서 업로드한 파일은 운영 서버에 실제 바이트가 없다 — 로컬 저장소와 운영 DB가 분리되어 있음을 유의.
 
@@ -113,5 +118,6 @@ nginx 설정 정본은 [deploy/nginx/](deploy/nginx/) 에 있다 — Blazor 회�
 
 각 영역의 세부 규칙은 해당 디렉터리의 CLAUDE.md 참고:
 
+- [docs/utc-time.md](docs/utc-time.md) — 시각을 UTC 로 다루는 규칙과 한국 시각이 남은 자리
 - [web/CLAUDE.md](web/CLAUDE.md) — Blazor 포털의 MFE 구조·의존 규칙·DevExpress 라이선스
 - [.claude/agents/](.claude/agents/) — 전문 서브에이전트 정의

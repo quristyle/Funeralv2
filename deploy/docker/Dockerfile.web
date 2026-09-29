@@ -102,7 +102,12 @@ WORKDIR /app
 
 COPY --from=build /out .
 
+# 컨테이너 시계는 UTC 다. **바꾸지 말 것** — 이 시스템은 시각을 전부 UTC 로
+# 다룬다(DB 의 시각 칸은 모두 timestamptz, DB 세션 시간대도 UTC).
+# 여기를 Asia/Seoul 로 되돌리면 `DateTime.Now`·로그 시각·Npgsql 의
+# Local↔UTC 환산이 한꺼번에 아홉 시간 어긋난다. 한국 시각으로 보여 주는
+# 일은 화면이 한다(docs/utc-time.md).
 ENV APP_DLL=${PROJ_NAME}.dll \
     ASPNETCORE_ENVIRONMENT=Production \
-    TZ=Asia/Seoul
+    TZ=Etc/UTC
 ENTRYPOINT ["/bin/sh", "-c", "exec dotnet $APP_DLL"]

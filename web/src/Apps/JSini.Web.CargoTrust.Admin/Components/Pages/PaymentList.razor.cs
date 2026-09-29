@@ -13,8 +13,8 @@ public partial class PaymentList
 
     private IReadOnlyList<AdminPayment> _rows = [];
 
-    private DateTime? _from = DateTime.Today.AddDays(-30);
-    private DateTime? _to = DateTime.Today;
+    private DateTime? _from = AppTime.TodayDate.AddDays(-30);
+    private DateTime? _to = AppTime.TodayDate;
 
     protected override Task OnInitializedAsync() => ReloadAsync();
 

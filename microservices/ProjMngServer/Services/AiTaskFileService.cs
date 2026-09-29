@@ -193,7 +193,7 @@ public sealed class AiTaskFileService(IConfiguration configuration, ILogger<AiTa
                 ByteSize = bytes.Length,
                 IsImage = LooksLikeImage(type, name),
                 CreId = userId,
-                CreDt = DateTime.Now,
+                CreDt = DateTime.UtcNow,
             });
         }
 

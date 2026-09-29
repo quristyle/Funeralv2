@@ -24,7 +24,7 @@ public partial class TodoList
 
     private IReadOnlyList<HomeTodoDto> _rows = [];
 
-    private DateTime? _targetDate = DateTime.Today;
+    private DateTime? _targetDate = AppTime.TodayDate;
     private string? _userCode;
     private string? _completeYn;
     private string? _todoState;
@@ -58,7 +58,7 @@ public partial class TodoList
     /// <summary>새 할 일은 고른 날짜·사람에 붙는다.</summary>
     private void FillNew(HomeTodoDto t)
     {
-        t.TargetDay = _targetDate is null ? DateOnly.FromDateTime(DateTime.Today)
+        t.TargetDay = _targetDate is null ? AppTime.Today
                                           : DateOnly.FromDateTime(_targetDate.Value);
         t.TargetUser = _userCode;
     }

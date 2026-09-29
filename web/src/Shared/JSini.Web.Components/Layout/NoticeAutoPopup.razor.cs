@@ -1,3 +1,4 @@
+using JSini.Web.Components.Data;
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using JSini.Web.Models;
@@ -177,7 +178,7 @@ public partial class NoticeAutoPopup
     /// 날짜를 마크업에 실어 보낸다(<c>PublicNoticePopup.Today</c>).
     /// </para>
     /// </summary>
-    private static string Today() => DateTime.Now.ToString("yyyy-MM-dd");
+    private static string Today() => AppTime.Today.ToString("yyyy-MM-dd");
 
     /// <summary>localStorage 에 적어 두는 모양. Vue 때와 같은 칸 이름이다.</summary>
     private sealed class DismissRecord

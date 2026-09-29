@@ -1,3 +1,4 @@
+using JSini.Web.Components.Data;
 using Microsoft.AspNetCore.Components;
 using System.Data;
 using JSini.Web.HelpDesk.Api;
@@ -25,7 +26,7 @@ public partial class MaintenanceMonitor
     protected override async Task OnInitializedAsync()
     {
         // 지난달로 연다 — 이번 달은 아직 진행 중이라 숫자가 매일 바뀐다.
-        var last = DateTime.Today.AddMonths(-1);
+        var last = AppTime.TodayDate.AddMonths(-1);
         _year = last.Year;
         _month = last.Month;
 

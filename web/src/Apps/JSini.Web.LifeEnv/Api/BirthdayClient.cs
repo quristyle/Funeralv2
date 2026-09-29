@@ -1,3 +1,4 @@
+using JSini.Web.Components.Data;
 using JSini.Web.Http;
 
 namespace JSini.Web.LifeEnv.Api;
@@ -186,7 +187,7 @@ public sealed class BirthdayCalendarEvent
 
     /// <summary>화면에 쓸 <see cref="DateTime"/>. 못 읽으면 오늘로 둔다.</summary>
     public DateTime StartDate =>
-        DateTime.TryParse(Start, out var value) ? value.Date : DateTime.Today;
+        DateTime.TryParse(Start, out var value) ? value.Date : AppTime.TodayDate;
 }
 
 /// <summary>캘린더 사건의 부가 정보.</summary>

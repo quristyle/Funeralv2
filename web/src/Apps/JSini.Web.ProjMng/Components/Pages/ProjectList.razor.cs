@@ -49,7 +49,7 @@ public partial class ProjectList
     /// </summary>
     private void FillNew(ProjectDto p)
     {
-        p.PrjSdt = DateOnly.FromDateTime(DateTime.Today);
+        p.PrjSdt = AppTime.Today;
         p.PrjType = "blazor";
     }
 

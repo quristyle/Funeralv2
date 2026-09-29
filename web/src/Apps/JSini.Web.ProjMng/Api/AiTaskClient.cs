@@ -385,9 +385,9 @@ public sealed class AiTaskNoteDto
     /// </remarks>
     public bool IsOwner { get; set; }
 
-    /// <summary>적은 시각. <b><c>ToLocalTime()</c> 을 부르지 않는다</b> — 까닭은
-    /// <c>AiTaskWhen</c> 머리말에 있다(부르면 아홉 시간이 더해진다).</summary>
-    public string WhenText => CreDt?.ToString("yyyy-MM-dd HH:mm") ?? string.Empty;
+    /// <summary>적은 시각. 서버가 준 값은 UTC 라 보여 줄 때 한국 시각으로
+    /// 옮긴다(<c>AiTaskWhen</c> 머리말 · <c>docs/utc-time.md</c>).</summary>
+    public string WhenText => CreDt.Kst("yyyy-MM-dd HH:mm", string.Empty);
 }
 
 /// <summary>AI 작업 한 건.</summary>
@@ -634,10 +634,10 @@ public sealed class AiTaskDto
     /// <remarks>
     /// <b>스스로 끝난다.</b> 도장(<c>title_run_key</c>)이 찍히거나 끝난 지 3분이
     /// 지나면 거짓이 된다 — 서버가 중간에 내려가도 조회가 영원히 돌지 않는다.
-    /// 그 3분을 <see cref="DateTime.Now"/> 로 재는 것은 <b>서버가 적는 시각이
-    /// 현지시각(<c>now()</c> · <c>Asia/Seoul</c>)이기 때문</b>이다. UTC 로 재면
-    /// 아홉 시간 어긋나 이 값이 온종일 참으로 남고, 화면은 2초마다 서버를
-    /// 두들기며 멈추지 않는다.
+    /// 그 3분은 <b>UTC 끼리</b> 잰다 — 서버가 주는 <c>FinishedAt</c> 은 UTC 이고
+    /// (<c>timestamptz</c>), Blazor Server 의 <see cref="DateTime.Now"/> 는 서버
+    /// 프로세스의 시각이다. 한쪽만 한국 시각이면 아홉 시간 어긋나 이 값이
+    /// 온종일 참으로 남고, 화면은 2초마다 서버를 두들기며 멈추지 않는다.
     /// </remarks>
     public bool TitlePending =>
         TitleAuto
@@ -645,7 +645,7 @@ public sealed class AiTaskDto
         && TitleRunKey != LastRunKey
         && !IsBusy
         && FinishedAt is not null
-        && FinishedAt.Value.AddMinutes(3) > DateTime.Now;
+        && FinishedAt.Value.AddMinutes(3) > AppTime.UtcNow;
 
     /// <summary>걸린 시간. 아직 안 끝났으면 비어 있다.</summary>
     public string DurationText => DurationMs is null or 0

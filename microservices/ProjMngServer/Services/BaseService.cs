@@ -55,8 +55,8 @@ public class BaseService {
     ri.Res = new Dictionary<string, object?>(){
           { "p", param },
           { "sdt", sdt.ToString("yyyy.MM.dd HH:mm:ss") },
-          { "edt", DateTime.Now.ToString("yyyy.MM.dd HH:mm:ss") },
-          { "dtgap", (DateTime.Now-sdt).TotalSeconds },
+          { "edt", DateTime.UtcNow.ToString("yyyy.MM.dd HH:mm:ss") },
+          { "dtgap", (DateTime.UtcNow-sdt).TotalSeconds },
           { "spdt", spdt.ToString("yyyy.MM.dd HH:mm:ss") },
           { "epdt", epdt.ToString("yyyy.MM.dd HH:mm:ss") },
           { "tot_sgap", (epdt-sdt).TotalSeconds },

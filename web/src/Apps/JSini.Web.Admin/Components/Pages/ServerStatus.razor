@@ -129,7 +129,7 @@
                                읽으면 그 값이 없거나 낡은 채로 남아, **서비스는 방금
                                확인했는데 시각만 멎어 있는** 화면이 된다. *@
                             <span class="ad-stamp">
-                                @(_readAt is { } at ? $"{at:HH:mm:ss} 기준" : "확인 중") · 10초마다
+                                @(_readAt is { } at ? $"{at.Kst("HH:mm:ss")} 기준" : "확인 중") · 10초마다
                             </span>
                         </div>
                     </div>

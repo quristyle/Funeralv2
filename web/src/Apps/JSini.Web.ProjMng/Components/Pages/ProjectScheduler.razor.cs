@@ -54,7 +54,7 @@ public partial class ProjectScheduler
     private IReadOnlyList<WbsItemDto> _rows = [];
 
     private CalView _view = CalView.Month;
-    private DateTime _anchor = DateTime.Today;
+    private DateTime _anchor = AppTime.TodayDate;
 
     private string? _projectCode;
     private string? _completeState;
@@ -75,7 +75,7 @@ public partial class ProjectScheduler
     private IReadOnlyList<WeekRow> _weeks = [];
 
     /// <summary>고른 날. 휴대폰에서 격자 아래 목록이 이 날의 일정을 편다.</summary>
-    private DateOnly _selected = DateOnly.FromDateTime(DateTime.Today);
+    private DateOnly _selected = AppTime.Today;
 
     /// <summary>작은 달력이 보고 있는 달 — 큰 달력에서 <b>몇 달 떨어져 있나</b>.</summary>
     private int _miniOffset;
@@ -93,7 +93,7 @@ public partial class ProjectScheduler
     private ConfirmDialog? _confirm;
 
     private bool _peeking;
-    private DateOnly _peekDay = DateOnly.FromDateTime(DateTime.Today);
+    private DateOnly _peekDay = AppTime.Today;
 
     private bool _editing;
     private bool _isNew;
@@ -104,7 +104,7 @@ public partial class ProjectScheduler
     private bool _canUpdate;
     private bool _canDelete;
 
-    private static DateOnly Today => DateOnly.FromDateTime(DateTime.Today);
+    private static DateOnly Today => AppTime.Today;
 
     /// <summary>보기가 정하는 조회 구간의 단위(머리말).</summary>
     private DateRangePreset Preset => _view switch
@@ -275,7 +275,7 @@ public partial class ProjectScheduler
 
     private Task GoTodayAsync()
     {
-        _anchor = DateTime.Today;
+        _anchor = AppTime.TodayDate;
         _selected = Today;
         _miniOffset = 0;
 

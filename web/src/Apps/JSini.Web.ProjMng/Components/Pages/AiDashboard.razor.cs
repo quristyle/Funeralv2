@@ -56,8 +56,10 @@ public partial class AiDashboard
 
     // ── 상태 ────────────────────────────────────────────────
 
-    private DateTime? _from = DateTime.Today.AddDays(-29);
-    private DateTime? _to = DateTime.Today;
+    // 기간 고르개가 다루는 것은 **달력 날짜**다. 서버도 한국 달력으로 셈한다
+    // (`AiDashboardService.StartedKst`) — `docs/utc-time.md`.
+    private DateTime? _from = AppTime.TodayDate.AddDays(-29);
+    private DateTime? _to = AppTime.TodayDate;
 
     private AiDashboardData _data = new();
     private AiProviderStatus? _providers;
@@ -92,8 +94,8 @@ public partial class AiDashboard
 
     private Task ApplyPresetAsync(int days)
     {
-        _to = DateTime.Today;
-        _from = DateTime.Today.AddDays(-(days - 1));
+        _to = AppTime.TodayDate;
+        _from = AppTime.TodayDate.AddDays(-(days - 1));
         return SearchAsync();
     }
 
@@ -143,15 +145,19 @@ public partial class AiDashboard
             : $"{span.TotalSeconds:0}초";
     }
 
+    /// <summary>
+    /// 「몇 분 전」. <paramref name="at"/> 은 서버가 준 <b>UTC</b> 다 —
+    /// 견주기는 UTC 끼리, 적을 때만 한국 시각으로 옮긴다.
+    /// </summary>
     private static string Ago(DateTime at)
     {
-        var gap = DateTime.Now - at;
+        var gap = AppTime.UtcNow - at;
 
-        return gap < TimeSpan.Zero ? at.ToString("MM-dd HH:mm")
+        return gap < TimeSpan.Zero ? at.Kst("MM-dd HH:mm")
             : gap.TotalMinutes < 1 ? "방금"
             : gap.TotalHours < 1 ? $"{gap.TotalMinutes:0}분 전"
             : gap.TotalDays < 1 ? $"{gap.TotalHours:0}시간 전"
-            : at.ToString("MM-dd HH:mm");
+            : at.Kst("MM-dd HH:mm");
     }
 
     /// <summary>

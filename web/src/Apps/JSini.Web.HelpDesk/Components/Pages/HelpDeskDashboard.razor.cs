@@ -127,10 +127,13 @@ public partial class HelpDeskDashboard
     private const string ManagePath = "/helpdesk/request/manage";
 
     /// <summary>
-    /// 오늘(우리 시계). 서버도 KST 로 세므로(<c>Kst.Today</c>) 같은 날이다 —
-    /// 운영 컨테이너는 전부 <c>TZ=Asia/Seoul</c> 이다(<c>deploy/docker</c>).
+    /// 오늘. <b>한국 달력의 오늘</b>이다 — 서버도 같은 기준으로 센다
+    /// (<c>Kst.Today</c>). 운영 컨테이너 시계는 UTC 라
+    /// (<c>deploy/docker</c> · <c>docs/utc-time.md</c>)
+    /// <see cref="DateTime.Today"/> 를 쓰면 한국의 오전 9시 전 아홉 시간 동안
+    /// 서버와 다른 날을 센다.
     /// </summary>
-    private static DateTime Today => DateTime.Today;
+    private static DateTime Today => AppTime.TodayDate;
 
     /// <summary>이번 주 월요일. 서버의 주 시작과 같아야 「이번 주」가 맞는다.</summary>
     private static DateTime WeekStart => Today.AddDays(-(((int)Today.DayOfWeek + 6) % 7));

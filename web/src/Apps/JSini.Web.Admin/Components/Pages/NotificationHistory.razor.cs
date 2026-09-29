@@ -37,8 +37,8 @@ public partial class NotificationHistory
     /// <c>GetMyNotificationsAsync</c> 머리말). 발송 이력(이레)보다 길게 잡은
     /// 것은 자기 알림함은 드물게 열어 보기 때문이다.
     /// </remarks>
-    private DateTime? _from = DateTime.Today.AddMonths(-1);
-    private DateTime? _to = DateTime.Today;
+    private DateTime? _from = AppTime.TodayDate.AddMonths(-1);
+    private DateTime? _to = AppTime.TodayDate;
 
     /// <summary>
     /// 고른 알림구분. 비면 전체다.

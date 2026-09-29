@@ -537,7 +537,9 @@
 
             <DxGridDataColumn FieldName="@nameof(AiDashboardRecent.TargetNm)" Caption="대상" Width="160" />
             <DxGridDataColumn FieldName="@nameof(AiDashboardRecent.CreId)" Caption="지시자" Width="120" />
-            <DxGridDataColumn FieldName="@nameof(AiDashboardRecent.StartedAt)" Caption="시작"
+            @* 서버가 주는 시각은 UTC 라 **한국 시각으로 옮긴 칸**을 묶는다
+               (`AiDashboardRecent.StartedAtKst` · `docs/utc-time.md`). *@
+            <DxGridDataColumn FieldName="@nameof(AiDashboardRecent.StartedAtKst)" Caption="시작"
                               Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
 
             <DxGridDataColumn Caption="처리시간" Width="110">
@@ -620,7 +622,7 @@
                           style="width: @value.ToString("0.#")%; background: @MeterColor(value);"></span>
                 </div>
                 <div class="pm-aidash__stamp">
-                    @(resetAt is { } at ? $"{at:MM-dd HH:mm} 갱신" : "갱신 시각 모름")
+                    @(resetAt is { } at ? $"{at.Kst("MM-dd HH:mm")} 갱신" : "갱신 시각 모름")
                 </div>
             </div>
         }

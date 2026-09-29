@@ -1,3 +1,4 @@
+using JSini.Web.Components.Data;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.JSInterop;
@@ -446,11 +447,11 @@ public partial class AiTaskView
             _summary = AiRunSummary.Parse(answered?.SummaryText);
 
             // **끝난 지 오래된 건은 기다리는 시늉을 하지 않는다** — 위
-            // <see cref="SummaryFresh"/> 참고. 시각은 이미 우리 시계다
-            // (<c>AiTaskWhen</c> 머리말: `ToLocalTime()` 을 부르면 아홉 시간이 더해진다).
+            // <see cref="SummaryFresh"/> 참고. 서버가 준 시각은 UTC 라
+            // UTC 끼리 잰다(<c>AiTaskWhen</c> 머리말 · <c>docs/utc-time.md</c>).
             if (_summary is null
                 && answered?.FinishedAt is { } done
-                && DateTime.Now - done > SummaryFresh)
+                && AppTime.UtcNow - done > SummaryFresh)
             {
                 _summaryGaveUp = true;
             }

@@ -21,7 +21,7 @@ public sealed record CompanyPick(long CompanyId, string CompanyName, string? Bus
 public sealed class TransactionDraft
 {
     public CompanyPick? Company { get; set; }
-    public DateTime? TransportDate { get; set; } = DateTime.Today;
+    public DateTime? TransportDate { get; set; } = AppTime.TodayDate;
     public string? Origin { get; set; }
     public string? Destination { get; set; }
     public string? TransportType { get; set; }
@@ -124,7 +124,7 @@ public sealed class PaymentDraft
     public const string Received = "RECEIVED";
 
     public string Outcome { get; set; } = Received;
-    public DateTime? PaidDate { get; set; } = DateTime.Today;
+    public DateTime? PaidDate { get; set; } = AppTime.TodayDate;
     public decimal PaidAmount { get; set; }
     public string? Memo { get; set; }
 

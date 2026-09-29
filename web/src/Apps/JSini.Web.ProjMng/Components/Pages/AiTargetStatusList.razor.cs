@@ -1,3 +1,4 @@
+using JSini.Web.Components.Data;
 using Microsoft.AspNetCore.Components;
 using JSini.Web.ProjMng.Api;
 
@@ -232,13 +233,11 @@ public partial class AiTargetStatusList
 
     // ── 표기 ────────────────────────────────────────────────
     //
-    // **`ToLocalTime()` 을 부르지 않는다.** `projmng` 스키마의 시각 칸은
-    // 시간대 없는 timestamp 고 서버가 `now()` 로 찍는다 — 컨테이너가 전부
-    // Asia/Seoul 이라 그 값은 **이미 우리 시계의 벽시계 시각**이다. 옮기면
-    // 아홉 시간이 더해진다(`AiTaskWhen` 머리말에 같은 이야기가 있다).
+    // **서버가 주는 시각은 UTC 다**(`projmng` 의 시각 칸은 timestamptz 이고
+    // DB 세션도 UTC 다). 견주기는 UTC 끼리 하고, 적을 때만 한국 시각으로
+    // 옮긴다 — `AiTaskWhen` 머리말과 `docs/utc-time.md` 에 같은 이야기가 있다.
 
-    private static string When(DateTime? at) =>
-        at is { } v ? v.ToString("yyyy-MM-dd HH:mm") : "-";
+    private static string When(DateTime? at) => at.Kst("yyyy-MM-dd HH:mm");
 
     /// <summary>「3분 전」. <b>이 화면에서 제일 중요한 글자다.</b></summary>
     private static string Ago(DateTime? at)
@@ -248,7 +247,7 @@ public partial class AiTargetStatusList
             return "없음";
         }
 
-        var d = DateTime.Now - v;
+        var d = AppTime.UtcNow - v;
 
         // 시계가 몇 초 어긋나면 음수가 된다. 「-3초 전」보다 「방금」이 낫다.
         return d < TimeSpan.FromMinutes(1) ? "방금"
@@ -259,7 +258,7 @@ public partial class AiTargetStatusList
 
     /// <summary>확인된 지 오래됐나. 시각을 흐리게 그릴지를 정한다.</summary>
     private static bool Stale(AiTargetStatusDto t) =>
-        t.ProbedAt is not { } at || DateTime.Now - at > StaleAfter;
+        t.ProbedAt is not { } at || AppTime.UtcNow - at > StaleAfter;
 
     /// <summary>
     /// 등록된 기준 가지와 다른 데 서 있나.

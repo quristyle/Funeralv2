@@ -16,8 +16,8 @@ public partial class AuditList
     private IReadOnlyList<AdminAuditEntry> _rows = [];
 
     private string? _target;
-    private DateTime? _from = DateTime.Today.AddDays(-7);
-    private DateTime? _to = DateTime.Today;
+    private DateTime? _from = AppTime.TodayDate.AddDays(-7);
+    private DateTime? _to = AppTime.TodayDate;
 
     protected override Task OnInitializedAsync() => ReloadAsync();
 

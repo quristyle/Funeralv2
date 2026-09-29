@@ -81,6 +81,11 @@ public static partial class UsageText
 
         var text = Ansi().Replace(raw ?? string.Empty, string.Empty);
         var section = Section.None;
+        // **여기만 장비의 지역 시각이다.** CLI 는 갱신 시각을 장비 시간대로
+        // 찍는다(`resets Sep 21, 12:10pm (Asia/Seoul)`) — 그 글자를 읽으려면
+        // 같은 시계로 견줘야 「이미 지났으니 내일」 판정이 맞는다.
+        // 올릴 때는 UTC 로 바꾼다(`ParseWhen` 끝) — 이 시스템의 시각은 전부
+        // UTC 다(docs/utc-time.md).
         var now = DateTime.Now;
 
         foreach (var line in text.Split('\n'))
@@ -196,7 +201,13 @@ public static partial class UsageText
     /// <b>이미 지난 시각이면 내일로</b> 민다 — 한도가 다시 차는 시각은 늘
     /// 앞에 있기 때문이다.
     /// </para>
+    /// <para>
+    /// <b>읽기는 장비의 지역 시각으로, 돌려주기는 UTC 로</b> 한다. CLI 가 찍는
+    /// 글자가 지역 시각이고(<c>(Asia/Seoul)</c>), 이 값이 앉을 칸은
+    /// <c>timestamptz</c> 다(<c>docs/utc-time.md</c>).
+    /// </para>
     /// </remarks>
+    /// <param name="now">지금. <b>장비의 지역 시각</b>이어야 한다.</param>
     private static DateTime? ParseWhen(string text, DateTime now)
     {
         // **괄호와 쉼표를 먼저 걷어낸다.** 실제 출력이
@@ -240,7 +251,8 @@ public static partial class UsageText
             parsed = parsed.AddYears(1);
         }
 
-        return parsed;
+        // 여기까지는 장비의 지역 벽시계다. 올리는 값은 UTC 여야 한다.
+        return DateTime.SpecifyKind(parsed, DateTimeKind.Local).ToUniversalTime();
     }
 
     /// <summary>

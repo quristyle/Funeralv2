@@ -1,3 +1,4 @@
+using JSini.Web.Components.Data;
 using JSini.Web.ProjMng.Api;
 using JSini.Web.ProjMng.Components.Shared;
 
@@ -11,7 +12,7 @@ public partial class _Smoke
     private string? _userCode;
     private BizOption? _userItem;
 
-    private DateTime _anchor = DateTime.Today;
+    private DateTime _anchor = AppTime.TodayDate;
     private DateRangePreset _preset = DateRangePreset.Month;
     private DateRange? _range;
 

@@ -1,3 +1,4 @@
+using JSini.Web.Components.Data;
 using Microsoft.AspNetCore.Components;
 using JSini.Web.Http;
 using JSini.Web.Components.Layout;
@@ -137,7 +138,7 @@ public partial class AiTaskNotes
         // 「안 읽음」 딱지가 화면에 그대로 남는다.
         foreach (var row in _rows.Where(r => !r.IsOwner && r.ReadDt is null))
         {
-            row.ReadDt = DateTime.Now;
+            row.ReadDt = AppTime.UtcNow;
         }
 
         await OnRead.InvokeAsync();

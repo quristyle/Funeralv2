@@ -179,7 +179,7 @@
 
         <span class="pm-peek__cell">
             <span class="pm-peek__label">작성시간</span>
-            <span class="pm-peek__value">@(t.CreDt?.ToString("yyyy-MM-dd HH:mm") ?? "-")</span>
+            <span class="pm-peek__value">@t.CreDt.Kst("yyyy-MM-dd HH:mm")</span>
         </span>
 
         <span class="pm-peek__cell">

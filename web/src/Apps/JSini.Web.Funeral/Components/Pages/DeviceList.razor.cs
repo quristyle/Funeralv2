@@ -1,3 +1,4 @@
+using JSini.Web.Components.Data;
 using Microsoft.AspNetCore.Components;
 using JSini.Web.Funeral.Api;
 
@@ -127,7 +128,9 @@ public partial class DeviceList
 
         if (string.Equals(status, "ONLINE", StringComparison.OrdinalIgnoreCase))
         {
-            device.LastSeenAt = DateTime.Now;
+            // 서버가 주는 최근 연결 시각이 UTC 라 여기도 UTC 로 적는다
+            // (docs/utc-time.md). 섞으면 이 칸만 아홉 시간 어긋난다.
+            device.LastSeenAt = AppTime.UtcNow;
         }
 
         _ = InvokeAsync(StateHasChanged);

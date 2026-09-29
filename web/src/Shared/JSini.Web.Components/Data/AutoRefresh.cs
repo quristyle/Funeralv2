@@ -83,7 +83,7 @@ public abstract class AutoRefreshPage : DataPage, IDisposable
             await InvokeAsync(async () =>
             {
                 await RefreshAsync();
-                RefreshedAt = DateTime.Now;
+                RefreshedAt = AppTime.UtcNow;
                 StateHasChanged();
             });
         }

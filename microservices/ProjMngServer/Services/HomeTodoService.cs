@@ -234,7 +234,7 @@ public sealed class HomeTodoService(IConfiguration configuration)
                    ( SELECT target_user, SUM(COALESCE(fix_point, 0)) AS today_pay
                        FROM projmng.home_todo
                       WHERE is_complete = true
-                        AND target_day >= current_date
+                        AND target_day >= projmng.today_kst()
                       GROUP BY target_user ) b
                 ON b.target_user = a.target_user
              WHERE (@targetUser = '' OR a.target_user = @targetUser)

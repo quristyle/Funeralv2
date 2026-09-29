@@ -250,14 +250,15 @@ public sealed class GitProbe(ILogger<GitProbe> logger)
         snap.HeadAuthor = f[1].Trim();
         snap.HeadSubject = f[3].Trim();
 
-        // `%cI` 는 ISO-8601 에 오프셋이 붙는다. DB 칸이
-        // timestamp(without time zone) 라 **현지 시각으로 맞춰** 넣는다 —
-        // 이 스키마의 다른 표가 전부 그 모양이고, 섞으면 조회에서 어긋난다.
+        // `%cI` 는 ISO-8601 에 오프셋이 붙는다. **UTC 로 맞춰** 올린다 —
+        // 받는 칸(`ai_target_status.head_dt`)은 timestamptz 이고 이 시스템의
+        // 시각은 전부 UTC 다(docs/utc-time.md). 장비의 지역 시각으로 보내면
+        // 실행기를 어느 나라에서 돌리느냐에 따라 값이 달라진다.
         if (DateTimeOffset.TryParse(
                 f[2].Trim(), CultureInfo.InvariantCulture,
                 DateTimeStyles.None, out var when))
         {
-            snap.HeadDt = when.ToLocalTime().DateTime;
+            snap.HeadDt = when.UtcDateTime;
         }
     }
 

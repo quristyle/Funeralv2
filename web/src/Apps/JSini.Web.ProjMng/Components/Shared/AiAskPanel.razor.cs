@@ -821,7 +821,7 @@ public partial class AiAskPanel
         NotifyPwa = _pwa,
         ListCols = _cols,
         DraftText = _text,
-        DraftSavedAt = _draftSavedAt ?? (_text is not null ? DateTime.Now : null),
+        DraftSavedAt = _draftSavedAt ?? (_text is not null ? AppTime.UtcNow : null),
     });
 
     /// <summary>

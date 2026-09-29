@@ -203,7 +203,7 @@ public sealed record PendingImage(string Source, string ContentType, byte[] Byte
 {
     /// <summary>올릴 때 쓸 파일 이름. 원본 이름을 알 길이 없어 종류로만 짓는다.</summary>
     public string FileName =>
-        $"pasted-{DateTime.Now:yyyyMMddHHmmssfff}-{Guid.NewGuid().ToString("N")[..8]}{Extension}";
+        $"pasted-{AppTime.UtcNow:yyyyMMddHHmmssfff}-{Guid.NewGuid().ToString("N")[..8]}{Extension}";
 
     private string Extension => ContentType switch
     {

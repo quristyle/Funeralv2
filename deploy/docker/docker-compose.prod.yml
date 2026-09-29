@@ -16,7 +16,9 @@ x-common: &common
     - "host.docker.internal:host-gateway"
   environment: &common-env
     ASPNETCORE_ENVIRONMENT: Production
-    TZ: Asia/Seoul
+    # 시계는 UTC. 이미지에도 같은 값이 박혀 있다(deploy/docker/Dockerfile).
+    # 바꾸지 말 것 — 시각은 전부 UTC 로 저장·계산한다(docs/utc-time.md).
+    TZ: Etc/UTC
   logging:
     driver: json-file
     options:

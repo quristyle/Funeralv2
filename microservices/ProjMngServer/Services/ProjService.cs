@@ -63,10 +63,10 @@ public class ProjService : BaseService {
       dto.MainParam["req_ss_user_id"] = dto.SSUserId;
     }
 
-    LogInfo log = new LogInfo() { TicKs = DateTime.Now.Ticks.ToString(), Title = tname };
+    LogInfo log = new LogInfo() { TicKs = DateTime.UtcNow.Ticks.ToString(), Title = tname };
 
     log.Message =
-      $" {Environment.NewLine} {tname} : {dto.Start} :: {DateTime.Now.ToLongTimeString()} ----------------------------------------------"
+      $" {Environment.NewLine} {tname} : {dto.Start} :: {DateTime.UtcNow.ToLongTimeString()} ----------------------------------------------"
     + $" {Environment.NewLine} ProcName : {dto.ProcName}"
     + $" {Environment.NewLine} ProcType : {dto.ProcType}"
     + $" {Environment.NewLine} SSUserId : {dto.SSUserId}"
@@ -102,7 +102,7 @@ public class ProjService : BaseService {
 
     ResultInfo<Dictionary<string, string>> ri = new ResultInfo<Dictionary<string, string>>();
     GetBlazorFile(ri, param);
-    GetRes<Dictionary<string, string>>(ref ri, param, DateTime.Now, DateTime.Now, DateTime.Now);
+    GetRes<Dictionary<string, string>>(ref ri, param, DateTime.UtcNow, DateTime.UtcNow, DateTime.UtcNow);
     return ri;
 
   }
@@ -209,7 +209,7 @@ public class ProjService : BaseService {
       ri.Message = reason;
       ri.Data = aaa;
 
-      GetRes<Dictionary<string, string>>(ref ri, param, DateTime.Now, DateTime.Now, DateTime.Now);
+      GetRes<Dictionary<string, string>>(ref ri, param, DateTime.UtcNow, DateTime.UtcNow, DateTime.UtcNow);
       return ri;
     }
 
@@ -240,7 +240,7 @@ public class ProjService : BaseService {
     }
     ri.Data = aaa;
 
-    GetRes<Dictionary<string, string>>(ref ri, param, DateTime.Now, DateTime.Now, DateTime.Now);
+    GetRes<Dictionary<string, string>>(ref ri, param, DateTime.UtcNow, DateTime.UtcNow, DateTime.UtcNow);
     return ri;
 
   }
@@ -288,7 +288,7 @@ public class ProjService : BaseService {
       ri.Code = -88;
       ri.Data = rowdata;
 
-      GetRes<Dictionary<string, string>>(ref ri, param, DateTime.Now, DateTime.Now, DateTime.Now);
+      GetRes<Dictionary<string, string>>(ref ri, param, DateTime.UtcNow, DateTime.UtcNow, DateTime.UtcNow);
       return ri;
     }
 
@@ -313,7 +313,7 @@ public class ProjService : BaseService {
     }
     ri.Data = rowdata;
 
-    GetRes<Dictionary<string, string>>(ref ri, param, DateTime.Now, DateTime.Now, DateTime.Now);
+    GetRes<Dictionary<string, string>>(ref ri, param, DateTime.UtcNow, DateTime.UtcNow, DateTime.UtcNow);
     return ri;
 
   }
@@ -343,7 +343,7 @@ public class ProjService : BaseService {
 
     ri.Data = rowdata;
 
-    GetRes<Dictionary<string, string>>(ref ri, param, DateTime.Now, DateTime.Now, DateTime.Now);
+    GetRes<Dictionary<string, string>>(ref ri, param, DateTime.UtcNow, DateTime.UtcNow, DateTime.UtcNow);
     return ri;
 
   }

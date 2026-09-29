@@ -1,3 +1,4 @@
+using JSini.Web.Components.Data;
 using Microsoft.AspNetCore.Components;
 using JSini.Web.Http;
 using JSini.Web.Models;
@@ -33,7 +34,7 @@ public partial class BirthdayList
     private IReadOnlyList<NotifyRecipient> _notifyTargets = [];
 
     /// <summary>지금 보고 있는 달. 안 고르면 오늘이 속한 달이다.</summary>
-    private int CurrentMonth => _month ?? DateTime.Today.Month;
+    private int CurrentMonth => _month ?? AppTime.Today.Month;
 
     /// <summary>
     /// 접힌 조회부의 머리줄에 적을 글 — <b>지금 무엇으로 걸러 본 목록인가</b>.
