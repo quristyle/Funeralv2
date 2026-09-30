@@ -73,10 +73,10 @@ public partial class AiTaskViewPage
     }
 
     /// <summary>
-    /// 작성중인 건을 지웠다(<see cref="AiTaskActions"/>). <b>이 탭을 닫고</b>
-    /// 「빠른 지시」로 돌아간다 — 이 주소가 가리킬 것이 없어졌다.
+    /// 작성중인 건을 지웠거나( <see cref="AiTaskActions"/> ) 사용자 확인을 마쳤다.
+    /// <b>이 탭을 닫고</b> 「빠른 지시」로 돌아간다 — 이 주소가 가리킬 것이 없어졌다.
     /// </summary>
-    private void OnDeletedAsync(AiTaskDto _)
+    private void OnClosedAsync(AiTaskDto _)
     {
         StopPoll();
 

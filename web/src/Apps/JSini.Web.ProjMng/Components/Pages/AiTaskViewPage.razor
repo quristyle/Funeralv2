@@ -85,8 +85,8 @@
             <div class="pm-taskview__acts">
                 <AiTaskActions Item="@_item"
                                OnChanged="@OnChangedAsync"
-                               OnConfirmed="@OnChangedAsync"
-                               OnDeleted="@OnDeletedAsync" />
+                               OnConfirmed="@OnClosedAsync"
+                               OnDeleted="@OnClosedAsync" />
             </div>
         }
     </CommCont>
