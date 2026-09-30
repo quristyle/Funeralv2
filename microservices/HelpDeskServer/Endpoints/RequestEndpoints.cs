@@ -734,11 +734,18 @@ public static class RequestEndpoints {
         var adm = await db.Admins.FindAsync(req.AdminId.Value);
         if (adm != null) {
           var customerSubscriptions = await store.GetSubscriptionsByUserAsync(req.CustomerId, "customer");
-          await PushUtil.SendPushMsg($"배정 - {adm.UserName}", $"{req.Title} ", $"/request_detail?id={req.Id}", customerSubscriptions, sender);
+          await PushUtil.SendPushMsg($"접수 - {adm.UserName}", $"{req.Title} ", $"/request_detail?id={req.Id}", customerSubscriptions, sender);
 
           var adminSubscriptions = await store.GetAdminSubscriptionsAsync();
-          await PushUtil.SendPushMsg($"배정 - {adm.UserName}", $"{req.Title}", $"/request_detail?id={req.Id}", adminSubscriptions, sender);
+          await PushUtil.SendPushMsg($"접수 - {adm.UserName}", $"{req.Title}", $"/request_detail?id={req.Id}", adminSubscriptions, sender);
 
+          var customerEmails = await adminService.GetCustomerEmailsForNotificationAsync(req.CustomerId);
+          if (customerEmails.Any()) {
+            string mailTos = string.Join(";", customerEmails);
+            string mailBody = req.Description + "<br/><br/>" + $" 접수글 [ {req.Title} ] 접수되었습니다.<br/><br/>" +
+              $"<a href='https://help.jin114.co.kr/request_detail?id={req.Id}' target='_blank'>접수 글 보기</a><br/><br/><br/><br/>";
+            await EMailUtil.SendEmailJinNets(mailTos, $"[접수] {req.Title}", mailBody, provider, loggerFactory, configuration);
+          }
         }
       }
 
