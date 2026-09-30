@@ -726,6 +726,8 @@ public partial class RequestNew
         }
 
         _saving = true;
+        await Task.Yield(); // UI 업데이트를 위해 제어권 양보 (화면 멈춤 방지)
+
         try
         {
             // 가로채기를 지나온 그림이 남아 있으면 여기서 파일로 바꾼다.
