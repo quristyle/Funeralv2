@@ -730,22 +730,22 @@ public static class RequestEndpoints {
       await db.SaveChangesAsync();
 
       // 접수 시 (InProgress) 알림
-      if (input.Status == ImprovementStatus.InProgress && req.AdminId.HasValue) {
-        var adm = await db.Admins.FindAsync(req.AdminId.Value);
-        if (adm != null) {
-          var customerSubscriptions = await store.GetSubscriptionsByUserAsync(req.CustomerId, "customer");
-          await PushUtil.SendPushMsg($"접수 - {adm.UserName}", $"{req.Title} ", $"/request_detail?id={req.Id}", customerSubscriptions, sender);
+      if (input.Status == ImprovementStatus.InProgress) {
+        var adm = req.AdminId.HasValue ? await db.Admins.FindAsync(req.AdminId.Value) : null;
+        var assigneeName = adm?.UserName ?? "담당자 미정";
 
-          var adminSubscriptions = await store.GetAdminSubscriptionsAsync();
-          await PushUtil.SendPushMsg($"접수 - {adm.UserName}", $"{req.Title}", $"/request_detail?id={req.Id}", adminSubscriptions, sender);
+        var customerSubscriptions = await store.GetSubscriptionsByUserAsync(req.CustomerId, "customer");
+        await PushUtil.SendPushMsg($"접수 - {assigneeName}", $"{req.Title} ", $"/request_detail?id={req.Id}", customerSubscriptions, sender);
 
-          var customerEmails = await adminService.GetCustomerEmailsForNotificationAsync(req.CustomerId);
-          if (customerEmails.Any()) {
-            string mailTos = string.Join(";", customerEmails);
-            string mailBody = req.Description + "<br/><br/>" + $" 접수글 [ {req.Title} ] 접수되었습니다.<br/><br/>" +
-              $"<a href='https://help.jin114.co.kr/request_detail?id={req.Id}' target='_blank'>접수 글 보기</a><br/><br/><br/><br/>";
-            await EMailUtil.SendEmailJinNets(mailTos, $"[접수] {req.Title}", mailBody, provider, loggerFactory, configuration);
-          }
+        var adminSubscriptions = await store.GetAdminSubscriptionsAsync();
+        await PushUtil.SendPushMsg($"접수 - {assigneeName}", $"{req.Title}", $"/request_detail?id={req.Id}", adminSubscriptions, sender);
+
+        var customerEmails = await adminService.GetCustomerEmailsForNotificationAsync(req.CustomerId);
+        if (customerEmails.Any()) {
+          string mailTos = string.Join(";", customerEmails);
+          string mailBody = req.Description + "<br/><br/>" + $" 접수글 [ {req.Title} ] 접수되었습니다.<br/><br/>" +
+            $"<a href='https://help.jin114.co.kr/request_detail?id={req.Id}' target='_blank'>접수 글 보기</a><br/><br/><br/><br/>";
+          await EMailUtil.SendEmailJinNets(mailTos, $"[접수] {req.Title}", mailBody, provider, loggerFactory, configuration);
         }
       }
 
@@ -755,36 +755,33 @@ public static class RequestEndpoints {
         // 알림에 적는 이름도 **저장된 접수자**를 본다. `input.AdminId` 를
         // 보면 화면이 그 값을 안 실어 보냈을 때 「완료 - 」로 끝난다.
         var adm = req.AdminId is { } assigned ? await db.Admins.FindAsync(assigned) : null;
+        var assigneeName = adm?.UserName ?? "담당자 미정";
 
         var adminSubscriptions = await store.GetAdminSubscriptionsAsync();
         var customerSubscriptions = await store.GetSubscriptionsByUserAsync(req.CustomerId, "customer");
 
-        await PushUtil.SendPushMsg($"완료 - {adm?.UserName}", $"{req.Title}", $"/request_detail?id={req.Id}", adminSubscriptions, sender);
-        await PushUtil.SendPushMsg($"완료 - {adm?.UserName}", $"{req.Title}", $"/request_detail?id={req.Id}", customerSubscriptions, sender);
-
+        await PushUtil.SendPushMsg($"완료 - {assigneeName}", $"{req.Title}", $"/request_detail?id={req.Id}", adminSubscriptions, sender);
+        await PushUtil.SendPushMsg($"완료 - {assigneeName}", $"{req.Title}", $"/request_detail?id={req.Id}", customerSubscriptions, sender);
 
         string mailBody = req.Description + "<br/><br/>" + $" 접수글 [ {req.Title} ] 완료되었습니다.<br/><br/>" +
           $"<a href='https://help.jin114.co.kr/request_detail?id={req.Id}' target='_blank'>완료 글 보기</a><br/><br/><br/><br/>";
 
-
-
-
-        //using var scope = serviceScopeFactory.CreateScope();
-        //var adminService = scope.ServiceProvider.GetRequiredService<IAdminService>();
         var adminEmails = await adminService.GetAdminEmailsForNotificationAsync();
-        string mailTos = string.Join(";", adminEmails);
         var customerEmails = await adminService.GetCustomerEmailsForNotificationAsync(req.CustomerId);
-        mailTos = mailTos + ";" + string.Join(";", customerEmails);
-
-
-
-
-        await EMailUtil.SendEmailJinNets(mailTos, $"[완료] {req.Title}", mailBody, provider, loggerFactory, configuration);
-
-        //await EMailUtil.SendEmailJinNets(custom_mailTos, $"[완료] {req.Title}", mailBody, provider, loggerFactory, configuration);
-
+        
+        var allEmails = new List<string>();
+        if (adminEmails != null) allEmails.AddRange(adminEmails);
+        if (customerEmails != null) allEmails.AddRange(customerEmails);
+        
+        var uniqueEmails = allEmails.Where(e => !string.IsNullOrEmpty(e)).Distinct().ToList();
+        
+        if (uniqueEmails.Any()) {
+            string mailTos = string.Join(";", uniqueEmails);
+            await EMailUtil.SendEmailJinNets(mailTos, $"[완료] {req.Title}", mailBody, provider, loggerFactory, configuration);
+        }
       }
       else if (input.Status == ImprovementStatus.UserCompleted) { // 사용자 완료시 관리자 모두에게 알림.
+        var adm = req.AdminId is { } assigned ? await db.Admins.FindAsync(assigned) : null;
 
         var adminSubscriptions = await store.GetAdminSubscriptionsAsync();
         await PushUtil.SendPushMsg(
@@ -795,6 +792,21 @@ public static class RequestEndpoints {
                      sender
                      );
 
+        string mailBody = req.Description + "<br/><br/>" + $" 접수글 [ {req.Title} ] 종료되었습니다.<br/><br/>" +
+          $"<a href='https://help.jin114.co.kr/request_detail?id={req.Id}' target='_blank'>종료 글 보기</a><br/><br/><br/><br/>";
+
+        var adminEmails = await adminService.GetAdminEmailsForNotificationAsync();
+        
+        var allEmails = new List<string>();
+        if (adminEmails != null) allEmails.AddRange(adminEmails);
+        if (adm != null && !string.IsNullOrEmpty(adm.Email)) allEmails.Add(adm.Email);
+        
+        var uniqueEmails = allEmails.Where(e => !string.IsNullOrEmpty(e)).Distinct().ToList();
+        
+        if (uniqueEmails.Any()) {
+            string mailTos = string.Join(";", uniqueEmails);
+            await EMailUtil.SendEmailJinNets(mailTos, $"[종료] {req.Title}", mailBody, provider, loggerFactory, configuration);
+        }
       }
 
       return req;
