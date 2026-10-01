@@ -714,22 +714,23 @@ public partial class RequestNew
             return;
         }
 
-        // 편집기가 아직 알려 주지 않은 마지막 줄까지 여기서 받아 온다.
-        await FlushContentAsync();
-
-        // 브라우저의 required 만 믿지 않는다. 서버도 다시 보지만, 여기서 막으면
-        // 왕복 한 번을 아끼고 무엇이 빠졌는지 바로 알려 줄 수 있다.
-        if (string.IsNullOrWhiteSpace(_title) || RequestContentHtml.IsBlank(_content))
-        {
-            Say("제목과 내용을 채워 주십시오.", NoticeTone.Warning);
-            return;
-        }
-
         _saving = true;
+        StateHasChanged();
         await Task.Yield(); // UI 업데이트를 위해 제어권 양보 (화면 멈춤 방지)
 
         try
         {
+            // 편집기가 아직 알려 주지 않은 마지막 줄까지 여기서 받아 온다.
+            await FlushContentAsync();
+
+            // 브라우저의 required 만 믿지 않는다. 서버도 다시 보지만, 여기서 막으면
+            // 왕복 한 번을 아끼고 무엇이 빠졌는지 바로 알려 줄 수 있다.
+            if (string.IsNullOrWhiteSpace(_title) || RequestContentHtml.IsBlank(_content))
+            {
+                Say("제목과 내용을 채워 주십시오.", NoticeTone.Warning);
+                return;
+            }
+
             // 가로채기를 지나온 그림이 남아 있으면 여기서 파일로 바꾼다.
             var content = await AbsorbPendingImagesAsync(_content);
 
