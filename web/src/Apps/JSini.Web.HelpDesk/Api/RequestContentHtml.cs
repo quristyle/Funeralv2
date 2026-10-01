@@ -193,6 +193,26 @@ public static class RequestContentHtml
     private static readonly Regex TagOrEntity = new(
         """<[^>]*>|&[a-z]+;|&#\d+;""",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    /// <summary>본문에서 처음 일부를 추출하여 제목으로 쓴다.</summary>
+    public static string ExtractTitle(string? html, int maxLength = 50)
+    {
+        if (string.IsNullOrWhiteSpace(html))
+        {
+            return string.Empty;
+        }
+
+        var text = TagOrEntity.Replace(html, " ");
+        text = Regex.Replace(text, @"\s+", " ").Trim();
+
+        if (text.Length == 0)
+        {
+            // 그림만 있거나 텍스트가 없을 경우
+            return string.Empty;
+        }
+
+        return text.Length > maxLength ? text[..maxLength].TrimEnd() + "..." : text;
+    }
 }
 
 /// <summary>본문에 박혀 있는, 아직 파일이 되지 못한 그림 한 장.</summary>

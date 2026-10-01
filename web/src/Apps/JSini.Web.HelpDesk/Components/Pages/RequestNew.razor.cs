@@ -725,10 +725,22 @@ public partial class RequestNew
 
             // 브라우저의 required 만 믿지 않는다. 서버도 다시 보지만, 여기서 막으면
             // 왕복 한 번을 아끼고 무엇이 빠졌는지 바로 알려 줄 수 있다.
-            if (string.IsNullOrWhiteSpace(_title) || RequestContentHtml.IsBlank(_content))
+            if (RequestContentHtml.IsBlank(_content))
             {
-                Say("제목과 내용을 채워 주십시오.", NoticeTone.Warning);
+                Say("내용을 채워 주십시오.", NoticeTone.Warning);
                 return;
+            }
+
+            if (string.IsNullOrWhiteSpace(_title))
+            {
+                var extracted = RequestContentHtml.ExtractTitle(_content);
+                if (string.IsNullOrWhiteSpace(extracted))
+                {
+                    Say("제목을 채워 주십시오.", NoticeTone.Warning);
+                    return;
+                }
+                _title = extracted;
+                StateHasChanged();
             }
 
             // 가로채기를 지나온 그림이 남아 있으면 여기서 파일로 바꾼다.
