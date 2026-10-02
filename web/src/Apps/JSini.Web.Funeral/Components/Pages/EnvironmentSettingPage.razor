@@ -1,4 +1,4 @@
-﻿@page "/funeral/setting/environment"
+@page "/funeral/setting/environment"
 @attribute [RouteKey("funeral.setting.environment")]
 
 @*
@@ -595,7 +595,7 @@
                       Click="@(() => OnNavMoveAsync(index, 1))"
                       CssClass="fn-bnav__move" />
 
-            <DxButton Text="빼기" RenderStyle="ButtonRenderStyle.Secondary"
+            <DxButton IconCssClass="jsini-icon-trash" Title="빼기" RenderStyle="ButtonRenderStyle.Secondary"
                       Enabled="@(!_bottomNavHidden)"
                       Click="@(() => OnNavRemoveAsync(index))"
                       CssClass="fn-bnav__drop" />
