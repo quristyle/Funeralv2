@@ -70,7 +70,7 @@ SERVICES=(
   # 의존성 설치 · vite 기동)가 통째로 사라졌고, 두 프론트가 나머지 서비스와
   # 똑같이 이 표에서 다뤄진다.
   #
-  # 업무 포털 셸 :5557 — 업무 MFE 여섯이 이 한 프로세스 안에 실린다.
+  # 업무 포털 셸 :5557 — 업무 MFE 모듈들이 이 한 프로세스 안에 실린다.
   "blazor|Blazor 업무 포털|web/src/Shell/JSini.Web.Shell|5557|PORTAL_SHELL"
   # 회사 소개 사이트 :5556 — 정적 SSR 전용. 포털과 무관하고 인증도 없다.
   "web|회사 소개 사이트|web/src/Site/JSini.PublicSite|5556|PUBLIC_SITE"

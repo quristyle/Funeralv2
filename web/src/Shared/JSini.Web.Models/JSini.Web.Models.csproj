@@ -28,7 +28,7 @@
     <!--
       와이어 DTO 가 셸이 다루는 모양(MenuNode)으로 자기를 옮길 수 있어야 한다.
       변환을 DTO 쪽에 두는 이유: 서버 응답이 바뀌면 고칠 곳이 DTO 한 파일로 모인다.
-      화면 쪽에 두면 앱 일곱 개가 각자 옮기게 되고, 그중 하나만 안 고쳐진다.
+      화면 쪽에 두면 앱마다 각자 옮기게 되고, 그중 하나만 안 고쳐진다.
     -->
     <ProjectReference Include="..\JSini.Web.Abstractions\JSini.Web.Abstractions.csproj" />
   </ItemGroup>
