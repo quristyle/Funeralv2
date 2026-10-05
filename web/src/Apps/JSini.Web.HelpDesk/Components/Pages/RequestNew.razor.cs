@@ -772,7 +772,11 @@ public partial class RequestNew
                 }
 
                 // 목록으로 보낸다. 등록 화면에 남겨 두면 같은 요청을 두 번 넣기 쉽다.
-                Navigation.NavigateTo("/helpdesk/request/list");
+                //
+                // **「요청 처리」가 그 목록이다**(2026-10-05). 요청자가 제 것만 보던
+                // `/helpdesk/request/list` 를 걷어냈고, 고객으로 들어온 사람에게는
+                // 그 화면이 「요청자 = 나」로 서므로 방금 넣은 것이 맨 위에 있다.
+                Navigation.NavigateTo("/helpdesk/request/manage");
                 return;
             }
 

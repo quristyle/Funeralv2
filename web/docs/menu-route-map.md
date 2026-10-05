@@ -20,7 +20,7 @@
 
 ## HelpDesk (:5562, /helpdesk) — DB path 그대로
 
-/helpdesk/dashboard, /helpdesk/dashboard/customer, /helpdesk/request/{list,manage,new,my-comments},
+/helpdesk/dashboard, /helpdesk/dashboard/customer, /helpdesk/request/{manage,new,my-comments},
 /helpdesk/request/detail/{id},
 /helpdesk/monitor/{sm,maintenance}, /helpdesk/util/{ascii-parser,binary-parser,mc-model,diagram},
 /helpdesk/hanju/{health-check,collection-status,equipment-log,fms-log,procedure-result},
@@ -33,6 +33,11 @@
   걷어냈다. 그 화면이 하던 일은 상태 고르기 하나였고 지금은 요청 상세가
   「접수」·「완료」·「종료」 단추로 한다. DB 메뉴는 `status = 0` 으로 재웠다
   (`deploy/sql/helpdesk-request-close-2026-09-28.sql`).
+※ 내 요청(`/helpdesk/request/list` — `HD_REQ_LIST`)은 2026-10-05 에 걷어냈다.
+  요청자가 제 것만 보던 목록인데, 「요청 처리」(`/helpdesk/request/manage`)에서
+  요청자를 나로 두고 기간을 비우면 같은 것이 나온다 — 고객으로 연결된 계정은
+  그 화면이 그렇게 서도록 기본값을 바꿨다
+  (`deploy/sql/portal-menu-helpdesk-request-list-remove-2026-10-05.sql`).
 ※ 요청 모니터(`/helpdesk/request/monitor` — `HD_REQ_MONITOR`)는 2026-09-28 에
   걷어냈다. 담당자별·고객사별·최근 접수 셋을 보여 주던 화면인데 그 셋이
   모두 헬프데스크 현황(`/helpdesk/dashboard`)에 있다

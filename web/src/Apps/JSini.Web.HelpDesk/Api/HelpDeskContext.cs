@@ -51,6 +51,18 @@ public sealed class HelpDeskContext(HelpDeskApi api, BizOptionService bizOptions
     /// </summary>
     public int? CustomerId => IsCustomer ? Identity?.HelpdeskUserId : null;
 
+    /// <summary>
+    /// <b>담당자 권한이 없는 고객</b>의 고객 번호. 그 밖에는 null.
+    /// </summary>
+    /// <remarks>
+    /// 「제 요청만 보여 주고 요청자 칸을 못 바꾸게 한다」를 가르는 값이다
+    /// (<c>RequestManage</c>). <see cref="CustomerId"/> 로 가르면 안 된다 —
+    /// 서버의 <c>IsAdmin</c> 이 <c>연결이 admin 이거나 <b>포털 역할이 관리자</b></c>
+    /// 라(<c>HelpdeskPrincipal</c>), <b>고객으로 연결됐는데 역할로 담당자 권한을
+    /// 받은 사람</b>이 제 요청에 갇힌다.
+    /// </remarks>
+    public int? CustomerOnlyId => IsAdmin ? null : CustomerId;
+
     /// <summary>담당자 권한은 있으나 연결이 없는 상태. '내 것' 기능만 못 쓴다.</summary>
     public bool IsUnlinkedAdmin => IsAdmin && !IsLinked;
 
