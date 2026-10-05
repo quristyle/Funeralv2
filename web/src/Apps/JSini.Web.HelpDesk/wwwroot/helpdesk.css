@@ -1002,3 +1002,281 @@
 .hd-card__hit:focus-visible {
   outline: none;
 }
+
+/* ── 끌어서 나누는 좌우 분할 (`hd-vsplit`) ─────────────────
+
+   프로시저 결과가 쓴다 — 왼쪽이 목록, 오른쪽이 실행 결과다.
+   **폭을 사람이 정한다.** 격자로 못 박아 두었더니(25%) 프로시저 이름이
+   긴 쪽과 결과 칸이 많은 쪽이 서로 다른 폭을 바랐다.
+
+   셸의 사이드바와 **같은 부품**이다(`DxSplitter`). 그래서 치수와 규칙도
+   그쪽에서 정한 것을 그대로 따른다 — 자세한 이유는 app.css 의
+   `.jsini-shell__split` 머리말에 있고, 포털관리의 `ad-vsplit`(admin.css)이
+   같은 일을 한다. 모듈끼리는 서로의 CSS 를 참조하지 않으므로(모듈마다 제
+   `wwwroot/*.css` 를 싣는다) 여기에 한 벌을 둔다.
+
+   [높이를 부모가 정해야 한다]
+
+   `DxSplitter` 는 자기 높이를 부모에게서 받는다. 안 주면 판이 통째로
+   안 보인다 — **오류가 안 나는 고장**이다.
+
+   [판 자신이 카드다]
+
+   판 안에 `CommCont` 를 넣으므로 테두리·바탕·그림자는 그쪽이 그린다
+   (app.css 의 `.commcont`). 여기서 덧그리면 선이 두 줄로 겹친다 —
+   `ad-vsplit__pane` 이 제 카드를 그리는 것과 갈라지는 지점이다.
+   ---------------------------------------------------------- */
+
+@media (width >= 992px) {
+  .jsini-shell__content:has(> .hd-vsplit) {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .jsini-shell__content > .hd-vsplit {
+    flex: 1;
+    min-height: 0;
+  }
+}
+
+/* 판 안쪽 여백을 걷어낸다. 규칙과 다투지 않고 **그 규칙이 읽는 변수**를
+   덮는다 — 셸에서와 같은 방법이고, 크기 모드마다 값이 달라 자릿수를
+   넘겨야 세 모드에서 모두 걸린다. */
+.jsini-shell .hd-vsplit.dxbl-splitter {
+  --dxbl-splitter-pane-padding-x: 0;
+  --dxbl-splitter-pane-padding-y: 0;
+}
+
+.hd-vsplit > .dxbl-splitter-pane > .dxbl-splitter-pane-content {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 판 하나(=`CommCont`). **자기 안에서 구른다** — 판 밖으로 넘기면 셸 본문이
+   `overflow: hidden` 이라 잘린다. */
+.hd-vsplit__pane {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* 구분선에 내용이 닿지 않게 띄운다. 붙어 있으면 어느 쪽 글자인지 눈이 헷갈린다. */
+.hd-vsplit__pane--left { margin-right: 0.375rem; }
+.hd-vsplit__pane--right { margin-left: 0.375rem; }
+
+/* 머리줄은 제자리에 두고 **안의 것만 구른다.** 통째로 구르면 「프로시저
+   52개」와 「실행」 단추가 함께 올라가 버린다. */
+.hd-vsplit__pane > .commcont__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 구분선. **끌 수 있다는 것은 해 보기 전에는 보이지 않는다** — 마우스를
+   올리면 강조색을 옅게 깔아 알린다(셸 구분선과 같은 뜻이다). */
+.hd-vsplit > .dxbl-splitter-separator {
+  background: var(--jsini-border);
+}
+
+.hd-vsplit > .dxbl-splitter-separator:hover {
+  background: color-mix(in srgb, var(--jsini-accent) 55%, transparent);
+}
+
+/* 좁은 화면에서는 위아래로 쌓는다.
+
+   **판을 지우지 않고 상자만 없앤다**(`display: contents`). 마크업을 화면
+   크기로 갈아 끼우면 경계를 넘을 때마다 고른 프로시저와 실행 결과가 통째로
+   다시 만들어진다 — 셸이 같은 이유로 같은 방법을 쓴다.
+
+   DevExpress 가 판에 인라인으로 넣는 폭·좌표는 상자가 없어지면 아무 일도
+   하지 않는다. 구분선은 감춘다 — 끌 자리가 없다. */
+@media (width < 992px) {
+  .hd-vsplit,
+  .hd-vsplit > .dxbl-splitter-pane,
+  .hd-vsplit > .dxbl-splitter-pane > .dxbl-splitter-pane-content {
+    display: contents;
+  }
+
+  .hd-vsplit > .dxbl-splitter-separator { display: none; }
+
+  /* 쪽이 구르는 자리라 판이 스스로 높이를 묶으면 안 된다. */
+  .hd-vsplit__pane {
+    display: block;
+    overflow: visible;
+    margin: 0 0 1rem;
+  }
+
+  .hd-vsplit__pane > .commcont__body {
+    display: block;
+  }
+}
+
+/* ── 프로시저 목록 ───────────────────────────────────────
+
+   거르개는 **거르는 것 바로 위**에 붙박이로 서고, 목록만 구르고, 인자 칸과
+   「실행」은 판 아래에 붙박이로 남는다. 판 전체가 구르면 프로시저를 고르자마자
+   단추가 화면 밖으로 밀려난다 — 고르는 것과 돌리는 것이 잇따르는 동작이라
+   그 둘이 한 화면에 있어야 한다.
+   ---------------------------------------------------------- */
+
+.hd-procfilter {
+  flex: 0 0 auto;
+  width: 100%;
+  margin-bottom: 0.5rem;
+}
+
+.hd-proclist {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+
+  /* 좁은 화면에서는 판이 높이를 안 받으므로(위 미디어 질의 밖) 여기서
+     막아 둔다. 안 막으면 프로시저 수십 개가 쪽을 통째로 늘린다. */
+  max-height: 22rem;
+  overflow-y: auto;
+}
+
+@media (width >= 992px) {
+  .hd-proclist {
+    flex: 1;
+    min-height: 6rem;
+    max-height: none;
+  }
+}
+
+.hd-proclist__empty {
+  margin: 0.4rem 0;
+  font-size: var(--jsini-fs-sm);
+  color: var(--jsini-text-muted);
+}
+
+/* 줄 하나. `<button>` 이라야 키보드로 닿는다 — 그 대신 단추의 기본 생김새를
+   전부 걷어내야 한다. */
+.hd-proc {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  border: 0;
+  border-radius: var(--jsini-radius-sm, 0.25rem);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.hd-proc:hover {
+  background: var(--jsini-surface);
+}
+
+.hd-proc:focus-visible {
+  outline: 2px solid var(--jsini-accent);
+  outline-offset: -2px;
+}
+
+/* 고른 줄은 **면으로** 칠한다. 테두리를 두르면 그 줄만 키가 커져 목록이
+   들썩인다(테마 서랍의 고른 항목과 같은 규칙). */
+.hd-proc.is-on {
+  background: color-mix(in srgb, var(--jsini-accent) 14%, transparent);
+}
+
+.hd-proc__name {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* 설명은 곁말이라 줄을 늘리지 않는다. 이름이 길면 설명부터 줄어든다. */
+.hd-proc__desc {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+  font-size: var(--jsini-fs-xs);
+  color: var(--jsini-text-muted);
+}
+
+/* ── 인자 칸 ─────────────────────────────────────────────
+
+   목록 바로 아래, 판 맨 밑에 붙는다.
+
+   [한 줄에 셋을 앉힌다 — 이름 · 칸 · 형]
+
+   세로로 쌓았더니 인자 하나가 **세 줄**(이름 / 칸 / `varchar(100)`)을 먹었다.
+   인자가 둘뿐인 프로시저에서도 여섯 줄이고, 그만큼이 바로 위 목록에서
+   빠진다 — 이 판에서 길이를 다투는 것은 목록이다.
+
+   이름과 형은 **글자만큼만** 차지하고 남는 폭은 칸이 다 가진다. 판이 좁아
+   모자라면 둘 다 … 로 줄고 칸은 끝까지 남는다 — 사람이 값을 넣는 자리가
+   먼저 사라지면 안 된다.
+   ---------------------------------------------------------- */
+
+.hd-params {
+  flex: 0 0 auto;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--jsini-border);
+}
+
+.hd-params__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.hd-params__title {
+  font-size: var(--jsini-fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--jsini-text-muted);
+}
+
+.hd-params__fields {
+  display: grid;
+  grid-template-columns: minmax(0, max-content) minmax(0, 1fr) minmax(0, max-content);
+  align-items: center;
+  gap: 0.4rem 0.45rem;
+  min-width: 0;
+}
+
+/* 줄 자신은 상자를 만들지 않는다 — 칸 셋이 바로 위 격자의 칸이 되어야
+   줄마다 같은 세로줄에 선다. `<label>` 의 「눌러서 칸에 들어가기」는
+   상자가 없어져도 그대로다. */
+.hd-param {
+  display: contents;
+}
+
+/* DevExpress 편집기는 제 내용만큼만 넓다. 격자 칸을 다 쓰게 한다 —
+   안 그러면 판을 아무리 넓혀도 값 넣는 칸만 좁은 채로 남는다. */
+.hd-params__fields .dxbl-text-edit {
+  width: 100%;
+  min-width: 0;
+}
+
+.hd-param__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+/* 설명·형·길이. **값을 막는 데 쓰지 않는다** — 화면이 형을 따지지 않는
+   까닭은 화면 머리말에 있다. */
+.hd-param__hint {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+  font-size: var(--jsini-fs-xs);
+  color: var(--jsini-text-muted);
+}

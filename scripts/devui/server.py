@@ -283,12 +283,34 @@ PAGE = """<!doctype html>
 <style>
 :root{--bg:#f6f7f9;--card:#fff;--fg:#1a1d21;--muted:#6b7280;--line:#e3e6ea;--subtle:#fafbfc;
       --up:#17974e;--upline:#9cd9b6;--down:#c2c7cd;--work:#c98a17;--workline:#e8c98a;
-      --btn:#fff;--btnline:#cfd4da;--accent:#1f6feb;--logbg:#0f1216;--logfg:#d7dde4;}
+      --btn:#fff;--btnline:#cfd4da;--accent:#1f6feb;--logbg:#0f1216;--logfg:#d7dde4;
+      --sbtrack:#eef0f3;--sbthumb:#c3c9d0;}
+/* 어두운 쪽 값. 아무것도 고르지 않았으면 시스템 설정을 따르고(앞),
+   머리글의 ☀/☾ 로 고르면 그때부터 data-theme 이 이긴다(뒤). 값은 같다. */
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]){
       --bg:#14171a;--card:#1c2025;--fg:#e6e9ed;--muted:#9aa4b0;--line:#2b3138;--subtle:#181c21;
       --up:#4ec98a;--upline:#2f6446;--down:#4a525b;--work:#e0a83c;--workline:#6b5324;
-      --btn:#252a31;--btnline:#3a424b;--accent:#589bff;--logbg:#0b0e11;--logfg:#cfd6dd;}}
+      --btn:#252a31;--btnline:#3a424b;--accent:#589bff;--logbg:#0b0e11;--logfg:#cfd6dd;
+      --sbtrack:#1a1e23;--sbthumb:#39424c;}}
+:root[data-theme=dark]{
+      --bg:#14171a;--card:#1c2025;--fg:#e6e9ed;--muted:#9aa4b0;--line:#2b3138;--subtle:#181c21;
+      --up:#4ec98a;--upline:#2f6446;--down:#4a525b;--work:#e0a83c;--workline:#6b5324;
+      --btn:#252a31;--btnline:#3a424b;--accent:#589bff;--logbg:#0b0e11;--logfg:#cfd6dd;
+      --sbtrack:#1a1e23;--sbthumb:#39424c;}
 *{box-sizing:border-box}
+
+/* 스크롤 막대 — 3px 가는 띠. 바탕과 손잡이 색이 테마를 따라간다.
+   크롬·사파리는 ::-webkit-* 로 폭을 px 로 줄 수 있고, 파이어폭스는 못 주므로
+   scrollbar-width:thin 으로 만족한다. 둘을 같이 쓰면 안 된다 —
+   크롬은 scrollbar-width 가 있으면 ::-webkit-* 를 통째로 버리고 제 기본 폭(10px)을
+   쓴다. 그래서 표준 속성은 ::-webkit-scrollbar 를 모르는 쪽에만 준다. */
+@supports not selector(::-webkit-scrollbar){
+  *{scrollbar-width:thin;scrollbar-color:var(--sbthumb) var(--sbtrack)}}
+::-webkit-scrollbar{width:3px;height:3px}
+::-webkit-scrollbar-track{background:var(--sbtrack)}
+::-webkit-scrollbar-thumb{background:var(--sbthumb);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--muted)}
+::-webkit-scrollbar-corner{background:var(--sbtrack)}
 body{margin:0;padding:18px 20px 24px;background:var(--bg);color:var(--fg);
      font:14px/1.5 system-ui,-apple-system,"Noto Sans KR",sans-serif}
 .wrap{max-width:1180px;margin:0 auto}
@@ -383,13 +405,20 @@ summary::marker{color:var(--muted)}
 #log{background:var(--logbg);color:var(--logfg);padding:12px;
      font:12px/1.5 ui-monospace,monospace;white-space:pre-wrap;word-break:break-all;
      height:260px;overflow:auto}
+@supports not selector(::-webkit-scrollbar){#log{scrollbar-color:#39424c #0b0e11}}
+#log::-webkit-scrollbar-track{background:#0b0e11}
+#log::-webkit-scrollbar-thumb{background:#39424c}
 #log:empty::before{content:"작업을 실행하면 출력이 여기에 표시됩니다.";color:var(--muted)}
-</style></head><body><div class="wrap">
+</style>
+<script>try{var t=localStorage.getItem("devui-theme");
+  if(t==="dark"||t==="light")document.documentElement.dataset.theme=t}catch(e){}</script>
+</head><body><div class="wrap">
 
 <header>
   <h1>JSini 개발 서버 제어판</h1>
   <span class="sum" id="summary">…</span>
   <span class="grow"></span>
+  <button id="theme" class="ico" title="밝기" aria-label="밝기 전환">◐</button>
   <button id="allstop" class="ico danger" title="전체 중지" aria-label="전체 중지">■</button>
   <button id="all" class="ico" title="전체 재기동" aria-label="전체 재기동">⟳</button>
 </header>
@@ -593,6 +622,43 @@ document.querySelector(".wrap").addEventListener("click", e => {
     run(b.dataset.a, b.dataset.s);
   }
 });
+// 밝기 — 시스템 → 어두움 → 밝음 을 돌아가며 고른다. 시스템은 OS 설정을 그대로
+// 따르고(설정을 바꾸면 화면도 따라 바뀐다), 나머지 둘은 거기에 상관없이 고정한다.
+// 단추의 기호는 "지금 무엇인지"를 가리킨다. 고른 값은 localStorage 에 남는다.
+const THEMES = [
+  {id: "system", icon: "\u25d0", label: "시스템 설정"},
+  {id: "dark",   icon: "\u263e", label: "어두움"},
+  {id: "light",  icon: "\u2600", label: "밝음"},
+];
+const themeBtn = document.getElementById("theme");
+const darkQuery = matchMedia("(prefers-color-scheme:dark)");
+function themeMode() {
+  let t = null;
+  try { t = localStorage.getItem("devui-theme"); } catch (e) {}
+  return THEMES.find(x => x.id === t) || THEMES[0];
+}
+function paintTheme() {
+  const cur = themeMode();
+  const next = THEMES[(THEMES.indexOf(cur) + 1) % THEMES.length];
+  const dark = cur.id === "system" ? darkQuery.matches : cur.id === "dark";
+  const applied = dark ? "dark" : "light";
+  const title = `밝기: ${cur.label} — 눌러 ${next.label}(으)로`;
+  // 같은 값이면 쓰지 않는다. 괜히 쓰면 브라우저가 화면을 다시 그린다.
+  if (document.documentElement.dataset.theme !== applied)
+    document.documentElement.dataset.theme = applied;
+  if (themeBtn.textContent !== cur.icon) themeBtn.textContent = cur.icon;
+  if (themeBtn.title !== title) themeBtn.title = title;
+}
+themeBtn.onclick = () => {
+  const next = THEMES[(THEMES.indexOf(themeMode()) + 1) % THEMES.length];
+  try { localStorage.setItem("devui-theme", next.id); } catch (e) {}
+  paintTheme();
+};
+darkQuery.addEventListener("change", paintTheme);
+// 탭이 가려져 있는 동안에는 아래 폴링 바퀴가 쉬므로, 돌아온 그 순간에 한 번 맞춘다.
+document.addEventListener("visibilitychange", () => { if (!document.hidden) paintTheme(); });
+paintTheme();
+
 document.getElementById("allstop").onclick =
   () => run("allstop", null, "백엔드와 프론트를 전부 내립니다. 계속할까요?");
 document.getElementById("all").onclick =
@@ -604,6 +670,9 @@ document.getElementById("all").onclick =
 (async function loop() {
   for (let first = true; ; first = false) {
     if (first || !document.hidden) {
+      // 시스템 설정을 따르는 중이면 바뀐 것이 없는지 여기서도 본다.
+      // matchMedia 의 change 만 믿지 않는 까닭 — 못 받는 브라우저가 있다.
+      paintTheme();
       try { await refresh(); await pullLog(); } catch (e) { /* 서버가 잠깐 없을 수 있다 */ }
     }
     await sleep(jobs.some(j => j.running) ? 800 : 2500);
