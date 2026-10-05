@@ -35,6 +35,18 @@ public partial class FilePicker
     /// <summary>칸 아래 적을 안내. 무엇을 올리는 자리인지 화면마다 다르다.</summary>
     [Parameter] public string? Hint { get; set; }
 
+    /// <summary>
+    /// 그 안내 줄을 그릴 것인가.
+    ///
+    /// <para>
+    /// 끄는 자리는 <b>고르개가 아이콘 하나로 줄어 다른 줄에 끼어 있는 때</b>다
+    /// (「빠른 지시」의 단추 줄). 거기서는 한 줄이 통째로 줄을 풀어 버린다.
+    /// 끈 쪽은 같은 말을 아이콘의 <c>title</c> 로 달아 준다 — 지우는 것이
+    /// 아니라 자리를 옮기는 것이다.
+    /// </para>
+    /// </summary>
+    [Parameter] public bool ShowHint { get; set; } = true;
+
     /// <summary>고른 것이 바뀔 때마다. 화면은 이 목록을 들고 있다가 저장할 때 읽는다.</summary>
     [Parameter] public EventCallback<IReadOnlyList<PickedFile>> FilesChanged { get; set; }
 

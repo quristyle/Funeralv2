@@ -106,7 +106,15 @@ public partial class AiAskPanel
     /// </remarks>
     private const long MaxFileBytes = 100L * 1024 * 1024;
 
-    /// <summary>고르개 아래 한 줄. <b>남은 자리를 적는다</b> — 「몇 개까지」보다 「몇 개 더」가 쓸모 있다.</summary>
+    /// <summary>
+    /// 고르개 아이콘에 다는 설명(<c>title</c>). <b>남은 자리를 적는다</b> —
+    /// 「몇 개까지」보다 「몇 개 더」가 쓸모 있다.
+    /// </summary>
+    /// <remarks>
+    /// 한동안 고르개 아래 한 줄이었다(<c>FilePicker.Hint</c>). 고르개가
+    /// 단추 줄의 아이콘 하나로 줄면서 그 줄을 세울 자리가 없어져 여기로
+    /// 옮겼다 — 아이콘만 남으면 무엇을 고르는 단추인지 말할 데가 없다.
+    /// </remarks>
     private string FileHint =>
         $"화면 사진이나 파일을 함께 보냅니다 — {MaxFiles - _attached.Count}개 더 · 한 개 {MaxFileBytes / 1024 / 1024}MB 까지";
 

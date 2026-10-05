@@ -2038,11 +2038,29 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
   width: 100%;
 }
 
+/* 글자 크기는 **서랍에서 고른 단계를 따른다**(`--jsini-fs-md`).
+
+   한동안 `1rem` 이 박혀 있었다. 까닭은 아래 iOS 한 줄인데, 그 값이
+   `<html>`(16px)에 묶여 있어 **크기 여섯 단계 중 어느 것을 골라도 이 칸만
+   꿈쩍하지 않았다** — 가장 많이 들여다보는 칸이 하필 그랬다.
+   (web/CLAUDE.md 「글자 크기를 `rem` 으로 박지 않는다」) */
 .pm-ask__text textarea {
   min-height: min(6rem, 30vh);
-  font-size: 1rem;      /* 16px 미만이면 iOS 가 칸을 확대한다 */
+  font-size: var(--jsini-fs-md);
   line-height: 1.5;
   overflow-y: auto;
+}
+
+/* **손가락으로 쓰는 기기에서만 16px 바닥을 둔다.** iOS 사파리는 글자가
+   16px 보다 작은 칸에 들어가는 순간 화면을 확대하고, 그 확대는 저절로
+   풀리지 않아 「적고 나면 화면이 커져 있다」가 된다.
+
+   바닥을 모든 기기에 두면 위에서 되찾은 것을 그대로 잃는다 — 책상에서
+   작게 고른 사람은 손가락으로 쓰지 않는다. */
+@media (pointer: coarse) {
+  .pm-ask__text textarea {
+    font-size: max(var(--jsini-fs-md), 1rem);
+  }
 }
 
 /* 임시저장 복원 안내 한 줄 */
@@ -2080,8 +2098,12 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
 /* ── 함께 보내는 파일 (`pm-ask__files`) ──────────────────────
 
    글상자와 단추 줄 사이다. 여기에 들어가는 높이는 **자판이 올라온 화면에서
-   단추를 그만큼 밀어내므로** 인색하게 쓴다 — 붙인 것이 없으면 고르개 한
-   덩이뿐이고, 붙이면 칩이 줄줄이 늘어서는 대신 **줄바꿈으로 흐른다.**
+   단추를 그만큼 밀어내므로** 인색하게 쓴다 — 붙이면 칩이 줄줄이 늘어서는
+   대신 **줄바꿈으로 흐른다.**
+
+   **고른 것이 없으면 이 판은 아예 안 그려진다**(2026-10-05). 고르개가
+   단추 줄의 아이콘으로 옮겨 가면서 여기 남은 것이 「선택됨」 줄과 칩뿐이고,
+   둘 다 없는데 상자만 두면 위 여백 0.6rem 이 늘 서 있게 된다.
    ---------------------------------------------------------- */
 
 .pm-ask__files {
@@ -2207,10 +2229,99 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
   cursor: default;
 }
 
-/* 고르개는 이 화면에서 **작게** 쓴다. 공용 부품의 기본 여백은 문서 폼
-   기준이라, 세로로 세운 이 판에서는 그것이 단추를 자판 밖으로 민다. */
-.pm-ask__files .jsini-picker {
-  font-size: 0.9em;
+/* ── 고르개는 **아이콘 하나**다 (2026-10-05) ─────────────────
+
+   단추 줄(`pm-ask__bar`)에 이메일·앱알림과 나란히 선다. 공용 부품
+   (`FilePicker`)은 문서 폼 기준이라 끌어놓기 칸이 줄 폭을 다 쓰고 안내가
+   한 줄 더 서는데, 그 둘이 그대로 들어오면 **줄이 두세 층으로 풀리고
+   그때 보내기 단추가 자판 밑으로 내려간다** — 이 화면이 서서 피하려던
+   바로 그 일이다.
+
+   **그림을 우리가 그리지 않는다.** DevExpress 가 그 단추 안에 이미
+   올리기 그림을 넣어 두었다(`dx-uc-upload`) — 글자만 떼면 아이콘 단추다.
+   ---------------------------------------------------------- */
+
+.pm-ask__pick {
+  flex: 0 0 auto;
+  display: inline-flex;
+}
+
+/* 안내 줄을 껐으니(`ShowHint="false"`) 세로로 쌓을 것이 없다. */
+.pm-ask__pick .jsini-picker {
+  display: block;
+  gap: 0;
+}
+
+/* 부품이 스스로 얹는 위 여백(`--dxbl-upload-padding-top`, 1.2rem)을 걷는다.
+   남겨 두면 아이콘 혼자 줄 위로 떠서 체크칸과 밑줄이 어긋난다. */
+.pm-ask__pick .dxbl-upload {
+  padding-top: 0;
+}
+
+/* 끌어놓기 칸의 줄 간격(1rem)을 걷는다. 안에 단추 하나뿐이라 쓰이지 않는
+   값이지만, 남겨 두면 단추를 하나 더 켜는 날 줄이 소리 없이 벌어진다.
+
+   **자릿수를 테마와 맞춘다**(`.dxbl-upload .dxbl-upload-container …`).
+   짧게 적으면 테마 규칙(0,3,0)에 져서 **규칙은 실려 있는데 안 먹는다** —
+   아래 목록에서 실제로 밟았다. */
+.pm-ask__pick .dxbl-upload .dxbl-upload-container .dxbl-upload-panel {
+  gap: 0;
+}
+
+/* 글자를 뗀다. 무엇을 고르는 단추인지는 감싼 상자의 `title` 이 말한다. */
+.pm-ask__pick .dxbl-btn-caption {
+  display: none;
+}
+
+/* 네모 단추 하나. 손가락이 겨누는 폭을 보내기 단추만큼은 아니어도
+   체크칸보다는 넉넉히 둔다.
+
+   **강조색을 벗긴다.** 부품 기본값이 `Primary` 라 그대로 두면 한 줄에 파란
+   덩이가 둘이 되고, 그러면 **어느 것이 보내는 단추인지 한눈에 안 갈린다** —
+   이 줄에서 눈이 맨 끝 단추로 가야 한다는 것이 이 판의 전제다(아래
+   `pm-ask__go` 머리말). 테두리만 두른 중립 단추로 둔다.
+
+   자릿수를 하나 더 둔다(`.dxbl-btn`) — DevExpress 의 `.dxbl-btn.dxbl-btn-primary`
+   가 (0,2,0) 이라 같은 자릿수로는 실린 순서에 운을 건다. */
+.pm-ask__pick .dxbl-btn.dxbl-upload-select-btn {
+  min-width: 2.5rem;
+  min-height: 2.25rem;
+  padding-inline: 0.6rem;
+  background: transparent;
+  border-color: var(--jsini-border, rgba(0, 0, 0, 0.18));
+  color: var(--jsini-text-muted);
+}
+
+.pm-ask__pick .dxbl-btn.dxbl-upload-select-btn:hover:not(:disabled) {
+  background: var(--jsini-bg-subtle, rgba(0, 0, 0, 0.06));
+  color: inherit;
+}
+
+.pm-ask__pick .dxbl-upload-select-btn .dxbl-btn-icon {
+  margin: 0;
+}
+
+/* DevExpress 가 그리는 파일 목록은 **비었을 때만 감춘다.**
+
+   비어 있어도 위 여백 1.375rem 을 들고 서 있어서, 그냥 두면 아무것도 안
+   고른 평소에 단추 줄이 22px 높아진다 — 고르개를 아이콘으로 줄인 값을
+   그만큼 도로 내놓는 셈이다.
+
+   **통째로 감추지는 않는다.** 그 목록이 유일하게 말해 주는 것이 하나
+   있다 — **DevExpress 가 거절한 파일**(한 개 100MB 초과)이다. 그 건은
+   올리기가 시작되지 않아 `FilesUploading` 도 안 오고, 화면의 「선택됨」
+   줄에는 이름이 남는다. 목록까지 감추면 **왜 안 올라가는지 말하는 자리가
+   화면에서 사라진다.**
+
+   있을 때는 줄을 통째로 쓴다(`:has`). 아이콘 폭(40px) 안에 파일 이름과
+   진행 막대를 밀어 넣으면 읽을 수 없다. 올리는 동안과 거절당했을 때뿐이라
+   줄이 잠깐 두 층이 되는 것은 값을 한다. */
+.pm-ask__pick .dxbl-upload .dxbl-upload-container .dxbl-upload-file-list-view:empty {
+  display: none;
+}
+
+.pm-ask__pick:has(.dxbl-upload-file-list-view:not(:empty)) {
+  flex: 1 1 100%;
 }
 
 /* 카드의 클립 표시. 개수만 적는다 — 위 razor 주석 참고. */
@@ -2232,13 +2343,13 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
   -webkit-mask: var(--jsini-clip-svg) center / contain no-repeat;
 }
 
-/* 글상자 아래 한 줄 — 올리기 · 메일 · 보내기.
+/* 글상자 아래 한 줄 — 파일 · 메일 · 앱알림 · 보내기.
 
    예전에는 올리기가 제 줄을, 단추가 또 제 줄을 가졌다. 칸이 둘로 늘면서
    그 모양은 글상자와 단추 사이에 두 줄이 되는데, 자판이 올라온 화면에서
    그것은 곧 **단추가 자판 밑으로 내려간다**는 뜻이다.
 
-   체크칸 둘이 왼쪽에 붙고 단추는 오른쪽 끝이다. 좁아지면 단추가 아래로
+   파일 고르개(아이콘)와 체크칸 둘이 왼쪽에 붙고 단추는 오른쪽 끝이다. 좁아지면 단추가 아래로
    내려가 한 줄을 다 쓴다(`flex-wrap`) — 그 자리에서도 손가락이 겨누는 폭은
    그대로다. */
 .pm-ask__bar {
