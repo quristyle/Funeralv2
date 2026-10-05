@@ -53,7 +53,21 @@ public partial class FilePicker
     /// <summary>브라우저에서 고른 파일 이름. 바이트를 받기 전의 선택 상태도 화면에 알린다.</summary>
     [Parameter] public EventCallback<IReadOnlyList<string>> SelectionChanged { get; set; }
 
+    /// <summary>아이콘 단추에 걸 설명. 글자가 없으니 이것이 이름 노릇을 한다.</summary>
+    [Parameter] public string SelectTitle { get; set; } = "파일 고르기";
+
     private DxFileInput? _input;
+
+    /// <summary>
+    /// 고르기 단추의 아이디. <c>ExternalSelectButtonCssSelector</c> 가 이것으로
+    /// 우리 단추를 찾는다.
+    /// </summary>
+    /// <remarks>
+    /// <b>부품마다 달라야 한다.</b> 한 화면에 첨부 칸이 둘인 자리가 있는데
+    /// (영정 사진과 미디어), 아이디를 글자로 박아 두면 둘째 칸의 단추가 첫째
+    /// 칸의 파일 고르개를 연다 — 고른 파일이 엉뚱한 칸에 붙는다.
+    /// </remarks>
+    private readonly string _selectId = $"jsini-pick-{Guid.NewGuid():N}";
 
     /// <summary>
     /// 받아 둔 파일. 열쇠는 DevExpress 가 파일마다 붙이는 <c>Guid</c> 다.
