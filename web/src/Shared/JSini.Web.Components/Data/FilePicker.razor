@@ -47,13 +47,40 @@
         **총량만 우리가 막는다** — DevExpress 에 그 개념이 없다. 아래
         OnSelectedFilesChangedAsync 참고.
     *@
+    @* [고르기 단추는 **우리 것**이다 — 2026-10-05]
+
+       DevExpress 가 그리던 것은 아이콘에 「파일 고르기」가 붙은 글자 단추다.
+       첨부 칸은 폼 한가운데 한 줄을 차지하는 자리가 아니라 **곁들이는
+       자리**라, 그 자리에서 글자 단추는 제목·본문보다 눈에 먼저 든다.
+       포털의 다른 곁다리 단추들과 같이 **아이콘만** 세운다(표 「관리」 칸의
+       단추들과 같은 규칙 — `.commgrd__actions` 머리말).
+
+       **글자를 CSS 로 감추지 않는다.** 그 글자는 DevExpress 가 제 마크업
+       안에 넣는 `<span class="dxbl-btn-caption">` 이라, 감추는 규칙은
+       판올림 때 조용히 빗나간다(그러면 단추가 다시 길어진다).
+
+       대신 부품이 내준 길로 간다 — 제 단추를 끄고(`ShowSelectButton`)
+       **우리 단추를 고르기 단추로 지목한다**(`ExternalSelectButtonCssSelector`).
+       누를 때 하는 일은 그대로 DevExpress 가 받는다. 파일 고르개를 여는 것은
+       브라우저만 할 수 있는 일이라 우리가 흉내 낼 수 없다 — `<input type=file>`
+       을 대신 눌러 주는 쪽이고, 그 input 은 그 부품이 들고 있다.
+
+       `Title` 은 **지워서는 안 된다.** 아이콘만 남으면 무엇을 여는 단추인지
+       그림에만 기대게 되는데, 그 뜻을 읽어 주는 것이 이 한 줄이다. *@
+    <DxButton id="@_selectId" CssClass="jsini-picker__pick"
+              IconCssClass="jsini-icon-paperclip"
+              RenderStyle="ButtonRenderStyle.Secondary"
+              Title="@SelectTitle"
+              aria-label="@SelectTitle" />
+
     <DxFileInput @ref="_input"
                  AllowMultiFileUpload="@(MaxFiles > 1)"
                  MaxFileCount="@MaxFiles"
                  MaxFileSize="@DxMaxFileSize"
                  AcceptedFileTypes="@AcceptedTypes"
                  ValidateByAcceptedFileTypes="@(AcceptedTypes is { Count: > 0 })"
-                 SelectButtonText="파일 고르기"
+                 ShowSelectButton="false"
+                 ExternalSelectButtonCssSelector="@($"#{_selectId}")"
                  ShowFileList="true"
                  AllowCancel="true"
                  UploadMode="UploadMode.Instant"

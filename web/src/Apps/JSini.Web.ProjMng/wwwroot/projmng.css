@@ -2268,37 +2268,23 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
   gap: 0;
 }
 
-/* 글자를 뗀다. 무엇을 고르는 단추인지는 감싼 상자의 `title` 이 말한다. */
-.pm-ask__pick .dxbl-btn-caption {
-  display: none;
-}
-
 /* 네모 단추 하나. 손가락이 겨누는 폭을 보내기 단추만큼은 아니어도
    체크칸보다는 넉넉히 둔다.
 
-   **강조색을 벗긴다.** 부품 기본값이 `Primary` 라 그대로 두면 한 줄에 파란
-   덩이가 둘이 되고, 그러면 **어느 것이 보내는 단추인지 한눈에 안 갈린다** —
-   이 줄에서 눈이 맨 끝 단추로 가야 한다는 것이 이 판의 전제다(아래
-   `pm-ask__go` 머리말). 테두리만 두른 중립 단추로 둔다.
+   **겨누는 단추가 바뀌었다 (2026-10-05).** 전에는 DevExpress 가 그리는
+   `.dxbl-upload-select-btn` 을 붙잡아 글자(`.dxbl-btn-caption`)를 감추고
+   강조색을 벗겼다. 지금은 그 단추 자체가 꺼져 있고 고르개가 **제 아이콘
+   단추**(`.jsini-picker__pick`)를 세운다(`FilePicker` 머리말) — 글자가 아예
+   없으니 감출 것이 없고, 부품이 중립 단추(`Secondary`)로 세우므로 색을
+   벗길 일도 없다. 여기 남는 것은 **이 줄에서만 다른 치수**뿐이다.
 
-   자릿수를 하나 더 둔다(`.dxbl-btn`) — DevExpress 의 `.dxbl-btn.dxbl-btn-primary`
-   가 (0,2,0) 이라 같은 자릿수로는 실린 순서에 운을 건다. */
-.pm-ask__pick .dxbl-btn.dxbl-upload-select-btn {
+   한 줄에 파란 덩이가 둘이면 어느 것이 보내는 단추인지 한눈에 안 갈린다 —
+   이 줄에서 눈이 맨 끝 단추로 가야 한다는 것이 이 판의 전제다(아래
+   `pm-ask__go` 머리말). */
+.pm-ask__pick .jsini-picker__pick {
   min-width: 2.5rem;
   min-height: 2.25rem;
   padding-inline: 0.6rem;
-  background: transparent;
-  border-color: var(--jsini-border, rgba(0, 0, 0, 0.18));
-  color: var(--jsini-text-muted);
-}
-
-.pm-ask__pick .dxbl-btn.dxbl-upload-select-btn:hover:not(:disabled) {
-  background: var(--jsini-bg-subtle, rgba(0, 0, 0, 0.06));
-  color: inherit;
-}
-
-.pm-ask__pick .dxbl-upload-select-btn .dxbl-btn-icon {
-  margin: 0;
 }
 
 /* DevExpress 가 그리는 파일 목록은 **비었을 때만 감춘다.**
