@@ -121,10 +121,14 @@
     맨 끝이 진짜다 — 서버가 목록을 권한으로 거르지 않아서 화면이 조건을
     빠뜨리면 같은 회사 동료의 요청이 그대로 새어 나온다.
 
-    **가르는 값은 `CustomerOnlyId` 다**(「고객으로 연결 + 담당자 권한 없음」).
-    `CustomerId` 로 가르면 **고객으로 연결됐는데 포털 역할로 담당자 권한을 받은
-    사람**까지 제 요청에 갇힌다 — 서버의 `IsAdmin` 이 그 둘을 합친 값이다
-    (`HelpdeskPrincipal`).
+    **가르는 것은 「관리자인가」 하나다** — 포털 역할이 `ADMINISTRATOR` ·
+    `SYSTEM_ADMINISTRATOR` 중 하나인가(`HelpDeskContext.IsAdmin`). 그 밖의 모든
+    사람이 고객이다(2026-10-05 규칙).
+
+    **잠그는 기준을 「고객 번호가 있는가」로 두지 않는다.** 요청을 한 번도 올린 적이
+    없는 사람은 가리킬 고객 줄이 아직 없는데(서버가 첫 글을 쓸 때 만든다 ·
+    `RequesterProvisioner`), 번호로 가르면 **그 사람에게만 칸이 열려 회사 전체가
+    보인다.** 번호가 없으면 잠근 채로 **아무것도 묻지 않는다**(`ReloadAsync`).
 
     DB 메뉴를 지우는 것은
     `deploy/sql/portal-menu-helpdesk-request-list-remove-2026-10-05.sql`

@@ -81,6 +81,31 @@ public interface IFuneralAccountLinkService {
   /// <param name="ct">취소 토큰</param>
   Task<HelpdeskIdentity?> ResolveAsync(string authUserId, string? email, string? msaSource = null, CancellationToken ct = default);
 
+  /// <summary>
+  /// <b>이 포털 계정이 스스로 만든 고객 줄</b>을 찾는다. 없으면 null — <b>만들지는 않는다.</b>
+  /// </summary>
+  /// <remarks>
+  /// <para>
+  /// 2026-10-05 규칙에서 <b>관리자가 아닌 모든 사람은 고객</b>이다
+  /// (<see cref="HelpdeskPrincipal"/>). 그런데 「내 요청」을 가리키려면 고객 번호가
+  /// 있어야 하고, 사람이 이어 준 연결(<c>auth_user_links</c>)은 운영에 <b>한 줄뿐</b>
+  /// 이다. 그래서 요청을 올린 적이 있는 사람은 <see cref="IRequesterProvisioner"/> 가
+  /// 만들어 둔 제 고객 줄로 해석해 준다 — 그래야 자기가 쓴 글을 자기 것으로 본다.
+  /// </para>
+  /// <para>
+  /// <b>찾는 열쇠가 <see cref="IRequesterProvisioner"/> 가 쓰는 것과 같아야 한다</b> —
+  /// 로그인 아이디와 이름이 <b>둘 다</b> 같은 줄. 아이디만 보면 안 된다(포털
+  /// <c>admin</c> 과 헬프데스크 <c>admin</c> 은 다른 사람이라 실제로 오탐이 있었다 —
+  /// <see cref="AccountLinkOptions.MatchByLoginId"/>). 그래서 이것은 추정이 아니다.
+  /// 우리가 그 열쇠로 만든 줄을 그 열쇠로 되찾는 것뿐이다.
+  /// </para>
+  /// <para>
+  /// <b>관리자에게는 부르지 않는다</b>(미들웨어에서 가른다). 관리자의
+  /// <c>HelpdeskUserId</c> 가 고객 번호가 되면 「나에게 배정된 요청」이 엉뚱한 줄을 센다.
+  /// </para>
+  /// </remarks>
+  Task<HelpdeskIdentity?> ResolveSelfCustomerAsync(string authUserId, string? userName, CancellationToken ct = default);
+
   /// <summary>매핑 캐시를 비운다. 매핑을 추가/삭제한 직후에 호출한다.</summary>
   void InvalidateCache(string authUserId);
 }
@@ -93,6 +118,13 @@ public class FuneralAccountLinkService : IFuneralAccountLinkService {
   private readonly AccountLinkOptions _options;
 
   private static string CacheKey(string authUserId) => $"helpdesk:authlink:{authUserId}";
+
+  /// <summary>
+  /// 제 고객 줄 찾기의 캐시 열쇠. <b>이름까지 넣는다</b> — 찾는 열쇠가 둘이라
+  /// 아이디만 넣으면 포털에서 이름을 고친 사람이 옛 결과를 계속 받는다.
+  /// </summary>
+  private static string SelfCacheKey(string authUserId, string userName) =>
+      $"helpdesk:selfcustomer:{authUserId}:{userName}";
 
   /// <summary>서비스를 생성한다.</summary>
   public FuneralAccountLinkService(
@@ -209,6 +241,31 @@ public class FuneralAccountLinkService : IFuneralAccountLinkService {
     return (table, id);
   }
 
+  /// <inheritdoc />
+  public async Task<HelpdeskIdentity?> ResolveSelfCustomerAsync(
+      string authUserId, string? userName, CancellationToken ct = default) {
+    if (string.IsNullOrWhiteSpace(authUserId)) return null;
+
+    // 이름이 없으면 아이디로 만들어진 줄이다(`RequesterProvisioner.EnsureSelfAsync`).
+    var name = string.IsNullOrWhiteSpace(userName) ? authUserId : userName!;
+
+    if (_cache.TryGetValue<HelpdeskIdentity?>(SelfCacheKey(authUserId, name), out var cached)) {
+      return cached;
+    }
+
+    var mine = await _db.Customers.AsNoTracking()
+        .FirstOrDefaultAsync(c => c.LoginId == authUserId && c.UserName == name && !c.IsDeleted, ct);
+
+    var resolved = mine is null
+        ? null
+        : new HelpdeskIdentity("customer", mine.Id, mine.CompanyId, mine.UserName);
+
+    // **못 찾은 것도 담되 짧게 담는다.** 요청을 처음 올리는 순간 줄이 생기므로
+    // (`RequesterProvisioner`), 오래 담으면 방금 쓴 글이 한참 남의 것처럼 보인다.
+    _cache.Set(SelfCacheKey(authUserId, name), resolved, TimeSpan.FromMinutes(resolved is null ? 1 : 10));
+    return resolved;
+  }
+
   private async Task<HelpdeskIdentity?> LoadAsync(string userType, int id, CancellationToken ct) {
     if (string.Equals(userType, "admin", StringComparison.OrdinalIgnoreCase)) {
       var admin = await _db.Admins.AsNoTracking().FirstOrDefaultAsync(a => a.Id == id, ct);
@@ -276,12 +333,12 @@ public class FuneralIdentityMiddleware {
           jsiniClaims.Add(new Claim(JsiniUserExtensions.EmailClaim, email));
         }
 
-        // 포털 역할로 담당자 권한을 판정한다. 역할 목록은 설정에 있어 여기서만 읽을 수 있으므로
+        // 포털 역할로 **관리자**를 판정한다. 역할 목록은 설정에 있어 여기서만 읽을 수 있으므로
         // 결과를 클레임으로 남기고, 엔드포인트는 HelpdeskPrincipal 로 꺼내 쓴다.
         //
-        // 이것이 없으면 포털에서 관리자 역할을 받은 계정도 계정 연결이 없는 한
-        // 헬프데스크에서는 권한이 하나도 없는 사람이 된다.
-        if (IsAdminByRole(context)) {
+        // 이 값이 곧 관리자의 정의다(2026-10-05) — 가진 사람이 관리자, 나머지는 전부 고객.
+        var isAdmin = IsAdminByRole(context);
+        if (isAdmin) {
           jsiniClaims.Add(new Claim(HelpdeskPrincipalExtensions.AdminByRoleClaim, "true"));
         }
 
@@ -289,12 +346,21 @@ public class FuneralIdentityMiddleware {
 
         var identity = await linkService.ResolveAsync(authUserId, email, msaSource, context.RequestAborted);
 
+        // 사람이 이어 준 연결이 없는 고객은 **제가 만든 고객 줄**로 해석한다.
+        // 그 줄이 없으면(요청을 올린 적이 없으면) 여전히 null 이다.
+        //
+        // **관리자에게는 하지 않는다.** 관리자의 `uid` 가 고객 번호가 되면
+        // 「나에게 배정된 요청」이 엉뚱한 줄을 센다(`IsLinkedAdmin` 머리말).
+        if (identity is null && !isAdmin) {
+          identity = await linkService.ResolveSelfCustomerAsync(authUserId, userName, context.RequestAborted);
+        }
+
         if (identity is null) {
           // 연결이 없는 것은 오류가 아니다. 조회·관리는 포털 역할로 할 수 있고,
           // '내 것' 을 가리키는 일만 못 한다. 그래서 경고가 아니라 정보로 남긴다.
           _logger.LogInformation(
-              "포털 계정 {AuthUserId} 에 연결된 헬프데스크 레코드가 없습니다(담당자 권한: {IsAdmin}). 경로: {Path}",
-              authUserId, IsAdminByRole(context), context.Request.Path);
+              "포털 계정 {AuthUserId} 에 연결된 헬프데스크 레코드가 없습니다(관리자: {IsAdmin}). 경로: {Path}",
+              authUserId, isAdmin, context.Request.Path);
         }
         else {
           var claims = new List<Claim> {

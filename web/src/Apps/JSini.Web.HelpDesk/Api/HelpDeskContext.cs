@@ -21,10 +21,23 @@ public sealed class HelpDeskContext(HelpDeskApi api, BizOptionService bizOptions
     public bool IdentityChecked { get; private set; }
 
     /// <summary>
-    /// 담당자 권한이 있는가. 서버가 포털 역할까지 보고 판정한 값(<c>isAdmin</c>)을
-    /// 쓴다 — 계정 연결이 없는 관리자도 조회·관리 화면을 열 수 있어야 한다.
+    /// <b>관리자인가.</b> 포털 역할이 <c>ADMINISTRATOR</c> · <c>SYSTEM_ADMINISTRATOR</c>
+    /// 중 하나면 참이고, 그것이 전부다(2026-10-05 규칙).
     /// </summary>
-    public bool IsAdmin => Identity?.IsAdmin ?? string.Equals(Identity?.LoginType, "admin", StringComparison.OrdinalIgnoreCase);
+    /// <remarks>
+    /// <para>
+    /// 판정은 <b>서버가 한다</b>(<c>auth-links/me</c> 의 <c>isAdmin</c>). 역할 목록이
+    /// 설정에 있어(<c>HelpdeskIdentityOptions.AdminRoles</c>) 거기서만 읽을 수 있고,
+    /// 화면이 역할 이름을 또 적어 두면 설정을 고쳤을 때 <b>서버는 고객으로 보는데
+    /// 화면은 관리자로 그리는</b> 쪽으로 어긋난다.
+    /// </para>
+    /// <para>
+    /// <b>연결 종류(<c>loginType</c>)로 떨어지지 않는다.</b> 연결이 <c>admin</c> 이라고
+    /// 관리자로 치던 것을 걷었다 — 관리자를 세우고 거두는 자리는 포털 역할표 하나다.
+    /// 신원을 못 받았으면 거짓이다(고객으로 본다) — 틀리는 방향이 그쪽이어야 한다.
+    /// </para>
+    /// </remarks>
+    public bool IsAdmin => Identity?.IsAdmin == true;
 
     /// <summary>시스템관리자인가. 일반 헬프데스크 담당자 권한과는 구분한다.</summary>
     public bool IsSystemAdmin => Identity?.JsiniRoles.Any(role =>
@@ -34,44 +47,48 @@ public sealed class HelpDeskContext(HelpDeskApi api, BizOptionService bizOptions
     public bool IsLinked => Identity?.HelpdeskUserId is not null;
 
     /// <summary>
-    /// <b>고객</b>으로 연결된 계정인가. 서버의 <c>HelpdeskPrincipal.IsCustomer</c> 와
-    /// 같은 판정이다.
+    /// <b>고객인가 — 관리자가 아닌 모든 사람이다.</b> 서버의
+    /// <c>HelpdeskPrincipal.IsCustomer</c> 와 같은 판정이다.
     /// </summary>
     /// <remarks>
-    /// <see cref="HelpdeskUserId"/> 만 보고 「내 고객 번호」로 쓰면 안 된다 —
-    /// <b>담당자로 연결된 계정은 그 값이 <c>admin.id</c></b> 다. 실제로 요청 등록
-    /// 화면이 그것을 고객 번호로 보내, 번호가 겹치는 <b>남의 이름으로 요청이
-    /// 들어갔다.</b> 고객 번호로 쓸 수 있는지는 이 값으로 가른다.
+    /// 연결 종류가 <c>customer</c> 인가로 가르던 것을 2026-10-05 에 뒤집었다. 연결은
+    /// 운영에 <b>한 줄뿐</b>이라, 그것으로 가르면 포털 계정 마흔몇이 고객도 관리자도
+    /// 아닌 상태가 되어 <b>「고객이니 제 것만」 같은 조건이 통째로 안 걸렸다.</b>
+    /// 관리자도 요청을 올리므로 <b>고객이면서 관리자</b>인 셈인데, 둘을 갈라 보여 주는
+    /// 자리에서는 관리자로 적는다 — 그래서 이 값은 「관리자가 아닌가」다.
     /// </remarks>
-    public bool IsCustomer =>
-        string.Equals(Identity?.LoginType, "customer", StringComparison.OrdinalIgnoreCase);
+    public bool IsCustomer => !IsAdmin;
 
     /// <summary>
-    /// 고객으로 연결된 계정의 <b>고객 번호</b>. 담당자이거나 연결이 없으면 null.
+    /// 고객의 <b>고객 번호</b>. 관리자이거나 가리킬 줄이 없으면 null.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b><see cref="HelpdeskUserId"/> 를 그대로 「내 고객 번호」로 쓰면 안 된다</b> —
+    /// 담당자 줄에 이어진 계정은 그 값이 <c>admin.id</c> 다. 실제로 요청 등록 화면이
+    /// 그것을 고객 번호로 보내 번호가 겹치는 <b>남의 이름으로 요청이 들어갔다.</b>
+    /// </para>
+    /// <para>
+    /// <b>고객인데 이 값이 null 일 수 있다</b> — 요청을 한 번도 올린 적이 없어
+    /// 가리킬 고객 줄이 아직 없는 사람이다(서버가 첫 글을 쓸 때 만든다 ·
+    /// <c>RequesterProvisioner</c>). 그때는 「내 것」을 가려낼 수 없으므로
+    /// <b>조회를 아예 하지 않는다</b>(<c>RequestManage</c>).
+    /// </para>
+    /// </remarks>
     public int? CustomerId => IsCustomer ? Identity?.HelpdeskUserId : null;
-
-    /// <summary>
-    /// <b>담당자 권한이 없는 고객</b>의 고객 번호. 그 밖에는 null.
-    /// </summary>
-    /// <remarks>
-    /// 「제 요청만 보여 주고 요청자 칸을 못 바꾸게 한다」를 가르는 값이다
-    /// (<c>RequestManage</c>). <see cref="CustomerId"/> 로 가르면 안 된다 —
-    /// 서버의 <c>IsAdmin</c> 이 <c>연결이 admin 이거나 <b>포털 역할이 관리자</b></c>
-    /// 라(<c>HelpdeskPrincipal</c>), <b>고객으로 연결됐는데 역할로 담당자 권한을
-    /// 받은 사람</b>이 제 요청에 갇힌다.
-    /// </remarks>
-    public int? CustomerOnlyId => IsAdmin ? null : CustomerId;
 
     /// <summary>담당자 권한은 있으나 연결이 없는 상태. '내 것' 기능만 못 쓴다.</summary>
     public bool IsUnlinkedAdmin => IsAdmin && !IsLinked;
 
-    /// <summary>
-    /// 헬프데스크 업무 화면을 열 수 있는가. 화면을 열지 말지는 이 값으로 판단하고,
-    /// <see cref="HelpdeskUserId"/> 로 판단하지 않는다 — 그렇게 하면 연결 없는
-    /// 관리자에게 빈 화면이 나온다.
-    /// </summary>
-    public bool CanUse => IsAdmin || IsLinked;
+    // [CanUse 를 걷어냈다 (2026-10-05)]
+    //
+    // `IsAdmin || IsLinked` 였다. 관리자가 아니면 모두 고객이고 고객은 요청을
+    // 올릴 수 있으므로 이 값이 거짓인 사람이 없어졌다 — 가리킬 고객 줄은 서버가
+    // 첫 글을 쓸 때 만든다(`RequesterProvisioner`).
+    //
+    // 전에는 이것이 거짓이라 **연결 없는 사람이 요청 등록 화면에서 「권한이
+    // 없습니다」로 막혔다.** 운영에 연결이 한 줄뿐이라 사실상 한 사람만 글을
+    // 쓸 수 있었다. 화면을 여닫는 것은 메뉴 권한이 한다.
 
     /// <summary>
     /// 헬프데스크 내부 사용자 ID. <b>'내 것'을 가리킬 때만</b> 쓴다

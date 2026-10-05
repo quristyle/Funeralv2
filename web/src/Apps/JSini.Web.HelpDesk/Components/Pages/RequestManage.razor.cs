@@ -160,13 +160,15 @@ public partial class RequestManage : IDisposable
     private readonly HashSet<string> _brokenThumbs = new(StringComparer.Ordinal);
 
     /// <summary>
-    /// 요청자 칸을 잠갔는가 — <b>담당자 권한이 없는 고객</b>이면 참.
+    /// 요청자 칸을 잠갔는가 — <b>고객이면</b> 참(관리자가 아닌 모든 사람).
     /// </summary>
     /// <remarks>
-    /// 가르는 값이 <see cref="HelpDeskContext.CustomerOnlyId"/> 다. 그쪽 머리말에
-    /// 적은 대로 <c>CustomerId</c> 로 가르면 고객으로 연결된 담당자까지 갇힌다.
+    /// <b>고객 번호가 있는지로 가르지 않는다.</b> 번호가 없는 고객(요청을 한 번도
+    /// 올린 적이 없는 사람)까지 잠가야 한다 — 안 잠그면 그 사람에게만 칸이 열려
+    /// <b>같은 회사 전체가 보인다</b>. 번호가 없을 때 무엇을 보여 줄지는
+    /// <see cref="ReloadAsync"/> 가 정한다(아무것도 안 부른다).
     /// </remarks>
-    private bool RequesterLocked => Context.CustomerOnlyId is not null;
+    private bool RequesterLocked => Context.IsCustomer;
 
     /// <summary>잠긴 칸에 적을 글자. 고르개가 아는 이름을 그대로 쓴다.</summary>
     private string RequesterName =>
@@ -303,7 +305,8 @@ public partial class RequestManage : IDisposable
         // 화면이 그 일까지 맡았다. 그 화면이 보여 주던 것은 **끝난 것까지 포함한
         // 내 요청 전부**라, 요청자를 나로 두고 「처리 중인 것만」을 끈다.
         //
-        // **가르는 값은 `CustomerOnlyId` 다**(그쪽 머리말). 담당자는 여기를
+        // **가르는 것은 「관리자인가」 하나다**(`HelpDeskContext.IsAdmin` —
+        // 포털 역할 `ADMINISTRATOR` · `SYSTEM_ADMINISTRATOR`). 관리자는 여기를
         // 지나가고 요청자가 「전체」 그대로다.
         //
         // **요청자는 언제나 나다** — 주소로 들어왔든 돌아왔든. 칸이 잠겨 있어
@@ -312,7 +315,7 @@ public partial class RequestManage : IDisposable
         //
         // **「처리 중인 것만」은 기본값만 바꾼다.** 그쪽은 사람이 끄고 켜는
         // 값이라, 쓰던 것을 되찾은 길에서 덮으면 방금 건 조건이 풀린다.
-        if (Context.CustomerOnlyId is { } me)
+        if (Context.CustomerId is { } me)
         {
             _requesterId = me.ToString(CultureInfo.InvariantCulture);
 
@@ -442,6 +445,20 @@ public partial class RequestManage : IDisposable
 
     private Task ReloadAsync()
     {
+        // **「내 것」을 가려낼 수 없으면 아예 묻지 않는다.**
+        //
+        // 고객인데 가리킬 고객 줄이 아직 없는 사람이다 — 요청을 한 번도 올린 적이
+        // 없으면 그 줄이 없다(서버가 첫 글을 쓸 때 만든다 · `RequesterProvisioner`).
+        // 조건 없이 부르면 **같은 회사의 남의 요청이 통째로 나온다** — 걷어낸
+        // 「내 요청」(`RequestList`)이 같은 자리에서 같은 판단을 했다.
+        if (Context.IsCustomer && Context.CustomerId is null)
+        {
+            _rows = [];
+            _total = 0;
+            Say("아직 올리신 요청이 없습니다. 「요청 등록」으로 처음 글을 올리면 여기에 보입니다.");
+            return Task.CompletedTask;
+        }
+
         if (!Context.IsSystemAdmin && Context.CompanyId is null)
         {
             _rows = [];
@@ -506,7 +523,8 @@ public partial class RequestManage : IDisposable
             // 그대로 새어 나간다** — 걷어낸 「내 요청」(`RequestList`)이 같은
             // 까닭으로 같은 일을 했다. 맡겨 둔 짐이 다른 번호를 들고 오거나
             // 조건을 거는 길이 하나 더 생겨도 여기서 덮인다.
-            var requesterId = Context.CustomerOnlyId?.ToString(CultureInfo.InvariantCulture)
+            // 번호가 없는 고객은 여기까지 오지 않는다(위에서 돌려보낸다).
+            var requesterId = Context.CustomerId?.ToString(CultureInfo.InvariantCulture)
                 ?? _requesterId;
 
             if (!string.IsNullOrWhiteSpace(requesterId))
