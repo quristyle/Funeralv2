@@ -5,8 +5,22 @@
 @*
     처리하지 못한 예외. 운영에서만 보인다(개발은 개발자 예외 화면이 먼저 잡는다).
 
-    추적 ID 를 보여 주는 것이 요점이다 — 사용자가 이 값을 알려 주면 서버 로그에서
-    바로 그 요청을 찾을 수 있다. 없으면 "몇 시쯤 오류가 났다" 로 좇아야 한다.
+    추적 번호를 보여 주는 것이 요점이다 — 사용자가 이 값을 알려 주면 관리자가
+    포털관리 > 상태 관리 > 「오류 추적」(`/admin/status/error`)에서 그 요청의
+    예외와 스택을 바로 펴 볼 수 있다.
+
+    [번호를 적어 두기만 하던 때가 있었다]
+
+    이 화면은 처음부터 번호를 보여 줬는데, **그 번호로 찾을 곳이 없었다.**
+    콘솔 로거가 추적 번호를 안 찍어서(IncludeScopes 기본값이 거짓) 컨테이너
+    로그를 뒤져도 안 나오고, 결국 「몇 시쯤 났다」로 시각을 더듬어야 했다.
+    지금은 `PortalErrorHandler` 가 같은 번호로 표에 적어 둔다.
+
+    [복사 단추는 인라인 스크립트다]
+
+    이 화면이 뜨는 상황은 **뭔가 크게 잘못된 상황**이고, 회로가 없을 수도 있다
+    (정적 SSR). 그래서 C# 처리기나 JS 모듈을 쓰지 않는다 — 아래쪽
+    `#blazor-error-ui` 의 스타일을 인라인으로 둔 것과 같은 까닭이다.
 *@
 
 @using System.Diagnostics
@@ -19,7 +33,13 @@
 
     @if (_requestId is not null)
     {
-        <p class="jsini-message__trace">추적 번호: <code>@_requestId</code></p>
+        <p class="jsini-message__trace">
+            추적 번호: <code id="jsini-trace">@_requestId</code>
+            <button type="button" class="jsini-message__copy"
+                    onclick="navigator.clipboard?.writeText(document.getElementById('jsini-trace').textContent).then(() =&gt; this.textContent = '복사됨')">
+                복사
+            </button>
+        </p>
     }
 
     <a href="/">첫 화면으로</a>

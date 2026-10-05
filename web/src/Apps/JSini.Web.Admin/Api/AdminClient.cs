@@ -937,6 +937,38 @@ public sealed class AdminClient(GatewayClient gateway)
     private async Task<bool> ExistsAsync(string url, CancellationToken ct)
         => await gateway.GetOneAsync<bool>(url, ct);
 
+    // ── 오류 추적 ───────────────────────────────────────────────
+
+    /// <summary>
+    /// 오류 목록. <b>스택은 안 실려 온다</b> — 서버가 목록에서 뺀다.
+    /// 스택까지 보려면 <see cref="GetPortalErrorAsync"/> 로 다시 집어 온다.
+    /// </summary>
+    public Task<IReadOnlyList<PortalErrorDto>> GetPortalErrorsAsync(
+        string? keyword = null,
+        DateTime? from = null,
+        DateTime? to = null,
+        int take = 200,
+        CancellationToken ct = default)
+        => gateway.GetListAsync<PortalErrorDto>(
+            "auth/portal-errors" + Query(
+                ("keyword", keyword),
+                ("from", from?.ToString("yyyy-MM-dd")),
+                ("to", to?.ToString("yyyy-MM-dd")),
+                ("take", take)), ct);
+
+    /// <summary>
+    /// 추적 번호 하나로 집어 온다. <b>목록</b>인 이유는 한 요청에서 예외가
+    /// 두 번 날 수 있기 때문이다(본 요청과 오류 화면 재실행).
+    /// </summary>
+    /// <remarks>
+    /// 전체 번호(<c>00-…-00</c>)를 줘도 가운데 32자리만 줘도 같은 것이 나온다 —
+    /// 사람이 전화로 불러 주는 값이라 어느 쪽으로 받아 적을지 고를 수 없다.
+    /// </remarks>
+    public Task<IReadOnlyList<PortalErrorDto>> GetPortalErrorAsync(
+        string trace, CancellationToken ct = default)
+        => gateway.GetListAsync<PortalErrorDto>(
+            $"auth/portal-errors/{Uri.EscapeDataString(trace.Trim())}", ct);
+
     /// <summary>쿼리스트링을 만든다. 값이 null 이거나 빈 문자열이면 뺀다.</summary>
     private static string Query(params (string Key, object? Value)[] parameters)
     {

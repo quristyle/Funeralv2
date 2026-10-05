@@ -19,22 +19,23 @@ using Microsoft.Extensions.Hosting;
 namespace JSini.Web.Components;
 
 /// <summary>
-/// 셸과 업무 앱 <b>일곱 개가 똑같이</b> 구성되도록 등록을 한 곳에 모은 것.
+/// 셸과 업무 앱이 <b>똑같이</b> 구성되도록 등록을 한 곳에 모은 것.
 ///
 /// [이게 없으면 이 구조는 못 버틴다]
 ///
-/// 앱이 각자 프로세스라 Program.cs 도 일곱 개다. 쿠키 이름 하나, 인증 만료 시간
-/// 하나만 어긋나도 "장례식장에서 헬프데스크로 넘어가면 로그아웃된다" 가 된다.
-/// 그런 버그는 각 파일만 보면 전부 정상으로 보이고, 일곱 개를 나란히 놓고
-/// 비교해야만 보인다.
+/// 업무 앱이 각자 프로세스이던 시절에는 Program.cs 도 앱마다 있었다. 쿠키 이름
+/// 하나, 인증 만료 시간 하나만 어긋나도 "장례식장에서 헬프데스크로 넘어가면
+/// 로그아웃된다" 가 됐고, 그런 버그는 각 파일만 보면 전부 정상으로 보여
+/// 나란히 놓고 비교해야만 보였다.
 ///
-/// 그래서 앱의 Program.cs 는 이 메서드를 부르는 것 말고는 거의 할 일이 없어야 한다.
-/// 앱마다 다른 것은 <b>base path 와 자기 업무 서비스 등록뿐</b>이다.
+/// 단일 셸로 합친 지금은 이 메서드를 부르는 Program.cs 가 셸 하나뿐이다.
+/// 그래도 등록은 여기 모아 둔다 — 셸의 Program.cs 가 할 일은 이 메서드를 부르고
+/// <b>자기 몫(모듈 훑기 · 로그인 서비스)을 붙이는 것까지</b>다.
 /// </summary>
 public static class JSiniWebApp
 {
     /// <summary>
-    /// 인증 쿠키 이름. <b>일곱 앱이 모두 같아야 한다.</b>
+    /// 인증 쿠키 이름. <b>이 값을 읽는 곳이 모두 같아야 한다.</b>
     /// 같은 오리진(nginx 뒤)이므로 이름이 같으면 브라우저가 모두에게 실어 보낸다.
     /// </summary>
     public const string AuthCookieName = "jsini.portal";
@@ -439,6 +440,37 @@ public static class JSiniWebApp
         // DevExpress 크기 모드(Small · Medium · Large)도 사람마다 다르다.
         // 값을 흘리는 것은 SizeModeScope 가 하고, 여기는 그것이 읽을 자리다.
         services.AddScoped<ThemeSize>();
+
+        // ── 오류 기록 ────────────────────────────────────────────
+        //
+        // 사용자가 보는 오류 화면(`Error.razor`)은 추적 번호를 적어 준다. 그런데
+        // **그 번호로 컨테이너 로그를 뒤지면 한 줄도 안 나온다** — .NET 콘솔
+        // 로거는 기본값이 `IncludeScopes=false` 라 번호를 찍지 않는다. 그래서
+        // 신고를 받아도 시각으로 더듬는 수밖에 없었고, 운영 로그는 10MB 셋을
+        // 돌려 쓰므로 바쁜 날에는 그 전에 밀려 나간다.
+        //
+        // 번호를 열쇠로 들고 있는 표에 적어 둔다 — 보는 자리는 포털관리의
+        // 「오류 추적」(`/admin/status/error`)이다.
+        //
+        // **셋이 한 벌이다.** 보고 통(싱글턴) · 그것을 돌리는 배경 작업 ·
+        // 파이프라인에 끼는 처리기. 통과 배경 작업이 **같은 인스턴스**여야
+        // 한다 — 따로 등록하면 넣는 통과 읽는 통이 다른 물건이 되어
+        // 조용히 한 건도 안 나간다.
+        services.AddHttpClient(Diagnostics.PortalErrorReporter.HttpClientName, client =>
+            {
+                var gateway = configuration["Gateway:BaseUrl"] ?? "http://localhost:5265/api/";
+                client.BaseAddress = new Uri(gateway.EndsWith('/') ? gateway : gateway + "/");
+
+                // 오류 기록이 늦게 가도 아무도 기다리지 않는다. 짧게 끊어
+                // 두는 편이 낫다 — 게이트웨이가 죽어 있을 때 큐가 막히는 쪽이
+                // 더 나쁘다.
+                client.Timeout = TimeSpan.FromSeconds(10);
+            })
+            .ConfigurePrimaryHttpMessageHandler(ServiceCollectionExtensions.NoCookieJar);
+
+        services.AddSingleton<Diagnostics.PortalErrorReporter>();
+        services.AddHostedService(sp => sp.GetRequiredService<Diagnostics.PortalErrorReporter>());
+        services.AddExceptionHandler<Diagnostics.PortalErrorHandler>();
 
         services.AddSingleton(RouteInventory.Build(
             routePrefix,

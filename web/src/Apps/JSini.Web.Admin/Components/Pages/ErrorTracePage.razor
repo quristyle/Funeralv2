@@ -1,0 +1,128 @@
+@page "/admin/status/error"
+@attribute [RouteKey("admin.status.error")]
+
+@*
+    [오류 추적] — 사용자가 본 오류 화면의 **추적 번호로 까닭을 펴 보는 자리.**
+
+    [이 화면이 없던 동안 무슨 일이 있었나]
+
+    오류 화면(`Error.razor`)은 처음부터 추적 번호를 적어 주고 있었다. 그런데
+    **그 번호로 찾을 곳이 없었다.** .NET 콘솔 로거는 기본값이
+    `IncludeScopes=false` 라 번호를 안 찍어서, 번호를 들고 `docker logs` 를
+    뒤져도 한 줄도 안 나온다. 결국 「몇 시쯤 났다」로 시각을 더듬어야 했고,
+    운영 로그는 10MB 셋을 돌려 쓰므로 바쁜 날에는 그 전에 밀려 나갔다.
+
+    이제 포털 셸이 예외를 잡을 때 **같은 번호로** 표에 적어 둔다
+    (`PortalErrorHandler` → `scom.portal_error_logs`). 여기가 그것을 읽는 자리다.
+
+    [조회가 둘로 갈린다]
+
+      · 번호를 받아 왔으면  — 그 번호 하나로 집어 온다. **스택까지** 실려 온다.
+      · 번호가 없으면       — 기간·검색어로 훑는다. 목록에는 스택이 없다.
+
+    둘을 한 화면에 둔 이유는 신고의 절반이 번호 없이 온다는 것이다
+    (「아까 모바일에서 오류 났어요」). 그때는 시각과 기기로 좁혀 찾는다.
+
+    [스택은 줄을 고를 때 따로 읽는다]
+
+    스택 하나가 수십 KB 다. 목록 200줄에 전부 실으면 응답이 몇 MB 가 되는데
+    사람이 실제로 펴 보는 것은 한둘이다. 그래서 서버가 목록에서 빼고
+    (`PortalErrorEndpoints.Summary`), 줄을 고르면 그 번호로 한 번 더 집어 온다.
+*@
+
+@inherits DataPage
+
+<PageTitle>오류 추적 · 포털관리</PageTitle>
+
+<CommSch OnSearch="@ReloadAsync" MobileSummary="@ConditionSummary">
+    <Fields>
+        @* 번호를 치면 기간·검색어는 무시한다 — 아래 `ReloadAsync` 참고.
+           그래서 맨 앞에 둔다. *@
+        <CommSchItem Label="추적 번호">
+            <DxTextBox @bind-Text="_trace" Style="width: 330px"
+                       NullText="00-… 또는 가운데 32자리"
+                       ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
+        <CommSchItem Label="기간">
+            <DxDateEdit @bind-Date="_from" Style="width: 140px" />
+        </CommSchItem>
+        <CommSchItem Label="~">
+            <DxDateEdit @bind-Date="_to" Style="width: 140px" />
+        </CommSchItem>
+        <CommSchItem Label="검색어">
+            <DxTextBox @bind-Text="_keyword" Style="width: 220px"
+                       NullText="경로 · 예외 · 메시지 · 아이디"
+                       ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
+
+<CommCont Title="오류" Hint="@ListHint">
+    <CommGrd TItem="PortalErrorDto" Data="@_rows" PageSize="20"
+             ExportName="오류추적"
+             Reload="@ReloadAsync"
+             SelectedItem="@_picked"
+             SelectedItemChanged="@PickAsync">
+        <Columns>
+            @* **보여 줄 때만 한국 시각으로 옮긴다.** 저장값은 UTC 이고 운영
+               컨테이너의 시계도 UTC 라, 그대로 그리면 아홉 시간 전으로 보인다
+               (docs/utc-time.md). *@
+            <DxGridDataColumn FieldName="@nameof(PortalErrorDto.OccurredAt)" Caption="난 때" Width="150">
+                <CellDisplayTemplate Context="cell">
+                    @(((PortalErrorDto)cell.DataItem).OccurredAt.Kst("yyyy-MM-dd HH:mm:ss"))
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(PortalErrorDto.Path)" Caption="화면" MinWidth="180" />
+
+            @* 네임스페이스를 떼고 적는다. 칸이 좁아 `System.Collections.Generic.`
+               같은 앞머리가 정작 중요한 끝을 밀어낸다. *@
+            <DxGridDataColumn FieldName="@nameof(PortalErrorDto.ShortExceptionType)" Caption="예외" Width="190" />
+
+            <DxGridDataColumn FieldName="@nameof(PortalErrorDto.Message)" Caption="메시지" MinWidth="240" />
+            <DxGridDataColumn FieldName="@nameof(PortalErrorDto.UserId)" Caption="사용자" Width="120" />
+        </Columns>
+    </CommGrd>
+</CommCont>
+
+@if (_picked is null)
+{
+    <PageNotice Text="줄을 고르면 그 오류의 스택과 요청 정보가 아래에 펼쳐집니다." />
+}
+else
+{
+    <CommCont Title="상세" Hint="@(_detailBusy ? "읽는 중…" : null)">
+        <dl class="ad-error__facts">
+            <dt>추적 번호</dt>
+            <dd><code>@(_detail?.Traceparent ?? _picked.Traceparent ?? _picked.TraceId)</code></dd>
+
+            <dt>난 때</dt>
+            <dd>@_picked.OccurredAt.Kst("yyyy-MM-dd HH:mm:ss")</dd>
+
+            <dt>요청</dt>
+            <dd>@_picked.Method @_picked.Path@_picked.QueryString</dd>
+
+            <dt>사용자</dt>
+            <dd>@(string.IsNullOrEmpty(_picked.UserId) ? "로그인 전" : _picked.UserId) · @_picked.Ip</dd>
+
+            @* 「모바일에서만 난다」를 확인하는 칸이다. 이 기능을 만든 까닭이 여기 있다. *@
+            <dt>기기</dt>
+            <dd class="ad-error__ua">@_picked.UserAgent</dd>
+
+            <dt>예외</dt>
+            <dd>@_picked.ExceptionType</dd>
+
+            <dt>메시지</dt>
+            <dd>@_picked.Message</dd>
+        </dl>
+
+        @if (_detail?.Detail is { Length: > 0 } stack)
+        {
+            <pre class="ad-error__stack">@stack</pre>
+        }
+        else if (!_detailBusy)
+        {
+            <PageNotice Text="이 건의 스택이 저장되어 있지 않습니다." Tone="@NoticeTone.Warning" />
+        }
+    </CommCont>
+}

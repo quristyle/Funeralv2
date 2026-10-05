@@ -4182,6 +4182,21 @@ a.jsini-social__btn:focus-visible {
   user-select: all; /* 사용자가 추적 번호를 한 번에 집을 수 있게 */
 }
 
+/* 번호가 길어서(55자) 좁은 화면에서는 손으로 못 집는다. 그래서 단추를 둔다 —
+   휴대폰에서 난 오류를 전화로 불러 주는 자리가 실제로 이 기능의 대상이다. */
+.jsini-message__copy {
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.5rem;
+  font-size: 0.75rem;
+  color: #6e6e73;
+  background: transparent;
+  border: 1px solid #d2d2d7;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.jsini-message__copy:hover { color: #0a0a0a; }
+
 /* ── 진단 화면 ───────────────────────────────────────────── */
 
 .jsini-diagnostics__facts {

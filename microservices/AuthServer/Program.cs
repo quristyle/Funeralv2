@@ -291,6 +291,10 @@ app.MapMenuRoleEndpoints();
 app.MapReleaseEndpoints();
 app.MapPlayerReleaseEndpoints();
 app.MapDeployStatusEndpoints();
+
+// 포털 프론트가 잡은 미처리 예외. 넣는 길은 익명(공유 비밀)이고 꺼내는 길은
+// 관리자만이다 — 오류 화면의 추적 번호로 까닭을 찾는 자리.
+app.MapPortalErrorEndpoints();
 // 생일 — 정본은 계정(scom.accounts)이고 여기서는 조회 · 축하 메시지만 낸다 (A안).
 app.MapBirthdayEndpoints();
 

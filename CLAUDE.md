@@ -11,7 +11,9 @@
 
 - `ApiGateway/` — API 게이트웨이 (:5265). 모든 프론트 요청이 여기를 거친다.
 - `microservices/` — .NET 10 백엔드 서비스들 (EF Core + PostgreSQL)
-  - `AuthServer` (:5264) 인증 · `funeralv2Api` (:5320) 장례식장 핵심 API
+  - `AuthServer` (:5264) 인증 · `funeralv2Api` (:5320) 장례식장 핵심 API.
+    AuthServer 는 **포털 프론트가 잡은 미처리 예외도 들고 있다** —
+    오류 화면의 추적 번호로 까닭을 찾는 길은 [docs/error-trace.md](docs/error-trace.md)
   - `AIAgentServer` (:5029) · `FileServer` (:5350) · `HelpDeskServer` (:5400)
     내 요청글에 **댓글이 달렸을 때** 글 주인에게 가는 앱푸시·이메일과 그것을
     끄는 자리는 [docs/helpdesk-comment-notify.md](docs/helpdesk-comment-notify.md)

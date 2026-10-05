@@ -7,6 +7,7 @@ public partial class StatusGroup
         ("/admin/status/server", "MSA 서버 상태", "서비스가 살아 있는지"),
         ("/admin/status/deploy", "배포 현황", "GitHub 실행 이력과 컨테이너 상태"),
         ("/admin/status/player-release", "플레이어 릴리스", "플레이어 배포 상태"),
+        ("/admin/status/error", "오류 추적", "사용자가 받은 추적 번호로 까닭 찾기"),
         // 끼워 넣는 메뉴(EMBEDDED)라 이 업무의 화면이 아니라 셸의 공용
         // 화면이 받는다. 주소는 그 메뉴의 DB 경로를 이은 것이다
         // (`EmbeddedRoute`). 띄울 곳은 메뉴관리의 「iframe 주소」가 정한다.

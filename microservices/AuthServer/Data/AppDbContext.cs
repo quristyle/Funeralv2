@@ -55,6 +55,11 @@ public class AppDbContext : DbContext
     /// <summary>소셜 로그인 연결(구글·네이버·카카오). 공급자 쪽 토큰은 담지 않는다.</summary>
     public DbSet<AccountSocialLogin> AccountSocialLogins { get; set; }
 
+    /// <summary>
+    /// 포털 프론트가 잡은 미처리 예외. 오류 화면의 추적 번호로 찾는다.
+    /// </summary>
+    public DbSet<PortalErrorLog> PortalErrorLogs { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -201,6 +206,20 @@ public class AppDbContext : DbContext
             .WithMany(r => r.Events)
             .HasForeignKey(e => e.RunId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // ── 포털 오류 기록 ─────────────────────────────────────
+        //
+        // 조회가 둘뿐이다 — **추적 번호 하나로 집어 오거나, 최근 것을 훑거나.**
+        // 앞엣것이 이 표의 존재 이유라 색인이 없으면 쓸모가 없고, 뒤엣것은
+        // 이 표가 쌓이기만 하는 표라서 색인이 없으면 갈수록 느려진다.
+        //
+        // **고유 제약은 걸지 않는다.** 한 요청에서 예외가 두 번 날 수 있다
+        // (본 요청과 오류 화면 재실행). 엔티티 머리말 참고.
+        modelBuilder.Entity<PortalErrorLog>()
+            .HasIndex(e => e.TraceId);
+
+        modelBuilder.Entity<PortalErrorLog>()
+            .HasIndex(e => e.OccurredAt);
 
         // Department 엔티티에 (CompanyId, Id) 복합 고유 키(AlternateKey) 설정
         modelBuilder.Entity<Department>()

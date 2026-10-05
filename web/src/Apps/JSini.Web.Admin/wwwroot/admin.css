@@ -3155,3 +3155,48 @@
   color: var(--jsini-text-muted);
   font-weight: 500;
 }
+
+/* ── 오류 추적 상세 ──────────────────────────────────────────
+   읽는 사람이 표에서 줄 하나를 고르고 **그 아래에서 눈을 떼지 않는다.**
+   그래서 요청 정보는 좁은 정의 목록으로 눌러 두고, 자리의 대부분을
+   스택에 준다 — 실제로 읽는 것이 그것이다. */
+.ad-error__facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.3rem 1rem;
+  margin: 0 0 0.75rem;
+  font-size: var(--jsini-fs-md);
+}
+
+.ad-error__facts dt {
+  color: var(--jsini-text-muted);
+  white-space: nowrap;
+}
+
+.ad-error__facts dd {
+  margin: 0;
+  min-width: 0;
+  word-break: break-all;
+}
+
+/* 기기 문자열은 한 줄이 200자를 넘는다. 줄여 두고 눌러서 펴 보게 할 수도
+   있지만, 이 칸이야말로 「모바일에서만 난다」를 확인하는 자리라 통째로 둔다. */
+.ad-error__ua {
+  font-size: 0.8125rem;
+  color: var(--jsini-text-muted);
+}
+
+/* 스택은 **접지 않는다.** 긴 줄을 꺾으면 들여쓰기가 무너져서 호출 순서를
+   눈으로 좇을 수 없다 — 가로로 굴리는 편이 읽힌다. */
+.ad-error__stack {
+  margin: 0;
+  padding: 0.75rem 1rem;
+  max-height: 32rem;
+  overflow: auto;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  background: var(--jsini-surface-sunken, #f5f5f7);
+  border: 1px solid var(--jsini-border, #e5e7eb);
+  border-radius: 6px;
+  white-space: pre;
+}
