@@ -139,6 +139,17 @@ public partial class RequestManage : IDisposable
     private bool _restored;
 
     /// <summary>
+    /// 조건이 이미 정해졌는가 — 주소로 실려 왔거나 맡겨 둔 짐에서 되찾았거나.
+    /// </summary>
+    /// <remarks>
+    /// 그때는 「내 요청」 기본값을 얹지 않는다(<see cref="OnInitializedAsync"/>).
+    /// 얹으면 <b>현황판 타일로 고른 조건이나 쓰던 조건이 덮인다</b>.
+    /// <see cref="_restored"/> 로는 가를 수 없다 — 그 값은 읽어 둔 줄이 있을 때만
+    /// 참이라, 조건만 되찾은 길에서는 거짓이다.
+    /// </remarks>
+    private bool _seeded;
+
+    /// <summary>
     /// 썸네일을 못 받은 파일들. 깨진 네모 대신 빈 자리로 돌아간다.
     /// </summary>
     /// <remarks>
@@ -147,6 +158,23 @@ public partial class RequestManage : IDisposable
     /// 주소는 적어 두고 다시 걸지 않는다.
     /// </remarks>
     private readonly HashSet<string> _brokenThumbs = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// 요청자 칸을 잠갔는가 — <b>고객이면</b> 참(관리자가 아닌 모든 사람).
+    /// </summary>
+    /// <remarks>
+    /// <b>고객 번호가 있는지로 가르지 않는다.</b> 번호가 없는 고객(요청을 한 번도
+    /// 올린 적이 없는 사람)까지 잠가야 한다 — 안 잠그면 그 사람에게만 칸이 열려
+    /// <b>같은 회사 전체가 보인다</b>. 번호가 없을 때 무엇을 보여 줄지는
+    /// <see cref="ReloadAsync"/> 가 정한다(아무것도 안 부른다).
+    /// </remarks>
+    private bool RequesterLocked => Context.IsCustomer;
+
+    /// <summary>잠긴 칸에 적을 글자. 고르개가 아는 이름을 그대로 쓴다.</summary>
+    private string RequesterName =>
+        RequesterFilterOptions.FirstOrDefault(o => o.Value == _requesterId)?.Label
+        ?? Context.Identity?.UserName
+        ?? "나";
 
     private IReadOnlyList<BizOption> RequesterFilterOptions
     {
@@ -229,6 +257,7 @@ public partial class RequestManage : IDisposable
     {
         if (ApplyQueryConditions())
         {
+            _seeded = true;
             return;
         }
 
@@ -236,6 +265,8 @@ public partial class RequestManage : IDisposable
         {
             return;
         }
+
+        _seeded = true;
 
         _companyId = kept.CompanyId;
         _requesterId = kept.RequesterId;
@@ -266,6 +297,32 @@ public partial class RequestManage : IDisposable
         if (!Context.IsSystemAdmin)
         {
             _companyId = Context.CompanyId;
+        }
+
+        // [고객으로 들어왔으면 「내 요청」으로 선다 (2026-10-05)]
+        //
+        // 요청자가 제 것만 보던 목록(`/helpdesk/request/list`)을 걷어내고 이
+        // 화면이 그 일까지 맡았다. 그 화면이 보여 주던 것은 **끝난 것까지 포함한
+        // 내 요청 전부**라, 요청자를 나로 두고 「처리 중인 것만」을 끈다.
+        //
+        // **가르는 것은 「관리자인가」 하나다**(`HelpDeskContext.IsAdmin` —
+        // 포털 역할 `ADMINISTRATOR` · `SYSTEM_ADMINISTRATOR`). 관리자는 여기를
+        // 지나가고 요청자가 「전체」 그대로다.
+        //
+        // **요청자는 언제나 나다** — 주소로 들어왔든 돌아왔든. 칸이 잠겨 있어
+        // (`RequesterLocked`) 사람이 바꿀 수 없는 값이고, 현황판 타일을 눌러
+        // 들어온 길에서도 그 타일이 센 것 중 내 것만 보는 것이 맞다.
+        //
+        // **「처리 중인 것만」은 기본값만 바꾼다.** 그쪽은 사람이 끄고 켜는
+        // 값이라, 쓰던 것을 되찾은 길에서 덮으면 방금 건 조건이 풀린다.
+        if (Context.CustomerId is { } me)
+        {
+            _requesterId = me.ToString(CultureInfo.InvariantCulture);
+
+            if (!_seeded)
+            {
+                _onlyOpen = false;
+            }
         }
 
         // [돌아온 길이면 다시 묻지 않는다]
@@ -388,6 +445,20 @@ public partial class RequestManage : IDisposable
 
     private Task ReloadAsync()
     {
+        // **「내 것」을 가려낼 수 없으면 아예 묻지 않는다.**
+        //
+        // 고객인데 가리킬 고객 줄이 아직 없는 사람이다 — 요청을 한 번도 올린 적이
+        // 없으면 그 줄이 없다(서버가 첫 글을 쓸 때 만든다 · `RequesterProvisioner`).
+        // 조건 없이 부르면 **같은 회사의 남의 요청이 통째로 나온다** — 걷어낸
+        // 「내 요청」(`RequestList`)이 같은 자리에서 같은 판단을 했다.
+        if (Context.IsCustomer && Context.CustomerId is null)
+        {
+            _rows = [];
+            _total = 0;
+            Say("아직 올리신 요청이 없습니다. 「요청 등록」으로 처음 글을 올리면 여기에 보입니다.");
+            return Task.CompletedTask;
+        }
+
         if (!Context.IsSystemAdmin && Context.CompanyId is null)
         {
             _rows = [];
@@ -445,9 +516,20 @@ public partial class RequestManage : IDisposable
 
             ApplyPeriod(query);
 
-            if (!string.IsNullOrWhiteSpace(_requesterId))
+            // **고객은 제 것만 본다 — 못 박는 자리가 여기다.**
+            //
+            // 조건 칸을 잠가 두었지만(`RequesterLocked`) 그것은 거드는 것일 뿐이다.
+            // 서버는 목록을 권한으로 거르지 않으므로 **화면이 조건을 빠뜨리면
+            // 그대로 새어 나간다** — 걷어낸 「내 요청」(`RequestList`)이 같은
+            // 까닭으로 같은 일을 했다. 맡겨 둔 짐이 다른 번호를 들고 오거나
+            // 조건을 거는 길이 하나 더 생겨도 여기서 덮인다.
+            // 번호가 없는 고객은 여기까지 오지 않는다(위에서 돌려보낸다).
+            var requesterId = Context.CustomerId?.ToString(CultureInfo.InvariantCulture)
+                ?? _requesterId;
+
+            if (!string.IsNullOrWhiteSpace(requesterId))
             {
-                query["customerId"] = _requesterId;
+                query["customerId"] = requesterId;
             }
 
             if (!string.IsNullOrWhiteSpace(_adminId))

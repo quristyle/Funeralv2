@@ -8,16 +8,23 @@ public class HelpdeskIdentityOptions {
   public const string SectionName = "HelpdeskIdentity";
 
   /// <summary>
-  /// 헬프데스크 담당자(admin)로 대우할 JSini 역할 목록.
+  /// 헬프데스크 <b>관리자</b>로 대우할 JSini 역할 목록. <b>이 목록이 관리자의 정의다.</b>
   ///
-  /// 인증·권한은 포털이 단독으로 맡는다. 그런데 헬프데스크의 담당자 판정은
-  /// <c>jsini.auth_user_links</c> 에 사람이 직접 이어 준 연결에만 의존해 왔다.
-  /// 그래서 포털에서 관리자 역할을 받은 계정도 연결이 없으면 헬프데스크에서는
-  /// 아무 권한이 없는 사람이 된다 — 관리 업무를 볼 수 있어야 하는데 막힌다.
+  /// <para>
+  /// 인증·권한은 포털이 단독으로 맡는다. 관리자는 포털의 역할 관리
+  /// (<c>/admin/auth/role</c>)에서 정하는 것이고, 헬프데스크는 그 결과를 받아 쓸 뿐이다 —
+  /// <b>여기 적힌 역할을 가졌으면 관리자, 그 밖의 모든 사람은 고객이다</b>
+  /// (2026-10-05 규칙). 역할을 가진 사람은 <b>고객이면서 관리자</b>이기도 하다 —
+  /// 관리자도 요청을 올리기 때문이다. 둘을 갈라 보여 주는 자리에서는 관리자로 적는다.
+  /// </para>
   ///
-  /// 여기 적힌 역할을 가진 계정은 연결이 없어도 담당자 권한으로 조회·관리한다.
-  /// <b>연결이 필요한 것과 필요하지 않은 것을 구분한다</b> — 자세한 것은
-  /// <see cref="HelpdeskPrincipal"/> 주석 참고.
+  /// <para>
+  /// <b>연결 종류(<c>auth_user_links.user_type</c>)는 더 이상 관리자 판정에 쓰지 않는다.</b>
+  /// 그 값은 「이 포털 계정이 헬프데스크의 어느 줄을 가리키는가」일 뿐이고 권한이 아니다.
+  /// 전에는 연결이 <c>admin</c> 이기만 하면 관리자였는데, 그러면 관리자를 세우고 거두는
+  /// 자리가 포털 역할표와 헬프데스크 연결표 둘이 되어 <b>어느 쪽이 맞는지 아무도 말할 수
+  /// 없다.</b> 연결이 여전히 정하는 것은 「무엇이 내 것인가」 하나다(<see cref="HelpdeskPrincipal.IsLinked"/>).
+  /// </para>
   /// </summary>
   public string[] AdminRoles { get; set; } = ["SYSTEM_ADMINISTRATOR", "ADMINISTRATOR"];
 }
@@ -75,7 +82,11 @@ public class HelpdeskIdentityOptions {
 /// 소속 회사 식별자 — <b>포털</b>(<c>scom.companies.id</c>)의 값이다.
 /// 포털 토큰이 실어 주는 값을 먼저 보고, 없으면 연결된 고객 줄에 적힌 값을 쓴다.
 /// </param>
-/// <param name="IsAdmin">담당자 권한이 있는가 (연결이 admin 이거나 포털 역할이 관리자)</param>
+/// <param name="IsAdmin">
+/// 관리자인가 — <b>포털 역할이 <c>ADMINISTRATOR</c> · <c>SYSTEM_ADMINISTRATOR</c> 중
+/// 하나인가</b>가 전부다(<see cref="HelpdeskIdentityOptions.AdminRoles"/>).
+/// 연결 종류는 보지 않는다.
+/// </param>
 public sealed record HelpdeskPrincipal(
     string? JsiniUserId,
     string? DisplayName,
@@ -92,11 +103,25 @@ public sealed record HelpdeskPrincipal(
   /// <summary>소속 회사를 알 수 있는가. 회사 단위로 범위를 좁힐 때 먼저 본다.</summary>
   public bool HasCompany => !string.IsNullOrWhiteSpace(CompanyId);
 
-  /// <summary>고객으로 연결된 계정인가. 회사 단위로 범위를 좁힐 때 쓴다.</summary>
-  public bool IsCustomer =>
-      string.Equals(LinkedUserType, "customer", StringComparison.OrdinalIgnoreCase);
+  /// <summary>
+  /// 고객인가 — <b>관리자가 아닌 모든 사람</b>이다.
+  /// </summary>
+  /// <remarks>
+  /// 연결 종류가 <c>customer</c> 인가로 가르던 것을 2026-10-05 에 뒤집었다. 연결은
+  /// 운영에 <b>한 줄뿐</b>이라, 그것으로 가르면 포털 계정 마흔몇이 고객도 관리자도
+  /// 아닌 상태가 되어 <b>회사 단위로 좁히는 조건이 통째로 안 걸렸다</b> — 좁히지
+  /// 않은 쪽은 언제나 「남의 것까지 보인다」로 틀린다.
+  /// 고객 번호가 필요한 일은 <see cref="IsLinked"/> 를 따로 본다.
+  /// </remarks>
+  public bool IsCustomer => !IsAdmin;
 
-  /// <summary>담당자로 연결된 계정인가 (레코드가 실제로 있는 경우).</summary>
+  /// <summary>
+  /// 헬프데스크 <b>담당자 줄</b>(<c>admin</c>)에 이어져 있는가.
+  /// </summary>
+  /// <remarks>
+  /// <b>권한이 아니다</b> — 「나에게 배정된 요청」처럼 <c>admin.id</c> 로 행을 찾아야
+  /// 하는 일에만 쓴다. 관리자인지는 <see cref="IsAdmin"/> 이 정한다.
+  /// </remarks>
   public bool IsLinkedAdmin =>
       string.Equals(LinkedUserType, "admin", StringComparison.OrdinalIgnoreCase);
 
@@ -138,7 +163,9 @@ public static class HelpdeskPrincipalExtensions {
         jsini?.CompanyId,
         principal.FindFirst("company_id")?.Value);
 
-    var isLinkedAdmin = string.Equals(linkedUserType, "admin", StringComparison.OrdinalIgnoreCase);
+    // **관리자는 포털 역할 하나로 정해진다**(`HelpdeskIdentityOptions.AdminRoles`).
+    // 연결이 `admin` 이라는 것만으로 관리자로 치던 것을 2026-10-05 에 걷었다 —
+    // 관리자를 세우고 거두는 자리가 둘이면 어느 쪽이 맞는지 아무도 말할 수 없다.
     var isAdminByRole = string.Equals(
         principal.FindFirst(AdminByRoleClaim)?.Value, "true", StringComparison.OrdinalIgnoreCase);
 
@@ -150,6 +177,6 @@ public static class HelpdeskPrincipalExtensions {
         HelpdeskUserId: helpdeskUserId,
         LinkedUserType: linkedUserType,
         CompanyId: companyId,
-        IsAdmin: isLinkedAdmin || isAdminByRole);
+        IsAdmin: isAdminByRole);
   }
 }

@@ -100,11 +100,39 @@
     **맡겨 둔 짐보다 주소가 먼저다.** 안 그러면 눌러서 고른 조건이 지난번
     조건에 덮여 엉뚱한 목록이 열리고, 누른 사람은 왜 그 숫자가 아닌지 알 길이 없다.
 
-    [목록(`/helpdesk/request/list`)과 무엇이 다른가]
+    [회사는 신원이 정한다]
 
-    자료는 같고 **보는 사람이 다르다.** 그쪽은 요청자가 자기 것만 보고,
-    여기는 처리자가 본다. 시스템관리자는 회사 조건을 고를 수 있고, 그 밖의
-    사용자는 신원에 연결된 회사로 고정해 다른 회사 요청을 조회하지 못한다.
+    시스템관리자는 회사 조건을 고를 수 있고, 그 밖의 사용자는 신원에 연결된
+    회사로 고정해 다른 회사 요청을 조회하지 못한다.
+
+    [「내 요청」이 이리로 들어왔다 (2026-10-05)]
+
+    요청자가 제 것만 보던 목록(`/helpdesk/request/list` · `RequestList.razor`)을
+    걷어냈다. 자료가 같고 조건 칸만 적은 화면이라 **「요청자」를 나로 두면
+    여기가 그대로 그 화면이다** — 기간을 비워 두면 처음 올린 것까지 다 나온다.
+
+    그래서 **고객은 요청자가 나로 선 채로 열리고 그 칸을 못 바꾼다.**
+    「처리 중인 것만」도 꺼진 채로 연다 — 걷어낸 화면이 보여 주던 것이
+    끝난 것까지 포함한 내 요청 전부라 기본값을 거기에 맞춘다(그쪽은 기본값일
+    뿐이라 켜고 끌 수 있다). 담당자는 달라지는 것이 없다. 요청자는 「전체」 그대로다.
+
+    **잠그는 자리가 셋이다.** 칸을 고르개 대신 이름으로 그리고(아래),
+    들어설 때 내 번호를 박고, **조회 직전에 한 번 더 못 박는다**(`ReloadAsync`).
+    맨 끝이 진짜다 — 서버가 목록을 권한으로 거르지 않아서 화면이 조건을
+    빠뜨리면 같은 회사 동료의 요청이 그대로 새어 나온다.
+
+    **가르는 것은 「관리자인가」 하나다** — 포털 역할이 `ADMINISTRATOR` ·
+    `SYSTEM_ADMINISTRATOR` 중 하나인가(`HelpDeskContext.IsAdmin`). 그 밖의 모든
+    사람이 고객이다(2026-10-05 규칙).
+
+    **잠그는 기준을 「고객 번호가 있는가」로 두지 않는다.** 요청을 한 번도 올린 적이
+    없는 사람은 가리킬 고객 줄이 아직 없는데(서버가 첫 글을 쓸 때 만든다 ·
+    `RequesterProvisioner`), 번호로 가르면 **그 사람에게만 칸이 열려 회사 전체가
+    보인다.** 번호가 없으면 잠근 채로 **아무것도 묻지 않는다**(`ReloadAsync`).
+
+    DB 메뉴를 지우는 것은
+    `deploy/sql/portal-menu-helpdesk-request-list-remove-2026-10-05.sql`
+    이고 2026-10-05 에 운영에 돌렸다.
 *@
 
 @inherits DataPage
@@ -125,11 +153,22 @@
             </CommSchItem>
         }
 
+        @* 고객은 **제 요청만** 본다. 고르개 대신 제 이름을 적는다 —
+           `ReadOnly` 로 두면 지우개가 남아 「전체」로 풀 수 있고, 풀리면 같은
+           회사 동료의 요청이 통째로 열린다. 조회 조건은 거들 뿐이고 못 박는
+           자리는 `ReloadAsync` 다(거기 주석). *@
         <CommSchItem Label="요청자">
-            <DxComboBox Data="@RequesterFilterOptions" @bind-Value="_requesterId" @bind-Value:after="ReloadAsync"
-                        TextFieldName="@nameof(BizOption.Label)" ValueFieldName="@nameof(BizOption.Value)"
-                        Style="width: 120px"
-                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+            @if (RequesterLocked)
+            {
+                <span class="jsini-text-muted">@RequesterName</span>
+            }
+            else
+            {
+                <DxComboBox Data="@RequesterFilterOptions" @bind-Value="_requesterId" @bind-Value:after="ReloadAsync"
+                            TextFieldName="@nameof(BizOption.Label)" ValueFieldName="@nameof(BizOption.Value)"
+                            Style="width: 120px"
+                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+            }
         </CommSchItem>
 
         @* 상태는 **여럿 고른다.** 현황판의 「협의」 타일 하나가 협의·논의 둘을

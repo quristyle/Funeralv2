@@ -33,7 +33,7 @@
 | 23 | ☑ | `/helpdesk/monitor/sm` | SmMonitor.razor | 대시보드 · 도구줄1 |
 | 24 | — | ~~`/helpdesk/project/manage`~~ | — | **2026-09-25 화면 제거** (「프로젝트」 묶음 철거) |
 | 25 | — | ~~`/helpdesk/project/wbs`~~ | — | **2026-09-25 화면 제거** (「프로젝트」 묶음 철거) |
-| 26 | ☑ | `/helpdesk/request/list` | RequestList.razor | 도구줄2 |
+| 26 | — | ~~`/helpdesk/request/list`~~ | — | **2026-10-05 화면 제거** (「요청 처리」가 요청자 = 나로 선다) |
 | 27 | ☑ | `/helpdesk/request/manage` | RequestManage.razor | 도구줄1 |
 | 28 | — | ~~`/helpdesk/schedule/all`~~ | — | **2026-09-25 화면 제거** (「일정」 묶음 철거) |
 | 29 | — | ~~`/helpdesk/schedule/my`~~ | — | **2026-09-25 화면 제거** (「일정」 묶음 철거) |
