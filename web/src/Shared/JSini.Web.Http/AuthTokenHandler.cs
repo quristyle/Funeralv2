@@ -16,7 +16,8 @@ namespace JSini.Web.Http;
 /// </summary>
 public sealed class AuthTokenHandler(
     ITokenStore tokens,
-    ILogger<AuthTokenHandler> logger)
+    ILogger<AuthTokenHandler> logger,
+    Uri gatewayBaseAddress)
     : DelegatingHandler
 {
     /// <summary>
@@ -140,7 +141,19 @@ public sealed class AuthTokenHandler(
                 return false;
             }
 
-            using var request = new HttpRequestMessage(HttpMethod.Post, "auth/refresh");
+            // **절대 주소여야 한다.** `BaseAddress` 는 <see cref="HttpClient"/> 의
+            // 것이지 핸들러의 것이 아니다 — 아래 `base.SendAsync` 는 그 클라이언트를
+            // 건너뛰고 안쪽 핸들러로 바로 들어가므로, 상대 경로를 절대 주소로
+            // 붙여 줄 사람이 아무도 없다.
+            //
+            // 상대 경로로 두었던 동안 **갱신은 단 한 번도 성공하지 못했다.**
+            // `SocketsHttpHandler` 가 그 자리에서 InvalidOperationException 을
+            // 던졌고("An invalid request URI was provided…"), 그것이 오류 화면까지
+            // 올라갔다. 증상이 「이레에 한 번 오류가 났다가 새로고침하면 된다」라
+            // 토큰 만료와 이어 붙이기 어려웠다 — 운영 로그에 남은 단서는
+            // `Sending HTTP request POST *` 한 줄이었다(주소가 비어 있다는 뜻).
+            using var request = new HttpRequestMessage(
+                HttpMethod.Post, new Uri(gatewayBaseAddress, "auth/refresh"));
             request.Options.Set(SkipRefresh, true);
             request.Headers.Add("Cookie", cookie);
 
@@ -175,6 +188,21 @@ public sealed class AuthTokenHandler(
         catch (HttpRequestException ex)
         {
             logger.LogWarning(ex, "토큰 갱신 중 서버에 연결하지 못했다.");
+            return false;
+        }
+        catch (InvalidOperationException ex)
+        {
+            // **갱신이 깨져도 오류 화면으로 번지면 안 된다.**
+            //
+            // 위의 절대 주소 버그가 이 자리를 그냥 지나갔다 — 타입이
+            // HttpRequestException 이 아니라서다. 갱신 실패는 「로그인으로
+            // 보낸다」로 끝나야 하는 일인데, 사용자가 본 것은 추적 번호가 적힌
+            // 오류 화면이었고 하던 일이 통째로 날아갔다.
+            //
+            // 갱신에 실패했다고 토큰을 버리지는 않는다(_sessionRejected 가
+            // 거짓이다) — 서버가 세션을 거절한 것이 아니라 우리 쪽이 요청을
+            // 못 만든 것이기 때문이다.
+            logger.LogError(ex, "토큰 갱신 요청을 만들지 못했다.");
             return false;
         }
         finally

@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace JSini.Web.Http;
@@ -55,7 +56,14 @@ public static class ServiceCollectionExtensions
             baseUrl += "/";
         }
 
-        services.AddScoped<AuthTokenHandler>();
+        // **게이트웨이 주소를 손으로 넘긴다.** 이 핸들러가 스스로 만드는 요청이
+        // 하나 있는데(토큰 갱신), 그것은 `base.SendAsync` 로 안쪽 핸들러에 바로
+        // 들어가므로 `HttpClient.BaseAddress` 가 닿지 않는다 — 상대 경로로 두면
+        // 절대 주소로 붙여 줄 사람이 없어 그 자리에서 던진다.
+        services.AddScoped(sp => new AuthTokenHandler(
+            sp.GetRequiredService<ITokenStore>(),
+            sp.GetRequiredService<ILogger<AuthTokenHandler>>(),
+            new Uri(baseUrl)));
 
         // 원래 클라이언트의 주소를 게이트웨이로 실어 보낸다. 왜 필요한지는
         // 그 클래스 머리말에 있다 — 없으면 속도 제한이 전원 공용 통이 된다.
