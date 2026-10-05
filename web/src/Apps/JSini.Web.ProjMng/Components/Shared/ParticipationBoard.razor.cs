@@ -189,10 +189,6 @@ public partial class ParticipationBoard
         ? string.Empty
         : $"{_right.Count(r => r.On)} / {_right.Count}건";
 
-    private const string GuideText =
-        "왼쪽이 기준, 오른쪽이 넣고 뺄 상대입니다. 오른쪽은 거르지 않고 전부 보여 주되 "
-        + "참여 중인 것이 위로 옵니다. 계정 등록·수정은 [시스템 관리 › 계정 관리]에서 합니다.";
-
     // ── 조회 ──────────────────────────────────────────────
 
     protected override async Task OnInitializedAsync()

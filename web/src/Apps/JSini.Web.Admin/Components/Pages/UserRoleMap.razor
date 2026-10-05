@@ -176,12 +176,6 @@
                 <div class="ad-userrole__col">
                     <h2 class="ad-subhead">권한 (@DirectCount)</h2>
 
-            @if (_mode == Mode.Account && _effective is not null)
-            {
-                <PageNotice Tone="NoticeTone.Info"
-                            Text="아래 「적용되는 역할」은 회사·부서·사람이 합쳐진 결과입니다. 사람 단계에서 뺄 수 있는 것은 사람에서 온 것뿐입니다." />
-            }
-
             <div class="ad-roles">
                 @foreach (var role in _roles)
                 {

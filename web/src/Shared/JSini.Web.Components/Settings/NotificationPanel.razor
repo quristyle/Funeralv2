@@ -130,7 +130,7 @@ else
 @if (_settings is not null && !_settings.Preference.Saved)
 {
     <PageNotice Tone="NoticeTone.Info"
-                Text="아직 알림 설정을 정한 적이 없어 기본값을 보여 주고 있습니다. 스위치를 한 번 누르면 저장됩니다." />
+                Text="아직 알림 설정을 정한 적이 없어 기본값을 보여 주고 있습니다." />
 }
 
 @if (_settings is not null)
@@ -354,7 +354,7 @@ else
         else
         {
             <PageNotice Tone="NoticeTone.Info"
-                        Text="아직 위치를 잡지 않았습니다. 「내 위치 잡기」를 누르면 브라우저가 위치를 묻고, 그 좌표를 저장해 둡니다. 저장한 뒤에야 「내 위치 날씨」를 켤 수 있습니다." />
+                        Text="아직 위치를 잡지 않았습니다." />
         }
 
         @* **미리보기를 바로 보여 준다.** 좌표만 저장해 두면 사람은 자기가 무엇을
@@ -377,11 +377,6 @@ else
            되는 조건까지 함께 적는 이유는 **안 되는 브라우저가 있기 때문**이다 —
            권한을 허용해 둔 곳에서만, 포털을 열어 둔 동안만 돈다(창을 닫으면
            웹은 위치를 읽을 길이 아예 없다). *@
-        @if (HasSavedLocation)
-        {
-            <PageNotice Tone="NoticeTone.Info"
-                        Text="위치 권한을 허용해 둔 브라우저에서는 포털을 열어 둔 동안 한 시간마다 위치를 저절로 다시 확인합니다. 300m 넘게 움직였으면 새 자리로 갈아 끼웁니다 — 이사·출장 때 이 단추를 다시 누르지 않아도 됩니다." />
-        }
 
         <div class="jsini-toolbar">
             <DxButton Text="@(HasSavedLocation ? "내 위치 다시 잡기" : "내 위치 잡기")"

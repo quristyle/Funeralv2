@@ -279,7 +279,6 @@
                        달아 두면 글자가 길어 네모가 두 줄로 접히고, 접힌 둘째
                        줄이 다음 칸의 표제와 나란해져 어느 칸의 말인지 흐려진다. *@
                     <DxCheckBox @bind-Checked="a.Watermark">화면에 아이디를 옅게 깐다</DxCheckBox>
-                    <div class="jsini-hint">사진으로 찍혀도 누구 화면인지 남습니다.</div>
                 </DxFormLayoutItem>
 
                 @* ────────────────────────────────────────────────────────────
@@ -355,9 +354,6 @@
 
                     <DxFormLayoutItem Caption="사용 IP" ColSpanMd="6">
                         <DxTextBox @bind-Text="a.Dev.UseIp" />
-                        @* 사내에서는 이 값이 인증 전부였다(접속 IP 대조).
-                           포털에서는 장비 대장으로만 남는다. *@
-                        <div class="jsini-hint">장비 대장입니다. 권한 판정에 쓰지 않습니다.</div>
                     </DxFormLayoutItem>
 
                     <DxFormLayoutItem Caption="받은 것" ColSpanMd="12">

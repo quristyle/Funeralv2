@@ -37,7 +37,7 @@
                     MaxFiles="1"
                     MaxBytes="@MaxBytes"
                     Accept="@Accept"
-                    Hint="@($"{Title} 파일을 고르세요 (한 개 · {MaxBytes / 1024 / 1024}MB 까지)")"
+                    ShowHint="false"
                     FilesChanged="@OnPickedAsync" />
 
         @if (_picked is not null)

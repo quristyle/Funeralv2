@@ -184,7 +184,7 @@
 
                     <FilePicker MaxFiles="5"
                                 MaxBytes="20971520"
-                                Hint="공지에 붙일 파일을 고르세요 (최대 5개 · 한 개 20MB 까지)"
+                                ShowHint="false"
                                 FilesChanged="@(files => _picked = files)" />
 
                     @if (n.IsPublic)

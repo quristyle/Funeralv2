@@ -81,7 +81,7 @@
             </dl>
         </section>
 
-        <CommCont Title="결제 기록" Hint="받을 때마다 한 줄씩 쌓인다">
+        <CommCont Title="결제 기록">
             @if (_detail.Payments.Count == 0)
             {
                 <div class="jsini-hint">아직 적은 결제 결과가 없습니다.</div>
@@ -124,13 +124,13 @@
             }
             else
             {
-                <div class="jsini-hint">아직 쓰지 않았습니다. 이 거래의 경험을 적으면 거래처 상세에 거래 요약과 함께 뜹니다.</div>
+                <div class="jsini-hint">아직 쓰지 않았습니다.</div>
             }
         </CommCont>
 
         @if (_detail.Disputes.Count > 0)
         {
-            <CommCont Title="이의제기" Hint="이 거래의 회사가 사실관계를 다툰 것">
+            <CommCont Title="이의제기">
                 <CommGrd TItem="DisputeInfo" Data="@_detail.Disputes" ShowFooter="false" ExportName="이의제기">
                     <Columns>
                         <DxGridDataColumn FieldName="@nameof(DisputeInfo.Reason)" Caption="사유" Width="130">

@@ -218,12 +218,6 @@
                       CustomizeToolbar="@MarkPictureButton"
                       CssClass="hd-content-editor" />
 
-        <span class="jsini-hint">
-            증상 화면은 <b>복사해서 그대로 붙여넣으십시오(Ctrl+V)</b> —
-            붙이는 즉시 파일로 보관되고 글 안에 그림으로 남습니다.
-            휴대폰에서는 도구줄의 <b>그림</b> 단추로 사진을 고르십시오.
-        </span>
-
         @if (_pasting > 0)
         {
             <span class="jsini-hint">그림 @_pasting 장을 올리는 중입니다…</span>
@@ -271,7 +265,7 @@
         <FilePicker @ref="_picker"
                     MaxFiles="5"
                     MaxBytes="@(20L * 1024 * 1024)"
-                    Hint="로그 파일처럼 본문에 넣을 수 없는 것을 함께 올릴 수 있습니다 (최대 5개 · 한 개 20MB)"
+                    ShowHint="false"
                     FilesChanged="@(files => _files = files)" />
     </div>
 

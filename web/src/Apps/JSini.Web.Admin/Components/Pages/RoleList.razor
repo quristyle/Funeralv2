@@ -310,11 +310,6 @@
            HeaderText="사용자 추가"
            Width="min(900px, calc(100vw - 2rem))">
     <BodyContentTemplate Context="popup">
-        <p class="jsini-hint">
-            고른 사람에게 역할 「@(_role?.Name)」 을(를) 겁니다.
-            이미 지정된 사람은 목록에 없습니다.
-        </p>
-
         <CommGrd TItem="RoleUserDto" Data="@_pickable" PageSize="10"
                  ShowExcelExport="false"
                  EmptyText="추가할 수 있는 사용자가 없습니다."

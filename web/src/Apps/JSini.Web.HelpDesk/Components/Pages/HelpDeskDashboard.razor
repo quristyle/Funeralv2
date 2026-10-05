@@ -105,7 +105,7 @@
 
 @* 곁말에 「눌러 보라」를 적어 둔다. 타일이 눌린다는 것은 손을 올려 보기
    전에는 안 보이고, 그래서 아무도 안 누른다. *@
-<DashboardSection Title="한눈에 보기" Hint="@($"{ScopeHint} · 타일을 누르면 그 목록이 열린다")">
+<DashboardSection Title="한눈에 보기" Hint="@ScopeHint">
     <div class="jsini-stats hd-stats">
         @foreach (var tile in VolumeTiles)
         {
@@ -114,7 +114,7 @@
     </div>
 </DashboardSection>
 
-<DashboardSection Title="처리 속도와 품질" Hint="시간은 접수 요청 시각을 0 으로 잰다">
+<DashboardSection Title="처리 속도와 품질">
     <div class="jsini-stats hd-stats">
         @foreach (var tile in QualityTiles)
         {
@@ -123,7 +123,7 @@
     </div>
 </DashboardSection>
 
-<DashboardSection Title="지금 쌓여 있는 것" Hint="닫히지 않은 요청만 센다">
+<DashboardSection Title="지금 쌓여 있는 것">
     <div class="jsini-stats hd-stats">
         @foreach (var tile in BacklogTiles)
         {
@@ -183,7 +183,7 @@
 
 @* ── 추이 ──────────────────────────────────────────────── *@
 
-<DashboardSection Title="월별 추이" Hint="@($"최근 {Data.Scope.Months}개월 · 선은 그 달 말까지 쌓인 미처리")">
+<DashboardSection Title="월별 추이" Hint="@($"최근 {Data.Scope.Months}개월")">
     <div class="hd-charts">
         <div class="hd-chart hd-chart--wide">
             <DxChart Data="@Data.Monthly" Width="100%" Height="300px">
@@ -228,7 +228,7 @@
     </div>
 </DashboardSection>
 
-<DashboardSection Title="언제 들어오나" Hint="한국 시각 기준 · 전체 기간">
+<DashboardSection Title="언제 들어오나">
     <div class="hd-charts">
         <div class="hd-chart">
             <h3 class="hd-chart__title">요일별 접수</h3>
@@ -262,7 +262,7 @@
 
 @* 차트와 표를 나란히 두지 않는다 — 표가 열다섯 줄이면 옆 칸 차트(240px)가
    그 높이에 맞춰 늘어나 빈 칸만 800px 이 된다. 위아래로 쌓는다. *@
-<DashboardSection Title="얼마나 기다리고 있나" Hint="닫히지 않은 요청의 경과 시간">
+<DashboardSection Title="얼마나 기다리고 있나">
     <div class="hd-charts">
         <div class="hd-chart hd-chart--wide">
             <h3 class="hd-chart__title">대기 경과 · 총 @(Data.Summary.Open)건</h3>
@@ -279,7 +279,7 @@
     </div>
 </DashboardSection>
 
-<DashboardSection Title="오래 기다린 대기 요청" Hint="늦은 것부터 · 두 번 누르면 상세로 간다">
+<DashboardSection Title="오래 기다린 대기 요청">
     <CommGrd TItem="DashboardRequest" Data="@Data.OldestPending" PageSize="10"
              ExportName="장기대기"
              Reload="@ReloadAsync"
@@ -383,7 +383,7 @@
     </DashboardSection>
 }
 
-<DashboardSection Title="요청을 많이 올린 사람" Hint="건수 많은 사람부터">
+<DashboardSection Title="요청을 많이 올린 사람">
     <CommGrd TItem="DashboardCustomer" Data="@Data.TopCustomers" PageSize="10"
              Unit="명" ExportName="요청자별현황"
              Reload="@ReloadAsync">
@@ -400,7 +400,7 @@
     </CommGrd>
 </DashboardSection>
 
-<DashboardSection Title="최근 접수" Hint="두 번 누르면 상세로 간다">
+<DashboardSection Title="최근 접수">
     <CommGrd TItem="DashboardRequest" Data="@Data.Recent" PageSize="10"
              ExportName="최근요청"
              Reload="@ReloadAsync"

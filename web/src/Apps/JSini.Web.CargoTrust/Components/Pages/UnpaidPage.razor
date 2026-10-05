@@ -73,7 +73,6 @@
         <div class="jsini-stat">
             <div class="jsini-stat__label">등록한 사람</div>
             <div class="jsini-stat__value">@(s.RegistrantCount)명</div>
-            <div class="jsini-hint">한 사람이 몰아 올린 것인지 본다</div>
         </div>
         <div class="jsini-stat">
             <div class="jsini-stat__label">내가 등록한 것</div>
@@ -81,7 +80,7 @@
         </div>
     </div>
 
-    <CommCont Title="미지급 거래" Hint="오래 밀린 것부터 · 통계에서 뺀 거래(삭제·통계 제외)는 없다">
+    <CommCont Title="미지급 거래">
         @* 거래처를 좁힌 채 들어왔으면 그 사실을 적는다 — 조건 칸에는 안 보여서
            이 줄이 없으면 「왜 한 곳만 나오나」를 알 길이 없다. *@
         <Actions>

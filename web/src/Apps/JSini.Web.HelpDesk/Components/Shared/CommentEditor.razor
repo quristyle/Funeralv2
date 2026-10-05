@@ -43,11 +43,6 @@
     <InputFile id="@PasteInputId" class="hd-paste-input" accept="image/*"
                multiple OnChange="@OnPastedAsync" />
 
-    <span class="jsini-hint">
-        증상 화면은 <b>복사해서 그대로 붙여넣으십시오(Ctrl+V)</b> —
-        붙이는 즉시 파일로 보관되고 글 안에 그림으로 남습니다.
-    </span>
-
     @if (_pasting > 0)
     {
         <span class="jsini-hint">그림 @_pasting 장을 올리는 중입니다…</span>

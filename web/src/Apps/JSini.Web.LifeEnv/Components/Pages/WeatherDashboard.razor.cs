@@ -470,9 +470,7 @@ public partial class WeatherDashboard
     /// 사람은 두 줄을 같은 정밀도로 읽고, 어긋나는 날에 <b>둘 중 하나가
     /// 틀렸다</b>고 생각한다.
     /// </remarks>
-    private string WeekHint => _point?.Region1 is { Length: > 0 } sido
-        ? $"{sido} 기준 기상청 중기예보입니다. 시·군 단위라 위 사흘 예보보다 성깁니다."
-        : "기상청 중기예보입니다. 시·군 단위라 위 사흘 예보보다 성깁니다.";
+    private string WeekHint => _point?.Region1 is { Length: > 0 } sido ? $"{sido} 기준" : string.Empty;
 
     /// <summary>
     /// <b>물음창 없이</b> 위치를 한 번 재어 카드 한 장을 미리 올려 둔다.

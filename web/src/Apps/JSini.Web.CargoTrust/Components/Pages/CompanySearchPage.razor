@@ -60,15 +60,7 @@
 </CommSch>
 
 <div class="ct-page">
-    @if (_searched is null)
-    {
-        @* 조회 중(프리렌더 포함)에는 비워 둔다 — 안내가 번쩍했다가 결과로 바뀐다. *@
-        @if (!Loading)
-        {
-            <PageNotice Text="회사명 · 사업자번호 · 대표자 · 전화 · 주소로 찾습니다. 찾는 거래처가 없으면 「거래처 등록」으로 올릴 수 있습니다." />
-        }
-    }
-    else
+    @if (_searched is not null)
     {
         <div class="ct-result-head">
             @if (string.IsNullOrEmpty(_searched))

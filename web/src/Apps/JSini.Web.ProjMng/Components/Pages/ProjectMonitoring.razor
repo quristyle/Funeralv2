@@ -184,12 +184,7 @@
                 break;
 
             default:
-                @if (_scanned is null)
-                {
-                    <PageNotice Text="「소스 스캔」을 누르면 서버가 소스 경로를 훑어 화면 목록을 셉니다."
-                                Tone="NoticeTone.Info" />
-                }
-                else
+                @if (_scanned is not null)
                 {
                     <CommGrd TItem="ScanRow" Data="@_scanned" ExportName="소스스캔" PageSize="20"
                              EmptyText="훑어서 찾은 화면이 없습니다." Reload="@ScanAsync">

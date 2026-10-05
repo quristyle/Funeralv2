@@ -75,16 +75,6 @@
 </CommSch>
 
 @* 끌어 옮기기는 **해 보기 전에는 보이지 않는** 기능이라 한 줄 적어 둔다. *@
-@if (_canMove)
-{
-    <div class="ad-stamps">
-        <span class="ad-stamp">
-            줄을 끌어 옮기면 상위와 순서가 바뀝니다 — 줄 사이에 놓으면 형제,
-            줄 위에 놓으면 하위입니다. 회사는 넘나들 수 없습니다.
-        </span>
-    </div>
-}
-
 <CommCont>
     <CommTree TItem="DeptDto" Data="@Shown"
               KeyFieldName="@nameof(DeptDto.Id)"

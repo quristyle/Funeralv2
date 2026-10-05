@@ -36,7 +36,7 @@
     }
     else if (_me is not null)
     {
-        <CommCont Title="@($"{_me.CompanyName ?? "우리 회사"}에 관한 거래")" Hint="다툴 거래를 고르십시오">
+        <CommCont Title="@($"{_me.CompanyName ?? "우리 회사"}에 관한 거래")">
             <CommGrd TItem="PublicTransaction" Data="@_transactions" ExportName="회사거래"
                      RowActions="@DisputeButton" ActionsWidth="100">
                 <Columns>

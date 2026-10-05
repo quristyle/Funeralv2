@@ -134,7 +134,7 @@
         @if (_picked.Count == 0)
         {
             <PageNotice Tone="NoticeTone.Info"
-                        Text="목록에서 받을 사람을 고르십시오. 고른 사람은 오른쪽 모든 칸(푸시·이메일·문자·카카오)이 함께 씁니다." />
+                        Text="목록에서 받을 사람을 고르십시오." />
         }
 
         @* 손으로 만든 체크 목록이었다. 표로 바꾸면서 얻은 것 셋 —
@@ -244,9 +244,6 @@
                         <DxComboBox Data="@_categoryOptions" @bind-Value="_push.Category"
                                     TextFieldName="@nameof(SchOption.Text)" ValueFieldName="@nameof(SchOption.Value)"
                                     ValidationEnabled="false" Style="width: 200px" />
-                        <div class="jsini-hint">
-                            보낸 기록에 함께 남습니다. 받는 사람의 알림창에는 보이지 않습니다.
-                        </div>
                     </div>
 
                     <div class="ad-field">
@@ -277,7 +274,7 @@
                         <label class="ad-field__label">눌렀을 때 열 주소</label>
                         <DxTextBox @bind-Text="_push.Url"
                                    ValidationEnabled="false" />
-                        <div class="jsini-hint">포털 안의 경로를 적습니다. 비우면 첫 화면이 열립니다.</div>
+                        <div class="jsini-hint">비우면 첫 화면이 열립니다.</div>
                     </div>
 
                     <div class="ad-field">
@@ -417,7 +414,7 @@
                         <FilePicker MaxFiles="5"
                                     MaxBytes="15728640"
                                     MaxTotalBytes="15728640"
-                                    Hint="메일에 붙일 파일을 고르세요 (최대 5개 · 모두 합쳐 15MB 까지)"
+                                    ShowHint="false"
                                     FilesChanged="@(files => _mailFiles = files)" />
                     </div>
 

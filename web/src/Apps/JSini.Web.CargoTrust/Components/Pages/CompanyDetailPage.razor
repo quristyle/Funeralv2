@@ -106,7 +106,7 @@
 
         <StatsTiles Stats="@d.Stats" />
 
-        <CommCont Title="기간별 변화" Hint="운송일 기준 · 기간마다 따로 센 값">
+        <CommCont Title="기간별 변화">
             <CommGrd TItem="CompanyStats" Data="@d.Periods" ShowFooter="false"
                      ExportName="기간별변화">
                 <Columns>
@@ -133,7 +133,7 @@
             </CommGrd>
         </CommCont>
 
-        <CommCont Title="최근 미지급" Hint="최근 5건 · 기간과 무관">
+        <CommCont Title="최근 미지급">
             <Actions>
                 <DxButton Text="미지급 거래 전체 보기" RenderStyle="ButtonRenderStyle.Link"
                           Click="@(() => Navigation.NavigateTo($"/cargotrust/unpaid?companyId={c.CompanyId}"))" />
@@ -153,14 +153,14 @@
             </ChildContent>
         </CommCont>
 
-        <CommCont Title="최근 거래" Hint="최근 20건">
+        <CommCont Title="최근 거래">
             <CommGrd TItem="PublicTransaction" Data="@d.RecentTransactions" ExportName="최근거래"
                      RowActions="@ReportTransaction">
                 <Columns>@PublicColumns</Columns>
             </CommGrd>
         </CommCont>
 
-        <CommCont Title="거래 후기" Hint="@($"{_reviews.Count}건 · 실제 거래에 붙은 것만")">
+        <CommCont Title="거래 후기">
             @if (_reviews.Count == 0)
             {
                 <div class="jsini-hint">아직 후기가 없습니다.</div>

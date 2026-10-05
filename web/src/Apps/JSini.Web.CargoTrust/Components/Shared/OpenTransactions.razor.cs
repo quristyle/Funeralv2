@@ -35,7 +35,7 @@ public partial class OpenTransactions
     private bool IsReceived => _outcome == PaymentDraft.Received;
 
     private string Hint => _rows.Count == 0
-        ? "아직 못 받은 내 거래"
+        ? string.Empty
         : $"{_rows.Count}건 · 남은 금액 {CargoCodes.Won(_rows.Sum(t => t.Outstanding))}";
 
     private decimal PickedAmount => _rows.Where(t => _picked.Contains(t.TransactionId)).Sum(t => t.Outstanding);

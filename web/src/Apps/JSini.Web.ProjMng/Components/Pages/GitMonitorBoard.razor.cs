@@ -40,7 +40,7 @@ public partial class GitMonitorBoard
 
     private string BranchHint =>
         _selected is null ? ""
-        : $"전체 {_selected.Branches}개 중 {_selected.BranchesChecked}개만 날짜를 확인했습니다";
+        : $"전체 {_selected.Branches}개 중 {_selected.BranchesChecked}개 확인";
 
     // `switch` 의 관계 패턴(`< 1024`)을 `@code` 에 쓰지 않는다 — Razor 가 그
     // `<` 를 여는 태그로 읽고 뒤를 통째로 잘못 자른다(InterfaceList 에서 밟음).

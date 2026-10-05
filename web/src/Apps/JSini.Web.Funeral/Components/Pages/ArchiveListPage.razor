@@ -183,7 +183,7 @@
                 <FilePicker @ref="_picker"
                             MaxFiles="10"
                             MaxBytes="@(100L * 1024 * 1024)"
-                            Hint="자료 파일을 고르세요 (최대 10개 · 한 개 100MB). 저장할 때 함께 올라갑니다."
+                            ShowHint="false"
                             FilesChanged="@(files => _picked = files)" />
             </DxFormLayoutItem>
         </DxFormLayout>

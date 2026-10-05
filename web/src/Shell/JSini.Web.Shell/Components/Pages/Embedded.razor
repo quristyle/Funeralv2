@@ -48,16 +48,12 @@
 }
 else
 {
-    <PageNotice>
-        <div class="jsini-split">
-            <span>
-                아래가 비어 있으면 상대 사이트가 iframe 을 막은 것입니다.
-                포털은 https 라 http 주소도 막힐 수 있습니다. 새 창으로 열어 주세요.
-            </span>
-            <DxButton Text="새 창으로 열기" RenderStyle="ButtonRenderStyle.Secondary"
-                      Click="@OpenAsync" />
-        </div>
-    </PageNotice>
+    @* 끼운 자리가 비는 일이 있다 — 상대 사이트가 iframe 을 막거나, 포털이
+       https 라 http 주소가 막히는 때다. 그때 빠져나갈 길만 둔다. *@
+    <div class="jsini-toolbar">
+        <DxButton Text="새 창으로 열기" RenderStyle="ButtonRenderStyle.Secondary"
+                  Click="@OpenAsync" />
+    </div>
 
     @*
         감싸개가 하나 더 있는 이유는 **iframe 의 세로 막대를 감추기 위해서**다.

@@ -123,8 +123,8 @@ public partial class AiRequestList
     private string ListHint => _rows.Count == 0
         ? string.Empty
         : Rest > 0
-            ? $"전체 {_rows.Count}건 중 최근 {ShownCount}건 · 「접수 대기」인 것만 고치거나 거둬들일 수 있습니다."
-            : $"{_rows.Count}건 · 「접수 대기」인 것만 고치거나 거둬들일 수 있습니다.";
+            ? $"전체 {_rows.Count}건 중 최근 {ShownCount}건"
+            : $"{_rows.Count}건";
 
     /// <summary>자른 자리를 <see cref="RecentMax"/> 줄만큼 늘린다.</summary>
     private void ShowMore() => _more++;

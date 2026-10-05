@@ -26,8 +26,7 @@
 
 <PageTitle>쪽지 쓰기 · 포털관리</PageTitle>
 
-<CommCont Title="쪽지 쓰기"
-          Hint="받는 사람의 아이디나 이메일을 적으십시오. 보내면 상대의 쪽지함에 들어가고, 고른 길로 알림이 갑니다.">
+<CommCont Title="쪽지 쓰기">
     @* 보내고 나면 쪽지함으로 옮긴다. **보낸 것을 눈으로 확인하는 자리**가
        거기라, 화면에 그대로 두면 「갔나」를 확인할 길이 토스트 한 줄뿐이다. *@
     <NoteWritePanel OnSent="@(_ => Navigation.NavigateTo("/admin/note/box"))" />

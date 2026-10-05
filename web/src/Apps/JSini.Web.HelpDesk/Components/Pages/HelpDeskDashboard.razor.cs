@@ -369,9 +369,9 @@ public partial class HelpDeskDashboard
     /// 「총 N건」을 그려 주는 띠가 없어서(그 일은 <c>CommGrd</c> 가 했다)
     /// 안 적으면 화면을 끝까지 굴려야 몇 곳인지 알 수 있다.
     /// </summary>
-    private string CompanyHint => $"{Data.Companies.Count}곳 · 건수 많은 곳부터";
+    private string CompanyHint => $"{Data.Companies.Count}곳";
 
-    private string AdminHint => $"{Data.Admins.Count}명 · 완료 많은 사람부터";
+    private string AdminHint => $"{Data.Admins.Count}명";
 
     /// <summary>상태 띠의 조각 하나. 색은 도넛과 같은 팔레트에서 꺼낸다.</summary>
     private sealed record Seg(string Label, int Count, string Color, string? Href = null);

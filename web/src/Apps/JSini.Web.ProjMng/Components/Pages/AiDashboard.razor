@@ -143,7 +143,6 @@
 @* ── 예상 사용 건수 ─────────────────────────────────────────
    근거를 같이 적는다 — 안 적으면 예언처럼 읽힌다. *@
 <CommCont Title="사용량 전망"
-          Hint="@($"최근 {Forecast.BasisDays}일 {Forecast.BasisRuns}건을 일평균 {Forecast.PerDay:0.##}건으로 늘려 잡은 값입니다. 예측 모형이 아닙니다.")"
           CssClass="pm-aidash__panel">
     <div class="jsini-stats">
         <div class="jsini-stat">
@@ -173,7 +172,6 @@
    차트가 아니라 계량기다. 값이 하나뿐인 비율은 막대 하나가 가장 정확하다. *@
 <div class="pm-aidash__row">
     <CommCont Title="작업지시 CLI 한도"
-              Hint="실행기가 CLI 마다 읽어 올린 마지막 값입니다. 퍼센트는 「쓴 비율」이고, CLI 하나가 한도를 여럿 가질 수 있습니다."
               CssClass="pm-aidash__panel">
         <Actions>
             <DxButton IconCssClass="jsini-icon-refresh" RenderStyle="ButtonRenderStyle.Secondary" Click="@SearchAsync" ToolTip="다시 조회" />
@@ -288,7 +286,6 @@
     </CommCont>
 
     <CommCont Title="AI 공급자 한도"
-              Hint="포털 AI 도우미가 쓰는 모델입니다. 공급자가 응답 헤더로 알려 준 마지막 값이라, 한 번도 부르지 않았으면 비어 있습니다."
               CssClass="pm-aidash__panel">
         @if (_providers is null || _providers.Providers.Count == 0)
         {
@@ -361,7 +358,6 @@
    건수와 처리시간은 단위가 달라 **차트를 나눈다**(머리말). *@
 <div class="pm-aidash__row">
     <CommCont Title="@($"일별 처리 ({Data.From:yyyy-MM-dd} ~ {Data.To:yyyy-MM-dd})")"
-              Hint="성공과 실패를 쌓아 그립니다. 자료가 없는 날도 0 으로 그려 추세가 끊기지 않게 합니다."
               CssClass="pm-aidash__panel">
         <DxChart Data="@Data.Daily" Palette="@OutcomePalette" Width="100%" Height="260px" CssClass="pm-aidash__chart">
             <DxChartStackedBarSeries T="AiDashboardPoint" TArgument="string" TValue="int"
@@ -380,7 +376,6 @@
     </CommCont>
 
     <CommCont Title="일별 평균 처리시간"
-              Hint="분 단위입니다. 건수와 축이 달라 차트를 나눠 그립니다."
               CssClass="pm-aidash__panel">
         <DxChart Data="@Data.Daily" Palette="@SinglePalette" Width="100%" Height="260px" CssClass="pm-aidash__chart">
             <DxChartLineSeries T="AiDashboardPoint" TArgument="string" TValue="decimal"
@@ -396,7 +391,6 @@
 
 <div class="pm-aidash__row">
     <CommCont Title="월별 처리 (최근 12개월)"
-              Hint="고른 기간과 무관합니다. 「요즘 늘고 있나」는 기간과 다른 질문입니다."
               CssClass="pm-aidash__panel">
         <DxChart Data="@Data.Monthly" Palette="@MonthlyPalette" Width="100%" Height="260px" CssClass="pm-aidash__chart">
             <DxChartBarSeries T="AiDashboardPoint" TArgument="string" TValue="int"
@@ -415,7 +409,7 @@
     </CommCont>
 
     <CommCont Title="실행 상태 분포"
-              Hint="@($"끝난 것과 도는 것을 모두 셉니다 · 총 {Data.ByStatus.Sum(s => s.Runs)}건")"
+              Hint="@($"총 {Data.ByStatus.Sum(s => s.Runs)}건")"
               CssClass="pm-aidash__panel">
         @if (StatusSlices.Count == 0)
         {
@@ -442,7 +436,7 @@
 @* ── 사용 빈도 ──────────────────────────────────────────────
    「언제 시키나」. 한 계열뿐이라 범례를 두지 않는다 — 제목이 이름을 말한다. *@
 <div class="pm-aidash__row">
-    <CommCont Title="시간대별 사용 빈도" Hint="실행이 시작된 시각 기준입니다." CssClass="pm-aidash__panel">
+    <CommCont Title="시간대별 사용 빈도" CssClass="pm-aidash__panel">
         <DxChart Data="@Data.Hourly" Palette="@SinglePalette" Width="100%" Height="220px" CssClass="pm-aidash__chart">
             <DxChartBarSeries T="AiDashboardBucket" TArgument="string" TValue="int"
                               ArgumentField="b => b.Label" ValueField="b => b.Runs"
@@ -467,7 +461,6 @@
     </CommCont>
 
     <CommCont Title="처리시간 분포"
-              Hint="평균 하나로는 「대부분 1분인데 한 건이 세 시간」을 볼 수 없습니다."
               CssClass="pm-aidash__panel">
         <DxChart Data="@Data.ByDuration" Palette="@SinglePalette" Width="100%" Height="220px" CssClass="pm-aidash__chart">
             <DxChartBarSeries T="AiDashboardSlice" TArgument="string" TValue="int"
@@ -499,7 +492,7 @@
 
 @* ── 최근 실행 ──────────────────────────────────────────────
    숫자만 있는 대시보드는 「그래서 무슨 일이 있었나」에 답하지 못한다. *@
-<CommCont Title="최근 실행" Hint="줄을 누르면 그 작업으로 갑니다." CssClass="pm-aidash__panel">
+<CommCont Title="최근 실행" CssClass="pm-aidash__panel">
     <CommGrd TItem="AiDashboardRecent" Data="@Data.Recent" PageSize="10"
  ExportName="AI최근실행"
              EmptyText="이 기간에 실행된 것이 없습니다."

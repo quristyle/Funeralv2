@@ -294,10 +294,6 @@
                     }
                 </nav>
 
-                <p class="jsini-hint">
-                    항목을 고르면 그 자리만 펼쳐집니다. 뒤로 가기로 이 목록에
-                    돌아옵니다.
-                </p>
             }
 
             @if (_info is not null && !ShowHub)
@@ -581,25 +577,10 @@
                             </Columns>
                         </CommGrd>
 
-                        <p class="jsini-hint">
-                            접속 IP 는 요청 헤더에서 얻은 값이라 참고용입니다. 기록은 이 표가
-                            만들어진 뒤의 로그인부터 쌓입니다. 모르는 접속이 보이면
-                            비밀번호를 바꾸십시오.
-                        </p>
                     </DxTabPage>
 
                     @* ── 고정탭 관리 ───────────────────────── *@
                     <DxTabPage Text="@TabText(Tab.FixedTabs)">
-                        @* 두 판은 좁은 화면에서 **위아래로 쌓인다**(admin.css). 그런데
-                           안내와 단추는 「왼쪽」·「오른쪽」·「→」로 적혀 있었다 — 판이
-                           쌓인 화면에서 그것은 **없는 곳을 가리키는 말**이다.
-                           자리를 가리키는 낱말은 모두 지금 배치를 따라간다. *@
-                        <p class="jsini-hint">
-                            @(_isPinsStacked ? "위쪽이" : "왼쪽이") 사이드바 즐겨찾기에 나타나는 메뉴이고,
-                            그 순서대로 보입니다. @(_isPinsStacked ? "아래쪽에서" : "오른쪽에서") 골라
-                            「고정」을 누르고, 순서는 ↑·↓ 로 바꿉니다. 여러 건을 함께 고를
-                            수 있습니다.
-                        </p>
 
                         <div class="ad-pin">
 
@@ -947,19 +928,10 @@
                             }
                         </section>
 
-                        <p class="jsini-hint">
-                            여기는 <b>무엇을 알릴지</b>를 고르는 자리입니다. 어떤 길로
-                            받을지(브라우저 푸시 · 이메일)는
-                            <a href="/funeral/setting/environment">알림 설정</a> 에서 정합니다.
-                        </p>
                     </DxTabPage>
 
                     @* ── 프로필 사진 관리 ───────────────────── *@
                     <DxTabPage Text="@TabText(Tab.Avatar)">
-                        <p class="jsini-hint">
-                            사진을 여러 장 올려 두고 그중 하나를 <b>대표</b>로 고릅니다.
-                            헤더와 이 화면에 보이는 것은 대표 사진입니다. 최대 @PhotoLimit 장.
-                        </p>
 
                         @*
                             `DxUpload` 이다. 데모의 「Upload Modes」와 같은 구성이고
@@ -1051,10 +1023,6 @@
                             </ul>
                         }
 
-                        <p class="jsini-hint">
-                            개발 장비에서 올린 사진은 운영 서버에 실제 바이트가 없습니다 —
-                            목록에는 보이는데 그림이 깨지면 그 경우입니다.
-                        </p>
                     </DxTabPage>
 
                 </DxTabs>

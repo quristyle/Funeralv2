@@ -131,7 +131,7 @@
                         MaxFiles="1"
                         MaxBytes="@(20L * 1024 * 1024)"
                         Accept="image/*"
-                        Hint="영정 사진을 고르세요 (한 장 · 20MB 까지)"
+                        ShowHint="false"
                         FilesChanged="@(files => _photoPicked = files.Count > 0 ? files[0] : null)" />
 
             @if (_detail.MemorialEditedPhotoFileId is { Length: > 0 })
