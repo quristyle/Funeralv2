@@ -1,0 +1,19 @@
+@*
+    차량 등록·수정 팝업. 내 차량 목록이 연다.
+*@
+
+@inherits DataPage
+
+<CommPopup @bind-Visible="_visible" HeaderText="@(_draft?.IsNew == true ? "차량 등록" : "차량 수정")" Width="720px">
+    <BodyContentTemplate Context="popup">
+        @if (_draft is not null)
+        {
+            <VehicleFields Draft="@_draft" />
+        }
+    </BodyContentTemplate>
+
+    <FooterContentTemplate Context="popup">
+        <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Enabled="@(!Loading)" Click="@SaveAsync" />
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _visible = false)" />
+    </FooterContentTemplate>
+</CommPopup>

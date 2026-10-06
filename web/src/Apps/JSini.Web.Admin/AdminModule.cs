@@ -31,6 +31,11 @@ public sealed class AdminModule : IPortalModule
         // 참조자료 통에 담아 둔다 — 그 클래스 머리말 참고.
         services.AddScoped<PushCategoryClient>();
 
+        // 계정에 매달린 차량(운송관리 DB). 통로를 따로 둔 까닭은 그 클래스
+        // 머리말에 있다 — 운송관리를 쓰는 곳에만 있는 개념이라, 안 쓰면
+        // 메뉴만 끄면 되게 해 둔다.
+        services.AddScoped<CargoVehicleClient>();
+
         // 공지 첨부 업로드 (D5). GatewayClient 에는 멀티파트가 없어 따로 두지만
         // 같은 BaseAddress·같은 토큰 처리로 등록해 인증이 갈라지지 않게 한다.
         var baseUrl = configuration["Gateway:BaseUrl"] ?? "http://localhost:5265/api/";

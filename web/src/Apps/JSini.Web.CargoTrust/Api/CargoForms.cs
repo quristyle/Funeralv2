@@ -189,3 +189,79 @@ public sealed class PaymentDraft
         Memo = string.IsNullOrWhiteSpace(Memo) ? null : Memo.Trim(),
     };
 }
+
+/// <summary>
+/// 차량 등록·수정 폼.
+///
+/// <para>
+/// 요청 DTO 와 떼어 둔 까닭은 톤수 하나다 — 편집기(DxSpinEdit)는 <c>decimal</c> 을
+/// 다루는데 서버는 「안 적었음」을 null 로 받는다. 폼이 0 을 들고 있다가 보낼 때
+/// null 로 옮긴다. 0톤짜리 차는 없으므로 0 은 「안 적었음」으로 읽는 것이 맞다.
+/// </para>
+/// </summary>
+public sealed class VehicleDraft
+{
+    public long? VehicleId { get; set; }
+    public string PlateNo { get; set; } = string.Empty;
+    public string? Nickname { get; set; }
+    public string VehicleClass { get; set; } = "C4";
+
+    /// <summary>
+    /// 축수. 고르개 값이라 문자열이고 <c>"0"</c> 이 <b>「모름」</b>이다.
+    ///
+    /// <para>
+    /// 번호판은 축수를 말해 주지 않는데, 모른다고 등록을 막으면 할인율 계산까지
+    /// 못 하게 된다. 그 둘은 별개 일이라 <b>선택</b>으로 둔다.
+    /// </para>
+    /// </summary>
+    public string AxleCount { get; set; } = "0";
+
+    public decimal Tonnage { get; set; }
+    public bool IsBusiness { get; set; } = true;
+    public bool HasHipass { get; set; } = true;
+    public bool IsDefault { get; set; }
+    public string? Memo { get; set; }
+
+    public bool IsNew => VehicleId is null;
+
+    public static VehicleDraft From(VehicleInfo v) => new()
+    {
+        VehicleId = v.VehicleId,
+        PlateNo = v.PlateNo,
+        Nickname = v.Nickname,
+        VehicleClass = v.VehicleClass,
+        AxleCount = (v.AxleCount ?? 0).ToString(System.Globalization.CultureInfo.InvariantCulture),
+        Tonnage = v.Tonnage ?? 0,
+        IsBusiness = v.IsBusiness,
+        HasHipass = v.HasHipass,
+        IsDefault = v.IsDefault,
+        Memo = v.Memo,
+    };
+
+    /// <summary>
+    /// 서버에 가기 전에 막을 것. 서버도 같은 것을 따지지만 여기서 먼저 막으면
+    /// 왕복 한 번 없이 무엇이 틀렸는지 듣는다.
+    /// </summary>
+    public string? Problem()
+    {
+        if (string.IsNullOrWhiteSpace(PlateNo))
+        {
+            return "차량번호를 넣으십시오.";
+        }
+
+        return null;
+    }
+
+    public VehicleSaveRequest ToRequest() => new()
+    {
+        PlateNo = PlateNo.Trim(),
+        Nickname = Nickname,
+        VehicleClass = VehicleClass,
+        AxleCount = short.TryParse(AxleCount, out var axles) && axles > 0 ? axles : null,
+        Tonnage = Tonnage == 0 ? null : Tonnage,
+        IsBusiness = IsBusiness,
+        HasHipass = HasHipass,
+        IsDefault = IsDefault,
+        Memo = Memo,
+    };
+}

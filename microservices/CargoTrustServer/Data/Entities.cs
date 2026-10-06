@@ -159,3 +159,113 @@ public class AuditLog
     public string? AfterData { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 }
+
+// ── 톨게이트 심야할인 (2026-10-06) ─────────────────────────────
+//
+// 설계: docs/cargotrust/06-toll-night-discount.md
+
+/// <summary>영업소(톨게이트). 바깥 공개 자료를 받아 보관한다.</summary>
+public class TollPlaza
+{
+    public long PlazaId { get; set; }
+    /// <summary>도로공사 영업소코드 — 바깥 자료와 맞추는 열쇠.</summary>
+    public string UnitCode { get; set; } = string.Empty;
+    public string UnitName { get; set; } = string.Empty;
+    public string? RouteNo { get; set; }
+    public string? RouteName { get; set; }
+    /// <summary>폐쇄식 · 개방식. <b>할인 규칙이 여기서 갈린다.</b></summary>
+    public SectionType SectionType { get; set; } = SectionType.CLOSED;
+    public bool IsPrivate { get; set; }
+    public decimal? Lat { get; set; }
+    public decimal? Lon { get; set; }
+    public bool IsActive { get; set; } = true;
+    /// <summary><c>EX_API</c> · <c>MANUAL</c></summary>
+    public string? Source { get; set; }
+    public DateTimeOffset? SyncedAt { get; set; }
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
+}
+
+/// <summary>할인 규칙 묶음. 제도가 바뀌면 코드가 아니라 이 표에 줄이 는다.</summary>
+public class TollRuleSet
+{
+    public long RuleSetId { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    /// <summary>야간창은 KST 벽시계다.</summary>
+    public TimeOnly ClosedNightStart { get; set; } = new(21, 0);
+    public TimeOnly ClosedNightEnd { get; set; } = new(6, 0);
+    public TimeOnly OpenNightStart { get; set; } = new(23, 0);
+    public TimeOnly OpenNightEnd { get; set; } = new(5, 0);
+    public DateOnly EffectiveFrom { get; set; }
+    public DateOnly? EffectiveTo { get; set; }
+    public string? SourceNote { get; set; }
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
+}
+
+/// <summary>비율의 띠 — <see cref="MinRatio"/> 이상이면 이 띠다. 위 끝은 다음 줄이 정한다.</summary>
+public class TollDiscountBand
+{
+    public long BandId { get; set; }
+    public long RuleSetId { get; set; }
+    public SectionType SectionType { get; set; }
+    public decimal MinRatio { get; set; }
+    public decimal DiscountPercent { get; set; }
+}
+
+/// <summary>
+/// 차량 — 계정 하나에 여러 대. 차량번호로 차종을 알아 오는 공개 API 가 없어
+/// 차종·축수는 사람이 적는다.
+/// </summary>
+public class Vehicle
+{
+    public long VehicleId { get; set; }
+    public long UserId { get; set; }
+    public AppUser User { get; set; } = null!;
+    /// <summary>차량번호. <b>다른 사용자에게 내보내지 않는다.</b></summary>
+    public string PlateNo { get; set; } = string.Empty;
+    public string? Nickname { get; set; }
+    /// <summary>번호판의 지역명(사업용에 붙는다). 읽어 낸 값이고 사람이 안 고친다.</summary>
+    public string? PlateRegion { get; set; }
+
+    /// <summary>번호판 앞자리 숫자가 말한 차종. <b>사람이 고른 값과 견주려고 남긴다.</b></summary>
+    public VehicleKind PlateKind { get; set; } = VehicleKind.UNKNOWN;
+
+    /// <summary>번호판 한글이 말한 용도.</summary>
+    public PlateUsage PlateUsage { get; set; } = PlateUsage.UNKNOWN;
+
+    public VehicleClass VehicleClass { get; set; } = VehicleClass.C4;
+    public short? AxleCount { get; set; }
+    public decimal? Tonnage { get; set; }
+    /// <summary>사업용(영업용) 여부. 심야할인은 사업용 화물차 제도다.</summary>
+    public bool IsBusiness { get; set; } = true;
+    public bool HasHipass { get; set; } = true;
+    public bool IsDefault { get; set; }
+    public string? Memo { get; set; }
+    public bool IsDeleted { get; set; }
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
+}
+
+/// <summary>계산 이력. 쓴 규칙 묶음을 함께 남겨 뒤에 설명할 수 있게 한다.</summary>
+public class TollCalcLog
+{
+    public long CalcId { get; set; }
+    public long UserId { get; set; }
+    public long? VehicleId { get; set; }
+    /// <summary><c>CALC</c> 정방향 · <c>SUGGEST</c> 역방향</summary>
+    public string Mode { get; set; } = "CALC";
+    public SectionType SectionType { get; set; }
+    public DateTimeOffset? EntryAt { get; set; }
+    public DateTimeOffset? ExitAt { get; set; }
+    public long? EntryPlazaId { get; set; }
+    public long? ExitPlazaId { get; set; }
+    public int? TotalMinutes { get; set; }
+    public int? NightMinutes { get; set; }
+    public decimal? NightRatio { get; set; }
+    public decimal? DiscountPercent { get; set; }
+    public decimal? TargetDiscount { get; set; }
+    public string? RuleSetCode { get; set; }
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+}

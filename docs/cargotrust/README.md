@@ -7,6 +7,7 @@
 |---|---|
 | [01-service-overview.md](01-service-overview.md) | 상위 설계안(원본) |
 | [05-api-design.md](05-api-design.md) | **API 계약** — 백엔드와 두 MFE 의 약속 |
+| [06-toll-night-discount.md](06-toll-night-discount.md) | **톨게이트 심야할인** — 받는 정보 · 계산 · 차량 관리의 자리 |
 
 ## 구성
 
@@ -26,6 +27,12 @@
 | `deploy/sql/cargotrust-database-2026-09-24.sql` | superuser | **적용함** — 역할·DB·스키마 |
 | `deploy/sql/cargotrust-schema-2026-09-24.sql` | cargotrust | **적용함** — 테이블 9 + pg_trgm |
 | `deploy/sql/portal-menu-cargotrust-2026-09-24.sql` | jsiniportal/scom | **적용함** — 메뉴 21줄 + 역할 권한(관리자 두 역할만 켬) |
+| `deploy/sql/portal-menu-cargotrust-unpaid-2026-09-25.sql` | jsiniportal/scom | **적용함** — 미지급 거래 한 줄 |
+| `deploy/sql/cargotrust-schema-2026-09-24.sql` 「덧붙임 2026-10-06」 | cargotrust | **적용함(2026-10-06)** — 심야할인 표 다섯 + 규칙 첫 줄(KEC-BASE) |
+| `deploy/sql/portal-menu-toll-vehicle-2026-10-06.sql` | jsiniportal/scom | **적용함(2026-10-06)** — 메뉴 세 줄 + 역할 권한(시스템 관리자는 전권) |
+| `deploy/sql/cargotrust-schema-2026-09-24.sql` 「덧붙임 2026-10-06 (2)」 | cargotrust | **적용함(2026-10-06)** — 번호판이 말한 것(`plate_region`·`plate_kind`·`plate_usage`) |
+| `deploy/sql/portal-menu-my-vehicle-2026-10-06.sql` | jsiniportal/scom | **적용함(2026-10-06)** — 「내 차량」을 설정 › 「나의 차량등록」으로 |
+| `deploy/sql/cargotrust-vehicle-seed-2026-10-06.sql` | cargotrust | 선택 — 시험용 차량 한 대(화면으로 넣는 것이 보통이다) |
 
 ## 운영 배치 (2026-09-24 끝남, 커밋 fd623895)
 
@@ -37,3 +44,15 @@
    `appsettings.Local.json.bak-20260924-cargo`.
 3. 메뉴 SQL 적용. 다른 역할에 열려면 권한 화면(`/admin/auth`)에서 켠다.
 4. 남은 확인: 로그인해서 `/cargotrust` → 거래처 등록 → 거래 등록 → 결제 등록 → 상세 통계를 한 번 지나 본다.
+
+## 톨게이트 심야할인 배치 (2026-10-06)
+
+1. 위 SQL 둘을 돌렸다(운영 DB). 표 다섯과 규칙 묶음 `KEC-BASE`, 메뉴 세 줄이 섰다.
+2. **영업소 477건을 적재했다** — 고속도로 공공데이터 포털
+   `basicinfo/updownIcList`. 구간 유형은 그 API 가 안 줘서 전부 폐쇄식으로
+   들어왔다(안전한 쪽). 개방식 구간은 손으로 고치거나 파일데이터로 덮는다 —
+   [06-toll-night-discount.md](06-toll-night-discount.md) 「남은 구멍」 참고.
+3. 인증키는 `Toll:ServiceKey` 다. 개발 장비에는 넣었고,
+   **운영 서버(`/srv/jsini/config/CargoTrustServer/appsettings.Local.json`)에는
+   아직 안 넣었다** — 넣고 `cargo` 컨테이너를 재시작해야 운영에서도 동기화가 돈다.
+   키가 없어도 계산은 그대로 되고 동기화만 쉰다.

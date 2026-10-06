@@ -10,7 +10,7 @@ using JSini.Web.Http;
 
 namespace JSini.Web.HelpDesk.Components.Pages;
 
-public partial class RequestDetail
+public partial class RequestDetail : IDisposable
 {
     [Inject] private HelpDeskApi Api { get; set; } = default!;
     [Inject] private HelpDeskContext Context { get; set; } = default!;
@@ -372,6 +372,123 @@ public partial class RequestDetail
 
         return _request is null ? 0 : 1;
     }, NotFoundMessage, "요청을 읽지 못했습니다");
+
+    // ── 댓글이 달렸는지 **스스로 들여다본다** (2026-10-06) ──────
+    //
+    // 이 화면은 한 번 읽고 가만히 있었다. 댓글은 **남이 단다** — 담당자가
+    // 답을 달아도 열어 둔 사람의 화면에는 아무 일도 안 일어나서, 새로고침을
+    // 하기 전에는 온 줄을 모른다. 앱푸시가 가기는 하지만(그 설정은
+    // `docs/helpdesk-comment-notify.md`) **지금 이 글을 보고 있는 사람**에게는
+    // 알림이 오히려 늦고, 알림을 꺼 둔 사람에게는 오지 않는다.
+    //
+    // 그래서 열려 있는 동안 댓글 목록만 되읽는다. 본문은 안 읽는다 —
+    // 바뀌는 것은 댓글뿐이고, 본문까지 읽으면 화면 전체가 다시 그려져
+    // 보던 자리가 흔들린다.
+
+    /// <summary>
+    /// 댓글을 다시 읽는 사이. <b>스무 초</b>다.
+    /// </summary>
+    /// <remarks>
+    /// 더 짧게 잡을 까닭이 없다 — 사람이 글을 읽는 동안 몇 초 늦게 뜨는 것은
+    /// 아무도 못 느끼지만, 열어 둔 화면 수만큼 게이트웨이를 두드리는 것은
+    /// 그대로 쌓인다. 더 길게 잡으면 「지금 답을 기다리는 중」인 사람이
+    /// 새로고침을 누르게 되어 들여다보는 뜻이 없어진다.
+    /// </remarks>
+    private static readonly TimeSpan CommentPoll = TimeSpan.FromSeconds(20);
+
+    /// <summary>들여다보기를 멈추는 손잡이. 화면을 떠날 때 당긴다.</summary>
+    private CancellationTokenSource? _watch;
+
+    /// <summary>
+    /// 화면이 처음 그려지고 나서 들여다보기를 건다.
+    /// </summary>
+    /// <remarks>
+    /// <b><c>OnParametersSetAsync</c> 가 아니다.</b> 그쪽은 미리 그리기
+    /// (prerender)에서도 한 번 돌아서, 거기 걸면 아무도 안 보는 회로가
+    /// 타이머를 하나 들고 돈다. 첫 렌더 뒤는 **붙은 회로**에서만 온다.
+    ///
+    /// 다른 요청으로 옮겨 가도 다시 걸지 않는다 — 돌고 있는 고리가 그때그때
+    /// <see cref="Id"/> 를 읽으므로 주소가 바뀌면 다음 바퀴부터 새 글의
+    /// 댓글을 본다.
+    /// </remarks>
+    protected override Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _watch = new CancellationTokenSource();
+            _ = WatchCommentsAsync(_watch.Token);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// 댓글 목록만 되읽어, 수가 달라졌으면 다시 그린다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>수가 같으면 그리지 않는다.</b> 스무 초마다 멀쩡한 화면을 다시
+    /// 그리면 읽던 자리가 미세하게 흔들리고, 펼쳐 둔 답글 칸도 함께 흔들린다.
+    /// 수로만 보므로 **글자만 고친 댓글**은 놓치지만, 여기서 알아야 하는 것은
+    /// 「새로 달렸는가」 하나다.
+    /// </para>
+    /// <para>
+    /// <b>답글 칸이 열려 있으면 그 바퀴는 건너뛴다.</b> 되읽으면 나무가
+    /// 통째로 다시 서서 쓰던 글이 날아간다 — 답을 쓰는 중에 벌어지면
+    /// 가장 나쁜 일이다. 닫거나 보내고 나면 다음 바퀴부터 다시 본다.
+    /// </para>
+    /// <para>
+    /// <b>실패는 삼킨다.</b> 이것은 사람이 시킨 일이 아니라 화면이 혼자 하는
+    /// 일이라, 끊긴 그물 한 번에 토스트가 뜨면 영문 모를 오류로 읽힌다.
+    /// 다음 바퀴에 다시 해 보면 된다.
+    /// </para>
+    /// </remarks>
+    private async Task WatchCommentsAsync(CancellationToken token)
+    {
+        using var timer = new PeriodicTimer(CommentPoll);
+
+        try
+        {
+            while (await timer.WaitForNextTickAsync(token))
+            {
+                if (_notFound || _replyTo is not null)
+                {
+                    continue;
+                }
+
+                try
+                {
+                    var comments = await Api.GetListAsync<ImprovementComment>($"requests/{Id}/comments");
+
+                    if (comments.Count == _commentCount)
+                    {
+                        continue;
+                    }
+
+                    _commentCount = comments.Count;
+                    _roots = CommentTree.Build(comments);
+
+                    await InvokeAsync(StateHasChanged);
+                }
+                catch (Exception ex) when (ex is ApiException or HttpRequestException or JsonException)
+                {
+                    // 다음 바퀴에 다시 본다.
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // 화면을 떠났다.
+        }
+    }
+
+    /// <summary>떠날 때 들여다보기를 멈춘다.</summary>
+    public void Dispose()
+    {
+        _watch?.Cancel();
+        _watch?.Dispose();
+        _watch = null;
+    }
 
     /// <summary>
     /// 요청 하나를 읽는다. <b>없으면 <c>null</c></b> — 예외로 올리지 않는다.

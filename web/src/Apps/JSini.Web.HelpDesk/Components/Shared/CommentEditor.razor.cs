@@ -49,6 +49,17 @@ public partial class CommentEditor
     private string _markup = string.Empty;
     private bool _saving;
 
+    /// <summary>
+    /// 이 칸에 글을 쓰는 중인가 — <b>도구줄을 세울지</b>를 가른다.
+    /// </summary>
+    /// <remarks>
+    /// 한 번 참이 되면 **그 글을 보낼 때까지 거짓으로 안 돌아간다.** 포커스가
+    /// 빠질 때 접으면 도구줄을 쓰는 순간에 접힌다 — 글꼴·정렬 단추가 띄우는
+    /// 목록은 문서 끝에 따로 그려져 포커스가 칸 밖으로 나가기 때문이다.
+    /// 까닭은 화면 머리말에 적어 두었다.
+    /// </remarks>
+    private bool _writing;
+
     /// <summary>지금 올리고 있는 그림 수. 0 이 아니면 보내기를 잠근다.</summary>
     private int _pasting;
 
@@ -98,8 +109,22 @@ public partial class CommentEditor
             _boundId = Id;
             _bound = false;
             _markup = string.Empty;
+
+            // 다른 댓글에 답하는 칸이 되었다. 쓰던 글이 비워졌으므로
+            // 도구줄도 처음 모습으로 되돌린다.
+            _writing = false;
         }
     }
+
+    /// <summary>
+    /// 칸 안 어딘가가 포커스를 받았다 — <b>이제 글을 쓰는 중</b>이다.
+    /// </summary>
+    /// <remarks>
+    /// <c>focusin</c> 은 거품처럼 올라오므로 글칸이든 도구줄 단추든
+    /// 「남기기」든 다 여기로 온다. 이미 참이면 다시 그리지 않는다 —
+    /// 글자를 칠 때마다 화면을 새로 그리면 커서가 흔들린다.
+    /// </remarks>
+    private void StartWriting() => _writing = true;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -331,6 +356,9 @@ public partial class CommentEditor
             if (await OnSubmit(RequestContentHtml.ToStored(_markup)))
             {
                 _markup = string.Empty;
+
+                // 빈 칸으로 돌아왔으니 도구줄도 접는다. 다시 짚으면 또 선다.
+                _writing = false;
             }
         }
         finally

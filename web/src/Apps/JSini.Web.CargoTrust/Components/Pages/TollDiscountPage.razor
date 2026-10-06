@@ -1,0 +1,269 @@
+@page "/cargotrust/toll"
+@attribute [RouteKey("cargotrust.toll")]
+
+@*
+    톨게이트 심야할인 — **휴대폰에서 쓰는 화면이다.**
+
+    ① 진입 시각과 소요시간을 고르면 할인율이 바로 뜬다
+    ② 목표 할인율을 고르면 「몇 시에 나가면 되는지」가 함께 뜬다
+
+    [고르는 즉시 셈한다 — 「계산」 단추가 없다]
+
+    기사가 길에서 한 손으로 여는 화면이다. 값 넷(구간·시각·소요시간·목표)을
+    채우고 마지막에 단추를 누르는 흐름은, 중간에 **무엇을 바꾸면 할인율이 어떻게
+    움직이는지**를 못 보게 한다. 이 화면의 쓸모가 바로 그 움직임이다 —
+    「한 시간 더 끌면 50% 가 되나?」를 손가락 한 번에 확인하는 것.
+    그래서 칩을 누를 때마다 셈하고, 단추를 없앴다.
+
+    [고르개 대신 칩이다]
+
+    고르개는 두 번 눌러야 하고, 여는 동안 목록이 결과를 덮는다. 무엇 때문에
+    값이 바뀌었는지 보이지 않으면 즉시 셈하는 뜻이 사라진다. 칩은 한 번에
+    고르고 늘 펼쳐져 있다(`ChipGroup`).
+
+    [차량이 한 대면 고르지 않는다]
+
+    고를 것이 하나뿐인 고르개는 누르게만 하고 알려 주는 것이 없다.
+    한 대면 맨 위에 **적어만** 두고, 두 대 이상일 때만 칩이 선다.
+
+    [날짜와 시각을 나눠 받고 지금으로 채워 둔다]
+
+    기사가 쓰는 때는 거의 「지금 올라탄다」이다. 열자마자 오늘·현재 시각이
+    들어 있으면 대개 **아무것도 안 고치고** 소요시간만 누르면 된다.
+    달력·시계는 OS 의 것을 그대로 쓴다(`input type=date|time`) — 휴대폰에서
+    가장 익숙한 바퀴가 올라온다.
+*@
+
+@inherits DataPage
+
+<PageTitle>심야할인 계산 · 운송관리</PageTitle>
+
+<div class="ct-page ct-toll">
+
+    @* ── 고르는 곳 ─────────────────────────────────────── *@
+    <section class="ct-panel ct-toll-form">
+
+        @* 설명은 늘 펴 두지 않는다 — 한 화면에 다 보이게 하려고 짠 화면에서
+           읽고 나면 다시 안 읽는 글이 가장 먼저 자리를 먹는다. 차량 줄 오른쪽의
+           물음표가 그것을 연다(`ct-toll-help`). *@
+        @if (_vehicles.Count == 1)
+        {
+            <div class="ct-toll-vehicle">
+                <div class="ct-toll-vehicle-who">
+                    <span class="ct-toll-vehicle-name">@_vehicles[0].Display</span>
+                    <span class="ct-toll-vehicle-sub">@VehicleSub(_vehicles[0])</span>
+                </div>
+                <button type="button" class="@HelpButtonClass" @onclick="ToggleHelp"
+                        aria-expanded="@(_helpOpen ? "true" : "false")"
+                        aria-label="구간 유형과 대상 조건 보기" title="도움말">?</button>
+            </div>
+        }
+        else if (_vehicles.Count > 1)
+        {
+            <div class="ct-field-row">
+                <div class="ct-label-row">
+                    <label class="ct-label">차량</label>
+                    <button type="button" class="@HelpButtonClass" @onclick="ToggleHelp"
+                            aria-expanded="@(_helpOpen ? "true" : "false")"
+                            aria-label="구간 유형과 대상 조건 보기" title="도움말">?</button>
+                </div>
+                <ChipGroup Items="@VehicleChips" Value="@_vehicleId" Label="차량"
+                           ValueChanged="@(v => PickAsync(() => _vehicleId = v))" />
+            </div>
+        }
+        else
+        {
+            <div class="ct-toll-vehicle">
+                <div class="ct-toll-vehicle-who">
+                    <span class="ct-toll-vehicle-sub">등록한 차량이 없습니다. 할인율 계산은 그대로 됩니다.</span>
+                </div>
+                <button type="button" class="@HelpButtonClass" @onclick="ToggleHelp"
+                        aria-expanded="@(_helpOpen ? "true" : "false")"
+                        aria-label="구간 유형과 대상 조건 보기" title="도움말">?</button>
+            </div>
+        }
+
+        @if (_helpOpen)
+        {
+            <div class="ct-toll-help-body">
+
+                @*
+                    **구간 유형이 무엇인지부터 적는다.**
+
+                    아래 「구간」 칩은 이 화면에서 **반드시 골라야 하는 한 칸**인데
+                    (「전체」가 없다 — `CargoCodes.SectionTypeOptions`), 그 한 칸이
+                    야간창도 세는 법도 통째로 바꾼다. 그런데 「폐쇄식 · 개방식」은
+                    요금소 운영 방식을 부르는 말이라 **운전하는 사람이 자기 노선이
+                    어느 쪽인지 알 길이 화면 어디에도 없었다.** 칩 아래 한 줄
+                    (`SectionTypeNote`)은 고른 뒤에야 보이고 길이도 한 줄이다.
+
+                    그래서 **알아보는 법**까지 적는다 — 통행권을 뽑았나, 요금소를
+                    몇 번 지나나. 그것이 사람이 실제로 쓸 수 있는 판별법이다.
+                *@
+                <dl class="ct-kinds">
+                    <div class="ct-kind">
+                        <dt>폐쇄식</dt>
+                        <dd>
+                            들어가는 영업소와 나가는 영업소가 <b>따로</b>인 구간입니다.
+                            통행권을 뽑고(하이패스는 진입을 찍고) 나갈 때 냅니다 —
+                            <b>요금소를 두 번</b> 지나고 달린 거리만큼 냅니다.
+                            고속도로 대부분이 이쪽입니다.
+                            <span class="ct-kind-rule">
+                                야간 21:00~06:00 · 그 안에 <b>머문 비율</b>로 20 · 30 · 50%
+                            </span>
+                        </dd>
+                    </div>
+                    <div class="ct-kind">
+                        <dt>개방식</dt>
+                        <dd>
+                            본선에 요금소가 서 있어 지나가며 <b>한 번</b> 내는 구간입니다.
+                            통행권이 없고 거리와 상관없이 정액입니다.
+                            도시고속도로와 짧은 지선이 이쪽이고 전국에 많지 않습니다.
+                            <span class="ct-kind-rule">
+                                야간 23:00~05:00 · <b>통과 시각</b>이 그 안이면 일괄 50%
+                            </span>
+                        </dd>
+                    </div>
+                </dl>
+
+                <TollChecks Items="@Checks" />
+                <div class="jsini-hint">
+                    실제로 깎아 주는 쪽은 한국도로공사입니다. 이 화면은 참고치입니다.
+                </div>
+            </div>
+        }
+
+        <div class="ct-field-row">
+            <label class="ct-label">구간</label>
+            <ChipGroup Items="@SectionChips" Value="@_sectionType" Label="구간 유형"
+                       ValueChanged="@(v => PickAsync(() => _sectionType = v ?? CargoCodes.Closed))" />
+        </div>
+
+        <div class="ct-field-row">
+            <label class="ct-label" for="ct-entry-date">@(IsClosed ? "진입" : "통과")</label>
+            @* OS 의 달력·시계를 그대로 쓴다 — 휴대폰에서 가장 익숙한 바퀴가 올라온다. *@
+            <div class="ct-when">
+                @* 날짜는 앞뒤 화살표로 하루씩 옮긴다 — 어제 새벽에 진입한 운행을
+                   고르려고 달력을 여는 일이 가장 잦다. *@
+                <div class="ct-date">
+                    <button type="button" class="ct-step" @onclick="@(() => ShiftDayAsync(-1))"
+                            aria-label="전날" title="전날">‹</button>
+                    <input id="ct-entry-date" type="date" class="ct-input ct-input--date"
+                           @bind="_entryDate" @bind:after="RecalcAsync" />
+                    <button type="button" class="ct-step" @onclick="@(() => ShiftDayAsync(1))"
+                            aria-label="다음날" title="다음날">›</button>
+                </div>
+
+                @* **`input type=time` 을 쓰지 않는다.** 크롬은 그 칸의 표시를 브라우저
+                   말로 정하고 `lang` 을 보지 않아서 「오후 11:57」이 그대로 뜬다.
+                   시·분을 따로 고르면 24시로 못 박히고, 휴대폰에서는 `select` 가
+                   OS 바퀴를 그대로 띄우므로 쓰는 느낌도 같다. *@
+                <div class="ct-hm">
+                    <select class="ct-input ct-input--hm" aria-label="시"
+                            @bind="_entryHour" @bind:after="RecalcAsync">
+                        @foreach (var h in HourOptions)
+                        {
+                            <option value="@h">@h.ToString("00")시</option>
+                        }
+                    </select>
+                    <select class="ct-input ct-input--hm" aria-label="분"
+                            @bind="_entryMinute" @bind:after="RecalcAsync">
+                        @foreach (var m in MinuteOptions)
+                        {
+                            <option value="@m">@m.ToString("00")분</option>
+                        }
+                    </select>
+                </div>
+            </div>
+
+            @if (!_allHours && HiddenHourCount > 0)
+            {
+                <button type="button" class="ct-link" @onclick="ShowAllHoursAsync">
+                    낮 시간 @(HiddenHourCount)개를 뺐습니다 — 전체 보기
+                </button>
+            }
+        </div>
+
+        @if (IsClosed)
+        {
+            <div class="ct-field-row">
+                <label class="ct-label">소요시간</label>
+                <ChipGroup Items="@DurationChips" Value="@_duration" Label="소요시간"
+                           ValueChanged="@(v => PickAsync(() => _duration = v ?? "300"))" />
+            </div>
+        }
+
+        <div class="ct-field-row">
+            <label class="ct-label">목표</label>
+            <ChipGroup Items="@TargetChips" Value="@_targetDiscount" Label="목표 할인율"
+                       ValueChanged="@(v => PickAsync(() => _targetDiscount = v))" />
+        </div>
+    </section>
+
+    @* ── 지금 조건의 결과 ───────────────────────────────── *@
+    @if (_calc is { } calc)
+    {
+        <section class="ct-panel ct-toll-result">
+            <div class="ct-toll-headline">
+                <span class="ct-toll-rate">@calc.DiscountPercent.ToString("0.#")%</span>
+                <span class="ct-toll-sub">
+                    @if (IsClosed)
+                    {
+                        <text>@CargoCodes.Kst(calc.EntryAtKst) → @CargoCodes.Kst(calc.ExitAtKst)</text>
+                    }
+                    else
+                    {
+                        <text>@CargoCodes.Kst(calc.EntryAtKst) 통과</text>
+                    }
+                </span>
+            </div>
+
+            @if (IsClosed && calc.ExitAtKst is not null)
+            {
+                <TollTimeline Entry="@calc.EntryAtKst" Exit="@calc.ExitAtKst.Value" Segments="@calc.NightSegments" />
+            }
+
+            <p class="ct-toll-summary">@calc.Summary</p>
+
+            <dl class="ct-facts ct-facts--tight">
+                <div><dt>야간</dt><dd>@CargoCodes.Minutes(calc.NightMinutes) / @CargoCodes.Minutes(calc.TotalMinutes)</dd></div>
+                <div><dt>야간 비율</dt><dd>@CargoCodes.Rate(calc.NightRatio)</dd></div>
+                <div><dt>야간창</dt><dd>@calc.NightWindowLabel</dd></div>
+                <div><dt>기준</dt><dd>@calc.RuleSetCode</dd></div>
+            </dl>
+        </section>
+    }
+
+    @* ── 목표를 고른 경우의 추천 ─────────────────────────── *@
+    @if (_suggest is { } suggest)
+    {
+        <section class="ct-panel ct-toll-result">
+            <div class="ct-toll-headline">
+                <span class="ct-toll-rate">@suggest.TargetDiscount.ToString("0.#")%</span>
+                <span class="ct-toll-sub">를 받으려면</span>
+            </div>
+
+            <p class="ct-toll-summary">@suggest.Summary</p>
+
+            @if (suggest.Options.Count > 0)
+            {
+                <ul class="ct-toll-options">
+                    @foreach (var option in suggest.Options)
+                    {
+                        <li class="ct-toll-option">
+                            <div class="ct-toll-option-head">
+                                <strong>@CargoCodes.Kst(option.BestKst) 진출</strong>
+                                <span class="@CargoCodes.DiscountBadge(option.DiscountPercent)">@option.DiscountPercent.ToString("0.#")%</span>
+                            </div>
+                            <div class="ct-toll-option-body">
+                                <span>@CargoCodes.Kst(option.FromKst) ~ @CargoCodes.Kst(option.ToKst) 사이</span>
+                                <span>소요 @CargoCodes.Minutes(option.MinDurationMinutes) ~ @CargoCodes.Minutes(option.MaxDurationMinutes)</span>
+                            </div>
+                        </li>
+                    }
+                </ul>
+            }
+        </section>
+    }
+
+</div>

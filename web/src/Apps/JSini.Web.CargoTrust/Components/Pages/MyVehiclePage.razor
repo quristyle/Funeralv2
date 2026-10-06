@@ -1,0 +1,106 @@
+@page "/cargotrust/vehicles"
+@attribute [RouteKey("cargotrust.vehicles")]
+
+@*
+    나의 차량등록 — 설정 › 나의 차량등록. 로그인한 본인이 자기 차를 건사하는 자리다.
+    (관리자가 남의 차를 계정에 매다는 자리는 포털관리 › 차량 관리다 — 다른 화면이다.)
+
+    [왜 사람이 직접 적는가]
+
+    차량번호만으로 차종을 알아 오는 **무료 공개 API 가 없다.** 국토교통부
+    자동차종합정보 API 도 소유자의 휴대폰 본인인증을 거친 제3자 제공 동의와
+    기관 승인·행정서류가 전제다. 그런데 심야할인 판정에 필요한 셋 중 둘은
+    **번호판이 스스로 말한다** — 앞자리 숫자가 화물차인지를, 한글 한 자가
+    사업용인지를. 그래서 번호만 적으면 그 둘이 채워지고, 남는 축수는
+    선택이다(모르면 모르는 대로 둔다).
+
+    [남에게 안 보인다]
+
+    차량번호는 사람과 차를 한 번에 가리키는 값이라, 거래·후기처럼 남이 보는
+    자리에는 싣지 않는다. 이 화면이 보여 주는 것은 자기 차뿐이다.
+
+    [넓은 화면에서도 표가 아니라 카드다]
+
+    처음에는 휴대폰만 카드로 두고 데스크톱은 표로 두었는데, **같은 화면이 폭에
+    따라 다른 물건이 되었다.** 차 한 대의 칸이 아홉인데 그중 사람이 실제로
+    견주는 것은 번호판·차종·축수뿐이고, 가진 차는 보통 한두 대다 — 표가 할 일
+    (정렬·거르기·쪽나누기)이 아예 없다. 카드 하나로 통일하면 폭이 넓어질 때
+    **칸이 늘지 않고 카드가 옆으로 늘어선다.** 쓰는 법이 폭을 타지 않는다.
+*@
+
+@inherits DataPage
+
+<PageTitle>나의 차량등록 · 운송관리</PageTitle>
+
+<div class="ct-page ct-myveh">
+
+    <div class="ct-myveh-top">
+        <div class="ct-myveh-count">
+            @if (_vehicles.Count > 0)
+            {
+                <span>등록한 차량 @_vehicles.Count 대</span>
+            }
+        </div>
+        <DxButton Text="차량 등록" RenderStyle="ButtonRenderStyle.Primary"
+                  CssClass="ct-myveh-add" IconCssClass="jsini-icon-plus"
+                  Enabled="@(!Loading)" Click="@(() => Open(null))" />
+    </div>
+
+    @if (_vehicles.Count == 0 && !Loading)
+    {
+        <PageNotice Tone="NoticeTone.Info"
+                    Text="등록한 차량이 없습니다. 「차량 등록」을 눌러 차량번호만 적으면 화물차인지·사업용인지는 번호판에서 읽어 채웁니다." />
+    }
+
+    <ul class="ct-veh-cards">
+        @foreach (var v in _vehicles)
+        {
+            <li class="ct-veh-card">
+                <div class="ct-veh-card-head">
+                    <strong>@v.PlateNo</strong>
+                    @if (v.IsDefault)
+                    {
+                        <span class="jsini-badge jsini-badge--on">기본</span>
+                    }
+                </div>
+
+                @if (!string.IsNullOrWhiteSpace(v.Nickname))
+                {
+                    <div class="ct-veh-card-nick">@v.Nickname</div>
+                }
+
+                @* 표에서 칸으로 흩어져 있던 값을 여기로 접어 넣는다.
+                   폭이 좁아지면 줄을 바꿔 담고, 옆으로 흐르지 않는다. *@
+                <div class="ct-veh-card-facts">
+                    <span>@v.VehicleClassName</span>
+                    <span>@(v.AxleCount is { } a ? $"{a}축" : "축수 모름")</span>
+                    <span>@(v.IsBusiness ? "사업용" : "비사업용")</span>
+                    <span>@(v.HasHipass ? "하이패스" : "하이패스 없음")</span>
+                    @if (v.Tonnage is { } t and > 0)
+                    {
+                        <span>@t.ToString("0.#")톤</span>
+                    }
+                </div>
+
+                @if (v.Plate is { Readable: true } plate)
+                {
+                    <div class="ct-veh-card-plate">번호판 — @plate.Summary</div>
+                }
+
+                @if (!string.IsNullOrWhiteSpace(v.Memo))
+                {
+                    <div class="ct-veh-card-memo">@v.Memo</div>
+                }
+
+                @* 단추는 양쪽 폭에서 같은 크기다. 손가락으로 눌러도 되는 높이를
+                   데스크톱에서 굳이 줄일 이유가 없다. *@
+                <div class="ct-veh-card-actions">
+                    <DxButton Text="수정" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => Open(v))" />
+                    <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => DeleteAsync(v))" />
+                </div>
+            </li>
+        }
+    </ul>
+</div>
+
+<VehicleEditPopup @ref="_popup" OnSaved="@ReloadAsync" />

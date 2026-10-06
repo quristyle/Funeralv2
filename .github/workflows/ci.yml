@@ -37,6 +37,12 @@ jobs:
       - name: 빌드
         run: dotnet build jsini.sln -c Release --no-restore
 
+      # 백엔드에도 시험이 하나 생겼다 — 심야할인 계산 엔진(CargoTrustServer.Tests).
+      # 자정을 넘는 창·여러 날 운행·띠의 경계값은 틀려도 화면이 멀쩡히 숫자를
+      # 보여 주는 종류라, 빌드만으로는 아무것도 막지 못한다.
+      - name: 시험
+        run: dotnet test jsini.sln -c Release --no-build
+
   web:
     runs-on: ubuntu-latest
     steps:

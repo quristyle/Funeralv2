@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    심야할인 계산 엔진의 시험.
+
+    [왜 이 하나만 시험하는가]
+
+    엔진은 **DB 도 「지금」도 모르는 순수 계산**이라 시험이 싸고, 동시에 이
+    기능에서 조용히 틀릴 수 있는 거의 유일한 자리다. 자정을 넘는 창, 여러 날에
+    걸친 운행, 띠의 경계값(정확히 80%) — 셋 다 틀려도 화면은 멀쩡히 숫자를
+    보여 준다. 「할인율이 좀 이상한데」로만 드러나는 틀림은 사람이 못 잡는다.
+
+    정방향과 역방향이 **같은 겹침 함수**에 기대는 것도 여기서 확인한다.
+    두 길이 갈라지는 순간 추천대로 달렸는데 할인이 안 되는 일이 생긴다.
+  -->
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CargoTrustServer\CargoTrustServer.csproj" />
+  </ItemGroup>
+
+</Project>

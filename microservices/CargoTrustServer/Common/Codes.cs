@@ -56,6 +56,33 @@ public enum ReportStatus { RECEIVED, REVIEWING, REJECTED, REVISION, DELETED, DON
 /// <summary>통계의 데이터 규모</summary>
 public enum Confidence { NONE, LOW, MEDIUM, HIGH }
 
+// ── 톨게이트 심야할인 ──────────────────────────────────────────
+
+/// <summary>
+/// 구간 유형. <b>할인 규칙이 여기서 갈린다</b> — 야간창도 다르고 세는 법도 다르다.
+///
+/// <para>
+/// 폐쇄식은 진입·진출 영업소가 나뉘어 「얼마나 오래 밤에 있었나」를 비율로 재고,
+/// 개방식은 요금소를 한 번 지날 뿐이라 <b>통과 시각 한 점</b>으로 본다.
+/// </para>
+/// </summary>
+public enum SectionType { CLOSED, OPEN }
+
+/// <summary>
+/// 고속도로 통행료 차종. <b>할인율의 띠를 바꾸지 않는다</b> —
+/// 금액과 「심야할인 대상인가」만 가른다.
+/// </summary>
+public enum VehicleClass { LIGHT, C1, C2, C3, C4, C5 }
+
+/// <summary>
+/// 번호판 앞자리 숫자가 말하는 차종. <b>통행료 차종(<see cref="VehicleClass"/>)과 다른 것이다</b> —
+/// 이쪽은 차의 생김새이고, 저쪽은 요금을 매기는 구분이다(축수가 가른다).
+/// </summary>
+public enum VehicleKind { UNKNOWN, PASSENGER, VAN, FREIGHT, SPECIAL }
+
+/// <summary>번호판 한글 한 자가 말하는 용도.</summary>
+public enum PlateUsage { UNKNOWN, PRIVATE, BUSINESS, DELIVERY, RENTAL }
+
 /// <summary>
 /// 요청 본문의 코드값을 읽는다.
 ///
