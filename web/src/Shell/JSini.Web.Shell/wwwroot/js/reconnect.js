@@ -37,12 +37,40 @@
  * 멈춰 선 뒤에도 30초마다, 그리고 **화면이 다시 보이는 순간** 조용히 한 번
  * 더 해 본다. 잠자던 휴대폰을 깨우면 대개 그 자리에서 이어진다.
  *
- * [4] 잠깐 끊긴 것에는 상자를 띄우지 않는다
+ * [4] 끊긴 동안 **화면을 덮지 않는다** — 숨죽임 · 귀띔 · 상자
  *
- * 회선이 한 번 튀는 것은 흔하고 대개 1초 안에 돌아온다. 그때마다 화면을
- * 덮어 버리면 하던 일이 끊긴 것처럼 느껴진다. 상자가 뜨는 순간 `--quiet` 를
- * 붙여 **0.9초 동안 투명하게** 두고(app.css), 그 안에 다시 이어지면 사람은
- * 아무것도 못 본 채 하던 일을 잇는다.
+ * [0.9초로는 터널을 못 지난다]
+ *
+ * 한동안 여기는 0.9초짜리 투명 구간 하나였다. 회선이 한 번 튀는 것은 그 안에
+ * 끝나니 사람은 아무것도 못 보고 하던 일을 이었다. 그런데 **터널은 0.9초가
+ * 아니다** — 지하 구간 하나가 수십 초이고 승강기·주차장·건물 안쪽도 몇 초씩
+ * 끊긴다. 그때마다 화면이 통째로 어두워지고 상자가 떴다. 서버는 멀쩡하고 곧
+ * 저절로 이어지는데도 사람에게는 매번 사고로 보였다.
+ *
+ * 그래서 셋으로 나눈다.
+ *
+ *   1. **숨죽임**(`--hush`, 2초) — 아무것도 안 보이고 아무것도 안 막는다.
+ *      회선이 한 번 튄 것은 여기서 끝난다.
+ *   2. **귀띔**(`--hint`) — 화면을 덮지 않는다. 바탕도 안 어둡고 위쪽에 작은
+ *      띠 하나만 뜬다. **읽고 굴리는 것은 그대로 되고 누름만 삼킨다.**
+ *      터널은 여기서 끝난다.
+ *   3. **상자** — 귀띔을 벗으면 그제야 뜬다.
+ *
+ * [상자까지 가는 것은 시계가 아니라 **할 일**이 정한다]
+ *
+ * 「몇 초 뒤에 상자」가 아니다. 다시 잇는 중인 동안(show · retrying)은
+ * **아무리 길어도 귀띔에 머문다** — 그동안 사람이 할 수 있는 일이 없다.
+ * 프레임워크가 포기했거나(failed · resume-failed), 서버가 잠시 멈춰 두었거나
+ * (paused), 하던 일이 서버에 없을 때(rejected) — **사람이 골라야 하는
+ * 자리**에서만 상자가 뜬다. 띠를 누르면 그 전에도 열린다.
+ *
+ * [삼킨 누름은 **삼켰다고 말한다**]
+ *
+ * 덮개를 걷었으니 조용한 동안 단추가 그대로 보인다. 그런데 회로가 없으므로
+ * 눌러도 아무 일이 없다 — 저장을 누르고 저장된 줄 아는 것이 이 바꿈에서
+ * 가장 위험한 자리다. 그래서 누름을 **잡는 단계에서 삼키고**(capture),
+ * 삼킨 자리에서 곧바로 귀띔으로 올라가 띠를 한 번 흔든다. 아무 일도 안
+ * 일어난 것처럼 보이는 일은 없다.
  *
  * 다시 이어졌을 때 우리가 하는 일은 **없다.** 프레임워크가 `hide` 를 붙이고
  * 그 규칙이 상자를 끈다. 새로고침하지 않으므로 화면은 끊기기 전 그대로다.
@@ -89,8 +117,10 @@
   const REJECTED = 'components-reconnect-rejected';
   const STATES = [SHOW, HIDE, RETRYING, PAUSED, FAILED, RESUME_FAILED, REJECTED];
 
-  // 우리 것 셋. 프레임워크는 이 이름을 모르므로 우리가 붙이고 우리가 뗀다.
-  const QUIET = 'jsini-reconnect--quiet';
+  // 우리 것. 프레임워크는 이 이름을 모르므로 우리가 붙이고 우리가 뗀다.
+  const HUSH = 'jsini-reconnect--hush';
+  const HINT = 'jsini-reconnect--hint';
+  const NUDGE = 'jsini-reconnect--nudge';
   const COUNTDOWN = 'jsini-reconnect--countdown';
   const HELD = 'jsini-reconnect--held';
 
@@ -100,6 +130,13 @@
 
   // 멈춰 선 뒤 스스로 다시 해 보는 주기.
   const AUTO_RETRY_MS = 30000;
+
+  // 숨죽임이 귀띔으로 바뀌기까지. 이 안에 이어지면 **아무것도 안 보인다.**
+  // 회선이 한 번 튀는 것은 대개 1초 안에 돌아오므로 그 두 배를 둔다.
+  const HUSH_MS = 2000;
+
+  // 흔든 자국을 떼기까지(app.css 의 420ms 보다 조금 길게).
+  const NUDGE_MS = 500;
 
   // 거절당한 뒤 스스로 새로고침하기까지 세는 초.
   const RELOAD_COUNTDOWN_SEC = 5;
@@ -113,6 +150,11 @@
   let reloadLeft = null;
   let reloadTimer = null;
   let reloading = false;
+
+  /** 조용한 구간에 있는가(숨죽임 또는 귀띔). 누름을 삼킬지 여기서 가린다. */
+  let quieting = false;
+  let hushTimer = null;
+  let nudgeTimer = null;
 
   /** **붙들지 않는다**(머리말). 쓸 때마다 지금 문서에 있는 것을 찾는다. */
   const dialog = () => document.getElementById(DIALOG_ID);
@@ -143,6 +185,110 @@
   function stopAuto() {
     stalled = null;
     clearTimer();
+  }
+
+  // ── 조용한 구간 — 숨죽임 · 귀띔 · 상자(머리말 [4]) ────────────
+
+  /**
+   * 조용한 구간을 **연다**. 이미 열려 있으면 다시 시작하지 않는다.
+   *
+   * 여는 자리가 하나가 아니다 — 프레임워크는 다시 잇는 동안 `show` 와
+   * `retrying` 을 번갈아 보내므로, 올 때마다 다시 시작하면 **숨죽임이 영영
+   * 안 끝난다.** 그래서 처음 한 번만 사다리를 놓는다.
+   *
+   * 다만 클래스는 매번 입힌다. 향상된 이동으로 상자가 갈리면 새 요소에는
+   * 아무 표시가 없기 때문이다(머리말 — 요소를 붙들지 않는다).
+   */
+  function beginQuiet() {
+    const box = dialog();
+    if (!box) {
+      return;
+    }
+
+    if (quieting) {
+      // 사다리는 그대로 두고 지금 단계만 다시 입힌다.
+      box.classList.add(hushTimer !== null ? HUSH : HINT);
+      return;
+    }
+
+    quieting = true;
+    box.classList.remove(HINT, NUDGE);
+    box.classList.add(HUSH);
+
+    hushTimer = setTimeout(() => {
+      hushTimer = null;
+      toHint();
+    }, HUSH_MS);
+  }
+
+  /** 숨죽임을 접고 귀띔으로 올라간다. 시간이 차거나 누름을 삼켰을 때. */
+  function toHint() {
+    if (!quieting) {
+      return;
+    }
+
+    if (hushTimer !== null) {
+      clearTimeout(hushTimer);
+      hushTimer = null;
+    }
+
+    const box = dialog();
+    if (box) {
+      box.classList.remove(HUSH);
+      box.classList.add(HINT);
+    }
+  }
+
+  /** 조용한 구간을 **닫는다**. 이 뒤로는 지금까지의 상자가 그대로 뜬다. */
+  function endQuiet() {
+    quieting = false;
+
+    if (hushTimer !== null) {
+      clearTimeout(hushTimer);
+      hushTimer = null;
+    }
+
+    if (nudgeTimer !== null) {
+      clearTimeout(nudgeTimer);
+      nudgeTimer = null;
+    }
+
+    const box = dialog();
+    if (box) {
+      box.classList.remove(HUSH, HINT, NUDGE);
+    }
+  }
+
+  /**
+   * 삼킨 누름을 알린다 — 띠를 한 번 흔든다.
+   *
+   * 숨죽임 중이었다면 **그 자리에서 귀띔으로 올린다.** 손을 댔다는 것은 더
+   * 숨길 때가 아니라는 뜻이다.
+   */
+  function nudge() {
+    toHint();
+
+    const box = dialog();
+    if (!box) {
+      return;
+    }
+
+    if (nudgeTimer !== null) {
+      clearTimeout(nudgeTimer);
+    }
+
+    // 뗐다가 다시 붙여야 애니메이션이 처음부터 돈다.
+    box.classList.remove(NUDGE);
+    void box.offsetWidth;
+    box.classList.add(NUDGE);
+
+    nudgeTimer = setTimeout(() => {
+      nudgeTimer = null;
+      const now = dialog();
+      if (now) {
+        now.classList.remove(NUDGE);
+      }
+    }, NUDGE_MS);
   }
 
   // ── 새로고침 ──────────────────────────────────────────────────
@@ -221,6 +367,10 @@
     inFlight = true;
     clearTimer();
 
+    // 여기까지 왔다는 것은 프레임워크가 포기했거나 사람이 누른 것이다.
+    // 어느 쪽이든 **더 숨길 자리가 아니다** — 상자를 꺼내 보여 준다.
+    endQuiet();
+
     // 누른 것이 먹혔다는 표시. 도는 고리가 다시 보인다.
     const box = dialog();
     if (box) {
@@ -267,16 +417,18 @@
       return;
     }
 
-    // 「잠깐 끊긴 것」의 투명함은 **다시 잇는 중일 때만** 쓴다. 사람이 읽고
+    // 조용한 구간은 **다시 잇는 중일 때만** 쓴다(머리말 [4]). 사람이 읽고
     // 골라야 하는 자리에서까지 감추면 상자가 없는 것과 같다.
-    if (detail.state !== 'show' && detail.state !== 'retrying') {
-      box.classList.remove(QUIET);
+    if (detail.state === 'show' || detail.state === 'retrying') {
+      // `show` 를 놓쳐도(향상된 이동으로 상자가 갈린 참이었다거나) `retrying`
+      // 에서 받아 연다. 이미 열려 있으면 사다리를 다시 놓지 않는다.
+      beginQuiet();
+    } else {
+      endQuiet();
     }
 
     switch (detail.state) {
       case 'show':
-        // 잠깐 끊긴 것이면 사람이 보기 전에 끝난다(머리말 [4]).
-        box.classList.add(QUIET);
         box.classList.remove(COUNTDOWN);
         stopAuto();
         break;
@@ -310,7 +462,8 @@
         break;
 
       case 'hide':
-        box.classList.remove(COUNTDOWN, QUIET, HELD);
+        // 조용한 구간은 바로 위에서 `endQuiet()` 가 이미 걷었다.
+        box.classList.remove(COUNTDOWN, HELD);
         stopAuto();
         stopReloadCountdown();
         break;
@@ -361,6 +514,34 @@
     }
   }
 
+  /**
+   * 조용한 동안의 누름을 **삼킨다**(머리말 [4]).
+   *
+   * 덮개를 걷었으므로 단추가 그대로 보이고 눌리기까지 한다 — 그런데 회로가
+   * 없어 아무 데도 닿지 않는다. **저장을 누르고 저장된 줄 아는 것**이 이
+   * 바꿈에서 가장 위험한 자리라, 잡는 단계에서 끊고 띠를 흔들어 알린다.
+   *
+   * 상자 안(띠·단추)은 통과시킨다 — 그쪽은 회로 없이 도는 우리 손놀림이다.
+   */
+  function swallow(event) {
+    if (!quieting) {
+      return;
+    }
+
+    const target = event.target;
+    if (target && typeof target.closest === 'function'
+        && target.closest('#' + DIALOG_ID)) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    nudge();
+  }
+
+  document.addEventListener('click', swallow, true);
+  document.addEventListener('submit', swallow, true);
+
   // 누름은 **문서에 한 번만** 건다. 상자가 몇 번 갈려도 이 길은 안 끊긴다.
   document.addEventListener('click', event => {
     const target = event.target;
@@ -382,6 +563,12 @@
       return;
     }
 
+    if (action === 'expand') {
+      // 귀띔 띠를 눌렀다 — 기다리지 않고 상자를 연다.
+      endQuiet();
+      return;
+    }
+
     if (action === 'hold') {
       // 스스로 여는 것을 멈춘다. 적어 둔 것을 옮겨 적을 시간을 달라는 뜻이다.
       stopReloadCountdown();
@@ -399,6 +586,15 @@
   // 돌아온 참이라 망이 막 살아난다. 기다리지 않고 바로 해 본다.
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible' && stalled !== null) {
+      attempt(stalled);
+    }
+  });
+
+  // 터널에서 나오는 그 순간이다. 프레임워크가 **포기한 뒤**일 때만 끼어든다 —
+  // 아직 제 재시도 고리가 돌고 있으면 그쪽에 맡긴다(두 길이 동시에 회로를
+  // 열려 들면 어느 쪽이 이겼는지 알 수 없게 된다).
+  window.addEventListener('online', () => {
+    if (stalled !== null) {
       attempt(stalled);
     }
   });
