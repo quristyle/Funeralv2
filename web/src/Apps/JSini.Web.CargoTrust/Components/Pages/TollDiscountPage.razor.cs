@@ -1,8 +1,10 @@
 using System.Globalization;
+using System.Text.Json;
 using JSini.Web.CargoTrust.Api;
 using JSini.Web.Components.Data;
 using JSini.Web.Components.Layout;
 using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
 
 namespace JSini.Web.CargoTrust.Components.Pages;
 
@@ -10,8 +12,7 @@ public partial class TollDiscountPage
 {
     [Inject] private CargoTrustClient Api { get; set; } = default!;
 
-    /// <summary>떠날 때 고른 것을 맡기고 돌아와서 되찾는 자리.</summary>
-    [Inject] private ScreenState Screen { get; set; } = default!;
+    [Inject] private IJSRuntime JS { get; set; } = default!;
 
     private TollRulesInfo? _rules;
     private IReadOnlyList<VehicleInfo> _vehicles = [];
@@ -19,7 +20,7 @@ public partial class TollDiscountPage
     private string _sectionType = CargoCodes.Closed;
 
     /// <summary>
-    /// 고른 시각이 <b>진입</b>인가 <b>출차</b>인가.
+    /// 고른 시각이 <b>진입</b>인가 <b>진출</b>인가.
     ///
     /// <para>
     /// 기사가 아는 쪽이 둘 중 하나다 — 「지금 올라탄다」일 때도 있고
@@ -86,15 +87,15 @@ public partial class TollDiscountPage
     private bool AnchorIsEntry => _anchor != ExitAnchor;
 
     /// <summary>시각 칸의 이름. 개방식은 들고 나는 것이 같아 「통과」다.</summary>
-    private string AtLabel => IsClosed ? (AnchorIsEntry ? "진입" : "출차") : "통과";
+    private string AtLabel => IsClosed ? (AnchorIsEntry ? "진입" : "진출") : "통과";
 
     /// <summary>추천이 알려 주는 쪽 — 고른 쪽의 반대다.</summary>
-    private string OtherSideLabel => AnchorIsEntry ? "출차" : "진입";
+    private string OtherSideLabel => AnchorIsEntry ? "진출" : "진입";
 
     private static readonly IReadOnlyList<SchOption> AnchorChips =
     [
         new(EntryAnchor, "진입 시각"),
-        new(ExitAnchor, "출차 시각"),
+        new(ExitAnchor, "진출 시각"),
     ];
 
     private string HelpButtonClass => _helpOpen ? "ct-help-btn ct-help-btn--on" : "ct-help-btn";
@@ -117,14 +118,31 @@ public partial class TollDiscountPage
     };
 
     /// <summary>
-    /// 맡기는 열쇠. 화면 경로로 짓는다 — 겹치면 다른 화면의 조건을 되찾는다.
+    /// 고른 것을 적어 두는 열쇠. 화면 경로로 짓는다 — 겹치면 다른 화면의 조건을 되찾는다.
     /// </summary>
-    private const string StateKey = "cargotrust/toll";
+    private const string StateKey = "jsini-toll-pick";
 
     /// <summary>
     /// 되찾는 것은 <b>고른 것</b>뿐이다. 날짜와 시각은 담지 않는다 —
     /// 이 화면을 여는 까닭이 거의 「지금 올라탄다」라서, 어제 적어 둔 시각이
     /// 되살아나면 사람이 그것을 못 보고 어제 기준으로 셈한 할인율을 읽는다.
+    ///
+    /// <para>
+    /// [회로가 아니라 <b>브라우저</b>에 적는다]
+    /// </para>
+    ///
+    /// <para>
+    /// 처음에는 <c>ScreenState</c>(회로 수명)에 맡겼다. 그것은 「떠났다 돌아오기」만
+    /// 버티고 <b>새로고침에 사라진다</b> — 이 저장소가 그 자리를 그렇게 정해 둔 것은
+    /// 조건을 지우려고 F5 를 누른 사람에게 빠져나갈 길을 주려는 것이었다.
+    /// </para>
+    ///
+    /// <para>
+    /// 그런데 여기 담기는 것은 조회 조건이 아니라 <b>이 기사가 늘 쓰는 값</b>이다 —
+    /// 내 차, 내가 다니는 구간, 늘 걸리는 시간. 그것이 F5 한 번에 사라지면
+    /// 매번 네 번을 다시 누른다. 사이드바 폭을 브라우저에 적어 두는 것과 같은
+    /// 성질이라(기기에 붙는 값) <c>localStorage</c> 로 옮겼다.
+    /// </para>
     /// </summary>
     private sealed record Kept(string SectionType, string Anchor, string? VehicleId, string Duration, string? Target, bool HelpOpen);
 
@@ -221,26 +239,50 @@ public partial class TollDiscountPage
                 ?.VehicleId.ToString(CultureInfo.InvariantCulture);
             return 1;
         }, failMessage: "할인 규칙을 읽지 못했습니다");
+    }
 
-        // 맡겨 둔 것이 있으면 그것이 이긴다. 다만 **그때 고른 차가 지금도 있을 때만** —
-        // 지운 차의 번호가 되살아나면 서버가 못 찾아 차량 없이 셈한 결과가 나온다.
-        if (Screen.Get<Kept>(StateKey) is { } kept)
+    /// <summary>
+    /// 적어 둔 것을 되찾고 첫 셈을 돌린다.
+    ///
+    /// <para>
+    /// <b>여기여야 한다.</b> 브라우저 저장소는 회로가 붙은 뒤에만 읽을 수 있어서
+    /// (프리렌더 중에는 JS 를 못 부른다) <c>OnInitialized</c> 에서는 꺼낼 수가 없다.
+    /// </para>
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        try
         {
-            _sectionType = kept.SectionType;
-            _anchor = kept.Anchor;
-            _duration = kept.Duration;
-            _targetDiscount = kept.Target;
-            _helpOpen = kept.HelpOpen;
-            if (kept.VehicleId is { } id && _vehicles.Any(v =>
-                    v.VehicleId.ToString(CultureInfo.InvariantCulture) == id))
+            var json = await JS.InvokeAsync<string?>("localStorage.getItem", StateKey);
+            if (!string.IsNullOrWhiteSpace(json)
+                && JsonSerializer.Deserialize<Kept>(json) is { } kept)
             {
-                _vehicleId = id;
+                _sectionType = kept.SectionType;
+                _anchor = kept.Anchor;
+                _duration = kept.Duration;
+                _targetDiscount = kept.Target;
+                _helpOpen = kept.HelpOpen;
+
+                // 그때 고른 차가 **지금도 있을 때만** 되찾는다 — 지운 차의 번호가
+                // 되살아나면 서버가 못 찾아 차량 없이 셈한 결과가 나온다.
+                if (kept.VehicleId is { } id && _vehicles.Any(v =>
+                        v.VehicleId.ToString(CultureInfo.InvariantCulture) == id))
+                {
+                    _vehicleId = id;
+                }
             }
+        }
+        catch (JsonException)
+        {
+            // 옛 꼴이 남아 있으면 그냥 기본값으로 연다. 적어 둔 것 때문에 화면이 안 열리면 안 된다.
         }
 
         // 열자마자 한 번 셈해 둔다. 오늘·지금·다섯 시간이 이미 들어 있으므로
         // 사용자는 **아무것도 안 고치고도** 자기 할인율을 본다.
         await RecalcAsync();
+        StateHasChanged();
     }
 
     /// <summary>칩을 누르면 값을 바꾸고 바로 다시 셈한다.</summary>
@@ -269,7 +311,9 @@ public partial class TollDiscountPage
     /// 탭을 닫거나 창을 새로 여는 길에서 그 호출이 안 온다.
     /// </summary>
     private void Keep() =>
-        Screen.Set(StateKey, new Kept(_sectionType, _anchor, _vehicleId, _duration, _targetDiscount, _helpOpen));
+        _ = JS.InvokeVoidAsync("localStorage.setItem", StateKey,
+            JsonSerializer.Serialize(new Kept(
+                _sectionType, _anchor, _vehicleId, _duration, _targetDiscount, _helpOpen)));
 
     // ── 셈 ───────────────────────────────────────────────────
 

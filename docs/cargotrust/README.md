@@ -32,6 +32,7 @@
 | `deploy/sql/portal-menu-toll-vehicle-2026-10-06.sql` | jsiniportal/scom | **적용함(2026-10-06)** — 메뉴 세 줄 + 역할 권한(시스템 관리자는 전권) |
 | `deploy/sql/cargotrust-schema-2026-09-24.sql` 「덧붙임 2026-10-06 (2)」 | cargotrust | **적용함(2026-10-06)** — 번호판이 말한 것(`plate_region`·`plate_kind`·`plate_usage`) |
 | `deploy/sql/portal-menu-my-vehicle-2026-10-06.sql` | jsiniportal/scom | **적용함(2026-10-06)** — 「내 차량」을 설정 › 「나의 차량등록」으로 |
+| `deploy/sql/cargotrust-open-section-2026-10-07.sql` | cargotrust | **적용함(2026-10-07)** — 개방식 영업소 25곳 표시(영업소 파일데이터 대조) |
 | `deploy/sql/cargotrust-vehicle-seed-2026-10-06.sql` | cargotrust | 선택 — 시험용 차량 한 대(화면으로 넣는 것이 보통이다) |
 
 ## 운영 배치 (2026-09-24 끝남, 커밋 fd623895)
@@ -49,9 +50,11 @@
 
 1. 위 SQL 둘을 돌렸다(운영 DB). 표 다섯과 규칙 묶음 `KEC-BASE`, 메뉴 세 줄이 섰다.
 2. **영업소 477건을 적재했다** — 고속도로 공공데이터 포털
-   `basicinfo/updownIcList`. 구간 유형은 그 API 가 안 줘서 전부 폐쇄식으로
-   들어왔다(안전한 쪽). 개방식 구간은 손으로 고치거나 파일데이터로 덮는다 —
-   [06-toll-night-discount.md](06-toll-night-discount.md) 「남은 구멍」 참고.
+   `basicinfo/updownIcList`. 그 API 는 구간 유형을 안 줘서 전부 폐쇄식으로
+   들어왔고, **2026-10-07 에 영업소 파일데이터로 개방식 25곳을 표시했다**
+   (수도권제1순환 본선요금소 · 경인선 인천 · 경부선 판교 등).
+   맞는 칸은 「영업방식」이 아니라 **「영업형태」**다 —
+   [06-toll-night-discount.md](06-toll-night-discount.md) 참고.
 3. 인증키는 `Toll:ServiceKey` 다. 개발 장비에는 넣었고,
    **운영 서버(`/srv/jsini/config/CargoTrustServer/appsettings.Local.json`)에는
    아직 안 넣었다** — 넣고 `cargo` 컨테이너를 재시작해야 운영에서도 동기화가 돈다.
