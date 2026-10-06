@@ -34,10 +34,15 @@ public partial class TollDiscountPage
     /// </summary>
     private int _entryHour = AppTime.ToKorea(AppTime.UtcNow).Hour;
 
-    private int _entryMinute = AppTime.ToKorea(AppTime.UtcNow).Minute;
-
-    /// <summary>시 고르개를 24시간 다 펴 두었나. 「전체 보기」를 누르면 참이 된다.</summary>
-    private bool _allHours;
+    /// <summary>
+    /// 진입 분. 고르개가 10분 단위라 <b>지금을 10분으로 내린 값</b>으로 연다.
+    ///
+    /// <para>
+    /// 올리지 않고 내리는 까닭: 진입은 이미 지났거나 지금인 일이라,
+    /// 올리면 아직 오지 않은 시각이 기본값이 된다.
+    /// </para>
+    /// </summary>
+    private int _entryMinute = AppTime.ToKorea(AppTime.UtcNow).Minute / 10 * 10;
 
     /// <summary>소요시간(분). 칩 값이라 문자열이다.</summary>
     private string _duration = "300";
@@ -108,86 +113,35 @@ public partial class TollDiscountPage
     ];
 
     /// <summary>
-    /// 고를 수 있는 시(時).
+    /// 고를 수 있는 시(時) — <b>24시간 전부</b>.
     ///
     /// <para>
-    /// [빼는 것은 「확실히 0%」인 시각뿐이다]
+    /// 한동안 「가장 긴 소요시간으로도 야간창에 닿지 못하는 시각」을 빼 두었다.
+    /// 폐쇄식에서 넷(07~10)이 빠졌는데, <b>이 화면의 쓰임을 하나 놓친 추림이었다</b> —
+    /// 앞으로 잡을 운행만 보는 것이 아니라 <b>이미 지나온 운행</b>의 할인율을
+    /// 확인하는 데도 쓴다. 실제 통과 시각이 09시였던 사람은 그 시각을 고를 수가
+    /// 없었고, 「0%라 고를 이유가 없다」는 우리 판단이 그 사람에게는
+    /// 「왜 내 시각이 없지」였다.
     /// </para>
     ///
     /// <para>
-    /// 낮에 진입해도 길게 달리면 야간에 걸린다 — 15시에 들어가 열 시간을 달리면
-    /// 새벽 1시에 나오고 야간이 네 시간이다. 그래서 「낮은 쓸모없다」로 자를 수 없다.
-    /// <b>가장 긴 소요시간으로도 야간창에 닿지 못하는 시각</b>만 뺀다 — 그것은
-    /// 무엇을 고르든 0% 라서 고를 이유가 없다.
-    /// </para>
-    ///
-    /// <para>
-    /// 개방식은 통과 시각 한 점이라 <b>야간창 자체</b>가 답이다(23~05 → 일곱 시각).
-    /// 폐쇄식에서는 네 시각(07~10)밖에 못 뺀다 — 적어 보이지만 그 넷이
-    /// 실제로 고를 일이 없는 유일한 시각이다.
-    /// </para>
-    ///
-    /// <para>
-    /// 「전체 보기」로 24시간을 다 펼 수 있다. 규칙이 바뀌거나 우리 셈이 틀렸을 때
-    /// <b>고를 수 없게 되는 시각이 생기면 안 된다.</b>
+    /// 넷을 아끼자고 고르개가 묻는 말을 바꿀 값어치가 없다. 전부 둔다.
     /// </para>
     /// </summary>
-    private IReadOnlyList<int> HourOptions
-    {
-        get
-        {
-            if (_allHours || _rules is null) return AllHours;
-
-            var (start, end) = _rules.NightHours(_sectionType);
-
-            // 개방식은 통과 한 점이라 창 안의 시각만 뜻이 있다.
-            // 폐쇄식은 가장 긴 소요시간만큼 앞당겨 들어가도 창에 닿는다.
-            var from = IsClosed
-                ? ((start - LongestDurationHours) % 24 + 24) % 24
-                : start;
-
-            var hours = new List<int>();
-            for (var h = from; ; h = (h + 1) % 24)
-            {
-                hours.Add(h);
-                if (h == end) break;
-                if (hours.Count >= 24) break;
-            }
-
-            // 지금 고른 시각이 빠지면 고르개가 제멋대로 다른 값으로 튄다.
-            if (!hours.Contains(_entryHour)) hours.Add(_entryHour);
-            hours.Sort();
-            return hours;
-        }
-    }
-
-    private int HiddenHourCount => 24 - HourOptions.Count;
-
-    /// <summary>소요시간 칩 중 가장 긴 것(시간). 시 고르개를 추리는 기준이다.</summary>
-    private static readonly int LongestDurationHours =
-        (int)Math.Ceiling(DurationChips.Max(c => int.Parse(c.Value!, CultureInfo.InvariantCulture)) / 60.0);
-
-    private static readonly IReadOnlyList<int> AllHours = [.. Enumerable.Range(0, 24)];
+    private static readonly IReadOnlyList<int> HourOptions = [.. Enumerable.Range(0, 24)];
 
     /// <summary>
-    /// 고를 수 있는 분. <b>10분 단위</b>로 여섯 개다 — 손가락으로 빨리 고르려는 것이고,
-    /// 몇 분 차이로 띠가 바뀌지도 않는다(비율의 분모가 몇 시간이다).
+    /// 고를 수 있는 분 — <b>10분 단위 여섯</b>.
     ///
     /// <para>
-    /// 다만 <b>지금 시각의 분은 깎지 않는다.</b> 열자마자 23:57 이면 57 을 그대로
-    /// 한 줄 끼워 넣는다 — 반올림해 두면 사람이 제가 본 시각과 다른 수를 읽는다.
+    /// 한동안 「지금」의 분이 눈금에 없으면 그 값을 한 줄 끼워 넣었다. 열자마자
+    /// 보이는 시각이 실제 시각과 1분도 안 어긋나게 하려던 것인데, <b>값에 비해
+    /// 비싼 규칙이었다</b> — 00·10·20·30·40·50 사이에 41 하나가 끼면 고르개가
+    /// 고장 난 것처럼 보이고, 정작 그 1분은 비율을 바꾸지 못한다(분모가 몇 시간이다).
+    /// 다섯 시간 운행에서 9분은 비율로 3%p 안쪽이라 띠가 바뀌지 않는다.
     /// </para>
     /// </summary>
-    private IReadOnlyList<int> MinuteOptions
-    {
-        get
-        {
-            var minutes = new List<int> { 0, 10, 20, 30, 40, 50 };
-            if (!minutes.Contains(_entryMinute)) minutes.Add(_entryMinute);
-            minutes.Sort();
-            return minutes;
-        }
-    }
+    private static readonly IReadOnlyList<int> MinuteOptions = [0, 10, 20, 30, 40, 50];
 
     private IReadOnlyList<SchOption> VehicleChips =>
         [.. _vehicles.Select(v => new SchOption(
@@ -251,13 +205,6 @@ public partial class TollDiscountPage
     {
         _entryDate = _entryDate.AddDays(days);
         return RecalcAsync();
-    }
-
-    /// <summary>시 고르개를 24시간으로 편다. 되돌리는 길은 두지 않는다 — 한 번 편 사람은 그대로 쓴다.</summary>
-    private Task ShowAllHoursAsync()
-    {
-        _allHours = true;
-        return Task.CompletedTask;
     }
 
     private void ToggleHelp()

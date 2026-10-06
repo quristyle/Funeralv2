@@ -513,17 +513,6 @@ public sealed class TollRulesInfo
     public List<TollBandInfo> ClosedBands { get; set; } = [];
     public List<TollBandInfo> OpenBands { get; set; } = [];
 
-    /// <summary>
-    /// 그 구간의 야간창을 시(時) 단위로 — 시작 시부터 끝 시까지, 자정을 넘어 돈다.
-    /// </summary>
-    public (int Start, int End) NightHours(string sectionType) =>
-        sectionType == "OPEN"
-            ? (Hour(OpenNightStart), Hour(OpenNightEnd))
-            : (Hour(ClosedNightStart), Hour(ClosedNightEnd));
-
-    private static int Hour(string clock) =>
-        int.TryParse(clock.Split(':')[0], out var h) ? h : 0;
-
     /// <summary>고를 수 있는 목표 할인율 — 0% 는 고를 이유가 없어 뺀다.</summary>
     public IReadOnlyList<decimal> TargetChoices(string sectionType) =>
         [.. (sectionType == "OPEN" ? OpenBands : ClosedBands)

@@ -1090,16 +1090,3 @@ a.ct-card:focus-visible {
 .ct-step:hover {
   border-color: var(--jsini-accent);
 }
-
-/* 「전체 보기」처럼 글자만 있는 조작. 단추처럼 보이면 고르는 칩과 섞인다. */
-.ct-link {
-  align-self: flex-start;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--jsini-accent);
-  font-size: var(--jsini-fs-xs);
-  font-family: inherit;
-  text-decoration: underline;
-  cursor: pointer;
-}

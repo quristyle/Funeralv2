@@ -175,13 +175,6 @@
                     </select>
                 </div>
             </div>
-
-            @if (!_allHours && HiddenHourCount > 0)
-            {
-                <button type="button" class="ct-link" @onclick="ShowAllHoursAsync">
-                    낮 시간 @(HiddenHourCount)개를 뺐습니다 — 전체 보기
-                </button>
-            }
         </div>
 
         @if (IsClosed)
