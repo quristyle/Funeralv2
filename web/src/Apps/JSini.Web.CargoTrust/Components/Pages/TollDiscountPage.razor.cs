@@ -75,6 +75,9 @@ public partial class TollDiscountPage
     private string? _toPlaza;
     private TollFareInfo? _fare;
 
+    /// <summary>지금 들고 있는 요금이 어느 (구간 · 차종)의 것인가. 같으면 다시 묻지 않는다.</summary>
+    private string? _fareKey;
+
     /// <summary>규칙·차량·영업소를 다 받았나. 되찾기가 이것을 기다린다.</summary>
     private bool _loaded;
 
@@ -373,11 +376,25 @@ public partial class TollDiscountPage
         StateHasChanged();
     }
 
-    /// <summary>칩을 누르면 값을 바꾸고 바로 다시 셈한다.</summary>
+    /// <summary>
+    /// 칩을 누르면 값을 바꾸고 바로 다시 셈한다.
+    ///
+    /// <para>
+    /// [<c>StateHasChanged</c> 가 <b>기다리기 전에</b> 와야 한다 — 실제로 밟았다]
+    /// </para>
+    ///
+    /// <para>
+    /// Blazor 는 이벤트 처리기가 <b>끝난 뒤에</b> 다시 그린다. 그래서 여기서 바로
+    /// 왕복을 기다리면 <b>칩 색이 그 왕복이 끝나야 바뀐다</b> — 눌렀는데 아무 일도
+    /// 안 일어나는 몇백 밀리초가 생기고, 그것이 「느리다」로 느껴지는 전부였다.
+    /// 값을 바꾸자마자 한 번 그려 두면 색은 즉시 바뀌고 결과만 나중에 온다.
+    /// </para>
+    /// </summary>
     private Task PickAsync(Action apply)
     {
         apply();
         Keep();
+        StateHasChanged();
         return RecalcAsync();
     }
 
@@ -410,6 +427,7 @@ public partial class TollDiscountPage
         if (Plaza(_fromPlaza) is { } from) _sectionType = from.SectionType;
 
         Keep();
+        StateHasChanged();
         return RecalcAsync();
     }
 
@@ -466,7 +484,10 @@ public partial class TollDiscountPage
 
             if (turn != _turn) return;
             _calc = calc;
-            await LoadFareAsync(turn, calc?.DiscountPercent ?? 0m);
+
+            // 통행료는 구간·차종이 바뀌었을 때만 간다. 안 바뀌었으면 왕복이 없다.
+            await LoadFareAsync();
+            if (turn != _turn) return;
 
             if (_targetDiscount is null)
             {
@@ -500,29 +521,55 @@ public partial class TollDiscountPage
     }
 
     /// <summary>
-    /// 구간을 골랐으면 통행료를 묻는다. <b>못 받아도 조용하다</b> —
-    /// 통행료가 없다고 할인율까지 못 보게 할 일이 아니다.
+    /// 통행료를 묻는다. <b>구간이나 차종이 바뀌었을 때만</b> 부른다.
+    ///
+    /// <para>
+    /// 요금은 시각·소요시간·목표와 아무 상관이 없다. 그런데 처음에는 셈할 때마다
+    /// 함께 불러서, 칩 하나 누를 때마다 왕복이 하나 더 붙었다(새 구간이면 0.6초).
+    /// 깎인 금액은 <b>정상요금 × 할인율</b>이라 화면에서 곱하면 그만이다 —
+    /// 할인율을 정하는 곳은 여전히 엔진 한 군데다.
+    /// </para>
+    ///
+    /// <para>
+    /// 못 받아도 조용하다. 통행료가 없다고 할인율까지 못 보게 할 일이 아니다.
+    /// </para>
     /// </summary>
-    private async Task LoadFareAsync(int turn, decimal discount)
+    private async Task LoadFareAsync()
     {
         if (_fromPlaza is null || _toPlaza is null)
         {
             _fare = null;
+            _fareKey = null;
             return;
         }
 
         var cls = _vehicles.FirstOrDefault(v =>
             v.VehicleId.ToString(CultureInfo.InvariantCulture) == _vehicleId)?.VehicleClass ?? "C4";
+        var key = $"{_fromPlaza}>{_toPlaza}:{cls}";
+        if (key == _fareKey) return;
 
+        _fareKey = key;
         try
         {
-            var fare = await Api.GetTollFareAsync(_fromPlaza, _toPlaza, cls, discount);
-            if (turn != _turn) return;
-            _fare = fare;
+            // 할인율은 0 으로 묻는다 — 깎인 값은 화면이 곱한다.
+            _fare = await Api.GetTollFareAsync(_fromPlaza, _toPlaza, cls, 0m);
         }
         catch (JSini.Web.Http.ApiException)
         {
-            if (turn == _turn) _fare = null;
+            _fare = null;
+            _fareKey = null;
+        }
+    }
+
+    /// <summary>지금 할인율로 깎은 통행료. 원 단위로 <b>내린다</b> — 올리면 실제보다 많이 깎인 것처럼 말한다.</summary>
+    private (int Normal, int Saved, int After)? FareNow
+    {
+        get
+        {
+            if (_fare?.NormalFare is not { } normal || normal <= 0) return null;
+            var discount = _calc?.DiscountPercent ?? 0m;
+            var saved = (int)Math.Floor(normal * discount / 100m);
+            return (normal, saved, normal - saved);
         }
     }
 

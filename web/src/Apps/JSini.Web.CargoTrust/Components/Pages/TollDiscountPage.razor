@@ -246,7 +246,7 @@
                 <span>@calc.EligibilityNote</span>
             </button>
 
-            @if (_fare is { HasFare: true } fare)
+            @if (_fare is { HasFare: true } fare && FareNow is { } money)
             {
                 <div class="ct-fare">
                     <div class="ct-fare-head">
@@ -254,10 +254,13 @@
                         <span class="ct-fare-dist">@fare.DistanceKm.ToString("0.#")km · 주행 @CargoCodes.Minutes(fare.DriveMinutes)</span>
                     </div>
                     <div class="ct-fare-money">
-                        <span class="ct-fare-before">@fare.NormalFare!.Value.ToString("#,0")원</span>
+                        <span class="ct-fare-before">@money.Normal.ToString("#,0")원</span>
                         <span class="ct-fare-arrow">→</span>
-                        <span class="ct-fare-after">@fare.DiscountedFare!.Value.ToString("#,0")원</span>
-                        <span class="ct-fare-saved">@fare.SavedFare!.Value.ToString("#,0")원 아낌</span>
+                        <span class="ct-fare-after">@money.After.ToString("#,0")원</span>
+                        @if (money.Saved > 0)
+                        {
+                            <span class="ct-fare-saved">@money.Saved.ToString("#,0")원 아낌</span>
+                        }
                     </div>
                     <div class="ct-fare-note">@fare.VehicleClassName 기준 · 실제 부과액은 도로공사가 정합니다</div>
                 </div>

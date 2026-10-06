@@ -2,6 +2,7 @@ using CargoTrustServer.Common;
 using CargoTrustServer.Data;
 using CargoTrustServer.Users;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 
 namespace CargoTrustServer.Toll;
 
@@ -15,7 +16,8 @@ namespace CargoTrustServer.Toll;
 /// 같은 계산을 두고 화면마다 다르게 말하면 그 자체가 틀린 정보가 된다.
 /// </para>
 /// </summary>
-public class TollService(CargoTrustDbContext db, TollRuleStore rules, TollFareClient fares, CurrentUser me)
+public class TollService(
+    CargoTrustDbContext db, TollRuleStore rules, TollFareClient fares, IMemoryCache cache, CurrentUser me)
 {
     /// <summary>추천이 기본으로 잡는 소요시간 범위 — 세 시간에서 열두 시간.</summary>
     public const int DefaultMinDuration = 180;
@@ -77,6 +79,9 @@ public class TollService(CargoTrustDbContext db, TollRuleStore rules, TollFareCl
             await db.SaveChangesAsync(ct);
         }
 
+        // 판정은 한 번만 짓는다 — 두 번 부르면 같은 셈을 두 번 한다.
+        var verdict = TollEligibility.Verdict(vehicle);
+
         return Results.Ok(new TollCalcResult(
             section.ToString(),
             set.Code,
@@ -96,8 +101,8 @@ public class TollService(CargoTrustDbContext db, TollRuleStore rules, TollFareCl
             WindowLabel(window),
             segments,
             [.. TollEligibility.For(vehicle)],
-            TollEligibility.Verdict(vehicle).Code,
-            TollEligibility.Verdict(vehicle).Note,
+            verdict.Code,
+            verdict.Note,
             CalcSummary(section, result, delayExit, delayEntry)));
     }
 
@@ -194,6 +199,8 @@ public class TollService(CargoTrustDbContext db, TollRuleStore rules, TollFareCl
             await db.SaveChangesAsync(ct);
         }
 
+        var suggestVerdict = TollEligibility.Verdict(vehicle);
+
         return Results.Ok(new TollSuggestResult(
             section.ToString(),
             set.Code,
@@ -210,8 +217,8 @@ public class TollService(CargoTrustDbContext db, TollRuleStore rules, TollFareCl
             min, max,
             WindowLabel(window),
             [.. TollEligibility.For(vehicle)],
-            TollEligibility.Verdict(vehicle).Code,
-            TollEligibility.Verdict(vehicle).Note,
+            suggestVerdict.Code,
+            suggestVerdict.Note,
             SuggestSummary(anchorIsEntry, mode, req.TargetDiscount, required.Value, min, options, best.BestRatio, bestBand)));
     }
 
@@ -396,6 +403,8 @@ public class TollService(CargoTrustDbContext db, TollRuleStore rules, TollFareCl
         var inside = NightDiscountEngine.IsInWindow(req.AnchorAt, window);
         var band = NightDiscountEngine.BandFor(set.OpenBands, inside ? 100m : 0m);
 
+        var openVerdict = TollEligibility.Verdict(vehicle);
+
         var option = new TollSuggestOption(
             from, to, from, 0, 0, from, from, 100m,
             NightDiscountEngine.BandFor(set.OpenBands, 100m).DiscountPercent);
@@ -408,13 +417,32 @@ public class TollService(CargoTrustDbContext db, TollRuleStore rules, TollFareCl
             inside ? 100m : 0m, band.DiscountPercent, 0, 0, 0,
             WindowLabel(window),
             [.. TollEligibility.For(vehicle)],
-            TollEligibility.Verdict(vehicle).Code,
-            TollEligibility.Verdict(vehicle).Note,
+            openVerdict.Code,
+            openVerdict.Note,
             $"개방식은 통과 시각 한 점으로 봅니다. {from:MM-dd HH:mm}~{to:MM-dd HH:mm} 사이에 지나면 됩니다.");
     }
 
-    private Task<Vehicle?> FindVehicleAsync(long? vehicleId, CancellationToken ct) =>
-        vehicleId is { } id
-            ? db.Vehicles.AsNoTracking().FirstOrDefaultAsync(v => v.VehicleId == id && v.UserId == me.UserId && !v.IsDeleted, ct)
-            : Task.FromResult<Vehicle?>(null);
+    /// <summary>
+    /// 고른 차량. <b>짧게 기억한다</b>.
+    ///
+    /// <para>
+    /// 이 화면은 칩을 누를 때마다 셈을 다시 한다. 그때마다 차량을 읽으면 DB 가
+    /// 원격이라(jin114) 누를 때마다 왕복이 하나씩 붙고, 그것이 체감 지연의 큰 쪽이었다.
+    /// 차를 고치려면 이 화면을 떠났다 와야 하므로 <b>30초면 길다</b> — 틀려도
+    /// 자격 목록이 잠깐 옛값일 뿐이고 할인율은 차량을 보지 않는다.
+    /// </para>
+    /// </summary>
+    private async Task<Vehicle?> FindVehicleAsync(long? vehicleId, CancellationToken ct)
+    {
+        if (vehicleId is not { } id) return null;
+
+        var key = $"toll-vehicle:{me.UserId}:{id}";
+        if (cache.TryGetValue<Vehicle>(key, out var cached)) return cached;
+
+        var vehicle = await db.Vehicles.AsNoTracking()
+            .FirstOrDefaultAsync(v => v.VehicleId == id && v.UserId == me.UserId && !v.IsDeleted, ct);
+
+        cache.Set(key, vehicle, TimeSpan.FromSeconds(30));
+        return vehicle;
+    }
 }
