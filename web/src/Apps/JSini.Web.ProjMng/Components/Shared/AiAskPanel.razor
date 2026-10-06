@@ -625,9 +625,9 @@
                        손짓은 **빠른 길**이지 유일한 길이 아니다. *@
                     <li @key="t.TaskKey"
                         class="pm-ask__item pm-ask__item--@t.StatusTone"
-                        data-task="@t.TaskKey" data-swipe="@(t.IsFinal ? "1" : null)">
+                        data-task="@t.TaskKey" data-swipe="@(t.IsFinal || t.IsDraft ? "1" : null)">
 
-                        @if (t.IsFinal)
+                        @if (t.IsFinal || t.IsDraft)
                         {
                             @* 카드 **왼쪽**에서 열리는 띠. 미는 만큼만 넓어지므로
                                (`--pm-ask-swipe`) 가만히 있을 때는 폭이 0 이라
