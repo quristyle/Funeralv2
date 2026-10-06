@@ -1,0 +1,54 @@
+@*
+    OS 가 그리는 고르개. 칸이 적은 자리에서 DxComboBox 를 대신한다.
+
+    [왜 맨 `select` 인가 — 휴대폰에서 고르개가 가장 불편한 부품이다]
+
+    DxComboBox 는 제가 그린 목록을 화면 위에 띄운다. 그 목록은 줄 높이가
+    32px 안팎이라 손가락 크기(44px)에 못 미치고, 길어지면 **바탕 화면이 같이
+    굴러서** 고르려던 줄이 손가락 밑에서 달아난다. 칸을 누르면 글자 입력으로
+    여겨 **자판까지 올라와** 목록 절반을 덮는 일도 잦다.
+
+    맨 `select` 는 안드로이드·iOS 가 제 바퀴(또는 전체화면 목록)를 띄운다 —
+    줄 높이도 굴림도 OS 가 정한 것이라 늘 손가락에 맞고, 자판이 올라오지 않는다.
+    같은 까닭으로 심야할인 화면의 시·분도 `select` 다(TollDiscountPage).
+
+    책상에서도 그대로 `select` 로 둔다. 폭에 따라 부품을 갈아 끼우면 같은 화면이
+    두 벌이 되어 한쪽만 고쳐지고, 고를 것이 예닐곱인 칸에서 맨 `select` 가
+    모자랄 일도 없다.
+
+    [목록에 없는 말은 「직접 입력」으로 적는다]
+
+    운송 유형처럼 자유 입력이던 칸을 `select` 로 바꾸면 「탑차」·「윙바디」처럼
+    현장에서 쓰는 말을 적을 곳이 없어진다. 그래서 <see cref="AllowUserInput"/>
+    이면 맨 끝에 「직접 입력」 줄을 두고, 그것을 고를 때에만 글자 칸이 열린다.
+    밖에서 들어온 값이 목록에 없으면(이미 저장된 거래를 고쳐 여는 길) 처음부터
+    그 칸이 열린 채로 뜬다 — 안 그러면 **적어 둔 말이 조용히 사라진다.**
+*@
+
+<div class="ct-select">
+    <select class="ct-input ct-input--select"
+            aria-label="@Label"
+            disabled="@Disabled"
+            @bind:get="SelectedKey"
+            @bind:set="PickAsync">
+        @foreach (var item in Items)
+        {
+            <option value="@(item.Value ?? string.Empty)">@item.Text</option>
+        }
+        @if (AllowUserInput)
+        {
+            <option value="@CustomKey">@CustomOptionText</option>
+        }
+    </select>
+
+    @if (_custom)
+    {
+        @* 맨 `input` 이다 — 바로 위 `select` 와 테두리·높이를 맞추려면 같은
+           옷(`ct-input`)을 입는 쪽이 확실하다. *@
+        <input type="text" class="ct-input ct-input--free"
+               aria-label="@FreeLabel"
+               placeholder="@CustomPlaceholder"
+               value="@Value"
+               @oninput="TypeAsync" />
+    }
+</div>

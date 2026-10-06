@@ -265,6 +265,18 @@ public static class CargoCodes
     public static readonly IReadOnlyList<string> TransportTypes =
         ["일반", "냉장/냉동", "컨테이너", "중량물", "이사", "기타"];
 
+    /// <summary>
+    /// 운송 유형 고르개(<c>NativeSelect</c>). 맨 줄은 「고르지 않음」이다 —
+    /// 이 칸은 비워 둔 채로도 거래가 등록된다(<c>TransactionSaveRequest</c>).
+    ///
+    /// <para>
+    /// 「전체」가 아니라 「고르지 않음」인 까닭은 **조회 조건이 아니라 입력 칸**
+    /// 이어서다. 적는 자리에서 「전체」는 모든 유형이라는 뜻으로 읽힌다.
+    /// </para>
+    /// </summary>
+    public static readonly IReadOnlyList<SchOption> TransportTypeOptions =
+        [new(null, "고르지 않음"), .. TransportTypes.Select(t => new SchOption(t, t))];
+
     // ── 톨게이트 심야할인 ────────────────────────────────────
 
     public const string Closed = "CLOSED";

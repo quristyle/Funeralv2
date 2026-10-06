@@ -400,8 +400,30 @@ a.ct-card:focus-visible {
   background: color-mix(in srgb, var(--jsini-text) 6%, transparent);
 }
 
+/* 폼을 보내는 단추 줄. `jsini-actions` 를 쓰지 않으므로 배치도 여기서 쥔다
+   (까닭은 TransactionNewPage 의 그 자리 주석 — 표의 「관리」 칸용 여백이
+   보내기 단추까지 따라와 높이를 30px 로 눌렀다). */
 .ct-form-actions {
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--jsini-sp-sm);
+  align-items: center;
+}
+
+/* 손가락 크기(44px)를 양쪽 폭에서 지킨다 — 칩과 같은 기준이다.
+   여백은 건드리지 않는다. Tabler 의 기본값(40px)이면 네 칸만 모자라고,
+   그 값은 **tabler.css 가 우리보다 뒤에 실려** 어차피 여기서 못 덮는다
+   (JSiniHead 의 「맨 마지막에 싣는다」). 모자란 높이만 여기서 채운다. */
+.ct-form-actions > .dxbl-btn {
+  min-height: 44px;
+}
+
+@media (max-width: 767px) {
+  /* 「등록」은 이 화면의 목적이라 남는 폭을 다 가진다. 「다시 쓰기」는 제
+     글자만큼만 — 둘을 같은 크기로 두면 적은 것을 지우는 단추를 잘못 누른다. */
+  .ct-form-actions__go {
+    flex: 1 1 auto;
+  }
 }
 
 .ct-popup-lead {
@@ -666,6 +688,30 @@ a.ct-card:focus-visible {
   color-scheme: light dark;
   font-size: inherit;
   font-family: inherit;
+}
+
+/* ── 맨 고르개(NativeSelect) ──────────────────────────────── */
+
+/* 고르개 한 칸. 「직접 입력」을 고르면 글자 칸이 아래에 붙는다. */
+.ct-select {
+  display: flex;
+  flex-direction: column;
+  gap: var(--jsini-sp-xs);
+}
+
+/* 폼 칸 안에서는 줄 폭을 다 쓴다 — `ct-input` 의 `flex: 1 1 10rem` 은
+   시·분처럼 가로로 늘어선 자리의 값이라 여기서는 듣지 않는다. */
+.ct-input--select,
+.ct-input--free {
+  flex: none;
+  width: 100%;
+  min-width: 0;
+}
+
+/* OS 가 그리는 화살표 자리를 비워 둔다. 기본 여백으로 두면 긴 유형 이름이
+   화살표 밑으로 들어간다. */
+.ct-input--select {
+  padding-right: 2rem;
 }
 
 /* ── 칩(라디오) ───────────────────────────────────────────── */

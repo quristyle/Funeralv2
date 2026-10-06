@@ -34,10 +34,13 @@
     </DxFormLayoutItem>
 
     @* 운송 유형은 자유 입력이다(계약의 권장값만 목록에 둔다). 목록에 없는 값을
-       막으면 「탑차」「윙바디」처럼 현장에서 쓰는 말을 적을 곳이 없다. *@
+       막으면 「탑차」「윙바디」처럼 현장에서 쓰는 말을 적을 곳이 없다 —
+       그래서 고르개에 「직접 입력」 줄을 둔다(NativeSelect 머리말). *@
     <DxFormLayoutItem Caption="운송 유형" ColSpanMd="6">
-        <DxComboBox TData="string" TValue="string" Data="@CargoCodes.TransportTypes" @bind-Text="Draft.TransportType" AllowUserInput="true"
-                    ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        <NativeSelect Items="@CargoCodes.TransportTypeOptions" Label="운송 유형"
+                      AllowUserInput="true" CustomPlaceholder="탑차 · 윙바디 …"
+                      Value="@Draft.TransportType"
+                      ValueChanged="@(v => Draft.TransportType = v)" />
     </DxFormLayoutItem>
     <DxFormLayoutItem Caption="배차 경로" ColSpanMd="6">
         <DxTextBox @bind-Text="Draft.DispatchChannel" />
