@@ -139,8 +139,17 @@
                        ValueChanged="@(v => PickAsync(() => _sectionType = v ?? CargoCodes.Closed))" />
         </div>
 
+        @if (IsClosed)
+        {
+            <div class="ct-field-row">
+                <label class="ct-label">기준</label>
+                <ChipGroup Items="@AnchorChips" Value="@_anchor" Label="시각 기준"
+                           ValueChanged="@(v => PickAsync(() => _anchor = v ?? EntryAnchor))" />
+            </div>
+        }
+
         <div class="ct-field-row">
-            <label class="ct-label" for="ct-entry-date">@(IsClosed ? "진입" : "통과")</label>
+            <label class="ct-label" for="ct-entry-date">@AtLabel</label>
             @* OS 의 달력·시계를 그대로 쓴다 — 휴대폰에서 가장 익숙한 바퀴가 올라온다. *@
             <div class="ct-when">
                 @* 날짜는 앞뒤 화살표로 하루씩 옮긴다 — 어제 새벽에 진입한 운행을
@@ -149,7 +158,7 @@
                     <button type="button" class="ct-step" @onclick="@(() => ShiftDayAsync(-1))"
                             aria-label="전날" title="전날">‹</button>
                     <input id="ct-entry-date" type="date" class="ct-input ct-input--date"
-                           @bind="_entryDate" @bind:after="RecalcAsync" />
+                           @bind="_atDate" @bind:after="RecalcAsync" />
                     <button type="button" class="ct-step" @onclick="@(() => ShiftDayAsync(1))"
                             aria-label="다음날" title="다음날">›</button>
                 </div>
@@ -160,14 +169,14 @@
                    OS 바퀴를 그대로 띄우므로 쓰는 느낌도 같다. *@
                 <div class="ct-hm">
                     <select class="ct-input ct-input--hm" aria-label="시"
-                            @bind="_entryHour" @bind:after="RecalcAsync">
+                            @bind="_atHour" @bind:after="RecalcAsync">
                         @foreach (var h in HourOptions)
                         {
                             <option value="@h">@h.ToString("00")시</option>
                         }
                     </select>
                     <select class="ct-input ct-input--hm" aria-label="분"
-                            @bind="_entryMinute" @bind:after="RecalcAsync">
+                            @bind="_atMinute" @bind:after="RecalcAsync">
                         @foreach (var m in MinuteOptions)
                         {
                             <option value="@m">@m.ToString("00")분</option>
@@ -202,7 +211,7 @@
                 <span class="ct-toll-sub">
                     @if (IsClosed)
                     {
-                        <text>@CargoCodes.Kst(calc.EntryAtKst) → @CargoCodes.Kst(calc.ExitAtKst)</text>
+                        <text>진입 @CargoCodes.Kst(calc.EntryAtKst) → 출차 @CargoCodes.Kst(calc.ExitAtKst)</text>
                     }
                     else
                     {
@@ -253,7 +262,7 @@
                     {
                         <li class="ct-toll-option">
                             <div class="ct-toll-option-head">
-                                <strong>@CargoCodes.Kst(option.BestKst) 진출</strong>
+                                <strong>@CargoCodes.Kst(option.BestKst) @OtherSideLabel</strong>
                                 <span class="@CargoCodes.DiscountBadge(option.DiscountPercent)">@option.DiscountPercent.ToString("0.#")%</span>
                             </div>
                             <div class="ct-toll-option-body">

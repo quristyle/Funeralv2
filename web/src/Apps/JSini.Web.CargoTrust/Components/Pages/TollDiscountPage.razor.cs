@@ -17,10 +17,29 @@ public partial class TollDiscountPage
     private IReadOnlyList<VehicleInfo> _vehicles = [];
 
     private string _sectionType = CargoCodes.Closed;
+
+    /// <summary>
+    /// 고른 시각이 <b>진입</b>인가 <b>출차</b>인가.
+    ///
+    /// <para>
+    /// 기사가 아는 쪽이 둘 중 하나다 — 「지금 올라탄다」일 때도 있고
+    /// 「몇 시까지 대야 한다」일 때도 있다. 뒤엣것을 진입으로만 받으면
+    /// 사람이 머릿속에서 소요시간을 빼서 넣어야 하고, 그 뺄셈이 틀리면
+    /// <b>할인율이 조용히 틀린다</b>.
+    /// </para>
+    ///
+    /// <para>
+    /// 개방식에는 이 가름이 없다 — 통과 시각 한 점이라 들고 나는 것이 같은 일이다.
+    /// </para>
+    /// </summary>
+    private string _anchor = EntryAnchor;
+
+    private const string EntryAnchor = "ENTRY";
+    private const string ExitAnchor = "EXIT";
     private string? _vehicleId;
 
-    /// <summary>진입 날짜. 열자마자 오늘(한국 달력)이다.</summary>
-    private DateTime _entryDate = AppTime.TodayDate;
+    /// <summary>고른 날짜. 열자마자 오늘(한국 달력)이다.</summary>
+    private DateTime _atDate = AppTime.TodayDate;
 
     /// <summary>
     /// 진입 시각 — 시와 분을 따로 고른다. 열자마자 지금(한국 시각)이다.
@@ -32,17 +51,17 @@ public partial class TollDiscountPage
     /// 다른 수를 보게 된다.
     /// </para>
     /// </summary>
-    private int _entryHour = AppTime.ToKorea(AppTime.UtcNow).Hour;
+    private int _atHour = AppTime.ToKorea(AppTime.UtcNow).Hour;
 
     /// <summary>
-    /// 진입 분. 고르개가 10분 단위라 <b>지금을 10분으로 내린 값</b>으로 연다.
+    /// 고른 분. 고르개가 10분 단위라 <b>지금을 10분으로 내린 값</b>으로 연다.
     ///
     /// <para>
-    /// 올리지 않고 내리는 까닭: 진입은 이미 지났거나 지금인 일이라,
+    /// 올리지 않고 내리는 까닭: 고르는 시각이 대개 이미 지났거나 지금인 일이라,
     /// 올리면 아직 오지 않은 시각이 기본값이 된다.
     /// </para>
     /// </summary>
-    private int _entryMinute = AppTime.ToKorea(AppTime.UtcNow).Minute / 10 * 10;
+    private int _atMinute = AppTime.ToKorea(AppTime.UtcNow).Minute / 10 * 10;
 
     /// <summary>소요시간(분). 칩 값이라 문자열이다.</summary>
     private string _duration = "300";
@@ -63,6 +82,20 @@ public partial class TollDiscountPage
     private bool _helpOpen;
 
     private bool IsClosed => _sectionType == CargoCodes.Closed;
+
+    private bool AnchorIsEntry => _anchor != ExitAnchor;
+
+    /// <summary>시각 칸의 이름. 개방식은 들고 나는 것이 같아 「통과」다.</summary>
+    private string AtLabel => IsClosed ? (AnchorIsEntry ? "진입" : "출차") : "통과";
+
+    /// <summary>추천이 알려 주는 쪽 — 고른 쪽의 반대다.</summary>
+    private string OtherSideLabel => AnchorIsEntry ? "출차" : "진입";
+
+    private static readonly IReadOnlyList<SchOption> AnchorChips =
+    [
+        new(EntryAnchor, "진입 시각"),
+        new(ExitAnchor, "출차 시각"),
+    ];
 
     private string HelpButtonClass => _helpOpen ? "ct-help-btn ct-help-btn--on" : "ct-help-btn";
 
@@ -93,7 +126,7 @@ public partial class TollDiscountPage
     /// 이 화면을 여는 까닭이 거의 「지금 올라탄다」라서, 어제 적어 둔 시각이
     /// 되살아나면 사람이 그것을 못 보고 어제 기준으로 셈한 할인율을 읽는다.
     /// </summary>
-    private sealed record Kept(string SectionType, string? VehicleId, string Duration, string? Target, bool HelpOpen);
+    private sealed record Kept(string SectionType, string Anchor, string? VehicleId, string Duration, string? Target, bool HelpOpen);
 
     /// <summary>
     /// 추천의 소요시간 상한. 고른 값에서 여섯 시간까지 더 끌 수 있다고 본다.
@@ -194,6 +227,7 @@ public partial class TollDiscountPage
         if (Screen.Get<Kept>(StateKey) is { } kept)
         {
             _sectionType = kept.SectionType;
+            _anchor = kept.Anchor;
             _duration = kept.Duration;
             _targetDiscount = kept.Target;
             _helpOpen = kept.HelpOpen;
@@ -220,7 +254,7 @@ public partial class TollDiscountPage
     /// <summary>날짜를 하루씩 옮긴다. 달력을 열지 않고 어제·내일로 간다.</summary>
     private Task ShiftDayAsync(int days)
     {
-        _entryDate = _entryDate.AddDays(days);
+        _atDate = _atDate.AddDays(days);
         return RecalcAsync();
     }
 
@@ -235,7 +269,7 @@ public partial class TollDiscountPage
     /// 탭을 닫거나 창을 새로 여는 길에서 그 호출이 안 온다.
     /// </summary>
     private void Keep() =>
-        Screen.Set(StateKey, new Kept(_sectionType, _vehicleId, _duration, _targetDiscount, _helpOpen));
+        Screen.Set(StateKey, new Kept(_sectionType, _anchor, _vehicleId, _duration, _targetDiscount, _helpOpen));
 
     // ── 셈 ───────────────────────────────────────────────────
 
@@ -250,8 +284,12 @@ public partial class TollDiscountPage
     private async Task RecalcAsync()
     {
         var turn = ++_turn;
-        var entry = Wall(_entryDate.Date.AddHours(_entryHour).AddMinutes(_entryMinute));
+        var picked = Wall(_atDate.Date.AddHours(_atHour).AddMinutes(_atMinute));
         var minutes = int.TryParse(_duration, out var m) ? m : 300;
+
+        // 고른 쪽이 어디든 **엔진에는 진입·진출 한 쌍으로 넘긴다** —
+        // 기준을 셈 안까지 끌고 들어가면 같은 식이 두 벌이 된다.
+        var entry = IsClosed && !AnchorIsEntry ? picked.AddMinutes(-minutes) : picked;
 
         try
         {
@@ -277,8 +315,9 @@ public partial class TollDiscountPage
             var suggest = await Api.SuggestTollTimeAsync(new TollSuggestRequest
             {
                 SectionType = _sectionType,
-                Anchor = "ENTRY",
-                AnchorAt = entry,
+                // 추천은 **고른 쪽을 붙박고** 반대쪽을 찾는다 — 서버가 양쪽을 받는다.
+                Anchor = AnchorIsEntry ? EntryAnchor : ExitAnchor,
+                AnchorAt = picked,
                 TargetDiscount = decimal.Parse(_targetDiscount, CultureInfo.InvariantCulture),
                 MinDurationMinutes = minutes,
                 MaxDurationMinutes = minutes + SlackMinutes,
