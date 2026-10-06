@@ -70,6 +70,15 @@ builder.Services.AddMemoryCache();
 builder.Services.AddScoped<TollRuleStore>();
 builder.Services.AddScoped<TollService>();
 // 영업소를 바깥에서 받아 우리 표에 보관한다. 인증키가 없으면 로그만 남기고 쉰다.
+// 구간 통행료. 영업소와 같은 포털·같은 키이고, 쌍이 35만이라 보관하지 않고 그때그때 묻는다.
+builder.Services.AddHttpClient<TollFareClient>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(20);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd(
+        "Mozilla/5.0 (compatible; JSiniCargoTrust/1.0; +https://portal.jsini.co.kr)");
+    client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+});
+
 builder.Services.AddHttpClient<TollPlazaSyncService>(client =>
 {
     // 공공데이터가 느릴 때 관리자 화면이 통째로 매달리지 않게 상한을 둔다.

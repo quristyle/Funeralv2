@@ -1134,3 +1134,68 @@ a.ct-card:focus-visible {
 
 .ct-verdict--no { border-left-color: var(--jsini-danger); }
 .ct-verdict--no .ct-verdict-mark { background: var(--jsini-danger); color: #fff; }
+
+/* ── 구간 통행료 ──────────────────────────────────────────── */
+
+.ct-plaza {
+  flex: 1 1 10rem;
+  min-width: 0;
+}
+
+/* 할인율 아래 한 칸. 「얼마에서 얼마로」가 한 줄에 보여야 한다 —
+   비율만 보면 그 운행에서 실제로 얼마가 남는지 셈이 또 필요하다. */
+.ct-fare {
+  margin-top: var(--jsini-sp-sm);
+  padding: var(--jsini-sp-md);
+  border: 1px solid var(--jsini-border);
+  border-radius: var(--jsini-radius-md);
+  background: var(--jsini-surface-2);
+}
+
+.ct-fare-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--jsini-sp-xs) var(--jsini-sp-md);
+  font-size: var(--jsini-fs-sm);
+}
+
+.ct-fare-route { font-weight: 600; }
+.ct-fare-dist { color: var(--jsini-text-dim); }
+
+.ct-fare-money {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--jsini-sp-sm);
+  margin-top: var(--jsini-sp-xs);
+}
+
+/* 깎이기 전 값은 **지우지 않고 줄만 긋는다** — 지우면 얼마에서 깎였는지가 사라진다. */
+.ct-fare-before {
+  color: var(--jsini-text-dim);
+  text-decoration: line-through;
+}
+
+.ct-fare-arrow { color: var(--jsini-text-dim); }
+
+.ct-fare-after {
+  font-size: var(--jsini-fs-xl);
+  font-weight: 700;
+  color: var(--jsini-accent);
+}
+
+.ct-fare-saved {
+  padding: 2px var(--jsini-sp-sm);
+  border-radius: 999px;
+  background: var(--jsini-success);
+  color: #fff;
+  font-size: var(--jsini-fs-xs);
+  font-weight: 600;
+}
+
+.ct-fare-note {
+  margin-top: var(--jsini-sp-xs);
+  font-size: var(--jsini-fs-xs);
+  color: var(--jsini-text-dim);
+}

@@ -26,6 +26,7 @@ public static class TollEndpoints
         toll.MapGet("/plazas", Plazas).WithSummary("영업소 검색 — 구간 유형(개방식/폐쇄식)이 함께 온다");
         toll.MapPost("/discount/calc", Calc).WithSummary("① 진입·진출 시각 → 심야할인율");
         toll.MapPost("/discount/suggest", Suggest).WithSummary("② 한쪽 시각 + 목표 할인율 → 나머지 시각 추천");
+        toll.MapGet("/fare", Fare).WithSummary("구간 통행료 — 차종별 요금 · 거리 · 주행시간");
         toll.MapGet("/history", History).WithSummary("내 계산 이력");
     }
 
@@ -37,6 +38,14 @@ public static class TollEndpoints
 
     private static async Task<IResult> Suggest(TollService toll, TollSuggestRequest req, CancellationToken ct) =>
         await toll.SuggestAsync(req, ct);
+
+    /// <summary>
+    /// 구간 통행료. <paramref name="discount"/> 를 주면 그 비율을 먹인 값도 함께 낸다 —
+    /// 화면이 「18,600원 → 9,300원」을 한 번에 그리게.
+    /// </summary>
+    private static async Task<IResult> Fare(
+        TollService toll, string? from, string? to, string? vehicleClass, decimal? discount, CancellationToken ct) =>
+        await toll.FareAsync(from, to, vehicleClass, discount ?? 0m, ct);
 
     private static async Task<IResult> History(TollService toll, int? limit, CancellationToken ct) =>
         Results.Ok(await toll.HistoryAsync(limit ?? 30, ct));

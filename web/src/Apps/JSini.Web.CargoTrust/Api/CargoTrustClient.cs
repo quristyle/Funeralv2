@@ -244,6 +244,17 @@ public sealed class CargoTrustClient(GatewayClient gateway)
     public Task<TollSuggestResultInfo?> SuggestTollTimeAsync(TollSuggestRequest request, CancellationToken ct = default)
         => gateway.PostAsync<TollSuggestResultInfo>($"{Prefix}/toll/discount/suggest", request, ct);
 
+    /// <summary>
+    /// 구간 통행료. 못 받아도 <b>빈 값이 온다</b> — 통행료가 없다고 할인율 계산까지
+    /// 막지 않는다.
+    /// </summary>
+    public Task<TollFareInfo?> GetTollFareAsync(
+        string fromCode, string toCode, string vehicleClass, decimal discount, CancellationToken ct = default)
+        => gateway.GetOneAsync<TollFareInfo>(
+            $"{Prefix}/toll/fare?from={Uri.EscapeDataString(fromCode)}&to={Uri.EscapeDataString(toCode)}"
+            + $"&vehicleClass={Uri.EscapeDataString(vehicleClass)}"
+            + $"&discount={discount.ToString(CultureInfo.InvariantCulture)}", ct);
+
     public Task<IReadOnlyList<TollCalcHistoryInfo>> GetTollHistoryAsync(int limit = 30, CancellationToken ct = default)
         => gateway.GetListAsync<TollCalcHistoryInfo>($"{Prefix}/toll/history?limit={limit}", ct);
 

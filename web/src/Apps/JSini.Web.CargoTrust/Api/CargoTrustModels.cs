@@ -742,3 +742,33 @@ public sealed class TollSuggestRequest
     public long? VehicleId { get; set; }
     public bool Save { get; set; }
 }
+
+/// <summary>
+/// 구간 하나의 통행료.
+///
+/// <para>
+/// <c>NormalFare</c> 는 고른 차종의 정상요금, <c>DiscountedFare</c> 는 거기에 심야할인율을
+/// 먹인 값이다. 할인액을 바깥에서 받아 오지 않는다 — 비율로 할인율을 정하는 곳은 한 군데다.
+/// </para>
+/// </summary>
+public sealed class TollFareInfo
+{
+    public string FromCode { get; set; } = string.Empty;
+    public string FromName { get; set; } = string.Empty;
+    public string ToCode { get; set; } = string.Empty;
+    public string ToName { get; set; } = string.Empty;
+    public decimal DistanceKm { get; set; }
+
+    /// <summary>도로공사가 보는 주행시간. 소요시간 칩의 바닥값으로 쓴다.</summary>
+    public int DriveMinutes { get; set; }
+
+    public string VehicleClass { get; set; } = "C4";
+    public string VehicleClassName { get; set; } = string.Empty;
+    public int? NormalFare { get; set; }
+    public int? DiscountedFare { get; set; }
+    public int? SavedFare { get; set; }
+    public decimal DiscountPercent { get; set; }
+    public string Summary { get; set; } = string.Empty;
+
+    public bool HasFare => NormalFare is > 0;
+}

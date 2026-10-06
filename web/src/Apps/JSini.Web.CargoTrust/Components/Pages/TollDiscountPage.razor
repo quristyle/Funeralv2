@@ -139,6 +139,24 @@
                        ValueChanged="@(v => PickAsync(() => _sectionType = v ?? CargoCodes.Closed))" />
         </div>
 
+        @* 구간은 **선택이다.** 안 골라도 할인율은 나온다 — 구간이 더해 주는 것은
+           통행료와 「실제로 몇 분 걸리나」이지 할인율이 아니다. *@
+        <div class="ct-field-row">
+            <label class="ct-label">구간 (선택)</label>
+            <div class="ct-when">
+                <DxComboBox Data="@_plazas" Value="@_fromPlaza" ValueChanged="@OnFromPlazaAsync"
+                            TData="TollPlazaInfo" TValue="string" NullText="출발 영업소"
+                            TextFieldName="@nameof(TollPlazaInfo.UnitName)" ValueFieldName="@nameof(TollPlazaInfo.UnitCode)"
+                            SearchMode="ListSearchMode.AutoSearch" SearchFilterCondition="ListSearchFilterCondition.Contains"
+                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" CssClass="ct-plaza" />
+                <DxComboBox Data="@_plazas" Value="@_toPlaza" ValueChanged="@OnToPlazaAsync"
+                            TData="TollPlazaInfo" TValue="string" NullText="도착 영업소"
+                            TextFieldName="@nameof(TollPlazaInfo.UnitName)" ValueFieldName="@nameof(TollPlazaInfo.UnitCode)"
+                            SearchMode="ListSearchMode.AutoSearch" SearchFilterCondition="ListSearchFilterCondition.Contains"
+                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" CssClass="ct-plaza" />
+            </div>
+        </div>
+
         @if (IsClosed)
         {
             <div class="ct-field-row">
@@ -190,7 +208,7 @@
         {
             <div class="ct-field-row">
                 <label class="ct-label">소요시간</label>
-                <ChipGroup Items="@DurationChips" Value="@_duration" Label="소요시간"
+                <ChipGroup Items="@DurationOptions" Value="@_duration" Label="소요시간"
                            ValueChanged="@(v => PickAsync(() => _duration = v ?? "300"))" />
             </div>
         }
@@ -227,6 +245,23 @@
                 <span class="ct-verdict-mark">@VerdictMark(calc.EligibilityVerdict)</span>
                 <span>@calc.EligibilityNote</span>
             </button>
+
+            @if (_fare is { HasFare: true } fare)
+            {
+                <div class="ct-fare">
+                    <div class="ct-fare-head">
+                        <span class="ct-fare-route">@fare.FromName → @fare.ToName</span>
+                        <span class="ct-fare-dist">@fare.DistanceKm.ToString("0.#")km · 주행 @CargoCodes.Minutes(fare.DriveMinutes)</span>
+                    </div>
+                    <div class="ct-fare-money">
+                        <span class="ct-fare-before">@fare.NormalFare!.Value.ToString("#,0")원</span>
+                        <span class="ct-fare-arrow">→</span>
+                        <span class="ct-fare-after">@fare.DiscountedFare!.Value.ToString("#,0")원</span>
+                        <span class="ct-fare-saved">@fare.SavedFare!.Value.ToString("#,0")원 아낌</span>
+                    </div>
+                    <div class="ct-fare-note">@fare.VehicleClassName 기준 · 실제 부과액은 도로공사가 정합니다</div>
+                </div>
+            }
 
             @if (IsClosed && calc.ExitAtKst is not null)
             {

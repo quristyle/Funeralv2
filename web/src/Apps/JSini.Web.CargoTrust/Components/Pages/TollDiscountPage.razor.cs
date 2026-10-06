@@ -70,6 +70,17 @@ public partial class TollDiscountPage
     /// <summary>목표 할인율. <c>null</c> 이면 추천을 안 한다.</summary>
     private string? _targetDiscount;
 
+    private IReadOnlyList<TollPlazaInfo> _plazas = [];
+    private string? _fromPlaza;
+    private string? _toPlaza;
+    private TollFareInfo? _fare;
+
+    /// <summary>규칙·차량·영업소를 다 받았나. 되찾기가 이것을 기다린다.</summary>
+    private bool _loaded;
+
+    /// <summary>되찾기는 한 번만.</summary>
+    private bool _restored;
+
     private TollCalcResultInfo? _calc;
     private TollSuggestResultInfo? _suggest;
 
@@ -144,7 +155,9 @@ public partial class TollDiscountPage
     /// 성질이라(기기에 붙는 값) <c>localStorage</c> 로 옮겼다.
     /// </para>
     /// </summary>
-    private sealed record Kept(string SectionType, string Anchor, string? VehicleId, string Duration, string? Target, bool HelpOpen);
+    private sealed record Kept(
+        string SectionType, string Anchor, string? VehicleId, string Duration, string? Target, bool HelpOpen,
+        string? FromPlaza = null, string? ToPlaza = null);
 
     /// <summary>
     /// 추천의 소요시간 상한. 고른 값에서 여섯 시간까지 더 끌 수 있다고 본다.
@@ -211,6 +224,25 @@ public partial class TollDiscountPage
     /// </summary>
     private static readonly IReadOnlyList<int> MinuteOptions = [0, 10, 20, 30, 40, 50];
 
+    /// <summary>
+    /// 소요시간 칩. 구간을 골랐으면 <b>그 구간의 주행시간</b>을 한 줄로 더한다 —
+    /// 「3시간 51분」처럼 눈금에 없는 값이라 더하지 않으면 고를 수가 없다.
+    /// </summary>
+    private IReadOnlyList<SchOption> DurationOptions
+    {
+        get
+        {
+            if (_fare is not { DriveMinutes: > 0 } fare) return DurationChips;
+
+            var value = fare.DriveMinutes.ToString(CultureInfo.InvariantCulture);
+            if (DurationChips.Any(c => c.Value == value)) return DurationChips;
+
+            var list = DurationChips.ToList();
+            list.Insert(0, new SchOption(value, $"주행 {CargoCodes.Minutes(fare.DriveMinutes)}"));
+            return list;
+        }
+    }
+
     private IReadOnlyList<SchOption> VehicleChips =>
         [.. _vehicles.Select(v => new SchOption(
             v.VehicleId.ToString(CultureInfo.InvariantCulture), v.Display))];
@@ -233,10 +265,13 @@ public partial class TollDiscountPage
             // 차량 쪽 실패로 화면을 막지 않는다.
             _rules = await Api.GetTollRulesAsync();
             _vehicles = await Api.GetMyVehiclesAsync();
+            // 영업소는 477건이라 한 번에 받아 고르개에 담는다. 글자로 걸러 고른다.
+            _plazas = await Api.SearchPlazasAsync(null);
 
             // 한 대면 고르게 하지 않지만, 셈에는 그 차를 쓴다.
             _vehicleId = (_vehicles.FirstOrDefault(v => v.IsDefault) ?? _vehicles.FirstOrDefault())
                 ?.VehicleId.ToString(CultureInfo.InvariantCulture);
+            _loaded = true;
             return 1;
         }, failMessage: "할인 규칙을 읽지 못했습니다");
     }
@@ -248,10 +283,27 @@ public partial class TollDiscountPage
     /// <b>여기여야 한다.</b> 브라우저 저장소는 회로가 붙은 뒤에만 읽을 수 있어서
     /// (프리렌더 중에는 JS 를 못 부른다) <c>OnInitialized</c> 에서는 꺼낼 수가 없다.
     /// </para>
+    ///
+    /// <para>
+    /// [<c>firstRender</c> 를 기다리면 안 된다 — 실제로 밟았다]
+    /// </para>
+    ///
+    /// <para>
+    /// Blazor 는 <c>OnInitializedAsync</c> 가 <b>첫 <c>await</c> 에 닿는 순간</b>
+    /// 한 번 그리고, 그 그림에 대해 <c>firstRender</c> 가 참으로 들어온다.
+    /// 그때는 차량 목록이 아직 비어 있어서 「그때 고른 차가 지금도 있나」가
+    /// 언제나 거짓이 된다 — <b>구간·소요시간·목표는 되찾아지는데 차량만 조용히
+    /// 기본값으로 떨어졌다.</b> 한 칸만 안 돌아오니 저장이 되는 줄 알고 넘어간다.
+    /// </para>
+    ///
+    /// <para>
+    /// 그래서 기다리는 것은 그림의 차례가 아니라 <b>자료가 다 왔는가</b>(<c>_loaded</c>)다.
+    /// </para>
     /// </summary>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender) return;
+        if (_restored || !_loaded) return;
+        _restored = true;
 
         try
         {
@@ -264,6 +316,8 @@ public partial class TollDiscountPage
                 _duration = kept.Duration;
                 _targetDiscount = kept.Target;
                 _helpOpen = kept.HelpOpen;
+                _fromPlaza = kept.FromPlaza;
+                _toPlaza = kept.ToPlaza;
 
                 // 그때 고른 차가 **지금도 있을 때만** 되찾는다 — 지운 차의 번호가
                 // 되살아나면 서버가 못 찾아 차량 없이 셈한 결과가 나온다.
@@ -300,6 +354,34 @@ public partial class TollDiscountPage
         return RecalcAsync();
     }
 
+    /// <summary>
+    /// 구간을 고르면 <b>그 구간이 아는 것</b>을 따라 채운다 — 구간 유형과 주행시간.
+    ///
+    /// <para>
+    /// 주행시간은 소요시간 칩에 한 줄로 더해 두고 그것을 고른다. 칩을 치워 버리지
+    /// 않는 까닭은 이 화면의 요점이 <b>「더 끌면 어떻게 되나」</b>이기 때문이다 —
+    /// 휴게소에서 쉬는 시간을 사람이 더해 볼 수 있어야 한다.
+    /// </para>
+    /// </summary>
+    private Task OnFromPlazaAsync(string? code) => PickPlazaAsync(() => _fromPlaza = code);
+
+    private Task OnToPlazaAsync(string? code) => PickPlazaAsync(() => _toPlaza = code);
+
+    private Task PickPlazaAsync(Action apply)
+    {
+        apply();
+
+        // 구간 유형은 **진입 영업소**가 정한다. 개방식은 들고 나는 것이 같은 일이라
+        // 출발 쪽 하나로 족하고, 섞이면 둘 중 무엇을 따를지가 생긴다.
+        if (Plaza(_fromPlaza) is { } from) _sectionType = from.SectionType;
+
+        Keep();
+        return RecalcAsync();
+    }
+
+    private TollPlazaInfo? Plaza(string? code) =>
+        code is null ? null : _plazas.FirstOrDefault(p => p.UnitCode == code);
+
     private void ToggleHelp()
     {
         _helpOpen = !_helpOpen;
@@ -313,7 +395,8 @@ public partial class TollDiscountPage
     private void Keep() =>
         _ = JS.InvokeVoidAsync("localStorage.setItem", StateKey,
             JsonSerializer.Serialize(new Kept(
-                _sectionType, _anchor, _vehicleId, _duration, _targetDiscount, _helpOpen)));
+                _sectionType, _anchor, _vehicleId, _duration, _targetDiscount, _helpOpen,
+                _fromPlaza, _toPlaza)));
 
     // ── 셈 ───────────────────────────────────────────────────
 
@@ -349,6 +432,7 @@ public partial class TollDiscountPage
 
             if (turn != _turn) return;
             _calc = calc;
+            await LoadFareAsync(turn, calc?.DiscountPercent ?? 0m);
 
             if (_targetDiscount is null)
             {
@@ -378,6 +462,33 @@ public partial class TollDiscountPage
             _calc = null;
             _suggest = null;
             Say($"계산하지 못했습니다 — {ex.Message}", NoticeTone.Error);
+        }
+    }
+
+    /// <summary>
+    /// 구간을 골랐으면 통행료를 묻는다. <b>못 받아도 조용하다</b> —
+    /// 통행료가 없다고 할인율까지 못 보게 할 일이 아니다.
+    /// </summary>
+    private async Task LoadFareAsync(int turn, decimal discount)
+    {
+        if (_fromPlaza is null || _toPlaza is null)
+        {
+            _fare = null;
+            return;
+        }
+
+        var cls = _vehicles.FirstOrDefault(v =>
+            v.VehicleId.ToString(CultureInfo.InvariantCulture) == _vehicleId)?.VehicleClass ?? "C4";
+
+        try
+        {
+            var fare = await Api.GetTollFareAsync(_fromPlaza, _toPlaza, cls, discount);
+            if (turn != _turn) return;
+            _fare = fare;
+        }
+        catch (JSini.Web.Http.ApiException)
+        {
+            if (turn == _turn) _fare = null;
         }
     }
 

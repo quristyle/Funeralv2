@@ -203,3 +203,28 @@ public record TollCalcLogDto(
     string? RuleSetCode,
     string? PlateNo,
     DateTimeOffset CreatedAt);
+
+/// <summary>
+/// 구간 하나의 통행료.
+///
+/// <para>
+/// <c>NormalFare</c> 는 고른 차종의 정상요금, <c>DiscountedFare</c> 는 거기에
+/// 우리가 센 심야할인율을 먹인 값이다. <b>할인액을 바깥에서 받아 오지 않는다</b> —
+/// 응답의 시간대별 할인요금 칸은 0 으로 오고, 비율로 할인율을 정하는 곳은
+/// 한 군데여야 한다.
+/// </para>
+/// </summary>
+public record TollFareDto(
+    string FromCode,
+    string FromName,
+    string ToCode,
+    string ToName,
+    decimal DistanceKm,
+    int DriveMinutes,
+    string VehicleClass,
+    string VehicleClassName,
+    int? NormalFare,
+    int? DiscountedFare,
+    int? SavedFare,
+    decimal DiscountPercent,
+    string Summary);

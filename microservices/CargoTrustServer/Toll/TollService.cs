@@ -15,7 +15,7 @@ namespace CargoTrustServer.Toll;
 /// 같은 계산을 두고 화면마다 다르게 말하면 그 자체가 틀린 정보가 된다.
 /// </para>
 /// </summary>
-public class TollService(CargoTrustDbContext db, TollRuleStore rules, CurrentUser me)
+public class TollService(CargoTrustDbContext db, TollRuleStore rules, TollFareClient fares, CurrentUser me)
 {
     /// <summary>추천이 기본으로 잡는 소요시간 범위 — 세 시간에서 열두 시간.</summary>
     public const int DefaultMinDuration = 180;
@@ -205,6 +205,53 @@ public class TollService(CargoTrustDbContext db, TollRuleStore rules, CurrentUse
             Clock(set.OpenWindow.End),
             BandDtos(set.ClosedBands),
             BandDtos(set.OpenBands));
+    }
+
+    /// <summary>
+    /// 구간 통행료. 못 받으면 <b>400 이 아니라 빈 값</b>으로 돌려준다 —
+    /// 통행료를 못 가져왔다고 할인율 계산까지 막을 일이 아니다.
+    /// </summary>
+    public async Task<IResult> FareAsync(
+        string? from, string? to, string? vehicleClass, decimal discount, CancellationToken ct)
+    {
+        if (Check.Clean(from) is not { } fromCode || Check.Clean(to) is not { } toCode)
+            return ApiError.BadRequest("출발·도착 영업소를 고르십시오.");
+        if (!Code.TryParse<VehicleClass>(vehicleClass, out var parsed))
+            return ApiError.BadRequest($"vehicleClass 는 {Code.Allowed<VehicleClass>()} 중 하나입니다.");
+
+        var cls = parsed ?? VehicleClass.C4;
+        var fare = await fares.GetAsync(fromCode, toCode, ct);
+
+        if (fare is null)
+        {
+            return Results.Ok(new TollFareDto(
+                fromCode, "", toCode, "", 0m, 0,
+                cls.ToString(), TollEligibility.VehicleClassName(cls),
+                null, null, null, discount,
+                "이 구간의 통행료를 받지 못했습니다. 할인율 계산은 그대로 됩니다."));
+        }
+
+        int? normal = fare.Fares.TryGetValue(cls, out var amount) ? amount : null;
+        // 깎인 금액은 **원 단위로 내린다**. 올리면 화면이 실제보다 많이 깎이는 것처럼 말한다.
+        int? saved = normal is { } n ? (int)Math.Floor(n * discount / 100m) : null;
+        int? after = normal is { } n2 && saved is { } s2 ? n2 - s2 : null;
+
+        return Results.Ok(new TollFareDto(
+            fare.FromCode, fare.FromName, fare.ToCode, fare.ToName,
+            fare.DistanceKm, fare.DriveMinutes,
+            cls.ToString(), TollEligibility.VehicleClassName(cls),
+            normal, after, saved, discount,
+            FareSummary(fare, cls, normal, after, saved, discount)));
+    }
+
+    private static string FareSummary(
+        TollFare fare, VehicleClass cls, int? normal, int? after, int? saved, decimal discount)
+    {
+        var head = $"{fare.FromName} → {fare.ToName} {fare.DistanceKm:0.#}km · 주행 {Duration(fare.DriveMinutes)}";
+        if (normal is not { } n) return head + $" — {TollEligibility.VehicleClassName(cls)} 요금을 찾지 못했습니다.";
+        if (discount <= 0 || saved is not { } s || after is not { } a)
+            return head + $" — {TollEligibility.VehicleClassName(cls)} {n:#,0}원";
+        return head + $" — {n:#,0}원에서 {s:#,0}원 깎여 {a:#,0}원";
     }
 
     public async Task<List<TollCalcLogDto>> HistoryAsync(int limit, CancellationToken ct)

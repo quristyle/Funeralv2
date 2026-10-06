@@ -29,6 +29,16 @@ public class TollOptions
     public string PlazaListUrl { get; set; } =
         "https://data.ex.co.kr/openapi/basicinfo/updownIcList?key={key}&type=json&numOfRows={rows}&pageNo={page}";
 
+    /// <summary>
+    /// 영업소간 통행요금을 주는 주소. 자리표시자는 <c>{key}</c> · <c>{from}</c> · <c>{to}</c>.
+    ///
+    /// <para>
+    /// 같은 포털(data.ex.co.kr)이고 <b>같은 인증키</b>를 쓴다 — 키를 따로 받을 필요가 없다.
+    /// </para>
+    /// </summary>
+    public string FareUrl { get; set; } =
+        "https://data.ex.co.kr/openapi/toll/bhoinstIntoTollList?key={key}&type=json&numOfRows=5&pageNo=1&dprtrTolofCd={from}&arrvTolofCd={to}";
+
     /// <summary>공공데이터 인증키. 없으면 동기화를 건너뛰고 까닭을 남긴다.</summary>
     public string? ServiceKey { get; set; }
 
