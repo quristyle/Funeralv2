@@ -297,12 +297,15 @@
                     {
                         <li class="ct-toll-option">
                             <div class="ct-toll-option-head">
-                                <strong>@CargoCodes.Kst(option.BestKst) @OtherSideLabel</strong>
+                                @* 진입과 진출을 **둘 다** 적는다. 한쪽만 적으면 사람이
+                                   나머지를 머릿속에서 더해야 하고, 그 덧셈이 날짜를 넘길 때
+                                   틀린다 — 이 화면이 없애려던 바로 그 셈이다. *@
+                                <strong>@CargoCodes.Kst(option.PairedEntryKst) 진입 → @CargoCodes.Kst(option.PairedExitKst) 진출</strong>
                                 <span class="@CargoCodes.DiscountBadge(option.DiscountPercent)">@option.DiscountPercent.ToString("0.#")%</span>
                             </div>
                             <div class="ct-toll-option-body">
-                                <span>@CargoCodes.Kst(option.FromKst) ~ @CargoCodes.Kst(option.ToKst) 사이</span>
-                                <span>소요 @CargoCodes.Minutes(option.MinDurationMinutes) ~ @CargoCodes.Minutes(option.MaxDurationMinutes)</span>
+                                <span>@MovedLabel(option) · @(ShiftSideLabel)을 @CargoCodes.Kst(option.FromKst) ~ @CargoCodes.Kst(option.ToKst) 사이로</span>
+                                <span>소요 @CargoCodes.Minutes(option.MinDurationMinutes)@(option.MaxDurationMinutes != option.MinDurationMinutes ? $" ~ {CargoCodes.Minutes(option.MaxDurationMinutes)}" : null) · 야간 @CargoCodes.Rate(option.NightRatio)</span>
                             </div>
                         </li>
                     }

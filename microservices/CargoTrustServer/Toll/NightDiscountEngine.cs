@@ -295,6 +295,84 @@ public static class NightDiscountEngine
     }
 
     /// <summary>
+    /// <b>소요시간을 붙박고 시각을 옮겨</b> 목표에 닿는 자리를 찾는다.
+    ///
+    /// <para>
+    /// [왜 이것이 따로 필요한가]
+    /// </para>
+    ///
+    /// <para>
+    /// <see cref="Suggest"/> 는 고른 시각을 붙박고 <b>소요시간을 늘려</b> 본다.
+    /// 그런데 늘리는 것이 늘 좋은 쪽은 아니다 — 새벽 01:40 에 들어가면 창이
+    /// 06:00 에 닫히므로, 더 달릴수록 낮이 늘어 비율이 <b>떨어진다.</b> 그때
+    /// 「소요시간 범위를 넓혀 보십시오」는 될 리 없는 것을 권하는 말이 된다.
+    /// </para>
+    ///
+    /// <para>
+    /// 여섯 시간을 달릴 사람에게 실제로 쓸모 있는 답은 <b>「몇 시에 들어가면
+    /// 되는가」</b>이고, 그것은 소요시간을 그대로 두고 시각을 훑으면 나온다.
+    /// 쓰는 식은 똑같다 — 겹침 함수 하나에 기댄다.
+    /// </para>
+    /// </summary>
+    /// <param name="aroundKst">사람이 고른 시각. 여기서 가까운 자리를 먼저 권한다.</param>
+    /// <param name="anchorIsEntry">그 시각이 진입인가(참) 진출인가(거짓).</param>
+    /// <param name="durationMinutes">붙박은 소요시간.</param>
+    /// <param name="requiredRatio">필요한 야간 이용비율(%).</param>
+    /// <param name="spanMinutes">앞뒤로 얼마나 훑을까. 기본은 하루(앞뒤 12시간)다.</param>
+    public static IReadOnlyList<SuggestWindow> SuggestByShift(
+        NightWindow window,
+        DateTime aroundKst,
+        bool anchorIsEntry,
+        int durationMinutes,
+        decimal requiredRatio,
+        int spanMinutes = MaxScanMinutes)
+    {
+        var duration = Math.Max(1, durationMinutes);
+        var half = Math.Max(1, spanMinutes / 2);
+
+        var results = new List<SuggestWindow>();
+        int? runStart = null;
+        var previous = -half - 1;
+
+        for (var offset = -half; offset <= half; offset++)
+        {
+            var moved = aroundKst.AddMinutes(offset);
+            var (entry, exit) = Span(moved, anchorIsEntry, duration);
+            var ratio = Math.Round(OverlapMinutes(entry, exit, window) * 100m / duration, 2, MidpointRounding.AwayFromZero);
+            var ok = ratio >= requiredRatio;
+
+            if (ok && runStart is null) runStart = offset;
+            if (!ok && runStart is { } s) { results.Add(ShiftWindow(aroundKst, duration, s, previous)); runStart = null; }
+            previous = offset;
+        }
+
+        if (runStart is { } last) results.Add(ShiftWindow(aroundKst, duration, last, half));
+        return results;
+    }
+
+    /// <summary>
+    /// 옮긴 토막 [<paramref name="fromOffset"/>, <paramref name="toOffset"/>] 을 시각으로.
+    ///
+    /// <para>
+    /// 권하는 한 점(<c>Best</c>)은 <b>고른 시각에서 가장 적게 옮기는 자리</b>다 —
+    /// 토막 안에 원래 시각이 들어 있으면 그대로, 아니면 가까운 끝이다.
+    /// 「두 시간 당기세요」보다 「십 분만 늦추세요」가 쓸모 있다.
+    /// </para>
+    /// </summary>
+    private static SuggestWindow ShiftWindow(DateTime aroundKst, int duration, int fromOffset, int toOffset)
+    {
+        var best = fromOffset <= 0 && 0 <= toOffset
+            ? 0
+            : Math.Abs(fromOffset) <= Math.Abs(toOffset) ? fromOffset : toOffset;
+
+        return new SuggestWindow(
+            aroundKst.AddMinutes(fromOffset),
+            aroundKst.AddMinutes(toOffset),
+            aroundKst.AddMinutes(best),
+            duration, duration);
+    }
+
+    /// <summary>
     /// 지금 조건에서 받을 수 있는 가장 높은 할인율과 그때의 소요시간.
     /// 목표에 닿지 못할 때 「그러면 얼마까지 되는가」를 말해 주려고 쓴다.
     /// </summary>
@@ -368,6 +446,10 @@ public static class NightDiscountEngine
         var fallback = fromKst.Date.AddDays(1) + window.Start.ToTimeSpan();
         return (fallback, fallback + length);
     }
+
+    /// <summary>붙박은 시각과 소요시간으로 진입·진출 한 쌍을 만든다.</summary>
+    public static (DateTime Entry, DateTime Exit) SpanOf(DateTime anchorKst, bool anchorIsEntry, int durationMinutes) =>
+        Span(anchorKst, anchorIsEntry, durationMinutes);
 
     private static (DateTime Entry, DateTime Exit) Span(DateTime anchorKst, bool anchorIsEntry, int durationMinutes) =>
         anchorIsEntry

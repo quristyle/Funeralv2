@@ -138,6 +138,7 @@ public class TollService(CargoTrustDbContext db, TollRuleStore rules, TollFareCl
         var windows = NightDiscountEngine.Suggest(window, req.AnchorAt, anchorIsEntry, min, max, required.Value);
         var best = NightDiscountEngine.BestReachable(window, req.AnchorAt, anchorIsEntry, min, max);
         var bestBand = NightDiscountEngine.BandFor(bands, best.BestRatio);
+        var mode = windows.Count > 0 ? "DURATION" : "NONE";
 
         var options = windows.Select(w =>
         {
@@ -151,6 +152,29 @@ public class TollService(CargoTrustDbContext db, TollRuleStore rules, TollFareCl
                 entry, exit,
                 evaluated.NightRatio, evaluated.DiscountPercent);
         }).ToList();
+
+        // 소요시간을 늘려서는 못 닿았다. 그렇다고 「넓혀 보십시오」로 끝내면
+        // **될 리 없는 것을 권하는 말**이 된다 — 새벽에 들어가면 더 달릴수록
+        // 낮이 늘어 비율이 떨어지기 때문이다. 소요시간을 그대로 두고
+        // **시각을 옮겨** 되는 자리를 찾아 준다.
+        if (options.Count == 0)
+        {
+            var shifted = NightDiscountEngine.SuggestByShift(
+                window, req.AnchorAt, anchorIsEntry, min, required.Value);
+
+            options = shifted.Select(w =>
+            {
+                var (entry, exit) = NightDiscountEngine.SpanOf(w.BestKst, anchorIsEntry, min);
+                var evaluated = NightDiscountEngine.Evaluate(set, section, entry, exit);
+                return new TollSuggestOption(
+                    w.FromKst, w.ToKst, w.BestKst,
+                    w.MinDurationMinutes, w.MaxDurationMinutes,
+                    entry, exit,
+                    evaluated.NightRatio, evaluated.DiscountPercent);
+            }).ToList();
+
+            if (options.Count > 0) mode = "SHIFT";
+        }
 
         if (req.Save)
         {
@@ -178,6 +202,7 @@ public class TollService(CargoTrustDbContext db, TollRuleStore rules, TollFareCl
             req.TargetDiscount,
             required,
             options.Count > 0,
+            mode,
             options,
             best.BestRatio,
             bestBand.DiscountPercent,
@@ -187,7 +212,7 @@ public class TollService(CargoTrustDbContext db, TollRuleStore rules, TollFareCl
             [.. TollEligibility.For(vehicle)],
             TollEligibility.Verdict(vehicle).Code,
             TollEligibility.Verdict(vehicle).Note,
-            SuggestSummary(anchorIsEntry, req.TargetDiscount, required.Value, options, best.BestRatio, bestBand)));
+            SuggestSummary(anchorIsEntry, mode, req.TargetDiscount, required.Value, min, options, best.BestRatio, bestBand)));
     }
 
     // ── 규칙 · 영업소 · 이력 ──────────────────────────────────
@@ -331,23 +356,37 @@ public class TollService(CargoTrustDbContext db, TollRuleStore rules, TollFareCl
     }
 
     private static string SuggestSummary(
-        bool anchorIsEntry, decimal target, decimal required,
+        bool anchorIsEntry, string mode, decimal target, decimal required, int minutes,
         List<TollSuggestOption> options, decimal bestRatio, DiscountBand bestBand)
     {
         var side = anchorIsEntry ? "진출" : "진입";
+        var anchorSide = anchorIsEntry ? "진입" : "진출";
+
         if (options.Count == 0)
         {
-            return $"주어진 소요시간 안에서는 {target:0.#}%(야간 {required:0.#}% 이상)에 닿지 못합니다. "
-                   + $"가장 좋은 경우가 야간 {bestRatio:0.##}% — {bestBand.DiscountPercent:0.#}% 입니다. "
-                   + "소요시간 범위를 넓히거나 기준 시각을 옮겨 보십시오.";
+            return $"{target:0.#}%(야간 {required:0.#}% 이상)에 닿는 자리를 찾지 못했습니다. "
+                   + $"가장 좋은 경우가 야간 {bestRatio:0.##}% — {bestBand.DiscountPercent:0.#}% 입니다.";
         }
 
         var first = options[0];
-        var range = first.FromKst == first.ToKst
+
+        if (mode == "SHIFT")
+        {
+            // 소요시간은 그대로 두고 시각을 옮기는 답이다. **얼마나 옮기는지**를 먼저 말한다 —
+            // 「21:10 에 들어가십시오」보다 「30분 늦추십시오」가 먼저 읽힌다.
+            var range = first.FromKst == first.ToKst
+                ? $"{first.FromKst:MM-dd HH:mm}"
+                : $"{first.FromKst:MM-dd HH:mm} ~ {first.ToKst:MM-dd HH:mm}";
+            return $"{Duration(minutes)} 운행으로 {target:0.#}% 를 받으려면 "
+                   + $"{anchorSide}을 {range} 사이로 옮기면 됩니다 "
+                   + $"(권장 {first.BestKst:MM-dd HH:mm} {anchorSide} → {first.PairedExitKst:MM-dd HH:mm} 진출).";
+        }
+
+        var exitRange = first.FromKst == first.ToKst
             ? $"{first.FromKst:MM-dd HH:mm}"
             : $"{first.FromKst:MM-dd HH:mm} ~ {first.ToKst:MM-dd HH:mm}";
         return $"{target:0.#}% 를 받으려면 야간 비율이 {required:0.#}% 이상이어야 합니다. "
-               + $"{side} 시각을 {range} 사이로 잡으면 됩니다 (권장 {first.BestKst:HH:mm}).";
+               + $"{side} 시각을 {exitRange} 사이로 잡으면 됩니다 (권장 {first.BestKst:HH:mm}).";
     }
 
     private TollSuggestResult OpenSuggestion(
@@ -365,7 +404,7 @@ public class TollService(CargoTrustDbContext db, TollRuleStore rules, TollFareCl
             SectionType.OPEN.ToString(), set.Code,
             string.Equals(req.Anchor, "EXIT", StringComparison.OrdinalIgnoreCase) ? "EXIT" : "ENTRY",
             req.AnchorAt, req.TargetDiscount, required,
-            true, [option],
+            true, "OPEN", [option],
             inside ? 100m : 0m, band.DiscountPercent, 0, 0, 0,
             WindowLabel(window),
             [.. TollEligibility.For(vehicle)],

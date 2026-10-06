@@ -103,6 +103,40 @@ public partial class TollDiscountPage
     /// <summary>추천이 알려 주는 쪽 — 고른 쪽의 반대다.</summary>
     private string OtherSideLabel => AnchorIsEntry ? "진출" : "진입";
 
+    /// <summary>
+    /// 추천 카드가 「무엇을 옮기라」고 말하는가.
+    ///
+    /// <para>
+    /// 소요시간을 늘려 닿은 답(<c>DURATION</c>)이면 옮기는 것은 <b>반대쪽</b>이고,
+    /// 시각을 옮겨 닿은 답(<c>SHIFT</c>)이면 <b>고른 쪽</b>이다. 뒤엣것은
+    /// 소요시간이 그대로라 반대쪽이 따라 움직인다.
+    /// </para>
+    /// </summary>
+    private string ShiftSideLabel =>
+        _suggest?.Mode == "SHIFT"
+            ? (AnchorIsEntry ? "진입" : "진출")
+            : OtherSideLabel;
+
+    /// <summary>
+    /// 고른 시각에서 얼마나 옮기는가. 「28분 당기면」이 「01:12 에 들어가십시오」보다
+    /// 먼저 읽힌다 — 사람이 아는 것은 지금 시각이지 그 시각이 아니다.
+    /// </summary>
+    private string MovedLabel(TollSuggestOptionInfo option)
+    {
+        if (_suggest?.Mode != "SHIFT") return "지금 시각 그대로";
+
+        var moved = (int)Math.Round((option.BestKst - Picked).TotalMinutes);
+        return moved switch
+        {
+            0 => "지금 시각 그대로",
+            < 0 => $"{CargoCodes.Minutes(-moved)} 당기면",
+            _ => $"{CargoCodes.Minutes(moved)} 늦추면",
+        };
+    }
+
+    /// <summary>사람이 고른 시각 한 덩어리.</summary>
+    private DateTime Picked => _atDate.Date.AddHours(_atHour).AddMinutes(_atMinute);
+
     private static readonly IReadOnlyList<SchOption> AnchorChips =
     [
         new(EntryAnchor, "진입 시각"),
@@ -411,7 +445,7 @@ public partial class TollDiscountPage
     private async Task RecalcAsync()
     {
         var turn = ++_turn;
-        var picked = Wall(_atDate.Date.AddHours(_atHour).AddMinutes(_atMinute));
+        var picked = Wall(Picked);
         var minutes = int.TryParse(_duration, out var m) ? m : 300;
 
         // 고른 쪽이 어디든 **엔진에는 진입·진출 한 쌍으로 넘긴다** —

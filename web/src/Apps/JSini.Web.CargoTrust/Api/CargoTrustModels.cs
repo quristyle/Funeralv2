@@ -606,6 +606,14 @@ public sealed class TollSuggestResultInfo
     public decimal TargetDiscount { get; set; }
     public decimal? RequiredRatio { get; set; }
     public bool Reachable { get; set; }
+
+    /// <summary>
+    /// 어떤 길로 찾았나 — <c>DURATION</c> 시각을 두고 소요시간 조절 ·
+    /// <c>SHIFT</c> 소요시간을 두고 <b>시각을 옮김</b> · <c>NONE</c> 못 찾음.
+    /// 추천 카드의 글자가 이것으로 갈린다.
+    /// </summary>
+    public string Mode { get; set; } = "NONE";
+
     public List<TollSuggestOptionInfo> Options { get; set; } = [];
     public decimal BestRatio { get; set; }
     public decimal BestDiscountPercent { get; set; }

@@ -209,6 +209,68 @@ public class NightDiscountEngineTests
         Assert.All(windows, w => Assert.True(w.MaxDurationMinutes <= 600));
     }
 
+    // ── 시각을 옮겨 찾기 ─────────────────────────────────────
+
+    [Fact]
+    public void 소요시간을_늘려서_안_되면_시각을_옮겨_찾는다()
+    {
+        // 새벽 01:40 에 들어가 여섯 시간. 창이 06:00 에 닫히므로 **더 달릴수록
+        // 비율이 떨어진다** — 소요시간을 늘리는 길로는 50% 에 못 닿는다.
+        var entry = new DateTime(2026, 10, 7, 1, 40, 0);
+        var required = NightDiscountEngine.RequiredRatio(Rules.ClosedBands, 50m)!.Value;
+
+        Assert.Empty(NightDiscountEngine.Suggest(Closed, entry, true, 360, 720, required));
+        Assert.NotEmpty(NightDiscountEngine.SuggestByShift(Closed, entry, true, 360, required));
+    }
+
+    [Fact]
+    public void 옮겨_권한_시각으로_다시_계산하면_목표를_만족한다()
+    {
+        var entry = new DateTime(2026, 10, 7, 1, 40, 0);
+        var required = NightDiscountEngine.RequiredRatio(Rules.ClosedBands, 50m)!.Value;
+
+        foreach (var w in NightDiscountEngine.SuggestByShift(Closed, entry, true, 360, required))
+        {
+            foreach (var moment in new[] { w.FromKst, w.BestKst, w.ToKst })
+            {
+                var again = NightDiscountEngine.Evaluate(Rules, SectionType.CLOSED, moment, moment.AddMinutes(360));
+                Assert.True(again.DiscountPercent >= 50m,
+                    $"옮긴 {moment:MM-dd HH:mm} 인데 다시 계산하면 {again.DiscountPercent}%");
+            }
+
+            // **소요시간은 그대로다** — 옮기는 것은 시각이지 길이가 아니다.
+            Assert.Equal(360, w.MinDurationMinutes);
+            Assert.Equal(360, w.MaxDurationMinutes);
+        }
+    }
+
+    [Fact]
+    public void 권하는_자리는_가장_적게_옮기는_쪽이다()
+    {
+        // 「두 시간 당기세요」보다 「이십팔 분만 당기세요」가 쓸모 있다.
+        var entry = new DateTime(2026, 10, 7, 1, 40, 0);
+        var required = NightDiscountEngine.RequiredRatio(Rules.ClosedBands, 50m)!.Value;
+        var w = NightDiscountEngine.SuggestByShift(Closed, entry, true, 360, required).Single();
+
+        Assert.True(w.FromKst <= w.BestKst && w.BestKst <= w.ToKst);
+        var nearest = Math.Min(Math.Abs((w.FromKst - entry).TotalMinutes), Math.Abs((w.ToKst - entry).TotalMinutes));
+        Assert.True(Math.Abs((w.BestKst - entry).TotalMinutes) <= nearest + 0.001);
+    }
+
+    [Fact]
+    public void 진출이_정해진_경우도_옮겨_찾는다()
+    {
+        var exit = new DateTime(2026, 10, 7, 12, 0, 0);
+        var required = NightDiscountEngine.RequiredRatio(Rules.ClosedBands, 50m)!.Value;
+
+        foreach (var w in NightDiscountEngine.SuggestByShift(Closed, exit, anchorIsEntry: false, 360, required))
+        {
+            var again = NightDiscountEngine.Evaluate(
+                Rules, SectionType.CLOSED, w.BestKst.AddMinutes(-360), w.BestKst);
+            Assert.True(again.DiscountPercent >= 50m);
+        }
+    }
+
     // ── 다음 띠까지 ──────────────────────────────────────────
 
     [Fact]

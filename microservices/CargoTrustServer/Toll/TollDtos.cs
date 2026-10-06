@@ -126,6 +126,7 @@ public record TollSuggestResult(
     decimal TargetDiscount,
     decimal? RequiredRatio,
     bool Reachable,
+    string Mode,
     List<TollSuggestOption> Options,
     decimal BestRatio,
     decimal BestDiscountPercent,
