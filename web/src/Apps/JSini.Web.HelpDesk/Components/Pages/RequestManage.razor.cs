@@ -75,6 +75,11 @@ public partial class RequestManage : IDisposable
     /// 보고 있던 줄. 줄 자체가 아니라 번호로 적는다 — 돌아와서 다시 조회하게
     /// 되면(<paramref name="Rows"/> 를 잃었을 때) 객체는 다른 물건이 되기 때문이다.
     /// </param>
+    /// <param name="Take">
+    /// 휴대폰에서 「더보기」로 꺼내 둔 줄 수. <b>이것도 쓰던 모습이다</b> —
+    /// 안 맡기면 네 번 눌러 찾아 놓은 줄이 상세를 열었다 돌아오는 순간
+    /// 처음 한 쪽으로 되감긴다.
+    /// </param>
     private sealed record Kept(
         string? CompanyId,
         string? RequesterId,
@@ -87,7 +92,8 @@ public partial class RequestManage : IDisposable
         DateTime? To,
         IReadOnlyList<ImprovementRequest> Rows,
         int Total,
-        int? SelectedId);
+        int? SelectedId,
+        int Take);
 
     /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
     private string ConditionSummary => SchSummary.Of(
@@ -118,6 +124,58 @@ public partial class RequestManage : IDisposable
 
     private IReadOnlyList<ImprovementRequest> _rows = [];
     private int _total;
+
+    // ── 휴대폰의 「더보기」 ────────────────────────────────
+    //
+    // 데스크톱은 페이저로 쪽을 넘기고, 휴대폰은 꺼내 둔 줄 아래에 다음 쪽을
+    // 이어 붙인다. 읽어 둔 것(`_rows`)은 둘이 같다 — **서버를 다시 부르지
+    // 않는다.** 까닭은 화면 머리말에 적었다.
+
+    /// <summary>
+    /// 한 쪽에 깔리는 줄 수. <b>페이저와 「더보기」가 같은 수를 쓴다</b> —
+    /// 「다음 쪽」이 기기마다 다른 수이면 같은 조건으로 띄운 두 화면이
+    /// 서로 다른 자리에서 끊긴다. 표에 적은 <c>PageSize</c> 와 같은 값이다.
+    /// </summary>
+    private const int PageRows = 25;
+
+    /// <summary>
+    /// 휴대폰인가. <see cref="OnPhoneChanged"/> 가 채운다 —
+    /// Blazor Server 는 브라우저 폭을 모른다(화면 머리말).
+    /// </summary>
+    private bool _isPhone;
+
+    /// <summary>
+    /// 휴대폰에서 지금까지 꺼내 깔아 둔 줄 수. 「더보기」가 한 쪽씩 늘린다.
+    /// </summary>
+    /// <remarks>
+    /// 데스크톱에서는 쓰이지 않는다 — 그쪽은 표가 쪽으로 나눈다.
+    /// </remarks>
+    private int _take = PageRows;
+
+    /// <summary>
+    /// 표에 넣을 줄. 휴대폰에서는 <b>꺼내 둔 만큼만</b> 넣고, 나머지는
+    /// 「더보기」가 꺼낸다. 데스크톱에서는 읽어 둔 것을 그대로 넘긴다 —
+    /// 자르는 일은 표의 페이저가 한다.
+    /// </summary>
+    private IReadOnlyList<ImprovementRequest> Shown =>
+        _isPhone && _take < _rows.Count ? [.. _rows.Take(_take)] : _rows;
+
+    /// <summary>아직 안 깔린 줄 수. 「더보기」 단추에 적는다.</summary>
+    private int Rest => Math.Max(0, _rows.Count - _take);
+
+    /// <summary>한 쪽만큼 더 꺼낸다. <b>서버를 다시 부르지 않는다.</b></summary>
+    private void ShowMore() => _take += PageRows;
+
+    /// <summary>
+    /// 휴대폰 경계(≤767px)를 넘었다.
+    /// </summary>
+    /// <remarks>
+    /// <b>여기서 <see cref="_take"/> 를 되돌리지 않는다.</b> 이 갈고리는 회로가
+    /// 붙고 나서 **처음 한 번** 참으로 울리므로(그 전에는 폭을 모른다),
+    /// 되돌리면 맡겨 둔 짐에서 되찾은 값(<see cref="Kept.Take"/>)이 그 자리에서
+    /// 덮인다 — 돌아올 때마다 처음 한 쪽으로 되감긴다.
+    /// </remarks>
+    private void OnPhoneChanged(bool active) => _isPhone = active;
 
     private string? _keyword;
     private IReadOnlyList<string> _statuses = [];
@@ -281,6 +339,11 @@ public partial class RequestManage : IDisposable
         _total = kept.Total;
         _selected = kept.SelectedId is { } id ? _rows.FirstOrDefault(r => r.Id == id) : null;
 
+        // 꺼내 둔 줄 수도 쓰던 모습이다(`Kept.Take`). **한 쪽 아래로는 내려가지
+        // 않는다** — 프리렌더가 맡긴 0 을 그대로 받으면 휴대폰 목록이 빈 채로
+        // 열리고, 「더보기」를 눌러야 첫 줄이 나온다.
+        _take = Math.Max(kept.Take, PageRows);
+
         // **빈손으로 돌아왔으면 조건만 되찾고 다시 묻는다.** 조회가 끝나기 전에
         // 떠났거나(왕복이 빠르다) 프리렌더가 빈 것을 맡겼을 수 있는데, 그것을
         // 「다 읽어 둔 것」으로 읽으면 화면이 영영 빈 표가 된다 — 사람은 조건이
@@ -360,7 +423,7 @@ public partial class RequestManage : IDisposable
         Screen.Set(StateKey, new Kept(
             _companyId, _requesterId, _statuses, _adminId, _keyword, _onlyOpen,
             _basis, _from, _to,
-            _rows, _total, _selected?.Id));
+            _rows, _total, _selected?.Id, _take));
 
     // ── 주소로 들어온 조건 ──────────────────────────────────
 
@@ -445,6 +508,11 @@ public partial class RequestManage : IDisposable
 
     private Task ReloadAsync()
     {
+        // 조건이 바뀌었으면 휴대폰의 「더보기」도 처음 한 쪽으로 되돌린다.
+        // 안 되돌리면 백 줄을 꺼내 놓고 조건을 좁힌 사람이 **좁힌 결과를
+        // 통째로 한 번에 받는다** — 「더보기」로 조금씩 보던 뜻이 사라진다.
+        _take = PageRows;
+
         // **「내 것」을 가려낼 수 없으면 아예 묻지 않는다.**
         //
         // 고객인데 가리킬 고객 줄이 아직 없는 사람이다 — 요청을 한 번도 올린 적이
