@@ -80,6 +80,11 @@ public partial class RequestManage : IDisposable
     /// 안 맡기면 네 번 눌러 찾아 놓은 줄이 상세를 열었다 돌아오는 순간
     /// 처음 한 쪽으로 되감긴다.
     /// </param>
+    /// <param name="Batches">
+    /// 서버에서 받아 온 묶음 수(<see cref="BatchRows"/> 줄씩). <b>다음에 몇 쪽을
+    /// 달라고 할지가 이 값이다</b> — 안 맡기면 돌아온 사람이 「더 읽기」를
+    /// 눌렀을 때 이미 들고 있는 첫 묶음을 다시 받는다.
+    /// </param>
     private sealed record Kept(
         string? CompanyId,
         string? RequesterId,
@@ -93,7 +98,8 @@ public partial class RequestManage : IDisposable
         IReadOnlyList<ImprovementRequest> Rows,
         int Total,
         int? SelectedId,
-        int Take);
+        int Take,
+        int Batches);
 
     /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
     private string ConditionSummary => SchSummary.Of(
@@ -125,11 +131,24 @@ public partial class RequestManage : IDisposable
     private IReadOnlyList<ImprovementRequest> _rows = [];
     private int _total;
 
-    // ── 휴대폰의 「더보기」 ────────────────────────────────
+    // ── 「더보기」와 「더 읽기」 ────────────────────────────
     //
-    // 데스크톱은 페이저로 쪽을 넘기고, 휴대폰은 꺼내 둔 줄 아래에 다음 쪽을
-    // 이어 붙인다. 읽어 둔 것(`_rows`)은 둘이 같다 — **서버를 다시 부르지
-    // 않는다.** 까닭은 화면 머리말에 적었다.
+    // 자르는 자리가 둘이다 —
+    //
+    //   꺼내 깔기   읽어 둔 `_rows` 중 **몇 줄을 표에 넣나**(`_take`).
+    //               휴대폰만 쓴다. 데스크톱은 그 일을 표의 페이저가 한다.
+    //   받아 오기   서버에서 **몇 묶음을 받아 왔나**(`_batches`).
+    //               한 묶음이 `BatchRows` 줄이고, 둘 다 쓴다.
+    //
+    // 처음에는 바깥쪽 자르기가 없었다 — 첫 묶음 300건을 받아 두고 그게 전부인
+    // 척했다. 조건에 맞는 것이 그보다 많으면 **토스트 한 줄로 알리고 끝**이라,
+    // 휴대폰에서는 「더보기」가 삼백 번째 줄에서 소리 없이 사라졌다. 표
+    // 머리줄도 페이저도 없는 화면이라 **거기가 끝인지 잘린 것인지 알 길이
+    // 없다** — 사람은 「내 요청은 여기까지구나」로 읽는다.
+    //
+    // 그래서 다 깔고 나서도 서버에 남은 것이 있으면 **그 자리에서 다음 묶음을
+    // 받아 온다.** 단추에 적는 수도 받아 둔 것이 아니라 **서버가 말한 전체**를
+    // 기준으로 센다(`Rest`) — 「더보기 940건」이 진짜 남은 수다.
 
     /// <summary>
     /// 한 쪽에 깔리는 줄 수. <b>페이저와 「더보기」가 같은 수를 쓴다</b> —
@@ -137,6 +156,12 @@ public partial class RequestManage : IDisposable
     /// 서로 다른 자리에서 끊긴다. 표에 적은 <c>PageSize</c> 와 같은 값이다.
     /// </summary>
     private const int PageRows = 25;
+
+    /// <summary>
+    /// 한 번에 서버에서 받아 오는 줄 수. <b><see cref="PageRows"/> 의 배수여야
+    /// 한다</b> — 아니면 묶음 끝에서 「더보기」 한 번이 한 쪽보다 적게 깔린다.
+    /// </summary>
+    private const int BatchRows = 300;
 
     /// <summary>
     /// 휴대폰인가. <see cref="OnPhoneChanged"/> 가 채운다 —
@@ -153,6 +178,12 @@ public partial class RequestManage : IDisposable
     private int _take = PageRows;
 
     /// <summary>
+    /// 서버에서 받아 온 묶음 수. 0 이면 아직 한 번도 안 읽었다.
+    /// 다음에 달라고 할 쪽 번호가 이 값 + 1 이다.
+    /// </summary>
+    private int _batches;
+
+    /// <summary>
     /// 표에 넣을 줄. 휴대폰에서는 <b>꺼내 둔 만큼만</b> 넣고, 나머지는
     /// 「더보기」가 꺼낸다. 데스크톱에서는 읽어 둔 것을 그대로 넘긴다 —
     /// 자르는 일은 표의 페이저가 한다.
@@ -160,11 +191,40 @@ public partial class RequestManage : IDisposable
     private IReadOnlyList<ImprovementRequest> Shown =>
         _isPhone && _take < _rows.Count ? [.. _rows.Take(_take)] : _rows;
 
-    /// <summary>아직 안 깔린 줄 수. 「더보기」 단추에 적는다.</summary>
-    private int Rest => Math.Max(0, _rows.Count - _take);
+    /// <summary>
+    /// 아직 안 깔린 줄 수. 「더보기」 단추에 적는다.
+    /// </summary>
+    /// <remarks>
+    /// <b>읽어 둔 것이 아니라 서버가 말한 전체(<see cref="_total"/>)에서 센다.</b>
+    /// 받아 둔 묶음만으로 세면 삼백 줄째에서 0 이 되어 단추가 사라지고,
+    /// 사람은 거기가 끝인 줄 안다.
+    /// </remarks>
+    private int Rest => Math.Max(0, _total - _take);
 
-    /// <summary>한 쪽만큼 더 꺼낸다. <b>서버를 다시 부르지 않는다.</b></summary>
-    private void ShowMore() => _take += PageRows;
+    /// <summary>서버에 아직 안 받아 온 줄이 남았는가.</summary>
+    private bool HasUnread => _rows.Count < _total;
+
+    /// <summary>다음 「더 읽기」가 받아 올 줄 수. 데스크톱 단추에 적는다.</summary>
+    private int NextBatch => Math.Min(BatchRows, Math.Max(0, _total - _rows.Count));
+
+    /// <summary>
+    /// 한 쪽만큼 더 깔고, 깔 것이 모자라면 <b>그 자리에서 다음 묶음을 받아
+    /// 온다.</b>
+    /// </summary>
+    /// <remarks>
+    /// 받아 오기가 실패하면 <see cref="_rows"/> 가 안 늘고 <see cref="_take"/>
+    /// 도 제자리에 멈춘다(아래 <c>Math.Min</c>) — 단추는 그대로 남아 다시
+    /// 누를 수 있다. 실패를 말하는 쪽은 <c>LoadAsync</c>(<c>DataPage</c>) 다.
+    /// </remarks>
+    private async Task ShowMoreAsync()
+    {
+        if (_take + PageRows > _rows.Count && HasUnread)
+        {
+            await ReadMoreAsync();
+        }
+
+        _take = Math.Min(_take + PageRows, Math.Max(_rows.Count, PageRows));
+    }
 
     /// <summary>
     /// 휴대폰 경계(≤767px)를 넘었다.
@@ -344,6 +404,11 @@ public partial class RequestManage : IDisposable
         // 열리고, 「더보기」를 눌러야 첫 줄이 나온다.
         _take = Math.Max(kept.Take, PageRows);
 
+        // 받아 둔 묶음 수도 함께 되찾는다. 안 되찾으면 「더 읽기」가 쪽 2 가
+        // 아니라 쪽 1 을 다시 달라고 해서, 이미 들고 있는 삼백 건을 또 받고도
+        // 목록이 한 줄도 안 늘어난다(번호로 걸러 내므로 · `ReadMoreAsync`).
+        _batches = kept.Batches;
+
         // **빈손으로 돌아왔으면 조건만 되찾고 다시 묻는다.** 조회가 끝나기 전에
         // 떠났거나(왕복이 빠르다) 프리렌더가 빈 것을 맡겼을 수 있는데, 그것을
         // 「다 읽어 둔 것」으로 읽으면 화면이 영영 빈 표가 된다 — 사람은 조건이
@@ -423,7 +488,7 @@ public partial class RequestManage : IDisposable
         Screen.Set(StateKey, new Kept(
             _companyId, _requesterId, _statuses, _adminId, _keyword, _onlyOpen,
             _basis, _from, _to,
-            _rows, _total, _selected?.Id, _take));
+            _rows, _total, _selected?.Id, _take, _batches));
 
     // ── 주소로 들어온 조건 ──────────────────────────────────
 
@@ -513,6 +578,10 @@ public partial class RequestManage : IDisposable
         // 통째로 한 번에 받는다** — 「더보기」로 조금씩 보던 뜻이 사라진다.
         _take = PageRows;
 
+        // 받아 둔 묶음도 버린다. 조건이 바뀌면 그것들은 다른 질문의 답이다 —
+        // 안 버리면 다음 「더 읽기」가 새 조건의 쪽 **넷**을 달라고 한다.
+        _batches = 0;
+
         // **「내 것」을 가려낼 수 없으면 아예 묻지 않는다.**
         //
         // 고객인데 가리킬 고객 줄이 아직 없는 사람이다 — 요청을 한 번도 올린 적이
@@ -537,107 +606,164 @@ public partial class RequestManage : IDisposable
 
         return LoadAsync(async () =>
         {
-            var query = new Dictionary<string, object?>
-            {
-                ["page"] = 1,
-                ["pageSize"] = 300,
-                ["remove"] = "description,content",
-                // 최근 순. **`isEmergency` 로는 정렬하지 못한다** — 서버가 그 칸으로
-                // 정렬하면 EF 가 질의를 번역하지 못해 400 이 난다. 긴급을 앞으로
-                // 올리는 것은 받아 온 뒤에 이 화면에서 한다(`Ordered`).
-                ["sorts"] = new[]
-                {
-                    new { field = "createdAt", dir = "desc" },
-                },
-            };
+            var page = await Api.SearchAsync<ImprovementRequest>("requests/srch", BuildQuery(1));
 
-            if (!string.IsNullOrWhiteSpace(_keyword))
-            {
-                // **`_or_` 가 아니라 그냥 `_like` 다.** 서버의 OR 자리는 하나뿐이라
-                // (`DynamicFilterHelper` 의 orGroupParts), 거기에 제목을 넣어 두면
-                // 아래 「완료 기준」 기간 조건과 한 묶음으로 OR 되어
-                // 「제목이 맞거나 **또는** 그 기간에 끝났거나」가 된다.
-                // 조각이 하나뿐일 때 두 표기는 결과가 같으므로 이쪽으로 적는다.
-                query["title_like"] = _keyword.Trim();
-            }
-
-            if (_statuses.Count > 0)
-            {
-                // **여러 값의 구분자는 `|` 다.** 쉼표로 이으면 서버가 그 전체를
-                // 값 하나로 읽어 400 이 난다(DynamicFilterHelper 의 `in`).
-                query["status_in"] = string.Join("|", _statuses);
-            }
-            else if (_onlyOpen)
-            {
-                // 상태를 따로 고르지 않았을 때만 「처리 중」으로 좁힌다. 둘을 함께
-                // 걸면 고른 상태가 조용히 무시되어 화면과 결과가 어긋난다.
-                query["status_in"] = string.Join("|", OpenStatuses);
-            }
-            else
-            {
-                // **지운 요청은 안 센다.** 상태를 안 고르고 「처리 중인 것만」도
-                // 끄면 여기는 여태 `Delete` 까지 실어 왔다. 현황판은 그것을 빼고
-                // 세므로(`DashboardOverviewService`), 「전체」 타일을 눌렀을 때
-                // 숫자가 안 맞는 자리가 바로 여기다.
-                query["status_nin"] = "Delete";
-            }
-
-            ApplyPeriod(query);
-
-            // **고객은 제 것만 본다 — 못 박는 자리가 여기다.**
-            //
-            // 조건 칸을 잠가 두었지만(`RequesterLocked`) 그것은 거드는 것일 뿐이다.
-            // 서버는 목록을 권한으로 거르지 않으므로 **화면이 조건을 빠뜨리면
-            // 그대로 새어 나간다** — 걷어낸 「내 요청」(`RequestList`)이 같은
-            // 까닭으로 같은 일을 했다. 맡겨 둔 짐이 다른 번호를 들고 오거나
-            // 조건을 거는 길이 하나 더 생겨도 여기서 덮인다.
-            // 번호가 없는 고객은 여기까지 오지 않는다(위에서 돌려보낸다).
-            var requesterId = Context.CustomerId?.ToString(CultureInfo.InvariantCulture)
-                ?? _requesterId;
-
-            if (!string.IsNullOrWhiteSpace(requesterId))
-            {
-                query["customerId"] = requesterId;
-            }
-
-            if (!string.IsNullOrWhiteSpace(_adminId))
-            {
-                query["adminId"] = _adminId;
-            }
-
-            var companyId = Context.IsSystemAdmin ? _companyId : Context.CompanyId;
-            if (!string.IsNullOrWhiteSpace(companyId))
-            {
-                query["customer.companyId"] = companyId;
-            }
-
-            var page = await Api.SearchAsync<ImprovementRequest>("requests/srch", query);
-
-            // 긴급을 맨 앞으로. 서버가 이 칸으로 정렬하지 못해 여기서 한다.
-            // 한 번에 300건까지만 받으므로 브라우저에서 줄 세워도 무겁지 않다.
-            _rows =
-            [
-                .. page.Items
-                    .OrderByDescending(r => r.IsEmergency == true)
-                    .ThenByDescending(r => r.CreatedAt)
-            ];
-
+            _rows = Ordered(page.Items);
             _total = page.TotalCount;
+            _batches = 1;
 
             // 고른 줄은 **번호로** 다시 잡는다. 방금 받은 것은 같은 요청이라도
             // 다른 객체라, 들고 있던 것을 그대로 두면 표에 없는 줄을 가리킨
             // 채로 남는다(강조가 아무 데도 안 걸린다).
             _selected = _selected is { } was ? _rows.FirstOrDefault(r => r.Id == was.Id) : null;
 
-            // **잘렸으면 반드시 말한다.** 「전부다」로 읽고 넘어가면 없는 것을
-            // 찾게 된다. 조회의 **결과**라 안내 줄이 아니라 토스트로 나간다.
-            if (_total > _rows.Count)
-            {
-                Say($"전체 {_total}건 중 {_rows.Count}건을 읽었습니다. 조건을 좁히면 나머지가 보입니다.");
-            }
-
             return _rows.Count;
         }, "조건에 맞는 요청이 없습니다.", "요청 목록을 읽지 못했습니다");
+    }
+
+    /// <summary>
+    /// 다음 묶음을 <b>이어 받는다</b>. 조건은 그대로고 쪽 번호만 넘긴다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// [이미 읽은 줄은 걸러 낸다]
+    /// </para>
+    /// <para>
+    /// 쪽을 번호로 끊어 받는 동안 **창이 밀린다** — 두 번 부르는 사이에 누가
+    /// 요청을 하나 올리면 쪽 1 의 맨 끝 줄이 쪽 2 의 맨 앞으로 내려온다.
+    /// 그대로 이어 붙이면 같은 줄이 목록에 두 번 선다. 번호로 걸러 둔다.
+    /// </para>
+    /// <para>
+    /// [긴급은 <b>묶음 안에서만</b> 앞으로 온다]
+    /// </para>
+    /// <para>
+    /// 받아 온 것 전체를 다시 줄 세우지 않는다. 그러면 뒤늦게 받은 묶음의
+    /// 긴급 건이 <b>이미 보고 지나간 자리로 끼어들어</b>, 「더보기」를 눌렀을
+    /// 뿐인데 보던 줄이 아래로 밀린다. 이어 붙이는 쪽은 늘 맨 아래여야 한다.
+    /// (한 묶음 안에서 긴급이 앞인 것은 그대로다 — <see cref="Ordered"/>.)
+    /// </para>
+    /// </remarks>
+    private Task ReadMoreAsync() => LoadAsync(async () =>
+    {
+        var next = _batches + 1;
+        var page = await Api.SearchAsync<ImprovementRequest>("requests/srch", BuildQuery(next));
+
+        _batches = next;
+        _total = page.TotalCount;
+
+        var seen = _rows.Select(r => r.Id).ToHashSet();
+        _rows = [.. _rows, .. Ordered(page.Items).Where(r => seen.Add(r.Id))];
+
+        if (page.Items.Count == 0)
+        {
+            // 서버가 말한 전체보다 실제가 적다 — 두 번 부르는 사이에 지워졌거나
+            // 상태가 바뀌어 조건에서 빠진 것이다. 들고 있는 만큼으로 고쳐 두지
+            // 않으면 **눌러도 아무 일이 없는 「더보기 12건」**이 남는다.
+            _total = _rows.Count;
+            Say("더 읽을 요청이 없습니다.");
+        }
+
+        return _rows.Count;
+    }, "더 읽을 요청이 없습니다.", "요청을 더 읽지 못했습니다");
+
+    /// <summary>
+    /// 긴급을 맨 앞으로, 그다음 최근 순으로. <b>서버가 <c>isEmergency</c> 로는
+    /// 정렬하지 못해</b>(EF 가 질의를 못 옮겨 400 이 난다) 여기서 한다.
+    /// </summary>
+    private static IReadOnlyList<ImprovementRequest> Ordered(IEnumerable<ImprovementRequest> items) =>
+    [
+        .. items
+            .OrderByDescending(r => r.IsEmergency == true)
+            .ThenByDescending(r => r.CreatedAt)
+    ];
+
+    /// <summary>
+    /// 지금 조건을 서버가 읽는 모양으로 옮긴다. <b>쪽 번호만 다르고 나머지는
+    /// 늘 같다</b> — 「조회」와 「더 읽기」가 같은 질문을 해야 이어 붙인 줄이
+    /// 같은 목록의 뒷부분이 된다.
+    /// </summary>
+    private Dictionary<string, object?> BuildQuery(int page)
+    {
+        var query = new Dictionary<string, object?>
+        {
+            ["page"] = page,
+            ["pageSize"] = BatchRows,
+            ["remove"] = "description,content",
+            // 최근 순. **`isEmergency` 로는 정렬하지 못한다** — 서버가 그 칸으로
+            // 정렬하면 EF 가 질의를 번역하지 못해 400 이 난다. 긴급을 앞으로
+            // 올리는 것은 받아 온 뒤에 이 화면에서 한다(`Ordered`).
+            ["sorts"] = new[]
+            {
+                new { field = "createdAt", dir = "desc" },
+            },
+        };
+
+        if (!string.IsNullOrWhiteSpace(_keyword))
+        {
+            // **`_or_` 가 아니라 그냥 `_like` 다.** 서버의 OR 자리는 하나뿐이라
+            // (`DynamicFilterHelper` 의 orGroupParts), 거기에 제목을 넣어 두면
+            // 아래 「완료 기준」 기간 조건과 한 묶음으로 OR 되어
+            // 「제목이 맞거나 **또는** 그 기간에 끝났거나」가 된다.
+            // 조각이 하나뿐일 때 두 표기는 결과가 같으므로 이쪽으로 적는다.
+            query["title_like"] = _keyword.Trim();
+        }
+
+        if (_statuses.Count > 0)
+        {
+            // **여러 값의 구분자는 `|` 다.** 쉼표로 이으면 서버가 그 전체를
+            // 값 하나로 읽어 400 이 난다(DynamicFilterHelper 의 `in`).
+            query["status_in"] = string.Join("|", _statuses);
+        }
+        else if (_onlyOpen)
+        {
+            // 상태를 따로 고르지 않았을 때만 「처리 중」으로 좁힌다. 둘을 함께
+            // 걸면 고른 상태가 조용히 무시되어 화면과 결과가 어긋난다.
+            query["status_in"] = string.Join("|", OpenStatuses);
+        }
+        else
+        {
+            // **지운 요청은 안 센다.** 상태를 안 고르고 「처리 중인 것만」도
+            // 끄면 여기는 여태 `Delete` 까지 실어 왔다. 현황판은 그것을 빼고
+            // 세므로(`DashboardOverviewService`), 「전체」 타일을 눌렀을 때
+            // 숫자가 안 맞는 자리가 바로 여기다.
+            query["status_nin"] = "Delete";
+        }
+
+        ApplyPeriod(query);
+
+        // **고객은 제 것만 본다 — 못 박는 자리가 여기다.**
+        //
+        // 조건 칸을 잠가 두었지만(`RequesterLocked`) 그것은 거드는 것일 뿐이다.
+        // 서버는 목록을 권한으로 거르지 않으므로 **화면이 조건을 빠뜨리면
+        // 그대로 새어 나간다** — 걷어낸 「내 요청」(`RequestList`)이 같은
+        // 까닭으로 같은 일을 했다. 맡겨 둔 짐이 다른 번호를 들고 오거나
+        // 조건을 거는 길이 하나 더 생겨도 여기서 덮인다.
+        // 번호가 없는 고객은 여기까지 오지 않는다(위에서 돌려보낸다).
+        var requesterId = Context.CustomerId?.ToString(CultureInfo.InvariantCulture)
+            ?? _requesterId;
+
+        if (!string.IsNullOrWhiteSpace(requesterId))
+        {
+            query["customerId"] = requesterId;
+        }
+
+        if (!string.IsNullOrWhiteSpace(_adminId))
+        {
+            query["adminId"] = _adminId;
+        }
+
+        var companyId = Context.IsSystemAdmin ? _companyId : Context.CompanyId;
+        if (!string.IsNullOrWhiteSpace(companyId))
+        {
+            query["customer.companyId"] = companyId;
+        }
+
+        // **잘렸다는 말은 여기서 하지 않는다.** 예전에는 「전체 1240건 중
+        // 300건을 읽었습니다」를 토스트로 띄우고 끝이었는데, 그 말은 몇 초
+        // 뒤에 사라지고 **사람이 삼백 번째 줄에 닿는 것은 한참 뒤**다.
+        // 남은 것이 있다는 말과 그것을 받는 길은 목록 아래 단추가 함께
+        // 들고 있다(`Rest` · `ReadMoreAsync`).
+        return query;
     }
 
     /// <summary>
