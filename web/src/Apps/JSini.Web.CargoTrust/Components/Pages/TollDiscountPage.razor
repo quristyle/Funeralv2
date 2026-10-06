@@ -211,6 +211,14 @@
                 </span>
             </div>
 
+            @* 할인율은 차를 바꿔도 안 바뀐다 — 바뀌는 것은 「그래서 이 차가 받나」다.
+               그 물음이 접어 둔 목록 안에만 있으면 차를 바꿔 본 사람이
+               아무것도 안 바뀌었다고 읽는다. 눌러서 그 목록을 편다. *@
+            <button type="button" class="@VerdictClass(calc.EligibilityVerdict)" @onclick="ToggleHelp">
+                <span class="ct-verdict-mark">@VerdictMark(calc.EligibilityVerdict)</span>
+                <span>@calc.EligibilityNote</span>
+            </button>
+
             @if (IsClosed && calc.ExitAtKst is not null)
             {
                 <TollTimeline Entry="@calc.EntryAtKst" Exit="@calc.ExitAtKst.Value" Segments="@calc.NightSegments" />

@@ -66,6 +66,23 @@ public partial class TollDiscountPage
 
     private string HelpButtonClass => _helpOpen ? "ct-help-btn ct-help-btn--on" : "ct-help-btn";
 
+    /// <summary>자격 판정의 옷. 색만으로 가르지 않고 표시(O·!·X)도 함께 둔다.</summary>
+    private static string VerdictClass(string verdict) => verdict switch
+    {
+        "OK" => "ct-verdict ct-verdict--ok",
+        "NO" => "ct-verdict ct-verdict--no",
+        "CHECK" => "ct-verdict ct-verdict--check",
+        _ => "ct-verdict",
+    };
+
+    private static string VerdictMark(string verdict) => verdict switch
+    {
+        "OK" => "O",
+        "NO" => "X",
+        "CHECK" => "!",
+        _ => "·",
+    };
+
     /// <summary>
     /// 맡기는 열쇠. 화면 경로로 짓는다 — 겹치면 다른 화면의 조건을 되찾는다.
     /// </summary>

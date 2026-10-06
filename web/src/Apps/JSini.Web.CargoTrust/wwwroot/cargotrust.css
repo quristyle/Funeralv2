@@ -1090,3 +1090,47 @@ a.ct-card:focus-visible {
 .ct-step:hover {
   border-color: var(--jsini-accent);
 }
+
+/* ── 이 차가 받을 수 있나 ─────────────────────────────────── */
+
+/* 할인율 바로 아래 한 줄. 누르면 대상 조건 목록이 펴진다.
+   **할인율과 다른 물음을 말하는 자리다** — 할인율은 야간 이용비율로만 정해져
+   차를 바꿔도 안 바뀌는데, 「그래서 이 차가 받나」는 차마다 다르다. */
+.ct-verdict {
+  display: flex;
+  align-items: center;
+  gap: var(--jsini-sp-sm);
+  width: 100%;
+  margin-top: var(--jsini-sp-sm);
+  padding: var(--jsini-sp-sm) var(--jsini-sp-md);
+  border: 1px solid var(--jsini-border);
+  border-left-width: 3px;
+  border-radius: var(--jsini-radius-sm);
+  background: var(--jsini-surface-2);
+  color: var(--jsini-text);
+  font-size: var(--jsini-fs-sm);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* 색만으로 가르지 않는다 — 표시(O·!·X)가 색을 못 가리는 사람에게 같은 말을 한다. */
+.ct-verdict-mark {
+  flex: 0 0 auto;
+  width: 1.4em;
+  height: 1.4em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.ct-verdict--ok { border-left-color: var(--jsini-success); }
+.ct-verdict--ok .ct-verdict-mark { background: var(--jsini-success); color: #fff; }
+
+.ct-verdict--check { border-left-color: var(--jsini-warning); }
+.ct-verdict--check .ct-verdict-mark { background: var(--jsini-warning); color: #fff; }
+
+.ct-verdict--no { border-left-color: var(--jsini-danger); }
+.ct-verdict--no .ct-verdict-mark { background: var(--jsini-danger); color: #fff; }

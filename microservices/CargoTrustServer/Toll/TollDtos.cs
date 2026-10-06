@@ -63,6 +63,8 @@ public record TollCalcResult(
     string NightWindowLabel,
     List<TollNightSegment> NightSegments,
     List<EligibilityCheck> Checks,
+    string EligibilityVerdict,
+    string EligibilityNote,
     string Summary);
 
 /// <summary>
@@ -132,6 +134,8 @@ public record TollSuggestResult(
     int MaxDurationMinutes,
     string NightWindowLabel,
     List<EligibilityCheck> Checks,
+    string EligibilityVerdict,
+    string EligibilityNote,
     string Summary);
 
 /// <summary>할인 띠 하나 — 화면이 목표 할인율 고르개를 만들 때 쓴다.</summary>

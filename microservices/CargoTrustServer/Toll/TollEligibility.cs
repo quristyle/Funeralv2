@@ -116,6 +116,54 @@ public static class TollEligibility
         return checks;
     }
 
+    /// <summary>
+    /// 자격 목록을 한 줄로 줄인 판정.
+    ///
+    /// <para>
+    /// [할인율과 다른 것을 말한다]
+    /// </para>
+    ///
+    /// <para>
+    /// 할인율은 <b>야간 이용비율</b>로만 정해져서 차를 바꿔도 안 바뀐다. 그런데
+    /// 「그래서 이 차가 그 할인을 받나」는 차마다 다르다 — 그 둘이 다른 물음인데
+    /// 뒤엣것이 접어 둔 목록 안에만 있으면, 차를 바꿔 본 사람은 <b>아무것도 안
+    /// 바뀌었다고 읽는다.</b> 그래서 한 줄로 줄여 결과 옆에 세운다.
+    /// </para>
+    ///
+    /// <para>
+    /// 갈래는 셋이다 — <c>OK</c> 받는다 · <c>CHECK</c> 조건이 붙는다 ·
+    /// <c>NO</c> 대상이 아니다. 자격 목록과 같은 셋(맞음·알 수 없음·아님)이고,
+    /// <b>가장 나쁜 칸이 전체를 정한다.</b>
+    /// </para>
+    /// </summary>
+    public static (string Code, string Note) Verdict(Vehicle? vehicle)
+    {
+        if (vehicle is null)
+            return ("NONE", "차량을 고르면 이 차가 대상인지 함께 봅니다.");
+
+        var plate = PlateNumber.Read(vehicle.PlateNo);
+
+        // 막는 것 — 번호판이 아니라고 말하거나, 사람이 비사업용으로 적어 두었을 때.
+        var blockers = new List<string>();
+        if (plate.IsBusiness == false) blockers.Add(PlateNumber.UsageName(plate.Usage));
+        else if (!vehicle.IsBusiness) blockers.Add("비사업용");
+        if (plate.IsFreight == false) blockers.Add(PlateNumber.KindName(plate.Kind));
+
+        if (blockers.Count > 0)
+            return ("NO", $"대상이 아닙니다 — {string.Join(" · ", blockers.Distinct())}");
+
+        // 막지는 않지만 조건이 붙는 것.
+        var pending = new List<string>();
+        if (plate.Usage != PlateUsage.BUSINESS) pending.Add("번호판으로 사업용이 확인되지 않음");
+        if (vehicle.AxleCount is null) pending.Add("축수 모름");
+        else if (vehicle.AxleCount < 3) pending.Add($"{vehicle.AxleCount}축이라 서약서 조건");
+        if (!IsHeavyFreight(vehicle.VehicleClass) && !vehicle.HasHipass) pending.Add("하이패스 단말 없음");
+
+        return pending.Count > 0
+            ? ("CHECK", $"확인할 것이 있습니다 — {string.Join(" · ", pending)}")
+            : ("OK", "이 차량은 심야할인 대상입니다.");
+    }
+
     public static string VehicleClassName(VehicleClass cls) => cls switch
     {
         VehicleClass.LIGHT => "경차",

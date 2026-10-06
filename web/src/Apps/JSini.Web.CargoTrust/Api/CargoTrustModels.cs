@@ -567,6 +567,18 @@ public sealed class TollCalcResultInfo
     public string NightWindowLabel { get; set; } = string.Empty;
     public List<TollNightSegmentInfo> NightSegments { get; set; } = [];
     public List<EligibilityCheckInfo> Checks { get; set; } = [];
+    /// <summary>
+    /// 이 차량이 그 할인을 <b>받을 수 있나</b> — <c>OK</c> · <c>CHECK</c> · <c>NO</c> · <c>NONE</c>.
+    ///
+    /// <para>
+    /// 할인율과 다른 물음이다. 할인율은 야간 이용비율로만 정해져 차를 바꿔도 안 바뀌는데,
+    /// 「그래서 이 차가 받나」는 차마다 다르다.
+    /// </para>
+    /// </summary>
+    public string EligibilityVerdict { get; set; } = "NONE";
+
+    public string EligibilityNote { get; set; } = string.Empty;
+
     public string Summary { get; set; } = string.Empty;
 }
 
@@ -602,6 +614,18 @@ public sealed class TollSuggestResultInfo
     public int MaxDurationMinutes { get; set; }
     public string NightWindowLabel { get; set; } = string.Empty;
     public List<EligibilityCheckInfo> Checks { get; set; } = [];
+    /// <summary>
+    /// 이 차량이 그 할인을 <b>받을 수 있나</b> — <c>OK</c> · <c>CHECK</c> · <c>NO</c> · <c>NONE</c>.
+    ///
+    /// <para>
+    /// 할인율과 다른 물음이다. 할인율은 야간 이용비율로만 정해져 차를 바꿔도 안 바뀌는데,
+    /// 「그래서 이 차가 받나」는 차마다 다르다.
+    /// </para>
+    /// </summary>
+    public string EligibilityVerdict { get; set; } = "NONE";
+
+    public string EligibilityNote { get; set; } = string.Empty;
+
     public string Summary { get; set; } = string.Empty;
 }
 

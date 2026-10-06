@@ -96,6 +96,8 @@ public class TollService(CargoTrustDbContext db, TollRuleStore rules, CurrentUse
             WindowLabel(window),
             segments,
             [.. TollEligibility.For(vehicle)],
+            TollEligibility.Verdict(vehicle).Code,
+            TollEligibility.Verdict(vehicle).Note,
             CalcSummary(section, result, delayExit, delayEntry)));
     }
 
@@ -183,6 +185,8 @@ public class TollService(CargoTrustDbContext db, TollRuleStore rules, CurrentUse
             min, max,
             WindowLabel(window),
             [.. TollEligibility.For(vehicle)],
+            TollEligibility.Verdict(vehicle).Code,
+            TollEligibility.Verdict(vehicle).Note,
             SuggestSummary(anchorIsEntry, req.TargetDiscount, required.Value, options, best.BestRatio, bestBand)));
     }
 
@@ -318,6 +322,8 @@ public class TollService(CargoTrustDbContext db, TollRuleStore rules, CurrentUse
             inside ? 100m : 0m, band.DiscountPercent, 0, 0, 0,
             WindowLabel(window),
             [.. TollEligibility.For(vehicle)],
+            TollEligibility.Verdict(vehicle).Code,
+            TollEligibility.Verdict(vehicle).Note,
             $"개방식은 통과 시각 한 점으로 봅니다. {from:MM-dd HH:mm}~{to:MM-dd HH:mm} 사이에 지나면 됩니다.");
     }
 
