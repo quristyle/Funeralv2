@@ -61,7 +61,9 @@ public static class RequestEndpoints {
 
       */
 
-      var query = db.Requests.Include(r => r.Comments)
+      // 목록의 「댓글 N」 은 **산 댓글만** 센다. 지운 줄까지 세면 상세에
+      // 보이는 줄 수와 갈린다(상세는 답글 없는 지운 줄을 빼므로).
+      var query = db.Requests.Include(r => r.Comments.Where(c => !c.IsDel))
           .AsQueryable();
       if (status.HasValue)
         query = query.Where(r => r.Status == status.Value);
@@ -354,12 +356,21 @@ public static class RequestEndpoints {
           var ct = http.RequestAborted;
 
           var request = await db.Requests
+              .AsNoTracking()
               .Include(r => r.Comments)
               .Include(r => r.Customer)
               .Include(r => r.Admin)
               .FirstOrDefaultAsync(r => r.Id == id, ct);
 
           if (request is null) return null;
+
+          // 이 응답에도 댓글이 통째로 실린다. 추리고 가리지 않으면 **지운
+          // 댓글의 원문이 그대로 나간다** — `/{id}/comments` 는 가리는데
+          // 여기는 안 가려서 한동안 갈려 있었다. 같은 규칙을 쓴다.
+          //
+          // 고쳐 쓰므로 `AsNoTracking` 이다. 추적 중인 줄의 본문을 건드리면
+          // 뒤에 누가 `SaveChanges` 를 부를 때 안내 문구가 DB 에 박힌다.
+          request.Comments = CommentVisibility.Mask(CommentVisibility.Visible(request.Comments));
 
           request.CompanyName =
               await companies.GetNameAsync(request.Customer?.CompanyId, ct)
@@ -370,10 +381,12 @@ public static class RequestEndpoints {
 
     // 특정 요청에 대한 덧글 목록 조회
     group.MapGet("/{id}/comments", (AppDbContext db, int id) => ApiResponseBuilder.CreateAsync(async () => {
-      var comments = await db.Comments
+      // 지움 표시가 선 줄은 **답글을 떠받치고 있을 때만** 남는다.
+      // 왜 가운데를 골랐는지는 `CommentVisibility` 머리말.
+      var comments = CommentVisibility.Visible(await db.Comments
               .Where(c => c.RequestId == id)
               .OrderBy(c => c.CreatedAt)
-              .ToListAsync();
+              .ToListAsync());
 
       var adminIds = comments.Where(c => c.AuthorType == "admin").Select(c => c.AuthorId).Distinct().ToList();
       var customerIds = comments.Where(c => c.AuthorType != "admin").Select(c => c.AuthorId).Distinct().ToList();
@@ -396,15 +409,16 @@ public static class RequestEndpoints {
         }
 
         return new {
-          // IsDel 플래그를 확인하여 삭제된 댓글의 내용을 변경합니다.
-          CommentText = c.IsDel ? "삭제된 댓글입니다." : c.CommentText,
+          // 지운 줄은 내용을 내보내지 않는다.
+          CommentText = c.IsDel ? CommentVisibility.DeletedText : c.CommentText,
           c.Id,
           c.RequestId,
           c.AuthorType,
           c.AuthorId,
           c.ParentCommentId,
-          // 지워진 줄도 목록에 남긴다 — 빼면 거기 달린 답글이 부모를 잃는다.
-          // 화면이 이 값을 보고 내용만 흐리게 그린다.
+          // 여기까지 온 지운 줄은 **답글을 떠받치고 있는 것뿐이다.** 빼면
+          // 그 답글이 부모를 잃고 뿌리로 튀어 오른다. 화면이 이 값을 보고
+          // 내용 자리를 흐리게 그린다.
           c.IsDel,
           c.CreatedAt,
           c.CreatedBy,
@@ -433,7 +447,10 @@ public static class RequestEndpoints {
 
 
       var queryWithIncludes = db.Requests
-              .Include(c => c.Comments)
+              // 「댓글 N」 은 산 것만 센다. 다만 **이 걸름만 믿으면 안 된다** —
+              // 화면이 `remove=` 를 보내면 동적 투영을 타는데 그때 걸름이
+              // 묻힌다. 받아 놓고 한 번 더 턴다(`StripDeletedComments`).
+              .Include(r => r.Comments.Where(c => !c.IsDel))
               .Include(r => r.Customer)
               .Include(r => r.Admin)
               .AsQueryable();
@@ -465,7 +482,7 @@ public static class RequestEndpoints {
 
       var requests = await (resultQuery is IQueryable<object> q ? q.ToDynamicListAsync() : ((IQueryable)resultQuery).ToDynamicListAsync());
 
-      var data = await AddAttachmentDataAsync(requests, db, "ImprovementRequest");
+      var data = StripDeletedComments(await AddAttachmentDataAsync(requests, db, "ImprovementRequest"));
 
       // pageSize 가져오기
       int pageSize = 0;
@@ -948,6 +965,36 @@ public static class RequestEndpoints {
 
       return new { DeletedId = id };
     }, "Request deleted successfully."));
+  }
+
+  /// <summary>
+  /// 목록 응답에서 <b>지운 댓글을 걷어낸다.</b> 「댓글 N」 이 산 것만 세도록.
+  /// </summary>
+  /// <remarks>
+  /// <para>
+  /// 질의의 <c>Include(r =&gt; r.Comments.Where(c =&gt; !c.IsDel))</c> 만으로는
+  /// 모자란다. 화면이 <c>remove=description,content</c> 를 함께 보내면
+  /// <c>DynamicFilterHelper</c> 의 <b>동적 투영</b>을 타는데, 그 투영이
+  /// <c>Comments</c> 를 제 나름대로 다시 붙인다 — 만들어진 SQL 에
+  /// <i>걸러진 조인과 안 걸러진 조인이 둘 다</i> 생기고, 줄을 채우는 것은
+  /// 뒤엣것이다. 그래서 지운 줄이 그대로 딸려 왔다.
+  /// </para>
+  /// <para>
+  /// 투영이 어떤 모양으로 나오든 결과는 같아야 하므로 <b>받아 놓은 다음에</b>
+  /// 한 번 더 턴다. 목록은 줄 수만 쓰므로 떠받칠 답글을 따질 일이 없다 —
+  /// 상세와 달리 지운 줄을 통째로 뺀다.
+  /// </para>
+  /// </remarks>
+  private static List<dynamic> StripDeletedComments(List<dynamic> items) {
+    foreach (var item in items) {
+      if (item is not IDictionary<string, object> row) continue;
+      if (!row.TryGetValue("comments", out var raw)) continue;
+      if (raw is not IEnumerable<ImprovementComment> comments) continue;
+
+      row["comments"] = comments.Where(c => !c.IsDel).ToList();
+    }
+
+    return items;
   }
 
   /// <summary>

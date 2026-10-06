@@ -479,7 +479,8 @@ public static class DashboardEndpoints {
             .Select(r => new {
               r.Id,
               r.Title,
-              CommentCount = db.Comments.Count(c => c.RequestId == r.Id)
+              // 산 댓글만 센다 — 지운 줄까지 세면 상세에 보이는 줄 수와 갈린다.
+              CommentCount = db.Comments.Count(c => c.RequestId == r.Id && !c.IsDel)
             }).ToListAsync()));
 
     // 최근 N개의 요청을 조회합니다.

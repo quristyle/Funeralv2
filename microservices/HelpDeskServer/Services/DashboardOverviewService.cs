@@ -96,7 +96,10 @@ public sealed class DashboardOverviewService(AppDbContext db, IPortalCompanyDire
         .ToListAsync(ct);
 
     // 댓글은 요청별 개수만 있으면 된다. 본문을 끌어오지 않는다.
+    // 지운 줄은 빼고 센다 — 「댓글」 칸과 「무응답」 집계가 상세 화면과 같은
+    // 수를 가리켜야 한다.
     var commentCounts = await db.Comments
+        .Where(c => !c.IsDel)
         .GroupBy(c => c.RequestId)
         .Select(g => new { RequestId = g.Key, Count = g.Count() })
         .ToDictionaryAsync(x => x.RequestId, x => x.Count, ct);
