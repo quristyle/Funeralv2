@@ -1170,10 +1170,14 @@ a { color: var(--tb-primary); }
    여기서는 여백과 겉모양만 고친다. */
 
 @media (width < 768px) {
+  /* **본문 여백은 여기서 정하지 않는다** — `app.css` 의 `--jsini-shell-pad`
+     하나가 정본이다(2026-10-07 에 3px 로 내려왔다). 여기 8px 짜리 세 줄이
+     `!important` 로 그것을 덮고 있어서, 토큰을 내려도 휴대폰만 8px 로
+     남아 있었다. 테마는 겉모양만 맡고 자리는 안 잡는다. */
   .jsini-shell__content {
-    padding-left: 0.5rem !important;
-    padding-right: 0.5rem !important;
-    padding-top: 0.5rem !important;
+    padding-left: var(--jsini-shell-pad) !important;
+    padding-right: var(--jsini-shell-pad) !important;
+    padding-top: var(--jsini-shell-pad) !important;
   }
 
   .jsini-header {

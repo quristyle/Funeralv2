@@ -212,6 +212,13 @@
    ------------------------------------------------------------ */
 
 :root {
+  /* 셸 본문의 바깥 여백. **눈금에 없는 값**이라 따로 둔다 —
+     3xs(2px)와 2xs(4px) 사이이고, 두 쪽 다 다른 데서 쓰고 있어
+     그중 하나로 당기면 그 자리들이 함께 움직인다.
+
+     **휴대폰에서는 0 이다** — 바로 아래에서 다시 적는다. */
+  --jsini-shell-pad: 3px;
+
   --jsini-sp-3xs: var(--dxds-spacing-20, 0.125rem);   /*  2px */
   --jsini-sp-2xs: var(--dxds-spacing-40, 0.25rem);    /*  4px */
   --jsini-sp-xs: var(--dxds-spacing-60, 0.375rem);    /*  6px */
@@ -262,6 +269,27 @@
   --jsini-field-label-top: calc(var(--jsini-fs-2xs) * -0.6);
 
 
+}
+
+/* [휴대폰에서는 본문 여백이 **0** 이다]
+
+   값을 규칙마다 다시 적지 않고 **토큰 하나만 다시 적는다.** 이 여백을 보는
+   자리가 네 군데인데(`app.css` 의 기본·휴대폰·넓은 화면 셋과 `tabler.css` 의
+   `!important` 하나) 그중 하나라도 빠뜨리면 **그 한 폭에서만 옛 값이 남는다** —
+   실제로 그랬다. 8px 짜리 테마 규칙 하나를 못 보고 넘겨서, 토큰을 3px 로
+   내린 뒤에도 휴대폰만 8px 로 서 있었다.
+
+   아래쪽은 이 값을 쓰되 **0 이 되지 않는다.** 하단 띠(60px + 안전영역)만큼은
+   비워 두어야 마지막 줄에 닿을 수 있고, 그것은 여백이 아니라 자리 비킴이라
+   `calc()` 안에서 따로 더해진다.
+
+   `0px` 이지 `0` 이 아니다. 그 `calc()` 안에 들어가는 값이라, 단위 없는 0 을
+   길이에 더하면 식 전체가 무효가 되어 **여백이 통째로 사라진다**(아래쪽
+   자리 비킴까지 함께). */
+@media (max-width: 767px) {
+  :root {
+    --jsini-shell-pad: 0px;
+  }
 }
 
 /*
@@ -1648,14 +1676,27 @@ body {
 }
 
 /*
-   본문 여백. 데모(demos.devexpress.com/blazor)를 다시 재어 맞췄다 —
-   그쪽 본문은 위아래로 **24px** 을 두고 시작한다. 우리는 위가 17.6px 이라
-   브레드크럼 줄에 본문이 바싹 붙어 있었고, 그 한 자리가 「답답하다」의
-   가장 큰 몫이었다. 아래는 굴러 내려갔을 때 마지막 줄이 붙지 않게 더 준다.
+   본문 여백. **3px 다** — 넓은 화면에서도 좁은 화면에서도 같다.
+
+   [24px 에서 내려왔다 (2026-10-07)]
+
+   전에는 데모(demos.devexpress.com/blazor)를 재어 맞춘 24px 이었다. 그 글은
+   문서 사이트의 글줄을 기준으로 한 값인데, 여기 실리는 것은 글이 아니라
+   **표와 입력 폼**이다. 표는 폭이 넓을수록 한 줄에 담기는 칸이 늘고, 좁은
+   화면에서는 24px 둘이 쓸 수 있는 폭의 13% 였다 — 좁은 화면 규칙이 이미
+   같은 까닭으로 0.2rem 까지 내려와 있었고(아래 `max-width: 767px`),
+   넓은 화면만 옛 값으로 남아 있던 셈이다.
+
+   읽는 데 필요한 틈은 **안쪽 판이 이미 준다**(`commsch`·`commcont` 의 제
+   여백). 바깥에서 한 겹 더 두면 그 틈이 두 겹이 된다.
+
+   아래쪽만 좁은 화면에서 예외다 — 하단 띠(60px + 안전영역)가 고정으로 떠
+   있어서 그만큼 비워 두지 않으면 마지막 줄에 영영 닿지 못한다. 그것은
+   여백이 아니라 자리 비킴이다.
 */
 .jsini-shell__content {
   flex: 1;
-  padding: var(--jsini-sp-2xl) var(--jsini-sp-2xl) var(--jsini-sp-3xl);
+  padding: var(--jsini-shell-pad);
   overflow: auto;
 
   /* 옮기는 동안의 덮개(`.jsini-pageload`)가 여기에 자리를 잡는다.
@@ -2225,7 +2266,8 @@ button.jsini-crumbs__item:hover { opacity: 1; }
      비킴이라 여기서 줄이지 않는다. 떠다니는 단추(FAB)는 모서리에 겹쳐
      지나가게 둔다. */
   .jsini-shell__content {
-    padding: 0.2rem 0.2rem calc(60px + env(safe-area-inset-bottom) + 0.2rem);
+    padding: var(--jsini-shell-pad) var(--jsini-shell-pad)
+             calc(60px + env(safe-area-inset-bottom) + var(--jsini-shell-pad));
   }
 
   /* 모바일 화면에서는 탭 줄을 숨긴다. 본문 공간을 확보하고,
@@ -7101,12 +7143,15 @@ body {
 }
 
 /* **좁은 화면은 건드리지 않는다.** 이 규칙은 파일 위쪽의
-   `@media (max-width: 767px)` 본문 여백(0.2rem)보다 **뒤에 있어서**,
-   폭 조건 없이 적으면 같은 힘으로 나중에 이겨 휴대폰 여백을 24px 로
-   되돌려 놓는다. 한동안 그렇게 죽어 있었다 — 그래서 여기에 하한을 박는다. */
+   `@media (max-width: 767px)` 본문 여백보다 **뒤에 있어서**, 폭 조건 없이
+   적으면 같은 힘으로 나중에 이겨 휴대폰의 아래쪽 자리 비킴(하단 띠 60px)을
+   지워 놓는다. 한동안 그렇게 죽어 있었다 — 그래서 여기에 하한을 박는다.
+
+   값은 위 기본값과 같은 3px 다. 넓은 화면만 따로 둘 까닭이 없어졌는데도
+   규칙을 남기는 것은 그 하한 때문이다. */
 @media (min-width: 768px) {
   .jsini-shell__content {
-    padding: var(--jsini-sp-2xl);
+    padding: var(--jsini-shell-pad);
   }
 }
 
@@ -7794,9 +7839,10 @@ body {
 
     
     /* 위 본문 여백 규칙과 같은 값이다. 여기 것이 뒤에 있어 실제로 쓰이는 쪽이라
-       둘을 어긋나게 두면 한쪽만 고쳤을 때 조용히 옛 값으로 돌아간다. */
+       둘을 어긋나게 두면 한쪽만 고쳤을 때 조용히 옛 값으로 돌아간다 —
+       그래서 숫자를 베껴 적지 않고 같은 토큰을 본다. */
     .jsini-shell__content {
-        padding-bottom: calc(60px + env(safe-area-inset-bottom) + 0.2rem) !important;
+        padding-bottom: calc(60px + env(safe-area-inset-bottom) + var(--jsini-shell-pad)) !important;
     }
     
     .jsini-shell__fab--bottom-left, 
