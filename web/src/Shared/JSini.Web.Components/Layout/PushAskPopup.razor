@@ -185,6 +185,16 @@
             <DxButton Text="나중에" RenderStyle="ButtonRenderStyle.Secondary"
                       Enabled="@(!_busy)" Click="@(() => LaterAsync(false))" />
 
+            @* 「나중에」와 「다시 묻지 않기」 사이가 비어 있었다 — 15분은 너무
+               짧아 하루에도 몇 번씩 같은 창을 보게 되고, 영영 끄기는 아깝다.
+               **휴대폰에도 둔다.** 영영 끄는 것이 아니라 기한이 있는 미루기라,
+               되풀이해 권한다는 이 창의 일(머리말)과 어긋나지 않는다.
+               스물네 시간이 아니라 **한국 달력의 오늘**까지다 — 까닭은
+               `TodayAsync` 주석에 적었다. *@
+            <DxButton Text="오늘 하루 보지 않기" RenderStyle="ButtonRenderStyle.Secondary"
+                      RenderStyleMode="ButtonRenderStyleMode.Text"
+                      Enabled="@(!_busy)" Click="@TodayAsync" />
+
             @* **휴대폰에는 「다시 묻지 않기」를 두지 않는다.** 거기서는 되풀이해
                권하는 것이 이 창의 일이고(머리말), 영영 끄는 길을 나란히 두면
                그 일이 첫 화면에서 끝난다. 그만 보고 싶은 사람은 설치하거나

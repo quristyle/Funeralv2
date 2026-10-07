@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using JSini.Web.Models;
+using JSini.Web.Components.Data;
 using JSini.Web.Components.Settings;
 
 namespace JSini.Web.Components.Layout;
@@ -103,16 +104,18 @@ public partial class PushAskPopup
         _browser = await Enroll.StatusAsync();
         _mobile = _browser.Mobile;
 
-        if (_mobile)
+        // **기한은 어느 쪽에서도 지킨다.** 전에는 휴대폰에서만 봤다 — 접어 두는
+        // 길이 거기에만 있었기 때문이다. 「오늘 하루 보지 않기」가 생기면서
+        // 데스크톱에서도 기한이 적힐 수 있게 됐고, 여기서 안 보면 그 단추가
+        // 데스크톱에서 **다음 새로고침에 바로 풀린다.**
+        if (_snoozeUntil is { } until && DateTime.UtcNow < until)
         {
-            if (_snoozeUntil is { } until && DateTime.UtcNow < until)
-            {
-                // 아직 접어 둔 기한 안이다. 그 시각에 다시 본다.
-                ScheduleReofferAt(until);
-                return;
-            }
+            // 아직 접어 둔 기한 안이다. 그 시각에 다시 본다.
+            ScheduleReofferAt(until);
+            return;
         }
-        else if (_closedThisTab || _never)
+
+        if (!_mobile && (_closedThisTab || _never))
         {
             // 데스크톱은 한 번 묻고 만다.
             return;
@@ -335,6 +338,45 @@ public partial class PushAskPopup
     }
 
     /// <summary>「다시 묻지 않기」. 이 브라우저에 영영 적어 둔다(데스크톱만).</summary>
+    /// <summary>
+    /// 「오늘 하루 보지 않기」 — <b>한국 달력으로 오늘이 끝날 때까지</b> 접어 둔다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 「나중에」(15분)와 「다시 묻지 않기」(영영) 사이가 비어 있었다. 설치를
+    /// 지금 할 생각이 없는 사람에게 15분은 너무 짧아 하루에도 몇 번씩 같은
+    /// 창을 보게 되고, 그렇다고 영영 끄기는 아깝다 — 휴대폰에 설치하는 것은
+    /// 실제로 값을 하는 일이라 내일 다시 권할 만하다.
+    /// </para>
+    /// <para>
+    /// <b>스물네 시간이 아니라 「오늘」이다.</b> 저녁에 눌렀는데 다음 날
+    /// 저녁까지 안 뜨면 그것은 하루가 아니라 이틀처럼 느껴진다. 사람이 말하는
+    /// 「오늘 하루」는 달력의 하루이고, 그 달력은 한국 달력이다
+    /// (<c>docs/utc-time.md</c> — 달력 날짜만 한국으로 센다).
+    /// </para>
+    /// <para>
+    /// 적어 두는 값은 <b>UTC 한 순간</b>이다. 접어 두는 장치가 이미 그 꼴을
+    /// 쓰고 있어서(<see cref="PortalBoot.PushAskSnoozeKey"/>) 새로 만들 것이
+    /// 없다 — 여기서는 「내일 0시(한국)」가 UTC 로 언제인지만 셈한다.
+    /// </para>
+    /// </remarks>
+    private async Task TodayAsync()
+    {
+        _open = false;
+
+        var tomorrowKorea = AppTime.Today.AddDays(1).ToDateTime(TimeOnly.MinValue);
+        var untilUtc = AppTime.FromKorea(tomorrowKorea);
+
+        // 이미 지난 값이 되는 일은 없지만(오늘은 늘 내일보다 앞선다), 시계가
+        // 어긋난 기기에서 음수가 나오면 접어 두는 쪽이 터진다. 0 으로 막는다.
+        var span = untilUtc - AppTime.UtcNow;
+
+        _snoozeUntil = await Boot.SnoozePushAskAsync(span > TimeSpan.Zero ? span : TimeSpan.Zero);
+        ScheduleReofferAt(_snoozeUntil.Value);
+
+        StateHasChanged();
+    }
+
     private async Task NeverAsync()
     {
         _open = false;
