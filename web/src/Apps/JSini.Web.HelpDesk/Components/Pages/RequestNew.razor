@@ -187,14 +187,7 @@
     </label>
 
     <div class="hd-field hd-content-field">
-        @* 이름표와 AI 단추가 한 줄에 선다. 휴대폰에서는 이름표가 빠지므로
-           (`helpdesk.css`) 이 줄에 단추만 남아 오른쪽에 붙는다. *@
-        <div class="hd-field__head">
-            <span class="hd-field__label">내용</span>
-            <RequestAiAssist Content="@FlushedContentAsync"
-                             TitleChosen="@ApplyTitleAsync"
-                             SummaryReady="@InsertSummaryAsync" />
-        </div>
+        <span class="hd-field__label">내용</span>
 
         @* 값을 **파라미터로 되받지 않는다.** `DxHtmlEditor` 가 알려 주는
            시점은 친 다음 `InputDelay`(기본 500ms) 뒤라, 마지막 줄을 치고
@@ -249,8 +242,17 @@
     <InputFile id="@PasteInputId" class="hd-paste-input" accept="image/*"
                multiple OnChange="@OnPastedAsync" />
 
-    <div class="hd-field">
-        <span class="hd-field__label">첨부</span>
+    @* [곁들이는 단추 둘이 한 줄에 선다 — 첨부와 AI 도우미]
+
+       **이름표를 달지 않는다.** 둘 다 아이콘 하나짜리고, 무엇을 하는지는
+       아이콘의 `title` 이 읽어 준다(첨부는 클립, AI 는 ✨). 「첨부」 한 글자를
+       위에 얹으면 아이콘 하나를 위해 줄이 하나 더 생기는데, 이 자리는 폼의
+       본문이 아니라 **곁들이는 자리**다.
+
+       AI 가 여기로 내려온 까닭도 같다. 전에는 「내용」 이름표 옆에 있었는데,
+       그 줄은 휴대폰에서 이름표가 빠지면 단추 하나만 남는 빈 줄이 됐다.
+       둘을 한 줄에 모으면 그 줄이 없어진다. *@
+    <div class="hd-tools">
         @* 그림은 이제 본문에 넣는 길이 따로 있다. 여기는 **본문에 못 넣는 것**
            (로그 파일 · 설정 파일 · 영상)을 위한 자리다. 종류를 제한하지 않는다. *@
         <FilePicker @ref="_picker"
@@ -258,6 +260,10 @@
                     MaxBytes="@(20L * 1024 * 1024)"
                     ShowHint="false"
                     FilesChanged="@(files => _files = files)" />
+
+        <RequestAiAssist Content="@FlushedContentAsync"
+                         TitleChosen="@ApplyTitleAsync"
+                         SummaryReady="@InsertSummaryAsync" />
     </div>
 
     @* 「등록」은 이 화면의 **단 하나뿐인 동작**이다. 넓은 화면에서는 글자만큼만

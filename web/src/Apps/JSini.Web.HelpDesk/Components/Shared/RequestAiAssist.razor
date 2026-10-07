@@ -57,8 +57,10 @@
             }
             else if (_titles.Count > 0)
             {
-                <p class="hd-ai__head">제목 후보 — 누르면 제목 칸에 들어갑니다</p>
-
+                @* 설명 줄을 두지 않는다. 고를 것이 줄줄이 서 있는 자리에서
+                   「누르면 제목 칸에 들어갑니다」는 한 번 읽고 나면 다시 읽을
+                   일이 없는 글이고, 그만큼 후보가 아래로 밀린다. 줄 사이의
+                   가는 선이 「하나씩 고르는 것」을 대신 말해 준다. *@
                 <ul class="hd-ai__list">
                     @foreach (var title in _titles)
                     {
@@ -70,9 +72,24 @@
                 </ul>
 
                 <div class="hd-ai__foot">
-                    <button type="button" class="hd-ai__plain" @onclick="MakeTitlesAsync">다시 짓기</button>
+                    @* 「다시 짓기」는 아이콘이다. `title` 을 반드시 단다 —
+                       글자가 없는 단추라 이것이 없으면 무엇인지 알 길이 없다. *@
+                    <button type="button" class="hd-ai__icon-btn"
+                            title="다시 짓기" aria-label="다시 짓기"
+                            @onclick="MakeTitlesAsync">
+                        <span class="jsini-icon-refresh" aria-hidden="true"></span>
+                    </button>
+
                     <button type="button" class="hd-ai__plain" @onclick="Close">닫기</button>
                 </div>
+            }
+
+            @* 이번 답을 만든 AI. **고르는 칸이 아니라 알려 주는 줄이다** —
+               어느 것으로 갈지는 서버가 정하고 실패하면 스스로 넘기므로,
+               무엇이 답했는지는 받고 나서야 안다. 모르면 줄째 안 뜬다. *@
+            @if (!_busy && _model is { Length: > 0 } model)
+            {
+                <p class="hd-ai__model">@model</p>
             }
             else
             {

@@ -32,6 +32,12 @@ public partial class RequestAiAssist : IDisposable
     private List<string> _titles = [];
 
     /// <summary>
+    /// 이번 답을 만든 AI 의 이름. 모르면 <c>null</c> — 공급자가 그 표시를
+    /// 안 보내 줄 수도 있어서 <b>없을 수 있는 값</b>이다.
+    /// </summary>
+    private string? _model;
+
+    /// <summary>
     /// 화면을 떠나면 하던 일을 그만둔다. 로컬 LLM 은 느릴 때 십 초가 넘는데,
     /// 그 사이에 사람이 나가면 돌아온 답이 <b>없는 화면</b>을 고치려 든다.
     /// </summary>
@@ -65,6 +71,7 @@ public partial class RequestAiAssist : IDisposable
         _work = null;
         _busy = false;
         _titles = [];
+        _model = null;
     }
 
     private async Task MakeTitlesAsync()
@@ -78,9 +85,10 @@ public partial class RequestAiAssist : IDisposable
 
         try
         {
-            var titles = await Ai.SuggestTitlesAsync(content, _work!.Token);
+            var answer = await Ai.SuggestTitlesAsync(content, _work!.Token);
+            _model = answer.Model;
 
-            if (titles.Count < RequestAi.MinTitles)
+            if (answer.Titles.Count < RequestAi.MinTitles)
             {
                 // **몇 개 안 나온 것을 그냥 보여 주지 않는다.** 하나나 둘만
                 // 뜨면 사람은 그것이 최선이라고 읽는다. 모델이 형식을 어긴
@@ -89,7 +97,7 @@ public partial class RequestAiAssist : IDisposable
                 return;
             }
 
-            _titles = [.. titles];
+            _titles = [.. answer.Titles];
         }
         catch (OperationCanceledException)
         {
@@ -118,14 +126,15 @@ public partial class RequestAiAssist : IDisposable
         try
         {
             var summary = await Ai.SummarizeAsync(content, _work!.Token);
+            _model = summary.Model;
 
-            if (summary is null)
+            if (summary.Html is null)
             {
                 Toasts.Show("내용을 간추리지 못했습니다. 다시 눌러 보십시오.", NoticeTone.Warning);
                 return;
             }
 
-            await SummaryReady.InvokeAsync(summary);
+            await SummaryReady.InvokeAsync(summary.Html);
 
             // 꽂고 나면 판을 닫는다. 요약은 고를 것이 없는 일이라, 판이
             // 열린 채로 남으면 본문 맨 위에 방금 들어간 것을 가린다.
@@ -165,6 +174,7 @@ public partial class RequestAiAssist : IDisposable
         _busy = true;
         _busyWhat = what;
         _titles = [];
+        _model = null;
 
         return content;
     }

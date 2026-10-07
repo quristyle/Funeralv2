@@ -65,16 +65,22 @@
   color: var(--jsini-text-muted);
 }
 
-/* 이름표와 그 줄에 같이 서는 단추(지금은 AI 도우미 하나).
+/* 곁들이는 단추 둘이 서는 줄 — 첨부(클립)와 AI 도우미(✨).
 
-   휴대폰에서는 이름표가 빠지므로(아래 `.hd-content-field` 규칙) 이 줄에
-   단추만 남는다. `space-between` 이라 그때도 오른쪽에 붙는다. */
-.hd-field__head {
+   **`align-items: flex-start` 다.** 첨부는 격자라 단추 아래로 고른 파일
+   목록이 자란다(`.jsini-picker`). 가운데로 맞추면 파일을 고르는 순간 AI
+   단추가 목록 높이의 절반만큼 아래로 내려가, 누르려던 자리가 손가락 밑에서
+   움직인다. 위에 맞춰 두면 둘 다 제자리에 선다. */
+.hd-tools {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  align-items: flex-start;
   gap: 0.5rem;
-  min-height: 1.5rem;
+
+  /* **AI 판이 이 줄을 기준으로 선다.** 단추를 기준으로 두면 판의 왼쪽 끝이
+     단추 자리(폼 왼쪽에서 46px)에서 시작해, 375px 화면에서 오른쪽으로
+     6px 삐져나갔다(재어 본 값 — 판 오른끝 381, 화면 375). 줄을 기준으로
+     하면 폼 왼쪽 끝에서 시작하므로 폭을 화면에 맞춰 잡을 수 있다. */
+  position: relative;
 }
 
 /* ── AI 도우미 ───────────────────────────────────────────
@@ -87,14 +93,21 @@
    헤더의 `UserMenu` 가 같은 까닭으로 손으로 그려져 있다.
    ---------------------------------------------------------- */
 
+/* 단추를 감싸는 통. **자리 기준을 여기 두지 않는다** — 펼친 판은 바깥
+   줄(`.hd-tools`)을 기준으로 선다. 까닭은 그쪽 주석에 적었다. */
 .hd-ai {
-  position: relative;
+  display: inline-flex;
 }
 
 .hd-ai__btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.3rem;
+
+  /* 첨부 단추와 **같은 높이**로 세운다(`.jsini-picker__pick` 의 2.25rem).
+     나란히 서는 자리라 1px 만 어긋나도 줄이 비뚤어 보인다. */
+  min-height: 2.25rem;
   padding: 0.25rem 0.6rem;
   border: 1px solid var(--jsini-border);
   border-radius: 999px;
@@ -129,14 +142,19 @@
 }
 
 /* 펼친 판. **흐름 위에 띄운다** — 자리를 차지하게 두면 열 때마다 편집기가
-   아래로 밀려서, 제목 후보를 읽는 동안 쓰던 글이 화면 밖으로 나간다. */
+   아래로 밀려서, 제목 후보를 읽는 동안 쓰던 글이 화면 밖으로 나간다.
+
+   **위로 연다**(`bottom: 100%`). 단추가 폼 끝자락으로 내려오면서 아래로
+   열면 판이 화면 밖으로 나간다 — 제목 후보 다섯 줄이면 240px 가 넘는다.
+   왼쪽에 맞추는 것(`left: 0`)도 같은 까닭이다. 단추가 줄 왼쪽에 서 있어서
+   오른쪽에 맞추면 판이 화면 왼편으로 삐져나간다. */
 .hd-ai__panel {
   position: absolute;
   z-index: 20;
-  top: calc(100% + 0.35rem);
-  right: 0;
-  min-width: min(22rem, calc(100vw - 2.5rem));
-  max-width: calc(100vw - 2.5rem);
+  bottom: calc(100% + 0.35rem);
+  left: 0;
+  min-width: min(22rem, calc(100vw - 1rem));
+  max-width: calc(100vw - 1rem);
   padding: 0.5rem;
   border: 1px solid var(--jsini-border);
   border-radius: var(--jsini-radius, 6px);
@@ -163,23 +181,37 @@
   background: var(--jsini-surface-2, rgb(0 0 0 / 5%));
 }
 
-.hd-ai__head,
 .hd-ai__wait {
-  margin: 0 0 0.35rem;
-  padding: 0 0.6rem;
+  margin: 0;
+  padding: 0.6rem;
   font-size: var(--jsini-fs-xs);
   color: var(--jsini-text-muted);
 }
 
-.hd-ai__wait {
-  margin: 0;
-  padding: 0.6rem;
+/* 이번 답을 만든 AI. **작게, 흐리게** — 고르는 값이 아니라 알려 주는 값이라
+   후보보다 먼저 눈에 들면 안 된다. */
+.hd-ai__model {
+  margin: 0.35rem 0 0;
+  padding: 0.35rem 0.6rem 0;
+  border-top: 1px solid var(--jsini-border);
+  font-size: var(--jsini-fs-xs);
+  color: var(--jsini-text-muted);
+  text-align: right;
 }
 
 .hd-ai__list {
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+/* 후보 사이의 가는 선. **첫 줄 위에는 긋지 않는다**(`li + li`) — 판 머리에
+   선이 하나 더 생기면 테두리가 두 겹으로 보인다.
+
+   선이 설명 줄을 대신한다. 「하나를 고르는 자리」라는 것을 글로 적어 두었던
+   것을 걷어내고(마크업 주석), 줄이 나뉘어 보이는 것으로 같은 말을 한다. */
+.hd-ai__list li + li {
+  border-top: 1px solid var(--jsini-border);
 }
 
 /* 제목 후보는 **접어서 다 보여 준다.** 한 줄로 잘라 「…」로 끝내면 뒤쪽이
@@ -191,11 +223,32 @@
 
 .hd-ai__foot {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   gap: 0.25rem;
   margin-top: 0.35rem;
   padding-top: 0.35rem;
   border-top: 1px solid var(--jsini-border);
+}
+
+/* 글자 없는 단추(다시 짓기). 네모로 세워 옆의 글자 단추와 높이를 맞춘다. */
+.hd-ai__icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.75rem;
+  min-height: 1.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--jsini-text-muted);
+  cursor: pointer;
+}
+
+.hd-ai__icon-btn:hover {
+  background: var(--jsini-surface-2, rgb(0 0 0 / 5%));
+  color: var(--jsini-text);
 }
 
 .hd-ai__plain {
@@ -210,6 +263,33 @@
 .hd-ai__plain:hover {
   color: var(--jsini-text);
   text-decoration: underline;
+}
+
+/* [휴대폰에서는 「등록」이 늘 화면 아래에 떠 있다 (2026-10-07)]
+
+   본문이 길어지면 — 증상 설명에 캡처가 몇 장 붙으면 금방 그렇게 된다 —
+   「등록」이 화면 밖으로 밀려난다. 다 쓰고 나서 **끝까지 다시 굴려 내려가야**
+   누를 수 있고, 그 사이에 임시 보관 안내나 첨부 목록이 끼면 어디까지
+   내려가야 하는지도 가늠이 안 된다.
+
+   `sticky` 다. 자리는 흐름 안에 그대로 두고 **보이는 자리에서만** 떠 있게
+   한다(`fixed` 로 띄우면 폼 끝에 빈 자리가 남는다).
+
+   **붙이는 높이는 0 이다.** 하단 띠(60px)를 비키는 일은 여기서 하지 않는다 —
+   본문이 구르는 통(`.jsini-shell__content`)이 이미 그만큼 아래 여백을 들고
+   있고(`app.css`), `sticky` 는 그 **여백 안쪽**을 기준으로 붙기 때문이다.
+   띠 높이를 여기서 한 번 더 더했더니 단추가 띠에서 84px 떠 버렸다(재어 본
+   값 — 375px 화면에서 단추 아래끝 668, 띠 윗끝 752).
+
+   바탕을 칠한다. 안 칠하면 글이 단추 **밑으로 비쳐 지나간다**. */
+@media (width <= 767px) {
+  .hd-submit {
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+    padding: 0.5rem 0;
+    background: var(--jsini-bg, var(--jsini-surface));
+  }
 }
 
 /* 폼 끝의 「등록」 줄.
@@ -228,6 +308,18 @@
   .hd-submit > .dxbl-btn {
     width: 100%;
   }
+}
+
+/* 제목 칸을 시원하게 연다.
+
+   DevExpress 기본 입력칸은 글자 위아래로 9px 이다. 제목은 이 폼에서
+   **본문 다음으로 큰 칸**인데 그 높이로는 아래 편집기 옆에서 눌려 보이고,
+   휴대폰에서는 손가락으로 짚는 자리이기도 하다.
+
+   안쪽 `<input>` 에 건다. 바깥 칸에 걸면 테두리만 커지고 글자는 제자리라
+   위아래가 비어 보인다. */
+.hd-title-field .dxbl-text-edit-input {
+  padding-block: 0.75rem;
 }
 
 /* 폼의 폭.
@@ -280,7 +372,7 @@
    아예 없다 — 이름표를 걷으면 무엇을 고르는 단추인지가 사라진다. */
 @media (width <= 767px) {
   .hd-title-field > .hd-field__label,
-  .hd-content-field .hd-field__head > .hd-field__label {
+  .hd-content-field > .hd-field__label {
     display: none;
   }
 }
