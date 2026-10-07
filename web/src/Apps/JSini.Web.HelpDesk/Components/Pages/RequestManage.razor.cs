@@ -4,6 +4,7 @@ using System.Globalization;
 using JSini.Web.Components.Data;
 using JSini.Web.Components.Layout;
 using JSini.Web.HelpDesk.Api;
+using JSini.Web.HelpDesk.Components.Shared;
 
 namespace JSini.Web.HelpDesk.Components.Pages;
 
@@ -14,9 +15,6 @@ public partial class RequestManage : IDisposable
 
     /// <summary>떠날 때 쓰던 모습을 맡기는 곳. 돌아오면 그대로 되찾는다.</summary>
     [Inject] private ScreenState Screen { get; set; } = default!;
-
-    /// <summary>줄의 그림을 눌렀을 때 뜨는 미리보기 창. 레이아웃이 한 벌 들고 있다.</summary>
-    [Inject] private ImagePreview Preview { get; set; } = default!;
 
     // ── 현황판이 싣고 오는 조건 ─────────────────────────────
     //
@@ -118,7 +116,7 @@ public partial class RequestManage : IDisposable
     /// </summary>
     private string StatusSummary => _statuses.Count == 0
         ? SchSummary.Any
-        : string.Join(", ", _statuses.Select(StatusText));
+        : string.Join(", ", _statuses.Select(RequestRowText.Status));
 
     /// <summary>
     /// 기간을 한 줄로. <b>기준(접수·완료)을 앞에 붙인다</b> — 날짜만 적으면
@@ -266,16 +264,6 @@ public partial class RequestManage : IDisposable
     /// 참이라, 조건만 되찾은 길에서는 거짓이다.
     /// </remarks>
     private bool _seeded;
-
-    /// <summary>
-    /// 썸네일을 못 받은 파일들. 깨진 네모 대신 빈 자리로 돌아간다.
-    /// </summary>
-    /// <remarks>
-    /// 개발 장비에서 올린 그림은 <b>운영 파일 서버에 바이트가 없다</b> —
-    /// 표 하나에 그런 줄이 여럿이면 깨진 네모가 줄줄이 선다. 한 번 실패한
-    /// 주소는 적어 두고 다시 걸지 않는다.
-    /// </remarks>
-    private readonly HashSet<string> _brokenThumbs = new(StringComparer.Ordinal);
 
     /// <summary>
     /// 요청자 칸을 잠갔는가 — <b>고객이면</b> 참(관리자가 아닌 모든 사람).
@@ -844,88 +832,19 @@ public partial class RequestManage : IDisposable
         return ReloadAsync();
     }
 
-    private void OnRowClick(ImprovementRequest r)
-    {
-            Navigation.NavigateTo($"/helpdesk/request/detail/{r.Id}");
-    }
-
     /// <summary>
-    /// 이 줄을 대신할 그림. 한 번 못 받은 것은 다시 걸지 않는다.
-    /// </summary>
-    private RequestImage? ThumbOf(ImprovementRequest r)
-    {
-        var picked = RequestThumb.PickOf(r);
-        return picked is not null && _brokenThumbs.Contains(picked.ThumbnailUrl) ? null : picked;
-    }
-
-    /// <summary>
-    /// 줄의 그림을 눌렀다 — <b>원본</b>을 미리보기로 띄운다.
+    /// 줄을 눌렀다 — 상세로 간다.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// 한 장만 넘기지 않는다. 그 요청에 붙은 그림을 전부 넘기면 창 안에서
-    /// 앞뒤로 넘어가므로, 사진이 여러 장인 장애 신고를 상세 화면까지 가지
-    /// 않고도 훑어볼 수 있다.
-    /// </para>
-    /// <para>
-    /// 이름이 없는 그림(본문에 박은 것)은 <b>글 제목</b>으로 적는다 —
-    /// 머리띠에 「그림」만 떠 있으면 어느 요청의 사진인지 알 수 없다.
-    /// </para>
+    /// <b>고른 줄을 여기서도 적어 둔다.</b> 데스크톱은 표가 알려 주지만
+    /// (<c>SelectedChanged</c>) 휴대폰 카드 목록에는 고르기가 없어서,
+    /// 안 적으면 떠날 때 맡기는 짐의 <c>SelectedId</c> 가 늘 비고 돌아온
+    /// 사람이 보던 줄을 잃는다.
     /// </remarks>
-    private void PreviewImages(ImprovementRequest r)
+    private void OnRowClick(ImprovementRequest r)
     {
-        Preview.OpenAll(RequestThumb.ImagesOf(r)
-            .Select(i => new ImagePreviewItem(i.OriginalUrl, i.Name ?? r.Title)));
+        _selected = r;
+        Navigation.NavigateTo($"/helpdesk/request/detail/{r.Id}");
     }
 
-    /// <summary>
-    /// 그림을 못 받았다. 깨진 네모를 지우고 빈 자리로 돌아간다.
-    /// </summary>
-    private void ThumbFailed(string url)
-    {
-        if (_brokenThumbs.Add(url))
-        {
-            StateHasChanged();
-        }
-    }
-
-    private static string Elapsed(ImprovementRequest r)
-    {
-        if (r.CreatedAt is not { } from)
-        {
-            return "-";
-        }
-
-        // **UTC 로 잰다.** 서버가 주는 시각은 UTC 인데 `DateTime.Now` 는 우리
-        // 시계라, 섞어 빼면 아직 안 끝난 건의 경과가 통째로 아홉 시간 부풀었다.
-        var to = r.CompletededAt ?? r.CompletedAt ?? DateTime.UtcNow;
-        var span = to - from;
-
-        return span < TimeSpan.Zero ? "-"
-            : span.TotalDays>= 1 ? $"{(int)span.TotalDays}일"
-            : $"{(int)span.TotalHours}시간";
-    }
-
-    private static string StatusText(ImprovementRequest r) =>
-        !string.IsNullOrWhiteSpace(r.StatusName) ? r.StatusName! : StatusText(r.Status);
-
-    private static string StatusText(string? status) => status switch
-    {
-        "Pending" => "대기",
-        "InProgress" => "진행",
-        "Rejected" => "반려",
-        "Completed" => "완료",
-        "UserCompleted" => "종료",
-        "Consultation" => "협의",
-        "Negotiation" => "논의",
-        _ => status ?? "-",
-    };
-
-    private static string StatusClass(string? status) => status switch
-    {
-        "Completed" or "UserCompleted" => "jsini-badge--on",
-        "InProgress" or "Consultation" or "Negotiation" => "jsini-badge--warn",
-        "Rejected" => "jsini-badge--off",
-        _ => "",
-    };
 }

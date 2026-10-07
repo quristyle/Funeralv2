@@ -1,0 +1,103 @@
+@*
+    요청 목록 — **휴대폰**의 카드 목록.
+
+    데스크톱은 같은 자료를 표로 세운다(`RequestGrid`). 왜 둘로 갈랐는지는
+    `RequestRowList` 머리말에 있다. 여기서는 그 결과만 적는다 —
+
+    [칸 머리줄이 없다]
+
+    휴대폰에서 남는 칸은 「그림」과 「제목」 둘뿐이었고, 그 위의 머리줄은
+    그 두 낱말을 적어 **한 줄을 통째로 먹는 장식**이었다. 누를 수는 있지만
+    정렬도 칸별 검색도 손가락으로 쓰는 자리가 아니다.
+
+    [안에서 구르지 않는다 — 글처럼 이어진다]
+
+    표는 남은 높이를 다 먹고 제 안에서 굴렀다. 그러면 화면을 쓸어올리는
+    손짓이 **표 가장자리에서만** 먹히고, 브라우저 주소줄도 접히지 않아
+    세로 공간을 계속 잃는다. 목록을 `ul` 로 깔면 바깥(셸 본문)이 구르므로
+    쓸어올리기가 어디서나 먹고 주소줄이 접힌다.
+    자리를 내주는 쪽은 `helpdesk.css` 의 `.hd-req-list` 머리말이다.
+
+    [줄이 전부 깔린다]
+
+    쪽나누기가 없다. 화면이 「더보기」로 **몇 줄을 넘겨 줄지**를 정하고
+    (`RequestManage` 의 `Shown`), 여기서는 받은 것을 남김없이 깐다.
+    「더보기」 단추는 이 목록 **아래**에 화면이 둔다 — 목록 끝이 곧 단추라
+    다음 줄을 보려고 좁은 숫자를 겨눌 일이 없다.
+
+    [줄 전체가 눌리는 자리다]
+
+    손가락에는 「상세」 단추 하나보다 줄 전체가 낫다. 그림만 예외다 —
+    거기를 누르면 원본이 미리보기로 열린다(`stopPropagation`).
+*@
+
+@inherits RequestRowList
+
+@if (Rows.Count == 0)
+{
+    <p class="hd-req-list__empty">@EmptyText</p>
+}
+else
+{
+    <ul class="hd-req-list">
+        @foreach (var r in Rows)
+        {
+            <li class="hd-req-list__item" @key="r.Id"
+                role="button" tabindex="0"
+                @onclick="@(() => RowClick.InvokeAsync(r))"
+                @onkeydown="@(e => OnKeyDownAsync(e, r))">
+
+                @* 그림이 없는 줄에도 같은 자리를 비워 둔다. 안 비우면 글이
+                   줄마다 다른 자리에서 시작해 목록이 들쭉날쭉해진다 —
+                   좁은 화면에서는 그 어긋남이 표에서보다 크게 보인다. *@
+                @if (ThumbOf(r) is { } thumb)
+                {
+                    <img class="hd-req-list__thumb" src="@thumb.ThumbnailUrl" alt="" loading="lazy"
+                         role="button" title="눌러서 크게 봅니다"
+                         @onclick="@(() => PreviewImages(r))"
+                         @onclick:stopPropagation="true"
+                         @onerror="@(() => ThumbFailed(thumb.ThumbnailUrl))" />
+                }
+                else
+                {
+                    <span class="hd-req-list__thumb hd-req-list__thumb--none" aria-hidden="true"></span>
+                }
+
+                <div class="hd-req-cell">
+                    @* 고객사 · 담당자는 **제 칸이 없다.** 휴대폰에는 칸을 둘
+                       넘게 세울 폭이 없어 옆으로 굴려야 보이게 되는데,
+                       한 손으로 쥔 휴대폰에서 굴려야 보이는 값은 사실상
+                       없는 값이다. 그래서 이 한 줄에 함께 들인다.
+
+                       담당자에는 「담당」을 붙인다. 안 붙이면 「㈜진일 · 김철수
+                       · 2026-10-06 14:22 · 3일 · 이영희」가 되어 **이름 둘 중
+                       어느 쪽이 맡은 사람인지** 알 수가 없다. *@
+                    <div class="hd-req-meta">
+                        <span class="jsini-badge @RequestRowText.StatusClass(r.Status)">@RequestRowText.Status(r)</span>
+                        @if (r.IsEmergency == true)
+                        {
+                            <span class="jsini-badge jsini-badge--off">긴급</span>
+                        }
+                        <span class="hd-req-meta__item">@CompanyName(r)</span>
+                        <span class="hd-req-meta__dot">·</span>
+                        <span class="hd-req-meta__item">@(r.Customer?.UserName ?? "-")</span>
+                        <span class="hd-req-meta__dot">·</span>
+                        <span class="hd-req-meta__item">@Requested(r)</span>
+                        <span class="hd-req-meta__dot">·</span>
+                        <span class="hd-req-meta__item">@RequestRowText.Elapsed(r)</span>
+                        <span class="hd-req-meta__dot">·</span>
+                        <span class="hd-req-meta__item">담당 @(r.Admin?.UserName ?? "미배정")</span>
+                    </div>
+
+                    <div class="hd-req-title">
+                        @r.Title
+                        @if (r.Comments?.Count > 0)
+                        {
+                            <span class="jsini-badge" style="margin-left: 6px; font-weight: normal;">댓글 @r.Comments.Count</span>
+                        }
+                    </div>
+                </div>
+            </li>
+        }
+    </ul>
+}

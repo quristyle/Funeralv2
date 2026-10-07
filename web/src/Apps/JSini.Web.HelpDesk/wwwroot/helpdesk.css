@@ -1456,12 +1456,117 @@
   color: var(--jsini-text);
 }
 
+/* ── 요청 처리 — 휴대폰의 카드 목록 (`RequestCards`) ──────────
+
+   휴대폰에서는 표를 쓰지 않는다. **칸 머리줄이 없고 안에서 구르지 않는
+   목록**이 필요한데 그 둘은 DevExpress 표를 비틀어 얻는 모습이 아니다 —
+   까닭은 `RequestRowList` 머리말에 적어 두었다. 여기 있는 것은 그 목록의
+   생김새뿐이다.
+
+   줄은 `그림 | 글` 두 칸이고 그림이 없는 줄도 **같은 자리를 비워 둔다** —
+   안 비우면 글이 줄마다 다른 자리에서 시작해 목록이 들쭉날쭉해진다.
+   표(`.hd-manage-grid`)처럼 줄 높이를 못 박지 않는다. 긴 제목이 두 줄로
+   가도 그만큼 늘어나면 되고, 쪽이 구르므로 아래가 밀릴 뿐이다.
+   ---------------------------------------------------------- */
+
+.hd-req-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.hd-req-list__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.6rem 1rem;
+  border-top: 1px solid var(--jsini-border);
+  cursor: pointer;
+
+  /* 누를 때 안드로이드 크롬이 칠하는 파란 네모를 걷는다. 줄 전체가 누르는
+     자리라 그 네모가 카드만 하게 번쩍인다. */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 판이 이미 테두리를 두르고 있어 첫 줄 위의 선은 두 겹이 된다. */
+.hd-req-list__item:first-child {
+  border-top: 0;
+}
+
+.hd-req-list__item:active {
+  background: var(--jsini-surface);
+}
+
+/* 56px 이다 — 표의 80px 보다 작다. 휴대폰에서는 글이 쓸 폭이 더 아쉽고,
+   한 줄에 얹는 값이 다섯이라(회사·요청자·접수·경과·담당) 그만큼이 제목을
+   밀어낸다. 눌러서 크게 보는 길은 그대로 있다. */
+.hd-req-list__thumb {
+  flex: 0 0 auto;
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border: 1px solid var(--jsini-border);
+  border-radius: var(--jsini-radius-sm);
+  background: var(--jsini-surface);
+
+  /* 줄 전체도 눌리는 자리라(상세로 간다) 여기만 손가락이 아니라 **돋보기**
+     여야 다른 일이 난다는 것이 보인다. */
+  cursor: zoom-in;
+}
+
+/* 그림이 없는 줄의 빈자리. 테두리를 두르지 않는다 — 빈 네모가 줄마다 서면
+   그것이 「못 받은 그림」으로 읽힌다. 자리만 지킨다. */
+.hd-req-list__thumb--none {
+  border-color: transparent;
+  background: transparent;
+  cursor: default;
+}
+
+.hd-req-list__empty {
+  margin: 0;
+  padding: 1.5rem 1rem;
+  text-align: center;
+  color: var(--jsini-text-muted);
+}
+
+/* ── 그 목록이 실린 판은 **쪽이 구른다** ─────────────────────
+
+   셸 본문은 자료 판(`CommCont`)을 품으면 남은 높이를 그 판에 다 주고
+   넘치는 것을 잘라 낸다(`app.css` 의 `.jsini-shell__content:has(> .commcont)`).
+   표에는 맞는 규칙이다 — 표가 제 안에서 구르니까. 그런데 카드 목록은
+   **줄이 전부 깔린다.** 그대로 두면 스물다섯 줄 중 화면에 든 몇 줄만
+   보이고 나머지와 「더보기」가 통째로 잘린다(오류는 안 난다).
+
+   그래서 이 판에서만 되돌린다 — 본문이 구르고 판은 제 키만큼 선다.
+   화면이 휴대폰일 때만 이 클래스를 붙이므로(`RequestManage`) 폭 조건을
+   따로 걸지 않는다. 자릿수가 `app.css` 쪽과 같고 **helpdesk.css 가 뒤에
+   실리므로**(`JSiniHead`) 이긴다.
+   ---------------------------------------------------------- */
+
+.jsini-shell__content:has(> .hd-manage-cont--phone) {
+  overflow: auto;
+}
+
+.jsini-shell__content:has(> .hd-manage-cont--phone) > .hd-manage-cont--phone {
+  flex: 0 0 auto;
+}
+
+.jsini-shell__content:has(> .hd-manage-cont--phone) > .hd-manage-cont--phone > .commcont__body {
+  display: block;
+}
+
 /* ── 요청 처리 — 목록 아래의 「더보기 · 더 읽기」 줄 ────────
 
-   휴대폰에서는 페이저 대신, 데스크톱에서는 페이저 **곁에** 단추 하나가
-   선다(`RequestManage` 머리말). 표는 남은 높이를 다 먹고 제 안에서
-   구르므로(`app.css` 의 `.commcont__body > .commgrd`) 이 줄은 **늘 화면
-   아래쪽 같은 자리**에 남는다 — 다음 쪽을 보려고 목록 끝까지 내려갈 일이 없다.
+   휴대폰에서는 페이저 대신, 데스크톱에서는 페이저 **곁에** 단추 하나가 선다
+   (`RequestManage` 머리말).
+
+   데스크톱에서는 표가 남은 높이를 다 먹고 제 안에서 구르므로
+   (`app.css` 의 `.commcont__body > .commgrd`) 이 줄이 **늘 화면 아래쪽 같은
+   자리**에 남는다 — 다음 묶음을 받으려고 목록 끝까지 내려갈 일이 없다.
+
+   휴대폰에서는 반대로 **목록 맨 끝**이다(바로 위 절). 거기가 맞는 자리다 —
+   「더보기」는 다 보고 나서 누르는 단추이고, 화면 아래에 붙박아 두면
+   아직 볼 것이 남았는데도 손가락 밑에서 계속 어른거린다.
    ---------------------------------------------------------- */
 
 .hd-manage-more {
@@ -1480,7 +1585,16 @@
 }
 
 /* 휴대폰에서는 단추를 띠 끝까지 늘린다. 가운데 작게 놓으면 한 손으로 쥔
-   휴대폰에서 엄지가 닿는 자리를 눈으로 찾아야 한다. */
+   휴대폰에서 엄지가 닿는 자리를 눈으로 찾아야 한다.
+
+   좌우 여백은 **이 띠가 스스로 갖는다.** 좁은 화면에서는 판 안쪽 여백이
+   걷혀 있어(tabler.css 의 `.commcont__body`) 안 주면 단추가 판 가장자리에
+   붙는다. 값은 카드 줄(`.hd-req-list__item`)과 같은 1rem 이라 단추의 양 끝이
+   위 목록의 글과 세로줄을 맞춘다. */
+.hd-manage-more--phone {
+  padding: 0.6rem 1rem 0;
+}
+
 .hd-manage-more--phone .hd-manage-more__go {
   width: 100%;
 }

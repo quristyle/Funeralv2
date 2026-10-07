@@ -52,40 +52,53 @@
 
     [줄 하나가 80px 다 — 그림과 제목이 그 높이를 나눠 쓴다 (2026-09-28)]
 
-    그림이 2rem 짜리 우표만 해서 무엇이 찍힌 그림인지 알아볼 수가 없었다.
-    줄 높이를 80px 로 고정하고(`helpdesk.css` 의 `.hd-manage-grid`) 「그림」 칸은
-    여백 없이 그 높이를 꽉 채운다 — **비율은 그대로 두고 가운데를 잘라**
-    (`object-fit: cover`) 세로 80px 에 맞춘다. 맞춰 줄이면(`contain`) 줄마다
-    그림 폭이 달라져 칸이 흔들린다.
-
-    높이를 줄에 못 박는 까닭은 **그림이 없는 줄** 때문이다. 그림에만 높이를
-    주면 있는 줄과 없는 줄이 들쭉날쭉해진다.
-
-    그 높이가 두 줄을 내주므로 제목 칸이 **제목 위에 상태·요청자·접수·경과**를
-    얹는다. 그러고 나서 **같은 이름의 칸 넷을 걷었다** — 같은 값이 한 줄에 두
-    번 서고, 그만큼 제목이 좁아져 긴 제목이 … 로 잘렸다. 남은 칸은 고객사와
-    담당자뿐이다.
+    **데스크톱 표의 이야기다.** 치수와 까닭은 그 부품으로 옮겼다
+    (`RequestGrid` 머리말 · `helpdesk.css` 의 `.hd-manage-grid`). 줄 높이를
+    80px 로 못 박고 「그림」 칸이 여백 없이 그 높이를 꽉 채운다. 그 높이가 두
+    줄을 내주므로 제목 칸이 **제목 위에 상태·요청자·접수·경과**를 얹고,
+    그러고 나서 같은 이름의 칸 넷을 걷었다.
 
     잃는 것은 그 넷의 **정렬과 칸별 검색**이다. 상태 · 요청자 · 기간은 위
     조회 조건에 그대로 있고, 순서는 **긴급이 먼저 · 그다음 접수 역순**으로
     이미 고정이다(`Ordered`).
 
-    [휴대폰에서는 그 둘마저 걷는다 — **옆으로 굴리지 않는다** (2026-10-06)]
+    [휴대폰은 표가 아니다 — 부품을 둘로 갈랐다 (2026-10-08)]
 
-    남은 네 칸이 80 + 260 + 140 + 110 = **590px** 인데 휴대폰의 표 안쪽은
-    372px 다(390px 기기에서 재었다). 모자란 218px 는 옆으로 굴려야 보이는데,
-    **한 손으로 쥔 휴대폰에서 옆으로 굴려야 보이는 값은 사실상 없는 값**이다 —
-    굴린 자리를 기억해야 해서 줄끼리 견주지도 못한다.
+    한동안 표 하나가 두 모양을 다 맡았다. 휴대폰이면 페이저를 걷고
+    (`PagerVisible="@@(!_isPhone)"`) 고객사·담당자 칸을 감추고
+    (`Visible="@@(!_isPhone)"`) 그 값을 제목 칸의 얹은 줄로 들였다. 칸이
+    그림 80 + 제목 260 = 340px 로 줄어 372px 짜리 화면 안에는 들어갔지만
+    (390px 기기에서 재었다), **표의 생김새는 그대로 남아 있었다** —
 
-    그래서 좁은 화면에서는 고객사 · 담당자 칸을 걷고 그 값을 **얹은 줄로
-    들인다**(제목 칸의 머리말). 남는 것은 그림 80 + 제목 260 = 340px 라 그
-    안에 들어간다. 걷는 손은 `Visible="@@(!_isPhone)"` 이다.
+      칸 머리줄    남은 칸이 둘뿐인데 그 위에 「그림 · 제목」을 적어 한 줄을
+                   먹는다. 정렬도 칸별 검색도 손가락으로 쓰는 자리가 아니다.
+      안쪽 구르기   표가 남은 높이를 다 먹고 제 안에서 구른다. 화면을
+                   쓸어올리는 손짓이 **표 가장자리에서만** 먹히고 브라우저
+                   주소줄도 안 접혀 세로 공간을 계속 잃는다.
 
-    [쪽으로 넘긴다 · 머리줄은 걷었다 (2026-09-28)]
+    그 둘을 걷으려면 고칠 자리가 **전부 DevExpress 부품 속**이다 — 머리줄은
+    테마 CSS 를 덮어야 걷히고, 안쪽 구르기는 가상 스크롤의 전제라 끄면
+    쪽나누기가 되살아난다(`CommGrd.VirtualScrolling` 머리말 — 둘은 함께 못
+    쓴다). 판올림마다 깨질 자리를 늘리는 대신 **휴대폰 쪽은 표를 쓰지 않고
+    `ul` 하나로 새로 세웠다.**
+
+      데스크톱   `RequestGrid`    표(`CommGrd`). 페이저가 쪽을 넘긴다.
+      휴대폰     `RequestCards`   카드 목록. 머리줄도 안쪽 구르기도 없고
+                                  줄이 전부 깔린다. 아래가 「더보기」다.
+
+    둘이 함께 쓰는 일(그림 고르기 · 미리보기 · 회사 이름)은 `RequestRowList`,
+    적는 글자(상태 · 경과)는 `RequestRowText` 에 있다 — 갈라 적어 두면 한쪽만
+    고치는 날이 오고, 그날 두 기기가 서로 다른 것을 보여 준다.
+
+    **쪽이 구르는 것도 거기서 갈린다.** 자료 판을 담은 셸 본문은 넘치는 것을
+    잘라 내는데(`app.css` 의 `.jsini-shell__content:has(> .commcont)`), 카드
+    목록은 잘리면 안 되므로 그 자리만 되돌린다 — `helpdesk.css` 의
+    `.hd-manage-cont--phone`.
+
+    [데스크톱은 쪽으로 넘긴다 · 표 머리줄은 걷었다 (2026-09-28)]
 
     줄이 80px 라 굴림만으로는 스물다섯 줄이 2000px 다. `PagerVisible="true"` 로
-    쪽나누기를 켜면 `CommGrd` 가 가상 스크롤을 끄고 페이저를 세운다
-    (그 부품의 `VirtualScrolling` 머리말 — 둘은 함께 못 쓴다).
+    쪽나누기를 켜면 `CommGrd` 가 가상 스크롤을 끄고 페이저를 세운다.
     건수는 그 페이저가 말하므로 표 머리줄(`ShowHeader`)은 껐다.
 
     [번호 칸은 걷었다 (2026-09-28)]
@@ -158,11 +171,11 @@
 
     **대개는 서버를 다시 부르지 않는다.** 이 화면은 조건에 맞는 것을 한 번에
     300건까지 받아 두고(`ReloadAsync`) 표가 그것을 쪽으로 나눠 보여 주고
-    있었다 — 「더보기」는 **그중 몇 줄을 표에 넣느냐**의 문제일 뿐이다
+    있었다 — 「더보기」는 **그중 몇 줄을 목록에 넣느냐**의 문제일 뿐이다
     (`Shown`). `AiRequestList`(프로젝트관리)의 「더보기」가 같은 방식이다.
     받아 둔 것을 다 깔고 나서야 서버를 한 번 더 부른다(아래).
 
-    표에 넣는 자료를 자르는 쪽을 골랐다. 쪽 크기(`PageSize`)를 늘리는 쪽은
+    넘기는 자료를 자르는 쪽을 골랐다. 쪽 크기(`PageSize`)를 늘리는 쪽은
     표가 들고 있는 쪽 번호(`PageIndex`)와 엉킨다 — 그 값은 `StateKey` 로 함께
     맡겨 두는 것이라(`CommGrd.OnLayoutLoading`), 데스크톱에서 3 쪽을 보다 온
     사람의 휴대폰 목록이 76번째 줄부터 시작한다.
@@ -171,8 +184,8 @@
     알려 준다 — Blazor Server 는 브라우저 폭을 모른다(`MainLayout` 머리말).
     경계를 767px 로 적는 것은 **CSS 의 휴대폰 경계와 같은 수**여야 하기
     때문이다(`app.css` 의 `@@media (max-width: 767px)` — 탭 줄이 사라지고
-    사이드바가 덮개가 되는 그 폭). 어긋나면 화면은 휴대폰 모양인데 표만
-    페이저를 달고 있는 폭이 생긴다.
+    사이드바가 덮개가 되는 그 폭). 어긋나면 화면은 휴대폰 모양인데 목록만
+    표로 서 있는 폭이 생긴다.
 
     꺼내 둔 줄 수도 **맡겨 두었다 되찾는다**(`Kept.Take`). 안 그러면 「더보기」를
     네 번 눌러 찾아 놓은 줄을 상세로 열었다 돌아오는 순간 처음 스물다섯 줄로
@@ -189,7 +202,7 @@
 
     그래서 자르는 자리를 둘로 갈랐다 —
 
-      꺼내 깔기   받아 둔 것 중 몇 줄을 표에 넣나(`_take`). 휴대폰만 쓴다.
+      꺼내 깔기   받아 둔 것 중 몇 줄을 목록에 넣나(`_take`). 휴대폰만 쓴다.
       받아 오기   서버에서 몇 묶음을 받아 왔나(`_batches` · 한 묶음 300줄).
 
     휴대폰의 「더보기」는 깔 것이 모자라면 **그 자리에서 다음 묶음을 받아 온다**
@@ -337,148 +350,33 @@
     </Fields>
 </CommSch>
 
-<CommCont>
-    @* 휴대폰에서는 **꺼내 둔 만큼만** 표에 넣는다(`Shown`). 페이저도 함께
-       걷는다 — 그러면 `CommGrd` 가 가상 스크롤로 돌아서 넣어 준 줄을 남김없이
-       보여 주고(그 부품의 `VirtualScrolling` 머리말), 나머지는 아래
-       「더보기」가 꺼낸다. *@
-    <CommGrd TItem="ImprovementRequest" Data="@Shown" PageSize="25"
-             PagerVisible="@(!_isPhone)"
-             ShowHeader="false"
-             CssClass="hd-manage-grid"
-             ExportName="요청관리"
-             StateKey="@StateKey"
-             Reload="@ReloadAsync"
-             SelectedItem="@_selected"
-             SelectedItemChanged="@(r => _selected = r)"
-             OnRowClick="@OnRowClick">
-        <Columns>
-            @* 그림 한 장. 본문에 박은 것이 있으면 그것이고, 없으면 첨부에서
-               고른다(`RequestThumb`). 정렬·거르기가 의미 없는 칸이라 둘 다 끈다 —
-               켜 두면 칸 머리를 눌렀을 때 아무 일도 안 일어나는 것처럼 보인다.
+<CommCont CssClass="@(_isPhone ? "hd-manage-cont--phone" : null)">
+    @* 목록을 그리는 부품이 **둘이다** (2026-10-08).
 
-               **누르면 원본이 미리보기로 열린다**(`ImagePreview`). 80px 짜리로는
-               장애 사진의 글자를 읽을 수 없고, 스캔해 올린 사진은 옆으로 누워
-               있는 일이 잦아 돌려 볼 자리가 필요하다.
+       데스크톱은 표(`RequestGrid`), 휴대폰은 카드 목록(`RequestCards`)이다.
+       한동안 표 하나가 두 모양을 다 맡아, 휴대폰이면 페이저를 걷고 칸 몇을
+       감추고 제목 칸에 그 값을 들였다. 그런데 휴대폰에서 바라는 모습은
+       **표가 아니다** — 칸 머리줄이 없고, 표 안에서 구르지 않고, 줄이 전부
+       깔린 다음 맨 아래에 「더보기」가 선다. 그 셋은 DevExpress 표를 비틀어
+       얻는 모습이 아니라 고칠 자리가 전부 남의 부품 속이다.
+       가른 까닭을 길게 적어 둔 자리는 `RequestRowList` 머리말이다.
 
-               `stopPropagation` 이 없으면 줄 누르기가 함께 먹어서 미리보기가
-               열리자마자 상세 화면으로 떠난다. *@
-            @* 80px 이다 — 줄 높이와 같은 수라 그림이 정사각으로 선다.
-               64 로 두면 칸 머리의 「그림」이 「그.」로 잘린다(재어 봤다). *@
-            <DxGridDataColumn Caption="그림" Width="80" MinWidth="80"
-                              AllowSort="false" AllowGroup="false" TextAlignment="GridTextAlignment.Center">
-                <CellDisplayTemplate Context="cell">
-                    @{
-                        var r = (ImprovementRequest)cell.DataItem;
-                    }
-                    @if (ThumbOf(r) is { } thumb)
-                    {
-                        <img class="hd-row-thumb" src="@thumb.ThumbnailUrl" alt="" loading="lazy"
-                             role="button" title="눌러서 크게 봅니다"
-                             @onclick="@(() => PreviewImages(r))"
-                             @onclick:stopPropagation="true"
-                             @onerror="@(() => ThumbFailed(thumb.ThumbnailUrl))" />
-                    }
-                </CellDisplayTemplate>
-            </DxGridDataColumn>
-
-            @* 제목 위에 **그 줄을 읽는 데 필요한 것**을 한 줄로 얹는다 —
-               상태 · 요청자 · 접수일 · 경과. 줄 높이가 80px 라 두 줄이 들어가고,
-               가로로 굴리지 않아도 「무엇이 · 누가 · 언제 · 얼마나」가 한눈에 온다.
-
-               **그 넷은 제 칸을 걷었다.** 같은 값이 한 줄에 두 번 서고, 그만큼
-               제목이 좁아져 긴 제목이 … 로 잘렸다. 정렬과 칸별 검색은 잃지만
-               상태 · 요청자 · 기간은 **위 조회 조건에 그대로 있다.**
-
-               [휴대폰에서는 고객사 · 담당자도 이 줄로 들어온다 (2026-10-06)]
-
-               남은 칸 넷이 80 + 260 + 140 + 110 = **590px** 인데 휴대폰의 표
-               안쪽은 372px 다(390px 기기에서 재었다). 모자란 218px 를 옆으로
-               굴려 봐야 하는데, **한 손으로 쥔 휴대폰에서 옆으로 굴려야 보이는
-               값은 사실상 없는 값**이다 — 굴린 자리를 기억해야 해서 줄끼리
-               견주지도 못한다.
-
-               그래서 좁은 화면에서는 고객사 · 담당자 칸을 걷고(아래 두 칸의
-               `Visible`) 그 값을 여기로 들인다. 남는 것은 그림 80 + 제목 260
-               = 340px 라 372px 안에 들어간다 — **옆으로 굴릴 일이 없어진다.**
-
-               담당자에는 「담당」을 붙인다. 안 붙이면 「㈜진일 · 김철수 ·
-               2026-10-06 14:22 · 3일 · 이영희」가 되어 **이름 둘 중 어느 쪽이
-               맡은 사람인지** 알 수가 없다. *@
-            <DxGridDataColumn Caption="제목" MinWidth="260" TextAlignment="GridTextAlignment.Left">
-                <CellDisplayTemplate Context="cell">
-                    @{
-                        var r = (ImprovementRequest)cell.DataItem;
-                    }
-                    <div class="hd-req-cell">
-                        <div class="hd-req-meta">
-                            <span class="jsini-badge @StatusClass(r.Status)">@StatusText(r)</span>
-                            @if (r.IsEmergency == true)
-                            {
-                                <span class="jsini-badge jsini-badge--off">긴급</span>
-                            }
-                            @if (_isPhone)
-                            {
-                                <span class="hd-req-meta__item">@Context.CompanyName(r.Customer?.CompanyId)</span>
-                                <span class="hd-req-meta__dot">·</span>
-                            }
-                            <span class="hd-req-meta__item">@(r.Customer?.UserName ?? "-")</span>
-                            <span class="hd-req-meta__dot">·</span>
-                            @* **우리 시간으로 적는다.** 서버가 주는 것은 UTC 라 그대로
-                               그리면 아홉 시간 전으로 보인다 — 오늘 오전에 올린 글이
-                               목록에는 어제로 적혀서, 「오늘 접수」로 걸러 놓고 어제
-                               날짜만 보게 된다. *@
-                            <span class="hd-req-meta__item">@(r.CreatedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "-")</span>
-                            <span class="hd-req-meta__dot">·</span>
-                            <span class="hd-req-meta__item">@Elapsed(r)</span>
-                            @if (_isPhone)
-                            {
-                                <span class="hd-req-meta__dot">·</span>
-                                <span class="hd-req-meta__item">담당 @(r.Admin?.UserName ?? "미배정")</span>
-                            }
-                        </div>
-                        <div class="hd-req-title">
-                            @r.Title
-                            @if (r.Comments?.Count > 0)
-                            {
-                                <span class="jsini-badge" style="margin-left: 6px; font-weight: normal;">댓글 @r.Comments.Count</span>
-                            }
-                        </div>
-                    </div>
-                </CellDisplayTemplate>
-            </DxGridDataColumn>
-
-            @* 휴대폰에서는 걷는다 — 값은 위 제목 칸의 얹은 줄로 들어간다(그 머리말). *@
-            <DxGridDataColumn Caption="고객사" Width="140" Visible="@(!_isPhone)">
-                <CellDisplayTemplate Context="cell">
-                    @{
-                        var r = (ImprovementRequest)cell.DataItem;
-                    }
-                    @* 회사는 요청자(고객)를 거쳐 붙는다. 서버가 주는 것은
-                       포털 회사 **아이디**뿐이라, 이름은 회사 목록에서 푼다. *@
-                    @Context.CompanyName(r.Customer?.CompanyId)
-                </CellDisplayTemplate>
-            </DxGridDataColumn>
-
-            @* 고객사와 같다 — 휴대폰에서는 걷고 얹은 줄에 「담당 …」으로 적는다. *@
-            <DxGridDataColumn Caption="담당자" Width="110" Visible="@(!_isPhone)">
-                <CellDisplayTemplate Context="cell">
-                    @{
-                        var r = (ImprovementRequest)cell.DataItem;
-                    }
-                    @if (r.Admin is null)
-                    {
-                        <span class="jsini-badge jsini-badge--warn">미배정</span>
-                    }
-                    else
-                    {
-                        @r.Admin.UserName
-                    }
-                </CellDisplayTemplate>
-            </DxGridDataColumn>
-
-        </Columns>
-    </CommGrd>
+       **휴대폰에서는 꺼내 둔 만큼만 넘긴다**(`Shown`). 카드 목록은 쪽을
+       나누지 않고 받은 것을 남김없이 깔므로, 몇 줄을 보여 줄지는 여기서
+       정하고 아래 「더보기」가 그 수를 늘린다. *@
+    @if (_isPhone)
+    {
+        <RequestCards Rows="@Shown" RowClick="@OnRowClick" />
+    }
+    else
+    {
+        <RequestGrid Rows="@Shown" PageSize="@PageRows"
+                     StateKey="@StateKey"
+                     Reload="@ReloadAsync"
+                     Selected="@_selected"
+                     SelectedChanged="@(r => _selected = r)"
+                     RowClick="@OnRowClick" />
+    }
 
     @* 목록 아래 줄.
 

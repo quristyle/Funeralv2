@@ -1,0 +1,137 @@
+@*
+    요청 목록 — **데스크톱**의 표.
+
+    휴대폰은 같은 자료를 표가 아니라 카드 목록으로 세운다(`RequestCards`).
+    왜 둘로 갈랐는지는 `RequestRowList` 머리말에 있다.
+
+    [줄 하나가 80px 다 — 그림과 제목이 그 높이를 나눠 쓴다]
+
+    그림이 2rem 짜리 우표만 해서 무엇이 찍힌 그림인지 알아볼 수가 없었다.
+    줄 높이를 80px 로 고정하고(`helpdesk.css` 의 `.hd-manage-grid`) 「그림」 칸은
+    여백 없이 그 높이를 꽉 채운다 — **비율은 그대로 두고 가운데를 잘라**
+    (`object-fit: cover`) 세로 80px 에 맞춘다. 맞춰 줄이면(`contain`) 줄마다
+    그림 폭이 달라져 칸이 흔들린다.
+
+    높이를 줄에 못 박는 까닭은 **그림이 없는 줄** 때문이다. 그림에만 높이를
+    주면 있는 줄과 없는 줄이 들쭉날쭉해진다.
+
+    그 높이가 두 줄을 내주므로 제목 칸이 **제목 위에 상태·요청자·접수·경과**를
+    얹는다. 그러고 나서 **같은 이름의 칸 넷을 걷었다** — 같은 값이 한 줄에 두
+    번 서고, 그만큼 제목이 좁아져 긴 제목이 … 로 잘렸다.
+
+    [페이저가 선다]
+
+    쪽은 페이저가 넘긴다(`PagerVisible="true"`). 그래서 깔 줄은 모자라지
+    않고, 모자란 것은 **서버에서 받아 둔 것**이라 그 단추는 화면이
+    목록 아래에 따로 둔다(`RequestManage` 의 「더 읽기」).
+
+    표의 모습(칸 너비 · 정렬 · 칸별 검색)과 구른 자리는 `CommGrd` 가
+    `StateKey` 로 맡아 둔다 — 화면이 조건과 목록을 맡아 두는 것과 짝이다.
+*@
+
+@inherits RequestRowList
+
+<CommGrd TItem="ImprovementRequest" Data="@Rows" PageSize="@PageSize"
+         PagerVisible="true"
+         ShowHeader="false"
+         CssClass="hd-manage-grid"
+         ExportName="요청관리"
+         StateKey="@StateKey"
+         Reload="@Reload"
+         SelectedItem="@Selected"
+         SelectedItemChanged="@SelectedChanged"
+         OnRowClick="@RowClick">
+    <Columns>
+        @* 그림 한 장. 본문에 박은 것이 있으면 그것이고, 없으면 첨부에서
+           고른다(`RequestThumb`). 정렬·거르기가 의미 없는 칸이라 둘 다 끈다 —
+           켜 두면 칸 머리를 눌렀을 때 아무 일도 안 일어나는 것처럼 보인다.
+
+           **누르면 원본이 미리보기로 열린다**(`ImagePreview`). 80px 짜리로는
+           장애 사진의 글자를 읽을 수 없고, 스캔해 올린 사진은 옆으로 누워
+           있는 일이 잦아 돌려 볼 자리가 필요하다.
+
+           `stopPropagation` 이 없으면 줄 누르기가 함께 먹어서 미리보기가
+           열리자마자 상세 화면으로 떠난다. *@
+        @* 80px 이다 — 줄 높이와 같은 수라 그림이 정사각으로 선다.
+           64 로 두면 칸 머리의 「그림」이 「그.」로 잘린다(재어 봤다). *@
+        <DxGridDataColumn Caption="그림" Width="80" MinWidth="80"
+                          AllowSort="false" AllowGroup="false" TextAlignment="GridTextAlignment.Center">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var r = (ImprovementRequest)cell.DataItem;
+                }
+                @if (ThumbOf(r) is { } thumb)
+                {
+                    <img class="hd-row-thumb" src="@thumb.ThumbnailUrl" alt="" loading="lazy"
+                         role="button" title="눌러서 크게 봅니다"
+                         @onclick="@(() => PreviewImages(r))"
+                         @onclick:stopPropagation="true"
+                         @onerror="@(() => ThumbFailed(thumb.ThumbnailUrl))" />
+                }
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        @* 제목 위에 **그 줄을 읽는 데 필요한 것**을 한 줄로 얹는다 —
+           상태 · 요청자 · 접수일 · 경과. 줄 높이가 80px 라 두 줄이 들어가고,
+           가로로 굴리지 않아도 「무엇이 · 누가 · 언제 · 얼마나」가 한눈에 온다.
+
+           **그 넷은 제 칸을 걷었다.** 같은 값이 한 줄에 두 번 서고, 그만큼
+           제목이 좁아져 긴 제목이 … 로 잘렸다. 정렬과 칸별 검색은 잃지만
+           상태 · 요청자 · 기간은 **위 조회 조건에 그대로 있다.** *@
+        <DxGridDataColumn Caption="제목" MinWidth="260" TextAlignment="GridTextAlignment.Left">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var r = (ImprovementRequest)cell.DataItem;
+                }
+                <div class="hd-req-cell">
+                    <div class="hd-req-meta">
+                        <span class="jsini-badge @RequestRowText.StatusClass(r.Status)">@RequestRowText.Status(r)</span>
+                        @if (r.IsEmergency == true)
+                        {
+                            <span class="jsini-badge jsini-badge--off">긴급</span>
+                        }
+                        <span class="hd-req-meta__item">@(r.Customer?.UserName ?? "-")</span>
+                        <span class="hd-req-meta__dot">·</span>
+                        <span class="hd-req-meta__item">@Requested(r)</span>
+                        <span class="hd-req-meta__dot">·</span>
+                        <span class="hd-req-meta__item">@RequestRowText.Elapsed(r)</span>
+                    </div>
+                    <div class="hd-req-title">
+                        @r.Title
+                        @if (r.Comments?.Count > 0)
+                        {
+                            <span class="jsini-badge" style="margin-left: 6px; font-weight: normal;">댓글 @r.Comments.Count</span>
+                        }
+                    </div>
+                </div>
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn Caption="고객사" Width="140">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var r = (ImprovementRequest)cell.DataItem;
+                }
+                @* 회사는 요청자(고객)를 거쳐 붙는다. 서버가 주는 것은
+                   포털 회사 **아이디**뿐이라, 이름은 회사 목록에서 푼다. *@
+                @CompanyName(r)
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        <DxGridDataColumn Caption="담당자" Width="110">
+            <CellDisplayTemplate Context="cell">
+                @{
+                    var r = (ImprovementRequest)cell.DataItem;
+                }
+                @if (r.Admin is null)
+                {
+                    <span class="jsini-badge jsini-badge--warn">미배정</span>
+                }
+                else
+                {
+                    @r.Admin.UserName
+                }
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+    </Columns>
+</CommGrd>
