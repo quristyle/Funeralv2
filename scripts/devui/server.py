@@ -311,9 +311,21 @@ PAGE = """<!doctype html>
 ::-webkit-scrollbar-thumb{background:var(--sbthumb);border-radius:3px}
 ::-webkit-scrollbar-thumb:hover{background:var(--muted)}
 ::-webkit-scrollbar-corner{background:var(--sbtrack)}
-body{margin:0;padding:18px 20px 24px;background:var(--bg);color:var(--fg);
-     font:14px/1.5 system-ui,-apple-system,"Noto Sans KR",sans-serif}
-.wrap{max-width:1180px;margin:0 auto}
+body{margin:0;padding:16px 18px 18px;background:var(--bg);color:var(--fg);
+     font:14px/1.5 system-ui,-apple-system,"Noto Sans KR",sans-serif;
+     height:100vh;overflow:hidden;display:flex;flex-direction:column}
+/* 폭을 묶지 않는다 — 넓은 화면에서는 카드가 한 줄에 더 많이 들어가고
+   로그 칸도 그만큼 넓어진다. */
+.wrap{max-width:none;margin:0;flex:1;min-height:0;display:flex;flex-direction:column}
+
+/* 두 칸 — 카드는 왼쪽, 로그는 오른쪽. 화면 높이를 나눠 쓰기 때문에 카드가
+   많아져도 로그는 늘 같은 자리에 있고, 굴리는 것은 카드 칸 안쪽뿐이다.
+   예전처럼 로그가 카드 아래에 있으면 서비스를 재기동할 때마다 맨 아래까지
+   내려가야 출력이 보였다. */
+.cols{flex:1;min-height:0;display:grid;gap:16px;
+      grid-template-columns:minmax(0,1fr) minmax(380px,34%)}
+.cols>.left{min-width:0;min-height:0;overflow:auto;padding-right:3px}
+.cols>.right{min-width:0;min-height:0;display:flex;flex-direction:column}
 
 /* 머리글 — 제목·요약·전체 버튼을 한 줄에 둬서 세로 공간을 아낀다. */
 header{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:4px}
@@ -326,9 +338,14 @@ h2{font-size:12px;margin:0 0 8px;color:var(--muted);font-weight:600;letter-spaci
    text-transform:uppercase}
 h2 .count{font-weight:400;text-transform:none;letter-spacing:0;margin-left:6px}
 section{margin-bottom:16px}
+/* 마지막 묶음의 아래 여백은 뺀다 — 왼쪽 칸이 그만큼만 넘쳐서 쓸데없는
+   스크롤 막대가 생긴다. */
+.cols>.left>section:last-child{margin-bottom:0}
 
-/* 카드 격자 — 13개가 한 화면에 들어오도록 폭을 좁게 잡는다. */
-.grid{display:grid;gap:9px;grid-template-columns:repeat(auto-fill,minmax(212px,1fr))}
+/* 카드 격자 — 13개가 한 화면에 들어오도록 폭을 좁게 잡는다. 칸 수는 고정하지
+   않고 들어가는 만큼 채운다. 최소 폭은 이름·포트 한 줄과 단추 셋이 들어갈
+   만큼인 190px 으로, 1280px 화면에서도 왼쪽 칸에 넉 줄씩 들어간다. */
+.grid{display:grid;gap:9px;grid-template-columns:repeat(auto-fill,minmax(190px,1fr))}
 .svc{background:var(--card);border:1px solid var(--line);border-radius:9px;padding:10px 11px 9px}
 .svc.on{border-color:var(--upline)}
 .svc.work{border-color:var(--workline)}
@@ -387,6 +404,15 @@ button:disabled{opacity:.42;cursor:not-allowed}
 .chip code{color:var(--muted);font-family:ui-monospace,monospace;margin-left:5px}
 
 details{border:1px solid var(--line);border-radius:9px;background:var(--card);overflow:hidden}
+/* 펼쳤을 때만 남은 높이를 다 가져간다. 접었으면 제목 줄만큼만 차지한다 —
+   안 그러면 빈 상자가 오른쪽 칸을 통째로 덮는다. */
+#logbox{display:flex;flex-direction:column;min-height:0;flex:1}
+#logbox:not([open]){flex:0 0 auto}
+/* 크롬은 details 안쪽을 ::details-content 라는 익명 상자로 한 번 더 감싼다.
+   그래서 #log 에 준 flex:1 이 details 에 닿지 않고 로그 칸이 두 줄로 쪼그라든다.
+   그 상자에도 똑같이 걸어 줘야 남은 높이를 물려받는다. 이 가짜 선택자가 없는
+   브라우저(파이어폭스·사파리)는 감싸는 상자 자체가 없어 규칙 없이도 맞는다. */
+#logbox::details-content{display:flex;flex-direction:column;min-height:0;flex:1}
 summary{cursor:pointer;padding:8px 12px;font-size:13px;color:var(--muted);user-select:none}
 summary::marker{color:var(--muted)}
 
@@ -404,11 +430,24 @@ summary::marker{color:var(--muted)}
 .tab .x{color:var(--muted);font-size:13px;line-height:1}
 #log{background:var(--logbg);color:var(--logfg);padding:12px;
      font:12px/1.5 ui-monospace,monospace;white-space:pre-wrap;word-break:break-all;
-     height:260px;overflow:auto}
+     flex:1;min-height:0;overflow:auto}
 @supports not selector(::-webkit-scrollbar){#log{scrollbar-color:#39424c #0b0e11}}
 #log::-webkit-scrollbar-track{background:#0b0e11}
 #log::-webkit-scrollbar-thumb{background:#39424c}
 #log:empty::before{content:"작업을 실행하면 출력이 여기에 표시됩니다.";color:var(--muted)}
+
+/* 좁은 화면에서는 두 칸을 나란히 둘 자리가 없다. 위아래로 포개고 높이 고정도
+   푼다 — 칸 안쪽을 따로 굴리는 것은 넓은 화면에서나 쓸모가 있다. */
+@media (max-width:1000px){
+  body{height:auto;overflow:visible;display:block;padding:16px 14px 20px}
+  .wrap{display:block}
+  .cols{display:block}
+  .cols>.left{overflow:visible;padding-right:0}
+  .cols>.right{display:block;margin-top:16px}
+  #logbox{display:block}
+  #logbox::details-content{display:block;flex:none}
+  #log{height:260px;flex:none}
+}
 </style>
 <script>try{var t=localStorage.getItem("devui-theme");
   if(t==="dark"||t==="light")document.documentElement.dataset.theme=t}catch(e){}</script>
@@ -428,13 +467,18 @@ summary::marker{color:var(--muted)}
   서비스는 터미널 창 없이 백그라운드로 뜨고, 서비스마다 작업이 따로 돌기 때문에
   하나를 재기동하는 동안에도 다른 것을 만질 수 있습니다.</div>
 
-<section id="sec-back"></section>
-<section id="sec-front"></section>
-
-<details id="logbox" open><summary>로그</summary>
-  <div class="tabs" id="tabs"></div>
-  <div id="log"></div>
-</details>
+<div class="cols">
+  <div class="left">
+    <section id="sec-back"></section>
+    <section id="sec-front"></section>
+  </div>
+  <div class="right">
+    <details id="logbox" open><summary>로그</summary>
+      <div class="tabs" id="tabs"></div>
+      <div id="log"></div>
+    </details>
+  </div>
+</div>
 
 </div><script>
 // view: 지금 보고 있는 로그. {kind:"job",id} 또는 {kind:"svc",key}
