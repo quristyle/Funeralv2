@@ -32,17 +32,21 @@
 <div class="hd-ai">
 
     @* 아이콘 하나. `title` 을 반드시 단다 — 글자가 없는 단추라
-       이것이 없으면 무엇인지 알 길이 화면에 없다. *@
-    <button type="button"
-            class="hd-ai__btn @(_open ? "is-on" : "")"
-            title="AI 도우미"
-            aria-haspopup="menu"
-            aria-expanded="@(_open ? "true" : "false")"
-            disabled="@_busy"
-            @onclick="Toggle">
-        <span class="hd-ai__icon" aria-hidden="true">✨</span>
-        <span class="hd-ai__text">AI 도우미</span>
-    </button>
+       이것이 없으면 무엇인지 알 길이 화면에 없다.
+
+       **첨부 단추와 같은 부품(`DxButton`)으로 세운다.** 전에는 평범한
+       `<button>` 에 이모지(✨)를 넣었는데, 이모지는 글꼴이 그리는 글자라
+       아이콘(마스크 그림)과 크기가 맞지 않았다 — 나란히 선 셋이 저마다
+       다른 크기로 보였다. 틀을 같게 하면 크기가 **저절로** 같다. *@
+    <DxButton CssClass="@($"hd-tool-btn hd-ai__btn {(_open ? "is-on" : "")}")"
+              IconCssClass="jsini-icon-robot"
+              RenderStyle="ButtonRenderStyle.Secondary"
+              Title="AI 도우미"
+              aria-label="AI 도우미"
+              aria-haspopup="menu"
+              aria-expanded="@(_open ? "true" : "false")"
+              Enabled="@(!_busy)"
+              Click="@Toggle" />
 
     @if (_open)
     {

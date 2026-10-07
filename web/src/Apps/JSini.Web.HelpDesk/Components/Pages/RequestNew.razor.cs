@@ -454,6 +454,49 @@ public partial class RequestNew
     /// 글이지만, 되살린 직후의 사람이 누르는 단추라 「내가 쓰던 것이 아니다」가
     /// 이미 분명하다. 되살린 안내 줄과 함께 사라지므로 눌렀다는 것도 보인다.
     /// </remarks>
+    /// <summary>되묻는 창. 쓰던 글을 버리는 단추가 그것을 쓴다.</summary>
+    private ConfirmDialog? _confirm;
+
+    /// <summary>
+    /// 지울 것이 있는가. <b>없으면 단추를 꺼 둔다</b> — 눌러도 아무 일이
+    /// 없는 단추는 고장으로 읽힌다.
+    /// </summary>
+    /// <remarks>
+    /// <c>_content</c> 는 편집기가 늦게 알려 주는 값이라(<c>InputDelay</c>)
+    /// 방금 친 첫 글자에는 아직 비어 있을 수 있다. 그래도 여기서는 충분하다 —
+    /// 한 박자 뒤에 켜지고, 그 사이에 누를 것이 없다.
+    /// </remarks>
+    private bool HasSomethingToClear =>
+        !string.IsNullOrWhiteSpace(_title) || !RequestContentHtml.IsBlank(_content);
+
+    /// <summary>
+    /// 쓰던 글을 버린다. <b>되묻고 나서</b> 버린다.
+    /// </summary>
+    /// <remarks>
+    /// 전에는 되살린 임시본이 있을 때만 글 사이에 뜨는 단추였다. 곁단추 줄로
+    /// 옮기면서 <b>늘 손에 닿는 자리</b>가 되었고, 되돌릴 수 없는 일이라
+    /// (임시 보관까지 함께 지운다) 한 번 더 묻는다.
+    /// </remarks>
+    private async Task ClearAsync()
+    {
+        if (_confirm is null)
+        {
+            return;
+        }
+
+        var ok = await _confirm.AskAsync(
+            "쓰던 제목과 내용을 지우고 새로 씁니다. 되돌릴 수 없습니다.",
+            "지우고 새로 쓰기",
+            "지우기");
+
+        if (!ok)
+        {
+            return;
+        }
+
+        await DiscardDraftAsync();
+    }
+
     private async Task DiscardDraftAsync()
     {
         _title = null;

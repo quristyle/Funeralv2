@@ -99,46 +99,28 @@
   display: inline-flex;
 }
 
-.hd-ai__btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.3rem;
+/* 곁단추 셋의 크기를 **한 곳에서** 정한다 — 첨부(클립)·AI(로봇)·지우기(휴지통).
 
-  /* 첨부 단추와 **같은 높이**로 세운다(`.jsini-picker__pick` 의 2.25rem).
-     나란히 서는 자리라 1px 만 어긋나도 줄이 비뚤어 보인다. */
+   [크기가 저마다 달랐다]
+
+   셋이 서로 다른 틀이었다. 첨부만 `DxButton` 이고 AI 는 평범한 `<button>` 에
+   이모지(✨)였는데, 이모지는 글꼴이 그리는 **글자**라 아이콘(마스크 그림)과
+   크기 기준이 아예 다르다. 지금은 셋 다 `DxButton` + 마스크 아이콘이고,
+   여기서 같은 치수를 건다.
+
+   `.jsini-picker__pick` 은 공용 부품이 제 치수를 들고 있어(2.25rem) 그 값에
+   맞춘다 — 그쪽을 여기서 고치면 다른 화면의 첨부 단추가 함께 움직인다. */
+.hd-tools .jsini-picker__pick,
+.hd-tools .hd-tool-btn {
+  min-width: 2.25rem;
   min-height: 2.25rem;
-  padding: 0.25rem 0.6rem;
-  border: 1px solid var(--jsini-border);
-  border-radius: 999px;
-  background: var(--jsini-surface);
-  color: var(--jsini-text);
-  font-size: var(--jsini-fs-xs);
-  line-height: 1.6;
-  cursor: pointer;
+  padding-inline: 0;
 }
 
-.hd-ai__btn:hover:not(:disabled),
-.hd-ai__btn.is-on {
+/* 펼쳐 둔 동안 눌린 티를 낸다. */
+.hd-tools .hd-ai__btn.is-on {
   border-color: var(--jsini-primary);
   color: var(--jsini-primary);
-}
-
-.hd-ai__btn:disabled {
-  opacity: 0.6;
-  cursor: default;
-}
-
-.hd-ai__icon {
-  font-size: 0.9em;
-}
-
-/* 좁은 화면에서는 아이콘만 남긴다. 이름표가 빠진 자리라 줄에 여유가 있어
-   보이지만, 글자를 달고 있으면 편집기 도구줄과 높이가 어긋나 보인다. */
-@media (width <= 480px) {
-  .hd-ai__text {
-    display: none;
-  }
 }
 
 /* 펼친 판. **흐름 위에 띄운다** — 자리를 차지하게 두면 열 때마다 편집기가
@@ -265,30 +247,52 @@
   text-decoration: underline;
 }
 
-/* [휴대폰에서는 「등록」이 늘 화면 아래에 떠 있다 (2026-10-07)]
+/* [휴대폰에서는 폼이 **화면 높이에 맞는다** (2026-10-07)]
 
-   본문이 길어지면 — 증상 설명에 캡처가 몇 장 붙으면 금방 그렇게 된다 —
-   「등록」이 화면 밖으로 밀려난다. 다 쓰고 나서 **끝까지 다시 굴려 내려가야**
-   누를 수 있고, 그 사이에 임시 보관 안내나 첨부 목록이 끼면 어디까지
-   내려가야 하는지도 가늠이 안 된다.
+   본문이 길어지면 — 캡처가 몇 장 붙으면 금방 그렇게 된다 — 「등록」이 화면
+   밖으로 밀려나, 다 쓰고 나서 끝까지 다시 굴려 내려가야 눌렀다.
 
-   `sticky` 다. 자리는 흐름 안에 그대로 두고 **보이는 자리에서만** 떠 있게
-   한다(`fixed` 로 띄우면 폼 끝에 빈 자리가 남는다).
+   **떠다니게 하지 않는다.** 처음에는 `sticky` 로 띄웠는데, 그러면 단추가
+   글 위에 겹쳐 지나가고 그 아래 글이 가려진다. 지금은 폼 자체를 화면
+   높이에 맞추고 **가운데(본문 편집기)만 늘였다 줄였다** 한다. 그러면 단추는
+   떠 있는 것이 아니라 **원래 그 자리가 화면 아래**가 된다.
 
-   **붙이는 높이는 0 이다.** 하단 띠(60px)를 비키는 일은 여기서 하지 않는다 —
-   본문이 구르는 통(`.jsini-shell__content`)이 이미 그만큼 아래 여백을 들고
-   있고(`app.css`), `sticky` 는 그 **여백 안쪽**을 기준으로 붙기 때문이다.
-   띠 높이를 여기서 한 번 더 더했더니 단추가 띠에서 84px 떠 버렸다(재어 본
-   값 — 375px 화면에서 단추 아래끝 668, 띠 윗끝 752).
+   쌓는 차례는 제목(제 높이) · 본문(남는 만큼) · 곁단추 줄(제 높이) ·
+   등록(제 높이)이다. 가운데만 `flex: 1` 이고 나머지는 제 높이를 지킨다.
 
-   바탕을 칠한다. 안 칠하면 글이 단추 **밑으로 비쳐 지나간다**. */
+   `min-height: 0` 이 요점이다. flex 칸의 기본 최소 높이는 **내용만큼**이라,
+   안 적으면 편집기가 글을 담은 만큼 커지면서 폼을 밀어 늘인다 — 화면에
+   맞추려던 것이 도로 화면 밖으로 나간다. 편집기 자신에게도 적어야 한다
+   (그 안에서 다시 격자가 한 겹 선다). */
 @media (width <= 767px) {
-  .hd-submit {
-    position: sticky;
-    bottom: 0;
-    z-index: 10;
-    padding: 0.5rem 0;
-    background: var(--jsini-bg, var(--jsini-surface));
+  .hd-form.hd-form--wide {
+    display: flex;
+    flex-direction: column;
+
+    /* 본문 통의 안쪽 높이를 그대로 쓴다. 통이 구르지 않으므로 폼이 화면을
+       넘지 않고, 넘치는 글은 편집기 **안에서** 구른다. */
+    height: 100%;
+    min-height: 0;
+  }
+
+  .hd-form.hd-form--wide > .hd-content-field {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  /* 편집기가 그 칸을 채운다. 넓은 화면에서 쓰는 `min-height: 20rem` 은
+     여기서 걷어야 한다 — 20rem 이 남는 자리보다 크면 그만큼 삐져나간다. */
+  .hd-form.hd-form--wide .hd-content-editor {
+    height: 100%;
+    min-height: 0;
+  }
+
+  /* 제목·곁단추·등록은 제 높이를 지킨다. 안 적으면 flex 가 이것들까지
+     줄여서, 자리가 모자랄 때 단추가 납작해진다. */
+  .hd-form.hd-form--wide > .hd-title-field,
+  .hd-form.hd-form--wide > .hd-tools,
+  .hd-form.hd-form--wide > .hd-submit {
+    flex: 0 0 auto;
   }
 }
 

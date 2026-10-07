@@ -211,14 +211,11 @@
         {
             @* **되살렸다고 말해 준다.** 아무 말 없이 글이 차 있으면 사람은
                「전에 등록하다 만 것인가」를 화면에서 알 길이 없다. *@
+            @* 지우는 단추는 **곁단추 줄**에 있다(아래). 여기서는 되살렸다는
+               말만 한다 — 글 한가운데에 지우는 단추를 두면 읽다가 누른다. *@
             <span class="jsini-hint">
                 <b>@savedAt.ToString("M월 d일 HH:mm")</b> 에 이 브라우저에
                 적어 둔 내용을 되살렸습니다. 아직 등록되지 않은 글입니다.
-                <DxButton Text="지우고 새로 쓰기"
-                          RenderStyle="ButtonRenderStyle.Secondary"
-                          SizeMode="SizeMode.Small"
-                          Enabled="@(!_saving)"
-                          Click="@DiscardDraftAsync" />
             </span>
         }
 
@@ -264,7 +261,20 @@
         <RequestAiAssist Content="@FlushedContentAsync"
                          TitleChosen="@ApplyTitleAsync"
                          SummaryReady="@InsertSummaryAsync" />
+
+        @* 쓰던 글을 버린다. **되묻는다** — 전에는 되살린 임시본이 있을 때만
+           보이는 단추였는데, 이제 늘 손에 닿는 자리에 있어서 한 번 잘못
+           누르면 길게 쓴 글이 통째로 사라진다. 지울 것이 없으면 꺼 둔다. *@
+        <DxButton CssClass="hd-tool-btn"
+                  IconCssClass="jsini-icon-trash"
+                  RenderStyle="ButtonRenderStyle.Secondary"
+                  Title="지우고 새로 쓰기"
+                  aria-label="지우고 새로 쓰기"
+                  Enabled="@(!_saving && HasSomethingToClear)"
+                  Click="@ClearAsync" />
     </div>
+
+    <ConfirmDialog @ref="_confirm" />
 
     @* 「등록」은 이 화면의 **단 하나뿐인 동작**이다. 넓은 화면에서는 글자만큼만
        차지하지만, 휴대폰에서는 줄을 통째로 쓴다 — 폭이 좁아질수록 손가락이
