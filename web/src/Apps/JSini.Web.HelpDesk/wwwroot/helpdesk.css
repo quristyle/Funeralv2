@@ -278,6 +278,32 @@
   .hd-form.hd-form--wide > .hd-content-field {
     flex: 1 1 auto;
     min-height: 0;
+
+    /* [격자를 flex 로 바꾼다 — 안 그러면 **빈 줄 셋**이 자리를 먹는다]
+
+       칸은 본래 격자다(`.hd-field`). 늘어나는 칸이 되고 나서 그 격자가
+       **남는 자리를 줄마다 고르게 나눠 주기** 시작했는데, 그 줄에는 우리가
+       넣은 것만 있는 것이 아니다 — DevExpress 가 `<dxbl-resource-script>`
+       를 셋 꽂아 두고, 그것들이 `display: block` 이라 각각 한 줄을 차지한다.
+       재어 보니 그 셋이 **99px 씩 297px**을 먹어 제목과 본문 사이가 306px
+       벌어져 있었다.
+
+       flex 로 바꾸면 그 빈 것들은 제 높이(0)만 차지하고, 남는 자리는
+       아래에서 지목한 편집기 하나만 가져간다. DevExpress 가 꽂은 것을
+       우리가 감추지 않는 것이 요점이다 — 그쪽 사정은 그쪽에 맡긴다. */
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* 격자였을 때 `minmax(0, 1fr)` 이 하던 일을 여기서 한다. 없으면 편집기
+     도구줄의 min-content 가 칸을 가로로 밀어 넓힌다(파일 위쪽 `.hd-form`
+     주석의 그 일이 그대로 난다). */
+  .hd-form.hd-form--wide > .hd-content-field > * {
+    min-width: 0;
+  }
+
+  .hd-form.hd-form--wide > .hd-content-field > .hd-content-editor {
+    flex: 1 1 auto;
   }
 
   /* 편집기가 그 칸을 채운다. 넓은 화면에서 쓰는 `min-height: 20rem` 은
@@ -378,6 +404,26 @@
   .hd-title-field > .hd-field__label,
   .hd-content-field > .hd-field__label {
     display: none;
+  }
+
+  /* [이름표를 감춘 자리에 **틈이 두 겹** 남아 있었다]
+
+     칸 하나는 격자이고 그 안을 `gap: 0.35rem` 으로 벌려 둔다 — 이름표와
+     입력칸 사이를 띄우려고 둔 값이다. 이름표를 `display: none` 으로 감추면
+     격자 칸 자체가 없어지므로 그 틈도 같이 사라져야 맞는데, 폼이 칸들
+     사이를 또 `gap: 1rem` 으로 벌리고 있어서 제목과 본문 사이가 결국
+     한 뼘이 됐다.
+
+     칸 **안쪽** 틈을 0 으로 내린다. 감춘 이름표 말고는 벌릴 것이 없다 —
+     칸 사이를 벌리는 일은 폼의 `gap` 이 한다. */
+  .hd-title-field,
+  .hd-content-field {
+    gap: 0;
+  }
+
+  /* 칸 사이도 좁힌다. 1rem 은 이름표가 있던 시절의 값이다. */
+  .hd-form.hd-form--wide {
+    gap: 0.5rem;
   }
 }
 
