@@ -212,12 +212,18 @@
    ------------------------------------------------------------ */
 
 :root {
-  /* 셸 본문의 바깥 여백. **눈금에 없는 값**이라 따로 둔다 —
-     3xs(2px)와 2xs(4px) 사이이고, 두 쪽 다 다른 데서 쓰고 있어
-     그중 하나로 당기면 그 자리들이 함께 움직인다.
+  /* 셸 본문의 바깥 여백. **위·아래·좌우를 따로 둔다** — 셋이 서로 다른
+     값이고 폭에 따라 또 갈린다(휴대폰 값은 바로 아래에서 다시 적는다).
 
-     **휴대폰에서는 0 이다** — 바로 아래에서 다시 적는다. */
-  --jsini-shell-pad: 3px;
+     눈금(`--jsini-sp-*`)을 쓰지 않는 것은 좌우가 2px 이기 때문이다. 눈금에
+     없는 값이고, 가까운 칸(3xs=2px)을 당겨 쓰면 그 칸을 쓰는 다른 자리들이
+     본문 여백을 고칠 때마다 함께 움직인다.
+
+     쓰는 곳은 `.jsini-shell__content` 뿐이다 — `app.css` 에 셋,
+     `tabler.css` 에 `!important` 로 하나. */
+  --jsini-shell-pad-top: 1rem;
+  --jsini-shell-pad-bottom: 1rem;
+  --jsini-shell-pad-inline: 0.5rem;
 
   --jsini-sp-3xs: var(--dxds-spacing-20, 0.125rem);   /*  2px */
   --jsini-sp-2xs: var(--dxds-spacing-40, 0.25rem);    /*  4px */
@@ -271,24 +277,25 @@
 
 }
 
-/* [휴대폰에서는 본문 여백이 **0** 이다]
+/* [휴대폰은 값이 다르다]
 
-   값을 규칙마다 다시 적지 않고 **토큰 하나만 다시 적는다.** 이 여백을 보는
-   자리가 네 군데인데(`app.css` 의 기본·휴대폰·넓은 화면 셋과 `tabler.css` 의
-   `!important` 하나) 그중 하나라도 빠뜨리면 **그 한 폭에서만 옛 값이 남는다** —
-   실제로 그랬다. 8px 짜리 테마 규칙 하나를 못 보고 넘겨서, 토큰을 3px 로
-   내린 뒤에도 휴대폰만 8px 로 서 있었다.
+   위 0.5rem · 아래 1rem · 좌우 2px. 좌우를 2px 까지 좁히는 것은 좁은 화면에서
+   한 뼘이 통째로 자리값이기 때문이고, 위아래를 남기는 것은 머리글 줄과
+   하단 띠에 본문이 바싹 붙지 않게 하기 위해서다.
 
-   아래쪽은 이 값을 쓰되 **0 이 되지 않는다.** 하단 띠(60px + 안전영역)만큼은
-   비워 두어야 마지막 줄에 닿을 수 있고, 그것은 여백이 아니라 자리 비킴이라
-   `calc()` 안에서 따로 더해진다.
+   값을 규칙마다 다시 적지 않고 **토큰만 다시 적는다.** 이 여백을 보는 자리가
+   네 군데인데(`app.css` 셋, `tabler.css` 의 `!important` 하나) 그중 하나라도
+   빠뜨리면 **그 한 폭에서만 옛 값이 남는다** — 실제로 그랬다. 8px 짜리 테마
+   규칙 하나를 못 보고 넘겨서, 토큰을 내린 뒤에도 휴대폰만 8px 로 서 있었다.
 
-   `0px` 이지 `0` 이 아니다. 그 `calc()` 안에 들어가는 값이라, 단위 없는 0 을
-   길이에 더하면 식 전체가 무효가 되어 **여백이 통째로 사라진다**(아래쪽
-   자리 비킴까지 함께). */
+   **아래쪽은 이 값이 전부가 아니다.** 하단 띠(60px + 안전영역)만큼은 따로
+   비켜야 마지막 줄에 닿을 수 있고, 그것은 여백이 아니라 자리 비킴이라
+   `calc()` 안에서 이 값에 더해진다. */
 @media (max-width: 767px) {
   :root {
-    --jsini-shell-pad: 0px;
+    --jsini-shell-pad-top: 0.5rem;
+    --jsini-shell-pad-bottom: 1rem;
+    --jsini-shell-pad-inline: 2px;
   }
 }
 
@@ -1696,7 +1703,8 @@ body {
 */
 .jsini-shell__content {
   flex: 1;
-  padding: var(--jsini-shell-pad);
+  padding: var(--jsini-shell-pad-top) var(--jsini-shell-pad-inline)
+           var(--jsini-shell-pad-bottom);
   overflow: auto;
 
   /* 옮기는 동안의 덮개(`.jsini-pageload`)가 여기에 자리를 잡는다.
@@ -2266,8 +2274,8 @@ button.jsini-crumbs__item:hover { opacity: 1; }
      비킴이라 여기서 줄이지 않는다. 떠다니는 단추(FAB)는 모서리에 겹쳐
      지나가게 둔다. */
   .jsini-shell__content {
-    padding: var(--jsini-shell-pad) var(--jsini-shell-pad)
-             calc(60px + env(safe-area-inset-bottom) + var(--jsini-shell-pad));
+    padding: var(--jsini-shell-pad-top) var(--jsini-shell-pad-inline)
+             calc(60px + env(safe-area-inset-bottom) + var(--jsini-shell-pad-bottom));
   }
 
   /* 모바일 화면에서는 탭 줄을 숨긴다. 본문 공간을 확보하고,
@@ -7282,7 +7290,8 @@ body {
    규칙을 남기는 것은 그 하한 때문이다. */
 @media (min-width: 768px) {
   .jsini-shell__content {
-    padding: var(--jsini-shell-pad);
+    padding: var(--jsini-shell-pad-top) var(--jsini-shell-pad-inline)
+             var(--jsini-shell-pad-bottom);
   }
 }
 
@@ -7973,7 +7982,7 @@ body {
        둘을 어긋나게 두면 한쪽만 고쳤을 때 조용히 옛 값으로 돌아간다 —
        그래서 숫자를 베껴 적지 않고 같은 토큰을 본다. */
     .jsini-shell__content {
-        padding-bottom: calc(60px + env(safe-area-inset-bottom) + var(--jsini-shell-pad)) !important;
+        padding-bottom: calc(60px + env(safe-area-inset-bottom) + var(--jsini-shell-pad-bottom)) !important;
     }
     
     .jsini-shell__fab--bottom-left, 
