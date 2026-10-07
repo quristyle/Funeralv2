@@ -10,8 +10,10 @@ using CargoTrustServer.Payments;
 using CargoTrustServer.Reports;
 using CargoTrustServer.Reviews;
 using CargoTrustServer.Statistics;
+using CargoTrustServer.Toll;
 using CargoTrustServer.Transactions;
 using CargoTrustServer.Users;
+using CargoTrustServer.Vehicles;
 using JSini.Shared.Infrastructure.Filters;
 using JSini.Shared.Infrastructure.HealthChecks;
 using JSini.Shared.Infrastructure.Middleware;
@@ -57,6 +59,39 @@ builder.Services.AddScoped<CargoUserService>();
 builder.Services.AddScoped<AuditService>();
 // 통계 계산은 여기 한 곳 — 사용자·관리자 화면이 같은 식을 쓴다.
 builder.Services.AddScoped<CompanyStatsService>();
+
+// ── 톨게이트 심야할인 ──────────────────────────────────────
+//
+// 계산 엔진(NightDiscountEngine)은 정적 클래스라 등록할 것이 없다 — DB 도
+// 「지금」도 모르기 때문이다. 여기 서는 것은 그 둘레뿐이다.
+builder.Services.Configure<TollOptions>(builder.Configuration.GetSection(TollOptions.Section));
+builder.Services.AddMemoryCache();
+// 규칙은 거의 안 바뀌고 계산은 자주 불린다 — 짧게 캐시한다.
+builder.Services.AddScoped<TollRuleStore>();
+builder.Services.AddScoped<TollService>();
+// 영업소를 바깥에서 받아 우리 표에 보관한다. 인증키가 없으면 로그만 남기고 쉰다.
+// 구간 통행료. 영업소와 같은 포털·같은 키이고, 쌍이 35만이라 보관하지 않고 그때그때 묻는다.
+builder.Services.AddHttpClient<TollFareClient>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(20);
+    client.DefaultRequestHeaders.UserAgent.ParseAdd(
+        "Mozilla/5.0 (compatible; JSiniCargoTrust/1.0; +https://portal.jsini.co.kr)");
+    client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+});
+
+builder.Services.AddHttpClient<TollPlazaSyncService>(client =>
+{
+    // 공공데이터가 느릴 때 관리자 화면이 통째로 매달리지 않게 상한을 둔다.
+    client.Timeout = TimeSpan.FromSeconds(30);
+
+    // **User-Agent 가 없으면 막힌다.** data.ex.co.kr 앞의 방화벽이 맨 요청을
+    // 「Request Blocked」 HTML 과 함께 400 으로 돌려보낸다(2026-10-06 실측).
+    // HttpClient 는 기본으로 User-Agent 를 안 붙이므로 여기서 붙인다 —
+    // 이것이 없으면 키가 맞아도 한 줄도 못 받는다.
+    client.DefaultRequestHeaders.UserAgent.ParseAdd(
+        "Mozilla/5.0 (compatible; JSiniCargoTrust/1.0; +https://portal.jsini.co.kr)");
+    client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
+});
 
 // ============================================================
 // 4. Swagger
@@ -131,6 +166,8 @@ api.MapPaymentEndpoints();
 api.MapReviewEndpoints();
 api.MapReportEndpoints();
 api.MapDisputeEndpoints();
+api.MapTollEndpoints();
+api.MapVehicleEndpoints();
 api.MapAdminEndpoints();
 
 string GetServerName() =>

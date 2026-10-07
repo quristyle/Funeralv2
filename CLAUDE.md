@@ -23,6 +23,9 @@
     **보내기까지의 지연** 실측은 [docs/push-delivery.md](docs/push-delivery.md)
   - `LifeEnvServer` (:5490) 생활과환경(기상·생일)
   - `CargoTrustServer` (:5500) JSini 운송관리 — 화물 거래처 신뢰정보. 계약은 [docs/cargotrust/05-api-design.md](docs/cargotrust/05-api-design.md)
+    **톨게이트 심야할인**(진입·진출 시각 ↔ 할인율)과 계정에 매다는 차량 관리는
+    [docs/cargotrust/06-toll-night-discount.md](docs/cargotrust/06-toll-night-discount.md) —
+    할인율은 차종이 아니라 **야간 체류 비율**로 정해진다
   - `Common/` — 서비스 간 공유 코드
 - `web/` — .NET 10 + Blazor + DevExpress 프론트. 옛 Vue 포털을 대체한다.
   - **업무 포털 셸** (:5557) — Piral.Blazor MFE. 업무 모듈 여덟(장례식장·헬프데스크·

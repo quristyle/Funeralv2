@@ -1,0 +1,25 @@
+@*
+    운행 한 번을 가로 막대 하나로 그리고, 야간창에 든 토막을 음영으로 덮는다.
+
+    [왜 그림이 필요한가]
+
+    「야간 비율 63.4%」는 맞는 말이지만 **무엇을 바꾸면 올라가는지**를 말해 주지
+    않는다. 막대를 보면 낮에 걸친 쪽이 어느 끝인지가 보이고, 진입을 늦출지
+    진출을 늦출지가 바로 읽힌다 — 화면이 바로 아래에서 그 분을 숫자로도
+    말해 주지만, 그 숫자를 믿게 하는 것은 이 막대다.
+
+    위치는 전부 백분율이다. 폭을 모르는 자리(휴대폰·접힌 창)에 그대로 놓인다.
+*@
+
+<div class="ct-timeline">
+    <div class="ct-timeline-bar">
+        @foreach (var band in Bands)
+        {
+            <div class="ct-timeline-night" style="@band"></div>
+        }
+    </div>
+    <div class="ct-timeline-ends">
+        <span>진입 @CargoCodes.Kst(Entry)</span>
+        <span>진출 @CargoCodes.Kst(Exit)</span>
+    </div>
+</div>

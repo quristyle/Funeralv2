@@ -28,6 +28,8 @@ public static class AdminEndpoints
         admin.MapAdminTransactionEndpoints();
         admin.MapAdminModerationEndpoints();
         admin.MapAdminUserEndpoints();
+        admin.MapAdminVehicleEndpoints();
+        admin.MapAdminTollEndpoints();
     }
 
     private static async Task<IResult> Dashboard(CargoTrustDbContext db, CompanyStatsService stats, CancellationToken ct)

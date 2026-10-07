@@ -21,6 +21,12 @@ public class CargoTrustDbContext(DbContextOptions<CargoTrustDbContext> options) 
     public DbSet<CompanyView> CompanyViews => Set<CompanyView>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
 
+    public DbSet<TollPlaza> TollPlazas => Set<TollPlaza>();
+    public DbSet<TollRuleSet> TollRuleSets => Set<TollRuleSet>();
+    public DbSet<TollDiscountBand> TollDiscountBands => Set<TollDiscountBand>();
+    public DbSet<Vehicle> Vehicles => Set<Vehicle>();
+    public DbSet<TollCalcLog> TollCalcLogs => Set<TollCalcLog>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -95,6 +101,47 @@ public class CargoTrustDbContext(DbContextOptions<CargoTrustDbContext> options) 
             e.HasKey(x => x.AuditId);
             e.Property(x => x.BeforeData).HasColumnType("jsonb");
             e.Property(x => x.AfterData).HasColumnType("jsonb");
+        });
+
+        modelBuilder.Entity<TollPlaza>(e =>
+        {
+            e.ToTable("toll_plaza");
+            e.HasKey(x => x.PlazaId);
+            e.HasIndex(x => x.UnitCode).IsUnique();
+            e.Property(x => x.Lat).HasPrecision(10, 7);
+            e.Property(x => x.Lon).HasPrecision(10, 7);
+        });
+
+        modelBuilder.Entity<TollRuleSet>(e =>
+        {
+            e.ToTable("toll_rule_set");
+            e.HasKey(x => x.RuleSetId);
+            e.HasIndex(x => x.Code).IsUnique();
+        });
+
+        modelBuilder.Entity<TollDiscountBand>(e =>
+        {
+            e.ToTable("toll_discount_band");
+            e.HasKey(x => x.BandId);
+            e.Property(x => x.MinRatio).HasPrecision(5, 2);
+            e.Property(x => x.DiscountPercent).HasPrecision(5, 2);
+        });
+
+        modelBuilder.Entity<Vehicle>(e =>
+        {
+            e.ToTable("vehicle");
+            e.HasKey(x => x.VehicleId);
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId);
+            e.Property(x => x.Tonnage).HasPrecision(6, 2);
+        });
+
+        modelBuilder.Entity<TollCalcLog>(e =>
+        {
+            e.ToTable("toll_calc_log");
+            e.HasKey(x => x.CalcId);
+            e.Property(x => x.NightRatio).HasPrecision(5, 2);
+            e.Property(x => x.DiscountPercent).HasPrecision(5, 2);
+            e.Property(x => x.TargetDiscount).HasPrecision(5, 2);
         });
 
         foreach (var entity in modelBuilder.Model.GetEntityTypes())

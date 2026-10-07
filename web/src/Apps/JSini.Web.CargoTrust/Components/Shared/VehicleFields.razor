@@ -1,0 +1,71 @@
+@*
+    차량 칸 묶음. 내 차량 팝업과 계정관리 쪽 화면이 **같은 칸을 본다**는 뜻으로
+    여기 둔다 — 두 벌로 두면 한쪽에만 칸이 더해져, 기사가 적은 값을 관리자가
+    못 보거나 그 반대가 된다.
+
+    [번호판이 스스로 말하게 한다]
+
+    차량번호로 차종·축수를 주는 **무료 공개 API 가 없다.** 그런데 심야할인 판정에
+    필요한 셋 중 둘이 번호판에 이미 적혀 있다 — 앞자리 숫자가 화물차인지를,
+    한글 한 자가 사업용인지를 말한다. 그래서 번호를 적고 칸을 떠나면 그 둘을
+    **읽어서 채운다.** 키도 계약도 수수료도 없고 네트워크도 거의 안 탄다.
+
+    읽은 것은 **제안이지 판정이 아니다.** 채워진 값을 사람이 그대로 덮어쓸 수 있고,
+    못 읽는 번호판(옛 꼴 · 임시 · 외교)은 억지로 판정하지 않고 비워 둔다.
+
+    [축수는 선택이다]
+
+    번호판은 축수를 말해 주지 않는데, 모른다고 등록을 막으면 할인율 계산까지
+    못 하게 된다. 그 둘은 별개 일이다. 안 고르면 「모름」으로 두고, 대신
+    **어디서 확인하는지**를 적어 둔다 — 실제 통행료 차종은 영업소가 축수와 윤폭으로
+    재서 찍으므로 하이패스 이용내역이 등록원부보다 실무적으로 더 맞다.
+*@
+
+<DxFormLayout CssClass="ct-form">
+    <DxFormLayoutItem Caption="차량번호" ColSpanMd="6">
+        @* 칸을 떠날 때 한 번 읽는다. 한 글자마다 읽으면 회로를 타고 왕복이
+           쌓이고, 다 적기 전의 토막 번호는 어차피 못 읽는다. *@
+        <DxTextBox Text="@Draft.PlateNo" TextChanged="@OnPlateChangedAsync"
+                   BindValueMode="BindValueMode.OnLostFocus" NullText="서울80바1234" />
+    </DxFormLayoutItem>
+    <DxFormLayoutItem Caption="별칭" ColSpanMd="6">
+        <DxTextBox @bind-Text="Draft.Nickname" NullText="큰 차 · 윙바디 …" />
+    </DxFormLayoutItem>
+
+    <DxFormLayoutItem ColSpanMd="12" CaptionCssClass="ct-plate-caption">
+        <div class="@PlateToneClass">@PlateText</div>
+    </DxFormLayoutItem>
+
+    <DxFormLayoutItem Caption="차종" ColSpanMd="6">
+        <DxComboBox Data="@CargoCodes.VehicleClassOptions" @bind-Value="Draft.VehicleClass"
+                    TextFieldName="@nameof(SchOption.Text)" ValueFieldName="@nameof(SchOption.Value)" />
+    </DxFormLayoutItem>
+    <DxFormLayoutItem Caption="축수" ColSpanMd="3">
+        <DxComboBox Data="@AxleOptions" @bind-Value="Draft.AxleCount"
+                    TextFieldName="@nameof(SchOption.Text)" ValueFieldName="@nameof(SchOption.Value)" />
+    </DxFormLayoutItem>
+    <DxFormLayoutItem Caption="톤수" ColSpanMd="3">
+        <DxSpinEdit @bind-Value="Draft.Tonnage" MinValue="0" MaxValue="99" Increment="0.5m" DisplayFormat="0.#" />
+    </DxFormLayoutItem>
+
+    <DxFormLayoutItem Caption="사업용" ColSpanMd="4">
+        <DxCheckBox @bind-Checked="Draft.IsBusiness">사업용(영업용) 화물차</DxCheckBox>
+    </DxFormLayoutItem>
+    <DxFormLayoutItem Caption="하이패스" ColSpanMd="4">
+        <DxCheckBox @bind-Checked="Draft.HasHipass">하이패스 단말 있음</DxCheckBox>
+    </DxFormLayoutItem>
+    <DxFormLayoutItem Caption="기본 차량" ColSpanMd="4">
+        <DxCheckBox @bind-Checked="Draft.IsDefault">계산 화면에서 먼저 고른다</DxCheckBox>
+    </DxFormLayoutItem>
+
+    <DxFormLayoutItem Caption="메모" ColSpanMd="12">
+        <DxMemo @bind-Text="Draft.Memo" Rows="2" />
+    </DxFormLayoutItem>
+</DxFormLayout>
+
+<div class="jsini-hint">
+    축수는 안 적어도 됩니다 — <b>하이패스 이용내역에 찍힌 차종</b>으로 확인하실 수 있습니다.
+    심야할인은 사업용 화물차 제도이고, 3축 이상(4·5종)이 본래 대상입니다.
+    3축 미만은 서약서와 하이패스 단말이 조건입니다.
+    차종은 할인율을 바꾸지 않습니다 — 할인율을 정하는 것은 야간 이용비율 하나입니다.
+</div>

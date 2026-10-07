@@ -1117,10 +1117,90 @@
   margin-top: 1rem;
 }
 
+/* 뿌리 댓글 칸은 상세 화면의 **맨 마지막**이라, 휴대폰에서 끝까지 내리면
+   그 오른쪽 아래 모서리가 떠다니는 단추(✎) 자리에 선다 — 거기가 바로
+   「남기기」를 얹어 둔 자리다. 한 칸 올려 비킨다.
+
+   값과 까닭은 요청 처리의 「더보기」 띠와 같다(아래 `.hd-manage-more--phone`). */
+@media (max-width: 767px) {
+  .hd-cmt-root {
+    margin-bottom: 4.25rem;
+  }
+}
+
+/* 「남기기」를 칸 안에 얹으려고 기준점을 세운다. */
+.hd-cmt-write {
+  position: relative;
+}
+
 .hd-cmt-editor {
   /* 요청 본문(20rem)보다 낮다. 댓글은 대개 몇 줄이고, 높게 잡으면
      답글 칸이 열릴 때마다 아래 글이 한 화면씩 밀린다. */
   min-height: 9rem;
+
+  /* **세로로 쌓는다.** 도구줄을 접었을 때 그 높이를 글칸이 가져가게 하려면
+     글칸이 남는 높이를 받는 쪽이어야 한다(바로 아래). 안 세우면 접은 만큼
+     칸 전체가 낮아져서, 짚을 때마다 아래 글이 들썩인다. */
+  display: flex;
+  flex-direction: column;
+}
+
+/* 글칸(DevExpress 의 바깥 상자)이 남는 높이를 다 받는다. */
+.hd-cmt-editor > .dxbl-widget-container {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* ── 도구줄은 **쓰는 동안만** 선다 (2026-10-06) ──────────────
+
+   상세 화면에는 댓글 칸이 여럿 뜬다 — 뿌리 하나에 답글까지. 그 전부가
+   서식 단추 줄을 이고 있는데, 글을 읽는 동안에는 하나도 안 누르는 줄이다.
+   휴대폰에서는 그 한 줄이 글 쓰는 칸만큼 높다.
+
+   접는 것은 `display: none` 이다. 높이만 0 으로 눌러 두면(`height: 0`)
+   그 안의 단추들이 **보이지 않는 채로 눌리는 자리**에 남는다.
+
+   펴는 조건은 화면이 클래스로 알려 준다(`--writing`). `:focus-within` 으로
+   하지 않는 까닭은 글꼴·정렬 단추가 띄우는 목록이 **문서 끝에 따로 그려져**
+   포커스가 칸 밖으로 나가기 때문이다 — 고르려고 누른 순간 줄이 접힌다.
+   ---------------------------------------------------------- */
+.hd-cmt-editor > .dxbl-ribbon__root {
+  display: none;
+}
+
+.hd-cmt-write--writing .hd-cmt-editor > .dxbl-ribbon__root {
+  display: block;
+}
+
+/* ── 「남기기」는 칸 **안** 오른쪽 아래에 얹는다 (2026-10-06) ──
+
+   줄로 세워 두면 칸마다 단추 한 줄이 더 붙는다. 답글을 두어 개만 열어도
+   그 줄들이 쌓여 정작 읽어야 할 댓글이 화면 밖으로 밀린다.
+
+   얹어 두면 칸 높이가 곧 전부다. 글이 단추 밑으로 기어들지 않게 글칸
+   아래에 단추 높이만큼 여백을 둔다. */
+.hd-cmt-write__run {
+  position: absolute;
+  right: 0.5rem;
+  bottom: 0.5rem;
+  z-index: 2;
+
+  /* 줄로 설 때 쓰던 아래 여백을 걷는다 — 얹은 자리에서는 칸 밖으로 민다. */
+  margin-bottom: 0;
+}
+
+/* 단추가 가릴 만큼만 비워 둔다. DevExpress 글칸의 기본 여백 위에 더한다. */
+.hd-cmt-editor .ql-editor {
+  padding-bottom: 2.75rem;
+}
+
+/* 올리는 중이라는 말도 얹는다 — 줄로 세우면 그동안만 칸이 한 줄 높아져
+   아래 글이 들썩인다. 단추와 반대쪽(왼쪽)이라 겹치지 않는다. */
+.hd-cmt-write__busy {
+  position: absolute;
+  left: 0.6rem;
+  bottom: 0.9rem;
+  z-index: 2;
 }
 
 .hd-cmt-editor img {
@@ -1261,6 +1341,52 @@
    휴대폰에서 엄지가 닿는 자리를 눈으로 찾아야 한다. */
 .hd-manage-more--phone .hd-manage-more__go {
   width: 100%;
+}
+
+/* ── 떠다니는 단추를 피해 **한 칸 올라선다** (2026-10-06) ─────
+
+   이 띠는 자료 판(`CommCont`)의 맨 아래에 붙고, 그 판은 본문 높이를 꽉
+   채운다 — 줄이 셋이든 서른이든 **띠는 늘 화면 바닥에 선다.** 그런데 거기가
+   떠다니는 단추(☰ · ✎)가 떠 있는 자리라, 폭을 끝까지 쓴 이 단추의 양 끝이
+   그 동그라미 둘에 덮였다. 가운데는 눌리지만 글자가 가려 읽히지 않는다.
+
+   폭을 줄여 비켜서는 쪽은 안 골랐다 — 단추가 어느 귀퉁이에 설지는 사람이
+   환경설정에서 고르는 값이라(왼쪽/오른쪽 · 위/아래), 옆을 비워 두면 위쪽을
+   고른 사람에게는 **그냥 좁아진 단추**다. 위로 올라서는 것은 아래 귀퉁이를
+   고른 경우에만 겹치던 것을 푸는 일이라 손해가 한쪽뿐이다.
+
+   3.75rem 은 단추 하나(3rem)에 그 단추가 바닥에서 띄운 만큼(0.75rem)을
+   더한 값이다 — 위의 `.jsini-shell__fab` 와 같은 수다. 거기에 숨 쉴 틈을
+   조금 더 둔다. */
+@media (max-width: 767px) {
+  .hd-manage-more--phone {
+    margin-bottom: 4.25rem;
+  }
+}
+
+/* ── 다 깔고 나면 **꺼진 채로 남는다** (2026-10-06) ──────────
+
+   끝이라는 말을 하려고 남겨 두는 단추다(화면의 그 머리말). 그런데
+   DevExpress 의 꺼진 단추는 **켜진 것보다 더 요란하다** — 어두운 테마에서
+   밝은 회색 띠로 칠해져 목록 아래에서 제일 먼저 눈에 든다. 끝났다는
+   조용한 말이 목록보다 세게 나오는 꼴이다.
+
+   그래서 바탕을 걷고 **점선 테두리**만 남긴다. 점선은 「여기가 끝이라
+   더 이어지지 않는다」를 테두리 모양 하나로 말한다 — 눌리지 않는다는
+   것도 함께 보인다.
+
+   `!important` 는 테마가 `--dxbl-btn-*` 로 칠한 바탕을 덮는 값이다.
+   글자는 캡션 쪽 `opacity: 0.5` 가 한 번 더 흐리게 만들어 어두운 바탕에서
+   읽히지 않으므로 거기서 되돌린다. */
+.hd-manage-more--phone .hd-manage-more__go:disabled {
+  background: transparent !important;
+  border: 1px dashed var(--jsini-border) !important;
+  color: var(--jsini-text-muted) !important;
+  box-shadow: none !important;
+}
+
+.hd-manage-more--phone .hd-manage-more__go:disabled .dxbl-btn-caption {
+  opacity: 1;
 }
 
 /* ── 눌리는 카드 ───────────────────────────────────────── */
@@ -1567,4 +1693,138 @@
   text-align: right;
   font-size: var(--jsini-fs-xs);
   color: var(--jsini-text-muted);
+}
+
+/* ── 요청 처리의 「기간」 칸 (`.hd-period` · 2026-10-06) ───────
+
+   기준(접수·완료) 라디오와 날짜 둘을 **한 덩어리로 세운다.** 조회 판의
+   칸 셋(「기간 기준」·「기간」·「~」)이던 것을 하나로 묶은 자리다 — 까닭은
+   화면(`RequestManage.razor`)의 그 칸 머리말에 적어 두었다.
+
+   테두리 한 줄이 하는 일이 전부다. 이 셋은 **서로를 바꾼다** — 기준을
+   옮기면 같은 날짜가 다른 칸을 재고, 날짜를 비우면 기준이 하는 일이
+   없어진다. 흩어 놓으면 그 관계가 화면에 하나도 안 적힌다.
+
+   바탕은 판보다 한 톤 짙다(`--jsini-surface`). 조회 판 자신이 흰 카드라
+   (app.css 「흰 카드다」) 테두리만으로는 다른 칸들 사이에서 눈에 안 띈다.
+   ---------------------------------------------------------- */
+
+.hd-period {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.75rem;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--jsini-border);
+  border-radius: var(--jsini-radius-sm);
+  background: var(--jsini-surface);
+  min-width: 0;
+}
+
+/* 라디오 묶음은 **제 폭만** 쓴다. 자라게 두면 날짜 쪽에서 가져간 폭이
+   항목 둘 사이의 빈 자리로 가서, 「접수」와 「완료」가 멀리 떨어져 한
+   묶음으로 안 보인다.
+
+   항목 사이 간격은 DevExpress 가 항목마다 주는 여백이 맡는다
+   (`.dxbl-radio-group` 은 `flex-flow: row wrap` 이고 `gap` 이 없다) —
+   그 안쪽 이름을 겨누지 않는다. 테마를 올릴 때 조용히 어긋나는 자리다. */
+.hd-period__basis {
+  flex: 0 0 auto;
+}
+
+/* 날짜 둘과 「~」. **한 겹 더 묶는 까닭**은 좁아질 때다 — 이 묶음이
+   없으면 라디오·시작·물결표·끝 넷이 제각기 흘러 담겨 「~」만 줄 끝에
+   남는 모습이 나온다. */
+.hd-period__range {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* 195px 이다. 재어 본 값 — 지우개(✕) 48 · 달력 29 · 글상자 좌우 여백 24 를
+   빼고 나면 글자가 앉을 자리가 남아야 하는데 「2026-09-28」이 73px 이다.
+   170 으로 두면 67px 만 남아 「2026-09…」로 잘린다.
+
+   **인라인(`Style=`)이 아니라 여기 적는다.** 인라인은 좁은 화면 규칙보다
+   세서, 거기 두면 휴대폰에서 폭을 되돌릴 때마다 `!important` 가 붙는다. */
+.hd-period__date {
+  flex: 0 0 auto;
+  width: 195px;
+}
+
+.hd-period__tilde {
+  flex: 0 0 auto;
+  color: var(--jsini-text-muted);
+}
+
+/* ── 넓은 화면 — 이 칸은 **줄 전체를 쓴다** ────────────────────
+
+   조건이 여섯을 넘는 판은 격자로 선다(app.css 「조건이 많은 판은 격자로
+   선다」). 기둥 하나가 17rem(272px)인데 이 칸은 라디오 + 날짜 195 + 물결표 +
+   날짜 195 라 그 안에 못 들어간다 — 기둥에 욱여넣으면 날짜가 「2026-09…」로
+   잘린다.
+
+   그래서 줄을 통째로 쓴다(`1 / -1`). 기둥 수가 몇이든 따라가므로
+   창을 좁혀 기둥이 하나가 되어도 그대로 맞는다.
+
+   **선택자를 app.css 의 그 규칙과 똑같이 베껴 쓰고 끝에 한 칸을 더 얹는다**
+   (`:last-child` → `.hd-period:last-child`). 거기 `max-width: 14rem` 이
+   걸려 있어서 자릿수가 모자라면 묶음이 224px 에서 잘리고 **날짜 하나와
+   물결표가 테두리 밖으로 밀려난다** — 실제로 한 번 그렇게 그려졌다.
+   베껴 쓴 덕에 저쪽이 조건(`:nth-child(6)`)을 바꾸면 이쪽도 같이 꺼진다.
+   ---------------------------------------------------------- */
+@media (min-width: 768px) {
+  .commsch:not(.commsch--stacked) .commsch__fields:has(> .commsch__item:nth-child(6)) > .commsch__item:has(> .hd-period) {
+    grid-column: 1 / -1;
+  }
+
+  /* 기둥에 맞춰 14rem 에서 멈추게 한 그 규칙이 이 묶음에도 걸린다.
+     묶음은 **제 내용만큼** 넓어야 한다 — 줄을 통째로 쓰게 두면 오른쪽에
+     빈 테두리가 길게 남아 띠가 아니라 빈 상자로 보인다. */
+  .commsch:not(.commsch--stacked) .commsch__fields:has(> .commsch__item:nth-child(6)) .commsch__item > .hd-period:last-child {
+    flex: 0 1 auto;
+    max-width: none;
+  }
+}
+
+/* ── 휴대폰 (≤767px) ─────────────────────────────────────────
+
+   조회 판의 칸은 좁은 화면에서 한 줄에 하나씩 쌓이고, 입력칸 폭이
+   `min(100%, 18rem)` 로 잘린다(app.css). 18rem(288px)에는 날짜 둘이
+   못 들어간다 — 하나가 195px 다.
+
+   그래서 이 묶음만 폭 제한을 풀고(100%), 안에서 **날짜를 세로로 세운다.**
+   물결표는 둘 사이에 가운데로 남긴다 — 빼 버리면 위아래 날짜가 각각
+   무엇인지 알 길이 없고(라벨이 「기간」 하나뿐이다), 옆으로 돌리면
+   손가락 폭이 안 나온다.
+
+   `!important` 는 app.css 가 거기에 달아 둔 것을 되돌리는 값이다.
+   ---------------------------------------------------------- */
+@media (max-width: 767px) {
+  .commsch__item:has(> .hd-period) > .hd-period {
+    width: 100% !important;
+    max-width: none;
+  }
+
+  .hd-period__range {
+    flex-direction: column;
+    align-items: stretch;
+    flex-basis: 100%;
+    gap: 0.25rem;
+  }
+
+  .hd-period__date {
+    width: 100%;
+  }
+
+  /* 날짜 사이에 가운데로 선다. 손가락이 닿을 자리가 아니라 **읽는
+     표시**라 높이를 줄여 둔다 — 한 줄을 다 쓰면 칸 둘이 멀어져
+     묶어 놓은 모습이 다시 풀린다. */
+  .hd-period__tilde {
+    align-self: center;
+    line-height: 1;
+    font-size: var(--jsini-fs-xs);
+  }
 }

@@ -3200,3 +3200,30 @@
   border-radius: 6px;
   white-space: pre;
 }
+
+/* ── 차량 관리 — 번호판이 말한 것 ─────────────────────────── */
+
+/* 차량번호 칸 바로 아래 한 줄. 운송관리 쪽(`ct-plate`)과 같은 모양이지만
+   모듈이 둘이라 복제한다 — 세 번째가 생기면 그때 app.css 로 올린다. */
+.ad-plate {
+  padding: var(--jsini-sp-sm) var(--jsini-sp-md);
+  border-left: 3px solid var(--jsini-border);
+  border-radius: var(--jsini-radius-sm);
+  background: var(--jsini-surface-2);
+  font-size: var(--jsini-fs-sm);
+}
+
+.ad-plate--ok { border-left-color: var(--jsini-success); }
+.ad-plate--warn { border-left-color: var(--jsini-warning); }
+.ad-plate--idle { color: var(--jsini-text-dim); }
+
+.ad-veh-plate {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+}
+
+.ad-veh-plate-read {
+  font-size: var(--jsini-fs-xs);
+  color: var(--jsini-text-dim);
+}

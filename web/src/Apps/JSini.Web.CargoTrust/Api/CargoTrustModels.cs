@@ -474,3 +474,309 @@ public sealed class ReviewSaveRequest
 {
     public string? Content { get; set; }
 }
+
+// ────────────────────────────────────────────────────────────────
+// 톨게이트 심야할인 (2026-10-06)
+//
+// [시각 칸은 KST 벽시계다]
+//
+// 이 묶음의 DateTime 에는 오프셋이 없고 「한국 시각 몇 시」라는 뜻이다.
+// 서버 계약(docs/cargotrust/06-toll-night-discount.md)이 그렇게 정해져 있다 —
+// 포털 프론트는 컨테이너 시계가 UTC 인 서버 안에서 돌아서, 오프셋을 붙이는
+// 순간 아홉 시간이 어긋나고 그 어긋남은 **할인율이 한 띠 밀리는** 모습으로만
+// 드러난다. 보낼 때 Kind 를 Unspecified 로 못 박는다(TollCalcDraft).
+// ────────────────────────────────────────────────────────────────
+
+/// <summary>할인 띠 하나.</summary>
+public sealed class TollBandInfo
+{
+    public decimal MinRatio { get; set; }
+    public decimal? MaxRatioExclusive { get; set; }
+    public decimal DiscountPercent { get; set; }
+    public string Label { get; set; } = string.Empty;
+}
+
+/// <summary>지금 쓰는 규칙. 결과 옆에 「무엇을 기준으로 셌는지」를 적으려고 받는다.</summary>
+public sealed class TollRulesInfo
+{
+    public string Code { get; set; } = string.Empty;
+    public string ClosedWindowLabel { get; set; } = string.Empty;
+    public string OpenWindowLabel { get; set; } = string.Empty;
+
+    /// <summary>야간창. <c>"21:00"</c> 꼴이고 화면이 셈에 쓴다(글자에서 뽑아 쓰지 않는다).</summary>
+    public string ClosedNightStart { get; set; } = "21:00";
+
+    public string ClosedNightEnd { get; set; } = "06:00";
+    public string OpenNightStart { get; set; } = "23:00";
+    public string OpenNightEnd { get; set; } = "05:00";
+
+    public List<TollBandInfo> ClosedBands { get; set; } = [];
+    public List<TollBandInfo> OpenBands { get; set; } = [];
+
+    /// <summary>고를 수 있는 목표 할인율 — 0% 는 고를 이유가 없어 뺀다.</summary>
+    public IReadOnlyList<decimal> TargetChoices(string sectionType) =>
+        [.. (sectionType == "OPEN" ? OpenBands : ClosedBands)
+            .Select(b => b.DiscountPercent).Where(d => d > 0).Distinct().OrderBy(d => d)];
+}
+
+/// <summary>영업소.</summary>
+public sealed class TollPlazaInfo
+{
+    public long PlazaId { get; set; }
+    public string UnitCode { get; set; } = string.Empty;
+    public string UnitName { get; set; } = string.Empty;
+    public string? RouteNo { get; set; }
+    public string? RouteName { get; set; }
+    public string SectionType { get; set; } = "CLOSED";
+    public bool IsPrivate { get; set; }
+    public decimal? Lat { get; set; }
+    public decimal? Lon { get; set; }
+}
+
+/// <summary>대상 조건 한 줄. <c>Ok</c> 가 null 이면 「알 수 없음」이다.</summary>
+public sealed class EligibilityCheckInfo
+{
+    public string Label { get; set; } = string.Empty;
+    public bool? Ok { get; set; }
+    public string Note { get; set; } = string.Empty;
+}
+
+/// <summary>야간창에 겹친 토막 — 타임라인 막대의 음영.</summary>
+public sealed class TollNightSegmentInfo
+{
+    public DateTime FromKst { get; set; }
+    public DateTime ToKst { get; set; }
+}
+
+/// <summary>정방향 결과.</summary>
+public sealed class TollCalcResultInfo
+{
+    public string SectionType { get; set; } = "CLOSED";
+    public string RuleSetCode { get; set; } = string.Empty;
+    public DateTime EntryAtKst { get; set; }
+    public DateTime? ExitAtKst { get; set; }
+    public int TotalMinutes { get; set; }
+    public int NightMinutes { get; set; }
+    public decimal NightRatio { get; set; }
+    public decimal DiscountPercent { get; set; }
+    public decimal BandMinRatio { get; set; }
+    public decimal? NextBandMinRatio { get; set; }
+    public decimal? NextDiscountPercent { get; set; }
+    public int? DelayExitMinutes { get; set; }
+    public int? DelayEntryMinutes { get; set; }
+    public string NightWindowLabel { get; set; } = string.Empty;
+    public List<TollNightSegmentInfo> NightSegments { get; set; } = [];
+    public List<EligibilityCheckInfo> Checks { get; set; } = [];
+    /// <summary>
+    /// 이 차량이 그 할인을 <b>받을 수 있나</b> — <c>OK</c> · <c>CHECK</c> · <c>NO</c> · <c>NONE</c>.
+    ///
+    /// <para>
+    /// 할인율과 다른 물음이다. 할인율은 야간 이용비율로만 정해져 차를 바꿔도 안 바뀌는데,
+    /// 「그래서 이 차가 받나」는 차마다 다르다.
+    /// </para>
+    /// </summary>
+    public string EligibilityVerdict { get; set; } = "NONE";
+
+    public string EligibilityNote { get; set; } = string.Empty;
+
+    public string Summary { get; set; } = string.Empty;
+}
+
+/// <summary>추천 하나.</summary>
+public sealed class TollSuggestOptionInfo
+{
+    public DateTime FromKst { get; set; }
+    public DateTime ToKst { get; set; }
+    public DateTime BestKst { get; set; }
+    public int MinDurationMinutes { get; set; }
+    public int MaxDurationMinutes { get; set; }
+    public DateTime PairedEntryKst { get; set; }
+    public DateTime PairedExitKst { get; set; }
+    public decimal NightRatio { get; set; }
+    public decimal DiscountPercent { get; set; }
+}
+
+/// <summary>역방향 결과.</summary>
+public sealed class TollSuggestResultInfo
+{
+    public string SectionType { get; set; } = "CLOSED";
+    public string RuleSetCode { get; set; } = string.Empty;
+    public string Anchor { get; set; } = "ENTRY";
+    public DateTime AnchorAtKst { get; set; }
+    public decimal TargetDiscount { get; set; }
+    public decimal? RequiredRatio { get; set; }
+    public bool Reachable { get; set; }
+
+    /// <summary>
+    /// 어떤 길로 찾았나 — <c>DURATION</c> 시각을 두고 소요시간 조절 ·
+    /// <c>SHIFT</c> 소요시간을 두고 <b>시각을 옮김</b> · <c>NONE</c> 못 찾음.
+    /// 추천 카드의 글자가 이것으로 갈린다.
+    /// </summary>
+    public string Mode { get; set; } = "NONE";
+
+    public List<TollSuggestOptionInfo> Options { get; set; } = [];
+    public decimal BestRatio { get; set; }
+    public decimal BestDiscountPercent { get; set; }
+    public int BestDurationMinutes { get; set; }
+    public int MinDurationMinutes { get; set; }
+    public int MaxDurationMinutes { get; set; }
+    public string NightWindowLabel { get; set; } = string.Empty;
+    public List<EligibilityCheckInfo> Checks { get; set; } = [];
+    /// <summary>
+    /// 이 차량이 그 할인을 <b>받을 수 있나</b> — <c>OK</c> · <c>CHECK</c> · <c>NO</c> · <c>NONE</c>.
+    ///
+    /// <para>
+    /// 할인율과 다른 물음이다. 할인율은 야간 이용비율로만 정해져 차를 바꿔도 안 바뀌는데,
+    /// 「그래서 이 차가 받나」는 차마다 다르다.
+    /// </para>
+    /// </summary>
+    public string EligibilityVerdict { get; set; } = "NONE";
+
+    public string EligibilityNote { get; set; } = string.Empty;
+
+    public string Summary { get; set; } = string.Empty;
+}
+
+/// <summary>계산 이력 한 줄.</summary>
+public sealed class TollCalcHistoryInfo
+{
+    public long CalcId { get; set; }
+    public string Mode { get; set; } = "CALC";
+    public string SectionType { get; set; } = "CLOSED";
+    public DateTime? EntryAtKst { get; set; }
+    public DateTime? ExitAtKst { get; set; }
+    public int? TotalMinutes { get; set; }
+    public int? NightMinutes { get; set; }
+    public decimal? NightRatio { get; set; }
+    public decimal? DiscountPercent { get; set; }
+    public decimal? TargetDiscount { get; set; }
+    public string? RuleSetCode { get; set; }
+    public string? PlateNo { get; set; }
+    public DateTime? CreatedAt { get; set; }
+}
+
+/// <summary>
+/// 번호판이 말한 것.
+///
+/// <para>
+/// 차량번호로 차종·축수를 주는 <b>무료 공개 API 가 없어서</b>, 바깥을 부르는 대신
+/// 번호판을 읽는다. 심야할인 판정에 필요한 셋 중 둘(화물차인가 · 사업용인가)이
+/// 번호판에 이미 적혀 있다. 읽기는 <b>서버가 한다</b> — 화면이 따로 읽으면 두 곳의
+/// 해석이 갈리고, 갈린 쪽을 나중에 가려낼 방법이 없다.
+/// </para>
+/// </summary>
+public sealed class PlateReadInfo
+{
+    public string PlateNo { get; set; } = string.Empty;
+    public string? Region { get; set; }
+    public int? ClassNumber { get; set; }
+    public string? UsageChar { get; set; }
+    public string Kind { get; set; } = "UNKNOWN";
+    public string KindName { get; set; } = string.Empty;
+    public string Usage { get; set; } = "UNKNOWN";
+    public string UsageName { get; set; } = string.Empty;
+
+    /// <summary>사업용인가. <b>모르면 null</b> — 아니라고 단정하지 않는다.</summary>
+    public bool? IsBusiness { get; set; }
+
+    public bool? IsFreight { get; set; }
+
+    /// <summary>제안 차종. 번호판은 축수를 말해 주지 않아 4·5종을 가르지 못한다.</summary>
+    public string? SuggestedClass { get; set; }
+
+    public bool Readable { get; set; }
+    public string Summary { get; set; } = string.Empty;
+}
+
+/// <summary>내 차량 한 대.</summary>
+public sealed class VehicleInfo
+{
+    public long VehicleId { get; set; }
+    public string PlateNo { get; set; } = string.Empty;
+    public string? Nickname { get; set; }
+    public string VehicleClass { get; set; } = "C4";
+    public string VehicleClassName { get; set; } = string.Empty;
+    public short? AxleCount { get; set; }
+    public decimal? Tonnage { get; set; }
+    public bool IsBusiness { get; set; } = true;
+    public bool HasHipass { get; set; } = true;
+    public bool IsDefault { get; set; }
+    public string? Memo { get; set; }
+
+    /// <summary>번호판이 말한 것. 저장된 값과 견주면 사람이 덮어썼는지가 보인다.</summary>
+    public PlateReadInfo? Plate { get; set; }
+
+    public DateTime? CreatedAt { get; set; }
+
+    /// <summary>고르개에 보일 이름 — 별칭이 있으면 그것이 먼저다.</summary>
+    public string Display => string.IsNullOrWhiteSpace(Nickname) ? PlateNo : $"{Nickname} ({PlateNo})";
+}
+
+/// <summary>차량 등록·수정 요청.</summary>
+public sealed class VehicleSaveRequest
+{
+    public string PlateNo { get; set; } = string.Empty;
+    public string? Nickname { get; set; }
+    public string VehicleClass { get; set; } = "C4";
+    public short? AxleCount { get; set; }
+    public decimal? Tonnage { get; set; }
+    public bool IsBusiness { get; set; } = true;
+    public bool HasHipass { get; set; } = true;
+    public bool IsDefault { get; set; }
+    public string? Memo { get; set; }
+}
+
+/// <summary>정방향 요청.</summary>
+public sealed class TollCalcRequest
+{
+    public string SectionType { get; set; } = "CLOSED";
+    public DateTime EntryAt { get; set; }
+    public DateTime? ExitAt { get; set; }
+    public long? VehicleId { get; set; }
+    public long? EntryPlazaId { get; set; }
+    public long? ExitPlazaId { get; set; }
+    public bool Save { get; set; }
+}
+
+/// <summary>역방향 요청.</summary>
+public sealed class TollSuggestRequest
+{
+    public string SectionType { get; set; } = "CLOSED";
+    public string Anchor { get; set; } = "ENTRY";
+    public DateTime AnchorAt { get; set; }
+    public decimal TargetDiscount { get; set; }
+    public int? MinDurationMinutes { get; set; }
+    public int? MaxDurationMinutes { get; set; }
+    public long? VehicleId { get; set; }
+    public bool Save { get; set; }
+}
+
+/// <summary>
+/// 구간 하나의 통행료.
+///
+/// <para>
+/// <c>NormalFare</c> 는 고른 차종의 정상요금, <c>DiscountedFare</c> 는 거기에 심야할인율을
+/// 먹인 값이다. 할인액을 바깥에서 받아 오지 않는다 — 비율로 할인율을 정하는 곳은 한 군데다.
+/// </para>
+/// </summary>
+public sealed class TollFareInfo
+{
+    public string FromCode { get; set; } = string.Empty;
+    public string FromName { get; set; } = string.Empty;
+    public string ToCode { get; set; } = string.Empty;
+    public string ToName { get; set; } = string.Empty;
+    public decimal DistanceKm { get; set; }
+
+    /// <summary>도로공사가 보는 주행시간. 소요시간 칩의 바닥값으로 쓴다.</summary>
+    public int DriveMinutes { get; set; }
+
+    public string VehicleClass { get; set; } = "C4";
+    public string VehicleClassName { get; set; } = string.Empty;
+    public int? NormalFare { get; set; }
+    public int? DiscountedFare { get; set; }
+    public int? SavedFare { get; set; }
+    public decimal DiscountPercent { get; set; }
+    public string Summary { get; set; } = string.Empty;
+
+    public bool HasFare => NormalFare is > 0;
+}

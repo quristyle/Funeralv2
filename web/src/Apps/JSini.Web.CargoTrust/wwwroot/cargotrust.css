@@ -400,8 +400,30 @@ a.ct-card:focus-visible {
   background: color-mix(in srgb, var(--jsini-text) 6%, transparent);
 }
 
+/* 폼을 보내는 단추 줄. `jsini-actions` 를 쓰지 않으므로 배치도 여기서 쥔다
+   (까닭은 TransactionNewPage 의 그 자리 주석 — 표의 「관리」 칸용 여백이
+   보내기 단추까지 따라와 높이를 30px 로 눌렀다). */
 .ct-form-actions {
+  display: flex;
+  flex-wrap: wrap;
   gap: var(--jsini-sp-sm);
+  align-items: center;
+}
+
+/* 손가락 크기(44px)를 양쪽 폭에서 지킨다 — 칩과 같은 기준이다.
+   여백은 건드리지 않는다. Tabler 의 기본값(40px)이면 네 칸만 모자라고,
+   그 값은 **tabler.css 가 우리보다 뒤에 실려** 어차피 여기서 못 덮는다
+   (JSiniHead 의 「맨 마지막에 싣는다」). 모자란 높이만 여기서 채운다. */
+.ct-form-actions > .dxbl-btn {
+  min-height: 44px;
+}
+
+@media (max-width: 767px) {
+  /* 「등록」은 이 화면의 목적이라 남는 폭을 다 가진다. 「다시 쓰기」는 제
+     글자만큼만 — 둘을 같은 크기로 두면 적은 것을 지우는 단추를 잘못 누른다. */
+  .ct-form-actions__go {
+    flex: 1 1 auto;
+  }
 }
 
 .ct-popup-lead {
@@ -542,4 +564,684 @@ a.ct-card:focus-visible {
   .ct-open__bar > .dxbl-btn {
     flex: 1 1 100%;
   }
+}
+
+/* ── 심야할인 계산 ────────────────────────────────────────── */
+
+/* 넓은 화면에서는 고르는 곳과 결과가 나란히 선다. 좁으면 쌓인다 —
+   「한 화면에 다 보이게」가 두 폭 모두에서 성립하도록. */
+@media (min-width: 900px) {
+  .ct-toll {
+    display: grid;
+    grid-template-columns: minmax(340px, 420px) 1fr;
+    align-items: start;
+    gap: var(--jsini-sp-lg);
+  }
+
+  /* 고르는 판은 왼쪽 줄에 붙박이고, 결과들이 오른쪽에 차례로 쌓인다. */
+  .ct-toll-form {
+    grid-row: 1 / span 99;
+  }
+}
+
+.ct-toll-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--jsini-sp-md);
+}
+
+/* 차량이 한 대일 때. 고르는 것이 아니라 알려 주는 자리다.
+   오른쪽 끝에 설명을 여는 물음표가 선다. */
+.ct-toll-vehicle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--jsini-sp-sm);
+  padding-bottom: var(--jsini-sp-sm);
+  border-bottom: 1px solid var(--jsini-border);
+}
+
+.ct-toll-vehicle-who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* 차량이 여럿이라 칩이 설 때는 라벨 줄 오른쪽에 붙인다. */
+.ct-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--jsini-sp-sm);
+}
+
+/* 설명을 여는 단추. 손가락 크기를 지키되 동그라미라 자리를 적게 먹는다. */
+.ct-help-btn {
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--jsini-border);
+  border-radius: 999px;
+  background: var(--jsini-surface);
+  color: var(--jsini-text-dim);
+  font-size: var(--jsini-fs-sm);
+  font-family: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ct-help-btn:hover {
+  border-color: var(--jsini-accent);
+  color: var(--jsini-text);
+}
+
+/* 펴 둔 동안은 눌린 모양으로 둔다 — 다시 누르면 접힌다는 것이 보여야 한다. */
+.ct-help-btn--on {
+  border-color: var(--jsini-accent);
+  background: var(--jsini-accent);
+  color: #fff;
+}
+
+/* 펼친 설명. 고르는 판 안에 들어가므로 둘레를 지우고 왼쪽 선만 남긴다. */
+.ct-toll-help-body {
+  padding-bottom: var(--jsini-sp-sm);
+  border-bottom: 1px solid var(--jsini-border);
+}
+
+.ct-toll-vehicle-name {
+  font-weight: 600;
+}
+
+.ct-toll-vehicle-sub {
+  font-size: var(--jsini-fs-sm);
+  color: var(--jsini-text-dim);
+}
+
+.ct-field-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--jsini-sp-xs);
+}
+
+.ct-label {
+  font-size: var(--jsini-fs-sm);
+  color: var(--jsini-text-dim);
+}
+
+/* 날짜와 시각을 나란히. 좁아지면 줄을 바꾼다. */
+.ct-when {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--jsini-sp-sm);
+}
+
+/* OS 의 달력·시계를 쓰는 맨 input 이라, 테마 토큰으로 옷만 입힌다.
+   `color-scheme` 이 있어야 어두운 테마에서 바퀴와 아이콘이 함께 어두워진다. */
+.ct-input {
+  flex: 1 1 10rem;
+  min-height: 44px;
+  padding: 0 var(--jsini-sp-md);
+  border: 1px solid var(--jsini-border);
+  border-radius: var(--jsini-radius-md);
+  background: var(--jsini-surface);
+  color: var(--jsini-text);
+  color-scheme: light dark;
+  font-size: inherit;
+  font-family: inherit;
+}
+
+/* ── 맨 고르개(NativeSelect) ──────────────────────────────── */
+
+/* 고르개 한 칸. 「직접 입력」을 고르면 글자 칸이 아래에 붙는다. */
+.ct-select {
+  display: flex;
+  flex-direction: column;
+  gap: var(--jsini-sp-xs);
+}
+
+/* 폼 칸 안에서는 줄 폭을 다 쓴다 — `ct-input` 의 `flex: 1 1 10rem` 은
+   시·분처럼 가로로 늘어선 자리의 값이라 여기서는 듣지 않는다. */
+.ct-input--select,
+.ct-input--free {
+  flex: none;
+  width: 100%;
+  min-width: 0;
+}
+
+/* OS 가 그리는 화살표 자리를 비워 둔다. 기본 여백으로 두면 긴 유형 이름이
+   화살표 밑으로 들어간다. */
+.ct-input--select {
+  padding-right: 2rem;
+}
+
+/* ── 칩(라디오) ───────────────────────────────────────────── */
+
+.ct-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--jsini-sp-sm);
+}
+
+/* 손가락 크기(44px)를 양쪽 폭에서 지킨다. 데스크톱에서 굳이 줄일 이유가 없다. */
+.ct-chip {
+  min-height: 44px;
+  padding: 0 var(--jsini-sp-md);
+  border: 1px solid var(--jsini-border);
+  border-radius: 999px;
+  background: var(--jsini-surface);
+  color: var(--jsini-text);
+  font-size: inherit;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.ct-chip:hover:not(:disabled) {
+  border-color: var(--jsini-accent);
+}
+
+/* 고른 것은 **테두리와 글자 두께로도** 구분한다 — 색만으로 가르면
+   색을 못 가리는 사람에게는 아무것도 고르지 않은 것으로 보인다. */
+.ct-chip--on {
+  border-color: var(--jsini-accent);
+  border-width: 2px;
+  background: var(--jsini-accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.ct-chip:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* 결과 안의 사실 목록은 좁은 폭에서도 두 칸을 지킨다 — 칸 이름과 값이
+   한 줄씩 번갈아 쌓이면 훑어보기가 안 된다. */
+.ct-facts--tight > div {
+  padding: var(--jsini-sp-xs) 0;
+}
+
+/* 결과의 머리. 할인율이 이 화면에서 가장 큰 글자여야 한다 — 사람이 보러 온
+   값이 그것 하나이고, 나머지는 그 값을 믿게 하는 근거다. */
+.ct-toll-headline {
+  display: flex;
+  align-items: baseline;
+  gap: var(--jsini-sp-sm);
+}
+
+.ct-toll-rate {
+  /* 글자 크기 여섯 단계(--jsini-fs-*)를 따라간다. 사용자가 글자를 키우면
+     이 숫자도 함께 커져야 한다 — rem 으로 박으면 혼자 안 따라온다. */
+  font-size: calc(var(--jsini-fs-2xl) * 1.5);
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--jsini-accent);
+}
+
+.ct-toll-sub {
+  color: var(--jsini-text-dim);
+}
+
+.ct-toll-summary {
+  margin: var(--jsini-sp-sm) 0 0;
+  line-height: 1.6;
+}
+
+/* ── 타임라인 막대 ────────────────────────────────────────── */
+
+.ct-timeline {
+  margin: var(--jsini-sp-md) 0;
+}
+
+/* 운행 전체가 이 막대 하나다. 음영 조각은 `position: absolute` 로 겹쳐 놓으므로
+   여기에 기준점이 있어야 한다. */
+.ct-timeline-bar {
+  position: relative;
+  height: 28px;
+  border: 1px solid var(--jsini-border);
+  border-radius: var(--jsini-radius-sm);
+  background: var(--jsini-surface-2);
+  overflow: hidden;
+}
+
+.ct-timeline-night {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--jsini-accent);
+  opacity: 0.35;
+}
+
+.ct-timeline-ends {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--jsini-sp-xs);
+  font-size: 0.85em;
+  color: var(--jsini-text-dim);
+}
+
+/* ── 추천 결과 ────────────────────────────────────────────── */
+
+.ct-toll-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--jsini-sp-md);
+  margin: var(--jsini-sp-md) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ct-toll-option {
+  padding: var(--jsini-sp-md);
+  border: 1px solid var(--jsini-border);
+  border-radius: var(--jsini-radius-md);
+  background: var(--jsini-surface-2);
+}
+
+.ct-toll-option-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--jsini-sp-sm);
+  margin-bottom: var(--jsini-sp-sm);
+}
+
+.ct-toll-option-head strong {
+  font-size: 1.15em;
+}
+
+.ct-toll-option-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.9em;
+  color: var(--jsini-text-dim);
+}
+
+/* ── 대상 조건 목록 ───────────────────────────────────────── */
+
+/* ── 구간 유형이 무엇인가 (물음표 안) ────────────────────────
+
+   「폐쇄식 · 개방식」은 요금소 **운영 방식**을 부르는 말이라, 운전하는 사람이
+   자기 노선이 어느 쪽인지 알 길이 화면 어디에도 없었다. 뜻과 함께 **알아보는
+   법**(통행권을 뽑았나 · 요금소를 몇 번 지나나)을 적고, 그 아래 한 줄에
+   그래서 규칙이 어떻게 갈리는지를 붙인다.
+
+   대상 조건 목록(`.ct-checks`)과 **같은 결로 둔다** — 같은 물음표가 여는
+   같은 판이라, 여기만 카드 모양이면 둘이 다른 화면처럼 보인다.
+   ------------------------------------------------------------ */
+
+.ct-kinds {
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--jsini-sp-xs);
+}
+
+.ct-kind {
+  padding: var(--jsini-sp-sm) var(--jsini-sp-md);
+  border-left: 3px solid var(--jsini-accent);
+  border-radius: var(--jsini-radius-sm);
+  background: var(--jsini-surface-2);
+}
+
+.ct-kind dt {
+  font-weight: 600;
+}
+
+.ct-kind dd {
+  margin: 0;
+  color: var(--jsini-text-dim);
+}
+
+/* 규칙은 **제 줄**로 내린다. 뜻풀이에 이어 붙이면 어디까지가 「무엇인가」이고
+   어디부터가 「그래서 얼마인가」인지 한 덩어리로 읽힌다. */
+.ct-kind-rule {
+  display: block;
+  margin-top: var(--jsini-sp-2xs);
+  font-size: var(--jsini-fs-sm);
+}
+
+.ct-checks {
+  margin: var(--jsini-sp-md) 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--jsini-sp-xs);
+}
+
+.ct-check {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--jsini-sp-sm);
+  padding: var(--jsini-sp-sm) var(--jsini-sp-md);
+  border-left: 3px solid var(--jsini-border);
+  border-radius: var(--jsini-radius-sm);
+  background: var(--jsini-surface-2);
+}
+
+/* 판정이 셋이다. 「알 수 없음」을 「아님」과 같은 색으로 칠하면
+   '3축 미만이라 서약서가 필요하다' 가 '대상이 아니다' 로 읽힌다. */
+.ct-check--ok { border-left-color: var(--jsini-success); }
+.ct-check--no { border-left-color: var(--jsini-danger); }
+.ct-check--unknown { border-left-color: var(--jsini-warning); }
+
+.ct-check-label {
+  min-width: 7em;
+  font-weight: 600;
+}
+
+.ct-check-note {
+  flex: 1 1 14em;
+  color: var(--jsini-text-dim);
+}
+
+@media (max-width: 767px) {
+  .ct-toll-rate {
+    font-size: calc(var(--jsini-fs-2xl) * 1.25);
+  }
+
+  .ct-toll-range {
+    flex-wrap: wrap;
+  }
+}
+
+/* ── 번호판이 말한 것 ─────────────────────────────────────── */
+
+/* 차량번호 칸 바로 아래 한 줄. 사람이 번호를 적자마자 「이렇게 읽었다」를
+   보여 주는 자리라, 입력 칸과 떨어지면 무엇에 대한 말인지 알 수 없다. */
+.ct-plate {
+  padding: var(--jsini-sp-sm) var(--jsini-sp-md);
+  border-left: 3px solid var(--jsini-border);
+  border-radius: var(--jsini-radius-sm);
+  background: var(--jsini-surface-2);
+  font-size: var(--jsini-fs-sm);
+}
+
+.ct-plate--ok { border-left-color: var(--jsini-success); }
+
+/* 읽기는 했는데 사업용이 아니거나 화물차가 아닐 때. 막지는 않는다 —
+   실제로 깎아 주는 쪽은 도로공사이고 예외가 있을 수 있다. */
+.ct-plate--warn { border-left-color: var(--jsini-warning); }
+
+.ct-plate--idle { color: var(--jsini-text-dim); }
+
+/* 목록에서는 번호 아래 작게 붙인다. */
+.ct-veh-plate {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+}
+
+.ct-veh-plate-read {
+  font-size: var(--jsini-fs-xs);
+  color: var(--jsini-text-dim);
+}
+
+/* ── 나의 차량등록 ───────────────────────────────────────── */
+
+/* 차 한 대가 카드 한 장이다. **폭에 따라 다른 물건이 되지 않게** 표를 쓰지 않는다 —
+   넓어지면 칸이 느는 것이 아니라 카드가 옆으로 늘어선다. 좁아지면 한 줄에 하나로
+   쌓이고, 그때도 쓰는 법이 같다.
+
+   minmax 의 아래끝에 min() 을 씌운 까닭: 280px 로만 적으면 320px 짜리 화면에서
+   패딩까지 더해져 넘치고, 그 순간 옆으로 굴려야 보이는 값이 생긴다. */
+.ct-veh-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+  gap: var(--jsini-sp-md);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ct-veh-card {
+  display: flex;
+  flex-direction: column;
+  padding: var(--jsini-sp-md);
+  border: 1px solid var(--jsini-border);
+  border-radius: var(--jsini-radius-md);
+  background: var(--jsini-surface);
+  box-shadow: var(--jsini-shadow-card);
+}
+
+.ct-veh-card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--jsini-sp-sm);
+}
+
+.ct-veh-card-head strong {
+  font-size: var(--jsini-fs-lg);
+}
+
+.ct-veh-card-nick {
+  margin-top: 2px;
+  color: var(--jsini-text-dim);
+}
+
+/* 표에서 칸으로 흩어져 있던 값을 여기로 접어 넣는다. 폭이 좁아지면 줄을 바꿔
+   담고 옆으로 흐르지 않는다. */
+.ct-veh-card-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--jsini-sp-xs) var(--jsini-sp-md);
+  margin-top: var(--jsini-sp-sm);
+  font-size: var(--jsini-fs-sm);
+}
+
+.ct-veh-card-plate {
+  margin-top: var(--jsini-sp-xs);
+  font-size: var(--jsini-fs-xs);
+  color: var(--jsini-text-dim);
+}
+
+.ct-veh-card-memo {
+  margin-top: var(--jsini-sp-xs);
+  font-size: var(--jsini-fs-sm);
+  color: var(--jsini-text-dim);
+}
+
+/* 단추는 카드 맨 아래에 붙는다 — 카드마다 적힌 줄 수가 달라도 단추 줄은
+   나란히 선다(`margin-top: auto` 가 남는 높이를 먹는다). */
+.ct-veh-card-actions {
+  display: flex;
+  gap: var(--jsini-sp-sm);
+  margin-top: auto;
+  padding-top: var(--jsini-sp-md);
+}
+
+/* 손가락으로 눌러도 되는 높이를 데스크톱에서 굳이 줄이지 않는다. */
+.ct-veh-card-actions > * {
+  flex: 1 1 0;
+  min-height: 44px;
+}
+
+/* 머리줄 — 왼쪽에 대수, 오른쪽에 등록. 좁아지면 단추가 폭을 꽉 채운다. */
+.ct-myveh-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--jsini-sp-md);
+  flex-wrap: wrap;
+}
+
+.ct-myveh-count {
+  color: var(--jsini-text-dim);
+}
+
+.ct-myveh-add {
+  min-height: 44px;
+}
+
+@media (max-width: 767px) {
+  .ct-myveh-top {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .ct-myveh-add {
+    width: 100%;
+  }
+}
+
+/* 칩 아래 한 줄짜리 설명. 칩 이름을 짧게 하고 내려 보낸 자리다. */
+.ct-note {
+  font-size: var(--jsini-fs-xs);
+  color: var(--jsini-text-dim);
+}
+
+/* 시·분 고르개. `input type=time` 대신 쓴다 — 크롬이 그 칸의 표시를 브라우저
+   말로 정하고 `lang` 을 보지 않아 24시로 못 박을 수가 없다. */
+.ct-hm {
+  display: flex;
+  gap: var(--jsini-sp-sm);
+  flex: 1 1 10rem;
+}
+
+.ct-input--hm {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* 날짜 칸과 앞뒤 화살표. 달력을 열지 않고 하루씩 옮긴다. */
+.ct-date {
+  display: flex;
+  gap: var(--jsini-sp-xs);
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+.ct-input--date {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+/* 화살표는 손가락 크기를 지키되 폭은 좁게 — 가운데 날짜 칸이 가장 넓어야 한다. */
+.ct-step {
+  flex: 0 0 auto;
+  width: 36px;
+  min-height: 44px;
+  border: 1px solid var(--jsini-border);
+  border-radius: var(--jsini-radius-md);
+  background: var(--jsini-surface);
+  color: var(--jsini-text);
+  font-size: var(--jsini-fs-lg);
+  font-family: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.ct-step:hover {
+  border-color: var(--jsini-accent);
+}
+
+/* ── 이 차가 받을 수 있나 ─────────────────────────────────── */
+
+/* 할인율 바로 아래 한 줄. 누르면 대상 조건 목록이 펴진다.
+   **할인율과 다른 물음을 말하는 자리다** — 할인율은 야간 이용비율로만 정해져
+   차를 바꿔도 안 바뀌는데, 「그래서 이 차가 받나」는 차마다 다르다. */
+.ct-verdict {
+  display: flex;
+  align-items: center;
+  gap: var(--jsini-sp-sm);
+  width: 100%;
+  margin-top: var(--jsini-sp-sm);
+  padding: var(--jsini-sp-sm) var(--jsini-sp-md);
+  border: 1px solid var(--jsini-border);
+  border-left-width: 3px;
+  border-radius: var(--jsini-radius-sm);
+  background: var(--jsini-surface-2);
+  color: var(--jsini-text);
+  font-size: var(--jsini-fs-sm);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* 색만으로 가르지 않는다 — 표시(O·!·X)가 색을 못 가리는 사람에게 같은 말을 한다. */
+.ct-verdict-mark {
+  flex: 0 0 auto;
+  width: 1.4em;
+  height: 1.4em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.ct-verdict--ok { border-left-color: var(--jsini-success); }
+.ct-verdict--ok .ct-verdict-mark { background: var(--jsini-success); color: #fff; }
+
+.ct-verdict--check { border-left-color: var(--jsini-warning); }
+.ct-verdict--check .ct-verdict-mark { background: var(--jsini-warning); color: #fff; }
+
+.ct-verdict--no { border-left-color: var(--jsini-danger); }
+.ct-verdict--no .ct-verdict-mark { background: var(--jsini-danger); color: #fff; }
+
+/* ── 구간 통행료 ──────────────────────────────────────────── */
+
+.ct-plaza {
+  flex: 1 1 10rem;
+  min-width: 0;
+}
+
+/* 할인율 아래 한 칸. 「얼마에서 얼마로」가 한 줄에 보여야 한다 —
+   비율만 보면 그 운행에서 실제로 얼마가 남는지 셈이 또 필요하다. */
+.ct-fare {
+  margin-top: var(--jsini-sp-sm);
+  padding: var(--jsini-sp-md);
+  border: 1px solid var(--jsini-border);
+  border-radius: var(--jsini-radius-md);
+  background: var(--jsini-surface-2);
+}
+
+.ct-fare-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--jsini-sp-xs) var(--jsini-sp-md);
+  font-size: var(--jsini-fs-sm);
+}
+
+.ct-fare-route { font-weight: 600; }
+.ct-fare-dist { color: var(--jsini-text-dim); }
+
+.ct-fare-money {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--jsini-sp-sm);
+  margin-top: var(--jsini-sp-xs);
+}
+
+/* 깎이기 전 값은 **지우지 않고 줄만 긋는다** — 지우면 얼마에서 깎였는지가 사라진다. */
+.ct-fare-before {
+  color: var(--jsini-text-dim);
+  text-decoration: line-through;
+}
+
+.ct-fare-arrow { color: var(--jsini-text-dim); }
+
+.ct-fare-after {
+  font-size: var(--jsini-fs-xl);
+  font-weight: 700;
+  color: var(--jsini-accent);
+}
+
+.ct-fare-saved {
+  padding: 2px var(--jsini-sp-sm);
+  border-radius: 999px;
+  background: var(--jsini-success);
+  color: #fff;
+  font-size: var(--jsini-fs-xs);
+  font-weight: 600;
+}
+
+.ct-fare-note {
+  margin-top: var(--jsini-sp-xs);
+  font-size: var(--jsini-fs-xs);
+  color: var(--jsini-text-dim);
 }

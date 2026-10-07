@@ -70,6 +70,17 @@
     조회 조건에 그대로 있고, 순서는 **긴급이 먼저 · 그다음 접수 역순**으로
     이미 고정이다(`Ordered`).
 
+    [휴대폰에서는 그 둘마저 걷는다 — **옆으로 굴리지 않는다** (2026-10-06)]
+
+    남은 네 칸이 80 + 260 + 140 + 110 = **590px** 인데 휴대폰의 표 안쪽은
+    372px 다(390px 기기에서 재었다). 모자란 218px 는 옆으로 굴려야 보이는데,
+    **한 손으로 쥔 휴대폰에서 옆으로 굴려야 보이는 값은 사실상 없는 값**이다 —
+    굴린 자리를 기억해야 해서 줄끼리 견주지도 못한다.
+
+    그래서 좁은 화면에서는 고객사 · 담당자 칸을 걷고 그 값을 **얹은 줄로
+    들인다**(제목 칸의 머리말). 남는 것은 그림 80 + 제목 260 = 340px 라 그
+    안에 들어간다. 걷는 손은 `Visible="@@(!_isPhone)"` 이다.
+
     [쪽으로 넘긴다 · 머리줄은 걷었다 (2026-09-28)]
 
     줄이 80px 라 굴림만으로는 스물다섯 줄이 2000px 다. `PagerVisible="true"` 로
@@ -89,13 +100,14 @@
     (`?status=…&basis=…&from=…&to=…&company=…&open=false`), 이 화면이 들어오면서
     그것을 조회 조건으로 푼다(`ApplyQueryConditions`).
 
-    그 대가로 조건 칸이 셋 늘었다 —
+    그 대가로 조건 칸이 둘 늘었다 —
 
-      상태      **여럿 고른다.** 「협의」 타일 하나가 협의·논의 둘을 세고
-                「오늘 완료」는 완료·종료 둘을 센다.
-      기간 기준 접수 · 완료. 「오늘 접수」와 「오늘 완료」를 가르는 것이 이것뿐이다.
-      기간      고른 날짜는 **우리 시계의 하루**이고, 서버에는 그 하루의
-                시작·끝을 UTC 순간으로 바꿔 보낸다(`ApplyPeriod`).
+      상태   **여럿 고른다.** 「협의」 타일 하나가 협의·논의 둘을 세고
+             「오늘 완료」는 완료·종료 둘을 센다.
+      기간   **기준(접수·완료)과 날짜 둘이 한 칸이다.** 「오늘 접수」와
+             「오늘 완료」를 가르는 것이 그 기준뿐이라 날짜와 떼어 놓을 수
+             없다(아래 조건 칸의 머리말). 고른 날짜는 **우리 시계의 하루**이고,
+             서버에는 그 하루의 시작·끝을 UTC 순간으로 바꿔 보낸다(`ApplyPeriod`).
 
     **맡겨 둔 짐보다 주소가 먼저다.** 안 그러면 눌러서 고른 조건이 지난번
     조건에 덮여 엉뚱한 목록이 열리고, 누른 사람은 왜 그 숫자가 아닌지 알 길이 없다.
@@ -262,30 +274,65 @@
                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
         </CommSchItem>
 
-        @* 「접수 9.28 ~ 9.28」인지 「완료 9.28 ~ 9.28」인지를 먼저 고른다.
-           기준을 안 두면 「오늘 접수」와 「오늘 완료」가 같은 조건이 되어
-           현황판 타일 둘 중 하나는 반드시 어긋난다. *@
-        <CommSchItem Label="기간 기준">
-            <DxComboBox Data="@BasisOptions" @bind-Value="_basis" @bind-Value:after="ReloadAsync"
-                        TextFieldName="@nameof(SchOption.Text)" ValueFieldName="@nameof(SchOption.Value)"
-                        Style="width: 90px" />
-        </CommSchItem>
-
-        @* 195px 이다. 재어 본 값 — 지우개(✕) 48 · 달력 29 · 글상자 좌우 여백 24 를
-           빼고 나면 글자가 앉을 자리가 남아야 하는데 「2026-09-28」이 73px 이다.
-           170 으로 두면 67px 만 남아 「2026-09…」로 잘린다. *@
-        <CommSchItem Label="기간">
-            <DxDateEdit @bind-Date="_from" @bind-Date:after="ReloadAsync" Style="width: 195px"
-                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-        </CommSchItem>
-
-        <CommSchItem Label="~">
-            <DxDateEdit @bind-Date="_to" @bind-Date:after="ReloadAsync" Style="width: 195px"
-                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-        </CommSchItem>
-
         <CommSchItem>
             <DxCheckBox @bind-Checked="_onlyOpen" @bind-Checked:after="ReloadAsync">처리 중인 것만</DxCheckBox>
+        </CommSchItem>
+
+        @* ── 기간은 **한 칸이다** (2026-10-06) ──────────────────────
+
+           한동안 칸이 셋이었다 — 「기간 기준」 · 「기간」 · 「~」. 셋 다 같은
+           조건의 부분인데 판에서는 **남남으로 보였다.** 흘려 담기는 줄 끝에서
+           가차 없이 끊어서, 창 폭에 따라 기준만 윗줄에 남고 날짜 둘이 아랫줄로
+           갔다. 그 모습에서 기준은 **딴 조건**으로 읽힌다. 라벨도 거들지 못했다 —
+           「기간」이 **시작 날짜 하나**에만 붙어 있고 끝 날짜의 라벨은 「~」라,
+           「기간 = 왼쪽 날짜」로 읽을 여지가 있었다.
+
+           셋은 늘 함께 움직인다. 기준을 바꾸면 **같은 날짜가 다른 칸**을 잰다
+           (`requestedAt` ↔ `completededAt`·`userCompletededAt`), 날짜를 둘 다
+           비우면 기준은 **아무 일도 안 한다**(`ApplyPeriod`). 그래서 테두리
+           하나로 묶어 한 덩어리로 세운다 — 쪼개진 칸이 아니니 줄바꿈에 갈릴
+           일이 없고, 라벨 「기간」이 비로소 셋 전부를 가리킨다.
+
+           [기준은 라디오다]
+
+           고르개(`DxComboBox`)는 **접혀 있는 동안 지금 무엇으로 재는지를
+           감춘다.** 날짜 바로 옆에 세워 두어도 펴 보기 전에는 둘이 이어지지
+           않아서, 「오늘 접수」로 들어왔는지 「오늘 완료」로 들어왔는지가 눈에
+           안 들어왔다. 값이 둘뿐이라 **늘 펴 두는 값**이 접어서 아끼는 자리보다
+           크다.
+
+           [맨 뒤에 둔다]
+
+           조건이 여섯을 넘으면 판이 격자로 선다(app.css 「조건이 많은 판」).
+           이 칸은 기둥 하나에 안 들어가 **줄 전체를 쓰므로**, 가운데 두면 앞
+           줄에 빈 기둥이 남는다. 맨 뒤면 띠처럼 아래에 깔린다. *@
+        <CommSchItem Label="기간">
+            <div class="hd-period">
+                <DxRadioGroup Items="@BasisOptions" @bind-Value="_basis" @bind-Value:after="ReloadAsync"
+                              TextFieldName="@nameof(SchOption.Text)" ValueFieldName="@nameof(SchOption.Value)"
+                              Layout="RadioGroupLayout.Horizontal"
+                              CssClass="hd-period__basis" />
+
+                @* 날짜 둘과 「~」는 **또 한 겹으로 묶는다.** 좁아지면 라디오만
+                   윗줄로 올라가고 날짜 둘은 끝까지 붙어 다닌다 — 갈라지면
+                   테두리로 묶은 뜻이 반은 사라진다. *@
+                <div class="hd-period__range">
+                    @* 폭은 CSS 가 준다(`.hd-period__date` · 195px). 여기 인라인으로
+                       적어 두면 **휴대폰에서 못 걷는다** — 인라인이 이기므로 좁은
+                       화면 규칙마다 `!important` 를 달게 된다. *@
+                    <DxDateEdit @bind-Date="_from" @bind-Date:after="ReloadAsync"
+                                CssClass="hd-period__date"
+                                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+
+                    @* 읽는 사람에게만 필요한 글자다. 화면 낭독기에는 날짜 칸
+                       둘이 이미 차례로 읽히므로 물결표까지 읽을 까닭이 없다. *@
+                    <span class="hd-period__tilde" aria-hidden="true">~</span>
+
+                    <DxDateEdit @bind-Date="_to" @bind-Date:after="ReloadAsync"
+                                CssClass="hd-period__date"
+                                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                </div>
+            </div>
         </CommSchItem>
     </Fields>
 </CommSch>
@@ -341,7 +388,23 @@
 
                **그 넷은 제 칸을 걷었다.** 같은 값이 한 줄에 두 번 서고, 그만큼
                제목이 좁아져 긴 제목이 … 로 잘렸다. 정렬과 칸별 검색은 잃지만
-               상태 · 요청자 · 기간은 **위 조회 조건에 그대로 있다.** *@
+               상태 · 요청자 · 기간은 **위 조회 조건에 그대로 있다.**
+
+               [휴대폰에서는 고객사 · 담당자도 이 줄로 들어온다 (2026-10-06)]
+
+               남은 칸 넷이 80 + 260 + 140 + 110 = **590px** 인데 휴대폰의 표
+               안쪽은 372px 다(390px 기기에서 재었다). 모자란 218px 를 옆으로
+               굴려 봐야 하는데, **한 손으로 쥔 휴대폰에서 옆으로 굴려야 보이는
+               값은 사실상 없는 값**이다 — 굴린 자리를 기억해야 해서 줄끼리
+               견주지도 못한다.
+
+               그래서 좁은 화면에서는 고객사 · 담당자 칸을 걷고(아래 두 칸의
+               `Visible`) 그 값을 여기로 들인다. 남는 것은 그림 80 + 제목 260
+               = 340px 라 372px 안에 들어간다 — **옆으로 굴릴 일이 없어진다.**
+
+               담당자에는 「담당」을 붙인다. 안 붙이면 「㈜진일 · 김철수 ·
+               2026-10-06 14:22 · 3일 · 이영희」가 되어 **이름 둘 중 어느 쪽이
+               맡은 사람인지** 알 수가 없다. *@
             <DxGridDataColumn Caption="제목" MinWidth="260" TextAlignment="GridTextAlignment.Left">
                 <CellDisplayTemplate Context="cell">
                     @{
@@ -354,6 +417,11 @@
                             {
                                 <span class="jsini-badge jsini-badge--off">긴급</span>
                             }
+                            @if (_isPhone)
+                            {
+                                <span class="hd-req-meta__item">@Context.CompanyName(r.Customer?.CompanyId)</span>
+                                <span class="hd-req-meta__dot">·</span>
+                            }
                             <span class="hd-req-meta__item">@(r.Customer?.UserName ?? "-")</span>
                             <span class="hd-req-meta__dot">·</span>
                             @* **우리 시간으로 적는다.** 서버가 주는 것은 UTC 라 그대로
@@ -363,6 +431,11 @@
                             <span class="hd-req-meta__item">@(r.CreatedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "-")</span>
                             <span class="hd-req-meta__dot">·</span>
                             <span class="hd-req-meta__item">@Elapsed(r)</span>
+                            @if (_isPhone)
+                            {
+                                <span class="hd-req-meta__dot">·</span>
+                                <span class="hd-req-meta__item">담당 @(r.Admin?.UserName ?? "미배정")</span>
+                            }
                         </div>
                         <div class="hd-req-title">
                             @r.Title
@@ -375,7 +448,8 @@
                 </CellDisplayTemplate>
             </DxGridDataColumn>
 
-            <DxGridDataColumn Caption="고객사" Width="140">
+            @* 휴대폰에서는 걷는다 — 값은 위 제목 칸의 얹은 줄로 들어간다(그 머리말). *@
+            <DxGridDataColumn Caption="고객사" Width="140" Visible="@(!_isPhone)">
                 <CellDisplayTemplate Context="cell">
                     @{
                         var r = (ImprovementRequest)cell.DataItem;
@@ -386,7 +460,8 @@
                 </CellDisplayTemplate>
             </DxGridDataColumn>
 
-            <DxGridDataColumn Caption="담당자" Width="110">
+            @* 고객사와 같다 — 휴대폰에서는 걷고 얹은 줄에 「담당 …」으로 적는다. *@
+            <DxGridDataColumn Caption="담당자" Width="110" Visible="@(!_isPhone)">
                 <CellDisplayTemplate Context="cell">
                     @{
                         var r = (ImprovementRequest)cell.DataItem;
@@ -405,25 +480,40 @@
         </Columns>
     </CommGrd>
 
-    @* 목록 아래 줄. **남은 것이 있을 때만** 선다 — 다 본 뒤에도 남겨 두면
-       눌러도 아무 일이 없는 단추가 목록 아래를 차지한다.
+    @* 목록 아래 줄.
 
        휴대폰은 「더보기」 하나다. 몇 줄이 남았는지를 단추에 적는다
        (「더보기 112건」) — 적어 두지 않으면 한 번 더 눌러야 하는지 열 번 더
        눌러야 하는지를 **누르기 전에는 알 수 없고**, 표 머리줄도 페이저도
        없는 화면이라 건수를 말해 주는 자리가 여기뿐이다.
 
+       [다 깔고 나서도 **단추는 남는다 — 눌리지 않는 채로** (2026-10-06)]
+
+       한동안 남은 것이 0 이 되면 단추를 통째로 걷었다. 눌러도 아무 일이
+       없는 단추를 남기지 않으려던 것인데, **걷으면 끝이라는 말도 함께
+       걷힌다.** 휴대폰에는 머리줄도 페이저도 없어서 목록이 끊긴 자리에
+       아무 표시가 없고, 사람은 그것을 「끝」이 아니라 「덜 불러온 것」으로
+       읽는다 — 삼백 줄째에서 단추가 사라지던 때와 **똑같이 생긴 화면**이다
+       (위 머리말, 2026-10-06 에 고친 그 일).
+
+       그래서 자리에 남겨 두고 **끄기만 한다.** 끝이라는 말은 단추가 하고,
+       눌리지 않는다는 것이 그 말이 참임을 보인다. 줄이 하나도 없으면
+       그때는 걷는다 — 「없습니다」가 이미 떠 있고(`DataPage`), 빈 목록 아래
+       꺼진 단추는 말을 보태지 않는다.
+
        데스크톱은 쪽을 페이저가 넘기므로 깔 줄은 모자라지 않다. 모자란 것은
        **받아 둔 것**이라, 거기엔 읽은 만큼을 적고 다음 묶음을 받는 단추를
        둔다. 전에는 이 말을 조회가 끝날 때 토스트로 한 번 하고 말았다 —
        그 말은 사라지고 페이저는 끝까지 넘어가므로, **열두 쪽이 전부인 줄
-       알고 덮는다.** *@
-    @if (_isPhone ? Rest > 0 : HasUnread)
+       알고 덮는다.** 끝까지 읽고 나면 거기는 걷는다 — 페이저가 「12쪽 중
+       12쪽」으로 끝을 이미 말하고 있어서, 꺼진 단추가 보탤 말이 없다. *@
+    @if (_isPhone ? _rows.Count > 0 : HasUnread)
     {
         <div class="hd-manage-more @(_isPhone ? "hd-manage-more--phone" : null)">
             @if (_isPhone)
             {
-                <DxButton Text="@($"더보기 {Rest:N0}건")"
+                <DxButton Text="@(Rest > 0 ? $"더보기 {Rest:N0}건" : "더보기 · 마지막입니다")"
+                          Enabled="@(Rest > 0)"
                           RenderStyle="ButtonRenderStyle.Secondary"
                           CssClass="hd-manage-more__go"
                           Click="@ShowMoreAsync" />

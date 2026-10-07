@@ -224,6 +224,63 @@ public sealed class CargoTrustClient(GatewayClient gateway)
     public Task<IReadOnlyList<DisputeInfo>> GetMyDisputesAsync(CancellationToken ct = default)
         => gateway.GetListAsync<DisputeInfo>($"{Prefix}/disputes/mine", ct);
 
+    // ── 톨게이트 심야할인 ────────────────────────────────────
+
+    /// <summary>지금 쓰는 할인 규칙. 목표 할인율 고르개와 「기준」 표시가 이것으로 만들어진다.</summary>
+    public Task<TollRulesInfo?> GetTollRulesAsync(CancellationToken ct = default)
+        => gateway.GetOneAsync<TollRulesInfo>($"{Prefix}/toll/rules", ct);
+
+    /// <summary>영업소 검색. 민자 구간은 기본으로 빠진다 — 요금·할인 체계가 따로다.</summary>
+    public Task<IReadOnlyList<TollPlazaInfo>> SearchPlazasAsync(
+        string? q, bool includePrivate = false, CancellationToken ct = default)
+        => gateway.GetListAsync<TollPlazaInfo>(
+            $"{Prefix}/toll/plazas?q={Uri.EscapeDataString(q ?? string.Empty)}&includePrivate={(includePrivate ? "true" : "false")}", ct);
+
+    /// <summary>① 진입·진출 시각 → 심야할인율.</summary>
+    public Task<TollCalcResultInfo?> CalcTollDiscountAsync(TollCalcRequest request, CancellationToken ct = default)
+        => gateway.PostAsync<TollCalcResultInfo>($"{Prefix}/toll/discount/calc", request, ct);
+
+    /// <summary>② 한쪽 시각 + 목표 할인율 → 나머지 시각 추천.</summary>
+    public Task<TollSuggestResultInfo?> SuggestTollTimeAsync(TollSuggestRequest request, CancellationToken ct = default)
+        => gateway.PostAsync<TollSuggestResultInfo>($"{Prefix}/toll/discount/suggest", request, ct);
+
+    /// <summary>
+    /// 구간 통행료. 못 받아도 <b>빈 값이 온다</b> — 통행료가 없다고 할인율 계산까지
+    /// 막지 않는다.
+    /// </summary>
+    public Task<TollFareInfo?> GetTollFareAsync(
+        string fromCode, string toCode, string vehicleClass, decimal discount, CancellationToken ct = default)
+        => gateway.GetOneAsync<TollFareInfo>(
+            $"{Prefix}/toll/fare?from={Uri.EscapeDataString(fromCode)}&to={Uri.EscapeDataString(toCode)}"
+            + $"&vehicleClass={Uri.EscapeDataString(vehicleClass)}"
+            + $"&discount={discount.ToString(CultureInfo.InvariantCulture)}", ct);
+
+    public Task<IReadOnlyList<TollCalcHistoryInfo>> GetTollHistoryAsync(int limit = 30, CancellationToken ct = default)
+        => gateway.GetListAsync<TollCalcHistoryInfo>($"{Prefix}/toll/history?limit={limit}", ct);
+
+    // ── 내 차량 ──────────────────────────────────────────────
+
+    /// <summary>
+    /// 번호판 읽기. <b>저장하지 않는다</b> — 칸을 채우기 전에 「이렇게 읽었다」를
+    /// 먼저 보여 주고, 사람이 그 위에서 고치게 한다.
+    /// </summary>
+    public Task<PlateReadInfo?> ReadPlateAsync(string plateNo, CancellationToken ct = default)
+        => gateway.GetOneAsync<PlateReadInfo>(
+            $"{Prefix}/vehicles/plate?no={Uri.EscapeDataString(plateNo)}", ct);
+
+    public Task<IReadOnlyList<VehicleInfo>> GetMyVehiclesAsync(CancellationToken ct = default)
+        => gateway.GetListAsync<VehicleInfo>($"{Prefix}/vehicles", ct);
+
+    /// <summary>차량 등록. 이미 등록한 번호판이면 409.</summary>
+    public Task<VehicleInfo?> CreateVehicleAsync(VehicleSaveRequest request, CancellationToken ct = default)
+        => gateway.PostAsync<VehicleInfo>($"{Prefix}/vehicles", request, ct);
+
+    public Task<VehicleInfo?> UpdateVehicleAsync(long vehicleId, VehicleSaveRequest request, CancellationToken ct = default)
+        => gateway.PutAsync<VehicleInfo>($"{Prefix}/vehicles/{vehicleId}", request, ct);
+
+    public Task DeleteVehicleAsync(long vehicleId, CancellationToken ct = default)
+        => gateway.DeleteAsync($"{Prefix}/vehicles/{vehicleId}", ct);
+
     // ── 도우미 ───────────────────────────────────────────────
 
     private static string Date(DateOnly day) => day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);

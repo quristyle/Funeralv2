@@ -31,8 +31,13 @@
     <section class="ct-panel ct-panel--form">
         <TransactionFields Draft="@_draft" />
 
-        <div class="jsini-actions ct-form-actions">
-            <DxButton Text="등록" RenderStyle="ButtonRenderStyle.Primary" Enabled="@(!Loading)" Click="@SaveAsync" />
+        @* **`jsini-actions` 를 쓰지 않는다.** 그 이름은 표의 「관리」 칸에 아이콘
+           단추 셋을 욱여넣으려고 여백을 0.25rem 까지 줄인다(tabler.css). 그것이
+           폼의 보내기 단추까지 따라와 **높이가 30px 로 눌려 있었다**(390px 폭에서
+           재 봤다) — 손가락 크기(44px)의 2/3 다. 여기는 칸이 모자란 자리가 아니다. *@
+        <div class="ct-form-actions">
+            <DxButton Text="등록" RenderStyle="ButtonRenderStyle.Primary" CssClass="ct-form-actions__go"
+                      Enabled="@(!Loading)" Click="@SaveAsync" />
             <DxButton Text="다시 쓰기" RenderStyle="ButtonRenderStyle.Secondary" IconCssClass="jsini-icon-undo"
                       Click="@Reset" />
         </div>

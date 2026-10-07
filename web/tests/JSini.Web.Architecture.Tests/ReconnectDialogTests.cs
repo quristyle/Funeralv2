@@ -190,6 +190,108 @@ public sealed class ReconnectDialogTests
     }
 
     /// <summary>
+    /// 끊긴 동안 <b>화면을 덮지 않는다</b> — 숨죽임 · 귀띔 · 상자.
+    ///
+    /// <para>
+    /// 한동안 조용한 구간이 <b>0.9초짜리 투명 구간 하나</b>였다. 회선이 한 번
+    /// 튀는 것은 그 안에 끝나지만 <b>터널은 0.9초가 아니다</b> — 지하 구간
+    /// 하나가 수십 초이고 승강기·주차장도 몇 초씩 끊긴다. 그때마다 화면이
+    /// 통째로 어두워지고 상자가 떴다. 서버는 멀쩡하고 곧 저절로 이어지는데도
+    /// 사람에게는 매번 사고로 보였다.
+    /// </para>
+    ///
+    /// <para>
+    /// 그래서 셋으로 나눈다 — 숨죽임(2초, 아무것도 안 보인다) · 귀띔(작은 띠
+    /// 하나, 화면을 안 덮는다) · 상자. <b>상자까지 가는 것은 시계가 아니라
+    /// 할 일이 정한다</b> — 다시 잇는 중(show · retrying)인 동안은 아무리
+    /// 길어도 귀띔에 머물고, 사람이 골라야 하는 자리에서만 상자가 뜬다.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void 조용한_구간이_단계로_나뉜다()
+    {
+        var js = ReconnectScript();
+        var css = RazorSource.Read(AppCssPath());
+        var app = App();
+
+        foreach (var cls in new[] { "jsini-reconnect--hush", "jsini-reconnect--hint" })
+        {
+            Assert.Contains(cls, js, StringComparison.Ordinal);
+            Assert.Contains(cls, css, StringComparison.Ordinal);
+        }
+
+        // 숨죽임은 **시간이 정하고**, 귀띔은 상태가 정한다.
+        Assert.Contains("HUSH_MS", js, StringComparison.Ordinal);
+
+        // 띠와 그것을 눌러 상자를 여는 길.
+        Assert.Contains("jsini-reconnect__band", app, StringComparison.Ordinal);
+        Assert.Contains("data-reconnect-action=\"expand\"", app, StringComparison.Ordinal);
+        Assert.Contains("'expand'", js, StringComparison.Ordinal);
+
+        // 0.9초짜리 옛 구간으로 되돌아가지 않는다.
+        Assert.DoesNotContain("jsini-reconnect--quiet", js, StringComparison.Ordinal);
+        Assert.DoesNotContain("#components-reconnect-modal.jsini-reconnect--quiet", css,
+            StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// 조용한 동안 <b>누름을 삼킨다.</b>
+    ///
+    /// <para>
+    /// 덮개를 걷었으므로 단추가 그대로 보이고 눌리기까지 한다 — 그런데 회로가
+    /// 없어 아무 데도 닿지 않는다. <b>저장을 누르고 저장된 줄 아는 것</b>이
+    /// 이 바꿈에서 가장 위험한 자리다. 잡는 단계(capture)에서 끊고 띠를 흔들어
+    /// 그 자리에서 알린다.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void 조용한_동안_누름을_삼킨다()
+    {
+        var js = ReconnectScript();
+
+        // **잡는 단계**여야 한다. 거품 단계에 걸면 화면의 처리기가 먼저 돈다.
+        Assert.Contains("document.addEventListener('click', swallow, true)", js,
+            StringComparison.Ordinal);
+        Assert.Contains("document.addEventListener('submit', swallow, true)", js,
+            StringComparison.Ordinal);
+
+        var at = js.IndexOf("function swallow(", StringComparison.Ordinal);
+        Assert.True(at >= 0, "swallow 가 없다");
+
+        var body = js[at..(at + 900)];
+
+        // 상자 안(띠·단추)은 통과시킨다 — 그쪽은 회로 없이 도는 우리 손놀림이다.
+        Assert.Contains("DIALOG_ID", body, StringComparison.Ordinal);
+        Assert.Contains("preventDefault", body, StringComparison.Ordinal);
+
+        // 삼켰으면 **삼켰다고 말한다.**
+        Assert.Contains("nudge()", body, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// 귀띔 띠는 <b>화면을 덮지 않는다.</b>
+    ///
+    /// <para>
+    /// 이 한 줄이 「터널을 지나는 동안 읽던 것을 계속 읽는다」의 전부다.
+    /// 바탕을 칠하거나 누름을 막으면 작은 띠만 뜨는 모양새일 뿐 하던 일은
+    /// 그대로 끊긴다.
+    /// </para>
+    /// </summary>
+    [Fact]
+    public void 귀띔은_화면을_덮지_않는다()
+    {
+        var css = RazorSource.Read(AppCssPath());
+
+        var at = css.IndexOf("#components-reconnect-modal.jsini-reconnect--hush,", StringComparison.Ordinal);
+        Assert.True(at >= 0, "숨죽임·귀띔 규칙이 없다");
+
+        var block = css[at..css.IndexOf('}', at)];
+
+        Assert.Contains("background: transparent", block, StringComparison.Ordinal);
+        Assert.Contains("pointer-events: none", block, StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// 상자는 <b>잠금화면보다 위다.</b>
     ///
     /// <para>

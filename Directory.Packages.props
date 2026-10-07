@@ -111,6 +111,13 @@
     <PackageVersion Include="HtmlAgilityPack" Version="1.13.0" />
     <PackageVersion Include="Mapster" Version="7.4.0" />
     <!-- System.Net.Http.Json 은 net10.0 프레임워크에 들어 있어 참조하지 않는다(NU1510). -->
+
+    <!-- ── 시험 ─────────────────────────────────────────────────
+         web/ 은 자기 Directory.Packages.props 를 쓰므로 같은 묶음이 거기에도 있다.
+         버전을 맞춰 둔다 — 두 곳이 갈리면 러너에서만 나는 실패가 생긴다. -->
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageVersion Include="xunit" Version="2.9.2" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" />
   </ItemGroup>
 
 </Project>

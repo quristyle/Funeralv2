@@ -26,7 +26,26 @@
     이름·숨긴 파일 칸·도구줄 단추 이름을 전부 그것으로 가른다.
 *@
 
-<div class="hd-cmt-write">
+@* ── 도구줄은 **쓰는 동안만** 선다 (2026-10-06) ───────────────────
+
+   상세 화면에는 이 칸이 여럿 뜬다 — 뿌리 댓글 하나에 답글 칸까지. 그 전부가
+   서식 단추 줄을 한 줄씩 이고 있었는데, 글을 읽는 동안에는 **하나도 안 누르는
+   줄**이다. 휴대폰에서는 그 한 줄이 글 쓰는 칸만큼 높다.
+
+   그래서 **처음 칸을 짚을 때까지 접어 둔다.** 접힌 만큼은 글 쓰는 칸이
+   가져가므로(아래 CSS) 칸 전체 높이는 그대로다 — 짚기 전에는 넓은 글칸,
+   짚고 나면 그 위에 도구줄이다.
+
+   [한 번 서면 **그 글을 보낼 때까지 안 접는다**]
+
+   포커스가 빠질 때 접으면 **도구줄을 쓰는 순간에 접힌다** — 글꼴·정렬 단추는
+   누르면 목록이 뜨는 것들이고, 그 목록은 문서 끝에 따로 그려져 포커스가
+   칸 밖으로 나간다. 고르려고 누른 그 손짓에 줄이 사라지면 고를 것이 없어진다.
+   보내거나(`SubmitAsync`) 답글 대상이 바뀌면 그때 함께 접는다.
+
+   접고 펴는 것은 **클래스 한 글자**다 — 편집기를 다시 만들지 않으므로
+   쓰던 글도 커서도 그대로다. *@
+<div class="hd-cmt-write @(_writing ? "hd-cmt-write--writing" : null)" @onfocusin="StartWriting">
     @if (!string.IsNullOrWhiteSpace(Label))
     {
         <span class="hd-field__label">@Label</span>
@@ -43,12 +62,17 @@
     <InputFile id="@PasteInputId" class="hd-paste-input" accept="image/*"
                multiple OnChange="@OnPastedAsync" />
 
+    @* 올리는 중이라는 말도 **칸 안에** 띄운다. 줄로 세우면 그동안만
+       칸이 한 줄 높아져 아래 글이 들썩인다. *@
     @if (_pasting > 0)
     {
-        <span class="jsini-hint">그림 @_pasting 장을 올리는 중입니다…</span>
+        <span class="jsini-hint hd-cmt-write__busy">그림 @_pasting 장을 올리는 중입니다…</span>
     }
 
-    <div class="jsini-toolbar">
+    @* 「남기기」는 **칸 안 오른쪽 아래**에 얹는다. 줄로 세워 두면 칸마다 단추
+       한 줄이 더 붙어, 답글이 몇 개만 열려도 그 줄들이 화면을 먹는다.
+       글이 단추 밑으로 들어가지 않게 글칸 아래에 그만큼 여백을 둔다(CSS). *@
+    <div class="jsini-toolbar hd-cmt-write__run">
         <DxButton Text="@(_saving ? "남기는 중…" : SubmitText)"
                   RenderStyle="ButtonRenderStyle.Primary"
                   Enabled="@(!_saving && _pasting == 0)"

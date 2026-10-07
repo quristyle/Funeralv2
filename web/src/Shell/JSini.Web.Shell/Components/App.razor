@@ -120,6 +120,18 @@
         상황이라 C# 처리기는 쓸 수 없다.
     *@
     <div id="components-reconnect-modal">
+        @*
+            **귀띔 띠** — 끊긴 지 2초가 지나면 이것 하나만 뜬다(app.css 의
+            「조용한 구간」). 바탕을 어둡게 하지 않고 화면도 막지 않아서,
+            터널을 지나는 동안 보던 것을 그대로 읽고 굴릴 수 있다.
+            누르면 상자가 바로 열린다.
+        *@
+        <button type="button" class="jsini-reconnect__band"
+                data-reconnect-action="expand" aria-live="polite">
+            <span class="jsini-reconnect__band-dot" aria-hidden="true"></span>
+            연결이 잠시 끊겼습니다 · 다시 잇는 중
+        </button>
+
         <div class="jsini-reconnect" role="alertdialog" aria-live="polite">
             @* 도는 고리는 **다시 붙는 중일 때만** 돈다(app.css). *@
             <div class="jsini-reconnect__spinner" aria-hidden="true"></div>

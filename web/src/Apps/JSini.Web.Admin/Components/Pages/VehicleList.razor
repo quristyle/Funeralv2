@@ -1,0 +1,170 @@
+@page "/admin/system/vehicle"
+@attribute [RouteKey("admin.system.vehicle")]
+
+@*
+    [차량 관리] — 계정에 차량을 매단다.
+
+    [왜 계정관리에 있나]
+
+    운송관리의 사용자는 **포털 계정 그 사람**이다. 그래서 「이 사람 차가 뭐냐」를
+    묻는 자리는 계정이 모여 있는 여기다. 심야할인 계산 화면이 이 값을 읽어
+    대상 조건(사업용인가 · 3축 이상인가 · 하이패스가 있나)을 짚어 준다.
+
+    [자료는 운송관리가 들고 있다]
+
+    줄 자체는 cargotrust DB 에 있고 이 화면은 게이트웨이로 부른다
+    (`CargoVehicleClient`). 계정 표(scom.accounts)에 차량 칸을 붙이지 않은 까닭은
+    그 표가 전사 공용이기 때문이다 — 운송관리를 안 쓰는 계정까지 축수를 지게
+    할 수 없다.
+
+    [계정 목록에 탭으로 붙이지 않았다]
+
+    계정 관리 화면(`/admin/system/account`)은 이미 알림 상태 넷을 **따로 읽어서**
+    붙이고 있고, 그 까닭이 그 화면 머리말에 적혀 있다 — 다른 서비스의 표를
+    계정 조회에 엮으면 **그 서비스가 죽었을 때 계정 관리가 통째로 안 열린다.**
+    차량도 같은 사정이라 화면을 따로 둔다. 운송관리를 안 쓰는 곳에서는
+    이 메뉴만 끄면 된다.
+
+    [운송관리를 한 번도 안 연 계정에도 달 수 있다]
+
+    운송관리의 사용자 줄은 그 사람이 처음 화면을 열 때 생긴다. 그래서 미리
+    등록해 두려면 줄이 없을 수 있는데, 서버가 그때 만들어 준다. 관리 화면이
+    「먼저 그 사람에게 운송관리를 한 번 열어 달라고 하세요」라고 말할 수는 없다.
+*@
+
+@inherits DataPage
+
+<PageTitle>차량 관리 · 포털관리</PageTitle>
+
+<CommSch OnSearch="@ReloadAsync" OnReset="@Reset" Busy="@Loading" MobileSummary="@ConditionSummary">
+    <Fields>
+        <CommSchItem Label="검색어">
+            <DxTextBox @bind-Text="_keyword" NullText="계정 아이디 · 이름 · 차량번호" Style="width: 240px" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
+
+<CommCont>
+    <CommGrd TItem="CargoVehicleDto" Data="@_vehicles" ExportName="차량" Reload="@ReloadAsync">
+        <Toolbar>
+            <DxButton Text="차량 등록" RenderStyle="ButtonRenderStyle.Primary" Click="@(() => Open(null))" />
+        </Toolbar>
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(CargoVehicleDto.ExternalUserId)" Caption="계정" Width="120" />
+            <DxGridDataColumn FieldName="@nameof(CargoVehicleDto.DisplayName)" Caption="이름" Width="100" />
+            <DxGridDataColumn FieldName="@nameof(CargoVehicleDto.PlateNo)" Caption="차량번호" Width="150">
+                <CellDisplayTemplate Context="cell">
+                    @{ var row = (CargoVehicleDto)cell.DataItem; }
+                    <div class="ad-veh-plate">
+                        <span>@row.PlateNo</span>
+                        @if (row.Plate is { Readable: true } p)
+                        {
+                            <span class="ad-veh-plate-read">@p.Summary</span>
+                        }
+                    </div>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+            <DxGridDataColumn FieldName="@nameof(CargoVehicleDto.Nickname)" Caption="별칭" Width="110" />
+            <DxGridDataColumn FieldName="@nameof(CargoVehicleDto.VehicleClassName)" Caption="차종" Width="170" />
+            <DxGridDataColumn FieldName="@nameof(CargoVehicleDto.AxleCount)" Caption="축수" Width="80">
+                <CellDisplayTemplate Context="cell">
+                    @{ var row = (CargoVehicleDto)cell.DataItem; }
+                    @(row.AxleCount is { } a ? $"{a}축" : "모름")
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+            <DxGridDataColumn FieldName="@nameof(CargoVehicleDto.Tonnage)" Caption="톤수" Width="80" />
+            <DxGridDataColumn FieldName="@nameof(CargoVehicleDto.IsBusiness)" Caption="사업용" Width="80">
+                <CellDisplayTemplate Context="cell">@(((CargoVehicleDto)cell.DataItem).IsBusiness ? "예" : "아니오")</CellDisplayTemplate>
+            </DxGridDataColumn>
+            <DxGridDataColumn FieldName="@nameof(CargoVehicleDto.HasHipass)" Caption="하이패스" Width="90">
+                <CellDisplayTemplate Context="cell">@(((CargoVehicleDto)cell.DataItem).HasHipass ? "예" : "아니오")</CellDisplayTemplate>
+            </DxGridDataColumn>
+            <DxGridDataColumn FieldName="@nameof(CargoVehicleDto.IsDefault)" Caption="기본" Width="70">
+                <CellDisplayTemplate Context="cell">@(((CargoVehicleDto)cell.DataItem).IsDefault ? "★" : "")</CellDisplayTemplate>
+            </DxGridDataColumn>
+            <DxGridDataColumn FieldName="@nameof(CargoVehicleDto.Memo)" Caption="메모" MinWidth="140" />
+            <DxGridDataColumn Caption="" Width="120" AllowSort="false">
+                <CellDisplayTemplate Context="cell">
+                    @{ var row = (CargoVehicleDto)cell.DataItem; }
+                    <div class="jsini-row-actions">
+                        <DxButton Text="수정" RenderStyle="ButtonRenderStyle.Link" Click="@(() => Open(row))" />
+                        <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Link" Click="@(() => DeleteAsync(row))" />
+                    </div>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+        </Columns>
+    </CommGrd>
+</CommCont>
+
+<CommPopup @bind-Visible="_editing" HeaderText="@(_form.IsNew ? "차량 등록" : "차량 수정")" Width="760px">
+    <BodyContentTemplate Context="popup">
+        <DxFormLayout CssClass="ad-form">
+
+            <DxFormLayoutItem Caption="계정" ColSpanMd="12">
+                @if (_form.IsNew)
+                {
+                    <DxComboBox Data="@_accounts" @bind-Value="_form.LoginId" NullText="계정을 고르십시오"
+                                TextFieldName="@nameof(AccountPick.Text)" ValueFieldName="@nameof(AccountPick.LoginId)"
+                                SearchMode="ListSearchMode.AutoSearch" SearchFilterCondition="ListSearchFilterCondition.Contains" />
+                }
+                else
+                {
+                    <span>@_form.LoginId @(string.IsNullOrWhiteSpace(_form.UserName) ? null : $"({_form.UserName})")</span>
+                }
+            </DxFormLayoutItem>
+
+            @* 칸을 떠날 때 한 번 읽는다. 한 글자마다 읽으면 회로를 타고 왕복이
+               쌓이고, 다 적기 전의 토막 번호는 어차피 못 읽는다. *@
+            <DxFormLayoutItem Caption="차량번호" ColSpanMd="6">
+                <DxTextBox Text="@_form.PlateNo" TextChanged="@OnPlateChangedAsync"
+                           BindValueMode="BindValueMode.OnLostFocus" NullText="서울80바1234" />
+            </DxFormLayoutItem>
+            <DxFormLayoutItem Caption="별칭" ColSpanMd="6">
+                <DxTextBox @bind-Text="_form.Nickname" NullText="윙바디 · 큰 차 …" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem ColSpanMd="12">
+                <div class="@PlateToneClass">@PlateText</div>
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="차종" ColSpanMd="6">
+                <DxComboBox Data="@CargoVehicleCodes.ClassOptions" @bind-Value="_form.VehicleClass"
+                            TextFieldName="Text" ValueFieldName="Value" />
+            </DxFormLayoutItem>
+            <DxFormLayoutItem Caption="축수" ColSpanMd="3">
+                <DxComboBox Data="@CargoVehicleCodes.AxleOptions" @bind-Value="_form.AxleCount"
+                            TextFieldName="Text" ValueFieldName="Value" />
+            </DxFormLayoutItem>
+            <DxFormLayoutItem Caption="톤수" ColSpanMd="3">
+                <DxSpinEdit @bind-Value="_form.Tonnage" MinValue="0" MaxValue="99" Increment="0.5m" DisplayFormat="0.#" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="사업용" ColSpanMd="4">
+                <DxCheckBox @bind-Checked="_form.IsBusiness">사업용(영업용) 화물차</DxCheckBox>
+            </DxFormLayoutItem>
+            <DxFormLayoutItem Caption="하이패스" ColSpanMd="4">
+                <DxCheckBox @bind-Checked="_form.HasHipass">하이패스 단말 있음</DxCheckBox>
+            </DxFormLayoutItem>
+            <DxFormLayoutItem Caption="기본 차량" ColSpanMd="4">
+                <DxCheckBox @bind-Checked="_form.IsDefault">계산 화면에서 먼저 고른다</DxCheckBox>
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="메모" ColSpanMd="12">
+                <DxMemo @bind-Text="_form.Memo" Rows="2" />
+            </DxFormLayoutItem>
+
+        </DxFormLayout>
+
+        <div class="jsini-hint">
+            차량번호를 적고 칸을 떠나면 <b>화물차인지 · 사업용인지를 번호판에서 읽어</b> 채웁니다.
+            축수는 안 적어도 됩니다 — 하이패스 이용내역에 찍힌 차종으로 확인하실 수 있습니다.
+            심야할인은 사업용 화물차 제도이고, 3축 이상(4·5종)이 본래 대상입니다.
+            차종은 할인율을 바꾸지 않습니다 — 할인율을 정하는 것은 야간 이용비율 하나입니다.
+        </div>
+    </BodyContentTemplate>
+
+    <FooterContentTemplate Context="popup">
+        <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Enabled="@(!Loading)" Click="@SaveAsync" />
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _editing = false)" />
+    </FooterContentTemplate>
+</CommPopup>

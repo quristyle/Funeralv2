@@ -265,6 +265,99 @@ public static class CargoCodes
     public static readonly IReadOnlyList<string> TransportTypes =
         ["일반", "냉장/냉동", "컨테이너", "중량물", "이사", "기타"];
 
+    /// <summary>
+    /// 운송 유형 고르개(<c>NativeSelect</c>). 맨 줄은 「고르지 않음」이다 —
+    /// 이 칸은 비워 둔 채로도 거래가 등록된다(<c>TransactionSaveRequest</c>).
+    ///
+    /// <para>
+    /// 「전체」가 아니라 「고르지 않음」인 까닭은 **조회 조건이 아니라 입력 칸**
+    /// 이어서다. 적는 자리에서 「전체」는 모든 유형이라는 뜻으로 읽힌다.
+    /// </para>
+    /// </summary>
+    public static readonly IReadOnlyList<SchOption> TransportTypeOptions =
+        [new(null, "고르지 않음"), .. TransportTypes.Select(t => new SchOption(t, t))];
+
+    // ── 톨게이트 심야할인 ────────────────────────────────────
+
+    public const string Closed = "CLOSED";
+    public const string Open = "OPEN";
+
+    /// <summary>
+    /// 구간 유형. <b>이 한 칸이 할인 규칙을 통째로 바꾼다</b> —
+    /// 야간창도 다르고(21~06 vs 23~05) 세는 법도 다르다(비율 vs 통과 한 점).
+    /// 그래서 「전체」가 없다. 반드시 하나를 고른다.
+    /// </summary>
+    public static readonly IReadOnlyList<SchOption> SectionTypeOptions =
+    [
+        new(Closed, "폐쇄식 (진입·진출 영업소가 다름)"),
+        new(Open, "개방식 (요금소를 한 번 지남)"),
+    ];
+
+    /// <summary>
+    /// 칩에 쓰는 짧은 이름. 설명은 칩 아래 한 줄로 내린다 —
+    /// 390px 에서 긴 이름은 칩 하나가 두 줄을 먹고, 그러면 고를 것이 넷인 화면이
+    /// 손가락 하나만큼도 안 남는다.
+    /// </summary>
+    public static readonly IReadOnlyList<SchOption> SectionTypeChips =
+    [
+        new(Closed, "폐쇄식"),
+        new(Open, "개방식"),
+    ];
+
+    /// <summary>칩 아래에 적는 설명.</summary>
+    public static string SectionTypeNote(string? code) => code switch
+    {
+        Open => "요금소를 한 번 지나는 구간입니다. 통과 시각 한 점으로 셉니다.",
+        _ => "진입·진출 영업소가 다른 구간입니다. 야간에 머문 비율로 셉니다.",
+    };
+
+    public static string SectionTypeName(string? code) => code switch
+    {
+        Closed => "폐쇄식",
+        Open => "개방식",
+        null or "" => "-",
+        _ => code,
+    };
+
+    /// <summary>고속도로 통행료 차종. 할인율의 띠를 바꾸지 않는다 — 금액과 대상 자격만 가른다.</summary>
+    public static readonly IReadOnlyList<SchOption> VehicleClassOptions =
+    [
+        new("LIGHT", "경차"),
+        new("C1", "1종 (승용 · 2.5톤 미만 화물)"),
+        new("C2", "2종 (2.5~5.5톤 화물)"),
+        new("C3", "3종 (5.5~10톤 화물)"),
+        new("C4", "4종 (3축 · 10~20톤 화물)"),
+        new("C5", "5종 (4축 이상 · 20톤 이상 화물)"),
+    ];
+
+    public static string VehicleClassName(string? code) => NameIn(VehicleClassOptions, code);
+
+    /// <summary>「5시간 40분」 — 분으로만 적으면 긴 운행에서 크기가 안 읽힌다.</summary>
+    public static string Minutes(int? minutes)
+    {
+        if (minutes is null) return "-";
+        var value = minutes.Value;
+        if (value < 60) return $"{value}분";
+        var h = value / 60;
+        var m = value % 60;
+        return m == 0 ? $"{h}시간" : $"{h}시간 {m}분";
+    }
+
+    /// <summary>KST 벽시계 — 서버가 오프셋 없이 주므로 <b>그대로</b> 적는다.</summary>
+    public static string Kst(DateTime? at) =>
+        at?.ToString("MM-dd HH:mm", CultureInfo.InvariantCulture) ?? "-";
+
+    public static string KstFull(DateTime? at) =>
+        at?.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) ?? "-";
+
+    /// <summary>할인율이 클수록 진한 배지. 0% 는 배지를 달지 않는다(알릴 것이 없다).</summary>
+    public static string DiscountBadge(decimal percent) => percent switch
+    {
+        >= 50m => "jsini-badge jsini-badge--on",
+        > 0m => "jsini-badge jsini-badge--warn",
+        _ => "jsini-badge jsini-badge--off",
+    };
+
     // ── 서식 ─────────────────────────────────────────────────
 
     private static readonly CultureInfo Ko = CultureInfo.GetCultureInfo("ko-KR");
