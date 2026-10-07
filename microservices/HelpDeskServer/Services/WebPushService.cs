@@ -44,11 +44,6 @@ public interface IPushSubscriptionStore {
   /// <param name="companyId">고객사 식별자 — 포털(<c>scom.companies.id</c>)의 값</param>
   Task<IReadOnlyCollection<Models.PushSubscription>> GetSubscriptionsByCompanyAsync(string companyId);
   /// <summary>
-  /// 특정 팀에 속한 모든 관리자의 구독 정보를 조회합니다.
-  /// </summary>
-  /// <param name="teamId">팀 ID</param>
-  Task<IReadOnlyCollection<Models.PushSubscription>> GetSubscriptionsByTeamAsync(int teamId);
-  /// <summary>
   /// 모든 관리자의 구독 정보를 조회합니다.
   /// </summary>
   Task<IReadOnlyCollection<Models.PushSubscription>> GetAdminSubscriptionsAsync();
@@ -112,23 +107,6 @@ public sealed class DbPushSubscriptionStore : IPushSubscriptionStore {
     var subs = await _db.PushSubscriptions
         .Where(s => s.UserType == "admin") // "Admin"으로 대소문자 일치
         .Include(s => s.Admin) // Admin 객체를 함께 로드
-        .ToListAsync();
-    return subs;
-  }
-
-  /// <inheritdoc />
-  public async Task<IReadOnlyCollection<Models.PushSubscription>> GetSubscriptionsByTeamAsync(int teamId) {
-    // 1. 지정된 팀 ID에 속한 모든 관리자의 ID를 조회합니다.
-    var adminIdsInTeam = await _db.Admins
-        .Where(a => a.AdminTeams.Any(at => at.TeamId == teamId))
-        .Select(a => a.Id)
-        .ToListAsync();
-
-    if (!adminIdsInTeam.Any()) return new List<Models.PushSubscription>();
-
-    // 2. 조회된 관리자 ID 목록을 사용하여 해당 관리자들의 구독 정보를 가져옵니다.
-    var subs = await _db.PushSubscriptions
-        .Where(s => s.UserType == "Admin" && adminIdsInTeam.Contains(s.UserId))
         .ToListAsync();
     return subs;
   }

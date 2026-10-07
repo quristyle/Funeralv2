@@ -186,6 +186,10 @@ builder.Services.AddScoped<IAssigneeProvisioner, AssigneeProvisioner>();
 // 필요하면 이 통로로 AuthServer 에 묻는다(5분 캐시).
 builder.Services.AddSingleton<IPortalCompanyDirectory, PortalCompanyDirectory>();
 
+// 사람 이름을 푸는 통로. 회사 쪽과 같은 폭(싱글턴)이다 — 둘 다 부르는 사람과
+// 무관한 조회이고 캐시를 회로 너머로 공유해야 값이 있다.
+builder.Services.AddSingleton<IPortalAccountDirectory, PortalAccountDirectory>();
+
 // 「내 요청글에 댓글이 달렸다」를 글 주인에게 알린다(앱 푸시 · 이메일).
 // DB 를 읽으므로 Scoped 다.
 builder.Services.AddScoped<ICommentNotifier, CommentNotifier>();

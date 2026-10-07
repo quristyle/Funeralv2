@@ -142,20 +142,15 @@ public class AppDbContext : DbContext {
   /// <summary>사용자 속성 테이블</summary>
   public DbSet<UserProperty> UserProperties { get; set; }
 
-  /// <summary>메뉴 관리 테이블</summary>
-  public DbSet<Menu> Menus { get; set; }
-
-  /// <summary>메뉴별 권한 테이블</summary>
-  public DbSet<MenuRole> MenuRoles { get; set; }
-
-  /// <summary>권한 그룹 테이블</summary>
-  public DbSet<AppRole> Roles { get; set; }
-
-  /// <summary>사용자별 권한 매핑 테이블</summary>
-  public DbSet<AppUserRole> UserRoles { get; set; }
-
-  /// <summary>역할별 메뉴 상세 권한 테이블</summary>
-  public DbSet<RoleMenuPermission> RoleMenuPermissions { get; set; }
+  // [메뉴·권한 표 다섯을 걷어냈다 (2026-10-07)]
+  //
+  // `menu` · `menurole` · `approle` · `appuserrole` · `rolemenupermission`.
+  // 단독 시스템이던 시절 헬프데스크가 제 메뉴와 제 권한을 들고 있던 자리인데,
+  // 지금 그 둘을 정하는 곳은 포털 하나다 — 이 서비스는 포털 토큰에 실려 온
+  // 역할만 보고 판정한다(`HelpdeskPrincipal.IsAdmin`).
+  //
+  // **코드가 한 줄도 읽지 않고 있었고 운영 DB 에도 전부 0행이었다.** 남겨 두면
+  // 다음 사람이 「권한은 여기도 봐야 하나」를 매번 확인하게 된다.
 
   /// <summary>일정 관리 테이블</summary>
   public DbSet<Schedule> Schedules { get; set; }

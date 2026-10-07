@@ -74,7 +74,7 @@ public static class RegisterEndpoints {
         var customer = await db.Customers.IgnoreQueryFilters().FirstOrDefaultAsync(u => u.LoginId == req.LoginId);
         // Ignore global filter for login to check IsDeleted status if needed, 
         // but since we want to handle IsDeleted specifically, we query it.
-        var admin = await db.Admins.IgnoreQueryFilters().Include(a => a.AdminTeams).ThenInclude(at => at.Team).FirstOrDefaultAsync(a => a.LoginId == req.LoginId);
+        var admin = await db.Admins.IgnoreQueryFilters().FirstOrDefaultAsync(a => a.LoginId == req.LoginId);
 
         if (customer == null && admin == null) {
           return null; // 사용자가 존재하지 않음
@@ -160,12 +160,11 @@ public static class RegisterEndpoints {
           user_uid = admin.Id.ToString();
           mustChangePassword = admin.MustChangePassword;
 
-          var firstTeam = admin.AdminTeams?.FirstOrDefault()?.Team;
-          affiliation = firstTeam?.Name ?? "";
-
-
-          company_id = ""; // 소속 회사 ID
-          team_id = firstTeam?.Id.ToString() ?? ""; // 소속 팀 ID
+          // 팀 표를 걷어냈다(2026-10-07). 소속은 포털(부서)이 들고 있고
+          // 여기로 오지 않는다 — 빈 값으로 둔다.
+          affiliation = "";
+          company_id = "";
+          team_id = "";
 
           isAdmin = true;
           isManager = true;
@@ -261,7 +260,7 @@ public static class RegisterEndpoints {
       }
 
       if (loginType == "admin") {
-        var adm = await db.Admins.Include(a => a.AdminTeams).ThenInclude(at => at.Team).FirstOrDefaultAsync(a => a.Id == uid);
+        var adm = await db.Admins.FirstOrDefaultAsync(a => a.Id == uid);
         if (adm == null) return null;
 
         string? thumb = null;
@@ -282,7 +281,6 @@ public static class RegisterEndpoints {
           }
         }
 
-        var firstTeam = adm.AdminTeams?.FirstOrDefault()?.Team;
         return new {
           adm.Id,
           // 이름·이메일은 JSini 계정을 정본으로 본다. 헬프데스크 레코드 값은 helpdesk* 로 함께 준다.
@@ -293,8 +291,10 @@ public static class RegisterEndpoints {
           Email = jsini?.Email ?? adm.Email,
           helpdeskUserName = adm.UserName,
           helpdeskEmail = adm.Email,
-          TeamId = firstTeam?.Id,
-          teamName = firstTeam?.Name,
+          // 팀 표를 걷어냈다(2026-10-07). 칸은 남겨 둔다 — 화면이 이 이름을
+          // 읽고 있어서, 빼면 역직렬화가 **오류 없이** 건너뛴 채 빈 칸이 된다.
+          TeamId = (int?)null,
+          teamName = (string?)null,
           loginType,
           linked = true,
           isAdmin = me.IsAdmin,

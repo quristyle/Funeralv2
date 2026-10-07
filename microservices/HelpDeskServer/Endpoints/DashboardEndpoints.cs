@@ -104,32 +104,17 @@ public static class DashboardEndpoints {
       // 연결된 담당자 레코드가 있을 때만 '본인' 을 특정할 수 있다.
       var adminId = me.IsLinkedAdmin ? me.HelpdeskUserId : null;
 
-      int pendingCount;
-      if (adminId.HasValue) {
-        // 1. 관리자가 속한 팀 ID 목록 가져오기
-        var teamIds = await db.AdminTeams
-                             .Where(at => at.AdminId == adminId.Value)
-                             .Select(at => at.TeamId)
-                             .ToListAsync();
-
-        // 2. 해당 팀들이 관리하는 업체(Company) ID 목록 가져오기 (N:N 관계인 TeamCompanies 활용)
-        var managedCompanyIds = await db.TeamCompanies
-                                        .Where(tc => teamIds.Contains(tc.TeamId))
-                                        .Select(tc => tc.CompanyId)
-                                        .Distinct()
-                                        .ToListAsync();
-
-        // 3. 해당 업체들의 미배정(Pending) 요청 건수 집계
-        pendingCount = await db.Requests
-                                   .CountAsync(r => r.Status == ImprovementStatus.Pending &&
-                                                   r.Customer != null &&
-                                                   r.Customer.CompanyId != null &&
-                                                   managedCompanyIds.Contains(r.Customer.CompanyId));
-      }
-      else {
-        // 팀을 알 수 없다. 전체 미배정 건수를 준다.
-        pendingCount = await db.Requests.CountAsync(r => r.Status == ImprovementStatus.Pending);
-      }
+      // [미배정 건수는 **전체**다 (2026-10-07)]
+      //
+      // 전에는 「내가 속한 팀이 맡은 업체」의 것만 셌다(`adminteams` →
+      // `teamcompanies` → 그 회사의 요청). 팀 표를 걷어내면서 그 범위가
+      // 없어졌다 — 소속을 정하는 곳은 포털(부서)이고 헬프데스크는 그것을
+      // 들고 있지 않다.
+      //
+      // 범위를 잃는 것이 아니라 **처음부터 비어 있었다.** 운영 DB 의
+      // `adminteams` 와 `teamcompanies` 는 둘 다 0행이라, 연결된 담당자라도
+      // 맡은 업체가 없어 이 숫자는 늘 0 이었다.
+      var pendingCount = await db.Requests.CountAsync(r => r.Status == ImprovementStatus.Pending);
 
       // 4. 본인 배정된 요청들 집계 (진행, 완료 등). 연결이 없으면 셀 대상이 없다.
       var grouped = adminId.HasValue
@@ -150,7 +135,7 @@ public static class DashboardEndpoints {
       var userCompletedCount = map.TryGetValue(ImprovementStatus.UserCompleted, out var v6) ? v6 : 0;
 
       var stats = new AdminStatsDto {
-        PendingCount = pendingCount, // 팀 관리 업체들의 미배정 건수
+        PendingCount = pendingCount, // 전체 미배정 건수
         InProgressCount = inProgressCount,
         CompletedCount = completedCount,
         UserCompletedCount = userCompletedCount,
@@ -166,7 +151,7 @@ public static class DashboardEndpoints {
         success = true,
         data = stats,
         linked = adminId.HasValue,
-        pendingScope = adminId.HasValue ? "team" : "all"
+        pendingScope = "all"
       });
 
     }).RequireAuthorization();
@@ -176,33 +161,19 @@ public static class DashboardEndpoints {
       var totalRequests = await db.Requests.CountAsync();
 
       // 모든 관리자와 그들의 통계를 가져옵니다.
-      var admins = await db.Admins
-          .Include(a => a.AdminTeams)
-          .ToListAsync();
+      var admins = await db.Admins.ToListAsync();
 
-      var teamCompanies = await db.TeamCompanies.ToListAsync();
+      // 미배정 건수는 **담당자마다 같다** — 전체 건수다. 전에는 그 사람이
+      // 속한 팀이 맡은 업체로 좁혔는데, 팀 표를 걷어내면서 좁힐 근거가
+      // 없어졌다(위 `admin-stats` 의 같은 자리 주석). 사람마다 다시 세지
+      // 않고 한 번만 센다.
+      var pendingCount = await db.Requests
+          .CountAsync(r => r.Status == ImprovementStatus.Pending);
 
       var adminStats = new List<AllAdminStatsDto>();
 
       foreach (var admin in admins) {
         var adminId = admin.Id;
-
-        // 1. 관리자가 속한 팀 ID 목록
-        var teamIds = admin.AdminTeams.Select(at => at.TeamId).ToList();
-
-        // 2. 해당 팀들이 관리하는 업체 ID 목록
-        var managedCompanyIds = teamCompanies
-            .Where(tc => teamIds.Contains(tc.TeamId))
-            .Select(tc => tc.CompanyId)
-            .Distinct()
-            .ToList();
-
-        // 3. 대기 건수 (해당 업체들의 Pending 건수)
-        var pendingCount = await db.Requests
-            .CountAsync(r => r.Status == ImprovementStatus.Pending && 
-                             r.Customer != null && 
-                             r.Customer.CompanyId != null &&
-                             managedCompanyIds.Contains(r.Customer.CompanyId));
 
         var grouped = await db.Requests
             .Where(r => r.AdminId == adminId)

@@ -70,14 +70,12 @@ public static class PushEndpoints {
     })
     .RequireAuthorization(); // 인증된 사용자만 호출 가능
 
-    // 특정 팀에 속한 관리자 그룹에게만 푸시 알림을 보냅니다.
-    group.MapPost("/notify-team/{teamId:int}", async (int teamId, PushMessageDto message, IPushSubscriptionStore store, IWebPushService sender, CancellationToken ct) => {
-      Console.WriteLine($"/api/push/notify-team/{teamId}");
-      var teamSubs = await store.GetSubscriptionsByTeamAsync(teamId);
-      var sent = await sender.BroadcastAsync(teamSubs, message, ct);
-      return Results.Ok(new { sent, total = teamSubs.Count });
-    })
-    .RequireAuthorization(); // 인증된 사용자만 호출 가능
+    // [팀 단위 보내기(`notify-team/{teamId}`)를 걷어냈다 (2026-10-07)]
+    //
+    // 팀 표(`team` · `adminteams`)를 함께 걷어냈다. 소속을 정하는 곳은
+    // 포털(부서)이고 헬프데스크는 그것을 들고 있지 않다. 부르는 쪽도 없었고
+    // 운영 DB 의 그 표들은 0행이라 **보낼 대상이 늘 비어 있었다** — 호출하면
+    // 200 에 `sent: 0` 이 돌아오던 끝점이다.
 
     // 특정 고객사(Company)의 모든 사용자에게 푸시 알림을 보냅니다.
     group.MapPost("/notify-company/{companyId}", async (string companyId, PushMessageDto message, IPushSubscriptionStore store, IWebPushService sender, CancellationToken ct) => {
