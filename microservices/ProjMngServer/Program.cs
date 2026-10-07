@@ -93,6 +93,10 @@ builder.Services.AddScoped<AiDashboardService>();
 // 실행기가 올려 주는 AI CLI 한도(`/usage`). 서버는 CLI 를 부르지 않는다.
 builder.Services.AddScoped<AiUsageService>();
 
+// 그 한도를 들고 있는 통. **싱글턴이어야 한다** — scoped 면 요청 하나의
+// 수명이라 아무것도 막지 못한다(AiUsageCache 머리말).
+builder.Services.AddSingleton<AiUsageCache>();
+
 // 끝난 작업을 메일로 알린다. **못 보내도 작업 상태를 바꾸지 않는다**(설계 8-2).
 // 알림 서비스를 부르므로 HttpClient 공장이 필요하다.
 builder.Services.AddHttpClient();

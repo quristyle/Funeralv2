@@ -29,7 +29,7 @@ namespace ProjMngServer.Services;
 /// </para>
 /// </remarks>
 public sealed class AiDashboardService(
-    IConfiguration configuration, ILogger<AiDashboardService> logger)
+    IConfiguration configuration, ILogger<AiDashboardService> logger, AiUsageCache usageCache)
 {
     private readonly string _connectionString =
         configuration.GetConnectionString("jsini")
@@ -141,12 +141,39 @@ public sealed class AiDashboardService(
     /// 대시보드가 쓰는 것과 <b>같은 <see cref="UsageAsync"/></b> 다 — 두 화면이
     /// 다른 숫자를 말하는 일이 생기지 않는다.
     /// </para>
+    /// <para>
+    /// <b>통을 거친다</b>(<see cref="AiUsageCache"/>). 값이 바뀌는 것은 실행기가
+    /// 보고할 때(15분)뿐인데 화면은 열릴 때마다 물었다 — 화면 쪽이 이것을
+    /// 기다리지 않도록 고친 뒤로는(<c>AiAskPanel</c>) 늦어도 고르개가 안 막히지만,
+    /// <b>안 물어도 되는 것을 묻는 것</b>은 그대로다.
+    /// </para>
+    /// <para>
+    /// <b>원문(<see cref="AiUsageSnapshot.RawText"/>)은 떼고 준다.</b> 이 자리를
+    /// 쓰는 화면은 퍼센트와 되차는 시각만 적고(<c>AiUsageText</c>) 원문은 「AI 작업
+    /// 현황」의 펼친 칸에서만 쓰는데, <c>copilot</c> 한 줄이 2KB 라 <b>응답의
+    /// 3분의 2가 아무도 안 읽는 글자</b>였다(7.8KB → 2.6KB). 원문이 필요하면
+    /// 대시보드 한 판(<see cref="LoadAsync"/>)에 그대로 실려 있다.
+    /// </para>
     /// </remarks>
     public async Task<List<AiUsageSnapshot>> LoadUsageAsync()
     {
+        if (usageCache.Get() is { } cached)
+        {
+            return cached;
+        }
+
         using var db = Open();
 
-        return await UsageAsync(db);
+        var rows = await UsageAsync(db);
+
+        foreach (var row in rows)
+        {
+            row.RawText = null;
+        }
+
+        usageCache.Put(rows);
+
+        return rows;
     }
 
     // ── 머리 숫자 ───────────────────────────────────────────

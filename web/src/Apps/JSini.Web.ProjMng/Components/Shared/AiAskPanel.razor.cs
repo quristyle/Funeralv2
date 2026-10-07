@@ -321,6 +321,24 @@ public partial class AiAskPanel
     /// </remarks>
     private IReadOnlyList<AiUsageSnapshot> _usage = [];
 
+    /// <summary>
+    /// 한도를 <b>한 번이라도 받아 봤나.</b> 받아 보기 전과 받아 봤는데 빈 것은
+    /// 다른 상태다.
+    /// </summary>
+    /// <remarks>
+    /// 이것이 없으면 아직 묻는 중인 CLI 가 <b>「보고 없음」</b>으로 보인다 —
+    /// 그 글자는 「실행기가 그 CLI 를 못 묻고 있다」는 뜻이라
+    /// (<see cref="AiUsageText.Of"/>) 멀쩡한 장비를 들여다보게 만든다.
+    /// 한도를 배경에서 받게 된 뒤로(<see cref="LoadAsideAsync"/>) 그 사이가
+    /// 눈에 보이므로 갈라 둔다.
+    /// <para>
+    /// <b>한 번 참이 되면 돌아가지 않는다.</b> 서랍이 다시 펴질 때도 같은
+    /// 것을 다시 읽는데(<see cref="ReopenAsync"/>), 그때마다 이미 적혀 있던
+    /// 숫자가 「확인 중」으로 되돌아가면 깜빡이기만 한다.
+    /// </para>
+    /// </remarks>
+    private bool _usageSeen;
+
     /// <summary>그 CLI 의 한도 줄들. 한 CLI 가 여럿을 가질 수 있다.</summary>
     private List<AiUsageSnapshot> UsageOf(string? kind)
         => string.IsNullOrWhiteSpace(kind)
@@ -328,13 +346,21 @@ public partial class AiAskPanel
             : [.. _usage.Where(u => string.Equals(u.RunnerKind, kind, StringComparison.OrdinalIgnoreCase))];
 
     /// <summary>고르개 한 줄에 다는 배지.</summary>
-    private AiUsageText.Badge KindBadge(string? kind) => AiUsageText.Of(UsageOf(kind));
+    private AiUsageText.Badge KindBadge(string? kind)
+        => _usageSeen
+            ? AiUsageText.Of(UsageOf(kind))
+            : new AiUsageText.Badge("한도 확인 중", "jsini-badge--off");
 
     /// <summary>
     /// 고르개 한 줄의 둘째 줄. 세션·주간·월간을 있는 것만 적는다.
     /// </summary>
     private string KindLimit(string? kind)
     {
+        if (!_usageSeen)
+        {
+            return "한도를 읽는 중입니다. 기다리지 않고 보내도 됩니다.";
+        }
+
         var rows = UsageOf(kind);
 
         return rows.Count == 0
@@ -362,7 +388,14 @@ public partial class AiAskPanel
     /// 화면이 열릴 때와 서랍이 다시 펴질 때만 읽는다.
     /// </remarks>
     private async Task LoadUsageAsync()
-        => _usage = await Dashboard.UsageAsync();
+    {
+        _usage = await Dashboard.UsageAsync();
+
+        // **못 읽었어도 참이다.** 「확인 중」에 붙박이게 두면, 실행기가 한 번도
+        // 안 올린 상태(=「보고 없음」)와 게이트웨이가 없는 상태를 둘 다
+        // 「곧 올 것」처럼 보여 주게 된다.
+        _usageSeen = true;
+    }
 
     /// <summary>
     /// 카드의 AI 배지에 달 전체 이름. <b>고르는 칸과 같은 글자</b>를 쓴다 —
@@ -517,11 +550,85 @@ public partial class AiAskPanel
             Prefs.Use(_me);
         }
 
+        // ── 기다리는 것은 둘뿐이다 ───────────────────────────
+        //
+        // **고르개를 세우는 것만 기다린다.** AI 고르개는 목록이 올 때까지
+        // 회색이고(`Enabled` 가 `AllowedKinds.Count` 를 본다), 대상 고르개는
+        // 기억을 얹는 자리(`OnAfterRenderAsync`)가 목록이 와 있는 것을 전제로
+        // 한다. 이 둘이 「화면이 섰다」의 정의다.
+        //
+        // 모델 목록은 거의 통에서 바로 온다(`DevCommonCodeClient` — 모두가
+        // 나눠 쓰는 참조자료다). 그러면 이 `await` 가 동기로 끝나 **첫 그림부터
+        // 고르개가 켜져 있다.**
         await LoadModelsAsync();
-        await LoadUsageAsync();
         await LoadTargetsAsync();
-        await LoadStagedFilesAsync();
-        await LoadRecentAsync();
+
+        // 나머지는 배경으로 돌린다 — 아래.
+        _ = LoadAsideAsync();
+    }
+
+    /// <summary>
+    /// <b>곁들이는 것들.</b> 한도 · 붙여 둔 첨부 · 최근 보낸 것.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// [왜 기다리지 않나 — 고르개가 회색으로 보이던 까닭]
+    /// </para>
+    /// <para>
+    /// 한동안 <see cref="OnInitializedAsync"/> 가 다섯을 <b>줄줄이</b> 기다렸다
+    /// (모델 → 한도 → 대상 → 첨부 → 최근). Blazor 는 그 처리기가 끝나야 다시
+    /// 그리므로, 회로가 붙고부터 다섯 왕복이 다 끝날 때까지 <see cref="AllKinds"/>
+    /// 가 빈 목록이었고 <b>AI 고르개가 그동안 내내 회색</b>이었다.
+    /// </para>
+    /// <para>
+    /// 프리렌더가 그것을 더 나쁘게 보이게 했다. 정적 SSR 판은 목록을 다 받고
+    /// 그려지므로 <b>켜진 고르개</b>가 먼저 보이고, 회로가 붙으면서 같은 화면이
+    /// 처음부터 다시 서면서 <b>꺼졌다가</b> 다시 켜진다 — 사람이 보는 것은
+    /// 「열릴 때 가끔 비활성화되어 있다」다.
+    /// </para>
+    /// <para>
+    /// 그중 <b>한도는 고르개를 세우는 값이 아니다.</b> 목록에 곁들여 적는
+    /// 글자일 뿐이고(<see cref="_usage"/>), 없으면 이름만 보여 주면 된다.
+    /// 그것을 기다리느라 고를 수 없게 두는 것은 앞뒤가 바뀐 것이다.
+    /// </para>
+    /// <para>
+    /// <b>셋 다 화면을 막지 않는 것들이다</b> — 각자 제 실패를 삼킨다. 여기서는
+    /// 순서만 지킨다(한도가 가장 빨리 쓸모 있어진다).
+    /// </para>
+    /// </remarks>
+    private async Task LoadAsideAsync()
+    {
+        try
+        {
+            await LoadUsageAsync();
+            await Redraw();
+
+            await LoadStagedFilesAsync();
+
+            // 안에서 `Follow()` 까지 건다. 이것이 마지막이어야 하는 이유는
+            // 따라가기가 제 리듬으로 다시 그리기 시작하기 때문이다.
+            await LoadRecentAsync();
+            await Redraw();
+        }
+        catch (ObjectDisposedException)
+        {
+            // 다 받기 전에 화면을 떠났다. 정상이다.
+        }
+    }
+
+    /// <summary>
+    /// 배경에서 받은 것을 화면에 얹는다. <b>떠난 뒤면 조용히 지나간다.</b>
+    /// </summary>
+    private async Task Redraw()
+    {
+        try
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (ObjectDisposedException)
+        {
+            // 회로가 닫히는 중이다.
+        }
     }
 
     /// <summary>

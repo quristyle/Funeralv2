@@ -21,7 +21,8 @@ namespace ProjMngServer.Services;
 /// 「실행기가 붙어 있나」를 화면이 말할 방법이 없었다.
 /// </para>
 /// </remarks>
-public sealed class AiUsageService(IConfiguration configuration, ILogger<AiUsageService> logger)
+public sealed class AiUsageService(
+    IConfiguration configuration, ILogger<AiUsageService> logger, AiUsageCache cache)
 {
     private readonly string _connectionString =
         configuration.GetConnectionString("jsini")
@@ -171,6 +172,12 @@ public sealed class AiUsageService(IConfiguration configuration, ILogger<AiUsage
         }
 
         tx.Commit();
+
+        // **담아 둔 것을 버린다.** 화면이 읽는 자리는 표가 아니라 통이라
+        // (<see cref="AiUsageCache"/>) 여기서 안 버리면 방금 올라온 값이
+        // 그물 시간(20분) 동안 화면에 안 나온다 — 15분마다 보고하는데
+        // 화면의 숫자만 한 주기씩 뒤처지는 꼴이 된다.
+        cache.Drop();
 
         logger.LogInformation("{Runner} 가 사용량 {Count}건을 올렸습니다.", runner, saved);
 
