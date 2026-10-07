@@ -1,0 +1,89 @@
+@*
+    [AI 도우미] — 요청 글을 쓰는 사람을 돕는 단추 하나.
+
+    누르면 할 일 둘이 뜬다. **제목 만들기**는 본문을 읽고 제목 후보를 지어
+    늘어놓고(고르면 제목 칸에 들어간다), **내용 요약 추가**는 본문을 간추려
+    맨 위에 한 덩이로 얹는다.
+
+    [왜 따로 떼어 놓았나]
+
+    `RequestNew` 는 이미 길다(붙여넣기 가로채기 · 임시 보관 · 재요청 싣기 ·
+    첨부 두 단계). 여기 붙는 것은 **열고 닫는 판과 기다리는 동안의 모양**이
+    대부분이라, 그 화면의 상태에 섞이면 둘 다 읽기 어려워진다. 이 부품이
+    바깥과 주고받는 것은 셋뿐이다 — 본문을 읽어 오는 길과, 고른 제목,
+    만들어진 요약.
+
+    [AI 를 고르는 칸이 없다]
+
+    포털의 AI 쳇과 같다 — 까닭은 `RequestAi` 머리말에 적었다. 대신 답이
+    온 뒤에 **어느 AI 가 답했는지**를 묻지 않는다. 쳇은 대화가 이어지므로
+    그것이 뜻이 있지만, 여기는 한 번 묻고 끝나는 자리라 고를 수도 없는
+    이름을 알려 봐야 사람이 할 일이 없다.
+
+    [판을 닫는 자리]
+
+    바깥을 눌러 닫는 길(바깥 클릭 감시)을 달지 않았다. 이 판 안에는 **고를
+    것이 들어 있고**, 실수로 닫히면 지어 놓은 제목 후보가 통째로 사라져
+    AI 를 다시 불러야 한다. 닫는 길은 단추를 다시 누르는 것과 「닫기」다.
+*@
+
+@implements IDisposable
+
+<div class="hd-ai">
+
+    @* 아이콘 하나. `title` 을 반드시 단다 — 글자가 없는 단추라
+       이것이 없으면 무엇인지 알 길이 화면에 없다. *@
+    <button type="button"
+            class="hd-ai__btn @(_open ? "is-on" : "")"
+            title="AI 도우미"
+            aria-haspopup="menu"
+            aria-expanded="@(_open ? "true" : "false")"
+            disabled="@_busy"
+            @onclick="Toggle">
+        <span class="hd-ai__icon" aria-hidden="true">✨</span>
+        <span class="hd-ai__text">AI 도우미</span>
+    </button>
+
+    @if (_open)
+    {
+        <div class="hd-ai__panel" role="menu">
+
+            @if (_busy)
+            {
+                @* **무엇을 기다리는지 적는다.** 로컬 LLM 은 십 초가 넘게
+                   걸리는 일이 있어서, 그냥 돌아가는 표시만 있으면 사람이
+                   멈춘 줄 알고 다시 누른다. *@
+                <p class="hd-ai__wait">@_busyWhat … 잠시 기다려 주십시오.</p>
+            }
+            else if (_titles.Count > 0)
+            {
+                <p class="hd-ai__head">제목 후보 — 누르면 제목 칸에 들어갑니다</p>
+
+                <ul class="hd-ai__list">
+                    @foreach (var title in _titles)
+                    {
+                        <li>
+                            <button type="button" class="hd-ai__pick"
+                                    @onclick="@(() => PickAsync(title))">@title</button>
+                        </li>
+                    }
+                </ul>
+
+                <div class="hd-ai__foot">
+                    <button type="button" class="hd-ai__plain" @onclick="MakeTitlesAsync">다시 짓기</button>
+                    <button type="button" class="hd-ai__plain" @onclick="Close">닫기</button>
+                </div>
+            }
+            else
+            {
+                <button type="button" class="hd-ai__item" role="menuitem" @onclick="MakeTitlesAsync">
+                    제목 만들기
+                </button>
+
+                <button type="button" class="hd-ai__item" role="menuitem" @onclick="SummarizeAsync">
+                    내용 요약 추가
+                </button>
+            }
+        </div>
+    }
+</div>

@@ -7,6 +7,7 @@ using JSini.Web.Http;
 using JSini.Web.Components.Data;
 using JSini.Web.Components.Layout;
 using JSini.Web.HelpDesk.Api;
+using JSini.Web.HelpDesk.Components.Shared;
 
 namespace JSini.Web.HelpDesk.Components.Pages;
 
@@ -52,12 +53,6 @@ public partial class RequestNew
     private string? _title;
     private string _content = string.Empty;
     private bool _saving;
-
-    /// <summary>
-    /// 담당자가 고른 <b>요청자(고객) 번호</b>. 고객으로 연결된 계정은 쓰지 않는다 —
-    /// 그쪽은 자기 자신이 요청자다(<see cref="RequesterId"/>).
-    /// </summary>
-    private string? _requester;
 
     /// <summary>지금 올리고 있는 그림 수. 0 이 아니면 「등록」을 잠근다.</summary>
     private int _pasting;
@@ -110,32 +105,15 @@ public partial class RequestNew
     /// </summary>
     private bool _draftBlocked;
 
-    /// <summary>
-    /// 이 요청의 주인으로 <b>보낼 고객 번호</b>. 안 보내면 <c>null</c>.
-    /// </summary>
-    /// <remarks>
-    /// 고객으로 연결된 계정은 자기 자신, 담당자는 위에서 고른 사람이다.
-    /// <b>비어 있어도 된다</b> — 서버가 글을 쓴 사람 자신을 요청자로 삼는다.
-    /// <b><see cref="HelpDeskContext.HelpdeskUserId"/> 를 그대로 쓰지 않는다</b> —
-    /// 담당자에게 그 값은 <c>admin.id</c> 라 고객 번호가 아니다.
-    /// </remarks>
-    private int? RequesterId =>
-        Context.CustomerId
-        ?? (int.TryParse(_requester, out var picked) && picked > 0 ? picked : null);
-
     protected override async Task OnInitializedAsync()
     {
         await Context.LoadIdentityAsync();
 
-        // 담당자만 요청자를 고른다. 고객에게는 고를 것이 없으므로 목록도 안 받는다.
-        if (!Context.IsCustomer)
-        {
-            await Context.LoadOrganizationsAsync();
-        }
     }
 
     /// <summary>
-    /// 도구줄의 「그림」 단추에 이름표를 붙인다. <b>바꾸는 것은 이름표뿐이다</b> —
+    /// 도구줄을 우리 것으로 손본다 — <b>한국어 이름표</b>(<see cref="HtmlEditorKorean"/>)와
+    /// 「그림」 단추의 이름표. <b>바꾸는 것은 이름표뿐이다</b> —
     /// 아이콘·설명·자리는 편집기가 정한 그대로 두고, 누를 때 하는 일만
     /// <c>request-editor.js</c> 가 브라우저 쪽에서 갈아 끼운다.
     /// </summary>
@@ -145,8 +123,12 @@ public partial class RequestNew
     /// 단추 하나만 튄다. 그리고 <b>가로채기가 어느 브라우저에서 안 걸려도
     /// 단추가 죽지는 않는다</b> — 그때는 편집기 제 판이 열려 예전 그대로다.
     /// </remarks>
-    private static void MarkPictureButton(DevExpress.Blazor.Office.IToolbar toolbar)
+    private static void CustomizeEditorToolbar(DevExpress.Blazor.Office.IToolbar toolbar)
     {
+        // **한국어 이름표를 먼저 입힌다.** 그 쪽이 모든 칸을 훑으므로 「그림」
+        // 단추의 CssClass 는 그 뒤에 적어야 남는다.
+        HtmlEditorKorean.Apply(toolbar);
+
         var picture = toolbar.Groups[HtmlEditorToolbarGroupNames.InsertElement]
             ?.Items[HtmlEditorToolbarItemNames.ShowInsertPictureDialog];
 
@@ -387,7 +369,6 @@ public partial class RequestNew
             {
                 _title = saved.Title;
                 _content = saved.Html ?? string.Empty;
-                _requester = KnownRequester(saved.Requester);
                 _restoredAt = DateTimeOffset.FromUnixTimeMilliseconds((long)saved.SavedAt).LocalDateTime;
             }
         }
@@ -401,60 +382,6 @@ public partial class RequestNew
         }
 
         StateHasChanged();
-    }
-
-    /// <summary>
-    /// 적어 두었던 요청자 번호 가운데 <b>지금도 고를 수 있는 것</b>만 돌려준다.
-    /// </summary>
-    /// <remarks>
-    /// 적어 둔 뒤에 그 고객이 지워질 수 있고(임시본은 이레를 산다), 목록에 없는
-    /// 값을 <c>DxComboBox</c> 에 넣으면 <b>칸이 빈 채로 뜬다</b> — 화면에는
-    /// 「나 자신」이라 적혀 있는데 뒤에는 없는 번호가 들려 있는 상태다. 그대로
-    /// 등록하면 서버가 외래키에서 막는다. 못 고르는 값은 없던 것으로 본다.
-    /// </remarks>
-    private string? KnownRequester(string? saved)
-    {
-        if (string.IsNullOrWhiteSpace(saved))
-        {
-            return null;
-        }
-
-        return Context.CustomerOptions.Any(o => string.Equals(o.Value, saved, StringComparison.Ordinal))
-            ? saved
-            : null;
-    }
-
-    /// <summary>
-    /// 요청자를 골랐다. <b>그 번호를 임시 보관에도 맡긴다.</b>
-    /// </summary>
-    /// <remarks>
-    /// 제목·본문과 달리 이 칸만 C# 이 옮겨 준다. 적는 일을 브라우저가 하는 까닭은
-    /// 회로가 끊긴 채로도 적혀야 하기 때문인데(<c>request-draft.js</c> 머리말),
-    /// <b>콤보에서 읽히는 것은 이름이고 우리가 적어야 하는 것은 번호</b>라 그쪽이
-    /// DOM 에서 알아낼 방법이 없다. 대신 이 칸은 <b>고르는 즉시 C# 에 닿으므로</b>
-    /// (글칸과 달리 초점을 떼기를 기다리지 않는다) 회로가 살아 있는 동안에는
-    /// 늦지 않는다. 회로가 죽은 뒤에 고르는 일은 애초에 일어나지 않는다 — 그때는
-    /// 콤보도 안 열린다.
-    /// </remarks>
-    private async Task RequesterChangedAsync(string? value)
-    {
-        _requester = value;
-
-        if (_draftJs is null || _draftStopped)
-        {
-            return;
-        }
-
-        try
-        {
-            await _draftJs.InvokeVoidAsync("remember", _draftKey, value);
-        }
-        catch (JSException)
-        {
-        }
-        catch (InvalidOperationException)
-        {
-        }
     }
 
     /// <summary>제목 칸과 편집기를 지켜보게 한다. 이때부터 치는 글이 적힌다.</summary>
@@ -531,11 +458,6 @@ public partial class RequestNew
     {
         _title = null;
         _content = string.Empty;
-
-        // 요청자도 함께 지운다. 남겨 두면 「지우고 새로 쓰기」로 비운 화면에
-        // **남의 이름만 남아** 있고, 그것이 남아 있는 줄 모른 채 새 글을 적으면
-        // 엉뚱한 사람 이름으로 요청이 들어간다.
-        _requester = null;
 
         await ForgetDraftAsync(andStop: false);
     }
@@ -826,6 +748,94 @@ public partial class RequestNew
     }
 
     /// <summary>
+    /// 임시 보관에게 <b>지금 화면을 다시 보라</b>고 알린다.
+    /// </summary>
+    /// <remarks>
+    /// 지켜보기는 <c>input</c> 이벤트에 걸려 있어서, 화면이 값을 직접 넣은
+    /// 때(AI 가 지은 제목을 고른 자리)는 그 이벤트가 나지 않는다.
+    /// </remarks>
+    private async Task TouchDraftAsync()
+    {
+        if (_draftJs is null || _draftStopped)
+        {
+            return;
+        }
+
+        try
+        {
+            await _draftJs.InvokeVoidAsync("touch", _draftKey);
+        }
+        catch (JSException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
+
+
+    /// <summary>
+    /// <b>지금 화면에 있는</b> 본문을 AI 도우미에게 넘긴다.
+    /// </summary>
+    /// <remarks>
+    /// 먼저 편집기에서 읽어 오는 것(<see cref="FlushContentAsync"/>)이 요점이다 —
+    /// <c>_content</c> 만 넘기면 마지막으로 친 줄이 빠진 채로 간다. 「등록」이
+    /// 같은 일을 같은 까닭으로 한다.
+    /// </remarks>
+    private async Task<string?> FlushedContentAsync()
+    {
+        await FlushContentAsync();
+        return _content;
+    }
+
+    /// <summary>AI 가 지은 제목 중 사람이 고른 것을 제목 칸에 넣는다.</summary>
+    /// <remarks>
+    /// <b>적어 두는 쪽에도 알린다.</b> 제목은 브라우저가 화면에서 긁어 가는
+    /// 값인데(<c>request-draft.js</c>), 여기서 넣은 글자는 사람이 친 것이
+    /// 아니라 입력 이벤트가 나지 않는다 — 알리지 않으면 새로고침 한 번에
+    /// 고른 제목만 사라진다.
+    /// </remarks>
+    private async Task ApplyTitleAsync(string title)
+    {
+        _title = title;
+        StateHasChanged();
+
+        await TouchDraftAsync();
+    }
+
+    /// <summary>AI 가 간추린 덩이를 본문 <b>맨 위</b>에 꽂는다.</summary>
+    /// <remarks>
+    /// <c>_content</c> 를 고쳐 편집기에 되돌리지 않는다 — 그러면 편집기가
+    /// 글을 통째로 다시 그려 커서와 실행취소 이력이 날아간다. 그림을 꽂는
+    /// 길과 같이 DOM 을 직접 만진다(<c>request-editor.js</c> 의
+    /// <c>prependHtml</c>).
+    /// </remarks>
+    private async Task InsertSummaryAsync(string html)
+    {
+        try
+        {
+            if (_editorJs is null)
+            {
+                return;
+            }
+
+            await _editorJs.InvokeAsync<bool>("prependHtml", EditorSelector, html);
+
+            // 꽂은 것을 C# 쪽에도 들여놓는다. 안 그러면 다음에 「등록」이
+            // 읽기 전까지 `_content` 가 요약 없는 옛 글이다.
+            await FlushContentAsync();
+            await TouchDraftAsync();
+        }
+        catch (JSException)
+        {
+            Say("요약을 본문에 넣지 못했습니다.", NoticeTone.Error);
+        }
+        catch (InvalidOperationException)
+        {
+        }
+    }
+
+    /// <summary>
     /// 본문에 남아 있는 data URI 그림을 파일로 바꾼다.
     /// 하나라도 실패하면 <c>null</c> — 그때는 등록하지 않는다.
     /// </summary>
@@ -872,17 +882,13 @@ public partial class RequestNew
                 { new StringContent(description), "Description" },
             };
 
-            // 고객으로 연결된 계정이면 서버가 자기 것으로 고정하므로 이 값을
-            // 무시한다. 담당자가 대신 등록하는 길만 이 값을 쓴다.
-            // 안 보내도 된다 — 서버가 글을 쓴 사람 자신을 요청자로 삼는다.
+            // **고객 번호를 보내지 않는다.** 요청자는 글을 쓴 사람으로 고정이고
+            // (파일 머리말), 서버는 안 보내면 그렇게 한다
+            // (`RequesterProvisioner.ResolveAsync` 의 3번).
             //
-            // **`Context.HelpdeskUserId` 를 보내면 안 된다** — 담당자에게 그 값은
-            // `admin.id` 다. 보내던 시절에는 번호가 겹치는 고객이 있으면 남의
-            // 이름으로 요청이 들어갔고, 없으면 저장이 터졌다.
-            if (RequesterId is { } customerId)
-            {
-                form.Add(new StringContent(customerId.ToString()), "CustomerId");
-            }
+            // 보내던 시절의 흉터 하나를 적어 둔다 — 한때 `Context.HelpdeskUserId`
+            // 를 그대로 실었는데 담당자에게 그 값은 `admin.id` 라, 번호가 겹치는
+            // 고객이 있으면 **남의 이름으로 요청이 들어갔다.**
 
             var created = await Api.PostMultipartAsync<ImprovementRequest>("requests", form);
             id = created?.Id;

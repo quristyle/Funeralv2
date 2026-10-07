@@ -299,3 +299,36 @@ export function readMarkup(editorSelector) {
 
     return empty ? '' : area.innerHTML;
 }
+
+/// 본문 **맨 위**에 HTML 조각 하나를 꽂는다(AI 요약).
+///
+/// [왜 `_content` 에 이어 붙이지 않는가]
+///
+/// 편집기에 글을 돌려주는 길은 `Markup` 파라미터뿐인데, 이 화면은 그 값을
+/// **되받지 않는다**(`MarkupChanged` 로 받아 두기만 한다 — RequestNew 머리말).
+/// 거기에 새 값을 밀어 넣으면 편집기가 글을 통째로 다시 그리고, 그 순간
+/// 커서와 실행취소 이력이 날아간다. 요약은 쓰던 글 위에 한 줄 얹는 일이라
+/// 쓰던 자리를 잃으면 안 된다.
+///
+/// 그림을 꽂는 `insertImage` 와 같은 길이다 — DOM 을 직접 만지고 편집기에게
+/// 「바뀌었다」고 알린다. 다른 점은 자리다. 그림은 **고르던 자리**에 들어가고
+/// 요약은 **언제나 맨 위**다.
+export function prependHtml(editorSelector, html) {
+    const area = areaOf(editorSelector);
+    if (!area || !html) return false;
+
+    const holder = document.createElement('div');
+    holder.innerHTML = html;
+
+    // 조각이 여러 마디일 수 있어 통째로 옮긴다. `innerHTML` 앞에 글자를
+    // 이어 붙이는 방식은 쓰지 않는다 — 편집기가 들고 있는 노드가 전부
+    // 새것으로 바뀌어 커서가 어디에도 없는 상태가 된다.
+    const fragment = document.createDocumentFragment();
+    while (holder.firstChild) fragment.appendChild(holder.firstChild);
+
+    area.insertBefore(fragment, area.firstChild);
+
+    area.dispatchEvent(new Event('input', { bubbles: true }));
+
+    return true;
+}

@@ -344,3 +344,25 @@ export function attach(key, titleSelector, editorSelector, owner) {
 
     return true;
 }
+
+/// **지금 화면에 있는 것을 바로 적는다.**
+///
+/// 지켜보기는 `input` 이벤트에 걸려 있는데, 화면(C#)이 값을 넣은 때에는 그
+/// 이벤트가 나지 않는다 — AI 가 지은 제목을 고르는 자리가 그렇다. 알리지
+/// 않으면 고른 제목만 임시본에서 빠진 채로 남는다.
+///
+/// **미루는 시간이 치는 글과 같다**(`DELAY_MS`). 한 틱(`setTimeout(…, 0)`)만
+/// 미뤄 보았더니 적힌 제목이 **빈 값**이었다 — 화면(C#)이 값을 바꾸고 이쪽을
+/// 부르는 사이에 DOM 이 아직 옛것이었고, 그것을 그대로 적었다. Blazor 가
+/// 그리는 묶음과 이 부름이 회로를 따로 건너오므로 순서를 믿을 수가 없다.
+export function touch(key) {
+    for (const w of watchers) {
+        if (w.key !== key) continue;
+
+        if (w.timer) clearTimeout(w.timer);
+        w.timer = setTimeout(() => write(w), DELAY_MS);
+        return true;
+    }
+
+    return false;
+}

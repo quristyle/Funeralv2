@@ -107,68 +107,74 @@ public sealed class RequestDraftTests
     }
 
     /// <summary>
-    /// 골라 둔 <b>요청자</b>도 함께 적어 두는가.
+    /// 임시 보관에 <b>요청자가 남아 있지 않은가</b>.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// 이 칸만 적는 길이 다르다. 제목·본문은 브라우저가 화면에서 그대로 긁어
-    /// 오는데, 요청자는 <c>DxComboBox</c> 라 <b>화면에 보이는 것이 이름이고
-    /// 적어야 하는 것은 번호</b>다 — DOM 을 긁으면 「여우선」이 나오지 그
-    /// 번호가 안 나온다. 그래서 C# 이 고르는 순간 넘겨 준다.
+    /// 2026-10-07 에 요청자 칸을 걷어냈다 — 요청자는 언제나 글을 쓴 사람이다.
+    /// 그 전에는 이 칸만 적는 길이 달랐다. 제목·본문은 브라우저가 화면에서
+    /// 그대로 긁어 오는데 요청자는 <c>DxComboBox</c> 라 <b>보이는 것이 이름이고
+    /// 적어야 하는 것은 번호</b>여서, C# 이 고르는 순간 넘겨 주었다
+    /// (<c>RequesterChangedAsync</c> → <c>remember</c>).
     /// </para>
     /// <para>
-    /// 끊어지기 쉬운 자리다. 누가 <c>@bind-Value</c> 로 되돌려 놓으면
-    /// <b>빌드도 되고 화면도 멀쩡한데</b> 새로고침 뒤에 요청자만 비어 있고,
-    /// 그 상태로 등록하면 <b>내 이름으로</b> 들어간다.
+    /// <b>그 길이 되살아나는 것을 막는다.</b> 되살리면 화면에 칸이 없는 채로
+    /// 번호만 적혔다 읽히고, 그 번호가 지금 로그인한 사람과 다를 수 있다 —
+    /// 빌드도 되고 화면도 멀쩡한데 <b>남의 이름으로</b> 요청이 들어간다.
     /// </para>
     /// </remarks>
     [Fact]
-    public void 고른_요청자도_함께_적어_둔다()
+    public void 임시_보관에_요청자를_적지_않는다()
     {
         var page = Page();
 
-        // 고르면 C# 이 받아 JS 로 넘긴다.
-        Assert.Matches(@"ValueChanged=""@\(\(string\? v\) => RequesterChangedAsync\(v\)\)""", page);
-        Assert.Matches(@"RequesterChangedAsync[\s\S]{0,800}?InvokeVoidAsync\(""remember"",\s*_draftKey", page);
+        Assert.DoesNotContain("RequesterChangedAsync", page, StringComparison.Ordinal);
+        Assert.DoesNotContain("_requester", page, StringComparison.Ordinal);
+        Assert.DoesNotContain("KnownRequester", page, StringComparison.Ordinal);
 
-        // 되살릴 때 도로 얹는다.
-        Assert.Matches(@"_requester\s*=\s*KnownRequester\(saved\.Requester\)", page);
-
-        // 그리고 JS 가 그것을 한 벌에 실어 적는다.
-        Assert.Contains("export function remember", Script(), StringComparison.Ordinal);
-        Assert.Matches(@"JSON\.stringify\(\{[^}]*\br:\s*requester", Script());
+        // 화면이 `remember` 를 부르지 않는다. JS 쪽 함수는 남겨 둔다 —
+        // 적어 둔 옛 임시본에 그 칸(`r`)이 들어 있어서, 읽는 쪽이 그대로
+        // 읽을 수 있어야 한다.
+        Assert.DoesNotMatch(@"InvokeVoidAsync\(""remember""", page);
     }
 
     /// <summary>
-    /// 되살린 요청자가 <b>지금도 고를 수 있는 사람</b>인지 보는가.
+    /// 화면이 값을 직접 넣은 뒤 <b>임시 보관에 알리는가</b>.
     /// </summary>
     /// <remarks>
-    /// 임시본은 이레를 살고 그 사이에 고객이 지워질 수 있다. 목록에 없는 값을
-    /// 콤보에 넣으면 <b>칸은 「나 자신」으로 보이는데 뒤에는 없는 번호가</b>
-    /// 들려 있고, 그대로 등록하면 서버가 외래키에서 막는다.
+    /// 지켜보기는 <c>input</c> 이벤트에 걸려 있는데(<c>attach</c>), AI 가 지은
+    /// 제목을 고르는 자리는 사람이 친 것이 아니라 그 이벤트가 나지 않는다.
+    /// 알리지 않으면 <b>고른 제목만</b> 임시본에서 빠진 채로 남는다 —
+    /// 새로고침 한 번에 그 한 줄이 사라진다.
     /// </remarks>
     [Fact]
-    public void 되살린_요청자가_아직_고를_수_있는_사람인지_본다() =>
+    public void 화면이_넣은_값도_적어_둔다()
+    {
         Assert.Matches(
-            @"KnownRequester\([\s\S]{0,600}?Context\.CustomerOptions\.Any",
+            @"ApplyTitleAsync[\s\S]{0,400}?TouchDraftAsync",
             Page());
 
+        Assert.Matches(@"TouchDraftAsync[\s\S]{0,400}?InvokeVoidAsync\(""touch"",\s*_draftKey", Page());
+        Assert.Contains("export function touch", Script(), StringComparison.Ordinal);
+    }
+
     /// <summary>
-    /// 「지우고 새로 쓰기」가 <b>요청자까지</b> 지우는가.
+    /// 「지우고 새로 쓰기」가 <b>제목과 본문을</b> 비우는가.
     /// </summary>
     /// <remarks>
-    /// 안 지우면 비운 화면에 <b>남의 이름만 남아</b> 있고, 남아 있는 줄 모른 채
-    /// 새로 적으면 엉뚱한 사람 이름으로 요청이 들어간다.
+    /// 전에는 요청자까지 비웠다. 그 칸이 없어졌으므로 남은 둘만 본다 —
+    /// 하나라도 남으면 비운 줄 알고 새로 적은 글에 옛 글이 섞인다.
     /// </remarks>
     [Fact]
-    public void 지우고_새로_쓰기가_요청자도_지운다()
+    public void 지우고_새로_쓰기가_제목과_본문을_비운다()
     {
         var discard = Regex.Match(
             Page(),
             @"private async Task DiscardDraftAsync\(\)[\s\S]{0,600}?ForgetDraftAsync");
 
         Assert.True(discard.Success, "`DiscardDraftAsync` 를 찾지 못했다.");
-        Assert.Contains("_requester = null", discard.Value, StringComparison.Ordinal);
+        Assert.Contains("_title = null", discard.Value, StringComparison.Ordinal);
+        Assert.Contains("_content = string.Empty", discard.Value, StringComparison.Ordinal);
     }
 
     private static string Page() => RazorSource.Read(Path.Combine(

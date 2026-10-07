@@ -62,5 +62,10 @@ public sealed class HelpDeskModule : IPortalModule
         // 서식 편집기에 붙는 그림을 파일로 보내는 창구. 상태가 없지만
         // `HelpDeskApi` 가 회로마다 토큰을 달고 있어 폭을 그쪽에 맞춘다.
         services.AddScoped<ContentImages>();
+
+        // 요청 글을 쓸 때 돕는 AI 두 가지(제목 짓기·요약 얹기). 묻는 길은
+        // AI 쳇과 같은 `AiChatClient` 이고 그것은 공용 Http 모듈이 이미
+        // 등록해 두었다 — 여기서는 그것을 감싼 창구만 단다.
+        services.AddScoped<RequestAi>();
     }
 }

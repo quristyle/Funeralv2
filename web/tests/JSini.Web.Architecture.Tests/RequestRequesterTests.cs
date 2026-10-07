@@ -31,11 +31,18 @@ namespace JSini.Web.Architecture.Tests;
 /// [지금 규칙]
 /// </para>
 ///
-/// <list type="number">
-///   <item>고객으로 연결된 계정 — 언제나 자기 자신.</item>
-///   <item>담당자가 「요청자」에서 고른 사람 — 대신 올리는 길.</item>
-///   <item>그 밖 — <b>글을 쓴 사람 자신</b>. 가리킬 줄이 없으면 만든다.</item>
-/// </list>
+/// <para>
+/// <b>요청자는 언제나 글을 쓴 사람이다</b>(2026-10-07). 화면에서 「요청자」
+/// 콤보를 걷어냈고, 등록은 고객 번호를 아예 보내지 않는다. 서버는 안 보내면
+/// 글을 쓴 사람 자신을 요청자로 삼고, 가리킬 줄이 없으면 만든다
+/// (<c>RequesterProvisioner.ResolveAsync</c> 의 3번).
+/// </para>
+///
+/// <para>
+/// 서버에는 「담당자가 고른 사람」 길(2번)이 남아 있다. <b>이 화면에서는 이제
+/// 닿지 않는다</b> — 걷어내지 않은 것은 그 판정이 서버 쪽 안전장치이기도
+/// 해서다(옛 화면·다른 클라이언트가 보내 올 수 있다).
+/// </para>
 ///
 /// <para>
 /// [왜 글자로 검사하나]
@@ -50,10 +57,23 @@ namespace JSini.Web.Architecture.Tests;
 public sealed class RequestRequesterTests
 {
     /// <summary>
-    /// 등록할 때 <b><c>HelpdeskUserId</c> 를 고객 번호로 쓰지 않는가</b>.
+    /// 등록이 <b>고객 번호를 아예 보내지 않는가</b>.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 전에는 담당자가 고른 번호를 실어 보냈고, 그보다 더 전에는
+    /// <c>Context.HelpdeskUserId</c> 를 그대로 실었다 — 담당자에게 그 값은
+    /// <c>admin.id</c> 라 고객 번호가 아니다. 번호가 겹치는 고객이 있으면
+    /// <b>남의 이름으로</b> 요청이 들어갔고(옛 DB 에서 admin#4 → customer#4
+    /// 「여우선」), 없으면 저장이 통째로 터졌다.
+    /// </para>
+    /// <para>
+    /// 지금은 보내는 값이 없다. <b>안 보내는 것이 곧 「나 자신」</b>이라,
+    /// 누가 한 줄을 되살려 넣으면 그 순간 다시 남의 이름으로 들어갈 수 있다.
+    /// </para>
+    /// </remarks>
     [Fact]
-    public void 등록은_담당자_번호를_고객_번호로_보내지_않는다()
+    public void 등록은_고객_번호를_보내지_않는다()
     {
         var create = Between(Page(), "private async Task<int?> CreateAsync", "private async Task<int> UploadAsync");
 
@@ -61,49 +81,26 @@ public sealed class RequestRequesterTests
         var code = StripComments(create);
 
         Assert.DoesNotContain("HelpdeskUserId", code);
-        Assert.Matches(@"RequesterId is \{ \} customerId[\s\S]{0,300}?""CustomerId""", code);
+        Assert.DoesNotContain("\"CustomerId\"", code);
+        Assert.DoesNotContain("RequesterId", code);
     }
 
     /// <summary>
-    /// 고객 번호를 정하는 자리가 <b>연결 종류를 가르는가</b>.
+    /// 요청자를 <b>고르는 칸이 없는가</b>.
     /// </summary>
     /// <remarks>
-    /// <c>Context.CustomerId</c> 는 고객으로 연결된 계정에만 값을 준다.
-    /// 그것이 없으면 담당자가 고른 값을 쓴다.
+    /// 칸이 돌아오면 그 값을 보내는 코드도 함께 돌아온다. 되돌아가는 것을
+    /// 막을 자리가 여기다 — 어느 쪽이든 <c>int</c> 하나라 컴파일러가 잡아
+    /// 주지 못하고, 남의 이름으로 들어간 요청은 화면도 멀쩡하고 오류도 없다.
     /// </remarks>
     [Fact]
-    public void 요청자는_고객_연결이거나_고른_값이다()
-    {
-        Assert.Matches(
-            @"RequesterId\s*=>[\s\S]{0,300}?Context\.CustomerId[\s\S]{0,300}?_requester",
-            Page());
-    }
-
-    /// <summary>
-    /// 요청자를 고르는 칸이 <b>고를 것이 있을 때만</b> 보이는가.
-    /// </summary>
-    /// <remarks>
-    /// 고객이 0명인 DB 에서 빈 콤보를 띄우면, 사람이 할 수 있는 일이 없는데
-    /// 사람의 잘못처럼 보인다. 그때는 칸을 감추고 자기 이름으로 등록한다.
-    /// </remarks>
-    [Fact]
-    public void 요청자_칸은_고를_것이_있을_때만_보인다()
+    public void 요청자를_고르는_칸이_없다()
     {
         var page = Page();
 
-        Assert.Matches(@"@if\s*\(!Context\.IsCustomer && Context\.CustomerOptions\.Count > 0\)", page);
-        Assert.Matches(@"DxComboBox[\s\S]{0,400}?Context\.CustomerOptions", page);
-
-        // 고른 값이 `_requester` 에 들어가는가. **`@bind-Value` 를 못 박지 않는다** —
-        // 고른 번호를 임시 보관에도 맡겨야 해서(`RequesterChangedAsync`) 바꿈을
-        // 직접 받는 꼴로 바뀌었다. 여기서 지킬 것은 「그 칸에 묶여 있다」이지
-        // 어느 문법을 쓰는가가 아니다.
-        Assert.Matches(
-            @"(@bind-Value=""_requester""|Value=""@_requester""[\s\S]{0,300}?ValueChanged)",
-            page);
-
-        // 목록을 안 받아 오면 콤보가 늘 비어 있다.
-        Assert.Contains("LoadOrganizationsAsync", page);
+        Assert.DoesNotContain("CustomerOptions", page, StringComparison.Ordinal);
+        Assert.DoesNotContain("LoadOrganizationsAsync", page, StringComparison.Ordinal);
+        Assert.DoesNotContain("_requester", page, StringComparison.Ordinal);
     }
 
     /// <summary>
