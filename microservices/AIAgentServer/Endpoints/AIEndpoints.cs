@@ -12,6 +12,19 @@ public static class AIEndpoints
     /// </summary>
     private const string ProviderHeader = "X-AI-Provider";
 
+    /// <summary>
+    /// 이번에 사람이 물어본 말. <b>맨 마지막 <c>user</c> 줄</b>이다.
+    /// </summary>
+    /// <remarks>
+    /// 화면은 지난 대화를 전부 실어 보낸다(문맥). 그 전체를 담으면 열 때마다
+    /// 같은 말이 겹겹이 쌓이므로 <b>새로 더해진 한 줄만</b> 골라낸다 —
+    /// 그 앞의 것들은 이미 지난 턴에 담겼다.
+    /// </remarks>
+    private static string LastUserMessage(List<AIAgentServer.DTOs.Message>? messages) =>
+        messages?.LastOrDefault(m =>
+            string.Equals(m.role, "user", StringComparison.OrdinalIgnoreCase))?.content
+        ?? string.Empty;
+
     public static void MapAIEndpoints(this IEndpointRouteBuilder app)
     {
         // Gateway 설정에서 PathRemovePrefix: "/api/ai" 가 설정되어 있으므로,
@@ -328,7 +341,8 @@ public static class AIEndpoints
         group.MapPost("/chat/stream", async (
             HttpContext context,
             [FromBody] AIAgentServer.DTOs.ChatRequestDto request,
-            [FromServices] ILLMService llmService) =>
+            [FromServices] ILLMService llmService,
+            [FromServices] AiChatStore chatStore) =>
         {
             if (request.Messages == null || request.Messages.Count == 0)
             {
@@ -355,11 +369,27 @@ public static class AIEndpoints
             // **오류도 본문에 흘려 보낸다** — 화면은 받은 조각을 그대로 이어 붙이므로
             // 사용자는 답 자리에서 이유를 읽게 된다. 예전에는 "⚠️ 오류가 발생했습니다."
             // 한 줄만 나와서 무엇을 고쳐야 하는지 알 수 없었다.
+            // [오간 말을 서버가 담는다]
+            //
+            // 화면이 답을 다 받은 뒤 따로 올리는 길도 있었지만, 그러면
+            // **창을 먼저 닫은 대화가 통째로 사라진다** — 답은 끝까지
+            // 흘러갔는데 올리는 쪽이 없어서다. 여기서는 흘려보낸 글자를
+            // 이미 손에 들고 있다.
+            //
+            // 안내(notice)는 **담지 않는다.** 답이 아니고, 담아 두면 다음에
+            // 그 대화를 열었을 때 안내가 AI 가 한 말로 되살아난다.
+            var answer = new System.Text.StringBuilder();
+
             try
             {
                 await foreach (var part in llmService.StreamChatAsync(
                     request.Messages, provider, request.Model))
                 {
+                    if (part.Notice is null && part.Text is { Length: > 0 } saved)
+                    {
+                        answer.Append(saved);
+                    }
+
                     // [답과 안내를 다른 모양으로 보낸다]
                     //
                     // 답 글자는 예전처럼 **JSON 문자열**로 보낸다(`data: "글자"`).
@@ -382,6 +412,19 @@ public static class AIEndpoints
                 await context.Response.WriteAsync(
                     $"data: {JsonSerializer.Serialize(prefix + ex.Message)}\n\n");
                 await context.Response.Body.FlushAsync();
+            }
+
+            // **끝에서 한 번만 담는다.** 조각마다 담으면 한 턴에 DB 왕복이
+            // 수십 번이고, 어차피 사람이 보는 것은 다 이어 붙인 한 덩어리다.
+            //
+            // 실패해서 한 글자도 못 받았으면 아무것도 안 담긴다 — 답 없는
+            // 질문을 쌓아 두지 않는다(AiChatStore.RecordTurn). 그 실패는
+            // 사용량 기록이 따로 남긴다.
+            if (!string.IsNullOrWhiteSpace(request.SessionId)
+                && context.Request.Headers["X-User-Id"].ToString() is { Length: > 0 } owner)
+            {
+                chatStore.RecordTurn(
+                    owner, request.SessionId, LastUserMessage(request.Messages), answer.ToString());
             }
         })
         .WithName("StreamChat");

@@ -54,6 +54,10 @@ builder.Services.AddSingleton<AiUsageLog>();
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<MenuAccess>();
 
+// AI쳇 대화 보관. 새로고침해도 남고 주제별로 나뉜다 — 여태는 회로가
+// 사는 동안만 있었다(AiChatStore 머리말).
+builder.Services.AddSingleton<AiChatStore>();
+
 // [AI 공급자 목록]
 // 설정(AI:Providers)을 한 번 읽어 두고 계속 쓴다. 요청마다 다시 읽을 이유가 없다.
 // 싱글턴이라 `appsettings` 를 고치면 **재기동해야 반영된다** — 이 저장소의 다른
@@ -149,6 +153,10 @@ app.MapAIEndpoints();
 // 사람별 AI 사용량(포털관리 「AI 사용량」 화면). **관리자만 본다** —
 // 게이트웨이의 ai-route 가 이 묶음을 익명으로 열어 두므로 그쪽에서 한 번 더 본다.
 app.MapAiUsageEndpoints();
+
+// 내 AI쳇 대화. **권한을 따지지 않는다** — 쪽지처럼 누구나 제 것을 다루는
+// 일이고, 모든 조회가 주인을 조건에 넣으므로 남의 대화는 잡히지 않는다.
+app.MapAiChatSessionEndpoints();
 
 string GetServerName()
 {

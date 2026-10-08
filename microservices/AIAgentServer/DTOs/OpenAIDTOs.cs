@@ -24,6 +24,25 @@ public class ChatRequestDto
     /// (<see cref="AIAgentServer.Services.FreeModelGuard"/>).
     /// </remarks>
     public string? Model { get; set; }
+
+    /// <summary>
+    /// 어느 대화에 담을지(<c>scom.ai_chat_sessions.id</c>).
+    /// <b>비면 담지 않는다</b> — 오간 말이 어디에도 안 남는다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 담는 일을 <b>서버가 한다.</b> 화면이 답을 다 받은 뒤 따로 올리는 길도
+    /// 있었지만, 그러면 <b>창을 먼저 닫은 대화가 통째로 사라진다</b> — 답은
+    /// 끝까지 흘러갔는데 올리는 쪽이 없어서다. 서버는 자기가 흘려보낸 글자를
+    /// 이미 손에 들고 있다.
+    /// </para>
+    /// <para>
+    /// <b>믿을 수 없는 입력이다.</b> 브라우저에서 온 글자라 남의 대화 열쇠를
+    /// 적어 보낼 수 있다. 담는 쪽이 주인을 조건에 넣어 거른다
+    /// (<c>AiChatStore.RecordTurn</c>) — 남의 것이면 조용히 안 담긴다.
+    /// </para>
+    /// </remarks>
+    public string? SessionId { get; set; }
 }
 
 public class OpenAIRequest

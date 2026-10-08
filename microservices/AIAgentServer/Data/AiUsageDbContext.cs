@@ -53,6 +53,15 @@ public class AiUsageDbContext(DbContextOptions<AiUsageDbContext> options) : DbCo
 
     public DbSet<RoleMenuRow> RoleMenus => Set<RoleMenuRow>();
 
+    // ── AI쳇 대화 보관 ──────────────────────────────────────
+    //
+    // 여태 대화는 회로가 사는 동안만 있었다. 새로고침하면 사라졌고 주제별로
+    // 나눌 수도 없었다 — deploy/sql/ai-chat-2026-10-08.sql 머리말 참고.
+
+    public DbSet<AiChatSessionRow> AiChatSessions => Set<AiChatSessionRow>();
+
+    public DbSet<AiChatMessageRow> AiChatMessages => Set<AiChatMessageRow>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -92,6 +101,29 @@ public class AiUsageDbContext(DbContextOptions<AiUsageDbContext> options) : DbCo
             e.Property(x => x.Path).HasColumnName("path");
             e.Property(x => x.RouteKey).HasColumnName("route_key");
             e.Property(x => x.IsDeleted).HasColumnName("is_deleted");
+        });
+
+        modelBuilder.Entity<AiChatSessionRow>(e =>
+        {
+            e.ToTable("ai_chat_sessions", "scom");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("id");
+            e.Property(x => x.UserId).HasColumnName("user_id");
+            e.Property(x => x.Title).HasColumnName("title");
+            e.Property(x => x.CreatedAt).HasColumnName("created_at");
+            e.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+        });
+
+        modelBuilder.Entity<AiChatMessageRow>(e =>
+        {
+            e.ToTable("ai_chat_messages", "scom");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("id");
+            e.Property(x => x.SessionId).HasColumnName("session_id");
+            e.Property(x => x.Role).HasColumnName("role");
+            e.Property(x => x.Content).HasColumnName("content");
+            e.Property(x => x.Seq).HasColumnName("seq");
+            e.Property(x => x.CreatedAt).HasColumnName("created_at");
         });
 
         modelBuilder.Entity<RoleMenuRow>(e =>
@@ -182,4 +214,42 @@ public class RoleMenuRow
     public bool CanView { get; set; }
 
     public bool IsDeleted { get; set; }
+}
+
+/// <summary>
+/// 대화 한 줄기(주제 하나). 칸의 뜻은
+/// <c>deploy/sql/ai-chat-2026-10-08.sql</c> 머리말에 있다.
+/// </summary>
+public class AiChatSessionRow
+{
+    public string Id { get; set; } = string.Empty;
+
+    /// <summary>주인의 로그인 아이디. <b>남의 것은 열 수도 지울 수도 없다.</b></summary>
+    public string UserId { get; set; } = string.Empty;
+
+    /// <summary>첫 질문에서 따온 주제. 아직 말이 없으면 <c>null</c>.</summary>
+    public string? Title { get; set; }
+
+    public DateTime CreatedAt { get; set; }
+
+    /// <summary>마지막으로 말이 오간 때. <b>목록 차례의 기준</b>이다.</summary>
+    public DateTime UpdatedAt { get; set; }
+}
+
+/// <summary>대화 속 한 마디. <b>system 지시문은 담지 않는다.</b></summary>
+public class AiChatMessageRow
+{
+    public long Id { get; set; }
+
+    public string SessionId { get; set; } = string.Empty;
+
+    /// <summary><c>user</c> · <c>assistant</c>.</summary>
+    public string Role { get; set; } = string.Empty;
+
+    public string Content { get; set; } = string.Empty;
+
+    /// <summary>차례. 같은 초에 들어온 질문과 답을 가른다.</summary>
+    public int Seq { get; set; }
+
+    public DateTime CreatedAt { get; set; }
 }

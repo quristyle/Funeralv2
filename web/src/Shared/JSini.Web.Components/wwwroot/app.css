@@ -5725,6 +5725,31 @@ a.jsini-social__btn:focus-visible {
 
 .jsini-chat__box { flex: 1; }
 
+/* ── 주제 고르개 ─────────────────────────────────────────────
+   대화 줄기를 고르고, 새로 열고, 이름을 고치고, 지운다.
+
+   **한 줄로 끝낸다.** 이 부품은 26rem 짜리 서랍 안에도 들어가는데,
+   목록을 판으로 펴면 정작 대화가 들어갈 자리가 없다. 고르개가 남는 폭을
+   다 먹고(`flex: 1`) 단추 넷은 제 크기만 쓴다.
+
+   아래에 선을 하나 긋는다 — 고르개와 대화는 다른 켜이고, 선이 없으면
+   첫 말풍선이 고르개에 붙어 그 줄의 일부처럼 보인다. */
+.jsini-chat__topics {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--jsini-border);
+}
+
+/* `min-width: 0` 이 있어야 긴 주제 이름이 단추를 밀어내지 않는다 —
+   flex 항목은 기본으로 제 내용보다 작아지지 않는다. */
+.jsini-chat__pick,
+.jsini-chat__rename {
+  flex: 1;
+  min-width: 0;
+}
+
 /* ── AI 대화 서랍 ────────────────────────────────────────────
    본문 위에 겹친다. 닫혀도 DOM 에 남는다 — 지웠다 만들면 대화가 사라진다.
    `visibility` 를 함께 끄는 이유: transform 만으로 밀어 두면 화면 밖의 것이

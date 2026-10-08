@@ -14,15 +14,77 @@
     화면이 그것을 답의 일부로 저장하고 **다음 턴 문맥으로 다시 올려보낸다.**
     그래서 안내는 따로 모아 따로 보여 준다.
 
-    [대화는 이 부품이 들고 있다]
+    [대화는 서버에 남는다 — 2026-10-08]
 
-    회로가 살아 있는 동안만 남는다. 서버에 대화를 저장하는 통로가 아직 없어서
-    새로고침하면 사라진다 — 옛 포털도 그랬다.
+    여태는 회로가 사는 동안만 있었다. 새로고침하면 사라졌고, 「아까 물어본
+    것」을 다시 보려면 같은 질문을 다시 쳐야 했다.
+
+    지금은 **주제별로 갈라 서버에 담는다**(`scom.ai_chat_sessions`). 담는 일은
+    서버가 한다 — 화면이 답을 다 받은 뒤 올리는 길이면 **창을 먼저 닫은
+    대화가 통째로 사라진다**(`AiChatStore` 머리말).
+
+    [왜 주제별인가]
+
+    한 줄기로 길게 이어 두면 다음 턴마다 그 전체가 문맥으로 다시 올라간다 —
+    토큰이 눈덩이가 되고(사용량 화면에서 그대로 보인다) 상관없는 옛 얘기가
+    답을 흐린다.
+
+    제목은 **첫 질문에서 따온다.** 물어보려고 연 창에서 제목부터 지으라고
+    하면 그 자리에서 막힌다. 마음에 안 들면 ✎ 로 고친다.
 *@
 
 @implements IDisposable
 
 <div class="jsini-chat">
+    @* ── 주제 고르개 ─────────────────────────────────────────
+       서랍이 26rem 이라 한 줄로 끝낸다 — 목록을 판으로 펴면 대화가 들어갈
+       자리가 없다. 화면(`/site/ai/chat`)에서도 같은 줄을 쓴다. 갈라 두면
+       「화면에서는 되는데 서랍에서는 안 된다」가 돌아온다. *@
+    <div class="jsini-chat__topics">
+        @if (_renaming)
+        {
+            <DxTextBox @bind-Text="@_renameText"
+                       BindValueMode="BindValueMode.OnInput"
+                       NullText="주제 이름 (비우면 「새 대화」)"
+                       CssClass="jsini-chat__rename" />
+
+            <DxButton IconCssClass="jsini-icon-check" Title="이름 저장"
+                      RenderStyle="ButtonRenderStyle.Link" Click="@SaveRenameAsync" />
+
+            <DxButton IconCssClass="jsini-icon-close" Title="그만두기"
+                      RenderStyle="ButtonRenderStyle.Link"
+                      Click="@(() => _renaming = false)" />
+        }
+        else
+        {
+            @* 값이 `null` 일 수 있다(아직 아무 대화도 없을 때). 그때는 빈
+               고르개가 뜨고, 무엇이든 물어보면 그 자리에서 하나 생긴다. *@
+            <DxComboBox Data="@_sessions"
+                        Value="@_sessionId"
+                        ValueChanged="@((string? id) => OpenAsync(id))"
+                        ValueExpression="@(() => _sessionId)"
+                        TextFieldName="@nameof(AiChatSession.Label)"
+                        ValueFieldName="@nameof(AiChatSession.Id)"
+                        NullText="새 대화"
+                        CssClass="jsini-chat__pick" />
+
+            <DxButton IconCssClass="jsini-icon-plus" Title="새 대화"
+                      RenderStyle="ButtonRenderStyle.Link"
+                      Enabled="@(!_streaming)" Click="@NewAsync" />
+
+            <DxButton IconCssClass="jsini-icon-edit" Title="주제 이름 바꾸기"
+                      RenderStyle="ButtonRenderStyle.Link"
+                      Enabled="@(_sessionId is not null)" Click="@BeginRename" />
+
+            @* 되돌릴 수 없다 — 묻고 지운다(`ConfirmDialog`). *@
+            <DxButton IconCssClass="jsini-icon-trash" Title="이 대화 지우기"
+                      CssClass="commgrd__icon--warn"
+                      RenderStyle="ButtonRenderStyle.Link"
+                      Enabled="@(!_streaming && _sessionId is not null)"
+                      Click="@ConfirmDeleteAsync" />
+        }
+    </div>
+
     @* [지금 누가 답하는가]
 
        자동 전환 때문에 **설정한 것과 실제로 답하는 것이 다를 수 있다.**
@@ -88,9 +150,9 @@
                   Enabled="@(!_streaming && !string.IsNullOrWhiteSpace(_input))"
                   Click="@SendAsync" />
 
-        <DxButton Text="비우기"
-                  RenderStyle="ButtonRenderStyle.Secondary"
-                  Enabled="@(!_streaming && _messages.Count > 0)"
-                  Click="@Clear" />
     </div>
 </div>
+
+@* 대화를 지우는 것은 되돌릴 수 없다. 작은 아이콘 단추라 더욱 묻는다
+   (`ConfirmDialog` 머리말). *@
+<ConfirmDialog @ref="_confirm" />

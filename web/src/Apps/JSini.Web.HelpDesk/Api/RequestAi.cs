@@ -268,8 +268,11 @@ public sealed class RequestAi(AiChatClient ai)
         var answer = new StringBuilder();
         string? model = null;
 
+        // 대화로 담지 않는다(`sessionId` 없음) — 이것은 사람의 대화가 아니라
+        // 요청 글을 다듬어 달라는 한 번짜리 부탁이다. 담으면 AI쳇 목록이
+        // 사람이 연 적 없는 주제로 덮인다.
         await foreach (var part in ai.StreamAsync(
-            [new AiChatMessage("user", prompt)], cancellationToken))
+            [new AiChatMessage("user", prompt)], sessionId: null, cancellationToken))
         {
             if (part.IsUsedMarker && part.Notice is { Length: > 0 } used)
             {

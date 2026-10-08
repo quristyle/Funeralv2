@@ -675,12 +675,45 @@
    * **사람이 위로 올려 지난 대화를 읽고 있으면 끌어내리지 않는다.**
    * 끌어내리면 읽던 자리를 계속 빼앗긴다. 바닥 근처(48px 안)일 때만 따라간다.
    */
+  /** 마지막으로 열어 본 AI쳇 대화. 열쇠 글자는 여기 한 곳에만 둔다. */
+  var CHAT_LAST_KEY = 'jsini-chat-last';
+
   window.jsiniChat = {
     toBottom: function (el) {
       if (!el) return;
       var gap = el.scrollHeight - el.scrollTop - el.clientHeight;
       if (gap > 48) return;
       el.scrollTop = el.scrollHeight;
+    },
+
+    /**
+     * 마지막으로 열어 본 대화를 적어 둔다.
+     *
+     * **사람의 것이 아니라 이 브라우저의 것**이라 서버에 두지 않는다 —
+     * 책상에서 보던 대화와 휴대폰에서 보던 대화가 다를 수 있고 그것이
+     * 자연스럽다. 고정 탭·공지 닫힘 표시와 같은 갈래다.
+     *
+     * 서버의 `updated_at` 으로는 대신할 수 없다. **여는 것만으로는 그 값이
+     * 바뀌지 않아서**, 지난 대화를 골라 읽다가 새로고침하면 목록 맨 앞으로
+     * 튄다 — 고치려고 여는 것만으로 차례를 바꾸면 목록이 손댈 때마다 뒤집힌다.
+     *
+     * 저장소를 막아 둔 브라우저에서는 조용히 지나간다. 그때는 맨 앞엣것이 열린다.
+     */
+    remember: function (id) {
+      try {
+        if (id) localStorage.setItem(CHAT_LAST_KEY, id);
+        else localStorage.removeItem(CHAT_LAST_KEY);
+      } catch (e) {
+        /* 사생활 보호 모드 등. 적어 두지 못해도 대화는 그대로다. */
+      }
+    },
+
+    remembered: function () {
+      try {
+        return localStorage.getItem(CHAT_LAST_KEY);
+      } catch (e) {
+        return null;
+      }
     },
   };
 

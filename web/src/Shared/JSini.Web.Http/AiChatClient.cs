@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace JSini.Web.Http;
 
@@ -28,6 +29,21 @@ public sealed record AiChatPart(string? Text, string? Notice, string? Kind)
     /// '바뀐 순간' 에만 뜨는 전환 안내만으로는 지금 상태를 알 수 없기 때문이다.
     /// </remarks>
     public bool IsUsedMarker => Kind == "used";
+}
+
+/// <summary>
+/// 대화 한 줄기(주제 하나). 고르개의 한 줄이다.
+/// </summary>
+/// <param name="Id">대화 열쇠.</param>
+/// <param name="Title">
+/// 주제. <b><c>null</c> 은 아직 아무 말도 안 한 대화</b>다 — 화면이
+/// 「새 대화」로 그린다.
+/// </param>
+/// <param name="UpdatedAt">마지막으로 말이 오간 때(UTC). 목록 차례의 기준.</param>
+public sealed record AiChatSession(string Id, string? Title, DateTime UpdatedAt)
+{
+    /// <summary>고르개에 그릴 글자. 제목이 없으면 「새 대화」다.</summary>
+    public string Label => string.IsNullOrWhiteSpace(Title) ? "새 대화" : Title;
 }
 
 /// <summary>지금 쓰이는 AI 한 줄. 물어보기 전에 보여 줄 기본값을 담는다.</summary>
@@ -134,14 +150,21 @@ public sealed class AiChatClient(HttpClient http)
     /// 대화 내역을 보내고 답 조각을 스트림으로 받는다.
     /// 서버가 스트림을 닫거나 <c>[DONE]</c> 을 보내면 끝난다.
     /// </summary>
+    /// <param name="messages">여태 오간 말 전부. 문맥으로 함께 올라간다.</param>
+    /// <param name="sessionId">
+    /// 담아 둘 대화. <b>주면 서버가 오간 말을 담는다</b>(<c>AiChatStore</c>) —
+    /// 화면이 따로 올리지 않는다. 비우면 아무 데도 안 남는다.
+    /// </param>
+    /// <param name="cancellationToken">서랍을 닫거나 화면을 떠나면 끊는다.</param>
     public async IAsyncEnumerable<AiChatPart> StreamAsync(
         IReadOnlyList<AiChatMessage> messages,
+        string? sessionId = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "ai/chat/stream")
         {
             // System.Net.Http.Json 기본이 웹 규칙(camelCase)이라 서버 바인딩과 맞는다.
-            Content = JsonContent.Create(new { messages }),
+            Content = JsonContent.Create(new { messages, sessionId }),
         };
         request.Headers.Accept.ParseAdd("text/event-stream");
 
@@ -186,6 +209,95 @@ public sealed class AiChatClient(HttpClient http)
             }
         }
     }
+
+    // ── 대화 보관 ───────────────────────────────────────────
+    //
+    // **게이트웨이 봉투를 손으로 벗긴다.** 이 클라이언트는 스트리밍 때문에
+    // `GatewayClient` 를 안 쓰는데(머리말), 그렇다고 그것 하나를 더 주입하면
+    // 같은 서비스로 가는 길이 둘이 된다 — 주소 접두사가 갈라질 자리다.
+    // 봉투 모양은 `ApiResponse` 하나뿐이라 한 곳에서 벗긴다(`Unwrap`).
+
+    /// <summary>내 대화 목록. 최근에 말이 오간 순이다.</summary>
+    public async Task<IReadOnlyList<AiChatSession>> ListSessionsAsync(
+        CancellationToken ct = default)
+        => await UnwrapListAsync<AiChatSession>(
+            await http.GetAsync("ai/chat/sessions", ct), ct) ?? [];
+
+    /// <summary>그 대화의 마디들. 못 열면 빈 목록.</summary>
+    public async Task<IReadOnlyList<AiChatMessage>> GetSessionAsync(
+        string sessionId, CancellationToken ct = default)
+    {
+        var rows = await UnwrapListAsync<StoredMessage>(
+            await http.GetAsync($"ai/chat/sessions/{Uri.EscapeDataString(sessionId)}", ct), ct);
+
+        return rows is null ? [] : [.. rows.Select(r => new AiChatMessage(r.Role, r.Content))];
+    }
+
+    /// <summary>빈 대화를 연다. 제목은 첫 질문이 들어올 때 붙는다.</summary>
+    public async Task<AiChatSession?> CreateSessionAsync(CancellationToken ct = default)
+    {
+        var rows = await UnwrapListAsync<AiChatSession>(
+            await http.PostAsync("ai/chat/sessions", content: null, ct), ct);
+
+        return rows?.FirstOrDefault();
+    }
+
+    /// <summary>제목을 고친다. 비워 보내면 지운다.</summary>
+    public async Task RenameSessionAsync(
+        string sessionId, string? title, CancellationToken ct = default)
+        => (await http.PutAsJsonAsync(
+                $"ai/chat/sessions/{Uri.EscapeDataString(sessionId)}",
+                new { title }, ct))
+            .EnsureSuccessStatusCode();
+
+    /// <summary>대화를 지운다. 마디도 함께 사라진다.</summary>
+    public async Task DeleteSessionAsync(string sessionId, CancellationToken ct = default)
+        => (await http.DeleteAsync(
+                $"ai/chat/sessions/{Uri.EscapeDataString(sessionId)}", ct))
+            .EnsureSuccessStatusCode();
+
+    /// <summary>서버에 담긴 한 마디. 역할과 내용만 쓴다.</summary>
+    private sealed record StoredMessage(string Role, string Content);
+
+    /// <summary>
+    /// 봉투를 벗겨 <c>data.result</c> 를 꺼낸다. 실패하면 <c>null</c>.
+    /// </summary>
+    /// <remarks>
+    /// <b>못 읽은 것과 빈 목록을 가른다.</b> 둘을 뭉개면 대화를 못 읽었을 때
+    /// 화면이 「대화가 하나도 없다」로 그리고, 사람은 그것을 기록이 날아간
+    /// 것으로 읽는다.
+    /// </remarks>
+    private static async Task<List<T>?> UnwrapListAsync<T>(
+        HttpResponseMessage response, CancellationToken ct)
+    {
+        using (response)
+        {
+            if (!response.IsSuccessStatusCode) return null;
+
+            try
+            {
+                using var document = await JsonDocument.ParseAsync(
+                    await response.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
+
+                if (!document.RootElement.TryGetProperty("data", out var data)
+                    || !data.TryGetProperty("result", out var result)
+                    || result.ValueKind != JsonValueKind.Array)
+                {
+                    return null;
+                }
+
+                return result.Deserialize<List<T>>(WireJson);
+            }
+            catch (Exception ex) when (ex is JsonException or HttpRequestException)
+            {
+                return null;
+            }
+        }
+    }
+
+    /// <summary>서버가 camelCase 로 보낸다.</summary>
+    private static readonly JsonSerializerOptions WireJson =
+        new() { PropertyNameCaseInsensitive = true };
 
     /// <summary>
     /// 조각 하나를 해석한다. JSON <b>문자열</b>이면 답 글자, <b>객체</b>면 안내다
