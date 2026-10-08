@@ -1,4 +1,4 @@
-using JSini.Web.Components.Data;
+﻿using JSini.Web.Components.Data;
 using JSini.Web.Http;
 
 namespace JSini.Web.Components.Layout;
@@ -77,19 +77,6 @@ public sealed class CurrentUser(GatewayClient gateway, ILogger<CurrentUser> logg
     /// </para>
     /// </summary>
     public string? RoleText { get; private set; }
-
-    /// <summary>시스템관리자의 역할 식별자. AuthServer 가 알림 받는 역할로 쓰는 값과 같다.</summary>
-    public const string SystemAdministratorRole = "SYSTEM_ADMINISTRATOR";
-
-    /// <summary>
-    /// <b>시스템관리자인가.</b> 헤더의 「AI 에게 묻기」처럼 관리자에게만 내놓는 도구가 본다.
-    /// </summary>
-    /// <remarks>
-    /// 식별자(<c>roles</c>)로 따진다 — 이름(<see cref="RoleText"/>)은 관리자가 고칠 수 있다.
-    /// <b>못 읽었으면 거짓이다</b> — 감추는 쪽으로 틀리는 편이 낫다.
-    /// 감추는 것일 뿐 통제는 아니다. 실제로 막는 것은 서버 몫이다.
-    /// </remarks>
-    public bool IsSystemAdmin { get; private set; }
 
     /// <summary>
     /// 사진 주소. <b>우리 파일일 때만 값이 있다</b> — 없으면 <see cref="Initial"/> 을 그린다.
@@ -183,8 +170,6 @@ public sealed class CurrentUser(GatewayClient gateway, ILogger<CurrentUser> logg
             AvatarThumbnailUrl = OwnThumbnailUrl(info.Avatar);
             Watermark = info.Watermark;
             HomePath = info.HomePath;
-            IsSystemAdmin = info.Roles?.Any(r =>
-                string.Equals(r, SystemAdministratorRole, StringComparison.OrdinalIgnoreCase)) == true;
             IsLoaded = true;
         }
 

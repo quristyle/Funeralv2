@@ -1,4 +1,4 @@
-using JSini.Web.Http;
+﻿using JSini.Web.Http;
 using JSini.Web.Models;
 
 namespace JSini.Web.Admin.Api;
@@ -62,6 +62,24 @@ public sealed class AdminClient(GatewayClient gateway)
 
     public Task DeleteAccountAsync(string id, CancellationToken ct = default)
         => gateway.DeleteAsync($"auth/system/account/{id}", ct);
+
+    /// <summary>
+    /// 그 계정의 비밀번호를 초기화한다. 서버가 새로 발급한 값을 돌려준다.
+    ///
+    /// <para>
+    /// <b>돌려받는 값을 버리면 안 된다</b> — 등록과 같은 이유다. 저장은
+    /// 해시라서 이 응답이 그 값을 볼 수 있는 유일한 자리이고, 놓치면
+    /// 다시 초기화하는 수밖에 없다.
+    /// </para>
+    ///
+    /// <para>
+    /// 본문이 없다. 바꿀 값을 고르는 것이 아니라 <b>서버가 발급하는</b> 것이라
+    /// 보낼 것이 없다 — 관리자가 정한 값을 받으면 그 값이 사람 손과 화면을
+    /// 거치는 동안 여러 계정에 같은 것이 깔린다.
+    /// </para>
+    /// </summary>
+    public Task<IssuedPasswordDto?> ResetAccountPasswordAsync(string id, CancellationToken ct = default)
+        => gateway.PostAsync<IssuedPasswordDto>($"auth/system/account/{id}/password-reset", null, ct);
 
     // ── 역할 ────────────────────────────────────────────────────
 

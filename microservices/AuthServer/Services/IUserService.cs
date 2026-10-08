@@ -35,6 +35,17 @@ public interface IUserService
     Task<bool> DeleteAccountAsync(string id);
 
     /// <summary>
+    /// 그 계정의 비밀번호를 <b>새 값으로 발급해 갈아 끼운다</b>(관리자용).
+    /// 계정을 못 찾으면 <c>null</c>.
+    /// </summary>
+    /// <remarks>
+    /// 지금 비밀번호를 묻지 않는다 — 비밀번호를 잊은 사람을 대신 풀어 주는
+    /// 길이라 물을 수가 없다. 그래서 <b>부르는 쪽이 관리자인지 먼저 본다</b>
+    /// (<c>SystemEndpoints</c>).
+    /// </remarks>
+    Task<IssuedPasswordDto?> ResetAccountPasswordAsync(string id);
+
+    /// <summary>
     /// 로그인한 사용자의 프로필 정보를 업데이트합니다.
     /// </summary>
     Task<(bool Success, string? Error)> UpdateProfileAsync(string userId, UpdateProfileDto dto);

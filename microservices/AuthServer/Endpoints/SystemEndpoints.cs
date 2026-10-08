@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using AuthServer.Entities;
 using AuthServer.Services;
 using AuthServer.DTOs;
@@ -41,6 +41,44 @@ public static class SystemEndpoints
             return success ? Results.Ok(ApiResponse<bool>.Ok(true)) : Results.NotFound(ApiResponse<object>.Fail("계정을 찾을 수 없습니다.", "404"));
         })
         .WithName("DeleteAccount");
+
+        // ── 비밀번호 초기화 ─────────────────────────────────
+        //
+        // 비밀번호를 잊은 사람을 관리자가 대신 풀어 주는 길이다. 지금 값을
+        // 묻지 않고 갈아 끼우므로 **이 묶음에서 가장 위험한 경로**다 —
+        // 통과하면 남의 계정으로 로그인할 수 있는 값이 손에 들어온다.
+        //
+        // [여기만 역할을 따로 본다]
+        //
+        // 나머지 `/system/*` 는 메뉴 권한(화면이 열리는가)으로 가린다. 그
+        // 판정은 게이트웨이·프론트가 하고 서버는 다시 보지 않는데, 이 경로는
+        // 그 가림막이 한 겹 벗겨지는 순간 바로 계정 탈취가 된다. 그래서
+        // **서버에서 한 번 더 본다** — 배포 현황·오류 추적과 같은 판정이다.
+        //
+        // 발급한 평문은 응답에 한 번만 실린다. 저장은 해시뿐이라 이 답을
+        // 놓치면 아무도 그 값을 알 수 없고, 그때는 다시 초기화하면 된다.
+        group.MapPost("/account/{id}/password-reset", async (
+            string id,
+            UserContext? user,
+            HttpContext http,
+            [FromServices] IUserService userService) =>
+        {
+            if (user is null) return Results.Unauthorized();
+
+            if (!IsAdmin(user, http))
+            {
+                return Results.Json(
+                    ApiResponse<object>.Fail("관리자만 비밀번호를 초기화할 수 있습니다.", "403"),
+                    statusCode: StatusCodes.Status403Forbidden);
+            }
+
+            var issued = await userService.ResetAccountPasswordAsync(id);
+
+            return issued is null
+                ? Results.NotFound(ApiResponse<object>.Fail("계정을 찾을 수 없습니다.", "404"))
+                : Results.Ok(ApiResponse<IssuedPasswordDto>.Ok(issued));
+        })
+        .WithName("ResetAccountPassword");
 
         // 역할(Role) 관리
         group.MapGet("/role/id-exists", async ([FromQuery] string id, [FromServices] IRoleService roleService) =>
@@ -337,6 +375,25 @@ public static class SystemEndpoints
             return success ? Results.Ok(ApiResponse<bool>.Ok(true)) : Results.NotFound(ApiResponse<object>.Fail("설정을 찾을 수 없습니다.", "404"));
         })
         .WithName("DeleteBizSelectConfig");
+    }
+
+    /// <summary>
+    /// 관리자 계열인가. 비밀번호 초기화 한 곳만 쓴다.
+    /// </summary>
+    /// <remarks>
+    /// <c>X-User-Role</c> 은 첫 역할 하나뿐이라 전체 목록(<c>X-User-Roles</c>)으로
+    /// 함께 본다. 배포 현황(<c>DeployStatusEndpoints</c>) · 오류 추적
+    /// (<c>PortalErrorEndpoints</c>)이 쓰는 것과 같은 판정이고, 그쪽들과
+    /// 공용으로 묶지 않은 이유도 같다 — 「볼 수 있는 사람」을 넓히고 싶을 때
+    /// 「남의 비밀번호를 갈아 끼울 수 있는 사람」이 말없이 따라 넓어지면 안 된다.
+    /// </remarks>
+    private static bool IsAdmin(UserContext user, HttpContext http)
+    {
+        var roles = http.Request.Headers["X-User-Roles"].ToString()
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        return roles.Contains("ADMINISTRATOR") || roles.Contains("SYSTEM_ADMINISTRATOR")
+               || user.Role is "ADMINISTRATOR" or "SYSTEM_ADMINISTRATOR";
     }
 }
 

@@ -158,3 +158,32 @@ public class UpdateAccountDto
     /// </remarks>
     public Dictionary<string, string?>? DevAttributes { get; set; }
 }
+
+/// <summary>
+/// 관리자가 비밀번호를 초기화하고 돌려받는 값.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <see cref="AccountDto.InitialPassword"/> 와 같은 성격이다 — <b>발급한 평문이
+/// 손에 있는 유일한 순간</b>이고, 저장은 해시로만 하므로 이 응답을 놓치면
+/// 아무도 그 값을 알 수 없다.
+/// </para>
+///
+/// <para>
+/// 계정 한 벌을 통째로 돌려주지 않는 이유는, 이 길로 바뀌는 것이 비밀번호
+/// 하나뿐이기 때문이다. 계정을 돌려주면 받는 쪽이 그것으로 목록을 갈아 끼우고
+/// 싶어지는데, 그 모양은 조회가 만드는 것(회사명·역할명·알림 상태)과 달라
+/// 조용히 빈 칸이 생긴다.
+/// </para>
+/// </remarks>
+public class IssuedPasswordDto
+{
+    /// <summary>누구의 것인지. 창에 함께 띄워 엉뚱한 사람에게 전하지 않게 한다.</summary>
+    public string LoginId { get; set; } = string.Empty;
+
+    /// <summary>그 사람의 이름. 아이디만으로는 누구인지 확신하기 어렵다.</summary>
+    public string UserName { get; set; } = string.Empty;
+
+    /// <summary>발급한 평문. <b>이 응답에만 담긴다.</b></summary>
+    public string Password { get; set; } = string.Empty;
+}

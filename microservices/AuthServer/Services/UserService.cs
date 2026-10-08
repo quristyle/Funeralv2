@@ -671,6 +671,70 @@ public class UserService : IUserService
     }
 
     /// <summary>
+    /// 관리자가 그 계정의 비밀번호를 초기화한다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// [등록과 같은 길을 쓴다]
+    /// </para>
+    ///
+    /// <para>
+    /// 발급(<see cref="InitialPassword.Issue"/>) · 해시 저장 · 만료 시계를
+    /// <see cref="CreateAccountAsync"/> 와 똑같이 한다. 「관리자가 건네주는
+    /// 비밀번호」라는 점에서 둘은 같은 일이고, 갈라 적으면 한쪽만 고쳐져
+    /// <b>초기화한 계정만 비밀번호를 안 바꿔도 되는</b> 식으로 어긋난다.
+    /// </para>
+    ///
+    /// <para>
+    /// [발급한 평문은 여기서만 손에 있다]
+    /// </para>
+    ///
+    /// <para>
+    /// 저장은 해시뿐이라 돌려준 뒤에는 서버에도 없다. 로그에도 적지 않는다 —
+    /// 로그는 사람이 많이 보고 오래 남는다.
+    /// </para>
+    ///
+    /// <para>
+    /// [비밀번호 찾기 링크는 건드리지 않는다]
+    /// </para>
+    ///
+    /// <para>
+    /// 아직 안 쓴 링크가 남아 있어도 그대로 둔다. 그 링크를 쓰면 본인이 정한
+    /// 값이 되고 — 그것도 「본인이 비밀번호를 바꾼 것」이라 문제가 없다.
+    /// </para>
+    /// </remarks>
+    public async Task<IssuedPasswordDto?> ResetAccountPasswordAsync(string id)
+    {
+        // 화면은 계정 식별자로 부르지만 로그인 아이디로도 찾을 수 있게 둔다 —
+        // 다른 서비스가 손에 든 것이 그쪽일 때가 있다(ChangePasswordAsync 와 같다).
+        var account = await _db.Accounts
+            .FirstOrDefaultAsync(a => a.Id == id || a.UserId == id);
+
+        if (account == null) return null;
+
+        var issued = InitialPassword.Issue(_config);
+
+        account.Password = PasswordHasher.Hash(issued);
+
+        // 받은 사람이 첫 로그인에서 곧바로 바꾸게 한다. 관리자 손을 거쳐
+        // 전달되는 값이라 애초에 만료된 것으로 두는 편이 사실에 가깝다.
+        account.PasswordChangedAt = PasswordPolicy.AlreadyExpiredAt(
+            PasswordPolicy.ExpiryDays(_config), DateTime.UtcNow);
+
+        await _db.SaveChangesAsync();
+
+        return new IssuedPasswordDto
+        {
+            LoginId = account.UserId,
+
+            // 이름 칸은 비어 있을 수 있다(`Account.UserName` 이 nullable).
+            // 창에 「누구의 것인지」로 뜨는 값이라 null 을 그대로 넘기지 않는다.
+            UserName = account.UserName ?? string.Empty,
+            Password = issued
+        };
+    }
+
+    /// <summary>
     /// 로그인한 사용자의 프로필 정보를 업데이트합니다.
     /// 이메일·전화번호는 다른 계정이 이미 쓰고 있으면 거부한다 — Error 에 사람이 읽을 이유를 담는다.
     /// </summary>

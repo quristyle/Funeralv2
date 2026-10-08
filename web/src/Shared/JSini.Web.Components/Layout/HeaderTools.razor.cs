@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Components;
+﻿using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.JSInterop;
 using JSini.Web.Abstractions;
@@ -127,7 +127,7 @@ public partial class HeaderTools
     /// 권한과 화면 크기로 걸러진 목록에서 찾는다. <b>원본(<c>AllMenus</c>)이 아니다</b> —
     /// 그쪽에서 찾으면 볼 권한이 없는 사람에게도 단추가 나온다.
     /// </summary>
-    private MenuNode? AskMenu => FindMenu(Menus.VisibleMenus, AskRouteKey, AskPath);
+    private MenuNode? AskMenu => MenuLookup.Find(Menus.VisibleMenus, AskRouteKey, AskPath);
 
     /// <summary>「AI 작업 요청」 화면의 열쇠. ⚡ 를 못 쓰는 사람의 노란 번개가 간다.</summary>
     private const string RequestRouteKey = "projmng.ai.request";
@@ -139,7 +139,7 @@ public partial class HeaderTools
     /// 요청 화면 메뉴. <see cref="AskMenu"/> 와 같은 까닭으로 <b>걸러진 목록</b>에서
     /// 찾는다 — 볼 권한이 없는 사람에게는 노란 번개도 안 뜬다.
     /// </summary>
-    private MenuNode? RequestMenu => FindMenu(Menus.VisibleMenus, RequestRouteKey, RequestPath);
+    private MenuNode? RequestMenu => MenuLookup.Find(Menus.VisibleMenus, RequestRouteKey, RequestPath);
 
     /// <summary>
     /// 노란 번개에 얹는 글. <b>흰 번개가 옆에 있으면 둘을 갈라 적는다</b> —
@@ -148,25 +148,6 @@ public partial class HeaderTools
     private string RequestTitle(MenuNode request) => AskMenu is null
         ? $"{request.Title} — 빠른 지시 요청 (관리자가 확인해 실행합니다)"
         : $"{request.Title} — 적어 두는 요청 (지금 돌리지 않는다)";
-
-    private static MenuNode? FindMenu(IReadOnlyList<MenuNode> nodes, string routeKey, string path)
-    {
-        foreach (var node in nodes)
-        {
-            if (string.Equals(node.RouteKey, routeKey, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(node.Path, path, StringComparison.OrdinalIgnoreCase))
-            {
-                return node;
-            }
-
-            if (FindMenu(node.Children, routeKey, path) is { } hit)
-            {
-                return hit;
-            }
-        }
-
-        return null;
-    }
 
     protected override void OnInitialized()
     {

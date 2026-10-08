@@ -1,4 +1,4 @@
-using JSini.Web.Models;
+﻿using JSini.Web.Models;
 
 namespace JSini.Web.Admin.Api;
 
@@ -182,6 +182,22 @@ public sealed class AccountDto
         get => BirthDate?.ToDateTime(TimeOnly.MinValue);
         set => BirthDate = value is null ? null : DateOnly.FromDateTime(value.Value);
     }
+}
+
+/// <summary>
+/// 관리자가 비밀번호를 초기화하고 받아 오는 값. AuthServer 의
+/// <c>IssuedPasswordDto</c> 와 짝이다.
+/// </summary>
+/// <remarks>
+/// <b>이 응답을 놓치면 아무도 그 값을 알 수 없다</b> — 서버는 해시만 들고
+/// 있다. <see cref="AccountDto.InitialPassword"/> 와 같은 규칙이라 화면도
+/// 같은 창으로 보여 준다.
+/// </remarks>
+public sealed class IssuedPasswordDto
+{
+    public string LoginId { get; set; } = string.Empty;
+    public string UserName { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
 }
 
 /// <summary>권한 그룹.</summary>

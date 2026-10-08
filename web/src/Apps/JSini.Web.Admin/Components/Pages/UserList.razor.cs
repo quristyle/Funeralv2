@@ -1,6 +1,8 @@
-using Microsoft.AspNetCore.Components;
+﻿using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
 using JSini.Web.Http;
 using JSini.Web.Components.Data;
+using JSini.Web.Components.Layout;
 using JSini.Web.Admin.Api;
 
 namespace JSini.Web.Admin.Components.Pages;
@@ -8,6 +10,9 @@ namespace JSini.Web.Admin.Components.Pages;
 public partial class UserList
 {
     [Inject] private AdminClient Api { get; set; } = default!;
+
+    /// <summary>발급한 비밀번호를 클립보드로 옮길 때만 쓴다.</summary>
+    [Inject] private IJSRuntime Js { get; set; } = default!;
 
     /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
     private string ConditionSummary => SchSummary.Of(
@@ -27,10 +32,28 @@ public partial class UserList
     private string? _keyword;
     private string? _status;
 
-    /// <summary>방금 만든 계정의 첫 비밀번호를 띄우는 창.</summary>
+    /// <summary>
+    /// 서버가 발급한 비밀번호를 띄우는 창. <b>등록과 초기화가 같이 쓴다</b> —
+    /// 둘 다 「지금 한 번만 보이는 평문」이라 보여 주는 일이 똑같다.
+    /// </summary>
     private bool _issuedVisible;
     private string? _issuedLoginId;
+    private string? _issuedUserName;
     private string? _issuedPassword;
+
+    /// <summary>초기화로 연 창인가. 머리말 한 줄만 이 값으로 갈린다.</summary>
+    private bool _issuedIsReset;
+
+    /// <summary>복사를 눌렀는가. 단추 글자가 「복사됨」으로 바뀐다.</summary>
+    private bool _issuedCopied;
+
+    /// <summary>창에 적을 「누구의 것인지」. 이름을 모르면 아이디만 적는다.</summary>
+    private string IssuedWho => string.IsNullOrWhiteSpace(_issuedUserName)
+        ? _issuedLoginId ?? string.Empty
+        : $"{_issuedLoginId} ({_issuedUserName})";
+
+    /// <summary>초기화를 묻는 창.</summary>
+    private ConfirmDialog? _confirm;
 
     // PENDING 은 거르기에만 있고 편집 목록(StatusOptions)에는 없다. 승인은
     // [가입 신청] 화면이 하는 일이라, 여기서 손으로 PENDING 을 지정하면
@@ -314,13 +337,118 @@ public partial class UserList
         // 읽힌다. 설정으로 고정 비밀번호를 쓰는 경우에도 그 값이 그대로 온다.
         if (!string.IsNullOrEmpty(created?.InitialPassword))
         {
-            _issuedLoginId = created.LoginId;
-            _issuedPassword = created.InitialPassword;
-            _issuedVisible = true;
+            ShowIssued(created.LoginId, created.UserName, created.InitialPassword, isReset: false);
         }
     }
 
     private Task DeleteAsync(AccountDto a) => Api.DeleteAccountAsync(a.Id);
+
+    /// <summary>
+    /// 그 사람의 비밀번호를 초기화하고, 서버가 발급한 값을 창에 띄운다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// [먼저 묻는다]
+    /// </para>
+    ///
+    /// <para>
+    /// 되돌릴 수 없다 — 지금 쓰던 비밀번호는 해시뿐이라 <b>되살릴 방법이
+    /// 없고</b>, 잘못 눌린 줄의 사람은 다음 로그인에서 막힌다. 표 안의 작은
+    /// 아이콘 단추라 더욱 그렇다(<c>ConfirmDialog</c> 머리말).
+    /// </para>
+    ///
+    /// <para>
+    /// 물음에 <b>누구인지 적는다.</b> 「정말 초기화합니까」만으로는 어느 줄을
+    /// 눌렀는지 확인할 수 없어 묻는 뜻이 절반 없어진다.
+    /// </para>
+    ///
+    /// <para>
+    /// [목록을 다시 읽지 않는다]
+    /// </para>
+    ///
+    /// <para>
+    /// 바뀌는 것이 비밀번호 하나이고 그 값은 목록에 없다. 다시 읽으면 창이
+    /// 떠 있는 동안 표가 깜빡이기만 한다.
+    /// </para>
+    /// </remarks>
+    private async Task ResetPasswordAsync(AccountDto a)
+    {
+        var who = string.IsNullOrWhiteSpace(a.UserName)
+            ? a.LoginId
+            : $"{a.UserName}({a.LoginId})";
+
+        if (_confirm is null
+            || !await _confirm.AskAsync(
+                $"「{who}」 의 비밀번호를 새로 발급합니다. 지금 쓰던 비밀번호는 바로 못 쓰게 됩니다.",
+                title: "비밀번호 초기화",
+                confirmText: "초기화"))
+        {
+            return;
+        }
+
+        IssuedPasswordDto? issued = null;
+
+        var ok = await RunAsync(
+            async () => issued = await Api.ResetAccountPasswordAsync(a.Id),
+            "비밀번호를 초기화했습니다.",
+            "비밀번호를 초기화하지 못했습니다");
+
+        // 성공했는데 값이 비어 있으면 창을 띄우지 않는다. 빈 칸을 보여 주면
+        // 「이것이 새 비밀번호인가」로 읽힌다 — 등록과 같은 규칙이다.
+        if (ok && !string.IsNullOrEmpty(issued?.Password))
+        {
+            ShowIssued(issued.LoginId, issued.UserName, issued.Password, isReset: true);
+        }
+    }
+
+    /// <summary>발급받은 값을 창에 올린다. 등록과 초기화가 같이 쓴다.</summary>
+    private void ShowIssued(string? loginId, string? userName, string password, bool isReset)
+    {
+        _issuedLoginId = loginId;
+        _issuedUserName = userName;
+        _issuedPassword = password;
+        _issuedIsReset = isReset;
+
+        // 앞서 띄운 창에서 눌러 둔 표시를 지운다. 안 지우면 새 값을 띄우면서
+        // 「복사됨」이라고 적혀 있어, 복사한 적 없는 값을 복사한 줄 안다.
+        _issuedCopied = false;
+
+        _issuedVisible = true;
+    }
+
+    /// <summary>
+    /// 발급한 비밀번호를 클립보드로 옮긴다.
+    /// </summary>
+    /// <remarks>
+    /// 실패해도 창은 그대로 둔다 — 칸의 값은 눈앞에 있으니 손으로 옮겨 적을 수
+    /// 있다. <c>jsiniClipboard.copy</c> 가 안전하지 않은 문맥(사내 http)까지
+    /// 감당하고 된 것을 돌려준다.
+    /// </remarks>
+    private async Task CopyIssuedAsync()
+    {
+        if (string.IsNullOrEmpty(_issuedPassword))
+        {
+            return;
+        }
+
+        bool copied;
+
+        try
+        {
+            copied = await Js.InvokeAsync<bool>("jsiniClipboard.copy", _issuedPassword);
+        }
+        catch (JSException)
+        {
+            copied = false;
+        }
+
+        _issuedCopied = copied;
+
+        if (!copied)
+        {
+            Say("복사하지 못했습니다. 칸의 값을 직접 옮겨 적으십시오.", NoticeTone.Error);
+        }
+    }
 
     /// <summary>부서는 나무로 온다. 고르개에는 펴서 준다.</summary>
     private static List<DeptDto> Flatten(IEnumerable<DeptDto> nodes)
