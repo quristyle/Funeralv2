@@ -52,6 +52,8 @@ public sealed class AiTaskService(
              AND n.read_dt IS NULL ) AS UnreadNoteCount,
         a.target_key      AS TargetKey,
         b.target_nm       AS TargetNm,
+        b.target_kind     AS TargetKind,
+        b.repo_url        AS TargetRepoUrl,
         b.target_path     AS TargetPath,
         COALESCE(b.allow_push, false) AS TargetAllowPush,
         b.runner_kinds    AS TargetRunnerKinds,

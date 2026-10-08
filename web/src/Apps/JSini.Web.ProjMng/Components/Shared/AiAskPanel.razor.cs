@@ -205,6 +205,20 @@ public partial class AiAskPanel
     /// <summary>글상자를 집는 선택자. <b>제 상자 안에서만 찾는다.</b></summary>
     private string DraftSelector => $"#{_domId} .pm-ask__text";
 
+    private static string TargetKindText(AiTaskDto task) =>
+        task.TargetKind == "folder" ? "폴더" : "저장소";
+
+    private static string? TargetName(AiTaskDto task)
+    {
+        var name = task.TargetKind == "folder"
+            ? task.TargetNm
+            : string.IsNullOrWhiteSpace(task.TargetRepoUrl)
+                ? task.TargetNm
+                : task.TargetRepoUrl;
+
+        return string.IsNullOrWhiteSpace(name) ? null : name;
+    }
+
     private string? Text
     {
         get => _text;

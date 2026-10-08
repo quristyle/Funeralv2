@@ -656,6 +656,16 @@
                                 <span class="pm-ask__line pm-ask__line--sub">
                                     <span class="pm-ask__when">@AiTaskWhen.RunAt(t, compact: true)</span>
 
+                                    @if (TargetName(t) is { } targetName)
+                                    {
+                                        <span class="pm-ask__target"
+                                              title="@($"{TargetKindText(t)}: {targetName}")"
+                                              aria-label="@($"{TargetKindText(t)}: {targetName}")">
+                                            <span class="pm-ask__target-kind">@TargetKindText(t)</span>
+                                            @targetName
+                                        </span>
+                                    }
+
                                     @* 파일이 붙어 간 건이라는 표시. **개수만 적는다** —
                                        반 폭 카드에서 이름까지 적으면 제목이 먹는 자리를
                                        빼앗는다. 무엇이 붙었는지는 눌러서 본다. *@

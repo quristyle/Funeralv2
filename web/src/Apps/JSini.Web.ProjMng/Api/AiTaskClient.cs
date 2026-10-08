@@ -451,6 +451,9 @@ public sealed class AiTaskDto
     /// <summary>읽기 전용 — 서버가 조인해 준다.</summary>
     public string? TargetNm { get; set; }
 
+    public string? TargetKind { get; set; }
+    public string? TargetRepoUrl { get; set; }
+
     /// <summary>읽기 전용.</summary>
     public string? TargetPath { get; set; }
 

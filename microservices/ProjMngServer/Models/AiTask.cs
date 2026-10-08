@@ -95,6 +95,12 @@ public sealed class AiTask
     /// <summary>대상 이름. 조인해 온다 — <b>읽기 전용</b>.</summary>
     public string? TargetNm { get; set; }
 
+    /// <summary>대상 종류(<c>repo</c> · <c>folder</c>). 조인해 온다 — <b>읽기 전용</b>.</summary>
+    public string? TargetKind { get; set; }
+
+    /// <summary>저장소 주소. 조인해 온다 — <b>읽기 전용</b>.</summary>
+    public string? TargetRepoUrl { get; set; }
+
     /// <summary>대상 경로. 조인해 온다 — <b>읽기 전용</b>.</summary>
     public string? TargetPath { get; set; }
 

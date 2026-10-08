@@ -2756,6 +2756,21 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
   opacity: 0.65;
 }
 
+.pm-ask__target {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8em;
+  opacity: 0.75;
+}
+
+.pm-ask__target-kind {
+  font-weight: 700;
+}
+
 /* 아직 안 읽은 남긴말. **내가 올린 요청 카드에만 선다**(`IsMine`).
 
    「AI 작업 요청」 목록의 것과 같은 모양이다(`pm-req__new`) — 두 화면에서
