@@ -66,6 +66,9 @@ builder.Services.AddSingleton<CliRelay>();
 //
 // 그래서 HttpClient 자체의 Timeout 은 끈다(무한). 공급자별로 달라야 하는데
 // HttpClient 는 하나뿐이라 여기서 정할 수가 없다.
+// LLM 장비 하드웨어 상태. 추론과 같은 주소·같은 키를 쓰므로 설정이 따로 없다.
+builder.Services.AddHttpClient<LlmHostMetricsClient>();
+
 builder.Services.AddHttpClient<ILLMService, LLMService>()
     .ConfigurePrimaryHttpMessageHandler(sp => new SocketsHttpHandler
     {

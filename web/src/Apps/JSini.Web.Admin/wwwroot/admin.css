@@ -3227,3 +3227,120 @@
   font-size: var(--jsini-fs-xs);
   color: var(--jsini-text-dim);
 }
+
+/* ── LLM 장비 상태 ────────────────────────────────────────────
+   GPU 두 장을 나란히 놓고, 아래로 CPU·메모리·서비스·디스크를 쌓는다.
+   카드 틀(.ad-card)과 배지(.jsini-badge)는 MSA 서버 상태 화면과 같은 것을 쓴다 */
+
+.ad-llm__head {
+    margin: 1.5rem 0 .6rem;
+    font-size: .95rem;
+    font-weight: 600;
+    color: var(--tb-text);
+    display: flex;
+    align-items: baseline;
+    gap: .6rem;
+}
+
+.ad-llm__dim { color: var(--tb-muted); font-weight: 400; font-size: .85em; }
+
+.ad-llm__panel {
+    background: var(--tb-surface);
+    border: 1px solid var(--tb-border);
+    border-radius: .5rem;
+    padding: .75rem 1rem;
+    overflow-x: auto;
+}
+
+/* 가로로 채우는 막대 — VRAM·메모리 */
+.ad-llm__bar {
+    position: relative;
+    height: 1.5rem;
+    background: var(--tb-surface-3);
+    border-radius: .25rem;
+    overflow: hidden;
+    margin-bottom: .6rem;
+}
+
+.ad-llm__bar-fill { height: 100%; transition: width .4s ease; }
+.ad-llm__bar--up   { background: rgba(var(--tb-green-rgb), .45); }
+.ad-llm__bar--warn { background: rgba(var(--tb-yellow-rgb), .5); }
+.ad-llm__bar--down { background: rgba(var(--tb-red-rgb), .45); }
+
+.ad-llm__bar-text {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .78rem;
+    color: var(--tb-text);
+}
+
+/* 이름-값 줄. 칸이 좁아지면 한 줄로 접힌다 */
+.ad-llm__kv {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: .25rem .75rem;
+    margin: 0 0 .4rem;
+    font-size: .82rem;
+}
+
+.ad-llm__kv dt { color: var(--tb-muted); white-space: nowrap; }
+.ad-llm__kv dd { margin: 0; }
+
+/* 코어별 막대. 서른두 개가 한 줄에 들어가야 해서 세로 막대다 */
+.ad-llm__cores {
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 2.2rem;
+    margin-top: .5rem;
+}
+
+.ad-llm__core {
+    flex: 1 1 auto;
+    min-width: 3px;
+    height: 100%;
+    background: var(--tb-surface-3);
+    border-radius: 1px;
+    display: flex;
+    align-items: flex-end;
+}
+
+.ad-llm__core-fill { width: 100%; border-radius: 1px; transition: height .4s ease; }
+
+.ad-llm__procs { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .4rem; }
+
+.ad-llm__proc {
+    background: var(--tb-surface-3);
+    border-radius: .25rem;
+    padding: .15rem .45rem;
+    font-size: .76rem;
+    display: inline-flex;
+    gap: .35rem;
+    align-items: baseline;
+}
+
+.ad-llm__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .82rem;
+    margin-bottom: .5rem;
+}
+
+.ad-llm__table th,
+.ad-llm__table td {
+    text-align: left;
+    padding: .35rem .5rem;
+    border-bottom: 1px solid var(--tb-border);
+    white-space: nowrap;
+}
+
+.ad-llm__table th { color: var(--tb-muted); font-weight: 500; }
+.ad-llm__table tr:last-child td { border-bottom: none; }
+
+/* 0 이 아니면 눈에 걸려야 하는 숫자 — 재시작 횟수·오류 수 */
+.ad-llm__warnnum { color: var(--tb-red); font-weight: 600; }
+
+.ad-llm__foot { display: block; margin-top: 1rem; }

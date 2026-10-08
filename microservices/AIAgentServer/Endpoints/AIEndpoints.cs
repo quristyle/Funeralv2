@@ -25,6 +25,32 @@ public static class AIEndpoints
         // 공급자가 목록에 남는다.
         //
         // **키는 절대 내보내지 않는다.** 설정이 됐는지 여부(`configured`)만 알려 준다.
+        // ── LLM 장비 하드웨어 상태 ───────────────────────────────
+        //
+        // 포털의 「LLM 장비 상태」 화면이 이것을 읽는다. 장비가 내부망에 있어
+        // 브라우저가 직접 못 묻고, 컨테이너에 SSH 키를 넣는 것도 피했다 —
+        // **추론에 쓰는 바로 그 길(nginx + Bearer)을 그대로 탄다.**
+        //
+        // 장비가 꺼져 있어도 200 으로 답한다. `reachable=false` 와 까닭을 담아
+        // 보내야 화면이 「왜 안 보이는지」를 말할 수 있다. 500 으로 끊으면
+        // 화면에는 그냥 빈 자리만 남는다.
+        group.MapGet("/llm/hardware", async (
+            [FromServices] LlmHostMetricsClient client,
+            CancellationToken ct) =>
+        {
+            var r = await client.ReadAsync(ct);
+
+            return Results.Ok(ApiResponse<object>.Ok(new
+            {
+                reachable = r.Reachable,
+                message = r.Message,
+                endpoint = r.Endpoint,
+                metrics = r.Metrics,
+            }));
+        })
+        .WithName("GetLlmHardware")
+        .WithSummary("LLM 장비의 GPU·CPU·메모리·디스크·서비스 상태");
+
         group.MapGet("/providers", ([FromServices] AiProviderRegistry registry) =>
         {
             var list = registry.All.Select(p =>

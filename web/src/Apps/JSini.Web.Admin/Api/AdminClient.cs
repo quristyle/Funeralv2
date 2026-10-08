@@ -483,6 +483,17 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task<SocialConfigStatusDto?> GetSocialConfigStatusAsync(CancellationToken ct = default)
         => gateway.GetOneAsync<SocialConfigStatusDto>("auth/social/config-status", ct);
 
+    /// <summary>
+    /// LLM 장비의 하드웨어 상태 (GPU · CPU · 메모리 · 디스크 · 서비스).
+    ///
+    /// <para>
+    /// <b>장비가 꺼져 있어도 예외가 아니다.</b> <c>Reachable=false</c> 와 까닭이
+    /// 담겨 온다 — 「왜 안 보이는지」가 화면이 말해야 하는 것 중 하나라서다.
+    /// </para>
+    /// </summary>
+    public Task<LlmHardwareDto?> GetLlmHardwareAsync(CancellationToken ct = default)
+        => gateway.GetOneAsync<LlmHardwareDto>("ai/llm/hardware", ct);
+
     /// <summary>제공자별로 고를 수 있는 모델 목록.</summary>
     public Task<IReadOnlyList<AiProviderModelsDto>> GetAiModelsAsync(CancellationToken ct = default)
         => gateway.GetListAsync<AiProviderModelsDto>("ai/models", ct);
