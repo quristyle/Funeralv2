@@ -1,5 +1,6 @@
 using AIAgentServer.Data;
 using AIAgentServer.DTOs;
+using AIAgentServer.Services;
 using JSini.Shared.DTOs;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -20,14 +21,21 @@ namespace AIAgentServer.Endpoints;
 /// </para>
 ///
 /// <para>
-/// [관리자만 본다 — <b>서버에서 한 번 더 본다</b>]
+/// [<b>그 화면을 볼 수 있는 사람</b>이면 조회한다 — 서버에서 한 번 더 본다]
 /// </para>
 ///
 /// <para>
 /// 게이트웨이의 <c>ai-route</c> 는 <c>/api/ai/**</c> 를 통째로 <b>익명</b>으로
 /// 열어 둔다(대화 자체가 그 길로 가기 때문이다). 그래서 화면의 메뉴 권한만
 /// 믿으면 주소를 아는 누구나 <b>동료가 무엇을 얼마나 묻는지</b> 받아 갈 수 있다.
-/// 배포 현황·오류 추적과 같은 판정을 여기서도 한다.
+/// </para>
+///
+/// <para>
+/// 다만 <b>역할 이름을 여기 적지 않는다.</b> 처음에는 배포 현황·오류 추적처럼
+/// 손으로 적어 두었는데, 이 메뉴는 <c>SERVER_ADMIN</c> 에게도 열려 있어서 그
+/// 역할을 가진 사람이 <b>사이드바에는 메뉴가 보이는데 조회하면 403</b> 이었다.
+/// 지금은 사이드바와 <b>같은 표</b>(<c>scom.role_menus</c>)에 묻는다 —
+/// <see cref="Services.MenuAccess"/> 머리말에 자세히 적었다.
 /// </para>
 ///
 /// <para>
@@ -62,9 +70,10 @@ public static class AiUsageEndpoints
             [FromQuery] DateTime? to,
             [FromQuery] string? feature,
             [FromServices] AiUsageDbContext db,
+            [FromServices] MenuAccess access,
             CancellationToken ct) =>
         {
-            if (Forbid(user, http) is { } denied) return denied;
+            if (await ForbidAsync(user, http, access, ct) is { } denied) return denied;
 
             var (start, end) = Window(from, to);
 
@@ -128,9 +137,10 @@ public static class AiUsageEndpoints
             [FromQuery] string? feature,
             [FromQuery] string? userId,
             [FromServices] AiUsageDbContext db,
+            [FromServices] MenuAccess access,
             CancellationToken ct) =>
         {
-            if (Forbid(user, http) is { } denied) return denied;
+            if (await ForbidAsync(user, http, access, ct) is { } denied) return denied;
 
             var (start, end) = Window(from, to);
             var query = Filtered(db, start, end, feature);
@@ -230,27 +240,41 @@ public static class AiUsageEndpoints
         return (start, end);
     }
 
+    /// <summary>이 화면의 열쇠. 화면이 <c>RouteKey</c> 로 선언한 글자와 같아야 한다.</summary>
+    private const string UsageRouteKey = "admin.status.ai-usage";
+
+    /// <summary>열쇠가 아직 안 채워진 DB 를 위한 경로 대비책.</summary>
+    private static readonly string[] UsagePaths = ["/admin/status/ai-usage"];
+
     /// <summary>
     /// 볼 수 있는 사람인가. 막아야 하면 그 응답을, 통과면 <c>null</c> 을 준다.
     /// </summary>
-    private static IResult? Forbid(UserContext? user, HttpContext http)
+    /// <remarks>
+    /// <b>역할 이름을 여기서 따지지 않는다.</b> 메뉴 권한표에 묻는다 —
+    /// 사이드바가 그 메뉴를 보여 주기로 한 근거와 같은 값이라, 「보이는데
+    /// 누르면 403」이 생기지 않는다(<see cref="MenuAccess"/> 머리말).
+    /// </remarks>
+    private static async Task<IResult?> ForbidAsync(
+        UserContext? user, HttpContext http, MenuAccess access, CancellationToken ct)
     {
         if (user is null) return Results.Unauthorized();
 
-        // `X-User-Role` 은 첫 역할 하나뿐이라 전체 목록으로 함께 본다.
-        // 배포 현황(DeployStatusEndpoints) · 오류 추적(PortalErrorEndpoints)과
-        // 같은 판정이다. 공용으로 묶지 않은 까닭도 같다 — 한쪽을 넓히고 싶을 때
-        // 「남이 무엇을 물었는지 볼 수 있는 사람」이 말없이 따라 넓어지면 안 된다.
+        // `X-User-Role` 은 첫 역할 하나뿐이라 전체 목록(`X-User-Roles`)으로 함께 본다.
+        // 역할이 여럿인 계정에서 그 하나만 보면 나머지 역할로 받은 권한이 사라진다.
         var roles = http.Request.Headers["X-User-Roles"].ToString()
-            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Concat(string.IsNullOrWhiteSpace(user.Role) ? [] : new[] { user.Role })
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
 
-        var isAdmin = roles.Contains("ADMINISTRATOR") || roles.Contains("SYSTEM_ADMINISTRATOR")
-                   || user.Role is "ADMINISTRATOR" or "SYSTEM_ADMINISTRATOR";
+        if (await access.CanViewAsync(roles, UsageRouteKey, UsagePaths, ct))
+        {
+            return null;
+        }
 
-        return isAdmin
-            ? null
-            : Results.Json(
-                ApiResponse<object>.Fail("관리자만 볼 수 있습니다.", "403"),
-                statusCode: StatusCodes.Status403Forbidden);
+        return Results.Json(
+            ApiResponse<object>.Fail(
+                "이 화면을 볼 권한이 없습니다. 메뉴 권한에서 역할을 확인하세요.", "403"),
+            statusCode: StatusCodes.Status403Forbidden);
     }
 }

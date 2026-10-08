@@ -43,6 +43,16 @@ public class AiUsageDbContext(DbContextOptions<AiUsageDbContext> options) : DbCo
     /// </summary>
     public DbSet<AiUsageAccountRow> Accounts => Set<AiUsageAccountRow>();
 
+    // ── 메뉴 권한 (읽기 전용) ───────────────────────────────
+    //
+    // 「이 화면을 볼 수 있는 사람인가」를 **사이드바와 같은 표에 묻는다.**
+    // 정본은 AuthServer 이고 여기서는 절대 쓰지 않는다 — 계정 이름을 읽는
+    // 것과 같은 자리다(Services/MenuAccess.cs 머리말).
+
+    public DbSet<SystemMenuRow> SystemMenus => Set<SystemMenuRow>();
+
+    public DbSet<RoleMenuRow> RoleMenus => Set<RoleMenuRow>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -72,6 +82,27 @@ public class AiUsageDbContext(DbContextOptions<AiUsageDbContext> options) : DbCo
             e.Property(x => x.Id).HasColumnName("id");
             e.Property(x => x.UserId).HasColumnName("user_id");
             e.Property(x => x.UserName).HasColumnName("user_name");
+        });
+
+        modelBuilder.Entity<SystemMenuRow>(e =>
+        {
+            e.ToTable("system_menus", "scom");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("id");
+            e.Property(x => x.Path).HasColumnName("path");
+            e.Property(x => x.RouteKey).HasColumnName("route_key");
+            e.Property(x => x.IsDeleted).HasColumnName("is_deleted");
+        });
+
+        modelBuilder.Entity<RoleMenuRow>(e =>
+        {
+            e.ToTable("role_menus", "scom");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("id");
+            e.Property(x => x.RoleId).HasColumnName("role_id");
+            e.Property(x => x.MenuId).HasColumnName("menu_id");
+            e.Property(x => x.CanView).HasColumnName("can_view");
+            e.Property(x => x.IsDeleted).HasColumnName("is_deleted");
         });
     }
 }
@@ -122,4 +153,33 @@ public class AiUsageAccountRow
     public string UserId { get; set; } = string.Empty;
 
     public string? UserName { get; set; }
+}
+
+/// <summary>메뉴 한 줄. <b>조회 전용이다</b> — 열쇠로 메뉴를 찾는 데만 쓴다.</summary>
+public class SystemMenuRow
+{
+    public string Id { get; set; } = string.Empty;
+
+    /// <summary>DB 의 경로. 아직 Vue 시절 값이 남아 있을 수 있다.</summary>
+    public string Path { get; set; } = string.Empty;
+
+    /// <summary>화면이 선언한 열쇠(<c>RouteKeyAttribute</c>). 이것으로 찾는다.</summary>
+    public string? RouteKey { get; set; }
+
+    public bool IsDeleted { get; set; }
+}
+
+/// <summary>역할이 메뉴에 가진 권한. <b>조회 전용이다.</b></summary>
+public class RoleMenuRow
+{
+    public int Id { get; set; }
+
+    public string RoleId { get; set; } = string.Empty;
+
+    public string MenuId { get; set; } = string.Empty;
+
+    /// <summary>그 화면을 열 수 있는가. 사이드바가 보는 것과 같은 칸이다.</summary>
+    public bool CanView { get; set; }
+
+    public bool IsDeleted { get; set; }
 }

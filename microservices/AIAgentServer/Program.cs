@@ -48,6 +48,12 @@ builder.Services.AddDbContext<AiUsageDbContext>(options => options.UseNpgsql(usa
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<AiUsageLog>();
 
+// 「이 화면을 볼 수 있는 사람인가」를 **사이드바와 같은 표**에 묻는다.
+// 역할 이름을 코드에 적으면 메뉴 권한을 넓혔을 때 조용히 어긋난다
+// (MenuAccess 머리말 — 실제로 밟았다).
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<MenuAccess>();
+
 // [AI 공급자 목록]
 // 설정(AI:Providers)을 한 번 읽어 두고 계속 쓴다. 요청마다 다시 읽을 이유가 없다.
 // 싱글턴이라 `appsettings` 를 고치면 **재기동해야 반영된다** — 이 저장소의 다른
