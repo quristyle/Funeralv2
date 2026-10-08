@@ -81,6 +81,7 @@ public class LLMService : ILLMService
     private readonly FreeModelGuard _freeModelGuard;
     private readonly AnthropicTransport _anthropic;
     private readonly CliRelay _cliRelay;
+    private readonly AiUsageLog _usage;
     private readonly ILogger<LLMService> _logger;
 
     public LLMService(
@@ -89,6 +90,7 @@ public class LLMService : ILLMService
         FreeModelGuard freeModelGuard,
         AnthropicTransport anthropic,
         CliRelay cliRelay,
+        AiUsageLog usage,
         ILogger<LLMService> logger)
     {
         _httpClient = httpClient;
@@ -96,6 +98,7 @@ public class LLMService : ILLMService
         _freeModelGuard = freeModelGuard;
         _anthropic = anthropic;
         _cliRelay = cliRelay;
+        _usage = usage;
         _logger = logger;
     }
 
@@ -116,6 +119,10 @@ public class LLMService : ILLMService
         var target = _registry.Resolve(provider);
         EnsureSystemPrompt(messages, ChatSystemPrompt);
 
+        // 사람별 사용량에 적을 시간이다. **이 메서드가 들인 시간 전체**를 잰다 —
+        // 자동 전환으로 두 번 부른 것도 사람에게는 한 번의 기다림이다.
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+
         // 대화는 약간의 창의성을 허용한다.
         AiAnswer answer;
         try
@@ -131,14 +138,40 @@ public class LLMService : ILLMService
 
             if (cliText.Length > 0)
             {
+                // CLI 가 대신 답한 것도 사용량이다. **토큰 수는 없다** —
+                // 그쪽은 호스트의 실행기를 거치므로 usage 를 돌려주지 않는다.
+                _usage.Record(
+                    AiFeature.Chat, providerKey: "cli", model: cli.DisplayName,
+                    usage: null, latencyMs: (int)sw.ElapsedMilliseconds, ok: true);
+
                 return cliText;
             }
+
+            throw;
+        }
+        catch (AiProviderException ex)
+        {
+            // 실패도 남긴다. 「많이 쓰는데 자꾸 실패한다」가 한도·장비 문제의
+            // 첫 신호라, 성공만 세면 그 신호가 통째로 안 보인다.
+            _usage.Record(
+                AiFeature.Chat, ex.ProviderKey, ex.Model,
+                usage: null, latencyMs: (int)sw.ElapsedMilliseconds,
+                ok: false, failReason: ex.Message);
 
             throw;
         }
 
         // 생각 블록은 답이 아니다. 스트리밍 쪽과 같은 판단을 여기서도 한다.
         var text = StripReasoning(answer.Text).Trim();
+
+        // **토큰은 답을 못 받았어도 썼다.** 그래서 건수와 토큰은 언제나 적고
+        // 성패만 가른다 — 전부 생각이었던 호출을 안 적으면 「토큰은 줄었는데
+        // 아무도 안 썼다」가 되고, 성공으로 적으면 쓸 수 없는 모델이 멀쩡해 보인다.
+        _usage.Record(
+            AiFeature.Chat, answer.Provider.Key, answer.Model, answer.Usage,
+            latencyMs: (int)sw.ElapsedMilliseconds,
+            ok: text.Length > 0,
+            failReason: text.Length > 0 ? null : "생각 과정만 돌려주고 답을 만들지 못했습니다.");
 
         if (text.Length == 0)
         {
@@ -165,6 +198,10 @@ public class LLMService : ILLMService
         // 전에 나므로, 답이 흘러나오기 시작한 뒤에 공급자가 바뀌는 일은 없다.
         AiCall? call = null;
         CliRelayAnswer? cliFallback = null;
+
+        // 사람이 기다린 시간. 스트리밍은 **마지막 조각까지**를 잰다.
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+
         try
         {
             call = await SendWithFailoverAsync(
@@ -175,9 +212,25 @@ public class LLMService : ILLMService
         {
             cliFallback = await AskCliFallbackAsync(BuildChatPrompt(messages), ex);
         }
+        catch (AiProviderException ex)
+        {
+            // 한 조각도 못 내보내고 끝난 경우. **여기서 적지 않으면 아무 데도
+            // 안 남는다** — 아래 고리는 시작도 못 했다.
+            _usage.Record(
+                AiFeature.ChatStream, ex.ProviderKey, ex.Model,
+                usage: null, latencyMs: (int)sw.ElapsedMilliseconds,
+                ok: false, failReason: ex.Message);
+
+            throw;
+        }
 
         if (cliFallback is not null)
         {
+            // CLI 가 대신 답했다. 토큰 수는 없다(ChatAsync 쪽과 같은 까닭).
+            _usage.Record(
+                AiFeature.ChatStream, providerKey: "cli", model: cliFallback.DisplayName,
+                usage: null, latencyMs: (int)sw.ElapsedMilliseconds, ok: true);
+
             yield return ChatStreamPart.Info($"{cliFallback.DisplayName} · CLI", "used");
             yield return ChatStreamPart.Info(
                 $"무료 AI 공급자를 사용할 수 없어 {cliFallback.DisplayName} 로 답합니다.",
@@ -247,14 +300,37 @@ public class LLMService : ILLMService
         // (OpenAI 는 `data:` 줄, Claude 는 SDK 이벤트), 여기서는 나온 글자만 거른다.
         var reasoning = new ReasoningFilter();
 
-        await foreach (var content in response.ReadDeltasAsync())
+        // [사용량은 `finally` 에서 적는다]
+        //
+        // 토큰 수는 **맨 마지막 조각**에 실려 오므로(stream_options.include_usage)
+        // 고리가 끝나야 값이 있다. 그런데 끝나는 길이 둘이다 — 다 받았거나,
+        // 중간에 끊겼거나(회선 끊김 · 사람이 창을 닫음). 뒤엣것도 토큰은 이미
+        // 썼으므로 **적지 않으면 그만큼이 통째로 사라진다.**
+        //
+        // `yield` 가 들어 있는 고리는 `catch` 로 감쌀 수 없지만 `finally` 는 된다.
+        // 끝까지 갔는지는 깃발 하나로 가른다.
+        var streamed = false;
+        try
         {
-            var visible = reasoning.Feed(content);
-            if (visible.Length > 0) yield return ChatStreamPart.Content(visible);
-        }
+            await foreach (var content in response.ReadDeltasAsync())
+            {
+                var visible = reasoning.Feed(content);
+                if (visible.Length > 0) yield return ChatStreamPart.Content(visible);
+            }
 
-        var tail = reasoning.Flush();
-        if (tail.Length > 0) yield return ChatStreamPart.Content(tail);
+            var tail = reasoning.Flush();
+            if (tail.Length > 0) yield return ChatStreamPart.Content(tail);
+
+            streamed = true;
+        }
+        finally
+        {
+            _usage.Record(
+                AiFeature.ChatStream, activeCall.Provider.Key, activeCall.Model,
+                response.Usage, latencyMs: (int)sw.ElapsedMilliseconds,
+                ok: streamed,
+                failReason: streamed ? null : "답을 끝까지 받지 못했습니다.");
+        }
 
         // 전부 생각이었다. 빈 말풍선을 남기는 것보다 무엇을 해야 하는지 알려 주는 편이 낫다.
         //
@@ -282,7 +358,7 @@ public class LLMService : ILLMService
             : "당신은 소프트웨어 엔지니어입니다. 입력된 한글 명칭을 보고, 프로그래밍 변수명으로 적합한 '영어 대문자 스네이크 케이스(SNAKE_CASE)' 코드로 변환하세요. 부연 설명 없이 오직 결과 코드만 한 줄로 출력하세요.";
 
         return await SuggestOneLinerAsync(
-            target, systemPrompt, koreanName, model,
+            AiFeature.SuggestCode, target, systemPrompt, koreanName, model,
             // 창의성보다 정확성. 추천이 매번 달라지면 쓸 수가 없다.
             temperature: 0.1,
             // Reasoning 모델은 생각하는 동안에도 토큰을 쓴다. 한 줄 답이라도 넉넉히 준다.
@@ -300,7 +376,8 @@ public class LLMService : ILLMService
             : "당신은 다국어화(i18n) 번역 전문가입니다. 소프트웨어의 번역키를 입력받아, 이에 가장 어울리는 자연스럽고 표준적인 영어 번역 결과(예: 번역키가 'ui.system.title'이면 'System Title')를 한 줄로 추천하세요. 부연 설명 없이 오직 추천 결과 한 단어/문장만 출력하세요. 마크다운 기호 등을 붙이지 마세요.";
 
         return await SuggestOneLinerAsync(
-            target, systemPrompt, key, model, temperature: 0.1, maxTokenCap: 1000);
+            AiFeature.SuggestI18n, target, systemPrompt, key, model,
+            temperature: 0.1, maxTokenCap: 1000);
     }
 
     /// <summary>
@@ -319,9 +396,14 @@ public class LLMService : ILLMService
     /// </para>
     /// </remarks>
     private async Task<string> SuggestOneLinerAsync(
-        AiProvider target, string systemPrompt, string input, string? model,
+        string feature, AiProvider target, string systemPrompt, string input, string? model,
         double temperature, int maxTokenCap)
     {
+        // 이 길도 LLM 을 쓴다. 안 적으면 「AI쳇은 조금 쓰는데 토큰이 많이
+        // 나간다」의 까닭이 화면 어디에도 안 보인다 — 자동완성은 한 번이
+        // 가볍지만 타자 칠 때마다 난다.
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+
         try
         {
             var answer = await CompleteAsync(
@@ -334,6 +416,10 @@ public class LLMService : ILLMService
                 temperature,
                 maxTokenCap,
                 requestedModel: model);
+
+            _usage.Record(
+                feature, answer.Provider.Key, answer.Model, answer.Usage,
+                latencyMs: (int)sw.ElapsedMilliseconds, ok: true);
 
             return CleanOneLiner(answer.Text, answer.Provider);
         }
@@ -352,7 +438,20 @@ public class LLMService : ILLMService
                 + $"입력: {input.Trim()}";
 
             var cli = await AskCliFallbackAsync(prompt, ex);
+
+            _usage.Record(
+                feature, providerKey: "cli", model: cli.Adapter,
+                usage: null, latencyMs: (int)sw.ElapsedMilliseconds, ok: true);
+
             return CleanCliOneLiner(cli.Text, cli.Adapter);
+        }
+        catch (AiProviderException ex)
+        {
+            _usage.Record(
+                feature, ex.ProviderKey, ex.Model, usage: null,
+                latencyMs: (int)sw.ElapsedMilliseconds, ok: false, failReason: ex.Message);
+
+            throw;
         }
     }
 
@@ -417,7 +516,12 @@ public class LLMService : ILLMService
     // ============================================================
 
     /// <summary>한 번의 호출 결과. 실제로 답한 공급자와 모델을 함께 돌려준다.</summary>
-    private readonly record struct AiAnswer(string Text, AiProvider Provider, string Model);
+    /// <param name="Usage">
+    /// 공급자가 준 토큰 수. <b><c>null</c> 은 「모른다」</b>지 0 이 아니다 —
+    /// 안 주는 공급자가 있다(<c>AiTokenUsage</c> 머리말).
+    /// </param>
+    private readonly record struct AiAnswer(
+        string Text, AiProvider Provider, string Model, AiTokenUsage? Usage);
 
     private async Task<AiAnswer> CompleteAsync(
         AiProvider requested,
@@ -435,10 +539,12 @@ public class LLMService : ILLMService
 
         var reply = await response.ReadTextAsync();
 
+        // 토큰 수는 **다 읽고 나서야** 값이 있다(AiResponseBody.Usage 머리말).
         return new AiAnswer(
             string.IsNullOrEmpty(reply) ? "죄송합니다. 응답을 생성하지 못했습니다." : reply,
             call.Provider,
-            call.Model);
+            call.Model,
+            response.Usage);
     }
 
     private static OpenAIRequest BuildRequest(
@@ -462,6 +568,17 @@ public class LLMService : ILLMService
             max_tokens = maxTokens,
             messages = messages,
             stream = stream,
+
+            // [스트리밍에도 토큰 수를 달라고 한다]
+            //
+            // 비스트리밍 응답에는 `usage` 가 늘 붙지만 스트리밍에는 기본으로
+            // 없다. 그런데 **사람이 실제로 쓰는 길이 스트리밍 쪽**이라
+            // (AI쳇·헤더 서랍이 전부 /chat/stream 이다) 이것을 안 켜면
+            // 사용량 화면의 토큰 칸이 통째로 빈다.
+            //
+            // 모르는 공급자가 있어도 안전하다 — OpenAI 규격이라 호환 공급자는
+            // 그대로 받고 모르는 쪽은 무시한다(OpenAIStreamOptions 머리말).
+            stream_options = stream ? new OpenAIStreamOptions() : null,
 
             // [유료 경로 금지 — 두 번째 방어선]
             //

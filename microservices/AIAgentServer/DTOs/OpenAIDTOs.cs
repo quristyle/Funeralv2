@@ -35,6 +35,27 @@ public class OpenAIRequest
     public bool stream { get; set; } = false;
 
     /// <summary>
+    /// 스트리밍 응답의 <b>마지막 조각에 토큰 수를 실어 달라</b>는 부탁.
+    /// 스트리밍이 아닐 때는 보내지 않는다(null → 직렬화 제외).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 비스트리밍 응답에는 <c>usage</c> 가 늘 들어 있지만 <b>스트리밍에는
+    /// 기본으로 없다</b> — 조각마다 토큰 수를 세어 보낼 수 없기 때문이다.
+    /// 이것을 켜면 <c>choices</c> 가 빈 조각이 맨 끝에 한 번 더 오고 거기에
+    /// 합계가 들어 있다. 사람별 사용량이 그 값으로 쌓인다.
+    /// </para>
+    /// <para>
+    /// <b>모르는 공급자가 있어도 안전하다.</b> OpenAI 규격의 값이라 호환
+    /// 공급자는 그대로 받고, 모르는 쪽은 무시한다 — 그때는 토큰 칸이 비고
+    /// (<c>scom.ai_usage_logs</c> 머리말) 호출 건수만 남는다.
+    /// </para>
+    /// </remarks>
+    [System.Text.Json.Serialization.JsonIgnore(
+        Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public OpenAIStreamOptions? stream_options { get; set; }
+
+    /// <summary>
     /// OpenRouter 전용 라우팅 조건. <b>다른 공급자에게는 보내지 않는다</b>(null 이면 빠진다).
     /// </summary>
     [System.Text.Json.Serialization.JsonIgnore(
@@ -107,9 +128,32 @@ public class Message
     public string content { get; set; } = string.Empty;
 }
 
+/// <summary>스트리밍에서 토큰 수를 함께 달라고 적는 자리.</summary>
+public class OpenAIStreamOptions
+{
+    public bool include_usage { get; set; } = true;
+}
+
 public class OpenAIResponse
 {
     public List<Choice> choices { get; set; } = new();
+
+    /// <summary>쓴 토큰 수. 공급자가 안 주면 null 이다.</summary>
+    public OpenAIUsage? usage { get; set; }
+}
+
+/// <summary>
+/// 공급자가 알려 준 토큰 수. <b>이 호출 한 번의 값</b>이다.
+/// </summary>
+/// <remarks>
+/// 대화는 앞의 기록을 문맥으로 다시 올려 보내므로 <see cref="prompt_tokens"/> 는
+/// 대화가 길어질수록 커진다 — 사용량 화면이 보여 주려는 값이 그것이다.
+/// </remarks>
+public class OpenAIUsage
+{
+    public int prompt_tokens { get; set; }
+    public int completion_tokens { get; set; }
+    public int total_tokens { get; set; }
 }
 
 public class Choice
@@ -132,4 +176,10 @@ public class OpenAIStreamResponse
     public long created { get; set; }
     public string model { get; set; } = string.Empty;
     public List<Choice> choices { get; set; } = new();
+
+    /// <summary>
+    /// 토큰 수. <b>맨 마지막 조각에만</b> 들어 있고 그 조각은
+    /// <see cref="choices"/> 가 비어 있다(<see cref="OpenAIStreamOptions"/>).
+    /// </summary>
+    public OpenAIUsage? usage { get; set; }
 }

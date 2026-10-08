@@ -998,6 +998,40 @@ public sealed class AdminClient(GatewayClient gateway)
         => gateway.GetListAsync<PortalErrorDto>(
             $"auth/portal-errors/{Uri.EscapeDataString(trace.Trim())}", ct);
 
+    // ── AI 사용량 ───────────────────────────────────────────
+    //
+    // **자료를 만드는 쪽이 들고 있다**(AIAgentServer). 읽는 길만 다른 서비스에
+    // 두면 같은 표를 둘이 알게 되고, 칸을 늘릴 때 한쪽만 고쳐진다.
+    //
+    // 날짜는 **UTC 로** 보낸다. 화면이 고르는 것은 한국 날짜이고 그 경계를
+    // 옮기는 일은 화면이 한다 — 여기서 또 만지면 두 번 옮겨진다.
+
+    /// <summary>사람별 사용량 집계. 토큰이 많은 순이다.</summary>
+    public Task<IReadOnlyList<AiUsageByUserDto>> GetAiUsageByUserAsync(
+        DateOnly? from = null, DateOnly? to = null, string? feature = null,
+        CancellationToken ct = default)
+        => gateway.GetListAsync<AiUsageByUserDto>(
+            "ai/usage/by-user" + Query(
+                ("from", from?.ToString("yyyy-MM-dd")),
+                ("to", to?.ToString("yyyy-MM-dd")),
+                ("feature", feature)),
+            ct);
+
+    /// <summary>
+    /// 최근 호출. <b>집계가 답하지 못하는 「왜 많은가」를 보는 자리다.</b>
+    /// 서버가 200줄에서 자른다.
+    /// </summary>
+    public Task<IReadOnlyList<AiUsageCallDto>> GetAiUsageRecentAsync(
+        DateOnly? from = null, DateOnly? to = null, string? feature = null,
+        string? userId = null, CancellationToken ct = default)
+        => gateway.GetListAsync<AiUsageCallDto>(
+            "ai/usage/recent" + Query(
+                ("from", from?.ToString("yyyy-MM-dd")),
+                ("to", to?.ToString("yyyy-MM-dd")),
+                ("feature", feature),
+                ("userId", userId)),
+            ct);
+
     /// <summary>쿼리스트링을 만든다. 값이 null 이거나 빈 문자열이면 뺀다.</summary>
     private static string Query(params (string Key, object? Value)[] parameters)
     {

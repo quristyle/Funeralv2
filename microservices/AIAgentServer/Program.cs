@@ -1,5 +1,7 @@
+using AIAgentServer.Data;
 using AIAgentServer.Endpoints;
 using AIAgentServer.Services;
+using Microsoft.EntityFrameworkCore;
 using JSini.Shared.Infrastructure.HealthChecks;
 using JSini.Shared.Infrastructure.Middleware;
 
@@ -27,6 +29,24 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 // 헬스체크가 IHttpClientFactory 로 쓴다.
 builder.Services.AddHttpClient();
+
+// ── 사람별 AI 사용량 ────────────────────────────────────────
+//
+// **LLM 서버는 사람을 모른다.** 토큰 수는 응답에 실려 오지만 포털의 모든
+// 요청이 API 키 하나로 들어가므로 그쪽에서는 전부 같은 손님이다. 사람을 아는
+// 자리가 여기뿐이라(게이트웨이가 붙여 준 X-User-Id) 여기서 줍어 적는다.
+//
+// 연결 문자열이 없는 개발 장비에서는 **적는 일만 건너뛴다** — AI 기능이
+// 통째로 멎으면 본말이 뒤집힌다(AiUsageLog 머리말).
+var usageConnection = builder.Configuration.GetConnectionString("jsinicore")
+                   ?? builder.Configuration["jsinicore"]
+                   ?? Environment.GetEnvironmentVariable("jsinicore");
+
+builder.Services.AddDbContext<AiUsageDbContext>(options => options.UseNpgsql(usageConnection));
+
+// 적는 쪽이 지금 요청의 X-User-Id 를 읽는다.
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddSingleton<AiUsageLog>();
 
 // [AI 공급자 목록]
 // 설정(AI:Providers)을 한 번 읽어 두고 계속 쓴다. 요청마다 다시 읽을 이유가 없다.
@@ -119,6 +139,10 @@ app.UseHttpsRedirection();
 app.UseCors("AllowAll");
 
 app.MapAIEndpoints();
+
+// 사람별 AI 사용량(포털관리 「AI 사용량」 화면). **관리자만 본다** —
+// 게이트웨이의 ai-route 가 이 묶음을 익명으로 열어 두므로 그쪽에서 한 번 더 본다.
+app.MapAiUsageEndpoints();
 
 string GetServerName()
 {

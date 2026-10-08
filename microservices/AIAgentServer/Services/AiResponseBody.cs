@@ -25,6 +25,23 @@ namespace AIAgentServer.Services;
 /// </remarks>
 public abstract class AiResponseBody : IDisposable
 {
+    /// <summary>
+    /// 공급자가 알려 준 토큰 수. <b>다 읽고 나서야 값이 있다.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 사람별 사용량(<c>scom.ai_usage_logs</c>)이 이 값으로 쌓인다. 읽기 전에
+    /// 보면 언제나 <c>null</c> 이다 — 비스트리밍은 본문을 받아야 알고,
+    /// 스트리밍은 <b>맨 마지막 조각</b>에 실려 온다.
+    /// </para>
+    /// <para>
+    /// <b><c>null</c> 은 「모른다」지 「0」이 아니다.</b> 안 주는 공급자가 있고
+    /// (Anthropic SDK 경로), 스트림이 중간에 끊기면 마지막 조각을 못 본다.
+    /// 적는 쪽은 그 둘을 갈라 둔다 — 0 으로 적으면 합계가 조용히 틀린다.
+    /// </para>
+    /// </remarks>
+    public AiTokenUsage? Usage { get; protected set; }
+
     /// <summary>완성된 답 전체를 읽는다. 스트리밍이 아닌 호출에서 쓴다.</summary>
     public abstract Task<string> ReadTextAsync();
 
@@ -63,6 +80,9 @@ public sealed class OpenAiResponseBody : AiResponseBody
     {
         var body = await _response.Content.ReadAsStringAsync();
         var parsed = JsonSerializer.Deserialize<OpenAIResponse>(body, JsonOptions);
+
+        Usage = AiTokenUsage.From(parsed?.usage);
+
         return parsed?.choices?.FirstOrDefault()?.message?.content?.Trim() ?? string.Empty;
     }
 
@@ -95,6 +115,14 @@ public sealed class OpenAiResponseBody : AiResponseBody
                 continue;
             }
 
+            // 토큰 수는 **맨 마지막 조각**에 실려 온다. 그 조각은 choices 가
+            // 비어 있으므로 아래 글자 꺼내기가 어차피 건너뛴다 — 여기서
+            // 먼저 줍지 않으면 그대로 버려진다.
+            if (chunk?.usage is { } usage)
+            {
+                Usage = AiTokenUsage.From(usage);
+            }
+
             var content = chunk?.choices?.FirstOrDefault()?.delta?.content;
             if (string.IsNullOrEmpty(content)) continue;
 
@@ -103,4 +131,23 @@ public sealed class OpenAiResponseBody : AiResponseBody
     }
 
     public override void Dispose() => _response.Dispose();
+}
+
+/// <summary>
+/// 호출 한 번에 쓴 토큰. <b>공급자가 알려 준 값 그대로</b>다.
+/// </summary>
+/// <remarks>
+/// 우리가 세지 않는다 — 글자 수로 어림하면 모델마다 토큰 쪼개는 법이 달라
+/// 두 배씩 틀린다. 안 알려 주면 <b>모르는 채로 둔다</b>.
+/// </remarks>
+/// <param name="PromptTokens">보낸 쪽. 대화가 길어질수록 커진다(문맥을 다시 올린다).</param>
+/// <param name="CompletionTokens">답한 쪽.</param>
+/// <param name="TotalTokens">둘의 합. 공급자가 준 값을 그대로 쓴다.</param>
+public readonly record struct AiTokenUsage(
+    int PromptTokens, int CompletionTokens, int TotalTokens)
+{
+    public static AiTokenUsage? From(OpenAIUsage? usage) =>
+        usage is null
+            ? null
+            : new AiTokenUsage(usage.prompt_tokens, usage.completion_tokens, usage.total_tokens);
 }

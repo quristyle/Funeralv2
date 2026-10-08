@@ -3,6 +3,10 @@
   <ItemGroup>
     <PackageReference Include="Anthropic" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <!-- 사람별 AI 사용량을 적는 표 하나 때문에 들인다(Data/AiUsageDbContext.cs).
+         마이그레이션은 없다 — 표는 deploy/sql 이 만든다. -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
     <PackageReference Include="RabbitMQ.Client" />
     <PackageReference Include="Serilog.AspNetCore" />
     <PackageReference Include="Serilog.Settings.Configuration" />

@@ -1,4 +1,5 @@
-﻿using JSini.Web.Models;
+﻿using JSini.Web.Components.Data;
+using JSini.Web.Models;
 
 namespace JSini.Web.Admin.Api;
 
@@ -198,6 +199,87 @@ public sealed class IssuedPasswordDto
     public string LoginId { get; set; } = string.Empty;
     public string UserName { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
+}
+
+// ── AI 사용량 (`ai/usage/*`) ───────────────────────────────
+//
+// AIAgentServer 의 `AiUsageByUserDto` · `AiUsageCallDto` 와 짝이다.
+//
+// **시각은 UTC 로 온다.** 한국 시각으로 바꾸는 일은 화면이 보여 주기 직전에
+// 한 번만 한다(docs/utc-time.md) — 여기서 옮기면 두 번 옮겨진다.
+
+/// <summary>한 사람의 기간 사용량. 표의 한 줄이다.</summary>
+public sealed class AiUsageByUserDto
+{
+    /// <summary>
+    /// 로그인 아이디. <b><c>null</c> 은 사람 없이 난 호출</b>이다 —
+    /// 상태 화면의 정밀 확인처럼 게이트웨이를 거치지 않은 것들이다.
+    /// </summary>
+    public string? UserId { get; set; }
+
+    /// <summary>이름. 계정을 지운 사람은 비어 있다.</summary>
+    public string? UserName { get; set; }
+
+    public int Calls { get; set; }
+
+    /// <summary>그중 실패. 0 이 아니면 눈에 띄어야 한다.</summary>
+    public int FailedCalls { get; set; }
+
+    public long PromptTokens { get; set; }
+    public long CompletionTokens { get; set; }
+    public long TotalTokens { get; set; }
+
+    /// <summary>
+    /// 토큰 수를 모르는 호출 수. <b>0 이 아니면 위 합계가 실제보다 작다.</b>
+    /// </summary>
+    public int UnknownTokenCalls { get; set; }
+
+    public int? AvgLatencyMs { get; set; }
+
+    /// <summary>마지막으로 쓴 시각. <b>UTC 다.</b></summary>
+    public DateTime LastCallAt { get; set; }
+
+    /// <summary>표에 그릴 이름. 이름을 모르면 아이디, 그것도 없으면 「시스템」.</summary>
+    public string Who => string.IsNullOrWhiteSpace(UserName)
+        ? UserId ?? "시스템"
+        : $"{UserName} ({UserId})";
+}
+
+/// <summary>호출 한 건. 파고드는 자리의 한 줄이다.</summary>
+public sealed class AiUsageCallDto
+{
+    /// <summary><b>UTC 다.</b></summary>
+    public DateTime OccurredAt { get; set; }
+
+    public string? UserId { get; set; }
+    public string? UserName { get; set; }
+    public string Feature { get; set; } = string.Empty;
+    public string ProviderKey { get; set; } = string.Empty;
+    public string? Model { get; set; }
+
+    /// <summary><c>null</c> 은 「모른다」지 0 이 아니다.</summary>
+    public int? PromptTokens { get; set; }
+
+    /// <inheritdoc cref="PromptTokens"/>
+    public int? CompletionTokens { get; set; }
+
+    /// <inheritdoc cref="PromptTokens"/>
+    public int? TotalTokens { get; set; }
+
+    public int? LatencyMs { get; set; }
+    public bool Ok { get; set; }
+    public string? FailReason { get; set; }
+
+    /// <summary>표에 그릴 이름. 집계 줄과 같은 규칙이다.</summary>
+    public string Who => string.IsNullOrWhiteSpace(UserName)
+        ? UserId ?? "시스템"
+        : $"{UserName} ({UserId})";
+
+    /// <summary>
+    /// 그리드 칸에 묶을 한국 시각. <b>칸 안에서 옮길 자리가 없어</b> 여기 둔다 —
+    /// <c>DxGridDataColumn</c> 은 값을 그대로 서식에 넣는다(web/CLAUDE.md).
+    /// </summary>
+    public DateTime OccurredAtKst => OccurredAt.KstTime();
 }
 
 /// <summary>권한 그룹.</summary>
