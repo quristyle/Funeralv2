@@ -23,6 +23,7 @@ public partial class MainLayout
     [Inject] private PortalBoot Boot { get; set; } = default!;
     [Inject] private PortalTabs Tabs { get; set; } = default!;
     [Inject] private MenuReveal Reveal { get; set; } = default!;
+    [Inject] private MenuUsageRecorder MenuUsage { get; set; } = default!;
     [Inject] private AuthenticationStateProvider AuthState { get; set; } = default!;
     [Inject] private NavigationManager Navigation { get; set; } = default!;
     [Inject] private IJSRuntime Js { get; set; } = default!;
@@ -1047,6 +1048,22 @@ public partial class MainLayout
         if (_trail.Count > 0 && !_denied)
         {
             Tabs.Open(href, _trail[^1].Title);
+
+            // **이 자리에서 사용기록을 적는다.** 여기까지 왔다는 것은 메뉴에
+            // 있는 화면이고 볼 권한도 있다는 뜻이라, 로그인·오류·「준비 중」이
+            // 저절로 빠진다. 기다리지 않고 실패해도 조용하다 — 기록은 곁다리고
+            // 화면이 본일이다(MenuUsageRecorder 머리말). 이 메서드가 한 회로
+            // 안에서 여러 번 불리는 것은 그쪽이 시각으로 가려낸다.
+            //
+            // **프리렌더에서는 적지 않는다**(실제로 밟음). 첫 그림은 정적 SSR
+            // 요청에서 한 번 그려지고 회로가 붙은 뒤 또 한 번 그려지는데,
+            // 그 둘은 **범위가 달라 각자 제 기록기를 갖는다** — 시각으로 가려
+            // 내는 규칙이 서로를 못 봐서 화면 하나를 연 것이 두 줄로 남았다.
+            // `DataPage` 가 같은 까닭으로 조회를 건너뛴다(CanLoad 머리말).
+            if (RendererInfo.IsInteractive)
+            {
+                MenuUsage.Record(_trail[^1], href);
+            }
         }
 
         // 권한표·메뉴는 늦게 오므로 이미 되살아난 고정 탭이 있을 수 있다.

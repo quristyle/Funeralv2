@@ -1068,6 +1068,68 @@ public sealed class AdminClient(GatewayClient gateway)
                 ("userId", userId)),
             ct);
 
+    // ── 메뉴 사용기록 ───────────────────────────────────────
+    //
+    // **쌓는 길은 여기에 없다.** 그쪽은 셸의 `MenuUsageRecorder` 가 레이아웃에서
+    // 부른다 — 화면을 옮길 때마다 일어나는 일이라 모듈이 들고 있을 수 없다.
+    // 여기 있는 넷은 **보는 길**이고 넷으로 갈린 까닭은 묻는 물음이 다르기
+    // 때문이다(사람별 · 화면별 · 기록 · 타임라인).
+    //
+    // 날짜는 **한국 달력 날짜 그대로** 보낸다. 하루의 경계를 UTC 로 옮기는
+    // 일은 서버가 한다 — 여기서 또 만지면 두 번 옮겨진다.
+
+    /// <summary>사람별 집계. 많이 본 사람부터다.</summary>
+    public Task<IReadOnlyList<MenuUsageByUserDto>> GetMenuUsageByUserAsync(
+        DateOnly? from = null, DateOnly? to = null, string? keyword = null,
+        CancellationToken ct = default)
+        => gateway.GetListAsync<MenuUsageByUserDto>(
+            "auth/menu-usage/by-user" + Query(
+                ("from", from?.ToString("yyyy-MM-dd")),
+                ("to", to?.ToString("yyyy-MM-dd")),
+                ("keyword", keyword)),
+            ct);
+
+    /// <summary>화면별 집계. 많이 열린 화면부터다.</summary>
+    public Task<IReadOnlyList<MenuUsageByMenuDto>> GetMenuUsageByMenuAsync(
+        DateOnly? from = null, DateOnly? to = null, string? userId = null,
+        string? keyword = null, CancellationToken ct = default)
+        => gateway.GetListAsync<MenuUsageByMenuDto>(
+            "auth/menu-usage/by-menu" + Query(
+                ("from", from?.ToString("yyyy-MM-dd")),
+                ("to", to?.ToString("yyyy-MM-dd")),
+                ("userId", userId),
+                ("keyword", keyword)),
+            ct);
+
+    /// <summary>
+    /// 기록 한 줄씩. <b>서버가 <paramref name="take"/> 줄에서 자른다</b> —
+    /// 화면이 잘렸다는 사실을 말해야 한다.
+    /// </summary>
+    public Task<IReadOnlyList<MenuUsageDto>> GetMenuUsageLogsAsync(
+        DateOnly? from = null, DateOnly? to = null, string? userId = null,
+        string? keyword = null, int? take = null, CancellationToken ct = default)
+        => gateway.GetListAsync<MenuUsageDto>(
+            "auth/menu-usage" + Query(
+                ("from", from?.ToString("yyyy-MM-dd")),
+                ("to", to?.ToString("yyyy-MM-dd")),
+                ("userId", userId),
+                ("keyword", keyword),
+                ("take", take)),
+            ct);
+
+    /// <summary>일자별 타임라인. 늦은 날부터고 하루 안은 시간순이다.</summary>
+    public Task<IReadOnlyList<MenuUsageTimelineDayDto>> GetMenuUsageTimelineAsync(
+        DateOnly? from = null, DateOnly? to = null, string? userId = null,
+        string? keyword = null, int? take = null, CancellationToken ct = default)
+        => gateway.GetListAsync<MenuUsageTimelineDayDto>(
+            "auth/menu-usage/timeline" + Query(
+                ("from", from?.ToString("yyyy-MM-dd")),
+                ("to", to?.ToString("yyyy-MM-dd")),
+                ("userId", userId),
+                ("keyword", keyword),
+                ("take", take)),
+            ct);
+
     /// <summary>쿼리스트링을 만든다. 값이 null 이거나 빈 문자열이면 뺀다.</summary>
     private static string Query(params (string Key, object? Value)[] parameters)
     {

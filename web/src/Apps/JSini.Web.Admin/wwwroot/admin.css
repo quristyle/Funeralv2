@@ -3459,3 +3459,110 @@
 .ad-llm__warnnum { color: var(--tb-red); font-weight: 600; }
 
 .ad-llm__foot { display: block; margin-top: 1rem; }
+
+/* ── 메뉴 사용기록 타임라인 (`ad-usagetl`) ─────────────────
+
+   **표로 그리지 않는 까닭은 읽는 방향이 다르기 때문이다.** 표는 칸을 견주어
+   보는 것이고, 여기서 사람이 보는 것은 「위에서 아래로 하루가 어떻게
+   흘렀나」다. 날짜가 머리띠로 서고 그 아래에 시각이 줄줄이 서야 그 읽기가
+   된다.
+
+   판(`.commcont__body`)이 세로 flex 라 **여기서 남은 높이를 받아 스스로
+   구른다.** `min-height: 0` 이 없으면 내용만큼 부풀어 판 밖으로 넘친다 —
+   이 저장소에서 높이 계산이 통째로 어긋나는 바로 그 자리다.
+   ---------------------------------------------------------- */
+
+.ad-usagetl {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: .25rem;
+}
+
+.ad-usagetl__day + .ad-usagetl__day { margin-top: 1.1rem; }
+
+/* 날짜 머리띠는 **구르는 동안 붙어 있다.** 하루가 수백 줄이면 한참 내려간
+   뒤에 「지금 보는 것이 며칟날인가」를 알 길이 없어진다. */
+.ad-usagetl__date {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: .5rem;
+  padding: .35rem 0;
+  background: var(--tb-surface);
+  border-bottom: 1px solid var(--tb-border);
+}
+
+.ad-usagetl__datetext { font-weight: 600; }
+
+.ad-usagetl__list {
+  list-style: none;
+  margin: 0;
+  padding: .4rem 0 0 0;
+
+  /* 점들을 잇는 세로줄. 줄 자체가 「이어진 하루」를 말한다. */
+  border-left: 2px solid var(--tb-border);
+
+  /* **시각이 설 자리를 왼쪽에 비워 둔다.** 시각은 줄 밖(`left: -4.3rem`)에
+     놓이는데, 이 여백이 그보다 좁으면 판이 구르느라 가로도 잘라서
+     「0:00:00」이 「:00:00」으로 보인다(실제로 밟음). */
+  margin-left: 4.6rem;
+}
+
+.ad-usagetl__item {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: .5rem;
+  padding: .22rem 0 .22rem .9rem;
+  font-size: .86rem;
+}
+
+/* 시각은 세로줄 **왼쪽**에 둔다. 줄 안에 두면 화면 이름의 시작 자리가
+   시각의 글자 수에 따라 흔들린다. */
+.ad-usagetl__time {
+  position: absolute;
+  left: -4.3rem;
+  width: 3.4rem;
+  text-align: right;
+  color: var(--tb-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.ad-usagetl__dot {
+  position: absolute;
+  left: -.3rem;
+  top: .55rem;
+  width: .42rem;
+  height: .42rem;
+  border-radius: 50%;
+  background: var(--tb-primary);
+}
+
+.ad-usagetl__name { font-weight: 500; }
+
+.ad-usagetl__who { color: var(--tb-muted); }
+
+/* 「앞 칸에서 여기까지」. 값이지 설명이 아니라서 옅게 두되 지우지는 않는다 —
+   하루가 어디서 끊겼는지는 이 숫자로만 보인다. */
+.ad-usagetl__gap {
+  color: var(--tb-muted);
+  font-size: .78rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 휴대폰에서는 시각을 줄 안으로 들인다. 왼쪽 여백 3.4rem 은 좁은 화면에서
+   화면 이름이 설 자리를 그만큼 빼앗는다. */
+@media (max-width: 767px) {
+  .ad-usagetl__list { margin-left: .4rem; }
+
+  .ad-usagetl__time {
+    position: static;
+    width: auto;
+    text-align: left;
+  }
+}

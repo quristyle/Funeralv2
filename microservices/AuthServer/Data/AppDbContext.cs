@@ -60,6 +60,11 @@ public class AppDbContext : DbContext
     /// </summary>
     public DbSet<PortalErrorLog> PortalErrorLogs { get; set; }
 
+    /// <summary>
+    /// 메뉴 열람 기록. 누가 어떤 화면을 언제 보았나 — 쌓기만 하고 고치지 않는다.
+    /// </summary>
+    public DbSet<MenuUsageLog> MenuUsageLogs { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -220,6 +225,23 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<PortalErrorLog>()
             .HasIndex(e => e.OccurredAt);
+
+        // ── 메뉴 사용기록 ─────────────────────────────────────
+        //
+        // 조회가 셋이다 — **한 사람의 것을 시간순으로**(기록·타임라인),
+        // **기간 전체를 늦은 것부터**(사람별·화면별 집계), **한 화면이 얼마나
+        // 열렸나**(화면별). 쌓이기만 하는 표라 색인이 없으면 갈수록 느려진다.
+        //
+        // **고유 제약은 걸지 않는다.** 같은 사람이 같은 화면을 1초 안에 두 번
+        // 열 수 있다(뒤로 갔다 다시 오기) — 그 둘은 서로 다른 열람이다.
+        modelBuilder.Entity<MenuUsageLog>()
+            .HasIndex(e => new { e.UserId, e.OccurredAt });
+
+        modelBuilder.Entity<MenuUsageLog>()
+            .HasIndex(e => e.OccurredAt);
+
+        modelBuilder.Entity<MenuUsageLog>()
+            .HasIndex(e => e.MenuPath);
 
         // Department 엔티티에 (CompanyId, Id) 복합 고유 키(AlternateKey) 설정
         modelBuilder.Entity<Department>()

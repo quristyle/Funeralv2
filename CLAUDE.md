@@ -14,6 +14,9 @@
   - `AuthServer` (:5264) 인증 · `funeralv2Api` (:5320) 장례식장 핵심 API.
     AuthServer 는 **포털 프론트가 잡은 미처리 예외도 들고 있다** —
     오류 화면의 추적 번호로 까닭을 찾는 길은 [docs/error-trace.md](docs/error-trace.md)
+    **누가 어떤 화면을 언제 보았는지**도 여기 쌓인다 — 회로 안에서 라우팅만
+    바뀌어 서버 로그에는 안 남으므로 셸이 적어 보낸다:
+    [docs/menu-usage.md](docs/menu-usage.md)
   - `AIAgentServer` (:5029) · `FileServer` (:5350) · `HelpDeskServer` (:5400)
     내 요청글에 **댓글이 달렸을 때** 글 주인에게 가는 앱푸시·이메일과 그것을
     끄는 자리는 [docs/helpdesk-comment-notify.md](docs/helpdesk-comment-notify.md)

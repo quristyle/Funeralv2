@@ -312,6 +312,11 @@ public static class JSiniWebApp
         // 두면 레이아웃이 못 쓴다(셸은 모듈을 이름으로 알지 못한다).
         services.AddScoped<NoticeClient>();
 
+        // 화면을 열 때마다 한 줄씩 적어 두는 자리. **레이아웃이 부른다** —
+        // 회로 안에서 라우팅만 바뀌므로 서버 접근 로그에는 아무것도 안 남는다
+        // (MenuUsageRecorder 머리말). 보는 쪽은 포털관리의 「메뉴 사용기록」이다.
+        services.AddScoped<MenuUsageRecorder>();
+
         // 내 알림 설정·웹푸시 구독. 화면 둘이 같은 판을 쓴다
         // (포털관리 「알림 설정」 · 장례식장 「환경설정」).
         services.AddScoped<Settings.NotificationClient>();
