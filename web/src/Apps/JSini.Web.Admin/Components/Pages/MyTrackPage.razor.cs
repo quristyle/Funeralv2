@@ -281,16 +281,31 @@ public partial class MyTrackPage
         if (_map is not null) await _map.InvokeVoidAsync("zoomBy", step);
     }
 
-    /// <summary>지도에 넘길 점 하나. JS 는 이 네 칸만 본다.</summary>
+    /// <summary>지도에 넘길 점 하나. JS 는 이 다섯 칸만 본다.</summary>
+    /// <remarks>
+    /// <para>
+    /// <b><c>badge</c> 를 실으면 지도가 작은 핀으로 찍는다</b>(<c>geo-map.js</c>
+    /// 머리말). 이 화면이 그쪽인 까닭은 하루치 자리가 **한 동네에 모이기
+    /// 일쑤**라서다 — 출근·점심·퇴근이 같은 블록이면 「울산광역시 남구 삼산동」
+    /// 같은 이름표 셋이 서로를 통째로 덮어, 몇 번 점이 어디인지조차 안 보인다.
+    /// </para>
+    /// <para>
+    /// 그래도 이름을 <c>name</c> 에 그대로 실어 보낸다 — 지도가 그것을
+    /// <c>title</c> 로 달아 두므로, <b>누르지 않고 손가락만 올려도</b> 어디인지
+    /// 읽힌다. 안 실으면 작은 핀에서 이름을 보는 길이 카드를 여는 것뿐이 된다.
+    /// </para>
+    /// </remarks>
     private object Pin(LocationStayDto s) => new
     {
         key = Key(s),
         lat = s.Lat,
         lon = s.Lon,
 
-        // **번호가 먼저다.** 이름이 긴 자리(「울산광역시 남구 삼산동」)가
-        // 여럿이면 지도가 글자로 덮이는데, 목록과 잇는 끈은 번호 하나다.
+        // **번호가 먼저다.** 목록과 지도를 잇는 끈은 번호 하나다.
         name = $"{s.Seq}. {Where(s)}",
+
+        // 핀에 적히는 글자. 번호만이다 — 이보다 길면 핀이 아니라 이름표가 된다.
+        badge = s.Seq.ToString(),
 
         // 한 번만 관측된 자리는 흐리게. 「0분」이 「머물지 않았다」로 읽히지
         // 않도록 지도에서도 갈라 둔다.

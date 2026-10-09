@@ -2772,6 +2772,82 @@
   background: var(--jsini-text-muted);
 }
 
+/* ── 작은 핀 (「내 이동경로」) ────────────────────────────────
+
+   이름표(위)는 「저 점이 누구냐」를 묻는 화면의 꼴이다. 이동경로는 묻는 것이
+   다르다 — **몇 번째로 들른 자리냐**이고, 하루치 자리는 한 동네에 모이기
+   일쑤라(출근·점심·퇴근이 같은 블록이다) 긴 이름표끼리 서로를 통째로 덮는다.
+   그래서 숫자 하나만 지닌 물방울 핀으로 줄인다. 이름은 `title` 과 고른 자리의
+   카드가 들고 있다.
+
+   꼴은 **정사각형을 45도 돌린 것**이다. 한 귀퉁이만 각지게 두면(`border-radius`
+   의 넷째 값 0) 돌아간 뒤 그 귀퉁이가 아래를 가리켜 핀 끝이 된다. 삼각형을
+   따로 붙이지 않는 까닭은 `::after` 로 만든 삼각형은 테두리·그림자·고른 색이
+   본체와 따로 놀아, 색이 바뀔 때마다 두 군데를 맞춰야 하기 때문이다. */
+.ad-geomap__pin--spot {
+  /* 글자 칸이 아니라 **정해진 크기의 표식**이다. 글자 크기 설정(xxsmall ~
+     large)을 따라 커지면 큰 설정에서 지도가 핀으로 덮인다. */
+  width: 1.375rem;
+  height: 1.375rem;
+  padding: 0;
+  gap: 0;
+  justify-content: center;
+
+  /* 세 귀퉁이는 둥글고 **왼쪽 아래만 각지다.** 돌리면 그 귀퉁이가 아래로 간다. */
+  border-radius: 50% 50% 50% 0;
+
+  /* 숫자는 색이 찬 바탕 위의 흰 글씨다. 테두리만으로는 이 크기에서 지도
+     무늬에 묻힌다. */
+  background: var(--jsini-accent);
+  border-color: var(--jsini-accent);
+  color: #fff;
+  font-weight: 600;
+
+  /*
+     **끝이 좌표에 닿는다**(이름표는 가운데가 닿는다).
+
+     각진 귀퉁이는 가운데에서 반대각선만큼 떨어져 있다 — 한 변이 1.375rem 이니
+     그 절반의 √2 배, 곧 0.972rem 이다. 가운데를 그만큼 위로 올리면 돌린 뒤의
+     귀퉁이가 정확히 좌표에 선다.
+  */
+  transform: translate(-50%, -50%) translateY(-0.972rem) rotate(-45deg);
+
+  /* 돌아간 상자라 **방향이 있는 그림자는 같이 돌아간다.** 둥근 것으로 둔다. */
+  box-shadow: 0 0 4px rgb(0 0 0 / 35%);
+}
+
+/* 이름표의 동그라미는 여기서 쓸 자리가 없다 — 핀 자체가 그 동그라미다. */
+.ad-geomap__pin--spot::before {
+  content: none;
+}
+
+/* 순번. **본체가 돌아가 있으므로 되돌려 세운다.** */
+.ad-geomap__seq {
+  /* 두 자리(12)가 보통이고 세 자리도 들어가야 한다. 머리 지름이 22px 이라
+     9~10px 이면 셋까지 담긴다. */
+  font-size: 0.625rem;
+  line-height: 1;
+  transform: rotate(45deg);
+}
+
+/* 한 번만 관측된 자리. 지우지 않고 **색만 죽인다** — 까닭은 화면 머리말에. */
+.ad-geomap__pin--spot.is-muted {
+  background: var(--jsini-text-muted);
+  border-color: var(--jsini-text-muted);
+  color: #fff;
+}
+
+/* 고른 핀. 이름표는 「색이 찬다」로 갈라졌는데 **작은 핀은 이미 색이 차 있어**
+   그 수가 안 통한다. 흰 테를 둘러 갈라 놓는다 — 크기를 키우지 않는 까닭은
+   이름표와 같다(가리키는 자리가 달라 보이고, 벌려 둔 이웃을 민 것처럼 읽힌다). */
+.ad-geomap__pin--spot.is-picked {
+  background: color-mix(in srgb, var(--jsini-accent) 82%, #000);
+  border-color: #fff;
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--jsini-accent) 55%, transparent),
+    0 0 5px rgb(0 0 0 / 45%);
+}
+
 /* 「내 이동경로」의 하루 요약 넷. 공용 `.jsini-facts` 를 그대로 쓰되
    **지도·목록과 너무 붙지 않게** 아래만 조금 띄운다 — 조회 판과 분할 사이에
    끼어 있어서, 공용 여백(1rem)만으로는 조회 조건의 일부처럼 읽힌다. */

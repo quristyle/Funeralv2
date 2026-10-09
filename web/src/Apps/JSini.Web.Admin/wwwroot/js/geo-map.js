@@ -29,6 +29,23 @@
     다시 그리기만 하면 된다.
 
     ────────────────────────────────────────────────────────────
+    [점의 꼴이 둘이다 — 이름표와 작은 핀]
+
+    「위치 지도」는 **이름표**다. 사람 하나에 점 하나라 한 화면에 열 몇 개가
+    흩어져 있고, 거기서 알아야 하는 것은 「저 점이 누구냐」라서 이름이 점 옆에
+    붙어 있어야 한다.
+
+    「내 이동경로」는 **작은 핀**이다. 하루치 자리가 한 동네 안에 모이는 일이
+    흔한데(출근·점심·퇴근이 같은 블록이다) 이름표를 그대로 쓰면
+    「울산광역시 남구 삼산동」 같은 긴 띠가 서로를 통째로 덮어 **몇 번 점이
+    어디인지조차 안 보인다.** 그래서 그 화면은 점에 `badge`(순번)를 실어
+    보내고, 여기서는 지름 한 뼘짜리 물방울 핀에 그 숫자만 작게 적는다 —
+    이름은 `title`(손가락을 올리면 뜨는 말)과 고른 자리의 카드가 들고 있다.
+
+    핀은 **끝이 좌표에 닿는다**(이름표는 가운데가 닿는다). 머리가 좌표 위에
+    뜨므로 점을 잇는 선과 숫자가 안 겹치고, 지도 관례와도 맞는다.
+
+    ────────────────────────────────────────────────────────────
     [같은 자리에 선 점들을 겹쳐 두지 않는다]
 
     한 사무실에 앉은 사람들은 좌표가 소수점 넷째 자리까지 같다. 그대로 찍으면
@@ -77,10 +94,11 @@ const SPREAD_RADIUS = 18;
 /**
  * 이만큼 안에 든 점들은 **겹친 것으로 보고 벌린다**(픽셀).
  *
- * 점의 동그라미가 11px 이라 그보다 조금 커야 한다 — 더 크게 잡으면 확대해
- * 떼어 놓은 점들이 도로 모이고, 작게 잡으면 포개진 채로 남는다.
+ * 작은 핀의 머리가 22px 이라 그 언저리여야 한다 — 더 크게 잡으면 확대해
+ * 떼어 놓은 점들이 도로 모이고, 작게 잡으면 머리가 서로를 덮어 **숫자가
+ * 가려진 채로** 남는다. 가려진 쪽이 더 나쁘다(점이 없는 것으로 읽힌다).
  */
-const NEAR_PIXELS = 14;
+const NEAR_PIXELS = 18;
 
 function clamp(v, lo, hi) {
     return Math.max(lo, Math.min(hi, v));
@@ -112,7 +130,12 @@ export function create(host, dotnet) {
     let cx = lonToX(127.8, worldSize);
     let cy = latToY(36.3, worldSize);
 
-    /** 찍을 점들. `{ key, lat, lon, name, muted }` */
+    /**
+     * 찍을 점들. `{ key, lat, lon, name, muted, badge? }`
+     *
+     * `badge` 가 있으면 **작은 핀**으로 찍고 그 글자만 적는다(머리말).
+     * 없으면 이름표다 — 「위치 지도」가 그쪽이다.
+     */
     let markers = [];
 
     /*
@@ -321,11 +344,22 @@ export function create(host, dotnet) {
                 if (m.key === picked) pin.classList.add('is-picked');
                 pin.style.left = `${baseX + dx}px`;
                 pin.style.top = `${baseY + dy}px`;
+
+                // **이름은 어느 꼴에서든 여기 들어간다.** 작은 핀은 이것이
+                // 이름을 보는 유일한 길이다(눌러서 카드를 여는 것 말고는).
                 pin.title = m.name;
 
                 const label = document.createElement('span');
-                label.className = 'ad-geomap__name';
-                label.textContent = m.name;
+
+                if (m.badge) {
+                    pin.classList.add('ad-geomap__pin--spot');
+                    label.className = 'ad-geomap__seq';
+                    label.textContent = m.badge;
+                } else {
+                    label.className = 'ad-geomap__name';
+                    label.textContent = m.name;
+                }
+
                 pin.appendChild(label);
 
                 pin.addEventListener('click', (e) => {
