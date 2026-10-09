@@ -297,9 +297,15 @@
        단추 하나를 그리는 편이 짧다.
 
        **늘 그린다.** 보이고 안 보이고는 CSS 가 정한다 — 화면 크기로 마크업을
-       갈아 끼우지 않는 이 파일의 규칙 그대로다. *@
+       갈아 끼우지 않는 이 파일의 규칙 그대로다.
+
+       **오래 누르면 이 단추의 설정이 열린다**(`FabHoldMenu` — 자리 옮기기와
+       감추기). 그 손짓을 받는 것은 여기가 아니라 브라우저이고(`js/fab-hold.js`),
+       이 단추가 할 일은 **클래스 이름을 그대로 두는 것**뿐이다 — 거기서
+       `--menu`·`--help` 로 어느 단추인지를 가린다. *@
     <button type="button" class="jsini-shell__fab jsini-shell__fab--menu jsini-shell__fab--@_fabPosition"
-            title="메뉴 접기/펴기" aria-label="메뉴 접기/펴기"
+            title="메뉴 접기/펴기 (길게 누르면 이 단추 설정)"
+            aria-label="메뉴 접기/펴기. 길게 누르면 이 단추의 설정이 열립니다"
             aria-expanded="@(_sidebarOpen ? "true" : "false")"
             @onclick="@ToggleSidebarAsync">
         <span class="@(_sidebarOpen ? "jsini-icon-close" : "jsini-icon-menu")"
@@ -336,7 +342,8 @@
     {
         <button type="button"
                 class="jsini-shell__fab jsini-shell__fab--help jsini-shell__fab--@_hdFabPosition @(HelpDeskFabStacked ? "jsini-shell__fab--stacked" : "")"
-                title="요청 등록" aria-label="헬프데스크 요청 등록"
+                title="요청 등록 (길게 누르면 이 단추 설정)"
+                aria-label="헬프데스크 요청 등록. 길게 누르면 이 단추의 설정이 열립니다"
                 @onclick="@OpenHelpDeskRequest">
             <span class="jsini-icon-edit" aria-hidden="true"></span>
         </button>
@@ -353,6 +360,17 @@
         <MobileBottomNav />
     }
 </div>
+
+@* 위 떠다니는 단추 둘을 **오래 눌렀을 때** 뜨는 창. 그 단추의 자리와
+   감추기를 그 자리에서 고친다 — 환경설정까지 가지 않고.
+
+   **격자 바깥**이다. 안에 두면 격자 칸 하나를 차지해 창이 본문 자리에만 뜬다
+   (아래 덮개들과 같은 까닭).
+
+   셸은 이 한 줄이 전부다. 어느 단추가 눌렸는지를 받는 일도, 그 값을 담는
+   일도 저 부품이 스스로 한다(`FabHoldMenu` 머리말) — 여기에 나눠 두면
+   단추 둘의 설정이 **셸과 저쪽으로 갈라져** 한쪽만 고치는 날이 온다. *@
+<FabHoldMenu />
 
 @* 알림함 서랍. 여는 종은 헤더에 있는데(`HeaderTools`) **판은 여기 있다.**
 

@@ -37,9 +37,47 @@ public partial class EnvironmentSettingPage
     {
         Me.Changed += OnMeChanged;
         _homeChoice = PortalHome.ToChoice(Me.HomePath);
+
+        // 떠다니는 단추는 **이 화면 말고 다른 자리에서도 고쳐진다** — 그 단추를
+        // 길게 누르면 그 자리에서 제 설정이 열린다(`FabHoldMenu`). 휴대폰에서는
+        // 이 화면을 보는 **동안에도** 그 단추가 떠 있으므로, 안 듣고 있으면
+        // 바로 옆에서 옮긴 자리를 아래 고르개가 **옛 값으로 말한다.**
+        Boot.FabPositionChanged += OnFabPositionChangedFromElsewhere;
+        Boot.FabHiddenChanged += OnFabHiddenChangedFromElsewhere;
+        Boot.HelpDeskFabPositionChanged += OnHelpDeskFabPositionChangedFromElsewhere;
+        Boot.HelpDeskFabHiddenChanged += OnHelpDeskFabHiddenChangedFromElsewhere;
     }
 
-    public void Dispose() => Me.Changed -= OnMeChanged;
+    public void Dispose()
+    {
+        Me.Changed -= OnMeChanged;
+
+        Boot.FabPositionChanged -= OnFabPositionChangedFromElsewhere;
+        Boot.FabHiddenChanged -= OnFabHiddenChangedFromElsewhere;
+        Boot.HelpDeskFabPositionChanged -= OnHelpDeskFabPositionChangedFromElsewhere;
+        Boot.HelpDeskFabHiddenChanged -= OnHelpDeskFabHiddenChangedFromElsewhere;
+    }
+
+    // 이 화면이 고친 것도 같은 알림을 타고 돌아온다 — 그때는 방금 고른 값이
+    // 그대로 오므로 화면이 흔들리지 않는다(위 `OnMeChanged` 와 같은 꼴).
+
+    private void OnFabPositionChangedFromElsewhere(string position) =>
+        Apply(() => _selectedFabPosition = position);
+
+    private void OnFabHiddenChangedFromElsewhere(bool hidden) =>
+        Apply(() => _fabHidden = hidden);
+
+    private void OnHelpDeskFabPositionChangedFromElsewhere(string position) =>
+        Apply(() => _selectedHelpDeskFabPosition = position);
+
+    private void OnHelpDeskFabHiddenChangedFromElsewhere(bool hidden) =>
+        Apply(() => _helpDeskFabHidden = hidden);
+
+    private void Apply(Action change) => _ = InvokeAsync(() =>
+    {
+        change();
+        StateHasChanged();
+    });
 
     private void OnMeChanged() => _ = InvokeAsync(() =>
     {

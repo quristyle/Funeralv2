@@ -445,7 +445,26 @@ body {
 
   /* 뒤에 글자가 가려져도 존재를 인지할 수 있도록 평상시 살짝 반투명하게 둔다. */
   opacity: 0.8;
-  transition: opacity 0.2s ease, background 0.15s ease;
+  transition: opacity 0.2s ease, background 0.15s ease, transform 0.15s ease;
+
+  /* ── 오래 눌러도 브라우저가 끼어들지 않게 ──────────────────
+
+     이 단추는 **길게 누르면 제 설정 창이 뜬다**(`js/fab-hold.js`). 그 손짓은
+     브라우저가 이미 쓰고 있는 손짓이기도 해서, 그대로 두면 우리 창이 뜨기
+     전에 **아이폰의 말풍선(「복사 · 공유」)과 글자 선택**이 먼저 걸린다.
+     안드로이드의 바로가기 차림표는 JS 쪽에서 막는다 — 그쪽은 CSS 로 못 막는다. */
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+/* 누르고 있는 동안의 표시(`is-held` — JS 가 붙였다 뗀다).
+
+   길게 누르기는 **0.5초 동안 아무 일도 안 일어나는** 손짓이라, 표시가 없으면
+   그 사이가 「먹통」으로 읽혀 손을 떼 버린다. 살짝 줄어드는 것으로 「받고
+   있다」를 말한다 — 색을 바꾸면 그냥 누른 것(`:active`)과 구분이 안 된다. */
+.jsini-shell__fab.is-held {
+  opacity: 1;
+  transform: scale(0.92);
 }
 
 .jsini-shell__fab:hover,
@@ -8014,6 +8033,145 @@ body {
   flex: 0 0 auto;
   font-size: var(--jsini-fs-2xs);
   color: var(--jsini-text-muted);
+}
+
+/* ── 떠다니는 단추를 오래 눌렀을 때 뜨는 창 (`FabHoldMenu`) ───
+
+   그 단추의 자리와 감추기를 **그 자리에서** 고친다. 손가락으로 쓰는 창이라
+   고르는 칸을 전부 44px 위로 잡는다(위 `navswap` 과 같은 까닭). */
+.jsini-fabhold__lead {
+  margin-bottom: 0.9rem;
+  line-height: 1.5;
+  color: var(--jsini-text-muted);
+  font-size: var(--jsini-fs-sm);
+}
+
+.jsini-fabhold__group {
+  margin-bottom: 0.4rem;
+  font-size: var(--jsini-fs-2xs);
+  font-weight: 700;
+  color: var(--jsini-text-muted);
+}
+
+/* 네모 넷을 **화면처럼** 벌여 놓는다 — 두 칸씩 두 줄이라 격자의 자리가
+   곧 화면의 귀퉁이다. 목록으로 늘어놓으면 글자를 읽어야 어디인지 안다. */
+.jsini-fabhold__corners {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+}
+
+.jsini-fabhold__corner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  min-height: 44px;
+  padding: 0.5rem 0.3rem;
+  border: 1px solid var(--jsini-border);
+  border-radius: var(--jsini-radius-md);
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.jsini-fabhold__corner:hover,
+.jsini-fabhold__corner:focus-visible {
+  background: color-mix(in srgb, currentcolor 8%, transparent);
+}
+
+/* 지금 서 있는 자리. **표시가 없으면 네 번 눌러 봐야** 어디인지 안다. */
+.jsini-fabhold__corner.is-on {
+  border-color: var(--jsini-accent);
+  background: color-mix(in srgb, var(--jsini-accent) 12%, transparent);
+  color: var(--jsini-accent);
+}
+
+/* 화면을 본뜬 작은 네모와 그 안의 점(= 단추). 가로세로 비가 휴대폰과
+   비슷해야 「아래」가 아래로 읽힌다. */
+.jsini-fabhold__box {
+  position: relative;
+  width: 2rem;
+  height: 2.6rem;
+  border: 1px solid currentcolor;
+  border-radius: 0.25rem;
+  opacity: 0.55;
+}
+
+.jsini-fabhold__dot {
+  position: absolute;
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: currentcolor;
+}
+
+.jsini-fabhold__corner--top-left .jsini-fabhold__dot {
+  top: 0.22rem;
+  left: 0.22rem;
+}
+
+.jsini-fabhold__corner--top-right .jsini-fabhold__dot {
+  top: 0.22rem;
+  right: 0.22rem;
+}
+
+.jsini-fabhold__corner--bottom-left .jsini-fabhold__dot {
+  bottom: 0.22rem;
+  left: 0.22rem;
+}
+
+.jsini-fabhold__corner--bottom-right .jsini-fabhold__dot {
+  bottom: 0.22rem;
+  right: 0.22rem;
+}
+
+.jsini-fabhold__corner-name {
+  font-size: var(--jsini-fs-2xs);
+  white-space: nowrap;
+}
+
+/* 아래 두 줄(감추기 · 환경설정). 귀퉁이 넷과 **선 하나로 가른다** —
+   자리를 고르는 일과 화면을 떠나는 일은 되돌리는 품이 다르다. */
+.jsini-fabhold__acts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-top: 0.9rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--jsini-border);
+}
+
+.jsini-fabhold__act {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  min-height: 44px;
+  padding: 0.4rem 0.5rem;
+  border: 0;
+  border-radius: var(--jsini-radius-md);
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.jsini-fabhold__act:hover,
+.jsini-fabhold__act:focus-visible {
+  background: color-mix(in srgb, currentcolor 8%, transparent);
+}
+
+.jsini-fabhold__act [class^='jsini-icon-'] {
+  flex: 0 0 auto;
+  --jsini-icon-size: 20px;
+}
+
+.jsini-fabhold__act-text {
+  flex: 1;
+  min-width: 0;
 }
 
 @media (max-width: 767px) {

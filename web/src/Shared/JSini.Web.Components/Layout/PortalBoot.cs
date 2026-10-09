@@ -408,6 +408,24 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
     /// </summary>
     public Task<BrowserState> ReadAsync() => _reading ??= ReadOnceAsync();
 
+    /// <summary>
+    /// 읽어 둔 한 벌에 <b>방금 고친 값을 반영해 둔다.</b>
+    /// </summary>
+    /// <remarks>
+    /// <b>아직 다 읽지 못했으면 아무 일도 하지 않는다.</b> 한 번도 안 읽었으면
+    /// 다음 읽기가 브라우저에서 새 값을 그대로 가져오므로 할 일이 없고, 읽는
+    /// 중이면 갈아 끼울 것이 아직 없다. 뒤엣것은 <b>첫 그림이 끝나기 전에
+    /// 값을 고친</b> 경우라야 걸리는데, 그 자리에 조작이 없다.
+    /// </remarks>
+    /// <seealso cref="BrowserState.Patch"/>
+    private void Remember(Func<BrowserState, BrowserState> change)
+    {
+        if (_reading is { IsCompletedSuccessfully: true } done)
+        {
+            _reading = Task.FromResult(change(done.Result));
+        }
+    }
+
     private async Task<BrowserState> ReadOnceAsync()
     {
         // 요청을 만드는 사이에 UseWatermark 가 들어올 수는 없다 — 회로는
@@ -569,6 +587,7 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
             logger.LogDebug(ex, "모바일 메뉴 단추 위치를 브라우저에 저장하지 못했다.");
         }
 
+        Remember(state => state.WithFabPosition(normalized));
         FabPositionChanged?.Invoke(normalized);
     }
 
@@ -601,6 +620,7 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
             logger.LogDebug(ex, "모바일 메뉴 단추 숨김 여부를 브라우저에 저장하지 못했다.");
         }
 
+        Remember(state => state.WithFabHidden(hidden));
         FabHiddenChanged?.Invoke(hidden);
     }
 
@@ -623,6 +643,7 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
             logger.LogDebug(ex, "헬프데스크 요청 등록 단추 위치를 브라우저에 저장하지 못했다.");
         }
 
+        Remember(state => state.WithHelpDeskFabPosition(normalized));
         HelpDeskFabPositionChanged?.Invoke(normalized);
     }
 
@@ -655,6 +676,7 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
             logger.LogDebug(ex, "헬프데스크 요청 등록 단추 숨김 여부를 브라우저에 저장하지 못했다.");
         }
 
+        Remember(state => state.WithHelpDeskFabHidden(hidden));
         HelpDeskFabHiddenChanged?.Invoke(hidden);
     }
 
@@ -696,6 +718,7 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
             logger.LogDebug(ex, "화면 확대 잠금 여부를 브라우저에 반영하지 못했다.");
         }
 
+        Remember(state => state.WithZoomUnlocked(unlocked));
         ZoomUnlockedChanged?.Invoke(unlocked);
     }
 
@@ -728,6 +751,7 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
             logger.LogDebug(ex, "하단 네비게이션 사용 여부를 브라우저에 저장하지 못했다.");
         }
 
+        Remember(state => state.WithBottomNavHidden(hidden));
         BottomNavHiddenChanged?.Invoke(hidden);
     }
 
@@ -762,6 +786,7 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
             logger.LogDebug(ex, "하단 네비게이션 항목을 브라우저에 저장하지 못했다.");
         }
 
+        Remember(state => state.WithBottomNavItems(value));
         BottomNavItemsChanged?.Invoke(value);
     }
 
@@ -784,6 +809,7 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
             logger.LogDebug(ex, "토스트 알림 위치를 브라우저에 저장하지 못했다.");
         }
 
+        Remember(state => state.WithToastPosition(normalized));
         ToastPositionChanged?.Invoke(normalized);
     }
 
@@ -1100,41 +1126,41 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         /// <summary>
         /// 모바일 메뉴 단추(FAB) 위치. 없거나 잘못된 값이면 <c>bottom-left</c> 다.
         /// </summary>
-        public string FabPosition { get; private init; } = "bottom-left";
+        public string FabPosition { get; private set; } = "bottom-left";
 
         /// <summary>
         /// 모바일 메뉴 단추를 감춰 두었는가. 고른 적이 없으면 <c>false</c> —
         /// 즉 보인다.
         /// </summary>
-        public bool FabHidden { get; private init; }
+        public bool FabHidden { get; private set; }
 
         /// <summary>
         /// 헬프데스크 요청 등록 단추 위치. 없거나 잘못된 값이면 <c>bottom-right</c> 다.
         /// </summary>
-        public string HelpDeskFabPosition { get; private init; } = "bottom-right";
+        public string HelpDeskFabPosition { get; private set; } = "bottom-right";
 
         /// <summary>
         /// 그 단추를 감춰 두었는가. 고른 적이 없으면 <c>false</c> — 즉 보인다
         /// (권한이 있을 때에 한한다 — <see cref="HelpDeskFabHiddenKey"/> 머리말).
         /// </summary>
-        public bool HelpDeskFabHidden { get; private init; }
+        public bool HelpDeskFabHidden { get; private set; }
 
         /// <summary>
         /// 휴대폰 아래 띠를 <b>쓰지 않기로</b> 했는가. 고른 적이 없으면
         /// <c>false</c> — 즉 쓴다.
         /// </summary>
-        public bool BottomNavHidden { get; private init; }
+        public bool BottomNavHidden { get; private set; }
 
         /// <summary>
         /// 그 띠에 놓을 칸들. 날것 JSON 이고 고른 적이 없으면 <c>null</c> 이다.
         /// 옮겨 담는 일은 <see cref="BottomNav.Parse"/> 가 한다.
         /// </summary>
-        public string? BottomNavItemsJson { get; private init; }
+        public string? BottomNavItemsJson { get; private set; }
 
         /// <summary>
         /// 토스트 알림 위치. 없거나 잘못된 값이면 <c>bottom-right</c> 다.
         /// </summary>
-        public string ToastPosition { get; private init; } = "bottom-right";
+        public string ToastPosition { get; private set; } = "bottom-right";
 
         /// <summary>
         /// 위치를 저절로 다시 확인하는 간격(분). 고른 적이 없으면
@@ -1149,7 +1175,56 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         /// 휴대폰 확대 잠금을 <b>풀어 두었는가</b>. 고른 적이 없으면
         /// <c>false</c> — 즉 잠근다.
         /// </summary>
-        public bool ZoomUnlocked { get; private init; }
+        public bool ZoomUnlocked { get; private set; }
+
+        /// <summary>
+        /// 이 한 벌에서 <b>한 칸만 갈아 끼운 새 것.</b> 나머지는 그대로 옮긴다.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>왜 갈아 끼울 일이 생기나.</b> <see cref="PortalBoot.ReadAsync"/> 는
+        /// 회로마다 <b>한 번</b> 읽어 둔 것을 그대로 돌려준다(몇 번을 불러도
+        /// 왕복은 한 번이다). 그래서 <c>Set…Async</c> 로 고친 뒤에 생긴 부품이
+        /// 그것을 읽으면 <b>고치기 전 값</b>을 받는다 — 바뀜 알림은 그때 이미
+        /// 지나간 뒤라 들을 수도 없다.
+        /// </para>
+        /// <para>
+        /// 실제로 그랬다. 떠다니는 단추를 길게 눌러 자리를 옮긴 다음
+        /// <b>업무를 옮기면</b>(셸의 레이아웃이 새로 생긴다) 단추가 옛 귀퉁이로
+        /// 되돌아갔고, 환경설정 화면을 열면 고르개가 <b>옛 자리를 가리켰다.</b>
+        /// 저장은 멀쩡히 됐으므로 <b>새로고침하면 나아서</b> 더 헷갈렸다.
+        /// </para>
+        /// <para>
+        /// <b>지우지 않고 갈아 끼운다</b>(= 다시 읽지 않는다). 다시 읽게 하면
+        /// 값 하나 고칠 때마다 왕복이 하나 늘고, 그 왕복은 <b>방금 우리가 적은
+        /// 값</b>을 도로 받아 오는 일이다.
+        /// </para>
+        /// </remarks>
+        private BrowserState Patch(Action<BrowserState> change)
+        {
+            var copy = (BrowserState)MemberwiseClone();
+            change(copy);
+            return copy;
+        }
+
+        internal BrowserState WithFabPosition(string value) => Patch(c => c.FabPosition = value);
+
+        internal BrowserState WithFabHidden(bool value) => Patch(c => c.FabHidden = value);
+
+        internal BrowserState WithHelpDeskFabPosition(string value) =>
+            Patch(c => c.HelpDeskFabPosition = value);
+
+        internal BrowserState WithHelpDeskFabHidden(bool value) =>
+            Patch(c => c.HelpDeskFabHidden = value);
+
+        internal BrowserState WithBottomNavHidden(bool value) => Patch(c => c.BottomNavHidden = value);
+
+        internal BrowserState WithBottomNavItems(string? value) =>
+            Patch(c => c.BottomNavItemsJson = value);
+
+        internal BrowserState WithToastPosition(string value) => Patch(c => c.ToastPosition = value);
+
+        internal BrowserState WithZoomUnlocked(bool value) => Patch(c => c.ZoomUnlocked = value);
 
         internal static BrowserState From(BootWire wire) => new()
         {

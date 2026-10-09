@@ -1,0 +1,130 @@
+@*
+    떠다니는 단추를 **오래 누르면** 뜨는 창. 그 단추 자신의 설정을 담는다.
+
+    ────────────────────────────────────────────────────────────
+    [왜 이 창이 생겼나]
+
+    휴대폰 귀퉁이에 떠 있는 단추 둘(메뉴 ☰ · 요청 등록 ✎)은 **자리를 넷 중에서
+    고르거나 아예 감출 수 있다.** 그런데 그 조작이 환경설정 화면 안에만 있었다 —
+    메뉴를 열고 → 장례식장 → 환경설정 → 한참 내려가 「휴대폰」 묶음.
+
+    고치고 싶어지는 순간은 **그 단추가 무언가를 가리고 있을 때**인데, 그때
+    사람이 보고 있는 것은 가려진 그 화면이다. 거기서 설정 화면까지 갔다 오면
+    가려져 있던 것은 이미 눈앞에 없다. **가리는 것이 눈앞에 있는데 손이
+    거기까지 가는 길이 없었다.**
+
+    그래서 단추가 제 설정을 들고 있게 한다. 휴대폰 바탕화면의 아이콘을 길게
+    누르면 그 아이콘의 차림표가 나오는 것과 같은 셈이다.
+
+    ────────────────────────────────────────────────────────────
+    [환경설정을 대신하지 않는다 — 그 단추의 것만 담는다]
+
+    담는 것은 **눌린 그 단추의 설정 둘**뿐이다(자리 · 감추기). 아래 띠나
+    토스트 자리처럼 「휴대폰」 묶음에 함께 있는 것들은 넣지 않는다 — 메뉴
+    단추를 눌렀는데 아래 띠 설정이 나오면 **무엇을 누른 것인지가 흐려진다.**
+
+    나머지는 맨 아래 한 줄이 받는다(「환경설정에서 더 보기」). 그 줄은
+    **메뉴 트리에서 열쇠로 찾는다**(`PortalHome.SettingsRouteKey`) — 주소를
+    글자로 박으면 `@@page` 가 옮겨 갔을 때 조용히 「준비 중」으로 떨어진다.
+    권한이 없어 그 화면이 메뉴에 없는 사람에게는 **줄을 아예 안 그린다.**
+
+    ────────────────────────────────────────────────────────────
+    [자리는 네모 넷으로 고른다 — 고르개가 아니라]
+
+    환경설정에는 같은 것이 글자 고르개(`DxComboBox`)로 있다. 여기서는 **귀퉁이
+    모양 그대로** 보여 준다. 고르는 사람이 머릿속에서 보고 있는 것이 「왼쪽
+    아래」라는 **글자**가 아니라 화면의 그 **귀퉁이**이기 때문이고, 손가락으로
+    고르는 자리라 글자 줄보다 네모가 넓다.
+
+    지금 자리에는 표시가 붙는다(`is-on`). 안 붙이면 **네 번 눌러 봐야** 지금
+    어디인지 알 수 있다.
+
+    ────────────────────────────────────────────────────────────
+    [감추면 이 창으로 돌아올 길이 없다]
+
+    감춘 단추는 그려지지 않으므로 **길게 누를 수도 없다.** 그래서 감출 때는
+    되돌리는 길을 토스트로 함께 말한다(`HideAsync`) — 말하지 않으면 「감췄더니
+    영영 사라졌다」가 된다. 메뉴 단추 쪽은 **메뉴를 여는 다른 길**(왼쪽 위
+    로고)까지 함께 말한다.
+
+    ────────────────────────────────────────────────────────────
+    [바깥을 눌러 닫지 않는다 — 그러면 **뜨자마자 닫혔다**]
+
+    `CloseOnOutsideClick` 을 켜 두었더니 **손을 떼는 순간 창이 사라졌다**
+    (CDP 로 재 보니 떼고 7ms 뒤). 손가락을 떼면 브라우저가 터치를 마우스로
+    옮긴 가짜 누름을 쏘는데, 그때는 창이 이미 그 자리를 덮고 있어서 **그
+    누름의 과녁이 단추가 아니라 창의 덮개**다 — DevExpress 가 그것을 「바깥을
+    눌렀다」로 읽었다.
+
+    가짜 누름 자체는 `js/fab-hold.js` 가 `touchend` 를 취소해 막았는데
+    **그래도 닫혔다.** DxPopup 은 바깥 누름을 `window` 의 잡아내기 단계에서
+    보고 있어서(문서보다 먼저다) 우리가 끼어들 자리가 없다.
+
+    그래서 **`CommPopup` 의 기본값 그대로 둔다** — 그쪽도 바깥 누름으로는 안
+    닫히는 것이 기본이다(그 부품 머리말). 닫는 길은 머리의 ✕ 와 Esc, 그리고
+    이 창의 단추들이다. 어차피 **무엇을 눌러도 닫히는 창**이라 막다른 곳이
+    생기지 않는다.
+
+    ────────────────────────────────────────────────────────────
+    [어느 단추를 눌렀는지는 브라우저가 알려 준다]
+
+    `js/fab-hold.js` 가 `menu` · `help` 둘 중 하나를 보내 온다. 요청 등록
+    단추는 권한이 없으면 애초에 그려지지 않으므로(`MainLayout.HelpDeskFabAllowed`)
+    **여기서 권한을 다시 따지지 않는다** — 없는 단추는 눌릴 수가 없다.
+*@
+
+<CommPopup Visible="@_visible"
+           VisibleChanged="@OnVisibleChanged"
+           HeaderText="@Title"
+           Width="300"
+           ShowFooter="false"
+           CssClass="jsini-fabhold">
+    <BodyContentTemplate>
+
+        @* 무엇을 고치는 창인지 한 줄. 길게 누른 것이 실수였을 수도 있어서
+           **어느 단추인지**를 먼저 말한다. *@
+        <div class="jsini-fabhold__lead">@Lead</div>
+
+        <div class="jsini-fabhold__group">자리</div>
+
+        @* 화면을 본뜬 네모 넷. 차례는 화면의 귀퉁이 차례 그대로다
+           (위 둘 · 아래 둘) — 목록 차례로 늘어놓으면 네모의 자리와 글자가
+           어긋나 오히려 헷갈린다. *@
+        <div class="jsini-fabhold__corners" role="group" aria-label="단추를 둘 귀퉁이">
+            @foreach (var corner in Corners)
+            {
+                var value = corner.Value;
+                var on = value == Position;
+
+                <button type="button"
+                        class="jsini-fabhold__corner jsini-fabhold__corner--@value @(on ? "is-on" : "")"
+                        aria-pressed="@(on ? "true" : "false")"
+                        @onclick="@(() => MoveAsync(value))">
+                    <span class="jsini-fabhold__box" aria-hidden="true">
+                        <span class="jsini-fabhold__dot"></span>
+                    </span>
+                    <span class="jsini-fabhold__corner-name">@corner.Name</span>
+                </button>
+            }
+        </div>
+
+        <div class="jsini-fabhold__acts">
+            @* 감추기. 되돌리는 길은 누른 뒤 토스트가 말한다(`HideAsync`). *@
+            <button type="button" class="jsini-fabhold__act" @onclick="@HideAsync">
+                <span class="jsini-icon-eye-off" aria-hidden="true"></span>
+                <span class="jsini-fabhold__act-text">이 단추 숨기기</span>
+            </button>
+
+            @* 권한이 없어 환경설정이 메뉴에 없는 사람에게는 안 그린다 —
+               눌러도 아무 데도 못 가는 줄이 하나 생긴다. *@
+            @if (SettingsHref is not null)
+            {
+                <button type="button" class="jsini-fabhold__act" @onclick="@OpenSettingsAsync">
+                    <span class="jsini-icon-more" aria-hidden="true"></span>
+                    <span class="jsini-fabhold__act-text">환경설정에서 더 보기</span>
+                </button>
+            }
+        </div>
+
+    </BodyContentTemplate>
+</CommPopup>
