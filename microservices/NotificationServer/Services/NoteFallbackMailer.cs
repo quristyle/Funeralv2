@@ -43,6 +43,44 @@ namespace NotificationServer.Services;
 /// </list>
 ///
 /// <para>
+/// [<b>한 통 보낼 때마다 바로 찍는다</b>]
+/// </para>
+///
+/// <para>
+/// 자국을 바퀴 끝에 한 번 모아 저장하면 <b>이미 나간 메일이 안 나간 것으로
+/// 남는다.</b> SMTP 직발송이 한 통에 1~2초라 쉰 통이면 한 바퀴가 1분을 넘고,
+/// 그 사이에 배포가 돌면(<c>main</c> 푸시마다 컨테이너가 내려간다) 저장이
+/// 취소된 토큰에 걸려 통째로 터진다 — 다음 바퀴가 같은 줄을 다시 집어
+/// <b>같은 사람에게 같은 메일을 또 보낸다.</b> 저장이 어떤 까닭으로든
+/// 실패해도 마찬가지다.
+/// </para>
+///
+/// <para>
+/// 그래서 줄마다 곧바로 저장하고, 그 저장에는 <b>취소 토큰을 주지 않는다</b>
+/// (<c>CancellationToken.None</c>). 내리는 중이라도 <b>이미 나간 메일의
+/// 자국은 반드시 남아야</b> 한다 — 왕복이 한 바퀴에 쉰 번 늘지만, 그 자리는
+/// 이미 SMTP 가 통당 1~2초를 쓰는 자리다.
+/// </para>
+///
+/// <para>
+/// [<b>못 보내는 줄도 자국을 찍는다</b>]
+/// </para>
+///
+/// <para>
+/// 집는 목록이 <c>sent_at</c> 오름차순 쉰 줄이라, 자국 없이 건너뛰는 줄이
+/// 쌓이면 그것이 <b>창을 가득 채워 뒤의 멀쩡한 쪽지가 한 통도 못 나간다</b>
+/// (머리 막힘). 로그에는 「0통. 대상=50 주소없음=50」만 5분마다 찍혀서
+/// 조용히 멎는다. 그래서 「본인이 메일을 껐다」도 「주소가 없다」도 자국을
+/// 찍는다 — 둘 다 <b>이 쪽지에 대해서는</b> 바뀔 일이 아니다(두 시간 뒤에
+/// 알려 주는 것이 일인데, 주소를 내일 등록한들 그 쪽지는 이미 늦었다).
+/// </para>
+///
+/// <para>
+/// 자국을 안 찍고 다시 해 보는 것은 <b>보내다 실패한 줄 하나</b>뿐이다 —
+/// SMTP 가 잠깐 막힌 것과 「보낼 수 없는 사람」은 다르다.
+/// </para>
+///
+/// <para>
 /// [<b>본인이 메일을 껐으면 안 보낸다</b>]
 /// </para>
 ///
@@ -187,10 +225,10 @@ public sealed class NoteFallbackMailer(
             {
                 skippedOptOut++;
 
-                // **다시 집지 않게 자국을 찍는다.** 본인이 끈 것은 고쳐질 일이
-                // 아니므로 기다려 봐야 72시간 동안 5분마다 같은 줄을 읽을 뿐이다.
+                // 본인이 끈 것은 **이 쪽지에 대해서는** 바뀔 일이 아니다.
                 note.FallbackEmailAt = now;
                 Trouble(note, "앱 알림이 안 닿았으나 받는 사람이 메일을 꺼 두어 전환 발송하지 않았습니다");
+                await MarkAsync(db, note);
                 continue;
             }
 
@@ -198,10 +236,12 @@ public sealed class NoteFallbackMailer(
             {
                 skippedNoAddress++;
 
-                // 주소가 없는 것은 **언젠가 등록되면 풀릴 일**이라 자국을 찍지
-                // 않는다 — 되돌아볼 창(LookbackHours)이 닫히면 저절로 빠진다.
-                // 대신 보낸 사람이 보낸함에서 알아볼 수 있게 까닭만 적어 둔다.
+                // **자국을 찍는다.** 주소를 내일 등록한들 이 쪽지는 이미 늦었고,
+                // 안 찍으면 이 줄이 72시간 동안 창을 차지해 **뒤의 멀쩡한 쪽지가
+                // 한 통도 못 나간다**(머리말의 「머리 막힘」).
+                note.FallbackEmailAt = now;
                 Trouble(note, "앱 알림이 안 닿았는데 메일 주소가 없어 전환 발송을 못 했습니다");
+                await MarkAsync(db, note);
                 continue;
             }
 
@@ -220,22 +260,49 @@ public sealed class NoteFallbackMailer(
 
                 note.FallbackEmailAt = now;
                 Trouble(note, "앱 알림이 안 닿아 메일로 다시 보냈습니다");
+
+                // **보내자마자 찍는다.** 바퀴 끝에 모아 저장하면 그 사이에 배포가
+                // 돌 때 이미 나간 메일이 안 나간 것으로 남는다(머리말).
+                await MarkAsync(db, note);
                 sent++;
             }
             catch (Exception ex)
             {
                 // **자국을 안 찍는다.** 한 번 실패한 것은 다음 차례에 다시 해 본다 —
-                // SMTP 가 잠깐 막힌 것과 「보낼 수 없는 사람」은 다르다.
+                // SMTP 가 잠깐 막힌 것과 「보낼 수 없는 사람」은 다르다. 적어 둔
+                // 까닭만 되돌린다(안 그러면 다음 바퀴에 같은 말이 두 번 쌓인다).
+                db.Entry(note).State = EntityState.Unchanged;
+
                 logger.LogError(ex, "쪽지 전환 메일을 보내지 못했습니다. note={Note} to={To}",
                     note.Id, note.ReceiverKey);
             }
         }
 
-        await db.SaveChangesAsync(ct);
-
         logger.LogInformation(
             "쪽지 전환 메일 {Sent}통. 대상={Due} 주소없음={NoAddr} 메일꺼둠={OptOut}",
             sent, due.Count, skippedNoAddress, skippedOptOut);
+    }
+
+    /// <summary>
+    /// 줄 하나의 자국을 <b>그 자리에서</b> 표에 적는다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>취소 토큰을 주지 않는다.</b> 이 저장은 「메일이 이미 나갔다」는 사실을
+    /// 적는 일이라, 내리는 중이라고 건너뛰면 그 메일이 다음 바퀴에 한 번 더
+    /// 나간다 — 되돌릴 수 없는 쪽으로 틀리는 유일한 자리다. 적을 것이 한 줄뿐이라
+    /// 끄는 길을 붙잡아 봐야 몇 ms 다.
+    /// </para>
+    /// <para>
+    /// <b>여기서 터지면 바퀴를 세운다.</b> 자국을 못 적는 상태로 계속 보내면
+    /// 그 바퀴가 통째로 중복 발송이 된다 — 부르는 쪽(<c>ExecuteAsync</c>)이
+    /// 잡아 적고 다음 차례에 다시 한다.
+    /// </para>
+    /// </remarks>
+    private static Task MarkAsync(AppDbContext db, Note note)
+    {
+        note.UpdatedAt = AppTime.UtcNow;
+        return db.SaveChangesAsync(CancellationToken.None);
     }
 
     /// <summary>

@@ -136,14 +136,14 @@
                     @if (row.IsDelivered)
                     {
                         <span class="jsini-badge jsini-badge--off"
-                              title="@($"{row.DeliveredAt?.ToLocalTime():yyyy-MM-dd HH:mm} 기기 도착")">기기 도착</span>
+                              title="@($"{row.DeliveredAt.Kst("yyyy-MM-dd HH:mm")} 기기 도착")">기기 도착</span>
                     }
                     else if (row.FallbackEmailAt is { } at)
                     {
                         @* 푸시가 안 닿아 메일로 돌아간 것. **주의로 적는다** —
                            전해지기는 했지만 원래 길이 막혔다는 뜻이다. *@
                         <span class="jsini-badge jsini-badge--warn"
-                              title="@($"앱 알림이 안 닿아 {at.ToLocalTime():yyyy-MM-dd HH:mm} 에 메일로 보냈습니다")">메일 전환</span>
+                              title="@($"앱 알림이 안 닿아 {at.Kst("yyyy-MM-dd HH:mm")} 에 메일로 보냈습니다")">메일 전환</span>
                     }
                     else if (row.PushSent)
                     {

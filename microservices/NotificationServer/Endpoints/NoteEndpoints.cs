@@ -357,36 +357,45 @@ public static class NoteEndpoints
             // 「어느 쪽지가 닿았는지」를 못 말하고, 그러면 전환 메일 판정이
             // 통째로 서지 않는다(`NoteFallbackMailer`).
             //
-            // 값이 비싸지 않다 — 받는 사람이 서른을 넘지 않고(`MaxRecipients`)
-            // 어차피 기기마다 한 번씩 나가던 길이다. 늘어나는 것은 발송 기록의
-            // 묶음(batch) 수뿐인데, 알림함은 사람별로 보므로 달라 보이지 않는다.
+            // **공짜는 아니다.** `PushSender` 가 발송 한 번마다 대상 펴기 ·
+            // 수신 설정 · 구독 조회 · 기록 남기기를 하므로 그 넷이 사람 수만큼
+            // 는다(서른 명이면 DB 왕복 백여 번). 받는 사람 상한이 서른이고
+            // (`MaxRecipients`) 실제로는 한둘이라 감당할 만한 값으로 보고
+            // 가져가지만, 「묶음 수만 는다」는 아니다.
+            //
+            // **아이콘 조회만은 한 번으로 묶는다.** 보내는 사람이 하나라 얼굴도
+            // 하나인데, 알맹이를 사람마다 새로 만들면 그때마다 다시 푼다.
+            // 같은 객체를 돌려 쓰면 `PushSender.FillIconAsync` 가 두 번째부터
+            // 채워진 `Icon` 을 보고 그냥 지나간다.
             var pushDevices = 0;
             var pushTargets = found.Where(r => r.PushReachable).ToList();
 
             var noteOf = notes.ToDictionary(n => n.ReceiverKey, StringComparer.Ordinal);
 
+            var message = new PushMessageDto
+            {
+                Title = $"쪽지 · {senderName}",
+                Body = title,
+                Url = InboxUrl,
+                IconOwnerKey = user.UserId,
+                Category = PushCategories.Note,
+            };
+
             foreach (var target in pushTargets)
             {
+                // **서비스워커가 「닿았다」고 되알려 줄 때 쥐여 보낼 열쇠.**
+                // 이것 하나로 전환 메일이 「안 읽었다」가 아니라 「안 닿았다」를
+                // 보고 움직인다. 사람마다 갈리는 값은 이것 하나뿐이다.
+                message.Data = noteOf.TryGetValue(target.LoginId, out var mine)
+                    ? new Dictionary<string, string> { ["noteId"] = mine.Id }
+                    : null;
+
                 try
                 {
                     var result = await push.SendAsync(new SendPushDto
                     {
                         Owners = [new OwnerRefDto { OwnerType = "jsini", OwnerKey = target.LoginId }],
-                        Message = new PushMessageDto
-                        {
-                            Title = $"쪽지 · {senderName}",
-                            Body = title,
-                            Url = InboxUrl,
-                            IconOwnerKey = user.UserId,
-                            Category = PushCategories.Note,
-
-                            // **서비스워커가 「닿았다」고 되알려 줄 때 쥐여 보낼 열쇠.**
-                            // 이것 하나로 전환 메일이 「안 읽었다」가 아니라 「안
-                            // 닿았다」를 보고 움직인다.
-                            Data = noteOf.TryGetValue(target.LoginId, out var mine)
-                                ? new Dictionary<string, string> { ["noteId"] = mine.Id }
-                                : null,
-                        },
+                        Message = message,
                     }, user.UserId, ct);
 
                     pushDevices += result.Sent;

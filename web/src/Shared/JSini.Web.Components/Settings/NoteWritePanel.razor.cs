@@ -71,6 +71,18 @@ public partial class NoteWritePanel
     /// </remarks>
     private readonly Dictionary<string, NoteRecipientDto> _known = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>
+    /// 이메일 → 아이디. <b>같은 사람이 딱지 둘로 담기는 것</b>을 막는다.
+    /// </summary>
+    /// <remarks>
+    /// 딱지에 담기는 값이 사람이 적은 글자 그대로라, 주소로 담은 사람과
+    /// 아이디로 담은 사람이 <b>글자로는 다른 값</b>이다. 그대로 두면 주소를
+    /// 쳐 담은 뒤 그 사람의 최근 딱지를 눌렀을 때 하나가 더 담기고, 화면은
+    /// 「2명」이라는데 서버는 아이디로 접어 한 통만 보낸다 — 틀리지는 않지만
+    /// 숫자가 어긋나 보인다. 같은 까닭으로 그 딱지가 「눌린 모습」도 안 된다.
+    /// </remarks>
+    private readonly Dictionary<string, string> _knownByEmail = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>받는 사람 딱지. 적은 글자 그대로 담는다 — 푸는 것은 서버다.</summary>
     private readonly List<string> _picked = [];
 
@@ -144,7 +156,7 @@ public partial class NoteWritePanel
 
             foreach (var who in _recent.Concat(_all))
             {
-                _known[who.LoginId] = who;
+                Remember(who);
             }
         }
         catch (ApiException)
@@ -163,9 +175,43 @@ public partial class NoteWritePanel
     private IReadOnlyList<NoteRecipientDto> Remaining =>
         [.. _matches.Where(h => !Has(h.LoginId))];
 
-    /// <summary>이 사람을 이미 담았나.</summary>
-    private bool Has(string loginId) =>
-        _picked.Contains(loginId, StringComparer.OrdinalIgnoreCase);
+    /// <summary>
+    /// 이 사람을 이미 담았나. <b>아이디로 접어 본다</b>(<see cref="_knownByEmail"/>).
+    /// </summary>
+    private bool Has(string token)
+    {
+        var key = Canon(token);
+
+        return _picked.Any(p => string.Equals(Canon(p), key, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// 적힌 글자를 <b>아는 사람이면 아이디로</b> 바꾼다. 모르는 글자는 그대로다.
+    /// </summary>
+    /// <remarks>
+    /// 견주기에만 쓴다 — <b>보내는 값은 바꾸지 않는다.</b> 서버가 사람이 적은
+    /// 글자에서 다시 푸는 것이 이 화면의 약속이라(머리말), 화면이 푼 아이디를
+    /// 딱지에 담으면 그 약속이 깨진다.
+    /// </remarks>
+    private string Canon(string token)
+    {
+        var text = token.Trim();
+
+        if (_known.ContainsKey(text)) return text;
+
+        return _knownByEmail.TryGetValue(text, out var byMail) ? byMail : text;
+    }
+
+    /// <summary>찾기·빠른 선택으로 알게 된 사람을 적어 둔다.</summary>
+    private void Remember(NoteRecipientDto who)
+    {
+        _known[who.LoginId] = who;
+
+        if (who.Email is { Length: > 0 } mail)
+        {
+            _knownByEmail[mail] = who.LoginId;
+        }
+    }
 
     /// <summary>뿌리 칸의 클래스. 채우는 모습에서만 하나가 더 붙는다.</summary>
     private string RootClass => Fill ? "jsini-note jsini-note--fill" : "jsini-note";
@@ -193,7 +239,7 @@ public partial class NoteWritePanel
     /// 그대로다(<see cref="_known"/> 머리말).
     /// </summary>
     private string Label(string who) =>
-        _known.TryGetValue(who, out var hit) ? hit.Display : who;
+        _known.TryGetValue(Canon(who), out var hit) ? hit.Display : who;
 
     /// <summary>최근 딱지를 눌렀다 — 담겨 있으면 빼고 아니면 담는다.</summary>
     /// <remarks>
@@ -202,8 +248,10 @@ public partial class NoteWritePanel
     /// </remarks>
     private void Toggle(NoteRecipientDto who)
     {
+        // **글자가 아니라 아이디로 찾는다.** 주소로 쳐 담은 사람을 이 딱지로
+        // 빼려면 둘이 같은 사람이라는 것을 알아야 한다.
         var had = _picked.FirstOrDefault(
-            p => string.Equals(p, who.LoginId, StringComparison.OrdinalIgnoreCase));
+            p => string.Equals(Canon(p), who.LoginId, StringComparison.OrdinalIgnoreCase));
 
         if (had is not null)
         {
@@ -281,7 +329,7 @@ public partial class NoteWritePanel
 
         if (hit is not null)
         {
-            _known[hit.LoginId] = hit;
+            Remember(hit);
         }
     }
 
@@ -318,6 +366,13 @@ public partial class NoteWritePanel
             // 고를 수 있는 줄로 서면, 보내고 나서야 「닿지 않는다」를 듣는다.
             _matches = [.. hits.Where(h => h.CanReceive)];
             _searched = true;
+
+            // 찾아서 알게 된 사람도 적어 둔다 — 담지 않고 지나가도, 주소로
+            // 친 딱지와 같은 사람인지 가르는 데 쓰인다.
+            foreach (var hit in _matches)
+            {
+                Remember(hit);
+            }
         }
         catch (ApiException)
         {

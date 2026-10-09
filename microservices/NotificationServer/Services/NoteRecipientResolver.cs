@@ -207,8 +207,10 @@ public sealed class NoteRecipientResolver(AppDbContext db, INotificationPreferen
     private async Task<List<NoteRecipientDto>> ReachableAsync(
         string? query, int limit, CancellationToken ct)
     {
-        // 글자가 없으면 빈 목록을 쥐여 준다. **null 을 넘기지 않는다** — EF 가
-        // `Contains` 를 번역하기 전에 그 값을 읽어 터진다.
+        // 글자가 없으면 **빈 목록**을 쥐여 준다. `Contains` 에 null 목록을 넘기면
+        // EF 가 번역하기 전에 그 값을 읽어 터지기 때문이다. 반대로 `lowered` 는
+        // null 로 그냥 넘긴다 — 그것은 매개변수가 되어 `@p IS NULL OR …` 로
+        // 번역되고, 비었을 때 OR 의 첫 항이 참이라 조건이 통째로 빠진다.
         var lowered = query?.ToLowerInvariant();
         var emailAccountIds = new List<string>();
 
@@ -281,7 +283,11 @@ public sealed class NoteRecipientResolver(AppDbContext db, INotificationPreferen
 
         if (take is { } n)
         {
-            query = query.Take(n);
+            // **자르기 전에 줄을 세운다.** 순서 없이 자르면 상한을 넘는 날
+            // 「어느 N 명이 잘리는지」를 DB 가 제 마음대로 정하고, 그러면 같은
+            // 조건으로 두 번 물었을 때 다른 사람이 나온다. 뒤에서 이름순으로
+            // 다시 세우지만 그것은 **잘린 조각 안에서만** 성립한다.
+            query = query.OrderBy(a => a.UserId).Take(n);
         }
 
         var accounts = await query
