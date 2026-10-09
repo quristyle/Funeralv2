@@ -863,12 +863,20 @@ public partial class RequestManage : IDisposable
     // `AcceptableOf` · `RemovableOf`) 거기서 한 번 더 못 박는다 — 브라우저가
     // 들고 있는 `data-*` 는 고칠 수 있는 값이다.
     //
-    // [묻고 나서 한다]
+    // [묻지 않고 바로 한다 (2026-10-10)]
     //
-    // 손짓은 **스쳐 지나가다 일어난다** — 목록을 굴리려던 손가락이 비낄 수
-    // 있고, 그래서 문턱을 줄 폭의 1/4 로 두었지만 그것만으로는 모자란다.
-    // 삭제는 되돌릴 수 없고(서버가 줄을 통째로 지운다) 접수는 누른 사람이
-    // 그대로 접수자로 박히면서 요청자에게 알림이 나간다. 둘 다 묻는다.
+    // 밀면 **그대로 처리된다.** 처음에는 둘 다 확인 창을 거치게 했었는데,
+    // 밀어서 하는 일을 만든 까닭이 「열 건이면 왕복 열 번」을 없애려는
+    // 것이었다 — 그 자리에 창이 뜨면 손짓마다 한 번씩 더 눌러야 해서 왕복만
+    // 짧아진 것이 된다.
+    //
+    // 비낀 손가락을 막는 것은 **문턱 하나**다(줄 폭의 1/4 · 390px 기기에서
+    // 96px). 방향을 처음 몇 px 로 가려 세로로 끌면 손을 떼고, 끌다 문턱을
+    // 못 넘기면 줄이 제자리로 돌아간다(`js/request-swipe.js`).
+    //
+    // 되돌릴 수 없다는 사정 자체는 그대로다 — 삭제는 서버가 줄을 통째로
+    // 지운다. 그래서 **지우는 길은 시스템관리자에게만** 열고(`CanDelete`)
+    // 「대기」인 줄에만 붙인다. 댓글과 처리 기록이 딸린 건은 아예 밀리지 않는다.
     //
     // [목록은 **그 줄만** 고쳐 쓴다 — 다시 읽지 않는다]
     //
@@ -898,9 +906,6 @@ public partial class RequestManage : IDisposable
     /// </remarks>
     private bool CanDelete => Context.IsSystemAdmin;
 
-    /// <summary>밀어서 하는 일을 묻는 창. 화면 맨 아래에 하나만 둔다.</summary>
-    private ConfirmDialog? _confirm;
-
     /// <summary>
     /// 오른쪽으로 민 줄을 <b>접수</b>한다.
     /// </summary>
@@ -927,14 +932,6 @@ public partial class RequestManage : IDisposable
     private async Task<bool> AcceptSwipedAsync(ImprovementRequest r)
     {
         if (!CanAccept || r.Status is not "Pending")
-        {
-            return false;
-        }
-
-        if (_confirm is not null
-            && !await _confirm.AskAsync(
-                $"「{r.Title}」 을(를) 접수합니다. 접수자로 기록되고 요청자에게 알림이 갑니다.",
-                "요청 접수", "접수", ButtonRenderStyle.Primary))
         {
             return false;
         }
@@ -995,7 +992,9 @@ public partial class RequestManage : IDisposable
     /// <para>
     /// <b>되돌릴 수 없다.</b> 서버는 상태를 <c>Delete</c> 로 바꾸는 것이 아니라
     /// 줄을 통째로 지우고 딸린 그림 폴더까지 치운다
-    /// (<c>DELETE requests/{id}</c>). 그래서 확인 창의 글에 그 말을 적는다.
+    /// (<c>DELETE requests/{id}</c>). <b>묻지 않고 바로 지우므로</b> 막는 것은
+    /// 앞의 세 가지뿐이다 — 시스템관리자일 것 · 「대기」인 줄일 것 · 문턱을
+    /// 넘겨 밀 것. 지웠다는 말은 처리 뒤에 알림 줄로 뜬다.
     /// </para>
     /// <para>
     /// <b>전체 건수도 함께 줄인다.</b> 안 줄이면 「더보기」에 적히는 남은 수가
@@ -1011,14 +1010,6 @@ public partial class RequestManage : IDisposable
     private async Task<bool> DeleteSwipedAsync(ImprovementRequest r)
     {
         if (!CanDelete || r.Status is not "Pending")
-        {
-            return false;
-        }
-
-        if (_confirm is not null
-            && !await _confirm.AskAsync(
-                $"「{r.Title}」 을(를) 삭제합니다. 되돌릴 수 없습니다.",
-                "요청 삭제", "삭제", ButtonRenderStyle.Danger))
         {
             return false;
         }

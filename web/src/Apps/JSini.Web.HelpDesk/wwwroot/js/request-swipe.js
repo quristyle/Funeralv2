@@ -37,12 +37,16 @@
  * 구르는 자리라(`.hd-manage-cont--phone`) 그것을 막으면 목록을 못 넘긴다.
  * 처음 몇 px 로 방향을 가려 세로가 이기면 손을 뗀다.
  *
- * [묻는 것은 서버 쪽이다]
+ * [묻지 않는다]
  *
- * 문턱을 넘겨 놓으면 띠를 **열어 둔 채로** C# 을 부른다. 삭제는 되돌릴 수 없어
- * 반드시 확인 창을 거치는데(`RequestManage`), 그 창이 뜬 동안 줄이 제자리로
- * 돌아가 버리면 **무엇을 지우려던 것인지가 화면에서 사라진다.** 답이 오면
- * 그때 줄을 닫는다 — 지워진 줄은 그 사이에 Blazor 가 이미 걷어냈다.
+ * 문턱을 넘기면 **그대로 처리된다.** 확인 창은 두지 않는다 — 밀어서 하는 일을
+ * 만든 까닭이 왕복을 없애려는 것인데, 손짓마다 창이 뜨면 왕복만 짧아진 것이
+ * 된다. 비낀 손가락을 막는 것은 문턱과 방향 잠금, 그리고 **밀 수 있는 줄을
+ * 「대기」로 좁혀 둔 것**이다(`RequestCards`).
+ *
+ * 그래도 띠는 **열어 둔 채로** C# 을 부른다. 서버에 다녀오는 동안 줄이 제자리로
+ * 돌아가 버리면 **무엇을 민 것인지가 화면에서 사라진다.** 답이 오면 그때
+ * 닫는다 — 지워진 줄은 그 사이에 Blazor 가 이미 걷어냈다.
  */
 
 /** 이미 손짓을 받고 있는 판. 두 번 걸면 한 번 민 것이 두 번 처리된다. */
@@ -79,8 +83,8 @@ export function attachSwipe(selector, dotnet) {
   let live = false;
   let dir = 0;
 
-  /** 묻고 있는 중이다. 그 사이 다른 줄을 밀지 못하게 한다. */
-  let asking = false;
+  /** 서버에 다녀오는 중이다. 그 사이 다른 줄을 밀지 못하게 한다. */
+  let busy = false;
 
   /** 마지막으로 끌기가 끝난 시각. 뒤따라오는 `click` 을 이것으로 막는다. */
   let draggedAt = 0;
@@ -117,7 +121,7 @@ export function attachSwipe(selector, dotnet) {
     d > 0 ? el.dataset.accept === '1' : el.dataset.remove === '1';
 
   root.addEventListener('pointerdown', (e) => {
-    if (card || asking) return;
+    if (card || busy) return;
     if (e.pointerType === 'mouse' && e.button !== 0) return;
 
     const el = e.target.closest ? e.target.closest('.hd-req-list__item[data-swipe]') : null;
@@ -212,11 +216,11 @@ export function attachSwipe(selector, dotnet) {
   root.addEventListener('pointercancel', release);
 
   /**
-   * 문턱을 넘겼다. 띠를 **끝까지 열어 둔 채** 서버에 묻는다 — 확인 창이 뜬
+   * 문턱을 넘겼다. 띠를 **끝까지 열어 둔 채** 서버에 보낸다 — 다녀오는
    * 동안에도 어느 줄을 민 것인지가 화면에 남아 있어야 한다.
    */
   const commit = async (el, way) => {
-    asking = true;
+    busy = true;
 
     const id = Number(el.dataset.request);
 
@@ -230,7 +234,7 @@ export function attachSwipe(selector, dotnet) {
       // 회로가 닫혔거나 서버가 못 받았다. 줄을 제자리로 돌려 둔다 —
       // 열린 채로 두면 **처리되지도 않은 건이 처리된 것처럼 보인다.**
     } finally {
-      asking = false;
+      busy = false;
 
       // 처리됐으면 그 줄은 이미 걷혔거나(삭제) 새 상태로 다시 그려졌다(접수).
       // 어느 쪽이든 열린 띠는 닫는다. 떨어져 나간 줄에 걸어도 해가 없다.

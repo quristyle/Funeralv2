@@ -34,8 +34,8 @@ public partial class RequestCards : RequestRowList, IAsyncDisposable
     /// </summary>
     /// <remarks>
     /// <see cref="EventCallback{T}"/> 가 아니라 <see cref="Func{T, TResult}"/>
-    /// 인 까닭은 <b>결과가 브라우저까지 돌아가야</b> 하기 때문이다 — 확인 창에서
-    /// 「아니오」를 눌렀거나 서버가 막았으면 열어 둔 띠를 닫아야 하고,
+    /// 인 까닭은 <b>처리됐는지가 부른 쪽으로 돌아가야</b> 하기 때문이다 —
+    /// 서버가 막았으면(권한 · 상태 · 통신) 그것을 알아야 하고,
     /// <c>EventCallback</c> 으로는 그 답을 받을 수 없다.
     /// </remarks>
     [Parameter] public Func<ImprovementRequest, Task<bool>>? Accept { get; set; }
