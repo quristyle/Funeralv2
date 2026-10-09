@@ -715,6 +715,42 @@
         return null;
       }
     },
+
+    /**
+     * 글상자에서 **Enter 가 줄을 바꾸지 않게** 막는다 (D11).
+     *
+     * 입력칸이 한 줄짜리(`DxTextBox`)였을 때는 Enter 에 기본 동작이 없어
+     * C# 쪽 `@onkeydown` 하나로 끝났다. 여러 줄(`DxMemo` = `textarea`)로
+     * 바꾸면 **같은 Enter 가 보내기도 하고 줄도 바꾼다** — 보낸 뒤 빈 칸에
+     * 줄바꿈 하나가 남고, 그 칸은 비어 보이는데 비어 있지 않다.
+     *
+     * 기본 동작을 끄는 것은 누르는 그 순간에 정해야 해서 C# 으로는 못 한다
+     * (Blazor 의 `preventDefault` 는 그릴 때 박히는 값이다). 그래서 이 한
+     * 가지만 JS 로 한다 — **보낼지 말지는 여전히 C# 이 정한다.**
+     *
+     * 막는 조건은 C# 쪽 `OnKeyDownAsync` 와 **글자 그대로 같아야 한다.**
+     * 어긋나면 둘 중 하나다 — 줄만 바뀌고 안 보내거나, 보내고 줄도 바뀐다.
+     *
+     * - `shiftKey` 면 지나간다 → 줄바꿈. 그쪽은 C# 도 안 보낸다.
+     * - `isComposing` 이면 지나간다 → 한글을 **조합하는 중의 Enter 는 글자를
+     *   앉히는 Enter** 다. 이때 브라우저는 `key` 를 `'Process'` 로 주므로
+     *   C# 쪽도 보내지 않는다. 여기서 막으면 조합이 깨진다.
+     *
+     * 글상자는 DevExpress 가 그리므로 직접 잡지 않고 **바깥 칸에 한 번만**
+     * 건다. 다시 그려 글상자가 갈려도 이 listener 는 그대로 산다.
+     */
+    armEnter: function (host) {
+      if (!host || host.dataset.jsiniEnterArmed) return;
+      host.dataset.jsiniEnterArmed = '1';
+
+      host.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter') return;
+        if (e.shiftKey || e.ctrlKey || e.altKey || e.metaKey) return;
+        if (e.isComposing || e.keyCode === 229) return;
+
+        e.preventDefault();
+      });
+    },
   };
 
   /**

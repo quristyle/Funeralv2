@@ -45,6 +45,19 @@ public partial class AiChatPanel
 
     private ElementReference _logRef;
 
+    /// <summary>
+    /// 글상자를 감싼 칸. JS 가 여기에 Enter 막이를 건다(<c>jsiniChat.armEnter</c>).
+    /// </summary>
+    /// <remarks>
+    /// 글상자(<c>textarea</c>)가 아니라 <b>바깥 칸</b>을 넘긴다 — 글상자는
+    /// DevExpress 가 그려서 다시 그릴 때 갈릴 수 있고, 그때 거기 건 listener 는
+    /// 함께 사라진다. 바깥 칸은 이 부품이 사는 동안 그대로다.
+    /// </remarks>
+    private ElementReference _inputRef;
+
+    /// <summary>Enter 막이를 이미 걸었나. 렌더마다 다시 걸지 않으려고 둔다.</summary>
+    private bool _enterArmed;
+
     /// <summary>새 글자가 붙을 때마다 맨 아래로 따라 내려갈지. 렌더 뒤에 본다.</summary>
     private bool _scrollPending;
 
@@ -239,10 +252,28 @@ public partial class AiChatPanel
         }
     }
 
+    /// <summary>
+    /// 글상자에서 Enter 를 받는다. <b>Enter 는 보내기, Shift+Enter 는 줄바꿈</b>이다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 줄바꿈 쪽은 여기서 아무것도 하지 않는 것이 곧 하는 일이다 —
+    /// <c>textarea</c> 의 기본 동작이 줄바꿈이라 지나보내면 줄이 바뀐다.
+    /// </para>
+    /// <para>
+    /// 보내는 쪽은 반대로 그 기본 동작을 꺼야 하는데, 끄는 것은 누르는 그
+    /// 순간에 정해야 해서 여기서는 못 한다(Blazor 의 <c>preventDefault</c> 는
+    /// 그릴 때 박히는 값이다). 그 한 가지만 JS 가 한다 —
+    /// <c>jsiniChat.armEnter</c> 의 조건을 <b>이 조건과 같게</b> 두어야 한다.
+    /// </para>
+    /// <para>
+    /// 한글을 조합하는 중의 Enter 는 글자를 앉히는 Enter 라서 걸러진다 —
+    /// 그때 브라우저가 주는 <c>Key</c> 는 <c>"Enter"</c> 가 아니라
+    /// <c>"Process"</c> 다.
+    /// </para>
+    /// </remarks>
     private async Task OnKeyDownAsync(KeyboardEventArgs e)
     {
-        // Shift+Enter 는 줄바꿈 자리라 비워 둔다(지금은 한 줄 입력이라 아무 일도
-        // 없지만, 여러 줄로 바꿀 때 여기만 고치면 된다).
         if (e.Key is "Enter" or "NumpadEnter" && !e.ShiftKey)
         {
             await SendAsync();
@@ -383,6 +414,23 @@ public partial class AiChatPanel
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        // Enter 막이는 **한 번만** 건다. 글상자가 그려진 뒤여야 하므로
+        // 여기서 걸고, JS 쪽도 같은 칸에 두 번 걸리지 않게 표시를 남긴다.
+        if (!_enterArmed)
+        {
+            _enterArmed = true;
+
+            try
+            {
+                await Js.InvokeVoidAsync("jsiniChat.armEnter", _inputRef);
+            }
+            catch (JSException)
+            {
+                // 못 걸어도 보내기는 된다 — Enter 가 줄을 함께 바꿀 뿐이다.
+                // 여기서 막으면 대화가 통째로 멎는다.
+            }
+        }
+
         if (!_scrollPending)
         {
             return;

@@ -5717,13 +5717,30 @@ a.jsini-social__btn:focus-visible {
   font-size: var(--jsini-fs-sm);
 }
 
+/* 글상자가 여러 줄이라 **아래를 맞춘다.** 가운데로 두면 글이 길어질수록
+   「전송」이 글상자 한가운데로 떠올라, 눈이 찾는 자리(오른쪽 아래 구석)에서
+   벗어난다. 줄이 하나일 때의 모습은 양쪽 끝이 같으므로 달라지지 않는다. */
 .jsini-chat__input {
   display: flex;
+  align-items: flex-end;
   gap: 0.4rem;
   padding-top: 0.6rem;
 }
 
-.jsini-chat__box { flex: 1; }
+/* `min-width: 0` 이 있어야 긴 한 줄이 「전송」을 밀어내지 않는다 —
+   주제 고르개와 같은 까닭이다(flex 항목은 제 내용보다 작아지지 않는다). */
+.jsini-chat__box {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 손잡이를 지운다. `ResizeMode="Auto"` 가 이미 내용에 맞춰 늘리는데
+   손으로 끈 높이가 남으면 **그다음 글에도 그 높이가 따라붙는다** — 한 줄만
+   쓰려는데 여섯 줄짜리 칸이 서 있는 모양이 된다. 오른쪽 아래 구석의 그
+   삼각형이 「전송」 바로 위에 겹쳐 보이는 것도 걸린다. */
+.jsini-chat__box textarea {
+  resize: none;
+}
 
 /* ── 주제 고르개 ─────────────────────────────────────────────
    대화 줄기를 고르고, 새로 열고, 이름을 고치고, 지운다.
