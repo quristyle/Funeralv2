@@ -1,5 +1,7 @@
 /*
-    여러 점을 한 지도에 찍는 판. 「위치 지도」(/admin/location/map) 전용이다.
+    여러 점을 한 지도에 찍는 판. 포털관리의 지도 둘이 쓴다 —
+    「위치 지도」(/admin/location/map)와 「내 이동경로」(/admin/location/my-track).
+    아래 머리말은 **앞엣것을 지으며 적은 것**이라 「이 화면」은 그쪽을 가리킨다.
 
     ────────────────────────────────────────────────────────────
     [왜 `LocationMap` 부품을 못 쓰나]
@@ -27,12 +29,23 @@
     다시 그리기만 하면 된다.
 
     ────────────────────────────────────────────────────────────
-    [같은 자리에 선 사람들을 겹쳐 두지 않는다]
+    [같은 자리에 선 점들을 겹쳐 두지 않는다]
 
     한 사무실에 앉은 사람들은 좌표가 소수점 넷째 자리까지 같다. 그대로 찍으면
-    **맨 위 한 사람만 누를 수 있고** 나머지는 그 아래 영원히 묻힌다. 겹치는
+    **맨 위 하나만 누를 수 있고** 나머지는 그 아래 영원히 묻힌다. 겹치는
     점은 작은 원으로 벌려 놓는다(`spread`) — 자리가 조금 틀어지지만, 못 누르는
     것보다는 낫다. 벌린 것은 색이 아니라 **줄을 그어** 원래 자리를 가리킨다.
+
+    겹쳤는지는 **좌표가 아니라 화면 거리**로 가른다(`NEAR_PIXELS`). 좌표를
+    잘라 견주면 자른 자리의 경계를 사이에 둔 두 점이 포개진 채로 남는다 —
+    까닭은 `renderPins` 안에 적어 두었다.
+
+    ────────────────────────────────────────────────────────────
+    [점을 잇는 선은 「내 이동경로」만 쓴다]
+
+    「위치 지도」는 선을 긋지 않는다 — 한 사람씩 떨어진 점이라 이을 뜻이 없다.
+    `setPath` 를 안 부르면 선 판은 통째로 감춰지므로, 그 화면은 이것이 생긴
+    줄도 모른다.
 
     ────────────────────────────────────────────────────────────
     [판이 감춰져 있는 동안에는 아무것도 셀 수 없다]
@@ -60,6 +73,14 @@ const PAD = 48;
  * 겹친 점을 벌리는 반지름(픽셀). 점 지름이 22px 이라 그보다 커야 서로 안 문다.
  */
 const SPREAD_RADIUS = 18;
+
+/**
+ * 이만큼 안에 든 점들은 **겹친 것으로 보고 벌린다**(픽셀).
+ *
+ * 점의 동그라미가 11px 이라 그보다 조금 커야 한다 — 더 크게 잡으면 확대해
+ * 떼어 놓은 점들이 도로 모이고, 작게 잡으면 포개진 채로 남는다.
+ */
+const NEAR_PIXELS = 14;
 
 function clamp(v, lo, hi) {
     return Math.max(lo, Math.min(hi, v));
@@ -94,6 +115,16 @@ export function create(host, dotnet) {
     /** 찍을 점들. `{ key, lat, lon, name, muted }` */
     let markers = [];
 
+    /*
+        점들을 잇는 선. `{ lat, lon }` 의 배열이고 **비어 있는 것이 기본**이다 —
+        「위치 지도」는 선을 긋지 않는다(한 사람씩 떨어진 점이라 이을 뜻이 없다).
+
+        「내 이동경로」(/admin/location/my-track)만 이것을 채운다. 거기서는
+        점의 차례가 곧 시간이라, 선이 없으면 **어디서 어디로 갔는지**를 번호를
+        눈으로 따라가며 재구성해야 한다.
+    */
+    let path = [];
+
     /** 지금 고른 점의 열쇠. 목록에서 고른 것도 여기로 온다. */
     let picked = null;
 
@@ -109,6 +140,23 @@ export function create(host, dotnet) {
     const tiles = document.createElement('div');
     tiles.className = 'ad-geomap__tiles';
     host.appendChild(tiles);
+
+    /*
+        선을 담는 판. **타일 위 · 점 아래**다 — 점보다 위에 두면 선이 점을
+        가로질러 번호를 덮고, 타일 아래에 두면 아예 안 보인다.
+
+        `<svg>` 인 까닭은 선 하나를 긋자고 캔버스를 들이면 **다시 그리는 책임이
+        우리에게 넘어오기** 때문이다. 끌 때마다 지우고 다시 칠해야 하고, 고해상도
+        화면에서는 `devicePixelRatio` 까지 우리가 맞춰야 한다. SVG 는 좌표만
+        갈아 끼우면 브라우저가 알아서 그린다.
+    */
+    const trail = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    trail.setAttribute('class', 'ad-geomap__trail');
+    host.appendChild(trail);
+
+    const trailLine = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+    trailLine.setAttribute('class', 'ad-geomap__trail-line');
+    trail.appendChild(trailLine);
 
     const pins = document.createElement('div');
     pins.className = 'ad-geomap__pins';
@@ -188,37 +236,70 @@ export function create(host, dotnet) {
             }
         }
 
+        renderTrail(left, top, w, h);
         renderPins(left, top);
     }
 
     /**
-     * 점을 놓는다. 좌표가 같은 것들은 작은 원으로 벌린다.
+     * 점들을 잇는 선을 다시 놓는다. 선이 없으면 판을 숨긴다 —
+     * 「위치 지도」는 이 자리를 쓰지 않는다.
+     */
+    function renderTrail(left, top, w, h) {
+        if (path.length < 2) {
+            trail.style.display = 'none';
+            return;
+        }
+
+        trail.style.display = '';
+        trail.setAttribute('viewBox', `0 0 ${w} ${h}`);
+        trail.setAttribute('width', w);
+        trail.setAttribute('height', h);
+
+        trailLine.setAttribute('points', path
+            .map(p => `${lonToX(p.lon, worldSize) - left},${latToY(p.lat, worldSize) - top}`)
+            .join(' '));
+    }
+
+    /**
+     * 점을 놓는다. <b>화면에서 포개지는</b> 것들은 작은 원으로 벌린다.
      */
     function renderPins(left, top) {
         pins.textContent = '';
 
-        // 소수점 다섯째 자리(약 1m)가 같으면 같은 자리로 본다.
-        const groups = new Map();
+        /*
+            **좌표가 아니라 화면 거리로 묶는다.**
+
+            한동안 좌표를 소수점 다섯째 자리(약 1m)까지 잘라 열쇠로 썼는데,
+            그 자가 막으려던 것은 「겹쳐서 못 누른다」이지 「좌표가 같다」가
+            아니었다. 자른 자리의 **경계를 사이에 두고 10m 떨어진 두 점**은
+            열쇠가 달라 안 벌어지고, 그런데도 화면에서는 완전히 포개진다 —
+            이동 경로에서 사무실을 나갔다 돌아온 날이 꼭 그 꼴이라(같은 건물의
+            두 자리) 뒤에 그려진 점이 앞엣것을 통째로 덮었다.
+
+            픽셀로 재면 그 틈이 없다. 확대하면 저절로 갈라지는 것도 덤이다 —
+            자른 자리는 아무리 확대해도 같은 묶음에 남는다.
+        */
+        const groups = [];
 
         for (const m of markers) {
-            const key = `${m.lat.toFixed(5)},${m.lon.toFixed(5)}`;
-            const group = groups.get(key);
-            if (group) group.push(m);
-            else groups.set(key, [m]);
+            const x = lonToX(m.lon, worldSize) - left;
+            const y = latToY(m.lat, worldSize) - top;
+
+            const near = groups.find(g => Math.hypot(g.x - x, g.y - y) <= NEAR_PIXELS);
+
+            if (near) near.items.push(m);
+            else groups.push({ x, y, items: [m] });
         }
 
-        for (const group of groups.values()) {
-            const baseX = lonToX(group[0].lon, worldSize) - left;
-            const baseY = latToY(group[0].lat, worldSize) - top;
-
-            group.forEach((m, i) => {
+        for (const { x: baseX, y: baseY, items } of groups) {
+            items.forEach((m, i) => {
                 let dx = 0;
                 let dy = 0;
 
-                if (group.length > 1) {
-                    const angle = (2 * Math.PI * i) / group.length;
+                if (items.length > 1) {
+                    const angle = (2 * Math.PI * i) / items.length;
                     // 여럿이면 원이 커야 서로 안 문다.
-                    const r = SPREAD_RADIUS * Math.max(1, group.length / 6);
+                    const r = SPREAD_RADIUS * Math.max(1, items.length / 6);
                     dx = Math.cos(angle) * r;
                     dy = Math.sin(angle) * r;
 
@@ -405,6 +486,21 @@ export function create(host, dotnet) {
             else render();
         },
 
+        /**
+         * 점들을 잇는 선을 갈아 끼운다. `{ lat, lon }` 의 배열이고 차례가 곧 선이다.
+         *
+         * **점과 따로 두는 까닭.** 선을 이을 차례는 점의 차례와 같을 수도
+         * 있지만(이동 경로), 「위치 지도」처럼 이을 뜻이 없는 화면도 있다.
+         * `setMarkers` 가 선까지 정하면 그 화면이 선을 끄는 방법이 없다.
+         *
+         * **맞추기를 하지 않는다.** 부르는 쪽은 점도 함께 갈아 끼우므로
+         * (`setMarkers(…, true)`), 여기서 또 맞추면 같은 셈이 두 번 돈다.
+         */
+        setPath(points) {
+            path = points ?? [];
+            render();
+        },
+
         /** 목록에서 고른 것을 지도에도 알린다. 그 자리로 옮기고 점을 키운다. */
         focus(key) {
             picked = key;
@@ -454,6 +550,7 @@ export function create(host, dotnet) {
             host.removeEventListener('pointerup', onPointerUp);
             host.removeEventListener('pointercancel', onPointerUp);
             tiles.remove();
+            trail.remove();
             pins.remove();
             tileCache.clear();
         },
@@ -478,7 +575,13 @@ export function create(host, dotnet) {
 
         pendingFit = false;
 
-        if (markers.length === 0) {
+        // **선의 점도 함께 센다.** 선이 점 밖으로 나가는 화면은 아직 없지만
+        // (이동 경로는 머문 자리를 그대로 잇는다), 빠뜨려 두면 그런 화면이
+        // 생기는 날 **선의 끝이 화면 밖으로 잘린 채** 「전부 보기」가 끝났다고
+        // 말한다 — 들여다봐도 틀린 줄 모르는 종류다.
+        const spots = [...markers, ...path];
+
+        if (spots.length === 0) {
             render();
             return;
         }
@@ -486,8 +589,8 @@ export function create(host, dotnet) {
         const w = Math.max(host.clientWidth, 1);
         const h = Math.max(host.clientHeight, 1);
 
-        const lats = markers.map(m => m.lat);
-        const lons = markers.map(m => m.lon);
+        const lats = spots.map(m => m.lat);
+        const lons = spots.map(m => m.lon);
 
         const minLat = Math.min(...lats);
         const maxLat = Math.max(...lats);
@@ -504,7 +607,7 @@ export function create(host, dotnet) {
             Math.abs(Math.max(...lats) - Math.min(...lats)),
             Math.abs(Math.max(...lons) - Math.min(...lons)));
 
-        if (markers.length > 1 && spread > 0.0005) {
+        if (spots.length > 1 && spread > 0.0005) {
             for (let z = MAX_ZOOM; z >= MIN_ZOOM; z--) {
                 const size = TILE * Math.pow(2, z);
                 const dx = Math.abs(lonToX(maxLon, size) - lonToX(minLon, size));

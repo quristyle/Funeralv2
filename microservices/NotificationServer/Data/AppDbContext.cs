@@ -41,6 +41,13 @@ public class AppDbContext : DbContext
     /// </summary>
     public DbSet<Note> Notes { get; set; } = null!;
 
+    /// <summary>
+    /// 지나온 자리. <b>설정 표의 좌표와 갈래가 다르다</b> — 저쪽은 「지금
+    /// 어디」 한 줄이라 덮어쓰고, 이쪽은 잴 때마다 쌓는다
+    /// (<see cref="LocationTrack"/> 머리말).
+    /// </summary>
+    public DbSet<LocationTrack> LocationTracks { get; set; } = null!;
+
     // ── scom 계정·역할 (읽기 전용) ──────────────────────────
     // "이 역할 사용자들의 이메일" 을 풀기 위한 조회 전용 매핑이다.
     // 정본은 AuthServer 이고 여기서는 절대 쓰지 않는다 (ScomIdentityRows.cs 머리말).
@@ -90,6 +97,12 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<Note>()
             .HasIndex(n => new { n.SenderKey, n.SentAt });
+
+        // 지나온 자리는 **언제나 「나의 · 그 기간」** 으로만 묻는다. 주인과
+        // 시각을 한 색인에 담아야 하루치를 뽑는 데 표를 통째로 읽지 않는다 —
+        // 이 표는 사람마다 하루 스물몇 줄씩 끝없이 는다.
+        modelBuilder.Entity<LocationTrack>()
+            .HasIndex(t => new { t.OwnerType, t.OwnerKey, t.RecordedAt });
 
         // ── 컬럼명을 snake_case 로 맞춘다 ──────────────────────
         //

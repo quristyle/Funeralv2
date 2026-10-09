@@ -599,6 +599,7 @@ public static class NotificationEndpoints
             [FromBody] UpdateNotificationPreferenceDto request,
             UserContext? user,
             [FromServices] INotificationPreferenceService prefs,
+            [FromServices] ILocationTrackService tracks,
             CancellationToken ct) =>
         {
             if (user is null) return Results.Unauthorized();
@@ -622,6 +623,26 @@ public static class NotificationEndpoints
             }
 
             var saved = await prefs.SaveAsync("jsini", user.UserId, request, user.UserId, ct);
+
+            // ── 지나온 자리를 한 점 쌓는다 ──────────────────
+            //
+            // **「방금 쟀다」가 실려 있을 때만이다.** 설정 화면은 스위치 하나를
+            // 눌러도 좌표를 포함한 설정 전체를 보내므로(`ToggleAsync`), 좌표가
+            // 있다는 것만으로 쌓으면 **가만히 앉아 스위치를 만지는 동안 기록이
+            // 는다.** 같은 표시로 「확인한 때」가 찍힌다
+            // (`NotificationPreferenceService.SaveAsync`).
+            //
+            // **저장 뒤다.** 설정 저장이 실패하면 기록도 남지 않는 편이 맞고,
+            // 무엇보다 이 쪽이 앞에 서면 기록 쌓기가 깨질 때 증상이 「스위치가
+            // 안 눌린다」로 나타난다 — 원인에서 가장 먼 모양이다.
+            if (request.WeatherLocated == true
+                && request.WeatherLat is { } lat && request.WeatherLon is { } lon)
+            {
+                await tracks.RecordAsync(
+                    "jsini", user.UserId, lat, lon,
+                    request.WeatherAccuracy, request.WeatherPlace, user.UserId, ct);
+            }
+
             return Results.Ok(ApiResponse<NotificationPreferenceDto>.Ok(saved));
         })
         .WithName("UpdateMyNotificationPreference");

@@ -197,6 +197,12 @@ public sealed class GeoLocator(
             {
                 WeatherLat = geo.Latitude,
                 WeatherLon = geo.Longitude,
+
+                // **오차는 이 첫 저장에만 싣는다.** 서버가 기록 한 줄을 만드는
+                // 것이 이때이고(`LocationTrackService.RecordAsync`), 아래 두 번째
+                // 저장은 같은 줄에 이름만 채워 넣는다.
+                WeatherAccuracy = geo.Accuracy,
+
                 WeatherLocalEnabled = enableLocalWeather ? true : null,
             });
         }

@@ -465,6 +465,18 @@ public class UpdateNotificationPreferenceDto
     /// </para>
     /// </remarks>
     public bool? WeatherLocated { get; set; }
+
+    /// <summary>
+    /// 브라우저가 말한 오차 반지름(m). <b>설정이 아니다</b> — 이 PUT 에 얹혀
+    /// 올 뿐이고 설정 표에는 안 들어간다.
+    /// </summary>
+    /// <remarks>
+    /// 가는 곳은 <c>scom.location_tracks</c> 한 줄이다. 거기서 쓰이는 까닭은
+    /// <b>믿을 수 없는 점을 가려내는 단서</b>가 이것뿐이기 때문이다 — 실내에서
+    /// 받은 좌표는 오차가 천 미터를 넘기도 하고, 그 점 하나가 「머문 자리」를
+    /// 둘로 쪼갠다. 없이도 돌아가므로 보내지 않아도 된다.
+    /// </remarks>
+    public double? WeatherAccuracy { get; set; }
 }
 
 /// <summary>

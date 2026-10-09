@@ -1,4 +1,5 @@
 using JSini.Shared.DTOs;
+using JSini.Shared.Infrastructure.Time;
 
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -140,5 +141,49 @@ public static class LocationEndpoints
             return Results.Ok(ApiResponse<List<AccountLocationDto>>.Ok(ordered));
         })
         .WithName("GetAccountLocations");
+
+        // ── 나의 하루치 이동 경로 ───────────────────────────
+        //
+        // **`/me` 가 붙은 것이 이 길의 전부다.** 위의 목록은 남의 자리를 보는
+        // 자리라 메뉴 권한이 지키지만, 지나온 길은 권한으로 열어 줄 종류의
+        // 자료가 아니다 — 주인을 **인자로 받지 않는 것**이 가장 확실한 방어다
+        // (`/notifications/preferences/me` 와 같은 꼴).
+        group.MapGet("/me/track", async (
+            UserContext? user,
+            [FromQuery] string? date,
+            [FromServices] ILocationTrackService tracks,
+            CancellationToken ct = default) =>
+        {
+            if (user is null) return Results.Unauthorized();
+
+            // **날짜는 한국 달력이다.** 못 읽으면 오늘로 본다 — 400 으로
+            // 돌려보내면 화면이 처음 열릴 때 빈손이 되고, 사람은 자기가
+            // 무엇을 잘못 눌렀는지 알 수 없다.
+            var day = DateOnly.TryParse(date, out var parsed) ? parsed : AppTime.TodayInKorea;
+
+            var result = await tracks.GetDayAsync(PortalOwnerType, user.UserId, day, ct);
+
+            return Results.Ok(ApiResponse<MyLocationTrackDto>.Ok(result));
+        })
+        .WithName("GetMyLocationTrack");
+
+        // ── 기록이 있는 날들 ────────────────────────────────
+        //
+        // 포털을 안 연 날에는 한 줄도 안 쌓이므로 빈 날이 드물지 않다. 이것이
+        // 없으면 사람은 기록이 있는 날을 **하루씩 눌러 가며** 찾아야 한다.
+        group.MapGet("/me/track/days", async (
+            UserContext? user,
+            [FromQuery] int? take,
+            [FromServices] ILocationTrackService tracks,
+            CancellationToken ct = default) =>
+        {
+            if (user is null) return Results.Unauthorized();
+
+            var days = await tracks.GetDaysAsync(
+                PortalOwnerType, user.UserId, Math.Clamp(take ?? 30, 1, 180), ct);
+
+            return Results.Ok(ApiResponse<List<LocationTrackDayDto>>.Ok(days));
+        })
+        .WithName("GetMyLocationTrackDays");
     }
 }

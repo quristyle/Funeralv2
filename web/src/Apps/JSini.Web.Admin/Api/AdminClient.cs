@@ -682,6 +682,42 @@ public sealed class AdminClient(GatewayClient gateway)
         CancellationToken ct = default)
         => gateway.GetListAsync<AccountLocationDto>("notification/locations", ct);
 
+    /// <summary>
+    /// <b>내가</b> 그날 지나온 자리 — 점 · 머문 자리 · 요약 한 벌.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 위의 목록과 <b>표가 다르다</b>(<c>scom.location_tracks</c>). 저쪽은 사람
+    /// 하나에 한 줄이라 덮어쓰고, 이쪽은 잴 때마다 쌓인다.
+    /// </para>
+    /// <para>
+    /// <b>주인을 인자로 받지 않는다.</b> 주소에 <c>/me</c> 가 박혀 있고 서버는
+    /// 로그인한 사람으로만 답한다 — 지나온 길은 메뉴 권한으로 열어 줄 종류의
+    /// 자료가 아니라, 남의 것을 물을 길 자체를 두지 않는다.
+    /// </para>
+    /// <para>
+    /// <paramref name="date"/> 는 <b>한국 달력 날짜</b>다. 하루의 경계를 한국
+    /// 자정으로 긋는 것도 서버가 한다 — 화면이 UTC 로 잘라 보내면 한국의
+    /// 하루가 아침 아홉 시에 갈린다.
+    /// </para>
+    /// </remarks>
+    public Task<MyLocationTrackDto?> GetMyLocationTrackAsync(
+        DateOnly date, CancellationToken ct = default)
+        => gateway.GetOneAsync<MyLocationTrackDto>(
+            "notification/locations/me/track" + Query(("date", date.ToString("yyyy-MM-dd"))), ct);
+
+    /// <summary>
+    /// 기록이 있는 날들(최근 것부터). 날짜 고르개가 <b>빈 날을 피하게</b> 한다.
+    /// </summary>
+    /// <remarks>
+    /// 포털을 안 연 날에는 한 줄도 안 쌓인다. 이것이 없으면 사람은 기록이
+    /// 있는 날을 하루씩 눌러 가며 찾아야 한다.
+    /// </remarks>
+    public Task<IReadOnlyList<LocationTrackDayDto>> GetMyLocationTrackDaysAsync(
+        int take = 30, CancellationToken ct = default)
+        => gateway.GetListAsync<LocationTrackDayDto>(
+            "notification/locations/me/track/days" + Query(("take", take)), ct);
+
     // ── 내 알림 설정은 여기 없다 ───────────────────────────────
     //
     // 내 알림 설정과 웹푸시 구독은 **공용 클라이언트**가 다룬다

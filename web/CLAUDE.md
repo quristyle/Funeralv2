@@ -1803,6 +1803,48 @@ Leaflet·카카오·네이버를 들이지도 않았다 — 필요한 것은 타
 API: `GET /api/notification/locations` (NotificationServer `LocationEndpoints`).
 DB: `deploy/sql/portal-menu-location-map-2026-09-25.sql` (운영 반영 완료)
 
+## 내 이동경로 — **같은 지도, 다른 자료**
+
+`/admin/location/my-track` (`MyTrackPage`). 위의 「위치 지도」와 **지도 부품을
+나눠 쓰지만**(`geo-map.js`) 보는 것이 다르다.
+
+| | 위치 지도 | 내 이동경로 |
+|---|---|---|
+| 무엇을 | **남이 지금 어디** 있나 | **내가 어디를 지나왔나** |
+| 자료 | `notification_preferences.weather_lat` (사람 하나에 한 줄, 덮어쓴다) | `scom.location_tracks` (잴 때마다 쌓인다) |
+| 주소 | `GET /locations` | `GET /locations/me/track?date=` |
+| 누가 보나 | 메뉴 권한(관리자) | **주인을 물을 길이 없다** — `/me` 가 박혀 있다 |
+
+- **쌓는 자리는 설정 저장 길 하나다.** `PUT /notifications/preferences/me` 에
+  **`weatherLocated` 가 실려 있을 때만** 한 줄 쌓는다. 설정 화면은 스위치
+  하나를 눌러도 좌표를 포함한 전체를 보내므로(`ToggleAsync`), 좌표가 있다는
+  것만으로 쌓으면 **가만히 앉아 스위치를 만지는 동안 기록이 는다.**
+- **한 번 재면 저장이 두 번 일어난다**(좌표 → 지역 이름). 3분·60m 안의
+  두 번째는 새 줄로 쌓지 않고 **이름만 채워 넣는다**
+  (`LocationTrackService.MergeWindowMinutes`) — 안 그러면 관측 수가 두 배다.
+- **「머문 자리」는 저장된 것이 아니라 셈한 것이다.** 200m 안에 붙은 점들을
+  **서버가** 묶는다(`StayRadiusMeters`). 화면이 묶지 않는 까닭은 같은 묶음을
+  지도·목록·요약 **셋이** 그리기 때문이다.
+- **머문 시간은 모자라는 쪽으로 틀린다.** 관측된 처음과 마지막 사이다.
+  다음 관측까지로 치면 **노트북을 덮고 잔 열 시간**이 사무실 체류 시간이
+  된다. 그래서 관측 수를 함께 적는다 — 한 번만 본 자리는 0분으로 나온다.
+- **하루의 경계는 한국 자정이다**(`AppTime.StartOfDayUtc`). UTC 자정으로
+  끊으면 한국의 하루가 아침 아홉 시에 갈린다(docs/utc-time.md).
+- **빈 날이 드물지 않다.** 웹은 탭이 닫힌 뒤에 위치를 못 읽어서(`geo.js`)
+  포털을 안 연 날은 통째로 빈다. 그래서 조회줄에 「기록이 있는 날」 고르개가
+  있다(`GET /locations/me/track/days`) — 없으면 하루씩 눌러 가며 찾는다.
+- **동의 경계는 브라우저의 위치 권한 하나다.** 포털 안에 끄는 스위치가
+  없으므로 환경설정의 알림 판이 그 말을 적어 둔다(`NotificationPanel`).
+
+지도 부품에 더한 것은 **선 하나**(`setPath`)다. 비어 있으면 그 판은 통째로
+감춰지므로 「위치 지도」는 이것이 생긴 줄도 모른다. 겹친 점을 벌리는 판정도
+이때 **좌표 자르기에서 화면 거리로** 바꿨다(`NEAR_PIXELS`) — 자른 자리의
+경계를 사이에 둔 두 점이 포개진 채로 남던 것이 이동 경로에서 드러났다
+(사무실을 나갔다 돌아온 날, 같은 건물의 두 자리).
+
+DB: `deploy/sql/notification-location-tracks-2026-10-09.sql` ·
+`deploy/sql/portal-menu-my-track-2026-10-09.sql` (운영 반영 완료)
+
 ## 첨부 고르기 — `DxUpload` 과 `DxFileInput` 은 다르다
 
 첨부는 `Components/Data/FilePicker.razor` 한 벌이고, 여섯 화면이 쓴다(공지 ·

@@ -429,6 +429,17 @@ public sealed class LocationUpdateDto
     public string? WeatherPlace { get; set; }
 
     /// <summary>
+    /// 브라우저가 말한 오차 반지름(m). <b>설정에는 안 들어간다</b> — 가는 곳은
+    /// 이동 경로 기록 한 줄이다(<c>scom.location_tracks</c>).
+    /// </summary>
+    /// <remarks>
+    /// 그 기록에서 이 값이 쓰이는 까닭은 <b>믿을 수 없는 점을 가려내는
+    /// 단서</b>가 이것뿐이기 때문이다 — 실내에서 받은 좌표는 오차가 천 미터를
+    /// 넘기도 하고, 그 점 하나가 「머문 자리」를 둘로 쪼갠다.
+    /// </remarks>
+    public double? WeatherAccuracy { get; set; }
+
+    /// <summary>
     /// 「내 위치 날씨」를 함께 켤지. <b>권유 창에서 위치를 처음 잡을 때만</b>
     /// 참이다 — 설정 화면에서 다시 잡는 것은 스위치를 만지는 일이 아니다.
     /// </summary>

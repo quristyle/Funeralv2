@@ -407,6 +407,13 @@
   .ad-split { grid-template-columns: 1fr; }
 }
 
+/* 「내 이동경로」의 목록 판은 조금 넓다. 기본 폭(26%)에서는 칸 넷 중
+   **머문시간이 통째로 잘려 나간다** — 그 값이 이 화면을 여는 까닭인데
+   가로로 굴려야 보였다. 「위치 지도」는 칸이 셋이라 기본 폭으로 충분하다. */
+@media (min-width: 992px) {
+  .ad-split--track { grid-template-columns: minmax(420px, 38%) 1fr; }
+}
+
 .ad-split__side,
 .ad-split__main {
   min-width: 0;
@@ -2763,6 +2770,38 @@
 
 .ad-geomap__pin.is-muted::before {
   background: var(--jsini-text-muted);
+}
+
+/* 「내 이동경로」의 하루 요약 넷. 공용 `.jsini-facts` 를 그대로 쓰되
+   **지도·목록과 너무 붙지 않게** 아래만 조금 띄운다 — 조회 판과 분할 사이에
+   끼어 있어서, 공용 여백(1rem)만으로는 조회 조건의 일부처럼 읽힌다. */
+.ad-track__sum {
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--jsini-border);
+}
+
+/* 점들을 잇는 선(이동 경로). **타일 위 · 점 아래**다 — 점보다 위면 선이
+   번호를 덮고, 타일 아래면 아예 안 보인다. 끌기는 아래 타일 층이 받아야
+   하므로 이 판도 포인터를 안 가로챈다. */
+.ad-geomap__trail {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+
+/* 선 자체. **채우기를 끈다** — `polyline` 의 기본값이 검은 채우기라,
+   끄지 않으면 지나온 자리를 이은 다각형이 통째로 까맣게 칠해진다. */
+.ad-geomap__trail-line {
+  fill: none;
+  stroke: var(--jsini-accent);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+
+  /* 타일 무늬(도로도 선이다) 위에서 갈리라고 조금 비친다. */
+  opacity: 0.7;
 }
 
 /* 같은 자리에서 벌려 놓은 점이 원래 자리를 가리키는 선. */
