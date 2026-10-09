@@ -21,6 +21,23 @@
  * 서비스워커**가 있어야 한다. 아래 처리기는 respondWith 를 부르지 않으므로
  * 브라우저가 평소대로 망을 탄다 — 가로채는 것이 없다. 있다는 사실만 쓴다.
  * 지우면 홈 화면 추가가 조용히 사라진다.
+ *
+ * ── 여기서 위치(geolocation)를 읽을 수 없다 ────────────────────
+ *
+ * 「포털을 닫은 뒤에도 위치를 모으려면 여기 아니냐」는 물음이 반드시 온다.
+ * **안 된다.** 이 전역의 `navigator` 는 `WorkerNavigator` 라
+ * `navigator.geolocation` 이 **아예 없고**(`Geolocation` 생성자조차 없다),
+ * `push` 로 깨어나도 `periodicsync` 로 깨어나도 그대로다.
+ *
+ * **`navigator.permissions` 는 있다는 것이 함정이다** —
+ * `query({ name: 'geolocation' })` 이 여기서 `granted` 를 돌려준다. 권한
+ * 상태만 보고 짠 코드는 조용히 `undefined` 를 건드리다 끝난다.
+ *
+ * 할 수 있는 일은 **열린 창에 물어보는 중계** 하나다(아래 `notifyClients`
+ * 와 같은 짜임). 창이 없으면 `clients.openWindow` 도 막혀 있다
+ * (`InvalidAccessError: Not allowed to open a window.` — 사람의 몸짓이
+ * 이어진 `notificationclick` 에서만 열린다). 실측과 왜 이 포털에서는
+ * 중계로도 벌 것이 없는지는 docs/geolocation-background.md.
  */
 
 // 새 판을 기다리지 않고 바로 활성화한다(옛 registerType: 'autoUpdate' 와 같다).

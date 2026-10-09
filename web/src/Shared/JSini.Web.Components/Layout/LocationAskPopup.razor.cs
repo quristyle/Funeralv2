@@ -356,7 +356,9 @@ public partial class LocationAskPopup
 
     /// <summary>
     /// 아무리 바빠도 이보다 촘촘히는 깨지 않는다. 시각 셈이 어긋났을 때
-    /// (기기 시계를 되돌린 경우 따위) <b>쉬지 않고 도는 것</b>을 막는 바닥이다.
+    /// (기기 시계를 되돌린 경우 따위) <b>쉬지 않고 도는 것</b>을 막는 바닥이고,
+    /// <b>회로가 끊겨 못 쟀을 때 다시 해 보는 간격</b>도 이것이다
+    /// (<see cref="RunClockAsync"/>).
     /// </summary>
     private static readonly TimeSpan MinWait = TimeSpan.FromSeconds(30);
 
@@ -393,31 +395,69 @@ public partial class LocationAskPopup
     /// 잘 때가 되면 깨어 한 번 재고 다시 잔다. <b>간격은 깰 때마다 다시
     /// 읽는다</b> — 사람이 환경설정에서 고친 값이 다음 잠부터 바로 듣는다.
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// [끊겼다고 시계를 버리지 않는다]
+    /// </para>
+    /// <para>
+    /// 깰 때 하는 일은 <b>브라우저를 한 번 건드리는 것</b>이다(옆 탭이 방금
+    /// 쟀는지 다시 읽는다). 그래서 <b>회로가 끊긴 동안에는 터진다</b> —
+    /// <c>JSDisconnectedException</c> 이고, 그것은 <c>JSException</c> 이
+    /// <b>아니라서</b>(둘 다 <c>System.Exception</c> 을 바로 물려받은 남남이다)
+    /// 아래쪽에 깔아 둔 <c>catch (JSException …)</c> 들에 걸리지 않고 여기까지
+    /// 올라온다.
+    /// </para>
+    /// <para>
+    /// 전에는 그 받는 자리가 <c>while</c> <b>밖</b>에 있어서, 한 번 터지면 시계가
+    /// 그대로 멈췄다. <b>휴대폰을 덮어 웹소켓이 끊긴 것</b>이 그 자리다 — 서버는
+    /// 끊긴 회로를 <b>15분</b> 붙들고 있어(<c>reconnect.js</c>) 다시 열면 화면이
+    /// 끊기기 전 그대로 살아나는데, <b>재연결은 <c>firstRender</c> 를 다시
+    /// 일으키지 않는다.</b> 그래서 그 탭은 닫을 때까지 영영 안 쟀다.
+    /// </para>
+    /// <para>
+    /// 지금은 끊김을 <b>기다리는 일</b>로 본다. <see cref="MinWait"/> 뒤에 다시
+    /// 해 보므로 회로가 이어지면 그 안에 잰다. 끝내 안 돌아오면 서버가 그 회로를
+    /// 걷고, 그때 이 부품이 사라져 <see cref="Dispose"/> 가 시계를 걷는다.
+    /// </para>
+    /// <para>
+    /// <b>서비스워커로는 이 자리를 메울 수 없다</b> — 그 전역에는
+    /// <c>geolocation</c> 이 아예 없다. 실측과 까닭은
+    /// <c>docs/geolocation-background.md</c>.
+    /// </para>
+    /// </remarks>
     private async Task RunClockAsync(CancellationToken token)
     {
-        try
+        // 회로가 끊겨서 못 재고 돌아선 참인가. 그때는 한 간격을 다시 세지 않고
+        // 곧 다시 해 본다 — 기다리는 것이 「잴 때」가 아니라 「회로」라서다.
+        var disconnected = false;
+
+        while (!token.IsCancellationRequested)
         {
-            while (!token.IsCancellationRequested)
+            try
             {
-                await Task.Delay(NextWait(), token);
+                await Task.Delay(disconnected ? MinWait : NextWait(), token);
 
                 // **회로의 차례로 돌아와서** 화면을 건드린다. 시계는 회로 밖에서
                 // 도므로 여기서 바로 JS 를 부르면 렌더링이 엉킨다.
                 await InvokeAsync(SyncOnScheduleAsync);
+
+                disconnected = false;
             }
-        }
-        catch (OperationCanceledException)
-        {
-            // 부품이 사라졌다. 할 일이 없다.
-        }
-        catch (Exception ex) when (ex is JSDisconnectedException or ObjectDisposedException)
-        {
-            // 회로가 먼저 끊겼다. 다음에 열 때 처음부터 다시 살핀다.
-            Log.LogDebug(ex, "위치를 다시 재려는데 회로가 이미 끊겼다.");
-        }
-        catch (Exception ex)
-        {
-            Log.LogDebug(ex, "위치를 다시 재지 못했다.");
+            catch (OperationCanceledException)
+            {
+                // 부품이 사라졌다. 할 일이 없다.
+                return;
+            }
+            catch (Exception ex) when (ex is JSDisconnectedException or ObjectDisposedException)
+            {
+                // 회로가 끊겨 있다. **시계는 그대로 둔다** — 다시 이어지면 잰다.
+                disconnected = true;
+                Log.LogDebug(ex, "위치를 다시 재려는데 회로가 끊겨 있었다. 곧 다시 해 본다.");
+            }
+            catch (Exception ex)
+            {
+                Log.LogDebug(ex, "위치를 다시 재지 못했다.");
+            }
         }
     }
 

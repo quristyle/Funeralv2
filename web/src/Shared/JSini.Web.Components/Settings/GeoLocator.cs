@@ -42,7 +42,9 @@ namespace JSini.Web.Components.Settings;
 ///
 /// <para>
 /// 서비스워커에는 <c>geolocation</c> 이 없어 <b>탭이 닫힌 뒤에는 어떤 길로도</b>
-/// 위치를 못 읽는다. 대신 <b>포털이 열려 있는 동안</b>에는 사람이 단추를 누르지
+/// 위치를 못 읽는다 — 푸시로 깨워도 <c>periodicsync</c> 로 깨워도 같다(실측과
+/// 까닭은 <c>docs/geolocation-background.md</c>).
+/// 대신 <b>포털이 열려 있는 동안</b>에는 사람이 단추를 누르지
 /// 않아도 다시 잴 수 있다 — 권한이 이미 <c>granted</c> 인 브라우저는
 /// <c>getCurrentPosition</c> 을 물음창 없이 돌려주기 때문이다. 그래서 자리가
 /// 바뀐 사람의 좌표는 <b>다음번에 포털을 열 때</b> 따라온다.

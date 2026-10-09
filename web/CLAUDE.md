@@ -1672,6 +1672,15 @@ NotificationServer 에 이미 다 있다 — `GET /notifications/vapid-public-ke
 읽는다. 대신 **권한이 이미 `granted`** 인 브라우저는 물음창 없이 좌표를 내주므로,
 포털을 열어 두기만 하면 바뀐 자리가 따라온다.
 
+**서비스워커로 그 자리를 메울 수 없다는 것을 실측해 두었다**
+(2026-10-09 · [docs/geolocation-background.md](../docs/geolocation-background.md)).
+그 전역의 `navigator` 는 `WorkerNavigator` 라 **위치가 아예 안 실리고**,
+`push` 로 깨워도 `periodicsync` 로 깨워도 같다. 할 수 있는 일은 **열린 창에
+물어보는 중계** 하나인데 — 실제로 좌표가 돌아온다 — 이 포털에서는 벌 것이
+없다(창이 없으면 `clients.openWindow` 가 `InvalidAccessError` 고, 창이 있으면
+회로의 시계가 이미 재고, 좌표를 저장할 토큰은 서버에 있다). `periodicsync` 의
+간격은 브라우저가 하루 한 번꼴까지 벌리므로 30분에 쓸 수 없다.
+
 ```
 좌표 없음 ──▶ 창을 띄운다 ──▶ 누르면 물음창 ──▶ 저장 + 「내 위치 날씨」 켜짐
 좌표 있음 ──▶ 조용히 확인 ──▶ 300m 넘게 움직였으면 새 좌표로 갈아 끼운다
