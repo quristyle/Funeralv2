@@ -200,6 +200,91 @@ public class GeoLocatorTests
         Assert.Contains(60, PortalBoot.GeoSyncMinuteChoices);
     }
 
+    /// <summary>
+    /// <b>고른 적이 없을 때 30분이어야 한다.</b> 이 좌표는 날씨만 쓰는 것이
+    /// 아니라 <b>지나온 자리</b>로도 쌓이므로(<c>scom.location_tracks</c>),
+    /// 간격이 곧 이동 경로의 성김이다. 되돌려 놓으면 경로에 한 시간짜리
+    /// 구멍이 생기는데 <b>화면에는 그냥 점이 적게 찍힐 뿐</b>이라 드러나지 않는다.
+    /// </summary>
+    [Fact]
+    public void 기본_확인_간격은_삼십분이다()
+    {
+        Assert.Equal(30, PortalBoot.DefaultGeoSyncMinutes);
+        Assert.Equal(TimeSpan.FromMinutes(30), GeoLocator.SyncInterval);
+    }
+
+    /// <summary>
+    /// 조용한 확인이 받아 쓰는 <b>묵은 좌표의 한도</b>(<c>maximumAge</c>)가
+    /// 재는 간격보다 넉넉히 짧아야 한다.
+    /// </summary>
+    /// <remarks>
+    /// <b>이 둘이 같아지면 경로가 한 칸씩 밀린다.</b> 30분마다 재면서 30분
+    /// 묵은 좌표를 그대로 받아 적으면, 지도에 남는 점은 「그때 어디 있었나」가
+    /// 아니라 「그 전에 어디 있었나」다. 자리를 옮긴 순간이 통째로 어긋나는데
+    /// <b>점은 멀쩡히 찍히므로</b> 화면만 봐서는 알 수 없다.
+    /// </remarks>
+    [Fact]
+    public void 조용한_확인은_간격보다_훨씬_덜_묵은_좌표만_받아_쓴다()
+    {
+        var js = RazorSource.Read(Path.Combine(WebRoot(),
+            "src", "Shell", "JSini.Web.Shell", "wwwroot", "js", "geo.js"));
+
+        var quiet = js[js.IndexOf("async function quiet(", StringComparison.Ordinal)..];
+        quiet = quiet[..quiet.IndexOf("\n    }", StringComparison.Ordinal)];
+
+        var found = Regex.Match(quiet, @"maximumAge:\s*(\d+)");
+
+        Assert.True(found.Success, "조용한 확인에 maximumAge 가 적혀 있어야 한다.");
+
+        var maxAge = TimeSpan.FromMilliseconds(int.Parse(found.Groups[1].Value));
+
+        Assert.True(maxAge <= GeoLocator.SyncInterval / 4,
+            $"묵은 좌표 한도({maxAge}) 가 확인 간격({GeoLocator.SyncInterval}) 의 1/4 보다 길다.");
+    }
+
+    // ── 화면 전환이 없어도 재는가 ─────────────────────────────
+
+    /// <summary>
+    /// <b>권유 창에 시계가 걸려 있어야 한다.</b> 이 부품의 살핌이 도는 계기가
+    /// 레이아웃 재생성 하나뿐이던 동안에는, 한 화면을 열어 두고 일하는 사람의
+    /// 좌표가 간격이 지나도 안 따라왔다(운영 기록에 103분짜리 틈이 있다).
+    /// </summary>
+    /// <remarks>
+    /// 글자로 지킨다. 시계를 걷어 내도 <b>빌드도 다른 테스트도 통과하고</b>,
+    /// 증상은 「어떤 사람의 기록만 띄엄띄엄하다」로만 나타난다.
+    /// </remarks>
+    [Fact]
+    public void 위치_권유창은_다음_잴_때에_시계를_건다()
+    {
+        var source = RazorSource.Read(Path.Combine(WebRoot(),
+            "src", "Shared", "JSini.Web.Components", "Layout", "LocationAskPopup.razor"));
+
+        Assert.Contains("ScheduleNextSync", source, StringComparison.Ordinal);
+        Assert.Contains("Task.Delay", source, StringComparison.Ordinal);
+
+        // 걷는 길이 없으면 업무를 옮길 때마다 시계가 하나씩 쌓인다.
+        Assert.Contains("IDisposable", source, StringComparison.Ordinal);
+        Assert.Contains("_clock?.Cancel()", source, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// <b>시계가 깨울 때는 창을 띄우지 않는다.</b> 「나중에」로 닫은 사람에게
+    /// 30분마다 같은 창을 다시 미는 것은 묻는 것이 아니라 조르는 것이다.
+    /// </summary>
+    [Fact]
+    public void 시계가_깨우는_길은_창을_띄우지_않는다()
+    {
+        var source = RazorSource.Read(Path.Combine(WebRoot(),
+            "src", "Shared", "JSini.Web.Components", "Layout", "LocationAskPopup.razor"));
+
+        var wake = source[source.IndexOf(
+            "private async Task SyncOnScheduleAsync(", StringComparison.Ordinal)..];
+        wake = wake[..wake.IndexOf("\n    }", StringComparison.Ordinal)];
+
+        Assert.DoesNotContain("_open = true", wake, StringComparison.Ordinal);
+        Assert.Contains("SyncQuietlyAsync", wake, StringComparison.Ordinal);
+    }
+
     private static string WebRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);

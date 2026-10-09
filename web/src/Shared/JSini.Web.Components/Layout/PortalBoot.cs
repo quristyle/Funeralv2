@@ -317,14 +317,15 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
     public const string ZoomUnlockedKey = "jsini-zoom-unlocked";
 
     /// <summary>
-    /// 고르지 않았을 때의 확인 간격 — <b>한 시간</b>이다.
+    /// 고르지 않았을 때의 확인 간격 — <b>30분</b>이다.
     /// </summary>
     /// <remarks>
-    /// 사람이 고를 수 있는 가장 촘촘한 발송 간격이 세 시간이므로, 한 시간이면
-    /// 어느 쪽이든 발송 전에 적어도 두 번은 확인한다
-    /// (<c>GeoLocator.SyncInterval</c> 의 머리말).
+    /// 한 시간이었다. 좌표가 「지금 어디」 한 줄이던 동안에는 그걸로 됐는데,
+    /// 그 좌표가 <b>지나온 자리</b>로도 쌓이면서(<c>scom.location_tracks</c>)
+    /// 한 시간은 너무 성글어졌다 — 점심에 나갔다 온 자리가 통째로 빠진다.
+    /// 까닭은 <c>GeoLocator.SyncInterval</c> 의 머리말.
     /// </remarks>
-    public const int DefaultGeoSyncMinutes = 60;
+    public const int DefaultGeoSyncMinutes = 30;
 
     private static readonly string[] SessionKeys =
     [
@@ -422,7 +423,11 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         {
             var wire = await js.InvokeAsync<BootWire>("jsiniBoot.read", request);
 
-            return wire is null ? BrowserState.Empty : BrowserState.From(wire);
+            var state = wire is null ? BrowserState.Empty : BrowserState.From(wire);
+
+            SeedGeoSync(state);
+
+            return state;
         }
         catch (JSException ex)
         {
@@ -799,10 +804,10 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
 
     /// <summary>위치 확인 간격이 바뀌었을 때 알린다.</summary>
     /// <remarks>
-    /// <b>듣는 쪽이 아직 없다.</b> 간격을 보는 곳(<c>LocationAskPopup</c>)은 화면을
-    /// 옮길 때마다 새로 생겨 그때 읽으므로, 고친 값은 <b>다음 확인부터</b> 듣는다.
-    /// 그래도 알림은 남겨 둔다 — 같은 화면에 간격을 보여 주는 자리가 생기면
-    /// 그때 이것을 듣는다.
+    /// <b>듣는 쪽이 꼭 있어야 하는 것은 아니다.</b> 간격을 보는 곳
+    /// (<c>LocationAskPopup</c> 의 시계)은 깰 때마다 <see cref="GeoSyncInterval"/>
+    /// 을 다시 읽으므로, 듣지 않아도 <b>다음 확인부터</b> 새 간격을 따른다.
+    /// 지금 자고 있는 시계를 <b>당장</b> 고쳐 걸고 싶은 쪽이 이것을 듣는다.
     /// </remarks>
     public event Action<int>? GeoSyncIntervalChanged;
 
@@ -812,6 +817,11 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
     public async Task SetGeoSyncIntervalAsync(int minutes)
     {
         var normalized = NormalizeGeoSyncMinutes(minutes);
+
+        // **회로가 든 값을 먼저 고친다.** 브라우저에 쓰는 것이 실패해도
+        // 이 탭에서 도는 시계는 방금 고른 간격을 따라야 한다.
+        _geoSyncMinutes = normalized;
+        _geoSeeded = true;
 
         try
         {
@@ -824,6 +834,111 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         }
 
         GeoSyncIntervalChanged?.Invoke(normalized);
+    }
+
+    // ── 위치를 마지막으로 다룬 때 ────────────────────────────────
+    //
+    // **읽기(`ReadAsync`)가 든 값은 회로가 붙던 순간의 것이다.** 몇 번을 불러도
+    // 왕복은 한 번이라(머리말) 그 뒤에 찍은 표시는 거기 안 비친다. 전에는 보는
+    // 쪽이 화면 전환마다 새로 생겨서 그 낡음이 드러나지 않았는데, 시계가 같은
+    // 회로 안에서 되풀이 깨게 되면서 **「쟀는데도 영영 잴 때」** 가 된다.
+    //
+    // 그래서 「마지막으로 다룬 때」와 「간격」은 **여기가 들고 있는다.**
+
+    private DateTime? _geoSyncedAt;
+    private int? _geoSyncMinutes;
+    private bool _geoSeeded;
+
+    /// <summary>
+    /// 이 브라우저에서 위치를 마지막으로 다룬 때(UTC). 한 번도 안 다뤘으면
+    /// <c>null</c> 이다. <see cref="ReadAsync"/> 가 심고 <see cref="StampGeoSyncAsync"/>
+    /// 가 고친다.
+    /// </summary>
+    public DateTime? GeoSyncedAt => _geoSyncedAt;
+
+    /// <summary>
+    /// 지금 쓰는 확인 간격. 고른 적이 없으면 <see cref="DefaultGeoSyncMinutes"/> 다.
+    /// </summary>
+    public TimeSpan GeoSyncInterval =>
+        TimeSpan.FromMinutes(_geoSyncMinutes ?? DefaultGeoSyncMinutes);
+
+    /// <summary>
+    /// 읽어 온 상태에서 위 둘을 심는다. <b>이미 심었으면 건드리지 않는다</b> —
+    /// 읽기가 늦게 끝나는 사이에 간격을 고쳤거나 좌표를 쟀을 수 있고, 그때
+    /// 덮어쓰면 방금 한 일이 없던 일이 된다.
+    /// </summary>
+    private void SeedGeoSync(BrowserState state)
+    {
+        if (_geoSeeded)
+        {
+            return;
+        }
+
+        _geoSeeded = true;
+        _geoSyncedAt = state.GeoSyncedAt;
+        _geoSyncMinutes = state.GeoSyncMinutes;
+    }
+
+    /// <summary>
+    /// 방금 다뤘다고 브라우저에 적어 둔다. <b>UTC 로 적는다</b> — 읽는 쪽이
+    /// UTC 「지금」과 빼서 문턱을 잰다(<see cref="GeoSyncedAtKey"/>).
+    /// </summary>
+    /// <remarks>
+    /// 글자를 굽는 자리를 여기 둔 까닭은 <b>열쇠와 꼴을 아는 곳을 하나로</b>
+    /// 두기 위해서다(<see cref="SnoozePushAskAsync"/> 와 같은 꼴). 못 적어도
+    /// 회로가 든 값은 고친다 — 사생활 보호 모드에서 <c>setItem</c> 이 던지는데,
+    /// 그때 시계까지 멈추면 그 브라우저는 <b>잴 때마다 쟀다는 것을 잊는다</b>.
+    /// </remarks>
+    public async Task<DateTime> StampGeoSyncAsync()
+    {
+        var now = DateTime.UtcNow;
+
+        _geoSyncedAt = now;
+        _geoSeeded = true;
+
+        try
+        {
+            await js.InvokeVoidAsync("localStorage.setItem", GeoSyncedAtKey,
+                now.ToString("o", System.Globalization.CultureInfo.InvariantCulture));
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException)
+        {
+            logger.LogDebug(ex, "위치를 확인한 때를 브라우저에 적지 못했다.");
+        }
+
+        return now;
+    }
+
+    /// <summary>
+    /// 그 표시를 <b>브라우저에서 다시</b> 읽는다. 못 읽으면 회로가 든 값이다.
+    /// </summary>
+    /// <remarks>
+    /// <b>탭이 둘일 때를 위한 것이다.</b> 표시는 <c>localStorage</c> 에 있어
+    /// 탭끼리 나누어 쓰지만 회로는 탭마다 따로 돈다 — 옆 탭이 방금 쟀는데도
+    /// 이 탭의 시계가 또 재면 사람 하나가 간격마다 둘씩 쌓는다.
+    /// <para>
+    /// <b>잴 때가 됐을 때만 부른다.</b> 왕복 하나를 내는 길이라, 아직 멀었으면
+    /// 회로가 든 값으로 먼저 거른다.
+    /// </para>
+    /// </remarks>
+    public async Task<DateTime?> ReadGeoSyncedAtAsync()
+    {
+        try
+        {
+            var raw = await js.InvokeAsync<string?>("localStorage.getItem", GeoSyncedAtKey);
+
+            if (BrowserState.Moment(raw) is { } at)
+            {
+                _geoSyncedAt = at;
+                _geoSeeded = true;
+            }
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException)
+        {
+            logger.LogDebug(ex, "위치를 확인한 때를 다시 읽지 못했다.");
+        }
+
+        return _geoSyncedAt;
     }
 
     /// <summary>
@@ -1075,7 +1190,7 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         /// (<c>RoundtripKind</c> 와는 함께 못 쓴다. 그 짝은 예외를 던진다.)
         /// </para>
         /// </summary>
-        private static DateTime? Moment(string? value) =>
+        internal static DateTime? Moment(string? value) =>
             DateTime.TryParse(value, System.Globalization.CultureInfo.InvariantCulture,
                 System.Globalization.DateTimeStyles.AdjustToUniversal
                 | System.Globalization.DateTimeStyles.AssumeUniversal, out var at)
