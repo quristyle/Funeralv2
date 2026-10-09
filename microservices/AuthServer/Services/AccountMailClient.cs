@@ -56,6 +56,23 @@ public class AccountMailClient
         => (await PostAsync(to, null, subject, body, sender, ct)).Ok;
 
     /// <summary>
+    /// 주소 하나로 보내고 <b>실패 사유까지</b> 돌려준다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 보고서 메일의 「미리받아보기」가 쓴다 — 누른 사람 본인에게만 가므로
+    /// 역할을 거치지 않는다. <see cref="SendAsync"/> 와 같은 길이지만 사유를
+    /// 버리지 않는 것이 다르다: 재설정 메일은 사유를 말해 줄 사람이 화면
+    /// 저쪽에 없었지만, 이쪽은 <b>단추를 누른 사람이 지금 화면을 보고 있다.</b>
+    /// 「보내지 못했습니다」만 띄우면 계정에 주소가 없는 것인지 메일 서버가
+    /// 거절한 것인지 가릴 수 없다.
+    /// </para>
+    /// </remarks>
+    public Task<(bool Ok, string Reason)> SendToAddressAsync(
+        string to, string subject, string body, string sender, CancellationToken ct = default)
+        => PostAsync(to, null, subject, body, sender, ct);
+
+    /// <summary>
     /// 역할을 받는 사람으로 보낸다 (<c>SYSTEM_ADMINISTRATOR</c>).
     /// 받는 주소를 NotificationServer 가 그 역할의 대표 이메일로 풀어 준다.
     /// </summary>

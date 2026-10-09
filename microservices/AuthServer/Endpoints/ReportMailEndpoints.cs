@@ -214,6 +214,35 @@ public static class ReportMailEndpoints
                 : Results.BadRequest(ApiResponse<bool>.Fail(message, "SEND_FAILED"));
         })
         .WithName("SendReportMailNow");
+
+        // ── 미리받아보기 ────────────────────────────────────
+        //
+        // **본인에게만** 보낸다. 받는 역할을 거치지 않고, 배치를 저장하지
+        // 않아도 되고, DB 에 아무 자국도 안 남긴다(서비스 머리말). 그래서
+        // 받는 쪽 메일함이 우는 일이 없어 화면도 묻지 않고 바로 보낸다.
+        //
+        // 길에 `{id}` 가 없는 까닭은 **저장 전에도 눌러야 하기 때문**이다 —
+        // 지금 고르고 있는 보고서가 몸통으로 온다.
+        group.MapPost("/preview", async (
+            UserContext? user,
+            HttpContext http,
+            [FromBody] ReportMailPreviewDto request,
+            [FromServices] IReportMailService service,
+            [FromServices] MenuViewAccess access,
+            CancellationToken ct) =>
+        {
+            if (await ForbidAsync(user, http, access, ct) is { } denied) return denied;
+
+            var (ok, message, result) = await service.SendPreviewAsync(request, user!.UserId, ct);
+
+            // 실패를 성공으로 말하지 않는다. 「고른 보고서가 없다」와 「내
+            // 계정에 이메일이 없다」는 사람이 할 일이 서로 다르고, 화면이
+            // 띄우는 글자가 곧 그 안내다.
+            return ok
+                ? Results.Ok(ApiResponse<ReportMailPreviewResultDto>.Ok(result!, message))
+                : Results.BadRequest(ApiResponse<ReportMailPreviewResultDto>.Fail(message, "PREVIEW_FAILED"));
+        })
+        .WithName("SendReportMailPreview");
     }
 
     /// <summary>

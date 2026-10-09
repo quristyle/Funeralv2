@@ -313,7 +313,130 @@ public class ReportMailService(
         return (outcome.Ok, outcome.Message);
     }
 
+    /// <summary>
+    /// 「미리받아보기」 — 지금 고른 보고서를 부른 사람 본인에게 한 통 보낸다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// [<b>DB 를 한 칸도 건드리지 않는다</b>]
+    /// </para>
+    /// <para>
+    /// 「지금 보내기」는 적어도 <see cref="ReportMailSchedule.LastResult"/> 에
+    /// 자국을 남긴다 — 그 한 통이 <b>남에게</b> 갔기 때문이다. 이쪽은 누른
+    /// 사람 본인에게만 가므로 배치의 기록에 남길 것이 없다. 남기면 「마지막
+    /// 결과」가 아무도 못 받은 미리보기로 덮여, 정작 어젯밤 정기 발송이
+    /// 실패했다는 줄이 사라진다.
+    /// </para>
+    /// <para>
+    /// 그래서 <b>저장하지 않은 배치</b>로도 부를 수 있다. 받는 역할을 정하기
+    /// 전에 메일 꼴부터 보는 것이 가장 흔한 차례다.
+    /// </para>
+    /// </remarks>
+    public async Task<(bool Ok, string Message, ReportMailPreviewResultDto? Result)> SendPreviewAsync(
+        ReportMailPreviewDto request, string actor, CancellationToken ct = default)
+    {
+        var keys = (request.ReportKeys ?? [])
+            .Select(k => k?.Trim())
+            .Where(k => !string.IsNullOrEmpty(k))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        if (keys.Count == 0)
+        {
+            return (false, "미리 받아 볼 보고서를 하나 이상 고르십시오.", null);
+        }
+
+        var email = await FindOwnEmailAsync(actor, ct);
+
+        if (string.IsNullOrWhiteSpace(email))
+        {
+            // **막는 자리를 짚어 준다.** 「보내지 못했습니다」만 띄우면 메일
+            // 서버를 보러 가지만, 실제로 할 일은 내 계정에 주소를 넣는 것이다.
+            logger.LogWarning(
+                "보고서 메일 미리받아보기: 로그인 계정에 이메일이 없다 ({Actor}).", actor);
+
+            return (false,
+                "로그인한 계정에 이메일이 없습니다. 「계정 관리」에서 본인 이메일을 넣으십시오.",
+                null);
+        }
+
+        // 저장하지 않는 임시 줄. 메일 본문이 보는 것(이름·주기·머리말·보고서)만
+        // 채운다 — db 에 더하지 않으므로 식별자도 필요 없다.
+        var draft = new ReportMailSchedule
+        {
+            Id = string.Empty,
+            Name = string.IsNullOrWhiteSpace(request.Name) ? "미리받아보기" : request.Name.Trim(),
+            Frequency = ReportMailFrequency.IsKnown(request.Frequency)
+                ? request.Frequency!
+                : ReportMailFrequency.Daily,
+            DayOfWeek = request.DayOfWeek,
+            DayOfMonth = request.DayOfMonth,
+            SendHourKst = Math.Clamp(request.SendHourKst, 0, 23),
+            SendMinuteKst = Math.Clamp(request.SendMinuteKst, 0, 59),
+            Remark = string.IsNullOrWhiteSpace(request.Remark) ? null : request.Remark.Trim(),
+            Reports = [.. keys.Select(k => new ReportMailScheduleReport { ReportKey = k! })],
+            Roles = [],
+        };
+
+        var catalog = await GetCatalogAsync(ct);
+        var (ok, message, count, missing) = await sender.SendPreviewAsync(draft, catalog, email!, actor, ct);
+
+        if (!ok) return (false, message, null);
+
+        return (true, message, new ReportMailPreviewResultDto
+        {
+            Email = email!,
+            ReportCount = count,
+            MissingReportKeys = missing,
+            Message = message,
+        });
+    }
+
     // ── 안쪽 ────────────────────────────────────────────────
+
+    /// <summary>
+    /// 로그인한 사람의 대표 이메일. 없으면 <c>null</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 계정을 <c>user_id</c> 로도 <c>id</c> 로도 찾는다 — 게이트웨이가 실어
+    /// 보내는 <c>X-User-Id</c> 가 어느 쪽인지는 토큰을 만든 자리에 달려 있고,
+    /// 이 서버의 다른 조회들도 둘을 함께 본다(<c>UserService</c>).
+    /// </para>
+    /// <para>
+    /// 주소를 고르는 차례는 <see cref="ResolveRecipientsAsync"/> 와 <b>같아야
+    /// 한다</b> — 미리받아보기가 다른 주소로 가면 「받는 사람」 창이 보여 준
+    /// 것과 실제로 받은 메일이 어긋난다. 프로필 상세는 값을 고칠 때 옛 줄을
+    /// 지움 표시만 하고 새 줄을 더하는 자리라, 지운 것을 안 거르면 <b>옛
+    /// 주소</b>로 간다.
+    /// </para>
+    /// </remarks>
+    private async Task<string?> FindOwnEmailAsync(string actor, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(actor)) return null;
+
+        var accountId = await db.Accounts
+            .AsNoTracking()
+            .Where(a => !a.IsDeleted && (a.UserId == actor || a.Id == actor))
+            .Select(a => a.Id)
+            .FirstOrDefaultAsync(ct);
+
+        if (string.IsNullOrEmpty(accountId)) return null;
+
+        var mails = await db.AccountProfileDetails
+            .AsNoTracking()
+            .Where(d => d.AccountId == accountId
+                && d.DetailType == "Email"
+                && !d.IsDeleted
+                && d.Content != "")
+            .Select(d => new { d.Content, d.IsPrimary })
+            .ToListAsync(ct);
+
+        return mails
+            .OrderByDescending(m => m.IsPrimary)
+            .Select(m => m.Content.Trim())
+            .FirstOrDefault(m => m.Length > 0);
+    }
 
     /// <summary>
     /// 받은 값이 쓸 수 있는 것인가. <b>여기서 막지 않으면 조용히 안 보내는

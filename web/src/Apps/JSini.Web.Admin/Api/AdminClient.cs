@@ -1180,6 +1180,19 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task SendReportMailNowAsync(string id, CancellationToken ct = default)
         => gateway.PostAsync($"auth/system/report-mail/{id}/send", null, ct);
 
+    /// <summary>
+    /// 「미리받아보기」 — 지금 고른 보고서를 <b>로그인한 본인에게</b> 한 통 보낸다.
+    /// </summary>
+    /// <remarks>
+    /// 길에 배치 식별자가 없다. <b>저장하기 전에도 눌러야 하기 때문</b>이고,
+    /// 그래서 고른 보고서를 몸통에 담아 보낸다. 돌려받는 것에 <b>보낸 주소</b>가
+    /// 들어 있다 — 「보냈습니다」만으로는 어느 메일함을 열어 볼지 알 수 없다.
+    /// </remarks>
+    public Task<ReportMailPreviewResultDto?> SendReportMailPreviewAsync(
+        ReportMailPreviewDto request, CancellationToken ct = default)
+        => gateway.PostAsync<ReportMailPreviewResultDto>(
+            "auth/system/report-mail/preview", request, ct);
+
     /// <summary>쿼리스트링을 만든다. 값이 null 이거나 빈 문자열이면 뺀다.</summary>
     private static string Query(params (string Key, object? Value)[] parameters)
     {

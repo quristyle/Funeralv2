@@ -135,6 +135,52 @@ public sealed class ReportMailRecipientsDto
 }
 
 /// <summary>
+/// 「미리받아보기」로 보내 달라고 할 때 보내는 것.
+/// </summary>
+/// <remarks>
+/// <b>저장한 배치가 아니어도 된다</b> — 지금 화면에서 고르고 있는 그대로를
+/// 담아 보낸다. 받을 역할 칸이 없는 까닭은 이 메일이 <b>누른 사람 본인에게만</b>
+/// 가기 때문이다.
+/// </remarks>
+public sealed class ReportMailPreviewDto
+{
+    public string? Name { get; set; }
+
+    public string? Frequency { get; set; }
+
+    public int? DayOfWeek { get; set; }
+
+    public int? DayOfMonth { get; set; }
+
+    /// <summary>보낼 시각(시). <b>한국 벽시계</b></summary>
+    public int SendHourKst { get; set; } = 8;
+
+    /// <summary>보낼 시각(분). <b>한국 벽시계</b></summary>
+    public int SendMinuteKst { get; set; }
+
+    public string? Remark { get; set; }
+
+    /// <summary>지금 고른 보고서들의 열쇠</summary>
+    public List<string> ReportKeys { get; set; } = [];
+}
+
+/// <summary>미리받아보기의 결과. <b>어디로 갔는지</b>를 함께 받는다.</summary>
+public sealed class ReportMailPreviewResultDto
+{
+    /// <summary>보낸 주소 (본인의 대표 이메일)</summary>
+    public string Email { get; set; } = string.Empty;
+
+    /// <summary>실제로 담긴 보고서 수</summary>
+    public int ReportCount { get; set; }
+
+    /// <summary>메뉴에서 사라져 뺀 보고서의 열쇠</summary>
+    public List<string> MissingReportKeys { get; set; } = [];
+
+    /// <summary>화면에 그대로 띄울 한 줄</summary>
+    public string Message { get; set; } = string.Empty;
+}
+
+/// <summary>
 /// 주기의 값과 그 이름. <b>화면과 서버가 같은 글자를 쓴다</b> —
 /// 고르개에 적힌 값이 그대로 서버의 <c>frequency</c> 칸으로 간다.
 /// </summary>

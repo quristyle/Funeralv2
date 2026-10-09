@@ -77,6 +77,28 @@ internal sealed class ReportMailForm
         };
 
     /// <summary>
+    /// 「미리받아보기」로 보낼 꼴. <b>역할을 담지 않는다</b> — 본인에게만 간다.
+    /// </summary>
+    /// <remarks>
+    /// 주기 칸을 함께 담는 까닭은 메일 머리줄에 그 한 줄이 들어가기 때문이다.
+    /// 저장한 값이 아니라 <b>지금 폼에 적힌 값</b>을 담으므로, 주기를 바꿔 놓고
+    /// 저장하기 전에 눌러도 바꾼 대로 보인다.
+    /// </remarks>
+    public ReportMailPreviewDto ToPreviewRequest(IEnumerable<string> reportKeys) => new()
+    {
+        Name = Name?.Trim(),
+        Frequency = Frequency,
+        DayOfWeek = Frequency == ReportMailFrequency.Weekly
+            ? int.TryParse(DayOfWeekText, out var dow) ? dow : 1
+            : null,
+        DayOfMonth = Frequency == ReportMailFrequency.Monthly ? DayOfMonth : null,
+        SendHourKst = Hour,
+        SendMinuteKst = Minute,
+        Remark = Remark,
+        ReportKeys = [.. reportKeys],
+    };
+
+    /// <summary>
     /// 서버까지 가지 않고 막을 수 있는 것. <b>서버도 같은 것을 막는다</b> —
     /// 여기 것은 왕복을 아끼는 것이지 유일한 문이 아니다.
     /// </summary>
@@ -114,6 +136,9 @@ public partial class ReportMailList
 
     private bool _showRecipients;
     private ReportMailRecipientsDto? _recipients;
+
+    /// <summary>미리받아보기를 보내는 중인가. <b>단추만</b> 잠근다</summary>
+    private bool _previewBusy;
 
     private ConfirmDialog? _confirm;
 
@@ -306,6 +331,60 @@ public partial class ReportMailList
                 "보냈습니다.", "보내지 못했습니다"))
         {
             await ReloadAsync();
+        }
+    }
+
+    /// <summary>
+    /// 「미리받아보기」 — 지금 고른 보고서를 <b>나에게만</b> 한 통 보낸다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// [<b>묻지 않고 보낸다</b>]
+    /// </para>
+    /// <para>
+    /// 「지금 보내기」는 묻는다 — 남의 메일함이 울고 되돌릴 수 없기 때문이다.
+    /// 이쪽은 받는 사람이 누른 사람 본인뿐이라 되돌릴 것이 없다. 한 번 더
+    /// 묻는 창은 「보고서가 메일로 어떻게 보이나」를 확인하려고 몇 번이고
+    /// 누르는 자리에서 방해만 된다.
+    /// </para>
+    /// <para>
+    /// [<c>Loading</c> 대신 제 깃발을 쓴다]
+    /// </para>
+    /// <para>
+    /// <see cref="DataPage.RunAsync"/> 를 쓰면 띄울 문구를 <b>부를 때</b>
+    /// 정해야 하는데, 여기서 할 말은 보내고 나서야 안다 — 어느 주소로 갔는지가
+    /// 그 한 줄의 핵심이다. 그래서 손으로 감싸고, 그동안 단추만 잠근다.
+    /// </para>
+    /// </remarks>
+    private async Task SendPreviewAsync()
+    {
+        if (_previewBusy) return;
+
+        if (_pickedReports.Count == 0)
+        {
+            Say("미리 받아 볼 보고서를 왼쪽에서 하나 이상 고르십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        _previewBusy = true;
+
+        try
+        {
+            var result = await Api.SendReportMailPreviewAsync(
+                _form.ToPreviewRequest(_pickedReports.Select(r => r.RouteKey)));
+
+            // 서버가 준 한 줄을 그대로 띄운다 — **보낸 주소가 거기 들어 있다.**
+            Say(result?.Message ?? "보냈습니다.");
+        }
+        catch (ApiException ex)
+        {
+            // 「계정에 이메일이 없다」도 이 길로 온다. 서버가 적어 준 글자가
+            // 곧 고칠 자리를 짚어 주므로 덧붙이지 않는다.
+            Say($"미리받아보기를 보내지 못했습니다 — {ex.Message}", NoticeTone.Error);
+        }
+        finally
+        {
+            _previewBusy = false;
         }
     }
 

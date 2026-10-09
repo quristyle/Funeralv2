@@ -19,7 +19,8 @@
     [docs/menu-usage.md](docs/menu-usage.md)
     **시스템 모니터링 보고서를 권한 역할에게 주기로 보내는 배치**도 여기 산다 —
     주소를 푸는 일은 알림 서버가 하고, 메일에 담기는 것은 숫자가 아니라 각자의
-    화면으로 가는 길이다: [docs/report-mail.md](docs/report-mail.md)
+    화면으로 가는 길이다. **미리받아보기**는 저장 전에도, 나에게만 보낸다:
+    [docs/report-mail.md](docs/report-mail.md)
   - `AIAgentServer` (:5029) · `FileServer` (:5350) · `HelpDeskServer` (:5400)
     내 요청글에 **댓글이 달렸을 때** 글 주인에게 가는 앱푸시·이메일과 그것을
     끄는 자리는 [docs/helpdesk-comment-notify.md](docs/helpdesk-comment-notify.md)

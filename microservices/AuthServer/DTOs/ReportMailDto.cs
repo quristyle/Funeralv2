@@ -158,3 +158,65 @@ public sealed class ReportMailRecipientsDto
     /// <summary>그중 실제로 메일이 갈 사람 수 (이메일이 있는 사람)</summary>
     public int DeliverableCount { get; set; }
 }
+
+/// <summary>
+/// 「미리받아보기」로 보내 달라는 것. <b>저장한 배치가 아니어도 된다</b> —
+/// 지금 화면에서 고르고 있는 그대로를 받는다.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <see cref="SaveReportMailScheduleDto"/> 를 그대로 쓰지 않는 까닭은
+/// <b>받을 역할이 필요 없기 때문</b>이다. 이 메일은 누른 사람 본인에게만
+/// 간다. 역할 칸을 그대로 두면 「역할을 안 골랐으니 못 보낸다」가 따라붙어,
+/// 정작 받는 사람을 정하기 전에 메일 꼴을 보려는 자리를 막는다.
+/// </para>
+/// <para>
+/// 주기 칸들을 함께 받는 까닭은 메일 머리줄에 그 한 줄이 들어가기 때문이다 —
+/// 안 받으면 미리 본 메일과 실제로 갈 메일이 한 줄 다르다.
+/// </para>
+/// </remarks>
+public sealed class ReportMailPreviewDto
+{
+    /// <summary>배치 이름. 비어 있으면 「미리받아보기」로 적는다</summary>
+    public string? Name { get; set; }
+
+    public string? Frequency { get; set; }
+
+    public int? DayOfWeek { get; set; }
+
+    public int? DayOfMonth { get; set; }
+
+    public int SendHourKst { get; set; } = 8;
+
+    public int SendMinuteKst { get; set; }
+
+    /// <summary>메일 머리말</summary>
+    public string? Remark { get; set; }
+
+    /// <summary>지금 고른 보고서들의 열쇠. <b>이것만은 비면 안 된다</b></summary>
+    public List<string> ReportKeys { get; set; } = [];
+}
+
+/// <summary>
+/// 미리받아보기의 결과. <b>보낸 주소를 함께 돌려준다</b> — 본인 주소라
+/// 가리지 않는다.
+/// </summary>
+/// <remarks>
+/// 「보냈습니다」만 띄우면 메일이 어느 함으로 갔는지 알 수 없다. 계정에
+/// 주소가 여럿 달린 사람은 대표 주소로 가므로, 안 왔다고 할 때 가장 먼저
+/// 볼 것이 <b>어디로 갔나</b>이다.
+/// </remarks>
+public sealed class ReportMailPreviewResultDto
+{
+    /// <summary>보낸 주소 (로그인한 본인의 대표 이메일)</summary>
+    public string Email { get; set; } = string.Empty;
+
+    /// <summary>실제로 담긴 보고서 수</summary>
+    public int ReportCount { get; set; }
+
+    /// <summary>메뉴에서 사라져 뺀 보고서의 열쇠</summary>
+    public List<string> MissingReportKeys { get; set; } = [];
+
+    /// <summary>화면에 그대로 띄울 한 줄</summary>
+    public string Message { get; set; } = string.Empty;
+}

@@ -47,6 +47,13 @@ public class ReportMailSender(
     /// <summary><c>X-User-Id</c> 에 실을 이름. 사람이 아니라 기능을 적는다.</summary>
     private const string SenderKey = "AUTH_REPORT_MAIL";
 
+    /// <summary>
+    /// 미리받아보기가 쓰는 이름. <b>정기 발송과 가른다</b> — 알림 서버의
+    /// 기록에서 「주기로 나간 것」과 「누가 눌러 본 것」이 같은 줄로 보이면
+    /// 발송량을 셀 때 눌러 본 수가 섞인다.
+    /// </summary>
+    private const string PreviewSenderKey = "AUTH_REPORT_MAIL_PREVIEW";
+
     /// <summary>포털 주소. 메일의 링크가 이 값으로 만들어진다.</summary>
     private string PortalBaseUrl =>
         (configuration["Portal:BaseUrl"] ?? "http://localhost:5557").TrimEnd('/');
@@ -61,7 +68,6 @@ public class ReportMailSender(
         CancellationToken ct = default)
     {
         var roles = (schedule.Roles ?? []).Select(r => r.RoleId).Distinct(StringComparer.Ordinal).ToList();
-        var keys = (schedule.Reports ?? []).Select(r => r.ReportKey).Distinct(StringComparer.Ordinal).ToList();
 
         var stamp = AppTime.ToKorea(AppTime.UtcNow).ToString("yyyy-MM-dd HH:mm");
 
@@ -69,23 +75,12 @@ public class ReportMailSender(
         // 가장 나쁘다 — 받는 사람이 곧 거르기 규칙을 만들고, 그때부터 진짜
         // 보고서도 안 읽힌다.
         if (roles.Count == 0) return (false, $"[{stamp}] 받을 역할이 없어 보내지 않았습니다.");
-        if (keys.Count == 0) return (false, $"[{stamp}] 고른 보고서가 없어 보내지 않았습니다.");
 
-        var items = keys
-            .Select(k => (Key: k, Item: catalog.FirstOrDefault(c => c.RouteKey == k)))
-            .ToList();
+        var (ready, why, live, missing) = Compose(schedule, catalog, stamp);
+        if (!ready) return (false, why);
 
-        var live = items.Where(i => i.Item is not null).Select(i => i.Item!).ToList();
-        var missing = items.Where(i => i.Item is null).Select(i => i.Key).ToList();
-
-        if (live.Count == 0)
-        {
-            return (false, $"[{stamp}] 고른 보고서가 모두 메뉴에서 사라져 보내지 않았습니다 "
-                           + $"({string.Join(", ", missing)}).");
-        }
-
-        var subject = $"[JSini] 시스템 모니터링 보고서 — {schedule.Name}";
-        var body = BuildBody(schedule, live, missing);
+        var subject = Subject(schedule, preview: false);
+        var body = BuildBody(schedule, live, missing, preview: false);
 
         var (ok, reason) = await mail.SendToRolesAsync(roles, subject, body, SenderKey, ct);
 
@@ -106,6 +101,106 @@ public class ReportMailSender(
     }
 
     /// <summary>
+    /// <b>누른 사람 본인에게만</b> 한 통 보낸다 — 「미리받아보기」.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// [역할을 거치지 않는 유일한 길이다]
+    /// </para>
+    /// <para>
+    /// 정기 발송은 주소를 안 풀고 역할 이름만 넘긴다(클래스 머리말). 이쪽은
+    /// 반대로 <b>주소 하나</b>로 보낸다 — 받는 사람이 누른 사람 본인으로
+    /// 이미 정해져 있어 풀 것이 없고, 본인이 지금 달라고 누른 메일을
+    /// 「메일 알림을 꺼 뒀다」로 막으면 아무 일도 안 일어난 것처럼 보인다.
+    /// 그 설정은 <b>남이 보내는 것</b>을 끄려고 있는 것이다.
+    /// </para>
+    /// <para>
+    /// 넘어오는 <paramref name="schedule"/> 은 저장된 줄이 아니어도 된다 —
+    /// 화면에서 고르고 있는 그대로를 담은 임시 객체다. 그래야 저장 전에
+    /// 메일 꼴을 볼 수 있다.
+    /// </para>
+    /// </remarks>
+    public async Task<(bool Ok, string Message, int Count, List<string> Missing)> SendPreviewAsync(
+        ReportMailSchedule schedule,
+        IReadOnlyList<ReportCatalogItemDto> catalog,
+        string to,
+        string actor,
+        CancellationToken ct = default)
+    {
+        var stamp = AppTime.ToKorea(AppTime.UtcNow).ToString("yyyy-MM-dd HH:mm");
+
+        var (ready, why, live, missing) = Compose(schedule, catalog, stamp);
+        if (!ready) return (false, why, 0, missing);
+
+        var subject = Subject(schedule, preview: true);
+        var body = BuildBody(schedule, live, missing, preview: true);
+
+        var (ok, reason) = await mail.SendToAddressAsync(to, subject, body, PreviewSenderKey, ct);
+
+        if (ok)
+        {
+            logger.LogInformation(
+                "보고서 메일 미리받아보기: 보고서 {Reports}건 → {To} (요청: {Actor})",
+                live.Count, to, actor);
+
+            var note = missing.Count > 0 ? $" (없어진 보고서 {missing.Count}건은 뺐습니다)" : string.Empty;
+            return (true, $"[{stamp}] 보고서 {live.Count}건을 {to} 로 보냈습니다.{note}", live.Count, missing);
+        }
+
+        logger.LogError(
+            "보고서 메일 미리받아보기 실패: {To} (요청: {Actor}) — {Why}", to, actor, reason);
+
+        return (false, $"[{stamp}] 보내지 못했습니다 — {reason}", 0, missing);
+    }
+
+    /// <summary>
+    /// 고른 열쇠를 <b>지금 메뉴에 있는 보고서</b>와 사라진 것으로 가른다.
+    /// 보낼 수 없으면 그 까닭을 함께 돌려준다.
+    /// </summary>
+    /// <remarks>
+    /// 정기 발송과 미리받아보기가 <b>같은 규칙으로</b> 갈라야 한다 — 미리 본
+    /// 것과 실제로 가는 것이 다르면 미리보기가 아니다.
+    /// </remarks>
+    private static (bool Ok, string Message, List<ReportCatalogItemDto> Live, List<string> Missing) Compose(
+        ReportMailSchedule schedule,
+        IReadOnlyList<ReportCatalogItemDto> catalog,
+        string stamp)
+    {
+        var keys = (schedule.Reports ?? []).Select(r => r.ReportKey).Distinct(StringComparer.Ordinal).ToList();
+
+        if (keys.Count == 0)
+        {
+            return (false, $"[{stamp}] 고른 보고서가 없어 보내지 않았습니다.", [], []);
+        }
+
+        var items = keys
+            .Select(k => (Key: k, Item: catalog.FirstOrDefault(c => c.RouteKey == k)))
+            .ToList();
+
+        var live = items.Where(i => i.Item is not null).Select(i => i.Item!).ToList();
+        var missing = items.Where(i => i.Item is null).Select(i => i.Key).ToList();
+
+        if (live.Count == 0)
+        {
+            return (false,
+                $"[{stamp}] 고른 보고서가 모두 메뉴에서 사라져 보내지 않았습니다 "
+                + $"({string.Join(", ", missing)}).",
+                live, missing);
+        }
+
+        return (true, string.Empty, live, missing);
+    }
+
+    /// <summary>
+    /// 메일 제목. 미리받아보기는 <b>제목에서부터 갈라 적는다</b> — 받은 사람이
+    /// 열기 전에 「주기로 온 것」이 아님을 알아야 한다.
+    /// </summary>
+    private static string Subject(ReportMailSchedule schedule, bool preview) =>
+        preview
+            ? $"[JSini] (미리받아보기) 시스템 모니터링 보고서 — {schedule.Name}"
+            : $"[JSini] 시스템 모니터링 보고서 — {schedule.Name}";
+
+    /// <summary>
     /// 메일 본문(HTML). <b>완성된 문서로 보낸다</b>(<c>html = true</c>) —
     /// 알림 서버의 평문 틀을 두 겹으로 씌우지 않는다.
     /// </summary>
@@ -117,7 +212,8 @@ public class ReportMailSender(
     private string BuildBody(
         ReportMailSchedule schedule,
         IReadOnlyList<ReportCatalogItemDto> reports,
-        IReadOnlyList<string> missing)
+        IReadOnlyList<string> missing,
+        bool preview)
     {
         var nowKst = AppTime.ToKorea(AppTime.UtcNow);
         var html = new StringBuilder();
@@ -126,6 +222,18 @@ public class ReportMailSender(
             .Append("font-size:14px;color:#1f2937;line-height:1.7;max-width:640px\">");
 
         html.Append("<h2 style=\"font-size:18px;margin:0 0 4px\">시스템 모니터링 보고서</h2>");
+
+        // **미리받아보기임을 본문에서도 말한다.** 제목을 안 보고 넘긴 사람이
+        // 「정기 발송이 시작됐다」고 읽으면, 아직 저장도 안 한 배치가 도는
+        // 줄 안다.
+        if (preview)
+        {
+            html.Append("<p style=\"margin:0 0 12px;padding:8px 12px;background:#eff6ff;")
+                .Append("border-left:3px solid #2563eb;border-radius:4px;font-size:13px;color:#1e40af\">")
+                .Append("<b>미리받아보기</b> — 눌러 보신 분에게만 보낸 한 통입니다. ")
+                .Append("정기 발송과는 무관하며 다음 발송 시각도 바뀌지 않습니다.")
+                .Append("</p>");
+        }
 
         html.Append("<p style=\"margin:0 0 16px;color:#6b7280\">")
             .Append(Esc(schedule.Name)).Append(" · ")

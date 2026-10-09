@@ -228,6 +228,13 @@
 
             <div class="jsini-hint">보낼 시각은 한국 시각입니다. 비우면 08:00 입니다.</div>
 
+            @* 「지금 보내기」와 가려 적는다 — 하나는 역할 전원에게, 하나는
+               나에게만 간다. 이 한 줄이 없으면 눌러 보기가 겁난다. *@
+            <div class="jsini-hint">
+                <b>미리받아보기</b>는 지금 고른 보고서를 <b>내 계정의 이메일로만</b> 한 통 보냅니다 —
+                받는 역할에게는 가지 않고 다음 발송 시각도 바뀌지 않습니다.
+            </div>
+
             @if (_selected is { MissingReportKeys.Count: > 0 } missing)
             {
                 <PageNotice Tone="NoticeTone.Warning"
@@ -244,6 +251,16 @@
                     <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary"
                               Enabled="@(!Loading)" Click="@SaveAsync" />
                 </PermissionView>
+
+                @* 「미리받아보기」는 **저장 밖에 둔다** — 배치를 만들기 전에,
+                   받을 역할을 정하기 전에도 메일 꼴을 볼 수 있어야 한다.
+                   받는 사람이 누른 사람 본인뿐이라 권한 문을 하나 더 세우지
+                   않는다(이 화면을 열 수 있으면 자기 메일함으로는 보낼 수 있다). *@
+                @* 고른 것이 없어도 **잠그지 않는다** — 회색 단추는 왜 안 되는지를
+                   말해 주지 않는다. 눌리면 「왼쪽에서 고르십시오」라고 짚는다. *@
+                <DxButton Text="미리받아보기" RenderStyle="ButtonRenderStyle.Secondary"
+                          Enabled="@(!_previewBusy && !Loading)"
+                          Click="@SendPreviewAsync" />
 
                 @if (!_form.IsNew)
                 {
