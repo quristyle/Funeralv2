@@ -55,6 +55,24 @@ public interface INoteRecipientResolver
     /// </remarks>
     Task<List<NoteRecipientDto>> LoadByLoginIdsAsync(
         IEnumerable<string> loginIds, CancellationToken ct = default);
+
+    /// <summary>
+    /// <b>쪽지를 받을 수 있는 사람 전부</b>를 이름순으로. 아무것도 치지 않은
+    /// 순간의 「전체에서 고르기」가 쓴다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="SearchAsync"/> 와 <b>거르는 잣대가 같다</b>(앱 푸시 또는 쪽지
+    /// 메일이 닿는다) — 다른 잣대로 두면 전체 목록에 있는 사람이 이름으로 치면
+    /// 안 나오는 일이 생긴다. 다른 것은 <b>글자 조건이 없다</b>는 것 하나다.
+    /// </para>
+    /// <para>
+    /// 전 직원이 아니라 받을 길이 있는 사람이라 실제로는 짧다(2026-10-10 기준
+    /// 계정 66 중 7). 그래도 상한을 받는다 — 모두가 기기를 등록하는 날 이 목록이
+    /// 통째로 내려오면 창을 여는 데만 한참 걸린다.
+    /// </para>
+    /// </remarks>
+    Task<List<NoteRecipientDto>> ListReachableAsync(int take, CancellationToken ct = default);
 }
 
 /// <inheritdoc cref="INoteRecipientResolver" />
@@ -139,43 +157,76 @@ public sealed class NoteRecipientResolver(AppDbContext db, INotificationPreferen
     }
 
     /// <inheritdoc />
-    public async Task<List<NoteRecipientDto>> SearchAsync(
+    public Task<List<NoteRecipientDto>> SearchAsync(
         string? query, int take, CancellationToken ct = default)
     {
         var q = (query ?? string.Empty).Trim();
-        var limit = Math.Clamp(take, 1, 50);
 
         if (q.Length == 0)
         {
             // 조건 없이 전 직원을 흘려보내지 않는다. 화면은 이 빈 목록을 보고
-            // 「두 글자 이상 치십시오」를 말한다.
-            return [];
+            // 「두 글자 이상 치십시오」를 말한다. 글자 없이 전체를 받는 길은
+            // 따로 있다(<see cref="ListReachableAsync"/>) — 거기는 부르는 쪽이
+            // 일부러 「전체에서 고르기」를 누른 자리다.
+            return Task.FromResult(new List<NoteRecipientDto>());
         }
 
-        var lowered = q.ToLowerInvariant();
+        return ReachableAsync(q, Math.Clamp(take, 1, 50), ct);
+    }
 
-        // 이메일로 친 것도 걸리게 한다 — 사람이 아는 것이 주소뿐인 경우가 있다.
-        var emailAccountIds = await db.AccountProfileDetails
-            .Where(d => d.DetailType == "Email" && !d.IsDeleted
-                        && d.Content.ToLower().Contains(lowered))
-            .Select(d => d.AccountId)
-            .Distinct()
-            .Take(limit)
-            .ToListAsync(ct);
+    /// <inheritdoc />
+    public Task<List<NoteRecipientDto>> ListReachableAsync(
+        int take, CancellationToken ct = default)
+        => ReachableAsync(null, Math.Clamp(take, 1, 500), ct);
 
-        // **쪽지를 받을 길이 있는 사람만 찾는다 (2026-09-24).** 앱 푸시(기기가
-        // 있고 끄지 않았다) 또는 쪽지 메일(켜 두었고 주소가 있다) 중 하나는 있어야
-        // 한다 — 둘 다 없으면 쪽지함에만 쌓이고 본인은 왔다는 것조차 모른다.
-        //
-        // 예전에는 푸시를 끈 사람만 회색으로 잠그고 나머지는 다 보였다. 그런데
-        // 사람 대부분이 **기기를 등록한 적이 없어서**(설정 행이 없으면 「켜짐」이다)
-        // 거의 모두가 고를 수 있게 보였고, 보내면 두드림이 한 군데도 안 갔다.
-        //
-        // 거르는 일은 **질의 안에서** 한다. 읽은 뒤에 거르면 `take` 가 먼저
-        // 잘라서, 받을 수 있는 사람이 뒤에 있으면 목록이 비어 보인다.
-        // 판정식은 `LoadAsync` 가 매기는 `PushReachable` · `EmailReachable` 과 같다.
+    /// <summary>
+    /// <b>쪽지가 닿는 사람</b>을 이름순으로. <paramref name="query"/> 를 주면 그
+    /// 글자로 한 번 더 좁힌다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 찾기와 전체 목록이 <b>이 한 메서드를 나눠 쓴다.</b> 거르는 잣대를 베껴 두면
+    /// 한쪽만 고치는 날이 오고, 그러면 전체 목록에는 있는 사람이 이름으로 치면
+    /// 안 나온다.
+    /// </para>
+    /// <para>
+    /// <b>쪽지를 받을 길이 있는 사람만 나온다 (2026-09-24).</b> 앱 푸시(기기가
+    /// 있고 끄지 않았다) 또는 쪽지 메일(켜 두었고 주소가 있다) 중 하나는 있어야
+    /// 한다 — 둘 다 없으면 쪽지함에만 쌓이고 본인은 왔다는 것조차 모른다.
+    /// 예전에는 푸시를 끈 사람만 회색으로 잠갔는데, 사람 대부분이 <b>기기를
+    /// 등록한 적이 없어서</b>(설정 행이 없으면 「켜짐」이다) 거의 모두가 고를 수
+    /// 있게 보였고 보내면 두드림이 한 군데도 안 갔다.
+    /// </para>
+    /// <para>
+    /// <b>거르는 일은 질의 안에서 한다.</b> 읽은 뒤에 거르면 <c>take</c> 가 먼저
+    /// 잘라서, 받을 수 있는 사람이 뒤에 있으면 목록이 비어 보인다. 판정식은
+    /// <see cref="LoadAsync"/> 가 매기는 <c>PushReachable</c> · <c>EmailReachable</c>
+    /// 과 같은 뜻이어야 한다.
+    /// </para>
+    /// </remarks>
+    private async Task<List<NoteRecipientDto>> ReachableAsync(
+        string? query, int limit, CancellationToken ct)
+    {
+        // 글자가 없으면 빈 목록을 쥐여 준다. **null 을 넘기지 않는다** — EF 가
+        // `Contains` 를 번역하기 전에 그 값을 읽어 터진다.
+        var lowered = query?.ToLowerInvariant();
+        var emailAccountIds = new List<string>();
+
+        if (lowered is not null)
+        {
+            // 이메일로 친 것도 걸리게 한다 — 사람이 아는 것이 주소뿐인 경우가 있다.
+            emailAccountIds = await db.AccountProfileDetails
+                .Where(d => d.DetailType == "Email" && !d.IsDeleted
+                            && d.Content.ToLower().Contains(lowered))
+                .Select(d => d.AccountId)
+                .Distinct()
+                .Take(limit)
+                .ToListAsync(ct);
+        }
+
         var rows = await LoadAsync(
-            a => (a.UserId.ToLower().Contains(lowered)
+            a => (lowered == null
+                  || a.UserId.ToLower().Contains(lowered)
                   || (a.UserName != null && a.UserName.ToLower().Contains(lowered))
                   || emailAccountIds.Contains(a.Id))
                  && ((db.PushSubscriptions.Any(s => s.OwnerType == "jsini" && s.OwnerKey == a.UserId)

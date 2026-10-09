@@ -98,6 +98,15 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Note>()
             .HasIndex(n => new { n.SenderKey, n.SentAt });
 
+        // 전환 메일 배치는 **5분마다** 「아직 안 닿고 안 읽은 쪽지」를 훑는다
+        // (`NoteFallbackMailer`). 거르는 조건이 전부 null 비교라 보통 색인으로는
+        // 안 걸리므로 **부분 색인**으로 둔다 — 그 셋이 채워지는 순간 줄이 색인에서
+        // 빠져서, 표가 아무리 커져도 색인은 「아직 처리 안 된 몇 줄」만 든다.
+        modelBuilder.Entity<Note>()
+            .HasIndex(n => n.SentAt)
+            .HasDatabaseName("IX_notes_fallback")
+            .HasFilter("read_at IS NULL AND delivered_at IS NULL AND fallback_email_at IS NULL");
+
         // 지나온 자리는 **언제나 「나의 · 그 기간」** 으로만 묻는다. 주인과
         // 시각을 한 색인에 담아야 하루치를 뽑는 데 표를 통째로 읽지 않는다 —
         // 이 표는 사람마다 하루 스물몇 줄씩 끝없이 는다.

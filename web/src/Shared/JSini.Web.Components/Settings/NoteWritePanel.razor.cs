@@ -32,6 +32,45 @@ public partial class NoteWritePanel
     /// <summary>창을 열 때 받는 사람 칸에 미리 넣어 둘 아이디들.</summary>
     [Parameter] public IReadOnlyList<string>? DefaultTo { get; set; }
 
+    /// <summary>
+    /// <b>화면을 채우는 모습</b>인가. 휴대폰의 전체화면이 참이다.
+    /// </summary>
+    /// <remarks>
+    /// 마크업은 하나고 이 값만 갈린다 — 내용 칸이 남은 높이를 전부 먹고
+    /// 보내기 줄이 바닥에 붙는다(머리말). 창 모습 그대로 좁은 화면에 넣으면
+    /// 보내기 단추가 자판에 가려져, <b>글을 다 쓰고도 보낼 수가 없다.</b>
+    /// </remarks>
+    [Parameter] public bool Fill { get; set; }
+
+    /// <summary>
+    /// <b>최근에 쪽지를 보낸 사람들.</b> 딱지 한 번으로 담는다.
+    /// </summary>
+    /// <remarks>
+    /// 쪽지를 쓰는 사람이 가장 자주 하는 일이 「어제 보낸 그 사람에게 또」다 —
+    /// 그때 이름을 다시 치는 것은 순전한 낭비다(머리말).
+    /// </remarks>
+    private IReadOnlyList<NoteRecipientDto> _recent = [];
+
+    /// <summary>쪽지를 받을 수 있는 사람 전부. 「전체에서 고르기」가 편다.</summary>
+    private IReadOnlyList<NoteRecipientDto> _all = [];
+
+    /// <summary><see cref="_all"/> 이 상한에서 잘렸나.</summary>
+    private bool _allTruncated;
+
+    /// <summary>「전체에서 고르기」를 폈나. <b>한 번 펴면 보내고 나서도 접지 않는다.</b></summary>
+    private bool _showAll;
+
+    /// <summary>
+    /// 아이디 → 사람. <b>딱지에 이름을 적으려고</b> 든다.
+    /// </summary>
+    /// <remarks>
+    /// 딱지에 담기는 값은 사람이 적은 글자 그대로이고(서버가 푼다), 그것이
+    /// 아이디면 화면에 아이디가 그대로 선다. 빠른 선택·찾기로 담은 사람은
+    /// 이름을 아는 셈이므로 <b>보여 줄 때만</b> 바꿔 준다 — 보내는 값은
+    /// 손대지 않는다.
+    /// </remarks>
+    private readonly Dictionary<string, NoteRecipientDto> _known = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>받는 사람 딱지. 적은 글자 그대로 담는다 — 푸는 것은 서버다.</summary>
     private readonly List<string> _picked = [];
 
@@ -74,12 +113,105 @@ public partial class NoteWritePanel
     private bool CanSend =>
         !_sending && _picked.Count > 0 && !string.IsNullOrWhiteSpace(_body);
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         foreach (var who in DefaultTo ?? [])
         {
             Add(who);
         }
+
+        await LoadQuickAsync();
+    }
+
+    /// <summary>
+    /// 빠른 선택 목록을 읽는다. <b>못 읽어도 조용하다</b> — 치는 길은 그대로
+    /// 살아 있고, 거기서 토스트를 띄우면 창을 열 때마다 빨간 줄이 뜬다.
+    /// </summary>
+    private async Task LoadQuickAsync()
+    {
+        try
+        {
+            var quick = await Notes.GetQuickPickAsync();
+
+            if (quick is null)
+            {
+                return;
+            }
+
+            _recent = quick.Recent;
+            _all = quick.All;
+            _allTruncated = quick.AllTruncated;
+
+            foreach (var who in _recent.Concat(_all))
+            {
+                _known[who.LoginId] = who;
+            }
+        }
+        catch (ApiException)
+        {
+        }
+    }
+
+    /// <summary>지금 찾는 중인가 — 칸에 두 글자 이상 쳐 두었다.</summary>
+    /// <remarks>
+    /// 빠른 선택은 이것이 거짓일 때만 보인다. 찾는 중에 아래에 또 다른 목록이
+    /// 서 있으면 어느 쪽을 눌러야 하는지가 매번 물음이 된다.
+    /// </remarks>
+    private bool Searching => (_entry ?? string.Empty).Trim().Length >= MinQuery;
+
+    /// <summary>찾은 사람 중 <b>아직 안 담은</b> 사람들.</summary>
+    private IReadOnlyList<NoteRecipientDto> Remaining =>
+        [.. _matches.Where(h => !Has(h.LoginId))];
+
+    /// <summary>이 사람을 이미 담았나.</summary>
+    private bool Has(string loginId) =>
+        _picked.Contains(loginId, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>뿌리 칸의 클래스. 채우는 모습에서만 하나가 더 붙는다.</summary>
+    private string RootClass => Fill ? "jsini-note jsini-note--fill" : "jsini-note";
+
+    /// <summary>최근 딱지의 클래스. 담긴 사람은 눌린 모습이다.</summary>
+    private string QuickClass(NoteRecipientDto who) => Has(who.LoginId)
+        ? "jsini-note__quick-chip jsini-note__quick-chip--on"
+        : "jsini-note__quick-chip";
+
+    /// <summary>「전체에서 고르기」 단추의 글자.</summary>
+    private string AllToggleText => _showAll
+        ? "전체 접기"
+        : $"전체에서 고르기 ({_all.Count}명)";
+
+    /// <summary>
+    /// 보내기 단추의 글자. <b>몇 명에게 가는지를 단추가 말한다</b> — 딱지를
+    /// 여럿 담으면 그 줄이 접혀 눈에 다 안 들어온다.
+    /// </summary>
+    private string SendText => _picked.Count > 1
+        ? $"쪽지 보내기 ({_picked.Count}명)"
+        : "쪽지 보내기";
+
+    /// <summary>
+    /// 딱지에 적을 글자. <b>아는 사람이면 이름으로 적는다</b> — 담기는 값은
+    /// 그대로다(<see cref="_known"/> 머리말).
+    /// </summary>
+    private string Label(string who) =>
+        _known.TryGetValue(who, out var hit) ? hit.Display : who;
+
+    /// <summary>최근 딱지를 눌렀다 — 담겨 있으면 빼고 아니면 담는다.</summary>
+    /// <remarks>
+    /// 잘못 누른 것을 바로 되돌리는 길이 그 자리에 있어야 한다. 위의 딱지 줄로
+    /// 올라가 × 를 찾게 하면 손가락이 한 번 더 움직인다.
+    /// </remarks>
+    private void Toggle(NoteRecipientDto who)
+    {
+        var had = _picked.FirstOrDefault(
+            p => string.Equals(p, who.LoginId, StringComparison.OrdinalIgnoreCase));
+
+        if (had is not null)
+        {
+            Remove(had);
+            return;
+        }
+
+        Add(who.LoginId, who);
     }
 
     /// <summary>제목 칸을 편다. 한 번 펴면 이 판이 살아 있는 동안 그대로 있다.</summary>
@@ -114,28 +246,43 @@ public partial class NoteWritePanel
             Add(piece);
         }
 
+        // 손으로 친 글자는 딱지로 **옮겨 간** 것이라 칸을 비운다. 목록도 함께
+        // 비우는 것은 그 글자가 사라졌으니 찾던 결과가 뜻을 잃어서다 —
+        // 목록에서 눌러 담는 길(`Add`)과 갈라지는 지점이다.
         _entry = null;
         _matches = [];
         _searched = false;
     }
 
-    /// <summary>딱지 하나를 더한다. <b>같은 사람을 두 번 넣지 않는다.</b></summary>
-    private void Add(string who)
+    /// <summary>
+    /// 딱지 하나를 더한다. <b>같은 사람을 두 번 넣지 않는다.</b>
+    /// </summary>
+    /// <param name="who">담을 글자. 아이디거나 사람이 적은 이메일이다.</param>
+    /// <param name="hit">
+    /// 아는 사람이면 함께 준다 — 딱지에 <b>이름</b>을 적으려는 것뿐이고
+    /// 보내는 값은 바뀌지 않는다(<see cref="_known"/> 머리말).
+    /// </param>
+    /// <remarks>
+    /// <b>찾기 목록을 닫지 않는다 (2026-10-10).</b> 예전에는 「방금 고른 사람이
+    /// 목록에 남아 한 번 더 누르게 된다」를 막으려고 통째로 비웠는데, 그러면
+    /// 한 부서에 둘째 사람부터는 같은 글자를 다시 쳐야 했다. 지금은 담긴
+    /// 사람만 목록에서 빠진다(<see cref="Remaining"/>).
+    /// </remarks>
+    private void Add(string who, NoteRecipientDto? hit = null)
     {
         var text = who.Trim();
 
-        if (text.Length == 0 || _picked.Contains(text, StringComparer.OrdinalIgnoreCase))
+        if (text.Length == 0 || Has(text))
         {
             return;
         }
 
         _picked.Add(text);
 
-        // 골랐으면 찾기 칸을 비운다 — 안 비우면 방금 고른 사람이 목록에 남아
-        // 한 번 더 누르게 된다.
-        _entry = null;
-        _matches = [];
-        _searched = false;
+        if (hit is not null)
+        {
+            _known[hit.LoginId] = hit;
+        }
     }
 
     private void Remove(string who) => _picked.Remove(who);

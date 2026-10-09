@@ -1,4 +1,5 @@
 using JSini.Shared.DTOs;
+using JSini.Shared.Infrastructure.Time;
 
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -74,6 +75,18 @@ public static class NoteEndpoints
     /// <summary>제목 · 본문의 길이 상한. 화면이 아니라 여기가 정본이다.</summary>
     private const int MaxTitle = 200;
 
+    /// <summary>
+    /// 「전체에서 고르기」가 한 번에 받는 사람 수의 상한.
+    /// </summary>
+    /// <remarks>
+    /// 전 직원이 아니라 <b>쪽지를 받을 길이 있는 사람</b>이라 실제로는 훨씬
+    /// 짧다(2026-10-10 기준 계정 66 중 7). 그래도 상한을 두는 것은, 모두가
+    /// 기기를 등록하는 날 이 목록이 통째로 내려오면 <b>창을 여는 데만 한참
+    /// 걸리기</b> 때문이다. 넘치면 화면이 「더 있다 — 이름으로 찾으십시오」를
+    /// 말한다.
+    /// </remarks>
+    private const int MaxDirectory = 200;
+
     private const int MaxBody = 4000;
 
     /// <summary>
@@ -120,6 +133,115 @@ public static class NoteEndpoints
             return Results.Ok(ApiResponse<List<NoteRecipientDto>>.Ok(rows));
         })
         .WithName("SearchNoteRecipients");
+
+        // ── 빠른 선택 ───────────────────────────────────────
+        //
+        // **아무것도 안 친 순간의 화면이다.** 찾기는 두 글자를 쳐야 걸리는데,
+        // 쪽지를 쓰는 사람이 가장 자주 하는 일은 「어제 보낸 그 사람에게 또」이고
+        // 그때 이름을 다시 치는 것은 순전한 낭비다.
+        //
+        // 최근은 **내 보낸함**에서 뽑는다(남의 것은 안 본다). 전체는 받을 길이
+        // 있는 사람 전부라 실제로는 짧다 — 그래도 상한을 둔다.
+        group.MapGet("/recipients/quick", async (
+            UserContext? user,
+            [FromServices] AppDbContext db,
+            [FromServices] INoteRecipientResolver resolver,
+            [FromQuery] int take = 8,
+            CancellationToken ct = default) =>
+        {
+            if (user is null) return Results.Unauthorized();
+
+            var want = Math.Clamp(take, 1, 20);
+
+            // **보낸 사람 하나당 한 줄로 접는다.** 같은 사람에게 열 통을 보냈다고
+            // 딱지가 열 개 서면 안 된다. 가장 가까운 때로 줄을 세운다.
+            //
+            // 치운 것까지 본다 — 보낸함에서 지웠다고 「그 사람에게 안 보냈던」
+            // 것이 되지는 않는다.
+            var recentKeys = await db.Notes
+                .Where(n => n.SenderKey == user.UserId && n.ReceiverKey != user.UserId)
+                .GroupBy(n => n.ReceiverKey)
+                .Select(g => new { Key = g.Key, Last = g.Max(n => n.SentAt) })
+                .OrderByDescending(x => x.Last)
+                .Take(want)
+                .ToListAsync(ct);
+
+            var order = recentKeys
+                .Select((x, i) => (x.Key, i))
+                .ToDictionary(t => t.Key, t => t.i, StringComparer.Ordinal);
+
+            // **지금도 받을 수 있는 사람만 남긴다.** 그 사이에 기기를 지웠거나
+            // 푸시를 꺼서 못 받게 된 사람이 딱지로 서 있으면, 눌러 담고 보내고
+            // 나서야 막힌 것을 안다.
+            var recent = recentKeys.Count == 0
+                ? []
+                : (await resolver.LoadByLoginIdsAsync(recentKeys.Select(x => x.Key), ct))
+                    .Where(r => r.CanReceive)
+                    .OrderBy(r => order.GetValueOrDefault(r.LoginId, int.MaxValue))
+                    .ToList();
+
+            // 전체는 하나 더 받아 본다 — **잘렸는지를 알려면** 상한을 넘겨 봐야 한다.
+            var all = await resolver.ListReachableAsync(MaxDirectory + 1, ct);
+
+            var truncated = all.Count > MaxDirectory;
+
+            if (truncated)
+            {
+                all = [.. all.Take(MaxDirectory)];
+            }
+
+            // **나 자신은 뺀다.** 나에게 쪽지를 쓰는 일이 없지는 않지만 흔하지
+            // 않고, 목록 맨 앞에 서면 잘못 누르기 좋은 자리다. 손으로 적으면
+            // 여전히 보낼 수 있다.
+            all = [.. all.Where(r => !string.Equals(r.LoginId, user.UserId, StringComparison.Ordinal))];
+
+            return Results.Ok(ApiResponse<NoteQuickPickDto>.Ok(new NoteQuickPickDto
+            {
+                Recent = recent,
+                All = all,
+                AllTruncated = truncated,
+            }));
+        })
+        .WithName("GetNoteQuickPick");
+
+        // ── 기기에 닿았다 ───────────────────────────────────
+        //
+        // **쪽지 길 중에 익명인 하나**다(게이트웨이의 notification-note-delivered-route).
+        // 부르는 쪽은 브라우저의 서비스워커이고 거기에는 로그인 토큰이 없다 —
+        // 이 포털의 토큰은 서버가 들고 있고 브라우저로 안 내려온다(BFF).
+        //
+        // 신원 대신 **쪽지 아이디(GUID)** 하나를 열쇠로 쓴다. 할 수 있는 일이
+        // 「닿았다고 찍는 것」뿐이고 그 아이디는 보낸 사람과 받는 사람만 아는
+        // 값이라, 새어도 잃는 것은 **전환 메일 한 통**이다. 거꾸로 이 길이
+        // 없으면 「보냈다」와 「닿았다」를 영영 가를 수 없다.
+        //
+        // **한 번만 찍는다.** 같은 푸시를 두 기기가 받아도 처음 것이 도착 시각이다.
+        group.MapPost("/delivered", async (
+            [FromBody] NoteDeliveredDto request,
+            [FromServices] AppDbContext db,
+            CancellationToken ct) =>
+        {
+            var id = (request.NoteId ?? string.Empty).Trim();
+
+            // **없는 아이디에도 참을 돌려준다.** 404 로 가르면 아이디를 하나씩
+            // 넣어 「있는 쪽지」를 찾아볼 수 있게 된다.
+            if (id.Length == 0 || id.Length > 64)
+            {
+                return Results.Ok(ApiResponse<bool>.Ok(true));
+            }
+
+            var note = await db.Notes.FirstOrDefaultAsync(n => n.Id == id, ct);
+
+            if (note is not null && note.DeliveredAt is null)
+            {
+                note.DeliveredAt = AppTime.UtcNow;
+                await db.SaveChangesAsync(ct);
+            }
+
+            return Results.Ok(ApiResponse<bool>.Ok(true));
+        })
+        .AllowAnonymous()
+        .WithName("MarkNoteDelivered");
 
         // ── 쪽지 보내기 ─────────────────────────────────────
         group.MapPost("", async (
@@ -228,20 +350,28 @@ public static class NoteEndpoints
             // 받는 쪽지면 멀쩡히 메일로 간 것이 실패처럼 보인다. 아이콘은 **보낸
             // 사람의 얼굴**이다(`PushMessageDto.IconOwnerKey`) — 받은 쪽이 먼저 묻는
             // 것이 「누가 보냈나」라서다.
+            //
+            // **사람마다 따로 보낸다.** 한 번에 보내면 페이로드가 하나라 거기에
+            // 실을 수 있는 쪽지 아이디도 하나인데, 쪽지는 **받는 사람마다 한 줄**
+            // 이다(`Note` 머리말). 아이디를 안 실으면 서비스워커가 되알려 줄 때
+            // 「어느 쪽지가 닿았는지」를 못 말하고, 그러면 전환 메일 판정이
+            // 통째로 서지 않는다(`NoteFallbackMailer`).
+            //
+            // 값이 비싸지 않다 — 받는 사람이 서른을 넘지 않고(`MaxRecipients`)
+            // 어차피 기기마다 한 번씩 나가던 길이다. 늘어나는 것은 발송 기록의
+            // 묶음(batch) 수뿐인데, 알림함은 사람별로 보므로 달라 보이지 않는다.
             var pushDevices = 0;
             var pushTargets = found.Where(r => r.PushReachable).ToList();
 
-            if (pushTargets.Count > 0)
+            var noteOf = notes.ToDictionary(n => n.ReceiverKey, StringComparer.Ordinal);
+
+            foreach (var target in pushTargets)
             {
                 try
                 {
                     var result = await push.SendAsync(new SendPushDto
                     {
-                        Owners = [.. pushTargets.Select(r => new OwnerRefDto
-                        {
-                            OwnerType = "jsini",
-                            OwnerKey = r.LoginId,
-                        })],
+                        Owners = [new OwnerRefDto { OwnerType = "jsini", OwnerKey = target.LoginId }],
                         Message = new PushMessageDto
                         {
                             Title = $"쪽지 · {senderName}",
@@ -249,21 +379,30 @@ public static class NoteEndpoints
                             Url = InboxUrl,
                             IconOwnerKey = user.UserId,
                             Category = PushCategories.Note,
+
+                            // **서비스워커가 「닿았다」고 되알려 줄 때 쥐여 보낼 열쇠.**
+                            // 이것 하나로 전환 메일이 「안 읽었다」가 아니라 「안
+                            // 닿았다」를 보고 움직인다.
+                            Data = noteOf.TryGetValue(target.LoginId, out var mine)
+                                ? new Dictionary<string, string> { ["noteId"] = mine.Id }
+                                : null,
                         },
                     }, user.UserId, ct);
 
-                    pushDevices = result.Sent;
+                    pushDevices += result.Sent;
 
                     if (result.Sent == 0)
                     {
-                        trouble.Add(result.Message ?? "앱 알림이 가지 않았습니다");
+                        trouble.Add($"{Display(target)} 에게 앱 알림이 가지 않았습니다");
                     }
                 }
                 catch (Exception ex)
                 {
                     // **쪽지는 이미 들어갔다.** 두드림 하나 때문에 실패로 답하지 않는다.
-                    logger.LogWarning(ex, "쪽지 앱 알림을 보내지 못했습니다. by={By}", user.UserId);
-                    trouble.Add("앱 알림을 보내지 못했습니다");
+                    // 한 사람이 막혀도 나머지는 계속 보낸다.
+                    logger.LogWarning(ex, "쪽지 앱 알림을 보내지 못했습니다. by={By} to={To}",
+                        user.UserId, target.LoginId);
+                    trouble.Add($"{Display(target)} 에게 앱 알림을 보내지 못했습니다");
                 }
             }
 
@@ -562,5 +701,7 @@ public static class NoteEndpoints
         PushSent = n.PushSent,
         EmailSent = n.EmailSent,
         NotifyNote = n.NotifyNote,
+        DeliveredAt = n.DeliveredAt,
+        FallbackEmailAt = n.FallbackEmailAt,
     };
 }

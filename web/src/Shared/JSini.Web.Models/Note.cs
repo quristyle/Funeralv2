@@ -82,6 +82,51 @@ public sealed class NoteDto
 
     /// <summary>두드림이 막힌 까닭. 다 갔으면 <c>null</c>.</summary>
     public string? NotifyNote { get; set; }
+
+    /// <summary>
+    /// 앱 푸시가 <b>받는 사람의 기기에 실제로 닿은</b> 때(UTC). 안 닿았으면 <c>null</c>.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="PushSent"/> 와 <b>갈래가 다르다.</b> 그쪽은 「서버가 푸시
+    /// 서비스에 넘겼다」까지고, 이것은 <b>기기의 서비스워커가 받아서 되알려 준</b>
+    /// 때다. 웹푸시는 넘긴 것이 도착한다는 보장이 없다 — 기기가 꺼져 있으면
+    /// 수명(기본 6시간)까지 들고 있다가 조용히 버린다.
+    /// </remarks>
+    public DateTime? DeliveredAt { get; set; }
+
+    /// <summary>
+    /// 푸시가 안 닿아 <b>대신 보낸 메일</b>이 나간 때(UTC). 안 보냈으면 <c>null</c>.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="EmailSent"/> 와 갈래가 다르다. 그쪽은 보낼 때 받는 사람이
+    /// 「쪽지 메일받기」를 켜 두어 함께 나간 것이고, 이것은 나중에 배치가 대신
+    /// 보낸 것이다.
+    /// </remarks>
+    public DateTime? FallbackEmailAt { get; set; }
+
+    /// <summary>기기에 닿았나. 보낸함의 「전달」 칸이 이 값을 그린다.</summary>
+    public bool IsDelivered { get; set; }
+}
+
+/// <summary>
+/// <b>빠른 선택</b>에 내놓는 사람들 — 아무것도 치지 않은 순간의 화면이다.
+/// </summary>
+/// <remarks>
+/// 찾기는 두 글자를 쳐야 걸린다. 그런데 쪽지를 쓰는 사람이 가장 자주 하는 일은
+/// <b>어제 보낸 그 사람에게 또 보내는 것</b>이라, 그때 이름을 다시 치는 것은
+/// 순전한 낭비다. 둘로 갈라 담는 것은 눈이 가는 순서가 달라서다 — 최근은 딱지로
+/// 늘어놓고, 전체는 접어 두었다가 「전체에서 고르기」로 편다.
+/// </remarks>
+public sealed class NoteQuickPickDto
+{
+    /// <summary>최근에 쪽지를 보낸 사람들(가까운 순). <b>지금도 받을 수 있는 사람만</b>.</summary>
+    public List<NoteRecipientDto> Recent { get; set; } = [];
+
+    /// <summary>쪽지를 받을 수 있는 사람 전부(이름순).</summary>
+    public List<NoteRecipientDto> All { get; set; } = [];
+
+    /// <summary><see cref="All"/> 이 상한에서 잘렸나. 참이면 화면이 「더 있다」를 말한다.</summary>
+    public bool AllTruncated { get; set; }
 }
 
 /// <summary>

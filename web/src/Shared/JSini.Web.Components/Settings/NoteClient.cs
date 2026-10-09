@@ -55,6 +55,24 @@ public sealed class NoteClient(GatewayClient gateway)
             $"notification/notes/recipients?q={Uri.EscapeDataString(query)}", ct);
 
     /// <summary>
+    /// <b>빠른 선택</b> — 아무것도 치지 않은 순간에 내놓을 사람들.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 찾기(<see cref="SearchRecipientsAsync"/>)는 두 글자를 쳐야 걸린다. 그런데
+    /// 쪽지를 쓰는 사람이 가장 자주 하는 일은 <b>어제 보낸 그 사람에게 또 보내는
+    /// 것</b>이라, 그때 이름을 다시 치는 것은 순전한 낭비다.
+    /// </para>
+    /// <para>
+    /// <b>이 결과도 보내기가 믿지 않는다.</b> 화면은 딱지에 아이디를 담을 뿐이고
+    /// 서버가 그 글자에서 다시 푼다 — 찾기와 같은 사정이다.
+    /// </para>
+    /// </remarks>
+    public Task<NoteQuickPickDto?> GetQuickPickAsync(int take = 8, CancellationToken ct = default)
+        => gateway.GetOneAsync<NoteQuickPickDto>(
+            $"notification/notes/recipients/quick?take={take}", ct);
+
+    /// <summary>
     /// 쪽지를 보낸다.
     /// </summary>
     /// <param name="to">

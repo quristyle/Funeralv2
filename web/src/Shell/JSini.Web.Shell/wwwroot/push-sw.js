@@ -143,6 +143,51 @@ async function notifyClients() {
     }
 }
 
+/**
+ * 쪽지가 **이 기기에 닿았다**고 서버에 알린다.
+ *
+ * [왜 필요한가 — 보낸 것과 닿은 것은 다르다]
+ *
+ * 웹푸시는 서버가 푸시 서비스(FCM 등)에 넘기는 데까지만 서버의 일이다. 기기가
+ * 꺼져 있으면 푸시 서비스가 수명(TTL, 기본 6시간)까지 들고 있다가 **조용히
+ * 버린다**(docs/push-delivery.md). 그래서 보낸 쪽 화면에는 「앱 알림 1대」라고
+ * 적혀 있는데 받는 사람은 영영 모르는 일이 생긴다.
+ *
+ * 그 어긋남을 메우려고 서버가 **두 시간 뒤에 메일로 다시 보낸다**
+ * (`NoteFallbackMailer`). 그 판정의 근거가 이 보고다 — 이것이 안 가면 멀쩡히
+ * 알림을 받고 나중에 보려고 둔 사람에게도 메일이 한 통 더 간다.
+ *
+ * [토큰 없이 부른다]
+ *
+ * 서비스워커에는 로그인한 사람의 토큰이 없다(BFF — `withReadMark` 머리말과
+ * 같은 사정). 그래서 이 길만 게이트웨이에서 익명으로 열려 있고, 신원 대신
+ * **쪽지 아이디(GUID)** 하나가 열쇠다. 할 수 있는 일이 「닿았다고 찍는 것」
+ * 뿐이라 새어도 잃는 것은 전환 메일 한 통이다.
+ *
+ * [실패해도 조용하다]
+ *
+ * 망이 끊겼거나 서버가 막혔으면 보고가 안 갈 뿐이고, 그때는 서버가 「안
+ * 닿았다」로 보아 메일을 보낸다 — **쪽지가 전해지지 않는 쪽으로는 안 기운다.**
+ * 알림 자체는 이미 떴다.
+ */
+async function reportDelivered(noteId) {
+    if (!noteId) return;
+
+    try {
+        await fetch('/api/notification/notes/delivered', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ noteId }),
+            // 로그인 쿠키를 함께 보낼 까닭이 없다 — 서버가 보는 것은 아이디
+            // 하나다. 보내면 서비스워커에서 나가는 요청마다 쿠키가 실린다.
+            credentials: 'omit',
+            keepalive: true,
+        });
+    } catch {
+        // 못 알려도 알림은 이미 떴다. 서버는 「안 닿았다」로 보고 메일을 보낸다.
+    }
+}
+
 self.addEventListener('push', (event) => {
     // 페이로드가 JSON 이 아니거나 비어 있어도 알림 자체는 띄운다 —
     // 조용히 버리면 푸시 권한이 있는데 아무 일도 없는 것처럼 보인다.
@@ -155,7 +200,14 @@ self.addEventListener('push', (event) => {
 
     // 시효가 지나 도착한 것은 낱낱이 띄우지 않는다. 위 머리말 참조.
     if (isStale(data)) {
-        event.waitUntil(Promise.all([showStaleDigest(), notifyClients()]));
+        // **묶어 띄우더라도 닿은 것은 닿은 것이다.** 여기서 안 알리면, 며칠 만에
+        // 켠 기기가 밀려 있던 쪽지를 다 받고도 서버는 「안 닿았다」로 보아
+        // 같은 쪽지를 메일로 한 번 더 보낸다.
+        event.waitUntil(Promise.all([
+            showStaleDigest(),
+            notifyClients(),
+            reportDelivered(data.data && data.data.noteId),
+        ]));
         return;
     }
 
@@ -185,12 +237,16 @@ self.addEventListener('push', (event) => {
         data: { url: data.url || '/', nid: data.nid || null },
     };
 
-    // 알림을 띄우는 것과 **열려 있는 화면에 알리는 것**을 함께 기다린다 —
-    // `waitUntil` 밖으로 내면 브라우저가 처리기가 끝난 줄 알고 서비스워커를
-    // 재워, 소식이 가다 말고 끊긴다.
+    // 알림을 띄우는 것 · **열려 있는 화면에 알리는 것** · **쪽지가 닿았다고
+    // 서버에 알리는 것**을 함께 기다린다 — `waitUntil` 밖으로 내면 브라우저가
+    // 처리기가 끝난 줄 알고 서비스워커를 재워, 소식이 가다 말고 끊긴다.
+    //
+    // 쪽지 알림에만 `data.noteId` 가 실린다(서버의 `PushMessageDto.Data`).
+    // 다른 알림에서는 `reportDelivered` 가 곧바로 돌아온다.
     event.waitUntil(Promise.all([
         self.registration.showNotification(title, options),
         notifyClients(),
+        reportDelivered(data.data && data.data.noteId),
     ]));
 });
 

@@ -8464,6 +8464,13 @@ html.jsini-toast-zoomed .dxbl-toast-portal {
   min-width: 0;
 }
 
+/* 단추는 안 줄어든다. 안 적어 두면 좁은 화면에서 눌려 **「추」 「가」 두 줄**이
+   된다(390px 에서 재어 보았다) — 두 글자짜리 단추가 그 꼴이면 고장으로 읽힌다. */
+.jsini-note__pick .dxbl-btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
 /* 찾은 사람들. 목록이 길어지면 판이 통째로 늘어나 보내기 단추가 화면
    밖으로 나가므로 여기서 구른다. */
 .jsini-note__matches {
@@ -8537,6 +8544,179 @@ html.jsini-toast-zoomed .dxbl-toast-portal {
 .jsini-note__send {
   display: flex;
   gap: 0.4rem;
+}
+
+/* ── 빠른 선택 (`NoteWritePanel`) ─────────────────────────────
+
+   아무것도 치지 않은 동안 보이는 줄이다. 최근에 보낸 사람을 딱지로 늘어놓아
+   **한 번 눌러** 담게 한다 — 두 글자를 치는 것이 휴대폰에서는 자판을 띄우고
+   한글을 조합하는 일이다.
+
+   `jsini-note__chip`(담긴 사람)과 **다른 이름인 까닭**은 하는 일이 반대라서다.
+   저쪽은 「담겼다」를 보여 주고 ×로 빼는 자리고, 이쪽은 「담을 수 있다」를
+   보여 주고 눌러서 담는 자리다. 한 벌을 나눠 쓰면 한쪽을 손볼 때마다 다른
+   쪽이 따라 움직인다.
+   ---------------------------------------------------------- */
+
+.jsini-note__quick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.45rem;
+}
+
+.jsini-note__quick-label {
+  font-size: var(--jsini-fs-2xs);
+  font-weight: 600;
+  color: var(--jsini-text-muted);
+}
+
+/* 손가락으로 누르는 자리라 세로 여백을 딱지보다 넉넉히 둔다. 글자는 안 접는다 —
+   이름이 두 줄로 갈리면 줄 높이가 들쭉날쭉해져 어디를 눌러야 할지 흐려진다. */
+.jsini-note__quick-chip {
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--jsini-border);
+  border-radius: 999px;
+  background: var(--jsini-bg);
+  color: inherit;
+  font: inherit;
+  font-size: var(--jsini-fs-sm);
+  line-height: 1.4;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.jsini-note__quick-chip:hover,
+.jsini-note__quick-chip:focus-visible {
+  border-color: var(--bs-primary, #066fd1);
+}
+
+/* 담긴 사람. **목록에서 지우지 않는다** — 여덟 개짜리 줄이 누를 때마다
+   흔들리면 옆 사람을 잘못 누른다. 한 번 더 누르면 빠진다. */
+.jsini-note__quick-chip--on {
+  border-color: var(--bs-primary, #066fd1);
+  background: var(--bs-primary, #066fd1);
+  color: #fff;
+}
+
+/* ── 화면을 채우는 모습 (휴대폰) ──────────────────────────────
+
+   상단 띠의 ✉ 가 휴대폰에서 여는 모습이다(`NoteWritePopup.Fill`).
+   **마크업은 창과 같고** 여기서 모습만 갈린다.
+
+   가르는 것을 미디어 질의가 아니라 클래스로 둔 까닭 — 창을 띄우는 자리가
+   넷이고(헤더 · 쪽지함의 답장 · 위치 지도의 점 · 메뉴 화면) 그중 **채워야
+   하는 것은 헤더 하나**다. 폭으로만 가르면 좁은 화면에서 답장 창까지 함께
+   화면을 먹는데, 그쪽은 뒤에 있는 목록이 보여야 어느 쪽지에 답하는지 안다.
+
+   [DevExpress 창의 속을 **재어 보고** 적었다 (2026-10-10)]
+
+   헤드리스 크롬 390×844 로 띄워 상자를 하나씩 쟀다 — 눈대중으로는 못 맞춘다.
+
+     dxbl-popup-root > dxbl-popup-cell > dxbl-modal > dxbl-modal-root
+       > dxbl-modal-dialog.dxbl-popup   ← `CssClass` 가 붙는 자리
+           > div.dxbl-modal-content
+               > dxbl-popup-header · div.dxbl-modal-body
+
+   · 바깥 상자(`dxbl-modal-root`)가 이미 `position: fixed` 로 화면을 덮는다.
+     그러니 창을 띄울 자리를 우리가 만들 것이 없고, **그 안의 판을 늘리면**
+     된다. 재기 전에는 있지도 않은 `.dxbl-popup-root` 를 겨누고 있었다.
+   · 판 자신은 `margin: 8px` · `max-width: 374px` · 내용만큼의 높이(697px)였다.
+     셋을 다 풀어야 한다 — 하나만 풀면 좌우만 붙거나 위아래만 붙는다.
+   · 글이 구르는 칸은 `.dxbl-popup-body` 가 아니라 **`.dxbl-modal-body`** 다.
+
+   [`!important` 를 쓰는 까닭]
+
+   tabler.css 가 ≤767px 에서 모든 창에 `width: calc(100vw - 1rem) !important`
+   를 건다(「창 — 좌우 8px 만 남기고」). 그 선언과 겨루려면 이쪽도 `!important`
+   여야 하고, 그러면 **자릿수로 갈린다** — 저쪽이
+   `.dxbl-modal > .dxbl-modal-root > .dxbl-popup`(0,3,0)이라 클래스 하나를
+   더 붙여 (0,4,0) 으로 적는다. 파일 순서와 무관하게 이긴다.
+   ---------------------------------------------------------- */
+
+.dxbl-modal > .dxbl-modal-root > .dxbl-popup.jsini-note-popup--full {
+  width: 100vw !important;
+  max-width: 100vw !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+}
+
+/* 창 몸통이 남은 높이를 그대로 넘겨받아야 판이 바닥까지 닿는다. 한 자리라도
+   끊기면 판이 제 내용만큼만 서고, 그러면 보내기 줄이 화면 가운데에 뜬다.
+
+   **`max-height` 는 `!important` 여야 한다.** DevExpress 가 그 값을 JS 로
+   재어 **인라인 스타일**로 박는다(재어 보니 788px — 창이 넓어지기 전의
+   값이다). 인라인은 자릿수로 못 이기므로 `!important` 하나만 길이 된다.
+   스타일시트에는 그 규칙이 없어서 **CSS 만 뒤져서는 범인이 안 보인다.** */
+.jsini-note-popup--full .dxbl-modal-content {
+  height: 100% !important;
+  max-height: none !important;
+  border-radius: 0;
+}
+
+.jsini-note-popup--full .dxbl-modal-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.jsini-note--fill {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+/* 내용 칸이 남은 높이를 먹는다. `min-height: 0` 이 없으면 flex 항목의 기본
+   최소 높이(내용 크기) 때문에 **줄어들지 않아** 보내기 줄이 밀려난다. */
+.jsini-note--fill .jsini-note__field--grow {
+  flex: 1 1 auto;
+  min-height: 7rem;
+}
+
+/* 그 높이를 **편집기까지 흘려보낸다.** 칸만 늘리면 DevExpress 가 `Rows` 로
+   잡아 둔 키(여섯 줄 = 140px)를 그대로 쓰고, 남은 자리는 빈 채로 남는다 —
+   재어 보니 칸 338px 에 편집기 140px 이었다.
+
+   이름이 `.dxbl-memo` 가 아니라 **`.dxbl-memo-edit`** 다(재어 확인). 끌어
+   늘리는 손잡이는 끈다 — 이미 남은 높이를 다 쓰고 있어 늘릴 데가 없다. */
+.jsini-note--fill .jsini-note__field--grow .dxbl-memo-edit {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.jsini-note--fill .jsini-note__field--grow textarea,
+.jsini-note--fill .jsini-note__field--grow textarea.dxbl-v-resize {
+  height: 100%;
+  resize: none;
+}
+
+/* 보내기 줄은 바닥에 붙는다. 받는 사람을 열 명 담고 글을 길게 쓰면 이 줄이
+   스크롤 저편으로 가는데, 그 상태에서 자판까지 올라오면 **글을 다 쓰고도
+   보낼 수가 없다.** 바탕을 칠하는 것은 아래 글이 비쳐 지나가지 않게 함이다. */
+.jsini-note--fill .jsini-note__send {
+  position: sticky;
+  bottom: 0;
+  padding: 0.6rem 0 calc(0.6rem + env(safe-area-inset-bottom, 0px));
+  margin-top: auto;
+  background: var(--jsini-surface, #fff);
+  border-top: 1px solid var(--jsini-border);
+}
+
+/* 채우는 모습에서는 단추가 가로를 채운다 — 엄지로 누르는 자리다. */
+.jsini-note--fill .jsini-note__send .dxbl-btn {
+  flex: 1 1 auto;
+  justify-content: center;
+}
+
+/* 받을 사람 목록이 길어지면 판 전체가 아니라 목록만 구른다. 창보다 넉넉히
+   잡는 것은 화면을 다 쓰고 있어서다. */
+.jsini-note--fill .jsini-note__matches {
+  max-height: 40vh;
 }
 
 /* ── 상단 띠의 숫자 배지 (`HeaderTools`) ──────────────────────

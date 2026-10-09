@@ -95,6 +95,38 @@ public class Note : BaseEntity<string>
     public DateTime? ReadAt { get; set; }
 
     /// <summary>
+    /// 앱 푸시가 <b>받는 사람의 기기에 실제로 닿은 때</b>(UTC). 안 닿았으면 <c>null</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="PushSent"/> 와 <b>갈래가 다르다.</b> 그쪽은 「우리가 푸시 서비스에
+    /// 넘겼다」까지고, 이것은 <b>기기의 서비스워커가 받아서 되알려 준</b> 때다
+    /// (<c>push-sw.js</c> → <c>POST /notes/delivered</c>). 웹푸시는 넘긴 것이
+    /// 도착했다는 보장이 없다 — 기기가 꺼져 있으면 푸시 서비스가 수명(TTL, 기본
+    /// 6시간)까지 들고 있다가 <b>조용히 버린다</b>(docs/push-delivery.md).
+    /// </para>
+    /// <para>
+    /// 이 칸이 비어 있는 것이 <b>메일로 전환 발송하는 판정의 근거</b>다
+    /// (<c>NoteFallbackMailer</c>). 「안 읽었다」만 보고 보내면, 알림은 멀쩡히
+    /// 받고 나중에 보려고 둔 사람에게도 메일이 한 통 더 간다.
+    /// </para>
+    /// </remarks>
+    [Column("delivered_at")]
+    public DateTime? DeliveredAt { get; set; }
+
+    /// <summary>
+    /// <b>전환 메일</b>이 나간 때(UTC). 안 보냈으면 <c>null</c>.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="EmailSent"/> 와 갈래가 다르다. 그쪽은 <b>보낼 때</b> 받는 사람이
+    /// 「쪽지 메일받기」를 켜 두어 함께 나간 것이고, 이것은 <b>나중에</b> 푸시가
+    /// 안 닿은 것을 보고 배치가 대신 보낸 것이다. 칸을 나누지 않으면 전환 메일이
+    /// 한 번 나간 뒤에도 배치가 그 줄을 다시 집어 <b>5분마다 같은 메일</b>을 보낸다.
+    /// </remarks>
+    [Column("fallback_email_at")]
+    public DateTime? FallbackEmailAt { get; set; }
+
+    /// <summary>
     /// 앱 푸시가 기기 한 대에라도 갔는가. <b>「왜 못 받았나」의 절반이 여기 있다.</b>
     /// </summary>
     [Column("push_sent")]

@@ -7,6 +7,7 @@
       · 새로 고침 — 화면만 다시 그린다
       · 전체화면 — 상황판에 띄워 두는 화면에서 쓴다
       · 쪽지      — 어디서나 한 통 쓴다. 안 읽은 것이 있으면 숫자가 붙는다
+                    (휴대폰에서는 창이 아니라 **화면을 꽉 채운다**)
       · 알림      — 안 읽은 것이 있으면 점이 붙는다
 
     [쪽지는 **창으로 열린다** (2026-09-24)]
@@ -220,4 +221,7 @@
    헤더가 제 쌓임 맥락을 만들어서 그 안에서는 아래 띠를 덮을 수 없다
    (`NotificationDrawer` 머리말). 종만 여기 남고 판은 `MainLayout` 맨 끝에
    있다. *@
-<NoteWritePopup @bind-Visible="@_writing" OnSent="@OnNoteSentAsync" />
+@* 쪽지 쓰기 창. **휴대폰에서는 화면을 꽉 채운다**(2026-10-10) —
+   360px 에서 테두리만 남긴 창은 자판이 올라오는 순간 보내기 단추를 감춘다
+   (`NoteWritePopup` 머리말). ⚡ 가 화면 크기 하나로 갈리는 것과 같은 수다. *@
+<NoteWritePopup @bind-Visible="@_writing" Fill="@IsPhone" OnSent="@OnNoteSentAsync" />

@@ -118,7 +118,40 @@
             </DxGridDataColumn>
 
             @* 두드림이 어디까지 갔나. **다 갔으면 아무것도 적지 않는다** —
-               정상에 딱지를 붙이면 눈이 거기로 간다. *@
+               정상에 딱지를 붙이면 눈이 거기로 간다.
+
+               [「보냈다」와 「닿았다」를 가른다 (2026-10-10)]
+
+               웹푸시는 넘긴 것이 도착한다는 보장이 없다 — 기기가 꺼져 있으면
+               푸시 서비스가 수명(6시간)까지 들고 있다가 조용히 버린다. 그래서
+               「앱 알림 1대」라고 적혀 있어도 상대는 모를 수 있었다.
+
+               지금은 기기가 받으면 되알려 주고(`push-sw.js`), 두 시간이 지나도
+               안 닿으면 서버가 메일로 돌린다(`NoteFallbackMailer`). 그 두
+               자국을 여기 적는다 — **보낸 사람이 가장 먼저 묻는 것**이
+               「갔나」가 아니라 「닿았나」라서다. *@
+            <DxGridDataColumn Caption="전달" Width="110">
+                <CellDisplayTemplate Context="cell">
+                    @{ var row = (NoteDto)cell.DataItem; }
+                    @if (row.IsDelivered)
+                    {
+                        <span class="jsini-badge jsini-badge--off"
+                              title="@($"{row.DeliveredAt?.ToLocalTime():yyyy-MM-dd HH:mm} 기기 도착")">기기 도착</span>
+                    }
+                    else if (row.FallbackEmailAt is { } at)
+                    {
+                        @* 푸시가 안 닿아 메일로 돌아간 것. **주의로 적는다** —
+                           전해지기는 했지만 원래 길이 막혔다는 뜻이다. *@
+                        <span class="jsini-badge jsini-badge--warn"
+                              title="@($"앱 알림이 안 닿아 {at.ToLocalTime():yyyy-MM-dd HH:mm} 에 메일로 보냈습니다")">메일 전환</span>
+                    }
+                    else if (row.PushSent)
+                    {
+                        <span class="jsini-badge" title="푸시 서비스에 넘겼습니다. 기기가 받았다는 신호는 아직 없습니다.">보냄</span>
+                    }
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
             <DxGridDataColumn Caption="알림" Width="160">
                 <CellDisplayTemplate Context="cell">
                     @{ var row = (NoteDto)cell.DataItem; }

@@ -126,6 +126,13 @@ builder.Services.AddHttpClient(PushSender.HttpClientName, c =>
 builder.Services.AddScoped<INoteRecipientResolver, NoteRecipientResolver>();
 builder.Services.AddScoped<IEmailQueueSender, EmailQueueSender>();
 
+// 쪽지 전환 메일 — 앱 푸시가 기기에 안 닿은 쪽지를 뒤늦게 메일로 돌린다.
+// **「보냈다」와 「닿았다」가 다르다**는 것이 이 배치가 있는 까닭이다
+// (NoteFallbackMailer 머리말). NoteFallbackMail:Enabled=false 로 아예 끌 수 있다.
+builder.Services.Configure<NoteFallbackMailOptions>(
+    builder.Configuration.GetSection("NoteFallbackMail"));
+builder.Services.AddHostedService<NoteFallbackMailer>();
+
 // 배포 알림 — 배포 파이프라인이 「반영 끝」을 알려 오면 슈퍼관리자에게 푸시한다.
 // 토큰이 없으면 엔드포인트가 스스로 닫힌다 (DeployEventEndpoints 머리말).
 builder.Services.Configure<DeployNotifyOptions>(

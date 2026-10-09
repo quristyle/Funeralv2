@@ -209,3 +209,57 @@ public sealed class PushDeliveryOptions
         _ => "high",
     };
 }
+
+/// <summary>
+/// 쪽지 <b>전환 메일</b> 설정 (<c>NoteFallbackMail</c>).
+/// </summary>
+/// <remarks>
+/// <para>
+/// 앱 푸시는 <b>보냈다고 닿는 것이 아니다.</b> 기기가 꺼져 있으면 푸시 서비스가
+/// 수명(TTL, 기본 6시간)까지 들고 있다가 조용히 버린다(docs/push-delivery.md).
+/// 그러면 보낸 사람은 보냈다고 믿는데 받는 사람은 쪽지가 온 줄도 모른다 — 그
+/// 조용한 어긋남을 메우는 것이 <c>NoteFallbackMailer</c> 다.
+/// </para>
+/// <para>
+/// <b>끄는 손잡이를 둔다.</b> 메일이 나가는 길은 한 번 잘못 열리면 수십 통이
+/// 되돌릴 수 없이 나가므로, 코드를 고치지 않고 멈출 수 있어야 한다.
+/// </para>
+/// </remarks>
+public sealed class NoteFallbackMailOptions
+{
+    /// <summary>켜 둘까. 꺼 두면 배치가 아예 깨어나지 않는다.</summary>
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>
+    /// 보낸 뒤 <b>이만큼 지나도록</b> 기기에 안 닿고 안 읽었으면 메일로 돌린다(분).
+    /// </summary>
+    /// <remarks>
+    /// 기본 120분이다. 더 짧게 잡으면 <b>점심 먹고 온 사람에게 메일이 한 통 더</b>
+    /// 가고, 더 길게 잡으면 「급해서 쪽지를 보냈는데」의 급한 쪽을 놓친다.
+    /// 푸시 수명이 6시간이라 그 안에 결판을 내야 하는 것도 있다 — 수명이 지난
+    /// 뒤에는 푸시가 영영 안 닿는 것이 확정되므로 더 기다릴 값어치가 없다.
+    /// </remarks>
+    public int AfterMinutes { get; set; } = 120;
+
+    /// <summary>
+    /// <b>이보다 오래된 쪽지는 건드리지 않는다</b>(시간). 기본 72시간.
+    /// </summary>
+    /// <remarks>
+    /// 배치를 처음 켜는 날, 또는 며칠 멈췄다 다시 켜는 날의 <b>안전장치</b>다.
+    /// 이것이 없으면 그동안 쌓인 안 읽은 쪽지가 한꺼번에 메일이 되어 나간다 —
+    /// 사흘 전 쪽지를 지금 메일로 받는 것은 도움이 아니라 소음이다.
+    /// </remarks>
+    public int LookbackHours { get; set; } = 72;
+
+    /// <summary>얼마나 자주 훑을까(분). 기본 5분.</summary>
+    public int IntervalMinutes { get; set; } = 5;
+
+    /// <summary>
+    /// 한 번에 보낼 상한. 기본 50통.
+    /// </summary>
+    /// <remarks>
+    /// SMTP 한 통에 1~2초가 걸리므로 상한이 없으면 한 바퀴가 몇 분씩 걸린다.
+    /// 남은 것은 다음 차례가 집는다 — <b>떨어뜨리지 않는다.</b>
+    /// </remarks>
+    public int MaxPerRun { get; set; } = 50;
+}

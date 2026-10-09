@@ -122,6 +122,21 @@ public class NoteRowDto
 
     /// <summary>두드림이 막힌 까닭. 다 갔으면 <c>null</c>.</summary>
     public string? NotifyNote { get; set; }
+
+    /// <summary>
+    /// 앱 푸시가 <b>기기에 실제로 닿은</b> 때. 안 닿았으면 <c>null</c>.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="PushSent"/>(넘겼다)와 갈래가 다르다 — 보낸함의 「전달」 칸이
+    /// 이 값을 본다(<c>Note.DeliveredAt</c> 머리말).
+    /// </remarks>
+    public DateTime? DeliveredAt { get; set; }
+
+    /// <summary>푸시가 안 닿아 <b>대신 보낸 메일</b>이 나간 때. 안 보냈으면 <c>null</c>.</summary>
+    public DateTime? FallbackEmailAt { get; set; }
+
+    /// <summary>기기에 닿았나. 보낸함이 「전달됨」으로 그린다.</summary>
+    public bool IsDelivered => DeliveredAt is not null;
 }
 
 /// <summary>
@@ -173,4 +188,60 @@ public class SendNoteResultDto
 public class NoteUnreadDto
 {
     public int Unread { get; set; }
+}
+
+/// <summary>
+/// <b>빠른 선택</b>에 내놓는 사람들 — 아무것도 치지 않은 순간의 화면이다.
+/// </summary>
+/// <remarks>
+/// <para>
+/// 찾기(<c>/recipients?q=</c>)는 <b>두 글자를 쳐야</b> 걸린다. 그런데 쪽지를 쓰는
+/// 사람이 가장 자주 하는 일은 <b>어제 보낸 그 사람에게 또 보내는 것</b>이고, 그때
+/// 이름을 다시 치는 것은 순전한 낭비다. 그래서 칸이 비어 있는 동안에도 고를 것을
+/// 미리 내놓는다.
+/// </para>
+/// <para>
+/// 둘로 갈라 담는 까닭은 <b>눈이 가는 순서가 다르기</b> 때문이다. 최근은 한 줄짜리
+/// 딱지로 늘어놓아 한 번에 눌리게 하고, 전체는 접어 두었다가 「전체에서 고르기」로
+/// 편다 — 섞어 한 목록으로 두면 자주 쓰는 몇 사람이 낯선 이름 수십 개에 묻힌다.
+/// </para>
+/// </remarks>
+public class NoteQuickPickDto
+{
+    /// <summary>
+    /// <b>최근에 쪽지를 보낸 사람들</b>. 가장 가까운 순이다.
+    /// </summary>
+    /// <remarks>
+    /// 지금도 받을 길이 있는 사람만 남긴다 — 그 사이에 기기를 지웠거나 푸시를 꺼서
+    /// 못 받게 된 사람이 딱지로 서 있으면, 눌러 담고 보내고 나서야 막힌 것을 안다.
+    /// </remarks>
+    public List<NoteRecipientDto> Recent { get; set; } = [];
+
+    /// <summary>
+    /// <b>쪽지를 받을 수 있는 사람 전부</b>(이름순). 「전체에서 고르기」가 편다.
+    /// </summary>
+    /// <remarks>
+    /// 전 직원이 아니라 <b>받을 길이 있는 사람</b>이라 실제로는 짧다. 그래도 상한을
+    /// 둔다(<c>NoteEndpoints</c> 의 <c>MaxDirectory</c>) — 언젠가 모두가 기기를
+    /// 등록하는 날 이 목록이 통째로 내려오면 창이 여는 데만 한참 걸린다.
+    /// </remarks>
+    public List<NoteRecipientDto> All { get; set; } = [];
+
+    /// <summary><see cref="All"/> 이 상한에서 잘렸나. 화면이 「더 있다」를 말한다.</summary>
+    public bool AllTruncated { get; set; }
+}
+
+/// <summary>
+/// 앱 푸시가 <b>기기에 닿았다</b>고 서비스워커가 알려 온다.
+/// </summary>
+/// <remarks>
+/// <b>이 길만 익명이다</b>(게이트웨이의 <c>notification-note-delivered-route</c>).
+/// 서비스워커에는 로그인 토큰이 없다 — 이 포털의 토큰은 서버가 들고 있고 브라우저로
+/// 내려오지 않는다(BFF). 그래서 신원 대신 <b>쪽지 아이디(GUID)</b> 하나를 열쇠로
+/// 쓴다. 할 수 있는 일이 「닿았다고 찍는 것」뿐이고 그 아이디는 보낸 사람과 받는
+/// 사람만 아는 값이라, 새어도 잃는 것은 <b>전환 메일 한 통</b>이다.
+/// </remarks>
+public class NoteDeliveredDto
+{
+    public string NoteId { get; set; } = string.Empty;
 }

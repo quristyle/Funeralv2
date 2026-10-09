@@ -27,6 +27,21 @@ public partial class NoteWritePopup
     /// </remarks>
     [Parameter] public IReadOnlyList<string>? DefaultTo { get; set; }
 
+    /// <summary>
+    /// <b>화면을 꽉 채울까.</b> 휴대폰에서 참이다(머리말).
+    /// </summary>
+    /// <remarks>
+    /// 상단 띠의 ✉ 만 이 값을 준다 — 레이아웃이 내려 주는 <c>IsPhone</c> 그대로다
+    /// (<c>HeaderTools</c>). 창을 띄우는 다른 자리(쪽지함의 답장 · 위치 지도의
+    /// 점)는 안 주므로 전처럼 창으로 뜬다.
+    /// </remarks>
+    [Parameter] public bool Fill { get; set; }
+
+    /// <summary>창에 입히는 클래스. 채우는 모습에서만 하나가 더 붙는다.</summary>
+    private string PopupClass => Fill
+        ? "jsini-note-popup jsini-note-popup--full"
+        : "jsini-note-popup";
+
     private Task OnVisibleChangedAsync(bool visible)
     {
         Visible = visible;

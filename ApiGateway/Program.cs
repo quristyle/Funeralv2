@@ -296,6 +296,30 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0
             }));
 
+    // ── 서비스워커가 「푸시가 닿았다」고 보고하는 익명 경로 ──────────────────
+    //
+    // 쪽지의 전환 메일(NoteFallbackMailer)이 이 보고 하나로 「보냈다」와 「닿았다」를
+    // 가른다. 거절되면 **멀쩡히 받은 사람에게 메일이 한 통 더 간다** — 그래서
+    // 문의 접수(분당 3회)만큼 조이지 않는다.
+    //
+    // [값을 이렇게 잡은 이유]
+    // 기기 하나가 쪽지 한 통에 한 번 보고한다. 평소에는 분당 0~1 건이고, 몰리는
+    // 순간은 **절전에서 깬 기기가 밀려 있던 푸시를 한꺼번에 받을 때**다
+    // (docs/push-delivery.md). 그래도 쪽지는 한 번에 서른 명이 상한이라
+    // (NoteRecipientResolver.MaxRecipients) 한 기기가 한 창에 수십을 넘기 어렵다.
+    // 사무실이 NAT 뒤에서 공인 IP 하나를 쓰는 것까지 보아 60 으로 둔다.
+    options.AddPolicy("push-ack", httpContext =>
+        RateLimitPartition.GetFixedWindowLimiter(
+            partitionKey: httpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault()
+                          ?? httpContext.Connection.RemoteIpAddress?.ToString()
+                          ?? "unknown",
+            factory: _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 60,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0
+            }));
+
     // ── 사이니지 플레이어가 부르는 익명 읽기 경로 (결정 D-M3) ────────────────
     //
     // 이 경로들은 **로그인 없이** 열려 있다. 플레이어가 브라우저도 아니고 로그인도

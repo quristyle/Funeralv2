@@ -12,6 +12,27 @@
     서랍은 열어 둔 채 화면을 오가는 것(AI 대화·빠른 지시)에 맞는 그릇이다.
 
     ────────────────────────────────────────────────────────────
+    [**휴대폰에서는 화면을 꽉 채운다** (2026-10-10)]
+
+    책상에서는 34rem 짜리 창이 맞다 — 보던 화면이 뒤에 남아 있어야 「무엇을
+    보다가 쓰려 했는지」가 지켜진다. 그런데 **360px 짜리 화면에서 34rem 은 곧
+    화면 전체**이고, 그 위에 `calc(100vw - 2rem)` 으로 테두리만 남겨 두면
+    얻는 것이 없다. 실제로 생기는 일은 이렇다.
+
+      · 가장자리 여백 때문에 받는 사람 딱지 줄이 한 줄 더 접힌다.
+      · 내용 칸이 여섯 줄로 고정되어, 자판이 올라오면 **보내기 단추가
+        그 아래로 숨는다.**
+      · 창의 최대 높이가 86vh 라 그 아래 띠만큼이 늘 비어 있다.
+
+    그래서 휴대폰에서는 `Fill` 로 모습을 바꾼다 — 창이 화면 네 변에 붙고
+    (`jsini-note-popup--full`), 내용 칸이 남은 높이를 전부 먹고, 보내기 줄이
+    바닥에 붙는다. **마크업은 하나다**(⚡ 가 서랍이 되는 것과 같은 수다).
+
+    가르는 값은 레이아웃이 내려 준다(`HeaderTools.IsPhone`) — 브레드크럼·
+    빠른 지시가 받는 것과 같은 값이다. **창을 띄우는 다른 자리**(쪽지함의
+    답장 · 위치 지도의 점)는 그 값을 안 주므로 전처럼 창으로 뜬다.
+
+    ────────────────────────────────────────────────────────────
     [알맹이는 화면과 나눠 쓴다]
 
     같은 판을 메뉴의 「쪽지 쓰기」(`/admin/note/write`)도 그린다. 나눠 쓰는
@@ -23,13 +44,17 @@
 <CommPopup Visible="@Visible"
            VisibleChanged="@OnVisibleChangedAsync"
            HeaderText="쪽지 쓰기"
-           Width="min(34rem, calc(100vw - 2rem))"
+           Width="@(Fill ? "100vw" : "min(34rem, calc(100vw - 2rem))")"
+           MaxHeight="@(Fill ? "100%" : "86vh")"
            ShowFooter="false"
-           CssClass="jsini-note-popup">
+           CssClass="@PopupClass">
 
     <BodyContentTemplate>
-        @* 창은 좁으니 내용 칸을 줄인다. 화면(`/admin/note/write`)은 기본값을 쓴다. *@
+        @* 창은 좁으니 내용 칸을 줄인다. 화면(`/admin/note/write`)은 기본값을 쓴다.
+           채우는 모습에서는 줄 수가 아니라 남은 높이가 키를 정하므로 이 값이
+           최소 높이 노릇만 한다. *@
         <NoteWritePanel BodyRows="6"
+                        Fill="@Fill"
                         DefaultTo="@DefaultTo"
                         ShowCancel="true"
                         OnCancel="@(() => OnVisibleChangedAsync(false))"

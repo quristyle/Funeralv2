@@ -27,6 +27,9 @@
   - `NotificationServer` (:5460) 푸시·이메일 알림 (포털·장례식장·헬프데스크 공용).
     알림이 **한꺼번에 몰려 오거나 늦게 오는** 까닭 — 수명(TTL)·겹침(Topic) 설정과
     **보내기까지의 지연** 실측은 [docs/push-delivery.md](docs/push-delivery.md)
+    **쪽지**는 받는 사람을 치지 않고 고르고(최근·전체), 휴대폰에서는 창이 아니라
+    화면을 채운다. 앱 푸시가 **기기에 닿지 않으면 메일로 돌린다** — 「보냈다」와
+    「닿았다」를 가르는 자리: [docs/note-delivery.md](docs/note-delivery.md)
   - `LifeEnvServer` (:5490) 생활과환경(기상·생일)
   - `CargoTrustServer` (:5500) JSini 운송관리 — 화물 거래처 신뢰정보. 계약은 [docs/cargotrust/05-api-design.md](docs/cargotrust/05-api-design.md)
     **톨게이트 심야할인**(진입·진출 시각 ↔ 할인율)과 계정에 매다는 차량 관리는
@@ -132,5 +135,7 @@ nginx 설정 정본은 [deploy/nginx/](deploy/nginx/) 에 있다 — Blazor 회�
 - [docs/utc-time.md](docs/utc-time.md) — 시각을 UTC 로 다루는 규칙과 한국 시각이 남은 자리
 - [docs/geolocation-background.md](docs/geolocation-background.md) — 포털을 닫은 뒤에도
   위치를 모을 수 있나(서비스워커에 `geolocation` 은 **없다** — 실측과 그래도 할 수 있는 일)
+- [docs/note-delivery.md](docs/note-delivery.md) — 쪽지: 빠른 대상 선택 · 휴대폰
+  전체화면 · 푸시가 안 닿았을 때 메일로 전환하는 길
 - [web/CLAUDE.md](web/CLAUDE.md) — Blazor 포털의 MFE 구조·의존 규칙·DevExpress 라이선스
 - [.claude/agents/](.claude/agents/) — 전문 서브에이전트 정의
