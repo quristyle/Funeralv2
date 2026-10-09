@@ -5,7 +5,8 @@ export function attachMoreObserver(sentinel, dotnet) {
 
   let intersecting = false;
   let scrollingDown = false;
-  let triggered = false;
+  let inFlight = false;
+  let exhausted = false;
   const positions = new WeakMap();
 
   const scrollTop = (target) => target === document
@@ -15,13 +16,19 @@ export function attachMoreObserver(sentinel, dotnet) {
     : target.scrollTop;
 
   const requestMore = () => {
-    if (!intersecting || !scrollingDown || triggered) return;
+    if (!intersecting || !scrollingDown || inFlight || exhausted) return;
 
-    triggered = true;
-    dotnet.invokeMethodAsync("ShowMoreFromScrollAsync").catch((error) => {
-      triggered = false;
-      console.error("최근 지시 목록을 더 펼치지 못했습니다.", error);
-    });
+    inFlight = true;
+    dotnet.invokeMethodAsync("ShowMoreFromScrollAsync")
+      .then((hasMore) => {
+        exhausted = !hasMore;
+      })
+      .catch((error) => {
+        console.error("최근 지시 목록을 더 펼치지 못했습니다.", error);
+      })
+      .finally(() => {
+        inFlight = false;
+      });
   };
 
   const onScroll = (event) => {
@@ -36,15 +43,17 @@ export function attachMoreObserver(sentinel, dotnet) {
     if (top === previous) return;
 
     scrollingDown = top > previous;
-    if (!scrollingDown) triggered = false;
+    if (!scrollingDown) exhausted = false;
     requestMore();
   };
 
   const observer = new IntersectionObserver((entries) => {
     intersecting = entries[entries.length - 1].isIntersecting;
-    if (!intersecting) triggered = false;
+    if (!intersecting) exhausted = false;
     requestMore();
-  }, { rootMargin: "0px 0px 96px 0px" });
+  }, {
+    rootMargin: `0px 0px ${Math.min(480, Math.max(240, Math.round(window.innerHeight * 0.6)))}px 0px`
+  });
 
   for (let parent = sentinel.parentElement; parent; parent = parent.parentElement) {
     positions.set(parent, scrollTop(parent));

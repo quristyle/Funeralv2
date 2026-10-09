@@ -924,16 +924,24 @@ public partial class AiAskPanel
 
     /// <summary>휴대폰에서 목록 끝에 닿아 더 보기를 시도했다.</summary>
     [JSInvokable]
-    public Task ShowMoreFromScrollAsync() => InvokeAsync(() =>
+    public async Task<bool> ShowMoreFromScrollAsync()
     {
-        if (Rest <= 0)
-        {
-            return;
-        }
+        var hasMore = false;
 
-        ShowMore();
-        StateHasChanged();
-    });
+        await InvokeAsync(() =>
+        {
+            if (Rest <= 0)
+            {
+                return;
+            }
+
+            ShowMore();
+            StateHasChanged();
+            hasMore = Rest > 0;
+        });
+
+        return hasMore;
+    }
 
     /// <summary>
     /// <b>민 카드를 확인 완료로 넘긴다.</b> 브라우저가 띠를 다 열고 카드를
