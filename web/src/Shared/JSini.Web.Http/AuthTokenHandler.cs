@@ -27,6 +27,18 @@ public sealed class AuthTokenHandler(
     private static readonly HttpRequestOptionsKey<bool> SkipRefresh = new("JSini.SkipRefresh");
 
     /// <summary>
+    /// <b>이 요청에 우리가 실제로 붙여 보낸 토큰.</b>
+    ///
+    /// <para>
+    /// 401 을 받고 나서 갱신을 할지 말지는 <b>그 요청이 들고 나간 토큰</b>이
+    /// 아직 최신인지로 갈라야 한다. 예전에는 그 자리에서 통(<see cref="ITokenStore"/>)을
+    /// 다시 물었는데, 기다리는 사이에 옆 요청이 이미 갱신해 두었으면 「새 토큰으로
+    /// 보냈는데도 401 이더라」로 읽혀 <b>같은 갱신이 한 번 더</b> 나갔다.
+    /// </para>
+    /// </summary>
+    private static readonly HttpRequestOptionsKey<string> SentToken = new("JSini.SentToken");
+
+    /// <summary>
     /// 한 회로 안에서 갱신이 겹치지 않게 한다. 화면 하나가 API 를 대여섯 개
     /// 동시에 부르는 일이 흔한데, 모두 401 을 받으면 갱신도 그 수만큼 나간다.
     /// 그러면 마지막 것만 살아남고 앞선 토큰들은 즉시 무효가 된다.
@@ -45,6 +57,11 @@ public sealed class AuthTokenHandler(
         HttpRequestMessage request,
         CancellationToken cancellationToken)
     {
+        // **부르는 쪽이 직접 실어 준 토큰인가.** 붙이기 전에 봐 두어야 알 수 있다.
+        // 그 자리(앱알림 아이콘 중계)는 지금 사용자의 신원이 아니라서, 401 을
+        // 받아도 우리 토큰을 갱신해 봐야 바뀌는 것이 없다.
+        var callerSuppliedToken = request.Headers.Authorization is not null;
+
         await AttachAsync(request, cancellationToken);
 
         var response = await base.SendAsync(request, cancellationToken);
@@ -54,18 +71,19 @@ public sealed class AuthTokenHandler(
             return response;
         }
 
-        if (request.Options.TryGetValue(SkipRefresh, out var skip) && skip)
+        if (callerSuppliedToken
+            || (request.Options.TryGetValue(SkipRefresh, out var skip) && skip))
         {
             return response;
         }
 
-        // 401 을 받은 시점의 토큰. 갱신을 기다리는 동안 다른 요청이 이미 갱신해
-        // 두었다면 이 값과 달라져 있을 것이고, 그러면 갱신을 또 할 필요가 없다.
-        var staleToken = await tokens.GetAccessTokenAsync(cancellationToken);
+        // **이 요청이 들고 나간 토큰.** 통을 다시 묻지 않는다 — 까닭은
+        // <see cref="SentToken"/> 머리말에 있다.
+        request.Options.TryGetValue(SentToken, out var sentToken);
 
         response.Dispose();
 
-        var refreshed = await TryRefreshAsync(staleToken, cancellationToken);
+        var refreshed = await TryRefreshAsync(sentToken, cancellationToken);
 
         if (!refreshed)
         {
@@ -92,6 +110,23 @@ public sealed class AuthTokenHandler(
         }
 
         using var retry = await CloneAsync(request, cancellationToken);
+
+        // **옛 토큰을 떼고 보낸다.**
+        //
+        // 복제는 헤더를 그대로 베끼므로 방금 만료된 그 토큰이 재시도에도 실려
+        // 있고, <see cref="AttachAsync"/> 는 이미 붙어 있는 것을 덮지 않는다.
+        // 떼지 않으면 **갱신해 놓고 옛 토큰으로 다시 물어보는 꼴**이 되어 또
+        // 401 을 받는다.
+        //
+        // [이것이 「새로고침하면 되는데」의 정체였다]
+        //
+        // 갱신은 성공하므로 **그 뒤의 요청**은 새 토큰으로 잘 나간다. 실패하는
+        // 것은 만료를 처음 밟은 그 요청들뿐이다. 그래서 휴대폰을 한참 두었다
+        // 돌아와 회로가 다시 서는 순간처럼 **여러 호출이 한꺼번에 나가는 자리**
+        // 에서는 그 첫 묶음이 통째로 빈손이 되고, 화면은 자료 없이 「로그인이
+        // 필요합니다」만 뜬다 — 그런데 새로고침해 보면 멀쩡하다.
+        retry.Headers.Authorization = null;
+
         await AttachAsync(retry, cancellationToken);
         return await base.SendAsync(retry, cancellationToken);
     }
@@ -109,6 +144,10 @@ public sealed class AuthTokenHandler(
             && await tokens.GetAccessTokenAsync(cancellationToken) is { Length: > 0 } token)
         {
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+            // 401 을 받았을 때 「무엇을 들고 나갔었나」를 알 수 있는 자리는
+            // 여기뿐이다. 갱신 판정이 이 값으로 갈린다.
+            request.Options.Set(SentToken, token);
         }
 
         // 서버가 오류 메시지를 이 언어로 내려준다. 지금은 한국어뿐이지만
@@ -122,16 +161,19 @@ public sealed class AuthTokenHandler(
     /// <summary>
     /// access token 을 갱신한다. 성공하면 참.
     /// </summary>
-    /// <param name="staleToken">401 을 받은 시점의 토큰. 이미 바뀌었으면 갱신을 건너뛴다.</param>
+    /// <param name="sentToken">
+    /// 401 을 받은 그 요청이 <b>들고 나갔던</b> 토큰. 통에 들어 있는 것이 이미
+    /// 이것과 다르면 옆 요청이 먼저 갱신해 둔 것이므로 그대로 쓴다.
+    /// </param>
     /// <param name="cancellationToken">취소 토큰</param>
-    private async Task<bool> TryRefreshAsync(string? staleToken, CancellationToken cancellationToken)
+    private async Task<bool> TryRefreshAsync(string? sentToken, CancellationToken cancellationToken)
     {
         await _refreshLock.WaitAsync(cancellationToken);
         try
         {
             // 기다리는 사이에 다른 요청이 갱신을 끝냈다.
             var current = await tokens.GetAccessTokenAsync(cancellationToken);
-            if (!string.Equals(current, staleToken, StringComparison.Ordinal))
+            if (!string.Equals(current, sentToken, StringComparison.Ordinal))
             {
                 return current is { Length: > 0 };
             }
@@ -183,6 +225,11 @@ public sealed class AuthTokenHandler(
             }
 
             tokens.UpdateAccessToken(token);
+
+            // **표시를 되돌린다.** 한 번 세워 두고 안 내리면, 뒷날 리프레시
+            // 쿠키가 없어 갱신을 못 한 것까지 「서버가 세션을 거절했다」로 읽혀
+            // 멀쩡한 토큰을 버린다.
+            _sessionRejected = false;
             return true;
         }
         catch (HttpRequestException ex)
