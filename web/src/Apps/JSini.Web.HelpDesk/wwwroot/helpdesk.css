@@ -1475,17 +1475,15 @@
   padding: 0;
 }
 
+/* 줄은 **테두리와 띠만** 들고, 안의 상자(`__row`)가 글을 깐다. 갈라 둔 것은
+   밀기 때문이다 — 움직이는 것은 글 쪽이고 띠는 줄에 붙어 제자리에 있어야
+   한다(아래 「밀어서 접수 · 삭제」). */
 .hd-req-list__item {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.6rem;
-  padding: 0.6rem 1rem;
+  position: relative;
   border-top: 1px solid var(--jsini-border);
-  cursor: pointer;
 
-  /* 누를 때 안드로이드 크롬이 칠하는 파란 네모를 걷는다. 줄 전체가 누르는
-     자리라 그 네모가 카드만 하게 번쩍인다. */
-  -webkit-tap-highlight-color: transparent;
+  /* 민 글이 줄 밖으로 삐져나가 **쪽을 옆으로 굴리게** 하지 않는다. */
+  overflow: hidden;
 }
 
 /* 판이 이미 테두리를 두르고 있어 첫 줄 위의 선은 두 겹이 된다. */
@@ -1493,7 +1491,19 @@
   border-top: 0;
 }
 
-.hd-req-list__item:active {
+.hd-req-list__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.6rem 1rem;
+  cursor: pointer;
+
+  /* 누를 때 안드로이드 크롬이 칠하는 파란 네모를 걷는다. 줄 전체가 누르는
+     자리라 그 네모가 카드만 하게 번쩍인다. */
+  -webkit-tap-highlight-color: transparent;
+}
+
+.hd-req-list__row:active {
   background: var(--jsini-surface);
 }
 
@@ -1527,6 +1537,120 @@
   padding: 1.5rem 1rem;
   text-align: center;
   color: var(--jsini-text-muted);
+}
+
+/* ── 「대기」는 **밀어서** 접수하고 지운다 ──────────────────────
+
+     오른쪽으로 민다   접수 — 왼쪽 가장자리에서 초록 띠가 열린다
+     왼쪽으로 민다     삭제 — 오른쪽 가장자리에서 빨간 띠가 열린다
+
+   움직이는 값을 **전부 인라인 사용자 지정 속성으로** 받는다. 클래스로 받지
+   않는 까닭은 목록이 「더보기」·조회·상태 갱신으로 다시 그려지기 때문이다 —
+   Blazor 가 줄의 `class` 를 제 손으로 쥐고 있어서, 손짓 중에 그 갱신이 한 번
+   끼면 **JS 가 붙인 클래스가 소리 없이 지워지고 줄이 밀린 자리에 굳는다.**
+   `style` 은 Blazor 가 아예 그리지 않으므로(줄에 `style` 속성이 없다) 그
+   자리는 건드리지 않는다. 대는 쪽은 `js/request-swipe.js`.
+
+     --hd-swipe        밀린 거리. **부호가 있다** — 양수가 오른쪽(접수)
+     --hd-swipe-ms     전환 시간. 끄는 동안은 0
+     --hd-swipe-ready  문턱을 넘었나(0/1)
+
+   **띠를 줄 밑에 깔고 글로 덮는 흔한 방법을 쓰지 않았다.** 그러려면 글 쪽에
+   불투명한 바탕을 깔아야 하는데, 이 목록의 바탕은 테마가 정하는 값이라
+   스물둘 중 어긋나는 쪽이 반드시 나온다. 띠가 **민 만큼만** 넓어지면 덮을
+   일이 없다 — 글이 비켜 준 자리에 띠가 그만큼 서는 것이다.
+   ---------------------------------------------------------- */
+
+.hd-req-list__item[data-swipe] {
+  --hd-swipe: 0px;
+  --hd-swipe-ms: 0ms;
+  --hd-swipe-ready: 0;
+}
+
+/* `touch-action: pan-y` 가 이 기능의 핵심 한 줄이다. 세로 끌기는 브라우저가
+   제 스크롤로 가져가고 **가로 끌기만 우리에게 온다** — 이 목록은 쪽이 통째로
+   구르는 자리라(`.hd-manage-cont--phone`) 세로를 막으면 목록을 못 넘긴다.
+
+   **띠 위에 놓인다**(`z-index`) — 띠가 절대 자리라 그대로 두면 문서에서 뒤인
+   띠가 글을 덮어 제목이 색에 가린다. */
+.hd-req-list__item[data-swipe] > .hd-req-list__row {
+  position: relative;
+  z-index: 2;
+  touch-action: pan-y;
+  transform: translateX(var(--hd-swipe));
+  transition: transform var(--hd-swipe-ms) ease;
+}
+
+/* 띠 자체. 가만히 있을 때 **폭이 0** 이라 화면에 한 픽셀도 없다.
+
+   **안쪽 여백을 주지 않는다.** 주면 폭이 0 이어도 상자가 그만큼은 남아
+   (`width` 는 여백 아래로 못 내려간다 — `border-box` 로 해도 마찬가지다)
+   밀 수 있는 줄마다 가장자리에 **색 실오라기**가 늘 서 있다. 글자를 안으로
+   들이는 일은 안의 ✓ · ✕ 가 제 바깥 여백으로 한다.
+
+   `max()` 로 한쪽 부호만 받는다 — 오른쪽으로 민 거리는 접수 띠만 쓰고
+   왼쪽은 삭제 띠만 쓴다. 한 변수로 둘을 그리니 **두 띠가 함께 열리는 일이
+   없다**(JS 도 방향을 한 번 가리면 바꾸지 않는다). */
+.hd-req-swipe {
+  position: absolute;
+  inset-block: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  overflow: hidden;
+  color: #fff;
+  font-size: var(--jsini-fs-2xs);
+  white-space: nowrap;
+  pointer-events: none;
+  transition: width var(--hd-swipe-ms) ease;
+}
+
+/* 접수는 초록이다 — 공통 배지의 「완료·진행」 쪽 초록 그대로다. 이 화면만의
+   색을 새로 만들면 같은 뜻이 자리마다 다른 초록이 된다. */
+.hd-req-swipe--accept {
+  left: 0;
+  justify-content: flex-start;
+  width: max(0px, var(--hd-swipe));
+  background: #2e7d32;
+}
+
+/* 삭제는 빨강이고 **글자가 오른쪽 끝에 붙는다** — 손가락이 가는 쪽에서
+   읽혀야 한다. */
+.hd-req-swipe--remove {
+  right: 0;
+  justify-content: flex-end;
+  width: max(0px, calc(-1 * var(--hd-swipe)));
+  background: #d32f2f;
+}
+
+/* 문턱을 넘으면 표가 커지고 글자가 또렷해진다. **손을 떼기 전에**
+   「놓으면 처리된다」를 알려 주는 것이 이 둘의 일이다 — 넘기 전에 놓으면
+   줄은 제자리로 돌아간다. */
+.hd-req-swipe__mark {
+  flex: 0 0 auto;
+  margin: 0 0.6rem;
+  font-size: var(--jsini-fs-sm);
+  line-height: 1;
+  transform: scale(calc(0.7 + (0.3 * var(--hd-swipe-ready))));
+  transition: transform 120ms ease;
+}
+
+.hd-req-swipe__text {
+  opacity: calc(0.45 + (0.55 * var(--hd-swipe-ready)));
+  transition: opacity 120ms ease;
+}
+
+/* 움직임을 줄여 달라고 한 사람에게는 **결과만** 준다. 띠는 열리지 않고 줄도
+   따라 움직이지 않는다 — 처리됐다는 것은 줄이 목록에서 빠지거나(삭제) 상태
+   딱지가 「진행」으로 바뀌는 것(접수)으로 이미 말한다. */
+@media (prefers-reduced-motion: reduce) {
+  .hd-req-list__item[data-swipe] > .hd-req-list__row,
+  .hd-req-swipe,
+  .hd-req-swipe__mark,
+  .hd-req-swipe__text {
+    transition: none;
+  }
 }
 
 /* ── 그 목록이 실린 판은 **쪽이 구른다** ─────────────────────

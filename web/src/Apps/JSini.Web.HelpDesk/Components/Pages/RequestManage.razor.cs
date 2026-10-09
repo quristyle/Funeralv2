@@ -1,6 +1,8 @@
+using DevExpress.Blazor;
 using Microsoft.AspNetCore.Components;
 using System.Data;
 using System.Globalization;
+using JSini.Web.Abstractions;
 using JSini.Web.Components.Data;
 using JSini.Web.Components.Layout;
 using JSini.Web.HelpDesk.Api;
@@ -847,4 +849,200 @@ public partial class RequestManage : IDisposable
         Navigation.NavigateTo($"/helpdesk/request/detail/{r.Id}");
     }
 
+    // ── 휴대폰에서 밀어서 접수 · 삭제 (2026-10-09) ────────────────
+    //
+    // 담당자가 휴대폰으로 보는 목록에서 가장 잦은 일이 **대기 건을 접수하는
+    // 것**이다. 그런데 그러려면 줄을 눌러 상세로 들어가 「접수」를 누르고 다시
+    // 돌아와야 했다 — 열 건이면 왕복 열 번이고, 그 왕복마다 300건을 다시 읽지
+    // 않으려고 이 화면이 짐을 맡아 두고 있다(`Kept`).
+    //
+    //   오른쪽으로 민다   접수 — `PUT requests/accept/{id}` (상태 `InProgress`)
+    //   왼쪽으로 민다     삭제 — `DELETE requests/{id}`
+    //
+    // **「대기」인 줄만 민다.** 가려내는 쪽은 카드 목록이고(`RequestCards` 의
+    // `AcceptableOf` · `RemovableOf`) 거기서 한 번 더 못 박는다 — 브라우저가
+    // 들고 있는 `data-*` 는 고칠 수 있는 값이다.
+    //
+    // [묻고 나서 한다]
+    //
+    // 손짓은 **스쳐 지나가다 일어난다** — 목록을 굴리려던 손가락이 비낄 수
+    // 있고, 그래서 문턱을 줄 폭의 1/4 로 두었지만 그것만으로는 모자란다.
+    // 삭제는 되돌릴 수 없고(서버가 줄을 통째로 지운다) 접수는 누른 사람이
+    // 그대로 접수자로 박히면서 요청자에게 알림이 나간다. 둘 다 묻는다.
+    //
+    // [목록은 **그 줄만** 고쳐 쓴다 — 다시 읽지 않는다]
+    //
+    // `ReloadAsync` 를 부르면 조건은 그대로지만 **꺼내 둔 줄 수가 한 쪽으로
+    // 되감긴다**(`_take = PageRows`). 「더보기」를 네 번 눌러 찾아 놓은 자리에서
+    // 한 건을 접수한 사람이 처음 스물다섯 줄로 돌아가는 것이다 — 그 화면에서
+    // 다음 건을 또 밀 수가 없다.
+
+    /// <summary>
+    /// 밀어서 접수할 수 있는가 — <b>담당자</b>이고 이 화면에 수정 권한이 있는가.
+    /// </summary>
+    /// <remarks>
+    /// 상세 화면의 「접수」 단추와 <b>같은 잣대</b>다
+    /// (<c>RequestDetail.CanHandle</c>). 거기서 <c>IsLinked</c> 가 아니라
+    /// <c>IsAdmin</c> 을 보는 까닭도 그대로다 — 포털 역할로만 담당자인 사람의
+    /// <c>admin</c> 줄은 <b>서버가 접수하는 그 순간 만든다.</b>
+    /// </remarks>
+    private bool CanAccept => Context.IsAdmin && Can(MenuAction.Update);
+
+    /// <summary>
+    /// 밀어서 지울 수 있는가 — <b>시스템관리자만</b>.
+    /// </summary>
+    /// <remarks>
+    /// 상세 화면의 「삭제」 단추와 같다(<c>Context.IsSystemAdmin</c>).
+    /// 거기도 메뉴 권한을 따로 보지 않는다 — 지우는 길을 가르는 것이
+    /// 역할 하나뿐이어야 두 화면이 어긋나지 않는다.
+    /// </remarks>
+    private bool CanDelete => Context.IsSystemAdmin;
+
+    /// <summary>밀어서 하는 일을 묻는 창. 화면 맨 아래에 하나만 둔다.</summary>
+    private ConfirmDialog? _confirm;
+
+    /// <summary>
+    /// 오른쪽으로 민 줄을 <b>접수</b>한다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>상태만 보낸다.</b> 접수자는 서버가 지금 부른 사람으로 정한다 —
+    /// 화면이 아는 번호(<see cref="HelpDeskContext.HelpdeskUserId"/>)는 담당자로
+    /// 이어 둔 계정일 때만 <c>admin.id</c> 라, 그대로 실어 보내면 <b>번호가
+    /// 겹치는 남이 접수자로 박힌다</b>(<c>RequestDetail.ChangeStatusAsync</c> 와
+    /// 같은 사정이다).
+    /// </para>
+    /// <para>
+    /// [접수한 줄은 **목록에 남는다**]
+    /// </para>
+    /// <para>
+    /// 상태가 「진행」으로 바뀌므로 조건이 「대기」로 좁혀져 있으면 이 줄은
+    /// 엄밀히는 더 이상 조건에 맞지 않는다. 그래도 걷지 않는다 — 걷으면
+    /// <b>접수한 줄과 지운 줄이 화면에서 똑같이 사라져</b> 어느 쪽을 민
+    /// 것인지 알 수가 없다. 딱지가 「대기 → 진행」으로 바뀌고 「담당」에 이름이
+    /// 박히는 것이 <b>무슨 일이 일어났는지를 말하는 유일한 자리</b>다.
+    /// 조건대로 다시 맞추는 것은 「조회」가 한다.
+    /// </para>
+    /// </remarks>
+    private async Task<bool> AcceptSwipedAsync(ImprovementRequest r)
+    {
+        if (!CanAccept || r.Status is not "Pending")
+        {
+            return false;
+        }
+
+        if (_confirm is not null
+            && !await _confirm.AskAsync(
+                $"「{r.Title}」 을(를) 접수합니다. 접수자로 기록되고 요청자에게 알림이 갑니다.",
+                "요청 접수", "접수", ButtonRenderStyle.Primary))
+        {
+            return false;
+        }
+
+        ImprovementRequest? saved = null;
+
+        var done = await RunAsync(
+            async () => saved = await Api.PutAsync<ImprovementRequest>(
+                $"requests/accept/{r.Id}", new { status = "InProgress" }),
+            "접수했습니다.", "접수하지 못했습니다");
+
+        if (!done)
+        {
+            return false;
+        }
+
+        // **서버가 적어 준 이름을 지운다.** `StatusName` 이 남아 있으면 딱지가
+        // 그것을 먼저 쓰므로(`RequestRowText.Status`) 상태를 바꿔도 「대기」가
+        // 그대로 떠 있다.
+        r.Status = "InProgress";
+        r.StatusName = null;
+
+        // 접수자는 **서버가 정한 번호**로 받는다(`PUT` 의 응답). 그 응답에는
+        // 담당자 줄이 딸려 오지 않으므로(엔티티를 그대로 돌려준다) 이름은
+        // 담당자 고르개가 아는 것에서 푼다.
+        if (saved?.AdminId is { } adminId)
+        {
+            r.AdminId = adminId;
+            r.Admin = AssigneeOf(adminId);
+        }
+
+        StateHasChanged();
+        return true;
+    }
+
+    /// <summary>
+    /// 접수자 번호를 <b>이름</b>으로. 담당자 고르개가 아는 이름을 그대로 쓴다.
+    /// </summary>
+    /// <remarks>
+    /// 고르개에 없는 번호일 수 있다 — 포털 역할로만 담당자인 사람의
+    /// <c>admin</c> 줄은 <b>방금 서버가 만들었다</b>(<c>IAssigneeProvisioner</c>)
+    /// 그래서 이 화면이 들어설 때 받아 둔 목록에는 없다. 그때는 <b>내 이름</b>이
+    /// 맞다 — 접수자를 정한 것이 「지금 부른 사람」이기 때문이다.
+    /// </remarks>
+    private Admin AssigneeOf(int adminId) => new()
+    {
+        Id = adminId,
+        UserName = Context.AdminOptions
+            .FirstOrDefault(o => o.Value == adminId.ToString(CultureInfo.InvariantCulture))?.Label
+            ?? Context.Identity?.UserName
+            ?? "담당자",
+    };
+
+    /// <summary>
+    /// 왼쪽으로 민 줄을 <b>지운다</b>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>되돌릴 수 없다.</b> 서버는 상태를 <c>Delete</c> 로 바꾸는 것이 아니라
+    /// 줄을 통째로 지우고 딸린 그림 폴더까지 치운다
+    /// (<c>DELETE requests/{id}</c>). 그래서 확인 창의 글에 그 말을 적는다.
+    /// </para>
+    /// <para>
+    /// <b>전체 건수도 함께 줄인다.</b> 안 줄이면 「더보기」에 적히는 남은 수가
+    /// (<see cref="Rest"/>) 서버가 말한 옛 숫자 그대로라, 다 깔고 나서도
+    /// 누를 수 있는 단추가 남아 「더 읽을 요청이 없습니다」만 되풀이한다.
+    /// </para>
+    /// <para>
+    /// <b>꺼내 둔 줄 수(<see cref="_take"/>)는 건드리지 않는다.</b> 그대로 두면
+    /// 지운 줄의 자리에 아래 줄이 하나 올라와 목록 길이가 유지된다 — 줄이는
+    /// 쪽을 고르면 본 적 없는 줄이 밀려 내려가 안 보이게 된다.
+    /// </para>
+    /// </remarks>
+    private async Task<bool> DeleteSwipedAsync(ImprovementRequest r)
+    {
+        if (!CanDelete || r.Status is not "Pending")
+        {
+            return false;
+        }
+
+        if (_confirm is not null
+            && !await _confirm.AskAsync(
+                $"「{r.Title}」 을(를) 삭제합니다. 되돌릴 수 없습니다.",
+                "요청 삭제", "삭제", ButtonRenderStyle.Danger))
+        {
+            return false;
+        }
+
+        var done = await RunAsync(
+            () => Api.DeleteAsync($"requests/{r.Id}"),
+            "삭제했습니다.", "삭제하지 못했습니다");
+
+        if (!done)
+        {
+            return false;
+        }
+
+        _rows = [.. _rows.Where(x => x.Id != r.Id)];
+        _total = Math.Max(_rows.Count, _total - 1);
+
+        // 보고 있던 줄이 사라졌다. 안 비우면 떠날 때 맡기는 짐의
+        // `SelectedId` 가 없는 요청을 가리킨 채로 남는다.
+        if (_selected?.Id == r.Id)
+        {
+            _selected = null;
+        }
+
+        StateHasChanged();
+        return true;
+    }
 }

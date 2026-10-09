@@ -29,75 +29,140 @@
 
     손가락에는 「상세」 단추 하나보다 줄 전체가 낫다. 그림만 예외다 —
     거기를 누르면 원본이 미리보기로 열린다(`stopPropagation`).
+
+    [「대기」는 밀어서 접수하고 지운다 (2026-10-09)]
+
+    담당자가 휴대폰으로 보는 목록에서 가장 잦은 일이 **대기 건을 접수하는
+    것**이다. 그런데 그러려면 줄을 눌러 상세로 들어가 「접수」를 누르고 다시
+    돌아와야 했다 — 열 건이면 왕복 열 번이다.
+
+      오른쪽으로 민다   접수 (왼쪽에서 초록 띠가 열린다)
+      왼쪽으로 민다     삭제 (오른쪽에서 빨간 띠가 열린다)
+
+    **「대기」인 줄에만 붙는다.** 이미 누가 맡은 건을 밀어서 가로채거나,
+    끝난 건을 밀어서 지우는 길을 열지 않는다. 권한도 상세 화면과 **같은
+    잣대**다(`RequestManage` 의 `CanAccept` · `CanDelete`) — 어느 줄에 어느
+    방향이 붙었는지는 `data-accept` · `data-remove` 가 들고, 안 붙은 방향으로
+    끌면 아무 일도 일어나지 않는다.
+
+    **손짓은 빠른 길이지 유일한 길이 아니다.** 줄을 눌러 들어가면 상세에
+    같은 단추 둘이 그대로 있다 — 누름쇠로 쓰는 사람과 화면 낭독기에는 그쪽이
+    유일한 길이고, 띠에 `aria-hidden` 을 붙여 둔 것도 그래서다.
+
+    손가락을 따라 그리는 쪽은 `js/request-swipe.js` 이고, 그 값을 받는 자리는
+    `helpdesk.css` 의 `.hd-req-list__item[data-swipe]` 다. 줄 본문을 한 겹
+    (`.hd-req-list__row`) 더 감싼 것이 그 때문이다 — 움직이는 것은 본문이고
+    띠는 줄에 붙어 제자리에 있어야 한다.
 *@
 
 @inherits RequestRowList
 
-@if (Rows.Count == 0)
-{
-    <p class="hd-req-list__empty">@EmptyText</p>
-}
-else
-{
-    <ul class="hd-req-list">
-        @foreach (var r in Rows)
-        {
-            <li class="hd-req-list__item" @key="r.Id"
-                role="button" tabindex="0"
-                @onclick="@(() => RowClick.InvokeAsync(r))"
-                @onkeydown="@(e => OnKeyDownAsync(e, r))">
+@* 손짓을 거는 자리는 **이 상자**다. 목록(`ul`)은 줄이 하나도 없으면 아예
+   안 그려지고(그 자리에 「없습니다」가 선다) 다시 생길 때는 **다른 DOM** 이라
+   걸어 둔 것이 사라진다 — 조건을 좁혀 빈 목록을 한 번 본 사람은 그 뒤로
+   못 민다. 이 상자는 부품이 사는 내내 그대로다. *@
+<div id="@DomId" class="hd-req-cards">
+    @if (Rows.Count == 0)
+    {
+        <p class="hd-req-list__empty">@EmptyText</p>
+    }
+    else
+    {
+        <ul class="hd-req-list">
+            @foreach (var r in Rows)
+            {
+                @* 민 거리를 싣는 자리다 — 그래서 이 `li` 에는 `style` 도
+                   `class` 변화도 없다(머리말 · `request-swipe.js`).
+                   `data-swipe` 는 **어느 한 방향이라도 열려 있을 때만** 붙고,
+                   JS 가 그것으로 밀 수 있는 줄을 가려낸다. *@
+                <li class="hd-req-list__item" @key="r.Id"
+                    data-request="@r.Id"
+                    data-swipe="@(Swipeable(r) ? "1" : null)"
+                    data-accept="@(AcceptableOf(r) ? "1" : null)"
+                    data-remove="@(RemovableOf(r) ? "1" : null)">
 
-                @* 그림이 없는 줄에도 같은 자리를 비워 둔다. 안 비우면 글이
-                   줄마다 다른 자리에서 시작해 목록이 들쭉날쭉해진다 —
-                   좁은 화면에서는 그 어긋남이 표에서보다 크게 보인다. *@
-                @if (ThumbOf(r) is { } thumb)
-                {
-                    <img class="hd-req-list__thumb" src="@thumb.ThumbnailUrl" alt="" loading="lazy"
-                         role="button" title="눌러서 크게 봅니다"
-                         @onclick="@(() => PreviewImages(r))"
-                         @onclick:stopPropagation="true"
-                         @onerror="@(() => ThumbFailed(thumb.ThumbnailUrl))" />
-                }
-                else
-                {
-                    <span class="hd-req-list__thumb hd-req-list__thumb--none" aria-hidden="true"></span>
-                }
+                    @* 줄 **왼쪽**에서 열리는 띠 — 오른쪽으로 민 만큼 넓어진다.
+                       가만히 있을 때 폭이 0 이라 한 픽셀도 보이지 않는다. *@
+                    @if (AcceptableOf(r))
+                    {
+                        <span class="hd-req-swipe hd-req-swipe--accept" aria-hidden="true">
+                            <span class="hd-req-swipe__mark">✓</span>
+                            <span class="hd-req-swipe__text">접수</span>
+                        </span>
+                    }
 
-                <div class="hd-req-cell">
-                    @* 고객사 · 담당자는 **제 칸이 없다.** 휴대폰에는 칸을 둘
-                       넘게 세울 폭이 없어 옆으로 굴려야 보이게 되는데,
-                       한 손으로 쥔 휴대폰에서 굴려야 보이는 값은 사실상
-                       없는 값이다. 그래서 이 한 줄에 함께 들인다.
+                    @* 줄 **오른쪽**에서 열리는 띠 — 왼쪽으로 민 만큼 넓어진다.
+                       글자가 오른쪽 끝에 붙어야 손가락이 가는 쪽에서 읽힌다. *@
+                    @if (RemovableOf(r))
+                    {
+                        <span class="hd-req-swipe hd-req-swipe--remove" aria-hidden="true">
+                            <span class="hd-req-swipe__text">삭제</span>
+                            <span class="hd-req-swipe__mark">✕</span>
+                        </span>
+                    }
 
-                       담당자에는 「담당」을 붙인다. 안 붙이면 「㈜진일 · 김철수
-                       · 2026-10-06 14:22 · 3일 · 이영희」가 되어 **이름 둘 중
-                       어느 쪽이 맡은 사람인지** 알 수가 없다. *@
-                    <div class="hd-req-meta">
-                        <span class="jsini-badge @RequestRowText.StatusClass(r.Status)">@RequestRowText.Status(r)</span>
-                        @if (r.IsEmergency == true)
+                    @* 손가락을 따라 움직이는 것은 **이 상자**다. 띠는 줄에
+                       붙어 제자리에 있고, 이것이 옆으로 비켜 주면서 그만큼이
+                       드러난다. 누르는 자리도 여기다 — 띠는 `pointer-events`
+                       가 없어 눌리지 않는다. *@
+                    <div class="hd-req-list__row"
+                         role="button" tabindex="0"
+                         @onclick="@(() => RowClick.InvokeAsync(r))"
+                         @onkeydown="@(e => OnKeyDownAsync(e, r))">
+
+                        @* 그림이 없는 줄에도 같은 자리를 비워 둔다. 안 비우면 글이
+                           줄마다 다른 자리에서 시작해 목록이 들쭉날쭉해진다 —
+                           좁은 화면에서는 그 어긋남이 표에서보다 크게 보인다. *@
+                        @if (ThumbOf(r) is { } thumb)
                         {
-                            <span class="jsini-badge jsini-badge--off">긴급</span>
+                            <img class="hd-req-list__thumb" src="@thumb.ThumbnailUrl" alt="" loading="lazy"
+                                 role="button" title="눌러서 크게 봅니다"
+                                 @onclick="@(() => PreviewImages(r))"
+                                 @onclick:stopPropagation="true"
+                                 @onerror="@(() => ThumbFailed(thumb.ThumbnailUrl))" />
                         }
-                        <span class="hd-req-meta__item">@CompanyName(r)</span>
-                        <span class="hd-req-meta__dot">·</span>
-                        <span class="hd-req-meta__item">@(r.Customer?.UserName ?? "-")</span>
-                        <span class="hd-req-meta__dot">·</span>
-                        <span class="hd-req-meta__item">@Requested(r)</span>
-                        <span class="hd-req-meta__dot">·</span>
-                        <span class="hd-req-meta__item">@RequestRowText.Elapsed(r)</span>
-                        <span class="hd-req-meta__dot">·</span>
-                        <span class="hd-req-meta__item">담당 @(r.Admin?.UserName ?? "미배정")</span>
-                    </div>
-
-                    <div class="hd-req-title">
-                        @r.Title
-                        @if (r.Comments?.Count > 0)
+                        else
                         {
-                            <span class="jsini-badge" style="margin-left: 6px; font-weight: normal;">댓글 @r.Comments.Count</span>
+                            <span class="hd-req-list__thumb hd-req-list__thumb--none" aria-hidden="true"></span>
                         }
+
+                        <div class="hd-req-cell">
+                            @* 고객사 · 담당자는 **제 칸이 없다.** 휴대폰에는 칸을 둘
+                               넘게 세울 폭이 없어 옆으로 굴려야 보이게 되는데,
+                               한 손으로 쥔 휴대폰에서 굴려야 보이는 값은 사실상
+                               없는 값이다. 그래서 이 한 줄에 함께 들인다.
+
+                               담당자에는 「담당」을 붙인다. 안 붙이면 「㈜진일 · 김철수
+                               · 2026-10-06 14:22 · 3일 · 이영희」가 되어 **이름 둘 중
+                               어느 쪽이 맡은 사람인지** 알 수가 없다. *@
+                            <div class="hd-req-meta">
+                                <span class="jsini-badge @RequestRowText.StatusClass(r.Status)">@RequestRowText.Status(r)</span>
+                                @if (r.IsEmergency == true)
+                                {
+                                    <span class="jsini-badge jsini-badge--off">긴급</span>
+                                }
+                                <span class="hd-req-meta__item">@CompanyName(r)</span>
+                                <span class="hd-req-meta__dot">·</span>
+                                <span class="hd-req-meta__item">@(r.Customer?.UserName ?? "-")</span>
+                                <span class="hd-req-meta__dot">·</span>
+                                <span class="hd-req-meta__item">@Requested(r)</span>
+                                <span class="hd-req-meta__dot">·</span>
+                                <span class="hd-req-meta__item">@RequestRowText.Elapsed(r)</span>
+                                <span class="hd-req-meta__dot">·</span>
+                                <span class="hd-req-meta__item">담당 @(r.Admin?.UserName ?? "미배정")</span>
+                            </div>
+
+                            <div class="hd-req-title">
+                                @r.Title
+                                @if (r.Comments?.Count > 0)
+                                {
+                                    <span class="jsini-badge" style="margin-left: 6px; font-weight: normal;">댓글 @r.Comments.Count</span>
+                                }
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </li>
-        }
-    </ul>
-}
+                </li>
+            }
+        </ul>
+    }
+</div>

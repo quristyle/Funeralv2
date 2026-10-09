@@ -377,9 +377,15 @@
        **휴대폰에서는 꺼내 둔 만큼만 넘긴다**(`Shown`). 카드 목록은 쪽을
        나누지 않고 받은 것을 남김없이 깔므로, 몇 줄을 보여 줄지는 여기서
        정하고 아래 「더보기」가 그 수를 늘린다. *@
+    @* 휴대폰에서는 「대기」 줄을 **밀어서** 접수하고 지운다 (2026-10-09).
+       오른쪽이 접수 · 왼쪽이 삭제이고, 할 수 있는지는 **상세 화면과 같은
+       잣대**로 여기서 정해 넘긴다(`CanAccept` · `CanDelete`). 손가락을 따라
+       그리는 쪽은 `request-swipe.js`, 띠의 생김새는 `helpdesk.css` 다. *@
     @if (_isPhone)
     {
-        <RequestCards Rows="@Shown" RowClick="@OnRowClick" />
+        <RequestCards Rows="@Shown" RowClick="@OnRowClick"
+                      CanAccept="@CanAccept" CanDelete="@CanDelete"
+                      Accept="@AcceptSwipedAsync" Delete="@DeleteSwipedAsync" />
     }
     else
     {
@@ -440,3 +446,12 @@
         </div>
     }
 </CommCont>
+
+@* 밀어서 하는 일을 **묻는 창**이다. 손짓은 스쳐 지나가다 일어나는 것이고
+   (목록을 굴리려던 손가락이 비껄 수 있다) 삭제는 **되돌릴 수 없다** — 서버가
+   줄을 통째로 지운다(`DELETE requests/{id}`). 접수도 누른 사람이 그대로
+   접수자로 박히고 요청자에게 알림이 나가므로 묻는다.
+
+   판 **바깥**에 둔다. 안에 두면 목록이 구르는 상자 안이라(`.hd-manage-cont--phone`)
+   창이 뜨는 자리가 구른 만큼 따라 움직인다. *@
+<ConfirmDialog @ref="_confirm" />
