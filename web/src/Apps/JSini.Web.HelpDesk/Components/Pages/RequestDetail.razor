@@ -246,6 +246,9 @@
 
                 @if (Context.IsSystemAdmin)
                 {
+                    <DxButton Text="지시작업으로보내기" RenderStyle="ButtonRenderStyle.Info"
+                              SizeMode="SizeMode.Small"
+                              Enabled="@(!Loading)" Click="@SendToAiTaskAsync" />
                     <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Danger"
                               SizeMode="SizeMode.Small"
                               Enabled="@(!Loading)" Click="@DeleteAsync" />

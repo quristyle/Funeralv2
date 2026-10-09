@@ -15,6 +15,7 @@ public partial class RequestDetail : IDisposable
     [Inject] private HelpDeskApi Api { get; set; } = default!;
     [Inject] private HelpDeskContext Context { get; set; } = default!;
     [Inject] private PortalTabs Tabs { get; set; } = default!;
+    [Inject] private GatewayClient Gateway { get; set; } = default!;
 
     /// <summary>주소의 요청 키.</summary>
     [Parameter] public string Id { get; set; } = string.Empty;
@@ -256,10 +257,43 @@ public partial class RequestDetail : IDisposable
     /// <summary>「접수」 — 내가 맡는다. 접수자와 접수일자가 박힌다.</summary>
     private Task AcceptAsync() => ChangeStatusAsync("InProgress", "접수");
 
-    /// <summary>
-    /// 「완료」 — 끝났다. 「대기」에서 눌렀으면 접수까지 함께 반영된다.
+    /// <summary>「완료」 — 끝났다. 「대기」에서 눌렀으면 접수까지 함께 반영된다.
     /// </summary>
     private Task CompleteAsync() => ChangeStatusAsync("Completed", "완료");
+
+    /// <summary>
+    /// 「지시작업으로보내기」 — AI 작업지시(AiTask)로 전달한다.
+    /// </summary>
+    private async Task SendToAiTaskAsync()
+    {
+        if (!int.TryParse(Id, out var requestId))
+        {
+            Say("요청 번호를 읽지 못했습니다.", NoticeTone.Error);
+            return;
+        }
+
+        var ask = $"「{TabTitle}」 을(를) AI 작업 지시로 보냅니다.";
+        if (_confirm is not null && !await _confirm.AskAsync(ask, "작업지시", "보내기", ButtonRenderStyle.Info))
+        {
+            return;
+        }
+
+        var title = Value("title");
+        var contents = Value("description") ?? Value("content") ?? "";
+
+        var payload = new
+        {
+            title = $"[요청 #{requestId}] {title}",
+            contents = contents,
+            contentFormat = "html",
+            taskStatus = "idle",
+            requestFlag = "none"
+        };
+
+        await RunAsync(
+            () => Gateway.PostAsync("projmng/ai-tasks", payload),
+            "AI 작업 지시로 보냈습니다.", "AI 작업 지시로 보내지 못했습니다.");
+    }
 
     /// <summary>
     /// 「삭제」 — 시스템 관리자가 요청을 삭제한다.
