@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Routing;
 using JSini.Web.Abstractions;
 using JSini.Web.Components.Menu;
 
@@ -9,6 +10,14 @@ public partial class AiChatDrawer
     [Inject] private ThemeSize Size { get; set; } = default!;
     [Inject] private IMenuProvider Menus { get; set; } = default!;
     [Inject] private IPermissionContext Permissions { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    /// <summary>
+    /// 휴대폰인가. <b>화면을 옮길 때 이 판을 접을지</b>를 이 값이 가른다
+    /// (<see cref="OnLocationChanged"/>). 레이아웃이 내려 준다 —
+    /// <c>HeaderTools</c> · 브레드크럼이 받는 것과 같은 값이다.
+    /// </summary>
+    [Parameter] public bool IsPhone { get; set; }
 
     /// <summary>
     /// 「AI쳇」 화면의 열쇠. <b>주소가 아니라 이것으로 찾는다</b> —
@@ -71,14 +80,52 @@ public partial class AiChatDrawer
     private void Toggle() => _open = !_open;
 
     /// <summary>
+    /// <b>휴대폰에서 화면을 옮기면 접는다.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 이 서랍의 요점은 「보던 화면을 그대로 두고 옆에서 묻는다」라서,
+    /// 넓은 화면에서는 옮겨 다녀도 오른쪽에 그대로 두는 것이 맞다 —
+    /// 본문은 그 옆에 온전히 남아 있다.
+    /// </para>
+    /// <para>
+    /// 휴대폰은 다르다. 판 폭이 <c>min(26rem, 100vw)</c> 이라 좁은 화면에서는
+    /// <b>본문을 통째로 덮는다.</b> 그 상태로 띠나 메뉴를 눌러 화면을 옮기면
+    /// 새 화면이 대화 뒤에 가려진 채 열려서, 누른 사람에게는 <b>아무 일도
+    /// 일어나지 않은 것처럼</b> 보인다 — 빠져나오는 길이 머리의 ✕ 하나뿐이고
+    /// 그것을 누를 까닭을 알 수가 없다.
+    /// </para>
+    /// <para>
+    /// <b>대화는 지우지 않는다.</b> 여기서 끄는 것은 열림 여부 하나이고
+    /// 알맹이는 계속 살아 있어서(위 머리말의 「닫아도 대화가 남는다」),
+    /// 다시 열면 묻던 자리에서 이어진다.
+    /// </para>
+    /// </remarks>
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        if (!IsPhone || !_open) return;
+
+        _open = false;
+        InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>
     /// 메뉴와 권한은 로그인 직후·권한 갱신 때 <b>뒤늦게</b> 실린다. 안 듣고
     /// 있으면 처음 그린 뒤로 단추가 영영 안 나타난다(<c>HeaderTools</c> 와 같은
     /// 자리). 권한표에는 알리는 자리가 없고 메뉴가 그때 다시 걸러지므로
     /// (<c>MenuProvider.Filtered</c> 가 <c>CanView</c> 를 쓴다) 이 소식을 듣는다.
     /// </summary>
-    protected override void OnInitialized() => Menus.MenusChanged += OnMenusChanged;
+    protected override void OnInitialized()
+    {
+        Menus.MenusChanged += OnMenusChanged;
+        Navigation.LocationChanged += OnLocationChanged;
+    }
 
     private void OnMenusChanged() => InvokeAsync(StateHasChanged);
 
-    public void Dispose() => Menus.MenusChanged -= OnMenusChanged;
+    public void Dispose()
+    {
+        Menus.MenusChanged -= OnMenusChanged;
+        Navigation.LocationChanged -= OnLocationChanged;
+    }
 }
