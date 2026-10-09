@@ -2826,6 +2826,17 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
   opacity: 0.75;
 }
 
+.pm-ask__more-sentinel {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .pm-ask__more-sentinel {
+    display: block;
+    height: 1px;
+  }
+}
+
 /* ── AI 작업 요청 (`pm-req`) ──────────────────────────────────
 
    일반 사용자가 지시를 적어 두는 자리다(`AiRequestList`). 「빠른 지시」와

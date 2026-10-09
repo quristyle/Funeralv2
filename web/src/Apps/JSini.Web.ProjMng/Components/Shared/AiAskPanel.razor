@@ -723,6 +723,12 @@
                 </div>
             }
         }
+
+        @* 휴대폰에서 목록 끝까지 굴리면 단추와 같은 만큼 더 펼친다.
+           감지점은 늘 DOM 에 둬야 다시 펼칠 때 관찰을 이어 갈 수 있다. *@
+        <span class="pm-ask__more-sentinel"
+              aria-hidden="true"
+              @ref="_moreSentinel"></span>
     </CommCont>
 
     @* 카드를 누르면 여기서 연다. 지시 · 결과 · 로그를 탭으로 나눠 담고,

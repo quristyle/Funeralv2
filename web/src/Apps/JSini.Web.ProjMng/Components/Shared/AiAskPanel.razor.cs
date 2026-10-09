@@ -190,6 +190,9 @@ public partial class AiAskPanel
     /// <summary>카드 밀기를 받는 JS 모듈.</summary>
     private IJSObjectReference? _swipeModule;
 
+    /// <summary>휴대폰 목록 끝에서 더 펼치기를 감지하는 JS 모듈.</summary>
+    private IJSObjectReference? _moreModule;
+
     /// <summary>
     /// 그 모듈이 되부를 때 쥐는 손잡이. <b>반드시 치운다</b> — 안 치우면
     /// 회로가 닫혀도 이 부품이 JS 쪽 참조에 매달려 남는다.
@@ -201,6 +204,9 @@ public partial class AiAskPanel
     /// 있어서</b> 생긴다 — 위 상자 주석 참고.
     /// </summary>
     private readonly string _domId = $"pm-ask-{Guid.NewGuid():N}";
+
+    private ElementReference _moreSentinel;
+    private DotNetObjectReference<AiAskPanel>? _moreRef;
 
     /// <summary>글상자를 집는 선택자. <b>제 상자 안에서만 찾는다.</b></summary>
     private string DraftSelector => $"#{_domId} .pm-ask__text";
@@ -855,6 +861,9 @@ public partial class AiAskPanel
 
         // 카드 밀어서 확인하기.
         await AttachSwipeAsync();
+
+        // 휴대폰에서 목록 끝에 닿으면 더 펼친다.
+        await AttachMoreObserverAsync();
     }
 
     private async Task AttachDraftListenerAsync()
@@ -896,6 +905,35 @@ public partial class AiAskPanel
         {
         }
     }
+
+    private async Task AttachMoreObserverAsync()
+    {
+        try
+        {
+            _moreModule ??= await JS.InvokeAsync<IJSObjectReference>(
+                "import", "./_content/JSini.Web.ProjMng/js/ask-more.js");
+            _moreRef ??= DotNetObjectReference.Create(this);
+
+            await _moreModule.InvokeVoidAsync(
+                "attachMoreObserver", _moreSentinel, _moreRef);
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException)
+        {
+        }
+    }
+
+    /// <summary>휴대폰에서 목록 끝에 닿아 더 보기를 시도했다.</summary>
+    [JSInvokable]
+    public Task ShowMoreFromScrollAsync() => InvokeAsync(() =>
+    {
+        if (Rest <= 0)
+        {
+            return;
+        }
+
+        ShowMore();
+        StateHasChanged();
+    });
 
     /// <summary>
     /// <b>민 카드를 확인 완료로 넘긴다.</b> 브라우저가 띠를 다 열고 카드를
@@ -1494,6 +1532,8 @@ public partial class AiAskPanel
 
         _swipeRef?.Dispose();
         _swipeRef = null;
+        _moreRef?.Dispose();
+        _moreRef = null;
     }
 
     public async ValueTask DisposeAsync()
@@ -1503,6 +1543,19 @@ public partial class AiAskPanel
 
         _swipeRef?.Dispose();
         _swipeRef = null;
+        if (_moreModule is not null)
+        {
+            try
+            {
+                await _moreModule.InvokeVoidAsync("detachMoreObserver", _moreSentinel);
+            }
+            catch (Exception ex) when (ex is JSException or JSDisconnectedException)
+            {
+            }
+        }
+
+        _moreRef?.Dispose();
+        _moreRef = null;
 
         if (_draftModule is not null)
         {
@@ -1520,6 +1573,17 @@ public partial class AiAskPanel
             try
             {
                 await _swipeModule.DisposeAsync();
+            }
+            catch (Exception ex) when (ex is JSException or JSDisconnectedException)
+            {
+            }
+        }
+
+        if (_moreModule is not null)
+        {
+            try
+            {
+                await _moreModule.DisposeAsync();
             }
             catch (Exception ex) when (ex is JSException or JSDisconnectedException)
             {
