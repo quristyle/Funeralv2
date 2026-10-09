@@ -3566,3 +3566,64 @@
     text-align: left;
   }
 }
+
+/* ── 보고서 메일 — 배치 목록 + 좌우 분할 ──────────────────
+
+   이 화면은 셸 본문의 직속 자식이 셋이다(조회줄 · 배치 목록 · 좌우 분할).
+   그중 **배치 목록을 맨 `.commcont` 로 두면 안 된다** — 공통 규칙(app.css 의
+   `.jsini-shell__content:has(> .commcont) > .commcont`)이 그 판에 `flex: 1` 을
+   걸어 남은 높이를 통째로 먹고, 아래 좌우 분할이 눌린다. 그래서 `.rm-top` 으로
+   한 겹 감싼다 — 감싸면 그 규칙의 `> ` 가 안 맞아 안 걸리고, 좌우 분할의
+   높이 규칙(`.ad-split`)만 남는다.
+
+   그 대신 목록의 높이는 **쪽나누기가 묶는다**(`PagerVisible="true"`).
+   가상 스크롤로 두면 판이 자료만큼 늘어나 같은 자리로 돌아온다.
+   ---------------------------------------------------------- */
+
+.rm-top {
+  /* 제 내용만큼만. 늘어나는 것은 아래 좌우 분할이다. */
+  flex: none;
+}
+
+/* 좌우 분할 바로 위라 사이를 벌린다. `.commcont + .commcont` 는 둘 다
+   `.commcont` 일 때만 걸리는데 여기서는 사이에 `.rm-top` 이 끼어 있다. */
+.rm-top + .ad-split {
+  margin-top: 1.4rem;
+}
+
+/* 오른쪽 판 — 표 하나와 폼이 쌓인다. **안쪽에서 구른다**(메뉴롤의
+   `.ad-menurole` 과 같은 사정) — 판이 `overflow: hidden` 이라 넘기면 잘린다. */
+.rm-edit {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+
+  /* **가로는 막는다.** 한 축만 `auto` 로 두면 다른 축이 따라서 `auto` 가 되고
+     (CSS 규칙이다), 안쪽 표가 1px 만 넘쳐도 **가로 막대가 판 아래에 걸린다** —
+     잴 때 실제로 그랬다. 넘칠 것은 표가 제 안에서 가로로 구른다. */
+  overflow-x: hidden;
+}
+
+/* 시·분 두 칸을 한 줄로. 칸 사이의 쌍점이 무엇과 무엇 사이인지 말해 준다. */
+.rm-time {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.rm-time .dxbl-spin-edit {
+  width: 5rem;
+}
+
+/* 저장·삭제 줄. 표의 아래 띠가 아니라 폼 아래라서 여기서 자리를 잡는다. */
+.rm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+/* 되돌릴 수 없는 단추만 경고색. 테마가 정한 값을 그대로 읽는다. */
+.rm-actions__warn {
+  color: var(--dxbl-danger, #d63939);
+}

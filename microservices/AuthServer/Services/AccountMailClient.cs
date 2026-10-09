@@ -51,9 +51,9 @@ public class AccountMailClient
     /// 적는다(<c>AUTH_PASSWORD_RESET</c>). 익명 요청이라 사람 아이디가 없다.
     /// </param>
     /// <param name="ct">보내는 도중 취소할 때 쓰는 토큰</param>
-    public Task<bool> SendAsync(
+    public async Task<bool> SendAsync(
         string to, string subject, string body, string sender, CancellationToken ct = default)
-        => PostAsync(to, null, subject, body, sender, ct);
+        => (await PostAsync(to, null, subject, body, sender, ct)).Ok;
 
     /// <summary>
     /// 역할을 받는 사람으로 보낸다 (<c>SYSTEM_ADMINISTRATOR</c>).
@@ -63,11 +63,35 @@ public class AccountMailClient
     /// 관리자 주소를 설정 파일에 적어 두지 않는 이유다 — 담당자가 바뀔 때
     /// 고칠 곳이 늘면 반드시 옛 주소가 남는다.
     /// </remarks>
-    public Task<bool> SendToRoleAsync(
+    public async Task<bool> SendToRoleAsync(
         string role, string subject, string body, string sender, CancellationToken ct = default)
-        => PostAsync(null, role, subject, body, sender, ct);
+        => (await PostAsync(null, role, subject, body, sender, ct)).Ok;
 
-    private async Task<bool> PostAsync(
+    /// <summary>
+    /// 역할 <b>여럿</b>을 받는 사람으로 보내고 <b>실패 사유까지</b> 돌려준다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 보고서 메일 배치가 쓴다. 역할마다 한 통씩 보내지 않는 까닭은
+    /// <b>겹치는 사람</b> 때문이다 — 두 역할에 모두 걸린 사람은 같은 보고서를
+    /// 두 통 받는다. 쉼표로 이어 한 번에 보내면 저쪽이 주소를 모아 한 번만
+    /// 추린다(<c>EmailEndpoints</c> 의 <c>Distinct</c>).
+    /// </para>
+    /// <para>
+    /// 사유를 함께 주는 것은 <b>배치 화면이 그것을 보여 주기 때문이다</b>.
+    /// 「메일이 안 와요」를 받는 자리가 서버 로그를 열 수 있는 사람이 아니다.
+    /// </para>
+    /// </remarks>
+    public Task<(bool Ok, string Reason)> SendToRolesAsync(
+        IEnumerable<string> roles, string subject, string body, string sender,
+        CancellationToken ct = default)
+        => PostAsync(null, string.Join(",", roles), subject, body, sender, ct);
+
+    /// <summary>
+    /// 실제로 보낸다. <b>성공 여부와 사유를 함께</b> 돌려준다 — 사유를 버리면
+    /// 「받는 사람이 없다(400)」와 「메일 서버가 거절했다(502)」가 같은 줄이 된다.
+    /// </summary>
+    private async Task<(bool Ok, string Reason)> PostAsync(
         string? to, string? toRole, string subject, string body, string sender, CancellationToken ct)
     {
         try
@@ -97,7 +121,7 @@ public class AccountMailClient
 
             if (response.IsSuccessStatusCode)
             {
-                return true;
+                return (true, "보냈습니다.");
             }
 
             // **까닭까지 적는다.** 상태 코드만 남기면 「받는 사람이 없다(400)」와
@@ -111,14 +135,14 @@ public class AccountMailClient
             _logger.LogError(
                 "메일 발송 실패: HTTP {Status} ({Sender}) — {Why}. 사용자는 「보냈습니다」를 보고 기다리고 있다.",
                 (int)response.StatusCode, sender, why);
-            return false;
+            return (false, why);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex,
                 "메일 발송 예외 ({Sender}) — NotificationServer 가 꺼져 있거나 SMTP 설정이 없을 수 있다.",
                 sender);
-            return false;
+            return (false, $"알림 서버에 닿지 못했습니다 — {ex.Message}");
         }
     }
 

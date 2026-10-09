@@ -102,6 +102,7 @@ at.KstTime()                          // 그리드 칸이 받을 DateTime
 | `LifeEnvServer/Utilities/Kst` | 기상청 요청의 `base_date`·`base_time` | **바깥 규격**이다. 기상청이 KST 로 발표한다 |
 | `projmng.today_kst()` | `plan_sdt`·`plan_edt`·`target_day` 와 견주는 「오늘」 | 계획일이 `date` 라 시간대가 없다. `current_date` 는 세션 시간대(UTC)를 따라가 아홉 시간 동안 어제를 가리킨다 |
 | `JSini.PublicSite` 바닥글 | 저작권 연도 | 한 해의 첫 아홉 시간에 지난해가 적힌다 |
+| `scom.report_mail_schedules.send_hour_kst`·`send_minute_kst` | 보고서 메일을 **보낼 시각** | 사람이 고른 것이 「아침 여덟 시」다. UTC 로 적으면 그 뜻이 사라져 설정 화면이 다시 아홉 시간을 빼야 하고 거기서 갈린다. 보낸 순간(`last_sent_at`)은 UTC 다 — [report-mail.md](report-mail.md) |
 
 **새로 만드는 자리는 이 표에 들어가지 않는 한 UTC 다.** 들어가야 한다면
 그 까닭을 여기에 한 줄 적는다 — 적을 까닭이 없으면 대개 UTC 가 맞다.

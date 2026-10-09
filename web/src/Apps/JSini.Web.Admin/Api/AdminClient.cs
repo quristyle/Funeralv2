@@ -1130,6 +1130,56 @@ public sealed class AdminClient(GatewayClient gateway)
                 ("take", take)),
             ct);
 
+    // ── 보고서 메일 배치 ────────────────────────────────────
+    //
+    // **읽기와 쓰기가 같은 문으로 막혀 있다**(서버의 `ReportMailEndpoints`).
+    // 게이트웨이가 /api/auth/** 를 익명으로 열어 두므로 저쪽이 메뉴 권한을
+    // 직접 보고, 권한이 없으면 403 이 온다 — 화면은 그 글자를 그대로 띄운다.
+
+    /// <summary>고를 수 있는 보고서들. 서버가 메뉴에서 읽어 준다.</summary>
+    public Task<IReadOnlyList<ReportCatalogItemDto>> GetReportCatalogAsync(
+        CancellationToken ct = default)
+        => gateway.GetListAsync<ReportCatalogItemDto>("auth/system/report-mail/reports", ct);
+
+    /// <summary>배치 목록.</summary>
+    public Task<IReadOnlyList<ReportMailScheduleDto>> GetReportMailSchedulesAsync(
+        string? keyword = null, bool activeOnly = false, CancellationToken ct = default)
+        => gateway.GetListAsync<ReportMailScheduleDto>(
+            "auth/system/report-mail" + Query(
+                ("keyword", keyword),
+                ("activeOnly", activeOnly ? "true" : null)),
+            ct);
+
+    /// <summary>배치를 만든다. 만든 줄을 돌려준다.</summary>
+    public Task<ReportMailScheduleDto?> CreateReportMailScheduleAsync(
+        SaveReportMailScheduleDto request, CancellationToken ct = default)
+        => gateway.PostAsync<ReportMailScheduleDto>("auth/system/report-mail", request, ct);
+
+    /// <summary>배치를 고친다.</summary>
+    public Task<ReportMailScheduleDto?> UpdateReportMailScheduleAsync(
+        string id, SaveReportMailScheduleDto request, CancellationToken ct = default)
+        => gateway.PutAsync<ReportMailScheduleDto>($"auth/system/report-mail/{id}", request, ct);
+
+    /// <summary>배치를 지운다.</summary>
+    public Task DeleteReportMailScheduleAsync(string id, CancellationToken ct = default)
+        => gateway.DeleteAsync($"auth/system/report-mail/{id}", ct);
+
+    /// <summary>
+    /// 이 배치의 메일을 받게 되는 사람들. <b>이메일이 없는 사람도 담겨 온다</b> —
+    /// 「역할에 걸린 사람이 없다」와 「주소가 없다」는 고치는 자리가 다르다.
+    /// </summary>
+    public Task<ReportMailRecipientsDto?> GetReportMailRecipientsAsync(
+        string id, CancellationToken ct = default)
+        => gateway.GetOneAsync<ReportMailRecipientsDto>(
+            $"auth/system/report-mail/{id}/recipients", ct);
+
+    /// <summary>
+    /// 지금 한 번 보낸다. <b>주기를 건드리지 않는다</b> — 눌러 본 한 통 때문에
+    /// 다음 정기 발송이 건너뛰어지지 않는다(서버 주석).
+    /// </summary>
+    public Task SendReportMailNowAsync(string id, CancellationToken ct = default)
+        => gateway.PostAsync($"auth/system/report-mail/{id}/send", null, ct);
+
     /// <summary>쿼리스트링을 만든다. 값이 null 이거나 빈 문자열이면 뺀다.</summary>
     private static string Query(params (string Key, object? Value)[] parameters)
     {

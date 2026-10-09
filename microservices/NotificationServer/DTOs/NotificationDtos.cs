@@ -225,6 +225,7 @@ public class SendEmailDto
     /// <summary>
     /// 받는 역할 (예: <c>SYSTEM_ADMINISTRATOR</c>). 지정하면 그 역할 사용자들의
     /// 대표 이메일(scom)로 보낸다. <see cref="To"/> 와 함께 주면 합쳐진다.
+    /// <b>여럿이면 쉼표로 잇는다</b> — 겹치는 사람은 한 번만 받는다.
     /// 직발송 <c>/emails/send</c> 만 본다.
     /// </summary>
     public string? ToRole { get; set; }

@@ -187,7 +187,13 @@ public static class EmailEndpoints
 
             if (!string.IsNullOrWhiteSpace(request.ToRole))
             {
-                recipients.AddRange(await ResolveRoleEmailsAsync(db, prefs, request.ToRole.Trim(), ct));
+                // 역할을 **여럿** 받는다. 쉼표로 이어 보내면 여기서 갈라 모으고,
+                // 아래에서 주소를 한 번 추리므로 두 역할에 걸친 사람도 한 통만
+                // 받는다 — 보고서 메일 배치가 그 길로 온다.
+                var roleIds = request.ToRole
+                    .Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+                recipients.AddRange(await ResolveRoleEmailsAsync(db, prefs, roleIds, ct));
             }
 
             // 주소 꼴이 아닌 것은 여기서 빠진다. **무엇이 빠졌는지 들고 간다** —
@@ -360,11 +366,13 @@ public static class EmailEndpoints
     /// </para>
     /// </remarks>
     private static async Task<List<string>> ResolveRoleEmailsAsync(
-        AppDbContext db, INotificationPreferenceService prefs, string roleId, CancellationToken ct)
+        AppDbContext db, INotificationPreferenceService prefs, string[] roleIds, CancellationToken ct)
     {
+        if (roleIds.Length == 0) return [];
+
         var rows = await (
             from ra in db.RoleAccounts
-            where ra.RoleId == roleId && !ra.IsDeleted
+            where roleIds.Contains(ra.RoleId) && !ra.IsDeleted
             join a in db.Accounts on ra.AccountId equals a.Id
             where !a.IsDeleted
             join d in db.AccountProfileDetails on a.Id equals d.AccountId

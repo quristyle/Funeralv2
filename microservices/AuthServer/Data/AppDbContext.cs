@@ -65,6 +65,17 @@ public class AppDbContext : DbContext
     /// </summary>
     public DbSet<MenuUsageLog> MenuUsageLogs { get; set; }
 
+    /// <summary>
+    /// 보고서 메일 배치. 어떤 보고서를 · 어느 역할에게 · 얼마나 자주 보낼까.
+    /// </summary>
+    public DbSet<ReportMailSchedule> ReportMailSchedules { get; set; }
+
+    /// <summary>배치가 고른 보고서들</summary>
+    public DbSet<ReportMailScheduleReport> ReportMailScheduleReports { get; set; }
+
+    /// <summary>배치를 받을 역할들</summary>
+    public DbSet<ReportMailScheduleRole> ReportMailScheduleRoles { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -242,6 +253,38 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<MenuUsageLog>()
             .HasIndex(e => e.MenuPath);
+
+        // ── 보고서 메일 배치 ─────────────────────────────────
+        //
+        // 자식 둘은 **배치를 지우면 함께 지운다**(Cascade). 고른 보고서·역할은
+        // 그 배치 밖에서 뜻이 없는 값이라 남겨 둘 까닭이 없다 — 다만 화면의
+        // 「삭제」는 깃발만 세우므로(soft) 실제로 끊기는 것은 DB 에서 줄을
+        // 통째로 지울 때뿐이다.
+        modelBuilder.Entity<ReportMailScheduleReport>()
+            .HasOne(e => e.Schedule)
+            .WithMany(s => s.Reports)
+            .HasForeignKey(e => e.ScheduleId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<ReportMailScheduleRole>()
+            .HasOne(e => e.Schedule)
+            .WithMany(s => s.Roles)
+            .HasForeignKey(e => e.ScheduleId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // 같은 배치에 같은 보고서·역할을 두 번 담지 않는다. 저장이 통째로
+        // 갈아 끼우는 방식이라 코드로는 안 생기지만, SQL 로 손대는 날을 막는다.
+        modelBuilder.Entity<ReportMailScheduleReport>()
+            .HasIndex(e => new { e.ScheduleId, e.ReportKey })
+            .IsUnique();
+
+        modelBuilder.Entity<ReportMailScheduleRole>()
+            .HasIndex(e => new { e.ScheduleId, e.RoleId })
+            .IsUnique();
+
+        // 발송기가 5분마다 묻는 것은 「켜져 있는 배치」 하나다.
+        modelBuilder.Entity<ReportMailSchedule>()
+            .HasIndex(e => e.IsActive);
 
         // Department 엔티티에 (CompanyId, Id) 복합 고유 키(AlternateKey) 설정
         modelBuilder.Entity<Department>()

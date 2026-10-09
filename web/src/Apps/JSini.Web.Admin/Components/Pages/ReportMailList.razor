@@ -1,0 +1,332 @@
+@page "/admin/system/report-mail"
+@attribute [RouteKey("admin.system.report-mail")]
+
+@*
+    [보고서 메일] — 시스템 모니터링 보고서를 **역할에게 · 주기로** 보내는 배치를
+    만들고 관리한다. DB 메뉴 `/admin/system/report-mail`.
+    API: `auth/system/report-mail/*`(AuthServer) — 보내는 일은 알림 서버가 한다.
+
+    [왜 사람이 아니라 역할인가]
+
+    받는 사람을 적어 두면 담당자가 바뀌는 날 고칠 곳이 배치 수만큼 늘고, 반드시
+    옛 사람이 남는다. 역할을 적어 두면 사람롤 화면에서 한 번 빼는 것으로 끝난다 —
+    비밀번호 재설정 메일이 관리자 주소를 설정에 안 적는 것과 같은 선이다.
+
+    [왼쪽이 보고서, 오른쪽이 받는 쪽이다]
+
+    고르는 순서가 그대로 왼쪽 → 오른쪽이다. 보고서를 먼저 고르고(무엇을),
+    역할과 주기를 정한다(누구에게 · 언제). 배치 목록은 그 위에 둔다 — 지금
+    고치고 있는 것이 어느 배치인지가 늘 보여야 한다.
+
+    [배치 목록을 맨 `CommCont` 로 두지 않는다]
+
+    셸 본문의 직속 자식이 `.commcont` 이면 공통 규칙(app.css)이 그 판에
+    `flex: 1` 을 걸어 **남은 높이를 통째로 먹는다.** 그러면 아래 좌우 분할이
+    눌린다. 그래서 `.rm-top` 으로 한 겹 감싼다 — 감싸면 그 규칙이 안 걸리고
+    좌우 분할의 높이 규칙(`.ad-split`)만 남는다.
+
+    [안 보내는 배치를 조용히 두지 않는다]
+
+    「역할을 골랐는데 아무에게도 안 간다」가 조용히 일어나는 자리가 둘이다 —
+    그 역할에 걸린 사람이 없거나, 걸려 있어도 계정에 이메일이 없거나. 고치는
+    자리가 서로 다르므로 「받는 사람」 창이 둘을 갈라서 보여 준다.
+
+    [보고서 목록을 코드에 적지 않는다]
+
+    서버가 메뉴(`scom.system_menus`)에서 읽어 준다. 운영 리포트가 하나 늘면
+    이 화면의 목록도 그날부터 함께 는다.
+*@
+
+@inherits DataPage
+
+<PageTitle>보고서 메일 · 포털관리</PageTitle>
+
+<CommSch OnSearch="@ReloadAsync" OnReset="@ResetAsync" Busy="@Loading"
+         MobileSummary="@ConditionSummary">
+    <Fields>
+        <CommSchItem Label="검색어">
+            <DxTextBox @bind-Text="_keyword" Style="width: 220px"
+                       ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
+        <CommSchItem Label="사용 여부">
+            <DxCheckBox @bind-Checked="_activeOnly">쓰는 것만</DxCheckBox>
+        </CommSchItem>
+    </Fields>
+    <Actions>
+        <PermissionView Action="MenuAction.Create">
+            <DxButton Text="배치 등록" RenderStyle="ButtonRenderStyle.Primary"
+                      Click="@StartNew" />
+        </PermissionView>
+    </Actions>
+</CommSch>
+
+@* 배치 목록. 쪽나누기를 켜는 까닭은 **높이를 묶기 위해서**다 — 가상 스크롤로
+   두면 판이 자료만큼 늘어나 아래 좌우 분할을 밀어낸다. *@
+<div class="rm-top">
+    <CommCont Title="배치 목록" CssClass="rm-top__pane">
+        <CommGrd TItem="ReportMailScheduleDto"
+                 Data="@_schedules"
+                 PagerVisible="true"
+                 PageSize="5"
+                 ShowExcelExport="false"
+                 EmptyText="등록된 배치가 없습니다. 「배치 등록」으로 만듭니다."
+                 Unit="개"
+                 Reload="@ReloadAsync"
+                 SelectedItem="@_selected"
+                 SelectedItemChanged="@SelectAsync">
+            <Columns>
+                <DxGridDataColumn FieldName="@nameof(ReportMailScheduleDto.Name)" Caption="배치"
+                                  MinWidth="140" TextAlignment="GridTextAlignment.Left" />
+                <DxGridDataColumn Caption="주기" Width="150" TextAlignment="GridTextAlignment.Left">
+                    <CellDisplayTemplate Context="cell">
+                        @ReportMailFrequency.Describe((ReportMailScheduleDto)cell.DataItem)
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+                <DxGridDataColumn Caption="보고서" Width="90">
+                    <CellDisplayTemplate Context="cell">
+                        @{
+                            var row = (ReportMailScheduleDto)cell.DataItem;
+                        }
+                        @(row.ReportKeys.Count)건
+                        @if (row.MissingReportKeys.Count > 0)
+                        {
+                            <span class="jsini-badge jsini-badge--warn">없어짐 @row.MissingReportKeys.Count</span>
+                        }
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+                <DxGridDataColumn Caption="받는 역할" MinWidth="150" TextAlignment="GridTextAlignment.Left">
+                    <CellDisplayTemplate Context="cell">
+                        @string.Join(" · ", ((ReportMailScheduleDto)cell.DataItem).RoleNames)
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+                @* 70 으로 두면 머리글이 「사…」로 잘린다 — 정렬 화살표 자리까지 센다. *@
+                <DxGridDataColumn Caption="사용" Width="88">
+                    <CellDisplayTemplate Context="cell">
+                        @(((ReportMailScheduleDto)cell.DataItem).IsActive ? "예" : "아니오")
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+                @* 시각 둘은 **보여 주기 직전에** 한국 시각으로 옮긴다
+                   (`Kst`). DTO 에 담겨 오는 값은 UTC 다. *@
+                <DxGridDataColumn Caption="다음 발송" Width="130">
+                    <CellDisplayTemplate Context="cell">
+                        @Stamp(((ReportMailScheduleDto)cell.DataItem).NextRunAt)
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+                <DxGridDataColumn Caption="마지막 발송" Width="130">
+                    <CellDisplayTemplate Context="cell">
+                        @Stamp(((ReportMailScheduleDto)cell.DataItem).LastSentAt)
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+            </Columns>
+        </CommGrd>
+    </CommCont>
+</div>
+
+@* 판 둘은 **`CommCont` 여야 한다** — 좌우 분할이 높이를 채우는 규칙이
+   `.ad-split > .commcont` 를 겨눈다(admin.css). *@
+<div class="ad-split">
+    <CommCont Title="시스템 모니터링 보고서" Hint="@ReportHint" CssClass="ad-split__side">
+        <CommGrd TItem="ReportCatalogItemDto"
+                 Data="@_catalog"
+                 SelectionMode="GridSelectionMode.Multiple"
+                 SelectedItems="@_pickedReports"
+                 SelectedItemsChanged="@OnReportsPickedAsync"
+                 ShowExcelExport="false"
+                 ShowHeader="false"
+                 EmptyText="고를 수 있는 보고서가 없습니다."
+                 Reload="@LoadCatalogAsync">
+            <Columns>
+                <DxGridSelectionColumn Width="40" />
+                <DxGridDataColumn Caption="보고서" MinWidth="150" TextAlignment="GridTextAlignment.Left">
+                    <CellDisplayTemplate Context="cell">
+                        @{
+                            var row = (ReportCatalogItemDto)cell.DataItem;
+                        }
+                        <MenuGlyph Type="MENU" Name="@row.Icon" OpensScreen="true" Text="@row.Title" />
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+            </Columns>
+        </CommGrd>
+    </CommCont>
+
+    <CommCont CssClass="ad-split__main">
+        @* 오른쪽은 표 하나와 폼이 쌓인다. 판이 남은 높이를 채우므로 안쪽에서
+           굴러야 한다 — 안 굴리면 본문의 `overflow: hidden` 에 잘린다. *@
+        <div class="rm-edit">
+            @if (_form.IsNew)
+            {
+                <PageNotice Text="새 배치를 만들고 있습니다. 왼쪽에서 보고서를 고르고 받을 역할과 주기를 정하십시오."
+                            Tone="NoticeTone.Info" />
+            }
+
+            <h2 class="ad-section">받는 권한 역할</h2>
+
+            <CommGrd TItem="RoleDto"
+                     Data="@_roles"
+                     PagerVisible="true"
+                     PageSize="6"
+                     SelectionMode="GridSelectionMode.Multiple"
+                     SelectedItems="@_pickedRoles"
+                     SelectedItemsChanged="@OnRolesPickedAsync"
+                     ShowExcelExport="false"
+                     ShowHeader="false"
+                     EmptyText="등록된 역할이 없습니다."
+                     Reload="@LoadRolesAsync">
+                <Columns>
+                    <DxGridSelectionColumn Width="40" />
+                    <DxGridDataColumn FieldName="@nameof(RoleDto.Name)" Caption="역할"
+                                      MinWidth="130" TextAlignment="GridTextAlignment.Left" />
+                    <DxGridDataColumn FieldName="@nameof(RoleDto.Id)" Caption="식별자"
+                                      Width="200" TextAlignment="GridTextAlignment.Left" />
+                </Columns>
+            </CommGrd>
+
+            <h2 class="ad-section">주기</h2>
+
+            <DxFormLayout CssClass="ad-form">
+                <DxFormLayoutItem Caption="배치 이름" ColSpanMd="12">
+                    <DxTextBox @bind-Text="_form.Name" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="주기" ColSpanMd="4">
+                    <DxComboBox Data="@ReportMailFrequency.Options" @bind-Value="_form.Frequency"
+                                TextFieldName="@nameof(ReportMailOption.Text)"
+                                ValueFieldName="@nameof(ReportMailOption.Value)" />
+                </DxFormLayoutItem>
+
+                @if (_form.Frequency == ReportMailFrequency.Weekly)
+                {
+                    <DxFormLayoutItem Caption="요일" ColSpanMd="4">
+                        <DxComboBox Data="@ReportMailFrequency.DayOfWeekOptions" @bind-Value="_form.DayOfWeekText"
+                                    TextFieldName="@nameof(ReportMailOption.Text)"
+                                    ValueFieldName="@nameof(ReportMailOption.Value)" />
+                    </DxFormLayoutItem>
+                }
+                else if (_form.Frequency == ReportMailFrequency.Monthly)
+                {
+                    <DxFormLayoutItem Caption="날짜" ColSpanMd="4">
+                        <DxSpinEdit @bind-Value="_form.DayOfMonth" MinValue="1" MaxValue="31" />
+                    </DxFormLayoutItem>
+                }
+
+                <DxFormLayoutItem Caption="보낼 시각" ColSpanMd="4">
+                    <div class="rm-time">
+                        <DxSpinEdit @bind-Value="_form.Hour" MinValue="0" MaxValue="23" DisplayFormat="00" />
+                        <span>:</span>
+                        <DxSpinEdit @bind-Value="_form.Minute" MinValue="0" MaxValue="59" Increment="5" DisplayFormat="00" />
+                    </div>
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="사용" ColSpanMd="4">
+                    <DxCheckBox @bind-Checked="_form.IsActive">때가 되면 보낸다</DxCheckBox>
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="메일 머리말" ColSpanMd="12">
+                    <DxMemo @bind-Text="_form.Remark" Rows="2" />
+                </DxFormLayoutItem>
+            </DxFormLayout>
+
+            <div class="jsini-hint">보낼 시각은 한국 시각입니다. 비우면 08:00 입니다.</div>
+
+            @if (_selected is { MissingReportKeys.Count: > 0 } missing)
+            {
+                <PageNotice Tone="NoticeTone.Warning"
+                            Text="@($"메뉴에서 사라진 보고서가 있습니다 — {string.Join(", ", missing.MissingReportKeys)}. 저장하면 목록에서 빠집니다.")" />
+            }
+
+            @if (!string.IsNullOrWhiteSpace(_selected?.LastResult))
+            {
+                <p class="ad-stamp">마지막 결과 · @_selected!.LastResult</p>
+            }
+
+            <div class="rm-actions">
+                <PermissionView Action="@(_form.IsNew ? MenuAction.Create : MenuAction.Update)">
+                    <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary"
+                              Enabled="@(!Loading)" Click="@SaveAsync" />
+                </PermissionView>
+
+                @if (!_form.IsNew)
+                {
+                    <DxButton Text="받는 사람" RenderStyle="ButtonRenderStyle.Secondary"
+                              Enabled="@(!Loading)" Click="@OpenRecipientsAsync" />
+
+                    <PermissionView Action="MenuAction.Update">
+                        <DxButton Text="지금 보내기" RenderStyle="ButtonRenderStyle.Secondary"
+                                  Enabled="@(!Loading)" Click="@ConfirmSendAsync" />
+                    </PermissionView>
+
+                    <PermissionView Action="MenuAction.Delete">
+                        <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Secondary"
+                                  CssClass="rm-actions__warn"
+                                  Enabled="@(!Loading)" Click="@ConfirmDeleteAsync" />
+                    </PermissionView>
+                }
+            </div>
+        </div>
+    </CommCont>
+</div>
+
+@* 받는 사람 미리보기. **보내기 전에 보여 준다** — 머리말 참고. *@
+<CommPopup @bind-Visible="_showRecipients" HeaderText="받는 사람" Width="620px">
+    <BodyContentTemplate Context="popup">
+        @if (_recipients is null)
+        {
+            <PageNotice Text="받는 사람을 읽는 중입니다." Tone="NoticeTone.Info" />
+        }
+        else if (_recipients.Recipients.Count == 0)
+        {
+            <PageNotice Tone="NoticeTone.Warning"
+                        Text="고른 역할에 걸린 사람이 없습니다. 「사람롤」에서 역할에 사람을 거십시오." />
+        }
+        else
+        {
+            <CommGrd TItem="ReportMailRecipientDto"
+                     Data="@_recipients.Recipients"
+                     Unit="명"
+                     ShowExcelExport="false"
+                     EmptyText="받는 사람이 없습니다."
+                     AutoSelectFirstRow="false">
+                <Columns>
+                    <DxGridDataColumn FieldName="@nameof(ReportMailRecipientDto.UserName)" Caption="이름"
+                                      Width="100" TextAlignment="GridTextAlignment.Left" />
+                    <DxGridDataColumn FieldName="@nameof(ReportMailRecipientDto.UserId)" Caption="아이디"
+                                      Width="110" TextAlignment="GridTextAlignment.Left" />
+                    <DxGridDataColumn FieldName="@nameof(ReportMailRecipientDto.RoleText)" Caption="역할"
+                                      MinWidth="120" TextAlignment="GridTextAlignment.Left" />
+                    <DxGridDataColumn Caption="이메일" MinWidth="150" TextAlignment="GridTextAlignment.Left">
+                        <CellDisplayTemplate Context="cell">
+                            @{
+                                var row = (ReportMailRecipientDto)cell.DataItem;
+                            }
+                            @if (string.IsNullOrWhiteSpace(row.Email))
+                            {
+                                <span class="jsini-badge jsini-badge--warn">이메일 없음</span>
+                            }
+                            else
+                            {
+                                @row.Email
+                            }
+                        </CellDisplayTemplate>
+                    </DxGridDataColumn>
+                </Columns>
+            </CommGrd>
+
+            @if (_recipients.DeliverableCount < _recipients.Recipients.Count)
+            {
+                <PageNotice Tone="NoticeTone.Warning" Text="@MissingEmailText" />
+            }
+
+            <div class="jsini-hint">
+                본인이 <b>메일 알림을 꺼 둔 사람</b>은 여기 보여도 실제로는 빠집니다 —
+                그 설정은 알림 서버가 보낼 때 봅니다.
+            </div>
+        }
+    </BodyContentTemplate>
+
+    <FooterContentTemplate Context="popup">
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
+                  Click="@(() => _showRecipients = false)" />
+    </FooterContentTemplate>
+</CommPopup>
+
+<ConfirmDialog @ref="_confirm" />

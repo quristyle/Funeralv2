@@ -90,6 +90,15 @@ builder.Services.AddScoped<IMenuUsageService, MenuUsageService>();
 // 「이 화면을 볼 수 있는 사람인가」를 사이드바와 같은 표에 묻는다.
 // singleton 인 것은 1분 캐시를 요청마다 새로 만들지 않기 위해서다.
 builder.Services.AddSingleton<MenuViewAccess>();
+
+// 보고서 메일 배치. 고를 수 있는 보고서 목록은 메뉴에서 읽고, 보내는 일은
+// 알림 서버로 넘긴다 — 자세한 것은 `ReportMailService` 머리말.
+builder.Services.AddScoped<IReportMailService, AuthServer.Services.ReportMailService>();
+builder.Services.AddScoped<AuthServer.Services.ReportMailSender>();
+
+// 때가 된 배치를 찾아 보내는 발송기. **배치 줄이 없으면 아무 일도 안 한다** —
+// `ReportMail:Enabled` 를 false 로 두면 아예 돌지 않는다.
+builder.Services.AddHostedService<AuthServer.Services.ReportMailDispatcher>();
 builder.Services.AddScoped<IRoleAssignmentService, RoleAssignmentService>();
 // 로그인과 갱신이 **같은 코드로** 토큰을 만들게 한다 (AccessTokenFactory 머리말 참고).
 builder.Services.AddScoped<AccessTokenFactory>();
@@ -306,6 +315,9 @@ app.MapPortalErrorEndpoints();
 // 메뉴 사용기록. 넣는 길은 로그인한 사람 누구나(자기가 연 화면이다)이고
 // 꺼내는 길은 그 메뉴를 볼 수 있는 역할만이다.
 app.MapMenuUsageEndpoints();
+// 보고서 메일 배치. 게이트웨이가 /api/auth/** 를 익명으로 열어 두므로
+// 이 길은 서버가 메뉴 권한으로 스스로 막는다(엔드포인트 머리말).
+app.MapReportMailEndpoints();
 // 생일 — 정본은 계정(scom.accounts)이고 여기서는 조회 · 축하 메시지만 낸다 (A안).
 app.MapBirthdayEndpoints();
 
