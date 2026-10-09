@@ -28,6 +28,9 @@
 
 @inherits DataPage
 @implements ICommMenuHost
+@* 걷히는 순간을 알아야 한다 — 걷힌 뒤에 표를 만지면 회로가 내려간다
+   (`CommGrd.razor.cs` 의 `_gone` 머리말). *@
+@implements IDisposable
 @* 껍데기 크기를 캡에서 멈추려고 받는다 — `ThemeSize.Chrome` 머리말 참고. *@
 
 <div class="commgrd"

@@ -455,6 +455,31 @@ public partial class CommGrd<TItem>
     private IGrid? _grid;
     private IReadOnlyDictionary<string, object>? _forwarded;
 
+    /// <summary>
+    /// 우리가 <b>걷혔는가</b> — 화면이 이 표를 render tree 에서 뺐는가.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="_grid"/> 가 <c>null</c> 이 아닌 것은 <b>표가 살아 있다는 뜻이
+    /// 아니다.</b> 그 값은 <c>@ref</c> 로 한 번 받아 둔 참조라, 화면이 우리를
+    /// 걷어내 DevExpress 가 제 속을 버린 뒤에도 그대로 남는다. 그 상태에서
+    /// <c>GetVisibleRowCount()</c> 를 부르면 <c>ObjectDisposedException
+    /// ("DataProvider")</c> 이 나고, 그것이 수명 주기 밖으로 나가므로
+    /// <b>회로가 통째로 내려간다</b> — 화면 아래에 「연결이 끊겼습니다.
+    /// 새로고침하면 다시 이어집니다」 막대가 뜨고 그 뒤로는 아무것도 안 눌린다.
+    /// </para>
+    /// <para>
+    /// 걷히는 일은 드물지 않다. 화면 하나가 <b>넓은 화면이면 표, 휴대폰이면
+    /// 다른 모양</b>을 그리면(<c>DxLayoutBreakpoint</c>) 폭을 알게 되는 순간
+    /// 우리가 통째로 버려진다 — 그 값은 회로가 붙고 <b>첫 그림 뒤에야</b>
+    /// 오기 때문이다. 헬프데스크 「요청 처리」가 휴대폰 폭에서 들어올 때마다
+    /// 이 자리에서 죽고 있었다(2026-10-09).
+    /// </para>
+    /// </remarks>
+    private bool _gone;
+
+    void IDisposable.Dispose() => _gone = true;
+
     /// <summary>표를 감싼 칸. 구를 칸을 이 안에서 찾는다(<c>grid-scroll.js</c>).</summary>
     private ElementReference _root;
 
@@ -641,6 +666,17 @@ public partial class CommGrd<TItem>
 
         await SyncScrollAsync();
 
+        // **돌아온 자리에서 우리가 아직 있는지부터 본다.**
+        //
+        // 바로 위가 JS 를 한 바퀴 돌고 오는 자리다. 그 사이에 화면이 다시
+        // 그려져 이 표를 통째로 걷어낼 수 있는데(`_gone` 머리말), 그러면
+        // 아래에서 만지는 것이 전부 **이미 버려진 DevExpress 속**이다.
+        // 묻지 않고 만지면 회로가 내려가 화면이 통째로 죽는다.
+        if (_gone)
+        {
+            return;
+        }
+
         // 머리줄의 「거른 뒤 건수」. 표가 세어야 나오는 값이라 렌더 뒤에 읽고,
         // **값이 바뀌었을 때만** 한 번 더 그린다 — 그냥 부르면 끝없이 돈다.
         //
@@ -688,6 +724,14 @@ public partial class CommGrd<TItem>
 
         _autoPickedFor = Data;
         await OnSelectedDataItemChangedAsync(first);
+
+        // 고르기를 알리는 사이에도 걷힐 수 있다 — 화면이 그 알림을 받고
+        // 다른 모양으로 갈아 끼우는 일이 바로 여기 있다(위 `_gone`).
+        if (_gone)
+        {
+            return;
+        }
+
         StateHasChanged();
     }
 
