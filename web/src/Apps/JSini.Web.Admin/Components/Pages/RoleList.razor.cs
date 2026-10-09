@@ -57,6 +57,31 @@ public partial class RoleList
         public string MenuId => Source.MenuId;
         public string MenuName => Source.MenuName;
 
+        /// <summary>
+        /// 이름 아래 작게 적을 꼬리표 — 개발용 이름과 주소.
+        ///
+        /// <para>
+        /// 이름이 겹치는 메뉴가 많다(「대시보드」·「통계」가 업무마다 있다).
+        /// 코드를 지우지 않고 자리만 낮춘 이유가 그것이고, <b>이름과 코드가
+        /// 같으면 코드를 뺀다</b> — 같은 글자를 두 줄로 적으면 줄만 높아진다.
+        /// </para>
+        /// </summary>
+        public string Stamp
+        {
+            get
+            {
+                var code = Source.MenuCode?.Trim() ?? string.Empty;
+                var path = Source.MenuPath?.Trim() ?? string.Empty;
+
+                if (string.Equals(code, MenuName, StringComparison.Ordinal))
+                {
+                    code = string.Empty;
+                }
+
+                return string.Join(" · ", new[] { code, path }.Where(s => s.Length > 0));
+            }
+        }
+
         public List<RoleMenuRow> Children { get; } = [];
     }
 

@@ -133,8 +133,25 @@ public class RolePermissionService : IRolePermissionService
         }
     }
 
-    /// <summary>특정 역할의 전체 메뉴에 대한 세부 권한 지정 정보 목록 조회</summary>
-    public async Task<List<RoleMenuDto>> GetMenusByRoleAsync(string roleId)
+    /// <summary>
+    /// 특정 역할의 전체 메뉴에 대한 세부 권한 지정 정보 목록 조회.
+    ///
+    /// <para>
+    /// 메뉴 이름은 <b>사이드바와 같은 규칙</b>으로 고른다(<see cref="MenuTitleTranslator"/>) —
+    /// 옮긴 제목 → 저장된 제목 → <c>name</c>. 한동안 <c>name</c> 을 그대로 줬고,
+    /// 그 칸은 개발용 이름이라 권한 화면에 <c>CtaReviews</c> 같은 코드가 줄줄이
+    /// 떴다(215건 중 161건). 세 화면이 같은 메뉴를 다른 이름으로 부르면
+    /// 권한을 어디에 거는지 알 수 없다.
+    /// </para>
+    ///
+    /// <para>
+    /// 왕복이 하나 는다(<c>i18n_resources</c>). 제목이 키처럼 생긴 17건만
+    /// 맞춰 보는 <c>IN</c> 조회라 사이드바가 이미 매번 치르고 있는 값이다.
+    /// </para>
+    /// </summary>
+    /// <param name="roleId">역할 아이디</param>
+    /// <param name="locale">제목을 옮길 언어. 비우면 <c>ko</c>.</param>
+    public async Task<List<RoleMenuDto>> GetMenusByRoleAsync(string roleId, string? locale = null)
     {
         // 1. 전체 메뉴 목록 조회
         var allMenus = await _db.SystemMenus
@@ -146,6 +163,9 @@ public class RolePermissionService : IRolePermissionService
             .Where(rm => rm.RoleId == roleId)
             .ToDictionaryAsync(rm => rm.MenuId);
 
+        // 3. 제목의 다국어. 키로 저장된 제목만 사전으로 읽는다.
+        var titles = await MenuTitleTranslator.LoadAsync(_db, allMenus, locale);
+
         var result = new List<RoleMenuDto>();
 
         foreach (var menu in allMenus)
@@ -154,7 +174,9 @@ public class RolePermissionService : IRolePermissionService
             result.Add(new RoleMenuDto
             {
                 MenuId = menu.Id,
-                MenuName = menu.Name,
+                MenuName = MenuTitleTranslator.Display(menu, titles),
+                MenuCode = menu.Name,
+                MenuPath = menu.Path,
                 ParentId = menu.Pid,
                 CanView = pm?.CanView ?? false,
                 CanSearch = pm?.CanSearch ?? false,

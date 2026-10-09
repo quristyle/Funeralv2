@@ -51,9 +51,13 @@ public static class RolePermissionEndpoints
         .WithName("RemoveUserFromRole");
 
         // 5. 역할의 세부 메뉴 권한 조회
-        group.MapGet("/roles/{roleId}/menus", async (string roleId, [FromServices] IRolePermissionService service) =>
+        //    locale 은 선택이다. 안 주면 ko 로 옮긴다 (/menu/all 과 같은 규칙).
+        group.MapGet("/roles/{roleId}/menus", async (
+            string roleId,
+            [FromQuery] string? locale,
+            [FromServices] IRolePermissionService service) =>
         {
-            var result = await service.GetMenusByRoleAsync(roleId);
+            var result = await service.GetMenusByRoleAsync(roleId, locale);
             return Results.Ok(ApiResponse<List<RoleMenuDto>>.Ok(result));
         })
         .WithName("GetMenusByRole");

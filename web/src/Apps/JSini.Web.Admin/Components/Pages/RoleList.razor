@@ -249,24 +249,41 @@
                                         @{
                                             var row = (RoleMenuRow)cell.DataItem;
                                         }
+                                        @* **코드가 아니라 메뉴명을 적는다.** 서버가 사이드바와 같은
+                                           규칙으로 골라 준 글자다(`RoleMenuDto.MenuName`). 코드는
+                                           지우지 않고 아래에 작게 깐다 — 「대시보드」가 업무마다
+                                           있어서 이름만으로는 어느 것인지 갈리지 않는다.
+
+                                           **단추는 코드 줄이 아니라 이름 줄에 붙인다.** 한 줄에
+                                           나란히 두면 `/projmng/ai/dashboard` 처럼 긴 코드가 단추를
+                                           칸 밖으로 밀어내 **「행」이 아예 안 보이는 줄**이 생긴다
+                                           (깊은 메뉴에서 그랬다). 이름 줄에 두면 코드가 아무리
+                                           길어도 단추 자리가 흔들리지 않는다. *@
                                         <span class="ad-rolemenu__name">
-                                            <span>@row.MenuName</span>
+                                            <span class="ad-rolemenu__head">
+                                                <span class="ad-rolemenu__title">@row.MenuName</span>
 
-                                            @* 일괄 켜기·끄기. 잠긴 칸은 건너뛴다(머리말). *@
-                                            <PermissionView Action="MenuAction.Update">
-                                                <span class="jsini-actions">
-                                                    <DxButton Text="행" RenderStyle="ButtonRenderStyle.Link"
-                                                              Title="이 메뉴의 권한을 한 번에 켜고 끕니다"
-                                                              Click="@(() => ToggleAsync([row]))" />
+                                                @* 일괄 켜기·끄기. 잠긴 칸은 건너뛴다(머리말). *@
+                                                <PermissionView Action="MenuAction.Update">
+                                                    <span class="jsini-actions">
+                                                        <DxButton Text="행" RenderStyle="ButtonRenderStyle.Link"
+                                                                  Title="이 메뉴의 권한을 한 번에 켜고 끕니다"
+                                                                  Click="@(() => ToggleAsync([row]))" />
 
-                                                    @if (row.Children.Count > 0)
-                                                    {
-                                                        <DxButton Text="하위" RenderStyle="ButtonRenderStyle.Link"
-                                                                  Title="이 메뉴와 하위 전체의 권한을 한 번에 켜고 끕니다"
-                                                                  Click="@(() => ToggleAsync(Subtree(row)))" />
-                                                    }
-                                                </span>
-                                            </PermissionView>
+                                                        @if (row.Children.Count > 0)
+                                                        {
+                                                            <DxButton Text="하위" RenderStyle="ButtonRenderStyle.Link"
+                                                                      Title="이 메뉴와 하위 전체의 권한을 한 번에 켜고 끕니다"
+                                                                      Click="@(() => ToggleAsync(Subtree(row)))" />
+                                                        }
+                                                    </span>
+                                                </PermissionView>
+                                            </span>
+
+                                            @if (row.Stamp.Length > 0)
+                                            {
+                                                <span class="ad-rolemenu__code" title="@row.Stamp">@row.Stamp</span>
+                                            }
                                         </span>
                                     </CellDisplayTemplate>
                                 </DxTreeListDataColumn>

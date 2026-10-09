@@ -93,4 +93,28 @@ public static class MenuTitleTranslator
         if (string.IsNullOrWhiteSpace(title)) return null;
         return titles.TryGetValue(title, out var text) ? text : null;
     }
+
+    /// <summary>
+    /// 메뉴 하나를 <b>사람이 읽는 이름</b>으로 줄인다 —
+    /// 옮긴 제목 → 저장된 제목 → <c>name</c>.
+    ///
+    /// <para>
+    /// 이 세 단계가 화면의 규칙이다(<c>MenuWireDto.ToNode</c> · 메뉴롤 ·
+    /// 사람롤이 전부 같은 순서로 고른다). 한 응답만 <c>name</c> 을 그대로 주면
+    /// <b>한 메뉴가 화면마다 다른 이름으로 보인다</b> — 역할 관리의 메뉴 권한
+    /// 나무가 그래서 <c>CtaReviews</c> 를 늘어놓고 있었다.
+    /// </para>
+    ///
+    /// <para>
+    /// 이름을 완성해 내려보내는 자리는 서버다. 화면이 세 칸을 받아 스스로
+    /// 고르게 두면 그 순서가 화면 수만큼 복제되고, 그중 하나는 반드시 어긋난다.
+    /// </para>
+    /// </summary>
+    public static string Display(SystemMenu menu, Dictionary<string, string> titles)
+    {
+        var text = Resolve(menu.Title, titles);
+        if (!string.IsNullOrWhiteSpace(text)) return text!;
+
+        return string.IsNullOrWhiteSpace(menu.Title) ? menu.Name : menu.Title!.Trim();
+    }
 }

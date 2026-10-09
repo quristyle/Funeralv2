@@ -306,7 +306,24 @@ public sealed class RoleDto
 public sealed class RoleMenuDto
 {
     public string MenuId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 화면에 찍을 메뉴 이름. <b>서버가 이미 골라 준 글자다.</b>
+    ///
+    /// 한동안 <c>system_menus.name</c> 이 그대로 왔고, 그 칸은 개발용 이름이라
+    /// 권한 나무에 <c>CtaReviews</c>·<c>HelpDeskPushDashboard</c> 가 줄줄이
+    /// 떴다(215건 중 161건). 이제 사이드바·메뉴롤·사람롤과 같은 규칙으로
+    /// (옮긴 제목 → 저장된 제목 → 이름) 서버에서 정해 내려온다 —
+    /// 그래서 <b>여기서 다시 고르지 않는다</b>.
+    /// </summary>
     public string MenuName { get; set; } = string.Empty;
+
+    /// <summary>개발용 메뉴 이름(<c>system_menus.name</c>). 이름 아래 작게 적는다.</summary>
+    public string MenuCode { get; set; } = string.Empty;
+
+    /// <summary>메뉴가 가리키는 주소. 코드 옆에 함께 적는다.</summary>
+    public string? MenuPath { get; set; }
+
     public string? ParentId { get; set; }
 
     public bool CanView { get; set; }

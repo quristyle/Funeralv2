@@ -21,8 +21,13 @@ public interface IRolePermissionService
     /// <summary>특정 역할에서 사용자 계정 매핑을 해제</summary>
     Task RemoveUserFromRoleAsync(string roleId, string accountId);
 
-    /// <summary>특정 역할의 전체 메뉴에 대한 세부 권한 지정 정보 목록 조회</summary>
-    Task<List<RoleMenuDto>> GetMenusByRoleAsync(string roleId);
+    /// <summary>
+    /// 특정 역할의 전체 메뉴에 대한 세부 권한 지정 정보 목록 조회.
+    /// 메뉴 이름은 사이드바와 같은 규칙으로 옮겨 내려보낸다(<see cref="MenuTitleTranslator.Display"/>).
+    /// </summary>
+    /// <param name="roleId">역할 아이디</param>
+    /// <param name="locale">제목을 옮길 언어. 비우면 <c>ko</c>.</param>
+    Task<List<RoleMenuDto>> GetMenusByRoleAsync(string roleId, string? locale = null);
 
     /// <summary>특정 역할의 메뉴 세부 권한 설정 일괄 저장</summary>
     Task SaveRoleMenusAsync(string roleId, List<SaveRoleMenuDto> dtos);
