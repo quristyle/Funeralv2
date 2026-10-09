@@ -1,4 +1,4 @@
-using JSini.Web.Abstractions;
+﻿using JSini.Web.Abstractions;
 using JSini.Web.Components.Layout;
 using Xunit;
 
@@ -28,7 +28,16 @@ namespace JSini.Web.Architecture.Tests;
 /// </summary>
 public sealed class BottomNavFromTabMenuTests
 {
-    /// <summary>띠에 다섯이 다 선 모양. 셋째가 메뉴에서 온 칸이다.</summary>
+    /// <summary>
+    /// 띠에 선 다섯. 셋째가 메뉴에서 온 칸이다.
+    /// </summary>
+    /// <remarks>
+    /// <b>이것은 「꽉 찬 띠」가 아니다.</b> 칸 수를 사람이 고르게 되면서
+    /// 천장이 여덟이 되었다(<see cref="BottomNav.MaxItems"/>) — 아래 검사들은
+    /// 찾기·끼우기를 보는 것이라 몇 칸이든 뜻이 같고, 그래서 가장 흔한
+    /// 모양인 기본 다섯을 쓴다. 천장에 닿았을 때의 이야기는 글자 검사
+    /// (<see cref="다_찼으면_무엇과_바꿀지_묻는다"/>)가 맡는다.
+    /// </remarks>
     private static List<BottomNavItem> Full() =>
     [
         new() { Path = BottomNav.HomePath, Title = "홈", Icon = "jsini-icon-home" },
@@ -49,7 +58,7 @@ public sealed class BottomNavFromTabMenuTests
     /// <summary>
     /// <b>경로가 옮겨 가도 찾는다.</b> 띠에 적힌 것은 넣을 때의 경로라 라우트가
     /// 바뀌면 지금 주소와 다르다 — 그때 경로만 맞대 보면 이미 놓아 둔 칸을
-    /// 「없다」고 읽어 같은 화면이 둘 서고, 다섯 중 하나를 헛되이 쓴다.
+    /// 「없다」고 읽어 같은 화면이 둘 서고, 얼마 안 되는 칸 하나를 헛되이 쓴다.
     /// </summary>
     [Fact]
     public void 경로가_옮겨_가도_열쇠로_찾는다() =>
@@ -70,7 +79,7 @@ public sealed class BottomNavFromTabMenuTests
         Assert.Equal(2, BottomNav.IndexOf(Full(), "/Funeral/Room-Status", null));
 
     /// <summary>
-    /// 다섯이 다 찬 띠에서 <b>고른 자리에 그대로 끼운다.</b> 뒤에 붙이면
+    /// 꽉 찬 띠에서 <b>고른 자리에 그대로 끼운다.</b> 뒤에 붙이면
     /// 밀어낸 칸 뒤의 것들이 한 칸씩 당겨져 건드리지도 않은 칸의 자리가 바뀐다 —
     /// 띠의 차례는 곧 엄지가 닿는 거리다(<see cref="BottomNav.Move"/> 머리말).
     /// </summary>
@@ -154,22 +163,35 @@ public sealed class BottomNavFromTabMenuTests
             TabBarSource(), StringComparison.Ordinal);
 
     /// <summary>
-    /// <b>다 빼면 기본 다섯으로 되돌린다.</b> 빈 목록을 적어 두면 읽는 쪽이
-    /// 기본값을 돌려주어(<see cref="BottomNav.Parse"/>) 화면과 저장된 것이
-    /// 갈라진다 — 환경설정 판이 같은 이유로 같은 일을 한다.
+    /// <b>바닥에서는 빼지 않는다</b>(<see cref="BottomNav.MinItems"/>).
     /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 전에는 마지막 칸을 빼면 기본값으로 되돌렸다. 칸 수에 바닥이 생기면서
+    /// 그 자리에 닿지 않게 되었고, 대신 <b>말로 돌려보낸다</b> — 이 항목은
+    /// 창을 열어야 보이므로 환경설정 판처럼 잠근 낯을 미리 보여 줄 수가 없다.
+    /// </para>
+    /// <para>
+    /// <b>조용히 넘기면 안 된다.</b> 「눌렀는데 아무 일도 없다」는 이 창 전체가
+    /// 고장난 것으로 읽힌다 — 다 찼을 때 묻는 까닭과 같다.
+    /// </para>
+    /// </remarks>
     [Fact]
-    public void 다_빼면_기본값으로_되돌린다()
+    public void 바닥에서는_빼지_않고_말해_준다()
     {
         var source = TabBarSource();
 
-        Assert.Contains("_navItems.Count == 0", source, StringComparison.Ordinal);
-        Assert.Contains("Boot.SetBottomNavItemsAsync(null)", source, StringComparison.Ordinal);
+        Assert.Contains("_navItems.Count <= BottomNav.MinItems", source, StringComparison.Ordinal);
+        Assert.Contains("NoticeTone.Warning", source, StringComparison.Ordinal);
+
+        // 빈 목록을 적는 옛 길이 남아 있으면 안 된다 — 남으면 띠가 빈 채로
+        // 저장될 수 있고, 읽는 쪽은 기본값을 돌려주어 화면과 갈라진다.
+        Assert.DoesNotContain("_navItems.Count == 0", source, StringComparison.Ordinal);
     }
 
     /// <summary>
     /// 환경설정에서 고친 것을 <b>듣고 있다.</b> 안 듣고 있으면 이 창이 옛
-    /// 다섯을 보고 판정해서, 이미 넣어 둔 화면에 또 「넣기」가 뜬다.
+    /// 목록을 보고 판정해서, 이미 넣어 둔 화면에 또 「넣기」가 뜬다.
     /// </summary>
     [Fact]
     public void 다른_자리에서_고친_것을_듣는다()

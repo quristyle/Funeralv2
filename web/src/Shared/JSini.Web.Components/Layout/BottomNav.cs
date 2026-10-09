@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 using JSini.Web.Abstractions;
 using JSini.Web.Components.Menu;
@@ -9,14 +9,22 @@ namespace JSini.Web.Components.Layout;
 /// 휴대폰 화면 아래에 붙는 띠(<see cref="MobileBottomNav"/>)에 무엇을 놓을지.
 ///
 /// <para>
-/// [칸 다섯을 사람이 고른다]
+/// [칸 수까지 사람이 고른다 — 셋에서 여덟]
 /// </para>
 ///
 /// <para>
-/// 한동안 그 다섯은 코드에 박혀 있었다(홈 · 빠른지시 · 알림 · 설정 · 내 정보).
+/// 한동안 다섯이 코드에 박혀 있었다(홈 · 빠른지시 · 알림 · 설정 · 내 정보).
 /// 그런데 이 포털은 업무가 여덟이고 사람마다 하루 종일 붙어 있는 화면이
 /// 다르다 — 장례식장만 쓰는 사람에게 「빠른지시」는 한 번도 안 누르는 칸이고,
 /// 그 사람이 정작 자주 여는 빈소 현황은 메뉴를 열어야 닿는다.
+/// </para>
+///
+/// <para>
+/// 무엇을 놓을지만 고를 수 있던 동안에도 <b>칸 수는 다섯으로 묶여 있었다.</b>
+/// 그런데 띠에 바라는 것이 사람마다 다르다 — 업무 하나만 쓰는 사람은 셋이면
+/// 넉넉하고 그 이상은 눌릴 일 없는 칸이 엄지 자리를 먹는 것이고, 업무를 여럿
+/// 오가는 사람은 다섯으로는 모자라 결국 매번 메뉴를 연다. 그래서 칸 수를
+/// <see cref="MinItems"/>~<see cref="MaxItems"/> 사이에서 고르게 한다.
 /// </para>
 ///
 /// <para>
@@ -51,10 +59,45 @@ namespace JSini.Web.Components.Layout;
 public static class BottomNav
 {
     /// <summary>
-    /// 띠에 놓을 수 있는 칸 수. <b>다섯을 넘기지 않는다</b> — 360px 짜리
-    /// 화면에서 칸 하나가 72px 이고, 여섯째부터는 이름이 두 글자에서 끊긴다.
+    /// 띠에 놓을 수 있는 칸 수의 <b>바닥</b>.
     /// </summary>
-    public const int MaxItems = 5;
+    /// <remarks>
+    /// <para>
+    /// 하나·둘만 남기면 띠가 <b>띠로 안 보인다</b> — 360px 를 둘이 나눠 가지면
+    /// 칸 하나가 180px 짜리 단추가 되어 화면 아래에 넓적한 막대가 붙은 꼴이고,
+    /// 그 자리에서 사람은 고장으로 읽는다. 셋이 「가로로 늘어선 칸」으로 보이는
+    /// 가장 적은 수다.
+    /// </para>
+    /// <para>
+    /// <b>이것은 띠를 끄는 길이 아니다.</b> 띠를 아예 없애려면 환경설정의
+    /// 「하단 네비게이션 사용」을 끈다(<c>jsini-bottomnav-hidden</c>). 칸을
+    /// 하나씩 빼서 없애는 길을 열어 두면, 빈 띠가 남은 화면과 꺼 둔 화면이
+    /// 사람 눈에 같아 보이는데 되돌리는 자리가 서로 다르다.
+    /// </para>
+    /// </remarks>
+    public const int MinItems = 3;
+
+    /// <summary>
+    /// 띠에 놓을 수 있는 칸 수의 <b>천장</b>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 여덟이 320px 에서 버티는 마지막 수다 — 칸 하나가 39px 이고 아이콘이
+    /// 20px 이라 그림은 넉넉하다. 이름은 11px 짜리 두세 글자까지 남고 그 뒤는
+    /// 말줄임으로 잘린다(<c>app.css</c> 의 <c>.jsini-bottom-nav__item</c>).
+    /// </para>
+    /// <para>
+    /// <b>잘리는 쪽을 고른 것이다.</b> 칸이 안 줄어들게 두면 이름 긴 칸이
+    /// 제 폭을 쥐고 버텨 띠 전체가 화면보다 넓어지고, 그러면 <b>맨 끝 칸이
+    /// 화면 밖으로 밀려 아예 못 눌린다</b> — 320px·여덟 칸에 네 글자 이름을
+    /// 채워 재 보면 띠가 376px 이 되어 끝 칸(대개 「메뉴」)이 사라졌다.
+    /// 띠에서 못 닿는 화면을 전부 여는 칸이 그것이라 가장 나쁜 쪽이 잘린다.
+    /// </para>
+    /// <para>
+    /// 이름은 사람이 짧게 고쳐 적을 수 있다(<see cref="BottomNavItem.Title"/>).
+    /// </para>
+    /// </remarks>
+    public const int MaxItems = 8;
 
     /// <summary>홈. 메뉴가 아니라 주소 하나라 따로 둔다.</summary>
     public const string HomePath = "/";
@@ -137,13 +180,23 @@ public static class BottomNav
     };
 
     /// <summary>
-    /// 저장해 둔 글자를 칸 목록으로. 비었거나 읽을 수 없으면
-    /// <see cref="Defaults"/> 다.
+    /// 저장해 둔 글자를 칸 목록으로. 비었거나 읽을 수 없거나
+    /// <see cref="MinItems"/> 에 못 미치면 <see cref="Defaults"/> 다.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>「칸이 없다」를 돌려주지 않는다.</b> 띠를 쓰기로 해 놓고 칸이 하나도
     /// 없으면 화면 아래에 빈 띠만 남고, 그 자리에서 사람은 고장으로 읽는다.
     /// 칸을 다 지우는 것은 「쓰지 않기」로 말해야 한다.
+    /// </para>
+    /// <para>
+    /// <b>모자란 것도 없는 것으로 본다.</b> 한동안 바닥이 하나였고 그때
+    /// 적어 둔 것(칸 하나·둘)이 아직 브라우저에 남아 있다. 그대로 읽어 주면
+    /// 화면은 <see cref="MinItems"/>~<see cref="MaxItems"/> 라고 말하는데
+    /// 띠는 그 밖에 서 있고, 빼기 단추가 처음부터 잠긴 줄이 생긴다 — 그
+    /// 자리에서 사람은 「빼기가 안 먹는다」고 읽는다. 천장을 읽는 쪽에서
+    /// 한 번 더 자르는 것과 같은 까닭이다(저장소는 사람이 고칠 수 있다).
+    /// </para>
     /// </remarks>
     public static IReadOnlyList<BottomNavItem> Parse(string? json)
     {
@@ -175,10 +228,18 @@ public static class BottomNav
             .Take(MaxItems)
             .ToArray();
 
-        return cleaned.Length == 0 ? Defaults : cleaned;
+        return cleaned.Length < MinItems ? Defaults : cleaned;
     }
 
-    /// <summary>칸 목록을 저장할 글자로. 다섯을 넘으면 앞에서 자른다.</summary>
+    /// <summary>
+    /// 칸 목록을 저장할 글자로. <see cref="MaxItems"/> 를 넘으면 앞에서 자른다.
+    /// </summary>
+    /// <remarks>
+    /// <b>바닥은 여기서 보지 않는다.</b> 모자란 목록을 적는 길은 화면이 막고
+    /// (빼기 단추가 <see cref="MinItems"/> 에서 잠긴다), 그래도 적힌 것은
+    /// <see cref="Parse"/> 가 읽을 때 기본값으로 떨어뜨린다. 여기서 말없이
+    /// 채워 넣으면 사람이 고르지 않은 칸이 저장된 것 안에 생긴다.
+    /// </remarks>
     public static string Serialize(IEnumerable<BottomNavItem> items) =>
         JsonSerializer.Serialize(items.Take(MaxItems).ToArray(), Json);
 

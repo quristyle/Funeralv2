@@ -1,4 +1,4 @@
-using JSini.Web.Abstractions;
+﻿using JSini.Web.Abstractions;
 using JSini.Web.Components.Layout;
 using JSini.Web.Components.Menu;
 using Xunit;
@@ -51,21 +51,51 @@ public sealed class BottomNavTests
     [InlineData("그냥 글자")]
     [InlineData("{\"p\":\"/\"}")]
     [InlineData("[{\"p\":\"\",\"t\":\"\"}]")]
-    public void 읽을_것이_없으면_기본_다섯이다(string? json) =>
+    public void 읽을_것이_없으면_기본값이다(string? json) =>
         Assert.Equal(BottomNav.Defaults, BottomNav.Parse(json));
 
     /// <summary>
-    /// 다섯을 넘겨 적어 두어도 다섯까지만 쓴다. 저장하는 쪽도 같이 자르지만,
+    /// 칸 수의 띠는 <b>셋에서 여덟</b>이다. 양 끝을 못 박아 둔다 — 화면의
+    /// 안내(「5 / 3~8칸」)와 단추 잠금이 이 두 값만 보므로, 여기가 조용히
+    /// 바뀌면 화면이 말하는 것과 실제로 되는 것이 갈린다.
+    /// </summary>
+    [Fact]
+    public void 칸은_셋에서_여덟이다()
+    {
+        Assert.Equal(3, BottomNav.MinItems);
+        Assert.Equal(8, BottomNav.MaxItems);
+    }
+
+    /// <summary>
+    /// 천장을 넘겨 적어 두어도 천장까지만 쓴다. 저장하는 쪽도 같이 자르지만,
     /// <b>읽는 쪽에서 한 번 더</b> 자른다 — 저장소는 사람이 고칠 수 있다.
     /// </summary>
     [Fact]
-    public void 다섯을_넘으면_앞에서_자른다()
+    public void 여덟을_넘으면_앞에서_자른다()
     {
-        var many = Enumerable.Range(0, 9)
+        var many = Enumerable.Range(0, BottomNav.MaxItems + 4)
             .Select(i => new BottomNavItem { Path = $"/x{i}", Title = $"칸{i}" })
             .ToArray();
 
         Assert.Equal(BottomNav.MaxItems, BottomNav.Parse(BottomNav.Serialize(many)).Count);
+    }
+
+    /// <summary>
+    /// <b>바닥에 못 미치는 것도 「없는 것」으로 본다.</b> 바닥이 하나이던
+    /// 시절에 적어 둔 것(칸 하나·둘)이 아직 브라우저에 남아 있다 — 그대로
+    /// 읽어 주면 화면은 3~8칸이라고 말하는데 띠는 그 밖에 서 있고, 빼기
+    /// 단추가 처음부터 잠긴 줄이 생긴다.
+    /// </summary>
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void 셋에_못_미치면_기본값으로_떨어진다(int count)
+    {
+        var few = Enumerable.Range(0, count)
+            .Select(i => new BottomNavItem { Path = $"/x{i}", Title = $"칸{i}" })
+            .ToArray();
+
+        Assert.Equal(BottomNav.Defaults, BottomNav.Parse(BottomNav.Serialize(few)));
     }
 
     [Fact]
@@ -74,6 +104,8 @@ public sealed class BottomNavTests
         var saved = new BottomNavItem[]
         {
             new() { Path = "/funeral/room-status", RouteKey = "funeral.room-status", Title = "빈소" },
+            new() { Path = BottomNav.HomePath, Title = "홈" },
+            new() { Path = BottomNav.MenuPath, Title = "메뉴" },
         };
 
         var read = BottomNav.Parse(BottomNav.Serialize(saved));
@@ -85,14 +117,21 @@ public sealed class BottomNavTests
     /// 이름이 빠진 칸은 버린다. 남겨 두면 띠에 <b>글자 없는 단추</b>가 서고,
     /// 그것은 눌러 보기 전에는 무엇인지 알 수 없다.
     /// </summary>
+    /// <remarks>
+    /// 성한 칸을 <see cref="BottomNav.MinItems"/> 만큼 넣어 둔다 — 적게 두면
+    /// 거른 결과가 바닥에 못 미쳐 기본값으로 떨어지고, 그러면 이 검사가
+    /// <b>거르기가 아니라 바닥 규칙을 보게 된다.</b>
+    /// </remarks>
     [Fact]
     public void 이름이_없는_칸은_버린다()
     {
         var read = BottomNav.Parse(
-            """[{"p":"/a","t":"가"},{"p":"/b","t":""},{"p":"","t":"다"}]""");
+            """
+            [{"p":"/a","t":"가"},{"p":"/b","t":""},{"p":"","t":"다"},
+             {"p":"/d","t":"라"},{"p":"/e","t":"마"}]
+            """);
 
-        Assert.Single(read);
-        Assert.Equal("/a", read[0].Path);
+        Assert.Equal(["/a", "/d", "/e"], read.Select(i => i.Path));
     }
 
     // ── 아이콘 ──────────────────────────────────────────────
@@ -309,7 +348,11 @@ public sealed class BottomNavTests
     [Fact]
     public void 기본_다섯은_메뉴가_없어도_제_그림이_나온다()
     {
-        Assert.Equal(BottomNav.MaxItems, BottomNav.Defaults.Count);
+        // 기본값은 다섯이고 **띠 안에 있어야 한다** — 밖에 두면 아무것도 안
+        // 고친 사람의 띠가 `Parse` 에서 제 값으로 안 돌아오거나(바닥 미달)
+        // 잘린다(천장 초과).
+        Assert.Equal(5, BottomNav.Defaults.Count);
+        Assert.InRange(BottomNav.Defaults.Count, BottomNav.MinItems, BottomNav.MaxItems);
 
         foreach (var item in BottomNav.Defaults)
         {
@@ -384,6 +427,71 @@ public sealed class BottomNavTests
         BottomNav.Move(items, 0, 3);
 
         Assert.Equal("1,2,3,0", Titles([.. BottomNav.Parse(BottomNav.Serialize(items))]));
+    }
+
+    // ── 띠가 화면 안에 남는가 (`app.css`) ──────────────────────
+
+    /// <summary>
+    /// 칸이 <b>줄어들 수 있어야 한다</b>(<c>.jsini-bottom-nav__item</c> 의
+    /// <c>min-width: 0</c>).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// [왜 글자로 검사하나]
+    /// </para>
+    /// <para>
+    /// flex 항목의 기본 최소 폭은 내용 폭이고, 띠의 이름은 <c>nowrap</c> 이다 —
+    /// 그래서 <b>이름이 긴 칸은 <c>flex: 1</c> 을 주어도 제 글자 폭을 쥐고
+    /// 버틴다.</b> 칸이 다섯일 때는 드러나지 않았는데, 여덟까지 놓을 수 있게
+    /// 되면서 320px 에 네 글자 이름 여덟을 채우면 띠가 376px 이 되어
+    /// <b>끝 칸이 화면 밖으로 밀려 아예 안 눌린다.</b> 하필 그 칸이 대개
+    /// 「메뉴」 — 띠에서 못 닿는 화면을 전부 여는 칸이다.
+    /// </para>
+    /// <para>
+    /// 이 한 줄이 없어도 <b>빌드도 테스트도 화면도 멀쩡하다.</b> 드러나는
+    /// 조건이 「좁은 기기 · 칸 여덟 · 긴 이름」 셋이 겹칠 때뿐이라 눈으로는
+    /// 못 지킨다. 말줄임으로 자르는 짝도 함께 본다 — 줄어들기만 하고 안
+    /// 자르면 글자가 옆 칸을 침범한다.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void 칸은_줄어들고_이름은_말줄임으로_잘린다()
+    {
+        Assert.Contains("min-width: 0", Rule(@"^\.jsini-bottom-nav__item \{(.*?)\}"),
+            StringComparison.Ordinal);
+
+        var label = Rule(@"^\.jsini-bottom-nav__item > span:last-child \{(.*?)\}");
+
+        Assert.Contains("overflow: hidden", label, StringComparison.Ordinal);
+        Assert.Contains("text-overflow: ellipsis", label, StringComparison.Ordinal);
+        Assert.Contains("max-width: 100%", label, StringComparison.Ordinal);
+    }
+
+    private static string Rule(string pattern)
+    {
+        var match = System.Text.RegularExpressions.Regex.Match(
+            AppCss(), pattern,
+            System.Text.RegularExpressions.RegexOptions.Singleline
+                | System.Text.RegularExpressions.RegexOptions.Multiline);
+
+        Assert.True(match.Success, $"app.css 에서 `{pattern}` 규칙을 찾지 못했다.");
+        return match.Groups[1].Value;
+    }
+
+    private static string AppCss() => File.ReadAllText(Path.Combine(
+        SolutionRoot(), "src", "Shared", "JSini.Web.Components", "wwwroot", "app.css"));
+
+    private static string SolutionRoot()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+
+        while (dir is not null && !Directory.Exists(Path.Combine(dir.FullName, "src")))
+        {
+            dir = dir.Parent;
+        }
+
+        Assert.NotNull(dir);
+        return dir!.FullName;
     }
 
     private static List<BottomNavItem> Four() =>

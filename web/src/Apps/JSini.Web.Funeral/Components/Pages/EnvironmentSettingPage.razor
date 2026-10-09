@@ -1,4 +1,4 @@
-@page "/funeral/setting/environment"
+﻿@page "/funeral/setting/environment"
 @attribute [RouteKey("funeral.setting.environment")]
 
 @*
@@ -131,16 +131,28 @@
     여기서 정한다. 고른 적이 없으면 업무를 가리지 않는 다섯이다 —
     홈 · 알림 · 설정 · 프로필 · 메뉴(`BottomNav.Defaults`).
 
-    차례가 따로 필요한 까닭은 띠가 **가로 한 줄**이기 때문이다. 다섯 칸 중
-    끝의 둘은 한 손으로 쥔 엄지가 잘 닿지 않는 자리라, 자주 누르는 칸이 거기
-    떨어지면 「무엇을 놓을지」만 고를 수 있는 것으로는 손쓸 길이 없었다 —
-    빼고 다시 넣어 가며 차례를 맞추는 것이 유일한 방법이었고, 다섯 칸을
-    다 채운 사람은 그것마저 두 번에 나눠 해야 했다.
+    차례가 따로 필요한 까닭은 띠가 **가로 한 줄**이기 때문이다. 끝의 두어 칸은
+    한 손으로 쥔 엄지가 잘 닿지 않는 자리라, 자주 누르는 칸이 거기 떨어지면
+    「무엇을 놓을지」만 고를 수 있는 것으로는 손쓸 길이 없었다 — 빼고 다시
+    넣어 가며 차례를 맞추는 것이 유일한 방법이었고, 칸을 다 채운 사람은
+    그것마저 두 번에 나눠 해야 했다.
+
+    [칸 수도 여기서 정한다 — 셋에서 여덟]
+
+    한동안 **다섯으로 묶여 있었다.** 그런데 띠에 바라는 것이 사람마다 다르다 —
+    업무 하나만 쓰는 사람은 셋이면 넉넉하고 그 이상은 눌릴 일 없는 칸이 엄지
+    자리를 먹는 것이고, 업무를 여럿 오가는 사람은 다섯으로는 모자라 결국
+    매번 메뉴를 연다.
+
+    양 끝에서 단추를 잠근다. **잠긴 까닭을 숫자가 말해 준다** — 조작줄의
+    「5 / 3~8칸」이 없으면 회색이 된 단추가 고장으로 읽힌다. 바닥이 셋인
+    까닭과 천장이 여덟인 까닭(360px 에서 재 본 값)은 `BottomNav` 머리말에.
 
     | | 어떻게 |
     |---|---|
     | 쓸지 | 스위치 하나. 끄면 띠도 자리도 사라진다 |
-    | 무엇을 | 메뉴에서 고른다(최대 다섯) |
+    | **몇 칸** | **셋에서 여덟**(`BottomNav.MinItems`~`MaxItems`). 양 끝에서 단추가 잠기고, 까닭은 조작줄의 「5 / 3~8칸」이 말한다 |
+    | 무엇을 | 메뉴에서 고른다 |
     | 어느 차례로 | 꺾쇠 단추로 한 칸씩. **목록 위가 띠의 왼쪽**이다 |
     | 메뉴가 아닌 것 | 홈 · 설정 서랍 · **메뉴 단추** · **프로필 아바타** 넷은 「바로 넣기」 단추로 (`BottomNav.Fixed`) |
     | 아이콘 | **고른 메뉴에 달린 것**을 따라간다. 없으면 경로로 정한 아무 그림 |
@@ -543,8 +555,15 @@
                       Click="@(() => OnNavMoveAsync(index, 1))"
                       CssClass="fn-bnav__move" />
 
+            @*
+                **바닥에서 잠근다.** 칸이 셋만 남으면 더 못 뺀다
+                (`BottomNav.MinItems`) — 띠를 없애는 길은 위 스위치이고,
+                그것을 칸 빼기로도 할 수 있게 두면 **빈 띠가 남은 화면과
+                꺼 둔 화면이 눈에 같아 보이는데 되돌리는 자리가 다르다.**
+                왜 잠겼는지는 아래 「3 / 3~8칸」이 말한다.
+            *@
             <DxButton IconCssClass="jsini-icon-trash" Title="빼기" RenderStyle="ButtonRenderStyle.Secondary"
-                      Enabled="@(!_bottomNavHidden)"
+                      Enabled="@(!_bottomNavHidden && _navItems.Count > BottomNav.MinItems)"
                       Click="@(() => OnNavRemoveAsync(index))"
                       CssClass="fn-bnav__drop" />
         </div>
@@ -559,6 +578,13 @@
         <DxButton Text="기본값으로" RenderStyle="ButtonRenderStyle.Link"
                   Enabled="@(!_bottomNavHidden)"
                   Click="@OnNavResetAsync" />
+
+        @*
+            지금 몇 칸이고 어디까지 되는지. **값이라 남긴다** — 양 끝에서
+            단추가 잠기는 까닭을 말해 주는 것이 이 숫자뿐이고, 없으면 잠긴
+            단추가 고장으로 읽힌다(web/CLAUDE.md 의 「남기는 일곱」).
+        *@
+        <span class="jsini-hint fn-bnav__count">@NavCountText</span>
     </div>
 </div>
 

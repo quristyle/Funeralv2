@@ -365,23 +365,29 @@ public partial class EnvironmentSettingPage
         await SaveNavAsync();
     }
 
+    /// <summary>
+    /// 칸 하나를 뺀다. <b><see cref="BottomNav.MinItems"/> 에서 멈춘다.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 바닥에 닿으면 화면이 빼기 단추를 잠그므로 여기까지 오지 않지만,
+    /// 판정을 양쪽에 두는 것은 「추가」와 같다(천장은 단추의 <c>Enabled</c> 와
+    /// <see cref="OnNavAddAsync"/> 가 함께 본다).
+    /// </para>
+    /// <para>
+    /// <b>다 빼서 띠를 없애는 길은 없다.</b> 전에는 마지막 칸을 빼면 기본값으로
+    /// 되돌렸는데, 바닥이 생긴 지금은 그 자리에 닿지 않는다 — 띠를 없애려면
+    /// 위 스위치를 끈다.
+    /// </para>
+    /// </remarks>
     private async Task OnNavRemoveAsync(int index)
     {
-        if (index >= _navItems.Count)
+        if (index >= _navItems.Count || _navItems.Count <= BottomNav.MinItems)
         {
             return;
         }
 
         _navItems.RemoveAt(index);
-
-        // **다 빼면 기본값으로 되돌린다.** 빈 목록을 적어 두면 화면 아래에
-        // 빈 띠만 남고(`BottomNav.Parse` 가 그래서 기본값을 돌려준다), 화면과
-        // 저장된 것이 갈라진다. 띠를 없애는 길은 위 스위치다.
-        if (_navItems.Count == 0)
-        {
-            await OnNavResetAsync();
-            return;
-        }
 
         await SaveNavAsync();
     }
@@ -431,7 +437,7 @@ public partial class EnvironmentSettingPage
     /// <summary>
     /// 메뉴가 아닌 것(홈 · 설정 서랍 · 메뉴 단추 · 프로필 아바타)을 바로
     /// 넣을 수 있는가. <b>이미 놓았으면 잠근다</b> — 같은 칸이 둘이면 띠에
-    /// 같은 그림이 나란히 서고, 다섯 중 하나를 헛되이 쓴다.
+    /// 같은 그림이 나란히 서고, 얼마 안 되는 칸 하나를 헛되이 쓴다.
     /// </summary>
     private bool CanQuickAdd(BottomNavChoice choice) =>
         !_bottomNavHidden
@@ -468,8 +474,8 @@ public partial class EnvironmentSettingPage
     }
 
     /// <summary>
-    /// 고른 것을 버리고 기본 다섯으로. <b>열쇠를 지운다</b> — 기본값을 글자로
-    /// 적어 두면 나중에 기본이 바뀌어도 그 사람만 옛 다섯에 묶인다.
+    /// 고른 것을 버리고 기본값으로(지금은 다섯). <b>열쇠를 지운다</b> —
+    /// 기본값을 글자로 적어 두면 나중에 기본이 바뀌어도 그 사람만 옛것에 묶인다.
     /// </summary>
     private async Task OnNavResetAsync()
     {
@@ -478,4 +484,15 @@ public partial class EnvironmentSettingPage
     }
 
     private Task SaveNavAsync() => Boot.SetBottomNavItemsAsync(BottomNav.Serialize(_navItems));
+
+    /// <summary>
+    /// 칸 수를 적는 한 줄 — 「5 / 3~8칸」.
+    /// </summary>
+    /// <remarks>
+    /// <b>값이라 남긴다.</b> 설명을 걷어내는 규칙(web/CLAUDE.md)에서 남기는
+    /// 일곱 중 하나다 — 추가·빼기 단추가 어느 자리에서 왜 잠기는지를 말해 주는
+    /// 것이 이 숫자뿐이고, 없으면 잠긴 단추가 고장으로 읽힌다.
+    /// </remarks>
+    private string NavCountText =>
+        $"{_navItems.Count} / {BottomNav.MinItems}~{BottomNav.MaxItems}칸";
 }

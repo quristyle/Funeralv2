@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Components;
+﻿using Microsoft.AspNetCore.Components;
 using JSini.Web.Abstractions;
 
 namespace JSini.Web.Components.Layout;
@@ -14,8 +14,8 @@ public partial class MobileBottomNav
     [Inject] private PortalBoot Boot { get; set; } = default!;
 
     /// <summary>
-    /// 지금 띠에 선 칸들. 읽기 전에는 기본 다섯이다 — 비워 두면 첫 그림에서
-    /// 띠가 빈 채로 한 번 지나간다.
+    /// 지금 띠에 선 칸들. 읽기 전에는 <see cref="BottomNav.Defaults"/> 다 —
+    /// 비워 두면 첫 그림에서 띠가 빈 채로 한 번 지나간다.
     /// </summary>
     private IReadOnlyList<BottomNavItem> _items = BottomNav.Defaults;
 

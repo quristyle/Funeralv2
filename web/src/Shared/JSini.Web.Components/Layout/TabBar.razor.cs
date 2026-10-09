@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Components;
+﻿using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 using DevExpress.Blazor;
@@ -227,8 +227,9 @@ public partial class TabBar
 
     /* ── 휴대폰 아래 띠에 넣고 빼기 ──────────────────────────────
 
-       칸은 다섯이다(`BottomNav.MaxItems`). 다 찼으면 **무엇과 바꿀지 묻고**
-       고른 자리에 그대로 끼운다 — 까닭은 `BottomNavSwapDialog` 머리말.
+       칸 수는 사람이 정한다(`BottomNav.MinItems`~`MaxItems`). 다 찼으면
+       **무엇과 바꿀지 묻고** 고른 자리에 그대로 끼운다 — 까닭은
+       `BottomNavSwapDialog` 머리말. 거꾸로 **바닥에서는 빼지 않는다**(바로 아래).
 
        고친 것은 `PortalBoot` 가 브라우저에 적고, 띠(`MobileBottomNav`)는
        같은 회로에서 그 알림을 듣고 있어서 **그 자리에서 바뀐다.** */
@@ -283,20 +284,23 @@ public partial class TabBar
 
         if (at >= 0)
         {
+            // **바닥에서는 빼지 않는다**(`BottomNav.MinItems`). 환경설정 판은
+            // 그 자리에서 단추를 잠그는데 이쪽 항목은 창을 열어야 보이므로
+            // 잠근 낯을 미리 보여 줄 수가 없다 — 그래서 **말로 돌려보낸다.**
+            // 조용히 넘기면 「눌렀는데 아무 일도 없다」가 되고, 그 증상은
+            // 띠를 쓰는 사람에게 창 자체가 고장난 것으로 읽힌다.
+            if (_navItems.Count <= BottomNav.MinItems)
+            {
+                Toasts.Show(
+                    $"아래 띠는 칸이 {BottomNav.MinItems}개보다 적어질 수 없습니다. "
+                    + "띠를 쓰지 않으려면 환경설정에서 끕니다.",
+                    NoticeTone.Warning);
+                return;
+            }
+
             var dropped = _navItems[at].Title;
 
             _navItems.RemoveAt(at);
-
-            // **다 빼면 기본 다섯으로 되돌린다.** 빈 목록을 적어 두면 읽는 쪽이
-            // 기본값을 돌려주어(`BottomNav.Parse`) 화면과 저장된 것이 갈라진다.
-            // 띠를 없애는 길은 환경설정의 스위치다.
-            if (_navItems.Count == 0)
-            {
-                _navItems = [.. BottomNav.Defaults];
-                await Boot.SetBottomNavItemsAsync(null);
-                Toasts.Show($"「{dropped}」을(를) 빼고 기본 다섯으로 되돌렸습니다.");
-                return;
-            }
 
             await SaveNavAsync();
             Toasts.Show($"「{dropped}」을(를) 아래 띠에서 뺐습니다.");
@@ -325,7 +329,7 @@ public partial class TabBar
             return;
         }
 
-        // 다섯이 다 찼다. **아무거나 밀어내지 않는다** — 어느 칸을 내줄지 묻고
+        // 칸이 다 찼다. **아무거나 밀어내지 않는다** — 어느 칸을 내줄지 묻고
         // 고른 자리에 그대로 끼운다(뒤에 붙이면 건드리지도 않은 칸의 자리가 바뀐다).
         var slot = await _swap.AskAsync(_navItems, item.Title);
 
