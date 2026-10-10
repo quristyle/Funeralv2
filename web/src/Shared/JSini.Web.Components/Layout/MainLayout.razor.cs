@@ -23,6 +23,13 @@ public partial class MainLayout
     [Inject] private PortalBoot Boot { get; set; } = default!;
     [Inject] private PortalTabs Tabs { get; set; } = default!;
     [Inject] private MenuReveal Reveal { get; set; } = default!;
+
+    /// <summary>
+    /// 사용자 판을 접는 손잡이. <b>☰ 로 사이드바를 펼 때 함께 접는다</b> —
+    /// 휴대폰에서 그 판은 헤더 아래를 통째로 덮어서, 안 접으면 펴 놓은
+    /// 메뉴가 판 뒤에 가린다(<see cref="UserMenuDrawer"/> 머리말).
+    /// </summary>
+    [Inject] private UserMenuDrawer UserDrawer { get; set; } = default!;
     [Inject] private MenuUsageRecorder MenuUsage { get; set; } = default!;
     [Inject] private AuthenticationStateProvider AuthState { get; set; } = default!;
     [Inject] private NavigationManager Navigation { get; set; } = default!;
@@ -725,6 +732,8 @@ public partial class MainLayout
     /// </remarks>
     private async Task OpenSidebarAsync()
     {
+        UserDrawer.Close();
+
         _sidebarOpen = true;
         RestoreSnappedWidth();
 

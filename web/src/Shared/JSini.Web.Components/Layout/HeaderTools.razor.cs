@@ -22,6 +22,13 @@ public partial class HeaderTools
     [Inject] private ThemeSize Size { get; set; } = default!;
 
     /// <summary>
+    /// 사용자 판을 접는 손잡이. <b>이 띠의 단추가 여는 것은 모두 그 판 뒤로
+    /// 들어간다</b> — 휴대폰에서 그 판이 헤더 아래를 통째로 덮기 때문이다
+    /// (<see cref="UserMenuDrawer"/> 머리말).
+    /// </summary>
+    [Inject] private UserMenuDrawer UserDrawer { get; set; } = default!;
+
+    /// <summary>
     /// 지금 화면의 <b>DB 메뉴 경로</b>. 즐겨찾기는 이 값으로 담긴다.
     ///
     /// 링크 주소가 아니다 — 즐겨찾기 표에 쌓인 값이 DB 경로라 섞으면 이미
@@ -114,6 +121,11 @@ public partial class HeaderTools
     /// </summary>
     private void OpenAsk(MenuNode ask)
     {
+        // 펴 둔 사용자 판을 먼저 접는다. 책상에서는 서랍이 그 판에 가리고,
+        // 휴대폰에서는 화면으로 옮겨 가는데 **판이 새 화면 위에 그대로
+        // 덮인 채** 도착한다.
+        UserDrawer.Close();
+
         if (AskDocks)
         {
             Ask.Toggle();
@@ -346,8 +358,32 @@ public partial class HeaderTools
     /// 보람이 없다 — 먼저 펴고 숫자는 뒤따라 맞춘다.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// 노란 번개를 눌렀다. 화면으로 옮겨 가므로 사용자 판은
+    /// <c>LocationChanged</c> 로도 접히지만, <b>옮겨 가기 전에 접는 편이
+    /// 한 그림 빠르다</b> — 접히는 것이 새 화면이 그려진 뒤면 그 한 순간
+    /// 판이 새 화면 위에 덮여 보인다.
+    /// </summary>
+    private void OpenRequest(MenuNode request)
+    {
+        UserDrawer.Close();
+        Navigation.NavigateTo(request.LinkTarget);
+    }
+
+    /// <summary>
+    /// ✉ 를 눌렀다. 창은 <c>CommPopup</c> 이라 사용자 판(1041)보다 위에 뜨지만,
+    /// <b>휴대폰에서는 그 판이 뒤에 깔린 채로 남는다</b> — 창을 닫으면 아까
+    /// 펴 둔 판이 다시 화면을 덮고 있다. 먼저 접는다.
+    /// </summary>
+    private void OpenNote()
+    {
+        UserDrawer.Close();
+        _writing = true;
+    }
+
     private async Task OpenNotificationsAsync()
     {
+        UserDrawer.Close();
         NotificationDrawerHandle.Open();
         await CountUnreadAsync();
     }

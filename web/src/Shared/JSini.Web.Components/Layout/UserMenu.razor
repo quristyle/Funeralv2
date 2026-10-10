@@ -26,14 +26,45 @@
     폼으로 둔다. 셸 `Program.cs` 가 GET 을 받지 않는 이유도 있다 — GET 이면
     이미지 태그 하나로 남을 로그아웃시킬 수 있다.
 
+    [묶음이 셋이다 — 내 정보 · 개인화 · 화면]
+
+    | 묶음 | 무엇이 드나 | 주소는 어디서 |
+    |---|---|---|
+    | 내 정보 | `/admin/profile` 의 탭들과 비밀번호 변경 | **글자로 적는다**(아래) |
+    | 개인화 | 사람마다 값이 다른 업무 화면들 | **메뉴에서 온다**(`PersonalRoutes`) |
+    | 화면 | 테마 서랍 · 화면 잠금 | 주소가 아니다 |
+
+    [「환경설정」과 「테마 변경」을 가른다]
+
+    한동안 「화면」 묶음의 서랍 단추에 **「환경설정」**이라 적혀 있었다. 그런데
+    그것이 여는 것은 테마 서랍(밝기 · 강조색 · 글자 크기)이고, 포털이 「개인
+    환경설정」이라 부르는 화면은 따로 있다(`/funeral/setting/environment` —
+    알림 · 토스트 자리 · 떠다니는 단추). 알림을 끄러 온 사람이 그 줄을 누르고
+    색 고르는 서랍을 보는 일이 그래서 났다.
+
+    지금은 **「테마 변경」**이라 적고, 환경설정은 개인화 묶음에서 제 이름으로 선다.
+
     [모듈 경로를 글자로 적는다]
 
-    `/admin/profile` 은 포털관리, `/funeral/setting/environment` 는 장례식장
-    모듈의 라우트다. 셸은 업무 모듈을 이름으로 알지 못하므로(web/CLAUDE.md)
-    타입을 참조해서 가져올 길이 없고, 여기서는 주소를 글자로 적는 수밖에 없다.
+    `/admin/profile` 은 포털관리 모듈의 라우트다. 셸은 업무 모듈을 이름으로
+    알지 못하므로(web/CLAUDE.md) 타입을 참조해서 가져올 길이 없고, 내 정보
+    묶음은 주소를 글자로 적는 수밖에 없다.
     **모듈 쪽 `@@page` 를 옮기면 이 파일도 함께 고쳐야 한다.**
-    `RouteInventory` 가 기동 때 라우트 목록을 들고 있으므로, 나중에 이 글자들이
-    실제로 있는 라우트인지 대조하는 편이 낫다.
+
+    개인화 묶음은 그 매듭을 풀었다 — **열쇠(`route_key`)로 메뉴를 찾고 주소는
+    그 마디에게 받는다**(`MenuLookup`). 화면을 옮겨도 여기는 그대로고, 못 찾으면
+    그 줄이 조용히 빠진다.
+
+    [서랍을 열면 이 판은 접힌다]
+
+    휴대폰에서 이 판은 헤더 아래를 **통째로 덮는다**(`app.css` 의
+    `max-width: 767px`). 그래서 판을 펴 둔 채로 헤더의 다른 단추(⚡ 빠른 지시 ·
+    🤖 AI 대화 · 🔔 알림함 · ✉ 쪽지 · ☰ 메뉴)를 누르면 **연 것이 이 판 뒤로
+    들어가 보이지 않는다** — 누른 쪽이 고장 난 것으로 읽힌다.
+
+    여는 쪽이 `UserMenuDrawer.Close()` 를 먼저 부른다(그 손잡이 머리말에 자리
+    목록이 있다). 화면을 옮겨 가는 길은 여기서 직접 듣는다
+    (`Navigation.LocationChanged`).
 *@
 
 @using JSini.Web.Components.Security
@@ -120,23 +151,40 @@
                     </button>
                 }
 
-                <div class="jsini-user__group">알림</div>
+                @* 개인화 묶음. **항목이 메뉴에서 온다** — 이름도 주소도 아이콘도
+                   그 마디의 것이고, 쓸 권한이 없으면 그 줄이 아예 없다
+                   (`PersonalRoutes` 머리말). 하나도 못 찾으면 묶음 제목까지
+                   함께 빠진다 — 제목만 남은 빈 묶음은 고장으로 읽힌다. *@
+                @{
+                    var personal = PersonalLinks.ToList();
+                }
 
-                @foreach (var item in NoticeItems)
+                @if (personal.Count > 0)
                 {
-                    <button type="button" class="jsini-user__item" role="menuitem"
-                            @onclick="@(() => GoTo(item.Href))">
-                        <span class="@item.Icon"></span>
-                        <span class="jsini-user__item-text">@item.Label</span>
-                    </button>
+                    <div class="jsini-user__group">개인화</div>
+
+                    @foreach (var (node, label) in personal)
+                    {
+                        <button type="button" class="jsini-user__item" role="menuitem"
+                                @onclick="@(() => GoTo(node.LinkTarget))">
+                            <span class="@MenuIcons.CssClass(node.Icon)"></span>
+                            <span class="jsini-user__item-text">@label</span>
+                        </button>
+                    }
                 }
 
                 <div class="jsini-user__group">화면</div>
 
+                @* **「환경설정」이 아니라 「테마 변경」이다.** 이 단추가 여는
+                   것은 테마 서랍(밝기 · 강조색 · 글자 크기)이고, 개인
+                   환경설정은 위 묶음의 「환경설정」
+                   (`/funeral/setting/environment`)이 따로 연다. 한동안 이
+                   줄에 「환경설정」이라 적혀 있어서, 알림을 고치러 온 사람이
+                   여기를 누르고 색 고르는 서랍을 보았다. *@
                 <button type="button" class="jsini-user__item" role="menuitem"
                         @onclick="@OpenTheme">
                     <span class="jsini-icon-palette"></span>
-                    <span class="jsini-user__item-text">환경설정 (테마 · 크기)</span>
+                    <span class="jsini-user__item-text">테마 변경 (밝기 · 색 · 크기)</span>
                 </button>
 
                 @* 잠금은 로그아웃이 아니다 — 세션은 그대로 두고 화면만 덮는다.

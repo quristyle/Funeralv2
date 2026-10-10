@@ -13,6 +13,12 @@ public partial class AiChatDrawer
     [Inject] private NavigationManager Navigation { get; set; } = default!;
 
     /// <summary>
+    /// 사용자 판을 접는 손잡이. 이 서랍은 그 판 뒤에서 열린다 —
+    /// 휴대폰에서는 아예 안 보인다(<see cref="UserMenuDrawer"/> 머리말).
+    /// </summary>
+    [Inject] private UserMenuDrawer UserDrawer { get; set; } = default!;
+
+    /// <summary>
     /// 휴대폰인가. <b>화면을 옮길 때 이 판을 접을지</b>를 이 값이 가른다
     /// (<see cref="OnLocationChanged"/>). 레이아웃이 내려 준다 —
     /// <c>HeaderTools</c> · 브레드크럼이 받는 것과 같은 값이다.
@@ -77,7 +83,13 @@ public partial class AiChatDrawer
 
     private bool _open;
 
-    private void Toggle() => _open = !_open;
+    private void Toggle()
+    {
+        // 펴 둔 사용자 판을 먼저 접는다. **접을 때도 부른다** — 어차피 그
+        // 판이 떠 있으면 이 단추를 누른 것 자체가 「저쪽은 그만 보겠다」다.
+        UserDrawer.Close();
+        _open = !_open;
+    }
 
     /// <summary>
     /// <b>휴대폰에서 화면을 옮기면 접는다.</b>

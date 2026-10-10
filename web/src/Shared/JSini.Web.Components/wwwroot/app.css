@@ -991,6 +991,16 @@ body {
   font-size: var(--jsini-fs-sm);
 }
 
+/* 아이콘 집안이 둘이다. 이 판에 박아 둔 것은 `jsini-icon-*`(크기를
+   `--jsini-icon-size` 로 잰다)이고, 「개인화」 묶음은 **메뉴에서 온**
+   `jsini-mi--*`(크기를 `em` 으로 잰다)다. 둘을 같은 자로 맞춰 둔다 —
+   안 맞추면 그 묶음만 그림이 미묘하게 작아 줄이 들쭉날쭉해 보인다.
+   아래 띠(`.jsini-bottom-nav__icon`)·칸 바꾸기 판과 같은 규칙이다. */
+.jsini-user__item > .jsini-mi {
+  width: var(--jsini-icon-size);
+  height: var(--jsini-icon-size);
+}
+
 .jsini-user__sep {
   margin: 0.35rem 0;
   border-top: 1px solid var(--jsini-border);

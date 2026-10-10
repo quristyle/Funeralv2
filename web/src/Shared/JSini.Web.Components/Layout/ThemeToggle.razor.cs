@@ -13,6 +13,12 @@ public partial class ThemeToggle
     [Inject] private IJSRuntime Js { get; set; } = default!;
     [Inject] private ThemeSize Size { get; set; } = default!;
     [Inject] private ThemeDrawer Drawer { get; set; } = default!;
+
+    /// <summary>
+    /// 사용자 판을 접는 손잡이. 테마 서랍도 그 판 뒤에서 열린다
+    /// (<see cref="UserMenuDrawer"/> 머리말).
+    /// </summary>
+    [Inject] private UserMenuDrawer UserDrawer { get; set; } = default!;
     [Inject] private PortalBoot Boot { get; set; } = default!;
     [Inject] private ILogger<ThemeToggle> Log { get; set; } = default!;
 
@@ -88,6 +94,9 @@ public partial class ThemeToggle
 
     private async Task ToggleAsync()
     {
+        // 펴 둔 사용자 판을 먼저 접는다. 서랍이 그 판 뒤에서 열린다.
+        UserDrawer.Close();
+
         if (_open)
         {
             _open = false;
