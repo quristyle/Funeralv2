@@ -1302,6 +1302,12 @@ body {
   flex: 1;
   min-height: 0;
   padding: 0 var(--dxbl-treeview-spacing-x) var(--dxbl-treeview-spacing-y);
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.jsini-sidebar__tree .dxbl-scroll-viewer::-webkit-scrollbar {
+  display: none;
 }
 
 /* 최상위(업무 묶음)만 굵게. 데모의 사이드바가 그렇게 생겼다.
