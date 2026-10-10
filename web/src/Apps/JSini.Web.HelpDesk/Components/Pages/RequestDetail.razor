@@ -338,8 +338,11 @@
             <CommentThread Nodes="@_roots"
                            CanReply="@CanWrite"
                            ReplyTo="@_replyTo"
+                           CurrentUserId="@Context.HelpdeskUserId"
+                           CurrentUserType="@(Context.Identity?.LoginType ?? "admin")"
                            OnToggle="@ToggleReply"
-                           OnReply="@AddReplyAsync" />
+                           OnReply="@AddReplyAsync"
+                           OnDelete="@DeleteCommentAsync" />
         }
 
         @if (Context.IdentityChecked)

@@ -53,13 +53,24 @@
                 <div class="hd-cmt__body hd-content">@Body(node)</div>
             }
 
-            @if (CanReply && !node.Comment.IsDel)
+            @if (!node.Comment.IsDel && (CanReply || CanDelete(node)))
             {
                 <div class="hd-cmt__acts">
-                    <DxButton Text="@(IsOpen(node) ? "답글 접기" : "답글")"
-                              RenderStyle="ButtonRenderStyle.Link"
-                              SizeMode="SizeMode.Small"
-                              Click="@(() => ToggleAsync(node))" />
+                    @if (CanReply)
+                    {
+                        <DxButton Text="@(IsOpen(node) ? "답글 접기" : "답글")"
+                                  RenderStyle="ButtonRenderStyle.Link"
+                                  SizeMode="SizeMode.Small"
+                                  Click="@(() => ToggleAsync(node))" />
+                    }
+                    @if (CanDelete(node))
+                    {
+                        <DxButton Text="삭제"
+                                  RenderStyle="ButtonRenderStyle.Link"
+                                  SizeMode="SizeMode.Small"
+                                  CssClass="text-danger"
+                                  Click="@(() => DeleteAsync(node))" />
+                    }
                 </div>
             }
 
@@ -79,8 +90,11 @@
                     <CommentThread Nodes="@node.Children"
                                    CanReply="@CanReply"
                                    ReplyTo="@ReplyTo"
+                                   CurrentUserId="@CurrentUserId"
+                                   CurrentUserType="@CurrentUserType"
                                    OnToggle="@OnToggle"
-                                   OnReply="@OnReply" />
+                                   OnReply="@OnReply"
+                                   OnDelete="@OnDelete" />
                 </div>
             }
         </li>

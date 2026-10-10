@@ -18,10 +18,25 @@ public partial class CommentThread
     /// <summary>답글 칸을 열고 닫아 달라는 부탁. 값은 열 댓글 번호(<c>null</c> 이면 닫기).</summary>
     [Parameter] public EventCallback<int?> OnToggle { get; set; }
 
-    /// <summary>
-    /// 답글을 남긴다. 들어갔으면 참 — 그때만 편집기가 제 칸을 비운다.
-    /// </summary>
+    /// <summary>답글을 남긴다. 들어갔으면 참 — 그때만 편집기가 제 칸을 비운다.</summary>
     [Parameter] public Func<int, string, Task<bool>>? OnReply { get; set; }
+
+    /// <summary>댓글을 지운다. 성공하면 참.</summary>
+    [Parameter] public Func<int, Task<bool>>? OnDelete { get; set; }
+
+    /// <summary>지금 보고 있는 사람의 헬프데스크 내부 아이디.</summary>
+    [Parameter] public int? CurrentUserId { get; set; }
+
+    /// <summary>지금 보고 있는 사람의 계정 종류 ("admin" 또는 "customer").</summary>
+    [Parameter] public string? CurrentUserType { get; set; }
+
+    private bool CanDelete(CommentNode node)
+    {
+        if (CurrentUserId is null || CurrentUserType is null) return false;
+        return node.Comment.AuthorId == CurrentUserId && 
+               string.Equals(node.Comment.AuthorType, CurrentUserType, StringComparison.OrdinalIgnoreCase);
+    }
+
 
     private bool IsOpen(CommentNode node) => CanReply && ReplyTo == node.Comment.Id;
 
@@ -30,6 +45,9 @@ public partial class CommentThread
 
     private Task<bool> Submit(int parentId, string html) =>
         OnReply is null ? Task.FromResult(false) : OnReply(parentId, html);
+
+    private Task<bool> DeleteAsync(CommentNode node) =>
+        OnDelete is null ? Task.FromResult(false) : OnDelete(node.Comment.Id);
 
     /// <summary>
     /// 작성자 이름. 서버가 담당자·고객을 <c>author</c> 하나로 풀어 준다.

@@ -628,6 +628,30 @@ public partial class RequestDetail : IDisposable
     }
 
     /// <summary>
+    /// 댓글을 삭제한다 (논리 삭제).
+    /// </summary>
+    private async Task<bool> DeleteCommentAsync(int commentId)
+    {
+        if (_confirm is not null && !await _confirm.AskAsync("댓글을 삭제하시겠습니까?", "댓글 삭제", "삭제", ButtonRenderStyle.Danger))
+        {
+            return false;
+        }
+
+        var deleted = await RunAsync(
+            () => Api.DeleteAsync($"comments/{commentId}"),
+            "삭제했습니다.", "삭제하지 못했습니다.");
+
+        if (deleted)
+        {
+            await ReloadAsync();
+        }
+        
+        StateHasChanged();
+        
+        return deleted;
+    }
+
+    /// <summary>
     /// 응답에서 칸 하나를 글자로 꺼낸다.
     ///
     /// DTO 를 두지 않은 이유는 <c>JsonTable</c> 주석과 같다 — 이 응답의 칸이
