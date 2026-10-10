@@ -1,4 +1,4 @@
-﻿@* 껍데기 크기를 캡에서 멈추려고 받는다 — `ThemeSize.Chrome` 머리말 참고. *@
+@* 껍데기 크기를 캡에서 멈추려고 받는다 — `ThemeSize.Chrome` 머리말 참고. *@
 @implements IDisposable
 @*
     헤더에서 여는 AI 대화 서랍 (D11).
@@ -65,25 +65,19 @@
               Click="@Toggle" />
 </CascadingValue>
 
-<aside class="jsini-ai-drawer @(_open ? "jsini-ai-drawer--open" : "")"
-       aria-hidden="@(_open ? "false" : "true")">
-    <header class="jsini-ai-drawer__head">
-        <span class="jsini-ai-drawer__title">AI 에게 묻기</span>
-        <DxButton RenderStyle="ButtonRenderStyle.Link"
-                  Text="✕" Title="닫기" Click="@Toggle" />
-    </header>
-
-    <div class="jsini-ai-drawer__body">
+<RightSideDrawer IsOpen="@_open" IsOpenChanged="@(v => _open = v)" Title="AI 에게 묻기" CssClass="jsini-ai-drawer-custom">
+    <ChildContent>
         @* 화면 하나(`/site/ai/chat`)와 **같은 부품**이다. 복사해 두면 한쪽에만
            고침이 들어가 「화면에서는 되는데 헤더에서는 안 된다」가 된다. *@
         <AiChatPanel />
-    </div>
-
-    <p class="jsini-ai-drawer__foot">
-        @* 주소를 박아 두지 않는다 — 화면이 옮겨 가면 열쇠만 따라가고 이 줄은
-           그대로다(`MenuLookup` 머리말). *@
-        새로고침하면 대화가 사라집니다. 남겨 두려면
-        <a href="@chat.LinkTarget">@chat.Title</a> 화면에서 이어가세요.
-    </p>
-</aside>
+    </ChildContent>
+    <FooterContent>
+        <p class="jsini-right-drawer__foot">
+            @* 주소를 박아 두지 않는다 — 화면이 옮겨 가면 열쇠만 따라가고 이 줄은
+               그대로다(`MenuLookup` 머리말). *@
+            새로고침하면 대화가 사라집니다. 남겨 두려면
+            <a href="@chat.LinkTarget">@chat.Title</a> 화면에서 이어가세요.
+        </p>
+    </FooterContent>
+</RightSideDrawer>
 }

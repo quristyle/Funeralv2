@@ -57,23 +57,16 @@
 
 @if (_ever && Ask.PanelType is { } panel)
 {
-    <aside class="jsini-quick-drawer @(Ask.IsOpen ? "jsini-quick-drawer--open" : "")"
-           aria-hidden="@(Ask.IsOpen ? "false" : "true")">
-        <header class="jsini-quick-drawer__head">
-            <span class="jsini-quick-drawer__title">빠른 지시</span>
-            <DxButton RenderStyle="ButtonRenderStyle.Link"
-                      Text="✕" Title="닫기" Click="@Ask.Close" />
-        </header>
-
-        @* 알맹이에게 **지금 펴져 있는지**를 흘려 준다(`QuickAskReveal.OpenCascade`).
-           닫아도 안 지우는 판이라(위 머리말) 이것이 없으면 알맹이는 제가 가려진
-           줄을 모른다 — 처음 열었을 때 읽은 카드가 그대로 앉아 있고, 닫아 둔
-           동안에도 목록을 계속 따라간다. 값이 거짓→참으로 갈리는 순간 알맹이가
-           목록을 다시 읽는다. *@
-        <div class="jsini-quick-drawer__body">
+    <RightSideDrawer IsOpen="@Ask.IsOpen" IsOpenChanged="@((v) => { if (!v) Ask.Close(); })" Title="빠른 지시" CssClass="jsini-quick-drawer-custom">
+        <ChildContent>
+            @* 알맹이에게 **지금 펴져 있는지**를 흘려 준다(`QuickAskReveal.OpenCascade`).
+               닫아도 안 지우는 판이라(위 머리말) 이것이 없으면 알맹이는 제가 가려진
+               줄을 모른다 — 처음 열었을 때 읽은 카드가 그대로 앉아 있고, 닫아 둔
+               동안에도 목록을 계속 따라간다. 값이 거짓→참으로 갈리는 순간 알맹이가
+               목록을 다시 읽는다. *@
             <CascadingValue Name="@QuickAskReveal.OpenCascade" TValue="bool?" Value="@Ask.IsOpen">
                 <DynamicComponent Type="@panel" />
             </CascadingValue>
-        </div>
-    </aside>
+        </ChildContent>
+    </RightSideDrawer>
 }

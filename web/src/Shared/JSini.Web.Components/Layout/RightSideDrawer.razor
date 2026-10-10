@@ -1,0 +1,27 @@
+@implements IDisposable
+@inject IJSRuntime JS
+
+<aside class="jsini-right-drawer @CssClass @(IsOpen ? "jsini-right-drawer--open" : "")"
+       aria-hidden="@(IsOpen ? "false" : "true")"
+       id="@Id">
+    <header class="jsini-right-drawer__head">
+        <span class="jsini-right-drawer__title">@Title</span>
+        <DxButton RenderStyle="ButtonRenderStyle.Link"
+                  IconCssClass="@(_isPinned ? "jsini-icon-pin-filled" : "jsini-icon-pin")"
+                  Title="@(_isPinned ? "고정 해제" : "화면에 고정")"
+                  Click="@TogglePin" />
+        <DxButton RenderStyle="ButtonRenderStyle.Link"
+                  Text="✕" Title="닫기" Click="@OnCloseClick" />
+    </header>
+
+    <div class="jsini-right-drawer__body">
+        @ChildContent
+    </div>
+
+    @if (FooterContent != null)
+    {
+        <div class="jsini-right-drawer__foot">
+            @FooterContent
+        </div>
+    }
+</aside>
