@@ -371,29 +371,6 @@ public partial class AiAskPanel
             ? AiUsageText.Of(UsageOf(kind))
             : new AiUsageText.Badge("한도 확인 중", "jsini-badge--off");
 
-    /// <summary>
-    /// 고르개 한 줄의 둘째 줄. 세션·주간·월간을 있는 것만 적는다.
-    /// </summary>
-    private string KindLimit(string? kind)
-    {
-        if (!_usageSeen)
-        {
-            return "한도를 읽는 중입니다. 기다리지 않고 보내도 됩니다.";
-        }
-
-        var rows = UsageOf(kind);
-
-        return rows.Count == 0
-            ? "실행기가 아직 한도를 올리지 않았습니다."
-            : AiUsageText.Summary(rows);
-    }
-
-    /// <summary>
-    /// 지금 고른 AI 의 한도 한 줄. <b>고르개는 닫혀 있는 시간이 훨씬 길다</b> —
-    /// 목록에만 적으면 펼치지 않는 사람에게는 없는 것과 같다.
-    /// </summary>
-    private string PickedLimit => KindLimit(_kind);
-
     /// <summary>지금 고른 AI 의 배지. 닫힌 고르개 옆에 선다.</summary>
     private AiUsageText.Badge PickedBadge => KindBadge(_kind);
 

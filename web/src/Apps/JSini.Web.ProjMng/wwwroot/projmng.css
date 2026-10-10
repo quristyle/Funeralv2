@@ -1389,10 +1389,6 @@
   color: var(--jsini-text-muted);
 }
 
-.pm-ai-limit__text {
-  min-width: 0;
-  word-break: break-word;
-}
 
 /* ── 편집기 머리줄 ───────────────────────────────────────────
 
@@ -2212,17 +2208,12 @@
   white-space: nowrap;
 }
 
-.pm-ask__kindhead .jsini-badge {
+.pm-ask__kindhead .jsini-badge,
+.pm-ask__limit .jsini-badge,
+.pm-ai-limit .jsini-badge {
   flex: 0 0 auto;
-}
-
-/* 한도 줄. 이름보다 작고 흐리다 — 고르는 눈은 이름을 먼저 짚는다. */
-.pm-ask__kindlimit {
-  font-size: 0.8em;
-  line-height: 1.35;
-  color: var(--jsini-text-muted);
-  white-space: normal;
-  word-break: break-word;
+  font-size: 0.75em;
+  padding: 0.15em 0.4em;
 }
 
 /* 고른 줄·마우스가 올라간 줄은 **바탕이 강조색으로 칠해진다.** 그 위에서
@@ -2231,13 +2222,6 @@
 
    DevExpress 가 그 줄의 글자색을 흰색으로 바꿔 주므로 **그 색을 물려받는다.**
    여기서 흰색을 박으면 밝기·강조색을 바꿨을 때 그것만 안 따라온다. */
-.dxbl-list-box-item-selected .pm-ask__kindlimit,
-.dxbl-list-box-item-focused .pm-ask__kindlimit,
-li:hover > * > .pm-ask__kinditem .pm-ask__kindlimit {
-  color: inherit;
-  opacity: 0.85;
-}
-
 .dxbl-list-box-item-selected .pm-ask__kindhead .jsini-badge,
 .dxbl-list-box-item-focused .pm-ask__kindhead .jsini-badge,
 li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
@@ -2260,10 +2244,6 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
   color: var(--jsini-text-muted);
 }
 
-.pm-ask__limittext {
-  min-width: 0;
-  word-break: break-word;
-}
 
 /* 글상자. 화면 세로 길이의 30%를 넘지 않게 한다 —
    모바일 자판이 올라와도 화면을 가리지 않게 한다. */

@@ -207,7 +207,7 @@ public static class AiUsageText
         if (maxWeek is not null) textParts.Add($"주간 {maxWeek:0.#}%");
 
         var text = textParts.Count > 0 
-            ? string.Join(" / ", textParts) + (stale ? " · 오래된 값" : string.Empty)
+            ? string.Join(" / ", textParts)
             : $"사용 {top:0.#}%" + (stale ? " · 오래된 값" : string.Empty);
 
         var css = stale ? "jsini-badge--off"
