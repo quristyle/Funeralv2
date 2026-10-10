@@ -259,12 +259,6 @@ public partial class AiAskPanel
     /// </summary>
     private bool _pwa = true;
 
-    /// <summary>
-    /// 창으로 열어 둔 건. <b>번호만 들고 있고 자료는 목록에서 집는다</b> —
-    /// 자료를 그대로 붙들면 5초마다 목록이 새로 읽힐 때 창만 옛 값에 남는다.
-    /// </summary>
-    private long? _peek;
-
     private bool Busy;
 
     /// <summary>보이는 동안 도는 타이머. <b>가려지면 멈춘다.</b></summary>
@@ -785,8 +779,16 @@ public partial class AiAskPanel
     /// 기억한 것을 얹는다. <b>회로가 붙은 뒤에야 읽을 수 있다</b>(JS 왕복)라
     /// 첫 렌더 뒤다 — 대상 목록은 그때 이미 와 있다.
     /// </summary>
+    /// <remarks>
+    /// <b>구르는 자리를 옮기는 일만 첫 렌더 밖에 있다.</b> 그것은 탭을
+    /// 갈아탄 **뒤**에 할 일이라, 아래 빠져나가는 줄 안쪽에 두면 영영 돌지
+    /// 않는다(실제로 그래서 안 먹었다). 옮길 것이 없으면 그 자리에서
+    /// 돌아오므로 왕복이 늘지 않는다.
+    /// </remarks>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        await MoveScrollAsync();
+
         if (!firstRender)
         {
             return;
@@ -941,6 +943,10 @@ public partial class AiAskPanel
         {
             return;
         }
+
+        // 그 건을 탭으로 열어 두었으면 함께 닫는다. 두면 목록에서 빠진
+        // 건을 가리킨 채로 「그 건을 놓쳤습니다」만 남는다.
+        CloseView(taskKey);
 
         Show([.. _all.Where(t => t.TaskKey != taskKey)]);
         await InvokeAsync(StateHasChanged);
@@ -1331,19 +1337,62 @@ public partial class AiAskPanel
     }
 
     /// <summary>
-    /// 휴대폰인가. 카드를 눌렀을 때 <b>창을 띄울지 탭으로 옮길지</b>를
-    /// 이 값이 가른다(위 머리말).
+    /// 휴대폰인가. 카드를 눌렀을 때 <b>판 안의 탭으로 펼칠지 포털 탭으로
+    /// 옮길지</b>를 이 값이 가른다(위 머리말).
     /// </summary>
     private bool _isPhone;
 
     /// <summary>
-    /// 카드를 눌렀다. <b>휴대폰이면 창, 넓은 화면이면 탭</b>이다.
+    /// 폭이 경계를 넘었다. <b>넓어졌으면 판 안의 탭을 걷는다</b> — 그
+    /// 폭에서는 포털의 탭 줄이 같은 일을 하고, 둘이 함께 서 있으면 탭 줄이
+    /// 두 겹이 된다.
+    /// </summary>
+    /// <remarks>
+    /// 보고 있던 건이 있으면 <b>그 주소로 옮겨 간다.</b> 말없이 목록으로
+    /// 되돌리면 화면을 돌렸을 뿐인데 읽던 결과가 사라진다.
+    /// <para>
+    /// 처음 한 번은 거짓에서 거짓으로 오므로 아무 일도 하지 않는다 —
+    /// 부품이 처음 설 때 <see cref="_isPhone"/> 는 거짓이다.
+    /// </para>
+    /// </remarks>
+    private void OnPhoneChanged(bool phone)
+    {
+        if (_isPhone == phone)
+        {
+            return;
+        }
+
+        _isPhone = phone;
+
+        if (phone || _views.Count == 0)
+        {
+            return;
+        }
+
+        var going = _view;
+
+        _views.Clear();
+        _view = null;
+
+        if (going is { } key)
+        {
+            Navigation.NavigateTo($"/projmng/ai/task/{key}");
+        }
+    }
+
+    /// <summary>
+    /// 카드를 눌렀다. <b>휴대폰이면 판 안의 탭, 넓은 화면이면 포털 탭</b>이다.
     /// </summary>
     /// <remarks>
     /// 넓은 화면에서 옮겨 가는 주소는 앱알림·메일이 싣는 것과 같다 —
     /// 두 벌로 두면 한쪽만 고쳐져 어긋난다.
+    /// <para>
+    /// <b>구른 자리를 적는 일이 상태를 바꾸기 전에 있어야 한다.</b> 목록이
+    /// 감춰지고 나면 판이 짧아져 브라우저가 그 값을 깎는다 — 그 뒤에 재면
+    /// 돌아올 자리가 엉뚱해진다(<c>ask-view.js</c> 머리말).
+    /// </para>
     /// </remarks>
-    private void Peek(long taskKey)
+    private async Task PeekAsync(long taskKey)
     {
         if (!_isPhone)
         {
@@ -1351,30 +1400,225 @@ public partial class AiAskPanel
             return;
         }
 
-        _peek = taskKey;
+        if (_view is null)
+        {
+            await RememberScrollAsync();
+        }
+
+        OpenView(taskKey);
     }
 
     /// <summary>
-    /// 창이 볼 건. <b>받아 둔 것 전부에서 찾는다</b> — 깔린 넉 장에서만 찾으면
-    /// 창을 열어 둔 사이에 새 건이 들어와 그 건이 밀려날 때 창이 빈다.
-    /// 목록에서 아주 사라졌으면 <c>null</c> 이고 창이 그렇게 말한다.
+    /// 한 번에 열어 둘 수 있는 상세 탭 수.
+    ///
+    /// <para>
+    /// 포털 탭 줄은 열둘이지만(<c>PortalTabs</c>) 여기는 휴대폰 한 줄이다.
+    /// 여섯이면 이미 옆으로 밀어야 끝이 보이고, 그보다 늘려 봐야 <b>찾는
+    /// 데 드는 품이 목록에서 다시 누르는 품보다 커진다.</b>
+    /// </para>
     /// </summary>
-    private AiTaskDto? PeekItem =>
-        _peek is { } key ? _all.FirstOrDefault(t => t.TaskKey == key) : null;
+    private const int MaxViews = 6;
 
-    private void OnPeekVisible(bool visible)
+    /// <summary>
+    /// 판 안의 탭으로 열어 둔 건들. <b>번호만 들고 있고 자료는 목록에서
+    /// 집는다</b> — 자료를 그대로 붙들면 5초마다 목록이 새로 읽힐 때
+    /// 탭만 옛 값에 남는다. 왼쪽부터 연 순서다.
+    /// </summary>
+    private readonly List<long> _views = [];
+
+    /// <summary>
+    /// 지금 보고 있는 건. <c>null</c> 이면 적는 자리와 카드 목록이다.
+    /// </summary>
+    private long? _view;
+
+    /// <summary>
+    /// 지금 보고 있는 건. <b>휴대폰에서만 값이 있다</b> — 넓은 화면에서는
+    /// 포털 탭이 그 일을 하므로 이 판은 늘 목록이다.
+    /// </summary>
+    private long? Viewing => _isPhone ? _view : null;
+
+    /// <summary>
+    /// 적는 자리와 카드 목록에 붙일 클래스. 상세를 보는 동안 <b>둘 다</b>
+    /// 감춘다 — 한쪽만 감추면 상세 아래에 나머지 판이 이어 붙는다.
+    /// </summary>
+    private string? PaneCss => Viewing is null ? null : "pm-ask__pane--off";
+
+    /// <summary>
+    /// 탭이 볼 건. <b>받아 둔 것 전부에서 찾는다</b> — 깔린 넉 장에서만 찾으면
+    /// 탭을 열어 둔 사이에 새 건이 들어와 그 건이 밀려날 때 판이 빈다.
+    /// 목록에서 아주 사라졌으면 <c>null</c> 이고 판이 그렇게 말한다.
+    /// </summary>
+    private AiTaskDto? ViewItem =>
+        Viewing is { } key ? _all.FirstOrDefault(t => t.TaskKey == key) : null;
+
+    /// <summary>
+    /// 탭에 적을 이름. <b>제목이 아직 없으면 번호</b>다 — 서버가 제목을
+    /// 나중에 지어 주는 건이 있어(<c>AiTaskTitler</c>) 그동안 빈 칸이 서면
+    /// 어느 것이 어느 탭인지 모른다.
+    /// </summary>
+    private string ViewTitle(long key) =>
+        _all.FirstOrDefault(t => t.TaskKey == key)?.Title is { Length: > 0 } title
+            ? title
+            : $"지시 #{key}";
+
+    /// <summary>
+    /// 상세를 탭으로 연다. 이미 열려 있으면 <b>그 탭으로 갈아탈 뿐</b>이다 —
+    /// 같은 건이 두 칸을 차지하면 한 줄이 금세 찬다.
+    /// </summary>
+    /// <remarks>
+    /// 상한을 넘으면 <b>가장 먼저 연 것</b>부터 닫는다. 보고 있는 것은
+    /// 닫지 않는다 — 그것이 방금 연 바로 그 탭이다.
+    /// </remarks>
+    private void OpenView(long taskKey)
     {
-        if (!visible)
+        if (!_views.Contains(taskKey))
         {
-            _peek = null;
+            _views.Add(taskKey);
+
+            while (_views.Count > MaxViews)
+            {
+                var oldest = _views.FirstOrDefault(k => k != taskKey);
+
+                if (!_views.Remove(oldest))
+                {
+                    break;
+                }
+            }
+        }
+
+        _view = taskKey;
+        _scroll = ScrollMove.Top;
+    }
+
+    /// <summary>다음 그리기 뒤에 구르는 자리를 어떻게 할 것인가.</summary>
+    private enum ScrollMove
+    {
+        /// <summary>그대로 둔다.</summary>
+        None,
+
+        /// <summary>맨 위로 — 상세를 열거나 다른 탭으로 갈아탔다.</summary>
+        Top,
+
+        /// <summary>목록에서 보던 자리로 — 탭을 닫고 돌아왔다.</summary>
+        Restore,
+    }
+
+    /// <inheritdoc cref="ScrollMove"/>
+    private ScrollMove _scroll = ScrollMove.None;
+
+    private IJSObjectReference? _viewModule;
+
+    /// <summary>
+    /// 구르는 자리를 다루는 모듈. <b>못 실어도 조용히 넘어간다</b> — 잃는 것은
+    /// 「구른 자리가 그대로 남는 것」뿐이고, 그것 때문에 화면을 깨지 않는다.
+    /// </summary>
+    private async Task<IJSObjectReference?> ViewModuleAsync()
+    {
+        try
+        {
+            return _viewModule ??= await JS.InvokeAsync<IJSObjectReference>(
+                "import", "./_content/JSini.Web.ProjMng/js/ask-view.js");
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException)
+        {
+            return null;
         }
     }
 
-    /// <summary>
-    /// 창에서 수동 재시도를 요청했다. 목록을 다시 읽고 화면을 갱신한다.
-    /// </summary>
-    private async Task OnPeekRetriedAsync(AiTaskDto _)
+    /// <summary>목록에서 보던 자리를 적어 둔다. <b>감추기 전에</b> 부른다.</summary>
+    private async Task RememberScrollAsync()
     {
+        try
+        {
+            if (await ViewModuleAsync() is { } module)
+            {
+                await module.InvokeVoidAsync("remember", $"#{_domId}");
+            }
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException)
+        {
+        }
+    }
+
+    /// <summary>그려진 뒤에 구르는 자리를 옮긴다.</summary>
+    private async Task MoveScrollAsync()
+    {
+        var move = _scroll;
+        _scroll = ScrollMove.None;
+
+        if (move == ScrollMove.None)
+        {
+            return;
+        }
+
+        try
+        {
+            if (await ViewModuleAsync() is { } module)
+            {
+                await module.InvokeVoidAsync(
+                    move == ScrollMove.Top ? "toTop" : "restore", $"#{_domId}");
+            }
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException)
+        {
+        }
+    }
+
+    /// <summary>적는 자리와 카드 목록으로 돌아간다. 열어 둔 탭은 그대로 둔다.</summary>
+    private void ShowList()
+    {
+        _view = null;
+        _scroll = ScrollMove.Restore;
+    }
+
+    /// <summary>열어 둔 탭 하나로 갈아탄다.</summary>
+    private void ShowView(long taskKey)
+    {
+        _view = taskKey;
+        _scroll = ScrollMove.Top;
+    }
+
+    /// <summary>
+    /// 탭 하나를 닫는다. <b>보고 있던 탭이면 옆으로 옮겨 간다</b> — 오른쪽이
+    /// 없으면 왼쪽, 그것도 없으면 목록이다(포털 탭 줄과 같은 규칙).
+    /// </summary>
+    private void CloseView(long taskKey)
+    {
+        var at = _views.IndexOf(taskKey);
+
+        if (at < 0)
+        {
+            return;
+        }
+
+        _views.RemoveAt(at);
+
+        if (_view != taskKey)
+        {
+            return;
+        }
+
+        _view = _views.Count == 0 ? null : _views[Math.Min(at, _views.Count - 1)];
+        _scroll = _view is null ? ScrollMove.Restore : ScrollMove.Top;
+    }
+
+    /// <summary>
+    /// 상세에서 재시도·이어서 지시를 했다. 목록을 다시 읽고 화면을 갱신한다.
+    /// </summary>
+    private async Task OnViewChangedAsync(AiTaskDto _)
+    {
+        await LoadRecentAsync();
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// 사용자 확인을 마쳤거나 작성중인 건을 지웠다. <b>그 탭을 닫는다</b> —
+    /// 그 건은 목록에서 빠지므로 열어 두면 「그 건을 놓쳤습니다」만 남는다.
+    /// </summary>
+    private async Task OnViewClosedAsync(AiTaskDto task)
+    {
+        CloseView(task.TaskKey);
+
         await LoadRecentAsync();
         StateHasChanged();
     }
@@ -1569,6 +1813,17 @@ public partial class AiAskPanel
             try
             {
                 await _moreModule.DisposeAsync();
+            }
+            catch (Exception ex) when (ex is JSException or JSDisconnectedException)
+            {
+            }
+        }
+
+        if (_viewModule is not null)
+        {
+            try
+            {
+                await _viewModule.DisposeAsync();
             }
             catch (Exception ex) when (ex is JSException or JSDisconnectedException)
             {

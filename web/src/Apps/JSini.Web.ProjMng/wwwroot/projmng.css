@@ -2592,6 +2592,120 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
   }
 }
 
+
+/* ── 판 안의 탭 줄 (`pm-ask__tabs`) ─────────────────────────
+
+   휴대폰에서 카드를 누르면 상세가 이 판 안에 선다. 포털의 탭 줄은 그 폭에서
+   통째로 감춰져 있어서(`app.css` 의 ≤767px) 주소로 옮겨 가 봐야 **열어 둔
+   것들 사이를 오갈 길이 없다.** 그래서 이 판이 제 탭 줄을 갖는다.
+
+   **붙박이로 세운다**(`sticky`). 결과문은 화면 몇 장짜리라, 다른 건으로
+   갈아타려고 맨 위까지 다시 굴려 올려야 하면 탭을 둔 뜻이 반쯤 없어진다.
+   바탕을 칠하는 까닭은 그 아래로 글이 지나가기 때문이다.
+
+   본문 좌우 여백이 거의 없는 폭이라(`--jsini-shell-pad-inline`) 줄이 화면을
+   거의 다 쓴다. 넘치면 **옆으로 민다** — 줄바꿈하면 탭 넷에 두 층이 되고,
+   그 두 층이 붙박이로 화면 위에 남는다. */
+.pm-ask__tabs {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.3rem 0;
+  background: var(--jsini-bg);
+  border-bottom: 1px solid var(--jsini-border);
+
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.pm-ask__tabs::-webkit-scrollbar { display: none; }
+
+/* 칸 하나. 맨 앞의 「빠른 지시」는 단추 하나뿐이고(닫을 수 없다) 나머지는
+   **이름 단추 + 닫기 단추** 둘을 안는다. 둘을 한 칸처럼 보이게 테두리는
+   바깥 상자가 긋는다.
+
+   `flex: 0 0 auto` 가 있어야 한다 — 없으면 탭이 늘어날수록 칸이 쪼그라들어
+   이름이 한 글자씩 남는다. 넘치는 것은 옆으로 미는 쪽으로 푼다. */
+.pm-ask__tab {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+
+  max-width: 11rem;
+  border: 1px solid var(--jsini-border);
+  border-radius: 0.3rem;
+  background: var(--jsini-surface);
+  color: var(--jsini-text-muted);
+  font-size: var(--jsini-fs-2xs);
+}
+
+/* 고른 칸은 **면으로** 칠한다. 테두리를 두껍게 하면 그 칸만 키가 커져 줄이
+   들썩인다 — 단 수 고르개(`pm-ask__col`)가 같은 까닭으로 같은 방법을 쓴다. */
+.pm-ask__tab--on {
+  border-color: var(--jsini-accent);
+  background: var(--jsini-accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+/* 맨 앞 칸(「빠른 지시」)은 상자 자신이 단추다. 안쪽 여백만 준다. */
+.pm-ask__tabs > button.pm-ask__tab,
+.pm-ask__tabgo {
+  appearance: none;
+  min-width: 0;
+  padding: 0.25rem 0.5rem;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  line-height: 1.6;
+  cursor: pointer;
+
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* 닫기는 **이름 옆에 따로** 둔다. 칸을 눌러 갈아타는 것과 닫는 것이 같은
+   자리면 갈아타려다 닫는다 — 손가락으로 겨누는 자리라 1.5rem 은 남긴다. */
+.pm-ask__tabx {
+  appearance: none;
+  flex: 0 0 auto;
+  min-width: 1.5rem;
+  padding: 0.25rem 0.35rem 0.25rem 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  line-height: 1.6;
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.pm-ask__tabx:hover { opacity: 1; }
+
+.pm-ask__tab:focus-within {
+  outline: 2px solid var(--jsini-accent);
+  outline-offset: 1px;
+}
+
+/* ── 상세를 여는 동안 적는 자리를 감춘다 ─────────────────────
+
+   **지우지 않는다.** 적다 만 글을 붙드는 JS(`ask-draft.js`)가 글상자를
+   `#아이디 .pm-ask__text` 로 잡고 있고, 미는 손짓과 끝까지 굴렸는지 보는
+   감지점도 그 안에 산다. 마크업이 사라지면 그 셋이 함께 끊긴다. */
+.pm-ask__pane--off { display: none; }
+
+/* 상세 판. 목록과 달리 **화면 폭을 통째로 쓴다** — 결과문을 읽는 자리다.
+   `.pm-ask` 가 둔 52rem 상한은 그대로 받는다(휴대폰에서는 걸릴 일이 없다). */
+.pm-ask__view .commcont__body {
+  min-width: 0;
+}
+
 /* ── 보낸 것 목록 ──────────────────────────────────────────── */
 
 /* 목록이 아니라 **카드**다. 줄로 늘어놓으면 제목 · 상태 · 시각 · 걸린 시간이
@@ -3728,36 +3842,18 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
   color: var(--jsini-text);
 }
 
-/* ── 휴대폰에서는 창이 화면을 꽉 채운다 ──────────────────────
+/* ── 휴대폰에서는 로그 상자를 화면 높이에 맞춘다 ─────────────
 
-   이 화면을 쓰는 자리가 길이고, 거기서 결과문을 읽으려면 폭이 전부다.
-   가운데 뜬 창은 사방에 여백을 두느라 읽는 폭을 또 깎는다.
+   이 상세를 보는 자리가 길이고, 거기서 결과문을 읽으려면 폭도 높이도
+   전부다. 22rem 그대로 두면 **화면은 남는데 상자만 구른다.**
 
-   **`!important` 가 필요하다.** `DxPopup` 은 `Width`·`MaxHeight` 를
-   **인라인 스타일**로 박으므로 규칙만으로는 이기지 못한다
-   (`jsini-gridpopup` 이 같은 이유로 같은 표시를 달고 있다).
+   한동안 이 상자 위에 창을 화면 가득 펴는 규칙이 함께 있었다
+   (`.dxbl-popup.pm-peek` 의 `100vw`/`100dvh`). 휴대폰에서도 상세가 창이
+   아니라 **판 안의 탭**으로 서게 되면서(2026-10-11, `AiAskPanel` 머리말)
+   그 창 자체가 없어졌다 — 폭을 다투는 상대가 사라졌으니 띄울 것도 없다.
 
-   선택자를 DevExpress 것과 같은 모양으로 적는 것은 자릿수 때문이다 —
-   저쪽이 `.dxbl-modal > .dxbl-modal-root > .dxbl-popup`(0,3,0)이다. */
+   지시와 결과는 여기서도 상한이 없다 — 판이 통째로 구른다. */
 @media (max-width: 767px) {
-  .dxbl-modal > .dxbl-modal-root > .dxbl-popup.pm-peek {
-    width: 100vw !important;
-    max-width: 100vw !important;
-    height: 100dvh !important;
-    max-height: 100dvh !important;
-    margin: 0 !important;
-    border-radius: 0 !important;
-  }
-
-  .pm-peek .dxbl-modal-content {
-    height: 100%;
-    max-height: 100dvh !important;
-  }
-
-  /* 화면이 넓어진 만큼 로그 상자도 늘린다. 22rem 그대로 두면 꽉 채운
-     창 아래가 텅 빈 채로 상자만 구른다.
-
-     지시와 결과는 여기서도 상한이 없다 — 창 본문이 통째로 구른다. */
   .pm-peek__pre--log {
     max-height: 62dvh;
   }
@@ -4537,29 +4633,18 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
   min-width: 0;
 }
 
-/* 빠른지시 창 하단 단추 글 줄이기 */
+/* 상세 아래 단추의 글자. 휴대폰에서는 **짧은 쪽**이 선다 —
+   「사용자확인완료」 여섯 글자가 넷이 서는 줄에서 혼자 한 줄을 먹는다.
+
+   `.pm-peek .dxbl-modal-footer` 를 손보던 규칙이 여기 함께 있었다. 상세가
+   창이 아니라 판 안의 탭으로 서게 되면서(2026-10-11) 그 바닥 띠가 없어져
+   걷었다 — 지금 단추가 서는 줄은 `pm-taskview__acts` 다. */
 .pm-peek__btn-text--full { display: inline; }
 .pm-peek__btn-text--short { display: none; }
 
 @media (max-width: 767px) {
   .pm-peek__btn-text--full { display: none; }
   .pm-peek__btn-text--short { display: inline; }
-  
-  /* 버튼이 한 줄로 나오도록 footer 영역 조정 */
-  .pm-peek .dxbl-modal-footer {
-    display: flex;
-    flex-wrap: nowrap !important;
-    gap: 0.25rem;
-    overflow-x: auto;
-    padding: 0.5rem;
-  }
-  
-  /* 버튼 내부 여백을 줄여서 한 줄에 다 들어가게 함 */
-  .pm-peek .dxbl-modal-footer .dxbl-btn {
-    padding-left: 0.5rem;
-    padding-right: 0.5rem;
-    white-space: nowrap;
-  }
 }
 
 /* ── AI 작업: 쪽이 통째로 구르지 않는다 (`pm-ai-page`) ────────
@@ -4774,9 +4859,14 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
   word-break: break-word;
 }
 
-/* 단추 줄. 창에서는 바닥 띠가 하던 일을 여기서는 선 하나로 가른다 —
-   본문(로그 상자)과 붙어 있으면 상자의 일부로 읽힌다. */
-.pm-taskview__acts {
+/* 단추 줄. 한동안 창이 있던 자리에서는 바닥 띠가 하던 일을, 여기서는 선
+   하나로 가른다 — 본문(로그 상자)과 붙어 있으면 상자의 일부로 읽힌다.
+
+   휴대폰에서 「빠른 지시」 판 안에 서는 상세도 같은 줄을 쓴다
+   (`pm-ask__viewacts`). 서는 단추가 같은 부품(`AiTaskActions`)이라 모양까지
+   갈라 둘 이유가 없다. */
+.pm-taskview__acts,
+.pm-ask__viewacts {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;

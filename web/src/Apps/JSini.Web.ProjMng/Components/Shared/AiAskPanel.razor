@@ -197,37 +197,54 @@
     읽고 다시 따라간다(`QuickAskReveal.OpenCascade`). 화면(`AiAsk`)으로 열린
     쪽은 가려질 일이 없으므로 늘 보이는 것으로 친다.
 
-    [누르면 창이 뜬다 — 펼치지 않는다]
+    [누르면 펼치지 않는다 — 따로 선 자리에서 본다]
 
     예전에는 카드 아래가 펼쳐져 결과문이 거기 깔렸다. 반 폭 카드 밑에
     글을 그리면 한 줄에 대여섯 낱말이고, 그 아래 카드 두 장이 화면 밖으로
-    밀린다. 이제는 `AiTaskPeek` 이 창으로 띄우고 **휴대폰에서는 화면을
-    꽉 채운다.** 그 창이 상태에 따라 결과 · 로그 · 지시 중 하나를 펴서 연다.
+    밀린다. 그래서 상세는 **목록과 다른 자리**에서 화면 폭을 통째로 쓴다.
+    무엇을 펴서 열지는 그 판이 상태로 고른다(`AiTaskView`).
 
-    [책상에서는 창이 아니라 **탭**이다 (2026-09-20)]
+    [책상은 포털 탭, 휴대폰은 **판 안의 탭** (2026-10-11)]
 
-    창은 좁은 화면의 길이다. 넓은 화면에서 같은 창이 뜨면 **한 번에 한 건만**
-    볼 수 있고, 다른 건을 보려면 닫고 다시 열어야 한다. 실제로 하는 일은
-    「아침에 보낸 것과 방금 끝난 것을 나란히 놓고 견주는 것」인데 창으로는
-    그것이 안 된다.
+    넓은 화면에서는 지시마다 있는 주소(`/projmng/ai/task/{번호}`)로 옮겨
+    간다 — 포털의 탭 줄이 주소로 탭을 가르므로 **여러 건을 누르면 탭이 여러
+    개** 선다(`AiTaskViewPage`). 같은 주소를 앱알림과 메일도 싣는다.
 
-    그래서 휴대폰(≤767px)에서만 창을 띄우고, 그보다 넓으면 지시마다 있는
-    주소(`/projmng/ai/task/{번호}`)로 옮겨 간다 — 포털의 탭 줄이 주소로 탭을
-    가르므로 **여러 건을 누르면 탭이 여러 개** 선다(`AiTaskViewPage`).
+    휴대폰에서는 한동안 **창**(`AiTaskPeek`)이 떴다. 화면을 꽉 채우기는
+    했지만 창은 **한 번에 한 건**이다. 다른 건을 보려면 닫고 목록에서 다시
+    찾아 눌러야 했고, 「아침에 보낸 것과 방금 끝난 것을 견주는」 일 —
+    넓은 화면에서 탭이 하던 바로 그 일 — 이 휴대폰에서만 안 됐다.
 
-    같은 주소를 앱알림과 메일도 싣는다. 보여 주는 코드는 창과 한 벌이다
-    (`AiTaskView` · `AiTaskActions`).
+    그렇다고 휴대폰에서 주소로 옮겨 갈 수도 없다. **포털의 탭 줄은
+    휴대폰에서 통째로 감춰져 있어서**(`app.css` 의 ≤767px) 탭이 서도 보이지
+    않고, 열어 둔 것들 사이를 오갈 길이 없다.
+
+    그래서 **이 판이 제 탭 줄을 갖는다.** 맨 앞이 「빠른 지시」(적는 자리와
+    카드 목록)고 그 뒤로 열어 본 건이 하나씩 붙는다. 누르면 그 건으로
+    갈아타고 ×로 닫는다. 창이 아니므로 **여러 건을 열어 두고 오갈 수 있고**,
+    뒤로 가기·새로 고침이 화면을 날리지도 않는다.
+
+    적는 자리는 **감추기만 한다**(`pm-ask__pane--off`). 지워 버리면 적다 만
+    글을 붙드는 JS(`ask-draft.js`)가 잡고 있던 글상자가 사라지고, 미는
+    손짓(`ask-swipe.js`)과 끝까지 굴렸는지 보는 감지점도 함께 끊긴다.
+
+    넓어지면 판 안의 탭은 걷고 **보고 있던 건의 주소로 옮겨 간다** — 그
+    폭에서는 포털 탭이 같은 일을 더 잘한다.
+
+    보여 주는 코드는 한 벌이다 — 휴대폰의 판과 책상의 화면이 같은
+    `AiTaskView` · `AiTaskActions` 를 쓴다.
 *@
 
 @inherits DataPage
 @implements IDisposable
 @implements IAsyncDisposable
 
-@* 카드를 누르면 창이냐 탭이냐를 가르는 값. **`@bind-IsActive` 가 아니다** —
-   묶어만 두면 값이 갈려도 처리기가 돌지 않는다(`MainLayout` 이 같은 함정을
-   적어 두었다). 경계 767px 는 창이 화면을 꽉 채우는 경계와 같다. *@
+@* 카드를 누르면 판 안의 탭이냐 포털 탭이냐를 가르는 값.
+   **`@bind-IsActive` 가 아니다** — 묶어만 두면 값이 갈려도 처리기가 돌지
+   않는다(`MainLayout` 이 같은 함정을 적어 두었다). 경계 767px 는 포털의
+   탭 줄이 감춰지는 경계와 같다(`app.css`). *@
 <DxLayoutBreakpoint DeviceSize="DeviceSize.XSmall"
-                    IsActive="_isPhone" IsActiveChanged="@(v => _isPhone = v)" />
+                    IsActive="_isPhone" IsActiveChanged="@OnPhoneChanged" />
 
 @* 상자에 **이 부품만의 id** 를 단다. 글상자를 잡는 JS(`ask-draft.js`)가
    `document.querySelector` 로 하나만 집는데, 화면과 서랍이 함께 떠 있으면
@@ -235,8 +252,79 @@
    화면에서 친 글자가 아무 데도 안 적힌다. id 로 제 상자 안에서만 찾게 한다. *@
 <div class="pm-ask" id="@_domId">
 
-    @* ── 적는 자리 ──────────────────────────────────────── *@
-    <CommCont>
+    @* ── 판 안의 탭 줄 (휴대폰) ────────────────────────────
+
+       열어 본 건이 하나라도 있을 때만 선다. 아무것도 안 열었을 때 「빠른
+       지시」 한 칸짜리 줄이 서면 **누를 데도 없는 띠가 글상자 위 한 층을
+       먹는다** — 이 화면에서 세로 한 층은 카드 반 장이다.
+
+       `@@key` 를 건 번호로 준다. 가운데 탭을 닫을 때 Blazor 가 차례로
+       대조하면 **맨 끝 칸을 지우고 글자만 밀어 올려**, 눌린 채였던 칸이
+       다른 건의 칸이 되어 굳는다(카드 목록이 같은 까닭으로 같은 표시를
+       달고 있다). *@
+    @if (_isPhone && _views.Count > 0)
+    {
+        <div class="pm-ask__tabs" role="tablist" aria-label="열어 둔 상세">
+            <button type="button"
+                    class="pm-ask__tab @(Viewing is null ? "pm-ask__tab--on" : null)"
+                    role="tab" aria-selected="@(Viewing is null)"
+                    @onclick="ShowList">빠른 지시</button>
+
+            @foreach (var key in _views)
+            {
+                var on = Viewing == key;
+
+                <span @key="key" class="pm-ask__tab @(on ? "pm-ask__tab--on" : null)">
+                    <button type="button" class="pm-ask__tabgo"
+                            role="tab" aria-selected="@on"
+                            title="@ViewTitle(key)"
+                            @onclick="@(() => ShowView(key))">@ViewTitle(key)</button>
+
+                    <button type="button" class="pm-ask__tabx"
+                            title="닫기" aria-label="@($"{ViewTitle(key)} 닫기")"
+                            @onclick="@(() => CloseView(key))">×</button>
+                </span>
+            }
+        </div>
+    }
+
+    @* ── 상세 (휴대폰) ────────────────────────────────────
+
+       보고 있는 한 건만 그린다. 열어 둔 것을 전부 그려 놓고 감추면 건마다
+       로그를 따라가는 타이머가 돌아, 탭 넷이면 가려진 셋이 3초마다 서버를
+       두드린다(`AiTaskView.Follow`).
+
+       `@@key` 때문에 탭을 갈아탈 때 판이 새로 선다 — 지난 건의 결과가
+       잠깐 비치지 않는다. *@
+    @if (_isPhone && Viewing is { } viewing)
+    {
+        <CommCont CssClass="pm-ask__view">
+            <AiTaskView @key="viewing" Item="@ViewItem" Live="true"
+                        MissingText="그 건을 목록에서 놓쳤습니다. 탭을 닫고 다시 여십시오." />
+
+            @if (ViewItem is not null)
+            {
+                @* 단추는 목록·책상 화면과 같은 부품이다. 창이 아니라 본문
+                   끝에 서므로 `AiTaskViewPage` 와 같은 모양으로 둔다. *@
+                <div class="pm-ask__viewacts">
+                    <AiTaskActions Item="@ViewItem"
+                                   OnChanged="@OnViewChangedAsync"
+                                   OnConfirmed="@OnViewClosedAsync"
+                                   OnDeleted="@OnViewClosedAsync" />
+                </div>
+            }
+        </CommCont>
+    }
+
+    @* ── 적는 자리 ────────────────────────────────────────
+
+       상세를 보는 동안에는 **감추기만 한다**(머리말). 지우면 적다 만 글을
+       붙드는 JS 가 글상자를 잃는다.
+
+       **판이 둘이라 둘 다 감춘다**(적는 자리 · 카드 목록). 한쪽만 감추면
+       상세 아래에 나머지 판이 그대로 이어 붙어, 결과문을 끝까지 내려간
+       자리에서 카드가 다시 나온다 — 실제로 그렇게 밟았다. *@
+    <CommCont CssClass="@PaneCss">
 
         @if (_targets.Count == 0)
         {
@@ -513,7 +601,7 @@
        제목을 달지 않는다. 이 판 위가 보내는 자리고 그 바로 아래에 카드가
        깔리면 **그것이 방금 보낸 것들이라는 사실은 자리로 이미 말한다.**
        모바일에서 제목 한 줄은 카드 한 층만큼의 높이다. *@
-    <CommCont>
+    <CommCont CssClass="@PaneCss">
         @if (_recent.Count == 0)
         {
             <PageNotice Tone="NoticeTone.Info" Text="아직 보낸 것이 없습니다." />
@@ -642,7 +730,7 @@
                         }
 
                         <button type="button" class="pm-ask__head"
-                                @onclick="@(() => Peek(t.TaskKey))">
+                                @onclick="@(() => PeekAsync(t.TaskKey))">
                             <UserFaceMark LoginId="@t.CreId" />
 
                             <span class="pm-ask__rows">
@@ -730,11 +818,4 @@
               aria-hidden="true"
               @ref="_moreSentinel"></span>
     </CommCont>
-
-    @* 카드를 누르면 여기서 연다. 지시 · 결과 · 로그를 탭으로 나눠 담고,
-       **휴대폰에서는 화면을 꽉 채운다.** 무엇을 펴서 열지는 그 창이 상태로
-       고른다 — 위 머리말 참고. *@
-    <AiTaskPeek Item="@PeekItem" Visible="@(_peek is not null)"
-                VisibleChanged="@OnPeekVisible"
-                OnRetried="@OnPeekRetriedAsync" />
 </div>
