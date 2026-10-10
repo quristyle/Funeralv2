@@ -16,6 +16,7 @@ public partial class RequestDetail : IDisposable
     [Inject] private HelpDeskContext Context { get; set; } = default!;
     [Inject] private PortalTabs Tabs { get; set; } = default!;
     [Inject] private GatewayClient Gateway { get; set; } = default!;
+    [Inject] private IJSRuntime JS { get; set; } = default!;
 
     /// <summary>주소의 요청 키.</summary>
     [Parameter] public string Id { get; set; } = string.Empty;
@@ -446,7 +447,9 @@ public partial class RequestDetail : IDisposable
     /// <see cref="Id"/> 를 읽으므로 주소가 바뀌면 다음 바퀴부터 새 글의
     /// 댓글을 본다.
     /// </remarks>
-    protected override Task OnAfterRenderAsync(bool firstRender)
+    private bool _shouldScrollToHash = true;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
@@ -454,7 +457,38 @@ public partial class RequestDetail : IDisposable
             _ = WatchCommentsAsync(_watch.Token);
         }
 
-        return Task.CompletedTask;
+        if (_shouldScrollToHash && _roots.Count > 0 && !Loading)
+        {
+            _shouldScrollToHash = false;
+            await ScrollToHashAsync();
+        }
+    }
+
+    private async Task ScrollToHashAsync()
+    {
+        var uri = Navigation.ToAbsoluteUri(Navigation.Uri);
+        if (!string.IsNullOrEmpty(uri.Fragment) && uri.Fragment.StartsWith("#comment-"))
+        {
+            var elementId = uri.Fragment.Substring(1);
+            try
+            {
+                await JS.InvokeVoidAsync("eval", $@"
+                    setTimeout(() => {{
+                        const el = document.getElementById('{elementId}');
+                        if (el) {{
+                            el.scrollIntoView({{ behavior: 'smooth', block: 'center' }});
+                            el.classList.remove('hd-cmt--highlight');
+                            void el.offsetWidth;
+                            el.classList.add('hd-cmt--highlight');
+                        }}
+                    }}, 300);
+                ");
+            }
+            catch
+            {
+                // Ignore JS errors if eval is blocked or element not found
+            }
+        }
     }
 
     /// <summary>

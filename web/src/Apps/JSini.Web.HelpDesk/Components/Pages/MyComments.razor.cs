@@ -8,6 +8,7 @@ namespace JSini.Web.HelpDesk.Components.Pages;
 public partial class MyComments
 {
     [Inject] private HelpDeskApi Api { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
 
     [SupplyParameterFromQuery(Name = "company")] public string? CompanyQuery { get; set; }
     [SupplyParameterFromQuery(Name = "all")] public bool? AllQuery { get; set; }
@@ -25,6 +26,11 @@ public partial class MyComments
         _comments = await Api.GetListAsync<MyCommentItem>("comments/my", parameters);
         return _comments.Count;
     }, "작성한 댓글이 없습니다.", "댓글을 읽지 못했습니다");
+
+    private void GoToDetail(MyCommentItem comment)
+    {
+        Navigation.NavigateTo($"/helpdesk/request/detail/{comment.RequestId}#comment-{comment.CommentId}");
+    }
 
     private static MarkupString Body(MyCommentItem comment) =>
         new(NoticeHtml.Sanitize(comment.CommentText, ThumbnailImage, lazyLoadImages: true));

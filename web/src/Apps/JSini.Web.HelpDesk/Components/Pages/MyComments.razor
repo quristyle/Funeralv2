@@ -20,12 +20,13 @@ else
     <div class="hd-my-comments">
         @foreach (var comment in _comments)
         {
-            <article class="jsini-card hd-my-comment" @key="comment.CommentId">
+            <article class="jsini-card hd-my-comment" @key="comment.CommentId"
+                     style="cursor: pointer;"
+                     @onclick="@(() => GoToDetail(comment))">
                 <header class="hd-my-comment__head">
-                    <a class="hd-my-comment__request"
-                       href="@($"/helpdesk/request/detail/{comment.RequestId}")">
+                    <div class="hd-my-comment__request">
                         @RequestTitle(comment)
-                    </a>
+                    </div>
                     @if (!string.IsNullOrWhiteSpace(comment.RequestStatus))
                     {
                         <span class="jsini-badge">@comment.RequestStatus</span>

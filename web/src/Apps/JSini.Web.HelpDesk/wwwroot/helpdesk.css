@@ -2223,3 +2223,13 @@
     font-size: var(--jsini-fs-xs);
   }
 }
+
+@keyframes hd-cmt-blink {
+  0% { background-color: transparent; }
+  50% { background-color: color-mix(in srgb, var(--jsini-accent) 20%, transparent); }
+  100% { background-color: transparent; }
+}
+.hd-cmt--highlight {
+  animation: hd-cmt-blink 1s ease-in-out 3;
+}
+
