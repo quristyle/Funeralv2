@@ -339,7 +339,6 @@ public partial class HeaderTools
     /// 보람이 없다 — 먼저 펴고 숫자는 뒤따라 맞춘다.
     /// </para>
     /// </remarks>
-    /// <summary>
 
     /// <summary>
     /// ✉ 를 눌렀다. 창은 <c>CommPopup</c> 이라 사용자 판(1041)보다 위에 뜨지만,
