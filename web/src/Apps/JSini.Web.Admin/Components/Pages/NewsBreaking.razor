@@ -1,0 +1,29 @@
+@page "/news/breaking"
+@using JSini.Web.Components
+@using DevExpress.Blazor
+
+<PageTitle>뉴스속보 목록</PageTitle>
+
+<div class="h-full flex-col">
+    <DxToolbar CssClass="p-2 border-b">
+        <DxToolbarItem Text="새로고침" IconCssClass="jsini-mi mi-lucide-refresh-cw" Click="RefreshAsync" />
+    </DxToolbar>
+
+    <div class="flex-1 p-4 overflow-auto">
+        <DxGrid Data="Data" ShowFilterRow="true" ShowSearchBox="true">
+            <Columns>
+                <DxGridDataColumn FieldName="Id" Caption="ID" Width="80px" />
+                <DxGridDataColumn FieldName="Title" Caption="제목" />
+                <DxGridDataColumn FieldName="Category" Caption="카테고리" Width="100px" />
+                <DxGridDataColumn FieldName="Urgency" Caption="긴급도" Width="100px" />
+                <DxGridDataColumn FieldName="Source" Caption="출처" Width="120px" />
+                <DxGridDataColumn FieldName="PublishedAt" Caption="발행일" Width="150px" DisplayFormat="yyyy-MM-dd HH:mm" />
+                <DxGridDataColumn Caption="URL" Width="100px">
+                    <CellDisplayTemplate>
+                        <a href="@context.GetRowValue("Url")" target="_blank" class="link-quiet">보기</a>
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+            </Columns>
+        </DxGrid>
+    </div>
+</div>
