@@ -101,18 +101,18 @@
              SelectedItemsChanged="@((IReadOnlyList<NotificationDto> items) => _selectedItems = items)"
              OnRowDoubleClick="@OpenAsync"
              Reload="@ReloadAsync">
-        <FooterLeft>
-            <DxButton Text="읽음 처리" RenderStyle="ButtonRenderStyle.Secondary"
-                      Enabled="@(_selectedItems.Count > 0)"
-                      Click="@MarkSelectedReadAsync" />
-            <DxButton Text="선택항목 삭제" RenderStyle="ButtonRenderStyle.Danger"
-                      Enabled="@(_selectedItems.Count > 0)"
-                      Click="@DeleteSelectedAsync" />
-        </FooterLeft>
         <ContextMenuItems>
             <CommMenuItem Text="열기" IconCssClass="jsini-icon-eye"
                           Enabled="@(_picked is not null)"
                           Click="@(() => OpenAsync(_picked!))" />
+            @* 고른 줄에 거는 묶음 동작. 아래 띠에 단추로 두면 같은 표의 동작이
+               두 자리로 갈린다(`CommGrdFooterTests`). *@
+            <CommMenuItem Text="읽음 처리" IconCssClass="jsini-icon-check"
+                          Enabled="@(_selectedItems.Count > 0)"
+                          Click="@MarkSelectedReadAsync" />
+            <CommMenuItem Text="선택항목 삭제" IconCssClass="jsini-icon-trash"
+                          Enabled="@(_selectedItems.Count > 0)"
+                          Click="@DeleteSelectedAsync" />
         </ContextMenuItems>
         <Columns>
             <DxGridSelectionColumn Width="50" />

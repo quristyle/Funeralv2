@@ -27,7 +27,7 @@ public sealed class AiTaskAlwaysTests
 {
     /// <summary>
     /// 문구의 알맹이. <b>온 문장을 다 적지 않는다</b> — 말끝을 다듬는 것까지
-    /// 테스트가 막으면 문구를 못 고친다. 빠지면 회차가 헛도는 두 마디만 본다.
+    /// 테스트가 막으면 문구를 못 고친다. 빠지면 회차가 헛도는 마디만 본다.
     /// </summary>
     private static readonly string[] Must =
     [
@@ -39,6 +39,14 @@ public sealed class AiTaskAlwaysTests
         "origin/main 에 들어갔는지",
 
         "DB 연결정보를 소스에서 확인",
+
+        // **다 끝난 건이 두 시간을 버리고 '실패'로 앉는 것**을 막는 마디.
+        // 지시 292 는 `$(find ...)` 가 빈 결과로 펴지는 바람에 파일 인자를
+        // 잃은 `grep` 이 표준입력을 기다리며 멈췄다. 커밋도 push 도 이미
+        // `origin/main` 까지 들어간 뒤였는데, Antigravity CLI 는 print
+        // 모드에서 배경 작업이 다 끝나야 빠져나오므로 `--print-timeout 120m`
+        // 을 꽉 채우고 잘렸다.
+        "표준입력을 기다리며",
     ];
 
     /// <summary>문구가 사는 한 곳.</summary>

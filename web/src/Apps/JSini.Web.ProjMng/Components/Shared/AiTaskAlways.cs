@@ -6,7 +6,7 @@ namespace JSini.Web.ProjMng.Components.Shared;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>사람이 매번 적지 않아도 되는 것만 둔다.</b> 여기 적힌 둘은 지시마다
+/// <b>사람이 매번 적지 않아도 되는 것만 둔다.</b> 여기 적힌 것들은 지시마다
 /// 달라지지 않는데 빠뜨리면 그 회차가 통째로 헛도는 것들이다 —
 /// 고쳤다고 말만 하고 파일은 안 건드린 채 끝나거나, 다 고쳐 놓고
 /// 워크트리에만 남겨 둬 다음 회차가 같은 일을 다시 한다.
@@ -62,6 +62,32 @@ namespace JSini.Web.ProjMng.Components.Shared;
 /// 올라가고 표는 안 바뀐 상태로 배포가 나간다. 그래서 「찾아서 직접 하라」를
 /// 지시에 박아 둔다.
 /// </para>
+/// <para>
+/// [셸 줄이 왜 있나]
+/// </para>
+/// <para>
+/// 2026-10-10, 지시 292 가 <c>grep -A 5 "class AccountDto" $(find ./web/src
+/// -name "AccountDto.cs")</c> 를 돌렸다. <c>find</c> 가 아무것도 못 찾아
+/// 치환이 빈 문자열로 펴졌고, <b>파일 인자를 잃은 <c>grep</c> 은 표준입력을
+/// 읽으러 갔다.</b> CLI 가 붙여 둔 pty 에는 EOF 가 영영 안 와서 그 명령이
+/// 그대로 멈춰 섰다 — 출력 0 바이트, 48분.
+/// </para>
+/// <para>
+/// <b>일은 그때 이미 다 끝나 있었다.</b> 커밋도 push 도 <c>origin/main</c>
+/// 까지 들어갔다. 그런데 Antigravity CLI 는 print 모드에서 <b>배경 작업이
+/// 다 끝나야</b> 빠져나온다 — <c>root agent idle; waiting up to 2h0m0s for 1
+/// background task(s)</c>. 셸 명령이 2초 안에 안 끝나면 CLI 가 그것을 배경
+/// 작업으로 알아서 돌리므로(<c>WaitMsBeforeAsync</c>), 멈춘 명령 하나가 곧
+/// 안 끝나는 회차가 된다. 그래서 <b>다 된 건이 <c>--print-timeout 120m</c>
+/// 을 꽉 채우고 잘린 뒤 '실패'로 앉는다</b> — 그동안 실행기 슬롯
+/// (<c>MaxParallel</c>) 하나도 같이 물고 있다.
+/// </para>
+/// <para>
+/// 그래서 두 마디를 함께 둔다. 앞은 <b>그 꼴을 안 만드는</b> 쪽이고, 뒤는
+/// <b>그래도 생겼을 때 빠져나오는</b> 쪽이다 — 292 의 에이전트는 멈춘 작업을
+/// 세 번이나 들여다보고도(<c>Check task</c>) 멈출 수 있다는 것을 몰라
+/// 그대로 끝냈다.
+/// </para>
 /// </remarks>
 internal static class AiTaskAlways
 {
@@ -73,7 +99,12 @@ internal static class AiTaskAlways
         + "들어갔는지 git log origin/main 으로 직접 확인하고, 올리지 못했으면 "
         + "무엇이 막았는지 결과에 적어라.\n\n"
         + "DB 작업이 필요하면 DB 연결정보를 소스에서 확인하여 사용하여 직접 처리하고, "
-        + "반영한 결과까지 조회해서 확인해라.";
+        + "반영한 결과까지 조회해서 확인해라.\n\n"
+        + "셸 명령은 입력을 기다리는 꼴로 적지 마라. `$(find ...)` 처럼 치환으로 만든 "
+        + "파일 목록을 grep·cat 에 바로 넘기면, 찾은 것이 없을 때 인자가 통째로 사라져 "
+        + "그 명령이 표준입력을 기다리며 안 끝난다. 파일을 뒤질 때는 `grep -r 무늬 경로` 나 "
+        + "`find ... -exec grep ... {} +` 를 쓰고, 끝내기 전에 남은 배경 작업이 있는지 "
+        + "보고 있으면 멈춰라.";
 
     /// <summary>
     /// 사람이 적은 말 뒤에 <see cref="Text"/> 를 붙인다.

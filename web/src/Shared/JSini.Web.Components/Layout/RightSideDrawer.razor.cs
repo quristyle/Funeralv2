@@ -5,6 +5,8 @@ namespace JSini.Web.Components.Layout;
 
 public partial class RightSideDrawer
 {
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+
     [Parameter] public string Id { get; set; } = $"drawer-{Guid.NewGuid():N}";
     [Parameter] public bool IsOpen { get; set; }
     [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }

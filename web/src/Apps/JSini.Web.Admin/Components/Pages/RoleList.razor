@@ -211,7 +211,7 @@
                                  RowActions="@UserActions"
                                  ActionsWidth="90"
                                  AllowDragRows="true"
-                                 AllowedDropTarget="DevExpress.Blazor.GridAllowedDropTarget.ExternalComponent"
+                                 AllowedDropTarget="DevExpress.Blazor.GridAllowedDropTarget.External"
                                  ItemsDropped="@OnGridItemsDroppedAsync">
                             <ContextMenuItems>
                                 <PermissionView Action="MenuAction.Update">
@@ -238,7 +238,7 @@
                                               ChildrenFieldName="@nameof(OrgNode.Children)"
                                               EmptyText="조직도를 불러오지 못했습니다."
                                               AllowDragRows="true"
-                                              AllowedDropTarget="DevExpress.Blazor.TreeListAllowedDropTarget.ExternalComponent"
+                                              AllowedDropTarget="DevExpress.Blazor.TreeListAllowedDropTarget.External"
                                               ItemsDropped="@OnTreeItemsDroppedAsync">
                                         <Columns>
                                             <DxTreeListDataColumn FieldName="@nameof(OrgNode.Name)" Caption="부서/사용자" MinWidth="200">
@@ -409,7 +409,7 @@
                                               ChildrenFieldName="@nameof(OrgNode.Children)"
                                               EmptyText="조직도를 불러오지 못했습니다."
                                               AllowDragRows="true"
-                                              AllowedDropTarget="DevExpress.Blazor.TreeListAllowedDropTarget.ExternalComponent"
+                                              AllowedDropTarget="DevExpress.Blazor.TreeListAllowedDropTarget.External"
                                               ItemsDropped="@OnTreeItemsDroppedAsync">
                                         <Columns>
                                             <DxTreeListDataColumn FieldName="@nameof(OrgNode.Name)" Caption="부서/사용자" MinWidth="200">

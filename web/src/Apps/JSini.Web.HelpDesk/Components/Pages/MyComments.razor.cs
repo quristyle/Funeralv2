@@ -8,7 +8,6 @@ namespace JSini.Web.HelpDesk.Components.Pages;
 public partial class MyComments
 {
     [Inject] private HelpDeskApi Api { get; set; } = default!;
-    [Inject] private NavigationManager Navigation { get; set; } = default!;
 
     [SupplyParameterFromQuery(Name = "company")] public string? CompanyQuery { get; set; }
     [SupplyParameterFromQuery(Name = "all")] public bool? AllQuery { get; set; }

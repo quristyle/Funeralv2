@@ -28,11 +28,6 @@ public partial class RoleList
 
     private IReadOnlyList<OrgNode> _orgTree = Array.Empty<OrgNode>();
 
-    protected override async Task OnInitializedAsync()
-    {
-        await LoadOrgTreeAsync();
-    }
-
     private async Task LoadOrgTreeAsync()
     {
         if (_orgTree.Count > 0) return;
@@ -44,12 +39,12 @@ public partial class RoleList
             nodes.Add(companyNode);
             
             var depts = await Api.GetDeptsAsync(c.Id);
-            var deptNodes = depts.ToDictionary(d => d.Id, d => new OrgNode { Id = d.Id, ParentId = d.ParentId ?? c.Id, Name = d.Name, IsUser = false });
+            var deptNodes = depts.ToDictionary(d => d.Id, d => new OrgNode { Id = d.Id, ParentId = d.Pid ?? c.Id, Name = d.Name, IsUser = false });
             
             foreach (var d in depts)
             {
                 var node = deptNodes[d.Id];
-                if (d.ParentId != null && deptNodes.TryGetValue(d.ParentId, out var parent))
+                if (d.Pid != null && deptNodes.TryGetValue(d.Pid, out var parent))
                 {
                     parent.Children.Add(node);
                 }
@@ -83,7 +78,7 @@ public partial class RoleList
 
     private async Task OnGridItemsDroppedAsync(DevExpress.Blazor.GridItemsDroppedEventArgs e)
     {
-        if (e.DraggedItems.FirstOrDefault() is OrgNode node && node.IsUser)
+        if (e.DroppedItems.FirstOrDefault() is OrgNode node && node.IsUser)
         {
             if (_role is null) return;
             var ok = await RunAsync(
@@ -96,7 +91,7 @@ public partial class RoleList
 
     private async Task OnTreeItemsDroppedAsync(DevExpress.Blazor.TreeListItemsDroppedEventArgs e)
     {
-        if (e.DraggedItems.FirstOrDefault() is RoleUserDto user)
+        if (e.DroppedItems.FirstOrDefault() is RoleUserDto user)
         {
             if (_role is null) return;
             var ok = await RunAsync(
@@ -283,13 +278,18 @@ public partial class RoleList
         }
     }
 
-    protected override Task OnInitializedAsync()
+    protected override async Task OnInitializedAsync()
     {
         // `PermissionView` 와 **똑같이** 묻는다. 체크박스는 그릴지 말지가 아니라
         // 켜고 끌 수 있는지를 정하는 것이라 직접 판정한다.
         _canEdit = Can(MenuAction.Update);
 
-        return ReloadAsync();
+        await ReloadAsync();
+
+        // 조직도는 **역할 목록 뒤에** 읽는다. 지정 사용자 탭의 오른쪽 트리가
+        // 쓰는 것이라 첫 화면에는 안 보이는데, 회사마다 부서를 따로 묻느라
+        // 호출이 여러 번 나간다 — 먼저 읽으면 왼쪽 역할 목록이 그만큼 늦게 뜬다.
+        await LoadOrgTreeAsync();
     }
 
     private Task ReloadAsync() => LoadAsync(async () =>

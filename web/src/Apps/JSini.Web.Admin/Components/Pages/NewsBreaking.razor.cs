@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Components;
 
 namespace JSini.Web.Admin.Components.Pages;
 
-public partial class NewsBreaking : ComponentBase
+public partial class NewsBreaking
 {
     public class NewsItem
     {

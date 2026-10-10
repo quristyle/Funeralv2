@@ -1,4 +1,5 @@
-﻿using JSini.Web.Components.Data;
+﻿using System.Text.Json.Serialization;
+using JSini.Web.Components.Data;
 using JSini.Web.Models;
 
 namespace JSini.Web.Admin.Api;
@@ -54,6 +55,45 @@ public sealed class AccountDto
     public List<string> Emails { get; set; } = [];
     public string? Phone { get; set; }
     public List<string> Phones { get; set; } = [];
+
+    /// <summary>
+    /// 편집 창의 <c>DxTagBox</c> 가 <c>@bind-Values</c> 로 묶는 자리.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 그 부품은 <c>IEnumerable&lt;string&gt;</c> 를 주고받는데 위의 것은
+    /// <c>List&lt;string&gt;</c> 라 형이 안 맞는다. 그렇다고 <c>Values</c> 와
+    /// <c>ValuesChanged</c> 를 따로 적으면 <b>등록·수정 단추를 눌러도 팝업이
+    /// 말없이 안 열린다</b>(<c>EditFormBindingTests</c>).
+    /// </para>
+    /// <para>
+    /// <b>대표값을 여기서 맞춘다.</b> 표의 「이메일」 칸과 서버로 가는 값이
+    /// <see cref="Email"/> 하나라, 목록만 고치고 대표값을 안 옮기면
+    /// <b>창에서는 바뀌었는데 저장하면 옛 값이 남는다.</b>
+    /// </para>
+    /// </remarks>
+    [JsonIgnore]
+    public IEnumerable<string> EmailValues
+    {
+        get => Emails;
+        set
+        {
+            Emails = value?.ToList() ?? [];
+            Email = Emails.FirstOrDefault();
+        }
+    }
+
+    /// <summary>연락처 쪽 짝. 까닭은 <see cref="EmailValues"/> 와 같다.</summary>
+    [JsonIgnore]
+    public IEnumerable<string> PhoneValues
+    {
+        get => Phones;
+        set
+        {
+            Phones = value?.ToList() ?? [];
+            Phone = Phones.FirstOrDefault();
+        }
+    }
 
     /// <summary>ACTIVE · LOCKED · RESIGNED.</summary>
     public string Status { get; set; } = "ACTIVE";

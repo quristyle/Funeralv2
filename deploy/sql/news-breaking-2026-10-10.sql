@@ -34,10 +34,19 @@ INSERT INTO scom.system_menus
      hide_in_menu, status, created_at, created_by, keep_alive,
      use_view, use_search, use_create, use_update, use_delete, use_excel, use_print,
      route_key)
-VALUES ('NEWS_BREAKING', 'NewsBreaking', '/news/breaking', NULL, 'MENU', '뉴스속보 목록',
+VALUES ('NEWS_BREAKING', 'NewsBreaking', '/admin/news/breaking', NULL, 'MENU', '뉴스속보 목록',
        'lucide:newspaper', 10, false, 1, now(), 'news-setup', true,
-       true, true, true, true, true, false, false, 'news.breaking')
-ON CONFLICT (id) DO UPDATE SET path = EXCLUDED.path;
+       true, true, true, true, true, false, false, 'admin.news.breaking')
+-- 사이드바가 링크를 거는 것은 path 가 아니라 route_key 다(web/CLAUDE.md
+-- 「연결 고리는 URL 이 아니라 열쇠다」). 처음 넣은 값이 'news.breaking' ·
+-- '/news/breaking' 이었는데 **그 화면은 포털관리 모듈에 있다** — 모듈의
+-- `@page` 는 제 접두사로 시작해야 하고(의존 규칙 3) RouteKey 도 제 모듈
+-- 이름으로 시작해야 한다(RouteKeyTests). 둘을 'admin.…' 으로 바로잡았으니
+-- **이 스크립트를 다시 돌려 DB 의 값도 함께 옮긴다** — 안 옮기면 메뉴는
+-- 보이는데 눌러도 안 열린다(풀 열쇠가 어느 화면과도 안 맞는다).
+ON CONFLICT (id) DO UPDATE
+    SET path = EXCLUDED.path,
+        route_key = EXCLUDED.route_key;
 
 -- Grant permissions to SYSTEM_ADMINISTRATOR
 INSERT INTO scom.role_menus (
