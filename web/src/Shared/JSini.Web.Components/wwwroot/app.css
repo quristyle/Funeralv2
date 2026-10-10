@@ -906,6 +906,13 @@ body {
     border: none;
     border-radius: 0;
     overflow-y: auto;
+    /* 모바일 하단 네비게이션바 높이만큼 여백을 주어 로그아웃 버튼 등이 가려지지 않게 한다. */
+    padding-bottom: calc(60px + env(safe-area-inset-bottom) + 0.35rem);
+  }
+
+  /* 환경설정에서 하단 띠를 숨긴 경우 여백을 되돌린다. */
+  .jsini-shell--bottomnav-hidden .jsini-user__menu {
+    padding-bottom: calc(env(safe-area-inset-bottom) + 0.35rem);
   }
 }
 
