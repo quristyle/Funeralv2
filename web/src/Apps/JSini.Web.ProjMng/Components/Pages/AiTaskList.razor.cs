@@ -33,7 +33,8 @@ public partial class AiTaskList
         _targets.FirstOrDefault(t => t.TargetKey == _targetKey)?.TargetNm,
         SchSummary.NameOf(SourceFilters, o => o.Value, o => o.Text, _source),
         _keyword,
-        SchSummary.On(_excludeDone, "완료 제외"));
+        SchSummary.On(_excludeDone, "완료 제외"),
+        SchSummary.On(_excludeConfirmed, "확인 제외"));
 
     /// <summary>
     /// 휴대폰인가. 요약·조회판을 접느냐 펴느냐가 이 값 하나에 달려 있다.
@@ -428,6 +429,7 @@ public partial class AiTaskList
             // **「완료 제외」도 함께 끈다.** 건너온 건이 이미 끝난 것이면
             // 이 스위치 하나 때문에 「찾지 못했습니다」가 된다.
             _excludeDone = false;
+            _excludeConfirmed = false;
 
             // 그리드 칸별 필터도 함께 지운다.
             _statusFilterValues = [];
@@ -507,6 +509,7 @@ public partial class AiTaskList
     private Task SearchAsync() => LoadAsync(async () =>
     {
         _rows = await Api.ListAsync(_status, _flag, _targetKey, _keyword,
+            userConfirmed: _excludeConfirmed ? false : null,
             userRequest: UserRequestFilter, excludeDone: _excludeDone);
 
         // 고른 것이 목록에서 빠졌으면 오른쪽을 비운다 — 없는 건을 고치고
@@ -553,6 +556,7 @@ public partial class AiTaskList
     /// </para>
     /// </remarks>
     private bool _excludeDone;
+    private bool _excludeConfirmed;
 
     /// <summary>고른 출처를 서버가 알아듣는 값으로. 「전체」는 조건 없음이다.</summary>
     private bool? UserRequestFilter => _source switch

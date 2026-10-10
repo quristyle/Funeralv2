@@ -176,6 +176,12 @@
                         완료 제외
                     </DxCheckBox>
                 </CommSchItem>
+                <CommSchItem>
+                    <DxCheckBox @bind-Checked="_excludeConfirmed" @bind-Checked:after="SearchAsync"
+                                title="사용자 확인이 완료된 건을 목록에서 뺍니다.">
+                        확인 제외
+                    </DxCheckBox>
+                </CommSchItem>
             </Fields>
         </CommSch>
     </div>
