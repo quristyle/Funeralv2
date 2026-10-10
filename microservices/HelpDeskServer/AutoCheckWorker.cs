@@ -82,7 +82,7 @@ namespace HelpDeskServer.Services {
               if( req.Status == ImprovementStatus.Pending
               &&  req.CreatedAt > DateTime.UtcNow.AddDays(-1).AddHours(-12) ) {
                 title = "[위험] kepware 라이선스 만료";
-                await PushUtil.SendPushMsg(title, content, "/request_detail?id=231", adminSubscriptions, _sender);
+                await PushUtil.SendPushMsg(title, content, "/helpdesk/request/detail/231", adminSubscriptions, _sender);
 
                 var Emails = await adminService.GetAdminEmailsForNotificationAsync();
                 string vmailTos = string.Join(";", Emails);
@@ -101,7 +101,7 @@ namespace HelpDeskServer.Services {
             // db.Requests.Update(req); // 자동 감지됨 update 구문 필요 없음.
             await db.SaveChangesAsync();
 
-            await PushUtil.SendPushMsg(title, content, "/request_detail?id=231", adminSubscriptions, _sender);
+            await PushUtil.SendPushMsg(title, content, "/helpdesk/request/detail/231", adminSubscriptions, _sender);
 
             var adminEmails = await adminService.GetAdminEmailsForNotificationAsync();
             string mailTos = string.Join(";", adminEmails);

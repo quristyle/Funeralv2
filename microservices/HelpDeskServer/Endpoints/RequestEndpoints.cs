@@ -666,8 +666,28 @@ public static class RequestEndpoints {
         }
 
         if (provider.IsConnected) {
-          string mailBody = request.Description + "<br/><br/>" +
-            $"<a href='https://help.jin114.co.kr/request_detail?id={request.Id}' target='_blank'>접수글 보기</a><br/><br/><br/><br/>";
+          var mailBody = $@"
+<div style=""max-width: 600px; margin: 0 auto; font-family: 'Malgun Gothic', sans-serif; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;"">
+    <div style=""background-color: #f8f9fa; padding: 20px; border-bottom: 1px solid #e0e0e0;"">
+        <h2 style=""margin: 0; color: #333; font-size: 18px;"">[등록] {request.Title}</h2>
+    </div>
+    <div style=""padding: 24px; background-color: #ffffff;"">
+        <p style=""font-size: 14px; color: #555; line-height: 1.6; margin-top: 0;"">
+            새로운 요청이 <strong>등록</strong> 되었습니다.
+        </p>
+        <div style=""background-color: #f1f3f5; padding: 16px; border-radius: 6px; margin: 20px 0;"">
+            <div style=""margin: 0; font-size: 14px; color: #333; line-height: 1.5;"">
+                {request.Description}
+            </div>
+        </div>
+        <div style=""text-align: center; margin-top: 30px;"">
+            <a href=""https://help.jin114.co.kr/helpdesk/request/detail/{request.Id}"" style=""display: inline-block; background-color: #007bff; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 4px; font-weight: bold; font-size: 14px;"">등록 글 보기</a>
+        </div>
+    </div>
+    <div style=""background-color: #f8f9fa; padding: 15px 20px; text-align: center; border-top: 1px solid #e0e0e0;"">
+        <p style=""margin: 0; font-size: 12px; color: #888;"">본 메일은 발신 전용입니다. 감사합니다.</p>
+    </div>
+</div>";
 
 
 
@@ -752,16 +772,36 @@ public static class RequestEndpoints {
         var assigneeName = adm?.UserName ?? "담당자 미정";
 
         var customerSubscriptions = await store.GetSubscriptionsByUserAsync(req.CustomerId, "customer");
-        await PushUtil.SendPushMsg($"접수 - {assigneeName}", $"{req.Title} ", $"/request_detail?id={req.Id}", customerSubscriptions, sender);
+        await PushUtil.SendPushMsg($"접수 - {assigneeName}", $"{req.Title} ", $"/helpdesk/request/detail/{req.Id}", customerSubscriptions, sender);
 
         var adminSubscriptions = await store.GetAdminSubscriptionsAsync();
-        await PushUtil.SendPushMsg($"접수 - {assigneeName}", $"{req.Title}", $"/request_detail?id={req.Id}", adminSubscriptions, sender);
+        await PushUtil.SendPushMsg($"접수 - {assigneeName}", $"{req.Title}", $"/helpdesk/request/detail/{req.Id}", adminSubscriptions, sender);
 
         var customerEmails = await adminService.GetCustomerEmailsForNotificationAsync(req.CustomerId);
         if (customerEmails.Any()) {
           string mailTos = string.Join(";", customerEmails);
-          string mailBody = req.Description + "<br/><br/>" + $" 접수글 [ {req.Title} ] 접수되었습니다.<br/><br/>" +
-            $"<a href='https://help.jin114.co.kr/request_detail?id={req.Id}' target='_blank'>접수 글 보기</a><br/><br/><br/><br/>";
+          var mailBody = $@"
+<div style=""max-width: 600px; margin: 0 auto; font-family: 'Malgun Gothic', sans-serif; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;"">
+    <div style=""background-color: #f8f9fa; padding: 20px; border-bottom: 1px solid #e0e0e0;"">
+        <h2 style=""margin: 0; color: #333; font-size: 18px;"">[접수] {req.Title}</h2>
+    </div>
+    <div style=""padding: 24px; background-color: #ffffff;"">
+        <p style=""font-size: 14px; color: #555; line-height: 1.6; margin-top: 0;"">
+            요청하신 내용이 <strong>접수</strong> 되었습니다.
+        </p>
+        <div style=""background-color: #f1f3f5; padding: 16px; border-radius: 6px; margin: 20px 0;"">
+            <div style=""margin: 0; font-size: 14px; color: #333; line-height: 1.5;"">
+                {req.Description}
+            </div>
+        </div>
+        <div style=""text-align: center; margin-top: 30px;"">
+            <a href=""https://help.jin114.co.kr/helpdesk/request/detail/{req.Id}"" style=""display: inline-block; background-color: #007bff; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 4px; font-weight: bold; font-size: 14px;"">접수 글 보기</a>
+        </div>
+    </div>
+    <div style=""background-color: #f8f9fa; padding: 15px 20px; text-align: center; border-top: 1px solid #e0e0e0;"">
+        <p style=""margin: 0; font-size: 12px; color: #888;"">본 메일은 발신 전용입니다. 감사합니다.</p>
+    </div>
+</div>";
           await EMailUtil.SendEmailJinNets(mailTos, $"[접수] {req.Title}", mailBody, provider, loggerFactory, configuration);
         }
       }
@@ -777,11 +817,31 @@ public static class RequestEndpoints {
         var adminSubscriptions = await store.GetAdminSubscriptionsAsync();
         var customerSubscriptions = await store.GetSubscriptionsByUserAsync(req.CustomerId, "customer");
 
-        await PushUtil.SendPushMsg($"완료 - {assigneeName}", $"{req.Title}", $"/request_detail?id={req.Id}", adminSubscriptions, sender);
-        await PushUtil.SendPushMsg($"완료 - {assigneeName}", $"{req.Title}", $"/request_detail?id={req.Id}", customerSubscriptions, sender);
+        await PushUtil.SendPushMsg($"완료 - {assigneeName}", $"{req.Title}", $"/helpdesk/request/detail/{req.Id}", adminSubscriptions, sender);
+        await PushUtil.SendPushMsg($"완료 - {assigneeName}", $"{req.Title}", $"/helpdesk/request/detail/{req.Id}", customerSubscriptions, sender);
 
-        string mailBody = req.Description + "<br/><br/>" + $" 접수글 [ {req.Title} ] 완료되었습니다.<br/><br/>" +
-          $"<a href='https://help.jin114.co.kr/request_detail?id={req.Id}' target='_blank'>완료 글 보기</a><br/><br/><br/><br/>";
+        var mailBody = $@"
+<div style=""max-width: 600px; margin: 0 auto; font-family: 'Malgun Gothic', sans-serif; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;"">
+    <div style=""background-color: #f8f9fa; padding: 20px; border-bottom: 1px solid #e0e0e0;"">
+        <h2 style=""margin: 0; color: #333; font-size: 18px;"">[완료] {req.Title}</h2>
+    </div>
+    <div style=""padding: 24px; background-color: #ffffff;"">
+        <p style=""font-size: 14px; color: #555; line-height: 1.6; margin-top: 0;"">
+            요청하신 내용이 <strong>완료</strong> 되었습니다.
+        </p>
+        <div style=""background-color: #f1f3f5; padding: 16px; border-radius: 6px; margin: 20px 0;"">
+            <div style=""margin: 0; font-size: 14px; color: #333; line-height: 1.5;"">
+                {req.Description}
+            </div>
+        </div>
+        <div style=""text-align: center; margin-top: 30px;"">
+            <a href=""https://help.jin114.co.kr/helpdesk/request/detail/{req.Id}"" style=""display: inline-block; background-color: #007bff; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 4px; font-weight: bold; font-size: 14px;"">완료 글 보기</a>
+        </div>
+    </div>
+    <div style=""background-color: #f8f9fa; padding: 15px 20px; text-align: center; border-top: 1px solid #e0e0e0;"">
+        <p style=""margin: 0; font-size: 12px; color: #888;"">본 메일은 발신 전용입니다. 감사합니다.</p>
+    </div>
+</div>";
 
         var adminEmails = await adminService.GetAdminEmailsForNotificationAsync();
         var customerEmails = await adminService.GetCustomerEmailsForNotificationAsync(req.CustomerId);
@@ -804,13 +864,33 @@ public static class RequestEndpoints {
         await PushUtil.SendPushMsg(
                  $"종료 - {req.Title}",
                   $"{req.Title}",
-                 $"/request_detail?id={req.Id}",
+                 $"/helpdesk/request/detail/{req.Id}",
                   adminSubscriptions,
                      sender
                      );
 
-        string mailBody = req.Description + "<br/><br/>" + $" 접수글 [ {req.Title} ] 종료되었습니다.<br/><br/>" +
-          $"<a href='https://help.jin114.co.kr/request_detail?id={req.Id}' target='_blank'>종료 글 보기</a><br/><br/><br/><br/>";
+        var mailBody = $@"
+<div style=""max-width: 600px; margin: 0 auto; font-family: 'Malgun Gothic', sans-serif; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;"">
+    <div style=""background-color: #f8f9fa; padding: 20px; border-bottom: 1px solid #e0e0e0;"">
+        <h2 style=""margin: 0; color: #333; font-size: 18px;"">[종료] {req.Title}</h2>
+    </div>
+    <div style=""padding: 24px; background-color: #ffffff;"">
+        <p style=""font-size: 14px; color: #555; line-height: 1.6; margin-top: 0;"">
+            요청하신 내용이 <strong>종료</strong> 되었습니다.
+        </p>
+        <div style=""background-color: #f1f3f5; padding: 16px; border-radius: 6px; margin: 20px 0;"">
+            <div style=""margin: 0; font-size: 14px; color: #333; line-height: 1.5;"">
+                {req.Description}
+            </div>
+        </div>
+        <div style=""text-align: center; margin-top: 30px;"">
+            <a href=""https://help.jin114.co.kr/helpdesk/request/detail/{req.Id}"" style=""display: inline-block; background-color: #007bff; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 4px; font-weight: bold; font-size: 14px;"">종료 글 보기</a>
+        </div>
+    </div>
+    <div style=""background-color: #f8f9fa; padding: 15px 20px; text-align: center; border-top: 1px solid #e0e0e0;"">
+        <p style=""margin: 0; font-size: 12px; color: #888;"">본 메일은 발신 전용입니다. 감사합니다.</p>
+    </div>
+</div>";
 
         var adminEmails = await adminService.GetAdminEmailsForNotificationAsync();
         
