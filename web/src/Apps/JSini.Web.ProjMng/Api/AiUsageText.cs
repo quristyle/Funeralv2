@@ -204,7 +204,7 @@ public static class AiUsageText
         var maxWeek = rows.Max(r => r.WeekPct);
         
         if (maxSession is not null) textParts.Add($"세션 {maxSession:0.#}%");
-        if (maxWeek is not null) textParts.Add($"주간 {maxWeek:0.#}%");
+        if (maxWeek is not null) textParts.Add($"주간 <strong class=\"pm-usage-week-val\">{maxWeek:0.#}%</strong>");
 
         var text = textParts.Count > 0 
             ? string.Join(" / ", textParts)

@@ -477,7 +477,7 @@
                                         <div class="pm-ask__kinditem">
                                             <div class="pm-ask__kindhead">
                                                 <span class="pm-ask__kindname">@kind.Text</span>
-                                                <span class="jsini-badge @kindBadge.Css">@kindBadge.Text</span>
+                                                <span class="jsini-badge @kindBadge.Css">@((MarkupString)kindBadge.Text)</span>
                                             </div>
                                             
                                         </div>
@@ -498,7 +498,7 @@
                         @if (_edit.RunnerKind is { Length: > 0 })
                         {
                             <div class="pm-ai-limit">
-                                <span class="jsini-badge @PickedBadge.Css">@PickedBadge.Text</span>
+                                <span class="jsini-badge @PickedBadge.Css">@((MarkupString)PickedBadge.Text)</span>
                                 
                             </div>
                         }

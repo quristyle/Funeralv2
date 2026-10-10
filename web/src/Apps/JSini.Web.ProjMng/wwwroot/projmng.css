@@ -5383,3 +5383,8 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
     padding: 0 0.5rem;
 }
 .pm-ai-drafts-badge:hover { text-decoration: underline; }
+
+.pm-usage-week-val {
+    font-size: 1.15em;
+    font-weight: 800;
+}

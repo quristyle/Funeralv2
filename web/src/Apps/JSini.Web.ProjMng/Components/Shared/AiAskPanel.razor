@@ -276,7 +276,7 @@
                     <div class="pm-ask__kinditem">
                         <div class="pm-ask__kindhead">
                             <span class="pm-ask__kindname">@context.Text</span>
-                            <span class="jsini-badge @badge.Css">@badge.Text</span>
+                            <span class="jsini-badge @badge.Css">@((MarkupString)badge.Text)</span>
                         </div>
                         
                     </div>
@@ -290,7 +290,7 @@
         @if (AllKinds.Count > 0)
         {
             <div class="pm-ask__limit">
-                <span class="jsini-badge @PickedBadge.Css">@PickedBadge.Text</span>
+                <span class="jsini-badge @PickedBadge.Css">@((MarkupString)PickedBadge.Text)</span>
                 
             </div>
         }
