@@ -209,8 +209,9 @@
     </div>
 }
 
-<div class="pm-split">
-    <CommCont Title="작업" Hint="@ListHint" CssClass="pm-split__side pm-ai-list-panel">
+<SplitPane Size="34">
+    <First>
+        <CommCont Title="작업" Hint="@ListHint" CssClass="pm-ai-list-panel h-100">
         @* ── 적어 둔 것을 불러오는 단추 ────────────────────────
            임시저장은 저절로 되는 일이라 **눈에 안 띈다.** 건수를 단추에
            적어 두면 단추가 「적어 둔 것이 있다」는 사실까지 말해 준다.
@@ -329,8 +330,10 @@
         </CommGrd>
         </ChildContent>
     </CommCont>
+    </First>
 
-    <CommCont Title="@EditTitle" Hint="@EditHint" CssClass="pm-split__main pm-ai-detail-panel">
+    <Second>
+    <CommCont Title="@EditTitle" Hint="@EditHint" CssClass="pm-ai-detail-panel h-100">
         @if (_edit is not null)
         {
             <div class="pm-ai-context" aria-live="polite">
@@ -704,7 +707,8 @@
             </DxTabs>
         }
     </CommCont>
-</div>
+    </Second>
+</SplitPane>
 
 </div>@* /pm-ai-page *@
 
