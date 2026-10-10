@@ -19,13 +19,32 @@ public partial class AiTaskList
     [Inject] private AiTaskDraftStore Drafts { get; set; } = default!;
     [Inject] private IJSRuntime Js { get; set; } = default!;
 
+    /// <summary>
+    /// AI 고르개에 한도를 적으려고 둔다. <b>대시보드를 부르는 것이 아니다</b> —
+    /// 한도 표 하나만 읽는 자리를 따로 쓴다(<see cref="AiDashboardClient.UsageAsync"/>).
+    /// 「빠른 지시」(<c>AiAskPanel</c>)가 같은 것을 같은 모양으로 그린다.
+    /// </summary>
+    [Inject] private AiDashboardClient Dashboard { get; set; } = default!;
+
     /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
     private string ConditionSummary => SchSummary.Of(
         SchSummary.NameOf(StatusFilters, o => o.Value, o => o.Text, _status),
         SchSummary.NameOf(FlagFilters, o => o.Value, o => o.Text, _flag),
         _targets.FirstOrDefault(t => t.TargetKey == _targetKey)?.TargetNm,
         SchSummary.NameOf(SourceFilters, o => o.Value, o => o.Text, _source),
-        _keyword);
+        _keyword,
+        SchSummary.On(_excludeDone, "완료 제외"));
+
+    /// <summary>
+    /// 휴대폰인가. 요약·조회판을 접느냐 펴느냐가 이 값 하나에 달려 있다.
+    /// </summary>
+    /// <remarks>
+    /// 경계(767px)는 <c>projmng.css</c> 의 같은 값과 <b>짝이다</b> — 한쪽만
+    /// 고치면 「접는 띠는 보이는데 안 접힌다」가 된다.
+    /// </remarks>
+    private bool _isPhone;
+
+    private void OnPhoneChanged(bool active) => _isPhone = active;
 
     /// <summary>고르는 칸 한 줄. 공통코드에 없는 값들이라 화면이 들고 있다.</summary>
     public sealed record PickOption(string Value, string Text);
@@ -227,6 +246,88 @@ public partial class AiTaskList
         }
     }
 
+    // ── AI 고르개의 한도 ──────────────────────────────────────
+    //
+    // 「빠른 지시」(`AiAskPanel`)가 먼저 하던 일을 이 화면에도 들인다.
+    //
+    // **이름만 보여 주면 다 쓴 CLI 를 고르게 된다.** 그리고 그것은 실행기가
+    // 집어가 **실패로 끝난 뒤에야** 드러난다 — 이 화면의 일은 몇십 분씩
+    // 걸리므로 그때 사람은 이미 자리를 뜬 뒤다. 한도는 「AI 작업 현황」에도
+    // 있지만, 고르는 그 순간에 다른 화면을 열어 보고 돌아오지는 않는다.
+    //
+    // 글자로 바꾸는 규칙은 화면이 들고 있지 않다(`AiUsageText`) — 화면마다
+    // 제 `switch` 를 두면 `copilot` 을 「Copilot」이라 부르는 화면과
+    // 「코파일럿」이라 부르는 화면이 생기고, 그 어긋남은 아무 오류도 안 낸다.
+
+    /// <summary>
+    /// 실행기가 올려 둔 AI 별 한도. <b>못 읽어도 조용하다</b> — 곁들이는
+    /// 값이라 빈 목록이 되고, 그때 고르개는 이름만 보여 준다.
+    /// </summary>
+    private IReadOnlyList<AiUsageSnapshot> _usage = [];
+
+    /// <summary>
+    /// 한도를 <b>한 번이라도 받아 봤나.</b> 받아 보기 전과 받아 봤는데 빈 것은
+    /// 다른 상태다 — 가르지 않으면 아직 묻는 중인 CLI 가 「보고 없음」으로
+    /// 보이고, 그 글자는 「실행기가 그 CLI 를 못 묻고 있다」는 뜻이라
+    /// (<see cref="AiUsageText.Of"/>) 멀쩡한 장비를 들여다보게 만든다.
+    /// </summary>
+    private bool _usageSeen;
+
+    /// <summary>그 CLI 의 한도 줄들. 한 CLI 가 여럿을 가질 수 있다.</summary>
+    private List<AiUsageSnapshot> UsageOf(string? kind)
+        => string.IsNullOrWhiteSpace(kind)
+            ? []
+            : [.. _usage.Where(u => string.Equals(u.RunnerKind, kind, StringComparison.OrdinalIgnoreCase))];
+
+    /// <summary>고르개 한 줄에 다는 배지.</summary>
+    private AiUsageText.Badge KindBadge(string? kind)
+        => _usageSeen
+            ? AiUsageText.Of(UsageOf(kind))
+            : new AiUsageText.Badge("한도 확인 중", "jsini-badge--off");
+
+    /// <summary>고르개 한 줄의 둘째 줄. 세션·주간·월간을 있는 것만 적는다.</summary>
+    private string KindLimit(string? kind)
+    {
+        if (!_usageSeen)
+        {
+            return "한도를 읽는 중입니다. 기다리지 않고 골라도 됩니다.";
+        }
+
+        var rows = UsageOf(kind);
+
+        return rows.Count == 0
+            ? "실행기가 아직 한도를 올리지 않았습니다."
+            : AiUsageText.Summary(rows);
+    }
+
+    /// <summary>
+    /// 지금 고른 AI 의 한도 한 줄. <b>고르개는 닫혀 있는 시간이 훨씬 길다</b> —
+    /// 목록에만 적으면 펼치지 않는 사람에게는 없는 것과 같다.
+    /// </summary>
+    private string PickedLimit => KindLimit(_edit?.RunnerKind);
+
+    /// <summary>지금 고른 AI 의 배지. 닫힌 고르개 아래에 선다.</summary>
+    private AiUsageText.Badge PickedBadge => KindBadge(_edit?.RunnerKind);
+
+    /// <summary>
+    /// 한도를 읽어 둔다. <b>화면을 막지 않는다</b> — 못 읽으면 고르개가
+    /// 이름만 보여 주고 지시는 그대로 나간다.
+    /// </summary>
+    /// <remarks>
+    /// <b>따라가기(폴링)에 태우지 않는다.</b> 실행기는 15분에 한 번 보고하므로
+    /// 2초마다 다시 읽어 봐야 같은 값이고, 이 화면은 작업이 도는 동안 계속
+    /// 두들기는 화면이다 — 태우면 <b>바뀌지도 않는 값을 하루 수백 번</b> 묻는다.
+    /// </remarks>
+    private async Task LoadUsageAsync()
+    {
+        _usage = await Dashboard.UsageAsync();
+
+        // **못 읽었어도 참이다.** 「확인 중」에 붙박이게 두면, 실행기가 한 번도
+        // 안 올린 상태(=「보고 없음」)와 게이트웨이가 없는 상태를 둘 다
+        // 「곧 올 것」처럼 보여 주게 된다.
+        _usageSeen = true;
+    }
+
     /// <summary>고른 대상이 push 를 허용하는가. 새 작업이면 목록에서 찾는다.</summary>
     private bool SelectedTargetAllowsPush =>
         _edit?.TargetKey is { } key
@@ -324,6 +425,10 @@ public partial class AiTaskList
             _keyword = null;
             _source = null;
 
+            // **「완료 제외」도 함께 끈다.** 건너온 건이 이미 끝난 것이면
+            // 이 스위치 하나 때문에 「찾지 못했습니다」가 된다.
+            _excludeDone = false;
+
             // 그리드 칸별 필터도 함께 지운다.
             _statusFilterValues = [];
             _grid?.Grid?.ClearFilter();
@@ -401,7 +506,8 @@ public partial class AiTaskList
 
     private Task SearchAsync() => LoadAsync(async () =>
     {
-        _rows = await Api.ListAsync(_status, _flag, _targetKey, _keyword, userRequest: UserRequestFilter);
+        _rows = await Api.ListAsync(_status, _flag, _targetKey, _keyword,
+            userRequest: UserRequestFilter, excludeDone: _excludeDone);
 
         // 고른 것이 목록에서 빠졌으면 오른쪽을 비운다 — 없는 건을 고치고
         // 있다고 믿게 두지 않는다.
@@ -426,6 +532,27 @@ public partial class AiTaskList
     private long? _targetKey;
     private string? _keyword;
     private string? _source;
+
+    /// <summary>
+    /// 끝난 건을 목록에서 뺀다(<c>succeeded</c> · <c>canceled</c>).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>상태 고르개로는 이 일을 못 한다.</b> 그쪽은 「하나를 고르는」 칸이라
+    /// 「완료만 빼고 나머지 전부」를 말할 자리가 없다 — 쌓인 건이 수백이면
+    /// 그 대부분이 완료라 <b>지금 할 일이 둘째 쪽으로 밀린다.</b>
+    /// </para>
+    /// <para>
+    /// 실패·시간초과·중단은 <b>남긴다.</b> 그것은 끝났지만 사람이 할 일이
+    /// 남은 줄이고, 스위치 하나로 그것까지 숨으면 숨은 줄 모른다.
+    /// </para>
+    /// <para>
+    /// 거르는 일은 서버가 한다 — 표에 쪽 나누기가 걸려 있어
+    /// (<c>PageSize="10"</c>) 받아 놓고 화면에서 거르면 <b>쪽마다 줄 수가
+    /// 들쭉날쭉</b>해진다.
+    /// </para>
+    /// </remarks>
+    private bool _excludeDone;
 
     /// <summary>고른 출처를 서버가 알아듣는 값으로. 「전체」는 조건 없음이다.</summary>
     private bool? UserRequestFilter => _source switch
@@ -1168,6 +1295,56 @@ public partial class AiTaskList
         }
     }
 
+    // ── AI 도우미가 돌려준 것 ─────────────────────────────────
+    //
+    // 짓고 간추리는 일은 부품이 한다(`AiTaskWriteAssist`). 화면은 그것을
+    // **어디에 담을지**만 정한다 — 담는 자리가 부품 안에 있으면 그 부품이
+    // 이 화면의 편집 상태(`_edit` · `_base` · 임시저장)를 알아야 한다.
+
+    /// <summary>AI 가 지은 제목 중 사람이 고른 것.</summary>
+    /// <remarks>
+    /// <b>임시저장은 저절로 걸린다.</b> 다음 렌더에서 <see cref="TrackDraftAsync"/>
+    /// 가 지금 모양과 마지막으로 적은 모양을 견주므로, 여기서 따로 적지 않는다
+    /// (칸마다 변경 처리기를 달지 않으려고 그렇게 두었다).
+    /// </remarks>
+    private void TakeAiTitle(string title)
+    {
+        if (_edit is null || !CanEdit)
+        {
+            return;
+        }
+
+        _edit.Title = title;
+
+        // 저장하면 서버가 같은 값을 넣는다(제목 칸이 비었나로 정한다).
+        // **저장 전에도 화면이 그것을 알고 있어야** 「제목 기다리는 중」
+        // 표시가 뜨지 않는다 — 기계가 지어 줄 제목을 기다리는 상태가 아니다.
+        _edit.TitleAuto = false;
+
+        Say("제목을 바꿨습니다. 「저장」을 눌러야 서버에 들어갑니다.");
+    }
+
+    /// <summary>
+    /// AI 가 간추린 조각을 <b>본문 맨 위에</b> 얹는다.
+    /// </summary>
+    /// <remarks>
+    /// <b>덮어쓰지 않는다.</b> 간추린 것은 지시가 아니라 머리말이고, 실행기가
+    /// 집어 가는 것은 이 본문 그대로다 — 원문을 지우면 시킬 일이 없어진다.
+    /// </remarks>
+    private void TakeAiSummary(string markdown)
+    {
+        if (_edit is null || !CanEdit)
+        {
+            return;
+        }
+
+        var body = _edit.Contents ?? string.Empty;
+
+        _edit.Contents = markdown + body.TrimStart('\n');
+
+        Say("지시 내용 맨 위에 요약을 얹었습니다. 「저장」을 눌러야 서버에 들어갑니다.");
+    }
+
     private bool _continueOpen;
     private string? _addition;
 
@@ -1293,6 +1470,11 @@ public partial class AiTaskList
             {
                 await ResumeDraftAsync();
             }
+
+            // **목록 다음이다.** 한도는 곁들이는 값이라 이것 때문에 작업
+            // 목록이 늦게 뜨면 안 된다 — 그때까지 고르개는 「한도 확인 중」
+            // 으로 서 있고, 기다리지 않고 골라도 지시는 그대로 나간다.
+            await LoadUsageAsync();
 
             RevealPicked();
             StateHasChanged();
@@ -1604,38 +1786,213 @@ public partial class AiTaskList
         // 붙어 있으므로 누르면 그때 얹힌다.
         if (AppTime.UtcNow - latest.SavedAt > ResumeWindow)
         {
-            Say($"적어 둔 임시본이 {drafts.Count}건 있습니다. 목록의 「임시」 표시를 누르면 이어서 쓸 수 있습니다.");
+            Say($"적어 둔 임시본이 {drafts.Count}건 있습니다. 목록 머리줄의 「임시저장」 단추에서 불러올 수 있습니다.");
             return;
         }
 
         if (latest.TaskKey == 0)
         {
-            NewTask();
-            Overlay(latest);
+            await OpenDraftAsync(latest);
             Say($"적어 두었던 새 작업을 이어서 씁니다 ({latest.SavedAt.Kst("MM-dd HH:mm")}).");
             return;
         }
 
-        // 조건이 걸려 있으면 목록에 없을 수 있다. 그때는 한 건만 따로 읽는다 —
-        // **쓰던 글이 조회 조건 때문에 안 열리면 안 된다.**
-        var row = _rows.FirstOrDefault(r => r.TaskKey == latest.TaskKey)
-            ?? await SafeGetAsync(latest.TaskKey);
-
-        if (row is null)
+        // 그 작업이 지워졌으면 임시본도 함께 버려졌다. 화면이 열리는 길이라
+        // **말은 하지 않는다** — 다른 일을 하러 온 사람에게 알릴 일이 아니다.
+        if (!await OpenDraftAsync(latest))
         {
-            // 그 작업이 지워졌다. 임시본도 함께 버린다.
-            await Drafts.RemoveAsync(latest.TaskKey);
             return;
         }
-
-        await PickAsync(row);
 
         // 도는 중이었으면 얹지 않았다(`ApplyDraft`). 그때는 말도 하지 않는다.
         if (_draftAt is not null)
         {
-            var name = string.IsNullOrWhiteSpace(_edit?.Title) ? $"#{latest.TaskKey}" : _edit!.Title;
-            Say($"「{name}」 에 적어 두었던 내용을 이어서 씁니다 ({latest.SavedAt.Kst("MM-dd HH:mm")}).");
+            Say($"「{DraftTitle(latest)}」 에 적어 두었던 내용을 이어서 씁니다 ({latest.SavedAt.Kst("MM-dd HH:mm")}).");
         }
+    }
+
+    // ── 적어 둔 것을 불러오는 자리 ─────────────────────────────
+    //
+    // 임시저장은 **저절로 되는 일**이라 눈에 안 띈다. 한동안 그것을 다시
+    // 여는 길이 둘뿐이었다 — 화면이 뜰 때 가장 최근 것 하나를 저 혼자 열어
+    // 주는 것(`ResumeDraftAsync`)과, 왼쪽 목록에서 「임시」 표가 붙은 줄을
+    // 누르는 것.
+    //
+    // **그 둘로는 닿지 않는 것이 있다.**
+    //
+    //   · 아직 저장 안 한 새 작업(`TaskKey == 0`)은 목록에 줄이 없다.
+    //     최근 것이 아니면 여는 길이 **아예 없었다.**
+    //   · 열두 시간이 지난 것은 저절로 안 열린다(`ResumeWindow`). 그때
+    //     화면이 「목록의 「임시」 표시를 누르십시오」라고 말했는데, 새 작업
+    //     임시본에는 누를 줄이 없다.
+    //   · 조회 조건에 걸려 목록에 없는 건의 임시본도 마찬가지다.
+    //
+    // 그래서 **적어 둔 것 전부를 한자리에 늘어놓는 창**을 둔다. 목록 판의
+    // 머리줄에 선 단추가 그것을 연다 — 건수가 거기 적혀 있어서, 적어 둔 것이
+    // 있다는 사실 자체도 그 단추가 말해 준다.
+
+    /// <summary>적어 둔 것 목록 창이 열려 있나.</summary>
+    private bool _draftsOpen;
+
+    /// <summary>적어 둔 것 전부. <b>최근 것이 앞</b>이다.</summary>
+    private IReadOnlyList<AiTaskDraft> DraftList =>
+        [.. Drafts.Items.Values.OrderByDescending(d => d.SavedAt)];
+
+    /// <summary>단추에 적는 건수.</summary>
+    private int DraftCount => Drafts.Items.Count;
+
+    /// <summary>
+    /// 적어 둔 것 목록을 연다.
+    /// </summary>
+    /// <remarks>
+    /// 화면이 뜰 때 이미 읽었지만(<c>OnAfterRenderAsync</c>) 한 번 더 부른다 —
+    /// 왕복은 한 번뿐이고(<see cref="AiTaskDraftStore.ReadAsync"/>), 주소로
+    /// 건너온 길처럼 읽기를 건너뛴 경우가 있다.
+    /// </remarks>
+    private async Task OpenDraftsAsync()
+    {
+        await Drafts.ReadAsync();
+        _draftsOpen = true;
+    }
+
+    /// <summary>
+    /// 적어 둔 한 벌을 편집 자리에 연다. 그 작업이 <b>없어졌으면 거짓</b>이고,
+    /// 그때 임시본도 함께 버려진다.
+    /// </summary>
+    private async Task<bool> OpenDraftAsync(AiTaskDraft draft)
+    {
+        if (draft.TaskKey == 0)
+        {
+            NewTask();
+            Overlay(draft);
+            return true;
+        }
+
+        // 조건이 걸려 있으면 목록에 없을 수 있다. 그때는 한 건만 따로 읽는다 —
+        // **쓰던 글이 조회 조건 때문에 안 열리면 안 된다.**
+        var row = _rows.FirstOrDefault(r => r.TaskKey == draft.TaskKey)
+            ?? await SafeGetAsync(draft.TaskKey);
+
+        if (row is null)
+        {
+            await Drafts.RemoveAsync(draft.TaskKey);
+            return false;
+        }
+
+        await PickAsync(row);
+        return true;
+    }
+
+    /// <summary>창에서 고른 임시본을 연다.</summary>
+    private async Task PickDraftAsync(AiTaskDraft draft)
+    {
+        _draftsOpen = false;
+
+        if (!await OpenDraftAsync(draft))
+        {
+            Say($"#{draft.TaskKey} 작업이 없어졌습니다. 적어 두었던 내용도 함께 버립니다.",
+                NoticeTone.Warning);
+            return;
+        }
+
+        // 도는 중인 건에는 얹지 않는다(`ApplyDraft`). **그때는 그렇게 말해야
+        // 한다** — 눌렀는데 옛 글이 그대로면 「안 불러와졌다」로 읽힌다.
+        if (draft.TaskKey > 0 && _draftAt is null)
+        {
+            Say("지금 돌고 있는 작업이라 적어 둔 내용을 얹지 않았습니다. 끝나거나 취소한 뒤에 다시 불러오십시오.",
+                NoticeTone.Warning);
+            return;
+        }
+
+        Say($"「{DraftTitle(draft)}」 에 적어 두었던 내용을 이어서 씁니다 ({draft.SavedAt.Kst("MM-dd HH:mm")}).");
+    }
+
+    /// <summary>
+    /// 창에서 임시본 하나를 버린다.
+    /// </summary>
+    /// <remarks>
+    /// <b>지금 고치고 있는 것이면 화면도 함께 되돌린다.</b> 저장소에서만
+    /// 지우면 편집 자리에는 그 글이 그대로 남고, 다음 렌더에서
+    /// <see cref="TrackDraftAsync"/> 가 그것을 <b>다시 적어 둔다</b> —
+    /// 버린 것이 저절로 되살아난다.
+    /// </remarks>
+    private async Task DropDraftRowAsync(AiTaskDraft draft)
+    {
+        if (_confirm is null)
+        {
+            return;
+        }
+
+        var ok = await _confirm.AskAsync(
+            $"「{DraftTitle(draft)}」 에 적어 둔 내용을 버립니다.",
+            title: "임시본 버리기");
+
+        if (!ok)
+        {
+            return;
+        }
+
+        if (_edit?.TaskKey == draft.TaskKey)
+        {
+            await DropDraftAsync(draft.TaskKey);
+
+            if (_base is not null)
+            {
+                _edit = Copy(_base);
+            }
+            else
+            {
+                _edit = null;
+                _picked = null;
+            }
+        }
+        else
+        {
+            await Drafts.RemoveAsync(draft.TaskKey);
+        }
+
+        // 마지막 하나를 버렸으면 창에 보여 줄 것이 없다.
+        if (Drafts.Items.Count == 0)
+        {
+            _draftsOpen = false;
+        }
+    }
+
+    /// <summary>
+    /// 임시본 한 벌을 한 줄로 부르는 이름.
+    /// </summary>
+    /// <remarks>
+    /// 제목 칸은 <b>비어 있어도 된다</b>(저장하면 서버가 본문에서 지어 준다).
+    /// 그래서 제목이 없으면 본문 첫 줄을 쓴다 — 목록에 「제목 없음」이 줄줄이
+    /// 서면 무엇을 불러올지 고를 수가 없다.
+    /// </remarks>
+    private static string DraftTitle(AiTaskDraft draft)
+    {
+        if (!string.IsNullOrWhiteSpace(draft.Title))
+        {
+            return draft.Title.Trim();
+        }
+
+        var first = draft.Contents?
+            .Split('\n')
+            .Select(line => line.Trim(' ', '\t', '\r', '#'))
+            .FirstOrDefault(line => line.Length > 0);
+
+        if (!string.IsNullOrWhiteSpace(first))
+        {
+            return first.Length > 60 ? first[..60] + "…" : first;
+        }
+
+        return draft.TaskKey == 0 ? "제목 없는 새 작업" : $"#{draft.TaskKey}";
+    }
+
+    /// <summary>임시본 줄에 다는 꼬리말 — 어느 건인지와 본문 길이.</summary>
+    private static string DraftMeta(AiTaskDraft draft)
+    {
+        var what = draft.TaskKey == 0 ? "저장 전 새 작업" : $"#{draft.TaskKey}";
+        var chars = draft.Contents?.Length ?? 0;
+
+        return chars == 0 ? what : $"{what} · {chars:N0}자";
     }
 
     /// <summary>

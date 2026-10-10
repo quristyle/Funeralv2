@@ -71,6 +71,12 @@ public sealed class ProjMngModule : IPortalModule
         services.AddScoped<AiTaskClient>();
         services.AddScoped<AiTargetClient>();
 
+        // 지시문을 쓰는 사람을 돕는 AI 두 가지(제목 짓기·요약 얹기).
+        // 묻는 길은 AI 쳇과 같은 `AiChatClient` 이고 그것은 공용 Http 모듈이
+        // 이미 등록해 두었다 — **이 화면의 「AI」 고르개와 다른 길이다**
+        // (그쪽은 지시를 실제로 돌릴 CLI 를 고른다).
+        services.AddScoped<AiTaskAssist>();
+
         // AI 작업 현황(대시보드). **읽기뿐이다** — 「AI 작업」·「빠른 지시」가
         // 만든 자료를 세기만 한다. 모델 한도는 두 군데를 본다(그 클래스 머리말).
         services.AddScoped<AiDashboardClient>();

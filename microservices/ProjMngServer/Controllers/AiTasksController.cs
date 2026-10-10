@@ -55,11 +55,13 @@ public sealed class AiTasksController(
     public async Task<IActionResult> ListAsync(
         [FromQuery] string? status, [FromQuery] string? flag,
         [FromQuery] long? targetKey, [FromQuery] string? keyword,
-        [FromQuery] bool? userConfirmed, [FromQuery] bool? userRequest)
+        [FromQuery] bool? userConfirmed, [FromQuery] bool? userRequest,
+        [FromQuery] bool excludeDone = false)
     {
         var rows = await service.ListAsync(
             status, flag, targetKey, keyword,
-            userConfirmed: userConfirmed, userRequest: userRequest);
+            userConfirmed: userConfirmed, userRequest: userRequest,
+            excludeDone: excludeDone);
 
         return Ok(ApiResponse<List<AiTask>>.Ok(rows));
     }

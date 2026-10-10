@@ -1,0 +1,111 @@
+@*
+    [AI 도우미] — AI 작업 지시문을 쓰는 사람을 돕는 단추 하나.
+
+    누르면 할 일 둘이 뜬다. **제목 만들기**는 지시문을 읽고 제목 후보를 지어
+    늘어놓고(고르면 제목 칸에 들어간다), **내용 요약 넣기**는 지시문을 간추려
+    맨 위에 인용 블록 한 덩이로 얹는다.
+
+    [헬프데스크의 같은 단추를 옮겨 온 것이다]
+
+    요청 등록 화면의 `RequestAiAssist` 가 먼저 하던 일이다. 업무 모듈끼리는
+    서로를 참조할 수 없어(web/CLAUDE.md 의 의존 규칙 2) 복제한다 — 저장소
+    규칙이 「둘이 쓰면 복제, 세 번째부터 승격」이고 지금이 둘째다.
+    묻는 길은 `AiTaskAssist` 에 있다.
+
+    [화면 위쪽의 「AI」 고르개와 다른 것이다]
+
+    그 칸은 **이 지시를 실제로 돌릴 CLI** 를 고르는 자리다. 여기서 제목을
+    지어 주는 것은 포털의 AI 쳇이고 서버가 공급자를 정한다 — 그래서 이 단추는
+    실행기의 한도를 쓰지 않는다. 헷갈리지 않게 **「AI 도우미」라고 적어 둔다**
+    (아이콘만 두면 위의 고르개와 한 가지로 읽힌다).
+
+    ────────────────────────────────────────────────────────────
+    [펼치는 판이 아니라 **창**이다 — 재어 보고 고친 것이다]
+
+    헬프데스크 쪽은 단추 아래로 흘러내리는 판(`position: absolute`)이다.
+    여기서 그대로 하면 **판이 잘려 안 보인다.**
+
+    이 단추가 선 자리는 지시 탭의 편집기 머리줄이고, 그 탭은 남은 높이를
+    받아 쓰는 자리라 머리줄이 **창 바닥 가까이**에 선다(1600×1000 에서
+    `top: 931`). 흘러내린 판은 `top: 996`·`bottom: 1050` 이 되어 창 밖으로
+    나가고, 그 전에 이미 `dxbl-tabs-content` 의 `overflow: hidden` 에 잘린다
+    (헤드리스로 재어 확인).
+
+    위로 펼치는 길도 재 봤다 — 후보가 다섯이면 판이 250px 이라 이번에는
+    탭 **위쪽** 경계에 걸린다. 자리를 어디로 돌려도 **탭 안에서는 판이
+    들어갈 데가 없다.**
+
+    `CommPopup`(→ `DxPopup`)은 떼어 놓은 층에 그려져 어디에도 안 잘린다.
+    담기는 것도 창에 맞는 것이다 — 마흔 자짜리 제목 후보 다섯 줄을 고르는 일.
+*@
+
+@implements IDisposable
+
+<DxButton CssClass="pm-aiassist__btn"
+          IconCssClass="jsini-icon-robot"
+          Text="AI 도우미"
+          RenderStyle="ButtonRenderStyle.Secondary"
+          Title="지시문을 보고 제목을 짓거나 요약을 얹습니다"
+          Enabled="@(Enabled && !_busy)"
+          Click="@Open" />
+
+@* **`CloseOnOutsideClick` 을 켜지 않는다.** 이 창 안에는 고를 것이 들어
+   있고, 실수로 닫히면 지어 놓은 제목 후보가 통째로 사라져 AI 를 다시
+   불러야 한다. *@
+<CommPopup @bind-Visible="_open" HeaderText="AI 도우미" Width="560px">
+    <BodyContentTemplate>
+        @if (_busy)
+        {
+            @* **무엇을 기다리는지 적는다.** 로컬 LLM 은 십 초가 넘게 걸리는
+               일이 있어서, 그냥 돌아가는 표시만 있으면 사람이 멈춘 줄 알고
+               다시 누른다. *@
+            <p class="pm-aiassist__wait">@_busyWhat … 잠시 기다려 주십시오.</p>
+        }
+        else if (_titles.Count > 0)
+        {
+            @* 설명 줄을 두지 않는다. 고를 것이 줄줄이 서 있는 자리에서
+               「누르면 제목 칸에 들어갑니다」는 한 번 읽고 나면 다시 읽을
+               일이 없는 글이고, 그만큼 후보가 아래로 밀린다. *@
+            <ul class="pm-aiassist__list">
+                @foreach (var title in _titles)
+                {
+                    <li>
+                        <button type="button" class="pm-aiassist__pick"
+                                @onclick="@(() => PickAsync(title))">@title</button>
+                    </li>
+                }
+            </ul>
+        }
+        else
+        {
+            <p class="pm-aiassist__hint">
+                지금 적어 둔 지시 내용을 읽고 제목을 짓거나 요약을 얹습니다.
+                아래에서 고르십시오.
+            </p>
+        }
+
+        @* 이번 답을 만든 AI. **고르는 칸이 아니라 알려 주는 줄이다** —
+           어느 것으로 갈지는 서버가 정하고 실패하면 스스로 넘기므로,
+           무엇이 답했는지는 받고 나서야 안다. 모르면 줄째 안 뜬다. *@
+        @if (!_busy && _model is { Length: > 0 } model)
+        {
+            <p class="pm-aiassist__model">@model 이(가) 답했습니다</p>
+        }
+    </BodyContentTemplate>
+
+    <FooterContentTemplate Context="assistPopup">
+        <DxButton Text="@(_titles.Count > 0 ? "제목 다시 짓기" : "제목 만들기")"
+                  RenderStyle="ButtonRenderStyle.Primary"
+                  Enabled="@(!_busy)"
+                  Click="@MakeTitlesAsync" />
+
+        <DxButton Text="내용 요약 넣기"
+                  RenderStyle="ButtonRenderStyle.Secondary"
+                  Enabled="@(!_busy)"
+                  Click="@SummarizeAsync" />
+
+        <DxButton Text="닫기"
+                  RenderStyle="ButtonRenderStyle.Secondary"
+                  Click="@Close" />
+    </FooterContentTemplate>
+</CommPopup>

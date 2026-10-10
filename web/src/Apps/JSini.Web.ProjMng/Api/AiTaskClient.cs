@@ -17,10 +17,16 @@ public sealed class AiTaskClient(GatewayClient gateway)
 {
     private const string Url = "projmng/ai-tasks";
 
+    /// <summary>작업 목록. 준 조건만 걸린다.</summary>
+    /// <remarks>
+    /// <c>excludeDone</c> 은 끝난 건(<c>succeeded</c> · <c>canceled</c>)을 빼고
+    /// 받는다. <b>실패·시간초과·중단은 그대로 온다</b> — 「확인 필요」까지
+    /// 사라지면 스위치 하나로 할 일이 숨는다.
+    /// </remarks>
     public Task<IReadOnlyList<AiTaskDto>> ListAsync(
         string? status = null, string? flag = null, long? targetKey = null,
         string? keyword = null, bool? userConfirmed = null, bool? userRequest = null,
-        CancellationToken ct = default)
+        bool excludeDone = false, CancellationToken ct = default)
     {
         var query = new List<string>();
 
@@ -30,6 +36,7 @@ public sealed class AiTaskClient(GatewayClient gateway)
         if (!string.IsNullOrWhiteSpace(keyword)) query.Add($"keyword={Uri.EscapeDataString(keyword)}");
         if (userConfirmed is not null) query.Add($"userConfirmed={userConfirmed}");
         if (userRequest is not null) query.Add($"userRequest={userRequest}");
+        if (excludeDone) query.Add("excludeDone=true");
 
         return gateway.GetListAsync<AiTaskDto>(
             query.Count == 0 ? Url : $"{Url}?{string.Join('&', query)}", ct);

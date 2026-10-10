@@ -81,9 +81,31 @@
    `.jsini-shell__content:has(> .commcont)`). 이 화면은 맨 위가 머리줄이라
    그 규칙에 안 걸려서 같은 일을 여기서 해 준다.
 *@
+@* **휴대폰인지는 CSS 와 같은 경계로 가른다**(767px). 아래 조회판을
+   접느냐 펴느냐가 이 값 하나에 달려 있어서, 여기가 어긋나면
+   「접는 띠는 보이는데 안 접힌다」가 된다. *@
+<DxLayoutBreakpoint MaxWidth="767" IsActive="_isPhone" IsActiveChanged="@OnPhoneChanged" />
+
 <div class="pm-ai-page">
 
-<details class="pm-ai-overview">
+@* ── 요약과 조회 조건 ─────────────────────────────────────────
+
+   **휴대폰에서만 접는다.** 넓은 화면에서는 늘 펴 둔다 — 조회 조건이
+   이 화면에서 제일 자주 쓰는 물건이고, 거기서는 접을 만큼 자리가 모자라지도
+   않는다.
+
+   한동안 그것을 `<details>` 를 **닫은 채로 두고** CSS 로만 흉내 냈다 —
+   넓은 화면에서 속판을 `display: contents` 로 두어 상자를 없앴다. 그 길이
+   **크롬 131 부터 막혔다.** 그 판부터 브라우저가 `<details>` 의 속을
+   `::details-content` 라는 자리에 담고 거기에 `content-visibility: hidden`
+   을 걸어 두는데, 그것은 안쪽의 `display` 로는 걷히지 않는다.
+
+   증상이 고약했다 — **머리줄도 조회줄도 DOM 에 그대로 있고 자리까지
+   잡혀 있는데 그려지지만 않는다.** 화면에는 작업 목록만 덩그러니 남아서
+   「조회 영역이 없는 화면」으로 보였다(헤드리스로 재어 확인).
+
+   그래서 흉내 내지 않고 **진짜로 연다.** 여는 조건은 위의 폭 하나다. *@
+<details class="pm-ai-overview" open="@(!_isPhone)">
     <summary class="pm-ai-overview__summary">
         <span><i class="jsini-icon-search"></i> 요약 및 조회</span>
         <i class="jsini-icon-chevron-down pm-ai-overview__chevron"></i>
@@ -150,8 +172,29 @@
                                 CssClass="pm-code-select" />
                 </CommSchItem>
 
-                <CommSchItem Label="검색어">
-                    <DxTextBox @bind-Text="_keyword" Style="width: 200px" />
+                @* 제목과 **본문**을 함께 훑는다(서버의 `ai_task` 조회가
+                   `title ILIKE … OR contents ILIKE …`). 라벨이 「검색어」
+                   한마디였을 때는 그 사실이 화면 어디에도 없어서, 본문에
+                   적어 둔 말로 건을 찾을 수 있다는 것을 아무도 몰랐다.
+                   자리표시 글자가 아니라 **라벨**에 적는다 — 라벨을 붙인
+                   칸에는 자리표시 글자를 두지 않는 것이 포털 규칙이다
+                   (`CommSchItem` 머리말). *@
+                <CommSchItem Label="제목·내용">
+                    <DxTextBox @bind-Text="_keyword" @bind-Text:after="SearchAsync"
+                               ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                               Style="width: 220px" />
+                </CommSchItem>
+
+                @* 켜면 끝난 건(완료·취소)이 빠진다. **실패는 남는다** —
+                   까닭은 코드 쪽 `_excludeDone` 머리말에.
+
+                   「조회」를 누르지 않고 그 자리에서 다시 읽는다. 스위치는
+                   누른 결과가 바로 보여야 스위치다. *@
+                <CommSchItem>
+                    <DxCheckBox @bind-Checked="_excludeDone" @bind-Checked:after="SearchAsync"
+                                title="완료·취소된 건을 목록에서 뺍니다. 실패한 건은 남습니다.">
+                        완료 제외
+                    </DxCheckBox>
                 </CommSchItem>
             </Fields>
         </CommSch>
@@ -168,6 +211,22 @@
 
 <div class="pm-split">
     <CommCont Title="작업" Hint="@ListHint" CssClass="pm-split__side pm-ai-list-panel">
+        @* ── 적어 둔 것을 불러오는 단추 ────────────────────────
+           임시저장은 저절로 되는 일이라 **눈에 안 띈다.** 건수를 단추에
+           적어 두면 단추가 「적어 둔 것이 있다」는 사실까지 말해 준다.
+           닿지 않던 임시본이 무엇이었는지는 코드 쪽 머리말에. *@
+        <Actions>
+            @if (DraftCount > 0)
+            {
+                <DxButton Text="@($"임시저장 {DraftCount}")"
+                          RenderStyle="ButtonRenderStyle.Secondary"
+                          CssClass="pm-ai-draftbtn"
+                          Title="적어 둔 내용을 불러옵니다"
+                          Click="@OpenDraftsAsync" />
+            }
+        </Actions>
+
+        <ChildContent>
         <CommGrd TItem="AiTaskDto"
                  @ref="_grid"
                  Data="@_rows"
@@ -268,6 +327,7 @@
                 </DxGridDataColumn>
             </Columns>
         </CommGrd>
+        </ChildContent>
     </CommCont>
 
     <CommCont Title="@EditTitle" Hint="@EditHint" CssClass="pm-split__main pm-ai-detail-panel">
@@ -418,12 +478,40 @@
                                             Enabled="@CanEdit" />
                             </DxFormLayoutItem>
 
-                            @* 고른 대상이 허용한 것만 나온다. *@
+                            @* 고른 대상이 허용한 것만 나온다.
+
+                               **이름만 보여 주지 않는다.** 한도를 모른 채
+                               고르면 다 쓴 CLI 로 보내게 되고, 그것은 실행기가
+                               집어가 실패로 끝난 뒤에야 드러난다 — 이 화면의
+                               일은 몇십 분씩 걸려 그때는 자리를 뜬 뒤다.
+                               「빠른 지시」의 고르개가 먼저 하던 일이고 그리는
+                               모양도 그쪽과 같다(`pm-ask__kind*`).
+
+                               `TextFieldName` 은 그대로 둔다. 닫힌 칸은
+                               DevExpress 가 그것으로 그리므로, 지우면
+                               **고르고 나면 칸이 비어 보인다.** *@
                             <DxFormLayoutItem Caption="AI" ColSpanMd="4" ColSpanLg="2">
                                 <DxComboBox Data="@AllowedRunners" @bind-Value="_edit.RunnerKind"
                                             Enabled="@(CanEdit && _edit.TargetKey is not null)"
                                             TextFieldName="@nameof(PickOption.Text)"
-                                            ValueFieldName="@nameof(PickOption.Value)" />
+                                            ValueFieldName="@nameof(PickOption.Value)">
+                                    @* `Context` 를 따로 준다. 바깥
+                                       `DxFormLayoutItem` 의 자식 내용이 이미
+                                       `context` 라는 이름을 쓰고 있어서,
+                                       안 주면 **빌드가 RZ9999 로 끊긴다.** *@
+                                    <ItemTemplate Context="kind">
+                                        @{
+                                            var kindBadge = KindBadge(kind.Value);
+                                        }
+                                        <div class="pm-ask__kinditem">
+                                            <div class="pm-ask__kindhead">
+                                                <span class="pm-ask__kindname">@kind.Text</span>
+                                                <span class="jsini-badge @kindBadge.Css">@kindBadge.Text</span>
+                                            </div>
+                                            <div class="pm-ask__kindlimit">@KindLimit(kind.Value)</div>
+                                        </div>
+                                    </ItemTemplate>
+                                </DxComboBox>
                             </DxFormLayoutItem>
 
                             <DxFormLayoutItem Caption="제한(분)" ColSpanMd="3" ColSpanLg="1">
@@ -431,6 +519,18 @@
                                             Enabled="@CanEdit" />
                             </DxFormLayoutItem>
                         </DxFormLayout>
+
+                        @* 고른 AI 의 한도를 **닫힌 칸 아래에도** 한 줄로 적는다.
+                           고르개는 펴 있는 시간이 잠깐이라, 목록에만 적으면
+                           펼치지 않는 사람에게는 없는 것과 같다. 고를 것이
+                           하나뿐이어서 칸이 회색일 때도 여기는 보인다. *@
+                        @if (_edit.RunnerKind is { Length: > 0 })
+                        {
+                            <div class="pm-ai-limit">
+                                <span class="jsini-badge @PickedBadge.Css">@PickedBadge.Text</span>
+                                <span class="pm-ai-limit__text">@PickedLimit</span>
+                            </div>
+                        }
 
                         @* 끝난 뒤의 일. 체크 셋이 앞에 서고 그 뒤를 알림 칸 둘이
                            따른다 — **알림을 켜야 뒤의 둘이 살아난다**는 순서가
@@ -468,6 +568,25 @@
                                             ValueFieldName="@nameof(PickOption.Value)"
                                             Enabled="@(CanEdit && (_edit.NotifyEmail || _edit.NotifyPwa))" />
                             </label>
+                        </div>
+
+                        @* ── 편집기 머리줄 ────────────────────────────
+                           「AI 도우미」가 여기 선다. 지시문을 읽고 제목을
+                           짓거나 요약을 얹는 자리이고, **본문 바로 위**가
+                           그것을 누를 자리다 — 저장 단추 줄(아래)에 두면
+                           「저장하기 전에 하는 일」로 보이지 않는다.
+
+                           헬프데스크 요청 등록의 같은 단추를 옮겨 온 것이다
+                           (`AiTaskWriteAssist` 머리말). *@
+                        <div class="pm-ai-editor__bar">
+                            <span class="pm-ai-editor__label">지시 내용</span>
+
+                            <PermissionView Action="MenuAction.Update">
+                                <AiTaskWriteAssist Content="@(() => _edit?.Contents)"
+                                                   Enabled="@CanEdit"
+                                                   TitleChosen="@TakeAiTitle"
+                                                   SummaryReady="@TakeAiSummary" />
+                            </PermissionView>
                         </div>
 
                         @* 편집기 *@
@@ -590,6 +709,72 @@
 </div>@* /pm-ai-page *@
 
 <ConfirmDialog @ref="_confirm" />
+
+@* ── 적어 둔 것 목록 ──────────────────────────────────────────
+
+   **목록 화면이 아니라 창이다.** 임시본은 이 브라우저에만 있는 곁가지이고
+   (`AiTaskDraftStore`), 왼쪽 표는 서버에 있는 것을 그린다 — 한 판에 섞으면
+   「있는 것」과 「아직 없는 것」이 같은 줄로 보인다.
+
+   `CommGrd` 를 쓰지 않는 까닭도 같다. 조회·정렬·내보내기가 붙을 자료가
+   아니고, 한 줄에서 **고르고 버리는 두 가지**만 하면 된다.
+
+   내용은 `BodyContentTemplate` 안에 넣는다 — `CommPopup` 에는 `ChildContent`
+   가 없어서 그냥 넣으면 화면이 열리는 순간 500 이 난다(위 「이어서 지시」
+   창에 적어 둔 그대로다). *@
+<CommPopup @bind-Visible="_draftsOpen" HeaderText="임시저장 불러오기" Width="640px">
+    <BodyContentTemplate>
+        @* **이 창이 「저장」을 대신하지 않는다.** 불러온 뒤에도 서버에
+           들어가려면 「저장」을 눌러야 한다 — 그 말을 여기서 한 번 더 한다. *@
+        <PageNotice Tone="NoticeTone.Info"
+                    Text="이 브라우저에만 적혀 있는 내용입니다. 불러온 뒤 「저장」을 눌러야 서버에 들어갑니다." />
+
+        @if (DraftList.Count == 0)
+        {
+            <p class="pm-ai-drafts__empty">적어 둔 내용이 없습니다.</p>
+        }
+        else
+        {
+            <ul class="pm-ai-drafts">
+                @foreach (var draft in DraftList)
+                {
+                    <li class="pm-ai-drafts__row">
+                        @* 줄 전체가 「불러오기」다. 오른쪽 끝의 버리기만
+                           따로 떼어 둔다 — 고르는 일이 훨씬 잦다. *@
+                        <button type="button" class="pm-ai-drafts__pick"
+                                @onclick="@(() => PickDraftAsync(draft))">
+                            <span class="pm-ai-drafts__title">
+                                @DraftTitle(draft)
+                                @if (draft.TaskKey == 0)
+                                {
+                                    <span class="jsini-badge jsini-badge--warn">새 작업</span>
+                                }
+                                @if (_edit?.TaskKey == draft.TaskKey)
+                                {
+                                    <span class="jsini-badge jsini-badge--on">지금 보는 중</span>
+                                }
+                            </span>
+                            <span class="pm-ai-drafts__meta">
+                                @draft.SavedAt.Kst("MM-dd HH:mm") · @DraftMeta(draft)
+                            </span>
+                        </button>
+
+                        <button type="button" class="pm-ai-drafts__drop"
+                                title="이 임시본 버리기" aria-label="이 임시본 버리기"
+                                @onclick="@(() => DropDraftRowAsync(draft))">
+                            <span class="jsini-icon-trash" aria-hidden="true"></span>
+                        </button>
+                    </li>
+                }
+            </ul>
+        }
+    </BodyContentTemplate>
+
+    <FooterContentTemplate Context="draftsPopup">
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
+                  Click="@(() => _draftsOpen = false)" />
+    </FooterContentTemplate>
+</CommPopup>
 
 @* 이어서 시킬 내용을 받는 창. **빈 채로 연다** — 지난 지시를 채워 두면
    사람이 그것을 고쳐 쓰게 되고, 그러면 무엇이 새 지시인지 흐려진다. *@

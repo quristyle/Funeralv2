@@ -99,10 +99,15 @@ public sealed class AiTaskService(
     /// 이 화면은 왼쪽에서 고르면 오른쪽 편집기에 바로 붙는 구조라, 안 읽으면
     /// 고를 때마다 한 번 더 다녀와야 한다. 건수가 많아지면 그때 나눈다.
     /// </remarks>
+    /// <param name="excludeDone">
+    /// 끝난 건을 빼고 본다. <b>「완료」 하나만 빼는 것이 아니다</b> —
+    /// 취소된 건도 사람이 더 할 일이 없다는 점에서 같다. 실패·시간초과·중단은
+    /// <b>남긴다</b>: 그것이 이 화면에서 제일 먼저 봐야 할 줄이다.
+    /// </param>
     public async Task<List<AiTask>> ListAsync(
         string? taskStatus = null, string? requestFlag = null, long? targetKey = null,
         string? keyword = null, long? taskKey = null, bool? userConfirmed = null,
-        string? creId = null, bool? userRequest = null)
+        string? creId = null, bool? userRequest = null, bool excludeDone = false)
     {
         using var db = Open();
 
@@ -126,6 +131,8 @@ public sealed class AiTaskService(
                AND (@userRequest::boolean IS NULL OR a.is_user_request = @userRequest)
                AND (@keyword = '' OR a.title ILIKE '%' || @keyword || '%'
                                   OR a.contents ILIKE '%' || @keyword || '%')
+               -- 끝난 건 빼기. **실패한 건은 남는다** — 까닭은 파라미터 설명에.
+               AND (@excludeDone = false OR a.task_status NOT IN ('succeeded', 'canceled'))
              ORDER BY a.task_key DESC
             """, new
         {
@@ -137,6 +144,7 @@ public sealed class AiTaskService(
             userConfirmed,
             creId = creId ?? string.Empty,
             userRequest,
+            excludeDone,
         });
 
         return [.. rows];
