@@ -46,10 +46,14 @@
 
 <section class="commcont @CssClass">
 
-    @if (!string.IsNullOrWhiteSpace(Title) || Actions is not null)
+    @if (!string.IsNullOrWhiteSpace(Title) || TitleTemplate is not null || Actions is not null)
     {
         <div class="commcont__head">
-            @if (!string.IsNullOrWhiteSpace(Title))
+            @if (TitleTemplate is not null)
+            {
+                @TitleTemplate
+            }
+            else if (!string.IsNullOrWhiteSpace(Title))
             {
                 <h2 class="commcont__title">@Title</h2>
             }

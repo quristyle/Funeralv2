@@ -10,6 +10,9 @@ public partial class CommCont
     /// </summary>
     [Parameter] public string? Title { get; set; }
 
+    /// <summary>제목 대신 보여줄 템플릿</summary>
+    [Parameter] public RenderFragment? TitleTemplate { get; set; }
+
     /// <summary>제목 옆에 옅게 붙는 한마디(건수 · 기준 시각 따위).</summary>
     [Parameter] public string? Hint { get; set; }
 

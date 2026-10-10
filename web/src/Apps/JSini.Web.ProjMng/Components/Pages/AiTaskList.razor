@@ -107,13 +107,7 @@
    그래서 흉내 내지 않고 **진짜로 연다.** 여는 조건은 위의 폭 하나다. *@
 <details class="pm-ai-overview" open="@(!_isPhone)">
     <summary class="pm-ai-overview__summary">
-        <span class="pm-ai-overview__title"><i class="jsini-icon-search"></i> 요약 및 조회</span>
-        @if (DraftCount > 0)
-        {
-            <button type="button" class="pm-ai-drafts-badge" title="적어 둔 내용을 불러옵니다" @onclick:preventDefault @onclick="OpenDraftsAsync">
-                <i class="jsini-icon-document"></i> 임시저장 @DraftCount
-            </button>
-        }
+        <span><i class="jsini-icon-search"></i> 요약 및 조회</span>
         <i class="jsini-icon-chevron-down pm-ai-overview__chevron"></i>
     </summary>
     <div class="pm-ai-overview__body">
@@ -177,16 +171,16 @@
                    「조회」를 누르지 않고 그 자리에서 다시 읽는다. 스위치는
                    누른 결과가 바로 보여야 스위치다. *@
                 <CommSchItem>
-                    <DxCheckBox @bind-Checked="_excludeDone" @bind-Checked:after="SearchAsync"
-                                title="완료·취소된 건을 목록에서 뺍니다. 실패한 건은 남습니다.">
-                        완료 제외
-                    </DxCheckBox>
-                </CommSchItem>
-                <CommSchItem>
-                    <DxCheckBox @bind-Checked="_excludeConfirmed" @bind-Checked:after="SearchAsync"
-                                title="사용자 확인이 완료된 건을 목록에서 뺍니다.">
-                        확인 제외
-                    </DxCheckBox>
+                    <div class="d-flex" style="gap: 1rem;">
+                        <DxCheckBox @bind-Checked="_excludeDone" @bind-Checked:after="SearchAsync"
+                                    title="완료·취소된 건을 목록에서 뺍니다. 실패한 건은 남습니다.">
+                            완료 제외
+                        </DxCheckBox>
+                        <DxCheckBox @bind-Checked="_excludeConfirmed" @bind-Checked:after="SearchAsync"
+                                    title="사용자 확인이 완료된 건을 목록에서 뺍니다.">
+                            확인 제외
+                        </DxCheckBox>
+                    </div>
                 </CommSchItem>
             </Fields>
         </CommSch>
@@ -203,7 +197,21 @@
 
 <SplitPane Size="34">
     <First>
-        <CommCont Title="작업" Hint="@ListHint" CssClass="pm-ai-list-panel h-100">
+        <CommCont CssClass="pm-ai-list-panel h-100">
+            <TitleTemplate>
+                <div class="d-flex align-items-center flex-wrap" style="gap: 0.75rem;">
+                    <div class="pm-ai-list-stat"><span class="pm-ai-list-stat__label">전체</span><strong class="pm-ai-list-stat__value">@_rows.Count</strong></div>
+                    <div class="pm-ai-list-stat pm-ai-list-stat--accent"><span class="pm-ai-list-stat__label">실행 중</span><strong class="pm-ai-list-stat__value">@RunningCount</strong></div>
+                    <div class="pm-ai-list-stat pm-ai-list-stat--success"><span class="pm-ai-list-stat__label">완료</span><strong class="pm-ai-list-stat__value">@SucceededCount</strong></div>
+                    <div class="pm-ai-list-stat pm-ai-list-stat--danger"><span class="pm-ai-list-stat__label">확인 필요</span><strong class="pm-ai-list-stat__value">@AttentionCount</strong></div>
+                    @if (DraftCount > 0)
+                    {
+                        <button type="button" class="pm-ai-drafts-badge ms-1" title="적어 둔 내용을 불러옵니다" @onclick:preventDefault @onclick="OpenDraftsAsync">
+                            <i class="jsini-icon-document"></i> 임시저장 @DraftCount
+                        </button>
+                    }
+                </div>
+            </TitleTemplate>
         @* ── 적어 둔 것을 불러오는 단추 ────────────────────────
            임시저장은 저절로 되는 일이라 **눈에 안 띈다.** 건수를 단추에
            적어 두면 단추가 「적어 둔 것이 있다」는 사실까지 말해 준다.
