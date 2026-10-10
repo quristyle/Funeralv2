@@ -453,6 +453,17 @@ public partial class RequestManage : IDisposable
         // 오른쪽 클릭의 「다시 읽기」가 그 자리에 그대로 있다.
         if (_restored)
         {
+            if (_selected is not null)
+            {
+                try
+                {
+                    _selected.Comments = await Api.GetListAsync<ImprovementComment>($"requests/{_selected.Id}/comments");
+                }
+                catch
+                {
+                    // 실패해도 표를 그리는 데는 지장이 없으므로 무시한다.
+                }
+            }
             return;
         }
 
