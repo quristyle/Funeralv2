@@ -11,7 +11,9 @@ public class AccountDto
     public string LoginId { get; set; } = string.Empty;
     public string UserName { get; set; } = string.Empty;
     public string? Email { get; set; }
+    public List<string> Emails { get; set; } = new();
     public string? Phone { get; set; }
+    public List<string> Phones { get; set; } = new();
     public string Status { get; set; } = "ACTIVE";
     public string? CompanyId { get; set; }
     public string? CompanyName { get; set; }
@@ -98,7 +100,9 @@ public class CreateAccountDto
     public string LoginId { get; set; } = string.Empty;
     public string UserName { get; set; } = string.Empty;
     public string? Email { get; set; }
+    public List<string> Emails { get; set; } = new();
     public string? Phone { get; set; }
+    public List<string> Phones { get; set; } = new();
     public string Status { get; set; } = "ACTIVE";
     public string? DeptId { get; set; }
     public List<string> RoleIds { get; set; } = new();
@@ -133,7 +137,9 @@ public class UpdateAccountDto
 
     public string UserName { get; set; } = string.Empty;
     public string? Email { get; set; }
+    public List<string> Emails { get; set; } = new();
     public string? Phone { get; set; }
+    public List<string> Phones { get; set; } = new();
     public string Status { get; set; } = "ACTIVE";
     public string? CompanyId { get; set; }
     public string? DeptId { get; set; }

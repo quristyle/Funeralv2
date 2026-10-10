@@ -51,7 +51,9 @@ public sealed class AccountDto
     public string LoginId { get; set; } = string.Empty;
     public string UserName { get; set; } = string.Empty;
     public string? Email { get; set; }
+    public List<string> Emails { get; set; } = [];
     public string? Phone { get; set; }
+    public List<string> Phones { get; set; } = [];
 
     /// <summary>ACTIVE · LOCKED · RESIGNED.</summary>
     public string Status { get; set; } = "ACTIVE";
@@ -518,7 +520,9 @@ public sealed class RoleUserDto
     public string LoginId { get; set; } = string.Empty;
     public string UserName { get; set; } = string.Empty;
     public string? Email { get; set; }
+    public List<string> Emails { get; set; } = [];
     public string? Phone { get; set; }
+    public List<string> Phones { get; set; } = [];
     public string? DeptName { get; set; }
     public string? CompanyName { get; set; }
 
@@ -773,7 +777,9 @@ public sealed class UserInfoDto
     // ── 고칠 수 있는 것들 ────────────────────────────────
 
     public string? Email { get; set; }
+    public List<string> Emails { get; set; } = [];
     public string? Phone { get; set; }
+    public List<string> Phones { get; set; } = [];
 
     /// <summary>한 줄 소개.</summary>
     public string? Introduction { get; set; }
@@ -850,7 +856,9 @@ public sealed class UpdateProfileDto
     public string? RealName { get; set; }
     public string? Introduction { get; set; }
     public string? Email { get; set; }
+    public List<string> Emails { get; set; } = [];
     public string? Phone { get; set; }
+    public List<string> Phones { get; set; } = [];
 
     /// <summary><c>yyyy-MM-dd</c>. 빈 문자열이면 지운다.</summary>
     public string? BirthDate { get; set; }
@@ -1151,7 +1159,9 @@ public sealed class SaveAccountDto
 
     public string UserName { get; set; } = string.Empty;
     public string? Email { get; set; }
+    public List<string> Emails { get; set; } = [];
     public string? Phone { get; set; }
+    public List<string> Phones { get; set; } = [];
 
     /// <summary>ACTIVE · LOCKED · RESIGNED.</summary>
     public string Status { get; set; } = "ACTIVE";

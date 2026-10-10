@@ -12,6 +12,8 @@ public partial class SignupList
     private bool _rejecting;
     private SignupPendingDto? _target;
     private string? _reason;
+    private bool _merging;
+    private string? _targetAccountId;
 
     protected override Task OnInitializedAsync() => ReloadAsync();
 
@@ -66,6 +68,37 @@ public partial class SignupList
         {
             await ReloadAsync();
             Say($"{name} 님의 신청을 거절했습니다.");
+        }
+    }
+
+    private Task AskMergeAsync(SignupPendingDto row)
+    {
+        _target = row;
+        _targetAccountId = null;
+        _merging = true;
+        return Task.CompletedTask;
+    }
+
+    private async Task MergeAsync()
+    {
+        if (_target is null || string.IsNullOrWhiteSpace(_targetAccountId))
+        {
+            return;
+        }
+
+        var name = _target.UserName;
+
+        var ok = await RunAsync(
+            () => Api.MergeAsync(_target.Id, _targetAccountId),
+            $"{name} 님의 소셜 연결을 결합했습니다.",
+            "결합하지 못했습니다");
+
+        _merging = false;
+
+        if (ok)
+        {
+            await ReloadAsync();
+            Say($"{name} 님의 소셜 연결을 결합했습니다.");
         }
     }
 }

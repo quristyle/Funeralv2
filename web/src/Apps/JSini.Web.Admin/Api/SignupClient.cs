@@ -34,6 +34,11 @@ public sealed class SignupClient(GatewayClient gateway)
         => gateway.PostAsync(
             $"auth/system/signup/{id}/reject?reason={Uri.EscapeDataString(reason ?? string.Empty)}",
             null, ct);
+    public Task MergeAsync(string pendingId, string targetId, CancellationToken ct = default)
+        => gateway.PostAsync(
+            $"auth/system/signup/{pendingId}/merge?targetId={targetId}",
+            null, ct);
+
 }
 
 /// <summary>승인 대기 신청 한 줄.</summary>

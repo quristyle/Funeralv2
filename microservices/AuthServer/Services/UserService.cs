@@ -287,8 +287,10 @@ public class UserService : IUserService
             );
 
         return accounts.Select(a => {
-            var emailDetail = a.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Email");
-            var phoneDetail = a.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Phone");
+            var emailDetails = a.ProfileDetails?.Where(p => p.DetailType == "Email").Select(p => p.Content).Where(c => c != null).ToList() ?? new List<string>();
+            var phoneDetails = a.ProfileDetails?.Where(p => p.DetailType == "Phone").Select(p => p.Content).Where(c => c != null).ToList() ?? new List<string>();
+            var emailDetail = emailDetails.FirstOrDefault();
+            var phoneDetail = phoneDetails.FirstOrDefault();
             var statusDetail = a.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Status");
             var avatarDetail = a.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Avatar");
 
@@ -299,8 +301,10 @@ public class UserService : IUserService
                 Id = a.Id,
                 LoginId = a.UserId,
                 UserName = a.UserName ?? string.Empty,
-                Email = emailDetail?.Content,
-                Phone = phoneDetail?.Content,
+                Email = emailDetail,
+                Emails = emailDetails!,
+                Phone = phoneDetail,
+                Phones = phoneDetails!,
                 Status = statusDetail?.Content ?? "ACTIVE",
 
                 // 값이 없으면 켜진 것으로 본다. 설정을 안 건드린 계정이
@@ -403,26 +407,40 @@ public class UserService : IUserService
         // (`null`) 아무 줄도 만들지 않는다.
         SyncDevAttributes(account, dto.DevAttributes);
 
-        if (!string.IsNullOrEmpty(dto.Email))
+        var emailsToSave = dto.Emails?.ToList() ?? new List<string>();
+        if (!string.IsNullOrEmpty(dto.Email) && !emailsToSave.Contains(dto.Email))
+            emailsToSave.Insert(0, dto.Email);
+            
+        foreach (var em in emailsToSave)
         {
-            _db.AccountProfileDetails.Add(new AccountProfileDetail
+            if (!string.IsNullOrWhiteSpace(em))
             {
-                AccountId = account.Id,
-                DetailType = "Email",
-                Content = dto.Email,
-                IsPrimary = true
-            });
+                _db.AccountProfileDetails.Add(new AccountProfileDetail
+                {
+                    AccountId = account.Id,
+                    DetailType = "Email",
+                    Content = em,
+                    IsPrimary = em == emailsToSave.First()
+                });
+            }
         }
 
-        if (!string.IsNullOrEmpty(dto.Phone))
+        var phonesToSave = dto.Phones?.ToList() ?? new List<string>();
+        if (!string.IsNullOrEmpty(dto.Phone) && !phonesToSave.Contains(dto.Phone))
+            phonesToSave.Insert(0, dto.Phone);
+            
+        foreach (var ph in phonesToSave)
         {
-            _db.AccountProfileDetails.Add(new AccountProfileDetail
+            if (!string.IsNullOrWhiteSpace(ph))
             {
-                AccountId = account.Id,
-                DetailType = "Phone",
-                Content = dto.Phone,
-                IsPrimary = true
-            });
+                _db.AccountProfileDetails.Add(new AccountProfileDetail
+                {
+                    AccountId = account.Id,
+                    DetailType = "Phone",
+                    Content = ph,
+                    IsPrimary = ph == phonesToSave.First()
+                });
+            }
         }
 
         _db.AccountProfileDetails.Add(new AccountProfileDetail
@@ -478,8 +496,10 @@ public class UserService : IUserService
             Id = account.Id,
             LoginId = account.UserId,
             UserName = account.UserName,
-            Email = dto.Email,
-            Phone = dto.Phone,
+            Email = emailsToSave.FirstOrDefault(),
+            Emails = emailsToSave,
+            Phone = phonesToSave.FirstOrDefault(),
+            Phones = phonesToSave,
             Status = dto.Status ?? "ACTIVE",
             DeptId = account.DepartmentId,
             DeptName = deptName,
@@ -559,53 +579,47 @@ public class UserService : IUserService
         }
 
         // Email 업데이트
-        var emailDetail = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Email");
-        if (emailDetail != null)
+        var existingEmails = account.ProfileDetails?.Where(p => p.DetailType == "Email").ToList() ?? new List<AccountProfileDetail>();
+        foreach (var e in existingEmails) _db.AccountProfileDetails.Remove(e);
+        
+        var emailsToSave = dto.Emails?.ToList() ?? new List<string>();
+        if (!string.IsNullOrEmpty(dto.Email) && !emailsToSave.Contains(dto.Email))
+            emailsToSave.Insert(0, dto.Email);
+            
+        foreach (var em in emailsToSave)
         {
-            if (string.IsNullOrEmpty(dto.Email))
+            if (!string.IsNullOrWhiteSpace(em))
             {
-                _db.AccountProfileDetails.Remove(emailDetail);
+                _db.AccountProfileDetails.Add(new AccountProfileDetail
+                {
+                    AccountId = account.Id,
+                    DetailType = "Email",
+                    Content = em,
+                    IsPrimary = em == emailsToSave.First()
+                });
             }
-            else
-            {
-                emailDetail.Content = dto.Email;
-                _db.Entry(emailDetail).State = EntityState.Modified;
-            }
-        }
-        else if (!string.IsNullOrEmpty(dto.Email))
-        {
-            _db.AccountProfileDetails.Add(new AccountProfileDetail
-            {
-                AccountId = account.Id,
-                DetailType = "Email",
-                Content = dto.Email,
-                IsPrimary = true
-            });
         }
 
         // Phone 업데이트
-        var phoneDetail = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Phone");
-        if (phoneDetail != null)
+        var existingPhones = account.ProfileDetails?.Where(p => p.DetailType == "Phone").ToList() ?? new List<AccountProfileDetail>();
+        foreach (var p in existingPhones) _db.AccountProfileDetails.Remove(p);
+        
+        var phonesToSave = dto.Phones?.ToList() ?? new List<string>();
+        if (!string.IsNullOrEmpty(dto.Phone) && !phonesToSave.Contains(dto.Phone))
+            phonesToSave.Insert(0, dto.Phone);
+            
+        foreach (var ph in phonesToSave)
         {
-            if (string.IsNullOrEmpty(dto.Phone))
+            if (!string.IsNullOrWhiteSpace(ph))
             {
-                _db.AccountProfileDetails.Remove(phoneDetail);
+                _db.AccountProfileDetails.Add(new AccountProfileDetail
+                {
+                    AccountId = account.Id,
+                    DetailType = "Phone",
+                    Content = ph,
+                    IsPrimary = ph == phonesToSave.First()
+                });
             }
-            else
-            {
-                phoneDetail.Content = dto.Phone;
-                _db.Entry(phoneDetail).State = EntityState.Modified;
-            }
-        }
-        else if (!string.IsNullOrEmpty(dto.Phone))
-        {
-            _db.AccountProfileDetails.Add(new AccountProfileDetail
-            {
-                AccountId = account.Id,
-                DetailType = "Phone",
-                Content = dto.Phone,
-                IsPrimary = true
-            });
         }
 
         // Status 업데이트

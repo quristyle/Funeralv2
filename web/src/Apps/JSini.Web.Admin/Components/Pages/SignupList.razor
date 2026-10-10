@@ -98,6 +98,9 @@
         <RowActions Context="row">
             <DxButton IconCssClass="jsini-icon-check-circle" Title="가입을 승인한다" RenderStyle="ButtonRenderStyle.Link"
                       Click="@(() => ApproveAsync(row))" />
+            <DxButton IconCssClass="jsini-icon-link" Title="기존 계정으로 결합한다" RenderStyle="ButtonRenderStyle.Link"
+                      Visible="@(row.SocialProvider != null)"
+                      Click="@(() => AskMergeAsync(row))" />
             <DxButton IconCssClass="jsini-icon-close-circle" Title="가입을 거절한다" CssClass="commgrd__icon--warn" RenderStyle="ButtonRenderStyle.Link"
                       Click="@(() => AskRejectAsync(row))" />
         </RowActions>
@@ -121,5 +124,21 @@
         <DxButton Text="거절" RenderStyle="ButtonRenderStyle.Danger" Click="@RejectAsync" />
         <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
                   Click="@(() => _rejecting = false)" />
+    </FooterContentTemplate>
+</CommPopup>
+
+<CommPopup @bind-Visible="_merging" HeaderText="소셜 가입 결합" Width="420px">
+    <BodyContentTemplate>
+        <p class="jsini-hint">
+            @(_target?.UserName ?? "-") (@(_target?.LoginId ?? "-")) 님의 소셜 연결을 기존 계정으로 옮기고 신청은 지웁니다.
+        </p>
+
+        <DxTextBox @bind-Text="_targetAccountId" NullText="대상 계정 ID" />
+    </BodyContentTemplate>
+
+    <FooterContentTemplate Context="popupContext">
+        <DxButton Text="결합" RenderStyle="ButtonRenderStyle.Primary" Click="@MergeAsync" />
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
+                  Click="@(() => _merging = false)" />
     </FooterContentTemplate>
 </CommPopup>

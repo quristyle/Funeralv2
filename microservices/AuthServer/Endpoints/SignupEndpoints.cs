@@ -104,6 +104,27 @@ public static class SignupEndpoints
                     "승인 대기 중인 신청이 아닙니다. 목록을 다시 읽어 주십시오.", "INVALID"));
         })
         .WithName("RejectSignup");
+        admin.MapPost("/{id}/merge", async (
+            string id,
+            [FromQuery] string targetId,
+            UserContext? user,
+            [FromServices] ISignupService signup,
+            CancellationToken ct) =>
+        {
+            if (user is null)
+            {
+                return Results.Json(ApiResponse<object>.Fail("인증 정보가 없습니다.", "401"), statusCode: 401);
+            }
+
+            var ok = await signup.MergeAsync(id, targetId, user.UserId, ct);
+
+            return ok
+                ? Results.Ok(ApiResponse<object>.Ok(data: null!, message: "병합했습니다."))
+                : Results.BadRequest(ApiResponse<object>.Fail(
+                    "병합할 수 없습니다. 목록을 다시 읽어 주십시오.", "INVALID"));
+        })
+        .WithName("MergeSignup");
+
     }
 
     /// <summary>요청한 곳의 아이피. <c>PasswordResetEndpoints</c> 에 같은 것이 있다.</summary>

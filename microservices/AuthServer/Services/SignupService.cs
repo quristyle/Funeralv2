@@ -21,6 +21,9 @@ public interface ISignupService
     /// <summary>거절한다. 신청은 사라진다 — 사연은 구현 주석에 있다.</summary>
     Task<bool> RejectAsync(
         string accountId, string approver, string? reason, CancellationToken ct = default);
+
+    /// <summary>소셜 신청을 기존 계정으로 결합한다. 연결은 옮기고 신청은 지운다.</summary>
+    Task<bool> MergeAsync(string pendingAccountId, string targetAccountId, string approver, CancellationToken ct = default);
 }
 
 /// <inheritdoc cref="ISignupService"/>
@@ -329,6 +332,44 @@ public class SignupService(
                 Sender, ct);
         }
 
+        return true;
+    }
+
+    public async Task<bool> MergeAsync(string pendingAccountId, string targetAccountId, string approver, CancellationToken ct = default)
+    {
+        var pendingAccount = await db.Accounts
+            .Include(a => a.ProfileDetails)
+            .FirstOrDefaultAsync(a => a.Id == pendingAccountId, ct);
+        
+        var targetAccount = await db.Accounts
+            .FirstOrDefaultAsync(a => a.Id == targetAccountId, ct);
+            
+        if (pendingAccount == null || targetAccount == null) return false;
+        
+        var status = pendingAccount.ProfileDetails?.FirstOrDefault(p => p.DetailType == StatusDetail);
+        if (status?.Content != StatusPending) return false;
+
+        var socialLogins = await db.AccountSocialLogins
+            .Where(l => l.AccountId == pendingAccountId)
+            .ToListAsync(ct);
+            
+        foreach (var login in socialLogins)
+        {
+            login.AccountId = targetAccountId;
+        }
+
+        if (pendingAccount.ProfileDetails is { Count: > 0 })
+        {
+            db.AccountProfileDetails.RemoveRange(pendingAccount.ProfileDetails);
+        }
+
+        db.Accounts.Remove(pendingAccount);
+        await db.SaveChangesAsync(ct);
+        
+        logger.LogInformation(
+            "가입 신청 결합: {PendingId} -> {TargetId} (처리자 {Approver})",
+            pendingAccountId, targetAccountId, approver);
+            
         return true;
     }
 
