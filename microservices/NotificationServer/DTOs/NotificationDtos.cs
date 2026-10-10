@@ -694,3 +694,19 @@ public class NotificationRowDto
     /// </remarks>
     public string? Icon { get; set; }
 }
+
+/// <summary>
+/// 알림함에서 <b>고른 것 여럿</b>에 한꺼번에 거는 요청(읽음 · 치우기).
+/// </summary>
+/// <remarks>
+/// 한 건짜리 길(<c>/inbox/{id}/read</c> · <c>DELETE /inbox/{id}</c>)이 이미
+/// 있는데 묶음 길을 따로 둔 까닭은 <b>왕복 수</b>다. 화면의 머리 체크 하나로
+/// 수백 줄이 잡히는데 그것을 한 줄씩 부르면 그만큼 왕복이 늘고, 중간에
+/// 하나가 실패하면 <b>어디까지 지워졌는지</b>를 사람이 알 수 없다.
+/// 여기서는 한 번의 저장으로 끝나 전부 되거나 전부 안 된다.
+/// </remarks>
+public class InboxBulkDto
+{
+    /// <summary>묶음 열쇠들(<c>batch_id</c> 또는 옛 줄의 아이디).</summary>
+    public List<string> Ids { get; set; } = [];
+}

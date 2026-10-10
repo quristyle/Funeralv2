@@ -1210,6 +1210,106 @@ public static class NotificationEndpoints
         })
         .WithName("DeleteInbox");
 
+        // 알림함에서 **고른 것 여럿**을 한꺼번에 읽음으로 찍는다.
+        //
+        // [왜 한 건짜리 길을 되풀이해 부르지 않는가]
+        //
+        // 화면의 머리 체크 하나로 수백 줄이 잡힌다. 그것을 `/inbox/{id}/read`
+        // 로 한 줄씩 부르면 왕복이 그만큼 늘고, 중간에 하나가 끊기면
+        // **어디까지 찍혔는지**를 사람이 알 길이 없다. 여기서는 저장이 한
+        // 번이라 전부 되거나 전부 안 된다.
+        //
+        // [전부가 아니다 — 고른 것만이다]
+        //
+        // `/inbox/read-all` 과 다르다. 그쪽은 조건 없이 그 사람의 안 읽은
+        // 줄을 전부 찍고, 여기는 **사람이 체크한 묶음만** 찍는다.
+        //
+        // 묶음 단위·소유자 확인은 한 건짜리 길과 같다.
+        group.MapPost("/inbox/read-many", async (
+            [FromBody] InboxBulkDto request,
+            UserContext? user,
+            [FromServices] AppDbContext db,
+            CancellationToken ct) =>
+        {
+            if (user is null) return Results.Unauthorized();
+
+            var keys = Keys(request);
+            if (keys.Count == 0)
+            {
+                return Results.Ok(ApiResponse<int>.Ok(0));
+            }
+
+            var mine = await db.PushSendLogs
+                .Where(l => l.OwnerType == "jsini" && l.OwnerKey == user.UserId
+                            && l.ReadAt == null
+                            && (keys.Contains(l.BatchId!) || keys.Contains(l.Id)))
+                .ToListAsync(ct);
+
+            var now = DateTime.UtcNow;
+            foreach (var row in mine)
+            {
+                row.ReadAt = now;
+            }
+
+            if (mine.Count > 0)
+            {
+                await db.SaveChangesAsync(ct);
+            }
+
+            // 센 것은 **묶음 수**다. 기기 둘을 쓰는 사람은 줄이 더 많지만
+            // 화면이 고른 것은 묶음이라, 줄 수를 돌려주면 「3건 골랐는데
+            // 5건 처리」가 된다.
+            return Results.Ok(ApiResponse<int>.Ok(
+                mine.Select(r => r.BatchId ?? r.Id).Distinct().Count()));
+        })
+        .WithName("MarkInboxReadMany");
+
+        // 알림함에서 **고른 것 여럿**을 한꺼번에 치운다.
+        //
+        // 줄을 지우지 않고 `deleted_at` 을 찍는 까닭과 묶음 단위인 까닭은
+        // 바로 위 `DELETE /inbox/{id}` 머리말에 있다. 여기서 더해지는 것은
+        // 「한 번의 저장」뿐이다 — 일괄 삭제는 **절반만 지워지는 것**이
+        // 가장 나쁘다.
+        //
+        // **DELETE 가 아니라 POST 다.** 본문에 목록을 싣는 DELETE 는
+        // 중간의 프록시마다 몸체를 다르게 다룬다(게이트웨이도 그 길을
+        // 지난다).
+        group.MapPost("/inbox/delete-many", async (
+            [FromBody] InboxBulkDto request,
+            UserContext? user,
+            [FromServices] AppDbContext db,
+            CancellationToken ct) =>
+        {
+            if (user is null) return Results.Unauthorized();
+
+            var keys = Keys(request);
+            if (keys.Count == 0)
+            {
+                return Results.Ok(ApiResponse<int>.Ok(0));
+            }
+
+            var mine = await db.PushSendLogs
+                .Where(l => l.OwnerType == "jsini" && l.OwnerKey == user.UserId
+                            && l.DeletedAt == null
+                            && (keys.Contains(l.BatchId!) || keys.Contains(l.Id)))
+                .ToListAsync(ct);
+
+            var now = DateTime.UtcNow;
+            foreach (var row in mine)
+            {
+                row.DeletedAt = now;
+            }
+
+            if (mine.Count > 0)
+            {
+                await db.SaveChangesAsync(ct);
+            }
+
+            return Results.Ok(ApiResponse<int>.Ok(
+                mine.Select(r => r.BatchId ?? r.Id).Distinct().Count()));
+        })
+        .WithName("DeleteInboxMany");
+
         // ── 이메일 발송 ─────────────────────────────────────
         //
         // 큐에 넣는 것까지가 이 서비스의 일이다. 실제 발송은 배포 장비의 스크립트가 한다.
@@ -1299,6 +1399,20 @@ public static class NotificationEndpoints
     /// <summary>「최근 N 일」의 시작. 0 이나 음수가 와도 하루는 본다.</summary>
     private static DateTime Since(int days) =>
         DateTime.UtcNow.Date.AddDays(-Math.Max(1, days) + 1);
+
+    /// <summary>
+    /// 묶음 요청에서 <b>쓸 수 있는 열쇠</b>만 골라낸다.
+    /// </summary>
+    /// <remarks>
+    /// 빈 값은 떨어뜨리고 같은 것은 한 번만 남긴다 — 같은 열쇠가 두 번
+    /// 들어와도 <c>IN</c> 절만 길어질 뿐 결과는 같다. 알림함이 한 번에 주는
+    /// 줄이 상한 2,000 이라 여기 오는 수도 그 안이다.
+    /// </remarks>
+    private static List<string> Keys(InboxBulkDto request) =>
+        [.. (request.Ids ?? [])
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Select(id => id.Trim())
+            .Distinct(StringComparer.Ordinal)];
 
     /// <summary>
     /// 한 사람의 기기(구독) 목록. 최근 등록한 것이 위다.

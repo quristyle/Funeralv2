@@ -78,10 +78,18 @@ public partial class NotificationHistory
     private IReadOnlyList<NotificationDto> _all = [];
 
     /// <summary>
-    /// 표에서 고른 줄. 오른쪽 클릭 창의 「열기」가 이 값을 연다 —
-    /// <b>창은 고른 줄을 인자로 주지 않는다.</b>
+    /// 체크한 줄들. 표 위의 일괄 단추 둘이 이 값에 건다.
     /// </summary>
-    private NotificationDto? _picked;
+    /// <remarks>
+    /// <b>줄을 누르는 것으로는 안 채워진다</b> — 줄 누르기는 「연다」이고
+    /// 체크는 맨 앞 칸에서만 한다(<c>AllowSelectRowByClick="false"</c>).
+    /// 둘을 겹쳐 두면 알림 하나를 열어 보려던 손짓이 일괄 삭제의 대상을
+    /// 한 건 늘린다.
+    /// </remarks>
+    private IReadOnlyList<NotificationDto> _selectedItems = [];
+
+    /// <summary>일괄삭제를 묻는 창. 한 건짜리 길에는 안 쓴다.</summary>
+    private ConfirmDialog? _confirm;
 
     /// <summary>
     /// 지금까지 낸 조회의 번호. <b>마지막으로 낸 것만 표에 앉힌다.</b>
@@ -283,40 +291,74 @@ public partial class NotificationHistory
         }
     }
 
-    private IReadOnlyList<NotificationDto> _selectedItems = Array.Empty<NotificationDto>();
-
+    /// <summary>
+    /// 체크한 것을 한꺼번에 읽음으로 찍는다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>이미 읽은 줄은 빼고 보낸다.</b> 서버도 안 읽은 줄만 찍으므로 결과는
+    /// 같지만, 「3건을 읽음으로 표시했습니다」가 실제로 바뀐 수와 맞아야 한다.
+    /// 뺀 뒤에 남는 것이 없으면 아무 일도 하지 않는다.
+    /// </para>
+    /// <para>
+    /// 왕복은 <b>하나</b>다(<see cref="AdminClient.MarkNotificationsReadAsync"/>) —
+    /// 한 건씩 부르면 체크 수만큼 왕복이 늘고, 중간에 끊겼을 때 어디까지
+    /// 찍혔는지 알 수 없다.
+    /// </para>
+    /// </remarks>
     private async Task MarkSelectedReadAsync()
     {
         var targets = _selectedItems.Where(n => !n.IsRead).ToList();
-        if (targets.Count == 0) return;
-
-        if (await RunAsync(async () =>
+        if (targets.Count == 0)
         {
+            Say("고른 알림이 이미 모두 읽음입니다.", NoticeTone.Warning);
+            return;
+        }
+
+        if (await RunAsync(() => Api.MarkNotificationsReadAsync(targets.Select(n => n.Id)),
+                $"{targets.Count}건을 읽음으로 표시했습니다.", "표시하지 못했습니다"))
+        {
+            // 받아 둔 것에도 반영한다 — 「안 읽은 것만」이 켜져 있으면 그
+            // 줄들이 다음 그림에서 빠진다. 다시 조회하지 않는 것은 한 건짜리
+            // 읽음 처리와 같은 까닭이다(백 건짜리 목록이 깜박인다).
             foreach (var n in targets)
             {
-                await Api.MarkNotificationReadAsync(n.Id);
                 n.IsRead = true;
             }
-        }, $"{targets.Count}건을 읽음으로 표시했습니다.", "표시하지 못했습니다"))
-        {
-            _selectedItems = Array.Empty<NotificationDto>();
+
+            _selectedItems = [];
         }
     }
 
+    /// <summary>
+    /// 체크한 것을 한꺼번에 알림함에서 치운다. <b>묻고 나서 한다.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 한 건씩 치우는 길(오른쪽 클릭 창 · 서랍에서 카드 밀기)은 눈앞의 그 줄
+    /// 하나라 묻지 않는다. 체크해 둔 수십 건은 다르다 — 무엇이 사라졌는지
+    /// 되짚을 길이 없고, 머리줄의 체크 한 번이면 보이는 것이 전부 잡힌다.
+    /// </para>
+    /// <para>
+    /// 줄이 진짜로 지워지지는 않는다(<c>deleted_at</c>). 그래도 사람이 다시
+    /// 꺼내 볼 자리는 없으므로 되돌릴 수 없는 것으로 치고 묻는다.
+    /// </para>
+    /// </remarks>
     private async Task DeleteSelectedAsync()
     {
         var targets = _selectedItems.ToList();
         if (targets.Count == 0) return;
 
-        if (await RunAsync(async () =>
+        var ok = await _confirm!.AskAsync(
+            $"고른 알림 {targets.Count}건을 알림함에서 치웁니다."
+            + "\n되돌릴 수 없습니다 — 보낸 쪽 발송 기록에는 남지만 이 목록에서는 다시 볼 수 없습니다.");
+
+        if (!ok) return;
+
+        if (await RunAsync(() => Api.DeleteNotificationsAsync(targets.Select(n => n.Id)),
+                $"{targets.Count}건을 삭제했습니다.", "삭제하지 못했습니다"))
         {
-            foreach (var n in targets)
-            {
-                await Api.DeleteNotificationAsync(n.Id);
-            }
-        }, $"{targets.Count}건을 삭제했습니다.", "삭제하지 못했습니다"))
-        {
-            _selectedItems = Array.Empty<NotificationDto>();
+            _selectedItems = [];
             await ReloadAsync();
         }
     }

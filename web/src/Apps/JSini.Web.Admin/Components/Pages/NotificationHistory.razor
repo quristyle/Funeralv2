@@ -83,7 +83,7 @@
 </CommSch>
 
 <CommCont>
-    @* 줄을 **두 번 누르면 그 알림이 가리키는 화면**이 열린다(탭이 하나 선다).
+    @* 줄을 **한 번 누르면 그 알림이 가리키는 화면**이 열린다(탭이 하나 선다).
        AI 작업 지시가 그렇게 열리는 첫 갈래다 — `/projmng/ai/task/{번호}` 가
        이미 탭으로 펼쳐 보는 화면이다(`AiTaskViewPage`).
 
@@ -91,30 +91,49 @@
        (`PushClickRead`) — 그 화면을 연 사람에게 다시 「봤다」를 누르게 할
        까닭이 없다. 못 찍어도 조용하다.
 
-       **두 번 누르기는 화면 어디에도 안 보이는 몸짓**이라 오른쪽 클릭 창에
-       같은 것을 「열기」로 둔다. 보이는 자리가 없으면 아무도 안 쓴다. *@
+       [두 번 누르기에서 한 번 누르기로 바꿨다]
+
+       두 번 누르기는 **화면 어디에도 안 보이는 몸짓**이라 오른쪽 클릭 창에
+       「열기」를 따로 두어야 했고, 휴대폰에는 두 번 누르기가 아예 없었다.
+       알림함의 줄은 **읽으려고 있는 것**이고 여는 일은 되돌리기 쉬우므로
+       (화면이 하나 서는 것뿐이다) 한 번으로 연다.
+
+       **그래서 줄 누르기로는 체크가 안 되게 막았다**(`AllowSelectRowByClick`).
+       안 막으면 여는 그 손짓이 체크까지 같이 해서, 일괄 단추가 노린 것보다
+       한 건 더 잡는다 — 지우기에서는 그 한 건이 그대로 사라진다.
+       체크는 맨 앞 칸에서만 한다.
+
+       **줄 안의 단추는 번짐을 막는다**(`@@onclick:stopPropagation`). 안 막으면
+       「읽음 처리」를 누른 것이 줄 누르기로도 올라가 화면이 떠나 버린다 —
+       DevExpress 는 셀 안의 누름도 `RowClick` 으로 올린다(재어 확인했다). *@
     <CommGrd TItem="NotificationDto" Data="@Shown" PageSize="30"
              ExportName="알림함"
-             SelectedItem="@_picked"
-             SelectedItemChanged="@(n => _picked = n)"
+             SelectionMode="GridSelectionMode.Multiple"
+             AllowSelectRowByClick="false"
              SelectedItems="@_selectedItems"
              SelectedItemsChanged="@((IReadOnlyList<NotificationDto> items) => _selectedItems = items)"
-             OnRowDoubleClick="@OpenAsync"
+             OnRowClick="@OpenAsync"
              Reload="@ReloadAsync">
-        <ContextMenuItems>
-            <CommMenuItem Text="열기" IconCssClass="jsini-icon-eye"
-                          Enabled="@(_picked is not null)"
-                          Click="@(() => OpenAsync(_picked!))" />
-            @* 고른 줄에 거는 묶음 동작. 아래 띠에 단추로 두면 같은 표의 동작이
-               두 자리로 갈린다(`CommGrdFooterTests`). *@
-            <CommMenuItem Text="읽음 처리" IconCssClass="jsini-icon-check"
-                          Enabled="@(_selectedItems.Count > 0)"
-                          Click="@MarkSelectedReadAsync" />
-            <CommMenuItem Text="선택항목 삭제" IconCssClass="jsini-icon-trash"
-                          Enabled="@(_selectedItems.Count > 0)"
-                          Click="@DeleteSelectedAsync" />
-        </ContextMenuItems>
+        @* 일괄 동작은 **표 위**에 둔다. 오른쪽 클릭 창에만 있을 때는 체크를
+           해 놓고도 그다음에 할 일이 화면에 안 보였다 — 체크 칸을 둔 뜻이
+           살지 않는다. 몇 건을 골랐는지도 여기 적는다. 아래 띠가 아닌 것은
+           그 자리에 동작을 두지 않기 때문이다(`CommGrdFooterTests`). *@
+        <Toolbar>
+            <DxButton Text="선택 항목 읽음 처리" IconCssClass="jsini-icon-check"
+                      RenderStyle="ButtonRenderStyle.Secondary"
+                      Enabled="@(_selectedItems.Count > 0)"
+                      Click="@MarkSelectedReadAsync" />
+            <DxButton Text="선택 항목 일괄삭제" IconCssClass="jsini-icon-trash"
+                      RenderStyle="ButtonRenderStyle.Danger"
+                      Enabled="@(_selectedItems.Count > 0)"
+                      Click="@DeleteSelectedAsync" />
+            @if (_selectedItems.Count > 0)
+            {
+                <span class="jsini-hint">@(_selectedItems.Count)건 선택</span>
+            }
+        </Toolbar>
         <Columns>
+            @* 줄마다 체크 칸. 머리줄의 체크가 「보이는 것 전부」를 고른다. *@
             <DxGridSelectionColumn Width="50" />
             @* 서버가 주는 것은 UTC 라 그대로 그리면 아홉 시간 전으로 보인다. *@
             <DxGridDataColumn FieldName="@nameof(NotificationDto.CreatedAt)" Caption="받은 때" Width="150">
@@ -158,11 +177,21 @@
                     }
                     else
                     {
-                        <DxButton Text="읽음 처리" RenderStyle="ButtonRenderStyle.Secondary"
-                                  Click="@(() => MarkReadAsync(n))" />
+                        @* 감싼 자리가 번짐을 끊는다 — 안 끊으면 이 단추를 누른
+                           것이 줄 누르기로도 올라가 그 알림의 화면이 열린다.
+                           「읽음으로만 찍고 여기 남아 있겠다」가 이 단추의 뜻이다. *@
+                        <span @onclick="@(() => { })" @onclick:stopPropagation="true">
+                            <DxButton Text="읽음 처리" RenderStyle="ButtonRenderStyle.Secondary"
+                                      Click="@(() => MarkReadAsync(n))" />
+                        </span>
                     }
                 </CellDisplayTemplate>
             </DxGridDataColumn>
         </Columns>
     </CommGrd>
 </CommCont>
+
+@* 일괄삭제만 묻는다. 한 건씩 치우는 길(카드 왼쪽 밀기 · 오른쪽 클릭 창)은
+   눈앞의 그 줄 하나라 되짚기 쉽지만, 체크해 둔 수십 건은 무엇이 사라졌는지
+   되짚을 길이 없다. *@
+<ConfirmDialog @ref="_confirm" />

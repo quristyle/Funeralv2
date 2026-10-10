@@ -483,6 +483,23 @@ public sealed class AdminClient(GatewayClient gateway)
         => gateway.DeleteAsync(
             $"notification/notifications/inbox/{Uri.EscapeDataString(id)}", ct);
 
+    /// <summary>
+    /// 체크한 것 여럿을 <b>한 번에</b> 읽음으로 찍는다.
+    /// </summary>
+    /// <remarks>
+    /// 한 건짜리 길을 목록만큼 되풀이해 부르지 않는 까닭은 왕복 수와
+    /// <b>절반만 처리되는 것</b> 때문이다 — 서버에서 저장이 한 번이라
+    /// 전부 되거나 전부 안 된다(<c>MarkInboxReadMany</c>).
+    /// </remarks>
+    public Task MarkNotificationsReadAsync(IEnumerable<string> ids, CancellationToken ct = default)
+        => gateway.PostAsync(
+            "notification/notifications/inbox/read-many", new { ids = ids.ToArray() }, ct);
+
+    /// <summary>체크한 것 여럿을 한 번에 치운다. 묶음인 까닭은 위와 같다.</summary>
+    public Task DeleteNotificationsAsync(IEnumerable<string> ids, CancellationToken ct = default)
+        => gateway.PostAsync(
+            "notification/notifications/inbox/delete-many", new { ids = ids.ToArray() }, ct);
+
     /// <summary>게이트웨이가 서비스를 하나씩 눌러 본 결과. 자기 상태도 함께 온다.</summary>
     public Task<GatewayStatusDto?> GetGatewayStatusAsync(CancellationToken ct = default)
         => gateway.GetFlexibleAsync<GatewayStatusDto>("gateway/status", ct);
