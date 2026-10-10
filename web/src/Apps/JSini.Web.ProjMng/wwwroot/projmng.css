@@ -2939,7 +2939,7 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
   opacity: 0.85;
 }
 
-/* ── 어느 AI 에게 간 건인가 (`pm-ask__ai`) ──────────────────
+/* ── 어느 AI 에게 간 건인가 (`pm-ai`) ───────────────────────
 
    한 글자짜리 칩이다. 왜 한 글자인지는 `AiRunnerMark` 머리말에 있다 —
    **가르는 것은 글자가 아니라 색**이고, 그 색은 각 AI 의 심볼색이다.
@@ -2952,8 +2952,13 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
    `flex: 0 0 auto` 는 있어야 한다 — 없으면 반 폭 카드에서 제목이 길 때
    이 칩이 먼저 눌려 찌그러진다. 한 글자라 `min-width` 로 동그라미에 가까운
    너비를 잡아 둔다(자리가 고정된 값이라 카드를 세로로 훑을 때 상태 글자의
-   x 좌표가 건마다 흔들리면 안 된다). */
-.pm-ask__ai {
+   x 좌표가 건마다 흔들리면 안 된다).
+
+   **카드(`pm-ask__item`)와 들여다보는 창(`pm-peek__top`)이 같이 쓴다.**
+   그래서 이름에 어느 한쪽의 블록을 달지 않았다 — 카드에서 색으로 알아본
+   건을 눌러 들어왔을 때 **같은 칩이 같은 모양으로 서 있어야** 「그 건이
+   맞다」가 눈으로 확인된다(얼굴을 두 곳에 같이 세우는 것과 같은 까닭이다). */
+.pm-ai {
   --pm-ai: var(--jsini-text-muted);
   --pm-ai-ink: #ffffff;
 
@@ -2974,26 +2979,40 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
 }
 
 /* Claude — Anthropic 의 흙빛 주황. */
-.pm-ask__ai--claude { --pm-ai: #d97757; }
+.pm-ai--claude { --pm-ai: #d97757; }
 
 /* 안티그래비티 — 구글의 파랑. */
-.pm-ask__ai--antigravity { --pm-ai: #4285f4; }
+.pm-ai--antigravity { --pm-ai: #4285f4; }
 
 /* Copilot — 깃허브의 먹빛.
 
    **어두운 테마에서 뒤집는다.** 어두운 판에 검은 칩을 올리면 배지가 통째로
    사라져 「AI 가 안 적혀 있다」로 보인다. 깃허브가 제 마크를 다루는 방식과
    같게 바탕과 글자를 맞바꾼다. */
-.pm-ask__ai--copilot { --pm-ai: #24292f; }
+.pm-ai--copilot { --pm-ai: #24292f; }
 
-:root[data-theme='dark'] .pm-ask__ai--copilot {
+:root[data-theme='dark'] .pm-ai--copilot {
   --pm-ai: #d0d7de;
   --pm-ai-ink: #16181d;
 }
 
 /* 공통코드에 새로 생긴 AI. 색을 정해 준 적이 없으므로 흐림으로 둔다 —
    **배지 자리가 비는 것보다 낫다**(`AiRunnerMark` 머리말). */
-.pm-ask__ai--etc { --pm-ai: var(--jsini-text-muted); }
+.pm-ai--etc { --pm-ai: var(--jsini-text-muted); }
+
+/* 들여다보는 창의 머리띠에 서는 칩. **한 치수 크다** — 머리띠의 글자가
+   카드보다 크고(`pm-peek__value`), 거기에 카드 치수의 칩을 그대로 세우면
+   라벨 사이에 낀 점처럼 보인다.
+
+   `em` 이 아니라 `rem` 으로 적는다. 머리띠는 `font-size` 를 따로 안 주는
+   자리라 `em` 으로 두면 테마의 바탕 글자 크기에 따라 칩만 들쭉날쭉해진다. */
+.pm-ai--lg {
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0 0.3rem;
+  border-radius: 0.35rem;
+  font-size: var(--jsini-fs-xs);
+}
 
 /* 실행일시. 제목보다 한 단 흐리다 — 자리가 고정된 값이라 눈에 띌 필요가
    없고, 같은 굵기로 두면 제목과 다툰다. */
@@ -3493,7 +3512,10 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
    **휴대폰에서는 창이 화면을 꽉 채운다.**
    ---------------------------------------------------------- */
 
-/* 머리띠 — 상태 · 실행일시 · 총작업시간. 탭을 옮겨도 제자리에 남는다. */
+/* 머리띠 — 상태 · AI 칩 · 지시자 · 시각 셋. 탭을 옮겨도 제자리에 남는다.
+
+   **라벨이 붙는 것은 시각 셋뿐이다.** 상태·AI·지시자는 값 자신이 무엇인지를
+   말하므로(배지 글자 · 색 칩 · 얼굴) 이름표를 달면 그만큼 칸만 먹는다. */
 .pm-peek__top {
   display: flex;
   flex-wrap: wrap;

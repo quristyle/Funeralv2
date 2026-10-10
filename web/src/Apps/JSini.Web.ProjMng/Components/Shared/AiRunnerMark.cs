@@ -29,7 +29,7 @@ namespace JSini.Web.ProjMng.Components.Shared;
 /// </para>
 /// <para>
 /// 여기서는 <b>수식어 이름만</b> 돌려주고 실제 색은
-/// <c>projmng.css</c> 의 <c>.pm-ask__ai--*</c> 가 쥔다. 어두운 테마에서
+/// <c>projmng.css</c> 의 <c>.pm-ai--*</c> 가 쥔다. 어두운 테마에서
 /// 먹빛을 뒤집어야 하는데(안 그러면 어두운 판에 검은 칩이라 사라진다)
 /// 그것은 C# 이 모르는 일이다.
 /// </para>
@@ -57,7 +57,7 @@ internal static class AiRunnerMark
     };
 
     /// <summary>
-    /// 배지 색 수식어(<c>pm-ask__ai--*</c>). 아는 값만 제 색을 쓰고
+    /// 배지 색 수식어(<c>pm-ai--*</c>). 아는 값만 제 색을 쓰고
     /// 나머지는 흐림으로 간다.
     /// </summary>
     public static string Tone(string? kind) => Key(kind) switch

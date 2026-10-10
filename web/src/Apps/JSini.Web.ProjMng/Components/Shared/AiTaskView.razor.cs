@@ -14,6 +14,13 @@ public partial class AiTaskView
     [Inject] private UserFaceClient Faces { get; set; } = default!;
     [Inject] private IJSRuntime Js { get; set; } = default!;
 
+    /// <summary>
+    /// AI 이름을 읽을 곳. <b>머리띠의 칩에 달 <c>title</c> 하나에만 쓴다</b> —
+    /// 칩 자신은 공통코드를 몰라도 서므로(<see cref="AiRunnerMark"/>) 이것을
+    /// 못 읽어도 화면은 그대로다.
+    /// </summary>
+    [Inject] private AiModelCodes ModelCodes { get; set; } = default!;
+
     /// <summary>「지시와 결과」 탭. 처리 요약 · 물음 · 답이 이 한 판에 있다.</summary>
     private const int TabAsk = 0;
 
@@ -73,6 +80,13 @@ public partial class AiTaskView
 
     /// <summary>로그인 아이디. 못 읽었으면 <c>null</c> 이다.</summary>
     private string? _me;
+
+    /// <summary>
+    /// 고를 수 있는 AI 의 코드값과 이름. <b>칩의 <c>title</c> 에만 쓴다</b>
+    /// (<see cref="KindName"/>). 못 읽으면 빈 목록이고, 그때는 코드값이 그대로
+    /// 이름 자리에 선다.
+    /// </summary>
+    private IReadOnlyList<AiModelOption> _kinds = [];
 
     /// <summary>지금 보고 있는 건. 이것이 바뀔 때만 받아 온 것을 버린다.</summary>
     private long? _key;
@@ -247,6 +261,26 @@ public partial class AiTaskView
     private string Who(AiTaskDto t) => Faces.Get(t.CreId)?.Name ?? t.CreId ?? "-";
 
     /// <summary>
+    /// 머리띠의 AI 칩에 달 전체 이름. <b>고르는 칸과 같은 글자</b>를 쓴다 —
+    /// 공통코드(<c>AI_MODEL</c>)에서 읽은 <see cref="_kinds"/> 에서 집는다.
+    /// </summary>
+    /// <remarks>
+    /// 못 찾으면 코드값을 그대로 적는다. 목록을 못 받았을 때도(그쪽은 실패해도
+    /// 화면을 막지 않는다) 칩이 <b>이름 없는 색 조각</b>으로 남지 않는다 —
+    /// 칩에는 글자가 한 자뿐이라 그 <c>title</c> 이 유일한 이름이다.
+    /// </remarks>
+    private string KindName(string? kind)
+    {
+        if (string.IsNullOrWhiteSpace(kind))
+        {
+            return "AI 를 알 수 없음";
+        }
+
+        return _kinds.FirstOrDefault(
+            k => string.Equals(k.Value, kind, StringComparison.OrdinalIgnoreCase))?.Text ?? kind;
+    }
+
+    /// <summary>
     /// 처음 열리는 탭. <b>상태가 고른다</b> — 위 머리말 참고.
     /// </summary>
     private static int DefaultTab(AiTaskDto t) => t.TaskStatus switch
@@ -277,6 +311,11 @@ public partial class AiTaskView
     /// </summary>
     protected override async Task OnInitializedAsync()
     {
+        // **AuthState 를 보기 전에 읽는다.** 아래 이른 반환에 걸리면 칩의
+        // 이름이 영영 코드값으로 남는다. 통에 담긴 값이라 두 번째부터는
+        // 그 자리에서 돌아온다(`AiModelCodes`).
+        _kinds = await ModelCodes.GetAsync();
+
         if (AuthState is null)
         {
             return;
