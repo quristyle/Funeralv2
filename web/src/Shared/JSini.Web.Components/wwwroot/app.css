@@ -1302,12 +1302,32 @@ body {
   flex: 1;
   min-height: 0;
   padding: 0 var(--dxbl-treeview-spacing-x) var(--dxbl-treeview-spacing-y);
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
-}
 
-.jsini-sidebar__tree .dxbl-scroll-viewer::-webkit-scrollbar {
-  display: none;
+  /* [스크롤 막대는 감추고 구르기는 남긴다]
+
+     여기 보이는 세로 막대는 **브라우저가 그린 것이 아니다.** 그래서
+     `scrollbar-width: none` 도 `::-webkit-scrollbar` 도 하나도 안 걷힌다
+     (그 둘을 걸어 두었다가 「여전히 보인다」는 말을 들었다).
+
+     실제로 구르는 칸은 `.dxbl-scroll-viewer-content` 이고 그쪽 네이티브
+     막대는 DevExpress 가 이미 감춰 두었다(그쪽 CSS 에 `scrollbar-width:
+     none` 이 있다 — 재어 보니 `offsetWidth - clientWidth = 0`). 눈에
+     걸리는 것은 그 위에 **DevExpress 가 따로 그린 div** —
+     `.dxbl-scroll-viewer-vert-scroll-bar` 와 그 안의 `dxbl-thumb` 이다
+     (폭 8px, 엄지 3.2px).
+
+     `display: none` 으로 지우려면 DevExpress 가 켤 때 쓰는 규칙
+     (`…-vert-scroll-bar:not(.dxbl-disabled):not(:disabled).dxbl-active`,
+     클래스 다섯)을 `!important` 로 눌러야 한다. 대신 **그 막대가 폭을
+     꺼내 쓰는 변수를 0 으로 돌린다** — 변수는 상속되므로 특이도 싸움이
+     없고(`.dxbl-scroll-viewer` 한 겹보다 여기가 깊다), 구르기는 네이티브
+     `overflow: auto` 그대로라 **마우스 휠이 살아 있다**(실측: 휠 한 번에
+     scrollTop 0 → 65, 막대 폭은 8 → 0).
+
+     `hover-width` 까지 같이 0 으로 둬야 한다 — 막대 위에 마우스를 올리거나
+     엄지를 끌 때 쓰는 폭이 그쪽이라, 빼놓으면 지나갈 때만 다시 나타난다. */
+  --dxbl-scroll-viewer-vert-scroll-bar-width: 0;
+  --dxbl-scroll-viewer-vert-scroll-bar-hover-width: 0;
 }
 
 /* 최상위(업무 묶음)만 굵게. 데모의 사이드바가 그렇게 생겼다.
@@ -7116,6 +7136,10 @@ a.jsini-social__btn:focus-visible {
 
    탭 줄과 길잡이는 `scrollbar-width: none` 으로 아예 감춰 두었다. 그쪽은
    클래스 선택자라 여기 `html` 규칙을 이긴다 — 그대로 남는다.
+
+   **사이드바 트리는 여기도 저기도 아니다.** 그 막대는 브라우저가 아니라
+   DevExpress 가 div 로 그린 것이라 이 절의 규칙이 아예 닿지 않는다 —
+   감추는 자리는 위쪽 `.jsini-sidebar__tree .dxbl-scroll-viewer` 다.
 
    [iframe 안쪽은 못 바꾼다]
 
