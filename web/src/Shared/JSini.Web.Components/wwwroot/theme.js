@@ -901,6 +901,26 @@
 
       if (!sep) return;
 
+      // **셸 자신의 구분선일 때에만 우리 일이다.**
+      //
+      // 화면 안에도 분할판이 산다 — 할일 목록(`pm-splitpane`)·권한 지도
+      // (`ad-vsplit`)·처리 결과 같은 마스터-디테일 화면들이 다 `DxSplitter` 다.
+      // 그것들도 같은 `dxbl-splitter-separator` 를 그리므로, 구분선만 보고
+      // 셸을 거슬러 올라가면(`sep.closest('.jsini-shell')`) **화면 안의 판을
+      // 끄는 동안 사이드바가 접혀 보였다.**
+      //
+      // 증상이 고약한 것은 그 뒤다. 미리 접어 보인 것을 거두는 일은 진짜
+      // 접힘이 오면 하는데(`stop`), 진짜 접힘은 셸의 판에서만 온다. 그래서
+      // 사이드바가 접힌 채로 0.8 초를 있다가 저 혼자 다시 펴진다.
+      //
+      // 가장 가까운 분할판이 셸의 것인지로 가른다. `.jsini-shell__split` 를
+      // 함께 적어 두는 것은 셸의 뿌리에 `.dxbl-splitter` 가 안 붙는 날에도
+      // (부품이 바뀌면 그럴 수 있다) 미리 접어 보이기가 죽지 않게 하기
+      // 위해서다 — 둘 중 먼저 만나는 쪽이 셸의 것이면 통과다.
+      var split = sep.closest('.jsini-shell__split, .dxbl-splitter');
+
+      if (!split || !split.classList.contains('jsini-shell__split')) return;
+
       var shell = sep.closest('.jsini-shell');
       var el = shell && pane(shell);
 
