@@ -177,7 +177,7 @@ public partial class AiTaskList
     private string ListHint => $"{_rows.Count}건";
 
     private string EditTitle => _edit is null ? "내용"
-        : _edit.TaskKey > 0 ? $"내용 · #{_edit.TaskKey}" : "내용 · 새 작업";
+        : _edit.TaskKey > 0 ? (string.IsNullOrWhiteSpace(_edit.Title) ? $"새 작업 · #{_edit.TaskKey}" : $"[요청 #{_edit.TaskKey}] {_edit.Title}") : (string.IsNullOrWhiteSpace(_edit.Title) ? "새 작업" : _edit.Title);
 
     private string EditHint => _edit is null ? string.Empty
         : _edit.TaskKey > 0 ? $"{_edit.StatusText}{(_edit.DurationText.Length > 0 ? $" · {_edit.DurationText}" : string.Empty)}"

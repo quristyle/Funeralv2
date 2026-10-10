@@ -107,7 +107,13 @@
    그래서 흉내 내지 않고 **진짜로 연다.** 여는 조건은 위의 폭 하나다. *@
 <details class="pm-ai-overview" open="@(!_isPhone)">
     <summary class="pm-ai-overview__summary">
-        <span><i class="jsini-icon-search"></i> 요약 및 조회</span>
+        <span class="pm-ai-overview__title"><i class="jsini-icon-search"></i> 요약 및 조회</span>
+        @if (DraftCount > 0)
+        {
+            <button type="button" class="pm-ai-drafts-badge" title="적어 둔 내용을 불러옵니다" @onclick:preventDefault @onclick="OpenDraftsAsync">
+                <i class="jsini-icon-document"></i> 임시저장 @DraftCount
+            </button>
+        }
         <i class="jsini-icon-chevron-down pm-ai-overview__chevron"></i>
     </summary>
     <div class="pm-ai-overview__body">
@@ -202,29 +208,7 @@
            임시저장은 저절로 되는 일이라 **눈에 안 띈다.** 건수를 단추에
            적어 두면 단추가 「적어 둔 것이 있다」는 사실까지 말해 준다.
            닿지 않던 임시본이 무엇이었는지는 코드 쪽 머리말에. *@
-        <Actions>
-            @if (DraftCount > 0)
-            {
-                <DxButton Text="@($"임시저장 {DraftCount}")"
-                          RenderStyle="ButtonRenderStyle.Secondary"
-                          CssClass="pm-ai-draftbtn"
-                          Title="적어 둔 내용을 불러옵니다"
-                          Click="@OpenDraftsAsync" />
-            }
-        </Actions>
-
         <ChildContent>
-        <div class="pm-ai-list-stats">
-            <div class="pm-ai-list-stat"><span class="pm-ai-list-stat__label">전체</span><strong class="pm-ai-list-stat__value">@_rows.Count</strong></div>
-            <div class="pm-ai-list-stat pm-ai-list-stat--accent"><span class="pm-ai-list-stat__label">실행 중</span><strong class="pm-ai-list-stat__value">@RunningCount</strong></div>
-            <div class="pm-ai-list-stat pm-ai-list-stat--success"><span class="pm-ai-list-stat__label">완료</span><strong class="pm-ai-list-stat__value">@SucceededCount</strong></div>
-            <div class="pm-ai-list-stat pm-ai-list-stat--danger"><span class="pm-ai-list-stat__label">확인 필요</span><strong class="pm-ai-list-stat__value">@AttentionCount</strong></div>
-            
-            <div class="pm-ai-live" aria-live="polite">
-                <span class="pm-ai-live__indicator @(Loading ? "pm-ai-live__indicator--busy" : null)" aria-hidden="true"></span>
-                @(Loading ? "목록을 불러오는 중" : "실시간 상태 연결됨")
-            </div>
-        </div>
 
         <CommGrd TItem="AiTaskDto"
                  @ref="_grid"
@@ -332,22 +316,6 @@
 
     <Second>
     <CommCont Title="@EditTitle" Hint="@EditHint" CssClass="pm-ai-detail-panel h-100">
-        @if (_edit is not null)
-        {
-            <div class="pm-ai-context" aria-live="polite">
-                <div class="pm-ai-context__main">
-                    <span class="pm-ai-context__kicker">현재 선택한 작업</span>
-                    <strong>@(string.IsNullOrWhiteSpace(_edit.Title) ? "제목 없는 작업" : _edit.Title)</strong>
-                </div>
-                <div class="pm-ai-context__meta">
-                    <span class="jsini-badge jsini-badge--@_edit.StatusTone">@_edit.StatusText</span>
-                    @if (_edit.RequestFlag != "none")
-                    {
-                        <span class="jsini-badge jsini-badge--on">@_edit.FlagText</span>
-                    }
-                </div>
-            </div>
-        }
         @if (_edit is null)
         {
             <div class="pm-ai-empty" role="status">
@@ -367,13 +335,7 @@
                             Text="@BusyNotice" />
             }
 
-            @* **임시본은 저장이 아니다.** 이 줄이 없으면 사람이 「적어 두었으니
-               됐다」고 읽는데, 실행기가 집어 가는 것은 서버에 저장된 글이다. *@
-            @if (_draftAt is { } at)
-            {
-                <PageNotice Tone="NoticeTone.Info"
-                            Text="@($"임시저장 {at.Kst("MM-dd HH:mm:ss")} — 「저장」을 눌러야 서버에 들어갑니다.")" />
-            }
+
 
             @* 저장소를 막아 둔 브라우저(사생활 보호 모드)이거나 가득 찼다.
                **조용히 넘어가지 않는다** — 임시저장이 안 되는 것을 모른 채

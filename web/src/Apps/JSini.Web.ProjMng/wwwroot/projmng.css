@@ -4586,22 +4586,12 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
   /* 두 판이 남은 높이를 다 먹고 **끝까지 같은 키로** 선다.
      `align-items: start` 였던 것을 푼다 — 그러면 짧은 쪽이 내용만큼만
      서서 왼쪽 표와 오른쪽 탭의 아래 끝이 어긋난다. */
-  .pm-ai-page > .pm-split {
+  .pm-ai-page > .pm-splitpane {
     flex: 1;
     min-height: 0;
     align-items: stretch;
   }
 
-  .pm-split > .commcont {
-    min-height: 0;
-  }
-
-  .pm-split > .commcont > .commcont__body {
-    display: flex;
-    flex: 1;
-    min-height: 0;
-    flex-direction: column;
-  }
 
   /* 왼쪽 표. 판이 준 높이를 그대로 쓰고 **줄만 안에서 구른다** —
      칸 머리와 아래 띠(＋ · 다시 읽기 · 엑셀)는 제자리에 남는다.
@@ -5383,3 +5373,13 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
     margin-top: 0.625rem;
   }
 }
+.pm-ai-overview__title { flex: 1; }
+.pm-ai-drafts-badge {
+    background: none;
+    border: none;
+    color: var(--jsini-color-primary, #007bff);
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0 0.5rem;
+}
+.pm-ai-drafts-badge:hover { text-decoration: underline; }
