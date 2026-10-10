@@ -317,8 +317,23 @@
      줄여서, 자리가 모자랄 때 단추가 납작해진다. */
   .hd-form.hd-form--wide > .hd-title-field,
   .hd-form.hd-form--wide > .hd-tools,
-  .hd-form.hd-form--wide > .hd-submit {
+  .hd-form.hd-form--wide > .hd-submit,
+  .hd-form.hd-form--wide > .hd-actions {
     flex: 0 0 auto;
+  }
+}
+
+.hd-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+@media (min-width: 768px) {
+  .hd-actions {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: flex-start;
   }
 }
 

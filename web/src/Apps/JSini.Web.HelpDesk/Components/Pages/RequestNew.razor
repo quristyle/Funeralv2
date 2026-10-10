@@ -249,44 +249,47 @@
        AI 가 여기로 내려온 까닭도 같다. 전에는 「내용」 이름표 옆에 있었는데,
        그 줄은 휴대폰에서 이름표가 빠지면 단추 하나만 남는 빈 줄이 됐다.
        둘을 한 줄에 모으면 그 줄이 없어진다. *@
-    <div class="hd-tools">
-        @* 그림은 이제 본문에 넣는 길이 따로 있다. 여기는 **본문에 못 넣는 것**
-           (로그 파일 · 설정 파일 · 영상)을 위한 자리다. 종류를 제한하지 않는다. *@
-        <FilePicker @ref="_picker"
-                    MaxFiles="5"
-                    MaxBytes="@(20L * 1024 * 1024)"
-                    ShowHint="false"
-                    FilesChanged="@(files => _files = files)" />
+    <div class="hd-actions">
+        <div class="hd-tools">
+            @* 그림은 이제 본문에 넣는 길이 따로 있다. 여기는 **본문에 못 넣는 것**
+               (로그 파일 · 설정 파일 · 영상)을 위한 자리다. 종류를 제한하지 않는다. *@
+            <FilePicker @ref="_picker"
+                        MaxFiles="5"
+                        MaxBytes="@(20L * 1024 * 1024)"
+                        ShowHint="false"
+                        FilesChanged="@(files => _files = files)" />
 
-        <RequestAiAssist Content="@FlushedContentAsync"
-                         TitleChosen="@ApplyTitleAsync"
-                         SummaryReady="@InsertSummaryAsync" />
+            <RequestAiAssist Content="@FlushedContentAsync"
+                             TitleChosen="@ApplyTitleAsync"
+                             SummaryReady="@InsertSummaryAsync" />
 
-        @* 쓰던 글을 버린다. **되묻는다** — 전에는 되살린 임시본이 있을 때만
-           보이는 단추였는데, 이제 늘 손에 닿는 자리에 있어서 한 번 잘못
-           누르면 길게 쓴 글이 통째로 사라진다. 지울 것이 없으면 꺼 둔다. *@
-        <DxButton CssClass="hd-tool-btn"
-                  IconCssClass="jsini-icon-close-circle"
-                  RenderStyle="ButtonRenderStyle.Secondary"
-                  Title="지우고 새로 쓰기"
-                  aria-label="지우고 새로 쓰기"
-                  Enabled="@(!_saving && HasSomethingToClear)"
-                  Click="@ClearAsync" />
+            @* 쓰던 글을 버린다. **되묻는다** — 전에는 되살린 임시본이 있을 때만
+               보이는 단추였는데, 이제 늘 손에 닿는 자리에 있어서 한 번 잘못
+               누르면 길게 쓴 글이 통째로 사라진다. 지울 것이 없으면 꺼 둔다. *@
+            <DxButton CssClass="hd-tool-btn"
+                      IconCssClass="jsini-icon-close-circle"
+                      RenderStyle="ButtonRenderStyle.Secondary"
+                      Title="지우고 새로 쓰기"
+                      aria-label="지우고 새로 쓰기"
+                      Enabled="@(!_saving && HasSomethingToClear)"
+                      Click="@ClearAsync" />
+        </div>
+
+        @* 「등록」은 이 화면의 **단 하나뿐인 동작**이다. 넓은 화면에서는 글자만큼만
+           차지하지만, 휴대폰에서는 줄을 통째로 쓴다 — 폭이 좁아질수록 손가락이
+           짚을 자리가 같이 좁아지고, 바로 위의 입력칸들은 모두 폭을 가득 쓰고
+           있어서 그 끝에 작은 단추 하나만 남으면 다음에 무엇을 눌러야 하는지가
+           화면에서 흐려진다. 폭은 `helpdesk.css` 의 `.hd-submit` 이 정한다. *@
+        <div class="hd-submit">
+            <PermissionView Action="MenuAction.Create">
+                <DxButton Text="@(_saving ? "등록 중…" : "등록")"
+                          IconCssClass="jsini-icon-check"
+                          RenderStyle="ButtonRenderStyle.Primary"
+                          Enabled="@(!_saving && _pasting == 0)"
+                          Click="@SubmitAsync" />
+            </PermissionView>
+        </div>
     </div>
 
     <ConfirmDialog @ref="_confirm" />
-
-    @* 「등록」은 이 화면의 **단 하나뿐인 동작**이다. 넓은 화면에서는 글자만큼만
-       차지하지만, 휴대폰에서는 줄을 통째로 쓴다 — 폭이 좁아질수록 손가락이
-       짚을 자리가 같이 좁아지고, 바로 위의 입력칸들은 모두 폭을 가득 쓰고
-       있어서 그 끝에 작은 단추 하나만 남으면 다음에 무엇을 눌러야 하는지가
-       화면에서 흐려진다. 폭은 `helpdesk.css` 의 `.hd-submit` 이 정한다. *@
-    <div class="hd-submit">
-        <PermissionView Action="MenuAction.Create">
-            <DxButton Text="@(_saving ? "등록 중…" : "등록")"
-                      RenderStyle="ButtonRenderStyle.Primary"
-                      Enabled="@(!_saving && _pasting == 0)"
-                      Click="@SubmitAsync" />
-        </PermissionView>
-    </div>
 </div>
