@@ -843,11 +843,9 @@ public static class RequestEndpoints {
     </div>
 </div>";
 
-        var adminEmails = await adminService.GetAdminEmailsForNotificationAsync();
         var customerEmails = await adminService.GetCustomerEmailsForNotificationAsync(req.CustomerId);
         
         var allEmails = new List<string>();
-        if (adminEmails != null) allEmails.AddRange(adminEmails);
         if (customerEmails != null) allEmails.AddRange(customerEmails);
         
         var uniqueEmails = allEmails.Where(e => !string.IsNullOrEmpty(e)).Distinct().ToList();
@@ -857,7 +855,7 @@ public static class RequestEndpoints {
             await EMailUtil.SendEmailJinNets(mailTos, $"[완료] {req.Title}", mailBody, provider, loggerFactory, configuration);
         }
       }
-      else if (input.Status == ImprovementStatus.UserCompleted) { // 사용자 완료시 관리자 모두에게 알림.
+      else if (input.Status == ImprovementStatus.UserCompleted) { // 사용자 완료시 접수자에게 알림.
         var adm = req.AdminId is { } assigned ? await db.Admins.FindAsync(assigned) : null;
 
         var adminSubscriptions = await store.GetAdminSubscriptionsAsync();
@@ -892,10 +890,7 @@ public static class RequestEndpoints {
     </div>
 </div>";
 
-        var adminEmails = await adminService.GetAdminEmailsForNotificationAsync();
-        
         var allEmails = new List<string>();
-        if (adminEmails != null) allEmails.AddRange(adminEmails);
         if (adm != null && !string.IsNullOrEmpty(adm.Email)) allEmails.Add(adm.Email);
         
         var uniqueEmails = allEmails.Where(e => !string.IsNullOrEmpty(e)).Distinct().ToList();
