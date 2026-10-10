@@ -1,3 +1,21 @@
+@*
+    오른쪽에서 밀려 들어오는 판의 **공통 껍데기**. 안에 무엇이 들어가는지는
+    모른다 — AI 대화(`AiChatDrawer`) · 빠른 지시(`QuickAskDrawer`) ·
+    알림함(`NotificationInboxDrawer`) 셋이 이것을 쓴다.
+
+    [고정핀은 책상 화면 것이다]
+
+    📌 를 누르면 판이 **제자리에 못 박힌다.** 바깥을 눌러도 안 닫히고,
+    메뉴를 눌러 다른 화면으로 옮겨 가도 그대로 펴져 있다. 본문은 판 폭만큼
+    오른쪽 여백을 받아 옆으로 밀려나므로(`body.jsini-has-pinned-drawer`)
+    가려지는 것이 없다.
+
+    **휴대폰에서는 핀을 아예 안 그린다.** 판 폭이 `min(26rem, 100vw)` 이라
+    좁은 화면에서는 판이 곧 화면 전체고, 본문을 옆으로 밀어낼 자리가 없다 —
+    못 박아 둘 수 있으면 「새 화면을 열었는데 아무 일도 안 일어난다」가 된다.
+    그래서 좁은 화면에서는 핀이 보이지도 않고, 책상에서 꽂아 둔 핀도 화면이
+    좁아지는 순간 뽑힌다(`OnParametersSetAsync`).
+*@
 @implements IDisposable
 
 <aside class="jsini-right-drawer @CssClass @(IsOpen ? "jsini-right-drawer--open" : "")"
@@ -5,10 +23,14 @@
        id="@Id">
     <header class="jsini-right-drawer__head">
         <span class="jsini-right-drawer__title">@Title</span>
-        <DxButton RenderStyle="ButtonRenderStyle.Link"
-                  IconCssClass="@(_isPinned ? "jsini-icon-pin-filled" : "jsini-icon-pin")"
-                  Title="@(_isPinned ? "고정 해제" : "화면에 고정")"
-                  Click="@TogglePin" />
+        @* 휴대폰에서는 안 그린다 — 위 머리말의 「고정핀은 책상 화면 것이다」. *@
+        @if (!IsPhone)
+        {
+            <DxButton RenderStyle="ButtonRenderStyle.Link"
+                      IconCssClass="@(IsPinned ? "jsini-icon-pin-filled" : "jsini-icon-pin")"
+                      Title="@(IsPinned ? "고정 해제" : "화면에 고정")"
+                      Click="@TogglePin" />
+        }
         <DxButton RenderStyle="ButtonRenderStyle.Link"
                   Text="✕" Title="닫기" Click="@OnCloseClick" />
     </header>

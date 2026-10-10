@@ -65,7 +65,14 @@
               Click="@Toggle" />
 </CascadingValue>
 
-<RightSideDrawer IsOpen="@_open" IsOpenChanged="@(v => _open = v)" Title="AI 에게 묻기" CssClass="jsini-ai-drawer-custom">
+@* `IsPhone` 을 그대로 흘려 준다 — 좁은 화면에서는 고정핀을 안 그린다
+   (`RightSideDrawer` 머리말). 못 박힌 상태(`_pinned`)는 **여기가 들고 있다** —
+   판은 제가 박혀 있는지만 알면 되지만, 화면을 옮길 때 접을지 말지는
+   이쪽이 가려야 한다. *@
+<RightSideDrawer IsOpen="@_open" IsOpenChanged="@(v => _open = v)"
+                 IsPhone="@IsPhone"
+                 IsPinned="@_pinned" IsPinnedChanged="@(v => _pinned = v)"
+                 Title="AI 에게 묻기" CssClass="jsini-ai-drawer-custom">
     <ChildContent>
         @* 화면 하나(`/site/ai/chat`)와 **같은 부품**이다. 복사해 두면 한쪽에만
            고침이 들어가 「화면에서는 되는데 헤더에서는 안 된다」가 된다. *@

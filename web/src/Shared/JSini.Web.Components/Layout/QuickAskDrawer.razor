@@ -46,18 +46,26 @@
     건도 「실행중」으로 남았다. 여닫힘을 `CascadingValue` 로 내려 주어
     알맹이가 그 순간을 알아채게 한다(`QuickAskReveal.OpenCascade`).
 
-    [화면을 옮기면 닫는다]
+    [화면을 옮기면 닫는다 — **못 박아 두지 않았을 때만**]
 
     카드를 누르면 그 건의 탭이 열리는데(`/projmng/ai/task/…`), 서랍이 그대로
     펴져 있으면 **방금 연 그 탭을 자기가 덮는다.** 닫기만 하고 알맹이는 그대로
     두므로 다시 열면 보던 자리 그대로다.
+
+    **고정핀을 꽂아 두었으면 안 닫는다.** 못이 박힌 동안에는 본문이 판 폭만큼
+    옆으로 밀려나 있어서(`body.jsini-has-pinned-drawer`) 덮을 것이 없다 —
+    그런데도 접으면 「고정해 두었는데 메뉴를 누르니 닫힌다」가 된다. 핀은
+    책상 화면 것이라(`RightSideDrawer` 머리말) 휴대폰에서는 늘 접히는 쪽이다.
 *@
 
 @implements IDisposable
 
 @if (_ever && Ask.PanelType is { } panel)
 {
-    <RightSideDrawer IsOpen="@Ask.IsOpen" IsOpenChanged="@((v) => { if (!v) Ask.Close(); })" Title="빠른 지시" CssClass="jsini-quick-drawer-custom">
+    <RightSideDrawer IsOpen="@Ask.IsOpen" IsOpenChanged="@((v) => { if (!v) Ask.Close(); })"
+                     IsPhone="@IsPhone"
+                     IsPinned="@_pinned" IsPinnedChanged="@(v => _pinned = v)"
+                     Title="빠른 지시" CssClass="jsini-quick-drawer-custom">
         <ChildContent>
             @* 알맹이에게 **지금 펴져 있는지**를 흘려 준다(`QuickAskReveal.OpenCascade`).
                닫아도 안 지우는 판이라(위 머리말) 이것이 없으면 알맹이는 제가 가려진

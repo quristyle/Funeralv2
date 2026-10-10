@@ -54,7 +54,10 @@
 
 @implements IDisposable
 
-<RightSideDrawer Id="jsini-note-drawer" IsOpen="@_open" IsOpenChanged="@((v) => { if (!v) Drawer.Close(); })" Title="알림" CssClass="jsini-note-drawer-custom">
+<RightSideDrawer Id="jsini-note-drawer" IsOpen="@_open" IsOpenChanged="@((v) => { if (!v) Drawer.Close(); })"
+                 IsPhone="@IsPhone"
+                 IsPinned="@_pinned" IsPinnedChanged="@(v => _pinned = v)"
+                 Title="알림" CssClass="jsini-note-drawer-custom">
     <ChildContent>
         @* **빈 목록과 못 읽어 온 것을 가른다.** 둘을 같은 말로 덮으면 알림이
            분명히 와 있는 사람이 「없다」는 안내를 보게 된다. *@

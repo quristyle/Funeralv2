@@ -21,8 +21,20 @@ public partial class NotificationInboxDrawer : IDisposable
 
     private IReadOnlyList<NotificationDto> _notifications = [];
 
+    /// <summary>
+    /// 휴대폰인가. 레이아웃이 내려 준다. <b>고정핀을 그릴지</b>와 <b>알림을 눌러
+    /// 화면을 옮길 때 접을지</b>가 이 값으로 갈린다.
+    /// </summary>
+    [Parameter] public bool IsPhone { get; set; }
+
     /// <summary>펴져 있는가. 펴라는 말은 헤더의 종이 <see cref="Drawer"/> 로 보낸다.</summary>
     private bool _open;
+
+    /// <summary>
+    /// 고정핀이 꽂혀 있나. <b>판이 아니라 여기가 들고 있다</b> —
+    /// 까닭은 <see cref="RightSideDrawer.IsPinned"/> 머리말에.
+    /// </summary>
+    private bool _pinned;
 
     /// <summary>못 읽어 온 까닭. 있으면 「알림이 없다」 대신 이것을 보여 준다.</summary>
     private string? _error;
@@ -293,9 +305,17 @@ public partial class NotificationInboxDrawer : IDisposable
     /// 한 건을 누른다. 읽음으로 찍고, <b>갈 곳이 있으면</b> 서랍을 접고 옮겨 간다.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// 갈 곳이 없는 알림(메일로만 간 것·주소를 안 실은 것)도 <b>읽음으로는
     /// 찍는다.</b> 예전에는 주소가 없으면 그 자리에서 되돌아가서, 그런 줄은
     /// 눌러도 아무 일이 없고 목록에서 영영 안 빠졌다.
+    /// </para>
+    /// <para>
+    /// <b>못 박아 두었으면 펴 둔 채로 옮겨 간다.</b> 그때는 본문이 판 폭만큼
+    /// 옆으로 밀려나 있어서 새 화면을 덮지 않는다 — 접을 까닭이 없고, 접으면
+    /// 알림 셋을 잇달아 열어 볼 때 매번 종을 다시 눌러야 한다. 대신 <b>목록은
+    /// 다시 읽는다</b> — 방금 누른 줄이 빠진다(갈 곳이 없을 때와 같다).
+    /// </para>
     /// </remarks>
     private async Task OpenAsync(NotificationDto n)
     {
@@ -319,7 +339,15 @@ public partial class NotificationInboxDrawer : IDisposable
             return;
         }
 
-        Drawer.Close();
+        if (_pinned && !IsPhone)
+        {
+            await LoadUnreadAsync();
+        }
+        else
+        {
+            Drawer.Close();
+        }
+
         Navigation.NavigateTo(url);
     }
 

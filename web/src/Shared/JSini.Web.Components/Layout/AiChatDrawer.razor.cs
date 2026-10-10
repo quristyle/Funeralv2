@@ -83,6 +83,12 @@ public partial class AiChatDrawer
 
     private bool _open;
 
+    /// <summary>
+    /// 고정핀이 꽂혀 있나. <b>판이 아니라 여기가 들고 있다</b> —
+    /// 까닭은 <see cref="RightSideDrawer.IsPinned"/> 머리말에.
+    /// </summary>
+    private bool _pinned;
+
     private void Toggle()
     {
         // 펴 둔 사용자 판을 먼저 접는다. **접을 때도 부른다** — 어차피 그
