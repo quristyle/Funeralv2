@@ -175,7 +175,7 @@
     }
   }
 
-  var DEFAULT = { family: 'tabler', mode: systemMode(), color: 'blue', base: 'neutral', radius: '1', size: 'medium', font: 'system' };
+  var DEFAULT = { family: 'tabler', mode: systemMode(), color: 'blue', base: 'neutral', radius: '1', size: 'medium', font: 'play' };
 
   // ── 스타일시트 관리 ───────────────────────────────────────
 

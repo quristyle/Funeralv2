@@ -1,0 +1,106 @@
+@namespace JSini.Web.Components.Layout
+
+@*
+    테마 서랍. preview.tabler.io 의 Customize 판과 같은 구성이다 —
+    밝기 · 강조색 · 바탕 톤 · 모서리, 그리고 우리가 더한 크기 · 글꼴.
+*@
+
+@implements IDisposable
+
+<RightSideDrawer Id="jsini-theme-drawer" IsOpen="@_open" IsOpenChanged="@((v) => { if (!v) Drawer.Close(); _open = v; })"
+                 IsPhone="@IsPhone"
+                 IsPinned="@_pinned" IsPinnedChanged="@(v => _pinned = v)"
+                 Title="화면 설정" CssClass="jsini-theme-drawer-custom">
+    <ChildContent>
+        <div class="jsini-theme p-3">
+
+            <section class="tb-custom">
+                <div class="tb-custom__label">밝기</div>
+                <div class="tb-custom__options">
+                    @foreach (var mode in _catalog.Modes)
+                    {
+                        <button type="button"
+                                class="tb-pill @(_mode == mode.Id ? "tb-pill--on" : "")"
+                                @onclick="@(() => SetAsync("setMode", mode.Id))">
+                            <span class="@(mode.Dark ? "jsini-icon-moon" : "jsini-icon-sun")" aria-hidden="true"></span>
+                            @mode.Name
+                        </button>
+                    }
+                </div>
+            </section>
+
+            <section class="tb-custom">
+                <div class="tb-custom__label">강조색</div>
+                <div class="tb-custom__swatches">
+                    @foreach (var color in _catalog.Colors)
+                    {
+                        <button type="button"
+                                class="tb-swatch @(_color == color.Id ? "tb-swatch--on" : "")"
+                                style="--swatch: @color.Swatch"
+                                title="@color.Name"
+                                aria-label="@color.Name"
+                                @onclick="@(() => SetAsync("setColor", color.Id))"></button>
+                    }
+                </div>
+            </section>
+
+            <section class="tb-custom">
+                <div class="tb-custom__label">바탕 톤</div>
+                <div class="tb-custom__options">
+                    @foreach (var tone in _catalog.Bases)
+                    {
+                        <button type="button"
+                                class="tb-pill @(_base == tone.Id ? "tb-pill--on" : "")"
+                                @onclick="@(() => SetAsync("setBase", tone.Id))">
+                            <span class="tb-pill__dot" style="--swatch: @tone.Swatch" aria-hidden="true"></span>
+                            @tone.Name
+                        </button>
+                    }
+                </div>
+            </section>
+
+            <section class="tb-custom">
+                <div class="tb-custom__label">모서리</div>
+                <div class="tb-custom__options">
+                    @foreach (var radius in _catalog.Radii)
+                    {
+                        <button type="button"
+                                class="tb-pill @(_radius == radius.Id ? "tb-pill--on" : "")"
+                                @onclick="@(() => SetAsync("setRadius", radius.Id))">
+                            @radius.Name
+                        </button>
+                    }
+                </div>
+            </section>
+
+            <section class="tb-custom">
+                <div class="tb-custom__label">글꼴</div>
+                <div class="tb-custom__options">
+                    @foreach (var font in _catalog.Fonts ?? [])
+                    {
+                        <button type="button"
+                                class="tb-pill tb-pill--font-@font.Id @(_font == font.Id ? "tb-pill--on" : "")"
+                                @onclick="@(() => SetAsync("setFont", font.Id))">
+                            @font.Name
+                        </button>
+                    }
+                </div>
+            </section>
+
+            <section class="tb-custom">
+                <div class="tb-custom__label">크기</div>
+                <div class="tb-custom__options">
+                    @foreach (var size in _catalog.Sizes)
+                    {
+                        <button type="button"
+                                class="tb-pill @(IsSize(size.Id) ? "tb-pill--on" : "")"
+                                @onclick="@(() => SetSizeAsync(size.Id))">
+                            @size.Name
+                        </button>
+                    }
+                </div>
+            </section>
+
+        </div>
+    </ChildContent>
+</RightSideDrawer>
