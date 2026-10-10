@@ -1940,6 +1940,41 @@
   animation: pm-ai-pulse 1.2s ease-in-out infinite;
 }
 
+.pm-ai-list-stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--jsini-sp-md);
+  padding: 0.5rem var(--jsini-sp-md);
+  background: var(--jsini-surface);
+  border-bottom: 1px solid var(--jsini-border);
+}
+
+.pm-ai-list-stat {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  font-size: var(--jsini-fs-sm);
+}
+
+.pm-ai-list-stat__label {
+  font-size: var(--jsini-fs-xs);
+  color: var(--jsini-text-muted);
+}
+
+.pm-ai-list-stat__value {
+  font-weight: 700;
+  color: var(--jsini-text);
+}
+
+.pm-ai-list-stat--accent .pm-ai-list-stat__value { color: var(--jsini-accent); }
+.pm-ai-list-stat--success .pm-ai-list-stat__value { color: var(--jsini-success, #1f9d65); }
+.pm-ai-list-stat--danger .pm-ai-list-stat__value { color: var(--jsini-danger, #d94b55); }
+
+.pm-ai-list-stats .pm-ai-live {
+  margin-left: auto;
+}
+
 .pm-ai-stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(5.5rem, 1fr));
