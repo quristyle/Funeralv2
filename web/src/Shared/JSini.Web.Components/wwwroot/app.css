@@ -6619,48 +6619,55 @@ a.jsini-social__btn:focus-visible {
   .jsini-loader__bar { animation: none; }
 }
 
-/* ── 연결이 끊겼을 때 뜨는 대화상자 ──────────────────────────
+/* ── 연결이 끊겼을 때 뜨는 띠 ────────────────────────────────
 
-   **상자는 셸이 그린다**(`App.razor` 의 `#components-reconnect-modal`).
+   **띠는 셸이 그린다**(`App.razor` 의 `#components-reconnect-modal`).
    프레임워크는 그 요소가 있으면 자기 상자를 만들지 않고 **클래스만 갈아
-   끼운다**(`UserSpecifiedDisplay`). 어떤 글과 어떤 단추를 보일지는 전부
-   여기서 정한다.
+   끼운다**(`UserSpecifiedDisplay`). 무엇을 보일지는 전부 여기서 정한다.
 
-   [한 번 프레임워크에 돌려줬다가 다시 가져온 자리다]
+   [상자를 걷어냈다 — 2026-10-11]
 
-   돌려줬던 까닭은 셋이었는데, 지금 보면 그중 둘은 우리가 고칠 수 있고
-   하나는 **고칠 수 없는 쪽이 더 나빴다.**
+   한동안 여기에 화면을 덮는 대화상자가 있었다. 상태마다 다른 글을 보여 주고
+   새로고침·다시 시도·잠시 멈추기를 고르게 했고, 거절당한 자리에서는
+   「5초 뒤에 화면을 새로 엽니다」를 셌다.
 
-   1. 「상태를 일곱 다 그려야 한다」 — 맞다. 그래서 일곱을 다 적었다(아래).
-   2. 「되살리기(resume)를 부를 수 없다」 — **사실이 아니었다.**
-      `window.Blazor.resumeCircuit()` 은 .NET 10 에서 공개된 전역이다.
-   3. 기본 상자는 거절당하면 그 자리에서 **`location.reload()`** 를 한다.
-      사람에게는 「다시 붙자마자 화면이 통째로 새로 뜨는 것」으로 보이고,
-      서버에 닿지 못한 입력은 그때 사라진다. 섀도 DOM 안이라 이 한 줄을
-      막을 방법이 없다. **이것 때문에 돌아왔다.**
+   **고를 것이 없는 선택이었다.** 거절당했다는 것은 하던 일이 서버에 없다는
+   뜻이라 어느 단추를 눌러도 끝은 새로고침 하나이고, 서버에 닿지도 못한
+   자리에서는 새로고침이 브라우저 오류 화면만 부른다. 창이 한 일은 죽은 화면
+   앞에서 다섯을 세는 것뿐이었다.
 
-   [상태 일곱 — 하나라도 빠뜨리면 상자가 굳은 채 남는다]
+   그래서 **끊겨 있는 동안 보이는 것은 위쪽의 작은 띠 하나**다. 화면을 덮지
+   않으므로 읽던 것을 그대로 읽고 굴릴 수 있고, 누르면 그 자리에서 한 번 더
+   이어 본다(`js/reconnect.js`). 새로고침이 정말 필요한 자리(rejected)에서는
+   묻지 않고 스스로 연다 — 보여 줄 창이 없다.
+
+   [상태 일곱은 여전히 다 적는다]
 
    show · retrying · paused · failed · resume-failed · rejected · hide.
-   상자는 하나이고 안의 문단과 단추만 보였다 숨는다. 예전에 넷만 알았던 탓에
-   「거절됨」에서 멈춘 상자가 다시 붙은 뒤에도 남아 있었다.
+   보이는 모습은 같지만 **하나라도 빠뜨리면 띠가 안 뜨거나 안 꺼진다** —
+   프레임워크가 붙인 클래스에 규칙이 없으면 그 상태에서 요소가 `display: none`
+   그대로 남는다.
 
    `hide` 를 **더 세게** 끄는 이유가 거기 있다. 프레임워크는 성공했을 때
    `show` 를 떼고 `hide` 를 붙이는데, 둘이 함께 붙어 있는 판이 있어도 꺼지는
    쪽이 이겨야 한다.
 
-   [바탕과 글자를 **둘 다** 못 박는다]
+   [숨죽임 · 귀띔 — 0.9초로는 터널을 못 지난다]
 
-   한쪽만 정하면 나머지가 어디서 오는지에 따라 사고가 난다. 기본 상자가
-   바로 그랬다 — 바탕만 흰색으로 정하고 글자색은 본문에서 물려받아서,
-   어두운 테마에서 **흰 바탕에 흰 글씨**가 됐다.
+   한동안 조용한 구간이 **0.9초짜리 투명 구간** 하나였다. 회선이 한 번 튀는
+   것은 그 안에 끝나니까 사람은 아무것도 못 보고 하던 일을 이었다. 그런데
+   터널은 0.9초가 아니다 — 지하 구간 하나가 수십 초이고, 승강기·주차장·건물
+   안쪽도 몇 초씩 끊긴다. **그때마다 화면이 통째로 어두워지고 상자가 떴다.**
 
-   [잠깐 끊긴 것에는 상자를 보이지 않는다]
+   그래서 둘로 나눈다.
 
-   회선이 한 번 튀는 것은 흔하고 대개 1초 안에 돌아온다. 그때마다 화면을
-   덮으면 하던 일이 끊긴 것처럼 느껴진다. `--quiet` 가 붙은 동안은 0.9초를
-   투명하게 기다린다(클래스는 `js/reconnect.js` 가 붙인다) — 그 안에 다시
-   이어지면 사람은 아무것도 못 본 채 하던 일을 잇는다.
+   1. **숨죽임**(`--hush`, 2초) — 아무것도 안 보이고 **아무것도 안 막는다.**
+      회선이 한 번 튄 것은 여기서 끝난다.
+   2. **귀띔**(`--hint`) — 위쪽에 작은 띠 하나만 뜬다. 읽고 굴리는 것은
+      그대로 되고, **누름만 삼킨다**(`js/reconnect.js`).
+
+   그 위는 없다. 끊겨 있는 동안 끝까지 띠 하나이고, 눌린 것은 어차피 서버에
+   닿지 못하므로 삼키고 띠를 한 번 흔들어(`--nudge`) 그 자리에서 알린다.
    ------------------------------------------------------------ */
 
 #components-reconnect-modal {
@@ -6672,6 +6679,15 @@ a.jsini-social__btn:focus-visible {
   display: none !important;
 }
 
+/* 끊겨 있는 동안. **덮개가 아니다** — 바탕을 칠하지 않고 누름도 통과시킨다.
+   되돌려 받는 것은 띠 하나뿐이다(아래). 이것이 「터널을 지나는 동안 읽던
+   것을 계속 읽는다」의 전부다.
+
+   **화면에서 가장 위다** — 잠금화면(20000)보다도 높다. 한동안 19500 이라
+   잠금 덮개 아래였는데, 잠긴 화면은 **서버가 있어야 풀린다**(비밀번호·지문을
+   서버가 대조한다). 회로가 끊긴 채로 덮개가 위에 있으면 띠가 덮개 너머로
+   비쳐 보이기만 하고 눌리지는 않아, **잠근 사람이 화면을 되찾을 길이 아예
+   없다.** 자리를 비운 사이에 끊기는 것은 가장 흔한 조합이기도 하다. */
 #components-reconnect-modal.components-reconnect-show,
 #components-reconnect-modal.components-reconnect-retrying,
 #components-reconnect-modal.components-reconnect-paused,
@@ -6680,90 +6696,27 @@ a.jsini-social__btn:focus-visible {
 #components-reconnect-modal.components-reconnect-rejected {
   position: fixed;
   inset: 0;
-
-  /* **화면에서 가장 위다** — 잠금화면(20000)보다도 높다.
-
-     한동안 19500 이라 잠금 덮개 아래였다. 그런데 잠긴 화면은 **서버가 있어야
-     풀린다**(비밀번호·지문을 서버가 대조한다). 회로가 끊긴 채로 덮개가 위에
-     있으면 상자가 덮개 너머로 비쳐 보이기만 하고 단추는 덮개에 먹혀서,
-     **잠근 사람이 화면을 되찾을 길이 아예 없다.** 자리를 비운 사이에 끊기는
-     것은 가장 흔한 조합이기도 하다. */
   z-index: 20500;
 
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
 
-  /* 뒤 화면을 눌러도 아무 일이 없다는 것을 먼저 눈으로 알린다. */
-  background: rgb(0 0 0 / 45%);
-}
-
-/* ── 조용한 구간 — 숨죽임 · 귀띔 · 상자 ───────────────────────
-
-   [0.9초로는 터널을 못 지난다]
-
-   한동안 여기는 **0.9초짜리 투명 구간** 하나였다. 회선이 한 번 튀는 것은
-   그 안에 끝나니까 사람은 아무것도 못 보고 하던 일을 이었다. 그런데 터널은
-   0.9초가 아니다 — 지하 구간 하나가 수십 초이고, 승강기·주차장·건물 안쪽도
-   몇 초씩 끊긴다. **그때마다 화면이 통째로 어두워지고 상자가 떴다.** 서버는
-   멀쩡하고 몇 초 뒤면 저절로 이어지는데도, 사람에게는 매번 사고로 보였다.
-
-   그래서 조용한 구간을 **셋으로 나눈다.**
-
-   1. **숨죽임**(`--hush`, 2초) — 아무것도 안 보이고 **아무것도 안 막는다.**
-      회선이 한 번 튄 것은 여기서 끝난다.
-   2. **귀띔**(`--hint`) — 화면을 덮지 않는다. 바탕도 어둡게 하지 않고
-      위쪽에 작은 띠 하나만 뜬다. 읽고 굴리는 것은 그대로 되고,
-      **누름만 삼킨다**(`js/reconnect.js`). 터널은 여기서 끝난다.
-   3. **상자** — 귀띔을 벗으면 그제야 지금까지의 상자가 뜬다.
-
-   [언제 상자까지 가는가 — 시계가 아니라 **할 일**이 정한다]
-
-   「몇 초 뒤에 상자」가 아니다. 다시 잇는 중인 동안(show · retrying)은
-   **아무리 길어도 귀띔에 머문다** — 그동안 사람이 할 수 있는 일이 없기
-   때문이다. 프레임워크가 포기했거나(failed · resume-failed), 서버가 잠시
-   멈춰 두었거나(paused), 하던 일이 서버에 없을 때(rejected) — 즉 **사람이
-   골라야 하는 자리**에서만 상자가 뜬다. 띠를 누르면 그 전에도 열린다.
-
-   그 사이 눌린 것은 어차피 서버에 닿지 못하므로 삼키고, 삼킨 자리에서
-   띠를 한 번 흔들어(`--nudge`) 왜 안 눌렸는지 그 자리에서 알린다.
-   ------------------------------------------------------------ */
-
-/* 숨죽임과 귀띔은 **덮개가 아니다.** 바탕을 칠하지 않고 누름도 통과시킨다 —
-   띠만 되돌려 받는다(아래). 이것이 「터널을 지나는 동안 읽던 것을 계속
-   읽는다」의 전부다. */
-#components-reconnect-modal.jsini-reconnect--hush,
-#components-reconnect-modal.jsini-reconnect--hint {
-  align-items: flex-start;
   background: transparent;
   pointer-events: none;
 }
 
-/* 상자는 조용한 동안 접어 둔다. */
-#components-reconnect-modal.jsini-reconnect--hush .jsini-reconnect,
-#components-reconnect-modal.jsini-reconnect--hint .jsini-reconnect {
-  display: none;
-}
-
-/* 바탕이 어두워지는 것은 **조용한 구간을 벗을 때**다. 급히 덮지 않는다. */
-#components-reconnect-modal {
-  transition: background-color 200ms ease-out;
-}
-
-/* 상자가 나타날 때만 한 번 스민다. */
-.jsini-reconnect {
-  animation: jsini-reconnect-appear 200ms ease-out both;
-}
-
-@keyframes jsini-reconnect-appear {
-  from { opacity: 0; }
-  to { opacity: 1; }
+/* 숨죽임 동안은 띠조차 없다. 회선이 한 번 튄 것은 여기서 끝난다. */
+#components-reconnect-modal.jsini-reconnect--hush,
+#components-reconnect-modal.jsini-reconnect--hint {
+  background: transparent;
+  pointer-events: none;
 }
 
 /* ── 귀띔 띠 ──────────────────────────────────────────────────
 
    화면 위쪽 가운데에 뜨는 작은 알약. **이것만이 누름을 되돌려 받는다**
-   (바깥은 `pointer-events: none`). 누르면 상자가 열린다.
+   (바깥은 `pointer-events: none`). 누르면 기다리지 않고 한 번 더 이어 본다.
    ------------------------------------------------------------ */
 
 .jsini-reconnect__band {
@@ -6784,7 +6737,7 @@ a.jsini-social__btn:focus-visible {
   border-radius: 999px;
 
   /* 바탕과 글자를 **둘 다** 못 박는다 — 어두운 테마에서 흰 글씨가 흰 바탕에
-     얹히던 사고가 이 상자에서 한 번 났다(머리말). */
+     얹히던 사고가 이 자리에서 한 번 났다. */
   background: var(--jsini-surface-raised, #ffffff);
   color: var(--jsini-text, #1f2328);
 
@@ -6803,6 +6756,11 @@ a.jsini-social__btn:focus-visible {
   animation: jsini-reconnect-appear 200ms ease-out both;
 }
 
+@keyframes jsini-reconnect-appear {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 /* 도는 점. 「멈춘 것이 아니라 하는 중」이라는 것을 글 없이 알린다. */
 .jsini-reconnect__band-dot {
   flex: none;
@@ -6812,6 +6770,10 @@ a.jsini-social__btn:focus-visible {
   border-right-color: transparent;
   border-radius: 50%;
   animation: jsini-reconnect-spin 900ms linear infinite;
+}
+
+@keyframes jsini-reconnect-spin {
+  to { transform: rotate(360deg); }
 }
 
 /* 삼킨 누름을 알린다 — 띠를 한 번 흔든다. 클래스는 `js/reconnect.js` 가
@@ -6831,195 +6793,12 @@ a.jsini-social__btn:focus-visible {
 /* 움직임을 원하지 않는 사람에게는 멈춘 그림을 준다. 그래도 **띠는 뜬다** —
    이것은 꾸밈이 아니라 「지금은 안 눌린다」는 알림이다. */
 @media (prefers-reduced-motion: reduce) {
-  .jsini-reconnect,
   .jsini-reconnect__band { animation: none; }
   .jsini-reconnect__band-dot { animation: none; }
   #components-reconnect-modal.jsini-reconnect--nudge .jsini-reconnect__band {
     animation: none;
     border-color: var(--jsini-accent, #0f6cbd);
   }
-}
-
-.jsini-reconnect {
-  max-width: min(28rem, calc(100vw - 2rem));
-  padding: var(--jsini-sp-xl, 1.25rem) var(--jsini-sp-2xl, 1.5rem);
-  border: 1px solid var(--jsini-border, #e3e5e8);
-  border-radius: var(--jsini-radius-lg, 0.5rem);
-
-  /* **둘 다 못 박는다**(머리말).
-
-     바탕은 **창의 표면**이다. 한동안 본문 바탕(`--jsini-bg`)이었는데, 그것은
-     이 상자 뒤에 깔린 화면의 색이라 어두운 쪽에서 상자가 배경에 잠겼다
-     (`#182433` 대 `#182433`). 다른 창과 같은 값으로 띄운다. */
-  background: var(--jsini-surface-raised, #ffffff);
-  color: var(--jsini-text, #1f2328);
-
-  box-shadow: var(--jsini-shadow-lg, 0 8px 16px rgb(0 0 0 / 28%));
-  text-align: center;
-  line-height: 1.5;
-}
-
-/* ── 도는 고리 ────────────────────────────────────────────────
-
-   글자만 있으면 **멈춰 있는 것처럼 보인다.** 회로가 끊긴 상황이라 화면의
-   다른 것은 전부 반응이 없으므로, 움직이는 것이 하나 있어야 「살아서
-   기다리는 중」이 전해진다.
-
-   **다시 붙는 중일 때만 돈다.** 멈춰 선 뒤에도 돌면 아직 뭔가 하고 있다는
-   거짓말이 된다.
-   ------------------------------------------------------------ */
-
-.jsini-reconnect__spinner {
-  display: none;
-  width: 2rem;
-  height: 2rem;
-  margin: 0 auto var(--jsini-sp-md, 0.75rem);
-  border: 3px solid var(--jsini-border, #e3e5e8);
-
-  /* 한 조각만 색을 달리해서 도는 것이 보이게 한다. 고리가 한 색이면
-     아무리 돌아도 멈춰 보인다. */
-  border-top-color: var(--jsini-accent, #0f6cbd);
-  border-radius: 50%;
-  animation: jsini-reconnect-spin 900ms linear infinite;
-}
-
-#components-reconnect-modal.components-reconnect-show .jsini-reconnect__spinner {
-  display: block;
-}
-
-@keyframes jsini-reconnect-spin {
-  to { transform: rotate(360deg); }
-}
-
-/* 움직임을 원하지 않는 사람에게는 돌지 않는 고리를 준다. 자리는 그대로라
-   상자의 키가 바뀌지 않는다. */
-@media (prefers-reduced-motion: reduce) {
-  .jsini-reconnect__spinner { animation: none; }
-}
-
-/* 굵은 첫 줄과 설명을 한 줄 띄운다. */
-.jsini-reconnect strong {
-  display: block;
-  margin-bottom: var(--jsini-sp-2xs, 0.25rem);
-  font-size: var(--jsini-fs-lg, 1rem);
-}
-
-/* 상태에 따라 문단 하나만 보인다. 기본은 전부 숨김 — 새 상태가 생겨도
-   글이 한꺼번에 쏟아지지 않는다. */
-.jsini-reconnect p {
-  display: none;
-  margin: 0;
-}
-
-#components-reconnect-modal.components-reconnect-show .jsini-reconnect__trying,
-#components-reconnect-modal.components-reconnect-retrying .jsini-reconnect__trying,
-#components-reconnect-modal.components-reconnect-paused .jsini-reconnect__paused,
-#components-reconnect-modal.components-reconnect-failed .jsini-reconnect__failed,
-#components-reconnect-modal.components-reconnect-resume-failed .jsini-reconnect__resume-failed,
-#components-reconnect-modal.components-reconnect-rejected .jsini-reconnect__rejected {
-  display: block;
-}
-
-/* 거절당한 뒤 스스로 새로 열기까지 세는 줄. 숫자는 `js/reconnect.js` 가 채운다.
-   「잠시 멈추기」를 누르면 세는 것이 멈추고(`--held`) 이 줄도 함께 사라진다 —
-   멈춰 놓고 「5초 뒤에 엽니다」가 남아 있으면 멈춘 것인지 알 수 없다. */
-.jsini-reconnect__reloading {
-  display: block;
-  margin-top: var(--jsini-sp-2xs, 0.25rem);
-  color: var(--jsini-text-muted, #6b7280);
-  font-size: var(--jsini-fs-sm, 0.875rem);
-}
-
-#components-reconnect-modal.jsini-reconnect--held .jsini-reconnect__reloading {
-  display: none;
-}
-
-/* 초읽기는 **셀 것이 남았을 때만** 보인다. 이 클래스는 `js/reconnect.js` 가
-   붙이고 뗀다 — 프레임워크의 `retrying` 은 0초가 되어도 그대로 남아서,
-   그것에 맞추면 「0초 뒤에 다시 시도합니다」가 굳는다. */
-#components-reconnect-modal.jsini-reconnect--countdown .jsini-reconnect__countdown {
-  display: block;
-  margin-top: var(--jsini-sp-sm, 0.5rem);
-  color: var(--jsini-text-muted, #6b7280);
-  font-size: var(--jsini-fs-sm, 0.875rem);
-}
-
-/* ── 단추 ─────────────────────────────────────────────────────
-
-   회로가 끊긴 뒤에 눌리는 단추라 **DevExpress 부품을 쓸 수 없다** — 그쪽은
-   회로가 있어야 돈다. 맨 `<button>` 에 손으로 칠하고, 누르는 일은
-   `js/reconnect.js` 가 받는다.
-
-   「새로고침」은 **사람이 고를 때만** 있다. 자동으로 부르는 자리는 우리
-   코드 어디에도 없다(그것이 이 상자를 도로 가져온 이유다).
-   ------------------------------------------------------------ */
-
-.jsini-reconnect__acts {
-  display: none;
-  gap: var(--jsini-sp-sm, 0.5rem);
-  justify-content: center;
-  margin-top: var(--jsini-sp-lg, 1rem);
-}
-
-#components-reconnect-modal.components-reconnect-paused .jsini-reconnect__acts,
-#components-reconnect-modal.components-reconnect-failed .jsini-reconnect__acts,
-#components-reconnect-modal.components-reconnect-resume-failed .jsini-reconnect__acts,
-#components-reconnect-modal.components-reconnect-rejected .jsini-reconnect__acts {
-  display: flex;
-}
-
-.jsini-reconnect__btn {
-  display: none;
-  align-items: center;
-  justify-content: center;
-  min-height: 2rem;
-  padding: 0 var(--jsini-sp-lg, 1rem);
-  border: 1px solid transparent;
-  border-radius: var(--jsini-radius-md, 0.375rem);
-  background: var(--jsini-accent, #0f6cbd);
-  color: #ffffff;
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-/* 곁들이는 단추. 「새로고침」은 하던 것을 버리는 쪽이라 눈에 덜 띄어야 한다. */
-.jsini-reconnect__btn--quiet {
-  border-color: var(--jsini-border, #e3e5e8);
-  background: transparent;
-  color: var(--jsini-text, #1f2328);
-}
-
-.jsini-reconnect__btn:hover {
-  filter: brightness(1.08);
-}
-
-.jsini-reconnect__btn:focus-visible {
-  outline: 2px solid var(--jsini-accent, #0f6cbd);
-  outline-offset: 2px;
-}
-
-#components-reconnect-modal.components-reconnect-failed .jsini-reconnect__act--retry,
-#components-reconnect-modal.components-reconnect-paused .jsini-reconnect__act--resume,
-#components-reconnect-modal.components-reconnect-resume-failed .jsini-reconnect__act--resume,
-#components-reconnect-modal.components-reconnect-failed .jsini-reconnect__act--reload,
-#components-reconnect-modal.components-reconnect-resume-failed .jsini-reconnect__act--reload,
-#components-reconnect-modal.components-reconnect-rejected .jsini-reconnect__act--reload,
-#components-reconnect-modal.components-reconnect-rejected .jsini-reconnect__act--hold {
-  display: inline-flex;
-}
-
-/* 멈춘 뒤에는 멈출 것이 없다. 남는 것은 「새로고침」 하나다. */
-#components-reconnect-modal.jsini-reconnect--held .jsini-reconnect__act--hold {
-  display: none;
-}
-
-/* 거절당한 자리에서는 **새로고침이 할 일**이다(스스로도 그것을 한다).
-   다른 상태에서는 하던 것을 버리는 쪽이라 곁들이는 무게로 둔다. */
-#components-reconnect-modal.components-reconnect-rejected .jsini-reconnect__act--reload {
-  border-color: transparent;
-  background: var(--jsini-accent, #0f6cbd);
-  color: #ffffff;
 }
 
 /* ── 좁은 화면에서는 창을 화면 안에 가둔다 ────────────────────
