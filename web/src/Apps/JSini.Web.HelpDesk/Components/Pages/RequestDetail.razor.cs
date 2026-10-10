@@ -279,13 +279,14 @@ public partial class RequestDetail : IDisposable
         }
 
         var title = Value("title");
-        var contents = Value("description") ?? Value("content") ?? "";
+        var htmlContents = Value("description") ?? Value("content") ?? "";
+        var contents = ConvertHtmlToPlainTextWithImages(htmlContents);
 
         var payload = new
         {
             title = $"[요청 #{requestId}] {title}",
             contents = contents,
-            contentFormat = "html",
+            contentFormat = "text",
             taskStatus = "idle",
             requestFlag = "none"
         };
@@ -840,4 +841,29 @@ public partial class RequestDetail : IDisposable
         && value.ValueKind is not (JsonValueKind.Null or JsonValueKind.Undefined)
             ? value.ToString()
             : null;
+
+    /// <summary>
+    /// HTML 본문을 텍스트로 바꾸되 그림 주소는 남긴다.
+    /// </summary>
+    private static string ConvertHtmlToPlainTextWithImages(string html)
+    {
+        if (string.IsNullOrWhiteSpace(html))
+        {
+            return string.Empty;
+        }
+
+        var text = System.Text.RegularExpressions.Regex.Replace(html, @"<(br|p|div)[^>]*>", "\n", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"<img\b[^>]*?\bsrc\s*=\s*(?:""(?<src>[^""]*)""|'(?<src>[^']*)')[^>]*>", match =>
+        {
+            var src = match.Groups["src"].Value;
+            return $"\n[이미지: {src}]\n";
+        }, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"<[^>]+>", string.Empty);
+        text = System.Net.WebUtility.HtmlDecode(text);
+        text = System.Text.RegularExpressions.Regex.Replace(text, @"\n{3,}", "\n\n").Trim();
+
+        return text;
+    }
 }
