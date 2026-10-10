@@ -8261,11 +8261,11 @@ body {
     }
 
     /* 띠를 안 쓰면 서랍도 바닥까지 내려온다 — 위 셋과 같은 되돌림이다. */
-    .jsini-shell--bottomnav-hidden .jsini-ai-drawer {
+    .jsini-shell--bottomnav-hidden .jsini-right-drawer {
         bottom: 0;
     }
 
-    /* ── AI 대화 서랍이 띠를 피한다 ──────────────────────────
+    /* ── 오른쪽 서랍이 띠를 피한다 ──────────────────────────
 
        서랍은 `bottom: 0` 이라 띠와 같은 자리를 쓰는데, **띠가 위에 그려져서**
        글상자가 가려졌다. 쌓는 순서를 올려서 될 일이 아니다 — 서랍은 헤더
@@ -8286,7 +8286,7 @@ body {
 
        값은 띠의 높이와 같다(`.jsini-bottom-nav`). 띠가 안전 영역만큼
        두꺼워지므로 그 몫도 함께 센다. */
-    .jsini-ai-drawer {
+    .jsini-right-drawer {
         bottom: calc(60px + env(safe-area-inset-bottom));
     }
 

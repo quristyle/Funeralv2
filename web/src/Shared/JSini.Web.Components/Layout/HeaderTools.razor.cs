@@ -141,25 +141,6 @@ public partial class HeaderTools
     /// </summary>
     private MenuNode? AskMenu => MenuLookup.Find(Menus.VisibleMenus, AskRouteKey, AskPath);
 
-    /// <summary>「AI 작업 요청」 화면의 열쇠. ⚡ 를 못 쓰는 사람의 노란 번개가 간다.</summary>
-    private const string RequestRouteKey = "projmng.ai.request";
-
-    /// <summary><c>route_key</c> 를 아직 안 채운 DB 를 위한 대비책.</summary>
-    private const string RequestPath = "/projmng/ai/request";
-
-    /// <summary>
-    /// 요청 화면 메뉴. <see cref="AskMenu"/> 와 같은 까닭으로 <b>걸러진 목록</b>에서
-    /// 찾는다 — 볼 권한이 없는 사람에게는 노란 번개도 안 뜬다.
-    /// </summary>
-    private MenuNode? RequestMenu => MenuLookup.Find(Menus.VisibleMenus, RequestRouteKey, RequestPath);
-
-    /// <summary>
-    /// 노란 번개에 얹는 글. <b>흰 번개가 옆에 있으면 둘을 갈라 적는다</b> —
-    /// 그림이 같은 번개라 글자까지 같으면 어느 쪽인지 눌러 봐야 안다.
-    /// </summary>
-    private string RequestTitle(MenuNode request) => AskMenu is null
-        ? $"{request.Title} — 빠른 지시 요청 (관리자가 확인해 실행합니다)"
-        : $"{request.Title} — 적어 두는 요청 (지금 돌리지 않는다)";
 
     protected override void OnInitialized()
     {
@@ -359,16 +340,6 @@ public partial class HeaderTools
     /// </para>
     /// </remarks>
     /// <summary>
-    /// 노란 번개를 눌렀다. 화면으로 옮겨 가므로 사용자 판은
-    /// <c>LocationChanged</c> 로도 접히지만, <b>옮겨 가기 전에 접는 편이
-    /// 한 그림 빠르다</b> — 접히는 것이 새 화면이 그려진 뒤면 그 한 순간
-    /// 판이 새 화면 위에 덮여 보인다.
-    /// </summary>
-    private void OpenRequest(MenuNode request)
-    {
-        UserDrawer.Close();
-        Navigation.NavigateTo(request.LinkTarget);
-    }
 
     /// <summary>
     /// ✉ 를 눌렀다. 창은 <c>CommPopup</c> 이라 사용자 판(1041)보다 위에 뜨지만,
