@@ -25,6 +25,88 @@ public partial class RoleList
 
     // ── 지정 사용자 ────────────────────────────────────────
     private IReadOnlyList<RoleUserDto> _users = [];
+
+    private IReadOnlyList<OrgNode> _orgTree = Array.Empty<OrgNode>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadOrgTreeAsync();
+    }
+
+    private async Task LoadOrgTreeAsync()
+    {
+        if (_orgTree.Count > 0) return;
+        var companies = await Api.GetCompaniesAsync();
+        var nodes = new List<OrgNode>();
+        foreach (var c in companies)
+        {
+            var companyNode = new OrgNode { Id = c.Id, Name = c.Name, IsUser = false };
+            nodes.Add(companyNode);
+            
+            var depts = await Api.GetDeptsAsync(c.Id);
+            var deptNodes = depts.ToDictionary(d => d.Id, d => new OrgNode { Id = d.Id, ParentId = d.ParentId ?? c.Id, Name = d.Name, IsUser = false });
+            
+            foreach (var d in depts)
+            {
+                var node = deptNodes[d.Id];
+                if (d.ParentId != null && deptNodes.TryGetValue(d.ParentId, out var parent))
+                {
+                    parent.Children.Add(node);
+                }
+                else
+                {
+                    companyNode.Children.Add(node);
+                }
+            }
+            
+            foreach (var d in depts)
+            {
+                var users = await Api.GetDeptUsersAsync(d.Id);
+                foreach (var u in users)
+                {
+                    var userNode = new OrgNode 
+                    { 
+                        Id = u.Id,
+                        ParentId = d.Id,
+                        Name = u.UserName,
+                        LoginId = u.LoginId,
+                        CompanyName = c.Name,
+                        DeptName = d.Name,
+                        IsUser = true 
+                    };
+                    deptNodes[d.Id].Children.Add(userNode);
+                }
+            }
+        }
+        _orgTree = nodes;
+    }
+
+    private async Task OnGridItemsDroppedAsync(DevExpress.Blazor.GridItemsDroppedEventArgs e)
+    {
+        if (e.DraggedItems.FirstOrDefault() is OrgNode node && node.IsUser)
+        {
+            if (_role is null) return;
+            var ok = await RunAsync(
+                () => Api.AssignRoleUsersAsync(_role.Id, [node.Id]),
+                $"{node.Name}에게 「{_role.Name}」 을(를) 걸었습니다.",
+                "사용자를 지정하지 못했습니다");
+            if (ok) await LoadUsersAsync();
+        }
+    }
+
+    private async Task OnTreeItemsDroppedAsync(DevExpress.Blazor.TreeListItemsDroppedEventArgs e)
+    {
+        if (e.DraggedItems.FirstOrDefault() is RoleUserDto user)
+        {
+            if (_role is null) return;
+            var ok = await RunAsync(
+                () => Api.RemoveRoleUserAsync(_role.Id, user.Id),
+                $"{user.UserName} 에게서 「{_role.Name}」 을(를) 뗐습니다.",
+                "역할을 떼지 못했습니다");
+            if (ok) await LoadUsersAsync();
+        }
+    }
+
     private bool _pickerOpen;
     private IReadOnlyList<RoleUserDto> _pickable = [];
     private readonly HashSet<string> _picked = new(StringComparer.Ordinal);

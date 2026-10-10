@@ -107,8 +107,18 @@
                  SelectedItem="@_role"
                  SelectedItemChanged="@SelectRoleAsync">
             <Columns>
-                <DxGridDataColumn FieldName="@nameof(RoleDto.Name)" Caption="역할 이름" MinWidth="140" />
-                <DxGridDataColumn FieldName="@nameof(RoleDto.Id)" Caption="식별자" Width="130" />
+                <DxGridDataColumn FieldName="@nameof(RoleDto.Name)" Caption="역할 이름" MinWidth="140">
+                    <CellDisplayTemplate Context="cell">
+                        @{
+                            var r = (RoleDto)cell.DataItem;
+                        }
+                        <div>
+                            <div>@r.Name</div>
+                            <div style="font-size: 0.85em; color: var(--bs-secondary); margin-top: 2px;">@r.Id</div>
+                        </div>
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+                
 
                 <DxGridDataColumn Caption="상태" Width="80">
                     <CellDisplayTemplate Context="cell">
@@ -136,7 +146,7 @@
                            찍히기 때문**이다. 숫자면 로그를 봐도 무슨 역할인지
                            알 수 없다. 바꾸면 그 역할이 걸린 계정·메뉴 권한이
                            통째로 끊기므로 수정에서는 잠근다. *@
-                        <DxTextBox @bind-Text="r.Id" ReadOnly="@(!_isNew)" />
+                        <DxTextBox @bind-Text="r.Id" />
                     </DxFormLayoutItem>
 
                     <DxFormLayoutItem Caption="역할 이름" ColSpanMd="6">
@@ -158,7 +168,6 @@
                        대문자 스네이크라 기본값(축약형)이 그 모양을 준다. *@
                     <DxFormLayoutItem ColSpanMd="12" CaptionPosition="CaptionPosition.Vertical">
                         <AiCodeSuggest Word="@r.Name"
-                                       Enabled="@_isNew"
                                        OnPick="@(code => r.Id = code)" />
                     </DxFormLayoutItem>
 
@@ -192,12 +201,18 @@
 
                 <DxTabPage Text="@($"지정 사용자 ({_users.Count})")">
                     <div class="ad-roletabs__body">
-                        <CommGrd TItem="RoleUserDto" Data="@_users"
+                        <DxSplitter CssClass="ad-hsplit" Orientation="Orientation.Horizontal" SeparatorSize="2">
+                            <Panes>
+                                <DxSplitterPane Size="50%">
+                                    <CommGrd TItem="RoleUserDto" Data="@_users"
                                  ExportName="지정 사용자"
                                  EmptyText="지정된 사용자가 없습니다."
                                  Reload="@(() => LoadUsersAsync())"
                                  RowActions="@UserActions"
-                                 ActionsWidth="90">
+                                 ActionsWidth="90"
+                                 AllowDragRows="true"
+                                 AllowedDropTarget="DevExpress.Blazor.GridAllowedDropTarget.ExternalComponent"
+                                 ItemsDropped="@OnGridItemsDroppedAsync">
                             <ContextMenuItems>
                                 <PermissionView Action="MenuAction.Update">
                                     <CommMenuItem Text="사용자 추가" IconCssClass="jsini-icon-plus"
@@ -214,6 +229,33 @@
                                 <DxGridDataColumn FieldName="@nameof(RoleUserDto.Phone)" Caption="연락처" Width="120" />
                             </Columns>
                         </CommGrd>
+                                </DxSplitterPane>
+
+                                <DxSplitterPane>
+                                    <CommTree TItem="OrgNode" Data="@_orgTree"
+                                              KeyFieldName="@nameof(OrgNode.Id)"
+                                              ParentKeyFieldName="@nameof(OrgNode.ParentId)"
+                                              ChildrenFieldName="@nameof(OrgNode.Children)"
+                                              EmptyText="조직도를 불러오지 못했습니다."
+                                              AllowDragRows="true"
+                                              AllowedDropTarget="DevExpress.Blazor.TreeListAllowedDropTarget.ExternalComponent"
+                                              ItemsDropped="@OnTreeItemsDroppedAsync">
+                                        <Columns>
+                                            <DxTreeListDataColumn FieldName="@nameof(OrgNode.Name)" Caption="부서/사용자" MinWidth="200">
+                                                <CellDisplayTemplate Context="cell">
+                                                    @{
+                                                        var n = (OrgNode)cell.DataItem;
+                                                    }
+                                                    <span style="@(n.IsUser ? "color: var(--bs-primary);" : "")">
+                                                        @n.Name @(n.IsUser ? $"({n.LoginId})" : "")
+                                                    </span>
+                                                </CellDisplayTemplate>
+                                            </DxTreeListDataColumn>
+                                        </Columns>
+                                    </CommTree>
+                                </DxSplitterPane>
+                            </Panes>
+                        </DxSplitter>
                     </div>
                 </DxTabPage>
 
@@ -327,7 +369,10 @@
            HeaderText="사용자 추가"
            Width="min(900px, calc(100vw - 2rem))">
     <BodyContentTemplate Context="popup">
-        <CommGrd TItem="RoleUserDto" Data="@_pickable" PageSize="10"
+        <DxSplitter CssClass="ad-hsplit" Orientation="Orientation.Horizontal" SeparatorSize="2">
+                            <Panes>
+                                <DxSplitterPane Size="50%">
+                                    <CommGrd TItem="RoleUserDto" Data="@_pickable" PageSize="10"
                  ShowExcelExport="false"
                  EmptyText="추가할 수 있는 사용자가 없습니다."
                  Reload="@LoadPickableAsync">
@@ -355,6 +400,33 @@
                 <DxGridDataColumn FieldName="@nameof(RoleUserDto.RoleNames)" Caption="할당된 역할" MinWidth="160" />
             </Columns>
         </CommGrd>
+                                </DxSplitterPane>
+
+                                <DxSplitterPane>
+                                    <CommTree TItem="OrgNode" Data="@_orgTree"
+                                              KeyFieldName="@nameof(OrgNode.Id)"
+                                              ParentKeyFieldName="@nameof(OrgNode.ParentId)"
+                                              ChildrenFieldName="@nameof(OrgNode.Children)"
+                                              EmptyText="조직도를 불러오지 못했습니다."
+                                              AllowDragRows="true"
+                                              AllowedDropTarget="DevExpress.Blazor.TreeListAllowedDropTarget.ExternalComponent"
+                                              ItemsDropped="@OnTreeItemsDroppedAsync">
+                                        <Columns>
+                                            <DxTreeListDataColumn FieldName="@nameof(OrgNode.Name)" Caption="부서/사용자" MinWidth="200">
+                                                <CellDisplayTemplate Context="cell">
+                                                    @{
+                                                        var n = (OrgNode)cell.DataItem;
+                                                    }
+                                                    <span style="@(n.IsUser ? "color: var(--bs-primary);" : "")">
+                                                        @n.Name @(n.IsUser ? $"({n.LoginId})" : "")
+                                                    </span>
+                                                </CellDisplayTemplate>
+                                            </DxTreeListDataColumn>
+                                        </Columns>
+                                    </CommTree>
+                                </DxSplitterPane>
+                            </Panes>
+                        </DxSplitter>
     </BodyContentTemplate>
 
     <FooterContentTemplate Context="popupContext">
