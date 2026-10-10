@@ -124,7 +124,7 @@ public sealed class Toasts(IToastNotificationService service)
     /// <b>알고 있어야</b> 하는데, <c>null</c> 로 두면 얼마인지 여기서 알 수 없다.
     /// </para>
     /// </summary>
-    public static readonly TimeSpan Brief = TimeSpan.FromSeconds(5);
+    public static readonly TimeSpan Brief = TimeSpan.FromSeconds(3);
 
     /// <summary>
     /// 실패가 떠 있는 시간. 알림의 열두 배다.

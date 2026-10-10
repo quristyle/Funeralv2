@@ -8450,9 +8450,9 @@ body {
 }
 
 /* `Toasts` 가 붙이는 시간표. 없는 초를 붙이면 막대가 아예 그려지지 않는다. */
-.dxbl-toast.jsini-toast-time--5s {
-  --jsini-toast-span: 5s;
-  --jsini-toast-secs: 5;
+.dxbl-toast.jsini-toast-time--3s {
+  --jsini-toast-span: 3s;
+  --jsini-toast-secs: 3;
 }
 
 .dxbl-toast.jsini-toast-time--60s {
@@ -9263,4 +9263,14 @@ body.jsini-imgview-open {
   .jsini-imgview__sep {
     margin: 0 0.125rem;
   }
+}
+
+
+/* 토스트 화면 중앙 정렬 */
+.jsini-toast-wrapper--center .dxbl-toast-provider {
+  top: 50% !important;
+  bottom: auto !important;
+  transform: translate(-50%, -50%) !important;
+  left: 50% !important;
+  right: auto !important;
 }

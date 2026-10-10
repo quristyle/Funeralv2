@@ -176,6 +176,7 @@ public partial class EnvironmentSettingPage
         new("top-left", "왼쪽 위"),
         new("top-center", "가운데 위"),
         new("top-right", "오른쪽 위"),
+        new("center", "화면 중앙"),
         new("bottom-left", "왼쪽 아래"),
         new("bottom-center", "가운데 아래"),
         new("bottom-right", "오른쪽 아래 (기본)"),

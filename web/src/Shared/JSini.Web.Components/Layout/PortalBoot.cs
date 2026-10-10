@@ -825,6 +825,7 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         "bottom-left" => "bottom-left",
         "bottom-center" => "bottom-center",
         "bottom-right" => "bottom-right",
+        "center" => "center",
         _ => "bottom-right",
     };
 
@@ -1013,6 +1014,7 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         "top-left" => "top-left",
         "top-right" => "top-right",
         "bottom-right" => "bottom-right",
+        "center" => "center",
         "bottom-left" => "bottom-left",
         _ => fallback,
     };

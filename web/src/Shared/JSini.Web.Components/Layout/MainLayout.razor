@@ -442,8 +442,10 @@
        실패 이유가 붙는 문구는 한 줄을 넘는 일이 잦고, 적어 두거나 옮겨 붙이는
        데 1분이 모자랄 수 있다. 누른 뒤에는 남은 시간 표시도 함께 멈춘다
        (theme.js) — 안 멈추면 0 초가 된 뒤에도 남아 있어 그림이 거짓말을 한다. *@
+<div class="@(_toastPosition == "center" ? "jsini-toast-wrapper--center" : "")">
 <DxToastProvider StickToViewport="true"
                  MaxToastCount="4"
                  FreezeOnClick="true"
                  HorizontalAlignment="@_toastHorizontal"
                  VerticalAlignment="@_toastVertical" />
+</div>
