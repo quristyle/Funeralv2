@@ -8395,6 +8395,102 @@ body {
   width: 100%;
 }
 
+/* ── 토스트는 꼭 맞게, 한 줄로 선다 ───────────────────────────
+
+   [무엇이 컸나]
+
+   판(DevExpress)의 기본 치수는 **알림 하나에 한 문단**을 담는 크기다.
+   그런데 우리가 담는 것은 「저장했습니다.」 같은 **한 토막**이고
+   제목(`Header`)은 아예 쓰지 않는다(`Toasts`). 그 결과 글자 한 줄짜리
+   토스트가 **300px 폭에 62px 높이**로 섰다 — 글자가 차지하는 20px
+   말고는 전부 여백이었고, 셋이 겹치면 화면 오른쪽 아래가 280px 넘게
+   덮였다(헤드리스로 재었다).
+
+   [세 군데를 줄인다]
+
+   1. **폭은 글자만큼만.** 판이 준 폭(`Width`, 300px)은 이제 **상한**이다.
+      「저장했습니다.」는 그 절반도 안 되는 폭으로 서고, 서버 이유가 붙는
+      긴 문구만 상한까지 늘어난 뒤 줄바꿈한다. 사람이 고른 자리(왼쪽 ·
+      가운데 · 오른쪽)에 붙여 세우는 일은 `margin: auto` 가 한다 —
+      판의 정렬 클래스를 그대로 읽으므로 자리를 바꿔도 따라온다.
+   2. **한 줄에 모두 선다.** 아이콘·글·닫기를 가운데로 맞추고
+      (`align-items`), 판이 제목을 전제하고 넣어 둔 위쪽 여백
+      (`--dxbl-toast-icon-top-padding` · `--dxbl-toast-text-content-top-padding`)
+      을 0 으로 돌린다. 제목이 없으므로 그 여백은 글을 **아래로 밀기만** 한다.
+   3. **여백과 글자를 한 단 낮춘다.** 본문 여백·사이 간격·띠 폭을 줄이고
+      글자는 우리 사다리의 `--jsini-fs-xs` 로 맞춘다. 사다리를 쓰므로
+      서랍에서 고른 크기(여섯 단계)를 그대로 따라간다 — 고정 px 로 적으면
+      「가장작게」를 고른 사람 화면에서만 토스트가 혼자 크다.
+
+   줄이지 **않은** 것 둘. 색과 그림자는 테마가 쥔 그대로 두고(`Toasts`
+   머리말), 닫기 단추의 누를 자리는 손가락 폭을 지킨다 — 작게 만들면
+   휴대폰에서 빗나가고, 그것이 쓸어 치우기를 넣은 까닭이었다.
+   ------------------------------------------------------------ */
+
+/* 판을 화면 모서리에서 떼어 놓는 여백. 토스트가 작아진 만큼 함께 줄인다. */
+.dxbl-toast-portal {
+  --dxbl-toast-bound-margin: 0.5rem;
+  --dxbl-toast-bound-padding-right: 0.5rem;
+  --dxbl-toast-bound-padding-bottom: 0.5rem;
+}
+
+.dxbl-toast-portal .dxbl-toast {
+  --dxbl-toast-margin-top: 0.25rem;
+  --dxbl-toast-accent-line-width: 0.1875rem;
+  --dxbl-toast-body-padding: 0.3rem 0.4rem 0.3rem 0.5rem;
+  --dxbl-toast-content-gap: 0.4rem;
+  --dxbl-toast-text-content-gap: 0.1rem;
+  --dxbl-toast-icon-top-padding: 0;
+  --dxbl-toast-text-content-top-padding: 0;
+  --dxbl-toast-template-padding: 0;
+  --dxbl-toast-template-gap: 0.375rem;
+  --dxbl-toast-text-font-size: var(--jsini-fs-xs);
+  --dxbl-toast-text-line-height: 1.35;
+  --dxbl-toast-header-font-size: var(--jsini-fs-sm);
+  --dxbl-toast-header-line-height: 1.35;
+
+  /* 판이 준 폭은 상한으로만 쓴다. `max-content` 는 줄바꿈 없이 재므로
+     긴 문구에서는 `max-width` 에 걸려 그 자리에서 접힌다. */
+  width: max-content;
+  max-width: 100%;
+}
+
+/* 고른 자리 쪽에 붙여 세운다. 왼쪽은 적을 것이 없다 — 블록 상자의
+   기본이 그쪽이다. */
+.dxbl-toast-portal.dxbl-toast-align-right .dxbl-toast {
+  margin-left: auto;
+}
+
+.dxbl-toast-portal.dxbl-toast-align-center .dxbl-toast {
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* 아이콘·글·닫기를 한 줄에 세운다. 기본은 `stretch` 라 아이콘이 위에
+   붙고 글만 길어지면 둘의 높이가 어긋나 보인다. */
+.dxbl-toast-portal .dxbl-toast > .dxbl-toast-body {
+  align-items: center;
+}
+
+/* 아이콘은 글자 사다리를 따라간다. 판의 기본(16px)은 우리 글자보다 커서
+   한 줄 안에서 혼자 눈에 띈다. */
+.dxbl-toast-portal .dxbl-toast .dxbl-toast-icon-column .dxbl-toast-icon {
+  width: calc(var(--jsini-fs-xs) * 1.2);
+  height: calc(var(--jsini-fs-xs) * 1.2);
+}
+
+/* 닫기 단추. **그림만 줄이고 누를 자리는 남긴다** — 휴대폰에서 빗나가는
+   것이 쓸어 치우기를 넣은 까닭이었다(「토스트 쓸어 치우기」). */
+.dxbl-toast-portal .dxbl-toast .dxbl-toast-close button.dxbl-toast-close-btn {
+  --dxbl-btn-padding-x: 0.25rem;
+  --dxbl-btn-padding-y: 0.125rem;
+}
+
+.dxbl-toast-portal .dxbl-toast .dxbl-toast-close svg.dxbl-toast-close-btn {
+  width: calc(var(--jsini-fs-xs) * 1.1);
+  height: calc(var(--jsini-fs-xs) * 1.1);
+}
+
 /* ── 토스트의 남은 시간 (`Toasts`) ─────────────────────────────
 
    [무엇이 없었나]
@@ -8433,33 +8529,43 @@ body {
   overflow: hidden;
 }
 
-/* 표시가 설 자리를 본문 아래에 비운다. 얹기만 하면 **긴 문구의 마지막
-   줄과 겹친다** — 서버가 준 실패 이유가 붙는 문구가 대개 두 줄이다.
-   판의 규칙(`.dxbl-toast-portal .dxbl-toast .dxbl-toast-body`)보다 앞서야
-   해서 판 이름을 하나 더 붙였다. */
-.dxbl-toast-portal .dxbl-toast.jsini-toast-time > .dxbl-toast-body {
-  padding-bottom: 1.4rem;
-}
+/* 줄어드는 막대. 2px 짜리 띠 하나라 width 로 줄여도 값이 싸다.
 
-/* 줄어드는 막대. 3px 짜리 띠 하나라 width 로 줄여도 값이 싸다. */
+   **한 줄짜리 토스트의 높이를 늘리지 않는다** — 본문 **아래에 겹쳐**
+   깔리고 자리를 따로 비우지 않는다. 한동안 여기에 1.4rem 을 비워 두었는데
+   (아래 「남은 초」가 그 자리에 앉아 있었다), 그 한 줄이 토스트 높이의
+   3분의 1이었다. */
 .dxbl-toast.jsini-toast-time::after {
   content: '';
   position: absolute;
   bottom: 0;
   left: 0;
   width: 100%;
-  height: 3px;
+  height: 2px;
   background: var(--dxbl-toast-accent-line-color, currentColor);
   animation: jsini-toast-drain var(--jsini-toast-span) linear forwards;
 }
 
 /* 남은 초. 왼쪽 띠와 같은 색을 쓰지 않는다 — 실패의 빨강으로 적으면
-   문구보다 숫자가 먼저 읽힌다. */
-.dxbl-toast.jsini-toast-time::before {
+   문구보다 숫자가 먼저 읽힌다.
+
+   [왜 토스트가 아니라 닫기 단추에 붙나]
+
+   예전에는 토스트의 `::before` 를 **본문 아래 오른쪽 구석에 절대 배치**
+   했다. 그러려면 그 줄만큼 본문 아래를 비워야 하고(위의 1.4rem),
+   한 줄짜리 「저장했습니다」가 두 줄 높이가 된다.
+
+   닫기 단추 칸에 붙이면 **이미 있는 줄 안**에 들어간다 — 비울 자리도
+   없고, 읽는 차례도 「문구 → 남은 초 → 닫기」로 자연스럽다. 그 칸은
+   판이 늘 그리므로(`ShowCloseButton` 기본값) 사라질 걱정이 없다. */
+.dxbl-toast.jsini-toast-time .dxbl-toast-close {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.dxbl-toast.jsini-toast-time .dxbl-toast-close::before {
   content: counter(jsini-toast-left) '초';
-  position: absolute;
-  right: 0.75rem;
-  bottom: 0.35rem;
   counter-reset: jsini-toast-left var(--jsini-toast-left);
   font-size: var(--jsini-fs-2xs);
   font-variant-numeric: tabular-nums;
@@ -8467,12 +8573,23 @@ body {
   opacity: 0.6;
   animation: jsini-toast-count var(--jsini-toast-span)
              steps(var(--jsini-toast-secs), end) forwards;
+
+  /* 「2」와 「초」가 갈라져 두 줄이 되지 않게 한다 — 닫기 칸은 좁다. */
+  white-space: nowrap;
+  flex: none;
+
+  /* **자리를 미리 잡아 둔다.** 토스트 폭이 글자만큼이라(위 「꼭 맞게」)
+     숫자가 한 자리로 줄면 토스트가 그만큼 좁아진다 — 60초짜리 실패는
+     1분 동안 폭이 두 번 움찔한다. 가장 긴 숫자만큼 비워 두고 오른쪽에
+     붙이면 그 동안 폭이 한 번도 안 바뀐다. */
+  min-width: var(--jsini-toast-digits, 2.6em);
+  text-align: right;
 }
 
 /* 눌러 둔 동안은 멈춘다. DevExpress 가 누른 토스트를 **닫지 않으므로**
    (`MainLayout` 의 `FreezeOnClick`) 표시만 계속 줄면 화면이 거짓말을 한다.
    이 표시를 붙이는 것은 theme.js 다. */
-.dxbl-toast.jsini-toast-time--held::before,
+.dxbl-toast.jsini-toast-time--held .dxbl-toast-close::before,
 .dxbl-toast.jsini-toast-time--held::after {
   animation-play-state: paused;
 }
@@ -8499,15 +8616,19 @@ body {
   }
 }
 
-/* `Toasts` 가 붙이는 시간표. 없는 초를 붙이면 막대가 아예 그려지지 않는다. */
+/* `Toasts` 가 붙이는 시간표. 없는 초를 붙이면 막대가 아예 그려지지 않는다.
+   `--jsini-toast-digits` 는 **숫자가 설 자리**다 — 자릿수가 하나 늘면
+   여기도 함께 늘린다(안 늘리면 숫자가 잘린다). */
 .dxbl-toast.jsini-toast-time--3s {
   --jsini-toast-span: 3s;
   --jsini-toast-secs: 3;
+  --jsini-toast-digits: 1.9em;
 }
 
 .dxbl-toast.jsini-toast-time--60s {
   --jsini-toast-span: 60s;
   --jsini-toast-secs: 60;
+  --jsini-toast-digits: 2.6em;
 }
 
 /* ── 토스트 쓸어 치우기 (`theme.js` 의 「쓸어 치우기」) ─────────
