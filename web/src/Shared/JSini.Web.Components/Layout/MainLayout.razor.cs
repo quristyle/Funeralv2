@@ -300,7 +300,7 @@ public partial class MainLayout
     {
         _toastHorizontal = _toastPosition switch {
             "top-left" or "bottom-left" => HorizontalAlignment.Left,
-            "top-center" or "bottom-center" or "center" => HorizontalAlignment.Center,
+            "top-center" or "bottom-center" or "center" or "top-center-1-3" or "bottom-center-2-3" => HorizontalAlignment.Center,
             _ => HorizontalAlignment.Right,
         };
         _toastVertical = _toastPosition.StartsWith("top") ? VerticalEdge.Top : VerticalEdge.Bottom;

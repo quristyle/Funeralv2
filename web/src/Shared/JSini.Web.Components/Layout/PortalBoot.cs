@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using Microsoft.JSInterop;
 
 namespace JSini.Web.Components.Layout;
@@ -822,9 +822,11 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         "top-left" => "top-left",
         "top-center" => "top-center",
         "top-right" => "top-right",
+        "top-center-1-3" => "top-center-1-3",
         "bottom-left" => "bottom-left",
         "bottom-center" => "bottom-center",
         "bottom-right" => "bottom-right",
+        "bottom-center-2-3" => "bottom-center-2-3",
         "center" => "center",
         _ => "bottom-right",
     };
