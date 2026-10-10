@@ -152,13 +152,21 @@ def read_tail(path, pos):
 # ---------------------------------------------------------------- 작업 실행
 
 class Job:
-    """스크립트 한 번 실행. 출력은 줄 단위로 모아 두고 프런트가 오프셋으로 받아 간다."""
+    """명령 한 번 실행. 출력은 줄 단위로 모아 두고 프런트가 오프셋으로 받아 간다.
 
-    def __init__(self, jid, key, title, args):
+    보통은 backend_run_ubuntu.sh 를 부르지만(args 만 주면 된다), 소스 받기처럼
+    스크립트 밖의 명령도 돈다 — 그때는 cmd 로 통째로 준다. 화면에 보여 줄 줄은
+    shown 으로 따로 받는다. cmd 를 그대로 찍으면 bash -c 의 따옴표까지 나와
+    읽기 어렵기 때문이다.
+    """
+
+    def __init__(self, jid, key, title, args, cmd=None, shown=None):
         self.id = jid
-        self.key = key            # 대상 서비스. 전체 작업(all·allstop)이면 None
+        self.key = key            # 대상 서비스. 전체 작업(all·allstop·pull)이면 None
         self.title = title
         self.args = args
+        self.cmd = cmd or [str(SCRIPT), *args]
+        self.shown = shown or f"./{SCRIPT.name} {' '.join(args)}"
         self.lines = []
         self.running = True
         self.exit = None
@@ -173,14 +181,14 @@ class Job:
                 del self.lines[: len(self.lines) - MAX_LINES]
 
     def _run(self):
-        self._add(f"$ ./{SCRIPT.name} {' '.join(self.args)}")
+        self._add(f"$ {self.shown}")
         env = os.environ.copy()
         # 서비스마다 터미널 창을 여는 대신 백그라운드로 띄우게 한다.
         # 제어판에서 열두 개를 만지는데 창이 열두 개 뜨면 화면을 덮는다.
         env["DEV_BACKGROUND"] = "1"
         try:
             self._proc = subprocess.Popen(
-                [str(SCRIPT), *self.args],
+                self.cmd,
                 cwd=str(ROOT),
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
@@ -229,7 +237,7 @@ class Runner:
     def _live(self):
         return [j for j in self.jobs.values() if j.running]
 
-    def start(self, key, title, args):
+    def start(self, key, title, args, cmd=None, shown=None):
         with self._lock:
             live = self._live()
             glob = next((j for j in live if j.key is None), None)
@@ -246,7 +254,7 @@ class Runner:
 
             self._seq += 1
             jid = str(self._seq)
-            job = Job(jid, key, title, args)
+            job = Job(jid, key, title, args, cmd, shown)
             self.jobs[jid] = job
 
             # 끝난 작업이 쌓이지 않게 오래된 것부터 버린다.
@@ -458,12 +466,14 @@ summary::marker{color:var(--muted)}
   <span class="sum" id="summary">…</span>
   <span class="grow"></span>
   <button id="theme" class="ico" title="밝기" aria-label="밝기 전환">◐</button>
+  <button id="pull" class="ico" title="git pull — 소스 받기"
+          aria-label="소스 받기">↓</button>
   <button id="allstop" class="ico danger" title="전체 중지" aria-label="전체 중지">■</button>
   <button id="all" class="ico" title="전체 재기동" aria-label="전체 재기동">⟳</button>
 </header>
 <div class="hint">backend_run_ubuntu.sh 를 그대로 호출합니다.
-  <b>⟳</b> 재기동 · <b>■</b> 중지 · <b>☰</b> 로그 · <b>↗</b> 브라우저로 열기 —
-  단추에 마우스를 올리면 무엇인지 나옵니다.
+  <b>⟳</b> 재기동 · <b>■</b> 중지 · <b>☰</b> 로그 · <b>↗</b> 브라우저로 열기 ·
+  <b>↓</b> 소스 받기(git pull) — 단추에 마우스를 올리면 무엇인지 나옵니다.
   서비스는 터미널 창 없이 백그라운드로 뜨고, 서비스마다 작업이 따로 돌기 때문에
   하나를 재기동하는 동안에도 다른 것을 만질 수 있습니다.</div>
 
@@ -595,6 +605,7 @@ async function refresh() {
   const anyBusy = run > 0 || globalBusy;
   document.getElementById("all").disabled = anyBusy;
   document.getElementById("allstop").disabled = anyBusy;
+  document.getElementById("pull").disabled = anyBusy;
 
   // 보고 있던 작업 탭이 밀려 사라졌으면 선택을 푼다.
   if (view && view.kind === "job" && !jobs.some(j => j.id === view.id)) {
@@ -703,6 +714,11 @@ darkQuery.addEventListener("change", paintTheme);
 document.addEventListener("visibilitychange", () => { if (!document.hidden) paintTheme(); });
 paintTheme();
 
+document.getElementById("pull").onclick =
+  () => run("pull", null,
+            "git pull --ff-only 로 소스를 받습니다.\\n\\n" +
+            "갈라져 있거나 고치다 만 파일이 있으면 받지 않고 그대로 멈춥니다. " +
+            "계속할까요?");
 document.getElementById("allstop").onclick =
   () => run("allstop", null, "백엔드와 프론트를 전부 내립니다. 계속할까요?");
 document.getElementById("all").onclick =
@@ -822,11 +838,27 @@ class Handler(BaseHTTPRequestHandler):
             key, title, args = None, "전체 중지", ["allstop"]
         elif action == "all":
             key, title, args = None, "전체 재기동", ["all"]
+        elif action == "pull":
+            # 전체 작업으로 둔다(key=None). 소스를 갈아 끼우는 일이라 어느 서비스
+            # 하나의 일이 아니고, 빌드가 도는 중에 파일이 바뀌면 그 빌드가 무엇을
+            # 만든 것인지 알 수 없게 된다.
+            #
+            # --ff-only 인 까닭: 단추 한 번에 머지 커밋이 생기는 것보다, 갈라져
+            # 있으면 그냥 거절당하고 터미널에서 손으로 푸는 편이 낫다.
+            key, title, args = None, "소스 받기", []
+            return self._start(key, title, args,
+                               cmd=["bash", "-c",
+                                    'echo "브랜치: $(git rev-parse --abbrev-ref HEAD)"; '
+                                    "echo; git pull --ff-only"],
+                               shown="git pull --ff-only")
         else:
             self._json({"error": f"알 수 없는 동작: {action}"}, 400)
             return
 
-        job, err = RUNNER.start(key, title, args)
+        self._start(key, title, args)
+
+    def _start(self, key, title, args, cmd=None, shown=None):
+        job, err = RUNNER.start(key, title, args, cmd, shown)
         if err:
             self._json({"error": err}, 409)
         else:
