@@ -318,23 +318,17 @@
   .hd-form.hd-form--wide > .hd-title-field,
   .hd-form.hd-form--wide > .hd-tools,
   .hd-form.hd-form--wide > .hd-submit,
-  .hd-form.hd-form--wide > .hd-actions {
+  .hd-form.hd-form--wide > .hd-new-actions {
     flex: 0 0 auto;
   }
 }
 
-.hd-actions {
+.hd-new-actions {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: flex-start;
   gap: 1rem;
-}
-
-@media (min-width: 768px) {
-  .hd-actions {
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: flex-start;
-  }
 }
 
 /* 폼 끝의 「등록」 줄.
@@ -349,11 +343,11 @@
    `DxButton` 의 뿌리가 `.dxbl-btn` 이라 폭은 거기에 건다 — 바깥 `div` 만
    늘리면 그 안에서 단추는 제 글자폭 그대로다. 운송관리의 `.ct-open__bar`
    가 같은 까닭으로 같은 모양을 쓴다. */
-@media (width <= 767px) {
+/* @media (width <= 767px) {
   .hd-submit > .dxbl-btn {
     width: 100%;
   }
-}
+} */
 
 /* 제목 칸을 시원하게 연다.
 
