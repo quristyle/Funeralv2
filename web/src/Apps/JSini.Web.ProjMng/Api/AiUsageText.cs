@@ -199,7 +199,16 @@ public static class AiUsageText
             return new Badge(string.IsNullOrWhiteSpace(note) ? "한도 값 없음" : note!, "jsini-badge--off");
         }
 
-        var text = $"사용 {top:0.#}%" + (stale ? " · 오래된 값" : string.Empty);
+        var textParts = new List<string>();
+        var maxSession = rows.Max(r => r.SessionPct);
+        var maxWeek = rows.Max(r => r.WeekPct);
+        
+        if (maxSession is not null) textParts.Add($"세션 {maxSession:0.#}%");
+        if (maxWeek is not null) textParts.Add($"주간 {maxWeek:0.#}%");
+
+        var text = textParts.Count > 0 
+            ? string.Join(" / ", textParts) + (stale ? " · 오래된 값" : string.Empty)
+            : $"사용 {top:0.#}%" + (stale ? " · 오래된 값" : string.Empty);
 
         var css = stale ? "jsini-badge--off"
             : top >= 90 ? "jsini-badge--err"
