@@ -9316,14 +9316,6 @@ body.jsini-imgview-open {
 }
 
 
-/* 토스트 화면 중앙 정렬 */
-.jsini-toast-wrapper--center .dxbl-toast-provider {
-  top: 50% !important;
-  bottom: auto !important;
-  transform: translate(-50%, -50%) !important;
-  left: 50% !important;
-  right: auto !important;
-}
 
 /* 공통 오른쪽 서랍 */
 .jsini-right-drawer {

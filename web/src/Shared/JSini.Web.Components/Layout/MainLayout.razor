@@ -1,4 +1,4 @@
-﻿@*
+@*
     포털 레이아웃. DevExpress 데모(demos.devexpress.com/blazor)의 껍데기를 본떴다.
 
         ┌──────────────────────────────────────────────────────┐
@@ -451,10 +451,20 @@
        실패 이유가 붙는 문구는 한 줄을 넘는 일이 잦고, 적어 두거나 옮겨 붙이는
        데 1분이 모자랄 수 있다. 누른 뒤에는 남은 시간 표시도 함께 멈춘다
        (theme.js) — 안 멈추면 0 초가 된 뒤에도 남아 있어 그림이 거짓말을 한다. *@
-<div class="@(_toastPosition == "center" ? "jsini-toast-wrapper--center" : "")">
+@if (_toastPosition == "center")
+{
+    <style>
+        .dxbl-toast-portal {
+            top: var(--jsini-toast-inset-top, 0px) !important;
+            bottom: var(--jsini-toast-inset-bottom, 0px) !important;
+            height: max-content !important;
+            margin-top: auto !important;
+            margin-bottom: auto !important;
+        }
+    </style>
+}
 <DxToastProvider StickToViewport="true"
                  MaxToastCount="4"
                  FreezeOnClick="true"
                  HorizontalAlignment="@_toastHorizontal"
                  VerticalAlignment="@_toastVertical" />
-</div>
