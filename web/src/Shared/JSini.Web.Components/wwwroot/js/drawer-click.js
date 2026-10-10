@@ -32,8 +32,25 @@ export function updateState(id, isOpen, isPinned) {
         state.isOpen = isOpen;
         state.isPinned = isPinned;
     }
+    updateBodyClass();
+}
+
+function updateBodyClass() {
+    let hasPinned = false;
+    for (const state of drawers.values()) {
+        if (state.isOpen && state.isPinned) {
+            hasPinned = true;
+            break;
+        }
+    }
+    if (hasPinned) {
+        document.body.classList.add('jsini-has-pinned-drawer');
+    } else {
+        document.body.classList.remove('jsini-has-pinned-drawer');
+    }
 }
 
 export function dispose(id) {
     drawers.delete(id);
+    updateBodyClass();
 }

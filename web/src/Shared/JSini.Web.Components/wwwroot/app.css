@@ -1724,6 +1724,13 @@ body {
   flex-direction: column;
   min-width: 0;
   overflow: hidden;
+  transition: margin-right 0.22s cubic-bezier(0.2, 0, 0, 1);
+}
+
+@media (min-width: 768px) {
+  body.jsini-has-pinned-drawer .jsini-shell__main {
+    margin-right: min(26rem, 100vw);
+  }
 }
 
 /*
@@ -2167,6 +2174,10 @@ button.jsini-crumbs__item:hover { opacity: 1; }
 .jsini-icon-pin {
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M10.071 2.442a1.503 1.503 0 0 0-2.39.353L5.658 6.587l-2.815.937a.5.5 0 0 0-.196.828l2.15 2.147-2.65 2.647L2 14l.855-.146 2.65-2.648 2.15 2.147a.5.5 0 0 0 .83-.195l.938-2.812 3.784-2.024a1.5 1.5 0 0 0 .355-2.381zm-1.506.823a.5.5 0 0 1 .797-.117l3.49 3.499a.5.5 0 0 1-.118.794l-3.96 2.117a.5.5 0 0 0-.239.283l-.745 2.233L3.93 8.217l2.235-.745a.5.5 0 0 0 .284-.239z'/%3E%3C/svg%3E");
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M10.071 2.442a1.503 1.503 0 0 0-2.39.353L5.658 6.587l-2.815.937a.5.5 0 0 0-.196.828l2.15 2.147-2.65 2.647L2 14l.855-.146 2.65-2.648 2.15 2.147a.5.5 0 0 0 .83-.195l.938-2.812 3.784-2.024a1.5 1.5 0 0 0 .355-2.381zm-1.506.823a.5.5 0 0 1 .797-.117l3.49 3.499a.5.5 0 0 1-.118.794l-3.96 2.117a.5.5 0 0 0-.239.283l-.745 2.233L3.93 8.217l2.235-.745a.5.5 0 0 0 .284-.239z'/%3E%3C/svg%3E");
+}
+.jsini-icon-pin-filled {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M10.071 2.442a1.503 1.503 0 0 0-2.39.353L5.658 6.587l-2.815.937a.5.5 0 0 0-.196.828l2.15 2.147-2.65 2.647L2 14l.855-.146 2.65-2.648 2.15 2.147a.5.5 0 0 0 .83-.195l.938-2.812 3.784-2.024a1.5 1.5 0 0 0 .355-2.381z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M10.071 2.442a1.503 1.503 0 0 0-2.39.353L5.658 6.587l-2.815.937a.5.5 0 0 0-.196.828l2.15 2.147-2.65 2.647L2 14l.855-.146 2.65-2.648 2.15 2.147a.5.5 0 0 0 .83-.195l.938-2.812 3.784-2.024a1.5 1.5 0 0 0 .355-2.381z'/%3E%3C/svg%3E");
 }
 
 .jsini-icon-close {
