@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components;
 using JSini.Web.Abstractions;
 using JSini.Web.Components.Data;
 using JSini.Web.Components.Layout;
@@ -188,6 +188,7 @@ public partial class EnvironmentSettingPage
     {
         _selectedToastPosition = PortalBoot.NormalizeToastPosition(value);
         await Boot.SetToastPositionAsync(_selectedToastPosition);
+        Say("알림이 표시될 위치입니다.");
     }
 
     private string _selectedFabPosition = "bottom-left";
