@@ -3136,8 +3136,15 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
 
 .pm-req__text textarea {
   min-height: 12rem;
-  font-size: 1rem;      /* 16px 미만이면 iOS 가 칸을 확대한다 */
+  font-size: var(--jsini-fs-md);
   line-height: 1.5;
+}
+
+/* 손가락으로 쓰는 기기에서만 16px 바닥을 둔다. (iOS 확대 방지) */
+@media (pointer: coarse) {
+  .pm-req__text textarea {
+    font-size: max(var(--jsini-fs-md), 1rem);
+  }
 }
 
 /* 단추 줄. 저장이 오른쪽 끝이고(`margin-left:auto`) 취소·거둬들이기가
