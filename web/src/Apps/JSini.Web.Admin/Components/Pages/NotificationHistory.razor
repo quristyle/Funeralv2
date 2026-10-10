@@ -97,14 +97,25 @@
              ExportName="알림함"
              SelectedItem="@_picked"
              SelectedItemChanged="@(n => _picked = n)"
+             SelectedItems="@_selectedItems"
+             SelectedItemsChanged="@((IReadOnlyList<NotificationDto> items) => _selectedItems = items)"
              OnRowDoubleClick="@OpenAsync"
              Reload="@ReloadAsync">
+        <FooterLeft>
+            <DxButton Text="읽음 처리" RenderStyle="ButtonRenderStyle.Secondary"
+                      Enabled="@(_selectedItems.Count > 0)"
+                      Click="@MarkSelectedReadAsync" />
+            <DxButton Text="선택항목 삭제" RenderStyle="ButtonRenderStyle.Danger"
+                      Enabled="@(_selectedItems.Count > 0)"
+                      Click="@DeleteSelectedAsync" />
+        </FooterLeft>
         <ContextMenuItems>
             <CommMenuItem Text="열기" IconCssClass="jsini-icon-eye"
                           Enabled="@(_picked is not null)"
                           Click="@(() => OpenAsync(_picked!))" />
         </ContextMenuItems>
         <Columns>
+            <DxGridSelectionColumn Width="50" />
             @* 서버가 주는 것은 UTC 라 그대로 그리면 아홉 시간 전으로 보인다. *@
             <DxGridDataColumn FieldName="@nameof(NotificationDto.CreatedAt)" Caption="받은 때" Width="150">
                 <CellDisplayTemplate Context="cell">

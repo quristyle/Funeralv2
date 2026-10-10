@@ -1,4 +1,4 @@
-﻿using JSini.Web.Http;
+using JSini.Web.Http;
 using JSini.Web.Models;
 
 namespace JSini.Web.Admin.Api;
@@ -475,6 +475,13 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task MarkNotificationReadAsync(string id, CancellationToken ct = default)
         => gateway.PostAsync(
             $"notification/notifications/inbox/{Uri.EscapeDataString(id)}/read", new { }, ct);
+
+    /// <summary>
+    /// 알림함에서 한 건을 치운다.
+    /// </summary>
+    public Task DeleteNotificationAsync(string id, CancellationToken ct = default)
+        => gateway.DeleteAsync(
+            $"notification/notifications/inbox/{Uri.EscapeDataString(id)}", ct);
 
     /// <summary>게이트웨이가 서비스를 하나씩 눌러 본 결과. 자기 상태도 함께 온다.</summary>
     public Task<GatewayStatusDto?> GetGatewayStatusAsync(CancellationToken ct = default)

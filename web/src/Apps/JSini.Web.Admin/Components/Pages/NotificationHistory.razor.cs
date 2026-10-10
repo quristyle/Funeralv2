@@ -282,4 +282,42 @@ public partial class NotificationHistory
             n.IsRead = true;
         }
     }
+
+    private IReadOnlyList<NotificationDto> _selectedItems = Array.Empty<NotificationDto>();
+
+    private async Task MarkSelectedReadAsync()
+    {
+        var targets = _selectedItems.Where(n => !n.IsRead).ToList();
+        if (targets.Count == 0) return;
+
+        if (await RunAsync(async () =>
+        {
+            foreach (var n in targets)
+            {
+                await Api.MarkNotificationReadAsync(n.Id);
+                n.IsRead = true;
+            }
+        }, $"{targets.Count}건을 읽음으로 표시했습니다.", "표시하지 못했습니다"))
+        {
+            _selectedItems = Array.Empty<NotificationDto>();
+        }
+    }
+
+    private async Task DeleteSelectedAsync()
+    {
+        var targets = _selectedItems.ToList();
+        if (targets.Count == 0) return;
+
+        if (await RunAsync(async () =>
+        {
+            foreach (var n in targets)
+            {
+                await Api.DeleteNotificationAsync(n.Id);
+            }
+        }, $"{targets.Count}건을 삭제했습니다.", "삭제하지 못했습니다"))
+        {
+            _selectedItems = Array.Empty<NotificationDto>();
+            await ReloadAsync();
+        }
+    }
 }
