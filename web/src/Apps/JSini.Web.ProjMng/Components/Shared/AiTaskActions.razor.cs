@@ -14,6 +14,7 @@ public partial class AiTaskActions
     [Inject] private AiTaskDraftStore Drafts { get; set; } = default!;
     [Inject] private AiContinueDraftStore ContinueDrafts { get; set; } = default!;
     [Inject] private Toasts Toasts { get; set; } = default!;
+    [Inject] private AiDashboardClient Dashboard { get; set; } = default!;
 
     /// <summary>단추가 걸릴 건. 부모가 갈아 준다.</summary>
     [Parameter] public AiTaskDto? Item { get; set; }
@@ -302,6 +303,27 @@ public partial class AiTaskActions
             k => string.Equals(k.Value, kind, StringComparison.OrdinalIgnoreCase))?.Value ?? kind;
     }
 
+    private IReadOnlyList<AiUsageSnapshot> _usage = [];
+    private bool _usageSeen;
+
+    private List<AiUsageSnapshot> UsageOf(string? kind)
+        => string.IsNullOrWhiteSpace(kind)
+            ? []
+            : [.. _usage.Where(u => string.Equals(u.RunnerKind, kind, StringComparison.OrdinalIgnoreCase))];
+
+    private AiUsageText.Badge KindBadge(string? kind)
+        => _usageSeen
+            ? AiUsageText.Of(UsageOf(kind))
+            : new AiUsageText.Badge("한도 확인 중", "jsini-badge--off");
+
+    private AiUsageText.Badge PickedContinueBadge => KindBadge(_continueKind);
+
+    private async Task LoadUsageAsync()
+    {
+        _usage = await Dashboard.UsageAsync();
+        _usageSeen = true;
+    }
+
     private async Task OpenContinueModalAsync()
     {
         _continueAddition = null;
@@ -316,6 +338,11 @@ public partial class AiTaskActions
             // 돌려주고, 그때는 지난 회차의 AI 한 줄만 선다(`ContinueKinds`).
             _kinds = await ModelCodes.GetAsync();
             _kindsRead = _kinds.Count > 0;
+        }
+
+        if (!_usageSeen)
+        {
+            await LoadUsageAsync();
         }
 
         // **지난 회차의 AI 로 채운다.** 열자마자 다른 것이 골라져 있으면

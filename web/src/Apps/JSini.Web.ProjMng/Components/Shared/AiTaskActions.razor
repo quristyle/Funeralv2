@@ -205,8 +205,27 @@
                         TextFieldName="@nameof(AiModelOption.Text)"
                         ValueFieldName="@nameof(AiModelOption.Value)"
                         CssClass="pm-peek__kind"
-                        Enabled="@(!_continuing && ContinueKinds.Count > 1)" />
+                        Enabled="@(!_continuing && ContinueKinds.Count > 1)">
+                <ItemTemplate Context="comboContext">
+                    @{
+                        var badge = KindBadge(comboContext.Value);
+                    }
+                    <div class="pm-ask__kinditem">
+                        <div class="pm-ask__kindhead">
+                            <span class="pm-ask__kindname">@comboContext.Text</span>
+                            <span class="jsini-badge @badge.Css">@((MarkupString)badge.Text)</span>
+                        </div>
+                    </div>
+                </ItemTemplate>
+            </DxComboBox>
         </div>
+
+        @if (ContinueKinds.Count > 0)
+        {
+            <div class="pm-ai-limit">
+                <span class="jsini-badge @PickedContinueBadge.Css">@((MarkupString)PickedContinueBadge.Text)</span>
+            </div>
+        }
 
         <p class="jsini-hint">@ContinueKindNote</p>
 
