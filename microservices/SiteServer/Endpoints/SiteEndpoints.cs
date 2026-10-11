@@ -97,7 +97,8 @@ public static class SiteEndpoints
             [FromBody] InquiryRequestDto request,
             HttpContext http,
             [FromServices] ISiteService svc,
-            [FromServices] IInquiryMailNotifier mailNotifier) =>
+            [FromServices] IInquiryMailNotifier mailNotifier,
+            [FromServices] IInquiryPushNotifier pushNotifier) =>
         {
             if (!request.Consent)
             {
@@ -111,11 +112,17 @@ public static class SiteEndpoints
             var id = await svc.CreateInquiryAsync(
                 request, ip, http.Request.Headers.UserAgent.ToString());
 
-            // 저장된 문의만 담당자에게 메일로 알린다 (NotificationServer 직발송).
-            // 허니팟·빈 값(id == null)은 알리지 않고, 메일 실패도 접수 실패로 만들지 않는다.
+            // 저장된 문의만 담당자에게 알린다 (NotificationServer 직발송).
+            // 허니팟·빈 값(id == null)은 알리지 않고, 알림 실패도 접수 실패로 만들지 않는다.
+            //
+            // **길이 둘이고 서로를 막지 않는다.** 메일은 자리를 비운 담당자에게
+            // 남는 기록이고 푸시는 지금 보게 하는 길이다 — 한쪽이 넘어져도
+            // 다른 쪽은 가야 하므로 둘 다 예외를 삼킨다(각 Notifier 머리말).
+            // 누가 어느 길로 받는지는 포털관리 「알림관리」의 SITE_INQUIRY 가 정한다.
             if (id is not null)
             {
                 await mailNotifier.NotifyAsync(id.Value, request, http.RequestAborted);
+                await pushNotifier.NotifyAsync(id.Value, request, http.RequestAborted);
             }
 
             // id 가 null 이면 허니팟이거나 필수값이 빈 것이다. 둘을 구별해 주지 않는다.

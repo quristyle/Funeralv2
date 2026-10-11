@@ -74,7 +74,16 @@ public static class NotificationEvents
     /// </summary>
     public const string ReportMail = "REPORT_MAIL";
 
-    /// <summary>회사 소개 사이트의 문의가 접수되었다. 구분이 없다.</summary>
+    /// <summary>
+    /// 회사 소개 사이트의 문의가 접수되었다. 구분은 <c>SITE_INQUIRY</c>
+    /// (<see cref="PushCategories.SiteInquiry"/>).
+    /// </summary>
+    /// <remarks>
+    /// <b>길이 둘이다.</b> 메일은 <c>SiteServer</c> 의 <c>InquiryMailNotifier</c> 가
+    /// 제 틀로 따로 내고, 앱 푸시는 <c>InquiryPushNotifier</c> 가 낸다. 그래서
+    /// 이 이벤트는 <c>email_from_push</c> 를 <b>거짓으로 둔다</b> — 켜면 같은
+    /// 문의로 메일이 두 통 간다.
+    /// </remarks>
     public const string SiteInquiry = "SITE_INQUIRY";
 
     /// <summary>

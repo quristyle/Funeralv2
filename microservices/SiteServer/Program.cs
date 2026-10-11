@@ -50,6 +50,10 @@ builder.Services.AddHttpClient("notification", client =>
 });
 builder.Services.AddScoped<IInquiryMailNotifier, InquiryMailNotifier>();
 
+// 문의 접수 앱 푸시 — 같은 알림 서버의 /notifications/push 를 부른다.
+// 메일과 짝이고 받는 역할도 같은 설정을 쓴다. 푸시 실패도 접수 실패가 아니다.
+builder.Services.AddScoped<IInquiryPushNotifier, InquiryPushNotifier>();
+
 // ============================================================
 // 4. CORS
 // ============================================================

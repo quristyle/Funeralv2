@@ -73,6 +73,16 @@ public static class PushCategories
     /// <summary>AI 작업 요청·결과 알림.</summary>
     public const string AiTask = "AI_TASK";
 
+    /// <summary>
+    /// 회사 소개 사이트에서 <b>문의가 접수됐다</b>는 알림.
+    /// </summary>
+    /// <remarks>
+    /// 한동안 구분이 없었다 — 메일로만 나가 알림함에 쌓이지 않았기 때문이다.
+    /// 앱 푸시가 생기면서 쌓이기 시작해 갈래를 붙였다
+    /// (<c>docs/notify-policy.md</c>).
+    /// </remarks>
+    public const string SiteInquiry = "SITE_INQUIRY";
+
     /// <summary>설정 화면의 「시험 발송」.</summary>
     public const string Test = "TEST";
 

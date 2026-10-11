@@ -165,9 +165,12 @@ INSERT INTO scom.notification_events (
  '시스템 모니터링 보고서를 주기로 보낼 때. 배치가 고른 역할을 정책이 대신한다.',
  NULL, 'AuthServer', 'ROLE', false, true, false, true, true, 50, now(), 'notify-policy'),
 
+-- 앱 푸시는 2026-10-11 에 열었다(notify-policy-site-inquiry-push-2026-10-11.sql).
+-- **email_from_push 는 거짓으로 둔다** — 메일은 SiteServer 의 InquiryMailNotifier 가
+-- 제 틀로 따로 내므로, 켜면 문의 하나에 메일이 두 통 간다.
 ('SITE_INQUIRY', '소개 사이트 문의 접수',
- '회사 소개 사이트에서 문의가 들어왔을 때.',
- NULL, 'SiteServer', 'ROLE', false, true, false, true, true, 60, now(), 'notify-policy'),
+ '회사 소개 사이트에서 문의가 들어왔을 때 담당자에게. 앱 푸시를 누르면 [사이트 문의내역]이 열리고, 이메일은 접수번호와 본문이 담긴 제 틀의 메일이 따로 나간다.',
+ 'SITE_INQUIRY', 'SiteServer', 'ROLE', true, true, false, true, true, 60, now(), 'notify-policy'),
 
 -- ── 당사자에게 가는 것 ──
 ('NOTE', '쪽지 도착',

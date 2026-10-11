@@ -32,7 +32,7 @@
 | 메일 곁가지 | `PushSender.FanOutEmailAsync` — 푸시만 보내던 이벤트의 메일을 함께 낸다 |
 | 코드값 | `JSini.Shared.DTOs.NotificationEvents` (보내는 쪽이 적는 글자) |
 | 권한 | `SYSTEM_ADMINISTRATOR` 하나 (`scom.role_menus`) |
-| SQL | `deploy/sql/notify-policy-2026-10-11.sql` · `…-menu-2026-10-11.sql` · `…-email-2026-10-11.sql` |
+| SQL | `deploy/sql/notify-policy-2026-10-11.sql` · `…-menu-2026-10-11.sql` · `…-email-2026-10-11.sql` · `…-site-inquiry-push-2026-10-11.sql` |
 
 ---
 
@@ -186,7 +186,7 @@
 | `HELPDESK` | 헬프데스크 요청 등록 | `HelpDeskServer/Endpoints/RequestEndpoints` | 역할 | 푸시·메일※ | ○ |
 | `AI_TASK` | AI 작업 요청·결과 | `ProjMngServer` 의 `AiRequestAlerter` · `AiTaskNotifier` | 역할 | 푸시·메일 | ○ |
 | `REPORT_MAIL` | 보고서 메일 | `AuthServer/Services/ReportMailSender` | 역할 | 메일 | ○ |
-| `SITE_INQUIRY` | 소개 사이트 문의 접수 | `SiteServer/Services/InquiryMailNotifier` | 역할 | 메일 | ○ |
+| `SITE_INQUIRY` | 소개 사이트 문의 접수 | `SiteServer` 의 `InquiryMailNotifier` · `InquiryPushNotifier` | 역할 | 푸시·메일 | ○ |
 | `NOTE` | 쪽지 도착 | `NotificationServer` 의 `NoteEndpoints` · `NoteFallbackMailer` | 당사자 | 푸시·메일 | ○ |
 | `HELPDESK_COMMENT` | 내 요청글에 댓글 | `HelpDeskServer/Services/CommentNotifier` | 당사자 | 푸시·메일 | ○ |
 | `BIRTHDAY` | 생일 축하 메시지 | `AuthServer/Services/BirthdayNotifyClient` | 당사자 | 푸시·메일※ | ○ |
@@ -216,6 +216,29 @@
 > `TEST` 는 열지 않았다. `governed = false` 라 정책이 아예 안 걸리고, 곁가지는
 > 정책이 고른 역할로만 나가므로 거기서는 영영 안 돈다 — 칸만 열면 또
 > 「켰는데 안 온다」가 된다.
+
+#### `SITE_INQUIRY` 는 **푸시와 메일을 각각 제 손으로** 낸다 (2026-10-11)
+
+소개 사이트 문의 접수는 한동안 **메일로만** 나갔다(`supports_push = false`).
+이제 `SiteServer` 가 길 둘을 **각각** 부른다 —
+
+| 길 | 부르는 자리 | 무엇이 오나 |
+|---|---|---|
+| 앱 푸시 | `InquiryPushNotifier` → `/notifications/push` | 「새 문의가 접수됐습니다」 · 누르면 [사이트 문의내역](`/site/inquiries`)이 열린다 |
+| 이메일 | `InquiryMailNotifier` → `/emails/send` | 접수번호 · 본문 · 답장 안내가 든 제 틀의 메일 |
+
+둘 다 `eventCode = SITE_INQUIRY` 를 실어 보내므로 **이 화면의 체크 둘이 각각
+듣는다.** 한쪽이 넘어져도 다른 쪽은 간다(둘 다 예외를 삼키고 로그만 남긴다) —
+알림이 못 간 것을 접수 실패로 만들면 문의한 사람이 같은 글을 다시 쓴다.
+
+> **`email_from_push` 는 거짓으로 둔다.** 푸시가 생겼다고 메일 곁가지를 켜면
+> 문의 하나에 메일이 **두 통** 간다 — 위 표의 앞 갈래 그대로다.
+
+**「앱 푸시」를 켠 역할이 하나도 없으면 제한 없음이다.** 칸이 잠겨 있던 때
+저장된 줄들은 `push_enabled = false` 인데, 그것은 「끄기로 했다」가 아니라
+「고를 수가 없었다」라 켜 주지도 지우지도 않았다. 그동안은 SiteServer 가 적어
+보낸 기본 역할(`InquiryPush:ToRole` — 없으면 `InquiryMail:ToRole`)로 나가고,
+이 화면에서 역할을 한 줄이라도 켜는 순간 그것이 기본값을 대신한다.
 
 #### `HELPDESK` 는 **겹칠 수 있다** — 켜기 전에 알고 켜야 한다
 
@@ -306,8 +329,13 @@
 | 이벤트 `eventCode` | **설정**이 걸리는 열쇠 | 알림관리 |
 
 지금은 대부분 **같은 글자**다 — 세어 보니 구분 하나에 사건 하나였다. 그래서
-보내는 쪽이 `eventCode` 를 안 적어도 `category` 로 찾는다. 구분이 없는 둘
-(`REPORT_MAIL` · `SITE_INQUIRY`)만 제 이름을 적어 보낸다.
+보내는 쪽이 `eventCode` 를 안 적어도 `category` 로 찾는다. 구분이 없는 하나
+(`REPORT_MAIL`)만 제 이름을 적어 보낸다.
+
+> `SITE_INQUIRY` 도 한동안 그쪽이었다 — 메일로만 나가 **알림함에 쌓이지 않아서**
+> 붙일 갈래가 없었다. 앱 푸시가 생기며 줄이 쌓이기 시작해 구분을 붙였다
+> (`notify-policy-site-inquiry-push-2026-10-11.sql`). 안 붙이면 그 줄들이
+> 「구분 없음」으로 모이는데, 거기는 **구분을 빠뜨린 발송 자리를 찾는 자리**다.
 
 같은 구분 아래에서 사건을 더 잘게 갈라야 할 날이 오면 `구분.하위` 꼴로 적는다.
 푸는 쪽은 **정확히 맞는 줄 → 앞머리(구분) 줄 → 둘 다 없으면 제한 없음** 순서로
