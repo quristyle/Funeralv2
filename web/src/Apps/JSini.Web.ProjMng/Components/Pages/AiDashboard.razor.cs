@@ -41,6 +41,9 @@ public partial class AiDashboard
     /// <summary>전체 실행 · 성공. 앞엣것은 크기, 뒤엣것은 상태다.</summary>
     private static readonly string[] MonthlyPalette = [Series1, Good];
 
+    /// <summary>AI 모델 사용량 추이 계열 색 (Claude · 안티그래비티 · Copilot).</summary>
+    private static readonly string[] UsageTrendPalette = ["#8b5cf6", "#0284c7", "#10b981"];
+
     /// <summary>상태 이름 → 색. 도넛의 조각 순서를 여기에 맞춘다.</summary>
     private static readonly Dictionary<string, string> StatusColors = new(StringComparer.Ordinal)
     {

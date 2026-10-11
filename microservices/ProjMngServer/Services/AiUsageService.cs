@@ -144,6 +144,42 @@ public sealed class AiUsageService(
                 error = Trim(item.ErrorText, 1000),
             }, tx);
 
+            // 시간별·일별·월별 사용량 추이 분석을 위해 이력표에도 함께 적는다.
+            await db.ExecuteAsync("""
+                INSERT INTO projmng.ai_usage_history
+                     ( runner_nm, runner_kind, bucket_nm, ok,
+                       session_pct, session_reset_at,
+                       week_pct, week_reset_at,
+                       week_opus_pct, week_opus_reset_at,
+                       month_pct, month_reset_at,
+                       limit_tokens, remaining_tokens, plan_nm,
+                       observed_at )
+                VALUES ( @runner, @kind, @bucket, @ok,
+                         @sessionPct, @sessionResetAt,
+                         @weekPct, @weekResetAt,
+                         @weekOpusPct, @weekOpusResetAt,
+                         @monthPct, @monthResetAt,
+                         @limitTokens, @remainingTokens, @plan,
+                         now() )
+                """, new
+            {
+                runner,
+                kind,
+                bucket,
+                ok = item.Ok,
+                sessionPct = Pct(item.SessionPct),
+                sessionResetAt = item.SessionResetAt,
+                weekPct = Pct(item.WeekPct) ?? Pct(item.MonthPct),
+                weekResetAt = item.WeekResetAt,
+                weekOpusPct = Pct(item.WeekOpusPct),
+                weekOpusResetAt = item.WeekOpusResetAt,
+                monthPct = Pct(item.MonthPct),
+                monthResetAt = item.MonthResetAt,
+                limitTokens = item.LimitTokens,
+                remainingTokens = item.RemainingTokens,
+                plan = Trim(item.PlanNm, 50),
+            }, tx);
+
             if (!seen.TryGetValue(kind, out var buckets))
             {
                 seen[kind] = buckets = [];

@@ -122,6 +122,9 @@ public sealed class AiDashboardService(
         data.ByDuration = await DurationAsync(db, args);
         data.Forecast = await ForecastAsync(db);
         data.Usage = await UsageAsync(db);
+        data.UsageHourly = await UsageHourlyAsync(db);
+        data.UsageDaily = await UsageDailyAsync(db, args);
+        data.UsageMonthly = await UsageMonthlyAsync(db);
         data.Recent = await RecentAsync(db, args);
 
         return data;
@@ -553,6 +556,119 @@ public sealed class AiDashboardService(
                 + "deploy/sql/projmng-ai-usage-bucket-2026-09-21.sql 를 돌리십시오.",
                 ex.MessageText);
 
+            return [];
+        }
+    }
+
+    /// <summary>
+    /// 시간별 AI 모델 사용량 추이 (최근 24시간, 주간 사용량 비율 %).
+    /// </summary>
+    private async Task<List<AiUsageTrendPoint>> UsageHourlyAsync(IDbConnection db)
+    {
+        try
+        {
+            return [.. await db.QueryAsync<AiUsageTrendPoint>($"""
+                SELECT to_char(h.hour, 'HH24:00')                         AS Label,
+                       h.hour                                             AS Bucket,
+                       COALESCE(s.claude_pct, 0)                          AS ClaudePct,
+                       COALESCE(s.antigravity_pct, 0)                     AS AntigravityPct,
+                       COALESCE(s.copilot_pct, 0)                         AS CopilotPct,
+                       COALESCE(s.avg_pct, 0)                             AS AvgPct
+                  FROM generate_series(
+                            date_trunc('hour', {NowKst}) - interval '23 hours',
+                            date_trunc('hour', {NowKst}),
+                            interval '1 hour') AS h(hour)
+                  LEFT JOIN (
+                        SELECT date_trunc('hour', (observed_at AT TIME ZONE 'Asia/Seoul')) AS bucket,
+                               ROUND(AVG(week_pct) FILTER (WHERE runner_kind = 'claude')::numeric, 1) AS claude_pct,
+                               ROUND(AVG(week_pct) FILTER (WHERE runner_kind = 'antigravity')::numeric, 1) AS antigravity_pct,
+                               ROUND(AVG(COALESCE(week_pct, month_pct)) FILTER (WHERE runner_kind = 'copilot')::numeric, 1) AS copilot_pct,
+                               ROUND(AVG(COALESCE(week_pct, month_pct))::numeric, 1) AS avg_pct
+                          FROM projmng.ai_usage_history
+                         WHERE (observed_at AT TIME ZONE 'Asia/Seoul') >= date_trunc('hour', {NowKst}) - interval '23 hours'
+                         GROUP BY 1
+                  ) s ON s.bucket = h.hour
+                 ORDER BY h.hour
+                """)];
+        }
+        catch (PostgresException ex) when (ex.SqlState is "42P01" or "42703")
+        {
+            logger.LogWarning("projmng.ai_usage_history 를 읽지 못했습니다({Message}).", ex.MessageText);
+            return [];
+        }
+    }
+
+    /// <summary>
+    /// 일별 AI 모델 사용량 추이 (조회 기간 기준, 주간 사용량 비율 %).
+    /// </summary>
+    private async Task<List<AiUsageTrendPoint>> UsageDailyAsync(IDbConnection db, object args)
+    {
+        try
+        {
+            return [.. await db.QueryAsync<AiUsageTrendPoint>($"""
+                SELECT to_char(d.day, 'MM-DD')                            AS Label,
+                       d.day                                              AS Bucket,
+                       COALESCE(s.claude_pct, 0)                          AS ClaudePct,
+                       COALESCE(s.antigravity_pct, 0)                     AS AntigravityPct,
+                       COALESCE(s.copilot_pct, 0)                         AS CopilotPct,
+                       COALESCE(s.avg_pct, 0)                             AS AvgPct
+                  FROM generate_series(@from::timestamp, @to::timestamp - interval '1 day',
+                                       interval '1 day') AS d(day)
+                  LEFT JOIN (
+                        SELECT date_trunc('day', (observed_at AT TIME ZONE 'Asia/Seoul')) AS bucket,
+                               ROUND(AVG(week_pct) FILTER (WHERE runner_kind = 'claude')::numeric, 1) AS claude_pct,
+                               ROUND(AVG(week_pct) FILTER (WHERE runner_kind = 'antigravity')::numeric, 1) AS antigravity_pct,
+                               ROUND(AVG(COALESCE(week_pct, month_pct)) FILTER (WHERE runner_kind = 'copilot')::numeric, 1) AS copilot_pct,
+                               ROUND(AVG(COALESCE(week_pct, month_pct))::numeric, 1) AS avg_pct
+                          FROM projmng.ai_usage_history
+                         WHERE (observed_at AT TIME ZONE 'Asia/Seoul') >= @from
+                           AND (observed_at AT TIME ZONE 'Asia/Seoul') <  @to
+                         GROUP BY 1
+                  ) s ON s.bucket = d.day
+                 ORDER BY d.day
+                """, args)];
+        }
+        catch (PostgresException ex) when (ex.SqlState is "42P01" or "42703")
+        {
+            logger.LogWarning("projmng.ai_usage_history 를 읽지 못했습니다({Message}).", ex.MessageText);
+            return [];
+        }
+    }
+
+    /// <summary>
+    /// 월별 AI 모델 사용량 추이 (최근 12개월, 주간 사용량 비율 %).
+    /// </summary>
+    private async Task<List<AiUsageTrendPoint>> UsageMonthlyAsync(IDbConnection db)
+    {
+        try
+        {
+            return [.. await db.QueryAsync<AiUsageTrendPoint>($"""
+                SELECT to_char(m.mon, 'YYYY-MM')                          AS Label,
+                       m.mon                                              AS Bucket,
+                       COALESCE(s.claude_pct, 0)                          AS ClaudePct,
+                       COALESCE(s.antigravity_pct, 0)                     AS AntigravityPct,
+                       COALESCE(s.copilot_pct, 0)                         AS CopilotPct,
+                       COALESCE(s.avg_pct, 0)                             AS AvgPct
+                  FROM generate_series(
+                            date_trunc('month', {NowKst}) - interval '11 months',
+                            date_trunc('month', {NowKst}),
+                            interval '1 month') AS m(mon)
+                  LEFT JOIN (
+                        SELECT date_trunc('month', (observed_at AT TIME ZONE 'Asia/Seoul')) AS bucket,
+                               ROUND(AVG(week_pct) FILTER (WHERE runner_kind = 'claude')::numeric, 1) AS claude_pct,
+                               ROUND(AVG(week_pct) FILTER (WHERE runner_kind = 'antigravity')::numeric, 1) AS antigravity_pct,
+                               ROUND(AVG(COALESCE(week_pct, month_pct)) FILTER (WHERE runner_kind = 'copilot')::numeric, 1) AS copilot_pct,
+                               ROUND(AVG(COALESCE(week_pct, month_pct))::numeric, 1) AS avg_pct
+                          FROM projmng.ai_usage_history
+                         WHERE (observed_at AT TIME ZONE 'Asia/Seoul') >= date_trunc('month', {NowKst}) - interval '11 months'
+                         GROUP BY 1
+                  ) s ON s.bucket = m.mon
+                 ORDER BY m.mon
+                """)];
+        }
+        catch (PostgresException ex) when (ex.SqlState is "42P01" or "42703")
+        {
+            logger.LogWarning("projmng.ai_usage_history 를 읽지 못했습니다({Message}).", ex.MessageText);
             return [];
         }
     }

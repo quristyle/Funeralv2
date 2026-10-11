@@ -107,6 +107,9 @@ public sealed class AiDashboardData
     public List<AiDashboardSlice> ByDuration { get; set; } = [];
     public AiDashboardForecast Forecast { get; set; } = new();
     public List<AiUsageSnapshot> Usage { get; set; } = [];
+    public List<AiUsageTrendPoint> UsageHourly { get; set; } = [];
+    public List<AiUsageTrendPoint> UsageDaily { get; set; } = [];
+    public List<AiUsageTrendPoint> UsageMonthly { get; set; } = [];
     public List<AiDashboardRecent> Recent { get; set; } = [];
 }
 
@@ -308,4 +311,27 @@ public sealed class AiProviderUsage
 
     /// <summary><b>언제 기준의 값인가.</b> 없으면 숫자를 믿을 수 없다.</summary>
     public DateTime? ObservedAt { get; set; }
+}
+
+/// <summary>
+/// AI 모델 사용량 추이 한 점 (시간별·일별·월별, 주간 사용량 비율 %).
+/// </summary>
+public sealed class AiUsageTrendPoint
+{
+    /// <summary>차트 축에 찍을 글자 — 시간별은 <c>HH:00</c>, 일별은 <c>MM-dd</c>, 월별은 <c>yyyy-MM</c>.</summary>
+    public string Label { get; set; } = string.Empty;
+
+    public DateTime Bucket { get; set; }
+
+    /// <summary>Claude CLI 주간 사용량 비율(%).</summary>
+    public decimal ClaudePct { get; set; }
+
+    /// <summary>안티그래비티 (agy) 주간 사용량 비율(%).</summary>
+    public decimal AntigravityPct { get; set; }
+
+    /// <summary>Copilot CLI 주간 사용량 비율(%).</summary>
+    public decimal CopilotPct { get; set; }
+
+    /// <summary>모델 평균 주간 사용량 비율(%).</summary>
+    public decimal AvgPct { get; set; }
 }

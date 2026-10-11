@@ -354,6 +354,85 @@
     </CommCont>
 </div>
 
+@* ── AI 모델 주간 사용량 추이 ─────────────────────────────────
+   빠른지시에 사용하는 AI 모델의 주간 사용량 비율(%) 추이를 시간별·일별·월별로 살펴본다. *@
+<div class="pm-aidash__row">
+    <CommCont Title="시간별 사용량 추이 (최근 24시간)"
+              Hint="주간 사용량 비율(%)"
+              CssClass="pm-aidash__panel">
+        <DxChart Data="@Data.UsageHourly" Palette="@UsageTrendPalette" Width="100%" Height="260px" CssClass="pm-aidash__chart">
+            <DxChartLineSeries T="AiUsageTrendPoint" TArgument="string" TValue="decimal"
+                               ArgumentField="p => p.Label" ValueField="p => p.ClaudePct"
+                               Name="Claude CLI" />
+            <DxChartLineSeries T="AiUsageTrendPoint" TArgument="string" TValue="decimal"
+                               ArgumentField="p => p.Label" ValueField="p => p.AntigravityPct"
+                               Name="안티그래비티 (agy)" />
+            <DxChartLineSeries T="AiUsageTrendPoint" TArgument="string" TValue="decimal"
+                               ArgumentField="p => p.Label" ValueField="p => p.CopilotPct"
+                               Name="Copilot CLI" />
+            <DxChartLegend Position="RelativePosition.Outside"
+                           VerticalAlignment="VerticalEdge.Bottom"
+                           HorizontalAlignment="HorizontalAlignment.Center" />
+            <DxChartValueAxis>
+                <DxChartAxisRange StartValue="@(0)" EndValue="@(100)" />
+            </DxChartValueAxis>
+            <DxChartTooltip Enabled="true">
+                <div class="jsini-tip">@context.Point.Argument · @context.Point.SeriesName @(context.Point.Value)%</div>
+            </DxChartTooltip>
+        </DxChart>
+    </CommCont>
+
+    <CommCont Title="@($"일별 사용량 추이 ({Data.From:yyyy-MM-dd} ~ {Data.To:yyyy-MM-dd})")"
+              Hint="주간 사용량 비율(%)"
+              CssClass="pm-aidash__panel">
+        <DxChart Data="@Data.UsageDaily" Palette="@UsageTrendPalette" Width="100%" Height="260px" CssClass="pm-aidash__chart">
+            <DxChartLineSeries T="AiUsageTrendPoint" TArgument="string" TValue="decimal"
+                               ArgumentField="p => p.Label" ValueField="p => p.ClaudePct"
+                               Name="Claude CLI" />
+            <DxChartLineSeries T="AiUsageTrendPoint" TArgument="string" TValue="decimal"
+                               ArgumentField="p => p.Label" ValueField="p => p.AntigravityPct"
+                               Name="안티그래비티 (agy)" />
+            <DxChartLineSeries T="AiUsageTrendPoint" TArgument="string" TValue="decimal"
+                               ArgumentField="p => p.Label" ValueField="p => p.CopilotPct"
+                               Name="Copilot CLI" />
+            <DxChartLegend Position="RelativePosition.Outside"
+                           VerticalAlignment="VerticalEdge.Bottom"
+                           HorizontalAlignment="HorizontalAlignment.Center" />
+            <DxChartValueAxis>
+                <DxChartAxisRange StartValue="@(0)" EndValue="@(100)" />
+            </DxChartValueAxis>
+            <DxChartTooltip Enabled="true">
+                <div class="jsini-tip">@context.Point.Argument · @context.Point.SeriesName @(context.Point.Value)%</div>
+            </DxChartTooltip>
+        </DxChart>
+    </CommCont>
+
+    <CommCont Title="월별 사용량 추이 (최근 12개월)"
+              Hint="주간 사용량 비율(%)"
+              CssClass="pm-aidash__panel">
+        <DxChart Data="@Data.UsageMonthly" Palette="@UsageTrendPalette" Width="100%" Height="260px" CssClass="pm-aidash__chart">
+            <DxChartLineSeries T="AiUsageTrendPoint" TArgument="string" TValue="decimal"
+                               ArgumentField="p => p.Label" ValueField="p => p.ClaudePct"
+                               Name="Claude CLI" />
+            <DxChartLineSeries T="AiUsageTrendPoint" TArgument="string" TValue="decimal"
+                               ArgumentField="p => p.Label" ValueField="p => p.AntigravityPct"
+                               Name="안티그래비티 (agy)" />
+            <DxChartLineSeries T="AiUsageTrendPoint" TArgument="string" TValue="decimal"
+                               ArgumentField="p => p.Label" ValueField="p => p.CopilotPct"
+                               Name="Copilot CLI" />
+            <DxChartLegend Position="RelativePosition.Outside"
+                           VerticalAlignment="VerticalEdge.Bottom"
+                           HorizontalAlignment="HorizontalAlignment.Center" />
+            <DxChartValueAxis>
+                <DxChartAxisRange StartValue="@(0)" EndValue="@(100)" />
+            </DxChartValueAxis>
+            <DxChartTooltip Enabled="true">
+                <div class="jsini-tip">@context.Point.Argument · @context.Point.SeriesName @(context.Point.Value)%</div>
+            </DxChartTooltip>
+        </DxChart>
+    </CommCont>
+</div>
+
 @* ── 추세 ───────────────────────────────────────────────────
    건수와 처리시간은 단위가 달라 **차트를 나눈다**(머리말). *@
 <div class="pm-aidash__row">

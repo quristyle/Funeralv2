@@ -57,6 +57,15 @@ public sealed class AiDashboardData
     /// <summary>AI CLI 한도. 실행기가 <c>/usage</c> 로 읽어 올린 마지막 값이다.</summary>
     public List<AiUsageSnapshot> Usage { get; set; } = [];
 
+    /// <summary>시간별 AI 모델 사용량 추이 (주간 사용 비율 %).</summary>
+    public List<AiUsageTrendPoint> UsageHourly { get; set; } = [];
+
+    /// <summary>일별 AI 모델 사용량 추이 (주간 사용 비율 %).</summary>
+    public List<AiUsageTrendPoint> UsageDaily { get; set; } = [];
+
+    /// <summary>월별 AI 모델 사용량 추이 (주간 사용 비율 %).</summary>
+    public List<AiUsageTrendPoint> UsageMonthly { get; set; } = [];
+
     /// <summary>최근 실행. 「방금 무슨 일이 있었나」를 대시보드에서 바로 본다.</summary>
     public List<AiDashboardRecent> Recent { get; set; } = [];
 }
@@ -223,4 +232,27 @@ public sealed class AiDashboardRecent
     public decimal? Seconds { get; set; }
 
     public string? ErrorSummary { get; set; }
+}
+
+/// <summary>
+/// AI 모델 사용량 추이 한 점 (시간별·일별·월별).
+/// </summary>
+public sealed class AiUsageTrendPoint
+{
+    /// <summary>차트 축에 찍을 글자 — 시간별은 <c>HH:00</c>, 일별은 <c>MM-dd</c>, 월별은 <c>yyyy-MM</c>.</summary>
+    public string Label { get; set; } = string.Empty;
+
+    public DateTime Bucket { get; set; }
+
+    /// <summary>Claude CLI 주간 사용량 비율(%).</summary>
+    public decimal ClaudePct { get; set; }
+
+    /// <summary>안티그래비티 (agy) 주간 사용량 비율(%).</summary>
+    public decimal AntigravityPct { get; set; }
+
+    /// <summary>Copilot CLI 주간 사용량 비율(%).</summary>
+    public decimal CopilotPct { get; set; }
+
+    /// <summary>모델 평균 주간 사용량 비율(%).</summary>
+    public decimal AvgPct { get; set; }
 }
