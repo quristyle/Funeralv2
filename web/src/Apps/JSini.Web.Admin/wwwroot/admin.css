@@ -4003,6 +4003,17 @@
   opacity: 0.6;
 }
 
+.ad-notecards__more-sentinel {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .ad-notecards__more-sentinel {
+    display: block;
+    height: 1px;
+  }
+}
+
 /* ── 알림관리 (/admin/system/notify-policy) ──────────────────
    보고서 메일(`.rm-*`)과 뼈대가 같다 — 좌우 분할에 왼쪽이 목록, 오른쪽이
    폼이다. 이름을 나눠 둔 것은 **오른쪽에 쌓이는 것이 다르기 때문**이다:

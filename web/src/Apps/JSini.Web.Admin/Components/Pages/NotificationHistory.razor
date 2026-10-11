@@ -285,6 +285,12 @@
                           CssClass="ad-notecards__more-go"
                           Click="@ShowMore" />
             </div>
+
+            @* 휴대폰에서 목록 끝까지 굴리면 단추와 같은 만큼 더 펼친다.
+               감지점은 늘 DOM 에 둬야 다시 펼칠 때 관찰을 이어 갈 수 있다. *@
+            <span class="ad-notecards__more-sentinel"
+                  aria-hidden="true"
+                  @ref="_moreSentinel"></span>
         }
     }
     else

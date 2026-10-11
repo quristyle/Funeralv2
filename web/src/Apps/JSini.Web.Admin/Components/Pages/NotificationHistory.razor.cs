@@ -153,6 +153,36 @@ public partial class NotificationHistory : IAsyncDisposable
 
     private void ShowMore() => _take += PhonePage;
 
+    /// <summary>스크롤 끝 감지점. 휴대폰에서 목록 끝에 닿으면 더보기를 자동으로 실행한다.</summary>
+    private ElementReference _moreSentinel;
+
+    /// <summary>스크롤 감지 브라우저 모듈(<c>js/note-more.js</c>).</summary>
+    private IJSObjectReference? _moreModule;
+
+    /// <summary>스크롤 감지 모듈이 우리를 부를 손잡이.</summary>
+    private DotNetObjectReference<NotificationHistory>? _moreRef;
+
+    /// <summary>휴대폰에서 목록 끝에 닿아 더 보기를 시도했다.</summary>
+    [JSInvokable]
+    public async Task<bool> ShowMoreFromScrollAsync()
+    {
+        var hasMore = false;
+
+        await InvokeAsync(() =>
+        {
+            if (PhoneRest <= 0)
+            {
+                return;
+            }
+
+            ShowMore();
+            StateHasChanged();
+            hasMore = PhoneRest > 0;
+        });
+
+        return hasMore;
+    }
+
     // ── 체크 ──────────────────────────────────────────────────────
     //
     // 표에서는 `DxGridSelectionColumn` 이 하던 일이다. 카드에는 그 칸이
@@ -267,6 +297,8 @@ public partial class NotificationHistory : IAsyncDisposable
             return;
         }
 
+        await AttachMoreObserverAsync();
+
         if (_swipeOn) return;
 
         try
@@ -279,6 +311,24 @@ public partial class NotificationHistory : IAsyncDisposable
                 $"#{SwipeListId}", _swipeRef, new { card = ".ad-notecards__item[data-note]" });
 
             _swipeOn = true;
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException
+                                   or ObjectDisposedException or InvalidOperationException
+                                   or TaskCanceledException)
+        {
+        }
+    }
+
+    private async Task AttachMoreObserverAsync()
+    {
+        try
+        {
+            _moreModule ??= await JS.InvokeAsync<IJSObjectReference>(
+                "import", "./_content/JSini.Web.Admin/js/note-more.js");
+            _moreRef ??= DotNetObjectReference.Create(this);
+
+            await _moreModule.InvokeVoidAsync(
+                "attachMoreObserver", _moreSentinel, _moreRef);
         }
         catch (Exception ex) when (ex is JSException or JSDisconnectedException
                                    or ObjectDisposedException or InvalidOperationException
@@ -378,6 +428,39 @@ public partial class NotificationHistory : IAsyncDisposable
     {
         _swipeRef?.Dispose();
         _swipeRef = null;
+
+        if (_moreModule is not null)
+        {
+            try
+            {
+                await _moreModule.InvokeVoidAsync("detachMoreObserver", _moreSentinel);
+            }
+            catch (Exception ex) when (ex is JSException or JSDisconnectedException
+                                       or ObjectDisposedException or InvalidOperationException
+                                       or TaskCanceledException)
+            {
+            }
+        }
+
+        _moreRef?.Dispose();
+        _moreRef = null;
+
+        if (_moreModule is not null)
+        {
+            try
+            {
+                await _moreModule.DisposeAsync();
+            }
+            catch (Exception ex) when (ex is JSException or JSDisconnectedException
+                                       or ObjectDisposedException or InvalidOperationException
+                                       or TaskCanceledException)
+            {
+            }
+            finally
+            {
+                _moreModule = null;
+            }
+        }
 
         if (_swipeModule is null) return;
 
