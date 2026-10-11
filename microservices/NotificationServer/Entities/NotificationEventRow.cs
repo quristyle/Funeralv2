@@ -120,9 +120,42 @@ public class NotificationEventRow : BaseEntity<string>
     /// </para>
     ///
     /// <para>
-    /// <b>둘 다 참인 이벤트를 만들지 않는다.</b> 부르는 쪽이 메일을 따로 내는데
-    /// 여기서도 내면 같은 알림이 두 통 간다. 지금 이 값이 참인 줄은 모두
-    /// 메일 경로가 없던 것들이다.
+    /// <b>앞 갈래와 겹치게 만들지 않는다.</b> 부르는 쪽이 메일을 따로 내는데
+    /// 여기서도 내면 같은 알림이 두 통 간다.
+    /// </para>
+    ///
+    /// <para>
+    /// [<c>HELPDESK</c> 하나는 이미 겹친다 — 알고 켠 것이다]
+    /// </para>
+    ///
+    /// <para>
+    /// 헬프데스크는 새 요청이 올라오면 <b>제 관리자 목록</b>으로 메일을 이미
+    /// 보낸다(<c>HelpDeskServer</c> 의
+    /// <c>AdminService.GetAdminEmailsForNotificationAsync</c> → <c>EMailUtil</c> —
+    /// <c>helpdesk</c> DB 의 <c>receiveEmail</c> 을 켠 사람들). 그 길이
+    /// <c>HELPDESK_LEGACY</c> 다.
+    /// </para>
+    ///
+    /// <para>
+    /// 받는 사람 목록이 <b>다르다</b> — 저쪽은 헬프데스크의 관리자 표이고
+    /// 이쪽은 포털의 역할표다. 그래서 「두 통 가니까 켜지 마라」가 아니라
+    /// <b>두 목록에 다 든 사람은 두 통을 받는다</b>가 맞는 말이고, 이벤트
+    /// 설명에 그 한 줄을 적어 두었다. 겹침이 사라지는 때는
+    /// <c>HELPDESK_LEGACY</c> 를 알림 서버로 옮길 때다
+    /// (<c>docs/notify-policy.md</c>).
+    /// </para>
+    ///
+    /// <para>
+    /// [켜기 전에 봐야 할 것 — <b>갈래별 스위치가 있는 이벤트</b>]
+    /// </para>
+    ///
+    /// <para>
+    /// 곁가지는 <b>전체 메일 스위치</b>(<c>email_enabled</c>)만 본다. 그 아래
+    /// 갈래 스위치는 직발송 쪽에만 있어서(<c>HELPDESK_COMMENT</c> 의
+    /// <c>comment_email_enabled</c> —
+    /// <c>NotificationPreferenceService.GetCommentEmailDisabledLoginIdsAsync</c>),
+    /// 그런 이벤트에 이 값을 켜면 <b>본인이 꺼 둔 갈래 스위치를 우회한다.</b>
+    /// 켜려거든 곁가지에도 그 판정을 함께 옮긴다.
     /// </para>
     /// </remarks>
     [Column("email_from_push")]

@@ -96,11 +96,13 @@ public static class EmailSendLog
         var preview = Preview(body, html);
         var now = DateTime.UtcNow;
 
+        var added = new List<PushSendLog>(recipients.Count);
+
         foreach (var address in recipients)
         {
             var known = owners.TryGetValue(address, out var loginId);
 
-            db.PushSendLogs.Add(new PushSendLog
+            var row = new PushSendLog
             {
                 SentAt = now,
                 Channel = PushSendLog.ChannelEmail,
@@ -118,7 +120,10 @@ public static class EmailSendLog
                 FailureReason = success ? null : failureReason,
                 SentBy = sentBy,
                 BatchId = batchId,
-            });
+            };
+
+            db.PushSendLogs.Add(row);
+            added.Add(row);
         }
 
         try
@@ -128,6 +133,19 @@ public static class EmailSendLog
         catch (Exception ex)
         {
             logger.LogWarning(ex, "메일 발송 기록을 남기지 못했습니다.");
+
+            // **못 적은 줄을 추적기에서 떼어 낸다.**
+            //
+            // 삼키기만 하면 이 줄들이 `Added` 인 채로 남아, **다음에 누가
+            // `SaveChanges` 를 부르든 같이 딸려 간다.** 부르는 쪽이 이 문맥을
+            // 나눠 쓰는 자리가 실제로 있다 — `PushSender` 의 메일 곁가지는
+            // 이 뒤에 푸시 발송을 마치고 제 기록을 저장하는데(try/catch 가
+            // 없다), 거기서 같은 이유로 또 터지면 **메일도 푸시도 실제로는
+            // 나간 뒤에** 발송 전체가 예외로 끝난다.
+            //
+            // 기록을 못 남긴 것은 이미 로그로 말했다. 그것이 남의 저장까지
+            // 끌고 내려가게 두지 않는다.
+            foreach (var row in added) db.Entry(row).State = EntityState.Detached;
         }
     }
 

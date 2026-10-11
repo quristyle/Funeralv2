@@ -708,9 +708,8 @@ public class PushSender : IPushSender
         // `/emails/send` 로 제 틀의 메일을 따로 내고 있다(두 통 가면 안 된다).
         if (decision is not { Blocked: false, Unrestricted: false, MailsFromPush: true }) return 0;
 
-        // **푸시와 같은 셈을 쓴다.** 역할을 사람으로 펴는 것도, 짚어 보낸 몫에
-        // 거름막을 거는 것도 저쪽과 한 글자도 달라서는 안 된다 — 어긋나면
-        // 「푸시는 왔는데 메일은 안 왔다」가 설명할 수 없는 일이 된다.
+        // 역할을 사람으로 펴고, 뺄 사람(`ExcludeOwnerKeys`)을 더는 것까지는
+        // 푸시와 같은 셈을 쓴다.
         var owners = (await ExpandOwnersAsync(request, decision, ct)).Owners;
 
         // 포털 계정만 메일을 낼 수 있다. 다른 주인 종류는 계정이 없어 주소를
@@ -720,6 +719,36 @@ public class PushSender : IPushSender
             .Select(o => o.OwnerKey)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
+
+        if (loginIds.Count == 0) return 0;
+
+        // ── 메일은 **켠 역할 안에서만** 나간다 ──────────────
+        //
+        // **여기서 푸시와 갈라선다.** `ExpandOwnersAsync` 는 역할 대상 이벤트
+        // (`ROLE`)에서 **짚어 보낸 몫에 거름막을 걸지 않는다** — 푸시에서는
+        // 그것이 옳다(정책은 받는 역할을 더할 뿐, 그 일의 일부로 가는 몫까지
+        // 가로채지 않는다).
+        //
+        // 메일에서 같은 셈을 쓰면 **적어 두지 않은 사람에게 메일이 간다.**
+        // 배포 알림이 그렇다 — `DeployEventEndpoints` 가 슈퍼관리자 전원을
+        // 직접 `Owners` 로 실어 보내므로, 역할 하나에만 「이메일」을 켜도
+        // 슈퍼관리자 전원의 메일함으로 들어간다. 「켠 역할에만 나간다」는
+        // 이 기능의 약속이고, 틀리는 방향이 **되돌릴 수 없는 쪽**이다.
+        //
+        // 그래서 대상 성격을 가리지 않고 **언제나** 한 번 더 거른다. 당사자
+        // 대상(`USER`)은 위에서 이미 걸러져 이 걸음이 하는 일이 없다.
+        var allowed = await _policies.GetLoginIdsInRolesAsync(decision.RoleIds, ct);
+
+        var outside = loginIds.Where(id => !allowed.Contains(id)).ToList();
+
+        if (outside.Count > 0)
+        {
+            _logger.LogInformation(
+                "메일 곁가지: 「이메일」을 켠 역할 밖이라 {Count}명을 뺐습니다. event={Event}",
+                outside.Count, request.Message.EventCode ?? request.Message.Category);
+
+            loginIds = loginIds.Where(allowed.Contains).ToList();
+        }
 
         if (loginIds.Count == 0) return 0;
 
@@ -759,45 +788,61 @@ public class PushSender : IPushSender
 
         var body = ComposeMailBody(request.Message);
 
-        try
+        // 평문을 넘기고 **회사 메일 꼴은 틀이 입힌다** — 직발송이 같은 자리에서
+        // 하는 일이다(`NoticeEmailTemplate` 머리말).
+        var html = NoticeEmailTemplate.Render(title, body);
+        var text = NoticeEmailTemplate.PlainAlternative(title, body);
+
+        var sent = 0;
+
+        // ── 한 사람에 한 통씩 ───────────────────────────────
+        //
+        // **주소를 한 줄에 이어 보내지 않는다.** 직발송(`/emails/send`)은
+        // 그렇게 하지만 거기는 보내는 사람이 받는 이를 **직접 고른** 자리다.
+        // 곁가지는 역할을 펴서 받는 이를 **서버가 모은다** — 배포 알림이면
+        // 슈퍼관리자 전원이고, 그 주소가 서로의 메일 머리에 다 보인다.
+        // 받는 사람이 고르지 않은 노출이라 한 통씩 나눈다.
+        //
+        // 대가는 SMTP 왕복이 사람 수만큼인 것인데, 이 목록은 「이메일을 켠
+        // 역할」로 이미 좁혀진 몫이라 보통 한 줌이다. 아래 푸시 반복도 기기마다
+        // 도는 자리다.
+        foreach (var to in recipients)
         {
-            // 평문을 넘기고 **회사 메일 꼴은 틀이 입힌다** — 직발송이 같은
-            // 자리에서 하는 일이다(`NoticeEmailTemplate` 머리말).
-            await _email.SendAsync(
-                string.Join(",", recipients), title,
-                NoticeEmailTemplate.Render(title, body),
-                html: true, attachments: null,
-                textBody: NoticeEmailTemplate.PlainAlternative(title, body));
+            if (ct.IsCancellationRequested) break;
 
-            // **표에도 남긴다.** 로그 파일만으로는 「이 사람에게 무엇이 나갔나」에
-            // 답할 수 없다(EmailSendLog 머리말).
-            //
-            // **취소표를 넘기지 않는다.** 메일은 이미 나갔다 — 여기서 부르는
-            // 쪽의 취소에 걸려 기록을 못 남기면 「보낸 적 없다」로 남는다.
-            // 푸시 흐름이 마지막 저장에서 내린 것과 같은 판단이다.
-            await WriteMailLogAsync(recipients, title, body, sentBy,
-                success: true, failureReason: null);
+            try
+            {
+                await _email.SendAsync(to, title, html, html: true, attachments: null, textBody: text);
 
-            _logger.LogInformation(
-                "메일 곁가지 {Count}통. event={Event} 메일꺼둠={Off}",
-                recipients.Count, request.Message.EventCode ?? request.Message.Category,
-                loginIds.Count - wanted.Count);
+                // **보내자마자 찍는다.** 끝에 모아 적으면 도중에 터진 날
+                // 이미 나간 메일이 안 나간 것으로 남는다.
+                //
+                // **취소표를 넘기지 않는다.** 메일은 이미 나갔다 — 부르는 쪽의
+                // 취소에 걸려 기록을 못 남기면 「보낸 적 없다」로 남는다.
+                await WriteMailLogAsync([to], title, body, sentBy,
+                    success: true, failureReason: null);
 
-            return recipients.Count;
+                sent++;
+            }
+            catch (Exception ex)
+            {
+                // **한 사람이 나머지를 끌고 가지 않는다.** 주소 하나가 거절당한
+                // 것과 메일 서버가 죽은 것을 여기서는 가릴 수 없으므로, 남은
+                // 사람에게는 계속 보내 본다.
+                _logger.LogError(ex, "메일 곁가지를 보내지 못했습니다. event={Event} to={To}",
+                    request.Message.EventCode ?? request.Message.Category, to);
+
+                await WriteMailLogAsync([to], title, body, sentBy,
+                    success: false, failureReason: "메일 서버가 받지 않음");
+            }
         }
-        catch (Exception ex)
-        {
-            // **푸시까지 깨뜨리지 않는다**(머리말). 못 보낸 것도 남긴다 —
-            // 안 남기면 「그 시각에 아무 일도 없었다」로 보이고, 그것이
-            // 「보낸 적 없다」와 구분되지 않는다.
-            _logger.LogError(ex, "메일 곁가지를 보내지 못했습니다. event={Event} to={To}",
-                request.Message.EventCode ?? request.Message.Category, string.Join(",", recipients));
 
-            await WriteMailLogAsync(recipients, title, body, sentBy,
-                success: false, failureReason: "메일 서버가 받지 않음");
+        _logger.LogInformation(
+            "메일 곁가지 {Sent}/{Total}통. event={Event} 역할밖={Outside} 메일꺼둠={Off}",
+            sent, recipients.Count, request.Message.EventCode ?? request.Message.Category,
+            outside.Count, loginIds.Count - wanted.Count);
 
-            return 0;
-        }
+        return sent;
     }
 
     /// <summary>
@@ -817,7 +862,7 @@ public class PushSender : IPushSender
     /// </para>
     /// </remarks>
     private async Task WriteMailLogAsync(
-        List<string> recipients, string title, string body, string? sentBy,
+        IReadOnlyList<string> recipients, string title, string body, string? sentBy,
         bool success, string? failureReason)
     {
         try

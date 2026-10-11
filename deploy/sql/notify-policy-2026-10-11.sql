@@ -86,6 +86,17 @@ CREATE TABLE IF NOT EXISTS scom.notification_events (
     is_deleted     boolean                  NOT NULL DEFAULT false
 );
 
+-- **표가 이미 있으면 위의 CREATE 는 통째로 건너뛴다.** 그래서 나중에 생긴
+-- 칸은 여기서 한 번 더 더해야 한다 — 안 그러면 아래 INSERT 가
+--
+--   ERROR: column "email_from_push" of relation "notification_events" does not exist
+--
+-- 로 넘어진다. 이 파일을 **먼저 깔아 둔 DB에 다시 돌리는 것**이 바로 그 경우다.
+-- 이 줄이 있으면 notify-policy-email-2026-10-11.sql 과 **어느 쪽을 먼저 돌려도**
+-- 결과가 같다.
+ALTER TABLE scom.notification_events
+    ADD COLUMN IF NOT EXISTS email_from_push boolean NOT NULL DEFAULT false;
+
 COMMENT ON TABLE  scom.notification_events IS '알림 이벤트 카탈로그 — 어떤 일이 일어났을 때 보내는 알림인가';
 COMMENT ON COLUMN scom.notification_events.target_kind IS 'ROLE 이면 정책 역할이 받는 사람, USER 면 정책 역할이 거름막';
 COMMENT ON COLUMN scom.notification_events.governed IS '거짓이면 설정은 받아 두되 발송에는 안 걸린다';
@@ -172,11 +183,11 @@ INSERT INTO scom.notification_events (
  'BIRTHDAY', 'AuthServer', 'USER', true, true, true, true, true, 130, now(), 'notify-policy'),
 
 ('WEATHER', '기상 특보 · 내 위치 날씨',
- '기상 특보·실황 기준을 넘었을 때와 내 위치 날씨를 정한 시각에. 본인이 켠 사람에게만 간다.',
+ '기상 특보·실황 기준을 넘었을 때와 내 위치 날씨를 정한 시각에. 날씨 알림을 켠 사람에게만 가므로, 이메일도 그 사람들 중에서만 나간다.',
  'WEATHER', 'LifeEnvServer', 'USER', true, true, true, true, true, 140, now(), 'notify-policy'),
 
 ('SUBSCRIPTION', '새 기기 알림 구독',
- '새 브라우저·기기가 알림을 구독했을 때 본인에게.',
+ '누군가 새 브라우저·기기에서 알림을 구독했을 때 슈퍼관리자에게(등록한 본인은 뺀다).',
  'SUBSCRIPTION', 'NotificationServer', 'USER', true, true, true, true, true, 150, now(), 'notify-policy'),
 
 -- ── 보이되 정책이 안 걸리는 것 (머리말 참고) ──
