@@ -40,11 +40,11 @@ internal sealed class NotifyPolicyRow
     public bool Picked => Push || Email;
 }
 
-public partial class NotifyPolicyPage
+public partial class NotifyPolicyPage : IDisposable
 {
     [Inject] private AdminClient Api { get; set; } = default!;
 
-    private IReadOnlyList<NotifyEventDto> _events = [];
+    private List<NotifyEventDto> _events = [];
 
     private IReadOnlyList<NotifyRoleDto> _roles = [];
 
@@ -56,6 +56,14 @@ public partial class NotifyPolicyPage
 
     /// <summary>고치고 있는 「이 이벤트를 쓴다」. 고른 줄을 직접 안 건드린다.</summary>
     private bool _isActive = true;
+
+    private readonly SemaphoreSlim _saveGate = new(1, 1);
+
+    private int _pendingSaves;
+
+    private int _targetVersion;
+
+    private int _savedVersion;
 
     private string? _keyword;
 
@@ -206,7 +214,13 @@ public partial class NotifyPolicyPage
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        _events = await Api.GetNotifyEventsAsync(_keyword, _activeOnly);
+        if (_pendingSaves > 0)
+        {
+            await _saveGate.WaitAsync();
+            _saveGate.Release();
+        }
+
+        _events = [.. await Api.GetNotifyEventsAsync(_keyword, _activeOnly)];
 
         // 보고 있던 이벤트를 다시 집는다. 저장 뒤에 목록을 새로 읽으면 같은
         // 코드의 **다른 객체**가 오므로, 그대로 두면 오른쪽이 옛 줄을 가리킨다.
@@ -234,13 +248,18 @@ public partial class NotifyPolicyPage
     /// 이벤트를 골랐다. 고른 것이 풀리면(<c>null</c>) 폼을 비우지 <b>않는다</b> —
     /// 표가 다시 그려질 때 잠깐 풀리는 자리가 있고, 그때 비우면 고치던 체크가 사라진다.
     /// </summary>
-    private Task SelectAsync(NotifyEventDto? row)
+    private async Task SelectAsync(NotifyEventDto? row)
     {
-        if (row is null) return Task.CompletedTask;
+        if (row is null || row.Code == _selected?.Code) return;
+
+        if (_pendingSaves > 0)
+        {
+            await _saveGate.WaitAsync();
+            _saveGate.Release();
+        }
 
         _selected = row;
         LoadForm(row);
-        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -278,65 +297,138 @@ public partial class NotifyPolicyPage
         ];
     }
 
-    /// <summary>
-    /// 저장. <b>알림을 멎게 하는 저장은 묻고 한다</b> — 이벤트를 끄거나
-    /// 역할을 전부 떼는 것은 「누구에게도 안 간다」로 가는 길이고, 그 결과는
-    /// 아무 화면에도 안 보여서 몇 주 뒤에야 드러난다.
-    /// </summary>
-    private async Task ConfirmSaveAsync()
+    /// <summary>앱 푸시 체크박스 변경 시 곧바로 저장한다.</summary>
+    private Task SetPushAsync(NotifyPolicyRow row, bool value)
     {
-        if (_selected is null || _confirm is null) return;
-
-        var target = _selected;
-
-        if (!target.Governed)
+        if (!CanPick || !_selected!.SupportsPush || row.Push == value)
         {
-            Say("이 이벤트는 설정이 걸리지 않습니다. 저장해도 발송은 지금 그대로입니다.", NoticeTone.Warning);
+            return Task.CompletedTask;
+        }
+
+        row.Push = value;
+        return SavePolicyAsync();
+    }
+
+    /// <summary>이메일 체크박스 변경 시 곧바로 저장한다.</summary>
+    private Task SetEmailAsync(NotifyPolicyRow row, bool value)
+    {
+        if (!CanPick || !_selected!.SupportsEmail || row.Email == value)
+        {
+            return Task.CompletedTask;
+        }
+
+        row.Email = value;
+        return SavePolicyAsync();
+    }
+
+    /// <summary>이벤트 사용 여부 스위치 변경 시 저장한다.</summary>
+    private async Task OnActiveChangedAsync(bool value)
+    {
+        if (_selected is null || !_selected.Governed || !_canEdit || _isActive == value)
+        {
             return;
         }
 
-        if (!_isActive)
+        if (!value)
         {
-            var asked = await _confirm.AskAsync(
-                $"「{target.Name}」 알림을 끕니다. 역할과 상관없이 아무에게도 나가지 않습니다.",
-                confirmText: "끄기",
-                confirmStyle: DevExpress.Blazor.ButtonRenderStyle.Danger);
+            if (_confirm is not null)
+            {
+                var asked = await _confirm.AskAsync(
+                    $"「{_selected.Name}」 알림을 끕니다. 역할과 상관없이 아무에게도 나가지 않습니다.",
+                    confirmText: "끄기",
+                    confirmStyle: DevExpress.Blazor.ButtonRenderStyle.Danger);
 
-            if (!asked) return;
-        }
-        else if (NoRolePicked && !target.Unrestricted)
-        {
-            // 걸려 있던 역할을 전부 떼는 저장이다. **「아무도 안 받는다」가
-            // 아니라 「제한 없음」으로 되돌아간다** — 그 둘을 헷갈리면 알림을
-            // 끄려다 오히려 전원에게 열어 두게 된다.
-            var asked = await _confirm.AskAsync(
-                $"「{target.Name}」 에 걸린 역할을 모두 뗍니다. "
-                + "막는 것이 아니라 제한 없는 상태로 돌아가, 보내는 쪽이 정한 대상에게 그대로 나갑니다.",
-                confirmText: "떼기",
-                confirmStyle: DevExpress.Blazor.ButtonRenderStyle.Secondary);
-
-            if (!asked) return;
+                if (!asked) return;
+            }
         }
 
-        var request = new SaveNotifyPolicyDto
+        _isActive = value;
+        await SavePolicyAsync();
+    }
+
+    /// <summary>
+    /// 체크박스 변경 시 곧바로 정책을 저장한다.
+    /// </summary>
+    private async Task SavePolicyAsync()
+    {
+        if (_selected is null || !_canEdit || !_selected.Governed) return;
+
+        var target = _selected;
+        var targetCode = target.Code;
+
+        _targetVersion++;
+        var myVersion = _targetVersion;
+
+        _pendingSaves++;
+        StateHasChanged();
+
+        await _saveGate.WaitAsync();
+        try
         {
-            IsActive = _isActive,
-            Policies =
-            [
-                .. _rows.Where(r => r.Picked).Select(r => new SaveNotifyPolicyRowDto
+            // 대상 이벤트가 바뀌었거나 더 최신 상태가 이미 저장되었으면 중복 저장을 건너뛴다.
+            if (_selected?.Code != targetCode || _savedVersion >= myVersion)
+            {
+                return;
+            }
+
+            var versionToSave = _targetVersion;
+
+            var request = new SaveNotifyPolicyDto
+            {
+                IsActive = _isActive,
+                Policies =
+                [
+                    .. _rows.Where(r => r.Picked).Select(r => new SaveNotifyPolicyRowDto
+                    {
+                        RoleId = r.RoleId,
+                        PushEnabled = r.Push,
+                        EmailEnabled = r.Email,
+                        IsActive = true,
+                    })
+                ],
+            };
+
+            var saved = await Api.SaveNotifyPolicyAsync(targetCode, request);
+            _savedVersion = versionToSave;
+
+            if (saved is not null)
+            {
+                var idx = _events.FindIndex(e => e.Code == saved.Code);
+                if (idx >= 0)
                 {
-                    RoleId = r.RoleId,
-                    PushEnabled = r.Push,
-                    EmailEnabled = r.Email,
-                    IsActive = true,
-                })
-            ],
-        };
+                    _events[idx] = saved;
+                }
 
-        if (await RunAsync(() => Api.SaveNotifyPolicyAsync(target.Code, request),
-                "알림 설정을 저장했습니다.", "알림 설정을 저장하지 못했습니다"))
+                if (_selected?.Code == saved.Code)
+                {
+                    _selected.Policies = saved.Policies;
+                    _selected.Unrestricted = saved.Unrestricted;
+                    _selected.UpdatedAt = saved.UpdatedAt;
+                    _selected.IsActive = saved.IsActive;
+                }
+            }
+        }
+        catch (ApiException ex)
         {
-            await ReloadAsync();
+            Say($"알림 설정을 저장하지 못했습니다 — {ex.Message}", NoticeTone.Error);
+            if (_selected?.Code == targetCode)
+            {
+                LoadForm(_selected);
+            }
+        }
+        catch (Exception ex)
+        {
+            Say($"알림 설정을 저장하지 못했습니다 — {ex.Message}", NoticeTone.Error);
+            if (_selected?.Code == targetCode)
+            {
+                LoadForm(_selected);
+            }
+        }
+        finally
+        {
+            _saveGate.Release();
+            _pendingSaves--;
+            StateHasChanged();
         }
     }
 
@@ -347,6 +439,12 @@ public partial class NotifyPolicyPage
     private async Task OpenRecipientsAsync()
     {
         if (_selected is null) return;
+
+        if (_pendingSaves > 0)
+        {
+            await _saveGate.WaitAsync();
+            _saveGate.Release();
+        }
 
         _preview = null;
         _showRecipients = true;
@@ -360,5 +458,10 @@ public partial class NotifyPolicyPage
             _showRecipients = false;
             Say($"받는 사람을 읽지 못했습니다 — {ex.Message}", NoticeTone.Error);
         }
+    }
+
+    public void Dispose()
+    {
+        _saveGate.Dispose();
     }
 }

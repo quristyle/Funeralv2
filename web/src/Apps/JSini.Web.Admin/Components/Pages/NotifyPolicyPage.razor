@@ -214,7 +214,9 @@
                 }
 
                 <div class="np-switch">
-                    <DxCheckBox @bind-Checked="_isActive" Enabled="@(_selected.Governed && _canEdit)">
+                    <DxCheckBox Checked="@_isActive"
+                                CheckedChanged="@((bool v) => OnActiveChangedAsync(v))"
+                                Enabled="@(_selected.Governed && _canEdit)">
                         이 이벤트의 알림을 쓴다
                     </DxCheckBox>
                 </div>
@@ -263,7 +265,7 @@
                                    — 메뉴롤 화면이 같은 자리에서 내린 판단이다. *@
                                 <span title="@PushHint">
                                     <DxCheckBox Checked="@row.Push"
-                                                CheckedChanged="@((bool v) => row.Push = v)"
+                                                CheckedChanged="@((bool v) => SetPushAsync(row, v))"
                                                 Enabled="@(CanPick && _selected.SupportsPush)" />
                                 </span>
                             </CellDisplayTemplate>
@@ -275,7 +277,7 @@
                                 }
                                 <span title="@MailHint">
                                     <DxCheckBox Checked="@row.Email"
-                                                CheckedChanged="@((bool v) => row.Email = v)"
+                                                CheckedChanged="@((bool v) => SetEmailAsync(row, v))"
                                                 Enabled="@(CanPick && _selected.SupportsEmail)" />
                                 </span>
                             </CellDisplayTemplate>
@@ -297,24 +299,25 @@
 
                 @if (_selected.UpdatedAt is not null)
                 {
-                    <p class="ad-stamp">마지막 저장 · @Stamp(_selected.UpdatedAt)</p>
+                    <p class="ad-stamp">
+                        마지막 저장 · @Stamp(_selected.UpdatedAt)
+                        @if (_pendingSaves > 0)
+                        {
+                            <text> · 저장 중…</text>
+                        }
+                    </p>
+                }
+                else if (_pendingSaves > 0)
+                {
+                    <p class="ad-stamp">저장 중…</p>
                 }
 
                 <div class="np-actions">
-                    <PermissionView Action="MenuAction.Update">
-                        <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary"
-                                  Enabled="@(!Loading && _selected.Governed)"
-                                  Click="@ConfirmSaveAsync" />
-                    </PermissionView>
-
                     @* 받는 사람 보기는 **권한 문을 하나 더 세우지 않는다** —
                        이 화면을 열 수 있으면 설정을 볼 수 있고, 그 목록은
                        설정을 읽어 푼 것일 뿐이다. *@
                     <DxButton Text="받는 사람" RenderStyle="ButtonRenderStyle.Secondary"
                               Enabled="@(!Loading)" Click="@OpenRecipientsAsync" />
-
-                    <DxButton Text="되돌리기" RenderStyle="ButtonRenderStyle.Secondary"
-                              Enabled="@(!Loading)" Click="@(() => LoadForm(_selected))" />
                 </div>
             </div>
         }
