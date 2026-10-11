@@ -8066,32 +8066,54 @@ body {
       서랍에서 고른 크기(여섯 단계)를 그대로 따라간다 — 고정 px 로 적으면
       「가장작게」를 고른 사람 화면에서만 토스트가 혼자 크다.
 
+   [그 뒤로 한 단을 더 걷었다]
+
+   위 셋으로 162×33 까지 왔는데(「보통」 기준, 헤드리스 측정), 그래도
+   **글자가 차지하는 것은 그중 70px** 뿐이었다. 남은 자리를 넷에서 더 줄인다.
+
+   4. **글자를 `--jsini-fs-2xs` 로 한 단 더 내린다.** 토스트는 읽는 글이
+      아니라 **눈길 한 번으로 확인하는 표시**라, 본문과 같은 급일 까닭이 없다.
+      아이콘·닫기 그림도 같은 사다리를 따라가므로 함께 작아진다.
+   5. **줄 바깥의 빈 틈을 걷는다.** 아이콘 칸과 닫기 단추가 `inline` 이라
+      **글자 줄높이만큼 위아래가 부풀어 있었다** — 아이콘은 14.4px 인데
+      칸은 23.4px 였다. 둘을 `flex` 로 세우고 줄높이를 0 으로 돌리면
+      그 부푼 몫이 그대로 사라진다. 높이를 정하는 것이 이 둘이라(글자는
+      16px) 토스트 높이가 바로 따라 내려온다.
+   6. **짧은 토스트에서 남은 초를 뺀다.** 2초짜리를 「2초 · 1초」로 세는 것은
+      **할 수 있는 일이 없는 숫자**고, 그 두 글자가 폭의 6분의 1이었다.
+      줄어드는 막대는 그대로 두므로 「곧 걷힌다」는 여전히 보인다. 숫자는
+      읽고 옮겨 적어야 하는 쪽(60초)에만 남는다.
+   7. **바깥 여백도 함께 줄인다.** 판이 작아진 만큼 모서리에서 떼어 놓는
+      거리와 겹칠 때의 사이도 줄인다 — 안 줄이면 토스트보다 여백이 커진다.
+
    줄이지 **않은** 것 둘. 색과 그림자는 테마가 쥔 그대로 두고(`Toasts`
-   머리말), 닫기 단추의 누를 자리는 손가락 폭을 지킨다 — 작게 만들면
-   휴대폰에서 빗나가고, 그것이 쓸어 치우기를 넣은 까닭이었다.
+   머리말), 닫기 단추의 **누를 자리는 손가락 폭을 지킨다** — 작게 만들면
+   휴대폰에서 빗나가고, 그것이 쓸어 치우기를 넣은 까닭이었다. 그래서
+   그림만 줄이고, 손가락으로 쓰는 화면(`pointer: coarse`)에서는 여백을
+   도로 넓혀 누를 자리를 되돌린다.
    ------------------------------------------------------------ */
 
 /* 판을 화면 모서리에서 떼어 놓는 여백. 토스트가 작아진 만큼 함께 줄인다. */
 .dxbl-toast-portal {
-  --dxbl-toast-bound-margin: 0.5rem;
-  --dxbl-toast-bound-padding-right: 0.5rem;
-  --dxbl-toast-bound-padding-bottom: 0.5rem;
+  --dxbl-toast-bound-margin: 0.375rem;
+  --dxbl-toast-bound-padding-right: 0.375rem;
+  --dxbl-toast-bound-padding-bottom: 0.375rem;
 }
 
 .dxbl-toast-portal .dxbl-toast {
-  --dxbl-toast-margin-top: 0.25rem;
-  --dxbl-toast-accent-line-width: 0.1875rem;
-  --dxbl-toast-body-padding: 0.3rem 0.4rem 0.3rem 0.5rem;
-  --dxbl-toast-content-gap: 0.4rem;
+  --dxbl-toast-margin-top: 0.1875rem;
+  --dxbl-toast-accent-line-width: 0.125rem;
+  --dxbl-toast-body-padding: 0.15rem 0.3rem 0.15rem 0.35rem;
+  --dxbl-toast-content-gap: 0.25rem;
   --dxbl-toast-text-content-gap: 0.1rem;
   --dxbl-toast-icon-top-padding: 0;
   --dxbl-toast-text-content-top-padding: 0;
   --dxbl-toast-template-padding: 0;
-  --dxbl-toast-template-gap: 0.375rem;
-  --dxbl-toast-text-font-size: var(--jsini-fs-xs);
-  --dxbl-toast-text-line-height: 1.35;
-  --dxbl-toast-header-font-size: var(--jsini-fs-sm);
-  --dxbl-toast-header-line-height: 1.35;
+  --dxbl-toast-template-gap: 0.25rem;
+  --dxbl-toast-text-font-size: var(--jsini-fs-2xs);
+  --dxbl-toast-text-line-height: 1.3;
+  --dxbl-toast-header-font-size: var(--jsini-fs-xs);
+  --dxbl-toast-header-line-height: 1.3;
 
   /* 판이 준 폭은 상한으로만 쓴다. `max-content` 는 줄바꿈 없이 재므로
      긴 문구에서는 `max-width` 에 걸려 그 자리에서 접힌다. */
@@ -8116,23 +8138,59 @@ body {
   align-items: center;
 }
 
+/* 아이콘 칸. **글자 줄높이만큼 부풀어 있었다** — 그림은 14px 인데 칸이
+   23px 라, 토스트 높이를 정하는 것이 글이 아니라 이 빈 틈이었다. 안에
+   든 것이 `<svg>` 하나뿐이라 `inline` 으로 설 까닭이 없다. */
+.dxbl-toast-portal .dxbl-toast .dxbl-toast-icon-column {
+  display: flex;
+  align-items: center;
+  line-height: 0;
+}
+
 /* 아이콘은 글자 사다리를 따라간다. 판의 기본(16px)은 우리 글자보다 커서
    한 줄 안에서 혼자 눈에 띈다. */
 .dxbl-toast-portal .dxbl-toast .dxbl-toast-icon-column .dxbl-toast-icon {
-  width: calc(var(--jsini-fs-xs) * 1.2);
-  height: calc(var(--jsini-fs-xs) * 1.2);
+  width: calc(var(--jsini-fs-2xs) * 1.2);
+  height: calc(var(--jsini-fs-2xs) * 1.2);
+}
+
+/* **그림 둘레의 2px 를 걷는다.** `.dxbl-image` 는 글줄 안에 섞여 설 때를
+   생각해 위아래 여백을 달고 나오는데(`margin: 2px 0`), 여기서는 둘 다
+   제 칸을 혼자 쓰는 `flex` 아이템이라 그 여백이 **토스트 높이에 4px 를
+   그대로 얹는다** — 높이를 정하는 것이 글이 아니라 이 둘이라 바로 보인다. */
+.dxbl-toast-portal .dxbl-toast .dxbl-toast-icon-column .dxbl-toast-icon,
+.dxbl-toast-portal .dxbl-toast .dxbl-toast-close svg.dxbl-toast-close-btn {
+  margin: 0;
 }
 
 /* 닫기 단추. **그림만 줄이고 누를 자리는 남긴다** — 휴대폰에서 빗나가는
-   것이 쓸어 치우기를 넣은 까닭이었다(「토스트 쓸어 치우기」). */
+   것이 쓸어 치우기를 넣은 까닭이었다(「토스트 쓸어 치우기」).
+
+   단추도 아이콘 칸과 같은 이유로 부풀어 있었다(그림 13px · 단추 23px).
+   `flex` + `line-height: 0` 으로 그 몫을 걷고, 남길 여백은 아래에서
+   **누르는 손에 따라** 따로 준다. */
 .dxbl-toast-portal .dxbl-toast .dxbl-toast-close button.dxbl-toast-close-btn {
-  --dxbl-btn-padding-x: 0.25rem;
-  --dxbl-btn-padding-y: 0.125rem;
+  --dxbl-btn-padding-x: 0.2rem;
+  --dxbl-btn-padding-y: 0.2rem;
+
+  display: flex;
+  align-items: center;
+  line-height: 0;
+}
+
+/* 손가락으로 쓰는 화면에서는 누를 자리를 되돌린다. 마우스는 몇 픽셀을
+   정확히 짚지만 손가락은 못 짚는다 — 그래서 **좁히는 것은 마우스 쪽만**이다.
+   여백만 넓히므로 그림 크기는 그대로고, 늘어나는 것은 토스트 높이 2~3px 다. */
+@media (pointer: coarse) {
+  .dxbl-toast-portal .dxbl-toast .dxbl-toast-close button.dxbl-toast-close-btn {
+    --dxbl-btn-padding-x: 0.3rem;
+    --dxbl-btn-padding-y: 0.3rem;
+  }
 }
 
 .dxbl-toast-portal .dxbl-toast .dxbl-toast-close svg.dxbl-toast-close-btn {
-  width: calc(var(--jsini-fs-xs) * 1.1);
-  height: calc(var(--jsini-fs-xs) * 1.1);
+  width: calc(var(--jsini-fs-2xs) * 1.1);
+  height: calc(var(--jsini-fs-2xs) * 1.1);
 }
 
 /* ── 토스트의 남은 시간 (`Toasts`) ─────────────────────────────
@@ -8205,7 +8263,7 @@ body {
 .dxbl-toast.jsini-toast-time .dxbl-toast-close {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.15rem;
 }
 
 .dxbl-toast.jsini-toast-time .dxbl-toast-close::before {
@@ -8228,6 +8286,16 @@ body {
      붙이면 그 동안 폭이 한 번도 안 바뀐다. */
   min-width: var(--jsini-toast-digits, 2.6em);
   text-align: right;
+}
+
+/* **짧은 토스트에는 숫자를 안 쓴다.** 2초를 「2초 · 1초」로 세어 봐야
+   그 사이에 할 수 있는 일이 없고, 그 두 글자가 토스트 폭의 6분의 1이다
+   (같은 문구로 재어 147.8 → 117px). 줄어드는 막대는 그대로 두므로 「곧 걷힌다」는
+   여전히 보이고, 숫자는 읽고 옮겨 적어야 하는 쪽(60초)에만 남는다.
+
+   칸(`--jsini-toast-span`)은 그대로 둔다 — 막대가 그 값으로 줄어든다. */
+.dxbl-toast.jsini-toast-time--2s .dxbl-toast-close::before {
+  content: none;
 }
 
 /* 눌러 둔 동안은 멈춘다. DevExpress 가 누른 토스트를 **닫지 않으므로**
@@ -8262,11 +8330,11 @@ body {
 
 /* `Toasts` 가 붙이는 시간표. 없는 초를 붙이면 막대가 아예 그려지지 않는다.
    `--jsini-toast-digits` 는 **숫자가 설 자리**다 — 자릿수가 하나 늘면
-   여기도 함께 늘린다(안 늘리면 숫자가 잘린다). */
-.dxbl-toast.jsini-toast-time--3s {
-  --jsini-toast-span: 3s;
-  --jsini-toast-secs: 3;
-  --jsini-toast-digits: 1.9em;
+   여기도 함께 늘린다(안 늘리면 숫자가 잘린다). 짧은 쪽에는 그 칸이 없다 —
+   숫자를 아예 안 그리기 때문이다(바로 위). */
+.dxbl-toast.jsini-toast-time--2s {
+  --jsini-toast-span: 2s;
+  --jsini-toast-secs: 2;
 }
 
 .dxbl-toast.jsini-toast-time--60s {

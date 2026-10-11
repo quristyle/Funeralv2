@@ -80,10 +80,12 @@ namespace JSini.Web.Components.Layout;
 /// <para>
 /// 그래서 실패도 걷히게 하되 <b>읽고 옮겨 적을 만큼</b>(<see cref="Failure"/>)
 /// 남긴다. 못 보고 지나가는 것은 <b>언제 걷히는지를 보여 주어</b> 막는다 —
-/// 남은 시간이 아래쪽 막대와 닫기 단추 옆의 초로 뜬다(app.css 의 「토스트의
-/// 남은 시간」). 급하면 닫기 단추가 그대로 있고, 더 봐야 하면 토스트를 한 번
-/// 누르면 된다(<c>MainLayout</c> 의 <c>FreezeOnClick</c> — 그때는 표시도 함께
-/// 멈춘다).
+/// 남은 시간이 아래쪽 막대로 줄어들고, <b>긴 것에만</b> 닫기 단추 옆에 초가
+/// 함께 뜬다(app.css 의 「토스트의 남은 시간」). 짧은 쪽(<see cref="Brief"/>)에
+/// 숫자를 안 쓰는 것은 2초를 「2초 · 1초」로 세어 봐야 <b>할 수 있는 일이
+/// 없고</b>, 그 두 글자가 토스트 폭의 6분의 1을 먹기 때문이다. 급하면 닫기
+/// 단추가 그대로 있고, 더 봐야 하면 토스트를 한 번 누르면 된다
+/// (<c>MainLayout</c> 의 <c>FreezeOnClick</c> — 그때는 표시도 함께 멈춘다).
 /// </para>
 ///
 /// <para>
@@ -94,7 +96,8 @@ namespace JSini.Web.Components.Layout;
 /// 여기서 나가는 것은 「저장했습니다.」 같은 <b>한 토막</b>이고 제목
 /// (<c>Header</c>)은 쓰지 않는다. 그래서 판의 기본 치수(300×62)는 전부
 /// 여백이 된다 — 폭은 글자만큼만, 높이는 한 줄로 줄여 두었다(app.css 의
-/// 「토스트는 꼭 맞게, 한 줄로 선다」). <b>그 일은 CSS 가 한다</b> —
+/// 「토스트는 꼭 맞게, 한 줄로 선다」). 글자 한 단·여백 한 단을 더 걷어
+/// <b>117×25</b> 까지 내려와 있다. <b>그 일은 CSS 가 한다</b> —
 /// 여기서 <c>ToastOptions</c> 에 치수를 실어 보내지 않는다.
 /// </para>
 ///
@@ -130,21 +133,29 @@ namespace JSini.Web.Components.Layout;
 public sealed class Toasts(IToastNotificationService service)
 {
     /// <summary>
-    /// 알림과 주의가 떠 있는 시간. DevExpress 판의 기본값과 같은 5초다.
+    /// 알림과 주의가 떠 있는 시간. <b>2초</b>다.
+    ///
+    /// <para>
+    /// 여기로 나가는 것은 「저장했습니다.」 한 토막이고, 그 한 토막은 <b>방금
+    /// 내가 누른 것의 결과</b>라 읽는 데 눈길 한 번이면 된다. 판의 기본값
+    /// (5초)으로 두었다가 3초로 줄였고, 그래도 <b>이미 읽은 글이 화면 구석에
+    /// 남아 있는</b> 시간이 길었다 — 연달아 저장하면 걷히기 전에 다음 것이
+    /// 쌓여 넷까지 차는 일도 그래서 생긴다(<c>MaxToastCount</c>).
+    /// </para>
     ///
     /// <para>
     /// <b>기본값에 기대지 않고 적어 둔다.</b> 남은 시간을 그리려면 그 시간을
     /// <b>알고 있어야</b> 하는데, <c>null</c> 로 두면 얼마인지 여기서 알 수 없다.
     /// </para>
     /// </summary>
-    public static readonly TimeSpan Brief = TimeSpan.FromSeconds(3);
+    public static readonly TimeSpan Brief = TimeSpan.FromSeconds(2);
 
     /// <summary>
-    /// 실패가 떠 있는 시간. 알림의 열두 배다.
+    /// 실패가 떠 있는 시간. 알림의 서른 배다.
     ///
     /// <para>
     /// 실패 문구에는 서버가 준 이유가 붙어 두 줄이 되는 일이 잦고, 읽고 나서
-    /// <b>적어 두거나 옮겨 붙일</b> 시간까지 있어야 한다. 5초는 그것을 못 한다.
+    /// <b>적어 두거나 옮겨 붙일</b> 시간까지 있어야 한다. 2초는 그것을 못 한다.
     /// </para>
     /// </summary>
     public static readonly TimeSpan Failure = TimeSpan.FromSeconds(60);
