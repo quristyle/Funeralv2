@@ -4836,6 +4836,73 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
   }
 }
 
+/* ── AI 작업: 모바일·좁은 화면에서는 스플리터로 보이지 않고 위아래로 쌓는다 ────
+
+   데스크탑에서는 가운데 손잡이를 끌어 너비를 조절하지만, 모바일(휴대폰)·좁은
+   화면에서는 상자를 지워(`display: contents`) 두 판이 위아래로 자연스럽게 쌓이고
+   쪽 전체가 구르게 한다.
+   마크업을 화면 크기마다 갈아 끼우면 화면 회전이나 크기 변경 시 편집 상태와
+   조회가 다시 만들어지므로 상자만 없앤다. 구분선(손잡이)은 감춘다(`display: none`).
+   셸 사이드바(`app.css`)·사람롤(`admin.css`)·프로시저결과(`helpdesk.css`)와
+   같은 방식(web/CLAUDE.md). */
+@media (max-width: 62rem) {
+  .pm-ai-page > .pm-splitpane,
+  .pm-ai-page > .pm-splitpane > .pm-splitpane__ui,
+  .pm-ai-page > .pm-splitpane > .pm-splitpane__ui > .dxbl-splitter-pane,
+  .pm-ai-page > .pm-splitpane > .pm-splitpane__ui > .dxbl-splitter-pane > .dxbl-splitter-pane-content {
+    display: contents !important;
+  }
+
+  .pm-ai-page > .pm-splitpane > .pm-splitpane__ui > .dxbl-splitter-separator {
+    display: none !important;
+  }
+
+  .pm-ai-page .pm-splitpane__first,
+  .pm-ai-page .pm-splitpane__second {
+    display: block;
+    overflow: visible;
+    flex: none;
+    padding: 0 !important;
+  }
+
+  .pm-ai-page .pm-splitpane__second {
+    margin-top: var(--jsini-sp-lg);
+  }
+
+  .pm-ai-page .pm-splitpane .commcont {
+    height: auto;
+    min-height: 0;
+  }
+}
+
+.pm-ai-page--phone > .pm-splitpane,
+.pm-ai-page--phone > .pm-splitpane > .pm-splitpane__ui,
+.pm-ai-page--phone > .pm-splitpane > .pm-splitpane__ui > .dxbl-splitter-pane,
+.pm-ai-page--phone > .pm-splitpane > .pm-splitpane__ui > .dxbl-splitter-pane > .dxbl-splitter-pane-content {
+  display: contents !important;
+}
+
+.pm-ai-page--phone > .pm-splitpane > .pm-splitpane__ui > .dxbl-splitter-separator {
+  display: none !important;
+}
+
+.pm-ai-page--phone .pm-splitpane__first,
+.pm-ai-page--phone .pm-splitpane__second {
+  display: block;
+  overflow: visible;
+  flex: none;
+  padding: 0 !important;
+}
+
+.pm-ai-page--phone .pm-splitpane__second {
+  margin-top: var(--jsini-sp-lg);
+}
+
+.pm-ai-page--phone .pm-splitpane .commcont {
+  height: auto;
+  min-height: 0;
+}
+
 /* ── 탭으로 펼쳐 보는 지시 한 건 (`pm-taskview`) ──────────────
 
    `AiTaskViewPage` — 책상에서 카드를 누르거나 앱알림·메일의 「화면에서 보기」

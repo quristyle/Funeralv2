@@ -86,7 +86,7 @@
    「접는 띠는 보이는데 안 접힌다」가 된다. *@
 <DxLayoutBreakpoint MaxWidth="767" IsActive="_isPhone" IsActiveChanged="@OnPhoneChanged" />
 
-<div class="pm-ai-page">
+<div class="pm-ai-page @(_isPhone ? "pm-ai-page--phone" : null)">
 
 @* ── 요약과 조회 조건 ─────────────────────────────────────────
 
