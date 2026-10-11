@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using JSini.Web.Http;
+using JSini.Web.Components.Data;
 using JSini.Web.Components.Layout;
 using JSini.Web.ProjMng.Api;
 
@@ -108,8 +109,19 @@ public partial class AiTaskActions
 
         if (!_kindsRead)
         {
+            // 목록을 못 읽어도 창은 연다 — 그때는 지난 회차의 AI 한 줄만 선다
+            // (<see cref="RetryKinds"/>). 「이어서 지시」 창과 같은 판단이다.
             _kinds = await ModelCodes.GetAsync();
             _kindsRead = _kinds.Count > 0;
+        }
+
+        // **한도도 함께 읽는다.** 이 창을 여는 가장 잦은 까닭이 「한도가 차서
+        // 실패했다」라, 갈아탈 AI 를 고르는 자리에서 남은 한도를 못 보면
+        // 방금 막힌 그 AI 에게 그대로 다시 보내게 된다. 통은 「이어서 지시」와
+        // 하나다 — 한 창에서 읽어 두면 다른 창이 다시 읽지 않는다.
+        if (!_usageSeen)
+        {
+            await LoadUsageAsync();
         }
 
         _retryKind = MatchKindCase(Item?.RunnerKind);
@@ -204,10 +216,17 @@ public partial class AiTaskActions
         }
     }
 
+    /// <summary>
+    /// 칸 아래 한 줄. <b>갈아탔는지를 말한다</b> — 「이어서 지시」의
+    /// <see cref="ContinueKindNote"/> 와 같은 갈래이고 같은 차례로 묻는다.
+    /// </summary>
     private string RetryKindNote
     {
         get
         {
+            // **못 읽은 것과 하나뿐인 것을 가른다.** 목록을 못 받았을 때도
+            // 칸에는 지난 회차의 AI 한 줄이 서므로 「하나만 허용한다」로
+            // 적으면 대상 설정을 들여다보게 만든다.
             if (_kinds.Count == 0)
             {
                 return "AI 목록을 읽지 못해 지난 회차와 같은 AI 로 갑니다.";
@@ -224,6 +243,86 @@ public partial class AiTaskActions
                 ? "지난 회차와 같은 AI 로 재시도합니다."
                 : $"지난 회차({KindName(Item?.RunnerKind)})와 다른 AI 에게 맡깁니다 — 지난 진행은 그대로 전달됩니다.";
         }
+    }
+
+    /// <summary>
+    /// 고른 AI 의 남은 한도. <b>「이어서 지시」와 같은 통을 본다</b>
+    /// (<see cref="PickedContinueBadge"/>).
+    /// </summary>
+    private AiUsageText.Badge PickedRetryBadge => KindBadge(_retryKind);
+
+    /// <summary>
+    /// 지난 회차가 <b>어떻게 끝났나</b>. 창 머리 아래 한 줄로 선다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 「이어서 지시」 창에는 이 줄이 없다 — 그쪽은 <b>끝난 건</b>에만 서므로
+    /// 적을 것이 「잘 끝났다」뿐이다. 재시도 창은 반대다. <b>여기 오는 건은
+    /// 모두 실패했고</b>, 덧붙일 말을 정하는 값이 바로 그 실패의 꼴이다 —
+    /// 시간이 모자랐는지, 한도가 찼는지, 애초에 집혀 가지 않았는지.
+    /// </para>
+    /// <para>
+    /// 그 값을 보려고 <b>창을 닫고 상세로 갔다 다시 여는</b> 일이 잦았다.
+    /// 창이 「무엇을 적을까」를 묻는데 정작 그 판단의 근거가 창 밖에 있었다.
+    /// </para>
+    /// <para>
+    /// <b>까닭은 끝에 한 번만, 줄여서 적는다.</b> 실행기가 적는 글은 로그
+    /// 여러 줄이 통째로 들어오기도 해서, 그대로 두면 이 한 줄이 창을 밀어
+    /// 내리고 글상자와 단추가 자판 밑으로 내려간다. 온전한 글은 「자세히
+    /// 보기」가 들고 있다.
+    /// </para>
+    /// </remarks>
+    private string RetryStatusNote
+    {
+        get
+        {
+            if (Item is not { } t)
+            {
+                return string.Empty;
+            }
+
+            var parts = new List<string> { t.StatusText };
+
+            if (!string.IsNullOrWhiteSpace(t.RunnerKind))
+            {
+                parts.Add(KindName(t.RunnerKind));
+            }
+
+            // 몇 번까지 갔나. **자동 재시도를 다 쓴 것**이 이 창이 열리는
+            // 조건이라(`AiTaskDto.CanManualRetry`), 그 수가 곧 「사람이
+            // 손대야 하는 자리까지 왔다」는 뜻이다.
+            if (t.AttemptMax > 0)
+            {
+                parts.Add($"{t.AttemptCount}/{t.AttemptMax}회");
+            }
+
+            if (t.FinishedAt is { } at)
+            {
+                parts.Add(at.Kst("MM-dd HH:mm"));
+            }
+
+            var head = $"지난 회차: {string.Join(" · ", parts)}";
+
+            return Shorten(t.LastError) is { Length: > 0 } why ? $"{head} — {why}" : head;
+        }
+    }
+
+    /// <summary>
+    /// 실행기가 남긴 까닭을 <b>한 줄로</b> 줄인다. 줄바꿈을 가운뎃점으로 잇고
+    /// 길면 자른다 — 로그가 통째로 들어와도 창이 안 밀린다.
+    /// </summary>
+    private static string Shorten(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return string.Empty;
+        }
+
+        var one = string.Join(
+            " · ",
+            text.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+
+        return one.Length > 140 ? one[..140] + "…" : one;
     }
 
     private IReadOnlyList<AiModelOption> ContinueKinds

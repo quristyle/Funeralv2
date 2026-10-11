@@ -4703,7 +4703,7 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
   color: var(--jsini-text-muted);
 }
 
-/* 「이어서 지시」 창의 AI 고르는 칸.
+/* 묻는 창 둘(「이어서 지시」· 「수동 재시도」)의 AI 고르는 칸.
 
    **한 줄이다** — 고르개와 그 AI 의 남은 한도가 나란히 선다.
 
@@ -4726,7 +4726,8 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
   margin-top: var(--jsini-sp-sm);
 }
 
-/* 재시도 창은 아직 라벨을 쓴다(`맡을 AI`). 상세 보기의 항목 이름도 이것이다. */
+/* 상세 보기의 항목 이름(「작성」·「동작」·「작업」). 묻는 창 둘은 이제
+   라벨을 쓰지 않는다 — 고르개에 AI 이름이 이미 적혀 있다. */
 .pm-peek__label {
   flex: 0 0 auto;
   font-size: var(--jsini-fs-sm);
@@ -4743,6 +4744,31 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
    치수는 위의 배지 묶음이 함께 정한다(`.pm-peek__usage`). */
 .pm-peek__usage {
   white-space: nowrap;
+}
+
+/* 「수동 재시도」 창의 지난 회차 자국 — 상태 · AI · 횟수 · 끝난 시각 · 까닭.
+
+   **바로 위 한 줄(`jsini-hint`)과 갈라 보여야 한다.** 그쪽은 「이번에 어디로
+   가나」이고 이쪽은 「지난번에 무슨 일이 있었나」다. 둘이 같은 회색 작은 글씨로
+   붙어 서면 한 문단으로 읽혀, 지난 실패의 까닭이 이번 안내의 꼬리처럼 보인다.
+   왼쪽에 선을 긋고 바탕을 옅게 깔아 **인용 조각**으로 둔다.
+
+   **두 줄까지만 보인다.** 실행기가 적는 글은 길이를 가늠할 수 없어서, 안 묶으면
+   이 한 조각이 창을 밀어 글상자와 단추를 자판 밑으로 내려보낸다. C# 쪽도 140자에서
+   자르지만(`AiTaskActions.Shorten`) 글자 폭은 화면마다 달라 여기서 한 번 더 묶는다. */
+.pm-peek__status {
+  margin: var(--jsini-sp-2xs) 0 0;
+  padding: var(--jsini-sp-2xs) var(--jsini-sp-xs);
+  border-left: 2px solid var(--jsini-border);
+  border-radius: 0 var(--jsini-radius-sm) var(--jsini-radius-sm) 0;
+  background: var(--jsini-surface-muted);
+  font-size: var(--jsini-fs-xs);
+  color: var(--jsini-text-muted);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 
 /* 상세 아래 단추의 글자. 휴대폰에서는 **짧은 쪽**이 선다 —
