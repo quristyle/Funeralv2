@@ -786,12 +786,15 @@ public class PushSender : IPushSender
             ? "알림"
             : request.Message.Title.Trim();
 
-        var body = ComposeMailBody(request.Message);
+        var (actionUrl, actionLabel) = ResolveActionLink(request.Message);
+        var body = (request.Message.Body ?? string.Empty).Trim();
+        if (body.Length == 0) body = title;
 
         // 평문을 넘기고 **회사 메일 꼴은 틀이 입힌다** — 직발송이 같은 자리에서
         // 하는 일이다(`NoticeEmailTemplate` 머리말).
-        var html = NoticeEmailTemplate.Render(title, body);
-        var text = NoticeEmailTemplate.PlainAlternative(title, body);
+        var html = NoticeEmailTemplate.Render(title, body, senderName: null, actionUrl: actionUrl, actionLabel: actionLabel);
+        var text = NoticeEmailTemplate.PlainAlternative(title, body, senderName: null, actionUrl: actionUrl, actionLabel: actionLabel);
+        var logBody = actionUrl is not null ? $"{body}\n\n{actionLabel}: {actionUrl}" : body;
 
         var sent = 0;
 
@@ -819,7 +822,7 @@ public class PushSender : IPushSender
                 //
                 // **취소표를 넘기지 않는다.** 메일은 이미 나갔다 — 부르는 쪽의
                 // 취소에 걸려 기록을 못 남기면 「보낸 적 없다」로 남는다.
-                await WriteMailLogAsync([to], title, body, sentBy,
+                await WriteMailLogAsync([to], title, logBody, sentBy,
                     success: true, failureReason: null);
 
                 sent++;
@@ -832,7 +835,7 @@ public class PushSender : IPushSender
                 _logger.LogError(ex, "메일 곁가지를 보내지 못했습니다. event={Event} to={To}",
                     request.Message.EventCode ?? request.Message.Category, to);
 
-                await WriteMailLogAsync([to], title, body, sentBy,
+                await WriteMailLogAsync([to], title, logBody, sentBy,
                     success: false, failureReason: "메일 서버가 받지 않음");
             }
         }
@@ -930,6 +933,23 @@ public class PushSender : IPushSender
         if (baseUrl.Length == 0) return null;
 
         return path.StartsWith('/') ? baseUrl + path : $"{baseUrl}/{path}";
+    }
+
+    /// <summary>
+    /// 메일 하단 액션 버튼으로 연결할 절대 주소와 단추 라벨을 구한다.
+    /// 날씨 관련 알림이면 「날씨 확인하기」, 그 외 포털 링크는 「포털에서 보기」로 연결한다.
+    /// </summary>
+    private (string? Url, string? Label) ResolveActionLink(PushMessageDto message)
+    {
+        var url = LinkOf(message.Url);
+        if (string.IsNullOrWhiteSpace(url)) return (null, null);
+
+        var isWeather = string.Equals(message.Category, PushCategories.Weather, StringComparison.OrdinalIgnoreCase)
+            || string.Equals(message.EventCode, NotificationEvents.Weather, StringComparison.OrdinalIgnoreCase)
+            || (message.Url?.Contains("/weather", StringComparison.OrdinalIgnoreCase) ?? false);
+
+        var label = isWeather ? "날씨 확인하기" : "포털에서 보기";
+        return (url, label);
     }
 
     /// <summary>

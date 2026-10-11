@@ -83,15 +83,27 @@ public static class NoticeEmailTemplate
     /// 보낸 사람 이름. 있으면 본문 아래 서명 줄에 적는다. <b>받은 쪽이 먼저
     /// 묻는 것이 「누가 보냈나」</b>라서다. 없으면 그 줄을 통째로 뺀다.
     /// </param>
-    public static string Render(string subject, string plainBody, string? senderName = null)
+    /// <param name="actionUrl">
+    /// 눌러서 갈 링크 주소(버튼). 제공되면 본문 하단에 단추로 렌더링된다.
+    /// 주어지지 않아도 본문 끝에 날씨·쪽지·포털 링크가 있으면 자동으로 추출하여 단추로 전환한다.
+    /// </param>
+    /// <param name="actionLabel">
+    /// 단추에 표시할 문구. 생략 시 URL 종류(날씨면 「날씨 확인하기」, 그 외 「포털에서 보기」)에 맞춰 자동 결정된다.
+    /// </param>
+    public static string Render(
+        string subject,
+        string plainBody,
+        string? senderName = null,
+        string? actionUrl = null,
+        string? actionLabel = null)
     {
         var title = (subject ?? string.Empty).Trim();
-        var text = Normalize(plainBody);
+        var (cleanText, btnUrl, btnLabel) = ResolveAction(plainBody, actionUrl, actionLabel);
 
         // **제목과 본문이 같으면 본문을 뺀다.** 부르는 쪽은 내용 칸이 비었을 때
         // 제목을 본문으로 삼아 보낸다(빈 메일보다 낫다). 그대로 두면 같은
         // 문장이 큰 글씨와 작은 글씨로 두 번 적힌 메일이 된다.
-        var duplicated = string.Equals(text, title, StringComparison.Ordinal);
+        var duplicated = string.Equals(cleanText, title, StringComparison.Ordinal);
 
         var inner = new StringBuilder();
 
@@ -100,12 +112,33 @@ public static class NoticeEmailTemplate
             <h2 style="margin:0; font-size:20px; line-height:1.5; font-weight:bold; color:{Ink};">{Escape(title)}</h2>
             """);
 
-        if (!duplicated && text.Length > 0)
+        var hasBody = !duplicated && cleanText.Length > 0;
+        var hasButton = !string.IsNullOrWhiteSpace(btnUrl);
+
+        if (hasBody || hasButton)
         {
             inner.Append($"""
 
                 <div style="margin-top:20px; padding-top:20px; border-top:1px solid {Mist};">
-                  {Paragraphs(text)}
+                """);
+
+            if (hasBody)
+            {
+                inner.Append($"""
+                  {Paragraphs(cleanText)}
+                """);
+            }
+
+            if (hasButton)
+            {
+                inner.Append($"""
+
+                  {Button(btnLabel ?? "포털에서 보기", btnUrl!)}
+                """);
+            }
+
+            inner.Append("""
+
                 </div>
                 """);
         }
@@ -124,7 +157,7 @@ public static class NoticeEmailTemplate
                 """);
         }
 
-        return Frame(title, Preheader(duplicated ? title : text), inner.ToString());
+        return Frame(title, Preheader(duplicated ? title : cleanText), inner.ToString());
     }
 
     /// <summary>
@@ -137,17 +170,27 @@ public static class NoticeEmailTemplate
     /// 값이 거의 들지 않는다 — 안 실을 이유가 없다.
     /// </para>
     /// </remarks>
-    public static string PlainAlternative(string subject, string plainBody, string? senderName = null)
+    public static string PlainAlternative(
+        string subject,
+        string plainBody,
+        string? senderName = null,
+        string? actionUrl = null,
+        string? actionLabel = null)
     {
         var title = (subject ?? string.Empty).Trim();
-        var text = Normalize(plainBody);
+        var (cleanText, btnUrl, btnLabel) = ResolveAction(plainBody, actionUrl, actionLabel);
         var sb = new StringBuilder();
 
         sb.Append(title);
 
-        if (!string.Equals(text, title, StringComparison.Ordinal) && text.Length > 0)
+        if (!string.Equals(cleanText, title, StringComparison.Ordinal) && cleanText.Length > 0)
         {
-            sb.Append("\n\n").Append(text);
+            sb.Append("\n\n").Append(cleanText);
+        }
+
+        if (!string.IsNullOrWhiteSpace(btnUrl))
+        {
+            sb.Append("\n\n").Append(btnLabel ?? "포털에서 보기").Append(": ").Append(btnUrl);
         }
 
         if (!string.IsNullOrWhiteSpace(senderName))
@@ -159,6 +202,110 @@ public static class NoticeEmailTemplate
 
         return sb.ToString();
     }
+
+    private static readonly Regex TrailingActionRegex = new(
+        @"(?:^|\n)\s*(?:(?<label>[^\r\n:]+?)\s*:\s*)?(?<url>https?://\S+)\s*$",
+        RegexOptions.Compiled);
+
+    /// <summary>
+    /// 본문과 파라미터에서 액션 버튼 정보(URL 및 라벨)를 추출하고,
+    /// 본문에 URL 이 그대로 노출되지 않도록 본문 끝의 링크 줄을 정리한다.
+    /// </summary>
+    private static (string CleanBody, string? ActionUrl, string? ActionLabel) ResolveAction(
+        string? plainBody, string? actionUrl, string? actionLabel)
+    {
+        var text = Normalize(plainBody);
+        var targetUrl = actionUrl?.Trim();
+        var targetLabel = actionLabel?.Trim();
+
+        // 1) 명시적으로 actionUrl 이 넘어온 경우
+        if (!string.IsNullOrWhiteSpace(targetUrl))
+        {
+            // 본문 끝에 해당 URL 링크 줄이 있다면 본문에서 제거 (URL 중복 및 평문 노출 방지)
+            var match = TrailingActionRegex.Match(text);
+            if (match.Success)
+            {
+                var matchedRaw = match.Groups["url"].Value.TrimEnd(".,;:!?)]}'\"".ToCharArray());
+                if (string.Equals(matchedRaw, targetUrl.TrimEnd(".,;:!?)]}'\"".ToCharArray()), StringComparison.OrdinalIgnoreCase))
+                {
+                    text = text[..match.Index].TrimEnd();
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(targetLabel))
+            {
+                targetLabel = DetectLabel(targetUrl);
+            }
+
+            return (text, targetUrl, targetLabel);
+        }
+
+        // 2) actionUrl 이 넘어오지 않은 경우, 본문 끝의 링크 줄 자동 탐지
+        var trailingMatch = TrailingActionRegex.Match(text);
+        if (trailingMatch.Success)
+        {
+            var matchedUrl = trailingMatch.Groups["url"].Value;
+            var matchedLabel = trailingMatch.Groups["label"].Value?.Trim();
+
+            while (matchedUrl.Length > 0 && ".,;:!?)]}'\"".Contains(matchedUrl[^1]))
+            {
+                matchedUrl = matchedUrl[..^1];
+            }
+
+            if (matchedUrl.Length > 0)
+            {
+                var isWeather = matchedUrl.Contains("/weather", StringComparison.OrdinalIgnoreCase);
+                var isNote = matchedUrl.Contains("/note", StringComparison.OrdinalIgnoreCase);
+                var isKnownAction = isWeather || isNote
+                    || (!string.IsNullOrEmpty(matchedLabel) && (
+                        matchedLabel.Contains("보기", StringComparison.Ordinal)
+                        || matchedLabel.Contains("확인", StringComparison.Ordinal)
+                        || matchedLabel.Contains("바로가기", StringComparison.Ordinal)
+                        || matchedLabel.Contains("링크", StringComparison.Ordinal)));
+
+                if (isKnownAction)
+                {
+                    text = text[..trailingMatch.Index].TrimEnd();
+                    targetUrl = matchedUrl;
+                    targetLabel = string.IsNullOrWhiteSpace(targetLabel)
+                        ? (!string.IsNullOrWhiteSpace(matchedLabel) ? matchedLabel : DetectLabel(targetUrl))
+                        : targetLabel;
+
+                    if (isWeather && (string.IsNullOrWhiteSpace(targetLabel) || targetLabel == "포털에서 보기"))
+                    {
+                        targetLabel = "날씨 확인하기";
+                    }
+
+                    return (text, targetUrl, targetLabel);
+                }
+            }
+        }
+
+        return (text, null, null);
+    }
+
+    private static string DetectLabel(string url)
+    {
+        if (url.Contains("/weather", StringComparison.OrdinalIgnoreCase)) return "날씨 확인하기";
+        if (url.Contains("/note", StringComparison.OrdinalIgnoreCase)) return "쪽지함에서 보기";
+        return "포털에서 보기";
+    }
+
+    /// <summary>
+    /// 표로 짠 단추. 바탕은 칸이 깔고 여백은 링크가 준다 —
+    /// 그래야 Outlook 에서도 칸 전체가 눌린다(AuthServer.AccountEmailTemplates 와 같은 설계).
+    /// </summary>
+    private static string Button(string label, string href) => $"""
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:24px;">
+          <tr>
+            <td align="center" style="background:{Ink}; border-radius:4px;">
+              <a href="{Escape(href)}"
+                 target="_blank"
+                 style="display:inline-block; padding:12px 28px; font-size:14px; font-weight:bold; letter-spacing:-0.01em; color:#ffffff; text-decoration:none; border-radius:4px;">{Escape(label)}</a>
+            </td>
+          </tr>
+        </table>
+        """;
 
     /// <summary>줄바꿈을 한 가지로 맞추고 앞뒤 빈 줄을 턴다.</summary>
     private static string Normalize(string? text)
