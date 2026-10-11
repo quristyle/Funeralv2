@@ -1397,6 +1397,25 @@ body {
 
 .jsini-sidebar__tree .dxbl-treeview-item-content {
   position: relative;
+  /* li 와 li 사이 간격을 item-content 의 마진으로 줘서 li 끼리 붙어 있어도 시각적 간격이 유지되게 한다 */
+  padding-bottom: 0;
+  margin-bottom: var(--dxbl-treeview-item-spacing-y);
+}
+
+/* ── 선택된 메뉴 및 호버 영역이 li 너비 전체를 차지하도록 확장 ──
+   DevExpress 기본 동작에서는 dxbl-treeview-item-indent 가 flex 흐름 상
+   왼쪽 폭을 밀어내어, 그 뒤에 오는 .dxbl-treeview-item-container 의 폭이
+   li 전체 너비보다 줄어들고 들여쓰기된 만큼 배경색이 비게 된다.
+   indent 폭을 0으로 만들어 item-container 가 li 전체 폭(100%)을 채우도록 하고,
+   계층별 들여쓰기는 item-container 의 padding-left 로 전달한다. */
+.jsini-sidebar .jsini-sidebar__tree .dxbl-treeview-item > .dxbl-treeview-item-content > .dxbl-treeview-item-indent {
+  min-width: 0;
+  width: 0;
+}
+
+.jsini-sidebar .jsini-sidebar__tree .dxbl-treeview-item > .dxbl-treeview-item-content > .dxbl-treeview-item-container {
+  width: 100%;
+  padding-left: calc(0.5rem + var(--dxbl-treeview-item-indent, 0) * var(--dxbl-treeview-item-content-indent, 0.9375rem));
 }
 
 .jsini-sidebar__tree .dxbl-treeview-item-content > .dxbl-btn.dxbl-btn-tool {

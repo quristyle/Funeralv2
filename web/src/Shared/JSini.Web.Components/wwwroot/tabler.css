@@ -761,6 +761,11 @@ a { color: var(--tb-primary); }
   border-radius: var(--tb-radius);
 }
 
+.jsini-sidebar .dxbl-treeview-item-container {
+  min-height: 2.25rem;
+  border-radius: var(--tb-radius);
+}
+
 .jsini-sidebar .jsini-mi {
   color: color-mix(in srgb, var(--tb-text) 70%, transparent);
 }
