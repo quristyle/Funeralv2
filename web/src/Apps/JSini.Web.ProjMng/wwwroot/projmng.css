@@ -5121,18 +5121,56 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
 }
 
 @media (max-width: 767px) {
-  /* 모바일에서는 하단 네비게이션 띠(60px + 안전영역) 위에 붙박인다. */
+  /* 띠 몫은 **본문이 이미 비워 두었다** (2026-10-11)
+
+     전에는 여기서 `bottom: calc(60px + 안전영역)` 으로 하단 띠를 한 번 더
+     피했다. 그런데 `position: sticky` 가 자리를 재는 상자는 본문의 **안쪽**
+     상자이고, 그 상자는 셸이 이미 띠만큼 줄여 놓은 것이다(app.css) —
+     띠를 두 번 센 셈이라 줄의 아래끝이 바닥에서 136px 에 섰다. 떠다니는
+     단추(바닥에서 76px)가 그보다 아래였으니, 화면을 쓰는 사람에게는
+     **그 화면의 단추가 셸의 보조 단추보다 위**로 보였다.
+
+     그래서 0 으로 붙인다. 셸 쪽에서 `.jsini-actbar` 를 가진 본문의 아래
+     여백을 띠 높이에 **딱 맞춰** 두므로(숨 쉬는 1rem 은 이 줄이 제 여백으로
+     갖는다) 0 이 곧 띠의 윗금이다. 띠를 끄면 그 여백이 안전영역뿐이라
+     같은 0 이 화면 맨 아래가 된다 — 갈래를 둘로 둘 까닭이 없어져
+     `--bottomnav-hidden` 쪽 규칙도 함께 걷었다.
+
+     높이를 **보장한다.** 떠다니는 단추가 올라서는 거리는 셸이
+     `--jsini-actbar-height` 만큼 민다. 그 값과 실제 줄 높이가 어긋나면
+     단추가 줄에 걸치거나 허공에 뜨므로, 줄 쪽에서 같은 토큰으로 아래끝을
+     받친다. 단추가 늘어 **줄이 갈리면** 그 보장이 깨지니 휴대폰에서는 줄을
+     내리지 않는다(`nowrap`) — 글자는 이미 짧은 쪽으로 바뀌어 있고
+     (`pm-peek__btn-text--short`), 그래도 넘치면 옆으로 민다. */
   .pm-taskview__acts,
   .pm-ask__viewacts {
-    bottom: calc(60px + env(safe-area-inset-bottom));
+    bottom: 0;
+    min-height: var(--jsini-actbar-height);
     padding: 0.5rem 0;
+
+    /* 줄을 내리지 않는다. 오른쪽으로 모으는 일은 `justify-content` 가
+       아니라 **첫 단추의 왼쪽 여백**이 한다 — `flex-end` 로 모아 둔 줄이
+       넘치면 넘친 쪽이 시작 모서리 밖으로 밀려 **옆으로 밀어도 영영 안
+       나온다.** 자동 여백은 넘치는 순간 0 이 되어 그 덫이 없다. */
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
   }
 
-  /* 환경설정에서 하단 띠를 끈 사람의 화면에서는 다시 0으로 붙는다. */
-  .jsini-shell--bottomnav-hidden .pm-taskview__acts,
-  .jsini-shell--bottomnav-hidden .pm-ask__viewacts {
-    bottom: 0;
-    padding-bottom: calc(0.5rem + env(safe-area-inset-bottom, 0px));
+  /* 단추는 **줄이지도 줄바꿈하지도 않는다.** 폭이 모자랄 때 줄이면 글자가
+     단추 **안에서** 두 줄로 갈려 줄 높이가 52px 을 넘고, 그러면 떠다니는
+     단추를 밀어 둔 거리(`--jsini-actbar-height`)가 틀린 값이 된다 —
+     320px 에 단추 다섯을 세워 재 보니 89px 까지 자랐다. 넘치는 것은
+     위의 `overflow-x` 로 민다. */
+  .pm-taskview__acts > *,
+  .pm-ask__viewacts > * {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .pm-taskview__acts > :first-child,
+  .pm-ask__viewacts > :first-child {
+    margin-inline-start: auto;
   }
 }
 

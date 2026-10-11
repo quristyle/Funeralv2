@@ -306,7 +306,10 @@
             {
                 @* 단추는 목록·책상 화면과 같은 부품이다. 창이 아니라 본문
                    끝에 서므로 `AiTaskViewPage` 와 같은 모양으로 둔다. *@
-                <div class="pm-ask__viewacts">
+                @* 바닥 칸을 갖는다는 표시(`jsini-actbar`)는 여기도 같다 —
+                   휴대폰에서만 서는 줄이라 그 자리가 곧 떠다니는 단추와
+                   다투는 자리다. *@
+                <div class="pm-ask__viewacts jsini-actbar">
                     <AiTaskActions Item="@ViewItem"
                                    OnChanged="@OnViewChangedAsync"
                                    OnConfirmed="@OnViewClosedAsync"

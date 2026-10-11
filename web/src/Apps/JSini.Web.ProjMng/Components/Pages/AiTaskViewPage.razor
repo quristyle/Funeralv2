@@ -86,7 +86,11 @@
 
         @if (_item is not null)
         {
-            <div class="pm-taskview__acts">
+            @* `jsini-actbar` 는 **셸에게 하는 말**이다 — 이 화면은 바닥 칸을
+               제 단추 줄로 쓰니 떠다니는 단추(☰ · ✎)는 그 위로 올라서라
+               (app.css 의 `:has(.jsini-actbar)`). 모양은 이 이름이 정하지
+               않는다. *@
+            <div class="pm-taskview__acts jsini-actbar">
                 <AiTaskActions Item="@_item"
                                OnChanged="@OnChangedAsync"
                                OnConfirmed="@OnClosedAsync"
