@@ -1,4 +1,5 @@
 ﻿using System.Text.Json;
+using JSini.Web.Components.Settings;
 using Microsoft.JSInterop;
 
 namespace JSini.Web.Components.Layout;
@@ -49,8 +50,22 @@ namespace JSini.Web.Components.Layout;
 /// 뿌리(레이아웃이 왜 다시 만들어지는가)를 잡으면 이 고민 자체가 없어진다.
 /// 그때 이 클래스는 「회로가 붙을 때 한 번 읽는 곳」으로 그대로 남는다.
 /// </summary>
-public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
+public sealed class PortalBoot(IJSRuntime js, PortalPrefs prefs, ILogger<PortalBoot> logger)
 {
+    // ── 브라우저에 안 남는 다섯 ───────────────────────────────
+    //
+    // 아래 열쇠 목록 중 다섯은 이제 **계정에 담긴다**(`PortalPrefs`) —
+    // 휴대폰 아래 띠(쓸지 · 무엇을 놓을지) · 바로가기 단추 둘의 사용 여부 ·
+    // 토스트 자리. 기기마다 다른 띠가 뜨면 안 된다는 것이 그 다섯의 요구다.
+    //
+    // **그래도 여기 열쇠가 남아 있다.** 읽기 목록(`LocalKeys`)에서 빼지 않는
+    // 까닭은 **옛 값을 한 번 들고 올라가야** 하기 때문이다 — 사람들이 이미
+    // 브라우저에서 골라 둔 것이 있고, 그것을 버리면 쓰던 띠가 어느 날
+    // 기본값으로 돌아간다. 올리고 나면 그 자리에서 지운다
+    // (`AdoptBrowserPrefsAsync`).
+    //
+    // 읽는 쪽은 아무것도 달라지지 않는다 — `BrowserState` 의 같은 칸을 보고,
+    // 그 칸을 채우는 곳만 저장소에서 계정으로 옮겼다.
     // ── 브라우저 저장소의 열쇠 ────────────────────────────────
     //
     // **여기가 정본이다.** 전에는 네 파일에 흩어져 있었고, 읽는 자리와 쓰는
@@ -195,9 +210,16 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>이 브라우저의 것이다</b> — 단추가 무엇을 가리는지는 화면 크기와
-    /// 그 사람이 그 기기로 하는 일에 달렸다. 계정에 저장하면 휴대폰에서
-    /// 감춘 것이 큰 모니터까지 따라온다(위치 열쇠와 같은 갈래다).
+    /// <b>한동안 이 브라우저의 것이었다</b> — 「단추가 무엇을 가리는지는 화면
+    /// 크기에 달렸다」는 셈이었다. 그런데 가려지는 것은 <b>자리</b>의 문제이고,
+    /// <b>쓸 것인가</b>는 그 사람의 뜻이다. 휴대폰 둘을 번갈아 쓰는 사람이
+    /// 양쪽에서 똑같이 감추고 다니는 일이 실제로 났다.
+    /// </para>
+    /// <para>
+    /// <b>이 열쇠는 더 이상 쓰이지 않는다 — 값이 계정으로 올라갔다</b>
+    /// (<see cref="PortalPrefs.FabHiddenKey"/>). 여기 남아 있는 것은 <b>옛 값을 한 번
+    /// 들고 올라가기 위해서</b>이고, 올린 뒤에는 그 자리에서 지운다
+    /// (<see cref="MovedToAccountKeys"/>). 까닭은 <see cref="PortalPrefs"/> 머리말.
     /// </para>
     /// <para>
     /// <b>감추면 헤더의 ☰ 가 휴대폰에서 되살아난다</b>(app.css). 휴대폰에서는
@@ -236,8 +258,12 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
     /// 그럼에도 안 보겠다</b>고 한 것만 뜻한다. 권한이 없으면 감추고 말고가 없다.
     /// </para>
     /// <para>
-    /// <b>이 브라우저의 것이다</b> — 메뉴 단추와 같은 갈래다(휴대폰에서 귀퉁이를
-    /// 무엇이 가리는지는 기기마다 다르다).
+    /// <b>이 열쇠는 더 이상 쓰이지 않는다 — 값이 계정으로 올라갔다</b>
+    /// (<see cref="PortalPrefs.HelpDeskFabHiddenKey"/>). 메뉴 단추와 같은
+    /// 갈래다(<see cref="FabHiddenKey"/>) — 「쓸 것인가」는 사람의 뜻이고
+    /// 「어느 귀퉁이에」만 기기의 것이다. 여기 남아 있는 것은 <b>옛 값을 한 번
+    /// 들고 올라가기 위해서</b>이고, 올린 뒤에는 그 자리에서 지운다
+    /// (<see cref="MovedToAccountKeys"/>).
     /// </para>
     /// </remarks>
     public const string HelpDeskFabHiddenKey = "jsini-hdfab-hidden";
@@ -282,8 +308,15 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
     /// 떠다니는 단추 숨김(<see cref="FabHiddenKey"/>)과 같은 꼴이다.
     /// </para>
     /// <para>
-    /// <b>이 브라우저의 것이다</b> — 띠는 767px 아래에서만 보이므로 계정에
-    /// 담아 봐야 큰 모니터에서는 쓰이지 않는다.
+    /// <b>한동안 이 브라우저의 것이었다</b> — 「띠는 767px 아래에서만 보이므로
+    /// 계정에 담아 봐야 큰 모니터에서는 쓰이지 않는다」는 셈이었고, 그것은
+    /// <b>휴대폰이 한 대라는 전제</b>였다.
+    /// </para>
+    /// <para>
+    /// <b>이 열쇠는 더 이상 쓰이지 않는다 — 값이 계정으로 올라갔다</b>
+    /// (<see cref="PortalPrefs.BottomNavHiddenKey"/>). 여기 남아 있는 것은 <b>옛 값을 한 번
+    /// 들고 올라가기 위해서</b>이고, 올린 뒤에는 그 자리에서 지운다
+    /// (<see cref="MovedToAccountKeys"/>). 까닭은 <see cref="PortalPrefs"/> 머리말.
     /// </para>
     /// </remarks>
     public const string BottomNavHiddenKey = "jsini-bottomnav-hidden";
@@ -292,9 +325,17 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
     /// 그 띠에 놓을 칸들(JSON). 없으면 <c>BottomNav.Defaults</c> 다.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// 모양과 기본값은 <see cref="BottomNav"/> 가 갖는다 — 여기는 <b>열쇠
     /// 이름만</b> 안다. 읽어 온 글자를 그대로 넘기는 이유는 이 통이 화면의
     /// 말(<c>BottomNavItem</c>)을 모르게 두려는 것이다.
+    /// </para>
+    /// <para>
+    /// <b>이 열쇠는 더 이상 쓰이지 않는다 — 값이 계정으로 올라갔다</b>
+    /// (<see cref="PortalPrefs.BottomNavItemsKey"/>). 여기 남아 있는 것은 <b>옛 값을 한 번
+    /// 들고 올라가기 위해서</b>이고, 올린 뒤에는 그 자리에서 지운다
+    /// (<see cref="MovedToAccountKeys"/>). 까닭은 <see cref="PortalPrefs"/> 머리말.
+    /// </para>
     /// </remarks>
     public const string BottomNavItemsKey = "jsini-bottomnav-items";
 
@@ -303,8 +344,18 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
     /// <c>bottom-right</c>(기본) 외 여섯 자리 중 하나다.
     /// </summary>
     /// <remarks>
-    /// <b>이 브라우저의 것이다.</b> 알맞은 자리가 화면 크기와 쓰는 손에 따라
-    /// 다르고, 계정에 저장하면 큰 모니터에서 고른 자리가 휴대폰까지 따라온다.
+    /// <para>
+    /// <b>한동안 이 브라우저의 것이었다.</b> 그런데 알림이 뜨는 자리는 화면
+    /// 크기가 아니라 <b>그 사람이 화면을 쓰는 버릇</b>에서 나오는 값이다 —
+    /// 오른손잡이가 오른쪽 아래를 엄지로 가리고 있느냐 같은 것. 그것은 기기를
+    /// 바꿔도 안 바뀐다.
+    /// </para>
+    /// <para>
+    /// <b>이 열쇠는 더 이상 쓰이지 않는다 — 값이 계정으로 올라갔다</b>
+    /// (<see cref="PortalPrefs.ToastPositionKey"/>). 여기 남아 있는 것은 <b>옛 값을 한 번
+    /// 들고 올라가기 위해서</b>이고, 올린 뒤에는 그 자리에서 지운다
+    /// (<see cref="MovedToAccountKeys"/>). 까닭은 <see cref="PortalPrefs"/> 머리말.
+    /// </para>
     /// </remarks>
     public const string ToastPositionKey = "jsini-toast-position";
 
@@ -382,6 +433,20 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         ToastPositionKey,
         GeoSyncIntervalKey,
         ZoomUnlockedKey,
+    ];
+
+    /// <summary>
+    /// 계정으로 올라간 다섯(<see cref="PortalPrefs"/>). <b>올린 뒤에는
+    /// 브라우저에서 지운다</b> — 두 곳에 남겨 두면 어느 쪽이 참인지가
+    /// 기기마다 갈린다.
+    /// </summary>
+    private static readonly string[] MovedToAccountKeys =
+    [
+        BottomNavHiddenKey,
+        BottomNavItemsKey,
+        FabHiddenKey,
+        HelpDeskFabHiddenKey,
+        ToastPositionKey,
     ];
 
     /// <summary>
@@ -474,7 +539,10 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
 
             SeedGeoSync(state);
 
-            return state;
+            // **다섯은 계정이 이긴다.** 브라우저에서 읽은 것은 옛 값이고,
+            // 올라간 적이 없으면 여기서 한 번 올라간다(그 뒤에 브라우저 쪽을
+            // 걷는다). 둘을 같이 두면 어느 쪽이 참인지가 기기마다 갈린다.
+            return await WithAccountPrefsAsync(state);
         }
         catch (JSException ex)
         {
@@ -485,13 +553,72 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
             // 그것을 못 읽었을 때의 올바른 동작은 전부 「없던 것으로 본다」다.
             // 특히 잠금은 못 읽었을 때 덮으면 풀 방법이 없는 상태에 갇힌다.
             logger.LogDebug(ex, "브라우저 상태를 읽지 못했다. 없는 것으로 본다.");
-            return BrowserState.Empty;
+
+            // **계정에 담긴 다섯은 그래도 읽는다.** 저장소를 막아 둔 브라우저
+            // 에서도 아래 띠와 토스트 자리는 제 값으로 떠야 한다 — 그쪽은
+            // 애초에 저장소에 기대지 않는다.
+            return await WithAccountPrefsAsync(BrowserState.Empty);
         }
         catch (Exception ex) when (ex is JsonException or InvalidOperationException)
         {
             // 모양이 어긋나거나 회로가 이미 끊긴 경우다. 위와 같이 다룬다.
             logger.LogDebug(ex, "브라우저 상태를 옮기지 못했다. 없는 것으로 본다.");
-            return BrowserState.Empty;
+            return await WithAccountPrefsAsync(BrowserState.Empty);
+        }
+    }
+
+    /// <summary>
+    /// 브라우저에서 읽은 한 벌 위에 <b>계정에 담긴 다섯</b>을 얹는다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 계정에 그 열쇠가 <b>없으면</b> 브라우저에 남아 있던 옛 값을 한 번
+    /// 올리고(<see cref="PortalPrefs.AdoptFromBrowserAsync"/>) 올린 자리를
+    /// 브라우저에서 걷는다. 안 걷으면 계정 쪽에서 기본값으로 되돌린 사람이
+    /// <b>다음 로그인에 옛 값을 다시 받는다.</b>
+    /// </para>
+    /// <para>
+    /// 올릴 것이 없으면 왕복도 없다 — 대부분의 로그인이 그렇다.
+    /// </para>
+    /// </remarks>
+    private async Task<BrowserState> WithAccountPrefsAsync(BrowserState state)
+    {
+        var account = await prefs.AdoptFromBrowserAsync(
+            state.BottomNavHidden,
+            state.BottomNavItemsJson,
+            state.FabHidden,
+            state.HelpDeskFabHidden,
+            state.ToastPositionStored);
+
+        if (account is null)
+        {
+            account = await prefs.ReadAsync();
+        }
+        else
+        {
+            await ForgetMovedKeysAsync();
+        }
+
+        return state.WithAccountPrefs(account);
+    }
+
+    /// <summary>
+    /// 계정으로 올린 다섯을 브라우저에서 지운다. 못 지워도 그냥 간다 —
+    /// 다음 로그인에 다시 올라가려 해도 계정에 열쇠가 이미 있어서 안 올라간다.
+    /// </summary>
+    private async Task ForgetMovedKeysAsync()
+    {
+        foreach (var key in MovedToAccountKeys)
+        {
+            try
+            {
+                await js.InvokeVoidAsync("localStorage.removeItem", key);
+            }
+            catch (Exception ex) when (ex is JSException or InvalidOperationException)
+            {
+                logger.LogDebug(ex, "계정으로 옮긴 설정을 브라우저에서 지우지 못했다.");
+                return;
+            }
         }
     }
 
@@ -627,30 +754,26 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
     /// 모바일 메뉴 단추(FAB)를 감출지를 저장하고 화면에 알린다.
     /// </summary>
     /// <remarks>
-    /// <b>끌 때는 열쇠를 지운다.</b> <c>"0"</c> 을 적어 두면 읽는 쪽의
-    /// 「있으면 그렇다는 뜻」 판정(<see cref="BrowserState.From"/>)에 걸려
-    /// <b>꺼 둔 것이 켜 둔 것으로 읽힌다.</b>
+    /// <para>
+    /// <b>계정에 담긴다</b>(<see cref="PortalPrefs.FabHiddenKey"/>) — 「이
+    /// 단추를 쓸 것인가」는 기기가 아니라 사람의 뜻이라, 휴대폰에서 감춘
+    /// 사람이 태블릿에서 다시 감추게 할 까닭이 없다. 자리(<see
+    /// cref="SetFabPositionAsync"/>)는 그대로 브라우저에 남는다 — 그쪽은
+    /// 손가락으로 끌어 옮기는 값이라 기기마다 다른 것이 맞다.
+    /// </para>
+    /// <para>
+    /// <b>보이기로 할 때는 열쇠를 지운다</b>(<c>null</c> 을 보낸다). 거짓을
+    /// 적어 두어도 읽히기는 하지만, 그러면 <b>아무것도 안 고친 사람</b>과
+    /// <b>보이기를 고른 사람</b>이 담긴 모양으로 갈리지 않는다 — 옛 값을
+    /// 들고 올릴지 말지를 그 갈림으로 판정한다.
+    /// </para>
     /// </remarks>
     public async Task SetFabHiddenAsync(bool hidden)
     {
-        try
-        {
-            if (hidden)
-            {
-                await js.InvokeVoidAsync("localStorage.setItem", FabHiddenKey, "1");
-            }
-            else
-            {
-                await js.InvokeVoidAsync("localStorage.removeItem", FabHiddenKey);
-            }
-        }
-        catch (Exception ex) when (ex is JSException or InvalidOperationException)
-        {
-            logger.LogDebug(ex, "모바일 메뉴 단추 숨김 여부를 브라우저에 저장하지 못했다.");
-        }
-
         Remember(state => state.WithFabHidden(hidden));
         FabHiddenChanged?.Invoke(hidden);
+
+        await prefs.SetAsync(PortalPrefs.FabHiddenKey, hidden ? true : null);
     }
 
     /// <summary>헬프데스크 요청 등록 단추 위치가 바뀌었을 때 알린다.</summary>
@@ -683,30 +806,16 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
     /// 헬프데스크 요청 등록 단추를 감출지를 저장하고 화면에 알린다.
     /// </summary>
     /// <remarks>
-    /// <b>보이기로 할 때는 열쇠를 지운다.</b> <c>"0"</c> 을 적어 두면 읽는 쪽의
-    /// 「있으면 그렇다는 뜻」 판정(<see cref="BrowserState.From"/>)에 걸려
-    /// <b>보이기로 한 것이 감춘 것으로 읽힌다</b>(<see cref="SetFabHiddenAsync"/> 와 같다).
+    /// <b>계정에 담긴다</b>(<see cref="PortalPrefs.HelpDeskFabHiddenKey"/>) —
+    /// 위 <see cref="SetFabHiddenAsync"/> 와 같은 꼴이고 까닭도 같다.
+    /// 보이기로 할 때 열쇠를 지우는 것도 같다.
     /// </remarks>
     public async Task SetHelpDeskFabHiddenAsync(bool hidden)
     {
-        try
-        {
-            if (hidden)
-            {
-                await js.InvokeVoidAsync("localStorage.setItem", HelpDeskFabHiddenKey, "1");
-            }
-            else
-            {
-                await js.InvokeVoidAsync("localStorage.removeItem", HelpDeskFabHiddenKey);
-            }
-        }
-        catch (Exception ex) when (ex is JSException or InvalidOperationException)
-        {
-            logger.LogDebug(ex, "헬프데스크 요청 등록 단추 숨김 여부를 브라우저에 저장하지 못했다.");
-        }
-
         Remember(state => state.WithHelpDeskFabHidden(hidden));
         HelpDeskFabHiddenChanged?.Invoke(hidden);
+
+        await prefs.SetAsync(PortalPrefs.HelpDeskFabHiddenKey, hidden ? true : null);
     }
 
     /// <summary>요청 등록 단추를 넓은 화면에도 띄울지가 바뀌었을 때 알린다.</summary>
@@ -791,30 +900,17 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
     /// 휴대폰 아래 띠를 <b>쓰지 않을지</b>를 저장하고 화면에 알린다.
     /// </summary>
     /// <remarks>
-    /// 다시 쓰기로 할 때는 <b>열쇠를 지운다.</b> <c>"0"</c> 을 적으면 읽는 쪽의
-    /// 「있으면 그렇다는 뜻」 판정에 걸려 <b>쓰기로 한 것이 안 쓰는 것으로
-    /// 읽힌다</b>(<see cref="BottomNavHiddenKey"/>).
+    /// <b>계정에 담긴다</b>(<see cref="PortalPrefs.BottomNavHiddenKey"/>).
+    /// 아래 <see cref="SetBottomNavItemsAsync"/> 와 한 묶음이라 담기는 곳도
+    /// 같아야 한다 — 갈라 두면 <b>칸은 따라오는데 띠가 안 뜨는</b> 기기가 생긴다.
+    /// 다시 쓰기로 할 때 열쇠를 지우는 까닭은 <see cref="SetFabHiddenAsync"/> 와 같다.
     /// </remarks>
     public async Task SetBottomNavHiddenAsync(bool hidden)
     {
-        try
-        {
-            if (hidden)
-            {
-                await js.InvokeVoidAsync("localStorage.setItem", BottomNavHiddenKey, "1");
-            }
-            else
-            {
-                await js.InvokeVoidAsync("localStorage.removeItem", BottomNavHiddenKey);
-            }
-        }
-        catch (Exception ex) when (ex is JSException or InvalidOperationException)
-        {
-            logger.LogDebug(ex, "하단 네비게이션 사용 여부를 브라우저에 저장하지 못했다.");
-        }
-
         Remember(state => state.WithBottomNavHidden(hidden));
         BottomNavHiddenChanged?.Invoke(hidden);
+
+        await prefs.SetAsync(PortalPrefs.BottomNavHiddenKey, hidden ? true : null);
     }
 
     /// <summary>띠에 놓을 칸이 바뀌었을 때 알린다. 날것 JSON 을 그대로 준다.</summary>
@@ -824,32 +920,55 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
     /// 띠에 놓을 칸들을 저장하고 화면에 알린다.
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// <b>계정에 담긴다</b>(<see cref="PortalPrefs.BottomNavItemsKey"/>).
+    /// <b>이 값 때문에 다섯이 통째로 옮겨 왔다</b> — 띠에 무엇을 놓을지는
+    /// 「내가 자주 쓰는 메뉴」를 고르는 일이고, 사람이 손에 드는 기기는
+    /// 하나가 아니다. 브라우저에 두면 회사 휴대폰과 개인 휴대폰과 홈 화면에
+    /// 깐 앱이 <b>서로 다른 띠</b>를 띄운다.
+    /// </para>
+    /// <para>
     /// <paramref name="json"/> 이 비면 <b>열쇠를 지운다</b> — 「기본값으로
     /// 되돌리기」가 그 길이다. 빈 배열(<c>[]</c>)을 적어 두면 칸이 하나도 없는
     /// 빈 띠가 남고, 그 자리에서 사람은 고장으로 읽는다.
+    /// </para>
+    /// <para>
+    /// 담길 때는 <b>글자가 아니라 배열</b>이다. 글자로 싸서 담으면 DB 에서
+    /// 눈으로 못 읽고, 읽는 쪽이 한 겹을 더 벗겨야 한다. 못 푸는 글자가
+    /// 들어오면 <b>안 고친 것으로 본다</b> — 여기서 막지 않으면 모양이
+    /// 아닌 것이 계정에 박혀 모든 기기의 띠가 함께 망가진다.
+    /// </para>
     /// </remarks>
     public async Task SetBottomNavItemsAsync(string? json)
     {
         var value = string.IsNullOrWhiteSpace(json) ? null : json;
 
-        try
-        {
-            if (value is null)
-            {
-                await js.InvokeVoidAsync("localStorage.removeItem", BottomNavItemsKey);
-            }
-            else
-            {
-                await js.InvokeVoidAsync("localStorage.setItem", BottomNavItemsKey, value);
-            }
-        }
-        catch (Exception ex) when (ex is JSException or InvalidOperationException)
-        {
-            logger.LogDebug(ex, "하단 네비게이션 항목을 브라우저에 저장하지 못했다.");
-        }
-
         Remember(state => state.WithBottomNavItems(value));
         BottomNavItemsChanged?.Invoke(value);
+
+        await prefs.SetAsync(PortalPrefs.BottomNavItemsKey, AsArray(value));
+    }
+
+    /// <summary>
+    /// 날것 JSON 을 담을 수 있는 배열로. 비었거나 배열이 아니면 <c>null</c>
+    /// 이고, 그때는 <see cref="PortalPrefs.SetAsync"/> 가 열쇠를 지운다.
+    /// </summary>
+    private static JsonElement? AsArray(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            return null;
+        }
+
+        try
+        {
+            var element = JsonDocument.Parse(json).RootElement.Clone();
+            return element.ValueKind == JsonValueKind.Array ? element : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     /// <summary>토스트 알림 위치가 바뀌었을 때 알린다.</summary>
@@ -858,21 +977,21 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
     /// <summary>
     /// 토스트 알림 위치를 저장하고 화면에 알린다.
     /// </summary>
+    /// <remarks>
+    /// <b>계정에 담긴다</b>(<see cref="PortalPrefs.ToastPositionKey"/>).
+    /// 알림이 뜨는 자리는 그 사람이 화면을 쓰는 버릇에서 나오는 값이라
+    /// (오른손잡이가 오른쪽 아래를 가리고 있느냐) 기기를 가릴 까닭이 없다.
+    /// <b>여기만 지우는 길이 없다</b> — 고르개에 「안 고름」이 없어서 늘
+    /// 글자 하나가 담긴다.
+    /// </remarks>
     public async Task SetToastPositionAsync(string position)
     {
         var normalized = NormalizeToastPosition(position);
 
-        try
-        {
-            await js.InvokeVoidAsync("localStorage.setItem", ToastPositionKey, normalized);
-        }
-        catch (Exception ex) when (ex is JSException or InvalidOperationException)
-        {
-            logger.LogDebug(ex, "토스트 알림 위치를 브라우저에 저장하지 못했다.");
-        }
-
         Remember(state => state.WithToastPosition(normalized));
         ToastPositionChanged?.Invoke(normalized);
+
+        await prefs.SetAsync(PortalPrefs.ToastPositionKey, normalized);
     }
 
     /// <summary>
@@ -1242,6 +1361,19 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         public string ToastPosition { get; private set; } = "bottom-right";
 
         /// <summary>
+        /// 브라우저에 <b>적혀 있던 그대로</b>의 토스트 자리. 적힌 적이 없으면
+        /// <c>null</c> 이다.
+        /// </summary>
+        /// <remarks>
+        /// <see cref="ToastPosition"/> 과 갈라 두는 까닭은 <b>고른 적이
+        /// 없는 것</b>과 <b>기본값을 고른 것</b>이 저쪽에서는 똑같이
+        /// <c>bottom-right</c> 로 보이기 때문이다. 옛 값을 계정으로 올릴 때
+        /// 그 둘을 못 가리면 <b>아무것도 안 고른 사람 전원</b>의 계정에
+        /// 「bottom-right 를 골랐다」가 적힌다.
+        /// </remarks>
+        internal string? ToastPositionStored { get; private init; }
+
+        /// <summary>
         /// 위치를 저절로 다시 확인하는 간격(분). 고른 적이 없으면
         /// <see cref="DefaultGeoSyncMinutes"/> 다.
         /// </summary>
@@ -1308,6 +1440,24 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
 
         internal BrowserState WithZoomUnlocked(bool value) => Patch(c => c.ZoomUnlocked = value);
 
+        /// <summary>
+        /// 계정에 담긴 다섯을 얹은 새 한 벌(<see cref="PortalPrefs"/>).
+        /// </summary>
+        /// <remarks>
+        /// <b>고른 적이 없는 칸은 건드리지 않는다.</b> 계정에 열쇠가 없다는
+        /// 것은 「기본값」이라는 뜻이고, 그 기본값은 이미 이 한 벌에 들어
+        /// 있다 — 덮어쓰면 올리기 전에 읽힌 값이 한 번 번쩍인다.
+        /// </remarks>
+        internal BrowserState WithAccountPrefs(PortalPrefsData account) => Patch(c =>
+        {
+            c.BottomNavHidden = account.Flag(PortalPrefs.BottomNavHiddenKey) ?? c.BottomNavHidden;
+            c.BottomNavItemsJson = account.Raw(PortalPrefs.BottomNavItemsKey) ?? c.BottomNavItemsJson;
+            c.FabHidden = account.Flag(PortalPrefs.FabHiddenKey) ?? c.FabHidden;
+            c.HelpDeskFabHidden = account.Flag(PortalPrefs.HelpDeskFabHiddenKey) ?? c.HelpDeskFabHidden;
+            c.ToastPosition = NormalizeToastPosition(
+                account.Text(PortalPrefs.ToastPositionKey) ?? c.ToastPosition);
+        });
+
         internal static BrowserState From(BootWire wire) => new()
         {
             // 값이 "1" 이든 무엇이든 **있으면 그렇다는 뜻**이다. 옛 코드가
@@ -1333,6 +1483,7 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
             BottomNavHidden = Has(wire.Local, BottomNavHiddenKey),
             BottomNavItemsJson = Get(wire.Local, BottomNavItemsKey),
             ToastPosition = NormalizeToastPosition(Get(wire.Local, ToastPositionKey)),
+            ToastPositionStored = Get(wire.Local, ToastPositionKey),
             GeoSyncMinutes = NormalizeGeoSyncMinutes(Minutes(Get(wire.Local, GeoSyncIntervalKey))),
             ZoomUnlocked = Has(wire.Local, ZoomUnlockedKey),
         };

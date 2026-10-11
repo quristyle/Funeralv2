@@ -65,6 +65,123 @@ public class AccountPreferenceService : IAccountPreferenceService
     }
 
     /// <inheritdoc />
+    public async Task<SavePreferenceResult> MergeAsync(string userIdOrKey, JsonElement patch)
+    {
+        // 객체가 아니면 섞을 것이 없다. SaveAsync 와 달리 **빈 것으로 덮어쓰지
+        // 않는다** — 여기서 `{}` 로 떨어뜨리면 「한 칸만 고친다」고 부른 쪽이
+        // 조용히 전부를 지우게 된다.
+        if (patch.ValueKind != JsonValueKind.Object)
+        {
+            return SavePreferenceResult.Success;
+        }
+
+        var account = await _db.Accounts
+            .Where(a => a.UserId == userIdOrKey || a.Id == userIdOrKey)
+            .Select(a => new { a.Id })
+            .FirstOrDefaultAsync();
+
+        if (account is null)
+        {
+            return SavePreferenceResult.AccountNotFound;
+        }
+
+        var row = await _db.AccountPreferences
+            .FirstOrDefaultAsync(p => p.AccountId == account.Id);
+
+        var merged = Merge(row?.Payload, patch);
+
+        if (Encoding.UTF8.GetByteCount(merged) > MaxPayloadBytes)
+        {
+            return SavePreferenceResult.TooLarge;
+        }
+
+        if (row is null)
+        {
+            _db.AccountPreferences.Add(new AccountPreference
+            {
+                AccountId = account.Id,
+                Payload = merged
+            });
+        }
+        else
+        {
+            row.Payload = merged;
+        }
+
+        await _db.SaveChangesAsync();
+        return SavePreferenceResult.Success;
+    }
+
+    /// <summary>
+    /// 저장돼 있던 글자에 <paramref name="patch"/> 의 열쇠만 얹어 새 글자를 만든다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 값이 <c>null</c> 인 열쇠는 <b>빼고 적는다</b>. 「기본값으로 되돌리기」가
+    /// 그 길이고, 빼 두면 읽는 쪽이 <see cref="JsonValueKind.Null"/> 과
+    /// 「없음」을 가릴 필요가 없다.
+    /// </para>
+    /// <para>
+    /// 저장된 것이 깨져 있으면 <b>없던 것으로 본다</b> —
+    /// <see cref="GetAsync"/> 가 같은 자리에서 같은 판단을 한다. 고치려고 부른
+    /// 호출이 「읽을 수 없다」로 막히면 사람이 되돌릴 길이 없다.
+    /// </para>
+    /// </remarks>
+    private string Merge(string? stored, JsonElement patch)
+    {
+        var keep = new Dictionary<string, JsonElement>(StringComparer.Ordinal);
+
+        if (!string.IsNullOrWhiteSpace(stored))
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(stored);
+
+                if (doc.RootElement.ValueKind == JsonValueKind.Object)
+                {
+                    foreach (var prop in doc.RootElement.EnumerateObject())
+                    {
+                        keep[prop.Name] = prop.Value.Clone();
+                    }
+                }
+            }
+            catch (JsonException ex)
+            {
+                _logger.LogWarning(ex, "저장된 환경설정을 읽지 못해 보낸 것만 남깁니다.");
+            }
+        }
+
+        foreach (var prop in patch.EnumerateObject())
+        {
+            if (prop.Value.ValueKind == JsonValueKind.Null)
+            {
+                keep.Remove(prop.Name);
+            }
+            else
+            {
+                keep[prop.Name] = prop.Value.Clone();
+            }
+        }
+
+        var buffer = new MemoryStream();
+
+        using (var writer = new Utf8JsonWriter(buffer))
+        {
+            writer.WriteStartObject();
+
+            foreach (var (name, value) in keep)
+            {
+                writer.WritePropertyName(name);
+                value.WriteTo(writer);
+            }
+
+            writer.WriteEndObject();
+        }
+
+        return Encoding.UTF8.GetString(buffer.ToArray());
+    }
+
+    /// <inheritdoc />
     public async Task<SavePreferenceResult> SaveAsync(string userIdOrKey, JsonElement payload)
     {
         // 객체가 아니면 받지 않는다. 배열이나 숫자가 들어오면 프론트가 되돌려 읽을 때 깨진다.

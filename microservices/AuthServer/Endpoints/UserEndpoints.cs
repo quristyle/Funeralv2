@@ -255,6 +255,40 @@ public static class UserEndpoints
         })
         .WithName("SaveAccountPreferences");
 
+        // ── 한 칸만 고치기 ──────────────────────────────────────
+        //
+        // 위 PUT 은 보낸 것으로 **통째로** 덮어쓴다. 설정이 브라우저에만
+        // 남던 동안에는 그것으로 됐는데, 이제 기기를 넘나들면서
+        // **고치는 자리가 둘 이상**이 되었다 — 휴대폰에서 아래 띠를 고치고
+        // 책상에서 토스트 위치를 고르는 일이 같은 날 일어난다.
+        //
+        // 그때 PUT 으로 보내면 책상이 들고 있던 **로그인하던 때의 한 벌**이
+        // 휴대폰이 방금 바꾼 띠를 덮어쓴다. 한 칸만 보내게 하면 그 길이 없다.
+        group.MapPatch("/preferences", async (UserContext? user, [FromBody] AccountPreferenceDto request, [FromServices] IAccountPreferenceService service) =>
+        {
+            if (user is null)
+            {
+                return Results.Json(ApiResponse<object>.Fail("인증 정보가 없습니다.", "401"), statusCode: 401);
+            }
+
+            var result = await service.MergeAsync(user.UserId, request.Payload);
+            return result switch
+            {
+                SavePreferenceResult.Success
+                    => Results.Ok(ApiResponse<object>.Ok(null)),
+                SavePreferenceResult.AccountNotFound
+                    => Results.Json(ApiResponse<object>.Fail("계정을 찾을 수 없습니다.", "404"), statusCode: 404),
+                SavePreferenceResult.TooLarge
+                    => Results.Json(
+                        ApiResponse<object>.Fail(
+                            $"환경설정이 너무 큽니다. {AccountPreferenceService.MaxPayloadBytes / 1024}KB 이내여야 합니다.",
+                            "400"),
+                        statusCode: 400),
+                _ => Results.Json(ApiResponse<object>.Fail("환경설정 저장에 실패했습니다.", "400"), statusCode: 400),
+            };
+        })
+        .WithName("MergeAccountPreferences");
+
         // ── 로그인한 뒤 처음 열리는 화면 ────────────────────────
         //
         // 위의 `/preferences` 와 담기는 곳이 다르다. 저것은 **프론트가 만든

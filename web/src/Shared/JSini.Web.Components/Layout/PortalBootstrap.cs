@@ -1,6 +1,8 @@
 using System.Security.Claims;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using JSini.Web.Components.Menu;
+using JSini.Web.Components.Settings;
 using JSini.Web.Components.Security;
 using JSini.Web.Http;
 using JSini.Web.Models.Menu;
@@ -37,6 +39,7 @@ public sealed class PortalBootstrap(
     PermissionContext permissions,
     MenuFavorites favorites,
     CurrentUser me,
+    PortalPrefs prefs,
     ILogger<PortalBootstrap> logger)
 {
     /// <summary>넷을 채운다. 통에 있으면 게이트웨이를 부르지 않는다.</summary>
@@ -105,7 +108,40 @@ public sealed class PortalBootstrap(
         menus.Apply(wire.Menus, wire.MenuTree);
         favorites.Apply(wire.Favorites);
         me.Apply(wire.User);
+
+        // 다섯째 — 계정에 담긴 화면 설정(아래 띠 · 바로가기 단추 · 토스트 자리).
+        // **왕복을 아끼려고 여기 실려 온다**(`PortalPrefs` 머리말).
+        prefs.Seed(wire.Preferences);
+        KeepPrefsFresh(wire);
     }
+
+    /// <summary>
+    /// 통에 든 설정을 사용자가 바꾼 것과 맞춰 둔다.
+    ///
+    /// <para>
+    /// <see cref="KeepFavoritesFresh"/> 와 같은 까닭이고 <b>더 자주 걸린다</b> —
+    /// 환경설정 화면에서 스위치 하나를 켜고 업무를 옮기면, 안 맞춰 둔 통이
+    /// 옛 값을 되살려 <i>방금 켠 것이 저절로 꺼진 것처럼</i> 보인다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>통에 넣기 전에 걸어도 된다.</b> 담기는 것은 같은 객체의 참조라
+    /// (<see cref="PortalBootstrapWire"/> 는 클래스다) 나중에 고쳐도 통 안의
+    /// 것이 함께 바뀐다 — 즐겨찾기가 이미 그렇게 하고 있다.
+    /// </para>
+    /// </summary>
+    private void KeepPrefsFresh(PortalBootstrapWire wire)
+    {
+        if (_watchingPrefs)
+        {
+            return;
+        }
+
+        _watchingPrefs = true;
+        prefs.Changed += payload => wire.Preferences = payload;
+    }
+
+    private bool _watchingPrefs;
 
     /// <summary>
     /// 통에 든 즐겨찾기를 사용자가 바꾼 것과 맞춰 둔다.
@@ -166,6 +202,13 @@ public sealed class PortalBootstrap(
 
         [JsonPropertyName("user")]
         public CurrentUser.UserInfoWire? User { get; set; }
+
+        /// <summary>
+        /// 계정에 담아 둔 화면 설정. 담긴 것이 없으면 빈 객체(<c>{}</c>)다.
+        /// 무엇이 들었는지 아는 곳은 <see cref="PortalPrefs"/> 하나다.
+        /// </summary>
+        [JsonPropertyName("preferences")]
+        public JsonElement Preferences { get; set; }
 
         /// <summary>
         /// 이 응답으로 만든 메뉴 트리를 기억하는 통.

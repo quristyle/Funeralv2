@@ -37,7 +37,8 @@ public static class PortalBootstrapEndpoints
             [FromQuery] string? locale,
             [FromServices] IMenuService menuService,
             [FromServices] IMenuFavoriteService favoriteService,
-            [FromServices] IUserService userService) =>
+            [FromServices] IUserService userService,
+            [FromServices] IAccountPreferenceService preferenceService) =>
         {
             if (user is null)
             {
@@ -55,12 +56,19 @@ public static class PortalBootstrapEndpoints
             var favorites = await favoriteService.GetFavoritesAsync(user.UserId);
             var info = await userService.GetUserInfoAsync(user.UserId);
 
+            // 다섯째다. 휴대폰 아래 띠·떠다니는 단추·토스트 위치가 브라우저
+            // 저장소를 떠나 계정으로 올라오면서, 레이아웃이 뜰 때 **반드시
+            // 있어야 하는 것**이 되었다. 따로 부르게 두면 업무를 넘나들
+            // 때마다 왕복이 하나씩 늘어난다 — 이 묶음이 막으려던 바로 그것이다.
+            var preferences = await preferenceService.GetAsync(user.UserId);
+
             return Results.Ok(ApiResponse<PortalBootstrapDto>.Ok(new PortalBootstrapDto
             {
                 Menus = menus,
                 Permissions = permissions,
                 Favorites = favorites,
                 User = info,
+                Preferences = preferences,
             }));
         })
         .WithName("GetPortalBootstrap");

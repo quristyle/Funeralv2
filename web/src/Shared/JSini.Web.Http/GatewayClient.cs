@@ -107,6 +107,22 @@ public sealed class GatewayClient(HttpClient http)
         CancellationToken cancellationToken = default)
         => SendAsync<object>(HttpMethod.Put, path, body, cancellationToken);
 
+    /// <summary>
+    /// <b>보낸 칸만</b> 고치고 결과는 쓰지 않는다.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="PutAsync(string, object?, CancellationToken)"/> 와 갈라 둔 것은
+    /// <b>덮어쓰는 범위가 다르기 때문</b>이다. 한 벌을 통째로 들고 있다가 그중
+    /// 하나를 고쳐 보내는 길은, 들고 있던 한 벌이 낡았을 때 <b>남이 그 사이에
+    /// 바꾼 것을 조용히 되돌린다.</b> 계정에 담겨 기기를 넘나드는 값
+    /// (<c>auth/user/preferences</c>)이 실제로 그 자리에 있다.
+    /// </remarks>
+    public Task PatchAsync(
+        string path,
+        object? body,
+        CancellationToken cancellationToken = default)
+        => SendAsync<object>(HttpMethod.Patch, path, body, cancellationToken);
+
     /// <summary>지운다.</summary>
     public Task DeleteAsync(
         string path,

@@ -391,6 +391,14 @@ public static class JSiniWebApp
         // 레이아웃이 뜰 때 넷을 한 번에 읽는 자리(PortalBootstrap 머리말).
         services.AddScoped<PortalBootstrap>();
 
+        // 계정에 담긴 화면 설정(휴대폰 아래 띠 · 바로가기 단추 사용 여부 ·
+        // 토스트 자리). **브라우저가 아니라 사람에게 붙는다** — 기기가
+        // 달라도 같은 띠가 떠야 한다는 것이 그 다섯의 요구다(PortalPrefs 머리말).
+        //
+        // **scoped 다.** 담기는 것이 사용자 한 명의 설정이고, 값은 위
+        // 부트스트랩이 실어 오므로 이것이 왕복을 따로 내지 않는다.
+        services.AddScoped<Settings.PortalPrefs>();
+
         // 브라우저에서 읽어 올 것을 한 왕복으로 읽는 자리(PortalBoot 머리말).
         //
         // **scoped 다.** 담는 값이 「이 탭의 것」이고(잠금 · 고정 탭) 저장소
