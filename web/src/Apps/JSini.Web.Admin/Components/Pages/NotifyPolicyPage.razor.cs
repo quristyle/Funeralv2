@@ -188,10 +188,10 @@ public partial class NotifyPolicyPage : IDisposable
     /// 색만으로 가르지 않는다 — 카드 아래 줄에 <see cref="NotifyEventDto.ChannelSummary"/>
     /// 가 늘 글자로 서 있다(색각 이상이 있어도 읽힌다).
     /// </remarks>
-    private static string CardTone(NotifyEventDto e) => e switch
+    private string CardTone(NotifyEventDto e) => e switch
     {
         { Governed: false } => "off",
-        { IsActive: false } => "warn",
+        _ when !IsEventActive(e) => "warn",
         { Unrestricted: true } => "free",
         _ => "on",
     };
@@ -410,6 +410,40 @@ public partial class NotifyPolicyPage : IDisposable
         return changed ? SavePolicyAsync() : Task.CompletedTask;
     }
 
+    /// <summary>
+    /// 이벤트의 사용 여부를 구한다. 지금 고치고 있는 선택 이벤트는 화면의 _isActive 를 따른다.
+    /// </summary>
+    private bool IsEventActive(NotifyEventDto e) =>
+        _selected?.Code == e.Code ? _isActive : e.IsActive;
+
+    /// <summary>키보드로 카드를 선택한다.</summary>
+    private Task OnCardKeyDown(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e, NotifyEventDto ev)
+    {
+        if (e.Key is "Enter" or " ")
+        {
+            return SelectAsync(ev);
+        }
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// 카드 목록의 스위치 변경 시 해당 이벤트의 사용 여부를 곧바로 변경 및 저장한다.
+    /// </summary>
+    private async Task OnCardActiveChangedAsync(NotifyEventDto ev, bool value)
+    {
+        if (!_canEdit || !ev.Governed || IsEventActive(ev) == value)
+        {
+            return;
+        }
+
+        if (_selected?.Code != ev.Code)
+        {
+            await SelectAsync(ev);
+        }
+
+        await OnActiveChangedAsync(value);
+    }
+
     /// <summary>이벤트 사용 여부 스위치 변경 시 저장한다.</summary>
     private async Task OnActiveChangedAsync(bool value)
     {
@@ -427,7 +461,11 @@ public partial class NotifyPolicyPage : IDisposable
                     confirmText: "끄기",
                     confirmStyle: DevExpress.Blazor.ButtonRenderStyle.Danger);
 
-                if (!asked) return;
+                if (!asked)
+                {
+                    StateHasChanged();
+                    return;
+                }
             }
         }
 

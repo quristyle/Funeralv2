@@ -127,12 +127,13 @@
                         var on = _selected is not null && _selected.Code == ev.Code;
 
                         @* 카드 한 장이 이벤트 하나다. 석 줄로 읽는다 —
-                           이름과 딱지 · 설명 · 받는 설정과 발생처. *@
-                        <button type="button"
-                                class="np-card np-card--@CardTone(ev) @(on ? "is-on" : null)"
-                                role="option" aria-selected="@on"
-                                @onclick="@(() => SelectAsync(ev))">
-                            <span class="np-card__top">
+                           이름과 딱지 · 설명 · 받는 설정과 발생처.
+                           사용여부 스위치로 목록에서 바로 확인하고 켜고 끌 수 있다. *@
+                        <div class="np-card np-card--@CardTone(ev) @(on ? "is-on" : null)"
+                             role="option" aria-selected="@on" tabindex="0"
+                             @onclick="@(() => SelectAsync(ev))"
+                             @onkeydown="@(e => OnCardKeyDown(e, ev))">
+                            <div class="np-card__top">
                                 <span class="np-card__name">@ev.Name</span>
                                 @if (!ev.Governed)
                                 {
@@ -140,11 +141,20 @@
                                        체크를 켜 보고 나서 알게 하면 안 된다. *@
                                     <span class="jsini-badge">정책 밖</span>
                                 }
-                                else if (!ev.IsActive)
+                                else if (!IsEventActive(ev))
                                 {
                                     <span class="jsini-badge jsini-badge--warn">꺼짐</span>
                                 }
-                            </span>
+                                <span class="np-card__switch"
+                                      @onclick="@(() => { })"
+                                      @onclick:stopPropagation="true">
+                                    <DxCheckBox Checked="@IsEventActive(ev)"
+                                                CheckedChanged="@((bool v) => OnCardActiveChangedAsync(ev, v))"
+                                                CheckType="CheckType.Switch"
+                                                Enabled="@(ev.Governed && _canEdit)"
+                                                Title="@(ev.Governed ? (IsEventActive(ev) ? "알림 사용 중 (누르면 끕니다)" : "알림 꺼짐 (누르면 켭니다)") : "정책 밖 알림")" />
+                                </span>
+                            </div>
 
                             @if (!string.IsNullOrWhiteSpace(ev.Description))
                             {
@@ -158,7 +168,7 @@
                                     <span class="np-card__src">@ev.Source</span>
                                 }
                             </span>
-                        </button>
+                        </div>
                     }
                 </div>
             }
@@ -225,6 +235,7 @@
                 <div class="np-switch">
                     <DxCheckBox Checked="@_isActive"
                                 CheckedChanged="@((bool v) => OnActiveChangedAsync(v))"
+                                CheckType="CheckType.Switch"
                                 Enabled="@(_selected.Governed && _canEdit)">
                         이 이벤트의 알림을 쓴다
                     </DxCheckBox>

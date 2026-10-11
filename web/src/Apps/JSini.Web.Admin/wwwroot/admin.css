@@ -4229,6 +4229,17 @@
   font-weight: 600;
 }
 
+.np-card__switch {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  cursor: default;
+}
+
+.np-card__switch .dxbl-checkbox {
+  margin: 0;
+}
+
 /* 설명은 **두 줄까지**. 이것을 보여 주려고 표를 걷은 것이라 한 줄로
    자르면 뜻이 끊기고, 다 펴면 카드 하나가 화면을 먹는다. */
 .np-card__desc {
