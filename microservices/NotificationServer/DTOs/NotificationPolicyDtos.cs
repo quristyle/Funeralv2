@@ -34,6 +34,13 @@ public class NotificationEventDto
 
     public bool SupportsEmail { get; set; }
 
+    /// <summary>
+    /// 메일을 <b>푸시 경로가 함께 내나</b>. 참이면 앱 푸시와 <b>같은 내용</b>이
+    /// 메일로 가고, 거짓이면 보내는 쪽이 제 틀로 따로 낸다. 화면이 이 값으로
+    /// 「이메일」 체크 아래 안내를 가른다.
+    /// </summary>
+    public bool EmailFromPush { get; set; }
+
     /// <summary>거짓이면 설정을 받아 두되 발송에는 아직 안 걸린다.</summary>
     public bool Governed { get; set; }
 

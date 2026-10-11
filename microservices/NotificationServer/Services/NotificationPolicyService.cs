@@ -20,11 +20,17 @@ namespace NotificationServer.Services;
 /// 역할 대상 이벤트인가. 참이면 <paramref name="RoleIds"/> 에 걸린 사람이
 /// <b>받는 사람 목록</b>이 되고, 거짓이면 <b>거름막</b>으로만 쓴다.
 /// </param>
+/// <param name="MailsFromPush">
+/// 이 이벤트의 메일을 <b>푸시 경로가 함께 내나</b>
+/// (<see cref="NotificationEventRow.EmailFromPush"/>). 메일 길에서는 안 보고
+/// <see cref="PushSender"/> 만 본다.
+/// </param>
 public sealed record NotificationPolicyDecision(
     bool Blocked,
     bool Unrestricted,
     IReadOnlyList<string> RoleIds,
-    bool TargetsRoles)
+    bool TargetsRoles,
+    bool MailsFromPush = false)
 {
     /// <summary>정책을 못 찾았거나 걸 것이 없을 때의 값.</summary>
     public static readonly NotificationPolicyDecision Free =
@@ -190,7 +196,12 @@ public sealed class NotificationPolicyService(
             Unrestricted: false,
             RoleIds: roleIds,
             TargetsRoles: string.Equals(
-                row.TargetKind, NotificationTargetKinds.Role, StringComparison.OrdinalIgnoreCase));
+                row.TargetKind, NotificationTargetKinds.Role, StringComparison.OrdinalIgnoreCase),
+
+            // **메일 곁가지의 열쇠다.** 이 값이 참인 이벤트만 푸시 경로가 메일을
+            // 함께 내고, 나머지는 부르는 쪽이 `/emails/send` 를 따로 부른다
+            // (`NotificationEventRow.EmailFromPush` 머리말).
+            MailsFromPush: row.EmailFromPush);
     }
 
     /// <summary>
@@ -290,6 +301,7 @@ public sealed class NotificationPolicyService(
                 TargetKind = e.TargetKind,
                 SupportsPush = e.SupportsPush,
                 SupportsEmail = e.SupportsEmail,
+                EmailFromPush = e.EmailFromPush,
                 Governed = e.Governed,
                 IsActive = e.IsActive,
                 OrderNo = e.OrderNo,

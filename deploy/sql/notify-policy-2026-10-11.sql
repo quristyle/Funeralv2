@@ -41,6 +41,13 @@
 --                   EMailUtil 이 직접 보낸다). 목록에서 빼면 「그 알림은
 --                   없다」로 읽히고, 걸 수 있는 것처럼 두면 껐는데도 온다
 --
+-- ── 메일이 나가는 길은 둘이다 (2026-10-11 덧붙임) ───────────
+--
+-- `email_from_push` 가 참인 다섯(DEPLOY · HELPDESK · BIRTHDAY · WEATHER ·
+-- SUBSCRIPTION)은 **PushSender 가 푸시와 같은 내용을 메일로도 낸다.** 나머지는
+-- 보내는 쪽이 `/emails/send` 로 제 틀의 메일을 따로 낸다 — 둘 다 참인 줄을
+-- 만들면 같은 알림이 두 통 간다. 까닭은 notify-policy-email-2026-10-11.sql.
+--
 -- 되돌리려면 맨 아래 한 줄.
 -- ============================================================
 
@@ -63,6 +70,11 @@ CREATE TABLE IF NOT EXISTS scom.notification_events (
     supports_push  boolean                  NOT NULL DEFAULT true,
     supports_email boolean                  NOT NULL DEFAULT false,
 
+    -- 참이면 PushSender 가 앱 푸시와 **같은 내용**을 메일로도 낸다. 거짓이면
+    -- 보내는 쪽이 /emails/send 로 제 틀의 메일을 따로 낸다 — 둘 다 참인 줄을
+    -- 만들면 같은 알림이 두 통 간다(notify-policy-email-2026-10-11.sql).
+    email_from_push boolean                 NOT NULL DEFAULT false,
+
     governed       boolean                  NOT NULL DEFAULT true,    -- 정책이 실제로 걸리나
     is_active      boolean                  NOT NULL DEFAULT true,    -- 끄면 아무에게도 안 간다
     order_no       integer                  NOT NULL DEFAULT 0,
@@ -77,6 +89,7 @@ CREATE TABLE IF NOT EXISTS scom.notification_events (
 COMMENT ON TABLE  scom.notification_events IS '알림 이벤트 카탈로그 — 어떤 일이 일어났을 때 보내는 알림인가';
 COMMENT ON COLUMN scom.notification_events.target_kind IS 'ROLE 이면 정책 역할이 받는 사람, USER 면 정책 역할이 거름막';
 COMMENT ON COLUMN scom.notification_events.governed IS '거짓이면 설정은 받아 두되 발송에는 안 걸린다';
+COMMENT ON COLUMN scom.notification_events.email_from_push IS '참이면 PushSender 가 앱 푸시와 같은 내용을 메일로도 낸다. 거짓이면 보내는 쪽이 /emails/send 로 따로 낸다 — 둘 다 참이면 두 통 간다';
 
 -- ── 역할별 정책 ─────────────────────────────────────────────
 --
@@ -117,71 +130,71 @@ CREATE INDEX IF NOT EXISTS "IX_notification_policies_event_code"
 
 INSERT INTO scom.notification_events (
     id, name, description, category, source,
-    target_kind, supports_push, supports_email, governed, is_active, order_no,
+    target_kind, supports_push, supports_email, email_from_push, governed, is_active, order_no,
     created_at, created_by
 ) VALUES
 -- ── 역할로 가는 것 ──
 ('DEPLOY', '배포 완료',
  '운영 배포가 끝났을 때. 실패한 배포도 알린다.',
- 'DEPLOY', 'NotificationServer', 'ROLE', true, false, true, true, 10, now(), 'notify-policy'),
+ 'DEPLOY', 'NotificationServer', 'ROLE', true, true, true, true, true, 10, now(), 'notify-policy'),
 
 ('SIGNUP', '가입 신청 접수',
  '포털 가입 신청이 들어왔을 때. 소셜 가입도 같은 길로 온다.',
- 'SIGNUP', 'AuthServer', 'ROLE', true, true, true, true, 20, now(), 'notify-policy'),
+ 'SIGNUP', 'AuthServer', 'ROLE', true, true, false, true, true, 20, now(), 'notify-policy'),
 
 ('HELPDESK', '헬프데스크 요청 등록',
- '새 요청이 올라왔을 때 처리할 사람에게. 메일은 옛 발송 경로라 HELPDESK_LEGACY 에 있다.',
- 'HELPDESK', 'HelpDeskServer', 'ROLE', true, false, true, true, 30, now(), 'notify-policy'),
+ '새 요청이 올라왔을 때 처리할 사람에게. 이메일을 켜면 같은 내용이 메일로도 간다 — 헬프데스크가 제 관리자 목록으로 따로 보내는 메일(HELPDESK_LEGACY)과 겹칠 수 있다.',
+ 'HELPDESK', 'HelpDeskServer', 'ROLE', true, true, true, true, true, 30, now(), 'notify-policy'),
 
 ('AI_TASK', 'AI 작업 요청·결과',
  '작업을 요청했을 때 지켜보는 역할에게, 끝났을 때 시킨 사람과 그 역할에게. 시킨 본인에게 가는 몫은 정책이 가리지 않는다.',
- 'AI_TASK', 'ProjMngServer', 'ROLE', true, true, true, true, 40, now(), 'notify-policy'),
+ 'AI_TASK', 'ProjMngServer', 'ROLE', true, true, false, true, true, 40, now(), 'notify-policy'),
 
 ('REPORT_MAIL', '보고서 메일',
  '시스템 모니터링 보고서를 주기로 보낼 때. 배치가 고른 역할을 정책이 대신한다.',
- NULL, 'AuthServer', 'ROLE', false, true, true, true, 50, now(), 'notify-policy'),
+ NULL, 'AuthServer', 'ROLE', false, true, false, true, true, 50, now(), 'notify-policy'),
 
 ('SITE_INQUIRY', '소개 사이트 문의 접수',
  '회사 소개 사이트에서 문의가 들어왔을 때.',
- NULL, 'SiteServer', 'ROLE', false, true, true, true, 60, now(), 'notify-policy'),
+ NULL, 'SiteServer', 'ROLE', false, true, false, true, true, 60, now(), 'notify-policy'),
 
 -- ── 당사자에게 가는 것 ──
 ('NOTE', '쪽지 도착',
  '쪽지를 받았을 때. 앱 푸시가 기기에 안 닿으면 2시간 뒤 메일로 돌린다.',
- 'NOTE', 'NotificationServer', 'USER', true, true, true, true, 110, now(), 'notify-policy'),
+ 'NOTE', 'NotificationServer', 'USER', true, true, false, true, true, 110, now(), 'notify-policy'),
 
 ('HELPDESK_COMMENT', '내 요청글에 댓글',
  '내가 쓴 요청글에 댓글이 달렸을 때 글 주인에게.',
- 'HELPDESK_COMMENT', 'HelpDeskServer', 'USER', true, true, true, true, 120, now(), 'notify-policy'),
+ 'HELPDESK_COMMENT', 'HelpDeskServer', 'USER', true, true, false, true, true, 120, now(), 'notify-policy'),
 
 ('BIRTHDAY', '생일 축하 메시지',
  '동료가 보낸 생일 축하 메시지가 도착했을 때.',
- 'BIRTHDAY', 'AuthServer', 'USER', true, false, true, true, 130, now(), 'notify-policy'),
+ 'BIRTHDAY', 'AuthServer', 'USER', true, true, true, true, true, 130, now(), 'notify-policy'),
 
 ('WEATHER', '기상 특보 · 내 위치 날씨',
  '기상 특보·실황 기준을 넘었을 때와 내 위치 날씨를 정한 시각에. 본인이 켠 사람에게만 간다.',
- 'WEATHER', 'LifeEnvServer', 'USER', true, false, true, true, 140, now(), 'notify-policy'),
+ 'WEATHER', 'LifeEnvServer', 'USER', true, true, true, true, true, 140, now(), 'notify-policy'),
 
 ('SUBSCRIPTION', '새 기기 알림 구독',
  '새 브라우저·기기가 알림을 구독했을 때 본인에게.',
- 'SUBSCRIPTION', 'NotificationServer', 'USER', true, false, true, true, 150, now(), 'notify-policy'),
+ 'SUBSCRIPTION', 'NotificationServer', 'USER', true, true, true, true, true, 150, now(), 'notify-policy'),
 
 -- ── 보이되 정책이 안 걸리는 것 (머리말 참고) ──
 ('NOTICE', '공지·안내 보내기',
  '포털관리의 메시지 발송. 보내는 사람이 그 자리에서 받는 사람을 고르므로 정책이 가로채지 않는다.',
- 'NOTICE', 'NotificationServer', 'ROLE', true, true, false, true, 210, now(), 'notify-policy'),
+ 'NOTICE', 'NotificationServer', 'ROLE', true, true, false, false, true, 210, now(), 'notify-policy'),
 
 ('TEST', '시험 발송',
  '환경설정의 「시험 알림 보내기」. 「눌렀는데 오나」를 보는 자리라 정책이 막지 않는다.',
- 'TEST', 'NotificationServer', 'USER', true, false, false, true, 220, now(), 'notify-policy'),
+ 'TEST', 'NotificationServer', 'USER', true, false, false, false, true, 220, now(), 'notify-policy'),
 
 ('ACCOUNT_MAIL', '계정 안내 메일',
  '비밀번호 재설정·계정 발급 안내. 업무 메일이라 끄는 자리를 두지 않는다.',
- NULL, 'AuthServer', 'USER', false, true, false, true, 230, now(), 'notify-policy'),
+ NULL, 'AuthServer', 'USER', false, true, false, false, true, 230, now(), 'notify-policy'),
 
 ('HELPDESK_LEGACY', '헬프데스크 접수 · 완료 · 종료 · 서비스 점검',
  '알림 서버를 거치지 않고 헬프데스크가 직접 보낸다(PushUtil · EMailUtil). 정책이 아직 안 걸린다.',
- NULL, 'HelpDeskServer', 'USER', true, true, false, true, 240, now(), 'notify-policy')
+ NULL, 'HelpDeskServer', 'USER', true, true, false, false, true, 240, now(), 'notify-policy')
 
 ON CONFLICT (id) DO UPDATE SET
     name           = EXCLUDED.name,
@@ -191,6 +204,7 @@ ON CONFLICT (id) DO UPDATE SET
     target_kind    = EXCLUDED.target_kind,
     supports_push  = EXCLUDED.supports_push,
     supports_email = EXCLUDED.supports_email,
+    email_from_push = EXCLUDED.email_from_push,
     governed       = EXCLUDED.governed,
     order_no       = EXCLUDED.order_no,
     is_deleted     = false,
@@ -201,7 +215,7 @@ COMMIT;
 
 -- 넣은 결과 확인
 SELECT id, name, category, source, target_kind,
-       supports_push, supports_email, governed, is_active, order_no
+       supports_push, supports_email, email_from_push, governed, is_active, order_no
   FROM scom.notification_events
  WHERE NOT is_deleted
  ORDER BY order_no;

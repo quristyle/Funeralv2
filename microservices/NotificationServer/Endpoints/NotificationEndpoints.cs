@@ -667,7 +667,12 @@ public static class NotificationEndpoints
             var result = await sender.SendAsync(request, user.UserId, ct);
 
             // 보낸 것이 하나도 없으면 성공으로 말하지 않는다. 이유는 result.Message 에 있다.
-            return result.Sent > 0
+            //
+            // **메일도 「보낸 것」으로 센다.** 알림관리에서 이메일을 켜 두면
+            // 구독한 기기가 하나도 없어도 알림은 나간 것이다 — 202 로 답하면
+            // 부르는 쪽(헬프데스크 따위)이 「수신 가능한 기기가 없습니다」를
+            // 경고로 쌓는다(`SendPushResultDto.Mailed`).
+            return result.Sent > 0 || result.Mailed > 0
                 ? Results.Ok(ApiResponse<SendPushResultDto>.Ok(result))
                 : Results.Json(
                     ApiResponse<SendPushResultDto>.Ok(result, result.Message ?? "보낸 알림이 없습니다."),
@@ -717,7 +722,7 @@ public static class NotificationEndpoints
                 Message = message
             }, user.UserId, ct);
 
-            return result.Sent > 0
+            return result.Sent > 0 || result.Mailed > 0
                 ? Results.Ok(ApiResponse<SendPushResultDto>.Ok(result))
                 : Results.Json(
                     ApiResponse<SendPushResultDto>.Ok(result, result.Message ?? "보낸 알림이 없습니다."),

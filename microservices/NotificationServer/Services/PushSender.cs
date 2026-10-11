@@ -52,6 +52,9 @@ public class PushSender : IPushSender
     private readonly INotificationPreferenceService _preferences;
     private readonly INotificationPolicyService _policies;
     private readonly IAvatarIconResolver _avatars;
+    private readonly IAccountEmailResolver _addresses;
+    private readonly IEmailSender _email;
+    private readonly IConfiguration _config;
     private readonly IHttpClientFactory _http;
     private readonly ILogger<PushSender> _logger;
 
@@ -68,6 +71,9 @@ public class PushSender : IPushSender
         INotificationPreferenceService preferences,
         INotificationPolicyService policies,
         IAvatarIconResolver avatars,
+        IAccountEmailResolver addresses,
+        IEmailSender email,
+        IConfiguration config,
         IHttpClientFactory http,
         ILogger<PushSender> logger)
     {
@@ -77,6 +83,9 @@ public class PushSender : IPushSender
         _preferences = preferences;
         _policies = policies;
         _avatars = avatars;
+        _addresses = addresses;
+        _email = email;
+        _config = config;
         _http = http;
         _logger = logger;
     }
@@ -301,11 +310,39 @@ public class PushSender : IPushSender
                 .Select(o => (o.OwnerType, o.OwnerKey))
                 .ToList(), ReasonEventDisabled, ct);
 
+            // **메일 곁가지도 안 탄다.** 이벤트를 끈 것은 「이 알림을 보내지
+            // 마라」이지 「앱 푸시만 보내지 마라」가 아니다 — 곁가지를 부르는
+            // 자리가 이 되돌아감 뒤에 있는 까닭이 그것이다.
             return new SendPushResultDto
             {
                 PolicyExcluded = intended.Owners.Count,
                 Message = "알림관리에서 이 이벤트를 꺼 두어 보내지 않았습니다.",
             };
+        }
+
+        // ── 메일 곁가지 ─────────────────────────────────────
+        //
+        // **아래 되돌아가는 갈래들보다 먼저다.** VAPID 가 없다 · 구독한 기기가
+        // 없다 · 다들 푸시를 껐다 — 메일을 켜 둔 뜻은 정확히 그런 사람에게도
+        // 닿자는 것이라, 뒤에 두면 가장 필요한 사람에게 안 간다
+        // (`FanOutEmailAsync` 머리말).
+        var mailed = await FanOutEmailAsync(request, sentBy, ct);
+
+        // 메일 통수를 결과에 싣고, 푸시가 한 통도 못 갔을 때 **메일은 갔다**는
+        // 것을 말해 준다 — 안 그러면 화면이 「보낼 대상이 없습니다」만 띄우고
+        // 관리자는 아무것도 안 나간 줄 안다.
+        SendPushResultDto WithMail(SendPushResultDto result)
+        {
+            result.Mailed = mailed;
+
+            if (mailed > 0)
+            {
+                result.Message = string.IsNullOrWhiteSpace(result.Message)
+                    ? $"이메일 {mailed}통을 보냈습니다."
+                    : $"{result.Message} (이메일 {mailed}통은 보냈습니다.)";
+            }
+
+            return result;
         }
 
         if (!_vapid.IsConfigured)
@@ -319,11 +356,11 @@ public class PushSender : IPushSender
                 .ToList(), ReasonNoVapid, ct);
 
             // 조용히 성공한 척하지 않는다. 설정이 반쪽이면 그렇게 말한다.
-            return new SendPushResultDto
+            return WithMail(new SendPushResultDto
             {
                 Message = "VAPID 설정이 없어 푸시를 보낼 수 없습니다. " +
                           "Vapid:Subject·PublicKey·PrivateKey 를 확인하세요."
-            };
+            });
         }
 
         // **역할로 적어 온 대상을 사람으로 편다.** 부르는 쪽이 아니라 여기서 푸는
@@ -340,7 +377,7 @@ public class PushSender : IPushSender
 
         if (owners.Count == 0)
         {
-            return new SendPushResultDto
+            return WithMail(new SendPushResultDto
             {
                 PolicyExcluded = policyExcluded,
 
@@ -350,7 +387,7 @@ public class PushSender : IPushSender
                 Message = policyExcluded > 0
                     ? "알림관리 정책에 해당하는 역할의 사람이 없어 보내지 않았습니다."
                     : "보낼 대상이 없습니다.",
-            };
+            });
         }
 
         // 본인이 푸시를 끈 사람은 여기서 빠진다.
@@ -372,12 +409,12 @@ public class PushSender : IPushSender
             {
                 await LogAsync(request, sentBy, batchId, pushDisabled.ToList(), ReasonOptedOut, ct);
 
-                return new SendPushResultDto
+                return WithMail(new SendPushResultDto
                 {
                     OptedOut = optedOut,
                     PolicyExcluded = policyExcluded,
                     Message = "대상이 모두 푸시 알림을 끄고 있습니다."
-                };
+                });
             }
 
             // 남은 사람에게는 보내되, **빠진 사람도 기록한다** — 「저 사람만
@@ -414,12 +451,12 @@ public class PushSender : IPushSender
 
                 if (owners.Count == 0)
                 {
-                    return new SendPushResultDto
+                    return WithMail(new SendPushResultDto
                     {
                         OptedOut = optedOut,
                         PolicyExcluded = policyExcluded,
                         Message = "대상이 모두 댓글 알림을 끄고 있습니다."
-                    };
+                    });
                 }
             }
         }
@@ -450,13 +487,13 @@ public class PushSender : IPushSender
                 .Select(o => (o.OwnerType, o.OwnerKey))
                 .ToList(), ReasonNoSubscription, ct);
 
-            return new SendPushResultDto
+            return WithMail(new SendPushResultDto
             {
                 OwnersWithoutSubscription = ownersWithout,
                 OptedOut = optedOut,
                 PolicyExcluded = policyExcluded,
                 Message = "대상의 구독이 없습니다. 브라우저에서 알림을 허용했는지 확인하세요."
-            };
+            });
         }
 
         // 구독이 하나도 없는 사람들. 위의 「하나도 없다」 갈래에 안 걸리는
@@ -559,7 +596,7 @@ public class PushSender : IPushSender
         // 멈췄나」가 가장 알고 싶은 갈래인데 하필 그때 아무것도 안 남는다.
         await _db.SaveChangesAsync(cancelled ? CancellationToken.None : ct);
 
-        return new SendPushResultDto
+        return WithMail(new SendPushResultDto
         {
             Sent = sent,
             Failed = failed,
@@ -576,7 +613,278 @@ public class PushSender : IPushSender
                     : failed > 0
                         ? "구독한 기기에 알림을 전달하지 못했습니다. 구독을 해제한 뒤 다시 등록해 보세요."
                         : null
-        };
+        });
+    }
+
+    // ── 메일 곁가지 ─────────────────────────────────────────
+
+    /// <summary>
+    /// 같은 알림을 <b>메일로도</b> 낸다. 보낸 통수를 돌려준다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// [무엇을 푸는가 — 「이메일」 체크가 듣지 않던 이벤트들]
+    /// </para>
+    ///
+    /// <para>
+    /// 알림관리 화면의 「이메일」 칸은 한동안 이벤트 여섯에서 <b>잠겨</b> 있었다
+    /// (배포 완료 · 헬프데스크 요청 · 생일 · 기상 · 새 기기 구독 · 시험 발송).
+    /// 그 이벤트들은 보내는 쪽이 <see cref="SendAsync"/> 만 부르고
+    /// <c>/emails/send</c> 는 부르지 않아서, 체크를 켜 봐야 메일을 낼 사람이
+    /// 아무 데도 없었기 때문이다 — 열어 두면 「켰는데 왜 안 오지」가 된다.
+    /// 그 빈자리를 여기서 메운다.
+    /// </para>
+    ///
+    /// <para>
+    /// [<b>적어 둔 때만</b> 나간다 — 푸시와 기본값이 반대다]
+    /// </para>
+    ///
+    /// <para>
+    /// 정책 줄이 없는 이벤트를 푸시에서는 <b>제한 없음</b>으로 본다(지금까지와
+    /// 똑같이 보낸다). 메일은 그 반대로 둔다 — <b>「이메일」을 켠 역할이 하나도
+    /// 없으면 한 통도 안 낸다.</b> 같은 기본값을 쓰면 이 코드가 올라가는 날
+    /// 배포·생일·기상 알림이 <b>전 직원 메일함으로</b> 쏟아진다. 조용히 막지
+    /// 않는 것이 중요한 만큼 <b>조용히 늘리지 않는 것</b>도 중요하고, 늘리는
+    /// 쪽은 되돌릴 수가 없다.
+    /// </para>
+    ///
+    /// <para>
+    /// [푸시가 못 갔어도 메일은 나간다]
+    /// </para>
+    ///
+    /// <para>
+    /// 부르는 자리를 <see cref="SendAsync"/> 의 <b>앞쪽</b>에 둔다 — VAPID 가 없다 ·
+    /// 구독한 기기가 없다 · 다들 푸시를 껐다로 되돌아가는 갈래보다 먼저다.
+    /// 뒤에 두면 <b>푸시를 못 받는 사람에게 메일도 안 가는데</b>, 메일을 켜 둔
+    /// 뜻은 정확히 그 반대다.
+    /// </para>
+    ///
+    /// <para>
+    /// [그래도 지키는 것 둘]
+    /// </para>
+    ///
+    /// <list type="bullet">
+    ///   <item><description><b>이벤트를 꺼 두었으면(<c>Blocked</c>) 안 낸다.</b>
+    ///   부르는 자리가 그 판정 뒤다.</description></item>
+    ///   <item><description><b>본인이 메일을 껐으면 안 낸다</b>
+    ///   (<c>email_enabled</c>). 순서는 푸시와 같다 — 정책 → 본인 설정.</description></item>
+    /// </list>
+    ///
+    /// <para>
+    /// <b>던지지 않는다.</b> SMTP 가 막힌 것이 푸시 발송을 통째로 깨뜨리면,
+    /// 곁가지 하나를 더한 값으로는 너무 비싸다. 못 보낸 것은 기록
+    /// (<see cref="EmailSendLog"/>)과 로그에 남긴다.
+    /// </para>
+    /// </remarks>
+    private async Task<int> FanOutEmailAsync(SendPushDto request, string? sentBy, CancellationToken ct)
+    {
+        // **곁가지가 줄기를 못 꺾는다.** 아래에는 DB 질의가 넷 있고, 그중 어느
+        // 하나가 터지면 <b>푸시가 통째로 실패한다</b> — 메일을 곁들이려다 앱
+        // 알림까지 못 가게 하는 것은 값이 맞지 않는다. 안쪽의 `try` 는 SMTP 만
+        // 감싸므로 그 바깥을 여기서 한 번 더 받는다.
+        try
+        {
+            return await SendFanOutMailAsync(request, sentBy, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "메일 곁가지를 푸는 중에 실패했습니다. event={Event}",
+                request.Message.EventCode ?? request.Message.Category);
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// <see cref="FanOutEmailAsync"/> 의 알맹이. <b>던질 수 있다</b> — 받는 것은
+    /// 저쪽이다.
+    /// </summary>
+    private async Task<int> SendFanOutMailAsync(SendPushDto request, string? sentBy, CancellationToken ct)
+    {
+        var decision = await _policies.ResolveAsync(
+            request.Message.EventCode, request.Message.Category, NotificationChannel.Email, ct);
+
+        // `Unrestricted` 를 **여기서는 「내지 마라」로 읽는다** — 머리말의
+        // 「적어 둔 때만 나간다」. `MailsFromPush` 가 거짓이면 부르는 쪽이
+        // `/emails/send` 로 제 틀의 메일을 따로 내고 있다(두 통 가면 안 된다).
+        if (decision is not { Blocked: false, Unrestricted: false, MailsFromPush: true }) return 0;
+
+        // **푸시와 같은 셈을 쓴다.** 역할을 사람으로 펴는 것도, 짚어 보낸 몫에
+        // 거름막을 거는 것도 저쪽과 한 글자도 달라서는 안 된다 — 어긋나면
+        // 「푸시는 왔는데 메일은 안 왔다」가 설명할 수 없는 일이 된다.
+        var owners = (await ExpandOwnersAsync(request, decision, ct)).Owners;
+
+        // 포털 계정만 메일을 낼 수 있다. 다른 주인 종류는 계정이 없어 주소를
+        // 물을 길이 없다(푸시는 구독만 있으면 가므로 저쪽에서는 남는다).
+        var loginIds = owners
+            .Where(o => string.Equals(o.OwnerType, OwnerTypePortal, StringComparison.OrdinalIgnoreCase))
+            .Select(o => o.OwnerKey)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (loginIds.Count == 0) return 0;
+
+        // **본인이 끈 것이 마지막 말이다.** 행이 없으면 켜짐이라 「끈 사람」을
+        // 묻는다(NotificationPreferenceService 머리말).
+        var mailOff = await _preferences.GetEmailDisabledLoginIdsAsync(loginIds, ct);
+        var wanted = loginIds.Where(id => !mailOff.Contains(id)).ToList();
+
+        if (wanted.Count == 0)
+        {
+            _logger.LogInformation(
+                "메일 곁가지: 대상 {Count}명이 모두 이메일을 꺼 두어 보내지 않았습니다. event={Event}",
+                loginIds.Count, request.Message.EventCode ?? request.Message.Category);
+            return 0;
+        }
+
+        var addressOf = await _addresses.ByLoginIdsAsync(wanted, ct);
+
+        // 주소 꼴이 아닌 것은 뺀다 — SMTP 가 거절하면 **그 통에 묶인 사람이
+        // 모두** 못 받는다. 한 사람의 오타가 나머지를 끌고 가지 않게 한다.
+        var recipients = addressOf.Values
+            .Where(a => System.Net.Mail.MailAddress.TryCreate(a, out _))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        if (recipients.Count == 0)
+        {
+            _logger.LogWarning(
+                "메일 곁가지: 받는 사람 {Count}명에 쓸 수 있는 메일 주소가 없습니다. event={Event}",
+                wanted.Count, request.Message.EventCode ?? request.Message.Category);
+            return 0;
+        }
+
+        var title = string.IsNullOrWhiteSpace(request.Message.Title)
+            ? "알림"
+            : request.Message.Title.Trim();
+
+        var body = ComposeMailBody(request.Message);
+
+        try
+        {
+            // 평문을 넘기고 **회사 메일 꼴은 틀이 입힌다** — 직발송이 같은
+            // 자리에서 하는 일이다(`NoticeEmailTemplate` 머리말).
+            await _email.SendAsync(
+                string.Join(",", recipients), title,
+                NoticeEmailTemplate.Render(title, body),
+                html: true, attachments: null,
+                textBody: NoticeEmailTemplate.PlainAlternative(title, body));
+
+            // **표에도 남긴다.** 로그 파일만으로는 「이 사람에게 무엇이 나갔나」에
+            // 답할 수 없다(EmailSendLog 머리말).
+            //
+            // **취소표를 넘기지 않는다.** 메일은 이미 나갔다 — 여기서 부르는
+            // 쪽의 취소에 걸려 기록을 못 남기면 「보낸 적 없다」로 남는다.
+            // 푸시 흐름이 마지막 저장에서 내린 것과 같은 판단이다.
+            await WriteMailLogAsync(recipients, title, body, sentBy,
+                success: true, failureReason: null);
+
+            _logger.LogInformation(
+                "메일 곁가지 {Count}통. event={Event} 메일꺼둠={Off}",
+                recipients.Count, request.Message.EventCode ?? request.Message.Category,
+                loginIds.Count - wanted.Count);
+
+            return recipients.Count;
+        }
+        catch (Exception ex)
+        {
+            // **푸시까지 깨뜨리지 않는다**(머리말). 못 보낸 것도 남긴다 —
+            // 안 남기면 「그 시각에 아무 일도 없었다」로 보이고, 그것이
+            // 「보낸 적 없다」와 구분되지 않는다.
+            _logger.LogError(ex, "메일 곁가지를 보내지 못했습니다. event={Event} to={To}",
+                request.Message.EventCode ?? request.Message.Category, string.Join(",", recipients));
+
+            await WriteMailLogAsync(recipients, title, body, sentBy,
+                success: false, failureReason: "메일 서버가 받지 않음");
+
+            return 0;
+        }
+    }
+
+    /// <summary>
+    /// 메일 곁가지의 자국을 표에 적는다. <b>무슨 일이 있어도 던지지 않는다.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 기록을 적다 터진 것이 <b>푸시 발송을 통째로 깨뜨리는</b> 것은 값이 맞지
+    /// 않는다 — 특히 실패 갈래에서 여기가 또 던지면, 메일을 못 보낸 것을
+    /// 삼키려고 세운 <c>catch</c> 를 그대로 빠져나간다.
+    /// </para>
+    /// <para>
+    /// <b>취소표를 넘기지 않는다.</b> 이 자리에 왔다는 것은 메일을 보내려는
+    /// 시도가 이미 끝났다는 뜻이라, 부르는 쪽이 끊었다고 기록까지 없애면
+    /// 「그 시각에 아무 일도 없었다」가 되고 그것이 「보낸 적 없다」와
+    /// 구분되지 않는다(푸시 흐름의 마지막 저장과 같은 판단이다).
+    /// </para>
+    /// </remarks>
+    private async Task WriteMailLogAsync(
+        List<string> recipients, string title, string body, string? sentBy,
+        bool success, string? failureReason)
+    {
+        try
+        {
+            await EmailSendLog.WriteAsync(
+                _db, _logger, recipients, title, body, html: false,
+                sentBy, success, failureReason, CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "메일 곁가지의 발송 기록을 남기지 못했습니다. to={To}",
+                string.Join(",", recipients));
+        }
+    }
+
+    /// <summary>
+    /// 푸시 한 통을 <b>메일 본문(평문)</b>으로 편다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 푸시는 제목 한 줄과 본문 두어 줄이 전부라, 그대로 옮기면 메일함에서
+    /// <b>무엇을 하라는 것인지</b>가 빠진다 — 푸시는 누르면 그 화면이 열리지만
+    /// 메일은 그 길이 없다. 그래서 <c>Url</c> 을 <b>눌러서 갈 수 있는 주소</b>로
+    /// 펴서 끝에 붙인다.
+    /// </para>
+    /// <para>
+    /// <b>앞머리(<c>Portal:BaseUrl</c>)가 비면 링크 줄을 통째로 뺀다.</b>
+    /// <c>/admin/...</c> 한 조각이나 <c>localhost</c> 주소가 적힌 메일은
+    /// 아무도 못 연다 — 쪽지 전환 메일이 같은 자리에서 내린 판단이다.
+    /// </para>
+    /// </remarks>
+    private string ComposeMailBody(PushMessageDto message)
+    {
+        var lines = new List<string>();
+
+        var body = (message.Body ?? string.Empty).Trim();
+        if (body.Length > 0) lines.Add(body);
+
+        if (LinkOf(message.Url) is { Length: > 0 } url)
+        {
+            if (lines.Count > 0) lines.Add(string.Empty);
+            lines.Add($"포털에서 보기: {url}");
+        }
+
+        // 본문도 링크도 없는 알림이 있다(제목만 쓰는 것들). 빈 메일을 보내느니
+        // 제목을 한 번 더 적는다 — 틀이 제목을 큰 글씨로 올리지만, 평문 갈래로
+        // 읽는 사람에게는 그것도 안 보인다.
+        return lines.Count > 0 ? string.Join("\n", lines) : message.Title.Trim();
+    }
+
+    /// <summary>푸시의 <c>Url</c> 을 메일에 적을 수 있는 절대 주소로. 못 만들면 <c>null</c>.</summary>
+    private string? LinkOf(string? url)
+    {
+        var path = (url ?? string.Empty).Trim();
+        if (path.Length == 0) return null;
+
+        // 부르는 쪽이 이미 절대 주소를 적었으면 그대로 쓴다.
+        if (path.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+        {
+            return path;
+        }
+
+        var baseUrl = (_config["Portal:BaseUrl"] ?? string.Empty).Trim().TrimEnd('/');
+        if (baseUrl.Length == 0) return null;
+
+        return path.StartsWith('/') ? baseUrl + path : $"{baseUrl}/{path}";
     }
 
     /// <summary>

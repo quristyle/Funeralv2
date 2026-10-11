@@ -241,6 +241,22 @@ public class SendPushResultDto
     /// </remarks>
     public int PolicyExcluded { get; set; }
 
+    /// <summary>
+    /// 같은 알림을 <b>메일로도</b> 받은 주소 수.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b><see cref="Sent"/> 와 더하지 않는다.</b> 저쪽은 기기 수이고 이쪽은
+    /// 주소 수라 단위가 다르다 — 한 사람이 둘 다 셈해지는 것이 정상이다
+    /// (앱으로도 받고 메일로도 받는다).
+    /// </para>
+    /// <para>
+    /// 「이메일」을 켠 역할이 없으면 늘 0 이다. 메일이 나가는 조건은
+    /// <c>PushSender.FanOutEmailAsync</c> 머리말에 있다.
+    /// </para>
+    /// </remarks>
+    public int Mailed { get; set; }
+
     public string? Message { get; set; }
 }
 

@@ -107,6 +107,10 @@ builder.Services.AddScoped<ILocationTrackService, LocationTrackService>();
 // (AvatarIconTokenFactory 머리말).
 builder.Services.AddSingleton<IAvatarIconTokenFactory, AvatarIconTokenFactory>();
 builder.Services.AddScoped<IAvatarIconResolver, AvatarIconResolver>();
+
+// 로그인 아이디 → 대표 메일. **메일을 내는 자리가 둘**이라 한 곳에 둔다
+// (직발송 /emails/send · PushSender 의 메일 곁가지).
+builder.Services.AddScoped<IAccountEmailResolver, AccountEmailResolver>();
 builder.Services.AddScoped<IPushSender, PushSender>();
 
 // 푸시 서비스(FCM 등)로 나가는 연결. **발송마다 새로 맺지 않는다.**

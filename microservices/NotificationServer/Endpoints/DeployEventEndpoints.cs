@@ -119,13 +119,18 @@ public static class DeployEventEndpoints
             }, sentBy: "system:deploy", ct);
 
             logger.LogInformation(
-                "배포 알림 발송: {Status} {Sha} · 대상 {Targets}명 · 푸시 {Sent}건",
-                request.Status, ShortSha(request.Sha), owners.Count, result.Sent);
+                "배포 알림 발송: {Status} {Sha} · 대상 {Targets}명 · 푸시 {Sent}건 · 메일 {Mailed}통",
+                request.Status, ShortSha(request.Sha), owners.Count, result.Sent, result.Mailed);
 
             return Results.Ok(ApiResponse<object>.Ok(new
             {
                 targets = owners.Count,
                 sent = result.Sent,
+
+                // 알림관리에서 「이메일」을 켠 역할이 있으면 메일로도 나간다.
+                // 배포 워크플로가 읽는 값이라 **푸시와 가려 적는다** — 합치면
+                // 「기기에 갔다」와 「메일함에 갔다」가 구분되지 않는다.
+                mailed = result.Mailed,
                 failed = result.Failed,
                 optedOut = result.OptedOut,
                 withoutSubscription = result.OwnersWithoutSubscription,

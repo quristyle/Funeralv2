@@ -98,6 +98,37 @@ public class NotificationEventRow : BaseEntity<string>
     public bool SupportsEmail { get; set; }
 
     /// <summary>
+    /// 이 이벤트의 메일을 <b>푸시 경로가 함께 내나</b>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// [메일이 나가는 길이 두 갈래라 가려야 한다]
+    /// </para>
+    ///
+    /// <para>
+    /// 어떤 이벤트는 부르는 쪽이 <c>/emails/send</c> 를 <b>따로</b> 부른다
+    /// (가입 신청 · AI 작업 · 소개 사이트 문의 · 보고서 메일). 그 길은 이미
+    /// 정책을 묻고 있으므로 화면의 「이메일」 체크가 그대로 듣는다.
+    /// </para>
+    ///
+    /// <para>
+    /// 나머지는 <b>푸시만</b> 보낸다(배포 완료 · 헬프데스크 요청 · 생일 · 기상 ·
+    /// 새 기기 구독). 그쪽에서 체크를 켜 봐야 메일을 낼 사람이 아무도 없어서,
+    /// 한동안 <see cref="SupportsEmail"/> 을 거짓으로 두어 <b>체크 칸을 잠가</b>
+    /// 두었다 — 「켰는데 왜 안 오지」를 만들지 않으려고. 이 값이 참이면
+    /// <c>PushSender</c> 가 같은 내용을 메일로도 낸다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>둘 다 참인 이벤트를 만들지 않는다.</b> 부르는 쪽이 메일을 따로 내는데
+    /// 여기서도 내면 같은 알림이 두 통 간다. 지금 이 값이 참인 줄은 모두
+    /// 메일 경로가 없던 것들이다.
+    /// </para>
+    /// </remarks>
+    [Column("email_from_push")]
+    public bool EmailFromPush { get; set; }
+
+    /// <summary>
     /// 이 이벤트에 정책이 <b>실제로 걸리나</b>. 거짓이면 설정은 받아 두되 발송은
     /// 지금 그대로다 — 머리말의 「거짓말을 하지 않으려고」 참고.
     /// </summary>

@@ -89,6 +89,21 @@ public partial class NotifyPolicyPage
     /// <summary>역할을 하나도 안 걸었나. 「제한 없음」 띠의 조건이다.</summary>
     private bool NoRolePicked => !_rows.Any(r => r.Picked);
 
+    /// <summary>
+    /// 역할을 하나도 안 걸었을 때 띄우는 말. <b>푸시와 메일을 갈라 적는다.</b>
+    /// </summary>
+    /// <remarks>
+    /// 두 길의 기본값이 반대다 — 푸시는 안 걸면 「지금까지와 똑같이」 나가고,
+    /// 푸시 경로가 함께 내는 메일은 <b>한 통도 안 나간다</b>. 한쪽만 적으면
+    /// 「제한 없음」을 「메일도 모두에게 간다」로 읽는다.
+    /// </remarks>
+    private string NoRoleText =>
+        "역할을 하나도 걸지 않았습니다 — 제한 없이 지금까지와 똑같이 나갑니다. "
+        + "하나라도 걸면 그때부터 이 목록이 기준이 됩니다."
+        + (_selected is { SupportsEmail: true, EmailFromPush: true }
+            ? " 다만 이메일은 지금 한 통도 나가지 않습니다 — 켠 역할이 있어야 보냅니다."
+            : string.Empty);
+
     /// <summary>정책이 이 이벤트에서 무슨 일을 하는지 한 줄.</summary>
     private string EffectText => NotifyTargetKinds.Effect(_selected?.TargetKind);
 
@@ -102,9 +117,30 @@ public partial class NotifyPolicyPage
         ? "이 알림은 앱 푸시로 나가지 않습니다."
         : "이 역할에 앱 푸시로 보냅니다.";
 
-    private string MailHint => _selected is { SupportsEmail: false }
-        ? "이 알림은 이메일로 나가지 않습니다."
-        : "이 역할에 이메일로 보냅니다.";
+    /// <summary>
+    /// 「이메일」 체크에 붙는 한 줄. <b>메일이 나가는 길이 두 갈래</b>라 갈라 적는다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 켠 뒤에 받는 것이 서로 다르다 — 푸시 경로가 함께 내는 이벤트는 <b>앱
+    /// 알림과 같은 글</b>이 오고, 보내는 쪽이 따로 내는 이벤트는 그쪽이 만든
+    /// 제 틀의 메일이 온다(가입 신청 · AI 작업 결과). 뭉뚱그려 「이메일로
+    /// 보냅니다」라고만 적으면 켜 본 사람이 받은 메일을 보고 <b>다른 설정이
+    /// 걸린 줄 안다.</b>
+    /// </para>
+    /// <para>
+    /// <b>푸시와 기본값이 반대라는 것도 여기서 말한다.</b> 역할을 안 걸면
+    /// 푸시는 「지금 그대로」 나가지만 메일은 <b>한 통도 안 나간다</b> — 이
+    /// 화면에서 가장 틀리기 쉬운 자리다.
+    /// </para>
+    /// </remarks>
+    private string MailHint => _selected switch
+    {
+        { SupportsEmail: false } => "이 알림은 이메일로 나가지 않습니다.",
+        { EmailFromPush: true } => "이 역할에 앱 알림과 같은 내용을 이메일로도 보냅니다. "
+                                   + "켠 역할이 하나도 없으면 메일은 나가지 않습니다.",
+        _ => "이 역할에 이메일로 보냅니다 — 보내는 쪽이 만든 메일입니다.",
+    };
 
     /// <summary>「받는 사람」 창 아래의 셈 한 줄.</summary>
     private string ReachText => _preview is null

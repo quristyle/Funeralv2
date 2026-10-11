@@ -84,6 +84,7 @@ public static class EmailEndpoints
             [FromServices] AppDbContext db,
             [FromServices] INotificationPreferenceService prefs,
             [FromServices] INotificationPolicyService policies,
+            [FromServices] IAccountEmailResolver addresses,
             [FromServices] ILoggerFactory loggerFactory,
             CancellationToken ct) =>
         {
@@ -188,7 +189,7 @@ public static class EmailEndpoints
                     .ToList();
 
                 // **갈래를 끈 사람을 여기서 던다.** 사람을 지목해 보내는 메일은
-                // 본인의 뜻을 보지 않는 것이 규칙이지만(`ResolveUserEmailsAsync`
+                // 본인의 뜻을 보지 않는 것이 규칙이지만(`IAccountEmailResolver`
                 // 머리말), 댓글 알림은 업무 메일이 아니라 두드림이라 설정 화면에
                 // 스위치가 있다. 부르는 쪽이 이 판정을 기억하게 하지 않는다 —
                 // 한 곳만 잊으면 새는 설정이 된다.
@@ -230,7 +231,7 @@ public static class EmailEndpoints
                     }
                 }
 
-                var found = await ResolveUserEmailsAsync(db, ids, ct);
+                var found = await addresses.ByLoginIdsAsync(ids, ct);
 
                 recipients.AddRange(found.Values);
                 unknownUsers.AddRange(ids.Where(i => !found.ContainsKey(i)));
@@ -364,50 +365,15 @@ public static class EmailEndpoints
         .WithName("SendEmailDirect");
     }
 
-    /// <summary>
-    /// 로그인 아이디들의 이메일을 푼다 — 아이디마다 하나(대표 이메일 우선).
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>본인이 이메일 알림을 껐는지는 보지 않는다.</b> 역할로 가는 메일은
-    /// 「그 역할인 사람 아무나」에게 가는 알림이라 본인의 뜻을 지킬 수 있지만,
-    /// 이쪽은 <b>부르는 쪽이 사람을 하나 짚어</b> 보내는 것이다 — AI 작업의
-    /// 「끝나면 메일로 받기」처럼 그 건마다 본인이 켠 업무 메일이 여기로 온다.
-    /// 알림 설정으로 그것을 막으면 켠 사람이 왜 안 오는지 알 길이 없다.
-    /// </para>
-    /// <para>
-    /// 찾지 못한 아이디는 <b>돌려주지 않는다</b> — 부르는 쪽이 키를 보고
-    /// 무엇이 빠졌는지 말할 수 있게 사전으로 준다.
-    /// </para>
-    /// </remarks>
-    private static async Task<Dictionary<string, string>> ResolveUserEmailsAsync(
-        AppDbContext db, IReadOnlyList<string> loginIds, CancellationToken ct)
-    {
-        var keys = loginIds
-            .Where(i => !string.IsNullOrWhiteSpace(i))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        if (keys.Count == 0)
-        {
-            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        }
-
-        var rows = await (
-            from a in db.Accounts
-            where keys.Contains(a.UserId) && !a.IsDeleted
-            join d in db.AccountProfileDetails on a.Id equals d.AccountId
-            where d.DetailType == "Email" && !d.IsDeleted && d.Content != ""
-            select new { a.UserId, d.Content, d.IsPrimary })
-            .ToListAsync(ct);
-
-        return rows
-            .GroupBy(r => r.UserId, StringComparer.OrdinalIgnoreCase)
-            .ToDictionary(
-                g => g.Key,
-                g => g.OrderByDescending(r => r.IsPrimary).First().Content.Trim(),
-                StringComparer.OrdinalIgnoreCase);
-    }
+    // 로그인 아이디 → 대표 메일을 푸는 질의는 `IAccountEmailResolver` 로
+    // 옮겼다. **메일을 내는 자리가 둘이 되었기 때문**이다(직발송 · PushSender 의
+    // 메일 곁가지) — 베껴 두면 「대표 메일 우선」이 두 곳에 산다.
+    //
+    // **본인이 이메일 알림을 껐는지는 거기서도 안 본다.** 역할로 가는 메일은
+    // 「그 역할인 사람 아무나」에게 가는 알림이라 본인의 뜻을 지킬 수 있지만,
+    // 아이디를 짚어 보내는 것은 부르는 쪽이 사람을 하나 고른 것이다 — AI 작업의
+    // 「끝나면 메일로 받기」처럼 그 건마다 본인이 켠 업무 메일이 이 길로 온다.
+    // 알림 설정으로 그것을 막으면 켠 사람이 왜 안 오는지 알 길이 없다.
 
     /// <summary>
     /// 역할 사용자들의 이메일을 푼다 — 계정마다 하나(대표 이메일 우선).

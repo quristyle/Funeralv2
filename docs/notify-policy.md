@@ -13,6 +13,8 @@
                           ┌───────────▼──────────────┐      ┌───────────┐
   다른 서비스가 ─────────▶ │ PushSender · EmailEndpoints│ ───▶ │ 푸시·메일 │
   「알림을 보내라」        │  ① 정책  ② 본인 설정  ③ 구독 │      └───────────┘
+                          │  푸시만 보내던 이벤트는      │
+                          │  PushSender 가 메일도 낸다   │
                           └──────────────────────────┘
 ```
 
@@ -27,9 +29,10 @@
 | 표 | `scom.notification_events` + `scom.notification_policies` |
 | API | `notification/notification-policies/*` (NotificationServer) |
 | 거는 자리 | `PushSender.ExpandOwnersAsync` · `EmailEndpoints` 의 `/emails/send` |
+| 메일 곁가지 | `PushSender.FanOutEmailAsync` — 푸시만 보내던 이벤트의 메일을 함께 낸다 |
 | 코드값 | `JSini.Shared.DTOs.NotificationEvents` (보내는 쪽이 적는 글자) |
 | 권한 | `SYSTEM_ADMINISTRATOR` 하나 (`scom.role_menus`) |
-| SQL | `deploy/sql/notify-policy-2026-10-11.sql` · `…-menu-2026-10-11.sql` |
+| SQL | `deploy/sql/notify-policy-2026-10-11.sql` · `…-menu-2026-10-11.sql` · `…-email-2026-10-11.sql` |
 
 ---
 
@@ -121,21 +124,82 @@
 
 | 코드 | 이름 | 보내는 자리 | 대상 | 길 | 정책 |
 |---|---|---|---|---|---|
-| `DEPLOY` | 배포 완료 | `NotificationServer/Endpoints/DeployEventEndpoints` | 역할 | 푸시 | ○ |
+| `DEPLOY` | 배포 완료 | `NotificationServer/Endpoints/DeployEventEndpoints` | 역할 | 푸시·메일※ | ○ |
 | `SIGNUP` | 가입 신청 접수 | `AuthServer` 의 `SignupNotifyClient` · `SignupService` · `SocialLoginService` | 역할 | 푸시·메일 | ○ |
-| `HELPDESK` | 헬프데스크 요청 등록 | `HelpDeskServer/Endpoints/RequestEndpoints` | 역할 | 푸시 | ○ |
+| `HELPDESK` | 헬프데스크 요청 등록 | `HelpDeskServer/Endpoints/RequestEndpoints` | 역할 | 푸시·메일※ | ○ |
 | `AI_TASK` | AI 작업 요청·결과 | `ProjMngServer` 의 `AiRequestAlerter` · `AiTaskNotifier` | 역할 | 푸시·메일 | ○ |
 | `REPORT_MAIL` | 보고서 메일 | `AuthServer/Services/ReportMailSender` | 역할 | 메일 | ○ |
 | `SITE_INQUIRY` | 소개 사이트 문의 접수 | `SiteServer/Services/InquiryMailNotifier` | 역할 | 메일 | ○ |
 | `NOTE` | 쪽지 도착 | `NotificationServer` 의 `NoteEndpoints` · `NoteFallbackMailer` | 당사자 | 푸시·메일 | ○ |
 | `HELPDESK_COMMENT` | 내 요청글에 댓글 | `HelpDeskServer/Services/CommentNotifier` | 당사자 | 푸시·메일 | ○ |
-| `BIRTHDAY` | 생일 축하 메시지 | `AuthServer/Services/BirthdayNotifyClient` | 당사자 | 푸시 | ○ |
-| `WEATHER` | 기상 특보 · 내 위치 날씨 | `LifeEnvServer` → `WeatherEventEndpoints` | 당사자 | 푸시 | ○ |
-| `SUBSCRIPTION` | 새 기기 알림 구독 | `NotificationServer/Endpoints/NotificationEndpoints` | 당사자 | 푸시 | ○ |
+| `BIRTHDAY` | 생일 축하 메시지 | `AuthServer/Services/BirthdayNotifyClient` | 당사자 | 푸시·메일※ | ○ |
+| `WEATHER` | 기상 특보 · 내 위치 날씨 | `LifeEnvServer` → `WeatherEventEndpoints` | 당사자 | 푸시·메일※ | ○ |
+| `SUBSCRIPTION` | 새 기기 알림 구독 | `NotificationServer/Endpoints/NotificationEndpoints` | 당사자 | 푸시·메일※ | ○ |
 | `NOTICE` | 공지·안내 보내기 | 포털관리 「메시지 발송」 | — | 푸시·메일 | **×** |
 | `TEST` | 시험 발송 | 환경설정의 「시험 알림 보내기」 | — | 푸시 | **×** |
 | `ACCOUNT_MAIL` | 계정 안내 메일 | `AuthServer/Services/AccountMailClient` | — | 메일 | **×** |
 | `HELPDESK_LEGACY` | 헬프데스크 접수·완료·종료·점검 | `HelpDeskServer` 의 `PushUtil` · `EMailUtil` | — | 푸시·메일 | **×** |
+
+### ※ 메일이 나가는 길은 **두 갈래**다
+
+「이메일」 체크를 켠 뒤에 받는 것이 이벤트마다 다르다. 가르는 칸이
+`notification_events.email_from_push` 다.
+
+| | 메일을 누가 내나 | 받는 글 |
+|---|---|---|
+| `SIGNUP` · `AI_TASK` · `NOTE` · `HELPDESK_COMMENT` · `SITE_INQUIRY` · `REPORT_MAIL` | **보내는 쪽**이 `/emails/send` 를 따로 부른다 | 그쪽이 만든 제 틀의 메일 |
+| ※ 가 붙은 다섯 (`DEPLOY` · `HELPDESK` · `BIRTHDAY` · `WEATHER` · `SUBSCRIPTION`) | **`PushSender` 가 함께 낸다** (`FanOutEmailAsync`) | 앱 알림과 **같은 글** |
+
+**왜 갈라야 하나.** 앞 갈래는 이미 메일 경로가 있어서 체크가 벌써 들었다.
+뒤 갈래는 푸시만 보내는 이벤트라 체크를 켜도 메일을 낼 사람이 아무 데도 없었고
+(그래서 한동안 `supports_email = false` 로 **칸 자체를 잠가** 두었다 —
+「켰는데 왜 안 오지」를 만들지 않으려고), 이제 푸시 경로가 그 몫을 낸다.
+**둘 다 참인 줄을 만들면 같은 알림이 두 통 간다.**
+
+> `TEST` 는 열지 않았다. `governed = false` 라 정책이 아예 안 걸리고, 곁가지는
+> 정책이 고른 역할로만 나가므로 거기서는 영영 안 돈다 — 칸만 열면 또
+> 「켰는데 안 온다」가 된다.
+
+#### `HELPDESK` 는 **겹칠 수 있다** — 켜기 전에 알고 켜야 한다
+
+헬프데스크는 새 요청이 올라오면 **제 관리자 목록**으로 메일을 이미 보낸다
+(`HelpDeskServer` 의 `AdminService.GetAdminEmailsForNotificationAsync` →
+`EMailUtil` — `helpdesk` DB 의 `receiveEmail` 을 켠 사람들). 그 길이
+`HELPDESK_LEGACY` 다.
+
+받는 사람 목록이 **다르다** — 저쪽은 헬프데스크의 관리자 표이고 이쪽은 포털의
+역할표다. 그래서 「두 통 가니까 켜지 마라」가 아니라, **두 목록에 다 든 사람은
+두 통을 받는다**가 맞는 말이다. 이벤트 설명에 그 한 줄을 적어 두었다.
+
+겹침이 사라지는 때는 `HELPDESK_LEGACY` 를 알림 서버로 옮길 때다(아래 「다음에
+할 일」).
+
+### 메일은 **적어 둔 때만** 나간다 — 푸시와 기본값이 반대다
+
+> **「조용히 막지 않는다」의 짝은 「조용히 늘리지 않는다」다.**
+
+푸시는 정책 줄이 없으면 「제한 없음」이다(지금까지와 똑같이 나간다).
+**메일 곁가지는 그 반대다** — 「이메일」을 켠 역할이 하나도 없으면 한 통도 안 낸다.
+
+같은 기본값을 쓰면 이 기능이 켜진 날 배포·생일·기상 알림이 **전 직원
+메일함으로** 쏟아진다. 틀리는 방향을 고를 수 있을 때는 **되돌릴 수 있는 쪽**을
+고른다 — 안 간 알림은 다시 보내면 되지만, 간 메일은 되돌릴 수가 없다.
+
+화면이 그 비대칭을 못 박아 말한다(「제한 없음」 띠와 체크 옆 안내 한 줄).
+
+### 그래도 지키는 것 둘
+
+- **이벤트를 꺼 두었으면 메일도 안 낸다.** 끈 것은 「이 알림을 보내지 마라」이지
+  「앱 푸시만 보내지 마라」가 아니다.
+- **본인이 메일을 껐으면 안 낸다**(환경설정의 「이메일 알림」). 순서는 푸시와
+  같다 — 정책 → 본인 설정.
+
+**푸시가 못 갔어도 메일은 나간다.** 곁가지를 부르는 자리가 「VAPID 가 없다 ·
+구독한 기기가 없다 · 다들 푸시를 껐다」로 되돌아가는 갈래보다 **앞**이다.
+뒤에 두면 푸시를 못 받는 사람에게 메일도 안 가는데, 메일을 켜 둔 뜻은 정확히
+그 반대다.
+
+---
 
 ### 정책이 **안 걸리는** 넷을 목록에 두는 까닭
 
