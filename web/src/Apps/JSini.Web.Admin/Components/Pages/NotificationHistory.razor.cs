@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
+using Microsoft.JSInterop;
 
 using JSini.Web.Http;
 using JSini.Web.Models;
@@ -12,9 +13,12 @@ using JSini.Web.Admin.Api;
 
 namespace JSini.Web.Admin.Components.Pages;
 
-public partial class NotificationHistory
+public partial class NotificationHistory : IAsyncDisposable
 {
     [Inject] private AdminClient Api { get; set; } = default!;
+
+    /// <summary>밀기 손짓을 대는 브라우저 쪽(<c>js/note-swipe.js</c>)을 부를 때 쓴다.</summary>
+    [Inject] private IJSRuntime JS { get; set; } = default!;
 
     /// <summary>알림구분 목록. 정본은 공통코드(<c>NOTI_CATEGORY</c>)다.</summary>
     [Inject] private PushCategoryClient Categories { get; set; } = default!;
@@ -202,6 +206,193 @@ public partial class NotificationHistory
     /// </summary>
     private Task OnCardKeyAsync(KeyboardEventArgs e, NotificationDto n) =>
         e.Key is "Enter" or " " ? OpenAsync(n) : Task.CompletedTask;
+
+    // ── 밀어서 읽음 · 밀어서 삭제 ────────────────────────────────
+    //
+    // 오른쪽으로 밀면 읽음, 왼쪽으로 밀면 삭제다. **서랍의 카드와 같은 짝**
+    // 이고 대는 쪽도 같은 모듈이다(`js/note-swipe.js`) — 같은 알림을 같은
+    // 방향으로 밀었는데 자리마다 뜻이 다르면 손이 둘을 따로 외워야 한다.
+    //
+    // 손짓을 브라우저가 직접 받는 까닭은 그 모듈 머리말에 있다 — Blazor
+    // Server 에서 `pointermove` 를 서버로 보내면 카드가 손가락을 몇 백 ms 씩
+    // 늦게 따라온다.
+
+    /// <summary>손짓을 걸 목록의 DOM 아이디. 마크업과 **글자가 같아야 한다**.</summary>
+    private const string SwipeListId = "ad-notecards";
+
+    /// <summary>브라우저 쪽 모듈. 한 번 받아 두고 계속 쓴다.</summary>
+    private IJSObjectReference? _swipeModule;
+
+    /// <summary>그쪽이 우리를 부를 손잡이. 반드시 버려야 한다(회로마다 하나씩 샌다).</summary>
+    private DotNetObjectReference<NotificationHistory>? _swipeRef;
+
+    /// <summary>지금 깔려 있는 목록에 손짓을 걸어 두었나.</summary>
+    /// <remarks>
+    /// <b>그 목록이 사라지면 거짓으로 되돌린다.</b> 다시 생길 때는 다른 DOM 이라
+    /// 걸어 둔 것이 함께 없어지기 때문이다 — 이 값이 그때 한 번만 다시 걸게 한다.
+    /// </remarks>
+    private bool _swipeOn;
+
+    /// <summary>목록이 지금 깔려 있나. 손짓을 걸 자리가 있다는 뜻이다.</summary>
+    private bool SwipeListShown => _isPhone && PhoneShown.Count > 0;
+
+    /// <summary>
+    /// 카드 목록에 손짓을 건다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 서랍은 판이 셸이 사는 내내 그대로라 <c>firstRender</c> 한 번으로 끝나는데,
+    /// 여기는 다르다 — 목록(<c>ul</c>)은 <b>휴대폰일 때만</b> 그려지고(그 값은
+    /// 첫 그림 뒤에 온다) 한 건도 없으면 아예 없다(그 자리에 「받은 알림이
+    /// 없습니다」가 선다). 그래서 <b>목록이 설 때마다</b> 다시 건다.
+    /// </para>
+    /// <para>
+    /// <b>그릴 때마다 걸지는 않는다.</b> 모듈이 이미 받고 있는 판을 기억하므로
+    /// (<c>attached</c>) 되풀이해도 두 번 걸리지는 않지만, 거는 일 자체가
+    /// 브라우저 왕복 하나다 — 체크 한 번 · 「더보기」 한 번마다 그 왕복이 는다.
+    /// 목록이 실제로 새로 서는 자리는 <see cref="SwipeListShown"/> 이 거짓에서
+    /// 참으로 바뀌는 그때뿐이다.
+    /// </para>
+    /// <para>
+    /// 회로가 닫히는 중이거나 프리렌더면 조용히 넘어간다. 밀기만 못 하고
+    /// 목록은 그대로 산다 — 체크 칸과 ✓ 단추가 같은 일을 한다. 그때
+    /// <see cref="_swipeOn"/> 을 안 세우므로 다음 그림에서 다시 해 본다.
+    /// </para>
+    /// </remarks>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!SwipeListShown)
+        {
+            _swipeOn = false;
+            return;
+        }
+
+        if (_swipeOn) return;
+
+        try
+        {
+            _swipeModule ??= await JS.InvokeAsync<IJSObjectReference>(
+                "import", "./_content/JSini.Web.Components/js/note-swipe.js");
+            _swipeRef ??= DotNetObjectReference.Create(this);
+
+            await _swipeModule.InvokeVoidAsync("attachNoteSwipe",
+                $"#{SwipeListId}", _swipeRef, new { card = ".ad-notecards__item[data-note]" });
+
+            _swipeOn = true;
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException
+                                   or ObjectDisposedException or InvalidOperationException
+                                   or TaskCanceledException)
+        {
+        }
+    }
+
+    /// <summary>
+    /// <b>오른쪽으로 민 것을 읽음으로 찍는다.</b> 브라우저가 띠를 다 열고
+    /// 카드를 스러뜨린 뒤에 부른다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// ✓ 단추와 하는 일이 같다(<see cref="MarkReadAsync"/>) — 손짓은 그 단추로
+    /// 가는 <b>빠른 길</b>이지 다른 동작이 아니다. 그래서 토스트도 그대로 뜬다.
+    /// </para>
+    /// <para>
+    /// <b>돌려주는 값이 「그 카드가 목록에 남느냐」다.</b> 「안 읽은 것만」이
+    /// 켜져 있으면 찍힌 줄이 다음 그림에서 빠지므로 스러진 채로 두면 되는데,
+    /// 꺼 두었으면 <b>그 자리에 그대로 남는다</b> — 그때까지 스러뜨려 두면
+    /// 처리된 알림이 보이지 않는 채로 목록에 낀다. 참을 받은 브라우저가
+    /// 민 자취를 지워 제자리로 돌린다(<c>note-swipe.js</c>).
+    /// </para>
+    /// <para>
+    /// 이미 읽은 줄은 서버를 부르지 않는다. 「안 읽은 것만」을 꺼 두면 읽은
+    /// 줄도 밀 수 있는데, 서버는 안 읽은 줄만 찍으므로 왕복이 공짜로 는다.
+    /// </para>
+    /// </remarks>
+    [JSInvokable]
+    public async Task<bool> MarkReadSwipedAsync(string id)
+    {
+        var note = _all.FirstOrDefault(x => x.Id == id);
+        if (note is null) return true;
+
+        if (!note.IsRead)
+        {
+            await MarkReadAsync(note);
+        }
+
+        await InvokeAsync(StateHasChanged);
+
+        // 찍히지 않았으면(실패) 그 줄은 어느 쪽이든 남는다.
+        return !_unreadOnly || !note.IsRead;
+    }
+
+    /// <summary>
+    /// <b>왼쪽으로 민 것을 알림함에서 치운다.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 읽음으로 갈음할 수 없다. 읽음은 「봤다」라서 <b>「안 읽은 것만」을 풀어
+    /// 보면 도로 나온다</b> — 볼 일이 영영 없는 알림을 치우는 길이 따로 있어야 한다.
+    /// </para>
+    /// <para>
+    /// <b>묻지 않는다.</b> 일괄삭제는 묻지만(체크해 둔 수십 건은 무엇이
+    /// 사라졌는지 되짚을 길이 없다) 이쪽은 눈앞의 그 줄 하나다 — 손짓마다
+    /// 창이 뜨면 밀어서 치우는 길을 만든 까닭이 없어진다. 비낀 손가락은
+    /// 문턱이 막는다(<c>note-swipe.js</c> 의 <c>threshold</c>).
+    /// </para>
+    /// <para>
+    /// 줄이 진짜로 지워지지는 않는다(<c>deleted_at</c>) — 같은 표가 보낸 쪽의
+    /// 발송 기록이기도 하다. 받아 둔 것에서 빼고 <b>체크 목록에서도 뺀다</b>:
+    /// 체크해 둔 줄을 밀어 치웠는데 일괄 단추의 건수에 그대로 남아 있으면,
+    /// 「3건 선택」을 누른 사람이 이미 없는 알림까지 보낸다.
+    /// </para>
+    /// <para>
+    /// <b>못 치웠으면 참을 돌려준다</b> — 목록이 그대로이므로 스러진 카드를
+    /// 제자리로 돌려야 한다. 그러지 않으면 지워지지도 않은 알림이 화면에서만
+    /// 사라지고, 다음에 조회하면 아무 설명 없이 되살아난다.
+    /// </para>
+    /// </remarks>
+    [JSInvokable]
+    public async Task<bool> DeleteSwipedAsync(string id)
+    {
+        var note = _all.FirstOrDefault(x => x.Id == id);
+        if (note is null) return true;
+
+        if (!await RunAsync(() => Api.DeleteNotificationAsync(note.Id),
+                "알림을 삭제했습니다.", "삭제하지 못했습니다"))
+        {
+            await InvokeAsync(StateHasChanged);
+            return true;
+        }
+
+        _all = [.. _all.Where(x => !ReferenceEquals(x, note))];
+        _selectedItems = [.. _selectedItems.Where(x => !ReferenceEquals(x, note))];
+
+        await InvokeAsync(StateHasChanged);
+        return false;
+    }
+
+    /// <summary>
+    /// 손잡이와 모듈을 버린다. <b>회로가 이미 닫혔으면 조용히 넘어간다.</b>
+    /// </summary>
+    public async ValueTask DisposeAsync()
+    {
+        _swipeRef?.Dispose();
+        _swipeRef = null;
+
+        if (_swipeModule is null) return;
+
+        try
+        {
+            await _swipeModule.DisposeAsync();
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException)
+        {
+        }
+        finally
+        {
+            _swipeModule = null;
+        }
+    }
 
     // ── 조건이 바뀌면 그 자리에서 다시 읽는다 ──────────────────
     //

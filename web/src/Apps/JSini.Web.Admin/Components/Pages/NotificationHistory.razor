@@ -151,81 +151,119 @@
         }
         else
         {
-            <ul class="ad-notecards">
+            @* 손짓을 거는 자리다 — 코드비하인드가 이 `id` 로 찾는다.
+
+               서랍과 달리 **섰다 사라지는 목록**이라(휴대폰이 아니거나 깔린 줄이
+               없으면 이 자리에 다른 것이 선다) 다시 설 때마다 새로 건다. 글자가
+               어긋나면 손짓만 조용히 안 걸리므로 상수 하나를 나눠 쓴다. *@
+            <ul class="ad-notecards" id="@SwipeListId">
                 @foreach (var n in PhoneShown)
                 {
                     @* `@@key` 를 둔다. 읽음 처리·삭제로 가운데 한 장이 빠질 때
                        Blazor 가 카드를 차례로 대조하면 **맨 끝 것을 지우고
-                       나머지 글자만 밀어 올린다** — 체크가 엉뚱한 줄에 남는다. *@
+                       나머지 글자만 밀어 올린다** — 체크가 엉뚱한 줄에 남고,
+                       손짓이 붙어 있던 그 DOM 이 다른 알림의 카드가 되어
+                       **스러지는 중이던 모습 그대로 굳는다.** *@
                     <li class="ad-notecards__item @(n.IsRead ? null : "ad-notecards__item--unread")"
-                        @key="n.Id">
+                        @key="n.Id" data-note="@n.Id">
 
-                        @* 체크는 **이 자리에서만** 한다. 카드 본문을 누르는 것은
-                           「연다」이고(표의 `AllowSelectRowByClick="false"` 와 같은
-                           규칙), 번짐을 안 끊으면 체크하려던 손짓이 그 화면을 연다. *@
-                        <span class="ad-notecards__check"
-                              @onclick="@(() => { })" @onclick:stopPropagation="true">
-                            <DxCheckBox Checked="@Picked(n)"
-                                        CheckedChanged="@((bool on) => Pick(n, on))" />
+                        @* ── 밀어서 읽음 · 밀어서 삭제 ──────────────────────
+
+                           서랍의 카드와 **같은 짝**이다(오른쪽 읽음 · 왼쪽 삭제).
+                           휴대폰에서 알림을 치우는 가장 잦은 손짓이 그것이고,
+                           여기만 반대로 두면 손이 둘을 따로 외워야 한다.
+
+                           띠는 **미는 만큼만 넓어진다**(`--note-swipe`) — 가만히
+                           있을 때는 폭이 0 이라 한 픽셀도 안 보인다. 카드 밑에
+                           깔아 두고 덮는 방식이 아니라서 **본문에 불투명한 바탕을
+                           깔 필요가 없다**(깔면 테마마다 카드 색과 어긋난다).
+
+                           밀 수 없는 자리(키보드 · 화면 낭독기)를 위해 체크 칸과
+                           ✓ 단추는 그대로 둔다. 손짓은 **빠른 길**이지 유일한
+                           길이 아니다. *@
+                        <span class="ad-notecards__act ad-notecards__act--read"
+                              aria-hidden="true">
+                            <span class="ad-notecards__act-mark">✓</span>
+                            <span class="ad-notecards__act-text">읽음</span>
                         </span>
 
-                        <div class="ad-notecards__body" role="button" tabindex="0"
-                             @onclick="@(() => OpenAsync(n))"
-                             @onkeydown="@(e => OnCardKeyAsync(e, n))">
+                        <span class="ad-notecards__act ad-notecards__act--del"
+                              aria-hidden="true">
+                            <span class="ad-notecards__act-text">삭제</span>
+                            <span class="ad-notecards__act-mark">🗑</span>
+                        </span>
 
-                            @* 얹는 한 줄 — 구분 · 도착 · 상태 · 받은 때.
-                               표에서 칸 넷이던 것을 딱지로 바꿔 한 줄에 담는다.
-                               흘려 담으므로 좁으면 아래로 접힐 뿐 옆으로 안 넘친다. *@
-                            <div class="ad-notecards__meta">
-                                @if (!string.IsNullOrWhiteSpace(n.Category))
+                        @* 미는 것은 카드가 아니라 **이 줄**이다. 카드 자신을
+                           옮기면 띠도 함께 가서 아무것도 열리지 않는다. *@
+                        <div class="ad-notecards__row">
+
+                            @* 체크는 **이 자리에서만** 한다. 카드 본문을 누르는 것은
+                               「연다」이고(표의 `AllowSelectRowByClick="false"` 와 같은
+                               규칙), 번짐을 안 끊으면 체크하려던 손짓이 그 화면을 연다. *@
+                            <span class="ad-notecards__check"
+                                  @onclick="@(() => { })" @onclick:stopPropagation="true">
+                                <DxCheckBox Checked="@Picked(n)"
+                                            CheckedChanged="@((bool on) => Pick(n, on))" />
+                            </span>
+
+                            <div class="ad-notecards__body" role="button" tabindex="0"
+                                 @onclick="@(() => OpenAsync(n))"
+                                 @onkeydown="@(e => OnCardKeyAsync(e, n))">
+
+                                @* 얹는 한 줄 — 구분 · 도착 · 상태 · 받은 때.
+                                   표에서 칸 넷이던 것을 딱지로 바꿔 한 줄에 담는다.
+                                   흘려 담으므로 좁으면 아래로 접힐 뿐 옆으로 안 넘친다. *@
+                                <div class="ad-notecards__meta">
+                                    @if (!string.IsNullOrWhiteSpace(n.Category))
+                                    {
+                                        <span class="jsini-badge">@_categoryName(n.Category)</span>
+                                    }
+
+                                    @* 도착했으면 아무것도 안 적는다 — 정상에 딱지를
+                                       붙이면 눈이 거기로 간다(표와 같은 규칙). *@
+                                    @if (!n.Delivered)
+                                    {
+                                        <span class="jsini-badge jsini-badge--warn" title="@n.FailureReason">
+                                            @(n.FailureReason ?? "기기에 못 감")
+                                        </span>
+                                    }
+
+                                    @if (n.IsRead)
+                                    {
+                                        <span class="jsini-badge jsini-badge--off">읽음</span>
+                                    }
+
+                                    @* 받은 때는 **줄 끝**에 민다. 딱지가 몇 개든 날짜는
+                                       늘 같은 쪽에 있어 눈이 훑기 쉽다. *@
+                                    <span class="ad-notecards__when">@n.CreatedAt.Kst("yyyy-MM-dd HH:mm")</span>
+                                </div>
+
+                                <div class="ad-notecards__title">@n.Title</div>
+
+                                @* 표에서 가로로 굴려야 보이던 그 칸이다. 여기서는
+                                   제목 아래에 그대로 깔리고 네 줄까지 받는다 — 더
+                                   긴 것은 눌러서 그 화면에서 본다. *@
+                                @if (!string.IsNullOrWhiteSpace(n.Body))
                                 {
-                                    <span class="jsini-badge">@_categoryName(n.Category)</span>
+                                    <p class="ad-notecards__text">@n.Body</p>
                                 }
-
-                                @* 도착했으면 아무것도 안 적는다 — 정상에 딱지를
-                                   붙이면 눈이 거기로 간다(표와 같은 규칙). *@
-                                @if (!n.Delivered)
-                                {
-                                    <span class="jsini-badge jsini-badge--warn" title="@n.FailureReason">
-                                        @(n.FailureReason ?? "기기에 못 감")
-                                    </span>
-                                }
-
-                                @if (n.IsRead)
-                                {
-                                    <span class="jsini-badge jsini-badge--off">읽음</span>
-                                }
-
-                                @* 받은 때는 **줄 끝**에 민다. 딱지가 몇 개든 날짜는
-                                   늘 같은 쪽에 있어 눈이 훑기 쉽다. *@
-                                <span class="ad-notecards__when">@n.CreatedAt.Kst("yyyy-MM-dd HH:mm")</span>
                             </div>
 
-                            <div class="ad-notecards__title">@n.Title</div>
-
-                            @* 표에서 가로로 굴려야 보이던 그 칸이다. 여기서는
-                               제목 아래에 그대로 깔리고 네 줄까지 받는다 — 더
-                               긴 것은 눌러서 그 화면에서 본다. *@
-                            @if (!string.IsNullOrWhiteSpace(n.Body))
+                            @* 한 건만 읽음으로 찍는다. **카드를 누르는 것과 다르다** —
+                               그쪽은 찍고 나서 그 화면으로 데려간다. 볼 것 없이
+                               치우기만 하려는 알림이 훨씬 잦아서 둘을 가른다
+                               (서랍의 ✓ 단추와 같다 · `NotificationInboxDrawer`). *@
+                            @if (!n.IsRead)
                             {
-                                <p class="ad-notecards__text">@n.Body</p>
+                                <span class="ad-notecards__mark"
+                                      @onclick="@(() => { })" @onclick:stopPropagation="true">
+                                    <DxButton RenderStyle="ButtonRenderStyle.Link"
+                                              IconCssClass="jsini-icon-check-circle"
+                                              Title="읽음으로 표시"
+                                              Click="@(() => MarkReadAsync(n))" />
+                                </span>
                             }
                         </div>
-
-                        @* 한 건만 읽음으로 찍는다. **카드를 누르는 것과 다르다** —
-                           그쪽은 찍고 나서 그 화면으로 데려간다. 볼 것 없이
-                           치우기만 하려는 알림이 훨씬 잦아서 둘을 가른다
-                           (서랍의 ✓ 단추와 같다 · `NotificationInboxDrawer`). *@
-                        @if (!n.IsRead)
-                        {
-                            <span class="ad-notecards__mark"
-                                  @onclick="@(() => { })" @onclick:stopPropagation="true">
-                                <DxButton RenderStyle="ButtonRenderStyle.Link"
-                                          IconCssClass="jsini-icon-check-circle"
-                                          Title="읽음으로 표시"
-                                          Click="@(() => MarkReadAsync(n))" />
-                            </span>
-                        }
                     </li>
                 }
             </ul>

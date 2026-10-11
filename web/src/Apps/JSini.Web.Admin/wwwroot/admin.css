@@ -3740,17 +3740,14 @@
   padding: 0;
 }
 
-/* 한 장은 `체크 | 글 | ✓` 세 칸이다. 글 칸만 늘어나고 양옆은 제 폭을 지킨다 —
-   `minmax(0, 1fr)` 이 없으면 긴 제목이 칸을 밀어 **다시 가로로 구른다**.
+/* 한 장은 **띠 둘과 줄 하나**다. 띠는 밀기 전에는 폭이 0 이라 안 보이고
+   (바로 아래 묶음), 보이는 것은 `.ad-notecards__row` 뿐이다.
 
-   줄 높이를 못 박지 않는다. 내용이 길면 그만큼 늘어나면 되고, 쪽이 구르므로
-   아래가 밀릴 뿐이다. */
+   `overflow: hidden` 은 밀려난 줄이 카드 밖으로 비어져 나오지 않게 한다 —
+   목록에 가로 스크롤이 생기면 미는 동안 판이 함께 흔들린다. */
 .ad-notecards__item {
-  display: grid;
-  grid-template-columns: max-content minmax(0, 1fr) max-content;
-  align-items: start;
-  gap: 0.2rem 0.5rem;
-  padding: 0.6rem 1rem;
+  position: relative;
+  overflow: hidden;
   border-top: 1px solid var(--jsini-border);
 }
 
@@ -3759,11 +3756,141 @@
   border-top: 0;
 }
 
+/* 한 줄은 `체크 | 글 | ✓` 세 칸이다. 글 칸만 늘어나고 양옆은 제 폭을 지킨다 —
+   `minmax(0, 1fr)` 이 없으면 긴 제목이 칸을 밀어 **다시 가로로 구른다**.
+
+   줄 높이를 못 박지 않는다. 내용이 길면 그만큼 늘어나면 되고, 쪽이 구르므로
+   아래가 밀릴 뿐이다. */
+.ad-notecards__row {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
+  align-items: start;
+  gap: 0.2rem 0.5rem;
+  padding: 0.6rem 1rem;
+}
+
 /* 안 읽은 것은 **왼쪽에 선 하나**로 가른다. 표에서는 「읽음」 딱지가 붙고 안
    붙고로 갈렸는데, 카드에서는 그 딱지가 딱지 셋 사이에 섞여 눈에 안 들어온다.
-   안쪽 그림자라 자리를 안 먹어 글이 줄마다 같은 자리에서 시작한다. */
-.ad-notecards__item--unread {
+   안쪽 그림자라 자리를 안 먹어 글이 줄마다 같은 자리에서 시작한다.
+
+   **카드가 아니라 줄에 건다.** 카드에 걸면 오른쪽으로 미는 동안 그 선이
+   제자리에 남아, 열린 초록 띠 위에 파란 줄이 한 가닥 떠 있게 된다. */
+.ad-notecards__item--unread > .ad-notecards__row {
   box-shadow: inset 3px 0 0 var(--jsini-accent);
+}
+
+/* ── 밀어서 읽음 · 밀어서 삭제 ──────────────────────────────
+
+   서랍의 카드(`app.css` 의 `.jsini-note-drawer__card`)와 **같은 짝이고 같은
+   변수**다 — 대는 쪽이 같은 모듈이기 때문이다(`js/note-swipe.js`). 생김새
+   규칙만 여기 따로 적는다: 서랍은 카드가 떠 있는 상자이고 이쪽은 선으로
+   나뉜 목록이라, 모서리와 테두리를 함께 쓸 수 없다.
+
+     --note-swipe     밀린 거리. **부호가 있다** — 양수 오른쪽(읽음), 음수 왼쪽(삭제)
+     --note-swipe-ms  줄과 띠의 전환 시간. 끄는 동안은 0
+     --note-ready     문턱을 넘었나(0/1)
+     --note-alive     살아 있나(1) 스러지는 중인가(0)
+
+   `touch-action: pan-y` 가 이 기능의 핵심 한 줄이다. 알림함은 한 달치가
+   쌓이는 목록이라 **굴리는 것이 미는 것보다 잦다** — 세로 끌기는 브라우저가
+   제 스크롤로 가져가고 가로 끌기만 우리에게 온다. 안 걸면 옆으로 밀어도
+   브라우저가 스크롤로 삼키고, 통째로 막으면 이번엔 카드 위에서 목록을
+   위아래로 굴릴 수 없다. */
+.ad-notecards__item[data-note] {
+  --note-swipe: 0px;
+  --note-swipe-ms: 0ms;
+  --note-ready: 0;
+  --note-alive: 1;
+
+  touch-action: pan-y;
+  opacity: var(--note-alive);
+  transition: opacity 180ms ease;
+}
+
+/* 좌우에서 열리는 띠. **미는 만큼만 넓어진다**(`max()` 가 부호 하나에서 두
+   폭을 뽑는다) — 가만히 있을 때는 둘 다 폭이 0 이라 보이지 않는다.
+
+   카드 밑에 깔아 두고 줄로 덮는 흔한 방법을 쓰지 않았다. 그러려면 줄에
+   불투명한 바탕을 깔아야 하는데, 카드 바탕은 테마가 정하는 값이라 어긋나는
+   쪽이 반드시 나온다.
+
+   **안쪽 여백을 주지 않는다.** 주면 폭이 0 이어도 상자가 그만큼 남아
+   (`width` 는 여백 아래로 못 내려간다) 줄마다 양옆에 **실오라기**가 늘 선다. */
+.ad-notecards__act {
+  position: absolute;
+  inset-block: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  overflow: hidden;
+  color: #fff;
+  font-size: var(--jsini-fs-2xs);
+  white-space: nowrap;
+  pointer-events: none;
+  transition: width var(--note-swipe-ms) ease;
+}
+
+/* 초록은 ✓ 단추가 하는 일과 같은 뜻이다. 빨강은 **되돌릴 수 없다**는 뜻이고,
+   둘이 갈려야 문턱 앞에서 「지금 놓으면 어느 쪽이 되나」를 눈으로 가린다.
+   색은 서랍의 띠와 **같은 값**이다 — 같은 손짓이 자리마다 다른 색이면
+   둘이 다른 일로 읽힌다. */
+.ad-notecards__act--read {
+  left: 0;
+  width: max(0px, var(--note-swipe));
+  background: #2e7d32;
+}
+
+.ad-notecards__act--del {
+  right: 0;
+  justify-content: flex-end;
+  width: max(0px, calc(-1 * var(--note-swipe)));
+  background: #c62828;
+}
+
+/* 문턱을 넘으면 그림이 커지고 글자가 또렷해진다. **손을 떼기 전에**
+   「놓으면 처리된다」를 알려 주는 것이 이 둘의 일이다. */
+.ad-notecards__act-mark {
+  flex: 0 0 auto;
+  font-size: var(--jsini-fs-sm);
+  line-height: 1;
+  transform: scale(calc(0.7 + (0.3 * var(--note-ready))));
+  transition: transform 120ms ease;
+}
+
+.ad-notecards__act--read .ad-notecards__act-mark { margin-left: 0.6rem; }
+.ad-notecards__act--del .ad-notecards__act-mark { margin-right: 0.6rem; }
+
+.ad-notecards__act-text {
+  opacity: calc(0.45 + (0.55 * var(--note-ready)));
+  transition: opacity 120ms ease;
+}
+
+/* 밀리는 것은 카드가 아니라 **줄**이다. 카드 자신을 옮기면 띠도 함께 가서
+   아무것도 열리지 않는다. 띠 위에 놓는 것(`z-index`)도 필요하다 — 띠가 절대
+   자리라 그대로 두면 문서에서 뒤인 띠가 줄을 덮어 제목이 색에 가린다.
+
+   바탕을 깐다. 목록은 줄이 맞닿아 있어서, 미는 줄 아래로 **다음 줄의 글자가
+   비쳐 보이면** 두 알림이 한 장처럼 읽힌다 — 카드가 떠 있는 서랍과 갈리는
+   자리가 여기다. */
+.ad-notecards__item[data-note] > .ad-notecards__row {
+  position: relative;
+  z-index: 2;
+  background: var(--jsini-bg);
+  transform: translateX(var(--note-swipe));
+  transition: transform var(--note-swipe-ms) ease;
+}
+
+/* 움직임을 줄여 달라고 한 사람에게는 **결과만** 준다 — 처리됐다는 것은
+   카드가 목록에서 빠지는 것으로 이미 말한다. */
+@media (prefers-reduced-motion: reduce) {
+  .ad-notecards__item[data-note],
+  .ad-notecards__item[data-note] > .ad-notecards__row,
+  .ad-notecards__act,
+  .ad-notecards__act-mark,
+  .ad-notecards__act-text {
+    transition: none;
+  }
 }
 
 .ad-notecards__check {

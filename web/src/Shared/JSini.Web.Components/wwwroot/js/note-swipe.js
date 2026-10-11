@@ -1,5 +1,29 @@
 /**
- * 알림함 카드 — **오른쪽으로 밀면 읽음, 왼쪽으로 밀면 삭제**.
+ * 알림 카드 — **오른쪽으로 밀면 읽음, 왼쪽으로 밀면 삭제**.
+ *
+ * [거는 자리가 둘이다]
+ *
+ * 헤더의 종이 펴는 알림함 서랍(`NotificationInboxDrawer`)과, 휴대폰에서 표를
+ * 대신하는 「내 알림함」의 카드 목록(`/admin/push/history`)이다. **손짓의 뜻이
+ * 같아야 한다** — 같은 알림을 같은 방향으로 밀었는데 한쪽은 읽음이고 다른
+ * 쪽은 삭제이면 손이 둘을 따로 외워야 한다. 그래서 대는 쪽을 하나로 둔다.
+ *
+ * 생김새만 자리마다 다르다(띠의 클래스 이름 · 미는 속을 감싼 줄). 그 둘을
+ * `options` 로 받는다 — CSS 변수 이름(`--note-*`)과 부르는 메서드 이름은
+ * 양쪽이 같다.
+ *
+ *   options.card   밀 수 있는 카드를 찾는 선택자. 안 주면 서랍의 것.
+ *
+ * [처리하고 나서도 카드가 남는 자리가 있다]
+ *
+ * 서랍은 **안 읽은 것만** 그리므로 읽음으로 찍힌 카드는 목록에서 빠진다 —
+ * 스러진 그대로 두면 된다. 「내 알림함」은 「안 읽은 것만」을 끄면 읽은 줄도
+ * 그리므로, 읽음으로 찍은 카드가 **그 자리에 그대로 남는다.** 그때까지
+ * 스러뜨려 두면 처리된 알림이 보이지 않는 채로 목록에 낀다.
+ *
+ * 그래서 C# 이 참을 돌려주면(`Task<bool>`) 민 자취를 지워 **제자리로
+ * 되돌린다.** 아무것도 안 돌려주는 쪽(`Task`)은 `null` 이 와서 그냥 지나간다 —
+ * 서랍의 동작은 전과 같다.
  *
  * [왜 JS 가 손짓을 직접 받나]
  *
@@ -47,11 +71,17 @@ const SLOP = 6;
 const ACT_MS = 200;
 const FADE_MS = 180;
 
-export function attachNoteSwipe(selector, dotnet) {
+/** 서랍의 카드. `options.card` 를 안 주면 이것을 민다. */
+const DRAWER_CARD = '.jsini-note-drawer__card[data-note]';
+
+export function attachNoteSwipe(selector, dotnet, options) {
   const root = document.querySelector(selector);
   if (!root || attached.has(root)) return;
 
   attached.add(root);
+
+  /** 밀 수 있는 카드를 찾는 선택자. 자리마다 클래스 이름이 다르다. */
+  const cardSelector = options?.card || DRAWER_CARD;
 
   /** 지금 끌고 있는 카드. 없으면 `null`. */
   let card = null;
@@ -93,7 +123,7 @@ export function attachNoteSwipe(selector, dotnet) {
     if (card || busy) return;
     if (e.pointerType === 'mouse' && e.button !== 0) return;
 
-    const el = e.target.closest ? e.target.closest('.jsini-note-drawer__card[data-note]') : null;
+    const el = e.target.closest ? e.target.closest(cardSelector) : null;
     if (!el || !root.contains(el)) return;
 
     card = el;
@@ -193,8 +223,16 @@ export function attachNoteSwipe(selector, dotnet) {
         busy = false;
 
         try {
-          await dotnet.invokeMethodAsync(
+          const stays = await dotnet.invokeMethodAsync(
             right ? 'MarkReadSwipedAsync' : 'DeleteSwipedAsync', id);
+
+          // **처리했는데 그 카드가 목록에 남는다**고 한다(「안 읽은 것만」을
+          // 꺼 둔 알림함에서 읽음으로 민 줄이 그렇다). 민 자취를 지워 제자리로
+          // 돌린다 — 안 돌리면 처리된 알림이 보이지 않는 채로 목록에 낀다.
+          //
+          // 아무것도 안 돌려주는 쪽(서랍)은 `null` 이라 그냥 지나간다. 그쪽은
+          // 처리된 줄을 Blazor 가 목록에서 걷어내므로 돌릴 카드가 없다.
+          if (stays) drop(el);
         } catch {
           // 회로가 닫혔거나 서버가 못 받았다. 카드를 제자리로 돌려 둔다 —
           // 스러진 채로 두면 **처리되지도 않은 알림이 화면에서 사라진다.**
