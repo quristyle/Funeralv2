@@ -47,6 +47,16 @@ export function attachMoreObserver(sentinel, dotnet) {
     requestMore();
   };
 
+  const onWheel = (event) => {
+    if (event.deltaY > 0) {
+      scrollingDown = true;
+      requestMore();
+    } else if (event.deltaY < 0) {
+      scrollingDown = false;
+      exhausted = false;
+    }
+  };
+
   const observer = new IntersectionObserver((entries) => {
     intersecting = entries[entries.length - 1].isIntersecting;
     if (!intersecting) exhausted = false;
@@ -60,8 +70,9 @@ export function attachMoreObserver(sentinel, dotnet) {
   }
   positions.set(document, scrollTop(document));
   document.addEventListener("scroll", onScroll, { capture: true, passive: true });
+  document.addEventListener("wheel", onWheel, { passive: true });
   observer.observe(sentinel);
-  attachments.set(sentinel, { observer, onScroll });
+  attachments.set(sentinel, { observer, onScroll, onWheel });
 }
 
 export function detachMoreObserver(sentinel) {
@@ -70,5 +81,6 @@ export function detachMoreObserver(sentinel) {
 
   attachment.observer.disconnect();
   document.removeEventListener("scroll", attachment.onScroll, true);
+  document.removeEventListener("wheel", attachment.onWheel);
   attachments.delete(sentinel);
 }
