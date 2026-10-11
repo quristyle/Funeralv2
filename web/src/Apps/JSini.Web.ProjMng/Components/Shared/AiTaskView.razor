@@ -198,20 +198,34 @@
         </span>
 
         @* 시각 셋만 라벨을 달고 남는다. **이것들은 라벨이 없으면 안 갈린다** —
-           작성시간과 실행일시는 둘 다 `yyyy-MM-dd HH:mm` 이라 생김새가 같고,
-           총작업시간은 「3분 12초」라 어느 시각의 길이인지 말해 줄 것이 없다. *@
+           작성과 동작은 둘 다 `yyyy-MM-dd HH:mm` 이라 생김새가 같고,
+           작업은 「3분 12초」라 어느 시각의 길이인지 말해 줄 것이 없다.
+
+           **라벨은 두 글자로 맞춘다.** 「작성시간 · 실행일시 · 총작업시간」은
+           갈라 주는 몫을 앞 두 글자가 이미 다 하고 뒤에 붙은 「시간 · 일시」는
+           세 번 되풀이되면서 머리띠의 자리만 먹었다 — 그 자리만큼 시각 값이
+           다음 줄로 밀린다. 낭독기에게 더 말해 줄 것도 없다(값 자신이 날짜꼴과
+           시간꼴로 이미 갈린다).
+
+           | 전 | 지금 |
+           |---|---|
+           | 작성시간 | **작성** |
+           | 실행일시 | **동작** — 「실행」이 아닌 까닭은 바로 위 상태 배지의
+                        「실행중」과 두 글자가 겹쳐 머리띠에서 같은 말이 두 번
+                        서 보이기 때문이다 |
+           | 총작업시간 | **작업** | *@
         <span class="pm-peek__cell">
-            <span class="pm-peek__label">작성시간</span>
+            <span class="pm-peek__label">작성</span>
             <span class="pm-peek__value">@t.CreDt.Kst("yyyy-MM-dd HH:mm")</span>
         </span>
 
         <span class="pm-peek__cell">
-            <span class="pm-peek__label">실행일시</span>
+            <span class="pm-peek__label">동작</span>
             <span class="pm-peek__value">@AiTaskWhen.RunAt(t)</span>
         </span>
 
         <span class="pm-peek__cell">
-            <span class="pm-peek__label">총작업시간</span>
+            <span class="pm-peek__label">작업</span>
             <span class="pm-peek__value">@AiTaskWhen.Elapsed(t)</span>
         </span>
     </div>
