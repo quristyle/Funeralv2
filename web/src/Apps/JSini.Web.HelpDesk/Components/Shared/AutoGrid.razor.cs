@@ -1,5 +1,3 @@
-using DevExpress.Blazor;
-using JSini.Web.Components.Data;
 using Microsoft.AspNetCore.Components;
 using System.Data;
 using JSini.Web.HelpDesk.Api;
@@ -25,6 +23,12 @@ public partial class AutoGrid
     /// 기억해야 한다. 표가 높이를 받는 자리에 있어야 한다(가상 스크롤은
     /// 바깥이 정해 준 높이 안에서 굴린다).
     /// </para>
+    ///
+    /// <para>
+    /// <b>휴대폰에서는 켜도 쪽나누기로 돌아간다.</b> 카드로 펴면 줄 높이가
+    /// 고르지 않아 가상 스크롤의 어림이 열 배 넘게 빗나가서다 —
+    /// 되돌리는 일은 <c>CommGrd</c> 가 한다(그 부품의 <c>ApplyScrollMode</c>).
+    /// </para>
     /// </summary>
     [Parameter] public bool AllRows { get; set; }
 
@@ -38,8 +42,9 @@ public partial class AutoGrid
     /// </para>
     ///
     /// <para>
-    /// 켜 두면 화면이 든 건수와 보이는 줄 수가 갈라진다. 건수를 적는 자리는
-    /// <b>총 건수</b>라고 적어야 한다.
+    /// 켜 두면 <b>머리줄의 건수와 보이는 줄 수가 갈라진다.</b> 훑는 검색은
+    /// 칸별 거르개와 달라서 <c>CommGrd</c> 가 「총 65건 중 12건」을 적어 주지
+    /// 못한다 — 머리줄에 서는 것은 늘 <b>총 건수</b>다.
     /// </para>
     /// </summary>
     [Parameter] public bool SearchBox { get; set; }
@@ -84,18 +89,4 @@ public partial class AutoGrid
 
     private string Caption(string name) =>
         Captions is not null && Captions.TryGetValue(name, out var text) ? text : name;
-
-    /// <summary>휴대폰(≤767px)인가. <c>DxLayoutBreakpoint</c> 가 채운다.</summary>
-    private bool _isPhone;
-
-    private void OnPhoneChanged(bool phone)
-    {
-        if (_isPhone == phone)
-        {
-            return;
-        }
-
-        _isPhone = phone;
-        StateHasChanged();
-    }
 }

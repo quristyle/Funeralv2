@@ -8,13 +8,24 @@
     화면(요청 목록·상세처럼 매일 보는 것)은 컬럼을 직접 적는다 —
     **어느 쪽인지는 화면 주석에 적어 둔다.**
 
+    [표 자체는 `CommGrd` 다 — 이 부품이 하는 일은 **칸을 세우는 것**뿐이다]
+
+    한동안 맨 `DxGrid` 를 직접 그리고 있었다. 그래서 공통 표가 들고 있는 것을
+    여기서 손으로 되풀이했고(카드 표시 · 글자 안 접기 · 칸 너비 끌기 · 폭을
+    묻는 `DxLayoutBreakpoint`), 그런데도 **머리줄의 건수 · 오른쪽 클릭 창
+    (다시 읽기 · 칸별 검색 · 엑셀) · 줄무늬**는 이 표에만 없었다 —
+    보고서 열일곱 화면이 통째로 그랬다. 공통 표로 옮겨 그 갈라짐을 없앴다.
+
+    남은 것은 **칸을 세우는 규칙** 둘이다(`Order` · `Caption`). 그것이 이
+    부품의 전부이고, 표의 몸가짐은 이제 `CommGrd` 한 곳에서만 정해진다.
+
     [칸을 눌러 담지 않는다 — 가로로 구른다]
 
     프로시저·리포트가 돌려주는 칸이 열일곱 개씩 된다. 그대로 두면 DevExpress
     가 판 너비에 맞춰 칸을 모두 눌러서 **머리글이 「M…」·「T…」가 되고 값은
-    세로로 접힌다** — 어느 칸을 보고 있는지 알 수 없다. `CommGrd` 와 같은
-    차림으로 둔다(글자를 접지 않고 칸마다 최소 너비). 넘치면 표가 가로로
-    구른다.
+    세로로 접힌다** — 어느 칸을 보고 있는지 알 수 없다. 칸마다 최소 너비를
+    주어 막는다(글자를 안 접는 것은 `CommGrd` 의 기본값이다). 넘치면 표가
+    가로로 구른다.
 
     [모르는 칸을 숨기지 않는다]
 
@@ -23,27 +34,20 @@
     대신 이름표에 적은 칸이 **앞으로** 온다 — 자주 보는 것이 왼쪽에 있어야 한다.
 *@
 
-@* 폭을 묻는 자리. **카드로 펴는 일에는 안 쓴다** — 그것은 CSS 가 한다
-   (`app.css` 의 `.commgrd--cards`). 여기서 받은 값으로 하는 일은 가상
-   스크롤을 끄고 쪽 넘김을 켜는 것 하나뿐이다(`CommGrd` 의 `_isPhone` 머리말 —
-   카드는 줄 높이가 고르지 않아 가상 스크롤의 어림이 열 배 넘게 빗나간다). *@
-<DxLayoutBreakpoint MaxWidth="767" IsActive="_isPhone" IsActiveChanged="@OnPhoneChanged" />
+@* `TItem` 이 `DataRowView` 인 까닭 — 자료가 `DataTable` 이라 DevExpress 가
+   `DataView` 로 감싸고, 줄은 `DataRow` 가 아니라 그 형으로 온다(web/CLAUDE.md).
+   DB 도구·테이블 관리 등 표를 `DataTable` 로 받는 화면 여덟이 이미 같은 값을
+   쓴다.
 
-@* **휴대폰에서는 카드로 편다.** `CommGrd` 와 같은 표시·같은 CSS 를 쓴다 —
-   여기 표야말로 칸이 열일곱씩 되어 가로로 굴러야 읽히던 자리다(머리말).
-   표시만 달고 펴는 일은 전부 app.css 가 한다.
-
-   **표시를 감싸개가 아니라 표 자신에 단다.** `<div>` 로 감싸면 높이를 주는
-   규칙(`.commcont__body > .dxbl-grid`)이 한 칸 어긋나 안 걸리고, 그러면
-   넓은 화면에서 표가 판을 넘도록 늘어난다. *@
-<DxGrid CssClass="@GridCards.CssClass"
-        Data="@Data" ShowFilterRow="false" ShowSearchBox="@SearchBox"
-        TextWrapEnabled="false"
-        ColumnResizeMode="GridColumnResizeMode.NextColumn"
-        CustomizeElement="@GridCards.Label"
-        PagerVisible="@(_isPhone || !AllRows)"
-        VirtualScrollingEnabled="@(AllRows && !_isPhone)"
-        PageSize="@PageSize" Loading="@Loading">
+   쪽 넘김은 `AllRows` 가 가른다 — 끄면 쪽을 나누고(`PagerVisible`), 켜면
+   `CommGrd` 가 페이저 대신 가상 스크롤을 세운다(`VirtualScrolling` 머리말).
+   휴대폰에서 카드로 펴질 때 그것을 되돌리는 일도 그 부품이 한다. *@
+<CommGrd TItem="DataRowView"
+         Data="@Data"
+         Loading="@Loading"
+         ShowSearchBox="@SearchBox"
+         PagerVisible="@(!AllRows)"
+         PageSize="@PageSize">
     <Columns>
         @foreach (var name in Order)
         {
@@ -53,4 +57,4 @@
                               Visible="@(!Hidden.Contains(name))" />
         }
     </Columns>
-</DxGrid>
+</CommGrd>

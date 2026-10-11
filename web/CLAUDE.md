@@ -2029,7 +2029,12 @@ DB: `deploy/sql/notification-location-tracks-2026-10-09.sql` ·
 | `GridCards` (`Components/Data/GridCards.cs`) | 약속 한 곳 — 표시 클래스 이름과 셀에 적는 칸 이름 |
 | `app.css` 의 `.commgrd--cards` | 실제로 펴는 규칙 전부 (`@media (max-width: 767px)`) |
 | `CommGrd` | 표시를 달고, 카드일 때 **가상 스크롤을 끈다** |
-| 헬프데스크 `AutoGrid` · 뉴스속보 | 맨 `DxGrid` 라 표시를 손으로 단다 |
+
+**부르는 자리는 `CommGrd` 하나다**(2026-10-11). 한동안 셋이었다 — 헬프데스크
+`AutoGrid` 와 뉴스속보가 맨 `DxGrid` 를 직접 그려서 표시를 손으로 달고 있었고,
+그 둘만 **머리줄의 건수 · 오른쪽 클릭 창 · 줄무늬**가 없었다. 둘 다 공통 표 위로
+옮겼다 — `AutoGrid` 는 이제 **칸을 세우는 규칙**(`Order` · `Caption`)만 들고 있고
+표 자체는 `CommGrd` 다.
 
 **새 화면은 아무것도 적지 않는다.** `CommGrd` 를 쓰면 저절로 펴진다. 끄는 자리는
 줄이 한 장으로 읽히지 않는 표뿐이다 — `MobileCards="false"`.
@@ -2087,7 +2092,8 @@ DevExpress 가 세로 굴림 막대를 **「붙박은 오른쪽 칸만큼」 왼
 펴면 그 뜻이 사라진다. 나무는 접었다 펴는 것으로 크기를 다스린다.
 
 어긋나기 쉬운 자리는 `GridCardTests` 가 지킨다(클래스 이름 · 속성 이름 ·
-`::after` · 표시 없는 맨 `DxGrid`).
+`::after`). **맨 `DxGrid` 를 쓰는 화면이 하나도 없다**는 것도 거기서 센다 —
+표시만 손으로 달면 통과하던 것을, 감싼 부품을 거치는지로 바꿔 세운다.
 
 ## 첨부 고르기 — `DxUpload` 과 `DxFileInput` 은 다르다
 

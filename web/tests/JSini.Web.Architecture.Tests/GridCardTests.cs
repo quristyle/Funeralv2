@@ -56,62 +56,70 @@ public sealed class GridCardTests
     }
 
     /// <summary>
-    /// 표를 그리는 자리는 셋이고(<c>CommGrd</c> · 헬프데스크 <c>AutoGrid</c> ·
-    /// 뉴스속보), <b>셋 다 공용 규칙을 거쳐야 한다.</b> 글자를 손으로 적으면
-    /// 한쪽만 고치는 날이 온다.
+    /// <b>표를 그리는 자리는 이제 <c>CommGrd</c> 하나다</b>(2026-10-11).
+    ///
+    /// <para>
+    /// 한동안 셋이었다 — 헬프데스크 <c>AutoGrid</c> 와 뉴스속보가 맨
+    /// <c>DxGrid</c> 를 직접 그려서 카드 표시를 손으로 달고 있었다. 둘 다
+    /// 공통 표 위로 옮겼으므로 글자를 손으로 적는 자리가 없어졌다.
+    /// 새로 들이는 것은 아래 <see cref="맨_DxGrid_를_쓰는_화면이_없다"/> 가 막는다.
+    /// </para>
     /// </summary>
-    [Theory]
-    [InlineData("src/Shared/JSini.Web.Components/Data/CommGrd.razor")]
-    [InlineData("src/Apps/JSini.Web.HelpDesk/Components/Shared/AutoGrid.razor")]
-    [InlineData("src/Apps/JSini.Web.Admin/Components/Pages/NewsBreaking.razor")]
-    public void 표를_그리는_자리는_공용_규칙을_쓴다(string relative)
+    [Fact]
+    public void 표를_그리는_자리는_공용_규칙을_쓴다()
     {
-        var source = RazorSource.Read(Path.Combine(SolutionRoot(), relative.Replace('/', Path.DirectorySeparatorChar)));
+        var source = RazorSource.Read(Path.Combine(
+            SolutionRoot(), "src", "Shared", "JSini.Web.Components", "Data", "CommGrd.razor"));
 
         Assert.Contains("GridCards.CssClass", source);
         Assert.Contains("GridCards.Label", source);
     }
 
     /// <summary>
-    /// <b>맨 <c>DxGrid</c> 를 새로 들이지 않는다.</b> 들이려면 표시를 손으로
-    /// 달아야 하고(위 셋이 그렇다), 안 달면 그 화면만 휴대폰에서 가로로 구른다.
+    /// <b>맨 <c>DxGrid</c> 를 쓰는 화면이 하나도 없다.</b>
+    ///
+    /// <para>
+    /// 위 테스트는 「표시를 달았나」만 보므로, 표시를 손으로 달아 두면
+    /// 통과한다. 여기서는 <b>감싼 부품을 거치는가</b>를 본다 — 거치지 않으면
+    /// 표시 말고도 머리줄의 건수 · 오른쪽 클릭 창 · 줄무늬 · 관리 칸이
+    /// 통째로 빠지고, 그것은 화면을 열어 보기 전에는 아무 표도 안 난다.
+    /// </para>
     /// </summary>
     [Fact]
-    public void 표시_없는_맨_DxGrid_가_없다()
+    public void 맨_DxGrid_를_쓰는_화면이_없다()
     {
         var offenders = new List<string>();
 
         foreach (var file in RazorFiles())
         {
-            // `CommGrd` 는 표시를 **감싸개에** 단다(`<div class="commgrd …">`) —
-            // 그 감싸개가 곧 이 부품이라 여기서 세면 제 발에 걸린다.
+            // `CommGrd` 자신이 그 감싼 부품이다 — 여기서 세면 제 발에 걸린다.
             if (Path.GetFileName(file) == "CommGrd.razor")
             {
                 continue;
             }
 
             var text = RazorSource.Read(file);
-            var index = 0;
 
-            while ((index = text.IndexOf("<DxGrid ", index, StringComparison.Ordinal)) >= 0)
+            for (var i = 0; (i = text.IndexOf("<DxGrid", i, StringComparison.Ordinal)) >= 0; i += 7)
             {
-                var close = text.IndexOf('>', index);
-                var tag = close < 0 ? text[index..] : text[index..close];
+                // `<DxGridDataColumn` · `<DxGridSelectionColumn` 은 칸이라 괜찮다.
+                // 이름이 거기서 끝나는 것만 표다.
+                var after = i + 7 < text.Length ? text[i + 7] : ' ';
 
-                if (!tag.Contains("GridCards.CssClass", StringComparison.Ordinal))
+                if (char.IsLetterOrDigit(after))
                 {
-                    var line = text.Take(index).Count(c => c == '\n') + 1;
-                    offenders.Add($"{Path.GetFileName(file)}:{line}");
+                    continue;
                 }
 
-                index = close < 0 ? text.Length : close;
+                var line = text.Take(i).Count(c => c == '\n') + 1;
+                offenders.Add($"{Path.GetFileName(file)}:{line}");
             }
         }
 
         Assert.True(
             offenders.Count == 0,
-            "표시 없는 맨 DxGrid 가 있습니다. CommGrd 를 쓰거나 CssClass=\"@GridCards.CssClass\" 와 "
-            + "CustomizeElement=\"@GridCards.Label\" 을 다십시오.\n  "
+            "맨 DxGrid 를 쓰는 화면이 있습니다. CommGrd 로 감싸십시오.\n"
+            + "(안 감싸면 머리줄 건수 · 오른쪽 클릭 창 · 줄무늬 · 카드 펴기가 통째로 빠집니다)\n  "
             + string.Join("\n  ", offenders));
     }
 
@@ -134,12 +142,6 @@ public sealed class GridCardTests
         Assert.True(splat > 0);
         Assert.True(grid.IndexOf("PagerVisible=\"@_pagerVisible\"", StringComparison.Ordinal) > splat);
         Assert.True(grid.IndexOf("PageSize=\"@_pageSize\"", StringComparison.Ordinal) > splat);
-
-        var auto = RazorSource.Read(Path.Combine(
-            SolutionRoot(), "src", "Apps", "JSini.Web.HelpDesk", "Components", "Shared", "AutoGrid.razor"));
-
-        Assert.Contains("DxLayoutBreakpoint", auto);
-        Assert.Contains("_isPhone", auto);
     }
 
     private static string SolutionRoot()
