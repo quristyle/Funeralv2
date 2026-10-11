@@ -31,18 +31,27 @@
     답인지부터 모른다. 그래서 탭을 오가며 둘을 맞춰 봐야 했다.
     (결과 메일이 같은 이유로 이미 지시문을 답 위에 싣고 있다.)
 
-    그래서 한 판에 **처리 요약 → 지시 → 결과** 순으로 깐다.
+    그래서 한 판에 **지시 → 결과** 순으로 깐다.
 
-    [왜 요약이 맨 위인가 (2026-09-20)]
+    [처리 요약은 **탭 줄 위**에 있다 (2026-10-11)]
 
-    한동안 가운데였다(지시 → 요약 → 결과). 물음 다음에 답이 오는 것이
-    글의 차례이기는 하다. 그런데 **이 판을 여는 사람은 글을 읽으러 오는
-    것이 아니다** — 알림을 누르고 「됐나 안 됐나, 내가 볼 것이 있나」를
-    보러 온다. 그 답은 요약에만 있고, 요약은 셋 중 가장 짧다.
+    판의 차례는 위에서부터 **머리띠 → 처리 요약 → 탭 줄 → 고른 탭**이다.
 
-    지시가 위에 있으면 그 짧은 답이 **내가 이미 아는 글**(내가 적어 보낸
-    지시문이다) 뒤에 숨는다. 그래서 결론을 먼저 놓고, 그것을 믿을지
-    가릴 원문 둘을 아래에 잇는다.
+    요약도 한동안 탭 안(「지시와 결과」의 맨 위)에 있었다. 그 자리에서
+    **맨 위**인 것은 지금도 옳다 — 이 판을 여는 사람은 글을 읽으러 오는
+    것이 아니라 알림을 누르고 「됐나 안 됐나, 내가 볼 것이 있나」를 보러
+    오고, 그 답은 요약에만 있다. 지시가 위에 있으면 그 짧은 답이 **내가
+    이미 아는 글**(내가 적어 보낸 지시문이다) 뒤에 숨는다.
+
+    틀린 것은 **탭 안**이라는 것이었다. 로그를 펴는 순간 요약이 통째로
+    사라져서, 돌고 있는 건을 지켜보거나 「어디서 걸렸나」를 로그에서
+    되짚는 사람이 **결론을 보려면 탭을 되돌아가야** 했다. 돌아가면 이번에는
+    로그에서 읽던 자리를 잃는다(새 줄이 계속 바닥에 붙는다).
+
+    요약은 성격이 **머리띠 쪽**이다 — 어느 탭을 펴고 있든 그 건에 대해
+    달라지지 않는 결론 한 줌이고, 탭 안에 남는 것은 **고르는 것**뿐이다
+    (원문 둘이냐, 기계가 찍은 줄이냐). 그래서 머리띠 바로 아래로 옮겼다.
+    믿을지 가릴 원문 둘은 그 아래 탭에 그대로 잇는다.
 
     [「처리 요약」은 어디서 오나]
 
@@ -240,88 +249,96 @@
         <PageNotice Tone="NoticeTone.Warning" Text="@($"결과 알림: {t.NotifyError}")" />
     }
 
+    @* ── 처리 요약 — **탭 줄 위다** (2026-10-11) ─────────────
+       한동안 「지시와 결과」 탭 **안**의 맨 위였다. 그러면 로그를 펴는
+       순간 요약이 통째로 사라진다 — 돌고 있는 건을 지켜보거나 「어디서
+       걸렸나」를 로그에서 되짚는 사람이 **결론을 보려면 탭을 되돌아가야**
+       했고, 돌아가면 이번에는 로그에서 읽던 자리를 잃는다(새 줄은 계속
+       바닥에 붙는다).
+
+       요약은 성격이 머리띠 쪽이다 — **어느 탭을 펴고 있든 그 건에 대해
+       달라지지 않는 결론 한 줌**이고, 탭 안에 남는 것은 고르는 것뿐이다
+       (원문 둘이냐, 기계가 찍은 줄이냐). 그래서 머리띠 바로 아래, 탭 줄
+       위에 둔다.
+
+       **답이 있는데 요약이 없으면 사정을 적는다** — 위 머리말 참고.
+       답조차 없는 건에는 이 칸이 통째로 빠지고, 그때는 탭 줄이 머리띠에
+       바로 붙는다(고치기 전과 같은 모습이다). *@
+    @if (_summary is { } s)
+    {
+        <div class="pm-peek__summary">
+            <div class="pm-peek__head-row">
+                <h3 class="pm-peek__head">처리 요약</h3>
+
+                <button type="button"
+                        class="pm-peek__speech-btn @(_speaking ? "pm-peek__speech-btn--speaking" : null)"
+                        @onclick="ToggleSpeechAsync"
+                        title="@(_speaking ? "음성 읽기 중지" : "요약 음성으로 읽어주기")"
+                        aria-label="@(_speaking ? "음성 읽기 중지" : "요약 음성으로 읽어주기")">
+                    <span class="pm-peek__speech-icon" aria-hidden="true">@(_speaking ? "⏹" : "🔊")</span>
+                    <span>@(_speaking ? "읽기 중지" : "음성으로 읽어주기")</span>
+                </button>
+            </div>
+
+            <div class="pm-peek__sum">
+                @if (s.Headline is { Length: > 0 } headline)
+                {
+                    <p class="pm-peek__sum-line">@headline</p>
+                }
+
+                @if (s.Points.Count > 0)
+                {
+                    <ul class="pm-peek__sum-list">
+                        @foreach (var point in s.Points)
+                        {
+                            <li>@point</li>
+                        }
+                    </ul>
+                }
+
+                @if (s.Checks.Count > 0)
+                {
+                    <p class="pm-peek__sum-label">확인할 것</p>
+
+                    <ul class="pm-peek__sum-list pm-peek__sum-list--check">
+                        @foreach (var check in s.Checks)
+                        {
+                            <li>@check</li>
+                        }
+                    </ul>
+                }
+            </div>
+        </div>
+    }
+    else if (AwaitingSummary)
+    {
+        @* 답은 왔는데 요약이 없다. **말없이 비워 두지 않는다** —
+           기다리면 오는 것인지, 내가 뭘 해야 하는지를 적는다. *@
+        <div class="pm-peek__summary">
+            <div class="pm-peek__head-row">
+                <h3 class="pm-peek__head">처리 요약</h3>
+
+                <button type="button" class="pm-peek__speech-btn" disabled
+                        title="처리 요약을 만드는 중입니다">
+                    <span class="pm-peek__speech-icon" aria-hidden="true">🔊</span>
+                    <span>음성으로 읽어주기</span>
+                </button>
+            </div>
+
+            <p class="pm-peek__dim">@SummaryWaitText</p>
+
+            @if (_summaryGaveUp && !_summaryBusy)
+            {
+                <DxButton Text="지금 만들기" RenderStyle="ButtonRenderStyle.Link"
+                          Click="@RemakeSummaryAsync" />
+            }
+        </div>
+    }
+
     <div class="pm-peek__tabs">
         <DxTabs @bind-ActiveTabIndex="_tab" TabClick="@OnTabClick">
             <DxTabPage Text="지시와 결과">
                 <div class="pm-peek__pane">
-                    @* ── 처리 요약 ───────────────────────────────
-                       **맨 위다.** AI 가 결과문을 한 번 더 정리한 것이고
-                       (서버가 적어 둔다), 이 판에서 유일하게 **결론부터 적힌
-                       글**이다. 앱알림을 눌러 들어온 사람이 알고 싶은 것도
-                       그것이다 — 「됐나 안 됐나, 내가 볼 것이 있나」.
-
-                       지시와 답은 그 아래에 원문 그대로 둔다. 요약을 믿을지
-                       가리려면 물음과 답을 봐야 하는데, 그 둘은 길다.
-
-                       **답이 있는데 요약이 없으면 사정을 적는다** — 위 머리말 참고.
-                       답조차 없는 건에는 이 칸이 통째로 빠진다. *@
-                    @if (_summary is { } s)
-                    {
-                        <div class="pm-peek__head-row">
-                            <h3 class="pm-peek__head">처리 요약</h3>
-
-                            <button type="button"
-                                    class="pm-peek__speech-btn @(_speaking ? "pm-peek__speech-btn--speaking" : null)"
-                                    @onclick="ToggleSpeechAsync"
-                                    title="@(_speaking ? "음성 읽기 중지" : "요약 음성으로 읽어주기")"
-                                    aria-label="@(_speaking ? "음성 읽기 중지" : "요약 음성으로 읽어주기")">
-                                <span class="pm-peek__speech-icon" aria-hidden="true">@(_speaking ? "⏹" : "🔊")</span>
-                                <span>@(_speaking ? "읽기 중지" : "음성으로 읽어주기")</span>
-                            </button>
-                        </div>
-
-                        <div class="pm-peek__sum">
-                            @if (s.Headline is { Length: > 0 } headline)
-                            {
-                                <p class="pm-peek__sum-line">@headline</p>
-                            }
-
-                            @if (s.Points.Count > 0)
-                            {
-                                <ul class="pm-peek__sum-list">
-                                    @foreach (var point in s.Points)
-                                    {
-                                        <li>@point</li>
-                                    }
-                                </ul>
-                            }
-
-                            @if (s.Checks.Count > 0)
-                            {
-                                <p class="pm-peek__sum-label">확인할 것</p>
-
-                                <ul class="pm-peek__sum-list pm-peek__sum-list--check">
-                                    @foreach (var check in s.Checks)
-                                    {
-                                        <li>@check</li>
-                                    }
-                                </ul>
-                            }
-                        </div>
-                    }
-                    else if (AwaitingSummary)
-                    {
-                        @* 답은 왔는데 요약이 없다. **말없이 비워 두지 않는다** —
-                           기다리면 오는 것인지, 내가 뭘 해야 하는지를 적는다. *@
-                        <div class="pm-peek__head-row">
-                            <h3 class="pm-peek__head">처리 요약</h3>
-
-                            <button type="button" class="pm-peek__speech-btn" disabled
-                                    title="처리 요약을 만드는 중입니다">
-                                <span class="pm-peek__speech-icon" aria-hidden="true">🔊</span>
-                                <span>음성으로 읽어주기</span>
-                            </button>
-                        </div>
-
-                        <p class="pm-peek__dim">@SummaryWaitText</p>
-
-                        @if (_summaryGaveUp && !_summaryBusy)
-                        {
-                            <DxButton Text="지금 만들기" RenderStyle="ButtonRenderStyle.Link"
-                                      Click="@RemakeSummaryAsync" />
-                        }
-                    }
-
                     @* ── 물음 ────────────────────────────────────
                        사람이 적어 보낸 그대로다. 실행 줄에도 그때 준 지시문이
                        남지만(`Instruction`), 그것은 서버가 앞뒤를 덧대 만든
