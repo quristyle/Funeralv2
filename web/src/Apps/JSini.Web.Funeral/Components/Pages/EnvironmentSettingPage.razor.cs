@@ -167,7 +167,7 @@ public partial class EnvironmentSettingPage
     ];
 
     /// <summary>
-    /// 토스트가 뜰 자리 여섯. <b>가운데 둘이 더 있다</b> — FAB 과 달리
+    /// 토스트가 뜰 자리. <b>가운데 옵션이 더 있다</b> — FAB 과 달리
     /// 토스트는 가로로 넓어서 네 귀퉁이만으로는 가릴 것을 못 피하는 화면이 있다.
     /// 값은 <see cref="PortalBoot.NormalizeToastPosition"/> 이 아는 것과 같아야 한다.
     /// </summary>
@@ -176,9 +176,13 @@ public partial class EnvironmentSettingPage
         new("top-left", "왼쪽 위"),
         new("top-center", "가운데 위"),
         new("top-right", "오른쪽 위"),
+        new("top-center-1-5", "1/5 위치 상단중앙"),
+        new("top-center-1-4", "1/4 위치 상단중앙"),
         new("top-center-1-3", "1/3 위치 상단중앙"),
         new("center", "화면 중앙"),
         new("bottom-center-2-3", "2/3 위치 하단중앙"),
+        new("bottom-center-1-4", "1/4 위치 하단중앙"),
+        new("bottom-center-1-5", "1/5 위치 하단중앙"),
         new("bottom-left", "왼쪽 아래"),
         new("bottom-center", "가운데 아래"),
         new("bottom-right", "오른쪽 아래 (기본)"),
