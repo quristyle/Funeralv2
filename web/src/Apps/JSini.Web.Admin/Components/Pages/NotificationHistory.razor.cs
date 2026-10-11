@@ -1,6 +1,7 @@
 using System.Text.RegularExpressions;
 
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.Logging;
 
 using JSini.Web.Http;
@@ -105,6 +106,103 @@ public partial class NotificationHistory
     private IReadOnlyList<NotificationDto> Shown =>
         _unreadOnly ? [.. _all.Where(n => !n.IsRead)] : _all;
 
+    // ── 휴대폰에서는 표가 아니라 카드 목록이다 ────────────────────
+    //
+    // 표의 칸이 일곱이고 그중 둘(제목 · 내용)은 글이라 넓어야 해서, 360px
+    // 화면에서는 **가로로 굴려야** 내용을 볼 수 있었다. 한 건을 한 장에
+    // 세로로 펴면 칸이 하나라 구를 일이 없다(`NotificationHistory.razor`).
+
+    /// <summary>휴대폰(≤767px)인가. <c>DxLayoutBreakpoint</c> 가 채운다.</summary>
+    /// <remarks>
+    /// <b>첫 그림에는 거짓이다.</b> 그 값은 회로가 붙고 한 번 그린 뒤에야
+    /// 오므로 휴대폰으로 들어와도 표가 한 번 섰다가 걷힌다 — 걷히는 쪽이
+    /// 그 뒤에 제 속을 만지다 회로를 내리던 일은 <c>CommGrd</c> 의
+    /// <c>_gone</c> 이 막는다.
+    /// </remarks>
+    private bool _isPhone;
+
+    private void OnPhoneChanged(bool active) => _isPhone = active;
+
+    /// <summary>휴대폰에서 한 번에 깔 줄 수. 「더보기」가 이만큼씩 늘린다.</summary>
+    private const int PhonePage = 20;
+
+    /// <summary>지금까지 깔기로 한 줄 수.</summary>
+    /// <remarks>
+    /// 카드 목록에는 쪽나누기가 없어 받은 것을 남김없이 깐다. 한 달치가
+    /// 수백 건인 사람의 알림함을 한 번에 다 그리면 첫 그림이 그만큼 늦고,
+    /// 그중 사람이 보는 것은 맨 위 몇 줄이다.
+    /// </remarks>
+    private int _take = PhonePage;
+
+    /// <summary>휴대폰 카드 목록에 실제로 깔리는 줄.</summary>
+    private IReadOnlyList<NotificationDto> PhoneShown
+    {
+        get
+        {
+            var shown = Shown;
+            return _take < shown.Count ? [.. shown.Take(_take)] : shown;
+        }
+    }
+
+    /// <summary>아직 안 깐 줄 수. 「더보기」 단추에 적는다.</summary>
+    private int PhoneRest => Math.Max(0, Shown.Count - _take);
+
+    private void ShowMore() => _take += PhonePage;
+
+    // ── 체크 ──────────────────────────────────────────────────────
+    //
+    // 표에서는 `DxGridSelectionColumn` 이 하던 일이다. 카드에는 그 칸이
+    // 없으므로 같은 목록(`_selectedItems`)을 우리가 직접 여닫는다 —
+    // **통을 둘로 두지 않는다.** 그래야 일괄 단추 둘이 양쪽에서 같은 것을
+    // 본다.
+
+    private bool Picked(NotificationDto n) => _selectedItems.Contains(n);
+
+    private void Pick(NotificationDto n, bool on)
+    {
+        if (on)
+        {
+            if (!_selectedItems.Contains(n))
+            {
+                _selectedItems = [.. _selectedItems, n];
+            }
+        }
+        else
+        {
+            _selectedItems = [.. _selectedItems.Where(x => !ReferenceEquals(x, n))];
+        }
+    }
+
+    /// <summary>깔린 것이 모두 체크됐는가. 「전체」 스위치가 이 값을 든다.</summary>
+    /// <remarks>
+    /// <b>깔린 것(<see cref="PhoneShown"/>)으로만 센다.</b> 아직 「더보기」로
+    /// 안 깐 줄까지 세면, 눈앞이 전부 체크돼 있는데 스위치는 꺼져 있다.
+    /// </remarks>
+    private bool AllPicked
+    {
+        get
+        {
+            var rows = PhoneShown;
+            return rows.Count > 0 && rows.All(Picked);
+        }
+    }
+
+    /// <summary>
+    /// 깔린 것을 한꺼번에 고르거나 푼다. 표 머리줄의 체크와 같은 뜻이다.
+    /// </summary>
+    /// <remarks>
+    /// <b>안 깐 줄은 안 잡는다.</b> 잡으면 일괄삭제가 사람이 눈으로 확인한
+    /// 것보다 많이 지우고, 되돌릴 수 없는 쪽으로 틀린다.
+    /// </remarks>
+    private void PickAll(bool on) =>
+        _selectedItems = on ? [.. PhoneShown] : [];
+
+    /// <summary>
+    /// 카드를 누름쇠로 연다. 줄 전체가 누르는 자리라 역할도 단추로 알린다.
+    /// </summary>
+    private Task OnCardKeyAsync(KeyboardEventArgs e, NotificationDto n) =>
+        e.Key is "Enter" or " " ? OpenAsync(n) : Task.CompletedTask;
+
     // ── 조건이 바뀌면 그 자리에서 다시 읽는다 ──────────────────
     //
     // 기간과 구분은 **서버가 거르는 조건**이라 다시 묻는 것 말고는 길이 없다.
@@ -165,6 +263,11 @@ public partial class NotificationHistory
         if (mine != _latest) return 1;
 
         _all = rows;
+
+        // 조건이 바뀌었으니 「더보기」로 늘려 둔 것을 되감는다 — 안 되감으면
+        // 다른 조건으로 좁혀 들어온 목록이 첫 그림부터 수백 줄로 깔린다.
+        _take = PhonePage;
+
         return _all.Count;
     }, "받은 알림이 없습니다.", "알림을 읽지 못했습니다");
 

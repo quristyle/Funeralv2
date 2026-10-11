@@ -31,6 +31,18 @@
 
 <PageTitle>내 알림함 · 포털관리</PageTitle>
 
+@* 휴대폰인가. **표를 카드 목록으로 바꿔 다는 데 쓴다**(아래 `_isPhone`).
+
+   경계는 CSS 의 휴대폰 경계와 같은 767px 다 — 탭 줄이 사라지고 사이드바가
+   덮개가 되는 그 폭(`app.css` 의 `@@media (max-width: 767px)`)에서 목록도
+   함께 손가락용으로 선다. 어긋나게 적으면 화면은 휴대폰 모양인데 목록만
+   표로 서 있는 폭이 생긴다.
+
+   값은 **첫 그림 뒤에** 온다. 그래서 휴대폰으로 들어와도 표가 한 번은 섰다가
+   곧바로 걷히는데, 걷히는 쪽(`CommGrd`)이 그 뒤에 제 속을 만지다 회로를
+   내리던 일은 고쳐져 있다(`CommGrd` 의 `_gone`). *@
+<DxLayoutBreakpoint MaxWidth="767" IsActive="_isPhone" IsActiveChanged="@OnPhoneChanged" />
+
 @* **조건을 고치면 그 자리에서 다시 읽는다.** 그래서 칸마다 `@@bind-` 대신
    값과 변경을 따로 받는다 — `@@bind-` 는 값만 넣고 알려 주지 않는다.
 
@@ -82,7 +94,163 @@
     </Fields>
 </CommSch>
 
-<CommCont>
+<CommCont CssClass="@(_isPhone ? "ad-notebox--phone" : null)">
+    @* ── 목록을 그리는 길이 **둘이다** ─────────────────────────────
+
+       데스크톱은 표(`CommGrd`), 휴대폰은 카드 목록이다.
+
+       한동안 표 하나가 두 모양을 다 맡았다. 칸이 일곱이고(체크 · 받은 때 ·
+       구분 · 제목 · 내용 · 도착 · 상태) 그중 둘은 글이라 넓어야 하므로,
+       360px 화면에서는 **가로로 굴려야 제목 너머를 볼 수 있었다.** 알림함에서
+       가장 자주 읽는 값인 「내용」이 바로 그 스크롤 저편에 있었고, 한 손으로
+       쥔 휴대폰에서 굴려야 보이는 값은 사실상 없는 값이다.
+
+       그래서 휴대폰에서는 **한 건을 한 장에 세로로 편다** — 윗줄에 딱지와
+       받은 때, 그 아래 제목, 그 아래 내용. 칸이 하나라 가로로 구를 일이 없다.
+       같은 판단을 먼저 내린 자리가 헬프데스크 「요청 처리」다(`RequestCards`).
+
+       **할 수 있는 일은 줄지 않는다.** 한 번 눌러 열기 · 체크해서 일괄
+       읽음·삭제 · 한 건 읽음 처리가 양쪽에 그대로 있다. 다른 것은 생김새뿐이다. *@
+    @if (_isPhone)
+    {
+        @* 일괄 동작 띠. 표의 `Toolbar` 와 **같은 자리에 같은 것**을 둔다 —
+           휴대폰에만 없으면 체크 칸을 둔 뜻이 살지 않는다.
+
+           「전체」는 표 머리줄의 체크와 같은 뜻이다 — **지금 깔린 것 전부**를
+           고른다(「더보기」로 아직 안 깐 것은 안 잡는다). 아직 안 보이는 줄까지
+           잡으면 일괄삭제가 눈으로 확인한 것보다 많이 지운다. *@
+        <div class="ad-notecards__bar">
+            <DxCheckBox Checked="@AllPicked" CheckedChanged="@((bool on) => PickAll(on))"
+                        Enabled="@(PhoneShown.Count > 0)">
+                전체
+            </DxCheckBox>
+
+            @if (_selectedItems.Count > 0)
+            {
+                <span class="jsini-hint">@(_selectedItems.Count)건 선택</span>
+            }
+
+            <div class="ad-notecards__acts">
+                <DxButton Text="읽음" IconCssClass="jsini-icon-check"
+                          RenderStyle="ButtonRenderStyle.Secondary"
+                          Enabled="@(_selectedItems.Count > 0)"
+                          Click="@MarkSelectedReadAsync" />
+                <DxButton Text="삭제" IconCssClass="jsini-icon-trash"
+                          RenderStyle="ButtonRenderStyle.Danger"
+                          Enabled="@(_selectedItems.Count > 0)"
+                          Click="@DeleteSelectedAsync" />
+            </div>
+        </div>
+
+        @if (PhoneShown.Count == 0)
+        {
+            @* 「없습니다」는 조회가 끝날 때 토스트로 한 번 지나간다(`DataPage`).
+               그 말은 사라지므로 빈 목록 자리에도 적어 둔다 — 안 적으면 조건을
+               좁힌 사람이 **덜 그려진 화면**을 보게 된다. *@
+            <p class="ad-notecards__empty">받은 알림이 없습니다.</p>
+        }
+        else
+        {
+            <ul class="ad-notecards">
+                @foreach (var n in PhoneShown)
+                {
+                    @* `@@key` 를 둔다. 읽음 처리·삭제로 가운데 한 장이 빠질 때
+                       Blazor 가 카드를 차례로 대조하면 **맨 끝 것을 지우고
+                       나머지 글자만 밀어 올린다** — 체크가 엉뚱한 줄에 남는다. *@
+                    <li class="ad-notecards__item @(n.IsRead ? null : "ad-notecards__item--unread")"
+                        @key="n.Id">
+
+                        @* 체크는 **이 자리에서만** 한다. 카드 본문을 누르는 것은
+                           「연다」이고(표의 `AllowSelectRowByClick="false"` 와 같은
+                           규칙), 번짐을 안 끊으면 체크하려던 손짓이 그 화면을 연다. *@
+                        <span class="ad-notecards__check"
+                              @onclick="@(() => { })" @onclick:stopPropagation="true">
+                            <DxCheckBox Checked="@Picked(n)"
+                                        CheckedChanged="@((bool on) => Pick(n, on))" />
+                        </span>
+
+                        <div class="ad-notecards__body" role="button" tabindex="0"
+                             @onclick="@(() => OpenAsync(n))"
+                             @onkeydown="@(e => OnCardKeyAsync(e, n))">
+
+                            @* 얹는 한 줄 — 구분 · 도착 · 상태 · 받은 때.
+                               표에서 칸 넷이던 것을 딱지로 바꿔 한 줄에 담는다.
+                               흘려 담으므로 좁으면 아래로 접힐 뿐 옆으로 안 넘친다. *@
+                            <div class="ad-notecards__meta">
+                                @if (!string.IsNullOrWhiteSpace(n.Category))
+                                {
+                                    <span class="jsini-badge">@_categoryName(n.Category)</span>
+                                }
+
+                                @* 도착했으면 아무것도 안 적는다 — 정상에 딱지를
+                                   붙이면 눈이 거기로 간다(표와 같은 규칙). *@
+                                @if (!n.Delivered)
+                                {
+                                    <span class="jsini-badge jsini-badge--warn" title="@n.FailureReason">
+                                        @(n.FailureReason ?? "기기에 못 감")
+                                    </span>
+                                }
+
+                                @if (n.IsRead)
+                                {
+                                    <span class="jsini-badge jsini-badge--off">읽음</span>
+                                }
+
+                                @* 받은 때는 **줄 끝**에 민다. 딱지가 몇 개든 날짜는
+                                   늘 같은 쪽에 있어 눈이 훑기 쉽다. *@
+                                <span class="ad-notecards__when">@n.CreatedAt.Kst("yyyy-MM-dd HH:mm")</span>
+                            </div>
+
+                            <div class="ad-notecards__title">@n.Title</div>
+
+                            @* 표에서 가로로 굴려야 보이던 그 칸이다. 여기서는
+                               제목 아래에 그대로 깔리고 네 줄까지 받는다 — 더
+                               긴 것은 눌러서 그 화면에서 본다. *@
+                            @if (!string.IsNullOrWhiteSpace(n.Body))
+                            {
+                                <p class="ad-notecards__text">@n.Body</p>
+                            }
+                        </div>
+
+                        @* 한 건만 읽음으로 찍는다. **카드를 누르는 것과 다르다** —
+                           그쪽은 찍고 나서 그 화면으로 데려간다. 볼 것 없이
+                           치우기만 하려는 알림이 훨씬 잦아서 둘을 가른다
+                           (서랍의 ✓ 단추와 같다 · `NotificationInboxDrawer`). *@
+                        @if (!n.IsRead)
+                        {
+                            <span class="ad-notecards__mark"
+                                  @onclick="@(() => { })" @onclick:stopPropagation="true">
+                                <DxButton RenderStyle="ButtonRenderStyle.Link"
+                                          IconCssClass="jsini-icon-check-circle"
+                                          Title="읽음으로 표시"
+                                          Click="@(() => MarkReadAsync(n))" />
+                            </span>
+                        }
+                    </li>
+                }
+            </ul>
+        }
+
+        @* 「더보기」. 카드 목록은 쪽을 나누지 않고 받은 것을 남김없이 깔므로,
+           몇 줄을 깔지는 `PhoneShown` 이 정하고 이 단추가 그 수를 늘린다.
+
+           **다 깔고 나서도 자리에 남는다 — 눌리지 않는 채로.** 걷어 버리면
+           「끝」이라는 말도 함께 걷히는데, 표 머리줄도 페이저도 없는 화면이라
+           목록이 끊긴 자리에 아무 표시가 없으면 사람은 그것을 「덜 불러온 것」
+           으로 읽는다(요청 처리에서 같은 길을 밟았다 · `RequestManage`). *@
+        @if (PhoneShown.Count > 0)
+        {
+            <div class="ad-notecards__more">
+                <DxButton Text="@(PhoneRest > 0 ? $"더보기 {PhoneRest:N0}건" : "더보기 · 마지막입니다")"
+                          Enabled="@(PhoneRest > 0)"
+                          RenderStyle="ButtonRenderStyle.Secondary"
+                          CssClass="ad-notecards__more-go"
+                          Click="@ShowMore" />
+            </div>
+        }
+    }
+    else
+    {
     @* 줄을 **한 번 누르면 그 알림이 가리키는 화면**이 열린다(탭이 하나 선다).
        AI 작업 지시가 그렇게 열리는 첫 갈래다 — `/projmng/ai/task/{번호}` 가
        이미 탭으로 펼쳐 보는 화면이다(`AiTaskViewPage`).
@@ -135,10 +303,13 @@
         <Columns>
             @* 줄마다 체크 칸. 머리줄의 체크가 「보이는 것 전부」를 고른다. *@
             <DxGridSelectionColumn Width="50" />
-            @* 서버가 주는 것은 UTC 라 그대로 그리면 아홉 시간 전으로 보인다. *@
+            @* 서버가 주는 것은 UTC 라 그대로 그리면 아홉 시간 전으로 보인다.
+               **`ToLocalTime()` 으로는 안 된다** — 컨테이너 시계가 UTC 라
+               (`TZ=Etc/UTC`) 운영에서는 아무 일도 안 한다. 한국 시각을 만드는
+               자리는 `Kst(...)` 하나다(docs/utc-time.md). *@
             <DxGridDataColumn FieldName="@nameof(NotificationDto.CreatedAt)" Caption="받은 때" Width="150">
                 <CellDisplayTemplate Context="cell">
-                    @(((NotificationDto)cell.DataItem).CreatedAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm"))
+                    @(((NotificationDto)cell.DataItem).CreatedAt.Kst("yyyy-MM-dd HH:mm", string.Empty))
                 </CellDisplayTemplate>
             </DxGridDataColumn>
             @* 갈래. 공통코드의 이름으로 그린다 — 목록에서 지워진 옛 값이면
@@ -189,6 +360,7 @@
             </DxGridDataColumn>
         </Columns>
     </CommGrd>
+    }
 </CommCont>
 
 @* 일괄삭제만 묻는다. 한 건씩 치우는 길(카드 왼쪽 밀기 · 오른쪽 클릭 창)은
