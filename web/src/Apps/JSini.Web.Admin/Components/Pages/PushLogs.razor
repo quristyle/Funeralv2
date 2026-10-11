@@ -23,6 +23,8 @@
 
 <PageTitle>발송 이력 · 포털관리</PageTitle>
 
+<DxLayoutBreakpoint MaxWidth="767" IsActive="_isPhone" IsActiveChanged="@OnPhoneChanged" />
+
 <CommSch OnSearch="@ReloadAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="기간">
@@ -46,46 +48,127 @@
     </Fields>
 </CommSch>
 
-<CommCont>
-    <CommGrd TItem="PushLogDto" Data="@_logs" PageSize="30"
-             ExportName="발송이력"
-             Reload="@ReloadAsync">
-        <Columns>
-            @* **우리 시간으로 적는다.** 서버가 주는 것은 UTC 라 그대로 그리면
-               아홉 시간 전으로 보인다 — 「방금 보냈는데 목록에는 오전」이 된다. *@
-            <DxGridDataColumn FieldName="@nameof(PushLogDto.SentAt)" Caption="보낸 때" Width="150">
-                <CellDisplayTemplate Context="cell">
-                    @(((PushLogDto)cell.DataItem).SentAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm"))
-                </CellDisplayTemplate>
-            </DxGridDataColumn>
-            <DxGridDataColumn FieldName="@nameof(PushLogDto.TargetUser)" Caption="대상" Width="140" />
+<CommCont CssClass="@(_isPhone ? "ad-logbox--phone" : null)">
+    @if (_isPhone)
+    {
+        @if (PhoneShown.Count == 0)
+        {
+            <p class="ad-notecards__empty">조건에 맞는 발송 내역이 없습니다.</p>
+        }
+        else
+        {
+            <ul class="ad-logcards">
+                @foreach (var log in PhoneShown)
+                {
+                    <li class="ad-logcards__item" @key="@(log.Id ?? (log.SentAt?.Ticks.ToString() + log.TargetUser))">
+                        <div class="ad-logcards__body">
+                            <div class="ad-logcards__meta">
+                                @if (!string.IsNullOrWhiteSpace(log.Category))
+                                {
+                                    <span class="jsini-badge">@_categoryName(log.Category)</span>
+                                }
+                                <span class="jsini-badge @(log.Success ? "jsini-badge--on" : "jsini-badge--warn")">
+                                    @(log.Success ? "성공" : "실패")
+                                </span>
+                                <span class="ad-logcards__when">
+                                    @(log.SentAt.Kst("yyyy-MM-dd HH:mm", string.Empty))
+                                </span>
+                            </div>
 
-            @* 공통코드의 이름으로 그린다. 목록에서 지워진 옛 갈래면 코드값이
-               그대로 보인다 — 빈칸으로 두면 구분이 없는 줄과 섞인다. *@
-            <DxGridDataColumn FieldName="@nameof(PushLogDto.Category)" Caption="구분" Width="110">
-                <CellDisplayTemplate Context="cell">
-                    @{ var c = ((PushLogDto)cell.DataItem).Category; }
-                    @if (!string.IsNullOrWhiteSpace(c))
-                    {
-                        <span class="jsini-badge">@_categoryName(c)</span>
-                    }
-                </CellDisplayTemplate>
-            </DxGridDataColumn>
-            <DxGridDataColumn FieldName="@nameof(PushLogDto.Title)" Caption="제목" MinWidth="180" />
-            <DxGridDataColumn FieldName="@nameof(PushLogDto.Body)" Caption="내용" MinWidth="240" />
-            <DxGridDataColumn Caption="결과" Width="90">
-                <CellDisplayTemplate Context="cell">
-                    @{ var log = (PushLogDto)cell.DataItem; }
-                    <span class="jsini-badge @(log.Success ? "jsini-badge--on" : "jsini-badge--warn")">
-                        @(log.Success ? "성공" : "실패")
-                    </span>
-                </CellDisplayTemplate>
-            </DxGridDataColumn>
-            <DxGridDataColumn FieldName="@nameof(PushLogDto.FailureReason)" Caption="실패 사유" MinWidth="200" />
+                            @if (!string.IsNullOrWhiteSpace(log.Title))
+                            {
+                                <div class="ad-logcards__title">@log.Title</div>
+                            }
 
-            @* 「누가 보냈나」는 발송 뒤에 가장 먼저 묻는 것이다. 시스템이 저절로
-               보낸 것(기상 특보 따위)은 비어 있다. *@
-            <DxGridDataColumn FieldName="@nameof(PushLogDto.SentBy)" Caption="보낸 사람" Width="130" />
-        </Columns>
-    </CommGrd>
+                            @if (!string.IsNullOrWhiteSpace(log.Body))
+                            {
+                                <p class="ad-logcards__text">@log.Body</p>
+                            }
+
+                            <div class="ad-logcards__footer">
+                                @if (!string.IsNullOrWhiteSpace(log.TargetUser))
+                                {
+                                    <span class="ad-logcards__info">
+                                        <span class="ad-logcards__info-label">대상:</span> @log.TargetUser
+                                    </span>
+                                }
+                                @if (!string.IsNullOrWhiteSpace(log.SentBy))
+                                {
+                                    <span class="ad-logcards__info">
+                                        <span class="ad-logcards__info-label">보낸 사람:</span> @log.SentBy
+                                    </span>
+                                }
+                            </div>
+
+                            @if (!log.Success && !string.IsNullOrWhiteSpace(log.FailureReason))
+                            {
+                                <div class="ad-logcards__failure">
+                                    <span class="ad-logcards__failure-label">실패 사유:</span> @log.FailureReason
+                                </div>
+                            }
+                        </div>
+                    </li>
+                }
+            </ul>
+        }
+
+        @if (PhoneShown.Count > 0)
+        {
+            <div class="ad-notecards__more">
+                <DxButton Text="@(PhoneRest > 0 ? $"더보기 {PhoneRest:N0}건" : "더보기 · 마지막입니다")"
+                          Enabled="@(PhoneRest > 0)"
+                          RenderStyle="ButtonRenderStyle.Secondary"
+                          CssClass="ad-notecards__more-go"
+                          Click="@ShowMore" />
+            </div>
+
+            <span class="ad-notecards__more-sentinel"
+                  aria-hidden="true"
+                  @ref="_moreSentinel"></span>
+        }
+    }
+    else
+    {
+        <CommGrd TItem="PushLogDto" Data="@_logs" PageSize="30"
+                 ExportName="발송이력"
+                 Reload="@ReloadAsync">
+            <Columns>
+                @* **우리 시간으로 적는다.** 서버가 주는 것은 UTC 라 그대로 그리면
+                   아홉 시간 전으로 보인다 — 「방금 보냈는데 목록에는 오전」이 된다. *@
+                <DxGridDataColumn FieldName="@nameof(PushLogDto.SentAt)" Caption="보낸 때" Width="150">
+                    <CellDisplayTemplate Context="cell">
+                        @(((PushLogDto)cell.DataItem).SentAt.Kst("yyyy-MM-dd HH:mm", string.Empty))
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+                <DxGridDataColumn FieldName="@nameof(PushLogDto.TargetUser)" Caption="대상" Width="140" />
+
+                @* 공통코드의 이름으로 그린다. 목록에서 지워진 옛 갈래면 코드값이
+                   그대로 보인다 — 빈칸으로 두면 구분이 없는 줄과 섞인다. *@
+                <DxGridDataColumn FieldName="@nameof(PushLogDto.Category)" Caption="구분" Width="110">
+                    <CellDisplayTemplate Context="cell">
+                        @{ var c = ((PushLogDto)cell.DataItem).Category; }
+                        @if (!string.IsNullOrWhiteSpace(c))
+                        {
+                            <span class="jsini-badge">@_categoryName(c)</span>
+                        }
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+                <DxGridDataColumn FieldName="@nameof(PushLogDto.Title)" Caption="제목" MinWidth="180" />
+                <DxGridDataColumn FieldName="@nameof(PushLogDto.Body)" Caption="내용" MinWidth="240" />
+                <DxGridDataColumn Caption="결과" Width="90">
+                    <CellDisplayTemplate Context="cell">
+                        @{ var log = (PushLogDto)cell.DataItem; }
+                        <span class="jsini-badge @(log.Success ? "jsini-badge--on" : "jsini-badge--warn")">
+                            @(log.Success ? "성공" : "실패")
+                        </span>
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+                <DxGridDataColumn FieldName="@nameof(PushLogDto.FailureReason)" Caption="실패 사유" MinWidth="200" />
+
+                @* 「누가 보냈나」는 발송 뒤에 가장 먼저 묻는 것이다. 시스템이 저절로
+                   보낸 것(기상 특보 따위)은 비어 있다. *@
+                <DxGridDataColumn FieldName="@nameof(PushLogDto.SentBy)" Caption="보낸 사람" Width="130" />
+            </Columns>
+        </CommGrd>
+    }
 </CommCont>

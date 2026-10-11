@@ -1,16 +1,19 @@
 using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
 using JSini.Web.Components.Data;
 using JSini.Web.Components.Layout;
 using JSini.Web.Admin.Api;
 
 namespace JSini.Web.Admin.Components.Pages;
 
-public partial class PushLogs
+public partial class PushLogs : IAsyncDisposable
 {
     [Inject] private AdminClient Api { get; set; } = default!;
 
     /// <summary>알림구분 목록. 정본은 공통코드(<c>NOTI_CATEGORY</c>)다.</summary>
     [Inject] private PushCategoryClient Categories { get; set; } = default!;
+
+    [Inject] private IJSRuntime JS { get; set; } = default!;
 
     /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
     private string ConditionSummary => SchSummary.Of(
@@ -62,6 +65,124 @@ public partial class PushLogs
     private IReadOnlyList<PushLogDto> _logs = [];
     private int _total;
 
+    /// <summary>휴대폰(≤767px)인가. <c>DxLayoutBreakpoint</c> 가 채운다.</summary>
+    private bool _isPhone;
+
+    private void OnPhoneChanged(bool active) => _isPhone = active;
+
+    /// <summary>휴대폰에서 한 번에 깔 줄 수. 「더보기」가 이만큼씩 늘린다.</summary>
+    private const int PhonePage = 20;
+
+    /// <summary>지금까지 깔기로 한 줄 수.</summary>
+    private int _take = PhonePage;
+
+    /// <summary>휴대폰 카드 목록에 실제로 깔리는 줄.</summary>
+    private IReadOnlyList<PushLogDto> PhoneShown
+    {
+        get
+        {
+            var logs = _logs;
+            return _take < logs.Count ? [.. logs.Take(_take)] : logs;
+        }
+    }
+
+    /// <summary>아직 안 깐 줄 수. 「더보기」 단추에 적는다.</summary>
+    private int PhoneRest => Math.Max(0, _logs.Count - _take);
+
+    private void ShowMore() => _take += PhonePage;
+
+    /// <summary>스크롤 끝 감지점. 휴대폰에서 목록 끝에 닿으면 더보기를 자동으로 실행한다.</summary>
+    private ElementReference _moreSentinel;
+
+    /// <summary>스크롤 감지 브라우저 모듈(<c>js/note-more.js</c>).</summary>
+    private IJSObjectReference? _moreModule;
+
+    /// <summary>스크롤 감지 모듈이 우리를 부를 손잡이.</summary>
+    private DotNetObjectReference<PushLogs>? _moreRef;
+
+    /// <summary>휴대폰에서 목록 끝에 닿아 더 보기를 시도했다.</summary>
+    [JSInvokable]
+    public async Task<bool> ShowMoreFromScrollAsync()
+    {
+        var hasMore = false;
+
+        await InvokeAsync(() =>
+        {
+            if (PhoneRest <= 0)
+            {
+                return;
+            }
+
+            ShowMore();
+            StateHasChanged();
+            hasMore = PhoneRest > 0;
+        });
+
+        return hasMore;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_isPhone && PhoneShown.Count > 0)
+        {
+            await AttachMoreObserverAsync();
+        }
+    }
+
+    private async Task AttachMoreObserverAsync()
+    {
+        try
+        {
+            _moreModule ??= await JS.InvokeAsync<IJSObjectReference>(
+                "import", "./_content/JSini.Web.Admin/js/note-more.js");
+            _moreRef ??= DotNetObjectReference.Create(this);
+
+            await _moreModule.InvokeVoidAsync(
+                "attachMoreObserver", _moreSentinel, _moreRef);
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException
+                                   or ObjectDisposedException or InvalidOperationException
+                                   or TaskCanceledException)
+        {
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_moreModule is not null)
+        {
+            try
+            {
+                await _moreModule.InvokeVoidAsync("detachMoreObserver", _moreSentinel);
+            }
+            catch (Exception ex) when (ex is JSException or JSDisconnectedException
+                                       or ObjectDisposedException or InvalidOperationException
+                                       or TaskCanceledException)
+            {
+            }
+        }
+
+        _moreRef?.Dispose();
+        _moreRef = null;
+
+        if (_moreModule is not null)
+        {
+            try
+            {
+                await _moreModule.DisposeAsync();
+            }
+            catch (Exception ex) when (ex is JSException or JSDisconnectedException
+                                       or ObjectDisposedException or InvalidOperationException
+                                       or TaskCanceledException)
+            {
+            }
+            finally
+            {
+                _moreModule = null;
+            }
+        }
+    }
+
     protected override async Task OnInitializedAsync()
     {
         // **조회와 묶지 않는다.** 공통코드를 못 읽어도 이력은 열려야 한다 —
@@ -75,6 +196,9 @@ public partial class PushLogs
     private Task ReloadAsync() => LoadAsync(async () =>
     {
         (_logs, _total) = await Api.GetPushLogsAsync(Cap, _reason, _from, _to, _category);
+
+        // 조건이 바뀌었으니 「더보기」로 늘려 둔 것을 되감는다.
+        _take = PhonePage;
 
         // **잘렸으면 반드시 말한다.** 「전부다」로 읽고 넘어가면 없는 것을
         // 찾게 된다. 조회의 **결과**라 안내 줄이 아니라 토스트로 나간다.

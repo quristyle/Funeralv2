@@ -3701,15 +3701,18 @@
 
    화면이 휴대폰일 때만 이 클래스를 붙이므로 폭 조건을 따로 걸지 않는다.
    자릿수가 `app.css` 쪽과 같고 **admin.css 가 뒤에 실리므로** 이긴다. */
-.jsini-shell__content:has(> .ad-notebox--phone) {
+.jsini-shell__content:has(> .ad-notebox--phone),
+.jsini-shell__content:has(> .ad-logbox--phone) {
   overflow: auto;
 }
 
-.jsini-shell__content:has(> .ad-notebox--phone) > .ad-notebox--phone {
+.jsini-shell__content:has(> .ad-notebox--phone) > .ad-notebox--phone,
+.jsini-shell__content:has(> .ad-logbox--phone) > .ad-logbox--phone {
   flex: 0 0 auto;
 }
 
-.jsini-shell__content:has(> .ad-notebox--phone) > .ad-notebox--phone > .commcont__body {
+.jsini-shell__content:has(> .ad-notebox--phone) > .ad-notebox--phone > .commcont__body,
+.jsini-shell__content:has(> .ad-logbox--phone) > .ad-logbox--phone > .commcont__body {
   display: block;
 }
 
@@ -4012,6 +4015,94 @@
     display: block;
     height: 1px;
   }
+}
+
+/* ── 발송 이력 — 휴대폰 카드 목록 (`PushLogs`) ────────────────────
+   모바일에서는 폭이 좁아 표의 여러 칸(보낸 때, 대상, 구분, 제목, 내용, 결과,
+   실패 사유, 보낸 사람)을 가로 스크롤 없이 편하게 읽을 수 있도록 세로 카드로 편다. */
+.ad-logcards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ad-logcards__item {
+  position: relative;
+  overflow: hidden;
+  border-top: 1px solid var(--jsini-border);
+}
+
+.ad-logcards__item:first-child {
+  border-top: 0;
+}
+
+.ad-logcards__body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.75rem 1rem;
+}
+
+.ad-logcards__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.4rem;
+  font-size: var(--jsini-fs-xs);
+  line-height: 1.2;
+}
+
+.ad-logcards__when {
+  margin-left: auto;
+  font-size: var(--jsini-fs-2xs);
+  color: var(--jsini-text-muted);
+  white-space: nowrap;
+}
+
+.ad-logcards__title {
+  font-weight: 600;
+  font-size: var(--jsini-fs-base);
+  line-height: 1.35;
+  color: var(--jsini-text);
+  word-break: break-word;
+}
+
+.ad-logcards__text {
+  margin: 0;
+  font-size: var(--jsini-fs-sm);
+  line-height: 1.4;
+  color: var(--jsini-text-muted);
+  white-space: pre-line;
+  word-break: break-word;
+}
+
+.ad-logcards__footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.8rem;
+  font-size: var(--jsini-fs-xs);
+  color: var(--jsini-text-muted);
+  margin-top: 0.15rem;
+}
+
+.ad-logcards__info-label {
+  font-weight: 500;
+  color: var(--jsini-text-muted);
+}
+
+.ad-logcards__failure {
+  font-size: var(--jsini-fs-xs);
+  color: var(--jsini-danger, #d63939);
+  background: var(--jsini-danger-subtle, rgba(214, 57, 57, 0.08));
+  padding: 0.3rem 0.5rem;
+  border-radius: var(--jsini-radius-sm, 4px);
+  margin-top: 0.2rem;
+  word-break: break-word;
+}
+
+.ad-logcards__failure-label {
+  font-weight: 600;
+  margin-right: 0.2rem;
 }
 
 /* ── 알림관리 (/admin/system/notify-policy) ──────────────────
