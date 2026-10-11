@@ -3197,7 +3197,9 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
 
 .pm-ask__morego {
   flex: 1 1 auto;
-  min-height: 2.5rem;
+  min-height: 2.75rem;
+  padding-inline: 1.25rem;
+  font-weight: 600;
 }
 
 /* 접기. **더보기보다 흐리고 좁다** — 되돌리는 길이지 권하는 길이 아니다.
@@ -3209,14 +3211,9 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
 }
 
 .pm-ask__more-sentinel {
-  display: none;
-}
-
-@media (max-width: 767px) {
-  .pm-ask__more-sentinel {
-    display: block;
-    height: 1px;
-  }
+  display: block;
+  height: 1px;
+  pointer-events: none;
 }
 
 /* ── AI 작업 요청 (`pm-req`) ──────────────────────────────────

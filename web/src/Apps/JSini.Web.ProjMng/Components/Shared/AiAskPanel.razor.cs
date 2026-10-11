@@ -767,6 +767,7 @@ public partial class AiAskPanel
         await LoadUsageAsync();
 
         Follow();
+        await ResetMoreObserverAsync();
     }
 
     private async Task LoadModelsAsync()
@@ -901,7 +902,21 @@ public partial class AiAskPanel
         }
     }
 
-    /// <summary>휴대폰에서 목록 끝에 닿아 더 보기를 시도했다.</summary>
+    private async Task ResetMoreObserverAsync()
+    {
+        if (_moreModule is not null)
+        {
+            try
+            {
+                await _moreModule.InvokeVoidAsync("resetMoreObserver", _moreSentinel);
+            }
+            catch (Exception ex) when (ex is JSException or JSDisconnectedException)
+            {
+            }
+        }
+    }
+
+    /// <summary>휴대폰이나 마우스 휠로 목록 끝에 닿아 더 보기를 시도했다.</summary>
     [JSInvokable]
     public async Task<bool> ShowMoreFromScrollAsync()
     {
@@ -1160,6 +1175,7 @@ public partial class AiAskPanel
     {
         _more = 0;
         Show(_all);
+        _ = ResetMoreObserverAsync();
     }
 
     /// <summary>
