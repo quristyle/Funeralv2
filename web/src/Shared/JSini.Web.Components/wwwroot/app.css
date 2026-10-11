@@ -6171,34 +6171,73 @@ a.jsini-social__btn:focus-visible {
 
 /* 발. 휴대폰에서 화면을 다 채울 때 아래 턱(홈 바)에 단추가 물리지 않게
    `safe-area` 만큼 더 띄운다 — 넓은 화면에서는 그 값이 0 이다. */
-.jsini-note-drawer__foot {
+.jsini-note-drawer__foot,
+.jsini-note-drawer-custom .jsini-right-drawer__foot {
   flex: 0 0 auto;
   display: flex;
   justify-content: flex-end;
-  padding: 0.75rem;
+  padding: 0.75rem 0.9rem;
   padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
   background: var(--jsini-surface);
   border-top: 1px solid var(--jsini-border);
 }
 
+.jsini-note-drawer__readall {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 모바일 화면에서는 단추가 좁아 누르기 불편하지 않도록 가로 폭을 꽉 채우고
+   세로 터치 영역(최소 44px)과 안쪽 여백을 넉넉히 준다. */
+.jsini-note-drawer__readall--phone {
+  width: 100% !important;
+  min-height: 44px;
+  padding: 0.625rem 1rem;
+  font-size: var(--jsini-fs-sm, 0.875rem);
+  font-weight: 600;
+}
+
 /* 좁은 화면에서는 단추가 발을 꽉 채운다 — 한 줄에 그것 하나뿐이라
-   오른쪽 끝에 작게 붙어 있으면 누를 데를 찾게 된다. */
+   오른쪽 끝에 작게 붙어 있으면 누를 데를 찾게 된다.
+   상하 터치 높이도 44px 이상으로 키워 모바일에서 좁지 않고 편하게 누르게 한다. */
 @media (max-width: 767px) {
   .jsini-note-scrim {
     inset: 0;
   }
 
-  .jsini-note-drawer {
+  .jsini-note-drawer,
+  .jsini-note-drawer-custom {
     top: 0;
     width: 100vw;
     border-left: none;
   }
 
   .jsini-note-drawer__readall {
-    width: 100%;
+    width: 100% !important;
+    min-height: 44px;
+    padding: 0.625rem 1rem;
+    font-size: var(--jsini-fs-sm, 0.875rem);
+    font-weight: 600;
   }
 
-  .jsini-note-drawer__foot {
+  .jsini-note-drawer__foot,
+  .jsini-note-drawer-custom .jsini-right-drawer__foot {
+    justify-content: stretch;
+  }
+}
+
+@media (pointer: coarse) and (max-width: 991px) {
+  .jsini-note-drawer__readall {
+    width: 100% !important;
+    min-height: 44px;
+    padding: 0.625rem 1rem;
+    font-size: var(--jsini-fs-sm, 0.875rem);
+    font-weight: 600;
+  }
+
+  .jsini-note-drawer__foot,
+  .jsini-note-drawer-custom .jsini-right-drawer__foot {
     justify-content: stretch;
   }
 }

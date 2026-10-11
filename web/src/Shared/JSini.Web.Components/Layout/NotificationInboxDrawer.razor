@@ -173,7 +173,7 @@
            없으면 단추를 죽여 둔다. *@
         <DxButton Text="모두 읽음 처리"
                   RenderStyle="ButtonRenderStyle.Secondary"
-                  CssClass="jsini-note-drawer__readall"
+                  CssClass="@(IsPhone ? "jsini-note-drawer__readall jsini-note-drawer__readall--phone" : "jsini-note-drawer__readall")"
                   Enabled="@(_notifications.Count > 0)"
                   Click="@MarkAllReadAsync" />
     </FooterContent>
