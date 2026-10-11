@@ -168,12 +168,6 @@ export function attachSwipe(selector, dotnet) {
       return;
     }
 
-    if (!confirm("완료로 처리하시겠습니까?")) {
-      set(el, '--pm-ask-swipe', '0px');
-      set(el, '--pm-ask-ready', '0');
-      return;
-    }
-
     commit(el);
   };
 
