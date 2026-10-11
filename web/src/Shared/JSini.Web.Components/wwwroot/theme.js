@@ -2086,6 +2086,31 @@
  *
  * 누름도 같은 수로 받는다. 단추에 `onclick` 글자를 적어 두는 길도 있었지만,
  * 그쪽은 내용보안정책(CSP)을 조이는 날 조용히 죽는다.
+ *
+ * [구르는 것이 본문 하나가 아니다 — 책상에서 안 뜨던 까닭 (2026-10-11)]
+ *
+ * 한동안 `.jsini-shell__content` 가 구를 때만 뜨게 두었다. 그런데 업무 화면의
+ * 기본 꼴(`CommCont`)에서 **그 상자는 아예 안 구른다** — app.css 가
+ * `overflow: hidden` 으로 묶어 두고, 조건 줄은 위에 붙박이고 **자료 판만
+ * 제 안에서 구르기** 때문이다(DevExpress 의 `.dxbl-scroll-viewer-content`).
+ * 휴대폰에서는 카드 목록이 그 셈을 뒤집어 쪽이 구르므로 단추가 떴고,
+ * 책상에서는 **같은 화면이 한 번도 안 떴다.** 재어 확인한 값: 표 안을 900px
+ * 내려도 `content.scrollTop` 은 0 이고 `scrollHeight` 가 `clientHeight` 와 같다.
+ *
+ * 그래서 **본문 안에서 구른 상자를 그대로 받는다.** 본문 자신이든 그 안의
+ * 판이든, 마지막으로 구른 것 하나를 들고 있다가 그것을 맨 위로 올린다.
+ *
+ * 다만 아무 상자나 받지는 않는다 — 본문 높이의 **절반은 되어야** 한다
+ * (`MIN_RATIO`). 긴 글 옆의 작은 기록 칸처럼 한 뼘짜리 상자가 구른 것으로
+ * 단추가 뜨면, 눌렀을 때 **화면은 그대로이고 보이지도 않는 칸만 올라간다.**
+ *
+ * [화면을 옮기면 들고 있던 상자를 놓는다]
+ *
+ * 그 판은 다음 화면에서 DOM 에 없다(`isConnected === false`). 그대로 두면
+ * 단추가 뜬 채 남아 **아무 일도 안 하는 단추**가 되므로, 본문의 자식이
+ * 바뀌는 것을 보고 놓는다 — 지켜보는 범위는 본문의 **바로 아래 한 겹**뿐이라
+ * (`childList`, `subtree` 없음) 표가 제 안을 다시 그리는 것에는 안 걸린다.
+ * 거는 때도 **처음 구른 뒤**다 — 이 파일이 도는 시점에 본문은 아직 없다.
  */
 (function () {
   var BOX = '.jsini-shell__content';
@@ -2094,18 +2119,54 @@
   /** 이만큼 내려왔을 때부터 뜬다. 한 화면 남짓이라, 조금 구른 것으로는 안 뜬다. */
   var THRESHOLD = 300;
 
-  function sync(box) {
+  /** 본문 높이의 이만큼은 되어야 「화면을 구르는 상자」로 친다. */
+  var MIN_RATIO = 0.5;
+
+  /** 본문을 두 번 지켜보지 않으려고 그 요소에 적어 두는 표시. */
+  var WATCHED = '__jsiniScrollTopWatched';
+
+  /** 마지막으로 구른 상자. 본문 자신일 수도, 그 안의 자료 판일 수도 있다. */
+  var box = null;
+
+  function sync() {
     var btn = document.getElementById(BTN);
     if (!btn) return;
 
-    btn.classList.toggle('is-visible', !!box && box.scrollTop > THRESHOLD);
+    btn.classList.toggle('is-visible', !!box && box.isConnected && box.scrollTop > THRESHOLD);
+  }
+
+  /** 본문 안의 판이 **화면을 대신 구르는** 그 판인가. */
+  function isMainScroller(el, content) {
+    return el.clientHeight >= content.clientHeight * MIN_RATIO;
+  }
+
+  /** 화면이 바뀌는 것을 본다(위 머리말 「화면을 옮기면」). */
+  function watch(content) {
+    if (!content || content[WATCHED] || typeof MutationObserver !== 'function') return;
+
+    content[WATCHED] = true;
+
+    new MutationObserver(function () {
+      if (box && !box.isConnected) box = null;
+
+      sync();
+    }).observe(content, { childList: true });
   }
 
   document.addEventListener('scroll', function (e) {
-    var box = e.target;
-    if (!box || box.nodeType !== 1 || !box.matches || !box.matches(BOX)) return;
+    var el = e.target;
+    if (!el || el.nodeType !== 1 || !el.closest) return;
 
-    sync(box);
+    // 본문 자신도 `closest` 에 걸린다 — 쪽이 구르는 화면(휴대폰의 카드 목록 ·
+    // 아직 안 옮긴 화면)이 그쪽이다.
+    var content = el.closest(BOX);
+    if (!content) return;
+
+    if (el !== content && !isMainScroller(el, content)) return;
+
+    watch(content);
+    box = el;
+    sync();
   }, { capture: true, passive: true });
 
   document.addEventListener('click', function (e) {
@@ -2113,14 +2174,14 @@
     var btn = e.target && e.target.closest ? e.target.closest('#' + BTN) : null;
     if (!btn) return;
 
-    var box = document.querySelector(BOX);
-    if (!box) return;
+    var target = box && box.isConnected ? box : document.querySelector(BOX);
+    if (!target) return;
 
     // **움직임을 줄여 달라고 한 사람에게는 미끄러뜨리지 않는다.** 그 설정은
     // 멀미·어지럼 때문에 켜는 것이고, 화면 몇 쪽이 한꺼번에 흐르는 것이
     // 이 포털에서 가장 크게 움직이는 자리다.
     var still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    box.scrollTo({ top: 0, behavior: still ? 'auto' : 'smooth' });
+    target.scrollTo({ top: 0, behavior: still ? 'auto' : 'smooth' });
   });
 })();
