@@ -18,6 +18,7 @@ import html
 import json
 import os
 import re
+import signal
 import subprocess
 import sys
 import threading
@@ -195,6 +196,10 @@ class Job:
                 text=True,
                 bufsize=1,
                 env=env,
+                # 작업도 제 세션에서 돌린다. 제어판을 손으로(setsid 없이) 띄운
+                # 경우 터미널이 닫힐 때 날아가는 SIGHUP 이 빌드·기동 중인
+                # 작업까지 덮치는 것을 막는다.
+                start_new_session=True,
             )
         except OSError as e:
             self._add(f"실행 실패: {e}")
@@ -868,6 +873,17 @@ class Handler(BaseHTTPRequestHandler):
 def main():
     if not os.access(SCRIPT, os.X_OK):
         sys.exit(f"{SCRIPT} 를 실행할 수 없습니다.")
+
+    # 터미널이 닫혀도 죽지 않는다.
+    #
+    # ./devui.sh 로 띄우면 setsid 가 이미 세션을 갈라 두어 SIGHUP 이 오지
+    # 않지만, 손으로 `python3 scripts/devui/server.py &` 처럼 띄우는 길도
+    # 열려 있다. 그때 터미널을 닫으면 SIGHUP 하나로 제어판이 사라졌다.
+    # 끄는 길은 ./devui_stop.sh(SIGTERM)과 Ctrl+C 로 남겨 둔다.
+    try:
+        signal.signal(signal.SIGHUP, signal.SIG_IGN)
+    except (AttributeError, ValueError):
+        pass  # SIGHUP 이 없는 플랫폼(Windows) 또는 메인 스레드가 아닌 경우
     srv = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
     print(f"JSini 개발 서버 제어판  →  http://127.0.0.1:{PORT}", flush=True)
     print(f"  서비스 {len(SERVICES)}개를 {SCRIPT.name} 에서 읽었습니다.")

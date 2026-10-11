@@ -9,6 +9,9 @@
 # 계속 돌고, 출력은 logs/devui.log 에 쌓인다. 끄는 것은 Ctrl+C 가 아니라
 # ./devui_stop.sh 다.
 #
+# 띄우는 브라우저도 마찬가지로 떼어 낸다 — 터미널을 닫아도 창이 함께 닫히지
+# 않는다(open_browser 주석 참고).
+#
 # 제어판에서 띄운 서비스도 터미널 창 없이 백그라운드로 돈다(DEV_BACKGROUND=1).
 # 각 서비스의 출력은 logs/<이름>.log 에 쌓이고, 화면의 ☰ 단추로 본다.
 # 그래서 DISPLAY 없이(SSH 등) 띄워 두고 다른 기기에서 봐도 된다 —
@@ -21,9 +24,26 @@ PORT="${DEVUI_PORT:-5600}"
 LOG="logs/devui.log"
 PIDFILE=".devui.pid"
 
+# 브라우저도 이 터미널에서 떼어 낸다.
+#
+# 제어판 자신은 setsid 로 떼어 두었는데 브라우저는 그렇지 않았다. xdg-open 이
+# 브라우저를 **처음** 띄우는 경우 그 브라우저는 이 셸의 자식으로 남고, 터미널을
+# 닫을 때 프로세스 그룹에 날아가는 SIGHUP 을 같이 맞는다 — 제어판은 멀쩡히
+# 도는데 창만 사라지던 까닭이다. 이미 떠 있는 브라우저에 새 탭만 여는 경우에는
+# 안 겪으므로 "될 때도 있고 안 될 때도 있는" 것처럼 보였다.
+#
+# setsid 로 세션을 가르고 nohup 으로 한 번 더 막는다. 표준 입출력을 모두
+# 끊어야 터미널이 사라진 뒤 쓰기에서 걸리지 않는다.
 open_browser() {
     command -v xdg-open >/dev/null 2>&1 || return 0
-    xdg-open "http://127.0.0.1:$PORT" >/dev/null 2>&1 &
+    # 화면이 없는 자리(SSH 등)에서는 조용히 넘어간다.
+    [ -n "$DISPLAY$WAYLAND_DISPLAY" ] || return 0
+
+    if command -v setsid >/dev/null 2>&1; then
+        setsid nohup xdg-open "http://127.0.0.1:$PORT" >/dev/null 2>&1 </dev/null &
+    else
+        nohup xdg-open "http://127.0.0.1:$PORT" >/dev/null 2>&1 </dev/null &
+    fi
 }
 
 if ss -ltn 2>/dev/null | grep -q ":$PORT "; then
