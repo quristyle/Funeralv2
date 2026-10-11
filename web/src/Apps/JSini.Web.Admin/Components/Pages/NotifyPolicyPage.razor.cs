@@ -158,6 +158,23 @@ public partial class NotifyPolicyPage
         return parts.Count == 0 ? "—" : string.Join(" · ", parts);
     }
 
+    /// <summary>
+    /// 왼쪽 카드의 색갈래. <b>왼쪽 굵은 선 하나로 지금 상태를 말한다</b> —
+    /// 「정책 밖」·「꺼짐」은 딱지로도 적지만 「제한 없음」은 적을 자리가 없어
+    /// 받는 설정 글자에 묻힌다.
+    /// </summary>
+    /// <remarks>
+    /// 색만으로 가르지 않는다 — 카드 아래 줄에 <see cref="NotifyEventDto.ChannelSummary"/>
+    /// 가 늘 글자로 서 있다(색각 이상이 있어도 읽힌다).
+    /// </remarks>
+    private static string CardTone(NotifyEventDto e) => e switch
+    {
+        { Governed: false } => "off",
+        { IsActive: false } => "warn",
+        { Unrestricted: true } => "free",
+        _ => "on",
+    };
+
     /// <summary>닿나 못 닿나. 글자 하나가 체크 표시보다 읽기 쉽다.</summary>
     private static string Mark(bool reaches) => reaches ? "○" : "—";
 
@@ -195,6 +212,11 @@ public partial class NotifyPolicyPage
         // 코드의 **다른 객체**가 오므로, 그대로 두면 오른쪽이 옛 줄을 가리킨다.
         var keep = _selected?.Code;
         _selected = keep is null ? null : _events.FirstOrDefault(e => e.Code == keep);
+
+        // **첫 줄을 우리가 고른다.** 왼쪽이 표였을 때는 `CommGrd` 가 해 주던
+        // 일이고(`AutoSelectFirstRow`), 카드로 바꾸면서 그 일을 할 사람이
+        // 없어졌다 — 안 하면 화면을 열자마자 오른쪽이 늘 비어 있다.
+        _selected ??= _events.FirstOrDefault();
 
         if (_selected is not null) LoadForm(_selected);
 

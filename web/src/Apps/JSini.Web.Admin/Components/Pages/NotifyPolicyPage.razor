@@ -42,11 +42,34 @@
     이다. 정책이 보내라고 해도 본인이 껐으면 안 간다. 「받는 사람」 창이
     그 둘을 갈라서 보여 준다 — 고칠 자리가 서로 다르기 때문이다.
 
+    [폭은 사람이 정한다 — `DxSplitter`]
+
+    격자(`ad-split`)로 26% 에 못 박아 두었더니 양쪽이 서로 다른 폭을 바랐다 —
+    왼쪽은 이벤트 이름과 설명이 들어가는 카드라 넓을수록 읽기 쉽고, 오른쪽은
+    역할 표가 칸 다섯을 펴야 한다. 역할 관리(`ad-vsplit`)·프로시저 결과와
+    **같은 부품**으로 끌어서 나눈다. 치수·여백·좁은 화면 규칙은 admin.css 의
+    `.ad-vsplit` 가 갖고 있다.
+
+    **판은 `<Panes>` 안에 적어야 한다.** `DxSplitter` 에는 `ChildContent` 가
+    없어서 빼먹어도 빌드가 통과하고 **속이 빈 회색 상자**가 나온다
+    (`DxSplitterPanesTests` 가 막는다).
+
     [판 둘은 `CommCont` 여야 한다]
 
-    좌우 분할이 높이를 채우는 규칙이 `.ad-split > .commcont` 를 겨눈다
-    (admin.css). 맨 `<div>` 로 두면 안쪽 표가 한 줄만 그려진다 —
+    판이 높이를 채우는 규칙이 `.ad-vsplit__pane.commcont` 를 겨눈다
+    (admin.css). 맨 `<div>` 로 두면 안쪽이 한 줄만 그려진다 —
     메뉴롤 화면이 실제로 그렇게 깨져 있었다.
+
+    [왼쪽은 표가 아니라 카드다]
+
+    칸이 둘(이벤트 · 받는 설정)뿐인 표였는데, 정작 고르는 데 필요한 것 —
+    **설명과 발생처** — 은 오른쪽을 눌러 봐야 보였다. 이벤트가 열다섯뿐이라
+    한 장씩 펴 두어도 길지 않다. 카드는 단추이고(키보드로 닿는다), 지금
+    상태는 왼쪽 굵은 선으로 말한다(`ad-card`·`ad-msa__card` 와 같은 규칙).
+
+    표를 걷으면서 **첫 줄 자동 선택이 함께 사라진다** — `CommGrd` 가 하던
+    일(`AutoSelectFirstRow`)을 `ReloadAsync` 가 대신한다. 아래 띠의
+    「다시 읽기」도 함께 사라지므로 판 머리에 단추로 다시 세운다.
 *@
 
 @inherits DataPage
@@ -66,46 +89,76 @@
     </Fields>
 </CommSch>
 
-<div class="ad-split">
-    <CommCont Title="알림 이벤트" Hint="@EventHint" CssClass="ad-split__side">
-        <CommGrd TItem="NotifyEventDto"
-                 Data="@_events"
-                 ShowExcelExport="false"
-                 EmptyText="등록된 알림 이벤트가 없습니다. 메뉴 SQL 을 돌렸는지 확인하십시오."
-                 Reload="@ReloadAsync"
-                 SelectedItem="@_selected"
-                 SelectedItemChanged="@SelectAsync">
-            <Columns>
-                <DxGridDataColumn Caption="이벤트" MinWidth="150" TextAlignment="GridTextAlignment.Left">
-                    <CellDisplayTemplate Context="cell">
-                        @{
-                            var row = (NotifyEventDto)cell.DataItem;
-                        }
-                        <div class="np-event">
-                            <span class="np-event__name">@row.Name</span>
-                            @if (!row.Governed)
-                            {
-                                @* 「보이되 못 건다」를 목록에서부터 말한다 — 눌러서
-                                   체크를 켜 보고 나서 알게 하면 안 된다. *@
-                                <span class="jsini-badge">정책 밖</span>
-                            }
-                            else if (!row.IsActive)
-                            {
-                                <span class="jsini-badge jsini-badge--warn">꺼짐</span>
-                            }
-                        </div>
-                    </CellDisplayTemplate>
-                </DxGridDataColumn>
-                <DxGridDataColumn Caption="받는 설정" Width="124" TextAlignment="GridTextAlignment.Left">
-                    <CellDisplayTemplate Context="cell">
-                        @((NotifyEventDto)cell.DataItem).ChannelSummary
-                    </CellDisplayTemplate>
-                </DxGridDataColumn>
-            </Columns>
-        </CommGrd>
-    </CommCont>
+<DxSplitter CssClass="ad-vsplit" Orientation="Orientation.Horizontal" SeparatorSize="2">
+    <Panes>
 
-    <CommCont CssClass="ad-split__main">
+    <DxSplitterPane Size="32%" MinSize="260px" MaxSize="60%">
+    <CommCont Title="알림 이벤트" Hint="@EventHint"
+              CssClass="ad-vsplit__pane ad-vsplit__pane--left">
+        <Actions>
+            @* 카드 목록에는 `CommGrd` 의 아래 띠가 없다. 다시 읽는 자리를
+               판 머리에 세워 둔다 — 아이콘과 자리는 다른 화면과 같은 것이다. *@
+            <DxButton IconCssClass="jsini-icon-refresh" Title="알림 이벤트를 다시 읽는다"
+                      RenderStyle="ButtonRenderStyle.Link"
+                      Enabled="@(!Loading)" Click="@ReloadAsync" />
+        </Actions>
+
+        <ChildContent>
+            @if (_events.Count == 0)
+            {
+                <p class="np-list__empty">
+                    등록된 알림 이벤트가 없습니다. 메뉴 SQL 을 돌렸는지 확인하십시오.
+                </p>
+            }
+            else
+            {
+                <div class="np-list" role="listbox" aria-label="알림 이벤트">
+                    @foreach (var ev in _events)
+                    {
+                        var on = _selected is not null && _selected.Code == ev.Code;
+
+                        @* 카드 한 장이 이벤트 하나다. 석 줄로 읽는다 —
+                           이름과 딱지 · 설명 · 받는 설정과 발생처. *@
+                        <button type="button"
+                                class="np-card np-card--@CardTone(ev) @(on ? "is-on" : null)"
+                                role="option" aria-selected="@on"
+                                @onclick="@(() => SelectAsync(ev))">
+                            <span class="np-card__top">
+                                <span class="np-card__name">@ev.Name</span>
+                                @if (!ev.Governed)
+                                {
+                                    @* 「보이되 못 건다」를 목록에서부터 말한다 — 눌러서
+                                       체크를 켜 보고 나서 알게 하면 안 된다. *@
+                                    <span class="jsini-badge">정책 밖</span>
+                                }
+                                else if (!ev.IsActive)
+                                {
+                                    <span class="jsini-badge jsini-badge--warn">꺼짐</span>
+                                }
+                            </span>
+
+                            @if (!string.IsNullOrWhiteSpace(ev.Description))
+                            {
+                                <span class="np-card__desc">@ev.Description</span>
+                            }
+
+                            <span class="np-card__meta">
+                                <span class="np-card__chan">@ev.ChannelSummary</span>
+                                @if (!string.IsNullOrWhiteSpace(ev.Source))
+                                {
+                                    <span class="np-card__src">@ev.Source</span>
+                                }
+                            </span>
+                        </button>
+                    }
+                </div>
+            }
+        </ChildContent>
+    </CommCont>
+    </DxSplitterPane>
+
+    <DxSplitterPane>
+    <CommCont CssClass="ad-vsplit__pane ad-vsplit__pane--right">
         @if (_selected is null)
         {
             <PageNotice Tone="NoticeTone.Info"
@@ -266,7 +319,10 @@
             </div>
         }
     </CommCont>
-</div>
+    </DxSplitterPane>
+
+    </Panes>
+</DxSplitter>
 
 @* 받는 사람. **저장된 설정으로 셈한다** — 화면의 체크 상태로 보여 주면
    저장하지 않은 값으로 「갑니다」를 말하게 된다. *@
