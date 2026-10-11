@@ -89,10 +89,11 @@
     </Fields>
 </CommSch>
 
-<DxSplitter CssClass="ad-vsplit" Orientation="Orientation.Horizontal" SeparatorSize="2">
-    <Panes>
-
-    <DxSplitterPane Size="32%" MinSize="260px" MaxSize="60%">
+<DxTabs RenderMode="TabsRenderMode.OnDemand" CssClass="ad-nptabs" @bind-ActiveTabIndex="ActiveTab">
+    <DxTabPage Text="이벤트 중심">
+        <DxSplitter CssClass="ad-vsplit" Orientation="Orientation.Horizontal" SeparatorSize="2">
+            <Panes>
+                <DxSplitterPane Size="32%" MinSize="260px" MaxSize="60%">
     <CommCont Hint="@EventHint"
               CssClass="ad-vsplit__pane ad-vsplit__pane--left">
         <TitleTemplate>
@@ -261,95 +262,279 @@
                     </div>
                 </div>
 
-                @* 역할을 **전부** 보여 주고 체크로 가린다. 「더하기」 창을 따로
-                   두면 걸려 있지 않은 역할이 안 보여서, 「파트너는 왜 안 오나」를
-                   물을 때마다 창을 열어 확인해야 한다. 열여섯 줄이라 다 보인다.
-                   모바일에서도 페이징 없이 한 번에 펼쳐지며, 앱푸시와 이메일 체크가
-                   가로로 나란히 표시된다. *@
-                @if (_rows.Count == 0)
+                        @* 역할을 **전부** 보여 주고 체크로 가린다. 「더하기」 창을 따로
+                           두면 걸려 있지 않은 역할이 안 보여서, 「파트너는 왜 안 오나」를
+                           물을 때마다 창을 열어 확인해야 한다. 열여섯 줄이라 다 보인다.
+                           모바일에서도 페이징 없이 한 번에 펼쳐지며, 앱푸시와 이메일 체크가
+                           가로로 나란히 표시된다. *@
+                        @if (_rows.Count == 0)
+                        {
+                            <p class="np-list__empty">등록된 역할이 없습니다.</p>
+                        }
+                        else
+                        {
+                            <div class="np-roles" role="list" aria-label="역할별 수신">
+                                @foreach (var row in _rows)
+                                {
+                                    <div class="np-role-item" role="listitem">
+                                        <div class="np-role-info">
+                                            <span class="np-role-name">@row.RoleName</span>
+                                            <span class="ad-stamp np-role-id">@row.RoleId</span>
+                                            @if (row.AccountCount == 0)
+                                            {
+                                                <span class="jsini-badge jsini-badge--warn">0명</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="jsini-badge">@($"{row.AccountCount}명")</span>
+                                            }
+                                        </div>
+                                        <div class="np-role-checks">
+                                            <span title="@PushHint">
+                                                <DxCheckBox Checked="@row.Push"
+                                                            CheckedChanged="@((bool v) => SetPushAsync(row, v))"
+                                                            Enabled="@(CanPick && _selected.SupportsPush)">
+                                                    앱 푸시
+                                                </DxCheckBox>
+                                            </span>
+                                            <span title="@MailHint">
+                                                <DxCheckBox Checked="@row.Email"
+                                                            CheckedChanged="@((bool v) => SetEmailAsync(row, v))"
+                                                            Enabled="@(CanPick && _selected.SupportsEmail)">
+                                                    이메일
+                                                </DxCheckBox>
+                                            </span>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+
+                        <div class="jsini-hint">
+                            받는 사람이 <b>본인 환경설정에서 꺼 두면</b> 여기서 켜 두어도 가지 않습니다 —
+                            순서가 <b>정책 → 본인 설정</b> 입니다.
+                            @if (_selected is { SupportsEmail: true, EmailFromPush: true })
+                            {
+                                <text>
+                                    이메일은 <b>켠 역할에만</b> 나갑니다 — 앱 푸시처럼 「안 걸면 모두에게」가
+                                    아닙니다.
+                                </text>
+                            }
+                        </div>
+
+                        @if (_selected.UpdatedAt is not null)
+                        {
+                            <p class="ad-stamp">
+                                마지막 저장 · @Stamp(_selected.UpdatedAt)
+                                @if (_pendingSaves > 0)
+                                {
+                                    <text> · 저장 중…</text>
+                                }
+                            </p>
+                        }
+                        else if (_pendingSaves > 0)
+                        {
+                            <p class="ad-stamp">저장 중…</p>
+                        }
+
+                        <div class="np-actions">
+                            @* 받는 사람 보기는 **권한 문을 하나 더 세우지 않는다** —
+                               이 화면을 열 수 있으면 설정을 볼 수 있고, 그 목록은
+                               설정을 읽어 푼 것일 뿐이다. *@
+                            <DxButton Text="받는 사람" RenderStyle="ButtonRenderStyle.Secondary"
+                                      Enabled="@(!Loading)" Click="@OpenRecipientsAsync" />
+                        </div>
+                    </div>
+                }
+            </CommCont>
+            </DxSplitterPane>
+
+            </Panes>
+        </DxSplitter>
+    </DxTabPage>
+
+    <DxTabPage Text="역할 중심">
+        <DxSplitter CssClass="ad-vsplit" Orientation="Orientation.Horizontal" SeparatorSize="2">
+            <Panes>
+
+            <DxSplitterPane Size="32%" MinSize="260px" MaxSize="60%">
+            <CommCont Hint="@RoleHint"
+                      CssClass="ad-vsplit__pane ad-vsplit__pane--left">
+                <TitleTemplate>
+                    <div class="np-events-head">
+                        <h2 class="commcont__title">역할 목록</h2>
+                    </div>
+                </TitleTemplate>
+                <Actions>
+                    <DxButton IconCssClass="jsini-icon-refresh" Title="역할 목록을 다시 읽는다"
+                              RenderStyle="ButtonRenderStyle.Link"
+                              Enabled="@(!Loading)" Click="@ReloadAsync" />
+                </Actions>
+
+                <ChildContent>
+                    @if (VisibleRoles.Count == 0)
+                    {
+                        <p class="np-list__empty">
+                            @(_roles.Count == 0 ? "등록된 역할이 없습니다." : "조건에 맞는 역할이 없습니다.")
+                        </p>
+                    }
+                    else
+                    {
+                        <div class="np-list" role="listbox" aria-label="역할 목록">
+                            @foreach (var role in VisibleRoles)
+                            {
+                                var on = _selectedRole is not null && _selectedRole.Id == role.Id;
+
+                                <button type="button"
+                                        class="np-card np-card--@RoleCardTone(role) @(on ? "is-on" : null)"
+                                        role="option" aria-selected="@on"
+                                        @onclick="@(() => SelectRoleAsync(role))">
+                                    <span class="np-card__top">
+                                        <span class="np-card__name">@role.Name</span>
+                                        @if (role.AccountCount == 0)
+                                        {
+                                            <span class="jsini-badge jsini-badge--warn">0명</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="jsini-badge">@($"{role.AccountCount}명")</span>
+                                        }
+                                    </span>
+
+                                    <span class="np-card__desc">
+                                        <span class="ad-stamp">@role.Id</span>
+                                    </span>
+
+                                    <span class="np-card__meta">
+                                        <span class="np-card__chan">@RoleChannelSummary(role)</span>
+                                    </span>
+                                </button>
+                            }
+                        </div>
+                    }
+                </ChildContent>
+            </CommCont>
+            </DxSplitterPane>
+
+            <DxSplitterPane>
+            <CommCont CssClass="ad-vsplit__pane ad-vsplit__pane--right">
+                @if (_selectedRole is null)
                 {
-                    <p class="np-list__empty">등록된 역할이 없습니다.</p>
+                    <PageNotice Tone="NoticeTone.Info"
+                                Text="왼쪽에서 알림 설정을 지정할 역할을 고르십시오." />
                 }
                 else
                 {
-                    <div class="np-roles" role="list" aria-label="역할별 수신">
-                        @foreach (var row in _rows)
-                        {
-                            <div class="np-role-item" role="listitem">
-                                <div class="np-role-info">
-                                    <span class="np-role-name">@row.RoleName</span>
-                                    <span class="ad-stamp np-role-id">@row.RoleId</span>
-                                    @if (row.AccountCount == 0)
-                                    {
-                                        <span class="jsini-badge jsini-badge--warn">0명</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="jsini-badge">@($"{row.AccountCount}명")</span>
-                                    }
-                                </div>
-                                <div class="np-role-checks">
-                                    <span title="@PushHint">
-                                        <DxCheckBox Checked="@row.Push"
-                                                    CheckedChanged="@((bool v) => SetPushAsync(row, v))"
-                                                    Enabled="@(CanPick && _selected.SupportsPush)">
-                                            앱 푸시
-                                        </DxCheckBox>
-                                    </span>
-                                    <span title="@MailHint">
-                                        <DxCheckBox Checked="@row.Email"
-                                                    CheckedChanged="@((bool v) => SetEmailAsync(row, v))"
-                                                    Enabled="@(CanPick && _selected.SupportsEmail)">
-                                            이메일
-                                        </DxCheckBox>
-                                    </span>
-                                </div>
+                    <div class="np-edit">
+                        <h2 class="ad-subhead">
+                            @_selectedRole.Name
+                            <span class="ad-stamp">@_selectedRole.Id</span>
+                            @if (_selectedRole.AccountCount == 0)
+                            {
+                                <span class="jsini-badge jsini-badge--warn">0명</span>
+                            }
+                            else
+                            {
+                                <span class="jsini-badge">@($"{_selectedRole.AccountCount}명")</span>
+                            }
+                        </h2>
+
+                        <PageNotice Tone="NoticeTone.Info" Text="@RoleEffectText" />
+
+                        <div class="np-roles-head">
+                            <h2 class="ad-section">이벤트별 수신 권한</h2>
+                            <div class="np-roles-all">
+                                <span>
+                                    <DxCheckBox Checked="@AllRolePush"
+                                                CheckedChanged="@((bool v) => OnAllRolePushChangedAsync(v))"
+                                                Enabled="@(_canEdit && _roleEventRows.Any(r => CanPickRoleEvent(r.Event) && r.Event.SupportsPush))">
+                                        앱 푸시 전체
+                                    </DxCheckBox>
+                                </span>
+                                <span>
+                                    <DxCheckBox Checked="@AllRoleEmail"
+                                                CheckedChanged="@((bool v) => OnAllRoleEmailChangedAsync(v))"
+                                                Enabled="@(_canEdit && _roleEventRows.Any(r => CanPickRoleEvent(r.Event) && r.Event.SupportsEmail))">
+                                        이메일 전체
+                                    </DxCheckBox>
+                                </span>
                             </div>
+                        </div>
+
+                        @if (_roleEventRows.Count == 0)
+                        {
+                            <p class="np-list__empty">설정 가능한 알림 이벤트가 없습니다.</p>
+                        }
+                        else
+                        {
+                            <div class="np-roles" role="list" aria-label="이벤트별 수신 권한">
+                                @foreach (var row in _roleEventRows)
+                                {
+                                    <div class="np-role-item" role="listitem">
+                                        <div class="np-role-info">
+                                            <span class="np-role-name">@row.Event.Name</span>
+                                            <span class="ad-stamp np-role-id">@row.Event.Code</span>
+                                            @if (!string.IsNullOrWhiteSpace(row.Event.CategoryName))
+                                            {
+                                                <span class="jsini-badge">@row.Event.CategoryName</span>
+                                            }
+                                            <span class="ad-stamp">@row.Event.TargetText</span>
+                                            @if (!row.Event.Governed)
+                                            {
+                                                <span class="jsini-badge">정책 밖</span>
+                                            }
+                                            else if (!row.Event.IsActive)
+                                            {
+                                                <span class="jsini-badge jsini-badge--warn">꺼짐</span>
+                                            }
+                                        </div>
+
+                                        @if (!string.IsNullOrWhiteSpace(row.Event.Description))
+                                        {
+                                            <div class="np-role-event-desc">@row.Event.Description</div>
+                                        }
+
+                                        <div class="np-role-checks">
+                                            <span title="@RolePushHint(row.Event)">
+                                                <DxCheckBox Checked="@row.Push"
+                                                            CheckedChanged="@((bool v) => SetRoleEventPushAsync(row, v))"
+                                                            Enabled="@(CanPickRoleEvent(row.Event) && row.Event.SupportsPush)">
+                                                    앱 푸시
+                                                </DxCheckBox>
+                                            </span>
+                                            <span title="@RoleMailHint(row.Event)">
+                                                <DxCheckBox Checked="@row.Email"
+                                                            CheckedChanged="@((bool v) => SetRoleEventEmailAsync(row, v))"
+                                                            Enabled="@(CanPickRoleEvent(row.Event) && row.Event.SupportsEmail)">
+                                                    이메일
+                                                </DxCheckBox>
+                                            </span>
+                                            <DxButton Text="받는 사람" RenderStyle="ButtonRenderStyle.Link"
+                                                      Enabled="@(!Loading)" Click="@(() => OpenRecipientsForEventAsync(row.Event))" />
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+
+                        <div class="jsini-hint">
+                            받는 사람이 <b>본인 환경설정에서 꺼 두면</b> 여기서 켜 두어도 가지 않습니다 —
+                            순서가 <b>정책 → 본인 설정</b> 입니다.
+                        </div>
+
+                        @if (_pendingSaves > 0)
+                        {
+                            <p class="ad-stamp">저장 중…</p>
                         }
                     </div>
                 }
+            </CommCont>
+            </DxSplitterPane>
 
-                <div class="jsini-hint">
-                    받는 사람이 <b>본인 환경설정에서 꺼 두면</b> 여기서 켜 두어도 가지 않습니다 —
-                    순서가 <b>정책 → 본인 설정</b> 입니다.
-                    @if (_selected is { SupportsEmail: true, EmailFromPush: true })
-                    {
-                        <text>
-                            이메일은 <b>켠 역할에만</b> 나갑니다 — 앱 푸시처럼 「안 걸면 모두에게」가
-                            아닙니다.
-                        </text>
-                    }
-                </div>
-
-                @if (_selected.UpdatedAt is not null)
-                {
-                    <p class="ad-stamp">
-                        마지막 저장 · @Stamp(_selected.UpdatedAt)
-                        @if (_pendingSaves > 0)
-                        {
-                            <text> · 저장 중…</text>
-                        }
-                    </p>
-                }
-                else if (_pendingSaves > 0)
-                {
-                    <p class="ad-stamp">저장 중…</p>
-                }
-
-                <div class="np-actions">
-                    @* 받는 사람 보기는 **권한 문을 하나 더 세우지 않는다** —
-                       이 화면을 열 수 있으면 설정을 볼 수 있고, 그 목록은
-                       설정을 읽어 푼 것일 뿐이다. *@
-                    <DxButton Text="받는 사람" RenderStyle="ButtonRenderStyle.Secondary"
-                              Enabled="@(!Loading)" Click="@OpenRecipientsAsync" />
-                </div>
-            </div>
-        }
-    </CommCont>
-    </DxSplitterPane>
-
-    </Panes>
-</DxSplitter>
+            </Panes>
+        </DxSplitter>
+    </DxTabPage>
+</DxTabs>
 
 @* 받는 사람. **저장된 설정으로 셈한다** — 화면의 체크 상태로 보여 주면
    저장하지 않은 값으로 「갑니다」를 말하게 된다. *@

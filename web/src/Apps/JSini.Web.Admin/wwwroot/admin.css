@@ -4402,3 +4402,50 @@
   white-space: normal;
   color: var(--dxbl-text-muted, #6c757d);
 }
+
+/* ── 알림관리 탭 (`.ad-nptabs`) ─────────────────────────────
+   이벤트 중심 / 역할 중심 탭이 판 높이를 채우고 안쪽 splitter 가
+   남은 높이를 쓴다.
+   ---------------------------------------------------------- */
+.ad-nptabs {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.ad-nptabs > .dxbl-tabs-content-panel,
+.ad-nptabs .dxbl-tabs-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+@media (width >= 992px) {
+  .jsini-shell__content:has(> .ad-nptabs) {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .jsini-shell__content > .ad-nptabs {
+    flex: 1;
+    min-height: 0;
+  }
+
+  .ad-nptabs .ad-vsplit {
+    flex: 1;
+    min-height: 0;
+  }
+}
+
+.np-role-event-desc {
+  width: 100%;
+  margin: 0.15rem 0 0.35rem;
+  font-size: var(--jsini-fs-sm, 0.85rem);
+  color: var(--jsini-text-muted);
+}
+

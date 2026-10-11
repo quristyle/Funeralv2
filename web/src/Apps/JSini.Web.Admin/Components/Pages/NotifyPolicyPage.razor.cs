@@ -40,13 +40,49 @@ internal sealed class NotifyPolicyRow
     public bool Picked => Push || Email;
 }
 
+/// <summary>
+/// 역할 중심 탭의 한 줄 — 알림 이벤트 하나와 이 역할에 대한 앱 푸시/이메일 설정.
+/// </summary>
+internal sealed class RoleEventPolicyRow
+{
+    public required NotifyEventDto Event { get; init; }
+
+    public bool Push { get; set; }
+
+    public bool Email { get; set; }
+
+    public bool Picked => Push || Email;
+}
+
 public partial class NotifyPolicyPage : IDisposable
 {
     [Inject] private AdminClient Api { get; set; } = default!;
 
+    /// <summary>활성 탭 번호 (0: 이벤트 중심, 1: 역할 중심).</summary>
+    private int _activeTab;
+
+    private int ActiveTab
+    {
+        get => _activeTab;
+        set
+        {
+            if (_activeTab != value)
+            {
+                _activeTab = value;
+                OnTabChanged();
+            }
+        }
+    }
+
     private List<NotifyEventDto> _events = [];
 
     private IReadOnlyList<NotifyRoleDto> _roles = [];
+
+    /// <summary>역할 중심 탭에서 선택된 역할.</summary>
+    private NotifyRoleDto? _selectedRole;
+
+    /// <summary>역할 중심 탭에서 그리는 이벤트별 정책 줄들.</summary>
+    private List<RoleEventPolicyRow> _roleEventRows = [];
 
     /// <summary>고른 이벤트. 왼쪽 표와 오른쪽 판이 이 값을 나눠 본다.</summary>
     private NotifyEventDto? _selected;
@@ -103,6 +139,15 @@ public partial class NotifyPolicyPage : IDisposable
         SchSummary.On(_activeOnly, "쓰는 것만"));
 
     private string EventHint => $"{VisibleEvents.Count}건";
+
+    /// <summary>화면에 표시할 역할 목록. 검색어가 있으면 이름이나 식별자로 거른다.</summary>
+    private IReadOnlyList<NotifyRoleDto> VisibleRoles =>
+        string.IsNullOrWhiteSpace(_keyword)
+            ? _roles
+            : _roles.Where(r => r.Name.Contains(_keyword, StringComparison.OrdinalIgnoreCase)
+                                || r.Id.Contains(_keyword, StringComparison.OrdinalIgnoreCase)).ToList();
+
+    private string RoleHint => $"{VisibleRoles.Count}건";
 
     /// <summary>체크를 만질 수 있나. 정책이 안 걸리는 이벤트에서는 잠근다.</summary>
     private bool CanPick => _canEdit && _selected is { Governed: true };
@@ -218,9 +263,14 @@ public partial class NotifyPolicyPage : IDisposable
     {
         _roles = await Api.GetNotifyRolesAsync();
 
-        // 역할 목록이 새로 들어왔으니 오른쪽 표를 다시 세운다 — 안 세우면
-        // 고른 이벤트의 체크가 옛 역할 줄에 걸린 채로 남는다.
+        if (_selectedRole is null || !_roles.Any(r => r.Id == _selectedRole.Id))
+        {
+            _selectedRole = _roles.FirstOrDefault();
+        }
+
+        // 역할 목록이 새로 들어왔으니 양쪽 폼을 다시 세운다.
         if (_selected is not null) LoadForm(_selected);
+        if (_selectedRole is not null) LoadRoleForm(_selectedRole);
 
         return _roles.Count;
     }, "등록된 역할이 없습니다.", "역할 목록을 읽지 못했습니다");
@@ -248,6 +298,14 @@ public partial class NotifyPolicyPage : IDisposable
 
         LoadForm(_selected);
 
+        // 역할 중심 탭의 선택 역할도 유지한다.
+        var keepRole = _selectedRole?.Id;
+        var visibleRoles = VisibleRoles;
+        _selectedRole = keepRole is null ? null : visibleRoles.FirstOrDefault(r => r.Id == keepRole);
+        _selectedRole ??= visibleRoles.FirstOrDefault() ?? _roles.FirstOrDefault();
+
+        LoadRoleForm(_selectedRole);
+
         return visible.Count;
     }, "등록된 알림 이벤트가 없습니다.", "알림 이벤트를 읽지 못했습니다");
 
@@ -269,7 +327,7 @@ public partial class NotifyPolicyPage : IDisposable
     }
 
     /// <summary>
-    /// 현재 선택된 이벤트가 숨겨졌으면 표시 중인 첫 번째 이벤트로 바꾼다.
+    /// 현재 선택된 이벤트나 역할이 숨겨졌으면 표시 중인 첫 번째 항목으로 바꾼다.
     /// </summary>
     private void EnsureSelectedVisible()
     {
@@ -279,6 +337,69 @@ public partial class NotifyPolicyPage : IDisposable
             _selected = visible.FirstOrDefault();
             LoadForm(_selected);
         }
+
+        if (_selectedRole is not null)
+        {
+            LoadRoleForm(_selectedRole);
+        }
+    }
+
+    /// <summary>탭 전환 시 호출된다.</summary>
+    private void OnTabChanged()
+    {
+        if (_activeTab == 1)
+        {
+            if (_selectedRole is null && _roles.Count > 0)
+            {
+                _selectedRole = _roles.FirstOrDefault();
+            }
+            LoadRoleForm(_selectedRole);
+        }
+        else
+        {
+            EnsureSelectedVisible();
+        }
+    }
+
+    /// <summary>역할 중심 탭에서 역할을 선택했을 때 호출된다.</summary>
+    private async Task SelectRoleAsync(NotifyRoleDto? role)
+    {
+        if (role is null || role.Id == _selectedRole?.Id) return;
+
+        if (_pendingSaves > 0)
+        {
+            await _saveGate.WaitAsync();
+            _saveGate.Release();
+        }
+
+        _selectedRole = role;
+        LoadRoleForm(role);
+    }
+
+    /// <summary>선택한 역할을 기준으로 알림 이벤트별 정책 줄들을 구성한다.</summary>
+    private void LoadRoleForm(NotifyRoleDto? role)
+    {
+        if (role is null)
+        {
+            _roleEventRows = [];
+            return;
+        }
+
+        _roleEventRows =
+        [
+            .. VisibleEvents.Select(ev =>
+            {
+                var hit = ev.Policies.FirstOrDefault(
+                    p => string.Equals(p.RoleId, role.Id, StringComparison.OrdinalIgnoreCase));
+
+                return new RoleEventPolicyRow
+                {
+                    Event = ev,
+                    Push = hit is { IsActive: true, PushEnabled: true },
+                    Email = hit is { IsActive: true, EmailEnabled: true },
+                };
+            })
+        ];
     }
 
     /// <summary>
@@ -556,6 +677,330 @@ public partial class NotifyPolicyPage : IDisposable
             _saveGate.Release();
             _pendingSaves--;
             StateHasChanged();
+        }
+    }
+
+    /// <summary>이 역할에 부여된 총 이벤트(푸시 또는 이메일 켠 것) 수를 센다.</summary>
+    private int RoleTotalEventsCount(NotifyRoleDto r) =>
+        _events.Count(e => e.Policies.Any(p => string.Equals(p.RoleId, r.Id, StringComparison.OrdinalIgnoreCase) && p.IsActive && (p.PushEnabled || p.EmailEnabled)));
+
+    /// <summary>이 역할에 부여된 앱 푸시 수신 이벤트 수를 센다.</summary>
+    private int RolePushCount(NotifyRoleDto r) =>
+        _events.Count(e => e.Policies.Any(p => string.Equals(p.RoleId, r.Id, StringComparison.OrdinalIgnoreCase) && p.IsActive && p.PushEnabled));
+
+    /// <summary>이 역할에 부여된 이메일 수신 이벤트 수를 센다.</summary>
+    private int RoleEmailCount(NotifyRoleDto r) =>
+        _events.Count(e => e.Policies.Any(p => string.Equals(p.RoleId, r.Id, StringComparison.OrdinalIgnoreCase) && p.IsActive && p.EmailEnabled));
+
+    /// <summary>역할 카드 하단에 표시할 권한 요약 문구.</summary>
+    private string RoleChannelSummary(NotifyRoleDto r)
+    {
+        var push = RolePushCount(r);
+        var mail = RoleEmailCount(r);
+        var total = RoleTotalEventsCount(r);
+
+        if (total == 0) return "지정된 알림 없음";
+
+        var parts = new List<string>();
+        if (push > 0) parts.Add($"앱푸시 {push}");
+        if (mail > 0) parts.Add($"이메일 {mail}");
+
+        return $"이벤트 {total}건 · {string.Join(" · ", parts)}";
+    }
+
+    /// <summary>역할 카드의 왼쪽 톤 선 색상.</summary>
+    private string RoleCardTone(NotifyRoleDto r) =>
+        RoleTotalEventsCount(r) > 0 ? "on" : "off";
+
+    /// <summary>역할 중심 탭에서 체크박스를 수정할 수 있는지 판정한다.</summary>
+    private bool CanPickRoleEvent(NotifyEventDto ev) =>
+        _canEdit && ev.Governed;
+
+    private static string RolePushHint(NotifyEventDto ev) =>
+        ev.SupportsPush ? "이 역할에 앱 푸시로 보냅니다." : "이 알림은 앱 푸시로 나가지 않습니다.";
+
+    private static string RoleMailHint(NotifyEventDto ev) =>
+        ev.SupportsEmail ? "이 역할에 이메일로 보냅니다." : "이 알림은 이메일로 나가지 않습니다.";
+
+    private string RoleEffectText => _selectedRole is null
+        ? string.Empty
+        : $"「{_selectedRole.Name}」 역할에 부여된 알림 이벤트 수신 권한을 확인하고 지정합니다. 설정 변경 시 즉시 저장됩니다.";
+
+    /// <summary>선택된 역할에 대해 모든 지원 이벤트의 앱 푸시가 켜져 있는지 확인한다.</summary>
+    private bool AllRolePush =>
+        _roleEventRows.Count > 0
+        && _roleEventRows.Where(r => CanPickRoleEvent(r.Event) && r.Event.SupportsPush).All(r => r.Push);
+
+    /// <summary>선택된 역할에 대해 모든 지원 이벤트의 이메일이 켜져 있는지 확인한다.</summary>
+    private bool AllRoleEmail =>
+        _roleEventRows.Count > 0
+        && _roleEventRows.Where(r => CanPickRoleEvent(r.Event) && r.Event.SupportsEmail).All(r => r.Email);
+
+    /// <summary>선택된 역할의 모든 지원 이벤트에 대해 앱 푸시를 일괄 변경한다.</summary>
+    private Task OnAllRolePushChangedAsync(bool value)
+    {
+        if (_selectedRole is null || !_canEdit) return Task.CompletedTask;
+
+        var changed = new List<RoleEventPolicyRow>();
+        foreach (var r in _roleEventRows)
+        {
+            if (CanPickRoleEvent(r.Event) && r.Event.SupportsPush && r.Push != value)
+            {
+                r.Push = value;
+                changed.Add(r);
+            }
+        }
+
+        return changed.Count > 0 ? SaveRoleEventsBatchAsync(changed) : Task.CompletedTask;
+    }
+
+    /// <summary>선택된 역할의 모든 지원 이벤트에 대해 이메일을 일괄 변경한다.</summary>
+    private Task OnAllRoleEmailChangedAsync(bool value)
+    {
+        if (_selectedRole is null || !_canEdit) return Task.CompletedTask;
+
+        var changed = new List<RoleEventPolicyRow>();
+        foreach (var r in _roleEventRows)
+        {
+            if (CanPickRoleEvent(r.Event) && r.Event.SupportsEmail && r.Email != value)
+            {
+                r.Email = value;
+                changed.Add(r);
+            }
+        }
+
+        return changed.Count > 0 ? SaveRoleEventsBatchAsync(changed) : Task.CompletedTask;
+    }
+
+    /// <summary>역할 중심 탭에서 특정 이벤트의 앱 푸시 체크박스 변경 시 즉시 저장한다.</summary>
+    private Task SetRoleEventPushAsync(RoleEventPolicyRow row, bool value)
+    {
+        if (_selectedRole is null || !CanPickRoleEvent(row.Event) || !row.Event.SupportsPush || row.Push == value)
+        {
+            return Task.CompletedTask;
+        }
+
+        row.Push = value;
+        return SaveRoleEventPolicyAsync(row);
+    }
+
+    /// <summary>역할 중심 탭에서 특정 이벤트의 이메일 체크박스 변경 시 즉시 저장한다.</summary>
+    private Task SetRoleEventEmailAsync(RoleEventPolicyRow row, bool value)
+    {
+        if (_selectedRole is null || !CanPickRoleEvent(row.Event) || !row.Event.SupportsEmail || row.Email == value)
+        {
+            return Task.CompletedTask;
+        }
+
+        row.Email = value;
+        return SaveRoleEventPolicyAsync(row);
+    }
+
+    /// <summary>역할 중심 탭에서 한 이벤트의 정책 변경사항을 저장한다.</summary>
+    private async Task SaveRoleEventPolicyAsync(RoleEventPolicyRow row)
+    {
+        if (_selectedRole is null || !_canEdit || !row.Event.Governed) return;
+
+        var roleId = _selectedRole.Id;
+        var ev = row.Event;
+
+        var hit = ev.Policies.FirstOrDefault(
+            p => string.Equals(p.RoleId, roleId, StringComparison.OrdinalIgnoreCase));
+
+        if (hit is null)
+        {
+            if (row.Push || row.Email)
+            {
+                ev.Policies.Add(new NotifyPolicyDto
+                {
+                    RoleId = roleId,
+                    RoleName = _selectedRole.Name,
+                    PushEnabled = row.Push,
+                    EmailEnabled = row.Email,
+                    IsActive = true,
+                    AccountCount = _selectedRole.AccountCount,
+                });
+            }
+        }
+        else
+        {
+            hit.PushEnabled = row.Push;
+            hit.EmailEnabled = row.Email;
+            hit.IsActive = true;
+        }
+
+        var request = new SaveNotifyPolicyDto
+        {
+            IsActive = ev.IsActive,
+            Policies =
+            [
+                .. ev.Policies
+                    .Where(p => p.IsActive && (p.PushEnabled || p.EmailEnabled))
+                    .Select(p => new SaveNotifyPolicyRowDto
+                    {
+                        RoleId = p.RoleId,
+                        PushEnabled = p.PushEnabled,
+                        EmailEnabled = p.EmailEnabled,
+                        IsActive = true,
+                    })
+            ],
+        };
+
+        _pendingSaves++;
+        StateHasChanged();
+
+        await _saveGate.WaitAsync();
+        try
+        {
+            var saved = await Api.SaveNotifyPolicyAsync(ev.Code, request);
+            if (saved is not null)
+            {
+                var idx = _events.FindIndex(e => e.Code == saved.Code);
+                if (idx >= 0) _events[idx] = saved;
+
+                ev.Policies = saved.Policies;
+                ev.Unrestricted = saved.Unrestricted;
+                ev.UpdatedAt = saved.UpdatedAt;
+                ev.IsActive = saved.IsActive;
+
+                if (_selected?.Code == saved.Code)
+                {
+                    _selected.Policies = saved.Policies;
+                    _selected.Unrestricted = saved.Unrestricted;
+                    _selected.UpdatedAt = saved.UpdatedAt;
+                    _selected.IsActive = saved.IsActive;
+                    LoadForm(_selected);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Say($"알림 설정을 저장하지 못했습니다 — {ex.Message}", NoticeTone.Error);
+            LoadRoleForm(_selectedRole);
+        }
+        finally
+        {
+            _saveGate.Release();
+            _pendingSaves--;
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>역할 중심 탭에서 여러 이벤트의 정책 변경사항을 일괄 저장한다.</summary>
+    private async Task SaveRoleEventsBatchAsync(List<RoleEventPolicyRow> rows)
+    {
+        if (_selectedRole is null || !_canEdit || rows.Count == 0) return;
+
+        var roleId = _selectedRole.Id;
+        _pendingSaves++;
+        StateHasChanged();
+
+        await _saveGate.WaitAsync();
+        try
+        {
+            foreach (var row in rows)
+            {
+                var ev = row.Event;
+                var hit = ev.Policies.FirstOrDefault(
+                    p => string.Equals(p.RoleId, roleId, StringComparison.OrdinalIgnoreCase));
+
+                if (hit is null)
+                {
+                    if (row.Push || row.Email)
+                    {
+                        ev.Policies.Add(new NotifyPolicyDto
+                        {
+                            RoleId = roleId,
+                            RoleName = _selectedRole.Name,
+                            PushEnabled = row.Push,
+                            EmailEnabled = row.Email,
+                            IsActive = true,
+                            AccountCount = _selectedRole.AccountCount,
+                        });
+                    }
+                }
+                else
+                {
+                    hit.PushEnabled = row.Push;
+                    hit.EmailEnabled = row.Email;
+                    hit.IsActive = true;
+                }
+
+                var request = new SaveNotifyPolicyDto
+                {
+                    IsActive = ev.IsActive,
+                    Policies =
+                    [
+                        .. ev.Policies
+                            .Where(p => p.IsActive && (p.PushEnabled || p.EmailEnabled))
+                            .Select(p => new SaveNotifyPolicyRowDto
+                            {
+                                RoleId = p.RoleId,
+                                PushEnabled = p.PushEnabled,
+                                EmailEnabled = p.EmailEnabled,
+                                IsActive = true,
+                            })
+                    ],
+                };
+
+                var saved = await Api.SaveNotifyPolicyAsync(ev.Code, request);
+                if (saved is not null)
+                {
+                    var idx = _events.FindIndex(e => e.Code == saved.Code);
+                    if (idx >= 0) _events[idx] = saved;
+
+                    ev.Policies = saved.Policies;
+                    ev.Unrestricted = saved.Unrestricted;
+                    ev.UpdatedAt = saved.UpdatedAt;
+                    ev.IsActive = saved.IsActive;
+
+                    if (_selected?.Code == saved.Code)
+                    {
+                        _selected.Policies = saved.Policies;
+                        _selected.Unrestricted = saved.Unrestricted;
+                        _selected.UpdatedAt = saved.UpdatedAt;
+                        _selected.IsActive = saved.IsActive;
+                    }
+                }
+            }
+
+            if (_selected is not null) LoadForm(_selected);
+        }
+        catch (Exception ex)
+        {
+            Say($"일부 설정을 저장하지 못했습니다 — {ex.Message}", NoticeTone.Error);
+            LoadRoleForm(_selectedRole);
+        }
+        finally
+        {
+            _saveGate.Release();
+            _pendingSaves--;
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>지정된 이벤트의 수신자 미리보기 창을 연다.</summary>
+    private async Task OpenRecipientsForEventAsync(NotifyEventDto ev)
+    {
+        if (ev is null) return;
+
+        if (_pendingSaves > 0)
+        {
+            await _saveGate.WaitAsync();
+            _saveGate.Release();
+        }
+
+        _preview = null;
+        _showRecipients = true;
+
+        try
+        {
+            _preview = await Api.GetNotifyRecipientsAsync(ev.Code);
+        }
+        catch (ApiException ex)
+        {
+            _showRecipients = false;
+            Say($"받는 사람을 읽지 못했습니다 — {ex.Message}", NoticeTone.Error);
         }
     }
 
