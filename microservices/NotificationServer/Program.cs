@@ -91,6 +91,16 @@ builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("Emai
 builder.Services.AddTransient<IEmailSender, SmtpEmailSender>();
 
 builder.Services.AddScoped<INotificationPreferenceService, NotificationPreferenceService>();
+
+// 알림 정책(포털관리 「알림관리」). **사람의 뜻이 아니라 회사의 규칙이다** —
+// 위의 설정 표와 갈래가 다른 까닭은 NotificationPolicy 머리말에 있다.
+// 발송마다 읽는 표라 짧게 들고 있고(IMemoryCache), 저장할 때 바로 버린다.
+builder.Services.AddMemoryCache();
+builder.Services.AddScoped<INotificationPolicyService, NotificationPolicyService>();
+
+// 「이 화면을 볼 수 있는 사람인가」. 게이트웨이는 로그인만 보므로 관리 화면의
+// 조회·저장은 서버가 스스로 막아야 한다 (MenuViewAccess 머리말).
+builder.Services.AddSingleton<MenuViewAccess>();
 // 지나온 자리. 설정 저장과 갈라 둔 까닭은 LocationTrackService 머리말에 있다.
 builder.Services.AddScoped<ILocationTrackService, LocationTrackService>();
 // 알림 아이콘 한 장을 여는 열쇠. 로그인해 있지 않은 기기에서도 얼굴이 뜨게 한다
@@ -188,6 +198,7 @@ app.MapLocationEndpoints();   // 위치를 허용한 계정들 — 좌표가 이
 app.MapEmailEndpoints();
 app.MapWeatherEventEndpoints(); // 기상 이벤트 발송 (D-G1a) — LifeEnvServer 가 부른다
 app.MapDeployEventEndpoints();  // 배포 반영 알림 — GitHub Actions 의 deploy 잡이 부른다
+app.MapNotificationPolicyEndpoints(); // 알림관리 — 어떤 이벤트를 어느 역할이 어느 길로 받나
 
 // 설정이 반쪽이면 기동할 때 한 번 말해 준다. 조용히 못 보내는 것이 가장 나쁘다.
 app.Lifetime.ApplicationStarted.Register(() =>

@@ -1,0 +1,328 @@
+@page "/admin/system/notify-policy"
+@attribute [RouteKey("admin.system.notify-policy")]
+
+@*
+    [알림관리] — 어떤 **이벤트**가 일어났을 때 어떤 **역할**이 어떤 **길**로
+    알림을 받을지 정한다. DB 메뉴 `/admin/system/notify-policy`.
+    API: `notification/notification-policies/*`(NotificationServer).
+    문서: docs/notify-policy.md
+
+    [무엇을 푸는 화면인가]
+
+    지금까지 「누가 받나」의 답은 **코드와 설정 파일에 흩어져** 있었다 —
+    배포 알림은 `DeployNotify:RoleId`, 헬프데스크 요청은 소스에 박힌
+    `SYSTEM_ADMINISTRATOR`, AI 작업은 `AiTasks:RequestNotifyRoles`.
+    하나를 바꾸려면 저장소를 고쳐 배포해야 했다. 이 화면이 그 답을 DB 로
+    옮긴다.
+
+    [왼쪽이 이벤트, 오른쪽이 받는 쪽이다]
+
+    보고서 메일 화면과 같은 차례다 — 무엇을(왼쪽) 고르고 누구에게(오른쪽)를
+    정한다. 역할을 먼저 고르는 모양도 생각할 수 있지만(「이 역할은 무엇을
+    받나」), 역할이 열여섯이고 이벤트가 열다섯이라 어느 쪽으로 세워도 표가
+    둘인 것은 같고 — **늘어나는 쪽은 이벤트**다.
+
+    [「제한 없음」을 반드시 말해야 한다]
+
+    역할을 하나도 안 걸어 둔 이벤트는 **지금까지와 똑같이 나간다**(정책이
+    없으면 안 막는다 — 서버의 `NotificationPolicyService` 머리말). 그런데
+    체크가 하나도 없는 표는 「아무도 못 받는다」로 읽힌다. 그 오해는
+    **알림을 끄려다 못 끄는** 쪽이라, 띠로 못 박아 둔다.
+
+    [같은 체크 칸이 이벤트에 따라 뜻이 갈린다]
+
+    역할로 가는 알림에서 체크는 **받는 사람을 정하는 것**이고, 당사자에게 가는
+    알림(쪽지·댓글)에서는 **거르는 것**이다. 그래서 오른쪽 머리에 그 한 줄을
+    늘 적는다(`NotifyTargetKinds.Effect`) — 적지 않으면 쪽지 알림에 역할을
+    걸어 두고 「그 역할에게 남의 쪽지가 가는가」를 걱정하게 된다.
+
+    [사용자의 최종 허용은 여기서 다루지 않는다]
+
+    「나는 안 받겠다」는 각자의 환경설정에 있고, 순서는 **정책 → 본인 설정**
+    이다. 정책이 보내라고 해도 본인이 껐으면 안 간다. 「받는 사람」 창이
+    그 둘을 갈라서 보여 준다 — 고칠 자리가 서로 다르기 때문이다.
+
+    [판 둘은 `CommCont` 여야 한다]
+
+    좌우 분할이 높이를 채우는 규칙이 `.ad-split > .commcont` 를 겨눈다
+    (admin.css). 맨 `<div>` 로 두면 안쪽 표가 한 줄만 그려진다 —
+    메뉴롤 화면이 실제로 그렇게 깨져 있었다.
+*@
+
+@inherits DataPage
+
+<PageTitle>알림관리 · 포털관리</PageTitle>
+
+<CommSch OnSearch="@ReloadAsync" OnReset="@ResetAsync" Busy="@Loading"
+         MobileSummary="@ConditionSummary">
+    <Fields>
+        <CommSchItem Label="검색어">
+            <DxTextBox @bind-Text="_keyword" Style="width: 220px"
+                       ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
+        <CommSchItem Label="사용 여부">
+            <DxCheckBox @bind-Checked="_activeOnly">쓰는 것만</DxCheckBox>
+        </CommSchItem>
+    </Fields>
+</CommSch>
+
+<div class="ad-split">
+    <CommCont Title="알림 이벤트" Hint="@EventHint" CssClass="ad-split__side">
+        <CommGrd TItem="NotifyEventDto"
+                 Data="@_events"
+                 ShowExcelExport="false"
+                 EmptyText="등록된 알림 이벤트가 없습니다. 메뉴 SQL 을 돌렸는지 확인하십시오."
+                 Reload="@ReloadAsync"
+                 SelectedItem="@_selected"
+                 SelectedItemChanged="@SelectAsync">
+            <Columns>
+                <DxGridDataColumn Caption="이벤트" MinWidth="150" TextAlignment="GridTextAlignment.Left">
+                    <CellDisplayTemplate Context="cell">
+                        @{
+                            var row = (NotifyEventDto)cell.DataItem;
+                        }
+                        <div class="np-event">
+                            <span class="np-event__name">@row.Name</span>
+                            @if (!row.Governed)
+                            {
+                                @* 「보이되 못 건다」를 목록에서부터 말한다 — 눌러서
+                                   체크를 켜 보고 나서 알게 하면 안 된다. *@
+                                <span class="jsini-badge">정책 밖</span>
+                            }
+                            else if (!row.IsActive)
+                            {
+                                <span class="jsini-badge jsini-badge--warn">꺼짐</span>
+                            }
+                        </div>
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+                <DxGridDataColumn Caption="받는 설정" Width="124" TextAlignment="GridTextAlignment.Left">
+                    <CellDisplayTemplate Context="cell">
+                        @((NotifyEventDto)cell.DataItem).ChannelSummary
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+            </Columns>
+        </CommGrd>
+    </CommCont>
+
+    <CommCont CssClass="ad-split__main">
+        @if (_selected is null)
+        {
+            <PageNotice Tone="NoticeTone.Info"
+                        Text="왼쪽에서 설정할 알림 이벤트를 고르십시오." />
+        }
+        else
+        {
+            @* 판이 남은 높이를 채우므로 안쪽에서 굴러야 한다 — 안 굴리면
+               본문의 `overflow: hidden` 에 잘린다. *@
+            <div class="np-edit">
+                <h2 class="ad-subhead">@_selected.Name <span class="ad-stamp">@_selected.Code</span></h2>
+
+                @if (!string.IsNullOrWhiteSpace(_selected.Description))
+                {
+                    <p class="np-desc">@_selected.Description</p>
+                }
+
+                <dl class="np-facts">
+                    <dt>발생처</dt>
+                    <dd>@(_selected.Source ?? "—")</dd>
+                    <dt>알림구분</dt>
+                    <dd>@(_selected.CategoryName ?? "없음")</dd>
+                    <dt>대상</dt>
+                    <dd>@_selected.TargetText</dd>
+                    <dt>나가는 길</dt>
+                    <dd>@ChannelText(_selected)</dd>
+                </dl>
+
+                @* ── 지금 어떤 상태인가 ──────────────────────
+                   셋을 **갈라서** 말한다. 「제한 없음」과 「아무도 못 받음」은
+                   체크가 하나도 없는 같은 화면에서 뜻이 정반대다. *@
+                @if (!_selected.Governed)
+                {
+                    <PageNotice Tone="NoticeTone.Warning" Text="@UngovernedText" />
+                }
+                else if (!_isActive)
+                {
+                    <PageNotice Tone="NoticeTone.Warning"
+                                Text="이 이벤트를 꺼 두었습니다. 역할과 상관없이 아무에게도 나가지 않습니다." />
+                }
+                else if (NoRolePicked)
+                {
+                    <PageNotice Tone="NoticeTone.Info"
+                                Text="역할을 하나도 걸지 않았습니다 — 제한 없이 지금까지와 똑같이 나갑니다. 하나라도 걸면 그때부터 이 목록이 기준이 됩니다." />
+                }
+                else
+                {
+                    <PageNotice Tone="NoticeTone.Info" Text="@EffectText" />
+                }
+
+                <div class="np-switch">
+                    <DxCheckBox @bind-Checked="_isActive" Enabled="@(_selected.Governed && _canEdit)">
+                        이 이벤트의 알림을 쓴다
+                    </DxCheckBox>
+                </div>
+
+                <h2 class="ad-section">역할별 수신</h2>
+
+                @* 역할을 **전부** 보여 주고 체크로 가린다. 「더하기」 창을 따로
+                   두면 걸려 있지 않은 역할이 안 보여서, 「파트너는 왜 안 오나」를
+                   물을 때마다 창을 열어 확인해야 한다. 열여섯 줄이라 다 보인다. *@
+                <CommGrd TItem="NotifyPolicyRow"
+                         Data="@_rows"
+                         ShowExcelExport="false"
+                         AutoSelectFirstRow="false"
+                         EmptyText="등록된 역할이 없습니다."
+                         Reload="@LoadRolesAsync">
+                    <Columns>
+                        <DxGridDataColumn FieldName="@nameof(NotifyPolicyRow.RoleName)" Caption="역할"
+                                          MinWidth="130" TextAlignment="GridTextAlignment.Left" />
+                        <DxGridDataColumn FieldName="@nameof(NotifyPolicyRow.RoleId)" Caption="식별자"
+                                          Width="190" TextAlignment="GridTextAlignment.Left" />
+                        @* 걸린 사람 수를 **고르기 전에** 보여 준다. 「역할을
+                           골랐는데 아무에게도 안 간다」가 조용히 일어나는 자리
+                           중 하나가 이것이다. *@
+                        <DxGridDataColumn Caption="사람" Width="76">
+                            <CellDisplayTemplate Context="cell">
+                                @{
+                                    var row = (NotifyPolicyRow)cell.DataItem;
+                                }
+                                @if (row.AccountCount == 0)
+                                {
+                                    <span class="jsini-badge jsini-badge--warn">0명</span>
+                                }
+                                else
+                                {
+                                    @($"{row.AccountCount}명")
+                                }
+                            </CellDisplayTemplate>
+                        </DxGridDataColumn>
+                        <DxGridDataColumn Caption="앱 푸시" Width="82">
+                            <CellDisplayTemplate Context="cell">
+                                @{
+                                    var row = (NotifyPolicyRow)cell.DataItem;
+                                }
+                                @* 이벤트가 못 쓰는 길은 **잠근다.** 켜도 아무 일
+                                   없는 칸을 열어 두면 「켰는데 왜 안 오지」가 된다
+                                   — 메뉴롤 화면이 같은 자리에서 내린 판단이다. *@
+                                <span title="@PushHint">
+                                    <DxCheckBox Checked="@row.Push"
+                                                CheckedChanged="@((bool v) => row.Push = v)"
+                                                Enabled="@(CanPick && _selected.SupportsPush)" />
+                                </span>
+                            </CellDisplayTemplate>
+                        </DxGridDataColumn>
+                        <DxGridDataColumn Caption="이메일" Width="82">
+                            <CellDisplayTemplate Context="cell">
+                                @{
+                                    var row = (NotifyPolicyRow)cell.DataItem;
+                                }
+                                <span title="@MailHint">
+                                    <DxCheckBox Checked="@row.Email"
+                                                CheckedChanged="@((bool v) => row.Email = v)"
+                                                Enabled="@(CanPick && _selected.SupportsEmail)" />
+                                </span>
+                            </CellDisplayTemplate>
+                        </DxGridDataColumn>
+                    </Columns>
+                </CommGrd>
+
+                <div class="jsini-hint">
+                    받는 사람이 <b>본인 환경설정에서 꺼 두면</b> 여기서 켜 두어도 가지 않습니다 —
+                    순서가 <b>정책 → 본인 설정</b> 입니다.
+                </div>
+
+                @if (_selected.UpdatedAt is not null)
+                {
+                    <p class="ad-stamp">마지막 저장 · @Stamp(_selected.UpdatedAt)</p>
+                }
+
+                <div class="np-actions">
+                    <PermissionView Action="MenuAction.Update">
+                        <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary"
+                                  Enabled="@(!Loading && _selected.Governed)"
+                                  Click="@ConfirmSaveAsync" />
+                    </PermissionView>
+
+                    @* 받는 사람 보기는 **권한 문을 하나 더 세우지 않는다** —
+                       이 화면을 열 수 있으면 설정을 볼 수 있고, 그 목록은
+                       설정을 읽어 푼 것일 뿐이다. *@
+                    <DxButton Text="받는 사람" RenderStyle="ButtonRenderStyle.Secondary"
+                              Enabled="@(!Loading)" Click="@OpenRecipientsAsync" />
+
+                    <DxButton Text="되돌리기" RenderStyle="ButtonRenderStyle.Secondary"
+                              Enabled="@(!Loading)" Click="@(() => LoadForm(_selected))" />
+                </div>
+            </div>
+        }
+    </CommCont>
+</div>
+
+@* 받는 사람. **저장된 설정으로 셈한다** — 화면의 체크 상태로 보여 주면
+   저장하지 않은 값으로 「갑니다」를 말하게 된다. *@
+<CommPopup @bind-Visible="_showRecipients" HeaderText="받는 사람" Width="720px">
+    <BodyContentTemplate Context="popup">
+        @if (_preview is null)
+        {
+            <PageNotice Text="받는 사람을 읽는 중입니다." Tone="NoticeTone.Info" />
+        }
+        else if (_preview.EventDisabled)
+        {
+            <PageNotice Tone="NoticeTone.Warning"
+                        Text="이 이벤트를 꺼 두었습니다 — 아무에게도 나가지 않습니다." />
+        }
+        else if (_preview.Unrestricted)
+        {
+            <PageNotice Tone="NoticeTone.Info"
+                        Text="역할을 걸지 않아 제한이 없습니다. 지금까지와 똑같이, 보내는 쪽이 정한 대상에게 나갑니다." />
+        }
+        else if (_preview.Recipients.Count == 0)
+        {
+            <PageNotice Tone="NoticeTone.Warning"
+                        Text="고른 역할에 걸린 사람이 없습니다. 「사람롤」에서 역할에 사람을 거십시오." />
+        }
+        else
+        {
+            <CommGrd TItem="NotifyRecipientDto"
+                     Data="@_preview.Recipients"
+                     Unit="명"
+                     ShowExcelExport="false"
+                     EmptyText="받는 사람이 없습니다."
+                     AutoSelectFirstRow="false">
+                <Columns>
+                    <DxGridDataColumn FieldName="@nameof(NotifyRecipientDto.UserName)" Caption="이름"
+                                      Width="100" TextAlignment="GridTextAlignment.Left" />
+                    <DxGridDataColumn FieldName="@nameof(NotifyRecipientDto.UserId)" Caption="아이디"
+                                      Width="110" TextAlignment="GridTextAlignment.Left" />
+                    <DxGridDataColumn FieldName="@nameof(NotifyRecipientDto.RoleText)" Caption="역할"
+                                      MinWidth="110" TextAlignment="GridTextAlignment.Left" />
+                    <DxGridDataColumn Caption="앱 푸시" Width="78">
+                        <CellDisplayTemplate Context="cell">
+                            @Mark(((NotifyRecipientDto)cell.DataItem).PushReaches)
+                        </CellDisplayTemplate>
+                    </DxGridDataColumn>
+                    <DxGridDataColumn Caption="이메일" Width="78">
+                        <CellDisplayTemplate Context="cell">
+                            @Mark(((NotifyRecipientDto)cell.DataItem).EmailReaches)
+                        </CellDisplayTemplate>
+                    </DxGridDataColumn>
+                    @* **못 닿는 까닭을 줄마다 적는다.** 고칠 자리가 셋으로
+                       갈린다 — 알림관리 · 그 사람의 환경설정 · 계정 관리. *@
+                    <DxGridDataColumn Caption="비고" MinWidth="170" TextAlignment="GridTextAlignment.Left">
+                        <CellDisplayTemplate Context="cell">
+                            <span class="np-why">@((NotifyRecipientDto)cell.DataItem).Why</span>
+                        </CellDisplayTemplate>
+                    </DxGridDataColumn>
+                </Columns>
+            </CommGrd>
+
+            <div class="jsini-hint">@ReachText</div>
+        }
+    </BodyContentTemplate>
+
+    <FooterContentTemplate Context="popup">
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
+                  Click="@(() => _showRecipients = false)" />
+    </FooterContentTemplate>
+</CommPopup>
+
+<ConfirmDialog @ref="_confirm" />

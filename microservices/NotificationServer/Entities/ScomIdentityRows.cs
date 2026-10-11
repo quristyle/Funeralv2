@@ -94,3 +94,75 @@ public class AccountProfileDetailRow
     [Column("is_deleted")]
     public bool IsDeleted { get; set; }
 }
+
+/// <summary>
+/// scom 권한 역할 (읽기 전용 — <see cref="RoleAccountRow"/> 머리말 참조).
+/// </summary>
+/// <remarks>
+/// 「알림관리」 화면이 고를 역할 목록과, 저장할 때 <b>없는 역할을 받지 않으려고</b>
+/// 본다. 정본은 AuthServer 의 「역할 관리」다 — 여기서는 절대 쓰지 않는다.
+/// </remarks>
+[Table("roles", Schema = "scom")]
+public class RoleRow
+{
+    [Key]
+    [Column("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [Column("name")]
+    public string Name { get; set; } = string.Empty;
+
+    /// <summary>1 이 쓰는 역할이다. 0 은 멈춰 둔 것.</summary>
+    [Column("status")]
+    public int Status { get; set; }
+
+    [Column("is_deleted")]
+    public bool IsDeleted { get; set; }
+}
+
+/// <summary>
+/// scom 메뉴 (읽기 전용 — 권한 판정에만 쓴다).
+/// </summary>
+/// <remarks>
+/// 「이 화면을 볼 수 있는 사람인가」를 사이드바와 <b>같은 표에</b> 묻기 위해
+/// 올린다(<see cref="Services.MenuViewAccess"/> 머리말). 역할 이름을 코드에
+/// 적어 두면 메뉴 권한을 한 역할에 더하는 날 「메뉴는 보이는데 403」이 된다.
+/// </remarks>
+[Table("system_menus", Schema = "scom")]
+public class SystemMenuRow
+{
+    [Key]
+    [Column("id")]
+    public string Id { get; set; } = string.Empty;
+
+    [Column("path")]
+    public string Path { get; set; } = string.Empty;
+
+    /// <summary>화면이 <c>RouteKey</c> 로 선언한 열쇠. 연결 고리는 이쪽이다.</summary>
+    [Column("route_key")]
+    public string? RouteKey { get; set; }
+
+    [Column("is_deleted")]
+    public bool IsDeleted { get; set; }
+}
+
+/// <summary>scom 역할-메뉴 권한 (읽기 전용 — <see cref="SystemMenuRow"/> 머리말 참조)</summary>
+[Table("role_menus", Schema = "scom")]
+public class RoleMenuRow
+{
+    [Key]
+    [Column("id")]
+    public int Id { get; set; }
+
+    [Column("role_id")]
+    public string RoleId { get; set; } = string.Empty;
+
+    [Column("menu_id")]
+    public string MenuId { get; set; } = string.Empty;
+
+    [Column("can_view")]
+    public bool CanView { get; set; }
+
+    [Column("is_deleted")]
+    public bool IsDeleted { get; set; }
+}

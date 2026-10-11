@@ -2,6 +2,7 @@ using AuthServer.Data;
 using AuthServer.DTOs;
 using AuthServer.Entities;
 using Microsoft.EntityFrameworkCore;
+using JSini.Shared.DTOs;
 
 namespace AuthServer.Services;
 
@@ -159,7 +160,7 @@ public class SignupService(
              </ul>
              <p>포털의 [계정 관리 → 가입 신청] 에서 승인하거나 거절할 수 있습니다.</p>
              """,
-            Sender, ct);
+            Sender, NotificationEvents.Signup, ct);
 
         return (true, null);
     }
@@ -271,7 +272,7 @@ public class SignupService(
                  <p>{Escape(account.UserName ?? account.UserId)} 님, 가입이 승인되었습니다.</p>
                  {how}
                  """,
-                Sender, ct);
+                Sender, NotificationEvents.AccountMail, ct);
         }
 
         return true;
@@ -329,7 +330,7 @@ public class SignupService(
                  {why}
                  <p>문의하실 것이 있으면 담당자에게 연락해 주십시오.</p>
                  """,
-                Sender, ct);
+                Sender, NotificationEvents.AccountMail, ct);
         }
 
         return true;

@@ -5,6 +5,7 @@ using AuthServer.DTOs;
 using AuthServer.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using JSini.Shared.DTOs;
 
 namespace AuthServer.Services;
 
@@ -740,7 +741,7 @@ public sealed class SocialLoginService(
             notifyRole,
             "[JSini 포털] 소셜 계정으로 가입 신청이 들어왔습니다",
             SignupMailBody(loginId, userName, identity, providerName, now, storedPictureId),
-            Sender, ct);
+            Sender, NotificationEvents.Signup, ct);
 
         if (!mailed)
         {

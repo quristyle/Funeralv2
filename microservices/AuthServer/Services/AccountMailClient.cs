@@ -50,10 +50,15 @@ public class AccountMailClient
     /// <c>X-User-Id</c> 에 실을 이름. 사람이 아니라 <b>어느 기능이 보냈는지</b>를
     /// 적는다(<c>AUTH_PASSWORD_RESET</c>). 익명 요청이라 사람 아이디가 없다.
     /// </param>
+    /// <param name="eventCode">
+    /// 알림 이벤트 코드(<c>JSini.Shared.DTOs.NotificationEvents</c>). 포털관리
+    /// 「알림관리」가 이 글자로 역할·채널을 가른다. 비우면 정책이 안 걸린다.
+    /// </param>
     /// <param name="ct">보내는 도중 취소할 때 쓰는 토큰</param>
     public async Task<bool> SendAsync(
-        string to, string subject, string body, string sender, CancellationToken ct = default)
-        => (await PostAsync(to, null, subject, body, sender, ct)).Ok;
+        string to, string subject, string body, string sender,
+        string? eventCode = null, CancellationToken ct = default)
+        => (await PostAsync(to, null, subject, body, sender, eventCode, ct)).Ok;
 
     /// <summary>
     /// 주소 하나로 보내고 <b>실패 사유까지</b> 돌려준다.
@@ -69,8 +74,9 @@ public class AccountMailClient
     /// </para>
     /// </remarks>
     public Task<(bool Ok, string Reason)> SendToAddressAsync(
-        string to, string subject, string body, string sender, CancellationToken ct = default)
-        => PostAsync(to, null, subject, body, sender, ct);
+        string to, string subject, string body, string sender,
+        string? eventCode = null, CancellationToken ct = default)
+        => PostAsync(to, null, subject, body, sender, eventCode, ct);
 
     /// <summary>
     /// 역할을 받는 사람으로 보낸다 (<c>SYSTEM_ADMINISTRATOR</c>).
@@ -81,8 +87,9 @@ public class AccountMailClient
     /// 고칠 곳이 늘면 반드시 옛 주소가 남는다.
     /// </remarks>
     public async Task<bool> SendToRoleAsync(
-        string role, string subject, string body, string sender, CancellationToken ct = default)
-        => (await PostAsync(null, role, subject, body, sender, ct)).Ok;
+        string role, string subject, string body, string sender,
+        string? eventCode = null, CancellationToken ct = default)
+        => (await PostAsync(null, role, subject, body, sender, eventCode, ct)).Ok;
 
     /// <summary>
     /// 역할 <b>여럿</b>을 받는 사람으로 보내고 <b>실패 사유까지</b> 돌려준다.
@@ -101,15 +108,16 @@ public class AccountMailClient
     /// </remarks>
     public Task<(bool Ok, string Reason)> SendToRolesAsync(
         IEnumerable<string> roles, string subject, string body, string sender,
-        CancellationToken ct = default)
-        => PostAsync(null, string.Join(",", roles), subject, body, sender, ct);
+        string? eventCode = null, CancellationToken ct = default)
+        => PostAsync(null, string.Join(",", roles), subject, body, sender, eventCode, ct);
 
     /// <summary>
     /// 실제로 보낸다. <b>성공 여부와 사유를 함께</b> 돌려준다 — 사유를 버리면
     /// 「받는 사람이 없다(400)」와 「메일 서버가 거절했다(502)」가 같은 줄이 된다.
     /// </summary>
     private async Task<(bool Ok, string Reason)> PostAsync(
-        string? to, string? toRole, string subject, string body, string sender, CancellationToken ct)
+        string? to, string? toRole, string subject, string body, string sender,
+        string? eventCode, CancellationToken ct)
     {
         try
         {
@@ -119,6 +127,11 @@ public class AccountMailClient
                 toRole,
                 subject,
                 body,
+
+                // **알림관리가 이 글자로 가른다.** 역할로 보내는 몫은 정책이
+                // 적어 둔 역할로 바뀔 수 있고(`REPORT_MAIL` · `SIGNUP`),
+                // 비우면 정책이 안 걸린 채 지금 그대로 나간다.
+                eventCode,
 
                 // **`isHtml` 이 아니다.** 저쪽 DTO(`SendEmailDto`)의 속성 이름은
                 // `Html` 이고, 이름이 안 맞으면 붙지 않고 조용히 기본값(false)이
@@ -138,7 +151,13 @@ public class AccountMailClient
 
             if (response.IsSuccessStatusCode)
             {
-                return (true, "보냈습니다.");
+                // **200 이라고 나간 것이 아니다.** 저쪽은 「받는 사람이 다 꺼
+                // 두었다」·「알림관리에서 이벤트를 껐다」를 <b>성공으로 답하되
+                // 자료를 거짓으로</b> 준다(`EmailEndpoints`) — 설정을 존중한
+                // 결과를 오류로 쌓지 않으려는 것이다. 여기서 그 한 줄을 안
+                // 읽으면 보고서 메일 화면의 「마지막 결과」가 안 나간 발송을
+                // 「보냈습니다」라고 말한다.
+                return await OutcomeAsync(response, ct);
             }
 
             // **까닭까지 적는다.** 상태 코드만 남기면 「받는 사람이 없다(400)」와
@@ -161,6 +180,60 @@ public class AccountMailClient
                 sender);
             return (false, $"알림 서버에 닿지 못했습니다 — {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// 200 으로 온 응답이 <b>정말로 보냈다</b>는 뜻인지 가른다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 저쪽(<c>EmailEndpoints</c>)은 「받는 사람이 모두 알림을 꺼 두었다」와
+    /// 「알림관리에서 이 이벤트를 껐다」를 <b>200 + <c>data: false</c></b> 로
+    /// 답한다 — 설정을 존중한 결과를 부르는 쪽 로그에 오류로 쌓지 않으려는
+    /// 것이다. 그래서 상태 코드만 보면 <b>안 나간 메일이 「보냈습니다」가
+    /// 된다.</b>
+    /// </para>
+    /// <para>
+    /// <c>data</c> 를 못 읽으면 <b>보낸 것으로 본다.</b> 이 길로 오는 응답의
+    /// 대부분이 실제 발송이고, 못 읽었다고 실패로 적으면 멀쩡히 나간 메일이
+    /// 배치 화면에 「실패」로 남는다.
+    /// </para>
+    /// </remarks>
+    private static async Task<(bool Ok, string Reason)> OutcomeAsync(
+        HttpResponseMessage response, CancellationToken ct)
+    {
+        string body;
+
+        try
+        {
+            body = await response.Content.ReadAsStringAsync(ct);
+        }
+        catch (Exception)
+        {
+            return (true, "보냈습니다.");
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+
+            if (doc.RootElement.TryGetProperty("data", out var data)
+                && data.ValueKind == JsonValueKind.False)
+            {
+                var why = doc.RootElement.TryGetProperty("message", out var message)
+                          && message.ValueKind == JsonValueKind.String
+                    ? message.GetString()
+                    : null;
+
+                return (false, string.IsNullOrWhiteSpace(why) ? "보내지 않았습니다." : why);
+            }
+        }
+        catch (JsonException)
+        {
+            // JSON 이 아니면 판단할 근거가 없다. 머리말대로 보낸 것으로 본다.
+        }
+
+        return (true, "보냈습니다.");
     }
 
     /// <summary>

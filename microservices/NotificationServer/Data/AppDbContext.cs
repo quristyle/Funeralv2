@@ -30,6 +30,18 @@ public class AppDbContext : DbContext
     public DbSet<NotificationPreference> NotificationPreferences { get; set; } = null!;
 
     /// <summary>
+    /// 알림 이벤트 카탈로그. <b>「어떤 일이 일어났을 때 보내는 알림인가」의 목록</b>
+    /// 이고 코드가 아니라 표가 정본이다(<see cref="NotificationEventRow"/> 머리말).
+    /// </summary>
+    public DbSet<NotificationEventRow> NotificationEvents { get; set; } = null!;
+
+    /// <summary>
+    /// 알림 정책 — 역할 × 이벤트 × 길. <b>설정 표(<see cref="NotificationPreference"/>)와
+    /// 갈래가 다르다</b>: 저쪽은 사람의 뜻이고 이쪽은 회사의 규칙이다.
+    /// </summary>
+    public DbSet<NotificationPolicy> NotificationPolicies { get; set; } = null!;
+
+    /// <summary>
     /// 보낸 기록. <b>보낸 쪽이 자기 기록을 갖는다</b> — 그 전에는 아무 데도
     /// 안 남아서 포털관리의 현황·이력 화면이 늘 비어 있었다(PushSendLog 머리말).
     /// </summary>
@@ -58,6 +70,15 @@ public class AppDbContext : DbContext
     /// <summary>부서 이름. 쪽지 받는 사람을 고를 때 같은 이름을 가른다.</summary>
     public DbSet<DepartmentRow> Departments => Set<DepartmentRow>();
 
+    /// <summary>권한 역할. 「알림관리」가 고를 목록이고, 저장할 때 없는 역할을 막는다.</summary>
+    public DbSet<RoleRow> Roles => Set<RoleRow>();
+
+    /// <summary>메뉴·메뉴권한. <b>「이 화면을 볼 수 있나」를 사이드바와 같은 표에 묻는다</b>.</summary>
+    public DbSet<SystemMenuRow> SystemMenus => Set<SystemMenuRow>();
+
+    /// <inheritdoc cref="SystemMenus" />
+    public DbSet<RoleMenuRow> RoleMenus => Set<RoleMenuRow>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -76,6 +97,17 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<NotificationPreference>()
             .HasIndex(p => new { p.OwnerType, p.OwnerKey })
             .IsUnique();
+
+        // 정책은 (이벤트, 역할)에 한 줄이다. 두 줄이 생기면 어느 쪽이 참인지 알 수
+        // 없고, 그 틀림은 **껐는데 간다** 쪽이다(NotificationPolicy 머리말).
+        modelBuilder.Entity<NotificationPolicy>()
+            .HasIndex(p => new { p.EventCode, p.RoleId })
+            .IsUnique();
+
+        // **발송 경로에서 읽는 유일한 표다.** 묻는 모양이 언제나 「이 이벤트의
+        // 줄 전부」라 이벤트 코드 하나로 충분하다 — 역할은 그 줄들에서 꺼낸다.
+        modelBuilder.Entity<NotificationPolicy>()
+            .HasIndex(p => p.EventCode);
 
         // 기록은 **언제나 시간으로 훑는다** — 목록도 통계도 기간이 첫 조건이다.
         modelBuilder.Entity<PushSendLog>()

@@ -26,6 +26,10 @@
     끄는 자리는 [docs/helpdesk-comment-notify.md](docs/helpdesk-comment-notify.md)
   - `ProjMngServer` (:5450) · `SiteServer` (:5480) 회사 소개 사이트 백엔드
   - `NotificationServer` (:5460) 푸시·이메일 알림 (포털·장례식장·헬프데스크 공용).
+    **어떤 일에 누가 알림을 받는지**는 이제 코드가 아니라 표가 정한다 —
+    권한 역할 × 이벤트 × 길(앱푸시·이메일)을 포털관리에서 맨다. 정책이 없는
+    이벤트는 **지금 그대로 나가고**, 본인이 꺼 두면 그것이 마지막 말이다:
+    [docs/notify-policy.md](docs/notify-policy.md)
     알림이 **한꺼번에 몰려 오거나 늦게 오는** 까닭 — 수명(TTL)·겹침(Topic) 설정과
     **보내기까지의 지연** 실측은 [docs/push-delivery.md](docs/push-delivery.md)
     **쪽지**는 받는 사람을 치지 않고 고르고(최근·전체), 휴대폰에서는 창이 아니라
@@ -138,5 +142,7 @@ nginx 설정 정본은 [deploy/nginx/](deploy/nginx/) 에 있다 — Blazor 회�
   위치를 모을 수 있나(서비스워커에 `geolocation` 은 **없다** — 실측과 그래도 할 수 있는 일)
 - [docs/note-delivery.md](docs/note-delivery.md) — 쪽지: 빠른 대상 선택 · 휴대폰
   전체화면 · 푸시가 안 닿았을 때 메일로 전환하는 길
+- [docs/notify-policy.md](docs/notify-policy.md) — 알림관리: 알림이 나가는 자리
+  열다섯의 조사표와, 역할·이벤트·길을 매는 규칙(정책 → 본인 설정 → 구독)
 - [web/CLAUDE.md](web/CLAUDE.md) — Blazor 포털의 MFE 구조·의존 규칙·DevExpress 라이선스
 - [.claude/agents/](.claude/agents/) — 전문 서브에이전트 정의

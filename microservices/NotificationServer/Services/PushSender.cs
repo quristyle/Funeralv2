@@ -50,6 +50,7 @@ public class PushSender : IPushSender
     private readonly VapidOptions _vapid;
     private readonly PushDeliveryOptions _delivery;
     private readonly INotificationPreferenceService _preferences;
+    private readonly INotificationPolicyService _policies;
     private readonly IAvatarIconResolver _avatars;
     private readonly IHttpClientFactory _http;
     private readonly ILogger<PushSender> _logger;
@@ -65,6 +66,7 @@ public class PushSender : IPushSender
         IOptions<VapidOptions> vapid,
         IOptions<PushDeliveryOptions> delivery,
         INotificationPreferenceService preferences,
+        INotificationPolicyService policies,
         IAvatarIconResolver avatars,
         IHttpClientFactory http,
         ILogger<PushSender> logger)
@@ -73,6 +75,7 @@ public class PushSender : IPushSender
         _vapid = vapid.Value;
         _delivery = delivery.Value;
         _preferences = preferences;
+        _policies = policies;
         _avatars = avatars;
         _http = http;
         _logger = logger;
@@ -99,8 +102,18 @@ public class PushSender : IPushSender
     private const string ReasonNoVapid = "서버에 VAPID 설정 없음";
 
     /// <summary>
+    /// 「알림관리」가 정한 역할에 안 들어 빠졌을 때. <b>본인이 끈 것과 가려
+    /// 적는다</b> — 고칠 자리가 서로 다르다(한쪽은 포털관리의 알림관리,
+    /// 다른 쪽은 그 사람의 환경설정).
+    /// </summary>
+    private const string ReasonPolicyExcluded = "알림관리 정책에서 제외";
+
+    /// <summary>이벤트 자체를 꺼 두었을 때. 역할과 상관없이 아무에게도 안 간다.</summary>
+    private const string ReasonEventDisabled = "알림관리에서 이벤트를 끔";
+
+    /// <summary>
     /// 보낼 사람 목록을 확정한다 — <b>역할을 사람으로 펴고, 뺄 사람을 덜고,
-    /// 겹치는 사람을 하나로 줄인다.</b>
+    /// 겹치는 사람을 하나로 줄인다.</b> 「알림관리」 정책도 여기서 건다.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -113,15 +126,35 @@ public class PushSender : IPushSender
     /// <c>accounts.user_id</c>(로그인 아이디)라 둘을 이어서 꺼낸다 —
     /// <c>EmailEndpoints.ResolveRoleEmailsAsync</c> 와 같은 이음이다.
     /// </para>
+    ///
+    /// <para>
+    /// [정책이 하는 일은 <b>대상의 성격에 따라 갈린다</b>]
+    /// </para>
+    ///
+    /// <para>
+    /// 역할로 가는 알림(<c>ROLE</c>)은 정책의 역할이 부르는 쪽이 적어 둔 역할을
+    /// <b>대신한다</b> — 설정 파일(<c>DeployNotify:RoleId</c> 따위)을 고치지 않고
+    /// 화면에서 수신 역할을 바꾸는 길이 이것 하나다. 반면 <b>사람을 짚어 보낸
+    /// 몫</b>(<c>Owners</c>)은 그대로 둔다: AI 작업 결과가 시킨 본인에게 돌아가는
+    /// 것 같은 몫은 「회사가 정하는 수신자」가 아니라 그 일의 일부라, 역할로
+    /// 가리면 기능이 통째로 깨진다.
+    /// </para>
+    ///
+    /// <para>
+    /// 당사자에게 가는 알림(<c>USER</c>)은 반대다. 짚어 보낸 몫이 곧 그 알림의
+    /// 전부라, 거기에 거름막을 걸지 않으면 정책이 아무 일도 못 한다 — 「쪽지
+    /// 알림은 이 역할들만 받는다」를 적을 자리가 사라진다.
+    /// </para>
+    ///
     /// <para>
     /// <b>푸시를 끈 사람은 여기서 빼지 않는다.</b> 그 판정은 아래 한 곳
     /// (<c>GetPushDisabledAsync</c>)에 있어야 「왜 안 왔나」가 기록에 남는다.
     /// </para>
     /// </remarks>
-    private async Task<List<OwnerRefDto>> ExpandOwnersAsync(
-        SendPushDto request, CancellationToken ct)
+    private async Task<ExpandedOwners> ExpandOwnersAsync(
+        SendPushDto request, NotificationPolicyDecision decision, CancellationToken ct)
     {
-        var owners = (request.Owners ?? new List<OwnerRefDto>())
+        var picked = (request.Owners ?? new List<OwnerRefDto>())
             .Where(o => !string.IsNullOrWhiteSpace(o.OwnerType) && !string.IsNullOrWhiteSpace(o.OwnerKey))
             .ToList();
 
@@ -130,6 +163,17 @@ public class PushSender : IPushSender
             .Select(r => r.Trim())
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
+
+        if (!decision.Unrestricted)
+        {
+            roles = decision.TargetsRoles
+                // 역할 대상 — 정책이 받는 역할을 정한다.
+                ? [.. decision.RoleIds]
+                // 당사자 대상 — 역할로 보내는 몫이 있다면 정책 안의 것만 남긴다.
+                : [.. roles.Where(r => decision.RoleIds.Contains(r, StringComparer.OrdinalIgnoreCase))];
+        }
+
+        var fromRoles = new List<OwnerRefDto>();
 
         if (roles.Count > 0)
         {
@@ -149,11 +193,37 @@ public class PushSender : IPushSender
                     "역할 {Roles} 인 계정이 없어 푸시 대상이 늘지 않았습니다.", string.Join(",", roles));
             }
 
-            owners.AddRange(loginIds.Select(id => new OwnerRefDto
+            fromRoles.AddRange(loginIds.Select(id => new OwnerRefDto
             {
                 OwnerType = OwnerTypePortal,
                 OwnerKey = id
             }));
+        }
+
+        var dropped = new List<(string OwnerType, string OwnerKey)>();
+
+        // ── 짚어 보낸 몫에 거름막 ───────────────────────────
+        //
+        // **포털 계정만 가린다.** 역할표는 포털 계정의 것이라 `ownerType` 이
+        // `jsini` 가 아닌 주인은 역할을 물을 길이 없다. 가릴 근거가 없는데
+        // 막으면 틀리는 방향이 조용히 안 가는 쪽이 된다
+        // (`INotificationPolicyService` 머리말).
+        if (decision is { Unrestricted: false, TargetsRoles: false } && picked.Count > 0)
+        {
+            var allowed = await _policies.GetLoginIdsInRolesAsync(decision.RoleIds, ct);
+
+            var kept = new List<OwnerRefDto>(picked.Count);
+
+            foreach (var owner in picked)
+            {
+                var portal = string.Equals(
+                    owner.OwnerType, OwnerTypePortal, StringComparison.OrdinalIgnoreCase);
+
+                if (!portal || allowed.Contains(owner.OwnerKey)) kept.Add(owner);
+                else dropped.Add((owner.OwnerType, owner.OwnerKey));
+            }
+
+            picked = kept;
         }
 
         var excluded = (request.ExcludeOwnerKeys ?? new List<string>())
@@ -164,11 +234,30 @@ public class PushSender : IPushSender
         // **주인 종류는 보지 않고 키만 대조한다.** 뺄 사람은 언제나 포털 계정
         // 아이디로 오고, 같은 아이디가 다른 종류로도 등록돼 있다면 그 역시
         // 같은 사람이다.
-        return owners
+        var owners = picked
+            .Concat(fromRoles)
             .Where(o => !excluded.Contains(o.OwnerKey))
             .DistinctBy(o => (o.OwnerType, o.OwnerKey))
             .ToList();
+
+        // 보내기로 한 사람은 「빠진 사람」에서 덜어 낸다 — 역할로도 걸려 있는
+        // 사람이 짚은 몫에서 빠졌다고 「안 갔다」로 기록되면 거짓이 된다.
+        var sending = owners.Select(o => (o.OwnerType, o.OwnerKey)).ToHashSet();
+
+        return new ExpandedOwners(owners, [.. dropped.Where(d => !sending.Contains(d))]);
     }
+
+    /// <summary>
+    /// 역할을 펴고 정책으로 거른 결과.
+    /// </summary>
+    /// <param name="Owners">실제로 보낼 주인들.</param>
+    /// <param name="PolicyExcluded">
+    /// 「알림관리」 정책에 안 들어 빠진 주인들. <b>버리지 않고 들고 나온다</b> —
+    /// 「저 사람만 왜 안 왔나」의 답이 기록에 남아야 한다.
+    /// </param>
+    private sealed record ExpandedOwners(
+        List<OwnerRefDto> Owners,
+        List<(string OwnerType, string OwnerKey)> PolicyExcluded);
 
     /// <inheritdoc />
     public async Task<SendPushResultDto> SendAsync(
@@ -191,12 +280,41 @@ public class PushSender : IPushSender
         // 드문 길이고, 그 대가로 알림함의 얼굴이 성공·실패를 가리지 않는다.
         await FillIconAsync(request.Message, ct);
 
+        // ── 알림관리(회사의 규칙) ───────────────────────────
+        //
+        // **본인 설정보다 먼저 본다.** 정책에서 빠진 사람을 먼저 덜어 내야
+        // 「본인이 껐다」는 기록이 실제로 껐던 사람에게만 남는다. 순서가
+        // 뒤집히면 발송 이력의 사유가 뒤섞여, 「왜 안 왔나」에 엉뚱한 답이 뜬다.
+        //
+        // **정책을 못 찾으면 제한 없이 보낸다.** 조용히 막지 않는 것이 이
+        // 설계의 가장 중요한 성질이다(`INotificationPolicyService` 머리말).
+        var decision = await _policies.ResolveAsync(
+            request.Message.EventCode, request.Message.Category, NotificationChannel.Push, ct);
+
+        if (decision.Blocked)
+        {
+            // 보낼 뻔한 사람들을 **까닭과 함께** 남긴다. 아무 기록도 없으면
+            // 「그날 알림이 왜 하나도 안 왔나」를 되짚을 방법이 없다.
+            var intended = await ExpandOwnersAsync(request, NotificationPolicyDecision.Free, ct);
+
+            await LogAsync(request, sentBy, batchId, intended.Owners
+                .Select(o => (o.OwnerType, o.OwnerKey))
+                .ToList(), ReasonEventDisabled, ct);
+
+            return new SendPushResultDto
+            {
+                PolicyExcluded = intended.Owners.Count,
+                Message = "알림관리에서 이 이벤트를 꺼 두어 보내지 않았습니다.",
+            };
+        }
+
         if (!_vapid.IsConfigured)
         {
             // **이것도 기록에 남긴다.** 화면에서는 「보냈는데 아무 일도 없었다」로
             // 보이는 갈래라, 남기지 않으면 나중에 그 시각에 무슨 일이 있었는지
             // 되짚을 방법이 없다.
-            await LogAsync(request, sentBy, batchId, (await ExpandOwnersAsync(request, ct))
+            await LogAsync(request, sentBy, batchId, (await ExpandOwnersAsync(request, decision, ct))
+                .Owners
                 .Select(o => (o.OwnerType, o.OwnerKey))
                 .ToList(), ReasonNoVapid, ct);
 
@@ -209,12 +327,30 @@ public class PushSender : IPushSender
         }
 
         // **역할로 적어 온 대상을 사람으로 편다.** 부르는 쪽이 아니라 여기서 푸는
-        // 까닭은 `SendPushDto.Roles` 머리말에 있다.
-        var owners = await ExpandOwnersAsync(request, ct);
+        // 까닭은 `SendPushDto.Roles` 머리말에 있다. 정책이 역할을 더하고 더는
+        // 것도 같은 자리에서 한다.
+        var expanded = await ExpandOwnersAsync(request, decision, ct);
+        var owners = expanded.Owners;
+        var policyExcluded = expanded.PolicyExcluded.Count;
+
+        if (policyExcluded > 0)
+        {
+            await LogAsync(request, sentBy, batchId, expanded.PolicyExcluded, ReasonPolicyExcluded, ct);
+        }
 
         if (owners.Count == 0)
         {
-            return new SendPushResultDto { Message = "보낼 대상이 없습니다." };
+            return new SendPushResultDto
+            {
+                PolicyExcluded = policyExcluded,
+
+                // **「정책이 막았다」와 「처음부터 대상이 없었다」를 가려 말한다.**
+                // 고칠 자리가 서로 다르고, 뭉뚱그리면 설정을 존중한 결과가
+                // 고장으로 읽힌다.
+                Message = policyExcluded > 0
+                    ? "알림관리 정책에 해당하는 역할의 사람이 없어 보내지 않았습니다."
+                    : "보낼 대상이 없습니다.",
+            };
         }
 
         // 본인이 푸시를 끈 사람은 여기서 빠진다.
@@ -239,6 +375,7 @@ public class PushSender : IPushSender
                 return new SendPushResultDto
                 {
                     OptedOut = optedOut,
+                    PolicyExcluded = policyExcluded,
                     Message = "대상이 모두 푸시 알림을 끄고 있습니다."
                 };
             }
@@ -280,6 +417,7 @@ public class PushSender : IPushSender
                     return new SendPushResultDto
                     {
                         OptedOut = optedOut,
+                        PolicyExcluded = policyExcluded,
                         Message = "대상이 모두 댓글 알림을 끄고 있습니다."
                     };
                 }
@@ -316,6 +454,7 @@ public class PushSender : IPushSender
             {
                 OwnersWithoutSubscription = ownersWithout,
                 OptedOut = optedOut,
+                PolicyExcluded = policyExcluded,
                 Message = "대상의 구독이 없습니다. 브라우저에서 알림을 허용했는지 확인하세요."
             };
         }
@@ -427,6 +566,7 @@ public class PushSender : IPushSender
             Removed = dead.Count,
             OwnersWithoutSubscription = ownersWithout,
             OptedOut = optedOut,
+            PolicyExcluded = policyExcluded,
             // 하나도 못 보냈으면 이유를 말한다. 결과 숫자만 주면 화면이 "보낸 알림이
             // 없습니다" 밖에 할 말이 없다.
             Message = sent > 0

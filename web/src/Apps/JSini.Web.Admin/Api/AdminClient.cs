@@ -1217,6 +1217,51 @@ public sealed class AdminClient(GatewayClient gateway)
         => gateway.PostAsync<ReportMailPreviewResultDto>(
             "auth/system/report-mail/preview", request, ct);
 
+    // ── 알림관리 (이벤트 × 역할 × 길) ──────────────────────
+    //
+    // **경로가 알림 서버다.** 역할·메뉴는 AuthServer 에 있지만 이 설정이
+    // 걸리는 자리(푸시를 쏘는 곳 · 메일을 보내는 곳)가 둘 다 알림 서버
+    // 안이라, 설정도 거기 둔다 — 발송 경로에서 다른 서비스를 부르면
+    // 「알림이 안 나가는 까닭」에 네트워크가 하나 더 끼어든다.
+    //
+    // **읽기와 쓰기가 같은 문으로 막혀 있다.** 게이트웨이의 알림 경로는
+    // 로그인만 보므로 저쪽이 메뉴 권한을 직접 보고, 권한이 없으면 403 이
+    // 온다 — 화면은 그 글자를 그대로 띄운다.
+
+    /// <summary>알림 이벤트 목록. 매달린 역할 줄까지 함께 온다.</summary>
+    public Task<IReadOnlyList<NotifyEventDto>> GetNotifyEventsAsync(
+        string? keyword = null, bool activeOnly = false, CancellationToken ct = default)
+        => gateway.GetListAsync<NotifyEventDto>(
+            "notification/notification-policies" + Query(
+                ("keyword", keyword),
+                ("activeOnly", activeOnly ? "true" : null)),
+            ct);
+
+    /// <summary>
+    /// 고를 수 있는 역할들. <b>계정 관리의 역할 목록과 다른 길로 받는다</b> —
+    /// 역할마다 걸린 사람 수가 함께 오고, 그 셈은 알림 서버가 한다.
+    /// </summary>
+    public Task<IReadOnlyList<NotifyRoleDto>> GetNotifyRolesAsync(CancellationToken ct = default)
+        => gateway.GetListAsync<NotifyRoleDto>("notification/notification-policies/roles", ct);
+
+    /// <summary>
+    /// 이벤트 하나의 정책을 <b>통째로</b> 바꾼다. 보낸 것이 곧 전부다 —
+    /// 빠진 역할 줄은 지워진다.
+    /// </summary>
+    public Task<NotifyEventDto?> SaveNotifyPolicyAsync(
+        string eventCode, SaveNotifyPolicyDto request, CancellationToken ct = default)
+        => gateway.PutAsync<NotifyEventDto>(
+            $"notification/notification-policies/{Uri.EscapeDataString(eventCode)}", request, ct);
+
+    /// <summary>
+    /// 「지금 이 설정이면 누구에게 가나」. <b>저장된 값으로 셈한다</b> —
+    /// 화면의 체크 상태로 셈하면 저장하지 않은 값으로 「갑니다」를 보여 주게 된다.
+    /// </summary>
+    public Task<NotifyPolicyPreviewDto?> GetNotifyRecipientsAsync(
+        string eventCode, CancellationToken ct = default)
+        => gateway.GetOneAsync<NotifyPolicyPreviewDto>(
+            $"notification/notification-policies/{Uri.EscapeDataString(eventCode)}/recipients", ct);
+
     /// <summary>쿼리스트링을 만든다. 값이 null 이거나 빈 문자열이면 뺀다.</summary>
     private static string Query(params (string Key, object? Value)[] parameters)
     {

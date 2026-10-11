@@ -83,6 +83,7 @@ public static class EmailEndpoints
             [FromServices] IEmailSender sender,
             [FromServices] AppDbContext db,
             [FromServices] INotificationPreferenceService prefs,
+            [FromServices] INotificationPolicyService policies,
             [FromServices] ILoggerFactory loggerFactory,
             CancellationToken ct) =>
         {
@@ -141,6 +142,31 @@ public static class EmailEndpoints
 
             var logger = loggerFactory.CreateLogger("EmailEndpoints");
 
+            // ── 알림관리(회사의 규칙) ───────────────────────
+            //
+            // **푸시와 같은 문을 쓴다**(`PushSender` 의 같은 자리). 보내는 쪽마다
+            // 정책을 묻게 하면 한 곳만 잊어도 새는 설정이 된다.
+            //
+            // **주소를 직접 적은 몫(`to`)은 건드리지 않는다.** 어느 계정인지
+            // 확실치 않아 역할을 물을 길이 없고, 그것은 갈래 스위치가 이미
+            // 내린 판단이다(`SendEmailDto.Category` 머리말).
+            var decision = await policies.ResolveAsync(
+                request.EventCode, request.Category, NotificationChannel.Email, ct);
+
+            if (decision.Blocked)
+            {
+                // **실패가 아니다.** 400 으로 답하면 부르는 쪽 로그에 오류가
+                // 쌓이고, 설정을 존중한 결과가 고장으로 읽힌다. 그렇다고
+                // 「보냈습니다」라고도 하지 않는다 — 자료는 거짓이다.
+                logger.LogInformation(
+                    "알림관리에서 이벤트를 꺼 두어 메일을 보내지 않았습니다. "
+                    + "event={Event} category={Category} by={By}",
+                    request.EventCode, request.Category, user.UserId);
+
+                return Results.Ok(ApiResponse<bool>.Ok(false,
+                    "알림관리에서 이 이벤트를 꺼 두어 보내지 않았습니다."));
+            }
+
             // 받는 사람을 모은다 — 직접 지정(to) + 역할(toRole) 해석
             var recipients = new List<string>();
             if (!string.IsNullOrWhiteSpace(request.To))
@@ -179,21 +205,59 @@ public static class EmailEndpoints
                     }
                 }
 
+                // **정책 거름막은 「당사자에게 가는」 알림에만 건다.** 역할로
+                // 가는 알림에서 아이디를 짚어 보낸 몫(AI 작업 결과가 시킨
+                // 본인에게 돌아가는 따위)은 그 일의 일부라 회사 규칙으로
+                // 가릴 것이 아니다 — 까닭은 `PushSender.ExpandOwnersAsync`
+                // 머리말에 같은 글로 적어 두었다.
+                if (decision is { Unrestricted: false, TargetsRoles: false })
+                {
+                    var allowed = await policies.GetLoginIdsInRolesAsync(decision.RoleIds, ct);
+
+                    var blocked = ids.Where(i => !allowed.Contains(i)).ToList();
+
+                    if (blocked.Count > 0)
+                    {
+                        logger.LogInformation(
+                            "알림관리 정책에 안 들어 메일에서 뺐습니다: {Users} (event={Event})",
+                            string.Join(", ", blocked), request.EventCode ?? request.Category);
+
+                        // **「이메일이 없다」와 갈라 둔다** — 아래에서 받는 사람이
+                        // 0 이 됐을 때 할 말이 전혀 다르다. 본인이 끈 것과도
+                        // 갈라야 하지만 고칠 자리가 「알림관리」 하나라 같이 센다.
+                        optedOutUsers.AddRange(blocked);
+                        ids = ids.Where(allowed.Contains).ToList();
+                    }
+                }
+
                 var found = await ResolveUserEmailsAsync(db, ids, ct);
 
                 recipients.AddRange(found.Values);
                 unknownUsers.AddRange(ids.Where(i => !found.ContainsKey(i)));
             }
 
-            if (!string.IsNullOrWhiteSpace(request.ToRole))
+            // **역할로 보내는 몫은 정책이 정한다.** 부르는 쪽이 설정에 적어 둔
+            // 역할(`InquiryMail:ToRole` 따위)을 대신하므로, 설정 파일을 고치지
+            // 않고 화면에서 수신 역할을 바꿀 수 있다. 당사자에게 가는 알림이면
+            // 반대로 정책 안에 든 역할만 남긴다.
+            var toRoles = (request.ToRole ?? string.Empty)
+                .Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (!decision.Unrestricted)
+            {
+                toRoles = decision.TargetsRoles
+                    ? [.. decision.RoleIds]
+                    : [.. toRoles.Where(r => decision.RoleIds.Contains(r, StringComparer.OrdinalIgnoreCase))];
+            }
+
+            if (toRoles.Count > 0)
             {
                 // 역할을 **여럿** 받는다. 쉼표로 이어 보내면 여기서 갈라 모으고,
                 // 아래에서 주소를 한 번 추리므로 두 역할에 걸친 사람도 한 통만
                 // 받는다 — 보고서 메일 배치가 그 길로 온다.
-                var roleIds = request.ToRole
-                    .Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-                recipients.AddRange(await ResolveRoleEmailsAsync(db, prefs, roleIds, ct));
+                recipients.AddRange(await ResolveRoleEmailsAsync(db, prefs, toRoles, ct));
             }
 
             // 주소 꼴이 아닌 것은 여기서 빠진다. **무엇이 빠졌는지 들고 간다** —
@@ -366,9 +430,10 @@ public static class EmailEndpoints
     /// </para>
     /// </remarks>
     private static async Task<List<string>> ResolveRoleEmailsAsync(
-        AppDbContext db, INotificationPreferenceService prefs, string[] roleIds, CancellationToken ct)
+        AppDbContext db, INotificationPreferenceService prefs,
+        IReadOnlyCollection<string> roleIds, CancellationToken ct)
     {
-        if (roleIds.Length == 0) return [];
+        if (roleIds.Count == 0) return [];
 
         var rows = await (
             from ra in db.RoleAccounts

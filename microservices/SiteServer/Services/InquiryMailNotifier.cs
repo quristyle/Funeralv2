@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using SiteServer.DTOs;
+using JSini.Shared.DTOs;
 
 namespace SiteServer.Services;
 
@@ -57,7 +58,14 @@ public class InquiryMailNotifier(
         var (subject, body) = InquiryEmailTemplates.Received(inquiryId, request);
 
         // 메일 실패가 접수 실패가 되면 안 된다 — 결과는 로그로만 남긴다.
-        var ok = await PostAsync(new { to, toRole, subject, body, html = true }, ct);
+        //
+        // **받는 역할을 알림관리가 대신할 수 있다.** `InquiryMail:ToRole` 은
+        // 여전히 기본값이지만, 포털관리의 「알림관리」에 `SITE_INQUIRY` 정책이
+        // 걸려 있으면 알림 서버가 그 역할로 바꿔 보낸다 — 설정 파일을 고치고
+        // 서비스를 다시 띄우지 않고 받는 사람을 바꾸는 길이다.
+        var ok = await PostAsync(
+            new { to, toRole, subject, body, html = true, eventCode = NotificationEvents.SiteInquiry },
+            ct);
         if (ok)
         {
             logger.LogInformation("문의 알림 메일을 보냈습니다. inquiry={Id} toRole={Role} to={To}",

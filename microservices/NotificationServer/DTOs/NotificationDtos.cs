@@ -144,6 +144,24 @@ public class PushMessageDto
     /// </remarks>
     public string? Category { get; set; }
 
+    /// <summary>
+    /// <b>알림 이벤트</b> 코드. 포털관리 「알림관리」가 역할·채널을 매다는 열쇠다
+    /// (<see cref="JSini.Shared.DTOs.NotificationEvents"/>).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>비워도 된다.</b> 비면 <see cref="Category"/> 를 이벤트 코드로 본다 —
+    /// 지금은 구분 하나에 사건 하나라 그 둘이 같은 글자이기 때문이다. 같은 구분
+    /// 아래에서 사건을 더 잘게 갈라 따로 설정하고 싶을 때만 적어 보낸다.
+    /// </para>
+    /// <para>
+    /// <see cref="Category"/> 와 하는 일이 다르다 — 그쪽은 <b>쌓인 기록을 갈래로
+    /// 묶는 이름표</b>이고 이쪽은 <b>설정이 걸리는 열쇠</b>다. 표에 없는 코드로
+    /// 보내면 정책이 안 걸린 채 그냥 나간다(조용히 막지 않는다).
+    /// </para>
+    /// </remarks>
+    public string? EventCode { get; set; }
+
     /// <summary>화면이 알아서 쓰는 부가 값.</summary>
     public Dictionary<string, string>? Data { get; set; }
 }
@@ -212,6 +230,16 @@ public class SendPushResultDto
 
     /// <summary>본인이 푸시를 꺼 두어 제외한 주인 수. 이것도 "왜 안 왔나" 의 답이다.</summary>
     public int OptedOut { get; set; }
+
+    /// <summary>
+    /// 「알림관리」 정책에 안 들어 제외한 주인 수.
+    /// </summary>
+    /// <remarks>
+    /// <b><see cref="OptedOut"/> 과 가려 센다.</b> 둘 다 「보냈는데 안 갔다」지만
+    /// 고칠 자리가 다르다 — 이쪽은 포털관리의 알림관리, 저쪽은 그 사람의
+    /// 환경설정이다. 뭉뚱그리면 관리자가 남의 설정을 고치러 간다.
+    /// </remarks>
+    public int PolicyExcluded { get; set; }
 
     public string? Message { get; set; }
 }
@@ -296,6 +324,24 @@ public class SendEmailDto
     /// </para>
     /// </remarks>
     public string? Category { get; set; }
+
+    /// <summary>
+    /// <b>알림 이벤트</b> 코드. 포털관리 「알림관리」가 역할·채널을 매다는 열쇠다
+    /// (<see cref="JSini.Shared.DTOs.NotificationEvents"/>).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>비워도 된다.</b> 비면 <see cref="Category"/> 를 대신 보고, 그것도 없으면
+    /// 정책이 안 걸린 채 그냥 나간다 — 비밀번호 재설정처럼 <b>갈래가 없는
+    /// 메일</b>은 아무도 끈 적이 없는 메일이다.
+    /// </para>
+    /// <para>
+    /// 구분이 없는데 설정은 걸어야 하는 메일이 둘 있다 — 보고서 메일과 문의
+    /// 접수다. 그 둘은 구분 대신 이 칸에 제 이름을 적어 보낸다
+    /// (<c>REPORT_MAIL</c> · <c>SITE_INQUIRY</c>).
+    /// </para>
+    /// </remarks>
+    public string? EventCode { get; set; }
 
     /// <summary>
     /// 붙일 파일들. <b>직발송(<c>/emails/send</c>)만 본다</b> — 큐 방식은

@@ -3,6 +3,7 @@ using System.Text;
 using AuthServer.Data;
 using AuthServer.Entities;
 using Microsoft.EntityFrameworkCore;
+using JSini.Shared.DTOs;
 
 namespace AuthServer.Services;
 
@@ -193,8 +194,12 @@ public class PasswordResetService(
         // 본문 HTML 은 여기서 조립하지 않는다 — 틀은 AccountEmailTemplates 가 갖는다.
         var body = AccountEmailTemplates.PasswordReset(who, link, LifetimeMinutes);
 
+        // **알림관리가 막지 않는 이벤트다**(`governed = false`). 그래도 코드를
+        // 적어 보내는 까닭은 그 화면의 목록에 이 메일이 실제로 있기 때문이다 —
+        // 적지 않으면 「구분 없는 메일」로 섞여 어디서 나가는지 알 수 없다.
         var sent = await mail.SendAsync(
-            target, AccountEmailTemplates.PasswordResetSubject, body, Sender, ct);
+            target, AccountEmailTemplates.PasswordResetSubject, body, Sender,
+            NotificationEvents.AccountMail, ct);
 
         if (sent)
         {

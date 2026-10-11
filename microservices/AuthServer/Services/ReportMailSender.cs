@@ -3,6 +3,7 @@ using System.Text;
 using AuthServer.DTOs;
 using AuthServer.Entities;
 using JSini.Shared.Infrastructure.Time;
+using JSini.Shared.DTOs;
 
 namespace AuthServer.Services;
 
@@ -82,7 +83,12 @@ public class ReportMailSender(
         var subject = Subject(schedule, preview: false);
         var body = BuildBody(schedule, live, missing, preview: false);
 
-        var (ok, reason) = await mail.SendToRolesAsync(roles, subject, body, SenderKey, ct);
+        // **받는 역할을 알림관리가 대신할 수 있다.** 배치가 고른 역할
+        // (`roles`)을 그대로 넘기지만, 알림관리에 `REPORT_MAIL` 정책이 걸려
+        // 있으면 알림 서버가 그 역할로 바꿔 보낸다 — 그 사정은
+        // docs/notify-policy.md 「보고서 메일과 겹치는 자리」에 적어 두었다.
+        var (ok, reason) = await mail.SendToRolesAsync(
+            roles, subject, body, SenderKey, NotificationEvents.ReportMail, ct);
 
         if (ok)
         {
@@ -135,7 +141,11 @@ public class ReportMailSender(
         var subject = Subject(schedule, preview: true);
         var body = BuildBody(schedule, live, missing, preview: true);
 
-        var (ok, reason) = await mail.SendToAddressAsync(to, subject, body, PreviewSenderKey, ct);
+        // **이벤트 코드를 싣지 않는다.** 미리받아보기는 누른 사람 본인에게만
+        // 가는 한 통이지 그 이벤트의 발송이 아니다. 코드를 실으면 관리자가
+        // `REPORT_MAIL` 을 꺼 둔 날 **메일 꼴을 확인할 길까지 막힌다**.
+        var (ok, reason) = await mail.SendToAddressAsync(
+            to, subject, body, PreviewSenderKey, eventCode: null, ct);
 
         if (ok)
         {

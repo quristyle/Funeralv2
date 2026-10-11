@@ -370,6 +370,12 @@ public sealed class AiTaskNotifier(
                     // 붙지 않고 조용히 기본값이 쓰인다 — 그러면 본문이 태그
                     // 그대로 보인다.
                     html = true,
+
+                    // **알림관리가 이 글자로 가른다.** 역할 대상 이벤트라
+                    // `toUser`(시킨 본인)로 가는 몫은 정책이 가리지 않는다 —
+                    // 까닭은 NotificationServer 의 `PushSender.ExpandOwnersAsync`
+                    // 머리말에 적어 두었다.
+                    eventCode = "AI_TASK",
                 }),
             };
 
