@@ -2065,28 +2065,62 @@
   }
 })();
 
-// 데스크탑 화면에서 스크롤을 내릴 때 상단으로 가는 단추를 보여준다.
+/**
+ * 본문을 내려 읽는 동안 뜨는 「위로 가기」 단추.
+ *
+ * [이 파일은 <head> 에서 동기로 돈다]
+ *
+ * 그래서 **여기서 `document.body` 를 만지면 안 된다** — 아직 없다(`null`).
+ * 한동안 이 자리에서 `MutationObserver.observe(document.body, …)` 를 불렀고,
+ * 그것이 쪽을 열 때마다 `TypeError` 로 던졌다. 던진 자리가 파일 맨 끝이라
+ * 겉으로는 아무 일도 없어 보였는데, **다시 거는 그물이 통째로 죽어 있었다** —
+ * 걸리는 길이 `DOMContentLoaded` 하나로 줄고, 그 순간 본문이 아직 없는
+ * 화면(로그인 — `BareLayout` 이라 `.jsini-shell__content` 가 없다)에서는
+ * 단추가 영영 안 떴다.
+ *
+ * [그래서 요소를 찾아 걸지 않는다]
+ *
+ * 구르기(`scroll`)는 거품이 일지 않지만 **잡기 단계(capture)는 탄다.**
+ * 문서에 한 번 걸어 두면 본문이 언제 생기든, Blazor 가 그것을 몇 번
+ * 갈아 끼우든 그대로 받는다 — 걸 때를 고를 일도, 다시 걸 일도 없다.
+ *
+ * 누름도 같은 수로 받는다. 단추에 `onclick` 글자를 적어 두는 길도 있었지만,
+ * 그쪽은 내용보안정책(CSP)을 조이는 날 조용히 죽는다.
+ */
 (function () {
-  function initScrollToTop() {
-    var contentBox = document.querySelector('.jsini-shell__content');
-    var btn = document.getElementById('jsiniScrollToTop');
-    if (!contentBox || !btn) return;
-    
-    // 이미 등록되었으면 방지
-    if (contentBox.dataset.scrollTopInit) return;
-    contentBox.dataset.scrollTopInit = '1';
+  var BOX = '.jsini-shell__content';
+  var BTN = 'jsiniScrollToTop';
 
-    contentBox.addEventListener('scroll', function () {
-      if (contentBox.scrollTop > 300) {
-        btn.classList.add('is-visible');
-      } else {
-        btn.classList.remove('is-visible');
-      }
-    }, { passive: true });
+  /** 이만큼 내려왔을 때부터 뜬다. 한 화면 남짓이라, 조금 구른 것으로는 안 뜬다. */
+  var THRESHOLD = 300;
+
+  function sync(box) {
+    var btn = document.getElementById(BTN);
+    if (!btn) return;
+
+    btn.classList.toggle('is-visible', !!box && box.scrollTop > THRESHOLD);
   }
 
-  document.addEventListener('DOMContentLoaded', initScrollToTop);
-  // Blazor 화면 이동/렌더링 시에도 확인
-  const observer = new MutationObserver(initScrollToTop);
-  observer.observe(document.body, { childList: true, subtree: true });
+  document.addEventListener('scroll', function (e) {
+    var box = e.target;
+    if (!box || box.nodeType !== 1 || !box.matches || !box.matches(BOX)) return;
+
+    sync(box);
+  }, { capture: true, passive: true });
+
+  document.addEventListener('click', function (e) {
+    // 그림(`<span>`)이 눌리므로 단추 자신까지 거슬러 올라간다.
+    var btn = e.target && e.target.closest ? e.target.closest('#' + BTN) : null;
+    if (!btn) return;
+
+    var box = document.querySelector(BOX);
+    if (!box) return;
+
+    // **움직임을 줄여 달라고 한 사람에게는 미끄러뜨리지 않는다.** 그 설정은
+    // 멀미·어지럼 때문에 켜는 것이고, 화면 몇 쪽이 한꺼번에 흐르는 것이
+    // 이 포털에서 가장 크게 움직이는 자리다.
+    var still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    box.scrollTo({ top: 0, behavior: still ? 'auto' : 'smooth' });
+  });
 })();

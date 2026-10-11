@@ -239,6 +239,64 @@ public partial class MainLayout
     /// </remarks>
     private bool HelpDeskFabStacked => !_fabHidden && _hdFabPosition == _fabPosition;
 
+    /// <summary>오른쪽 아래 귀퉁이를 가리키는 값. 네 자리 중 하나다.</summary>
+    private const string BottomRight = "bottom-right";
+
+    /// <summary>
+    /// 「위로 가기」 단추에 붙일 <b>밀어 올리는 표시</b>. 그 단추는 늘 오른쪽
+    /// 아래이므로, 거기 이미 선 떠다니는 단추의 수만큼 한 칸씩 민다
+    /// (<c>--stacked</c> · <c>--stacked2</c> — 미는 일은 app.css 가 한다).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>휴대폰이 아니면 빈 글자다.</b> 넓은 화면에서는 저 단추 둘이 아예
+    /// 안 보이는데(app.css 의 <c>@media (max-width: 767px)</c> 안에서만 켠다)
+    /// 그 자리를 비켜 주면 <b>아무도 없는 귀퉁이 위에 7.5rem 떠 있는 단추</b>
+    /// 가 된다. 이 파일이 화면 크기로 마크업을 갈아 끼우지 않는다는 규칙과
+    /// 어긋나지 않는다 — 갈아 끼우는 것은 클래스 한 칸이고, <see cref="ShellCss"/>
+    /// 가 <c>--nav-open</c> 을 붙이는 것과 같은 자리다.
+    /// </para>
+    /// <para>
+    /// <b>첫 그림에서는 안 민다</b>(프리렌더는 화면 크기를 모르므로
+    /// <see cref="_isPhone"/> 이 거짓이다). 이 단추는 본문을 300px 넘게 내려야
+    /// 뜨는데 그때는 회로가 이미 붙어 있어서, 사람 눈에 닿는 자리가 아니다.
+    /// </para>
+    /// <para>
+    /// 세는 기준이 <see cref="HelpDeskFabStacked"/> 와 맞물린다 — 저쪽이
+    /// 한 칸 밀려 섰으면 여기서는 두 칸 위다. 그래서 <b>보이는 단추만</b>
+    /// 센다(감춘 것 · 권한이 없어 안 그리는 것은 자리를 차지하지 않는다).
+    /// </para>
+    /// </remarks>
+    private string ScrollTopFabCss
+    {
+        get
+        {
+            if (!_isPhone)
+            {
+                return string.Empty;
+            }
+
+            var taken = 0;
+
+            if (!_fabHidden && _fabPosition == BottomRight)
+            {
+                taken++;
+            }
+
+            if (HelpDeskFabAllowed && !_hdFabHidden && _hdFabPosition == BottomRight)
+            {
+                taken++;
+            }
+
+            return taken switch
+            {
+                >= 2 => "jsini-shell__fab--stacked2",
+                1 => "jsini-shell__fab--stacked",
+                _ => string.Empty,
+            };
+        }
+    }
+
     /// <summary>
     /// 휴대폰 아래 띠를 <b>쓰지 않기로</b> 했는가. 기본은 <c>false</c> — 쓴다.
     /// 읽어 오기 전에도 그 값이라 한 번도 안 고친 사람에게 띠가 깜빡이지 않는다.

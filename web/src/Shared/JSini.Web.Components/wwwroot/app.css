@@ -550,6 +550,77 @@ body {
   margin-top: 3.75rem;
 }
 
+/* 같은 귀퉁이에 **셋**이 설 때. 떠다니는 단추 둘이 다 오른쪽 아래에 있고
+   그 위에 「위로 가기」가 서는 경우뿐이라 실제로 쓰는 쪽은 아래짝 하나지만,
+   위짝도 함께 적어 둔다 — 한쪽만 있으면 위 귀퉁이로 옮긴 날 조용히 포갠다.
+
+   값은 위의 **두 배가 아니라** 한 칸(3.75rem)을 한 번 더 더한 것이다.
+   단추 3rem + 틈 0.75rem 이 한 칸이라 셋째는 7.5rem 이다. */
+.jsini-shell__fab--stacked2.jsini-shell__fab--bottom-left,
+.jsini-shell__fab--stacked2.jsini-shell__fab--bottom-right {
+  margin-bottom: 7.5rem;
+}
+
+.jsini-shell__fab--stacked2.jsini-shell__fab--top-left,
+.jsini-shell__fab--stacked2.jsini-shell__fab--top-right {
+  margin-top: 7.5rem;
+}
+
+/* ── 「위로 가기」 단추 (`--scroll-top`) ────────────────────────
+
+   본문(`.jsini-shell__content`)을 **300px 넘게 내려 읽는 동안에만** 뜬다.
+   그 표시(`is-visible`)를 붙였다 떼는 것은 브라우저다(theme.js) — 구르는
+   자리를 서버가 알 길이 없고, 알았다 해도 한 번 구를 때마다 왕복이 난다.
+
+   [넓은 화면에도 그린다]
+
+   떠다니는 단추 둘(☰ · ✎)은 **휴대폰에서만** 켜진다(위 `@media` 안의
+   `.jsini-shell__fab { display: inline-flex }`). 이것은 반대로 양쪽 다
+   켠다 — 본문이 길어 내려 읽는 일은 화면이 넓을수록 잦고, 1440px 짜리
+   화면에서 맨 위로 돌아가는 길은 굴림 막대를 끝까지 끌어 올리는 것뿐이다.
+
+   [자리는 오른쪽 아래다]
+
+   넓은 화면에서는 거기 아무것도 없고(다른 단추 둘은 안 보인다), 휴대폰에서는
+   메뉴 단추가 기본으로 **왼쪽** 아래라 비켜 선다. 같은 귀퉁이를 고른
+   사람에게는 한 칸씩 밀어 올린다(`--stacked`·`--stacked2`) — 미는 칸 수를
+   세는 쪽은 `MainLayout.ScrollTopFabCss` 다.
+
+   [`display` 로 감추지 않는다]
+
+   감췄다 보이면 단추가 **툭 튀어나온다.** 자리는 늘 잡아 두고 `opacity` 로
+   스며 나오게 한다 — 그동안 눌리지 않게 `pointer-events: none` 을 함께 건다.
+
+   자릿수를 하나 올려 적는 까닭이 있다(`.jsini-shell` 을 앞에 붙였다).
+   위의 `.jsini-shell--nav-open .jsini-shell__fab { opacity: 1 }` 이 **같은
+   자릿수**라, 클래스 하나로 적으면 휴대폰에서 메뉴를 펴는 순간 안 보여야 할
+   이 단추가 함께 떠오른다. */
+.jsini-shell__fab--scroll-top {
+  display: inline-flex;
+  right: calc(0.75rem + env(safe-area-inset-right));
+  bottom: calc(0.75rem + env(safe-area-inset-bottom));
+  left: auto;
+  top: auto;
+}
+
+.jsini-shell .jsini-shell__fab--scroll-top:not(.is-visible) {
+  opacity: 0;
+  pointer-events: none;
+
+  /* 살짝 가라앉혀 두었다가 떠오른다. 누르고 있을 때의 `scale` 과 같은 칸을
+     쓰므로(`transform`) **그 표시가 붙으면 이 값이 진다** — 안 보이는 동안의
+     일이라 겹칠 일이 없다. */
+  transform: translateY(0.5rem);
+}
+
+/* 휴대폰에서 메뉴가 펴져 있는 동안에는 걷는다. 그때 화면 오른쪽 아래는
+   덮개 위이고, 거기서 「위로 가기」는 **덮인 본문**을 가리켜 아무 뜻이 없다.
+   자릿수가 위의 `:not(.is-visible)` 과 같으므로 **뒤에 둔다.** */
+.jsini-shell--nav-open .jsini-shell__fab--scroll-top {
+  opacity: 0;
+  pointer-events: none;
+}
+
 /* ── 사이드바 ↔ 본문 사이의 구분선 (DxSplitter) ───────────
 
    [격자 칸 둘을 부품 하나가 대신한다]
@@ -5114,6 +5185,17 @@ a.jsini-social__btn:focus-visible {
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 13h9a.5.5 0 0 1 .09.992L12.5 14h-9a.5.5 0 0 1-.09-.992zh9zM7.91 1.008 8 1a.5.5 0 0 1 .492.41l.008.09v8.792l2.682-2.681a.5.5 0 0 1 .638-.058l.07.058a.5.5 0 0 1 .057.638l-.058.069-3.535 3.536a.5.5 0 0 1-.638.057l-.07-.057-3.535-3.536a.5.5 0 0 1 .638-.765l.069.058L7.5 10.292V1.5a.5.5 0 0 1 .41-.492L8 1z'/%3E%3C/svg%3E");
 }
 
+/* 「위로 가기」 단추 안의 그림. **크기·색은 여기서 안 적는다** — 위의
+   `[class^='jsini-icon-']` 묶음이 이미 적어 두었고, 떠다니는 단추 안에서는
+   그쪽 규칙이 한 뼘 더 키운다(`.jsini-shell__fab [class^='jsini-icon-']`).
+   한동안 여기서 1.6rem 을 박아 두었는데, 그러면 이 그림만 단추 밖에서도
+   커져서 묶음의 `--jsini-icon-size` 가 안 먹었다. */
+
+.jsini-icon-arrow-up {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M7.646 2.646a.5.5 0 0 1 .708 0l4 4a.5.5 0 0 1-.708.708L8.5 4.207V13.5a.5.5 0 0 1-1 0V4.207L4.354 7.354a.5.5 0 1 1-.708-.708z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M7.646 2.646a.5.5 0 0 1 .708 0l4 4a.5.5 0 0 1-.708.708L8.5 4.207V13.5a.5.5 0 0 1-1 0V4.207L4.354 7.354a.5.5 0 1 1-.708-.708z'/%3E%3C/svg%3E");
+}
+
 /* 표 안 관리 칸. 연필과 휴지통은 아이콘만으로도 뜻이 갈리는 몇 안 되는 짝이다. */
 
 .jsini-icon-edit {
@@ -9257,48 +9339,6 @@ body.jsini-imgview-open {
   color: var(--jsini-text-muted);
   font-size: var(--jsini-fs-xs);
   line-height: 1.5;
-}
-
-/* ── 스크롤 위로 가기 단추 ─────────────────────────────────────
-   데스크탑 화면에서 스크롤을 내릴 때만 나타난다. */
-.jsini-shell__fab--scroll-top {
-  display: none !important;
-}
-
-@media (min-width: 768px) {
-  .jsini-shell__fab--scroll-top {
-    display: inline-flex !important;
-    right: 2rem;
-    bottom: 2rem;
-    left: auto;
-    top: auto;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.3s ease-in-out, transform 0.2s;
-    background: var(--jsini-surface, #fff);
-    color: var(--jsini-text, #333);
-    border: 1px solid var(--jsini-border, #ccc);
-  }
-  
-  .jsini-shell__fab--scroll-top:hover {
-    background: var(--jsini-bg-hover, #f5f5f5);
-  }
-
-  .jsini-shell__fab--scroll-top.is-visible {
-    opacity: 1;
-    pointer-events: auto;
-  }
-}
-
-/* 스크롤 위로 가기 아이콘 (lucide-arrow-up) */
-.jsini-icon-arrow-up {
-  --svg: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 19V5M5 12l7-7 7 7'/%3E%3C/svg%3E");
-  mask: var(--svg) no-repeat center / contain;
-  -webkit-mask: var(--svg) no-repeat center / contain;
-  background-color: currentColor;
-  width: 1.6rem;
-  height: 1.6rem;
-  display: inline-block;
 }
 
 /* ── 휴대폰에서 표를 카드로 편다 (CommGrd `MobileCards`) ─────────────
