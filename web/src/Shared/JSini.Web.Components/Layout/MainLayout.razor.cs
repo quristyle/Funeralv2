@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Components;
+﻿using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.JSInterop;
@@ -71,6 +71,17 @@ public partial class MainLayout
             if (_hdFabHidden)
             {
                 css += " jsini-shell--hdfab-hidden";
+            }
+
+            // 그 단추를 **넓은 화면에도 띄우기로** 한 사람에게 붙는 표시. 떠다니는
+            // 단추 둘은 본래 휴대폰에서만 켜지는데(app.css 의 `@media`), 요청 등록만은
+            // 책상에서도 쓸 일이 있어 물어서 띄운다(`PortalBoot.HelpDeskFabDesktopKey`).
+            //
+            // **감춘 사람에게는 이 표시가 있어도 안 보인다** — app.css 가 감추기 규칙을
+            // 뒤에 두어 이긴다. 「감췄다」는 넓든 좁든 안 보겠다는 말이다.
+            if (_hdFabDesktop)
+            {
+                css += " jsini-shell--hdfab-desktop";
             }
 
             // 아래 띠를 쓰지 않기로 한 사람에게 붙는 표시. 띠 자체는 아래에서
@@ -189,6 +200,12 @@ public partial class MainLayout
     /// <summary>그 단추를 감춰 두었는가. 기본은 <c>true</c> — 권한이 있으면 보인다.</summary>
     private bool _hdFabHidden = true;
 
+    /// <summary>
+    /// 그 단추를 <b>넓은 화면에도 띄우기로</b> 했는가. 기본은 <c>false</c> —
+    /// 휴대폰에서만 뜬다(<see cref="PortalBoot.HelpDeskFabDesktopKey"/>).
+    /// </summary>
+    private bool _hdFabDesktop;
+
     /// <summary>요청 등록 단추가 여는 화면. 권한을 묻는 열쇠도 이 경로다.</summary>
     private const string HelpDeskNewPath = "/helpdesk/request/new";
 
@@ -249,12 +266,17 @@ public partial class MainLayout
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>휴대폰이 아니면 빈 글자다.</b> 넓은 화면에서는 저 단추 둘이 아예
-    /// 안 보이는데(app.css 의 <c>@media (max-width: 767px)</c> 안에서만 켠다)
-    /// 그 자리를 비켜 주면 <b>아무도 없는 귀퉁이 위에 7.5rem 떠 있는 단추</b>
-    /// 가 된다. 이 파일이 화면 크기로 마크업을 갈아 끼우지 않는다는 규칙과
-    /// 어긋나지 않는다 — 갈아 끼우는 것은 클래스 한 칸이고, <see cref="ShellCss"/>
-    /// 가 <c>--nav-open</c> 을 붙이는 것과 같은 자리다.
+    /// <b>넓은 화면에서는 셈이 다르다.</b> 거기서는 저 단추 둘이 본래 안 보이므로
+    /// (app.css 의 <c>@media (max-width: 767px)</c> 안에서만 켠다) 자리를 비켜 주면
+    /// <b>아무도 없는 귀퉁이 위에 떠 있는 단추</b>가 된다. 다만 요청 등록 단추만은
+    /// <b>넓은 화면에도 띄울 수 있어</b>(<see cref="_hdFabDesktop"/>), 그렇게 해 둔
+    /// 사람에게는 한 칸 비켜 줘야 한다 — 안 그러면 오른쪽 아래에서 동그라미 둘이
+    /// 포개지고, <b>위엣것만 눌린다.</b>
+    /// </para>
+    /// <para>
+    /// 이 파일이 화면 크기로 마크업을 갈아 끼우지 않는다는 규칙과 어긋나지 않는다 —
+    /// 갈아 끼우는 것은 클래스 한 칸이고, <see cref="ShellCss"/> 가 <c>--nav-open</c>
+    /// 을 붙이는 것과 같은 자리다.
     /// </para>
     /// <para>
     /// <b>첫 그림에서는 안 민다</b>(프리렌더는 화면 크기를 모르므로
@@ -273,7 +295,10 @@ public partial class MainLayout
         {
             if (!_isPhone)
             {
-                return string.Empty;
+                return HelpDeskFabAllowed && _hdFabDesktop && !_hdFabHidden
+                    && _hdFabPosition == BottomRight
+                    ? "jsini-shell__fab--stacked"
+                    : string.Empty;
             }
 
             var taken = 0;
@@ -342,6 +367,7 @@ public partial class MainLayout
         Boot.FabHiddenChanged += OnFabHiddenChanged;
         Boot.HelpDeskFabPositionChanged += OnHelpDeskFabPositionChanged;
         Boot.HelpDeskFabHiddenChanged += OnHelpDeskFabHiddenChanged;
+        Boot.HelpDeskFabDesktopChanged += OnHelpDeskFabDesktopChanged;
         Boot.BottomNavHiddenChanged += OnBottomNavHiddenChanged;
         Boot.ToastPositionChanged += OnToastPositionChanged;
     }
@@ -387,6 +413,12 @@ public partial class MainLayout
     private void OnHelpDeskFabHiddenChanged(bool hidden)
     {
         _hdFabHidden = hidden;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnHelpDeskFabDesktopChanged(bool shown)
+    {
+        _hdFabDesktop = shown;
         InvokeAsync(StateHasChanged);
     }
 
@@ -642,6 +674,12 @@ public partial class MainLayout
         if (state.HelpDeskFabPosition != _hdFabPosition)
         {
             _hdFabPosition = state.HelpDeskFabPosition;
+            changed = true;
+        }
+
+        if (state.HelpDeskFabDesktop != _hdFabDesktop)
+        {
+            _hdFabDesktop = state.HelpDeskFabDesktop;
             changed = true;
         }
 
@@ -1237,6 +1275,7 @@ public partial class MainLayout
         Boot.FabHiddenChanged -= OnFabHiddenChanged;
         Boot.HelpDeskFabPositionChanged -= OnHelpDeskFabPositionChanged;
         Boot.HelpDeskFabHiddenChanged -= OnHelpDeskFabHiddenChanged;
+        Boot.HelpDeskFabDesktopChanged -= OnHelpDeskFabDesktopChanged;
         Boot.BottomNavHiddenChanged -= OnBottomNavHiddenChanged;
         Boot.ToastPositionChanged -= OnToastPositionChanged;
         _watermarkWatch?.Dispose();

@@ -91,6 +91,24 @@
     | 기본 자리 | 왼쪽 아래 | **오른쪽 아래** — 기본값끼리 포개지지 않게 |
     | 누구에게 보이나 | 모두 | **그 화면을 열 수 있는 사람만** |
     | 감추면 | 메뉴는 로고로 연다 | 메뉴로 그대로 들어간다 |
+    | 어느 폭에서 | 휴대폰에서만 | **물어서 넓은 화면에도** |
+
+    [넓은 화면에서도 띄울지를 묻는다]
+
+    떠다니는 단추 둘은 휴대폰에서만 켜진다(app.css 의 `@@media (max-width: 767px)`).
+    손가락이 닿기 어려운 자리를 메우는 것이고, 책상에서는 헤더와 메뉴가 그
+    일을 하기 때문이다.
+
+    **요청 등록만은 셈이 다르다.** 고장·문의를 적는 일은 자리에 앉아서도 생기고
+    (전화를 받다가, 회의 중에), 메뉴를 열고 업무를 고르고 두 단계를 더 내려가야
+    닿는 것은 넓은 화면에서도 똑같다. 그렇다고 늘 띄우면 책상에서 한 번도 안
+    쓰는 사람의 오른쪽 아래를 영영 먹으므로 **물어서** 띄운다.
+
+    **감추기가 이것보다 세다.** 감춰 둔 사람에게는 이 스위치를 켜 두어도 안
+    보이고(app.css 가 감추기 규칙을 뒤에 둔다), 그래서 감춰 둔 동안은
+    **이 스위치도 위치 고르개와 함께 잠근다.**
+
+    저장되는 곳은 같은 갈래다 — 브라우저의 `jsini-hdfab-desktop`.
 
     **권한이 없으면 이 두 줄이 아예 안 그려진다**(`CanSetHelpDeskFab`). 남겨
     두면 아무 일도 일어나지 않는 스위치가 하나 생기고, 그 자리에서 사람은
@@ -356,7 +374,8 @@
             </div>
         </div>
 
-        <DxCheckBox Checked="@_fabHidden"
+        <DxCheckBox CheckType="CheckType.Switch"
+                    Checked="@_fabHidden"
                     CheckedChanged="@((bool v) => OnFabHiddenChangedAsync(v))" />
     </div>
 
@@ -402,8 +421,34 @@
                 </div>
             </div>
 
-            <DxCheckBox Checked="@_helpDeskFabHidden"
+            <DxCheckBox CheckType="CheckType.Switch"
+                        Checked="@_helpDeskFabHidden"
                         CheckedChanged="@((bool v) => OnHelpDeskFabHiddenChangedAsync(v))" />
+        </div>
+
+        @* [넓은 화면에서도 띄울지]
+
+           **감추기 바로 아래, 위치 위에 둔다.** 묻는 차례가 「보일까 →
+           어디에서 보일까 → 어느 귀퉁이에」이기 때문이다.
+
+           **감춰 둔 동안은 잠근다.** 위 위치 고르개와 같은 까닭이다 — 감춘
+           사람에게 이것을 켜도 단추는 안 나오고(감추기가 더 세다), 그 자리에서
+           사람은 「설정이 안 먹는다」고 읽는다. 값은 지우지 않아 다시 켜면
+           고르던 그대로다. *@
+        <div class="jsini-setting">
+            <div>
+                <div class="jsini-setting__name">헬프데스크 요청등록 단추 — 넓은 화면에도 표시</div>
+                <div class="jsini-setting__desc">
+                    끄면 <b>휴대폰에서만</b> 뜹니다. 켜면 책상 화면 오른쪽 아래에도
+                    같은 단추가 떠서 요청 등록으로 바로 갑니다.
+                    <b>이 브라우저에만 남습니다</b>.
+                </div>
+            </div>
+
+            <DxCheckBox CheckType="CheckType.Switch"
+                        Checked="@_helpDeskFabDesktop"
+                        Enabled="@(!_helpDeskFabHidden)"
+                        CheckedChanged="@((bool v) => OnHelpDeskFabDesktopChangedAsync(v))" />
         </div>
 
         <div class="jsini-setting">
@@ -446,7 +491,8 @@
             </div>
         </div>
 
-        <DxCheckBox Checked="@(!_zoomUnlocked)"
+        <DxCheckBox CheckType="CheckType.Switch"
+                    Checked="@(!_zoomUnlocked)"
                     CheckedChanged="@((bool v) => OnZoomLockedChangedAsync(v))" />
     </div>
 </section>
@@ -475,7 +521,8 @@
             </div>
         </div>
 
-        <DxCheckBox Checked="@(!_bottomNavHidden)"
+        <DxCheckBox CheckType="CheckType.Switch"
+                    Checked="@(!_bottomNavHidden)"
                     CheckedChanged="@((bool v) => OnBottomNavUsedChangedAsync(v))" />
     </div>
 </section>

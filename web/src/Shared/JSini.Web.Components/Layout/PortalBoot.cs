@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using Microsoft.JSInterop;
 
 namespace JSini.Web.Components.Layout;
@@ -243,6 +243,34 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
     public const string HelpDeskFabHiddenKey = "jsini-hdfab-hidden";
 
     /// <summary>
+    /// 헬프데스크 <b>요청 등록</b> 단추를 <b>넓은 화면에서도 띄울 것인가</b>.
+    /// 열쇠가 있으면 띄운다 — 즉 <b>없는 것이 기본이고, 기본은 휴대폰에서만 뜬다</b>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 떠다니는 단추 둘은 app.css 의 <c>@media (max-width: 767px)</c> 안에서만
+    /// 켜진다 — 휴대폰에서 손가락이 닿기 어려운 자리를 메우는 것이고, 책상에서는
+    /// 헤더와 메뉴가 그 일을 하기 때문이다.
+    /// </para>
+    /// <para>
+    /// <b>요청 등록만은 그 셈이 다르다.</b> 고장·문의를 적는 일은 자리에 앉아서도
+    /// 생기고(전화를 받다가, 회의 중에) 메뉴를 열고 업무를 고르고 두 단계를 더
+    /// 내려가야 닿는 것은 넓은 화면에서도 똑같다. 그래서 <b>물어서</b> 띄운다 —
+    /// 늘 띄우면 책상에서 한 번도 안 쓰는 사람의 오른쪽 아래를 영영 먹는다.
+    /// </para>
+    /// <para>
+    /// <b><see cref="HelpDeskFabHiddenKey"/> 가 이것보다 세다.</b> 감춰 둔 사람에게는
+    /// 이 열쇠가 있어도 안 보인다(app.css 에서 감추기 규칙을 뒤에 둔다) — 「감췄다」는
+    /// 넓든 좁든 안 보겠다는 말이다.
+    /// </para>
+    /// <para>
+    /// <b>이 브라우저의 것이다</b> — 위 둘과 같은 갈래다. 책상 컴퓨터에서 띄운 것이
+    /// 휴대폰에 따라가 봐야 거기서는 원래 떠 있다.
+    /// </para>
+    /// </remarks>
+    public const string HelpDeskFabDesktopKey = "jsini-hdfab-desktop";
+
+    /// <summary>
     /// 휴대폰 화면 아래의 띠(<c>MobileBottomNav</c>)를 <b>쓰지 않을 것인가</b>.
     /// 열쇠가 있으면 안 쓴다 — 즉 <b>없는 것이 기본이고, 기본은 쓴다</b>.
     /// </summary>
@@ -348,6 +376,7 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         FabHiddenKey,
         HelpDeskFabPositionKey,
         HelpDeskFabHiddenKey,
+        HelpDeskFabDesktopKey,
         BottomNavHiddenKey,
         BottomNavItemsKey,
         ToastPositionKey,
@@ -678,6 +707,39 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
 
         Remember(state => state.WithHelpDeskFabHidden(hidden));
         HelpDeskFabHiddenChanged?.Invoke(hidden);
+    }
+
+    /// <summary>요청 등록 단추를 넓은 화면에도 띄울지가 바뀌었을 때 알린다.</summary>
+    public event Action<bool>? HelpDeskFabDesktopChanged;
+
+    /// <summary>
+    /// 요청 등록 단추를 <b>넓은 화면에도 띄울지</b>를 저장하고 화면에 알린다.
+    /// </summary>
+    /// <remarks>
+    /// <b>안 띄우기로 할 때는 열쇠를 지운다.</b> <c>"0"</c> 을 적어 두면 읽는 쪽의
+    /// 「있으면 그렇다는 뜻」 판정(<see cref="BrowserState.From"/>)에 걸려
+    /// <b>껐는데 켠 것으로 읽힌다</b>(<see cref="SetHelpDeskFabHiddenAsync"/> 와 같다).
+    /// </remarks>
+    public async Task SetHelpDeskFabDesktopAsync(bool shown)
+    {
+        try
+        {
+            if (shown)
+            {
+                await js.InvokeVoidAsync("localStorage.setItem", HelpDeskFabDesktopKey, "1");
+            }
+            else
+            {
+                await js.InvokeVoidAsync("localStorage.removeItem", HelpDeskFabDesktopKey);
+            }
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException)
+        {
+            logger.LogDebug(ex, "헬프데스크 요청 등록 단추를 넓은 화면에 띄울지를 브라우저에 저장하지 못했다.");
+        }
+
+        Remember(state => state.WithHelpDeskFabDesktop(shown));
+        HelpDeskFabDesktopChanged?.Invoke(shown);
     }
 
     /// <summary>확대 잠금을 풀지가 바뀌었을 때 알린다.</summary>
@@ -1157,6 +1219,12 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         public bool HelpDeskFabHidden { get; private set; }
 
         /// <summary>
+        /// 그 단추를 <b>넓은 화면에도 띄우기로</b> 했는가. 고른 적이 없으면
+        /// <c>false</c> — 즉 휴대폰에서만 뜬다(<see cref="HelpDeskFabDesktopKey"/>).
+        /// </summary>
+        public bool HelpDeskFabDesktop { get; private set; }
+
+        /// <summary>
         /// 휴대폰 아래 띠를 <b>쓰지 않기로</b> 했는가. 고른 적이 없으면
         /// <c>false</c> — 즉 쓴다.
         /// </summary>
@@ -1228,6 +1296,9 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
         internal BrowserState WithHelpDeskFabHidden(bool value) =>
             Patch(c => c.HelpDeskFabHidden = value);
 
+        internal BrowserState WithHelpDeskFabDesktop(bool value) =>
+            Patch(c => c.HelpDeskFabDesktop = value);
+
         internal BrowserState WithBottomNavHidden(bool value) => Patch(c => c.BottomNavHidden = value);
 
         internal BrowserState WithBottomNavItems(string? value) =>
@@ -1258,6 +1329,7 @@ public sealed class PortalBoot(IJSRuntime js, ILogger<PortalBoot> logger)
             FabHidden = Has(wire.Local, FabHiddenKey),
             HelpDeskFabPosition = NormalizeHelpDeskFabPosition(Get(wire.Local, HelpDeskFabPositionKey)),
             HelpDeskFabHidden = Has(wire.Local, HelpDeskFabHiddenKey),
+            HelpDeskFabDesktop = Has(wire.Local, HelpDeskFabDesktopKey),
             BottomNavHidden = Has(wire.Local, BottomNavHiddenKey),
             BottomNavItemsJson = Get(wire.Local, BottomNavItemsKey),
             ToastPosition = NormalizeToastPosition(Get(wire.Local, ToastPositionKey)),

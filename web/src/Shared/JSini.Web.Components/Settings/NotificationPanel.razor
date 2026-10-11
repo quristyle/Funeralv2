@@ -143,7 +143,8 @@ else
                    쪽지가 오지 않는 까닭을 한참 못 찾는 일을 막는다. *@
                 <div class="jsini-setting__desc">브라우저로 알림을 받습니다. 끄면 쪽지도 받지 못합니다.</div>
             </div>
-            <DxCheckBox Checked="@_settings.Preference.PushEnabled"
+            <DxCheckBox CheckType="CheckType.Switch"
+                        Checked="@_settings.Preference.PushEnabled"
                         CheckedChanged="@((bool v) => ToggleAsync(p => p.PushEnabled = v))" />
         </div>
 
@@ -152,7 +153,8 @@ else
                 <div class="jsini-setting__name">이메일 알림</div>
                 <div class="jsini-setting__desc">같은 내용을 이메일로도 받습니다.</div>
             </div>
-            <DxCheckBox Checked="@_settings.Preference.EmailEnabled"
+            <DxCheckBox CheckType="CheckType.Switch"
+                        Checked="@_settings.Preference.EmailEnabled"
                         CheckedChanged="@((bool v) => ToggleAsync(p => p.EmailEnabled = v))" />
         </div>
 
@@ -177,7 +179,8 @@ else
                     내가 쓴 헬프데스크 요청글에 댓글이 달리면 앱 알림을 받습니다.
                 </div>
             </div>
-            <DxCheckBox Checked="@_settings.Preference.CommentPushEnabled"
+            <DxCheckBox CheckType="CheckType.Switch"
+                        Checked="@_settings.Preference.CommentPushEnabled"
                         CheckedChanged="@((bool v) => ToggleAsync(p => p.CommentPushEnabled = v))" />
         </div>
 
@@ -186,7 +189,8 @@ else
                 <div class="jsini-setting__name">댓글 이메일</div>
                 <div class="jsini-setting__desc">같은 댓글 알림을 이메일로도 받습니다.</div>
             </div>
-            <DxCheckBox Checked="@_settings.Preference.CommentEmailEnabled"
+            <DxCheckBox CheckType="CheckType.Switch"
+                        Checked="@_settings.Preference.CommentEmailEnabled"
                         CheckedChanged="@((bool v) => ToggleAsync(p => p.CommentEmailEnabled = v))" />
         </div>
 
@@ -199,7 +203,8 @@ else
                 <div class="jsini-setting__name">쪽지 메일받기</div>
                 <div class="jsini-setting__desc">받은 쪽지를 메일로도 받습니다.</div>
             </div>
-            <DxCheckBox Checked="@_settings.Preference.NoteEmailEnabled"
+            <DxCheckBox CheckType="CheckType.Switch"
+                        Checked="@_settings.Preference.NoteEmailEnabled"
                         CheckedChanged="@((bool v) => ToggleAsync(p => p.NoteEmailEnabled = v))" />
         </div>
 
@@ -208,7 +213,8 @@ else
                 <div class="jsini-setting__name">기상 특보</div>
                 <div class="jsini-setting__desc">생활과환경이 특보를 받으면 알립니다.</div>
             </div>
-            <DxCheckBox Checked="@_settings.Preference.WeatherEnabled"
+            <DxCheckBox CheckType="CheckType.Switch"
+                        Checked="@_settings.Preference.WeatherEnabled"
                         CheckedChanged="@((bool v) => ToggleAsync(p => p.WeatherEnabled = v))" />
         </div>
 
@@ -227,7 +233,8 @@ else
                     저장해 둔 내 위치의 지금 날씨와 예보를 정해진 시각에 보냅니다.
                 </div>
             </div>
-            <DxCheckBox Checked="@_settings.Preference.WeatherLocalEnabled"
+            <DxCheckBox CheckType="CheckType.Switch"
+                        Checked="@_settings.Preference.WeatherLocalEnabled"
                         Enabled="@HasSavedLocation"
                         CheckedChanged="@((bool v) => ToggleAsync(p => p.WeatherLocalEnabled = v))" />
         </div>

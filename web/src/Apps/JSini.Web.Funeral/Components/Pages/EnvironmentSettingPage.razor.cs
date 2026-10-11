@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Components;
+﻿using Microsoft.AspNetCore.Components;
 using JSini.Web.Abstractions;
 using JSini.Web.Components.Data;
 using JSini.Web.Components.Layout;
@@ -46,6 +46,7 @@ public partial class EnvironmentSettingPage
         Boot.FabHiddenChanged += OnFabHiddenChangedFromElsewhere;
         Boot.HelpDeskFabPositionChanged += OnHelpDeskFabPositionChangedFromElsewhere;
         Boot.HelpDeskFabHiddenChanged += OnHelpDeskFabHiddenChangedFromElsewhere;
+        Boot.HelpDeskFabDesktopChanged += OnHelpDeskFabDesktopChangedFromElsewhere;
     }
 
     public void Dispose()
@@ -56,6 +57,7 @@ public partial class EnvironmentSettingPage
         Boot.FabHiddenChanged -= OnFabHiddenChangedFromElsewhere;
         Boot.HelpDeskFabPositionChanged -= OnHelpDeskFabPositionChangedFromElsewhere;
         Boot.HelpDeskFabHiddenChanged -= OnHelpDeskFabHiddenChangedFromElsewhere;
+        Boot.HelpDeskFabDesktopChanged -= OnHelpDeskFabDesktopChangedFromElsewhere;
     }
 
     // 이 화면이 고친 것도 같은 알림을 타고 돌아온다 — 그때는 방금 고른 값이
@@ -72,6 +74,9 @@ public partial class EnvironmentSettingPage
 
     private void OnHelpDeskFabHiddenChangedFromElsewhere(bool hidden) =>
         Apply(() => _helpDeskFabHidden = hidden);
+
+    private void OnHelpDeskFabDesktopChangedFromElsewhere(bool shown) =>
+        Apply(() => _helpDeskFabDesktop = shown);
 
     private void Apply(Action change) => _ = InvokeAsync(() =>
     {
@@ -219,6 +224,7 @@ public partial class EnvironmentSettingPage
         _fabHidden = state.FabHidden;
         _selectedHelpDeskFabPosition = state.HelpDeskFabPosition;
         _helpDeskFabHidden = state.HelpDeskFabHidden;
+        _helpDeskFabDesktop = state.HelpDeskFabDesktop;
         _selectedToastPosition = state.ToastPosition;
         _zoomUnlocked = state.ZoomUnlocked;
         _bottomNavHidden = state.BottomNavHidden;
@@ -284,6 +290,12 @@ public partial class EnvironmentSettingPage
     /// <summary>요청 등록 단추를 감춰 두었는가. 기본은 <c>false</c> — 보인다.</summary>
     private bool _helpDeskFabHidden;
 
+    /// <summary>
+    /// 그 단추를 <b>넓은 화면에도 띄우기로</b> 했는가. 기본은 <c>false</c> —
+    /// 휴대폰에서만 뜬다(<see cref="PortalBoot.HelpDeskFabDesktopKey"/>).
+    /// </summary>
+    private bool _helpDeskFabDesktop;
+
     private async Task OnHelpDeskFabPositionChangedAsync(string value)
     {
         _selectedHelpDeskFabPosition = PortalBoot.NormalizeHelpDeskFabPosition(value);
@@ -294,6 +306,20 @@ public partial class EnvironmentSettingPage
     {
         _helpDeskFabHidden = value;
         await Boot.SetHelpDeskFabHiddenAsync(value);
+    }
+
+    /// <summary>
+    /// 그 단추를 넓은 화면에도 띄울지를 바꿨다.
+    /// </summary>
+    /// <remarks>
+    /// <b>감춰 둔 동안에는 이 줄이 잠겨 있다</b>(화면의 <c>Enabled</c>). 감추기가
+    /// 더 세므로(app.css) 켜 두어도 단추가 안 나오고, 그 자리에서 사람은
+    /// 「설정이 안 먹는다」고 읽는다 — 위치 고르개와 같은 규칙이다.
+    /// </remarks>
+    private async Task OnHelpDeskFabDesktopChangedAsync(bool value)
+    {
+        _helpDeskFabDesktop = value;
+        await Boot.SetHelpDeskFabDesktopAsync(value);
     }
 
     /// <summary>
