@@ -44,6 +44,11 @@
         <div class="hd-chart">
             <h3 class="hd-chart__title">@(_customer ? "월별 접수 · 완료 (우리 회사, 최근 12개월)" : "주별 완료 추이 (최근 52주)")</h3>
             <DxChart Data="@_trend" Palette="@TrendPalette" Width="100%" Height="280px">
+                <DxChartArgumentAxis>
+                    <DxChartAxisLabel DisplayMode="ChartAxisLabelDisplayMode.Standard"
+                                      Overlap="ChartAxisLabelOverlap.Hide"
+                                      RotationAngle="0" />
+                </DxChartArgumentAxis>
                 @if (_customer)
                 {
                     <DxChartBarSeries T="TrendPoint" TArgument="string" TValue="int"
@@ -51,7 +56,9 @@
                                       Name="접수" />
                     <DxChartLineSeries T="TrendPoint" TArgument="string" TValue="int"
                                        ArgumentField="p => p.Label" ValueField="p => p.Completed"
-                                       Name="완료" />
+                                       Name="완료">
+                        <DxChartSeriesPoint Visible="false" />
+                    </DxChartLineSeries>
                 }
                 else
                 {

@@ -187,6 +187,11 @@
     <div class="hd-charts">
         <div class="hd-chart hd-chart--wide">
             <DxChart Data="@Data.Monthly" Width="100%" Height="300px">
+                <DxChartArgumentAxis>
+                    <DxChartAxisLabel DisplayMode="ChartAxisLabelDisplayMode.Standard"
+                                      Overlap="ChartAxisLabelOverlap.Hide"
+                                      RotationAngle="0" />
+                </DxChartArgumentAxis>
                 <DxChartBarSeries T="DashboardMonth" TArgument="string" TValue="int"
                                   ArgumentField="m => m.Label" ValueField="m => m.Requested"
                                   Color="@RequestedColor" Name="접수" />
@@ -195,7 +200,9 @@
                                   Color="@CompletedColor" Name="완료" />
                 <DxChartLineSeries T="DashboardMonth" TArgument="string" TValue="int"
                                    ArgumentField="m => m.Label" ValueField="m => m.Backlog"
-                                   Color="@BacklogColor" Name="적체" />
+                                   Color="@BacklogColor" Name="적체">
+                    <DxChartSeriesPoint Visible="false" />
+                </DxChartLineSeries>
                 <DxChartLegend Position="RelativePosition.Outside"
                                VerticalAlignment="VerticalEdge.Bottom"
                                HorizontalAlignment="HorizontalAlignment.Center" />
@@ -211,12 +218,19 @@
     <div class="hd-charts">
         <div class="hd-chart hd-chart--wide">
             <DxChart Data="@Data.Daily" Width="100%" Height="280px">
+                <DxChartArgumentAxis>
+                    <DxChartAxisLabel DisplayMode="ChartAxisLabelDisplayMode.Standard"
+                                      Overlap="ChartAxisLabelOverlap.Hide"
+                                      RotationAngle="0" />
+                </DxChartArgumentAxis>
                 <DxChartBarSeries T="DashboardDay" TArgument="string" TValue="int"
                                   ArgumentField="d => d.Label" ValueField="d => d.Requested"
                                   Color="@RequestedColor" Name="접수" />
                 <DxChartLineSeries T="DashboardDay" TArgument="string" TValue="int"
                                    ArgumentField="d => d.Label" ValueField="d => d.Completed"
-                                   Color="@CompletedColor" Name="완료" />
+                                   Color="@CompletedColor" Name="완료">
+                    <DxChartSeriesPoint Visible="false" />
+                </DxChartLineSeries>
                 <DxChartLegend Position="RelativePosition.Outside"
                                VerticalAlignment="VerticalEdge.Bottom"
                                HorizontalAlignment="HorizontalAlignment.Center" />

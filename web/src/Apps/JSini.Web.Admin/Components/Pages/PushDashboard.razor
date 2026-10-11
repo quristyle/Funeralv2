@@ -82,11 +82,18 @@
 {
     <div class="jsini-card">
         <DxChart Data="@_trend" Width="100%" Height="240px">
+            <DxChartArgumentAxis>
+                <DxChartAxisLabel DisplayMode="ChartAxisLabelDisplayMode.Standard"
+                                  Overlap="ChartAxisLabelOverlap.Hide"
+                                  RotationAngle="0" />
+            </DxChartArgumentAxis>
             <DxChartLegend Visible="false" />
             <DxChartLineSeries T="PushTrendPointDto" TArgument="string" TValue="double"
                                ArgumentField="p => p.Period"
                                ValueField="p => p.SuccessRate"
-                               Name="성공률(%)" />
+                               Name="성공률(%)">
+                <DxChartSeriesPoint Visible="false" />
+            </DxChartLineSeries>
             <DxChartValueAxis>
                 <DxChartAxisRange StartValue="@(0)" EndValue="@(100)" />
             </DxChartValueAxis>

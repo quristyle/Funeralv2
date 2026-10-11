@@ -62,6 +62,12 @@
             <DxChartTitle Text="기온 · 강수확률" />
             <DxChartLegend Position="RelativePosition.Outside" />
 
+            <DxChartArgumentAxis>
+                <DxChartAxisLabel DisplayMode="ChartAxisLabelDisplayMode.Standard"
+                                  Overlap="ChartAxisLabelOverlap.Hide"
+                                  RotationAngle="0" />
+            </DxChartArgumentAxis>
+
             <DxChartBarSeries T="WeatherTimelinePoint" TArgument="string" TValue="int"
                               ArgumentField="p => p.Time"
                               ValueField="p => p.Pop ?? 0"
@@ -70,7 +76,9 @@
             <DxChartLineSeries T="WeatherTimelinePoint" TArgument="string" TValue="double"
                                ArgumentField="p => p.Time"
                                ValueField="p => p.Temp"
-                               Name="기온(°C)" />
+                               Name="기온(°C)">
+                <DxChartSeriesPoint Visible="false" />
+            </DxChartLineSeries>
 
             <DxChartValueAxis>
                 <DxChartAxisTitle Text="기온(°C)" />

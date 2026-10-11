@@ -42,12 +42,19 @@
         <div class="hd-chart">
             <h3 class="hd-chart__title">@(_periodLabel) 일자별 접수 · 완료</h3>
             <DxChart Data="@_daily" Palette="@DailyPalette" Width="100%" Height="280px">
+                <DxChartArgumentAxis>
+                    <DxChartAxisLabel DisplayMode="ChartAxisLabelDisplayMode.Standard"
+                                      Overlap="ChartAxisLabelOverlap.Hide"
+                                      RotationAngle="0" />
+                </DxChartArgumentAxis>
                 <DxChartBarSeries T="DayPoint" TArgument="string" TValue="int"
                                   ArgumentField="p => p.Label" ValueField="p => p.Requested"
                                   Name="접수" />
                 <DxChartLineSeries T="DayPoint" TArgument="string" TValue="int"
                                    ArgumentField="p => p.Label" ValueField="p => p.Completed"
-                                   Name="완료" />
+                                   Name="완료">
+                    <DxChartSeriesPoint Visible="false" />
+                </DxChartLineSeries>
                 <DxChartTooltip Enabled="true">
                     <div class="jsini-tip">@context.Point.Argument · @context.Point.SeriesName @(context.Point.Value)건</div>
                 </DxChartTooltip>
