@@ -41,6 +41,28 @@ public partial class RequestNew
     private const string PictureButtonClass = "hd-pick-image";
 
     /// <summary>
+    /// 휴대폰 도구줄에 세우는 명령 아홉. <b>차례가 곧 화면의 차례</b>다.
+    /// </summary>
+    /// <remarks>
+    /// 고른 기준은 「증상 설명을 쓰는 데 손이 가는 것」이다. 글꼴·글자 크기·
+    /// 색·첨자·표·맞춤은 뺐다 — 390px 짜리 도구줄에 담기지도 않거니와, 이
+    /// 화면에 올라오는 글은 서식이 아니라 <b>캡처와 몇 줄</b>이다. 넓은
+    /// 화면에서는 그 전부가 그대로 있다.
+    /// </remarks>
+    private static readonly string[] PhoneToolbarItems =
+    [
+        HtmlEditorToolbarItemNames.Undo,
+        HtmlEditorToolbarItemNames.Redo,
+        HtmlEditorToolbarItemNames.FontBold,
+        HtmlEditorToolbarItemNames.FontUnderline,
+        HtmlEditorToolbarItemNames.ClearFormatting,
+        HtmlEditorToolbarItemNames.BulletList,
+        HtmlEditorToolbarItemNames.NumberedList,
+        HtmlEditorToolbarItemNames.ShowHyperlinkDialog,
+        HtmlEditorToolbarItemNames.ShowInsertPictureDialog,
+    ];
+
+    /// <summary>
     /// 본문에 붙이는 그림 한 장의 상한. 값은 <see cref="ContentImages.MaxBytes"/>
     /// 하나뿐이다 — 댓글 쓰는 칸과 같은 값을 써야 하고, 두 벌로 두면 화면마다
     /// 다른 크기에서 막힌다.
@@ -112,23 +134,89 @@ public partial class RequestNew
     }
 
     /// <summary>
-    /// 도구줄을 우리 것으로 손본다 — <b>한국어 이름표</b>(<see cref="HtmlEditorKorean"/>)와
-    /// 「그림」 단추의 이름표. <b>바꾸는 것은 이름표뿐이다</b> —
-    /// 아이콘·설명·자리는 편집기가 정한 그대로 두고, 누를 때 하는 일만
-    /// <c>request-editor.js</c> 가 브라우저 쪽에서 갈아 끼운다.
+    /// 도구줄을 우리 것으로 손본다 — <b>한국어 이름표</b>(<see cref="HtmlEditorKorean"/>) ·
+    /// 「그림」 단추의 이름표 · <b>휴대폰 전용 도구줄</b>.
     /// </summary>
     /// <remarks>
-    /// 단추를 빼고 우리 것을 새로 다는 길도 있지만 그러지 않는다. 아이콘이
-    /// <c>ImageSource</c> 라 CSS 이름으로 옮겨 붙일 수 없어 도구줄에 글자
-    /// 단추 하나만 튄다. 그리고 <b>가로채기가 어느 브라우저에서 안 걸려도
-    /// 단추가 죽지는 않는다</b> — 그때는 편집기 제 판이 열려 예전 그대로다.
+    /// <para>
+    /// 넓은 화면에서 바꾸는 것은 이름표뿐이다 — 아이콘·설명·자리는 편집기가
+    /// 정한 그대로 두고, 「그림」을 누를 때 하는 일만 <c>request-editor.js</c>
+    /// 가 브라우저 쪽에서 갈아 끼운다. 단추를 빼고 우리 것을 새로 다는 길도
+    /// 있지만 그러지 않는다. 아이콘이 <c>ImageSource</c> 라 CSS 이름으로 옮겨
+    /// 붙일 수 없어 도구줄에 글자 단추 하나만 튄다. 그리고 <b>가로채기가 어느
+    /// 브라우저에서 안 걸려도 단추가 죽지는 않는다</b> — 그때는 편집기 제 판이
+    /// 열려 예전 그대로다.
+    /// </para>
+    ///
+    /// <para>
+    /// [휴대폰에서는 <b>접히는 길 자체를 없앤다</b> (2026-10-11)]
+    /// </para>
+    /// <para>
+    /// 좁은 화면에서 DevExpress 는 도구줄을 <b>묶음 단위로 접는다</b> —
+    /// 「되돌리기 · 글자 · 문단 · 넣기 · 표」 다섯 개의 드롭다운만 남는다.
+    /// 그런데 <b>그 드롭다운이 포털 안에서는 열리지 않는다.</b> 재어 본 값이다
+    /// (390px · 헤드리스 크롬 · 운영 셸) — 누르면 단추는 눌린 꼴이 되고
+    /// (<c>aria-expanded=true</c>) 판의 알맹이도 DOM 에 만들어지는데, 그 판이
+    /// <c>max-width: 0px; max-height: 0px; opacity: 0</c> 으로 서서 <b>화면에
+    /// 한 점도 안 나온다.</b> 오류도 안 난다. 그래서 증상이 「눌러도 아무 일도
+    /// 안 일어난다」 하나다.
+    /// </para>
+    /// <para>
+    /// 부품만 떼어 <c>/tmp</c> 에 세우면 같은 버전(26.1.4)이 멀쩡히 연다.
+    /// 그러니 셸 안의 무엇과 부딪치는 것인데, 그것을 찾아 비키는 것보다
+    /// <b>접히는 길을 안 쓰는 편</b>이 낫다 — 접힌 도구줄은 열리더라도
+    /// 「묶음을 누르고 → 목록에서 고르기」 두 번이라, 손가락으로 굵게 하나
+    /// 누르는 데 두 번 치게 된다.
+    /// </para>
+    /// <para>
+    /// 그래서 휴대폰에서는 기본 묶음을 <b>통째로 감추고</b>, 바로 눌리는
+    /// 단추 아홉(<see cref="PhoneToolbarItems"/>)을 담은 묶음 하나를 세운다.
+    /// 아홉이면 360px 에서도 한 줄에 들어가 <b>넘침 단추(…)가 아예 안 생긴다</b>
+    /// — 재어서 고른 수다. 더 담으면 그 수가 넘치는 순간 접히는 길로 되돌아간다.
+    /// </para>
+    /// <para>
+    /// 묶음을 둘 다 미리 만들어 두고 <b>보임만 가른다</b>(<c>GetVisible</c>).
+    /// 그 값은 <see cref="Func{TResult}"/> 라 그릴 때마다 다시 읽히므로, 화면을
+    /// 돌리거나 창을 넓혀 <see cref="_isPhone"/> 이 갈리면 도구줄이 따라간다 —
+    /// <c>CustomizeToolbar</c> 는 도구줄이 만들어질 때 한 번만 불리니 여기서
+    /// 갈라 적어서는 그 순간의 폭에 박힌다.
+    /// </para>
     /// </remarks>
-    private static void CustomizeEditorToolbar(DevExpress.Blazor.Office.IToolbar toolbar)
+    private void CustomizeEditorToolbar(DevExpress.Blazor.Office.IToolbar toolbar)
     {
-        // **한국어 이름표를 먼저 입힌다.** 그 쪽이 모든 칸을 훑으므로 「그림」
-        // 단추의 CssClass 는 그 뒤에 적어야 남는다.
+        // 기본 묶음 전부 — 넓은 화면에서만 선다.
+        for (var g = 0; g < toolbar.Groups.Count; g++)
+        {
+            toolbar.Groups[g].GetVisible = () => !_isPhone;
+        }
+
+        // 휴대폰 묶음. **표준 명령을 이름으로 담는다** — 우리가 새 단추를 그려
+        // 명령을 흉내 내는 것이 아니라, 편집기가 가진 그 명령을 그대로 옮겨
+        // 앉히는 것이라 아이콘·활성/비활성·실행취소 이력이 전부 따라온다.
+        var phone = toolbar.Groups.AddCustomGroup();
+        phone.GetVisible = () => _isPhone;
+
+        DevExpress.Blazor.Office.IBarItem? phonePicture = null;
+
+        foreach (var name in PhoneToolbarItems)
+        {
+            var item = phone.Items.Add(name);
+
+            if (name == HtmlEditorToolbarItemNames.ShowInsertPictureDialog)
+            {
+                phonePicture = item;
+            }
+        }
+
+        // **한국어 이름표는 맨 나중에 입힌다.** 위에서 담은 휴대폰 단추도
+        // 함께 훑어야 하고, 그 쪽이 모든 칸을 돌므로 아래 CssClass 는
+        // 그 뒤에 적어야 남는다.
         HtmlEditorKorean.Apply(toolbar);
 
+        // 「그림」은 **두 자리에 있다**(기본 묶음 · 휴대폰 묶음). 둘 다 같은
+        // 이름을 달아야 한다 — JS 가 이름으로 찾아 누름을 가로채므로, 한쪽을
+        // 빠뜨리면 바로 그 화면에서 편집기 제 판이 열려 사진이 base64 로
+        // 본문에 박힌다(이 파일 머리말의 그 자리다).
         var picture = toolbar.Groups[HtmlEditorToolbarGroupNames.InsertElement]
             ?.Items[HtmlEditorToolbarItemNames.ShowInsertPictureDialog];
 
@@ -136,6 +224,79 @@ public partial class RequestNew
         {
             picture.CssClass = PictureButtonClass;
         }
+
+        if (phonePicture is not null)
+        {
+            phonePicture.CssClass = PictureButtonClass;
+        }
+    }
+
+    /// <summary>
+    /// 도구줄을 손보는 대리자. <b>한 번 만들어 들고 있는다.</b>
+    /// </summary>
+    /// <remarks>
+    /// 화면에서 <c>@CustomizeEditorToolbar</c> 라고 적으면 <b>그릴 때마다 새
+    /// 대리자</b>가 되어, 부품이 보기에는 매개변수가 계속 바뀐 것이 된다.
+    /// 글 한 자 칠 때마다 도구줄을 다시 세울 일이 아니다.
+    /// </remarks>
+    private Action<DevExpress.Blazor.Office.IToolbar>? _customizeToolbar;
+
+    private Action<DevExpress.Blazor.Office.IToolbar> CustomizeToolbar =>
+        _customizeToolbar ??= CustomizeEditorToolbar;
+
+    /// <summary>
+    /// 휴대폰 폭인가(≤767px). <c>DxLayoutBreakpoint</c> 가 채운다.
+    /// </summary>
+    /// <remarks>
+    /// <b>경계를 767 로 적는다.</b> <c>DeviceSize.XSmall</c> 은 576px 미만이라
+    /// <c>helpdesk.css</c> 의 휴대폰 갈래(≤767px)와 어긋나고, 그 사이 폭에서는
+    /// 화면은 휴대폰 꼴인데 도구줄만 넓은 화면 것이 선다. 포털의 다른 화면들도
+    /// 같은 값을 쓴다(<c>RequestManage</c> · <c>AutoGrid</c> · 포털관리).
+    /// </remarks>
+    private bool _isPhone;
+
+    /// <summary>
+    /// 폭이 경계를 넘나들었다 — 휴대폰을 돌리거나 창을 넓혔다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>편집기를 다시 세운다</b>(<c>@key</c>). <c>GetVisible</c> 을 다시 읽는
+    /// 것은 <b>도구줄이 다시 그려질 때</b>뿐인데, 화면이 다시 그려진다고 그
+    /// 안쪽까지 따라 그려지지는 않는다 — 재어 보았다. 1400px 에서 열어 390px
+    /// 로 좁히면 휴대폰 도구줄이 서야 하는데 <b>접힌 묶음 다섯이 그대로
+    /// 남았다.</b> 처음부터 좁게 열었을 때만 맞는 것이, 고쳐 놓고 보기에
+    /// 제일 나쁜 종류다.
+    /// </para>
+    /// <para>
+    /// 다시 세우기 전에 <b>화면에 있는 글을 먼저 걷어 온다</b>
+    /// (<see cref="FlushContentAsync"/>). 편집기가 알려 주는 값은 친 다음
+    /// <c>InputDelay</c>(기본 500ms) 뒤에 오므로, 치던 중에 화면을 돌리면
+    /// 마지막 몇 자가 <b>새 편집기에 안 실린다</b>. 등록할 때와 같은 길이다.
+    /// </para>
+    /// <para>
+    /// 그리고 브라우저 쪽에 걸어 둔 것 둘을 <b>풀어 둔다</b> — 붙여넣기
+    /// 가로채기와 임시 보관 지켜보기는 <b>그때 그 글칸</b>에 걸려 있어서,
+    /// 새 편집기에는 안 걸린 채다. 걸렸다는 표시만 남아 있으면
+    /// <see cref="OnAfterRenderAsync"/> 가 다시 걸 생각을 하지 않아, 그 뒤로
+    /// <b>붙여넣은 그림이 base64 로 박히고 쓰던 글이 안 적힌다.</b>
+    /// </para>
+    /// </remarks>
+    private async Task OnPhoneChangedAsync(bool isPhone)
+    {
+        if (_isPhone == isPhone)
+        {
+            return;
+        }
+
+        await FlushContentAsync();
+
+        _isPhone = isPhone;
+
+        // 새 글칸에는 아무것도 안 걸려 있다. 다시 걸게 한다.
+        _bound = false;
+        _draftWatched = false;
+
+        StateHasChanged();
     }
 
     /// <summary>

@@ -85,6 +85,22 @@
     `POST files/image` 가 운영에서 늘 502 였다 —
     `deploy/docker/docker-compose.prod.yml` 의 `FileServer__UploadUrl` 참고.
 
+    [휴대폰 도구줄은 **접지 않고 줄인다** (2026-10-11)]
+
+    좁은 화면에서 DevExpress 는 도구줄을 묶음 단위로 접어 「되돌리기 · 글자 ·
+    문단 · 넣기 · 표」 다섯 개의 드롭다운만 남긴다. **그 드롭다운이 포털
+    안에서는 열리지 않는다** — 눌러도 아무 일이 안 일어나고 오류도 없다.
+    재어 본 자리와 고치는 길은 `CustomizeEditorToolbar` 주석에 있다.
+
+    그래서 휴대폰(≤767px)에서는 기본 묶음을 감추고 **바로 눌리는 단추 아홉**만
+    한 줄에 세운다(실행취소 · 다시실행 · 굵게 · 밑줄 · 서식지우기 · 글머리 ·
+    번호 · 링크 · 그림). 묶음을 누르고 목록에서 다시 고르는 두 번이 한 번이
+    되고, 넘침 단추(…)가 아예 안 생긴다.
+
+    도구줄 **글씨 크기**도 이때 함께 맞췄다. DevExpress 의 크기 단은 셋인데
+    포털의 글자 사다리는 여섯이라(`--jsini-fs-base`), 네 단계에서 도구줄만
+    제 크기로 남아 있었다 — `helpdesk.css` 의 「도구줄 글씨」 참고.
+
     [쓰던 글은 **브라우저에 적어 둔다** — 새로고침으로 잃던 자리]
 
     제목·본문을 한참 적다가 새로고침이 한 번 나면 적던 것이 통째로 사라졌다.
@@ -178,6 +194,11 @@
    구른다 — 글칸이 없는 것보다 「등록」이 한 번 내려가는 편이 낫다.
 
    치수는 전부 `helpdesk.css` 의 `.hd-form--wide` 묶음이 정한다. *@
+
+@* 도구줄이 갈리는 경계. **CSS 의 휴대폰 갈래와 같은 767px 이다** —
+   까닭은 `_isPhone` 옆에 적어 두었다. *@
+<DxLayoutBreakpoint MaxWidth="767" IsActive="_isPhone" IsActiveChanged="@OnPhoneChangedAsync" />
+
 <div class="hd-form hd-form--wide">
     @* 제목 칸에도 **이름표를 단다.** 쓰던 글을 적어 두는 JS 가 이 이름으로
        안쪽 `<input>` 을 찾는다.
@@ -213,10 +234,15 @@
            그림을 **우리가 DOM 에 직접 꽂으므로** 편집기의 모형보다 화면
            쪽이 늘 최신이다. 그래서 등록할 때 편집기에게 직접 묻는다
            (`FlushContentAsync`). 메일 보내기 화면과 같은 구도다. *@
-        <DxHtmlEditor Markup="@_content"
+        @* **`@@key` 가 `_isPhone` 이다.** 폭이 경계를 넘으면 편집기를 통째로
+           다시 세운다 — 도구줄의 `GetVisible` 은 도구줄이 다시 그려질 때만
+           읽히기 때문이고, 걷어 올 것과 다시 걸 것은 `OnPhoneChangedAsync` 에
+           적어 두었다. 평소에는 이 값이 안 바뀌므로 다시 세울 일도 없다. *@
+        <DxHtmlEditor @key="_isPhone"
+                      Markup="@_content"
                       MarkupChanged="@(v => _content = v ?? string.Empty)"
                       BindMarkupMode="HtmlEditorBindMarkupMode.OnDelayedInput"
-                      CustomizeToolbar="@CustomizeEditorToolbar"
+                      CustomizeToolbar="@CustomizeToolbar"
                       NullText="내용 — 어떤 화면에서 무엇이 어떻게 됐는지 적고, 화면 캡처는 여기에 그대로 붙여넣으십시오."
                       CssClass="hd-content-editor" />
 

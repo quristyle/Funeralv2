@@ -1118,6 +1118,50 @@
   min-height: 20rem;
 }
 
+/* ── 도구줄 글씨 ───────────────────────────────────────────
+
+   [DevExpress 의 크기 단은 **셋**인데 포털의 사다리는 **여섯**이다]
+
+   테마 서랍의 글자 크기는 가장작게 · 아주작게 · 작게 · 조금작게 · 보통 ·
+   크게 여섯이고(`--jsini-fs-base`), 그중 앞의 넷이 DevExpress **Small 하나로
+   접힌다**(`ThemeSize.Steps`). 그런데 도구줄 글씨는 그 단 값에 묶여 있어서
+   (테마 CSS 의 `.dxbl-toolbar.dxbl-sm { --dxbl-toolbar-font-size: .75rem }`)
+   **네 단계에서 도구줄만 제자리에 서 있었다** —
+
+       가장작게 10/12 · 아주작게 11/12 · 작게 12/12 · 조금작게 13/12
+       (본문 글씨 / 도구줄 글씨, px)
+
+   사이드바 메뉴가 같은 까닭으로 같은 일을 한다(`app.css` 의
+   `--dxbl-treeview-font-size`). 여기서도 도구줄이 **읽는 변수**를 우리 값으로
+   덮는다 — 그 값을 정하는 테마 규칙이 클래스 둘(`.dxbl-toolbar.dxbl-sm`)이라
+   셋으로 적어야 이긴다.
+
+   [굵기도 함께 돌려 놓는다]
+
+   `app.css` 의 `.jsini-shell__content .dxbl-btn:not(.dxbl-btn-link)` 가 본문
+   안의 모든 DevExpress 단추를 **600** 으로 올린다. 폼의 「등록」 같은 단추에는
+   맞는 값이지만 도구줄의 묶음 이름표(「글자」·「문단」)까지 그 무게로 서면
+   같은 줄의 다른 글씨보다 진해 보인다. 저쪽 규칙이 클래스 둘 + `:not()`
+   하나라 여기도 셋으로 적고, 모듈 CSS 가 `app.css` 보다 뒤에 실려 이긴다.
+   ---------------------------------------------------------- */
+
+.hd-form .hd-content-editor .dxbl-toolbar {
+  --dxbl-toolbar-font-size: var(--jsini-fs-base);
+}
+
+/* 도구줄 안의 고르개 둘(「글꼴」·「크기」)과 단추 글씨도 같은 값을 읽는다.
+   바로 위 규칙은 도구줄 **제 글씨**만 정하고, 그 안에 선 부품들은 저마다
+   제 변수를 본다 — 안 맞춰 주면 가장작게에서 본문 10px 옆에 고르개만
+   12px 로 남는다(재어서 고친 자리다). */
+.hd-form .hd-content-editor .dxbl-text-edit {
+  --dxbl-text-edit-font-size: var(--jsini-fs-base);
+}
+
+.hd-form .hd-content-editor .dxbl-btn {
+  --dxbl-btn-font-size: var(--jsini-fs-base);
+  font-weight: 400;
+}
+
 /* [도구줄의 「글꼴」·「크기」 두 칸만 CSS 로 덮는다]
 
    도구줄 이름표는 `HtmlEditorKorean` 이 C# 에서 갈아 끼우는데, **이 둘만
