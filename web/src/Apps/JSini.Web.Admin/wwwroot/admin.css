@@ -4133,12 +4133,13 @@
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
 
-  /* 좁은 화면에서는 판이 높이를 안 받으므로(아래 `width >= 992px` 밖)
-     여기서 묶는다 — 안 묶으면 카드 열다섯이 쪽을 통째로 늘려 오른쪽
-     설정 판이 한참 아래로 밀린다. */
-  max-height: 60vh;
-  overflow-y: auto;
+@media (width < 992px) {
+  .np-list {
+    max-height: none;
+    overflow-y: visible;
+  }
 }
 
 @media (width >= 992px) {
@@ -4146,6 +4147,7 @@
     flex: 1;
     min-height: 6rem;
     max-height: none;
+    overflow-y: auto;
   }
 }
 
@@ -4281,6 +4283,86 @@
 
 .np-switch {
   margin: 0.9rem 0;
+}
+
+/* ── 역할별 수신 목록 ──────────────────────────────────── */
+.np-roles-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin-top: 1rem;
+  margin-bottom: 0.6rem;
+}
+
+.np-roles-head .ad-section {
+  margin: 0;
+}
+
+.np-roles-all {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  font-size: var(--jsini-fs-sm, 0.85rem);
+}
+
+.np-roles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-bottom: 0.8rem;
+}
+
+.np-role-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--jsini-border, #e0e0e0);
+  border-radius: 0.5rem;
+  background: var(--jsini-bg, #fff);
+}
+
+.np-role-info {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.np-role-name {
+  font-weight: 600;
+  color: var(--jsini-text, inherit);
+}
+
+.np-role-id {
+  font-size: var(--jsini-fs-sm, 0.85rem);
+}
+
+.np-role-checks {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  margin-left: auto;
+}
+
+@media (max-width: 576px) {
+  .np-role-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.45rem;
+  }
+
+  .np-role-checks {
+    margin-left: 0;
+    width: 100%;
+    padding-top: 0.35rem;
+    border-top: 1px dashed var(--jsini-border, #e0e0e0);
+  }
 }
 
 /* 받는 사람 등 작업 버튼. 표의 아래 띠가 아니라 폼 아래라서 여기서 잡는다. */

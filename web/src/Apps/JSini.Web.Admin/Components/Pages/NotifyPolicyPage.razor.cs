@@ -321,6 +321,54 @@ public partial class NotifyPolicyPage : IDisposable
         return SavePolicyAsync();
     }
 
+    /// <summary>모든 역할에 앱 푸시가 켜져 있는지 확인한다.</summary>
+    private bool AllPush => _rows.Count > 0 && _rows.All(r => r.Push);
+
+    /// <summary>모든 역할에 이메일이 켜져 있는지 확인한다.</summary>
+    private bool AllEmail => _rows.Count > 0 && _rows.All(r => r.Email);
+
+    /// <summary>모든 역할의 앱 푸시 체크를 한 번에 켜거나 끈다.</summary>
+    private Task OnAllPushChangedAsync(bool value)
+    {
+        if (!CanPick || !_selected!.SupportsPush)
+        {
+            return Task.CompletedTask;
+        }
+
+        var changed = false;
+        foreach (var row in _rows)
+        {
+            if (row.Push != value)
+            {
+                row.Push = value;
+                changed = true;
+            }
+        }
+
+        return changed ? SavePolicyAsync() : Task.CompletedTask;
+    }
+
+    /// <summary>모든 역할의 이메일 체크를 한 번에 켜거나 끈다.</summary>
+    private Task OnAllEmailChangedAsync(bool value)
+    {
+        if (!CanPick || !_selected!.SupportsEmail)
+        {
+            return Task.CompletedTask;
+        }
+
+        var changed = false;
+        foreach (var row in _rows)
+        {
+            if (row.Email != value)
+            {
+                row.Email = value;
+                changed = true;
+            }
+        }
+
+        return changed ? SavePolicyAsync() : Task.CompletedTask;
+    }
+
     /// <summary>이벤트 사용 여부 스위치 변경 시 저장한다.</summary>
     private async Task OnActiveChangedAsync(bool value)
     {
