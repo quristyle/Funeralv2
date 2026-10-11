@@ -1,4 +1,6 @@
+using System.Text;
 using JSini.Web.Components.Data;
+using JSini.Web.Components.Layout;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.JSInterop;
@@ -13,6 +15,7 @@ public partial class AiTaskView
     [Inject] private AiTaskClient Api { get; set; } = default!;
     [Inject] private UserFaceClient Faces { get; set; } = default!;
     [Inject] private IJSRuntime Js { get; set; } = default!;
+    [Inject] private Toasts Toasts { get; set; } = default!;
 
     /// <summary>
     /// AI 이름을 읽을 곳. <b>머리띠의 칩에 달 <c>title</c> 하나에만 쓴다</b> —
@@ -156,6 +159,11 @@ public partial class AiTaskView
     /// 경우가 실제로 있다(다시 돌렸는데 이번에는 아무 말도 안 남긴 때).
     /// </summary>
     private long? _answeredKey;
+
+    /// <summary>음성으로 읽어주기(TTS) 재생 중 여부.</summary>
+    private bool _speaking;
+    private IJSObjectReference? _speechJs;
+    private DotNetObjectReference<AiTaskView>? _dotNetRef;
 
     private string LogTabText => _lines.Count == 0 ? "로그" : $"로그 ({_lines.Count})";
 
@@ -712,6 +720,7 @@ public partial class AiTaskView
     private void Clear()
     {
         StopPoll();
+        _ = StopSpeechAsync();
 
         _key = null;
         _status = null;
@@ -765,5 +774,139 @@ public partial class AiTaskView
         }
     }
 
-    public void Dispose() => StopPoll();
+    [JSInvokable]
+    public async Task OnSpeechStateChanged(bool speaking)
+    {
+        _speaking = speaking;
+        try
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+    }
+
+    private static string BuildSummarySpeechText(AiRunSummary summary)
+    {
+        var sb = new StringBuilder();
+        if (!string.IsNullOrWhiteSpace(summary.Headline))
+        {
+            sb.AppendLine(summary.Headline.Trim());
+        }
+
+        if (summary.Points.Count > 0)
+        {
+            foreach (var point in summary.Points)
+            {
+                if (!string.IsNullOrWhiteSpace(point))
+                {
+                    sb.AppendLine(point.Trim());
+                }
+            }
+        }
+
+        if (summary.Checks.Count > 0)
+        {
+            sb.AppendLine("확인할 사항입니다.");
+            foreach (var check in summary.Checks)
+            {
+                if (!string.IsNullOrWhiteSpace(check))
+                {
+                    sb.AppendLine(check.Trim());
+                }
+            }
+        }
+
+        return sb.ToString().Trim();
+    }
+
+    private async Task ToggleSpeechAsync()
+    {
+        if (_speaking)
+        {
+            await StopSpeechAsync();
+        }
+        else
+        {
+            await StartSpeechAsync();
+        }
+    }
+
+    private async Task StartSpeechAsync()
+    {
+        if (_summary is not { } s)
+        {
+            Toasts.Show("읽을 요약 내용이 없습니다.", NoticeTone.Warning);
+            return;
+        }
+
+        var text = BuildSummarySpeechText(s);
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            Toasts.Show("읽을 요약 내용이 없습니다.", NoticeTone.Warning);
+            return;
+        }
+
+        try
+        {
+            _speechJs ??= await Js.InvokeAsync<IJSObjectReference>(
+                "import", "./_content/JSini.Web.ProjMng/js/task-speech.js");
+            _dotNetRef ??= DotNetObjectReference.Create(this);
+
+            var ok = await _speechJs.InvokeAsync<bool>("speak", text, _dotNetRef);
+            if (!ok)
+            {
+                Toasts.Show("이 브라우저는 음성 읽기(TTS)를 지원하지 않거나 사용할 수 없습니다.", NoticeTone.Warning);
+            }
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException
+            or InvalidOperationException or TaskCanceledException or ObjectDisposedException)
+        {
+            // 화면 이동 또는 회로 끊김
+        }
+    }
+
+    private async Task StopSpeechAsync()
+    {
+        _speaking = false;
+        if (_speechJs is not null)
+        {
+            try
+            {
+                await _speechJs.InvokeVoidAsync("stop");
+            }
+            catch (Exception ex) when (ex is JSException or JSDisconnectedException
+                or InvalidOperationException or TaskCanceledException or ObjectDisposedException)
+            {
+            }
+        }
+    }
+
+    public void Dispose()
+    {
+        StopPoll();
+        _ = StopSpeechAsync();
+        _dotNetRef?.Dispose();
+        _dotNetRef = null;
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        StopPoll();
+        await StopSpeechAsync();
+        if (_speechJs is not null)
+        {
+            try
+            {
+                await _speechJs.DisposeAsync();
+            }
+            catch
+            {
+            }
+            _speechJs = null;
+        }
+        _dotNetRef?.Dispose();
+        _dotNetRef = null;
+    }
 }

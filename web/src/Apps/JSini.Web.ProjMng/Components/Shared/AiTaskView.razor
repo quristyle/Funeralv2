@@ -155,6 +155,7 @@
 *@
 
 @implements IDisposable
+@implements IAsyncDisposable
 
 @if (Item is { } t)
 {
@@ -242,7 +243,18 @@
                        답조차 없는 건에는 이 칸이 통째로 빠진다. *@
                     @if (_summary is { } s)
                     {
-                        <h3 class="pm-peek__head">처리 요약</h3>
+                        <div class="pm-peek__head-row">
+                            <h3 class="pm-peek__head">처리 요약</h3>
+
+                            <button type="button"
+                                    class="pm-peek__speech-btn @(_speaking ? "pm-peek__speech-btn--speaking" : null)"
+                                    @onclick="ToggleSpeechAsync"
+                                    title="@(_speaking ? "음성 읽기 중지" : "요약 음성으로 읽어주기")"
+                                    aria-label="@(_speaking ? "음성 읽기 중지" : "요약 음성으로 읽어주기")">
+                                <span class="pm-peek__speech-icon" aria-hidden="true">@(_speaking ? "⏹" : "🔊")</span>
+                                <span>@(_speaking ? "읽기 중지" : "음성으로 읽어주기")</span>
+                            </button>
+                        </div>
 
                         <div class="pm-peek__sum">
                             @if (s.Headline is { Length: > 0 } headline)
@@ -277,7 +289,15 @@
                     {
                         @* 답은 왔는데 요약이 없다. **말없이 비워 두지 않는다** —
                            기다리면 오는 것인지, 내가 뭘 해야 하는지를 적는다. *@
-                        <h3 class="pm-peek__head">처리 요약</h3>
+                        <div class="pm-peek__head-row">
+                            <h3 class="pm-peek__head">처리 요약</h3>
+
+                            <button type="button" class="pm-peek__speech-btn" disabled
+                                    title="처리 요약을 만드는 중입니다">
+                                <span class="pm-peek__speech-icon" aria-hidden="true">🔊</span>
+                                <span>음성으로 읽어주기</span>
+                            </button>
+                        </div>
 
                         <p class="pm-peek__dim">@SummaryWaitText</p>
 
@@ -348,7 +368,21 @@
                     }
 
                     @* ── 답 ─────────────────────────────────────── *@
-                    <h3 class="pm-peek__head">결과</h3>
+                    <div class="pm-peek__head-row">
+                        <h3 class="pm-peek__head">결과</h3>
+
+                        @if (_summary is not null)
+                        {
+                            <button type="button"
+                                    class="pm-peek__speech-btn @(_speaking ? "pm-peek__speech-btn--speaking" : null)"
+                                    @onclick="ToggleSpeechAsync"
+                                    title="@(_speaking ? "음성 읽기 중지" : "결과 요약 음성으로 읽어주기")"
+                                    aria-label="@(_speaking ? "음성 읽기 중지" : "결과 요약 음성으로 읽어주기")">
+                                <span class="pm-peek__speech-icon" aria-hidden="true">@(_speaking ? "⏹" : "🔊")</span>
+                                <span>@(_speaking ? "읽기 중지" : "음성으로 요약 듣기")</span>
+                            </button>
+                        }
+                    </div>
 
                     @if (_result is { Length: > 0 })
                     {
