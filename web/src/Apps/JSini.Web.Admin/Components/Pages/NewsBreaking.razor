@@ -10,7 +10,11 @@
     </DxToolbar>
 
     <div class="flex-1 p-4 overflow-auto">
-        <DxGrid Data="Data" ShowFilterRow="true" ShowSearchBox="true">
+        @* 휴대폰에서는 카드로 편다 — `CommGrd` 와 같은 표시·같은 CSS 다
+           (`GridCards` 머리말). 이 화면만 맨 `DxGrid` 를 쓰고 있어 표시를
+           손으로 단다. *@
+        <DxGrid Data="Data" ShowFilterRow="true" ShowSearchBox="true"
+                CssClass="@GridCards.CssClass" CustomizeElement="@GridCards.Label">
             <Columns>
                 <DxGridDataColumn FieldName="Id" Caption="ID" Width="80px" />
                 <DxGridDataColumn FieldName="Title" Caption="제목" />

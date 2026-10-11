@@ -1,3 +1,5 @@
+using DevExpress.Blazor;
+using JSini.Web.Components.Data;
 using Microsoft.AspNetCore.Components;
 using System.Data;
 using JSini.Web.HelpDesk.Api;
@@ -82,4 +84,18 @@ public partial class AutoGrid
 
     private string Caption(string name) =>
         Captions is not null && Captions.TryGetValue(name, out var text) ? text : name;
+
+    /// <summary>휴대폰(≤767px)인가. <c>DxLayoutBreakpoint</c> 가 채운다.</summary>
+    private bool _isPhone;
+
+    private void OnPhoneChanged(bool phone)
+    {
+        if (_isPhone == phone)
+        {
+            return;
+        }
+
+        _isPhone = phone;
+        StateHasChanged();
+    }
 }

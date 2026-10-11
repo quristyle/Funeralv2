@@ -166,6 +166,37 @@ public partial class CommGrd<TItem>
     /// </summary>
     [Parameter] public bool AlternateRows { get; set; } = true;
 
+    /// <summary>
+    /// 휴대폰 폭(≤767px)에서 표를 <b>카드 목록으로 편다</b>. 기본은 켜짐.
+    ///
+    /// <para>
+    /// 칸이 예닐곱인 표는 360px 화면에 절대 안 들어간다. 그대로 두면 사람이
+    /// <b>가로로 굴려야</b> 값을 읽는데, 한 손으로 쥔 휴대폰에서 굴려야 보이는
+    /// 값은 사실상 없는 값이다. 켜 두면 줄 하나가 한 장이 되어 세로로 펴진다 —
+    /// 칸 이름이 값 왼쪽에 붙고(<c>data-caption</c>), 가로 스크롤이 사라진다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>표를 버리지 않는다.</b> 바꾸는 것은 CSS 뿐이라(<c>app.css</c> 의
+    /// <c>.commgrd--cards</c>) DevExpress 가 그리는 것은 그대로다 — 셀 템플릿 ·
+    /// 줄 누르기 · 선택 · 오른쪽 클릭 창 · 엑셀이 전부 같은 코드로 돈다.
+    /// 화면마다 카드를 따로 짜면 그 다섯 가지가 화면 수만큼 갈라진다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>폭은 CSS 가 안다 — 회로가 아니라.</b> <c>DxLayoutBreakpoint</c> 로
+    /// 가르면 그 값이 첫 그림 뒤에 와서 표가 섰다 걷히고, 걷히는 쪽이
+    /// 제 속을 만지다 회로를 내리는 길이 열린다(<see cref="_gone"/> 머리말).
+    /// 미디어 쿼리는 서버가 알 것도, 다시 그릴 것도 없다.
+    /// </para>
+    ///
+    /// <para>
+    /// 끄는 자리는 <b>줄이 한 장으로 읽히지 않는 표</b>다 — 달력처럼 칸의
+    /// 가로 자리 자체가 뜻인 것. <c>MobileCards="false"</c>.
+    /// </para>
+    /// </summary>
+    [Parameter] public bool MobileCards { get; set; } = true;
+
     /// <summary>내려받을 파일 이름(확장자 없이).</summary>
     [Parameter] public string ExportName { get; set; } = "목록";
 
@@ -529,6 +560,51 @@ public partial class CommGrd<TItem>
     private bool _hasFilter;
     private bool _virtualScroll;
 
+    /// <summary>쪽 넘김 줄을 보이는가. 카드로 펴면 켜진다(<see cref="ApplyScrollMode"/>).</summary>
+    private bool _pagerVisible;
+
+    /// <summary>한 쪽에 담는 줄 수.</summary>
+    private int _pageSize = DefaultPageSize;
+
+    /// <summary>화면이 따로 정하지 않았을 때의 한 쪽 크기.</summary>
+    private const int DefaultPageSize = 15;
+
+    /// <summary>지금 표가 든 줄 수. 셀 수 없는 자료 원본이면 <c>null</c>.</summary>
+    private int? _rowCount;
+
+    /// <summary>
+    /// 휴대폰 폭(≤767px)인가. <c>DxLayoutBreakpoint</c> 가 채운다.
+    ///
+    /// <para>
+    /// <b>카드로 펴는 일 자체는 CSS 가 한다</b>(<see cref="MobileCards"/>).
+    /// 이 값이 따로 필요한 까닭은 하나뿐이다 — 카드일 때 가상 스크롤을 꺼야
+    /// 하는데 그것이 DevExpress 의 매개변수라서다(<see cref="ApplyScrollMode"/>).
+    /// </para>
+    ///
+    /// <para>
+    /// 값은 <b>첫 그림 뒤에</b> 온다. 그래서 휴대폰으로 들어와도 표가 한 번은
+    /// 가상 스크롤로 섰다가 쪽 넘김으로 바뀐다. 바뀌는 것이 매개변수뿐이라
+    /// <b>이 부품이 걷히지는 않는다</b> — <see cref="_gone"/> 가 막는 그 길과
+    /// 다르다. 화면이 폭을 보고 아예 다른 모양을 그리면 그때는 걷힌다.
+    /// </para>
+    /// </summary>
+    private bool _isPhone;
+
+    /// <summary>지금 카드로 펴져 있는가.</summary>
+    private bool Carded => MobileCards && _isPhone;
+
+    private void OnPhoneChanged(bool phone)
+    {
+        if (_isPhone == phone)
+        {
+            return;
+        }
+
+        _isPhone = phone;
+        ApplyScrollMode();
+        StateHasChanged();
+    }
+
     private static readonly Dictionary<string, Type> DxGridParameterTypes =
         typeof(DxGrid)
             .GetProperties(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance)
@@ -579,11 +655,58 @@ public partial class CommGrd<TItem>
             _filterRow = Read("ShowFilterRow") is bool flag && flag;
         }
 
-        _virtualScroll = VirtualScrolling();
-
         // 건수는 자료가 바뀔 때만 달라진다. 거른 뒤의 수는 렌더가 끝나야
         // 알 수 있어 OnAfterRenderAsync 에서 따로 읽는다.
-        _total = Total ?? CountOf(Data);
+        //
+        // **굴림 방식보다 먼저 센다** — 쪽이 하나뿐이면 쪽 넘김 줄을 세우지
+        // 않는데, 그 판단에 이 수가 필요하다.
+        _rowCount = CountOf(Data);
+        _total = Total ?? _rowCount;
+
+        ApplyScrollMode();
+    }
+
+    /// <summary>
+    /// 줄을 굴려 보는 길을 정한다 — 가상 스크롤이냐 쪽나누기냐.
+    ///
+    /// <para>
+    /// <b>카드로 펴면 가상 스크롤을 끈다.</b> DevExpress 의 가상 스크롤은 줄
+    /// 높이가 고르다는 전제로 전체 높이를 어림하는데, 카드는 줄 하나가 290px
+    /// 이라 그 어림이 **열 배 넘게 빗나간다**(200줄짜리 목록에서 실제 6만px 를
+    /// 68만px 로 쟀다 — 2026-10-11 실측). 굴림 막대는 깨알만 해지고 끝까지
+    /// 가려면 열 배를 굴려야 한다. 느리게 굴리면 줄은 제대로 따라오므로
+    /// 「되긴 되는데 끝이 안 보이는」 꼴이라 더 나쁘다.
+    /// </para>
+    ///
+    /// <para>
+    /// 대신 <b>쪽나누기를 켠다.</b> 끄기만 하고 두면 첫 쪽 뒤의 줄에 갈 길이
+    /// 없어진다(<see cref="VirtualScrolling"/> 머리말).
+    /// </para>
+    /// </summary>
+    private void ApplyScrollMode()
+    {
+        _virtualScroll = VirtualScrolling();
+        _pagerVisible = Read("PagerVisible") is true;
+        _pageSize = Read("PageSize") is int size ? size : DefaultPageSize;
+
+        if (!Carded)
+        {
+            return;
+        }
+
+        _virtualScroll = false;
+
+        // 0 은 「전부 한 쪽에」라는 뜻이다. 표에서는 가상 스크롤이 받쳐 주지만
+        // 카드에서는 천 장이 통째로 DOM 에 깔린다.
+        if (_pageSize <= 0)
+        {
+            _pageSize = DefaultPageSize;
+        }
+
+        // 쪽이 하나뿐이면 줄을 세우지 않는다 — 「1」 하나만 든 띠가 손가락
+        // 하나만큼의 자리를 먹는다. 몇 줄인지 모르면(센 적 없는 자료 원본)
+        // 세운다 — 못 세운 채로 두면 첫 쪽 뒤의 줄에 갈 길이 없어진다.
+        _pagerVisible = _rowCount is not int rows || rows > _pageSize;
     }
 
     /// <summary>
@@ -970,7 +1093,10 @@ public partial class CommGrd<TItem>
                 BeginGroup: _screenItems.Count > 0));
         }
 
-        if (ShowFilterToggle)
+        // 카드로 펴면 머리줄이 감춰지고 칸별 검색 줄은 그 안에 있다
+        // (`app.css` 의 `.commgrd--cards … > thead`). 항목을 그대로 두면
+        // **눌러도 아무 일이 없는 줄**이 창에 남는다.
+        if (ShowFilterToggle && !Carded)
         {
             items.Add(new(_filterRow ? "칸별 검색 줄 감추기" : "칸별 검색 줄 보이기", "jsini-icon-filter",
                 () => { ToggleFilterRow(); return Task.CompletedTask; },
@@ -1042,18 +1168,69 @@ public partial class CommGrd<TItem>
             return;
         }
 
+        if (e.ElementType != GridElementType.DataCell)
+        {
+            return;
+        }
+
         // 자료 칸의 기본 정렬은 가운데다. 칸이 TextAlignment 를 직접 정했으면(Auto 가 아니면)
         // 건드리지 않는다 — 그 값이 그 칸의 뜻이다.
         //
         // CSS 로만 하면 이 구분을 할 수 없다. DevExpress 는 우리가 정한 것과
         // 자기가 자료형을 보고 정한 것(숫자는 오른쪽)에 **같은 클래스**를
         // 붙이기 때문이다. 여기서는 칸이 선언한 값을 그대로 읽을 수 있다.
-        if (e.ElementType == GridElementType.DataCell
-            && e.Column?.TextAlignment == GridTextAlignment.Auto)
+        if (e.Column?.TextAlignment == GridTextAlignment.Auto)
         {
             e.CssClass = "commgrd__cell--center";
         }
+
+        if (MobileCards)
+        {
+            LabelForCard(e);
+        }
     }
+
+    /// <summary>
+    /// 카드로 펼 때 셀에 <b>표시를 단다</b> — 칸 이름(<c>GridCards.Label</c>)과,
+    /// 이 부품이 붙인 칸을 가리키는 클래스.
+    ///
+    /// <para>
+    /// <b>순번·관리 칸에는 이름을 안 적는다.</b> 「No」·「관리」를 값처럼 한
+    /// 줄씩 적으면 카드마다 뜻 없는 줄이 둘씩 늘고, 그 둘은 자리로 말하는
+    /// 것이지 이름으로 말하는 것이 아니다. 대신 표시 클래스를 달아 CSS 가
+    /// 제자리에 놓는다(오른쪽 위 작은 번호 · 맨 아래 단추 줄).
+    /// </para>
+    ///
+    /// <para>
+    /// 안 적는 것에는 값이 하나 더 있다 — CSS 가 <c>[data-caption] ~
+    /// [data-caption]</c> 로 <b>첫 값 칸</b>을 가려내 카드의 제목으로 삼는다
+    /// (앞에 같은 것이 없는 하나). 순번에 이름을 적으면 제목이 「1」로 밀린다.
+    /// </para>
+    /// </summary>
+    private static void LabelForCard(GridCustomizeElementEventArgs e)
+    {
+        var marker = e.Column?.Name switch
+        {
+            SeqColumnName => "commgrd__cell--seq",
+            ActionsColumnName => "commgrd__cell--act",
+            _ => null,
+        };
+
+        if (marker is null)
+        {
+            GridCards.Label(e);
+            return;
+        }
+
+        // 가운데 정렬 표시가 이미 붙어 있을 수 있다 — 덮어쓰지 않고 잇는다.
+        e.CssClass = string.IsNullOrEmpty(e.CssClass) ? marker : $"{e.CssClass} {marker}";
+    }
+
+    /// <summary>순번 칸을 가리키는 이름. CSS 가 아니라 <c>IGridColumn.Name</c> 으로 찾는다.</summary>
+    private const string SeqColumnName = "commgrd-seq";
+
+    /// <summary>관리 칸(수정·삭제)을 가리키는 이름.</summary>
+    private const string ActionsColumnName = "commgrd-act";
 
     /// <summary>splat 으로 들어온 문자열을 DxGrid 가 기다리는 형으로 바꾼다.</summary>
     private static IReadOnlyDictionary<string, object>? Coerce(IReadOnlyDictionary<string, object>? source)

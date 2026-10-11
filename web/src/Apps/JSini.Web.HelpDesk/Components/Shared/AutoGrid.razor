@@ -23,11 +23,26 @@
     대신 이름표에 적은 칸이 **앞으로** 온다 — 자주 보는 것이 왼쪽에 있어야 한다.
 *@
 
-<DxGrid Data="@Data" ShowFilterRow="false" ShowSearchBox="@SearchBox"
+@* 폭을 묻는 자리. **카드로 펴는 일에는 안 쓴다** — 그것은 CSS 가 한다
+   (`app.css` 의 `.commgrd--cards`). 여기서 받은 값으로 하는 일은 가상
+   스크롤을 끄고 쪽 넘김을 켜는 것 하나뿐이다(`CommGrd` 의 `_isPhone` 머리말 —
+   카드는 줄 높이가 고르지 않아 가상 스크롤의 어림이 열 배 넘게 빗나간다). *@
+<DxLayoutBreakpoint MaxWidth="767" IsActive="_isPhone" IsActiveChanged="@OnPhoneChanged" />
+
+@* **휴대폰에서는 카드로 편다.** `CommGrd` 와 같은 표시·같은 CSS 를 쓴다 —
+   여기 표야말로 칸이 열일곱씩 되어 가로로 굴러야 읽히던 자리다(머리말).
+   표시만 달고 펴는 일은 전부 app.css 가 한다.
+
+   **표시를 감싸개가 아니라 표 자신에 단다.** `<div>` 로 감싸면 높이를 주는
+   규칙(`.commcont__body > .dxbl-grid`)이 한 칸 어긋나 안 걸리고, 그러면
+   넓은 화면에서 표가 판을 넘도록 늘어난다. *@
+<DxGrid CssClass="@GridCards.CssClass"
+        Data="@Data" ShowFilterRow="false" ShowSearchBox="@SearchBox"
         TextWrapEnabled="false"
         ColumnResizeMode="GridColumnResizeMode.NextColumn"
-        PagerVisible="@(!AllRows)"
-        VirtualScrollingEnabled="@AllRows"
+        CustomizeElement="@GridCards.Label"
+        PagerVisible="@(_isPhone || !AllRows)"
+        VirtualScrollingEnabled="@(AllRows && !_isPhone)"
         PageSize="@PageSize" Loading="@Loading">
     <Columns>
         @foreach (var name in Order)

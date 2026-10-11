@@ -33,10 +33,18 @@
 @implements IDisposable
 @* 껍데기 크기를 캡에서 멈추려고 받는다 — `ThemeSize.Chrome` 머리말 참고. *@
 
-<div class="commgrd"
+@* `commgrd--cards` 는 **휴대폰에서 표를 카드로 펴라**는 표시다. 실제로 펴는
+   것은 CSS 뿐이고(app.css 의 `@@media (max-width: 767px)`) 여기서는 그 규칙이
+   걸릴 자리만 연다 — 까닭은 `MobileCards` 머리말. *@
+<div class="commgrd @(MobileCards ? GridCards.CssClass : null)"
      @ref="_root"
      @oncontextmenu="@OpenMenuAsync"
      @oncontextmenu:preventDefault="@HasMenu">
+
+    @* 폭을 묻는 자리. **카드로 펴는 일에는 안 쓴다** — 그것은 CSS 가 한다.
+       여기서 받은 값으로 하는 일은 가상 스크롤을 끄고 쪽 넘김을 켜는 것
+       하나뿐이다(`_isPhone` 머리말). 이 부품은 아무것도 그리지 않는다. *@
+    <DxLayoutBreakpoint MaxWidth="767" IsActive="_isPhone" IsActiveChanged="@OnPhoneChanged" />
 
     @* 표의 머리줄 — 제목과 건수. **표 자신이 그리고, 기본으로 켜져 있다.**
 
@@ -78,10 +86,11 @@
         <div class="commgrd__toolbar">@Toolbar</div>
     }
 
+    @* 쪽 넘김 둘(`PagerVisible` · `PageSize`)은 **`@@attributes` 뒤에 있다** —
+       카드로 편 휴대폰에서는 이 부품이 화면의 값을 이겨야 하기 때문이다
+       (`ApplyScrollMode`). 화면이 적은 값은 그 안에서 읽어 그대로 돌려준다. *@
     <DxGrid @ref="_grid"
             Data="@Data"
-            PageSize="15"
-            PagerVisible="false"
             PagerSummaryVisible="true"
             ShowSearchBox="false"
             TextWrapEnabled="false"
@@ -113,13 +122,17 @@
             DetailExpandButtonDisplayMode="@(DetailRowTemplate is null ? GridDetailExpandButtonDisplayMode.Never : GridDetailExpandButtonDisplayMode.Auto)"
             @attributes="_forwarded"
             ShowFilterRow="@_filterRow"
-            VirtualScrollingEnabled="@_virtualScroll">
+            VirtualScrollingEnabled="@_virtualScroll"
+            PagerVisible="@_pagerVisible"
+            PageSize="@_pageSize">
 
         <Columns>
             @if (ShowRowNumber)
             {
                 @* AllowResize 는 DxGridDataColumn 에 없는 이름이라 적으면 죽는다. *@
-                <DxGridDataColumn Caption="No" Width="58" MinWidth="58"
+                @* 이름을 단다 — 카드로 펼 때 이 칸을 알아보는 길이
+                   `IGridColumn.Name` 이다(`LabelForCard`). *@
+                <DxGridDataColumn Name="@SeqColumnName" Caption="No" Width="58" MinWidth="58"
                                   AllowSort="false" AllowGroup="false"
                                   FilterRowEditorVisible="false">
                     <CellDisplayTemplate Context="cell">
@@ -136,8 +149,14 @@
                    굴러야 하는데, 그때 「수정 · 삭제」가 스크롤 저편으로 사라진다 —
                    줄 하나를 고치려고 끝까지 굴렸다가 다시 돌아오는 일이 화면
                    백 개에서 똑같이 난다. 붙박아 두면 굴려도 늘 같은 자리다. *@
-                <DxGridDataColumn Caption="관리" Width="@ActionsColumnWidth" MinWidth="@ActionsPixels"
-                                  FixedPosition="GridColumnFixedPosition.Right"
+                @* **카드로 펴면 붙박음을 푼다.** 가로로 구를 일이 없어 붙박을
+                   까닭이 없는데, 그대로 두면 DevExpress 가 세로 굴림 막대를
+                   「붙박은 오른쪽 칸만큼」 왼쪽으로 민다 — 카드에서는 그 폭이
+                   카드 전체라, 막대가 **카드 한가운데를 세로로 가른다**
+                   (재어 확인했다 — `right: 338px`). *@
+                <DxGridDataColumn Name="@ActionsColumnName" Caption="관리"
+                                  Width="@ActionsColumnWidth" MinWidth="@ActionsPixels"
+                                  FixedPosition="@(Carded ? GridColumnFixedPosition.None : GridColumnFixedPosition.Right)"
                                   AllowSort="false" AllowGroup="false">
                     <CellDisplayTemplate Context="cell">
                         <div class="commgrd__actions">
