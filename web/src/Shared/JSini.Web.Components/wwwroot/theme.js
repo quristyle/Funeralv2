@@ -2064,3 +2064,29 @@
     }
   }
 })();
+
+// 데스크탑 화면에서 스크롤을 내릴 때 상단으로 가는 단추를 보여준다.
+(function () {
+  function initScrollToTop() {
+    var contentBox = document.querySelector('.jsini-shell__content');
+    var btn = document.getElementById('jsiniScrollToTop');
+    if (!contentBox || !btn) return;
+    
+    // 이미 등록되었으면 방지
+    if (contentBox.dataset.scrollTopInit) return;
+    contentBox.dataset.scrollTopInit = '1';
+
+    contentBox.addEventListener('scroll', function () {
+      if (contentBox.scrollTop > 300) {
+        btn.classList.add('is-visible');
+      } else {
+        btn.classList.remove('is-visible');
+      }
+    }, { passive: true });
+  }
+
+  document.addEventListener('DOMContentLoaded', initScrollToTop);
+  // Blazor 화면 이동/렌더링 시에도 확인
+  const observer = new MutationObserver(initScrollToTop);
+  observer.observe(document.body, { childList: true, subtree: true });
+})();

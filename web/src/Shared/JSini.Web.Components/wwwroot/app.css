@@ -9200,3 +9200,45 @@ body.jsini-imgview-open {
   font-size: var(--jsini-fs-xs);
   line-height: 1.5;
 }
+
+/* ── 스크롤 위로 가기 단추 ─────────────────────────────────────
+   데스크탑 화면에서 스크롤을 내릴 때만 나타난다. */
+.jsini-shell__fab--scroll-top {
+  display: none !important;
+}
+
+@media (min-width: 768px) {
+  .jsini-shell__fab--scroll-top {
+    display: inline-flex !important;
+    right: 2rem;
+    bottom: 2rem;
+    left: auto;
+    top: auto;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease-in-out, transform 0.2s;
+    background: var(--jsini-surface, #fff);
+    color: var(--jsini-text, #333);
+    border: 1px solid var(--jsini-border, #ccc);
+  }
+  
+  .jsini-shell__fab--scroll-top:hover {
+    background: var(--jsini-bg-hover, #f5f5f5);
+  }
+
+  .jsini-shell__fab--scroll-top.is-visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+/* 스크롤 위로 가기 아이콘 (lucide-arrow-up) */
+.jsini-icon-arrow-up {
+  --svg: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 19V5M5 12l7-7 7 7'/%3E%3C/svg%3E");
+  mask: var(--svg) no-repeat center / contain;
+  -webkit-mask: var(--svg) no-repeat center / contain;
+  background-color: currentColor;
+  width: 1.6rem;
+  height: 1.6rem;
+  display: inline-block;
+}

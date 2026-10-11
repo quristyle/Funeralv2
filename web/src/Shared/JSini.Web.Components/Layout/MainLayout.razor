@@ -353,6 +353,16 @@
         </button>
     }
 
+    @* 데스크탑에서 스크롤을 내리면 나타나는 위로 가기 단추 *@
+    <button type="button"
+            class="jsini-shell__fab jsini-shell__fab--scroll-top"
+            id="jsiniScrollToTop"
+            title="위로 가기"
+            aria-label="맨 위로 이동"
+            onclick="document.querySelector('.jsini-shell__content').scrollTo({top: 0, behavior: 'smooth'});">
+        <span class="jsini-icon-arrow-up" aria-hidden="true" ></span>
+    </button>
+
     @* 휴대폰 화면 아래의 띠. **쓰지 않기로 한 사람에게는 아예 안 그린다** —
        CSS 로만 감추면 회로가 붙어 있는 내내 안 보이는 단추 다섯이 살아 있고,
        그중 하나는 테마 서랍을 여는 진짜 조작이다.
