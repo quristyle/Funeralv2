@@ -787,12 +787,12 @@ public partial class AiTaskView
         }
     }
 
-    private static string BuildSummarySpeechText(AiRunSummary summary)
+    private static List<string> BuildSummarySpeechLines(AiRunSummary summary)
     {
-        var sb = new StringBuilder();
+        var lines = new List<string>();
         if (!string.IsNullOrWhiteSpace(summary.Headline))
         {
-            sb.AppendLine(summary.Headline.Trim());
+            lines.Add(summary.Headline.Trim());
         }
 
         if (summary.Points.Count > 0)
@@ -801,25 +801,28 @@ public partial class AiTaskView
             {
                 if (!string.IsNullOrWhiteSpace(point))
                 {
-                    sb.AppendLine(point.Trim());
+                    lines.Add(point.Trim());
                 }
             }
         }
 
         if (summary.Checks.Count > 0)
         {
-            sb.AppendLine("확인할 사항입니다.");
+            lines.Add("확인할 사항입니다.");
             foreach (var check in summary.Checks)
             {
                 if (!string.IsNullOrWhiteSpace(check))
                 {
-                    sb.AppendLine(check.Trim());
+                    lines.Add(check.Trim());
                 }
             }
         }
 
-        return sb.ToString().Trim();
+        return lines;
     }
+
+    private static string BuildSummarySpeechText(AiRunSummary summary) =>
+        string.Join('\n', BuildSummarySpeechLines(summary));
 
     private async Task ToggleSpeechAsync()
     {
@@ -841,8 +844,8 @@ public partial class AiTaskView
             return;
         }
 
-        var text = BuildSummarySpeechText(s);
-        if (string.IsNullOrWhiteSpace(text))
+        var lines = BuildSummarySpeechLines(s);
+        if (lines.Count == 0)
         {
             Toasts.Show("읽을 요약 내용이 없습니다.", NoticeTone.Warning);
             return;
@@ -854,7 +857,7 @@ public partial class AiTaskView
                 "import", "./_content/JSini.Web.ProjMng/js/task-speech.js");
             _dotNetRef ??= DotNetObjectReference.Create(this);
 
-            var ok = await _speechJs.InvokeAsync<bool>("speak", text, _dotNetRef);
+            var ok = await _speechJs.InvokeAsync<bool>("speak", lines, _dotNetRef);
             if (!ok)
             {
                 Toasts.Show("이 브라우저는 음성 읽기(TTS)를 지원하지 않거나 사용할 수 없습니다.", NoticeTone.Warning);
