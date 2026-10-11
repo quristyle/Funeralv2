@@ -221,69 +221,73 @@
                     </DxCheckBox>
                 </div>
 
-                <h2 class="ad-section">역할별 수신</h2>
+                <div class="np-roles-head">
+                    <h2 class="ad-section">역할별 수신</h2>
+                    <div class="np-roles-all">
+                        <span title="@PushHint">
+                            <DxCheckBox Checked="@AllPush"
+                                        CheckedChanged="@((bool v) => OnAllPushChangedAsync(v))"
+                                        Enabled="@(CanPick && _selected.SupportsPush)">
+                                앱 푸시 전체
+                            </DxCheckBox>
+                        </span>
+                        <span title="@MailHint">
+                            <DxCheckBox Checked="@AllEmail"
+                                        CheckedChanged="@((bool v) => OnAllEmailChangedAsync(v))"
+                                        Enabled="@(CanPick && _selected.SupportsEmail)">
+                                이메일 전체
+                            </DxCheckBox>
+                        </span>
+                    </div>
+                </div>
 
                 @* 역할을 **전부** 보여 주고 체크로 가린다. 「더하기」 창을 따로
                    두면 걸려 있지 않은 역할이 안 보여서, 「파트너는 왜 안 오나」를
-                   물을 때마다 창을 열어 확인해야 한다. 열여섯 줄이라 다 보인다. *@
-                <CommGrd TItem="NotifyPolicyRow"
-                         Data="@_rows"
-                         ShowExcelExport="false"
-                         AutoSelectFirstRow="false"
-                         EmptyText="등록된 역할이 없습니다."
-                         Reload="@LoadRolesAsync">
-                    <Columns>
-                        <DxGridDataColumn FieldName="@nameof(NotifyPolicyRow.RoleName)" Caption="역할"
-                                          MinWidth="130" TextAlignment="GridTextAlignment.Left" />
-                        <DxGridDataColumn FieldName="@nameof(NotifyPolicyRow.RoleId)" Caption="식별자"
-                                          Width="190" TextAlignment="GridTextAlignment.Left" />
-                        @* 걸린 사람 수를 **고르기 전에** 보여 준다. 「역할을
-                           골랐는데 아무에게도 안 간다」가 조용히 일어나는 자리
-                           중 하나가 이것이다. *@
-                        <DxGridDataColumn Caption="사람" Width="76">
-                            <CellDisplayTemplate Context="cell">
-                                @{
-                                    var row = (NotifyPolicyRow)cell.DataItem;
-                                }
-                                @if (row.AccountCount == 0)
-                                {
-                                    <span class="jsini-badge jsini-badge--warn">0명</span>
-                                }
-                                else
-                                {
-                                    @($"{row.AccountCount}명")
-                                }
-                            </CellDisplayTemplate>
-                        </DxGridDataColumn>
-                        <DxGridDataColumn Caption="앱 푸시" Width="82">
-                            <CellDisplayTemplate Context="cell">
-                                @{
-                                    var row = (NotifyPolicyRow)cell.DataItem;
-                                }
-                                @* 이벤트가 못 쓰는 길은 **잠근다.** 켜도 아무 일
-                                   없는 칸을 열어 두면 「켰는데 왜 안 오지」가 된다
-                                   — 메뉴롤 화면이 같은 자리에서 내린 판단이다. *@
-                                <span title="@PushHint">
-                                    <DxCheckBox Checked="@row.Push"
-                                                CheckedChanged="@((bool v) => SetPushAsync(row, v))"
-                                                Enabled="@(CanPick && _selected.SupportsPush)" />
-                                </span>
-                            </CellDisplayTemplate>
-                        </DxGridDataColumn>
-                        <DxGridDataColumn Caption="이메일" Width="82">
-                            <CellDisplayTemplate Context="cell">
-                                @{
-                                    var row = (NotifyPolicyRow)cell.DataItem;
-                                }
-                                <span title="@MailHint">
-                                    <DxCheckBox Checked="@row.Email"
-                                                CheckedChanged="@((bool v) => SetEmailAsync(row, v))"
-                                                Enabled="@(CanPick && _selected.SupportsEmail)" />
-                                </span>
-                            </CellDisplayTemplate>
-                        </DxGridDataColumn>
-                    </Columns>
-                </CommGrd>
+                   물을 때마다 창을 열어 확인해야 한다. 열여섯 줄이라 다 보인다.
+                   모바일에서도 페이징 없이 한 번에 펼쳐지며, 앱푸시와 이메일 체크가
+                   가로로 나란히 표시된다. *@
+                @if (_rows.Count == 0)
+                {
+                    <p class="np-list__empty">등록된 역할이 없습니다.</p>
+                }
+                else
+                {
+                    <div class="np-roles" role="list" aria-label="역할별 수신">
+                        @foreach (var row in _rows)
+                        {
+                            <div class="np-role-item" role="listitem">
+                                <div class="np-role-info">
+                                    <span class="np-role-name">@row.RoleName</span>
+                                    <span class="ad-stamp np-role-id">@row.RoleId</span>
+                                    @if (row.AccountCount == 0)
+                                    {
+                                        <span class="jsini-badge jsini-badge--warn">0명</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="jsini-badge">@($"{row.AccountCount}명")</span>
+                                    }
+                                </div>
+                                <div class="np-role-checks">
+                                    <span title="@PushHint">
+                                        <DxCheckBox Checked="@row.Push"
+                                                    CheckedChanged="@((bool v) => SetPushAsync(row, v))"
+                                                    Enabled="@(CanPick && _selected.SupportsPush)">
+                                            앱 푸시
+                                        </DxCheckBox>
+                                    </span>
+                                    <span title="@MailHint">
+                                        <DxCheckBox Checked="@row.Email"
+                                                    CheckedChanged="@((bool v) => SetEmailAsync(row, v))"
+                                                    Enabled="@(CanPick && _selected.SupportsEmail)">
+                                            이메일
+                                        </DxCheckBox>
+                                    </span>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
 
                 <div class="jsini-hint">
                     받는 사람이 <b>본인 환경설정에서 꺼 두면</b> 여기서 켜 두어도 가지 않습니다 —
