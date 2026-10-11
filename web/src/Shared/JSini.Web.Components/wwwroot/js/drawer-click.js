@@ -18,9 +18,91 @@
     붙고, app.css 가 그 표시를 보고 본문에 오른쪽 여백을 준다(≥768px).
     서랍마다 제가 붙이면 **둘이 열렸다 하나만 닫을 때** 남은 하나가 펴져 있는데도
     표시가 걷힌다 — 그래서 셈은 늘 전체를 훑는다.
+
+    [드롭다운·팝업 누름은 바깥 클릭이 아니다]
+
+    서랍 안에 든 고르개(`DxComboBox` · 주제 고르개)나 확인 창(`ConfirmDialog` ·
+    `CommPopup`)은 DevExpress 가 마크업을 서랍 안이 아니라 `<body>` 아래
+    (`<dx-dynamic-container>`)에 따로 얹는다. 단순 `el.contains(e.target)` 만
+    보면 고르개 목록을 누르거나 창 안의 단추를 누르는 순간 「서랍 바깥을
+    눌렀다」로 읽혀 **판이 통째로 닫힌다.** 특히 모바일에서는 고정핀이
+    없어서 목록을 바꿀 때마다 대화창이 닫혀 버린다.
+    따라서 DevExpress 의 동적 팝업/드롭다운/목록 요소 내부를 누른 경우도
+    바깥 클릭에서 제외한다.
 */
 
 const drawers = new Map();
+
+const FLOATING_SELECTOR = [
+    'dx-dynamic-container',
+    'dxbl-dropdown-root',
+    'dxbl-branch',
+    'dxbl-flyout-root',
+    'dxbl-window-root',
+    'dxbl-dropdown',
+    'dxbl-popup',
+    'dxbl-modal',
+    '.dxbl-dropdown',
+    '.dxbl-dropdown-dialog',
+    '.dxbl-dropdown-root',
+    '.dxbl-dropdown-listbox',
+    '.dxbl-dropdownbase',
+    '.dxbl-itemlist-dropdown',
+    '.dxbl-edit-dropdown',
+    '.dxbl-adaptive-dropdown',
+    '.dxbl-adaptive-container',
+    '.dxbl-popup',
+    '.dxbl-popup-root',
+    '.dxbl-popup-portal',
+    '.dxbl-modal',
+    '.dxbl-modal-root',
+    '.dxbl-modal-dialog',
+    '.dxbl-listbox',
+    '.dxbl-list-box',
+    '.dxbl-listbox-item',
+    '.dxbl-list-box-item',
+    '.dxbl-calendar'
+].join(',');
+
+function isInsideOrFloating(el, e) {
+    if (!el) return false;
+
+    // 판 안쪽을 누른 것은 바깥 클릭이 아니다.
+    if (e.target && el.contains(e.target)) {
+        return true;
+    }
+
+    // Shadow DOM 등을 거친 경우
+    const path = typeof e.composedPath === 'function' ? e.composedPath() : [];
+    if (path.includes(el)) {
+        return true;
+    }
+
+    // DevExpress 동적 팝업·드롭다운(DxComboBox 목록 등) 내부를 누른 경우
+    const targetEl = e.target && e.target.nodeType === Node.ELEMENT_NODE
+        ? e.target
+        : e.target?.parentElement;
+
+    if (targetEl) {
+        if (targetEl.closest(FLOATING_SELECTOR)) {
+            return true;
+        }
+        // 서랍 여닫이 단추 자체(헤더 AI 아이콘 등)를 누른 경우
+        if (targetEl.closest('.jsini-icon-robot, .jsini-icon-bell, .jsini-icon-bolt')) {
+            return true;
+        }
+    }
+
+    for (const node of path) {
+        if (node && node.nodeType === Node.ELEMENT_NODE) {
+            if (node.matches && node.matches(FLOATING_SELECTOR)) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
 
 function clickHandler(e) {
     for (const [id, state] of drawers.entries()) {
@@ -28,9 +110,8 @@ function clickHandler(e) {
             continue;
         }
 
-        // 판 안쪽을 누른 것은 바깥 클릭이 아니다.
         const el = document.getElementById(id);
-        if (el && el.contains(e.target)) {
+        if (isInsideOrFloating(el, e)) {
             continue;
         }
 
