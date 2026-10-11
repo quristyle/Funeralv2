@@ -2210,7 +2210,8 @@
 
 .pm-ask__kindhead .jsini-badge,
 .pm-ask__limit .jsini-badge,
-.pm-ai-limit .jsini-badge {
+.pm-ai-limit .jsini-badge,
+.pm-peek__usage {
   flex: 0 0 auto;
   font-size: 0.75em;
   padding: 0.15em 0.4em;
@@ -4609,12 +4610,20 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
 
 /* 「이어서 지시」 창의 AI 고르는 칸.
 
-   라벨을 **위가 아니라 옆**에 둔다 — 이 창은 휴대폰에서 화면을 꽉 채우고
-   그 아래에 글상자(다섯 줄)와 단추 줄이 서므로, 층을 하나 늘리면 자판이
-   올라온 화면에서 단추가 자판 밑으로 내려간다.
+   **한 줄이다** — 고르개와 그 AI 의 남은 한도가 나란히 선다.
 
-   칸이 남은 폭을 다 쓴다(`flex: 1`). AI 이름이 「안티그래비티 (agy)」처럼
-   길어서 `max-content` 로 두면 칸마다 폭이 달라 보인다. */
+   [라벨을 걷고 한도를 끌어올렸다 — 2026-10-11]
+
+   전에는 칸 앞에 라벨(`.pm-peek__label`)이 서고 **그 아래 또 한 줄**에 한도
+   배지(`.pm-ai-limit`)가 있었다. 라벨은 고르개에 AI 이름이 이미 적혀 있어
+   한 번 더 하는 말이었고, 한도는 고를 때 가장 보고 싶은 값인데 칸에서 한 줄
+   떨어져 있었다. 층이 둘에서 하나로 줄었다 — 이 창은 휴대폰에서 화면을 꽉
+   채우고 그 아래에 글상자(다섯 줄)와 단추 줄이 서므로, **줄 하나가 곧 자판
+   밑으로 내려가는 단추**다.
+
+   칸이 남은 폭을 다 쓰고(`flex: 1`) 배지는 제 너비만 갖는다. AI 이름이
+   「안티그래비티 (agy)」처럼 길어서 `max-content` 로 두면 칸마다 폭이 달라
+   보인다. */
 .pm-peek__field {
   display: flex;
   gap: var(--jsini-sp-sm);
@@ -4622,6 +4631,7 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
   margin-top: var(--jsini-sp-sm);
 }
 
+/* 재시도 창은 아직 라벨을 쓴다(`맡을 AI`). 상세 보기의 항목 이름도 이것이다. */
 .pm-peek__label {
   flex: 0 0 auto;
   font-size: var(--jsini-fs-sm);
@@ -4631,6 +4641,13 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
 .pm-peek__kind {
   flex: 1 1 auto;
   min-width: 0;
+}
+
+/* 한도 배지. **밀리지 않고 접히지 않는다** — 「사용 92%」가 두 줄로 꺾이면
+   칸 높이가 들쭉날쭉해지고, 밀리면 가장 봐야 할 값이 창 밖으로 나간다.
+   치수는 위의 배지 묶음이 함께 정한다(`.pm-peek__usage`). */
+.pm-peek__usage {
+  white-space: nowrap;
 }
 
 /* 상세 아래 단추의 글자. 휴대폰에서는 **짧은 쪽**이 선다 —

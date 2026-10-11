@@ -188,18 +188,22 @@
     <BodyContentTemplate>
 @* 「지난 진행은 서버가 앞에 붙인다」를 안내 줄로 두지 않는다 — 창 제목이
            「이어서 지시」고 글상자 자리글이 무엇을 적는 자리인지 말한다. *@
-        @* 이 회차를 맡을 AI. **표제를 단다** — 글상자 위에 이름만 적힌 칸이
-           덩그러니 있으면 그것이 무엇을 고르는 칸인지 알 수 없다. 라벨은
-           `<span>` 이다(조회 조건 칸 `CommSchItem` 과 같은 모양) — `<label for>`
-           로 묶으려면 DevExpress 가 안쪽 `<input>` 에 붙이는 아이디를 알아야
-           하는데 그것은 부품이 정하는 값이라 우리가 못 짚는다.
+        @* 이 회차를 맡을 AI 와 **그 AI 의 남은 한도**가 한 줄에 선다.
+
+           [라벨을 걷고 한도를 끌어올렸다 — 2026-10-11]
+
+           전에는 칸 앞에 「맡을 AI」가 서고 **그 아래 또 한 줄**에 한도 배지가
+           있었다. 라벨은 고르개에 이미 AI 이름이 적혀 있어 **한 번 더 하는 말**
+           이었고(아래 한 줄이 어느 AI 에게 가는지까지 말한다), 한도는 고를 때
+           가장 보고 싶은 값인데 **칸에서 멀리 떨어진 다음 줄**에 있었다.
+           층 하나를 걷어 한도를 칸 옆으로 올린다 — 이 창은 휴대폰에서 화면을
+           꽉 채우고 아래에 글상자(다섯 줄)와 단추 줄이 서므로, 줄 하나가 곧
+           자판 밑으로 내려가는 단추다.
 
            고를 것이 하나뿐이면 회색으로 둔다. 그래도 **칸을 감추지 않는다** —
            갈아탈 수 없다는 것도 알아야 하는 값이고, 감추면 「어느 AI 에게
            가는지」조차 이 창에서 사라진다. 왜 회색인지는 아래 한 줄이 말한다. *@
         <div class="pm-peek__field">
-            <span class="pm-peek__label">맡을 AI</span>
-
             @* 고른 값도 적어 둔다. 글만 살리고 AI 를 지난 회차 것으로 되돌리면
                **갈아탄 줄 알고 보내는 쪽**이 생긴다(위 머리말의 그 사고다). *@
             <DxComboBox Data="@ContinueKinds" Value="@_continueKind"
@@ -221,14 +225,16 @@
                     </div>
                 </ItemTemplate>
             </DxComboBox>
-        </div>
 
-        @if (ContinueKinds.Count > 0)
-        {
-            <div class="pm-ai-limit">
-                <span class="jsini-badge @PickedContinueBadge.Css">@((MarkupString)PickedContinueBadge.Text)</span>
-            </div>
-        }
+            @* 고른 AI 의 사용량. **칸 옆이다** — 목록을 펴면 줄마다 같은 배지가
+               서지만, 고르개는 펴 있는 시간이 잠깐이라 닫힌 칸 옆에도 서야
+               펼치지 않는 사람에게 보인다. 고를 것이 하나뿐이어서 칸이 회색일
+               때도 여기는 보인다. *@
+            @if (ContinueKinds.Count > 0)
+            {
+                <span class="jsini-badge pm-peek__usage @PickedContinueBadge.Css">@((MarkupString)PickedContinueBadge.Text)</span>
+            }
+        </div>
 
         <p class="jsini-hint">@ContinueKindNote</p>
 
