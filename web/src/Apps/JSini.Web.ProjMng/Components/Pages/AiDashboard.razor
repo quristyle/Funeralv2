@@ -361,15 +361,22 @@
               Hint="주간 사용량 비율(%)"
               CssClass="pm-aidash__panel">
         <DxChart Data="@Data.UsageHourly" Palette="@UsageTrendPalette" Width="100%" Height="260px" CssClass="pm-aidash__chart">
+            @FlatArgumentAxis
             <DxChartLineSeries T="AiUsageTrendPoint" TArgument="string" TValue="decimal"
                                ArgumentField="p => p.Label" ValueField="p => p.ClaudePct"
-                               Name="Claude CLI" />
+                               Name="Claude CLI">
+                <DxChartSeriesPoint Visible="false" />
+            </DxChartLineSeries>
             <DxChartLineSeries T="AiUsageTrendPoint" TArgument="string" TValue="decimal"
                                ArgumentField="p => p.Label" ValueField="p => p.AntigravityPct"
-                               Name="안티그래비티 (agy)" />
+                               Name="안티그래비티 (agy)">
+                <DxChartSeriesPoint Visible="false" />
+            </DxChartLineSeries>
             <DxChartLineSeries T="AiUsageTrendPoint" TArgument="string" TValue="decimal"
                                ArgumentField="p => p.Label" ValueField="p => p.CopilotPct"
-                               Name="Copilot CLI" />
+                               Name="Copilot CLI">
+                <DxChartSeriesPoint Visible="false" />
+            </DxChartLineSeries>
             <DxChartLegend Position="RelativePosition.Outside"
                            VerticalAlignment="VerticalEdge.Bottom"
                            HorizontalAlignment="HorizontalAlignment.Center" />
@@ -386,15 +393,22 @@
               Hint="주간 사용량 비율(%)"
               CssClass="pm-aidash__panel">
         <DxChart Data="@Data.UsageDaily" Palette="@UsageTrendPalette" Width="100%" Height="260px" CssClass="pm-aidash__chart">
+            @FlatArgumentAxis
             <DxChartLineSeries T="AiUsageTrendPoint" TArgument="string" TValue="decimal"
                                ArgumentField="p => p.Label" ValueField="p => p.ClaudePct"
-                               Name="Claude CLI" />
+                               Name="Claude CLI">
+                <DxChartSeriesPoint Visible="false" />
+            </DxChartLineSeries>
             <DxChartLineSeries T="AiUsageTrendPoint" TArgument="string" TValue="decimal"
                                ArgumentField="p => p.Label" ValueField="p => p.AntigravityPct"
-                               Name="안티그래비티 (agy)" />
+                               Name="안티그래비티 (agy)">
+                <DxChartSeriesPoint Visible="false" />
+            </DxChartLineSeries>
             <DxChartLineSeries T="AiUsageTrendPoint" TArgument="string" TValue="decimal"
                                ArgumentField="p => p.Label" ValueField="p => p.CopilotPct"
-                               Name="Copilot CLI" />
+                               Name="Copilot CLI">
+                <DxChartSeriesPoint Visible="false" />
+            </DxChartLineSeries>
             <DxChartLegend Position="RelativePosition.Outside"
                            VerticalAlignment="VerticalEdge.Bottom"
                            HorizontalAlignment="HorizontalAlignment.Center" />
@@ -411,15 +425,22 @@
               Hint="주간 사용량 비율(%)"
               CssClass="pm-aidash__panel">
         <DxChart Data="@Data.UsageMonthly" Palette="@UsageTrendPalette" Width="100%" Height="260px" CssClass="pm-aidash__chart">
+            @FlatArgumentAxis
             <DxChartLineSeries T="AiUsageTrendPoint" TArgument="string" TValue="decimal"
                                ArgumentField="p => p.Label" ValueField="p => p.ClaudePct"
-                               Name="Claude CLI" />
+                               Name="Claude CLI">
+                <DxChartSeriesPoint Visible="false" />
+            </DxChartLineSeries>
             <DxChartLineSeries T="AiUsageTrendPoint" TArgument="string" TValue="decimal"
                                ArgumentField="p => p.Label" ValueField="p => p.AntigravityPct"
-                               Name="안티그래비티 (agy)" />
+                               Name="안티그래비티 (agy)">
+                <DxChartSeriesPoint Visible="false" />
+            </DxChartLineSeries>
             <DxChartLineSeries T="AiUsageTrendPoint" TArgument="string" TValue="decimal"
                                ArgumentField="p => p.Label" ValueField="p => p.CopilotPct"
-                               Name="Copilot CLI" />
+                               Name="Copilot CLI">
+                <DxChartSeriesPoint Visible="false" />
+            </DxChartLineSeries>
             <DxChartLegend Position="RelativePosition.Outside"
                            VerticalAlignment="VerticalEdge.Bottom"
                            HorizontalAlignment="HorizontalAlignment.Center" />
@@ -439,6 +460,7 @@
     <CommCont Title="@($"일별 처리 ({Data.From:yyyy-MM-dd} ~ {Data.To:yyyy-MM-dd})")"
               CssClass="pm-aidash__panel">
         <DxChart Data="@Data.Daily" Palette="@OutcomePalette" Width="100%" Height="260px" CssClass="pm-aidash__chart">
+            @FlatArgumentAxis
             <DxChartStackedBarSeries T="AiDashboardPoint" TArgument="string" TValue="int"
                                      ArgumentField="p => p.Label" ValueField="p => p.Succeeded"
                                      Name="성공" />
@@ -457,9 +479,12 @@
     <CommCont Title="일별 평균 처리시간"
               CssClass="pm-aidash__panel">
         <DxChart Data="@Data.Daily" Palette="@SinglePalette" Width="100%" Height="260px" CssClass="pm-aidash__chart">
+            @FlatArgumentAxis
             <DxChartLineSeries T="AiDashboardPoint" TArgument="string" TValue="decimal"
                                ArgumentField="p => p.Label" ValueField="p => p.AvgMinutes"
-                               Name="평균 처리시간(분)" />
+                               Name="평균 처리시간(분)">
+                <DxChartSeriesPoint Visible="false" />
+            </DxChartLineSeries>
             <DxChartLegend Visible="false" />
             <DxChartTooltip Enabled="true">
                 <div class="jsini-tip">@context.Point.Argument · 평균 @(context.Point.Value)분</div>
@@ -472,6 +497,7 @@
     <CommCont Title="월별 처리 (최근 12개월)"
               CssClass="pm-aidash__panel">
         <DxChart Data="@Data.Monthly" Palette="@MonthlyPalette" Width="100%" Height="260px" CssClass="pm-aidash__chart">
+            @FlatArgumentAxis
             <DxChartBarSeries T="AiDashboardPoint" TArgument="string" TValue="int"
                               ArgumentField="p => p.Label" ValueField="p => p.Runs"
                               Name="전체 실행" />
@@ -517,6 +543,7 @@
 <div class="pm-aidash__row">
     <CommCont Title="시간대별 사용 빈도" CssClass="pm-aidash__panel">
         <DxChart Data="@Data.Hourly" Palette="@SinglePalette" Width="100%" Height="220px" CssClass="pm-aidash__chart">
+            @FlatArgumentAxis
             <DxChartBarSeries T="AiDashboardBucket" TArgument="string" TValue="int"
                               ArgumentField="b => b.Label" ValueField="b => b.Runs"
                               Name="실행" />
@@ -529,6 +556,7 @@
 
     <CommCont Title="요일별 사용 빈도" CssClass="pm-aidash__panel">
         <DxChart Data="@Data.Weekday" Palette="@SinglePalette" Width="100%" Height="220px" CssClass="pm-aidash__chart">
+            @FlatArgumentAxis
             <DxChartBarSeries T="AiDashboardBucket" TArgument="string" TValue="int"
                               ArgumentField="b => b.Label" ValueField="b => b.Runs"
                               Name="실행" />
@@ -542,6 +570,7 @@
     <CommCont Title="처리시간 분포"
               CssClass="pm-aidash__panel">
         <DxChart Data="@Data.ByDuration" Palette="@SinglePalette" Width="100%" Height="220px" CssClass="pm-aidash__chart">
+            @FlatArgumentAxis
             <DxChartBarSeries T="AiDashboardSlice" TArgument="string" TValue="int"
                               ArgumentField="s => s.Label" ValueField="s => s.Runs"
                               Name="실행" />
@@ -631,6 +660,22 @@
 
 @code {
     // ── 조각 ────────────────────────────────────────────────
+
+    /// <summary>
+    /// 가로축(인자축) — 눈금 라벨을 <b>늘 가로로</b> 둔다.
+    /// </summary>
+    /// <remarks>
+    /// DevExpress 는 칸이 좁아지면 라벨을 알아서 기울이거나(Rotate) 엇갈려
+    /// 놓는다(Stagger). 같은 화면의 차트가 어떤 것은 가로, 어떤 것은 대각이
+    /// 되면 읽는 품이 자리마다 달라진다. 그래서 모양을 <c>Standard</c> 로
+    /// 못박고, 겹치는 라벨은 <b>기울이는 대신 감춘다</b>(<c>Overlap.Hide</c>).
+    /// 감춰진 눈금의 값은 말풍선이 그대로 말해 준다.
+    /// </remarks>
+    private readonly RenderFragment FlatArgumentAxis = @<DxChartArgumentAxis>
+        <DxChartAxisLabel DisplayMode="ChartAxisLabelDisplayMode.Standard"
+                          Overlap="ChartAxisLabelOverlap.Hide"
+                          RotationAngle="0" />
+    </DxChartArgumentAxis>;
 
     /// <summary>
     /// 「무엇별」 표. 셋이 같은 모양이라 한 번만 적는다.
