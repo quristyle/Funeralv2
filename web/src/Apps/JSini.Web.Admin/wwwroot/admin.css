@@ -4129,6 +4129,17 @@
    아래쪽 카드가 잘려 아예 못 고른다.
    ---------------------------------------------------------- */
 
+.np-events-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.np-events-head .commcont__title {
+  margin: 0;
+}
+
 .np-list {
   display: flex;
   flex-direction: column;

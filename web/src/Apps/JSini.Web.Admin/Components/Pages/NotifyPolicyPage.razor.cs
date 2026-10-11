@@ -69,6 +69,11 @@ public partial class NotifyPolicyPage : IDisposable
 
     private bool _activeOnly;
 
+    /// <summary>
+    /// 정책밖 이벤트를 목록에서 뺄 것인가. 기본값은 참이다.
+    /// </summary>
+    private bool _excludeUngoverned = true;
+
     private bool _showRecipients;
 
     private NotifyPolicyPreviewDto? _preview;
@@ -85,11 +90,19 @@ public partial class NotifyPolicyPage : IDisposable
     /// </remarks>
     private bool _canEdit;
 
+    /// <summary>
+    /// 화면에 표시할 알림 이벤트 목록. 정책밖 제외 체크에 따라 거른다.
+    /// </summary>
+    private IReadOnlyList<NotifyEventDto> VisibleEvents =>
+        _excludeUngoverned
+            ? _events.Where(e => e.Governed).ToList()
+            : _events;
+
     private string ConditionSummary => SchSummary.Of(
         SchSummary.Or(_keyword),
         SchSummary.On(_activeOnly, "쓰는 것만"));
 
-    private string EventHint => $"{_events.Count}건";
+    private string EventHint => $"{VisibleEvents.Count}건";
 
     /// <summary>체크를 만질 수 있나. 정책이 안 걸리는 이벤트에서는 잠근다.</summary>
     private bool CanPick => _canEdit && _selected is { Governed: true };
@@ -225,23 +238,47 @@ public partial class NotifyPolicyPage : IDisposable
         // 보고 있던 이벤트를 다시 집는다. 저장 뒤에 목록을 새로 읽으면 같은
         // 코드의 **다른 객체**가 오므로, 그대로 두면 오른쪽이 옛 줄을 가리킨다.
         var keep = _selected?.Code;
-        _selected = keep is null ? null : _events.FirstOrDefault(e => e.Code == keep);
+        var visible = VisibleEvents;
+        _selected = keep is null ? null : visible.FirstOrDefault(e => e.Code == keep);
 
         // **첫 줄을 우리가 고른다.** 왼쪽이 표였을 때는 `CommGrd` 가 해 주던
         // 일이고(`AutoSelectFirstRow`), 카드로 바꾸면서 그 일을 할 사람이
         // 없어졌다 — 안 하면 화면을 열자마자 오른쪽이 늘 비어 있다.
-        _selected ??= _events.FirstOrDefault();
+        _selected ??= visible.FirstOrDefault();
 
-        if (_selected is not null) LoadForm(_selected);
+        LoadForm(_selected);
 
-        return _events.Count;
+        return visible.Count;
     }, "등록된 알림 이벤트가 없습니다.", "알림 이벤트를 읽지 못했습니다");
 
     private Task ResetAsync()
     {
         _keyword = null;
         _activeOnly = false;
+        _excludeUngoverned = true;
         return ReloadAsync();
+    }
+
+    /// <summary>
+    /// 정책밖 제외 체크박스 변경 시 표시 목록과 선택 항목을 갱신한다.
+    /// </summary>
+    private void OnExcludeUngovernedChanged(bool value)
+    {
+        _excludeUngoverned = value;
+        EnsureSelectedVisible();
+    }
+
+    /// <summary>
+    /// 현재 선택된 이벤트가 숨겨졌으면 표시 중인 첫 번째 이벤트로 바꾼다.
+    /// </summary>
+    private void EnsureSelectedVisible()
+    {
+        var visible = VisibleEvents;
+        if (_selected is null || !visible.Any(e => e.Code == _selected.Code))
+        {
+            _selected = visible.FirstOrDefault();
+            LoadForm(_selected);
+        }
     }
 
     /// <summary>
@@ -274,7 +311,11 @@ public partial class NotifyPolicyPage : IDisposable
     /// </remarks>
     private void LoadForm(NotifyEventDto? row)
     {
-        if (row is null) return;
+        if (row is null)
+        {
+            _rows = [];
+            return;
+        }
 
         _isActive = row.IsActive;
 

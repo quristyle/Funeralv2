@@ -93,8 +93,17 @@
     <Panes>
 
     <DxSplitterPane Size="32%" MinSize="260px" MaxSize="60%">
-    <CommCont Title="알림 이벤트" Hint="@EventHint"
+    <CommCont Hint="@EventHint"
               CssClass="ad-vsplit__pane ad-vsplit__pane--left">
+        <TitleTemplate>
+            <div class="np-events-head">
+                <h2 class="commcont__title">알림 이벤트</h2>
+                <DxCheckBox Checked="@_excludeUngoverned"
+                            CheckedChanged="@((bool v) => OnExcludeUngovernedChanged(v))">
+                    정책밖 제외
+                </DxCheckBox>
+            </div>
+        </TitleTemplate>
         <Actions>
             @* 카드 목록에는 `CommGrd` 의 아래 띠가 없다. 다시 읽는 자리를
                판 머리에 세워 둔다 — 아이콘과 자리는 다른 화면과 같은 것이다. *@
@@ -104,16 +113,16 @@
         </Actions>
 
         <ChildContent>
-            @if (_events.Count == 0)
+            @if (VisibleEvents.Count == 0)
             {
                 <p class="np-list__empty">
-                    등록된 알림 이벤트가 없습니다. 메뉴 SQL 을 돌렸는지 확인하십시오.
+                    @(_events.Count == 0 ? "등록된 알림 이벤트가 없습니다. 메뉴 SQL 을 돌렸는지 확인하십시오." : "조건에 맞는 알림 이벤트가 없습니다.")
                 </p>
             }
             else
             {
                 <div class="np-list" role="listbox" aria-label="알림 이벤트">
-                    @foreach (var ev in _events)
+                    @foreach (var ev in VisibleEvents)
                     {
                         var on = _selected is not null && _selected.Code == ev.Code;
 
