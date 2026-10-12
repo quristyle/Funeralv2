@@ -247,17 +247,7 @@ public partial class AiAskPanel
     }
 
     // _push Removed as we always follow SelectedTargetAllowsPush
-
-    /// <summary>
-    /// 메일로 받나. <b>기본이 켜짐이다</b> — 이 화면의 존재 이유다.
-    /// 끈 것도 기억한다(위 머리말).
-    /// </summary>
-    private bool _mail = true;
-
-    /// <summary>
-    /// PWA 알림을 받나.
-    /// </summary>
-    private bool _pwa = true;
+    // _mail, _pwa removed: 알림 처리는 알림관리 및 사용자 환경설정에서 관리하므로 화면 체크박스 미사용
 
     private bool Busy;
 
@@ -434,28 +424,6 @@ public partial class AiAskPanel
     /// 건가」를 알 수 없고, 이 화면에서 그 물음은 배포가 걸린 물음이다.
     /// </summary>
     private bool PushOn => SelectedTargetAllowsPush;
-
-    /// <summary>메일로 받나. 켠 것도 끈 것도 기억한다.</summary>
-    private bool MailOn
-    {
-        get => _mail;
-        set
-        {
-            _mail = value;
-            Remember();
-        }
-    }
-
-    /// <summary>PWA 알림을 받나. 켠 것도 끈 것도 기억한다.</summary>
-    private bool PwaOn
-    {
-        get => _pwa;
-        set
-        {
-            _pwa = value;
-            Remember();
-        }
-    }
 
     /// <summary>
     /// 대상 칸이 매인 자리. 바꾸면 <b>AI 를 맞추고 그 자리에서 기억한다.</b>
@@ -814,9 +782,7 @@ public partial class AiAskPanel
             // 지금 고른 대상이 못 쓰는 AI 였으면 여기서 맞는 것으로 바뀐다.
             FixKind();
 
-            // _push = pref.AutoPush; (removed)
-            _mail = pref.NotifyEmail;
-            _pwa = pref.NotifyPwa;
+            // _push, _mail, _pwa removed: 화면 체크박스 미사용 (알림관리 및 사용자 환경설정에서 처리)
 
             // 단 수는 **얹고 나서 다시 잘라야 한다.** 첫 판은 기본인 두 단으로
             // 깔렸고 채움분이 그 수(10)로 계산되어 있어서, 세 단을 기억한
@@ -990,8 +956,8 @@ public partial class AiAskPanel
         // 올리기는 이제 항상 대상의 허용 여부를 따르므로
         // 기억할 때도 켜진 상태로 저장한다.
         AutoPush = true,
-        NotifyEmail = _mail,
-        NotifyPwa = _pwa,
+        NotifyEmail = true,
+        NotifyPwa = true,
         ListCols = _cols,
         DraftText = _text,
         DraftSavedAt = _draftSavedAt ?? (_text is not null ? AppTime.UtcNow : null),
@@ -1267,10 +1233,9 @@ public partial class AiAskPanel
                     // `AiTaskService.Normalize` 에서 같은 것을 한 번 더 본다.
                     AutoPush = PushOn,
 
-                    // 기본은 켜짐이다. 끈 사람은 끈 줄 알고 끈 것이고, 꺼진
-                    // 네모가 그 사실을 계속 보여 준다.
-                    NotifyEmail = MailOn,
-                    NotifyPwa = PwaOn,
+                    // 알림 관리는 권한별 및 사용자 환경설정에 따르므로 항상 알림을 요청하도록 설정한다.
+                    NotifyEmail = true,
+                    NotifyPwa = true,
                     NotifyWhen = "always",
 
                     // 미리 올려 둔 첨부를 이 건에 묶어 달라는 뜻이다. 서버가

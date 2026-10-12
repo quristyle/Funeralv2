@@ -2565,47 +2565,30 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
   -webkit-mask: var(--jsini-clip-svg) center / contain no-repeat;
 }
 
-/* 글상자 아래 한 줄 — 파일 · 메일 · 앱알림 · 보내기.
-
-   예전에는 올리기가 제 줄을, 단추가 또 제 줄을 가졌다. 칸이 둘로 늘면서
-   그 모양은 글상자와 단추 사이에 두 줄이 되는데, 자판이 올라온 화면에서
-   그것은 곧 **단추가 자판 밑으로 내려간다**는 뜻이다.
-
-   파일 고르개(아이콘)와 체크칸 둘이 왼쪽에 붙고 단추는 오른쪽 끝이다. 좁아지면 단추가 아래로
-   내려가 한 줄을 다 쓴다(`flex-wrap`) — 그 자리에서도 손가락이 겨누는 폭은
-   그대로다. */
+/* 글상자 아래 한 줄 — 첨부 아이콘과 보내기 단추.
+   체크박스(이메일, 앱알림)가 제거되었으며, 첨부 아이콘은 왼쪽, 보내기(올리기)
+   단추는 오른쪽 끝에서 항상 같은 라인으로 나란히 선다. */
 .pm-ask__bar {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem 1rem;
   align-items: center;
+  gap: 0.5rem 1rem;
   margin: 0.75rem 0 0;
 }
 
-/* 체크칸. 글자는 DevExpress 가 부품 안에 그리므로(누르는 자리도 그쪽이
-   만든다) 여기서는 글자 크기만 잡는다. */
+/* 체크박스 스타일은 더 이상 쓰이지 않으나 하위 호환성을 위해 유지 */
 .pm-ask__opt {
   font-size: 0.9em;
   line-height: 1.5;
 }
 
-/* 이 화면의 단추는 하나뿐이다. **크게 두고 줄 끝으로 민다** — 흔들리는
-   자리에서 누르고, 누르려고 내리는 손가락이 체크칸을 스치면 안 된다.
-
-   좁아서 제 줄로 내려가면 그 줄을 다 쓴다(`flex: 1 1 100%`) — 한 줄을
-   혼자 쓰면서 오른쪽에만 붙어 있으면 왼쪽 절반이 빈 채로 남는다. */
+/* 보내기(올리기) 단추. 첨부 아이콘과 같은 라인 우측 끝에 배치 */
 .pm-ask__go {
   min-height: 2.75rem;
   padding-inline: 1.25rem;
   margin-left: auto;
   font-weight: 600;
-}
-
-@media (width <= 30rem) {
-  .pm-ask__go {
-    flex: 1 1 100%;
-    margin-left: 0;
-  }
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 
