@@ -103,6 +103,11 @@ public sealed class ProjMngModule : IPortalModule
         // 「빠른 지시」에서 마지막에 고른 것(대상 · AI · 올리기 · 메일).
         // 같은 이유로 화면 밖에 둔다 — 탭을 옮겨도 기억이 남아야 한다.
         services.AddScoped<Components.Shared.AiAskPrefs>();
+
+        // 로그 번역(원문·번역 좌우 비교)을 들고 있는 곳. 같은 까닭으로 화면
+        // 밖이다 — 로그 탭의 알맹이는 다른 탭으로 건너가는 순간 버려지는데,
+        // 로컬 LLM 왕복 수십 번이 든 번역은 살아 있어야 한다.
+        services.AddScoped<Components.Shared.AiLogXlatStore>();
         services.AddScoped<BizOptions>();
 
         // 「빠른 지시」 알맹이를 **헤더 서랍에도** 실어 준다(책상 화면에서만).

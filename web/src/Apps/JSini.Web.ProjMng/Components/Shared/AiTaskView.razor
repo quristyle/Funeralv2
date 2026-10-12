@@ -529,7 +529,43 @@
                     }
                     else
                     {
-                        <pre class="pm-peek__pre pm-peek__pre--log" @ref="_logEl">@LogText</pre>
+                        @* ── 어떻게 볼지 ─────────────────────────────
+                           실행기가 찍는 줄은 거의 영어다. 수백 줄에서 「어디서
+                           걸렸나」를 찾는 사람에게 그것이 느리게 읽혀, 원문과
+                           번역을 좌우로 견주는 길을 둔다(`LogTranslateView`).
+
+                           **기본은 원문이다.** 번역은 로컬 LLM 왕복이 여러
+                           번이라 몇 분이 걸릴 수 있고, 로그를 펴는 일 대부분은
+                           방금 찍힌 줄 몇 개를 보려는 것이다. *@
+                        <div class="pm-peek__logmode">
+                            <DxButton Text="원문"
+                                      RenderStyle="ButtonRenderStyle.Secondary"
+                                      RenderStyleMode="@(_logXlat
+                                          ? ButtonRenderStyleMode.Outline
+                                          : ButtonRenderStyleMode.Contained)"
+                                      Click="@(() => ShowLogXlat(false))" />
+
+                            <DxButton Text="원문·번역 비교"
+                                      RenderStyle="ButtonRenderStyle.Secondary"
+                                      RenderStyleMode="@(_logXlat
+                                          ? ButtonRenderStyleMode.Contained
+                                          : ButtonRenderStyleMode.Outline)"
+                                      Click="@(() => ShowLogXlat(true))" />
+                        </div>
+
+                        @if (_logXlat)
+                        {
+                            @* 열쇠에 건 번호를 넣는다. **옮긴 것은 화면 밖에
+                               남으므로**(`AiLogXlatStore`) 열쇠가 같으면 다른
+                               지시를 열었을 때 앞 건의 번역이 그대로 보인다. *@
+                            <LogTranslateView Lines="@LogLines"
+                                              StateKey="@($"ai-task:{t.TaskKey}")"
+                                              Active="@(Live && _tab == TabLog)" />
+                        }
+                        else
+                        {
+                            <pre class="pm-peek__pre pm-peek__pre--log" @ref="_logEl">@LogText</pre>
+                        }
                     }
                 </div>
             </DxTabPage>

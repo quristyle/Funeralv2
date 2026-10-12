@@ -41,4 +41,15 @@ public static class AiFeature
     /// 왜 이리 나가나」의 까닭이 화면 어디에도 안 보인다.
     /// </remarks>
     public const string Summarize = "summarize";
+
+    /// <summary>
+    /// 줄 단위 번역. 「AI 작업」 상세의 로그 탭이 원문과 번역을 좌우로
+    /// 견주려고 쓴다.
+    /// </summary>
+    /// <remarks>
+    /// <b>요약(<see cref="Summarize"/>)과 갈라 센다.</b> 한 번 보는 데 호출이
+    /// 여러 번 나간다 — 로그를 스무 줄씩 끊어 보내기 때문이다. 요약과 섞어
+    /// 두면 「메일 한 통 요약했을 뿐인데 호출이 왜 이리 많나」가 된다.
+    /// </remarks>
+    public const string Translate = "translate";
 }

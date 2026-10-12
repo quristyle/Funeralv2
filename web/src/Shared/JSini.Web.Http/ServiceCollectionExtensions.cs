@@ -112,6 +112,14 @@ public static class ServiceCollectionExtensions
             .ConfigurePrimaryHttpMessageHandler(NoCookieJar)
             .AddHttpMessageHandler<AuthTokenHandler>();
 
+        // ── 로그 번역 (「AI 작업」 상세의 로그 탭) ────────────
+        //
+        // 가는 곳이 AI 쳇과 같은 서비스라(`/api/ai/…`) 이 클라이언트도 업무
+        // 모듈이 아니라 여기 있다 — 모듈은 자기 경로만 부른다(`GatewayClient`
+        // 머리말). 봉투를 쓰는 평범한 호출이라 스트리밍 쪽과 달리
+        // `GatewayClient` 를 그대로 탄다.
+        services.AddScoped<AiLogTranslator>();
+
         // ── 사진 그룹 (ImageGroup 부품) ───────────────────────
         //
         // 여기서 등록하는 이유는 AI 대화와 같다 — 쓰는 부품이 Blazor Common 에

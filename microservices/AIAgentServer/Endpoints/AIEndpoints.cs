@@ -513,6 +513,96 @@ public static class AIEndpoints
             }
         })
         .WithName("SummarizeText");
+
+        // ── 줄 번역 ──────────────────────────────────────────────
+        //
+        // 「AI 작업」 상세(`/projmng/ai/task/{번호}`)의 로그 탭이 원문과 번역을
+        // 좌우로 견주는 데 쓴다.
+        //
+        // **요약과 모양이 다르다.** 요약은 글 한 덩이를 받아 글 한 덩이를
+        // 돌려주지만, 여기는 **줄 목록을 받아 같은 개수의 줄 목록**을 돌려준다 —
+        // 보는 쪽이 Monaco 의 좌우 비교 편집기라 왼쪽 n번째와 오른쪽 n번째가
+        // 짝이어야 읽히기 때문이다.
+        //
+        // **끊어 보내는 것은 부르는 쪽 몫이다.** 한 번에 수백 줄을 올리면
+        // 모델의 답 상한(`MaxTokens`)에 걸려 **뒤가 잘린 채로 돌아오고**,
+        // 그러면 사람은 한참 기다린 끝에 절반만 받는다. 화면은 스무 줄씩
+        // 끊어 보내 오는 대로 오른쪽을 채운다.
+        group.MapPost("/translate", async (
+            HttpContext context,
+            [FromBody] TranslateRequest request,
+            [FromServices] ILLMService llmService) =>
+        {
+            var lines = request.Lines;
+
+            if (lines is null || lines.Count == 0)
+            {
+                return Results.BadRequest(ApiResponse<object>.Fail("번역할 줄이 없습니다.", "C400"));
+            }
+
+            if (lines.Count > LLMService.MaxTranslateLines)
+            {
+                return Results.BadRequest(ApiResponse<object>.Fail(
+                    $"한 번에 {LLMService.MaxTranslateLines}줄까지 보낼 수 있습니다. 끊어서 보내십시오.",
+                    "C400"));
+            }
+
+            if (lines.Sum(line => line?.Length ?? 0) > LLMService.MaxTranslateInput)
+            {
+                return Results.BadRequest(ApiResponse<object>.Fail(
+                    $"한 번에 {LLMService.MaxTranslateInput}자까지 보낼 수 있습니다. 끊어서 보내십시오.",
+                    "C400"));
+            }
+
+            try
+            {
+                var answer = await llmService.TranslateAsync(
+                    [.. lines.Select(line => line ?? string.Empty)],
+                    request.TargetLang ?? "ko",
+                    request.Provider ?? ReadProviderHeader(context),
+                    request.Model);
+
+                return Results.Ok(ApiResponse<object>.Ok(new
+                {
+                    lines = answer.Lines,
+                    provider = answer.ProviderKey,
+                    providerName = answer.ProviderName,
+                    model = answer.Model,
+                    translated = answer.Translated,
+                }));
+            }
+            catch (AiProviderException ex)
+            {
+                return AiFailure(ex);
+            }
+        })
+        .WithName("TranslateLines");
+    }
+
+    /// <summary>
+    /// 줄 번역 요청. <b>글 한 덩이가 아니라 줄 목록으로 받는다.</b>
+    /// </summary>
+    /// <remarks>
+    /// 글로 받아 서버가 가르면 줄바꿈 표기(<c>\n</c> · <c>\r\n</c>)에 따라
+    /// 줄 수가 달라진다. 그 수가 곧 화면의 좌우 짝이라, <b>한 줄이 어긋나면
+    /// 그 아래가 통째로 밀린다.</b> 가르는 일을 보는 쪽에 맡긴다.
+    /// </remarks>
+    public sealed class TranslateRequest
+    {
+        /// <summary>옮길 줄들. 차례와 개수가 그대로 돌아온다.</summary>
+        public List<string?>? Lines { get; set; }
+
+        /// <summary>옮겨 갈 말(<c>ko</c> · <c>en</c> · <c>ja</c> · <c>zh</c>). 비우면 한국어.</summary>
+        public string? TargetLang { get; set; }
+
+        /// <summary>
+        /// 쓸 공급자. 화면은 <c>jsini</c>(로컬 LLM)를 적어 보낸다 —
+        /// <b>로그 전부를 바깥으로 내보내지 않으려는 것</b>이고, 그 장비가
+        /// 꺼져 있으면 서버가 스스로 다음 공급자로 넘긴다.
+        /// </summary>
+        public string? Provider { get; set; }
+
+        public string? Model { get; set; }
     }
 
     /// <summary>

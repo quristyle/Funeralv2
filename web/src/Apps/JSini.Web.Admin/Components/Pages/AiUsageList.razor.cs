@@ -44,6 +44,7 @@ public partial class AiUsageList
         new("suggest-code", "공통코드 추천"),
         new("suggest-i18n", "번역 추천"),
         new("summarize", "내용 요약"),
+        new("translate", "로그 번역"),
     ];
 
     /// <summary>

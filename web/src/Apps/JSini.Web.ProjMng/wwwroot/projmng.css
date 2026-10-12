@@ -5911,3 +5911,106 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
     font-size: 1.15em;
     font-weight: 800;
 }
+
+/* ────────────────────────────────────────────────────────────
+   로그 — 원문·번역 좌우 비교 (`LogTranslateView`)
+
+   「AI 작업」 상세의 로그 탭 안에 선다. 보는 법을 고르는 줄과
+   Monaco 비교 편집기 한 틀이 전부다.
+   ──────────────────────────────────────────────────────────── */
+
+/* 보는 법 고르개(원문 · 원문·번역 비교). 글상자 바로 위에 붙는다. */
+.pm-peek__logmode {
+  display: flex;
+  gap: 0.375rem;
+  margin: 0 0 0.5rem;
+}
+
+.pm-xlat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0 0 0.5rem;
+}
+
+/* 머리띠 — 어느 말로 옮길지 · 번역 단추 · 어디까지 왔나.
+
+   좁은 화면에서는 줄바꿈으로 흘러내리게 둔다. 가로로 구르는 머리띠는
+   거기서 단추 절반이 화면 밖에 남는다. */
+.pm-xlat__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.pm-xlat__langs {
+  display: inline-flex;
+  gap: 0.25rem;
+}
+
+/* 「왼쪽 원문 · 오른쪽 번역」. 편집기 안에는 칸 이름을 적을 자리가 없고
+   (가운데 가름쇠를 끌어 옮길 수 있어 머리글을 얹으면 어긋난다) 이 한 줄이
+   그 일을 대신한다. */
+.pm-xlat__hint,
+.pm-xlat__stat {
+  font-size: var(--jsini-fs-xs);
+  opacity: 0.75;
+}
+
+/* 진행과 누가 답했는지. 남는 폭을 먹어 오른쪽 끝에 선다. */
+.pm-xlat__stat {
+  margin-left: auto;
+  text-align: right;
+}
+
+/* 편집기 틀.
+
+   **높이를 여기서 준다.** Monaco 는 부모의 높이를 재서 제 몸을 그리므로,
+   높이가 없는 상자에 넣으면 만들어지기는 하는데 줄이 하나도 안 보인다.
+   값은 원문 글상자(`pm-peek__pre--log`, 22rem)보다 넉넉하다 — 좌우로
+   나뉘어 한 줄이 접히는 일이 잦아 같은 높이면 보이는 줄이 절반이 된다. */
+.pm-xlat__editor {
+  height: 30rem;
+  border: 1px solid var(--jsini-border);
+  border-radius: var(--jsini-radius-md);
+  overflow: hidden;
+}
+
+.pm-xlat__inner {
+  width: 100%;
+  height: 100%;
+}
+
+.pm-xlat__loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-size: var(--jsini-fs-xs);
+  opacity: 0.7;
+}
+
+/* 비교 편집기의 바뀜 색을 눌러 둔다.
+
+   Monaco 의 비교 편집기는 **고친 자리**를 보여 주려고 만들어진 것이라,
+   다른 줄마다 지우기 빨강 · 더하기 초록을 깐다. 그런데 여기서 좌우가 다른
+   것은 고친 것이 아니라 **번역**이고, 번역은 거의 모든 줄이 다르다 —
+   그대로 두면 판 전체가 빨강과 초록으로 덮여 글자가 안 읽힌다.
+
+   지우지 않고 **눌러만 둔다.** 옅게 남겨 두면 「좌우가 같은 줄」(아직 안
+   옮긴 줄)과 「옮겨진 줄」이 여전히 구분된다 — 어디까지 왔는지를 머리띠의
+   숫자 말고 판에서도 읽을 수 있다. */
+.pm-xlat .line-insert,
+.pm-xlat .line-delete,
+.pm-xlat .char-insert,
+.pm-xlat .char-delete {
+  background: color-mix(in srgb, var(--jsini-color-primary, #0054a6) 6%, transparent) !important;
+  border: none !important;
+}
+
+/* 좌우 줄 수가 같아 끼울 빈 칸이 없으므로 빗금 칸은 뜰 일이 거의 없지만,
+   뜰 때 무늬가 튀지 않게 함께 눌러 둔다. */
+.pm-xlat .diagonal-fill {
+  opacity: 0.25;
+}

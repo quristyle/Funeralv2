@@ -242,23 +242,45 @@ public partial class AiTaskView
     };
 
     /// <summary>
-    /// 그릴 로그. <b>꼬리만</b> 쓴다 — 위는 잘렸다는 사실을 첫 줄에 적는다.
+    /// 그릴 로그 줄. <b>꼬리만</b> 쓴다 — 위는 잘렸다는 사실을 첫 줄에 적는다.
     /// </summary>
-    private string LogText
+    /// <remarks>
+    /// <b>글상자와 비교 편집기가 이것 하나를 본다.</b> 따로 세면 둘을 오가는
+    /// 사람이 다른 줄을 보게 되고, 번역 쪽은 그 어긋남이 <b>짝이 밀린 것</b>
+    /// 으로 나타나 원인이 안 보인다.
+    /// </remarks>
+    private IReadOnlyList<string> LogLines
     {
         get
         {
             if (_lines.Count <= DrawMax)
             {
-                return string.Join('\n', _lines.Select(l => l.Text));
+                return [.. _lines.Select(l => l.Text ?? string.Empty)];
             }
 
-            var tail = _lines.Skip(_lines.Count - DrawMax).Select(l => l.Text);
-
-            return $"… 앞 {_lines.Count - DrawMax}줄은 「자세히 보기」에서\n"
-                + string.Join('\n', tail);
+            return
+            [
+                $"… 앞 {_lines.Count - DrawMax}줄은 「자세히 보기」에서",
+                .. _lines.Skip(_lines.Count - DrawMax).Select(l => l.Text ?? string.Empty),
+            ];
         }
     }
+
+    /// <summary>그릴 로그 한 덩이. 글상자가 그대로 편다.</summary>
+    private string LogText => string.Join('\n', LogLines);
+
+    /// <summary>
+    /// 로그를 <b>원문·번역으로 견주어</b> 보고 있나. 기본은 거짓(원문)이다.
+    /// </summary>
+    /// <remarks>
+    /// <b>탭을 떠나도 기억한다.</b> 번역은 로컬 LLM 왕복이 여러 번이라 몇
+    /// 분이 걸리는데, 「지시와 결과」를 한 번 보고 돌아올 때마다 원문으로
+    /// 돌아가 있으면 그 일을 처음부터 다시 해야 한다.
+    /// </remarks>
+    private bool _logXlat;
+
+    /// <summary>보는 법을 바꾼다.</summary>
+    private void ShowLogXlat(bool on) => _logXlat = on;
 
     /// <summary>처리 파일을 더 펴거나 도로 접는다.</summary>
     private void ToggleChanged() => _changedOpen = !_changedOpen;
@@ -782,6 +804,10 @@ public partial class AiTaskView
         _logRead = false;
         _pinned = false;
         _tab = TabAsk;
+
+        // 다른 건을 열었다. **보는 법도 되돌린다** — 앞 건에서 번역을 켜 둔
+        // 채로 옮겨 오면 열자마자 로컬 LLM 이 남의 로그를 옮기기 시작한다.
+        _logXlat = false;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -800,7 +826,10 @@ public partial class AiTaskView
     /// </remarks>
     private async Task FollowLogAsync()
     {
-        if (!Live || _tab != TabLog || _lines.Count == 0)
+        // **비교 판을 보고 있으면 밀 상자가 없다.** 그때는 글상자가 아예
+        // 그려지지 않아 `_logEl` 이 빈 참조이고, 그대로 넘기면 회로를 타고
+        // 나간 JS 호출이 매 렌더마다 던진다(잡히기는 하지만 왕복은 그대로 든다).
+        if (!Live || _tab != TabLog || _logXlat || _lines.Count == 0)
         {
             return;
         }
