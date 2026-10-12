@@ -50,8 +50,27 @@ namespace HelpDeskServer.Services;
 ///   <item><term>종료</term><description>그 글의 <b>접수자</b>. 사용자가 스스로 닫은 것을 담당자가 알아야 한다.</description></item>
 /// </list>
 /// <para>
-/// <b>누른 사람 자신은 뺀다.</b> 담당자가 완료를 누를 때마다 제 휴대폰이 울리면
-/// 받는 사람은 알림을 통째로 꺼 버린다.
+/// <b>누른 사람이 곧 받을 사람이어도 보낸다 (2026-10-12 고침).</b>
+/// </para>
+/// <para>
+/// 처음에는 「제가 누른 것이 제 휴대폰을 울리면 시끄럽다」는 까닭으로
+/// <c>targetLoginId == actorLoginId</c> 면 조용히 돌아섰다. 그런데 이 회사에서
+/// <b>한 사람이 두 모자를 쓴다</b> — 글을 올린 사람이 곧 시스템 관리자라
+/// 접수도 완료도 제가 누른다. 그래서 그 걸러냄이 <b>실제로 가장 흔한 길을
+/// 통째로 막았다</b>: 요청 19 의 「완료」가 그렇게 한 통도 안 나갔고,
+/// <c>scom.push_send_logs</c> 에는 <b>실패 줄조차 안 남아</b> 「보낼 곳이
+/// 없었다」와 「보내지 않기로 했다」를 가를 수가 없었다.
+/// </para>
+/// <para>
+/// 게다가 <b>요청 등록은 이미 제가 올린 글을 제게 알리고 있었다</b>(역할 기반
+/// <c>HELPDESK</c>). 등록은 울리는데 완료는 안 울리는 것은 받는 사람에게
+/// 규칙이 아니라 고장으로 보인다.
+/// </para>
+/// <para>
+/// <b>끄는 자리는 따로 있다.</b> 이 알림이 시끄러운 사람은 환경설정에서
+/// <c>HELPDESK_STATUS</c> 를 끈다 — 위에 적은 대로, 「누가 받나」는 부르는 쪽이
+/// 아니라 <b>정책 → 본인 설정 → 구독</b>이 정한다. 부르는 쪽에 걸러냄을 하나
+/// 더 두면 그것은 <b>아무도 끌 수 없고 기록에도 안 남는 설정</b>이 된다.
 /// </para>
 /// </remarks>
 public interface IRequestStatusNotifier {
@@ -61,7 +80,10 @@ public interface IRequestStatusNotifier {
   /// <param name="request">상태를 저장한 뒤의 요청글.</param>
   /// <param name="status">방금 반영한 상태.</param>
   /// <param name="assigneeName">접수자 표시 이름. 제목 줄에 든다.</param>
-  /// <param name="actorLoginId">지금 단추를 누른 포털 계정. 자기 자신은 받지 않는다.</param>
+  /// <param name="actorLoginId">
+  /// 지금 단추를 누른 포털 계정. <b>받는 사람을 고르는 데는 쓰지 않는다</b> —
+  /// 알림에 얹을 얼굴(<c>iconOwnerKey</c>)을 정할 뿐이다.
+  /// </param>
   /// <param name="ct">끊김표.</param>
   Task NotifyAsync(
       ImprovementRequest request, ImprovementStatus status,
@@ -116,12 +138,11 @@ public sealed class RequestStatusNotifier : IRequestStatusNotifier {
       return;
     }
 
-    // **내가 누른 것이 나를 울리지 않는다.** 작성자가 스스로 종료하거나
-    // 담당자가 제 글을 완료하는 일이 실제로 있다.
-    if (!string.IsNullOrWhiteSpace(actorLoginId)
-        && string.Equals(targetLoginId, actorLoginId, StringComparison.OrdinalIgnoreCase)) {
-      return;
-    }
+    // **누른 사람이 곧 받을 사람이어도 보낸다.** 여기에는
+    // `targetLoginId == actorLoginId` 면 돌아서는 줄이 있었는데, 글쓴이가 곧
+    // 시스템 관리자인 이 회사에서는 그것이 **가장 흔한 길**이라 완료 알림이
+    // 통째로 사라졌다(요청 19). 시끄러운 사람이 끄는 자리는 환경설정이다 —
+    // 머리말의 [누른 사람이 곧 받을 사람이어도 보낸다] 참고.
 
     // **앱 알림과 메일이 같은 주소를 쓴다.** 두 벌로 두면 한쪽만 고쳐져
     // 어긋나고, 어긋나는 쪽은 언제나 「알림을 눌렀더니 엉뚱한 화면」이다.
