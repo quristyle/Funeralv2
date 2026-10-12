@@ -669,7 +669,14 @@ else
            **글자가 아니라 휴지통이다.** 표 안에서 줄을 지우는 단추는 어느
            화면에서나 같은 그림·같은 색이어야 한다(`CommGrd` 의 관리 칸과
            같은 차림 — `jsini-icon-trash` · `commgrd__icon--warn` · 링크 꼴).
-           그림만 남기므로 무엇인지는 말풍선(`Title`)이 말한다. *@
+           그림만 남기므로 무엇인지는 말풍선(`Title`)이 말한다.
+
+           **표시 하나를 더 단다**(`jsini-npanel__devrm`). 휴대폰에서 이 표는
+           카드로 펴지는데(`commgrd--cards`), 이 칸에는 이름이 없어서
+           (`Caption=""` → `data-caption` 이 안 붙는다) **카드 맨 아래 빈 줄
+           하나**로 떨어진다. 그 줄을 오른쪽 위 귀퉁이로 올리는 규칙이
+           app.css 에 있고, 칸을 가려내는 열쇠가 이 이름이다 — `td` 에는
+           표시를 달 자리가 없어 **속의 단추로 짚는다**(`td:has(> …)`). *@
         <DxGridDataColumn Caption="" Width="60" MinWidth="60"
                           AllowSort="false" AllowGroup="false"
                           TextAlignment="GridTextAlignment.Center">
@@ -677,7 +684,7 @@ else
                 @{ var device = (PushDeviceDto)context.DataItem; }
                 <DxButton IconCssClass="jsini-icon-trash"
                           Title="이 기기를 뺀다"
-                          CssClass="commgrd__icon--warn"
+                          CssClass="commgrd__icon--warn jsini-npanel__devrm"
                           RenderStyle="ButtonRenderStyle.Link"
                           Enabled="@(!_busy)"
                           Click="@(() => RemoveDeviceAsync(device))" />
