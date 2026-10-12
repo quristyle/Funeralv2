@@ -590,8 +590,16 @@ public partial class CommGrd<TItem>
     /// </summary>
     private bool _isPhone;
 
+    /// <summary>
+    /// 사용자가 오른쪽 클릭 창에서 카드/표 보기를 직접 골랐을 때의 값.
+    /// </summary>
+    private bool? _userCardView;
+
     /// <summary>지금 카드로 펴져 있는가.</summary>
-    private bool Carded => MobileCards && _isPhone;
+    private bool Carded => (_userCardView ?? MobileCards) && _isPhone;
+
+    /// <summary>루트 div 에 <see cref="GridCards.CssClass"/> 를 붙일지.</summary>
+    private bool HasCardClass => _userCardView ?? MobileCards;
 
     private void OnPhoneChanged(bool phone)
     {
@@ -603,6 +611,24 @@ public partial class CommGrd<TItem>
         _isPhone = phone;
         ApplyScrollMode();
         StateHasChanged();
+    }
+
+    /// <summary>
+    /// 모바일 환경에서 카드 형태와 표 형태 사이를 전환한다.
+    /// </summary>
+    private void ToggleCardView(bool cardView)
+    {
+        _userCardView = cardView;
+        ApplyScrollMode();
+
+        try
+        {
+            StateHasChanged();
+        }
+        catch (InvalidOperationException)
+        {
+            // 단위 테스트처럼 RenderHandle 이 아직 붙지 않은 인스턴스에서는 무시한다.
+        }
     }
 
     private static readonly Dictionary<string, Type> DxGridParameterTypes =
@@ -1113,6 +1139,27 @@ public partial class CommGrd<TItem>
         if (ShowExcelExport && Can(MenuAction.Excel))
         {
             items.Add(new("엑셀로 내려받기", "jsini-icon-excel", ExportAsync, BeginGroup: items.Count > 0));
+        }
+
+        // 모바일 환경에서 카드 형태와 표 형태를 전환한다.
+        if (_isPhone)
+        {
+            if (Carded)
+            {
+                items.Add(new("표형태로보기", null, () =>
+                {
+                    ToggleCardView(false);
+                    return Task.CompletedTask;
+                }, BeginGroup: items.Count > 0));
+            }
+            else
+            {
+                items.Add(new("카드형태로 변환", null, () =>
+                {
+                    ToggleCardView(true);
+                    return Task.CompletedTask;
+                }, BeginGroup: items.Count > 0));
+            }
         }
 
         return items;

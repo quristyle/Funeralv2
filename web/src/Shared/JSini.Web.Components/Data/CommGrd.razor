@@ -36,7 +36,7 @@
 @* `commgrd--cards` 는 **휴대폰에서 표를 카드로 펴라**는 표시다. 실제로 펴는
    것은 CSS 뿐이고(app.css 의 `@@media (max-width: 767px)`) 여기서는 그 규칙이
    걸릴 자리만 연다 — 까닭은 `MobileCards` 머리말. *@
-<div class="commgrd @(MobileCards ? GridCards.CssClass : null)"
+<div class="commgrd @(HasCardClass ? GridCards.CssClass : null)"
      @ref="_root"
      @oncontextmenu="@OpenMenuAsync"
      @oncontextmenu:preventDefault="@HasMenu">

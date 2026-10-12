@@ -1,3 +1,5 @@
+using System.Reflection;
+using JSini.Web.Components.Data;
 using Xunit;
 
 namespace JSini.Web.Architecture.Tests;
@@ -142,6 +144,73 @@ public sealed class GridCardTests
         Assert.True(splat > 0);
         Assert.True(grid.IndexOf("PagerVisible=\"@_pagerVisible\"", StringComparison.Ordinal) > splat);
         Assert.True(grid.IndexOf("PageSize=\"@_pageSize\"", StringComparison.Ordinal) > splat);
+    }
+
+    /// <summary>
+    /// 모바일 환경에서 카드로 펴졌을 때는 「표형태로보기」, 표로 전환되었을 때는
+    /// 「카드형태로 변환」 항목이 오른쪽 클릭 창(ContextMenu)에 뜬다.
+    /// </summary>
+    [Fact]
+    public void 모바일_카드_표_전환_메뉴_항목이_CommGrd_에_있다()
+    {
+        var grid = RazorSource.Read(Path.Combine(
+            SolutionRoot(), "src", "Shared", "JSini.Web.Components", "Data", "CommGrd.razor"));
+
+        Assert.Contains("표형태로보기", grid);
+        Assert.Contains("카드형태로 변환", grid);
+        Assert.Contains("ToggleCardView", grid);
+        Assert.Contains("HasCardClass", grid);
+    }
+
+    [Fact]
+    public async Task 모바일에서_카드와_표_보기를_전환할_수_있다()
+    {
+#pragma warning disable BL0005
+        var grid = new CommGrd<object>
+        {
+            ShowExcelExport = false,
+        };
+#pragma warning restore BL0005
+
+        var isPhoneField = typeof(CommGrd<object>).GetField("_isPhone", BindingFlags.NonPublic | BindingFlags.Instance);
+        var cardedProp = typeof(CommGrd<object>).GetProperty("Carded", BindingFlags.NonPublic | BindingFlags.Instance);
+        var buildMenuMethod = typeof(CommGrd<object>).GetMethod("BuildMenu", BindingFlags.NonPublic | BindingFlags.Instance);
+
+        Assert.NotNull(isPhoneField);
+        Assert.NotNull(cardedProp);
+        Assert.NotNull(buildMenuMethod);
+
+        // 1. 데스크톱(폰 아님)에서는 전환 항목이 뜨지 않는다.
+        isPhoneField!.SetValue(grid, false);
+        var desktopItems = (IEnumerable<object>)buildMenuMethod!.Invoke(grid, null)!;
+        var desktopTexts = desktopItems.Select(i => (string)i.GetType().GetProperty("Text")!.GetValue(i)!).ToList();
+        Assert.DoesNotContain("표형태로보기", desktopTexts);
+        Assert.DoesNotContain("카드형태로 변환", desktopTexts);
+
+        // 2. 모바일 환경(폰)이고 기본 MobileCards=true 일 때: 카드로 펴져 있고 「표형태로보기」가 뜬다.
+        isPhoneField.SetValue(grid, true);
+        Assert.True((bool)cardedProp!.GetValue(grid)!);
+
+        var phoneItems = (IEnumerable<object>)buildMenuMethod.Invoke(grid, null)!;
+        var toTableItem = phoneItems.FirstOrDefault(i => (string)i.GetType().GetProperty("Text")!.GetValue(i)! == "표형태로보기");
+        Assert.NotNull(toTableItem);
+
+        // 3. 「표형태로보기」 실행: 표 형태로 바뀌고 Carded 가 false 가 된다.
+        var runToTable = (Func<Task>)toTableItem!.GetType().GetProperty("Run")!.GetValue(toTableItem)!;
+        await runToTable();
+
+        Assert.False((bool)cardedProp.GetValue(grid)!);
+
+        // 4. 표 형태로 바뀐 상태에서는 「카드형태로 변환」이 뜬다.
+        var tableModeItems = (IEnumerable<object>)buildMenuMethod.Invoke(grid, null)!;
+        var toCardItem = tableModeItems.FirstOrDefault(i => (string)i.GetType().GetProperty("Text")!.GetValue(i)! == "카드형태로 변환");
+        Assert.NotNull(toCardItem);
+
+        // 5. 「카드형태로 변환」 실행: 다시 카드 형태로 복귀하고 Carded 가 true 가 된다.
+        var runToCard = (Func<Task>)toCardItem!.GetType().GetProperty("Run")!.GetValue(toCardItem)!;
+        await runToCard();
+
+        Assert.True((bool)cardedProp.GetValue(grid)!);
     }
 
     private static string SolutionRoot()
