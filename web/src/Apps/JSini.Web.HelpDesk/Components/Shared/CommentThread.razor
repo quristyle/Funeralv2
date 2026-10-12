@@ -51,6 +51,28 @@
                    것이 이 화면에서 가장 나쁜 일이다. 거르는 규칙은 요청
                    본문과 같은 한 벌을 쓴다(`NoticeHtml`). *@
                 <div class="hd-cmt__body hd-content">@Body(node)</div>
+
+                @if (node.Comment.Attachments is { Count: > 0 } attachments)
+                {
+                    <ul class="hd-cmt__files">
+                        @foreach (var file in attachments)
+                        {
+                            <li>
+                                <a class="hd-cmt__file"
+                                   href="@FileUrl(file)"
+                                   target="_blank"
+                                   download="@file.OriginalFileName">
+                                    <span class="jsini-icon-paperclip" aria-hidden="true"></span>
+                                    <span class="hd-cmt__file-name">@file.OriginalFileName</span>
+                                    @if (file.FileSize is > 0)
+                                    {
+                                        <span class="hd-cmt__file-size">(@Human(file.FileSize.Value))</span>
+                                    }
+                                </a>
+                            </li>
+                        }
+                    </ul>
+                }
             }
 
             @if (!node.Comment.IsDel && (CanReply || CanDelete(node)))
@@ -79,7 +101,7 @@
                 <div class="hd-cmt__write">
                     <CommentEditor Id="@($"r{node.Comment.Id}")"
                                    SubmitText="답글 남기기"
-                                   OnSubmit="@(html => Submit(node.Comment.Id, html))"
+                                   OnSubmit="@((html, files) => Submit(node.Comment.Id, html, files))"
                                    OnCancel="@(() => OnToggle.InvokeAsync(null))" />
                 </div>
             }

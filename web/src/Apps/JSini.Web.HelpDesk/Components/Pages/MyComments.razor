@@ -37,6 +37,29 @@ else
                     @Body(comment)
                 </div>
 
+                @if (comment.Attachments is { Count: > 0 } attachments)
+                {
+                    <ul class="hd-my-comment__files">
+                        @foreach (var file in attachments)
+                        {
+                            <li>
+                                <a class="hd-my-comment__file"
+                                   href="@FileUrl(file)"
+                                   target="_blank"
+                                   download="@file.OriginalFileName"
+                                   @onclick:stopPropagation="true">
+                                    <span class="jsini-icon-paperclip" aria-hidden="true"></span>
+                                    <span class="hd-my-comment__file-name">@file.OriginalFileName</span>
+                                    @if (file.FileSize is > 0)
+                                    {
+                                        <span class="hd-my-comment__file-size">(@Human(file.FileSize.Value))</span>
+                                    }
+                                </a>
+                            </li>
+                        }
+                    </ul>
+                }
+
                 <footer class="hd-my-comment__foot">
                     <time datetime="@comment.CreatedAt.ToString("O")">@When(comment.CreatedAt)</time>
                     @if (comment.ParentCommentId.HasValue)

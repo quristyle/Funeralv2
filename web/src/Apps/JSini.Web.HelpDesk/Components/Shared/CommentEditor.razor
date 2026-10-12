@@ -69,21 +69,29 @@
         <span class="jsini-hint hd-cmt-write__busy">그림 @_pasting 장을 올리는 중입니다…</span>
     }
 
-    @* 「남기기」는 **칸 안 오른쪽 아래**에 얹는다. 줄로 세워 두면 칸마다 단추
-       한 줄이 더 붙어, 답글이 몇 개만 열려도 그 줄들이 화면을 먹는다.
-       글이 단추 밑으로 들어가지 않게 글칸 아래에 그만큼 여백을 둔다(CSS). *@
-    <div class="jsini-toolbar hd-cmt-write__run">
-        <DxButton Text="@(_saving ? "남기는 중…" : SubmitText)"
-                  RenderStyle="ButtonRenderStyle.Primary"
-                  Enabled="@(!_saving && _pasting == 0)"
-                  Click="@SubmitAsync" />
+    <div class="hd-cmt-write__footer">
+        <div class="hd-cmt-write__tools">
+            <FilePicker @ref="_picker"
+                        MaxFiles="5"
+                        MaxBytes="@(20L * 1024 * 1024)"
+                        ShowHint="false"
+                        SelectTitle="파일 첨부"
+                        FilesChanged="@(files => _files = files)" />
+        </div>
 
-        @if (OnCancel.HasDelegate)
-        {
-            <DxButton Text="취소"
-                      RenderStyle="ButtonRenderStyle.Secondary"
-                      Enabled="@(!_saving)"
-                      Click="@OnCancel" />
-        }
+        <div class="jsini-toolbar hd-cmt-write__run">
+            <DxButton Text="@(_saving ? "남기는 중…" : SubmitText)"
+                      RenderStyle="ButtonRenderStyle.Primary"
+                      Enabled="@(!_saving && _pasting == 0)"
+                      Click="@SubmitAsync" />
+
+            @if (OnCancel.HasDelegate)
+            {
+                <DxButton Text="취소"
+                          RenderStyle="ButtonRenderStyle.Secondary"
+                          Enabled="@(!_saving)"
+                          Click="@CancelAsync" />
+            }
+        </div>
     </div>
 </div>

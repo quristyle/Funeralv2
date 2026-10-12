@@ -55,4 +55,22 @@ public partial class MyComments
         var local = createdAt.Kind == DateTimeKind.Utc ? createdAt.ToLocalTime() : createdAt;
         return local.ToString("yyyy-MM-dd HH:mm");
     }
+
+    private static string FileUrl(Attachment file)
+    {
+        if (!string.IsNullOrWhiteSpace(file.FileId))
+        {
+            return FileDownload.UrlFor(file.FileId, file.OriginalFileName);
+        }
+
+        return $"/api/helpdesk/attachments/download/{file.Id}";
+    }
+
+    private static string Human(long bytes) => bytes switch
+    {
+        >= 1024L * 1024 * 1024 => $"{bytes / 1024.0 / 1024 / 1024:0.#} GB",
+        >= 1024 * 1024 => $"{bytes / 1024.0 / 1024:0.#} MB",
+        >= 1024 => $"{bytes / 1024.0:0.#} KB",
+        _ => $"{bytes} B",
+    };
 }

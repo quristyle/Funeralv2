@@ -1,3 +1,5 @@
+using HelpDeskServer.Models;
+
 namespace HelpDeskServer.Dtos;
 
 /// <summary>
@@ -45,5 +47,10 @@ public class MyCommentDto {
   /// 대댓글 수
   /// </summary>
   public int ReplyCount { get; set; }
+
+  /// <summary>
+  /// 첨부파일 목록
+  /// </summary>
+  public List<Attachment> Attachments { get; set; } = new();
 
 }

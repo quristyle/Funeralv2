@@ -391,6 +391,12 @@ public static class RequestEndpoints {
       var adminIds = comments.Where(c => c.AuthorType == "admin").Select(c => c.AuthorId).Distinct().ToList();
       var customerIds = comments.Where(c => c.AuthorType != "admin").Select(c => c.AuthorId).Distinct().ToList();
 
+      var commentIds = comments.Select(c => c.Id).ToList();
+      var attachments = await db.Attachments
+              .Where(a => (a.EntityType == "ImprovementComment" || a.EntityType == "Comment") && commentIds.Contains(a.EntityId))
+              .ToListAsync();
+      var attachmentsByComment = attachments.GroupBy(a => a.EntityId).ToDictionary(g => g.Key, g => g.ToList());
+
       var admins = await db.Admins
               .Where(a => adminIds.Contains(a.Id))
               .ToDictionaryAsync(a => a.Id);
@@ -408,6 +414,8 @@ public static class RequestEndpoints {
           author = new { customer.Id, customer.UserName, customer.Photo };
         }
 
+        attachmentsByComment.TryGetValue(c.Id, out var atts);
+
         return new {
           // 지운 줄은 내용을 내보내지 않는다.
           CommentText = c.IsDel ? CommentVisibility.DeletedText : c.CommentText,
@@ -422,7 +430,8 @@ public static class RequestEndpoints {
           c.IsDel,
           c.CreatedAt,
           c.CreatedBy,
-          Author = author
+          Author = author,
+          Attachments = c.IsDel ? new List<Attachment>() : (atts ?? new List<Attachment>())
         };
       }).ToList();
 

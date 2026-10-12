@@ -45,7 +45,7 @@ public static class CommentEndpoints {
     //     () => db.Comments.ToListAsync()
     // ));
 
-    group.MapGet("/my", (AppDbContext db, HttpContext http, string? content, DateTime? startDate, DateTime? endDate, int? userId, string? userType, string? companyId, bool? all) => ApiResponseBuilder.CreateAsync(() => {
+    group.MapGet("/my", (AppDbContext db, HttpContext http, string? content, DateTime? startDate, DateTime? endDate, int? userId, string? userType, string? companyId, bool? all) => ApiResponseBuilder.CreateAsync(async () => {
       var me = http.GetHelpdeskPrincipal();
 
       IQueryable<ImprovementComment> query = db.Comments.Where(c => !c.IsDel);
@@ -71,7 +71,7 @@ public static class CommentEndpoints {
         // 조회 대상을 특정할 수 없다. 헬프데스크 레코드에 이어지지 않은 계정은 남긴 댓글도 없으므로
         // 빈 목록이 맞다. 전에는 예외를 던져 화면 전체가 오류로 떨어졌다.
         if (!targetUserId.HasValue || string.IsNullOrEmpty(targetUserType)) {
-          return Task.FromResult(new List<MyCommentDto>());
+          return new List<MyCommentDto>();
         }
 
         var authorId = targetUserId.Value;
@@ -131,7 +131,19 @@ public static class CommentEndpoints {
                      ReplyCount = db.Comments.Count(c => c.ParentCommentId == comment.Id && !c.IsDel)
                    };
 
-      return result.ToListAsync();
+      var commentsList = await result.ToListAsync();
+      var commentIds = commentsList.Select(c => c.CommentId).ToList();
+      var attachments = await db.Attachments
+          .Where(a => (a.EntityType == "ImprovementComment" || a.EntityType == "Comment") && commentIds.Contains(a.EntityId))
+          .ToListAsync();
+      var attachmentsByComment = attachments.GroupBy(a => a.EntityId).ToDictionary(g => g.Key, g => g.ToList());
+      foreach (var c in commentsList) {
+        if (attachmentsByComment.TryGetValue(c.CommentId, out var atts)) {
+          c.Attachments = atts;
+        }
+      }
+
+      return commentsList;
     })).RequireAuthorization(); // Make sure endpoint requires authentication
 
     group.MapGet("/{id}", (AppDbContext db, int id) => ApiResponseBuilder.CreateAsync(async () => {

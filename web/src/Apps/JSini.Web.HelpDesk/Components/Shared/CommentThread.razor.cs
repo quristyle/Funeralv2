@@ -1,3 +1,4 @@
+using JSini.Web.Components.Data;
 using JSini.Web.Components.Layout;
 using JSini.Web.HelpDesk.Api;
 using Microsoft.AspNetCore.Components;
@@ -19,7 +20,7 @@ public partial class CommentThread
     [Parameter] public EventCallback<int?> OnToggle { get; set; }
 
     /// <summary>답글을 남긴다. 들어갔으면 참 — 그때만 편집기가 제 칸을 비운다.</summary>
-    [Parameter] public Func<int, string, Task<bool>>? OnReply { get; set; }
+    [Parameter] public Func<int, string, IReadOnlyList<PickedFile>, Task<bool>>? OnReply { get; set; }
 
     /// <summary>댓글을 지운다. 성공하면 참.</summary>
     [Parameter] public Func<int, Task<bool>>? OnDelete { get; set; }
@@ -43,11 +44,29 @@ public partial class CommentThread
     private Task ToggleAsync(CommentNode node) =>
         OnToggle.InvokeAsync(IsOpen(node) ? null : node.Comment.Id);
 
-    private Task<bool> Submit(int parentId, string html) =>
-        OnReply is null ? Task.FromResult(false) : OnReply(parentId, html);
+    private Task<bool> Submit(int parentId, string html, IReadOnlyList<PickedFile> files) =>
+        OnReply is null ? Task.FromResult(false) : OnReply(parentId, html, files);
 
     private Task<bool> DeleteAsync(CommentNode node) =>
         OnDelete is null ? Task.FromResult(false) : OnDelete(node.Comment.Id);
+
+    private static string FileUrl(Attachment file)
+    {
+        if (!string.IsNullOrWhiteSpace(file.FileId))
+        {
+            return FileDownload.UrlFor(file.FileId, file.OriginalFileName);
+        }
+
+        return $"/api/helpdesk/attachments/download/{file.Id}";
+    }
+
+    private static string Human(long bytes) => bytes switch
+    {
+        >= 1024L * 1024 * 1024 => $"{bytes / 1024.0 / 1024 / 1024:0.#} GB",
+        >= 1024 * 1024 => $"{bytes / 1024.0 / 1024:0.#} MB",
+        >= 1024 => $"{bytes / 1024.0:0.#} KB",
+        _ => $"{bytes} B",
+    };
 
     /// <summary>
     /// 작성자 이름. 서버가 담당자·고객을 <c>author</c> 하나로 풀어 준다.

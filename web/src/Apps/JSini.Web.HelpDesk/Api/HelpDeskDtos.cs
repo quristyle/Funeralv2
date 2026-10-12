@@ -1,4 +1,4 @@
-﻿namespace JSini.Web.HelpDesk.Api;
+namespace JSini.Web.HelpDesk.Api;
 
 // 헬프데스크 도메인 DTO. HelpDeskServer 의 Models/* 및
 // Vue 의 fronts/apps/jsini-portal/src/api/helpdesk/types.ts 와 대응한다.
@@ -134,6 +134,7 @@ public sealed class MyCommentItem
     public string? RequestStatus { get; set; }
     public int? ParentCommentId { get; set; }
     public int ReplyCount { get; set; }
+    public List<Attachment>? Attachments { get; set; }
 }
 
 /// <summary>

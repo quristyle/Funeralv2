@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Net;
 using System.Text.Json;
 using JSini.Web.Abstractions;
+using JSini.Web.Components.Data;
 using JSini.Web.Components.Layout;
 using JSini.Web.HelpDesk.Api;
 using JSini.Web.Http;
@@ -606,10 +607,10 @@ public partial class RequestDetail : IDisposable
     private void ToggleReply(int? commentId) => _replyTo = commentId;
 
     /// <summary>요청글에 바로 다는 댓글.</summary>
-    private Task<bool> AddRootAsync(string html) => AddAsync(null, html);
+    private Task<bool> AddRootAsync(string html, IReadOnlyList<PickedFile> files) => AddAsync(null, html, files);
 
     /// <summary>댓글에 다는 답글. 깊이는 따지지 않는다 — 대댓글도 같은 길이다.</summary>
-    private Task<bool> AddReplyAsync(int parentId, string html) => AddAsync(parentId, html);
+    private Task<bool> AddReplyAsync(int parentId, string html, IReadOnlyList<PickedFile> files) => AddAsync(parentId, html, files);
 
     /// <summary>
     /// 댓글 하나를 남긴다.
@@ -624,7 +625,7 @@ public partial class RequestDetail : IDisposable
     /// 쓴 글이 사라지고, 성공했는데 안 비우면 같은 말이 두 번 들어간다.
     /// </para>
     /// </remarks>
-    private async Task<bool> AddAsync(int? parentCommentId, string html)
+    private async Task<bool> AddAsync(int? parentCommentId, string html, IReadOnlyList<PickedFile> files)
     {
         if (!int.TryParse(Id, out var requestId))
         {
@@ -632,25 +633,39 @@ public partial class RequestDetail : IDisposable
             return false;
         }
 
+        ImprovementComment? created = null;
         var added = await RunAsync(
-            () => Api.PostAsync("comments", new
+            async () =>
             {
-                requestId,
-                commentText = html,
+                created = await Api.PostAsync<ImprovementComment>("comments", new
+                {
+                    requestId,
+                    commentText = html,
 
-                // 뿌리 댓글이면 null 이다. 서버 모델의 칸 이름이 그대로
-                // `parentCommentId` 라 바꿔 적으면 **조용히 뿌리로 들어간다.**
-                parentCommentId,
+                    // 뿌리 댓글이면 null 이다. 서버 모델의 칸 이름이 그대로
+                    // `parentCommentId` 라 바꿔 적으면 **조용히 뿌리로 들어간다.**
+                    parentCommentId,
 
-                // 서버가 이 둘로 이름을 찾는다. 담당자와 고객은 번호 체계가
-                // 달라서 종류를 함께 보내야 한다.
-                authorType = Context.Identity?.LoginType ?? "admin",
-                authorId = Context.HelpdeskUserId ?? 0,
-            }),
+                    // 서버가 이 둘로 이름을 찾는다. 담당자와 고객은 번호 체계가
+                    // 달라서 종류를 함께 보내야 한다.
+                    authorType = Context.Identity?.LoginType ?? "admin",
+                    authorId = Context.HelpdeskUserId ?? 0,
+                });
+            },
             "남겼습니다.", "남기지 못했습니다");
 
-        if (added)
+        if (added && created is not null)
         {
+            var commentId = created.Id;
+            if (files.Count > 0)
+            {
+                var failedUploads = await UploadFilesAsync(commentId, files);
+                if (failedUploads > 0)
+                {
+                    Say($"{failedUploads}개 첨부파일을 올리지 못했습니다.", NoticeTone.Warning);
+                }
+            }
+
             _replyTo = null;
             await ReloadAsync();
         }
@@ -659,7 +674,53 @@ public partial class RequestDetail : IDisposable
         // 대리자다 — Blazor 가 스스로 다시 그려 주지 않으므로 여기서 부른다.
         StateHasChanged();
 
-        return added;
+        return added && created is not null;
+    }
+
+    /// <summary>
+    /// 댓글 첨부파일을 올린다.
+    /// </summary>
+    private async Task<int> UploadFilesAsync(int commentId, IReadOnlyList<PickedFile> files)
+    {
+        if (files.Count == 0)
+        {
+            return 0;
+        }
+
+        var streams = new List<Stream>(files.Count);
+        try
+        {
+            using var form = new MultipartFormDataContent
+            {
+                { new StringContent("ImprovementComment"), "entityType" },
+                { new StringContent(commentId.ToString()), "entityId" },
+            };
+
+            foreach (var file in files)
+            {
+                var stream = file.OpenRead();
+                streams.Add(stream);
+
+                var part = new StreamContent(stream);
+                part.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType);
+
+                form.Add(part, "files", file.Name);
+            }
+
+            await Api.PostMultipartAsync<JsonElement?>("files/upload", form);
+            return 0;
+        }
+        catch (ApiException)
+        {
+            return files.Count;
+        }
+        finally
+        {
+            foreach (var stream in streams)
+            {
+                await stream.DisposeAsync();
+            }
+        }
     }
 
     /// <summary>

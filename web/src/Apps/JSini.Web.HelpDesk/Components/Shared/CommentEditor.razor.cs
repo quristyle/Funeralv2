@@ -1,4 +1,5 @@
 using DevExpress.Blazor;
+using JSini.Web.Components.Data;
 using JSini.Web.Components.Layout;
 using JSini.Web.HelpDesk.Api;
 using Microsoft.AspNetCore.Components;
@@ -29,25 +30,17 @@ public partial class CommentEditor
     [Parameter] public string SubmitText { get; set; } = "남기기";
 
     /// <summary>
-    /// 다 쓴 글을 받는 쪽. <b>저장할 모양의 HTML</b> 이 넘어간다 —
-    /// 그림은 이미 파일이 되어 있고 주소도 백엔드 정본으로 되돌려 두었다.
+    /// 다 쓴 글과 첨부파일을 받는 쪽. <b>저장할 모양의 HTML</b> 과 고른 파일 목록이 넘어간다.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <see cref="EventCallback"/> 이 아니라 값을 돌려주는 대리자다.
-    /// <b>들어갔는지를 알아야 칸을 비울 수 있기 때문</b>이다 — 실패했는데
-    /// 비우면 방금 쓴 글이 사라지고, 성공했는데 안 비우면 같은 말이 두 번
-    /// 들어간다. 대신 <b>부르는 쪽이 스스로 다시 그려야 한다</b>(Blazor 가
-    /// 자동으로 그려 주는 것은 <c>EventCallback</c> 뿐이다).
-    /// </para>
-    /// </remarks>
-    [Parameter] public Func<string, Task<bool>>? OnSubmit { get; set; }
+    [Parameter] public Func<string, IReadOnlyList<PickedFile>, Task<bool>>? OnSubmit { get; set; }
 
     /// <summary>「취소」. 대리자가 없으면 단추도 안 그린다(뿌리 댓글 칸이 그렇다).</summary>
     [Parameter] public EventCallback OnCancel { get; set; }
 
     private string _markup = string.Empty;
     private bool _saving;
+    private FilePicker? _picker;
+    private IReadOnlyList<PickedFile> _files = [];
 
     /// <summary>
     /// 이 칸에 글을 쓰는 중인가 — <b>도구줄을 세울지</b>를 가른다.
@@ -109,6 +102,7 @@ public partial class CommentEditor
             _boundId = Id;
             _bound = false;
             _markup = string.Empty;
+            _files = [];
 
             // 다른 댓글에 답하는 칸이 되었다. 쓰던 글이 비워졌으므로
             // 도구줄도 처음 모습으로 되돌린다.
@@ -321,6 +315,21 @@ public partial class CommentEditor
         }
     }
 
+    private async Task CancelAsync()
+    {
+        _markup = string.Empty;
+        if (_picker is not null)
+        {
+            await _picker.ClearAsync();
+        }
+        _files = [];
+        _writing = false;
+        if (OnCancel.HasDelegate)
+        {
+            await OnCancel.InvokeAsync();
+        }
+    }
+
     private async Task SubmitAsync()
     {
         if (_saving || OnSubmit is null)
@@ -331,7 +340,7 @@ public partial class CommentEditor
         // 편집기가 아직 알려 주지 않은 마지막 줄까지 여기서 받아 온다.
         await FlushAsync();
 
-        if (RequestContentHtml.IsBlank(_markup))
+        if (RequestContentHtml.IsBlank(_markup) && _files.Count == 0)
         {
             Toasts.Show("남길 내용을 적으십시오.", NoticeTone.Warning);
             return;
@@ -353,9 +362,20 @@ public partial class CommentEditor
             // 있는 것이 다시 base64 이면 누를 때마다 같은 일을 되풀이한다.
             _markup = absorbed.Url;
 
-            if (await OnSubmit(RequestContentHtml.ToStored(_markup)))
+            var html = RequestContentHtml.ToStored(_markup);
+            if (string.IsNullOrWhiteSpace(html) && _files.Count > 0)
+            {
+                html = "<p></p>";
+            }
+
+            if (await OnSubmit(html, _files))
             {
                 _markup = string.Empty;
+                if (_picker is not null)
+                {
+                    await _picker.ClearAsync();
+                }
+                _files = [];
 
                 // 빈 칸으로 돌아왔으니 도구줄도 접는다. 다시 짚으면 또 선다.
                 _writing = false;
