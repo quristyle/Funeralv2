@@ -6180,13 +6180,34 @@ a.jsini-social__btn:focus-visible {
   padding: 0.75rem;
 }
 
-.jsini-note-drawer__card { cursor: pointer; }
+.jsini-note-drawer-custom,
+.jsini-note-drawer {
+  font-size: var(--jsini-fs-md);
+}
 
-/* 한 줄의 짜임 — [얼굴] [글] [✓]. 가운데 글만 늘어난다. */
+.jsini-note-drawer__status {
+  font-size: var(--jsini-fs-sm);
+}
+
+.jsini-note-drawer__card {
+  cursor: pointer;
+  font-size: var(--jsini-fs-md);
+}
+
+/* 한 줄의 짜임 — [프로필(얼굴+단추)] [글]. 글 영역이 남은 폭을 온전히 쓴다. */
 .jsini-note-drawer__row {
   display: flex;
   align-items: flex-start;
   gap: 0.6rem;
+}
+
+/* 프로필 사진과 그 아래 읽음·삭제 단추 묶음 — 가로 공간을 아끼기 위해 단추를 얼굴 아래로 모은다. */
+.jsini-note-drawer__profile {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
 }
 
 /* 앱 알림에 떴던 그림. **동그랗게 자른다** — 대개 사람 얼굴이라 휴대폰
@@ -6207,33 +6228,55 @@ a.jsini-social__btn:focus-visible {
 
 /* **`min-width: 0` 이 있어야 긴 글이 접힌다.** flex 자식의 기본 최소 너비가
    「내용 크기」라, 이것이 없으면 띄어쓰기 없는 긴 제목 하나가 줄을 통째로
-   밀어내 ✓ 단추를 카드 밖으로 내보낸다. */
+   밀어내 단추를 카드 밖으로 내보낸다. */
 .jsini-note-drawer__text {
   flex: 1;
   min-width: 0;
 }
 
-.jsini-note-drawer__text .card-title,
-.jsini-note-drawer__text .card-text {
+.jsini-note-drawer__text .card-title {
+  font-size: var(--jsini-fs-md);
+  font-weight: 600;
+  line-height: 1.35;
   overflow-wrap: anywhere;
+}
+
+.jsini-note-drawer__text .card-text {
+  font-size: var(--jsini-fs-sm);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.jsini-note-drawer__date {
+  font-size: var(--jsini-fs-2xs);
+  line-height: 1.25;
 }
 
 /* 데스크톱 알림 관리 단추(읽음 · 삭제). 평소에는 눈에 안 띄게 두고 카드에 손이 오면 또렷해진다 —
    목록에서 먼저 읽혀야 하는 것은 알림 내용이지 이 단추가 아니다.
 
+   프로필 사진 아래에 배치하여 가로 공간의 활용도를 높인다.
    휴대폰에서는 스와이프로 처리하므로 데스크톱 폭에서만 보인다. */
 .jsini-note-drawer__actions {
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.15rem;
+  --jsini-icon-size: calc(var(--jsini-fs-base) * 1.05);
 }
 
 .jsini-note-drawer__mark {
   flex: 0 0 auto;
   display: inline-flex;
-  opacity: 0.45;
+  opacity: 0.55;
   transition: opacity 0.15s ease-in-out;
+}
+
+.jsini-note-drawer__mark .dxbl-btn {
+  padding: 0.05rem;
+  min-width: 0;
+  line-height: 1;
 }
 
 .jsini-note-drawer__card:hover .jsini-note-drawer__mark,
