@@ -3734,19 +3734,6 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
   background: var(--jsini-bg);
 }
 
-/* 로그는 기계가 찍은 것이라 고정폭으로, 한 단 눌러 둔다.
-
-   **상한이 남은 것은 이 상자뿐이다.** 수백 줄이 통째로 펴지면 그 아래에
-   아무것도 없는데 판만 수십 화면 길이가 되고, 새 줄을 바닥에 붙여 두는
-   일(`js/log-tail.js`)도 구르는 상자가 있어야 할 수 있다. */
-.pm-peek__pre--log {
-  max-height: 22rem;
-  overflow: auto;
-  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
-  font-size: var(--jsini-fs-xs);
-  background: var(--jsini-surface);
-}
-
 /* 한 판 안의 칸 이름 — 「처리 요약」 · 「지시」 · 「결과」.
 
    셋이 한 판에 이어 서므로 **어디서 어디까지가 무엇인지**를 이 줄이
@@ -4121,12 +4108,6 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
    그 창 자체가 없어졌다 — 폭을 다투는 상대가 사라졌으니 띄울 것도 없다.
 
    지시와 결과는 여기서도 상한이 없다 — 판이 통째로 구른다. */
-@media (max-width: 767px) {
-  .pm-peek__pre--log {
-    max-height: 62dvh;
-  }
-}
-
 /* ── 일정표: 구글 캘린더 (`pm-gc-*`) ─────────────────────────
 
    화면 머리말([왜 구글 캘린더를 그대로 본떴나])에 까닭을 적어 두었다.
@@ -5961,16 +5942,13 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
 /* ────────────────────────────────────────────────────────────
    로그 — 원문·번역 좌우 비교 (`LogTranslateView`)
 
-   「AI 작업」 상세의 로그 탭 안에 선다. 보는 법을 고르는 줄과
-   Monaco 비교 편집기 한 틀이 전부다.
-   ──────────────────────────────────────────────────────────── */
+   「AI 작업」 상세의 **로그 탭 그 자체다.** 머리띠 한 줄과 Monaco 비교
+   편집기 한 틀이 전부다.
 
-/* 보는 법 고르개(원문 · 원문·번역 비교). 글상자 바로 위에 붙는다. */
-.pm-peek__logmode {
-  display: flex;
-  gap: 0.375rem;
-  margin: 0 0 0.5rem;
-}
+   보는 법을 고르는 줄(`.pm-peek__logmode`)과 그 옆의 글상자
+   (`.pm-peek__pre--log`)가 함께 있었다. 원문을 보여 주는 자리가 둘이 되어
+   걷어냈다 — 지금은 왼쪽 칸 하나다.
+   ──────────────────────────────────────────────────────────── */
 
 .pm-xlat {
   display: flex;
@@ -5979,7 +5957,7 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
   margin: 0 0 0.5rem;
 }
 
-/* 머리띠 — 어느 말로 옮길지 · 번역 단추 · 어디까지 왔나.
+/* 머리띠 — 줄바꿈 · 되돌리기 · 몇 줄을 옮겼나.
 
    좁은 화면에서는 줄바꿈으로 흘러내리게 둔다. 가로로 구르는 머리띠는
    거기서 단추 절반이 화면 밖에 남는다. */
@@ -5988,11 +5966,6 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.375rem;
-}
-
-.pm-xlat__langs {
-  display: inline-flex;
-  gap: 0.25rem;
 }
 
 .pm-xlat__stat {
@@ -6043,8 +6016,8 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
 
    **높이를 여기서 준다.** Monaco 는 부모의 높이를 재서 제 몸을 그리므로,
    높이가 없는 상자에 넣으면 만들어지기는 하는데 줄이 하나도 안 보인다.
-   값은 원문 글상자(`pm-peek__pre--log`, 22rem)보다 넉넉하다 — 좌우로
-   나뉘어 한 줄이 접히는 일이 잦아 같은 높이면 보이는 줄이 절반이 된다. */
+   값은 이 자리에 있던 글상자(22rem)보다 넉넉하다 — 좌우로 나뉘어 한 줄이
+   접히는 일이 잦아 같은 높이면 보이는 줄이 절반이 된다. */
 .pm-xlat__editor {
   height: 30rem;
   border: 1px solid var(--jsini-border);
@@ -6055,6 +6028,15 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
 .pm-xlat__inner {
   width: 100%;
   height: 100%;
+}
+
+/* 휴대폰에서는 화면 높이로 잰다. **글상자가 쓰던 값을 그대로 가져온다**
+   (`.pm-peek__pre--log` 의 62dvh) — 이 틀이 그 상자를 대신하는 자리이고,
+   30rem 은 작은 화면에서 거의 한 판을 다 먹는다. */
+@media (max-width: 767px) {
+  .pm-xlat__editor {
+    height: 62dvh;
+  }
 }
 
 .pm-xlat__loading {

@@ -186,9 +186,6 @@ public partial class AiTaskView
     /// <summary>로그를 한 번이라도 받았나. 로그 탭을 열 때 한 번만 받는다.</summary>
     private bool _logRead;
 
-    private ElementReference _logEl;
-    private IJSObjectReference? _logJs;
-
     /// <summary>돌고 있는 동안만 도는 타이머.</summary>
     private CancellationTokenSource? _poll;
 
@@ -307,22 +304,6 @@ public partial class AiTaskView
             ];
         }
     }
-
-    /// <summary>그릴 로그 한 덩이. 글상자가 그대로 편다.</summary>
-    private string LogText => string.Join('\n', LogLines);
-
-    /// <summary>
-    /// 로그를 <b>원문·번역으로 견주어</b> 보고 있나. 기본은 거짓(원문)이다.
-    /// </summary>
-    /// <remarks>
-    /// <b>탭을 떠나도 기억한다.</b> 번역은 로컬 LLM 왕복이 여러 번이라 몇
-    /// 분이 걸리는데, 「지시와 결과」를 한 번 보고 돌아올 때마다 원문으로
-    /// 돌아가 있으면 그 일을 처음부터 다시 해야 한다.
-    /// </remarks>
-    private bool _logXlat;
-
-    /// <summary>보는 법을 바꾼다.</summary>
-    private void ShowLogXlat(bool on) => _logXlat = on;
 
     /// <summary>처리 파일을 더 펴거나 도로 접는다.</summary>
     /// <summary>처리 요약을 접었다 편다. 제목 줄이 통째로 이 단추다.</summary>
@@ -847,48 +828,6 @@ public partial class AiTaskView
         // 요약이 길었다는 사정이고, 새 건을 열자마자 결론이 접혀 있으면
         // 이 판을 여는 까닭이 통째로 숨는다.
         _sumOpen = true;
-
-        // 다른 건을 열었다. **보는 법도 되돌린다** — 앞 건에서 번역을 켜 둔
-        // 채로 옮겨 오면 열자마자 로컬 LLM 이 남의 로그를 옮기기 시작한다.
-        _logXlat = false;
-    }
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        await FollowLogAsync();
-    }
-
-    /// <summary>
-    /// 로그를 <b>바닥에 붙여 둔다.</b> 사람이 위를 읽는 중이면 JS 쪽이
-    /// 알아서 놓아 준다(<c>js/log-tail.js</c>).
-    /// </summary>
-    /// <remarks>
-    /// <b>로그 탭을 보고 있을 때만 부른다.</b> 숨어 있는 동안에는 상자 높이가
-    /// 0 이라 밀어도 먹지 않는다. 따라가기는 <b>편의다</b> — 못 해도 로그는
-    /// 그대로 보이므로 여기서 나는 것으로 화면을 세우지 않는다.
-    /// </remarks>
-    private async Task FollowLogAsync()
-    {
-        // **비교 판을 보고 있으면 밀 상자가 없다.** 그때는 글상자가 아예
-        // 그려지지 않아 `_logEl` 이 빈 참조이고, 그대로 넘기면 회로를 타고
-        // 나간 JS 호출이 매 렌더마다 던진다(잡히기는 하지만 왕복은 그대로 든다).
-        if (!Live || _tab != TabLog || _logXlat || _lines.Count == 0)
-        {
-            return;
-        }
-
-        try
-        {
-            _logJs ??= await Js.InvokeAsync<IJSObjectReference>(
-                "import", "./_content/JSini.Web.ProjMng/js/log-tail.js");
-
-            await _logJs.InvokeVoidAsync("follow", _logEl);
-        }
-        catch (Exception ex) when (ex is JSException or JSDisconnectedException
-            or InvalidOperationException or TaskCanceledException or ObjectDisposedException)
-        {
-            // 떠났거나 회로가 끊겼다. 조용히 넘어간다.
-        }
     }
 
     [JSInvokable]

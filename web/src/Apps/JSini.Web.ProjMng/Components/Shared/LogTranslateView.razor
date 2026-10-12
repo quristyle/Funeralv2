@@ -3,9 +3,13 @@
 @*
     [로그를 원문과 번역으로 나란히 본다]
 
-    「AI 작업」 상세(`/projmng/ai/task/{번호}`)의 **로그 탭 안**에 선다.
-    실행기가 찍은 줄은 거의 영어고, 수백 줄 가운데 「어디서 걸렸나」를 찾는
-    사람에게 그것이 느리게 읽힌다.
+    「AI 작업」 상세(`/projmng/ai/task/{번호}`)의 **로그 탭 그 자체다.** 로그를
+    펴면 이 판 하나가 선다 — 왼쪽이 원문이고 오른쪽이 한국어다.
+
+    **옛 모습은 보는 법이 둘이었다** — 「원문」 글상자와 「원문·번역 비교」를
+    단추로 갈아 가며 보았다. 그러면 원문을 보여 주는 자리가 둘이 되고(글상자 ·
+    비교 판의 왼쪽 칸), 사람 눈에는 **같은 것이 두 번 서 있는 것**이다. 자리를
+    하나로 합치고, 원문은 왼쪽에만 둔다.
 
     ────────────────────────────────────────────────────────────
     [왜 Monaco 의 좌우 비교 편집기인가]
@@ -19,95 +23,83 @@
     빈 칸을 끼워 넣는다). 구르기도 좌우가 함께 간다. 우리가 만들 수 있는
     것이 아니라 편집기가 들고 있는 것이다.
 
-    **번역이 줄 수를 지켜야 그것이 성립한다.** 그 일은 서버가 한다 —
-    줄마다 번호를 달아 보내고 번호로 제자리에 꽂는다
-    (`LLMService.MergeTranslation`). 못 옮긴 줄에는 원문이 남으므로
-    **짝이 깨지는 경우가 없다.**
+    **줄 수가 좌우로 같아야 그것이 성립한다.** 여기서는 줄 하나를 옮겨도 그
+    자리의 한 줄만 갈아 끼우므로 줄 수가 틀어질 일이 없다.
 
     [아직 안 옮긴 줄에 원문을 둔다]
 
     오른쪽을 빈 줄로 채워 두고 옮겨지는 대로 메우는 길도 있었다. 그러면
-    번역이 10%쯤 됐을 때 오른쪽이 거의 백지라 **고장으로 보인다.** 그리고
-    빈 줄과 원문 줄은 편집기에게 '다른 줄' 이라, 짝을 맞추다가 자리가 튄다.
+    열자마자 오른쪽이 통째로 백지라 **고장으로 보인다.** 그리고 빈 줄과 원문
+    줄은 편집기에게 '다른 줄' 이라, 짝을 맞추다가 자리가 튄다.
 
     원문을 두면 둘 다 풀린다 — 아직 안 옮긴 줄은 좌우가 **같은 글**이라
     편집기가 반드시 같은 높이에 세우고, 사람 눈에는 「여기는 아직」으로 읽힌다.
 
     ────────────────────────────────────────────────────────────
+    [누른 줄 하나만 옮긴다 — 통째로 돌지 않는다]
+
+    열자마자 수백 줄을 통째로 옮기던 때가 있었다. 로컬 LLM 왕복이 수십 번이라
+    몇 분이 걸리고, 그동안 이 화면을 연 사람이 **실제로 보려던 것은 걸린 줄
+    하나**였다. 들인 품의 거의 전부가 아무도 안 읽는 줄에 쓰였다.
+
+    지금은 **누른 줄만 간다.** 좌우 어느 칸을 눌러도 되고, 짝인 오른쪽 줄
+    자리에 옮긴 글이 꽂힌다. 왕복 한 번이라 몇 초면 돌아온다.
+
     [로컬 LLM 으로 옮긴다]
 
-    올라가는 것이 실행기가 찍은 로그 전문이다. 바깥 공급자로 먼저 나갈
-    까닭이 없어 `jsini`(로컬 LLM)를 적어 보낸다(`AiLogTranslator`).
-    그 장비가 꺼져 있으면 서버가 스스로 다음 공급자로 넘기므로, **누가
-    답했는지**를 받아 머리띠에 그대로 내건다.
+    올라가는 것이 실행기가 찍은 로그다. 바깥 공급자로 먼저 나갈 까닭이 없어
+    `jsini`(로컬 LLM)를 적어 보낸다(`AiLogTranslator`). 그 장비가 꺼져 있으면
+    서버가 스스로 다음 공급자로 넘기므로, **누가 답했는지**를 받아 머리띠에
+    그대로 내건다.
 
-    [스무 줄씩 끊어 보내고 오는 대로 꽂는다]
+    [가는 말은 한국어뿐이다]
 
-    로컬 LLM 은 한 덩이에 십 초가 넘는 일이 흔하다. 다 모아서 한 번에
-    그리면 그동안 오른쪽이 통째로 원문이라 **아무 일도 안 일어나는 것처럼**
-    보인다. 한 덩이가 올 때마다 그 자리를 갈아 끼우고 몇 줄까지 왔는지를
-    적는다.
+    「한국어 · English」를 고르는 단추가 있었다. 그런데 **왼쪽이 이미 원문**
+    이라 English 를 고르면 좌우가 같은 말이 되고, 영어 로그를 영어로 옮긴
+    판에는 볼 것이 없다. 고를 것이 하나뿐인 고르개는 자리만 먹으므로 걷어냈다.
 
     [탭을 건너갔다 와도 옮긴 것은 남는다]
 
     이 판은 로그 탭 **안**에 있고 그 탭은 `DxTabs` 가 쥐고 있다. 「지시와
     결과」로 한 번 건너가면 알맹이가 통째로 버려지고 돌아올 때 새로 태어난다 —
-    판이 들고 있으면 **번역도 함께 없어진다.** 결과를 보러 건너갔다 오는 것은
-    이 화면에서 가장 흔한 동작인데, 그때마다 처음부터 다시 돌면 아무도 끝까지
-    못 본다. 그래서 옮긴 것은 화면 밖(`AiLogXlatStore`)에 두고, 돌아오면
-    **멈춘 자리에서 이어 간다.**
+    판이 들고 있으면 **옮긴 줄도 함께 없어진다.** 결과를 보러 건너갔다 오는 것은
+    이 화면에서 가장 흔한 동작이다. 그래서 옮긴 것은 화면 밖(`AiLogXlatStore`)에
+    두고, 돌아오면 **그대로 다시 보인다.**
 
     ────────────────────────────────────────────────────────────
     [돌고 있는 건은 줄이 늘어난다]
 
     로그는 실행 중에 바닥으로 자란다. 늘어난 줄만 뒤에 붙이고 **이미 옮긴
-    것은 그대로 둔다**(`SyncSource`). 앞부분이 달라졌으면(꼬리만 그리는
-    상한에 걸려 앞이 잘렸다) 번역을 버리고 처음부터 다시 센다 — 그대로
-    이어 붙이면 번역이 **엉뚱한 줄에 붙는다.**
+    것은 그대로 둔다**(`SyncSource`) — 자리가 안 밀리므로 옮겨 둔 줄이 제
+    자리에 남는다. 앞부분이 달라졌으면(꼬리만 그리는 상한에 걸려 앞이 잘렸다)
+    옮긴 것을 버리고 처음부터 센다 — 그대로 이어 붙이면 번역이 **엉뚱한 줄에
+    붙는다.**
 *@
 
 @implements IAsyncDisposable
 
 <div class="pm-xlat">
     <div class="pm-xlat__bar">
-        <span class="pm-xlat__langs">
-            @foreach (var lang in Languages)
-            {
-                <DxButton Text="@lang.Name"
-                          RenderStyle="ButtonRenderStyle.Secondary"
-                          RenderStyleMode="@(lang.Code == _state.Lang
-                              ? ButtonRenderStyleMode.Contained
-                              : ButtonRenderStyleMode.Outline)"
-                          Enabled="@(!_busy)"
-                          Click="@(() => PickLanguageAsync(lang.Code))" />
-            }
-        </span>
-
-        @if (_busy)
-        {
-            <DxButton Text="중지"
-                      RenderStyle="ButtonRenderStyle.Danger"
-                      RenderStyleMode="ButtonRenderStyleMode.Outline"
-                      Click="@Stop" />
-        }
-        else
-        {
-            <DxButton Text="@RunText"
-                      RenderStyle="ButtonRenderStyle.Primary"
-                      Enabled="@(_state.Source.Count > 0)"
-                      Click="@TranslateAsync" />
-        }
-
         <DxButton Text="@(_wrap ? "줄바꿈 끄기" : "줄바꿈 켜기")"
                   RenderStyle="ButtonRenderStyle.Secondary"
                   RenderStyleMode="ButtonRenderStyleMode.Outline"
                   Click="@ToggleWrapAsync" />
 
+        @* 옮긴 줄을 모두 원문으로 되돌린다. **번역 단추의 자리가 아니다** —
+           옮기는 일은 줄을 눌러 시킨다. 여기 있는 것은 그 반대, 「처음 상태로」다. *@
+        @if (_state.DoneLines.Count > 0)
+        {
+            <DxButton Text="옮긴 줄 비우기"
+                      RenderStyle="ButtonRenderStyle.Secondary"
+                      RenderStyleMode="ButtonRenderStyleMode.Outline"
+                      Click="@ClearTranslationsAsync" />
+        }
+
         <span class="pm-xlat__stat">@StatusText</span>
     </div>
 
     @* 칸 이름. **「왼쪽 원문 · 오른쪽 번역」 한 줄로는 모자랐다** — 머리띠
-       왼쪽 끝에 적힌 한 마디는 아무도 안 읽고, 번역이 덜 된 판은 좌우가 둘 다
+       왼쪽 끝에 적힌 한 마디는 아무도 안 읽고, 아직 안 옮긴 판은 좌우가 둘 다
        영어라 어느 쪽이 원문인지 **글만 봐서는 못 가린다.** 칸 위에 직접 적는다.
 
        반반으로 나뉜다는 것을 믿고 적는 글이라, 가운데 가름쇠를 끌어 옮기는
@@ -115,7 +107,7 @@
        7:3 이 되는데 이름표는 5:5 에 남아 **이름이 남의 칸을 가리킨다.** *@
     <div class="pm-xlat__heads">
         <span class="pm-xlat__head">원문</span>
-        <span class="pm-xlat__head pm-xlat__head--right">번역 · @LangName</span>
+        <span class="pm-xlat__head pm-xlat__head--right">번역 · 한국어</span>
     </div>
 
     @* 편집기가 설 자리. **높이가 여기서 정해진다** — Monaco 는 부모의 높이를
@@ -129,16 +121,16 @@
                ── 걸어 두는 손짓 셋 ──────────────────────────────
                커서가 선 줄에 불을 켜고(`OnDidChangeCursorPosition…`) **그 짝인
                건너편 줄에도 같은 불을 켠다.** 누름은 따로 받는다
-               (`OnMouseDownOriginal`) — 커서는 화살표로도 움직이는데, 그때마다
-               다시 옮기면 **키를 누르고 있는 동안 LLM 이 줄줄이 돈다.** *@
+               (`OnMouseDown…`) — 커서는 화살표로도 움직이는데, 그때마다
+               옮기기를 걸면 **키를 누르고 있는 동안 LLM 이 줄줄이 돈다.** *@
             <StandaloneDiffEditor @ref="_diff"
                                   Id="@_id"
                                   ConstructionOptions="@BuildOptions"
                                   CssClass="pm-xlat__inner"
                                   OnDidChangeCursorPositionOriginal="@OnCursorMovedAsync"
                                   OnDidChangeCursorPositionModified="@OnCursorMovedAsync"
-                                  OnMouseDownOriginal="@OnOriginalClickedAsync"
-                                  OnMouseDownModified="@OnModifiedClickedAsync" />
+                                  OnMouseDownOriginal="@OnLineClickedAsync"
+                                  OnMouseDownModified="@OnLineClickedAsync" />
         }
         else
         {
@@ -149,7 +141,7 @@
     @* 누르면 무슨 일이 나는지는 **눌러 보기 전에** 적혀 있어야 한다. 줄을
        눌렀더니 오른쪽이 갑자기 바뀌는 것은, 모르고 보면 고장이다. *@
     <div class="pm-xlat__foot">
-        줄을 누르면 좌우 같은 줄에 불이 켜지고, <b>왼쪽 줄을 누르면 그 한 줄만
-        다시 옮긴다</b> — 번역이 어설픈 줄을 집어서 고쳐 받는 자리다.
+        줄을 누르면 좌우 같은 줄에 불이 켜지고, <b>그 한 줄만 한국어로 옮겨
+        오른쪽에 채운다</b> — 좌우 어느 칸을 눌러도 같다.
     </div>
 </div>

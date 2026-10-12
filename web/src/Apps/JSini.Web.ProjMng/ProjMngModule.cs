@@ -106,7 +106,7 @@ public sealed class ProjMngModule : IPortalModule
 
         // 로그 번역(원문·번역 좌우 비교)을 들고 있는 곳. 같은 까닭으로 화면
         // 밖이다 — 로그 탭의 알맹이는 다른 탭으로 건너가는 순간 버려지는데,
-        // 로컬 LLM 왕복 수십 번이 든 번역은 살아 있어야 한다.
+        // 사람이 줄을 짚어 가며 모은 번역은 살아 있어야 한다.
         services.AddScoped<Components.Shared.AiLogXlatStore>();
         services.AddScoped<BizOptions>();
 

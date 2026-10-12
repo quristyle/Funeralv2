@@ -14,14 +14,15 @@ namespace JSini.Web.ProjMng.Components.Shared;
 /// 번역도 함께 없어진다.
 /// </para>
 /// <para>
-/// 그 값이 비싸다. 번역은 로컬 LLM 왕복이 수십 번이라 삼백 줄이면 몇 분이
-/// 걸린다. 결과를 보러 건너갔다 오는 것은 <b>이 화면에서 가장 흔한
-/// 동작</b>인데, 그때마다 처음부터 다시 돌면 아무도 끝까지 못 본다.
+/// 그 값이 비싸다. 줄 하나를 옮기는 데 로컬 LLM 왕복이 한 번이고, 사람은
+/// 걸린 자리를 찾느라 열 줄 스무 줄을 짚는다. 결과를 보러 건너갔다 오는 것은
+/// <b>이 화면에서 가장 흔한 동작</b>인데, 그때마다 짚은 줄이 통째로 원문으로
+/// 돌아가 있으면 같은 줄을 또 눌러야 한다.
 /// </para>
 /// <para>
-/// 그래서 옮긴 것을 화면이 아니라 여기 둔다. 돌아오면 판은 <b>멈춘 자리에서
-/// 이어 간다</b>. 「빠른 지시」의 임시본·고른 값을 화면 밖에 두는 것과 같은
-/// 까닭이다(<see cref="AiTaskDraftStore"/> · <see cref="AiAskPrefs"/>).
+/// 그래서 옮긴 것을 화면이 아니라 여기 둔다. 돌아오면 판은 <b>짚어 둔 줄을
+/// 그대로 들고</b> 선다. 「빠른 지시」의 임시본·고른 값을 화면 밖에 두는 것과
+/// 같은 까닭이다(<see cref="AiTaskDraftStore"/> · <see cref="AiAskPrefs"/>).
 /// </para>
 /// <para>
 /// <b>브라우저에 적지 않는다.</b> 임시본과 갈리는 자리다 — 저것은 사람이
@@ -91,8 +92,15 @@ public sealed class AiLogXlatState
     /// <summary>오른쪽 칸에 적을 줄들. <b>아직 안 옮긴 자리에는 원문이 있다.</b></summary>
     public List<string> Out { get; set; } = [];
 
-    /// <summary>앞에서부터 몇 줄까지 손댔나. 그 뒤가 남은 몫이다.</summary>
-    public int Done { get; set; }
+    /// <summary>
+    /// 옮긴 줄의 자리(0부터). <b>앞에서부터 센 숫자가 아니라 자리의 모음이다</b> —
+    /// 사람이 누른 줄만 옮기므로 옮긴 자리가 띄엄띄엄 흩어진다.
+    /// </summary>
+    /// <remarks>
+    /// 로그가 자라도 <b>자리는 안 밀린다</b>(뒤에만 붙는다). 그래서 담아 둔
+    /// 자리가 그대로 맞고, 앞이 잘려 나갔을 때만 <see cref="Reset"/> 이 비운다.
+    /// </remarks>
+    public HashSet<int> DoneLines { get; } = [];
 
     /// <summary>
     /// 들고 있는 줄이 <b>통째로 갈린 횟수.</b> 옮기던 덩이가 돌아왔을 때
@@ -100,36 +108,30 @@ public sealed class AiLogXlatState
     /// </summary>
     public int Generation { get; set; }
 
-    /// <summary>옮겨 갈 말(<c>ko</c> · <c>en</c>).</summary>
-    public string Lang { get; set; } = "ko";
-
     /// <summary>실제로 답한 AI. 로컬이 꺼져 있으면 다른 이름이 뜬다.</summary>
     public string? Who { get; set; }
 
     /// <summary>마지막으로 걸린 사정. 머리띠에 한 줄로 적는다.</summary>
     public string? Error { get; set; }
 
-    /// <summary>아직 안 옮긴 줄 수.</summary>
-    public int Remaining => Math.Max(0, Source.Count - Done);
-
-    /// <summary>옮겨 둔 것을 버리고 처음부터 센다. 줄 자체는 그대로다.</summary>
+    /// <summary>옮겨 둔 것을 버린다. 줄 자체는 그대로다.</summary>
     public void Rewind()
     {
         Out = [.. Source];
-        Done = 0;
+        DoneLines.Clear();
         Who = null;
         Error = null;
     }
 
     /// <summary>
     /// 줄을 통째로 갈아 끼운다. <b>세대가 하나 올라간다</b> — 지금 옮기고
-    /// 있던 덩이의 답은 버려진다.
+    /// 있던 줄의 답은 버려진다.
     /// </summary>
     public void Reset(IEnumerable<string> lines)
     {
         Source = [.. lines];
         Out = [.. Source];
-        Done = 0;
+        DoneLines.Clear();
         Generation++;
     }
 }

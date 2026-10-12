@@ -19,8 +19,8 @@ public partial class LogTranslateView
     [Inject] private ThemeSize Size { get; set; } = default!;
 
     /// <summary>
-    /// 볼 로그 줄. <b>부모가 그리는 것과 같은 줄이어야 한다</b> — 원문 칸이
-    /// 로그 탭의 글상자와 다른 것을 보여 주면 둘을 오가는 사람이 헷갈린다.
+    /// 볼 로그 줄. <b>이 판이 로그 탭의 전부다</b> — 원문을 보여 주는 자리가
+    /// 여기 왼쪽 칸 하나뿐이라, 받은 줄을 그대로 다 그린다.
     /// </summary>
     [Parameter] public IReadOnlyList<string> Lines { get; set; } = [];
 
@@ -31,44 +31,23 @@ public partial class LogTranslateView
     [Parameter, EditorRequired] public string StateKey { get; set; } = string.Empty;
 
     /// <summary>
-    /// 지금 보이고 있나. <b>거짓이 되면 하던 번역을 멈춘다</b> — 탭을 떠난
+    /// 지금 보이고 있나. <b>거짓이 되면 돌고 있는 줄을 거둔다</b> — 탭을 떠난
     /// 사람 때문에 로컬 LLM 이 계속 돌 까닭이 없다.
     /// </summary>
     [Parameter] public bool Active { get; set; } = true;
 
     /// <summary>
-    /// 열자마자 옮기기 시작할지. <b>기본은 참</b> — 이 판은 「비교해서 보겠다」를
-    /// 누른 사람에게만 서므로, 단추를 한 번 더 누르게 할 까닭이 없다.
-    ///
-    /// <para>
-    /// 탭을 건너갔다 돌아왔을 때도 이것이 <b>멈춘 자리에서 이어 가게</b> 한다
-    /// (<see cref="AiLogXlatStore"/>).
-    /// </para>
+    /// 옮겨 갈 말. <b>한국어로 고정이다</b> — 왼쪽 칸이 이미 원문이라, 가는
+    /// 말을 영어로 돌리면 영어 로그를 영어로 옮긴 판이 되어 볼 것이 없다.
+    /// 고를 것이 하나뿐인 고르개는 자리만 먹으므로 두지 않는다.
     /// </summary>
-    [Parameter] public bool AutoStart { get; set; } = true;
-
-    /// <summary>고를 수 있는 말.</summary>
-    private sealed record LangOption(string Code, string Name);
-
-    private static readonly LangOption[] Languages =
-    [
-        new("ko", "한국어"),
-        new("en", "English"),
-    ];
+    private const string TargetLang = "ko";
 
     /// <summary>
-    /// 한 덩이에 실어 보내는 글자 수의 상한.
-    /// </summary>
-    /// <remarks>
-    /// 서버의 상한(<c>LLMService.MaxTranslateInput</c> = 12000)보다 넉넉히
-    /// 낮게 둔다. 로그에는 한 줄이 수백 글자인 것이 섞여 있어, 줄 수만 세면
-    /// 스무 줄이 상한을 넘겨 <b>그 덩이만 조용히 실패한다.</b>
-    /// </remarks>
-    private const int ChunkChars = 6000;
-
-    /// <summary>
-    /// 이보다 긴 줄은 <b>혼자서도 한 덩이를 넘긴다.</b> 옮기지 않고 건너뛴다 —
-    /// 잘라 보내면 번역문이 문장 가운데서 끊겨 원문보다 읽기 나쁘다.
+    /// 이보다 긴 줄은 <b>한 번에 보낼 수 있는 양을 넘긴다.</b> 옮기지 않고
+    /// 사정을 알린다 — 잘라 보내면 번역문이 문장 가운데서 끊겨 원문보다
+    /// 읽기 나쁘다. 서버의 상한(<c>LLMService.MaxTranslateInput</c> = 12000)
+    /// 보다 넉넉히 낮게 둔다.
     /// </summary>
     private const int MaxLineChars = 6000;
 
@@ -97,10 +76,6 @@ public partial class LogTranslateView
     private AiLogXlatState _state = new();
 
     private bool _wrap;
-    private bool _busy;
-
-    /// <summary>하던 번역. 화면을 떠나거나 「중지」를 누르면 끊는다.</summary>
-    private CancellationTokenSource? _work;
 
     private double _fontPx = 14;
 
@@ -116,13 +91,13 @@ public partial class LogTranslateView
     private int _focusLine;
 
     /// <summary>
-    /// 지금 혼자 다시 옮기고 있는 줄(1부터). 0 이면 없다. 그 줄에만 따로
-    /// 불을 켜 둔다 — 로컬 LLM 왕복이 몇 초라, 표시가 없으면 <b>눌러도 아무
-    /// 일이 없는 것</b>으로 보인다.
+    /// 지금 옮기고 있는 줄(1부터). 0 이면 없다. 그 줄에만 따로 불을 켜 둔다 —
+    /// 로컬 LLM 왕복이 몇 초라, 표시가 없으면 <b>눌러도 아무 일이 없는 것</b>
+    /// 으로 보인다.
     /// </summary>
     private int _redoLine;
 
-    /// <summary>한 줄만 다시 옮기는 일. 다음 줄을 누르면 앞엣것을 거둔다.</summary>
+    /// <summary>줄 하나를 옮기는 일. 다음 줄을 누르면 앞엣것을 거둔다.</summary>
     private CancellationTokenSource? _lineWork;
 
     /// <summary>켜 둔 불의 표. 다음에 지울 것을 Monaco 가 이 이름으로 찾는다.</summary>
@@ -130,10 +105,10 @@ public partial class LogTranslateView
     private List<string> _rightMarks = [];
 
     /// <summary>
-    /// 글을 미는 길목의 빗장. <b>미는 쪽이 둘이 되었다</b> — 스무 줄짜리
-    /// 덩이를 꽂는 고리와, 누른 줄 하나를 꽂는 일이 같은 때에 돈다. 빗장이
-    /// 없으면 둘이 <see cref="_pushedOut"/> 를 엇갈려 고쳐, <b>민 것과
-    /// 밀었다고 적어 둔 것이 달라진다</b> — 그 뒤로는 바뀐 줄을 못 찾는다.
+    /// 글을 미는 길목의 빗장. <b>미는 쪽이 둘이다</b> — 로그가 자라 뒤에
+    /// 붙이는 일과, 누른 줄 하나를 꽂는 일이 같은 때에 돈다. 빗장이 없으면
+    /// 둘이 <see cref="_pushedOut"/> 를 엇갈려 고쳐, <b>민 것과 밀었다고
+    /// 적어 둔 것이 달라진다</b> — 그 뒤로는 바뀐 줄을 못 찾는다.
     /// </summary>
     private readonly SemaphoreSlim _push = new(1, 1);
 
@@ -150,38 +125,18 @@ public partial class LogTranslateView
     /// </summary>
     /// <remarks>
     /// 글 전체를 이어 붙인 문자열로 들고 있었다. 그때는 미는 길이 하나뿐이라
-    /// (스무 줄씩) 통째로 갈아 끼워도 됐는데, <b>줄 하나를 누를 때마다 수백
-    /// 줄을 회로로 실어 나를 수는 없다.</b> 줄 단위로 들고 있으면 바뀐 자리가
-    /// 어디부터 어디까지인지 바로 나오고, 그 토막만 <c>ApplyEdits</c> 로
-    /// 꽂는다 — 켜 둔 불도 그대로 남는다(<c>setValue</c> 는 지운다).
+    /// 통째로 갈아 끼워도 됐는데, <b>줄 하나를 누를 때마다 수백 줄을 회로로
+    /// 실어 나를 수는 없다.</b> 줄 단위로 들고 있으면 바뀐 자리가 어디부터
+    /// 어디까지인지 바로 나오고, 그 토막만 <c>ApplyEdits</c> 로 꽂는다 —
+    /// 켜 둔 불도 그대로 남는다(<c>setValue</c> 는 지운다).
     /// </remarks>
     private readonly List<string> _pushedSrc = [];
     private readonly List<string> _pushedOut = [];
 
-    /// <summary>아직 안 옮긴 줄 수.</summary>
-    private int Remaining => _state.Remaining;
-
-    /// <summary>오른쪽 칸 이름에 붙일 말. 고른 말이 이름표에 그대로 선다.</summary>
-    private string LangName =>
-        Languages.FirstOrDefault(lang => lang.Code == _state.Lang)?.Name ?? _state.Lang;
-
     /// <summary>
-    /// 번역 단추의 글자. <b>세 가지가 다르다</b> — 처음 · 멈춘 자리에서 이어
-    /// 하기 · 다 옮긴 뒤.
+    /// 머리띠 오른쪽 한 줄 — 몇 줄 가운데 몇 줄을 옮겼나 · 누가 답했나 ·
+    /// 무엇이 걸렸나.
     /// </summary>
-    /// <remarks>
-    /// 다 옮긴 뒤에 「이어서 번역 (0줄)」을 회색으로 두면 사람은 그것이 무엇을
-    /// 세는 숫자인지 읽지 못한다. 그 자리에는 <b>그때 할 수 있는 일</b>을
-    /// 적는다 — 번역이 마음에 안 들 때 다시 시키는 것.
-    /// </remarks>
-    private string RunText => (_state.Done, Remaining) switch
-    {
-        (0, _) => "번역",
-        (_, 0) => "다시 번역",
-        _ => $"이어서 번역 ({Remaining}줄)",
-    };
-
-    /// <summary>머리띠 오른쪽 한 줄 — 어디까지 왔나 · 누가 답했나 · 무엇이 걸렸나.</summary>
     private string StatusText
     {
         get
@@ -198,14 +153,20 @@ public partial class LogTranslateView
 
             if (_redoLine > 0)
             {
-                // **진행 숫자보다 이것이 먼저다.** 줄을 누른 사람이 보려는
-                // 것은 전체 진행이 아니라 「내가 누른 그 줄이 지금 도는가」다.
-                return $"{_redoLine}번째 줄을 다시 옮기는 중…";
+                // **셈보다 이것이 먼저다.** 줄을 누른 사람이 보려는 것은
+                // 전체 셈이 아니라 「내가 누른 그 줄이 지금 도는가」다.
+                return $"{_redoLine}번째 줄을 옮기는 중…";
             }
 
-            var head = _busy
-                ? $"옮기는 중… {_state.Done}/{_state.Source.Count}줄"
-                : $"{_state.Done}/{_state.Source.Count}줄";
+            if (_state.DoneLines.Count == 0)
+            {
+                // **아직 한 줄도 안 옮겼다.** 여기에 「0/300줄」을 적으면
+                // 그것이 「도는 중인데 아직 안 됐다」로 읽힌다 — 이 판은
+                // 누르기 전에는 아무것도 하지 않으므로 그렇게 적는다.
+                return $"{_state.Source.Count}줄 · 줄을 누르면 그 줄을 옮깁니다";
+            }
+
+            var head = $"{_state.Source.Count}줄 가운데 {_state.DoneLines.Count}줄 옮김";
 
             return _state.Who is { Length: > 0 } who ? $"{head} · {who}" : head;
         }
@@ -232,7 +193,7 @@ public partial class LogTranslateView
     /// <remarks>
     /// <para>
     /// 로그는 <b>실행 중에 바닥으로 자란다.</b> 늘어난 줄만 뒤에 붙이고 이미
-    /// 옮긴 것은 그대로 둔다 — 자랄 때마다 처음부터 다시 옮기면 끝나지 않는다.
+    /// 옮긴 것은 그대로 둔다 — 자리가 안 밀리므로 옮겨 둔 줄이 제자리에 남는다.
     /// </para>
     /// <para>
     /// <b>앞부분이 달라졌으면 통째로 버린다.</b> 꼬리만 그리는 상한에 걸려
@@ -251,8 +212,8 @@ public partial class LogTranslateView
 
         if (incoming.Count > _state.Source.Count && SharesHead(incoming, _state.Source.Count))
         {
-            // 자란 만큼만 뒤에 붙인다. **자리는 그대로**라 옮기던 덩이가
-            // 돌아와 제자리에 꽂힌다.
+            // 자란 만큼만 뒤에 붙인다. **자리는 그대로**라 옮겨 둔 줄이
+            // 제자리에 남는다.
             for (var i = _state.Source.Count; i < incoming.Count; i++)
             {
                 var line = incoming[i] ?? string.Empty;
@@ -309,11 +270,10 @@ public partial class LogTranslateView
 
         await PushValuesAsync();
 
-        // 탭을 떠나면 하던 번역을 거둔다. 돌아와서 「이어서 번역」을 누르면
-        // 멈춘 자리부터 간다.
-        if (!Active && _busy)
+        // 탭을 떠나면 돌고 있는 줄을 거둔다. 돌아와서 다시 누르면 그때 간다.
+        if (!Active && _redoLine > 0)
         {
-            Stop();
+            CancelLineWork();
         }
     }
 
@@ -404,19 +364,18 @@ public partial class LogTranslateView
             // 값도 들어갔는데 줄이 하나도 안 그려지는 일이 난다.
             await diff.OriginalEditor.Layout();
             await diff.ModifiedEditor.Layout();
+
+            // **처음에는 바닥을 보여 준다.** 로그를 펴는 일 대부분이 방금 찍힌
+            // 줄을 보려는 것인데, 맨 위에서 서면 거기까지 삼백 줄을 굴려야 한다.
+            // 글상자가 하던 일을 그대로 가져온 것이다(`js/log-tail.js`).
+            if (_pushedOut.Count > 1)
+            {
+                await diff.ModifiedEditor.RevealLine(_pushedOut.Count);
+            }
         }
         catch (Exception ex) when (ex is JSException or JSDisconnectedException
             or ObjectDisposedException or TaskCanceledException)
         {
-            return;
-        }
-
-        // **여기서 기다리지 않는다.** 번역은 로컬 LLM 왕복이 여러 번이라 몇
-        // 분이 걸릴 수 있고, 그것을 그리기 뒷정리 안에서 붙들고 있으면 화면이
-        // 그 사이의 StateHasChanged 를 늦게 받는다.
-        if (AutoStart && !_busy && Remaining > 0)
-        {
-            _ = InvokeAsync(TranslateAsync);
         }
     }
 
@@ -431,12 +390,24 @@ public partial class LogTranslateView
             return;
         }
 
-        // **빗장을 건다.** 미는 쪽이 둘이다 — 스무 줄짜리 덩이를 꽂는 고리와,
+        // **빗장을 건다.** 미는 쪽이 둘이다 — 로그가 자라 뒤에 붙이는 일과,
         // 누른 줄 하나를 꽂는 일. 엇갈리면 민 것과 밀었다고 적어 둔 것이 달라진다.
         await _push.WaitAsync();
 
         try
         {
+            // **줄 수가 달라졌을 때만 잰다.** 재는 데 회로 왕복이 셋 드는데,
+            // 이 길은 그리기 뒷정리마다 지나간다 — 바뀐 것이 없는 날에도
+            // 재면 단추 한 번 누를 때마다 쓸데없는 왕복이 선다. 따라 내릴
+            // 일이 생기는 것도 줄이 늘었을 때뿐이다.
+            var grew = _pushedSrc.Count != _state.Source.Count
+                || _pushedOut.Count != _state.Out.Count;
+
+            // **밀기 전에 「바닥에 붙어 있나」를 잰다.** 민 뒤에 재면 늘어난
+            // 줄 때문에 늘 거짓이라, 돌고 있는 건을 지켜보는 사람이 새 줄을
+            // 한 번도 못 본다.
+            var tail = grew && await AtBottomAsync();
+
             var leftReset = await PushSideAsync(_original, _pushedSrc, _state.Source);
             var rightReset = await PushSideAsync(_modified, _pushedOut, _state.Out);
 
@@ -444,6 +415,14 @@ public partial class LogTranslateView
             {
                 // `setValue` 는 켜 둔 불을 함께 지운다. 다시 켠다.
                 await DrawMarksAsync();
+            }
+
+            // 줄이 늘었고 사람이 바닥을 보고 있었으면 새 줄까지 따라 내린다.
+            // **위를 읽는 중이면 놓아 둔다** — 읽던 자리가 튀는 것이 새 줄을
+            // 놓치는 것보다 나쁘다.
+            if (tail && (leftReset || rightReset) && _pushedOut.Count > 1 && _diff is { } diff)
+            {
+                await diff.ModifiedEditor.RevealLine(_pushedOut.Count);
             }
         }
         catch (Exception ex) when (ex is JSException or JSDisconnectedException
@@ -454,6 +433,33 @@ public partial class LogTranslateView
         finally
         {
             _push.Release();
+        }
+    }
+
+    /// <summary>
+    /// 지금 바닥에 붙어 있나. <b>한 줄 높이만큼은 봐 준다</b> — 딱 맞아떨어지는
+    /// 일이 드물어서, 엄밀히 재면 거의 늘 거짓이 된다.
+    /// </summary>
+    private async Task<bool> AtBottomAsync()
+    {
+        if (_diff is not { } diff)
+        {
+            return false;
+        }
+
+        try
+        {
+            var top = await diff.ModifiedEditor.GetScrollTop();
+            var height = await diff.ModifiedEditor.GetScrollHeight();
+            var info = await diff.ModifiedEditor.GetLayoutInfo();
+
+            // 아직 구를 것이 없으면(줄이 화면보다 적다) 바닥에 붙어 있는 것이다.
+            return top + info.Height >= height - (_fontPx * 2);
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException
+            or ObjectDisposedException or TaskCanceledException)
+        {
+            return false;
         }
     }
 
@@ -581,7 +587,7 @@ public partial class LogTranslateView
             marks.Add(WholeLine(_focusLine, "pm-xlat__hit", "pm-xlat__hit-num"));
         }
 
-        // 다시 옮기는 중인 줄은 **오른쪽에만** 표시한다. 바뀌는 것이 그쪽이다.
+        // 옮기는 중인 줄은 **오른쪽에만** 표시한다. 바뀌는 것이 그쪽이다.
         if (!onLeft && _redoLine >= 1 && _redoLine <= count)
         {
             marks.Add(WholeLine(_redoLine, "pm-xlat__redo", "pm-xlat__redo-num"));
@@ -621,14 +627,23 @@ public partial class LogTranslateView
     }
 
     /// <summary>
-    /// 왼쪽(원문) 줄을 눌렀다. 불을 옮기고 <b>그 한 줄만 다시 옮긴다.</b>
+    /// 줄을 눌렀다. 불을 옮기고 <b>그 한 줄만 옮긴다.</b>
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// <b>좌우 어느 칸을 눌러도 같다.</b> 한때는 왼쪽(원문)에만 걸어 두었다 —
+    /// 「번역문을 눌러 번역을 시키는 것은 뜻이 맞지 않는다」가 까닭이었는데,
+    /// 아직 안 옮긴 줄은 오른쪽에도 <b>원문이 서 있다.</b> 그 글을 누른
+    /// 사람에게 왼쪽 것은 되고 오른쪽 것은 안 되는 까닭이 보일 리 없다.
+    /// 짝인 줄은 번호가 같으므로 어느 쪽에서 왔는지 가리지 않는다.
+    /// </para>
+    /// <para>
     /// <b>커서 사건으로 하지 않는 까닭</b>이 있다. 커서는 화살표로도 움직이는데
     /// 거기에 번역을 걸면 키를 누르고 있는 동안 로컬 LLM 이 줄줄이 돈다.
     /// 누름은 사람이 그 줄을 <b>지목한</b> 것이다.
+    /// </para>
     /// </remarks>
-    private async Task OnOriginalClickedAsync(EditorMouseEvent e)
+    private async Task OnLineClickedAsync(EditorMouseEvent e)
     {
         var line = e.Target?.Position?.LineNumber ?? 0;
 
@@ -642,29 +657,24 @@ public partial class LogTranslateView
         // **글자 자리를 누른 것만 받는다.** 줄 번호 칸을 누르면 그 줄이 통째로
         // 골라지고 **커서는 다음 줄 머리로 간다**(재어 확인했다 — 1번 줄 번호를
         // 누르면 커서가 2번 줄이다). 그대로 받으면 불은 2번 줄에 켜지는데
-        // 다시 옮기는 것은 1번 줄이라, 사람 눈에 **엉뚱한 줄이 도는 것**으로
+        // 옮기는 것은 1번 줄이라, 사람 눈에 **엉뚱한 줄이 도는 것**으로
         // 보인다. 줄 번호 누름은 고르기로 남겨 둔다.
         if (e.Target?.Type is not (MouseTargetType.CONTENT_TEXT or MouseTargetType.CONTENT_EMPTY))
         {
             return;
         }
 
-        await RetranslateLineAsync(line);
+        await TranslateLineAsync(line);
     }
 
     /// <summary>
-    /// 오른쪽(번역) 줄을 눌렀다. <b>불만 옮긴다</b> — 다시 옮기는 일은 원문
-    /// 쪽에만 건다. 번역문을 눌러 번역을 시키는 것은 뜻이 맞지 않고, 읽다가
-    /// 무심코 누른 것이 LLM 왕복이 되어서도 안 된다.
+    /// 그 줄 하나만 옮긴다. <b>옮긴 글은 짝인 오른쪽 줄 자리에 꽂힌다.</b>
     /// </summary>
-    private Task OnModifiedClickedAsync(EditorMouseEvent e)
-        => FocusLineAsync(e.Target?.Position?.LineNumber ?? 0);
-
-    /// <summary>
-    /// 그 줄 하나만 다시 옮긴다. <b>덩이 번역과 함께 돌아도 된다</b> —
-    /// 미는 길목에 빗장이 있고(<see cref="_push"/>), 손대는 자리가 그 줄뿐이다.
-    /// </summary>
-    private async Task RetranslateLineAsync(int line)
+    /// <remarks>
+    /// 이미 옮긴 줄을 또 눌러도 다시 간다 — 번역이 어설픈 줄을 집어서 고쳐
+    /// 받는 자리다. 돌고 있는 그 줄을 또 누른 것만 그냥 지나간다.
+    /// </remarks>
+    private async Task TranslateLineAsync(int line)
     {
         var at = line - 1;
 
@@ -712,7 +722,7 @@ public partial class LogTranslateView
         {
             var gen = _state.Generation;
 
-            var answer = await Xlat.TranslateAsync([text], _state.Lang, cts.Token);
+            var answer = await Xlat.TranslateAsync([text], TargetLang, cts.Token);
 
             if (cts.IsCancellationRequested)
             {
@@ -729,6 +739,7 @@ public partial class LogTranslateView
             if (answer?.Lines is [{ Length: > 0 } got, ..])
             {
                 _state.Out[at] = got;
+                _state.DoneLines.Add(at);
                 _state.Who = Who(answer) ?? _state.Who;
 
                 await PushValuesAsync();
@@ -741,8 +752,8 @@ public partial class LogTranslateView
         catch (ApiException ex)
         {
             _state.Error = ex.Message is { Length: > 0 } message
-                ? $"{line}번째 줄을 다시 옮기지 못했습니다 — {message}"
-                : $"{line}번째 줄을 다시 옮기지 못했습니다.";
+                ? $"{line}번째 줄을 옮기지 못했습니다 — {message}"
+                : $"{line}번째 줄을 옮기지 못했습니다.";
 
             Toasts.Show(_state.Error, NoticeTone.Warning);
         }
@@ -796,142 +807,21 @@ public partial class LogTranslateView
     }
 
     /// <summary>
-    /// 남은 줄을 <b>스무 줄씩 끊어</b> 옮긴다. 한 덩이가 올 때마다 그 자리를
-    /// 갈아 끼우므로 오른쪽 칸이 위에서부터 채워진다.
+    /// 옮긴 줄을 모두 되돌린다. 오른쪽 칸이 다시 원문이 된다.
     /// </summary>
-    private async Task TranslateAsync()
+    /// <remarks>
+    /// <b>옮기는 단추가 아니다.</b> 옮기는 일은 줄을 눌러 시키므로, 머리띠에
+    /// 남는 일은 그 반대 — 섞여 버린 판을 처음 상태로 돌리는 것뿐이다.
+    /// </remarks>
+    private async Task ClearTranslationsAsync()
     {
-        if (_busy || _state.Source.Count == 0)
-        {
-            return;
-        }
+        CancelLineWork();
+        _redoLine = 0;
 
-        if (Remaining == 0)
-        {
-            // 다 옮긴 뒤에 다시 눌렀다. 처음부터 간다.
-            _state.Rewind();
-        }
+        _state.Rewind();
 
-        StopWork();
-
-        var cts = _work = new CancellationTokenSource();
-
-        _busy = true;
-        _state.Error = null;
-        StateHasChanged();
-
-        try
-        {
-            while (!cts.IsCancellationRequested && _state.Done < _state.Source.Count)
-            {
-                var (start, count) = NextChunk();
-
-                // 혼자서도 한 덩이를 넘기는 줄은 건너뛴다. 원문이 그대로 남는다.
-                if (count == 1 && _state.Source[start].Length > MaxLineChars)
-                {
-                    _state.Done = start + 1;
-                    continue;
-                }
-
-                var gen = _state.Generation;
-                var slice = _state.Source.GetRange(start, count);
-
-                var answer = await Xlat.TranslateAsync(slice, _state.Lang, cts.Token);
-
-                if (cts.IsCancellationRequested)
-                {
-                    return;
-                }
-
-                if (_state.Generation != gen)
-                {
-                    // 기다리는 사이에 로그가 통째로 갈렸다(앞이 잘려 나갔다).
-                    // 이 답은 **이제 없는 줄의 것**이다. 버리고 새 자료의
-                    // 처음부터 다시 센다.
-                    continue;
-                }
-
-                if (answer?.Lines is { Count: > 0 } got)
-                {
-                    for (var i = 0; i < count && i < got.Count; i++)
-                    {
-                        _state.Out[start + i] = got[i] ?? _state.Source[start + i];
-                    }
-
-                    _state.Who = Who(answer);
-                }
-
-                _state.Done = start + count;
-
-                await PushValuesAsync();
-                StateHasChanged();
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            // 「중지」를 눌렀거나 화면을 떠났다. 옮긴 데까지는 그대로 남는다.
-        }
-        catch (ApiException ex)
-        {
-            // **`Done` 을 올리지 않는다.** 실패한 덩이는 손대지 않은 것이므로
-            // 「이어서 번역」이 바로 그 자리부터 다시 간다 — 올려 두면 그
-            // 줄들만 영영 원문으로 남고, 그것이 오류로 드러나지도 않는다.
-            _state.Error = ex.Message is { Length: > 0 } message
-                ? $"번역이 멈췄습니다 — {message}"
-                : "번역이 멈췄습니다. 잠시 뒤에 다시 눌러 보십시오.";
-
-            Toasts.Show(_state.Error, NoticeTone.Warning);
-        }
-        catch (Exception ex) when (ex is JSException or JSDisconnectedException
-            or ObjectDisposedException)
-        {
-            // 회로가 끊겼다. 알릴 곳이 없다.
-        }
-        finally
-        {
-            _busy = false;
-
-            if (ReferenceEquals(_work, cts))
-            {
-                _work = null;
-            }
-
-            cts.Dispose();
-
-            try
-            {
-                StateHasChanged();
-            }
-            catch (ObjectDisposedException)
-            {
-            }
-        }
-    }
-
-    /// <summary>
-    /// 다음에 보낼 덩이. <b>줄 수와 글자 수를 함께 본다</b> — 줄 수만 세면
-    /// 긴 줄이 섞였을 때 서버의 글자 상한에 걸려 그 덩이만 조용히 실패한다.
-    /// </summary>
-    private (int Start, int Count) NextChunk()
-    {
-        var start = _state.Done;
-        var chars = 0;
-        var count = 0;
-
-        while (start + count < _state.Source.Count && count < AiLogTranslator.ChunkLines)
-        {
-            var len = _state.Source[start + count].Length;
-
-            if (count > 0 && chars + len > ChunkChars)
-            {
-                break;
-            }
-
-            chars += len;
-            count++;
-        }
-
-        return (start, Math.Max(count, 1));
+        await PushValuesAsync();
+        await DrawMarksAsync();
     }
 
     /// <summary>머리띠에 적을 AI 이름. 공급자가 안 알려 주면 <c>null</c> 이다.</summary>
@@ -945,33 +835,6 @@ public partial class LogTranslateView
         }
 
         return string.IsNullOrWhiteSpace(answer.Model) ? name : $"{name} · {answer.Model}";
-    }
-
-    /// <summary>
-    /// 옮겨 갈 말을 바꾼다. <b>옮겨 둔 것을 버린다</b> — 한 판에 두 말이
-    /// 섞여 있으면 어느 줄이 무슨 말인지 알 길이 없다.
-    /// </summary>
-    private async Task PickLanguageAsync(string code)
-    {
-        if (_state.Lang == code || _busy)
-        {
-            return;
-        }
-
-        // 누른 줄 하나를 옮기던 것도 거둔다. 그 답은 **옛 말의 것**이라,
-        // 그대로 꽂히면 한 판에 두 말이 섞인다.
-        CancelLineWork();
-        _redoLine = 0;
-
-        _state.Lang = code;
-        _state.Rewind();
-
-        await PushValuesAsync();
-
-        if (AutoStart && Remaining > 0)
-        {
-            await TranslateAsync();
-        }
     }
 
     private async Task ToggleWrapAsync()
@@ -992,41 +855,6 @@ public partial class LogTranslateView
         }
         catch (Exception ex) when (ex is JSException or JSDisconnectedException
             or ObjectDisposedException)
-        {
-        }
-    }
-
-    /// <summary>
-    /// 하던 번역을 거둔다. <b>옮긴 데까지는 그대로 남는다.</b>
-    /// </summary>
-    /// <remarks>
-    /// 누른 줄 하나를 다시 옮기던 것도 함께 거둔다 — 「중지」는 <b>지금 도는
-    /// 것을 멈춰라</b>는 뜻이고, 사람에게 그 둘은 하나다.
-    /// </remarks>
-    private void Stop()
-    {
-        StopWork();
-        CancelLineWork();
-
-        _busy = false;
-        _redoLine = 0;
-    }
-
-    private void StopWork()
-    {
-        var cts = _work;
-        _work = null;
-
-        if (cts is null)
-        {
-            return;
-        }
-
-        try
-        {
-            cts.Cancel();
-        }
-        catch (ObjectDisposedException)
         {
         }
     }
@@ -1100,7 +928,7 @@ public partial class LogTranslateView
         ScrollBeyondLastLine = false,
         WordWrap = _wrap ? "on" : "off",
         OriginalAriaLabel = "원문 로그",
-        ModifiedAriaLabel = "번역한 로그",
+        ModifiedAriaLabel = "한국어로 옮긴 로그",
     };
 
     /// <summary>
@@ -1166,7 +994,6 @@ public partial class LogTranslateView
     {
         Size.Changed -= OnThemeSizeChanged;
 
-        StopWork();
         CancelLineWork();
 
         if (_diff is { } diff)

@@ -569,10 +569,20 @@
             </DxTabPage>
 
             <DxTabPage Text="@LogTabText">
-                @* 새 줄은 아래에 붙는데 보이는 자리는 처음 그대로라, 지켜보는
-                   동안 방금 찍힌 줄이 늘 화면 밖이었다. `js/log-tail.js` 가
-                   **바닥에 붙어 있을 때만** 밀어 준다 — 위를 읽는 중에는
-                   놓아 둔다. 「AI 작업」 화면과 같은 부품이다. *@
+                @* ── 로그는 한 판으로 본다 ───────────────────────
+                   실행기가 찍는 줄은 거의 영어다. 수백 줄에서 「어디서 걸렸나」를
+                   찾는 사람에게 그것이 느리게 읽혀, 원문 옆에 한국어를 세운다
+                   (`LogTranslateView` — 왼쪽이 원문, 오른쪽이 번역).
+
+                   **보는 법을 고르는 단추가 있었다**(「원문」·「원문·번역 비교」).
+                   그러면 원문을 보여 주는 자리가 둘이 된다 — 글상자와 비교 판의
+                   왼쪽 칸. 보는 사람에게는 **같은 것이 두 번 서 있는 것**이라,
+                   자리를 하나로 합치고 원문은 왼쪽 칸에만 둔다.
+
+                   **열자마자 옮기지는 않는다.** 그 판은 누른 줄 하나만 옮기므로
+                   로그를 펴는 값이 예전 글상자와 같다 — 따라 내리는 일까지
+                   편집기가 들고 있어(`js/log-tail.js` 가 하던 몫) 여기서 밀어
+                   줄 상자가 없다. *@
                 <div class="pm-peek__pane">
                     @if (_lines.Count == 0)
                     {
@@ -582,43 +592,12 @@
                     }
                     else
                     {
-                        @* ── 어떻게 볼지 ─────────────────────────────
-                           실행기가 찍는 줄은 거의 영어다. 수백 줄에서 「어디서
-                           걸렸나」를 찾는 사람에게 그것이 느리게 읽혀, 원문과
-                           번역을 좌우로 견주는 길을 둔다(`LogTranslateView`).
-
-                           **기본은 원문이다.** 번역은 로컬 LLM 왕복이 여러
-                           번이라 몇 분이 걸릴 수 있고, 로그를 펴는 일 대부분은
-                           방금 찍힌 줄 몇 개를 보려는 것이다. *@
-                        <div class="pm-peek__logmode">
-                            <DxButton Text="원문"
-                                      RenderStyle="ButtonRenderStyle.Secondary"
-                                      RenderStyleMode="@(_logXlat
-                                          ? ButtonRenderStyleMode.Outline
-                                          : ButtonRenderStyleMode.Contained)"
-                                      Click="@(() => ShowLogXlat(false))" />
-
-                            <DxButton Text="원문·번역 비교"
-                                      RenderStyle="ButtonRenderStyle.Secondary"
-                                      RenderStyleMode="@(_logXlat
-                                          ? ButtonRenderStyleMode.Contained
-                                          : ButtonRenderStyleMode.Outline)"
-                                      Click="@(() => ShowLogXlat(true))" />
-                        </div>
-
-                        @if (_logXlat)
-                        {
-                            @* 열쇠에 건 번호를 넣는다. **옮긴 것은 화면 밖에
-                               남으므로**(`AiLogXlatStore`) 열쇠가 같으면 다른
-                               지시를 열었을 때 앞 건의 번역이 그대로 보인다. *@
-                            <LogTranslateView Lines="@LogLines"
-                                              StateKey="@($"ai-task:{t.TaskKey}")"
-                                              Active="@(Live && _tab == TabLog)" />
-                        }
-                        else
-                        {
-                            <pre class="pm-peek__pre pm-peek__pre--log" @ref="_logEl">@LogText</pre>
-                        }
+                        @* 열쇠에 건 번호를 넣는다. **옮긴 것은 화면 밖에
+                           남으므로**(`AiLogXlatStore`) 열쇠가 같으면 다른
+                           지시를 열었을 때 앞 건의 번역이 그대로 보인다. *@
+                        <LogTranslateView Lines="@LogLines"
+                                          StateKey="@($"ai-task:{t.TaskKey}")"
+                                          Active="@(Live && _tab == TabLog)" />
                     }
                 </div>
             </DxTabPage>
