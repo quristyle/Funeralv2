@@ -188,10 +188,32 @@ public partial class CodeEditor
     /// 값은 여기서 넣지 않는다 — 옵션은 편집기를 만들 때 <b>한 번만</b> 평가되므로,
     /// 나중에 바깥에서 값이 바뀌면 반영되지 않는다. 값은 OnAfterRender 에서 민다.
     /// </summary>
+    /// <remarks>
+    /// <b><see cref="ReadOnly"/> 인 편집기는 휴대폰에서 자판도 부르지 않는다.</b>
+    /// <c>ReadOnly</c> 는 <b>글자가 들어오는 것만</b> 막을 뿐, 글자를 받는 숨은
+    /// 칸은 그대로 서서 초점을 받는다 — 휴대폰은 그것만 보고 자판을 올리므로
+    /// 줄 하나 짚을 때마다 화면 절반이 덮인다. 읽기 전용 편집기(쿼리 들여다보기 ·
+    /// 소스 보기 …)에서는 거기 칠 것이 아예 없다.
+    ///
+    /// <para>
+    /// 두 가지를 같이 적어야 한다. Monaco 가 글자를 받는 길이 숨은
+    /// <c>textarea</c> 와 크롬 계열의 <c>EditContext</c> 로 갈려 있어서다.
+    /// <c>DomReadOnly</c> 는 앞의 것에 <c>readonly</c> 를 달고(그래야 자판이
+    /// 안 올라온다), 뒤의 것은 읽기 전용이라는 말을 듣지 않으므로
+    /// <c>EditContext = false</c> 로 옛 길로 돌려놓는다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>고칠 수 있는 편집기에는 손대지 않는다</b>(<c>null</c> 로 둔다) —
+    /// 거기서는 자판이 올라오는 것이 할 일이다.
+    /// </para>
+    /// </remarks>
     private StandaloneEditorConstructionOptions BuildOptions(StandaloneCodeEditor editor) => new()
     {
         Language = ToMonacoLanguage(Language),
         ReadOnly = ReadOnly,
+        DomReadOnly = ReadOnly ? true : null,
+        EditContext = ReadOnly ? false : null,
         AutomaticLayout = true,
         FontSize = (int)Math.Round(_fontPx),
         LineNumbers = "on",

@@ -2687,6 +2687,36 @@ BlazorMonaco 는 스크립트 세 장이 전역에 있기를 기대한다. 없�
 기다리는 것은 `setTimeout` 으로 한다. `requestAnimationFrame` 은 **보이지 않는
 탭에서 콜백이 오지 않아** 「불러오는 중」에 멈춘 채로 남는다.
 
+#### 읽기 전용 편집기는 **`ReadOnly` 만으로 자판을 막지 못한다** (2026-10-12, 실제로 밟음)
+
+로그 비교 화면(`LogTranslateView`)은 보라고 세운 자리라 양쪽이 `ReadOnly` 였다.
+그런데 **휴대폰에서 줄을 짚으면 자판이 올라왔다** — 읽으려고 짚은 줄인데
+화면 절반이 자판에 덮인다. `ReadOnly` 는 **글자가 들어오는 것만** 막고, 글자를
+받는 숨은 칸은 그대로 서서 초점을 받는다. 휴대폰이 보는 것은 그 초점 하나다.
+
+**두 가지를 같이 적어야 한다.** Monaco 가 글자를 받는 길이 둘로 갈려 있다.
+
+| 길 | 언제 쓰나 | 읽기 전용이라는 말을 듣나 |
+|---|---|---|
+| 숨은 `textarea`(`.inputarea`) | 사파리 등 | **`DomReadOnly = true` 면 듣는다** — `readonly` 가 붙어 자판이 안 올라온다 |
+| `EditContext`(`.native-edit-context`) | **크롬 계열의 기본값** | **안 듣는다** — 초점을 받는 편집 자리로 남는다 |
+
+그래서 `EditContext = false` 로 **옛 길로 돌려놓고** 거기에 `DomReadOnly = true`
+를 단다. 돌려놓아도 잃는 것이 없다 — 그 길이 주는 것은 입력기(IME) 편의인데
+읽기 전용 편집기에서는 아무것도 입력하지 않는다.
+
+거는 자리가 둘이다 — `LogTranslateView.BuildOptions`(늘) 와
+`CodeEditor.BuildOptions`(`ReadOnly` 일 때만). **고칠 수 있는 편집기에는 걸지
+않는다**(`null` 로 둔다) — 거기서는 자판이 올라오는 것이 할 일이다.
+
+**재어 확인했다**(헤드리스 크로미움 + `/tmp` 정적 한 장. 셸을 publish 하지
+않았다 — 갈리는 것이 순수 Monaco 옵션이라 회로가 필요 없다):
+`ReadOnly` 만 준 비교 편집기는 `native-edit-context` 두 개가 서고 줄을 누르면
+그 `<div>` 가 초점을 받는다 · 둘을 더하면 `readonly` 가 붙은 `textarea` 두 개로
+바뀌고 초점도 그쪽으로 간다 · **줄을 짚는 손짓은 그대로다**(`onMouseDown` ·
+`onDidChangeCursorPosition` 이 누른 줄 번호를 그대로 올린다 — 「누른 줄만 다시
+옮기기」와 좌우 불 켜기가 걸려 있는 자리다).
+
 #### 고르개를 편집 창에 넣으면 던진다 (실제로 밟음)
 
 `CodeSelect` · `BizSelect` · `SourceSelect` 는 `Value`/`ValueChanged` 로 값을

@@ -1062,12 +1062,31 @@ public partial class LogTranslateView
     /// 칸 이름표(「원문」·「번역」)가 반반을 믿고 서 있어서, 끌어 7:3 으로
     /// 만들면 <b>이름이 남의 칸을 가리킨다.</b>
     /// </para>
+    /// <para>
+    /// <b>휴대폰에서 줄을 짚어도 자판이 올라오지 않게 한다</b>
+    /// (<c>DomReadOnly</c> · <c>EditContext</c>). <c>ReadOnly</c> 하나로는
+    /// 모자란다 — 그것은 <b>글자가 들어오는 것만</b> 막고, 글자를 받는 숨은
+    /// 칸은 그대로 선다. 휴대폰은 그 칸에 초점이 가는 것만 보고 자판을
+    /// 올리므로, 줄 하나 짚을 때마다 화면 절반이 자판에 덮인다. 여기는
+    /// <b>읽고 견주는 자리</b>라 자판이 할 일이 아예 없다.
+    /// </para>
+    /// <para>
+    /// 두 가지를 같이 적어야 한다. Monaco 가 글자를 받는 길이 둘로 갈려
+    /// 있어서다 — 숨은 <c>textarea</c> 와, 크롬 계열에서 기본으로 쓰는
+    /// <c>EditContext</c>. <c>DomReadOnly</c> 는 앞의 것에만 <c>readonly</c> 를
+    /// 달아 주고(자판이 안 올라온다), 뒤의 것은 읽기 전용이라는 말을 듣지
+    /// 않는다. 그래서 <c>EditContext = false</c> 로 <b>옛 길로 돌려놓고</b>
+    /// 거기에 <c>readonly</c> 를 단다. 돌려놓아도 잃는 것이 없다 — 그 길이
+    /// 주는 것은 입력기(IME) 편의인데 여기서는 아무것도 입력하지 않는다.
+    /// </para>
     /// </remarks>
     private StandaloneDiffEditorConstructionOptions BuildOptions(StandaloneDiffEditor editor) => new()
     {
         AutomaticLayout = true,
         ReadOnly = true,
         OriginalEditable = false,
+        DomReadOnly = true,
+        EditContext = false,
         RenderSideBySide = true,
         EnableSplitViewResizing = false,
         RenderLineHighlight = "none",
