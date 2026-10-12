@@ -182,6 +182,7 @@
     | | 어떻게 |
     |---|---|
     | 쓸지 | 스위치 하나. 끄면 띠도 자리도 사라진다 |
+    | **이름을 적을지** | 스위치 하나. 끄면 아이콘만 남고 **띠가 60px → 44px 로 얇아진다** — 그 16px 은 본문이 가져간다 |
     | **몇 칸** | **셋에서 여덟**(`BottomNav.MinItems`~`MaxItems`). 양 끝에서 단추가 잠기고, 까닭은 조작줄의 「5 / 3~8칸」이 말한다 |
     | 무엇을 | 메뉴에서 고른다 |
     | 어느 차례로 | 꺾쇠 단추로 한 칸씩. **목록 위가 띠의 왼쪽**이다 |
@@ -553,6 +554,22 @@
         <DxCheckBox CheckType="CheckType.Switch"
                     Checked="@(!_bottomNavHidden)"
                     CheckedChanged="@((bool v) => OnBottomNavUsedChangedAsync(v))" />
+    </div>
+
+    @* 띠를 안 쓰는 사람에게는 **잠근다.** 아래 고르개를 잠그는 것과 같은
+       까닭이다 — 아무 일도 안 일어나는 조작을 두면 사람은 「안 먹는다」고 읽는다. *@
+    <div class="jsini-setting">
+        <div>
+            <div class="jsini-setting__name">아이콘만 보기 (라벨 숨김)</div>
+            <div class="jsini-setting__desc">
+                이름이 빠진 만큼 띠가 얇아지고(60px → 44px) <b>그만큼이 본문 세로 공간이 됩니다</b>.
+            </div>
+        </div>
+
+        <DxCheckBox CheckType="CheckType.Switch"
+                    Enabled="@(!_bottomNavHidden)"
+                    Checked="@_bottomNavLabelsHidden"
+                    CheckedChanged="@((bool v) => OnBottomNavLabelsHiddenChangedAsync(v))" />
     </div>
 </section>
 

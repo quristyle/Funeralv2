@@ -913,6 +913,33 @@ public sealed class PortalBoot(IJSRuntime js, PortalPrefs prefs, ILogger<PortalB
         await prefs.SetAsync(PortalPrefs.BottomNavHiddenKey, hidden ? true : null);
     }
 
+    /// <summary>띠의 이름을 감출지가 바뀌었을 때 알린다.</summary>
+    public event Action<bool>? BottomNavLabelsHiddenChanged;
+
+    /// <summary>
+    /// 띠의 칸에서 <b>이름을 감출지</b>를 저장하고 화면에 알린다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>계정에 담긴다</b>(<see cref="PortalPrefs.BottomNavLabelsHiddenKey"/>).
+    /// 위 <see cref="SetBottomNavHiddenAsync"/> 와 한 묶음이라 담기는 곳도 같아야
+    /// 한다 — 갈라 두면 <b>띠는 따라오는데 생김새만 기기마다 다른</b> 자리가 생긴다.
+    /// </para>
+    /// <para>
+    /// 이름을 다시 보이기로 하면 <b>열쇠를 지운다</b>(<c>null</c>). 거짓을 적어
+    /// 두면 「한 번도 안 고친 사람」과 「보이기로 고른 사람」이 계정에서 갈려,
+    /// 나중에 기본값을 바꿀 때 뒤엣사람만 옛 값에 붙박인다 —
+    /// <see cref="SetFabHiddenAsync"/> 와 같은 까닭이다.
+    /// </para>
+    /// </remarks>
+    public async Task SetBottomNavLabelsHiddenAsync(bool hidden)
+    {
+        Remember(state => state.WithBottomNavLabelsHidden(hidden));
+        BottomNavLabelsHiddenChanged?.Invoke(hidden);
+
+        await prefs.SetAsync(PortalPrefs.BottomNavLabelsHiddenKey, hidden ? true : null);
+    }
+
     /// <summary>띠에 놓을 칸이 바뀌었을 때 알린다. 날것 JSON 을 그대로 준다.</summary>
     public event Action<string?>? BottomNavItemsChanged;
 
@@ -1356,6 +1383,18 @@ public sealed class PortalBoot(IJSRuntime js, PortalPrefs prefs, ILogger<PortalB
         public string? BottomNavItemsJson { get; private set; }
 
         /// <summary>
+        /// 그 띠의 칸에서 <b>이름을 감추기로</b> 했는가(아이콘만 보기).
+        /// 고른 적이 없으면 <c>false</c> — 즉 이름이 보인다.
+        /// </summary>
+        /// <remarks>
+        /// <b>브라우저 열쇠가 없다.</b> 위 둘과 달리 이 값은 처음부터 계정에
+        /// 났으므로(<see cref="PortalPrefs.BottomNavLabelsHiddenKey"/>) 여기에
+        /// 실리는 길은 <see cref="WithAccountPrefs"/> 하나다 —
+        /// <see cref="From"/> 이 이 칸을 안 건드리는 까닭이다.
+        /// </remarks>
+        public bool BottomNavLabelsHidden { get; private set; }
+
+        /// <summary>
         /// 토스트 알림 위치. 없거나 잘못된 값이면 <c>bottom-right</c> 다.
         /// </summary>
         public string ToastPosition { get; private set; } = "bottom-right";
@@ -1436,6 +1475,9 @@ public sealed class PortalBoot(IJSRuntime js, PortalPrefs prefs, ILogger<PortalB
         internal BrowserState WithBottomNavItems(string? value) =>
             Patch(c => c.BottomNavItemsJson = value);
 
+        internal BrowserState WithBottomNavLabelsHidden(bool value) =>
+            Patch(c => c.BottomNavLabelsHidden = value);
+
         internal BrowserState WithToastPosition(string value) => Patch(c => c.ToastPosition = value);
 
         internal BrowserState WithZoomUnlocked(bool value) => Patch(c => c.ZoomUnlocked = value);
@@ -1452,6 +1494,8 @@ public sealed class PortalBoot(IJSRuntime js, PortalPrefs prefs, ILogger<PortalB
         {
             c.BottomNavHidden = account.Flag(PortalPrefs.BottomNavHiddenKey) ?? c.BottomNavHidden;
             c.BottomNavItemsJson = account.Raw(PortalPrefs.BottomNavItemsKey) ?? c.BottomNavItemsJson;
+            c.BottomNavLabelsHidden =
+                account.Flag(PortalPrefs.BottomNavLabelsHiddenKey) ?? c.BottomNavLabelsHidden;
             c.FabHidden = account.Flag(PortalPrefs.FabHiddenKey) ?? c.FabHidden;
             c.HelpDeskFabHidden = account.Flag(PortalPrefs.HelpDeskFabHiddenKey) ?? c.HelpDeskFabHidden;
             c.ToastPosition = NormalizeToastPosition(

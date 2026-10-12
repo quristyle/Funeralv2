@@ -228,6 +228,7 @@ public partial class EnvironmentSettingPage
         _selectedToastPosition = state.ToastPosition;
         _zoomUnlocked = state.ZoomUnlocked;
         _bottomNavHidden = state.BottomNavHidden;
+        _bottomNavLabelsHidden = state.BottomNavLabelsHidden;
         _navItems = [.. BottomNav.Parse(state.BottomNavItemsJson)];
         StateHasChanged();
     }
@@ -344,6 +345,12 @@ public partial class EnvironmentSettingPage
     /// <summary>띠를 <b>쓰지 않기로</b> 했는가. 화면의 스위치는 이것을 뒤집어 보인다.</summary>
     private bool _bottomNavHidden;
 
+    /// <summary>
+    /// 그 칸에서 <b>이름을 감추기로</b> 했는가. 화면의 스위치는 이것을 그대로
+    /// 보인다 — 위의 것과 달리 뒤집지 않는다(「…감추기」라고 물으므로).
+    /// </summary>
+    private bool _bottomNavLabelsHidden;
+
     /// <summary>띠에 세워 둔 칸들. 고치는 자리라 <b>읽기 전용이 아니다.</b></summary>
     private List<BottomNavItem> _navItems = [.. BottomNav.Defaults];
 
@@ -384,6 +391,17 @@ public partial class EnvironmentSettingPage
     {
         _bottomNavHidden = !used;
         await Boot.SetBottomNavHiddenAsync(_bottomNavHidden);
+    }
+
+    /// <summary>
+    /// 띠의 칸에서 이름을 감출지를 바꿨다. <b>띠를 안 쓰는 사람에게는 이 줄이
+    /// 잠겨 있다</b> — 아무 일도 안 일어나는 스위치를 두면 사람은 「안 먹는다」고
+    /// 읽는다(아래 고르개를 통째로 잠그는 것과 같은 까닭이다).
+    /// </summary>
+    private async Task OnBottomNavLabelsHiddenChangedAsync(bool hidden)
+    {
+        _bottomNavLabelsHidden = hidden;
+        await Boot.SetBottomNavLabelsHiddenAsync(hidden);
     }
 
     /// <summary>

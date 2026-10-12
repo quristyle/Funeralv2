@@ -87,7 +87,20 @@ public partial class MainLayout
             // 아래 띠를 쓰지 않기로 한 사람에게 붙는 표시. 띠 자체는 아래에서
             // 안 그리지만, **본문 아래 여백과 단추 자리 올림**은 CSS 가 들고
             // 있어서 이 표시로만 걷을 수 있다(app.css 의 같은 이름).
-            return _bottomNavHidden ? css + " jsini-shell--bottomnav-hidden" : css;
+            if (_bottomNavHidden)
+            {
+                return css + " jsini-shell--bottomnav-hidden";
+            }
+
+            // 띠는 쓰되 **이름만 감추기로** 한 사람에게 붙는 표시. 띠가 얇아지고
+            // (60px → 44px) 띠를 피해 서 있던 아홉 자리가 그만큼 아래로
+            // 내려온다 — 본문이 세로로 16px 을 돌려받는 길이 그것이다.
+            // 값은 CSS 토큰 하나(`--jsini-bottomnav-h`)로 모아 두었다.
+            //
+            // **띠를 아예 안 쓰는 사람에게는 붙이지 않는다.** 위에서 이미
+            // 돌아갔으므로 여기 오지 않는다 — 둘을 함께 붙이면 「없는 띠의
+            // 높이」를 줄이는 규칙이 되어 읽는 사람이 한 번 더 헤맨다.
+            return _bottomNavLabelsHidden ? css + " jsini-shell--bottomnav-nolabel" : css;
         }
     }
 
@@ -328,6 +341,13 @@ public partial class MainLayout
     /// </summary>
     private bool _bottomNavHidden;
 
+    /// <summary>
+    /// 그 띠의 칸에서 <b>이름을 감추기로</b> 했는가. 기본은 <c>false</c> —
+    /// 이름이 보인다. 이것도 읽기 전의 값이 기본값이라 띠가 얇아졌다 두꺼워지는
+    /// 번쩍임이 없다.
+    /// </summary>
+    private bool _bottomNavLabelsHidden;
+
     private string _toastPosition = "bottom-right";
     private HorizontalAlignment _toastHorizontal = HorizontalAlignment.Right;
     private VerticalEdge _toastVertical = VerticalEdge.Bottom;
@@ -369,6 +389,7 @@ public partial class MainLayout
         Boot.HelpDeskFabHiddenChanged += OnHelpDeskFabHiddenChanged;
         Boot.HelpDeskFabDesktopChanged += OnHelpDeskFabDesktopChanged;
         Boot.BottomNavHiddenChanged += OnBottomNavHiddenChanged;
+        Boot.BottomNavLabelsHiddenChanged += OnBottomNavLabelsHiddenChanged;
         Boot.ToastPositionChanged += OnToastPositionChanged;
     }
 
@@ -425,6 +446,12 @@ public partial class MainLayout
     private void OnBottomNavHiddenChanged(bool hidden)
     {
         _bottomNavHidden = hidden;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnBottomNavLabelsHiddenChanged(bool hidden)
+    {
+        _bottomNavLabelsHidden = hidden;
         InvokeAsync(StateHasChanged);
     }
 
@@ -686,6 +713,12 @@ public partial class MainLayout
         if (state.BottomNavHidden != _bottomNavHidden)
         {
             _bottomNavHidden = state.BottomNavHidden;
+            changed = true;
+        }
+
+        if (state.BottomNavLabelsHidden != _bottomNavLabelsHidden)
+        {
+            _bottomNavLabelsHidden = state.BottomNavLabelsHidden;
             changed = true;
         }
         
@@ -1277,6 +1310,7 @@ public partial class MainLayout
         Boot.HelpDeskFabHiddenChanged -= OnHelpDeskFabHiddenChanged;
         Boot.HelpDeskFabDesktopChanged -= OnHelpDeskFabDesktopChanged;
         Boot.BottomNavHiddenChanged -= OnBottomNavHiddenChanged;
+        Boot.BottomNavLabelsHiddenChanged -= OnBottomNavLabelsHiddenChanged;
         Boot.ToastPositionChanged -= OnToastPositionChanged;
         _watermarkWatch?.Dispose();
     }

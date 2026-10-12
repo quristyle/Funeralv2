@@ -32,6 +32,7 @@ namespace JSini.Web.Components.Settings;
 /// <list type="table">
 ///   <item><term><see cref="BottomNavItemsKey"/></term><description>아래 띠에 놓을 칸들</description></item>
 ///   <item><term><see cref="BottomNavHiddenKey"/></term><description>그 띠를 쓸지</description></item>
+///   <item><term><see cref="BottomNavLabelsHiddenKey"/></term><description>그 띠에 이름을 적을지</description></item>
 ///   <item><term><see cref="FabHiddenKey"/></term><description>메뉴 바로가기 단추를 쓸지</description></item>
 ///   <item><term><see cref="HelpDeskFabHiddenKey"/></term><description>요청등록 바로가기 단추를 쓸지</description></item>
 ///   <item><term><see cref="ToastPositionKey"/></term><description>알림(토스트)이 뜨는 자리</description></item>
@@ -76,6 +77,24 @@ public sealed class PortalPrefs(GatewayClient gateway, ILogger<PortalPrefs> logg
     /// 모양은 <c>BottomNavItem</c> 이고 푸는 일은 <c>BottomNav.Parse</c> 가 한다.
     /// </summary>
     public const string BottomNavItemsKey = "portal.bottomNav.items";
+
+    /// <summary>
+    /// 그 띠의 칸에서 <b>이름을 감출지</b>(아이콘만 보기). 없으면 보인다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>「보인다」가 아니라 「감춘다」를 적는다.</b> 읽는 쪽이 「열쇠가 있으면
+    /// 그렇다는 뜻」으로 보므로(<see cref="PortalPrefsData.Flag"/>), 기본값과
+    /// 반대되는 쪽을 적어야 한 번도 안 고친 사람이 기본값을 받는다 —
+    /// <see cref="BottomNavHiddenKey"/> 와 같은 꼴이다.
+    /// </para>
+    /// <para>
+    /// <b>브라우저에 있던 적이 없다.</b> 위 넷과 달리 이 값은 처음부터 계정에
+    /// 났으므로 옛 값을 들고 올라갈 일도 없다 — <see cref="AdoptFromBrowserAsync"/>
+    /// 가 이 열쇠를 모르는 까닭이다.
+    /// </para>
+    /// </remarks>
+    public const string BottomNavLabelsHiddenKey = "portal.bottomNav.labelsHidden";
 
     /// <summary>모바일 메뉴 바로가기 단추를 <b>감출지</b>. 없으면 보인다.</summary>
     public const string FabHiddenKey = "portal.fab.hidden";
