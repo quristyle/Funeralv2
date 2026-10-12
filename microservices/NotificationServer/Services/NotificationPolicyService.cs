@@ -303,6 +303,7 @@ public sealed class NotificationPolicyService(
                 SupportsEmail = e.SupportsEmail,
                 EmailFromPush = e.EmailFromPush,
                 Governed = e.Governed,
+                PolicyRequired = e.PolicyRequired,
                 IsActive = e.IsActive,
                 OrderNo = e.OrderNo,
                 Policies = [.. rows
@@ -469,6 +470,11 @@ public sealed class NotificationPolicyService(
             EventCode = code,
             EventDisabled = !row.IsActive,
             Unrestricted = !policies.Any(p => p.PushEnabled || p.EmailEnabled),
+
+            // **같은 「역할 0 개」가 뜻이 정반대인 이벤트가 있다.** 부르는 쪽이
+            // 기본 역할을 안 적어 보내면 제한 없음이 곧 「한 통도 안 나간다」다
+            // (`NotificationEventRow.PolicyRequired` 머리말).
+            PolicyRequired = row.PolicyRequired,
         };
 
         if (result.EventDisabled || result.Unrestricted) return result;

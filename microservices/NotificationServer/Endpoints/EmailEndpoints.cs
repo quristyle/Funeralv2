@@ -53,14 +53,33 @@ public static class EmailEndpoints
         {
             if (user is null) return Results.Unauthorized();
 
-            if ((string.IsNullOrWhiteSpace(request.To)
-                 && string.IsNullOrWhiteSpace(request.ToRole)
-                 && string.IsNullOrWhiteSpace(request.ToUser)) ||
+            // ── 받는 사람을 **안 적어도 되는 부름이 있다** ──────
+            //
+            // 받는 역할의 정본이 「알림관리」인 이벤트는 부르는 쪽이 역할을 적어
+            // 보내지 않는다(소개 사이트 문의 — `NotificationEventRow.PolicyRequired`).
+            // 설정 파일과 표 두 자리에 역할이 있으면 화면에서 체크를 다 풀어도
+            // 설정 파일로 되돌아가, **껐는데 간다**가 되기 때문이다.
+            //
+            // 그래서 여기서 막지 않는다. 막으면 화면에서 역할을 켜 두어도 메일이
+            // 한 통도 안 나가고, 부르는 쪽 로그에는 「받는 사람이 필요합니다」만
+            // 남아 고칠 자리가 안 보인다. **아래에서 정책으로 푼 뒤에도 0 명이면**
+            // 그때 까닭을 적어 400 으로 답한다.
+            var addressed = !string.IsNullOrWhiteSpace(request.To)
+                            || !string.IsNullOrWhiteSpace(request.ToRole)
+                            || !string.IsNullOrWhiteSpace(request.ToUser);
+
+            // 정책이 받는 사람을 채워 줄 수 있는 부름인가. 코드도 구분도 없으면
+            // 물어볼 표가 없으므로 그때는 지금처럼 바로 막는다.
+            var policyCanFill = !string.IsNullOrWhiteSpace(request.EventCode)
+                                || !string.IsNullOrWhiteSpace(request.Category);
+
+            if ((!addressed && !policyCanFill) ||
                 string.IsNullOrWhiteSpace(request.Subject) ||
                 string.IsNullOrWhiteSpace(request.Body))
             {
                 return Results.BadRequest(ApiResponse<bool>.Fail(
-                    message: "받는 사람(to · toUser · toRole 중 하나) · 제목 · 본문이 모두 필요합니다.",
+                    message: "받는 사람(to · toUser · toRole 중 하나, 또는 알림관리가 역할을 정하는 eventCode) · "
+                             + "제목 · 본문이 모두 필요합니다.",
                     code: "INVALID"));
             }
 
@@ -234,7 +253,14 @@ public static class EmailEndpoints
                     ? $"이메일이 등록되지 않은 아이디입니다: {string.Join(", ", unknownUsers)}"
                     : malformed.Count > 0
                         ? $"주소 꼴이 아닙니다: {string.Join(", ", malformed)}"
-                        : "역할에 이메일이 등록된 사용자가 없습니다.";
+
+                        // **고칠 자리를 가려서 적는다.** 부르는 쪽이 아무도 안
+                        // 적어 보냈는데 정책에도 역할이 없으면, 고칠 자리는
+                        // 「역할에 사람이 없다」가 아니라 알림관리 화면이다.
+                        : !addressed && decision.Unrestricted
+                            ? "알림관리에 받는 역할이 없습니다 — 포털관리 › 알림관리에서 "
+                              + "이 이벤트의 「이메일」을 켠 역할이 하나라도 있어야 보냅니다."
+                            : "역할에 이메일이 등록된 사용자가 없습니다.";
 
                 return Results.BadRequest(ApiResponse<bool>.Fail(
                     message: $"받는 사람이 없습니다 ({why}).", code: "NO_RECIPIENT"));

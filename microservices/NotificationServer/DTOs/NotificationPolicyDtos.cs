@@ -44,6 +44,13 @@ public class NotificationEventDto
     /// <summary>거짓이면 설정을 받아 두되 발송에는 아직 안 걸린다.</summary>
     public bool Governed { get; set; }
 
+    /// <summary>
+    /// 받는 사람의 <b>정본이 이 표인가</b>. 참이면 역할을 하나도 안 걸었을 때
+    /// 「제한 없음」이 아니라 <b>아무에게도 안 간다</b> —
+    /// <see cref="Entities.NotificationEventRow.PolicyRequired"/> 머리말.
+    /// </summary>
+    public bool PolicyRequired { get; set; }
+
     /// <summary>끄면 이 이벤트의 알림이 아무에게도 안 간다.</summary>
     public bool IsActive { get; set; }
 
@@ -136,6 +143,13 @@ public class NotificationPolicyPreviewDto
 
     /// <summary>이벤트가 꺼져 있으면 참. 그때는 아무에게도 안 간다.</summary>
     public bool EventDisabled { get; set; }
+
+    /// <summary>
+    /// 받는 사람의 정본이 이 표인가. <see cref="Unrestricted"/> 와 <b>같이</b>
+    /// 참이면 「지금까지와 똑같이 나간다」가 아니라 <b>한 통도 안 나간다</b> —
+    /// 창에 띄우는 말이 정반대라 갈라 보낸다.
+    /// </summary>
+    public bool PolicyRequired { get; set; }
 
     public List<NotificationPolicyRecipientDto> Recipients { get; set; } = [];
 

@@ -43,6 +43,17 @@ public sealed class NotifyEventDto
     /// <summary>거짓이면 설정을 받아 두되 발송에는 아직 안 걸린다.</summary>
     public bool Governed { get; set; }
 
+    /// <summary>
+    /// 받는 사람의 <b>정본이 이 표인가</b>. 참이면 역할을 하나도 안 걸었을 때
+    /// 「제한 없음」이 아니라 <b>아무에게도 안 간다</b>.
+    /// </summary>
+    /// <remarks>
+    /// 보내는 쪽이 설정 파일에 기본 역할을 적어 두지 않는 이벤트다(소개 사이트
+    /// 문의 접수). 같은 「체크 0 개」가 저쪽에서는 「지금 그대로 나간다」이고
+    /// 여기서는 「한 통도 안 나간다」라, 띠와 카드 색을 이 값으로 가른다.
+    /// </remarks>
+    public bool PolicyRequired { get; set; }
+
     /// <summary>끄면 이 이벤트의 알림이 아무에게도 안 간다.</summary>
     public bool IsActive { get; set; }
 
@@ -66,7 +77,10 @@ public sealed class NotifyEventDto
         {
             if (!Governed) return "정책 적용 안 됨";
             if (!IsActive) return "꺼짐";
-            if (Unrestricted) return "제한 없음";
+
+            // **「제한 없음」을 뜻이 반대인 이벤트에 적지 않는다.** 이 표가
+            // 받는 사람의 정본인 이벤트는 역할이 비면 한 통도 안 나간다.
+            if (Unrestricted) return PolicyRequired ? "받는 역할 없음" : "제한 없음";
 
             var push = Policies.Count(p => p.IsActive && p.PushEnabled);
             var mail = Policies.Count(p => p.IsActive && p.EmailEnabled);
@@ -75,7 +89,9 @@ public sealed class NotifyEventDto
             if (push > 0) parts.Add($"앱푸시 {push}");
             if (mail > 0) parts.Add($"이메일 {mail}");
 
-            return parts.Count == 0 ? "제한 없음" : string.Join(" · ", parts);
+            return parts.Count == 0
+                ? (PolicyRequired ? "받는 역할 없음" : "제한 없음")
+                : string.Join(" · ", parts);
         }
     }
 
@@ -127,6 +143,12 @@ public sealed class NotifyPolicyPreviewDto
     public bool Unrestricted { get; set; }
 
     public bool EventDisabled { get; set; }
+
+    /// <summary>
+    /// 받는 사람의 정본이 이 표인가. <see cref="Unrestricted"/> 와 같이 참이면
+    /// 「지금까지와 똑같이」가 아니라 <b>한 통도 안 나간다</b>.
+    /// </summary>
+    public bool PolicyRequired { get; set; }
 
     public List<NotifyRecipientDto> Recipients { get; set; } = [];
 

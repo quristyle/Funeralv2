@@ -164,11 +164,27 @@ public partial class NotifyPolicyPage : IDisposable
     /// 「제한 없음」을 「메일도 모두에게 간다」로 읽는다.
     /// </remarks>
     private string NoRoleText =>
-        "역할을 하나도 걸지 않았습니다 — 제한 없이 지금까지와 똑같이 나갑니다. "
-        + "하나라도 걸면 그때부터 이 목록이 기준이 됩니다."
-        + (_selected is { SupportsEmail: true, EmailFromPush: true }
-            ? " 다만 이메일은 지금 한 통도 나가지 않습니다 — 켠 역할이 있어야 보냅니다."
-            : string.Empty);
+        _selected is { PolicyRequired: true }
+
+            // **여기서는 뜻이 정반대다.** 보내는 쪽이 설정 파일에 기본 역할을
+            // 안 적어 두는 이벤트라(소개 사이트 문의), 역할이 비면 「지금까지와
+            // 똑같이」가 아니라 **아무에게도 안 간다**. 같은 말을 적으면 끈 줄
+            // 모르고 두었다가 들어온 문의를 아무도 못 본다.
+            ? "받는 역할이 하나도 없습니다 — 이 알림은 지금 아무에게도 가지 않습니다. "
+              + "이 목록이 받는 사람의 정본이라, 보내는 쪽에 적어 둔 기본 역할이 없습니다."
+
+            : "역할을 하나도 걸지 않았습니다 — 제한 없이 지금까지와 똑같이 나갑니다. "
+              + "하나라도 걸면 그때부터 이 목록이 기준이 됩니다."
+              + (_selected is { SupportsEmail: true, EmailFromPush: true }
+                  ? " 다만 이메일은 지금 한 통도 나가지 않습니다 — 켠 역할이 있어야 보냅니다."
+                  : string.Empty);
+
+    /// <summary>
+    /// 역할이 빈 상태의 띠 색. <b>경고인지 안내인지가 이벤트마다 갈린다</b> —
+    /// 「지금 그대로 나간다」는 알림이고 「아무에게도 안 간다」는 경고다.
+    /// </summary>
+    private NoticeTone NoRoleTone =>
+        _selected is { PolicyRequired: true } ? NoticeTone.Warning : NoticeTone.Info;
 
     /// <summary>정책이 이 이벤트에서 무슨 일을 하는지 한 줄.</summary>
     private string EffectText => NotifyTargetKinds.Effect(_selected?.TargetKind);
@@ -237,6 +253,10 @@ public partial class NotifyPolicyPage : IDisposable
     {
         { Governed: false } => "off",
         _ when !IsEventActive(e) => "warn",
+
+        // **같은 「체크 0 개」가 파랑과 주황으로 갈린다.** 이 표가 받는 사람의
+        // 정본인 이벤트에서 역할이 비면 알림이 멎은 것이라 경고 쪽이다.
+        { Unrestricted: true, PolicyRequired: true } => "warn",
         { Unrestricted: true } => "free",
         _ => "on",
     };

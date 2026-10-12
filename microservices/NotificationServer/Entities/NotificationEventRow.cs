@@ -169,6 +169,39 @@ public class NotificationEventRow : BaseEntity<string>
     public bool Governed { get; set; } = true;
 
     /// <summary>
+    /// 받는 사람의 <b>정본이 이 표인가</b>. 참이면 역할을 하나도 안 걸었을 때
+    /// <b>아무에게도 안 간다</b> — 「제한 없음」이 아니다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// [「제한 없음」의 뜻이 이벤트마다 같지 않다]
+    /// </para>
+    ///
+    /// <para>
+    /// 정책 줄이 없을 때 발송 경로는 <b>부르는 쪽이 적어 보낸 역할</b>로 보낸다
+    /// (<c>NotificationPolicyDecision.Unrestricted</c>). 그래서 대부분의 이벤트는
+    /// 역할을 안 걸어도 지금까지와 똑같이 나간다 — 배포 알림은
+    /// <c>DeployNotify:RoleId</c>, 헬프데스크 요청은 소스에 박힌 역할이 있다.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>소개 사이트 문의는 그 기본값을 걷어냈다</b>(2026-10-12). 받는 역할이
+    /// 설정 파일(<c>InquiryMail:ToRole</c>)과 이 표 둘에 적혀 있으면 화면에서
+    /// 체크를 다 풀어도 설정 파일로 되돌아가, <b>껐는데 간다</b>가 된다.
+    /// 그래서 SiteServer 는 이제 역할을 안 적어 보내고 이 표가 정본이다.
+    /// </para>
+    ///
+    /// <para>
+    /// 그 대신 <b>화면이 다른 말을 해야 한다.</b> 같은 「체크 0 개」가 저쪽에서는
+    /// 「지금 그대로 나간다」이고 여기서는 「아무에게도 안 간다」다. 이 값이
+    /// 그 갈림을 들고 있고, 화면은 띠와 카드 색을 그것으로 가른다
+    /// (<c>docs/notify-policy.md</c>).
+    /// </para>
+    /// </remarks>
+    [Column("policy_required")]
+    public bool PolicyRequired { get; set; }
+
+    /// <summary>
     /// 쓰나. <b>끄면 이 이벤트의 알림이 아무에게도 안 간다</b>(정책 줄이 있든
     /// 없든).
     /// </summary>

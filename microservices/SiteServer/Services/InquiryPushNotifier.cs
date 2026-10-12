@@ -28,18 +28,24 @@ public interface IInquiryPushNotifier
 /// </para>
 ///
 /// <para>
-/// 역할 이름(<c>InquiryPush:ToRole</c> — 없으면 메일과 같은
-/// <c>InquiryMail:ToRole</c>)만 넘기고, 사람으로 푸는 것도 푸시를 꺼 둔 사람을
-/// 거르는 것도 NotificationServer 가 한다. 역할표(<c>scom.role_accounts</c>)는
-/// 포털 DB 에 있고 이 서비스는 <c>jsinisite</c> 만 본다.
+/// <c>eventCode = SITE_INQUIRY</c> 만 실어 보내고 <b>받을 역할은 안 적는다</b>.
+/// 사람으로 푸는 것도, 푸시를 꺼 둔 사람을 거르는 것도 NotificationServer 가
+/// 한다 — 역할표(<c>scom.role_accounts</c>)는 포털 DB 에 있고 이 서비스는
+/// <c>jsinisite</c> 만 본다.
 /// </para>
 ///
 /// <para>
-/// <b>그 역할마저 기본값일 뿐이다.</b> 포털관리의 「알림관리」
-/// (<c>/admin/system/notify-policy</c>)에 <c>SITE_INQUIRY</c> 의 <b>앱 푸시</b>를
-/// 켠 역할이 하나라도 있으면 알림 서버가 그 역할들로 바꿔 보낸다 — 설정 파일을
-/// 고치고 서비스를 다시 띄우지 않고 받는 사람을 바꾸는 길이 그것이다
-/// (<c>docs/notify-policy.md</c>).
+/// 받는 역할의 <b>정본은 포털관리의 「알림관리」</b>
+/// (<c>/admin/system/notify-policy</c>)이고, 거기 <c>SITE_INQUIRY</c> 의
+/// 「앱 푸시」를 켠 역할들에게 간다(<c>docs/notify-policy.md</c>).
+/// </para>
+///
+/// <para>
+/// <b>설정 파일에 기본 역할을 두지 않는다 (2026-10-12).</b> 두 자리에 적혀
+/// 있으면 화면에서 체크를 <b>다 풀었을 때</b> 정책이 「제한 없음」이 되어 설정
+/// 파일의 역할로 되돌아간다 — 관리자가 끈 알림이 계속 가는 쪽이다.
+/// <c>InquiryPush:ToRole</c> · <c>InquiryMail:ToRole</c> 은 이제 <b>표가 비었을
+/// 때만</b> 쓰이는 비상 통로이고, 평소에는 비어 있다.
 /// </para>
 ///
 /// <para>
@@ -89,13 +95,10 @@ public class InquiryPushNotifier(
 
     public async Task NotifyAsync(Guid inquiryId, InquiryRequestDto request, CancellationToken ct = default)
     {
+        // **비어 있는 것이 정상이다.** 역할을 정하는 자리는 알림관리이고
+        // (머리말), 여기 적힌 것은 표가 빈 동안만 쓰이는 비상 통로다.
+        // 비었다고 되돌아서면 화면에서 켜 둔 역할에게도 푸시가 안 간다.
         var roles = ResolveRoles();
-        if (roles.Count == 0)
-        {
-            // 설정이 없으면 보내지 않는다. 접수 자체는 이미 끝났으므로 경고만 남긴다.
-            logger.LogWarning("문의 접수 푸시 대상 역할 설정이 없어 보내지 않습니다 (InquiryPush:ToRole / InquiryMail:ToRole).");
-            return;
-        }
 
         var baseUrl = Setting("InquiryPush:NotificationBaseUrl", "InquiryMail:NotificationBaseUrl");
         if (string.IsNullOrWhiteSpace(baseUrl))
@@ -103,6 +106,10 @@ public class InquiryPushNotifier(
             logger.LogWarning("NotificationServer 주소 설정이 없습니다 (InquiryPush:NotificationBaseUrl / InquiryMail:NotificationBaseUrl).");
             return;
         }
+
+        // 로그에 적는 한 줄. 비어 있는 것이 정상이라 빈 글자로 두면
+        // 「설정을 빠뜨렸나」로 읽힌다.
+        var roleText = roles.Count == 0 ? "(알림관리)" : string.Join(",", roles);
 
         var payload = JsonSerializer.Serialize(new
         {
@@ -146,7 +153,7 @@ public class InquiryPushNotifier(
             {
                 logger.LogInformation(
                     "문의 접수 푸시: 받을 기기가 없었습니다. inquiry={Id} roles={Roles}",
-                    inquiryId, string.Join(",", roles));
+                    inquiryId, roleText);
             }
             else if (!res.IsSuccessStatusCode)
             {
@@ -157,7 +164,7 @@ public class InquiryPushNotifier(
             else
             {
                 logger.LogInformation("문의 접수 푸시를 보냈습니다. inquiry={Id} roles={Roles}",
-                    inquiryId, string.Join(",", roles));
+                    inquiryId, roleText);
             }
         }
         catch (Exception ex)
@@ -168,12 +175,20 @@ public class InquiryPushNotifier(
     }
 
     /// <summary>
-    /// 받을 역할들. <c>InquiryPush:ToRole</c> 이 없으면 메일과 같은 역할을 쓴다.
+    /// 비상 통로로 적어 둔 역할들. <b>보통은 비어 있다</b> —
+    /// <c>InquiryPush:ToRole</c> 이 없으면 메일과 같은 <c>InquiryMail:ToRole</c>.
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// 적혀 있어도 <b>알림관리에 역할이 한 줄이라도 걸려 있으면 그것이 이긴다</b>
+    /// (알림 서버가 역할 대상 이벤트에서 정책의 역할로 갈아 끼운다 —
+    /// <c>PushSender.ExpandOwnersAsync</c>). 그래서 평소에는 비워 두고, 표가
+    /// 비는 사고(설치 SQL 을 안 돌린 서버 따위)에만 쓴다.
+    /// </para>
+    /// <para>
     /// 둘을 가른 까닭은 <b>메일과 푸시의 담당자가 다를 수 있기 때문</b>이고,
-    /// 안 적으면 같은 사람에게 간다 — 설정 파일 하나를 더 채워야 푸시가 돌기
-    /// 시작하는 모양으로 두면 「올렸는데 아무 일도 없다」가 된다.
+    /// 안 적으면 같은 사람에게 간다.
+    /// </para>
     /// </remarks>
     private List<string> ResolveRoles()
     {
