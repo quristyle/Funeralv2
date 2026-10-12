@@ -2808,6 +2808,9 @@ DTO 에 하나 더 둔다(`AiDashboardRecent.StartedAtKst`).
   `.razor.cs` 에는 `_Imports.razor` 가 걸리지 않으므로 using 을 직접 적는다.
   `CodeBehindTests` 가 지킨다. 글자로 화면을 검사하는 테스트는 `RazorSource.Read`
   로 두 파일을 한 덩어리로 읽는다.
+- **메뉴에 안 걸 화면이면 `[ScreenAccess("부모 열쇠")]` 를 적는다.** 적지 않으면
+  가리킬 메뉴가 없어 **열리지 않는다**(2026-10-13 부터 기본이 차단이다). 메뉴에
+  걸 화면은 `RouteKey` 만으로 충분하다.
 - 상속 줄기는 **`BasePage` → `DataPage` → `AutoRefreshPage`** 다(`Components/Data`).
   `BasePage` 가 `Navigation` · `Permissions` 를 주입하고 `Can(MenuAction)` ·
   `CurrentPath` 를 준다 — 화면이 `@inject NavigationManager` 나
@@ -3373,6 +3376,52 @@ DevExpress 모드는 셋이고 앞의 넷이 Small 하나로 접힌다(`ThemeSiz
 (보고서·수집 로그)은 `AutoGrid` + `JsonTable` 을 쓴다. 헬프데스크가 그렇다 —
 그쪽은 엔드포인트가 마흔 개라 DTO 를 마흔 개 만들면 백엔드가 칸을 더할 때마다
 화면이 아니라 DTO 를 고치러 가게 된다. **어느 쪽인지는 화면 주석에 적는다.**
+
+## 권한관리 **밖**의 주소는 기본으로 막힌다 (2026-10-13)
+
+메뉴에 줄이 없는 화면이 **주소만으로 열리고 있었다.** 계정 관리 권한이 없는
+사람이 `/admin/system/account/{남의 아이디}/app` 을 쳐서 남의 기기·구독·발송
+기록을 볼 수 있었다 — 판정의 열쇠가 DB 메뉴의 `path` 라서, **메뉴에 없으면 따질
+열쇠가 없어 그냥 지나쳤다.** `[Authorize]` 는 「로그인했는가」만 본다.
+
+이제 **가리킬 메뉴를 못 찾으면 막는다.** 찾는 차례가 셋이다 —
+① 지금 주소로 ② 화면의 `RouteKey` 로 ③ `[ScreenAccess]` 가 가리킨 부모로.
+
+```razor
+@page "/admin/system/account/{LoginId}/app"
+@attribute [RouteKey("admin.system.account.app")]
+@attribute [ScreenAccess("admin.system.account")]   @* 계정 관리의 권한을 따른다 *@
+```
+
+**메뉴에 올릴 수 없는 상세 화면마다 DB 메뉴를 만들지 않는다.** 「사람을 고르기
+전에는 누구의 것인지 없는 주소」를 메뉴 표에 넣는 일이고, 상세마다 권한을 따로
+켜야 해서 **목록은 보이는데 상세는 안 열리는** 새 어긋남이 생긴다.
+
+로그인·오류·첫 화면처럼 메뉴에 올릴 수 **없는** 자리는 까닭을 적어 열어 둔다 —
+`[ScreenAccess(ScreenAccessKind.Open, Reason = "…")]`.
+
+### 밟기 쉬운 것 넷
+
+- **권한표가 늦게 온다.** 첫 그림은 언제나 통과고(막으면 새로고침마다 차단
+  안내가 스친다), 부트스트랩이 채운 뒤 다시 따져야 비로소 막힌다.
+  `ScreenAccess` 가 `MenuProvider.MenusChanged` 를 구독하는 그 한 줄이 없으면
+  **기본 차단이 사실상 안 돈다.**
+- **막는 자리는 레이아웃이 아니라 라우터 앞**(`Routes.razor` 의 `ScreenGate`)이다.
+  레이아웃이 아는 것은 주소뿐이라 매개변수가 든 상세 화면을 제 힘으로 알아볼 수
+  없고, 알아보려면 라우터가 이미 한 짝맞추기를 한 벌 더 두어야 한다. 문은
+  `RouteData.PageType` 을 열쇠로 쓴다. `BareLayout` 화면도 이 문을 지난다.
+- **셸의 화면은 `RouteKey` 가 없다** — 신고를 빠뜨리면 로그인한 사람에게 전부
+  막힌다(「로그아웃하면 로그인 화면이 뜨는데 로그인하면 안 뜬다」).
+  `ScreenAccessTests` 가 빌드에서 잡는다.
+- 포괄 라우트(`_Pending.razor`)는 기본이 **열림**이다. 「아직 화면이 없다」는
+  안내라 보여 줄 자료가 없고, 막으면 오타 주소가 전부 차단 기록에 쌓여 진짜
+  막힌 줄이 묻힌다. 포괄이라도 자료를 띄우는 셸의 `Embedded` 만 그 기본을 덮는다.
+
+막힌 줄은 `scom.blocked_access_logs` 에 쌓이고 포털관리의 「차단 접근기록」
+(`/admin/status/blocked-access`)이 읽는다. 「권한 없음」과 **「관리 밖」을 가르는
+것이 요점**이다 — 뒤엣것은 권한을 아무리 줘도 안 열린다.
+
+자세한 것은 [docs/screen-access.md](../docs/screen-access.md).
 
 ## 화면을 연 것이 기록에 남는다 (2026-10-09)
 

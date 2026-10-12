@@ -317,6 +317,13 @@ public static class JSiniWebApp
         // (MenuUsageRecorder 머리말). 보는 쪽은 포털관리의 「메뉴 사용기록」이다.
         services.AddScoped<MenuUsageRecorder>();
 
+        // 화면을 열어도 되는가를 정하는 **단 한 곳**과, 막은 것을 적는 자리.
+        // 사이드바 거르기 · 탭 줄 · 레이아웃 · 라우터 앞의 문(ScreenGate)이
+        // 모두 앞엣것에 묻는다(ScreenAccess 머리말). 보는 쪽은 포털관리의
+        // 「차단 접근기록」이다.
+        services.AddScoped<ScreenAccess>();
+        services.AddScoped<BlockedAccessRecorder>();
+
         // 내 알림 설정·웹푸시 구독. 화면 둘이 같은 판을 쓴다
         // (포털관리 「알림 설정」 · 장례식장 「환경설정」).
         services.AddScoped<Settings.NotificationClient>();
@@ -485,9 +492,16 @@ public static class JSiniWebApp
         services.AddHostedService(sp => sp.GetRequiredService<Diagnostics.PortalErrorReporter>());
         services.AddExceptionHandler<Diagnostics.PortalErrorHandler>();
 
-        services.AddSingleton(RouteInventory.Build(
-            routePrefix,
-            routeAssemblies.Length > 0 ? routeAssemblies : [Assembly.GetEntryAssembly()!]));
+        var assemblies = routeAssemblies.Length > 0
+            ? routeAssemblies
+            : [Assembly.GetEntryAssembly()!];
+
+        services.AddSingleton(RouteInventory.Build(routePrefix, assemblies));
+
+        // 화면마다 「권한이 어디서 오는가」. RouteInventory 와 같은 어셈블리를
+        // 훑고 같은 수명을 산다 — 라우트가 컴파일 시점에 고정이라 기동 때 한 번
+        // 만들면 그만이다(ScreenAccessCatalog 머리말).
+        services.AddSingleton(ScreenAccessCatalog.Build(assemblies));
 
         return builder;
     }

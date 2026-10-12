@@ -17,6 +17,9 @@
     **누가 어떤 화면을 언제 보았는지**도 여기 쌓인다 — 회로 안에서 라우팅만
     바뀌어 서버 로그에는 안 남으므로 셸이 적어 보낸다:
     [docs/menu-usage.md](docs/menu-usage.md)
+    **권한관리 밖의 주소는 기본으로 막히고** 막힌 사람과 주소가 여기 쌓인다 —
+    메뉴에 올릴 수 없는 상세 화면은 `[ScreenAccess]` 로 **부모 메뉴를 가리킨다**:
+    [docs/screen-access.md](docs/screen-access.md)
     **시스템 모니터링 보고서를 권한 역할에게 주기로 보내는 배치**도 여기 산다 —
     주소를 푸는 일은 알림 서버가 하고, 메일에 담기는 것은 숫자가 아니라 각자의
     화면으로 가는 길이다. **미리받아보기**는 저장 전에도, 나에게만 보낸다:
@@ -109,7 +112,7 @@ dev.bat site web          소개 사이트 백엔드(:5480)와 프론트(:5556)
 후 `up -d` 한다. 태그는 커밋 SHA 이고 `/srv/jsini/.env` 의 `TAG` 가 그것을 가리킨다 —
 **롤백은 그 값을 이전 SHA 로 되돌리고 `up` 하는 것**이다.
 
-`ci.yml` 은 PR 과 main 푸시에서 빌드와 **아키텍처 테스트**(web/tests, 236건)를 돌린다.
+`ci.yml` 은 PR 과 main 푸시에서 빌드와 **아키텍처 테스트**(web/tests, 533건)를 돌린다.
 배포 워크플로는 컨테이너 안에서 `dotnet publish` 만 하므로 그 테스트가 거기서는
 한 번도 돌지 않는다.
 
@@ -161,5 +164,7 @@ nginx 설정 정본은 [deploy/nginx/](deploy/nginx/) 에 있다 — Blazor 회�
   열여섯의 조사표와, 역할·이벤트·길을 매는 규칙(정책 → 본인 설정 → 구독)
 - [docs/helpdesk-status-notify.md](docs/helpdesk-status-notify.md) — 요청글
   접수·완료·종료 알림: 구독표가 둘로 갈려 **완료 알림이 0 통**이던 까닭과 고친 길
+- [docs/screen-access.md](docs/screen-access.md) — 메뉴에 없는 화면이 주소만으로
+  열리던 구멍: 기본 차단으로 뒤집은 길과 「차단 접근기록」 화면
 - [web/CLAUDE.md](web/CLAUDE.md) — Blazor 포털의 MFE 구조·의존 규칙·DevExpress 라이선스
 - [.claude/agents/](.claude/agents/) — 전문 서브에이전트 정의

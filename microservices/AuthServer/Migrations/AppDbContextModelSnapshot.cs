@@ -619,6 +619,86 @@ namespace AuthServer.Migrations
                         });
                 });
 
+            modelBuilder.Entity("AuthServer.Entities.BlockedAccessLog", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id")
+                        .HasComment("줄 번호");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("ClientIp")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("client_ip")
+                        .HasComment("접속 주소. 위조할 수 있는 값이라 보여 주기 전용이다 —\n            이것으로 무엇을 판단하지 않는다(ClientAddress 머리말).");
+
+                    b.Property<string>("FromPath")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("from_path")
+                        .HasComment("직전에 보던 화면. 「어디서 눌러 들어왔나」다");
+
+                    b.Property<string>("Href")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("href")
+                        .HasComment("막힌 주소. 사람이 실제로 연 그 값이라 매개변수가 들어 있다\n            (/admin/system/account/jupark/app) — 「누구의 것을 보려 했나」가\n            이 칸에만 남는다.");
+
+                    b.Property<string>("MenuPath")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("menu_path")
+                        .HasComment("권한을 따진 메뉴 경로. 메뉴를 못 찾았으면 비어 있다");
+
+                    b.Property<DateTime>("OccurredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("occurred_at")
+                        .HasComment("막힌 때 (UTC)");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("reason")
+                        .HasComment("왜 막혔나 — NO_PERMISSION(권한 없음) · UNMANAGED(관리 밖).\n            둘을 가르는 것이 이 표의 요점이다: 앞엣것은 권한 화면에서 체크\n            하나면 끝나고, 뒤엣것은 메뉴를 만들거나 코드를 고치기 전에는 안 열린다.");
+
+                    b.Property<string>("RouteKey")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("route_key")
+                        .HasComment("화면이 선언한 열쇠. 신고가 없는 화면은 비어 있다");
+
+                    b.Property<string>("ScreenType")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("screen_type")
+                        .HasComment("라우터가 끼우려던 화면 클래스. 「어느 파일이냐」의 답이다");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)")
+                        .HasColumnName("user_id")
+                        .HasComment("막힌 사람의 로그인 아이디 (scom.accounts.user_id)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OccurredAt");
+
+                    b.HasIndex("RouteKey");
+
+                    b.HasIndex("UserId", "OccurredAt");
+
+                    b.ToTable("blocked_access_logs", "scom", t =>
+                        {
+                            t.HasComment("차단 한 건 — 권한 밖의 화면을 누가 어떤 주소로 열려 했나.");
+                        });
+                });
+
             modelBuilder.Entity("AuthServer.Entities.CommonCode", b =>
                 {
                     b.Property<string>("Id")

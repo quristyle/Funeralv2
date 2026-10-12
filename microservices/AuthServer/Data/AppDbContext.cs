@@ -66,6 +66,12 @@ public class AppDbContext : DbContext
     public DbSet<MenuUsageLog> MenuUsageLogs { get; set; }
 
     /// <summary>
+    /// 차단 접근기록. 권한 밖의 화면을 누가 어떤 주소로 열려 했나 —
+    /// <see cref="MenuUsageLogs"/> 와 짝이다(그쪽은 <b>열린</b> 화면을 적는다).
+    /// </summary>
+    public DbSet<BlockedAccessLog> BlockedAccessLogs { get; set; }
+
+    /// <summary>
     /// 보고서 메일 배치. 어떤 보고서를 · 어느 역할에게 · 얼마나 자주 보낼까.
     /// </summary>
     public DbSet<ReportMailSchedule> ReportMailSchedules { get; set; }
@@ -253,6 +259,24 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<MenuUsageLog>()
             .HasIndex(e => e.MenuPath);
+
+        // ── 차단 접근기록 ────────────────────────────────────
+        //
+        // 조회가 셋이다 — **한 사람의 것을 늦은 것부터**(기록·사람별),
+        // **기간 전체를 화면으로 묶어**(화면별), **까닭으로 걸러**(둘 다).
+        // 쌓이기만 하는 표라 색인이 없으면 갈수록 느려진다.
+        //
+        // **고유 제약은 걸지 않는다.** 같은 사람이 같은 주소를 몇 번이고 다시
+        // 두드릴 수 있고, 그 횟수가 이 표에서 뜻이 있는 값이다.
+        modelBuilder.Entity<BlockedAccessLog>()
+            .HasIndex(e => new { e.UserId, e.OccurredAt });
+
+        modelBuilder.Entity<BlockedAccessLog>()
+            .HasIndex(e => e.OccurredAt);
+
+        // 화면별 집계가 묶는 열쇠다(`route_key`, 없으면 주소).
+        modelBuilder.Entity<BlockedAccessLog>()
+            .HasIndex(e => e.RouteKey);
 
         // ── 보고서 메일 배치 ─────────────────────────────────
         //

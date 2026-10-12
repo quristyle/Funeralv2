@@ -87,6 +87,10 @@ builder.Services.AddScoped<IMenuFavoriteService, MenuFavoriteService>();
 // 포털관리의 「메뉴 사용기록」 화면이다.
 builder.Services.AddScoped<IMenuUsageService, MenuUsageService>();
 
+// 차단 접근기록. 쌓는 쪽은 포털 셸이 권한 밖의 주소를 막을 때마다 부르고,
+// 보는 쪽은 포털관리의 「차단 접근기록」 화면이다.
+builder.Services.AddScoped<IBlockedAccessService, BlockedAccessService>();
+
 // 「이 화면을 볼 수 있는 사람인가」를 사이드바와 같은 표에 묻는다.
 // singleton 인 것은 1분 캐시를 요청마다 새로 만들지 않기 위해서다.
 builder.Services.AddSingleton<MenuViewAccess>();
@@ -315,6 +319,9 @@ app.MapPortalErrorEndpoints();
 // 메뉴 사용기록. 넣는 길은 로그인한 사람 누구나(자기가 연 화면이다)이고
 // 꺼내는 길은 그 메뉴를 볼 수 있는 역할만이다.
 app.MapMenuUsageEndpoints();
+// 차단 접근기록. 넣는 길은 로그인한 사람 누구나다 — **적히는 일이 곧 권한이
+// 없다는 사실**이라 여기서 또 권한을 따지면 가장 보고 싶은 줄이 먼저 빠진다.
+app.MapBlockedAccessEndpoints();
 // 보고서 메일 배치. 게이트웨이가 /api/auth/** 를 익명으로 열어 두므로
 // 이 길은 서버가 메뉴 권한으로 스스로 막는다(엔드포인트 머리말).
 app.MapReportMailEndpoints();

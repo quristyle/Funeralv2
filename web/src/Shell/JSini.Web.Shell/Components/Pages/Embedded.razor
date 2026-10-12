@@ -1,4 +1,5 @@
 @page "/embed/{*MenuPath}"
+@attribute [ScreenAccess(ScreenAccessKind.Menu, Reason = "포괄 라우트지만 **메뉴의 바깥 화면을 띄운다** — 기본값(열림)을 덮어 주소로 메뉴를 찾아 따진다.")]
 
 @*
     [바깥 화면 끼워 넣기] — 유형이 `EMBEDDED` 인 메뉴 **전부**를 받는 화면 하나.

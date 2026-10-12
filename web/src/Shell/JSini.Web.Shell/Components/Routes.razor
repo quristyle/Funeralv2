@@ -10,6 +10,10 @@
 <SizeModeScope>
 <Router AppAssembly="@typeof(Program).Assembly" AdditionalAssemblies="@ModuleRegistry.Assemblies">
     <Found Context="routeData">
+        @* 화면을 끼우기 **전에** 한 번 거른다. 권한관리 밖의 주소는 여기서
+           막히고 그 사실이 기록에 남는다(ScreenGate 머리말). 메뉴에 올라 있지
+           않은 상세 화면이 주소만으로 열리던 구멍이 이 자리였다. *@
+        <ScreenGate RouteData="@routeData">
         <AuthorizeRouteView RouteData="@routeData" DefaultLayout="@typeof(MainLayout)">
             <NotAuthorized>
                 @if (context.User.Identity?.IsAuthenticated is true)
@@ -25,6 +29,7 @@
                 <DxLoadingPanel Visible="true" IsContentBlocked="true" Text="확인 중…" />
             </Authorizing>
         </AuthorizeRouteView>
+        </ScreenGate>
         <FocusOnNavigate RouteData="@routeData" Selector="h1" />
     </Found>
     <NotFound>

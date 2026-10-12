@@ -242,10 +242,7 @@
                            사이드바에서 감추는 것만으로는 막히지 않았다(`Track` 머리말). *@
                         @if (_denied)
                         {
-                            <div class="jsini-pending">
-                                <h2 class="jsini-pending__title">이 화면을 열 권한이 없습니다.</h2>
-                                <p class="jsini-pending__lead">필요하다면 관리자에게 요청하세요.</p>
-                            </div>
+                            <ScreenBlocked />
                         }
                         else
                         {

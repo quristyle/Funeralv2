@@ -31,6 +31,13 @@ public partial class MainLayout
     /// </summary>
     [Inject] private UserMenuDrawer UserDrawer { get; set; } = default!;
     [Inject] private MenuUsageRecorder MenuUsage { get; set; } = default!;
+
+    /// <summary>
+    /// 화면을 열어도 되는가를 정하는 단 한 곳. 이 레이아웃이 쓰는 것은
+    /// <b>메뉴 하나에 대한 판정</b>뿐이다 — 매개변수가 든 상세 화면은 주소만
+    /// 보고 알아볼 수 없어 라우터 앞의 문(<c>ScreenGate</c>)이 맡는다.
+    /// </summary>
+    [Inject] private Security.ScreenAccess Access { get; set; } = default!;
     [Inject] private AuthenticationStateProvider AuthState { get; set; } = default!;
     [Inject] private NavigationManager Navigation { get; set; } = default!;
     [Inject] private IJSRuntime Js { get; set; } = default!;
@@ -1211,22 +1218,16 @@ public partial class MainLayout
     }
 
     /// <summary>
-    /// 이 메뉴의 화면을 열 수 있는가. 사이드바를 거르는 규칙(<c>MenuFilter.IsOwnScreen</c>)과 같다.
+    /// 이 메뉴의 화면을 열 수 있는가. <b>판정은 여기서 하지 않는다</b> —
+    /// 사이드바 거르기 · 라우터 앞의 문과 같은 자리에 묻는다
+    /// (<see cref="Security.ScreenAccess.CanOpen"/>).
     /// </summary>
     /// <remarks>
     /// <b>권한표를 받기 전에는 막지 않는다</b>(<see cref="IPermissionContext.IsLoaded"/>) —
     /// 막으면 새로고침할 때마다 「권한이 없습니다」가 한 번 스친다. 받고 나면 다시 따진다
     /// (<see cref="OnMenusChanged"/>).
     /// </remarks>
-    private bool MayOpen(MenuNode node)
-    {
-        if (!Permissions.IsLoaded || node.IsCatalog || node.IsExternalLink || string.IsNullOrEmpty(node.Path))
-        {
-            return true;
-        }
-
-        return Permissions.CanView(node.Path);
-    }
+    private bool MayOpen(MenuNode node) => Access.CanOpen(node);
 
     /// <summary>탭 줄에 둬도 되는 주소인가. 메뉴에 없는 화면은 막지 않는다(<see cref="Track"/> 머리말).</summary>
     private bool CanShowHref(string href)

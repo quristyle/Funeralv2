@@ -1,5 +1,6 @@
 @page "/cargotrust/transactions/{TransactionId:long}"
 @attribute [RouteKey("cargotrust.transactions.detail")]
+@attribute [ScreenAccess("cargotrust.transactions")]
 
 @*
     거래 상세(CT-007). 등록자 본인과 관리자만 열 수 있다 — 서버가 403 으로 막는다.

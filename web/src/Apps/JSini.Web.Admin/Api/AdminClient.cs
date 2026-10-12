@@ -1154,6 +1154,59 @@ public sealed class AdminClient(GatewayClient gateway)
                 ("take", take)),
             ct);
 
+    // ── 차단 접근기록 ───────────────────────────────────────
+    //
+    // **쌓는 길은 여기에 없다.** 그쪽은 셸의 `BlockedAccessRecorder` 가 라우터
+    // 앞의 문에서 부른다 — 막히는 순간에 일어나는 일이라 모듈이 들고 있을 수
+    // 없다. 여기 있는 셋은 **보는 길**이고 셋으로 갈린 까닭은 묻는 물음이
+    // 다르기 때문이다(화면별 · 사람별 · 기록).
+    //
+    // 날짜는 **한국 달력 날짜 그대로** 보낸다. 하루의 경계를 UTC 로 옮기는
+    // 일은 서버가 한다 — 여기서 또 만지면 두 번 옮겨진다.
+
+    /// <summary>화면별 집계. <b>「어떤 화면이 관리 밖인가」가 여기 선다.</b></summary>
+    public Task<IReadOnlyList<BlockedAccessByScreenDto>> GetBlockedAccessByScreenAsync(
+        DateOnly? from = null, DateOnly? to = null, string? userId = null,
+        string? reason = null, string? keyword = null, CancellationToken ct = default)
+        => gateway.GetListAsync<BlockedAccessByScreenDto>(
+            "auth/blocked-access/by-screen" + Query(
+                ("from", from?.ToString("yyyy-MM-dd")),
+                ("to", to?.ToString("yyyy-MM-dd")),
+                ("userId", userId),
+                ("reason", reason),
+                ("keyword", keyword)),
+            ct);
+
+    /// <summary>사람별 집계. 많이 막힌 사람부터다.</summary>
+    public Task<IReadOnlyList<BlockedAccessByUserDto>> GetBlockedAccessByUserAsync(
+        DateOnly? from = null, DateOnly? to = null,
+        string? reason = null, string? keyword = null, CancellationToken ct = default)
+        => gateway.GetListAsync<BlockedAccessByUserDto>(
+            "auth/blocked-access/by-user" + Query(
+                ("from", from?.ToString("yyyy-MM-dd")),
+                ("to", to?.ToString("yyyy-MM-dd")),
+                ("reason", reason),
+                ("keyword", keyword)),
+            ct);
+
+    /// <summary>
+    /// 기록 한 줄씩. <b>서버가 <paramref name="take"/> 줄에서 자른다</b> —
+    /// 화면이 잘렸다는 사실을 말해야 한다.
+    /// </summary>
+    public Task<IReadOnlyList<BlockedAccessDto>> GetBlockedAccessLogsAsync(
+        DateOnly? from = null, DateOnly? to = null, string? userId = null,
+        string? reason = null, string? keyword = null, int? take = null,
+        CancellationToken ct = default)
+        => gateway.GetListAsync<BlockedAccessDto>(
+            "auth/blocked-access" + Query(
+                ("from", from?.ToString("yyyy-MM-dd")),
+                ("to", to?.ToString("yyyy-MM-dd")),
+                ("userId", userId),
+                ("reason", reason),
+                ("keyword", keyword),
+                ("take", take)),
+            ct);
+
     // ── 보고서 메일 배치 ────────────────────────────────────
     //
     // **읽기와 쓰기가 같은 문으로 막혀 있다**(서버의 `ReportMailEndpoints`).
