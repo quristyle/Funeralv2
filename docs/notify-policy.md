@@ -32,7 +32,7 @@
 | 메일 곁가지 | `PushSender.FanOutEmailAsync` — 푸시만 보내던 이벤트의 메일을 함께 낸다 |
 | 코드값 | `JSini.Shared.DTOs.NotificationEvents` (보내는 쪽이 적는 글자) |
 | 권한 | `SYSTEM_ADMINISTRATOR` 하나 (`scom.role_menus`) |
-| SQL | `deploy/sql/notify-policy-2026-10-11.sql` · `…-menu-2026-10-11.sql` · `…-email-2026-10-11.sql` · `…-site-inquiry-push-2026-10-11.sql` |
+| SQL | `deploy/sql/notify-policy-2026-10-11.sql` · `…-menu-2026-10-11.sql` · `…-email-2026-10-11.sql` · `…-site-inquiry-push-2026-10-11.sql` · `helpdesk-status-notify-2026-10-12.sql` |
 
 ---
 
@@ -95,7 +95,7 @@
 
 **왼쪽은 표가 아니라 카드다.** 칸이 둘(이벤트 · 받는 설정)뿐인 표였는데, 정작
 고르는 데 필요한 것 — **설명과 발생처** — 은 오른쪽을 눌러 봐야 보였다.
-이벤트가 열다섯뿐이라 한 장씩 펴 두어도 목록이 길지 않다. 각 카드의 상단에
+이벤트가 열여섯뿐이라 한 장씩 펴 두어도 목록이 길지 않다. 각 카드의 상단에
 **사용 여부 스위치**가 달려 있어, 오른쪽을 누르지 않고도 목록에서 바로 사용 여부를
 확인하고 즉시 켜고 끌 수 있다. 지금 상태는 카드 왼쪽의 굵은 선으로도 말한다(`.np-card--*`) —
 
@@ -160,7 +160,7 @@
 시킨 본인에게 돌아가는 것 같은 몫은 「회사가 정하는 수신자」가 아니라 **그 일의
 일부**라, 역할로 가리면 기능이 통째로 깨진다.
 
-### `USER` — 당사자에게 가는 알림 (쪽지 · 댓글 · 생일 · 날씨 · 기기 구독)
+### `USER` — 당사자에게 가는 알림 (쪽지 · 댓글 · 요청 처리상태 · 생일 · 날씨 · 기기 구독)
 
 **정책의 역할이 거름막이다.** 받을 사람이 그 역할을 하나도 안 가졌으면 뺀다.
 
@@ -175,7 +175,7 @@
 
 ---
 
-## 조사 — 알림이 나가는 자리 열다섯
+## 조사 — 알림이 나가는 자리 열여섯
 
 저장소 전체를 세어 적은 것이고, 그대로 `scom.notification_events` 의 첫 줄들이다.
 
@@ -189,13 +189,14 @@
 | `SITE_INQUIRY` | 소개 사이트 문의 접수 | `SiteServer` 의 `InquiryMailNotifier` · `InquiryPushNotifier` | 역할 | 푸시·메일 | ○ |
 | `NOTE` | 쪽지 도착 | `NotificationServer` 의 `NoteEndpoints` · `NoteFallbackMailer` | 당사자 | 푸시·메일 | ○ |
 | `HELPDESK_COMMENT` | 내 요청글에 댓글 | `HelpDeskServer/Services/CommentNotifier` | 당사자 | 푸시·메일 | ○ |
+| `HELPDESK_STATUS` | 내 요청글 접수·완료·종료 | `HelpDeskServer/Services/RequestStatusNotifier` | 당사자 | 푸시·메일 | ○ |
 | `BIRTHDAY` | 생일 축하 메시지 | `AuthServer/Services/BirthdayNotifyClient` | 당사자 | 푸시·메일※ | ○ |
 | `WEATHER` | 기상 특보 · 내 위치 날씨 | `LifeEnvServer` → `WeatherEventEndpoints` | 당사자 | 푸시·메일※ | ○ |
 | `SUBSCRIPTION` | 새 기기 알림 구독 | `NotificationServer/Endpoints/NotificationEndpoints` | 당사자 | 푸시·메일※ | ○ |
 | `NOTICE` | 공지·안내 보내기 | 포털관리 「메시지 발송」 | — | 푸시·메일 | **×** |
 | `TEST` | 시험 발송 | 환경설정의 「시험 알림 보내기」 | — | 푸시 | **×** |
 | `ACCOUNT_MAIL` | 계정 안내 메일 | `AuthServer/Services/AccountMailClient` | — | 메일 | **×** |
-| `HELPDESK_LEGACY` | 헬프데스크 접수·완료·종료·점검 | `HelpDeskServer` 의 `PushUtil` · `EMailUtil` | — | 푸시·메일 | **×** |
+| `HELPDESK_LEGACY` | 헬프데스크 서비스 점검 | `HelpDeskServer` 의 `HealthCheckWorker` · `AutoCheckWorker` | — | 푸시·메일 | **×** |
 
 ### ※ 메일이 나가는 길은 **두 갈래**다
 
@@ -204,7 +205,7 @@
 
 | | 메일을 누가 내나 | 받는 글 |
 |---|---|---|
-| `SIGNUP` · `AI_TASK` · `NOTE` · `HELPDESK_COMMENT` · `SITE_INQUIRY` · `REPORT_MAIL` | **보내는 쪽**이 `/emails/send` 를 따로 부른다 | 그쪽이 만든 제 틀의 메일 |
+| `SIGNUP` · `AI_TASK` · `NOTE` · `HELPDESK_COMMENT` · `HELPDESK_STATUS` · `SITE_INQUIRY` · `REPORT_MAIL` | **보내는 쪽**이 `/emails/send` 를 따로 부른다 | 그쪽이 만든 제 틀의 메일 |
 | ※ 가 붙은 다섯 (`DEPLOY` · `HELPDESK` · `BIRTHDAY` · `WEATHER` · `SUBSCRIPTION`) | **`PushSender` 가 함께 낸다** (`FanOutEmailAsync`) | 앱 알림과 **같은 글** |
 
 **왜 갈라야 하나.** 앞 갈래는 이미 메일 경로가 있어서 체크가 벌써 들었다.
@@ -252,7 +253,8 @@
 두 통을 받는다**가 맞는 말이다. 이벤트 설명에 그 한 줄을 적어 두었다.
 
 겹침이 사라지는 때는 `HELPDESK_LEGACY` 를 알림 서버로 옮길 때다(아래 「다음에
-할 일」).
+할 일」). 그 겹침은 **요청 등록**의 것이다 — 접수·완료 메일은 2026-10-12 에
+`HELPDESK_STATUS` 로 옮겨 가 옛 길로는 더 안 나간다.
 
 ### 메일은 **적어 둔 때만** 나간다 — 푸시와 기본값이 반대다
 
@@ -313,11 +315,15 @@
 | `NOTICE` | 사람이 **그 자리에서** 받는 사람을 고르는 발송이다. 정책이 가로채면 「파트너」를 골랐는데 시스템관리자에게 간다 |
 | `TEST` | 「눌렀는데 오나」를 보려고 보낸다. 정책이 막으면 시험의 뜻이 없다 |
 | `ACCOUNT_MAIL` | 비밀번호 재설정은 업무 메일이다. 막으면 사용자가 얻는 것이 아무것도 없는데 화면에는 「보냈습니다」가 뜬다 |
-| `HELPDESK_LEGACY` | **알림 서버를 안 거친다.** 헬프데스크가 직접 SMTP 와 웹푸시를 부른다 — 거기까지 끌어오는 것은 이 작업의 몫이 아니다 |
+| `HELPDESK_LEGACY` | **알림 서버를 안 거친다.** 서비스 점검 알림을 헬프데스크가 직접 SMTP 와 웹푸시로 부른다 — 접수·완료·종료는 2026-10-12 에 떼어 냈다(아래) |
 
-> **다음에 할 일이 그 마지막 줄이다.** 헬프데스크의 접수·완료·종료 알림을
-> `/notifications/push` · `/emails/send` 로 옮기면 `governed` 를 켜는 것으로
-> 끝난다. 표도 화면도 그대로다.
+> **그 마지막 줄의 절반이 2026-10-12 에 끝났다.** 헬프데스크의 접수·완료·종료
+> 알림이 `/notifications/push` · `/emails/send` 로 옮겨 가 새 이벤트
+> `HELPDESK_STATUS`(정책이 걸린다)가 되었다 — 옮기기 전에는 보내던 구독표가
+> **0 줄**이라 완료 알림이 한 통도 안 나갔다
+> ([docs/helpdesk-status-notify.md](helpdesk-status-notify.md)).
+> `HELPDESK_LEGACY` 에는 **서비스 점검**만 남았고, 그 둘(`HealthCheckWorker` ·
+> `AutoCheckWorker`)을 옮기면 `governed` 를 켜는 것으로 끝난다.
 
 ---
 

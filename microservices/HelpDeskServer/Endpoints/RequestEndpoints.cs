@@ -727,7 +727,7 @@ public static class RequestEndpoints {
     // 「대기」에서 「완료」를 바로 누르면 접수자·접수일자·완료일자가 한 번에
     // 들어간다 — 접수를 건너뛴 것이 아니라 그 순간 접수까지 함께 한 것이다.
     // ────────────────────────────────────────────────────────────
-    group.MapPut("/accept/{id}", (IAdminService adminService, HttpContext http, AppDbContext db, int id, ImprovementRequest input, IAssigneeProvisioner assignees, IRabbitMqConnectionProvider provider, ILoggerFactory loggerFactory, IConfiguration configuration, IPushSubscriptionStore store, IWebPushService sender) => ApiResponseBuilder.CreateAsync(async () => {
+    group.MapPut("/accept/{id}", (HttpContext http, AppDbContext db, int id, ImprovementRequest input, IAssigneeProvisioner assignees, IRequestStatusNotifier statusNotifier, IRabbitMqConnectionProvider provider, ILoggerFactory loggerFactory, IConfiguration configuration) => ApiResponseBuilder.CreateAsync(async () => {
       //return null;
       var req = await db.Requests.FindAsync(id);
       if (req is null) return null;
@@ -766,107 +766,38 @@ public static class RequestEndpoints {
 
       await db.SaveChangesAsync();
 
-      // 접수 시 (InProgress) 알림
-      if (input.Status == ImprovementStatus.InProgress) {
-        var adm = req.AdminId.HasValue ? await db.Admins.FindAsync(req.AdminId.Value) : null;
-        var assigneeName = adm?.UserName ?? "담당자 미정";
+      // ── 처리 상태 알림 (접수 · 완료 · 종료) ───────────────
+      //
+      // [옛 길은 아무 데도 안 닿았다 (2026-10-12)]
+      //
+      // 여기에는 `PushUtil.SendPushMsg(…, customerSubscriptions, …)` 가 있었다.
+      // 그 목록을 담은 표(`helpdesk.pushsubscriptions`)는 **옛 Vue 포털이
+      // 채우던 것**이고 그 화면은 2026-09-05 에 걷어냈다 — 지금 포털에서
+      // 알림을 켜면 구독은 알림 서비스의 `scom.push_subscriptions` 에 들어간다.
+      // 그래서 완료 알림은 **받을 기기가 0 대인 채로 조용히 성공**했다
+      // (운영 확인: 앞의 표 0 줄 · 뒤의 표에 같은 사람 기기 4 대).
+      //
+      // 접수·완료 메일도 같은 꼴로 죽어 있었다 — 받는 사람을 고르는 조건이
+      // `userproperty` 의 `receiveEmail = true` 인데 그 표가 0 줄이라 언제나
+      // 빈 목록이었다. 둘 다 `IRequestStatusNotifier` 로 옮긴다. 거기서는
+      // 「누가 받나」를 알림관리 정책과 본인 설정이 정한다
+      // (`docs/helpdesk-status-notify.md`).
+      //
+      // **알림이 실패해도 상태는 남는다** — `IRequestStatusNotifier` 머리말 참고.
+      var notifyAdmin = req.AdminId is { } notifyAssigned
+          ? await db.Admins.FindAsync(notifyAssigned)
+          : null;
+      var assigneeName = notifyAdmin?.UserName ?? "담당자 미정";
 
-        var customerSubscriptions = await store.GetSubscriptionsByUserAsync(req.CustomerId, "customer");
-        await PushUtil.SendPushMsg($"접수 - {assigneeName}", $"{req.Title} ", $"/helpdesk/request/detail/{req.Id}", customerSubscriptions, sender);
+      await statusNotifier.NotifyAsync(
+          req, input.Status, assigneeName, http.AuditUser(), CancellationToken.None);
 
-        var adminSubscriptions = await store.GetAdminSubscriptionsAsync();
-        await PushUtil.SendPushMsg($"접수 - {assigneeName}", $"{req.Title}", $"/helpdesk/request/detail/{req.Id}", adminSubscriptions, sender);
-
-        var customerEmails = await adminService.GetCustomerEmailsForNotificationAsync(req.CustomerId);
-        if (customerEmails.Any()) {
-          string mailTos = string.Join(";", customerEmails);
-          var mailBody = $@"
-<div style=""max-width: 600px; margin: 0 auto; font-family: 'Malgun Gothic', sans-serif; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;"">
-    <div style=""background-color: #f8f9fa; padding: 20px; border-bottom: 1px solid #e0e0e0;"">
-        <h2 style=""margin: 0; color: #333; font-size: 18px;"">[접수] {req.Title}</h2>
-    </div>
-    <div style=""padding: 24px; background-color: #ffffff;"">
-        <p style=""font-size: 14px; color: #555; line-height: 1.6; margin-top: 0;"">
-            요청하신 내용이 <strong>접수</strong> 되었습니다.
-        </p>
-        <div style=""background-color: #f1f3f5; padding: 16px; border-radius: 6px; margin: 20px 0;"">
-            <div style=""margin: 0; font-size: 14px; color: #333; line-height: 1.5;"">
-                {req.Description}
-            </div>
-        </div>
-        <div style=""text-align: center; margin-top: 30px;"">
-            <a href=""https://help.jin114.co.kr/helpdesk/request/detail/{req.Id}"" style=""display: inline-block; background-color: #007bff; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 4px; font-weight: bold; font-size: 14px;"">접수 글 보기</a>
-        </div>
-    </div>
-    <div style=""background-color: #f8f9fa; padding: 15px 20px; text-align: center; border-top: 1px solid #e0e0e0;"">
-        <p style=""margin: 0; font-size: 12px; color: #888;"">본 메일은 발신 전용입니다. 감사합니다.</p>
-    </div>
-</div>";
-          await EMailUtil.SendEmailJinNets(mailTos, $"[접수] {req.Title}", mailBody, provider, loggerFactory, configuration);
-        }
-      }
-
-
-      if (input.Status == ImprovementStatus.Completed) { // 관리자 완료시 모든 관리자, 작성 접수자 에게 알림.
-
-        // 알림에 적는 이름도 **저장된 접수자**를 본다. `input.AdminId` 를
-        // 보면 화면이 그 값을 안 실어 보냈을 때 「완료 - 」로 끝난다.
-        var adm = req.AdminId is { } assigned ? await db.Admins.FindAsync(assigned) : null;
-        var assigneeName = adm?.UserName ?? "담당자 미정";
-
-        var adminSubscriptions = await store.GetAdminSubscriptionsAsync();
-        var customerSubscriptions = await store.GetSubscriptionsByUserAsync(req.CustomerId, "customer");
-
-        await PushUtil.SendPushMsg($"완료 - {assigneeName}", $"{req.Title}", $"/helpdesk/request/detail/{req.Id}", adminSubscriptions, sender);
-        await PushUtil.SendPushMsg($"완료 - {assigneeName}", $"{req.Title}", $"/helpdesk/request/detail/{req.Id}", customerSubscriptions, sender);
-
-        var mailBody = $@"
-<div style=""max-width: 600px; margin: 0 auto; font-family: 'Malgun Gothic', sans-serif; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;"">
-    <div style=""background-color: #f8f9fa; padding: 20px; border-bottom: 1px solid #e0e0e0;"">
-        <h2 style=""margin: 0; color: #333; font-size: 18px;"">[완료] {req.Title}</h2>
-    </div>
-    <div style=""padding: 24px; background-color: #ffffff;"">
-        <p style=""font-size: 14px; color: #555; line-height: 1.6; margin-top: 0;"">
-            요청하신 내용이 <strong>완료</strong> 되었습니다.
-        </p>
-        <div style=""background-color: #f1f3f5; padding: 16px; border-radius: 6px; margin: 20px 0;"">
-            <div style=""margin: 0; font-size: 14px; color: #333; line-height: 1.5;"">
-                {req.Description}
-            </div>
-        </div>
-        <div style=""text-align: center; margin-top: 30px;"">
-            <a href=""https://help.jin114.co.kr/helpdesk/request/detail/{req.Id}"" style=""display: inline-block; background-color: #007bff; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 4px; font-weight: bold; font-size: 14px;"">완료 글 보기</a>
-        </div>
-    </div>
-    <div style=""background-color: #f8f9fa; padding: 15px 20px; text-align: center; border-top: 1px solid #e0e0e0;"">
-        <p style=""margin: 0; font-size: 12px; color: #888;"">본 메일은 발신 전용입니다. 감사합니다.</p>
-    </div>
-</div>";
-
-        var customerEmails = await adminService.GetCustomerEmailsForNotificationAsync(req.CustomerId);
-        
-        var allEmails = new List<string>();
-        if (customerEmails != null) allEmails.AddRange(customerEmails);
-        
-        var uniqueEmails = allEmails.Where(e => !string.IsNullOrEmpty(e)).Distinct().ToList();
-        
-        if (uniqueEmails.Any()) {
-            string mailTos = string.Join(";", uniqueEmails);
-            await EMailUtil.SendEmailJinNets(mailTos, $"[완료] {req.Title}", mailBody, provider, loggerFactory, configuration);
-        }
-      }
-      else if (input.Status == ImprovementStatus.UserCompleted) { // 사용자 완료시 접수자에게 알림.
-        var adm = req.AdminId is { } assigned ? await db.Admins.FindAsync(assigned) : null;
-
-        var adminSubscriptions = await store.GetAdminSubscriptionsAsync();
-        await PushUtil.SendPushMsg(
-                 $"종료 - {req.Title}",
-                  $"{req.Title}",
-                 $"/helpdesk/request/detail/{req.Id}",
-                  adminSubscriptions,
-                     sender
-                     );
-
+      // ── 종료 메일만 옛 길에 남는다 ────────────────────────
+      //
+      // 접수자 주소(`admin.email`)로 **바로** 가므로 이 길은 실제로 살아 있다.
+      // 알림 서비스로 옮기면 포털 계정이 아닌 담당자에게 메일이 끊긴다 —
+      // 앱 푸시는 위에서 함께 보내므로 여기서 또 내지 않는다(두 통이 된다).
+      if (input.Status == ImprovementStatus.UserCompleted) {
         var mailBody = $@"
 <div style=""max-width: 600px; margin: 0 auto; font-family: 'Malgun Gothic', sans-serif; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;"">
     <div style=""background-color: #f8f9fa; padding: 20px; border-bottom: 1px solid #e0e0e0;"">
@@ -890,14 +821,9 @@ public static class RequestEndpoints {
     </div>
 </div>";
 
-        var allEmails = new List<string>();
-        if (adm != null && !string.IsNullOrEmpty(adm.Email)) allEmails.Add(adm.Email);
-        
-        var uniqueEmails = allEmails.Where(e => !string.IsNullOrEmpty(e)).Distinct().ToList();
-        
-        if (uniqueEmails.Any()) {
-            string mailTos = string.Join(";", uniqueEmails);
-            await EMailUtil.SendEmailJinNets(mailTos, $"[종료] {req.Title}", mailBody, provider, loggerFactory, configuration);
+        if (!string.IsNullOrEmpty(notifyAdmin?.Email)) {
+          await EMailUtil.SendEmailJinNets(
+              notifyAdmin.Email, $"[종료] {req.Title}", mailBody, provider, loggerFactory, configuration);
         }
       }
 

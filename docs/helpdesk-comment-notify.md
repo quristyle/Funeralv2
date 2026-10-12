@@ -41,6 +41,12 @@
 옛 길(`PushUtil`)은 **걷어내지 않고 나란히 둔다.** 거기 남은 구독(담당자 몫)이
 아직 살아 있을 수 있고, 그것을 정리하는 일은 이 고침의 몫이 아니다.
 
+> **2026-10-12 — 1번의 풀이는 이제 공용이다.** 요청글의 접수·완료·종료 알림이
+> 같은 고침을 받으면서(`RequestStatusNotifier`) 주인 풀이가
+> `IRequestOwnerResolver` 로 옮겨 갔다. 두 벌로 두면 「댓글은 오는데 완료는 안
+> 온다」가 생기고, 그 증상으로는 어느 쪽이 틀렸는지 알 수가 없다 —
+> [docs/helpdesk-status-notify.md](helpdesk-status-notify.md).
+
 ## 받는 사람이 끄는 자리
 
 환경설정(`/funeral/setting/environment`)의 알림 칸에 스위치 둘이 늘었다.

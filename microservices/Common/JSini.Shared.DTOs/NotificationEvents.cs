@@ -62,6 +62,18 @@ public static class NotificationEvents
     /// <summary>내 요청글에 댓글이 달렸다. 구분 <c>HELPDESK_COMMENT</c>.</summary>
     public const string HelpDeskComment = "HELPDESK_COMMENT";
 
+    /// <summary>
+    /// 내 요청글이 접수·완료·종료 되었다. 구분 <c>HELPDESK_STATUS</c>
+    /// (<see cref="PushCategories.HelpDeskStatus"/>).
+    /// </summary>
+    /// <remarks>
+    /// <b>길이 둘이다.</b> 앱 푸시와 이메일을 <c>HelpDeskServer</c> 의
+    /// <c>RequestStatusNotifier</c> 가 <b>각각</b> 낸다(<c>/notifications/push</c> ·
+    /// <c>/emails/send</c>). 그래서 <c>email_from_push</c> 는 <b>거짓</b>이다 —
+    /// 켜면 한 번 완료할 때 메일이 두 통 간다.
+    /// </remarks>
+    public const string HelpDeskStatus = "HELPDESK_STATUS";
+
     /// <summary>AI 작업이 요청되었거나 끝났다. 구분 <c>AI_TASK</c>.</summary>
     public const string AiTask = "AI_TASK";
 

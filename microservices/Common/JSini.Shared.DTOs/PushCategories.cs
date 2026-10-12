@@ -70,6 +70,16 @@ public static class PushCategories
     /// </remarks>
     public const string HelpDeskComment = "HELPDESK_COMMENT";
 
+    /// <summary>
+    /// 내가 쓴 요청글이 <b>접수·완료·종료</b> 되었다는 알림.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="HelpDesk"/> 와 갈래를 나눈다. 그쪽은 「요청이 올라왔다」를
+    /// <b>처리할 사람</b>에게 역할로 알리는 업무 알림이고, 이쪽은 <b>기다리던
+    /// 당사자</b>에게 가는 답이다 — 받는 사람도 끄는 자리도 다르다.
+    /// </remarks>
+    public const string HelpDeskStatus = "HELPDESK_STATUS";
+
     /// <summary>AI 작업 요청·결과 알림.</summary>
     public const string AiTask = "AI_TASK";
 

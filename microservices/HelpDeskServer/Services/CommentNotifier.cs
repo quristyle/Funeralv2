@@ -1,11 +1,8 @@
 using System.Net;
-using System.Net.Http.Json;
 
-using HelpDeskServer.Data;
 using HelpDeskServer.Models;
 using HtmlAgilityPack;
 using JSini.Shared.DTOs;
-using Microsoft.EntityFrameworkCore;
 
 namespace HelpDeskServer.Services;
 
@@ -65,8 +62,8 @@ public interface ICommentNotifier {
 
 /// <inheritdoc />
 public sealed class CommentNotifier : ICommentNotifier {
-  /// <summary>설정에서 알림 서비스 주소를 읽는 자리. 요청 등록 알림과 같은 값이다.</summary>
-  public const string BaseUrlKey = "Notify:BaseUrl";
+  /// <summary>알림 서비스에 적어 보내는 부른 이 이름(<c>X-User-Id</c>).</summary>
+  private const string CallerId = "HELPDESK_COMMENT";
 
   /// <summary>
   /// 알림·메일이 본문에 실을 글자 수 상한. 알림창은 어차피 더 못 보여 주고,
@@ -74,20 +71,17 @@ public sealed class CommentNotifier : ICommentNotifier {
   /// </summary>
   private const int PreviewLength = 120;
 
-  private readonly AppDbContext _db;
-  private readonly IHttpClientFactory _httpClientFactory;
-  private readonly IConfiguration _configuration;
+  private readonly IRequestOwnerResolver _owners;
+  private readonly INotifyGateway _gateway;
   private readonly ILogger<CommentNotifier> _logger;
 
   /// <summary>서비스를 생성한다.</summary>
   public CommentNotifier(
-      AppDbContext db,
-      IHttpClientFactory httpClientFactory,
-      IConfiguration configuration,
+      IRequestOwnerResolver owners,
+      INotifyGateway gateway,
       ILogger<CommentNotifier> logger) {
-    _db = db;
-    _httpClientFactory = httpClientFactory;
-    _configuration = configuration;
+    _owners = owners;
+    _gateway = gateway;
     _logger = logger;
   }
 
@@ -96,7 +90,7 @@ public sealed class CommentNotifier : ICommentNotifier {
       ImprovementComment comment, ImprovementRequest request,
       string authorName, string? actorLoginId, CancellationToken ct = default) {
 
-    var ownerLoginId = await ResolveRequestOwnerAsync(request, ct);
+    var ownerLoginId = await _owners.OwnerLoginIdAsync(request, ct);
 
     if (string.IsNullOrWhiteSpace(ownerLoginId)) {
       // **오류가 아니다.** 계정 연결이 없는 옛 요청글이 있다 — 그때는 보낼 곳이
@@ -126,41 +120,6 @@ public sealed class CommentNotifier : ICommentNotifier {
     await SendEmailAsync(request, ownerLoginId, authorName, comment, url, ct);
   }
 
-  /// <summary>
-  /// 요청글 주인의 <b>포털 로그인 아이디</b>를 찾는다. 못 찾으면 <c>null</c>.
-  /// </summary>
-  /// <remarks>
-  /// <para>
-  /// <b>계정 연결표를 먼저 본다.</b> 요청글은 주인을 헬프데스크 내부 번호
-  /// (<c>customerid</c>)로 가리키는데, 그것을 포털 계정으로 잇는 정본은
-  /// 사람이 「계정 연결」 화면에서 직접 이어 준 <c>auth_user_links</c> 다.
-  /// </para>
-  /// <para>
-  /// <b><c>createdby</c> 는 받침이다.</b> 그 칸에는 등록할 때의 포털 아이디가
-  /// 적히지만(<c>RequestEndpoints</c> 의 <c>auditUser</c>), 헬프데스크 자체
-  /// 토큰으로 들어온 옛 글에는 내부 아이디나 <c>system</c> 이 적혀 있다 —
-  /// 그런 값은 포털 계정이 아니라서 보낼 곳이 되지 못한다. 그래서 순서가
-  /// 이렇다: 이어 준 것이 있으면 그것, 없으면 등록할 때의 아이디.
-  /// </para>
-  /// </remarks>
-  private async Task<string?> ResolveRequestOwnerAsync(
-      ImprovementRequest request, CancellationToken ct) {
-
-    var linked = await _db.AuthUserLinks
-        .AsNoTracking()
-        .Where(l => l.UserType == "customer" && l.HelpdeskUserId == request.CustomerId)
-        .Select(l => l.AuthUserId)
-        .FirstOrDefaultAsync(ct);
-
-    if (!string.IsNullOrWhiteSpace(linked)) return linked;
-
-    // `system` 은 신원 없이 들어온 요청이다 — 사람이 아니므로 보낼 곳이 아니다.
-    return string.IsNullOrWhiteSpace(request.CreatedBy)
-           || string.Equals(request.CreatedBy, "system", StringComparison.OrdinalIgnoreCase)
-        ? null
-        : request.CreatedBy;
-  }
-
   /// <summary>앱 푸시 한 통. 알림 서비스가 받는 사람의 기기를 찾아 보낸다.</summary>
   private async Task SendPushAsync(
       ImprovementRequest request, string ownerLoginId, string authorName,
@@ -186,7 +145,8 @@ public sealed class CommentNotifier : ICommentNotifier {
       }
     };
 
-    await PostAsync("/notifications/push", payload, request.Id, "댓글 앱푸시", ct);
+    await _gateway.PostAsync(
+        "/notifications/push", payload, CallerId, "댓글 앱푸시", $"요청 {request.Id}", ct);
   }
 
   /// <summary>이메일 한 통. 본문에 댓글 원문과 그 글로 가는 고리를 싣는다.</summary>
@@ -213,7 +173,8 @@ public sealed class CommentNotifier : ICommentNotifier {
       category = PushCategories.HelpDeskComment
     };
 
-    await PostAsync("/emails/send", payload, request.Id, "댓글 이메일", ct);
+    await _gateway.PostAsync(
+        "/emails/send", payload, CallerId, "댓글 이메일", $"요청 {request.Id}", ct);
   }
 
   /// <summary>
@@ -241,51 +202,6 @@ public sealed class CommentNotifier : ICommentNotifier {
         <p><a href="{portalUrl}" target="_blank">포털에서 열어 보기</a></p>
       </div>
       """;
-  }
-
-  /// <summary>
-  /// 알림 서비스에 한 번 보낸다. <b>실패해도 던지지 않는다</b> — 까닭은 이 인터페이스
-  /// 머리말에 있다.
-  /// </summary>
-  private async Task PostAsync(
-      string path, object payload, int requestId, string what, CancellationToken ct) {
-
-    var baseUrl = _configuration[BaseUrlKey] ?? "http://127.0.0.1:5460";
-
-    using var client = _httpClientFactory.CreateClient();
-    client.Timeout = TimeSpan.FromSeconds(15);
-
-    using var message = new HttpRequestMessage(
-        HttpMethod.Post, $"{baseUrl.TrimEnd('/')}{path}") {
-      Content = JsonContent.Create(payload)
-    };
-
-    // 게이트웨이를 거치지 않는 서비스 간 호출이라 부른 이를 직접 적는다 —
-    // 저쪽은 이 헤더가 없으면 401 로 답한다(`UserContext`).
-    message.Headers.Add("X-User-Id", "HELPDESK_COMMENT");
-
-    try {
-      using var response = await client.SendAsync(message, ct);
-      var body = await response.Content.ReadAsStringAsync(ct);
-
-      if (!response.IsSuccessStatusCode) {
-        _logger.LogError(
-            "요청 {RequestId} {What} 발송에 실패했습니다 ({StatusCode}): {Response}",
-            requestId, what, response.StatusCode, body);
-        return;
-      }
-
-      _logger.LogInformation("요청 {RequestId} {What} 를 보냈습니다: {Response}",
-          requestId, what, body);
-    }
-    catch (HttpRequestException ex) {
-      _logger.LogError(ex, "요청 {RequestId} {What} — 알림 서비스에 연결할 수 없습니다.",
-          requestId, what);
-    }
-    catch (TaskCanceledException ex) {
-      _logger.LogError(ex, "요청 {RequestId} {What} — 발송 시간이 초과됐습니다.",
-          requestId, what);
-    }
   }
 
   /// <summary>

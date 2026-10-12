@@ -24,6 +24,9 @@
   - `AIAgentServer` (:5029) · `FileServer` (:5350) · `HelpDeskServer` (:5400)
     내 요청글에 **댓글이 달렸을 때** 글 주인에게 가는 앱푸시·이메일과 그것을
     끄는 자리는 [docs/helpdesk-comment-notify.md](docs/helpdesk-comment-notify.md)
+    **접수·완료·종료**도 같은 길로 간다 — 그 전에는 보내는 쪽이 **옛 포털이
+    채우던 빈 구독표**를 보고 있어서 완료 알림이 한 통도 안 나갔다:
+    [docs/helpdesk-status-notify.md](docs/helpdesk-status-notify.md)
   - `ProjMngServer` (:5450) · `SiteServer` (:5480) 회사 소개 사이트 백엔드
   - `NotificationServer` (:5460) 푸시·이메일 알림 (포털·장례식장·헬프데스크 공용).
     **어떤 일에 누가 알림을 받는지**는 이제 코드가 아니라 표가 정한다 —
@@ -148,6 +151,8 @@ nginx 설정 정본은 [deploy/nginx/](deploy/nginx/) 에 있다 — Blazor 회�
 - [docs/mail-send.md](docs/mail-send.md) — 메일 보내기: 「메시지 발송」과 무엇이
   다른가 · 받는 사람을 채우는 길 셋 · AI 요약 · 보낸 메일함과 발송 기록의 갈래
 - [docs/notify-policy.md](docs/notify-policy.md) — 알림관리: 알림이 나가는 자리
-  열다섯의 조사표와, 역할·이벤트·길을 매는 규칙(정책 → 본인 설정 → 구독)
+  열여섯의 조사표와, 역할·이벤트·길을 매는 규칙(정책 → 본인 설정 → 구독)
+- [docs/helpdesk-status-notify.md](docs/helpdesk-status-notify.md) — 요청글
+  접수·완료·종료 알림: 구독표가 둘로 갈려 **완료 알림이 0 통**이던 까닭과 고친 길
 - [web/CLAUDE.md](web/CLAUDE.md) — Blazor 포털의 MFE 구조·의존 규칙·DevExpress 라이선스
 - [.claude/agents/](.claude/agents/) — 전문 서브에이전트 정의

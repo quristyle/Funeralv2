@@ -190,9 +190,19 @@ builder.Services.AddSingleton<IPortalCompanyDirectory, PortalCompanyDirectory>()
 // 무관한 조회이고 캐시를 회로 너머로 공유해야 값이 있다.
 builder.Services.AddSingleton<IPortalAccountDirectory, PortalAccountDirectory>();
 
+// 요청글의 주인·접수자를 **포털 로그인 아이디**로 푸는 자리. 알림이 나가는
+// 자리마다 제각기 풀면 한쪽이 비었을 때 조용히 0 명이 된다.
+builder.Services.AddScoped<IRequestOwnerResolver, RequestOwnerResolver>();
+
+// 알림 서비스로 한 통 건네는 통로. 실패해도 업무를 넘어뜨리지 않는다.
+builder.Services.AddScoped<INotifyGateway, NotifyGateway>();
+
 // 「내 요청글에 댓글이 달렸다」를 글 주인에게 알린다(앱 푸시 · 이메일).
 // DB 를 읽으므로 Scoped 다.
 builder.Services.AddScoped<ICommentNotifier, CommentNotifier>();
+
+// 「내 요청글이 접수·완료·종료 되었다」를 당사자에게 알린다(앱 푸시 · 이메일).
+builder.Services.AddScoped<IRequestStatusNotifier, RequestStatusNotifier>();
 
 // 현황판(/api/dashboard/overview)이 쓰는 집계. DB 를 읽으므로 Scoped 다.
 builder.Services.AddScoped<DashboardOverviewService>();
