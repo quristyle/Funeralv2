@@ -102,3 +102,123 @@ export function baseFontPx() {
 
   return Number.isFinite(px) && px > 0 ? px : 14;
 }
+
+/** 손가락이 이만큼 넘게 움직였으면 누름이 아니라 **굴리기**다(px). */
+const TAP_SLOP_PX = 12;
+
+/** 이보다 오래 짚고 있었으면 누름이 아니라 **길게 누르기**다(ms). */
+const TAP_HOLD_MS = 700;
+
+/**
+ * 휴대폰에서 **줄을 손가락으로 눌렀다**는 것을 되알려 준다.
+ *
+ * [왜 따로 받아야 하나]
+ *
+ * Monaco 는 손가락 누름에 `onMouseDown` 을 **울리지 않는다.** 터치가 있는
+ * 브라우저에서는 손짓(Gesture)을 쥐는 다른 길로 갈라지고, 그 길은 누름을
+ * **커서 옮기기로만** 쓴 뒤 `preventDefault` 로 흉내 마우스 사건까지 막는다.
+ * 재어 확인했다 — 터치를 흉내 낸 크롬에서 한 번 눌렀을 때 올라온 것은
+ *
+ *   pointerdown · touchstart · touchend · 커서 옮김(5번 줄)
+ *
+ * 이 전부였고, `onMouseDown` 도 `onMouseUp` 도 **한 번도 안 왔다.** 같은
+ * 자리를 마우스로 누르면 `onMouseDown(5번 줄, type 6)` 이 바로 온다.
+ *
+ * 그래서 「줄을 눌러 그 한 줄만 옮긴다」가 **휴대폰에서만 통째로 죽어
+ * 있었다**(PC 브라우저를 좁혀 만든 반응형 화면은 멀쩡했다 — 거기서는 손이
+ * 아니라 마우스가 누른다).
+ *
+ * [커서 사건으로 하지 않는 까닭]
+ *
+ * 누르면 커서는 움직인다(`onDidChangeCursorPosition`). 그것을 번역 신호로
+ * 쓰면 **줄 번호 칸을 눌렀는지 글자를 눌렀는지 못 가린다** — 마우스 쪽은
+ * 누른 자리의 종류(`MouseTargetType`)를 보고 줄 번호 누름을 지나치는데,
+ * 커서 사건에는 그 값이 없다. 두 길이 다른 규칙으로 갈라서면 **같은 화면이
+ * 기기마다 다르게 군다.** 여기서 자리를 직접 되물어(`getTargetAtClientPoint`)
+ * 마우스 쪽과 **같은 값**을 올려 보낸다.
+ *
+ * [어느 편집기를 지켜보나]
+ *
+ * **상자의 id 를 받아 그 안에 선 편집기를 전부 찾는다**(`getEditors`). 비교
+ * 편집기는 칸이 둘인데 **누른 자리를 되물을 수 있는 것은 칸 안쪽의 편집기**다 —
+ * 비교 편집기 자신에게는 `getTargetAtClientPoint` 가 없다. 상자로 묶어 찾으면
+ * 그 둘이 한꺼번에 걸리고, 같은 화면에 선 **남의 편집기**는 안 걸린다.
+ *
+ * @param hostIds 편집기가 선 상자(div)의 id 들.
+ * @param caller `OnLineTappedAsync(줄번호, 자리종류)` 를 받을 .NET 부품.
+ */
+export function watchTaps(hostIds, caller) {
+  const all = window.monaco?.editor?.getEditors?.() ?? [];
+
+  for (const hostId of hostIds ?? []) {
+    const host = document.getElementById(hostId);
+
+    if (!host) { continue; }
+
+    for (const editor of all) {
+      watchOne(host, editor, caller);
+    }
+  }
+}
+
+/** 편집기 하나를 지켜본다. 상자 밖의 편집기는 그냥 지나간다. */
+function watchOne(host, editor, caller) {
+  const node = editor?.getDomNode?.();
+
+  if (!node || !host.contains(node)) { return; }
+
+  // **한 편집기에 한 번만 건다.** 거는 자리(`AttachModelsAsync`)는 그리기
+  // 뒷정리마다 지나가므로, 표시가 없으면 같은 누름이 여러 번 올라간다.
+  if (node.dataset.jsiniTap === '1') { return; }
+
+  node.dataset.jsiniTap = '1';
+
+  /** 짚기 시작한 자리와 때. null 이면 **이미 누름이 아니다**(굴렸다). */
+  let began = null;
+
+  const strayed = (touch, from) =>
+    Math.abs(touch.clientX - from.x) > TAP_SLOP_PX
+    || Math.abs(touch.clientY - from.y) > TAP_SLOP_PX;
+
+  // 손가락 하나만 받는다. 둘이면 집어 벌리는 것(확대)이라 누름이 아니다.
+  node.addEventListener('touchstart', (e) => {
+    const touch = e.touches.length === 1 ? e.touches[0] : null;
+
+    began = touch
+      ? { x: touch.clientX, y: touch.clientY, at: performance.now() }
+      : null;
+  }, { passive: true });
+
+  // 움직이기 시작하면 그 길로 굴리는 것이다. **그때 이미 누름이 아니다** —
+  // 손을 뗀 자리가 처음 자리와 가깝더라도(왕복) 번역이 돌면 안 된다.
+  node.addEventListener('touchmove', (e) => {
+    const touch = e.touches[0];
+
+    if (began && touch && strayed(touch, began)) { began = null; }
+  }, { passive: true });
+
+  node.addEventListener('touchcancel', () => { began = null; }, { passive: true });
+
+  node.addEventListener('touchend', (e) => {
+    const from = began;
+    began = null;
+
+    const touch = e.changedTouches.length === 1 ? e.changedTouches[0] : null;
+
+    if (!from || !touch || strayed(touch, from)) { return; }
+
+    // 길게 누르기는 고르기(또는 맥락 차림표)다. Monaco 가 가르는 자리와
+    // 같은 때(700ms)로 둔다.
+    if (performance.now() - from.at > TAP_HOLD_MS) { return; }
+
+    const spot = editor.getTargetAtClientPoint(touch.clientX, touch.clientY);
+    const line = spot?.position?.lineNumber ?? 0;
+
+    if (line <= 0) { return; }
+
+    // 자리의 종류를 그대로 올린다 — 줄 번호 칸을 지나칠지는 **마우스 쪽과
+    // 같은 자리에서** 가린다(`PickLineAsync`).
+    caller.invokeMethodAsync('OnLineTappedAsync', line, spot.type ?? 0)
+      .catch(() => { /* 회로가 끊겼다. 알릴 곳이 없다. */ });
+  }, { passive: true });
+}

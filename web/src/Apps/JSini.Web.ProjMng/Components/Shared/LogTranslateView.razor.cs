@@ -59,6 +59,12 @@ public partial class LogTranslateView
 
     private IJSObjectReference? _loader;
 
+    /// <summary>
+    /// 브라우저가 <b>손가락 누름</b>을 되알려 줄 때 쥘 손잡이
+    /// (<see cref="OnLineTappedAsync"/>). 한 번만 만들고 치울 때 놓는다.
+    /// </summary>
+    private DotNetObjectReference<LogTranslateView>? _tap;
+
     private StandaloneDiffEditor? _diff;
 
     /// <summary>
@@ -579,6 +585,10 @@ public partial class LogTranslateView
 
             // 편집기가 갈리면 켜 둔 불도 함께 사라진다. 다시 켠다.
             await DrawMarksAsync();
+
+            // 손가락 누름은 Monaco 가 알려 주지 않는다. **새로 선 편집기마다**
+            // 직접 지켜본다(`OnLineTappedAsync` 머리말).
+            await WatchTapsAsync(target);
         }
         catch (Exception ex) when (ex is JSException or JSDisconnectedException
             or ObjectDisposedException or TaskCanceledException)
@@ -594,6 +604,43 @@ public partial class LogTranslateView
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// 지금 선 편집기의 <b>손가락 누름</b>을 지켜본다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Monaco 가 손가락 누름에 <c>onMouseDown</c> 을 울리지 않아서, 누른
+    /// 자리를 브라우저에서 직접 되묻고 올려 보낸다(<c>js/monaco-loader.js</c> 의
+    /// <c>watchTaps</c> · 까닭은 <see cref="OnLineTappedAsync"/>).
+    /// </para>
+    /// <para>
+    /// <b>주는 것은 편집기가 아니라 그것이 선 상자의 id 다.</b> 비교 편집기는
+    /// 칸이 둘인데 누른 자리를 되물을 수 있는 것은 칸 안쪽의 편집기라, 상자로
+    /// 묶어 찾으면 그 둘이 한꺼번에 걸린다.
+    /// </para>
+    /// </remarks>
+    private async Task WatchTapsAsync(Editor target)
+    {
+        if (_loader is not { } loader)
+        {
+            return;
+        }
+
+        string[] ids = [target is StandaloneDiffEditor ? _id : $"{_id}-solo"];
+
+        try
+        {
+            _tap ??= DotNetObjectReference.Create(this);
+
+            await loader.InvokeVoidAsync("watchTaps", ids, _tap);
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException
+            or ObjectDisposedException or TaskCanceledException)
+        {
+            // 아직 안 섰거나 회로가 끊겼다. 다음에 걸릴 때 다시 건다.
+        }
     }
 
     /// <summary>
@@ -859,7 +906,8 @@ public partial class LogTranslateView
     }
 
     /// <summary>
-    /// 줄을 눌렀다. 불을 옮기고 <b>그 한 줄만 옮긴다.</b>
+    /// 줄을 <b>마우스로</b> 눌렀다. 손가락 누름은 이리로 오지 않는다
+    /// (<see cref="OnLineTappedAsync"/>).
     /// </summary>
     /// <remarks>
     /// <para>
@@ -875,10 +923,42 @@ public partial class LogTranslateView
     /// 누름은 사람이 그 줄을 <b>지목한</b> 것이다.
     /// </para>
     /// </remarks>
-    private async Task OnLineClickedAsync(EditorMouseEvent e)
-    {
-        var line = e.Target?.Position?.LineNumber ?? 0;
+    private Task OnLineClickedAsync(EditorMouseEvent e)
+        => PickLineAsync(e.Target?.Position?.LineNumber ?? 0, e.Target?.Type);
 
+    /// <summary>
+    /// 줄을 <b>손가락으로</b> 눌렀다. 브라우저에서 <c>js/monaco-loader.js</c> 가
+    /// 적어 보낸다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Monaco 는 손가락 누름에 <c>onMouseDown</c> 을 울리지 않는다.</b>
+    /// 터치가 있는 브라우저에서는 손짓을 쥐는 다른 길로 갈라지고, 그 길은
+    /// 누름을 커서 옮기기로만 쓴 뒤 흉내 마우스 사건까지 막는다. 재어
+    /// 확인했다 — 터치를 흉내 낸 크롬에서 줄 하나를 눌렀을 때 올라온 것은
+    /// <c>touchstart · touchend · 커서 옮김</c> 뿐이었고 <c>onMouseDown</c> 은
+    /// 한 번도 오지 않았다. 같은 자리를 마우스로 누르면 바로 온다.
+    /// </para>
+    /// <para>
+    /// 그래서 「줄을 눌러 그 한 줄만 옮긴다」가 <b>안드로이드 크롬에서만
+    /// 통째로 죽어 있었다</b> — PC 창을 좁혀 만든 반응형 화면은 멀쩡했다.
+    /// 거기서는 손이 아니라 마우스가 누른다.
+    /// </para>
+    /// <para>
+    /// <b>들어오는 자리를 마우스와 하나로 둔다</b>(<see cref="PickLineAsync"/>) —
+    /// 줄 번호 칸을 지나치는 규칙이 길마다 갈라지면 같은 화면이 기기마다
+    /// 다르게 군다.
+    /// </para>
+    /// </remarks>
+    [JSInvokable]
+    public Task OnLineTappedAsync(int line, int targetType)
+        => InvokeAsync(() => PickLineAsync(line, (MouseTargetType)targetType));
+
+    /// <summary>
+    /// 사람이 짚은 줄. 불을 옮기고 <b>그 한 줄만 옮긴다.</b>
+    /// </summary>
+    private async Task PickLineAsync(int line, MouseTargetType? type)
+    {
         if (line <= 0)
         {
             return;
@@ -891,7 +971,7 @@ public partial class LogTranslateView
         // 누르면 커서가 2번 줄이다). 그대로 받으면 불은 2번 줄에 켜지는데
         // 옮기는 것은 1번 줄이라, 사람 눈에 **엉뚱한 줄이 도는 것**으로
         // 보인다. 줄 번호 누름은 고르기로 남겨 둔다.
-        if (e.Target?.Type is not (MouseTargetType.CONTENT_TEXT or MouseTargetType.CONTENT_EMPTY))
+        if (type is not (MouseTargetType.CONTENT_TEXT or MouseTargetType.CONTENT_EMPTY))
         {
             return;
         }
@@ -1358,6 +1438,9 @@ public partial class LogTranslateView
 
             _loader = null;
         }
+
+        _tap?.Dispose();
+        _tap = null;
 
         _push.Dispose();
         _marks.Dispose();
