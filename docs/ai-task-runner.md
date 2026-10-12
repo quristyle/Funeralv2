@@ -212,6 +212,30 @@ DB 는 **프로젝트관리 DB**(`jsini`), 스키마 **`projmng`** — `ProjMngS
 「지난번엔 됐는데 이번엔 왜 실패했나」를 볼 방법이 없고, 두 번째 실행이 첫 번째
 기록을 조용히 덮는다.
 
+#### `changed_files` — **무엇이** 바뀌었나 (2026-10-12)
+
+`diff_stat` 과 묻는 것이 다르다. 그쪽은 **얼마나**(`git diff --stat`)이고
+이쪽은 **무엇이**다. 한 줄에 파일 하나이고 모양은 `상태<탭>경로` 다 —
+`A` 추가 · `M` 수정 · `D` 삭제 · `R` 이름변경 · `…` 은 「외 N개」를 적은
+마지막 줄(상한 200줄).
+
+**`diff_stat` 으로는 목록을 만들 수 없어서 생겼다.** `--stat` 은 긴 경로를
+`.../Components/Pages/X.razor` 로 **줄여서** 내고, 그 글자가 다시 480자에서
+잘려 꼬리의 파일들과 합계 줄이 통째로 사라진다(운영의 run 504 가
+`web/src/Apps/JSi` 에서 끊겨 있다). 한국어 파일명은 8진 탈출
+(`"\355\225\234…"`)로 적혀 읽을 수도 없다.
+
+실행기가 `--name-status` 로 **따로** 묻고(`core.quotePath=false`),
+**추적 안 하던 새 파일을 `git ls-files --others` 로 받아 `A` 로 보탠다** —
+커밋 전이면 `git diff` 에 한 줄도 안 나와서 **「생성된 파일」이 통째로 빠진다.**
+기준은 `base_sha` 다. `HEAD` 로만 보면 AI 가 스스로 커밋했거나 게이트가 커밋한
+뒤에는 차이가 비어서 **올라간 건일수록 목록이 빈다.**
+
+`diff_stat` 은 그대로 둔다 — 「몇 줄이 바뀌었나」는 거기에만 있고, 이 칸이
+생기기 전의 건은 그것으로만 그릴 수 있다(화면이 되읽어 쓴다 ·
+`AiRunFiles.Parse`). 읽는 자리는 화면의 **「처리 파일」**(처리 요약 바로
+아래)과 결과 메일의 같은 이름 칸이다.
+
 ### 4.2-1 `ai_task_file` — 지시와 **함께 올라온 파일** (2026-09-25)
 
 `file_key` · **`task_key`(널 가능)** · `file_nm` · `content_type` ·
@@ -1275,7 +1299,7 @@ AIAgentServer `/chat`). 받는 것은 **한 문장 + 항목 서넛 + 확인할 �
 · ────────────────────────────────
 · result_text 전문
 · ────────────────────────────────
-· 바뀐 파일 요약 (diff_stat)
+· 처리 파일 (changed_files — 없으면 바뀐 파일 요약 diff_stat)
 · 화면에서 보기: https://portal.jsini.co.kr/projmng/ai/task/{번호}   ← 8-4.2
 ```
 
@@ -2661,7 +2685,7 @@ GET    /api/projmng/ai-dashboard?from=&to=   현황 한 판 (11.5)
 POST   /runner/claim        {runnerId, kinds[], capacity}  → 집은 작업 0~N + run 토큰
 POST   /runner/runs/{id}/heartbeat
 POST   /runner/runs/{id}/logs      {events[], final:false}
-POST   /runner/runs/{id}/complete  {events[], final:true, exitCode, branch, diffStat}
+POST   /runner/runs/{id}/complete  {events[], final:true, exitCode, branch, diffStat, changedFiles}
 POST   /runner/usage        {runnerName, kinds[], items[]}  ← 장비 토큰 (11.6)
 
 GET    /runner/runs/{id}/files/{fid}  지시에 붙어 온 파일 한 개 (8-5.3)

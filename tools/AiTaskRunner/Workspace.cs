@@ -343,6 +343,140 @@ public sealed class Workspace(RunnerOptions options, ILogger<Workspace> logger)
     }
 
     /// <summary>
+    /// 한 줄에 파일 하나. <b>얼마까지 싣나.</b>
+    /// </summary>
+    /// <remarks>
+    /// <c>diff --stat</c> 이 500자 칸에 들어가느라 **경로를 줄이고 꼬리를
+    /// 잘라** 목록 구실을 못 하는 것이 이 값이 생긴 까닭이라, 여기서 또
+    /// 인색하게 굴면 같은 자리로 돌아온다. 그렇다고 상한이 없으면 대량
+    /// 치환 한 번이 수천 줄을 DB 와 회로로 밀어 넣는다 — 그 수를 넘으면
+    /// 마지막 줄에 <c>…</c> 로 몇 개가 더 있는지만 적는다.
+    /// </remarks>
+    private const int ChangedFileLines = 200;
+
+    /// <summary>
+    /// 이 실행이 <b>실제로 건드린 파일 목록</b>. 한 줄에 <c>상태\t경로</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="DiffStatAsync"/> 와 묻는 것이 다르다. 그쪽은 <b>얼마나</b>
+    /// 바뀌었나(<c>--stat</c>)이고 여기는 <b>무엇이</b> 바뀌었나다. 화면의
+    /// 「처리 파일」이 이것을 읽는다 — <c>--stat</c> 은 긴 경로를
+    /// <c>.../Pages/X.razor</c> 로 줄이고 그 결과가 다시 500자에서 잘려
+    /// <b>파일 목록으로는 못 쓴다.</b>
+    /// </para>
+    /// <para>
+    /// <b>기준은 <see cref="Prepared.BaseSha"/> 다.</b> AI 가 스스로 커밋했거나
+    /// 게이트가 커밋한 뒤면 <c>HEAD</c> 와의 차이는 비어 있어서, 그것만 보면
+    /// <b>올라간 건일수록 목록이 빈다.</b> 그 값을 못 짚는 자리(갈라져 나온
+    /// 기준이 이 작업본에 없을 때)에서만 <c>HEAD</c> 로 물러선다.
+    /// </para>
+    /// <para>
+    /// <b>추적 안 하는 파일을 따로 더한다.</b> AI 가 새로 만든 파일은 커밋
+    /// 전까지 <c>git diff</c> 에 한 줄도 안 나온다 — 「생성된 파일」이 통째로
+    /// 빠지는 자리라, <c>ls-files --others</c> 로 받아 <c>A</c> 로 적는다.
+    /// </para>
+    /// <para>
+    /// <b><c>core.quotePath=false</c> 를 건다.</b> git 은 ASCII 밖의 경로를
+    /// <c>"\355\225\234…"</c> 같은 8진 탈출로 내놓는다 — 한국어 파일명이
+    /// 그대로 화면에 뜨면 아무도 못 읽는다(<c>diff_stat</c> 에 실제로 그렇게
+    /// 쌓여 있다).
+    /// </para>
+    /// </remarks>
+    public async Task<string?> ChangedFilesAsync(Prepared prepared, CancellationToken ct)
+    {
+        var dotGit = Path.Combine(prepared.Path, ".git");
+
+        if (!Directory.Exists(dotGit) && !File.Exists(dotGit))
+        {
+            // 복사본(폴더 대상)에는 .git 이 없다. 무엇이 바뀌었는지 물을 데가
+            // 없으므로 **비워 둔다** — 화면이 그 칸을 통째로 뺀다.
+            return null;
+        }
+
+        var rows = new List<string>();
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+
+        var tracked = await NameStatusAsync(prepared.Path, prepared.BaseSha, ct);
+
+        foreach (var line in Lines(tracked))
+        {
+            // `R100\told\tnew` · `M\tpath` — **마지막 칸이 지금 경로**다.
+            var cols = line.Split('\t', StringSplitOptions.RemoveEmptyEntries);
+
+            if (cols.Length < 2)
+            {
+                continue;
+            }
+
+            var path = cols[^1].Trim();
+
+            if (path.Length > 0 && seen.Add(path))
+            {
+                rows.Add($"{cols[0][..1]}\t{path}");
+            }
+        }
+
+        var others = await GitAsync(
+            prepared.Path, ct, "-c", "core.quotePath=false",
+            "ls-files", "--others", "--exclude-standard");
+
+        if (others.ExitCode == 0)
+        {
+            foreach (var path in Lines(others.Output))
+            {
+                if (seen.Add(path))
+                {
+                    rows.Add($"A\t{path}");
+                }
+            }
+        }
+
+        if (rows.Count == 0)
+        {
+            return null;
+        }
+
+        if (rows.Count > ChangedFileLines)
+        {
+            var over = rows.Count - ChangedFileLines;
+
+            rows = [.. rows.Take(ChangedFileLines), $"…\t외 {over}개"];
+        }
+
+        return string.Join('\n', rows);
+    }
+
+    /// <summary>
+    /// <c>git diff --name-status</c> 한 번. <b>기준을 못 짚으면 HEAD 로 물러선다.</b>
+    /// </summary>
+    private static async Task<string> NameStatusAsync(
+        string path, string? baseSha, CancellationToken ct)
+    {
+        if (!string.IsNullOrWhiteSpace(baseSha))
+        {
+            var r = await GitAsync(
+                path, ct, "-c", "core.quotePath=false",
+                "diff", "--name-status", "--find-renames", baseSha);
+
+            if (r.ExitCode == 0)
+            {
+                return r.Output;
+            }
+        }
+
+        var head = await GitAsync(
+            path, ct, "-c", "core.quotePath=false",
+            "diff", "--name-status", "--find-renames", "HEAD");
+
+        return head.ExitCode == 0 ? head.Output : string.Empty;
+    }
+
+    /// <summary>빈 줄을 걷고 앞뒤를 다듬은 줄들.</summary>
+    private static IEnumerable<string> Lines(string text) =>
+        text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+    /// <summary>
     /// 복사본에서 돈 결과를 <b>정본으로 되돌린다.</b>
     /// </summary>
     /// <remarks>

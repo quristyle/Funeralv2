@@ -335,6 +335,65 @@
         </div>
     }
 
+    @* ── 처리 파일 — **요약 바로 아래다** (2026-10-12) ───────
+       「무엇을 했나」(요약) 다음에 오는 물음은 늘 「그래서 어디를 건드렸나」다.
+       그 답이 한동안 결과문 아래 한 줄(`RunHint`)의 「3 files changed…」
+       뿐이었다 — 숫자는 있는데 **이름이 없어서**, 알고 싶으면 로그를 펴서
+       AI 가 지나가며 적은 말을 뒤져야 했다.
+
+       **요약과 한 묶음으로 둔다.** 탭 안에 넣으면 로그를 펴는 순간 같이
+       사라지고(요약을 탭 밖으로 낸 것과 같은 까닭), 결과문 아래에 두면
+       긴 답을 끝까지 내려야 보인다.
+
+       **올린 파일(`pm-peek__files`)과 다른 것이다.** 그쪽은 사람이 지시에
+       붙여 넣은 것이고 이쪽은 AI 가 저장소에 남긴 것이다. 그래서 자리도
+       가른다 — 저것은 「지시」 옆, 이것은 요약 옆이다. *@
+    @if (_changed.Count > 0)
+    {
+        <div class="pm-peek__summary">
+            <div class="pm-peek__head-row">
+                <h3 class="pm-peek__head">처리 파일 (@_changed.Count)</h3>
+
+                @if (ChangedHidden > 0)
+                {
+                    <button type="button" class="pm-peek__speech-btn" @onclick="ToggleChanged">
+                        <span>@(_changedOpen ? "접기" : $"{ChangedHidden}개 더 보기")</span>
+                    </button>
+                }
+            </div>
+
+            <ul class="pm-peek__chg">
+                @foreach (var f in ChangedShown)
+                {
+                    @* 「외 N개」 줄은 파일이 아니다. 배지도 경로도 없이
+                       한 줄만 적는다 — 배지를 달면 그것이 파일 이름처럼 읽힌다. *@
+                    @if (f.Kind == AiRunFileKind.More)
+                    {
+                        <li class="pm-peek__chg-row pm-peek__chg-row--more">@f.Path</li>
+                    }
+                    else
+                    {
+                        <li class="pm-peek__chg-row">
+                            @if (f.KindText is { Length: > 0 } word)
+                            {
+                                <span class="pm-peek__chg-mark @f.KindClass">@word</span>
+                            }
+
+                            <span class="pm-peek__chg-path" title="@f.Path">
+                                @if (f.Folder is { Length: > 0 } folder)
+                                {
+                                    <span class="pm-peek__chg-dir">@folder/</span>
+                                }
+
+                                <span class="pm-peek__chg-name">@f.Name</span>
+                            </span>
+                        </li>
+                    }
+                }
+            </ul>
+        </div>
+    }
+
     <div class="pm-peek__tabs">
         <DxTabs @bind-ActiveTabIndex="_tab" TabClick="@OnTabClick">
             <DxTabPage Text="지시와 결과">

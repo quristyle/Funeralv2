@@ -351,6 +351,12 @@ public sealed class RunnerWorker(
 
             var diff = push?.DiffStat ?? await workspace.DiffStatAsync(prepared, ct);
 
+            // **무엇이 바뀌었나는 따로 묻는다.** 위의 `--stat` 은 긴 경로를
+            // 줄여 내고 그것이 다시 500자 칸에서 잘려, 「처리 파일」 목록으로는
+            // 못 쓴다(`Workspace.ChangedFilesAsync` 머리말). 치우기(`ParkAsync`)
+            // **앞**에서 물어야 한다 — stash 로 옮긴 뒤에는 바뀐 것이 없다.
+            var changedFiles = await workspace.ChangedFilesAsync(prepared, ct);
+
             // **정본을 다음 실행에 넘기기 전에 치운다.** 원본 직접으로 돌았고
             // 게이트가 커밋까지 가지 못했으면(CLI 실패 · 금지 경로) 고친 파일이
             // 정본에 그대로 남고, 그 뒤의 모든 실행이 「정본이 깨끗하지 않습니다」
@@ -399,6 +405,7 @@ public sealed class RunnerWorker(
                 branch = prepared.Branch,
                 baseSha = prepared.BaseSha,
                 diffStat = diff,
+                changedFiles,
                 resultText = result.ResultText,
                 sessionId = result.SessionId,
                 sessionKind = kind,

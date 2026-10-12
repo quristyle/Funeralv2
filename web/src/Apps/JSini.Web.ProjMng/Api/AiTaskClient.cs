@@ -274,6 +274,19 @@ public sealed class AiTaskRunDto
     public string? GitBranch { get; set; }
     public string? BaseSha { get; set; }
     public string? DiffStat { get; set; }
+
+    /// <summary>
+    /// <b>「처리 파일」 — 이 실행이 건드린 파일 목록.</b> 한 줄에 <c>상태\t경로</c> 다.
+    /// </summary>
+    /// <remarks>
+    /// 실행기가 <c>git diff --name-status</c> 로 따로 물어 적는다. <b><see cref="DiffStat"/>
+    /// 으로는 못 하는 일이라 생긴 칸</b>이다 — <c>--stat</c> 은 긴 경로를
+    /// <c>.../Pages/X.razor</c> 로 줄이고 그것이 다시 500자에서 잘려 목록 구실을
+    /// 못 한다. <b>없을 수 있다</b>(이 칸이 생기기 전의 건 · git 아닌 대상).
+    /// 읽는 법은 <c>AiRunFiles.Parse</c>.
+    /// </remarks>
+    public string? ChangedFiles { get; set; }
+
     public int LogLineCount { get; set; }
 
     /// <summary>AI 의 마지막 답. 고친 내역일 수도, 물은 것의 답일 수도 있다.</summary>

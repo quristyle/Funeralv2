@@ -125,6 +125,35 @@ public partial class AiTaskView
     /// </remarks>
     private IReadOnlyList<AiTaskFileDto> _files = [];
 
+    /// <summary>
+    /// 「처리 파일」 — <b>이번 작업이 만들고 고친 파일들.</b> 요약 바로 아래에 선다.
+    /// </summary>
+    /// <remarks>
+    /// <b><see cref="_files"/> 와 반대 방향이다.</b> 그쪽은 사람이 지시에 붙여
+    /// 올려 보낸 것(들어간 것)이고 이쪽은 AI 가 저장소에 남긴 것(나온 것)이다.
+    /// 둘이 한 판에 있으므로 이름을 섞지 않는다. 읽는 법은 <c>AiRunFiles.Parse</c>.
+    /// </remarks>
+    private IReadOnlyList<AiRunFile> _changed = [];
+
+    /// <summary>
+    /// 처리 파일을 <b>다 펼쳤나.</b> 한 번에 다 깔지 않는다 — 수백 줄을 고친
+    /// 건에서는 그 목록이 요약과 결과를 화면 밖으로 밀어낸다.
+    /// </summary>
+    private bool _changedOpen;
+
+    /// <summary>접었을 때 보여 줄 줄 수.</summary>
+    private const int ChangedPeek = 8;
+
+    /// <summary>지금 그릴 처리 파일 줄들.</summary>
+    private IEnumerable<AiRunFile> ChangedShown =>
+        _changedOpen ? _changed : _changed.Take(ChangedPeek);
+
+    /// <summary>
+    /// 접혀서 안 보이는 줄 수. <b>0 이면 더 펼 것이 없다</b> — 그때는 단추를
+    /// 그리지 않는다.
+    /// </summary>
+    private int ChangedHidden => Math.Max(0, _changed.Count - ChangedPeek);
+
     private readonly List<AiLogLineDto> _lines = [];
     private int _lastSeq;
 
@@ -230,6 +259,9 @@ public partial class AiTaskView
                 + string.Join('\n', tail);
         }
     }
+
+    /// <summary>처리 파일을 더 펴거나 도로 접는다.</summary>
+    private void ToggleChanged() => _changedOpen = !_changedOpen;
 
     /// <summary>결과문 아래 한 줄. 무엇이 바뀌었는지와 어디에 남았는지.</summary>
     private string? RunHint
@@ -493,6 +525,13 @@ public partial class AiTaskView
             _answeredKey = answered?.RunKey;
             _summary = AiRunSummary.Parse(answered?.SummaryText);
 
+            // **처리 파일은 가장 최근 실행의 것이다.** 요약과 달리 「답을 준
+            // 실행」에서 집지 않는다 — 아무 말 없이 파일만 고치고 끝나는 건이
+            // 실제로 있고(`result_text` 가 빈 건), 그때 답을 준 지난 실행의
+            // 파일 목록을 올려 두면 **이번에 고친 것이 아닌 파일이** 이번 건의
+            // 처리 파일로 보인다.
+            _changed = AiRunFiles.Parse(newest?.ChangedFiles, newest?.DiffStat);
+
             // **끝난 지 오래된 건은 기다리는 시늉을 하지 않는다** — 위
             // <see cref="SummaryFresh"/> 참고. 서버가 준 시각은 UTC 라
             // UTC 끼리 잰다(<c>AiTaskWhen</c> 머리말 · <c>docs/utc-time.md</c>).
@@ -508,6 +547,10 @@ public partial class AiTaskView
                 _lines.Clear();
                 _lastSeq = 0;
                 _logRead = false;
+
+                // 다른 실행으로 넘어갔다. **펼쳐 둔 것은 그 실행의 사정**이라
+                // 그대로 두면 새 건이 열리자마자 수백 줄로 펴진다.
+                _changedOpen = false;
             }
 
             return true;
@@ -727,6 +770,8 @@ public partial class AiTaskView
         _run = null;
         _result = null;
         _summary = null;
+        _changed = [];
+        _changedOpen = false;
         _answeredKey = null;
         _summaryWaits = 0;
         _summaryGaveUp = false;

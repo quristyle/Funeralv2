@@ -395,6 +395,11 @@ public sealed class AiRunService(
         done.Error = SecretMask.Apply(done.Error);
         done.DiffStat = SecretMask.Apply(done.DiffStat);
 
+        // 경로만 적힌 목록이지만 **가리는 손길은 똑같이 거친다** — 작업공간
+        // 경로에 사람 이름이나 토큰이 섞여 들어온 적이 있다. 빠뜨리면 이 칸만
+        // 가려지지 않은 채 화면과 메일로 나간다.
+        done.ChangedFiles = SecretMask.Apply(done.ChangedFiles);
+
         await db.ExecuteAsync("""
             UPDATE projmng.ai_task_run
                SET run_status    = @status,
@@ -404,6 +409,7 @@ public sealed class AiRunService(
                    git_branch    = @Branch,
                    base_sha      = @BaseSha,
                    diff_stat     = @DiffStat,
+                   changed_files = @ChangedFiles,
                    result_text   = @ResultText,
                    session_id    = @SessionId,
                    session_kind  = @SessionKind,
@@ -413,7 +419,8 @@ public sealed class AiRunService(
             """, new
         {
             runKey, status, done.ExitCode, done.Error, done.Branch, done.BaseSha,
-            done.DiffStat, done.ResultText, done.SessionId, done.SessionKind, done.WorkspacePath,
+            done.DiffStat, done.ChangedFiles, done.ResultText, done.SessionId, done.SessionKind,
+            done.WorkspacePath,
         }, tx);
 
         // ── 다시 시도할 것인가 ──────────────────────────────
@@ -645,6 +652,7 @@ public sealed class AiRunService(
                    finished_at AS FinishedAt, exit_code AS ExitCode,
                    error_summary AS ErrorSummary, git_branch AS GitBranch,
                    base_sha AS BaseSha, diff_stat AS DiffStat,
+                   changed_files AS ChangedFiles,
                    log_line_count AS LogLineCount, result_text AS ResultText,
                    instruction AS Instruction, summary_text AS SummaryText
               FROM projmng.ai_task_run
@@ -808,6 +816,13 @@ public sealed class AiCompleteRequest
     public string? Branch { get; set; }
     public string? BaseSha { get; set; }
     public string? DiffStat { get; set; }
+
+    /// <summary>
+    /// 이 실행이 건드린 파일 목록. 한 줄에 <c>상태\t경로</c> 다
+    /// (<c>AiTaskRunner.Workspace.ChangedFilesAsync</c>).
+    /// </summary>
+    public string? ChangedFiles { get; set; }
+
     public string? ResultText { get; set; }
     public string? SessionId { get; set; }
     public string? SessionKind { get; set; }
@@ -830,6 +845,13 @@ public sealed class AiTaskRun
     public string? GitBranch { get; set; }
     public string? BaseSha { get; set; }
     public string? DiffStat { get; set; }
+
+    /// <summary>
+    /// 「처리 파일」 — 이 실행이 건드린 파일 목록. 한 줄에 <c>상태\t경로</c>.
+    /// <b>없을 수 있다</b>(이 칸이 생기기 전의 건 · git 아닌 대상).
+    /// </summary>
+    public string? ChangedFiles { get; set; }
+
     public int LogLineCount { get; set; }
 
     /// <summary>AI 의 마지막 답. 화면과 메일이 둘 다 이것을 읽는다.</summary>

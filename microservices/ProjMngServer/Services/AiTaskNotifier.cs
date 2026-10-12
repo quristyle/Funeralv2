@@ -440,6 +440,7 @@ public sealed class AiTaskNotifier(
                    r.exit_code     AS ExitCode,
                    r.result_text   AS ResultText,
                    r.diff_stat     AS DiffStat,
+                   r.changed_files AS ChangedFiles,
                    r.error_summary AS ErrorSummary,
                    r.git_branch    AS GitBranch,
                    r.instruction   AS Instruction,
@@ -736,7 +737,15 @@ public sealed class AiTaskNotifier(
             sb.Append(Note("브랜치", $"""<span style="font-family:ui-monospace,SFMono-Regular,Consolas,monospace;">{Esc(r.GitBranch)}</span> (아직 올리지 않았습니다)"""));
         }
 
-        if (!string.IsNullOrWhiteSpace(r.DiffStat))
+        // **「처리 파일」이 있으면 그것을 적는다.** `diff_stat` 은 경로를 줄이고
+        // 500자에서 잘려 목록 구실을 못 한다(`changed_files` 가 생긴 까닭 —
+        // deploy/sql/projmng-ai-changed-files-2026-10-12.sql). 그 칸이 생기기
+        // 전의 건에는 아직 옛 값뿐이라 **그때만** 옛 칸을 그대로 쓴다.
+        if (ChangedFileText(r.ChangedFiles) is { Length: > 0 } files)
+        {
+            sb.Append(Block("처리 파일", files));
+        }
+        else if (!string.IsNullOrWhiteSpace(r.DiffStat))
         {
             sb.Append(Block("바뀐 파일", r.DiffStat));
         }
@@ -832,6 +841,58 @@ public sealed class AiTaskNotifier(
           <div style="white-space:pre-wrap;word-break:break-word;font-family:ui-monospace,SFMono-Regular,Consolas,'D2Coding',monospace;font-size:12.5px;line-height:1.65;color:#343a40;background:#f8f9fa;border:1px solid #e9ecef;border-radius:6px;padding:12px 13px;">{Esc(text?.Trim())}</div>
         </td></tr>
         """;
+
+    /// <summary>
+    /// 「처리 파일」 목록을 <b>메일에서 읽을 글자</b>로 편다.
+    /// </summary>
+    /// <remarks>
+    /// 담긴 모양은 <c>상태\t경로</c> 라 그대로 내면 탭이 메일에서 제멋대로
+    /// 벌어진다. 상태 글자를 <b>한국어 한 마디</b>로 풀어 앞에 붙인다 —
+    /// <c>M</c> 한 글자를 보고 무슨 뜻인지 아는 사람에게 보내는 메일이 아니다.
+    /// </remarks>
+    private static string ChangedFileText(string? changed)
+    {
+        if (string.IsNullOrWhiteSpace(changed))
+        {
+            return string.Empty;
+        }
+
+        var lines = changed
+            .Replace("\r", string.Empty)
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(line =>
+            {
+                var cut = line.IndexOf('\t');
+
+                if (cut < 0)
+                {
+                    return line;
+                }
+
+                var mark = line[..cut];
+                var path = line[(cut + 1)..].Trim();
+
+                return mark == "…" ? $"… {path}" : $"[{ChangeWord(mark)}] {path}";
+            })
+            .ToList();
+
+        return lines.Count == 0 ? string.Empty : string.Join('\n', lines);
+    }
+
+    /// <summary>
+    /// git 의 상태 글자 한 자를 한국어로. <b>모르는 글자는 그대로 둔다</b> —
+    /// 지어낸 말보다 낫다.
+    /// </summary>
+    private static string ChangeWord(string mark) => mark switch
+    {
+        "A" => "추가",
+        "M" => "수정",
+        "D" => "삭제",
+        "R" => "이름변경",
+        "C" => "복사",
+        "T" => "형식변경",
+        _ => mark,
+    };
 
     /// <summary>한 줄짜리 알림 칸 — 배포·브랜치처럼 짧은 사실.</summary>
     private static string Note(string label, string valueHtml) => $"""
@@ -1223,6 +1284,15 @@ public sealed class AiTaskNotifier(
         public int? ExitCode { get; set; }
         public string? ResultText { get; set; }
         public string? DiffStat { get; set; }
+
+        /// <summary>
+        /// 「처리 파일」 — 이 실행이 건드린 파일 목록. 한 줄에 <c>상태\t경로</c>.
+        /// <b>화면과 같은 값을 쓴다</b>(<c>projmng.ai_task_run.changed_files</c>) —
+        /// 메일과 화면이 서로 다른 파일 목록을 말하면 어느 쪽이 그 실행의
+        /// 결과인지 가릴 길이 없다.
+        /// </summary>
+        public string? ChangedFiles { get; set; }
+
         public string? ErrorSummary { get; set; }
         public string? GitBranch { get; set; }
 
