@@ -3780,6 +3780,50 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
   margin: 0;
 }
 
+/* ── 접는 머리 (`pm-peek__fold`) ─────────────────────────────
+
+   「처리 요약」의 제목이 곧 접는 단추다(2026-10-12). **제목째로 단추에
+   담는다** — 제목 옆에 화살표만 따로 세우면 누를 자리가 손가락보다 작아
+   휴대폰에서 두세 번 빗나간다.
+
+   단추처럼 보이지 않게 한다. 이 줄은 여전히 칸 이름이고, 테두리와 바탕이
+   붙는 순간 아래 글보다 먼저 읽힌다 — `.pm-peek__head` 를 작고 흐리게
+   둔 까닭과 같다. 손가락이 올라왔을 때만 글자가 진해진다. */
+.pm-peek__fold {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+  user-select: none;
+}
+
+.pm-peek__fold:hover,
+.pm-peek__fold:focus-visible {
+  color: var(--jsini-text);
+}
+
+/* 화살표. **글자 하나를 돌려 쓴다** — ▸ 와 ▾ 를 갈아 끼우면 그 사이에
+   글자폭이 달라져 제목이 좌우로 흔들린다. */
+.pm-peek__fold-mark {
+  display: inline-block;
+  flex: 0 0 auto;
+  width: 0.7rem;
+  font-size: var(--jsini-fs-2xs, 0.75rem);
+  line-height: 1;
+  transition: transform 0.15s ease-in-out;
+}
+
+.pm-peek__fold-mark--open {
+  transform: rotate(90deg);
+}
+
 /* 음성으로 읽어주기 단추 */
 .pm-peek__speech-btn {
   display: inline-flex;
@@ -3960,8 +4004,10 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
 
 /* ── 처리 파일 (`pm-peek__chg`) ──────────────────────────────
 
-   요약 바로 아래의 묶음이다. **요약과 한 몸으로 읽혀야** 해서 바깥 칸은
-   같은 것을 쓰고(`.pm-peek__summary`), 안쪽만 따로 꾸민다.
+   **셋째 탭의 알맹이다**(2026-10-12). 하루는 요약 바로 아래의 묶음이라
+   바깥 칸을 요약과 같은 것(`.pm-peek__summary`)으로 썼는데, 제 탭을 얻은
+   뒤로는 탭 몸통(`.pm-peek__pane`)이 그 자리를 준다 — 여기서 꾸미는 것은
+   목록과 줄뿐이다.
 
    요약처럼 왼쪽에 선을 세우지 않는다. 그 선은 「이건 AI 가 다시 쓴 말」이라는
    표시인데, 여기 적히는 것은 **고쳐 쓴 말이 아니라 git 이 센 사실**이다.
@@ -4046,8 +4092,8 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
    값보다 나쁘다.
 
    그래서 폭이 모자라면 **두 줄로 접는다.** 배지는 첫 줄에 맞춰 선다
-   (줄의 `align-items: baseline`). 한 판에 여덟 줄만 펴 두므로
-   (`AiTaskView.ChangedPeek`) 접힌 줄 몇이 판을 밀어낼 일은 없다. */
+   (줄의 `align-items: baseline`). 제 탭 안이라 길어져도 밀어낼 것이 없다 —
+   여기까지 건너온 사람이 보려는 것이 그 목록이다. */
 .pm-peek__chg-path {
   min-width: 0;
   word-break: break-all;

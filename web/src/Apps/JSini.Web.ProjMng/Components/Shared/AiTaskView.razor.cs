@@ -24,11 +24,22 @@ public partial class AiTaskView
     /// </summary>
     [Inject] private AiModelCodes ModelCodes { get; set; } = default!;
 
-    /// <summary>「지시와 결과」 탭. 처리 요약 · 물음 · 답이 이 한 판에 있다.</summary>
+    /// <summary>「지시와 결과」 탭. 물음과 답이 이 한 판에 있다.</summary>
     private const int TabAsk = 0;
 
+    /// <summary>
+    /// 「처리 파일」 탭 — <b>이번 작업이 만들고 고친 파일들</b>(2026-10-12).
+    /// </summary>
+    /// <remarks>
+    /// <b>끼운 자리가 가운데다.</b> 「무엇을 했나」(결과) 다음에 오는 물음이
+    /// 「그래서 어디를 건드렸나」고, 로그는 그 둘이 못 미더울 때 펴는 것이라
+    /// 맨 끝이다. 번호가 밀려 로그가 1 에서 2 가 되었다 — 이 숫자를 쓰는
+    /// 자리는 여기 이 파일뿐이다(따라가기 · 로그 바닥 붙이기 · 첫 탭 고르기).
+    /// </remarks>
+    private const int TabFiles = 1;
+
     /// <summary>로그 탭.</summary>
-    private const int TabLog = 1;
+    private const int TabLog = 2;
 
     /// <summary>
     /// 그릴 로그 줄 수의 상한. <b>꼬리 300줄만</b> 그린다 — 모바일 회로가
@@ -126,33 +137,48 @@ public partial class AiTaskView
     private IReadOnlyList<AiTaskFileDto> _files = [];
 
     /// <summary>
-    /// 「처리 파일」 — <b>이번 작업이 만들고 고친 파일들.</b> 요약 바로 아래에 선다.
+    /// 「처리 파일」 — <b>이번 작업이 만들고 고친 파일들.</b> 셋째 탭의 알맹이다.
     /// </summary>
     /// <remarks>
     /// <b><see cref="_files"/> 와 반대 방향이다.</b> 그쪽은 사람이 지시에 붙여
     /// 올려 보낸 것(들어간 것)이고 이쪽은 AI 가 저장소에 남긴 것(나온 것)이다.
     /// 둘이 한 판에 있으므로 이름을 섞지 않는다. 읽는 법은 <c>AiRunFiles.Parse</c>.
+    /// <para>
+    /// <b>탭 안에서는 접지 않는다</b>(2026-10-12). 하루는 요약 아래에서 여덟
+    /// 줄만 펴 두고 나머지를 「N개 더 보기」로 접었는데, 그것은 <b>옆에 있는
+    /// 결과문을 지키려던 것</b>이었다. 제 탭을 얻은 뒤로는 밀어낼 것이 없고,
+    /// 여기까지 건너온 사람이 보려는 것이 그 목록이다.
+    /// </para>
     /// </remarks>
     private IReadOnlyList<AiRunFile> _changed = [];
 
     /// <summary>
-    /// 처리 파일을 <b>다 펼쳤나.</b> 한 번에 다 깔지 않는다 — 수백 줄을 고친
-    /// 건에서는 그 목록이 요약과 결과를 화면 밖으로 밀어낸다.
+    /// 탭 이름에 적을 개수. <b>「외 N개」 줄은 빼고 센다</b> — 그것은 파일이
+    /// 아니라 <b>상한에 걸려 접힌 나머지가 몇이더라</b>는 말이다
+    /// (<c>AiRunFileKind.More</c> · 실행기가 200줄에서 자른다).
     /// </summary>
-    private bool _changedOpen;
-
-    /// <summary>접었을 때 보여 줄 줄 수.</summary>
-    private const int ChangedPeek = 8;
-
-    /// <summary>지금 그릴 처리 파일 줄들.</summary>
-    private IEnumerable<AiRunFile> ChangedShown =>
-        _changedOpen ? _changed : _changed.Take(ChangedPeek);
+    private int ChangedCount => _changed.Count(f => f.Kind != AiRunFileKind.More);
 
     /// <summary>
-    /// 접혀서 안 보이는 줄 수. <b>0 이면 더 펼 것이 없다</b> — 그때는 단추를
-    /// 그리지 않는다.
+    /// 「처리 파일」 탭에 적을 이름. <b>개수를 여기 적는다</b> — 건너오기 전에도
+    /// 「몇 개인가」는 알아야 건너올지가 정해진다.
     /// </summary>
-    private int ChangedHidden => Math.Max(0, _changed.Count - ChangedPeek);
+    private string FileTabText => ChangedCount == 0 ? "처리 파일" : $"처리 파일 ({ChangedCount})";
+
+    /// <summary>
+    /// 처리 파일이 없을 때 그 자리에 적을 말.
+    /// </summary>
+    /// <remarks>
+    /// <b>셋을 가른다.</b> 아직 도는 중인가 · 돈 적이 없는가 · 돌았는데 건드린
+    /// 것이 없는가. 한 가지 말로 뭉개면 보는 사람이 「기다리면 차는 것」과
+    /// 「원래 빈 것」을 구분하지 못해 같은 자리를 몇 번씩 다시 연다.
+    /// </remarks>
+    private string ChangedEmptyText => Item switch
+    {
+        { IsBusy: true } => "아직 돌고 있습니다. 끝나면 이번에 만들고 고친 파일이 여기 섭니다.",
+        _ when _run is null => "아직 실행된 적이 없습니다.",
+        _ => "이번 작업이 만들거나 고친 파일이 없습니다.",
+    };
 
     private readonly List<AiLogLineDto> _lines = [];
     private int _lastSeq;
@@ -188,6 +214,22 @@ public partial class AiTaskView
     /// 경우가 실제로 있다(다시 돌렸는데 이번에는 아무 말도 안 남긴 때).
     /// </summary>
     private long? _answeredKey;
+
+    /// <summary>
+    /// 처리 요약을 <b>펴 두었나</b>(2026-10-12). 처음에는 참이다.
+    /// </summary>
+    /// <remarks>
+    /// 요약은 탭 줄 <b>위</b>에 있어 어느 탭을 펴든 그만큼을 늘 머리에서
+    /// 먹는다. 한 일 여덟 줄에 확인할 것 넷이 붙은 건에서는 그것이 휴대폰
+    /// 한 화면을 통째로 가려, 로그를 쫓는 사람이 이미 읽은 글을 매번 지나쳐
+    /// 내려가야 했다.
+    /// <para>
+    /// <b>기억해 두지 않는다.</b> 다른 건을 열면 다시 펴진다(<see cref="Clear"/>) —
+    /// 접어 둔 것은 그 건의 요약이 길었다는 사정이지 「나는 요약을 안 본다」가
+    /// 아니고, 이 판을 여는 사람의 열에 아홉은 그 결론을 보러 온다.
+    /// </para>
+    /// </remarks>
+    private bool _sumOpen = true;
 
     /// <summary>음성으로 읽어주기(TTS) 재생 중 여부.</summary>
     private bool _speaking;
@@ -283,7 +325,8 @@ public partial class AiTaskView
     private void ShowLogXlat(bool on) => _logXlat = on;
 
     /// <summary>처리 파일을 더 펴거나 도로 접는다.</summary>
-    private void ToggleChanged() => _changedOpen = !_changedOpen;
+    /// <summary>처리 요약을 접었다 편다. 제목 줄이 통째로 이 단추다.</summary>
+    private void ToggleSummary() => _sumOpen = !_sumOpen;
 
     /// <summary>결과문 아래 한 줄. 무엇이 바뀌었는지와 어디에 남았는지.</summary>
     private string? RunHint
@@ -569,10 +612,6 @@ public partial class AiTaskView
                 _lines.Clear();
                 _lastSeq = 0;
                 _logRead = false;
-
-                // 다른 실행으로 넘어갔다. **펼쳐 둔 것은 그 실행의 사정**이라
-                // 그대로 두면 새 건이 열리자마자 수백 줄로 펴진다.
-                _changedOpen = false;
             }
 
             return true;
@@ -793,7 +832,6 @@ public partial class AiTaskView
         _result = null;
         _summary = null;
         _changed = [];
-        _changedOpen = false;
         _answeredKey = null;
         _summaryWaits = 0;
         _summaryGaveUp = false;
@@ -804,6 +842,11 @@ public partial class AiTaskView
         _logRead = false;
         _pinned = false;
         _tab = TabAsk;
+
+        // 다른 건을 열었다. **요약은 다시 펴 둔다** — 접어 둔 것은 앞 건의
+        // 요약이 길었다는 사정이고, 새 건을 열자마자 결론이 접혀 있으면
+        // 이 판을 여는 까닭이 통째로 숨는다.
+        _sumOpen = true;
 
         // 다른 건을 열었다. **보는 법도 되돌린다** — 앞 건에서 번역을 켜 둔
         // 채로 옮겨 오면 열자마자 로컬 LLM 이 남의 로그를 옮기기 시작한다.

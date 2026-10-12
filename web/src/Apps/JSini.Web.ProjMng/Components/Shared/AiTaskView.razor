@@ -19,7 +19,7 @@
     부르는 쪽은 이것을 제 판에 깔 뿐이다.
 
     ────────────────────────────────────────────────────────────
-    [탭 둘 — 지시와 결과 · 로그 (2026-09-20)]
+    [탭 셋 — 지시와 결과 · 처리 파일 · 로그]
 
     한동안 셋이었다(지시 · 결과 · 로그). 로그를 떼 둔 것은 지금도 옳다 —
     기계가 찍은 수백 줄 밑에 결과를 깔면 아무도 거기까지 내려가지 않고,
@@ -33,7 +33,14 @@
 
     그래서 한 판에 **지시 → 결과** 순으로 깐다.
 
-    [처리 요약은 **탭 줄 위**에 있다 (2026-10-11)]
+    **「처리 파일」이 셋째 탭이다**(2026-10-12). 하루는 요약 바로 아래의 묶음
+    이었는데, 그 목록이 길이가 건마다 10배씩 달라서(한 파일 ↔ 이백 파일) 탭
+    줄이 건마다 다른 높이에 서고, 접어 두면 보러 온 사람이 늘 한 번 더 눌러야
+    했다. 탭이면 **보러 온 사람만 건너오고** 건너온 사람은 통째로 본다.
+    개수는 탭 이름에 적어 두므로 건너오기 전에도 알 수 있다. 그 자리의 머리말
+    참고.
+
+    [처리 요약은 **탭 줄 위**에 있다 (2026-10-11) · **접힌다** (2026-10-12)]
 
     판의 차례는 위에서부터 **머리띠 → 처리 요약 → 탭 줄 → 고른 탭**이다.
 
@@ -52,6 +59,12 @@
     달라지지 않는 결론 한 줌이고, 탭 안에 남는 것은 **고르는 것**뿐이다
     (원문 둘이냐, 기계가 찍은 줄이냐). 그래서 머리띠 바로 아래로 옮겼다.
     믿을지 가릴 원문 둘은 그 아래 탭에 그대로 잇는다.
+
+    **대신 접을 수 있게 한다.** 탭 줄 위에 있다는 것은 어느 탭을 펴든 그만큼을
+    늘 머리에서 먹는다는 뜻이고, 요약이 긴 건(한 일 여덟 줄 + 확인할 것 넷)에서는
+    그것이 휴대폰 한 화면을 통째로 가린다. 로그를 쫓는 사람에게 그 자리는 이미
+    읽은 글이다. 한 번 읽고 접으면 그 아래가 올라온다. **처음에는 펴 둔다** —
+    이 판을 여는 사람의 열에 아홉은 그 결론을 보러 온다.
 
     [「처리 요약」은 어디서 오나]
 
@@ -268,8 +281,27 @@
     {
         <div class="pm-peek__summary">
             <div class="pm-peek__head-row">
-                <h3 class="pm-peek__head">처리 요약</h3>
+                @* **제목이 곧 접는 단추다**(2026-10-12). 제목 옆에 화살표만
+                   따로 세우면 누를 자리가 손가락보다 작아, 휴대폰에서 두세 번
+                   빗나간다. 제목째로 단추에 담아 줄 전체를 누를 자리로 준다.
 
+                   화살표는 글자 하나(▸)를 돌려서 쓴다 — 펴면 ▾ 다. 두 글자를
+                   갈아 끼우지 않는 것은 그 사이에 글자폭이 달라져 제목이
+                   좌우로 흔들리기 때문이다. *@
+                <h3 class="pm-peek__head">
+                    <button type="button" class="pm-peek__fold"
+                            @onclick="ToggleSummary"
+                            aria-expanded="@(_sumOpen ? "true" : "false")"
+                            aria-controls="pm-peek-sum"
+                            title="@(_sumOpen ? "처리 요약 접기" : "처리 요약 펴기")">
+                        <span class="pm-peek__fold-mark @(_sumOpen ? "pm-peek__fold-mark--open" : null)"
+                              aria-hidden="true">▸</span>
+                        <span>처리 요약</span>
+                    </button>
+                </h3>
+
+                @* **접어 두어도 읽어 준다.** 음성은 글을 보지 않는 사람을 위한
+                   길이라, 접힌 것을 펴야 눌리게 하면 그 길이 막힌다. *@
                 <button type="button"
                         class="pm-peek__speech-btn @(_speaking ? "pm-peek__speech-btn--speaking" : null)"
                         @onclick="ToggleSpeechAsync"
@@ -280,34 +312,39 @@
                 </button>
             </div>
 
-            <div class="pm-peek__sum">
-                @if (s.Headline is { Length: > 0 } headline)
-                {
-                    <p class="pm-peek__sum-line">@headline</p>
-                }
+            @* 접으면 **알맹이를 아예 안 그린다** — CSS 로만 숨기면 접어 둔
+               뜻(긴 요약이 자리를 덜 먹게)이 회로에서는 그대로 실려 나간다. *@
+            @if (_sumOpen)
+            {
+                <div class="pm-peek__sum" id="pm-peek-sum">
+                    @if (s.Headline is { Length: > 0 } headline)
+                    {
+                        <p class="pm-peek__sum-line">@headline</p>
+                    }
 
-                @if (s.Points.Count > 0)
-                {
-                    <ul class="pm-peek__sum-list">
-                        @foreach (var point in s.Points)
-                        {
-                            <li>@point</li>
-                        }
-                    </ul>
-                }
+                    @if (s.Points.Count > 0)
+                    {
+                        <ul class="pm-peek__sum-list">
+                            @foreach (var point in s.Points)
+                            {
+                                <li>@point</li>
+                            }
+                        </ul>
+                    }
 
-                @if (s.Checks.Count > 0)
-                {
-                    <p class="pm-peek__sum-label">확인할 것</p>
+                    @if (s.Checks.Count > 0)
+                    {
+                        <p class="pm-peek__sum-label">확인할 것</p>
 
-                    <ul class="pm-peek__sum-list pm-peek__sum-list--check">
-                        @foreach (var check in s.Checks)
-                        {
-                            <li>@check</li>
-                        }
-                    </ul>
-                }
-            </div>
+                        <ul class="pm-peek__sum-list pm-peek__sum-list--check">
+                            @foreach (var check in s.Checks)
+                            {
+                                <li>@check</li>
+                            }
+                        </ul>
+                    }
+                </div>
+            }
         </div>
     }
     else if (AwaitingSummary)
@@ -332,65 +369,6 @@
                 <DxButton Text="지금 만들기" RenderStyle="ButtonRenderStyle.Link"
                           Click="@RemakeSummaryAsync" />
             }
-        </div>
-    }
-
-    @* ── 처리 파일 — **요약 바로 아래다** (2026-10-12) ───────
-       「무엇을 했나」(요약) 다음에 오는 물음은 늘 「그래서 어디를 건드렸나」다.
-       그 답이 한동안 결과문 아래 한 줄(`RunHint`)의 「3 files changed…」
-       뿐이었다 — 숫자는 있는데 **이름이 없어서**, 알고 싶으면 로그를 펴서
-       AI 가 지나가며 적은 말을 뒤져야 했다.
-
-       **요약과 한 묶음으로 둔다.** 탭 안에 넣으면 로그를 펴는 순간 같이
-       사라지고(요약을 탭 밖으로 낸 것과 같은 까닭), 결과문 아래에 두면
-       긴 답을 끝까지 내려야 보인다.
-
-       **올린 파일(`pm-peek__files`)과 다른 것이다.** 그쪽은 사람이 지시에
-       붙여 넣은 것이고 이쪽은 AI 가 저장소에 남긴 것이다. 그래서 자리도
-       가른다 — 저것은 「지시」 옆, 이것은 요약 옆이다. *@
-    @if (_changed.Count > 0)
-    {
-        <div class="pm-peek__summary">
-            <div class="pm-peek__head-row">
-                <h3 class="pm-peek__head">처리 파일 (@_changed.Count)</h3>
-
-                @if (ChangedHidden > 0)
-                {
-                    <button type="button" class="pm-peek__speech-btn" @onclick="ToggleChanged">
-                        <span>@(_changedOpen ? "접기" : $"{ChangedHidden}개 더 보기")</span>
-                    </button>
-                }
-            </div>
-
-            <ul class="pm-peek__chg">
-                @foreach (var f in ChangedShown)
-                {
-                    @* 「외 N개」 줄은 파일이 아니다. 배지도 경로도 없이
-                       한 줄만 적는다 — 배지를 달면 그것이 파일 이름처럼 읽힌다. *@
-                    @if (f.Kind == AiRunFileKind.More)
-                    {
-                        <li class="pm-peek__chg-row pm-peek__chg-row--more">@f.Path</li>
-                    }
-                    else
-                    {
-                        <li class="pm-peek__chg-row">
-                            @if (f.KindText is { Length: > 0 } word)
-                            {
-                                <span class="pm-peek__chg-mark @f.KindClass">@word</span>
-                            }
-
-                            <span class="pm-peek__chg-path" title="@f.Path">
-                                @if (f.Folder is { Length: > 0 } folder)
-                                {
-                                    <span class="pm-peek__chg-dir">@folder/</span>
-                                }
-
-                                <span class="pm-peek__chg-name">@f.Name</span>
-                            </span>
-                        </li>
-                    }
-                }
-            </ul>
         </div>
     }
 
@@ -511,6 +489,81 @@
                            `mine/…` 경로를 쓰고 펴는 순간 읽은 것으로 찍는다 —
                            위 머리말 참고. *@
                         <AiTaskNotes Item="@t" Mine="@IsMine(t)" />
+                    }
+                </div>
+            </DxTabPage>
+
+            @* ── 처리 파일 — **탭 하나다** (2026-10-12) ─────────
+               하루는 요약 바로 아래의 묶음이었다. 거기서 두 가지가 걸렸다.
+
+                 - 수백 줄을 고친 건에서 그 목록이 **지시와 결과를 화면 밖으로
+                   밀어낸다.** 그래서 여덟 줄만 펴 두고 나머지를 「N개 더 보기」로
+                   접었는데, 그러면 이번에는 **목록을 보러 온 사람이 늘 한 번 더
+                   눌러야** 했다. 둘 다 세울 수 없는 자리였다.
+                 - 길이가 건마다 10배씩 달라서(한 파일 ↔ 이백 파일) 그 아래
+                   탭 줄이 **건마다 다른 높이에** 선다. 카드 넷을 차례로
+                   눌러 보는 동안 탭이 위아래로 뛴다.
+
+               탭이면 둘 다 풀린다. **보러 온 사람만 건너오고**(모바일 회선이다),
+               건너온 사람은 접힌 것 없이 통째로 본다. 탭 이름에 개수를 적어
+               두므로 건너오기 전에도 「몇 개인가」는 알 수 있다 — 요약 아래에서
+               그 숫자가 하던 몫이 그것뿐이었다.
+
+               **차례는 지시와 결과 다음이다.** 「무엇을 했나」 다음에 오는 물음이
+               「그래서 어디를 건드렸나」고, 로그는 그 둘이 못 미더울 때 펴는
+               것이라 맨 끝이다.
+
+               **올린 파일(`pm-peek__files`)과 다른 것이다.** 그쪽은 사람이 지시에
+               붙여 넣은 것이라 「지시」 바로 아래에 그대로 둔다. 이쪽은 AI 가
+               저장소에 남긴 것이다. *@
+            <DxTabPage Text="@FileTabText">
+                <div class="pm-peek__pane">
+                    @if (_changed.Count > 0)
+                    {
+                        <ul class="pm-peek__chg">
+                            @foreach (var f in _changed)
+                            {
+                                @* 「외 N개」 줄은 파일이 아니다. 배지도 경로도 없이
+                                   한 줄만 적는다 — 배지를 달면 그것이 파일 이름처럼 읽힌다. *@
+                                @if (f.Kind == AiRunFileKind.More)
+                                {
+                                    <li class="pm-peek__chg-row pm-peek__chg-row--more">@f.Path</li>
+                                }
+                                else
+                                {
+                                    <li class="pm-peek__chg-row">
+                                        @if (f.KindText is { Length: > 0 } word)
+                                        {
+                                            <span class="pm-peek__chg-mark @f.KindClass">@word</span>
+                                        }
+
+                                        <span class="pm-peek__chg-path" title="@f.Path">
+                                            @if (f.Folder is { Length: > 0 } folder)
+                                            {
+                                                <span class="pm-peek__chg-dir">@folder/</span>
+                                            }
+
+                                            <span class="pm-peek__chg-name">@f.Name</span>
+                                        </span>
+                                    </li>
+                                }
+                            }
+                        </ul>
+
+                        @* 가지 · 「몇 줄이 바뀌었나」 · 올린 자리. **이름 목록이
+                           말하지 않는 것이 여기 있다** — 결과문 아래의 그 줄과
+                           같은 값이고(`RunHint`), 둘 다 이 실행의 것이다. *@
+                        @if (RunHint is { Length: > 0 } fileHint)
+                        {
+                            <p class="jsini-hint">@fileHint</p>
+                        }
+                    }
+                    else
+                    {
+                        @* **빈 탭을 말없이 두지 않는다.** 「아직인가 · 원래
+                           없는 건인가 · 고장인가」가 갈리지 않으면 보는 사람이
+                           같은 자리를 몇 번씩 다시 연다. *@
+                        <p class="pm-peek__dim">@ChangedEmptyText</p>
                     }
                 </div>
             </DxTabPage>
