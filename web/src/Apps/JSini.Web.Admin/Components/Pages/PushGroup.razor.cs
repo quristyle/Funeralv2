@@ -8,6 +8,7 @@ public partial class PushGroup
         ("/admin/push/dashboard", "푸시 현황", "발송 건수 · 성공률 · 실패 사유"),
         ("/admin/push/logs", "발송 이력", "한 건씩 들여다본다"),
         ("/admin/push/history", "내 알림함", "내가 받은 알림"),
+        ("/admin/mail/send", "메일 보내기", "사람에게 쓰는 편지 — 보낸 글이 내 보낸함에 남는다"),
 
         // **이 업무의 화면이 아니다.** 여기 있던 「알림 설정」은 장례식장
         // 「환경설정」과 같은 판을 열고 있어서 그쪽 하나로 합쳤다. 길잡이에서

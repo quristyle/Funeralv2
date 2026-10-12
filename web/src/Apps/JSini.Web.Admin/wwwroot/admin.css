@@ -4449,3 +4449,183 @@
   color: var(--jsini-text-muted);
 }
 
+
+/* ── 메일 보내기 (`/admin/mail/send`) ──────────────────────────
+
+   「메시지 발송」의 메일 탭(`.ad-sendform`)과 **치수를 같이 쓴다** — 둘 다
+   사람이 글을 쓰는 자리라 한 줄이 화면 폭만큼 길어지면 읽기 나쁘다.
+   갈라지는 것은 여기만 가진 것들(최근 주소 딱지 · 간편 틀 · 요약 칸)뿐이다.
+   ---------------------------------------------------------- */
+
+.ad-mailsend {
+  max-width: 48rem;
+  padding-top: 0.75rem;
+  padding-right: 0.5rem;
+}
+
+/* 보낸 메일함 탭. 표가 들어오므로 폭을 묶지 않는다 — 묶으면 받는 사람 칸이
+   줄바꿈되고, 메일 주소는 줄바꿈되면 읽을 수가 없다. */
+.ad-mailsend__box {
+  padding-top: 0.5rem;
+}
+
+/* ── 최근 주소 딱지 ───────────────────────────────────────
+
+   **누르는 자리가 둘인 딱지다.** 가운데를 누르면 받는 사람에, 오른쪽
+   「참조」를 누르면 참조에 든다. 하나로 두고 어디에 넣을지 또 묻게 하면
+   주소 하나 넣는 데 누름이 둘이 된다 — 이 줄은 「그냥 눌러 담는」 자리다. */
+
+.ad-mailsend__recent {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.45rem;
+}
+
+.ad-mailsend__recent-label {
+  font-size: var(--jsini-fs-sm, 0.85rem);
+  color: var(--jsini-text-muted);
+}
+
+.ad-mailsend__chip {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  border-radius: var(--bs-border-radius, 6px);
+  overflow: hidden;
+  font-size: var(--jsini-fs-sm, 0.85rem);
+  line-height: 1.6;
+}
+
+.ad-mailsend__chip-main,
+.ad-mailsend__chip-cc {
+  border: 0;
+  background: transparent;
+  padding: 0.1rem 0.5rem;
+  color: inherit;
+  cursor: pointer;
+}
+
+.ad-mailsend__chip-main:hover,
+.ad-mailsend__chip-cc:hover {
+  background: var(--bs-secondary-bg, #f1f3f5);
+}
+
+/* 「참조」 쪽은 옅게 둔다 — 눌릴 일이 적은 쪽이고, 같은 무게로 두면
+   주소를 넣으려다 참조에 넣는 일이 생긴다. */
+.ad-mailsend__chip-cc {
+  border-left: 1px solid var(--bs-border-color, #dee2e6);
+  color: var(--jsini-text-muted);
+}
+
+/* ── 간편 작성 틀 ─────────────────────────────────────────
+
+   **접힌다.** 익숙해진 사람에게는 본문 편집기 하나면 충분해서, 늘 펴 두면
+   보낼 때마다 그만큼 스크롤이 는다. 처음에는 펴 둔다 — 접혀 있으면 아무도
+   안 쓴다. */
+
+.ad-tpl {
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  border-radius: var(--bs-border-radius, 6px);
+  margin-bottom: 0.9rem;
+}
+
+.ad-tpl__head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 0;
+  background: var(--bs-secondary-bg, #f8f9fa);
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.ad-tpl__title { font-weight: 600; }
+
+.ad-tpl__hint {
+  flex: 1;
+  font-size: var(--jsini-fs-sm, 0.85rem);
+  color: var(--jsini-text-muted);
+}
+
+.ad-tpl__body { padding: 0.75rem; }
+
+/* 접힌 머리줄의 설명은 좁은 화면에서 접는다 — 남기면 제목과 화살표가
+   두 줄로 갈린다. */
+@media (width < 768px) {
+  .ad-tpl__hint { display: none; }
+}
+
+/* ── 본문 편집기 ──────────────────────────────────────────
+
+   「메시지 발송」(`.ad-mail-editor`)보다 높다. 그쪽은 왼쪽에 명단이 함께
+   서는 좁은 판이고, 여기는 화면을 통째로 쓰는 자리라 메일 한 통이 한눈에
+   들어와야 한다. */
+.ad-mailsend-editor { min-height: 20rem; }
+
+/* ── AI 요약 ──────────────────────────────────────────────
+
+   **본문과 다른 바탕으로 둔다.** 아직 본문이 아니라는 것이 눈에 보여야
+   「넣기」를 누를 까닭이 생긴다. */
+.ad-summary__box {
+  margin-top: 0.4rem;
+}
+
+.ad-summary__box .dxbl-memo textarea,
+.ad-summary__box textarea {
+  background: var(--bs-secondary-bg, #f8f9fa);
+}
+
+/* ── 사용자 고르기 창 ─────────────────────────────────────
+
+   거르개와 표를 세로로 쌓는다. 창의 높이는 `CommPopup` 이 묶으므로
+   (`MaxHeight`) 표가 길어도 바닥 단추는 제자리에 남는다. */
+.ad-mailsend__pick {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+/* ── 보낸 메일 읽기 창 ────────────────────────────────────
+
+   `ad-note__meta`(쪽지)와 같은 모양이다. 베껴 둔 까닭은 칸이 다르기
+   때문이다 — 쪽지는 보낸 사람·받는 사람 둘인데 메일은 받는 사람·참조·
+   첨부·상태 넷이고, 첨부 줄만 길다. */
+
+.ad-mailsend__meta {
+  display: grid;
+  grid-template-columns: 6rem 1fr;
+  gap: 0.25rem 0.75rem;
+  margin: 0 0 0.75rem;
+}
+
+.ad-mailsend__meta dt {
+  color: var(--jsini-text-muted);
+  font-weight: 500;
+}
+
+.ad-mailsend__meta dd {
+  margin: 0;
+  word-break: break-all;
+}
+
+.ad-mailsend__subject {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+/* 본문은 남이 쓴 서식이 들어오는 자리다. **가둬 둔다** — 안 가두면 넓은
+   표 하나가 창을 가로로 밀어낸다. */
+.ad-mailsend__body {
+  max-width: 100%;
+  overflow-x: auto;
+  border-top: 1px solid var(--bs-border-color, #dee2e6);
+  padding-top: 0.75rem;
+}
+
+.ad-mailsend__body img { max-width: 100%; }

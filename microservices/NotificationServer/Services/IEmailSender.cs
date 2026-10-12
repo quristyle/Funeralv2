@@ -23,8 +23,20 @@ public interface IEmailSender
     /// 만들 것이 없으면 안 줘도 된다 — 그때는 예전처럼 HTML 한 갈래만 나간다.
     /// </para>
     /// </param>
+    /// <param name="cc">
+    /// 참조(CC). 여럿이면 쉼표나 세미콜론으로 잇는다. <b>선택이다</b> —
+    /// 안 주면 예전처럼 받는 사람만 적힌 메일이 나간다.
+    ///
+    /// <para>
+    /// <b>숨은참조(BCC)가 아니다.</b> 여기 적은 주소는 받는 사람 모두에게
+    /// 보인다 — 포털의 「메일 보내기」가 사람에게 그렇게 말하고 있다.
+    /// 숨겨야 하는 자리가 생기면 칸을 따로 둔다. 같은 칸에 둘을 섞으면
+    /// 가려야 할 주소가 어느 날 조용히 드러난다.
+    /// </para>
+    /// </param>
     Task SendAsync(
         string to, string subject, string body, bool html = false,
         IReadOnlyList<EmailAttachmentDto>? attachments = null,
-        string? textBody = null);
+        string? textBody = null,
+        string? cc = null);
 }

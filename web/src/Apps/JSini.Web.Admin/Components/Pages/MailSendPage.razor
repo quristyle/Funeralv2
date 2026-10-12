@@ -1,0 +1,520 @@
+@page "/admin/mail/send"
+@attribute [RouteKey("admin.mail.send")]
+@inherits DataPage
+
+@*
+    [메일 보내기] — 알림관리 › 메일 보내기.
+
+    **사람이 사람에게 쓰는 편지다.** 받는 사람을 손으로 적거나 시스템 사용자
+    중에서 고르고, 서식 편집기로 본문을 쓰고, 참조와 첨부를 달아 보낸다.
+    보낸 글은 **내 보낸 메일함**에 남는다.
+
+    ────────────────────────────────────────────────────────────
+    [「메시지 발송」과 무엇이 다른가]
+
+    그쪽(`/admin/push/send`)은 **명단을 골라 알림을 뿌리는 콘솔**이다 — 푸시 ·
+    메일 · 문자 · 카카오가 탭으로 나란히 있고, 받는 사람은 「우리 사람 중
+    고른 이들」이며, 보낸 글은 발송 기록에 미리보기로만 남는다.
+
+    이쪽은 **편지 한 통**이다. 받는 사람이 주소 그 자체라 계정이 없는 거래처도
+    받고, 참조가 있고, 보낸 글이 전문으로 보관된다. 둘을 한 화면에 합치지
+    않은 까닭이 거기 있다 — 합치면 「명단에서 고르기」와 「주소를 적기」가
+    같은 칸을 다투고, 알림 설정을 봐야 하는 쪽과 안 봐야 하는 쪽이 한 단추에
+    걸린다.
+
+    ────────────────────────────────────────────────────────────
+    [탭이 둘인 까닭]
+
+    쪽지는 쓰기(`/admin/note/write`)와 쪽지함(`/admin/note/box`)이 메뉴 둘인데
+    여기는 탭 둘이다. **보낸함이 이 화면의 되돌아오는 자리**이기 때문이다 —
+    메일은 「아까 그 사람에게 보냈던 글」을 열어 고쳐 다시 보내는 일이 잦고,
+    메뉴를 갈라 두면 그 왕복이 사이드바를 거친다. 최근 주소도 보낸함에서
+    나오므로 두 탭이 같은 자료를 본다.
+
+    ────────────────────────────────────────────────────────────
+    [받는 사람을 채우는 길이 셋이다]
+
+    | 길 | 어디서 | 누가 쓰나 |
+    |---|---|---|
+    | 직접 입력 | 칸에 그대로 | 계정이 없는 상대 (거래처 · 관공서) |
+    | 시스템 사용자 | 「사용자 고르기」 창 | 사내 |
+    | 최근 주소 | 칸 아래 딱지 | 방금 · 요전에 보낸 곳 |
+
+    셋 모두 **같은 칸에 글자로 들어간다.** 고른 사람을 따로 들고 있다가 보낼
+    때 합치는 길로 가면, 고른 뒤에 주소 하나를 손으로 고치는 순간 두 벌이
+    어긋난다(「메시지 발송」이 그 어긋남을 되돌리는 단추를 따로 둬야 했다).
+
+    ────────────────────────────────────────────────────────────
+    [AI 요약은 **보고 나서** 넣는다]
+
+    받아 오자마자 본문에 밀어 넣지 않는다. AI 가 엉뚱하게 추리는 일이 있어
+    버릴 자리가 있어야 하고, 본문이 바뀌면 편집기가 다시 세워져 치던 자리를
+    잃는다(`_editorKey`). 넣는 자리는 **본문 맨 위**다 — 요약은 먼저 읽히려고
+    있는 것이라, 아래 붙이면 끝까지 읽은 사람만 보게 되어 뜻이 없다.
+*@
+
+<PageTitle>메일 보내기 · 포털관리</PageTitle>
+
+<DxTabs ActiveTabIndex="@_tab"
+        ActiveTabIndexChanged="@TabChangedAsync"
+        CssClass="ad-mailsend__tabs">
+
+    @* ══ 새 메일 ═══════════════════════════════════════════ *@
+    <DxTabPage Text="새 메일">
+        <div class="ad-mailsend">
+
+            @* 주소 꼴이 아닌 것은 **적는 동안** 말한다. 서버도 걸러 주지만
+               그때는 나머지에게 이미 나간 뒤라, 고쳐 다시 보내면 받은 사람은
+               같은 메일을 두 번 받는다. *@
+            @if (BadAddresses.Count > 0)
+            {
+                <PageNotice Tone="NoticeTone.Warning"
+                            Text="@($"주소 꼴이 아닌 것이 {BadAddresses.Count}개 있습니다 — {string.Join(" · ", BadAddresses.Take(5))}{(BadAddresses.Count > 5 ? " 외" : "")}")" />
+            }
+
+            @* ── 받는 사람 ───────────────────────────────── *@
+            <div class="ad-field">
+                <label class="ad-field__label">받는 사람 <span class="ad-field__must">*</span></label>
+
+                <DxMemo @bind-Text="_to"
+                        BindValueMode="BindValueMode.OnInput"
+                        Rows="2" ValidationEnabled="false" />
+
+                <div class="jsini-inline">
+                    <DxButton Text="사용자 고르기"
+                              RenderStyle="ButtonRenderStyle.Secondary"
+                              IconCssClass="jsini-icon-user"
+                              Click="@(() => OpenPickerAsync(PickTarget.To))" />
+
+                    <span class="jsini-text-muted">
+                        쉼표·세미콜론·줄바꿈으로 나눕니다. 지금 @ToAddresses.Count 곳.
+                    </span>
+                </div>
+
+                @* ── 최근 주소 ───────────────────────────
+                   **계정 목록과 갈래가 다르다.** 그쪽은 「우리 사람 전부」이고
+                   이쪽은 「내가 실제로 보낸 곳」이라, 계정이 없는 거래처는
+                   여기에만 있다. 누르면 받는 사람에, ＋를 누르면 참조에 든다. *@
+                @if (_recent.Count > 0)
+                {
+                    <div class="ad-mailsend__recent">
+                        <span class="ad-mailsend__recent-label">최근</span>
+
+                        @foreach (var one in _recent.Take(12))
+                        {
+                            <span class="ad-mailsend__chip" title="@($"{one.Address} · {one.UseCount}번 · 마지막 {one.LastUsedAt.ToLocalTime():yyyy-MM-dd}")">
+                                <button type="button" class="ad-mailsend__chip-main"
+                                        @onclick="@(() => UseRecent(one.Address))">@one.Address</button>
+                                <button type="button" class="ad-mailsend__chip-cc"
+                                        title="참조에 넣기"
+                                        @onclick="@(() => UseRecentAsCc(one.Address))">참조</button>
+                            </span>
+                        }
+                    </div>
+                }
+            </div>
+
+            @* ── 참조 ────────────────────────────────────
+               **숨은참조가 아니다.** 받는 사람 모두에게 보인다 — 화면이 그렇게
+               말하지 않으면 가려야 할 주소가 어느 날 조용히 드러난다. *@
+            <div class="ad-field">
+                <label class="ad-field__label">참조 (CC)</label>
+
+                <DxMemo @bind-Text="_cc"
+                        BindValueMode="BindValueMode.OnInput"
+                        Rows="2" ValidationEnabled="false" />
+
+                <div class="jsini-inline">
+                    <DxButton Text="사용자 고르기"
+                              RenderStyle="ButtonRenderStyle.Secondary"
+                              IconCssClass="jsini-icon-user"
+                              Click="@(() => OpenPickerAsync(PickTarget.Cc))" />
+
+                    <span class="jsini-text-muted">
+                        참조 주소는 <b>받는 사람 모두에게 보입니다.</b> 지금 @CcAddresses.Count 곳.
+                    </span>
+                </div>
+            </div>
+
+            @* ── 제목 ────────────────────────────────────── *@
+            <div class="ad-field">
+                <label class="ad-field__label">제목 <span class="ad-field__must">*</span></label>
+                <DxTextBox @bind-Text="_subject" ValidationEnabled="false" />
+            </div>
+
+            @* ── 간편 작성 틀 ─────────────────────────────
+               서식 편집기 앞에 두는 디딤돌이다. 편집기를 열면 빈 칸 하나라
+               메일을 자주 안 쓰는 사람은 거기서 멈춘다 — 칸 셋으로 나눠
+               물으면 채우기만 하면 된다. 넣고 나면 편집기가 정본이다. *@
+            <div class="ad-tpl">
+                <button type="button" class="ad-tpl__head" @onclick="@(() => _tplOpen = !_tplOpen)">
+                    <span class="ad-tpl__title">간편 작성 틀</span>
+                    <span class="ad-tpl__hint">인사말 · 내용 · 맺음말을 적으면 본문을 만들어 줍니다</span>
+                    <span class="@(_tplOpen ? "jsini-icon-fold" : "jsini-icon-unfold")"></span>
+                </button>
+
+                @if (_tplOpen)
+                {
+                    <div class="ad-tpl__body">
+                        <div class="ad-field">
+                            <label class="ad-field__label">인사말</label>
+                            <DxMemo @bind-Text="_tplHello" Rows="2" ValidationEnabled="false"
+                                    NullText="안녕하십니까. JSini 입니다." />
+                        </div>
+
+                        <div class="ad-field">
+                            <label class="ad-field__label">내용</label>
+                            <DxMemo @bind-Text="_tplBody" Rows="6" ValidationEnabled="false"
+                                    NullText="전하려는 내용을 적으십시오. 빈 줄로 나누면 문단이 됩니다." />
+                            @* 제목이 비어 있으면 첫 줄을 제목으로 가져간다 —
+                               제목 없는 메일은 받는 쪽에서 「(제목 없음)」이 되고
+                               그것을 여는 사람은 드물다. *@
+                            <div class="jsini-hint">
+                                제목을 아직 안 적었으면 <b>첫 줄이 제목</b>이 됩니다.
+                            </div>
+                        </div>
+
+                        <div class="ad-field">
+                            <label class="ad-field__label">맺음말</label>
+                            <DxMemo @bind-Text="_tplClosing" Rows="2" ValidationEnabled="false"
+                                    NullText="감사합니다." />
+                        </div>
+
+                        <div class="jsini-toolbar">
+                            <DxButton Text="본문에 넣기"
+                                      RenderStyle="ButtonRenderStyle.Secondary"
+                                      Click="@ApplyTemplate" />
+                            <span class="jsini-text-muted">본문에 글이 있으면 <b>덮어씁니다.</b></span>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            @* ── 본문 ────────────────────────────────────── *@
+            <div class="ad-field">
+                <label class="ad-field__label">본문 <span class="ad-field__must">*</span></label>
+
+                @* 공지·헬프데스크와 **같은 부품**이다(`DxHtmlEditor`).
+
+                   `@@key` 를 건 까닭은 코드가 본문을 통째로 갈아 끼우는 자리가
+                   셋이기 때문이다(틀 넣기 · 요약 넣기 · 다시 보내기). 그때
+                   파라미터만 바꾸면 편집기가 안에 들고 있는 글을 안 놓아서
+                   「넣었다는데 안 보인다」가 된다. 사람이 치는 동안에는
+                   값이 안 바뀌므로 초점이 빠지지 않는다. *@
+                <DxHtmlEditor @key="_editorKey"
+                              Markup="@_body"
+                              MarkupChanged="@(v => _body = v ?? string.Empty)"
+                              BindMarkupMode="HtmlEditorBindMarkupMode.OnDelayedInput"
+                              CssClass="ad-mailsend-editor" />
+            </div>
+
+            @* ── AI 요약 ──────────────────────────────────
+               본문을 추려 **맨 위에** 넣는다. 긴 메일에서 먼저 읽히는 자리가
+               거기다. 넣기 전에 보여 주는 까닭은 화면 머리말에 적었다. *@
+            <div class="ad-field ad-summary">
+                <label class="ad-field__label">AI 요약</label>
+
+                <div class="jsini-inline">
+                    <DxButton Text="@(_summarizing ? "요약하는 중…" : "본문 요약하기")"
+                              RenderStyle="ButtonRenderStyle.Secondary"
+                              IconCssClass="jsini-icon-robot"
+                              Enabled="@(!_summarizing)"
+                              Click="@SummarizeAsync" />
+
+                    @if (_summary is { Length: > 0 })
+                    {
+                        <DxButton Text="본문 맨 위에 넣기"
+                                  RenderStyle="ButtonRenderStyle.Primary"
+                                  IconCssClass="jsini-icon-arrow-up"
+                                  Click="@InsertSummaryAsync" />
+
+                        <DxButton Text="버리기"
+                                  RenderStyle="ButtonRenderStyle.Secondary"
+                                  Click="@(() => _summary = null)" />
+                    }
+                </div>
+
+                @if (_summary is { Length: > 0 } text)
+                {
+                    @* **고칠 수 있게 둔다.** AI 가 추린 글이 한두 낱말만
+                       어긋나는 일이 잦은데, 못 고치면 통째로 버리게 된다. *@
+                    <DxMemo Text="@text"
+                            TextChanged="@((string v) => _summary = v)"
+                            BindValueMode="BindValueMode.OnInput"
+                            Rows="4" ValidationEnabled="false"
+                            CssClass="ad-summary__box" />
+                }
+                else
+                {
+                    <div class="jsini-hint">
+                        본문을 적은 뒤 누르면 핵심을 세 줄로 추려 줍니다. 넣기 전에 고칠 수 있습니다.
+                    </div>
+                }
+            </div>
+
+            @* ── 첨부 ────────────────────────────────────
+               공지와 달리 **파일 서버에 올리지 않는다.** 메일 첨부는 보내고
+               나면 쓸 일이 없는데 올려 두면 아무도 지우지 않는 파일이 보낼
+               때마다 쌓인다. 보낼 때 바이트를 실어 보낸다.
+
+               상한은 서버와 맞춘 값이다(다섯 개 · 모두 합쳐 15MB —
+               `EmailAttachmentGuard`). 서버도 같은 값으로 막으므로 여기서
+               막는 것은 **먼저 말해 주려는 것**이다. *@
+            <div class="ad-field">
+                <label class="ad-field__label">첨부</label>
+
+                <FilePicker @key="_filePickerKey"
+                            MaxFiles="5"
+                            MaxBytes="15728640"
+                            MaxTotalBytes="15728640"
+                            Hint="다섯 개까지 · 모두 합쳐 15MB 까지"
+                            FilesChanged="@(files => _files = files)" />
+            </div>
+
+            <div class="jsini-toolbar">
+                <PermissionView Action="MenuAction.Create">
+                    <DxButton Text="@($"{ToAddresses.Count}곳으로 보내기")"
+                              RenderStyle="ButtonRenderStyle.Primary"
+                              IconCssClass="jsini-icon-mail"
+                              Enabled="@(ToAddresses.Count > 0 && !_sending)"
+                              Click="@SendAsync" />
+                </PermissionView>
+
+                <DxButton Text="비우기"
+                          RenderStyle="ButtonRenderStyle.Secondary"
+                          Enabled="@(!_sending)"
+                          Click="@ClearCompose" />
+            </div>
+        </div>
+    </DxTabPage>
+
+    @* ══ 보낸 메일함 ═══════════════════════════════════════ *@
+    <DxTabPage Text="보낸 메일함">
+        <div class="ad-mailsend__box">
+
+            @* **내 것만 보인다.** 서버가 신원으로 거르므로 「누구의」를 고르는
+               칸이 없다 — 관리자라고 남의 편지를 읽게 하면 그것은 다른
+               기능이고, 만들 거라면 그때 따로 만든다(`MailEndpoints` 머리말). *@
+            <CommSch OnSearch="@ReloadSentAsync" OnReset="@ResetSentAsync"
+                     Busy="@Loading" MobileSummary="@SentSummary">
+                <Fields>
+                    <CommSchItem Label="기간">
+                        <DxDateEdit @bind-Date="_sentFrom" Style="width: 140px" />
+                    </CommSchItem>
+                    <CommSchItem Label="~">
+                        <DxDateEdit @bind-Date="_sentTo" Style="width: 140px" />
+                    </CommSchItem>
+                    <CommSchItem Label="검색어">
+                        <DxTextBox @bind-Text="_sentKeyword" Style="width: 220px"
+                                   NullText="제목 · 주소 · 본문" />
+                    </CommSchItem>
+                </Fields>
+            </CommSch>
+
+            <CommCont>
+                <CommGrd TItem="MailListItem"
+                         Data="@_sent"
+                         PageSize="30"
+                         EmptyText="보낸 메일이 없습니다."
+                         ExportName="보낸 메일함"
+                         AutoSelectFirstRow="false"
+                         Reload="@ReloadSentAsync">
+                    <Columns>
+                        @* 서버가 주는 것은 UTC 라 그대로 그리면 아홉 시간 전으로 보인다. *@
+                        <DxGridDataColumn FieldName="@nameof(MailListItem.SentAt)" Caption="보낸 때" Width="150">
+                            <CellDisplayTemplate Context="cell">
+                                @(((MailListItem)cell.DataItem).SentAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm"))
+                            </CellDisplayTemplate>
+                        </DxGridDataColumn>
+
+                        <DxGridDataColumn Caption="받는 사람" Width="200"
+                                          TextAlignment="GridTextAlignment.Left">
+                            <CellDisplayTemplate Context="cell">
+                                @{ var row = (MailListItem)cell.DataItem; }
+                                <span title="@row.To">@ShortAddresses(row.To)</span>
+                            </CellDisplayTemplate>
+                        </DxGridDataColumn>
+
+                        <DxGridDataColumn FieldName="@nameof(MailListItem.Subject)" Caption="제목"
+                                          MinWidth="220" TextAlignment="GridTextAlignment.Left">
+                            <CellDisplayTemplate Context="cell">
+                                @{ var row = (MailListItem)cell.DataItem; }
+                                <span title="@row.Preview">@row.Subject</span>
+                            </CellDisplayTemplate>
+                        </DxGridDataColumn>
+
+                        <DxGridDataColumn Caption="참조" Width="90">
+                            <CellDisplayTemplate Context="cell">
+                                @{ var row = (MailListItem)cell.DataItem; }
+                                @if (!string.IsNullOrWhiteSpace(row.Cc))
+                                {
+                                    <span class="jsini-badge" title="@row.Cc">@SplitCount(row.Cc)</span>
+                                }
+                            </CellDisplayTemplate>
+                        </DxGridDataColumn>
+
+                        <DxGridDataColumn Caption="첨부" Width="80">
+                            <CellDisplayTemplate Context="cell">
+                                @{ var row = (MailListItem)cell.DataItem; }
+                                @if (row.AttachmentCount > 0)
+                                {
+                                    <span class="jsini-badge">@row.AttachmentCount</span>
+                                }
+                            </CellDisplayTemplate>
+                        </DxGridDataColumn>
+
+                        @* 못 보낸 것도 보관한다 — 다시 열어 고쳐 보내야 하는
+                           글이 바로 그것이다. **성공에는 딱지를 안 붙인다**
+                           (정상에 표를 달면 눈이 거기로 간다). *@
+                        <DxGridDataColumn Caption="상태" Width="110">
+                            <CellDisplayTemplate Context="cell">
+                                @{ var row = (MailListItem)cell.DataItem; }
+                                @if (!row.IsSuccess)
+                                {
+                                    <span class="jsini-badge jsini-badge--warn" title="@row.FailureReason">실패</span>
+                                }
+                                else if (row.HasAiSummary)
+                                {
+                                    <span class="jsini-badge jsini-badge--off" title="AI 요약을 본문 머리에 넣어 보냈습니다">요약</span>
+                                }
+                            </CellDisplayTemplate>
+                        </DxGridDataColumn>
+                    </Columns>
+
+                    <RowActions Context="row">
+                        <DxButton Text="열기" RenderStyle="ButtonRenderStyle.Secondary"
+                                  Click="@(() => OpenAsync(row))" />
+                        <PermissionView Action="MenuAction.Delete">
+                            <DxButton Text="치우기" RenderStyle="ButtonRenderStyle.Secondary"
+                                      Click="@(() => DeleteAsync(row))" />
+                        </PermissionView>
+                    </RowActions>
+                </CommGrd>
+            </CommCont>
+        </div>
+    </DxTabPage>
+</DxTabs>
+
+@* ══ 보낸 메일 읽기 ═══════════════════════════════════════ *@
+<CommPopup Visible="@(_opened is not null)"
+           VisibleChanged="@(v => { if (!v) _opened = null; })"
+           HeaderText="보낸 메일"
+           Width="min(46rem, calc(100vw - 2rem))">
+    <BodyContentTemplate>
+        @if (_opened is { } mail)
+        {
+            <dl class="ad-mailsend__meta">
+                <dt>보낸 때</dt>
+                <dd>@mail.SentAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm")</dd>
+
+                <dt>받는 사람</dt>
+                <dd>@mail.To</dd>
+
+                @if (!string.IsNullOrWhiteSpace(mail.Cc))
+                {
+                    <dt>참조</dt>
+                    <dd>@mail.Cc</dd>
+                }
+
+                @if (mail.AttachmentNames.Count > 0)
+                {
+                    <dt>첨부</dt>
+                    @* **파일은 없다.** 보낼 때 바이트를 그대로 실어 보내고
+                       어디에도 올리지 않으므로 이름만 남는다(`PortalMail`
+                       머리말). 적어 주지 않으면 눌러 내려받으려 한다. *@
+                    <dd>
+                        @string.Join(", ", mail.AttachmentNames)
+                        <span class="jsini-text-muted">(@Size(mail.AttachmentBytes) · 파일은 보관하지 않습니다)</span>
+                    </dd>
+                }
+
+                @if (!mail.IsSuccess)
+                {
+                    <dt>상태</dt>
+                    <dd><span class="jsini-badge jsini-badge--warn">보내지 못함 — @mail.FailureReason</span></dd>
+                }
+            </dl>
+
+            <h3 class="ad-mailsend__subject">@mail.Subject</h3>
+
+            @* 본문은 HTML 이다. **거르고 그린다** — 공지 본문과 같은 거르개를
+               쓴다(`NoticeHtml`). 내가 쓴 글이지만 어딘가에서 복사해 붙인
+               태그가 섞여 있을 수 있고, 거기서 포털 레이아웃이 무너진다. *@
+            <div class="ad-mailsend__body">
+                @((MarkupString)NoticeHtml.Sanitize(mail.Body))
+            </div>
+        }
+    </BodyContentTemplate>
+
+    <FooterContentTemplate>
+        @if (_opened is { } mail)
+        {
+            <PermissionView Action="MenuAction.Create">
+                <DxButton Text="이 내용으로 새 메일"
+                          RenderStyle="ButtonRenderStyle.Primary"
+                          IconCssClass="jsini-icon-mail"
+                          Click="@(() => Resend(mail))" />
+            </PermissionView>
+        }
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
+                  Click="@(() => _opened = null)" />
+    </FooterContentTemplate>
+</CommPopup>
+
+@* ══ 시스템 사용자 고르기 ═════════════════════════════════
+   **창 하나를 받는 사람과 참조가 나눠 쓴다.** 둘을 따로 만들면 같은 표와
+   같은 거르개가 두 벌이 되고, 조건이 한쪽에만 붙는 날이 온다. 어디로 넣을지는
+   연 쪽이 정한다(`_pickerTarget`).
+
+   **주소가 없는 사람은 목록에 아예 없다.** 「메시지 발송」은 고르게 하고
+   몇이 빠졌는지 적어 주지만(그쪽은 푸시·문자도 함께 보낸다), 이 화면이
+   하는 일은 메일 하나라 고를 수 있는데 보낼 수 없는 줄은 둘 값어치가 없다.
+*@
+<CommPopup Visible="@_pickerOpen"
+           VisibleChanged="@(v => _pickerOpen = v)"
+           HeaderText="@(_pickerTarget == PickTarget.To ? "받는 사람 고르기" : "참조 고르기")"
+           Width="min(44rem, calc(100vw - 2rem))">
+    <BodyContentTemplate>
+        <div class="ad-mailsend__pick">
+            <DxTextBox Text="@_pickerFilter"
+                       TextChanged="@((string v) => _pickerFilter = v ?? string.Empty)"
+                       BindValueMode="BindValueMode.OnInput"
+                       NullText="이름 · 아이디 · 주소 · 부서로 거르기" />
+
+            <CommGrd TItem="AccountDto"
+                     Data="@PickerRows"
+                     PageSize="15"
+                     ShowHeader="false"
+                     EmptyText="고를 사람이 없습니다."
+                     AutoSelectFirstRow="false">
+                <Columns>
+                    <DxGridDataColumn Caption="" Width="56">
+                        <CellDisplayTemplate Context="cell">
+                            @{ var row = (AccountDto)cell.DataItem; }
+                            <DxCheckBox Checked="@_pickedIds.Contains(row.LoginId)"
+                                        CheckedChanged="@((bool on) => TogglePicked(row.LoginId, on))" />
+                        </CellDisplayTemplate>
+                    </DxGridDataColumn>
+
+                    <DxGridDataColumn FieldName="@nameof(AccountDto.UserName)" Caption="이름" Width="110"
+                                      TextAlignment="GridTextAlignment.Left" />
+
+                    <DxGridDataColumn FieldName="@nameof(AccountDto.Email)" Caption="메일 주소" MinWidth="200"
+                                      TextAlignment="GridTextAlignment.Left" />
+
+                    <DxGridDataColumn FieldName="@nameof(AccountDto.DeptName)" Caption="부서" Width="140"
+                                      TextAlignment="GridTextAlignment.Left" />
+                </Columns>
+            </CommGrd>
+        </div>
+    </BodyContentTemplate>
+
+    <FooterContentTemplate>
+        <DxButton Text="@($"고른 {_pickedIds.Count}명 넣기")"
+                  RenderStyle="ButtonRenderStyle.Primary"
+                  Enabled="@(_pickedIds.Count > 0)"
+                  Click="@ApplyPicked" />
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
+                  Click="@(() => _pickerOpen = false)" />
+    </FooterContentTemplate>
+</CommPopup>

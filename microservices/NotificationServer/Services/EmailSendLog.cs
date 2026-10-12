@@ -70,11 +70,21 @@ public static class EmailSendLog
     /// 보낸(또는 보내려다 실패한) 메일을 줄로 남긴다.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>기록을 못 남겨도 발송은 실패가 아니다.</b> 메일은 이미 나갔으므로
     /// 여기서 던지면 부르는 쪽이 성공을 실패로 되돌려 말하게 된다 —
     /// <c>PushSender.LogAsync</c> 와 같은 자세다.
+    /// </para>
+    /// <para>
+    /// 한 번의 발송을 묶는 열쇠(<see cref="PushSendLog.BatchId"/>)를 돌려준다.
+    /// <b>보관함이 그것을 적어 둔다</b> — 포털의 「메일 보내기」가 쓴 글은
+    /// <c>scom.portal_mails</c> 에 한 줄이고, 그 한 줄이 주소마다 흩어진 발송
+    /// 기록과 이어지는 유일한 끈이다(<c>PortalMail.BatchId</c> 머리말).
+    /// 못 적었으면 <c>null</c> 이 아니라 <b>지은 값 그대로</b> 돌려준다 —
+    /// 열쇠는 이미 정해졌고, 다음에 다시 적을 때 같은 값을 써야 한다.
+    /// </para>
     /// </remarks>
-    public static async Task WriteAsync(
+    public static async Task<string?> WriteAsync(
         AppDbContext db,
         ILogger logger,
         IReadOnlyList<string> recipients,
@@ -88,7 +98,7 @@ public static class EmailSendLog
     {
         if (recipients.Count == 0)
         {
-            return;
+            return null;
         }
 
         var owners = await ResolveOwnersAsync(db, recipients, ct);
@@ -147,6 +157,8 @@ public static class EmailSendLog
             // 끌고 내려가게 두지 않는다.
             foreach (var row in added) db.Entry(row).State = EntityState.Detached;
         }
+
+        return batchId;
     }
 
     /// <summary>
@@ -202,7 +214,12 @@ public static class EmailSendLog
     /// 표에 남길 본문 미리보기. 서식 메일은 <b>태그를 걷어 낸다</b> —
     /// 안 걷으면 목록의 그 칸이 <c>&lt;table style=…</c> 로 시작해 아무것도 읽히지 않는다.
     /// </summary>
-    private static string? Preview(string? body, bool html)
+    /// <remarks>
+    /// <b>보낸 메일 보관함도 이것을 쓴다</b>(<c>MailEndpoints</c>). 거기는 본문
+    /// 전문을 들고 있지만 목록 줄에 적을 글은 같은 규칙이어야 한다 — 따로
+    /// 만들면 발송 이력과 보낸함에서 같은 메일이 다르게 보인다.
+    /// </remarks>
+    internal static string? Preview(string? body, bool html)
     {
         if (string.IsNullOrWhiteSpace(body))
         {

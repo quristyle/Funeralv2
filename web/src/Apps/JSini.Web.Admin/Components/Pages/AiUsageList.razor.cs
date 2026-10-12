@@ -43,6 +43,7 @@ public partial class AiUsageList
         new("chat", "AI쳇(한 번에)"),
         new("suggest-code", "공통코드 추천"),
         new("suggest-i18n", "번역 추천"),
+        new("summarize", "내용 요약"),
     ];
 
     /// <summary>

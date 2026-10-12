@@ -35,6 +35,9 @@
     **쪽지**는 받는 사람을 치지 않고 고르고(최근·전체), 휴대폰에서는 창이 아니라
     화면을 채운다. 앱 푸시가 **기기에 닿지 않으면 메일로 돌린다** — 「보냈다」와
     「닿았다」를 가르는 자리: [docs/note-delivery.md](docs/note-delivery.md)
+    **사람이 손으로 쓰는 편지**는 그 길이 아니라 따로다 — 주소를 직접 적거나
+    사용자 중에서 고르고, 참조·첨부를 달고, **보낸 글이 전문으로 남는다.**
+    AI 가 본문을 추려 머리에 얹는 자리도 여기: [docs/mail-send.md](docs/mail-send.md)
   - `LifeEnvServer` (:5490) 생활과환경(기상·생일)
   - `CargoTrustServer` (:5500) JSini 운송관리 — 화물 거래처 신뢰정보. 계약은 [docs/cargotrust/05-api-design.md](docs/cargotrust/05-api-design.md)
     **톨게이트 심야할인**(진입·진출 시각 ↔ 할인율)과 계정에 매다는 차량 관리는
@@ -142,6 +145,8 @@ nginx 설정 정본은 [deploy/nginx/](deploy/nginx/) 에 있다 — Blazor 회�
   위치를 모을 수 있나(서비스워커에 `geolocation` 은 **없다** — 실측과 그래도 할 수 있는 일)
 - [docs/note-delivery.md](docs/note-delivery.md) — 쪽지: 빠른 대상 선택 · 휴대폰
   전체화면 · 푸시가 안 닿았을 때 메일로 전환하는 길
+- [docs/mail-send.md](docs/mail-send.md) — 메일 보내기: 「메시지 발송」과 무엇이
+  다른가 · 받는 사람을 채우는 길 셋 · AI 요약 · 보낸 메일함과 발송 기록의 갈래
 - [docs/notify-policy.md](docs/notify-policy.md) — 알림관리: 알림이 나가는 자리
   열다섯의 조사표와, 역할·이벤트·길을 매는 규칙(정책 → 본인 설정 → 구독)
 - [web/CLAUDE.md](web/CLAUDE.md) — Blazor 포털의 MFE 구조·의존 규칙·DevExpress 라이선스

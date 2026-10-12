@@ -31,4 +31,14 @@ public static class AiFeature
 
     /// <summary>다국어 번역 추천.</summary>
     public const string SuggestI18n = "suggest-i18n";
+
+    /// <summary>
+    /// 글 요약. 포털 「메일 보내기」가 본문을 추려 머리말로 쓴다.
+    /// </summary>
+    /// <remarks>
+    /// <b>대화(<see cref="Chat"/>)와 갈라 센다.</b> 한 번이 무겁고(본문 전체를
+    /// 올린다) 쓰는 사람이 뚜렷해서, 섞어 두면 「AI쳇을 쓴 적도 없는데 토큰이
+    /// 왜 이리 나가나」의 까닭이 화면 어디에도 안 보인다.
+    /// </remarks>
+    public const string Summarize = "summarize";
 }

@@ -480,6 +480,55 @@ public static class AIEndpoints
             }
         })
         .WithName("SuggestI18nTranslation");
+
+        // ── 글 요약 ──────────────────────────────────────────────
+        //
+        // 포털 「메일 보내기」가 쓴 본문을 추려 머리말로 넣는다.
+        //
+        // **GET 이 아니라 POST 다.** 위의 두 추천은 낱말 하나를 받아 쿼리로
+        // 보내지만, 요약이 받는 것은 메일 본문 전체(수 KB~수십 KB)라 URL 에
+        // 실을 수 없다 — 실으면 게이트웨이와 서버의 URL 길이 상한에 걸려
+        // 414 가 나고, 그 오류는 「AI 가 안 된다」로 읽힌다.
+        group.MapPost("/summarize", async (
+            HttpContext context,
+            [FromBody] SummarizeRequest request,
+            [FromServices] ILLMService llmService) =>
+        {
+            if (string.IsNullOrWhiteSpace(request.Text))
+            {
+                return Results.BadRequest(ApiResponse<object>.Fail("요약할 내용이 없습니다.", "C400"));
+            }
+
+            try
+            {
+                var summary = await llmService.SummarizeAsync(
+                    request.Text, request.MaxLines ?? 3,
+                    request.Provider ?? ReadProviderHeader(context), request.Model);
+
+                return Results.Ok(ApiResponse<string>.Ok(summary));
+            }
+            catch (AiProviderException ex)
+            {
+                return AiFailure(ex);
+            }
+        })
+        .WithName("SummarizeText");
+    }
+
+    /// <summary>
+    /// 요약 요청. <b>본문으로 받는다</b> — 글이 길어 쿼리에 실을 수 없다.
+    /// </summary>
+    public sealed class SummarizeRequest
+    {
+        /// <summary>요약할 원문. HTML 이면 부르는 쪽이 태그를 걷어 보낸다.</summary>
+        public string Text { get; set; } = string.Empty;
+
+        /// <summary>몇 줄까지 받을지. 비우면 세 줄.</summary>
+        public int? MaxLines { get; set; }
+
+        public string? Provider { get; set; }
+
+        public string? Model { get; set; }
     }
 
     private static string? ReadProviderHeader(HttpContext context)

@@ -21,7 +21,8 @@ public class SmtpEmailSender : IEmailSender
     public async Task SendAsync(
         string to, string subject, string body, bool html = false,
         IReadOnlyList<EmailAttachmentDto>? attachments = null,
-        string? textBody = null)
+        string? textBody = null,
+        string? cc = null)
     {
         // **설정이 없으면 붙어 보지도 않는다.**
         //
@@ -50,6 +51,20 @@ public class SmtpEmailSender : IEmailSender
         {
             message.To.Add(MailboxAddress.Parse(addr));
         }
+
+        // **참조는 받는 사람과 같은 규약으로 온다**(쉼표·세미콜론). 비어 있으면
+        // 칸 자체를 안 만든다 — 빈 Cc 헤더를 붙이면 일부 메일 서버가 거절한다.
+        //
+        // **여기서 주소 꼴을 다시 보지 않는다.** 부르는 쪽이 이미 걸렀고
+        // (`MailEndpoints` · `EmailEndpoints`), 못 알아볼 글자가 오면
+        // `MailboxAddress.Parse` 가 던져 **메일 전체가 안 나간다.** 그것이
+        // 맞는 쪽이다 — 참조를 조용히 떨어뜨리면 보낸 사람은 갔다고 믿는다.
+        foreach (var addr in (cc ?? string.Empty)
+                     .Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            message.Cc.Add(MailboxAddress.Parse(addr));
+        }
+
         message.Subject = subject;
 
         // **붙일 것이 있으면 언제나 BodyBuilder 로 간다.** 평문이어도 그렇다 —
@@ -139,8 +154,8 @@ public class SmtpEmailSender : IEmailSender
             await client.SendAsync(message);
             await client.DisconnectAsync(true);
 
-            _logger.LogInformation("[{Time}] [Info] [Email] Sent to {To} ({Files} attachment(s))",
-                DateTime.UtcNow, to, attachments?.Count ?? 0);
+            _logger.LogInformation("[{Time}] [Info] [Email] Sent to {To} cc={Cc} ({Files} attachment(s))",
+                DateTime.UtcNow, to, cc, attachments?.Count ?? 0);
         }
         catch (Exception ex)
         {

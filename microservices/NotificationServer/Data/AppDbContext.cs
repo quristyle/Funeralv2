@@ -54,6 +54,13 @@ public class AppDbContext : DbContext
     public DbSet<Note> Notes { get; set; } = null!;
 
     /// <summary>
+    /// 사람이 손으로 써 보낸 메일 <b>한 통</b>. <b>발송 기록과 갈래가 다르다</b> —
+    /// 저쪽은 주소마다 한 줄에 본문 미리보기뿐이고, 이쪽은 보낸 사람이 다시
+    /// 열어 읽는 <b>글 자체</b>다(<see cref="PortalMail"/> 머리말).
+    /// </summary>
+    public DbSet<PortalMail> PortalMails { get; set; } = null!;
+
+    /// <summary>
     /// 지나온 자리. <b>설정 표의 좌표와 갈래가 다르다</b> — 저쪽은 「지금
     /// 어디」 한 줄이라 덮어쓰고, 이쪽은 잴 때마다 쌓는다
     /// (<see cref="LocationTrack"/> 머리말).
@@ -138,6 +145,12 @@ public class AppDbContext : DbContext
             .HasIndex(n => n.SentAt)
             .HasDatabaseName("IX_notes_fallback")
             .HasFilter("read_at IS NULL AND delivered_at IS NULL AND fallback_email_at IS NULL");
+
+        // 보낸 메일 보관함은 **언제나 「내 것 · 최근 순」** 으로만 묻는다.
+        // 남의 보낸함을 여는 길이 아예 없으므로(`PortalMail.SenderKey` 머리말)
+        // 주인 키가 빠진 조회는 생길 수 없다.
+        modelBuilder.Entity<PortalMail>()
+            .HasIndex(m => new { m.SenderKey, m.SentAt });
 
         // 지나온 자리는 **언제나 「나의 · 그 기간」** 으로만 묻는다. 주인과
         // 시각을 한 색인에 담아야 하루치를 뽑는 데 표를 통째로 읽지 않는다 —

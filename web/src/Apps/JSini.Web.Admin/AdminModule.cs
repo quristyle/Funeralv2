@@ -31,6 +31,10 @@ public sealed class AdminModule : IPortalModule
         // 참조자료 통에 담아 둔다 — 그 클래스 머리말 참고.
         services.AddScoped<PushCategoryClient>();
 
+        // 「메일 보내기」 — 보내기 · 보낸함 · 최근 주소 · AI 요약. AdminClient 에
+        // 얹지 않은 까닭은 그 클래스 머리말에 있다.
+        services.AddScoped<MailClient>();
+
         // 계정에 매달린 차량(운송관리 DB). 통로를 따로 둔 까닭은 그 클래스
         // 머리말에 있다 — 운송관리를 쓰는 곳에만 있는 개념이라, 안 쓰면
         // 메뉴만 끄면 되게 해 둔다.
