@@ -1604,6 +1604,11 @@ public partial class AiAskPanel
 
         if (at < 0)
         {
+            if (_view == taskKey)
+            {
+                _view = null;
+                _scroll = ScrollMove.Restore;
+            }
             return;
         }
 

@@ -14,6 +14,7 @@ public partial class AiTaskViewPage
     [Parameter] public long TaskKey { get; set; }
 
     private AiTaskDto? _item;
+    private bool _isPhone;
 
     /// <summary>지금 그리고 있는 건. 주소가 바뀌었는지 보는 값이다.</summary>
     private long _shown;
@@ -76,7 +77,16 @@ public partial class AiTaskViewPage
     /// 작성중인 건을 지웠거나( <see cref="AiTaskActions"/> ) 사용자 확인을 마쳤다.
     /// <b>이 탭을 닫고</b> 「빠른 지시」로 돌아간다 — 이 주소가 가리킬 것이 없어졌다.
     /// </summary>
-    private void OnClosedAsync(AiTaskDto _)
+    private void OnClosedAsync(AiTaskDto _) => ClosePage();
+
+    private void OnPhoneChanged(bool isPhone)
+    {
+        _isPhone = isPhone;
+        StateHasChanged();
+    }
+
+    /// <summary>화면을 닫고 「빠른 지시」로 돌아간다.</summary>
+    private void ClosePage()
     {
         StopPoll();
 

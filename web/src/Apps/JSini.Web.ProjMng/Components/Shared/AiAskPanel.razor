@@ -313,7 +313,18 @@
                     <AiTaskActions Item="@ViewItem"
                                    OnChanged="@OnViewChangedAsync"
                                    OnConfirmed="@OnViewClosedAsync"
-                                   OnDeleted="@OnViewClosedAsync" />
+                                   OnDeleted="@OnViewClosedAsync"
+                                   OnClose="@(() => CloseView(viewing))" />
+                </div>
+            }
+            else
+            {
+                <div class="pm-ask__viewacts jsini-actbar">
+                    <DxButton RenderStyle="ButtonRenderStyle.Secondary"
+                              Click="@(() => CloseView(viewing))">
+                        <span class="pm-peek__btn-text--full">닫기</span>
+                        <span class="pm-peek__btn-text--short">닫기</span>
+                    </DxButton>
                 </div>
             }
         </CommCont>

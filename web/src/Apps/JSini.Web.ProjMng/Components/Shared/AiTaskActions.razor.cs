@@ -42,6 +42,11 @@ public partial class AiTaskActions
     /// </summary>
     [Parameter] public bool ShowDetail { get; set; } = true;
 
+    /// <summary>
+    /// 상세 화면을 닫는다. 모바일 환경의 하단 단추 줄 등에서 닫기 단추가 눌렸을 때 불린다.
+    /// </summary>
+    [Parameter] public EventCallback OnClose { get; set; }
+
     private bool _retryOpen;
     private bool _retrying;
     private string? _retryAddition;

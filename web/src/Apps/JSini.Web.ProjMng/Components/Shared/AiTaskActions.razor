@@ -140,6 +140,16 @@
             <span class="pm-peek__btn-text--short">자세히</span>
         </DxButton>
     }
+
+    @if (OnClose.HasDelegate)
+    {
+        <DxButton RenderStyle="ButtonRenderStyle.Secondary"
+                  Enabled="@(!_retrying && !_confirming && !_continuing && !_deleting)"
+                  Click="@OnClose">
+            <span class="pm-peek__btn-text--full">닫기</span>
+            <span class="pm-peek__btn-text--short">닫기</span>
+        </DxButton>
+    }
 }
 
 @* 실패한 작업의 수동 재시도 시 추가 지시사항을 받는 창 *@

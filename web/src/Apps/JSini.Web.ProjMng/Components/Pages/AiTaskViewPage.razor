@@ -71,6 +71,9 @@
 
 <PageTitle>@(TabTitle) · 프로젝트관리</PageTitle>
 
+<DxLayoutBreakpoint DeviceSize="DeviceSize.XSmall"
+                    IsActive="_isPhone" IsActiveChanged="@OnPhoneChanged" />
+
 <div class="pm-taskview">
     <CommCont>
         <div class="pm-taskview__head">
@@ -94,7 +97,18 @@
                 <AiTaskActions Item="@_item"
                                OnChanged="@OnChangedAsync"
                                OnConfirmed="@OnClosedAsync"
-                               OnDeleted="@OnClosedAsync" />
+                               OnDeleted="@OnClosedAsync"
+                               OnClose="@(_isPhone ? EventCallback.Factory.Create(this, ClosePage) : default)" />
+            </div>
+        }
+        else if (_isPhone)
+        {
+            <div class="pm-taskview__acts jsini-actbar">
+                <DxButton RenderStyle="ButtonRenderStyle.Secondary"
+                          Click="@ClosePage">
+                    <span class="pm-peek__btn-text--full">닫기</span>
+                    <span class="pm-peek__btn-text--short">닫기</span>
+                </DxButton>
             </div>
         }
     </CommCont>
