@@ -228,9 +228,9 @@ public partial class CodeEditor
     /// <summary>
     /// 자동 줄바꿈을 켜거나 끈다. Monaco 의 <c>updateOptions</c> 로 실시간 반영한다.
     /// </summary>
-    private async Task ToggleWordWrapAsync()
+    private async Task SetWordWrapAsync(bool on)
     {
-        _wordWrap = !_wordWrap;
+        _wordWrap = on;
 
         if (_editor is { } editor)
         {
@@ -241,60 +241,16 @@ public partial class CodeEditor
         }
     }
 
-    private bool _copied;
-    private CancellationTokenSource? _copiedCts;
-
     /// <summary>
-    /// 편집기의 현재 내용을 클립보드에 복사한다.
+    /// 복사할 글을 <b>편집기에서 직접</b> 읽는다.
     /// </summary>
     /// <remarks>
-    /// <b>편집기에서 직접 읽는다.</b> <see cref="Value"/> 파라미터는 debounce 대기
-    /// 중에 구형 값일 수 있어, 아직 올라오지 않은 글자가 빠질 수 있다.
+    /// <see cref="Value"/> 를 그대로 주면 안 된다 — 입력을 모아 올리는
+    /// 동안(<see cref="DebounceMs"/>) 그 값은 한 박자 뒤처진 것이라,
+    /// <b>방금 친 글자가 빠진 채로</b> 복사된다.
     /// </remarks>
-    private async Task CopyToClipboardAsync()
-    {
-        var text = _editor is not null
-            ? await _editor.GetValue()
-            : Value ?? string.Empty;
-
-        bool ok = false;
-        try
-        {
-            ok = await Js.InvokeAsync<bool>("jsiniClipboard.copy", text);
-        }
-        catch (JSException)
-        {
-            try
-            {
-                await Js.InvokeVoidAsync("navigator.clipboard.writeText", text);
-                ok = true;
-            }
-            catch (JSException)
-            {
-                ok = false;
-            }
-        }
-
-        if (ok)
-        {
-            _copiedCts?.Cancel();
-            _copiedCts?.Dispose();
-            var cts = _copiedCts = new CancellationTokenSource();
-            _copied = true;
-            StateHasChanged();
-
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    await Task.Delay(1500, cts.Token);
-                    _copied = false;
-                    await InvokeAsync(StateHasChanged);
-                }
-                catch (OperationCanceledException) { }
-            });
-        }
-    }
+    private async Task<string?> ReadEditorTextAsync()
+        => _editor is { } editor ? await editor.GetValue() : Value;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -434,9 +390,6 @@ public partial class CodeEditor
 
         _debounce?.Cancel();
         _debounce = null;
-
-        _copiedCts?.Cancel();
-        _copiedCts = null;
 
         if (_loader is not null)
         {

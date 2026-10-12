@@ -1585,17 +1585,31 @@
   height: 100%;
 }
 
-/* ── 에디터 우측 상단 액션 바 (줄바꿈 토글 + 복사) ────────────────
-   에디터 내 우측 상단에 플로팅 오버레이로 얹는다.
-   문자를 완전히 배제하고 콤팩트한 아이콘 버튼만 두어 본문 가림을 최소화한다. */
-.pm-editor__actions {
+/* ── 편집기 아이콘 줄 (`EditorActions` — 복사 · 자동 줄바꿈) ──────
+
+   Monaco 가 선 자리마다 **같은 아이콘이 같은 모양으로** 선다. 한동안
+   `CodeEditor` 안에만 있어서, 비교 편집기를 직접 세우는 로그 번역판
+   (`LogTranslateView`)에는 복사 아이콘이 아예 없었다.
+
+   글자를 붙이지 않는다 — 편집기 본문 위에 얹히는 줄이라, 글자가 있으면
+   그만큼 코드를 가린다. 무엇을 하는 단추인지는 `title`·`aria-label` 에 있다.
+
+   두 가지로 선다.
+     · `pm-edact--float` — 편집기 **안쪽** 오른쪽 위에 떠서 얹힌다.
+       얹는 자리(부모)에 `position: relative` 가 있어야 한다.
+     · 그냥 `pm-edact` — 글 흐름에 그대로 선다(칸 이름표 오른쪽 끝). */
+.pm-edact {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  user-select: none;
+}
+
+.pm-edact--float {
   position: absolute;
   top: 0.35rem;
   right: 0.5rem;
   z-index: 10;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.2rem;
   padding: 0.15rem 0.25rem;
   border-radius: 6px;
   background: var(--jsini-surface, rgba(255, 255, 255, 0.92));
@@ -1603,20 +1617,21 @@
   -webkit-backdrop-filter: blur(6px);
   border: 1px solid var(--jsini-border, #e3e5e8);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
-  user-select: none;
   opacity: 0.85;
   transition: opacity 0.15s ease, box-shadow 0.15s ease;
 }
 
-.pm-editor:hover .pm-editor__actions,
-.pm-editor__actions:hover,
-.pm-editor__actions:focus-within {
+/* 떠 있는 줄은 **가만히 있을 때 옅다.** 편집기에 손이 가면 또렷해진다 —
+   늘 진하게 두면 오른쪽 위 글자를 늘 가리는 것으로 읽힌다. */
+.pm-editor:hover .pm-edact--float,
+.pm-edact--float:hover,
+.pm-edact--float:focus-within {
   opacity: 1;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
-/* 액션 단추 (줄바꿈, 복사 공통) */
-.pm-editor__btn {
+/* 아이콘 단추 (줄바꿈 · 복사 공통) */
+.pm-edact__btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1631,24 +1646,24 @@
   transition: color 0.15s, background 0.15s, border-color 0.15s;
 }
 
-.pm-editor__btn:hover {
+.pm-edact__btn:hover {
   color: var(--jsini-text-main, #111827);
   background: var(--jsini-hover-bg, rgba(0, 0, 0, 0.06));
 }
 
-/* 줄바꿈 켜짐 상태 (ON): 테마 강조색 + 배경 하이라이트로 상태 즉시 인지 */
-.pm-editor__btn.is-active {
+/* 줄바꿈 켜짐. 켜고 끈 것이 아이콘 색으로 바로 읽혀야 한다. */
+.pm-edact__btn.is-active {
   color: var(--jsini-primary, #0070cc);
   background: rgba(0, 112, 204, 0.12);
   border-color: rgba(0, 112, 204, 0.28);
 }
 
-.pm-editor__btn.is-active:hover {
+.pm-edact__btn.is-active:hover {
   background: rgba(0, 112, 204, 0.18);
 }
 
-/* 복사 완료 상태 피드백 */
-.pm-editor__btn.is-copied {
+/* 복사된 뒤 1.5초. 체크 아이콘과 함께 선다 — **된 때에만** 켠다. */
+.pm-edact__btn.is-copied {
   color: #10b981;
   background: rgba(16, 185, 129, 0.12);
   border-color: rgba(16, 185, 129, 0.28);
@@ -5989,15 +6004,50 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
   opacity: 0.8;
 }
 
+/* 이름표 한 칸. 이름은 왼쪽, 복사 아이콘은 **오른쪽 끝**이다 —
+   그 칸의 글이 끝나는 자리에 그 칸을 복사하는 단추가 선다. */
 .pm-xlat__head {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
   flex: 1 1 50%;
   min-width: 0;
   padding: 0 0.5rem;
 }
 
-/* 오른쪽 이름표 앞의 세로선이 편집기 가운데 가름쇠와 같은 자리에 선다. */
+.pm-xlat__head-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 아이콘을 오른쪽 끝으로 민다. */
+.pm-xlat__head .pm-edact {
+  margin-left: auto;
+}
+
+/* 이름표는 작은 글씨인데 단추는 1.55rem 이라, 그대로 두면 이름표 줄만
+   두 배로 두꺼워진다. 여기서는 글자 높이에 맞춰 줄인다. */
+.pm-xlat__head .pm-edact__btn {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* 오른쪽 이름표 앞의 세로선이 편집기 가운데 가름쇠와 같은 자리에 선다.
+   휴대폰에서는 칸이 하나뿐이라 그 선이 설 자리가 없다(클래스를 안 붙인다). */
 .pm-xlat__head--right {
   border-left: 1px solid var(--jsini-border);
+}
+
+/* ── 휴대폰 — 번역 칸 하나만 선다 ────────────────────────────
+
+   좌우로 가르면 한 칸이 스무 글자라 **양쪽 다 못 읽는다.** 비교 편집기
+   대신 번역 모델 하나를 보통 편집기에 걸어 통째로 보여 준다
+   (`LogTranslateView` 머리말). 여기서 하는 일은 그 한 칸이 폭을 다
+   쓰게 두는 것뿐이다. */
+.pm-xlat--solo .pm-xlat__head {
+  flex: 1 1 100%;
 }
 
 /* 누르면 무슨 일이 나는지. 눌러 보기 전에 읽혀야 하는 글이라 판 아래에 둔다. */

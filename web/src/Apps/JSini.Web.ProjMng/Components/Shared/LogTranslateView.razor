@@ -67,6 +67,31 @@
     두고, 돌아오면 **그대로 다시 보인다.**
 
     ────────────────────────────────────────────────────────────
+    [휴대폰에서는 번역 칸 하나만 선다]
+
+    좁은 화면에서 좌우로 가르면 **한 칸이 스무 글자**다. 로그는 한 줄이 길어
+    그 폭에서는 어느 쪽도 못 읽고, 견주려고 만든 판이 양쪽 다 못 읽는 판이
+    된다. 그래서 휴대폰(`DxLayoutBreakpoint` XSmall)에서는 비교 편집기 대신
+    **번역 모델 하나를 보통 편집기에 걸어** 통째로 보여 준다. 거기서는
+    줄바꿈도 켜고 시작한다 — 맞출 짝이 없는 자리라 끈 채로 두면 로그 한 줄이
+    화면 폭의 몇 배다.
+
+    비교 편집기의 칸 하나만 숨기는 길은 없다 — Monaco 가 칸 폭을 제 손으로
+    재고 그리므로 CSS 로 왼쪽을 가려도 오른쪽은 **반쪽 폭 그대로** 남는다.
+
+    옮겨 둔 것은 그대로다. 모델(`TextModel`)은 편집기 바깥에 있어서, 폭이
+    바뀌어 편집기가 갈려도 **새로 선 쪽에 그대로 다시 걸린다.** 누름도 같은
+    자리로 간다(`OnLineClickedAsync`) — 거기서는 이 칸이 유일한 칸이라,
+    이쪽이 안 받으면 **다시 옮길 길이 하나도 없다.**
+
+    [복사 아이콘은 공통 부품이 들고 있다]
+
+    칸 이름표 오른쪽 끝에 그 칸을 통째로 복사하는 아이콘이 선다
+    (`EditorActions`). **다른 편집기와 같은 부품·같은 모양**이다 — 한동안
+    복사 아이콘이 `CodeEditor` 안에만 박혀 있어서, 이 판처럼 Monaco 를 직접
+    세우는 자리에는 아예 없었다.
+
+    ────────────────────────────────────────────────────────────
     [돌고 있는 건은 줄이 늘어난다]
 
     로그는 실행 중에 바닥으로 자란다. 늘어난 줄만 뒤에 붙이고 **이미 옮긴
@@ -78,7 +103,12 @@
 
 @implements IAsyncDisposable
 
-<div class="pm-xlat">
+@* 휴대폰인가. **창을 좁히는 것으로는 안 바뀐다** — 포털의 다른 화면과 같은
+   자(`DxLayoutBreakpoint`)로 재야 「휴대폰」의 뜻이 한 벌로 남는다. *@
+<DxLayoutBreakpoint DeviceSize="DeviceSize.XSmall"
+                    IsActive="_phone" IsActiveChanged="@OnPhoneChangedAsync" />
+
+<div class="pm-xlat @(_phone ? "pm-xlat--solo" : null)">
     <div class="pm-xlat__bar">
         <DxButton Text="@(_wrap ? "줄바꿈 끄기" : "줄바꿈 켜기")"
                   RenderStyle="ButtonRenderStyle.Secondary"
@@ -104,16 +134,61 @@
 
        반반으로 나뉜다는 것을 믿고 적는 글이라, 가운데 가름쇠를 끌어 옮기는
        길을 닫았다(`EnableSplitViewResizing = false`). 끌 수 있게 두면 칸은
-       7:3 이 되는데 이름표는 5:5 에 남아 **이름이 남의 칸을 가리킨다.** *@
+       7:3 이 되는데 이름표는 5:5 에 남아 **이름이 남의 칸을 가리킨다.**
+
+       이름표 오른쪽 끝에 **그 칸을 통째로 복사하는 아이콘**이 선다
+       (`EditorActions` — 다른 편집기와 같은 부품·같은 모양). 편집기 안에
+       띄우지 않는 까닭은 칸이 둘이어서다 — 떠 있는 아이콘 하나는 **어느 칸을
+       복사하는지**가 눈으로 안 갈린다.
+
+       휴대폰에서는 번역 칸 하나뿐이라 이름표도 하나다. *@
     <div class="pm-xlat__heads">
-        <span class="pm-xlat__head">원문</span>
-        <span class="pm-xlat__head pm-xlat__head--right">번역 · 한국어</span>
+        @if (!_phone)
+        {
+            <span class="pm-xlat__head">
+                <span class="pm-xlat__head-name">원문</span>
+
+                <EditorActions CopyTitle="원문 전체 복사" Text="@SourceText" />
+            </span>
+        }
+
+        <span class="pm-xlat__head @(_phone ? null : "pm-xlat__head--right")">
+            <span class="pm-xlat__head-name">번역 · 한국어</span>
+
+            <EditorActions CopyTitle="번역 전체 복사" Text="@OutText" />
+        </span>
     </div>
 
     @* 편집기가 설 자리. **높이가 여기서 정해진다** — Monaco 는 부모의 높이를
        재서 제 몸을 그리므로, 높이가 없는 상자에 넣으면 줄이 하나도 안 보인다. *@
     <div class="pm-xlat__editor">
-        @if (_loaded)
+        @if (!_loaded)
+        {
+            <div class="pm-xlat__loading">비교 편집기를 불러오는 중…</div>
+        }
+        else if (_phone)
+        {
+            @* ── 휴대폰에서는 번역 칸 하나만 세운다 ──────────────────
+               좁은 화면에서 좌우로 가르면 **한 칸이 스무 글자**다. 로그는 한
+               줄이 길어 그 폭에서는 어느 쪽도 못 읽는다.
+
+               비교 편집기의 칸 하나만 숨기는 길은 없다 — Monaco 가 칸 폭을
+               제 손으로 재고 그리므로, CSS 로 왼쪽을 가려도 오른쪽은 반쪽
+               폭 그대로 남는다. 그래서 **같은 모델을 보통 편집기에 건다**
+               (`_modified`). 켜 둔 불도 그대로 따라온다 — 불은 편집기가
+               아니라 **모델**에 걸려 있다.
+
+               누름은 넓은 화면과 같은 자리로 간다. 여기서는 **이 칸이 유일한
+               칸**이라, 다시 옮길 줄을 짚을 길이 이것뿐이다. *@
+            <StandaloneCodeEditor @ref="_solo"
+                                  Id="@($"{_id}-solo")"
+                                  ConstructionOptions="@BuildSoloOptions"
+                                  CssClass="pm-xlat__inner"
+                                  OnDidInit="@OnEditorReadyAsync"
+                                  OnDidChangeCursorPosition="@OnCursorMovedAsync"
+                                  OnMouseDown="@OnLineClickedAsync" />
+        }
+        else
         {
             @* **다 받은 뒤에야 그린다.** 받기 전에 그리면 `window.monaco` 가
                없어 **회로가 통째로 끊긴다**(`CodeEditor` 머리말과 같은 까닭).
@@ -127,21 +202,30 @@
                                   Id="@_id"
                                   ConstructionOptions="@BuildOptions"
                                   CssClass="pm-xlat__inner"
+                                  OnDidInit="@OnEditorReadyAsync"
                                   OnDidChangeCursorPositionOriginal="@OnCursorMovedAsync"
                                   OnDidChangeCursorPositionModified="@OnCursorMovedAsync"
                                   OnMouseDownOriginal="@OnLineClickedAsync"
                                   OnMouseDownModified="@OnLineClickedAsync" />
-        }
-        else
-        {
-            <div class="pm-xlat__loading">비교 편집기를 불러오는 중…</div>
         }
     </div>
 
     @* 누르면 무슨 일이 나는지는 **눌러 보기 전에** 적혀 있어야 한다. 줄을
        눌렀더니 오른쪽이 갑자기 바뀌는 것은, 모르고 보면 고장이다. *@
     <div class="pm-xlat__foot">
-        줄을 누르면 좌우 같은 줄에 불이 켜지고, <b>그 한 줄만 한국어로 옮겨
-        오른쪽에 채운다</b> — 좌우 어느 칸을 눌러도 같다.
+        @if (_phone)
+        {
+            <text>
+                줄을 누르면 불이 켜지고, <b>그 한 줄만 한국어로 옮겨 그 자리에
+                채운다.</b> 원문은 넓은 화면에서 나란히 볼 수 있다.
+            </text>
+        }
+        else
+        {
+            <text>
+                줄을 누르면 좌우 같은 줄에 불이 켜지고, <b>그 한 줄만 한국어로
+                옮겨 오른쪽에 채운다</b> — 좌우 어느 칸을 눌러도 같다.
+            </text>
+        }
     </div>
 </div>

@@ -61,12 +61,43 @@ public partial class LogTranslateView
 
     private StandaloneDiffEditor? _diff;
 
+    /// <summary>
+    /// 휴대폰에서 혼자 서는 편집기. <b>번역 칸만</b> 보여 준다.
+    /// </summary>
+    /// <remarks>
+    /// 좁은 화면에서 좌우로 가르면 한 칸이 스무 글자라 <b>양쪽 다 못 읽는다.</b>
+    /// 비교 편집기의 칸 하나만 숨기는 길은 없다 — Monaco 가 칸 폭을 제 손으로
+    /// 재고 그리므로 CSS 로 왼쪽을 가려도 오른쪽은 반쪽 폭 그대로 남는다.
+    /// 그래서 <b>같은 모델을 보통 편집기에 건다</b>(<see cref="_modified"/>).
+    /// </remarks>
+    private StandaloneCodeEditor? _solo;
+
+    /// <summary>
+    /// 휴대폰인가. 참이면 비교 편집기 대신 <see cref="_solo"/> 가 선다.
+    /// </summary>
+    private bool _phone;
+
     /// <summary>왼쪽(원문) · 오른쪽(번역) 모델. 둘 다 만들어야 비교가 선다.</summary>
     private TextModel? _original;
     private TextModel? _modified;
 
-    /// <summary>모델을 편집기에 걸었나.</summary>
-    private bool _modelsSet;
+    /// <summary>
+    /// 모델을 만들었나. <b>편집기와 따로 센다</b> — 화면 폭이 바뀌면 편집기는
+    /// 통째로 갈리는데 옮겨 둔 줄은 그대로 살아 있어야 한다.
+    /// </summary>
+    private bool _modelsBuilt;
+
+    /// <summary>
+    /// 지금 모델을 걸어 둔 편집기. <b>참조로 가른다</b> — 폭이 바뀌어 편집기가
+    /// 갈리면 이 값이 달라지므로, 새로 선 쪽에 다시 건다.
+    /// </summary>
+    private Editor? _attachedTo;
+
+    /// <summary>
+    /// 번역 칸을 쥐고 있는 편집기. 휴대폰에서는 혼자 선 편집기가 그것이다.
+    /// <b>구르는 자리를 재고 옮기는 일이 전부 이쪽을 본다.</b>
+    /// </summary>
+    private StandaloneCodeEditor? ModifiedView => _phone ? _solo : _diff?.ModifiedEditor;
 
     /// <summary>
     /// 옮긴 것. <b>화면 밖에 있다</b> — 로그 탭의 알맹이는 다른 탭으로
@@ -76,6 +107,13 @@ public partial class LogTranslateView
     private AiLogXlatState _state = new();
 
     private bool _wrap;
+
+    /// <summary>
+    /// 줄바꿈 단추를 사람이 직접 눌렀나. <b>누른 뒤에는 폭이 바뀌어도 그
+    /// 뜻을 지킨다</b> — 휴대폰으로 넘어갈 때 저절로 켜지는 것은 아직 아무
+    /// 말도 하지 않은 사람에게만 주는 기본값이다.
+    /// </summary>
+    private bool _wrapTouched;
 
     private double _fontPx = 14;
 
@@ -132,6 +170,14 @@ public partial class LogTranslateView
     /// </remarks>
     private readonly List<string> _pushedSrc = [];
     private readonly List<string> _pushedOut = [];
+
+    /// <summary>
+    /// 복사 아이콘이 집어 갈 글. <b>편집기가 아니라 들고 있는 줄에서 만든다</b> —
+    /// 보이는 것과 같은 것이고(민 것이 그것이다), 회로 왕복이 없다.
+    /// </summary>
+    private string SourceText => string.Join('\n', _state.Source);
+
+    private string OutText => string.Join('\n', _state.Out);
 
     /// <summary>
     /// 머리띠 오른쪽 한 줄 — 몇 줄 가운데 몇 줄을 옮겼나 · 누가 답했나 ·
@@ -249,6 +295,98 @@ public partial class LogTranslateView
         return true;
     }
 
+    /// <summary>
+    /// 화면 폭이 휴대폰 쪽으로 넘어갔거나 되돌아왔다. <b>편집기가 통째로 갈린다.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 옮겨 둔 줄은 그대로 남는다 — 모델(<see cref="_modified"/>)은 편집기
+    /// 바깥에 있고, 새로 선 편집기에 그대로 다시 건다.
+    /// </para>
+    /// <para>
+    /// <b>떠나는 편집기를 우리 손으로 치운다.</b> BlazorMonaco 의 부품이
+    /// 화면에서 사라져도 <b>브라우저의 Monaco 는 그대로 남는다</b> — 재어
+    /// 확인했다(폭을 한 번 바꿀 때마다 편집기가 하나씩 쌓였다). 손잡이도
+    /// 함께 놓는다. Blazor 는 사라진 부품의 참조(<c>@ref</c>)를 비워 주지
+    /// 않아, 그대로 두면 이미 치운 편집기에 글을 밀게 된다.
+    /// </para>
+    /// </remarks>
+    private async Task OnPhoneChangedAsync(bool phone)
+    {
+        if (_phone == phone)
+        {
+            return;
+        }
+
+        _phone = phone;
+        _attachedTo = null;
+
+        // **휴대폰에서는 줄바꿈을 켜 둔다.** 끄고 시작하는 까닭은 좌우 짝이
+        // 눈으로 흐트러지지 않게 하려는 것인데(`BuildOptions` 머리말), 칸이
+        // 하나뿐인 자리에는 맞출 짝이 없다. 거기서 끈 채로 두면 로그 한 줄이
+        // 화면 폭의 몇 배라 **옆으로 밀어 가며 읽어야 한다.**
+        //
+        // 사람이 단추를 한 번이라도 눌렀으면 그 뜻을 지킨다.
+        if (!_wrapTouched)
+        {
+            _wrap = phone;
+        }
+
+        Editor? leaving;
+
+        if (phone)
+        {
+            leaving = _diff;
+            _diff = null;
+        }
+        else
+        {
+            leaving = _solo;
+            _solo = null;
+        }
+
+        if (leaving is not null)
+        {
+            try
+            {
+                // 모델은 살아남는다 — 편집기가 들고 있는 것이 아니라
+                // `monaco.editor` 전역에 매달려 있다(`DisposeAsync` 머리말).
+                await leaving.DisposeEditor();
+            }
+            catch (Exception ex) when (ex is JSException or JSDisconnectedException
+                or ObjectDisposedException or TaskCanceledException)
+            {
+            }
+        }
+
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// 편집기가 브라우저에 다 섰다. <b>여기서 모델을 건다.</b>
+    /// </summary>
+    /// <remarks>
+    /// 그리기 뒷정리(<see cref="OnAfterRenderAsync"/>)만으로는 모자랐다 —
+    /// Blazor 는 자식의 뒷정리를 <b>기다려 주지 않아서</b>, 폭이 바뀌어 새
+    /// 편집기가 설 때 부모가 먼저 <c>SetModel</c> 을 부른다. 그 부름은 아직
+    /// 없는 편집기를 찾다가 조용히 실패하고, <b>다시 부를 일이 없어 그대로
+    /// 빈 편집기가 남는다</b>(재어 확인했다 — 휴대폰으로 바꾸면 줄이 하나도
+    /// 안 보였다).
+    /// </remarks>
+    private async Task OnEditorReadyAsync()
+    {
+        if (!_modelsBuilt)
+        {
+            // 모델이 아직 없다. 만든 뒤에 그리기 뒷정리가 건다.
+            return;
+        }
+
+        if (await AttachModelsAsync())
+        {
+            await PushValuesAsync();
+        }
+    }
+
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender && !_loaded)
@@ -257,14 +395,21 @@ public partial class LogTranslateView
             return;
         }
 
-        if (_diff is not { } diff)
+        if (!_loaded)
         {
             return;
         }
 
-        if (!_modelsSet)
+        if (!_modelsBuilt)
         {
-            await BuildModelsAsync(diff);
+            await BuildModelsAsync();
+            return;
+        }
+
+        // 지금 서 있는 편집기에 모델을 건다. 폭이 바뀌어 편집기가 갈렸으면
+        // 여기서 새 쪽에 다시 걸린다.
+        if (!await AttachModelsAsync())
+        {
             return;
         }
 
@@ -324,14 +469,15 @@ public partial class LogTranslateView
     }
 
     /// <summary>
-    /// 좌우 모델을 만들어 편집기에 건다.
+    /// 좌우 모델을 만든다. <b>편집기와 따로 만든다</b> — 화면 폭이 바뀌면
+    /// 편집기는 통째로 갈리는데 옮겨 둔 줄은 살아 있어야 한다.
     /// </summary>
     /// <remarks>
     /// <b>글자를 편집기가 아니라 모델에 넣는다.</b> 비교 편집기는 모델 둘을
     /// 짝지어 받고, 짝을 맞추는 일(같은 줄을 같은 높이에 세우기)도 모델을
     /// 보고 한다 — 편집기에 글을 직접 밀면 그 짝이 다시 계산되지 않는다.
     /// </remarks>
-    private async Task BuildModelsAsync(StandaloneDiffEditor diff)
+    private async Task BuildModelsAsync()
     {
         try
         {
@@ -343,40 +489,122 @@ public partial class LogTranslateView
             _modified = await Global.CreateModel(
                 Js, string.Join('\n', _state.Out), "plaintext",
                 $"inmemory://jsini/{_id}/modified");
-
-            _pushedSrc.Clear();
-            _pushedSrc.AddRange(_state.Source);
-
-            _pushedOut.Clear();
-            _pushedOut.AddRange(_state.Out);
-
-            await diff.SetModel(new DiffEditorModel { Original = _original, Modified = _modified });
-
-            // 테마는 문서의 data-theme 를 따라간다(theme.js 가 정한다). 흰 바탕에
-            // 밝은 편집기가 얹히면 그 부분만 튀어 보인다.
-            var dark = await Js.InvokeAsync<bool>("jsiniTheme.isDark");
-            await Global.SetTheme(Js, dark ? "vs-dark" : "vs");
-
-            _modelsSet = true;
-
-            // **값을 넣은 뒤에는 직접 레이아웃을 부른다.** AutomaticLayout 을
-            // 켜 두어도 Blazor Server 에서는 제때 걸리지 않아, 편집기는 만들어지고
-            // 값도 들어갔는데 줄이 하나도 안 그려지는 일이 난다.
-            await diff.OriginalEditor.Layout();
-            await diff.ModifiedEditor.Layout();
-
-            // **처음에는 바닥을 보여 준다.** 로그를 펴는 일 대부분이 방금 찍힌
-            // 줄을 보려는 것인데, 맨 위에서 서면 거기까지 삼백 줄을 굴려야 한다.
-            // 글상자가 하던 일을 그대로 가져온 것이다(`js/log-tail.js`).
-            if (_pushedOut.Count > 1)
-            {
-                await diff.ModifiedEditor.RevealLine(_pushedOut.Count);
-            }
         }
         catch (Exception ex) when (ex is JSException or JSDisconnectedException
             or ObjectDisposedException or TaskCanceledException)
         {
+            return;
         }
+
+        _pushedSrc.Clear();
+        _pushedSrc.AddRange(_state.Source);
+
+        _pushedOut.Clear();
+        _pushedOut.AddRange(_state.Out);
+
+        _modelsBuilt = true;
+
+        // 이번 그리기에는 아직 거는 일이 남았다. 다음 뒷정리에서 이어 간다.
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// 지금 서 있는 편집기에 모델을 건다. <b>돌려주는 것은 「걸려 있나」</b>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 거는 자리가 둘이다 — 넓은 화면의 비교 편집기와 휴대폰의 외짝 편집기.
+    /// 이미 그 편집기에 걸려 있으면 아무것도 하지 않는다(그리기 뒷정리는
+    /// 글을 밀 때마다 지나간다).
+    /// </para>
+    /// <para>
+    /// <b>건 뒤에 레이아웃을 직접 부른다.</b> <c>AutomaticLayout</c> 을 켜
+    /// 두어도 Blazor Server 에서는 제때 걸리지 않아, 편집기는 만들어지고 값도
+    /// 들어갔는데 <b>줄이 하나도 안 그려지는</b> 일이 난다.
+    /// </para>
+    /// </remarks>
+    private async Task<bool> AttachModelsAsync()
+    {
+        if (_original is not { } left || _modified is not { } right)
+        {
+            return false;
+        }
+
+        Editor? target = _phone ? _solo : _diff;
+
+        if (target is null)
+        {
+            return false;
+        }
+
+        if (ReferenceEquals(_attachedTo, target))
+        {
+            return true;
+        }
+
+        // **걸기 전에 적어 둔다.** 거는 자리가 둘이라(그리기 뒷정리와
+        // `OnDidInit`) 걸고 나서 적으면 그 사이에 다른 쪽이 또 들어와 같은
+        // 일을 두 번 한다 — 그러면 켜 둔 불이 두 벌로 남는다.
+        _attachedTo = target;
+
+        try
+        {
+            if (target is StandaloneCodeEditor solo)
+            {
+                // **외짝 편집기는 제 모델을 하나 들고 태어난다**(빈 글).
+                // 이것으로 갈아 끼우면 Monaco 가 그 빈 모델을 스스로 놓는다 —
+                // 그러면서 「내 것」 표식도 풀리므로, 나중에 이 편집기가
+                // 치워져도 **우리 모델은 살아남는다.**
+                await solo.SetModel(right);
+                await ApplyThemeAsync();
+                await solo.Layout();
+            }
+            else if (target is StandaloneDiffEditor diff)
+            {
+                await diff.SetModel(new DiffEditorModel { Original = left, Modified = right });
+                await ApplyThemeAsync();
+
+                await diff.OriginalEditor.Layout();
+                await diff.ModifiedEditor.Layout();
+            }
+
+            // **바닥을 보여 준다.** 로그를 펴는 일 대부분이 방금 찍힌 줄을
+            // 보려는 것인데, 맨 위에서 서면 거기까지 삼백 줄을 굴려야 한다.
+            // 폭이 바뀌어 편집기가 갈렸을 때도 같다 — 새 편집기는 맨 위에서
+            // 선다(`js/log-tail.js` 가 글상자에 하던 일이다).
+            if (_pushedOut.Count > 1 && ModifiedView is { } view)
+            {
+                await view.RevealLine(_pushedOut.Count);
+            }
+
+            // 편집기가 갈리면 켜 둔 불도 함께 사라진다. 다시 켠다.
+            await DrawMarksAsync();
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException
+            or ObjectDisposedException or TaskCanceledException)
+        {
+            // 아직 안 섰거나 회로가 끊겼다. **적어 둔 것을 지운다** —
+            // 그래야 `OnDidInit` 이 왔을 때 다시 건다.
+            if (ReferenceEquals(_attachedTo, target))
+            {
+                _attachedTo = null;
+            }
+
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// 편집기 테마를 문서의 <c>data-theme</c> 에 맞춘다(theme.js 가 정한다).
+    /// 흰 바탕에 밝은 편집기가 얹히면 그 부분만 튀어 보인다.
+    /// </summary>
+    private async Task ApplyThemeAsync()
+    {
+        var dark = await Js.InvokeAsync<bool>("jsiniTheme.isDark");
+
+        await Global.SetTheme(Js, dark ? "vs-dark" : "vs");
     }
 
     /// <summary>
@@ -385,7 +613,7 @@ public partial class LogTranslateView
     /// </summary>
     private async Task PushValuesAsync()
     {
-        if (!_modelsSet)
+        if (!_modelsBuilt)
         {
             return;
         }
@@ -420,9 +648,10 @@ public partial class LogTranslateView
             // 줄이 늘었고 사람이 바닥을 보고 있었으면 새 줄까지 따라 내린다.
             // **위를 읽는 중이면 놓아 둔다** — 읽던 자리가 튀는 것이 새 줄을
             // 놓치는 것보다 나쁘다.
-            if (tail && (leftReset || rightReset) && _pushedOut.Count > 1 && _diff is { } diff)
+            if (tail && (leftReset || rightReset) && _pushedOut.Count > 1
+                && ModifiedView is { } view)
             {
-                await diff.ModifiedEditor.RevealLine(_pushedOut.Count);
+                await view.RevealLine(_pushedOut.Count);
             }
         }
         catch (Exception ex) when (ex is JSException or JSDisconnectedException
@@ -442,16 +671,16 @@ public partial class LogTranslateView
     /// </summary>
     private async Task<bool> AtBottomAsync()
     {
-        if (_diff is not { } diff)
+        if (ModifiedView is not { } view)
         {
             return false;
         }
 
         try
         {
-            var top = await diff.ModifiedEditor.GetScrollTop();
-            var height = await diff.ModifiedEditor.GetScrollHeight();
-            var info = await diff.ModifiedEditor.GetLayoutInfo();
+            var top = await view.GetScrollTop();
+            var height = await view.GetScrollHeight();
+            var info = await view.GetLayoutInfo();
 
             // 아직 구를 것이 없으면(줄이 화면보다 적다) 바닥에 붙어 있는 것이다.
             return top + info.Height >= height - (_fontPx * 2);
@@ -487,16 +716,19 @@ public partial class LogTranslateView
 
         if (pushed.Count != want.Count)
         {
-            var top = _diff is { } d ? await d.ModifiedEditor.GetScrollTop() : 0;
+            // 읽던 자리는 **번역 칸**에서 잰다. 휴대폰에서는 그것이 혼자 선
+            // 편집기고, 넓은 화면에서는 비교 편집기의 오른쪽 칸이다.
+            var view = ModifiedView;
+            var top = view is not null ? await view.GetScrollTop() : 0;
 
             await model.SetValue(string.Join('\n', want));
 
             pushed.Clear();
             pushed.AddRange(want);
 
-            if (top > 0 && _diff is { } diff)
+            if (top > 0 && view is not null)
             {
-                await diff.ModifiedEditor.SetScrollTop((int)top);
+                await view.SetScrollTop((int)top);
             }
 
             return true;
@@ -841,17 +1073,28 @@ public partial class LogTranslateView
     {
         _wrap = !_wrap;
 
-        if (_diff is not { } diff)
-        {
-            return;
-        }
+        // 한 번이라도 누르면 그 뒤로는 사람의 뜻을 지킨다 — 휴대폰으로
+        // 넘어갈 때 저절로 켜는 일을 더 하지 않는다.
+        _wrapTouched = true;
 
         try
         {
-            await diff.UpdateOptions(new DiffEditorOptions
+            // 서 있는 편집기에만 민다. 휴대폰에서는 외짝 편집기가 그것이다.
+            if (_diff is { } diff)
             {
-                WordWrap = _wrap ? "on" : "off",
-            });
+                await diff.UpdateOptions(new DiffEditorOptions
+                {
+                    WordWrap = _wrap ? "on" : "off",
+                });
+            }
+
+            if (_solo is { } solo)
+            {
+                await solo.UpdateOptions(new EditorUpdateOptions
+                {
+                    WordWrap = _wrap ? "on" : "off",
+                });
+            }
         }
         catch (Exception ex) when (ex is JSException or JSDisconnectedException
             or ObjectDisposedException)
@@ -932,6 +1175,43 @@ public partial class LogTranslateView
     };
 
     /// <summary>
+    /// 휴대폰에서 혼자 서는 편집기의 옵션.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 비교 편집기와 <b>같은 값을 고른다</b> — 읽기 전용 · 자판 안 부르기 ·
+    /// 미니맵 끄기 · 줄 번호. 하나라도 어긋나면 기기를 돌릴 때마다 같은 글이
+    /// 다른 모양으로 서서, 보는 사람에게는 <b>화면이 통째로 갈린 것</b>으로
+    /// 읽힌다.
+    /// </para>
+    /// <para>
+    /// <b>「지금 줄」 표시만 켜 둔다</b>(<c>RenderLineHighlight = "line"</c>).
+    /// 비교판에서 그것을 끈 까닭은 <b>커서가 있는 칸에만</b> 켜져 좌우가 짝으로
+    /// 안 보이기 때문인데, 여기는 칸이 하나뿐이라 그 문제가 없다. 우리가 켜는
+    /// 불(<see cref="DrawMarksAsync"/>)이 그 위에 그대로 얹힌다.
+    /// </para>
+    /// <para>
+    /// 글은 여기 넣지 않는다 — <see cref="_modified"/> 모델을 걸어 준다
+    /// (<see cref="AttachModelsAsync"/>). 그래야 옮긴 줄이 꽂히는 자리와
+    /// 켜 둔 불이 넓은 화면과 한 벌로 남는다.
+    /// </para>
+    /// </remarks>
+    private StandaloneEditorConstructionOptions BuildSoloOptions(StandaloneCodeEditor editor) => new()
+    {
+        AutomaticLayout = true,
+        ReadOnly = true,
+        DomReadOnly = true,
+        EditContext = false,
+        RenderLineHighlight = "line",
+        FontSize = (int)Math.Round(_fontPx),
+        LineNumbers = "on",
+        Minimap = new EditorMinimapOptions { Enabled = false },
+        ScrollBeyondLastLine = false,
+        WordWrap = _wrap ? "on" : "off",
+        AriaLabel = "한국어로 옮긴 로그",
+    };
+
+    /// <summary>
     /// <b><c>InvokeAsync</c> 로 넘긴다.</b> 이 알림은 테마 서랍 쪽에서 오고,
     /// 한 번 <c>await</c> 하는 순간 회로의 동기화 문맥 밖으로 나간다.
     /// </summary>
@@ -943,7 +1223,7 @@ public partial class LogTranslateView
     /// </summary>
     private async Task ApplyFontSizeAsync()
     {
-        if (_loader is not { } loader || _diff is not { } diff)
+        if (_loader is not { } loader || (_diff is null && _solo is null))
         {
             return;
         }
@@ -961,10 +1241,21 @@ public partial class LogTranslateView
 
             _fontPx = px;
 
-            await diff.UpdateOptions(new DiffEditorOptions
+            if (_diff is { } diff)
             {
-                FontSize = (int)Math.Round(px),
-            });
+                await diff.UpdateOptions(new DiffEditorOptions
+                {
+                    FontSize = (int)Math.Round(px),
+                });
+            }
+
+            if (_solo is { } solo)
+            {
+                await solo.UpdateOptions(new EditorUpdateOptions
+                {
+                    FontSize = (int)Math.Round(px),
+                });
+            }
         }
         catch (Exception ex) when (ex is JSException or JSDisconnectedException
             or ObjectDisposedException or TaskCanceledException)
@@ -1009,6 +1300,22 @@ public partial class LogTranslateView
 
             _diff = null;
         }
+
+        if (_solo is { } solo)
+        {
+            try
+            {
+                await solo.DisposeEditor();
+            }
+            catch (Exception ex) when (ex is JSException or JSDisconnectedException
+                or ObjectDisposedException or TaskCanceledException)
+            {
+            }
+
+            _solo = null;
+        }
+
+        _attachedTo = null;
 
         foreach (var model in new[] { _original, _modified })
         {
