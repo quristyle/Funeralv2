@@ -88,12 +88,12 @@
                                   RotationAngle="0" />
             </DxChartArgumentAxis>
             <DxChartLegend Visible="false" />
-            <DxChartLineSeries T="PushTrendPointDto" TArgument="string" TValue="double"
+            <DxChartSplineSeries T="PushTrendPointDto" TArgument="string" TValue="double"
                                ArgumentField="p => p.Period"
                                ValueField="p => p.SuccessRate"
                                Name="성공률(%)">
                 <DxChartSeriesPoint Visible="false" />
-            </DxChartLineSeries>
+            </DxChartSplineSeries>
             <DxChartValueAxis>
                 <DxChartAxisRange StartValue="@(0)" EndValue="@(100)" />
             </DxChartValueAxis>

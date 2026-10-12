@@ -50,11 +50,11 @@
                 <DxChartBarSeries T="DayPoint" TArgument="string" TValue="int"
                                   ArgumentField="p => p.Label" ValueField="p => p.Requested"
                                   Name="접수" />
-                <DxChartLineSeries T="DayPoint" TArgument="string" TValue="int"
+                <DxChartSplineSeries T="DayPoint" TArgument="string" TValue="int"
                                    ArgumentField="p => p.Label" ValueField="p => p.Completed"
                                    Name="완료">
                     <DxChartSeriesPoint Visible="false" />
-                </DxChartLineSeries>
+                </DxChartSplineSeries>
                 <DxChartTooltip Enabled="true">
                     <div class="jsini-tip">@context.Point.Argument · @context.Point.SeriesName @(context.Point.Value)건</div>
                 </DxChartTooltip>

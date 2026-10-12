@@ -362,21 +362,21 @@
               CssClass="pm-aidash__panel">
         <DxChart Data="@Data.UsageHourly" Palette="@UsageTrendPalette" Width="100%" Height="260px" CssClass="pm-aidash__chart">
             @FlatArgumentAxis
-            <DxChartLineSeries T="AiUsageTrendPoint" TArgument="string" TValue="decimal"
+            <DxChartSplineSeries T="AiUsageTrendPoint" TArgument="string" TValue="decimal"
                                ArgumentField="p => p.Label" ValueField="p => p.ClaudePct"
                                Name="Claude CLI">
                 <DxChartSeriesPoint Visible="false" />
-            </DxChartLineSeries>
-            <DxChartLineSeries T="AiUsageTrendPoint" TArgument="string" TValue="decimal"
+            </DxChartSplineSeries>
+            <DxChartSplineSeries T="AiUsageTrendPoint" TArgument="string" TValue="decimal"
                                ArgumentField="p => p.Label" ValueField="p => p.AntigravityPct"
                                Name="안티그래비티 (agy)">
                 <DxChartSeriesPoint Visible="false" />
-            </DxChartLineSeries>
-            <DxChartLineSeries T="AiUsageTrendPoint" TArgument="string" TValue="decimal"
+            </DxChartSplineSeries>
+            <DxChartSplineSeries T="AiUsageTrendPoint" TArgument="string" TValue="decimal"
                                ArgumentField="p => p.Label" ValueField="p => p.CopilotPct"
                                Name="Copilot CLI">
                 <DxChartSeriesPoint Visible="false" />
-            </DxChartLineSeries>
+            </DxChartSplineSeries>
             <DxChartLegend Position="RelativePosition.Outside"
                            VerticalAlignment="VerticalEdge.Bottom"
                            HorizontalAlignment="HorizontalAlignment.Center" />
@@ -394,21 +394,21 @@
               CssClass="pm-aidash__panel">
         <DxChart Data="@Data.UsageDaily" Palette="@UsageTrendPalette" Width="100%" Height="260px" CssClass="pm-aidash__chart">
             @FlatArgumentAxis
-            <DxChartLineSeries T="AiUsageTrendPoint" TArgument="string" TValue="decimal"
+            <DxChartSplineSeries T="AiUsageTrendPoint" TArgument="string" TValue="decimal"
                                ArgumentField="p => p.Label" ValueField="p => p.ClaudePct"
                                Name="Claude CLI">
                 <DxChartSeriesPoint Visible="false" />
-            </DxChartLineSeries>
-            <DxChartLineSeries T="AiUsageTrendPoint" TArgument="string" TValue="decimal"
+            </DxChartSplineSeries>
+            <DxChartSplineSeries T="AiUsageTrendPoint" TArgument="string" TValue="decimal"
                                ArgumentField="p => p.Label" ValueField="p => p.AntigravityPct"
                                Name="안티그래비티 (agy)">
                 <DxChartSeriesPoint Visible="false" />
-            </DxChartLineSeries>
-            <DxChartLineSeries T="AiUsageTrendPoint" TArgument="string" TValue="decimal"
+            </DxChartSplineSeries>
+            <DxChartSplineSeries T="AiUsageTrendPoint" TArgument="string" TValue="decimal"
                                ArgumentField="p => p.Label" ValueField="p => p.CopilotPct"
                                Name="Copilot CLI">
                 <DxChartSeriesPoint Visible="false" />
-            </DxChartLineSeries>
+            </DxChartSplineSeries>
             <DxChartLegend Position="RelativePosition.Outside"
                            VerticalAlignment="VerticalEdge.Bottom"
                            HorizontalAlignment="HorizontalAlignment.Center" />
@@ -426,21 +426,21 @@
               CssClass="pm-aidash__panel">
         <DxChart Data="@Data.UsageMonthly" Palette="@UsageTrendPalette" Width="100%" Height="260px" CssClass="pm-aidash__chart">
             @FlatArgumentAxis
-            <DxChartLineSeries T="AiUsageTrendPoint" TArgument="string" TValue="decimal"
+            <DxChartSplineSeries T="AiUsageTrendPoint" TArgument="string" TValue="decimal"
                                ArgumentField="p => p.Label" ValueField="p => p.ClaudePct"
                                Name="Claude CLI">
                 <DxChartSeriesPoint Visible="false" />
-            </DxChartLineSeries>
-            <DxChartLineSeries T="AiUsageTrendPoint" TArgument="string" TValue="decimal"
+            </DxChartSplineSeries>
+            <DxChartSplineSeries T="AiUsageTrendPoint" TArgument="string" TValue="decimal"
                                ArgumentField="p => p.Label" ValueField="p => p.AntigravityPct"
                                Name="안티그래비티 (agy)">
                 <DxChartSeriesPoint Visible="false" />
-            </DxChartLineSeries>
-            <DxChartLineSeries T="AiUsageTrendPoint" TArgument="string" TValue="decimal"
+            </DxChartSplineSeries>
+            <DxChartSplineSeries T="AiUsageTrendPoint" TArgument="string" TValue="decimal"
                                ArgumentField="p => p.Label" ValueField="p => p.CopilotPct"
                                Name="Copilot CLI">
                 <DxChartSeriesPoint Visible="false" />
-            </DxChartLineSeries>
+            </DxChartSplineSeries>
             <DxChartLegend Position="RelativePosition.Outside"
                            VerticalAlignment="VerticalEdge.Bottom"
                            HorizontalAlignment="HorizontalAlignment.Center" />
@@ -480,11 +480,11 @@
               CssClass="pm-aidash__panel">
         <DxChart Data="@Data.Daily" Palette="@SinglePalette" Width="100%" Height="260px" CssClass="pm-aidash__chart">
             @FlatArgumentAxis
-            <DxChartLineSeries T="AiDashboardPoint" TArgument="string" TValue="decimal"
+            <DxChartSplineSeries T="AiDashboardPoint" TArgument="string" TValue="decimal"
                                ArgumentField="p => p.Label" ValueField="p => p.AvgMinutes"
                                Name="평균 처리시간(분)">
                 <DxChartSeriesPoint Visible="false" />
-            </DxChartLineSeries>
+            </DxChartSplineSeries>
             <DxChartLegend Visible="false" />
             <DxChartTooltip Enabled="true">
                 <div class="jsini-tip">@context.Point.Argument · 평균 @(context.Point.Value)분</div>

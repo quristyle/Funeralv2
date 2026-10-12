@@ -73,12 +73,12 @@
                               ValueField="p => p.Pop ?? 0"
                               Name="강수확률(%)" Axis="pop" />
 
-            <DxChartLineSeries T="WeatherTimelinePoint" TArgument="string" TValue="double"
+            <DxChartSplineSeries T="WeatherTimelinePoint" TArgument="string" TValue="double"
                                ArgumentField="p => p.Time"
                                ValueField="p => p.Temp"
                                Name="기온(°C)">
                 <DxChartSeriesPoint Visible="false" />
-            </DxChartLineSeries>
+            </DxChartSplineSeries>
 
             <DxChartValueAxis>
                 <DxChartAxisTitle Text="기온(°C)" />

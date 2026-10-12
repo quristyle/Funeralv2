@@ -198,11 +198,11 @@
                 <DxChartBarSeries T="DashboardMonth" TArgument="string" TValue="int"
                                   ArgumentField="m => m.Label" ValueField="m => m.Completed"
                                   Color="@CompletedColor" Name="완료" />
-                <DxChartLineSeries T="DashboardMonth" TArgument="string" TValue="int"
+                <DxChartSplineSeries T="DashboardMonth" TArgument="string" TValue="int"
                                    ArgumentField="m => m.Label" ValueField="m => m.Backlog"
                                    Color="@BacklogColor" Name="적체">
                     <DxChartSeriesPoint Visible="false" />
-                </DxChartLineSeries>
+                </DxChartSplineSeries>
                 <DxChartLegend Position="RelativePosition.Outside"
                                VerticalAlignment="VerticalEdge.Bottom"
                                HorizontalAlignment="HorizontalAlignment.Center" />
@@ -226,11 +226,11 @@
                 <DxChartBarSeries T="DashboardDay" TArgument="string" TValue="int"
                                   ArgumentField="d => d.Label" ValueField="d => d.Requested"
                                   Color="@RequestedColor" Name="접수" />
-                <DxChartLineSeries T="DashboardDay" TArgument="string" TValue="int"
+                <DxChartSplineSeries T="DashboardDay" TArgument="string" TValue="int"
                                    ArgumentField="d => d.Label" ValueField="d => d.Completed"
                                    Color="@CompletedColor" Name="완료">
                     <DxChartSeriesPoint Visible="false" />
-                </DxChartLineSeries>
+                </DxChartSplineSeries>
                 <DxChartLegend Position="RelativePosition.Outside"
                                VerticalAlignment="VerticalEdge.Bottom"
                                HorizontalAlignment="HorizontalAlignment.Center" />

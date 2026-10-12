@@ -54,11 +54,11 @@
                     <DxChartBarSeries T="TrendPoint" TArgument="string" TValue="int"
                                       ArgumentField="p => p.Label" ValueField="p => p.Total"
                                       Name="접수" />
-                    <DxChartLineSeries T="TrendPoint" TArgument="string" TValue="int"
+                    <DxChartSplineSeries T="TrendPoint" TArgument="string" TValue="int"
                                        ArgumentField="p => p.Label" ValueField="p => p.Completed"
                                        Name="완료">
                         <DxChartSeriesPoint Visible="false" />
-                    </DxChartLineSeries>
+                    </DxChartSplineSeries>
                 }
                 else
                 {
