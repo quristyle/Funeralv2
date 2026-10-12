@@ -142,7 +142,9 @@
                  ExportName="차단 접근기록 (화면별)"
                  EmptyText="이 기간에 막힌 화면이 없습니다."
                  SelectedItem="@_pickedScreen"
-                 SelectedItemChanged="@OnScreenPicked"
+                 SelectedItemChanged="@OnScreenPickedAsync"
+                 OnRowClick="@OpenScreenDetailAsync"
+                 OnRowDoubleClick="@OpenScreenDetailAsync"
                  Reload="@ReloadAsync">
             <Columns>
                 <DxGridDataColumn Caption="화면" MinWidth="200"
@@ -195,6 +197,9 @@
             </Columns>
 
             <ContextMenuItems>
+                <CommMenuItem Text="차단 상세 보기" IconCssClass="jsini-icon-eye"
+                              Enabled="@(_pickedScreen is not null)"
+                              Click="@(() => OpenScreenDetailAsync(_pickedScreen!))" />
                 <CommMenuItem Text="이 화면의 기록" IconCssClass="jsini-icon-clock"
                               Enabled="@(_pickedScreen is not null)"
                               Click="@(() => OpenScreenLogAsync(_pickedScreen!))" />
@@ -207,6 +212,10 @@
                  Data="@_users"
                  ExportName="차단 접근기록 (사용자별)"
                  EmptyText="이 기간에 막힌 기록이 없습니다."
+                 SelectedItem="@_pickedUser"
+                 SelectedItemChanged="@OnUserPickedAsync"
+                 OnRowClick="@OpenUserDetailAsync"
+                 OnRowDoubleClick="@OpenUserDetailAsync"
                  Reload="@ReloadAsync">
             <Columns>
                 <DxGridDataColumn FieldName="@nameof(BlockedAccessByUserDto.Who)" Caption="사용자"
@@ -247,6 +256,15 @@
                     </CellDisplayTemplate>
                 </DxGridDataColumn>
             </Columns>
+
+            <ContextMenuItems>
+                <CommMenuItem Text="차단 상세 보기" IconCssClass="jsini-icon-eye"
+                              Enabled="@(_pickedUser is not null)"
+                              Click="@(() => OpenUserDetailAsync(_pickedUser!))" />
+                <CommMenuItem Text="이 사람의 기록" IconCssClass="jsini-icon-clock"
+                              Enabled="@(_pickedUser is not null)"
+                              Click="@(() => OpenUserLogAsync(_pickedUser!))" />
+            </ContextMenuItems>
         </CommGrd>
     }
     else
@@ -255,6 +273,10 @@
                  Data="@_logs"
                  ExportName="차단 접근기록"
                  EmptyText="이 기간에 막힌 기록이 없습니다."
+                 SelectedItem="@_pickedLog"
+                 SelectedItemChanged="@OnLogPickedAsync"
+                 OnRowClick="@OpenLogDetail"
+                 OnRowDoubleClick="@OpenLogDetail"
                  Reload="@ReloadAsync">
             <Columns>
                 <DxGridDataColumn Caption="막힌 때" Width="150">
@@ -311,6 +333,229 @@
                 <DxGridDataColumn FieldName="@nameof(BlockedAccessDto.ClientIp)" Caption="접속지"
                                   Width="130" TextAlignment="GridTextAlignment.Left" />
             </Columns>
+
+            <ContextMenuItems>
+                <CommMenuItem Text="차단 상세 보기" IconCssClass="jsini-icon-eye"
+                              Enabled="@(_pickedLog is not null)"
+                              Click="@(() => OpenLogDetail(_pickedLog!))" />
+            </ContextMenuItems>
         </CommGrd>
     }
 </CommCont>
+
+@* ── 차단 상세 창 ──────────────────────────────────────────
+   항목 카드를 선택(클릭)했을 때 차단된 사용자와 시각, 주소 등 상세 정보를 보여준다. *@
+<CommPopup @bind-Visible="_detailVisible"
+           HeaderText="@DetailTitle"
+           Width="min(920px, calc(100vw - 2rem))"
+           CloseOnOutsideClick="true">
+    <BodyContentTemplate Context="popupContext">
+        @if (_detailScreen is not null)
+        {
+            <dl class="ad-blocked__facts">
+                <dt>화면</dt>
+                <dd>
+                    <b>@_detailScreen.Screen</b>
+                    @if (!string.IsNullOrWhiteSpace(_detailScreen.RouteKey))
+                    {
+                        <span class="jsini-text-muted"> (@_detailScreen.RouteKey)</span>
+                    }
+                </dd>
+
+                <dt>까닭</dt>
+                <dd>
+                    <span class="@ReasonCss(_detailScreen.Reason)">@_detailScreen.ReasonText</span>
+                </dd>
+
+                <dt>차단 횟수</dt>
+                <dd>
+                    <b>@_detailScreen.Blocks.ToString("N0")</b>회
+                    <span class="jsini-text-muted">(대상 사용자 <b>@_detailScreen.Users.ToString("N0")</b>명)</span>
+                </dd>
+
+                <dt>마지막 차단</dt>
+                <dd>@_detailScreen.LastBlockedAt.Kst("yyyy-MM-dd HH:mm:ss")</dd>
+
+                @if (!string.IsNullOrWhiteSpace(_detailScreen.LastHref))
+                {
+                    <dt>최근 시도 주소</dt>
+                    <dd><code class="jsini-text-muted">@_detailScreen.LastHref</code></dd>
+                }
+            </dl>
+
+            <div class="ad-subhead" style="margin: 0.75rem 0 0.5rem; font-weight: 600;">
+                차단된 사용자와 시각 (@(_detailLoading ? "조회 중…" : $"{_detailLogs.Count:N0}건"))
+            </div>
+
+            @if (_detailLoading)
+            {
+                <p class="jsini-hint">차단 기록을 읽는 중입니다…</p>
+            }
+            else if (_detailLogs.Count == 0)
+            {
+                <p class="jsini-hint">차단 상세 기록이 없습니다.</p>
+            }
+            else
+            {
+                <CommGrd TItem="BlockedAccessDto"
+                         Data="@_detailLogs"
+                         PageSize="10"
+                         ShowHeader="false"
+                         ExportName="@($"{_detailScreen.Screen} 차단기록")"
+                         EmptyText="차단 기록이 없습니다.">
+                    <Columns>
+                        <DxGridDataColumn Caption="차단 시각" Width="145">
+                            <CellDisplayTemplate Context="cell">
+                                @(((BlockedAccessDto)cell.DataItem).OccurredAt.Kst("yyyy-MM-dd HH:mm:ss"))
+                            </CellDisplayTemplate>
+                        </DxGridDataColumn>
+
+                        <DxGridDataColumn FieldName="@nameof(BlockedAccessDto.Who)" Caption="차단된 사용자"
+                                          MinWidth="150" TextAlignment="GridTextAlignment.Left" />
+
+                        <DxGridDataColumn FieldName="@nameof(BlockedAccessDto.DepartmentName)"
+                                          Caption="부서" Width="100" TextAlignment="GridTextAlignment.Left" />
+
+                        <DxGridDataColumn FieldName="@nameof(BlockedAccessDto.Href)" Caption="시도 주소"
+                                          MinWidth="180" TextAlignment="GridTextAlignment.Left" />
+
+                        <DxGridDataColumn Caption="앞 화면" Width="120" TextAlignment="GridTextAlignment.Left">
+                            <CellDisplayTemplate Context="cell">
+                                @{ var row = (BlockedAccessDto)cell.DataItem; }
+                                <span class="jsini-text-muted">@(string.IsNullOrWhiteSpace(row.FromPath) ? "처음" : row.FromPath)</span>
+                            </CellDisplayTemplate>
+                        </DxGridDataColumn>
+
+                        <DxGridDataColumn FieldName="@nameof(BlockedAccessDto.ClientIp)" Caption="접속지"
+                                          Width="120" TextAlignment="GridTextAlignment.Left" />
+                    </Columns>
+                </CommGrd>
+            }
+        }
+        else if (_detailUser is not null)
+        {
+            <dl class="ad-blocked__facts">
+                <dt>사용자</dt>
+                <dd><b>@_detailUser.Who</b></dd>
+
+                <dt>부서</dt>
+                <dd>@(string.IsNullOrWhiteSpace(_detailUser.DepartmentName) ? "-" : _detailUser.DepartmentName)</dd>
+
+                <dt>차단 횟수</dt>
+                <dd>
+                    <b>@_detailUser.Blocks.ToString("N0")</b>회
+                    <span class="jsini-text-muted">(화면 <b>@_detailUser.Screens.ToString("N0")</b>개)</span>
+                </dd>
+
+                <dt>많이 막힌 화면</dt>
+                <dd>@(_detailUser.TopScreen ?? "-") <span class="jsini-text-muted">(@_detailUser.TopScreenBlocks.ToString("N0")회)</span></dd>
+
+                <dt>기간</dt>
+                <dd>@_detailUser.FirstBlockedAt.Kst("yyyy-MM-dd HH:mm") ~ @_detailUser.LastBlockedAt.Kst("yyyy-MM-dd HH:mm")</dd>
+            </dl>
+
+            <div class="ad-subhead" style="margin: 0.75rem 0 0.5rem; font-weight: 600;">
+                차단된 화면과 시각 (@(_detailLoading ? "조회 중…" : $"{_detailLogs.Count:N0}건"))
+            </div>
+
+            @if (_detailLoading)
+            {
+                <p class="jsini-hint">차단 기록을 읽는 중입니다…</p>
+            }
+            else if (_detailLogs.Count == 0)
+            {
+                <p class="jsini-hint">차단 상세 기록이 없습니다.</p>
+            }
+            else
+            {
+                <CommGrd TItem="BlockedAccessDto"
+                         Data="@_detailLogs"
+                         PageSize="10"
+                         ShowHeader="false"
+                         ExportName="@($"{_detailUser.Who} 차단기록")"
+                         EmptyText="차단 기록이 없습니다.">
+                    <Columns>
+                        <DxGridDataColumn Caption="차단 시각" Width="145">
+                            <CellDisplayTemplate Context="cell">
+                                @(((BlockedAccessDto)cell.DataItem).OccurredAt.Kst("yyyy-MM-dd HH:mm:ss"))
+                            </CellDisplayTemplate>
+                        </DxGridDataColumn>
+
+                        <DxGridDataColumn FieldName="@nameof(BlockedAccessDto.Screen)" Caption="화면"
+                                          MinWidth="150" TextAlignment="GridTextAlignment.Left" />
+
+                        <DxGridDataColumn Caption="까닭" Width="110">
+                            <CellDisplayTemplate Context="cell">
+                                @{ var row = (BlockedAccessDto)cell.DataItem; }
+                                <span class="@ReasonCss(row.Reason)">@row.ReasonText</span>
+                            </CellDisplayTemplate>
+                        </DxGridDataColumn>
+
+                        <DxGridDataColumn FieldName="@nameof(BlockedAccessDto.Href)" Caption="시도 주소"
+                                          MinWidth="180" TextAlignment="GridTextAlignment.Left" />
+
+                        <DxGridDataColumn Caption="앞 화면" Width="120" TextAlignment="GridTextAlignment.Left">
+                            <CellDisplayTemplate Context="cell">
+                                @{ var row = (BlockedAccessDto)cell.DataItem; }
+                                <span class="jsini-text-muted">@(string.IsNullOrWhiteSpace(row.FromPath) ? "처음" : row.FromPath)</span>
+                            </CellDisplayTemplate>
+                        </DxGridDataColumn>
+
+                        <DxGridDataColumn FieldName="@nameof(BlockedAccessDto.ClientIp)" Caption="접속지"
+                                          Width="120" TextAlignment="GridTextAlignment.Left" />
+                    </Columns>
+                </CommGrd>
+            }
+        }
+        else if (_detailLog is not null)
+        {
+            <dl class="ad-blocked__facts">
+                <dt>차단 시각</dt>
+                <dd><b>@_detailLog.OccurredAt.Kst("yyyy-MM-dd HH:mm:ss")</b></dd>
+
+                <dt>차단된 사용자</dt>
+                <dd>
+                    <b>@_detailLog.Who</b>
+                    @if (!string.IsNullOrWhiteSpace(_detailLog.DepartmentName))
+                    {
+                        <span class="jsini-text-muted"> (@_detailLog.DepartmentName)</span>
+                    }
+                </dd>
+
+                <dt>화면</dt>
+                <dd>
+                    @_detailLog.Screen
+                    @if (!string.IsNullOrWhiteSpace(_detailLog.RouteKey))
+                    {
+                        <span class="jsini-text-muted"> (@_detailLog.RouteKey)</span>
+                    }
+                </dd>
+
+                <dt>까닭</dt>
+                <dd>
+                    <span class="@ReasonCss(_detailLog.Reason)">@_detailLog.ReasonText</span>
+                </dd>
+
+                <dt>시도 주소</dt>
+                <dd><code>@_detailLog.Href</code></dd>
+
+                <dt>앞 화면</dt>
+                <dd>@(string.IsNullOrWhiteSpace(_detailLog.FromPath) ? "처음" : _detailLog.FromPath)</dd>
+
+                <dt>접속지</dt>
+                <dd>@_detailLog.ClientIp</dd>
+            </dl>
+        }
+    </BodyContentTemplate>
+
+    <FooterContentTemplate Context="popupContext">
+        @if (_detailScreen is not null)
+        {
+            <DxButton Text="이 화면의 기록 보기" RenderStyle="ButtonRenderStyle.Secondary"
+                      IconCssClass="jsini-icon-clock"
+                      Click="@OpenScreenLogFromDetailAsync" />
+        }
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
+                  Click="@CloseDetail" />
+    </FooterContentTemplate>
+</CommPopup>

@@ -4629,3 +4629,23 @@
 }
 
 .ad-mailsend__body img { max-width: 100%; }
+
+/* ── 차단 접근 상세 ────────────────────────────────────────── */
+.ad-blocked__facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.35rem 1rem;
+  margin: 0 0 0.75rem;
+  font-size: var(--jsini-fs-sm);
+}
+
+.ad-blocked__facts dt {
+  color: var(--jsini-text-muted);
+  white-space: nowrap;
+}
+
+.ad-blocked__facts dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}

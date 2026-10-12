@@ -61,8 +61,38 @@ public partial class BlockedAccessList
     private string? _userId;
     private string? _keyword;
 
-    /// <summary>화면별 표에서 고른 줄. 오른쪽 클릭 창의 「이 화면의 기록」이 쓴다.</summary>
+    /// <summary>화면별 표에서 고른 줄.</summary>
     private BlockedAccessByScreenDto? _pickedScreen;
+
+    /// <summary>사용자별 표에서 고른 줄.</summary>
+    private BlockedAccessByUserDto? _pickedUser;
+
+    /// <summary>기록 표에서 고른 줄.</summary>
+    private BlockedAccessDto? _pickedLog;
+
+    /// <summary>상세 창에서 보여주는 화면 정보.</summary>
+    private BlockedAccessByScreenDto? _detailScreen;
+
+    /// <summary>상세 창에서 보여주는 사용자 정보.</summary>
+    private BlockedAccessByUserDto? _detailUser;
+
+    /// <summary>상세 창에서 보여주는 단일 기록 정보.</summary>
+    private BlockedAccessDto? _detailLog;
+
+    /// <summary>상세 창에 띄울 차단 접근 기록 목록.</summary>
+    private IReadOnlyList<BlockedAccessDto> _detailLogs = [];
+
+    /// <summary>상세 창 표시 여부.</summary>
+    private bool _detailVisible;
+
+    /// <summary>상세 기록 조회 중 여부.</summary>
+    private bool _detailLoading;
+
+    private string DetailTitle =>
+        _detailScreen is not null ? $"{_detailScreen.Screen} 차단 상세"
+        : _detailUser is not null ? $"{_detailUser.Who} 차단 상세"
+        : _detailLog is not null ? "차단 접근 상세"
+        : "차단 접근 상세";
 
     /// <summary>
     /// 고르개에 세울 사람. <b>아이디를 들고 목록에서 되찾는다</b> — 줄 자체를
@@ -149,6 +179,13 @@ public partial class BlockedAccessList
         _userId = null;
         _keyword = null;
         _pickedScreen = null;
+        _pickedUser = null;
+        _pickedLog = null;
+        _detailVisible = false;
+        _detailScreen = null;
+        _detailUser = null;
+        _detailLog = null;
+        _detailLogs = [];
         return ReloadAsync();
     }
 
@@ -159,6 +196,7 @@ public partial class BlockedAccessList
     private Task PickViewAsync(string? view)
     {
         _view = string.IsNullOrWhiteSpace(view) ? ViewByScreen : view;
+        _detailVisible = false;
         return ReloadAsync();
     }
 
@@ -175,10 +213,149 @@ public partial class BlockedAccessList
     }
 
     /// <summary>
-    /// 고른 줄을 들고 있는다. <b>값과 알림을 같이 준다</b> — 알림만 받으면
-    /// 화면이 보관하지 않는다는 뜻이 되어 강조가 곧 풀린다(CommGrd 머리말).
+    /// 화면별 표에서 항목 카드를 골랐을 때. 상세 창을 띄워 차단된 사용자와 시각 정보를 보여준다.
     /// </summary>
-    private void OnScreenPicked(BlockedAccessByScreenDto? row) => _pickedScreen = row;
+    private async Task OnScreenPickedAsync(BlockedAccessByScreenDto? row)
+    {
+        _pickedScreen = row;
+        if (row is not null)
+        {
+            await OpenScreenDetailAsync(row);
+        }
+    }
+
+    /// <summary>
+    /// 화면별 차단 항목 카드를 선택했을 때 상세 창을 연다.
+    /// 해당 화면에서 차단된 사용자와 시각, 주소 등의 정보를 조회해 표시한다.
+    /// </summary>
+    private async Task OpenScreenDetailAsync(BlockedAccessByScreenDto row)
+    {
+        _pickedScreen = row;
+        _detailScreen = row;
+        _detailUser = null;
+        _detailLog = null;
+        _detailLogs = [];
+        _detailLoading = true;
+        _detailVisible = true;
+        StateHasChanged();
+
+        try
+        {
+            var from = DateOf(_from);
+            var to = DateOf(_to);
+            _detailLogs = await Api.GetBlockedAccessLogsAsync(
+                from, to, _userId, _reason, keyword: row.ScreenKey, take: 100);
+        }
+        catch (Exception)
+        {
+            _detailLogs = [];
+        }
+        finally
+        {
+            _detailLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// 사용자별 표에서 항목 카드를 골랐을 때.
+    /// </summary>
+    private async Task OnUserPickedAsync(BlockedAccessByUserDto? row)
+    {
+        _pickedUser = row;
+        if (row is not null)
+        {
+            await OpenUserDetailAsync(row);
+        }
+    }
+
+    /// <summary>
+    /// 사용자별 차단 항목 카드를 선택했을 때 상세 창을 연다.
+    /// </summary>
+    private async Task OpenUserDetailAsync(BlockedAccessByUserDto row)
+    {
+        _pickedUser = row;
+        _detailUser = row;
+        _detailScreen = null;
+        _detailLog = null;
+        _detailLogs = [];
+        _detailLoading = true;
+        _detailVisible = true;
+        StateHasChanged();
+
+        try
+        {
+            var from = DateOf(_from);
+            var to = DateOf(_to);
+            _detailLogs = await Api.GetBlockedAccessLogsAsync(
+                from, to, userId: row.UserId, reason: _reason, keyword: _keyword, take: 100);
+        }
+        catch (Exception)
+        {
+            _detailLogs = [];
+        }
+        finally
+        {
+            _detailLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// 기록 표에서 항목 카드를 골랐을 때.
+    /// </summary>
+    private Task OnLogPickedAsync(BlockedAccessDto? row)
+    {
+        _pickedLog = row;
+        if (row is not null)
+        {
+            OpenLogDetail(row);
+        }
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// 개별 차단 기록 카드를 선택했을 때 상세 정보를 띄운다.
+    /// </summary>
+    private void OpenLogDetail(BlockedAccessDto row)
+    {
+        _pickedLog = row;
+        _detailLog = row;
+        _detailScreen = null;
+        _detailUser = null;
+        _detailLogs = [];
+        _detailLoading = false;
+        _detailVisible = true;
+    }
+
+    private void CloseDetail()
+    {
+        _detailVisible = false;
+    }
+
+    /// <summary>
+    /// 상세 창에서 해당 화면의 전체 기록 보기로 전환한다.
+    /// </summary>
+    private Task OpenScreenLogFromDetailAsync()
+    {
+        if (_detailScreen is { } screen)
+        {
+            _detailVisible = false;
+            return OpenScreenLogAsync(screen);
+        }
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// 사용자별 집계에서 그 사람의 기록으로 좁혀 연다.
+    /// </summary>
+    private Task OpenUserLogAsync(BlockedAccessByUserDto row)
+    {
+        _pickedUser = row;
+        _userId = row.UserId;
+        _view = ViewLog;
+        return ReloadAsync();
+    }
 
     /// <summary>
     /// 그 화면으로 좁혀 기록을 연다.

@@ -3424,8 +3424,10 @@ DevExpress 모드는 셋이고 앞의 넷이 Small 하나로 접힌다(`ThemeSiz
   막힌 줄이 묻힌다. 포괄이라도 자료를 띄우는 셸의 `Embedded` 만 그 기본을 덮는다.
 
 막힌 줄은 `scom.blocked_access_logs` 에 쌓이고 포털관리의 「차단 접근기록」
-(`/admin/status/blocked-access`)이 읽는다. 「권한 없음」과 **「관리 밖」을 가르는
-것이 요점**이다 — 뒤엣것은 권한을 아무리 줘도 안 열린다.
+(`/admin/status/blocked-access`)이 읽는다. 항목 카드를 선택(클릭/더블클릭)하면
+팝업으로 차단된 사용자와 시각, 시도 주소 등 상세 내역을 조회해 보여준다.
+「권한 없음」과 **「관리 밖」을 가르는 것이 요점**이다 — 뒤엣것은 권한을 아무리
+줘도 안 열린다.
 
 자세한 것은 [docs/screen-access.md](../docs/screen-access.md).
 
