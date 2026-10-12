@@ -116,6 +116,22 @@ public partial class AiTaskView
     /// <summary>로그를 보고 있는 실행. 가장 최근 것이다.</summary>
     private AiTaskRunDto? _run;
 
+    /// <summary>
+    /// 이 건이 <b>몇 번 돌았나</b>(2026-10-12). 「지시와 결과」 탭 이름에 적는다.
+    /// </summary>
+    /// <remarks>
+    /// 「이어서 지시」는 <b>새 작업을 만들지 않는다</b> — 같은 건에 실행이 하나
+    /// 더 붙는다(<c>AiTaskService.ContinueAsync</c>). 다시 보내기도 마찬가지다.
+    /// 그래서 이 판에 깔린 「지시」는 <b>마지막 회차의 지시문</b>이고, 그 앞에
+    /// 몇 번이 더 있었는지는 글만 보아서는 알 수 없다 — 서버가 「지난 진행」을
+    /// 본문 앞에 이어 붙여 놓아 한 덩어리로 읽힌다.
+    /// <para>
+    /// <b>세는 것은 실행 줄이다</b>(<c>ai_task_run</c>). 대기 중이라 아직 실행
+    /// 줄이 없는 건은 0 이고, 그때는 적지 않는다.
+    /// </para>
+    /// </remarks>
+    private int _runCount;
+
     /// <summary>AI 의 마지막 답. 목록에는 없고 실행 줄에 있다.</summary>
     private string? _result;
 
@@ -164,6 +180,38 @@ public partial class AiTaskView
     /// 「몇 개인가」는 알아야 건너올지가 정해진다.
     /// </summary>
     private string FileTabText => ChangedCount == 0 ? "처리 파일" : $"처리 파일 ({ChangedCount})";
+
+    /// <summary>
+    /// 「지시와 결과」 탭에 적을 이름. <b>두 번 이상 돈 건에만 회차를 적는다</b>
+    /// (2026-10-12).
+    /// </summary>
+    /// <remarks>
+    /// <b>한 번 돈 건에 「(1회)」는 적지 않는다.</b> 그것이 보통이라 아무것도
+    /// 가르지 못하면서 탭 이름만 길어진다 — 이 숫자가 하는 말은 「이 글은 한
+    /// 번에 나온 것이 아니다」 하나뿐이고, 그 말이 참인 건에만 선다.
+    /// <para>
+    /// <b>「회」를 붙인다.</b> 옆의 둘이 이미 맨숫자를 쓰고 있어(처리 파일 N ·
+    /// 로그 N줄) 여기도 맨숫자면 셋이 같은 종류로 읽힌다 — 이것만 개수가
+    /// 아니라 <b>횟수</b>다.
+    /// </para>
+    /// </remarks>
+    private string AskTabText => _runCount < 2 ? "지시와 결과" : $"지시와 결과 ({_runCount}회)";
+
+    /// <summary>
+    /// 로그가 <b>모두 몇 줄인가.</b> 탭 이름에 적는다.
+    /// </summary>
+    /// <remarks>
+    /// <b>받아 둔 줄만 세지 않는다.</b> 로그는 그 탭을 펴야 받아 오므로
+    /// (<see cref="_logRead"/>), 받아 둔 것만 세면 건너오기 전에는 늘 0 이라
+    /// 「줄 수를 미리 보여 준다」는 뜻이 통째로 사라진다. 서버가 실행 줄에
+    /// 적어 둔 값(<c>log_line_count</c>)은 실행 이력과 함께 이미 와 있다.
+    /// <para>
+    /// 둘 중 <b>큰 쪽</b>을 쓴다. 들고 있는 줄에는 상한이 있어
+    /// (<see cref="HoldMax"/>) 수천 줄짜리는 받아 둔 쪽이 늘 작고, 반대로
+    /// 돌고 있는 건은 방금 받은 줄이 서버가 센 값보다 앞설 수 있다.
+    /// </para>
+    /// </remarks>
+    private int LogCount => Math.Max(_lines.Count, _run?.LogLineCount ?? 0);
 
     /// <summary>
     /// 처리 파일이 없을 때 그 자리에 적을 말.
@@ -233,7 +281,7 @@ public partial class AiTaskView
     private IJSObjectReference? _speechJs;
     private DotNetObjectReference<AiTaskView>? _dotNetRef;
 
-    private string LogTabText => _lines.Count == 0 ? "로그" : $"로그 ({_lines.Count})";
+    private string LogTabText => LogCount == 0 ? "로그" : $"로그 ({LogCount}줄)";
 
     /// <summary>
     /// <b>답은 왔는데 요약이 아직 없나.</b> 그러면 실행이 끝났어도 조금 더 본다.
@@ -567,6 +615,7 @@ public partial class AiTaskView
             var answered = runs.FirstOrDefault(r => !string.IsNullOrWhiteSpace(r.ResultText));
 
             _run = newest;
+            _runCount = runs.Count;
             _result = answered?.ResultText;
             _answeredKey = answered?.RunKey;
             _summary = AiRunSummary.Parse(answered?.SummaryText);
@@ -810,6 +859,7 @@ public partial class AiTaskView
         _key = null;
         _status = null;
         _run = null;
+        _runCount = 0;
         _result = null;
         _summary = null;
         _changed = [];
