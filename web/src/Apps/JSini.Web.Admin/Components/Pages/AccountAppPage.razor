@@ -280,10 +280,52 @@ else if (DeadDevices > 0)
         <DxGridDataColumn FieldName="@nameof(PushDeviceDto.CreatedAt)" Caption="등록" Width="150"
                           DisplayFormat="yyyy-MM-dd HH:mm" />
 
-        @* **「마지막 발송」이다.** 서버가 아는 것은 보낸 때까지고 그 기기가
-           받았는지는 모른다 — 「최근 사용」으로 적으면 안 온 알림도 온 것처럼 읽힌다. *@
+        @* **「마지막 발송」이다.** 보낸 때이고 받은 때가 아니다 — 「최근 사용」으로
+           적으면 안 온 알림도 온 것처럼 읽힌다. 받은 때는 바로 옆 칸이다. *@
         <DxGridDataColumn FieldName="@nameof(PushDeviceDto.LastSentAt)" Caption="마지막 발송" Width="150"
                           DisplayFormat="yyyy-MM-dd HH:mm" />
+
+        @* **이 칸이 「넷에 보냈는데 하나만 울린다」에 답한다.**
+           서비스워커가 알림을 띄운 뒤 되알려 준 때다. 보낸 적이 있는데 여기가
+           비어 있으면 그 기기는 지금 못 받고 있다 — 푸시 서비스는 브라우저
+           자료를 지운 구독에도 한동안 성공을 돌려주므로 「연속 실패」로는
+           드러나지 않는다. *@
+        <DxGridDataColumn FieldName="@nameof(PushDeviceDto.LastDeliveredAt)" Caption="마지막 도착" Width="150">
+            <CellDisplayTemplate Context="cell">
+                @{ var dev = (PushDeviceDto)cell.DataItem; }
+                @if (dev.LastDeliveredAt is not null)
+                {
+                    @dev.LastDeliveredAt.Kst("yyyy-MM-dd HH:mm", string.Empty)
+                }
+                else if (dev.RecentSentCount > 0)
+                {
+                    <span class="jsini-badge jsini-badge--warn"
+                          title="최근 30일에 @(dev.RecentSentCount)건을 보냈는데 이 기기가 받았다는 보고가 한 번도 없습니다. 브라우저 자료를 지웠거나 알림 권한이 꺼져 있을 수 있습니다.">못 받음</span>
+                }
+                else
+                {
+                    <span class="jsini-text-muted" title="이 기기로 보낸 알림이 아직 없습니다.">-</span>
+                }
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
+
+        @* 최근 30일. 분모는 **성공한 발송만** 센다 — 못 보낸 줄(구독 없음·본인이
+           끔)까지 넣으면 멀쩡한 기기가 「열 중 둘」로 보인다. *@
+        <DxGridDataColumn Caption="최근 도달" Width="110"
+                          TextAlignment="GridTextAlignment.Center">
+            <CellDisplayTemplate Context="cell">
+                @{ var dev = (PushDeviceDto)cell.DataItem; }
+                @if (dev.RecentSentCount > 0)
+                {
+                    <span class="jsini-badge @(dev.RecentDeliveredCount > 0 ? "jsini-badge--on" : "jsini-badge--warn")"
+                          title="최근 30일에 보낸 @(dev.RecentSentCount)건 중 이 기기가 받았다고 알려 온 수입니다.">@dev.RecentDeliveredCount / @dev.RecentSentCount</span>
+                }
+                else
+                {
+                    <span class="jsini-text-muted">-</span>
+                }
+            </CellDisplayTemplate>
+        </DxGridDataColumn>
 
         <DxGridDataColumn FieldName="@nameof(PushDeviceDto.FailureCount)" Caption="연속 실패" Width="100"
                           TextAlignment="GridTextAlignment.Center">

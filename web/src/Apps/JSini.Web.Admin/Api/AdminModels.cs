@@ -768,6 +768,16 @@ public sealed class PushLogDto
 
     /// <summary>보낸 사람. 시스템이 저절로 보낸 것은 비어 있다.</summary>
     public string? SentBy { get; set; }
+
+    /// <summary>
+    /// 그 기기가 <b>실제로 받았다고 되알려 온 때</b>. 아직이면 비어 있다.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Success"/> 는 「푸시 서비스가 받아 주었다」까지이고 이쪽이
+    /// 「기기가 띄웠다」다. 둘이 갈라지는 줄이 곧 <b>못 받고 있는 기기</b>다 —
+    /// 브라우저 자료를 지운 구독에도 푸시 서비스는 한동안 성공을 돌려준다.
+    /// </remarks>
+    public DateTime? DeliveredAt { get; set; }
 }
 
 /// <summary>

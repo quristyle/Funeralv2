@@ -23,7 +23,9 @@
     [docs/report-mail.md](docs/report-mail.md)
   - `AIAgentServer` (:5029) · `FileServer` (:5350) · `HelpDeskServer` (:5400)
     내 요청글에 **댓글이 달렸을 때** 글 주인에게 가는 앱푸시·이메일과 그것을
-    끄는 자리는 [docs/helpdesk-comment-notify.md](docs/helpdesk-comment-notify.md)
+    끄는 자리는 [docs/helpdesk-comment-notify.md](docs/helpdesk-comment-notify.md) —
+    그 길도 한동안 **「자기 글에 자기가 단 답글은 뺀다」**가 막고 있었다
+    (글쓴이가 곧 담당자라 그것이 전부였다)
     **접수·완료·종료**도 같은 길로 간다 — 그 전에는 보내는 쪽이 **옛 포털이
     채우던 빈 구독표**를 보고 있어서 완료 알림이 한 통도 안 나갔다:
     [docs/helpdesk-status-notify.md](docs/helpdesk-status-notify.md)
@@ -34,7 +36,10 @@
     이벤트는 **지금 그대로 나가고**, 본인이 꺼 두면 그것이 마지막 말이다:
     [docs/notify-policy.md](docs/notify-policy.md)
     알림이 **한꺼번에 몰려 오거나 늦게 오는** 까닭 — 수명(TTL)·겹침(Topic) 설정과
-    **보내기까지의 지연** 실측은 [docs/push-delivery.md](docs/push-delivery.md)
+    **보내기까지의 지연** 실측은 [docs/push-delivery.md](docs/push-delivery.md).
+    **「기기 넷에 켜 두었는데 하나만 운다」**도 거기다 — 「보냈다」는 푸시 서비스가
+    받아 주었다는 뜻일 뿐이라, 기기가 실제로 띄웠는지는 서비스워커가 되알려 준
+    것(`delivered_at`)으로만 갈린다
     **쪽지**는 받는 사람을 치지 않고 고르고(최근·전체), 휴대폰에서는 창이 아니라
     화면을 채운다. 앱 푸시가 **기기에 닿지 않으면 메일로 돌린다** — 「보냈다」와
     「닿았다」를 가르는 자리: [docs/note-delivery.md](docs/note-delivery.md)

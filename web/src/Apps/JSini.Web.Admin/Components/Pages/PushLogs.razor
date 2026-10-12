@@ -70,6 +70,13 @@
                                 <span class="jsini-badge @(log.Success ? "jsini-badge--on" : "jsini-badge--warn")">
                                     @(log.Success ? "성공" : "실패")
                                 </span>
+                                @* 성공은 「푸시 서비스가 받아 주었다」까지다. 기기가
+                                   실제로 띄운 것은 되알림이 와야 안다(표의 「도착」 칸). *@
+                                @if (log.DeliveredAt is not null)
+                                {
+                                    <span class="jsini-badge jsini-badge--on"
+                                          title="그 기기가 @(log.DeliveredAt.Kst("MM-dd HH:mm", string.Empty)) 에 받았다고 알려 왔습니다.">도착</span>
+                                }
                                 <span class="ad-logcards__when">
                                     @(log.SentAt.Kst("yyyy-MM-dd HH:mm", string.Empty))
                                 </span>
@@ -161,6 +168,25 @@
                         <span class="jsini-badge @(log.Success ? "jsini-badge--on" : "jsini-badge--warn")">
                             @(log.Success ? "성공" : "실패")
                         </span>
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+
+                @* **「결과」는 푸시 서비스가 받아 준 데까지다.** 기기가 실제로
+                   띄웠는지는 서비스워커가 되알려 줘야 알 수 있고, 그것이 이 칸이다 —
+                   성공인데 비어 있는 줄이 곧 **못 받고 있는 기기**다.
+                   이 칸이 생기기(2026-10-12) 전에 보낸 줄은 모두 비어 있다. *@
+                <DxGridDataColumn Caption="도착" Width="130">
+                    <CellDisplayTemplate Context="cell">
+                        @{ var log = (PushLogDto)cell.DataItem; }
+                        @if (log.DeliveredAt is not null)
+                        {
+                            <span title="그 기기가 알림을 받았다고 알려 온 때입니다.">@log.DeliveredAt.Kst("MM-dd HH:mm", string.Empty)</span>
+                        }
+                        else if (log.Success)
+                        {
+                            <span class="jsini-text-muted"
+                                  title="푸시 서비스는 받아 주었지만 그 기기가 받았다는 보고가 아직 없습니다. 기기가 꺼져 있거나, 그 구독이 죽어 있을 수 있습니다.">-</span>
+                        }
                     </CellDisplayTemplate>
                 </DxGridDataColumn>
                 <DxGridDataColumn FieldName="@nameof(PushLogDto.FailureReason)" Caption="실패 사유" MinWidth="200" />

@@ -188,6 +188,57 @@ async function reportDelivered(noteId) {
     }
 }
 
+/**
+ * 이 **기기에** 알림이 닿았다고 서버에 알린다.
+ *
+ * [왜 필요한가 — 「보냈다」는 「닿았다」가 아니다]
+ *
+ * 서버가 아는 것은 푸시 서비스(FCM 등)가 **받아 주었다**는 것까지다. 기기가
+ * 꺼져 있으면 푸시 서비스가 수명(TTL)까지 들고 있다가 조용히 버리고, 브라우저
+ * 자료를 지운 사람의 구독은 **한동안 멀쩡한 얼굴로 성공을 돌려준다** — 그 뒤로
+ * 그 기기는 영영 아무것도 못 받는데 발송 기록에는 성공만 쌓인다.
+ *
+ * 그래서 「기기 넷에 등록했는데 한 대만 울린다」를 기록만으로는 가릴 수가
+ * 없었다. 이 보고가 그 자리를 메운다 — 환경설정의 기기 목록과 포털관리의
+ * 「앱 현황」이 기기마다 **마지막 도착**과 **최근 도달 수**를 보여 준다.
+ *
+ * [무엇을 보내나 — 묶음 하나로는 모자란다]
+ *
+ * 묶음 아이디(`nid`)만 보내면 **기기 넷에 보낸 알림이 한 대만 받고도 넷 다
+ * 닿은 것으로** 남는다. 그래서 제 구독 주소를 함께 적어 보낸다 — 서버는 그
+ * 둘이 다 맞는 한 줄에만 시각을 찍는다.
+ *
+ * [토큰 없이 부른다]
+ *
+ * 쪽지 도착 보고(`reportDelivered`)와 같은 사정이고 같은 짜임이다. 둘 다 그
+ * 알림을 실제로 받은 기기만 아는 값이라, 새어도 바뀌는 것은 관리 화면의 도달
+ * 칸 하나다. 실패해도 조용하다 — 알림은 이미 떴고, 못 간 보고는 「안 닿았다」로
+ * 보일 뿐이다.
+ */
+async function reportPushDelivered(nid) {
+    if (!nid) return;
+
+    try {
+        // **구독 주소는 여기서 꺼낸다.** 페이로드에 실어 보내면 보내는 쪽이
+        // 기기마다 다른 글을 만들어야 하고(암호화도 기기마다 다시 한다),
+        // 그러면 알림 한 통이 기기 수만큼의 글이 된다.
+        const sub = await self.registration.pushManager.getSubscription();
+        if (!sub || !sub.endpoint) return;
+
+        await fetch('/api/notification/notifications/push/delivered', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nid, endpoint: sub.endpoint }),
+            // 서버가 보는 것은 묶음과 주소 둘뿐이다. 쿠키를 실으면 서비스워커에서
+            // 나가는 요청마다 따라붙는다(쪽지 보고와 같은 판단).
+            credentials: 'omit',
+            keepalive: true,
+        });
+    } catch {
+        // 못 알려도 알림은 이미 떴다. 서버 쪽에는 「안 닿았다」로 남는다.
+    }
+}
+
 self.addEventListener('push', (event) => {
     // 페이로드가 JSON 이 아니거나 비어 있어도 알림 자체는 띄운다 —
     // 조용히 버리면 푸시 권한이 있는데 아무 일도 없는 것처럼 보인다.
@@ -207,6 +258,10 @@ self.addEventListener('push', (event) => {
             showStaleDigest(),
             notifyClients(),
             reportDelivered(data.data && data.data.noteId),
+            // **묶어 띄웠어도 이 기기에 닿은 것은 닿은 것이다.** 여기서 안
+            // 알리면 밀려 있던 알림을 다 받은 기기가 「한 건도 못 받는 기기」로
+            // 남아, 지워도 되는 구독과 구분이 안 된다.
+            reportPushDelivered(data.nid),
         ]));
         return;
     }
@@ -247,6 +302,10 @@ self.addEventListener('push', (event) => {
         self.registration.showNotification(title, options),
         notifyClients(),
         reportDelivered(data.data && data.data.noteId),
+        // 「이 기기에 닿았다」를 서버에 찍는다. 윗줄의 쪽지 보고와 달리
+        // **모든 알림이** 보고한다 — 묻는 것이 쪽지 하나가 아니라 기기이기
+        // 때문이다(머리말 참조).
+        reportPushDelivered(data.nid),
     ]));
 });
 

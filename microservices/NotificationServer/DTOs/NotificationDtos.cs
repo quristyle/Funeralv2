@@ -609,6 +609,33 @@ public class PushDeviceDto
     public DateTime? LastSentAt { get; set; }
     public DateTime CreatedAt { get; set; }
 
+    /// <summary>
+    /// 이 기기가 <b>마지막으로 알림을 받았다고 되알려 준 때</b>(UTC).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="LastSentAt"/> 과 짝이고, 둘이 갈라지는 자리가 이 칸의 전부다 —
+    /// 보낸 적은 있는데 여기가 비어 있으면 <b>그 기기는 지금 못 받고 있다</b>
+    /// (브라우저 자료를 지웠거나 알림 권한을 껐거나, 켜 둔 적이 없다).
+    /// 푸시 서비스는 그런 구독에도 한동안 성공을 돌려주므로 발송 기록만으로는
+    /// 가릴 수가 없었다(<c>PushSendLog.DeliveredAt</c>).
+    /// </para>
+    /// <para>
+    /// <b>되알림이 생기기 전에 보낸 것은 세지 않는다.</b> 그래서 옛 기기도
+    /// 한 번은 비어 보인다 — 다음 알림 한 통이면 채워진다.
+    /// </para>
+    /// </remarks>
+    public DateTime? LastDeliveredAt { get; set; }
+
+    /// <summary>
+    /// 최근 발송 가운데 <b>이 기기에 닿은 것</b>의 수. <see cref="RecentSentCount"/>
+    /// 와 함께 「넷 중 하나」를 말한다.
+    /// </summary>
+    public int RecentDeliveredCount { get; set; }
+
+    /// <summary>최근 기간에 이 기기로 <b>보낸</b> 성공 발송의 수.</summary>
+    public int RecentSentCount { get; set; }
+
     /// <summary>연달아 실패한 횟수. 0 이 아니면 그 기기는 못 받고 있을 수 있다.</summary>
     public int FailureCount { get; set; }
     public DeviceMetadataDto Metadata { get; set; } = new();
@@ -716,6 +743,51 @@ public class PushLogRowDto
 
     /// <summary>보낸 사람. 시스템이 보낸 것은 비어 있다.</summary>
     public string? SentBy { get; set; }
+
+    /// <summary>
+    /// 그 기기에 <b>닿았다고 되알려 온 때</b>(UTC). 없으면 <c>null</c> 이다.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Success"/> 는 「푸시 서비스가 받아 주었다」까지이고 이 값이
+    /// 「기기가 실제로 띄웠다」이다 — 둘이 갈라지는 줄이 곧 못 받고 있는
+    /// 기기다(<c>PushSendLog.DeliveredAt</c>).
+    /// </remarks>
+    public DateTime? DeliveredAt { get; set; }
+}
+
+/// <summary>
+/// <b>이 기기에 알림이 닿았다</b>는 서비스워커의 보고.
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>이 길은 익명이다</b>(게이트웨이의 <c>notification-push-delivered-route</c>).
+/// 부르는 쪽은 브라우저의 서비스워커이고 거기에는 로그인 토큰이 없다 — 이
+/// 포털의 토큰은 서버가 들고 있고 브라우저로 안 내려온다(BFF).
+/// </para>
+/// <para>
+/// 신원 대신 <b>묶음 아이디(<see cref="Nid"/>)와 제 구독 주소</b>
+/// (<see cref="Endpoint"/>) 둘을 열쇠로 쓴다. 둘 다 <b>그 알림을 실제로 받은
+/// 기기만 아는 값</b>이고, 할 수 있는 일은 「닿았다고 찍는 것」뿐이다 —
+/// 쪽지 도착 보고(<c>NoteDeliveredDto</c>)와 같은 짜임이다.
+/// </para>
+/// </remarks>
+public class PushDeliveredDto
+{
+    /// <summary>
+    /// 묶음 아이디. 페이로드의 <c>nid</c> 그대로다(<c>push_send_logs.batch_id</c>).
+    /// </summary>
+    public string? Nid { get; set; }
+
+    /// <summary>
+    /// 받은 기기의 푸시 구독 주소. 서비스워커가
+    /// <c>registration.pushManager.getSubscription()</c> 으로 얻는다.
+    /// </summary>
+    /// <remarks>
+    /// <b>없으면 아무것도 찍지 않는다.</b> 묶음만으로 찍으면 기기 넷에 보낸
+    /// 알림이 한 대만 받고도 넷 다 닿은 것으로 남아, 이 칸을 만든 까닭이
+    /// 통째로 사라진다.
+    /// </remarks>
+    public string? Endpoint { get; set; }
 }
 
 /// <summary>

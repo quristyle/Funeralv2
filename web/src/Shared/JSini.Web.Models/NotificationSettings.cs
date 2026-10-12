@@ -265,6 +265,30 @@ public sealed class PushDeviceDto
     public DateTime? CreatedAt { get; set; }
 
     /// <summary>
+    /// 마지막으로 그 기기가 <b>받았다고 되알려 온</b> 때. 아직이면 <c>null</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="LastSentAt"/> 과 짝이고 <b>둘이 갈라지는 자리</b>가 이 칸의
+    /// 전부다 — 보낸 적은 있는데 여기가 비어 있으면 그 기기는 지금 못 받고
+    /// 있다(브라우저 자료를 지웠거나 알림 권한을 껐다). 푸시 서비스는 그런
+    /// 구독에도 한동안 성공을 돌려주므로 <see cref="FailureCount"/> 로는
+    /// 드러나지 않는다.
+    /// </para>
+    /// <para>
+    /// <b>되알림이 생기기 전(2026-10-12)에 보낸 것은 안 센다.</b> 그래서 멀쩡한
+    /// 기기도 한 번은 비어 보인다 — 알림 한 통이면 채워진다.
+    /// </para>
+    /// </remarks>
+    public DateTime? LastDeliveredAt { get; set; }
+
+    /// <summary>최근 30일에 이 기기로 <b>보낸</b> 알림 수(성공한 것만).</summary>
+    public int RecentSentCount { get; set; }
+
+    /// <summary>그중 이 기기에 <b>닿은</b> 수. 「넷 중 하나」를 말하는 짝이다.</summary>
+    public int RecentDeliveredCount { get; set; }
+
+    /// <summary>
     /// 연달아 실패한 횟수. 0 이 아니면 그 기기는 <b>못 받고 있을 수 있다</b> —
     /// 화면이 그것을 말해 주지 않으면 「왜 저 기기만 안 오지」가 된다.
     /// </summary>

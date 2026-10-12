@@ -1,4 +1,5 @@
 using JSini.Shared.DTOs;
+using JSini.Shared.Infrastructure.Time;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -748,6 +749,60 @@ public static class NotificationEndpoints
         // `GetFlexibleCountedListAsync` 가 그 이름들을 찾아보게 되어 있어서,
         // 맞춰 두면 화면은 주소만 바꾸면 된다.
 
+        // ── 기기에 닿았다 ───────────────────────────────────
+        //
+        // **알림 길 중에 익명인 하나**다(게이트웨이의
+        // `notification-push-delivered-route`). 부르는 쪽은 브라우저의
+        // 서비스워커이고 거기에는 로그인 토큰이 없다 — 이 포털의 토큰은 서버가
+        // 들고 있고 브라우저로 안 내려온다(BFF).
+        //
+        // 신원 대신 **묶음 아이디와 그 기기의 구독 주소** 둘을 열쇠로 쓴다.
+        // 둘 다 그 알림을 실제로 받은 기기만 아는 값이고, 할 수 있는 일이
+        // 「닿았다고 찍는 것」뿐이라 새어도 잃는 것이 없다 — 쪽지 도착 보고
+        // (`/notes/delivered`)와 같은 짜임이다.
+        //
+        // **주인은 묻지 않는다.** 구독 주소가 곧 기기이고, 그 주소로 보낸 줄은
+        // 그 기기의 것뿐이다.
+        group.MapPost("/push/delivered", async (
+            [FromBody] PushDeliveredDto request,
+            [FromServices] AppDbContext db,
+            CancellationToken ct) =>
+        {
+            var nid = (request.Nid ?? string.Empty).Trim();
+            var endpoint = (request.Endpoint ?? string.Empty).Trim();
+
+            // **없는 값에도 참을 돌려준다.** 404 로 가르면 묶음 아이디를 하나씩
+            // 넣어 「있는 알림」을 찾아볼 수 있게 된다. 길이 상한은 거름망이다 —
+            // 묶음은 GUID 이고 구독 주소는 푸시 서비스가 주는 URL 이다.
+            if (nid.Length == 0 || nid.Length > 64
+                || endpoint.Length == 0 || endpoint.Length > 1000)
+            {
+                return Results.Ok(ApiResponse<bool>.Ok(true));
+            }
+
+            // **묶음 × 기기로 한 줄만 찍는다.** 묶음만으로 찍으면 기기 넷에 보낸
+            // 알림이 한 대만 받고도 넷 다 닿은 것이 되어, 이 기능을 만든 까닭
+            // (「어느 기기가 못 받고 있나」)이 통째로 사라진다.
+            //
+            // **이미 찍힌 것은 그대로 둔다.** 처음 닿은 때가 알고 싶은 값이다 —
+            // 서비스워커가 같은 푸시로 두 번 깨어나는 일이 있다.
+            var rows = await db.PushSendLogs
+                .Where(l => l.BatchId == nid && l.Endpoint == endpoint
+                            && l.DeliveredAt == null)
+                .ToListAsync(ct);
+
+            if (rows.Count > 0)
+            {
+                var now = AppTime.UtcNow;
+                foreach (var row in rows) row.DeliveredAt = now;
+                await db.SaveChangesAsync(ct);
+            }
+
+            return Results.Ok(ApiResponse<bool>.Ok(true));
+        })
+        .AllowAnonymous()
+        .WithName("MarkPushDelivered");
+
         group.MapGet("/push/logs", async (
             UserContext? user,
             [FromServices] AppDbContext db,
@@ -808,6 +863,7 @@ public static class NotificationEndpoints
                     FailureReason = l.FailureReason,
                     Category = l.Category,
                     SentBy = l.SentBy,
+                    DeliveredAt = l.DeliveredAt,
                 })
                 .ToListAsync(ct);
 
@@ -1433,7 +1489,59 @@ public static class NotificationEndpoints
     /// 보여 준다 — 같은 질의를 한 벌 더 적으면 칸이 갈라진다.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// 기기 목록이 <b>도달 기록을 함께 세는 기간</b>(일). 30 일이다.
+    /// </summary>
+    /// <remarks>
+    /// 처음부터 세면 구독을 만든 날 이후의 모든 발송이 들어와, 한 달 전에
+    /// 죽은 기기가 <b>「30건 중 28건 도달」</b>로 보인다 — 이 칸이 답해야 하는
+    /// 물음은 <b>「지금 받고 있나」</b>다.
+    /// </remarks>
+    private const int DeviceDeliveryDays = 30;
+
     private static async Task<List<PushDeviceDto>> DevicesAsync(
+        AppDbContext db, string ownerType, string ownerKey)
+    {
+        var devices = await DeviceRowsAsync(db, ownerType, ownerKey);
+        if (devices.Count == 0) return devices;
+
+        // ── 기기마다 「보낸 것」과 「닿은 것」을 센다 ─────────
+        //
+        // **성공한 줄만 센다.** 못 보낸 줄(구독 없음·본인이 끔)은 그 기기의
+        // 몫이 아닌데 분모에 넣으면 멀쩡한 기기가 「열 중 둘」로 보인다.
+        var from = Since(DeviceDeliveryDays);
+
+        var counts = await db.PushSendLogs
+            .AsNoTracking()
+            .Where(l => l.SentAt >= from && l.Channel == ChannelPush
+                        && l.OwnerType == ownerType && l.OwnerKey == ownerKey
+                        && l.IsSuccess && l.Endpoint != null)
+            .GroupBy(l => l.Endpoint!)
+            .Select(g => new
+            {
+                Endpoint = g.Key,
+                Sent = g.Count(),
+                Delivered = g.Count(x => x.DeliveredAt != null),
+                LastDelivered = g.Max(x => x.DeliveredAt),
+            })
+            .ToListAsync();
+
+        var byEndpoint = counts.ToDictionary(c => c.Endpoint, StringComparer.Ordinal);
+
+        foreach (var device in devices)
+        {
+            if (!byEndpoint.TryGetValue(device.Endpoint, out var hit)) continue;
+
+            device.RecentSentCount = hit.Sent;
+            device.RecentDeliveredCount = hit.Delivered;
+            device.LastDeliveredAt = hit.LastDelivered;
+        }
+
+        return devices;
+    }
+
+    /// <summary>구독 표에서 기기 줄만 읽어 온다. 도달 기록은 부르는 쪽이 얹는다.</summary>
+    private static async Task<List<PushDeviceDto>> DeviceRowsAsync(
         AppDbContext db, string ownerType, string ownerKey)
     {
         return await db.PushSubscriptions

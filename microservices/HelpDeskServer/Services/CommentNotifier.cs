@@ -38,6 +38,35 @@ namespace HelpDeskServer.Services;
 /// </para>
 ///
 /// <para>
+/// [자기 글에 자기가 단 답글도 보낸다 (2026-10-12 고침)]
+/// </para>
+/// <para>
+/// 처음에는 <c>ownerLoginId == actorLoginId</c> 면 조용히 돌아섰다. 「내가 방금
+/// 친 글이 내 휴대폰을 울리면 시끄럽다」는 까닭이었고, 코드만 읽으면 그럴듯해
+/// 보인다. 틀린 것은 로직이 아니라 <b>「글쓴이와 답하는 사람은 다른 사람」이라는
+/// 전제</b>였다 — 이 회사에서는 <b>한 사람이 두 모자를 쓴다</b>. 요청글을 올린
+/// 사람이 곧 시스템 관리자라 답글도 제가 단다.
+/// </para>
+/// <para>
+/// 그래서 그 걸러냄이 <b>가장 흔한 길이 아니라 유일한 길을 막았다</b>:
+/// 운영 확인(2026-10-12) — 요청글 8건에 달린 댓글 5건이 <b>전부</b>
+/// <c>quristyle</c> 이 제 글에 단 것이고, <c>scom.push_send_logs</c> 의
+/// <c>HELPDESK_COMMENT</c> 는 <b>0 줄</b>이었다. 돌아서는 자리가
+/// <c>_gateway.PostAsync</c> <b>앞</b>이라 실패 줄조차 안 남아, 「보낼 곳이
+/// 없었다」와 「보내지 않기로 했다」를 기록에서 가를 수도 없었다.
+/// </para>
+/// <para>
+/// <b>끄는 자리는 따로 있다.</b> 시끄러운 사람은 환경설정의 「댓글 앱알림」·
+/// 「댓글 이메일」을 끄고(<c>comment_push_enabled</c> ·
+/// <c>comment_email_enabled</c>), 회사 차원에서는 알림관리에서
+/// <c>HELPDESK_COMMENT</c> 이벤트를 끈다. 부르는 쪽에 걸러냄을 두면 그것은
+/// <b>알림관리에도 환경설정에도 안 보이고 기록도 안 남는</b> — 아무도 끌 수 없고
+/// 아무도 켤 수 없는 설정이 된다(<c>docs/notify-policy.md</c>).
+/// 처리 상태 알림이 같은 날 같은 고침을 받았다
+/// (<see cref="RequestStatusNotifier"/>).
+/// </para>
+///
+/// <para>
 /// [못 보내도 댓글은 남는다]
 /// </para>
 /// <para>
@@ -48,12 +77,15 @@ namespace HelpDeskServer.Services;
 /// </remarks>
 public interface ICommentNotifier {
   /// <summary>
-  /// 댓글 하나를 알린다. <paramref name="actorLoginId"/> 가 곧 글 주인이면 아무것도 하지 않는다.
+  /// 댓글 하나를 알린다. 글 주인을 포털 계정으로 풀지 못하면 아무것도 하지 않는다.
   /// </summary>
   /// <param name="comment">방금 저장한 댓글. 아이디가 채워져 있어야 한다(주소에 싣는다).</param>
   /// <param name="request">그 댓글이 달린 요청글.</param>
   /// <param name="authorName">댓글을 쓴 사람의 표시 이름. 제목 줄에 든다.</param>
-  /// <param name="actorLoginId">지금 부른 포털 계정. 자기 글에 자기가 단 답글을 걸러낸다.</param>
+  /// <param name="actorLoginId">
+  /// 지금 부른 포털 계정. <b>받는 사람을 고르는 데는 쓰지 않는다</b> — 알림에
+  /// 얹을 얼굴(<c>iconOwnerKey</c>)을 정할 뿐이다.
+  /// </param>
   /// <param name="ct">끊김표.</param>
   Task NotifyAsync(
       ImprovementComment comment, ImprovementRequest request,
@@ -102,12 +134,11 @@ public sealed class CommentNotifier : ICommentNotifier {
       return;
     }
 
-    // **내가 내 글에 단 답글은 나를 울리지 않는다.** 이것을 빼먹으면 댓글을
-    // 쓸 때마다 자기 휴대폰이 울리고, 받는 사람은 알림을 통째로 꺼 버린다.
-    if (!string.IsNullOrWhiteSpace(actorLoginId)
-        && string.Equals(ownerLoginId, actorLoginId, StringComparison.OrdinalIgnoreCase)) {
-      return;
-    }
+    // **누가 썼든 글 주인에게 알린다 (2026-10-12 고침).** 여기에는
+    // `ownerLoginId == actorLoginId` 면 돌아서는 줄이 있었는데, 글을 올린
+    // 사람이 곧 그 글을 처리하는 관리자인 이 회사에서는 그것이 **유일한
+    // 길**이라 댓글 알림이 **한 통도 나가지 않았다** — 머리말의
+    // [자기 글에 자기가 단 답글도 보낸다] 참고.
 
     var preview = Preview(comment.CommentText);
 
@@ -141,7 +172,12 @@ public sealed class CommentNotifier : ICommentNotifier {
         // 알림이 쌓여 화면을 덮는 것을 막는다.
         tag = $"helpdesk-comment-{request.Id}",
 
-        category = PushCategories.HelpDeskComment
+        category = PushCategories.HelpDeskComment,
+
+        // 알림관리(포털관리 › 시스템관리)가 역할·길을 매다는 열쇠다. 지금은
+        // 알림구분과 같은 글자라 안 적어도 같은 줄을 찾지만, 적어 두면 구분을
+        // 더 잘게 가르는 날에 이 자리가 흔들리지 않는다.
+        eventCode = NotificationEvents.HelpDeskComment
       }
     };
 
@@ -170,7 +206,8 @@ public sealed class CommentNotifier : ICommentNotifier {
       html = true,
 
       // 이 갈래를 끈 사람은 저쪽이 뺀다.
-      category = PushCategories.HelpDeskComment
+      category = PushCategories.HelpDeskComment,
+      eventCode = NotificationEvents.HelpDeskComment
     };
 
     await _gateway.PostAsync(
