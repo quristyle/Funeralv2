@@ -148,6 +148,16 @@ public partial class AiDashboard
             : $"{span.TotalSeconds:0}초";
     }
 
+    private static string TokensText(long tokens)
+    {
+        if (tokens <= 0)
+        {
+            return "0";
+        }
+
+        return tokens.ToString("N0");
+    }
+
     /// <summary>
     /// 「몇 분 전」. <paramref name="at"/> 은 서버가 준 <b>UTC</b> 다 —
     /// 견주기는 UTC 끼리, 적을 때만 한국 시각으로 옮긴다.

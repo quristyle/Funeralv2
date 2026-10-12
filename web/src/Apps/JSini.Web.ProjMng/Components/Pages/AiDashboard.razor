@@ -119,6 +119,16 @@
         <span class="pm-aidash__sub">성공 @Summary.Succeeded · 실패 @(Summary.Failed + Summary.Timeout + Summary.Interrupted)</span>
     </div>
     <div class="jsini-stat">
+        <span class="jsini-stat__label">총사용시간</span>
+        <span class="jsini-stat__value">@Span(Summary.TotalSeconds)</span>
+        <span class="pm-aidash__sub">오늘 @Span(Summary.TodayTotalSeconds) · 평균 @Span(Summary.AvgSeconds)</span>
+    </div>
+    <div class="jsini-stat">
+        <span class="jsini-stat__label">오늘 사용 토큰</span>
+        <span class="jsini-stat__value">@TokensText(Summary.TodayTokens)</span>
+        <span class="pm-aidash__sub">오늘 호출 @(Summary.TodayCalls)건 · 기간 @TokensText(Summary.PeriodTokens)</span>
+    </div>
+    <div class="jsini-stat">
         <span class="jsini-stat__label">평균 처리시간</span>
         <span class="jsini-stat__value">@Span(Summary.AvgSeconds)</span>
         <span class="pm-aidash__sub">중앙값 @Span(Summary.MedianSeconds) · 90% @Span(Summary.P90Seconds)</span>
@@ -149,6 +159,16 @@
             <span class="jsini-stat__label">오늘</span>
             <span class="jsini-stat__value">@Forecast.Today</span>
             <span class="pm-aidash__sub">하루 끝 예상 @Forecast.TodayExpected.ToString("0.#")건</span>
+        </div>
+        <div class="jsini-stat">
+            <span class="jsini-stat__label">오늘 사용시간</span>
+            <span class="jsini-stat__value">@Span(Summary.TodayTotalSeconds)</span>
+            <span class="pm-aidash__sub">총 사용시간 @Span(Summary.TotalSeconds)</span>
+        </div>
+        <div class="jsini-stat">
+            <span class="jsini-stat__label">오늘 사용 토큰</span>
+            <span class="jsini-stat__value">@TokensText(Summary.TodayTokens)</span>
+            <span class="pm-aidash__sub">호출 @(Summary.TodayCalls)건 · 기간 @TokensText(Summary.PeriodTokens)</span>
         </div>
         <div class="jsini-stat">
             <span class="jsini-stat__label">이번 주</span>

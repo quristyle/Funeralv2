@@ -133,6 +133,11 @@ public sealed class AiDashboardSummary
     public decimal P90Seconds { get; set; }
     public decimal MaxSeconds { get; set; }
     public decimal TotalSeconds { get; set; }
+    public decimal TodayTotalSeconds { get; set; }
+    public long TodayTokens { get; set; }
+    public int TodayCalls { get; set; }
+    public long PeriodTokens { get; set; }
+    public int PeriodCalls { get; set; }
 
     public int QueuedNow { get; set; }
     public int RunningNow { get; set; }
@@ -178,6 +183,7 @@ public sealed class AiDashboardForecast
     public int BasisRuns { get; set; }
     public decimal PerDay { get; set; }
     public int Today { get; set; }
+    public long TodayTokens { get; set; }
     public decimal TodayExpected { get; set; }
     public int ThisWeek { get; set; }
     public int ThisMonth { get; set; }

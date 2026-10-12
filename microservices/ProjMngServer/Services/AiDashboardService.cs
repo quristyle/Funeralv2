@@ -3,6 +3,7 @@ using System.Data;
 using Dapper;
 using JSini.Shared.Infrastructure.Time;
 using Npgsql;
+using ProjModel;
 using ProjMngServer.Models;
 
 namespace ProjMngServer.Services;
@@ -120,7 +121,7 @@ public sealed class AiDashboardService(
         data.ByTarget = await SliceAsync(db, args, "COALESCE(NULLIF(g.target_nm, ''), '(대상 없음)')");
         data.ByRequester = await SliceAsync(db, args, "COALESCE(NULLIF(t.cre_id, ''), '(알 수 없음)')");
         data.ByDuration = await DurationAsync(db, args);
-        data.Forecast = await ForecastAsync(db);
+        data.Forecast = await ForecastAsync(db, data.Summary.TodayTokens);
         data.Usage = await UsageAsync(db);
         data.UsageHourly = await UsageHourlyAsync(db);
         data.UsageDaily = await UsageDailyAsync(db, args);
@@ -270,6 +271,18 @@ public sealed class AiDashboardService(
 
         summary.RunnerSeenAt = runner.RunnerSeenAt;
         summary.RunnersAlive = runner.RunnersAlive;
+
+        // 오늘 AI 가 돈 시간의 합(초). 기간 설정과 무관하게 한국 달력의 오늘이다.
+        summary.TodayTotalSeconds = await db.ExecuteScalarAsync<decimal>($"""
+            SELECT COALESCE(ROUND(SUM({Duration})::numeric, 1), 0)
+              FROM projmng.ai_task_run r
+              JOIN projmng.ai_task t ON t.task_key = r.task_key
+             WHERE t.is_deleted = false
+               AND {StartedKst} >= date_trunc('day', {NowKst})
+            """);
+
+        // 오늘 및 기간 사용 토큰 (포털 DB scom.ai_usage_logs).
+        await PopulateTokensAsync(db, args, summary);
 
         return summary;
     }
@@ -451,7 +464,7 @@ public sealed class AiDashboardService(
     /// <b>고른 기간을 쓰지 않는다.</b> 「어제 하루」로 조회한 화면의 예상치가
     /// 어제 한 건을 근거로 나오면 그것은 예상이 아니다.
     /// </remarks>
-    private async Task<AiDashboardForecast> ForecastAsync(IDbConnection db)
+    private async Task<AiDashboardForecast> ForecastAsync(IDbConnection db, long todayTokens = 0)
     {
         var row = await db.QuerySingleAsync<ForecastRow>($"""
             SELECT COUNT(*) FILTER (WHERE r.started_at >= now()
@@ -488,6 +501,7 @@ public sealed class AiDashboardService(
             BasisRuns = row.BasisRuns,
             PerDay = perDay,
             Today = row.Today,
+            TodayTokens = todayTokens,
             TodayExpected = Math.Round(row.Today + (perDay * Math.Max(0, 1 - dayPassed)), 1),
             ThisWeek = row.ThisWeek,
             ThisMonth = row.ThisMonth,
@@ -726,6 +740,59 @@ public sealed class AiDashboardService(
     {
         public DateTime? RunnerSeenAt { get; set; }
         public int RunnersAlive { get; set; }
+    }
+
+    // ── 토큰 사용량 (포털 DB) ──────────────────────────────
+
+    /// <summary>
+    /// 포털 DB(scom.ai_usage_logs)에서 오늘 및 조회 기간 토큰 사용량을 집계한다.
+    /// </summary>
+    private async Task PopulateTokensAsync(IDbConnection projmngDb, object args, AiDashboardSummary summary)
+    {
+        try
+        {
+            var di = await projmngDb.QueryFirstOrDefaultAsync<DbInfo>(
+                ConstInfo.dbConQuery, new { db_nick = "jsini-comm" });
+
+            if (di is not null && (di.Db_type == "POSTGRESQL" || di.Db_type == "EDB"))
+            {
+                using var portalDb = new NpgsqlConnection(di.ToConnectionString());
+                var tokenRow = await portalDb.QuerySingleAsync<TokenRow>($"""
+                    SELECT COALESCE(SUM(total_tokens) FILTER (
+                                WHERE (occurred_at AT TIME ZONE 'Asia/Seoul') >= date_trunc('day', {NowKst})
+                           ), 0)::bigint AS TodayTokens,
+                           COALESCE(COUNT(*) FILTER (
+                                WHERE (occurred_at AT TIME ZONE 'Asia/Seoul') >= date_trunc('day', {NowKst})
+                           ), 0)::int AS TodayCalls,
+                           COALESCE(SUM(total_tokens) FILTER (
+                                WHERE (occurred_at AT TIME ZONE 'Asia/Seoul') >= @from
+                                  AND (occurred_at AT TIME ZONE 'Asia/Seoul') <  @to
+                           ), 0)::bigint AS PeriodTokens,
+                           COALESCE(COUNT(*) FILTER (
+                                WHERE (occurred_at AT TIME ZONE 'Asia/Seoul') >= @from
+                                  AND (occurred_at AT TIME ZONE 'Asia/Seoul') <  @to
+                           ), 0)::int AS PeriodCalls
+                      FROM scom.ai_usage_logs
+                    """, args);
+
+                summary.TodayTokens = tokenRow.TodayTokens;
+                summary.TodayCalls = tokenRow.TodayCalls;
+                summary.PeriodTokens = tokenRow.PeriodTokens;
+                summary.PeriodCalls = tokenRow.PeriodCalls;
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "포털 DB(jsini-comm)에서 토큰 사용량을 읽어오지 못했습니다.");
+        }
+    }
+
+    private sealed class TokenRow
+    {
+        public long TodayTokens { get; set; }
+        public int TodayCalls { get; set; }
+        public long PeriodTokens { get; set; }
+        public int PeriodCalls { get; set; }
     }
 
     private sealed class ForecastRow

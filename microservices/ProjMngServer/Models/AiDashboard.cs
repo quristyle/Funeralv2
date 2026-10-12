@@ -114,6 +114,21 @@ public sealed class AiDashboardSummary
     /// <summary>기간에 AI 가 돈 시간의 합.</summary>
     public decimal TotalSeconds { get; set; }
 
+    /// <summary>오늘 AI 가 돈 시간의 합(초).</summary>
+    public decimal TodayTotalSeconds { get; set; }
+
+    /// <summary>오늘 사용한 AI 토큰 수.</summary>
+    public long TodayTokens { get; set; }
+
+    /// <summary>오늘 AI 호출 건수.</summary>
+    public int TodayCalls { get; set; }
+
+    /// <summary>기간 안에 사용한 AI 토큰 수.</summary>
+    public long PeriodTokens { get; set; }
+
+    /// <summary>기간 안에 AI 호출 건수.</summary>
+    public int PeriodCalls { get; set; }
+
     // ── 지금 (기간을 타지 않는다) ───────────────────────────
 
     /// <summary>요청해 두고 아직 아무도 안 집은 것.</summary>
@@ -197,6 +212,9 @@ public sealed class AiDashboardForecast
 
     /// <summary>오늘 지금까지의 실행 건수.</summary>
     public int Today { get; set; }
+
+    /// <summary>오늘 지금까지 사용한 토큰 수.</summary>
+    public long TodayTokens { get; set; }
 
     /// <summary>오늘 하루가 끝났을 때의 예상 건수. 오늘 실적과 남은 시간의 몫을 더한다.</summary>
     public decimal TodayExpected { get; set; }
