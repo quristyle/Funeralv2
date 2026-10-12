@@ -287,6 +287,35 @@ public partial class NotificationInboxDrawer : IDisposable
         _notifications = [.. _notifications.Where(x => x.Id != n.Id)];
     }
 
+    /// <summary>
+    /// <b>이 한 건만 알림함에서 치운다(삭제).</b> 화면을 옮기지 않는다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 데스크톱 환경에서는 손짓(스와이프) 대신 휴지통 아이콘으로 치울 수 있게 한다.
+    /// </para>
+    /// <para>
+    /// <b>화면에서 먼저 빼고 서버에 간다.</b> 못 치웠으면 목록을 다시 읽어
+    /// 되돌린다. 종의 숫자도 다시 센다(<see cref="NotificationDrawer.NotifyReadAsync"/>).
+    /// </para>
+    /// </remarks>
+    private async Task DeleteOneAsync(NotificationDto n)
+    {
+        _notifications = [.. _notifications.Where(x => x.Id != n.Id)];
+        _error = null;
+
+        try
+        {
+            await Api.DeleteInboxAsync(n.Id);
+            await Drawer.NotifyReadAsync();
+        }
+        catch (Exception ex)
+        {
+            _error = $"알림을 지우지 못했습니다. ({ex.Message})";
+            await LoadUnreadAsync();
+        }
+    }
+
     private async Task MarkAllReadAsync()
     {
         try

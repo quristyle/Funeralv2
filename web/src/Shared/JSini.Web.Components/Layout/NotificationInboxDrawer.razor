@@ -153,13 +153,26 @@
 
                                `stopPropagation` 이 없으면 카드의 클릭이 함께
                                울려서 **치우려던 것이 그 화면을 연다.** *@
-                            <span class="jsini-note-drawer__mark"
-                                  @onclick="@(() => MarkOneReadAsync(note))"
-                                  @onclick:stopPropagation="true">
-                                <DxButton RenderStyle="ButtonRenderStyle.Link"
-                                          IconCssClass="jsini-icon-check-circle"
-                                          Title="읽음으로 표시" />
-                            </span>
+                            @if (!IsPhone)
+                            {
+                                <div class="jsini-note-drawer__actions" @onclick:stopPropagation="true">
+                                    <span class="jsini-note-drawer__mark"
+                                          @onclick="@(() => MarkOneReadAsync(note))"
+                                          @onclick:stopPropagation="true">
+                                        <DxButton RenderStyle="ButtonRenderStyle.Link"
+                                                  IconCssClass="jsini-icon-check-circle"
+                                                  Title="읽음으로 표시" />
+                                    </span>
+                                    <span class="jsini-note-drawer__mark jsini-note-drawer__mark--del"
+                                          @onclick="@(() => DeleteOneAsync(note))"
+                                          @onclick:stopPropagation="true">
+                                        <DxButton RenderStyle="ButtonRenderStyle.Link"
+                                                  IconCssClass="jsini-icon-trash"
+                                                  CssClass="commgrd__icon--warn"
+                                                  Title="삭제" />
+                                    </span>
+                                </div>
+                            }
 
                         </div>
                     </div>
