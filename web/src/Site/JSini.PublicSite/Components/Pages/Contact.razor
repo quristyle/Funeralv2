@@ -44,9 +44,20 @@
     }
     else
     {
-        <EditForm Model="@Input" FormName="contact" OnValidSubmit="@SubmitAsync" method="post" class="form">
-            <AntiforgeryToken />
+        @*
+            위조방지 토큰을 여기에 따로 적지 않는다.
 
+            `FormName` 이 붙은 `EditForm` 은 토큰 칸을 **스스로 하나 넣는다.**
+            여기에 `<AntiforgeryToken />` 을 또 쓰면 같은 이름의 숨은 칸이 둘이 되고,
+            위조방지 검사는 `Form["__RequestVerificationToken"]` 을 **문자열 하나로**
+            읽으므로 두 값이 쉼표로 이어진 꼴(`CfDJ…,CfDJ…`)을 토큰으로 본다.
+            해독이 깨져 **보내기가 늘 400** 이었다 — 화면에는 브라우저의
+            「페이지가 작동하지 않습니다」만 뜨고 폼은 손도 못 댔다.
+
+            맨 `<form>` 으로 쓰는 자리(로그아웃 폼 따위)는 넣어 주는 것이 없으므로
+            거기서는 `<AntiforgeryToken />` 이 맞다. 여기는 아니다.
+        *@
+        <EditForm Model="@Input" FormName="contact" OnValidSubmit="@SubmitAsync" method="post" class="form">
             <div class="form__grid">
                 <label class="field">
                     <span class="field__label">@T.Contact.Form.Name</span>
