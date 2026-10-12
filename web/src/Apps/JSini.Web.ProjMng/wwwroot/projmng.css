@@ -5949,13 +5949,42 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
   gap: 0.25rem;
 }
 
-/* 「왼쪽 원문 · 오른쪽 번역」. 편집기 안에는 칸 이름을 적을 자리가 없고
-   (가운데 가름쇠를 끌어 옮길 수 있어 머리글을 얹으면 어긋난다) 이 한 줄이
-   그 일을 대신한다. */
-.pm-xlat__hint,
 .pm-xlat__stat {
   font-size: var(--jsini-fs-xs);
   opacity: 0.75;
+}
+
+/* 칸 이름 — 왼쪽 「원문」 · 오른쪽 「번역 · 한국어」.
+
+   머리띠 끝의 한 마디(「왼쪽 원문 · 오른쪽 번역」)로는 모자랐다. 번역이 덜
+   된 판은 좌우가 둘 다 영어라 **글만 봐서는 어느 쪽이 원문인지 못 가린다.**
+
+   **반반을 믿고 적는 글이다.** 그래서 가운데 가름쇠를 끌어 옮기는 길을 닫았다
+   (`EnableSplitViewResizing = false`). 끌 수 있게 두면 칸은 7:3 이 되는데
+   이름표는 5:5 에 남아 이름이 남의 칸을 가리킨다. */
+.pm-xlat__heads {
+  display: flex;
+  margin: 0 0 -0.25rem;
+  font-size: var(--jsini-fs-xs);
+  font-weight: 600;
+  opacity: 0.8;
+}
+
+.pm-xlat__head {
+  flex: 1 1 50%;
+  min-width: 0;
+  padding: 0 0.5rem;
+}
+
+/* 오른쪽 이름표 앞의 세로선이 편집기 가운데 가름쇠와 같은 자리에 선다. */
+.pm-xlat__head--right {
+  border-left: 1px solid var(--jsini-border);
+}
+
+/* 누르면 무슨 일이 나는지. 눌러 보기 전에 읽혀야 하는 글이라 판 아래에 둔다. */
+.pm-xlat__foot {
+  font-size: var(--jsini-fs-xs);
+  opacity: 0.7;
 }
 
 /* 진행과 누가 답했는지. 남는 폭을 먹어 오른쪽 끝에 선다. */
@@ -6013,4 +6042,54 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
    뜰 때 무늬가 튀지 않게 함께 눌러 둔다. */
 .pm-xlat .diagonal-fill {
   opacity: 0.25;
+}
+
+/* ── 커서가 선 줄에 켜는 불 ──────────────────────────────────
+
+   **좌우 두 칸에 같은 색이 선다.** 왼쪽 108번째 줄을 누르면 오른쪽 108번째
+   줄에도 같은 불이 켜져, 그 줄의 번역이 무엇인지 눈으로 따라갈 필요가 없다.
+
+   Monaco 가 들고 있는 「지금 줄」 표시(`renderLineHighlight`)를 끄고 이것으로
+   대신한다 — 그것은 **커서가 있는 칸에만** 켜져서 반쪽이다.
+
+   **강조색을 쓰고 `!important` 를 붙인다.** 이 줄에는 비교 편집기가 깐 바꿈
+   색(`.line-insert`)이 이미 얹혀 있고 그쪽이 `!important` 다. 같은 무게로
+   적지 않으면 **번역된 줄에서만 불이 안 켜진다** — 하필 거의 모든 줄이다. */
+.pm-xlat .pm-xlat__hit {
+  background: color-mix(in srgb, var(--jsini-accent, #0054a6) 22%, transparent) !important;
+  box-shadow: inset 2px 0 0 var(--jsini-accent, #0054a6);
+}
+
+/* 줄 번호도 함께 짙게. 좌우를 번호로 짚어 말할 때(「108번째 줄」) 그 번호가
+   눈에 먼저 들어와야 한다. */
+.pm-xlat .pm-xlat__hit-num {
+  color: var(--jsini-accent, #0054a6) !important;
+  font-weight: 700;
+}
+
+/* 지금 혼자 다시 옮기고 있는 줄. **오른쪽에만** 선다 — 바뀌는 것이 그쪽이다.
+
+   로컬 LLM 왕복이 몇 초라, 표시가 없으면 **눌러도 아무 일이 없는 것**으로
+   보인다. 머리띠의 글자(「108번째 줄을 다시 옮기는 중…」)는 눈이 가 있는
+   자리에서 멀다. */
+.pm-xlat .pm-xlat__redo {
+  background: color-mix(in srgb, var(--jsini-warning, #f0a500) 26%, transparent) !important;
+  animation: pm-xlat-redo 1.1s ease-in-out infinite;
+}
+
+.pm-xlat .pm-xlat__redo-num {
+  color: var(--jsini-warning, #f0a500) !important;
+  font-weight: 700;
+}
+
+@keyframes pm-xlat-redo {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+/* 움직임을 반기지 않는 사람에게는 깜박임 대신 색만 남긴다. */
+@media (prefers-reduced-motion: reduce) {
+  .pm-xlat .pm-xlat__redo {
+    animation: none;
+  }
 }

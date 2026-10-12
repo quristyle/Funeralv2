@@ -96,10 +96,6 @@ public partial class LogTranslateView
     /// </summary>
     private AiLogXlatState _state = new();
 
-    /// <summary>편집기에 마지막으로 밀어 넣은 글. 같은 글을 두 번 밀지 않는다.</summary>
-    private string _pushedOriginal = string.Empty;
-    private string _pushedModified = string.Empty;
-
     private bool _wrap;
     private bool _busy;
 
@@ -108,8 +104,66 @@ public partial class LogTranslateView
 
     private double _fontPx = 14;
 
+    /// <summary>
+    /// 커서가 선 줄(1부터). <b>0 이면 아직 아무 데도 안 눌렀다.</b>
+    /// </summary>
+    /// <remarks>
+    /// 이 하나로 <b>좌우 두 칸에 같은 불을 켠다</b>. Monaco 가 들고 있는
+    /// 「지금 줄」 표시(<c>renderLineHighlight</c>)를 쓰지 않는 까닭이 그것이다 —
+    /// 그것은 <b>커서가 있는 칸에만</b> 켜지는데, 여기서 보려는 것은 왼쪽
+    /// 108번째 줄과 <b>짝인 오른쪽 108번째 줄</b>이다.
+    /// </remarks>
+    private int _focusLine;
+
+    /// <summary>
+    /// 지금 혼자 다시 옮기고 있는 줄(1부터). 0 이면 없다. 그 줄에만 따로
+    /// 불을 켜 둔다 — 로컬 LLM 왕복이 몇 초라, 표시가 없으면 <b>눌러도 아무
+    /// 일이 없는 것</b>으로 보인다.
+    /// </summary>
+    private int _redoLine;
+
+    /// <summary>한 줄만 다시 옮기는 일. 다음 줄을 누르면 앞엣것을 거둔다.</summary>
+    private CancellationTokenSource? _lineWork;
+
+    /// <summary>켜 둔 불의 표. 다음에 지울 것을 Monaco 가 이 이름으로 찾는다.</summary>
+    private List<string> _leftMarks = [];
+    private List<string> _rightMarks = [];
+
+    /// <summary>
+    /// 글을 미는 길목의 빗장. <b>미는 쪽이 둘이 되었다</b> — 스무 줄짜리
+    /// 덩이를 꽂는 고리와, 누른 줄 하나를 꽂는 일이 같은 때에 돈다. 빗장이
+    /// 없으면 둘이 <see cref="_pushedOut"/> 를 엇갈려 고쳐, <b>민 것과
+    /// 밀었다고 적어 둔 것이 달라진다</b> — 그 뒤로는 바뀐 줄을 못 찾는다.
+    /// </summary>
+    private readonly SemaphoreSlim _push = new(1, 1);
+
+    /// <summary>
+    /// 불을 켜고 끄는 길목의 빗장. <b>부르는 자리가 넷이다</b> — 커서가
+    /// 움직였을 때 · 줄을 눌렀을 때 · 한 줄이 돌아왔을 때 · 글을 통째로
+    /// 갈아 끼운 뒤. 엇갈리면 <see cref="_leftMarks"/> 에 <b>이미 없는
+    /// 이름</b>이 남아, 꺼야 할 불이 켜진 채로 굳는다.
+    /// </summary>
+    private readonly SemaphoreSlim _marks = new(1, 1);
+
+    /// <summary>
+    /// 편집기에 <b>실제로 들어 있는</b> 줄들. 바꿀 자리를 이것과 견주어 찾는다.
+    /// </summary>
+    /// <remarks>
+    /// 글 전체를 이어 붙인 문자열로 들고 있었다. 그때는 미는 길이 하나뿐이라
+    /// (스무 줄씩) 통째로 갈아 끼워도 됐는데, <b>줄 하나를 누를 때마다 수백
+    /// 줄을 회로로 실어 나를 수는 없다.</b> 줄 단위로 들고 있으면 바뀐 자리가
+    /// 어디부터 어디까지인지 바로 나오고, 그 토막만 <c>ApplyEdits</c> 로
+    /// 꽂는다 — 켜 둔 불도 그대로 남는다(<c>setValue</c> 는 지운다).
+    /// </remarks>
+    private readonly List<string> _pushedSrc = [];
+    private readonly List<string> _pushedOut = [];
+
     /// <summary>아직 안 옮긴 줄 수.</summary>
     private int Remaining => _state.Remaining;
+
+    /// <summary>오른쪽 칸 이름에 붙일 말. 고른 말이 이름표에 그대로 선다.</summary>
+    private string LangName =>
+        Languages.FirstOrDefault(lang => lang.Code == _state.Lang)?.Name ?? _state.Lang;
 
     /// <summary>
     /// 번역 단추의 글자. <b>세 가지가 다르다</b> — 처음 · 멈춘 자리에서 이어
@@ -140,6 +194,13 @@ public partial class LogTranslateView
             if (_state.Source.Count == 0)
             {
                 return "옮길 줄이 없습니다.";
+            }
+
+            if (_redoLine > 0)
+            {
+                // **진행 숫자보다 이것이 먼저다.** 줄을 누른 사람이 보려는
+                // 것은 전체 진행이 아니라 「내가 누른 그 줄이 지금 도는가」다.
+                return $"{_redoLine}번째 줄을 다시 옮기는 중…";
             }
 
             var head = _busy
@@ -323,8 +384,11 @@ public partial class LogTranslateView
                 Js, string.Join('\n', _state.Out), "plaintext",
                 $"inmemory://jsini/{_id}/modified");
 
-            _pushedOriginal = string.Join('\n', _state.Source);
-            _pushedModified = string.Join('\n', _state.Out);
+            _pushedSrc.Clear();
+            _pushedSrc.AddRange(_state.Source);
+
+            _pushedOut.Clear();
+            _pushedOut.AddRange(_state.Out);
 
             await diff.SetModel(new DiffEditorModel { Original = _original, Modified = _modified });
 
@@ -357,47 +421,377 @@ public partial class LogTranslateView
     }
 
     /// <summary>
-    /// 바뀐 쪽만 모델에 민다. <b>같은 글을 두 번 밀지 않는다</b> — 미는 일마다
-    /// 회로가 글 전체를 실어 나른다.
+    /// 바뀐 줄만 모델에 민다. <b>바뀐 토막만 간다</b> — 미는 일마다 글 전체를
+    /// 회로로 실어 나르면, 줄 하나를 누를 때마다 수백 줄이 왕복한다.
     /// </summary>
     private async Task PushValuesAsync()
     {
-        var left = string.Join('\n', _state.Source);
-        var right = string.Join('\n', _state.Out);
-
-        if (left == _pushedOriginal && right == _pushedModified)
+        if (!_modelsSet)
         {
             return;
         }
 
+        // **빗장을 건다.** 미는 쪽이 둘이다 — 스무 줄짜리 덩이를 꽂는 고리와,
+        // 누른 줄 하나를 꽂는 일. 엇갈리면 민 것과 밀었다고 적어 둔 것이 달라진다.
+        await _push.WaitAsync();
+
         try
         {
-            // **읽던 자리를 지킨다.** `setValue` 는 내용을 통째로 갈아 끼우므로
-            // 그냥 밀면 한 덩이가 올 때마다 화면이 맨 위로 튄다 — 로그를
-            // 내려 읽던 사람에게는 그것이 고장으로 보인다.
-            var top = _diff is { } d ? await d.ModifiedEditor.GetScrollTop() : 0;
+            var leftReset = await PushSideAsync(_original, _pushedSrc, _state.Source);
+            var rightReset = await PushSideAsync(_modified, _pushedOut, _state.Out);
 
-            if (left != _pushedOriginal && _original is { } original)
+            if (leftReset || rightReset)
             {
-                await original.SetValue(left);
-                _pushedOriginal = left;
-            }
-
-            if (right != _pushedModified && _modified is { } modified)
-            {
-                await modified.SetValue(right);
-                _pushedModified = right;
-            }
-
-            if (top > 0 && _diff is { } diff)
-            {
-                await diff.ModifiedEditor.SetScrollTop((int)top);
+                // `setValue` 는 켜 둔 불을 함께 지운다. 다시 켠다.
+                await DrawMarksAsync();
             }
         }
         catch (Exception ex) when (ex is JSException or JSDisconnectedException
             or ObjectDisposedException or TaskCanceledException)
         {
             // 떠났거나 회로가 끊겼다. 밀어 넣을 곳이 없다.
+        }
+        finally
+        {
+            _push.Release();
+        }
+    }
+
+    /// <summary>
+    /// 한 칸을 맞춘다. <b>돌려주는 것은 「통째로 갈아 끼웠나」</b> — 그랬다면
+    /// 켜 둔 불이 함께 지워졌으므로 부르는 쪽이 다시 켠다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 줄 수가 같으면 <b>처음과 끝에서 안쪽으로 좁혀</b> 달라진 토막을 찾고 그
+    /// 토막만 <c>applyEdits</c> 로 꽂는다. 한 줄만 달라졌으면 가는 것도 한 줄이다.
+    /// </para>
+    /// <para>
+    /// 줄 수가 달라졌으면(로그가 자랐거나 통째로 갈렸다) <c>setValue</c> 다.
+    /// 그때는 <b>읽던 자리를 지킨다</b> — 그냥 밀면 화면이 맨 위로 튀어,
+    /// 로그를 내려 읽던 사람에게는 그것이 고장으로 보인다.
+    /// </para>
+    /// </remarks>
+    private async Task<bool> PushSideAsync(TextModel? model, List<string> pushed, List<string> want)
+    {
+        if (model is null)
+        {
+            return false;
+        }
+
+        if (pushed.Count != want.Count)
+        {
+            var top = _diff is { } d ? await d.ModifiedEditor.GetScrollTop() : 0;
+
+            await model.SetValue(string.Join('\n', want));
+
+            pushed.Clear();
+            pushed.AddRange(want);
+
+            if (top > 0 && _diff is { } diff)
+            {
+                await diff.ModifiedEditor.SetScrollTop((int)top);
+            }
+
+            return true;
+        }
+
+        var first = 0;
+
+        while (first < want.Count && string.Equals(pushed[first], want[first], StringComparison.Ordinal))
+        {
+            first++;
+        }
+
+        if (first == want.Count)
+        {
+            return false;
+        }
+
+        var last = want.Count - 1;
+
+        while (last > first && string.Equals(pushed[last], want[last], StringComparison.Ordinal))
+        {
+            last--;
+        }
+
+        await model.ApplyEdits(
+        [
+            new IdentifiedSingleEditOperation
+            {
+                // 끝 칸은 **지금 그 모델에 들어 있는** 줄의 길이다(`pushed`).
+                // 새 줄의 길이로 적으면 짧아진 줄에서 뒷글자가 남는다.
+                Range = new BlazorMonaco.Range(first + 1, 1, last + 1, pushed[last].Length + 1),
+                Text = string.Join('\n', want.GetRange(first, last - first + 1)),
+            },
+        ], false);
+
+        for (var i = first; i <= last; i++)
+        {
+            pushed[i] = want[i];
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// 불을 켠다 — <b>좌우 같은 줄에 같은 색</b>.
+    /// </summary>
+    /// <remarks>
+    /// Monaco 가 들고 있는 「지금 줄」 표시(<c>renderLineHighlight</c>)를 끄고
+    /// 이것으로 대신하는 까닭은 <b>그것이 커서가 있는 칸에만 켜지기</b>
+    /// 때문이다. 여기서 보려는 것은 왼쪽 108번째 줄과 <b>짝인 오른쪽
+    /// 108번째 줄</b>이라, 불이 한 칸에만 켜지면 반쪽이다.
+    /// </remarks>
+    private async Task DrawMarksAsync()
+    {
+        if (_original is not { } left || _modified is not { } right)
+        {
+            return;
+        }
+
+        await _marks.WaitAsync();
+
+        try
+        {
+            _leftMarks = await left.DeltaDecorations(_leftMarks, MarksFor(onLeft: true), null);
+            _rightMarks = await right.DeltaDecorations(_rightMarks, MarksFor(onLeft: false), null);
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException
+            or ObjectDisposedException or TaskCanceledException)
+        {
+        }
+        finally
+        {
+            _marks.Release();
+        }
+    }
+
+    /// <summary>
+    /// 그 칸에 켤 불들. <b>줄 수는 모델에 들어 있는 것으로 센다</b>
+    /// (<see cref="_pushedSrc"/>) — 아직 안 민 줄에 불을 켜면 Monaco 가 던진다.
+    /// </summary>
+    private List<ModelDeltaDecoration> MarksFor(bool onLeft)
+    {
+        var marks = new List<ModelDeltaDecoration>();
+        var count = onLeft ? _pushedSrc.Count : _pushedOut.Count;
+
+        if (_focusLine >= 1 && _focusLine <= count)
+        {
+            marks.Add(WholeLine(_focusLine, "pm-xlat__hit", "pm-xlat__hit-num"));
+        }
+
+        // 다시 옮기는 중인 줄은 **오른쪽에만** 표시한다. 바뀌는 것이 그쪽이다.
+        if (!onLeft && _redoLine >= 1 && _redoLine <= count)
+        {
+            marks.Add(WholeLine(_redoLine, "pm-xlat__redo", "pm-xlat__redo-num"));
+        }
+
+        return marks;
+    }
+
+    private static ModelDeltaDecoration WholeLine(int line, string css, string numCss) => new()
+    {
+        Range = new BlazorMonaco.Range(line, 1, line, 1),
+        Options = new ModelDecorationOptions
+        {
+            IsWholeLine = true,
+            ClassName = css,
+            LineNumberClassName = numCss,
+        },
+    };
+
+    /// <summary>
+    /// 커서가 움직였다. <b>좌우 어느 칸에서 움직였든 같은 곳으로 온다</b> —
+    /// 짝인 줄은 번호가 같아서, 어느 쪽에서 왔는지 가릴 까닭이 없다.
+    /// </summary>
+    private Task OnCursorMovedAsync(CursorPositionChangedEvent e)
+        => FocusLineAsync(e.Position?.LineNumber ?? 0);
+
+    private async Task FocusLineAsync(int line)
+    {
+        if (line <= 0 || line == _focusLine)
+        {
+            return;
+        }
+
+        _focusLine = line;
+
+        await DrawMarksAsync();
+    }
+
+    /// <summary>
+    /// 왼쪽(원문) 줄을 눌렀다. 불을 옮기고 <b>그 한 줄만 다시 옮긴다.</b>
+    /// </summary>
+    /// <remarks>
+    /// <b>커서 사건으로 하지 않는 까닭</b>이 있다. 커서는 화살표로도 움직이는데
+    /// 거기에 번역을 걸면 키를 누르고 있는 동안 로컬 LLM 이 줄줄이 돈다.
+    /// 누름은 사람이 그 줄을 <b>지목한</b> 것이다.
+    /// </remarks>
+    private async Task OnOriginalClickedAsync(EditorMouseEvent e)
+    {
+        var line = e.Target?.Position?.LineNumber ?? 0;
+
+        if (line <= 0)
+        {
+            return;
+        }
+
+        await FocusLineAsync(line);
+
+        // **글자 자리를 누른 것만 받는다.** 줄 번호 칸을 누르면 그 줄이 통째로
+        // 골라지고 **커서는 다음 줄 머리로 간다**(재어 확인했다 — 1번 줄 번호를
+        // 누르면 커서가 2번 줄이다). 그대로 받으면 불은 2번 줄에 켜지는데
+        // 다시 옮기는 것은 1번 줄이라, 사람 눈에 **엉뚱한 줄이 도는 것**으로
+        // 보인다. 줄 번호 누름은 고르기로 남겨 둔다.
+        if (e.Target?.Type is not (MouseTargetType.CONTENT_TEXT or MouseTargetType.CONTENT_EMPTY))
+        {
+            return;
+        }
+
+        await RetranslateLineAsync(line);
+    }
+
+    /// <summary>
+    /// 오른쪽(번역) 줄을 눌렀다. <b>불만 옮긴다</b> — 다시 옮기는 일은 원문
+    /// 쪽에만 건다. 번역문을 눌러 번역을 시키는 것은 뜻이 맞지 않고, 읽다가
+    /// 무심코 누른 것이 LLM 왕복이 되어서도 안 된다.
+    /// </summary>
+    private Task OnModifiedClickedAsync(EditorMouseEvent e)
+        => FocusLineAsync(e.Target?.Position?.LineNumber ?? 0);
+
+    /// <summary>
+    /// 그 줄 하나만 다시 옮긴다. <b>덩이 번역과 함께 돌아도 된다</b> —
+    /// 미는 길목에 빗장이 있고(<see cref="_push"/>), 손대는 자리가 그 줄뿐이다.
+    /// </summary>
+    private async Task RetranslateLineAsync(int line)
+    {
+        var at = line - 1;
+
+        if (at < 0 || at >= _state.Source.Count)
+        {
+            return;
+        }
+
+        if (_redoLine == line)
+        {
+            // 같은 줄을 또 눌렀다. **돌고 있는 것을 끊고 다시 시작하지 않는다** —
+            // 끊고 다시 걸면 사람이 기다리는 시간만 길어지고, 브라우저가
+            // 누름을 두 번 올리는 날에는 그 한 번이 통째로 버려진다.
+            return;
+        }
+
+        var text = _state.Source[at];
+
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            // 빈 줄은 옮길 것이 없다. 눌러도 조용히 지나간다 —
+            // 「옮길 수 없습니다」를 띄우면 로그의 빈 줄마다 그 말이 뜬다.
+            return;
+        }
+
+        if (text.Length > MaxLineChars)
+        {
+            Toasts.Show($"{line}번째 줄이 너무 길어 옮기지 않습니다.", NoticeTone.Warning);
+            return;
+        }
+
+        // 앞서 누른 줄이 아직 돌고 있으면 거둔다. 사람이 줄을 연달아 누르는
+        // 것은 **앞엣것을 그만두고 이것을 보겠다**는 뜻이다.
+        CancelLineWork();
+
+        var cts = _lineWork = new CancellationTokenSource();
+
+        _redoLine = line;
+        _state.Error = null;
+        StateHasChanged();
+
+        await DrawMarksAsync();
+
+        try
+        {
+            var gen = _state.Generation;
+
+            var answer = await Xlat.TranslateAsync([text], _state.Lang, cts.Token);
+
+            if (cts.IsCancellationRequested)
+            {
+                return;
+            }
+
+            if (_state.Generation != gen)
+            {
+                // 기다리는 사이에 로그가 통째로 갈렸다(앞이 잘려 나갔다).
+                // 이 답은 **이제 없는 줄의 것**이다.
+                return;
+            }
+
+            if (answer?.Lines is [{ Length: > 0 } got, ..])
+            {
+                _state.Out[at] = got;
+                _state.Who = Who(answer) ?? _state.Who;
+
+                await PushValuesAsync();
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // 다음 줄을 눌렀거나 화면을 떠났다. 앞서 옮긴 것은 그대로 남는다.
+        }
+        catch (ApiException ex)
+        {
+            _state.Error = ex.Message is { Length: > 0 } message
+                ? $"{line}번째 줄을 다시 옮기지 못했습니다 — {message}"
+                : $"{line}번째 줄을 다시 옮기지 못했습니다.";
+
+            Toasts.Show(_state.Error, NoticeTone.Warning);
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException
+            or ObjectDisposedException)
+        {
+            // 회로가 끊겼다. 알릴 곳이 없다.
+        }
+        finally
+        {
+            if (ReferenceEquals(_lineWork, cts))
+            {
+                _lineWork = null;
+            }
+
+            cts.Dispose();
+
+            if (_redoLine == line)
+            {
+                _redoLine = 0;
+                await DrawMarksAsync();
+            }
+
+            try
+            {
+                StateHasChanged();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+        }
+    }
+
+    private void CancelLineWork()
+    {
+        var cts = _lineWork;
+        _lineWork = null;
+
+        if (cts is null)
+        {
+            return;
+        }
+
+        try
+        {
+            cts.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
         }
     }
 
@@ -564,6 +958,11 @@ public partial class LogTranslateView
             return;
         }
 
+        // 누른 줄 하나를 옮기던 것도 거둔다. 그 답은 **옛 말의 것**이라,
+        // 그대로 꽂히면 한 판에 두 말이 섞인다.
+        CancelLineWork();
+        _redoLine = 0;
+
         _state.Lang = code;
         _state.Rewind();
 
@@ -597,11 +996,20 @@ public partial class LogTranslateView
         }
     }
 
-    /// <summary>하던 번역을 거둔다. <b>옮긴 데까지는 그대로 남는다.</b></summary>
+    /// <summary>
+    /// 하던 번역을 거둔다. <b>옮긴 데까지는 그대로 남는다.</b>
+    /// </summary>
+    /// <remarks>
+    /// 누른 줄 하나를 다시 옮기던 것도 함께 거둔다 — 「중지」는 <b>지금 도는
+    /// 것을 멈춰라</b>는 뜻이고, 사람에게 그 둘은 하나다.
+    /// </remarks>
     private void Stop()
     {
         StopWork();
+        CancelLineWork();
+
         _busy = false;
+        _redoLine = 0;
     }
 
     private void StopWork()
@@ -642,6 +1050,18 @@ public partial class LogTranslateView
     /// 접히는 횟수가 달라 짝이 눈으로 흐트러진다 — 이 판이 하려는 일이 그
     /// 짝이라 기본값은 끄는 쪽이다. 긴 줄을 통째로 읽어야 하면 단추로 켠다.
     /// </para>
+    /// <para>
+    /// <b>「지금 줄」 표시를 끈다</b>(<c>RenderLineHighlight = "none"</c>).
+    /// 그것은 <b>커서가 있는 칸에만</b> 켜지는데, 여기서 보려는 것은 왼쪽
+    /// 108번째 줄과 <b>짝인 오른쪽 108번째 줄</b>이다. 좌우에 같이 켜는 일은
+    /// 우리가 한다(<see cref="DrawMarksAsync"/>) — 둘 다 켜 두면 한쪽 줄에만
+    /// 색이 두 겹으로 얹혀 좌우가 다른 색으로 보인다.
+    /// </para>
+    /// <para>
+    /// <b>가운데 가름쇠를 못 끌게 한다</b>(<c>EnableSplitViewResizing = false</c>).
+    /// 칸 이름표(「원문」·「번역」)가 반반을 믿고 서 있어서, 끌어 7:3 으로
+    /// 만들면 <b>이름이 남의 칸을 가리킨다.</b>
+    /// </para>
     /// </remarks>
     private StandaloneDiffEditorConstructionOptions BuildOptions(StandaloneDiffEditor editor) => new()
     {
@@ -649,7 +1069,8 @@ public partial class LogTranslateView
         ReadOnly = true,
         OriginalEditable = false,
         RenderSideBySide = true,
-        EnableSplitViewResizing = true,
+        EnableSplitViewResizing = false,
+        RenderLineHighlight = "none",
         RenderIndicators = false,
         RenderMarginRevertIcon = false,
         RenderOverviewRuler = false,
@@ -727,6 +1148,7 @@ public partial class LogTranslateView
         Size.Changed -= OnThemeSizeChanged;
 
         StopWork();
+        CancelLineWork();
 
         if (_diff is { } diff)
         {
@@ -775,5 +1197,8 @@ public partial class LogTranslateView
 
             _loader = null;
         }
+
+        _push.Dispose();
+        _marks.Dispose();
     }
 }
