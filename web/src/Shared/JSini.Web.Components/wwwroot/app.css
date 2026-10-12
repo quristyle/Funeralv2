@@ -7124,20 +7124,41 @@ a.jsini-social__btn:focus-visible {
    기본 막대는 두껍고(윈도우 17px) 회색 홈이 늘 보여서, 표·팝업·사이드바가
    겹쳐 있는 화면에서 **막대만 여러 줄** 그어진 것처럼 보인다.
 
-   얇게(8px) 깔고 홈은 비운다. 손잡이는 글자색을 옅게 섞어 만들므로 밝은
-   테마에서는 어둡게, 어두운 테마에서는 밝게 — 테마를 따로 안 적어도 된다.
+   화면에 보이는 막대는 **3px 로 맞춘다.** DevExpress 가 제 손으로 그리는
+   막대의 엄지가 3.2px 이라(위쪽 사이드바 트리 절), 그 옆에 선 브라우저 막대만
+   혼자 굵으면 한 화면에 굵기가 두 가지로 보인다. 홈은 비우고, 손잡이는
+   글자색을 옅게 섞어 만들므로 밝은 테마에서는 어둡게, 어두운 테마에서는
+   밝게 — 테마를 따로 안 적어도 된다.
 
-   [두 가지 방법을 함께 적는다]
+   [두 가지 방법을 **함께 적으면 안 된다**]
 
-   `scrollbar-width`/`scrollbar-color` 가 정본이고(Firefox·Chrome 121+),
-   `::-webkit-scrollbar` 는 그 전 웹킷용이다. 둘 다 있어야 지금 쓰는
-   브라우저가 모두 덮인다. 앞엣것은 **물려받는 속성**이라 `html` 한 곳에
-   적으면 아래로 퍼진다.
+   `::-webkit-scrollbar` 는 그 요소의 `scrollbar-width`·`scrollbar-color`
+   가 `auto` 가 아니면 **통째로 무시된다**(크로미움의 규칙이다). 예전에는
+   여기서 `html` 에 `scrollbar-color` 를 적어 두었는데 — 이 속성은
+   물려받는다 — 그 바람에 화면의 **모든 칸**이 webkit 규칙을 버리고
+   브라우저 기본 막대를 그렸다. `width: 8px` 은 한 번도 먹은 적이 없다
+   (크롬 153 헤드리스 실측: textarea 17px · 보통 칸 15px).
+   `tabler.css` 에도 같은 `* { scrollbar-color }` 가 있어서 그쪽까지
+   같이 걷었다.
 
-   [일부러 막대를 감춘 곳은 건드리지 않는다]
+   그래서 굵기와 색을 **브라우저별로 갈라 적는다.**
 
-   탭 줄과 길잡이는 `scrollbar-width: none` 으로 아예 감춰 두었다. 그쪽은
-   클래스 선택자라 여기 `html` 규칙을 이긴다 — 그대로 남는다.
+   - 웹킷(크롬·엣지·사파리): `::-webkit-scrollbar` 로 3px, 색은 엄지에
+     직접 칠한다. `scrollbar-width`/`scrollbar-color` 는 **적지 않는다.**
+   - 파이어폭스: `::-webkit-scrollbar` 가 아예 없으니 `scrollbar-width`/
+     `scrollbar-color` 로 간다. 가르는 자리는
+     `@supports not selector(::-webkit-scrollbar)` — 크로미움은 이 선택자를
+     알아서 이 블록을 건너뛰고, 파이어폭스만 들어온다. 다만 거기서는 `thin`
+     말고 px 를 못 받으므로 3px 까지는 못 간다. 그것이 끝이다.
+   - `scrollbar-width` 는 **물려받지 않는다**(실측: `html` 에 `thin` 을
+     적어도 자식 칸은 `auto` 로 계산된다). 그래서 파이어폭스 쪽은 `html`
+     이 아니라 `*` 로 적는다.
+
+   [일부러 3px 보다 얇게 둔 곳은 건드리지 않는다]
+
+   탭 줄과 길잡이는 `scrollbar-width: none` 으로 아예 감춰 두었고, 휴대폰도
+   그렇다. 그쪽은 클래스 선택자이거나 뒤에 오는 규칙이라 여기를 이긴다 —
+   그대로 남는다.
 
    **사이드바 트리는 여기도 저기도 아니다.** 그 막대는 브라우저가 아니라
    DevExpress 가 div 로 그린 것이라 이 절의 규칙이 아예 닿지 않는다 —
@@ -7151,11 +7172,6 @@ a.jsini-social__btn:focus-visible {
    맞는 동작이라 우회할 방법도 없다.
    ---------------------------------------------------------- */
 
-html {
-  scrollbar-width: thin;
-  scrollbar-color: var(--jsini-scroll-thumb) transparent;
-}
-
 :root {
   --jsini-scroll-thumb: color-mix(in srgb, var(--jsini-text) 28%, transparent);
   --jsini-scroll-thumb-hover: color-mix(in srgb, var(--jsini-text) 45%, transparent);
@@ -7168,9 +7184,18 @@ html {
   }
 }
 
+/* 파이어폭스 전용. 크로미움은 `selector(::-webkit-scrollbar)` 를 알아서
+   이 블록에 들어오지 않는다 — 들어오면 아래 webkit 규칙이 통째로 죽는다. */
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--jsini-scroll-thumb) transparent;
+  }
+}
+
 *::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 3px;
+  height: 3px;
 }
 
 @media (max-width: 767px) {
@@ -7201,6 +7226,31 @@ html {
    그 칸만 남아 점처럼 보인다. */
 *::-webkit-scrollbar-corner {
   background: transparent;
+}
+
+/* [DevExpress 가 제 손으로 걸어 둔 자리를 되돌린다]
+
+   **여러 줄 글상자(DxMemo)의 세로 막대만 혼자 굵었다** — 「3px 로 맞췄는데
+   textarea 만 8px 로 보인다」던 그 자리다. DevExpress 테마가 그 textarea 에
+   `scrollbar-width: thin` 과 `scrollbar-color` 를 직접 걸어 두는데, 위에 적은
+   대로 크로미움에서는 그 한 줄이 이 칸의 `::-webkit-scrollbar` 를 통째로
+   무시하게 만든다. `auto` 로 되돌리면 webkit 규칙이 살아나 3px 이 된다.
+
+   **웹킷에서만 되돌린다.** 파이어폭스는 webkit 규칙을 쓸 수 없으므로
+   `auto` 로 돌리면 거기서만 기본 굵기(17px)로 커진다 — DevExpress 가 적어
+   둔 `thin` 을 그대로 두는 편이 낫다. */
+@supports selector(::-webkit-scrollbar) {
+  .dxbl-text-edit.dxbl-memo-edit > textarea {
+    scrollbar-width: auto;
+    scrollbar-color: auto;
+  }
+}
+
+/* 서식 편집기(DxHtmlEditor)의 멘션 목록. 그 막대는 브라우저가 아니라
+   DevExpress 가 div 로 그려서 webkit 규칙이 닿지 않는다 — 사이드바 트리와
+   같은 수로, 폭을 꺼내 쓰는 변수를 3px 로 돌린다(기본값 8px). */
+.dx-popup-wrapper.dx-suggestion-list-wrapper {
+  --dxbl-html-editor-mentions-scrollbar-width: 3px;
 }
 
 /* ── 포털 셸 리프레시 ─────────────────────────────────────

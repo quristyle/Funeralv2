@@ -1172,6 +1172,14 @@ public partial class LogTranslateView
         WordWrap = _wrap ? "on" : "off",
         OriginalAriaLabel = "원문 로그",
         ModifiedAriaLabel = "한국어로 옮긴 로그",
+
+        // 막대는 Monaco 가 제 손으로 div 로 그린다(기본 14px) — app.css 의
+        // 3px 규칙이 닿지 않으므로 여기서 같은 굵기로 맞춘다.
+        Scrollbar = new EditorScrollbarOptions
+        {
+            VerticalScrollbarSize = 3,
+            HorizontalScrollbarSize = 3,
+        },
     };
 
     /// <summary>

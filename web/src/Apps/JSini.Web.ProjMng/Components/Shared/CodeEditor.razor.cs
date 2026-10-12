@@ -223,6 +223,15 @@ public partial class CodeEditor
         WordWrap = _wordWrap ? "on" : "off",
         RenderLineHighlight = "line",
         SmoothScrolling = true,
+
+        // 막대는 Monaco 가 제 손으로 div 로 그린다 — 브라우저 막대가 아니라
+        // app.css 의 3px 규칙이 닿지 않고, 기본값 14px 로 혼자 굵게 선다.
+        // 화면의 다른 막대와 같은 3px 로 맞춘다.
+        Scrollbar = new EditorScrollbarOptions
+        {
+            VerticalScrollbarSize = 3,
+            HorizontalScrollbarSize = 3,
+        },
     };
 
     /// <summary>

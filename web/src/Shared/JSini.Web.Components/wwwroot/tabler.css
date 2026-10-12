@@ -1152,10 +1152,13 @@ a { color: var(--tb-primary); }
   box-shadow: 0 0 0 2px var(--tb-surface), 0 0 0 4px var(--swatch);
 }
 
-/* 스크롤 막대 — 얇고 옅게. */
-* {
-  scrollbar-color: color-mix(in srgb, var(--tb-muted) 45%, transparent) transparent;
-}
+/* 스크롤 막대 — 굵기·색은 app.css 한 곳에서만 정한다.
+
+   여기 있던 `* { scrollbar-color }` 를 걷었다. 크로미움은 `scrollbar-color`
+   가 `auto` 가 아닌 요소에서 `::-webkit-scrollbar` 를 통째로 무시하는데,
+   이 규칙이 `*` 에 걸려 있어서 app.css 의 3px 규칙이 **화면 전체에서** 죽고
+   브라우저 기본 막대(15~17px)가 그려졌다. 파이어폭스용 색은 app.css 의
+   `@supports not selector(::-webkit-scrollbar)` 블록이 들고 있다. */
 
 /* ── 9. 창 머리 · 탭 테 ─────────────────────────────────── */
 

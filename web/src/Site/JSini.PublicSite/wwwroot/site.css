@@ -102,6 +102,34 @@ html::-webkit-scrollbar {
   display: none; /* 크롬 · 사파리 · 엣지 */
 }
 
+/* 창 막대 말고 **안쪽에서 구르는 칸**의 막대(지금은 약관의 표 하나뿐이다).
+   포털과 같은 3px 로 맞춘다 — 기본값은 15px 이라 좁은 화면에서 표 밑에
+   회색 띠가 한 줄 그어진 것처럼 보인다.
+
+   `scrollbar-width`·`scrollbar-color` 는 **여기 적지 않는다.** 크로미움은
+   그 둘이 `auto` 가 아닌 요소에서 `::-webkit-scrollbar` 를 통째로 무시해서,
+   적어 두면 아래 3px 이 한 번도 먹지 않는다(자세한 것은 포털 app.css 의
+   「스크롤 막대」 절). 파이어폭스 몫만 따로 적는다 — 거기는 `thin` 까지다.
+   위의 `html` 규칙이 더 세므로 창 막대는 그대로 감춰져 있다. */
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+  }
+}
+
+*::-webkit-scrollbar {
+  width: 3px;
+  height: 3px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--ink) 28%, transparent);
+}
+
 body {
   margin: 0;
   font-family: var(--font-sans);

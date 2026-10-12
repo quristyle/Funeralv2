@@ -841,7 +841,9 @@
   overflow-wrap: anywhere;
   padding-top: 0.5rem;
   border-top: 1px solid var(--jsini-border, #e0e0e0);
-  scrollbar-width: thin;
+  /* `scrollbar-width: thin` 을 걷었다 — 크로미움에서는 이 한 줄이 app.css 의
+     3px(`::-webkit-scrollbar`) 를 이 칸에서만 무시하게 만들어, 혼자 굵은
+     기본 막대가 섰다. 얇게 하는 일은 app.css 가 한다. */
 }
 
 .hd-my-comment__content.hd-content img {
