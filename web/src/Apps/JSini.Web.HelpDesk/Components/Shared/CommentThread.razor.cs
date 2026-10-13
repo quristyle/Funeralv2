@@ -13,6 +13,9 @@ public partial class CommentThread
     /// <summary>답글을 달 수 있는가. 계정 연결이 없으면 거짓이다.</summary>
     [Parameter] public bool CanReply { get; set; }
 
+    /// <summary>댓글을 삭제할 수 있는가. 완료·종료된 요청이면 거짓이다.</summary>
+    [Parameter] public bool CanDeleteComment { get; set; } = true;
+
     /// <summary>지금 답글 칸이 열려 있는 댓글 번호. 없으면 <c>null</c>.</summary>
     [Parameter] public int? ReplyTo { get; set; }
 
@@ -33,6 +36,7 @@ public partial class CommentThread
 
     private bool CanDelete(CommentNode node)
     {
+        if (!CanDeleteComment) return false;
         if (CurrentUserId is null || CurrentUserType is null) return false;
         return node.Comment.AuthorId == CurrentUserId && 
                string.Equals(node.Comment.AuthorType, CurrentUserType, StringComparison.OrdinalIgnoreCase);

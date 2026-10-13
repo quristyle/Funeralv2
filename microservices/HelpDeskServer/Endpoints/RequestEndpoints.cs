@@ -881,6 +881,10 @@ public static class RequestEndpoints {
         var req = await db.Requests.FindAsync(id);
         if (req is null) return null;
 
+        if (req.Status == ImprovementStatus.Completed || req.Status == ImprovementStatus.UserCompleted) {
+          throw new InvalidOperationException("완료되거나 종료된 요청은 수정할 수 없습니다.");
+        }
+
         // iptype 파싱 (숫자 또는 문자열 이름 대응)
         if (int.TryParse(form["iptype"], out int iptypeValue)) {
           req.IpType = (ImprovementType)iptypeValue;
@@ -964,6 +968,10 @@ public static class RequestEndpoints {
 
       var req = await db.Requests.FindAsync(id);
       if (req is null) return null;
+
+      if (req.Status == ImprovementStatus.Completed || req.Status == ImprovementStatus.UserCompleted) {
+        throw new InvalidOperationException("완료되거나 종료된 요청은 삭제할 수 없습니다.");
+      }
 
 
       var storageBase = Environment.GetEnvironmentVariable("ImageStorage_BasePath") ?? "/home/lee/JinHelpContents/reqs";

@@ -156,6 +156,13 @@ public static class CommentEndpoints {
 
     group.MapPost("/", (AppDbContext db, ImprovementComment comment, HttpContext http, ILoggerFactory loggerFactory, IConfiguration configuration, IPushSubscriptionStore store, IWebPushService sender, ICommentNotifier notifier) => ApiResponseBuilder.CreateAsync(async () => {
 
+      // 1. 원본 요청글 정보 조회 및 상태 확인 (완료/종료 시 댓글 추가 작성 차단)
+      var request = await db.Requests.FindAsync(comment.RequestId);
+      if (request == null) throw new InvalidOperationException("요청글을 찾을 수 없습니다.");
+      if (request.Status == ImprovementStatus.Completed || request.Status == ImprovementStatus.UserCompleted) {
+        throw new InvalidOperationException("완료되거나 종료된 요청에는 댓글을 추가 작성할 수 없습니다.");
+      }
+
       db.Comments.Add(comment);
       await db.SaveChangesAsync();
 
@@ -166,9 +173,7 @@ public static class CommentEndpoints {
         await db.SaveChangesAsync();
       }
 
-      //Console.WriteLine($"aaaaaaaaaa");
-
-      // 1. 댓글 작성자 정보 조회
+      // 2. 댓글 작성자 정보 조회
       string authorName = "알 수 없는 사용자";
       if (comment.AuthorType.Equals("admin", StringComparison.OrdinalIgnoreCase)) {
         var author = await db.Admins.FindAsync(comment.AuthorId);
@@ -180,9 +185,6 @@ public static class CommentEndpoints {
       }
 
       Console.WriteLine($"bbbbbbbbbbbbb : {authorName}");
-      // 2. 원본 요청글 정보 조회
-      var request = await db.Requests.FindAsync(comment.RequestId);
-      if (request == null) return comment; // 요청글이 없으면 알림 발송 중단
 
       var pushTitle = $"댓글 - {authorName}";
       // 본문은 HTML 이다. 태그를 걷고 앞부분만 싣는 일은 `PushUtil.SendPushMsg`
@@ -251,6 +253,11 @@ public static class CommentEndpoints {
       var comment = await db.Comments.FindAsync(id);
       if (comment is null) return null;
 
+      var request = await db.Requests.FindAsync(comment.RequestId);
+      if (request != null && (request.Status == ImprovementStatus.Completed || request.Status == ImprovementStatus.UserCompleted)) {
+        throw new InvalidOperationException("완료되거나 종료된 요청의 댓글은 수정할 수 없습니다.");
+      }
+
       var updatedCommentText = await FileUtil.SaveImageToFile(input.CommentText, "cmt_" + comment.Id.ToString()) ?? string.Empty;
       if (comment.CommentText != updatedCommentText) {
         comment.CommentText = updatedCommentText;
@@ -269,6 +276,11 @@ public static class CommentEndpoints {
     group.MapDelete("/{id}", (AppDbContext db, int id) => ApiResponseBuilder.CreateAsync(async () => {
       var comment = await db.Comments.FindAsync(id);
       if (comment is null) return null;
+
+      var request = await db.Requests.FindAsync(comment.RequestId);
+      if (request != null && (request.Status == ImprovementStatus.Completed || request.Status == ImprovementStatus.UserCompleted)) {
+        throw new InvalidOperationException("완료되거나 종료된 요청의 댓글은 삭제할 수 없습니다.");
+      }
 
       var storageBase = Environment.GetEnvironmentVariable("ImageStorage_BasePath") ?? "/home/lee/JinHelpContents/reqs";
 

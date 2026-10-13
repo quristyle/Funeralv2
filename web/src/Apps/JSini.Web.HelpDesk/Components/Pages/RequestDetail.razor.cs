@@ -83,14 +83,22 @@ public partial class RequestDetail : IDisposable
     private string TabTitle =>
         Value("title") is { Length: > 0 } title ? $"#{Id} {title}" : $"요청 #{Id}";
 
+    /// <summary>완료 또는 종료된 요청인가 — 댓글 작성, 삭제가 제한된다.</summary>
+    private bool IsFinished => Status is "Completed" or "UserCompleted";
+
     /// <summary>
-    /// 댓글을 남길 수 있는가 — <b>연결된 계정</b>이 있고 <b>등록 권한</b>이 있는가.
+    /// 댓글을 남길 수 있는가 — <b>연결된 계정</b>이 있고 <b>등록 권한</b>이 있으며 <b>완료·종료 상태가 아닌가</b>.
     /// </summary>
     /// <remarks>
     /// 댓글 칸과 답글 단추가 <b>같은 이 값</b>을 본다. 판정이 두 벌이 되면
     /// 「답글 단추는 있는데 누르면 아무 일도 없다」가 생긴다.
     /// </remarks>
-    private bool CanWrite => Context.IsLinked && Permissions.Can(MenuPath, MenuAction.Create);
+    private bool CanWrite => !IsFinished && Context.IsLinked && Permissions.Can(MenuPath, MenuAction.Create);
+
+    /// <summary>
+    /// 요청을 삭제할 수 있는가 — <b>시스템관리자</b>이고 <b>완료·종료 상태가 아닌가</b>.
+    /// </summary>
+    private bool CanDeleteRequest => Context.IsSystemAdmin && !IsFinished;
 
     /// <summary>
     /// 접수·완료를 누를 수 있는가 — <b>담당자</b>이고 이 화면에 수정 권한이 있는가.
@@ -304,6 +312,12 @@ public partial class RequestDetail : IDisposable
     /// </summary>
     private async Task DeleteAsync()
     {
+        if (!CanDeleteRequest)
+        {
+            Say("완료되거나 종료된 요청은 삭제할 수 없습니다.", NoticeTone.Warning);
+            return;
+        }
+
         if (!int.TryParse(Id, out _))
         {
             Say("요청 번호를 읽지 못했습니다.", NoticeTone.Error);
@@ -627,6 +641,12 @@ public partial class RequestDetail : IDisposable
     /// </remarks>
     private async Task<bool> AddAsync(int? parentCommentId, string html, IReadOnlyList<PickedFile> files)
     {
+        if (IsFinished)
+        {
+            Say("완료되거나 종료된 요청에는 댓글을 남길 수 없습니다.", NoticeTone.Warning);
+            return false;
+        }
+
         if (!int.TryParse(Id, out var requestId))
         {
             Say("요청 번호를 읽지 못했습니다.", NoticeTone.Error);
@@ -728,6 +748,12 @@ public partial class RequestDetail : IDisposable
     /// </summary>
     private async Task<bool> DeleteCommentAsync(int commentId)
     {
+        if (IsFinished)
+        {
+            Say("완료되거나 종료된 요청의 댓글은 삭제할 수 없습니다.", NoticeTone.Warning);
+            return false;
+        }
+
         if (_confirm is not null && !await _confirm.AskAsync("댓글을 삭제하시겠습니까?", "댓글 삭제", "삭제", ButtonRenderStyle.Danger))
         {
             return false;
