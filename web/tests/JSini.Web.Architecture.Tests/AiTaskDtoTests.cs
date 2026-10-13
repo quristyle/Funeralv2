@@ -23,10 +23,10 @@ public sealed class AiTaskDtoTests
     }
 
     [Fact]
-    public void IsDraft_실행이력이_있는_작업은_idle상태여도_초안이_아니다()
+    public void IsDraft_실행이력이_있는_작업은_idle상태여도_초안이_아니고_이어서대기_상태이다()
     {
-        // 실행이 끝난 건에 이어서 지시 초안을 작성하던 도중 미요청 상태가 되어도
-        // 기존 실행 이력이 있는 건은 완전한 초안(삭제 가능한 임시글)으로 취급되지 않아야 한다.
+        // 실행이 끝난 건에 이어서 지시를 한 뒤 아직 시작되지 않은 경우 (ContinueAsync 후 idle 상태)
+        // 초안이 아니며, "이어서 대기" 상태로 관리되어야 한다.
         var continued = new AiTaskDto
         {
             TaskStatus = "idle",
@@ -35,6 +35,71 @@ public sealed class AiTaskDtoTests
         };
 
         Assert.False(continued.IsDraft);
+        Assert.True(continued.IsContinuing);
+        Assert.Equal("이어서 대기", continued.StatusText);
+        Assert.Equal("warn", continued.StatusTone);
+    }
+
+    [Fact]
+    public void IsContinuing_이어서지시_후_요청되어_queued상태인_작업도_이어서대기_상태이다()
+    {
+        // 이어서 지시가 요청(RequestAsync)되어 큐에 대기 중인 건
+        var queued = new AiTaskDto
+        {
+            TaskStatus = "queued",
+            RequestFlag = "requested",
+            LastRunKey = 546,
+        };
+
+        Assert.True(queued.IsContinuing);
+        Assert.Equal("이어서 대기", queued.StatusText);
+        Assert.Equal("warn", queued.StatusTone);
+    }
+
+    [Fact]
+    public void IsContinuing_신규작업_queued상태는_일반_대기이다()
+    {
+        var newQueued = new AiTaskDto
+        {
+            TaskStatus = "queued",
+            RequestFlag = "requested",
+            LastRunKey = null,
+        };
+
+        Assert.False(newQueued.IsContinuing);
+        Assert.Equal("대기", newQueued.StatusText);
+        Assert.Equal("warn", newQueued.StatusTone);
+    }
+
+    [Fact]
+    public void IsContinuing_재시도나_계속대기중_작업은_이어서대기가_아니다()
+    {
+        var retrying = new AiTaskDto
+        {
+            TaskStatus = "queued",
+            RequestFlag = "requested",
+            LastRunKey = 546,
+            FinishedAt = DateTime.UtcNow,
+        };
+
+        Assert.True(retrying.IsRetrying);
+        Assert.False(retrying.IsContinuing);
+        Assert.Equal("실패·재시도", retrying.StatusText);
+        Assert.Equal("err", retrying.StatusTone);
+
+        var unclaimed = new AiTaskDto
+        {
+            TaskStatus = "queued",
+            RequestFlag = "requested",
+            LastRunKey = 546,
+            FinishedAt = null,
+            LastError = "실행기가 집어가지 않았습니다.",
+        };
+
+        Assert.True(unclaimed.IsUnclaimed);
+        Assert.False(unclaimed.IsContinuing);
+        Assert.Equal("계속대기중", unclaimed.StatusText);
+        Assert.Equal("err", unclaimed.StatusTone);
     }
 
     [Fact]
@@ -47,6 +112,7 @@ public sealed class AiTaskDtoTests
             LastRunKey = 546,
         };
 
+        Assert.False(succeeded.IsContinuing);
         Assert.Equal("완료", succeeded.StatusText);
         Assert.Equal("on", succeeded.StatusTone);
     }

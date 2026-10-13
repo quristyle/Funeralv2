@@ -578,17 +578,25 @@ public sealed class AiTaskDto
         && FinishedAt is null
         && !string.IsNullOrWhiteSpace(LastError);
 
+    /// <summary>
+    /// <b>이어서 지시한 뒤 아직 시작되지 않은 건.</b> 이전 실행 이력이 있고,
+    /// 아직 기계가 집어가 실행(preparing/running)하기 전의 대기 상태다.
+    /// (<c>ContinueAsync</c> 후 대기 중인 <c>idle</c> 이거나, 요청 후 집어가기를 기다리는 <c>queued</c>).
+    /// </summary>
+    public bool IsContinuing => LastRunKey is not null
+        && (TaskStatus == "idle" || (TaskStatus == "queued" && !IsRetrying && !IsUnclaimed));
+
     /// <summary>사람이 읽는 상태 이름.</summary>
     /// <remarks>
-    /// <b>「대기」 셋을 갈라 적는다.</b> 상태값은 셋 다 <c>queued</c> 지만
+    /// <b>「대기」 넷을 갈라 적는다.</b> 상태값은 <c>queued</c> 나 <c>idle</c> 이지만
     /// 사람이 할 일이 다르다 — 방금 보낸 것은 기다리면 되고, 재시도는 이미
     /// 한 번 실패한 것이며, 안 집혀 간 것은 <b>실행기를 봐야 한다.</b>
-    /// 셋을 같은 「대기」로 적으면 <b>실패한 건이 실패로 안 보인다.</b>
+    /// 그리고 이어서 지시한 건은 「이어서 대기」로 적어 신규 대기나 단순 초안(작성중)과 구분한다.
     /// </remarks>
     public string StatusText => TaskStatus switch
     {
-        "idle" => "작성중",
-        "queued" => IsRetrying ? "실패·재시도" : IsUnclaimed ? "계속대기중" : "대기",
+        "idle" => IsContinuing ? "이어서 대기" : "작성중",
+        "queued" => IsRetrying ? "실패·재시도" : IsUnclaimed ? "계속대기중" : IsContinuing ? "이어서 대기" : "대기",
         "preparing" => "준비중",
         "running" => "실행중",
         "succeeded" => "완료",
@@ -616,6 +624,7 @@ public sealed class AiTaskDto
         // 뜻의 주황으로 칠하면 훑을 때 그냥 지나간다 — 둘 다 사람이 봐야 한다.
         "queued" => IsRetrying || IsUnclaimed ? "err" : "warn",
         "preparing" or "running" => "warn",
+        "idle" when IsContinuing => "warn",
         _ => "off",
     };
 
