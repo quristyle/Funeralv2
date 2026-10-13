@@ -34,8 +34,43 @@
 }
 
 /* AI 대화 화면 (D11). 알맹이는 공용 `AiChatPanel` 이고, 여기서는 자리만 준다.
-   높이를 고정하는 이유: 대화 기록이 스스로 구르려면 부모의 높이가 정해져야
-   한다. `height: 100%` 로 두면 본문이 늘어나 페이지 전체가 구른다. */
+
+   [데스크탑에서 본문 높이를 꽉 채운다]
+
+   이전에는 `min(70vh, 44rem)` 으로 높이를 묶어 두어 큰 화면에서 대화창이
+   화면 중간에서 끊기고 아래가 텅 비었으며, 입력창과 전송 단추가 화면 맨 아래에
+   닿지 못했다.
+
+   데스크탑(≥768px)에서는 셸 본문(`.jsini-shell__content:has(> .site-ai-chat)`)을
+   flex column 및 overflow: hidden 으로 전환하고, `.site-ai-chat` 에 `flex: 1` 과
+   `min-height: 0` 을 주어 브라우저 세로 크기에 맞춘다. 대화 기록
+   (`.jsini-chat__log`)이 남은 공간을 모두 차지하고 대화 입력창과 버튼은
+   화면 가장 아래쪽에 위치한다.
+
+   좁은 화면에서는 쪽 스크롤과 기본 높이를 유지한다. */
 .site-ai-chat {
   height: min(70vh, 44rem);
 }
+
+@media (min-width: 768px) {
+  .jsini-shell__content:has(> .site-ai-chat) {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  .site-ai-chat {
+    flex: 1;
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .site-ai-chat > .jsini-chat {
+    flex: 1;
+    min-height: 0;
+  }
+}
+
