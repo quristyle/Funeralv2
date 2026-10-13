@@ -23,10 +23,11 @@ public sealed class AiTaskDtoTests
     }
 
     [Fact]
-    public void IsDraft_실행이력이_있는_작업은_idle상태여도_초안이_아니고_이어서대기_상태이다()
+    public void IsDraft_실행이력이_있는_작업은_idle상태여도_초안이_아니다()
     {
-        // 실행이 끝난 건에 이어서 지시를 한 뒤 아직 시작되지 않은 경우 (ContinueAsync 후 idle 상태)
-        // 초안이 아니며, "이어서 대기" 상태로 관리되어야 한다.
+        // 실행이 끝난 건에 이어서 지시 초안을 작성하던 도중 미요청 상태가 되어도
+        // 기존 실행 이력이 있는 건은 완전한 초안(삭제 가능한 임시글)으로 취급되지 않아야 한다.
+        // 또한 아직 요청 전이므로 큐 대기(이어서 대기)가 아닌 작성중 상태이다.
         var continued = new AiTaskDto
         {
             TaskStatus = "idle",
@@ -35,9 +36,9 @@ public sealed class AiTaskDtoTests
         };
 
         Assert.False(continued.IsDraft);
-        Assert.True(continued.IsContinuing);
-        Assert.Equal("이어서 대기", continued.StatusText);
-        Assert.Equal("warn", continued.StatusTone);
+        Assert.False(continued.IsContinuing);
+        Assert.Equal("작성중", continued.StatusText);
+        Assert.Equal("off", continued.StatusTone);
     }
 
     [Fact]
