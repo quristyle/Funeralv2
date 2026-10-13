@@ -62,8 +62,8 @@ public sealed class AiTaskAlwaysTests
         // 「빠른 지시」 — 새로 보내는 건(화면과 헤더 서랍이 함께 쓴다).
         "src/Apps/JSini.Web.ProjMng/Components/Shared/AiAskPanel.razor",
 
-        // 「이어서 지시」 — 돌아간 건에 말을 덧붙여 다시 보내는 자리.
-        "src/Apps/JSini.Web.ProjMng/Components/Shared/AiTaskActions.razor",
+        // 「이어서 지시」 — 돌아간 건에 말을 덧붙여 다시 보내는 공통 팝업.
+        "src/Apps/JSini.Web.ProjMng/Components/Shared/AiTaskContinuePopup.razor",
     ];
 
     [Fact]

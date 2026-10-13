@@ -1,0 +1,78 @@
+@*
+    [AI 작업 이어서 지시 팝업]
+
+    완료된 작업(succeeded)이나 작업 목록에서 이어서 지시할 때 사용하는 공통 팝업.
+    「빠른 지시」(AiTaskActions)와 「AI 작업」(AiTaskList)이 같은 이 부품을 공유하여
+    모든 이어서 지시가 동일한 UI/UX 를 경험하도록 한다.
+*@
+
+<CommPopup @bind-Visible="_visible"
+           HeaderText="이어서 지시"
+           Width="min(36rem, calc(100vw - 2rem))"
+           CloseOnOutsideClick="false">
+    <BodyContentTemplate>
+        @* 이 회차를 맡을 AI 와 그 AI 의 남은 한도가 한 줄에 선다. *@
+        <div class="pm-peek__field">
+            <DxComboBox Data="@ContinueKinds" Value="@_continueKind"
+                        ValueChanged="@((string? v) => PickContinueKindAsync(v))"
+                        ValueExpression="@(() => _continueKind)"
+                        TextFieldName="@nameof(AiModelOption.Text)"
+                        ValueFieldName="@nameof(AiModelOption.Value)"
+                        CssClass="pm-peek__kind"
+                        Enabled="@(!_continuing && ContinueKinds.Count > 1)">
+                <ItemTemplate Context="comboContext">
+                    @{
+                        var badge = KindBadge(comboContext.Value);
+                    }
+                    <div class="pm-ask__kinditem">
+                        <div class="pm-ask__kindhead">
+                            <span class="pm-ask__kindname">@comboContext.Text</span>
+                            <span class="jsini-badge @badge.Css">@((MarkupString)badge.Text)</span>
+                        </div>
+                    </div>
+                </ItemTemplate>
+            </DxComboBox>
+
+            @if (ContinueKinds.Count > 0)
+            {
+                <span class="jsini-badge pm-peek__usage @PickedContinueBadge.Css">@((MarkupString)PickedContinueBadge.Text)</span>
+            }
+        </div>
+
+        <p class="jsini-hint">@ContinueKindNote</p>
+
+        @* 글상자를 제 상자로 감싼다. 치는 대로 적어 두는 JS 가 잡을 수 있도록 인스턴스별 ID 부여 *@
+        <div id="@_continueDomId">
+            <DxMemo @bind-Text="_continueAddition" Rows="5"
+                    BindValueMode="BindValueMode.OnInput"
+                    NullText="이번에 더 시킬 일 — 지난 진행은 서버가 앞에 붙입니다"
+                    CssClass="pm-peek__memo" />
+        </div>
+
+        @if (_continueRestored)
+        {
+            <div class="pm-ask__draft">
+                <span class="pm-ask__draft-text">
+                    작성 중이던 내용을 복원했습니다@(_continueSavedAt.HasValue ? $" ({_continueSavedAt.Value.Kst("MM-dd HH:mm")})" : "").
+                </span>
+                <button type="button" class="pm-ask__draft-clear" @onclick="ClearContinueDraftAsync">
+                    내용 비우기
+                </button>
+            </div>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(_continueError))
+        {
+            <PageNotice Tone="NoticeTone.Error" Text="@_continueError" />
+        }
+    </BodyContentTemplate>
+
+    <FooterContentTemplate Context="popupContext">
+        <DxButton Text="이어서 지시 요청" RenderStyle="ButtonRenderStyle.Primary"
+                  Enabled="@(!string.IsNullOrWhiteSpace(_continueAddition) && !_continuing)"
+                  Click="@DoContinueAsync" />
+        <DxButton Text="취소" RenderStyle="ButtonRenderStyle.Secondary"
+                  Enabled="@(!_continuing)"
+                  Click="@Close" />
+    </FooterContentTemplate>
+</CommPopup>

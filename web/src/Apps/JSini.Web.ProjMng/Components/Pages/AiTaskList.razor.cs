@@ -1115,6 +1115,7 @@ public partial class AiTaskList
         }
 
         _edit.TargetKey = key;
+        _edit.TargetRunnerKinds = _enabledTargets.FirstOrDefault(t => t.TargetKey == key)?.RunnerKinds;
         FixRunnerForTarget();
 
         // 허용하지 않는 대상으로 옮기면 「올리기」가 켜진 채 남을 수 있다.
@@ -1473,8 +1474,7 @@ public partial class AiTaskList
         Say("지시 내용 맨 위에 요약을 얹었습니다. 「저장」을 눌러야 서버에 들어갑니다.");
     }
 
-    private bool _continueOpen;
-    private string? _addition;
+    private AiTaskContinuePopup? _continuePopup;
 
     /// <summary>
     /// 이어서 시킬 수 있나. <b>끝난 건에만</b> — 돌고 있는 것에 얹으면
@@ -1483,54 +1483,23 @@ public partial class AiTaskList
     private bool CanContinue => _edit is { TaskKey: > 0, IsBusy: false }
         && _runs.Count > 0;
 
-    private Task AskContinueAsync()
+    private async Task AskContinueAsync()
     {
-        _addition = null;
-        _continueOpen = true;
-        return Task.CompletedTask;
+        if (_edit is { } t && _continuePopup is not null)
+        {
+            await _continuePopup.OpenAsync(t);
+        }
     }
 
-    /// <summary>
-    /// 서버가 본문을 새로 짠다. <b>화면이 조립하지 않는다</b> —
-    /// 지난 요약과 「기계가 잰 값」을 붙이는 규칙이 두 곳에 갈리면 안 된다.
-    /// </summary>
-    private async Task ContinueAsync()
+    private async Task OnContinueFinishedAsync(AiTaskDto updated)
     {
-        if (_edit is null || string.IsNullOrWhiteSpace(_addition))
-        {
-            return;
-        }
-
-        Busy = true;
-
-        try
-        {
-            var done = await RunAsync(
-                async () =>
-                {
-                    var result = await Api.ContinueAsync(_edit!.TaskKey, _addition!);
-
-                    Take(result);
-                },
-                "이어서 지시할 내용을 본문에 담았습니다. 확인하고 「요청」을 누르십시오.",
-                "이어서 지시하지 못했습니다");
-
-            if (done)
-            {
-                // 본문을 서버가 새로 짜 주었다. 그 앞의 임시본은 **지난 지시**라
-                // 남겨 두면 다음에 그것이 새 본문을 덮는다.
-                await DropDraftAsync(_edit!.TaskKey);
-
-                _continueOpen = false;
-                _addition = null;
-                await SearchAsync();
-                SyncPicked();
-            }
-        }
-        finally
-        {
-            Busy = false;
-        }
+        Take(updated);
+        await DropDraftAsync(updated.TaskKey);
+        await SearchAsync();
+        SyncPicked();
+        StartTail();
+        _tabPinned = false;
+        _tab = 2;
     }
 
     /// <summary>저장한 뒤 왼쪽 표의 고른 행을 새 값으로 맞춘다.</summary>
@@ -2269,6 +2238,7 @@ public partial class AiTaskList
         TargetNm = s.TargetNm,
         TargetPath = s.TargetPath,
         TargetAllowPush = s.TargetAllowPush,
+        TargetRunnerKinds = s.TargetRunnerKinds,
         TargetRef = s.TargetRef,
         RunnerKind = s.RunnerKind,
         RequestFlag = s.RequestFlag,
