@@ -2877,7 +2877,7 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
   display: flex;
   align-items: center;
   gap: 0.25rem;
-  width: var(--pm-ask-swipe);
+  width: max(0px, var(--pm-ask-swipe));
   overflow: hidden;
   background: #2e7d32;
   color: #fff;
@@ -2902,6 +2902,46 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
 .pm-ask__ack-text {
   opacity: calc(0.45 + (0.55 * var(--pm-ask-ready)));
   transition: opacity 120ms ease;
+}
+
+/* 카드 **오른쪽**에서 열리는 삭제 띠. 왼쪽으로 미는 만큼 넓어진다. */
+.pm-ask__del {
+  position: absolute;
+  inset-block: 0;
+  right: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  width: max(0px, calc(-1 * var(--pm-ask-swipe)));
+  overflow: hidden;
+  background: #c62828;
+  color: #fff;
+  font-size: var(--jsini-fs-2xs);
+  white-space: nowrap;
+  pointer-events: none;
+  transition: width var(--pm-ask-swipe-ms) ease;
+}
+
+.pm-ask__del-mark {
+  flex: 0 0 auto;
+  margin-right: 0.5rem;
+  font-size: var(--jsini-fs-sm);
+  line-height: 1;
+  transform: scale(calc(0.7 + (0.3 * var(--pm-ask-ready))));
+  transition: transform 120ms ease;
+}
+
+.pm-ask__del-text {
+  opacity: calc(0.45 + (0.55 * var(--pm-ask-ready)));
+  transition: opacity 120ms ease;
+}
+
+/* 선택된 카드 강조 */
+.pm-ask__item--picked {
+  border-color: var(--jsini-accent);
+  background: color-mix(in srgb, var(--jsini-accent) 7%, var(--jsini-bg));
 }
 
 /* 카드 전체가 누르는 자리다. 표가 아니라 단추 목록인 이유는 **모바일에서
@@ -2956,9 +2996,35 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge {
   .pm-ask__item[data-swipe] > .pm-ask__head,
   .pm-ask__ack,
   .pm-ask__ack-mark,
-  .pm-ask__ack-text {
+  .pm-ask__ack-text,
+  .pm-ask__del,
+  .pm-ask__del-mark,
+  .pm-ask__del-text {
     transition: none;
   }
+}
+
+/* ── 모바일 작업 목록 (`pm-ai-mobile-list`) ─────────────────── */
+.pm-ai-mobile-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.pm-ai-mobile-list > .pm-ask__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pm-ai-mobile-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0.25rem 0;
 }
 
 /* 두 층이 들어가는 칸. **`min-width: 0` 이 있어야 한다** — 없으면 안쪽

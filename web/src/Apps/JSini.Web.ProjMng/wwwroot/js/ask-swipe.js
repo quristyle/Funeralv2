@@ -1,5 +1,5 @@
 /**
- * 빠른 지시(AiAsk) 카드 — **오른쪽으로 밀어 사용자 확인 완료**.
+ * 빠른 지시(AiAsk) 및 AI 작업 목록 카드 — **밀어서 확인 완료 · 삭제**.
  *
  * [왜 JS 가 손짓을 직접 받나]
  *
@@ -7,7 +7,7 @@
  * 끄는 동안 `pointermove` 는 초당 수십 번 온다 — 그것을 서버로 보내면
  * 카드가 손가락을 몇 백 ms 씩 늦게 따라오고, 회선이 흔들리는 자리
  * (이 화면의 전제다)에서는 아예 멈춘다. **끄는 동안은 브라우저 혼자 그리고**,
- * 서버는 다 밀고 난 뒤 「이 건을 확인 처리해 달라」 한 번만 듣는다.
+ * 서버는 다 밀고 난 뒤 「이 건을 확인(삭제) 처리해 달라」 한 번만 듣는다.
  *
  * [왜 클래스가 아니라 인라인 CSS 변수로 그리나]
  *
@@ -19,11 +19,11 @@
  * `style` 을 아예 그리지 않으므로(카드에 `style` 속성이 없다) 그 자리는
  * 건드리지 않는다.
  *
- *   --pm-ask-swipe     밀린 거리(px). 카드 본문이 그만큼 오른쪽으로 가고
- *                      왼쪽의 확인 띠가 그만큼 열린다.
+ *   --pm-ask-swipe     밀린 거리(px). **부호가 있다** — 양수 오른쪽(확인/완료),
+ *                      음수 왼쪽(삭제). 본문이 그만큼 가고 그쪽 띠가 열린다.
  *   --pm-ask-swipe-ms  그 둘의 전환 시간. 끄는 동안은 0(손가락을 그대로
  *                      따라와야 한다), 손을 뗀 뒤에만 시간이 붙는다.
- *   --pm-ask-ready     문턱을 넘었나(0/1). 확인 띠의 ✓ 가 이 값으로 커진다.
+ *   --pm-ask-ready     문턱을 넘었나(0/1). 띠의 ✓ 또는 🗑 가 이 값으로 커진다.
  *   --pm-ask-alive     카드가 살아 있나(1) 사라지는 중인가(0).
  *
  * [세로 스크롤을 뺏지 않는다]
@@ -60,9 +60,10 @@ export function attachSwipe(selector, dotnet) {
   let width = 1;
   let dx = 0;
 
-  /** 방향을 가렸나 · 가로로 끄는 중인가. */
+  /** 방향을 가렸나 · 가로로 끄는 중인가 · 어느 쪽인가(+1 확인완료 / -1 삭제). */
   let decided = false;
   let live = false;
+  let dir = 0;
 
   /** 확인 처리가 돌고 있다. 그 사이 다른 카드를 밀지 못하게 한다. */
   let acking = false;
@@ -85,8 +86,13 @@ export function attachSwipe(selector, dotnet) {
     pointer = -1;
     decided = false;
     live = false;
+    dir = 0;
     dx = 0;
   };
+
+  /** 그 방향으로 밀 수 있는 줄인가. */
+  const allows = (el, d) =>
+    d > 0 ? el.dataset.confirm !== '0' : el.dataset.delete === '1';
 
   root.addEventListener('pointerdown', (e) => {
     if (card || acking) return;
@@ -104,6 +110,7 @@ export function attachSwipe(selector, dotnet) {
     width = el.clientWidth || 1;
     decided = false;
     live = false;
+    dir = 0;
     dx = 0;
 
     // 여기서 `preventDefault` 하지 않는다. 그냥 누른 것일 수 있고, 그때는
@@ -121,14 +128,19 @@ export function attachSwipe(selector, dotnet) {
 
       decided = true;
 
-      // 세로가 이겼거나 왼쪽으로 끈다 — 우리 일이 아니다. 왼쪽 밀기에
-      // 아무것도 걸지 않은 것은 **되돌릴 길이 없는 동작을 양쪽에 두지
-      // 않으려는 것**이다(확인은 화면에서 되돌리지 못한다).
-      if (mx <= 0 || Math.abs(my) > Math.abs(mx)) {
+      // 세로가 이겼다 — 스크롤이다.
+      if (Math.abs(my) > Math.abs(mx)) {
         forget();
         return;
       }
 
+      const d = mx > 0 ? 1 : -1;
+      if (!allows(card, d)) {
+        forget();
+        return;
+      }
+
+      dir = d;
       live = true;
       card.setPointerCapture?.(pointer);
       set(card, 'user-select', 'none');
@@ -140,9 +152,12 @@ export function attachSwipe(selector, dotnet) {
     // 가로로 끄는 것이 확정된 뒤에만 막는다 — 그래야 세로 스크롤이 산다.
     e.preventDefault();
 
-    dx = Math.max(0, Math.min(mx, width));
+    dx = dir > 0
+      ? Math.max(0, Math.min(mx, width))
+      : Math.min(0, Math.max(mx, -width));
+
     set(card, '--pm-ask-swipe', `${dx}px`);
-    set(card, '--pm-ask-ready', dx >= threshold(width) ? '1' : '0');
+    set(card, '--pm-ask-ready', Math.abs(dx) >= threshold(width) ? '1' : '0');
   }, { passive: false });
 
   const release = (e) => {
@@ -150,7 +165,8 @@ export function attachSwipe(selector, dotnet) {
 
     const el = card;
     const moved = live;
-    const done = live && dx >= threshold(width) && e.type === 'pointerup';
+    const way = dir;
+    const done = live && Math.abs(dx) >= threshold(width) && e.type === 'pointerup';
 
     forget();
     el.style.removeProperty('user-select');
@@ -168,7 +184,7 @@ export function attachSwipe(selector, dotnet) {
       return;
     }
 
-    commit(el);
+    commit(el, way);
   };
 
   root.addEventListener('pointerup', release);
@@ -176,14 +192,15 @@ export function attachSwipe(selector, dotnet) {
 
   /**
    * 문턱을 넘겼다. **띠가 카드를 다 덮고 나서** 스러지게 한다 — 그 사이에
-   * 「무엇이 일어났는지」(✓ 확인 완료)를 읽을 수 있다. 서버는 그다음이다.
+   * 「무엇이 일어났는지」(✓ 확인 완료 / 🗑 삭제)를 읽을 수 있다. 서버는 그다음이다.
    */
-  const commit = (el) => {
+  const commit = (el, way) => {
     acking = true;
 
     const key = Number(el.dataset.task);
+    const w = el.clientWidth || width;
 
-    set(el, '--pm-ask-swipe', `${el.clientWidth}px`);
+    set(el, '--pm-ask-swipe', `${way * w}px`);
     set(el, '--pm-ask-ready', '1');
 
     setTimeout(() => {
@@ -193,7 +210,11 @@ export function attachSwipe(selector, dotnet) {
         acking = false;
 
         try {
-          await dotnet.invokeMethodAsync('ConfirmSwipedAsync', key);
+          const methodName = way > 0 ? 'ConfirmSwipedAsync' : 'DeleteSwipedAsync';
+          const stays = await dotnet.invokeMethodAsync(methodName, key);
+          if (stays) {
+            drop(el);
+          }
         } catch (err) {
           // 회로가 닫혔거나 서버가 못 받았다. 카드를 제자리로 돌려 둔다 —
           // 스러진 채로 두면 **처리되지도 않은 건이 화면에서 사라진다.**

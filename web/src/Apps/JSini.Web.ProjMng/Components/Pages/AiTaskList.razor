@@ -218,106 +218,207 @@
            닿지 않던 임시본이 무엇이었는지는 코드 쪽 머리말에. *@
         <ChildContent>
 
-        <CommGrd TItem="AiTaskDto"
-                 @ref="_grid"
-                 Data="@_rows"
-                 ExportName="AI작업"
-                 PageSize="10"
-                 EmptyText="등록된 작업이 없습니다."
-                 Reload="@SearchAsync"
-                 OnNew="@FillNewTask"
-                 OnEditOpen="@OpenTask"
-                 OnSave="@PersistAsync"
-                 CreateTitle="새 작업"
-                 SelectedItem="@_picked"
-                 SelectedItemChanged="@PickAsync">
-            @* **쓰고 저장하는 일이 `OnSave` 다.** 그래서 새로 만드는 자리도
-               아래 띠의 ＋ 로 저절로 생긴다 — 띠 왼쪽에 「새 작업」 단추를 따로
-               세우면 이 화면만 새로 만드는 자리가 다른 곳이 된다.
+        @if (_isPhone)
+        {
+            <div class="pm-ai-mobile-list" id="@_swipeListId">
+                @if (_rows.Count == 0)
+                {
+                    <p class="pm-ai-drafts__empty">등록된 작업이 없습니다.</p>
+                }
+                else
+                {
+                    <ul class="pm-ask__list">
+                        @foreach (var t in MobileShown)
+                        {
+                            var canConfirm = CanConfirmTask(t);
+                            var canDelete = CanDeleteTask(t);
+                            var swipeable = canConfirm || canDelete;
 
-               팝업 편집 창은 쓰지 않는다(본문이 길다). 편집 폼을 주지 않았으므로
-               ＋ 는 창을 열지 않고 새 줄을 이 화면으로 넘기고(`OnNew` ·
-               `OnEditOpen`), 오른쪽에서 고친 것은 화면이 `SaveAsync` 로 되돌려
-               보낸다. 관리 칸의 「수정」도 그래서 안 생긴다 — 줄을 누르는 것이
-               곧 편집이다. *@
+                            <li @key="t.TaskKey"
+                                class="pm-ask__item pm-ask__item--@t.StatusTone @(t.TaskKey == _picked?.TaskKey ? "pm-ask__item--picked" : null)"
+                                data-task="@t.TaskKey"
+                                data-swipe="@(swipeable ? "1" : null)"
+                                data-confirm="@(canConfirm ? "1" : "0")"
+                                data-delete="@(canDelete ? "1" : "0")">
 
-            <Columns>
-                @* 적어 둔 임시본이 있는 줄에 표를 단다. **이것이 없으면
-                   「내가 쓰다 만 것이 어느 건이었나」를 목록에서 알 수 없다** —
-                   임시본은 서버에 없으므로 상태 칸에도 안 나타난다. *@
-                @* **칸 다섯을 둘로 줄였다.** 이 판은 34% 짜리라 제목·상태·요청·
-                   대상·요청시각을 늘어놓으면 정작 제목이 서너 글자만 보인다 —
-                   고를 때 필요한 것은 「무슨 일인가」이지 열 이름이 아니다.
-                   제목이 한 줄을 차지하고 대상·시각은 그 아래 잔글씨로 붙는다.
+                                @if (canConfirm)
+                                {
+                                    <span class="pm-ask__ack" aria-hidden="true">
+                                        <span class="pm-ask__ack-mark">✓</span>
+                                        <span class="pm-ask__ack-text">완료</span>
+                                    </span>
+                                }
 
-                   요청여부는 상태와 **한 칸에** 둔다. 합치는 것이 아니라 나란히
-                   두는 것이다 — 「취소를 눌렀는데 아직 돌고 있다」를 말하려면
-                   둘이 다 보여야 한다(위 머리말). *@
-                <DxGridDataColumn FieldName="@nameof(AiTaskDto.Title)" Caption="작업" MinWidth="200"
-                                  TextAlignment="GridTextAlignment.Left">
-                    <CellDisplayTemplate Context="cell">
-                        @{
-                            var t = (AiTaskDto)cell.DataItem;
+                                @if (canDelete)
+                                {
+                                    <span class="pm-ask__del" aria-hidden="true">
+                                        <span class="pm-ask__del-text">삭제</span>
+                                        <span class="pm-ask__del-mark">🗑</span>
+                                    </span>
+                                }
+
+                                <button type="button" class="pm-ask__head"
+                                        @onclick="@(() => PickAsync(t))">
+                                    <UserFaceMark LoginId="@t.CreId" />
+
+                                    <span class="pm-ask__rows">
+                                        <span class="pm-ask__line">
+                                            <span class="pm-ai pm-ai--@AiRunnerMark.Tone(t.RunnerKind)"
+                                                  title="@KindName(t.RunnerKind)">@AiRunnerMark.Letter(t.RunnerKind)</span>
+                                            <span class="pm-ask__state">@t.StatusText</span>
+                                            @if (t.RequestFlag != "none")
+                                            {
+                                                <span class="jsini-badge jsini-badge--on">@t.FlagText</span>
+                                            }
+                                            <span class="pm-ask__span">@AiTaskWhen.Elapsed(t)</span>
+                                        </span>
+
+                                        <span class="pm-ask__line pm-ask__line--sub">
+                                            <span class="pm-ask__when">@AiTaskWhen.RunAt(t, compact: true)</span>
+
+                                            @if (!string.IsNullOrWhiteSpace(t.TargetNm))
+                                            {
+                                                <span class="pm-ask__target">@t.TargetNm</span>
+                                            }
+
+                                            @if (t.IsUserRequest)
+                                            {
+                                                <span class="jsini-badge jsini-badge--on"
+                                                      title="@($"사용자 요청 — {t.CreId} 님이 올렸습니다")">요청</span>
+                                            }
+                                            @if (Drafts.Items.ContainsKey(t.TaskKey))
+                                            {
+                                                <span class="jsini-badge jsini-badge--warn" title="저장하지 않은 임시본이 있습니다">임시</span>
+                                            }
+
+                                            <span class="pm-ask__title">@t.Title</span>
+                                        </span>
+                                    </span>
+                                </button>
+                            </li>
                         }
-                        <div class="pm-ai-row">
-                            <span class="pm-ai-row__title">
-                                <span class="pm-ai-title__text">@t.Title</span>
-                                @* 일반 사용자가 「AI 작업 요청」 화면에서 올린 건.
-                                   **돌고 난 뒤에도 남는 표시다** — 「누가 부탁한
-                                   일이었나」는 끝난 뒤에 더 자주 찾는다. *@
-                                @if (t.IsUserRequest)
-                                {
-                                    <span class="jsini-badge jsini-badge--on"
-                                          title="@($"사용자 요청 — {t.CreId} 님이 올렸습니다")">요청</span>
-                                }
-                                @if (Drafts.Items.ContainsKey(t.TaskKey))
-                                {
-                                    <span class="jsini-badge jsini-badge--warn" title="저장하지 않은 임시본이 있습니다">임시</span>
-                                }
-                            </span>
-                            <span class="pm-ai-row__sub">
-                                @t.TargetNm
-                                @if (t.RequestedAt is { } at)
-                                {
-                                    <span class="pm-ai-dim">· @at.Kst("MM-dd HH:mm")</span>
-                                }
-                            </span>
+                    </ul>
+
+                    @if (HasMoreMobile)
+                    {
+                        <div class="pm-ask__more">
+                            <button type="button" class="pm-ask__morego" @onclick="LoadMoreMobile">
+                                더보기 (@MobileShown.Count / @_rows.Count)
+                            </button>
                         </div>
-                    </CellDisplayTemplate>
-                </DxGridDataColumn>
+                    }
+                }
 
-                @* FieldName 을 주어야 필터 행이 이 칸과 연결된다.
-                   너비는 배지 두 개가 나란히 들어갈 수 있도록 늘렸다. *@
-                <DxGridDataColumn FieldName="@nameof(AiTaskDto.TaskStatus)" Caption="상태" Width="90">
-                    <CellDisplayTemplate Context="cell">
-                        @{
-                            var t = (AiTaskDto)cell.DataItem;
-                        }
-                        <div class="pm-ai-row__state">
-                            <span class="jsini-badge jsini-badge--@t.StatusTone">@t.StatusText</span>
-                            @if (t.RequestFlag != "none")
-                            {
-                                <span class="jsini-badge jsini-badge--on">@t.FlagText</span>
+                <div class="pm-ai-mobile-bar">
+                    <DxButton Text="새 작업" IconCssClass="jsini-icon-plus"
+                              RenderStyle="ButtonRenderStyle.Primary"
+                              Click="@NewTask" />
+                </div>
+            </div>
+        }
+        else
+        {
+            <CommGrd TItem="AiTaskDto"
+                     @ref="_grid"
+                     Data="@_rows"
+                     ExportName="AI작업"
+                     PageSize="10"
+                     EmptyText="등록된 작업이 없습니다."
+                     Reload="@SearchAsync"
+                     OnNew="@FillNewTask"
+                     OnEditOpen="@OpenTask"
+                     OnSave="@PersistAsync"
+                     CreateTitle="새 작업"
+                     SelectedItem="@_picked"
+                     SelectedItemChanged="@PickAsync">
+                @* **쓰고 저장하는 일이 `OnSave` 다.** 그래서 새로 만드는 자리도
+                   아래 띠의 ＋ 로 저절로 생긴다 — 띠 왼쪽에 「새 작업」 단추를 따로
+                   세우면 이 화면만 새로 만드는 자리가 다른 곳이 된다.
+
+                   팝업 편집 창은 쓰지 않는다(본문이 길다). 편집 폼을 주지 않았으므로
+                   ＋ 는 창을 열지 않고 새 줄을 이 화면으로 넘기고(`OnNew` ·
+                   `OnEditOpen`), 오른쪽에서 고친 것은 화면이 `SaveAsync` 로 되돌려
+                   보낸다. 관리 칸의 「수정」도 그래서 안 생긴다 — 줄을 누르는 것이
+                   곧 편집이다. *@
+
+                <Columns>
+                    @* 적어 둔 임시본이 있는 줄에 표를 단다. **이것이 없으면
+                       「내가 쓰다 만 것이 어느 건이었나」를 목록에서 알 수 없다** —
+                       임시본은 서버에 없으므로 상태 칸에도 안 나타난다. *@
+                    @* **칸 다섯을 둘로 줄였다.** 이 판은 34% 짜리라 제목·상태·요청·
+                       대상·요청시각을 늘어놓으면 정작 제목이 서너 글자만 보인다 —
+                       고를 때 필요한 것은 「무슨 일인가」이지 열 이름이 아니다.
+                       제목이 한 줄을 차지하고 대상·시각은 그 아래 잔글씨로 붙는다.
+
+                       요청여부는 상태와 **한 칸에** 둔다. 합치는 것이 아니라 나란히
+                       두는 것이다 — 「취소를 눌렀는데 아직 돌고 있다」를 말하려면
+                       둘이 다 보여야 한다(위 머리말). *@
+                    <DxGridDataColumn FieldName="@nameof(AiTaskDto.Title)" Caption="작업" MinWidth="200"
+                                      TextAlignment="GridTextAlignment.Left">
+                        <CellDisplayTemplate Context="cell">
+                            @{
+                                var t = (AiTaskDto)cell.DataItem;
                             }
-                        </div>
-                    </CellDisplayTemplate>
+                            <div class="pm-ai-row">
+                                <span class="pm-ai-row__title">
+                                    <span class="pm-ai-title__text">@t.Title</span>
+                                    @* 일반 사용자가 「AI 작업 요청」 화면에서 올린 건.
+                                       **돌고 난 뒤에도 남는 표시다** — 「누가 부탁한
+                                       일이었나」는 끝난 뒤에 더 자주 찾는다. *@
+                                    @if (t.IsUserRequest)
+                                    {
+                                        <span class="jsini-badge jsini-badge--on"
+                                              title="@($"사용자 요청 — {t.CreId} 님이 올렸습니다")">요청</span>
+                                    }
+                                    @if (Drafts.Items.ContainsKey(t.TaskKey))
+                                    {
+                                        <span class="jsini-badge jsini-badge--warn" title="저장하지 않은 임시본이 있습니다">임시</span>
+                                    }
+                                </span>
+                                <span class="pm-ai-row__sub">
+                                    @t.TargetNm
+                                    @if (t.RequestedAt is { } at)
+                                    {
+                                        <span class="pm-ai-dim">· @at.Kst("MM-dd HH:mm")</span>
+                                    }
+                                </span>
+                            </div>
+                        </CellDisplayTemplate>
+                    </DxGridDataColumn>
 
-                    @* 입력 텍스트 필터 대신 다중 선택 TagBox 로 교체.
-                       ValuesChanged 에서 context.FilterCriteria 를 직접 설정한다.
-                       InOperator 로 묶고, 선택이 없으면(전체) null 로 기준을 지운다. *@
-                    <FilterRowCellTemplate Context="filterCtx">
-                        <DxTagBox TData="PickOption"
-                                  TValue="string"
-                                  Data="@StatusFilterOptions"
-                                  TextFieldName="@nameof(PickOption.Text)"
-                                  ValueFieldName="@nameof(PickOption.Value)"
-                                  Values="@_statusFilterValues"
-                                  ValuesChanged="@((IEnumerable<string> vals) => OnStatusFilterChanged(vals, filterCtx))"
-                                  CssClass="pm-ai-status-filter" />
-                    </FilterRowCellTemplate>
-                </DxGridDataColumn>
-            </Columns>
-        </CommGrd>
+                    @* FieldName 을 주어야 필터 행이 이 칸과 연결된다.
+                       너비는 배지 두 개가 나란히 들어갈 수 있도록 늘렸다. *@
+                    <DxGridDataColumn FieldName="@nameof(AiTaskDto.TaskStatus)" Caption="상태" Width="90">
+                        <CellDisplayTemplate Context="cell">
+                            @{
+                                var t = (AiTaskDto)cell.DataItem;
+                            }
+                            <div class="pm-ai-row__state">
+                                <span class="jsini-badge jsini-badge--@t.StatusTone">@t.StatusText</span>
+                                @if (t.RequestFlag != "none")
+                                {
+                                    <span class="jsini-badge jsini-badge--on">@t.FlagText</span>
+                                }
+                            </div>
+                        </CellDisplayTemplate>
+
+                        @* 입력 텍스트 필터 대신 다중 선택 TagBox 로 교체.
+                           ValuesChanged 에서 context.FilterCriteria 를 직접 설정한다.
+                           InOperator 로 묶고, 선택이 없으면(전체) null 로 기준을 지운다. *@
+                        <FilterRowCellTemplate Context="filterCtx">
+                            <DxTagBox TData="PickOption"
+                                      TValue="string"
+                                      Data="@StatusFilterOptions"
+                                      TextFieldName="@nameof(PickOption.Text)"
+                                      ValueFieldName="@nameof(PickOption.Value)"
+                                      Values="@_statusFilterValues"
+                                      ValuesChanged="@((IEnumerable<string> vals) => OnStatusFilterChanged(vals, filterCtx))"
+                                      CssClass="pm-ai-status-filter" />
+                        </FilterRowCellTemplate>
+                    </DxGridDataColumn>
+                </Columns>
+            </CommGrd>
+        }
         </ChildContent>
     </CommCont>
     </First>

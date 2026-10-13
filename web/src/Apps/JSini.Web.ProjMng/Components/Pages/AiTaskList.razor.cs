@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.JSInterop;
 using DevExpress.Blazor;
+using JSini.Web.Abstractions;
 using JSini.Web.Http;
 using JSini.Web.Components.Data;
 using JSini.Web.Components.Layout;
@@ -45,7 +46,139 @@ public partial class AiTaskList
     /// </remarks>
     private bool _isPhone;
 
-    private void OnPhoneChanged(bool active) => _isPhone = active;
+    private void OnPhoneChanged(bool active)
+    {
+        _isPhone = active;
+    }
+
+    private readonly string _swipeListId = $"pm-ai-tasks-{Guid.NewGuid():N}";
+    private IJSObjectReference? _swipeModule;
+    private DotNetObjectReference<AiTaskList>? _swipeRef;
+
+    private int _mobilePageSize = 15;
+    private int _mobilePageCount = 1;
+
+    private IReadOnlyList<AiTaskDto> MobileShown =>
+        [.. _rows.Take(_mobilePageCount * _mobilePageSize)];
+
+    private bool HasMoreMobile => MobileShown.Count < _rows.Count;
+
+    private void LoadMoreMobile() => _mobilePageCount++;
+
+    private bool CanConfirmTask(AiTaskDto t) =>
+        Can(MenuAction.Update) && !t.IsBusy && !t.UserConfirmed;
+
+    private bool CanDeleteTask(AiTaskDto t) =>
+        Can(MenuAction.Delete) && t.TaskKey > 0 && !t.IsBusy;
+
+    private string KindName(string? kind) =>
+        string.IsNullOrWhiteSpace(kind) ? "-" : RunnerKinds.FirstOrDefault(o => o.Value == kind)?.Text ?? kind;
+
+    private async Task AttachSwipeAsync()
+    {
+        try
+        {
+            _swipeModule ??= await Js.InvokeAsync<IJSObjectReference>("import", "./_content/JSini.Web.ProjMng/js/ask-swipe.js");
+            _swipeRef ??= DotNetObjectReference.Create(this);
+
+            await _swipeModule.InvokeVoidAsync("attachSwipe", $"#{_swipeListId}", _swipeRef);
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException)
+        {
+        }
+    }
+
+    /// <summary>
+    /// 모바일 목록에서 오른쪽으로 스와이프하여 확인(완료) 처리한다.
+    /// </summary>
+    [JSInvokable]
+    public async Task<bool> ConfirmSwipedAsync(long taskKey)
+    {
+        var item = _rows.FirstOrDefault(t => t.TaskKey == taskKey);
+        if (item is null)
+        {
+            return false;
+        }
+
+        if (!CanConfirmTask(item))
+        {
+            return true;
+        }
+
+        _rows = [.. _rows.Where(t => t.TaskKey != taskKey)];
+        if (_picked?.TaskKey == taskKey)
+        {
+            _picked = null;
+            if (_draftAt is null)
+            {
+                _edit = null;
+                _base = null;
+            }
+        }
+        if (_reveal?.TaskKey == taskKey)
+        {
+            _reveal = null;
+        }
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            await Api.ConfirmAsync(taskKey);
+            Say("확인 완료 처리했습니다.");
+            return false;
+        }
+        catch (ApiException ex)
+        {
+            Say($"확인 처리하지 못했습니다 — {ex.Message}", NoticeTone.Error);
+            await SearchAsync();
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 모바일 목록에서 왼쪽으로 스와이프하여 작업을 삭제한다.
+    /// </summary>
+    [JSInvokable]
+    public async Task<bool> DeleteSwipedAsync(long taskKey)
+    {
+        var item = _rows.FirstOrDefault(t => t.TaskKey == taskKey);
+        if (item is null)
+        {
+            return false;
+        }
+
+        if (!CanDeleteTask(item))
+        {
+            return true;
+        }
+
+        _rows = [.. _rows.Where(t => t.TaskKey != taskKey)];
+        if (_picked?.TaskKey == taskKey)
+        {
+            _picked = null;
+            _edit = null;
+            _base = null;
+        }
+        if (_reveal?.TaskKey == taskKey)
+        {
+            _reveal = null;
+        }
+        await DropDraftAsync(taskKey);
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            await Api.DeleteAsync(taskKey);
+            Say("지웠습니다.");
+            return false;
+        }
+        catch (ApiException ex)
+        {
+            Say($"지우지 못했습니다 — {ex.Message}", NoticeTone.Error);
+            await SearchAsync();
+            return false;
+        }
+    }
 
     /// <summary>고르는 칸 한 줄. 공통코드에 없는 값들이라 화면이 들고 있다.</summary>
     public sealed record PickOption(string Value, string Text);
@@ -487,6 +620,7 @@ public partial class AiTaskList
 
     private Task SearchAsync() => LoadAsync(async () =>
     {
+        _mobilePageCount = 1;
         _rows = await Api.ListAsync(_status, _flag, _targetKey, _keyword,
             userConfirmed: _excludeConfirmed ? false : null,
             userRequest: UserRequestFilter, excludeDone: _excludeDone);
@@ -1086,11 +1220,6 @@ public partial class AiTaskList
             return;
         }
 
-        if (_grid is null)
-        {
-            return;
-        }
-
         Busy = true;
 
         try
@@ -1099,10 +1228,26 @@ public partial class AiTaskList
             // 번호**를 들고 있어야 그것을 버릴 수 있다.
             var draftKey = _edit.TaskKey;
 
-            // **표의 저장 길로 되돌려 보낸다**(`OnSave` → `PersistAsync`).
-            // 성공 문구도 목록을 다시 읽는 것도 표가 맡는다 — 화면마다
-            // 「저장했습니다」가 조금씩 다른 말이 되지 않게.
-            var saved = await _grid.SaveAsync(_edit, _edit.TaskKey == 0);
+            // **표가 있으면 표의 저장 길로 되돌려 보낸다**(`OnSave` → `PersistAsync`).
+            // 표가 없는 모바일에서는 직접 저장하고 목록을 다시 읽는다.
+            bool saved;
+            if (_grid is not null)
+            {
+                saved = await _grid.SaveAsync(_edit, _edit.TaskKey == 0);
+            }
+            else
+            {
+                var isNew = _edit.TaskKey == 0;
+                saved = await RunAsync(
+                    () => PersistAsync((_edit, isNew)),
+                    isNew ? "등록했습니다." : "저장했습니다.",
+                    isNew ? "등록하지 못했습니다" : "저장하지 못했습니다");
+
+                if (saved)
+                {
+                    await SearchAsync();
+                }
+            }
 
             if (saved)
             {
@@ -1460,6 +1605,10 @@ public partial class AiTaskList
             await LoadUsageAsync();
 
             RevealPicked();
+            if (_isPhone)
+            {
+                await AttachSwipeAsync();
+            }
             StateHasChanged();
             return;
         }
@@ -1470,6 +1619,11 @@ public partial class AiTaskList
         await FollowLogAsync();
 
         await TrackDraftAsync();
+
+        if (_isPhone)
+        {
+            await AttachSwipeAsync();
+        }
     }
 
     /// <summary>
@@ -1487,6 +1641,18 @@ public partial class AiTaskList
 
         CancelDraftDelay();
         _ = WriteDraftAsync();
+
+        if (_swipeRef is not null)
+        {
+            _swipeRef.Dispose();
+            _swipeRef = null;
+        }
+
+        if (_swipeModule is { } swipeModule)
+        {
+            _swipeModule = null;
+            _ = ReleaseAsync(swipeModule);
+        }
 
         // 실어 둔 JS 를 놓아 준다. 회로가 이미 끊긴 뒤면 놓을 것도 없다.
         if (_logJs is { } js)
@@ -2087,6 +2253,7 @@ public partial class AiTaskList
         row.LastRunKey = latest.LastRunKey;
         row.LastExitCode = latest.LastExitCode;
         row.LastError = latest.LastError;
+        row.UserConfirmed = latest.UserConfirmed;
     }
 
     /// <summary>표의 행과 편집 중인 것을 갈라 두기 위한 복사.</summary>
@@ -2112,9 +2279,12 @@ public partial class AiTaskList
         AttemptMax = s.AttemptMax,
         AutoPush = s.AutoPush,
         NotifyEmail = s.NotifyEmail,
+        NotifyPwa = s.NotifyPwa,
         NotifyTo = s.NotifyTo,
         NotifyWhen = s.NotifyWhen,
         NotifyError = s.NotifyError,
+        UserConfirmed = s.UserConfirmed,
+        IsUserRequest = s.IsUserRequest,
         RequestedAt = s.RequestedAt,
         StartedAt = s.StartedAt,
         FinishedAt = s.FinishedAt,
