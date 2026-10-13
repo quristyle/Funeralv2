@@ -638,7 +638,7 @@ public sealed class AiTaskDto
     /// (<c>AiTaskService.DeleteUserRequestAsync</c> — <c>request_flag = 'none'</c>
     /// · <c>task_status = 'idle'</c>).
     /// </remarks>
-    public bool IsDraft => TaskStatus == "idle" && RequestFlag == "none";
+    public bool IsDraft => TaskStatus == "idle" && RequestFlag == "none" && LastRunKey is null;
 
     /// <summary>더 움직이지 않는 상태인가.</summary>
     public bool IsFinal => TaskStatus is "succeeded" or "failed" or "timeout" or "canceled" or "interrupted";
