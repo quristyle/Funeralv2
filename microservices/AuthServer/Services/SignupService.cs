@@ -24,7 +24,7 @@ public interface ISignupService
         string accountId, string approver, string? reason, CancellationToken ct = default);
 
     /// <summary>소셜 신청을 기존 계정으로 결합한다. 연결은 옮기고 신청은 지운다.</summary>
-    Task<bool> MergeAsync(string pendingAccountId, string targetAccountId, string approver, CancellationToken ct = default);
+    Task<(bool Ok, string? Error)> MergeAsync(string pendingAccountId, string targetAccountId, string approver, CancellationToken ct = default);
 }
 
 /// <inheritdoc cref="ISignupService"/>
@@ -336,29 +336,139 @@ public class SignupService(
         return true;
     }
 
-    public async Task<bool> MergeAsync(string pendingAccountId, string targetAccountId, string approver, CancellationToken ct = default)
+    public async Task<(bool Ok, string? Error)> MergeAsync(
+        string pendingAccountId, string targetAccountId, string approver, CancellationToken ct = default)
     {
-        var pendingAccount = await db.Accounts
-            .Include(a => a.ProfileDetails)
-            .FirstOrDefaultAsync(a => a.Id == pendingAccountId, ct);
-        
-        var targetAccount = await db.Accounts
-            .FirstOrDefaultAsync(a => a.Id == targetAccountId, ct);
-            
-        if (pendingAccount == null || targetAccount == null) return false;
-        
-        var status = pendingAccount.ProfileDetails?.FirstOrDefault(p => p.DetailType == StatusDetail);
-        if (status?.Content != StatusPending) return false;
-
-        var socialLogins = await db.AccountSocialLogins
-            .Where(l => l.AccountId == pendingAccountId)
-            .ToListAsync(ct);
-            
-        foreach (var login in socialLogins)
+        if (string.IsNullOrWhiteSpace(pendingAccountId))
         {
-            login.AccountId = targetAccountId;
+            return (false, "신청 식별자가 비어 있습니다.");
         }
 
+        if (string.IsNullOrWhiteSpace(targetAccountId))
+        {
+            return (false, "결합할 대상 계정을 입력해 주십시오.");
+        }
+
+        var pendingAccount = await db.Accounts
+            .Include(a => a.ProfileDetails)
+            .FirstOrDefaultAsync(a => a.Id == pendingAccountId || a.UserId == pendingAccountId, ct);
+
+        if (pendingAccount is null)
+        {
+            return (false, "승인 대기 중인 가입 신청을 찾을 수 없습니다.");
+        }
+
+        var status = pendingAccount.ProfileDetails?.FirstOrDefault(p => p.DetailType == StatusDetail);
+        if (status?.Content != StatusPending)
+        {
+            return (false, "승인 대기(PENDING) 상태인 가입 신청만 결합할 수 있습니다.");
+        }
+
+        var targetAccount = await db.Accounts
+            .Include(a => a.ProfileDetails)
+            .FirstOrDefaultAsync(a => a.Id == targetAccountId || a.UserId == targetAccountId, ct);
+
+        if (targetAccount is null)
+        {
+            return (false, $"결합할 기존 대상 계정 '{targetAccountId}'을(를) 찾을 수 없습니다.");
+        }
+
+        if (targetAccount.Id == pendingAccount.Id)
+        {
+            return (false, "신청 계정과 대상 계정이 동일하여 결합할 수 없습니다.");
+        }
+
+        var socialLogins = await db.AccountSocialLogins
+            .Where(l => l.AccountId == pendingAccount.Id)
+            .ToListAsync(ct);
+
+        if (socialLogins.Count == 0)
+        {
+            return (false, "신청 건에 연결된 소셜 계정이 없어 결합할 수 없습니다.");
+        }
+
+        // 대상 계정에 이미 연결된 소셜 로그인 목록 조회
+        var targetSocialLogins = await db.AccountSocialLogins
+            .Where(l => l.AccountId == targetAccount.Id)
+            .ToListAsync(ct);
+
+        foreach (var login in socialLogins)
+        {
+            var existingSameProvider = targetSocialLogins
+                .FirstOrDefault(t => t.Provider.Equals(login.Provider, StringComparison.OrdinalIgnoreCase));
+
+            if (existingSameProvider is not null)
+            {
+                // 대상 계정에 이미 동일 공급자의 연결이 있는 경우 새 정보로 갱신
+                existingSameProvider.ProviderUserId = login.ProviderUserId;
+                existingSameProvider.Email = login.Email ?? existingSameProvider.Email;
+                existingSameProvider.DisplayName = login.DisplayName ?? existingSameProvider.DisplayName;
+                existingSameProvider.LastLoginAt = login.LastLoginAt ?? existingSameProvider.LastLoginAt;
+                existingSameProvider.UpdatedAt = DateTime.UtcNow;
+                existingSameProvider.UpdatedBy = approver;
+
+                // 신청 건의 중복 소셜 레코드는 삭제
+                db.AccountSocialLogins.Remove(login);
+            }
+            else
+            {
+                // 대상 계정의 ID(GUID PK)와 탐색 속성을 모두 연결
+                login.AccountId = targetAccount.Id;
+                login.Account = targetAccount;
+                login.UpdatedAt = DateTime.UtcNow;
+                login.UpdatedBy = approver;
+            }
+        }
+
+        // 부가 정보 병합: 이메일이 대상 계정에 없으면 보조 이메일로 추가
+        var pendingEmail = pendingAccount.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Email")?.Content;
+        if (!string.IsNullOrWhiteSpace(pendingEmail))
+        {
+            var existingEmails = targetAccount.ProfileDetails?
+                .Where(p => p.DetailType == "Email")
+                .Select(p => p.Content)
+                .Where(c => !string.IsNullOrWhiteSpace(c))
+                .ToList() ?? [];
+
+            if (!existingEmails.Contains(pendingEmail, StringComparer.OrdinalIgnoreCase))
+            {
+                db.AccountProfileDetails.Add(new AccountProfileDetail
+                {
+                    AccountId = targetAccount.Id,
+                    Account = targetAccount,
+                    DetailType = "Email",
+                    Content = pendingEmail,
+                    IsPrimary = existingEmails.Count == 0,
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = approver,
+                });
+            }
+        }
+
+        // 아바타 사진이 대상 계정에 없고 신청 계정에 있으면 아바타 계승
+        if (string.IsNullOrWhiteSpace(targetAccount.AvatarGroupId) && !string.IsNullOrWhiteSpace(pendingAccount.AvatarGroupId))
+        {
+            targetAccount.AvatarGroupId = pendingAccount.AvatarGroupId;
+            var pendingAvatar = pendingAccount.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Avatar")?.Content;
+            if (!string.IsNullOrWhiteSpace(pendingAvatar) && targetAccount.ProfileDetails?.All(p => p.DetailType != "Avatar") == true)
+            {
+                db.AccountProfileDetails.Add(new AccountProfileDetail
+                {
+                    AccountId = targetAccount.Id,
+                    Account = targetAccount,
+                    DetailType = "Avatar",
+                    Content = pendingAvatar,
+                    IsPrimary = true,
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = approver,
+                });
+            }
+        }
+
+        // 1단계: 소셜 로그인 및 프로필 변경사항 저장
+        await db.SaveChangesAsync(ct);
+
+        // 2단계: 신청 계정 프로필 상세 및 신청 계정 엔티티 삭제
         if (pendingAccount.ProfileDetails is { Count: > 0 })
         {
             db.AccountProfileDetails.RemoveRange(pendingAccount.ProfileDetails);
@@ -366,12 +476,34 @@ public class SignupService(
 
         db.Accounts.Remove(pendingAccount);
         await db.SaveChangesAsync(ct);
-        
+
         logger.LogInformation(
-            "가입 신청 결합: {PendingId} -> {TargetId} (처리자 {Approver})",
-            pendingAccountId, targetAccountId, approver);
-            
-        return true;
+            "가입 신청 결합 완료: {PendingLoginId}({PendingId}) -> {TargetLoginId}({TargetId}) (처리자 {Approver})",
+            pendingAccount.UserId, pendingAccount.Id, targetAccount.UserId, targetAccount.Id, approver);
+
+        // 안내 메일 발송 (이메일이 있는 경우)
+        var notifyEmail = pendingEmail ?? Content(targetAccount, "Email");
+        if (!string.IsNullOrWhiteSpace(notifyEmail))
+        {
+            var providerNames = string.Join(", ", socialLogins.Select(l => ProviderName(l.Provider)).Distinct());
+            try
+            {
+                await mail.SendAsync(
+                    notifyEmail,
+                    "[JSini 포털] 소셜 계정이 기존 계정에 결합되었습니다",
+                    $"""
+                     <p>{Escape(targetAccount.UserName ?? targetAccount.UserId)} 님, 신청하신 {Escape(providerNames)} 소셜 계정이 기존 계정(<b>{Escape(targetAccount.UserId)}</b>)에 정상적으로 결합되었습니다.</p>
+                     <p>이제 포털 로그인 화면에서 소셜 로그인 단추로 바로 접속하실 수 있습니다.</p>
+                     """,
+                    Sender, NotificationEvents.AccountMail, ct);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "가입 결합 안내 메일 발송 실패: {Email}", notifyEmail);
+            }
+        }
+
+        return (true, null);
     }
 
     private static AccountProfileDetail Detail(string accountId, string type, string content) => new()

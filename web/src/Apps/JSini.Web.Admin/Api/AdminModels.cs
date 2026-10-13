@@ -1,4 +1,4 @@
-﻿using System.Text.Json.Serialization;
+using System.Text.Json.Serialization;
 using JSini.Web.Components.Data;
 using JSini.Web.Models;
 
@@ -104,6 +104,10 @@ public sealed class AccountDto
     public string? DeptName { get; set; }
     public DateTime CreatedAt { get; set; }
     public List<string> RoleNames { get; set; } = [];
+
+    /// <summary>계정 선택 고르개 표시용 문자열.</summary>
+    [JsonIgnore]
+    public string DisplayText => $"{UserName} ({LoginId})" + (string.IsNullOrWhiteSpace(DeptName) ? "" : $" - {DeptName}");
 
     /// <summary>
     /// 프로필 사진 주소. 계정 확장 속성(<c>account_profile_details</c> 의

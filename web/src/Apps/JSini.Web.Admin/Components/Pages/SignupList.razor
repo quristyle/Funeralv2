@@ -128,17 +128,34 @@
     </FooterContentTemplate>
 </CommPopup>
 
-<CommPopup @bind-Visible="_merging" HeaderText="소셜 가입 결합" Width="420px">
+<CommPopup @bind-Visible="_merging" HeaderText="소셜 가입 결합" Width="480px">
     <BodyContentTemplate>
         <p class="jsini-hint">
-            @(_target?.UserName ?? "-") (@(_target?.LoginId ?? "-")) 님의 소셜 연결을 기존 계정으로 옮기고 신청은 지웁니다.
+            <strong>@(_target?.UserName ?? "-")</strong> (@(_target?.LoginId ?? "-")) 님의 소셜 연결을 기존 계정으로 옮기고 신청은 지웁니다.
         </p>
 
-        <DxTextBox @bind-Text="_targetAccountId" NullText="대상 계정 ID" />
+        <div style="margin-top: 12px;">
+            <label style="display: block; margin-bottom: 4px; font-weight: 500;">결합할 대상 계정 선택</label>
+            <DxComboBox Data="@_accounts"
+                        TextFieldName="@nameof(AccountDto.DisplayText)"
+                        ValueFieldName="@nameof(AccountDto.LoginId)"
+                        @bind-Value="_targetAccountId"
+                        SearchMode="ListSearchMode.AutoSearch"
+                        SearchFilterCondition="ListSearchFilterCondition.Contains"
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                        NullText="계정을 선택하거나 아래에 아이디를 직접 입력하세요" />
+        </div>
+
+        <div style="margin-top: 10px;">
+            <label style="display: block; margin-bottom: 4px; font-weight: 500;">대상 계정 아이디 직접 입력</label>
+            <DxTextBox @bind-Text="_targetAccountId" NullText="대상 계정 로그인 아이디" />
+        </div>
     </BodyContentTemplate>
 
     <FooterContentTemplate Context="popupContext">
-        <DxButton Text="결합" RenderStyle="ButtonRenderStyle.Primary" Click="@MergeAsync" />
+        <DxButton Text="결합" RenderStyle="ButtonRenderStyle.Primary"
+                  Enabled="@(!string.IsNullOrWhiteSpace(_targetAccountId))"
+                  Click="@MergeAsync" />
         <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
                   Click="@(() => _merging = false)" />
     </FooterContentTemplate>

@@ -6,8 +6,10 @@ namespace JSini.Web.Admin.Components.Pages;
 public partial class SignupList
 {
     [Inject] private SignupClient Api { get; set; } = default!;
+    [Inject] private AdminClient AdminApi { get; set; } = default!;
 
     private IReadOnlyList<SignupPendingDto> _pending = [];
+    private IReadOnlyList<AccountDto> _accounts = [];
 
     private bool _rejecting;
     private SignupPendingDto? _target;
@@ -71,12 +73,35 @@ public partial class SignupList
         }
     }
 
-    private Task AskMergeAsync(SignupPendingDto row)
+    private async Task AskMergeAsync(SignupPendingDto row)
     {
         _target = row;
         _targetAccountId = null;
+
+        if (_accounts.Count == 0)
+        {
+            try
+            {
+                var all = await AdminApi.GetAccountsAsync();
+                _accounts = all.Where(a => a.Status != "RESIGNED" && a.Id != row.Id && a.LoginId != row.LoginId).ToList();
+            }
+            catch
+            {
+                _accounts = [];
+            }
+        }
+
+        // 신청자의 이메일 또는 이름과 일치하는 기존 계정이 있으면 자동 선택
+        var matched = _accounts.FirstOrDefault(a =>
+            (!string.IsNullOrWhiteSpace(row.Email) && (string.Equals(a.Email, row.Email, StringComparison.OrdinalIgnoreCase) || a.Emails.Any(e => string.Equals(e, row.Email, StringComparison.OrdinalIgnoreCase))))
+            || (!string.IsNullOrWhiteSpace(row.UserName) && string.Equals(a.UserName, row.UserName, StringComparison.OrdinalIgnoreCase)));
+
+        if (matched is not null)
+        {
+            _targetAccountId = matched.LoginId;
+        }
+
         _merging = true;
-        return Task.CompletedTask;
     }
 
     private async Task MergeAsync()
@@ -86,10 +111,11 @@ public partial class SignupList
             return;
         }
 
+        var targetId = _targetAccountId.Trim();
         var name = _target.UserName;
 
         var ok = await RunAsync(
-            () => Api.MergeAsync(_target.Id, _targetAccountId),
+            () => Api.MergeAsync(_target.Id, targetId),
             $"{name} 님의 소셜 연결을 결합했습니다.",
             "결합하지 못했습니다");
 

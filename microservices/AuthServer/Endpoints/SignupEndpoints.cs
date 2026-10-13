@@ -116,12 +116,18 @@ public static class SignupEndpoints
                 return Results.Json(ApiResponse<object>.Fail("인증 정보가 없습니다.", "401"), statusCode: 401);
             }
 
-            var ok = await signup.MergeAsync(id, targetId, user.UserId, ct);
+            if (string.IsNullOrWhiteSpace(targetId))
+            {
+                return Results.BadRequest(ApiResponse<object>.Fail(
+                    "결합할 대상 계정을 지정해 주십시오.", "INVALID"));
+            }
+
+            var (ok, error) = await signup.MergeAsync(id, targetId, user.UserId, ct);
 
             return ok
-                ? Results.Ok(ApiResponse<object>.Ok(data: null!, message: "병합했습니다."))
+                ? Results.Ok(ApiResponse<object>.Ok(data: null!, message: "소셜 계정을 결합했습니다."))
                 : Results.BadRequest(ApiResponse<object>.Fail(
-                    "병합할 수 없습니다. 목록을 다시 읽어 주십시오.", "INVALID"));
+                    error ?? "결합할 수 없습니다. 대상 계정과 신청 상태를 확인해 주십시오.", "INVALID"));
         })
         .WithName("MergeSignup");
 
