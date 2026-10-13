@@ -1,4 +1,4 @@
-﻿using AuthServer.Data;
+using AuthServer.Data;
 using AuthServer.DTOs;
 using AuthServer.Entities;
 using Microsoft.EntityFrameworkCore;
@@ -167,6 +167,14 @@ public class UserService : IUserService
             "off",
             StringComparison.OrdinalIgnoreCase);
 
+    private static string ProviderDisplayName(string provider) => provider.ToLowerInvariant() switch
+    {
+        "kakao" => "카카오",
+        "naver" => "네이버",
+        "google" => "구글",
+        var other => other
+    };
+
     /// <summary>
     /// 사용자 정보를 조회하고 DTO로 변환하여 반환
     /// </summary>
@@ -274,6 +282,18 @@ public class UserService : IUserService
             .Include(ra => ra.Role)
             .ToListAsync();
 
+        // 소셜 로그인 연결 정보 조회
+        var socialLogins = await _db.AccountSocialLogins
+            .Where(l => !l.IsDeleted)
+            .ToListAsync();
+
+        var socialMap = socialLogins
+            .GroupBy(l => l.AccountId)
+            .ToDictionary(
+                g => g.Key,
+                g => g.ToList()
+            );
+
         // accountId 별로 역할 그룹화
         var roleMap = roleAccounts
             .Where(ra => ra.Role != null)
@@ -289,6 +309,59 @@ public class UserService : IUserService
         return accounts.Select(a => {
             var emailDetails = a.ProfileDetails?.Where(p => p.DetailType == "Email").Select(p => p.Content).Where(c => c != null).ToList() ?? new List<string>();
             var phoneDetails = a.ProfileDetails?.Where(p => p.DetailType == "Phone").Select(p => p.Content).Where(c => c != null).ToList() ?? new List<string>();
+
+            socialMap.TryGetValue(a.Id, out var accountSocials);
+            var providers = accountSocials?
+                .Select(s => s.Provider)
+                .Where(p => !string.IsNullOrWhiteSpace(p))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList() ?? new List<string>();
+
+            // 소셜 연결의 이메일도 목록에 누락되지 않도록 중복 없이 합침
+            if (accountSocials != null)
+            {
+                foreach (var s in accountSocials)
+                {
+                    if (!string.IsNullOrWhiteSpace(s.Email) && !emailDetails.Contains(s.Email, StringComparer.OrdinalIgnoreCase))
+                    {
+                        emailDetails.Add(s.Email);
+                    }
+                }
+            }
+
+            // 소셜 결합(Merge) 기록 확인 및 결합된 이메일/전화번호 보완
+            var mergeDetails = a.ProfileDetails?.Where(p => p.DetailType == "SocialMerge" || p.DetailType == "MergedSocial").ToList();
+            var isMerged = mergeDetails is { Count: > 0 };
+            if (mergeDetails != null)
+            {
+                foreach (var md in mergeDetails)
+                {
+                    if (!string.IsNullOrWhiteSpace(md.Content) && !providers.Contains(md.Content, StringComparer.OrdinalIgnoreCase))
+                    {
+                        providers.Add(md.Content);
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(md.Remark) && md.Remark.Contains('|'))
+                    {
+                        var parts = md.Remark.Split('|');
+                        var mEmail = parts.Length > 0 ? parts[0] : null;
+                        var mPhone = parts.Length > 1 ? parts[1] : null;
+                        if (!string.IsNullOrWhiteSpace(mEmail) && !emailDetails.Contains(mEmail, StringComparer.OrdinalIgnoreCase))
+                        {
+                            emailDetails.Add(mEmail);
+                        }
+                        if (!string.IsNullOrWhiteSpace(mPhone) && !phoneDetails.Contains(mPhone, StringComparer.OrdinalIgnoreCase))
+                        {
+                            phoneDetails.Add(mPhone);
+                        }
+                    }
+                }
+            }
+
+            var isLinked = providers.Count > 0;
+            var providerNames = providers.Select(ProviderDisplayName).ToList();
+            var providerText = providerNames.Count > 0 ? string.Join(", ", providerNames) : null;
+
             var emailDetail = emailDetails.FirstOrDefault();
             var phoneDetail = phoneDetails.FirstOrDefault();
             var statusDetail = a.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Status");
@@ -306,6 +379,12 @@ public class UserService : IUserService
                 Phone = phoneDetail,
                 Phones = phoneDetails!,
                 Status = statusDetail?.Content ?? "ACTIVE",
+
+                // 소셜 연동 및 결합 정보
+                SocialProviders = providers,
+                IsSocialLinked = isLinked,
+                IsSocialMerged = isMerged,
+                SocialProviderText = providerText,
 
                 // 값이 없으면 켜진 것으로 본다. 설정을 안 건드린 계정이
                 // 조용히 꺼지면 워터마크가 있는 이유가 사라진다.

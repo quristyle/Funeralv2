@@ -105,6 +105,18 @@ public sealed class AccountDto
     public DateTime CreatedAt { get; set; }
     public List<string> RoleNames { get; set; } = [];
 
+    /// <summary>연결된 소셜 공급자 목록 (google, naver, kakao 등)</summary>
+    public List<string> SocialProviders { get; set; } = [];
+
+    /// <summary>소셜 계정과 결합/연결되어 있는지 여부</summary>
+    public bool IsSocialLinked { get; set; }
+
+    /// <summary>가입 신청 등을 통해 결합(Merge)된 소셜 계정이 있는지 여부</summary>
+    public bool IsSocialMerged { get; set; }
+
+    /// <summary>연결된 소셜 공급자 표시 텍스트 (예: "카카오, 네이버")</summary>
+    public string? SocialProviderText { get; set; }
+
     /// <summary>계정 선택 고르개 표시용 문자열.</summary>
     [JsonIgnore]
     public string DisplayText => $"{UserName} ({LoginId})" + (string.IsNullOrWhiteSpace(DeptName) ? "" : $" - {DeptName}");

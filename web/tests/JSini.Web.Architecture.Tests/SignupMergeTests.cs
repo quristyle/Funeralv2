@@ -86,4 +86,74 @@ public sealed class SignupMergeTests
         // 명시적 결과 (bool Ok, string? Error) 반환
         Assert.Contains("Task<(bool Ok, string? Error)> MergeAsync", source);
     }
+
+    [Fact]
+    public void 계정관리화면은_소셜결합계정을_식별할수있고_소셜연동컬럼과_결합뱃지를_제공한다()
+    {
+        var razorSource = ReadRepoFile("web/src/Apps/JSini.Web.Admin/Components/Pages/UserList.razor");
+        var csSource = ReadRepoFile("web/src/Apps/JSini.Web.Admin/Components/Pages/UserList.razor.cs");
+
+        // 아이디 컬럼의 소셜결합 뱃지 및 소셜 연동 컬럼
+        Assert.Contains("IsSocialMerged", razorSource);
+        Assert.Contains("소셜결합", razorSource);
+        Assert.Contains("Caption=\"소셜 연동\"", razorSource);
+        Assert.Contains("SocialBadgeClass", razorSource);
+
+        // 검색 시 소셜 정보 및 전화번호/이메일 검색 지원
+        Assert.Contains("a.SocialProviderText?.Contains(k", csSource);
+        Assert.Contains("a.Emails?.Any(e => e.Contains(k", csSource);
+        Assert.Contains("a.Phones?.Any(p => p.Contains(k", csSource);
+    }
+
+    [Fact]
+    public void 계정관리화면은_결합된_이메일과_전화번호를_모두_표현한다()
+    {
+        var razorSource = ReadRepoFile("web/src/Apps/JSini.Web.Admin/Components/Pages/UserList.razor");
+
+        // 이메일 컬럼에서 복수 이메일 모두 출력
+        Assert.Contains("var emails = a.Emails", razorSource);
+        Assert.Contains("foreach (var em in emails)", razorSource);
+
+        // 연락처 컬럼에서 복수 연락처 모두 출력
+        Assert.Contains("var phones = a.Phones", razorSource);
+        Assert.Contains("foreach (var ph in phones)", razorSource);
+    }
+
+    [Fact]
+    public void 소셜가입_결합시에_대상계정_사용승인과_기본역할부여_및_정보병합이_반영된다()
+    {
+        var source = ReadRepoFile("microservices/AuthServer/Services/SignupService.cs");
+
+        // 1. 소셜 계정 사용승인 반영 (targetStatus.Content = StatusActive)
+        Assert.Contains("targetStatus.Content = StatusActive;", source);
+        Assert.Contains("SignupDefaultRoles.AddAsync(db, configuration, logger, targetAccount.Id, approver, ct);", source);
+
+        // 2. 전화번호 및 이메일 병합
+        Assert.Contains("pendingPhone", source);
+        Assert.Contains("DetailType = \"Phone\"", source);
+
+        // 3. 결합 이력 기록
+        Assert.Contains("DetailType = \"SocialMerge\"", source);
+        Assert.Contains("Content = login.Provider", source);
+    }
+
+    [Fact]
+    public void 결합된_소셜계정_로그인시에_기존계정과_결합계정_모두에게_앱알림과_이메일을_발송한다()
+    {
+        var endpointSource = ReadRepoFile("microservices/AuthServer/Endpoints/SocialLoginEndpoints.cs");
+        var serviceSource = ReadRepoFile("microservices/AuthServer/Services/SocialLoginService.cs");
+
+        // 엔드포인트에서 결합 로그인 알림 호출
+        Assert.Contains("social.NotifyMergedLoginAsync(outcome.Account!, request.Provider", endpointSource);
+
+        // 서비스에서 결합 이력(SocialMerge) 확인
+        Assert.Contains("d.DetailType == \"SocialMerge\"", serviceSource);
+
+        // 앱 알림 푸시 발송 (기존계정 및 결합계정 대상)
+        Assert.Contains("push.NotifyOwnersAsync", serviceSource);
+
+        // 이메일 알림 발송 (기존계정 및 결합계정 이메일)
+        Assert.Contains("mail.SendAsync", serviceSource);
+        Assert.Contains("emailTargets", serviceSource);
+    }
 }

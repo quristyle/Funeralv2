@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using JSini.Web.Http;
 using JSini.Web.Components.Data;
@@ -85,7 +85,11 @@ public partial class UserList
                 rows = rows.Where(a =>
                     a.LoginId.Contains(k, StringComparison.OrdinalIgnoreCase)
                     || a.UserName.Contains(k, StringComparison.OrdinalIgnoreCase)
-                    || (a.Email?.Contains(k, StringComparison.OrdinalIgnoreCase) ?? false));
+                    || (a.Email?.Contains(k, StringComparison.OrdinalIgnoreCase) ?? false)
+                    || (a.Emails?.Any(e => e.Contains(k, StringComparison.OrdinalIgnoreCase)) ?? false)
+                    || (a.Phone?.Contains(k, StringComparison.OrdinalIgnoreCase) ?? false)
+                    || (a.Phones?.Any(p => p.Contains(k, StringComparison.OrdinalIgnoreCase)) ?? false)
+                    || (a.SocialProviderText?.Contains(k, StringComparison.OrdinalIgnoreCase) ?? false));
             }
 
             return [.. rows];
@@ -488,5 +492,21 @@ public partial class UserList
         "ACTIVE" => "jsini-badge--on",
         "LOCKED" or "PENDING" => "jsini-badge--warn",
         _ => "jsini-badge--off",
+    };
+
+    private static string SocialBadgeClass(string provider) => provider?.ToLowerInvariant() switch
+    {
+        "kakao" => "jsini-badge--warn",
+        "naver" => "jsini-badge--on",
+        "google" => "jsini-badge--info",
+        _ => "jsini-badge--muted",
+    };
+
+    private static string SocialProviderName(string provider) => provider?.ToLowerInvariant() switch
+    {
+        "kakao" => "카카오",
+        "naver" => "네이버",
+        "google" => "구글",
+        _ => provider ?? "-",
     };
 }

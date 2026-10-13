@@ -480,6 +480,117 @@ public sealed class SocialLoginService(
     }
 
     /// <summary>
+    /// 결합된 소셜 계정으로 로그인했을 때 기존 계정과 결합 계정으로 결합 알림(앱알림 및 이메일)을 모두 발송합니다.
+    /// </summary>
+    public async Task NotifyMergedLoginAsync(
+        Account account, string provider, string? clientIp, CancellationToken ct = default)
+    {
+        try
+        {
+            // 이 계정에 결합(SocialMerge) 이력이 있는지 조회
+            var mergeDetails = await db.AccountProfileDetails
+                .Where(d => d.AccountId == account.Id && (d.DetailType == "SocialMerge" || d.DetailType == "MergedSocial"))
+                .ToListAsync(ct);
+
+            // 해당 공급자로 결합된 이력이 없으면 발송 대상 아님
+            var matchedMerge = mergeDetails.FirstOrDefault(d => string.Equals(d.Content, provider, StringComparison.OrdinalIgnoreCase))
+                ?? mergeDetails.FirstOrDefault();
+
+            if (matchedMerge is null)
+            {
+                return;
+            }
+
+            var providerName = DisplayNameOf(provider);
+            var userName = account.UserName ?? account.RealName ?? account.UserId;
+            var loginTimeStr = DateTime.UtcNow.AddHours(9).ToString("yyyy-MM-dd HH:mm:ss");
+
+            // 결합 계정 정보 파싱 (Label = pendingLoginId, Remark = pendingEmail|pendingPhone|...)
+            var mergedLoginId = matchedMerge.Label;
+            string? mergedEmail = null;
+            if (!string.IsNullOrWhiteSpace(matchedMerge.Remark))
+            {
+                var parts = matchedMerge.Remark.Split('|');
+                if (parts.Length > 0 && !string.IsNullOrWhiteSpace(parts[0]))
+                {
+                    mergedEmail = parts[0];
+                }
+            }
+
+            // 소셜 연결 테이블에서 소셜 계정 이메일도 확인
+            if (string.IsNullOrWhiteSpace(mergedEmail))
+            {
+                var socialLogin = await db.AccountSocialLogins
+                    .FirstOrDefaultAsync(l => l.AccountId == account.Id && l.Provider == provider, ct);
+                mergedEmail = socialLogin?.Email;
+            }
+
+            // 기존 계정 이메일
+            var primaryEmail = await db.AccountProfileDetails
+                .Where(d => d.AccountId == account.Id && d.DetailType == "Email")
+                .OrderByDescending(d => d.IsPrimary)
+                .Select(d => d.Content)
+                .FirstOrDefaultAsync(ct);
+
+            // 1) 앱 알림 발송: 기존 계정(account.UserId) 및 결합 계정(mergedLoginId) 모두 발송
+            var pushTargets = new List<string> { account.UserId };
+            if (!string.IsNullOrWhiteSpace(mergedLoginId) && !pushTargets.Contains(mergedLoginId, StringComparer.OrdinalIgnoreCase))
+            {
+                pushTargets.Add(mergedLoginId);
+            }
+
+            var pushTitle = "[보안알림] 결합된 소셜 계정으로 로그인되었습니다";
+            var pushBody = $"'{userName}' 계정에 결합된 {providerName} 소셜 계정으로 로그인되었습니다. (IP: {clientIp ?? "알 수 없음"})";
+
+            await push.NotifyOwnersAsync(
+                pushTargets,
+                pushTitle,
+                pushBody,
+                "/admin/system/account",
+                account.UserId,
+                "AUTH_SOCIAL_LOGIN",
+                ct);
+
+            // 2) 이메일 알림 발송: 기존 계정 및 결합 계정 이메일 모두 발송
+            var emailTargets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (!string.IsNullOrWhiteSpace(primaryEmail)) emailTargets.Add(primaryEmail);
+            if (!string.IsNullOrWhiteSpace(mergedEmail)) emailTargets.Add(mergedEmail);
+
+            var mailSubject = $"[JSini 포털] 결합된 {providerName} 소셜 계정으로 로그인이 감지되었습니다";
+            var mailBody = $"""
+                <p>안녕하세요, <b>{Escape(userName)}</b> ({Escape(account.UserId)}) 님.</p>
+                <p>회원님의 포털 계정에 결합된 <b>{Escape(providerName)}</b> 소셜 계정으로 새로운 로그인이 발생하였습니다.</p>
+                <table style="border-collapse: collapse; margin: 16px 0; font-size: 14px;">
+                    <tr><td style="padding: 6px 12px; background: #f5f5f5; border: 1px solid #ddd;"><b>로그인 일시</b></td><td style="padding: 6px 12px; border: 1px solid #ddd;">{loginTimeStr} (KST)</td></tr>
+                    <tr><td style="padding: 6px 12px; background: #f5f5f5; border: 1px solid #ddd;"><b>소셜 제공자</b></td><td style="padding: 6px 12px; border: 1px solid #ddd;">{Escape(providerName)}</td></tr>
+                    <tr><td style="padding: 6px 12px; background: #f5f5f5; border: 1px solid #ddd;"><b>접속 IP</b></td><td style="padding: 6px 12px; border: 1px solid #ddd;">{Escape(clientIp ?? "–")}</td></tr>
+                    <tr><td style="padding: 6px 12px; background: #f5f5f5; border: 1px solid #ddd;"><b>포털 계정</b></td><td style="padding: 6px 12px; border: 1px solid #ddd;">{Escape(account.UserId)}</td></tr>
+                </table>
+                <p>본인이 로그인한 것이 아니라면 즉시 비밀번호를 변경하시고 관리자에게 문의해 주십시오.</p>
+                """;
+
+            foreach (var email in emailTargets)
+            {
+                await mail.SendAsync(
+                    email,
+                    mailSubject,
+                    mailBody,
+                    "AUTH_SOCIAL_LOGIN",
+                    NotificationEvents.AccountMail,
+                    ct);
+            }
+
+            logger.LogInformation(
+                "결합 소셜 로그인 알림 발송 완료: {UserId} ({Provider}), 푸시대상={PushTargets}, 메일대상={EmailTargets}",
+                account.UserId, provider, string.Join(",", pushTargets), string.Join(",", emailTargets));
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "결합 소셜 로그인 알림 발송 중 예외 발생: {UserId} ({Provider})", account.UserId, provider);
+        }
+    }
+
+    /// <summary>
     /// 로그인한 사람이 <b>자기 계정에</b> 소셜 계정을 덧붙인다.
     /// </summary>
     /// <remarks>

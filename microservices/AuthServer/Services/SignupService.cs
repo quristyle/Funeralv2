@@ -31,6 +31,7 @@ public interface ISignupService
 public class SignupService(
     AppDbContext db,
     AccountMailClient mail,
+    SignupNotifyClient notify,
     IConfiguration configuration,
     ILogger<SignupService> logger) : ISignupService
 {
@@ -420,25 +421,107 @@ public class SignupService(
             }
         }
 
-        // 부가 정보 병합: 이메일이 대상 계정에 없으면 보조 이메일로 추가
-        var pendingEmail = pendingAccount.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Email")?.Content;
-        if (!string.IsNullOrWhiteSpace(pendingEmail))
+        // 1. 소셜 계정에 대한 사용 승인 반영: 대상 계정의 상태를 ACTIVE로 설정
+        var targetStatus = targetAccount.ProfileDetails?.FirstOrDefault(p => p.DetailType == StatusDetail);
+        if (targetStatus is not null)
         {
-            var existingEmails = targetAccount.ProfileDetails?
-                .Where(p => p.DetailType == "Email")
-                .Select(p => p.Content)
-                .Where(c => !string.IsNullOrWhiteSpace(c))
-                .ToList() ?? [];
+            if (targetStatus.Content != StatusActive)
+            {
+                targetStatus.Content = StatusActive;
+                targetStatus.UpdatedAt = DateTime.UtcNow;
+                targetStatus.UpdatedBy = approver;
+            }
+        }
+        else
+        {
+            var newStatus = Detail(targetAccount.Id, StatusDetail, StatusActive);
+            newStatus.Account = targetAccount;
+            newStatus.CreatedBy = approver;
+            db.AccountProfileDetails.Add(newStatus);
+        }
 
-            if (!existingEmails.Contains(pendingEmail, StringComparer.OrdinalIgnoreCase))
+        // 대상 계정에 기본 역할(ALL_USERS) 부여 확인
+        await SignupDefaultRoles.AddAsync(db, configuration, logger, targetAccount.Id, approver, ct);
+
+        // 2. 부가 정보 병합: 이메일, 전화번호, 소셜 결합 이력
+        var pendingEmail = pendingAccount.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Email")?.Content;
+        var pendingPhone = pendingAccount.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Phone")?.Content;
+
+        // 결합 이력(SocialMerge) 기록: 소셜 로그인 시 결합 알림 발송 및 계정 목록 조회에 사용
+        foreach (var login in socialLogins)
+        {
+            var mergeInfo = $"{pendingEmail ?? login.Email}|{pendingPhone}|{approver}|{DateTime.UtcNow:O}";
+            db.AccountProfileDetails.Add(new AccountProfileDetail
+            {
+                AccountId = targetAccount.Id,
+                Account = targetAccount,
+                DetailType = "SocialMerge",
+                Content = login.Provider,
+                Label = pendingAccount.UserId,
+                Remark = mergeInfo,
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = approver,
+            });
+        }
+
+        // 이메일 병합: 신청 계정 이메일 및 소셜 이메일을 대상 계정에 없으면 보조 이메일로 추가
+        var existingEmails = targetAccount.ProfileDetails?
+            .Where(p => p.DetailType == "Email")
+            .Select(p => p.Content)
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .ToList() ?? [];
+
+        if (!string.IsNullOrWhiteSpace(pendingEmail) && !existingEmails.Contains(pendingEmail, StringComparer.OrdinalIgnoreCase))
+        {
+            db.AccountProfileDetails.Add(new AccountProfileDetail
+            {
+                AccountId = targetAccount.Id,
+                Account = targetAccount,
+                DetailType = "Email",
+                Content = pendingEmail,
+                IsPrimary = existingEmails.Count == 0,
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = approver,
+            });
+            existingEmails.Add(pendingEmail);
+        }
+
+        foreach (var login in socialLogins)
+        {
+            if (!string.IsNullOrWhiteSpace(login.Email) && !existingEmails.Contains(login.Email, StringComparer.OrdinalIgnoreCase))
             {
                 db.AccountProfileDetails.Add(new AccountProfileDetail
                 {
                     AccountId = targetAccount.Id,
                     Account = targetAccount,
                     DetailType = "Email",
-                    Content = pendingEmail,
+                    Content = login.Email,
                     IsPrimary = existingEmails.Count == 0,
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = approver,
+                });
+                existingEmails.Add(login.Email);
+            }
+        }
+
+        // 전화번호 병합: 신청 계정 전화번호가 대상 계정에 없으면 보조 전화번호로 추가
+        if (!string.IsNullOrWhiteSpace(pendingPhone))
+        {
+            var existingPhones = targetAccount.ProfileDetails?
+                .Where(p => p.DetailType == "Phone")
+                .Select(p => p.Content)
+                .Where(c => !string.IsNullOrWhiteSpace(c))
+                .ToList() ?? [];
+
+            if (!existingPhones.Contains(pendingPhone, StringComparer.OrdinalIgnoreCase))
+            {
+                db.AccountProfileDetails.Add(new AccountProfileDetail
+                {
+                    AccountId = targetAccount.Id,
+                    Account = targetAccount,
+                    DetailType = "Phone",
+                    Content = pendingPhone,
+                    IsPrimary = existingPhones.Count == 0,
                     CreatedAt = DateTime.UtcNow,
                     CreatedBy = approver,
                 });
@@ -481,15 +564,42 @@ public class SignupService(
             "가입 신청 결합 완료: {PendingLoginId}({PendingId}) -> {TargetLoginId}({TargetId}) (처리자 {Approver})",
             pendingAccount.UserId, pendingAccount.Id, targetAccount.UserId, targetAccount.Id, approver);
 
-        // 안내 메일 발송 (이메일이 있는 경우)
-        var notifyEmail = pendingEmail ?? Content(targetAccount, "Email");
-        if (!string.IsNullOrWhiteSpace(notifyEmail))
+        var providerNames = string.Join(", ", socialLogins.Select(l => ProviderName(l.Provider)).Distinct());
+
+        // 3. 결합 완료 알림 발송: 앱 알림 및 이메일 알림 모두 발송
+        // 앱 푸시 알림
+        try
         {
-            var providerNames = string.Join(", ", socialLogins.Select(l => ProviderName(l.Provider)).Distinct());
+            await notify.NotifyOwnersAsync(
+                [targetAccount.UserId, pendingAccount.UserId],
+                "[JSini 포털] 소셜 계정 결합 승인",
+                $"{Escape(targetAccount.UserName ?? targetAccount.UserId)} 님, 신청하신 {providerNames} 소셜 계정이 기존 계정에 결합 승인되었습니다.",
+                "/admin/system/account",
+                targetAccount.UserId,
+                Sender,
+                ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "가입 결합 앱 푸시 알림 발송 실패");
+        }
+
+        // 안내 메일 발송: 기존 계정 이메일 및 결합 계정 이메일 모두 발송
+        var emailTargets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (!string.IsNullOrWhiteSpace(pendingEmail)) emailTargets.Add(pendingEmail);
+        var targetEmail = Content(targetAccount, "Email");
+        if (!string.IsNullOrWhiteSpace(targetEmail)) emailTargets.Add(targetEmail);
+        foreach (var l in socialLogins)
+        {
+            if (!string.IsNullOrWhiteSpace(l.Email)) emailTargets.Add(l.Email);
+        }
+
+        foreach (var mailAddr in emailTargets)
+        {
             try
             {
                 await mail.SendAsync(
-                    notifyEmail,
+                    mailAddr,
                     "[JSini 포털] 소셜 계정이 기존 계정에 결합되었습니다",
                     $"""
                      <p>{Escape(targetAccount.UserName ?? targetAccount.UserId)} 님, 신청하신 {Escape(providerNames)} 소셜 계정이 기존 계정(<b>{Escape(targetAccount.UserId)}</b>)에 정상적으로 결합되었습니다.</p>
@@ -499,7 +609,7 @@ public class SignupService(
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "가입 결합 안내 메일 발송 실패: {Email}", notifyEmail);
+                logger.LogWarning(ex, "가입 결합 안내 메일 발송 실패: {Email}", mailAddr);
             }
         }
 

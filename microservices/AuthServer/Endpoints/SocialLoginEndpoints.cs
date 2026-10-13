@@ -209,6 +209,9 @@ public static class SocialLoginEndpoints
                 return rejected;
             }
 
+            // 결합된 소셜 계정으로 로그인한 경우 기존 계정과 결합 계정으로 결합 알림(앱알림 및 이메일) 발송
+            await social.NotifyMergedLoginAsync(outcome.Account!, request.Provider, LoginCompletion.ResolveClientIp(http), ct);
+
             return await completion.CompleteAsync(http, outcome.Account!, ct);
         })
         .AllowAnonymous()

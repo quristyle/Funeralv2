@@ -106,4 +106,57 @@ public class SignupNotifyClient
             _logger.LogWarning(ex, "가입 신청 푸시 요청 예외 — NotificationServer 가 꺼져 있을 수 있다");
         }
     }
+
+    /// <summary>
+    /// 특정 사용자들(로그인 아이디 목록)에게 앱 푸시 알림을 발송합니다.
+    /// </summary>
+    public async Task NotifyOwnersAsync(
+        IEnumerable<string> ownerKeys, string title, string body, string? url, string? iconOwnerKey, string sender,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            var ownersList = ownerKeys
+                .Where(k => !string.IsNullOrWhiteSpace(k))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Select(k => new { ownerType = "jsini", ownerKey = k })
+                .ToList();
+
+            if (ownersList.Count == 0) return;
+
+            var payload = JsonSerializer.Serialize(new
+            {
+                owners = ownersList,
+                message = new
+                {
+                    title,
+                    body,
+                    url = url ?? "/admin/system/account",
+                    category = "SECURITY",
+                    iconOwnerKey,
+                    tag = $"notify-{Guid.NewGuid():N}",
+                },
+            });
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, "/notifications/push")
+            {
+                Content = new StringContent(payload, Encoding.UTF8, "application/json"),
+            };
+            request.Headers.Add("X-User-Id", sender);
+
+            using var response = await _http.SendAsync(request, ct);
+            if ((int)response.StatusCode == 202)
+            {
+                _logger.LogInformation("앱 푸시: 대상자 구독 기기가 없었습니다 ({Owners}).", string.Join(",", ownersList.Select(o => o.ownerKey)));
+            }
+            else if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("앱 푸시 요청 실패: HTTP {Status}", (int)response.StatusCode);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "앱 푸시 요청 예외 — NotificationServer 가 꺼져 있을 수 있다");
+        }
+    }
 }
