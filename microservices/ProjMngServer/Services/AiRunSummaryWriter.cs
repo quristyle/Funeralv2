@@ -121,6 +121,17 @@ public sealed class AiRunSummaryWriter(
 
             return summary;
         }
+        catch (OperationCanceledException)
+        {
+            // **상한에 걸린 것은 고장이 아니다.** 완료 뒤처리가 일부러 거는
+            // 상한이고(<c>AiTasks:PostRunWaitSeconds</c>), 그 건은 따라잡기가
+            // 다시 집는다. 경고로 올리면 자취 더미가 매번 함께 찍혀 **진짜
+            // 실패가 그 사이에 묻힌다.**
+            logger.LogInformation(
+                "실행 {RunKey} 의 처리 요약을 기다리다 상한에 걸렸습니다. 따라잡기가 다시 봅니다.",
+                runKey);
+            return null;
+        }
         catch (Exception ex)
         {
             // **여기서 실패해도 부르는 쪽은 그대로 간다.** 완료 처리도 메일도

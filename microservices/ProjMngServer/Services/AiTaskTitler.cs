@@ -38,6 +38,15 @@ public sealed class AiTaskTitler(
     /// </summary>
     public async Task TitleAsync(long runKey, CancellationToken ct = default)
     {
+        if (ct.IsCancellationRequested)
+        {
+            // **요약이 상한을 다 썼다**(<c>AiTasks:PostRunWaitSeconds</c> 를
+            // 요약과 제목이 나눠 쓴다). 여기서 돌아서지 않고 아래까지 가면
+            // 모델을 불러 볼 길이 없는데 **도장만 찍는다** — 그러면 나중에
+            // 모델이 살아난 뒤에도 「이 실행은 제목이 붙었다」로 읽힌다.
+            return;
+        }
+
         try
         {
             using var db = Open();

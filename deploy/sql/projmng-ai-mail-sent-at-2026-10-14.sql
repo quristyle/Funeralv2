@@ -36,11 +36,19 @@ ALTER TABLE projmng.ai_task_run
 COMMENT ON COLUMN projmng.ai_task_run.mail_sent_at IS
     '결과 메일을 보낸(또는 보낼 이유가 없다고 판정한) 시각. 비어 있으면 아직 안 보낸 것이고, 따라잡기가 주워 간다.';
 
--- 이미 있던 실행은 전부 「처리가 끝난 것」으로 본다.
+-- 이미 **끝난** 실행만 「처리가 끝난 것」으로 본다.
+--
+-- [아직 돌고 있는 실행은 건드리지 않는다 — 처음에 이것을 빠뜨렸다]
+--
+-- 첫 판은 `COALESCE(finished_at, cre_dt, now())` 로 **안 끝난 줄에도** 도장을
+-- 찍었다. 그러자 그때 마침 돌고 있던 세 건(run 597·598·599)이 끝나는 순간
+-- 자리잡기(`UPDATE … WHERE mail_sent_at IS NULL`)에 걸려 **결과 메일이 한 통도
+-- 안 나갔다.** 「아직 안 보냈다」를 「이미 보냈다」로 적어 버린 것이다.
+-- 안 끝난 줄은 그냥 비워 두면 된다 — 끝나는 순간 완료 처리가 알아서 찍는다.
 UPDATE projmng.ai_task_run
-   SET mail_sent_at = COALESCE(finished_at, cre_dt, now())
+   SET mail_sent_at = finished_at
  WHERE mail_sent_at IS NULL
-   AND (finished_at IS NOT NULL OR cre_dt IS NOT NULL);
+   AND finished_at IS NOT NULL;
 
 -- 따라잡기가 보는 것은 「끝났는데 아직 안 보낸 것」뿐이다. 부분 인덱스로 두면
 -- 평소에는 거의 빈 인덱스라 쓰기에 짐이 되지 않는다.

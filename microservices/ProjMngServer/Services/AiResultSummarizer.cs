@@ -195,6 +195,18 @@ public sealed class AiResultSummarizer(
         configuration.GetValue("AiTasks:SummaryTimeoutSeconds", defaultValue: 45);
 
     /// <summary>
+    /// <b>제목 한 줄</b>만 받아 오는 호출의 상한(초).
+    /// </summary>
+    /// <remarks>
+    /// 요약과 같은 45초를 쓰면 안 되는 자리다. 이쪽이 만드는 것은 <b>스무 글자</b>라
+    /// 예비 모델을 줄줄이 돌려 볼 값이 없고, 무엇보다 <b>앱푸시가 이 호출 뒤에
+    /// 선다</b>(<c>AiRunService.PrepareSummaryAndTitleAsync</c>) — 길게 잡으면
+    /// 「제목을 못 짓는 모델」 하나가 알림 전체를 그만큼 늦춘다.
+    /// </remarks>
+    private readonly int _titleTimeoutSeconds =
+        Math.Clamp(configuration.GetValue("AiTasks:TitleTimeoutSeconds", defaultValue: 15), 1, 120);
+
+    /// <summary>
     /// 정리시킬 글의 길이 상한. <b>넉넉히 잡으면 안 된다</b> — 무료 공급자는
     /// 분당 토큰으로도 한도를 걸어서, 긴 글 한 번이 그 몫을 다 태우고 다음
     /// 요청을 곧바로 막는다(<c>AI:Providers</c> 의 <c>MaxHistoryChars</c> 주석과 같은 이유).
@@ -220,12 +232,12 @@ public sealed class AiResultSummarizer(
     /// AI 서비스 호출 공통부. <b>가리기·실패 시 처신이 요약과 제목 생성에 한 벌로 적용된다.</b>
     /// </summary>
     private async Task<string?> ChatAsync(
-        string systemPrompt, string userPrompt, CancellationToken ct = default)
+        string systemPrompt, string userPrompt, int timeoutSeconds, CancellationToken ct = default)
     {
         try
         {
             var client = http.CreateClient();
-            client.Timeout = TimeSpan.FromSeconds(_timeoutSeconds);
+            client.Timeout = TimeSpan.FromSeconds(timeoutSeconds);
 
             using var req = new HttpRequestMessage(HttpMethod.Post, $"{_aiUrl.TrimEnd('/')}/chat")
             {
@@ -278,7 +290,7 @@ public sealed class AiResultSummarizer(
         var body = Clip(SecretMask.Apply(resultText), _maxChars);
         var asked = Clip(SecretMask.Apply(instruction), 1500);
 
-        var reply = await ChatAsync(SystemPrompt, Ask(asked, body), ct);
+        var reply = await ChatAsync(SystemPrompt, Ask(asked, body), _timeoutSeconds, ct);
         return reply is null ? null : FromJson(reply);
     }
 
@@ -320,7 +332,7 @@ public sealed class AiResultSummarizer(
             {{resultOrSummary ?? "(없음)"}}
             """;
 
-        var reply = await ChatAsync(TitleSystemPrompt, prompt, ct);
+        var reply = await ChatAsync(TitleSystemPrompt, prompt, _titleTimeoutSeconds, ct);
         if (string.IsNullOrWhiteSpace(reply))
         {
             return null;

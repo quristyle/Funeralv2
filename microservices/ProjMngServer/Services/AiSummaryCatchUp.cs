@@ -55,12 +55,21 @@ public sealed class AiSummaryCatchUp(
     private readonly string? _connectionString = configuration.GetConnectionString("jsini");
 
     /// <summary>
-    /// 몇 분마다 보나. <b>짧게 잡을 이유가 없다</b> — 끝나는 순간의 빠른 길이
-    /// 대부분을 이미 처리했고, 여기 오는 것은 그때 AI 가 붐볐던 건이다.
-    /// 붐빔은 분 단위로 풀리므로 그보다 잦게 두드리면 헛호출만 는다.
+    /// 몇 분마다 보나.
     /// </summary>
+    /// <remarks>
+    /// <b>열 분이었다. 미룬 메일까지 이 바퀴가 보내게 되면서 둘로 내렸다
+    /// (2026-10-14).</b> 이 주기는 요약을 다시 만들어 보는 간격인 동시에
+    /// <b>미뤄 둔 결과 메일을 집어 가는 간격</b>이다 — 미룸 상한
+    /// (<see cref="_mailDeferMinutes"/>, 기본 5분)보다 성기면 「5분 뒤에 보낸다」가
+    /// 실제로는 15분이 된다. 상한의 절반 아래로 두는 것이 규칙이다.
+    /// <para>
+    /// 헛호출 걱정은 그대로 작지만 — 요약이 빈 건이 없으면 질의 한 번으로
+    /// 끝나고, 모델이 죽어 있으면 첫 실패에서 바퀴를 접는다.
+    /// </para>
+    /// </remarks>
     private readonly TimeSpan _period = TimeSpan.FromMinutes(
-        Math.Clamp(configuration.GetValue("AiTasks:SummaryCatchUpMinutes", defaultValue: 10), 1, 720));
+        Math.Clamp(configuration.GetValue("AiTasks:SummaryCatchUpMinutes", defaultValue: 2), 1, 720));
 
     /// <summary>한 바퀴에 볼 건수.</summary>
     private readonly int _batch =
@@ -74,12 +83,25 @@ public sealed class AiSummaryCatchUp(
     /// 결과 메일을 <b>요약 없이라도 보내기까지</b> 기다리는 시간(분).
     /// </summary>
     /// <remarks>
-    /// 짧게 잡으면 요약을 기다리는 뜻이 없어지고(붐빌 때 10~20분은 흔하다),
-    /// 길게 잡으면 모델이 죽은 날 결과 메일이 반나절 늦는다. 감시자가 도는
-    /// 주기(<see cref="_period"/>)의 두세 배쯤이 적당하다.
+    /// <para>
+    /// <b>서른 분이었다. 2026-10-14 에 다섯으로 내렸다.</b> 그 값은 「붐비면
+    /// 10~20분은 흔하다」는 바깥 공급자를 전제로 한 것인데, 지금 요약을 만드는
+    /// 것은 같은 장비의 LLM 서버이고 실측이 1.0~1.6초다. 즉 여기까지 오는 건은
+    /// 「붐벼서 늦는 건」이 아니라 <b>모델이 아예 안 받는 건</b>이고, 그런 건을
+    /// 서른 분 붙들고 있어 봐야 요약이 생기지 않는다 — 결과 메일만 늦는다.
+    /// </para>
+    /// <para>
+    /// 완료 직후에 이미 한 번 기다려 봤다는 것도 셈에 넣는다
+    /// (<c>AiTasks:PostRunWaitSeconds</c>, 기본 30초). 이 다섯 분은 <b>그
+    /// 30초로도 안 된 건에 주는 두 번째 기회</b>다.
+    /// </para>
+    /// <para>
+    /// 바닥은 감시자 주기(<see cref="_period"/>)다 — 그보다 짧게 잡으면 바퀴가
+    /// 한 번 돌기도 전에 상한이 지나 「미룬다」는 말이 무의미해진다.
+    /// </para>
     /// </remarks>
     private readonly int _mailDeferMinutes =
-        Math.Clamp(configuration.GetValue("AiTasks:MailDeferMinutes", defaultValue: 30), 1, 1440);
+        Math.Clamp(configuration.GetValue("AiTasks:MailDeferMinutes", defaultValue: 5), 1, 1440);
 
     /// <summary>
     /// 밀린 메일을 며칠 전 것까지 보나. <b>요약 쪽 창(<see cref="_withinDays"/>)보다
