@@ -557,51 +557,6 @@
   align-self: center;
 }
 
-/* ── 배포 진행 기록 ──────────────────────────────────────
-
-   스크립트가 뱉은 줄들이다. **등폭 글꼴**이라야 읽힌다 — 진행 막대와
-   자릿수를 맞춘 출력이 섞여 있다.
-   ---------------------------------------------------------- */
-
-.ad-runlog {
-  max-height: 46vh;
-  overflow: auto;
-  padding: 0.6rem 0.75rem;
-  background: var(--jsini-surface);
-  border: 1px solid var(--jsini-border);
-  border-radius: 0.25rem;
-  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
-  font-size: var(--jsini-fs-xs);
-  line-height: 1.55;
-}
-
-.ad-runlog__line {
-  display: flex;
-  gap: 0.5rem;
-  white-space: pre-wrap;
-  word-break: break-all;
-}
-
-.ad-runlog__at {
-  flex: 0 0 auto;
-  opacity: 0.5;
-}
-
-.ad-runlog__step {
-  flex: 0 0 auto;
-  opacity: 0.8;
-  font-weight: 600;
-}
-
-.ad-runlog__msg {
-  flex: 1;
-  min-width: 0;
-}
-
-/* 색은 테두리 없이 글자만 바꾼다. 배경을 칠하면 테마마다 대비가 달라진다. */
-.ad-runlog__line--warn .ad-runlog__msg { color: #b8860b; }
-.ad-runlog__line--error .ad-runlog__msg { color: #c0392b; }
-
 /* ── 끌어서 나누는 좌우 분할 (`ad-vsplit`) ────────────────
 
    `ad-split`(격자)과 무엇이 다른가 — **폭을 사용자가 정한다.** 격자 쪽은

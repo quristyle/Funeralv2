@@ -106,7 +106,7 @@
 | /system/account | /admin/system/account | portal/system/account/index |
 | /system/menu | /admin/system/menu | portal/system/menu/list |
 | /portal/notice | /admin/notice | portal/notice/list |
-| /portal/release | /admin/release | portal/release/index |
+| /portal/release | (제거) | portal/release/index (배포 도구 화면·메뉴 제거) |
 | /system/role-map | /admin/auth/role | portal/system/role/index |
 | /auth/user-role | /admin/auth/user-role | portal/auth/user-role/index |
 | /auth/menu-role | /admin/auth/menu-role | portal/auth/menu-role/index |

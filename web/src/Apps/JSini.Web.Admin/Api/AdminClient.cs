@@ -830,22 +830,6 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task DeleteCodeAsync(string id, CancellationToken ct = default)
         => gateway.DeleteAsync($"auth/system/common-code/{id}", ct);
 
-    // ── 배포 도구 ───────────────────────────────────────────────
-    //
-    // **거는 것은 여기 없다.** 실행(`POST auth/release/{key}`)은 운영 서버에
-    // 스크립트를 돌리는 일이라 되돌릴 수 없다. 결정 목록 D2 가 정해질 때까지
-    // 조회만 붙인다.
-
-    public Task<ReleaseTargetListDto?> GetReleaseTargetsAsync(CancellationToken ct = default)
-        => gateway.GetOneAsync<ReleaseTargetListDto>("auth/release/targets", ct);
-
-    public Task<IReadOnlyList<ReleaseRunDto>> GetReleaseRunsAsync(int take = 30, CancellationToken ct = default)
-        => gateway.GetListAsync<ReleaseRunDto>("auth/release/runs" + Query(("take", take)), ct);
-
-    /// <summary>실행 한 건. 진행 기록(<c>Events</c>)이 함께 온다.</summary>
-    public Task<ReleaseRunDto?> GetReleaseRunAsync(string id, CancellationToken ct = default)
-        => gateway.GetOneAsync<ReleaseRunDto>($"auth/release/runs/{id}", ct);
-
     // ── 역할 범위 (회사 · 부서 · 사람) ──────────────────────────
 
     /// <summary>회사 하나의 조직 나무와 각 단계에 걸린 역할.</summary>

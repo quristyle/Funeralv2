@@ -89,7 +89,6 @@ public static class RouteAliases
         ["/system/account"] = "/admin/system/account",
         ["/system/menu"] = "/admin/system/menu",
         ["/portal/notice"] = "/admin/notice",
-        ["/portal/release"] = "/admin/release",
         ["/auth"] = "/admin/auth",
         // 이 메뉴는 유형이 EMBEDDED 라 **앞으로 가는 길로는 이 줄을 안 탄다** —
         // `MenuProvider.HrefOf` 가 그보다 앞에서 `/embed/…` 로 보낸다.

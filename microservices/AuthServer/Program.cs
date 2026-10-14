@@ -1,4 +1,4 @@
-﻿using AuthServer.Data;
+using AuthServer.Data;
 using AuthServer.Endpoints;
 using AuthServer.Entities;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -144,16 +144,6 @@ builder.Services.AddScoped<ILoginLogService, LoginLogService>();
 // 화면 환경설정 — 계정에 붙여 두어 어느 PC 에서 로그인해도 따라오게 한다.
 // 헤더 톱니의 드로어와 /setting/environment 가 같은 값을 읽고 쓴다.
 builder.Services.AddScoped<IAccountPreferenceService, AccountPreferenceService>();
-
-// 배포(릴리즈) — 대상은 설정(Release:Targets)에서 읽는다.
-//
-// 요청 한 건이 scom.release_runs 행 하나가 된다. 배포 장비의 래퍼가 그 run id 로
-// 진행 상황을 되돌려 보고하고, 화면은 그 id 를 폴링한다.
-// 배포가 끝나면 대상의 VersionUrl 을 읽어 실제로 반영됐는지 확인하므로 HttpClient 가 필요하다.
-builder.Services.Configure<AuthServer.DTOs.ReleaseOptions>(
-    builder.Configuration.GetSection("Release"));
-builder.Services.AddHttpClient();
-builder.Services.AddScoped<IReleaseService, ReleaseService>();
 
 // 플레이어 릴리스 — GitHub 에 버전 태그를 만들어 릴리스 워크플로를 깨운다.
 // 토큰은 appsettings.Local.json(git 제외)에만 둔다. 값이 없으면 화면이 안내만 띄우고
@@ -310,7 +300,6 @@ app.MapFaqEndpoints();
 app.MapQnaEndpoints();
 app.MapHelpArchiveEndpoints();
 app.MapMenuRoleEndpoints();
-app.MapReleaseEndpoints();
 app.MapPlayerReleaseEndpoints();
 app.MapDeployStatusEndpoints();
 

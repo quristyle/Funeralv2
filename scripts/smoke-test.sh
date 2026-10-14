@@ -90,7 +90,6 @@ head_ "4. 인증 경계 (토큰 없이 접근하면 막혀야 함)"
 for path in \
   "/api/auth/menu/permissions" \
   "/api/auth/notices" \
-  "/api/auth/release/targets" \
   "/api/funeral/building/room/list" \
   "/api/helpdesk/companys" \
   "/api/helpdesk/admins" \

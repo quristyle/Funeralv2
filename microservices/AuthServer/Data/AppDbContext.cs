@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using AuthServer.Entities;
 using System.Security.Claims;
 using System.Text.RegularExpressions;
@@ -42,8 +42,6 @@ public class AppDbContext : DbContext
     /// <summary>회사 사용처 (COMPANY_USAGE_LOCATION 공통코드 배정)</summary>
     public DbSet<CompanyUsageLocation> CompanyUsageLocations { get; set; }
     public DbSet<RoleDepartment> RoleDepartments { get; set; }
-    public DbSet<ReleaseRun> ReleaseRuns { get; set; }
-    public DbSet<ReleaseRunEvent> ReleaseRunEvents { get; set; }
     public DbSet<BirthdayMessage> BirthdayMessages { get; set; }
 
     /// <summary>비밀번호 재설정 링크. 해시만 들어 있다 — 엔티티 주석 참고.</summary>
@@ -203,30 +201,6 @@ public class AppDbContext : DbContext
             .HasOne(p => p.Account)
             .WithMany()
             .HasForeignKey(p => p.AccountId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        // ── 배포 실행 ──────────────────────────────────────────
-        //
-        // 같은 대상을 동시에 두 번 배포하지 못하게 한다. 화면에서 버튼을 잠그는 것만으로는
-        // 두 사람이 동시에 누르는 것을 막지 못하고, 그러면 같은 체크아웃에서 스크립트 둘이 돈다.
-        // 서비스가 먼저 확인하기도 하지만 경합은 이 인덱스에서만 확실히 막힌다.
-        //
-        // 'dispatched' 는 넣지 않는다 — 보고가 오지 않는 대상이라 영원히 안 풀린다.
-        modelBuilder.Entity<ReleaseRun>()
-            .HasIndex(r => r.TargetKey)
-            .IsUnique()
-            .HasFilter("status IN ('queued', 'running') AND is_deleted = false");
-
-        // 화면이 sinceSeq 로 이어 받으므로 같은 순번이 두 번 들어오면 안 된다.
-        modelBuilder.Entity<ReleaseRunEvent>()
-            .HasIndex(e => new { e.RunId, e.Seq })
-            .IsUnique();
-
-        // run 을 지우면 로그도 함께 지운다.
-        modelBuilder.Entity<ReleaseRunEvent>()
-            .HasOne(e => e.Run)
-            .WithMany(r => r.Events)
-            .HasForeignKey(e => e.RunId)
             .OnDelete(DeleteBehavior.Cascade);
 
         // ── 포털 오류 기록 ─────────────────────────────────────
