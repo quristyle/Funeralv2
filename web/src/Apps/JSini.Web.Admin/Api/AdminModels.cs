@@ -815,6 +815,20 @@ public sealed class PushLogDto
 /// 서버 쪽 정본은 AuthServer 의 <c>DTOs/UserInfoDto.cs</c> 다.
 /// </para>
 /// </remarks>
+public sealed class SocialMergedAccountDto
+{
+    public string Provider { get; set; } = string.Empty;
+    public string ProviderName { get; set; } = string.Empty;
+    public string? ProviderUserId { get; set; }
+    public string? Email { get; set; }
+    public string? DisplayName { get; set; }
+    public DateTime? LinkedAt { get; set; }
+    public DateTime? LastLoginAt { get; set; }
+    public bool IsMerged { get; set; }
+    public string? MergedLoginId { get; set; }
+    public string? Remark { get; set; }
+}
+
 public sealed class UserInfoDto
 {
     public string? Id { get; set; }
@@ -846,6 +860,43 @@ public sealed class UserInfoDto
     public List<string> Emails { get; set; } = [];
     public string? Phone { get; set; }
     public List<string> Phones { get; set; } = [];
+
+    /// <summary>연결/결합된 소셜 공급자 목록 (google, naver, kakao 등)</summary>
+    public List<string> SocialProviders { get; set; } = [];
+
+    /// <summary>소셜 계정과 연결되어 있는지 여부</summary>
+    public bool IsSocialLinked { get; set; }
+
+    /// <summary>가입 신청 등을 통해 결합(Merge)된 소셜 계정이 있는지 여부</summary>
+    public bool IsSocialMerged { get; set; }
+
+    /// <summary>연결된 소셜 공급자 표시 텍스트 (예: "카카오, 네이버")</summary>
+    public string? SocialProviderText { get; set; }
+
+    /// <summary>결합된 소셜 계정들의 상세 정보 목록</summary>
+    public List<SocialMergedAccountDto> MergedSocialAccounts { get; set; } = [];
+
+    [JsonIgnore]
+    public IEnumerable<string> EmailValues
+    {
+        get => Emails;
+        set
+        {
+            Emails = value?.ToList() ?? [];
+            Email = Emails.FirstOrDefault();
+        }
+    }
+
+    [JsonIgnore]
+    public IEnumerable<string> PhoneValues
+    {
+        get => Phones;
+        set
+        {
+            Phones = value?.ToList() ?? [];
+            Phone = Phones.FirstOrDefault();
+        }
+    }
 
     /// <summary>한 줄 소개.</summary>
     public string? Introduction { get; set; }
@@ -925,6 +976,28 @@ public sealed class UpdateProfileDto
     public List<string> Emails { get; set; } = [];
     public string? Phone { get; set; }
     public List<string> Phones { get; set; } = [];
+
+    [JsonIgnore]
+    public IEnumerable<string> EmailValues
+    {
+        get => Emails;
+        set
+        {
+            Emails = value?.ToList() ?? [];
+            Email = Emails.FirstOrDefault();
+        }
+    }
+
+    [JsonIgnore]
+    public IEnumerable<string> PhoneValues
+    {
+        get => Phones;
+        set
+        {
+            Phones = value?.ToList() ?? [];
+            Phone = Phones.FirstOrDefault();
+        }
+    }
 
     /// <summary><c>yyyy-MM-dd</c>. 빈 문자열이면 지운다.</summary>
     public string? BirthDate { get; set; }

@@ -245,6 +245,32 @@
             {
                 <div class="ad-profile__org">@org</div>
             }
+            @if (_info?.IsSocialMerged == true)
+            {
+                <div style="margin-top: 6px; display: flex; align-items: center; justify-content: center; gap: 4px; flex-wrap: wrap;">
+                    <span class="jsini-badge jsini-badge--info" title="@($"소셜 가입신청 결합 계정 ({_info.SocialProviderText})")">소셜결합</span>
+                    @if (_info.SocialProviders is { Count: > 0 })
+                    {
+                        @foreach (var provider in _info.SocialProviders)
+                        {
+                            <span class="jsini-badge @SocialBadgeClass(provider)">@SocialProviderName(provider)</span>
+                        }
+                    }
+                </div>
+            }
+            else if (_info?.IsSocialLinked == true)
+            {
+                <div style="margin-top: 6px; display: flex; align-items: center; justify-content: center; gap: 4px; flex-wrap: wrap;">
+                    <span class="jsini-badge jsini-badge--muted" title="@($"소셜 연동 계정 ({_info.SocialProviderText})")">소셜연동</span>
+                    @if (_info.SocialProviders is { Count: > 0 })
+                    {
+                        @foreach (var provider in _info.SocialProviders)
+                        {
+                            <span class="jsini-badge @SocialBadgeClass(provider)">@SocialProviderName(provider)</span>
+                        }
+                    }
+                </div>
+            }
         </div>
     </aside>
 
@@ -347,17 +373,52 @@
                             @* 로그인 아이디는 계정의 열쇠다. 바꾸는 길을 두면 즐겨찾기·
                                권한·감사 기록이 가리키는 대상이 흔들린다 — 보여만 준다. *@
                             <DxFormLayoutItem Caption="사용자명" ColSpanMd="6">
-                                <DxTextBox Text="@(_info.Username ?? _info.UserId)" ReadOnly="true" />
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <DxTextBox Text="@(_info.Username ?? _info.UserId)" ReadOnly="true" />
+                                    @if (_info.IsSocialMerged)
+                                    {
+                                        <span class="jsini-badge jsini-badge--info" title="@($"소셜 가입신청 결합 계정 ({_info.SocialProviderText})")">소셜결합</span>
+                                    }
+                                    else if (_info.IsSocialLinked)
+                                    {
+                                        <span class="jsini-badge jsini-badge--muted" title="@($"소셜 연동 계정 ({_info.SocialProviderText})")">소셜연동</span>
+                                    }
+                                </div>
                             </DxFormLayoutItem>
 
                             <DxFormLayoutItem Caption="이메일" ColSpanMd="6">
-                                @* 남과 겹치면 서버가 409 로 거절한다. 그 문구를 그대로 보여 준다. *@
-                                <DxTextBox @bind-Text="_edit.Email" />
+                                <DxTagBox Data="@(new List<string>())"
+                                          @bind-Values="_edit.EmailValues"
+                                          AllowCustomTags="true"
+                                          NullText="이메일 입력 후 Enter (첫 번째가 대표)" />
                             </DxFormLayoutItem>
 
                             <DxFormLayoutItem Caption="전화번호" ColSpanMd="6">
-                                <DxTextBox @bind-Text="_edit.Phone" />
+                                <DxTagBox Data="@(new List<string>())"
+                                          @bind-Values="_edit.PhoneValues"
+                                          AllowCustomTags="true"
+                                          NullText="전화번호 입력 후 Enter (첫 번째가 대표)" />
                             </DxFormLayoutItem>
+
+                            @if (_info.IsSocialLinked || _info.IsSocialMerged)
+                            {
+                                <DxFormLayoutItem Caption="소셜 연동" ColSpanMd="6">
+                                    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-height: 32px;">
+                                        @if (_info.IsSocialMerged)
+                                        {
+                                            <span class="jsini-badge jsini-badge--info">소셜결합</span>
+                                        }
+                                        @if (_info.SocialProviders is { Count: > 0 })
+                                        {
+                                            @foreach (var provider in _info.SocialProviders)
+                                            {
+                                                <span class="jsini-badge @SocialBadgeClass(provider)">@SocialProviderName(provider)</span>
+                                            }
+                                        }
+                                        <span class="jsini-text-muted" style="font-size: 0.85rem;">[계정 정보] 탭에서 결합 상세 확인 가능</span>
+                                    </div>
+                                </DxFormLayoutItem>
+                            }
 
                             <DxFormLayoutItem Caption="생년월일" ColSpanMd="4">
                                 <DxDateEdit Date="@_birthDate"
@@ -401,8 +462,8 @@
                         </div>
 
                         <p class="jsini-hint">
-                            생년월일은 생활과환경의 「생일 목록」이 읽습니다. 비워 두면
-                            그 목록에 나오지 않습니다.
+                            이메일과 전화번호는 여러 개 등록할 수 있으며, 첫 번째 항목이 대표 연락처로 지정됩니다.
+                            생년월일은 생활과환경의 「생일 목록」이 읽습니다. 비워 두면 그 목록에 나오지 않습니다.
                         </p>
                     </DxTabPage>
 
@@ -452,11 +513,174 @@
                                     }
                                 </DxFormLayoutItem>
 
+                                <DxFormLayoutItem Caption="이메일" ColSpanMd="12">
+                                    @{
+                                        var emails = _info.Emails is { Count: > 0 }
+                                            ? _info.Emails.Where(e => !string.IsNullOrWhiteSpace(e)).Distinct(StringComparer.OrdinalIgnoreCase).ToList()
+                                            : (!string.IsNullOrWhiteSpace(_info.Email) ? [_info.Email] : new List<string>());
+                                    }
+                                    @if (emails.Count == 0)
+                                    {
+                                        <span class="jsini-text-muted">등록된 이메일 없음</span>
+                                    }
+                                    else
+                                    {
+                                        <div style="display: flex; flex-direction: column; gap: 4px;">
+                                            @for (var i = 0; i < emails.Count; i++)
+                                            {
+                                                var em = emails[i];
+                                                <div style="display: flex; align-items: center; gap: 6px;">
+                                                    <span class="ad-desc__mono">@em</span>
+                                                    @if (i == 0)
+                                                    {
+                                                        <span class="jsini-badge jsini-badge--info" style="font-size: 0.75rem;">대표</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="jsini-badge jsini-badge--muted" style="font-size: 0.75rem;">보조</span>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </DxFormLayoutItem>
+
+                                <DxFormLayoutItem Caption="연락처" ColSpanMd="12">
+                                    @{
+                                        var phones = _info.Phones is { Count: > 0 }
+                                            ? _info.Phones.Where(p => !string.IsNullOrWhiteSpace(p)).Distinct().ToList()
+                                            : (!string.IsNullOrWhiteSpace(_info.Phone) ? [_info.Phone] : new List<string>());
+                                    }
+                                    @if (phones.Count == 0)
+                                    {
+                                        <span class="jsini-text-muted">등록된 연락처 없음</span>
+                                    }
+                                    else
+                                    {
+                                        <div style="display: flex; flex-direction: column; gap: 4px;">
+                                            @for (var i = 0; i < phones.Count; i++)
+                                            {
+                                                var ph = phones[i];
+                                                <div style="display: flex; align-items: center; gap: 6px;">
+                                                    <span class="ad-desc__mono">@ph</span>
+                                                    @if (i == 0)
+                                                    {
+                                                        <span class="jsini-badge jsini-badge--info" style="font-size: 0.75rem;">대표</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="jsini-badge jsini-badge--muted" style="font-size: 0.75rem;">보조</span>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </DxFormLayoutItem>
+
                                 @* 이관 계정만 값이 있다. 저쪽 시스템의 어느 레코드에서 왔는지다. *@
                                 @if (_info.MsaSource is { Length: > 0 } source)
                                 {
                                     <DxFormLayoutItem Caption="이관 출처" ColSpanMd="12">
                                         <span class="ad-desc__mono">@source</span>
+                                    </DxFormLayoutItem>
+                                }
+                            </DxFormLayoutGroup>
+
+                            @* ── 소셜 계정 결합 정보 ─────────────────── *@
+                            <DxFormLayoutGroup Caption="소셜 계정 결합" ColSpanMd="12" Decoration="FormLayoutGroupDecoration.Card">
+                                <DxFormLayoutItem Caption="소셜 상태" ColSpanMd="12">
+                                    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                                        @if (_info.IsSocialMerged)
+                                        {
+                                            <span class="jsini-badge jsini-badge--info">소셜 가입 결합 계정</span>
+                                        }
+                                        else if (_info.IsSocialLinked)
+                                        {
+                                            <span class="jsini-badge jsini-badge--muted">소셜 로그인 연동 계정</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="jsini-text-muted">연동된 소셜 계정이 없습니다.</span>
+                                        }
+
+                                        @if (_info.SocialProviders is { Count: > 0 })
+                                        {
+                                            @foreach (var provider in _info.SocialProviders)
+                                            {
+                                                <span class="jsini-badge @SocialBadgeClass(provider)">@SocialProviderName(provider)</span>
+                                            }
+                                        }
+                                    </div>
+                                </DxFormLayoutItem>
+
+                                @if (_info.MergedSocialAccounts is { Count: > 0 })
+                                {
+                                    <DxFormLayoutItem Caption="결합 목록" ColSpanMd="12">
+                                        <div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
+                                            @foreach (var socialAcc in _info.MergedSocialAccounts)
+                                            {
+                                                <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--ad-bg-subtle, #f8f9fa); border-radius: 6px; border: 1px solid var(--ad-border, #e9ecef);">
+                                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                                        <span class="jsini-badge @SocialBadgeClass(socialAcc.Provider)">@SocialProviderName(socialAcc.Provider)</span>
+                                                        <div>
+                                                            <div style="font-weight: 500;">
+                                                                @(string.IsNullOrWhiteSpace(socialAcc.DisplayName) ? SocialProviderName(socialAcc.Provider) : socialAcc.DisplayName)
+                                                                @if (socialAcc.IsMerged)
+                                                                {
+                                                                    <span class="jsini-badge jsini-badge--info" style="font-size: 0.7rem; margin-left: 4px;">가입결합</span>
+                                                                }
+                                                                else
+                                                                {
+                                                                    <span class="jsini-badge jsini-badge--muted" style="font-size: 0.7rem; margin-left: 4px;">연동</span>
+                                                                }
+                                                            </div>
+                                                            <div class="jsini-text-muted" style="font-size: 0.85rem;">
+                                                                @if (!string.IsNullOrWhiteSpace(socialAcc.Email))
+                                                                {
+                                                                    <span>@socialAcc.Email · </span>
+                                                                }
+                                                                @if (!string.IsNullOrWhiteSpace(socialAcc.MergedLoginId))
+                                                                {
+                                                                    <span>신청ID: @socialAcc.MergedLoginId · </span>
+                                                                }
+                                                                <span>연동 @Dt(socialAcc.LinkedAt)</span>
+                                                                @if (socialAcc.LastLoginAt is not null)
+                                                                {
+                                                                    <span> · 최근로그인 @LastUsedText(socialAcc.LastLoginAt)</span>
+                                                                }
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            }
+                                        </div>
+                                    </DxFormLayoutItem>
+                                }
+                                else if (_socialLinks.Count > 0)
+                                {
+                                    <DxFormLayoutItem Caption="연결 목록" ColSpanMd="12">
+                                        <div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
+                                            @foreach (var link in _socialLinks)
+                                            {
+                                                <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--ad-bg-subtle, #f8f9fa); border-radius: 6px; border: 1px solid var(--ad-border, #e9ecef);">
+                                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                                        <span class="jsini-badge @SocialBadgeClass(link.Provider)">@link.DisplayName</span>
+                                                        <div>
+                                                            <div style="font-weight: 500;">
+                                                                @SocialWho(link)
+                                                                @if (_info.IsSocialMerged)
+                                                                {
+                                                                    <span class="jsini-badge jsini-badge--info" style="font-size: 0.7rem; margin-left: 4px;">소셜결합</span>
+                                                                }
+                                                            </div>
+                                                            <div class="jsini-text-muted" style="font-size: 0.85rem;">
+                                                                연결 @Dt(link.LinkedAt) · @LastUsedText(link.LastLoginAt)
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            }
+                                        </div>
                                     </DxFormLayoutItem>
                                 }
                             </DxFormLayoutGroup>
@@ -784,7 +1008,13 @@
                                         {
                                             <li class="ad-passkey">
                                                 <div class="ad-passkey__who">
-                                                    <div class="ad-passkey__name">@link.DisplayName</div>
+                                                    <div class="ad-passkey__name" style="display: flex; align-items: center; gap: 6px;">
+                                                        <span>@link.DisplayName</span>
+                                                        @if (_info?.IsSocialMerged == true)
+                                                        {
+                                                            <span class="jsini-badge jsini-badge--info" style="font-size: 0.7rem;">소셜결합</span>
+                                                        }
+                                                    </div>
                                                     <div class="ad-passkey__meta">
                                                         @SocialWho(link)
                                                         · 연결 @Dt(link.LinkedAt)

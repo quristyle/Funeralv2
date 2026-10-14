@@ -222,6 +222,107 @@ public class UserService : IUserService
         var todoTask = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "TodoTask")?.Content == "true";
         var accountPasswordNotify = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "AccountPasswordNotify")?.Content == "true";
 
+        var emailDetails = account.ProfileDetails?.Where(p => p.DetailType == "Email").Select(p => p.Content).Where(c => c != null).ToList() ?? new List<string>();
+        var phoneDetails = account.ProfileDetails?.Where(p => p.DetailType == "Phone").Select(p => p.Content).Where(c => c != null).ToList() ?? new List<string>();
+
+        // 소셜 로그인 연결 정보 조회
+        var accountSocials = await _db.AccountSocialLogins
+            .Where(l => l.AccountId == account.Id && !l.IsDeleted)
+            .OrderBy(l => l.CreatedAt)
+            .ToListAsync();
+
+        var providers = accountSocials
+            .Select(s => s.Provider)
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        // 소셜 연결의 이메일도 목록에 누락되지 않도록 중복 없이 합침
+        foreach (var s in accountSocials)
+        {
+            if (!string.IsNullOrWhiteSpace(s.Email) && !emailDetails.Contains(s.Email, StringComparer.OrdinalIgnoreCase))
+            {
+                emailDetails.Add(s.Email);
+            }
+        }
+
+        // 소셜 결합(Merge) 기록 확인 및 결합된 이메일/전화번호 보완
+        var mergeDetails = account.ProfileDetails?.Where(p => p.DetailType == "SocialMerge" || p.DetailType == "MergedSocial").ToList();
+        var isMerged = mergeDetails is { Count: > 0 };
+        if (mergeDetails != null)
+        {
+            foreach (var md in mergeDetails)
+            {
+                if (!string.IsNullOrWhiteSpace(md.Content) && !providers.Contains(md.Content, StringComparer.OrdinalIgnoreCase))
+                {
+                    providers.Add(md.Content);
+                }
+
+                if (!string.IsNullOrWhiteSpace(md.Remark) && md.Remark.Contains('|'))
+                {
+                    var parts = md.Remark.Split('|');
+                    var mEmail = parts.Length > 0 ? parts[0] : null;
+                    var mPhone = parts.Length > 1 ? parts[1] : null;
+                    if (!string.IsNullOrWhiteSpace(mEmail) && !emailDetails.Contains(mEmail, StringComparer.OrdinalIgnoreCase))
+                    {
+                        emailDetails.Add(mEmail);
+                    }
+                    if (!string.IsNullOrWhiteSpace(mPhone) && !phoneDetails.Contains(mPhone, StringComparer.OrdinalIgnoreCase))
+                    {
+                        phoneDetails.Add(mPhone);
+                    }
+                }
+            }
+        }
+
+        var isLinked = providers.Count > 0;
+        var providerNames = providers.Select(ProviderDisplayName).ToList();
+        var providerText = providerNames.Count > 0 ? string.Join(", ", providerNames) : null;
+
+        // 결합된 소셜 계정 상세 목록 구성
+        var mergedSocialAccounts = new List<SocialMergedAccountDto>();
+        foreach (var s in accountSocials)
+        {
+            var matchingMerge = mergeDetails?.FirstOrDefault(m => string.Equals(m.Content, s.Provider, StringComparison.OrdinalIgnoreCase));
+            mergedSocialAccounts.Add(new SocialMergedAccountDto
+            {
+                Provider = s.Provider,
+                ProviderName = ProviderDisplayName(s.Provider),
+                ProviderUserId = s.ProviderUserId,
+                Email = s.Email,
+                DisplayName = s.DisplayName,
+                LinkedAt = s.CreatedAt,
+                LastLoginAt = s.LastLoginAt,
+                IsMerged = matchingMerge != null || isMerged,
+                MergedLoginId = matchingMerge?.Label,
+                Remark = matchingMerge?.Remark
+            });
+        }
+
+        // AccountSocialLogins에는 없지만 mergeDetails에만 있는 내역이 있으면 보완
+        if (mergeDetails != null)
+        {
+            foreach (var md in mergeDetails)
+            {
+                if (!string.IsNullOrWhiteSpace(md.Content) && !mergedSocialAccounts.Any(m => string.Equals(m.Provider, md.Content, StringComparison.OrdinalIgnoreCase)))
+                {
+                    var parts = (md.Remark ?? "").Split('|');
+                    var mEmail = parts.Length > 0 ? parts[0] : null;
+                    mergedSocialAccounts.Add(new SocialMergedAccountDto
+                    {
+                        Provider = md.Content,
+                        ProviderName = ProviderDisplayName(md.Content),
+                        Email = mEmail,
+                        DisplayName = md.Label,
+                        LinkedAt = md.CreatedAt,
+                        IsMerged = true,
+                        MergedLoginId = md.Label,
+                        Remark = md.Remark
+                    });
+                }
+            }
+        }
+
         // 프론트엔드 요구사항에 맞춰 DTO 구성
         return new UserInfoDto
         {
@@ -234,14 +335,21 @@ public class UserService : IUserService
             Avatar = !string.IsNullOrEmpty(avatar) ? avatar : "https://gw.alipayobjects.com/zos/antfincdn/XAosXuNZyF/BiazfanxmamNRoxxVxka.png",
             AvatarGroupId = avatarGroupId,
             Watermark = WatermarkOf(account),
-            Desc = email ?? "등록된 설명이 없습니다.",
+            Desc = (emailDetails.FirstOrDefault() ?? email) ?? "등록된 설명이 없습니다.",
             HomePath = homePath ?? "/workspace",
             Roles = roleIds,
             RoleNames = roleNames,
             MsaSource = msaSource,
             Introduction = introduction,
-            Phone = phone,
-            Email = email,
+            Phone = phoneDetails.FirstOrDefault() ?? phone,
+            Phones = phoneDetails,
+            Email = emailDetails.FirstOrDefault() ?? email,
+            Emails = emailDetails,
+            SocialProviders = providers,
+            IsSocialLinked = isLinked,
+            IsSocialMerged = isMerged,
+            SocialProviderText = providerText,
+            MergedSocialAccounts = mergedSocialAccounts,
             BirthDate = account.BirthDate,
             BirthDateIsLunar = account.BirthDateIsLunar,
             SecurityPhone = securityPhone,
@@ -839,44 +947,81 @@ public class UserService : IUserService
 
         if (account == null) return (false, "계정을 찾을 수 없습니다.");
 
-        // ── 중복 검사: 이메일 ──
-        // 연락처는 AccountProfileDetails(DetailType=Email/Phone) 에 있다.
-        // 대소문자만 다른 이메일은 같은 주소다.
-        //
-        // **지금 값 그대로면 검사하지 않는다.** 옛 데이터에는 이미 겹치는 연락처가
-        // 있다(포털 quristyle 과 헬프데스크 고객이 같은 이메일 — 15번 문서).
-        // 그런 계정이 이름만 고쳐 저장해도 막혀 버리면 안 된다.
-        // 검사는 '다른 값으로 바꾸려는 순간'에만 건다.
-        var currentEmail = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Email")?.Content;
-        if (!string.IsNullOrWhiteSpace(dto.Email)
-            && !string.Equals(dto.Email.Trim(), currentEmail?.Trim(), StringComparison.OrdinalIgnoreCase))
+        // ── 이메일 목록 정리 및 중복 검사 ──
+        List<string>? emailsToSave = null;
+        if (dto.Emails != null)
         {
-            var email = dto.Email.Trim().ToLowerInvariant();
-            var taken = await _db.AccountProfileDetails.AnyAsync(p =>
-                p.DetailType == "Email" &&
-                p.AccountId != account.Id &&
-                p.Content != null &&
-                p.Content.ToLower() == email);
-            if (taken) return (false, "이미 다른 사용자가 쓰고 있는 이메일입니다.");
+            emailsToSave = dto.Emails.Where(e => !string.IsNullOrWhiteSpace(e)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            if (!string.IsNullOrWhiteSpace(dto.Email) && !emailsToSave.Contains(dto.Email, StringComparer.OrdinalIgnoreCase))
+            {
+                emailsToSave.Insert(0, dto.Email);
+            }
+        }
+        else if (dto.Email != null)
+        {
+            emailsToSave = string.IsNullOrWhiteSpace(dto.Email) ? new List<string>() : new List<string> { dto.Email };
         }
 
-        // ── 중복 검사: 전화번호 ──
-        // 표기가 제각각이라('010-1234-5678' / '01012345678') 숫자만 남겨 비교한다.
-        // SQL 로 옮기기 어려운 비교라 전화 항목만 당겨 와 메모리에서 본다 — 행 수가 적다.
-        static string Digits(string? s) => new((s ?? "").Where(char.IsDigit).ToArray());
-        var currentPhone = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Phone")?.Content;
-        if (!string.IsNullOrWhiteSpace(dto.Phone)
-            && Digits(dto.Phone) != Digits(currentPhone))
+        var currentEmails = account.ProfileDetails?
+            .Where(p => p.DetailType == "Email" && !string.IsNullOrWhiteSpace(p.Content))
+            .Select(p => p.Content!.Trim().ToLowerInvariant())
+            .ToList() ?? new List<string>();
+
+        if (emailsToSave != null)
         {
-            var phoneDigits = Digits(dto.Phone);
-            if (phoneDigits.Length > 0)
+            foreach (var email in emailsToSave)
             {
-                var otherPhones = await _db.AccountProfileDetails
-                    .Where(p => p.DetailType == "Phone" && p.AccountId != account.Id && p.Content != null)
-                    .Select(p => p.Content!)
-                    .ToListAsync();
-                var taken = otherPhones.Any(c => Digits(c) == phoneDigits);
-                if (taken) return (false, "이미 다른 사용자가 쓰고 있는 전화번호입니다.");
+                var lower = email.Trim().ToLowerInvariant();
+                if (!currentEmails.Contains(lower))
+                {
+                    var taken = await _db.AccountProfileDetails.AnyAsync(p =>
+                        p.DetailType == "Email" &&
+                        p.AccountId != account.Id &&
+                        p.Content != null &&
+                        p.Content.ToLower() == lower);
+                    if (taken) return (false, $"이미 다른 사용자가 쓰고 있는 이메일입니다: {email}");
+                }
+            }
+        }
+
+        // ── 전화번호 목록 정리 및 중복 검사 ──
+        static string Digits(string? s) => new((s ?? "").Where(char.IsDigit).ToArray());
+
+        List<string>? phonesToSave = null;
+        if (dto.Phones != null)
+        {
+            phonesToSave = dto.Phones.Where(p => !string.IsNullOrWhiteSpace(p)).Distinct().ToList();
+            if (!string.IsNullOrWhiteSpace(dto.Phone) && !phonesToSave.Contains(dto.Phone))
+            {
+                phonesToSave.Insert(0, dto.Phone);
+            }
+        }
+        else if (dto.Phone != null)
+        {
+            phonesToSave = string.IsNullOrWhiteSpace(dto.Phone) ? new List<string>() : new List<string> { dto.Phone };
+        }
+
+        var currentPhoneDigits = account.ProfileDetails?
+            .Where(p => p.DetailType == "Phone" && !string.IsNullOrWhiteSpace(p.Content))
+            .Select(p => Digits(p.Content))
+            .ToList() ?? new List<string>();
+
+        if (phonesToSave != null)
+        {
+            foreach (var phone in phonesToSave)
+            {
+                var pDigits = Digits(phone);
+                if (pDigits.Length > 0 && !currentPhoneDigits.Contains(pDigits))
+                {
+                    var otherPhones = await _db.AccountProfileDetails
+                        .Where(p => p.DetailType == "Phone" && p.AccountId != account.Id && p.Content != null)
+                        .Select(p => p.Content!)
+                        .ToListAsync();
+                    if (otherPhones.Any(c => Digits(c) == pDigits))
+                    {
+                        return (false, $"이미 다른 사용자가 쓰고 있는 전화번호입니다: {phone}");
+                    }
+                }
             }
         }
 
@@ -906,43 +1051,37 @@ public class UserService : IUserService
         }
 
         // Email 업데이트
-        if (dto.Email != null)
+        if (emailsToSave != null)
         {
-            var emailDetail = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Email");
-            if (emailDetail != null)
-            {
-                emailDetail.Content = dto.Email;
-                _db.Entry(emailDetail).State = EntityState.Modified;
-            }
-            else
+            var existingEmailDetails = account.ProfileDetails?.Where(p => p.DetailType == "Email").ToList() ?? new List<AccountProfileDetail>();
+            foreach (var e in existingEmailDetails) _db.AccountProfileDetails.Remove(e);
+
+            for (var i = 0; i < emailsToSave.Count; i++)
             {
                 _db.AccountProfileDetails.Add(new AccountProfileDetail
                 {
                     AccountId = account.Id,
                     DetailType = "Email",
-                    Content = dto.Email,
-                    IsPrimary = true
+                    Content = emailsToSave[i],
+                    IsPrimary = i == 0
                 });
             }
         }
 
         // Phone 업데이트
-        if (dto.Phone != null)
+        if (phonesToSave != null)
         {
-            var phoneDetail = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Phone");
-            if (phoneDetail != null)
-            {
-                phoneDetail.Content = dto.Phone;
-                _db.Entry(phoneDetail).State = EntityState.Modified;
-            }
-            else
+            var existingPhoneDetails = account.ProfileDetails?.Where(p => p.DetailType == "Phone").ToList() ?? new List<AccountProfileDetail>();
+            foreach (var p in existingPhoneDetails) _db.AccountProfileDetails.Remove(p);
+
+            for (var i = 0; i < phonesToSave.Count; i++)
             {
                 _db.AccountProfileDetails.Add(new AccountProfileDetail
                 {
                     AccountId = account.Id,
                     DetailType = "Phone",
-                    Content = dto.Phone,
-                    IsPrimary = true
+                    Content = phonesToSave[i],
+                    IsPrimary = i == 0
                 });
             }
         }

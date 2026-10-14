@@ -1,4 +1,4 @@
-﻿namespace AuthServer.DTOs;
+namespace AuthServer.DTOs;
 
 /// <summary>
 /// 프론트엔드 UserInfo 타입에 대응하는 사용자 정보 DTO
@@ -81,7 +81,24 @@ public class UserInfoDto
 
     public string? Introduction { get; set; }
     public string? Phone { get; set; }
+    public List<string> Phones { get; set; } = new();
     public string? Email { get; set; }
+    public List<string> Emails { get; set; } = new();
+
+    /// <summary>연결/결합된 소셜 공급자 목록 (google, naver, kakao 등)</summary>
+    public List<string> SocialProviders { get; set; } = new();
+
+    /// <summary>소셜 계정과 연결되어 있는지 여부</summary>
+    public bool IsSocialLinked { get; set; }
+
+    /// <summary>가입 신청 등을 통해 결합(Merge)된 소셜 계정이 있는지 여부</summary>
+    public bool IsSocialMerged { get; set; }
+
+    /// <summary>연결된 소셜 공급자 표시 텍스트 (예: "카카오, 네이버")</summary>
+    public string? SocialProviderText { get; set; }
+
+    /// <summary>결합된 소셜 계정들의 상세 정보 목록</summary>
+    public List<SocialMergedAccountDto> MergedSocialAccounts { get; set; } = new();
     
     public bool SecurityPhone { get; set; }
     public bool SecurityQuestion { get; set; }
@@ -122,4 +139,40 @@ public class UserInfoDto
 
     /// <summary>비밀번호 사용 기간이 지났는지.</summary>
     public bool PasswordExpired { get; set; }
+}
+
+/// <summary>
+/// 사용자 계정에 연결 또는 결합된 소셜 계정 상세 정보 DTO
+/// </summary>
+public class SocialMergedAccountDto
+{
+    /// <summary>공급자 키 (google, naver, kakao 등)</summary>
+    public string Provider { get; set; } = string.Empty;
+
+    /// <summary>공급자 표시명 (구글, 네이버, 카카오 등)</summary>
+    public string ProviderName { get; set; } = string.Empty;
+
+    /// <summary>공급자 사용자 고유 식별자</summary>
+    public string? ProviderUserId { get; set; }
+
+    /// <summary>소셜 계정 이메일</summary>
+    public string? Email { get; set; }
+
+    /// <summary>소셜 계정 표시 이름 또는 닉네임</summary>
+    public string? DisplayName { get; set; }
+
+    /// <summary>연동 또는 결합 일시</summary>
+    public DateTime? LinkedAt { get; set; }
+
+    /// <summary>마지막 로그인 일시</summary>
+    public DateTime? LastLoginAt { get; set; }
+
+    /// <summary>소셜 가입 신청 결합(Merge) 여부</summary>
+    public bool IsMerged { get; set; }
+
+    /// <summary>결합된 신청 계정의 아이디 (예: kakao_12345)</summary>
+    public string? MergedLoginId { get; set; }
+
+    /// <summary>결합 비고 또는 승인자 정보</summary>
+    public string? Remark { get; set; }
 }

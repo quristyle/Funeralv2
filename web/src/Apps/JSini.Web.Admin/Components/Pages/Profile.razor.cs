@@ -151,8 +151,12 @@ public partial class Profile
                 new(Tab.Basic, "jsini-icon-user", "기본 설정", BasicSummary),
 
                 new(Tab.Account, "jsini-icon-eye", "계정 정보", AccountSummary,
-                    _activity is { RecentFailCount: > 0 } ? $"실패 {_activity.RecentFailCount}" : null,
-                    "jsini-badge--warn"),
+                    _activity is { RecentFailCount: > 0 }
+                        ? $"실패 {_activity.RecentFailCount}"
+                        : (_info?.IsSocialMerged == true ? "소셜결합" : (_info?.IsSocialLinked == true ? "소셜연동" : null)),
+                    _activity is { RecentFailCount: > 0 }
+                        ? "jsini-badge--warn"
+                        : (_info?.IsSocialMerged == true ? "jsini-badge--info" : "jsini-badge--muted")),
 
                 new(Tab.FixedTabs, "jsini-icon-star", "고정탭 관리",
                     Pinned.Count == 0 ? "사이드바에 고정한 메뉴가 없습니다" : $"{Pinned.Count}개 고정됨"),
@@ -181,7 +185,14 @@ public partial class Profile
     {
         get
         {
-            var parts = new[] { _info!.Email, _info.Phone }
+            var emailPart = _info!.Emails.Count > 1
+                ? $"이메일 {_info.Emails.Count}개"
+                : _info.Email;
+            var phonePart = _info.Phones.Count > 1
+                ? $"연락처 {_info.Phones.Count}개"
+                : _info.Phone;
+
+            var parts = new[] { emailPart, phonePart }
                 .Where(p => !string.IsNullOrWhiteSpace(p))
                 .ToArray();
 
@@ -189,9 +200,27 @@ public partial class Profile
         }
     }
 
-    private string AccountSummary => _info!.LastLoginAt is null
-        ? $"가입 {Dt(_info.CreatedAt)}"
-        : $"최근 로그인 {Dt(_info.LastLoginAt)}";
+    private string AccountSummary
+    {
+        get
+        {
+            var baseText = _info!.LastLoginAt is null
+                ? $"가입 {Dt(_info.CreatedAt)}"
+                : $"최근 로그인 {Dt(_info.LastLoginAt)}";
+
+            if (_info.IsSocialMerged && !string.IsNullOrWhiteSpace(_info.SocialProviderText))
+            {
+                return $"{baseText} · 결합: {_info.SocialProviderText}";
+            }
+
+            if (_info.IsSocialLinked && !string.IsNullOrWhiteSpace(_info.SocialProviderText))
+            {
+                return $"{baseText} · 연동: {_info.SocialProviderText}";
+            }
+
+            return baseText;
+        }
+    }
 
     /// <summary>
     /// 보안 줄의 요약. <b>없는 것을 세지 않고 있는 것만 말한다</b> — 「지문 0 ·
@@ -648,13 +677,31 @@ public partial class Profile
         {
             RealName = _info.RealName,
             Email = _info.Email,
+            Emails = _info.Emails.ToList(),
             Phone = _info.Phone,
+            Phones = _info.Phones.ToList(),
             Introduction = _info.Introduction,
         };
 
         _birthDate = DateTime.TryParse(_info.BirthDate, out var d) ? d : null;
         _isLunar = _info.BirthDateIsLunar;
     }
+
+    private static string SocialBadgeClass(string provider) => provider.ToLowerInvariant() switch
+    {
+        "kakao" => "jsini-badge--warn",
+        "naver" => "jsini-badge--on",
+        "google" => "jsini-badge--info",
+        _ => "jsini-badge--muted"
+    };
+
+    private static string SocialProviderName(string provider) => provider.ToLowerInvariant() switch
+    {
+        "kakao" => "카카오",
+        "naver" => "네이버",
+        "google" => "구글",
+        var other => other
+    };
 
     // ── 기본 설정 저장 ──────────────────────────────────────
 
