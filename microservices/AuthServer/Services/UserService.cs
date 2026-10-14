@@ -13,15 +13,21 @@ public class UserService : IUserService
     private readonly AppDbContext _db;
     private readonly IRoleAssignmentService _roleAssignments;
     private readonly IConfiguration _config;
+    private readonly IEmailVerificationService? _emailVerification;
 
     /// <summary>
     /// UserService 생성자
     /// </summary>
-    public UserService(AppDbContext db, IRoleAssignmentService roleAssignments, IConfiguration config)
+    public UserService(
+        AppDbContext db,
+        IRoleAssignmentService roleAssignments,
+        IConfiguration config,
+        IEmailVerificationService? emailVerification = null)
     {
         _db = db;
         _roleAssignments = roleAssignments;
         _config = config;
+        _emailVerification = emailVerification;
     }
 
     /// <summary><c>account_profile_details</c> 의 <c>Watermark</c>. 없으면 켜진 것이다.</summary>
@@ -980,6 +986,12 @@ public class UserService : IUserService
                         p.Content != null &&
                         p.Content.ToLower() == lower);
                     if (taken) return (false, $"이미 다른 사용자가 쓰고 있는 이메일입니다: {email}");
+
+                    // 이메일 변경 시 인증 확인: 기존에 없던 새 이메일은 이메일 인증이 완료되어야 함
+                    if (_emailVerification != null && !_emailVerification.IsVerified(account.Id, email, dto.EmailVerificationToken))
+                    {
+                        return (false, $"이메일 변경은 이메일 인증이 완료되어야 처리할 수 있습니다: {email}");
+                    }
                 }
             }
         }
@@ -1065,6 +1077,14 @@ public class UserService : IUserService
                     Content = emailsToSave[i],
                     IsPrimary = i == 0
                 });
+            }
+
+            if (_emailVerification != null)
+            {
+                foreach (var em in emailsToSave)
+                {
+                    _emailVerification.ClearVerification(account.Id, em);
+                }
             }
         }
 

@@ -16,4 +16,7 @@ public class UpdateProfileDto
 
     /// <summary>생년월일이 음력인지. null 이면 건드리지 않는다.</summary>
     public bool? BirthDateIsLunar { get; set; }
+
+    /// <summary>이메일 변경 시 인증 완료 토큰</summary>
+    public string? EmailVerificationToken { get; set; }
 }

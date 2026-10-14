@@ -253,6 +253,20 @@ public partial class Profile
     private DateTime? _birthDate;
     private bool _isLunar;
 
+    /// <summary>기본 설정 탭에서 직접 수정/추가 가능한 전화번호 목록</summary>
+    private List<PhoneEditItem> _phoneEntries = [];
+
+    // ── 이메일 인증 관련 상태 ──
+    private bool _showEmailChange;
+    private string _newEmail = string.Empty;
+    private string _emailVerificationCode = string.Empty;
+    private bool _emailCodeSent;
+    private bool _emailVerified;
+    private string? _emailVerifyMessage;
+    private bool _emailVerifySuccess;
+    private bool _isEmailSending;
+    private bool _isEmailVerifying;
+
     // ── 고정탭 ──────────────────────────────────────────────
 
     /// <summary>내 메뉴를 펼쳐 「열 수 있는 화면」만 남긴 것.</summary>
@@ -683,6 +697,18 @@ public partial class Profile
             Introduction = _info.Introduction,
         };
 
+        _phoneEntries = _info.Phones is { Count: > 0 }
+            ? _info.Phones.Where(p => !string.IsNullOrWhiteSpace(p)).Select(p => new PhoneEditItem { Number = p }).ToList()
+            : (!string.IsNullOrWhiteSpace(_info.Phone) ? [new PhoneEditItem { Number = _info.Phone }] : [new PhoneEditItem()]);
+
+        _showEmailChange = false;
+        _newEmail = string.Empty;
+        _emailVerificationCode = string.Empty;
+        _emailCodeSent = false;
+        _emailVerified = false;
+        _emailVerifyMessage = null;
+        _emailVerifySuccess = false;
+
         _birthDate = DateTime.TryParse(_info.BirthDate, out var d) ? d : null;
         _isLunar = _info.BirthDateIsLunar;
     }
@@ -703,6 +729,142 @@ public partial class Profile
         var other => other
     };
 
+    // ── 전화번호 편집 ──────────────────────────────────────
+
+    private void AddPhoneEntry()
+    {
+        _phoneEntries.Add(new PhoneEditItem());
+    }
+
+    private void RemovePhoneEntry(PhoneEditItem item)
+    {
+        _phoneEntries.Remove(item);
+        if (_phoneEntries.Count == 0)
+        {
+            _phoneEntries.Add(new PhoneEditItem());
+        }
+    }
+
+    private void SetPrimaryPhone(PhoneEditItem item)
+    {
+        if (_phoneEntries.Remove(item))
+        {
+            _phoneEntries.Insert(0, item);
+        }
+    }
+
+    // ── 이메일 인증 ────────────────────────────────────────
+
+    private void ToggleEmailChange()
+    {
+        _showEmailChange = !_showEmailChange;
+        _newEmail = string.Empty;
+        _emailVerificationCode = string.Empty;
+        _emailCodeSent = false;
+        _emailVerified = false;
+        _emailVerifyMessage = null;
+        _emailVerifySuccess = false;
+    }
+
+    private void CancelEmailChange()
+    {
+        _showEmailChange = false;
+        _newEmail = string.Empty;
+        _emailVerificationCode = string.Empty;
+        _emailCodeSent = false;
+        _emailVerified = false;
+        _emailVerifyMessage = null;
+        _emailVerifySuccess = false;
+    }
+
+    private async Task SendEmailCodeAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_newEmail) || !_newEmail.Contains('@') || !_newEmail.Contains('.'))
+        {
+            _emailVerifyMessage = "올바른 이메일 주소를 입력해 주십시오.";
+            _emailVerifySuccess = false;
+            return;
+        }
+
+        if (string.Equals(_newEmail.Trim(), _edit.Email?.Trim(), StringComparison.OrdinalIgnoreCase))
+        {
+            _emailVerifyMessage = "현재 등록된 대표 이메일과 동일합니다.";
+            _emailVerifySuccess = false;
+            return;
+        }
+
+        _isEmailSending = true;
+        _emailVerifyMessage = "인증번호 발송 중입니다…";
+        _emailVerifySuccess = false;
+
+        try
+        {
+            var res = await Api.SendEmailVerificationCodeAsync(_newEmail.Trim());
+            _emailCodeSent = true;
+            _emailVerifySuccess = true;
+            var devInfo = !string.IsNullOrWhiteSpace(res?.DevCode) ? $" (테스트 코드: {res.DevCode})" : string.Empty;
+            _emailVerifyMessage = (res?.Message ?? "인증번호를 발송했습니다. 5분 이내에 입력해 주십시오.") + devInfo;
+        }
+        catch (ApiException ex)
+        {
+            _emailVerifyMessage = ex.Message;
+            _emailVerifySuccess = false;
+        }
+        catch (Exception)
+        {
+            _emailVerifyMessage = "인증번호 발송에 실패했습니다. 다시 시도해 주십시오.";
+            _emailVerifySuccess = false;
+        }
+        finally
+        {
+            _isEmailSending = false;
+        }
+    }
+
+    private async Task VerifyEmailCodeAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_emailVerificationCode) || _emailVerificationCode.Trim().Length != 6)
+        {
+            _emailVerifyMessage = "6자리 인증번호를 정확히 입력해 주십시오.";
+            _emailVerifySuccess = false;
+            return;
+        }
+
+        _isEmailVerifying = true;
+        _emailVerifyMessage = "인증번호 확인 중입니다…";
+
+        try
+        {
+            var res = await Api.VerifyEmailCodeAsync(_newEmail.Trim(), _emailVerificationCode.Trim());
+            _emailVerified = true;
+            _emailVerifySuccess = true;
+            _edit.EmailVerificationToken = res?.VerificationToken;
+
+            // 인증 완료된 새 이메일을 기본 이메일로 반영
+            var updatedEmail = _newEmail.Trim();
+            _edit.Email = updatedEmail;
+            var emails = _edit.Emails.Where(e => !string.Equals(e, updatedEmail, StringComparison.OrdinalIgnoreCase)).ToList();
+            emails.Insert(0, updatedEmail);
+            _edit.Emails = emails;
+
+            _emailVerifyMessage = "이메일 인증이 완료되었습니다! [저장] 단추를 누르면 프로필에 최종 반영됩니다.";
+        }
+        catch (ApiException ex)
+        {
+            _emailVerifyMessage = ex.Message;
+            _emailVerifySuccess = false;
+        }
+        catch (Exception)
+        {
+            _emailVerifyMessage = "인증번호 확인에 실패했습니다. 다시 시도해 주십시오.";
+            _emailVerifySuccess = false;
+        }
+        finally
+        {
+            _isEmailVerifying = false;
+        }
+    }
+
     // ── 기본 설정 저장 ──────────────────────────────────────
 
     /// <summary>
@@ -713,6 +875,24 @@ public partial class Profile
     /// </summary>
     private async Task SaveBasicAsync()
     {
+        // 만약 새 이메일을 입력 중인데 인증이 완료되지 않았으면 저장 차단
+        if (_showEmailChange && !_emailVerified && !string.IsNullOrWhiteSpace(_newEmail))
+        {
+            _emailVerifyMessage = "이메일 변경을 완료하려면 먼저 이메일 인증을 진행해 주십시오.";
+            _emailVerifySuccess = false;
+            return;
+        }
+
+        // 전화번호 목록 정리
+        var validPhones = _phoneEntries
+            .Select(p => p.Number.Trim())
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .Distinct()
+            .ToList();
+
+        _edit.Phones = validPhones;
+        _edit.Phone = validPhones.FirstOrDefault();
+
         _edit.BirthDate = _birthDate?.ToString("yyyy-MM-dd") ?? string.Empty;
         _edit.BirthDateIsLunar = _isLunar;
 

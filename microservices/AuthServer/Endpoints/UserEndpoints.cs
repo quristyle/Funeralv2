@@ -143,6 +143,74 @@ public static class UserEndpoints
         })
         .WithName("UpdateProfile");
 
+        // 이메일 변경을 위한 인증번호 발송
+        group.MapPost("/email-verification/send", async (
+            UserContext? user,
+            [FromBody] SendEmailVerificationDto request,
+            [FromServices] AppDbContext db,
+            [FromServices] IEmailVerificationService emailVerification,
+            CancellationToken ct) =>
+        {
+            if (user is null)
+            {
+                return Results.Json(ApiResponse<object>.Fail("인증 정보가 없습니다.", "401"), statusCode: 401);
+            }
+
+            var account = await db.Accounts.FirstOrDefaultAsync(a => a.UserId == user.UserId || a.Id == user.UserId, ct);
+            if (account == null)
+            {
+                return Results.Json(ApiResponse<object>.Fail("계정을 찾을 수 없습니다.", "404"), statusCode: 404);
+            }
+
+            var (success, message, devCode) = await emailVerification.SendCodeAsync(account.Id, request.Email, ct);
+            if (!success)
+            {
+                return Results.Json(ApiResponse<object>.Fail(message, "400"), statusCode: 400);
+            }
+
+            return Results.Ok(ApiResponse<EmailVerificationResultDto>.Ok(new EmailVerificationResultDto
+            {
+                Success = true,
+                Message = message,
+                DevCode = devCode
+            }));
+        })
+        .WithName("SendEmailVerificationCode");
+
+        // 이메일 변경을 위한 인증번호 검증
+        group.MapPost("/email-verification/verify", async (
+            UserContext? user,
+            [FromBody] VerifyEmailCodeDto request,
+            [FromServices] AppDbContext db,
+            [FromServices] IEmailVerificationService emailVerification,
+            CancellationToken ct) =>
+        {
+            if (user is null)
+            {
+                return Results.Json(ApiResponse<object>.Fail("인증 정보가 없습니다.", "401"), statusCode: 401);
+            }
+
+            var account = await db.Accounts.FirstOrDefaultAsync(a => a.UserId == user.UserId || a.Id == user.UserId, ct);
+            if (account == null)
+            {
+                return Results.Json(ApiResponse<object>.Fail("계정을 찾을 수 없습니다.", "404"), statusCode: 404);
+            }
+
+            var (success, message, token) = await emailVerification.VerifyCodeAsync(account.Id, request.Email, request.Code, ct);
+            if (!success)
+            {
+                return Results.Json(ApiResponse<object>.Fail(message, "400"), statusCode: 400);
+            }
+
+            return Results.Ok(ApiResponse<EmailVerificationResultDto>.Ok(new EmailVerificationResultDto
+            {
+                Success = true,
+                Message = message,
+                VerificationToken = token
+            }));
+        })
+        .WithName("VerifyEmailCode");
+
         group.MapPost("/change-password", async (UserContext? user, [FromBody] ChangePasswordDto request, [FromServices] IUserService userService) =>
         {
             if (user is null) 

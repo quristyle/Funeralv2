@@ -386,18 +386,137 @@
                                 </div>
                             </DxFormLayoutItem>
 
-                            <DxFormLayoutItem Caption="이메일" ColSpanMd="6">
-                                <DxTagBox Data="@(new List<string>())"
-                                          @bind-Values="_edit.EmailValues"
-                                          AllowCustomTags="true"
-                                          NullText="이메일 입력 후 Enter (첫 번째가 대표)" />
+                            @* ── 이메일 (인증 필수) ── *@
+                            <DxFormLayoutItem Caption="이메일" ColSpanMd="12">
+                                <div style="display: flex; flex-direction: column; gap: 8px;">
+                                    @* 현재 등록된 이메일 표시 *@
+                                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                        @if (!string.IsNullOrWhiteSpace(_edit.Email))
+                                        {
+                                            <div style="display: flex; align-items: center; gap: 6px; padding: 4px 8px; background: var(--bs-tertiary-bg, #f5f5f7); border-radius: 4px; border: 1px solid var(--bs-border-color, #e5e5e7);">
+                                                <span class="jsini-badge jsini-badge--info" style="font-size: 0.75rem;">대표</span>
+                                                <span style="font-family: monospace; font-size: 0.95rem;">@_edit.Email</span>
+                                                @if (_emailVerified)
+                                                {
+                                                    <span class="jsini-badge jsini-badge--success" style="font-size: 0.75rem;">인증완료</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="jsini-badge jsini-badge--muted" style="font-size: 0.75rem;">등록됨</span>
+                                                }
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <span class="jsini-text-muted">등록된 이메일이 없습니다.</span>
+                                        }
+
+                                        @if (!_showEmailChange)
+                                        {
+                                            <DxButton Text="이메일 변경"
+                                                      RenderStyle="ButtonRenderStyle.Secondary"
+                                                      RenderStyleMode="ButtonRenderStyleMode.Outline"
+                                                      Click="@ToggleEmailChange" />
+                                        }
+                                    </div>
+
+                                    @* 이메일 변경 및 인증 패널 *@
+                                    @if (_showEmailChange)
+                                    {
+                                        <div style="padding: 12px; background: var(--bs-secondary-bg, #f8f9fa); border-radius: 6px; border: 1px solid var(--bs-border-color, #dee2e6); display: flex; flex-direction: column; gap: 8px;">
+                                            <div style="font-weight: 600; font-size: 0.9rem;">
+                                                새 이메일 인증 및 변경
+                                            </div>
+                                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                                <div style="flex: 1; min-width: 220px;">
+                                                    <DxTextBox @bind-Text="_newEmail"
+                                                               NullText="새 이메일 주소 입력"
+                                                               ReadOnly="@_emailVerified" />
+                                                </div>
+                                                <DxButton Text="@(_emailCodeSent ? "인증번호 재발송" : "인증번호 발송")"
+                                                          RenderStyle="ButtonRenderStyle.Primary"
+                                                          RenderStyleMode="ButtonRenderStyleMode.Outline"
+                                                          Enabled="@(!_isEmailSending && !_emailVerified)"
+                                                          Click="@SendEmailCodeAsync" />
+                                                <DxButton Text="취소"
+                                                          RenderStyle="ButtonRenderStyle.Secondary"
+                                                          RenderStyleMode="ButtonRenderStyleMode.Outline"
+                                                          Click="@CancelEmailChange" />
+                                            </div>
+
+                                            @if (_emailCodeSent && !_emailVerified)
+                                            {
+                                                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                                    <div style="width: 140px;">
+                                                        <DxTextBox @bind-Text="_emailVerificationCode"
+                                                                   NullText="6자리 인증번호"
+                                                                   MaxLength="6" />
+                                                    </div>
+                                                    <DxButton Text="인증 확인"
+                                                              RenderStyle="ButtonRenderStyle.Success"
+                                                              Enabled="@(!_isEmailVerifying && !string.IsNullOrWhiteSpace(_emailVerificationCode))"
+                                                              Click="@VerifyEmailCodeAsync" />
+                                                    <span class="jsini-text-muted" style="font-size: 0.8rem;">(유효시간 5분)</span>
+                                                </div>
+                                            }
+
+                                            @if (!string.IsNullOrWhiteSpace(_emailVerifyMessage))
+                                            {
+                                                <div style="font-size: 0.85rem; color: @(_emailVerifySuccess ? "var(--bs-success, #198754)" : "var(--bs-danger, #dc3545)");">
+                                                    @_emailVerifyMessage
+                                                </div>
+                                            }
+                                        </div>
+                                    }
+                                </div>
                             </DxFormLayoutItem>
 
-                            <DxFormLayoutItem Caption="전화번호" ColSpanMd="6">
-                                <DxTagBox Data="@(new List<string>())"
-                                          @bind-Values="_edit.PhoneValues"
-                                          AllowCustomTags="true"
-                                          NullText="전화번호 입력 후 Enter (첫 번째가 대표)" />
+                            @* ── 전화번호 (보여지고 직접 수정 및 추가) ── *@
+                            <DxFormLayoutItem Caption="전화번호" ColSpanMd="12">
+                                <div style="display: flex; flex-direction: column; gap: 6px;">
+                                    @for (var i = 0; i < _phoneEntries.Count; i++)
+                                    {
+                                        var index = i;
+                                        var item = _phoneEntries[index];
+                                        <div style="display: flex; align-items: center; gap: 6px;">
+                                            @if (index == 0)
+                                            {
+                                                <span class="jsini-badge jsini-badge--info" style="min-width: 38px; text-align: center; font-size: 0.75rem;">대표</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="jsini-badge jsini-badge--muted" style="min-width: 38px; text-align: center; font-size: 0.75rem;">보조</span>
+                                            }
+
+                                            <div style="flex: 1; max-width: 320px;">
+                                                <DxTextBox @bind-Text="item.Number"
+                                                           NullText="전화번호 입력 (예: 010-1234-5678)" />
+                                            </div>
+
+                                            @if (index > 0)
+                                            {
+                                                <DxButton Text="대표로"
+                                                          RenderStyle="ButtonRenderStyle.Secondary"
+                                                          RenderStyleMode="ButtonRenderStyleMode.Outline"
+                                                          title="이 번호를 대표 번호로 설정"
+                                                          Click="@(() => SetPrimaryPhone(item))" />
+                                            }
+
+                                            <DxButton Text="삭제"
+                                                      RenderStyle="ButtonRenderStyle.Danger"
+                                                      RenderStyleMode="ButtonRenderStyleMode.Outline"
+                                                      title="전화번호 삭제"
+                                                      Click="@(() => RemovePhoneEntry(item))" />
+                                        </div>
+                                    }
+
+                                    <div style="margin-top: 4px;">
+                                        <DxButton Text="+ 전화번호 추가"
+                                                  RenderStyle="ButtonRenderStyle.Secondary"
+                                                  RenderStyleMode="ButtonRenderStyleMode.Outline"
+                                                  Click="@AddPhoneEntry" />
+                                    </div>
+                                </div>
                             </DxFormLayoutItem>
 
                             @if (_info.IsSocialLinked || _info.IsSocialMerged)
@@ -462,7 +581,8 @@
                         </div>
 
                         <p class="jsini-hint">
-                            이메일과 전화번호는 여러 개 등록할 수 있으며, 첫 번째 항목이 대표 연락처로 지정됩니다.
+                            이메일 변경은 이메일 인증을 완료해야 처리할 수 있습니다.
+                            전화번호는 번호를 직접 수정하거나 추가/삭제할 수 있으며, 첫 번째 번호가 대표 연락처로 지정됩니다.
                             생년월일은 생활과환경의 「생일 목록」이 읽습니다. 비워 두면 그 목록에 나오지 않습니다.
                         </p>
                     </DxTabPage>

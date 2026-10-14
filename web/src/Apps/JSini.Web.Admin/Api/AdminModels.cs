@@ -1009,6 +1009,37 @@ public sealed class UpdateProfileDto
 
     /// <summary>사진 그룹. 처음 올릴 때 서버가 새로 발급해 준다.</summary>
     public string? AvatarGroupId { get; set; }
+
+    /// <summary>이메일 변경 시 인증 완료 토큰</summary>
+    public string? EmailVerificationToken { get; set; }
+}
+
+/// <summary>이메일 인증코드 발송 요청</summary>
+public sealed class SendEmailVerificationDto
+{
+    public string Email { get; set; } = string.Empty;
+}
+
+/// <summary>이메일 인증코드 검증 요청</summary>
+public sealed class VerifyEmailCodeDto
+{
+    public string Email { get; set; } = string.Empty;
+    public string Code { get; set; } = string.Empty;
+}
+
+/// <summary>이메일 인증 결과</summary>
+public sealed class EmailVerificationResultDto
+{
+    public bool Success { get; set; }
+    public string Message { get; set; } = string.Empty;
+    public string? VerificationToken { get; set; }
+    public string? DevCode { get; set; }
+}
+
+/// <summary>전화번호 편집 항목</summary>
+public sealed class PhoneEditItem
+{
+    public string Number { get; set; } = string.Empty;
 }
 
 /// <summary>

@@ -918,6 +918,18 @@ public sealed class AdminClient(GatewayClient gateway)
         => gateway.PostAsync("auth/user/profile", profile, ct);
 
     /// <summary>
+    /// 이메일 변경을 위한 인증번호를 발송한다.
+    /// </summary>
+    public Task<EmailVerificationResultDto?> SendEmailVerificationCodeAsync(string email, CancellationToken ct = default)
+        => gateway.PostAsync<EmailVerificationResultDto>("auth/user/email-verification/send", new SendEmailVerificationDto { Email = email }, ct);
+
+    /// <summary>
+    /// 이메일 변경을 위한 인증번호를 검증하고 토큰을 받는다.
+    /// </summary>
+    public Task<EmailVerificationResultDto?> VerifyEmailCodeAsync(string email, string code, CancellationToken ct = default)
+        => gateway.PostAsync<EmailVerificationResultDto>("auth/user/email-verification/verify", new VerifyEmailCodeDto { Email = email, Code = code }, ct);
+
+    /// <summary>
     /// 켬·끔 하나를 저장한다 (보안 설정 · 알림 설정).
     /// </summary>
     /// <remarks>

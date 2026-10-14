@@ -1,4 +1,4 @@
-﻿﻿using AuthServer.Data;
+﻿using AuthServer.Data;
 using AuthServer.Endpoints;
 using AuthServer.Entities;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -78,6 +78,7 @@ builder.Services.AddScoped<ITimezoneService, TimezoneService>();
 // 포털이 업무 모듈을 넘나들 때마다 메뉴를 다시 읽으므로 왕복이 화면 전환
 // 횟수만큼 났다(MenuTreeCache 머리말).
 builder.Services.AddMemoryCache();
+builder.Services.AddScoped<IEmailVerificationService, EmailVerificationService>();
 builder.Services.AddSingleton<MenuTreeCache>();
 
 builder.Services.AddScoped<IMenuService, MenuService>();

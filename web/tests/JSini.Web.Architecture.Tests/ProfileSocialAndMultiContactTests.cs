@@ -40,15 +40,25 @@ public sealed class ProfileSocialAndMultiContactTests
     }
 
     [Fact]
-    public void 프로필화면_기본설정은_다중이메일과_다중전화번호를_TagBox로_관리한다()
+    public void 프로필화면_기본설정은_이메일인증_및_전화번호_직접수정_추가를_지원한다()
     {
         var razorSource = ReadRepoFile("web/src/Apps/JSini.Web.Admin/Components/Pages/Profile.razor");
         var csSource = ReadRepoFile("web/src/Apps/JSini.Web.Admin/Components/Pages/Profile.razor.cs");
 
-        // TagBox 바인딩
-        Assert.Contains("@bind-Values=\"_edit.EmailValues\"", razorSource);
-        Assert.Contains("@bind-Values=\"_edit.PhoneValues\"", razorSource);
-        Assert.Contains("AllowCustomTags=\"true\"", razorSource);
+        // 이메일 인증 UI 및 로직
+        Assert.Contains("이메일 변경", razorSource);
+        Assert.Contains("인증번호 발송", razorSource);
+        Assert.Contains("인증 확인", razorSource);
+        Assert.Contains("SendEmailCodeAsync", csSource);
+        Assert.Contains("VerifyEmailCodeAsync", csSource);
+        Assert.Contains("_emailVerified", csSource);
+
+        // 전화번호 보여지고 직접 수정 및 추가
+        Assert.Contains("_phoneEntries", csSource);
+        Assert.Contains("item.Number", razorSource);
+        Assert.Contains("+ 전화번호 추가", razorSource);
+        Assert.Contains("AddPhoneEntry", csSource);
+        Assert.Contains("RemovePhoneEntry", csSource);
 
         // Revert 시 다중 이메일/전화번호 복원
         Assert.Contains("Emails = _info.Emails.ToList()", csSource);
@@ -126,5 +136,24 @@ public sealed class ProfileSocialAndMultiContactTests
         // UserService.UpdateProfileAsync 다중 저장
         Assert.Contains("emailsToSave", serviceSource);
         Assert.Contains("phonesToSave", serviceSource);
+    }
+
+    [Fact]
+    public void 이메일인증_엔드포인트_및_서비스가_정상_연동되어_있다()
+    {
+        var endpointsSource = ReadRepoFile("microservices/AuthServer/Endpoints/UserEndpoints.cs");
+        var serviceSource = ReadRepoFile("microservices/AuthServer/Services/EmailVerificationService.cs");
+        var clientSource = ReadRepoFile("web/src/Apps/JSini.Web.Admin/Api/AdminClient.cs");
+        var modelsSource = ReadRepoFile("web/src/Apps/JSini.Web.Admin/Api/AdminModels.cs");
+
+        // 백엔드 엔드포인트 및 서비스
+        Assert.Contains("group.MapPost(\"/email-verification/send\"", endpointsSource);
+        Assert.Contains("group.MapPost(\"/email-verification/verify\"", endpointsSource);
+        Assert.Contains("public interface IEmailVerificationService", serviceSource);
+
+        // 프론트엔드 클라이언트 및 모델
+        Assert.Contains("SendEmailVerificationCodeAsync", clientSource);
+        Assert.Contains("VerifyEmailCodeAsync", clientSource);
+        Assert.Contains("public string? EmailVerificationToken { get; set; }", modelsSource);
     }
 }
