@@ -53,6 +53,7 @@
         {
             <DxGridDataColumn FieldName="@name"
                               Caption="@Caption(name)"
+                              Width="@(ColumnWidth is { } w ? $"{w}px" : null)"
                               MinWidth="@MinColumnWidth"
                               Visible="@(!Hidden.Contains(name))" />
         }

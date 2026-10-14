@@ -50,10 +50,14 @@ public partial class AutoGrid
     [Parameter] public bool SearchBox { get; set; }
 
     /// <summary>
-    /// 칸 하나의 최소 너비(px). 다 더한 것이 판보다 넓으면 표가 가로로 구른다.
-    /// 칸 이름이 길거나 짧은 표만 손본다 — 왜 두는지는 화면 머리말에 있다.
+    /// 칸 하나의 기본 너비(px). 기본값은 120이다.
     /// </summary>
-    [Parameter] public int MinColumnWidth { get; set; } = 120;
+    [Parameter] public int? ColumnWidth { get; set; } = 120;
+
+    /// <summary>
+    /// 칸 하나의 최소 너비(px). 칸을 줄일 수 있는 한계치다. 기본값은 50이다.
+    /// </summary>
+    [Parameter] public int MinColumnWidth { get; set; } = 50;
 
     /// <summary>
     /// 칸 이름표. <c>["createdAt"] = "접수일"</c>.

@@ -324,6 +324,12 @@ public partial class CommGrd<TItem>
     [Parameter] public GridSelectionMode SelectionMode { get; set; } = GridSelectionMode.Single;
 
     /// <summary>
+    /// 컬럼 너비 조절 방식. 기본값은 <see cref="GridColumnResizeMode.ColumnsContainer"/> 다.
+    /// 칸 머리를 끌어 너비를 늘이거나 줄일 수 있다.
+    /// </summary>
+    [Parameter] public GridColumnResizeMode ColumnResizeMode { get; set; } = GridColumnResizeMode.ColumnsContainer;
+
+    /// <summary>
     /// 자료가 들어오면 <b>첫 줄을 스스로 고른다.</b> 기본으로 켜 둔다.
     ///
     /// <para>
