@@ -35,42 +35,50 @@
 
 /* AI 대화 화면 (D11). 알맹이는 공용 `AiChatPanel` 이고, 여기서는 자리만 준다.
 
-   [데스크탑에서 본문 높이를 꽉 채운다]
+   [본문 높이를 꽉 채운다 — 폭을 가리지 않는다]
 
-   이전에는 `min(70vh, 44rem)` 으로 높이를 묶어 두어 큰 화면에서 대화창이
-   화면 중간에서 끊기고 아래가 텅 비었으며, 입력창과 전송 단추가 화면 맨 아래에
-   닿지 못했다.
+   처음에는 `min(70vh, 44rem)` 으로 높이를 묶어 두어, 대화창이 화면 중간에서
+   끊기고 그 아래가 텅 비었다. 업무 화면의 규칙(`app.css` 의 「본문 높이를 꽉
+   채운다」)과 같은 길로 고친다 — 셸 본문을 flex column 으로 돌리고 대화판에
+   `flex: 1` 과 `min-height: 0` 을 주면, 대화 기록(`.jsini-chat__log`)이 남는
+   높이를 다 먹고 입력칸과 「전송」은 늘 맨 아래에 선다.
 
-   데스크탑(≥768px)에서는 셸 본문(`.jsini-shell__content:has(> .site-ai-chat)`)을
-   flex column 및 overflow: hidden 으로 전환하고, `.site-ai-chat` 에 `flex: 1` 과
-   `min-height: 0` 을 주어 브라우저 세로 크기에 맞춘다. 대화 기록
-   (`.jsini-chat__log`)이 남은 공간을 모두 차지하고 대화 입력창과 버튼은
-   화면 가장 아래쪽에 위치한다.
+   [넓은 화면만 고쳐 두면 휴대폰이 그대로 남는다 — 2026-10-14]
 
-   좁은 화면에서는 쪽 스크롤과 기본 높이를 유지한다. */
+   그 고침이 한동안 `@media (min-width: 768px)` 안에 들어 있었다. 좁은 화면은
+   「쪽 스크롤과 기본 높이를 유지한다」고 적어 두었지만, 실제로는 **구를 것이
+   없다** — 묶어 둔 70vh 가 본문보다 짧아서 쪽이 넘치지 않는다. 그래서 휴대폰
+   에서는 대화 입력칸과 「전송」이 화면 **중간**에 서고 그 아래가 통째로 비었다.
+
+   390×844 로 재면 입력줄 아래끝이 651px, 아래 띠 윗변이 784px — **빈칸 133px**.
+   폭 조건을 걷어내면 그 값이 0 이 된다(재는 길은 memory 의 헤드리스 모형).
+
+   아래 띠(60px + 안전영역) 자리는 `.jsini-shell__content` 의 `padding-bottom`
+   이 이미 비켜 두었으므로 여기서 다시 세지 않는다 — 두 번 세면 입력줄이 띠
+   위로 한 뼘 떠오른다.
+
+   `:has()` 를 모르는 브라우저에는 묶인 높이가 그대로 남는다(아래 첫 규칙). */
 .site-ai-chat {
   height: min(70vh, 44rem);
 }
 
-@media (min-width: 768px) {
-  .jsini-shell__content:has(> .site-ai-chat) {
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    min-height: 0;
-  }
+.jsini-shell__content:has(> .site-ai-chat) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
 
-  .site-ai-chat {
-    flex: 1;
-    height: 100%;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-  }
+.jsini-shell__content:has(> .site-ai-chat) > .site-ai-chat {
+  flex: 1;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
 
-  .site-ai-chat > .jsini-chat {
-    flex: 1;
-    min-height: 0;
-  }
+.jsini-shell__content:has(> .site-ai-chat) > .site-ai-chat > .jsini-chat {
+  flex: 1;
+  min-height: 0;
 }
 
