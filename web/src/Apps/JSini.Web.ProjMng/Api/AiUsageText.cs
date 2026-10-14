@@ -204,17 +204,65 @@ public static class AiUsageText
         var maxWeek = rows.Max(r => r.WeekPct);
         
         if (maxSession is not null) textParts.Add($"세션 {maxSession:0.#}%");
-        if (maxWeek is not null) textParts.Add($"주간 <strong class=\"pm-usage-week-val\">{maxWeek:0.#}%</strong>");
+        if (maxWeek is not null)
+        {
+            var weekRow = rows.FirstOrDefault(r => r.WeekPct == maxWeek && r.WeekResetAt.HasValue)
+                       ?? rows.FirstOrDefault(r => r.WeekResetAt.HasValue);
+
+            var resetText = string.Empty;
+            if (weekRow?.WeekResetAt is { } resetAt)
+            {
+                var diff = resetAt - AppTime.UtcNow;
+                var rem = diff > TimeSpan.Zero
+                    ? $"갱신까지 {(int)diff.TotalHours}시간 {diff.Minutes}분 남음"
+                    : "곧 갱신";
+                resetText = $" <span class=\"pm-usage-reset\">({rem})</span>";
+            }
+
+            textParts.Add($"주간 <strong class=\"pm-usage-week-val\">{maxWeek:0.#}%</strong>{resetText}");
+        }
 
         var text = textParts.Count > 0 
             ? string.Join(" / ", textParts)
             : $"사용 {top:0.#}%" + (stale ? " · 오래된 값" : string.Empty);
 
-        var css = stale ? "jsini-badge--off"
-            : top >= 90 ? "jsini-badge--err"
-            : top >= 70 ? "jsini-badge--warn"
-            : "jsini-badge--on";
+        var targetPct = maxWeek ?? top;
+        var css = stale ? "jsini-badge--off" : UsageCss(targetPct);
 
         return new Badge(text, css);
+    }
+
+    /// <summary>
+    /// 사용량(%)을 5 단위 단계(0, 5, 10, … 100)로 세분화하여 배지 수식어를 돌려준다.
+    /// </summary>
+    public static string UsageCss(decimal pct)
+    {
+        var clamped = Math.Clamp(pct, 0m, 100m);
+        var step = ((int)Math.Floor(clamped / 5m)) * 5;
+
+        return step switch
+        {
+            0 => "jsini-badge--usage-0",
+            5 => "jsini-badge--usage-5",
+            10 => "jsini-badge--usage-10",
+            15 => "jsini-badge--usage-15",
+            20 => "jsini-badge--usage-20",
+            25 => "jsini-badge--usage-25",
+            30 => "jsini-badge--usage-30",
+            35 => "jsini-badge--usage-35",
+            40 => "jsini-badge--usage-40",
+            45 => "jsini-badge--usage-45",
+            50 => "jsini-badge--usage-50",
+            55 => "jsini-badge--usage-55",
+            60 => "jsini-badge--usage-60",
+            65 => "jsini-badge--usage-65",
+            70 => "jsini-badge--usage-70",
+            75 => "jsini-badge--usage-75",
+            80 => "jsini-badge--usage-80",
+            85 => "jsini-badge--usage-85",
+            90 => "jsini-badge--usage-90",
+            95 => "jsini-badge--usage-95",
+            _ => "jsini-badge--usage-100",
+        };
     }
 }
