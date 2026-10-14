@@ -50,9 +50,14 @@
 else
 {
     @* 끼운 자리가 비는 일이 있다 — 상대 사이트가 iframe 을 막거나, 포털이
-       https 라 http 주소가 막히는 때다. 그때 빠져나갈 길만 둔다. *@
-    <div class="jsini-toolbar">
-        <DxButton Text="새 창으로 열기" RenderStyle="ButtonRenderStyle.Secondary"
+       https 라 http 주소가 막히는 때다. 그때 빠져나갈 길만 둔다.
+       새창으로 열기 버튼은 아이콘으로 표현하고 상단 오른쪽에 둔다. *@
+    <div class="jsini-toolbar jsini-embed__toolbar">
+        <div class="jsini-toolbar__spacer"></div>
+        <DxButton IconCssClass="jsini-icon-open"
+                  RenderStyle="ButtonRenderStyle.Secondary"
+                  Title="새 창으로 열기"
+                  aria-label="새 창으로 열기"
                   Click="@OpenAsync" />
     </div>
 
