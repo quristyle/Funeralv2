@@ -1,4 +1,4 @@
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 using Xunit;
 
 namespace JSini.Web.Architecture.Tests;
@@ -13,7 +13,7 @@ namespace JSini.Web.Architecture.Tests;
 /// <para>
 /// 그 칸은 헤더의 ☰ · 떠다니는 단추 · 로고와 <b>같은 물건</b>이다 —
 /// 넷 다 <c>_sidebarOpen</c> 하나를 여닫는다. 그런데 앞의 셋은
-/// <c>ToggleSidebarAsync</c> 를 부르고, 띠만 <c>MenuReveal</c> 을 거쳐
+/// <c>ToggleSidebarAsync</c> 를 부르고, 칸만 <c>MenuReveal</c> 을 거쳐
 /// <c>OnMenuRevealRequested</c> 로 들어온다. 그쪽은 브레드크럼도 쓰는 길이라
 /// <b>「펴져 있으면 아무것도 안 한다」가 기본</b>이고, 그 자리에 띠의 표시를
 /// 가려내는 갈래가 없으면 <b>판이 덮여 있는 채로 같은 자리를 다시 눌러도
@@ -35,12 +35,18 @@ namespace JSini.Web.Architecture.Tests;
 public sealed class BottomNavMenuToggleTests
 {
     /// <summary>
-    /// 띠의 「메뉴」 칸은 여전히 <c>MenuReveal</c> 로 그 표시를 보낸다.
+    /// 「메뉴」 칸은 여전히 <c>MenuReveal</c> 로 그 표시를 보낸다.
     /// 여기가 바뀌면 아래 두 검사가 지키는 것이 뜻을 잃는다.
     /// </summary>
+    /// <remarks>
+    /// 보는 자리가 <c>MobileBottomNav</c> 가 아니라 <see cref="BottomNav"/> 다 —
+    /// 같은 칸 목록을 넓은 화면 헤더도 그리게 되면서(<c>HeaderNavTools</c>)
+    /// 누름 판정이 <c>BottomNav.Open</c> 한 곳으로 모였다. 그리는 쪽을 보면
+    /// <b>둘 중 하나만 고쳐도 검사가 통과한다.</b>
+    /// </remarks>
     [Fact]
     public void 띠의_메뉴_칸은_표시를_보낸다() =>
-        Assert.Contains("Reveal.Request(BottomNav.MenuPath)", BottomNavRazor(), StringComparison.Ordinal);
+        Assert.Contains("reveal.Request(MenuPath)", BottomNavSource(), StringComparison.Ordinal);
 
     /// <summary>
     /// 펴져 있을 때 <b>그 표시로 들어오면 접는다.</b> 「펴져 있으면 돌아간다」로만
@@ -98,8 +104,8 @@ public sealed class BottomNavMenuToggleTests
     private static string MainLayoutRazor() => RazorSource.Read(Path.Combine(
         SolutionRoot(), "src", "Shared", "JSini.Web.Components", "Layout", "MainLayout.razor"));
 
-    private static string BottomNavRazor() => RazorSource.Read(Path.Combine(
-        SolutionRoot(), "src", "Shared", "JSini.Web.Components", "Layout", "MobileBottomNav.razor"));
+    private static string BottomNavSource() => RazorSource.Read(Path.Combine(
+        SolutionRoot(), "src", "Shared", "JSini.Web.Components", "Layout", "BottomNav.cs"));
 
     private static string SolutionRoot()
     {

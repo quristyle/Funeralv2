@@ -2,6 +2,7 @@
 using System.Text.Json.Serialization;
 using JSini.Web.Abstractions;
 using JSini.Web.Components.Menu;
+using Microsoft.AspNetCore.Components;
 
 namespace JSini.Web.Components.Layout;
 
@@ -329,6 +330,53 @@ public static class BottomNav
     /// </remarks>
     public static string Resolve(BottomNavItem item, IReadOnlyList<MenuNode> menus) =>
         Find(item, menus)?.LinkTarget ?? item.Path;
+
+    /// <summary>
+    /// 칸을 눌렀을 때 실제로 일어나는 일. <b>그리는 자리가 둘이라 여기 하나로
+    /// 둔다</b> — 휴대폰 아래 띠(<see cref="MobileBottomNav"/>)와 넓은 화면 헤더
+    /// (<see cref="HeaderNavTools"/>)가 같은 칸 목록을 그린다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 넷으로 갈린다. 앞 셋은 <b>주소가 아니라 그 자리에서 무언가를 여는
+    /// 표시</b>이고(<see cref="Fixed"/>), 나머지는 <b>메뉴를 한 번 거쳐</b>
+    /// 간다(<see cref="Resolve"/>) — 적어 둔 경로가 옛 경로일 수 있다.
+    /// </para>
+    /// <para>
+    /// <b>메뉴 표시는 여닫이다.</b> 펴져 있으면 이 부탁이 판을 접는다 — 접는
+    /// 판정은 상태를 든 쪽에 있다(<c>MainLayout.OnMenuRevealRequested</c>).
+    /// 여기서 여닫으려면 그 상태를 알아야 하고, 그러면 같은 상태를 두 곳이
+    /// 나눠 들게 된다.
+    /// </para>
+    /// </remarks>
+    public static void Open(
+        BottomNavItem item,
+        IReadOnlyList<MenuNode> menus,
+        NavigationManager navigation,
+        ThemeDrawer theme,
+        MenuReveal reveal,
+        UserMenuDrawer userDrawer)
+    {
+        if (Same(item.Path, ThemePath))
+        {
+            theme.Open();
+            return;
+        }
+
+        if (Same(item.Path, MenuPath))
+        {
+            reveal.Request(MenuPath);
+            return;
+        }
+
+        if (Same(item.Path, ProfilePath))
+        {
+            userDrawer.Toggle();
+            return;
+        }
+
+        navigation.NavigateTo(Resolve(item, menus));
+    }
 
     /// <summary>이 칸이 가리키는 메뉴. 없으면 <c>null</c>.</summary>
     public static MenuNode? Find(BottomNavItem item, IReadOnlyList<MenuNode> menus)

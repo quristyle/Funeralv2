@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using JSini.Web.Http;
 
 namespace JSini.Web.Components.Settings;
@@ -26,13 +26,14 @@ namespace JSini.Web.Components.Settings;
 /// </para>
 ///
 /// <para>
-/// 그래서 다섯을 계정으로 올렸다.
+/// 그래서 아래 것들을 계정으로 올렸다.
 /// </para>
 ///
 /// <list type="table">
 ///   <item><term><see cref="BottomNavItemsKey"/></term><description>아래 띠에 놓을 칸들</description></item>
 ///   <item><term><see cref="BottomNavHiddenKey"/></term><description>그 띠를 쓸지</description></item>
 ///   <item><term><see cref="BottomNavLabelsHiddenKey"/></term><description>그 띠에 이름을 적을지</description></item>
+///   <item><term><see cref="BottomNavDesktopHiddenKey"/></term><description>같은 칸들을 <b>넓은 화면 헤더</b>에도 세울지</description></item>
 ///   <item><term><see cref="FabHiddenKey"/></term><description>메뉴 바로가기 단추를 쓸지</description></item>
 ///   <item><term><see cref="HelpDeskFabHiddenKey"/></term><description>요청등록 바로가기 단추를 쓸지</description></item>
 ///   <item><term><see cref="ToastPositionKey"/></term><description>알림(토스트)이 뜨는 자리</description></item>
@@ -95,6 +96,36 @@ public sealed class PortalPrefs(GatewayClient gateway, ILogger<PortalPrefs> logg
     /// </para>
     /// </remarks>
     public const string BottomNavLabelsHiddenKey = "portal.bottomNav.labelsHidden";
+
+    /// <summary>
+    /// 같은 칸들을 <b>넓은 화면 헤더 오른쪽에 세우지 않을지</b>. 없으면 선다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 띠에 고른 칸은 「내가 자주 여는 화면」이다. 그 뜻은 화면 폭에 딸린 것이
+    /// 아닌데, 한동안 <b>쓰이는 자리가 ≤767px 하나뿐</b>이었다 — 책상에 앉으면
+    /// 같은 사람이 같은 화면을 메뉴에서 다시 찾아 들어갔다. 그래서 넓은 화면에서는
+    /// 그 칸들을 헤더 오른쪽 도구 줄에 아이콘으로 세운다
+    /// (<c>HeaderNavTools</c>).
+    /// </para>
+    /// <para>
+    /// <b>「세울지」가 아니라 「감출지」를 적는다</b> — 읽는 쪽이 「열쇠가 있으면
+    /// 그렇다는 뜻」으로 보므로(<see cref="PortalPrefsData.Flag"/>), 기본값과
+    /// 반대되는 쪽을 적어야 한 번도 안 고친 사람이 기본값(=선다)을 받는다.
+    /// <see cref="BottomNavHiddenKey"/> 와 같은 꼴이다.
+    /// </para>
+    /// <para>
+    /// <b>휴대폰 쪽 스위치와 따로다.</b> 한 열쇠로 묶으면 띠만 끄거나 헤더만
+    /// 끄는 길이 없어지는데, 둘은 서로 다른 자리에서 서로 다른 이유로 거슬린다 —
+    /// 휴대폰에서 엄지 자리를 먹는 것과 책상에서 헤더가 붐비는 것.
+    /// </para>
+    /// <para>
+    /// <b>브라우저에 있던 적이 없다.</b> 처음부터 계정에 났으므로 옛 값을 들고
+    /// 올라갈 일이 없다 — <see cref="AdoptFromBrowserAsync"/> 가 이 열쇠를 모르는
+    /// 까닭이다(<see cref="BottomNavLabelsHiddenKey"/> 와 같다).
+    /// </para>
+    /// </remarks>
+    public const string BottomNavDesktopHiddenKey = "portal.bottomNav.desktopHidden";
 
     /// <summary>모바일 메뉴 바로가기 단추를 <b>감출지</b>. 없으면 보인다.</summary>
     public const string FabHiddenKey = "portal.fab.hidden";

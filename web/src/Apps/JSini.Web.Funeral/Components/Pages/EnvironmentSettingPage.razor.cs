@@ -229,6 +229,7 @@ public partial class EnvironmentSettingPage
         _zoomUnlocked = state.ZoomUnlocked;
         _bottomNavHidden = state.BottomNavHidden;
         _bottomNavLabelsHidden = state.BottomNavLabelsHidden;
+        _bottomNavDesktopHidden = state.BottomNavDesktopHidden;
         _navItems = [.. BottomNav.Parse(state.BottomNavItemsJson)];
         StateHasChanged();
     }
@@ -351,6 +352,22 @@ public partial class EnvironmentSettingPage
     /// </summary>
     private bool _bottomNavLabelsHidden;
 
+    /// <summary>
+    /// 같은 칸들을 <b>넓은 화면 헤더에 세우지 않기로</b> 했는가. 화면의
+    /// 스위치는 이것을 뒤집어 보인다(「…표시」라고 묻는다).
+    /// </summary>
+    private bool _bottomNavDesktopHidden;
+
+    /// <summary>
+    /// 아래 칸 고르개를 <b>통째로 잠글 것인가</b>.
+    /// </summary>
+    /// <remarks>
+    /// <b>둘 다 꺼야 잠근다.</b> 한동안 휴대폰 스위치 하나로 잠갔는데, 같은
+    /// 칸들이 넓은 화면 헤더에도 서게 되면서 그 판정이 틀렸다 — 띠는 거슬려서
+    /// 끄고 헤더만 쓰는 사람의 고르개가 영영 회색으로 남는다.
+    /// </remarks>
+    private bool NavLocked => _bottomNavHidden && _bottomNavDesktopHidden;
+
     /// <summary>띠에 세워 둔 칸들. 고치는 자리라 <b>읽기 전용이 아니다.</b></summary>
     private List<BottomNavItem> _navItems = [.. BottomNav.Defaults];
 
@@ -402,6 +419,17 @@ public partial class EnvironmentSettingPage
     {
         _bottomNavLabelsHidden = hidden;
         await Boot.SetBottomNavLabelsHiddenAsync(hidden);
+    }
+
+    /// <summary>
+    /// 같은 칸들을 넓은 화면 헤더에 세울지를 바꿨다. <b>휴대폰 스위치와 따로
+    /// 산다</b> — 둘은 서로 다른 자리에서 서로 다른 이유로 거슬린다(엄지 자리를
+    /// 먹는 것과 헤더가 붐비는 것).
+    /// </summary>
+    private async Task OnBottomNavDesktopUsedChangedAsync(bool used)
+    {
+        _bottomNavDesktopHidden = !used;
+        await Boot.SetBottomNavDesktopHiddenAsync(_bottomNavDesktopHidden);
     }
 
     /// <summary>
@@ -493,7 +521,7 @@ public partial class EnvironmentSettingPage
     /// </remarks>
     private async Task OnNavMoveAsync(int index, int delta)
     {
-        if (_bottomNavHidden || !BottomNav.Move(_navItems, index, delta))
+        if (NavLocked || !BottomNav.Move(_navItems, index, delta))
         {
             return;
         }
@@ -530,7 +558,7 @@ public partial class EnvironmentSettingPage
     /// 같은 그림이 나란히 서고, 얼마 안 되는 칸 하나를 헛되이 쓴다.
     /// </summary>
     private bool CanQuickAdd(BottomNavChoice choice) =>
-        !_bottomNavHidden
+        !NavLocked
         && _navItems.Count < BottomNav.MaxItems
         && !_navItems.Any(i => string.Equals(
             i.Path, choice.Path, StringComparison.OrdinalIgnoreCase));

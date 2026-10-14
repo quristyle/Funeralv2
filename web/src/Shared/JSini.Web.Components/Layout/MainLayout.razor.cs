@@ -355,6 +355,13 @@ public partial class MainLayout
     /// </summary>
     private bool _bottomNavLabelsHidden;
 
+    /// <summary>
+    /// 같은 칸들을 <b>넓은 화면 헤더에 세우지 않기로</b> 했는가. 기본은
+    /// <c>false</c> — 선다. 읽기 전의 값이 기본값이라 단추들이 떴다 사라지는
+    /// 번쩍임이 없다.
+    /// </summary>
+    private bool _bottomNavDesktopHidden;
+
     private string _toastPosition = "bottom-right";
     private HorizontalAlignment _toastHorizontal = HorizontalAlignment.Right;
     private VerticalEdge _toastVertical = VerticalEdge.Bottom;
@@ -397,6 +404,7 @@ public partial class MainLayout
         Boot.HelpDeskFabDesktopChanged += OnHelpDeskFabDesktopChanged;
         Boot.BottomNavHiddenChanged += OnBottomNavHiddenChanged;
         Boot.BottomNavLabelsHiddenChanged += OnBottomNavLabelsHiddenChanged;
+        Boot.BottomNavDesktopHiddenChanged += OnBottomNavDesktopHiddenChanged;
         Boot.ToastPositionChanged += OnToastPositionChanged;
     }
 
@@ -459,6 +467,12 @@ public partial class MainLayout
     private void OnBottomNavLabelsHiddenChanged(bool hidden)
     {
         _bottomNavLabelsHidden = hidden;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnBottomNavDesktopHiddenChanged(bool hidden)
+    {
+        _bottomNavDesktopHidden = hidden;
         InvokeAsync(StateHasChanged);
     }
 
@@ -726,6 +740,12 @@ public partial class MainLayout
         if (state.BottomNavLabelsHidden != _bottomNavLabelsHidden)
         {
             _bottomNavLabelsHidden = state.BottomNavLabelsHidden;
+            changed = true;
+        }
+
+        if (state.BottomNavDesktopHidden != _bottomNavDesktopHidden)
+        {
+            _bottomNavDesktopHidden = state.BottomNavDesktopHidden;
             changed = true;
         }
         
@@ -1312,6 +1332,7 @@ public partial class MainLayout
         Boot.HelpDeskFabDesktopChanged -= OnHelpDeskFabDesktopChanged;
         Boot.BottomNavHiddenChanged -= OnBottomNavHiddenChanged;
         Boot.BottomNavLabelsHiddenChanged -= OnBottomNavLabelsHiddenChanged;
+        Boot.BottomNavDesktopHiddenChanged -= OnBottomNavDesktopHiddenChanged;
         Boot.ToastPositionChanged -= OnToastPositionChanged;
         _watermarkWatch?.Dispose();
     }

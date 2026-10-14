@@ -940,6 +940,34 @@ public sealed class PortalBoot(IJSRuntime js, PortalPrefs prefs, ILogger<PortalB
         await prefs.SetAsync(PortalPrefs.BottomNavLabelsHiddenKey, hidden ? true : null);
     }
 
+    /// <summary>같은 칸들을 넓은 화면 헤더에 세울지가 바뀌었을 때 알린다.</summary>
+    public event Action<bool>? BottomNavDesktopHiddenChanged;
+
+    /// <summary>
+    /// 띠에 고른 칸들을 <b>넓은 화면 헤더 오른쪽에 세우지 않을지</b>를 저장하고
+    /// 화면에 알린다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>계정에 담긴다</b>(<see cref="PortalPrefs.BottomNavDesktopHiddenKey"/>).
+    /// 칸 목록과 한 묶음이라 담기는 곳도 같아야 한다 — 갈라 두면 <b>칸은 따라오는데
+    /// 헤더만 기기마다 다른</b> 자리가 생긴다.
+    /// </para>
+    /// <para>
+    /// 다시 세우기로 하면 <b>열쇠를 지운다</b>(<c>null</c>). 거짓을 적어 두면
+    /// 「한 번도 안 고친 사람」과 「세우기로 고른 사람」이 계정에서 갈려, 나중에
+    /// 기본값을 바꿀 때 뒤엣사람만 옛 값에 붙박인다 —
+    /// <see cref="SetBottomNavLabelsHiddenAsync"/> 와 같은 까닭이다.
+    /// </para>
+    /// </remarks>
+    public async Task SetBottomNavDesktopHiddenAsync(bool hidden)
+    {
+        Remember(state => state.WithBottomNavDesktopHidden(hidden));
+        BottomNavDesktopHiddenChanged?.Invoke(hidden);
+
+        await prefs.SetAsync(PortalPrefs.BottomNavDesktopHiddenKey, hidden ? true : null);
+    }
+
     /// <summary>띠에 놓을 칸이 바뀌었을 때 알린다. 날것 JSON 을 그대로 준다.</summary>
     public event Action<string?>? BottomNavItemsChanged;
 
@@ -1395,6 +1423,17 @@ public sealed class PortalBoot(IJSRuntime js, PortalPrefs prefs, ILogger<PortalB
         public bool BottomNavLabelsHidden { get; private set; }
 
         /// <summary>
+        /// 같은 칸들을 <b>넓은 화면 헤더에 세우지 않기로</b> 했는가.
+        /// 고른 적이 없으면 <c>false</c> — 즉 선다.
+        /// </summary>
+        /// <remarks>
+        /// <b>브라우저 열쇠가 없다.</b> 바로 위와 같이 처음부터 계정에 난 값이라
+        /// (<see cref="PortalPrefs.BottomNavDesktopHiddenKey"/>) 여기에 실리는 길은
+        /// <see cref="WithAccountPrefs"/> 하나다.
+        /// </remarks>
+        public bool BottomNavDesktopHidden { get; private set; }
+
+        /// <summary>
         /// 토스트 알림 위치. 없거나 잘못된 값이면 <c>bottom-right</c> 다.
         /// </summary>
         public string ToastPosition { get; private set; } = "bottom-right";
@@ -1478,12 +1517,15 @@ public sealed class PortalBoot(IJSRuntime js, PortalPrefs prefs, ILogger<PortalB
         internal BrowserState WithBottomNavLabelsHidden(bool value) =>
             Patch(c => c.BottomNavLabelsHidden = value);
 
+        internal BrowserState WithBottomNavDesktopHidden(bool value) =>
+            Patch(c => c.BottomNavDesktopHidden = value);
+
         internal BrowserState WithToastPosition(string value) => Patch(c => c.ToastPosition = value);
 
         internal BrowserState WithZoomUnlocked(bool value) => Patch(c => c.ZoomUnlocked = value);
 
         /// <summary>
-        /// 계정에 담긴 다섯을 얹은 새 한 벌(<see cref="PortalPrefs"/>).
+        /// 계정에 담긴 것들을 얹은 새 한 벌(<see cref="PortalPrefs"/>).
         /// </summary>
         /// <remarks>
         /// <b>고른 적이 없는 칸은 건드리지 않는다.</b> 계정에 열쇠가 없다는
@@ -1496,6 +1538,8 @@ public sealed class PortalBoot(IJSRuntime js, PortalPrefs prefs, ILogger<PortalB
             c.BottomNavItemsJson = account.Raw(PortalPrefs.BottomNavItemsKey) ?? c.BottomNavItemsJson;
             c.BottomNavLabelsHidden =
                 account.Flag(PortalPrefs.BottomNavLabelsHiddenKey) ?? c.BottomNavLabelsHidden;
+            c.BottomNavDesktopHidden =
+                account.Flag(PortalPrefs.BottomNavDesktopHiddenKey) ?? c.BottomNavDesktopHidden;
             c.FabHidden = account.Flag(PortalPrefs.FabHiddenKey) ?? c.FabHidden;
             c.HelpDeskFabHidden = account.Flag(PortalPrefs.HelpDeskFabHiddenKey) ?? c.HelpDeskFabHidden;
             c.ToastPosition = NormalizeToastPosition(

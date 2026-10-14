@@ -71,36 +71,12 @@ public partial class MobileBottomNav
         string.Equals(item.Path, BottomNav.ProfilePath, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
-    /// 칸을 눌렀다. 테마 서랍만 주소가 아니고, 나머지는 <b>메뉴를 한 번
-    /// 거쳐</b> 간다(<see cref="BottomNav.Resolve"/>) — 적어 둔 경로가 옛
-    /// 경로일 수 있다.
+    /// 칸을 눌렀다. <b>무슨 일이 일어나는지는 여기가 정하지 않는다</b> —
+    /// 같은 칸 목록을 넓은 화면 헤더도 그리므로(<see cref="HeaderNavTools"/>)
+    /// 판정을 <see cref="BottomNav.Open"/> 한 곳에 둔다.
     /// </summary>
-    private void Go(BottomNavItem item)
-    {
-        if (string.Equals(item.Path, BottomNav.ThemePath, StringComparison.OrdinalIgnoreCase))
-        {
-            Theme.Open();
-            return;
-        }
-
-        if (string.Equals(item.Path, BottomNav.MenuPath, StringComparison.OrdinalIgnoreCase))
-        {
-            // **여닫이다.** 펴져 있으면 이 부탁이 판을 접는다 —
-            // 접는 판정은 상태를 든 쪽에 있다(`MainLayout.OnMenuRevealRequested`).
-            // 여기서 여닫으려면 띠가 `_sidebarOpen` 을 알아야 하고, 그러면
-            // 같은 상태를 두 곳이 나눠 들게 된다.
-            Reveal.Request(BottomNav.MenuPath);
-            return;
-        }
-
-        if (string.Equals(item.Path, BottomNav.ProfilePath, StringComparison.OrdinalIgnoreCase))
-        {
-            UserDrawer.Toggle();
-            return;
-        }
-
-        Navigation.NavigateTo(BottomNav.Resolve(item, Menus.AllMenus));
-    }
+    private void Go(BottomNavItem item) =>
+        BottomNav.Open(item, Menus.AllMenus, Navigation, Theme, Reveal, UserDrawer);
 
     /// <summary>
     /// 두 목록이 같은가. 목록끼리는 통째로 비교하면 <b>참조만 본다</b> —

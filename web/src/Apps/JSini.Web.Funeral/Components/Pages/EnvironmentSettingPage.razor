@@ -159,7 +159,9 @@
     한 번도 안 누르는 칸이고, 정작 자주 여는 빈소 현황은 메뉴를 열어야 닿는다.
 
     그래서 **쓸지 말지**와 **무엇을 놓을지**, 그리고 **어느 차례로 놓을지**를
-    여기서 정한다. 고른 적이 없으면 업무를 가리지 않는 다섯이다 —
+    여기서 정한다. 고른 칸은 **책상에서도 쓰인다** — 넓은 화면에서는 같은
+    것들이 헤더 오른쪽 도구 줄에 아이콘으로 선다(`HeaderNavTools`). 고르는
+    수고는 한 번인데 돌려받는 자리가 ≤767px 하나뿐이던 것을 고친 자리다. 고른 적이 없으면 업무를 가리지 않는 다섯이다 —
     홈 · 알림 · 설정 · 프로필 · 메뉴(`BottomNav.Defaults`).
 
     차례가 따로 필요한 까닭은 띠가 **가로 한 줄**이기 때문이다. 끝의 두어 칸은
@@ -182,6 +184,7 @@
     | | 어떻게 |
     |---|---|
     | 쓸지 | 스위치 하나. 끄면 띠도 자리도 사라진다 |
+    | **책상에서도 쓸지** | 스위치 하나. 켜면 **같은 칸들이 헤더 오른쪽에 아이콘으로** 선다(`HeaderNavTools`). 휴대폰 스위치와 따로다 — 둘 다 꺼야 아래 고르개가 잠긴다 |
     | **이름을 적을지** | 스위치 하나. 끄면 아이콘만 남고 **띠가 60px → 44px 로 얇아진다** — 그 16px 은 본문이 가져간다 |
     | **몇 칸** | **셋에서 여덟**(`BottomNav.MinItems`~`MaxItems`). 양 끝에서 단추가 잠기고, 까닭은 조작줄의 「5 / 3~8칸」이 말한다 |
     | 무엇을 | 메뉴에서 고른다 |
@@ -571,10 +574,31 @@
                     Checked="@_bottomNavLabelsHidden"
                     CheckedChanged="@((bool v) => OnBottomNavLabelsHiddenChangedAsync(v))" />
     </div>
+
+    @* [같은 칸들을 넓은 화면 헤더에도 세운다]
+
+       **위 둘과 달리 잠그지 않는다.** 이 스위치는 띠가 아니라 헤더를 가리키는
+       것이라, 띠를 안 쓰기로 한 사람에게도 할 일이 남아 있다 — 실제로 「휴대폰
+       띠는 거슬리는데 책상에서는 쓰고 싶다」가 이 스위치를 가른 까닭이다. *@
+    <div class="jsini-setting">
+        <div>
+            <div class="jsini-setting__name">데스크탑 상단에 표시</div>
+            <div class="jsini-setting__desc">
+                넓은 화면(768px 이상)에서는 <b>같은 칸들이 헤더 오른쪽 도구 줄에 아이콘으로</b> 섭니다.
+                자리가 좁아 이름은 빠지고 짚으면 뜹니다. <b>휴대폰 띠와 따로 켜고 끕니다</b>.
+            </div>
+        </div>
+
+        <DxCheckBox CheckType="CheckType.Switch"
+                    Checked="@(!_bottomNavDesktopHidden)"
+                    CheckedChanged="@((bool v) => OnBottomNavDesktopUsedChangedAsync(v))" />
+    </div>
 </section>
 
-@* 끈 동안에는 통째로 잠근다. 값은 지우지 않아 다시 켜면 고르던 그대로다. *@
-<div class="fn-bnav @(_bottomNavHidden ? "fn-bnav--off" : "")">
+@* **둘 다 끈 동안에만** 통째로 잠근다. 한쪽만 꺼 둔 사람에게는 고른 칸이
+   여전히 쓰이는 자리가 있다 — 휴대폰 띠를 끄고 헤더만 쓰는 사람이 그렇다.
+   값은 지우지 않아 다시 켜면 고르던 그대로다. *@
+<div class="fn-bnav @(NavLocked ? "fn-bnav--off" : "")">
 
     @*
         [메뉴가 아닌 넷은 목록에서 찾기 어렵다]
@@ -616,13 +640,13 @@
                         AllowUserInput="true"
                         SearchMode="ListSearchMode.AutoSearch"
                         SearchFilterCondition="ListSearchFilterCondition.Contains"
-                        Enabled="@(!_bottomNavHidden)"
+                        Enabled="@(!NavLocked)"
                         CssClass="fn-bnav__menu" />
 
             <DxTextBox Text="@item.Title"
                        TextChanged="@((string? text) => OnNavTitleChangedAsync(index, text))"
                        BindValueMode="BindValueMode.OnLostFocus"
-                       Enabled="@(!_bottomNavHidden)"
+                       Enabled="@(!NavLocked)"
                        CssClass="fn-bnav__name" />
 
             @*
@@ -643,13 +667,13 @@
             *@
             <DxButton IconCssClass="jsini-icon-chevron-down" Title="앞으로 (띠에서 왼쪽)"
                       RenderStyle="ButtonRenderStyle.Secondary"
-                      Enabled="@(!_bottomNavHidden && index > 0)"
+                      Enabled="@(!NavLocked && index > 0)"
                       Click="@(() => OnNavMoveAsync(index, -1))"
                       CssClass="fn-bnav__move fn-bnav__move--up" />
 
             <DxButton IconCssClass="jsini-icon-chevron-down" Title="뒤로 (띠에서 오른쪽)"
                       RenderStyle="ButtonRenderStyle.Secondary"
-                      Enabled="@(!_bottomNavHidden && index < _navItems.Count - 1)"
+                      Enabled="@(!NavLocked && index < _navItems.Count - 1)"
                       Click="@(() => OnNavMoveAsync(index, 1))"
                       CssClass="fn-bnav__move" />
 
@@ -661,7 +685,7 @@
                 왜 잠겼는지는 아래 「3 / 3~8칸」이 말한다.
             *@
             <DxButton IconCssClass="jsini-icon-trash" Title="빼기" RenderStyle="ButtonRenderStyle.Secondary"
-                      Enabled="@(!_bottomNavHidden && _navItems.Count > BottomNav.MinItems)"
+                      Enabled="@(!NavLocked && _navItems.Count > BottomNav.MinItems)"
                       Click="@(() => OnNavRemoveAsync(index))"
                       CssClass="fn-bnav__drop" />
         </div>
@@ -670,11 +694,11 @@
     <div class="fn-bnav__actions">
         <DxButton Text="항목 추가" IconCssClass="jsini-icon-plus"
                   RenderStyle="ButtonRenderStyle.Secondary"
-                  Enabled="@(!_bottomNavHidden && _navItems.Count < BottomNav.MaxItems)"
+                  Enabled="@(!NavLocked && _navItems.Count < BottomNav.MaxItems)"
                   Click="@OnNavAddAsync" />
 
         <DxButton Text="기본값으로" RenderStyle="ButtonRenderStyle.Link"
-                  Enabled="@(!_bottomNavHidden)"
+                  Enabled="@(!NavLocked)"
                   Click="@OnNavResetAsync" />
 
         @*
