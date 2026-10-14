@@ -25,6 +25,12 @@
     화면으로 가는 길이다. **미리받아보기**는 저장 전에도, 나에게만 보낸다:
     [docs/report-mail.md](docs/report-mail.md)
   - `AIAgentServer` (:5029) · `FileServer` (:5350) · `HelpDeskServer` (:5400)
+    AIAgentServer 는 **추론 장비(호스트명 `llm`)의 하드웨어 상태도 중계한다** —
+    `/admin/status/llm` 이 읽는 그 수집기의 정본은 장비가 아니라
+    [deploy/llm/](deploy/llm/) 에 있다. **「GPU 를 읽지 못했습니다」는 거의 늘
+    드라이버 판 어긋남**이고(꾸러미만 올라가고 커널 모듈은 그대로),
+    그때도 **추론은 멀쩡히 돌아서** 서비스 상태로는 안 갈린다
+
     내 요청글에 **댓글이 달렸을 때** 글 주인에게 가는 앱푸시·이메일과 그것을
     끄는 자리는 [docs/helpdesk-comment-notify.md](docs/helpdesk-comment-notify.md) —
     그 길도 한동안 **「자기 글에 자기가 단 답글은 뺀다」**가 막고 있었다
@@ -166,5 +172,7 @@ nginx 설정 정본은 [deploy/nginx/](deploy/nginx/) 에 있다 — Blazor 회�
   접수·완료·종료 알림: 구독표가 둘로 갈려 **완료 알림이 0 통**이던 까닭과 고친 길
 - [docs/screen-access.md](docs/screen-access.md) — 메뉴에 없는 화면이 주소만으로
   열리던 구멍: 기본 차단으로 뒤집은 길과 「차단 접근기록」 화면
+- [deploy/llm/README.md](deploy/llm/README.md) — 추론 장비의 상태 수집기 정본과,
+  「GPU 를 읽지 못했습니다」를 재부팅 없이 푸는 길
 - [web/CLAUDE.md](web/CLAUDE.md) — Blazor 포털의 MFE 구조·의존 규칙·DevExpress 라이선스
 - [.claude/agents/](.claude/agents/) — 전문 서브에이전트 정의

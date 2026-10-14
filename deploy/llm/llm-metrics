@@ -1,0 +1,389 @@
+#!/usr/bin/env python3
+import json, os, re, shutil, socket, subprocess, time, urllib.request
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+PORT = 11436
+MAIN = "http://127.0.0.1:11433"
+FIM = "http://127.0.0.1:11431"
+UNITS = ["llama-server.service", "llama-fim.service", "nginx.service", "llm-healthcheck.timer"]
+
+
+def run(cmd, timeout=5):
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        return r.stdout.strip() if r.returncode == 0 else ""
+    except Exception:
+        return ""
+
+
+def run_full(cmd, timeout=5):
+    """returncode 와 stdout·stderr 를 **그대로** 돌려준다.
+
+    run() 은 0 이 아니면 빈 문자열을 주므로 **까닭이 사라진다.** GPU 를 못 읽는
+    이유가 화면에 「nvidia-smi 실행 실패」 한 줄로만 남던 까닭이 이것이었다
+    (2026-10-14). 실패를 다루는 자리에서는 이쪽을 쓴다.
+    """
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        return r.returncode, r.stdout.strip(), r.stderr.strip()
+    except subprocess.TimeoutExpired:
+        return -1, "", f"{cmd[0]} 가 {timeout}초 안에 끝나지 않았습니다."
+    except Exception as e:  # 실행 파일이 없거나 권한이 없을 때
+        return -1, "", str(e)
+
+
+def read(path, default=""):
+    try:
+        with open(path) as f:
+            return f.read().strip()
+    except Exception:
+        return default
+
+
+def http_json(url, timeout=3):
+    try:
+        with urllib.request.urlopen(url, timeout=timeout) as r:
+            return json.loads(r.read().decode())
+    except Exception:
+        return None
+
+
+def cpu_times():
+    out = []
+    for line in read("/proc/stat").splitlines():
+        if line.startswith("cpu"):
+            p = line.split()
+            if len(p) >= 8:
+                out.append((p[0], [int(x) for x in p[1:8]]))
+    return out
+
+
+def cpu_usage(interval=0.25):
+    a = dict(cpu_times())
+    time.sleep(interval)
+    b = dict(cpu_times())
+    res = {}
+    for k in b:
+        if k not in a:
+            continue
+        d = [y - x for x, y in zip(a[k], b[k])]
+        tot = sum(d)
+        idle = d[3] + d[4]
+        res[k] = round(100.0 * (tot - idle) / tot, 1) if tot > 0 else 0.0
+    return res
+
+
+def system():
+    up = float(read("/proc/uptime", "0 0").split()[0] or 0)
+    load = read("/proc/loadavg", "0 0 0").split()
+    osr = {}
+    for line in read("/etc/os-release").splitlines():
+        if "=" in line:
+            k, v = line.split("=", 1)
+            osr[k] = v.strip('"')
+    return {
+        "hostname": socket.gethostname(),
+        "os": osr.get("PRETTY_NAME", ""),
+        "kernel": run(["uname", "-r"]),
+        "uptimeSeconds": int(up),
+        "bootTime": int(time.time() - up),
+        "loadAvg": [float(x) for x in load[:3]] if len(load) >= 3 else [0, 0, 0],
+        "collectedAt": int(time.time()),
+    }
+
+
+def cpu():
+    model, sockets = "", 1
+    for line in read("/proc/cpuinfo").splitlines():
+        if line.startswith("model name") and not model:
+            model = line.split(":", 1)[1].strip()
+    usage = cpu_usage()
+    freqs = []
+    for i in range(os.cpu_count() or 0):
+        f = read(f"/sys/devices/system/cpu/cpu{i}/cpufreq/scaling_cur_freq")
+        if f.isdigit():
+            freqs.append(int(f) // 1000)
+    temp = None
+    for z in sorted(os.listdir("/sys/class/thermal")) if os.path.isdir("/sys/class/thermal") else []:
+        if z.startswith("thermal_zone"):
+            t = read(f"/sys/class/thermal/{z}/type")
+            v = read(f"/sys/class/thermal/{z}/temp")
+            if v.isdigit() and ("k10temp" in t or "x86" in t or temp is None):
+                temp = round(int(v) / 1000.0, 1)
+    return {
+        "model": model,
+        "logicalCores": os.cpu_count(),
+        "governor": read("/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"),
+        "energyPreference": read("/sys/devices/system/cpu/cpu0/cpufreq/energy_performance_preference"),
+        "totalUsagePercent": usage.get("cpu", 0.0),
+        "perCorePercent": [usage[f"cpu{i}"] for i in range(os.cpu_count() or 0) if f"cpu{i}" in usage],
+        "currentMhz": freqs,
+        "avgMhz": round(sum(freqs) / len(freqs)) if freqs else None,
+        "temperatureC": temp,
+    }
+
+
+def memory():
+    m = {}
+    for line in read("/proc/meminfo").splitlines():
+        p = line.split(":")
+        if len(p) == 2:
+            v = p[1].strip().split()[0]
+            if v.isdigit():
+                m[p[0]] = int(v) * 1024
+    total = m.get("MemTotal", 0)
+    avail = m.get("MemAvailable", 0)
+    return {
+        "totalBytes": total,
+        "availableBytes": avail,
+        "usedBytes": total - avail,
+        "usedPercent": round(100.0 * (total - avail) / total, 1) if total else 0,
+        "cachedBytes": m.get("Cached", 0),
+        "buffersBytes": m.get("Buffers", 0),
+        "swapTotalBytes": m.get("SwapTotal", 0),
+        "swapUsedBytes": m.get("SwapTotal", 0) - m.get("SwapFree", 0),
+    }
+
+
+GPU_FIELDS = [
+    "index", "name", "uuid", "driver_version", "vbios_version", "serial",
+    "temperature.gpu", "temperature.memory", "fan.speed",
+    "utilization.gpu", "utilization.memory",
+    "memory.total", "memory.used", "memory.free", "memory.reserved",
+    "power.draw", "power.limit", "power.max_limit", "enforced.power.limit",
+    "clocks.sm", "clocks.mem", "clocks.gr", "clocks.max.sm", "clocks.max.mem",
+    "pcie.link.gen.current", "pcie.link.gen.max",
+    "pcie.link.width.current", "pcie.link.width.max",
+    "persistence_mode", "compute_mode", "ecc.mode.current",
+    "clocks_event_reasons.active",
+    "encoder.stats.averageFps", "pstate",
+]
+
+
+GPU_TEXT = {"name", "uuid", "driverVersion", "vbiosVersion", "serial",
+            "persistenceMode", "computeMode", "eccModeCurrent",
+            "clocksEventReasonsActive", "pstate"}
+
+
+def text(v):
+    v = (v or "").strip()
+    return None if v in ("", "N/A", "[N/A]", "[Not Supported]", "Not Supported") else v
+
+
+def num(v):
+    v = (v or "").strip()
+    if v in ("", "N/A", "[N/A]", "[Not Supported]", "Not Supported"):
+        return None
+    try:
+        return float(v) if "." in v else int(v)
+    except ValueError:
+        return v
+
+
+def nvrm_version():
+    """지금 **올라가 있는** 커널 모듈의 판.
+
+    NVML 이 죽어도 /proc 는 읽힌다 — 어긋남을 말하려면 양쪽 판이 모두 있어야
+    하는데, 라이브러리 쪽 판은 nvidia-smi 가 오류문에 적어 주고 커널 쪽은
+    여기에만 있다.
+    """
+    m = re.search(r"Kernel Module\s+([0-9.]+)", read("/proc/driver/nvidia/version"))
+    return m.group(1) if m else ""
+
+
+def gpu_fail_reason(rc, out, err):
+    """nvidia-smi 가 실패한 까닭을 **사람 말로** 바꾼다.
+
+    가장 잦은 것이 **드라이버 판 어긋남**이다. unattended-upgrades 가 nvidia
+    꾸러미를 올려도 이미 올라가 있는 커널 모듈은 그대로라, 다시 올리기(또는
+    재부팅) 전까지 NVML 초기화가 막힌다. 그런데 **추론은 멀쩡히 돈다** —
+    llama-server 가 이미 잡아 둔 핸들을 그대로 쓰기 때문이다. 그래서 「GPU 만
+    안 보이고 서비스는 정상」이라는, 원인을 짚기 나쁜 모양이 된다.
+    2026-10-11 의 595.84 → 595.99.02 올림이 꼭 그랬다.
+    """
+    msg = (err or out).strip()
+    head = msg.splitlines()[0].strip() if msg else ""
+
+    if "version mismatch" in msg.lower():
+        running = nvrm_version() or "?"
+        m = re.search(r"NVML library version:\s*([0-9.]+)", msg)
+        lib = m.group(1) if m else "?"
+        return ("드라이버 판이 어긋났습니다 — 올라가 있는 커널 모듈 "
+                f"{running}, 설치된 라이브러리 {lib}. 드라이버를 올린 뒤 아직 "
+                "다시 올리지 않았습니다. 장비를 재부팅하거나 nvidia 모듈을 "
+                "다시 올려야 합니다(추론 자체는 계속 돕니다).")
+
+    return head or f"nvidia-smi 가 {rc} 로 끝났습니다."
+
+
+def gpus():
+    if not shutil.which("nvidia-smi"):
+        return {"available": False, "reason": "nvidia-smi 없음", "devices": []}
+    rc, out, err = run_full(
+        ["nvidia-smi", f"--query-gpu={','.join(GPU_FIELDS)}", "--format=csv,noheader,nounits"],
+        timeout=8)
+    if rc != 0 or not out:
+        # 실패했을 때만 민낯 nvidia-smi 를 한 번 더 부른다. 까닭은 거기에 적힌다.
+        if rc == 0:
+            rc, out, err = run_full(["nvidia-smi"], timeout=8)
+            if rc == 0:
+                return {"available": False,
+                        "reason": "nvidia-smi 가 GPU 를 한 장도 보고하지 않았습니다.",
+                        "devices": []}
+        return {"available": False, "reason": gpu_fail_reason(rc, out, err), "devices": []}
+
+    procs = {}
+    po = run(["nvidia-smi", "--query-compute-apps=gpu_uuid,pid,process_name,used_memory",
+              "--format=csv,noheader,nounits"], timeout=8)
+    for line in po.splitlines():
+        p = [x.strip() for x in line.split(",")]
+        if len(p) >= 4:
+            procs.setdefault(p[0], []).append(
+                {"pid": num(p[1]), "name": p[2], "memoryMiB": num(p[3])})
+
+    devices = []
+    for line in out.splitlines():
+        vals = [x.strip() for x in line.split(",")]
+        if len(vals) != len(GPU_FIELDS):
+            continue
+        d = {}
+        for k, v in zip(GPU_FIELDS, vals):
+            key = re.sub(r"[._](\w)", lambda m: m.group(1).upper(), k)
+            d[key] = text(v) if key in GPU_TEXT else num(v)
+        d["processes"] = procs.get(d.get("uuid"), [])
+        mt, mu = d.get("memoryTotal") or 0, d.get("memoryUsed") or 0
+        d["memoryUsedPercent"] = round(100.0 * mu / mt, 1) if mt else 0
+        devices.append(d)
+
+    cuda = ""
+    sm = run(["nvidia-smi"], timeout=8)
+    mm = re.search(r"CUDA Version:\s*([0-9.]+)", sm)
+    if mm:
+        cuda = mm.group(1)
+    return {"available": True, "reason": "", "cudaVersion": cuda, "devices": devices}
+
+
+def disks():
+    out, rows = run(["df", "-B1", "--output=source,target,fstype,size,used,avail,pcent", "-x", "tmpfs",
+                     "-x", "devtmpfs", "-x", "squashfs", "-x", "overlay"], timeout=5), []
+    for line in out.splitlines()[1:]:
+        p = line.split()
+        if len(p) >= 7 and p[0].startswith("/dev"):
+            rows.append({"device": p[0], "mount": p[1], "fsType": p[2],
+                         "totalBytes": int(p[3]), "usedBytes": int(p[4]),
+                         "availableBytes": int(p[5]),
+                         "usedPercent": float(p[6].rstrip("%"))})
+    return rows
+
+
+def network():
+    rows = []
+    for line in read("/proc/net/dev").splitlines()[2:]:
+        if ":" not in line:
+            continue
+        name, rest = line.split(":", 1)
+        name = name.strip()
+        p = rest.split()
+        if name == "lo" or len(p) < 16:
+            continue
+        rows.append({"name": name, "rxBytes": int(p[0]), "rxPackets": int(p[1]),
+                     "rxErrors": int(p[2]), "txBytes": int(p[8]), "txPackets": int(p[9]),
+                     "txErrors": int(p[10]),
+                     "operState": read(f"/sys/class/net/{name}/operstate"),
+                     "speedMbps": num(read(f"/sys/class/net/{name}/speed"))})
+    return rows
+
+
+def services():
+    rows = []
+    for u in UNITS:
+        props = run(["systemctl", "show", u, "--property=ActiveState,SubState,UnitFileState,"
+                     "ActiveEnterTimestampMonotonic,NRestarts,MemoryCurrent,MainPID"], timeout=5)
+        d = {}
+        for line in props.splitlines():
+            if "=" in line:
+                k, v = line.split("=", 1)
+                d[k] = v
+        mono = num(d.get("ActiveEnterTimestampMonotonic")) or 0
+        upsec = float(read("/proc/uptime", "0 0").split()[0] or 0)
+        rows.append({
+            "unit": u,
+            "activeState": d.get("ActiveState", ""),
+            "subState": d.get("SubState", ""),
+            "enabled": d.get("UnitFileState", ""),
+            "restarts": num(d.get("NRestarts")) or 0,
+            "memoryBytes": num(d.get("MemoryCurrent")) if (d.get("MemoryCurrent") or "").isdigit() else None,
+            "mainPid": num(d.get("MainPID")),
+            "activeSeconds": int(upsec - mono / 1_000_000) if mono else None,
+        })
+    return rows
+
+
+def llm_server(base, label):
+    info = {"label": label, "baseUrl": base, "reachable": False, "models": [], "props": None}
+    h = http_json(f"{base}/health", timeout=2)
+    info["reachable"] = h is not None
+    if h is None:
+        return info
+    m = http_json(f"{base}/v1/models", timeout=3)
+    if m:
+        for x in m.get("data", []):
+            meta = x.get("meta") or {}
+            info["models"].append({
+                "id": x.get("id"),
+                "contextLength": meta.get("n_ctx"),
+                "trainedContext": meta.get("n_ctx_train"),
+                "params": meta.get("n_params"),
+                "sizeBytes": meta.get("size"),
+                "quantization": meta.get("ftype"),
+                "vocabSize": meta.get("n_vocab"),
+            })
+    p = http_json(f"{base}/props", timeout=3)
+    if p:
+        info["props"] = {
+            "slots": len(p.get("slots", [])) if isinstance(p.get("slots"), list) else p.get("total_slots"),
+            "modelPath": p.get("model_path"),
+            "chatTemplate": bool(p.get("chat_template")),
+        }
+    return info
+
+
+def collect():
+    return {
+        "system": system(),
+        "cpu": cpu(),
+        "memory": memory(),
+        "gpu": gpus(),
+        "disks": disks(),
+        "network": network(),
+        "services": services(),
+        "llm": [llm_server(MAIN, "주 모델"), llm_server(FIM, "자동완성")],
+    }
+
+
+class Handler(BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"
+
+    def log_message(self, *a):
+        pass
+
+    def do_GET(self):
+        if self.path.rstrip("/") not in ("", "/metrics"):
+            self.send_error(404)
+            return
+        try:
+            body = json.dumps(collect(), ensure_ascii=False).encode()
+            code = 200
+        except Exception as e:
+            body = json.dumps({"error": str(e)}, ensure_ascii=False).encode()
+            code = 500
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        self.wfile.write(body)
+
+
+if __name__ == "__main__":
+    ThreadingHTTPServer(("127.0.0.1", PORT), Handler).serve_forever()

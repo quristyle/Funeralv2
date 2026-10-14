@@ -1,0 +1,14 @@
+[Unit]
+Description=LLM host metrics collector
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=exec
+User=root
+ExecStart=/usr/local/bin/llm-metrics
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
