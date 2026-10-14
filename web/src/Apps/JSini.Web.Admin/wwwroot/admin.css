@@ -516,6 +516,47 @@
   opacity: 0.75;
 }
 
+/* 요약 영역 — 검색영역 아래 컴팩트한 한 줄의 띠.
+   전체·묶음·화면·숨김·중지 건수를 한 줄로 압축해 본문 트리/그리드 영역을 최대한 넓힌다. */
+.ad-menu-strip {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.85rem;
+  padding: 0.35rem 0.85rem;
+  margin-bottom: 0.5rem;
+  background: var(--jsini-surface);
+  border: 1px solid var(--jsini-border);
+  border-radius: var(--jsini-radius, 4px);
+  font-size: var(--jsini-fs-sm);
+  min-height: 2.1rem;
+}
+
+.ad-menu-strip__item {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+
+.ad-menu-strip__label {
+  font-size: var(--jsini-fs-xs);
+  color: var(--jsini-text-muted);
+}
+
+.ad-menu-strip__val {
+  font-size: var(--jsini-fs-sm);
+  font-weight: 700;
+  color: var(--jsini-text);
+}
+
+.ad-menu-strip__sep {
+  width: 1px;
+  height: 0.75rem;
+  background-color: var(--jsini-border);
+  align-self: center;
+}
+
 /* ── 배포 진행 기록 ──────────────────────────────────────
 
    스크립트가 뱉은 줄들이다. **등폭 글꼴**이라야 읽힌다 — 진행 막대와

@@ -70,12 +70,31 @@
 
 @if (_stats is not null)
 {
-    <div class="jsini-stats">
-        <div class="jsini-stat"><span class="jsini-stat__label">전체</span><span class="jsini-stat__value">@_stats.Total</span></div>
-        <div class="jsini-stat"><span class="jsini-stat__label">묶음</span><span class="jsini-stat__value">@_stats.Catalogs</span></div>
-        <div class="jsini-stat"><span class="jsini-stat__label">화면</span><span class="jsini-stat__value">@_stats.Screens</span></div>
-        <div class="jsini-stat"><span class="jsini-stat__label">숨김</span><span class="jsini-stat__value">@_stats.Hidden</span></div>
-        <div class="jsini-stat"><span class="jsini-stat__label">중지</span><span class="jsini-stat__value">@_stats.Stopped</span></div>
+    <div class="ad-menu-strip" role="status" aria-label="메뉴 현황 요약">
+        <div class="ad-menu-strip__item">
+            <span class="ad-menu-strip__label">전체</span>
+            <span class="ad-menu-strip__val">@_stats.Total</span>
+        </div>
+        <span class="ad-menu-strip__sep" aria-hidden="true"></span>
+        <div class="ad-menu-strip__item">
+            <span class="ad-menu-strip__label">묶음</span>
+            <span class="ad-menu-strip__val">@_stats.Catalogs</span>
+        </div>
+        <span class="ad-menu-strip__sep" aria-hidden="true"></span>
+        <div class="ad-menu-strip__item">
+            <span class="ad-menu-strip__label">화면</span>
+            <span class="ad-menu-strip__val">@_stats.Screens</span>
+        </div>
+        <span class="ad-menu-strip__sep" aria-hidden="true"></span>
+        <div class="ad-menu-strip__item">
+            <span class="ad-menu-strip__label">숨김</span>
+            <span class="ad-menu-strip__val">@_stats.Hidden</span>
+        </div>
+        <span class="ad-menu-strip__sep" aria-hidden="true"></span>
+        <div class="ad-menu-strip__item">
+            <span class="ad-menu-strip__label">중지</span>
+            <span class="ad-menu-strip__val">@_stats.Stopped</span>
+        </div>
     </div>
 }
 
