@@ -60,14 +60,11 @@
     </Actions>
 </CommSch>
 
-@* 배치 목록. 쪽나누기를 켜는 까닭은 **높이를 묶기 위해서**다 — 가상 스크롤로
-   두면 판이 자료만큼 늘어나 아래 좌우 분할을 밀어낸다. *@
+@* 배치 목록. *@
 <div class="rm-top">
-    <CommCont Title="배치 목록" CssClass="rm-top__pane">
+    <CommCont CssClass="rm-top__pane">
         <CommGrd TItem="ReportMailScheduleDto"
                  Data="@_schedules"
-                 PagerVisible="true"
-                 PageSize="5"
                  ShowExcelExport="false"
                  EmptyText="등록된 배치가 없습니다. 「배치 등록」으로 만듭니다."
                  Unit="개"
