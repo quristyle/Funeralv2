@@ -149,6 +149,9 @@ public partial class ReportMailList
     /// <summary>왼쪽 판 머리의 곁줄 — 몇 개 중 몇 개를 골랐나.</summary>
     private string ReportHint => $"{_pickedReports.Count} / {_catalog.Count} 선택";
 
+    /// <summary>오른쪽 판 받는 권한역할 머리의 곁줄 — 몇 개 중 몇 개를 골랐나.</summary>
+    private string RoleHint => $"{_pickedRoles.Count} / {_roles.Count} 선택";
+
     /// <summary>받는 사람 창에서 주소가 없는 사람을 짚는 줄.</summary>
     private string MissingEmailText => _recipients is null
         ? string.Empty

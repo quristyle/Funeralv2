@@ -3950,41 +3950,107 @@
   }
 }
 
-/* ── 보고서 메일 — 배치 목록 + 좌우 분할 ──────────────────
+/* ── 보고서 메일 — SplitterPane 분할 (`ReportMailList`) ──────
 
-   이 화면은 셸 본문의 직속 자식이 셋이다(조회줄 · 배치 목록 · 좌우 분할).
-   그중 **배치 목록을 맨 `.commcont` 로 두면 안 된다** — 공통 규칙(app.css 의
-   `.jsini-shell__content:has(> .commcont) > .commcont`)이 그 판에 `flex: 1` 을
-   걸어 남은 높이를 통째로 먹고, 아래 좌우 분할이 눌린다. 그래서 `.rm-top` 으로
-   한 겹 감싼다 — 감싸면 그 규칙의 `> ` 가 안 맞아 안 걸리고, 좌우 분할의
-   높이 규칙(`.ad-split`)만 남는다.
-
-   그 대신 목록의 높이는 **쪽나누기가 묶는다**(`PagerVisible="true"`).
-   가상 스크롤로 두면 판이 자료만큼 늘어나 같은 자리로 돌아온다.
+   화면 좌우를 `DxSplitter`(ad-vsplit)로 나누고,
+   왼쪽 영역은 상단(배치 목록)과 하단(시스템 모니터링 보고서)을
+   세로 `DxSplitter`(rm-vsplit)로 나누어 조절할 수 있게 한다.
+   오른쪽 영역은 선택된 배치의 받는 권한역할과 배치 정보 수정 섹션으로
+   명확히 분리하여 보여준다.
    ---------------------------------------------------------- */
 
-.rm-top {
-  /* 제 내용만큼만. 늘어나는 것은 아래 좌우 분할이다. */
+.rm-left {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding-right: 0.8rem;
+  overflow: hidden;
+}
+
+/* 왼쪽 상하 세로 스플리터 */
+.rm-vsplit.dxbl-splitter {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  --dxbl-splitter-pane-padding-x: 0;
+  --dxbl-splitter-pane-padding-y: 0;
+}
+
+.rm-vsplit > .dxbl-splitter-pane > .dxbl-splitter-pane-content {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.rm-vsplit .rm-pane.commcont {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.rm-vsplit .rm-pane.commcont > .commcont__body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.rm-vsplit .rm-pane.commcont > .commcont__body > .commgrd {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (width >= 992px) {
+  .rm-vsplit .rm-pane.commcont > .commcont__body > .commgrd > .dxbl-grid {
+    flex: 1;
+    min-height: 0;
+    height: 100%;
+    max-height: none;
+  }
+}
+
+.rm-vsplit > .dxbl-splitter-separator {
+  background-color: var(--bs-border-color, #e6e8eb);
+  transition: background-color 0.15s ease;
+}
+
+.rm-vsplit > .dxbl-splitter-separator:hover {
+  background-color: var(--bs-primary, #206bc4);
+}
+
+/* 오른쪽 패널: 받는 권한역할 + 배치 정보 수정 섹션 */
+.rm-right {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding-left: 0.8rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  gap: 1.2rem;
+}
+
+.rm-section.commcont {
   flex: none;
 }
 
-/* 좌우 분할 바로 위라 사이를 벌린다. `.commcont + .commcont` 는 둘 다
-   `.commcont` 일 때만 걸리는데 여기서는 사이에 `.rm-top` 이 끼어 있다. */
-.rm-top + .ad-split {
-  margin-top: 1.4rem;
+.rm-section--roles .commgrd {
+  min-height: 140px;
 }
 
-/* 오른쪽 판 — 표 하나와 폼이 쌓인다. **안쪽에서 구른다**(메뉴롤의
-   `.ad-menurole` 과 같은 사정) — 판이 `overflow: hidden` 이라 넘기면 잘린다. */
-.rm-edit {
+.rm-section--edit {
   flex: 1;
-  min-height: 0;
-  overflow-y: auto;
+}
 
-  /* **가로는 막는다.** 한 축만 `auto` 로 두면 다른 축이 따라서 `auto` 가 되고
-     (CSS 규칙이다), 안쪽 표가 1px 만 넘쳐도 **가로 막대가 판 아래에 걸린다** —
-     잴 때 실제로 그랬다. 넘칠 것은 표가 제 안에서 가로로 구른다. */
-  overflow-x: hidden;
+.rm-edit-body {
+  display: flex;
+  flex-direction: column;
 }
 
 /* 시·분 두 칸을 한 줄로. 칸 사이의 쌍점이 무엇과 무엇 사이인지 말해 준다. */

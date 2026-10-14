@@ -12,18 +12,13 @@
     옛 사람이 남는다. 역할을 적어 두면 사람롤 화면에서 한 번 빼는 것으로 끝난다 —
     비밀번호 재설정 메일이 관리자 주소를 설정에 안 적는 것과 같은 선이다.
 
-    [왼쪽이 보고서, 오른쪽이 받는 쪽이다]
+    [왼쪽과 오른쪽의 SplitterPane 분할]
 
-    고르는 순서가 그대로 왼쪽 → 오른쪽이다. 보고서를 먼저 고르고(무엇을),
-    역할과 주기를 정한다(누구에게 · 언제). 배치 목록은 그 위에 둔다 — 지금
-    고치고 있는 것이 어느 배치인지가 늘 보여야 한다.
-
-    [배치 목록을 맨 `CommCont` 로 두지 않는다]
-
-    셸 본문의 직속 자식이 `.commcont` 이면 공통 규칙(app.css)이 그 판에
-    `flex: 1` 을 걸어 **남은 높이를 통째로 먹는다.** 그러면 아래 좌우 분할이
-    눌린다. 그래서 `.rm-top` 으로 한 겹 감싼다 — 감싸면 그 규칙이 안 걸리고
-    좌우 분할의 높이 규칙(`.ad-split`)만 남는다.
+    화면을 좌우 `DxSplitter`(`ad-vsplit`)로 나누고,
+    왼쪽 영역은 상단(배치 목록)과 하단(시스템 모니터링 보고서)을 세로 `DxSplitter`(`rm-vsplit`)로
+    나누어 높이를 조절할 수 있게 한다.
+    오른쪽 영역은 선택된 배치의 「받는 권한역할」과 「배치 정보 수정」 섹션으로 분리하여 보여준다.
+    `DxSplitter`의 판은 반드시 `<Panes>` 안에 적어야 한다(`DxSplitterPanesTests`).
 
     [안 보내는 배치를 조용히 두지 않는다]
 
@@ -60,225 +55,240 @@
     </Actions>
 </CommSch>
 
-@* 배치 목록. *@
-<div class="rm-top">
-    <CommCont CssClass="rm-top__pane">
-        <CommGrd TItem="ReportMailScheduleDto"
-                 Data="@_schedules"
-                 ShowExcelExport="false"
-                 EmptyText="등록된 배치가 없습니다. 「배치 등록」으로 만듭니다."
-                 Unit="개"
-                 Reload="@ReloadAsync"
-                 SelectedItem="@_selected"
-                 SelectedItemChanged="@SelectAsync">
-            <Columns>
-                <DxGridDataColumn FieldName="@nameof(ReportMailScheduleDto.Name)" Caption="배치"
-                                  MinWidth="140" TextAlignment="GridTextAlignment.Left" />
-                <DxGridDataColumn Caption="주기" Width="150" TextAlignment="GridTextAlignment.Left">
-                    <CellDisplayTemplate Context="cell">
-                        @ReportMailFrequency.Describe((ReportMailScheduleDto)cell.DataItem)
-                    </CellDisplayTemplate>
-                </DxGridDataColumn>
-                <DxGridDataColumn Caption="보고서" Width="90">
-                    <CellDisplayTemplate Context="cell">
-                        @{
-                            var row = (ReportMailScheduleDto)cell.DataItem;
-                        }
-                        @(row.ReportKeys.Count)건
-                        @if (row.MissingReportKeys.Count > 0)
+@* 좌우 분할 (DxSplitter). 판은 반드시 <Panes> 안에 적는다. *@
+<DxSplitter CssClass="ad-vsplit" Orientation="Orientation.Horizontal" SeparatorSize="2">
+    <Panes>
+        @* ── 왼쪽: 상단 배치 목록 + 하단 시스템 모니터링 보고서 (세로 SplitterPane) ── *@
+        <DxSplitterPane Size="52%" MinSize="360px" MaxSize="75%">
+            <section class="ad-vsplit__pane ad-vsplit__pane--left rm-left">
+                <DxSplitter Orientation="Orientation.Vertical" SeparatorSize="2" CssClass="rm-vsplit">
+                    <Panes>
+                        @* 상단: 배치 목록 *@
+                        <DxSplitterPane Size="50%" MinSize="160px">
+                            <CommCont Title="배치 목록" CssClass="rm-pane">
+                                <CommGrd TItem="ReportMailScheduleDto"
+                                         Data="@_schedules"
+                                         ShowExcelExport="false"
+                                         EmptyText="등록된 배치가 없습니다. 「배치 등록」으로 만듭니다."
+                                         Unit="개"
+                                         Reload="@ReloadAsync"
+                                         SelectedItem="@_selected"
+                                         SelectedItemChanged="@SelectAsync">
+                                    <Columns>
+                                        <DxGridDataColumn FieldName="@nameof(ReportMailScheduleDto.Name)" Caption="배치"
+                                                          MinWidth="120" TextAlignment="GridTextAlignment.Left" />
+                                        <DxGridDataColumn Caption="주기" Width="130" TextAlignment="GridTextAlignment.Left">
+                                            <CellDisplayTemplate Context="cell">
+                                                @ReportMailFrequency.Describe((ReportMailScheduleDto)cell.DataItem)
+                                            </CellDisplayTemplate>
+                                        </DxGridDataColumn>
+                                        <DxGridDataColumn Caption="보고서" Width="85">
+                                            <CellDisplayTemplate Context="cell">
+                                                @{
+                                                    var row = (ReportMailScheduleDto)cell.DataItem;
+                                                }
+                                                @(row.ReportKeys.Count)건
+                                                @if (row.MissingReportKeys.Count > 0)
+                                                {
+                                                    <span class="jsini-badge jsini-badge--warn">없어짐 @row.MissingReportKeys.Count</span>
+                                                }
+                                            </CellDisplayTemplate>
+                                        </DxGridDataColumn>
+                                        <DxGridDataColumn Caption="받는 역할" MinWidth="130" TextAlignment="GridTextAlignment.Left">
+                                            <CellDisplayTemplate Context="cell">
+                                                @string.Join(" · ", ((ReportMailScheduleDto)cell.DataItem).RoleNames)
+                                            </CellDisplayTemplate>
+                                        </DxGridDataColumn>
+                                        <DxGridDataColumn Caption="사용" Width="75">
+                                            <CellDisplayTemplate Context="cell">
+                                                @(((ReportMailScheduleDto)cell.DataItem).IsActive ? "예" : "아니오")
+                                            </CellDisplayTemplate>
+                                        </DxGridDataColumn>
+                                        <DxGridDataColumn Caption="다음 발송" Width="110">
+                                            <CellDisplayTemplate Context="cell">
+                                                @Stamp(((ReportMailScheduleDto)cell.DataItem).NextRunAt)
+                                            </CellDisplayTemplate>
+                                        </DxGridDataColumn>
+                                        <DxGridDataColumn Caption="마지막 발송" Width="110">
+                                            <CellDisplayTemplate Context="cell">
+                                                @Stamp(((ReportMailScheduleDto)cell.DataItem).LastSentAt)
+                                            </CellDisplayTemplate>
+                                        </DxGridDataColumn>
+                                    </Columns>
+                                </CommGrd>
+                            </CommCont>
+                        </DxSplitterPane>
+
+                        @* 하단: 시스템 모니터링 보고서 리스트 *@
+                        <DxSplitterPane MinSize="160px">
+                            <CommCont Title="시스템 모니터링 보고서" Hint="@ReportHint" CssClass="rm-pane">
+                                <CommGrd TItem="ReportCatalogItemDto"
+                                         Data="@_catalog"
+                                         SelectionMode="GridSelectionMode.Multiple"
+                                         SelectedItems="@_pickedReports"
+                                         SelectedItemsChanged="@OnReportsPickedAsync"
+                                         ShowExcelExport="false"
+                                         ShowHeader="false"
+                                         EmptyText="고를 수 있는 보고서가 없습니다."
+                                         Reload="@LoadCatalogAsync">
+                                    <Columns>
+                                        <DxGridSelectionColumn Width="40" />
+                                        <DxGridDataColumn Caption="보고서" MinWidth="150" TextAlignment="GridTextAlignment.Left">
+                                            <CellDisplayTemplate Context="cell">
+                                                @{
+                                                    var row = (ReportCatalogItemDto)cell.DataItem;
+                                                }
+                                                <MenuGlyph Type="MENU" Name="@row.Icon" OpensScreen="true" Text="@row.Title" />
+                                            </CellDisplayTemplate>
+                                        </DxGridDataColumn>
+                                    </Columns>
+                                </CommGrd>
+                            </CommCont>
+                        </DxSplitterPane>
+                    </Panes>
+                </DxSplitter>
+            </section>
+        </DxSplitterPane>
+
+        @* ── 오른쪽: 받는 권한역할 + 배치 정보 수정 섹션 분리 ── *@
+        <DxSplitterPane>
+            <section class="ad-vsplit__pane ad-vsplit__pane--right rm-right">
+                @* 1. 받는 권한역할 섹션 *@
+                <CommCont Title="받는 권한역할" Hint="@RoleHint" CssClass="rm-section rm-section--roles">
+                    <CommGrd TItem="RoleDto"
+                             Data="@_roles"
+                             PagerVisible="true"
+                             PageSize="5"
+                             SelectionMode="GridSelectionMode.Multiple"
+                             SelectedItems="@_pickedRoles"
+                             SelectedItemsChanged="@OnRolesPickedAsync"
+                             ShowExcelExport="false"
+                             ShowHeader="false"
+                             EmptyText="등록된 역할이 없습니다."
+                             Reload="@LoadRolesAsync">
+                        <Columns>
+                            <DxGridSelectionColumn Width="40" />
+                            <DxGridDataColumn FieldName="@nameof(RoleDto.Name)" Caption="역할"
+                                              MinWidth="130" TextAlignment="GridTextAlignment.Left" />
+                            <DxGridDataColumn FieldName="@nameof(RoleDto.Id)" Caption="식별자"
+                                              Width="180" TextAlignment="GridTextAlignment.Left" />
+                        </Columns>
+                    </CommGrd>
+                </CommCont>
+
+                @* 2. 배치 정보 수정 섹션 *@
+                <CommCont Title="@(_form.IsNew ? "새 배치 등록" : "배치 정보 수정")"
+                          Hint="@(_selected is not null ? _selected.Name : null)"
+                          CssClass="rm-section rm-section--edit">
+                    <div class="rm-edit-body">
+                        @if (_form.IsNew)
                         {
-                            <span class="jsini-badge jsini-badge--warn">없어짐 @row.MissingReportKeys.Count</span>
+                            <PageNotice Text="새 배치를 만들고 있습니다. 왼쪽에서 보고서를 고르고 받을 역할과 주기를 정하십시오."
+                                        Tone="NoticeTone.Info" />
                         }
-                    </CellDisplayTemplate>
-                </DxGridDataColumn>
-                <DxGridDataColumn Caption="받는 역할" MinWidth="150" TextAlignment="GridTextAlignment.Left">
-                    <CellDisplayTemplate Context="cell">
-                        @string.Join(" · ", ((ReportMailScheduleDto)cell.DataItem).RoleNames)
-                    </CellDisplayTemplate>
-                </DxGridDataColumn>
-                @* 70 으로 두면 머리글이 「사…」로 잘린다 — 정렬 화살표 자리까지 센다. *@
-                <DxGridDataColumn Caption="사용" Width="88">
-                    <CellDisplayTemplate Context="cell">
-                        @(((ReportMailScheduleDto)cell.DataItem).IsActive ? "예" : "아니오")
-                    </CellDisplayTemplate>
-                </DxGridDataColumn>
-                @* 시각 둘은 **보여 주기 직전에** 한국 시각으로 옮긴다
-                   (`Kst`). DTO 에 담겨 오는 값은 UTC 다. *@
-                <DxGridDataColumn Caption="다음 발송" Width="130">
-                    <CellDisplayTemplate Context="cell">
-                        @Stamp(((ReportMailScheduleDto)cell.DataItem).NextRunAt)
-                    </CellDisplayTemplate>
-                </DxGridDataColumn>
-                <DxGridDataColumn Caption="마지막 발송" Width="130">
-                    <CellDisplayTemplate Context="cell">
-                        @Stamp(((ReportMailScheduleDto)cell.DataItem).LastSentAt)
-                    </CellDisplayTemplate>
-                </DxGridDataColumn>
-            </Columns>
-        </CommGrd>
-    </CommCont>
-</div>
 
-@* 판 둘은 **`CommCont` 여야 한다** — 좌우 분할이 높이를 채우는 규칙이
-   `.ad-split > .commcont` 를 겨눈다(admin.css). *@
-<div class="ad-split">
-    <CommCont Title="시스템 모니터링 보고서" Hint="@ReportHint" CssClass="ad-split__side">
-        <CommGrd TItem="ReportCatalogItemDto"
-                 Data="@_catalog"
-                 SelectionMode="GridSelectionMode.Multiple"
-                 SelectedItems="@_pickedReports"
-                 SelectedItemsChanged="@OnReportsPickedAsync"
-                 ShowExcelExport="false"
-                 ShowHeader="false"
-                 EmptyText="고를 수 있는 보고서가 없습니다."
-                 Reload="@LoadCatalogAsync">
-            <Columns>
-                <DxGridSelectionColumn Width="40" />
-                <DxGridDataColumn Caption="보고서" MinWidth="150" TextAlignment="GridTextAlignment.Left">
-                    <CellDisplayTemplate Context="cell">
-                        @{
-                            var row = (ReportCatalogItemDto)cell.DataItem;
+                        <DxFormLayout CssClass="ad-form">
+                            <DxFormLayoutItem Caption="배치 이름" ColSpanMd="12">
+                                <DxTextBox @bind-Text="_form.Name" />
+                            </DxFormLayoutItem>
+
+                            <DxFormLayoutItem Caption="주기" ColSpanMd="4">
+                                <DxComboBox Data="@ReportMailFrequency.Options" @bind-Value="_form.Frequency"
+                                            TextFieldName="@nameof(ReportMailOption.Text)"
+                                            ValueFieldName="@nameof(ReportMailOption.Value)" />
+                            </DxFormLayoutItem>
+
+                            @if (_form.Frequency == ReportMailFrequency.Weekly)
+                            {
+                                <DxFormLayoutItem Caption="요일" ColSpanMd="4">
+                                    <DxComboBox Data="@ReportMailFrequency.DayOfWeekOptions" @bind-Value="_form.DayOfWeekText"
+                                                TextFieldName="@nameof(ReportMailOption.Text)"
+                                                ValueFieldName="@nameof(ReportMailOption.Value)" />
+                                </DxFormLayoutItem>
+                            }
+                            else if (_form.Frequency == ReportMailFrequency.Monthly)
+                            {
+                                <DxFormLayoutItem Caption="날짜" ColSpanMd="4">
+                                    <DxSpinEdit @bind-Value="_form.DayOfMonth" MinValue="1" MaxValue="31" />
+                                </DxFormLayoutItem>
+                            }
+
+                            <DxFormLayoutItem Caption="보낼 시각" ColSpanMd="4">
+                                <div class="rm-time">
+                                    <DxSpinEdit @bind-Value="_form.Hour" MinValue="0" MaxValue="23" DisplayFormat="00" />
+                                    <span>:</span>
+                                    <DxSpinEdit @bind-Value="_form.Minute" MinValue="0" MaxValue="59" Increment="5" DisplayFormat="00" />
+                                </div>
+                            </DxFormLayoutItem>
+
+                            <DxFormLayoutItem Caption="사용" ColSpanMd="4">
+                                <DxCheckBox @bind-Checked="_form.IsActive">때가 되면 보낸다</DxCheckBox>
+                            </DxFormLayoutItem>
+
+                            <DxFormLayoutItem Caption="메일 머리말" ColSpanMd="12">
+                                <DxMemo @bind-Text="_form.Remark" Rows="2" />
+                            </DxFormLayoutItem>
+                        </DxFormLayout>
+
+                        <div class="jsini-hint">보낼 시각은 한국 시각입니다. 비우면 08:00 입니다.</div>
+
+                        @* 「지금 보내기」와 가려 적는다 — 하나는 역할 전원에게, 하나는
+                           나에게만 간다. 이 한 줄이 없으면 눌러 보기가 겁난다. *@
+                        <div class="jsini-hint">
+                            <b>미리받아보기</b>는 지금 고른 보고서를 <b>내 계정의 이메일로만</b> 한 통 보냅니다 —
+                            받는 역할에게는 가지 않고 다음 발송 시각도 바뀌지 않습니다.
+                        </div>
+
+                        @if (_selected is { MissingReportKeys.Count: > 0 } missing)
+                        {
+                            <PageNotice Tone="NoticeTone.Warning"
+                                        Text="@($"메뉴에서 사라진 보고서가 있습니다 — {string.Join(", ", missing.MissingReportKeys)}. 저장하면 목록에서 빠집니다.")" />
                         }
-                        <MenuGlyph Type="MENU" Name="@row.Icon" OpensScreen="true" Text="@row.Title" />
-                    </CellDisplayTemplate>
-                </DxGridDataColumn>
-            </Columns>
-        </CommGrd>
-    </CommCont>
 
-    <CommCont CssClass="ad-split__main">
-        @* 오른쪽은 표 하나와 폼이 쌓인다. 판이 남은 높이를 채우므로 안쪽에서
-           굴러야 한다 — 안 굴리면 본문의 `overflow: hidden` 에 잘린다. *@
-        <div class="rm-edit">
-            @if (_form.IsNew)
-            {
-                <PageNotice Text="새 배치를 만들고 있습니다. 왼쪽에서 보고서를 고르고 받을 역할과 주기를 정하십시오."
-                            Tone="NoticeTone.Info" />
-            }
+                        @if (!string.IsNullOrWhiteSpace(_selected?.LastResult))
+                        {
+                            <p class="ad-stamp">마지막 결과 · @_selected!.LastResult</p>
+                        }
 
-            <h2 class="ad-section">받는 권한 역할</h2>
+                        <div class="rm-actions">
+                            <PermissionView Action="@(_form.IsNew ? MenuAction.Create : MenuAction.Update)">
+                                <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary"
+                                          Enabled="@(!Loading)" Click="@SaveAsync" />
+                            </PermissionView>
 
-            <CommGrd TItem="RoleDto"
-                     Data="@_roles"
-                     PagerVisible="true"
-                     PageSize="6"
-                     SelectionMode="GridSelectionMode.Multiple"
-                     SelectedItems="@_pickedRoles"
-                     SelectedItemsChanged="@OnRolesPickedAsync"
-                     ShowExcelExport="false"
-                     ShowHeader="false"
-                     EmptyText="등록된 역할이 없습니다."
-                     Reload="@LoadRolesAsync">
-                <Columns>
-                    <DxGridSelectionColumn Width="40" />
-                    <DxGridDataColumn FieldName="@nameof(RoleDto.Name)" Caption="역할"
-                                      MinWidth="130" TextAlignment="GridTextAlignment.Left" />
-                    <DxGridDataColumn FieldName="@nameof(RoleDto.Id)" Caption="식별자"
-                                      Width="200" TextAlignment="GridTextAlignment.Left" />
-                </Columns>
-            </CommGrd>
+                            @* 「미리받아보기」는 **저장 밖에 둔다** — 배치를 만들기 전에,
+                               받을 역할을 정하기 전에도 메일 꼴을 볼 수 있어야 한다.
+                               받는 사람이 누른 사람 본인뿐이라 권한 문을 하나 더 세우지
+                               않는다(이 화면을 열 수 있으면 자기 메일함으로는 보낼 수 있다). *@
+                            @* 고른 것이 없어도 **잠그지 않는다** — 회색 단추는 왜 안 되는지를
+                               말해 주지 않는다. 눌리면 「왼쪽에서 고르십시오」라고 짚는다. *@
+                            <DxButton Text="미리받아보기" RenderStyle="ButtonRenderStyle.Secondary"
+                                      Enabled="@(!_previewBusy && !Loading)"
+                                      Click="@SendPreviewAsync" />
 
-            <h2 class="ad-section">주기</h2>
+                            @if (!_form.IsNew)
+                            {
+                                <DxButton Text="받는 사람" RenderStyle="ButtonRenderStyle.Secondary"
+                                          Enabled="@(!Loading)" Click="@OpenRecipientsAsync" />
 
-            <DxFormLayout CssClass="ad-form">
-                <DxFormLayoutItem Caption="배치 이름" ColSpanMd="12">
-                    <DxTextBox @bind-Text="_form.Name" />
-                </DxFormLayoutItem>
+                                <PermissionView Action="MenuAction.Update">
+                                    <DxButton Text="지금 보내기" RenderStyle="ButtonRenderStyle.Secondary"
+                                              Enabled="@(!Loading)" Click="@ConfirmSendAsync" />
+                                </PermissionView>
 
-                <DxFormLayoutItem Caption="주기" ColSpanMd="4">
-                    <DxComboBox Data="@ReportMailFrequency.Options" @bind-Value="_form.Frequency"
-                                TextFieldName="@nameof(ReportMailOption.Text)"
-                                ValueFieldName="@nameof(ReportMailOption.Value)" />
-                </DxFormLayoutItem>
-
-                @if (_form.Frequency == ReportMailFrequency.Weekly)
-                {
-                    <DxFormLayoutItem Caption="요일" ColSpanMd="4">
-                        <DxComboBox Data="@ReportMailFrequency.DayOfWeekOptions" @bind-Value="_form.DayOfWeekText"
-                                    TextFieldName="@nameof(ReportMailOption.Text)"
-                                    ValueFieldName="@nameof(ReportMailOption.Value)" />
-                    </DxFormLayoutItem>
-                }
-                else if (_form.Frequency == ReportMailFrequency.Monthly)
-                {
-                    <DxFormLayoutItem Caption="날짜" ColSpanMd="4">
-                        <DxSpinEdit @bind-Value="_form.DayOfMonth" MinValue="1" MaxValue="31" />
-                    </DxFormLayoutItem>
-                }
-
-                <DxFormLayoutItem Caption="보낼 시각" ColSpanMd="4">
-                    <div class="rm-time">
-                        <DxSpinEdit @bind-Value="_form.Hour" MinValue="0" MaxValue="23" DisplayFormat="00" />
-                        <span>:</span>
-                        <DxSpinEdit @bind-Value="_form.Minute" MinValue="0" MaxValue="59" Increment="5" DisplayFormat="00" />
+                                <PermissionView Action="MenuAction.Delete">
+                                    <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Secondary"
+                                              CssClass="rm-actions__warn"
+                                              Enabled="@(!Loading)" Click="@ConfirmDeleteAsync" />
+                                </PermissionView>
+                            }
+                        </div>
                     </div>
-                </DxFormLayoutItem>
-
-                <DxFormLayoutItem Caption="사용" ColSpanMd="4">
-                    <DxCheckBox @bind-Checked="_form.IsActive">때가 되면 보낸다</DxCheckBox>
-                </DxFormLayoutItem>
-
-                <DxFormLayoutItem Caption="메일 머리말" ColSpanMd="12">
-                    <DxMemo @bind-Text="_form.Remark" Rows="2" />
-                </DxFormLayoutItem>
-            </DxFormLayout>
-
-            <div class="jsini-hint">보낼 시각은 한국 시각입니다. 비우면 08:00 입니다.</div>
-
-            @* 「지금 보내기」와 가려 적는다 — 하나는 역할 전원에게, 하나는
-               나에게만 간다. 이 한 줄이 없으면 눌러 보기가 겁난다. *@
-            <div class="jsini-hint">
-                <b>미리받아보기</b>는 지금 고른 보고서를 <b>내 계정의 이메일로만</b> 한 통 보냅니다 —
-                받는 역할에게는 가지 않고 다음 발송 시각도 바뀌지 않습니다.
-            </div>
-
-            @if (_selected is { MissingReportKeys.Count: > 0 } missing)
-            {
-                <PageNotice Tone="NoticeTone.Warning"
-                            Text="@($"메뉴에서 사라진 보고서가 있습니다 — {string.Join(", ", missing.MissingReportKeys)}. 저장하면 목록에서 빠집니다.")" />
-            }
-
-            @if (!string.IsNullOrWhiteSpace(_selected?.LastResult))
-            {
-                <p class="ad-stamp">마지막 결과 · @_selected!.LastResult</p>
-            }
-
-            <div class="rm-actions">
-                <PermissionView Action="@(_form.IsNew ? MenuAction.Create : MenuAction.Update)">
-                    <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary"
-                              Enabled="@(!Loading)" Click="@SaveAsync" />
-                </PermissionView>
-
-                @* 「미리받아보기」는 **저장 밖에 둔다** — 배치를 만들기 전에,
-                   받을 역할을 정하기 전에도 메일 꼴을 볼 수 있어야 한다.
-                   받는 사람이 누른 사람 본인뿐이라 권한 문을 하나 더 세우지
-                   않는다(이 화면을 열 수 있으면 자기 메일함으로는 보낼 수 있다). *@
-                @* 고른 것이 없어도 **잠그지 않는다** — 회색 단추는 왜 안 되는지를
-                   말해 주지 않는다. 눌리면 「왼쪽에서 고르십시오」라고 짚는다. *@
-                <DxButton Text="미리받아보기" RenderStyle="ButtonRenderStyle.Secondary"
-                          Enabled="@(!_previewBusy && !Loading)"
-                          Click="@SendPreviewAsync" />
-
-                @if (!_form.IsNew)
-                {
-                    <DxButton Text="받는 사람" RenderStyle="ButtonRenderStyle.Secondary"
-                              Enabled="@(!Loading)" Click="@OpenRecipientsAsync" />
-
-                    <PermissionView Action="MenuAction.Update">
-                        <DxButton Text="지금 보내기" RenderStyle="ButtonRenderStyle.Secondary"
-                                  Enabled="@(!Loading)" Click="@ConfirmSendAsync" />
-                    </PermissionView>
-
-                    <PermissionView Action="MenuAction.Delete">
-                        <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Secondary"
-                                  CssClass="rm-actions__warn"
-                                  Enabled="@(!Loading)" Click="@ConfirmDeleteAsync" />
-                    </PermissionView>
-                }
-            </div>
-        </div>
-    </CommCont>
-</div>
+                </CommCont>
+            </section>
+        </DxSplitterPane>
+    </Panes>
+</DxSplitter>
 
 @* 받는 사람 미리보기. **보내기 전에 보여 준다** — 머리말 참고. *@
 <CommPopup @bind-Visible="_showRecipients" HeaderText="받는 사람" Width="620px">
