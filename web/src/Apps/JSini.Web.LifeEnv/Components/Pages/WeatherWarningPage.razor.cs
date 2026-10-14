@@ -205,7 +205,7 @@ public partial class WeatherWarningPage
 
     private static string CommandTone(string? command) =>
         command is not null && command.Contains("해제", StringComparison.Ordinal)
-            ? "jsini-badge--ok"
+            ? "jsini-badge--on"
             : "jsini-badge--warn";
 
     /// <summary>

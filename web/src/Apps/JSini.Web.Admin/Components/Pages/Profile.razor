@@ -247,7 +247,7 @@
             }
             @if (_info?.IsSocialMerged == true)
             {
-                <div style="margin-top: 6px; display: flex; align-items: center; justify-content: center; gap: 4px; flex-wrap: wrap;">
+                <div class="ad-profile__social">
                     <span class="jsini-badge jsini-badge--info" title="@($"소셜 가입신청 결합 계정 ({_info.SocialProviderText})")">소셜결합</span>
                     @if (_info.SocialProviders is { Count: > 0 })
                     {
@@ -260,7 +260,7 @@
             }
             else if (_info?.IsSocialLinked == true)
             {
-                <div style="margin-top: 6px; display: flex; align-items: center; justify-content: center; gap: 4px; flex-wrap: wrap;">
+                <div class="ad-profile__social">
                     <span class="jsini-badge jsini-badge--muted" title="@($"소셜 연동 계정 ({_info.SocialProviderText})")">소셜연동</span>
                     @if (_info.SocialProviders is { Count: > 0 })
                     {
@@ -373,36 +373,48 @@
                             @* 로그인 아이디는 계정의 열쇠다. 바꾸는 길을 두면 즐겨찾기·
                                권한·감사 기록이 가리키는 대상이 흔들린다 — 보여만 준다. *@
                             <DxFormLayoutItem Caption="사용자명" ColSpanMd="6">
-                                <div style="display: flex; align-items: center; gap: 6px;">
+                                @* 딱지가 **줄지 않아야** 한다. 좁은 화면에서 이 줄의
+                                   남는 폭을 글상자와 나눠 갖게 두면 딱지 쪽이 먼저
+                                   찌그러져 「소셜결 / 합」으로 두 줄이 된다. *@
+                                <div class="ad-fieldrow">
                                     <DxTextBox Text="@(_info.Username ?? _info.UserId)" ReadOnly="true" />
                                     @if (_info.IsSocialMerged)
                                     {
-                                        <span class="jsini-badge jsini-badge--info" title="@($"소셜 가입신청 결합 계정 ({_info.SocialProviderText})")">소셜결합</span>
+                                        <span class="jsini-badge jsini-badge--info ad-fieldrow__tag" title="@($"소셜 가입신청 결합 계정 ({_info.SocialProviderText})")">소셜결합</span>
                                     }
                                     else if (_info.IsSocialLinked)
                                     {
-                                        <span class="jsini-badge jsini-badge--muted" title="@($"소셜 연동 계정 ({_info.SocialProviderText})")">소셜연동</span>
+                                        <span class="jsini-badge jsini-badge--muted ad-fieldrow__tag" title="@($"소셜 연동 계정 ({_info.SocialProviderText})")">소셜연동</span>
                                     }
                                 </div>
                             </DxFormLayoutItem>
 
                             @* ── 이메일 (인증 필수) ── *@
                             <DxFormLayoutItem Caption="이메일" ColSpanMd="12">
-                                <div style="display: flex; flex-direction: column; gap: 8px;">
-                                    @* 현재 등록된 이메일 표시 *@
-                                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                                @* 생김새는 전부 admin.css 의 `.ad-mailbox` 다.
+
+                                   한동안 이 자리가 인라인 `style` 로만 되어 있었다.
+                                   그래서 **좁은 화면 규칙을 걸 자리가 없었고**, 색도
+                                   `--bs-*`(테마가 세워 주기는 한다)와 `#f5f5f7` 같은
+                                   밝은 쪽 값으로 못이 박혀 있었다. 클래스로 옮기면서
+                                   우리 토큰(`--jsini-*`)으로 바꿨다. *@
+                                <div class="ad-mailbox">
+                                    @* 지금 등록된 주소 *@
+                                    <div class="ad-mailbox__now">
                                         @if (!string.IsNullOrWhiteSpace(_edit.Email))
                                         {
-                                            <div style="display: flex; align-items: center; gap: 6px; padding: 4px 8px; background: var(--bs-tertiary-bg, #f5f5f7); border-radius: 4px; border: 1px solid var(--bs-border-color, #e5e5e7);">
-                                                <span class="jsini-badge jsini-badge--info" style="font-size: 0.75rem;">대표</span>
-                                                <span style="font-family: monospace; font-size: 0.95rem;">@_edit.Email</span>
+                                            <div class="ad-mailbox__chip">
+                                                <span class="jsini-badge jsini-badge--info">대표</span>
+                                                @* 주소가 줄 수 있는 유일한 것이라 `min-width: 0` 이
+                                                   여기 걸린다. 없으면 긴 주소가 딱지를 밀어낸다. *@
+                                                <span class="ad-mailbox__addr ad-desc__mono">@_edit.Email</span>
                                                 @if (_emailVerified)
                                                 {
-                                                    <span class="jsini-badge jsini-badge--success" style="font-size: 0.75rem;">인증완료</span>
+                                                    <span class="jsini-badge jsini-badge--success">인증완료</span>
                                                 }
                                                 else
                                                 {
-                                                    <span class="jsini-badge jsini-badge--muted" style="font-size: 0.75rem;">등록됨</span>
+                                                    <span class="jsini-badge jsini-badge--muted">등록됨</span>
                                                 }
                                             </div>
                                         }
@@ -414,6 +426,7 @@
                                         @if (!_showEmailChange)
                                         {
                                             <DxButton Text="이메일 변경"
+                                                      CssClass="ad-mailbox__open"
                                                       RenderStyle="ButtonRenderStyle.Secondary"
                                                       RenderStyleMode="ButtonRenderStyleMode.Outline"
                                                       Click="@ToggleEmailChange" />
@@ -423,12 +436,15 @@
                                     @* 이메일 변경 및 인증 패널 *@
                                     @if (_showEmailChange)
                                     {
-                                        <div style="padding: 12px; background: var(--bs-secondary-bg, #f8f9fa); border-radius: 6px; border: 1px solid var(--bs-border-color, #dee2e6); display: flex; flex-direction: column; gap: 8px;">
-                                            <div style="font-weight: 600; font-size: 0.9rem;">
+                                        <div class="ad-mailbox__panel">
+                                            <div class="ad-mailbox__title">
                                                 새 이메일 인증 및 변경
                                             </div>
-                                            <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                                                <div style="flex: 1; min-width: 220px;">
+                                            <div class="ad-mailbox__line">
+                                                @* 휴대폰에서는 이 칸이 한 줄을 통째로 갖는다.
+                                                   `min-width: 220px` 로 못을 박아 두면 360px 짜리
+                                                   화면에서 **칸 하나가 폼 폭보다 넓다.** *@
+                                                <div class="ad-mailbox__input">
                                                     <DxTextBox @bind-Text="_newEmail"
                                                                NullText="새 이메일 주소 입력"
                                                                ReadOnly="@_emailVerified" />
@@ -446,8 +462,8 @@
 
                                             @if (_emailCodeSent && !_emailVerified)
                                             {
-                                                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                                                    <div style="width: 140px;">
+                                                <div class="ad-mailbox__line">
+                                                    <div class="ad-mailbox__code">
                                                         <DxTextBox @bind-Text="_emailVerificationCode"
                                                                    NullText="6자리 인증번호"
                                                                    MaxLength="6" />
@@ -456,13 +472,13 @@
                                                               RenderStyle="ButtonRenderStyle.Success"
                                                               Enabled="@(!_isEmailVerifying && !string.IsNullOrWhiteSpace(_emailVerificationCode))"
                                                               Click="@VerifyEmailCodeAsync" />
-                                                    <span class="jsini-text-muted" style="font-size: 0.8rem;">(유효시간 5분)</span>
+                                                    <span class="jsini-text-muted ad-mailbox__ttl">(유효시간 5분)</span>
                                                 </div>
                                             }
 
                                             @if (!string.IsNullOrWhiteSpace(_emailVerifyMessage))
                                             {
-                                                <div style="font-size: 0.85rem; color: @(_emailVerifySuccess ? "var(--bs-success, #198754)" : "var(--bs-danger, #dc3545)");">
+                                                <div class="ad-mailbox__msg @(_emailVerifySuccess ? "ad-mailbox__msg--ok" : "ad-mailbox__msg--err")">
                                                     @_emailVerifyMessage
                                                 </div>
                                             }
@@ -473,44 +489,51 @@
 
                             @* ── 전화번호 (보여지고 직접 수정 및 추가) ── *@
                             <DxFormLayoutItem Caption="전화번호" ColSpanMd="12">
-                                <div style="display: flex; flex-direction: column; gap: 6px;">
+                                @* 한 줄에 넷(딱지 · 번호 칸 · 「대표로」 · 「삭제」)이다.
+                                   360px 짜리 화면에서 그것이 다 들어가려면 **번호 칸이
+                                   140px 로 찌그러진다** — 적어 둔 번호도 안내 글도
+                                   못 읽는 폭이다. 휴대폰에서는 단추 줄을 아래로
+                                   내린다(admin.css 의 `.ad-phone`). *@
+                                <div class="ad-phones">
                                     @for (var i = 0; i < _phoneEntries.Count; i++)
                                     {
                                         var index = i;
                                         var item = _phoneEntries[index];
-                                        <div style="display: flex; align-items: center; gap: 6px;">
+                                        <div class="ad-phone">
                                             @if (index == 0)
                                             {
-                                                <span class="jsini-badge jsini-badge--info" style="min-width: 38px; text-align: center; font-size: 0.75rem;">대표</span>
+                                                <span class="jsini-badge jsini-badge--info ad-phone__tag">대표</span>
                                             }
                                             else
                                             {
-                                                <span class="jsini-badge jsini-badge--muted" style="min-width: 38px; text-align: center; font-size: 0.75rem;">보조</span>
+                                                <span class="jsini-badge jsini-badge--muted ad-phone__tag">보조</span>
                                             }
 
-                                            <div style="flex: 1; max-width: 320px;">
+                                            <div class="ad-phone__input">
                                                 <DxTextBox @bind-Text="item.Number"
                                                            NullText="전화번호 입력 (예: 010-1234-5678)" />
                                             </div>
 
-                                            @if (index > 0)
-                                            {
-                                                <DxButton Text="대표로"
-                                                          RenderStyle="ButtonRenderStyle.Secondary"
-                                                          RenderStyleMode="ButtonRenderStyleMode.Outline"
-                                                          title="이 번호를 대표 번호로 설정"
-                                                          Click="@(() => SetPrimaryPhone(item))" />
-                                            }
+                                            <div class="ad-phone__acts">
+                                                @if (index > 0)
+                                                {
+                                                    <DxButton Text="대표로"
+                                                              RenderStyle="ButtonRenderStyle.Secondary"
+                                                              RenderStyleMode="ButtonRenderStyleMode.Outline"
+                                                              title="이 번호를 대표 번호로 설정"
+                                                              Click="@(() => SetPrimaryPhone(item))" />
+                                                }
 
-                                            <DxButton Text="삭제"
-                                                      RenderStyle="ButtonRenderStyle.Danger"
-                                                      RenderStyleMode="ButtonRenderStyleMode.Outline"
-                                                      title="전화번호 삭제"
-                                                      Click="@(() => RemovePhoneEntry(item))" />
+                                                <DxButton Text="삭제"
+                                                          RenderStyle="ButtonRenderStyle.Danger"
+                                                          RenderStyleMode="ButtonRenderStyleMode.Outline"
+                                                          title="전화번호 삭제"
+                                                          Click="@(() => RemovePhoneEntry(item))" />
+                                            </div>
                                         </div>
                                     }
 
-                                    <div style="margin-top: 4px;">
+                                    <div class="ad-phones__add">
                                         <DxButton Text="+ 전화번호 추가"
                                                   RenderStyle="ButtonRenderStyle.Secondary"
                                                   RenderStyleMode="ButtonRenderStyleMode.Outline"
@@ -522,7 +545,7 @@
                             @if (_info.IsSocialLinked || _info.IsSocialMerged)
                             {
                                 <DxFormLayoutItem Caption="소셜 연동" ColSpanMd="6">
-                                    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap; min-height: 32px;">
+                                    <div class="ad-sociallite">
                                         @if (_info.IsSocialMerged)
                                         {
                                             <span class="jsini-badge jsini-badge--info">소셜결합</span>
@@ -534,7 +557,7 @@
                                                 <span class="jsini-badge @SocialBadgeClass(provider)">@SocialProviderName(provider)</span>
                                             }
                                         }
-                                        <span class="jsini-text-muted" style="font-size: 0.85rem;">[계정 정보] 탭에서 결합 상세 확인 가능</span>
+                                        <span class="jsini-text-muted ad-sociallite__note">[계정 정보] 탭에서 결합 상세 확인 가능</span>
                                     </div>
                                 </DxFormLayoutItem>
                             }
@@ -645,19 +668,19 @@
                                     }
                                     else
                                     {
-                                        <div style="display: flex; flex-direction: column; gap: 4px;">
+                                        <div class="ad-contacts">
                                             @for (var i = 0; i < emails.Count; i++)
                                             {
                                                 var em = emails[i];
-                                                <div style="display: flex; align-items: center; gap: 6px;">
-                                                    <span class="ad-desc__mono">@em</span>
+                                                <div class="ad-contact">
+                                                    <span class="ad-contact__value ad-desc__mono">@em</span>
                                                     @if (i == 0)
                                                     {
-                                                        <span class="jsini-badge jsini-badge--info" style="font-size: 0.75rem;">대표</span>
+                                                        <span class="jsini-badge jsini-badge--info">대표</span>
                                                     }
                                                     else
                                                     {
-                                                        <span class="jsini-badge jsini-badge--muted" style="font-size: 0.75rem;">보조</span>
+                                                        <span class="jsini-badge jsini-badge--muted">보조</span>
                                                     }
                                                 </div>
                                             }
@@ -677,19 +700,19 @@
                                     }
                                     else
                                     {
-                                        <div style="display: flex; flex-direction: column; gap: 4px;">
+                                        <div class="ad-contacts">
                                             @for (var i = 0; i < phones.Count; i++)
                                             {
                                                 var ph = phones[i];
-                                                <div style="display: flex; align-items: center; gap: 6px;">
-                                                    <span class="ad-desc__mono">@ph</span>
+                                                <div class="ad-contact">
+                                                    <span class="ad-contact__value ad-desc__mono">@ph</span>
                                                     @if (i == 0)
                                                     {
-                                                        <span class="jsini-badge jsini-badge--info" style="font-size: 0.75rem;">대표</span>
+                                                        <span class="jsini-badge jsini-badge--info">대표</span>
                                                     }
                                                     else
                                                     {
-                                                        <span class="jsini-badge jsini-badge--muted" style="font-size: 0.75rem;">보조</span>
+                                                        <span class="jsini-badge jsini-badge--muted">보조</span>
                                                     }
                                                 </div>
                                             }
@@ -709,7 +732,7 @@
                             @* ── 소셜 계정 결합 정보 ─────────────────── *@
                             <DxFormLayoutGroup Caption="소셜 계정 결합" ColSpanMd="12" Decoration="FormLayoutGroupDecoration.Card">
                                 <DxFormLayoutItem Caption="소셜 상태" ColSpanMd="12">
-                                    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                                    <div class="ad-sociallite">
                                         @if (_info.IsSocialMerged)
                                         {
                                             <span class="jsini-badge jsini-badge--info">소셜 가입 결합 계정</span>
@@ -736,71 +759,72 @@
                                 @if (_info.MergedSocialAccounts is { Count: > 0 })
                                 {
                                     <DxFormLayoutItem Caption="결합 목록" ColSpanMd="12">
-                                        <div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
+                                        @* 공급자 딱지는 **줄지 않고**(`--provider`) 글은 남는 폭에서
+                                           접힌다. 한 겹 더 감싸 `justify-content: space-between` 을
+                                           두었던 동안에는 오른쪽에 둘 것이 없는데도 안쪽 상자가
+                                           폭을 다 가져가, 좁은 화면에서 딱지가 「카 / 카 / 오」로
+                                           세 줄이 되었다. *@
+                                        <ul class="ad-sociallist">
                                             @foreach (var socialAcc in _info.MergedSocialAccounts)
                                             {
-                                                <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--ad-bg-subtle, #f8f9fa); border-radius: 6px; border: 1px solid var(--ad-border, #e9ecef);">
-                                                    <div style="display: flex; align-items: center; gap: 10px;">
-                                                        <span class="jsini-badge @SocialBadgeClass(socialAcc.Provider)">@SocialProviderName(socialAcc.Provider)</span>
-                                                        <div>
-                                                            <div style="font-weight: 500;">
-                                                                @(string.IsNullOrWhiteSpace(socialAcc.DisplayName) ? SocialProviderName(socialAcc.Provider) : socialAcc.DisplayName)
-                                                                @if (socialAcc.IsMerged)
-                                                                {
-                                                                    <span class="jsini-badge jsini-badge--info" style="font-size: 0.7rem; margin-left: 4px;">가입결합</span>
-                                                                }
-                                                                else
-                                                                {
-                                                                    <span class="jsini-badge jsini-badge--muted" style="font-size: 0.7rem; margin-left: 4px;">연동</span>
-                                                                }
-                                                            </div>
-                                                            <div class="jsini-text-muted" style="font-size: 0.85rem;">
-                                                                @if (!string.IsNullOrWhiteSpace(socialAcc.Email))
-                                                                {
-                                                                    <span>@socialAcc.Email · </span>
-                                                                }
-                                                                @if (!string.IsNullOrWhiteSpace(socialAcc.MergedLoginId))
-                                                                {
-                                                                    <span>신청ID: @socialAcc.MergedLoginId · </span>
-                                                                }
-                                                                <span>연동 @Dt(socialAcc.LinkedAt)</span>
-                                                                @if (socialAcc.LastLoginAt is not null)
-                                                                {
-                                                                    <span> · 최근로그인 @LastUsedText(socialAcc.LastLoginAt)</span>
-                                                                }
-                                                            </div>
+                                                <li class="ad-sociallist__item">
+                                                    <span class="jsini-badge @SocialBadgeClass(socialAcc.Provider) ad-sociallist__provider">@SocialProviderName(socialAcc.Provider)</span>
+                                                    <div class="ad-sociallist__who">
+                                                        <div class="ad-sociallist__name">
+                                                            <span>@(string.IsNullOrWhiteSpace(socialAcc.DisplayName) ? SocialProviderName(socialAcc.Provider) : socialAcc.DisplayName)</span>
+                                                            @if (socialAcc.IsMerged)
+                                                            {
+                                                                <span class="jsini-badge jsini-badge--info">가입결합</span>
+                                                            }
+                                                            else
+                                                            {
+                                                                <span class="jsini-badge jsini-badge--muted">연동</span>
+                                                            }
+                                                        </div>
+                                                        <div class="ad-sociallist__meta">
+                                                            @if (!string.IsNullOrWhiteSpace(socialAcc.Email))
+                                                            {
+                                                                <span>@socialAcc.Email · </span>
+                                                            }
+                                                            @if (!string.IsNullOrWhiteSpace(socialAcc.MergedLoginId))
+                                                            {
+                                                                <span>신청ID: @socialAcc.MergedLoginId · </span>
+                                                            }
+                                                            <span>연동 @Dt(socialAcc.LinkedAt)</span>
+                                                            @if (socialAcc.LastLoginAt is not null)
+                                                            {
+                                                                <span> · 최근로그인 @LastUsedText(socialAcc.LastLoginAt)</span>
+                                                            }
                                                         </div>
                                                     </div>
-                                                </div>
+                                                </li>
                                             }
-                                        </div>
+                                        </ul>
                                     </DxFormLayoutItem>
                                 }
                                 else if (_socialLinks.Count > 0)
                                 {
                                     <DxFormLayoutItem Caption="연결 목록" ColSpanMd="12">
-                                        <div style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
+                                        <ul class="ad-sociallist">
                                             @foreach (var link in _socialLinks)
                                             {
-                                                <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--ad-bg-subtle, #f8f9fa); border-radius: 6px; border: 1px solid var(--ad-border, #e9ecef);">
-                                                    <div style="display: flex; align-items: center; gap: 10px;">
-                                                        <span class="jsini-badge @SocialBadgeClass(link.Provider)">@link.DisplayName</span>
-                                                        <div>
-                                                            <div style="font-weight: 500;">
-                                                                @SocialWho(link)
-                                                                @if (_info.IsSocialMerged)
-                                                                {
-                                                                    <span class="jsini-badge jsini-badge--info" style="font-size: 0.7rem; margin-left: 4px;">소셜결합</span>
-                                                                }
-                                                            </div>
-                                                            <div class="jsini-text-muted" style="font-size: 0.85rem;">
-                                                                연결 @Dt(link.LinkedAt) · @LastUsedText(link.LastLoginAt)
-                                                            </div>
+                                                <li class="ad-sociallist__item">
+                                                    <span class="jsini-badge @SocialBadgeClass(link.Provider) ad-sociallist__provider">@link.DisplayName</span>
+                                                    <div class="ad-sociallist__who">
+                                                        <div class="ad-sociallist__name">
+                                                            <span>@SocialWho(link)</span>
+                                                            @if (_info.IsSocialMerged)
+                                                            {
+                                                                <span class="jsini-badge jsini-badge--info">소셜결합</span>
+                                                            }
+                                                        </div>
+                                                        <div class="ad-sociallist__meta">
+                                                            연결 @Dt(link.LinkedAt) · @LastUsedText(link.LastLoginAt)
                                                         </div>
                                                     </div>
-                                                </div>
+                                                </li>
                                             }
-                                        </div>
+                                        </ul>
                                     </DxFormLayoutItem>
                                 }
                             </DxFormLayoutGroup>
@@ -1128,11 +1152,11 @@
                                         {
                                             <li class="ad-passkey">
                                                 <div class="ad-passkey__who">
-                                                    <div class="ad-passkey__name" style="display: flex; align-items: center; gap: 6px;">
+                                                    <div class="ad-passkey__name ad-passkey__name--tagged">
                                                         <span>@link.DisplayName</span>
                                                         @if (_info?.IsSocialMerged == true)
                                                         {
-                                                            <span class="jsini-badge jsini-badge--info" style="font-size: 0.7rem;">소셜결합</span>
+                                                            <span class="jsini-badge jsini-badge--info">소셜결합</span>
                                                         }
                                                     </div>
                                                     <div class="ad-passkey__meta">

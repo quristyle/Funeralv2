@@ -7831,15 +7831,33 @@ body {
   font-weight: 700;
 }
 
-.jsini-badge--on {
+.jsini-badge--on,
+.jsini-badge--success {
   background: color-mix(in srgb, var(--jsini-success) 15%, transparent);
   border-color: transparent;
   color: var(--jsini-success);
 }
 
-.jsini-badge--off {
+.jsini-badge--off,
+.jsini-badge--muted {
   background: color-mix(in srgb, var(--jsini-text-muted) 13%, transparent);
   border-color: transparent;
+}
+
+/* 「대표」·「소셜결합」처럼 **좋고 나쁨이 아니라 갈래를 말하는** 딱지.
+
+   한동안 `--info` · `--success` · `--muted` 셋을 화면에서 쓰고 있었는데
+   **여기에 그런 규칙이 없었다** — 셋 다 아무 modifier 도 안 붙은 기본 딱지
+   (회색)로 그려져서, 「대표」와 「보조」가, 「인증완료」와 「등록됨」이
+   글자만 다르고 생김새가 똑같았다. 쓰는 자리는 내 정보(`Profile`)와
+   사람 목록(`UserList`)이다.
+
+   `--success` · `--muted` 는 이미 있는 켬(`--on`)·끔(`--off`)과 같은 뜻이라
+   선택자에 이름만 보탰다. 새로 생긴 색은 이 `--info` 하나다. */
+.jsini-badge--info {
+  background: color-mix(in srgb, var(--jsini-accent) 14%, transparent);
+  border-color: transparent;
+  color: var(--jsini-accent-text);
 }
 
 .jsini-badge--warn {

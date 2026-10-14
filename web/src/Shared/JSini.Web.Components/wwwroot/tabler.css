@@ -1036,10 +1036,17 @@ a { color: var(--tb-primary); }
   color: var(--tb-text);
 }
 
-.jsini-badge--on { background: rgba(var(--tb-green-rgb), 0.12); color: var(--tb-green); }
-.jsini-badge--off { background: var(--tb-surface-3); color: var(--tb-muted); }
+.jsini-badge--on,
+.jsini-badge--success { background: rgba(var(--tb-green-rgb), 0.12); color: var(--tb-green); }
+.jsini-badge--off,
+.jsini-badge--muted { background: var(--tb-surface-3); color: var(--tb-muted); }
 .jsini-badge--warn { background: rgba(var(--tb-yellow-rgb), 0.14); color: color-mix(in srgb, var(--tb-yellow) 80%, #000); }
 .jsini-badge--err { background: rgba(var(--tb-red-rgb), 0.12); color: var(--tb-red); }
+
+/* 좋고 나쁨이 아니라 **갈래**를 말하는 딱지(「대표」·「소셜결합」).
+   app.css 에도 짝이 있지만 **이 파일이 맨 마지막에 실리므로** 여기 값을
+   안 적으면 그 딱지만 `--jsini-*` 로 칠해져 옆의 Tabler 딱지들과 색이 논다. */
+.jsini-badge--info { background: rgba(var(--tb-primary-rgb), 0.12); color: var(--tb-primary); }
 
 :root[data-bs-theme='dark'] .jsini-badge--warn { color: var(--tb-yellow); }
 
