@@ -336,12 +336,34 @@ a { color: var(--tb-primary); }
   --dxbl-btn-disabled-bg: var(--tb-surface);
   --dxbl-btn-disabled-color: var(--tb-muted);
   --dxbl-btn-disabled-border-color: var(--tb-border);
+
+  /* **잠긴 단추에 덧씌워지는 흰 겹을 걷는다.**
+
+     DevExpress 의 Bootstrap 다리(`bootstrap-external.bs5`)는 바탕색과 별개로
+     `--dxbl-btn-disabled-background` 에 **40% 흰색 한 겹**을 얹는다
+     (`linear-gradient(rgba(255,255,255,.4), rgba(255,255,255,.4))`). 바로 위에서
+     잠긴 바탕·글자·테두리를 다 정해 두어도 그 겹은 그대로 남는다 — `background-color`
+     가 아니라 `background-image` 라서 서로 덮지 않는다.
+
+     **밝은 테마에서는 흰 판 위의 흰 겹이라 아무 일도 안 난다.** 그래서 한동안
+     아무도 몰랐다. 어두운 테마에서는 판이 통째로 밝아진다 — 바탕 #262626 이
+     #7d7d7d 로 떠 버리는데 글자는 흐린 글자색(#a3a3a3) 그대로라 **대비가
+     1.6:1** 이다(환경설정의 「바로 넣기」 단추 넷이 늘 잠겨 있어 거기서 먼저
+     드러났다). 겹을 걷으면 6.0:1 이 되고 밝은 테마는 한 픽셀도 안 바뀐다.
+
+     잠겼다는 것은 흐린 글자색이 말한다 — 겹이 하던 일이 아니다. */
+  --dxbl-btn-disabled-background: none;
 }
 
 .dxbl-btn.dxbl-btn-primary:disabled,
 .dxbl-btn.dxbl-btn-primary.dxbl-disabled {
   --dxbl-btn-disabled-bg: var(--tb-primary);
   --dxbl-btn-disabled-color: var(--tb-primary-fg);
+
+  /* 강조 단추도 같은 겹을 쓴다(위 머리말). 여기서는 **`opacity` 가 잠김을
+     말하는 자리**라, 겹을 그대로 두면 흐려진 것 위에 흰 겹이 또 얹혀
+     어두운 테마에서 흰 글자가 밝은 하늘색 판에 묻힌다(1.9:1 → 3.1:1). */
+  --dxbl-btn-disabled-background: none;
   opacity: 0.55;
 }
 
