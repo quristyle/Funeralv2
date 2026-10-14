@@ -179,17 +179,26 @@
 
     <DxSplitterPane>
     <CommCont CssClass="ad-vsplit__pane ad-vsplit__pane--right">
-        @if (_selected is null)
-        {
-            <PageNotice Tone="NoticeTone.Info"
-                        Text="왼쪽에서 설정할 알림 이벤트를 고르십시오." />
-        }
-        else
-        {
-            @* 판이 남은 높이를 채우므로 안쪽에서 굴러야 한다 — 안 굴리면
-               본문의 `overflow: hidden` 에 잘린다. *@
-            <div class="np-edit">
-                <h2 class="ad-subhead">@_selected.Name <span class="ad-stamp">@_selected.Code</span></h2>
+        <TitleTemplate>
+            @if (_selected is not null)
+            {
+                <div class="np-events-head">
+                    <h2 class="commcont__title">@_selected.Name</h2>
+                    <span class="ad-stamp">@_selected.Code</span>
+                </div>
+            }
+        </TitleTemplate>
+        <ChildContent>
+            @if (_selected is null)
+            {
+                <PageNotice Tone="NoticeTone.Info"
+                            Text="왼쪽에서 설정할 알림 이벤트를 고르십시오." />
+            }
+            else
+            {
+                @* 판이 남은 높이를 채우므로 안쪽에서 굴러야 한다 — 안 굴리면
+                   본문의 `overflow: hidden` 에 잘린다. *@
+                <div class="np-edit">
 
                 @if (!string.IsNullOrWhiteSpace(_selected.Description))
                 {
@@ -350,8 +359,9 @@
                         </div>
                     </div>
                 }
-            </CommCont>
-            </DxSplitterPane>
+            </ChildContent>
+        </CommCont>
+        </DxSplitterPane>
 
             </Panes>
         </DxSplitter>
@@ -422,16 +432,11 @@
 
             <DxSplitterPane>
             <CommCont CssClass="ad-vsplit__pane ad-vsplit__pane--right">
-                @if (_selectedRole is null)
-                {
-                    <PageNotice Tone="NoticeTone.Info"
-                                Text="왼쪽에서 알림 설정을 지정할 역할을 고르십시오." />
-                }
-                else
-                {
-                    <div class="np-edit">
-                        <h2 class="ad-subhead">
-                            @_selectedRole.Name
+                <TitleTemplate>
+                    @if (_selectedRole is not null)
+                    {
+                        <div class="np-events-head">
+                            <h2 class="commcont__title">@_selectedRole.Name</h2>
                             <span class="ad-stamp">@_selectedRole.Id</span>
                             @if (_selectedRole.AccountCount == 0)
                             {
@@ -441,7 +446,18 @@
                             {
                                 <span class="jsini-badge">@($"{_selectedRole.AccountCount}명")</span>
                             }
-                        </h2>
+                        </div>
+                    }
+                </TitleTemplate>
+                <ChildContent>
+                    @if (_selectedRole is null)
+                    {
+                        <PageNotice Tone="NoticeTone.Info"
+                                    Text="왼쪽에서 알림 설정을 지정할 역할을 고르십시오." />
+                    }
+                    else
+                    {
+                        <div class="np-edit">
 
                         <PageNotice Tone="NoticeTone.Info" Text="@RoleEffectText" />
 
@@ -532,6 +548,7 @@
                         }
                     </div>
                 }
+                </ChildContent>
             </CommCont>
             </DxSplitterPane>
 

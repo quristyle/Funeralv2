@@ -4442,11 +4442,13 @@
    폼이다. 이름을 나눠 둔 것은 **오른쪽에 쌓이는 것이 다르기 때문**이다:
    그쪽은 표 둘과 폼이고 이쪽은 설명 묶음과 표 하나다. */
 
-/* 오른쪽 판 — **안쪽에서 구른다**. 판이 `overflow: hidden` 이라 넘기면 잘린다
-   (`.rm-edit` 과 같은 사정). 가로를 막는 까닭도 거기 적어 두었다. */
+/* 오른쪽 판 — 제목은 `CommCont` 머리에 서고 본문은 flex 로 높이를 채운다.
+   아래쪽 역할별 수신 목록(`.np-roles`)이 자체 스크롤되도록 flex 컬럼으로 배치한다. */
 .np-edit {
   flex: 1;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
   overflow-y: auto;
   overflow-x: hidden;
 }
@@ -4611,6 +4613,7 @@
 
 /* 이벤트 설명 한 줄. 제목 바로 아래라 본문보다 조금 작고 흐리다. */
 .np-desc {
+  flex-shrink: 0;
   margin: 0.2rem 0 0.9rem;
   font-size: 0.9em;
   line-height: 1.5;
@@ -4620,6 +4623,7 @@
 /* 발생처·알림구분·대상·길 네 쌍. **표로 두지 않는다** — 줄이 넷뿐이라
    표 머리글이 자리만 먹고, 좁은 화면에서는 한 열로 접혀야 한다. */
 .np-facts {
+  flex-shrink: 0;
   display: grid;
   grid-template-columns: max-content 1fr;
   gap: 0.25rem 0.8rem;
@@ -4636,11 +4640,13 @@
 }
 
 .np-switch {
+  flex-shrink: 0;
   margin: 0.9rem 0;
 }
 
 /* ── 역할별 수신 목록 ──────────────────────────────────── */
 .np-roles-head {
+  flex-shrink: 0;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -4668,6 +4674,23 @@
   margin-bottom: 0.8rem;
 }
 
+@media (width < 992px) {
+  .np-roles {
+    max-height: none;
+    overflow-y: visible;
+  }
+}
+
+@media (width >= 992px) {
+  .np-roles {
+    flex: 1;
+    min-height: 6rem;
+    max-height: none;
+    overflow-y: auto;
+    padding-right: 0.25rem;
+  }
+}
+
 .np-role-item {
   display: flex;
   flex-wrap: wrap;
@@ -4678,6 +4701,7 @@
   border: 1px solid var(--jsini-border, #e0e0e0);
   border-radius: 0.5rem;
   background: var(--jsini-bg, #fff);
+  flex-shrink: 0;
 }
 
 .np-role-info {
@@ -4721,6 +4745,7 @@
 
 /* 받는 사람 등 작업 버튼. 표의 아래 띠가 아니라 폼 아래라서 여기서 잡는다. */
 .np-actions {
+  flex-shrink: 0;
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
