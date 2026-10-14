@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.JSInterop;
 using JSini.Web.Abstractions;
@@ -107,19 +107,22 @@ public partial class HeaderTools
     /// <summary>서랍으로 열리나. 휴대폰이거나 알맹이가 없으면 거짓이다.</summary>
     private bool AskDocks => !IsPhone && Ask.CanDock;
 
+    /// <summary>빠른 지시 단추를 그릴 수 있나. 책상 화면에서는 서랍이 준비되었거나 메뉴 권한이 있으면 그린다.</summary>
+    private bool CanShowAsk => AskMenu is not null || AskDocks;
+
     /// <summary>
     /// ⚡ 에 얹는 글. <b>누르면 무엇이 일어나는지를 적는다</b> — 같은 단추가
     /// 자리에 따라 서랍을 열기도 하고 화면을 옮기기도 해서, 글자까지 같으면
     /// 어느 쪽인지 눌러 봐야 안다.
     /// </summary>
-    private string AskTitle(MenuNode ask) => AskDocks
-        ? $"{ask.Title} — 옆에서 한 줄 보내기"
-        : $"{ask.Title} — AI 에게 한 줄 보내기";
+    private string AskTitle => AskDocks
+        ? $"{(AskMenu?.Title ?? "빠른 지시")} — 옆에서 한 줄 보내기"
+        : $"{(AskMenu?.Title ?? "빠른 지시")} — AI 에게 한 줄 보내기";
 
     /// <summary>
     /// ⚡ 를 눌렀다. <b>책상이면 서랍, 휴대폰이면 화면</b>이다(위 머리말).
     /// </summary>
-    private void OpenAsk(MenuNode ask)
+    private void OpenAsk()
     {
         // 펴 둔 사용자 판을 먼저 접는다. 책상에서는 서랍이 그 판에 가리고,
         // 휴대폰에서는 화면으로 옮겨 가는데 **판이 새 화면 위에 그대로
@@ -132,7 +135,14 @@ public partial class HeaderTools
             return;
         }
 
-        Navigation.NavigateTo(ask.LinkTarget);
+        if (AskMenu is { } ask)
+        {
+            Navigation.NavigateTo(ask.LinkTarget);
+        }
+        else
+        {
+            Navigation.NavigateTo(AskPath);
+        }
     }
 
     /// <summary>

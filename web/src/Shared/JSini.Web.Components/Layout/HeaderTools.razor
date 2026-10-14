@@ -96,12 +96,12 @@
        주소를 여기 박아 두지 않고 **메뉴가 들고 있는 링크**로 간다. 이 화면의
        경로는 DB 메뉴(`PM_AI_ASK`)가 열쇠로 쥐고 있어서, 나중에 옮기면
        `route_key` 만 따라간다(MenuNode.LinkTarget 머리말). *@
-    @if (AskMenu is { } ask)
+    @if (CanShowAsk)
     {
         <DxButton RenderStyle="ButtonRenderStyle.Link"
                   IconCssClass="jsini-icon-bolt"
-                  Title="@AskTitle(ask)"
-                  Click="@(() => OpenAsk(ask))" />
+                  Title="@AskTitle"
+                  Click="@OpenAsk" />
     }
 
 

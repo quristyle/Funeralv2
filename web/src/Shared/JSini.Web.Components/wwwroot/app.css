@@ -1,4 +1,4 @@
-﻿/*
+/*
   셸 레이아웃. DevExpress 테마 **뒤에** 실린다(JSiniHead 의 link 순서).
 
   [DevExpress 데모의 껍데기를 본떴다]
@@ -1962,8 +1962,17 @@ body {
 
 @media (min-width: 768px) {
   body.jsini-has-pinned-drawer .jsini-shell__main {
-    margin-right: min(26rem, 100vw);
+    margin-right: var(--jsini-drawer-width, min(26rem, 100vw));
   }
+}
+
+body.jsini-drawer-resizing .jsini-shell__main {
+  transition: none !important;
+}
+
+body.jsini-drawer-resizing {
+  user-select: none !important;
+  cursor: col-resize !important;
 }
 
 /*
@@ -9765,12 +9774,17 @@ body.jsini-imgview-open {
 
 
 /* 공통 오른쪽 서랍 */
+:root {
+  --jsini-drawer-width: min(26rem, 100vw);
+}
+
 .jsini-right-drawer {
   position: fixed;
   top: var(--jsini-header-height);
   right: 0;
   bottom: 0;
-  width: min(26rem, 100vw);
+  width: var(--jsini-drawer-width, min(26rem, 100vw));
+  max-width: 100vw;
   z-index: 1040;
   display: flex;
   flex-direction: column;
@@ -9785,6 +9799,46 @@ body.jsini-imgview-open {
 .jsini-right-drawer--open {
   transform: translateX(0);
   visibility: visible;
+}
+
+.jsini-right-drawer--resizing {
+  transition: none !important;
+}
+
+/* 오른쪽 서랍 좌측 리사이즈 핸들 */
+.jsini-right-drawer__resizer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 10px;
+  margin-left: -5px;
+  cursor: col-resize;
+  z-index: 20;
+  touch-action: none;
+  user-select: none;
+}
+
+.jsini-right-drawer__resizer::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 4px;
+  width: 2px;
+  background-color: transparent;
+  transition: background-color 0.15s ease;
+}
+
+.jsini-right-drawer__resizer:hover::before,
+.jsini-right-drawer--resizing .jsini-right-drawer__resizer::before {
+  background-color: var(--jsini-primary, #0d6efd);
+}
+
+@media (max-width: 767px) {
+  .jsini-right-drawer__resizer {
+    display: none !important;
+  }
 }
 
 .jsini-right-drawer__head {

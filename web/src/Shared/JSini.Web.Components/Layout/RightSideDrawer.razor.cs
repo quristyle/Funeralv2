@@ -37,6 +37,16 @@ public partial class RightSideDrawer
 
     [Parameter] public EventCallback<bool> IsPinnedChanged { get; set; }
 
+    /// <summary>
+    /// 창의 최소 너비(px). 기본값 300.
+    /// </summary>
+    [Parameter] public int MinWidth { get; set; } = 300;
+
+    /// <summary>
+    /// 창의 최대 너비(px). 기본값 1200.
+    /// </summary>
+    [Parameter] public int MaxWidth { get; set; } = 1200;
+
     private IJSObjectReference? _module;
     private DotNetObjectReference<RightSideDrawer>? _objRef;
 
@@ -67,7 +77,7 @@ public partial class RightSideDrawer
         {
             _module = await JS.InvokeAsync<IJSObjectReference>("import", "./_content/JSini.Web.Components/js/drawer-click.js");
             _objRef = DotNetObjectReference.Create(this);
-            await _module.InvokeVoidAsync("init", Id, _objRef);
+            await _module.InvokeVoidAsync("init", Id, _objRef, MinWidth, MaxWidth);
         }
 
         if (_module != null)

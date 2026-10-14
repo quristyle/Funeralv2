@@ -62,7 +62,8 @@
 
 @if (_ever && Ask.PanelType is { } panel)
 {
-    <RightSideDrawer IsOpen="@Ask.IsOpen" IsOpenChanged="@((v) => { if (!v) Ask.Close(); })"
+    <RightSideDrawer Id="jsini-quick-ask-drawer"
+                     IsOpen="@Ask.IsOpen" IsOpenChanged="@((v) => { if (!v) Ask.Close(); })"
                      IsPhone="@IsPhone"
                      IsPinned="@_pinned" IsPinnedChanged="@(v => _pinned = v)"
                      Title="빠른 지시" CssClass="jsini-quick-drawer-custom">

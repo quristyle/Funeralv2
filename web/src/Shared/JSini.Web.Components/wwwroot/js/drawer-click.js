@@ -1,5 +1,5 @@
 /*
-    오른쪽 서랍(`RightSideDrawer`)의 **바깥 클릭**과 **고정 표시**를 맡는다.
+    오른쪽 서랍(`RightSideDrawer`)의 **바깥 클릭**, **고정 표시**, **너비 조절(Resize)**을 맡는다.
 
     [듣는 자리가 문서 하나다]
 
@@ -16,22 +16,25 @@
 
     못 박힌 판이 하나라도 펴져 있으면 `<body>` 에 `jsini-has-pinned-drawer` 가
     붙고, app.css 가 그 표시를 보고 본문에 오른쪽 여백을 준다(≥768px).
-    서랍마다 제가 붙이면 **둘이 열렸다 하나만 닫을 때** 남은 하나가 펴져 있는데도
-    표시가 걷힌다 — 그래서 셈은 늘 전체를 훑는다.
+    이 여백 크기는 조절된 서랍 너비(`--jsini-drawer-width`)와 정확히 일치한다.
 
-    [드롭다운·팝업 누름은 바깥 클릭이 아니다]
+    [너비 조절 — 왼쪽 끝에서 마우스로 끈다]
 
-    서랍 안에 든 고르개(`DxComboBox` · 주제 고르개)나 확인 창(`ConfirmDialog` ·
-    `CommPopup`)은 DevExpress 가 마크업을 서랍 안이 아니라 `<body>` 아래
-    (`<dx-dynamic-container>`)에 따로 얹는다. 단순 `el.contains(e.target)` 만
-    보면 고르개 목록을 누르거나 창 안의 단추를 누르는 순간 「서랍 바깥을
-    눌렀다」로 읽혀 **판이 통째로 닫힌다.** 특히 모바일에서는 고정핀이
-    없어서 목록을 바꿀 때마다 대화창이 닫혀 버린다.
-    따라서 DevExpress 의 동적 팝업/드롭다운/목록 요소 내부를 누른 경우도
-    바깥 클릭에서 제외한다.
+    책상 화면에서는 서랍 왼쪽 테두리(`.jsini-right-drawer__resizer`)를 마우스로
+    잡아 끌어 너비를 늘리거나 줄일 수 있다.
+    마우스 드래그 중에는 `--jsini-drawer-width` 가 실시간으로 갱신되므로,
+    핀으로 고정된 상태에서도 본문 컨텐츠 영역이 서랍 크기에 맞춰 실시간으로 줄어든다.
+    너비는 브라우저(`localStorage`)에 보존된다.
 */
 
 const drawers = new Map();
+let isResizing = false;
+
+const DEFAULT_WIDTH = 416; // 26rem (16px 기준)
+const MIN_WIDTH = 300;
+const MAX_WIDTH = 1200;
+const STORAGE_KEY_PREFIX = 'jsini_drawer_width_';
+const GLOBAL_STORAGE_KEY = 'jsini_right_drawer_width';
 
 const FLOATING_SELECTOR = [
     'dx-dynamic-container',
@@ -64,8 +67,105 @@ const FLOATING_SELECTOR = [
     '.dxbl-calendar'
 ].join(',');
 
+function getSavedWidth(id, minW = MIN_WIDTH, maxW = MAX_WIDTH) {
+    let val = null;
+    try {
+        const specific = localStorage.getItem(STORAGE_KEY_PREFIX + id);
+        if (specific) val = Number(specific);
+        if (!val) {
+            const global = localStorage.getItem(GLOBAL_STORAGE_KEY);
+            if (global) val = Number(global);
+        }
+    } catch (_) {}
+    if (typeof val === 'number' && !isNaN(val) && val > 0) {
+        return Math.max(minW, Math.min(val, maxW));
+    }
+    return DEFAULT_WIDTH;
+}
+
+function applyDrawerWidth(el, width, updateCssVar = true) {
+    if (!el) return;
+    el.style.width = width + 'px';
+    if (updateCssVar) {
+        document.documentElement.style.setProperty('--jsini-drawer-width', width + 'px');
+    }
+}
+
+function attachResizer(id, drawerEl, minWidth = MIN_WIDTH, maxWidth = MAX_WIDTH) {
+    if (!drawerEl) return;
+    const resizer = drawerEl.querySelector('.jsini-right-drawer__resizer');
+    if (!resizer) return;
+    if (resizer._attached) return;
+    resizer._attached = true;
+
+    resizer.addEventListener('mousedown', function (e) {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        e.stopPropagation();
+
+        isResizing = true;
+        document.body.classList.add('jsini-drawer-resizing');
+        drawerEl.classList.add('jsini-right-drawer--resizing');
+
+        const effectiveMin = minWidth || MIN_WIDTH;
+        const effectiveMax = maxWidth || Math.max(effectiveMin, Math.floor(window.innerWidth * 0.85));
+
+        function onMouseMove(moveEvent) {
+            if (!isResizing) return;
+            moveEvent.preventDefault();
+
+            // 서랍은 화면 오른쪽에 고정되어 있으므로
+            // window.innerWidth - 마우스 X좌표가 곧 서랍의 너비가 된다.
+            const rawWidth = window.innerWidth - moveEvent.clientX;
+            const maxW = Math.min(effectiveMax, Math.max(effectiveMin, Math.floor(window.innerWidth * 0.9)));
+            const clamped = Math.max(effectiveMin, Math.min(rawWidth, maxW));
+
+            applyDrawerWidth(drawerEl, clamped, true);
+            const state = drawers.get(id);
+            if (state) state.width = clamped;
+        }
+
+        function onMouseUp() {
+            if (!isResizing) return;
+            isResizing = false;
+
+            document.body.classList.remove('jsini-drawer-resizing');
+            drawerEl.classList.remove('jsini-right-drawer--resizing');
+
+            window.removeEventListener('mousemove', onMouseMove);
+            window.removeEventListener('mouseup', onMouseUp);
+
+            const finalWidth = drawerEl.offsetWidth;
+            const state = drawers.get(id);
+            if (state) state.width = finalWidth;
+
+            try {
+                localStorage.setItem(STORAGE_KEY_PREFIX + id, finalWidth);
+                localStorage.setItem(GLOBAL_STORAGE_KEY, finalWidth);
+            } catch (_) {}
+        }
+
+        window.addEventListener('mousemove', onMouseMove);
+        window.addEventListener('mouseup', onMouseUp);
+    });
+
+    // 더블클릭 시 기본 크기로 복원
+    resizer.addEventListener('dblclick', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        applyDrawerWidth(drawerEl, DEFAULT_WIDTH, true);
+        const state = drawers.get(id);
+        if (state) state.width = DEFAULT_WIDTH;
+        try {
+            localStorage.setItem(STORAGE_KEY_PREFIX + id, DEFAULT_WIDTH);
+            localStorage.setItem(GLOBAL_STORAGE_KEY, DEFAULT_WIDTH);
+        } catch (_) {}
+    });
+}
+
 function isInsideOrFloating(el, e) {
     if (!el) return false;
+    if (isResizing) return true;
 
     // 판 안쪽을 누른 것은 바깥 클릭이 아니다.
     if (e.target && el.contains(e.target)) {
@@ -87,7 +187,11 @@ function isInsideOrFloating(el, e) {
         if (targetEl.closest(FLOATING_SELECTOR)) {
             return true;
         }
-        // 서랍 여닫이 단추 자체(헤더 AI 아이콘 등)를 누른 경우
+        // 서랍 리사이즈 핸들 자체를 누른 경우
+        if (targetEl.closest('.jsini-right-drawer__resizer')) {
+            return true;
+        }
+        // 서랍 여닫이 단추 자체(헤더 AI 아이콘, 빠른 지시 등)를 누른 경우
         if (targetEl.closest('.jsini-icon-robot, .jsini-icon-bell, .jsini-icon-bolt')) {
             return true;
         }
@@ -105,6 +209,8 @@ function isInsideOrFloating(el, e) {
 }
 
 function clickHandler(e) {
+    if (isResizing) return;
+
     for (const [id, state] of drawers.entries()) {
         if (!state.isOpen || state.isPinned) {
             continue;
@@ -124,26 +230,58 @@ function clickHandler(e) {
 document.addEventListener('mousedown', clickHandler);
 document.addEventListener('touchstart', clickHandler, { passive: true });
 
-export function init(id, dotnet) {
-    drawers.set(id, { dotnet: dotnet, isOpen: false, isPinned: false });
+export function init(id, dotnet, minWidth = MIN_WIDTH, maxWidth = MAX_WIDTH) {
+    const savedWidth = getSavedWidth(id, minWidth, maxWidth);
+    drawers.set(id, {
+        dotnet: dotnet,
+        isOpen: false,
+        isPinned: false,
+        width: savedWidth,
+        minWidth: minWidth,
+        maxWidth: maxWidth
+    });
+
+    const el = document.getElementById(id);
+    if (el) {
+        applyDrawerWidth(el, savedWidth, false);
+        attachResizer(id, el, minWidth, maxWidth);
+    }
 }
 
 export function updateState(id, isOpen, isPinned) {
     const state = drawers.get(id);
+    const el = document.getElementById(id);
+
+    if (el && state) {
+        attachResizer(id, el, state.minWidth, state.maxWidth);
+    }
+
     if (state) {
         state.isOpen = isOpen;
         state.isPinned = isPinned;
+
+        if (isOpen && el) {
+            const width = state.width || getSavedWidth(id, state.minWidth, state.maxWidth);
+            applyDrawerWidth(el, width, true);
+        }
     }
     updateBodyClass();
 }
 
 function updateBodyClass() {
     let hasPinned = false;
-    for (const state of drawers.values()) {
+    let pinnedWidth = DEFAULT_WIDTH;
+
+    for (const [id, state] of drawers.entries()) {
         if (state.isOpen && state.isPinned) {
             hasPinned = true;
+            pinnedWidth = state.width || getSavedWidth(id, state.minWidth, state.maxWidth);
             break;
         }
+    }
+
+    if (hasPinned) {
+        document.documentElement.style.setProperty('--jsini-drawer-width', pinnedWidth + 'px');
     }
     document.body.classList.toggle('jsini-has-pinned-drawer', hasPinned);
 }
