@@ -77,7 +77,7 @@ public partial class LogTranslateView
     private bool _phone;
 
     /// <summary>
-    /// 로그 상자를 바닥에 붙여 두는 JS(<c>js/log-tail.js</c>). <b>Monaco 와
+    /// 로그의 끝을 보이는 자리에 두는 JS(<c>js/log-tail.js</c>). <b>Monaco 와
     /// 상관없는 길이다</b> — 그쪽 모듈(3MB 를 받아 오는 자리)과 섞지 않는다.
     /// </summary>
     private IJSObjectReference? _tail;
@@ -536,7 +536,7 @@ public partial class LogTranslateView
     }
 
     /// <summary>
-    /// 휴대폰 목록을 <b>바닥에 붙여 둔다.</b>
+    /// 휴대폰 목록의 <b>끝을 보이는 자리에 둔다.</b>
     /// </summary>
     /// <remarks>
     /// <para>
@@ -545,10 +545,16 @@ public partial class LogTranslateView
     /// <c>RevealLine</c> 이 하던 몫이다.
     /// </para>
     /// <para>
-    /// <b>글상자가 쓰던 그 모듈을 그대로 쓴다</b>(<c>js/log-tail.js</c>). 거기에
-    /// 「위를 읽는 중이면 놓아 둔다」가 이미 들어 있다 — 처음 보는 상자면
-    /// 바닥으로 보내고, 사람이 위로 굴린 뒤에는 따라가지 않는다. 읽던 자리가
-    /// 튀는 것이 새 줄을 놓치는 것보다 나쁘다.
+    /// <b>미는 것이 목록이 아니라 쪽이다</b>(<c>js/log-tail.js</c> 의
+    /// <c>followPage</c>). 휴대폰의 목록은 제 안에서 구르지 않으므로
+    /// (<c>projmng.css</c> 의 <c>.pm-xlat__list</c> — 받은 줄을 전부 그리고
+    /// 높이를 내용에 맡긴다) 글상자가 쓰던 <c>follow</c> 로는 밀 곳이 없다.
+    /// 목록을 담은 <b>구르는 조상</b>을 찾아 그것을 민다.
+    /// </para>
+    /// <para>
+    /// 「위를 읽는 중이면 놓아 둔다」는 그대로다 — 처음 펴면 끝을 보여 주고,
+    /// 사람이 위로 굴린 뒤에는 따라가지 않는다. 읽던 자리가 튀는 것이 새 줄을
+    /// 놓치는 것보다 나쁘다.
     /// </para>
     /// <para>
     /// <b>줄 수가 달라졌을 때만 부른다.</b> 그리기 뒷정리는 단추 한 번에도
@@ -577,7 +583,7 @@ public partial class LogTranslateView
             _tail ??= await Js.InvokeAsync<IJSObjectReference>(
                 "import", "./_content/JSini.Web.ProjMng/js/log-tail.js");
 
-            await _tail.InvokeVoidAsync("follow", _listEl);
+            await _tail.InvokeVoidAsync("followPage", _listEl);
         }
         catch (Exception ex) when (ex is JSException or JSDisconnectedException
             or ObjectDisposedException or TaskCanceledException)

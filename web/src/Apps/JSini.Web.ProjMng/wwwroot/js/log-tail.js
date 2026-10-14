@@ -64,3 +64,145 @@ export function follow(el) {
     el.scrollTop = el.scrollHeight;
   }
 }
+
+/**
+ * **구르는 것이 상자가 아니라 쪽일 때** 쓴다.
+ *
+ * [왜 둘로 갈렸나]
+ *
+ * 휴대폰의 로그는 제 안에서 구르지 않는다 — 받은 줄을 전부 그리고 높이를
+ * 내용에 맡긴다(`projmng.css` 의 `.pm-xlat__list`). 구르는 자리는 그 상자를
+ * 담고 있는 쪽(`.jsini-shell__content`)이라, 위의 `follow` 가 미는 `scrollTop`
+ * 은 **갈 곳이 없다**(상자가 제 내용만큼이라 늘 0 이다).
+ *
+ * 그래서 여기서는 **상자를 담은 구르는 조상**을 찾아 그것을 민다. 미는 양은
+ * 「상자의 아래끝이 보이는 자리에 올 만큼」이다.
+ *
+ * [붙박인 단추 줄만큼 덜 내린다]
+ *
+ * 화면 아래에는 단추 줄이 떠 있다(`.jsini-actbar` — 이어서 지시·재시도·확인).
+ * 그 줄은 구르는 동안 바닥에 붙어 있으므로, 상자의 아래끝을 화면 아래끝에
+ * 딱 맞추면 **마지막 몇 줄이 그 줄 뒤에 깔린다.** 줄 높이만큼 덜 내린다.
+ *
+ * [놓아 주는 규칙은 위와 같다]
+ *
+ * 사람이 위를 읽는 중이면 따라가지 않는다. 다만 「바닥에 붙어 있나」를
+ * **부를 때 재면 안 된다** — 부르는 때가 이미 새 줄이 붙은 뒤라, 한 번에 쉰
+ * 줄이 붙은 판에서는 늘 「멀리 있다」가 되어 놓아 주게 된다. 굴림이 날 때
+ * 재어 둔다.
+ */
+export function followPage(el) {
+  if (!el) {
+    return;
+  }
+
+  const box = scrollerOf(el);
+
+  if (!box) {
+    return;
+  }
+
+  if (!stuck.has(el)) {
+    stuck.set(el, true);
+    watch(el, box);
+  }
+
+  if (!stuck.get(el)) {
+    return;
+  }
+
+  const gap = tailGap(el, box);
+
+  if (gap > 0) {
+    // 더 내릴 곳이 없으면 브라우저가 알아서 끝에서 멈춘다. 거기서는 단추
+    // 줄이 제자리(흐름의 끝)로 돌아가므로 마지막 줄이 가려지지 않는다.
+    box.scrollTop += gap;
+  }
+}
+
+/**
+ * 이 요소를 담고 있는 **구르는 조상.** 못 찾으면 문서 자신이다.
+ *
+ * 요소 자신은 보지 않는다 — 가로로만 구르는 판(`--nowrap`)이 제가 주인인
+ * 것으로 잡히면 세로로는 한 픽셀도 안 움직인다.
+ */
+function scrollerOf(el) {
+  for (let p = el.parentElement; p; p = p.parentElement) {
+    const how = getComputedStyle(p).overflowY;
+
+    if (how === 'auto' || how === 'scroll') {
+      return p;
+    }
+  }
+
+  return document.scrollingElement;
+}
+
+/**
+ * 구르는 자리의 **글이 설 수 있는** 아래끝(화면 좌표).
+ *
+ * 테두리 상자의 아래끝이 아니다. 셸은 본문 아래쪽에 **하단 띠 몫**을 안쪽
+ * 여백으로 비워 두는데(app.css — 그 띠는 `position: fixed` 라 그 자리를
+ * 덮는다), 거기까지 내리면 마지막 줄이 띠 뒤로 들어간다.
+ */
+function viewBottom(box) {
+  if (box === document.scrollingElement) {
+    return window.innerHeight || document.documentElement.clientHeight;
+  }
+
+  const pad = parseFloat(getComputedStyle(box).paddingBottom) || 0;
+
+  return box.getBoundingClientRect().bottom - pad;
+}
+
+/**
+ * 마지막 줄이 설 수 있는 **바닥선.**
+ *
+ * 붙박인 단추 줄(`.jsini-actbar`)이 떠 있으면 **그 윗금**이다. 줄의 높이를
+ * 빼는 것으로는 안 된다 — 그 줄은 화면 맨 아래가 아니라 위에서 센 자리에
+ * 붙어 서기 때문이다(재어 보면 390×844 에서 바닥에서 133px — 하단 띠 몫
+ * 60px 위다). 높이로 세면 그만큼 어긋나 **마지막 네댓 줄이 다시 가린다.**
+ *
+ * 쪽을 끝까지 내려 그 줄이 제자리(흐름의 끝)로 돌아갔으면 가리는 것이
+ * 없으므로 바닥선은 그대로다.
+ */
+function floorOf(box) {
+  const bottom = viewBottom(box);
+  const bar = document.querySelector('.jsini-actbar');
+
+  if (!bar) {
+    return bottom;
+  }
+
+  const r = bar.getBoundingClientRect();
+
+  return r.height > 0 && r.top > 0 && r.top < bottom ? r.top : bottom;
+}
+
+/**
+ * 요소의 아래끝이 **바닥선보다 얼마나 더 아래**에 있나. 0 이하면 이미 보인다.
+ */
+function tailGap(el, box) {
+  return el.getBoundingClientRect().bottom - floorOf(box);
+}
+
+/**
+ * 굴림이 날 때마다 「끝이 보이나」를 적어 둔다.
+ *
+ * **요소가 사라지면 스스로 떨어진다.** 쪽이 구르는 자리일 때 듣는 쪽은
+ * `window` 라, 떼어 주지 않으면 로그를 열 때마다 하나씩 쌓인다.
+ */
+function watch(el, box) {
+  const target = box === document.scrollingElement ? window : box;
+
+  const onScroll = () => {
+    if (!el.isConnected) {
+      target.removeEventListener('scroll', onScroll);
+      return;
+    }
+
+    stuck.set(el, tailGap(el, box) <= SLACK);
+  };
+
+  target.addEventListener('scroll', onScroll, { passive: true });
+}
