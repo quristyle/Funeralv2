@@ -39,26 +39,6 @@ public sealed class AiRunService(
     private readonly int _retryDelaySeconds =
         Math.Max(0, configuration.GetValue("AiTasks:RetryDelaySeconds", 15));
 
-    /// <summary>
-    /// 결과 앱푸시가 <b>처리 요약을 몇 초까지 기다리나</b>.
-    /// 까닭은 <see cref="SummarizeThenNotifyAsync"/> 머리말에 있다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>30초로 잡은 근거.</b> 요약은 모델 호출 한 번을 45초에서 끊고 빈손이면
-    /// 한 번 더 부른다(<see cref="AiRunSummaryWriter"/> 의 <c>SummaryAttempts</c>).
-    /// 한 번에 오는 보통의 건은 십수 초면 적히므로 그 대부분이 이 안에 들어오고,
-    /// 다시 부르기까지 간 건은 기다려 봐야 한도에 걸린 건이라 요약이 안 나올
-    /// 공산이 크다 — <b>그 꼬리를 기다리는 값이 알림이 늦는 값보다 작다.</b>
-    /// </para>
-    /// <para>
-    /// <b>0 이면 안 기다린다</b> — 알림이 무조건 빨라야 하는 자리에서 옛 동작
-    /// (상태·제목만 싣고 곧장 보내기)으로 되돌리는 손잡이다.
-    /// </para>
-    /// </remarks>
-    private readonly int _pushSummaryWaitSeconds =
-        Math.Clamp(configuration.GetValue("AiTasks:PushSummaryWaitSeconds", 30), 0, 180);
-
     private IDbConnection Open() => new NpgsqlConnection(_connectionString);
 
     // ── 집어가기 ────────────────────────────────────────────
@@ -524,6 +504,14 @@ public sealed class AiRunService(
             // **중간 실패는 알리지 않는다.** 세 번 시도하는 작업이 두 번
             // 실패하면 「실패」 메일이 두 통 먼저 가고 마지막에 「성공」이
             // 온다 — 받는 사람은 그 순서를 못 읽는다. 마지막 판정만 알린다.
+            //
+            // **그 뜻을 칸에 적어 둔다.** `mail_sent_at` 이 비어 있는 것은
+            // 「아직 안 보냈다」는 뜻이고, 따라잡기가 그런 건을 주워 보낸다
+            // (<see cref="AiSummaryCatchUp"/>) — 여기서 안 적으면 **안 알리기로
+            // 한 중간 실패가 30분 뒤에 메일로 나간다.** 보낸 시각이 아니라
+            // 「이 실행의 메일 길은 끝났다」는 도장이다.
+            await MarkMailDoneAsync(runKey);
+
             return true;
         }
 
@@ -535,40 +523,40 @@ public sealed class AiRunService(
     }
 
     /// <summary>
-    /// 끝난 실행의 뒤처리 — <b>요약을 잠깐 기다렸다 앱푸시를 쏘고, 제목을 짓고,
-    /// 그다음에 메일을 보낸다.</b>
+    /// 끝난 실행의 뒤처리 — <b>앱푸시를 곧바로 쏘고, 요약을 만들고, 그 요약을
+    /// 실어 메일을 보낸다.</b>
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>푸시가 요약을 기다린다 — 다만 정해진 시간까지만.</b> 알림창에
-    /// 「무엇을 했나」가 실리려면 처리 요약이 적혀 있어야 하는데
-    /// (<c>AiTaskNotifier.PushBody</c>), 그것을 만드는 일은 모델을 부르는 일이라
-    /// 십수 초에서 몇 분까지 걸린다. 그래서 <see cref="_pushSummaryWaitSeconds"/>
-    /// 동안만 기다리고, 그 안에 안 오면 <b>요약 없이 그냥 보낸다</b>(그때는
-    /// 오류 한 줄이나 「바뀐 것 · 할 일」이 본문을 채운다 —
-    /// <c>AiTaskNotifier.PushFallback</c>).
+    /// <b>앱푸시는 아무것도 기다리지 않는다.</b> 「끝났다」를 알리는 일이고,
+    /// 받는 사람이 그 알림에서 가장 크게 읽는 것도 그 한 가지다. 한때 이 자리는
+    /// 요약과 제목 짓기를 <b>둘 다</b> 끝낸 뒤에 알렸고, 그때의 운영 실측이
+    /// <b>끝난 시각에서 푸시까지 중앙 13초 · 상위 10% 45초 · 최대 177초</b>였다
+    /// (2026-09-25, <c>scom.push_send_logs</c> 와 <c>ai_task_run.finished_at</c>
+    /// 대조). 그다음에는 「요약만, 상한을 걸고」 기다렸는데 그래도 상한만큼은
+    /// 늦었다. <b>지금은 기다리지 않는다</b> — 알림창을 채울 글은 요약이 없어도
+    /// 적힌 값으로 만들어진다(<c>AiTaskNotifier.PushFallback</c>: 오류 한 줄,
+    /// 또는 「바뀐 것 · 할 일」).
     /// </para>
     /// <para>
-    /// <b>기다리는 것은 요약 하나뿐이다.</b> 한때는 이 자리가 요약과 제목 짓기
-    /// (<see cref="AiTaskTitler"/>)를 <b>둘 다</b> 끝낸 뒤에 알렸고, 그때의 운영
-    /// 실측이 <b>끝난 시각에서 푸시까지 중앙 13초 · 상위 10% 45초 · 최대 177초</b>
-    /// 였다(2026-09-25, <c>scom.push_send_logs</c> 와 <c>ai_task_run.finished_at</c>
-    /// 대조). 그래서 한 번은 푸시를 맨 앞으로 뺐는데, 그러자 이번에는 <b>알림에
-    /// 상태와 제목밖에 안 실렸다.</b> 지금은 그 사이다 — 요약만, 상한을 걸고
-    /// 기다린다. 최악이 177초가 아니라 그 상한이다.
+    /// <b>메일은 그 반대다 — 요약을 기다린다.</b> 메일은 알림창 두 줄이 아니라
+    /// 보고서라, 「무엇을 했다나」 칸이 비면 읽을 값이 절반으로 준다. 그래서
+    /// 요약이 손에 들어온 뒤에 보내고, <b>그때까지 안 들어오면 아예 미룬다</b>
+    /// (<c>deferUntilSummary</c>). 미룬 건은 <see cref="AiSummaryCatchUp"/> 가
+    /// 요약을 채우는 자리에서 보낸다 — 예전에는 그 경우 <b>요약 없는 메일이
+    /// 먼저 나가고</b> 요약은 10분 뒤에 화면에만 생겼다.
     /// </para>
     /// <para>
     /// <b>요약은 알림 설정과 무관하다.</b> 메일도 앱푸시도 끄고 시킨 건은 화면의
     /// 「처리 요약」 칸이 결과를 읽는 유일한 자리다 — 그런데 요약을 만드는 일이
     /// 알림 보내기 안에 들어 있으면 <b>알림을 끈 사람에게만 요약이 없다.</b>
-    /// 그래서 여기서 걸음을 나눠 부른다. <b>상한이 지나도 요약 만들기를 끊지
-    /// 않는 까닭</b>도 같다 — 끊으면 푸시가 늦은 건의 화면 요약 칸이 영영 빈다.
+    /// 그래서 여기서 걸음을 나눠 부른다.
     /// </para>
     /// <para>
-    /// <b>뒤의 순서는 그대로 전부다.</b> 제목 짓기는 요약의 첫 줄을 읽어 모델
-    /// 호출을 아끼고, 결과 메일은 그 요약과 <b>새로 지어진 제목</b>을 싣는다.
-    /// 나란히 돌리면 메일이 요약 없이 나가거나, 메일과 화면에 같은 건이 서로
-    /// 다른 제목으로 남는다.
+    /// <b>제목은 요약과 한 번에 온다.</b> 요약을 받아 오는 그 호출이 짧은 제목까지
+    /// 들고 오고(<see cref="AiRunSummaryWriter"/>), 아래 <see cref="AiTaskTitler"/>
+    /// 는 그 도장이 없는 건만 다시 부른다 — 보통은 모델을 부르지 않고 곧장
+    /// 돌아온다. <b>완료에서 메일까지 모델 왕복이 둘에서 하나로 줄었다.</b>
     /// </para>
     /// <para>
     /// <b>중간 실패는 여기까지 오지 않는다.</b> 다시 시도할 건은 위에서 돌아간다 —
@@ -580,38 +568,53 @@ public sealed class AiRunService(
     {
         try
         {
-            // **요약을 먼저 걸어 둔다.** 아래에서 기다리는 것도 이것이고,
-            // 상한을 넘겨도 계속 도는 것도 이것이다.
-            var summary = summaries.EnsureAsync(runKey);
+            // ① 앱푸시 — **완료 즉시.** 요약도 제목도 기다리지 않는다.
+            //
+            // 메일보다 먼저 거두는 까닭이 하나 더 있다: 둘이 같은 칸
+            // (`ai_task.notify_error`)에 적는데 푸시가 그 칸을 비우는 쪽이라,
+            // 순서가 뒤집히면 메일이 남긴 사유를 푸시가 지운다.
+            await notifier.SendPushAsync(runKey);
 
-            if (_pushSummaryWaitSeconds > 0)
-            {
-                // **요약이 끝나기를 상한까지만 기다린다.** `WhenAny` 라서 어느
-                // 쪽이 먼저 오든 여기서 멈추지 않는다 — 요약이 늦으면 늦은 채로
-                // 푸시가 나가고, 요약은 제 갈 길을 계속 간다.
-                await Task.WhenAny(
-                    summary, Task.Delay(TimeSpan.FromSeconds(_pushSummaryWaitSeconds)));
-            }
+            // ② 처리 요약 — 지시문과 결과를 함께 보고 AI 가 한 번에 쓴다.
+            //    제목도 이 한 번에 붙는다.
+            await summaries.EnsureAsync(runKey);
 
-            // **띄워 놓고 기다리지 않는다.** 알림 서버가 굼뜬 날 여기서 기다리면
-            // 이번에는 **처리 요약이 그만큼 늦게 적힌다**(위 세 번째 문단의 불변식).
-            var push = notifier.SendPushAsync(runKey);
-
-            await summary;
+            // ③ 제목 — ②가 못 붙인 건의 되받기. 보통은 모델을 안 부른다.
             await titler.TitleAsync(runKey);
 
-            // **메일보다 먼저 거둔다.** 둘이 같은 칸(`ai_task.notify_error`)에
-            // 적는데 푸시가 그 칸을 비우는 쪽이라, 순서가 뒤집히면 메일이 남긴
-            // 사유를 푸시가 지운다.
-            await push;
-
-            await notifier.SendMailAsync(runKey);
+            // ④ 결과 메일 — **②가 빈손이면 보내지 않고 미룬다.**
+            await notifier.SendMailAsync(runKey, deferUntilSummary: true);
         }
         catch (Exception ex)
         {
-            // 셋 다 스스로 삼키도록 돼 있지만, **여기는 아무도 지켜보지 않는
+            // 넷 다 스스로 삼키도록 돼 있지만, **여기는 아무도 지켜보지 않는
             // 갈래**라 새어 나온 것이 있으면 로그로 끝내야 한다.
             logger.LogWarning(ex, "끝난 실행의 뒤처리에 실패했습니다 (run {RunKey}).", runKey);
+        }
+    }
+
+    /// <summary>
+    /// 이 실행의 <b>메일 길을 끝났다고 적는다</b>(<c>ai_task_run.mail_sent_at</c>).
+    /// 보낼 일이 없다고 판정한 자리에서 부른다 — 적지 않으면 따라잡기가
+    /// 「아직 안 보낸 것」으로 보고 주워 간다.
+    /// </summary>
+    private async Task MarkMailDoneAsync(long runKey)
+    {
+        try
+        {
+            using var db = Open();
+
+            await db.ExecuteAsync("""
+                UPDATE projmng.ai_task_run
+                   SET mail_sent_at = now()
+                 WHERE run_key = @runKey
+                   AND mail_sent_at IS NULL
+                """, new { runKey });
+        }
+        catch (Exception ex)
+        {
+            // 못 적어도 완료 처리는 그대로 간다. 최악이 「중간 실패 메일 한 통」이다.
+            logger.LogWarning(ex, "중간 실패의 메일 도장을 찍지 못했습니다 (run {RunKey}).", runKey);
         }
     }
 

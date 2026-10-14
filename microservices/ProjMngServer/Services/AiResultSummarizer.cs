@@ -10,13 +10,27 @@ namespace ProjMngServer.Services;
 /// <param name="Headline">한 문장. 무엇을 했나.</param>
 /// <param name="Points">한 일·고친 것. 짧은 명사형 몇 줄.</param>
 /// <param name="Checks">사람이 확인하거나 이어서 해야 할 것. 없을 수 있다.</param>
+/// <param name="Title">
+/// 목록에 걸 <b>아주 짧은 제목</b>(20자 내외). <b>같은 한 번의 호출에서 함께 받는다</b> —
+/// 예전에는 요약을 받은 뒤 제목을 짓는 호출을 한 번 더 했고(<see cref="AiResultSummarizer.MakeTitleAsync"/>),
+/// 결과 메일이 그 둘을 모두 기다리느라 완료 시각에서 멀어졌다. 한 번에 받으면
+/// 모델 왕복이 절반이고, 요약과 제목이 서로 다른 글을 보고 지어질 일도 없다.
+/// <para><b>되읽은 요약(<see cref="Parse"/>)에는 비어 있다</b> — 적어 둔 평문에는
+/// 제목이 없고, 거기까지 왔으면 제목은 이미 붙은 뒤다.</para>
+/// </param>
 public sealed record AiResultSummary(
-    string Headline, IReadOnlyList<string> Points, IReadOnlyList<string> Checks)
+    string Headline, IReadOnlyList<string> Points, IReadOnlyList<string> Checks, string Title = "")
 {
     /// <summary>「확인할 것」 묶음의 머리말. <see cref="ToText"/> 와 <see cref="Parse"/> 가 같이 쓴다.</summary>
     private const string ChecksLabel = "확인할 것";
 
     public bool IsEmpty => Headline.Length == 0 && Points.Count == 0;
+
+    /// <summary>
+    /// 작업 제목에 걸 한 줄. <b>제목 칸이 비면 헤드라인으로 돌아간다</b> —
+    /// 「제목만 빼먹는」 모델이 있어도 목록이 지시문 앞부분에 머물지 않게 한다.
+    /// </summary>
+    public string TitleOrHeadline => Title.Length > 0 ? Title : Headline;
 
     /// <summary>
     /// <c>ai_task_run.summary_text</c> 에 남길 꼴. <b>사람이 읽는 평문이어야 한다</b> —
@@ -271,6 +285,12 @@ public sealed class AiResultSummarizer(
     /// <summary>
     /// 끝난 작업의 지시문과 결과를 보고 20자 내외의 짧은 제목을 짓는다.
     /// </summary>
+    /// <remarks>
+    /// <b>이제는 되받기다.</b> 보통의 길에서는 제목이 요약과 <b>같은 한 번의
+    /// 호출</b>로 온다(<see cref="AiResultSummary.Title"/>) — 완료 뒤에 모델을
+    /// 두 번 부르면 결과 메일이 그만큼 늦는다. 여기는 그 한 번이 빈손으로
+    /// 돌아왔거나(요약 자체를 못 만든 건) 제목 칸만 빠져 온 건에만 불린다.
+    /// </remarks>
     public async Task<string?> MakeTitleAsync(
         string? instruction, string? resultText, string? summaryHeadline = null, CancellationToken ct = default)
     {
@@ -320,10 +340,11 @@ public sealed class AiResultSummarizer(
     /// 메일에 다시 서론이 앉는다.
     /// </summary>
     private static string Ask(string? instruction, string? resultText) => $$"""
-        아래는 AI 실행기가 지시를 처리하고 남긴 결과 원문입니다.
-        이것을 메일 요약 칸에 넣을 수 있게 정리해 주십시오.
+        아래는 사람이 시킨 지시문과, AI 실행기가 그것을 처리하고 남긴 결과 원문입니다.
+        **둘을 함께 보고** 메일 요약 칸에 넣을 수 있게 정리해 주십시오.
 
         [규칙]
+        - title: 목록에 걸 아주 짧은 제목(20자 내외). 따옴표·마침표 없이.
         - headline: 한 문장(60자 이내). 무엇을 했는지 결론부터.
         - points: 한 일·고친 것을 3~6개. 각 80자 이내, 명사형으로 짧게.
         - checks: 사람이 확인하거나 이어서 해야 할 것 0~3개. 없으면 빈 배열.
@@ -331,7 +352,7 @@ public sealed class AiResultSummarizer(
         - 「~하겠습니다」 같은 서론은 버리고 실제로 한 것만 남기십시오.
         - 설명·머리말 없이 아래 모양의 JSON 하나만 답하십시오.
 
-        {"headline":"...","points":["...","..."],"checks":["..."]}
+        {"title":"...","headline":"...","points":["...","..."],"checks":["..."]}
 
         ## 시킨 것
         {{instruction ?? "(적힌 것이 없습니다)"}}
@@ -398,10 +419,16 @@ public sealed class AiResultSummarizer(
                 ? Tidy(h.GetString(), 120)
                 : string.Empty;
 
+            // 제목은 작업 목록에 그대로 걸리므로 칸 길이(200)보다 훨씬 짧게 끊는다.
+            var title = root.TryGetProperty("title", out var t)
+                ? Tidy(t.GetString(), 60)
+                : string.Empty;
+
             var summary = new AiResultSummary(
                 headline,
                 Items(root, "points", max: 6),
-                Items(root, "checks", max: 3));
+                Items(root, "checks", max: 3),
+                title);
 
             return summary.IsEmpty ? null : summary;
         }

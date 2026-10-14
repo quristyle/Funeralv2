@@ -9,7 +9,7 @@ namespace ProjMngServer.Controllers;
 [ApiController]
 [Route("api/ai-runs")]
 public sealed class AiRunsController(
-    AiRunService runs, AiRunSummaryWriter summaries) : ControllerBase
+    AiRunService runs, AiRunSummaryWriter summaries, AiTaskNotifier notifier) : ControllerBase
 {
     /// <summary>
     /// 로그 꼬리. <b>증분으로 읽는다</b> — 화면이 2~3초마다 이것을 부른다.
@@ -47,11 +47,23 @@ public sealed class AiRunsController(
     /// <b>못 만들어도 오류가 아니다</b> — 빈 값으로 답한다. 화면은 「아직 못
     /// 만들었다」를 그대로 보여 주면 되고, 그 사이 감시자가 계속 다시 본다.
     /// </para>
+    /// <para>
+    /// <b>만들어졌으면 미뤄 둔 결과 메일도 여기서 푼다.</b> 결과 메일은 요약이
+    /// 적힌 뒤에 나가므로(<c>AiRunService.SummarizeThenNotifyAsync</c>), 사람이
+    /// 손으로 요약을 만든 것도 똑같이 메일을 풀어 줄 자리다 — 안 그러면 화면에는
+    /// 요약이 떴는데 메일만 감시자의 다음 바퀴까지 안 간다. <b>이미 나간 건이면
+    /// 그대로 돌아간다</b>(<c>mail_sent_at</c> 자리잡기).
+    /// </para>
     /// </remarks>
     [HttpPost("{runKey:long}/summary")]
     public async Task<IActionResult> SummaryAsync(long runKey, CancellationToken ct)
     {
         var summary = await summaries.EnsureAsync(runKey, ct: ct);
+
+        if (summary is not null)
+        {
+            await notifier.SendMailAsync(runKey, deferUntilSummary: false, ct);
+        }
 
         return Ok(ApiResponse<string>.Ok(summary?.ToText() ?? string.Empty));
     }

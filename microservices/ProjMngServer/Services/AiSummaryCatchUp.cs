@@ -32,6 +32,20 @@ namespace ProjMngServer.Services;
 /// 자리라 며칠 지난 건에는 값이 거의 없는데, 그것들까지 훑으면 밀린 목록이
 /// 줄지 않아 정작 방금 끝난 건이 뒤로 밀린다.
 /// </para>
+/// <para>
+/// <b>미뤄 둔 결과 메일도 여기서 보낸다 (2026-10-14).</b> 이제 결과 메일은
+/// 요약이 손에 들어온 뒤에만 나간다(<c>AiRunService.SummarizeThenNotifyAsync</c>
+/// → <c>deferUntilSummary</c>). 그러므로 <b>여기서 요약을 채우는 일이 곧 밀린
+/// 메일을 풀어 주는 일</b>이다 — 채운 바로 그 자리에서 보낸다. 예전에는 요약
+/// 없는 메일이 먼저 나가고 요약은 뒤늦게 화면에만 생겨서, 받는 사람 눈에
+/// <b>「요약이 만들어지기 전에 메일이 온다」</b>로 보였다.
+/// </para>
+/// <para>
+/// <b>영영 미루지는 않는다.</b> 모델이 며칠째 죽어 있으면 요약도 메일도 안 가는데,
+/// 그 둘 중 메일은 반드시 가야 한다. 끝난 지 <c>AiTasks:MailDeferMinutes</c> 분이
+/// 지나도록 안 나간 건은 <b>요약 없이 그냥 보낸다</b>(그때 메일의 「AI 의 답」 칸은
+/// 옛 방식대로 결과문 앞 몇 줄로 채워진다).
+/// </para>
 /// </remarks>
 public sealed class AiSummaryCatchUp(
     IConfiguration configuration,
@@ -56,6 +70,25 @@ public sealed class AiSummaryCatchUp(
     private readonly int _withinDays =
         Math.Clamp(configuration.GetValue("AiTasks:SummaryCatchUpDays", defaultValue: 7), 0, 90);
 
+    /// <summary>
+    /// 결과 메일을 <b>요약 없이라도 보내기까지</b> 기다리는 시간(분).
+    /// </summary>
+    /// <remarks>
+    /// 짧게 잡으면 요약을 기다리는 뜻이 없어지고(붐빌 때 10~20분은 흔하다),
+    /// 길게 잡으면 모델이 죽은 날 결과 메일이 반나절 늦는다. 감시자가 도는
+    /// 주기(<see cref="_period"/>)의 두세 배쯤이 적당하다.
+    /// </remarks>
+    private readonly int _mailDeferMinutes =
+        Math.Clamp(configuration.GetValue("AiTasks:MailDeferMinutes", defaultValue: 30), 1, 1440);
+
+    /// <summary>
+    /// 밀린 메일을 며칠 전 것까지 보나. <b>요약 쪽 창(<see cref="_withinDays"/>)보다
+    /// 좁아지지 않게</b> 이레를 바닥으로 깐다 — 요약 채우기를 꺼 둔 장비에서도
+    /// 결과 메일은 나가야 한다. 그보다 오래된 건은 메일로 받을 값이 없다.
+    /// </summary>
+    private readonly int _mailWithinDays = Math.Max(
+        Math.Clamp(configuration.GetValue("AiTasks:SummaryCatchUpDays", defaultValue: 7), 0, 90), 7);
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         if (string.IsNullOrWhiteSpace(_connectionString))
@@ -66,13 +99,16 @@ public sealed class AiSummaryCatchUp(
 
         if (_withinDays == 0)
         {
-            logger.LogInformation("AiTasks:SummaryCatchUpDays 가 0 이라 처리 요약 채우기를 끕니다.");
-            return;
+            // **감시자를 멈추지는 않는다.** 이 값은 「요약을 뒤늦게 만드나」의
+            // 손잡이인데, 여기서 돌아서면 **미뤄 둔 결과 메일까지 영영 안 나간다** —
+            // 요약을 안 만들기로 한 것과 메일을 안 보내기로 한 것은 다른 결정이다.
+            logger.LogInformation(
+                "AiTasks:SummaryCatchUpDays 가 0 이라 처리 요약 채우기는 끄고, 미뤄진 결과 메일만 보냅니다.");
         }
 
         logger.LogInformation(
-            "처리 요약 채우기 시작 (주기 {Min}분, 한 바퀴 {Batch}건, 최근 {Days}일).",
-            _period.TotalMinutes, _batch, _withinDays);
+            "처리 요약 채우기 시작 (주기 {Min}분, 한 바퀴 {Batch}건, 최근 {Days}일, 메일 미룸 상한 {Defer}분).",
+            _period.TotalMinutes, _batch, _withinDays, _mailDeferMinutes);
 
         using var timer = new PeriodicTimer(_period);
 
@@ -100,10 +136,31 @@ public sealed class AiSummaryCatchUp(
         await using var db = new NpgsqlConnection(_connectionString);
         await db.OpenAsync(ct);
 
+        // **범위는 바퀴마다 새로 연다.** 요약 쓰는 이도 알림 보내는 이도 요청
+        // 수명(scoped)에 묶여 있는데 여기는 요청이 없다.
+        using var scope = scopes.CreateScope();
+        var writer = scope.ServiceProvider.GetRequiredService<AiRunSummaryWriter>();
+        var notifier = scope.ServiceProvider.GetRequiredService<AiTaskNotifier>();
+
+        await FillSummariesAsync(db, writer, notifier, ct);
+        await SendOverdueMailsAsync(db, notifier, ct);
+    }
+
+    /// <summary>
+    /// 요약이 빈 실행을 몇 건 주워 채우고, <b>채운 자리에서 밀린 메일을 보낸다.</b>
+    /// </summary>
+    private async Task FillSummariesAsync(
+        NpgsqlConnection db, AiRunSummaryWriter writer, AiTaskNotifier notifier, CancellationToken ct)
+    {
+        if (_withinDays == 0)
+        {
+            return;
+        }
+
         // **작업의 마지막 실행인지 같이 읽는다.** 요약의 첫 문장으로 작업 제목을
         // 고쳐 주는 기능이 있는데(`AiRunSummaryWriter.EnsureAsync` 의 retitle),
         // 밀린 옛 실행에도 그것을 걸면 **지난 실행의 한 줄이 지금 제목을 덮는다.**
-        var rows = (await db.QueryAsync<Pending>("""
+        var rows = (await db.QueryAsync<Pending>(new CommandDefinition("""
             SELECT r.run_key AS RunKey,
                    (r.run_key = t.last_run_key) AS IsLatest
               FROM projmng.ai_task_run r
@@ -115,7 +172,7 @@ public sealed class AiSummaryCatchUp(
                AND btrim(r.result_text) <> ''
              ORDER BY r.finished_at DESC
              LIMIT @batch
-            """, new { days = _withinDays, batch = _batch })).ToList();
+            """, new { days = _withinDays, batch = _batch }, cancellationToken: ct))).ToList();
 
         if (rows.Count == 0)
         {
@@ -123,11 +180,6 @@ public sealed class AiSummaryCatchUp(
         }
 
         logger.LogInformation("처리 요약이 빈 실행 {Count}건을 다시 만들어 봅니다.", rows.Count);
-
-        // **범위는 바퀴마다 새로 연다.** 요약 쓰는 이들은 요청 수명(scoped)에
-        // 묶여 있는데 여기는 요청이 없다.
-        using var scope = scopes.CreateScope();
-        var writer = scope.ServiceProvider.GetRequiredService<AiRunSummaryWriter>();
 
         var made = 0;
 
@@ -148,11 +200,61 @@ public sealed class AiSummaryCatchUp(
             }
 
             made++;
+
+            // **요약이 생겼으니 미뤄 둔 메일을 지금 보낸다.** 이미 나간 건이면
+            // 자리잡기에서 걸러진다(<c>AiTaskNotifier.StampMailAsync</c>).
+            await notifier.SendMailAsync(row.RunKey, deferUntilSummary: false, ct);
         }
 
         if (made > 0)
         {
             logger.LogInformation("처리 요약 {Count}건을 뒤늦게 채웠습니다.", made);
+        }
+    }
+
+    /// <summary>
+    /// <b>너무 오래 미뤄진 결과 메일을 요약 없이 보낸다.</b>
+    /// </summary>
+    /// <remarks>
+    /// 여기까지 온 건은 셋 중 하나다 — 모델이 계속 빈손이거나, 요약을 만들 글이
+    /// 없거나(결과문이 비었다), 보내다 실패했거나. <b>어느 쪽이든 메일은 가야
+    /// 한다.</b> 미룬다는 약속은 「요약을 기다린다」이지 「안 보낸다」가 아니다.
+    /// <para>
+    /// 이 칸이 생기기 전의 실행은 되메움으로 전부 찍혀 있다(2026-10-14 의
+    /// <c>deploy/sql/projmng-ai-mail-sent-at-2026-10-14.sql</c>). 그 한 줄이
+    /// 없으면 여기가 <b>지난 모든 건의 메일을 한꺼번에 쏜다.</b>
+    /// </para>
+    /// </remarks>
+    private async Task SendOverdueMailsAsync(
+        NpgsqlConnection db, AiTaskNotifier notifier, CancellationToken ct)
+    {
+        var runKeys = (await db.QueryAsync<long>(new CommandDefinition("""
+            SELECT r.run_key
+              FROM projmng.ai_task_run r
+              JOIN projmng.ai_task t ON t.task_key = r.task_key
+             WHERE r.mail_sent_at IS NULL
+               AND r.finished_at IS NOT NULL
+               AND r.finished_at < now() - make_interval(mins => @mins)
+               AND r.finished_at > now() - make_interval(days => @days)
+             ORDER BY r.finished_at
+             LIMIT @batch
+            """,
+            new { mins = _mailDeferMinutes, days = _mailWithinDays, batch = _batch },
+            cancellationToken: ct))).ToList();
+
+        if (runKeys.Count == 0)
+        {
+            return;
+        }
+
+        logger.LogInformation(
+            "{Mins}분 넘게 미뤄진 결과 메일 {Count}건을 요약 없이 보냅니다.",
+            _mailDeferMinutes, runKeys.Count);
+
+        foreach (var runKey in runKeys)
+        {
+            ct.ThrowIfCancellationRequested();
+            await notifier.SendMailAsync(runKey, deferUntilSummary: false, ct);
         }
     }
 

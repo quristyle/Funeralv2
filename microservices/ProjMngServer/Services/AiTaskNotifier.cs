@@ -28,8 +28,7 @@ namespace ProjMngServer.Services;
 /// </para>
 /// </remarks>
 public sealed class AiTaskNotifier(
-    IConfiguration configuration, IHttpClientFactory http,
-    AiRunSummaryWriter summaries, ILogger<AiTaskNotifier> logger)
+    IConfiguration configuration, IHttpClientFactory http, ILogger<AiTaskNotifier> logger)
 {
     private readonly string? _connectionString = configuration.GetConnectionString("jsini");
 
@@ -131,6 +130,14 @@ public sealed class AiTaskNotifier(
     /// 되살아난다.
     /// </para>
     /// <para>
+    /// <b>그래서 완료 직후에 부르면 대개 요약이 없다 (2026-10-14).</b> 앱푸시는
+    /// 이제 아무것도 기다리지 않고 완료 즉시 나가기 때문이다 — 그때 알림창을
+    /// 채우는 것은 위의 대체 본문(오류 한 줄, 또는 「바뀐 것 · 할 일」)이고,
+    /// 이것은 <b>적힌 값에서 나오므로 서론이 섞이지 않는다.</b> 요약을 싣는 길은
+    /// 그대로 살려 둔다 — 알림을 다시 보내는 자리나, 요약이 이미 적힌 뒤에
+    /// 부르는 자리에서는 그 글이 더 낫다.
+    /// </para>
+    /// <para>
     /// [왜 메일과 갈라 놓았나 — 푸시가 요약을 기다리고 서 있었다]
     /// </para>
     /// <para>
@@ -143,16 +150,15 @@ public sealed class AiTaskNotifier(
     /// 받는 사람에게 그것은 그냥 <b>「푸시가 느려졌다」</b>이다.
     /// </para>
     /// <para>
-    /// 그래서 <b>제목 짓기(<see cref="AiTaskTitler"/>)는 여전히 안 기다린다.</b>
-    /// 기다리는 것은 요약 하나뿐이고, 그것도 <b>정해진 시간까지만</b>이다 —
-    /// 늦으면 위의 대체 본문으로 그냥 나간다. 최악이 177초에서 그 상한으로
-    /// 내려간다.
+    /// 그래서 <b>이제는 아무것도 안 기다린다.</b> 한동안은 「요약만, 상한을 걸고」
+    /// 기다렸는데 그 상한만큼은 여전히 늦었다. 완료 즉시로 못 박는다.
     /// </para>
     /// <para>
-    /// 제목 줄에 실리는 작업 제목은 <b>요약이 제때 왔으면 AI 가 다시 지은 것</b>
-    /// 이다(<see cref="AiRunSummaryWriter"/> 가 요약의 첫 문장으로 제목을 고쳐
-    /// 적는다). 늦었으면 사람이 적은 제목이거나 지시문의 첫 제목 줄에서 뽑은 것이
-    /// 실린다(<c>AiTaskService.NormalizeAsync</c>) — 둘 다 알림 한 줄로는 읽힌다.
+    /// 그 대가로, 제목 줄에 실리는 작업 제목은 <b>사람이 적은 것이거나 지시문의
+    /// 첫 제목 줄에서 뽑은 것</b>이다(<c>AiTaskService.NormalizeAsync</c>) —
+    /// AI 가 다시 지은 제목은 그보다 몇 초 뒤에 붙으므로 여기에는 못 싣는다.
+    /// <b>결과 메일의 제목은 그 새 제목으로 간다</b>(메일은 요약 뒤에 나간다).
+    /// 알림 한 줄로는 둘 다 읽히고, 「어느 건인가」를 가리는 데는 모자람이 없다.
     /// </para>
     /// </remarks>
     public async Task SendPushAsync(long runKey, CancellationToken ct = default)
@@ -305,11 +311,36 @@ public sealed class AiTaskNotifier(
     /// 이 실행의 결과를 <b>메일로</b> 보낸다. <b>보낼 이유가 없으면 조용히 끝낸다.</b>
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <b>이것만 요약을 기다린다.</b> 메일 본문의 「무엇을 했다나」 칸이 처리 요약을
     /// 싣기 때문이다. 앱푸시는 그것을 안 쓰므로 먼저 나간다
     /// (<see cref="SendPushAsync"/>).
+    /// </para>
+    /// <para>
+    /// <b>기다린다는 것이 이제는 「미룬다」는 뜻이다.</b> 예전에는 완료 처리가
+    /// 요약을 만들어 보고 <b>되든 안 되든</b> 여기로 왔다 — 모델이 붐벼 빈손으로
+    /// 돌아온 날에는 요약 없는 메일이 그대로 나갔고, 10분 뒤 따라잡기
+    /// (<see cref="AiSummaryCatchUp"/>)가 요약을 채워도 <b>이미 나간 메일은
+    /// 그대로였다.</b> 받는 사람에게 그것은 「요약이 만들어지기 전에 메일이
+    /// 온다」이다. 지금은 <paramref name="deferUntilSummary"/> 가 켜져 있고
+    /// 요약이 아직 없으면 <b>여기서 보내지 않고 돌아간다</b> — 그 건은
+    /// <c>mail_sent_at</c> 이 빈 채 남고, 요약을 채운 따라잡기가 그 자리에서
+    /// 보낸다.
+    /// </para>
+    /// <para>
+    /// <b>한 통만 나간다.</b> 보내는 길이 둘(완료 처리 · 따라잡기)이 되었으므로
+    /// 보내기 직전에 <c>mail_sent_at</c> 을 <b>먼저 찍어 자리를 잡는다</b> —
+    /// 찍지 못하면(이미 누가 찍었으면) 그대로 돌아간다. 보내 놓고 찍는 순서면
+    /// 두 길이 겹칠 때 같은 메일이 두 통 간다.
+    /// </para>
     /// </remarks>
-    public async Task SendMailAsync(long runKey, CancellationToken ct = default)
+    /// <param name="deferUntilSummary">
+    /// 요약이 아직 없으면 <b>보내지 말고 미룰 것인가</b>. 완료 처리가 부를 때는
+    /// 켠다. 따라잡기가 「이만큼 기다렸으면 됐다」며 마지막으로 부를 때는 끈다 —
+    /// 모델이 며칠째 죽어 있다고 결과 메일까지 영영 안 가면 안 된다.
+    /// </param>
+    public async Task SendMailAsync(
+        long runKey, bool deferUntilSummary = false, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(_connectionString))
         {
@@ -324,6 +355,10 @@ public sealed class AiTaskNotifier(
 
             if (target is null)
             {
+                // 「받기」가 꺼졌거나 받을 사람이 없다. **그래도 도장은 찍는다** —
+                // 안 찍으면 따라잡기가 이 건을 「아직 안 보낸 것」으로 보고
+                // 끝없이 다시 집는다.
+                await StampMailAsync(db, runKey, ct);
                 return;
             }
 
@@ -339,6 +374,9 @@ public sealed class AiTaskNotifier(
                 await MarkAsync(db, runKey,
                     $"「받는 사람」이 메일 주소가 아닙니다: {to} — 비워 두면 요청한 사람에게 갑니다.",
                     reset: false);
+
+                // 사람이 칸을 고치기 전에는 몇 번을 보내도 같은 답이다. 찍는다.
+                await StampMailAsync(db, runKey, ct);
                 return;
             }
 
@@ -348,11 +386,24 @@ public sealed class AiTaskNotifier(
             // 수명이 위 관문들(받기 꺼짐·받는 사람 없음·주소 틀림)에 매달려서
             // **알림을 끈 사람에게만 요약이 없는** 상태가 된다.
             //
-            // 아래 한 줄은 **되읽기이고, 없을 때의 재청일 뿐**이다 — 앞에서 만들다
-            // 실패했더라도 메일 본문의 「무엇을 했다나」 칸은 채워 보내는 편이 낫다.
-            // 그래서 관문 밑에 있어도 위의 걱정에 걸리지 않는다.
-            var summary = AiResultSummary.Parse(row.SummaryText)
-                ?? await summaries.EnsureAsync(runKey, ct: ct);
+            // 여기서는 **적힌 것을 되읽기만 한다.**
+            var summary = AiResultSummary.Parse(row.SummaryText);
+
+            // **요약이 아직 없으면 미룬다.** 단, 애초에 정리할 글이 없는 건
+            // (AI 가 아무 말 없이 끝난 건)은 기다려 봐야 영영 안 생기므로 그냥 보낸다.
+            if (summary is null && deferUntilSummary && !string.IsNullOrWhiteSpace(row.ResultText))
+            {
+                logger.LogInformation(
+                    "작업 {TaskKey} 결과 메일을 미룹니다 — 처리 요약이 아직 없습니다 (run {RunKey}).",
+                    row.TaskKey, runKey);
+                return;
+            }
+
+            // **자리를 먼저 잡는다.** 못 잡으면 다른 길이 이미 보낸 것이다.
+            if (!await StampMailAsync(db, runKey, ct))
+            {
+                return;
+            }
 
             var client = http.CreateClient();
             client.Timeout = TimeSpan.FromSeconds(20);
@@ -490,6 +541,37 @@ public sealed class AiTaskNotifier(
         }
 
         return new Target(row, to, toUser);
+    }
+
+    /// <summary>
+    /// 이 실행의 <b>메일 자리를 잡는다</b> — <c>ai_task_run.mail_sent_at</c> 을
+    /// 지금으로 찍고, <b>찍은 것이 나인지</b>를 돌려준다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>WHERE mail_sent_at IS NULL</c> 한 줄이 요점이다. 보내는 길이 둘
+    /// (완료 처리 · 따라잡기)이라 같은 건을 동시에 집을 수 있는데, 이 갱신이
+    /// 한 문장이므로 <b>둘 중 하나만 1 을 받는다.</b> 읽고 → 판단하고 → 쓰면
+    /// 그 사이에 둘 다 「아직 안 보냈다」를 본다.
+    /// </para>
+    /// <para>
+    /// <b>보내기 전에 찍는다.</b> 보낸 뒤에 찍으면 그 사이에 다른 길이 들어와
+    /// 같은 메일을 한 통 더 보낸다 — 결과 메일은 회수할 수 없으므로 「두 통」이
+    /// 「한 통도 안 감」보다 나쁘다(한 통도 안 간 것은 <c>notify_error</c> 와
+    /// 화면에 남는다).
+    /// </para>
+    /// </remarks>
+    private static async Task<bool> StampMailAsync(
+        NpgsqlConnection db, long runKey, CancellationToken ct)
+    {
+        var claimed = await db.ExecuteAsync(new CommandDefinition("""
+            UPDATE projmng.ai_task_run
+               SET mail_sent_at = now()
+             WHERE run_key = @runKey
+               AND mail_sent_at IS NULL
+            """, new { runKey }, cancellationToken: ct));
+
+        return claimed > 0;
     }
 
     /// <summary>

@@ -31,6 +31,13 @@ namespace ProjMngServer.Services;
 /// 그래서 <c>AiTasks:SummaryAttempts</c> 번까지 다시 부른다.
 /// </para>
 /// <para>
+/// <b>제목도 여기서 붙인다.</b> 요약을 받아 오는 그 한 번의 호출이 짧은 제목까지
+/// 함께 들고 온다(<see cref="AiResultSummary.Title"/>). 예전에는 요약이 적힌
+/// <i>뒤에</i> 제목을 짓는 호출이 한 번 더 있었고(<see cref="AiTaskTitler"/>),
+/// <b>결과 메일이 그 둘을 모두 기다리고 서 있었다.</b> 한 번으로 줄이면 완료에서
+/// 메일까지의 거리가 모델 왕복 하나만큼 가까워진다.
+/// </para>
+/// <para>
 /// <b>무슨 일이 있어도 던지지 않는다.</b> 요약은 곁다리다 — 이것 때문에 완료
 /// 처리가 흔들리거나 메일이 빠지면 본말이 뒤집힌다.
 /// </para>
@@ -167,12 +174,28 @@ public sealed class AiRunSummaryWriter(
                 UPDATE projmng.ai_task_run SET summary_text = @text WHERE run_key = @runKey
                 """, new { runKey, text = summary.ToText() });
 
-            if (retitle && !string.IsNullOrWhiteSpace(summary.Headline))
+            if (!retitle || summary.TitleOrHeadline is not { Length: > 0 } title)
             {
-                await db.ExecuteAsync("""
-                    UPDATE projmng.ai_task SET title = @title WHERE task_key = @taskKey
-                    """, new { taskKey = row.TaskKey, title = summary.Headline });
+                return;
             }
+
+            // **사람이 적은 제목은 손대지 않는다**(`title_auto`). 예전에는 이
+            // 한 줄에 그 조건이 없어서 **제목을 직접 써 넣은 건까지** 요약의
+            // 첫 문장으로 덮였다 — 「AI 작업」 화면에서 제목을 고쳐 두면
+            // 다음 실행이 끝나는 순간 되돌아갔다.
+            //
+            // **도장(`title_run_key`)도 여기서 찍는다.** 제목 짓기
+            // (<c>AiTaskTitler</c>)가 그것을 보고 「이 실행은 이미 제목이
+            // 붙었다」를 알아 모델을 한 번 더 부르지 않는다.
+            await db.ExecuteAsync("""
+                UPDATE projmng.ai_task
+                   SET title         = LEFT(@title, 200),
+                       title_run_key = @runKey,
+                       mod_dt        = now()
+                 WHERE task_key   = @taskKey
+                   AND is_deleted = false
+                   AND title_auto = true
+                """, new { taskKey = row.TaskKey, runKey, title });
         }
         catch (Exception ex)
         {

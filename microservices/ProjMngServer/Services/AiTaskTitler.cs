@@ -13,6 +13,12 @@ namespace ProjMngServer.Services;
 /// 아주 짧은 제목(20자 내외)을 지어 다시 넣는다. 사람이 적은 제목은 읽지도 않는다.
 /// </para>
 /// <para>
+/// <b>보통의 길에서는 여기까지 오지 않는다.</b> 제목은 처리 요약과 <b>같은 한 번의
+/// 모델 호출</b>로 와서 요약을 적는 자리가 함께 붙이고 도장(<c>title_run_key</c>)까지
+/// 찍는다(<see cref="AiRunSummaryWriter"/>). 이 자리는 그 도장이 없는 건 —
+/// 요약을 못 만들었거나 모델이 제목 칸만 빠뜨린 건 — 의 되받기다.
+/// </para>
+/// <para>
 /// 정리된 요약(<c>summary_text</c>)이 있으면 그것의 헤드라인을 읽혀 AI 호출 비용을 아낀다.
 /// </para>
 /// </remarks>
@@ -53,6 +59,15 @@ public sealed class AiTaskTitler(
             if (task is null || !task.TitleAuto)
             {
                 // 사람이 쓴 제목이거나 작업이 없으면 기계가 손대지 않는다.
+                return;
+            }
+
+            if (task.TitleRunKey == runKey)
+            {
+                // **이 실행의 제목은 이미 붙었다.** 요약과 한 번에 받아 적은
+                // 길이다(<see cref="AiRunSummaryWriter"/>). 여기서 모델을 또
+                // 부르면 결과 메일이 그만큼 늦고, 같은 실행에 서로 다른 제목이
+                // 두 번 적힌다.
                 return;
             }
 
