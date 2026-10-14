@@ -23,15 +23,37 @@ namespace JSini.Web.Architecture.Tests;
 /// </remarks>
 public sealed class AiUsageBadgePaletteTests
 {
-    /// <summary>색띠를 들고 있는 스타일시트 정본 두 벌.</summary>
+    /// <summary>
+    /// <b>맨 마지막에 실리는 스타일시트.</b> 바탕 규칙(<c>.jsini-badge</c>)을
+    /// 다시 까는 것이 여기 있으므로, 색띠가 여기 없으면 앞의 두 벌은 무의미하다.
+    /// 싣는 차례는 <c>JSiniHead.razor</c> 가 정한다.
+    /// </summary>
+    private const string LastSheetName = "tabler.css";
+
+    private static readonly string LastSheet =
+        Path.Combine("src", "Shared", "JSini.Web.Components", "wwwroot", LastSheetName);
+
+    /// <summary>색띠를 들고 있는 스타일시트 정본 세 벌.</summary>
     /// <remarks>
-    /// 둘로 나뉜 것은 모듈 CSS 가 셸을 거치지 않고 따로 실리기 때문이다.
+    /// <para>
+    /// 셋으로 나뉜 것은 모듈 CSS 가 셸을 거치지 않고 따로 실리고, 그 위에
+    /// Tabler 테마가 <b>맨 마지막에</b> 한 벌 더 실리기 때문이다.
     /// <b>갈라지면 화면마다 다른 색이 된다</b> — 아래에서 같은지도 본다.
+    /// </para>
+    /// <para>
+    /// <b>tabler.css 를 뒤늦게 들였다.</b> 앞의 둘에만 색띠를 깔아 두었더니
+    /// 화면에서는 스물한 칸이 <b>전부 회색</b>이었다 — 그 파일의
+    /// <c>.jsini-badge</c> 가 바탕을 다시 깔고 가장 늦게 실려서, 자릿수가
+    /// 같은 <c>--usage-*</c> 가 통째로 졌다. 수식어는 제대로 붙어 있었으므로
+    /// (헤드리스로 재어 <c>--usage-70</c> + <c>rgb(245,245,245)</c> 확인)
+    /// 이름만 보는 검사로는 영영 안 잡힌다.
+    /// </para>
     /// </remarks>
     private static readonly string[] Sheets =
     [
         Path.Combine("src", "Shared", "JSini.Web.Components", "wwwroot", "app.css"),
         Path.Combine("src", "Apps", "JSini.Web.ProjMng", "wwwroot", "projmng.css"),
+        LastSheet,
     ];
 
     public static TheoryData<string> StyleSheets() => [.. Sheets];
@@ -166,7 +188,7 @@ public sealed class AiUsageBadgePaletteTests
         }
     }
 
-    /// <summary>두 정본이 같은 색띠를 들고 있다.</summary>
+    /// <summary>세 정본이 같은 색띠를 들고 있다.</summary>
     [Fact]
     public void 공통과_모듈_스타일시트의_색띠가_같다()
     {
@@ -176,6 +198,23 @@ public sealed class AiUsageBadgePaletteTests
         {
             Assert.Equal(first, Palette(other));
         }
+    }
+
+    /// <summary>
+    /// <b>맨 마지막 스타일시트 안에서도 차례가 맞아야 한다.</b> 색띠가
+    /// <c>.jsini-badge</c> 바탕 규칙보다 <b>앞</b>에 적히면, 같은 파일
+    /// 안에서도 자릿수가 같아 뒤엣것이 이겨 다시 회색이 된다.
+    /// </summary>
+    [Fact]
+    public void 마지막_스타일시트에서_색띠가_바탕_규칙보다_뒤에_있다()
+    {
+        var css = File.ReadAllText(Path.Combine(SolutionRoot(), LastSheet));
+
+        var baseAt = css.LastIndexOf(".jsini-badge {", StringComparison.Ordinal);
+        var paletteAt = css.IndexOf(".jsini-badge--usage-0", StringComparison.Ordinal);
+
+        Assert.True(baseAt >= 0, $"{LastSheetName} 에 .jsini-badge 바탕 규칙이 없다");
+        Assert.True(paletteAt > baseAt, $"{LastSheetName} 의 색띠가 바탕 규칙보다 앞에 있다");
     }
 
     // ── 읽기 ──────────────────────────────────────────────────────

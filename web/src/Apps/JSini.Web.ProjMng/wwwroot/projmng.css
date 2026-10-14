@@ -6041,7 +6041,11 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge:not([class*='jsi
 
    값은 눈대중이 아니다. OKLCh 에서 밝기를 직접 잡아 뽑고 단조성·이웃
    색차·대비를 재서 고른 값이다. 한 칸이라도 손보려거든 **그 셋을 다시
-   재라** — `AiUsageBadgePaletteTests` 가 그 셋을 지키고 있다. */
+   재라** — `AiUsageBadgePaletteTests` 가 그 셋을 지키고 있다.
+
+   **이 색띠는 세 벌이다** — app.css · projmng.css · tabler.css. 그중
+   화면에서 실제로 이기는 것은 **맨 마지막에 실리는 tabler.css** 다.
+   한 벌만 고치면 **색이 아무것도 안 바뀐 것처럼 보인다.** */
 .jsini-badge--usage-0   { background: #affbdd; color: #0a0600; }
 .jsini-badge--usage-5   { background: #a5f4cc; color: #0a0600; }
 .jsini-badge--usage-10  { background: #9cedb6; color: #0a0600; }
