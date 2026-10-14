@@ -49,6 +49,19 @@
         <Toolbar>
             <DxButton Text="차량 등록" RenderStyle="ButtonRenderStyle.Primary" Click="@(() => Open(null))" />
         </Toolbar>
+        <RowActions Context="row">
+            <PermissionView Action="MenuAction.Update">
+                <DxButton IconCssClass="jsini-icon-edit" Title="수정"
+                          RenderStyle="ButtonRenderStyle.Link"
+                          Click="@(() => Open(row))" />
+            </PermissionView>
+            <PermissionView Action="MenuAction.Delete">
+                <DxButton IconCssClass="jsini-icon-trash" Title="삭제"
+                          CssClass="commgrd__icon--warn"
+                          RenderStyle="ButtonRenderStyle.Link"
+                          Click="@(() => DeleteAsync(row))" />
+            </PermissionView>
+        </RowActions>
         <Columns>
             <DxGridDataColumn FieldName="@nameof(CargoVehicleDto.ExternalUserId)" Caption="계정" Width="120" />
             <DxGridDataColumn FieldName="@nameof(CargoVehicleDto.DisplayName)" Caption="이름" Width="100" />
@@ -83,15 +96,6 @@
                 <CellDisplayTemplate Context="cell">@(((CargoVehicleDto)cell.DataItem).IsDefault ? "★" : "")</CellDisplayTemplate>
             </DxGridDataColumn>
             <DxGridDataColumn FieldName="@nameof(CargoVehicleDto.Memo)" Caption="메모" MinWidth="140" />
-            <DxGridDataColumn Caption="" Width="120" AllowSort="false">
-                <CellDisplayTemplate Context="cell">
-                    @{ var row = (CargoVehicleDto)cell.DataItem; }
-                    <div class="jsini-row-actions">
-                        <DxButton Text="수정" RenderStyle="ButtonRenderStyle.Link" Click="@(() => Open(row))" />
-                        <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Link" Click="@(() => DeleteAsync(row))" />
-                    </div>
-                </CellDisplayTemplate>
-            </DxGridDataColumn>
         </Columns>
     </CommGrd>
 </CommCont>
