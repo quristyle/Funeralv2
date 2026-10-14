@@ -754,8 +754,10 @@ public sealed class AiTaskNotifier(
         sb.Append(SummaryRow("대상", Esc(r.TargetNm)));
 
         // **무엇을 시켰나.** 답만 있고 물음이 없으면 며칠 뒤의 나는
-        // 이 메일이 무엇에 대한 것인지 알 수 없다.
-        sb.Append(SummaryRow("시킨 것", Lines(Gist(r.Instruction, lines: 3)) ?? Muted("적힌 것이 없습니다")));
+        // 이 메일이 무엇에 대한 것인지 알 수 없다. 이어가기 건은 **이번에 시킨
+        // 것만** 뜬다(<see cref="ThisTurn"/>) — 앞에서 그냥 세 줄을 뜨면 지난
+        // 회차의 머리말이 잡힌다.
+        sb.Append(SummaryRow("시킨 것", Lines(Gist(ThisTurn(r.Instruction), lines: 3)) ?? Muted("적힌 것이 없습니다")));
         // **정리된 것이 있으면 그것을 쓴다.** 한 문장 + 점 몇 개로 나뉘어 있어
         // 라벨 하나에 여러 줄이 뭉쳐 있던 예전 꼴보다 훨씬 빨리 읽힌다.
         sb.Append(summary is not null
@@ -1215,6 +1217,52 @@ public sealed class AiTaskNotifier(
         r.DurationMs is { } ms and > 0
             ? $" · {TimeSpan.FromMilliseconds(ms):h\\:mm\\:ss}"
             : string.Empty;
+
+    /// <summary>
+    /// 이어가기 지시문에서 <b>이번에 시킨 것만</b> 떼어 낸다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 이어서 지시한 건의 본문은 「<c>## 이전까지의 진행</c>」으로 시작해 지난
+    /// 실행들의 요약이 한참 이어지고, <b>맨 끝</b>에 「<c>## 이번에 할 일</c>」과
+    /// 이번 지시가 붙는다(<c>AiTaskService.BuildContinuation</c> ·
+    /// <c>RetryPrompt</c>). 그래서 앞에서 세 줄을 뜨면 <b>언제나 지난 회차의
+    /// 머리말</b>이 잡힌다 — 2차·3차로 갈수록 메일의 「시킨 것」 칸이 이번 지시와
+    /// 아무 상관 없는 글을 이고 서고, 받는 사람은 그것을 이번에 시킨 것으로 읽는다.
+    /// </para>
+    /// <para>
+    /// <b>머리표가 없으면 손대지 않는다</b>(처음 지시가 그렇다). 여러 번 이어간
+    /// 건은 <b>마지막</b> 것을 집는다 — 지난 요약 안에 그 글자가 우연히 섞여
+    /// 있어도 이번 지시는 언제나 맨 뒤다.
+    /// </para>
+    /// <para>
+    /// <b>전문 쪽은 그대로 둔다.</b> 아래 「전문 · 시킨 것」은 그때 실제로 준
+    /// 글자를 보여 주는 자리라, 거기서까지 잘라 내면 AI 가 무엇을 읽고 답했는지
+    /// 가릴 수 없게 된다.
+    /// </para>
+    /// </remarks>
+    private static string? ThisTurn(string? instruction)
+    {
+        if (string.IsNullOrWhiteSpace(instruction))
+        {
+            return instruction;
+        }
+
+        const string marker = "## 이번에 할 일";
+
+        var at = instruction.LastIndexOf(marker, StringComparison.Ordinal);
+
+        if (at < 0)
+        {
+            return instruction;
+        }
+
+        var tail = instruction[(at + marker.Length)..];
+
+        // 머리표 뒤가 비었으면 **자르지 않은 쪽이 낫다.** 빈 칸을 보여 주느니
+        // 지난 머리말이라도 있는 편이 「무엇에 대한 메일인가」에 답한다.
+        return string.IsNullOrWhiteSpace(tail) ? instruction : tail;
+    }
 
     /// <summary>
     /// 긴 글에서 <b>앞쪽 몇 줄만</b> 뽑아 한 덩이로 만든다.

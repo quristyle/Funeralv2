@@ -164,19 +164,26 @@ public sealed class AiSummaryCatchUp(
         var writer = scope.ServiceProvider.GetRequiredService<AiRunSummaryWriter>();
         var notifier = scope.ServiceProvider.GetRequiredService<AiTaskNotifier>();
 
-        await FillSummariesAsync(db, writer, notifier, ct);
-        await SendOverdueMailsAsync(db, notifier, ct);
+        var tried = await FillSummariesAsync(db, writer, notifier, ct);
+
+        await SendOverdueMailsAsync(db, writer, notifier, tried, ct);
     }
 
     /// <summary>
     /// 요약이 빈 실행을 몇 건 주워 채우고, <b>채운 자리에서 밀린 메일을 보낸다.</b>
     /// </summary>
-    private async Task FillSummariesAsync(
+    /// <returns>
+    /// <b>이번 바퀴에 요약을 만들어 본 실행들.</b> 뒤따르는 밀린 메일 보내기가
+    /// 같은 건을 몇 초 만에 또 두드리지 않도록 넘겨 준다.
+    /// </returns>
+    private async Task<HashSet<long>> FillSummariesAsync(
         NpgsqlConnection db, AiRunSummaryWriter writer, AiTaskNotifier notifier, CancellationToken ct)
     {
+        var tried = new HashSet<long>();
+
         if (_withinDays == 0)
         {
-            return;
+            return tried;
         }
 
         // **작업의 마지막 실행인지 같이 읽는다.** 요약의 첫 문장으로 작업 제목을
@@ -198,7 +205,7 @@ public sealed class AiSummaryCatchUp(
 
         if (rows.Count == 0)
         {
-            return;
+            return tried;
         }
 
         logger.LogInformation("처리 요약이 빈 실행 {Count}건을 다시 만들어 봅니다.", rows.Count);
@@ -208,6 +215,8 @@ public sealed class AiSummaryCatchUp(
         foreach (var row in rows)
         {
             ct.ThrowIfCancellationRequested();
+
+            tried.Add(row.RunKey);
 
             var summary = await writer.EnsureAsync(row.RunKey, retitle: row.IsLatest, ct);
 
@@ -232,6 +241,8 @@ public sealed class AiSummaryCatchUp(
         {
             logger.LogInformation("처리 요약 {Count}건을 뒤늦게 채웠습니다.", made);
         }
+
+        return tried;
     }
 
     /// <summary>
@@ -242,13 +253,30 @@ public sealed class AiSummaryCatchUp(
     /// 없거나(결과문이 비었다), 보내다 실패했거나. <b>어느 쪽이든 메일은 가야
     /// 한다.</b> 미룬다는 약속은 「요약을 기다린다」이지 「안 보낸다」가 아니다.
     /// <para>
+    /// <b>포기하기 전에 한 번 더 만들어 본다.</b> 위의 요약 채우기는 한 바퀴에
+    /// 몇 건만 보고(<c>AiTasks:SummaryCatchUpBatch</c>) <b>한 건이라도 실패하면
+    /// 거기서 바퀴를 접는다</b> — 그래서 밀린 건이 여럿일 때 뒤쪽 것은
+    /// <b>요약을 한 번도 시도해 보지 않은 채</b> 이 자리로 와서 그냥 나갈 수
+    /// 있었다. 이번 바퀴에 이미 두드려 본 건(<paramref name="tried"/>)은
+    /// 건너뛰므로 같은 호출을 몇 초 만에 되풀이하지도 않는다.
+    /// </para>
+    /// <para>
+    /// <b>제목은 고치지 않는다</b>(<c>retitle: false</c>). 여기 오는 것은 끝난 지
+    /// 한참 된 실행이라, 그 한 줄로 작업 제목을 덮으면 <b>그 사이에 끝난 다음
+    /// 실행의 제목</b>이 지워진다.
+    /// </para>
+    /// <para>
     /// 이 칸이 생기기 전의 실행은 되메움으로 전부 찍혀 있다(2026-10-14 의
     /// <c>deploy/sql/projmng-ai-mail-sent-at-2026-10-14.sql</c>). 그 한 줄이
     /// 없으면 여기가 <b>지난 모든 건의 메일을 한꺼번에 쏜다.</b>
     /// </para>
     /// </remarks>
     private async Task SendOverdueMailsAsync(
-        NpgsqlConnection db, AiTaskNotifier notifier, CancellationToken ct)
+        NpgsqlConnection db,
+        AiRunSummaryWriter writer,
+        AiTaskNotifier notifier,
+        HashSet<long> tried,
+        CancellationToken ct)
     {
         var runKeys = (await db.QueryAsync<long>(new CommandDefinition("""
             SELECT r.run_key
@@ -276,6 +304,14 @@ public sealed class AiSummaryCatchUp(
         foreach (var runKey in runKeys)
         {
             ct.ThrowIfCancellationRequested();
+
+            // 마지막 기회. 되면 이 메일이 요약을 싣고 나가고, 안 되면 예전처럼
+            // 요약 없이 나간다 — **어느 쪽이든 메일은 여기서 멈추지 않는다.**
+            if (_withinDays > 0 && !tried.Contains(runKey))
+            {
+                await writer.EnsureAsync(runKey, retitle: false, ct);
+            }
+
             await notifier.SendMailAsync(runKey, deferUntilSummary: false, ct);
         }
     }
