@@ -2292,7 +2292,8 @@
 
 /* DevExpress 편집기는 제 내용만큼만 넓다. 격자 칸을 다 쓰게 한다 —
    안 그러면 판을 아무리 넓혀도 값 넣는 칸만 좁은 채로 남는다. */
-.hd-params__fields .dxbl-text-edit {
+.hd-params__fields .dxbl-text-edit,
+.hd-params__fields .dxbl-date-edit {
   width: 100%;
   min-width: 0;
 }

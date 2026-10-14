@@ -49,11 +49,12 @@
     운영자가 프로시저를 직접 늘린다. 그래서 목록 머리에 다시 읽는 단추를
     둔다(화면을 떠났다 오지 않고 늘어난 것을 본다).
 
-    [인자는 글자로 보낸다]
+    [인자 입력 컨트롤]
 
-    `P_QURI_PROC` 이 자료형을 알려 주기는 하지만(`DataType`), 서버가 결국
-    글자로 받아 변환한다. 화면에서 형을 따지면 **DB 가 형을 바꿀 때마다
-    화면이 틀린다** — 형과 길이는 칸 아래 힌트로만 보여 준다.
+    기본은 글자(`DxTextBox`)로 입력받되, `DataType` 이 date 면 달력,
+    datetime 이면 달력과 시간(`DxDateEdit`) 컨트롤로 제공한다.
+    서버로 보낼 때는 원래대로 문자열(`yyyy-MM-dd` / `yyyy-MM-dd HH:mm:ss`)로
+    변환되어 전달된다.
 *@
 
 @inherits DataPage
@@ -142,8 +143,26 @@
                             {
                                 <label class="hd-param">
                                     <span class="hd-param__label">@parameter.Name</span>
-                                    <DxTextBox Text="@parameter.Value"
-                                               TextChanged="@((string v) => parameter.Value = v)" />
+                                    @if (IsDateTimeType(parameter.DataType))
+                                    {
+                                        <DxDateEdit @bind-Date="parameter.DateValue"
+                                                    TimeSectionVisible="true"
+                                                    Format="yyyy-MM-dd HH:mm:ss"
+                                                    DisplayFormat="yyyy-MM-dd HH:mm:ss"
+                                                    ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                                    }
+                                    else if (IsDateType(parameter.DataType))
+                                    {
+                                        <DxDateEdit @bind-Date="parameter.DateValue"
+                                                    Format="yyyy-MM-dd"
+                                                    DisplayFormat="yyyy-MM-dd"
+                                                    ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                                    }
+                                    else
+                                    {
+                                        <DxTextBox Text="@parameter.Value"
+                                                   TextChanged="@((string v) => parameter.Value = v)" />
+                                    }
                                     @if (ParamHint(parameter) is { Length: > 0 } hint)
                                     {
                                         <span class="hd-param__hint">@hint</span>

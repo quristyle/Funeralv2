@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using System.Data;
+using System.Globalization;
 using System.Text.Json;
 using JSini.Web.Components.Data;
 using JSini.Web.HelpDesk.Api;
@@ -29,6 +30,34 @@ public partial class ProcedureResult
         public string? Description { get; init; }
         public int MaxLength { get; init; }
         public string? Value { get; set; }
+
+        /// <summary>
+        /// date, datetime 컨트롤용 날짜 값.
+        /// 사용자가 날짜를 변경하면 Value 에 포맷팅된 문자열이 저장된다.
+        /// </summary>
+        public DateTime? DateValue
+        {
+            get
+            {
+                if (string.IsNullOrWhiteSpace(Value))
+                {
+                    return null;
+                }
+
+                if (DateTime.TryParse(Value, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt))
+                {
+                    return dt;
+                }
+
+                return DateTime.TryParse(Value, out dt) ? dt : null;
+            }
+            set => Value = value switch
+            {
+                null => null,
+                DateTime dt when IsDateTimeType(DataType) => dt.ToString("yyyy-MM-dd HH:mm:ss"),
+                DateTime dt => dt.ToString("yyyy-MM-dd"),
+            };
+        }
     }
 
     private IReadOnlyList<ProcedureInfo> _procedures = [];
@@ -155,9 +184,35 @@ public partial class ProcedureResult
         name.StartsWith(NamePrefix, StringComparison.Ordinal) ? name[NamePrefix.Length..] : name;
 
     /// <summary>
+    /// 인자 타입이 일시(날짜와 시각)인지 본다 (예: datetime, datetime2, smalldatetime, timestamp 등).
+    /// </summary>
+    private static bool IsDateTimeType(string? dataType)
+    {
+        if (string.IsNullOrWhiteSpace(dataType))
+        {
+            return false;
+        }
+
+        var t = dataType.Trim().ToLowerInvariant();
+        return (t.Contains("date") && t.Contains("time")) || t.Contains("timestamp");
+    }
+
+    /// <summary>
+    /// 인자 타입이 날짜만인지 본다 (예: date).
+    /// </summary>
+    private static bool IsDateType(string? dataType)
+    {
+        if (string.IsNullOrWhiteSpace(dataType))
+        {
+            return false;
+        }
+
+        var t = dataType.Trim().ToLowerInvariant();
+        return t.Contains("date") && !t.Contains("time");
+    }
+
+    /// <summary>
     /// 인자 칸 아래 옅게 붙는 말. 설명·형·길이를 순서대로 잇는다.
-    /// <b>값을 막는 데 쓰지 않는다</b> — 화면이 형을 따지지 않는 이유는
-    /// razor 머리말에 있다.
     /// </summary>
     private static string ParamHint(ProcedureParameter parameter)
     {
