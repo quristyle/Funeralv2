@@ -58,6 +58,19 @@ public partial class ServerStatus
     private IReadOnlyList<DockerContainerDto> Containers => _status?.Docker.Containers ?? [];
     private IReadOnlyList<DockerImageDto> Images => _status?.Docker.Images ?? [];
 
+    /// <summary>쌓인 이미지 목록 팝업 열림 여부.</summary>
+    private bool _imageListVisible;
+
+    private long TotalImagesMb => _status?.Docker.ImagesTotalMb > 0
+        ? _status.Docker.ImagesTotalMb
+        : (Images.Count > 0 ? Images.Sum(i => i.SizeMb) : 0);
+
+    private int InUseImagesCount => Images.Count(i => i.InUse);
+    private long InUseImagesMb => Images.Where(i => i.InUse).Sum(i => i.SizeMb);
+
+    private int UnusedImagesCount => Images.Count(i => !i.InUse);
+    private long UnusedImagesMb => Images.Where(i => !i.InUse).Sum(i => i.SizeMb);
+
     /// <summary>옛 화면과 같은 10초. 이 화면은 장애를 지켜보는 자리다.</summary>
     protected override TimeSpan RefreshInterval => TimeSpan.FromSeconds(10);
 

@@ -1168,6 +1168,39 @@
   line-height: 1.6;
 }
 
+/* ── 쌓인 이미지 집계 띠 ─────────────────────────────────── */
+
+.ad-image-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--jsini-border, #e0e0e0);
+  border-left: 4px solid var(--jsini-accent, #206bc4);
+  border-radius: 0.5rem;
+  background: var(--jsini-surface, #fff);
+  box-shadow: var(--tb-shadow-card, none);
+  margin-bottom: 1rem;
+}
+
+.ad-image-strip__unit {
+  font-size: var(--jsini-fs-sm, 0.875rem);
+  font-weight: 500;
+  margin-left: 0.2rem;
+  color: var(--jsini-text-muted, #6c757d);
+}
+
+.ad-image-strip__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  margin-left: auto;
+}
+
+
 /* ── 공지 본문 편집기 (DxHtmlEditor) ──────────────────────
 
    등록·수정 창 안에 들어간다. 창이 폼 높이를 따라 자라므로 편집기에 높이를

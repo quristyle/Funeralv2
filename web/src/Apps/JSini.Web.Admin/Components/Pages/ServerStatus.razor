@@ -53,8 +53,8 @@
     엑셀 내려받기는 그때 잃었다. 컨테이너는 열두 줄이고 그 값은 이미지 태그를
     옮겨 적을 때뿐인데, 그것은 상세에서 복사하면 된다.
 
-    쌓인 이미지는 표로 둔다. 그쪽은 수십 줄이 되고 정렬·내려받기가
-    실제로 쓰인다 — 카드로 바꾸면 화면 밖으로 자란다.
+    쌓인 이미지는 집계정보를 띠로 보여주고 목록은 팝업으로 둔다. 수십 줄이
+    되므로 화면 밖으로 자라지 않게 팝업 안에서 표(정렬·내려받기)로 확인한다.
 
     [정밀 확인 — 실제로 한 번 물어본다]
 
@@ -639,53 +639,94 @@ else
     </p>
 }
 
-@if (Images.Count > 0)
+@if (_status is not null && _status.Docker.Available)
 {
-    <h2 class="ad-subhead">쌓인 이미지 (@_status!.Docker.ImagesTotalMb MB)</h2>
+    <h2 class="ad-subhead">쌓인 이미지</h2>
 
-    @* 정리 단추 (D17). 옛 화면에도 있던 것을 되살렸다.
+    @if (Images.Count == 0)
+    {
+        <PageNotice Tone="NoticeTone.Info" Text="쌓인 이미지가 없습니다." />
+    }
+    else
+    {
+        @* 쌓인 이미지 집계 띠. 전체 수·용량, 사용 중/미사용 집계를 보여주고,
+           상세 리스트는 팝업으로 열어 볼 수 있도록 제공한다. *@
+        <div class="ad-image-strip">
+            <div class="ad-tally">
+                <div class="ad-tally__cell">
+                    <span class="ad-tally__num">@Images.Count<small class="ad-image-strip__unit">개</small></span>
+                    <span class="ad-tally__label">전체 (@TotalImagesMb.ToString("N0") MB)</span>
+                </div>
+                <div class="ad-tally__cell ad-tally--up">
+                    <span class="ad-tally__num">@InUseImagesCount<small class="ad-image-strip__unit">개</small></span>
+                    <span class="ad-tally__label">사용 중 (@InUseImagesMb.ToString("N0") MB)</span>
+                </div>
+                <div class="ad-tally__cell @(UnusedImagesCount > 0 ? "ad-tally--warn" : "")">
+                    <span class="ad-tally__num">@UnusedImagesCount<small class="ad-image-strip__unit">개</small></span>
+                    <span class="ad-tally__label">미사용 (@UnusedImagesMb.ToString("N0") MB)</span>
+                </div>
+            </div>
 
-       **되돌릴 수 없다** — 지운 이미지를 되살리려면 다시 빌드해야 한다.
-       그래서 곧바로 지우지 않고, 서버에 「지울 목록만」 먼저 물어(dryRun)
-       그 목록을 보여 준 뒤 확인을 받는다. 목록을 화면이 계산하지 않는 이유는
-       AdminClient 쪽 주석에 있다.
-
-       권한은 서버가 본다(ADMINISTRATOR 계열). 화면에서 단추를 감추지 않는
-       이유: 권한표의 이름과 서버 판정이 어긋나면 **단추가 사라져 원인을
-       찾을 수 없다.** 권한이 없으면 눌렀을 때 서버가 이유를 말해 준다. *@
-    <div class="jsini-toolbar">
-        <DxButton Text="쌓인 이미지 정리" RenderStyle="ButtonRenderStyle.Secondary"
-                  Enabled="@(!_cleaning)" Click="@PreviewCleanupAsync" />
-        <span class="ad-stamp">
-            사용 중 태그와 저장소마다 최근 것 몇 개는 남깁니다. 지우기 전에 목록을 보여 줍니다.
-        </span>
-    </div>
-
-    <CommGrd TItem="DockerImageDto" Data="@Images"
-             ExportName="쌓인이미지"
-             Reload="@ReloadAsync">
-        <Columns>
-            <DxGridDataColumn FieldName="@nameof(DockerImageDto.Name)" Caption="이미지" MinWidth="300" />
-            <DxGridDataColumn FieldName="@nameof(DockerImageDto.SizeMb)" Caption="MB" Width="90" />
-
-            <DxGridDataColumn Caption="사용" Width="90">
-                <CellDisplayTemplate Context="cell">
-                    @{
-                        var image = (DockerImageDto)cell.DataItem;
-                    }
-                    @* 안 쓰는 이미지가 곧 지울 수 있는 용량이다. 배포를 거듭하면
-                       이것만 수십 GB 가 된다. *@
-                    <span class="jsini-badge @(image.InUse ? "jsini-badge--on" : "")">
-                        @(image.InUse ? "사용 중" : "미사용")
-                    </span>
-                </CellDisplayTemplate>
-            </DxGridDataColumn>
-
-            <DxGridDataColumn FieldName="@nameof(DockerImageDto.CreatedAt)" Caption="만든 때" Width="150"
-                              DisplayFormat="yyyy-MM-dd HH:mm" />
-        </Columns>
-    </CommGrd>
+            <div class="ad-image-strip__actions">
+                <DxButton Text="목록 보기" RenderStyle="ButtonRenderStyle.Primary"
+                          Click="@(() => _imageListVisible = true)" />
+                <DxButton Text="쌓인 이미지 정리" RenderStyle="ButtonRenderStyle.Secondary"
+                          Enabled="@(!_cleaning)" Click="@PreviewCleanupAsync" />
+                <span class="ad-stamp">
+                    사용 중 태그와 최근 것은 보존됩니다.
+                </span>
+            </div>
+        </div>
+    }
 }
+
+@* 쌓인 이미지 목록 팝업 *@
+<CommPopup @bind-Visible="@_imageListVisible"
+           HeaderText="@($"쌓인 이미지 목록 ({Images.Count}개 · {TotalImagesMb:N0} MB)")"
+           Width="min(980px, calc(100vw - 2rem))"
+           CloseOnOutsideClick="true">
+    <BodyContentTemplate Context="popupContext">
+        @* 정리 단추 (D17). 팝업 안에서도 목록을 확인하며 정리할 수 있다. *@
+        <div class="jsini-toolbar">
+            <DxButton Text="쌓인 이미지 정리" RenderStyle="ButtonRenderStyle.Secondary"
+                      Enabled="@(!_cleaning)" Click="@PreviewCleanupAsync" />
+            <span class="ad-stamp">
+                사용 중 태그와 저장소마다 최근 것 몇 개는 남깁니다. 지우기 전에 목록을 보여 줍니다.
+            </span>
+        </div>
+
+        <CommGrd TItem="DockerImageDto" Data="@Images"
+                 ExportName="쌓인이미지"
+                 PageSize="15"
+                 Reload="@ReloadAsync">
+            <Columns>
+                <DxGridDataColumn FieldName="@nameof(DockerImageDto.Name)" Caption="이미지" MinWidth="300"
+                                  TextAlignment="GridTextAlignment.Left" />
+                <DxGridDataColumn FieldName="@nameof(DockerImageDto.SizeMb)" Caption="MB" Width="90" />
+
+                <DxGridDataColumn Caption="사용" Width="90">
+                    <CellDisplayTemplate Context="cell">
+                        @{
+                            var image = (DockerImageDto)cell.DataItem;
+                        }
+                        @* 안 쓰는 이미지가 곧 지울 수 있는 용량이다. 배포를 거듭하면
+                           이것만 수십 GB 가 된다. *@
+                        <span class="jsini-badge @(image.InUse ? "jsini-badge--on" : "")">
+                            @(image.InUse ? "사용 중" : "미사용")
+                        </span>
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+
+                <DxGridDataColumn FieldName="@nameof(DockerImageDto.CreatedAt)" Caption="만든 때" Width="150"
+                                  DisplayFormat="yyyy-MM-dd HH:mm" />
+            </Columns>
+        </CommGrd>
+    </BodyContentTemplate>
+    <FooterContentTemplate Context="popupContext">
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
+                  Click="@(() => _imageListVisible = false)" />
+    </FooterContentTemplate>
+</CommPopup>
 
 @* 정리 확인 창. **지울 목록은 서버가 준 그대로다** — 여기 보이는 것이
    그대로 지워진다. *@
