@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    결과 메일 본문(`AiTaskNotifier.Body`)의 시험.
+
+    [왜 이것을 시험하는가]
+
+    「빠른 지시」의 처리완료 메일에 **처리 요약이 빠진 채 온다**는 제보가 네
+    차례 돌아왔다(2026-10-14~15). 세 번은 코드·DB·나간 메일을 손으로 대조해
+    「값은 실려 있다」로 끝났는데, 그 확인이 어디에도 남지 않아 다음 회차가
+    같은 길을 다시 걸었다.
+
+    `Body()` 는 DB 도 네트워크도 「지금」도 모르는 **순수 함수**라 시험이 싸다.
+    요약의 세 토막(결론 · 한 일 · 확인할 것)이 모두 본문에 실리는지, 그리고
+    **지시문보다 앞에 서는지**를 여기서 묶어 둔다 — 뒤엣것이 실제 결함이었다.
+  -->
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ProjMngServer\ProjMngServer.csproj" />
+  </ItemGroup>
+
+</Project>

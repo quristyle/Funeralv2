@@ -118,6 +118,15 @@ public sealed record AiResultSummary(
             {
                 headline = line;
             }
+            else if (!inChecks && points.Count == 0)
+            {
+                // **머리표 없는 줄이 또 나오면 결론이 이어진 것이다.**
+                // 그냥 버리면 메일에는 앞 문장만 서고 화면에는 둘 다 서서
+                // (<c>web/.../Shared/AiRunSummary.Parse</c> 는 이어 붙인다)
+                // 같은 실행이 두 말을 하게 된다 — 「요약이 잘려 온다」로 읽히는
+                // 자리다. 두 벌이 같은 모양을 약속하고 있으니 여기도 잇는다.
+                headline = $"{headline} {line}";
+            }
         }
 
         var summary = new AiResultSummary(headline, points, checks);

@@ -118,7 +118,7 @@ public sealed class AiTaskNotifier(
     /// 오래도록 푸시 본문은 <c>[완료] 제목</c> 한 줄이었다. 받는 사람이 그
     /// 한 줄에서 아는 것은 <b>「끝났다」뿐</b>이라, 무엇을 했는지 보려면 늘
     /// 눌러 들어가야 했다. 지금은 <b>제목 줄에 상태와 작업 제목을, 본문에
-    /// 처리 요약을</b> 싣는다(<see cref="Body"/> 의 「AI 의 답」 칸과 같은 값이다).
+    /// 처리 요약을</b> 싣는다(<see cref="Body"/> 의 「처리 요약」 칸과 같은 값이다).
     /// 알림창 두 줄로 「무엇을 했나」까지 읽히는 것이 목적이다.
     /// </para>
     /// <para>
@@ -679,21 +679,24 @@ public sealed class AiTaskNotifier(
     /// 제목과 첫 화면에서 끝나야 한다.
     /// </para>
     /// <para>
-    /// 그래서 <b>요약이 먼저고 전문이 뒤</b>다. 요약에는 다섯만 담는다.
+    /// 그래서 <b>요약이 먼저고 전문이 뒤</b>다. 차례는 이렇게 매긴다 —
+    /// <b>화면(<c>AiTaskView.razor</c>)이 세운 차례와 같다.</b>
     /// </para>
     /// <list type="number">
-    ///   <item><description><b>어떻게 됐나</b> — 완료·실패와 대상·시간</description></item>
-    ///   <item><description><b>무엇을 시켰나</b> — 지시문 앞부분.
-    ///   <b>이것이 한동안 빠져 있었다</b>: 답만 있고 물음이 없으면, 며칠 뒤에
-    ///   열어 본 사람은 이 메일이 무엇에 대한 것인지 알 수 없다</description></item>
-    ///   <item><description><b>무엇을 했다나</b> — <b>AI 가 다시 써 준 답.</b>
-    ///   예전에는 결과문의 앞 몇 줄을 그대로 떴는데, 실행기의 답은 「먼저 …를
-    ///   찾아보겠습니다」로 시작하고 결론은 끝에 있는 일이 잦았다 —
-    ///   <b>가장 잘 보여야 할 자리에 서론이 앉았다.</b>
-    ///   (<see cref="AiResultSummarizer"/>. 정리에 실패하면 옛 방식으로 돌아간다)</description></item>
-    ///   <item><description><b>무엇이 바뀌었나</b> — 파일 수와 증감</description></item>
+    ///   <item><description><b>어떻게 됐나</b> — 머리띠. 완료·실패와
+    ///   대상·차수·걸린 시간(<see cref="Headline"/> · <see cref="SubHead"/>)</description></item>
+    ///   <item><description><b>무엇을 했다나</b> — <b>「처리 요약」 한 칸.</b>
+    ///   AI 가 다시 써 준 답이고(<see cref="AiResultSummarizer"/>) 결론 한 문장 ·
+    ///   한 일 · 확인할 것으로 나뉘어 선다(<see cref="SummaryCard"/>).
+    ///   <b>이 칸이 한동안 라벨 뒤 좁은 칸에 접혀 있었다</b> — 값은 내내
+    ///   실려 있었는데도 「요약이 빠졌다」로 읽혔다(2026-10-15)</description></item>
     ///   <item><description><b>내가 할 일이 있나</b> — 배포됐다 · 커밋만 있다 ·
-    ///   사람이 봐야 한다</description></item>
+    ///   사람이 봐야 한다(<see cref="NextStep"/>). <b>요약 바로 밑이다</b></description></item>
+    ///   <item><description><b>무엇을 시켰나 · 무엇이 바뀌었나</b> — 「한눈에」.
+    ///   지시문 앞부분과 파일 수·증감. <b>답 뒤에 둔다</b>: 답만 있고 물음이
+    ///   없으면 며칠 뒤에 열어 본 사람이 무엇에 대한 메일인지 알 수 없지만,
+    ///   그렇다고 답보다 앞에 설 것도 아니다</description></item>
+    ///   <item><description><b>전문</b> — 지시문·결과문 원문, 처리 파일, 오류</description></item>
     /// </list>
     /// <para>
     /// <b>로그 전문은 붙이지 않는다.</b> 수천 줄이 메일함에 쌓이고, 마스킹을
@@ -717,7 +720,7 @@ public sealed class AiTaskNotifier(
     /// 통째로 무너진다. 마스킹 → 이스케이프 → 붙이기 순서를 지킨다.
     /// </para>
     /// </remarks>
-    private string Body(MailRow r, AiResultSummary? summary)
+    internal string Body(MailRow r, AiResultSummary? summary)
     {
         var accent = Accent(r.TaskStatus);
         var tint = Tint(r.TaskStatus);
@@ -743,46 +746,54 @@ public sealed class AiTaskNotifier(
             </td></tr>
             """);
 
-        // ── 요약 ────────────────────────────────────────────
-        sb.Append("""
-            <tr><td style="padding:20px 20px 0 20px;">
-              <div style="font-size:11.5px;font-weight:700;color:#868e96;letter-spacing:.06em;padding-bottom:10px;">요약</div>
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size:13.5px;line-height:1.6;">
+        // ── 처리 요약 — **머리띠 바로 아래가 이 자리다** (2026-10-15) ──
+        //
+        // 오래도록 이 값은 「요약」 표의 한 줄(라벨 `AI 의 답`)이었다. 라벨 칸이
+        // 72px 를 먹고 남은 폭에 결론 한 문장과 점 다섯이 접혀 들어가니,
+        // 휴대폰에서 그것은 답이 아니라 **지시문 밑에 깔린 곁줄**로 보였다 —
+        // 「처리 요약이 빠진 채 메일이 온다」는 말이 거기서 나왔다(값은 내내
+        // 실려 있었다. 나간 메일 47통 모두에 있다).
+        //
+        // 화면(`AiTaskView.razor` 의 `처리 요약`)은 같은 값을 머리띠 바로 아래
+        // 제 칸으로 펴 놓는다. **메일도 그 차례와 모양을 따른다.**
+        sb.Append(SummaryCard(r, summary, accent, tint));
+
+        // **「할 일」은 요약 바로 밑이다.** 요약에서 사람이 제일 알고 싶은 것이
+        // 「내가 가서 해야 하나」라, 지시문과 바뀐 파일 뒤로 밀면 스쳐 지나간다.
+        //
+        // 바탕을 상태색(`tint`)에서 **회색으로 내렸다** — 바로 위 요약 칸이
+        // 그 색을 쓰게 되어, 둘이 나란히 서면 같은 덩이로 읽혔다.
+        sb.Append($"""
+            <tr><td style="padding:12px 20px 0 20px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f8f9fa;border:1px solid #e9ecef;border-radius:6px;">
+                <tr><td style="padding:11px 13px;font-size:13.5px;line-height:1.55;">
+                  <div style="font-size:11.5px;font-weight:700;color:#868e96;letter-spacing:.06em;">할 일</div>
+                  <div style="padding-top:3px;font-weight:600;">{Esc(NextStep(r))}</div>
+                </td></tr>
+              </table>
+            </td></tr>
             """);
 
-        sb.Append(SummaryRow("결과", $"""<span style="font-weight:600;">{Esc(StatusText(r.TaskStatus))}</span> · {r.Seq}차{Esc(Took(r))}"""));
-        sb.Append(SummaryRow("대상", Esc(r.TargetNm)));
+        // ── 한눈에 — 시킨 것 · 바뀐 것 ──────────────────────
+        //
+        // **결과·대상·차수·걸린 시간은 여기 없다.** 머리띠의 두 줄이 이미 그것을
+        // 말한다(<see cref="Headline"/> · <see cref="SubHead"/>). 같은 사실을 두 번
+        // 세우면 정작 읽어야 할 줄이 그만큼 아래로 밀린다 — 첫 화면에서 끝나야
+        // 하는 메일에서 그 두 줄이 비싸다.
+        sb.Append("""
+            <tr><td style="padding:18px 20px 0 20px;">
+              <div style="font-size:11.5px;font-weight:700;color:#868e96;letter-spacing:.06em;padding-bottom:10px;">한눈에</div>
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size:13.5px;line-height:1.6;">
+            """);
 
         // **무엇을 시켰나.** 답만 있고 물음이 없으면 며칠 뒤의 나는
         // 이 메일이 무엇에 대한 것인지 알 수 없다. 이어가기 건은 **이번에 시킨
         // 것만** 뜬다(<see cref="ThisTurn"/>) — 앞에서 그냥 세 줄을 뜨면 지난
         // 회차의 머리말이 잡힌다.
         sb.Append(SummaryRow("시킨 것", Lines(Gist(ThisTurn(r.Instruction), lines: 3)) ?? Muted("적힌 것이 없습니다")));
-        // **정리된 것이 있으면 그것을 쓴다.** 한 문장 + 점 몇 개로 나뉘어 있어
-        // 라벨 하나에 여러 줄이 뭉쳐 있던 예전 꼴보다 훨씬 빨리 읽힌다.
-        sb.Append(summary is not null
-            ? SummaryRow("AI 의 답", Said(summary))
-            : SummaryRow("AI 의 답", Lines(Gist(r.ResultText, lines: 5)) ?? Muted("아무 말 없이 끝났습니다")));
-
         sb.Append(SummaryRow("바뀐 것", Esc(ChangeGist(r))));
 
-        // 「확인할 것」은 AI 가 짚은 것이고, 아래의 「할 일」은 **기계가 아는 사실**
-        // (배포됐나 · 커밋만 있나)이다. 둘은 근거가 달라서 한 칸에 뭉치지 않는다.
-        if (summary is { Checks.Count: > 0 })
-        {
-            sb.Append(SummaryRow("확인할 것", Bullets(summary.Checks)));
-        }
-
-        sb.Append("</table>");
-
-        // **「할 일」만 칸 밖으로 낸다.** 요약에서 사람이 제일 알고 싶은 것이고,
-        // 다른 줄과 같은 크기로 있으면 스쳐 지나간다.
-        sb.Append($"""
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:14px;background:{tint};border-left:3px solid {accent};border-radius:0 6px 6px 0;">
-                <tr><td style="padding:11px 13px;font-size:13.5px;line-height:1.55;">
-                  <div style="font-size:11.5px;font-weight:700;color:#868e96;letter-spacing:.06em;">할 일</div>
-                  <div style="padding-top:3px;font-weight:600;">{Esc(NextStep(r))}</div>
-                </td></tr>
+        sb.Append("""
               </table>
             </td></tr>
             """);
@@ -987,26 +998,87 @@ public sealed class AiTaskNotifier(
         """;
 
     /// <summary>
-    /// 정리된 답 한 칸 — <b>한 문장 먼저, 그 아래 점 몇 개.</b>
+    /// 메일의 <b>맨 앞 칸 — 「처리 요약」.</b> 화면의 같은 칸
+    /// (<c>AiTaskView.razor</c> 의 <c>pm-peek__sum</c>)과 <b>차례도 모양도 맞춘다.</b>
     /// </summary>
     /// <remarks>
-    /// 첫 줄만 굵게 둔다. 전부 굵게 하면 강조가 사라지고, 전부 보통이면
-    /// <b>결론과 항목이 같은 무게로 보여</b> 다시 읽어야 알 수 있다.
+    /// <para>
+    /// <b>라벨 칸 뒤에 넣지 않는다.</b> 예전에는 「요약」 표의 한 줄
+    /// (라벨 <c>AI 의 답</c>)이라, 72px 라벨 뒤에 남은 좁은 칸에 결론 한 문장과
+    /// 점 다섯이 접혀 들어갔다. 휴대폰에서 그것은 <b>답이 아니라 곁줄</b>로
+    /// 보인다 — 「요약이 빠진 채 온다」는 제보가 거기서 나왔다. 여기서는
+    /// 폭을 통째로 쓰고, 왼쪽에 상태색 선을 세워 <b>이것이 원문이 아니라
+    /// 정리한 말</b>임을 가른다(화면이 쓰는 것과 같은 손짓이다).
+    /// </para>
+    /// <para>
+    /// <b>글 크기로 차례를 매긴다.</b> 결론 한 문장이 15px/700, 한 일이 13.5px,
+    /// 「확인할 것」이 13px 다. 전부 같은 크기면 눈이 어디부터 읽을지 모르고,
+    /// <b>「한눈에」가 깨지는 자리가 바로 거기</b>다.
+    /// </para>
+    /// <para>
+    /// <b>요약이 없어도 이 칸은 선다.</b> 빈 칸을 그리면 그것이야말로
+    /// 「요약이 빠졌다」로 읽히므로, 그때는 <b>왜 없는지</b>를 적고 결과문
+    /// 앞부분을 대신 싣는다(<see cref="Gist"/> — 옛 방식 그대로다).
+    /// </para>
     /// </remarks>
-    private static string Said(AiResultSummary summary)
+    private static string SummaryCard(MailRow r, AiResultSummary? summary, string accent, string tint)
     {
         var sb = new StringBuilder();
 
-        if (summary.Headline.Length > 0)
+        sb.Append($"""
+            <tr><td style="padding:18px 20px 0 20px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:{tint};border:1px solid #e9ecef;border-left:4px solid {accent};border-radius:0 8px 8px 0;">
+                <tr><td style="padding:14px 16px;">
+                  <div style="font-size:11.5px;font-weight:700;color:{accent};letter-spacing:.06em;padding-bottom:9px;">처리 요약</div>
+            """);
+
+        if (summary is not null)
         {
-            sb.Append($"""<span style="font-weight:600;">{Esc(summary.Headline)}</span>""");
+            if (summary.Headline.Length > 0)
+            {
+                sb.Append($"""
+                      <div style="font-size:15px;font-weight:700;line-height:1.55;color:#212529;word-break:break-word;">{Esc(summary.Headline)}</div>
+                    """);
+            }
+
+            if (summary.Points.Count > 0)
+            {
+                sb.Append($"""
+                      <div style="padding-top:{(summary.Headline.Length > 0 ? "9" : "0")}px;">{Bullets(summary.Points)}</div>
+                    """);
+            }
+
+            // 「확인할 것」은 **AI 가 짚은 것**이고, 아래의 「할 일」은 기계가 아는
+            // 사실(배포됐나 · 커밋만 있나)이다. 근거가 달라서 한 칸에 뭉치지
+            // 않는다 — 가는 선 하나로 가르고 머리말에 다른 색을 준다.
+            if (summary.Checks.Count > 0)
+            {
+                sb.Append($"""
+                      <div style="margin-top:11px;border-top:1px solid #e3e6ea;padding-top:9px;">
+                        <div style="font-size:11.5px;font-weight:700;color:#e8590c;letter-spacing:.06em;padding-bottom:2px;">확인할 것</div>
+                        {Bullets(summary.Checks, size: "13px", color: "#495057")}
+                      </div>
+                    """);
+            }
+        }
+        else
+        {
+            // **왜 없는지부터 적는다.** 그냥 결과문 앞줄만 세워 두면 그것이
+            // 요약인 줄 알고 「요약이 서론만 적는다」로 읽힌다.
+            sb.Append("""
+                  <div style="font-size:12.5px;line-height:1.6;color:#868e96;padding-bottom:7px;">AI 가 정리한 요약을 받지 못했습니다 — 결과문 앞부분을 대신 싣습니다.</div>
+                """);
+
+            sb.Append(Lines(Gist(r.ResultText, lines: 5)) is { Length: > 0 } gist
+                ? $"""<div style="font-size:13.5px;line-height:1.6;color:#343a40;word-break:break-word;">{gist}</div>"""
+                : """<div style="font-size:13.5px;line-height:1.6;color:#adb5bd;">(AI 가 아무 말 없이 끝났습니다.)</div>""");
         }
 
-        if (summary.Points.Count > 0)
-        {
-            sb.Append(summary.Headline.Length > 0 ? """<div style="height:4px;"></div>""" : string.Empty);
-            sb.Append(Bullets(summary.Points));
-        }
+        sb.Append("""
+                </td></tr>
+              </table>
+            </td></tr>
+            """);
 
         return sb.ToString();
     }
@@ -1015,14 +1087,20 @@ public sealed class AiTaskNotifier(
     /// 점 찍힌 여러 줄. <b>&lt;ul&gt; 을 쓰지 않는다</b> — 메일 앱마다 들여쓰기와
     /// 점 모양이 제각각이라 다른 칸과 왼쪽이 맞지 않는다. div 로 직접 그린다.
     /// </summary>
-    private static string Bullets(IReadOnlyList<string> items)
+    /// <remarks>
+    /// <b>크기를 밖에서 정한다.</b> 같은 모양을 「한 일」(13.5px)과
+    /// 「확인할 것」(13px)이 함께 쓰는데, 둘이 같은 무게로 서면 결론 → 한 일 →
+    /// 확인할 것으로 내려가는 차례가 무너진다(<see cref="SummaryCard"/>).
+    /// </remarks>
+    private static string Bullets(
+        IReadOnlyList<string> items, string size = "13.5px", string color = "#343a40")
     {
         var sb = new StringBuilder();
 
         foreach (var item in items)
         {
             sb.Append($"""
-                <div style="padding-top:2px;padding-left:11px;text-indent:-11px;">· {Esc(item)}</div>
+                <div style="padding-top:3px;padding-left:13px;text-indent:-13px;font-size:{size};line-height:1.6;color:{color};word-break:break-word;">· {Esc(item)}</div>
                 """);
         }
 
@@ -1068,7 +1146,7 @@ public sealed class AiTaskNotifier(
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>메일의 「AI 의 답」 칸과 같은 값을 쓴다</b>(<see cref="Said"/>). 같은
+    /// <b>메일의 「처리 요약」 칸과 같은 값을 쓴다</b>(<see cref="SummaryCard"/>). 같은
     /// 실행을 두 곳에서 다르게 요약하면 「메일에는 이렇게 왔는데 알림에는
     /// 저렇게 왔다」가 되고, 그때 어느 쪽이 맞는지 가릴 방법이 없다. 다른 것은
     /// <b>꼴뿐</b>이다 — 저쪽은 HTML 이고 이쪽은 줄바꿈 하나로 쓴다.
@@ -1393,7 +1471,12 @@ public sealed class AiTaskNotifier(
         _ => status ?? string.Empty,
     };
 
-    private sealed class MailRow
+    /// <summary>
+    /// 실행·작업을 한 줄로 편 것. <b>시험이 보게 <c>internal</c> 이다</b> —
+    /// 메일 본문(<see cref="Body"/>)이 요약을 제대로 이고 서는지는
+    /// <c>ProjMngServer.Tests</c> 가 이 줄을 손으로 채워 확인한다.
+    /// </summary>
+    internal sealed class MailRow
     {
         public long TaskKey { get; set; }
         public string? Title { get; set; }

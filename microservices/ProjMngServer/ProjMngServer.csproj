@@ -13,4 +13,16 @@
     <ProjectReference Include="..\Common\JSini.Shared.Infrastructure\JSini.Shared.Infrastructure.csproj" />
   </ItemGroup>
 
+  <!--
+    결과 메일 본문을 시험이 그려 볼 수 있게 연다.
+
+    `AiTaskNotifier.Body()` 는 DB 도 네트워크도 모르는 **순수 함수**인데
+    private 이라 지금까지는 리플렉션으로만 불러 볼 수 있었다. 「메일에 처리
+    요약이 없다」는 제보가 네 차례 돌아온 자리라(2026-10-15), 요약이 실제로
+    본문에 실리고 **지시문보다 먼저 서는지**를 CI 가 매번 확인하게 한다.
+  -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="ProjMngServer.Tests" />
+  </ItemGroup>
+
 </Project>
