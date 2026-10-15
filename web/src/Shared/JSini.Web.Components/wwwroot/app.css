@@ -9920,6 +9920,20 @@ body.jsini-imgview-open {
   border-bottom: 1px solid var(--jsini-border);
 }
 
+/* 머리의 단추 둘(📌 · ✕)은 DevExpress 의 「링크」 모양이라 **글자에 밑줄이
+   그어진다** — 그 테마가 `.dxbl-btn.dxbl-btn-link span:not(.dxbl-image)` 에
+   `text-decoration: var(--dxbl-btn-link-text-decoration)` 를 걸어 두고, 그
+   변수의 기본값이 `Underline` 이다. 아이콘으로 그리는 📌 는 `.dxbl-image` 라
+   비껴가지만 **글자로 적은 ✕ 는 그대로 밑줄이 그어져** 닫기 표시가 밑줄 친
+   글자처럼 보인다.
+
+   `text-decoration: none` 을 덮어쓰지 않고 **변수를 돌린다** — 그쪽 선택자가
+   클래스 셋에 요소 하나라 여기서 같은 자리를 이기려면 선택자를 억지로
+   길게 늘여야 하고, 그 싸움은 DevExpress 가 한 줄 바꾸면 다시 진다. */
+.jsini-right-drawer__head .dxbl-btn-link {
+  --dxbl-btn-link-text-decoration: none;
+}
+
 .jsini-right-drawer__title {
   flex: 1;
   font-weight: 600;
