@@ -49,18 +49,6 @@
 }
 else
 {
-    @* 끼운 자리가 비는 일이 있다 — 상대 사이트가 iframe 을 막거나, 포털이
-       https 라 http 주소가 막히는 때다. 그때 빠져나갈 길만 둔다.
-       새창으로 열기 버튼은 아이콘으로 표현하고 상단 오른쪽에 둔다. *@
-    <div class="jsini-toolbar jsini-embed__toolbar">
-        <div class="jsini-toolbar__spacer"></div>
-        <DxButton IconCssClass="jsini-icon-open"
-                  RenderStyle="ButtonRenderStyle.Secondary"
-                  Title="새 창으로 열기"
-                  aria-label="새 창으로 열기"
-                  Click="@OpenAsync" />
-    </div>
-
     @*
         감싸개가 하나 더 있는 이유는 **iframe 의 세로 막대를 감추기 위해서**다.
 
@@ -73,5 +61,30 @@ else
     *@
     <div class="jsini-embed-clip">
         <iframe class="jsini-embed" src="@Source" title="@(Menu?.Title ?? "바깥 화면")"></iframe>
+
+        @* [새 창으로 열기 — 끼운 화면 **위에 겹쳐** 둔다]
+
+           끼운 자리가 비는 일이 있다 — 상대 사이트가 iframe 을 막거나, 포털이
+           https 라 http 주소가 막히는 때다. 그때 빠져나갈 길만 둔다.
+
+           전에는 이 단추가 iframe **위쪽에 제 줄을 깔고** 앉아 있었다. 그
+           줄이 높이를 먹는 만큼 끼운 화면이 눌렸고, 끼우는 것이 대개
+           대시보드라 **세로 한 줄이 통째로 아쉬운** 화면이었다. 그래서 줄을
+           걷고 감싸개 안에 띄워 오른쪽 위에 겹친다 — iframe 이 본문 칸을
+           통째로 쓴다.
+
+           글자를 떼고 그림만 남긴 것도 같은 까닭이다. 겹쳐 둔 것은 **남의
+           화면을 가리므로** 작을수록 좋고, 할 일이 하나뿐이라 `Title` 로
+           떠오르는 설명이면 족하다. 테두리·바탕을 안 그리는
+           `ButtonRenderStyle.Link` 를 쓰는 이유도 그것이다 — 상자를 그리면
+           「아이콘만」이 아니게 된다. *@
+        <div class="jsini-embed__toolbar">
+            <DxButton CssClass="jsini-embed__open"
+                      IconCssClass="jsini-icon-open"
+                      RenderStyle="ButtonRenderStyle.Link"
+                      Title="새 창으로 열기"
+                      aria-label="새 창으로 열기"
+                      Click="@OpenAsync" />
+        </div>
     </div>
 }

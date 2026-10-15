@@ -6926,15 +6926,13 @@ a.jsini-social__btn:focus-visible {
   --jsini-embed-bar: 17px;
 }
 
-.jsini-embed__toolbar {
-  justify-content: flex-end;
-  margin-bottom: 0.5rem;
-}
-
 .jsini-embed-clip {
-  /* 밖으로 민 막대를 여기서 잘라 낸다. 테두리와 모서리도 이쪽이 쥔다 —
-     iframe 에 두면 넓힌 만큼 오른쪽 테두리가 잘려 나간다. */
+  /* 밖으로 민 막대를 여기서 잘라 낸다. 모서리도 이쪽이 쥔다 —
+     iframe 에 두면 넓힌 만큼 오른쪽 끝이 잘려 나간다. */
   overflow: hidden;
+
+  /* 겹쳐 둔 「새 창으로 열기」가 여기에 자리를 잡는다(아래). */
+  position: relative;
 
   /* :has() 를 모르는 브라우저를 위한 바닥. 아래 규칙이 이기면 안 쓰인다. */
   height: calc(100vh - 56px - 10rem);
@@ -6942,8 +6940,6 @@ a.jsini-social__btn:focus-visible {
   /* 창이 아주 낮을 때의 바닥. 그보다 줄이면 끼워 넣은 화면을 읽을 수 없다. */
   min-height: 360px;
 
-  border: 1px solid var(--jsini-border, #e0e0e0);
-  border-radius: 8px;
   background: #fff;
 }
 
@@ -6954,9 +6950,27 @@ a.jsini-social__btn:focus-visible {
   border: 0;
 }
 
+/* ── 끼운 화면이 본문 칸을 **통째로** 쓴다 ───────────────────
+
+   전에는 이 화면도 다른 업무 화면과 같은 바깥 여백을 받고, 그 안에서 또
+   테두리와 둥근 모서리를 그렸다. 끼우는 것이 남의 대시보드라 그 테두리는
+   **액자가 둘**로 보였고(바깥은 포털 여백, 안은 우리 테두리), 여백만큼
+   화면이 작아졌다.
+
+   여백도 테두리도 걷고 iframe 이 본문 칸 끝까지 간다. 「새 창으로 열기」는
+   줄을 깔지 않고 그 위에 겹친다.
+
+   [아래 여백만은 안 걷는다]
+
+   휴대폰의 아래 띠는 `position: fixed` 라 본문이 그만큼 비켜 주지 않으면
+   iframe 의 마지막 줄을 영영 못 본다. 그 자리는 `!important` 가 붙은 좁은
+   화면 규칙이 쥐고 있어 여기서 `padding: 0` 을 적어도 되돌아온다 —
+   여백이 아니라 자리 비킴이라 그게 맞다.
+   ---------------------------------------------------------- */
 .jsini-shell__content:has(> .jsini-embed-clip) {
   display: flex;
   flex-direction: column;
+  padding: 0;
 }
 
 /* 안내 줄은 제 높이만큼만. 없으면 iframe 에 자리를 뺏겨 글이 눌린다. */
@@ -6967,6 +6981,76 @@ a.jsini-social__btn:focus-visible {
 .jsini-shell__content:has(> .jsini-embed-clip) > .jsini-embed-clip {
   flex: 1;
   height: auto;
+}
+
+/* ── 겹쳐 둔 「새 창으로 열기」 ──────────────────────────────
+
+   감싸개 안에 띄워 오른쪽 위 귀퉁이에 앉힌다. iframe 은 그 아래로 통째로
+   깔리므로, 이 단추가 차지하는 자리는 **끼운 화면의 높이에서 빠지지 않는다.**
+
+   [그림만 남긴다]
+
+   테두리·바탕을 안 그리는 `ButtonRenderStyle.Link` 를 쓴다. 다만 Fluent
+   테마가 링크 단추의 속 글자에 밑줄을 긋게 해 두어서(`--dxbl-btn-link-
+   text-decoration`), 그림만 있는 단추에도 가느다란 줄이 하나 따라붙는다.
+   그 변수를 `none` 으로 덮는다 — 오른쪽 판 머리의 닫기(✕)와 같은 자리다.
+
+   [남의 화면 위라 테두리 대신 그림자를 쓴다]
+
+   끼우는 것이 어떤 바탕일지 우리는 모른다. 흰 바탕 위에서는 검은 그림이
+   보이지만 어두운 대시보드 위에서는 그림이 바탕에 먹힌다. 상자를 그리면
+   「아이콘만」이 아니게 되므로, 그림 둘레에만 흰 테를 한 겹 둘러(그림자
+   넷) 어느 바탕에서도 가장자리가 남게 한다.
+
+   **그 그림자는 아이콘이 아니라 단추에 건다.** 우리 아이콘은 모양을 마스크로
+   내는데(`[class^='jsini-icon-']`), CSS 는 거르개(filter)를 먼저 치고 마스크를
+   **나중에** 씌운다 — 아이콘에 걸면 네모난 바탕에 그림자가 생긴 뒤 마스크가
+   그 그림자까지 통째로 오려 내서 **한 픽셀도 안 남는다.** 실제로 그렇게
+   두었다가 어두운 바탕에서 그림이 묻히는 것을 찍어 보고 알았다. 마스크가
+   없는 단추에 걸면 이미 오려진 그림의 둘레에 테가 생긴다.
+   ---------------------------------------------------------- */
+.jsini-embed__toolbar {
+  position: absolute;
+  top: 0.375rem;
+  right: 0.375rem;
+
+  /* 끼운 화면이 제 안에서 무엇을 띄우든 이 단추가 위에 있어야 누를 수 있다.
+     iframe 안쪽은 별도 레이어라 이 값으로 가려지지 않는다. */
+  z-index: 2;
+}
+
+.jsini-embed__toolbar .jsini-embed__open {
+  padding: 0.25rem;
+  line-height: 0;
+
+  /* 링크 단추의 밑줄을 끈다. 위 머리말 참고. */
+  --dxbl-btn-link-text-decoration: none;
+
+  /* 「아이콘만」을 테마에 맡기지 않는다. 지금 테마의 링크 단추는 상자를
+     안 그리지만, 그것은 테마가 그러기로 한 것이지 우리가 정한 것이 아니다 —
+     테마를 올릴 때 상자가 되돌아와도 **오류 없이 생김새만** 바뀐다. */
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+
+  /* 색도 박는다. 이 그림이 서는 자리는 우리 판이 아니라 **남의 화면 위**라,
+     테마의 링크 색(대개 강조색)을 따라가면 끼운 화면의 바탕에 따라
+     읽히기도 하고 묻히기도 한다. 아래 흰 테와 짝이다. */
+  color: #374151;
+
+  /* 어느 바탕에서도 가장자리가 남게 하는 흰 테. 위 머리말 참고 —
+     이 줄을 아이콘 쪽으로 옮기면 마스크가 오려 내어 **조용히 사라진다.** */
+  filter: drop-shadow(0 1px 0 #fff) drop-shadow(0 -1px 0 #fff)
+          drop-shadow(1px 0 0 #fff) drop-shadow(-1px 0 0 #fff);
+
+  /* 남의 화면을 가리는 자리라 평소에는 한 겹 물러나 있고, 손이 가면 선다. */
+  opacity: 0.6;
+  transition: opacity 0.15s ease;
+}
+
+.jsini-embed__toolbar .jsini-embed__open:hover,
+.jsini-embed__toolbar .jsini-embed__open:focus-visible {
+  opacity: 1;
 }
 
 /* ── 화면을 옮기는 동안의 표시 (PageSpinner) ───────────────
