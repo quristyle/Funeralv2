@@ -531,8 +531,15 @@
                것은 `AiTaskAskTab` 머리말.
 
                **탭 번호는 여기 것이다**(`TabWrite`·`TabAsk`·`TabFiles`·`TabLog`) —
-               부품은 제가 몇 번째인지 모른다. *@
-            <DxTabs @bind-ActiveTabIndex="_tab" TabClick="@OnTabClick" CssClass="pm-ai-tabs">
+               부품은 제가 몇 번째인지 모른다.
+
+               **휴대폰에서는 네 이름이 다 보여야 한다**(`pm-tabfit` ·
+               `NoScroll`). 그냥 두면 넷이 405px 를 쓰는데 360px 짜리 화면이
+               내주는 것은 354px 라 마지막 탭이 밖으로 나가고, DevExpress 는
+               그것을 **쓸어 넘겨 찾게** 한다 — 까닭과 잰 값은 projmng.css 의
+               「탭 줄은 휴대폰에서 가로로 구르지 않는다」. *@
+            <DxTabs @bind-ActiveTabIndex="_tab" TabClick="@OnTabClick"
+                    CssClass="pm-ai-tabs pm-tabfit" ScrollMode="TabsScrollMode.NoScroll">
                 @* 적는 자리. **고친 값은 `_edit` 에 바로 들어간다** —
                    부품은 그리고 되돌려 줄 뿐이고, 저장도 요청도 여기가 한다. *@
                 <AiTaskWriteTab Item="@_edit"

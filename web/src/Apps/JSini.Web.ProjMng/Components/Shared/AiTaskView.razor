@@ -468,7 +468,13 @@
     }
 
     <div class="pm-peek__tabs">
-        <DxTabs @bind-ActiveTabIndex="_tab" TabClick="@OnTabClick">
+        @* **휴대폰에서는 세 이름이 다 보여야 한다**(`pm-tabfit` · `NoScroll`).
+           이 판은 앱푸시·메일에서 바로 열리는 자리라 보는 사람이 대개
+           휴대폰이다. 그냥 두면 넘친 탭은 **쓸어 넘겨야 닿고** 넘겼다는
+           표시도 없다 — 잰 값과 거는 것 셋은 projmng.css 의
+           「탭 줄은 휴대폰에서 가로로 구르지 않는다」. *@
+        <DxTabs @bind-ActiveTabIndex="_tab" TabClick="@OnTabClick"
+                CssClass="pm-tabfit" ScrollMode="TabsScrollMode.NoScroll">
             @* ── 탭 셋은 **부품 셋이다** (2026-10-15) ───────────
                한동안 셋이 통째로 여기 적혀 있었다. 이 판이 서는 자리가
                둘뿐일 때는(「빠른 지시」 판 안의 탭 · 포털 탭으로 열리는

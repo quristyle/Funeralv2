@@ -17,13 +17,20 @@
     세우고 그 안에 이것들을 **골라 담는다** — 셋이든 넷이든 다섯이든.
 
     ```razor
-    <DxTabs @bind-ActiveTabIndex="_tab" TabClick="@OnTabClick">
+    <DxTabs @bind-ActiveTabIndex="_tab" TabClick="@OnTabClick"
+            CssClass="pm-tabfit" ScrollMode="TabsScrollMode.NoScroll">
         <AiTaskAskTab   Item="@t" Run="@_run" Turns="@_turns" … />
         <AiTaskFilesTab Item="@t" Run="@_run" Changed="@_changed" />
         <AiTaskLogTab   Lines="@LogLines" … />
         <DxTabPage Text="이 화면에만 있는 탭">…</DxTabPage>
     </DxTabs>
     ```
+
+    **`pm-tabfit` 과 `NoScroll` 은 짝이다.** 이 탭들의 이름은 숫자를 달고 있어
+    (「지시와 결과 (3회)」·「로그 (240줄)」) 휴대폰에서 줄을 넘기기 쉬운데,
+    DevExpress 의 기본값은 넘친 탭을 **감추고 쓸어 넘기게** 하는 것이다.
+    둘을 같이 걸면 모자랄 때 다음 줄로 내려가고 넉넉할 때는 한 줄에 선다 —
+    잰 값은 projmng.css 의 「탭 줄은 휴대폰에서 가로로 구르지 않는다」.
 
     **끼운 부품이 `DxTabPage` 를 그려도 `DxTabs` 가 알아본다** — 탭은 부모가
     그릴 때 훑어 모으는 것이 아니라 자식이 제 손으로 등록하는 것이라

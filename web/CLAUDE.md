@@ -2368,7 +2368,8 @@ Components/Shared/AiTask*Tab.razor     그 탭 줄에 **골라 담는 탭 한 �
 **보는 셋과 적는 하나**.
 
 ```razor
-<DxTabs @bind-ActiveTabIndex="_tab" TabClick="@OnTabClick">
+<DxTabs @bind-ActiveTabIndex="_tab" TabClick="@OnTabClick"
+        CssClass="pm-tabfit" ScrollMode="TabsScrollMode.NoScroll">
     <AiTaskWriteTab Item="@_edit" CanEdit="@CanEdit" Runners="@WriteRunners" … />
     <AiTaskAskTab   Item="@t" Run="@_run" Turns="@_turns" RunCount="@_runCount" … />
     <AiTaskFilesTab Item="@t" Run="@_run" Changed="@_changed" />
@@ -2395,6 +2396,22 @@ Components/Shared/AiTask*Tab.razor     그 탭 줄에 **골라 담는 탭 한 �
 때 훑어 모으는 것이 아니라 자식이 제 손으로 등록하는 것이라(cascading), 한 겹
 더 감싸도 차례까지 그대로 서고 맨손으로 적은 `DxTabPage` 와 섞어 둘 수도 있다 —
 정적 렌더로 확인했다(끼운 셋 + 맨손 하나 → `tab-count="4"`, 차례도 적은 그대로).
+
+**탭 줄은 휴대폰에서 가로로 구르지 않는다**(`pm-tabfit` + `NoScroll` ·
+2026-10-15). 이 탭들의 이름은 숫자를 달고 있어서(「지시와 결과 (3회)」·
+「처리 파일 (12)」·「로그 (240줄)」 — 눌러 보기 전에 빈 탭과 찬 탭을 가르는
+몫이다) 넷이 서면 **405px** 가 필요한데, 360px 짜리 화면이 내주는 것은
+354px 다. 그냥 두면 DevExpress 가 넘친 탭을 **감추고 쓸어 넘기게** 한다
+(`ScrollMode` 의 기본 `Auto`) — 탭이 넷뿐인데 하나는 숨어 있는 꼴이다.
+`NoScroll` 은 모자랄 때 **다음 줄로 내리고**, `pm-tabfit` 은 탭 사이 틈을
+`margin-right` 대신 `column-gap` 으로 줘 **마지막 탭 뒤의 20px 을 걷는다** —
+그래서 360px 에서도 넷이 한 줄에 선다(341px). `NoScroll` 이면 DevExpress 의
+스크롤 상자가 사라지므로 **고른 탭의 파란 줄이 본문 위로 흘러내리는 것**도
+같이 막아야 한다(`box-sizing: border-box` — 넓은 화면에도 건다). 선택자를
+`.dxbl-tabs.pm-tabfit` 로 **한 겹 겹쳐** 적은 것도 그냥이 아니다 — 틈을 주는
+`.dxbl-tabs .dxbl-tabs-item` 이 tabler.css 에 있고 그 파일이 모듈 CSS 뒤에
+실려서, 자릿수가 같으면 우리 값이 **조용히 진다**(tabler.css 는 `<head>` 의
+맨 마지막이다 — 위 테마 표). 잰 값은 projmng.css 의 같은 이름 구역에 있다.
 
 **끼워 담은 탭에는 화면이 높이를 줘야 한다.** 부품이 그리는 `.pm-peek__pane`
 에는 높이가 없다 — `AiTaskView` 가 서는 자리는 쪽이 통째로 구르기 때문이다.
