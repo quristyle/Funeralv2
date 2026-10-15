@@ -49,7 +49,7 @@
   var SIZE_COOKIE = 'jsini.size';
 
   /**
-   * 고를 수 있는 크기 — 다섯 단계.
+   * 고를 수 있는 크기 — 아홉 단계.
    *
    * [DevExpress 모드는 여전히 셋이다]
    *
@@ -58,15 +58,23 @@
    * 그리드·달력·팝업이 따라오지 않아 한 화면에 두 크기가 된다.
    *
    * 그런데 사람이 고치고 싶어 하는 것은 대개 **글자 크기**이고, 그것은
-   * 우리 사다리(`--jsini-fs-*`)가 따로 갖고 있다. 그래서 단계를 다섯으로
+   * 우리 사다리(`--jsini-fs-*`)가 따로 갖고 있다. 그래서 단계를 아홉으로
    * 늘리고 **부품 크기는 가까운 DevExpress 모드로 접는다.**
    *
-   *   xxsmall  0.625rem   Small     ← 우리가 넣은 것
-   *   xsmall   0.6875rem  Small     ← 우리가 넣은 것
-   *   small    0.75rem    Small
-   *   compact  0.8125rem  Small     ← 우리가 넣은 것
-   *   medium   0.875rem   Medium
-   *   large    1rem       Large
+   *   xxsmall   0.625rem   Small     ← 우리가 넣은 것
+   *   xsmall    0.6875rem  Small     ← 우리가 넣은 것
+   *   small     0.75rem    Small
+   *   compact   0.8125rem  Small     ← 우리가 넣은 것
+   *   medium    0.875rem   Medium
+   *   large     1rem       Large
+   *   xlarge    1.125rem   Large     ← 우리가 넣은 것
+   *   xxlarge   1.25rem    Large     ← 우리가 넣은 것
+   *   xxxlarge  1.5rem     Large     ← 우리가 넣은 것
+   *
+   * **「크게」 위의 셋은 Large 에 얹은 것이다.** 아래쪽 셋이 Small 에 얹혀
+   * 「같은 밀도에서 글자만 작게」였던 것과 거울이다 — 줄 높이·단추 높이는
+   * 「크게」와 같고 글자만 더 커진다. DevExpress 에 Large 보다 큰 모드가
+   * 없으니 그 위로는 이 길밖에 없다.
    *
    * 접는 표는 **서버 쪽(`ThemeSize.Steps`)에 있다.** 여기 두면 두 곳에
    * 같은 표가 생기고, 어긋나도 예외가 안 나서 「글자는 바뀌는데 부품이
@@ -76,9 +84,10 @@
    * `:root[data-dx-size='…']` 이고, 그 속성은 아래 apply() 가 세운다.
    *
    * 이름은 한국어다. 셋일 때는 DevExpress 이름(Small·Medium·Large)을 그대로
-   * 썼지만, 다섯 중 둘은 DevExpress 에 없는 단계라 그 이름을 이어 쓸 수 없다.
+   * 썼지만, 아홉 중 여섯은 DevExpress 에 없는 단계라 그 이름을 이어 쓸 수 없다.
    * 순서대로 읽히는 것이 중요해서
-   * 「가장작게 < 아주작게 < 작게 < 조금작게 < 보통 < 크게」로 둔다.
+   * 「가장작게 < 아주작게 < 작게 < 조금작게 < 보통 < 크게 < 더크게 <
+   * 아주크게 < 최대한크게」로 둔다.
    */
   var SIZES = [
     { id: 'xxsmall', name: '가장작게' },
@@ -87,6 +96,9 @@
     { id: 'compact', name: '조금작게' },
     { id: 'medium', name: '보통' },
     { id: 'large', name: '크게' },
+    { id: 'xlarge', name: '더크게' },
+    { id: 'xxlarge', name: '아주크게' },
+    { id: 'xxxlarge', name: '최대한크게' },
   ];
 
   /**

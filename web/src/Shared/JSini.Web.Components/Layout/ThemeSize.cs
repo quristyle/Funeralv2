@@ -24,7 +24,7 @@ namespace JSini.Web.Components.Layout;
 /// 쪽이 화면 트리에서 서로 멀기 때문이다 — 서랍은 레이아웃 안, 흘리는 쪽은
 /// 라우터 바깥이다.
 ///
-/// [고르는 단계는 여섯, DevExpress 모드는 셋이다]
+/// [고르는 단계는 아홉, DevExpress 모드는 셋이다]
 ///
 /// <b>이 둘을 갈라 둔 것이 이 클래스의 요점이다.</b>
 ///
@@ -39,12 +39,16 @@ namespace JSini.Web.Components.Layout;
 ///   <item><term><c>compact</c> 조금작게</term><description>0.8125rem · Small</description></item>
 ///   <item><term><c>medium</c> 보통</term><description>0.875rem · Medium</description></item>
 ///   <item><term><c>large</c> 크게</term><description>1rem · Large</description></item>
+///   <item><term><c>xlarge</c> 더크게</term><description>1.125rem · Large</description></item>
+///   <item><term><c>xxlarge</c> 아주크게</term><description>1.25rem · Large</description></item>
+///   <item><term><c>xxxlarge</c> 최대한크게</term><description>1.5rem · Large</description></item>
 /// </list>
 ///
 /// <b>넷째 <c>SizeMode</c> 를 만들지 않는다.</b> DevExpress 가 주는 것이
 /// <c>Small · Medium · Large</c> 셋뿐이고, 없는 값을 흘리면 그리드·달력·팝업이
-/// 따라오지 않아 <b>한 화면에 두 크기</b>가 된다. 그래서 우리가 넣은 세 단계는
-/// <b>글자만 바꾸고 부품 크기는 Small 을 그대로 쓴다.</b>
+/// 따라오지 않아 <b>한 화면에 두 크기</b>가 된다. 그래서 우리가 넣은 여섯 단계는
+/// <b>글자만 바꾸고 부품 크기는 이웃한 DevExpress 모드를 그대로 쓴다</b> —
+/// 「크게」 아래 셋은 Small, 위 셋은 Large 다.
 ///
 /// 글자는 우리 사다리(<c>--jsini-fs-*</c>)가 따로 갖고 있어서 그렇게 할 수 있다.
 /// 뿌리(<c>--jsini-fs-base</c>)를 <c>&lt;html&gt;</c> 의 <c>data-dx-size</c> 로
@@ -53,7 +57,7 @@ namespace JSini.Web.Components.Layout;
 ///
 /// [그래서 담는 값이 <c>SizeMode</c> 가 아니라 <b>단계 이름</b>이다]
 ///
-/// 한동안 이 클래스가 <c>SizeMode</c> 만 들고 있었다. 그러면 여섯 단계가 셋으로
+/// 한동안 이 클래스가 <c>SizeMode</c> 만 들고 있었다. 그러면 아홉 단계가 셋으로
 /// 뭉개져서 <b>서랍이 어느 칸을 고른 것인지 알 수 없다</b> — 아주작게를 골라도
 /// 「작게」에 표시가 붙는다. 쿠키와 <c>PersistentComponentState</c> 도 같은
 /// 이유로 단계 이름을 실어 나른다.
@@ -109,20 +113,24 @@ public sealed class ThemeSize
         ("compact", SizeMode.Small),
         ("medium", SizeMode.Medium),
         ("large", SizeMode.Large),
+        ("xlarge", SizeMode.Large),
+        ("xxlarge", SizeMode.Large),
+        ("xxxlarge", SizeMode.Large),
     ];
 
     private string _step = DefaultStep;
 
     /// <summary>
     /// 지금 고른 단계 (<c>xxsmall</c> · <c>xsmall</c> · <c>small</c> ·
-    /// <c>compact</c> · <c>medium</c> · <c>large</c>).
+    /// <c>compact</c> · <c>medium</c> · <c>large</c> · <c>xlarge</c> ·
+    /// <c>xxlarge</c> · <c>xxxlarge</c>).
     /// <b>서랍이 어느 칸에 표시를 붙일지 이 값으로 정한다.</b>
     /// </summary>
     public string Step => _step;
 
     /// <summary>
     /// 지금 크기. DevExpress 부품이 이 값으로 그려진다.
-    /// <b>여섯 단계가 셋으로 접힌다</b> — 클래스 머리말의 표 참고.
+    /// <b>아홉 단계가 셋으로 접힌다</b> — 클래스 머리말의 표 참고.
     /// </summary>
     public SizeMode Current => ModeOf(_step);
 
