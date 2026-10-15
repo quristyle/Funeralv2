@@ -2459,3 +2459,123 @@
   animation: hd-cmt-blink 1s ease-in-out 3;
 }
 
+
+/* ── 한주운영시스템 모니터링 (`/helpdesk/hanju/system-monitoring`) ──
+
+   옛 JinReception 화면(PrimeVue + Tailwind)을 옮긴 자리다. 거기서는 모양을
+   유틸리티 클래스로 적었는데, 이 포털의 기본 테마에는 그런 것이 없다
+   (web/CLAUDE.md 「Bootstrap 유틸리티 클래스를 쓰지 않는다」) — 그래서
+   점수판 네 칸의 모양만 여기 이름을 붙여 둔다.
+   ---------------------------------------------------------- */
+
+/* 조작줄 — 왼쪽에 새로 고침·시각, 오른쪽 끝에 자동 갱신 스위치. */
+.hd-sysmon__bar {
+  align-items: center;
+}
+
+.hd-sysmon__auto {
+  margin-left: auto;
+}
+
+/* 점수판 머리 — 제목 옆에 종합 상태(Healthy / Warning: …) 배지가 선다. */
+.hd-sysmon__head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.hd-sysmon__head > .jsini-subhead {
+  margin-bottom: 0;
+}
+
+/* 네 칸. `auto-fit` 이라 데스크톱에서는 나란히, 휴대폰에서는 아래로 쌓인다 —
+   차트 묶음(`hd-charts`)과 같은 규칙이다. */
+.hd-sysmon__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 0.75rem;
+  margin: 0.5rem 0 0.25rem;
+}
+
+.hd-sysmon__card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--jsini-border);
+}
+
+.hd-sysmon__card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.4rem;
+}
+
+.hd-sysmon__card-title {
+  font-size: var(--jsini-fs-xs);
+  font-weight: 700;
+  color: var(--jsini-text-muted);
+}
+
+/* 큰 수 하나. 지표마다 색이 다른 것은 **아래 차트와 짝을 맞추기 위해서**다 —
+   CPU 가 파랑이면 1H CPU 선도 파랑이라 눈이 따라간다. */
+.hd-sysmon__value {
+  font-size: var(--jsini-fs-2xl);
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.hd-sysmon__value--cpu { color: #1565c0; }
+.hd-sysmon__value--io { color: #c62828; }
+.hd-sysmon__value--ple { color: #2e7d32; }
+.hd-sysmon__value--tps { color: #ef6c00; }
+
+.hd-sysmon__unit {
+  margin-left: 0.2rem;
+  font-size: var(--jsini-fs-sm);
+  font-weight: 600;
+}
+
+/* 기준 한 줄. 「표준: 70% 이하 유지」처럼 **숫자를 어떻게 읽는지**를 적는
+   자리라 설명(아래)과 굵기로 갈라 둔다. */
+.hd-sysmon__guide {
+  font-size: var(--jsini-fs-xs);
+  font-weight: 700;
+  color: var(--jsini-accent);
+}
+
+.hd-sysmon__desc {
+  margin: 0;
+  font-size: var(--jsini-fs-xs);
+  line-height: 1.35;
+  color: var(--jsini-text-muted);
+}
+
+/* 한마디. 위에 가로선을 긋는 것은 **판정이 설명이 아니라는 표시**다. */
+.hd-sysmon__advice {
+  margin: 0.15rem 0 0;
+  padding-top: 0.35rem;
+  border-top: 1px solid var(--jsini-border);
+  font-size: var(--jsini-fs-xs);
+  font-weight: 700;
+  font-style: italic;
+}
+
+/* 차트 여덟 장은 한 줄에 넷씩 — 옛 화면이 그랬다(1H 넷 · 24H 넷).
+   `hd-charts` 기본값(300px)으로는 사이드바를 편 상태에서 셋만 서고 넷째가
+   혼자 내려간다. 220px 이면 본문이 930px 만 되어도 넷이 선다. */
+.hd-charts--quad {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+/* 표에서 임계치를 넘긴 수 · 버틴 수. */
+.hd-sysmon__over {
+  font-weight: 700;
+  color: #d32f2f;
+}
+
+.hd-sysmon__safe {
+  color: #2e7d32;
+}

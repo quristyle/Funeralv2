@@ -99,6 +99,19 @@ public abstract class AutoRefreshPage : DataPage, IDisposable
     }
 
     /// <summary>
+    /// 시계를 끈다. 화면이 <b>사람에게 자동 갱신을 맡길 때</b> 쓴다 —
+    /// 스위치를 끄면 여기로 오고, 켜면 <see cref="StartAutoRefresh"/> 로 간다.
+    /// </summary>
+    /// <remarks>
+    /// 화면을 떠날 때는 부를 것이 없다. <see cref="Dispose"/> 가 같은 일을 한다.
+    /// </remarks>
+    protected void StopAutoRefresh()
+    {
+        _timer?.Dispose();
+        _timer = null;
+    }
+
+    /// <summary>
     /// 시계를 놓는다. <b>빠뜨리면 화면을 닫아도 조회가 계속 나간다.</b>
     /// </summary>
     public virtual void Dispose()
