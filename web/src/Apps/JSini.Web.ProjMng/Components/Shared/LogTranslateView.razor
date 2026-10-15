@@ -249,12 +249,11 @@
                     IsActive="_phone" IsActiveChanged="@OnPhoneChangedAsync" />
 
 <div class="pm-xlat @(_phone ? "pm-xlat--solo" : null)">
+    @* 머리띠. **줄바꿈 단추는 여기 없다** — 편집기의 아이콘 줄로 옮겼다
+       (아래 칸 이름표의 `EditorActions`). 글자 단추 하나가 판 위에 따로
+       서 있으면, 같은 편집기를 쓰는 다른 화면과 **손짓이 갈린다** —
+       거기서는 줄바꿈이 복사 옆의 아이콘이다. *@
     <div class="pm-xlat__bar">
-        <DxButton Text="@(_wrap ? "줄바꿈 끄기" : "줄바꿈 켜기")"
-                  RenderStyle="ButtonRenderStyle.Secondary"
-                  RenderStyleMode="ButtonRenderStyleMode.Outline"
-                  Click="@ToggleWrapAsync" />
-
         @* 옮긴 줄을 모두 원문으로 되돌린다. **번역 단추의 자리가 아니다** —
            옮기는 일은 줄을 눌러 시킨다. 여기 있는 것은 그 반대, 「처음 상태로」다. *@
         @if (_state.DoneLines.Count > 0)
@@ -277,10 +276,16 @@
        있게 두면 칸은 7:3 이 되는데 이름표는 5:5 에 남아 **이름이 남의 칸을
        가리켰다.** 지금은 이름표가 가름쇠를 따라간다(아래 `watchSplit`).
 
-       이름표 오른쪽 끝에 **그 칸을 통째로 복사하는 아이콘**이 선다
-       (`EditorActions` — 다른 편집기와 같은 부품·같은 모양). 편집기 안에
-       띄우지 않는 까닭은 칸이 둘이어서다 — 떠 있는 아이콘 하나는 **어느 칸을
-       복사하는지**가 눈으로 안 갈린다.
+       이름표 오른쪽 끝에 **아이콘 줄이 선다**(`EditorActions` — 다른 편집기와
+       같은 부품·같은 모양): 그 칸을 통째로 복사하는 아이콘과 **자동 줄바꿈**
+       이다. 편집기 안에 띄우지 않는 까닭은 칸이 둘이어서다 — 떠 있는 아이콘
+       하나는 **어느 칸을 복사하는지**가 눈으로 안 갈린다.
+
+       **줄바꿈은 좌우가 같이 접힌다** — 판 하나의 설정이라 어느 쪽을 눌러도
+       같고, 켜고 끈 것이 두 이름표에 함께 나타난다. 그래도 칸마다 다는 까닭은
+       아이콘 줄이 **편집기가 선 자리마다 같은 모양이어야** 하기 때문이다
+       (`EditorActions` 머리말) — 한쪽에만 달면 「이 칸만 줄바꿈이 된다」로
+       읽힌다.
 
        휴대폰에서는 번역 칸 하나뿐이라 이름표도 하나다. *@
     <div class="pm-xlat__heads" id="@HeadsId">
@@ -289,14 +294,20 @@
             <span class="pm-xlat__head pm-xlat__head--left">
                 <span class="pm-xlat__head-name">원문</span>
 
-                <EditorActions CopyTitle="원문 전체 복사" Text="@SourceText" />
+                <EditorActions CopyTitle="원문 전체 복사"
+                               Text="@SourceText"
+                               WordWrap="@_wrap"
+                               WordWrapChanged="@SetWrapAsync" />
             </span>
         }
 
         <span class="pm-xlat__head @(_phone ? null : "pm-xlat__head--right")">
             <span class="pm-xlat__head-name">번역 · 한국어</span>
 
-            <EditorActions CopyTitle="번역 전체 복사" Text="@OutText" />
+            <EditorActions CopyTitle="번역 전체 복사"
+                           Text="@OutText"
+                           WordWrap="@_wrap"
+                           WordWrapChanged="@SetWrapAsync" />
         </span>
     </div>
 

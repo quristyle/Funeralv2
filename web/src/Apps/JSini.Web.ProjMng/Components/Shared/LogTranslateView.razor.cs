@@ -384,7 +384,7 @@ public partial class LogTranslateView
         Size.Changed += OnThemeSizeChanged;
 
         // 줄바꿈의 첫 자리. **여기서만 받는다** — 그 뒤로는 단추를 누른
-        // 사람의 뜻과 폭이 정한다(`OnPhoneChangedAsync` · `ToggleWrapAsync`).
+        // 사람의 뜻과 폭이 정한다(`OnPhoneChangedAsync` · `SetWrapAsync`).
         _wrap = Wrap;
     }
 
@@ -1635,13 +1635,32 @@ public partial class LogTranslateView
         return string.IsNullOrWhiteSpace(answer.Model) ? name : $"{name} · {answer.Model}";
     }
 
-    private async Task ToggleWrapAsync()
+    /// <summary>
+    /// 자동 줄바꿈을 켜거나 끈다. 편집기의 아이콘 줄이 부른다
+    /// (<c>EditorActions.WordWrapChanged</c>).
+    /// </summary>
+    /// <remarks>
+    /// <b>뒤집지 않고 받은 값을 그대로 쓴다.</b> 아이콘 줄이 들고 있는 것은
+    /// 「지금 어느 쪽인가」이고 올려 주는 것은 「이제 어느 쪽인가」라, 여기서
+    /// 한 번 더 뒤집으면 눌러도 제자리인 단추가 된다.
+    /// </remarks>
+    private async Task SetWrapAsync(bool on)
     {
-        _wrap = !_wrap;
+        if (_wrap == on)
+        {
+            return;
+        }
+
+        _wrap = on;
 
         // 한 번이라도 누르면 그 뒤로는 사람의 뜻을 지킨다 — 휴대폰으로
         // 넘어갈 때 저절로 켜는 일을 더 하지 않는다.
         _wrapTouched = true;
+
+        // **아이콘 색을 먼저 바꾼다.** 아래에서 편집기와 치수 재기로 회로를
+        // 몇 번 왕복하는데, 그동안 눌린 아이콘이 옛 모습으로 서 있으면
+        // 「안 눌렸다」로 읽혀 한 번 더 누르게 된다.
+        StateHasChanged();
 
         try
         {
