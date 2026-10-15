@@ -23,4 +23,16 @@
     <ProjectReference Include="..\..\Shared\JSini.Web.Models\JSini.Web.Models.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!--
+      테스트가 internal 을 볼 수 있게 한다 (JSini.Web.Components 와 같은 까닭).
+
+      늘 따라붙는 지시 문구(`AiTaskAlways`)가 그것이다. 그 글은 **한 곳에만
+      적혀 있어야 해서**(`AiTaskAlwaysTests`) 시험 쪽에 베껴 둘 수가 없는데,
+      걷어 내기(`Strip`)가 제대로 도는지는 그 글로 시험해야 안다.
+      공개로 올리면 지시를 보내는 자리가 아닌 데서도 불릴 수 있게 된다.
+    -->
+    <InternalsVisibleTo Include="JSini.Web.Architecture.Tests" />
+  </ItemGroup>
+
 </Project>

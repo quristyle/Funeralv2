@@ -37,6 +37,20 @@ namespace JSini.Web.ProjMng.Components.Shared;
 /// 않는다 — 끈 건은 커밋만 남고 거기서 멈춘다.
 /// </para>
 /// <para>
+/// [보여 줄 때는 도로 걷는다]
+/// </para>
+/// <para>
+/// 붙는 것은 <b>AI 에게 가는 글</b>에만 뜻이 있다. 사람이 「지시 상세」에서
+/// 읽는 자리에서는 그 네 문단이 <b>제가 적은 두 줄보다 길다</b> — 차수를
+/// 셋 쌓은 건에서는 같은 문단이 세 번 서고, 그 사이에서 이번에 더 시킨 것이
+/// 묻힌다. 적은 적도 없는 글이라 읽을 까닭도 없다.
+/// </para>
+/// <para>
+/// 그래서 보여 주는 쪽은 <see cref="Strip"/> 으로 걷는다. <b>DB 의 글은
+/// 건드리지 않는다</b> — 걷는 것은 그리는 그 순간뿐이고, 그때 실제로 간 글은
+/// 「앞에 덧댄 글 보기」를 펴면 문구째로 그대로 있다.
+/// </para>
+/// <para>
 /// [main 까지 확인시키는 줄이 왜 있나]
 /// </para>
 /// <para>
@@ -105,6 +119,69 @@ internal static class AiTaskAlways
         + "그 명령이 표준입력을 기다리며 안 끝난다. 파일을 뒤질 때는 `grep -r 무늬 경로` 나 "
         + "`find ... -exec grep ... {} +` 를 쓰고, 끝내기 전에 남은 배경 작업이 있는지 "
         + "보고 있으면 멈춰라.";
+
+    /// <summary>
+    /// 문구를 이루는 <b>문단들.</b> <see cref="Strip"/> 이 뒤에서부터 이것을
+    /// 하나씩 떼어 낸다.
+    /// </summary>
+    /// <remarks>
+    /// <b>통째로 견주지 않는 까닭이 여기 있다.</b> 이 문구는 지금까지 두 번
+    /// 늘었다 — 처음엔 두 문단이었고(2026-09-24), 「main 까지 확인하라」가
+    /// 붙어 셋이 되었고, 「셸 명령」이 붙어 넷이 되었다. 표에 쌓인 지시문은
+    /// <b>그때그때의 판</b>을 그대로 들고 있어서, 지금 글과 통째로 견주면
+    /// 옛 건에서는 하나도 안 걷힌다. 문단은 더해지기만 하고 고쳐지지 않으므로
+    /// 문단 단위로 떼면 옛 판도 함께 걷힌다.
+    /// </remarks>
+    public static readonly IReadOnlyList<string> Blocks =
+        Text.Split("\n\n", StringSplitOptions.RemoveEmptyEntries);
+
+    /// <summary>
+    /// 사람에게 <b>보여 줄 글</b>에서 늘 따라붙는 문구를 걷는다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>끝에서부터만 뗀다.</b> 붙이는 자리가 <see cref="Append"/> 하나라
+    /// 이 문구는 언제나 글 끝에 있다. 가운데를 뒤져 지우면 사람이 인용해 적은
+    /// 같은 문장까지 말없이 사라진다.
+    /// </para>
+    /// <para>
+    /// <b>문단 앞이 줄바꿈인지 본다.</b> 안 보면 사람이 적은 줄의 꼬리가
+    /// 어쩌다 문단과 같은 꼴로 끝났을 때 그 줄이 잘린다.
+    /// </para>
+    /// <para>
+    /// <b>문구밖에 없는 글은 그대로 둔다.</b> 걷고 나서 아무것도 안 남으면
+    /// 화면에 「적어 둔 내용이 없습니다」가 서는데, 그것은 보낸 적이 없다는
+    /// 말이라 거짓이다 — <c>AiTaskAsk.Split</c> 이 머리표만 남은 글을 안
+    /// 가르는 것과 같은 규칙이다.
+    /// </para>
+    /// </remarks>
+    /// <param name="written">보여 줄 글.</param>
+    /// <returns>문구를 걷어 낸 글. 걷을 것이 없으면 받은 것을 그대로.</returns>
+    public static string? Strip(string? written)
+    {
+        if (string.IsNullOrWhiteSpace(written))
+        {
+            return written;
+        }
+
+        var left = written.Replace("\r\n", "\n").TrimEnd();
+
+        while (true)
+        {
+            var block = Blocks.FirstOrDefault(b =>
+                left.EndsWith(b, StringComparison.Ordinal)
+                && (left.Length == b.Length || left[left.Length - b.Length - 1] == '\n'));
+
+            if (block is null)
+            {
+                break;
+            }
+
+            left = left[..^block.Length].TrimEnd();
+        }
+
+        return left.Length == 0 ? written : left;
+    }
 
     /// <summary>
     /// 사람이 적은 말 뒤에 <see cref="Text"/> 를 붙인다.

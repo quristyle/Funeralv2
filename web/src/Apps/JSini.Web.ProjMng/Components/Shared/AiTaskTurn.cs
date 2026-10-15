@@ -28,13 +28,15 @@ public sealed class AiTaskTurn
 
     /// <summary>
     /// 그 차수에 <b>사람이 적은 글.</b> 서버가 앞에 덧댄 「지난 진행」은
-    /// <see cref="Lead"/> 로 갈라 둔다 — 읽는 법은 <see cref="AiTaskAsk.Split"/>.
+    /// <see cref="Lead"/> 로 갈라 두고, <b>늘 따라붙는 문구는 걷어 낸다</b> —
+    /// 읽는 법은 <see cref="AiTaskAsk.Split"/>.
     /// </summary>
     public string? Ask { get; init; }
 
     /// <summary>
     /// 그 글 앞에 <b>서버가 덧댄 것</b>(지난 진행 · 재시도 전의 본문).
-    /// 접어 두고, 펴면 그때 실제로 간 글 전부가 보인다.
+    /// 접어 두고, 펴면 그때 실제로 간 글 전부가 보인다 — <b>늘 따라붙는
+    /// 문구도 여기에는 그대로 남는다.</b>
     /// </summary>
     public string? Lead { get; init; }
 
@@ -157,6 +159,13 @@ public static class AiTaskTurns
 /// <para>
 /// <b>머리표가 없으면 통째로 사람의 글이다</b> — 1차가 그렇다.
 /// </para>
+/// <para>
+/// <b>늘 따라붙는 문구도 함께 걷는다</b>(<c>AiTaskAlways.Strip</c>). 그 네
+/// 문단은 사람이 적은 것이 아니라 보낼 때 기계가 붙인 것이고, 지시마다 똑같다 —
+/// 차수마다 깔면 <b>제가 적은 두 줄보다 긴 같은 글이 차수 수만큼 선다.</b>
+/// 걷는 것은 본문뿐이다. 접어 둔 <c>Lead</c> 에는 그대로 남는다 — 그쪽은
+/// 「그때 실제로 간 글」이라 문구째로 보여야 맞다.
+/// </para>
 /// </remarks>
 public static class AiTaskAsk
 {
@@ -193,7 +202,7 @@ public static class AiTaskAsk
 
         if (at < 0)
         {
-            return (instruction.Trim(), null);
+            return (AiTaskAlways.Strip(instruction.Trim()), null);
         }
 
         var ask = string.Join('\n', lines.Skip(at + 1)).Trim();
@@ -201,11 +210,13 @@ public static class AiTaskAsk
         // 머리표만 있고 뒤가 비었다. 가르면 본문이 통째로 사라지므로 그대로 둔다.
         if (ask.Length == 0)
         {
-            return (instruction.Trim(), null);
+            return (AiTaskAlways.Strip(instruction.Trim()), null);
         }
 
         var lead = string.Join('\n', lines.Take(at)).Trim();
 
-        return (ask, lead.Length == 0 ? null : lead);
+        // **덧댄 글은 걷지 않는다.** 그쪽은 그때 실행기에게 실제로 간 글이고,
+        // 「왜 AI 가 그렇게 했나」를 되짚을 때 문구가 빠져 있으면 안 된다.
+        return (AiTaskAlways.Strip(ask), lead.Length == 0 ? null : lead);
     }
 }
