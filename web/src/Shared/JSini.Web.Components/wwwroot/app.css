@@ -5124,6 +5124,55 @@ a.jsini-social__btn:focus-visible {
   line-height: 1.2;
 }
 
+/* ── 사람의 얼굴 (`jsini-face`) ────────────────────────────
+
+   사진, 없으면 첫 글자. 부품은 `Data/UserFaceMark.razor` 다.
+
+   **모양만 여기 있다.** 치수와 색은 변수로 열어 두고 쓰는 모듈이 제 이름을
+   덧붙여(`CssClass`) 그것만 덮는다 — 프로젝트관리의 얼굴(1.75rem)과
+   생활과환경의 얼굴(1.5rem)이 서로 다른 크기를 그대로 지키면서도 사진을
+   못 받았을 때의 되돌림은 한 곳에서 오게 하려는 것이다.
+
+   그 되돌림이 갈라지면 같은 사람이 한 화면에서는 첫 글자로, 다른 화면에서는
+   깨진 그림으로 뜬다 — 베껴 쓰던 동안 실제로 걱정하던 자리다.
+   ---------------------------------------------------------- */
+
+.jsini-face {
+  --jsini-face-size: 1.5rem;
+  --jsini-face-bg: var(--jsini-surface-muted, rgba(127, 127, 127, 0.18));
+  --jsini-face-ink: var(--jsini-text-muted);
+  --jsini-face-initial-size: var(--jsini-fs-2xs);
+
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: var(--jsini-face-size);
+  height: var(--jsini-face-size);
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--jsini-face-bg);
+  vertical-align: middle;
+}
+
+.jsini-face__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.jsini-face__initial {
+  font-size: var(--jsini-face-initial-size);
+  font-weight: 700;
+  color: var(--jsini-face-ink);
+  line-height: 1;
+}
+
+/* 큰 얼굴. 생활과환경의 「오늘 생일」 칸이 쓰던 값이다. */
+.jsini-face--lg {
+  --jsini-face-size: 2.2rem;
+}
+
 /* ── 묶음 메뉴 길잡이 ────────────────────────────────────── */
 
 .jsini-group-links {

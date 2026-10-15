@@ -101,8 +101,34 @@ public static class DashboardEndpoints {
             statusCode: StatusCodes.Status403Forbidden);
       }
 
-      // 연결된 담당자 레코드가 있을 때만 '본인' 을 특정할 수 있다.
+      // [「내 것」을 찾는 길이 둘이다 — 연결표와 로그인 아이디]
+      //
+      // 연결표(`auth_user_links`)에 `admin` 으로 이어져 있으면 그 줄이 곧
+      // 자기 자신이다. 그런데 **그 연결은 사실상 안 생긴다** — 접수자 줄을
+      // 만드는 `AssigneeProvisioner` 가 연결표에 일부러 손대지 않기 때문이다
+      // (고객으로 이어 둔 연결을 담당자로 덮으면 그 사람이 쓴 글과 댓글이
+      // 가리키던 고객 번호가 신원 해석에서 사라진다).
+      //
+      // 그래서 운영에서는 담당자가 **고객으로 연결된 채** 접수를 하고 있었고,
+      // 이 집계는 그때 `adminId` 가 null 이 되어 **전부 0** 을 돌려주었다 —
+      // 같은 사람이 `all-admin-stats` 에서는 열한 건으로 나오는데 「나의」는
+      // 0 인, 화면만 보고는 알 수 없는 어긋남이다.
+      //
+      // 두 번째 길이 접수자 줄을 만들 때 쓰는 것과 **같은 열쇠**다 —
+      // 포털 로그인 아이디와 이름(`AssigneeProvisioner` 의 같은 자리 주석:
+      // 아이디만 보면 포털 `admin` 과 헬프데스크 `admin` 이 서로 다른 사람인
+      // 경우에 남의 줄을 집어 온다).
       var adminId = me.IsLinkedAdmin ? me.HelpdeskUserId : null;
+
+      if (adminId is null && me.IsAdmin && !string.IsNullOrWhiteSpace(me.JsiniUserId)) {
+        var loginId = me.JsiniUserId!;
+        var userName = string.IsNullOrWhiteSpace(me.DisplayName) ? loginId : me.DisplayName!;
+
+        adminId = await db.Admins
+            .Where(a => a.LoginId == loginId && a.UserName == userName && !a.IsDeleted)
+            .Select(a => (int?)a.Id)
+            .FirstOrDefaultAsync();
+      }
 
       // [미배정 건수는 **전체**다 (2026-10-07)]
       //
@@ -142,7 +168,15 @@ public static class DashboardEndpoints {
         RejectedCount = rejectedCount,
         ConsultationCount = consultationCount,
         NegotiationCount = negotiationCount,
-        TotalRequests = await db.Requests.CountAsync()
+        TotalRequests = await db.Requests.CountAsync(),
+
+        // 셀 수 있었나. **0 건인 것과 셀 수 없었던 것은 다르다** —
+        // 화면이 그 둘을 구분해 적을 수 있어야 한다.
+        Linked = adminId.HasValue,
+
+        // 실제로 센 담당자 번호. 화면의 「내 것만 보기」가 이 값으로
+        // 목록을 거른다 (`AdminStatsDto.AdminId` 머리말).
+        AdminId = adminId
       };
 
       // 연결 여부를 함께 알려 준다. 화면은 "본인 배정 0" 이 실제로 0 인지,
@@ -195,6 +229,9 @@ public static class DashboardEndpoints {
           AdminId = adminId,
           AdminName = admin.UserName,
           AdminPhoto = admin.Photo,
+          // 포털의 누구인가. 이름·사진의 정본은 그쪽이라 화면이 이 값으로
+          // 다시 묻는다 (`AllAdminStatsDto.LoginId` 머리말).
+          LoginId = admin.LoginId,
           PendingCount = pendingCount,
           InProgressCount = inProgressCount,
           CompletedCount = completedCount,

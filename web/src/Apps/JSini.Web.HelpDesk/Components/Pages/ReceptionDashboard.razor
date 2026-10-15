@@ -1,0 +1,262 @@
+@page "/helpdesk/dashboard/reception"
+@attribute [RouteKey("helpdesk.dashboard.reception")]
+
+@*
+    [접수 대시보드] — DB 메뉴 `/helpdesk/dashboard/reception`.
+    이력: JinReception `views/pages/moni/RequestMonitor.vue`(`/request_monitor`) → 여기.
+    엔드포인트: `dashboard/admin-stats` · `dashboard/all-admin-stats` ·
+                `dashboard/company-stats` · `requests/srch`
+
+    **「내가 얼마나 받아서 얼마나 끝냈나」를 보는 자리다.** 이미 있는
+    「헬프데스크 현황」(`/helpdesk/dashboard`)과 겹치지 않는다 — 그쪽은
+    `dashboard/overview` 한 통로로 업무 전체를 펴 보이고, 여기는 **사람**이
+    가운데다(나 · 담당자별 · 회사별 접수율).
+
+    [DB 를 새로 만들지 않았다]
+
+    옛 화면이 부르던 넷이 **이 시스템에 이미 다 있다.** 표도 칸도 그대로다 —
+    더한 것은 `all-admin-stats` 응답의 `loginId` 한 칸뿐이고, 그것도
+    `helpdesk.admin.loginid` 에 이미 들어 있던 값을 실어 보낸 것이다.
+
+    [사람의 이름과 얼굴은 포털이 정본이다]
+
+    헬프데스크의 `admin.username`·`admin.photo` 는 담당자 줄을 만들 때 한 번
+    베껴 둔 값이라(`AssigneeProvisioner`), 포털에서 이름을 고치거나 사진을
+    바꿔도 따라오지 않는다. 그래서 **서버는 `loginId` 만 주고 화면이
+    `auth/user/faces` 에 한 번 더 묻는다**(`UserFaceClient`). 사진이 없거나
+    못 읽으면 이름 첫 글자가 그 자리를 지킨다.
+
+    그 부품은 이 화면이 **세 번째 사용자**라 공용(`JSini.Web.Components`)으로
+    올렸다 — 프로젝트관리·생활과환경이 한 벌씩 베껴 쓰고 있었고, 저장소의
+    규칙이 「두 모듈이 쓰면 복제, 세 번째부터 승격」이다(web/CLAUDE.md).
+
+    [숫자를 누르면 그 목록이 열린다]
+
+    옛 화면은 Pinia 스토어에 조건을 담고 목록으로 보냈다. 이 포털의 요청
+    처리 화면은 **주소에 조건을 싣는다**(`status` · `admin` · `company` ·
+    `open`) — 스토어가 없어도 되고, 그 주소를 그대로 복사해 둘 수 있다.
+    **`open=false` 를 꼭 함께 보낸다** — 그 화면의 기본값이 「처리 중인
+    것만」이라, 안 끄면 완료·종료 타일이 빈 목록으로 열린다.
+
+    [접수율·완료율은 화면이 센다]
+
+    `admin-stats` 는 건수만 준다. 비율은 **옛 화면과 같은 식**으로 화면에서
+    낸다 — 내가 받은 것 ÷ 전체, 내가 끝낸 것 ÷ 내가 받은 것. 서버가 같은
+    것을 다시 세게 하지 않는 이유는 기준(무엇을 「받은 것」으로 보나)이
+    이 화면의 뜻이기 때문이다.
+
+    [연결이 없으면 「내 것」이 0 이다]
+
+    포털 계정과 헬프데스크 담당자 줄이 이어져 있어야 「나에게 배정된 것」을
+    셀 수 있다(`HelpdeskPrincipal.IsLinkedAdmin`). 안 이어져 있으면 숫자가
+    0 인 것이 아니라 **셀 수가 없는** 것이라, 그 사실을 적어 둔다.
+*@
+
+@using JSini.Web.HelpDesk.Api
+
+@inherits AutoRefreshPage
+
+<PageTitle>접수 대시보드 · 헬프데스크</PageTitle>
+
+<div class="hd-stamps">
+    <span class="jsini-badge">@(Context.IsAdmin ? "담당자" : "고객")</span>
+
+    @if (Context.IsAdmin && !_mine.Linked)
+    {
+        <span class="jsini-badge jsini-badge--off">담당자 줄 없음</span>
+    }
+
+    <span class="hd-note">@RefreshedLabel</span>
+
+    <span class="hd-rcp__auto">
+        <DxCheckBox CheckType="CheckType.Switch" Checked="@_auto" CheckedChanged="@((bool on) => ToggleAuto(on))">
+            자동갱신 @(_auto ? "ON" : "OFF")
+        </DxCheckBox>
+        <DxButton IconCssClass="jsini-icon-refresh" Title="지금 다시 읽는다"
+                  RenderStyle="ButtonRenderStyle.Link"
+                  Enabled="@(!Loading)" Click="@ReloadAsync" />
+    </span>
+</div>
+
+@* 「0 건」과 「셀 수 없었다」는 다르다 — 서버가 나를 가리키는 담당자 줄을
+   못 찾으면 위의 여섯은 없는 것이 아니라 모르는 것이다. 요청을 한 번
+   접수하면 그 줄이 생긴다(`AssigneeProvisioner`). *@
+@if (Context.IsAdmin && !_mine.Linked)
+{
+    <PageNotice Tone="NoticeTone.Warning"
+                Text="아직 접수한 요청이 없어 「나의」 숫자를 셀 수 없습니다. 요청을 한 번 접수하면 그때부터 쌓입니다." />
+}
+
+@* ── 1. 나의 접수 진행사항 ─────────────────────────────── *@
+<div class="hd-rcp__top">
+
+    @* 상태 여섯. 누르면 그 상태의 목록이 열린다. *@
+    <div class="hd-rcp__states">
+        @foreach (var tile in StateTiles)
+        {
+            <a class="jsini-card hd-rcp__state" href="@ManageHref(tile.Statuses, mine: true)">
+                <span class="hd-rcp__state-name">
+                    <span class="jsini-badge @tile.Badge">@tile.Mark</span>@tile.Label
+                </span>
+                <span class="hd-rcp__state-count">
+                    @tile.Count<small>(@Rate(tile.Count, Handled)%)</small>
+                </span>
+            </a>
+        }
+    </div>
+
+    @* 접수율 · 완료율. 옛 화면의 Knob 두 개다. *@
+    <div class="hd-rcp__gauges">
+        @Gauge("나의 접수율", AcceptanceRate, $"{Handled} / {_mine.TotalRequests}", AcceptColor, ManageHref(null, mine: true))
+        @Gauge("나의 완료율", CompletionRate, $"{Closed} / {Handled}", DoneColor, ManageHref(DoneStatuses, mine: true))
+    </div>
+
+    @* 아직 아무도 안 받은 요청. 이 화면에서 가장 먼저 눈이 가야 하는 자리다. *@
+    <div class="hd-rcp__pending">
+        <h3 class="hd-rcp__pending-head">
+            대기 중인 요청
+            <a class="hd-rcp__more" href="@ManageHref(PendingStatuses, mine: false)">전체 @(_mine.PendingCount)건</a>
+        </h3>
+
+        @if (_pending.Count == 0)
+        {
+            <p class="hd-cards__empty">받을 요청이 없습니다.</p>
+        }
+        else
+        {
+            @foreach (var r in _pending)
+            {
+                <a class="hd-rcp__req" href="@($"/helpdesk/request/detail/{r.Id}")">
+                    @if (RequestThumb.UrlOf(r) is { Length: > 0 } thumb)
+                    {
+                        <img class="hd-rcp__req-thumb" src="@thumb" alt="" />
+                    }
+                    else
+                    {
+                        <span class="hd-rcp__req-thumb hd-rcp__req-thumb--none" aria-hidden="true"></span>
+                    }
+
+                    <span class="hd-rcp__req-title" title="@r.Title">@r.Title</span>
+
+                    <span class="hd-rcp__req-who">
+                        <span>@(r.Customer?.UserName ?? "-")</span>
+                        <span class="hd-rcp__req-when">@Stamp(r.CreatedAt)</span>
+                    </span>
+                </a>
+            }
+        }
+    </div>
+</div>
+
+@* ── 2. 회사별 ──────────────────────────────────────────── *@
+<DashboardSection Title="고객사별 접수 현황" Hint="@CompanyHint">
+    @if (_companies.Count == 0)
+    {
+        <p class="hd-cards__empty">셀 고객사가 없습니다.</p>
+    }
+    else
+    {
+        <div class="hd-cards">
+            @foreach (var c in _companies)
+            {
+                <article class="jsini-card hd-rcp__card">
+                    <header class="hd-rcp__card-head">
+                        <span class="hd-rcp__card-name" title="@c.CompanyName">@c.CompanyName</span>
+                        <span class="hd-rcp__card-sub">@LastPending(c)</span>
+                    </header>
+
+                    @RateBar("완료율", c.CompletionRate, DoneColor)
+
+                    <div class="hd-rcp__counts">
+                        @CompanyCount("대기", c.PendingCount, "jsini-badge--info", c, PendingStatuses)
+                        @CompanyCount("진행", c.InProgressCount, "jsini-badge--warn", c, "InProgress")
+                        @CompanyCount("완료", c.CompletedCount, "jsini-badge--on", c, "Completed")
+                        @CompanyCount("협의/논의", c.ConsultationCount + c.NegotiationCount, "jsini-badge--warn", c, TalkStatuses)
+                    </div>
+                </article>
+            }
+        </div>
+    }
+</DashboardSection>
+
+@* ── 3. 담당자별 ────────────────────────────────────────── *@
+<DashboardSection Title="담당자별 접수 현황" Hint="@AdminHint">
+    @if (_admins.Count == 0)
+    {
+        <p class="hd-cards__empty">셀 담당자가 없습니다.</p>
+    }
+    else
+    {
+        <div class="hd-cards">
+            @foreach (var a in _admins)
+            {
+                <article class="jsini-card hd-rcp__card">
+                    <header class="hd-rcp__card-head hd-rcp__card-head--who">
+                        <UserFaceMark LoginId="@a.LoginId" Name="@a.AdminName" CssClass="hd-rcp__face" />
+                        <span class="hd-rcp__card-name" title="@NameOf(a)">@NameOf(a)</span>
+                        <span class="hd-rcp__card-sub">@(a.TotalHandled)건</span>
+                    </header>
+
+                    <div class="hd-rcp__admin-counts">
+                        @AdminCount("대기", a.PendingCount, "hd-rcp__n--wait", a, PendingStatuses)
+                        @AdminCount("진행", a.InProgressCount, "hd-rcp__n--run", a, "InProgress")
+                        @AdminCount("완료", a.CompletedCount, "hd-rcp__n--done", a, DoneStatuses)
+                        @AdminCount("협의", a.ConsultationCount, "hd-rcp__n--talk", a, "Consultation")
+                        @AdminCount("논의", a.NegotiationCount, "hd-rcp__n--talk2", a, "Negotiation")
+                    </div>
+
+                    @RateBar("접수율", a.AcceptanceRate, AcceptColor)
+                    @RateBar("완료율", a.CompletionRate, DoneColor)
+                </article>
+            }
+        </div>
+    }
+</DashboardSection>
+
+@code {
+    @* C# 파일에서는 마크업을 쓸 수 없다. 되풀이되는 조각만 여기 남는다. *@
+
+    @* 비율 하나를 고리로 그린다. 옛 화면의 Knob 자리다 — 도넛 조각 둘에
+       가운데 글자를 얹는다. `DxPieChart` 의 안지름을 키워 고리로 만든다. *@
+    private RenderFragment Gauge(string title, double rate, string under, string color, string href) =>
+        @<div class="jsini-card hd-rcp__gauge">
+            <span class="hd-rcp__gauge-title">@title</span>
+
+            <a class="hd-rcp__gauge-ring" href="@href" title="@title">
+                <DxPieChart Data="@RingOf(rate)" InnerDiameter="0.75" Width="128px" Height="128px"
+                            Palette="@(new[] { color, RestColor })">
+                    <DxPieChartSeries T="RingSlice" TArgument="string" TValue="double"
+                                      ArgumentField="s => s.Label" ValueField="s => s.Value" />
+                    <DxChartLegend Visible="false" />
+                </DxPieChart>
+                <span class="hd-rcp__gauge-value">@rate.ToString("0.0")%</span>
+            </a>
+
+            <span class="hd-rcp__gauge-under">@under</span>
+        </div>;
+
+    @* 이름 · 비율 · 띠. 회사 카드와 담당자 카드가 함께 쓴다. *@
+    private static RenderFragment RateBar(string label, double rate, string color) =>
+        @<div class="hd-rcp__bar">
+            <span class="hd-rcp__bar-head">
+                <span>@label</span>
+                <b>@rate.ToString("0.0")%</b>
+            </span>
+            <span class="hd-rcp__bar-track">
+                <span class="hd-rcp__bar-fill" style="@($"width: {Clamp(rate)}%; background: {color};")"></span>
+            </span>
+        </div>;
+
+    private RenderFragment CompanyCount(string label, int count, string badge, CompanyRow company, string statuses) =>
+        @<a class="hd-rcp__count" href="@ManageHref(statuses, companyId: company.Id)">
+            <span class="jsini-badge @badge">&nbsp;</span>
+            <span class="hd-rcp__count-label">@label</span>
+            <b class="hd-rcp__count-value">@count</b>
+        </a>;
+
+    private RenderFragment AdminCount(string label, int count, string tone, AdminRow admin, string statuses) =>
+        @<a class="hd-rcp__n" href="@ManageHref(statuses, adminId: admin.AdminId)">
+            <b class="hd-rcp__n-value @tone">@count</b>
+            <span class="hd-rcp__n-label">@label</span>
+        </a>;
+}

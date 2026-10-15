@@ -2722,3 +2722,351 @@
 .hd-gauge__replica > .commcont__head > .commcont__title {
   color: #b26a00;
 }
+
+/* ── 접수 대시보드 (`/helpdesk/dashboard/reception`) ────────
+
+   옛 JinReception `/request_monitor` 을 옮긴 자리다. 위가 **나**(상태 여섯 ·
+   고리 둘 · 대기 목록), 아래가 **남**(고객사별 · 담당자별)이다.
+   ---------------------------------------------------------- */
+
+.hd-rcp__auto {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+}
+
+/* 위 세 덩이. 넓으면 나란히, 좁아지면 아래로 쌓인다 — 상태와 고리는
+   좁아져도 읽히지만 대기 목록은 제목이 들어갈 폭이 필요해서 가장 크다. */
+.hd-rcp__top {
+  display: grid;
+  grid-template-columns: minmax(190px, 0.8fr) minmax(260px, 1.2fr) minmax(280px, 1.6fr);
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 1199px) {
+  .hd-rcp__top {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  /* 대기 목록은 줄이 길어 한 줄을 통째로 쓴다. */
+  .hd-rcp__pending {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 767px) {
+  .hd-rcp__top {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── 상태 여섯 ──────────────────────────────────────────── */
+
+.hd-rcp__states {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+/* 한 줄에 이름과 수. **누르면 그 목록이 열리므로 링크다** —
+   `<div @onclick>` 으로 두면 탭으로 닿지 않는다. */
+.hd-rcp__state {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.4rem 0.7rem;
+  color: inherit;
+  text-decoration: none;
+}
+
+.hd-rcp__state:hover {
+  background: var(--jsini-surface-muted, rgba(127, 127, 127, 0.12));
+}
+
+.hd-rcp__state-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: var(--jsini-fs-sm);
+  white-space: nowrap;
+}
+
+.hd-rcp__state-count {
+  font-size: var(--jsini-fs-lg);
+  font-weight: 700;
+}
+
+/* 괄호 안의 비율. 수보다 작고 흐리다 — 읽는 것은 수가 먼저다. */
+.hd-rcp__state-count small {
+  margin-left: 0.25rem;
+  font-size: var(--jsini-fs-xs);
+  font-weight: 400;
+  color: var(--jsini-text-muted);
+}
+
+/* ── 고리 둘 ────────────────────────────────────────────── */
+
+.hd-rcp__gauges {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.hd-rcp__gauge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  margin: 0;
+  min-width: 0;
+}
+
+.hd-rcp__gauge-title {
+  font-size: var(--jsini-fs-sm);
+}
+
+/* 고리와 그 가운데 글자. 글자를 고리 위에 얹어야 하므로 자리의 기준이 된다. */
+.hd-rcp__gauge-ring {
+  position: relative;
+  display: inline-flex;
+  color: inherit;
+  text-decoration: none;
+}
+
+.hd-rcp__gauge-value {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* 고리 가운데라 **누름을 가로채면 안 된다** — 글자를 눌러도 링크가
+     열려야 한다. */
+  pointer-events: none;
+
+  font-size: var(--jsini-fs-xl);
+  font-weight: 700;
+}
+
+.hd-rcp__gauge-under {
+  font-size: var(--jsini-fs-xs);
+  color: var(--jsini-text-muted);
+}
+
+/* ── 대기 중인 요청 ─────────────────────────────────────── */
+
+.hd-rcp__pending {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+  max-height: 22rem;
+  overflow-y: auto;
+}
+
+.hd-rcp__pending-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0 0 0.25rem;
+  font-size: var(--jsini-fs-sm);
+  font-weight: 700;
+}
+
+.hd-rcp__more {
+  font-size: var(--jsini-fs-xs);
+  font-weight: 400;
+}
+
+/* 요청 한 줄 — 그림 · 제목 · 쓴 사람. 제목만 줄어든다. */
+.hd-rcp__req {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.4rem;
+  border-top: 1px solid var(--jsini-border);
+  color: inherit;
+  text-decoration: none;
+  min-width: 0;
+}
+
+.hd-rcp__req:first-of-type {
+  border-top: 0;
+}
+
+.hd-rcp__req:hover {
+  background: var(--jsini-surface-muted, rgba(127, 127, 127, 0.12));
+}
+
+.hd-rcp__req-thumb {
+  flex: 0 0 auto;
+  width: 3.4rem;
+  height: 2.4rem;
+  object-fit: cover;
+  border-radius: 2px;
+}
+
+/* 그림이 없는 줄도 **같은 자리를 먹는다** — 안 그러면 제목이 시작하는
+   세로줄이 줄마다 어긋나 목록이 들쭉날쭉해진다. */
+.hd-rcp__req-thumb--none {
+  display: inline-block;
+  background: var(--jsini-surface-muted, rgba(127, 127, 127, 0.12));
+}
+
+.hd-rcp__req-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--jsini-fs-sm);
+}
+
+.hd-rcp__req-who {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: var(--jsini-fs-xs);
+  color: var(--jsini-text-muted);
+}
+
+.hd-rcp__req-when {
+  white-space: nowrap;
+}
+
+/* ── 고객사 · 담당자 카드 ───────────────────────────────── */
+
+.hd-rcp__card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin: 0;
+  min-width: 0;
+}
+
+.hd-rcp__card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+/* 담당자 카드는 얼굴이 앞에 선다 — 글자가 아니라 얼굴로 찾는 자리다. */
+.hd-rcp__card-head--who {
+  align-items: center;
+}
+
+.hd-rcp__face {
+  --jsini-face-size: 2rem;
+}
+
+.hd-rcp__card-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+}
+
+.hd-rcp__card-sub {
+  flex: 0 0 auto;
+  font-size: var(--jsini-fs-xs);
+  color: var(--jsini-text-muted);
+}
+
+/* 비율 띠. 회사 카드와 담당자 카드가 함께 쓴다. */
+.hd-rcp__bar-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: var(--jsini-fs-xs);
+}
+
+.hd-rcp__bar-track {
+  display: block;
+  height: 6px;
+  margin-top: 0.15rem;
+  background: var(--jsini-surface-muted, rgba(127, 127, 127, 0.18));
+}
+
+.hd-rcp__bar-fill {
+  display: block;
+  height: 100%;
+}
+
+/* 회사 카드의 상태 넷. 두 칸씩 두 줄이다. */
+.hd-rcp__counts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.15rem 0.6rem;
+}
+
+.hd-rcp__count {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0.25rem;
+  color: inherit;
+  text-decoration: none;
+  min-width: 0;
+}
+
+.hd-rcp__count:hover {
+  background: var(--jsini-surface-muted, rgba(127, 127, 127, 0.12));
+}
+
+.hd-rcp__count-label {
+  font-size: var(--jsini-fs-sm);
+  white-space: nowrap;
+}
+
+.hd-rcp__count-value {
+  margin-left: auto;
+}
+
+/* 담당자 카드의 상태 다섯. 수가 위, 이름이 아래다 — 옛 화면과 같다. */
+.hd-rcp__admin-counts {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.2rem;
+}
+
+.hd-rcp__n {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.2rem 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.hd-rcp__n:hover {
+  background: var(--jsini-surface-muted, rgba(127, 127, 127, 0.12));
+}
+
+.hd-rcp__n-value {
+  font-size: var(--jsini-fs-sm);
+  font-weight: 700;
+}
+
+.hd-rcp__n-label {
+  font-size: var(--jsini-fs-2xs);
+  color: var(--jsini-text-muted);
+}
+
+/* 상태마다 색이 다르다 — 옛 화면의 다섯 색 그대로다. */
+.hd-rcp__n--wait { color: #2563eb; }
+.hd-rcp__n--run { color: #ea580c; }
+.hd-rcp__n--done { color: #16a34a; }
+.hd-rcp__n--talk { color: #9333ea; }
+.hd-rcp__n--talk2 { color: #4f46e5; }

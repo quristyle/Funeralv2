@@ -308,6 +308,11 @@ public static class JSiniWebApp
         services.AddScoped<MenuProvider>();
         services.AddScoped<IMenuProvider>(sp => sp.GetRequiredService<MenuProvider>());
 
+        // 로그인 아이디로 이름과 얼굴을 푸는 창구. **업무 모듈 셋이 쓴다**
+        // (프로젝트관리 · 생활과환경 · 헬프데스크) — 모듈끼리는 참조할 수
+        // 없으므로 셋째가 생긴 자리에서 여기로 올렸다(UserFaceClient 머리말).
+        services.AddScoped<UserFaceClient>();
+
         // 팝업 공지. **레이아웃과 로그인 화면이 함께 쓴다** — 포털관리 모듈에
         // 두면 레이아웃이 못 쓴다(셸은 모듈을 이름으로 알지 못한다).
         services.AddScoped<NoticeClient>();

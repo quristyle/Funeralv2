@@ -33,6 +33,5 @@ public sealed class LifeEnvModule : IPortalModule
 
         // 생일자 얼굴. 생일 응답에 사진이 안 실려 와서 아이디로 따로 푼다.
         // 프로젝트관리에도 같은 부품이 있다 — 베낀 이유는 그 파일 머리말에 있다.
-        services.AddScoped<UserFaceClient>();
     }
 }

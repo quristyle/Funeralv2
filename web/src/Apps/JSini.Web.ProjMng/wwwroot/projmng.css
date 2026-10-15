@@ -2978,50 +2978,27 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge:not([class*='jsi
    같은 목록을 보므로(서버가 「내 것만」으로 가리지 않는다 — `LoadRecentAsync`)
    카드마다 지시자가 다르다.
 
-   **카드와 상세가 같은 동그라미를 쓴다**(`UserFaceMark`). 그래서 이름이
-   `pm-ask__…` 가 아니다 — 「빠른 지시」 화면의 조각이 아니라 그 화면과
-   상세가 나눠 쓰는 부품이다.
+   **동그라미 자체는 공용이다**(`jsini-face` · app.css). 여기 남은 것은
+   이 업무가 쓰는 **치수와 색**뿐이다 — 공용 기본값(1.5rem)보다 크고,
+   바탕을 글자색에서 뽑아 쓴다. 상태 띠 색(`--pm-ask-tone`)을 쓰지 않는
+   까닭은 그 색이 「어떻게 됐나」를 말하는 자리라, 얼굴까지 같은 색으로
+   칠하면 사람이 상태의 일부로 읽히기 때문이다.
 
-   **줄어들지 않는다**(`flex: 0 0 auto`). 반 폭 카드에서 제목이 길 때
-   이것이 먼저 눌리면 동그라미가 타원이 된다. 카드에서 잘려도 되는 것은
-   제목 꼬리 하나뿐이다(목록 머리말).
-
-   사진이 없으면 이름 첫 글자다. 바탕을 옅게 깔아 **빈자리가 아니라는
-   것**을 보인다 — 상태 띠 색(`--pm-ask-tone`)을 쓰지 않는다. 그 색은
-   「어떻게 됐나」를 말하는 자리라, 얼굴까지 같은 색으로 칠하면 사람이
-   상태의 일부로 읽힌다. */
+   **줄어들지 않는 것**(`flex: 0 0 auto`)과 사진을 못 받았을 때 첫 글자로
+   돌아가는 것은 공용이 한다. 반 폭 카드에서 제목이 길 때 이것이 먼저
+   눌리면 동그라미가 타원이 된다 — 카드에서 잘려도 되는 것은 제목 꼬리
+   하나뿐이다(목록 머리말). */
 .pm-face {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: 50%;
-  overflow: hidden;
-  background: color-mix(in srgb, var(--jsini-text) 10%, transparent);
-  color: var(--jsini-text);
+  --jsini-face-size: 1.75rem;
+  --jsini-face-bg: color-mix(in srgb, var(--jsini-text) 10%, transparent);
+  --jsini-face-ink: color-mix(in srgb, var(--jsini-text) 80%, transparent);
+  --jsini-face-initial-size: 0.75em;
 }
 
-/* 상세의 머리띠에 서는 것. **카드보다 작다** — 옆에 이름이 함께 서고
-   그 줄은 글 한 줄 높이라, 카드만 한 동그라미를 넣으면 그것 하나 때문에
-   머리띠가 한 단 두꺼워진다. */
+/* 상세의 얼굴. 이름이 「큰」인데 **카드보다 작다** — 카드는 얼굴로 건을
+   가려내는 자리라 크고, 상세는 이미 누구 것인지 적혀 있어 표시로 족하다. */
 .pm-face--lg {
-  width: 1.5rem;
-  height: 1.5rem;
-}
-
-.pm-face__img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.pm-face__initial {
-  font-size: 0.75em;
-  font-weight: 700;
-  line-height: 1;
-  opacity: 0.8;
+  --jsini-face-size: 1.5rem;
 }
 
 /* 첫 층 — **상태와 총작업시간.** 「끝났나 · 얼마나 걸렸나」가 한 줄이다.

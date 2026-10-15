@@ -73,7 +73,7 @@
                 {
                     @* 올린 사람은 왼쪽, 관리자는 오른쪽이다. 위 머리말 참고. *@
                     <li class="pm-note__item pm-note__item--@(n.IsOwner ? "owner" : "admin")">
-                        <UserFaceMark LoginId="@n.CreId" CssClass="pm-note__face" />
+                        <UserFaceMark LoginId="@n.CreId" CssClass="pm-face pm-note__face" />
 
                         <div class="pm-note__bubble">
                             <div class="pm-note__meta">

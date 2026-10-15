@@ -84,7 +84,6 @@ public sealed class ProjMngModule : IPortalModule
         // 지시자의 이름과 얼굴. 업무 자료에는 로그인 아이디만 있어서
         // 계정 쪽(`auth/user/faces`)에 한 번 더 묻는다 — 한 번 물어본 것은
         // 들고 있으므로 목록을 다시 읽어도 왕복이 늘지 않는다.
-        services.AddScoped<UserFaceClient>();
 
         // 대상의 git 상태(「대상 git 상태」 화면). **서버가 세는 값이 아니다** —
         // 실행기가 호스트에서 들여다보고 적어 둔 스냅샷을 읽는다(설계 11.7).

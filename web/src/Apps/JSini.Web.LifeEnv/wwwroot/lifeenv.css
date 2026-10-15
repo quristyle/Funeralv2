@@ -803,47 +803,6 @@
 
 .le-week--hours .le-week__sky { margin: 0; }
 
-/* ── 사람의 얼굴 (`le-face`) ──────────────────────────────────
-
-   생일 표와 「오늘 생일」 칸이 함께 쓴다. 사진이 없으면 같은 크기의
-   동그라미에 이름 첫 글자가 들어간다 — 빈칸으로 두면 얼굴이 있는 줄과
-   없는 줄의 왼쪽 여백이 달라져 목록이 들쭉날쭉해진다.
-
-   프로젝트관리에도 같은 모양이 `pm-face` 로 있다. 모듈 CSS 는 서로 못
-   보므로 베꼈다 — 승격 기준은 `UserFaceClient` 머리말과 같다.
-   ---------------------------------------------------------- */
-
-.le-face {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  width: 1.5rem;
-  height: 1.5rem;
-  overflow: hidden;
-  border-radius: 50%;
-  background: var(--jsini-surface-muted, rgba(127, 127, 127, 0.18));
-  vertical-align: middle;
-}
-
-.le-face--lg {
-  width: 2.2rem;
-  height: 2.2rem;
-}
-
-.le-face__img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.le-face__initial {
-  font-size: var(--jsini-fs-2xs);
-  font-weight: 700;
-  color: var(--jsini-text-muted);
-  line-height: 1;
-}
-
 /* 표의 이름 칸 — 얼굴과 이름을 한 덩어리로 묶는다. */
 .le-who {
   display: inline-flex;
