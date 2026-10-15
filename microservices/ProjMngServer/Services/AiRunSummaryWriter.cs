@@ -181,9 +181,26 @@ public sealed class AiRunSummaryWriter(
     {
         try
         {
+            // **차수 제목도 여기서 덮는다.** 시킬 때 지시문만 보고 지은 것이
+            // 이미 적혀 있는데(<c>AiTurnTitler</c>), 지금 손에 든 것은 **결과까지
+            // 보고 지은** 제목이라 더 정확하다. 「무엇을 시켰나」가 「무엇을
+            // 했나」로 바뀌는 자리다.
+            //
+            // <b><c>retitle</c> 과 <c>title_auto</c> 를 보지 않는다.</b> 그 둘이
+            // 지키는 것은 <b>건의 제목</b>(사람이 적었을 수 있다)이고, 차수 제목은
+            // 사람이 적는 자리가 아예 없다 — 여기서 안 적으면 영영 비어 있다.
+            // 모델이 제목 칸을 빠뜨렸으면 널이고, 그때는 적혀 있던 것을 그대로 둔다.
             await db.ExecuteAsync("""
-                UPDATE projmng.ai_task_run SET summary_text = @text WHERE run_key = @runKey
-                """, new { runKey, text = summary.ToText() });
+                UPDATE projmng.ai_task_run
+                   SET summary_text = @text,
+                       turn_title   = COALESCE(LEFT(@turnTitle, 200), turn_title)
+                 WHERE run_key = @runKey
+                """, new
+            {
+                runKey,
+                text = summary.ToText(),
+                turnTitle = summary.TitleOrHeadline is { Length: > 0 } made ? made : null,
+            });
 
             if (!retitle || summary.TitleOrHeadline is not { Length: > 0 } title)
             {

@@ -154,10 +154,14 @@ public sealed class AiRunService(
             var instruction = RetryPrompt.Compose(
                 task.Contents, attempt, Math.Max(task.AttemptMax, 1), previous);
 
+            // 시킬 때 지어 둔 **이 차수의 제목**을 함께 옮겨 담는다
+            // (`AiTurnTitler` 가 `ai_task.next_turn_title` 에 얹어 둔 것).
+            // 모델이 아직 답하지 않았으면 널이고, 그때는 그쪽이 방금 생긴
+            // 이 줄을 찾아와 적는다. 어느 쪽이든 끝난 뒤의 제목이 덮는다.
             var runKey = await db.ExecuteScalarAsync<long>("""
                 INSERT INTO projmng.ai_task_run
                      ( task_key, seq, run_status, lease_expires_at, token_hash,
-                       started_at, instruction, runner_nm )
+                       started_at, instruction, runner_nm, turn_title )
                 SELECT @TaskKey,
                        COALESCE(MAX(seq), 0) + 1,
                        'preparing',
@@ -165,7 +169,9 @@ public sealed class AiRunService(
                        @hash,
                        now(),
                        @instruction,
-                       @runnerName
+                       @runnerName,
+                       ( SELECT next_turn_title FROM projmng.ai_task
+                          WHERE task_key = @TaskKey )
                   FROM projmng.ai_task_run WHERE task_key = @TaskKey
                 RETURNING run_key
                 """, new
@@ -183,8 +189,13 @@ public sealed class AiRunService(
                  WHERE target_key = @TargetKey
                 """, new { runKey, task.TargetKey }, tx);
 
+            // 얹어 두었던 차수 제목은 **여기서 비운다** — 위에서 실행 줄로
+            // 옮겨 담았다. 안 비우면 다음 차수가 그 제목을 물려받는다.
             await db.ExecuteAsync("""
-                UPDATE projmng.ai_task SET last_run_key = @runKey WHERE task_key = @TaskKey
+                UPDATE projmng.ai_task
+                   SET last_run_key    = @runKey,
+                       next_turn_title = NULL
+                 WHERE task_key = @TaskKey
                 """, new { runKey, task.TaskKey }, tx);
 
             var target = await db.QuerySingleAsync<AiTarget>("""
@@ -723,7 +734,8 @@ public sealed class AiRunService(
                    base_sha AS BaseSha, diff_stat AS DiffStat,
                    changed_files AS ChangedFiles,
                    log_line_count AS LogLineCount, result_text AS ResultText,
-                   instruction AS Instruction, summary_text AS SummaryText
+                   instruction AS Instruction, summary_text AS SummaryText,
+                   turn_title AS TurnTitle
               FROM projmng.ai_task_run
              WHERE task_key = @taskKey
              ORDER BY seq DESC
@@ -930,4 +942,14 @@ public sealed class AiTaskRun
     public string? Instruction { get; set; }
 
     public string? SummaryText { get; set; }
+
+    /// <summary>
+    /// <b>이 차수의 제목.</b> 「지시와 결과」 탭의 접힌 머리줄이 읽는다.
+    /// </summary>
+    /// <remarks>
+    /// 시킬 때 지시문만 보고 한 번(<c>AiTurnTitler</c>), 끝났을 때 결과까지 보고
+    /// 한 번 더(<c>AiRunSummaryWriter</c>) AI 가 짓는다. <b>없을 수 있다</b> —
+    /// 이 칸이 생기기 전의 건과 모델이 끝내 답하지 않은 건이 비어 있다.
+    /// </remarks>
+    public string? TurnTitle { get; set; }
 }

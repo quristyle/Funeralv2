@@ -3862,20 +3862,29 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge:not([class*='jsi
   transform: rotate(90deg);
 }
 
-/* 음성으로 읽어주기 단추 */
+/* ── 음성으로 읽어주기 단추 ──────────────────────────────────
+
+   **글자 없이 그림 하나다**(2026-10-15). 「음성으로 읽어주기」 일곱 글자를
+   달고 있던 때는 그것이 접는 제목(「처리 요약」·「결과」)과 한 줄에 서면서
+   머리줄의 절반을 먹었고, 휴대폰 폭에서는 제목을 아래로 밀어 머리줄을 두 줄로
+   만들었다. 말하려는 것은 **「누르면 읽어 준다」 하나뿐**이고 무엇을 읽어
+   주는지는 바로 옆 제목이 이미 말한다. 말은 `title`·`aria-label` 에 남긴다.
+
+   그래서 **네모난 그림 단추**로 세운다 — 좌우 여백을 위아래와 같이 주고
+   가로폭을 글자가 아니라 그림이 정하게 한다.
+   ---------------------------------------------------------- */
 .pm-peek__speech-btn {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
-  gap: 0.3rem;
-  padding: 0.18rem 0.5rem;
-  font-size: var(--jsini-fs-2xs, 0.75rem);
-  font-weight: 500;
+  justify-content: center;
+  padding: 0.22rem;
   color: var(--jsini-accent, #0078d4);
   background: var(--jsini-surface, #fff);
   border: 1px solid var(--jsini-border, #d1d5db);
   border-radius: var(--jsini-radius-sm, 4px);
   cursor: pointer;
-  line-height: 1.4;
+  line-height: 1;
   user-select: none;
   transition: all 0.15s ease-in-out;
 }
@@ -3902,9 +3911,12 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge:not([class*='jsi
   border-color: var(--jsini-danger-hover, #a80000);
 }
 
+/* 그림 자체. **크기를 여기서 다시 잡는다** — 뿌리의 `--jsini-icon-size` 는
+   테마 글자 사다리를 타는데, 이 단추는 칸 이름(`.pm-peek__head`) 옆에 서는
+   작은 보조 단추라 그 치수로는 제목보다 커 보인다. 색은 단추가 쥔다
+   (`currentColor`). */
 .pm-peek__speech-icon {
-  font-size: 0.85rem;
-  line-height: 1;
+  --jsini-icon-size: 0.95rem;
 }
 
 @keyframes pm-peek-pulse {
@@ -4078,18 +4090,35 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge:not([class*='jsi
   color: var(--jsini-text);
 }
 
-/* 언제 얼마나 돌았나. **남는 자리를 다 먹고 오른쪽 끝에 선다** —
-   줄마다 같은 자리에 있어야 차수끼리 견줘진다. */
-.pm-peek__turn-when {
+/* 그 차수에 무엇을 시켰나(2026-10-15). **남는 자리를 먹는 것은 이제 이쪽이다** —
+   번호·상태·시각 셋은 길이가 뻔하고, 길이를 모르는 것은 AI 가 지은 이 한 줄뿐이다.
+
+   **한 줄에 못 들어가면 말줄임이다.** 스무 글자로 지으라고 시켰지만 모델이 늘
+   지키지는 않는다 — 넘치는 대로 두면 시각이 다음 줄로 밀려 머리줄이 두 줄이 되고,
+   차수를 접어 둔 뜻(판이 세 배가 되지 않게)이 머리줄에서 도로 까먹힌다.
+   전문은 `title` 에 있다. */
+.pm-peek__turn-title {
   flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: var(--jsini-fs-xs);
+  color: var(--jsini-text);
+}
+
+/* 언제 얼마나 돌았나. **오른쪽 끝에 선다** — 줄마다 같은 자리에 있어야 차수끼리
+   견줘진다. 제목이 없는 차수(옛 건 · 모델이 안 답한 건)에서도 오른쪽에 남아야
+   하므로 `margin-left: auto` 로 민다 — 늘릴 몫은 제목이 가져갔다. */
+.pm-peek__turn-when {
+  flex: 0 0 auto;
+  margin-left: auto;
+  padding-left: 0.4rem;
   text-align: right;
   font-size: var(--jsini-fs-2xs);
   font-variant-numeric: tabular-nums;
   color: var(--jsini-text-muted);
+  white-space: nowrap;
 }
 
 /* 펴진 묶음의 몸통. 머리줄 아래로 조금 들여 쓴다 — 어디까지가 그 차수의
@@ -4142,6 +4171,27 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge:not([class*='jsi
 @media (max-width: 767px) {
   .pm-peek__turn-body {
     padding-left: 0;
+  }
+
+  /* 머리줄의 제목은 **제 줄로 내린다**(2026-10-15). 휴대폰 폭에서 번호·상태·
+     시각이 먼저 자리를 잡고 나면 제목에 남는 것이 열 글자가 안 되는데, 차수를
+     가르라고 단 한 줄이 「AI 작업 상세의 탭…」처럼 잘려 버리면 어느 차수도
+     못 가른다 — 자리를 못 받느니 한 줄을 더 쓰는 편이 낫다.
+
+     `order` 로 내린다. 시각은 첫 줄 오른쪽 끝에 그대로 남아야 차수끼리
+     견줘지기 때문이다(`margin-left: auto` 가 그 자리를 잡는다). */
+  .pm-peek__turn-btn {
+    flex-wrap: wrap;
+  }
+
+  .pm-peek__turn-title {
+    order: 1;
+    flex: 1 1 100%;
+
+    /* 화살표 너비(0.7rem) + 사이(0.4rem)만큼 들여 **「1차」와 같은 세로줄에**
+       세운다. 왼쪽 끝에 붙여 두면 화살표보다 바깥에서 시작해 그 줄에 딸린
+       글이 아니라 다음 묶음의 첫 줄처럼 읽힌다. */
+    padding-left: 1.1rem;
   }
 }
 

@@ -32,6 +32,20 @@ public sealed class AiTask
     /// </summary>
     public long? TitleRunKey { get; set; }
 
+    /// <summary>
+    /// <b>아직 실행 줄이 없는 차수의 제목</b>을 잠깐 얹어 두는 자리.
+    /// </summary>
+    /// <remarks>
+    /// 시키는 순간 AI 가 지시문을 보고 짓고(<see cref="Services.AiTurnTitler"/>),
+    /// 실행기가 집어 갈 때 <c>ai_task_run.turn_title</c> 로 옮겨 담으면서 비운다.
+    /// <para>
+    /// <b>화면도 이것을 읽는다.</b> 보냈는데 아무도 안 집어 간 차수에는 실행 줄이
+    /// 없어 걸 제목이 여기밖에 없다 — 그 자리가 비면 「무엇을 시킨 차수인가」가
+    /// 집어 갈 때까지 안 보인다.
+    /// </para>
+    /// </remarks>
+    public string? NextTurnTitle { get; set; }
+
     /// <summary>AI 에게 줄 지시문. 편집기에 쓰는 그 글이다.</summary>
     public string? Contents { get; set; }
 

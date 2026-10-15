@@ -121,6 +121,11 @@ builder.Services.AddScoped<AiRunSummaryWriter>();
 // (`ai_task.title_auto`) — 사람이 적은 제목은 읽지도 않는다.
 builder.Services.AddScoped<AiTaskTitler>();
 
+// **시키는 순간** 그 차수의 제목을 짓는다(`ai_task_run.turn_title`). 위엣것이
+// 「끝난 뒤의 제목」이라면 이쪽은 「시킨 일의 제목」이고, 차수를 접어 둔 머리줄이
+// 돌고 있는 동안에도 무엇을 시킨 차수인지 말할 수 있게 하는 값이다.
+builder.Services.AddScoped<AiTurnTitler>();
+
 // 큐는 **종(bell)** 이다. 메시지에 taskKey 하나만 싣고 실제 상태 변경은
 // DB 의 원자적 UPDATE 가 한다 — 그래서 메시지를 잃어도 손실이 아니라 지연이다.
 builder.Services.AddSingleton<AiTaskQueue>();

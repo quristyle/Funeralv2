@@ -52,6 +52,25 @@ public sealed class AiTaskTurn
     /// <summary>머리줄 배지 수식어(<c>jsini-badge--*</c>).</summary>
     public required string StatusTone { get; init; }
 
+    /// <summary>
+    /// <b>그 차수의 제목</b> — 상태 배지 옆에 선다. 없을 수 있다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>접힌 머리줄이 번호와 상태만 말하면 어느 것을 펴야 할지 알 수 없다.</b>
+    /// 「2차 · 완료 · 3분 12초」 셋은 어느 차수에나 같은 모양으로 서서, 세 차수가
+    /// 쌓이면 차례로 다 펴 보는 수밖에 없다 — 그 가운데 「무엇을 시킨 차수였나」를
+    /// 말해 주는 것이 하나도 없기 때문이다.
+    /// </para>
+    /// <para>
+    /// 짓는 것은 서버의 AI 다(<c>ai_task_run.turn_title</c>). <b>여기서 지시문
+    /// 첫 줄을 떠다 쓰지 않는다</b> — 그 글은 「…를 고쳐 줘. 그리고 …」처럼 이어지는
+    /// 산문이라 앞 열 글자가 그 차수를 가르지 못하고, 차수마다 비슷한 말로
+    /// 시작하는 일이 흔하다.
+    /// </para>
+    /// </remarks>
+    public string? Title { get; init; }
+
     /// <summary>머리줄에 적을 시각 한 토막. 「시작 시각 · 걸린 시간」이다.</summary>
     public required string WhenText { get; init; }
 
@@ -104,6 +123,7 @@ public static class AiTaskTurns
                 StatusText = run.StatusText,
                 StatusTone = run.StatusTone,
                 WhenText = AiTaskWhen.RunWhen(run),
+                Title = Trim(run.TurnTitle),
             });
         }
 
@@ -126,6 +146,11 @@ public static class AiTaskTurns
                 StatusText = task.StatusText,
                 StatusTone = task.StatusTone,
                 WhenText = task.IsBusy ? "대기 중" : "-",
+
+                // 실행 줄이 없으니 제목도 거기 없다. 시킬 때 지어 **작업에
+                // 얹어 둔 것**을 쓴다(`ai_task.next_turn_title`) — 집어 가는
+                // 순간 그 값이 실행 줄로 옮겨 가므로 둘이 동시에 차는 일은 없다.
+                Title = Trim(task.NextTurnTitle),
             });
         }
 
@@ -137,6 +162,13 @@ public static class AiTaskTurns
 
         return list;
     }
+
+    /// <summary>
+    /// 제목 한 줄을 다듬는다. <b>흰 줄만 든 값은 없는 것으로 친다</b> —
+    /// 그리는 쪽이 <c>{ Length: &gt; 0 }</c> 하나로 가릴 수 있게 한다.
+    /// </summary>
+    private static string? Trim(string? title) =>
+        string.IsNullOrWhiteSpace(title) ? null : title.Trim();
 }
 
 /// <summary>

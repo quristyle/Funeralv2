@@ -21,7 +21,7 @@ namespace ProjMngServer.Services;
 /// </remarks>
 public sealed class AiTaskService(
     IConfiguration configuration, AiTargetService targets, AiTaskQueue queue,
-    AiRequestAlerter alerts, AiTaskFileService files)
+    AiRequestAlerter alerts, AiTaskFileService files, AiTurnTitler turnTitler)
 {
     private readonly string _connectionString =
         configuration.GetConnectionString("jsini")
@@ -84,6 +84,10 @@ public sealed class AiTaskService(
         a.row_version     AS RowVersion,
         a.title_auto      AS TitleAuto,
         a.title_run_key   AS TitleRunKey,
+        -- 아직 실행 줄이 없는 차수의 제목. **화면이 그 차수의 머리줄에 건다** —
+        -- 보냈는데 아무도 안 집어 간 동안에도 「무엇을 시킨 차수인가」가 보여야
+        -- 한다(`AiTurnTitler`).
+        a.next_turn_title AS NextTurnTitle,
         a.is_user_request AS IsUserRequest,
         a.cre_id          AS CreId,
         a.cre_dt          AS CreDt,
@@ -531,6 +535,14 @@ public sealed class AiTaskService(
         // 단추에 그대로 붙는다 — 요청은 이미 DB 에 있고, 종이 늦거나 못 가도
         // 실행기의 안전망 조회가 집는다(설계 6.6).
         queue.Ring(taskKey);
+
+        // **이 차수의 제목도 맡기고 간다.** 모델 왕복 한 번이라 여기서 기다리면
+        // 사람이 누른 단추가 그만큼 늦게 끝나는데, 제목이 없다고 작업이 못 도는
+        // 것도 아니다. 어디에 적히는지는 <see cref="AiTurnTitler"/>.
+        //
+        // **종을 울린 뒤다.** 순서를 바꾸면 집어가기가 그만큼 늦어진다 —
+        // 먼저 울려 두면 둘이 경합해도 제목은 실행 줄을 찾아간다(그쪽 머리말).
+        _ = turnTitler.PrepareAsync(taskKey);
 
         return AiTaskEditResult.Ok(await GetAsync(taskKey));
     }

@@ -238,6 +238,17 @@ public sealed class AiResultSummarizer(
         + "설명이나 따옴표, 머리말 없이 제목 한 줄만 답하십시오.";
 
     /// <summary>
+    /// <b>아직 돌지 않은 차수</b>의 제목을 짓는 편집자. 위엣것과 성격이 다르다 —
+    /// 손에 든 것이 <b>지시문뿐</b>이라 「무엇을 했나」를 쓸 수가 없고, 쓰게 두면
+    /// 모델이 결과를 지어낸다(「…를 수정 완료」). 그래서 <b>시킨 일</b>을 적게 한다.
+    /// </summary>
+    private const string TurnTitleSystemPrompt =
+        "당신은 작업 목록의 제목을 짓는 편집자입니다. 아직 실행되지 않은 지시문만 보고 "
+        + "무엇을 시킨 일인지 나타내는 아주 짧은 제목(20자 내외)을 한국어로 작성합니다. "
+        + "결과나 완료 여부를 추측해 쓰지 마십시오. "
+        + "설명이나 따옴표, 머리말 없이 제목 한 줄만 답하십시오.";
+
+    /// <summary>
     /// AI 서비스 호출 공통부. <b>가리기·실패 시 처신이 요약과 제목 생성에 한 벌로 적용된다.</b>
     /// </summary>
     private async Task<string?> ChatAsync(
@@ -341,19 +352,80 @@ public sealed class AiResultSummarizer(
             {{resultOrSummary ?? "(없음)"}}
             """;
 
-        var reply = await ChatAsync(TitleSystemPrompt, prompt, _titleTimeoutSeconds, ct);
+        return OneLine(await ChatAsync(TitleSystemPrompt, prompt, _titleTimeoutSeconds, ct));
+    }
+
+    /// <summary>
+    /// <b>아직 돌지 않은 차수</b>의 제목을 짓는다 — 손에 든 것이 지시문뿐일 때다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 「이어서 지시」는 새 건을 만들지 않고 같은 건에 실행을 하나 더 붙인다
+    /// (<c>AiTaskService.ContinueAsync</c>). 그래서 <b>차수마다 제 제목</b>이 있어야
+    /// 접어 둔 머리줄만 보고 어느 차수를 펴야 하는지가 갈린다 —
+    /// <c>ai_task_run.turn_title</c> 이 그 자리이고, 이 호출이 그 첫 값을 만든다
+    /// (<see cref="AiTurnTitler"/>).
+    /// </para>
+    /// <para>
+    /// <b>여기서 짓는 것은 「시킨 일」이다.</b> 결과를 본 제목은 끝난 뒤에 요약과
+    /// 같은 한 번의 호출로 와서 이것을 덮는다(<see cref="AiResultSummary.Title"/>) —
+    /// 그쪽이 더 정확하다. 이것은 <b>돌고 있는 동안 비어 있지 않게</b> 하는 값이다.
+    /// </para>
+    /// <para>
+    /// <b>제목 생성 손잡이(<c>AiTasks:MakeTitle</c>)를 함께 본다.</b> 끄면 두 자리가
+    /// 같이 꺼져야 한다 — 한쪽만 꺼지면 「끝난 차수에만 제목이 없는」 꼴이 된다.
+    /// </para>
+    /// </remarks>
+    public async Task<string?> MakeTurnTitleAsync(string? instruction, CancellationToken ct = default)
+    {
+        if (!_makeTitleEnabled || string.IsNullOrWhiteSpace(instruction))
+        {
+            return null;
+        }
+
+        // **가리는 것이 먼저다.** 지시문에도 접속 정보가 섞여 들어올 수 있고,
+        // 이 호출은 우리 장비 밖으로 나갈 수 있는 경로다(공급자가 외부 API 인 경우).
+        var asked = Clip(SecretMask.Apply(instruction), 1500);
+
+        var prompt = $$"""
+            아래는 AI 실행기에게 이제 보낼 지시문입니다. 이 지시가 무엇을 시키는 일인지
+            나타내는 20자 내외의 아주 짧은 제목을 하나 지어 주십시오.
+            따옴표, 마침표, 부가 설명 없이 제목 텍스트만 한 줄로 출력하십시오.
+
+            ## 지시문
+            {{asked}}
+            """;
+
+        return OneLine(await ChatAsync(TurnTitleSystemPrompt, prompt, _titleTimeoutSeconds, ct));
+    }
+
+    /// <summary>
+    /// 모델이 준 글에서 <b>제목 한 줄</b>만 꺼낸다.
+    /// </summary>
+    /// <remarks>
+    /// 「제목만 답하라」를 지키지 않는 모델이 있다 — 따옴표로 감싸거나 설명을
+    /// 한 줄 더 붙인다. 앞뒤 따옴표를 떼고 <b>첫 줄만</b> 남긴다.
+    /// </remarks>
+    private static string? OneLine(string? reply)
+    {
         if (string.IsNullOrWhiteSpace(reply))
         {
             return null;
         }
 
         var title = reply.Trim().Trim('"', '\'', '`', ' ');
+
         if (title.Contains('\n'))
         {
-            title = title.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).FirstOrDefault() ?? title;
+            title = title.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .FirstOrDefault() ?? title;
         }
 
-        return title.Length > 100 ? title[..100] : title;
+        title = title.Trim().Trim('"', '\'', '`', ' ');
+
+        return title.Length == 0 ? null
+            : title.Length > 100 ? title[..100]
+            : title;
     }
 
     /// <summary>

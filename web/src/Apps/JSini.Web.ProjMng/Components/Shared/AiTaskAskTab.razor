@@ -121,10 +121,24 @@
                        모양이다(`pm-peek__fold`). 화살표만 따로 세우면 누를
                        자리가 손가락보다 작아 휴대폰에서 빗나간다.
 
-                       **접힌 채로도 셋을 말한다** — 몇 차인가 · 어떻게
-                       끝났나 · 언제 얼마나 돌았나. 그것이 없으면 접힌
-                       셋 가운데 어느 것을 펴야 하는지 알 수 없어 차례로
-                       다 펴 보게 된다. *@
+                       **접힌 채로도 넷을 말한다** — 몇 차인가 · 어떻게
+                       끝났나 · **무엇을 시킨 차수였나** · 언제 얼마나
+                       돌았나.
+
+                       [제목이 왜 붙었나 (2026-10-15)]
+
+                       한동안 셋이었다(번호 · 상태 · 시각). 그런데 그
+                       셋은 **어느 차수에나 같은 모양으로 선다** —
+                       「2차 · 완료 · 3분 12초」를 보고 그 차수에 무엇을
+                       시켰는지 알 길이 없어, 셋이 쌓이면 결국 차례로
+                       다 펴 보게 된다. 접어 둔 뜻이 거기서 사라진다.
+
+                       그래서 **상태 옆에 그 차수의 제목**을 건다.
+                       짓는 것은 서버의 AI 이고(`ai_task_run.turn_title`),
+                       시킬 때 지시문만 보고 한 번, 끝났을 때 결과까지
+                       보고 한 번 더 짓는다 — 뒤엣것이 앞엣것을 덮는다.
+                       **없을 수 있다**(옛 건 · 모델이 끝내 안 답한 건).
+                       그때는 고치기 전과 같이 번호와 상태만 선다. *@
                     @if (Turns.Count > 1)
                     {
                         <h3 class="pm-peek__turn-head">
@@ -137,6 +151,19 @@
                                       aria-hidden="true">▸</span>
                                 <span class="pm-peek__turn-no">@(turn.No)차</span>
                                 <span class="jsini-badge jsini-badge--@turn.StatusTone">@turn.StatusText</span>
+
+                                @* 제목. **남는 자리를 다 먹고 넘치면 말줄임**이다 —
+                                   스무 글자로 지으라고 시켰지만 모델이 늘 지키지는
+                                   않고, 길어진 한 줄이 시각을 다음 줄로 밀면 머리줄이
+                                   두 줄이 되어 접어 둔 판이 다시 길어진다.
+
+                                   `title` 에 전문을 둔다. 말줄임으로 꼬리가 잘렸을 때
+                                   책상에서 마우스를 올려 읽을 수 있는 유일한 길이다. *@
+                                @if (turn.Title is { Length: > 0 } turnTitle)
+                                {
+                                    <span class="pm-peek__turn-title" title="@turnTitle">@turnTitle</span>
+                                }
+
                                 <span class="pm-peek__turn-when">@turn.WhenText</span>
                             </button>
                         </h3>
@@ -241,13 +268,17 @@
                                 @if (turn.Run is { } answered && SpeechRunKey is { } speechKey
                                      && answered.RunKey == speechKey)
                                 {
+                                    @* **글자 없이 그림 하나다**(2026-10-15) —
+                                       까닭은 「처리 요약」 쪽과 같다
+                                       (`AiTaskView` 의 같은 단추). 말은
+                                       `title` 과 `aria-label` 에 남는다. *@
                                     <button type="button"
                                             class="pm-peek__speech-btn @(Speaking ? "pm-peek__speech-btn--speaking" : null)"
                                             @onclick="@(() => OnToggleSpeech.InvokeAsync())"
                                             title="@(Speaking ? "음성 읽기 중지" : "결과 요약 음성으로 읽어주기")"
                                             aria-label="@(Speaking ? "음성 읽기 중지" : "결과 요약 음성으로 읽어주기")">
-                                        <span class="pm-peek__speech-icon" aria-hidden="true">@(Speaking ? "⏹" : "🔊")</span>
-                                        <span>@(Speaking ? "읽기 중지" : "음성으로 요약 듣기")</span>
+                                        <span class="pm-peek__speech-icon @(Speaking ? "jsini-icon-stop" : "jsini-icon-volume")"
+                                              aria-hidden="true"></span>
                                     </button>
                                 }
                             </div>

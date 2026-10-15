@@ -306,6 +306,18 @@ public sealed class AiTaskRunDto
     /// <summary>그때 실제로 준 지시문.</summary>
     public string? Instruction { get; set; }
 
+    /// <summary>
+    /// <b>이 차수의 제목</b> — 접힌 차수 머리줄이 상태 배지 옆에 다는 한 줄.
+    /// </summary>
+    /// <remarks>
+    /// 서버가 두 번 짓는다. 시킬 때 <b>지시문만</b> 보고 한 번(「무엇을 시켰나」),
+    /// 끝났을 때 처리 요약과 같은 한 번의 호출로 <b>결과까지</b> 보고 한 번 더
+    /// (「무엇을 했나」) — 뒤엣것이 앞엣것을 덮는다. <b>없을 수 있다</b>: 이 칸이
+    /// 생기기 전의 건과 모델이 끝내 답하지 않은 건이 비어 있고, 그때 머리줄은
+    /// 번호와 상태만 말한다(고치기 전과 같은 모습이다).
+    /// </remarks>
+    public string? TurnTitle { get; set; }
+
     public bool IsRunning => RunStatus is "preparing" or "running";
 
     public string StatusText => RunStatus switch
@@ -427,6 +439,17 @@ public sealed class AiTaskDto
 
     /// <summary>어느 실행을 보고 지은 제목인가. 화면이 「아직 안 왔다」를 아는 근거.</summary>
     public long? TitleRunKey { get; set; }
+
+    /// <summary>
+    /// <b>아직 실행 줄이 없는 차수의 제목.</b> 보냈는데 아무도 안 집어 간 동안의 값이다.
+    /// </summary>
+    /// <remarks>
+    /// 시키는 순간 서버가 지시문을 AI 에게 보여 짓고(<c>AiTurnTitler</c>), 실행기가
+    /// 집어 갈 때 <c>ai_task_run.turn_title</c> 로 옮겨 담으면서 비운다. 그래서
+    /// <b>이 값과 실행 줄의 제목은 동시에 차 있지 않다</b> — 차수 머리줄은 제
+    /// 실행 줄의 것을 먼저 보고, 없을 때만 이것을 본다(<c>AiTaskTurns.Build</c>).
+    /// </remarks>
+    public string? NextTurnTitle { get; set; }
 
     public string? Contents { get; set; }
     public string? ContentFormat { get; set; } = "markdown";

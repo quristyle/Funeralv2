@@ -4,7 +4,7 @@ using Npgsql;
 namespace ProjMngServer.Services;
 
 /// <summary>
-/// <b>비어 있는 「처리 요약」을 뒤늦게 채운다.</b>
+/// <b>비어 있는 「처리 요약」과 「차수 제목」을 뒤늦게 채운다.</b>
 /// </summary>
 /// <remarks>
 /// <para>
@@ -31,6 +31,14 @@ namespace ProjMngServer.Services;
 /// <b>오래된 것은 줍지 않는다.</b> 요약은 「끝났나, 내가 볼 것이 있나」를 읽는
 /// 자리라 며칠 지난 건에는 값이 거의 없는데, 그것들까지 훑으면 밀린 목록이
 /// 줄지 않아 정작 방금 끝난 건이 뒤로 밀린다.
+/// </para>
+/// <para>
+/// <b>차수 제목도 같은 바퀴에 줍는다 (2026-10-15).</b> 그 칸
+/// (<c>ai_task_run.turn_title</c>)을 채우는 자리도 둘뿐이고(시킬 때
+/// <see cref="AiTurnTitler"/> · 끝났을 때 <see cref="AiRunSummaryWriter"/>),
+/// 둘 다 모델이 빈손으로 돌아오면 거기서 끝이라 요약이 영영 비던 것과 똑같은
+/// 꼴이 된다. 요약을 먼저 채운 뒤에 줍기 때문에 대개 <b>그 첫 문장을 읽혀</b>
+/// 짓는다 — 모델을 또 부를 일이 거의 없다.
 /// </para>
 /// <para>
 /// <b>미뤄 둔 결과 메일도 여기서 보낸다 (2026-10-14).</b> 이제 결과 메일은
@@ -167,6 +175,67 @@ public sealed class AiSummaryCatchUp(
         var tried = await FillSummariesAsync(db, writer, notifier, ct);
 
         await SendOverdueMailsAsync(db, writer, notifier, tried, ct);
+
+        await FillTurnTitlesAsync(db, scope.ServiceProvider.GetRequiredService<AiTaskTitler>(), ct);
+    }
+
+    /// <summary>
+    /// <b>차수 제목이 빈 실행</b>을 몇 건 주워 채운다 — <c>ai_task_run.turn_title</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 그 칸을 채우는 자리는 둘이다 — 시킬 때(<see cref="AiTurnTitler"/>)와 끝났을
+    /// 때(<see cref="AiRunSummaryWriter"/>). <b>둘 다 모델이 빈손으로 돌아오면
+    /// 거기서 끝</b>이라, 그 실행의 차수 머리줄은 영영 번호와 상태만 말한다 —
+    /// 처리 요약이 영영 비던 것과 똑같은 꼴이고, 이 감시자가 생긴 까닭이다.
+    /// </para>
+    /// <para>
+    /// <b>값이 거의 안 든다.</b> 정리된 요약이 있으면 그 첫 문장을 읽혀 짓고
+    /// (<c>AiResultSummarizer.MakeTitleAsync</c> 의 <c>summaryHeadline</c>),
+    /// 요약조차 없는 건만 결과문을 보여 준다. 위 요약 채우기가 이미 한 바퀴를
+    /// 돌고 난 뒤라 대개 앞엣것이다.
+    /// </para>
+    /// <para>
+    /// 요약 채우기와 같은 규칙을 그대로 쓴다 — <b>한 바퀴에 몇 건만</b>,
+    /// <b>오래된 것은 줍지 않는다</b>. 다만 <b>한 건 실패했다고 멈추지는
+    /// 않는다</b>: 제목 짓기는 손잡이로 꺼 둘 수 있고(<c>AiTasks:MakeTitle</c>)
+    /// 그때는 모든 건이 빈손으로 돌아오는데, 그것은 혼잡이 아니라 설정이다.
+    /// 한 바퀴에 <see cref="_batch"/> 번이 상한이라 그래도 폭주하지 않는다.
+    /// </para>
+    /// </remarks>
+    private async Task FillTurnTitlesAsync(
+        NpgsqlConnection db, AiTaskTitler titler, CancellationToken ct)
+    {
+        if (_withinDays == 0)
+        {
+            return;
+        }
+
+        var keys = (await db.QueryAsync<long>(new CommandDefinition("""
+            SELECT r.run_key
+              FROM projmng.ai_task_run r
+             WHERE r.finished_at IS NOT NULL
+               AND r.finished_at > now() - make_interval(days => @days)
+               AND r.turn_title IS NULL
+             ORDER BY r.finished_at DESC
+             LIMIT @batch
+            """, new { days = _withinDays, batch = _batch }, cancellationToken: ct))).ToList();
+
+        if (keys.Count == 0)
+        {
+            return;
+        }
+
+        logger.LogInformation("차수 제목이 빈 실행 {Count}건을 지어 봅니다.", keys.Count);
+
+        foreach (var runKey in keys)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            // **던지지 않는다**(그쪽이 통째로 감싸고 있다). 못 지으면 다음
+            // 바퀴에 같은 건을 다시 본다.
+            await titler.TitleAsync(runKey, ct);
+        }
     }
 
     /// <summary>
