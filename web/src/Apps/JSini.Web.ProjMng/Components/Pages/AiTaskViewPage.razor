@@ -83,9 +83,20 @@
             <a class="pm-taskview__back" href="/projmng/ai/ask">← 빠른 지시</a>
 
             <h2 class="pm-taskview__title">@TabTitle</h2>
+
+            @* 다시 읽기. **따라가기가 꺼져 있는 자리를 메운다** — 돌고 있는
+               동안만 타이머가 돌고(`Follow`), 끝난 건은 아무도 다시 묻지
+               않는다. 그런데 결과문·처리 파일·요약은 끝난 뒤에도 뒤늦게
+               적히고, 다른 사람이 그사이에 그 건을 이어 돌리기도 한다. *@
+            <DxButton CssClass="@ReloadCss"
+                      RenderStyle="ButtonRenderStyle.Link"
+                      IconCssClass="jsini-icon-refresh"
+                      Enabled="@(!Loading)"
+                      Click="@ReloadAsync"
+                      Title="다시 읽기" />
         </div>
 
-        <AiTaskView Item="@_item" Live="true"
+        <AiTaskView Item="@_item" Live="true" ReloadTick="@_tick"
                     MissingText="그런 지시를 찾지 못했습니다. 지워졌거나 주소가 잘못되었습니다." />
 
         @if (_item is not null)

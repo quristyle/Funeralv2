@@ -87,6 +87,27 @@ public partial class AiTaskView
     [Parameter] public string MissingText { get; set; } = "그 건을 찾지 못했습니다.";
 
     /// <summary>
+    /// <b>다시 읽으라는 신호.</b> 값이 **달라지기만 하면** 된다 — 부모가
+    /// 새로고침을 누를 때마다 하나씩 올린다.
+    /// </summary>
+    /// <remarks>
+    /// 아래 <see cref="OnParametersSetAsync"/> 는 <b>상태가 바뀔 때만</b> 실행
+    /// 이력을 다시 읽는다. 돌고 있는 건은 그것으로 충분하지만(상태가 곧 바뀐다),
+    /// <b>이미 끝난 건은 상태가 영영 그대로다</b> — 사람이 새로고침을 눌러도
+    /// 부모가 받아 온 새 <see cref="Item"/> 의 상태가 같아서 속은 한 줄도 다시
+    /// 읽히지 않았다. 처리 파일·결과문·로그는 상태와 따로 자라므로 그 길이
+    /// 하나 있어야 한다.
+    ///
+    /// <para>
+    /// <b>메서드를 내걸지 않고 값으로 받는 까닭</b>은 차례다. 부모가
+    /// <c>@ref</c> 로 쥐고 직접 부르면 그 호출은 <b>새 <see cref="Item"/> 이
+    /// 내려오기 전에</b> 닿아서, 차수(<c>_turns</c>)를 지난 건으로 짓는다.
+    /// 값으로 받으면 새 건과 신호가 <b>같은 그림에 함께</b> 온다.
+    /// </para>
+    /// </remarks>
+    [Parameter] public int ReloadTick { get; set; }
+
+    /// <summary>
     /// 지금 로그인한 사람. <b>「내가 올린 건인가」를 가리는 데만 쓴다</b>
     /// (<see cref="IsMine"/>).
     /// </summary>
@@ -107,6 +128,12 @@ public partial class AiTaskView
 
     /// <summary>마지막으로 본 상태. 바뀌면 실행 이력을 다시 읽는다.</summary>
     private string? _status;
+
+    /// <summary>
+    /// 마지막으로 따른 <see cref="ReloadTick"/>. 다르면 상태가 그대로여도
+    /// 다시 읽는다.
+    /// </summary>
+    private int _tick;
 
     private int _tab;
 
@@ -593,6 +620,7 @@ public partial class AiTaskView
 
             _key = t.TaskKey;
             _status = t.TaskStatus;
+            _tick = ReloadTick;
             _tab = DefaultTab(t);
 
             // 지시자의 얼굴. **여기서도 물어야 한다** — 창으로 열렸을 때는
@@ -615,8 +643,37 @@ public partial class AiTaskView
             return;
         }
 
-        // 같은 건이다. **상태가 바뀔 때만** 실행 이력을 다시 읽는다 —
-        // 결과문은 그때 생긴다.
+        // 같은 건이다. **사람이 새로고침을 눌렀으면** 상태를 보지 않고 다시
+        // 읽는다 — 끝난 건은 상태가 영영 그대로라, 상태만 보고 있으면 눌러도
+        // 아무 일이 일어나지 않는다(`ReloadTick` 머리말).
+        //
+        // **보던 탭은 그대로 둔다.** 다시 읽는 것이지 다른 건을 여는 것이
+        // 아니므로, 로그를 보다 누른 사람을 지시 탭으로 데려가지 않는다.
+        if (_tick != ReloadTick)
+        {
+            _tick = ReloadTick;
+            _status = t.TaskStatus;
+
+            // **포기한 것을 무른다.** 요약을 기다리다 포기한 뒤에 서버의 감시자가
+            // 뒤늦게 적어 넣는 일이 있고(`AiSummaryCatchUp`), 그것을 보려고 누르는
+            // 것이 이 단추다. 아래 읽기가 여전히 빈손이면 그 자리에서 도로 켜진다.
+            _summaryGaveUp = false;
+
+            await LoadFilesAsync(t);
+            await LoadRunsAsync();
+
+            if (_tab == TabLog)
+            {
+                _logRead = true;
+                await FetchLogsAsync();
+            }
+
+            Follow(t);
+
+            return;
+        }
+
+        // **상태가 바뀔 때만** 실행 이력을 다시 읽는다 — 결과문은 그때 생긴다.
         if (_status != t.TaskStatus)
         {
             _status = t.TaskStatus;
