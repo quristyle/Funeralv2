@@ -37,6 +37,68 @@ public partial class LogTranslateView
     [Parameter] public bool Active { get; set; } = true;
 
     /// <summary>
+    /// 여기 선 줄이 <b>무엇인가.</b> 낭독기에게 읽어 주는 이름과 「불러오는
+    /// 중」 한 줄에 들어간다 — 그리는 법은 같아도 「원문 로그」와 「원문 결과」는
+    /// 다른 말이다.
+    /// </summary>
+    /// <remarks>
+    /// <b>눈에 보이는 글자는 이것으로 안 갈린다.</b> 칸 이름표(「원문」·「번역 ·
+    /// 한국어」)와 발치의 안내는 어느 글에나 그대로 맞는 말이라 그냥 둔다 —
+    /// 자리마다 다른 말을 적으면 같은 판이 화면마다 다른 물건으로 읽힌다.
+    /// </remarks>
+    [Parameter] public string Subject { get; set; } = "로그";
+
+    /// <summary>
+    /// 새 줄이 붙으면 <b>바닥까지 따라 내릴까.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 로그는 참이다 — 펴는 일 대부분이 방금 찍힌 줄을 보려는 것이고, 돌고
+    /// 있는 건은 바닥으로 자란다.
+    /// </para>
+    /// <para>
+    /// <b>결과문은 거짓이다.</b> 그 글은 자라지 않고 <b>첫 줄부터 읽는 글</b>이라,
+    /// 펴자마자 끝으로 내려가 있으면 사람이 맨 위로 되올려야 한다.
+    /// </para>
+    /// </remarks>
+    [Parameter] public bool Tail { get; set; } = true;
+
+    /// <summary>
+    /// 높이를 <b>내용에 맞출까.</b> 거짓이면 틀에 박힌 30rem 이다
+    /// (<c>projmng.css</c> 의 <c>.pm-xlat__editor</c>).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 로그는 늘 길어서 박아 둔 높이가 맞는다. <b>결과문은 길이가 제각각</b>
+    /// 이라 — 세 줄짜리도 있고 이백 줄짜리도 있다 — 그 자리에 30rem 짜리
+    /// 틀을 세우면 세 줄 아래로 <b>빈 상자가 한 뼘</b> 남는다.
+    /// </para>
+    /// <para>
+    /// 높이는 <b>Monaco 에게 물어서</b> 잡는다(<see cref="ApplyFitAsync"/> ·
+    /// <c>OnDidContentSizeChange…</c>). 줄 수로 어림하지 않는 까닭은 줄바꿈이다 —
+    /// 접힌 줄은 한 줄이 두 줄 세 줄 높이가 되는데 그 횟수는 칸 폭이 정하고,
+    /// 칸 폭은 가름쇠를 끌면 바뀐다.
+    /// </para>
+    /// <para>
+    /// <b>휴대폰은 이 값과 상관없다.</b> 거기는 Monaco 가 아니라 <c>div</c>
+    /// 목록이고, 높이는 이미 내용이 정한다(구르는 자리는 쪽 하나다).
+    /// </para>
+    /// </remarks>
+    [Parameter] public bool Fit { get; set; }
+
+    /// <summary>
+    /// 줄바꿈을 <b>켜고 시작할까.</b> 사람이 단추를 한 번이라도 누르면
+    /// 그 뒤로는 사람의 뜻이 이긴다(<see cref="_wrapTouched"/>).
+    /// </summary>
+    /// <remarks>
+    /// 로그는 꺼서 시작한다 — 접힌 줄이 좌우로 짝이 어긋나 보이게 만드는데,
+    /// 로그는 줄 하나가 단서라 그 짝이 이 판의 전부다. <b>결과문은 켜서
+    /// 시작한다</b> — 사람이 쓰듯 적은 글이라 한 줄이 화면 폭의 몇 배이고,
+    /// 꺼 두면 문단마다 옆으로 밀어 가며 읽어야 한다.
+    /// </remarks>
+    [Parameter] public bool Wrap { get; set; }
+
+    /// <summary>
     /// 옮겨 갈 말. <b>한국어로 고정이다</b> — 왼쪽 칸이 이미 원문이라, 가는
     /// 말을 영어로 돌리면 영어 로그를 영어로 옮긴 판이 되어 볼 것이 없다.
     /// 고를 것이 하나뿐인 고르개는 자리만 먹으므로 두지 않는다.
@@ -140,6 +202,35 @@ public partial class LogTranslateView
     private double _fontPx = 14;
 
     /// <summary>
+    /// 내용에 맞춰 잡은 틀 높이(px). <b>0 이면 아직 못 쟀다</b> — 그동안은
+    /// CSS 가 정한 30rem 이 선다.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Fit"/> 이 참일 때만 쓴다. <b>휴대폰에는 안 건다</b> — 거기
+    /// 틀은 높이를 안 받고(내용만큼 길어진다) 인라인 글은 미디어 질의를
+    /// 이기므로, 걸어 두면 목록이 그 높이에 갇혀 제 안에서 구른다.
+    /// </remarks>
+    private int _fitPx;
+
+    /// <summary>좌우 칸이 각각 <b>몇 px 짜리 글</b>을 들고 있나. Monaco 가 알려 준다.</summary>
+    private double _leftContent;
+    private double _rightContent;
+
+    /// <summary>
+    /// 내용에 맞추더라도 <b>이보다 낮게는 안 간다</b>(px). 한 줄짜리 결과에
+    /// 띠만 한 틀이 서면 머리띠·이름표와 구분이 안 된다.
+    /// </summary>
+    private const int FitMin = 96;
+
+    /// <summary>
+    /// 내용에 맞추더라도 <b>이보다 높게는 안 간다</b>(px — 30rem). 박아 둔
+    /// 높이와 같은 값이다. 그보다 긴 글은 <b>틀 안에서 구른다</b> — 쪽이
+    /// 통째로 길어지는 것보다 낫다고 본 자리가 아니라, 로그 탭과 같은 자리로
+    /// 모아 둔 것이다.
+    /// </summary>
+    private const int FitMax = 480;
+
+    /// <summary>
     /// 커서가 선 줄(1부터). <b>0 이면 아직 아무 데도 안 눌렀다.</b>
     /// </summary>
     /// <remarks>
@@ -202,6 +293,51 @@ public partial class LogTranslateView
     private string OutText => string.Join('\n', _state.Out);
 
     /// <summary>
+    /// 틀에 직접 적을 글. <b><see cref="Fit"/> 일 때만 생긴다</b> — 그때 높이를
+    /// 정하는 것은 CSS 가 아니라 잰 값이다.
+    /// </summary>
+    /// <remarks>
+    /// <b>휴대폰에는 안 건다.</b> 인라인 글은 미디어 질의를 이기므로, 걸어 두면
+    /// 목록이 그 높이에 갇혀 제 안에서 구른다(머리말의 2026-10-15 — 구르는
+    /// 자리는 쪽 하나다).
+    /// </remarks>
+    private string? EditorStyle
+        => Fit && !_phone && _fitPx > 0 ? $"height: {_fitPx}px" : null;
+
+    /// <summary>
+    /// 아직 Monaco 를 못 받았을 때 그 자리에 적을 한 줄.
+    /// </summary>
+    private string LoadingText => $"{Subject}{Particle(Subject)} 불러오는 중…";
+
+    /// <summary>낭독기에게 읽어 줄 왼쪽 칸 이름.</summary>
+    private string SourceAria => $"원문 {Subject}";
+
+    /// <summary>낭독기에게 읽어 줄 오른쪽 칸(과 휴대폰 목록) 이름.</summary>
+    private string OutAria => $"한국어로 옮긴 {Subject}";
+
+    /// <summary>
+    /// 받침을 보고 <c>을</c>·<c>를</c> 를 고른다. <b>「로그를」과 「결과를」은
+    /// 둘 다 「를」이지만</b> 들어올 이름을 우리가 다 알 수 없다.
+    /// </summary>
+    private static string Particle(string word)
+    {
+        if (word.Length == 0)
+        {
+            return "를";
+        }
+
+        var last = word[^1];
+
+        if (last is < '\uAC00' or > '\uD7A3')
+        {
+            // 한글 음절이 아니다. 받침을 셀 수 없으므로 흔한 쪽으로 둔다.
+            return "를";
+        }
+
+        return (last - '\uAC00') % 28 == 0 ? "를" : "을";
+    }
+
+    /// <summary>
     /// 머리띠 오른쪽 한 줄 — 몇 줄 가운데 몇 줄을 옮겼나 · 누가 답했나 ·
     /// 무엇이 걸렸나.
     /// </summary>
@@ -246,6 +382,10 @@ public partial class LogTranslateView
         // 만들 때 한 번만 평가되므로(`BuildOptions`) 여기서 안 들으면
         // **이미 떠 있는 편집기만** 옛 크기로 남는다.
         Size.Changed += OnThemeSizeChanged;
+
+        // 줄바꿈의 첫 자리. **여기서만 받는다** — 그 뒤로는 단추를 누른
+        // 사람의 뜻과 폭이 정한다(`OnPhoneChangedAsync` · `ToggleWrapAsync`).
+        _wrap = Wrap;
     }
 
     protected override void OnParametersSet()
@@ -354,7 +494,7 @@ public partial class LogTranslateView
         // 사람이 단추를 한 번이라도 눌렀으면 그 뜻을 지킨다.
         if (!_wrapTouched)
         {
-            _wrap = phone;
+            _wrap = phone || Wrap;
         }
 
         if (phone)
@@ -574,6 +714,13 @@ public partial class LogTranslateView
     /// </remarks>
     private async Task FollowListAsync()
     {
+        if (!Tail)
+        {
+            // 자라지 않는 글이다(결과문). **맨 위에서 선다** — 끝으로
+            // 내려가 있으면 읽으려는 사람이 되올려야 한다.
+            return;
+        }
+
         var count = _state.Out.Count;
 
         if (count == 0)
@@ -697,7 +844,7 @@ public partial class LogTranslateView
             // 보려는 것인데, 맨 위에서 서면 거기까지 삼백 줄을 굴려야 한다.
             // 폭이 바뀌어 편집기가 갈렸을 때도 같다 — 새 편집기는 맨 위에서
             // 선다(`js/log-tail.js` 가 글상자에 하던 일이다).
-            if (_pushedOut.Count > 1 && ModifiedView is { } view)
+            if (Tail && _pushedOut.Count > 1 && ModifiedView is { } view)
             {
                 await view.RevealLine(_pushedOut.Count);
             }
@@ -712,6 +859,9 @@ public partial class LogTranslateView
             // 가름쇠가 움직였다는 것도 알려 주지 않는다. 칸의 크기를 직접
             // 지켜보고 이름표를 그 자리에 맞춘다.
             await WatchSplitAsync();
+
+            // 내용에 맞추는 틀이면 **여기서 한 번 직접 묻는다**(머리말).
+            await MeasureFitAsync();
         }
         catch (Exception ex) when (ex is JSException or JSDisconnectedException
             or ObjectDisposedException or TaskCanceledException)
@@ -880,7 +1030,7 @@ public partial class LogTranslateView
             // **밀기 전에 「바닥에 붙어 있나」를 잰다.** 민 뒤에 재면 늘어난
             // 줄 때문에 늘 거짓이라, 돌고 있는 건을 지켜보는 사람이 새 줄을
             // 한 번도 못 본다.
-            var tail = grew && await AtBottomAsync();
+            var tail = Tail && grew && await AtBottomAsync();
 
             var leftReset = await PushSideAsync(_original, _pushedSrc, _state.Source);
             var rightReset = await PushSideAsync(_modified, _pushedOut, _state.Out);
@@ -1084,6 +1234,108 @@ public partial class LogTranslateView
             LineNumberClassName = numCss,
         },
     };
+
+    /// <summary>
+    /// 한 칸의 <b>글이 차지하는 높이</b>가 달라졌다(Monaco 가 알려 준다).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 줄이 늘거나, 줄바꿈을 켜고 끄거나, 가름쇠를 끌어 칸 폭이 바뀌면 온다.
+    /// <b>이 셋이 전부 같은 자리로 모인다</b> — 어림잡아 재면 그 가운데 하나는
+    /// 반드시 빠뜨린다.
+    /// </para>
+    /// <para>
+    /// 좌우를 따로 적어 두는 까닭은 <b>사건이 한 칸 몫만 들고 오기</b>
+    /// 때문이다. 틀은 둘 가운데 높은 쪽에 맞춰야 짧은 칸이 남는 자리를
+    /// 비운다.
+    /// </para>
+    /// </remarks>
+    private Task OnLeftSizedAsync(ContentSizeChangedEvent e)
+    {
+        _leftContent = e.ContentHeight;
+
+        return ApplyFitAsync();
+    }
+
+    private Task OnRightSizedAsync(ContentSizeChangedEvent e)
+    {
+        _rightContent = e.ContentHeight;
+
+        return ApplyFitAsync();
+    }
+
+    /// <summary>
+    /// 편집기가 막 섰을 때 <b>한 번 직접 물어본다.</b>
+    /// </summary>
+    /// <remarks>
+    /// 사건만 믿으면 안 된다 — 모델을 걸 때 높이가 이미 정해져 있으면
+    /// <c>OnDidContentSizeChange</c> 가 <b>한 번도 안 온다.</b> 그러면 틀이
+    /// 처음 값(0)에 머물러 CSS 의 30rem 이 그대로 선다.
+    /// </remarks>
+    private async Task MeasureFitAsync()
+    {
+        if (!Fit || _phone || _diff is not { } diff)
+        {
+            return;
+        }
+
+        try
+        {
+            _leftContent = await diff.OriginalEditor.GetContentHeight();
+            _rightContent = await diff.ModifiedEditor.GetContentHeight();
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException
+            or ObjectDisposedException or TaskCanceledException)
+        {
+            return;
+        }
+
+        await ApplyFitAsync();
+    }
+
+    /// <summary>
+    /// 잰 값으로 틀의 높이를 잡는다. <b>잡고 나서 편집기에게 다시 재라고 한다</b> —
+    /// 틀이 커졌는데 편집기가 모르면 아래쪽이 빈 채로 남는다.
+    /// </summary>
+    /// <remarks>
+    /// <b>되돌이가 생기지 않는다.</b> 바뀌는 것은 <i>보는 틀</i>의 높이뿐이고
+    /// 글이 차지하는 높이는 칸 폭과 줄 수가 정하므로, 여기서 높이를 고쳐도
+    /// 같은 사건이 되풀이되지 않는다. 가로 막대가 생겼다 사라지며 서너 px
+    /// 흔들리는 것만 문턱으로 눌러 둔다.
+    /// </remarks>
+    private async Task ApplyFitAsync()
+    {
+        if (!Fit || _phone)
+        {
+            return;
+        }
+
+        var want = (int)Math.Clamp(Math.Max(_leftContent, _rightContent), FitMin, FitMax);
+
+        if (Math.Abs(want - _fitPx) <= 4)
+        {
+            return;
+        }
+
+        _fitPx = want;
+
+        StateHasChanged();
+
+        if (_diff is not { } diff)
+        {
+            return;
+        }
+
+        try
+        {
+            await diff.OriginalEditor.Layout();
+            await diff.ModifiedEditor.Layout();
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException
+            or ObjectDisposedException or TaskCanceledException)
+        {
+        }
+    }
 
     /// <summary>
     /// 커서가 움직였다. <b>좌우 어느 칸에서 움직였든 같은 곳으로 온다</b> —
@@ -1407,6 +1659,10 @@ public partial class LogTranslateView
             or ObjectDisposedException)
         {
         }
+
+        // 접힌 줄 수가 달라지면 글이 차지하는 높이도 달라진다. 사건이
+        // 알려 주기는 하지만, 안 오는 날에도 틀이 틀어지지 않게 한 번 묻는다.
+        await MeasureFitAsync();
     }
 
     /// <summary>
@@ -1514,8 +1770,8 @@ public partial class LogTranslateView
         Minimap = new EditorMinimapOptions { Enabled = false },
         ScrollBeyondLastLine = false,
         WordWrap = _wrap ? "on" : "off",
-        OriginalAriaLabel = "원문 로그",
-        ModifiedAriaLabel = "한국어로 옮긴 로그",
+        OriginalAriaLabel = SourceAria,
+        ModifiedAriaLabel = OutAria,
 
         // ── 굴릴 때마다 도는 것을 눌러 둔다 ──────────────────
         // 로그에는 접을 블록도, 들여쓰기 뜻도, 괄호 짝도, 색값도 없다.
@@ -1544,7 +1800,7 @@ public partial class LogTranslateView
         // 줄이 편집기의 아래쪽을 덮는다. 쪽을 굴려 피할 수 있을 것 같지만
         // **편집기 위에서 굴리면 그 굴림을 Monaco 가 먹으므로** 쪽은 안
         // 움직인다. 안쪽에 그만큼 여백을 두면 마지막 줄이 줄 위로 올라온다.
-        Padding = new EditorPaddingOptions { Bottom = 88 },
+        Padding = new EditorPaddingOptions { Bottom = Fit ? 8 : 88 },
 
         // 막대는 Monaco 가 제 손으로 div 로 그린다(기본 14px) — app.css 의
         // 3px 규칙이 닿지 않으므로 여기서 같은 굵기로 맞춘다.

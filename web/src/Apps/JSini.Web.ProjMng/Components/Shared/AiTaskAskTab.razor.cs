@@ -77,6 +77,19 @@ public partial class AiTaskAskTab
     /// <summary>음성으로 읽어주기(TTS)가 도는 중인가.</summary>
     [Parameter] public bool Speaking { get; set; }
 
+    /// <summary>
+    /// <b>지금 이 탭이 켜져 있나.</b> 부르는 쪽이 답한다 — 이 부품은 제가 몇
+    /// 번째 탭인지 모르고, 앞에 몇 장이 끼워졌는지가 화면마다 다르다
+    /// (<see cref="AiTaskLogTab.Active"/> 와 같은 까닭·같은 값).
+    /// </summary>
+    /// <remarks>
+    /// 쓰는 자리는 결과문의 번역 판 하나다 — 거짓이 되면 돌고 있는 줄을
+    /// 거둔다(<see cref="LogTranslateView.Active"/>). <b>참이 기본이다</b> —
+    /// 안 주는 화면에서 번역이 조용히 안 도는 쪽보다, 탭을 떠난 뒤에도 한 줄이
+    /// 더 도는 쪽이 낫다.
+    /// </remarks>
+    [Parameter] public bool Active { get; set; } = true;
+
     /// <summary>음성 단추를 눌렀다. <b>읽는 일은 부르는 쪽이 한다.</b></summary>
     [Parameter] public EventCallback OnToggleSpeech { get; set; }
 
@@ -145,6 +158,17 @@ public partial class AiTaskAskTab
     private readonly HashSet<int> _openLeads = [];
 
     /// <summary>
+    /// 그 차수의 결과문을 <b>줄로 갈라 둔 것.</b> 번역 판은 줄 목록을 받는다
+    /// (<see cref="LogTranslateView.Lines"/>).
+    /// </summary>
+    /// <remarks>
+    /// <b>차수마다 담아 둔다.</b> 그리기마다 새로 가르면 글자가 한 자도
+    /// 안 바뀐 날에도 새 목록이 넘어가, 판이 그때마다 들여오기를 한 바퀴
+    /// 돈다(<c>LogTranslateView.SyncSource</c>).
+    /// </remarks>
+    private readonly Dictionary<int, (string Text, IReadOnlyList<string> Lines)> _resultLines = [];
+
+    /// <summary>
     /// 다른 건이 넘어왔으면 <b>펴고 접은 모습을 턴다.</b>
     /// </summary>
     /// <remarks>
@@ -167,7 +191,47 @@ public partial class AiTaskAskTab
         _key = Item?.TaskKey;
         _openTurns = null;
         _openLeads.Clear();
+        _resultLines.Clear();
     }
+
+    /// <summary>
+    /// 그 차수의 결과문을 줄로 가른다. <b>빈 줄도 그대로 둔다</b> — 문단
+    /// 사이가 붙으면 글이 통째로 한 덩어리로 읽힌다.
+    /// </summary>
+    private IReadOnlyList<string> ResultLines(AiTaskTurn turn, string result)
+    {
+        if (_resultLines.TryGetValue(turn.No, out var had)
+            && string.Equals(had.Text, result, StringComparison.Ordinal))
+        {
+            return had.Lines;
+        }
+
+        // 줄 끝이 섞여 들어온다(실행기가 찍는 것 · 사람이 적어 넣은 것).
+        // 안 맞추면 `\r` 한 자가 줄 끝에 남아 옮길 때 함께 올라간다.
+        IReadOnlyList<string> lines = result
+            .Replace("\r\n", "\n", StringComparison.Ordinal)
+            .Replace('\r', '\n')
+            .Split('\n');
+
+        _resultLines[turn.No] = (result, lines);
+
+        return lines;
+    }
+
+    /// <summary>
+    /// 옮긴 결과문을 <b>어느 이름으로 들고 있을지</b>(<see cref="AiLogXlatStore"/>).
+    /// </summary>
+    /// <remarks>
+    /// <b>건 번호와 차수를 함께 넣는다.</b> 건만 넣으면 1차를 옮긴 글이 2차
+    /// 자리에 그대로 서고, 차수만 넣으면 다른 건의 1차에 앞 건의 번역이 선다.
+    /// <para>
+    /// <b>로그의 열쇠와 겹치지 않아야 한다</b> — 그쪽은 <c>ai-task:{번호}</c>
+    /// 이고(<see cref="AiTaskView"/>) 여기에는 <c>:result:</c> 한 토막이 더
+    /// 붙는다. 겹치면 줄 수가 달라 번역이 통째로 버려진다
+    /// (<c>LogTranslateView.SyncSource</c>).
+    /// </para>
+    /// </remarks>
+    private string ResultStateKey(AiTaskTurn turn) => $"ai-task:{_key}:result:{turn.No}";
 
     /// <summary>그 차수가 펴져 있나. <b>손대기 전에는 마지막 차수만</b>이다.</summary>
     private bool IsTurnOpen(AiTaskTurn turn)

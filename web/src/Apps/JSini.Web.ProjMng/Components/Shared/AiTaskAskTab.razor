@@ -292,7 +292,27 @@
 
                             @if (turn.Result is { Length: > 0 } result)
                             {
-                                <pre class="pm-peek__pre pm-peek__pre--result">@result</pre>
+                                @* **줄을 누르면 그 한 줄만 한국어로 옮긴다** —
+                                   로그 탭과 **같은 판**이다(`LogTranslateView`).
+
+                                   여기 깔리던 것은 글상자 하나였다. 그런데 이
+                                   글도 실행기가 쓴 것이라 영어가 섞여 들어오고,
+                                   로그에서 그것을 풀던 길이 바로 옆 탭에만
+                                   있었다 — 같은 물음에 답이 한 자리에만 있는
+                                   꼴이라 판을 그대로 들여온다(까닭과 갈라 둔
+                                   파라미터 넷은 그 부품 머리말).
+
+                                   **옮긴 것은 차수마다 따로 남는다**
+                                   (`AiLogXlatStore` · `ResultStateKey`). 열쇠가
+                                   같으면 1차를 옮긴 글이 2차 자리에 그대로
+                                   선다. *@
+                                <LogTranslateView Lines="@ResultLines(turn, result)"
+                                                  StateKey="@ResultStateKey(turn)"
+                                                  Active="@Active"
+                                                  Subject="결과"
+                                                  Tail="false"
+                                                  Fit="true"
+                                                  Wrap="true" />
 
                                 @if (TurnHint(turn) is { Length: > 0 } hint)
                                 {

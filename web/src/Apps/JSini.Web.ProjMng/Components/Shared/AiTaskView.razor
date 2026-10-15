@@ -504,6 +504,7 @@
                           Speaking="@_speaking"
                           OnToggleSpeech="@ToggleSpeechAsync"
                           Mine="@IsMine(t)"
+                          Active="@(Live && _tab == TabAsk)"
                           OnOpenLog="@OpenLogTabAsync" />
 
             <AiTaskFilesTab Item="@t" Run="@_run" Changed="@_changed" />

@@ -37,7 +37,14 @@ public sealed class AiLogXlatStore
     /// 들고 있을 건수. 넘으면 <b>가장 오래 안 본 것부터</b> 버린다 —
     /// 로그 삼백 줄 두 벌이 한 건이라 무한정 쌓이면 회로가 무거워진다.
     /// </summary>
-    private const int MaxKeys = 4;
+    /// <remarks>
+    /// <b>한 건이 자리 하나가 아니다</b>(2026-10-16). 결과문도 이 통을 쓰게
+    /// 되면서(<see cref="LogTranslateView"/> 를 「지시와 결과」 탭이 함께
+    /// 쓴다) 건 하나가 <c>로그 하나 + 차수마다 결과 하나</c>를 차지한다.
+    /// 넷으로 두면 <b>3차까지 간 건 하나를 펴 두는 것만으로 꽉 차서</b>,
+    /// 탭을 한 번 건너갔다 오면 옮겨 둔 줄이 사라진다.
+    /// </remarks>
+    private const int MaxKeys = 12;
 
     private readonly Dictionary<string, AiLogXlatState> _byKey = [];
 

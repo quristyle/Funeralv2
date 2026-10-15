@@ -573,6 +573,7 @@
                               RunCount="@_runs.Count"
                               Files="@_files"
                               Mine="@IsMine"
+                              Active="@(_tab == TabAsk)"
                               OnOpenLog="@OpenLogTab" />
 
                 <AiTaskFilesTab Item="@AskItem" Run="@_openRun" Changed="@_changed" />
