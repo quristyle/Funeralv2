@@ -114,6 +114,24 @@ public sealed class AiLogXlatState
     /// <summary>마지막으로 걸린 사정. 머리띠에 한 줄로 적는다.</summary>
     public string? Error { get; set; }
 
+    /// <summary>
+    /// 좌우 칸을 가르는 자리. <b>왼쪽 칸이 차지하는 몫</b>(0~1)이고 반반이
+    /// 처음 값이다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 사람이 가운데 가름쇠를 끌면 바뀐다. <b>여기 두는 까닭은 번역과 같다</b> —
+    /// 로그 탭을 떠나면 편집기가 통째로 버려지고 돌아올 때 새로 서는데, 판이
+    /// 들고 있으면 끌어 둔 자리가 그때마다 한가운데로 되돌아간다.
+    /// </para>
+    /// <para>
+    /// <b><see cref="Rewind"/> 도 <see cref="Reset"/> 도 건드리지 않는다.</b>
+    /// 저 둘이 버리는 것은 <b>옮긴 글</b>이고, 칸을 얼마나 벌려 놓고 보는지는
+    /// 줄의 내용과 아무 상관이 없다.
+    /// </para>
+    /// </remarks>
+    public double SplitRatio { get; set; } = 0.5;
+
     /// <summary>옮겨 둔 것을 버린다. 줄 자체는 그대로다.</summary>
     public void Rewind()
     {

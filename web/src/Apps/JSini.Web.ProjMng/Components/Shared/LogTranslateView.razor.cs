@@ -54,6 +54,13 @@ public partial class LogTranslateView
     /// <summary>편집기 DOM 요소의 id. 한 화면에 둘이 설 수 있어 겹치지 않게 짓는다.</summary>
     private readonly string _id = $"pm-xlat-{Guid.NewGuid():N}";
 
+    /// <summary>
+    /// 칸 이름표 줄의 id. <b>브라우저가 가름쇠 자리를 여기에 적는다</b>
+    /// (<c>--pm-xlat-left</c> · <see cref="WatchSplitAsync"/>). 편집기 id 에
+    /// 매달아 지으므로 한 화면에 판이 둘이어도 안 겹친다.
+    /// </summary>
+    private string HeadsId => $"{_id}-heads";
+
     /// <summary>휴대폰에서 줄을 그리는 목록 상자. 바닥으로 보낼 때 이것을 넘긴다.</summary>
     private ElementReference _listEl;
 
@@ -63,9 +70,13 @@ public partial class LogTranslateView
     private IJSObjectReference? _loader;
 
     /// <summary>
-    /// 브라우저가 <b>손가락 누름</b>을 되알려 줄 때 쥘 손잡이
-    /// (<see cref="OnLineTappedAsync"/>). 한 번만 만들고 치울 때 놓는다.
+    /// 브라우저가 되알려 줄 때 쥘 손잡이. 한 번만 만들고 치울 때 놓는다.
     /// </summary>
+    /// <remarks>
+    /// 올라오는 것이 둘이다 — <b>손가락 누름</b>(<see cref="OnLineTappedAsync"/>)과
+    /// <b>가름쇠를 옮긴 자리</b>(<see cref="OnSplitMoved"/>). <b>손잡이는 한
+    /// 벌이다</b> — 둘로 나누면 치울 때 한쪽을 빠뜨리는 날이 온다.
+    /// </remarks>
     private DotNetObjectReference<LogTranslateView>? _tap;
 
     private StandaloneDiffEditor? _diff;
@@ -697,6 +708,10 @@ public partial class LogTranslateView
             // 손가락 누름은 Monaco 가 알려 주지 않는다. **새로 선 편집기마다**
             // 직접 지켜본다(`OnLineTappedAsync` 머리말).
             await WatchTapsAsync(target);
+
+            // 가름쇠가 움직였다는 것도 알려 주지 않는다. 칸의 크기를 직접
+            // 지켜보고 이름표를 그 자리에 맞춘다.
+            await WatchSplitAsync();
         }
         catch (Exception ex) when (ex is JSException or JSDisconnectedException
             or ObjectDisposedException or TaskCanceledException)
@@ -754,6 +769,76 @@ public partial class LogTranslateView
             or ObjectDisposedException or TaskCanceledException)
         {
             // 아직 안 섰거나 회로가 끊겼다. 다음에 걸릴 때 다시 건다.
+        }
+    }
+
+    /// <summary>
+    /// 가운데 가름쇠를 지켜보고 <b>칸 이름표를 그 자리에 맞춘다.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 이름표 줄(「원문」·「번역 · 한국어」)은 편집기 <b>밖</b>에 따로 서 있어서,
+    /// 칸을 끌어 7:3 으로 만들면 이름표만 5:5 에 남아 <b>이름이 남의 칸을
+    /// 가리킨다.</b> 그 어긋남 때문에 한동안 끄는 길을 아예 닫아 두었다.
+    /// </para>
+    /// <para>
+    /// <b>자리를 맞추는 일은 브라우저 안에서 끝난다</b>(<c>js/monaco-loader.js</c>
+    /// 의 <c>watchSplit</c>). 끄는 동안 프레임마다 회로를 왕복하면 Blazor
+    /// Server 에서는 이름표가 손가락보다 한참 뒤에 따라온다 — 올라오는 것은
+    /// 손을 뗀 뒤의 비율 하나다(<see cref="OnSplitMoved"/>).
+    /// </para>
+    /// <para>
+    /// <b>끌어 두었던 자리를 되돌리는 것도 그쪽이 한다.</b> 비율을 함께
+    /// 넘기는 까닭은 <c>BuildOptions</c> 머리말에 있다 — 그 옵션의 칸이
+    /// <c>int?</c> 라 소수를 못 싣는다.
+    /// </para>
+    /// <para>
+    /// <b>휴대폰에서는 걸 것이 없다</b> — 거기는 Monaco 가 아니고 칸도 하나다.
+    /// 부르는 자리(<see cref="AttachModelsAsync"/>)가 이미 넓은 화면뿐이라
+    /// 따로 가리지 않는다.
+    /// </para>
+    /// </remarks>
+    private async Task WatchSplitAsync()
+    {
+        if (_loader is not { } loader)
+        {
+            return;
+        }
+
+        try
+        {
+            _tap ??= DotNetObjectReference.Create(this);
+
+            await loader.InvokeVoidAsync("watchSplit", _id, HeadsId, _state.SplitRatio, _tap);
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException
+            or ObjectDisposedException or TaskCanceledException)
+        {
+            // 아직 안 섰거나 회로가 끊겼다. 다음에 걸릴 때 다시 건다.
+        }
+    }
+
+    /// <summary>
+    /// 사람이 가름쇠를 옮겼다. <b>적어 두기만 한다</b>(<see cref="AiLogXlatState.SplitRatio"/>).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 쓰는 자리는 <b>편집기를 다시 세울 때</b> 하나다
+    /// (<c>SplitViewDefaultRatio</c>). 지금 서 있는 편집기는 이미 그 자리에
+    /// 있으므로 여기서 할 일이 없다.
+    /// </para>
+    /// <para>
+    /// <b>다시 그리지 않는다.</b> 이 알림은 끄는 동안에도 몇 번 올라오는데
+    /// (브라우저가 0.5% 문턱으로 추려 보낸다) 그때마다 회로가 화면을 다시
+    /// 그리면 <b>Monaco 가 통째로 다시 서서</b> 끌던 손이 떨어진다.
+    /// </para>
+    /// </remarks>
+    [JSInvokable]
+    public void OnSplitMoved(double ratio)
+    {
+        if (double.IsFinite(ratio) && ratio is > 0 and < 1)
+        {
+            _state.SplitRatio = ratio;
         }
     }
 
@@ -1351,9 +1436,27 @@ public partial class LogTranslateView
     /// 색이 두 겹으로 얹혀 좌우가 다른 색으로 보인다.
     /// </para>
     /// <para>
-    /// <b>가운데 가름쇠를 못 끌게 한다</b>(<c>EnableSplitViewResizing = false</c>).
-    /// 칸 이름표(「원문」·「번역」)가 반반을 믿고 서 있어서, 끌어 7:3 으로
-    /// 만들면 <b>이름이 남의 칸을 가리킨다.</b>
+    /// <b>가운데 가름쇠를 끌 수 있다</b>(<c>EnableSplitViewResizing</c>).
+    /// 한동안 꺼 두었던 자리다 — 칸 이름표(「원문」·「번역」)가 반반을 믿고
+    /// 서 있어서, 끌어 7:3 으로 만들면 <b>이름이 남의 칸을 가리켰다.</b>
+    /// 지금은 이름표가 칸을 따라가므로(<see cref="WatchSplitAsync"/>) 막을
+    /// 까닭이 없다.
+    /// </para>
+    /// <para>
+    /// <b>첫 자리는 여기서 못 준다.</b> 탭을 건너갔다 오면 편집기가 새로
+    /// 서는데 그때 끌어 둔 자리로 되돌리려면 <c>SplitViewDefaultRatio</c> 에
+    /// 0~1 사이의 소수를 넣어야 하고, <b>BlazorMonaco 가 그 칸을 <c>int?</c>
+    /// 로 선언해 두었다</b> — 넣을 수 있는 것이 0 과 1 뿐이다. 그래서 그
+    /// 한 줄만 브라우저 쪽에서 민다(<see cref="WatchSplitAsync"/>).
+    /// </para>
+    /// <para>
+    /// <b>좁아져도 좌우를 걷지 않는다</b>(<c>UseInlineViewWhenSpaceIsLimited
+    /// = false</c>). Monaco 는 기본으로 폭이 900px 아래면 좌우 비교를 걷고
+    /// 한 칸짜리 인라인 비교로 갈아타는데, 그 자리에서 <b>왼쪽 칸이 42px 짜리
+    /// 토막으로 주저앉는다</b>(재어 확인했다 — 899px). 이름표 둘이 그대로
+    /// 서 있으므로 「원문」이 가리킬 칸이 없어진다. 휴대폰은 여기까지 오지도
+    /// 않으므로(위) 이 구간은 태블릿과 좁힌 창이고, 거기서 할 일은 칸을 걷는
+    /// 것이 아니라 <b>끌어서 보고 싶은 쪽을 넓히는 것</b>이다.
     /// </para>
     /// <para>
     /// <b>휴대폰에서 줄을 짚어도 자판이 올라오지 않게 한다</b>
@@ -1399,7 +1502,8 @@ public partial class LogTranslateView
         DomReadOnly = true,
         EditContext = false,
         RenderSideBySide = true,
-        EnableSplitViewResizing = false,
+        EnableSplitViewResizing = true,
+        UseInlineViewWhenSpaceIsLimited = false,
         RenderLineHighlight = "none",
         RenderIndicators = false,
         RenderMarginRevertIcon = false,
