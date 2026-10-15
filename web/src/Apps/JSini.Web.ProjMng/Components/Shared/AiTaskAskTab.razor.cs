@@ -8,12 +8,14 @@ namespace JSini.Web.ProjMng.Components.Shared;
 /// 셋이든 넷이든 다섯이든 골라 담는다(머리말).
 /// </summary>
 /// <remarks>
+/// <b>이 부품이 하는 일은 탭 이름 하나다.</b> 판의 알맹이와 「어느 차수를 펴
+/// 두었나」는 <see cref="AiTaskAskPane"/> 가 들고 있다 — <c>DxTabPage</c> 가
+/// 제 자식 내용을 제가 그리지 않아서, 여기 두면 상태가 화면에 닿지 않는다
+/// (2026-10-16 · 그 부품 머리말).
+/// <para>
 /// <b>자료는 받아 오지 않는다.</b> 실행 이력도 로그도 이 판을 가진 화면이 읽어
 /// 넘겨 준다 — 탭이 제 손으로 또 물으면 같은 값을 두 번 받아 오면서 둘이
 /// 어긋날 자리만 생긴다(<see cref="AiTaskView"/> 머리말).
-/// <para>
-/// 여기 남는 상태는 <b>그리는 모습</b>뿐이다 — 어느 차수를 펴 두었나
-/// (<see cref="_openTurns"/>), 「앞에 덧댄 글」을 폈나(<see cref="_openLeads"/>).
 /// </para>
 /// </remarks>
 public partial class AiTaskAskTab
@@ -125,180 +127,4 @@ public partial class AiTaskAskTab
     /// </remarks>
     private string TabText => Text
         ?? (RunCount < 2 ? "지시와 결과" : $"지시와 결과 ({RunCount}회)");
-
-    /// <summary>
-    /// 펴고 접은 모습을 어느 건의 것으로 들고 있나. <b>건이 바뀌면 턴다.</b>
-    /// </summary>
-    private long? _key;
-
-    /// <summary>
-    /// 펴 둔 차수. <b>널이면 「마지막 차수만」</b>이고, 사람이 한 번이라도
-    /// 접거나 펴면 그 순간의 모습이 여기 담긴다.
-    /// </summary>
-    /// <remarks>
-    /// 처음부터 집합을 들지 않는 까닭은 <b>차수가 도중에 늘기 때문</b>이다.
-    /// 지켜보는 동안 이어서 지시가 한 번 더 돌면 차수가 하나 늘어나는데,
-    /// 그때 펴야 할 것은 새로 생긴 마지막 차수다 — 번호를 담아 두면 그 자리가
-    /// 접힌 채로 서고 사람은 방금 보낸 것이 어디 갔는지 찾게 된다.
-    /// <para>
-    /// 사람이 손을 댄 뒤로는 우리가 옮기지 않는다. 탭을 안 옮기는 것
-    /// (<c>AiTaskView._pinned</c>)과 같은 까닭이다 — <b>읽던 자리를 잃는다.</b>
-    /// </para>
-    /// </remarks>
-    private HashSet<int>? _openTurns;
-
-    /// <summary>
-    /// 「앞에 덧댄 글」을 펴 둔 차수. <b>처음에는 모두 접혀 있다.</b>
-    /// </summary>
-    /// <remarks>
-    /// 그 글은 서버가 지은 것이지 사람이 적은 것이 아니다(<see cref="AiTaskAsk"/>).
-    /// 펴 두면 차수마다 앞 차수의 요약이 되풀이되어, <b>이번에 무엇을 더
-    /// 시켰는지가 그 되풀이에 묻힌다.</b>
-    /// </remarks>
-    private readonly HashSet<int> _openLeads = [];
-
-    /// <summary>
-    /// 그 차수의 결과문을 <b>줄로 갈라 둔 것.</b> 번역 판은 줄 목록을 받는다
-    /// (<see cref="LogTranslateView.Lines"/>).
-    /// </summary>
-    /// <remarks>
-    /// <b>차수마다 담아 둔다.</b> 그리기마다 새로 가르면 글자가 한 자도
-    /// 안 바뀐 날에도 새 목록이 넘어가, 판이 그때마다 들여오기를 한 바퀴
-    /// 돈다(<c>LogTranslateView.SyncSource</c>).
-    /// </remarks>
-    private readonly Dictionary<int, (string Text, IReadOnlyList<string> Lines)> _resultLines = [];
-
-    /// <summary>
-    /// 다른 건이 넘어왔으면 <b>펴고 접은 모습을 턴다.</b>
-    /// </summary>
-    /// <remarks>
-    /// 안 털면 앞 건에서 3차를 펴 둔 사람이 다음 건에서도 3차만 펴진 판을
-    /// 본다 — 차수 번호는 건마다 1 부터 다시 매겨져서, <b>남의 건의 손자국</b>이
-    /// 제 손으로 편 것처럼 보인다.
-    /// <para>
-    /// 널로 돌리지 않고 <see cref="Turns"/> 가 비는 것까지 기다리지도 않는다 —
-    /// 번호 하나로 가른다. 같은 건을 다시 읽는 동안(따라가기)에는 번호가
-    /// 그대로라 손자국이 살아남는다.
-    /// </para>
-    /// </remarks>
-    protected override void OnParametersSet()
-    {
-        if (_key == Item?.TaskKey)
-        {
-            return;
-        }
-
-        _key = Item?.TaskKey;
-        _openTurns = null;
-        _openLeads.Clear();
-        _resultLines.Clear();
-    }
-
-    /// <summary>
-    /// 그 차수의 결과문을 줄로 가른다. <b>빈 줄도 그대로 둔다</b> — 문단
-    /// 사이가 붙으면 글이 통째로 한 덩어리로 읽힌다.
-    /// </summary>
-    private IReadOnlyList<string> ResultLines(AiTaskTurn turn, string result)
-    {
-        if (_resultLines.TryGetValue(turn.No, out var had)
-            && string.Equals(had.Text, result, StringComparison.Ordinal))
-        {
-            return had.Lines;
-        }
-
-        // 줄 끝이 섞여 들어온다(실행기가 찍는 것 · 사람이 적어 넣은 것).
-        // 안 맞추면 `\r` 한 자가 줄 끝에 남아 옮길 때 함께 올라간다.
-        IReadOnlyList<string> lines = result
-            .Replace("\r\n", "\n", StringComparison.Ordinal)
-            .Replace('\r', '\n')
-            .Split('\n');
-
-        _resultLines[turn.No] = (result, lines);
-
-        return lines;
-    }
-
-    /// <summary>
-    /// 옮긴 결과문을 <b>어느 이름으로 들고 있을지</b>(<see cref="AiLogXlatStore"/>).
-    /// </summary>
-    /// <remarks>
-    /// <b>건 번호와 차수를 함께 넣는다.</b> 건만 넣으면 1차를 옮긴 글이 2차
-    /// 자리에 그대로 서고, 차수만 넣으면 다른 건의 1차에 앞 건의 번역이 선다.
-    /// <para>
-    /// <b>로그의 열쇠와 겹치지 않아야 한다</b> — 그쪽은 <c>ai-task:{번호}</c>
-    /// 이고(<see cref="AiTaskView"/>) 여기에는 <c>:result:</c> 한 토막이 더
-    /// 붙는다. 겹치면 줄 수가 달라 번역이 통째로 버려진다
-    /// (<c>LogTranslateView.SyncSource</c>).
-    /// </para>
-    /// </remarks>
-    private string ResultStateKey(AiTaskTurn turn) => $"ai-task:{_key}:result:{turn.No}";
-
-    /// <summary>그 차수가 펴져 있나. <b>손대기 전에는 마지막 차수만</b>이다.</summary>
-    private bool IsTurnOpen(AiTaskTurn turn)
-        => _openTurns is { } open ? open.Contains(turn.No) : turn.IsLast;
-
-    /// <summary>차수를 접었다 편다. 머리줄이 통째로 이 단추다.</summary>
-    /// <remarks>
-    /// <b>첫 손길에 지금 모습을 그대로 담는다</b> — 그래야 3차를 펴는 손길이
-    /// 보고 있던 1차를 덮어 접지 않는다.
-    /// </remarks>
-    private void ToggleTurn(AiTaskTurn turn)
-    {
-        _openTurns ??= [.. Turns.Where(IsTurnOpen).Select(t => t.No)];
-
-        if (!_openTurns.Remove(turn.No))
-        {
-            _openTurns.Add(turn.No);
-        }
-    }
-
-    /// <summary>그 차수의 「앞에 덧댄 글」이 펴져 있나.</summary>
-    private bool IsLeadOpen(AiTaskTurn turn) => _openLeads.Contains(turn.No);
-
-    /// <summary>「앞에 덧댄 글」을 접었다 편다.</summary>
-    private void ToggleLead(AiTaskTurn turn)
-    {
-        if (!_openLeads.Remove(turn.No))
-        {
-            _openLeads.Add(turn.No);
-        }
-    }
-
-    /// <summary>펴고 접을 자리의 이름표. 낭독기에게 머리줄과 몸통을 잇는다.</summary>
-    private string TurnPaneId(AiTaskTurn turn) => $"pm-peek-turn-{_key}-{turn.No}";
-
-    /// <summary>
-    /// 그 차수의 답 아래 한 줄 — 가지 · 몇 줄이 바뀌었나 · 올린 자리.
-    /// </summary>
-    /// <remarks>
-    /// <b>올린 자리는 마지막 차수에만 적는다.</b> 그 값은 작업에 하나뿐이라
-    /// (<c>ai_task.pushed_commit</c>) 차수마다 적으면 1차의 답 아래에
-    /// <b>3차가 올린 커밋</b>이 앉는다.
-    /// </remarks>
-    private string? TurnHint(AiTaskTurn turn)
-    {
-        if (turn.Run is not { } run)
-        {
-            return null;
-        }
-
-        var parts = new List<string>();
-
-        if (run.GitBranch is { Length: > 0 } branch)
-        {
-            parts.Add(branch);
-        }
-
-        if (run.DiffStat is { Length: > 0 } diff)
-        {
-            parts.Add(diff.Split('\n')[^1].Trim());
-        }
-
-        if (turn.IsLast && Item?.PushedCommit is { Length: > 0 } commit)
-        {
-            parts.Add($"올림 {commit[..Math.Min(7, commit.Length)]}");
-        }
-
-        return parts.Count == 0 ? null : string.Join(" · ", parts);
-    }
 }

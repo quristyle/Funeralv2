@@ -2347,6 +2347,7 @@ Components/Shared/SearchBar.razor      조건줄
 Components/Shared/SplitPane.razor      마스터-디테일 좌우 분할
 Components/Shared/AiTaskView.razor     보낸 지시 한 건의 속. 머리띠 · 처리 요약 · 탭 줄
 Components/Shared/AiTask*Tab.razor     그 탭 줄에 **골라 담는 탭 한 장씩** — 넷이다 (아래)
+Components/Shared/AiTaskAskPane.razor  「지시와 결과」의 알맹이. **탭과 따로 선 까닭은 아래**
 ```
 
 ##### AI 작업의 탭은 **한 장이 부품 한 장이다** (2026-10-15)
@@ -2384,7 +2385,7 @@ Components/Shared/AiTask*Tab.razor     그 탭 줄에 **골라 담는 탭 한 �
 | 자료 받아 오기 (실행 이력 · 로그 · 대상·AI 목록) | 같은 화면. 탭이 또 물으면 같은 값이 두 벌이 된다 |
 | 저장·요청·취소·삭제 | 같은 화면. 적는 탭은 **눌렸다는 사실만** 올려 보낸다 |
 | 탭 **이름** (「(3회)」·「(12)」·「(840줄)」) | 부품. 숫자만 넘겨 주면 스스로 짓는다(`Text` 로 덮을 수 있다) |
-| 펴고 접은 모습 (어느 차수를 폈나) | 부품. 건 번호가 바뀌면 스스로 턴다 |
+| 펴고 접은 모습 (어느 차수를 폈나) | 부품의 **한 겹 안**(`AiTaskAskPane`). 건 번호가 바뀌면 스스로 턴다 — 왜 한 겹 안인지는 아래 |
 
 **적는 탭만 `Item` 을 고친다.** 입력칸이 `@bind` 로 그 객체의 칸을 바로 치고,
 부르는 쪽은 저가 넘긴 그 객체를 그대로 저장한다 — 칸마다 콜백을 내걸면 칸이
@@ -2412,6 +2413,44 @@ Components/Shared/AiTask*Tab.razor     그 탭 줄에 **골라 담는 탭 한 �
 `.dxbl-tabs .dxbl-tabs-item` 이 tabler.css 에 있고 그 파일이 모듈 CSS 뒤에
 실려서, 자릿수가 같으면 우리 값이 **조용히 진다**(tabler.css 는 `<head>` 의
 맨 마지막이다 — 위 테마 표). 잰 값은 projmng.css 의 같은 이름 구역에 있다.
+
+**탭 부품의 몸통에 제 상태를 두지 말 것 — `DxTabPage` 는 제 자식 내용을 제가
+그리지 않는다** (2026-10-16). `DxTabPage` 는 둘러싼 `DxTabs` 에 제 몸을 맡기고,
+알맹이가 실제로 그려지는 자리는 **`DxTabs` 의 그림**이다. 그래서 탭 부품이
+제 상태를 바꾸고 다시 그려도(`StateHasChanged`) 새 조각은 `DxTabPage` 의
+파라미터로만 들어가고 **화면에는 한 글자도 안 닿는다.**
+
+증상이 고약하다 — 오류가 한 줄도 안 뜨고 서버 쪽 값은 **제대로 뒤집힌다.**
+그러다 부모(`AiTaskView`)가 다른 일로 다시 그려 `DxTabs` 까지 흔들리는 순간
+**밀려 있던 것이 한꺼번에** 반영된다. 그래서 「눌러도 아무 일이 없다」와
+「다른 데를 건드리면 그제서야 먹는다」가 함께 나오고, 돌고 있는 건에서는
+5초 따라가기가 대신 그려 주어 **멀쩡해 보인다.**
+
+실제로 「지시와 결과」의 차수 접개가 이것으로 **통째로 죽어 있었다**
+(탭을 부품으로 가른 2026-10-15 부터 하루 동안 · 휴대폰에서 먼저 눈에 띄었다).
+고친 길은 **알맹이를 한 겹 안의 부품으로 세우는 것**이다 —
+
+```razor
+@* AiTaskAskTab.razor — 탭 이름만 짓고 알맹이는 넘긴다 *@
+<DxTabPage Text="@TabText">
+    <AiTaskAskPane Item="@Item" Turns="@Turns" … />
+</DxTabPage>
+```
+
+부품이면 제 그림을 제가 들고 있어서, 바깥이 다시 그려지든 말든
+`StateHasChanged` 한 번에 제 자리만 갈아 끼운다. 같은 탭 안의
+`LogTranslateView` 가 줄을 눌렀을 때 곧바로 반응하는 것이 그 증거다
+(그쪽은 처음부터 부품이었다).
+
+| 탭 부품 | 제 상태 | 어디 있나 |
+|---|---|---|
+| `AiTaskAskTab` | 어느 차수를 폈나 · 덧댄 글을 폈나 | **`AiTaskAskPane`** (한 겹 안) |
+| `AiTaskLogTab` · `AiTaskFilesTab` | 없다 | — (그려 주는 `LogTranslateView` 가 제 것을 들고 있다) |
+| `AiTaskWriteTab` | 없다(입력칸이 `Item` 을 바로 친다) | — |
+
+`AiTaskWriteTab` 의 「고른 AI 의 한도」 한 줄(`@if (t.RunnerKind is …)`)은
+아직 이 함정 위에 있다 — 고르개를 바꾼 그 그림에서는 안 서고 다음 그림에
+선다. 거기를 손볼 날에는 같은 식으로 한 겹 안으로 민다.
 
 ##### 로그와 결과는 **같은 번역 판**을 쓴다 (2026-10-16)
 
