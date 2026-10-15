@@ -1,0 +1,240 @@
+@page "/helpdesk/hanju/gauge-collection"
+@attribute [RouteKey("helpdesk.hanju.gauge-collection")]
+
+@*
+    [한주계량기 수집상태] — DB 메뉴 `/helpdesk/hanju/gauge-collection`.
+    이력: JinReception `views/pages/hanju/CollectionStatus.vue`(`/collection-status`) → 여기.
+    프로시저: `P_QURI_MC`(계량기 목록) → 고른 계량기로 액션 프로시저 일곱
+
+    계량기 하나를 골라 **자료가 지금 들어오고 있는지**와 그 이력을 본다.
+
+    [이미 있는 「수집 현황」과 다른 화면이다]
+
+    `/helpdesk/hanju/collection-status` 는 `P_QURI_SERVER_REPORT` 한 건을
+    표로 펴는 자리다. 이 화면은 원본의 일을 그대로 옮긴 것이다 —
+    계량기 147대를 나무로 세우고, 고른 하나에 프로시저 일곱을 바꿔 가며
+    건다. 둘은 재료도 조작도 달라서 합치지 않았다.
+
+    [왼쪽에서 고르고 오른쪽에서 본다]
+
+    프로시저 결과 화면과 같은 짜임이다(`hd-vsplit`). 폭은 사람이 정한다 —
+    계량기 이름이 긴 쪽과 결과 칸이 많은 쪽이 서로 다른 폭을 바란다.
+    **판은 `<Panes>` 안에 적어야 한다** — 빼먹으면 빌드는 통과하고 속이 빈
+    회색 상자가 나온다(`DxSplitterPanesTests` 가 막는다).
+
+    [거르개를 조회 판에 두지 않는다]
+
+    체크칸 셋·검색칸·묶음 단추 셋은 전부 **왼쪽 나무에 딸린 것**이다.
+    위에 `CommSch` 를 세워 담으면 거르개와 걸러지는 목록이 다른 판으로
+    갈린다 — 프로시저 결과 화면이 같은 까닭으로 그렇게 하지 않았다.
+
+    [칸을 손으로 적지 않는다 — 프로시저마다 다르다]
+
+    액션 일곱이 돌려주는 칸이 전부 다르다(기본은 열넷, 실시간은 여덟,
+    Peak 는 스물셋). 박아 두면 새 칸이 조용히 사라지므로 `AutoGrid` 로
+    서버가 준 대로 세우고, 칸 이름을 미리 알 수 없으니 표 전체를 훑는
+    검색칸을 켠다(옛 화면의 「결과 검색」).
+
+    [수집중인지는 화면이 정한다]
+
+    `P_QURI_HOUR` 도 `run_state` 를 주지만 옛 화면은 그 값을 **쓰지 않고**
+    `last_mgap > 5` 로 다시 판정했다. 실제로 1분 지연인 계량기에 프로시저가
+    `N`(중지)을 주고 있어서, 그대로 믿으면 멀쩡한 계량기가 모두 빨갛게
+    선다. 같은 규칙을 그대로 옮긴다.
+
+    [시각은 OADR 이 준 그대로 적는다]
+
+    `last_get_dt`·`next_get_dt` 는 한주 DB 의 벽시계 값이고 표준시 꼬리표가
+    없다. UTC 로 읽어 되돌리면 아홉 시간이 어긋난다.
+*@
+
+@inherits AutoRefreshPage
+
+<PageTitle>한주계량기 수집상태 · 헬프데스크</PageTitle>
+
+<DxSplitter CssClass="hd-vsplit" Orientation="Orientation.Horizontal" SeparatorSize="2">
+    <Panes>
+
+    @* ── 왼쪽: 계량기 나무 ──────────────────────────────── *@
+    <DxSplitterPane Size="24%" MinSize="220px" MaxSize="55%">
+        <CommCont Title="계량기 목록" Hint="@ListHint" CssClass="hd-vsplit__pane hd-vsplit__pane--left">
+            <ChildContent>
+                @* 어떤 계량기를 목록에 세울지. 옛 화면과 같은 셋이다. *@
+                <div class="hd-gauge__filters">
+                    <DxCheckBox Checked="@_onlyActive" CheckedChanged="@((bool v) => SetFilterAsync(active: v))">사용중</DxCheckBox>
+                    <DxCheckBox Checked="@_excludeMaintenance" CheckedChanged="@((bool v) => SetFilterAsync(maintenance: v))">정상(점검제외)</DxCheckBox>
+                    <DxCheckBox Checked="@_onlyReplicated" CheckedChanged="@((bool v) => SetFilterAsync(replicated: v))">복제계측기</DxCheckBox>
+                </div>
+
+                @* 치는 대로 줄어야 해서 `OnInput` 이다 — 기본값(`OnChange`)은
+                   칸을 벗어나야 값이 넘어온다. 라벨이 없으므로 자리표시 글이
+                   라벨 노릇을 한다. *@
+                <DxTextBox Text="@_keyword"
+                           TextChanged="@((string? text) => Filter(text))"
+                           BindValueMode="BindValueMode.OnInput"
+                           InputDelay="200"
+                           NullText="계량기 · 설명 찾기"
+                           ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                           CssClass="hd-gauge__search" />
+
+                @* 무엇으로 묶을지. `DxButtonGroup` 은 자식을 `Items` 로 받아
+                   그냥 넣으면 열 때 500 이 난다(포털관리 사람롤 화면 주석) —
+                   맨 단추 셋의 모양만 바꾼다. *@
+                <div class="hd-gauge__group">
+                    @foreach (var mode in GroupModes)
+                    {
+                        <DxButton Text="@mode.Text"
+                                  RenderStyle="@(_group == mode.Value ? ButtonRenderStyle.Primary : ButtonRenderStyle.Secondary)"
+                                  Click="@(() => Regroup(mode.Value))" />
+                    }
+                </div>
+
+                <CommTree TItem="GaugeNode" Data="@_nodes"
+                          KeyFieldName="@nameof(GaugeNode.Key)"
+                          ChildrenFieldName="@nameof(GaugeNode.Children)"
+                          ShowExcelExport="false"
+                          EmptyText="고를 계량기가 없습니다."
+                          Reload="@ReloadAsync"
+                          SelectedItem="@_node"
+                          SelectedItemChanged="@PickAsync"
+                          CssClass="hd-gauge__tree">
+                    <Columns>
+                        <DxTreeListDataColumn Caption="계량기" MinWidth="170">
+                            <CellDisplayTemplate Context="cell">
+                                @NodeLabel((GaugeNode)cell.DataItem)
+                            </CellDisplayTemplate>
+                        </DxTreeListDataColumn>
+                    </Columns>
+                </CommTree>
+            </ChildContent>
+        </CommCont>
+    </DxSplitterPane>
+
+    @* ── 오른쪽: 고른 계량기의 상태와 이력 ──────────────── *@
+    <DxSplitterPane>
+        @if (_gauge is null)
+        {
+            <CommCont CssClass="hd-vsplit__pane hd-vsplit__pane--right">
+                <PageNotice Text="왼쪽에서 계량기를 고르십시오." Tone="NoticeTone.Info" />
+            </CommCont>
+        }
+        else
+        {
+            <CommCont CssClass="hd-vsplit__pane hd-vsplit__pane--right hd-gauge__right">
+                <TitleTemplate>
+                    <h2 class="commcont__title">@_gauge.McId</h2>
+                    <span class="jsini-badge @(Running ? "jsini-badge--success" : "jsini-badge--err")">
+                        @(Running ? "수집중" : "중지")
+                    </span>
+                    @if (HasReplica)
+                    {
+                        <span class="jsini-badge jsini-badge--warn">Dst: @_gauge.DstMcId</span>
+                    }
+                    <span class="commcont__hint">@_gauge.Descript</span>
+                </TitleTemplate>
+
+                <ChildContent>
+                    @* 액션 일곱. 누른 것이 진하게 선다 — 지금 무엇을 보고
+                       있는지는 아래 표의 이름표와 이 단추 둘이 말한다. *@
+                    <div class="jsini-toolbar hd-gauge__bar">
+                        @foreach (var action in Actions)
+                        {
+                            <DxButton Text="@action.Text"
+                                      RenderStyle="@(_action == action.Procedure ? action.On : ButtonRenderStyle.Secondary)"
+                                      Enabled="@(!Loading)"
+                                      Click="@(() => RunAsync(action))" />
+                        }
+
+                        <span class="hd-gauge__bar-right">
+                            <DxCheckBox CheckType="CheckType.Switch" Checked="@_auto"
+                                        CheckedChanged="@((bool on) => ToggleAuto(on))">
+                                자동갱신 @(_auto ? "ON" : "OFF")
+                            </DxCheckBox>
+                            <DxButton IconCssClass="jsini-icon-refresh" Title="지금 다시 읽는다"
+                                      RenderStyle="ButtonRenderStyle.Link"
+                                      Enabled="@(!Loading)" Click="@RefreshNowAsync" />
+                        </span>
+                    </div>
+
+                    @* 지금 상태. 지연이 한 시간을 넘으면 붉다 — 옛 화면과 같다. *@
+                    <div class="hd-gauge__facts">
+                        <div class="hd-gauge__fact">
+                            <span class="hd-gauge__fact-label">지연 현황</span>
+                            <span class="hd-gauge__fact-value @(_hour?.LastHgap > 0 ? "hd-gauge__over" : "hd-gauge__safe")">
+                                @(_hour?.LastHgap ?? 0)h / @(_hour?.LastMgap ?? 0)m / @(_hour?.LastSgap ?? 0)s
+                            </span>
+                        </div>
+                        <div class="hd-gauge__fact">
+                            <span class="hd-gauge__fact-label">마지막 수집</span>
+                            <span class="hd-gauge__fact-value">@Stamp(_hour?.LastGetDt)</span>
+                        </div>
+                        <div class="hd-gauge__fact">
+                            <span class="hd-gauge__fact-label">다음 예정</span>
+                            <span class="hd-gauge__fact-value">@Stamp(_hour?.NextGetDt)</span>
+                        </div>
+                        <div class="hd-gauge__fact">
+                            <span class="hd-gauge__fact-label">서버 / 태그</span>
+                            <span class="hd-gauge__fact-value">@Server / @(_gauge.TagId ?? "-")</span>
+                        </div>
+                        @if (_hour?.LastErrorMsg is { Length: > 0 } error)
+                        {
+                            <div class="hd-gauge__fact hd-gauge__fact--error">
+                                <span class="hd-gauge__fact-label">최근 에러 (재시도: @_hour.RetryCnt)</span>
+                                <span class="hd-gauge__fact-value" title="@error">@error</span>
+                            </div>
+                        }
+                    </div>
+
+                    <CommCont Title="@($"수집 이력 ({_gauge.McId})")" Hint="@_action">
+                        <AutoGrid Data="@_rows" Loading="@Loading" SearchBox="true" AllRows="true" ColumnWidth="170" MinColumnWidth="160" />
+                    </CommCont>
+
+                    @if (HasReplica)
+                    {
+                        <CommCont Title="@($"복제 수집 이력 ({_gauge.DstMcId})")" Hint="@_action" CssClass="hd-gauge__replica">
+                            <AutoGrid Data="@_replicaRows" Loading="@Loading" SearchBox="true" AllRows="true" ColumnWidth="170" MinColumnWidth="160" />
+                        </CommCont>
+                    }
+                </ChildContent>
+            </CommCont>
+        }
+    </DxSplitterPane>
+
+    </Panes>
+</DxSplitter>
+
+<ConfirmDialog @ref="_confirm" />
+
+@code {
+    @* C# 파일에서는 마크업을 쓸 수 없다. 나무 줄의 모양만 여기 남는다. *@
+
+    @* 묶음 줄은 이름과 식구 수, 계량기 줄은 지연·복제 표시와 설명이다.
+       지연된 계량기(5분 초과)는 이름이 붉어진다 — 나무를 훑는 것만으로
+       멈춘 것이 눈에 띄어야 한다. *@
+    private static RenderFragment NodeLabel(GaugeNode node) =>
+        node.IsGroup
+            ? @<span class="hd-gauge__node">
+                  <b class="hd-gauge__group-name">@node.Label</b>
+                  @if (node.Extra is { Length: > 0 })
+                  {
+                      <span class="hd-gauge__node-desc">@node.Extra</span>
+                  }
+                  <span class="hd-gauge__count">(@node.Children.Count)</span>
+              </span>
+            : @<span class="hd-gauge__node">
+                  @if (node.Delayed)
+                  {
+                      <span class="jsini-badge jsini-badge--err" title="@($"수집중지 ({node.Gauge!.LastMgap}분 지연)")">!</span>
+                  }
+                  @if (node.ReplicaTarget)
+                  {
+                      <span class="jsini-badge jsini-badge--warn" title="복제대상계측기">복제</span>
+                  }
+                  <b class="@(node.Delayed ? "hd-gauge__over" : null)">@node.Label</b>
+                  @if (node.Gauge?.DstMcId is { Length: > 0 } dst)
+                  {
+                      <span class="hd-gauge__node-dst">(@dst)</span>
+                  }
+                  <span class="hd-gauge__node-desc" title="@node.Gauge?.Descript">@node.Gauge?.Descript</span>
+              </span>;
+}

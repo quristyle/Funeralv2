@@ -2579,3 +2579,146 @@
 .hd-sysmon__safe {
   color: #2e7d32;
 }
+
+/* ── 한주계량기 수집상태 (`/helpdesk/hanju/gauge-collection`) ──
+
+   왼쪽이 계량기 나무, 오른쪽이 고른 하나의 상태와 이력이다. 좌우를 나누는
+   규칙은 위 `hd-vsplit` 가 이미 갖고 있고, 여기에는 **판 안쪽**만 적는다.
+   ---------------------------------------------------------- */
+
+/* 왼쪽 판의 거르개 셋. 좁은 판에 가로로 늘어서면 글자가 잘리므로 쌓는다. */
+.hd-gauge__filters {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin-bottom: 0.4rem;
+}
+
+.hd-gauge__search {
+  margin-bottom: 0.4rem;
+}
+
+/* 묶는 기준 셋. 한 줄을 셋이 고르게 나눠 쓴다 — 글자 길이가 달라도
+   단추 폭이 같아야 고르개로 읽힌다. */
+.hd-gauge__group {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+}
+
+/* 나무는 남은 높이를 다 쓰고 **제 안에서 구른다.** 높이를 값으로 주면
+   아래 띠가 판 밖으로 밀려난다(web/CLAUDE.md). */
+.hd-gauge__tree {
+  flex: 1;
+  min-height: 0;
+}
+
+/* 나무 줄 하나. 이름 · 곁말 · 설명이 한 줄에 서고, 설명만 줄어든다. */
+.hd-gauge__node {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
+}
+
+.hd-gauge__group-name {
+  color: var(--jsini-accent);
+}
+
+.hd-gauge__count {
+  font-size: var(--jsini-fs-xs);
+  color: var(--jsini-text-muted);
+}
+
+.hd-gauge__node-dst {
+  font-size: var(--jsini-fs-xs);
+  color: var(--jsini-text-muted);
+}
+
+/* 설명은 남는 자리만 쓰고 넘치면 자른다. 이름이 먼저 읽혀야 한다. */
+.hd-gauge__node-desc {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: right;
+  font-size: var(--jsini-fs-xs);
+  color: var(--jsini-text-muted);
+}
+
+/* 오른쪽 판은 제 안에서 구른다 — 표 둘이 쌓이면 판보다 길어진다. */
+.hd-gauge__right > .commcont__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* 액션 줄. 단추 일곱이 좁은 판에서는 다음 줄로 접힌다. */
+.hd-gauge__bar {
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.hd-gauge__bar-right {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+}
+
+/* 지금 상태 넷(+에러). 타일과 같은 `auto-fit` 이라 좁아지면 접힌다. */
+.hd-gauge__facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.5rem 1rem;
+  margin: 0.5rem 0 0.75rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--jsini-border);
+}
+
+.hd-gauge__fact {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.hd-gauge__fact-label {
+  font-size: var(--jsini-fs-xs);
+  font-weight: 700;
+  color: var(--jsini-text-muted);
+}
+
+.hd-gauge__fact-value {
+  font-size: var(--jsini-fs-sm);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 에러 줄은 한 줄로는 모자란다 — 두 칸을 쓴다. */
+.hd-gauge__fact--error {
+  grid-column: span 2;
+}
+
+.hd-gauge__fact--error .hd-gauge__fact-label,
+.hd-gauge__fact--error .hd-gauge__fact-value {
+  color: #d32f2f;
+}
+
+/* 지연이 있는 값 · 없는 값. 수집 이력 표의 색과 같은 쌍이다. */
+.hd-gauge__over {
+  color: #d32f2f;
+}
+
+.hd-gauge__safe {
+  color: #2e7d32;
+}
+
+/* 복제 쪽 표는 본래 계량기의 것과 **구분되어야 한다** — 같은 칸 이름이
+   두 번 나와서, 머리 색이 같으면 어느 쪽을 보고 있는지 헷갈린다. */
+.hd-gauge__replica > .commcont__head > .commcont__title {
+  color: #b26a00;
+}

@@ -93,4 +93,27 @@ public partial class AutoGrid
 
     private string Caption(string name) =>
         Captions is not null && Captions.TryGetValue(name, out var text) ? text : name;
+
+    /// <summary>
+    /// 시각 칸의 꼴. 날짜만 담긴 칸은 날짜만, 시각이 섞인 칸은 시:분:초까지.
+    /// 까닭은 이 부품의 마크업 머리말에 있다.
+    /// </summary>
+    /// <remarks>
+    /// 시각 칸이 아니면 <c>null</c> 을 돌려준다 — 그러면 DevExpress 가
+    /// 제 기본값대로 그린다(수·글자는 손댈 것이 없다).
+    /// </remarks>
+    private string? Format(string name)
+    {
+        if (!Data.Columns.Contains(name) || Data.Columns[name]!.DataType != typeof(DateTime))
+        {
+            return null;
+        }
+
+        var hasTime = Data.Rows.Cast<DataRow>()
+            .Select(row => row[name])
+            .OfType<DateTime>()
+            .Any(value => value.TimeOfDay != TimeSpan.Zero);
+
+        return hasTime ? "yyyy-MM-dd HH:mm:ss" : "yyyy-MM-dd";
+    }
 }
