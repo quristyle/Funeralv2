@@ -1,0 +1,81 @@
+@*
+    [「처리 파일」 탭 — **골라 담는 한 장**]
+
+    왜 탭 한 장이 부품 한 장인지는 `AiTaskAskTab` 머리말에 있다.
+    이 탭이 왜 요약 아래의 묶음이 아니라 **탭**인지는 바로 아래에 적어 둔다.
+*@
+
+@* ── 처리 파일 — **탭 하나다** (2026-10-12) ─────────
+   하루는 요약 바로 아래의 묶음이었다. 거기서 두 가지가 걸렸다.
+
+     - 수백 줄을 고친 건에서 그 목록이 **지시와 결과를 화면 밖으로
+       밀어낸다.** 그래서 여덟 줄만 펴 두고 나머지를 「N개 더 보기」로
+       접었는데, 그러면 이번에는 **목록을 보러 온 사람이 늘 한 번 더
+       눌러야** 했다. 둘 다 세울 수 없는 자리였다.
+     - 길이가 건마다 10배씩 달라서(한 파일 ↔ 이백 파일) 그 아래
+       탭 줄이 **건마다 다른 높이에** 선다. 카드 넷을 차례로
+       눌러 보는 동안 탭이 위아래로 뛴다.
+
+   탭이면 둘 다 풀린다. **보러 온 사람만 건너오고**(모바일 회선이다),
+   건너온 사람은 접힌 것 없이 통째로 본다. 탭 이름에 개수를 적어
+   두므로 건너오기 전에도 「몇 개인가」는 알 수 있다 — 요약 아래에서
+   그 숫자가 하던 몫이 그것뿐이었다.
+
+   **차례는 지시와 결과 다음이다.** 「무엇을 했나」 다음에 오는 물음이
+   「그래서 어디를 건드렸나」고, 로그는 그 둘이 못 미더울 때 펴는
+   것이라 맨 끝이다.
+
+   **올린 파일(`pm-peek__files`)과 다른 것이다.** 그쪽은 사람이 지시에
+   붙여 넣은 것이라 「지시」 바로 아래에 그대로 둔다. 이쪽은 AI 가
+   저장소에 남긴 것이다. *@
+<DxTabPage Text="@TabText">
+    <div class="pm-peek__pane">
+        @if (Changed.Count > 0)
+        {
+            <ul class="pm-peek__chg">
+                @foreach (var f in Changed)
+                {
+                    @* 「외 N개」 줄은 파일이 아니다. 배지도 경로도 없이
+                       한 줄만 적는다 — 배지를 달면 그것이 파일 이름처럼 읽힌다. *@
+                    @if (f.Kind == AiRunFileKind.More)
+                    {
+                        <li class="pm-peek__chg-row pm-peek__chg-row--more">@f.Path</li>
+                    }
+                    else
+                    {
+                        <li class="pm-peek__chg-row">
+                            @if (f.KindText is { Length: > 0 } word)
+                            {
+                                <span class="pm-peek__chg-mark @f.KindClass">@word</span>
+                            }
+
+                            <span class="pm-peek__chg-path" title="@f.Path">
+                                @if (f.Folder is { Length: > 0 } folder)
+                                {
+                                    <span class="pm-peek__chg-dir">@folder/</span>
+                                }
+
+                                <span class="pm-peek__chg-name">@f.Name</span>
+                            </span>
+                        </li>
+                    }
+                }
+            </ul>
+
+            @* 가지 · 「몇 줄이 바뀌었나」 · 올린 자리. **이름 목록이
+               말하지 않는 것이 여기 있다** — 결과문 아래의 그 줄과
+               같은 값이고(`RunHint`), 둘 다 이 실행의 것이다. *@
+            @if (Hint is { Length: > 0 } fileHint)
+            {
+                <p class="jsini-hint">@fileHint</p>
+            }
+        }
+        else
+        {
+            @* **빈 탭을 말없이 두지 않는다.** 「아직인가 · 원래
+               없는 건인가 · 고장인가」가 갈리지 않으면 보는 사람이
+               같은 자리를 몇 번씩 다시 연다. *@
+            <p class="pm-peek__dim">@EmptyText</p>
+        }
+    </div>
+</DxTabPage>

@@ -178,34 +178,12 @@ public partial class AiTaskView
     /// 짓는 법은 <see cref="AiTaskTurns.Build"/>. 실행 줄 하나가 한 차수고,
     /// 보냈는데 아직 안 집혀 간 차수가 끝에 하나 더 붙을 수 있다.
     /// </para>
-    /// </remarks>
-    private IReadOnlyList<AiTaskTurn> _turns = [];
-
-    /// <summary>
-    /// 펴 둔 차수. <b>널이면 「마지막 차수만」</b>이고, 사람이 한 번이라도
-    /// 접거나 펴면 그 순간의 모습이 여기 담긴다.
-    /// </summary>
-    /// <remarks>
-    /// 처음부터 집합을 들지 않는 까닭은 <b>차수가 도중에 늘기 때문</b>이다.
-    /// 지켜보는 동안 이어서 지시가 한 번 더 돌면 차수가 하나 늘어나는데,
-    /// 그때 펴야 할 것은 새로 생긴 마지막 차수다 — 번호를 담아 두면 그 자리가
-    /// 접힌 채로 서고 사람은 방금 보낸 것이 어디 갔는지 찾게 된다.
     /// <para>
-    /// 사람이 손을 댄 뒤로는 우리가 옮기지 않는다. 탭을 안 옮기는 것
-    /// (<see cref="_pinned"/>)과 같은 까닭이다 — <b>읽던 자리를 잃는다.</b>
+    /// <b>그리는 일은 <see cref="AiTaskAskTab"/> 이 한다</b>(2026-10-15) —
+    /// 여기는 받아 와 넘겨 주기만 한다.
     /// </para>
     /// </remarks>
-    private HashSet<int>? _openTurns;
-
-    /// <summary>
-    /// 「앞에 덧댄 글」을 펴 둔 차수. <b>처음에는 모두 접혀 있다.</b>
-    /// </summary>
-    /// <remarks>
-    /// 그 글은 서버가 지은 것이지 사람이 적은 것이 아니다(<see cref="AiTaskAsk"/>).
-    /// 펴 두면 차수마다 앞 차수의 요약이 되풀이되어, <b>이번에 무엇을 더
-    /// 시켰는지가 그 되풀이에 묻힌다.</b>
-    /// </remarks>
-    private readonly HashSet<int> _openLeads = [];
+    private IReadOnlyList<AiTaskTurn> _turns = [];
 
     /// <summary>AI 의 마지막 답. 목록에는 없고 실행 줄에 있다.</summary>
     private string? _result;
@@ -235,42 +213,11 @@ public partial class AiTaskView
     /// 올려 보낸 것(들어간 것)이고 이쪽은 AI 가 저장소에 남긴 것(나온 것)이다.
     /// 둘이 한 판에 있으므로 이름을 섞지 않는다. 읽는 법은 <c>AiRunFiles.Parse</c>.
     /// <para>
-    /// <b>탭 안에서는 접지 않는다</b>(2026-10-12). 하루는 요약 아래에서 여덟
-    /// 줄만 펴 두고 나머지를 「N개 더 보기」로 접었는데, 그것은 <b>옆에 있는
-    /// 결과문을 지키려던 것</b>이었다. 제 탭을 얻은 뒤로는 밀어낼 것이 없고,
-    /// 여기까지 건너온 사람이 보려는 것이 그 목록이다.
+    /// <b>그리는 일은 <see cref="AiTaskFilesTab"/> 이 한다</b>(2026-10-15) —
+    /// 빈 탭에 적을 말도, 아래 한 줄도 그 부품이 짓는다.
     /// </para>
     /// </remarks>
     private IReadOnlyList<AiRunFile> _changed = [];
-
-    /// <summary>
-    /// 탭 이름에 적을 개수. <b>「외 N개」 줄은 빼고 센다</b> — 그것은 파일이
-    /// 아니라 <b>상한에 걸려 접힌 나머지가 몇이더라</b>는 말이다
-    /// (<c>AiRunFileKind.More</c> · 실행기가 200줄에서 자른다).
-    /// </summary>
-    private int ChangedCount => _changed.Count(f => f.Kind != AiRunFileKind.More);
-
-    /// <summary>
-    /// 「처리 파일」 탭에 적을 이름. <b>개수를 여기 적는다</b> — 건너오기 전에도
-    /// 「몇 개인가」는 알아야 건너올지가 정해진다.
-    /// </summary>
-    private string FileTabText => ChangedCount == 0 ? "처리 파일" : $"처리 파일 ({ChangedCount})";
-
-    /// <summary>
-    /// 「지시와 결과」 탭에 적을 이름. <b>두 번 이상 돈 건에만 회차를 적는다</b>
-    /// (2026-10-12).
-    /// </summary>
-    /// <remarks>
-    /// <b>한 번 돈 건에 「(1회)」는 적지 않는다.</b> 그것이 보통이라 아무것도
-    /// 가르지 못하면서 탭 이름만 길어진다 — 이 숫자가 하는 말은 「이 글은 한
-    /// 번에 나온 것이 아니다」 하나뿐이고, 그 말이 참인 건에만 선다.
-    /// <para>
-    /// <b>「회」를 붙인다.</b> 옆의 둘이 이미 맨숫자를 쓰고 있어(처리 파일 N ·
-    /// 로그 N줄) 여기도 맨숫자면 셋이 같은 종류로 읽힌다 — 이것만 개수가
-    /// 아니라 <b>횟수</b>다.
-    /// </para>
-    /// </remarks>
-    private string AskTabText => _runCount < 2 ? "지시와 결과" : $"지시와 결과 ({_runCount}회)";
 
     /// <summary>
     /// 로그가 <b>모두 몇 줄인가.</b> 탭 이름에 적는다.
@@ -287,21 +234,6 @@ public partial class AiTaskView
     /// </para>
     /// </remarks>
     private int LogCount => Math.Max(_lines.Count, _run?.LogLineCount ?? 0);
-
-    /// <summary>
-    /// 처리 파일이 없을 때 그 자리에 적을 말.
-    /// </summary>
-    /// <remarks>
-    /// <b>셋을 가른다.</b> 아직 도는 중인가 · 돈 적이 없는가 · 돌았는데 건드린
-    /// 것이 없는가. 한 가지 말로 뭉개면 보는 사람이 「기다리면 차는 것」과
-    /// 「원래 빈 것」을 구분하지 못해 같은 자리를 몇 번씩 다시 연다.
-    /// </remarks>
-    private string ChangedEmptyText => Item switch
-    {
-        { IsBusy: true } => "아직 돌고 있습니다. 끝나면 이번에 만들고 고친 파일이 여기 섭니다.",
-        _ when _run is null => "아직 실행된 적이 없습니다.",
-        _ => "이번 작업이 만들거나 고친 파일이 없습니다.",
-    };
 
     private readonly List<AiLogLineDto> _lines = [];
     private int _lastSeq;
@@ -355,8 +287,6 @@ public partial class AiTaskView
     private bool _speaking;
     private IJSObjectReference? _speechJs;
     private DotNetObjectReference<AiTaskView>? _dotNetRef;
-
-    private string LogTabText => LogCount == 0 ? "로그" : $"로그 ({LogCount}줄)";
 
     /// <summary>
     /// <b>답은 왔는데 요약이 아직 없나.</b> 그러면 실행이 끝났어도 조금 더 본다.
@@ -430,106 +360,6 @@ public partial class AiTaskView
 
     /// <summary>처리 요약을 접었다 편다. 제목 줄이 통째로 이 단추다.</summary>
     private void ToggleSummary() => _sumOpen = !_sumOpen;
-
-    /// <summary>그 차수가 펴져 있나. <b>손대기 전에는 마지막 차수만</b>이다.</summary>
-    private bool IsTurnOpen(AiTaskTurn turn)
-        => _openTurns is { } open ? open.Contains(turn.No) : turn.IsLast;
-
-    /// <summary>차수를 접었다 편다. 머리줄이 통째로 이 단추다.</summary>
-    /// <remarks>
-    /// <b>첫 손길에 지금 모습을 그대로 담는다</b> — 그래야 3차를 펴는 손길이
-    /// 보고 있던 1차를 덮어 접지 않는다.
-    /// </remarks>
-    private void ToggleTurn(AiTaskTurn turn)
-    {
-        _openTurns ??= [.. _turns.Where(IsTurnOpen).Select(t => t.No)];
-
-        if (!_openTurns.Remove(turn.No))
-        {
-            _openTurns.Add(turn.No);
-        }
-    }
-
-    /// <summary>그 차수의 「앞에 덧댄 글」이 펴져 있나.</summary>
-    private bool IsLeadOpen(AiTaskTurn turn) => _openLeads.Contains(turn.No);
-
-    /// <summary>「앞에 덧댄 글」을 접었다 편다.</summary>
-    private void ToggleLead(AiTaskTurn turn)
-    {
-        if (!_openLeads.Remove(turn.No))
-        {
-            _openLeads.Add(turn.No);
-        }
-    }
-
-    /// <summary>펴고 접을 자리의 이름표. 낭독기에게 머리줄과 몸통을 잇는다.</summary>
-    private string TurnPaneId(AiTaskTurn turn) => $"pm-peek-turn-{_key}-{turn.No}";
-
-    /// <summary>
-    /// 그 차수의 답 아래 한 줄 — 가지 · 몇 줄이 바뀌었나 · 올린 자리.
-    /// </summary>
-    /// <remarks>
-    /// <b>올린 자리는 마지막 차수에만 적는다.</b> 그 값은 작업에 하나뿐이라
-    /// (<c>ai_task.pushed_commit</c>) 차수마다 적으면 1차의 답 아래에
-    /// <b>3차가 올린 커밋</b>이 앉는다.
-    /// </remarks>
-    private string? TurnHint(AiTaskTurn turn)
-    {
-        if (turn.Run is not { } run)
-        {
-            return null;
-        }
-
-        var parts = new List<string>();
-
-        if (run.GitBranch is { Length: > 0 } branch)
-        {
-            parts.Add(branch);
-        }
-
-        if (run.DiffStat is { Length: > 0 } diff)
-        {
-            parts.Add(diff.Split('\n')[^1].Trim());
-        }
-
-        if (turn.IsLast && Item?.PushedCommit is { Length: > 0 } commit)
-        {
-            parts.Add($"올림 {commit[..Math.Min(7, commit.Length)]}");
-        }
-
-        return parts.Count == 0 ? null : string.Join(" · ", parts);
-    }
-
-    /// <summary>결과문 아래 한 줄. 무엇이 바뀌었는지와 어디에 남았는지.</summary>
-    private string? RunHint
-    {
-        get
-        {
-            if (_run is null)
-            {
-                return null;
-            }
-
-            var parts = new List<string>();
-
-            if (_run.GitBranch is { Length: > 0 } branch)
-            {
-                parts.Add(branch);
-            }
-
-            if (_run.DiffStat is { Length: > 0 } diff)
-            {
-                parts.Add(diff.Split('\n')[^1].Trim());
-            }
-
-            if (Item?.PushedCommit is { Length: > 0 } commit)
-            {
-                parts.Add($"올림 {commit[..Math.Min(7, commit.Length)]}");
-            }
-
-            return parts.Count == 0 ? null : string.Join(" · ", parts);
-        }
-    }
 
     /// <summary>
     /// 얼굴 옆에 적을 지시자 이름. <b>아직 못 읽었으면 로그인 아이디</b>다 —
@@ -1041,8 +871,6 @@ public partial class AiTaskView
         _summary = null;
         _changed = [];
         _turns = [];
-        _openTurns = null;
-        _openLeads.Clear();
         _answeredKey = null;
         _summaryWaits = 0;
         _summaryGaveUp = false;

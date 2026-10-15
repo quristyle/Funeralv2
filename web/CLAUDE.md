@@ -2345,7 +2345,43 @@ Components/Shared/DiagramViewer.razor  다이어그램
 Components/Shared/DateRangeTabs.razor  기간 선택 + 탭
 Components/Shared/SearchBar.razor      조건줄
 Components/Shared/SplitPane.razor      마스터-디테일 좌우 분할
+Components/Shared/AiTaskView.razor     보낸 지시 한 건의 속. 머리띠 · 처리 요약 · 탭 줄
+Components/Shared/AiTask*Tab.razor     그 탭 줄에 **골라 담는 탭 한 장씩** (아래)
 ```
+
+##### AI 작업의 탭은 **한 장이 부품 한 장이다** (2026-10-15)
+
+`AiTaskView` 가 세우는 탭 셋(「지시와 결과」·「처리 파일」·「로그」)은 한동안
+그 파일 안에 `DxTabs` 와 **한 덩어리로** 적혀 있었다. 판이 서는 자리가
+둘뿐일 때는(「빠른 지시」 판 안의 탭 · 포털 탭으로 열리는 `AiTaskViewPage`)
+그것으로 족했다 — 둘 다 탭 구성이 같았다.
+
+**탭 구성이 화면마다 달라지면 그것이 막힌다.** 넷이 필요한 화면도 다섯이
+필요한 화면도 있다. 덩어리째면 하나도 못 빼고 못 더하므로, 쓰려는 화면은
+**같은 마크업을 통째로 베껴** 제 탭을 끼워 넣게 된다 — 그때부터 「지시와
+결과」가 화면마다 다른 물건이 되고 한쪽만 고쳐지는 날이 온다(표 부품이
+둘이던 때 이미 한 번 밟았다 · 위 「표는 `CommGrd` 하나다」).
+
+```razor
+<DxTabs @bind-ActiveTabIndex="_tab" TabClick="@OnTabClick">
+    <AiTaskAskTab   Item="@t" Run="@_run" Turns="@_turns" RunCount="@_runCount" … />
+    <AiTaskFilesTab Item="@t" Run="@_run" Changed="@_changed" />
+    <AiTaskLogTab   Lines="@LogLines" Count="@LogCount" Active="@(_tab == TabLog)" … />
+    <DxTabPage Text="이 화면에만 있는 탭">…</DxTabPage>
+</DxTabs>
+```
+
+| 갈라 둔 자리 | 어디 |
+|---|---|
+| 탭 **번호** (`TabAsk`·`TabFiles`·`TabLog`) | `DxTabs` 를 세운 화면. 부품은 제가 몇 번째인지 모른다 |
+| 자료 받아 오기 (실행 이력 · 로그) | 같은 화면. 탭이 또 물으면 같은 값이 두 벌이 된다 |
+| 탭 **이름** (「(3회)」·「(12)」·「(840줄)」) | 부품. 숫자만 넘겨 주면 스스로 짓는다(`Text` 로 덮을 수 있다) |
+| 펴고 접은 모습 (어느 차수를 폈나) | 부품. 건 번호가 바뀌면 스스로 턴다 |
+
+**끼운 부품이 `DxTabPage` 를 그려도 `DxTabs` 가 알아본다.** 탭은 부모가 그릴
+때 훑어 모으는 것이 아니라 자식이 제 손으로 등록하는 것이라(cascading), 한 겹
+더 감싸도 차례까지 그대로 서고 맨손으로 적은 `DxTabPage` 와 섞어 둘 수도 있다 —
+정적 렌더로 확인했다(끼운 셋 + 맨손 하나 → `tab-count="4"`, 차례도 적은 그대로).
 
 **표는 `CommGrd` 하나다.** `DynamicGrid` 라는 두 번째 그리드가 있었는데
 2026-09-12 에 지웠다 — 표 부품이 둘이면 아래 띠·줄무늬·쪽나누기·엑셀이 두 벌이
