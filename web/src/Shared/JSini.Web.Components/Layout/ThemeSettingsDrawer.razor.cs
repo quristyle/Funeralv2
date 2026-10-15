@@ -21,7 +21,12 @@ public partial class ThemeSettingsDrawer
         IReadOnlyList<Choice> Sizes,
         IReadOnlyList<Choice>? Fonts);
 
-    private sealed record ModeInfo(string Id, string Name, bool Dark);
+    /// <summary>
+    /// 밝기 한 칸. <paramref name="Icon"/> 는 <c>jsini-icon-</c> 뒤에 붙일 이름이다
+    /// (sun · moon · display). <c>시스템</c> 은 밝지도 어둡지도 않아
+    /// <paramref name="Dark"/> 로는 그림을 고를 수 없다.
+    /// </summary>
+    private sealed record ModeInfo(string Id, string Name, bool Dark, string? Icon = null);
     private sealed record ColorInfo(string Id, string Name, string Swatch);
     private sealed record Choice(string Id, string Name);
 
@@ -41,6 +46,15 @@ public partial class ThemeSettingsDrawer
     private string _font = "play";
 
     private bool IsSize(string id) => Size.Step == id;
+
+    /// <summary>
+    /// 그 밝기 칸에 세울 그림 이름. 목록이 들고 온 것을 그대로 쓰고,
+    /// 없으면 <c>dark</c> 로 해·달을 고른다 — 그림 칸이 없던 때의 목록을
+    /// 들고 있는 브라우저(옛 theme.js 가 캐시에 남은 경우)에서도 빈 네모가
+    /// 서지 않게.
+    /// </summary>
+    private static string ModeIcon(ModeInfo mode) =>
+        string.IsNullOrEmpty(mode.Icon) ? (mode.Dark ? "moon" : "sun") : mode.Icon;
 
     protected override void OnInitialized() => Drawer.OpenRequested += OnOpenRequested;
 

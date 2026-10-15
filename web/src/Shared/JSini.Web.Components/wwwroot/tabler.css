@@ -1197,6 +1197,24 @@ a { color: var(--tb-primary); }
   background: var(--swatch);
 }
 
+/* 그림만 선 칸(밝기 셋). **네모로 세운다** — 글자가 빠진 알약은 가로가 쪼그라들어
+   옆의 색 동그라미(2rem)보다 작아 보이고, 셋이 나란히 서면 크기가 들쭉날쭉해진다.
+   이름은 `title`·`aria-label` 에 있다. */
+.tb-pill--icon {
+  justify-content: center;
+  gap: 0;
+  width: 2.25rem;
+  padding: 0.375rem;
+}
+
+/* 그림은 **글자 사다리를 안 탄다.** 이 칸은 글자가 없어 크기를 글자에서 받을
+   길이 없는데, 뿌리의 `--jsini-icon-size` 는 사다리를 타므로 「최대한크게」에서
+   그림이 칸(2.25rem)을 넘어선다. */
+.tb-pill--icon > [class^='jsini-icon-'],
+.tb-pill--icon > [class*=' jsini-icon-'] {
+  --jsini-icon-size: 1.125rem;
+}
+
 .tb-custom__swatches {
   display: grid;
   grid-template-columns: repeat(6, 2rem);

@@ -677,7 +677,7 @@ preview.tabler.io 의 생김새를 옮겼다. Fluent · Classic · Bootswatch �
 |---|---|---|
 | 부품 | Bootstrap 5.3 + DevExpress `bootstrap-external.bs5.min.css` | DevExpress 부품을 Bootstrap 변수(`--bs-*`)로 그린다. theme.js 가 싣는다 |
 | 값 | `Components/wwwroot/tabler.css` | 그 `--bs-*` 와 우리 `--jsini-*` 를 **Tabler 값으로 채우고**, 편집기·표·팝업·폼·셸을 Tabler 치수로 입힌다. `<head>` 의 **맨 마지막**에 실린다 |
-| 고르기 | `theme.js` · `ThemeToggle` | 밝기 · 강조색 12 · 바탕 톤 5(slate/gray/zinc/neutral/stone) · 모서리 · 크기. `<html>` 의 `data-bs-theme` · `data-tb-base` · `data-tb-radius` 와 `--tb-primary` 만 바꾼다 — 파일을 다시 받지 않는다 |
+| 고르기 | `theme.js` · `ThemeToggle` | 밝기 **3**(밝게·어둡게·**시스템**) · 강조색 12 · 바탕 톤 5(slate/gray/zinc/neutral/stone) · 모서리 · 크기. `<html>` 의 `data-bs-theme` · `data-tb-base` · `data-tb-radius` 와 `--tb-primary` 만 바꾼다 — 파일을 다시 받지 않는다 |
 
 - **폼 라벨은 칸 위에 둔다**(Tabler `.form-label`). 떠 있는 라벨(`float-label.js`)은 걷었다.
   `DxFormLayout` 은 기본이 가로 배치라 tabler.css 가 세로로 세운다 — 선택자 자릿수를
@@ -692,6 +692,57 @@ preview.tabler.io 의 생김새를 옮겼다. Fluent · Classic · Bootswatch �
 - 치수는 Tabler 1.6 미리보기에서 잰 값이다(칸·단추 40px · 모서리 6px/카드 8px ·
   라벨 14px/500 · 칸 사이 16px · 표 머리 12px 대문자). 눈대중으로 고치지 않는다.
 - 옛 선택(localStorage `jsini.theme`)은 밝기만 살려 옮긴다.
+
+#### 「시스템」은 **고정된 밝기가 아니다** (2026-10-16)
+
+기본값이 그것이다. 한동안 기본값이 `systemMode()` 를 **한 번 불러 굳힌 값**
+이어서, 처음 포털을 연 그 순간의 밝기가 `light`/`dark` 로 박혔다 — 밤에 기기가
+어두워져도 따라오지 않았고, 서랍에서는 「어둡게」가 켜진 것처럼 보였다.
+
+지금은 저장되는 값이 **`'system'` 그대로**다. 실제 밝기는 볼 때마다 다시 묻고
+(`isDark`), `matchMedia('(prefers-color-scheme: dark)')` 가 바뀌면 **새로고침
+없이** 표시만 다시 세운다(`watchSystemMode` → `mark`). 스타일시트는 밝기와
+무관하게 늘 같은 두 장이라 다시 받는 파일이 없다.
+
+| 고른 것 | 저장되는 값 | 기기가 바뀌면 |
+|---|---|---|
+| 밝게 · 어둡게 | `light` · `dark` | **그대로다** — 사람이 못 박은 값이다 |
+| 시스템 | `system` | 따라간다 |
+
+- **거기서 `light`/`dark` 로 굳혀 저장하면 안 된다.** 그러면 기기가 되돌아와도
+  따라오지 않아 「시스템」이 한 번 쓰고 버려지는 선택이 된다.
+- **이미 열려 있는 Monaco 편집기는 안 따라온다.** 그쪽은 처음 그릴 때 한 번만
+  `jsiniTheme.isDark` 를 묻는다(`CodeEditor` · `LogTranslateView`). 서랍에서
+  손으로 바꿔도 마찬가지라 여기서만 따로 손대지 않는다.
+- **모르는 값은 기본값(`system`)으로 떨어진다** — 아는 밝기인지는 `MODES` 로
+  가른다(`find(MODES, spec.mode)`). 글자 둘을 손으로 비교하던 자리라, 칸이
+  하나 늘었을 때 거기만 고치지 않으면 **새 밝기가 조용히 버려진다.**
+
+#### 밝기 세 칸은 **그림만** 세운다
+
+글자까지 달면 좁은 판에서 줄이 넘어가고, 해 · 달 · 모니터 셋은 그림만으로도
+갈린다. 이름은 `title`·`aria-label` 에 남아 마우스와 낭독기가 읽는다.
+
+| | 어디 |
+|---|---|
+| 그림 이름 (`sun`·`moon`·`display`) | `theme.js` 의 `MODES[].icon` — 화면은 `jsini-icon-` 뒤에 붙이기만 한다 |
+| 그림 자체 | `app.css` 의 `.jsini-icon-sun` · `-moon` · **`-display`** (마스크) |
+| 네모 칸 | `tabler.css` 의 `.tb-pill--icon` (2.25rem 정사각) |
+
+- **네모로 세운다.** 글자가 빠진 알약은 가로가 쪼그라들어 바로 아래 색
+  동그라미(2rem)보다 작아 보인다. 재어 확인했다 — 단추 36×36 · 그림 18×18 ·
+  색 동그라미 32×32, 셋이 한 줄에 선다(320px 판).
+- **그림이 글자 사다리를 안 탄다.** 글자가 없어 크기를 받을 데가 없는데
+  뿌리의 `--jsini-icon-size` 는 사다리를 타므로, 안 묶으면 「최대한크게」에서
+  그림이 칸을 넘어선다. `.tb-pill--icon` 이 1.125rem 으로 못 박는다
+  (보통·최대한크게 둘 다 18×18 로 재어 확인했다).
+- **`dark` 칸으로 그림을 고르지 않는다.** 「시스템」은 밝지도 어둡지도 않아
+  해·달 중 하나를 고를 수 없다. 그 칸은 남겨 두되 그림은 `icon` 이 정한다 —
+  목록이 `icon` 을 안 주면(옛 `theme.js` 가 캐시에 남은 브라우저)
+  `ModeIcon` 이 `dark` 로 떨어뜨려 빈 네모를 막는다.
+- **`aria-pressed` 는 글자로 적는다**(`"true"`/`"false"`). `bool` 을 그대로
+  주면 Blazor 가 참·거짓 속성으로 읽어 **안 고른 칸에서는 속성째 사라지고**,
+  낭독기에게 「눌리는 단추가 아닌 것」으로 들린다(`EditorActions` 와 같은 자리).
 
 아래 절들은 여러 테마를 고르던 시절의 기록이다. 스타일시트를 번쩍임 없이 갈아
 끼우는 장치(`media='not all'`)와 크기 모드는 지금도 그대로 쓴다.

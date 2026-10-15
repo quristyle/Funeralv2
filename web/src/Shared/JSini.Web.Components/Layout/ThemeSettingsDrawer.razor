@@ -14,16 +14,27 @@
     <ChildContent>
         <div class="jsini-theme p-3">
 
+            @*
+                밝기는 **그림만** 세운다(해 · 달 · 화면). 셋을 글자까지 달아 세우면
+                좁은 판에서 줄이 넘어가고, 그 셋은 그림만으로도 갈린다 —
+                이름은 `title`·`aria-label` 로 남겨 마우스와 낭독기가 읽는다.
+
+                `aria-pressed` 는 **글자로** 적는다. `bool` 을 그대로 주면 Blazor 가
+                참·거짓 속성으로 읽어 안 고른 칸에서는 속성째 사라지고, 낭독기에게
+                「눌리는 단추가 아닌 것」으로 들린다.
+            *@
             <section class="tb-custom">
                 <div class="tb-custom__label">밝기</div>
                 <div class="tb-custom__options">
                     @foreach (var mode in _catalog.Modes)
                     {
                         <button type="button"
-                                class="tb-pill @(_mode == mode.Id ? "tb-pill--on" : "")"
+                                class="tb-pill tb-pill--icon @(_mode == mode.Id ? "tb-pill--on" : "")"
+                                title="@mode.Name"
+                                aria-label="@mode.Name"
+                                aria-pressed="@((_mode == mode.Id) ? "true" : "false")"
                                 @onclick="@(() => SetAsync("setMode", mode.Id))">
-                            <span class="@(mode.Dark ? "jsini-icon-moon" : "jsini-icon-sun")" aria-hidden="true"></span>
-                            @mode.Name
+                            <span class="jsini-icon-@ModeIcon(mode)" aria-hidden="true"></span>
                         </button>
                     }
                 </div>

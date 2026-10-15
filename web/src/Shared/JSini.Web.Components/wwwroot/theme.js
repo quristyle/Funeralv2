@@ -112,16 +112,28 @@
    *
    * 고르는 것은 Tabler 의 Customize 판과 같다.
    *
-   *   밝기      light · dark
+   *   밝기      light · dark · system(기기 설정을 따름)
    *   강조색    Tabler 기본 색 열둘
    *   바탕 톤   slate · gray · zinc · neutral · stone (Tailwind 회색 계열)
    *   모서리    0 · 0.5 · 1 · 1.5 · 2 배
    *
    * 옛 선택(Fluent · Classic · Bootstrap)은 읽을 때 밝기만 살려 옮긴다.
    */
+  /**
+   * 밝기 세 칸.
+   *
+   * `system` 은 **고정된 밝기가 아니라 「기기를 따른다」는 뜻**이다. 그래서
+   * 저장되는 값도 'light'/'dark' 가 아니라 'system' 그대로이고, 실제 밝기는
+   * 볼 때마다 `systemMode()` 가 다시 묻는다 — 밤에 기기가 어두워지면
+   * 새로고침 없이 따라간다(아래 `watchSystemMode`).
+   *
+   * `dark` 는 화면이 그릴 때 쓰던 칸이라 남겨 두지만, 그림은 `icon` 이
+   * 정한다 — `system` 은 밝지도 어둡지도 않아 해·달 중 하나를 고를 수 없다.
+   */
   var MODES = [
-    { id: 'light', name: '밝게', dark: false },
-    { id: 'dark', name: '어둡게', dark: true },
+    { id: 'light', name: '밝게', dark: false, icon: 'sun' },
+    { id: 'dark', name: '어둡게', dark: true, icon: 'moon' },
+    { id: 'system', name: '시스템', dark: false, icon: 'display' },
   ];
 
   /** Tabler 의 기본 색. 이름과 값은 Tabler 가 정한 그대로다. */
@@ -177,7 +189,7 @@
     return null;
   }
 
-  /** 처음 온 사람은 기기의 밝기를 따른다(Tabler 미리보기와 같다). */
+  /** 기기가 지금 어둡게 쓰고 있나. 못 물으면 밝은 쪽으로 본다. */
   function systemMode() {
     try {
       return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
@@ -187,7 +199,12 @@
     }
   }
 
-  var DEFAULT = { family: 'tabler', mode: systemMode(), color: 'blue', base: 'neutral', radius: '1', size: 'medium', font: 'play' };
+  /**
+   * 기본 밝기는 **'system'** 이다 — 한동안 여기서 `systemMode()` 를 한 번
+   * 불러 그 결과를 굳혔는데, 그러면 처음 그 순간의 밝기가 그대로 박혀
+   * 기기를 바꿔도 따라오지 않았다. 「기기를 따른다」는 뜻 자체를 담는다.
+   */
+  var DEFAULT = { family: 'tabler', mode: 'system', color: 'blue', base: 'neutral', radius: '1', size: 'medium', font: 'play' };
 
   // ── 스타일시트 관리 ───────────────────────────────────────
 
@@ -371,8 +388,14 @@
    */
   var chosen = null;
 
+  /**
+   * 지금 어두운가. **'system' 은 묻는 때마다 기기에 다시 묻는다** —
+   * 저장된 값에는 답이 없고, 답은 기기가 들고 있기 때문이다.
+   */
   function isDark(spec) {
-    return !!spec && spec.mode === 'dark';
+    if (!spec) return false;
+    if (spec.mode === 'system') return systemMode() === 'dark';
+    return spec.mode === 'dark';
   }
 
   /**
@@ -479,7 +502,7 @@
   function normalize(spec) {
     if (!spec || typeof spec !== 'object') return DEFAULT;
 
-    var mode = spec.mode === 'dark' || spec.mode === 'light' ? spec.mode : null;
+    var mode = find(MODES, spec.mode) ? spec.mode : null;
 
     if (spec.family && spec.family !== 'tabler') {
       var dark = spec.mode === 'dark'
@@ -500,6 +523,37 @@
   }
 
   apply(normalize(stored()));
+
+  /**
+   * 기기 밝기가 바뀌는 것을 듣는다. **'system' 을 고른 사람만** 따라간다.
+   *
+   * [왜 저장하지 않나]
+   *
+   * 여기서 'light'/'dark' 로 굳혀 저장하면 다음에 기기가 되돌아와도 따라오지
+   * 않는다. 고른 값은 'system' 그대로 두고 **표시만** 다시 세운다
+   * (`mark`) — 스타일시트는 밝기와 무관하게 늘 같은 두 장이라 다시 받는
+   * 파일도 없다.
+   *
+   * 이미 열려 있는 Monaco 편집기처럼 **처음 그릴 때 한 번만 밝기를 묻는**
+   * 자리는 그대로 남는다. 그것은 서랍에서 손으로 바꿔도 마찬가지라
+   * 여기서만 따로 손대지 않는다.
+   */
+  (function watchSystemMode() {
+    try {
+      var mq = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)');
+      if (!mq) return;
+
+      var follow = function () {
+        if (chosen && chosen.mode === 'system') mark(chosen);
+      };
+
+      // 사파리 14 아래는 addEventListener 가 없다. 거기서도 따라가게 둘 다 본다.
+      if (mq.addEventListener) mq.addEventListener('change', follow);
+      else if (mq.addListener) mq.addListener(follow);
+    } catch (e) {
+      /* 못 들어도 고른 밝기는 그대로다 — 기기를 바꾼 뒤 새로고침하면 따라온다. */
+    }
+  })();
 
   // 저장은 했는데 쿠키가 없는 사람이 있다 — 크기를 넣기 전부터 쓰던 사람이다.
   // 서랍을 열어 보지 않아도 다음 새로고침부터는 서버가 알도록 지금 구워 둔다.
