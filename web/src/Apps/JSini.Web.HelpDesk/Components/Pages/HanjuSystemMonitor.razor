@@ -29,6 +29,13 @@
     `CHECK_TIME`·`TimeSlot` 은 한주 DB 의 벽시계 값이고 표준시 꼬리표가 없다.
     UTC 로 읽어 되돌리면 아홉 시간이 어긋나므로 **옮기지 않고 그대로 적는다** —
     옛 화면도 글자를 잘라 썼다(`CHECK_TIME.split('T')[1]`).
+
+    [차트 애니메이션은 끈다]
+
+    자료는 0.5초 안에 다 오는데(프로시저 셋 병렬 · 구간별 실측 0.1~0.4초)
+    차트 여덟이 **한 장당 0.7~1.6초씩 메인 스레드를 붙잡았다** — 첫 방문
+    기준 긴 작업 합계 8.8초로, 그동안 클릭·스크롤이 통째로 얼었다. 그 몫의
+    대부분이 첫 렌더 애니메이션이라 여덟 장 모두 `@NoAnim` 으로 끈다.
 *@
 
 @inherits AutoRefreshPage
@@ -89,6 +96,7 @@
             <h3 class="hd-chart__title">1H CPU</h3>
             <DxChart Data="@_minutes" Width="100%" Height="170px">
                 <DxChartLegend Visible="false" />
+                @NoAnim
                 @TimeAxis
                 <DxChartValueAxis TickInterval="@(15)" EndOnTick="false">
                     <DxChartAxisRange StartValue="@(0d)" EndValue="@(90d)" />
@@ -104,6 +112,7 @@
             <h3 class="hd-chart__title">1H I/O</h3>
             <DxChart Data="@_minutes" Width="100%" Height="170px">
                 <DxChartLegend Visible="false" />
+                @NoAnim
                 @TimeAxis
                 <DxChartLineSeries T="MinutePoint" TArgument="string" TValue="double"
                                    ArgumentField="p => p.Label" ValueField="p => p.Io"
@@ -121,6 +130,7 @@
             <h3 class="hd-chart__title">1H Memory</h3>
             <DxChart Data="@_minutes" Width="100%" Height="170px">
                 <DxChartLegend Visible="false" />
+                @NoAnim
                 @TimeAxis
                 <DxChartLineSeries T="MinutePoint" TArgument="string" TValue="double"
                                    ArgumentField="p => p.Label" ValueField="p => p.Ple"
@@ -143,6 +153,7 @@
             <h3 class="hd-chart__title">1H Traffic</h3>
             <DxChart Data="@_minutes" Width="100%" Height="170px">
                 <DxChartLegend Visible="false" />
+                @NoAnim
                 @TimeAxis
                 <DxChartValueAxis EndOnTick="false">
                     <DxChartAxisRange StartValue="@(0d)" EndValue="@(1000d)" />
@@ -176,6 +187,7 @@
             <h3 class="hd-chart__title">24H CPU Load (%)</h3>
             <DxChart Data="@_hours" Width="100%" Height="210px">
                 <DxChartLegend Position="RelativePosition.Outside" />
+                @NoAnim
                 @TimeAxis
                 <DxChartValueAxis TickInterval="@(15)" EndOnTick="false">
                     <DxChartAxisRange StartValue="@(0d)" EndValue="@(90d)" />
@@ -191,6 +203,7 @@
             <h3 class="hd-chart__title">24H I/O Latency (ms)</h3>
             <DxChart Data="@_hours" Width="100%" Height="210px">
                 <DxChartLegend Position="RelativePosition.Outside" />
+                @NoAnim
                 @TimeAxis
                 <DxChartAreaSeries T="HourPoint" TArgument="string" TValue="double"
                                    ArgumentField="p => p.Label" ValueField="p => p.PeakIo"
@@ -208,6 +221,7 @@
             <h3 class="hd-chart__title">24H Memory Stability</h3>
             <DxChart Data="@_hours" Width="100%" Height="210px">
                 <DxChartLegend Position="RelativePosition.Outside" />
+                @NoAnim
                 @TimeAxis
                 <DxChartLineSeries T="HourPoint" TArgument="string" TValue="double"
                                    ArgumentField="p => p.Label" ValueField="p => p.AvgPle"
@@ -237,6 +251,7 @@
             <h3 class="hd-chart__title">24H Subsystem Stalls</h3>
             <DxChart Data="@_hours" Width="100%" Height="210px">
                 <DxChartLegend Position="RelativePosition.Outside" />
+                @NoAnim
                 @TimeAxis
                 <DxChartAreaSeries T="HourPoint" TArgument="string" TValue="double"
                                    ArgumentField="p => p.Label" ValueField="p => p.TempDb"
@@ -312,6 +327,12 @@
                               Overlap="ChartAxisLabelOverlap.Hide"
                               RotationAngle="0" />
         </DxChartArgumentAxis>
+    };
+
+    @* 첫 렌더 애니메이션 끄기. 까닭은 머리말 「차트 애니메이션은 끈다」. *@
+    private readonly RenderFragment NoAnim = __builder =>
+    {
+        <DxChartAnimationSettings Enabled="false" />
     };
 
     private readonly RenderFragment MinuteTip = __builder =>
