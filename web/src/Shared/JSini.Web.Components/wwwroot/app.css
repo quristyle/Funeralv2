@@ -9832,8 +9832,12 @@ body.jsini-imgview-open {
   color: #1c1c1e;
 }
 
+/* 닫기만 글자가 아니라 그림이다(`jsini-icon-close`). 그림 크기를 여기서 다시
+   재는 까닭 — 이 띠의 단추들은 테마 글자 사다리를 안 타고 고정 크기(2rem)로
+   서 있는데, 뿌리의 `--jsini-icon-size` 는 사다리를 타므로 글자를 「최대한
+   크게」로 둔 사람의 화면에서는 그림이 단추를 꽉 채운다. */
 .jsini-imgview .jsini-imgview__btn--close {
-  font-size: 1rem;
+  --jsini-icon-size: 1rem;
 }
 
 .jsini-imgview__sep {
@@ -10004,12 +10008,14 @@ body.jsini-imgview-open {
   border-bottom: 1px solid var(--jsini-border);
 }
 
-/* 머리의 단추 둘(📌 · ✕)은 DevExpress 의 「링크」 모양이라 **글자에 밑줄이
-   그어진다** — 그 테마가 `.dxbl-btn.dxbl-btn-link span:not(.dxbl-image)` 에
+/* 머리의 단추 둘(고정핀 · 닫기)은 DevExpress 의 「링크」 모양이라 **속 글자에
+   밑줄이 그어진다** — 그 테마가 `.dxbl-btn.dxbl-btn-link span:not(.dxbl-image)` 에
    `text-decoration: var(--dxbl-btn-link-text-decoration)` 를 걸어 두고, 그
-   변수의 기본값이 `Underline` 이다. 아이콘으로 그리는 📌 는 `.dxbl-image` 라
-   비껴가지만 **글자로 적은 ✕ 는 그대로 밑줄이 그어져** 닫기 표시가 밑줄 친
-   글자처럼 보인다.
+   변수의 기본값이 `Underline` 이다. 닫기를 글자(`✕`)로 적던 때는 그 줄이
+   그대로 보여 **밑줄 친 글자**처럼 섰다. 지금은 둘 다 마스크로 그리는
+   아이콘이라 밑줄 걸리는 자리가 없지만, 변수는 **그대로 돌려 둔다** — 머리에
+   글자 하나라도 들어오면 그 자리가 다시 살아난다(끼운 화면의 「새 창으로
+   열기」도 그림뿐인데 같은 변수를 덮고 있다).
 
    `text-decoration: none` 을 덮어쓰지 않고 **변수를 돌린다** — 그쪽 선택자가
    클래스 셋에 요소 하나라 여기서 같은 자리를 이기려면 선택자를 억지로

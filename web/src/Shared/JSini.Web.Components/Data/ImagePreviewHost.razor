@@ -48,8 +48,13 @@
             <a class="jsini-imgview__btn" href="@cur.Download" target="_blank" rel="noopener"
                title="원본을 새 탭에서 연다">원본</a>
 
+            @* 닫기만 글자(`✕`)가 아니라 그림이다 — 옆의 「원본」과 달리 **읽는
+               칸이 아니라 누르는 칸**이고, 글꼴이 그리는 ✕ 는 굵기가 글꼴마다
+               달라 한 획이 칸 가운데서 비뚤어 보인다. *@
             <button type="button" class="jsini-imgview__btn jsini-imgview__btn--close"
-                    title="닫기 (Esc)" @onclick="Close">✕</button>
+                    title="닫기 (Esc)" aria-label="닫기" @onclick="Close">
+                <span class="jsini-icon-close" aria-hidden="true"></span>
+            </button>
         </div>
 
         <div class="jsini-imgview__stage" @ref="_stage">
