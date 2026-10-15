@@ -2955,13 +2955,34 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge:not([class*='jsi
   gap: 0.5rem;
 }
 
+/* 이 화면의 카드는 **한 줄에 한 장**이다 — 격자(`pm-ask__list` 의 `1fr 1fr`)가
+   아니라 세로 한 줄로 쌓는다. 단 수 고르개가 없는 목록이라 그렇다.
+
+   **`align-items: stretch` 가 여기 있어야 한다.** 격자 쪽은 같은 줄의 카드가
+   펼친 쪽 높이에 맞춰 늘어나지 않게 `align-items: start` 로 두는데(위
+   `pm-ask__list` 머리말) 그 값이 여기까지 따라온다. 세로 한 줄에서는 그것이
+   **가로**를 뜻한다 — 카드마다 제 글자 길이만큼만 넓어져서, 짧은 건은 손가락
+   하나 너비로 쪼그라들고 제목이 긴 건은 화면 밖으로 삐져나간다. 재어 보면
+   같은 목록의 석 장이 252 · 907 · 288px 이었다(2026-10-15).
+
+   늘여 놓으면 카드가 늘 화면 폭을 꽉 쓰고, 넘치는 글은 제 자리에서
+   처리된다 — 제목은 … 로 잘리고(`pm-ask__title`) 윗층의 칩들은 접힌다. */
 .pm-ai-mobile-list > .pm-ask__list {
   display: flex;
   flex-direction: column;
+  align-items: stretch;
   gap: 0.4rem;
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+/* 카드가 제 폭을 넘지 않게 **두 번 못 박는다.** 안쪽에 줄바꿈 없는 긴 값이
+   하나라도 있으면(`white-space: nowrap` 인 시각·상태·걸린시간) flex 항목의
+   기본 최소 너비(`auto`)가 그 값을 바닥으로 삼아 카드를 다시 밀어낸다. */
+.pm-ai-mobile-list > .pm-ask__list > .pm-ask__item {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .pm-ai-mobile-bar {
@@ -3035,9 +3056,17 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge:not([class*='jsi
 }
 
 /* 첫 층 — **상태와 총작업시간.** 「끝났나 · 얼마나 걸렸나」가 한 줄이다.
-   양 끝으로 밀어 두면 반 폭 카드에서도 둘이 안 붙는다. */
+   양 끝으로 밀어 두면 반 폭 카드에서도 둘이 안 붙는다.
+
+   **모자라면 접힌다**(`flex-wrap`). 이 줄의 값은 넷 다 줄바꿈 없는 토막이라
+   (칩 · 상태 · 배지 · 걸린시간) 좁은 카드에서 폭이 모자라면 마지막 것이
+   카드 밖으로 나가고, 카드가 `overflow: hidden` 이라 **소리 없이 잘린다** —
+   320px 에서 「13시간 27분」이 54px 만큼 사라지는 것을 재었다(2026-10-15).
+   접으면 한 줄이 두 줄이 될 뿐 값은 남는다. 들어가는 경우에는 아무 일도
+   일어나지 않으므로 평상시 모습은 그대로다. */
 .pm-ask__line {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.4rem;
   align-items: baseline;
   justify-content: space-between;
@@ -3052,6 +3081,20 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge:not([class*='jsi
   gap: 0.35rem;
   justify-content: flex-start;
   min-width: 0;
+}
+
+/* 카드 두 층에 서는 공통 배지(「요청」·「임시」). **줄이지 않는다.**
+
+   공통 배지는 `white-space` 를 따로 안 잡는다. 그래서 flex 가 재는 이것의
+   최소 너비가 **한 글자**다 — 카드가 화면 폭에 묶이고 나면 남는 폭이
+   모자라는 순간 거기까지 눌려 **두 글자가 세로로 쪼개진다.** 「임 / 시」가
+   되면서 그 줄만 두 배 두꺼워진다(재어 보고 알았다, 2026-10-15).
+
+   줄어도 되는 것은 제목 쪽이고 그쪽은 … 로 잘려도 앞머리가 남는다
+   (`pm-ask__new` 와 같은 까닭이다). */
+.pm-ask__line > .jsini-badge {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 /* 상태 글자. 띠와 같은 색을 쓴다(`--pm-ask-tone`). */
