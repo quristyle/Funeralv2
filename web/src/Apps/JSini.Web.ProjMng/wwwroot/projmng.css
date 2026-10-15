@@ -1292,7 +1292,7 @@
    밀렸다. 그런데 이 화면의 안내줄은 상태에 따라 넷까지 나타났다 사라지므로
    **그 값이 맞는 순간이 아예 없었다.**
 
-   이제 지시 탭이 세로 flex 고 편집기가 그 남은 높이를 받는다
+   이제 작성 탭이 세로 flex 고 편집기가 그 남은 높이를 받는다
    (`pm-ai-page` 머리말). 쌓인 것을 셀 필요가 없다.
 
    **여기 적는 24rem 은 휴대폰·좁은 창의 값이다.** 거기서는 쪽이 통째로
@@ -1368,7 +1368,7 @@
    것이다**(`hd-ai`) — 업무 모듈끼리는 서로를 참조할 수 없어 스타일도 함께
    복제했다.
 
-   **거기서 흘러내리던 판이 여기서는 창이다.** 이 단추가 선 자리(지시 탭의
+   **거기서 흘러내리던 판이 여기서는 창이다.** 이 단추가 선 자리(작성 탭의
    편집기 머리줄)는 창 바닥 가까이라 흘러내린 판이 `dxbl-tabs-content` 의
    `overflow: hidden` 에 잘린다 — 위로 펼쳐도 이번에는 탭 위쪽에 걸린다.
    까닭은 부품 머리말에 재어 둔 값과 함께 적어 두었다. */
@@ -1626,8 +1626,12 @@
 }
 
 /* ── 실행 이력 바 (탭 밖 상단) ─────────────────────────────────
-   지시 / 결과 / 로그 탭의 상단에 항상 노출되어 어느 탭에서든
-   현재 작업의 실행 차수별 상태와 경과 시간을 확인하고 차수를 고를 수 있다. */
+   탭 넷(작성 · 지시와 결과 · 처리 파일 · 로그)의 위에 늘 서서, 어느 탭을
+   보든 실행 차수별 상태와 경과 시간을 읽고 차수를 고를 수 있다.
+
+   **고른 차수를 따르는 것은 「처리 파일」과 「로그」다**(2026-10-15).
+   「지시와 결과」는 차수를 통째로 쌓아 보여 주므로 이 띠를 안 본다 —
+   그 탭에서 1차를 보려고 여기를 누르는 일은 없다. */
 .pm-ai-runs-bar {
   display: flex;
   flex-direction: column;
@@ -1660,11 +1664,6 @@
 
 .pm-ai-run__seq {
   font-weight: 600;
-}
-
-.pm-ai-result-tab,
-.pm-ai-log-tab {
-  padding-top: var(--jsini-sp-md, 0.75rem);
 }
 
 .pm-ai-runs {
@@ -1705,41 +1704,11 @@
   box-shadow: inset 0 0 0 1px var(--jsini-accent);
 }
 
-/* 로그와 결과는 **글자 그대로** 보여 준다. 줄바꿈을 접으면 표·트리 모양의
-   출력이 뭉개져서 무슨 일이 있었는지 읽을 수 없다.
-
-   **바탕과 글자를 둘 다 못 박는다.** 한쪽만 정하면 나머지가 어디서 오는지에
-   따라 어두운 테마에서 흰 바탕에 밝은 글씨가 된다 — 재연결 덮개에서 한 번
-   났던 사고와 같은 종류다(app.css). 테마를 따라가는 토큰(`--jsini-*`)을 쓴다. */
-/* 로그는 **판을 채우고 자기 안에서만 구른다.** 320px 로 묶어 두면 긴 로그가
-   그 구멍 안에서만 움직여, 지켜보는 동안 내내 여남은 줄씩만 보인다.
-
-   여기 적는 값은 편집기와 같은 이유로 **좁은 창의 것**이다 — 데스크탑에서는
-   탭이 준 남은 높이를 그대로 받는다(`pm-ai-page` 절). */
-.pm-ai-log { height: 24rem; }
-
-.pm-ai-result { max-height: 28rem; }
-
-.pm-ai-log,
-.pm-ai-result {
-  margin: 0;
-  padding: 0.6rem 0.75rem;
-  overflow: auto;
-  white-space: pre-wrap;
-  word-break: break-word;
-  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
-  font-size: var(--jsini-fs-xs);
-  line-height: 1.5;
-  color: var(--jsini-text);
-  border: 1px solid var(--jsini-border);
-  border-radius: var(--jsini-radius-md);
-}
-
-/* 로그는 한 단 눌러 둔다 — 결과문과 갈라 보이게. */
-.pm-ai-log { background: var(--jsini-surface); }
-
-/* 결과는 AI 의 답이라 본문처럼 읽힌다. 바탕도 본문과 같게. */
-.pm-ai-result { background: var(--jsini-bg); }
+/* ── 글상자 둘을 걷었다 (2026-10-15) ─────────────────────────
+   `.pm-ai-log`(로그 글상자)와 `.pm-ai-result`(결과문)가 여기 있었다.
+   그 자리를 공통 탭이 받으면서(`AiTaskLogTab` · `AiTaskAskTab`) 그리는
+   것은 `.pm-peek__pre` 와 `LogTranslateView` 가 된다 — 쓰는 데가 없는
+   규칙을 남기면 다음 사람이 그것을 고치고 아무 일도 안 일어난다. */
 
 /* 이어서 시킬 내용을 받는 칸. 한 줄짜리가 아니라 문단을 쓰는 자리다. */
 .pm-ai-addition { width: 100%; }
@@ -5249,7 +5218,7 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge:not([class*='jsi
     flex-direction: column;
   }
 
-  /* 지시 탭 — 설정과 단추 줄은 제 높이만큼, 편집기가 남은 자리를 다 먹는다.
+  /* 작성 탭 — 설정과 단추 줄은 제 높이만큼, 편집기가 남은 자리를 다 먹는다.
 
      **새 줄을 넣을 때마다 여기 이름을 더해야 한다.** 빠뜨리면 그 줄이
      flex 기본값(`1 1 auto`)으로 늘어나 편집기 몫을 가져간다 — 한도 줄과
@@ -5281,35 +5250,23 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge:not([class*='jsi
     min-height: 10rem;
   }
 
-  /* 결과·로그 탭 — 안의 자료 판이 높이를 받아 **글만 자기 안에서 구른다.** */
-  .pm-ai-result-tab > .commcont,
-  .pm-ai-log-tab > .commcont {
-    flex: 1;
-    min-height: 0;
-  }
+  /* ── 끼워 담은 공통 탭 (2026-10-15) ─────────────────────────
 
-  .pm-ai-result-tab > .commcont > .commcont__body,
-  .pm-ai-log-tab > .commcont > .commcont__body {
-    display: flex;
-    flex: 1;
-    min-height: 0;
-    flex-direction: column;
-  }
+     「지시와 결과」·「처리 파일」·「로그」는 이제 `AiTaskView` 와 **같은
+     부품**이고(`AiTask*Tab`), 그 부품들이 그리는 알맹이는 `.pm-peek__pane`
+     한 겹이다. 그쪽 화면은 쪽이 통째로 구르는 자리라 그 판에 높이가 없다 —
+     **여기서 높이를 준다.**
 
-  .pm-ai-log-tab .pm-ai-log {
-    flex: 1;
-    height: auto;
-    min-height: 0;
-  }
+     안 주면 위 `.dxbl-tabs-content` 의 `overflow: hidden` 이 넘친 만큼을
+     **말없이 잘라 낸다.** 잘리는 것이 아래쪽이라 긴 결과문·수백 줄 로그가
+     중간에서 뚝 끊기고, 막대도 안 떠서 **더 있다는 것조차 안 보인다.**
 
-  /* 결과문은 **자기 키만큼만** 서고 길어지면 줄어들며 안에서 구른다.
-     로그처럼 `flex: 1` 로 두면 세 줄짜리 답도 판 끝까지 늘어난 테두리
-     안에 덩그러니 놓인다. `min-height: 0` 이 없으면 줄어들지를 못해
-     (flex 항목의 기본이 `min-height: auto`) 긴 답이 판을 넘는다. */
-  .pm-ai-result-tab .pm-ai-result {
-    flex: 0 1 auto;
-    max-height: none;
+     `.pm-tab-body` 와 달리 flex 로 세우지 않는다. 안에 든 것이 글 상자와
+     접개들이라 자기 키만큼 서면 되고, 넘치는 만큼만 이 판이 구른다. */
+  .pm-ai-tabs .pm-peek__pane {
+    height: 100%;
     min-height: 0;
+    overflow-y: auto;
   }
 
   /* 아무것도 안 고른 자리. 22rem 을 깔아 두면 판보다 커질 수 있다. */

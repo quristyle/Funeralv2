@@ -2346,7 +2346,7 @@ Components/Shared/DateRangeTabs.razor  기간 선택 + 탭
 Components/Shared/SearchBar.razor      조건줄
 Components/Shared/SplitPane.razor      마스터-디테일 좌우 분할
 Components/Shared/AiTaskView.razor     보낸 지시 한 건의 속. 머리띠 · 처리 요약 · 탭 줄
-Components/Shared/AiTask*Tab.razor     그 탭 줄에 **골라 담는 탭 한 장씩** (아래)
+Components/Shared/AiTask*Tab.razor     그 탭 줄에 **골라 담는 탭 한 장씩** — 넷이다 (아래)
 ```
 
 ##### AI 작업의 탭은 **한 장이 부품 한 장이다** (2026-10-15)
@@ -2362,8 +2362,14 @@ Components/Shared/AiTask*Tab.razor     그 탭 줄에 **골라 담는 탭 한 �
 결과」가 화면마다 다른 물건이 되고 한쪽만 고쳐지는 날이 온다(표 부품이
 둘이던 때 이미 한 번 밟았다 · 위 「표는 `CommGrd` 하나다」).
 
+**실제로 그 넷째 화면이 바로 나왔다** — AI 작업 목록(`/projmng/ai/tasks`).
+거기는 **적는 탭**이 하나 더 필요해서, 그 알맹이(폼 여덟 · 편집기 · 단추
+일곱)도 같은 규칙으로 갈라 `AiTaskWriteTab` 이 되었다. 그래서 부품이 넷이다 —
+**보는 셋과 적는 하나**.
+
 ```razor
 <DxTabs @bind-ActiveTabIndex="_tab" TabClick="@OnTabClick">
+    <AiTaskWriteTab Item="@_edit" CanEdit="@CanEdit" Runners="@WriteRunners" … />
     <AiTaskAskTab   Item="@t" Run="@_run" Turns="@_turns" RunCount="@_runCount" … />
     <AiTaskFilesTab Item="@t" Run="@_run" Changed="@_changed" />
     <AiTaskLogTab   Lines="@LogLines" Count="@LogCount" Active="@(_tab == TabLog)" … />
@@ -2373,15 +2379,28 @@ Components/Shared/AiTask*Tab.razor     그 탭 줄에 **골라 담는 탭 한 �
 
 | 갈라 둔 자리 | 어디 |
 |---|---|
-| 탭 **번호** (`TabAsk`·`TabFiles`·`TabLog`) | `DxTabs` 를 세운 화면. 부품은 제가 몇 번째인지 모른다 |
-| 자료 받아 오기 (실행 이력 · 로그) | 같은 화면. 탭이 또 물으면 같은 값이 두 벌이 된다 |
+| 탭 **번호** (`TabWrite`·`TabAsk`·`TabFiles`·`TabLog`) | `DxTabs` 를 세운 화면. 부품은 제가 몇 번째인지 모른다 |
+| 자료 받아 오기 (실행 이력 · 로그 · 대상·AI 목록) | 같은 화면. 탭이 또 물으면 같은 값이 두 벌이 된다 |
+| 저장·요청·취소·삭제 | 같은 화면. 적는 탭은 **눌렸다는 사실만** 올려 보낸다 |
 | 탭 **이름** (「(3회)」·「(12)」·「(840줄)」) | 부품. 숫자만 넘겨 주면 스스로 짓는다(`Text` 로 덮을 수 있다) |
 | 펴고 접은 모습 (어느 차수를 폈나) | 부품. 건 번호가 바뀌면 스스로 턴다 |
+
+**적는 탭만 `Item` 을 고친다.** 입력칸이 `@bind` 로 그 객체의 칸을 바로 치고,
+부르는 쪽은 저가 넘긴 그 객체를 그대로 저장한다 — 칸마다 콜백을 내걸면 칸이
+하나 늘 때 반드시 하나를 빠뜨리고, 증상은 「그 칸만 조용히 안 올라간다」다.
+그래서 **보는 탭에는 `_edit` 를 넘기지 않는다**(`AiTaskList.AskItem` — 서버가
+들고 있는 그대로를 깐다. 아직 안 보낸 글이 「보낸 지시」 자리에 앉는다).
 
 **끼운 부품이 `DxTabPage` 를 그려도 `DxTabs` 가 알아본다.** 탭은 부모가 그릴
 때 훑어 모으는 것이 아니라 자식이 제 손으로 등록하는 것이라(cascading), 한 겹
 더 감싸도 차례까지 그대로 서고 맨손으로 적은 `DxTabPage` 와 섞어 둘 수도 있다 —
 정적 렌더로 확인했다(끼운 셋 + 맨손 하나 → `tab-count="4"`, 차례도 적은 그대로).
+
+**끼워 담은 탭에는 화면이 높이를 줘야 한다.** 부품이 그리는 `.pm-peek__pane`
+에는 높이가 없다 — `AiTaskView` 가 서는 자리는 쪽이 통째로 구르기 때문이다.
+본문 높이 안에서 끝나는 화면(`AiTaskList`)에 그대로 끼우면 `DxTabs` 속의
+`overflow: hidden` 이 넘친 만큼을 **말없이 잘라 내고 막대도 안 뜬다.**
+projmng.css 의 `.pm-ai-tabs .pm-peek__pane` 한 규칙이 그 몫이다.
 
 **표는 `CommGrd` 하나다.** `DynamicGrid` 라는 두 번째 그리드가 있었는데
 2026-09-12 에 지웠다 — 표 부품이 둘이면 아래 띠·줄무늬·쪽나누기·엑셀이 두 벌이
