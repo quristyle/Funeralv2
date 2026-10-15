@@ -117,6 +117,12 @@ public partial class AiTaskView
     private string? _me;
 
     /// <summary>
+    /// 휴대폰 폭인가. <b>머리띠의 시각 둘을 짧게 적는 데만 쓴다</b>
+    /// (<c>AiTaskWhen.Near</c> · 마크업의 그 자리 머리말).
+    /// </summary>
+    private bool _isPhone;
+
+    /// <summary>
     /// 고를 수 있는 AI 의 코드값과 이름. <b>칩의 <c>title</c> 에만 쓴다</b>
     /// (<see cref="KindName"/>). 못 읽으면 빈 목록이고, 그때는 코드값이 그대로
     /// 이름 자리에 선다.
@@ -1191,5 +1197,15 @@ public partial class AiTaskView
         }
         _dotNetRef?.Dispose();
         _dotNetRef = null;
+    }
+
+    /// <summary>
+    /// 폭이 갈렸다. <b>다시 그리라고 일러 준다</b> — <c>DxLayoutBreakpoint</c> 는
+    /// 값만 넘겨 줄 뿐이라, 이 말을 안 하면 머리띠가 돌려 놓은 채로 선다.
+    /// </summary>
+    private void OnPhoneChanged(bool isPhone)
+    {
+        _isPhone = isPhone;
+        StateHasChanged();
     }
 }

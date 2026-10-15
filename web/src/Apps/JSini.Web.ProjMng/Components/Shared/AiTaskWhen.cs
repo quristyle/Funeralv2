@@ -50,9 +50,12 @@ internal static class AiTaskWhen
     /// </summary>
     /// <param name="t">볼 작업.</param>
     /// <param name="compact">
-    /// 카드에 적을 때 켠다. 오늘 것은 <c>HH:mm</c> 만 적는다 — 카드에 남는
-    /// 넷은 거의 오늘 것이고, 반 폭 카드에 날짜를 붙이면 <b>시각이 먼저
-    /// 잘린다.</b> 창에서는 자리가 넉넉하니 연월일까지 다 적는다.
+    /// <b>좁은 자리에 적을 때</b> 켠다 — 카드(반 폭)와 휴대폰 머리띠다.
+    /// 오늘에서 먼 만큼만 적는다(<see cref="Near(DateTime?)"/>): 오늘 것은
+    /// <c>HH:mm</c>, 이달 것은 날짜까지, 그보다 멀어야 달과 해가 붙는다.
+    /// 카드에 남는 넷은 거의 오늘 것이고, 반 폭 카드에 연월일을 붙이면
+    /// <b>시각이 먼저 잘린다.</b> 책상의 창에서는 자리가 넉넉하니 끄고
+    /// 연월일까지 다 적는다.
     /// </param>
     public static string RunAt(AiTaskDto t, bool compact = false)
     {
@@ -71,9 +74,62 @@ internal static class AiTaskWhen
             return local.ToString("yyyy-MM-dd HH:mm");
         }
 
-        return DateOnly.FromDateTime(local) == AppTime.Today
-            ? local.ToString("HH:mm")
-            : local.ToString("MM-dd HH:mm");
+        return Near(local);
+    }
+
+    /// <summary>
+    /// <b>오늘에서 먼 만큼만 적는 시각.</b> 오늘 것은 시·분만, 이달 것은
+    /// 날짜를 더해, 올해 것은 달까지, 그보다 먼 것에만 해를 붙인다.
+    /// </summary>
+    /// <param name="utc">서버가 준 UTC 시각. 비어 있으면 <c>-</c> 다.</param>
+    /// <remarks>
+    /// <para>
+    /// <b>좁은 화면에서 자리를 아끼려고</b> 쓴다 — 카드(반 폭)와 휴대폰
+    /// 머리띠다. 거기 적히는 건은 거의 오늘·이번 달 것이라, 늘 붙던
+    /// <c>yyyy-MM-dd</c> 열 글자는 <b>거의 늘 같은 글자</b>였다. 같은 글자가
+    /// 넓게 서면 그만큼 뒤가 다음 줄로 밀리고, 정작 갈라 주는 시·분이
+    /// 먼저 잘린다.
+    /// </para>
+    /// <para>
+    /// <b>해를 떼는 것은 올해까지다.</b> 「09-14 09:30」만 적고 말면 작년
+    /// 9월에 돈 건이 <b>지지난주에 돈 건과 생김새가 같아진다</b> — 떼어도
+    /// 되는 것은 읽는 사람이 되채울 수 있는 것뿐이고, 해는 그렇지 않다.
+    /// </para>
+    /// <para>
+    /// <b>이달 것에는 「일」을 붙인다.</b> 맨 숫자로 「14 09:30」이라고 적으면
+    /// 앞의 둘이 날짜인지 시각인지 갈리지 않는다(뒤가 이미 시:분이라 더
+    /// 그렇다). 한 글자로 그것이 끝난다.
+    /// </para>
+    /// <para>
+    /// 「오늘·이달·올해」는 <b>한국 달력</b>으로 센다(<see cref="AppTime.Today"/>).
+    /// UTC 로 세면 한국 시각으로 오전 아홉 시 전에 돈 건이 하루 내내
+    /// 「어제」로 보인다.
+    /// </para>
+    /// </remarks>
+    public static string Near(DateTime? utc) =>
+        utc is null ? "-" : Near(AppTime.ToKorea(utc.Value));
+
+    /// <summary>위와 같되 <b>이미 한국 시각으로 옮긴</b> 값을 받는다.</summary>
+    private static string Near(DateTime local)
+    {
+        var day = DateOnly.FromDateTime(local);
+        var today = AppTime.Today;
+
+        if (day == today)
+        {
+            return local.ToString("HH:mm");
+        }
+
+        // **해를 함께 본다.** 달만 견주면 작년 10월이 이번 달로 읽혀
+        // 「14일 09:30」이 된다 — 1년 어긋난 시각이 오늘 것과 같은 꼴로 선다.
+        if (day.Year == today.Year && day.Month == today.Month)
+        {
+            return local.ToString("dd'일' HH:mm");
+        }
+
+        return day.Year == today.Year
+            ? local.ToString("MM-dd HH:mm")
+            : local.ToString("yyyy-MM-dd HH:mm");
     }
 
     /// <summary>

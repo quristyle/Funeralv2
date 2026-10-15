@@ -243,6 +243,16 @@
 @implements IDisposable
 @implements IAsyncDisposable
 
+@* 휴대폰인가. **머리띠의 시각 둘을 짧게 적는 데만 쓴다**(아래) — 그 폭에서는
+   `yyyy-MM-dd HH:mm` 둘이 한 줄에 못 들어가 지시자·상태와 갈라진 줄로 내려간다.
+
+   **부르는 쪽에서 받지 않고 제가 재는 까닭**은, 이 판이 서는 자리가 둘이고
+   (「빠른 지시」 판 안의 탭 · 포털 탭으로 열리는 화면) 둘 다 이미 제 몫으로
+   같은 것을 재고 있기 때문이다 — 파라미터로 받으면 **한쪽이 안 넘겨 주는 날**
+   그 화면만 조용히 책상 모양으로 선다. 이것은 머리띠의 일이니 머리띠가 잰다. *@
+<DxLayoutBreakpoint DeviceSize="DeviceSize.XSmall"
+                    IsActive="_isPhone" IsActiveChanged="@OnPhoneChanged" />
+
 @if (Item is { } t)
 {
     @* 머리띠. **탭을 옮겨도 여기 있는 것은 제자리에 남는다** — 카드에서 보고
@@ -300,14 +310,25 @@
                         「실행중」과 두 글자가 겹쳐 머리띠에서 같은 말이 두 번
                         서 보이기 때문이다 |
            | 총작업시간 | **작업** | *@
+        @* **휴대폰에서는 오늘에서 먼 만큼만 적는다** (2026-10-15) —
+           오늘 것은 「09:30」, 이달 것은 「14일 09:30」, 지난달 것이라야
+           「09-14 09:30」이고 해는 해가 바뀌어야 붙는다(`AiTaskWhen.Near`).
+
+           이 둘은 머리띠에서 가장 긴 값이다. 책상에서는 상태·AI·지시자와
+           한 줄에 서지만 휴대폰 폭에서는 `yyyy-MM-dd HH:mm` 열여섯 글자가
+           둘이라 그 줄을 넘기고, 그러면 **「작업」까지 셋째 줄로 밀려**
+           머리띠가 판의 윗동을 먹는다 — 그 아래가 정작 보러 온 글이다.
+
+           떼는 것은 **읽는 사람이 되채울 수 있는 것**뿐이다. 오늘 열어 본
+           건의 날짜와 이달 안의 달이 그렇다. 해는 그렇지 않아 남긴다. *@
         <span class="pm-peek__cell">
             <span class="pm-peek__label">작성</span>
-            <span class="pm-peek__value">@t.CreDt.Kst("yyyy-MM-dd HH:mm")</span>
+            <span class="pm-peek__value">@(_isPhone ? AiTaskWhen.Near(t.CreDt) : t.CreDt.Kst("yyyy-MM-dd HH:mm"))</span>
         </span>
 
         <span class="pm-peek__cell">
             <span class="pm-peek__label">동작</span>
-            <span class="pm-peek__value">@AiTaskWhen.RunAt(t)</span>
+            <span class="pm-peek__value">@AiTaskWhen.RunAt(t, compact: _isPhone)</span>
         </span>
 
         <span class="pm-peek__cell">
