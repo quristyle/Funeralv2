@@ -1184,67 +1184,6 @@
    어두운 테마에서 흰 칩이 떠 있었다 — 오류는 안 나고 보기만 나쁘다.
    ---------------------------------------------------------- */
 
-/* 요약과 조회 조건은 휴대폰에서만 접는다. 넓은 화면에서는 `display: contents`
-   로 기존의 세로 flex 구조를 그대로 유지해, 접이식 껍데기가 데스크톱 높이
-   계산에 끼어들지 않게 한다.
-
-   **`display: contents` 가 여는 일까지 해 주지는 않는다.** 크롬 131 부터
-   `<details>` 의 속은 `::details-content` 에 담기고 닫혀 있는 동안
-   `content-visibility: hidden` 이 걸린다 — 안쪽의 `display` 로는 안 걷힌다.
-   그래서 **닫힌 채로 두면 넓은 화면에서도 안 보인다.** 여는 것은 화면이
-   한다(`open="@(!_isPhone)"`, 같은 767px 경계). */
-.pm-ai-overview__body {
-  display: contents;
-}
-
-/* ── 여닫는 띠는 **넓은 화면에도 둔다** ──────────────────────
-
-   한동안 이 띠를 데스크탑에서 숨겼다(`display: none`). 그런데 요약과 조회
-   조건을 늘 펴 두면 그만큼 아래 두 판이 낮아지고, 오른쪽 「지시」 탭은
-   **편집기가 남은 높이를 받아 쓰는 자리**라 그 손해가 고스란히 편집기로 간다
-   (1600×1000 에서 220px 가량).
-
-   그래서 숨기는 대신 **접을 수 있게 둔다.** 펴 둔 것이 기본이고(조회가 이
-   화면에서 제일 자주 쓰는 물건이다), 글을 길게 쓸 때는 띠를 눌러 접는다.
-   띠 자체는 한 줄이라 얇다. */
-.pm-ai-overview__summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--jsini-sp-sm);
-  margin-bottom: var(--jsini-sp-sm);
-  padding: 0.4rem 0.6rem;
-  border-radius: var(--jsini-radius-md);
-  color: var(--jsini-text-muted);
-  font-size: var(--jsini-fs-sm);
-  font-weight: 600;
-  list-style: none;
-  cursor: pointer;
-}
-
-.pm-ai-overview__summary:hover {
-  background: var(--jsini-surface-hover, rgba(127, 127, 127, 0.12));
-}
-
-.pm-ai-overview__summary::-webkit-details-marker {
-  display: none;
-}
-
-.pm-ai-overview__chevron {
-  transition: transform 0.2s;
-}
-
-.pm-ai-overview[open] .pm-ai-overview__chevron {
-  transform: rotate(180deg);
-}
-
-@media (min-width: 768px) {
-  /* 데스크톱은 접이식 껍데기가 높이 계산에 끼어들지 않게 속판의 상자를 지운다. */
-  .pm-ai-overview > .pm-ai-overview__body {
-    display: contents !important;
-  }
-}
-
 /* 표에서 「없음」을 뜻하는 자리. 배지를 쓰면 없는 것이 있는 것처럼 보인다. */
 .pm-ai-dim { color: var(--jsini-text-muted); }
 
@@ -5156,8 +5095,11 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge:not([class*='jsi
     flex-direction: column;
   }
 
-  /* 머리줄·조건줄·불러오는 중 안내는 제 높이만큼. */
-  .pm-ai-page > .pm-ai-overview,
+  /* 조건줄·불러오는 중 안내는 제 높이만큼. **`.commsch` 를 직접 겨눈다** —
+     한동안 그 자리에 접이식 껍데기(`.pm-ai-overview`)가 있었고 과녁도 그것
+     이었다. 껍데기를 걷으면서 과녁을 안 옮기면 조회판이 flex 의 기본값대로
+     늘어나 **아래 두 판의 높이를 먹는다.** */
+  .pm-ai-page > .commsch,
   .pm-ai-page > .pm-ai-loading {
     flex: 0 0 auto;
   }
@@ -5478,46 +5420,6 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge:not([class*='jsi
   .pm-taskview__acts > :first-child,
   .pm-ask__viewacts > :first-child {
     margin-inline-start: auto;
-  }
-}
-
-@media (max-width: 767px) {
-  .pm-ai-overview {
-    display: block;
-    margin-bottom: var(--jsini-sp-lg);
-    background: var(--jsini-surface-raised, var(--jsini-surface));
-    border: 1px solid var(--jsini-border);
-    border-radius: var(--jsini-radius-lg);
-    box-shadow: var(--jsini-shadow-card, var(--jsini-shadow-sm));
-  }
-
-  .pm-ai-overview__body {
-    display: block;
-  }
-
-  /* 휴대폰에서는 띠가 판의 머리줄이다 — 위 공통 모양에서 여백만 키우고
-     모서리를 판에 맞춘다. */
-  .pm-ai-overview__summary {
-    margin-bottom: 0;
-    padding: 0.85rem;
-    border-radius: 0;
-    color: inherit;
-    font-size: inherit;
-  }
-
-  /* 아코디언 안에서는 두 판의 테두리가 겹치지 않게 한다. */
-  .pm-ai-overview .pm-ai-hero {
-    margin-bottom: 0;
-    border-radius: 0;
-    border-inline: 0;
-  }
-
-  .pm-ai-overview .commsch {
-    margin-bottom: 0;
-    border: 0;
-    border-top: 1px solid var(--jsini-border);
-    border-radius: 0;
-    box-shadow: none;
   }
 }
 
@@ -6097,7 +5999,6 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge:not([class*='jsi
     margin-top: 0.625rem;
   }
 }
-.pm-ai-overview__title { flex: 1; }
 .pm-ai-drafts-badge {
     background: none;
     border: none;
