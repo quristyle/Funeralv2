@@ -1,5 +1,5 @@
 @*
-    [보낸 한 건의 속 — 지시와 결과 · 로그]
+    [보낸 한 건의 속 — 차수별 지시와 결과 · 처리 파일 · 로그]
 
     설계: docs/ai-task-runner.md
     API: `projmng/ai-tasks` · `projmng/ai-runs/{run}/logs`
@@ -31,7 +31,42 @@
     답인지부터 모른다. 그래서 탭을 오가며 둘을 맞춰 봐야 했다.
     (결과 메일이 같은 이유로 이미 지시문을 답 위에 싣고 있다.)
 
-    그래서 한 판에 **지시 → 결과** 순으로 깐다.
+    그래서 한 판에 **지시 → 결과** 순으로 깐다(차수마다 그 한 쌍이다 —
+    바로 아래).
+
+    [**지시와 결과는 차수마다 한 묶음이다** (2026-10-15)]
+
+    「이어서 지시」는 새 건을 만들지 않는다 — 같은 건에 실행이 하나 더 붙고
+    (`AiTaskService.ContinueAsync`), 본문은 서버가 「지난 진행 + 이번에 할 일」로
+    **덮어쓴다.** 그래서 한동안 이 탭에 깔리던 지시 한 벌과 결과 한 벌은
+    **마지막 차수의 것**이었다. 3차까지 간 건에서 1차에 무엇을 시켜 무슨 답을
+    받았는지는 지시문 앞에 덧댄 요약 안에 글토막으로만 남아, 그것을 찾으려면
+    긴 글을 처음부터 읽는 수밖에 없었다.
+
+    그래서 **차수마다 제 묶음**을 준다 — 1차의 지시와 결과, 2차의 지시와 결과,
+    3차의 지시와 결과. 묶음을 가르는 것은 실행 줄이다(`ai_task_run.seq` —
+    서버가 이어가기 프롬프트에 「N차」로 적는 그 번호다. 짓는 법은 `AiTaskTurns`).
+
+    **접어 둔다.** 세 차수를 통째로 펴면 판이 세 배가 되고, 그 안에서 「이번에
+    무엇이 달라졌나」를 찾는 일이 고치기 전과 똑같아진다. **마지막 차수만
+    펴 둔다** — 이 판을 여는 사람이 보러 온 것이 방금 끝난 그 차수다.
+    사람이 한 번이라도 접거나 펴면 그 뒤로는 우리가 옮기지 않는다(`_openTurns`).
+
+    **한 번만 돈 건에는 머리줄을 세우지 않는다.** 「1차」 하나뿐인 접개는
+    아무것도 가르지 못하면서 누를 자리만 하나 늘린다 — 탭 이름에 「(1회)」를
+    안 적는 것과 같은 까닭이다.
+
+    [**그 차수에 사람이 적은 글만 본문으로 올린다**]
+
+    2차부터의 지시문은 사람이 적은 글이 아니다. 서버가 지난 진행을 앞에 덧대
+    한 덩어리로 보낸다. 그것을 차수마다 통째로 깔면 1차의 글이 2차에도 3차에도
+    요약된 꼴로 또 서고 또 선다 — **같은 말이 세 번 보이는 판에서는 이번에 더
+    시킨 것이 묻힌다.** 그래서 마지막 머리표(「## 이번에 할 일」·「## 재시도
+    추가 지시」) 뒤만 올리고 앞엣것은 「앞에 덧댄 글」로 접어 둔다. 가르는 법은
+    `AiTaskAsk.Split`.
+
+    **지우지는 않는다.** 그때 실제로 간 글이 무엇이었나는 「왜 AI 가 그렇게
+    했나」를 되짚을 때 유일한 단서다.
 
     [**탭 이름이 숫자를 들고 있다** (2026-10-12)]
 
@@ -404,103 +439,219 @@
                「(3회)」 한 조각이 그것을 가른다. 두 번 이상 돈 건에만 선다. *@
             <DxTabPage Text="@AskTabText">
                 <div class="pm-peek__pane">
-                    @* ── 물음 ────────────────────────────────────
-                       사람이 적어 보낸 그대로다. 실행 줄에도 그때 준 지시문이
-                       남지만(`Instruction`), 그것은 서버가 앞뒤를 덧대 만든
-                       글이라 **내가 무엇을 적었나**에는 답하지 않는다.
+                    @* ── 차수별로 가른 지시와 결과 (2026-10-15) ───
 
-                       **상자 안이 구르지 않는다** — 긴 지시문도 통째로 편다.
-                       왜 높이를 묶지 않는지는 CSS 쪽에 적어 두었다. *@
-                    <h3 class="pm-peek__head">지시</h3>
+                       한동안 이 판에는 **지시 한 벌과 결과 한 벌**이 깔렸다.
+                       한 번에 끝난 건에서는 그것이 맞다. 그런데 「이어서 지시」로
+                       두 번 세 번 이어 간 건에서는 **그 한 벌이 마지막 차수의
+                       것**이다 — 본문은 서버가 덮어쓰고(`ContinueAsync`),
+                       결과문은 마지막 실행의 것이며, 앞 차수에 무엇을 시켜 무슨
+                       답을 받았는지는 지시문 앞에 덧댄 요약 안에만 글토막으로
+                       남는다. 3차까지 간 건에서 1차의 답을 찾으려면 그 요약을
+                       통째로 읽는 수밖에 없었다.
 
-                    @if (string.IsNullOrWhiteSpace(t.Contents))
+                       그래서 **차수마다 제 묶음**을 준다 — 1차의 지시와 결과,
+                       2차의 지시와 결과, 3차의 지시와 결과. 묶음을 짓는 것은
+                       실행 줄이다(`AiTaskTurns.Build` · `ai_task_run.seq` —
+                       서버가 이어가기 프롬프트에 「N차」로 적는 그 번호다).
+
+                       **접어 둔다.** 세 차수를 통째로 펴면 판이 세 배가 되고,
+                       그 안에서 「이번에 무엇이 달라졌나」를 찾는 일이 고치기
+                       전과 똑같아진다. **마지막 차수만 펴 둔다** — 이 판을
+                       여는 사람이 보러 온 것이 방금 끝난 그 차수다.
+
+                       **한 번만 돈 건에는 머리줄을 세우지 않는다.** 「1차」
+                       하나뿐인 접개는 아무것도 가르지 못하면서 누를 자리만
+                       하나 늘린다 — 탭 이름에 「(1회)」를 안 적는 것과 같다. *@
+                    @if (_turns.Count == 0)
                     {
-                        <p class="pm-peek__dim">적어 둔 내용이 없습니다.</p>
+                        @* 실행 이력을 아직 못 받았다(여는 그 찰나다). 그래도
+                           **적어 보낸 글은 먼저 보여 준다** — 이 판을 여는
+                           사람이 처음 찾는 것이 그것이다. *@
+                        <h3 class="pm-peek__head">지시</h3>
+
+                        @if (string.IsNullOrWhiteSpace(t.Contents))
+                        {
+                            <p class="pm-peek__dim">적어 둔 내용이 없습니다.</p>
+                        }
+                        else
+                        {
+                            <pre class="pm-peek__pre pm-peek__pre--ask">@t.Contents</pre>
+                        }
                     }
-                    else
+
+                    @foreach (var turn in _turns)
                     {
-                        <pre class="pm-peek__pre pm-peek__pre--ask">@t.Contents</pre>
-                    }
+                        var open = IsTurnOpen(turn);
+                        var leadOpen = IsLeadOpen(turn);
+                        var paneId = TurnPaneId(turn);
+                        var foldTitle = open ? $"{turn.No}차 접기" : $"{turn.No}차 펴기";
 
-                    @* ── 함께 간 파일 ───────────────────────────
+                        <section class="pm-peek__turn @(_turns.Count == 1 ? "pm-peek__turn--solo" : null)">
+                            @* 머리줄이 통째로 접는 단추다 — 「처리 요약」과 같은
+                               모양이다(`pm-peek__fold`). 화살표만 따로 세우면 누를
+                               자리가 손가락보다 작아 휴대폰에서 빗나간다.
 
-                       **지시 바로 아래다.** 이 파일들은 지시의 일부지 결과가
-                       아니다 — AI 가 그것을 보고 일했고, 사람이 「무엇을 보고
-                       시킨 건이었나」를 되짚는 자리가 여기다.
-
-                       그림은 눌러서 **미리보기로** 연다(`data-imgview-scope`).
-                       작은 그림만 두면 글자가 작은 화면 사진에서 아무것도 읽을
-                       수 없다. 한동안 새 탭으로 원본을 열었는데, 그쪽은 확대만
-                       되고 돌려 볼 수가 없어 옆으로 누운 사진에서 막혔다 —
-                       링크는 그대로 두므로(문지기가 `preventDefault` 한다)
-                       가운데 단추로 여는 길은 남아 있다. *@
-                    @if (_files.Count > 0)
-                    {
-                        <h3 class="pm-peek__head">함께 보낸 파일 (@_files.Count)</h3>
-
-                        <ul class="pm-peek__files" data-imgview-scope>
-                            @foreach (var f in _files)
+                               **접힌 채로도 셋을 말한다** — 몇 차인가 · 어떻게
+                               끝났나 · 언제 얼마나 돌았나. 그것이 없으면 접힌
+                               셋 가운데 어느 것을 펴야 하는지 알 수 없어 차례로
+                               다 펴 보게 된다. *@
+                            @if (_turns.Count > 1)
                             {
-                                <li class="pm-peek__file">
-                                    <a href="@FileDownload.AiTaskUrlFor(f.FileKey, f.FileNm)"
-                                       target="_blank" rel="noopener"
-                                       title="@($"{f.FileNm} · {f.SizeText}")">
-                                        @if (f.IsImage)
-                                        {
-                                            <img class="pm-peek__fileimg"
-                                                 src="@FileDownload.AiTaskUrlFor(f.FileKey)" alt="@f.FileNm" />
-                                        }
-                                        else
-                                        {
-                                            <span class="pm-peek__fileicon" aria-hidden="true"></span>
-                                        }
-
-                                        <span class="pm-peek__filename">@f.FileNm</span>
-                                        <span class="pm-peek__filesize">@f.SizeText</span>
-                                    </a>
-                                </li>
+                                <h3 class="pm-peek__turn-head">
+                                    <button type="button" class="pm-peek__fold pm-peek__turn-btn"
+                                            @onclick="@(() => ToggleTurn(turn))"
+                                            aria-expanded="@(open ? "true" : "false")"
+                                            aria-controls="@paneId"
+                                            title="@foldTitle">
+                                        <span class="pm-peek__fold-mark @(open ? "pm-peek__fold-mark--open" : null)"
+                                              aria-hidden="true">▸</span>
+                                        <span class="pm-peek__turn-no">@(turn.No)차</span>
+                                        <span class="jsini-badge jsini-badge--@turn.StatusTone">@turn.StatusText</span>
+                                        <span class="pm-peek__turn-when">@turn.WhenText</span>
+                                    </button>
+                                </h3>
                             }
-                        </ul>
-                    }
 
-                    @* ── 답 ─────────────────────────────────────── *@
-                    <div class="pm-peek__head-row">
-                        <h3 class="pm-peek__head">결과</h3>
+                            @* 접으면 **알맹이를 아예 안 그린다** — CSS 로만 숨기면
+                               접어 둔 뜻이 회로에서는 그대로 실려 나간다(모바일
+                               회선이다). 「처리 요약」과 같은 규칙이다. *@
+                            @if (open)
+                            {
+                                <div class="pm-peek__turn-body" id="@paneId">
+                                    @* ── 물음 ────────────────────────────
+                                       **그 차수에 사람이 적은 글이다.** 2차부터의
+                                       지시문에는 서버가 지난 진행을 앞에 덧대 놓아
+                                       (`BuildContinuation`) 통째로 깔면 앞 차수의
+                                       요약이 차수마다 또 서고 또 선다 — 그 되풀이에
+                                       이번에 더 시킨 것이 묻힌다. 가르는 법은
+                                       `AiTaskAsk.Split`, 덧댄 글은 아래에 접어 둔다. *@
+                                    <h3 class="pm-peek__head">지시</h3>
 
-                        @if (_summary is not null)
-                        {
-                            <button type="button"
-                                    class="pm-peek__speech-btn @(_speaking ? "pm-peek__speech-btn--speaking" : null)"
-                                    @onclick="ToggleSpeechAsync"
-                                    title="@(_speaking ? "음성 읽기 중지" : "결과 요약 음성으로 읽어주기")"
-                                    aria-label="@(_speaking ? "음성 읽기 중지" : "결과 요약 음성으로 읽어주기")">
-                                <span class="pm-peek__speech-icon" aria-hidden="true">@(_speaking ? "⏹" : "🔊")</span>
-                                <span>@(_speaking ? "읽기 중지" : "음성으로 요약 듣기")</span>
-                            </button>
-                        }
-                    </div>
+                                    @if (turn.Ask is { Length: > 0 } ask)
+                                    {
+                                        <pre class="pm-peek__pre pm-peek__pre--ask">@ask</pre>
 
-                    @if (_result is { Length: > 0 })
-                    {
-                        <pre class="pm-peek__pre pm-peek__pre--result">@_result</pre>
+                                        @* **지우지는 않는다.** 그때 실제로 간 글이
+                                           무엇이었나는 「왜 AI 가 그렇게 했나」를
+                                           되짚을 때 유일한 단서다. *@
+                                        @if (turn.Lead is { Length: > 0 } lead)
+                                        {
+                                            <button type="button" class="pm-peek__fold pm-peek__lead-btn"
+                                                    @onclick="@(() => ToggleLead(turn))"
+                                                    aria-expanded="@(leadOpen ? "true" : "false")">
+                                                <span class="pm-peek__fold-mark @(leadOpen ? "pm-peek__fold-mark--open" : null)"
+                                                      aria-hidden="true">▸</span>
+                                                <span>@(leadOpen ? "앞에 덧댄 글 접기" : "앞에 덧댄 글 보기")</span>
+                                            </button>
 
-                        @if (RunHint is { Length: > 0 } hint)
-                        {
-                            <p class="jsini-hint">@hint</p>
-                        }
-                    }
-                    else if (t.IsBusy)
-                    {
-                        @* 아직 답이 없다. **여기서 로그로 가는 길을 둔다** —
-                           빈 결과 칸을 본 사람이 다음에 할 일이 그것이다. *@
-                        <p class="pm-peek__dim">아직 돌고 있습니다.</p>
+                                            @if (leadOpen)
+                                            {
+                                                <pre class="pm-peek__pre pm-peek__pre--lead">@lead</pre>
+                                            }
+                                        }
+                                    }
+                                    else
+                                    {
+                                        <p class="pm-peek__dim">적어 둔 내용이 없습니다.</p>
+                                    }
 
-                        <DxButton Text="로그 보기" RenderStyle="ButtonRenderStyle.Link"
-                                  Click="@(() => OpenLogTabAsync())" />
-                    }
-                    else
-                    {
-                        <p class="pm-peek__dim">AI 가 남긴 말이 없습니다.</p>
+                                    @* ── 함께 간 파일 ───────────────────
+
+                                       **첫 차수에만 붙는다.** 첨부는 보낼 때 그
+                                       건에 묶이고(`ai_task_file.task_key`) 이어서
+                                       지시에는 붙일 칸이 없다 — 차수마다 세우면
+                                       1차에 올린 사진이 3차에도 올린 것처럼 읽힌다.
+
+                                       그림은 눌러서 **미리보기로** 연다
+                                       (`data-imgview-scope`). 작은 그림만 두면 글자가
+                                       작은 화면 사진에서 아무것도 읽을 수 없다.
+                                       한동안 새 탭으로 원본을 열었는데, 그쪽은 확대만
+                                       되고 돌려 볼 수가 없어 옆으로 누운 사진에서
+                                       막혔다 — 링크는 그대로 두므로(문지기가
+                                       `preventDefault` 한다) 가운데 단추로 여는 길은
+                                       남아 있다. *@
+                                    @if (turn.IsFirst && _files.Count > 0)
+                                    {
+                                        <h3 class="pm-peek__head">함께 보낸 파일 (@_files.Count)</h3>
+
+                                        <ul class="pm-peek__files" data-imgview-scope>
+                                            @foreach (var f in _files)
+                                            {
+                                                <li class="pm-peek__file">
+                                                    <a href="@FileDownload.AiTaskUrlFor(f.FileKey, f.FileNm)"
+                                                       target="_blank" rel="noopener"
+                                                       title="@($"{f.FileNm} · {f.SizeText}")">
+                                                        @if (f.IsImage)
+                                                        {
+                                                            <img class="pm-peek__fileimg"
+                                                                 src="@FileDownload.AiTaskUrlFor(f.FileKey)" alt="@f.FileNm" />
+                                                        }
+                                                        else
+                                                        {
+                                                            <span class="pm-peek__fileicon" aria-hidden="true"></span>
+                                                        }
+
+                                                        <span class="pm-peek__filename">@f.FileNm</span>
+                                                        <span class="pm-peek__filesize">@f.SizeText</span>
+                                                    </a>
+                                                </li>
+                                            }
+                                        </ul>
+                                    }
+
+                                    @* ── 답 ───────────────────────────── *@
+                                    <div class="pm-peek__head-row">
+                                        <h3 class="pm-peek__head">결과</h3>
+
+                                        @* 음성 단추는 **답을 준 그 차수에만** 선다.
+                                           읽어 주는 것이 「처리 요약」이고, 그 요약은
+                                           그 실행에 딸린 것이다(`_answeredKey`) —
+                                           차수마다 세우면 1차 자리에서 눌러도 3차의
+                                           요약이 읽힌다. *@
+                                        @if (_summary is not null && turn.Run is { } answered
+                                             && answered.RunKey == _answeredKey)
+                                        {
+                                            <button type="button"
+                                                    class="pm-peek__speech-btn @(_speaking ? "pm-peek__speech-btn--speaking" : null)"
+                                                    @onclick="ToggleSpeechAsync"
+                                                    title="@(_speaking ? "음성 읽기 중지" : "결과 요약 음성으로 읽어주기")"
+                                                    aria-label="@(_speaking ? "음성 읽기 중지" : "결과 요약 음성으로 읽어주기")">
+                                                <span class="pm-peek__speech-icon" aria-hidden="true">@(_speaking ? "⏹" : "🔊")</span>
+                                                <span>@(_speaking ? "읽기 중지" : "음성으로 요약 듣기")</span>
+                                            </button>
+                                        }
+                                    </div>
+
+                                    @if (turn.Result is { Length: > 0 } result)
+                                    {
+                                        <pre class="pm-peek__pre pm-peek__pre--result">@result</pre>
+
+                                        @if (TurnHint(turn) is { Length: > 0 } hint)
+                                        {
+                                            <p class="jsini-hint">@hint</p>
+                                        }
+                                    }
+                                    else
+                                    {
+                                        @* 답이 없는 사정이 넷이라 갈라 적는다 —
+                                           돌고 있나 · 안 집혀 갔나 · 안 보냈나 ·
+                                           돌았는데 아무 말이 없나(`ResultWaitText`). *@
+                                        <p class="pm-peek__dim">@turn.ResultWaitText</p>
+
+                                        @* **여기서 로그로 가는 길을 둔다** — 빈 결과
+                                           칸을 본 사람이 다음에 할 일이 그것이다.
+                                           로그 탭이 보여 주는 것은 **마지막 실행의
+                                           줄**이라 그 차수에만 세운다. *@
+                                        @if (turn.IsLast && t.IsBusy && _run is not null)
+                                        {
+                                            <DxButton Text="로그 보기" RenderStyle="ButtonRenderStyle.Link"
+                                                      Click="@(() => OpenLogTabAsync())" />
+                                        }
+                                    }
+                                </div>
+                            }
+                        </section>
                     }
 
                     @* ── 오간 말 ───────────────────────────────

@@ -126,6 +126,51 @@ internal static class AiTaskWhen
         return "-";
     }
 
+    /// <summary>
+    /// 차수 머리줄에 적을 시각 한 토막 — <b>「시작 시각 · 걸린 시간」</b>이다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 차수를 접어 두면 머리줄이 그 차수에 대해 말하는 전부가 된다. 거기
+    /// <b>언제 돌았나와 얼마나 걸렸나</b>가 없으면, 접힌 셋 가운데 어느 것이
+    /// 오래 걸린 차수인지 펴 보기 전에는 알 수 없다.
+    /// </para>
+    /// <para>
+    /// <b>날짜는 오늘 것이면 뺀다.</b> 한 건의 차수들은 대개 같은 날 안에서
+    /// 이어지고, 머리줄에는 배지와 차수 번호가 이미 서 있어 자리가 좁다.
+    /// </para>
+    /// <para>
+    /// 서버가 주는 시각은 UTC 다 — 보여 주기 직전에만 한국 시각으로 옮긴다
+    /// (이 파일 머리말).
+    /// </para>
+    /// </remarks>
+    public static string RunWhen(AiTaskRunDto run)
+    {
+        var parts = new List<string>();
+
+        if (run.StartedAt is { } at)
+        {
+            var local = AppTime.ToKorea(at);
+
+            parts.Add(DateOnly.FromDateTime(local) == AppTime.Today
+                ? local.ToString("HH:mm")
+                : local.ToString("MM-dd HH:mm"));
+        }
+
+        // **도는 중이면 지금까지를 센다.** 끝난 차수는 두 시각의 사이다.
+        if (run.StartedAt is { } from)
+        {
+            var to = run.FinishedAt ?? (run.IsRunning ? AppTime.UtcNow : null);
+
+            if (to is { } until)
+            {
+                parts.Add(Span(until - from));
+            }
+        }
+
+        return parts.Count == 0 ? "-" : string.Join(" · ", parts);
+    }
+
     /// <summary>걸린 시간 한 토막. 큰 자리 둘까지만 적는다.</summary>
     private static string Span(TimeSpan d)
     {
