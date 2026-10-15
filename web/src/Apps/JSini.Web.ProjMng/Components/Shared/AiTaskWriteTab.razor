@@ -1,0 +1,261 @@
+@*
+    [「작성」 탭 — **지시를 적는 한 장** (2026-10-15)]
+
+    왜 탭 한 장이 부품 한 장인지는 `AiTaskAskTab` 머리말에 있다. 이것은 그
+    셋과 **반대 방향**이다 — 저쪽 셋은 이미 간 것을 보여 주고, 이쪽은 **앞으로
+    보낼 것을 적는다.**
+
+    이 알맹이는 한동안 `AiTaskList` 안에 `DxTabPage` 와 한 덩어리로 적혀
+    있었다(「지시」 탭). 그 화면 하나만 쓰는 동안은 그것으로 족했다. 그런데
+    탭 셋이 부품으로 갈라지면서 **골라 담는 판이 하나 더 생겼고**, 그 판에
+    「보는 탭 셋 + 적는 탭 하나」를 세우려면 적는 쪽도 한 장이어야 한다 —
+    아니면 쓰려는 화면이 폼 여덟과 편집기와 단추 일곱을 **통째로 베껴** 가고,
+    그때부터 「지시를 적는 자리」가 화면마다 다른 물건이 된다.
+
+    ```razor
+    <DxTabs @bind-ActiveTabIndex="_tab" TabClick="@OnTabClick">
+        <AiTaskWriteTab Item="@_edit" CanEdit="@CanEdit" … />
+        <AiTaskAskTab   Item="@t" Run="@_run" Turns="@_turns" … />
+        <AiTaskFilesTab Item="@t" Run="@_run" Changed="@_changed" />
+        <AiTaskLogTab   Lines="@LogLines" … />
+    </DxTabs>
+    ```
+
+    [**자료도 저장도 부르는 쪽 것이다**]
+
+    이 부품이 하는 일은 **그리고 되돌려 주는 것**뿐이다. 대상 목록도 AI
+    목록도 한도 배지도 받아서 그리고, 「저장」·「요청」·「취소」는 눌렸다는
+    사실만 올려 보낸다. 까닭은 보는 탭 셋과 같다 — 탭이 제 손으로 또 물으면
+    같은 값을 두 번 받아 오면서 둘이 어긋날 자리만 생긴다.
+
+    **다만 고친 값은 곧장 `Item` 에 들어간다**(`@@bind` 가 그 객체의 칸을
+    친다). 칸마다 콜백을 내걸지 않는 까닭은 이 화면의 입력칸이 아홉이고
+    앞으로 더 늘기 때문이다 — 칸마다 달면 새 칸을 만드는 날 하나를 빠뜨리고,
+    그때 증상은 「그 칸만 조용히 안 올라간다」다. 부르는 쪽은 저가 넘긴
+    그 객체를 그대로 저장하면 된다(`AiTaskList._edit`).
+*@
+<DxTabPage Text="@TabText">
+    <div class="pm-tab-body pm-ai-write">
+        @if (Item is { } t)
+        {
+            @* ── 설정 줄 둘 ─────────────────────────────────
+
+               한동안 칸 여덟이 8·4 / 3·3·6 / 4·4·4 로 **세 줄에
+               제각각 걸쳐** 있었다. 폭이 줄마다 달라 왼쪽 끝만
+               겨우 맞고, 체크칸 둘은 「끝나면」·「알림」이라는
+               라벨을 이고 서 있어서 **무엇이 값이고 무엇이 이름인지**
+               눈이 매번 다시 골라야 했다.
+
+               이제 성격으로 가른다.
+
+                 · 위  — 무엇을 어디에서 시키나 (제목 · 대상 · AI · 제한)
+                         한 줄에 네 칸, 폭이 6·3·2·1 로 내려간다.
+                 · 아래 — 끝난 뒤에 무엇을 하나 (올리기 · 알림)
+                         폼 밖의 한 줄이다. 체크칸에는 **라벨을 달지
+                         않는다** — 체크칸은 자기 글이 곧 이름이라
+                         라벨을 얹으면 같은 말이 두 번이다.
+
+               자리표시 글자(`NullText`)도 뺐다. 칸 여덟에 안내문이
+               여덟이면 **비어 있는 칸이 채워져 있는 것처럼** 보여
+               무엇을 아직 안 골랐는지가 안 읽힌다.
+
+               **빼면 라벨이 늘 테두리에 올라가 있게 된다.** 포털의
+               라벨은 값이 없을 때 칸 안으로 내려앉는데, 그 판정이
+               `:not(:placeholder-shown)` 이라(app.css) 자리표시 글자
+               자체가 없으면 늘 참이다. 이 폼은 네 칸이 다 그러므로
+               오히려 줄이 고르게 선다 — 「제한(분)」(`DxSpinEdit`)은
+               원래부터 그랬다.
+            *@
+            <DxFormLayout CssClass="pm-editform">
+                @* 「비워 두면 첫 줄로 붙는다」는 자리표시 글자로 적어
+                   두었던 말이다. 칸 안에 있으면 그것이 값처럼 보여서
+                   말풍선으로 옮겼다. *@
+                <DxFormLayoutItem Caption="제목" ColSpanMd="12" ColSpanLg="6">
+                    <DxTextBox @bind-Text="t.Title" Enabled="@CanEdit"
+                               title="비워 두면 지시 내용의 첫 줄을 제목으로 붙입니다" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="대상" ColSpanMd="5" ColSpanLg="3">
+                    <DxComboBox Data="@Targets" Value="@t.TargetKey"
+                                ValueChanged="@((long? key) => TargetChanged.InvokeAsync(key))"
+                                ValueExpression="@(() => t.TargetKey)"
+                                TextFieldName="@nameof(AiTargetDto.TargetNm)"
+                                ValueFieldName="@nameof(AiTargetDto.TargetKey)"
+                                Enabled="@CanEdit" />
+                </DxFormLayoutItem>
+
+                @* 고른 대상이 허용한 것만 나온다.
+
+                   **이름만 보여 주지 않는다.** 한도를 모른 채
+                   고르면 다 쓴 CLI 로 보내게 되고, 그것은 실행기가
+                   집어가 실패로 끝난 뒤에야 드러난다 — 이 화면의
+                   일은 몇십 분씩 걸려 그때는 자리를 뜬 뒤다.
+                   「빠른 지시」의 고르개가 먼저 하던 일이고 그리는
+                   모양도 그쪽과 같다(`pm-ask__kind*`).
+
+                   `TextFieldName` 은 그대로 둔다. 닫힌 칸은
+                   DevExpress 가 그것으로 그리므로, 지우면
+                   **고르고 나면 칸이 비어 보인다.** *@
+                <DxFormLayoutItem Caption="AI" ColSpanMd="4" ColSpanLg="2">
+                    <DxComboBox Data="@Runners" @bind-Value="t.RunnerKind"
+                                Enabled="@(CanEdit && t.TargetKey is not null)"
+                                TextFieldName="@nameof(PickOption.Text)"
+                                ValueFieldName="@nameof(PickOption.Value)">
+                        @* `Context` 를 따로 준다. 바깥
+                           `DxFormLayoutItem` 의 자식 내용이 이미
+                           `context` 라는 이름을 쓰고 있어서,
+                           안 주면 **빌드가 RZ9999 로 끊긴다.** *@
+                        <ItemTemplate Context="kind">
+                            @{
+                                var kindBadge = BadgeOf(kind.Value);
+                            }
+                            <div class="pm-ask__kinditem">
+                                <div class="pm-ask__kindhead">
+                                    <span class="pm-ask__kindname">@kind.Text</span>
+                                    <span class="jsini-badge @kindBadge.Css">@((MarkupString)kindBadge.Text)</span>
+                                </div>
+                            </div>
+                        </ItemTemplate>
+                    </DxComboBox>
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="제한(분)" ColSpanMd="3" ColSpanLg="1">
+                    <DxSpinEdit @bind-Value="t.TimeoutMinutes" MinValue="1" MaxValue="1440"
+                                Enabled="@CanEdit" />
+                </DxFormLayoutItem>
+            </DxFormLayout>
+
+            @* 고른 AI 의 한도를 **닫힌 칸 아래에도** 한 줄로 적는다.
+               고르개는 펴 있는 시간이 잠깐이라, 목록에만 적으면
+               펼치지 않는 사람에게는 없는 것과 같다. 고를 것이
+               하나뿐이어서 칸이 회색일 때도 여기는 보인다. *@
+            @if (t.RunnerKind is { Length: > 0 })
+            {
+                <div class="pm-ai-limit">
+                    <span class="jsini-badge @PickedBadge.Css">@((MarkupString)PickedBadge.Text)</span>
+                </div>
+            }
+
+            @* 끝난 뒤의 일. 체크 셋이 앞에 서고 그 뒤를 알림 칸 둘이
+               따른다 — **알림을 켜야 뒤의 둘이 살아난다**는 순서가
+               그대로 읽히도록 왼쪽에서 오른쪽으로 놓았다. *@
+            <div class="pm-ai-opts">
+                <DxCheckBox @bind-Checked="t.AutoPush"
+                            Enabled="@(CanEdit && AllowPush)">
+                    @PushLabel
+                </DxCheckBox>
+
+                <span class="pm-ai-opts__sep" aria-hidden="true"></span>
+
+                <DxCheckBox @bind-Checked="t.NotifyEmail" Enabled="@CanEdit">
+                    메일
+                </DxCheckBox>
+
+                <DxCheckBox @bind-Checked="t.NotifyPwa" Enabled="@CanEdit">
+                    앱
+                </DxCheckBox>
+
+                @* 자리표시 글자를 뺀 자리의 안내는 **말풍선**으로 옮겼다.
+                   「비우면 요청자에게 간다」는 칸이 비어 있을 때만
+                   뜻이 있는 말이라, 칸 안에 적어 두면 그것이 값처럼
+                   보인다. *@
+                <label class="pm-ai-opts__field pm-ai-opts__field--to" title="비워 두면 요청한 사람에게 갑니다">
+                    <span class="pm-ai-opts__label">받는 사람</span>
+                    <DxTextBox @bind-Text="t.NotifyTo"
+                               Enabled="@(CanEdit && (t.NotifyEmail || t.NotifyPwa))" />
+                </label>
+
+                <label class="pm-ai-opts__field pm-ai-opts__field--when">
+                    <span class="pm-ai-opts__label">보낼 때</span>
+                    <DxComboBox Data="@NotifyWhens" @bind-Value="t.NotifyWhen"
+                                TextFieldName="@nameof(PickOption.Text)"
+                                ValueFieldName="@nameof(PickOption.Value)"
+                                Enabled="@(CanEdit && (t.NotifyEmail || t.NotifyPwa))" />
+                </label>
+            </div>
+
+            @* ── 편집기 머리줄 ────────────────────────────
+               「AI 도우미」가 여기 선다. 지시문을 읽고 제목을
+               짓거나 요약을 얹는 자리이고, **본문 바로 위**가
+               그것을 누를 자리다 — 저장 단추 줄(아래)에 두면
+               「저장하기 전에 하는 일」로 보이지 않는다.
+
+               헬프데스크 요청 등록의 같은 단추를 옮겨 온 것이다
+               (`AiTaskWriteAssist` 머리말). *@
+            <div class="pm-ai-editor__bar">
+                <span class="pm-ai-editor__label">지시 내용</span>
+
+                <PermissionView Action="MenuAction.Update">
+                    <AiTaskWriteAssist Content="@(() => Item?.Contents)"
+                                       Enabled="@CanEdit"
+                                       TitleChosen="@TitleChosen"
+                                       SummaryReady="@SummaryReady" />
+                </PermissionView>
+            </div>
+
+            @* 편집기 *@
+            <div class="pm-ai-editor">
+                <CodeEditor @bind-Value="t.Contents"
+                            Language="markdown"
+                            Height="100%"
+                            ReadOnly="@(!CanEdit)"
+                            Placeholder="AI 에게 시킬 일을 적습니다. 첫 줄이 제목이 됩니다." />
+            </div>
+
+            <div class="pm-ai-actions">
+                <PermissionView Action="MenuAction.Update">
+                    <DxButton Text="저장"
+                              RenderStyle="ButtonRenderStyle.Primary"
+                              Enabled="@(CanEdit && !Busy)"
+                              Click="@(() => OnSave.InvokeAsync())" />
+                </PermissionView>
+
+                <PermissionView Action="MenuAction.Update">
+                    <DxButton Text="요청"
+                              RenderStyle="ButtonRenderStyle.Secondary"
+                              Enabled="@(CanRequest && !Busy)"
+                              Click="@(() => OnRequest.InvokeAsync())" />
+                </PermissionView>
+
+                <PermissionView Action="MenuAction.Update">
+                    <DxButton Text="취소"
+                              RenderStyle="ButtonRenderStyle.Secondary"
+                              Enabled="@(CanCancel && !Busy)"
+                              Click="@(() => OnCancel.InvokeAsync())" />
+                </PermissionView>
+
+                <PermissionView Action="MenuAction.Update">
+                    <DxButton Text="이어서 지시"
+                              RenderStyle="ButtonRenderStyle.Secondary"
+                              Enabled="@(CanContinue && !Busy)"
+                              Click="@(() => OnContinue.InvokeAsync())" />
+                </PermissionView>
+
+                @if (HasDraft)
+                {
+                    <PermissionView Action="MenuAction.Update">
+                        <DxButton Text="임시본 버리기"
+                                  RenderStyle="ButtonRenderStyle.Secondary"
+                                  Enabled="@(!Busy)"
+                                  Click="@(() => OnDiscardDraft.InvokeAsync())" />
+                    </PermissionView>
+                }
+
+                <PermissionView Action="MenuAction.Delete">
+                    <DxButton Text="삭제"
+                              RenderStyle="ButtonRenderStyle.Danger"
+                              Enabled="@(t.TaskKey > 0 && !t.IsBusy && !Busy)"
+                              Click="@(() => OnDelete.InvokeAsync())" />
+                </PermissionView>
+            </div>
+        }
+        else
+        {
+            @* **탭을 통째로 빼지 않는다** — 까닭은 보는 탭 셋과 같다
+               (`AiTaskAskTab.Item` 머리말). 고른 것이 없는 찰나에만
+               탭이 하나 줄면 부르는 쪽이 들고 있는 탭 번호가 그
+               찰나에만 틀린다. *@
+            <p class="pm-peek__dim">@EmptyText</p>
+        }
+    </div>
+</DxTabPage>

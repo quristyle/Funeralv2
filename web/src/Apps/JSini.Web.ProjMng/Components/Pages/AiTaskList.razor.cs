@@ -256,6 +256,87 @@ public partial class AiTaskList
     /// <summary>지금 로그를 펼쳐 둔 실행.</summary>
     private AiTaskRunDto? _openRun;
 
+    // ── 보는 탭 셋에 넘겨 줄 것 ──────────────────────────────
+    //
+    // **받아 오는 일은 이 화면 몫이다.** 탭이 제 손으로 또 물으면 같은 값을
+    // 두 번 받아 오면서 둘이 어긋날 자리만 생긴다(`AiTaskAskTab` 머리말).
+
+    /// <summary>
+    /// <b>차수별로 가른 지시와 결과.</b> 오래된 차수가 앞이다
+    /// (<see cref="AiTaskTurns.Build"/>).
+    /// </summary>
+    /// <remarks>
+    /// 짓는 바탕이 <see cref="AskItem"/> 이다 — <b>고치는 중인 글이 아니라
+    /// 서버가 들고 있는 그대로</b>를 쓴다(그 머리말).
+    /// </remarks>
+    private IReadOnlyList<AiTaskTurn> _turns = [];
+
+    /// <summary>
+    /// 「처리 파일」 — <b>펴 둔 차수가 만들고 고친 파일들.</b>
+    /// </summary>
+    /// <remarks>
+    /// <b><see cref="AiTaskView"/> 와 다른 차수를 본다.</b> 그쪽은 늘 가장 최근
+    /// 실행의 것인데, 이 화면에는 차수를 고르는 띠가 있어 <see cref="_openRun"/>
+    /// 을 따른다 — 안 따르면 1차를 눌러도 3차가 고친 파일이 그대로 서서
+    /// 띠가 먹통으로 보인다.
+    /// </remarks>
+    private IReadOnlyList<AiRunFile> _changed = [];
+
+    /// <summary>
+    /// 이 지시와 <b>함께 올라온 파일들.</b> 첫 차수 아래에 선다.
+    /// </summary>
+    /// <remarks>
+    /// <b>목록이 실어 주는 것은 개수뿐이다</b>(<c>AiTaskDto.FileCount</c>) —
+    /// 이름은 건을 여는 자리에서 한 번 묻는다. <b>「처리 파일」과 반대
+    /// 방향이다</b> — 그쪽은 AI 가 저장소에 남긴 것이고 이쪽은 사람이 붙여
+    /// 올린 것이다.
+    /// </remarks>
+    private IReadOnlyList<AiTaskFileDto> _files = [];
+
+    /// <summary>로그인한 사람의 아이디. <b>「내가 올린 건인가」만 본다.</b></summary>
+    private string? _me;
+
+    /// <summary>
+    /// 보는 탭 셋에 깔 건. <b>서버가 들고 있는 그대로</b>다.
+    /// </summary>
+    /// <remarks>
+    /// <b><see cref="_edit"/> 를 넘기지 않는다.</b> 그것은 오른쪽에서 고치는
+    /// 중인 사본이라, 그대로 깔면 <b>아직 보내지도 않은 글이 「보낸 지시」
+    /// 자리에 앉는다</b> — 차수를 짓는 바탕도 그 글이 되어, 한 번만 돈 건에서
+    /// 1차의 지시가 지금 치고 있는 글자를 따라 움직인다.
+    /// <para>
+    /// 새 작업은 아직 서버에 없으므로 <see cref="_edit"/> 로 떨어진다. 그때는
+    /// 실행 이력이 없어 차수도 없고, 탭은 적어 둔 글을 그대로 보여 준다.
+    /// </para>
+    /// </remarks>
+    private AiTaskDto? AskItem => _base ?? _edit;
+
+    /// <summary>
+    /// <b>로그인한 사람이 올린 건인가.</b> 남긴 말을 어느 경로로 주고받을지가
+    /// 이 값으로 갈린다(<see cref="AiTaskNotes"/>).
+    /// </summary>
+    /// <remarks>
+    /// <b>아이디를 못 읽었으면 거짓이다.</b> 그때는 관리자 경로로 도는데,
+    /// 그 길은 누구에게나 열려 있어 판이 죽지 않는다.
+    /// </remarks>
+    private bool IsMine =>
+        _me is { Length: > 0 } me
+        && string.Equals(me, AskItem?.CreId?.Trim(), StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// 「작성」 탭에 넘길 AI 목록. <b>부품이 제 고르개 타입을 가진다</b> —
+    /// 화면마다 <c>PickOption</c> 이 따로라 넘기는 자리에서 한 번 옮긴다.
+    /// </summary>
+    private IReadOnlyList<AiTaskWriteTab.PickOption> WriteRunners =>
+        [.. AllowedRunners.Select(o => new AiTaskWriteTab.PickOption(o.Value, o.Text))];
+
+    /// <summary>
+    /// 펴 둔 차수가 고친 파일을 다시 읽는다. <b><see cref="_openRun"/> 이
+    /// 바뀌는 자리마다 부른다.</b>
+    /// </summary>
+    private void TakeRunFiles()
+        => _changed = AiRunFiles.Parse(_openRun?.ChangedFiles, _openRun?.DiffStat);
+
     /// <summary>받아 둔 로그 줄. <b>그릴 때는 꼬리 500줄만</b> 쓴다.</summary>
     private readonly List<AiLogLineDto> _lines = [];
 
@@ -274,7 +355,31 @@ public partial class AiTaskList
     /// <summary>저장·요청이 오가는 중. 단추를 두 번 누르지 못하게 한다.</summary>
     private bool Busy;
 
-    /// <summary>오른쪽 탭. 0 = 지시, 1 = 결과, 2 = 로그.</summary>
+    // ── 오른쪽 탭 넷 ──────────────────────────────────────────
+    //
+    // **번호는 여기 것이다.** 탭 알맹이는 부품 넷으로 갈라져 있는데
+    // (`AiTaskWriteTab`·`AiTaskAskTab`·`AiTaskFilesTab`·`AiTaskLogTab`)
+    // 그 부품들은 제가 몇 번째 탭인지 모른다 — 앞에 몇 장이 끼워졌는지가
+    // 쓰는 화면마다 다르기 때문이다. 그래서 「로그 탭으로 건너가라」도
+    // 「지금 로그 탭이 켜져 있나」도 이쪽이 답한다.
+    //
+    // **상수로 둔다.** 한동안 0·1·2 를 여섯 자리에 맨숫자로 적어 두었는데,
+    // 탭이 하나 늘면서 그 여섯을 모두 한 칸씩 밀어야 했다 — 하나만 빠뜨려도
+    // 아무 오류 없이 **엉뚱한 탭이 열린다.**
+
+    /// <summary>적는 탭. 화면을 열면 여기가 선다.</summary>
+    private const int TabWrite = 0;
+
+    /// <summary>차수별 지시와 결과.</summary>
+    private const int TabAsk = 1;
+
+    /// <summary>이번 작업이 만들고 고친 파일.</summary>
+    private const int TabFiles = 2;
+
+    /// <summary>실행기가 찍은 줄.</summary>
+    private const int TabLog = 3;
+
+    /// <summary>지금 펴 둔 탭.</summary>
     private int _tab;
 
     /// <summary>
@@ -303,7 +408,7 @@ public partial class AiTaskList
     {
         if (!_tabPinned && _edit?.IsBusy == true)
         {
-            _tab = 2;
+            _tab = TabLog;
         }
     }
 
@@ -460,7 +565,11 @@ public partial class AiTaskList
         if (AuthState is not null)
         {
             var state = await AuthState;
-            Drafts.Use(state.User.Identity?.Name);
+
+            // **임시본의 열쇠이면서 「내가 올린 건인가」의 열쇠다.**
+            // 뒤엣것이 거짓이면 남긴 말이 관리자 경로로 돈다(`AiTaskNotes`).
+            _me = state.User.Identity?.Name;
+            Drafts.Use(_me);
         }
 
         await LoadModelsAsync();
@@ -722,12 +831,15 @@ public partial class AiTaskList
         _base = item is null ? null : Copy(item);
         _runs = [];
         _openRun = null;
+        _turns = [];
+        _changed = [];
+        _files = [];
         _lines.Clear();
         _lastSeq = 0;
 
-        // 새 건을 골랐으면 새 맥락이다. 고정을 풀고 탭도 「지시」로 되돌린다.
+        // 새 건을 골랐으면 새 맥락이다. 고정을 풀고 탭도 「작성」으로 되돌린다.
         _tabPinned = false;
-        _tab = 0;
+        _tab = TabWrite;
 
         if (item is null)
         {
@@ -738,6 +850,10 @@ public partial class AiTaskList
         // **고른 건에 적어 둔 것이 있으면 그것을 얹는다.** 표에서 다른 건에
         // 다녀오는 것도 「떠났다 돌아오는 것」이다.
         ApplyDraft(item);
+
+        // 함께 올라온 파일. **못 읽어도 화면을 막지 않는다** — 지시와 결과가
+        // 이 판의 본문이고 첨부는 곁들이는 것이다.
+        await LoadFilesAsync(item);
 
         await LoadRunsAsync();
 
@@ -773,6 +889,41 @@ public partial class AiTaskList
         {
             _runs = [];
         }
+
+        TakeTurns();
+    }
+
+    /// <summary>
+    /// <b>차수별로 가른다</b> — 실행 줄 하나가 한 차수고, 그때 간 지시문과
+    /// 그 답이 그 줄에 함께 있다(<see cref="AiTaskTurns.Build"/>).
+    /// </summary>
+    /// <remarks>
+    /// 실행 이력이 바뀌는 자리마다 다시 짓는다. <b>그릴 때마다 짓지 않는다</b> —
+    /// 따라가기가 1초마다 화면을 다시 그리므로, 그 자리에 두면 긴 지시문을
+    /// 초마다 다시 가르게 된다(<see cref="AiTaskAsk.Split"/>).
+    /// </remarks>
+    private void TakeTurns()
+        => _turns = AskItem is { } task ? AiTaskTurns.Build(task, _runs) : [];
+
+    /// <summary>
+    /// 함께 올라온 파일을 읽는다. <b>개수가 0 이면 묻지 않는다.</b>
+    /// </summary>
+    private async Task LoadFilesAsync(AiTaskDto t)
+    {
+        if (t.FileCount <= 0)
+        {
+            _files = [];
+            return;
+        }
+
+        try
+        {
+            _files = await Api.FilesAsync(t.TaskKey);
+        }
+        catch (ApiException)
+        {
+            _files = [];
+        }
     }
 
     /// <summary>
@@ -793,11 +944,16 @@ public partial class AiTaskList
             StartTail();
         }
 
-        // 지시 탭(0)을 보고 있는 상태에서 실행 차수를 클릭했다면
-        // 결과가 있으면 결과 탭(1), 없으면 로그 탭(2)으로 전환한다.
-        if (_tab == 0)
+        // **고른 차수의 「처리 파일」을 그 실행 것으로 갈아 끼운다.**
+        // 위 띠에서 1차를 눌렀는데 3차가 고친 파일이 그대로 서 있으면
+        // 띠가 먹통으로 보인다.
+        TakeRunFiles();
+
+        // 적는 탭을 보고 있는 상태에서 실행 차수를 눌렀다면 보러 온 것이다 —
+        // 답이 있으면 「지시와 결과」로, 없으면 로그로 건너간다.
+        if (_tab == TabWrite)
         {
-            _tab = !string.IsNullOrWhiteSpace(run.ResultText) ? 1 : 2;
+            _tab = !string.IsNullOrWhiteSpace(run.ResultText) ? TabAsk : TabLog;
         }
     }
 
@@ -938,6 +1094,11 @@ public partial class AiTaskList
                                 _openRun = _runs.FirstOrDefault(r => r.RunKey == _openRun.RunKey) ?? _openRun;
                             }
 
+                            // **펴 둔 차수가 갈렸거나 그 줄이 새것으로 바뀌었다.**
+                            // 「처리 파일」은 그 줄에서 읽으므로 여기서 함께 맞춘다 —
+                            // 안 맞추면 끝난 뒤에도 빈 목록이 그대로 선다.
+                            TakeRunFiles();
+
                             changed = true;
                         }
 
@@ -1007,60 +1168,80 @@ public partial class AiTaskList
         }
     }
 
+    // ── 로그 탭에 넘겨 줄 것 ──────────────────────────────────
+    //
+    // **그리는 일은 `AiTaskLogTab` 이 한다**(2026-10-15). 한동안 이 화면이
+    // 글상자 하나(`<pre class="pm-ai-log">`)에 꼬리 500줄을 깔고 JS 로 바닥에
+    // 붙여 두었는데, 그 자리를 공통 탭이 받으면서 **따라 내리는 일도 그쪽이
+    // 제 손으로 한다**(`LogTranslateView` — 넓은 화면은 편집기의 `RevealLine`,
+    // 휴대폰은 `js/log-tail.js`). 여기서 밀어 줄 상자가 없어졌다.
+
+    /// <summary>탭에 그릴 줄 수의 상한. 넘으면 꼬리만 넘긴다.</summary>
+    /// <remarks>
+    /// 들고 있는 것(<see cref="_lines"/>)에는 2,000줄 상한이 따로 있다 — 이쪽은
+    /// <b>회로로 실어 보내는 양</b>의 상한이다. 수천 줄을 모바일 회로에 실으면
+    /// 탭을 여는 것부터 느려진다.
+    /// </remarks>
+    private const int LogDrawMax = 500;
+
     /// <summary>
-    /// 화면에 그릴 로그. <b>꼬리 500줄만</b> 그린다 — 수만 줄을 DOM 에 그리면
-    /// 회로가 그것을 전부 실어 나른다.
-    /// </summary>
-    private string _logText = string.Empty;
-
-    /// <summary>로그 상자. JS 가 이것을 바닥으로 민다.</summary>
-    private ElementReference _logEl;
-
-    /// <summary>로그 따라가기(<c>js/log-tail.js</c>). 처음 쓸 때 싣는다.</summary>
-    private IJSObjectReference? _logJs;
-
-    /// <summary>
-    /// 로그를 <b>바닥에 붙여 둔다.</b> 사람이 위를 읽는 중이면 JS 쪽이
-    /// 알아서 놓아 둔다.
+    /// 탭에 그릴 줄. <b>꼬리 <see cref="LogDrawMax"/>줄만</b> 넘긴다.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// <b>로그 탭을 보고 있을 때만 부른다.</b> 숨어 있는 동안에는 상자 높이가
-    /// 0 이라 밀어도 먹지 않고, 지시 탭에서 글을 치는 동안 글자마다 JS 를
-    /// 왕복할 이유도 없다. 탭을 여는 것도 렌더라, 그때 이것이 불려 바닥으로 간다.
-    /// </para>
-    /// <para>
-    /// 따라가기는 <b>편의다</b> — 못 해도 로그는 그대로 보인다. 그래서 여기서
-    /// 나는 것으로 화면을 세우지 않는다(회로가 끊기는 중이면 JS 는 못 부른다).
-    /// </para>
+    /// 잘렸으면 <b>잘렸다고 맨 앞에 한 줄 적는다.</b> 말없이 자르면 보는 사람이
+    /// 그 꼬리를 로그 전부로 읽고, 앞쪽에서 터진 오류를 「없는 것」으로 친다.
     /// </remarks>
-    private async Task FollowLogAsync()
+    private IReadOnlyList<string> LogLines
     {
-        if (_openRun is null || _tab != 2)
+        get
         {
-            return;
-        }
+            if (_lines.Count <= LogDrawMax)
+            {
+                return [.. _lines.Select(l => l.Text ?? string.Empty)];
+            }
 
-        try
-        {
-            _logJs ??= await Js.InvokeAsync<IJSObjectReference>(
-                "import", "./_content/JSini.Web.ProjMng/js/log-tail.js");
-
-            await _logJs.InvokeVoidAsync("follow", _logEl);
-        }
-        catch (Exception ex) when (ex is JSException or JSDisconnectedException
-            or InvalidOperationException or TaskCanceledException or ObjectDisposedException)
-        {
-            // 화면을 떠났거나 회로가 끊겼다. 조용히 넘어간다.
+            return
+            [
+                $"… 앞 {_lines.Count - LogDrawMax}줄은 줄였습니다",
+                .. _lines.Skip(_lines.Count - LogDrawMax).Select(l => l.Text ?? string.Empty),
+            ];
         }
     }
 
-    private string LogHint => _lines.Count == 0
-        ? "아직 없습니다"
-        : _lines.Count > 500 ? $"{_lines.Count}줄 중 마지막 500줄" : $"{_lines.Count}줄";
+    /// <summary>
+    /// 로그가 <b>모두 몇 줄인가.</b> 탭 이름에 적는다.
+    /// </summary>
+    /// <remarks>
+    /// <b>받아 둔 줄만 세지 않는다.</b> 들고 있는 것에 상한이 있어
+    /// (2,000줄) 긴 로그는 받아 둔 쪽이 늘 작다. 서버가 실행 줄에 적어 둔 값
+    /// (<c>log_line_count</c>)은 실행 이력과 함께 이미 와 있으므로 둘 중
+    /// <b>큰 쪽</b>을 쓴다 — 돌고 있는 건은 방금 받은 줄이 그 값보다 앞선다.
+    /// </remarks>
+    private int LogCount => Math.Max(_lines.Count, _openRun?.LogLineCount ?? 0);
 
-    private static string RunHint(AiTaskRunDto run) =>
-        run.DiffStat is { Length: > 0 } d ? d.Split('\n')[^1].Trim() : $"exit {run.ExitCode}";
+    /// <summary>
+    /// 옮긴 글을 담아 둘 열쇠. <b>차수까지 넣는다.</b>
+    /// </summary>
+    /// <remarks>
+    /// 옮긴 것은 화면 밖에 남으므로(<see cref="AiLogXlatStore"/>) 열쇠가 같으면
+    /// 다른 것을 열었을 때 앞의 번역이 그대로 보인다. 이 화면은 <b>차수를 고르는
+    /// 띠</b>를 가지고 있어 건 번호만으로는 모자란다 — 1차를 보다 3차로 옮기면
+    /// 1차의 번역이 3차 줄 옆에 선다.
+    /// </remarks>
+    private string LogStateKey => $"ai-task:{_edit?.TaskKey ?? 0}:{_openRun?.RunKey ?? 0}";
+
+    /// <summary>
+    /// 「로그 보기」를 눌렀다(<see cref="AiTaskAskTab.OnOpenLog"/>).
+    /// </summary>
+    /// <remarks>
+    /// <b>고정도 함께 건다.</b> 사람이 제 손으로 건너온 자리라, 따라가기가
+    /// 다음 바퀴에 탭을 또 옮기면 방금 고른 것이 뒤집힌다.
+    /// </remarks>
+    private void OpenLogTab()
+    {
+        _tabPinned = true;
+        _tab = TabLog;
+    }
 
     /// <summary>
     /// 그 실행이 <b>얼마나 돌았나</b>. 돌고 있으면 지금까지, 끝났으면 걸린 만큼.
@@ -1202,8 +1383,11 @@ public partial class AiTaskList
         _draftAt = null;
         _runs = [];
         _openRun = null;
+        _turns = [];
+        _changed = [];
+        _files = [];
         _tabPinned = false;
-        _tab = 0;
+        _tab = TabWrite;
 
         _edit = task;
     }
@@ -1350,7 +1534,7 @@ public partial class AiTaskList
                 // **고정을 무시하고 넘긴다** — 자기가 누른 결과라 화면이
                 // 바뀌는 것이 놀랍지 않다.
                 _tabPinned = false;
-                _tab = 2;
+                _tab = TabLog;
             }
         }
         finally
@@ -1499,7 +1683,7 @@ public partial class AiTaskList
         SyncPicked();
         StartTail();
         _tabPinned = false;
-        _tab = 2;
+        _tab = TabLog;
     }
 
     /// <summary>저장한 뒤 왼쪽 표의 고른 행을 새 값으로 맞춘다.</summary>
@@ -1534,7 +1718,7 @@ public partial class AiTaskList
     }
 
     /// <summary>
-    /// 그릴 로그를 한 번만 만들고, <b>고친 것이 있으면 임시저장을 건다.</b>
+    /// <b>고친 것이 있으면 임시저장을 건다.</b>
     /// </summary>
     /// <remarks>
     /// <para>
@@ -1547,15 +1731,6 @@ public partial class AiTaskList
     /// </remarks>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        var tail = _lines.Count <= 500 ? _lines : _lines.GetRange(_lines.Count - 500, 500);
-        var text = string.Join('\n', tail.Select(l => l.Text));
-
-        if (text != _logText)
-        {
-            _logText = text;
-            StateHasChanged();
-        }
-
         if (firstRender)
         {
             // **적어 둔 것은 회로가 붙은 뒤에야 읽을 수 있다**(JS 왕복).
@@ -1583,9 +1758,6 @@ public partial class AiTaskList
         }
 
         RevealPicked();
-
-        // 새 줄이 붙었든 탭을 방금 열었든, 지금 그려진 것의 바닥을 보여 준다.
-        await FollowLogAsync();
 
         await TrackDraftAsync();
 
@@ -1621,13 +1793,6 @@ public partial class AiTaskList
         {
             _swipeModule = null;
             _ = ReleaseAsync(swipeModule);
-        }
-
-        // 실어 둔 JS 를 놓아 준다. 회로가 이미 끊긴 뒤면 놓을 것도 없다.
-        if (_logJs is { } js)
-        {
-            _logJs = null;
-            _ = ReleaseAsync(js);
         }
     }
 
@@ -2186,6 +2351,10 @@ public partial class AiTaskList
 
         _edit = result;
         _base = Copy(result);
+
+        // **차수의 바탕이 바뀌었다.** 「이어서 지시」는 서버가 본문을 덮어
+        // 돌려주므로, 다시 안 지으면 1차 자리에 옛 글이 남는다.
+        TakeTurns();
     }
 
     /// <summary>
@@ -2229,6 +2398,7 @@ public partial class AiTaskList
     private static AiTaskDto Copy(AiTaskDto s) => new()
     {
         TaskKey = s.TaskKey,
+        FileCount = s.FileCount,
         Title = s.Title,
         TitleAuto = s.TitleAuto,
         TitleRunKey = s.TitleRunKey,
