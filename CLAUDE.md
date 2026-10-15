@@ -174,5 +174,8 @@ nginx 설정 정본은 [deploy/nginx/](deploy/nginx/) 에 있다 — Blazor 회�
   열리던 구멍: 기본 차단으로 뒤집은 길과 「차단 접근기록」 화면
 - [deploy/llm/README.md](deploy/llm/README.md) — 추론 장비의 상태 수집기 정본과,
   「GPU 를 읽지 못했습니다」를 재부팅 없이 푸는 길
+- [docs/spa-migration-analysis.md](docs/spa-migration-analysis.md) — 현재 시스템의
+  SPA 전환 시 기술적 문제 요소 및 영향도 분석
 - [web/CLAUDE.md](web/CLAUDE.md) — Blazor 포털의 MFE 구조·의존 규칙·DevExpress 라이선스
 - [.claude/agents/](.claude/agents/) — 전문 서브에이전트 정의
+
