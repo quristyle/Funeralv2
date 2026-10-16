@@ -27,6 +27,16 @@ public static class AIEndpoints
             string.Equals(m.role, "user", StringComparison.OrdinalIgnoreCase))?.content
         ?? string.Empty;
 
+    /// <summary>
+    /// JSON 에서 글자 칸 하나를 꺼낸다. 없거나 글자가 아니면 null.
+    /// <b>칸 이름을 짐작하지 않으려고</b> 쓰는 자리 — 도구가 주는 JSON 의
+    /// 대소문자는 직렬화 설정이 정하므로 둘 다 두드려 본다.
+    /// </summary>
+    private static string? Str(JsonElement e, string name)
+        => e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String
+            ? v.GetString()
+            : null;
+
     public static void MapAIEndpoints(this IEndpointRouteBuilder app)
     {
         // Gateway 설정에서 PathRemovePrefix: "/api/ai" 가 설정되어 있으므로,
@@ -207,6 +217,215 @@ public static class AIEndpoints
         })
         .WithName("GetLlmHardware")
         .WithSummary("LLM 장비의 GPU·CPU·메모리·디스크·서비스 상태");
+
+        // ── 사내 문서 검색(RAG) · 웹 검색(MCP) 상태 ───────────────
+        //
+        // 「LLM 장비 상태」 화면의 아래 두 칸이 이것을 읽는다. 장비가 멀쩡해도
+        // **답의 근거를 대는 두 길은 따로 끊어진다** — 임베딩 서버가 죽거나,
+        // 색인이 비었거나, McpServer 가 안 떠 있거나.
+        //
+        // [셋을 섞어서 담는다]
+        //
+        //   설정  — 켜져 있나, 어떤 값으로 도나 (읽는 값이 공짜다)
+        //   색인  — 토막·문서가 실제로 들어 있나 (메모리와 DB)
+        //   확인  — 눌러 보면 답하나 (AiFeatureProbe 가 재어 둔 값)
+        //
+        // **설정만으로는 고장이 안 보인다.** 임베딩 서버가 죽어도 색인은 디스크에
+        // 남아 있어 숫자가 그대로이고, 그 사이 대화는 낱말 검색만으로 답한다.
+        // 그래서 실제로 눌러 본 값을 함께 담는다 — 다만 그 호출은 장비 CPU 를
+        // 쓰므로 Probe 가 2분 동안 재어 둔다(화면은 10초마다 묻는다).
+        //
+        // 장비가 꺼져 있어도 200 이다. 하드웨어 쪽과 같은 까닭이다.
+        group.MapGet("/features/status", async (
+            [FromQuery] bool? recheck,
+            [FromServices] RagStore store,
+            [FromServices] RagLibrary library,
+            [FromServices] RagIndexer indexer,
+            [FromServices] McpToolGateway mcp,
+            [FromServices] AiFeatureProbe probe,
+            [FromServices] IConfiguration config,
+            CancellationToken ct) =>
+        {
+            var force = recheck == true;
+
+            // 눌러 보는 둘은 서로 기다릴 까닭이 없다. 임베딩이 20초를 끌어도
+            // MCP 쪽 답은 그대로 나온다.
+            var embedTask = probe.EmbeddingAsync(force, ct);
+            var mcpTask = probe.McpServerAsync(force, ct);
+            var toolsTask = mcp.ListAsync(ct);
+
+            // 문서 수는 DB 를, 토막 수는 메모리를 본다 — 둘이 어긋나는 것이
+            // 「올려만 놓고 색인을 안 돌린」 상태다.
+            var cats = await library.CategoriesAsync(ct);
+            var docStats = (await library.DocumentStatsAsync(ct))
+                .ToDictionary(x => x.CategoryId, StringComparer.Ordinal);
+
+            await Task.WhenAll(embedTask, mcpTask, toolsTask);
+            var embed = await embedTask;
+            var mcpServer = await mcpTask;
+            var tools = await toolsTask;
+
+            // 저장소 문서(docs/*.md)는 DB 에 없는 카테고리로 따로 들어간다.
+            // 색인에만 있는 것까지 합쳐야 화면이 전부를 보여 준다.
+            var known = cats.Select(c => c.Id).ToHashSet(StringComparer.Ordinal);
+            var rows = cats
+                .Select(c => (Id: c.Id, Name: c.Name, FromDb: true))
+                .Concat(store.Categories
+                    .Where(k => !known.Contains(k))
+                    .Select(k => (Id: k, Name: k == indexer.Category ? "저장소 문서" : k, FromDb: false)))
+                .OrderBy(x => x.Name, StringComparer.CurrentCulture)
+                .Select(x =>
+                {
+                    var stat = store.StatOf(x.Id);
+                    var docs = docStats.GetValueOrDefault(x.Id);
+
+                    return new
+                    {
+                        id = x.Id,
+                        name = x.Name,
+                        fromLibrary = x.FromDb,
+                        indexed = stat is not null,
+                        chunks = stat?.Chunks ?? 0,
+                        // 토막은 있는데 벡터가 없으면 그 카테고리는 낱말 검색만 된다.
+                        vectorChunks = stat?.VectorChunks ?? 0,
+                        sources = stat?.Sources ?? 0,
+                        dimensions = stat?.Dimensions ?? 0,
+                        model = stat?.Model,
+                        builtAt = stat?.BuiltAt,
+                        indexBytes = stat?.FileBytes,
+                        documents = docs?.Total ?? 0,
+                        documentsIndexed = docs?.Indexed ?? 0,
+                        documentsPending = docs?.Pending ?? 0,
+                        documentsFailed = docs?.Failed ?? 0,
+                        documentsSkipped = docs?.Skipped ?? 0,
+                        documentBytes = docs?.Bytes ?? 0,
+                    };
+                })
+                .ToList();
+
+            return Results.Ok(ApiResponse<object>.Ok(new
+            {
+                rag = new
+                {
+                    // 끄면 검색 엔드포인트만 남고 대화에는 자료가 안 붙는다.
+                    augmentChat = config.GetValue("Rag:AugmentChat", true),
+                    topK = config.GetValue("Rag:TopK", 4),
+                    minVectorScore = config.GetValue("Rag:MinVectorScore", 0.40),
+                    // 비어 있으면 모든 카테고리를 함께 본다.
+                    chatCategory = config["Rag:ChatCategory"],
+                    repoCategory = indexer.Category,
+                    indexPath = store.IndexPath,
+                    uploadRoot = library.Root,
+                    chunks = store.Count,
+                    builtAt = store.BuiltAt,
+                    categories = rows,
+                    embedding = new
+                    {
+                        reachable = embed.Reachable,
+                        model = embed.Model,
+                        dimensions = embed.Dimensions,
+                        latencyMs = embed.LatencyMs,
+                        endpoint = embed.Endpoint,
+                        message = embed.Message,
+                        checkedAt = embed.CheckedAt,
+                    },
+                },
+                web = new
+                {
+                    // 도구 자체를 끈 것인지, 대화에서만 안 쓰는 것인지는 다르다.
+                    enabled = config.GetValue("Mcp:Enabled", true),
+                    augmentChat = config.GetValue("Mcp:AugmentChat", false),
+                    maxToolRounds = config.GetValue("Mcp:MaxToolRounds", 4),
+                    skipWhenRagScore = config.GetValue("Mcp:SkipWhenRagScore", 0.55),
+                    endpoint = config["Mcp:Endpoint"],
+                    connected = tools.Count > 0,
+                    tools = tools.Select(t => new { name = t.Name, description = t.Description }),
+                    server = new
+                    {
+                        reachable = mcpServer.Reachable,
+                        searchProvider = mcpServer.SearchProvider,
+                        endpoint = mcpServer.Endpoint,
+                        latencyMs = mcpServer.LatencyMs,
+                        message = mcpServer.Message,
+                        checkedAt = mcpServer.CheckedAt,
+                    },
+                },
+            }));
+        })
+        .WithName("GetAiFeatureStatus")
+        .WithSummary("사내 문서 검색(RAG)과 웹 검색(MCP)의 상태");
+
+        // 웹 검색을 **실제로 한 번** 돌려 본다.
+        //
+        // 상태만으로는 안 갈리는 고장이 있다 — McpServer 는 떠 있고 도구 목록도
+        // 오는데 **검색 뒷단이 막혀 있는** 경우다. 기본값인 DuckDuckGo 는 HTML
+        // 화면을 긁는 것이라 구조가 바뀌면 0건이 되고, 그래도 오류는 안 난다.
+        //
+        // **사람이 누를 때만 나간다.** 바깥으로 나가는 요청이라 화면이 10초마다
+        // 부를 것이 아니다 — AI 제공자의 「정밀 확인」과 같은 성격이다.
+        group.MapPost("/features/web-check", async (
+            [FromQuery] string? q,
+            [FromServices] McpToolGateway mcp,
+            CancellationToken ct) =>
+        {
+            if (!mcp.Enabled)
+            {
+                return Results.Ok(ApiResponse<object>.Fail("웹 도구가 꺼져 있습니다. (Mcp:Enabled)", "C400"));
+            }
+
+            var query = string.IsNullOrWhiteSpace(q) ? "장례식장 관리 시스템" : q.Trim();
+            var started = System.Diagnostics.Stopwatch.StartNew();
+
+            var text = await mcp.CallAsync(
+                "web_search",
+                new Dictionary<string, object?> { ["query"] = query, ["count"] = 3 },
+                ct);
+            started.Stop();
+
+            // 도구는 실패해도 던지지 않고 까닭을 글로 돌려준다. 괄호로 시작하는
+            // 그 글이 곧 실패 표시다 — 성공한 결과는 JSON 으로 온다.
+            var failed = text.StartsWith('(');
+            var hits = new List<object>();
+            string? note = failed ? text : null;
+
+            if (!failed)
+            {
+                // **글자 그대로 화면에 뿌리지 않는다.** 도구가 돌려주는 것은
+                // 한글이 \uXXXX 로 박힌 JSON 이라, 사람 눈에는 고장난 것처럼 보인다.
+                try
+                {
+                    using var doc = JsonDocument.Parse(text);
+                    if (doc.RootElement.TryGetProperty("results", out var arr)
+                        && arr.ValueKind == JsonValueKind.Array)
+                    {
+                        hits.AddRange(arr.EnumerateArray().Select(x => (object)new
+                        {
+                            title = Str(x, "Title") ?? Str(x, "title"),
+                            url = Str(x, "Url") ?? Str(x, "url"),
+                        }));
+                    }
+                }
+                catch (JsonException)
+                {
+                    // 모양이 바뀌었어도 받은 것은 보여 준다 — 그것이 곧 단서다.
+                    note = text.Length > 500 ? text[..500] + "…" : text;
+                }
+            }
+
+            return Results.Ok(ApiResponse<object>.Ok(new
+            {
+                query,
+                // **0건도 실패로 센다.** DuckDuckGo 는 화면을 긁는 것이라 구조가
+                // 바뀌면 오류 없이 빈 목록이 온다 — 그것이 가장 흔한 고장이다.
+                ok = !failed && hits.Count > 0,
+                count = hits.Count,
+                latencyMs = (int)started.ElapsedMilliseconds,
+                results = hits,
+                note,
+            }));
+        })
+        .WithName("CheckWebSearch")
+        .WithSummary("웹 검색을 한 번 실제로 돌려 본다");
 
         group.MapGet("/providers", ([FromServices] AiProviderRegistry registry) =>
         {

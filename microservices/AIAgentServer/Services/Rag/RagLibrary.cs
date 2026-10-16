@@ -118,6 +118,50 @@ public sealed class RagLibrary
         return map;
     }
 
+    /// <summary>
+    /// 카테고리별 문서 실태. <b>상태 화면(「LLM 장비 상태」)이 읽는다.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>카테고리 표에 적힌 수(<c>DocCount</c>·<c>ChunkCount</c>)를 쓰지 않는다.</b>
+    /// 그 값은 마지막 색인 때 찍힌 것이라, 그 뒤에 올린 문서는 거기 없다 —
+    /// 「올려만 놓고 색인을 안 돌린」 상태가 화면에서 보여야 하는데 그 숫자로는
+    /// 안 보인다. 문서 표를 그때그때 센다.
+    /// </para>
+    /// <para>
+    /// 바로 위 <see cref="CategoryTalliesAsync"/> 와 같은 표를 세지만 <b>묶는
+    /// 자리가 다르다</b> — 저쪽은 문서함 머리에 적을 「전체·색인됨·건너뜀」이고,
+    /// 이쪽은 상태 화면이 짚어야 하는 <b>색인 안 된 것(<c>pending</c>)</b>과
+    /// 차지한 바이트까지 따로 센다. 합치려면 저쪽 칸을 늘려야 하는데, 그러면
+    /// 문서함 머리가 쓰지도 않는 값을 들고 다니게 된다.
+    /// </para>
+    /// </remarks>
+    public async Task<List<RagDocStat>> DocumentStatsAsync(CancellationToken ct = default)
+    {
+        var rows = await _db.RagDocuments.AsNoTracking()
+            .Where(x => !x.IsDeleted)
+            .GroupBy(x => new { x.CategoryId, x.Status })
+            .Select(g => new
+            {
+                g.Key.CategoryId,
+                g.Key.Status,
+                Count = g.Count(),
+                Bytes = g.Sum(x => x.SizeBytes),
+            })
+            .ToListAsync(ct);
+
+        return [.. rows
+            .GroupBy(x => x.CategoryId, StringComparer.Ordinal)
+            .Select(g => new RagDocStat(
+                CategoryId: g.Key,
+                Total: g.Sum(x => x.Count),
+                Indexed: g.Where(x => x.Status == "indexed").Sum(x => x.Count),
+                Pending: g.Where(x => x.Status == "pending").Sum(x => x.Count),
+                Failed: g.Where(x => x.Status == "failed").Sum(x => x.Count),
+                Skipped: g.Where(x => x.Status == "skipped").Sum(x => x.Count),
+                Bytes: g.Sum(x => x.Bytes)))];
+    }
+
     public async Task<RagCategoryRow> CreateCategoryAsync(
         string id, string name, string? description, string? who, CancellationToken ct = default)
     {

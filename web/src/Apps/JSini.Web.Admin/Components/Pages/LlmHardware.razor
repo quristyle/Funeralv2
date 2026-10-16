@@ -364,8 +364,324 @@
             </tbody>
         </table>
     </div>
+}
 
+@* ── 사내 문서 검색 (RAG) ──────────────────────────────────────
+    여기부터는 **장비가 아니라 기능**이다. 장비가 멀쩡해도 이 둘은 따로
+    끊어진다 — 임베딩 서버가 죽거나, 색인이 비었거나, 도구 서버가 안 떠
+    있거나. 그때도 대화는 아는 것만으로 멀쩡히 돌아서 **서비스 상태로는
+    안 갈린다.** 그래서 장비가 꺼져 있어도(M 이 null) 이 자리는 그린다.
+*@
+<h2 class="ad-llm__head">
+    사내 문서 검색 (RAG)
+    @if (_ai?.Rag is { } rh)
+    {
+        <span class="ad-llm__dim">
+            토막 @Num(rh.Chunks)개 · 카테고리 @rh.Categories.Count(c => c.Indexed)/@rh.Categories.Count 색인됨
+        </span>
+    }
+    <span class="ad-llm__head-act">
+        <DxButton Text="지금 눌러 보기" RenderStyle="ButtonRenderStyle.Secondary"
+                  Enabled="@(!Loading)" Click="@RecheckFeaturesAsync" />
+    </span>
+</h2>
+
+@if (_ai?.Rag is not { } rag)
+{
+    <div class="ad-card ad-card--down ad-llm__panel">
+        <strong>RAG 상태를 읽지 못했습니다.</strong>
+        <div class="ad-card__why">AI 서비스(AIAgentServer)가 답하지 않습니다.</div>
+    </div>
+}
+else
+{
+    <DxFormLayout CssClass="ad-deck">
+        @* 임베딩 서버 — **눌러 본 결과다.** 설정만 보면 죽어 있어도 초록이다 *@
+        <DxFormLayoutGroup Decoration="FormLayoutGroupDecoration.Card"
+                           ExpandButtonDisplayMode="GroupExpandButtonDisplayMode.None"
+                           ColSpanXs="12" ColSpanMd="6"
+                           CssClass="@($"ad-card ad-card--{(rag.Embedding?.Reachable == true ? "up" : "down")}")">
+            <CaptionTemplate>
+                <span class="ad-card__name">임베딩 서버</span>
+                <span class="jsini-badge @(rag.Embedding?.Reachable == true ? "jsini-badge--on" : "jsini-badge--err")">
+                    @(rag.Embedding?.Reachable == true ? "응답" : "응답 없음")
+                </span>
+                <span class="ad-card__sub">@(rag.Embedding?.Model ?? "—")</span>
+            </CaptionTemplate>
+            <Items>
+                <DxFormLayoutItem ColSpanXs="12">
+                    <Template>
+                        <dl class="ad-llm__kv">
+                            <dt>벡터 차원</dt><dd>@Num(rag.Embedding?.Dimensions)</dd>
+                            <dt>걸린 시간</dt>
+                            <dd>
+                                @Num(rag.Embedding?.LatencyMs, " ms")
+                                <span class="ad-llm__dim"> · 짧은 글 하나를 벡터로</span>
+                            </dd>
+                            <dt>물어본 곳</dt><dd class="ad-desc__mono">@(rag.Embedding?.Endpoint ?? "—")</dd>
+                            <dt>확인</dt>
+                            <dd>
+                                @(rag.Embedding is { } eb ? eb.CheckedAt.Kst("HH:mm:ss") : "—")
+                                <span class="ad-llm__dim"> · 2분마다 (누르면 지금)</span>
+                            </dd>
+                        </dl>
+
+                        @if (rag.Embedding is { Reachable: false, Message: { Length: > 0 } ewhy })
+                        {
+                            <div class="ad-card__why">
+                                @ewhy
+                                <span class="ad-llm__dim"> — 그동안에도 대화는 돌아간다(낱말 검색만 한다).</span>
+                            </div>
+                        }
+                        else if (DimensionNote(rag) is { Length: > 0 } dnote)
+                        {
+                            <div class="ad-card__why">@dnote</div>
+                        }
+                    </Template>
+                </DxFormLayoutItem>
+            </Items>
+        </DxFormLayoutGroup>
+
+        @* 대화에 어떻게 붙는가 — 이쪽은 설정이다. 눌러 보는 값이 아니다 *@
+        <DxFormLayoutGroup Decoration="FormLayoutGroupDecoration.Card"
+                           ExpandButtonDisplayMode="GroupExpandButtonDisplayMode.None"
+                           ColSpanXs="12" ColSpanMd="6"
+                           CssClass="@($"ad-card ad-card--{(rag.AugmentChat ? "up" : "off")}")">
+            <CaptionTemplate>
+                <span class="ad-card__name">대화에 끼우기</span>
+                <span class="jsini-badge @(rag.AugmentChat ? "jsini-badge--on" : "jsini-badge--off")">
+                    @(rag.AugmentChat ? "켜짐" : "꺼짐")
+                </span>
+                @* 설정 열쇠는 머리에 적지 않는다 — 머리띠가 라틴 글자를 대문자로
+                   올려(tabler.css 의 그룹 머리) `Rag:AugmentChat` 이 그대로 적어
+                   넣을 수 없는 글자가 된다. 아래 칸에 둔다 *@
+                <span class="ad-card__sub">사내 문서</span>
+            </CaptionTemplate>
+            <Items>
+                <DxFormLayoutItem ColSpanXs="12">
+                    <Template>
+                        <dl class="ad-llm__kv">
+                            <dt>넣는 토막</dt>
+                            <dd>@Num(rag.TopK)개<span class="ad-llm__dim"> · 점수 @Num(rag.MinVectorScore, "", 2) 미만은 버린다</span></dd>
+                            <dt>찾는 범위</dt>
+                            <dd>@(string.IsNullOrWhiteSpace(rag.ChatCategory) ? "모든 카테고리" : rag.ChatCategory)</dd>
+                            <dt>색인 자리</dt><dd class="ad-desc__mono">@(rag.IndexPath ?? "—")</dd>
+                            <dt>문서 자리</dt><dd class="ad-desc__mono">@(rag.UploadRoot ?? "—")</dd>
+                            <dt>마지막 색인</dt>
+                            <dd>@(rag.BuiltAt is { } rb ? rb.Kst("yyyy-MM-dd HH:mm") : "한 번도 만들지 않음")</dd>
+                            <dt>설정</dt><dd class="ad-desc__mono">Rag:AugmentChat</dd>
+                        </dl>
+                        @if (!rag.AugmentChat)
+                        {
+                            <div class="ad-card__why">
+                                꺼져 있습니다 — 사내 문서를 찾기는 하지만 <b>대화에는 붙이지 않습니다.</b>
+                            </div>
+                        }
+                    </Template>
+                </DxFormLayoutItem>
+            </Items>
+        </DxFormLayoutGroup>
+    </DxFormLayout>
+
+    @* 카테고리 — **색인(메모리)과 문서(DB)를 나란히 놓는다.**
+       둘이 어긋나는 것이 「올려만 놓고 색인을 안 돌린」 상태다 *@
+    <div class="ad-llm__panel">
+        <table class="ad-llm__table">
+            <thead>
+                <tr><th>카테고리</th><th>문서</th><th>토막</th><th>차원</th><th>색인 파일</th><th>만든 때</th><th>상태</th></tr>
+            </thead>
+            <tbody>
+                @if (rag.Categories.Count == 0)
+                {
+                    <tr><td colspan="7">카테고리가 하나도 없습니다.</td></tr>
+                }
+                @foreach (var c in rag.Categories)
+                {
+                    var state = CategoryState(c);
+                    <tr>
+                        <td>
+                            @c.Name
+                            <span class="ad-llm__dim">@c.Id@(c.FromLibrary ? "" : " · 저장소")</span>
+                        </td>
+                        <td>
+                            @Num(c.Documents)건
+                            <span class="ad-llm__dim"> · @Bytes(c.DocumentBytes)</span>
+                        </td>
+                        <td>
+                            @Num(c.Chunks)
+                            @if (c.Indexed && c.VectorChunks < c.Chunks)
+                            {
+                                <span class="ad-llm__warnnum"> 벡터 @Num(c.VectorChunks)</span>
+                            }
+                            else if (c.Sources > 0)
+                            {
+                                <span class="ad-llm__dim"> · 문서 @Num(c.Sources)</span>
+                            }
+                        </td>
+                        <td>@(c.Dimensions > 0 ? Num(c.Dimensions) : "-")</td>
+                        <td>@Bytes(c.IndexBytes)</td>
+                        <td>@(c.BuiltAt is { } cb ? cb.Kst("MM-dd HH:mm") : "-")</td>
+                        <td><span class="jsini-badge @BadgeOf(state.Tone)">@state.Label</span></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@* ── 웹 검색 (MCP 도구) ───────────────────────────────────── *@
+<h2 class="ad-llm__head">
+    웹 검색 (MCP 도구)
+    @if (_ai?.Web is { } wh)
+    {
+        <span class="ad-llm__dim">도구 @(wh.Tools.Count)개 · 뒷단 @SearchName(wh.Server?.SearchProvider)</span>
+    }
+    <span class="ad-llm__head-act">
+        <DxButton Text="@(_webChecking ? "찾는 중…" : "검색 해 보기")"
+                  RenderStyle="ButtonRenderStyle.Secondary"
+                  Enabled="@(!_webChecking && _ai?.Web?.Enabled == true)"
+                  Click="@CheckWebSearchAsync" />
+    </span>
+</h2>
+
+@if (_ai?.Web is not { } web)
+{
+    <div class="ad-card ad-card--down ad-llm__panel">
+        <strong>웹 검색 상태를 읽지 못했습니다.</strong>
+        <div class="ad-card__why">AI 서비스(AIAgentServer)가 답하지 않습니다.</div>
+    </div>
+}
+else
+{
+    <DxFormLayout CssClass="ad-deck">
+        <DxFormLayoutGroup Decoration="FormLayoutGroupDecoration.Card"
+                           ExpandButtonDisplayMode="GroupExpandButtonDisplayMode.None"
+                           ColSpanXs="12" ColSpanMd="6"
+                           CssClass="@($"ad-card ad-card--{WebServerTone(web)}")">
+            <CaptionTemplate>
+                <span class="ad-card__name">도구 서버</span>
+                <span class="jsini-badge @BadgeOf(WebServerTone(web))">
+                    @(web.Connected ? "붙음" : web.Server?.Reachable == true ? "응답" : "응답 없음")
+                </span>
+                @* 주소도 머리에 적지 않는다 — 대문자로 올라가면 경로가 달라진다
+                   (`/mcp` → `/MCP`). 그대로 옮겨 적을 수 있어야 하는 값이다 *@
+            </CaptionTemplate>
+            <Items>
+                <DxFormLayoutItem ColSpanXs="12">
+                    <Template>
+                        <dl class="ad-llm__kv">
+                            <dt>주소</dt><dd class="ad-desc__mono">@(web.Endpoint ?? "—")</dd>
+                            <dt>검색 뒷단</dt>
+                            <dd>
+                                @SearchName(web.Server?.SearchProvider)
+                                <span class="ad-llm__dim"> · McpServer 설정이 정한다</span>
+                            </dd>
+                            <dt>걸린 시간</dt><dd>@Num(web.Server?.LatencyMs, " ms")</dd>
+                            <dt>확인</dt>
+                            <dd>
+                                @(web.Server is { } ws ? ws.CheckedAt.Kst("HH:mm:ss") : "—")
+                                <span class="ad-llm__dim"> · 2분마다 (누르면 지금)</span>
+                            </dd>
+                        </dl>
+
+                        @if (web.Tools.Count > 0)
+                        {
+                            <div class="ad-llm__procs">
+                                @foreach (var t in web.Tools)
+                                {
+                                    <span class="ad-llm__proc" title="@t.Description">@t.Name</span>
+                                }
+                            </div>
+                        }
+
+                        @if (!web.Enabled)
+                        {
+                            <div class="ad-card__why">도구가 꺼져 있습니다. (Mcp:Enabled)</div>
+                        }
+                        else if (web.Server is { Reachable: false, Message: { Length: > 0 } mwhy })
+                        {
+                            <div class="ad-card__why">@mwhy</div>
+                        }
+                        else if (!web.Connected)
+                        {
+                            <div class="ad-card__why">
+                                도구 목록을 받지 못했습니다 — <b>모델은 웹을 못 찾고 아는 것만으로 답합니다.</b>
+                            </div>
+                        }
+                    </Template>
+                </DxFormLayoutItem>
+            </Items>
+        </DxFormLayoutGroup>
+
+        <DxFormLayoutGroup Decoration="FormLayoutGroupDecoration.Card"
+                           ExpandButtonDisplayMode="GroupExpandButtonDisplayMode.None"
+                           ColSpanXs="12" ColSpanMd="6"
+                           CssClass="@($"ad-card ad-card--{(web.AugmentChat ? "up" : "off")}")">
+            <CaptionTemplate>
+                <span class="ad-card__name">대화에 끼우기</span>
+                <span class="jsini-badge @(web.AugmentChat ? "jsini-badge--on" : "jsini-badge--off")">
+                    @(web.AugmentChat ? "켜짐" : "꺼짐")
+                </span>
+                <span class="ad-card__sub">웹 검색</span>
+            </CaptionTemplate>
+            <Items>
+                <DxFormLayoutItem ColSpanXs="12">
+                    <Template>
+                        <dl class="ad-llm__kv">
+                            <dt>도구 왕복</dt>
+                            <dd>최대 @Num(web.MaxToolRounds)번<span class="ad-llm__dim"> · 막지 않으면 같은 검색을 되풀이한다</span></dd>
+                            <dt>사내 문서 우선</dt>
+                            <dd>점수 @Num(web.SkipWhenRagScore, "", 2) 이상이면 웹을 건너뛴다</dd>
+                            <dt>설정</dt><dd class="ad-desc__mono">Mcp:AugmentChat</dd>
+                        </dl>
+                        <div class="ad-card__why">
+                            @if (web.AugmentChat)
+                            {
+                                <text>보통 대화에서도 웹을 찾습니다 — 질문마다 「찾아볼까」를 묻는 왕복이 하나 늘어납니다.</text>
+                            }
+                            else
+                            {
+                                <text>보통 대화는 웹을 찾지 않습니다. <b>「웹으로 묻기」(<span class="ad-desc__mono">/chat/web</span>)는 그대로 됩니다.</b></text>
+                            }
+                        </div>
+                    </Template>
+                </DxFormLayoutItem>
+            </Items>
+        </DxFormLayoutGroup>
+    </DxFormLayout>
+
+    @* 눌러 본 결과. **0건도 실패다** — 화면을 긁는 뒷단은 구조가 바뀌면
+       오류 없이 빈 목록을 준다 *@
+    @if (_webCheck is { } wc)
+    {
+        <div class="ad-llm__panel">
+            <div class="ad-llm__webhead">
+                <span class="jsini-badge @(wc.Ok ? "jsini-badge--on" : "jsini-badge--err")">
+                    @(wc.Ok ? $"{wc.Count}건" : "못 찾음")
+                </span>
+                <span>「@wc.Query」</span>
+                <span class="ad-llm__dim">@Num(wc.LatencyMs, " ms")</span>
+            </div>
+
+            @foreach (var hit in wc.Results)
+            {
+                <div class="ad-llm__webhit">
+                    <a href="@hit.Url" target="_blank" rel="noopener noreferrer">@hit.Title</a>
+                    <span class="ad-llm__dim">@hit.Url</span>
+                </div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(wc.Note))
+            {
+                <div class="ad-card__why">@wc.Note</div>
+            }
+        </div>
+    }
+}
+
+@if (M is { } mf)
+{
     <div class="ad-stamp ad-llm__foot">
-        커널 @m.System?.Kernel · 물어본 곳 @_hw?.Endpoint
+        커널 @mf.System?.Kernel · 물어본 곳 @_hw?.Endpoint
     </div>
 }

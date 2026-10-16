@@ -112,6 +112,11 @@ builder.Services.AddScoped<AIAgentServer.Services.Mcp.WebAugmenter>();
 // LLM 장비 하드웨어 상태. 추론과 같은 주소·같은 키를 쓰므로 설정이 따로 없다.
 builder.Services.AddHttpClient<LlmHostMetricsClient>();
 
+// RAG·웹 검색이 실제로 도는지 눌러 보는 자리. **싱글턴이라야 한다** —
+// 재어 둔 값(2분)을 들고 있어야 상태 화면의 10초 조회가 임베딩 서버의
+// CPU 를 그때마다 물지 않는다.
+builder.Services.AddSingleton<AiFeatureProbe>();
+
 builder.Services.AddHttpClient<ILLMService, LLMService>()
     .ConfigurePrimaryHttpMessageHandler(sp => new SocketsHttpHandler
     {

@@ -536,6 +536,40 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task<LlmHardwareDto?> GetLlmHardwareAsync(CancellationToken ct = default)
         => gateway.GetOneAsync<LlmHardwareDto>("ai/llm/hardware", ct);
 
+    /// <summary>
+    /// 사내 문서 검색(RAG)과 웹 검색(MCP)의 상태.
+    ///
+    /// <para>
+    /// 하드웨어와 <b>따로 끊어지는 것들</b>이다 — 장비가 멀쩡해도 임베딩 서버가
+    /// 죽거나 색인이 비면 답에 근거가 안 붙고, 그때도 대화는 아는 것만으로
+    /// 멀쩡히 돌아서 서비스 상태로는 갈리지 않는다.
+    /// </para>
+    /// </summary>
+    /// <param name="recheck">
+    /// 재어 둔 값(2분)을 버리고 <b>지금 다시 눌러 본다</b>. 사람이 「지금 확인」을
+    /// 눌렀을 때만 참이다 — 임베딩은 장비 CPU 를 쓰므로 10초 자동 조회가
+    /// 그때마다 부를 것이 아니다.
+    /// </param>
+    /// <param name="ct">취소 토큰.</param>
+    public Task<AiFeatureStatusDto?> GetAiFeatureStatusAsync(
+        bool recheck = false, CancellationToken ct = default)
+        => gateway.GetOneAsync<AiFeatureStatusDto>(
+            $"ai/features/status{(recheck ? "?recheck=true" : string.Empty)}", ct);
+
+    /// <summary>
+    /// 웹 검색을 <b>한 번 실제로</b> 돌려 본다.
+    ///
+    /// <para>
+    /// 상태만으로는 안 갈리는 고장이 있다 — 서버도 떠 있고 도구 목록도 오는데
+    /// 검색 뒷단이 막혀 0건만 오는 경우다. <b>바깥으로 나가는 요청이라</b>
+    /// 사람이 누를 때만 보낸다(「정밀 확인」과 같은 성격이다).
+    /// </para>
+    /// </summary>
+    public Task<WebSearchCheckDto?> CheckWebSearchAsync(
+        string? query = null, CancellationToken ct = default)
+        => gateway.PostAsync<WebSearchCheckDto>(
+            $"ai/features/web-check{Query(("q", query))}", new { }, ct);
+
     /// <summary>제공자별로 고를 수 있는 모델 목록.</summary>
     public Task<IReadOnlyList<AiProviderModelsDto>> GetAiModelsAsync(CancellationToken ct = default)
         => gateway.GetListAsync<AiProviderModelsDto>("ai/models", ct);

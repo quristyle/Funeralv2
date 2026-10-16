@@ -26,6 +26,22 @@ public sealed class EmbeddingClient
 
     public string Model { get; } = "bge-m3";
 
+    /// <summary>
+    /// 실제로 부르는 주소. 설정이 없거나 해석이 안 되면 null.
+    /// <b>상태 화면이 「어디에 물었는지」를 보여 주려고 읽는다</b> —
+    /// 개발 PC 와 운영이 서로 다른 주소를 쓰기 때문에, 그것만 보여도
+    /// 「내 쪽 설정이 틀렸구나」를 알 수 있다.
+    /// </summary>
+    public string? Endpoint => ResolveUrl()?.ToString();
+
+    private Uri? ResolveUrl()
+    {
+        var provider = _registry.Resolve("jsini");
+        return Uri.TryCreate(provider.ApiBase, UriKind.Absolute, out var api)
+            ? new UriBuilder(api) { Path = "/embed/v1/embeddings", Query = string.Empty }.Uri
+            : null;
+    }
+
     /// <summary>임베딩 서버에 보낼 글의 상한(글자). 문맥 8192 토큰에 넉넉히 들어간다.</summary>
     private const int MaxChars = 3000;
 
@@ -36,12 +52,8 @@ public sealed class EmbeddingClient
     public async Task<List<float[]>> EmbedAsync(IReadOnlyList<string> texts, CancellationToken ct = default)
     {
         var provider = _registry.Resolve("jsini");
-        if (!Uri.TryCreate(provider.ApiBase, UriKind.Absolute, out var api))
-        {
-            throw new InvalidOperationException("로컬 LLM 주소가 설정돼 있지 않습니다.");
-        }
-
-        var url = new UriBuilder(api) { Path = "/embed/v1/embeddings", Query = string.Empty }.Uri;
+        var url = ResolveUrl()
+                  ?? throw new InvalidOperationException("로컬 LLM 주소가 설정돼 있지 않습니다.");
 
         // 마지막 안전장치. 토막 하나가 길다고 색인 전체가 실패하면 안 된다 —
         // 한국어는 글자당 토큰이 1.5개를 넘기도 해서 글자 수로는 다 못 막는다.

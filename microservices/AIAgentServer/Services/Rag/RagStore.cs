@@ -71,6 +71,45 @@ public sealed class RagStore
     public int CountOf(string category)
         => _shards.TryGetValue(category, out var sh) ? sh.Index.Chunks.Count : 0;
 
+    /// <summary>
+    /// 한 카테고리 색인의 겉모습. <b>상태 화면이 읽는다.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>벡터가 붙은 토막 수를 따로 센다.</b> 임베딩 서버가 죽은 채 색인을
+    /// 돌리면 토막은 그대로 생기고 벡터만 비는데, 토막 수만 보면 멀쩡해 보인다 —
+    /// 그 색인은 낱말 검색밖에 못 한다. 화면에서 가려져야 하는 고장이다.
+    /// </para>
+    /// <para>
+    /// 파일 크기는 디스크에서 읽는다. 메모리에 든 것과 어긋나면(색인은 돌았는데
+    /// 저장이 안 됐다든지) 다시 뜰 때 사라지는 색인이라는 뜻이다.
+    /// </para>
+    /// </remarks>
+    public RagIndexStat? StatOf(string category)
+    {
+        if (!_shards.TryGetValue(category, out var sh)) return null;
+
+        var file = PathOf(category);
+        long? bytes = null;
+        try
+        {
+            if (File.Exists(file)) bytes = new FileInfo(file).Length;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "색인 파일 크기를 읽지 못했습니다. path={Path}", file);
+        }
+
+        return new RagIndexStat(
+            Chunks: sh.Index.Chunks.Count,
+            VectorChunks: sh.Index.Chunks.Count(c => c.Vector.Length > 0),
+            Sources: sh.Index.Chunks.Select(c => c.Source).Distinct(StringComparer.Ordinal).Count(),
+            Dimensions: sh.Index.Dimensions,
+            Model: sh.Index.Model,
+            BuiltAt: sh.Index.BuiltAt,
+            FileBytes: bytes);
+    }
+
     /// <summary>색인 파일이 놓이는 자리. 카테고리마다 파일이 하나다.</summary>
     private string PathOf(string category)
     {
