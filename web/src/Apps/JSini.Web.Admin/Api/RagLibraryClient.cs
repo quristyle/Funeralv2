@@ -68,6 +68,17 @@ public sealed class RagLibraryClient(GatewayClient gateway, HttpClient http)
             $"ai/rag/categories/{Uri.EscapeDataString(categoryId)}/documents"
             + (folderId is { } f ? $"?folderId={f}" : string.Empty), ct);
 
+    /// <summary>
+    /// 문서를 다른 분류로 옮긴다. <paramref name="folderId"/> 가 <c>null</c> 이면 분류 미지정.
+    /// </summary>
+    /// <remarks>
+    /// <b>색인은 건드리지 않는다</b> — 분류 옮기기와 같은 까닭이다. 토막에도
+    /// 디스크의 자리에도 분류가 적혀 있지 않다.
+    /// </remarks>
+    public Task<object?> MoveDocumentAsync(
+        long docId, long? folderId, CancellationToken ct = default)
+        => gateway.PutAsync<object>($"ai/rag/documents/{docId}/folder", new { folderId }, ct);
+
     public Task DeleteDocumentAsync(long docId, CancellationToken ct = default)
         => gateway.DeleteAsync($"ai/rag/documents/{docId}", ct);
 

@@ -5413,3 +5413,27 @@
     font-weight: 600;
     margin-left: 0;
 }
+
+/* 끌고 있는 문서 줄. 어느 줄을 집었는지 보여 준다 — 줄이 여럿이면
+   손가락 밑의 것이 무엇인지 잊는다. */
+.ad-rag__row--dragging { opacity: .45; }
+
+.ad-rag__table tbody tr[draggable="true"] { cursor: grab; }
+
+.ad-rag__row-acts {
+    display: flex;
+    align-items: center;
+    gap: .375rem;
+    justify-content: flex-end;
+}
+
+/* 옮길 분류 고르개. 표 안에 서는 칸이라 줄 높이를 늘리지 않게 묶는다. */
+.ad-rag__move {
+    max-width: 10rem;
+    padding: .125rem .25rem;
+    border: 1px solid var(--tb-border, rgba(128, 128, 128, .35));
+    border-radius: .25rem;
+    background: var(--tb-surface, transparent);
+    color: inherit;
+    font-size: var(--jsini-fs-xs);
+}

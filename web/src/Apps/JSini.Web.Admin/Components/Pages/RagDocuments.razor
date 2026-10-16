@@ -148,6 +148,7 @@
                     쓸 수 있는 형식: 글자 파일(.md .txt .csv .json .yaml .log .sql 등) · .pdf · .html
                     — 한 번에 20개, 파일당 50MB 까지.
                     <strong>올린 뒤 「색인 다시 만들기」를 눌러야 검색에 들어갑니다.</strong>
+                    파일 줄을 끌어 왼쪽 분류에 놓으면 그리로 옮겨집니다 — 색인에는 영향이 없습니다.
                 </div>
 
                 <div class="ad-rag__drop-hint">놓으면 「@_folderLabel」 에 바로 올라갑니다 (여러 개 가능)</div>
@@ -206,15 +207,22 @@
                         <thead>
                             <tr>
                                 <th>파일</th><th>상태</th><th>토막</th><th>크기</th>
-                                <th>올린 때</th><th>올린 이</th><th></th>
+                                <th>올린 때</th><th>올린 이</th><th>옮기기 · 지우기</th>
                             </tr>
                         </thead>
                         <tbody>
                             @foreach (var d in _documents)
                             {
-                                <tr>
+                                @* 줄을 끌어 왼쪽 분류에 떨구면 옮겨진다. *@
+                                <tr draggable="true"
+                                    class="@(_dragDoc == d.Id ? "ad-rag__row--dragging" : "")"
+                                    @ondragstart="@(() => _dragDoc = d.Id)"
+                                    @ondragend="@(() => { _dragDoc = null; _dragOver = null; })">
                                     <td>
-                                        <a href="@Api.DownloadUrl(d.Id)" target="_blank" rel="noopener">@d.FileName</a>
+                                        @* **링크를 못 끌게 막는다.** 안 막으면 줄이 아니라
+                                           주소가 끌려서, 이름을 잡고 끈 사람에게만 안 된다. *@
+                                        <a href="@Api.DownloadUrl(d.Id)" target="_blank" rel="noopener"
+                                           draggable="false">@d.FileName</a>
                                         @if (!string.IsNullOrWhiteSpace(d.Error))
                                         {
                                             <div class="ad-rag__err">@d.Error</div>
@@ -225,7 +233,18 @@
                                     <td>@Bytes(d.SizeBytes)</td>
                                     <td>@d.CreatedAt.Kst("MM-dd HH:mm")</td>
                                     <td>@d.CreatedBy</td>
-                                    <td>
+                                    <td class="ad-rag__row-acts">
+                                        @* 끌어 옮기기만 두면 화면 어디에도 안 보이는
+                                           몸짓이 유일한 길이 된다. *@
+                                        <select class="ad-rag__move" title="다른 분류로 옮기기"
+                                                @onchange="@(e => MoveDocumentAsync(d.Id, ParseFolder(e.Value)))">
+                                            @foreach (var (id, label) in FlatFolders())
+                                            {
+                                                @* 지금 분류를 `selected` 로 집는다. `<select value=…>` 로
+                                                   주면 옵션보다 먼저 그려져 안 잡히는 자리가 있다. *@
+                                                <option value="@(id?.ToString() ?? "")" selected="@(id == _folderId)">@label</option>
+                                            }
+                                        </select>
                                         <DxButton Text="지우기" RenderStyle="ButtonRenderStyle.Link"
                                                   Click="@(() => DeleteDocumentAsync(d.Id))" />
                                     </td>

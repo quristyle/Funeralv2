@@ -210,6 +210,21 @@ public static class RagLibraryEndpoints
                 : Results.File(f.Value.Path, "application/octet-stream", f.Value.Name);
         }).WithSummary("문서 내려받기");
 
+        group.MapPut("/documents/{docId:long}/folder", async (
+            long docId, [FromBody] MoveDocumentRequest body,
+            [FromServices] RagLibrary lib, HttpContext http, CancellationToken ct) =>
+        {
+            try
+            {
+                await lib.MoveDocumentAsync(docId, body.FolderId, Who(http), ct);
+                return Results.Ok(ApiResponse<object>.Ok(new { moved = docId, body.FolderId }));
+            }
+            catch (Exception ex)
+            {
+                return Results.Ok(ApiResponse<object>.Fail(ex.Message, "C400"));
+            }
+        }).WithSummary("문서를 다른 분류로 옮기기 (색인에는 영향 없음)");
+
         group.MapDelete("/documents/{docId:long}", async (
             long docId, [FromServices] RagLibrary lib, CancellationToken ct) =>
         {
@@ -256,3 +271,6 @@ public sealed record CreateCategoryRequest(string Id, string Name, string? Descr
 public sealed record CreateFolderRequest(long? ParentId, string Name);
 public sealed record RenameFolderRequest(string Name);
 public sealed record MoveFolderRequest(long? ParentId, long? BeforeId);
+
+/// <summary>문서를 옮길 분류. <c>null</c> 이면 분류 미지정으로 올린다.</summary>
+public sealed record MoveDocumentRequest(long? FolderId);

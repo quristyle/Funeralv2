@@ -293,6 +293,42 @@ public sealed class RagLibrary
             .OrderByDescending(x => x.CreatedAt)
             .ToListAsync(ct);
 
+    /// <summary>문서를 다른 분류로 옮긴다. <paramref name="folderId"/> 가 <c>null</c> 이면 분류 미지정.</summary>
+    /// <remarks>
+    /// <b>색인에는 아무 영향이 없다.</b> 분류는 사람이 보기 좋으라고 있는 것이고
+    /// 검색은 카테고리 전체에서 한다 — 토막에도, 디스크의 자리에도 분류가 적혀
+    /// 있지 않다(파일은 <c>{카테고리}/{연월}/{guid}</c> 에 놓인다). 그래서 옮긴
+    /// 뒤에 색인을 다시 만들 일이 없다.
+    /// </remarks>
+    public async Task MoveDocumentAsync(
+        long id, long? folderId, string? who, CancellationToken ct = default)
+    {
+        var row = await _db.RagDocuments.FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted, ct)
+                  ?? throw new InvalidOperationException("없는 문서입니다.");
+
+        if (folderId is { } f)
+        {
+            // **카테고리를 넘나들 수 없다.** 넘기면 토막은 옛 카테고리의 색인에
+            // 남고 문서만 새 카테고리에 서서, 「목록에는 있는데 그 카테고리에서는
+            // 안 찾아지는」 문서가 된다.
+            var ok = await _db.RagFolders.AnyAsync(
+                x => x.Id == f && x.CategoryId == row.CategoryId && !x.IsDeleted, ct);
+
+            if (!ok) throw new InvalidOperationException("이 카테고리의 분류가 아닙니다.");
+        }
+
+        if (row.FolderId == folderId) return;
+
+        // 문서 줄에는 「고친 때」 칸이 없다 — 옮기는 것은 내용을 건드리지 않고,
+        // 그 칸 하나 때문에 운영 DDL 을 돌릴 일이 아니다. 자취는 로그에 남긴다.
+        row.FolderId = folderId;
+        await _db.SaveChangesAsync(ct);
+
+        _logger.LogInformation(
+            "RAG 문서를 옮겼습니다: {Id} → 분류 {Folder} ({Who})",
+            id, folderId?.ToString() ?? "미지정", who);
+    }
+
     public async Task<RagDocumentRow> UploadAsync(
         string categoryId, long? folderId, string fileName, string? contentType,
         Stream content, string? who, CancellationToken ct = default)

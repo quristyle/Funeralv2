@@ -44,6 +44,9 @@ public partial class RagDocuments
     /// <summary>지금 끌고 있는 분류. 놓는 자리를 정하는 데 쓴다.</summary>
     private long? _dragFolder;
 
+    /// <summary>지금 끌고 있는 문서. 분류를 끄는 것과 **떨구는 자리가 같아서** 갈라 둔다.</summary>
+    private long? _dragDoc;
+
     /// <summary>끌고 있는 것이 지나가는 자리. 선을 그어 보여 준다.</summary>
     private (long Id, bool Before)? _dragOver;
 
@@ -322,6 +325,16 @@ public partial class RagDocuments
     /// </remarks>
     private async Task DropFolderAsync(long? targetId, bool before)
     {
+        // 문서를 끌고 있으면 그쪽 일이다. **줄 사이의 틈(before)에 떨군 것은
+        // 버린다** — 그 틈은 「형제로, 그 앞에」라는 뜻이라 문서에는 말이 안 된다.
+        if (_dragDoc is { } doc)
+        {
+            _dragDoc = null;
+            _dragOver = null;
+            if (!before) await MoveDocumentAsync(doc, targetId);
+            return;
+        }
+
         var moving = _dragFolder;
         _dragFolder = null;
         _dragOver = null;
@@ -357,6 +370,9 @@ public partial class RagDocuments
 
     private void DragOver(long id, bool before)
     {
+        // 문서는 분류 **안으로**만 들어간다. 틈에는 표시를 안 한다.
+        if (_dragDoc is not null) { if (!before) _dragOver = (id, false); return; }
+
         if (_dragFolder is null || _dragFolder == id) return;
         _dragOver = (id, before);
     }
@@ -493,6 +509,54 @@ public partial class RagDocuments
 
     /// <summary>올리기 목록을 지운다. 다 읽고 치우는 단추다.</summary>
     private void ClearUploads() => _uploads.Clear();
+
+    /// <summary>문서 한 건을 다른 분류로 옮긴다.</summary>
+    /// <remarks>
+    /// <b>색인을 다시 만들라고 하지 않는다.</b> 분류는 사람이 보기 좋으라고
+    /// 있는 것이고 검색은 카테고리 전체에서 한다 — 토막에도 디스크의 자리에도
+    /// 분류가 적혀 있지 않다. 분류 자체를 끌어 옮길 때와 같은 까닭이다.
+    /// </remarks>
+    private async Task MoveDocumentAsync(long docId, long? folderId)
+    {
+        if (folderId == _folderId) return;   // 보고 있는 그 분류에 떨궜다
+
+        var name = _documents.FirstOrDefault(d => d.Id == docId)?.FileName ?? "문서";
+        var to = folderId is { } f ? Find(_tree, f)?.Name ?? "분류" : "분류 미지정";
+
+        var ok = await RunAsync(
+            async () => await Api.MoveDocumentAsync(docId, folderId),
+            $"「{name}」 을 「{to}」 로 옮겼습니다.");
+
+        if (!ok) return;
+
+        await LoadDocumentsAsync();
+        await RefreshCountsAsync();
+    }
+
+    /// <summary>고르개가 돌려준 값을 분류 번호로 읽는다. 빈 글자는 분류 미지정.</summary>
+    private static long? ParseFolder(object? v)
+        => long.TryParse(v?.ToString(), out var n) ? n : null;
+
+    /// <summary>고르개에 세울 분류 목록. 깊이만큼 들여 적는다.</summary>
+    /// <remarks>
+    /// 끌어 옮기기만 두면 **화면 어디에도 안 보이는 몸짓**이 유일한 길이 된다 —
+    /// 키보드로도, 좁은 화면에서도 옮길 수 없다.
+    /// </remarks>
+    private List<(long? Id, string Label)> FlatFolders()
+    {
+        var list = new List<(long?, string)> { (null, "분류 미지정") };
+        Walk(_tree, 0);
+        return list;
+
+        void Walk(List<RagFolderNode> ns, int depth)
+        {
+            foreach (var n in ns)
+            {
+                list.Add((n.Id, new string('\u00a0', depth * 3) + n.Name));
+                Walk(n.Children, depth + 1);
+            }
+        }
+    }
 
     private async Task DeleteDocumentAsync(long id)
     {
