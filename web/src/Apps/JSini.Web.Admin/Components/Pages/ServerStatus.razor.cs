@@ -232,6 +232,11 @@ public partial class ServerStatus
             ["cargotrust-cluster"] = ("CargoTrustServer", "운송관리 · 거래처 신뢰정보"),
             ["notification-cluster"] = ("NotificationServer", "푸시 · 이메일 발송"),
 
+            // 게이트웨이가 중계하지 않고 **상태만 보는** 서비스다(라우트 없는
+            // 클러스터). 모델이 쓰는 바깥 도구라 AIAgentServer 가 직접 붙는다 —
+            // 이 카드가 빨개도 AI 는 돌아간다. 도구 없이 아는 것만으로 답할 뿐이다.
+            ["mcp-cluster"] = ("McpServer", "MCP 도구 · 웹 검색 · 본문 가져오기"),
+
             // 우리 서비스가 아니다. 외부 고객사 시스템이라 `/health` 규약을
             // 따르지 않고 게이트웨이도 헬스체크를 걸지 않는다. 이름을 그대로
             // 두면 **우리 MSA 하나가 죽은 것처럼 읽힌다.**

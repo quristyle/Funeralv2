@@ -46,9 +46,14 @@ services:
       # 먹지 않았다 — printenv 에는 보이는데 게이트웨이는 localhost:5500 을 불렀다.
       # 그래서 다른 클러스터와 같은 길(Local.json)로 돌렸다. Local.json 은 고쳐도
       # 컨테이너 안에서 다시 읽히지 않으니 재시작까지가 한 묶음이다.
+      #
+      # **mcp 도 그 파일에 더해야 한다**(2026-10-16). 게이트웨이는 그 클러스터로
+      # 중계하지 않고 [MSA 서버 상태] 화면에 **상태만** 올린다 — 빠뜨리면 그
+      # 카드가 저장소 기본값(localhost:5510)을 찔러 **늘 빨갛다.**
+      #   "mcp-cluster": { "Destinations": { "destination1": { "Address": "http://mcp:8080" } } }
     volumes:
       - /srv/jsini/config/ApiGateway/appsettings.Local.json:/app/appsettings.Local.json:ro
-    depends_on: [auth, file, site, notify, life, cargo, funeral, helpdesk, projmng, ai]
+    depends_on: [auth, file, site, notify, life, cargo, funeral, helpdesk, projmng, ai, mcp]
 
   auth:
     <<: *common
@@ -223,6 +228,12 @@ services:
       # RabbitMQ 는 호스트에서 돈다 — 컨테이너 안의 localhost 가 아니다.
       # (Local.json 에 이 열쇠가 없어서 환경변수가 먹는다. 거기 적으면 그쪽이 이긴다.)
       AI__CliRelay__QueueHost: host.docker.internal
+
+      # MCP 도구 서버(웹 검색·본문 가져오기). **컨테이너망 이름으로 부른다** —
+      # 기본값(localhost:5510)은 개발 장비 기준이라 컨테이너 안에서는 자기 자신을
+      # 가리킨다. 못 붙어도 AI 는 그냥 뜨므로 **조용히 도구 없이 답한다.**
+      # (Local.json 에 이 열쇠가 있으면 그쪽이 이긴다 — 위 QueueHost 와 같다.)
+      Mcp__Endpoint: http://mcp:8080/mcp
     volumes:
       - /srv/jsini/config/AIAgentServer/appsettings.Local.json:/app/appsettings.Local.json:ro
       # RAG 문서함. **사람이 올린 파일이라 컨테이너 안에 두면 안 된다** —

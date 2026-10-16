@@ -8,6 +8,11 @@ namespace McpServer.Tools;
 public sealed record SearchResult(string Title, string Url, string Snippet);
 
 /// <summary>
+/// 검색 뒷단 점검 결과. <c>Reason</c> 은 성할 때 <c>null</c> 이다.
+/// </summary>
+public sealed record SearchProbe(bool Ok, string Provider, string Endpoint, string? Reason);
+
+/// <summary>
 /// 웹 검색. <b>뒷단을 갈아 끼울 수 있게</b> 만들었다.
 /// </summary>
 /// <remarks>
@@ -36,6 +41,66 @@ public sealed class WebSearchService
         _config = config;
         _logger = logger;
         _http.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgent);
+    }
+
+    /// <summary>
+    /// 뒷단이 지금 쓸 수 있는 상태인지 한 번 두드려 본다. <c>/health</c> 가 쓴다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>프로세스가 살아 있는 것과 검색이 되는 것은 다르다.</b> 이 컨테이너만
+    /// 바깥 인터넷으로 나가므로, 나가는 길이 막히면 MCP 는 200 을 주면서 도구는
+    /// 하나도 못 쓰는 상태가 된다 — AIAgentServer 쪽에서는 「웹을 못 찾는다」로만
+    /// 보이고 어디가 막혔는지 알 수 없다.
+    /// </para>
+    /// <para>
+    /// <b>Brave 만 두드리지 않는다.</b> 그쪽은 요청 수가 곧 요금이라, 점검이
+    /// 한도를 깎아서는 안 된다. 거기서 실제로 틀리는 것은 열쇠이므로 열쇠만 본다.
+    /// </para>
+    /// </remarks>
+    public async Task<SearchProbe> ProbeAsync(CancellationToken ct)
+    {
+        var provider = (_config["Search:Provider"] ?? "duckduckgo").ToLowerInvariant();
+
+        switch (provider)
+        {
+            case "brave":
+                var key = _config["Search:BraveApiKey"];
+                return string.IsNullOrWhiteSpace(key)
+                    ? new SearchProbe(false, provider, "api.search.brave.com",
+                        "Search:BraveApiKey 가 없습니다.")
+                    : new SearchProbe(true, provider, "api.search.brave.com",
+                        "열쇠가 있습니다(요금 때문에 실제로 묻지는 않습니다).");
+
+            case "searxng":
+                var baseUrl = (_config["Search:SearxngUrl"] ?? "http://127.0.0.1:8888").TrimEnd('/');
+                using (var res = await _http.GetAsync(baseUrl, ct))
+                {
+                    return res.IsSuccessStatusCode
+                        ? new SearchProbe(true, provider, baseUrl, null)
+                        : new SearchProbe(false, provider, baseUrl,
+                            $"응답이 {(int)res.StatusCode} 입니다.");
+                }
+
+            default:
+                // 화면을 긁는 방식이라 **200 만으로는 모자란다** — 구조가 바뀌면
+                // 200 을 받고도 결과가 0 건이다. 줄 무늬가 잡히는지까지 본다.
+                const string ddg = "https://html.duckduckgo.com/html/";
+                using (var res = await _http.GetAsync($"{ddg}?q=ping", ct))
+                {
+                    if (!res.IsSuccessStatusCode)
+                    {
+                        return new SearchProbe(false, provider, ddg,
+                            $"응답이 {(int)res.StatusCode} 입니다.");
+                    }
+
+                    var body = await res.Content.ReadAsStringAsync(ct);
+                    return DdgRow.IsMatch(body)
+                        ? new SearchProbe(true, provider, ddg, null)
+                        : new SearchProbe(false, provider, ddg,
+                            "응답은 왔지만 결과를 뽑지 못했습니다. 화면 구조가 바뀌었을 수 있습니다.");
+                }
+        }
     }
 
     public Task<IReadOnlyList<SearchResult>> SearchAsync(string query, int count, CancellationToken ct)
