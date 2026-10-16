@@ -39,4 +39,11 @@ COPY --from=build /out .
 ENV APP_DLL=${PROJ_NAME}.dll \
     ASPNETCORE_ENVIRONMENT=Production \
     TZ=Etc/UTC
+# **셸을 거치므로 환경변수 이름에 하이픈을 쓸 수 없다.** 셸은 이름이 유효한
+# 식별자가 아닌 환경변수를 자기 환경에서 빼고, `exec` 로 넘길 때도 안 싣는다.
+# 그래서 `Foo__bar-baz__Qux=…` 는 **dotnet 까지 못 간다** — `docker exec printenv`
+# 에는 보여서(그쪽은 컨테이너 설정값이다) 찾기가 고약하다. 확인은
+# `/proc/1/environ` 으로 하고, 설정 키에 하이픈이 필요하면 밑줄로 짓는다
+# (`__` 만 구분자이므로 홑 밑줄은 안전하다). 실제로 YARP 의 `mcp-cluster` 가
+# 그 한 글자 때문에 주소를 못 받아 [MSA 서버 상태] 카드가 늘 빨갰다.
 ENTRYPOINT ["/bin/sh", "-c", "exec dotnet $APP_DLL"]
