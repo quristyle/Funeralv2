@@ -132,13 +132,57 @@
                 </div>
 
                 <div class="ad-rag__hint">
-                    <strong>파일을 이 영역에 끌어다 놓으면</strong> 올라갑니다. 단추로 골라도 됩니다.
+                    <strong>파일을 이 영역에 끌어다 놓으면</strong> 바로 올라갑니다 — <strong>여러 개를 한꺼번에</strong> 놓아도 됩니다. 단추로 골라도 됩니다.
                     쓸 수 있는 형식: 글자 파일(.md .txt .csv .json .yaml .log .sql 등) · .pdf · .html
                     — 한 번에 20개, 파일당 50MB 까지.
                     <strong>올린 뒤 「색인 다시 만들기」를 눌러야 검색에 들어갑니다.</strong>
                 </div>
 
-                <div class="ad-rag__drop-hint">여기에 놓으면 「@_folderLabel」 에 올라갑니다</div>
+                <div class="ad-rag__drop-hint">놓으면 「@_folderLabel」 에 바로 올라갑니다 (여러 개 가능)</div>
+
+                @* ── 올리는 중 ────────────────────────────────────
+                   파일마다 줄을 세운다. **다 올라가도 지우지 않는다** —
+                   건너뛴 파일과 그 까닭을 읽을 시간이 있어야 한다. *@
+                @if (_uploads.Count > 0)
+                {
+                    <div class="ad-rag__up-list">
+                        <div class="ad-rag__up-head">
+                            <strong>올리기 @_uploads.Count(x => x.State is "done" or "failed") / @_uploads.Count</strong>
+                            @if (!_busy)
+                            {
+                                <DxButton Text="치우기" RenderStyle="ButtonRenderStyle.Link" Click="@ClearUploads" />
+                            }
+                        </div>
+
+                        @foreach (var u in _uploads)
+                        {
+                            <div class="ad-rag__up">
+                                <div class="ad-rag__up-top">
+                                    <span class="ad-rag__up-name">@u.FileName</span>
+                                    <span class="ad-rag__dim">
+                                        @switch (u.State)
+                                        {
+                                            case "waiting": <text>대기</text> break;
+                                            case "sending": <text>@Bytes(u.SentBytes) / @Bytes(u.TotalBytes) · @u.Percent.ToString("0")%</text> break;
+                                            case "done": <text>@(u.ServerStatus == "skipped" ? "건너뜀" : "올림") · @Bytes(u.TotalBytes)</text> break;
+                                            default: <text>실패</text> break;
+                                        }
+                                    </span>
+                                </div>
+
+                                <div class="ad-rag__up-bar">
+                                    <div class="@($"ad-rag__up-fill ad-rag__up-fill--{u.State}")"
+                                         style="@($"width:{(u.State is "done" or "failed" ? 100 : u.Percent).ToString("0.#", System.Globalization.CultureInfo.InvariantCulture)}%")"></div>
+                                </div>
+
+                                @if (!string.IsNullOrWhiteSpace(u.Error))
+                                {
+                                    <div class="ad-rag__err">@u.Error</div>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
 
                 @if (_documents.Count == 0)
                 {

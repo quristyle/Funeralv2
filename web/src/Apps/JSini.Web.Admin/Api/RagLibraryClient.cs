@@ -74,46 +74,117 @@ public sealed class RagLibraryClient(GatewayClient gateway, HttpClient http)
     public string DownloadUrl(long docId) => $"ai/rag/documents/{docId}/download";
 
     /// <summary>
-    /// 파일 여러 개를 한 번에 올린다. <b>한 건씩 고르게 하면</b> 폴더째 올리려는
-    /// 사람이 같은 창을 수십 번 연다.
+    /// 파일 <b>하나</b>를 올린다.
     /// </summary>
-    public async Task<IReadOnlyList<RagUploadedDto>> UploadAsync(
+    /// <param name="categoryId">넣을 카테고리.</param>
+    /// <param name="folderId">넣을 분류. null 이면 분류 미지정.</param>
+    /// <param name="content">파일 내용. 브라우저에서 건너오는 스트림이다.</param>
+    /// <param name="fileName">원본 파일 이름.</param>
+    /// <param name="contentType">MIME 형식. 모르면 application/octet-stream.</param>
+    /// <param name="onSent">
+    /// 보낸 바이트가 늘 때마다 부른다. <b>부르는 쪽이 간격을 둔다</b> —
+    /// 버퍼마다 화면을 다시 그리면 회로가 넘친다.
+    /// </param>
+    /// <param name="ct">취소 토큰.</param>
+    /// <remarks>
+    /// <para>
+    /// 여러 개를 한 묶음으로 보내지 않는다. 그러면 <b>어디까지 갔는지 알 수
+    /// 없어</b> 큰 파일을 올릴 때 화면이 "올리는 중" 에서 멎은 것처럼 보인다.
+    /// 한 건씩 보내면 파일마다 진행을 보여 줄 수 있고, 하나가 실패해도 나머지는
+    /// 올라간다.
+    /// </para>
+    /// <para>
+    /// Blazor 서버에서 <c>IBrowserFile</c> 의 스트림을 읽는 것이 곧 브라우저에서
+    /// 서버로 건너오는 과정이다. 그래서 여기서 세는 바이트가 <b>사람이 기다리는
+    /// 바로 그 전송</b>이다.
+    /// </para>
+    /// </remarks>
+    public async Task<RagUploadedDto?> UploadOneAsync(
         string categoryId, long? folderId,
-        IReadOnlyList<(Stream Content, string FileName, string? ContentType)> files,
-        CancellationToken ct = default)
+        Stream content, string fileName, string? contentType,
+        Action<long>? onSent = null, CancellationToken ct = default)
     {
         using var form = new MultipartFormDataContent();
-        var holders = new List<StreamContent>();
+        await using var counted = new CountingStream(content, onSent);
 
-        foreach (var (content, name, type) in files)
+        using var sc = new StreamContent(counted);
+        sc.Headers.ContentType = new MediaTypeHeaderValue(
+            string.IsNullOrWhiteSpace(contentType) ? "application/octet-stream" : contentType);
+        form.Add(sc, "files", fileName);
+
+        var url = $"ai/rag/categories/{Uri.EscapeDataString(categoryId)}/documents"
+                  + (folderId is { } f ? $"?folderId={f}" : string.Empty);
+
+        using var res = await http.PostAsync(url, form, ct);
+        res.EnsureSuccessStatusCode();
+
+        var env = await res.Content.ReadFromJsonAsync<Envelope<RagUploadedDto>>(JsonOptions, ct);
+        if (env is null || !env.Success)
         {
-            var sc = new StreamContent(content);
-            sc.Headers.ContentType = new MediaTypeHeaderValue(
-                string.IsNullOrWhiteSpace(type) ? "application/octet-stream" : type);
-            form.Add(sc, "files", name);
-            holders.Add(sc);
+            throw new InvalidOperationException(
+                string.IsNullOrWhiteSpace(env?.Message) ? "파일을 올리지 못했습니다." : env.Message);
         }
 
-        try
+        return env.Data?.Result is { Count: > 0 } rows ? rows[0] : null;
+    }
+
+    /// <summary>
+    /// 읽어 가는 바이트를 세어 알려 주는 껍데기.
+    /// </summary>
+    /// <remarks>
+    /// <c>StreamContent</c> 가 이 스트림을 읽어 내보내므로, 여기서 세는 것이
+    /// 곧 보낸 양이다. <b>읽기 전용</b>이고 길이도 모른다 — 브라우저 스트림이
+    /// 찾아가기(seek)를 못 하기 때문이다.
+    /// </remarks>
+    private sealed class CountingStream(Stream inner, Action<long>? onSent) : Stream
+    {
+        private long _total;
+
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+
+        public override long Position
         {
-            var url = $"ai/rag/categories/{Uri.EscapeDataString(categoryId)}/documents"
-                      + (folderId is { } f ? $"?folderId={f}" : string.Empty);
+            get => _total;
+            set => throw new NotSupportedException();
+        }
 
-            using var res = await http.PostAsync(url, form, ct);
-            res.EnsureSuccessStatusCode();
-
-            var env = await res.Content.ReadFromJsonAsync<Envelope<RagUploadedDto>>(JsonOptions, ct);
-            if (env is null || !env.Success)
+        public override async ValueTask<int> ReadAsync(
+            Memory<byte> buffer, CancellationToken ct = default)
+        {
+            var n = await inner.ReadAsync(buffer, ct);
+            if (n > 0)
             {
-                throw new InvalidOperationException(
-                    string.IsNullOrWhiteSpace(env?.Message) ? "파일을 올리지 못했습니다." : env.Message);
+                _total += n;
+                onSent?.Invoke(_total);
             }
 
-            return env.Data?.Result ?? [];
+            return n;
         }
-        finally
+
+        public override int Read(byte[] buffer, int offset, int count)
         {
-            foreach (var h in holders) h.Dispose();
+            var n = inner.Read(buffer, offset, count);
+            if (n > 0)
+            {
+                _total += n;
+                onSent?.Invoke(_total);
+            }
+
+            return n;
+        }
+
+        public override void Flush() { }
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing) inner.Dispose();
+            base.Dispose(disposing);
         }
     }
 

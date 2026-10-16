@@ -74,3 +74,25 @@ public sealed class RagFolderNode
     public string Name { get; set; } = string.Empty;
     public List<RagFolderNode> Children { get; } = [];
 }
+
+/// <summary>올리는 중인 파일 하나의 상태. 화면이 진행바를 그리는 자료다.</summary>
+public sealed class RagUploadItem
+{
+    public required string FileName { get; init; }
+    public required long TotalBytes { get; init; }
+
+    /// <summary>지금까지 보낸 바이트.</summary>
+    public long SentBytes { get; set; }
+
+    /// <summary><c>waiting</c> · <c>sending</c> · <c>done</c> · <c>failed</c></summary>
+    public string State { get; set; } = "waiting";
+
+    /// <summary>서버가 매긴 상태(<c>pending</c>·<c>skipped</c>). 다 보낸 뒤에 채워진다.</summary>
+    public string? ServerStatus { get; set; }
+
+    public string? Error { get; set; }
+
+    public double Percent => TotalBytes <= 0
+        ? 0
+        : Math.Clamp(100.0 * SentBytes / TotalBytes, 0, 100);
+}

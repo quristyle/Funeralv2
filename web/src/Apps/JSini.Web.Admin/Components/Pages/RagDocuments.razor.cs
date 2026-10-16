@@ -341,54 +341,117 @@ public partial class RagDocuments
     /// <summary>파일 하나의 상한. 넘으면 게이트웨이가 먼저 끊는다.</summary>
     private const long MaxBytes = 50L * 1024 * 1024;
 
+    /// <summary>
+    /// 지금 올리고 있는 것들. <b>끝나도 지우지 않는다</b> — 건너뛴 파일과 그
+    /// 까닭을 사람이 읽을 시간이 있어야 한다. 다음에 올릴 때 비운다.
+    /// </summary>
+    private readonly List<RagUploadItem> _uploads = [];
+
+    /// <summary>
+    /// 진행을 화면에 반영한 마지막 시각. <b>버퍼마다 다시 그리면 회로가 넘친다</b> —
+    /// 큰 파일 하나에 수천 번이 된다.
+    /// </summary>
+    private DateTime _lastTick = DateTime.MinValue;
+
     private async Task OnFilesAsync(InputFileChangeEventArgs e)
     {
         if (_categoryId is null) return;
 
-        var picked = e.GetMultipleFiles(MaxFiles);
-        var payload = new List<(Stream, string, string?)>();
-        var streams = new List<Stream>();
+        // 올리는 중에 또 떨구는 일이 있다. 조용히 무시하면 **떨궜는데 아무
+        // 일도 안 일어난 것처럼** 보여서 사람이 같은 동작을 되풀이한다.
+        if (_busy)
+        {
+            Say("아직 올리는 중입니다. 끝나면 다시 놓아 주세요.", NoticeTone.Warning);
+            return;
+        }
 
+        var picked = e.GetMultipleFiles(MaxFiles);
+
+        _uploads.Clear();
         foreach (var f in picked)
         {
-            if (f.Size > MaxBytes)
+            _uploads.Add(new RagUploadItem
             {
-                Say($"{f.Name} 은 너무 큽니다 (50MB 까지).", NoticeTone.Warning);
-                continue;
-            }
-
-            var s = f.OpenReadStream(MaxBytes);
-            streams.Add(s);
-            payload.Add((s, f.Name, f.ContentType));
+                FileName = f.Name,
+                TotalBytes = f.Size,
+                State = f.Size > MaxBytes ? "failed" : "waiting",
+                Error = f.Size > MaxBytes ? $"너무 큽니다 ({Bytes(f.Size)}). 50MB 까지." : null,
+            });
         }
-
-        if (payload.Count == 0) return;
 
         _busy = true;
+
+        // **이름과 진행바를 먼저 그린다.** `StateHasChanged` 만으로는 이 처리기가
+        // 다음에 기다릴 때까지 화면이 안 바뀌는데, 그 "다음" 이 곧 파일 읽기다 —
+        // 큰 파일이면 목록이 한참 뒤에야 나타난다. 한 번 양보해 그리고 시작한다.
+        StateHasChanged();
+        await Task.Yield();
+
         try
         {
-            var saved = await Api.UploadAsync(_categoryId, _folderId, payload);
-
-            var skipped = saved.Where(x => x.Status == "skipped").ToArray();
-            var msg = $"{saved.Count}건을 올렸습니다.";
-            if (skipped.Length > 0)
+            // **한 건씩 보낸다.** 묶어 보내면 어디까지 갔는지 알 수 없어
+            // 큰 파일에서 화면이 멎은 것처럼 보인다. 하나가 실패해도
+            // 나머지는 계속 간다.
+            for (var i = 0; i < picked.Count && i < _uploads.Count; i++)
             {
-                msg += $" 그중 {skipped.Length}건은 읽을 수 없는 형식입니다.";
+                var file = picked[i];
+                var item = _uploads[i];
+                if (item.State == "failed") continue;
+
+                item.State = "sending";
+                _lastTick = DateTime.MinValue;
+                await InvokeAsync(StateHasChanged);
+
+                try
+                {
+                    await using var stream = file.OpenReadStream(MaxBytes);
+
+                    var saved = await Api.UploadOneAsync(
+                        _categoryId, _folderId, stream, file.Name, file.ContentType,
+                        sent =>
+                        {
+                            item.SentBytes = sent;
+
+                            var now = DateTime.UtcNow;
+                            if ((now - _lastTick).TotalMilliseconds < 80) return;
+                            _lastTick = now;
+                            _ = InvokeAsync(StateHasChanged);
+                        });
+
+                    item.SentBytes = item.TotalBytes;
+                    item.State = "done";
+                    item.ServerStatus = saved?.Status;
+                    item.Error = saved?.Error;
+                }
+                catch (Exception ex)
+                {
+                    item.State = "failed";
+                    item.Error = ex.Message;
+                }
+
+                await InvokeAsync(StateHasChanged);
             }
 
-            Say(msg, skipped.Length > 0 ? NoticeTone.Warning : NoticeTone.Info);
             await LoadDocumentsAsync();
-        }
-        catch (Exception ex)
-        {
-            Say($"올리지 못했습니다 — {ex.Message}", NoticeTone.Error);
+
+            var done = _uploads.Count(x => x.State == "done");
+            var bad = _uploads.Count(x => x.State == "failed");
+            var skipped = _uploads.Count(x => x.ServerStatus == "skipped");
+
+            var msg = $"{done}건을 올렸습니다.";
+            if (skipped > 0) msg += $" 그중 {skipped}건은 읽을 수 없는 형식입니다.";
+            if (bad > 0) msg += $" {bad}건은 올리지 못했습니다.";
+
+            Say(msg, bad > 0 || skipped > 0 ? NoticeTone.Warning : NoticeTone.Info);
         }
         finally
         {
-            foreach (var s in streams) await s.DisposeAsync();
             _busy = false;
         }
     }
+
+    /// <summary>올리기 목록을 지운다. 다 읽고 치우는 단추다.</summary>
+    private void ClearUploads() => _uploads.Clear();
 
     private async Task DeleteDocumentAsync(long id)
     {

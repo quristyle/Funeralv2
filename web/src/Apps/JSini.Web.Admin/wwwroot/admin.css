@@ -5315,3 +5315,52 @@
 
 .ad-rag__node[draggable="true"] { cursor: grab; }
 .ad-rag__node[draggable="true"]:active { cursor: grabbing; }
+
+/* ── RAG 문서함 — 올리기 진행 ─────────────────────────────── */
+
+.ad-rag__up-list {
+    background: var(--tb-surface-2);
+    border: 1px solid var(--tb-border);
+    border-radius: .4rem;
+    padding: .5rem .6rem;
+    margin-bottom: .6rem;
+}
+
+.ad-rag__up-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: .82rem;
+    margin-bottom: .35rem;
+}
+
+.ad-rag__up { margin-bottom: .45rem; }
+.ad-rag__up:last-child { margin-bottom: 0; }
+
+.ad-rag__up-top {
+    display: flex;
+    justify-content: space-between;
+    gap: .5rem;
+    font-size: .78rem;
+    margin-bottom: .15rem;
+}
+
+/* 이름이 길어도 줄을 밀지 않는다 — 진행 숫자가 오른쪽에 붙어 있어야 읽힌다 */
+.ad-rag__up-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ad-rag__up-bar {
+    height: 5px;
+    background: var(--tb-surface-3);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.ad-rag__up-fill { height: 100%; transition: width .15s linear; }
+.ad-rag__up-fill--waiting { background: var(--tb-surface-3); }
+.ad-rag__up-fill--sending { background: var(--tb-blue); }
+.ad-rag__up-fill--done    { background: rgba(var(--tb-green-rgb), .7); }
+.ad-rag__up-fill--failed  { background: rgba(var(--tb-red-rgb), .7); }
