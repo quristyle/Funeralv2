@@ -64,6 +64,8 @@ jobs:
           - { name: helpdesk, dir: microservices/HelpDeskServer,    proj: HelpDeskServer }
           - { name: projmng, dir: microservices/ProjMngServer,      proj: ProjMngServer }
           - { name: ai,      dir: microservices/AIAgentServer,      proj: AIAgentServer }
+          # 모델이 쓰는 바깥 도구(웹 검색·본문 가져오기)를 MCP 규격으로 연다.
+          - { name: mcp,     dir: microservices/McpServer,        proj: McpServer }
     steps:
       - uses: actions/checkout@v4
 

@@ -1,5 +1,7 @@
 using System.Text.Json;
 using AIAgentServer.Services;
+using AIAgentServer.Services.Mcp;
+using AIAgentServer.Services.Rag;
 using JSini.Shared.DTOs;
 using Microsoft.AspNetCore.Mvc;
 
@@ -38,6 +40,148 @@ public static class AIEndpoints
         // 공급자가 목록에 남는다.
         //
         // **키는 절대 내보내지 않는다.** 설정이 됐는지 여부(`configured`)만 알려 준다.
+        // ── 웹을 찾아 가며 답하기 (MCP 도구) ──────────────────────
+        //
+        // 모델이 **스스로 판단해** 웹 검색을 부르고, 결과를 읽고, 모자라면 그
+        // 쪽을 열어 본 뒤 답한다. 답에는 참고한 주소가 붙는다.
+        //
+        // **기존 /chat 과 길을 나눠 두었다.** 거기에는 공급자 자동전환·사용량
+        // 기록이 얽혀 있어 도구 루프를 끼우면 잘 도는 길을 위험하게 한다.
+        // 도구가 필요한 질문만 이리로 보낸다.
+
+        group.MapGet("/mcp/tools", async (
+            [FromServices] McpToolGateway mcp,
+            CancellationToken ct) =>
+        {
+            var tools = await mcp.ListAsync(ct);
+            return Results.Ok(ApiResponse<object>.Ok(new
+            {
+                connected = tools.Count > 0,
+                tools = tools.Select(t => new { t.Name, t.Description }),
+            }));
+        })
+        .WithName("ListMcpTools")
+        .WithSummary("MCP 도구 서버가 주는 도구 목록");
+
+        group.MapPost("/chat/web", async (
+            [FromBody] WebAskRequest body,
+            [FromServices] WebChatAgent agent,
+            CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(body.Question))
+            {
+                return Results.BadRequest(ApiResponse<object>.Fail("질문이 없습니다.", "C400"));
+            }
+
+            try
+            {
+                var r = await agent.AskAsync(body.Question, body.Provider, ct);
+                return Results.Ok(ApiResponse<object>.Ok(new
+                {
+                    answer = r.Answer,
+                    sources = r.Sources.Select(s => new { s.Title, s.Url }),
+                    toolCalls = r.ToolCalls,
+                    rounds = r.Rounds,
+                }));
+            }
+            catch (Exception ex)
+            {
+                return Results.Ok(ApiResponse<object>.Fail($"답하지 못했습니다 — {ex.Message}", "C500"));
+            }
+        })
+        .WithName("WebChat")
+        .WithSummary("웹을 찾아 가며 답한다 (출처 포함)");
+
+        // ── RAG — 문서 검색 ──────────────────────────────────────
+        //
+        // **아직 대화에 끼워 넣지 않는다.** 검색 품질을 먼저 눈으로 보고 고치는
+        // 단계다. 좋지 않은 자료를 프롬프트에 넣으면 모델이 그걸 근거로 틀린
+        // 말을 지어내므로, 붙이기 전에 "제대로 찾는가" 부터 확인해야 한다.
+
+        group.MapGet("/rag/status", ([FromServices] RagStore store) =>
+            Results.Ok(ApiResponse<object>.Ok(new
+            {
+                chunks = store.Count,
+                model = store.Model,
+                builtAt = store.BuiltAt,
+                indexPath = store.IndexPath,
+            })))
+        .WithName("GetRagStatus")
+        .WithSummary("RAG 색인 상태");
+
+        // 색인 다시 만들기. 문서를 전부 읽어 임베딩하므로 몇 분 걸릴 수 있다.
+        group.MapPost("/rag/reindex", async (
+            [FromServices] RagIndexer indexer,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                var index = await indexer.BuildAsync(ct);
+                return Results.Ok(ApiResponse<object>.Ok(new
+                {
+                    chunks = index.Chunks.Count,
+                    dimensions = index.Dimensions,
+                    model = index.Model,
+                    builtAt = index.BuiltAt,
+                }));
+            }
+            catch (Exception ex)
+            {
+                return Results.Ok(ApiResponse<object>.Fail($"색인을 만들지 못했습니다 — {ex.Message}", "C500"));
+            }
+        })
+        .WithName("RebuildRagIndex")
+        .WithSummary("RAG 색인 다시 만들기");
+
+        group.MapGet("/rag/search", async (
+            [FromQuery] string q,
+            [FromQuery] int? topK,
+            [FromQuery] string? category,
+            [FromServices] RagStore store,
+            [FromServices] EmbeddingClient embed,
+            CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(q))
+            {
+                return Results.BadRequest(ApiResponse<object>.Fail("찾을 말을 주세요.", "C400"));
+            }
+
+            // 임베딩 서버가 죽어도 낱말 검색으로는 답한다.
+            float[]? vector = null;
+            string? note = null;
+            try
+            {
+                vector = await embed.EmbedOneAsync(q, ct);
+            }
+            catch (Exception ex)
+            {
+                note = $"임베딩 서버에 닿지 못해 낱말 검색만 했습니다 — {ex.Message}";
+            }
+
+            var hits = store.Search(
+                string.IsNullOrWhiteSpace(category) ? null : category,
+                q, vector, topK is > 0 and <= 20 ? topK.Value : 5);
+
+            return Results.Ok(ApiResponse<object>.Ok(new
+            {
+                query = q,
+                category,
+                note,
+                vectorUsed = vector is not null,
+                hits = hits.Select(h => new
+                {
+                    source = h.Chunk.Source,
+                    heading = h.Chunk.Heading,
+                    score = Math.Round(h.Score, 5),
+                    vectorScore = Math.Round(h.VectorScore, 4),
+                    keywordScore = Math.Round(h.KeywordScore, 3),
+                    text = h.Chunk.Text.Length > 400 ? h.Chunk.Text[..400] + "…" : h.Chunk.Text,
+                }),
+            }));
+        })
+        .WithName("SearchRag")
+        .WithSummary("RAG 문서 검색 (벡터 + 낱말 혼합)");
+
         // ── LLM 장비 하드웨어 상태 ───────────────────────────────
         //
         // 포털의 「LLM 장비 상태」 화면이 이것을 읽는다. 장비가 내부망에 있어
@@ -649,3 +793,6 @@ public static class AIEndpoints
             statusCode: StatusCodes.Status502BadGateway);
     }
 }
+
+/// <summary>웹 검색 대화 요청.</summary>
+public sealed record WebAskRequest(string Question, string? Provider);

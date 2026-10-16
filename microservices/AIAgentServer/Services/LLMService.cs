@@ -135,6 +135,8 @@ public class LLMService : ILLMService
     private readonly FreeModelGuard _freeModelGuard;
     private readonly AnthropicTransport _anthropic;
     private readonly CliRelay _cliRelay;
+    private readonly AIAgentServer.Services.Rag.RagAugmenter _rag;
+    private readonly AIAgentServer.Services.Mcp.WebAugmenter _web;
     private readonly AiUsageLog _usage;
     private readonly ILogger<LLMService> _logger;
 
@@ -145,6 +147,8 @@ public class LLMService : ILLMService
         AnthropicTransport anthropic,
         CliRelay cliRelay,
         AiUsageLog usage,
+        AIAgentServer.Services.Rag.RagAugmenter rag,
+        AIAgentServer.Services.Mcp.WebAugmenter web,
         ILogger<LLMService> logger)
     {
         _httpClient = httpClient;
@@ -153,6 +157,8 @@ public class LLMService : ILLMService
         _anthropic = anthropic;
         _cliRelay = cliRelay;
         _usage = usage;
+        _rag = rag;
+        _web = web;
         _logger = logger;
     }
 
@@ -172,6 +178,15 @@ public class LLMService : ILLMService
     {
         var target = _registry.Resolve(provider);
         EnsureSystemPrompt(messages, ChatSystemPrompt);
+
+        // 사내 문서에서 근거를 찾아 시스템 프롬프트에 붙인다(RAG).
+        // 못 찾거나 임베딩 서버가 죽어 있으면 조용히 건너뛴다 — 자료가 없다고
+        // 대화를 막을 까닭은 없다.
+        var ragHit = await _rag.AugmentAsync(messages);
+
+        // 사내 문서에서 못 찾은 것만 웹에서 찾는다. 기본은 꺼져 있다
+        // (Mcp:AugmentChat) — 켜면 질문마다 "찾아볼까" 를 묻는 왕복이 하나 는다.
+        await _web.AugmentAsync(messages, provider, ragHit?.TopScore ?? 0);
 
         // 사람별 사용량에 적을 시간이다. **이 메서드가 들인 시간 전체**를 잰다 —
         // 자동 전환으로 두 번 부른 것도 사람에게는 한 번의 기다림이다.
@@ -247,6 +262,19 @@ public class LLMService : ILLMService
     {
         var target = _registry.Resolve(provider);
         EnsureSystemPrompt(messages, ChatSystemPrompt);
+
+        // 자료를 붙이고, 무엇을 참고했는지 **답과 섞이지 않게** 안내로 내보낸다.
+        var ragHit = await _rag.AugmentAsync(messages);
+        if (ragHit is not null)
+        {
+            yield return ChatStreamPart.Info(ragHit.Notice, "rag");
+        }
+
+        var webNotice = await _web.AugmentAsync(messages, provider, ragHit?.TopScore ?? 0);
+        if (webNotice is not null)
+        {
+            yield return ChatStreamPart.Info(webNotice, "web");
+        }
 
         // 자동 전환은 **한 조각도 내보내기 전에** 끝난다. 접속 실패는 첫 응답을 받기
         // 전에 나므로, 답이 흘러나오기 시작한 뒤에 공급자가 바뀌는 일은 없다.

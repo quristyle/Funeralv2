@@ -39,6 +39,11 @@
     채우던 빈 구독표**를 보고 있어서 완료 알림이 한 통도 안 나갔다:
     [docs/helpdesk-status-notify.md](docs/helpdesk-status-notify.md)
   - `ProjMngServer` (:5450) · `SiteServer` (:5480) 회사 소개 사이트 백엔드
+  - `McpServer` (:5510) — 모델이 쓰는 **바깥 도구**를 MCP 규격으로 연다
+    (웹 검색 · 페이지 본문 가져오기). AIAgentServer 가 클라이언트로 붙고,
+    **도구를 더해도 AIAgentServer 는 고치지 않는다** — 목록을 서버에게 물어 쓴다.
+    검색 뒷단은 설정으로 갈린다(기본 DuckDuckGo · SearXNG · Brave).
+    쓰는 길은 `POST /api/ai/chat/web` — 답에 **출처 주소가 붙는다.**
   - `NotificationServer` (:5460) 푸시·이메일 알림 (포털·장례식장·헬프데스크 공용).
     **어떤 일에 누가 알림을 받는지**는 이제 코드가 아니라 표가 정한다 —
     권한 역할 × 이벤트 × 길(앱푸시·이메일)을 포털관리에서 맨다. 정책이 없는
@@ -91,7 +96,7 @@ dev.bat status          # 떠 있는 서비스 확인
 dev.bat list            # 서비스 이름 목록
 ```
 
-서비스 이름: `gateway auth funeral ai file helpdesk projmng site notify life cargo blazor web`
+서비스 이름: `gateway auth funeral ai file helpdesk projmng site notify life cargo mcp blazor web`
 (`blazor` 가 업무 포털 :5557, `web` 이 소개 사이트 :5556. `front`·`portal`·`mfe` 는 `blazor` 의 옛 이름이라 그대로 받아 준다.)
 
 프론트도 이제 dotnet 서비스라 나머지와 똑같이 다룬다:
@@ -113,8 +118,8 @@ dev.bat site web          소개 사이트 백엔드(:5480)와 프론트(:5556)
 
 ## 배포
 
-`main` 에 올라가면 `.github/workflows/deploy.yml` 이 **이미지 열셋**을 GHCR 에
-올리고(백엔드 11 · 프론트 2) 운영 서버의 self-hosted 러너가 `docker compose pull`
+`main` 에 올라가면 `.github/workflows/deploy.yml` 이 **이미지 열넷**을 GHCR 에
+올리고(백엔드 12 · 프론트 2) 운영 서버의 self-hosted 러너가 `docker compose pull`
 후 `up -d` 한다. 태그는 커밋 SHA 이고 `/srv/jsini/.env` 의 `TAG` 가 그것을 가리킨다 —
 **롤백은 그 값을 이전 SHA 로 되돌리고 `up` 하는 것**이다.
 

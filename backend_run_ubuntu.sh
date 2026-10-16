@@ -65,6 +65,9 @@ SERVICES=(
   "life|LifeEnv Server|microservices/LifeEnvServer|5490|LIFEENV"
   # JSini 운송관리(화물 거래처 신뢰정보).
   "cargo|CargoTrust Server|microservices/CargoTrustServer|5500|CARGOTRUST"
+  # MCP 도구 서버. 모델이 부를 수 있는 바깥 도구(웹 검색·본문 가져오기)를
+  # MCP 규격으로 연다. AIAgentServer 가 클라이언트로 붙는다.
+  "mcp|MCP Tool Server|microservices/McpServer|5510|MCP_TOOLS"
   # ── 프론트 ────────────────────────────────────────────────
   # 이제 프론트도 .NET 이다. Vue/pnpm 포털을 걷어내면서 pnpm 전용 처리(FRONTS 표 ·
   # 의존성 설치 · vite 기동)가 통째로 사라졌고, 두 프론트가 나머지 서비스와

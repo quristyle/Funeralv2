@@ -109,6 +109,9 @@
     <PackageVersion Include="FluentValidation.AspNetCore" Version="11.3.1" />
     <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
     <PackageVersion Include="HtmlAgilityPack" Version="1.13.0" />
+    <PackageVersion Include="ModelContextProtocol.AspNetCore" Version="2.2.0" />
+    <PackageVersion Include="ModelContextProtocol" Version="2.2.0" />
+    <PackageVersion Include="PdfPig" Version="0.1.16" />
     <PackageVersion Include="Mapster" Version="7.4.0" />
     <!-- System.Net.Http.Json 은 net10.0 프레임워크에 들어 있어 참조하지 않는다(NU1510). -->
 

@@ -96,6 +96,19 @@ builder.Services.AddSingleton<CliRelay>();
 //
 // 그래서 HttpClient 자체의 Timeout 은 끈다(무한). 공급자별로 달라야 하는데
 // HttpClient 는 하나뿐이라 여기서 정할 수가 없다.
+// RAG — 문서를 토막 내 벡터로 찾는다. 아직 대화에 끼워 넣지는 않는다(검색만).
+builder.Services.AddHttpClient<AIAgentServer.Services.Rag.EmbeddingClient>();
+builder.Services.AddSingleton<AIAgentServer.Services.Rag.RagStore>();
+builder.Services.AddScoped<AIAgentServer.Services.Rag.RagIndexer>();
+builder.Services.AddScoped<AIAgentServer.Services.Rag.RagLibrary>();
+builder.Services.AddScoped<AIAgentServer.Services.Rag.RagAugmenter>();
+
+// MCP — 바깥 도구(웹 검색 등)를 모델이 쓰게 한다. 도구 목록은 코드가 아니라
+// MCP 서버가 정한다. 붙지 못해도 서비스는 그냥 뜬다(도구 없이 답한다).
+builder.Services.AddSingleton<AIAgentServer.Services.Mcp.McpToolGateway>();
+builder.Services.AddHttpClient<AIAgentServer.Services.Mcp.WebChatAgent>();
+builder.Services.AddScoped<AIAgentServer.Services.Mcp.WebAugmenter>();
+
 // LLM 장비 하드웨어 상태. 추론과 같은 주소·같은 키를 쓰므로 설정이 따로 없다.
 builder.Services.AddHttpClient<LlmHostMetricsClient>();
 
@@ -130,6 +143,11 @@ builder.Services.AddHealthChecks()
 
 var app = builder.Build();
 
+// 색인은 기동 때 한 번 읽는다. 없으면 그냥 비어 있는 채로 뜬다 —
+// 색인이 없다고 AI 서비스가 안 뜰 까닭은 없다.
+_ = app.Services.GetRequiredService<AIAgentServer.Services.Rag.RagStore>()
+    .LoadAllAsync(CancellationToken.None);
+
 // 요청 한 줄 로그. 다른 서비스와 같은 형식으로 남긴다.
 app.UseSerilogRequestLogging();
 
@@ -149,6 +167,7 @@ app.UseHttpsRedirection();
 app.UseCors("AllowAll");
 
 app.MapAIEndpoints();
+app.MapRagLibraryEndpoints();
 
 // 사람별 AI 사용량(포털관리 「AI 사용량」 화면). **관리자만 본다** —
 // 게이트웨이의 ai-route 가 이 묶음을 익명으로 열어 두므로 그쪽에서 한 번 더 본다.

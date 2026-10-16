@@ -5105,3 +5105,164 @@
   min-width: 0;
   overflow-wrap: anywhere;
 }
+
+/* ── RAG 문서함 ───────────────────────────────────────────────
+   왼쪽 분류 트리, 오른쪽 문서 목록. 카테고리는 맨 위 한 줄이다 */
+
+.ad-rag__bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .4rem;
+    padding: .6rem .75rem;
+    background: var(--tb-surface);
+    border: 1px solid var(--tb-border);
+    border-radius: .5rem;
+    margin-bottom: .75rem;
+}
+
+.ad-rag__label { font-size: .82rem; color: var(--tb-muted); margin-right: .3rem; }
+
+.ad-rag__cat {
+    border: 1px solid var(--tb-border);
+    background: var(--tb-surface-2);
+    border-radius: 999px;
+    padding: .2rem .7rem;
+    font-size: .82rem;
+    cursor: pointer;
+    display: inline-flex;
+    gap: .35rem;
+    align-items: baseline;
+}
+
+.ad-rag__cat--on {
+    background: rgba(var(--tb-blue-rgb), .12);
+    border-color: var(--tb-blue);
+    color: var(--tb-blue);
+    font-weight: 600;
+}
+
+.ad-rag__bar-tail { margin-left: auto; display: flex; align-items: center; gap: .5rem; }
+
+.ad-rag__dim { color: var(--tb-muted); font-size: .8em; font-weight: 400; }
+
+.ad-rag__split {
+    display: grid;
+    grid-template-columns: minmax(180px, 240px) 1fr;
+    gap: .75rem;
+    align-items: start;
+}
+
+@media (max-width: 760px) {
+    .ad-rag__split { grid-template-columns: 1fr; }
+}
+
+.ad-rag__tree,
+.ad-rag__docs {
+    background: var(--tb-surface);
+    border: 1px solid var(--tb-border);
+    border-radius: .5rem;
+    padding: .6rem .7rem;
+}
+
+.ad-rag__tree-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: .82rem;
+    font-weight: 600;
+    color: var(--tb-muted);
+    margin-bottom: .35rem;
+}
+
+.ad-rag__node-row { display: flex; align-items: center; gap: .2rem; }
+
+.ad-rag__node {
+    flex: 1 1 auto;
+    text-align: left;
+    border: none;
+    background: none;
+    padding: .25rem .4rem;
+    border-radius: .25rem;
+    font-size: .84rem;
+    cursor: pointer;
+    color: var(--tb-text);
+}
+
+.ad-rag__node:hover { background: var(--tb-surface-3); }
+
+.ad-rag__node--on {
+    background: rgba(var(--tb-blue-rgb), .12);
+    color: var(--tb-blue);
+    font-weight: 600;
+}
+
+.ad-rag__node-acts { display: flex; gap: .1rem; opacity: 0; transition: opacity .15s; }
+.ad-rag__node-row:hover .ad-rag__node-acts { opacity: 1; }
+
+.ad-rag__node-acts button {
+    border: none;
+    background: none;
+    cursor: pointer;
+    color: var(--tb-muted);
+    padding: 0 .25rem;
+    font-size: .9rem;
+    line-height: 1;
+}
+
+.ad-rag__node-acts button:hover { color: var(--tb-text); }
+
+.ad-rag__tree-empty { padding: .4rem; font-size: .8rem; }
+
+.ad-rag__docs-head {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    margin-bottom: .4rem;
+}
+
+/* 파일 고르기. 기본 input 은 생김새를 못 바꿔서 라벨로 감싼다 */
+.ad-rag__upload {
+    margin-left: auto;
+    position: relative;
+    overflow: hidden;
+    display: inline-flex;
+    align-items: center;
+    background: var(--tb-blue);
+    color: #fff;
+    border-radius: .3rem;
+    padding: .3rem .8rem;
+    font-size: .82rem;
+    cursor: pointer;
+}
+
+.ad-rag__upload input[type="file"] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.ad-rag__hint {
+    font-size: .78rem;
+    color: var(--tb-muted);
+    background: var(--tb-surface-2);
+    border-radius: .3rem;
+    padding: .4rem .6rem;
+    margin-bottom: .5rem;
+}
+
+.ad-rag__table td:first-child { white-space: normal; }
+
+/* 색인에 못 들어간 까닭. 조용히 넘기지 않는다 */
+.ad-rag__err { color: var(--tb-red); font-size: .76rem; margin-top: .15rem; }
+
+.ad-rag__empty {
+    padding: 1.5rem;
+    text-align: center;
+    color: var(--tb-muted);
+    font-size: .85rem;
+}
+
+.ad-rag__form { display: flex; flex-direction: column; gap: .3rem; }
+.ad-rag__form label { font-size: .8rem; color: var(--tb-muted); margin-top: .4rem; }

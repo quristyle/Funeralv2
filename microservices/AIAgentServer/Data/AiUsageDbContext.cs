@@ -62,6 +62,17 @@ public class AiUsageDbContext(DbContextOptions<AiUsageDbContext> options) : DbCo
 
     public DbSet<AiChatMessageRow> AiChatMessages => Set<AiChatMessageRow>();
 
+    // ── RAG 문서 보관 ───────────────────────────────────────
+    //
+    // 카테고리(RAG 단위) → 분류(트리) → 파일. 파일 실물은 디스크에 있고
+    // 여기에는 경로와 색인 상태만 있다 — deploy/sql/rag-documents-2026-10-16.sql
+
+    public DbSet<RagCategoryRow> RagCategories => Set<RagCategoryRow>();
+
+    public DbSet<RagFolderRow> RagFolders => Set<RagFolderRow>();
+
+    public DbSet<RagDocumentRow> RagDocuments => Set<RagDocumentRow>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -134,6 +145,61 @@ public class AiUsageDbContext(DbContextOptions<AiUsageDbContext> options) : DbCo
             e.Property(x => x.RoleId).HasColumnName("role_id");
             e.Property(x => x.MenuId).HasColumnName("menu_id");
             e.Property(x => x.CanView).HasColumnName("can_view");
+            e.Property(x => x.IsDeleted).HasColumnName("is_deleted");
+        });
+
+        modelBuilder.Entity<RagCategoryRow>(e =>
+        {
+            e.ToTable("rag_categories", "scom");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("id");
+            e.Property(x => x.Name).HasColumnName("name");
+            e.Property(x => x.Description).HasColumnName("description");
+            e.Property(x => x.Status).HasColumnName("status");
+            e.Property(x => x.IndexedAt).HasColumnName("indexed_at");
+            e.Property(x => x.ChunkCount).HasColumnName("chunk_count");
+            e.Property(x => x.DocCount).HasColumnName("doc_count");
+            e.Property(x => x.CreatedAt).HasColumnName("created_at");
+            e.Property(x => x.CreatedBy).HasColumnName("created_by");
+            e.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            e.Property(x => x.UpdatedBy).HasColumnName("updated_by");
+            e.Property(x => x.IsDeleted).HasColumnName("is_deleted");
+        });
+
+        modelBuilder.Entity<RagFolderRow>(e =>
+        {
+            e.ToTable("rag_folders", "scom");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("id").ValueGeneratedOnAdd();
+            e.Property(x => x.CategoryId).HasColumnName("category_id");
+            e.Property(x => x.ParentId).HasColumnName("parent_id");
+            e.Property(x => x.Name).HasColumnName("name");
+            e.Property(x => x.SortNo).HasColumnName("sort_no");
+            e.Property(x => x.CreatedAt).HasColumnName("created_at");
+            e.Property(x => x.CreatedBy).HasColumnName("created_by");
+            e.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            e.Property(x => x.UpdatedBy).HasColumnName("updated_by");
+            e.Property(x => x.IsDeleted).HasColumnName("is_deleted");
+        });
+
+        modelBuilder.Entity<RagDocumentRow>(e =>
+        {
+            e.ToTable("rag_documents", "scom");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("id").ValueGeneratedOnAdd();
+            e.Property(x => x.CategoryId).HasColumnName("category_id");
+            e.Property(x => x.FolderId).HasColumnName("folder_id");
+            e.Property(x => x.FileName).HasColumnName("file_name");
+            e.Property(x => x.ContentType).HasColumnName("content_type");
+            e.Property(x => x.SizeBytes).HasColumnName("size_bytes");
+            e.Property(x => x.Sha256).HasColumnName("sha256");
+            e.Property(x => x.StoredPath).HasColumnName("stored_path");
+            e.Property(x => x.Status).HasColumnName("status");
+            e.Property(x => x.ChunkCount).HasColumnName("chunk_count");
+            e.Property(x => x.Error).HasColumnName("error");
+            e.Property(x => x.IndexedAt).HasColumnName("indexed_at");
+            e.Property(x => x.CreatedAt).HasColumnName("created_at");
+            e.Property(x => x.CreatedBy).HasColumnName("created_by");
             e.Property(x => x.IsDeleted).HasColumnName("is_deleted");
         });
     }
@@ -252,4 +318,77 @@ public class AiChatMessageRow
     public int Seq { get; set; }
 
     public DateTime CreatedAt { get; set; }
+}
+
+/// <summary>RAG 단위 하나. 색인 파일 하나에 대응한다.</summary>
+/// <remarks>
+/// <b>섞으면 안 되는 자료를 가르는 자리다.</b> 사내 규정과 제품 설명서를 한
+/// 색인에 넣으면 "휴가 며칠인가" 에 제품 문서가 섞여 나온다.
+/// </remarks>
+public class RagCategoryRow
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public int Status { get; set; } = 1;
+
+    /// <summary>마지막으로 색인을 만든 때. 한 번도 안 만들었으면 null.</summary>
+    public DateTime? IndexedAt { get; set; }
+
+    public int ChunkCount { get; set; }
+    public int DocCount { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public string? CreatedBy { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+    public string? UpdatedBy { get; set; }
+    public bool IsDeleted { get; set; }
+}
+
+/// <summary>분류 한 칸. 카테고리 안의 트리다.</summary>
+/// <remarks>
+/// <b>분류는 사람이 보기 좋으라고 있는 것이고, 검색은 카테고리 전체에서 한다.</b>
+/// 어느 서랍에 넣었는지 기억해야 찾을 수 있다면 그것은 검색이 아니다.
+/// </remarks>
+public class RagFolderRow
+{
+    public long Id { get; set; }
+    public string CategoryId { get; set; } = string.Empty;
+
+    /// <summary>null 이면 카테고리 바로 아래.</summary>
+    public long? ParentId { get; set; }
+
+    public string Name { get; set; } = string.Empty;
+    public int SortNo { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public string? CreatedBy { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+    public string? UpdatedBy { get; set; }
+    public bool IsDeleted { get; set; }
+}
+
+/// <summary>올려 둔 문서 한 건. <b>실물은 디스크에 있다.</b></summary>
+public class RagDocumentRow
+{
+    public long Id { get; set; }
+    public string CategoryId { get; set; } = string.Empty;
+    public long? FolderId { get; set; }
+    public string FileName { get; set; } = string.Empty;
+    public string? ContentType { get; set; }
+    public long SizeBytes { get; set; }
+
+    /// <summary>같은 내용을 색인에 두 번 넣지 않으려고 적어 둔다.</summary>
+    public string? Sha256 { get; set; }
+
+    /// <summary><c>Rag:UploadRoot</c> 기준 상대 경로.</summary>
+    public string StoredPath { get; set; } = string.Empty;
+
+    /// <summary><c>pending</c> · <c>indexed</c> · <c>failed</c> · <c>skipped</c></summary>
+    public string Status { get; set; } = "pending";
+
+    public int ChunkCount { get; set; }
+    public string? Error { get; set; }
+    public DateTime? IndexedAt { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public string? CreatedBy { get; set; }
+    public bool IsDeleted { get; set; }
 }

@@ -45,6 +45,18 @@ public sealed class AdminModule : IPortalModule
         var baseUrl = configuration["Gateway:BaseUrl"] ?? "http://localhost:5265/api/";
         if (!baseUrl.EndsWith('/')) baseUrl += "/";
 
+        // RAG 문서함. 올리기가 멀티파트라 공지 첨부와 같은 방식으로 둔다 —
+        // 같은 BaseAddress·같은 토큰 처리라야 인증이 갈라지지 않는다.
+        services.AddHttpClient<RagLibraryClient>(client =>
+            {
+                client.BaseAddress = new Uri(baseUrl);
+
+                // 문서를 여러 개 한꺼번에 올린다. 기본 100초로는 모자란다.
+                client.Timeout = TimeSpan.FromMinutes(10);
+            })
+            .ConfigurePrimaryHttpMessageHandler(ServiceCollectionExtensions.NoCookieJar)
+            .AddHttpMessageHandler<AuthTokenHandler>();
+
         services.AddHttpClient<NoticeUploadClient>(client =>
             {
                 client.BaseAddress = new Uri(baseUrl);
