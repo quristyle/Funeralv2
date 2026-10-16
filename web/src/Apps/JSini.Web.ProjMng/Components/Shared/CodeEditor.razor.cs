@@ -78,6 +78,11 @@ public partial class CodeEditor
     private bool _wordWrap = true;
 
     /// <summary>
+    /// 줄 번호를 보일지. 기본값은 <b>숨김(false)</b>이다.
+    /// </summary>
+    [Parameter] public bool ShowLineNumbers { get; set; }
+
+    /// <summary>
     /// 편집기 글자 크기(px). <b>본문과 같은 크기를 따라간다.</b>
     /// </summary>
     /// <remarks>
@@ -216,7 +221,7 @@ public partial class CodeEditor
         EditContext = ReadOnly ? false : null,
         AutomaticLayout = true,
         FontSize = (int)Math.Round(_fontPx),
-        LineNumbers = "on",
+        LineNumbers = ShowLineNumbers ? "on" : "off",
         Minimap = new EditorMinimapOptions { Enabled = false },
         ScrollBeyondLastLine = false,
         TabSize = 2,

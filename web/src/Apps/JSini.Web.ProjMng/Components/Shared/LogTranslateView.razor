@@ -344,7 +344,10 @@
 
                     <div @key="line" role="listitem" class="@cls"
                          @onclick="@(() => OnRowClickedAsync(line))">
-                        <span class="pm-xlat__rownum">@line</span>
+                        @if (ShowLineNumbers)
+                        {
+                            <span class="pm-xlat__rownum">@line</span>
+                        }
                         <span class="pm-xlat__rowtext">@_state.Out[i]</span>
                     </div>
                 }

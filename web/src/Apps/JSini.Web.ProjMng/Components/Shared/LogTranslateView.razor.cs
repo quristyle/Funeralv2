@@ -99,6 +99,11 @@ public partial class LogTranslateView
     [Parameter] public bool Wrap { get; set; }
 
     /// <summary>
+    /// 줄 번호를 보일지. 기본값은 <b>숨김(false)</b>이다.
+    /// </summary>
+    [Parameter] public bool ShowLineNumbers { get; set; }
+
+    /// <summary>
     /// 옮겨 갈 말. <b>한국어로 고정이다</b> — 왼쪽 칸이 이미 원문이라, 가는
     /// 말을 영어로 돌리면 영어 로그를 영어로 옮긴 판이 되어 볼 것이 없다.
     /// 고를 것이 하나뿐인 고르개는 자리만 먹으므로 두지 않는다.
@@ -1785,7 +1790,7 @@ public partial class LogTranslateView
         RenderOverviewRuler = false,
         IgnoreTrimWhitespace = false,
         FontSize = (int)Math.Round(_fontPx),
-        LineNumbers = "on",
+        LineNumbers = ShowLineNumbers ? "on" : "off",
         Minimap = new EditorMinimapOptions { Enabled = false },
         ScrollBeyondLastLine = false,
         WordWrap = _wrap ? "on" : "off",
