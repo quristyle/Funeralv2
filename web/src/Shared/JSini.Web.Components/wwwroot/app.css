@@ -6654,7 +6654,7 @@ a.jsini-social__btn:focus-visible {
 }
 
 .jsini-chat__row--ai .jsini-chat__message-content {
-  max-width: calc(100% - 2.75rem);
+  max-width: 100%;
 }
 
 .jsini-chat__author-name {

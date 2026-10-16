@@ -173,13 +173,6 @@
                 var isMe = message.Role == "user";
 
                 <div class="jsini-chat__row @(isMe ? "jsini-chat__row--user" : "jsini-chat__row--ai")">
-                    @if (!isMe)
-                    {
-                        <div class="jsini-chat__avatar" aria-hidden="true">
-                            <span class="jsini-icon-robot"></span>
-                        </div>
-                    }
-
                     <div class="jsini-chat__message-content">
                         @if (!isMe)
                         {
@@ -224,9 +217,6 @@
             @if (_streaming && _messages.Count > 0 && string.IsNullOrEmpty(_messages[^1].Content))
             {
                 <div class="jsini-chat__typing">
-                    <div class="jsini-chat__avatar jsini-chat__avatar--small" aria-hidden="true">
-                        <span class="jsini-icon-robot"></span>
-                    </div>
                     <div class="jsini-chat__typing-bubble">
                         <span class="jsini-chat__typing-dot"></span>
                         <span class="jsini-chat__typing-dot"></span>
