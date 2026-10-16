@@ -41,6 +41,9 @@ public partial class RagDocuments
 
     private IJSObjectReference? _drop;
 
+    /// <summary>떨구기 귀를 달아 두었나. 판이 사라지면 거짓으로 되돌린다.</summary>
+    private bool _wired;
+
     /// <summary>지금 끌고 있는 분류. 놓는 자리를 정하는 데 쓴다.</summary>
     private long? _dragFolder;
 
@@ -106,16 +109,29 @@ public partial class RagDocuments
     /// </summary>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender || !RendererInfo.IsInteractive || _fileInput?.Element is not { } input)
+        if (!RendererInfo.IsInteractive) return;
+
+        // **`firstRender` 에만 달면 영영 안 달린다.** 떨굴 판은 카테고리가
+        // 있어야 서는데(`@if`), 첫 그림에는 아직 못 읽었다 — `OnInitializedAsync`
+        // 가 기다리는 사이에 빈 쪽 가지가 먼저 그려진다. 그래서 **판이 설 때**
+        // 단다. 실제로 그래서 끌어다 놓기가 통째로 죽어 있었다.
+        var standing = _categoryId is not null && _fileInput?.Element is { } el;
+        if (!standing)
         {
+            // 판이 사라졌다(카테고리를 다 지웠다). 다음에 서면 다시 단다 —
+            // 그때는 DOM 요소가 아예 다른 것이라 옛 귀가 아무 데도 안 붙어 있다.
+            _wired = false;
             return;
         }
+
+        if (_wired) return;
 
         try
         {
             _drop ??= await Js.InvokeAsync<IJSObjectReference>(
                 "import", "./_content/JSini.Web.Admin/js/rag-drop.js");
-            await _drop.InvokeVoidAsync("wire", _dropZone, input);
+            await _drop.InvokeVoidAsync("wire", _dropZone, _fileInput!.Element);
+            _wired = true;
         }
         catch (JSException)
         {
