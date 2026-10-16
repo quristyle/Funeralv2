@@ -21,6 +21,22 @@ var builder = WebApplication.CreateBuilder(args);
 // "잘 알려진 키를 못 쓰게 한다" 는 목적 자체가 조용히 깨진다.
 builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
 
+// **환경변수를 다시 맨 뒤로 올린다.** .NET 은 나중에 더한 소스가 이기는데,
+// 바로 위 한 줄이 기본 소스들(환경변수 포함) **뒤에** 붙으면서 Local.json 이
+// 환경변수를 덮고 있었다 — 저장소 규칙(`환경변수 > appsettings`)과 정반대다.
+//
+// 그 뒤집힘이 조용해서 한 번 크게 헤맸다. 운송관리를 붙일 때(2026-09-24)
+// 클러스터 주소를 `ReverseProxy__Clusters__…` 로 넣었는데 **`printenv` 에는
+// 보이는데 게이트웨이는 localhost:5500 을 불렀다.** 환경변수가 안 먹는 것으로
+// 결론 내고 Local.json 으로 돌아갔고, 그래서 「새 서비스를 붙일 때마다 운영
+// 서버의 파일을 손으로 고친다」가 규칙이 되었다. 실제로 MCP(2026-10-16)에서
+// 그 손질을 빠뜨려 [MSA 서버 상태] 의 MCP 카드가 늘 빨갰다.
+//
+// 지금 두 곳에 함께 있는 키는 없다(운영 게이트웨이 컨테이너에 `Jwt__*` ·
+// `ReverseProxy__*` 가 하나도 없고, 개발 `secrets.env` 도 `Database__Schema` ·
+// `Vapid__*` 뿐이다). 그래서 이 줄이 바꾸는 것은 **앞으로의 우선순위뿐**이다.
+builder.Configuration.AddEnvironmentVariables();
+
 // 요청 본문 크기 상한 (대용량 비디오 · 첨부 업로드 대응)
 //
 // **500MB 로는 모자란 자리가 생겼다.** AI 작업 첨부가 한 장 100MB · 한 건
