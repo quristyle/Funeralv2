@@ -1,4 +1,4 @@
-﻿@*
+@*
     포털 레이아웃. DevExpress 데모(demos.devexpress.com/blazor)의 껍데기를 본떴다.
 
         ┌──────────────────────────────────────────────────────┐
@@ -387,13 +387,16 @@
        규칙(76px)이 이미 걸려 있어서, 따로 적으면 휴대폰에서 띠에 깔린다.
        같은 귀퉁이에 선 단추가 있으면 그만큼 밀어 올린다
        (`ScrollTopFabCss` — 넓은 화면에서는 저 둘이 안 보이므로 안 민다). *@
-    <button type="button"
-            id="jsiniScrollToTop"
-            class="jsini-shell__fab jsini-shell__fab--scroll-top jsini-shell__fab--bottom-right @ScrollTopFabCss"
-            title="맨 위로"
-            aria-label="본문 맨 위로 이동">
-        <span class="jsini-icon-arrow-up" aria-hidden="true"></span>
-    </button>
+    @if (!OnAiChatPage)
+    {
+        <button type="button"
+                id="jsiniScrollToTop"
+                class="jsini-shell__fab jsini-shell__fab--scroll-top jsini-shell__fab--bottom-right @ScrollTopFabCss"
+                title="맨 위로"
+                aria-label="본문 맨 위로 이동">
+            <span class="jsini-icon-arrow-up" aria-hidden="true"></span>
+        </button>
+    }
 
     @* 휴대폰 화면 아래의 띠. **쓰지 않기로 한 사람에게는 아예 안 그린다** —
        CSS 로만 감추면 회로가 붙어 있는 내내 안 보이는 단추 다섯이 살아 있고,

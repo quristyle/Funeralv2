@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Routing;
 using Microsoft.JSInterop;
@@ -264,6 +264,13 @@ public partial class MainLayout
     /// <summary>지금 보고 있는 것이 요청 등록 화면인가.</summary>
     private bool OnHelpDeskNewPage =>
         string.Equals(CurrentHref(), HelpDeskNewPath, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>AI 에이전트 대화 경로. 옛 경로(/ai/chat)와 정규화된 경로(/site/ai/chat) 둘 다 받는다.</summary>
+    private static readonly string[] AiChatPaths = ["/site/ai/chat", "/ai/chat"];
+
+    /// <summary>지금 보고 있는 것이 AI 에이전트 대화 화면인가.</summary>
+    private bool OnAiChatPage =>
+        AiChatPaths.Any(p => string.Equals(CurrentHref(), p, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// 요청 등록 단추를 <b>한 칸 밀어야 하는가</b>. 메뉴 단추와 같은 귀퉁이에

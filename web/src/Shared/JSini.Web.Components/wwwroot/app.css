@@ -737,6 +737,12 @@ body {
   pointer-events: none;
 }
 
+/* AI 에이전트 대화(/site/ai/chat) 화면에서는 위로 가기 단추를 보이지 않는다. */
+.jsini-shell:has(.site-ai-chat) .jsini-shell__fab--scroll-top,
+.jsini-shell:has(.site-ai-chat) #jsiniScrollToTop {
+  display: none !important;
+}
+
 /* 바닥 칸을 가진 화면에서는 그 줄 위에 선다 — **넓은 화면에서도** 그렇다.
 
    그 줄(`.jsini-actbar`)은 본문 바닥에 붙박여(`position: sticky`) 단추를

@@ -2210,6 +2210,12 @@
     var btn = document.getElementById(BTN);
     if (!btn) return;
 
+    // AI 에이전트 대화(/site/ai/chat) 화면에서는 위로 가기 단추를 띄우지 않는다.
+    if (document.querySelector('.site-ai-chat')) {
+      btn.classList.remove('is-visible');
+      return;
+    }
+
     btn.classList.toggle('is-visible', !!box && box.isConnected && box.scrollTop > THRESHOLD);
   }
 
@@ -2239,6 +2245,9 @@
     // 아직 안 옮긴 화면)이 그쪽이다.
     var content = el.closest(BOX);
     if (!content) return;
+
+    // AI 에이전트 대화 화면이거나 그 안의 스크롤은 단추를 띄우지 않는다.
+    if (content.querySelector('.site-ai-chat') || el.closest('.site-ai-chat')) return;
 
     if (el !== content && !isMainScroller(el, content)) return;
 
