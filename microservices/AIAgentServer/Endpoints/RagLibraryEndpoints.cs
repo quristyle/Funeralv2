@@ -103,6 +103,23 @@ public static class RagLibraryEndpoints
             }
         }).WithSummary("분류 이름 바꾸기");
 
+        // 끌어다 옮기기. **색인은 건드리지 않는다** — 분류는 사람이 보려고
+        // 있는 것이고 색인은 카테고리 단위다.
+        group.MapPut("/folders/{folderId:long}/move", async (
+            long folderId, [FromBody] MoveFolderRequest body,
+            [FromServices] RagLibrary lib, HttpContext http, CancellationToken ct) =>
+        {
+            try
+            {
+                await lib.MoveFolderAsync(folderId, body.ParentId, body.BeforeId, Who(http), ct);
+                return Results.Ok(ApiResponse<object>.Ok(new { folderId, body.ParentId, body.BeforeId }));
+            }
+            catch (Exception ex)
+            {
+                return Results.Ok(ApiResponse<object>.Fail(ex.Message, "C400"));
+            }
+        }).WithSummary("분류 옮기기 (부모·차례)");
+
         group.MapDelete("/folders/{folderId:long}", async (
             long folderId, [FromServices] RagLibrary lib, CancellationToken ct) =>
         {
@@ -215,3 +232,4 @@ public static class RagLibraryEndpoints
 public sealed record CreateCategoryRequest(string Id, string Name, string? Description);
 public sealed record CreateFolderRequest(long? ParentId, string Name);
 public sealed record RenameFolderRequest(string Name);
+public sealed record MoveFolderRequest(long? ParentId, long? BeforeId);

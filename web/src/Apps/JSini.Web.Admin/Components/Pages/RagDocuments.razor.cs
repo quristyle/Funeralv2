@@ -3,12 +3,14 @@ using JSini.Web.Components.Data;
 using JSini.Web.Components.Layout;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Forms;
+using Microsoft.JSInterop;
 
 namespace JSini.Web.Admin.Components.Pages;
 
 public partial class RagDocuments
 {
     [Inject] private RagLibraryClient Api { get; set; } = default!;
+    [Inject] private IJSRuntime Js { get; set; } = default!;
 
     private IReadOnlyList<RagCategoryDto> _categories = [];
     private IReadOnlyList<RagDocumentDto> _documents = [];
@@ -29,6 +31,22 @@ public partial class RagDocuments
     /// </summary>
     private ConfirmDialog? _confirm;
 
+    // ── 끌어다 놓기 ─────────────────────────────────────────────
+
+    /// <summary>파일을 떨굴 자리. JS 가 여기에 귀를 단다.</summary>
+    private ElementReference _dropZone;
+
+    /// <summary>숨겨 둔 파일 고르개. 떨군 파일을 JS 가 여기에 꽂는다.</summary>
+    private InputFile? _fileInput;
+
+    private IJSObjectReference? _drop;
+
+    /// <summary>지금 끌고 있는 분류. 놓는 자리를 정하는 데 쓴다.</summary>
+    private long? _dragFolder;
+
+    /// <summary>끌고 있는 것이 지나가는 자리. 선을 그어 보여 준다.</summary>
+    private (long Id, bool Before)? _dragOver;
+
     // 새 카테고리 만들기
     private bool _newCategoryVisible;
     private string _newCategoryId = string.Empty;
@@ -43,6 +61,45 @@ public partial class RagDocuments
         => _categories.FirstOrDefault(c => c.Id == _categoryId);
 
     protected override async Task OnInitializedAsync() => await ReloadAsync();
+
+    /// <summary>
+    /// 떨구기 귀를 단다. <b>회로가 붙은 뒤에만</b> 한다 — 프리렌더에는
+    /// 브라우저가 없어 JS 를 부를 수 없다.
+    /// </summary>
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || !RendererInfo.IsInteractive || _fileInput?.Element is not { } input)
+        {
+            return;
+        }
+
+        try
+        {
+            _drop ??= await Js.InvokeAsync<IJSObjectReference>(
+                "import", "./_content/JSini.Web.Admin/js/rag-drop.js");
+            await _drop.InvokeVoidAsync("wire", _dropZone, input);
+        }
+        catch (JSException)
+        {
+            // 떨구기가 안 될 뿐이다. 단추로 고르는 길은 그대로 있다.
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_drop is not null)
+        {
+            try
+            {
+                await _drop.InvokeVoidAsync("unwire", _dropZone);
+                await _drop.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+                // 회로가 이미 끊겼다. 귀도 함께 사라졌다.
+            }
+        }
+    }
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
@@ -207,6 +264,73 @@ public partial class RagDocuments
         if (_folderId == id) { _folderId = null; _folderLabel = "분류 미지정"; }
         await LoadTreeAsync();
         await LoadDocumentsAsync();
+    }
+
+    // ── 분류 끌어 옮기기 ────────────────────────────────────────
+
+    /// <summary>
+    /// 끌어 놓은 자리로 분류를 옮긴다.
+    /// </summary>
+    /// <param name="targetId">놓은 분류. null 이면 최상위.</param>
+    /// <param name="before">
+    /// 참이면 그 분류 <b>앞에</b> 끼우고(형제가 된다), 거짓이면 그 <b>아래로</b>
+    /// 넣는다(자식이 된다). 줄의 위쪽 가장자리냐 가운데냐로 갈린다.
+    /// </param>
+    /// <remarks>
+    /// <b>색인은 건드리지 않는다.</b> 색인은 카테고리 단위라 분류를 옮겨도
+    /// 내용이 그대로다 — 다시 색인하라고 하지 않는다.
+    /// </remarks>
+    private async Task DropFolderAsync(long? targetId, bool before)
+    {
+        var moving = _dragFolder;
+        _dragFolder = null;
+        _dragOver = null;
+
+        if (moving is not { } id || _categoryId is null) return;
+        if (targetId == id) return;
+
+        long? parent;
+        long? beforeId;
+
+        if (targetId is null)
+        {
+            parent = null;      // 최상위 맨 뒤
+            beforeId = null;
+        }
+        else if (before)
+        {
+            parent = Find(_tree, targetId.Value) is { } _ ? ParentOf(_tree, targetId.Value) : null;
+            beforeId = targetId;
+        }
+        else
+        {
+            parent = targetId;  // 그 아래 자식으로
+            beforeId = null;
+        }
+
+        var ok = await RunAsync(
+            async () => await Api.MoveFolderAsync(id, parent, beforeId),
+            "분류를 옮겼습니다.");
+
+        if (ok) await LoadTreeAsync();
+    }
+
+    private void DragOver(long id, bool before)
+    {
+        if (_dragFolder is null || _dragFolder == id) return;
+        _dragOver = (id, before);
+    }
+
+    /// <summary>트리에서 그 분류의 부모를 찾는다. 형제로 끼울 때 쓴다.</summary>
+    private static long? ParentOf(IEnumerable<RagFolderNode> nodes, long id, long? parent = null)
+    {
+        foreach (var n in nodes)
+        {
+            if (n.Id == id) return parent;
+            if (ParentOf(n.Children, id, n.Id) is { } hit) return hit;
+        }
+
+        return null;
     }
 
     // ── 문서 ────────────────────────────────────────────────────

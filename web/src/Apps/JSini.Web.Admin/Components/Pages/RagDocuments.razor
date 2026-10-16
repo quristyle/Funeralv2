@@ -1,6 +1,7 @@
 @page "/admin/ai/rag-documents"
 @attribute [RouteKey("admin.ai.rag-documents")]
 @inherits DataPage
+@implements IAsyncDisposable
 
 @*
     [RAG 문서함] — AI 가 읽을 문서를 올리고 정리하는 자리.
@@ -84,14 +85,23 @@
             <aside class="ad-rag__tree">
                 <div class="ad-rag__tree-head">
                     <span>분류</span>
+                    <span class="ad-rag__dim" title="끌어 놓으면 부모와 차례가 바뀝니다. 색인에는 영향이 없습니다.">끌어 옮김</span>
                     <DxButton Text="＋" RenderStyle="ButtonRenderStyle.Link"
                               Click="@(() => OpenNewFolder(null))" title="최상위 분류 추가" />
                 </div>
 
+                @* 여기에 분류를 떨구면 최상위로 올라온다. *@
                 <button type="button"
-                        class="@($"ad-rag__node {(_folderId is null ? "ad-rag__node--on" : "")}")"
+                        class="@($"ad-rag__node {(_folderId is null ? "ad-rag__node--on" : "")} {(_dragOver is null && _dragFolder is not null ? "ad-rag__node--target" : "")}")"
+                        @ondragover:preventDefault="true"
+                        @ondragover="@(() => _dragOver = null)"
+                        @ondrop="@(() => DropFolderAsync(null, false))"
                         @onclick="@(() => PickFolderAsync(null, "분류 미지정"))">
                     분류 미지정
+                    @if (_dragFolder is not null)
+                    {
+                        <span class="ad-rag__dim"> — 여기에 놓으면 최상위로</span>
+                    }
                 </button>
 
                 @foreach (var n in _tree)
@@ -108,22 +118,27 @@
             </aside>
 
             @* ── 오른쪽: 문서 ─────────────────────────────── *@
-            <section class="ad-rag__docs">
+            @* 이 영역 어디에 떨궈도 올라간다. 귀는 JS 가 단다 —
+               Blazor 의 drop 이벤트로는 파일 목록을 받을 수 없다. *@
+            <section class="ad-rag__docs ad-rag__drop" @ref="_dropZone">
                 <div class="ad-rag__docs-head">
                     <strong>@_folderLabel</strong>
                     <span class="ad-rag__dim">문서 @_documents.Count 건</span>
 
                     <label class="ad-rag__upload">
-                        <InputFile OnChange="@OnFilesAsync" multiple disabled="@_busy" />
+                        <InputFile @ref="_fileInput" OnChange="@OnFilesAsync" multiple disabled="@_busy" />
                         <span>@(_busy ? "올리는 중…" : "파일 올리기")</span>
                     </label>
                 </div>
 
                 <div class="ad-rag__hint">
+                    <strong>파일을 이 영역에 끌어다 놓으면</strong> 올라갑니다. 단추로 골라도 됩니다.
                     쓸 수 있는 형식: 글자 파일(.md .txt .csv .json .yaml .log .sql 등) · .pdf · .html
                     — 한 번에 20개, 파일당 50MB 까지.
                     <strong>올린 뒤 「색인 다시 만들기」를 눌러야 검색에 들어갑니다.</strong>
                 </div>
+
+                <div class="ad-rag__drop-hint">여기에 놓으면 「@_folderLabel」 에 올라갑니다</div>
 
                 @if (_documents.Count == 0)
                 {
@@ -226,9 +241,24 @@
     /// </summary>
     private RenderFragment RenderNode(RagFolderNode node, int depth) => __builder =>
     {
+        @* 줄 위쪽 얇은 띠 — 여기에 놓으면 **형제로, 그 앞에** 끼운다.
+           줄 가운데에 놓으면 **자식으로** 들어간다. 둘을 가르지 않으면
+           "옆에 두고 싶었는데 안으로 들어갔다" 가 계속 난다. *@
+        <div class="@($"ad-rag__gap {(_dragOver is { } g && g.Id == node.Id && g.Before ? "ad-rag__gap--on" : "")}")"
+             style="@($"margin-left:{depth * 14}px")"
+             @ondragover:preventDefault="true"
+             @ondragover="@(() => DragOver(node.Id, true))"
+             @ondrop="@(() => DropFolderAsync(node.Id, true))"></div>
+
         <div class="ad-rag__node-row" style="@($"padding-left:{depth * 14}px")">
             <button type="button"
-                    class="@($"ad-rag__node {(_folderId == node.Id ? "ad-rag__node--on" : "")}")"
+                    draggable="true"
+                    class="@($"ad-rag__node {(_folderId == node.Id ? "ad-rag__node--on" : "")} {(_dragOver is { } d2 && d2.Id == node.Id && !d2.Before ? "ad-rag__node--target" : "")}")"
+                    @ondragstart="@(() => _dragFolder = node.Id)"
+                    @ondragend="@(() => { _dragFolder = null; _dragOver = null; })"
+                    @ondragover:preventDefault="true"
+                    @ondragover="@(() => DragOver(node.Id, false))"
+                    @ondrop="@(() => DropFolderAsync(node.Id, false))"
                     @onclick="@(() => PickFolderAsync(node.Id, node.Name))">
                 @node.Name
             </button>

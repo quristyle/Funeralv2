@@ -5266,3 +5266,52 @@
 
 .ad-rag__form { display: flex; flex-direction: column; gap: .3rem; }
 .ad-rag__form label { font-size: .8rem; color: var(--tb-muted); margin-top: .4rem; }
+
+/* ── RAG 문서함 — 끌어다 놓기 ─────────────────────────────── */
+
+.ad-rag__drop { position: relative; }
+
+/* 파일을 끌고 들어왔을 때. JS 가 이 클래스를 붙인다 */
+.ad-rag__drop--over {
+    outline: 2px dashed var(--tb-blue);
+    outline-offset: -4px;
+    background: rgba(var(--tb-blue-rgb), .04);
+}
+
+.ad-rag__drop-hint {
+    display: none;
+    position: absolute;
+    inset: 0;
+    align-items: center;
+    justify-content: center;
+    background: rgba(var(--tb-blue-rgb), .08);
+    color: var(--tb-blue);
+    font-weight: 600;
+    font-size: .9rem;
+    border-radius: .5rem;
+    pointer-events: none;
+    z-index: 2;
+}
+
+.ad-rag__drop--over .ad-rag__drop-hint { display: flex; }
+
+/* 분류를 끌 때 형제 사이에 끼울 자리. 평소에는 얇게 숨어 있다 */
+.ad-rag__gap {
+    height: 6px;
+    margin: -3px 0;
+    border-radius: 3px;
+    position: relative;
+    z-index: 1;
+}
+
+.ad-rag__gap--on { background: var(--tb-blue); }
+
+/* 자식으로 들어갈 자리 */
+.ad-rag__node--target {
+    outline: 2px solid var(--tb-blue);
+    outline-offset: -2px;
+    background: rgba(var(--tb-blue-rgb), .1);
+}
+
+.ad-rag__node[draggable="true"] { cursor: grab; }
+.ad-rag__node[draggable="true"]:active { cursor: grabbing; }

@@ -141,6 +141,81 @@ public sealed class RagLibrary
     }
 
     /// <summary>
+    /// 분류를 다른 부모 아래로 옮기거나 형제 사이 차례를 바꾼다.
+    /// </summary>
+    /// <param name="parentId">새 부모. null 이면 카테고리 바로 아래(최상위).</param>
+    /// <param name="beforeId">
+    /// 이 분류 <b>앞에</b> 놓는다. null 이면 맨 뒤.
+    /// </param>
+    /// <remarks>
+    /// <para>
+    /// <b>색인에는 아무 영향이 없다.</b> 색인은 카테고리 단위이고
+    /// (<see cref="ReindexAsync"/> 가 <c>CategoryId</c> 로만 추린다) 토막의 출처도
+    /// <c>문서id:파일이름</c> 이라 분류가 들어가지 않는다. 옮긴 뒤 다시 색인할
+    /// 까닭이 없다.
+    /// </para>
+    /// <para>
+    /// <b>막는 것 둘.</b> 카테고리를 넘나드는 이동은 막는다 — 그것은 색인이
+    /// 갈리는 일이라 조용히 넘기면 안 된다. 그리고 자기 자손 아래로 옮기는
+    /// 것도 막는다 — 트리가 고리가 되어 화면이 무한히 그려진다.
+    /// </para>
+    /// </remarks>
+    public async Task MoveFolderAsync(
+        long id, long? parentId, long? beforeId, string? who, CancellationToken ct = default)
+    {
+        var row = await _db.RagFolders.FirstOrDefaultAsync(x => x.Id == id, ct)
+                  ?? throw new InvalidOperationException("없는 분류입니다.");
+
+        var all = await _db.RagFolders
+            .Where(x => x.CategoryId == row.CategoryId && !x.IsDeleted)
+            .ToListAsync(ct);
+
+        if (parentId is { } pid)
+        {
+            var parent = all.FirstOrDefault(x => x.Id == pid)
+                         ?? throw new InvalidOperationException("옮길 자리가 같은 카테고리에 없습니다.");
+
+            if (pid == id || IsDescendant(all, id, parent.Id))
+            {
+                throw new InvalidOperationException("자기 자신이나 그 아래로는 옮길 수 없습니다.");
+            }
+        }
+
+        row.ParentId = parentId;
+        row.UpdatedAt = DateTime.UtcNow;
+        row.UpdatedBy = who;
+
+        // 새 부모의 형제들을 통째로 다시 번호 매긴다. 빈틈이나 같은 번호가
+        // 생기지 않게 하는 가장 단순한 길이다 — 형제가 수십을 넘지 않는다.
+        var siblings = all
+            .Where(x => x.Id != id && x.ParentId == parentId)
+            .OrderBy(x => x.SortNo).ThenBy(x => x.Name)
+            .ToList();
+
+        var at = beforeId is { } b ? siblings.FindIndex(x => x.Id == b) : -1;
+        if (at < 0) siblings.Add(row);
+        else siblings.Insert(at, row);
+
+        for (var i = 0; i < siblings.Count; i++) siblings[i].SortNo = i;
+
+        await _db.SaveChangesAsync(ct);
+    }
+
+    /// <summary><paramref name="maybeChild"/> 가 <paramref name="ancestorId"/> 의 아래에 있나.</summary>
+    private static bool IsDescendant(List<RagFolderRow> all, long ancestorId, long maybeChild)
+    {
+        var cur = all.FirstOrDefault(x => x.Id == maybeChild);
+        var guard = 0;
+        while (cur?.ParentId is { } p && guard++ < 64)
+        {
+            if (p == ancestorId) return true;
+            cur = all.FirstOrDefault(x => x.Id == p);
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// 분류를 지운다. <b>아래 분류와 문서가 함께 사라진다</b>(FK CASCADE).
     /// 문서는 분류를 잃고 카테고리 바로 아래로 올라간다 — SET NULL 이다.
     /// </summary>

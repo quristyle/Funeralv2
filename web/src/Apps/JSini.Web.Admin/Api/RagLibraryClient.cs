@@ -48,6 +48,15 @@ public sealed class RagLibraryClient(GatewayClient gateway, HttpClient http)
     public Task<object?> RenameFolderAsync(long folderId, string name, CancellationToken ct = default)
         => gateway.PutAsync<object>($"ai/rag/folders/{folderId}", new { name }, ct);
 
+    /// <summary>
+    /// 분류를 옮긴다(부모·차례). <b>색인은 건드리지 않는다</b> —
+    /// 색인은 카테고리 단위라 분류를 옮겨도 내용이 그대로다.
+    /// </summary>
+    public Task<object?> MoveFolderAsync(
+        long folderId, long? parentId, long? beforeId, CancellationToken ct = default)
+        => gateway.PutAsync<object>($"ai/rag/folders/{folderId}/move",
+            new { parentId, beforeId }, ct);
+
     public Task DeleteFolderAsync(long folderId, CancellationToken ct = default)
         => gateway.DeleteAsync($"ai/rag/folders/{folderId}", ct);
 
