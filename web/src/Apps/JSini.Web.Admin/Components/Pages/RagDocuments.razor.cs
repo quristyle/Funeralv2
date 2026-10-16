@@ -60,6 +60,37 @@ public partial class RagDocuments
     private RagCategoryDto? Current
         => _categories.FirstOrDefault(c => c.Id == _categoryId);
 
+    /// <summary>분류에 안 들어간 문서 수. 전체에서 분류에 든 것을 뺀 값이다.</summary>
+    /// <remarks>
+    /// 서버가 따로 세어 주지 않는다 — 분류별 수를 이미 보내므로 빼면 나오고,
+    /// 칸을 하나 더 두면 둘이 어긋나는 날이 온다.
+    /// </remarks>
+    private int LooseCount
+    {
+        get
+        {
+            var total = Current?.DocTotal ?? 0;
+            return Math.Max(0, total - Sum(_tree));
+
+            static int Sum(List<RagFolderNode> ns)
+                => ns.Sum(n => n.DocCount + Sum(n.Children));
+        }
+    }
+
+    /// <summary>
+    /// 머리와 트리의 숫자를 다시 센다.
+    /// </summary>
+    /// <remarks>
+    /// <b>문서를 올리거나 지운 뒤에는 반드시 부른다.</b> 목록만 다시 읽으면
+    /// 아래에는 올린 파일이 보이는데 머리는 0 으로 남아, 올라가지 않은 것처럼
+    /// 읽힌다 — 실제로 그렇게 보였다.
+    /// </remarks>
+    private async Task RefreshCountsAsync()
+    {
+        _categories = await Api.CategoriesAsync();
+        await LoadTreeAsync();
+    }
+
     protected override async Task OnInitializedAsync() => await ReloadAsync();
 
     /// <summary>
@@ -125,7 +156,9 @@ public partial class RagDocuments
 
         // 평평한 목록을 부모-자식으로 엮는다. 분류는 깊어야 서너 단계라
         // 재귀로 한 번 훑으면 끝난다.
-        var byId = flat.ToDictionary(f => f.Id, f => new RagFolderNode { Id = f.Id, Name = f.Name });
+        var byId = flat.ToDictionary(
+            f => f.Id,
+            f => new RagFolderNode { Id = f.Id, Name = f.Name, DocCount = f.DocCount });
         var roots = new List<RagFolderNode>();
 
         foreach (var f in flat)
@@ -262,8 +295,8 @@ public partial class RagDocuments
         if (!ok) return;
 
         if (_folderId == id) { _folderId = null; _folderLabel = "분류 미지정"; }
-        await LoadTreeAsync();
         await LoadDocumentsAsync();
+        await RefreshCountsAsync();
     }
 
     // ── 분류 끌어 옮기기 ────────────────────────────────────────
@@ -433,6 +466,7 @@ public partial class RagDocuments
             }
 
             await LoadDocumentsAsync();
+            await RefreshCountsAsync();
 
             var done = _uploads.Count(x => x.State == "done");
             var bad = _uploads.Count(x => x.State == "failed");
@@ -465,7 +499,10 @@ public partial class RagDocuments
         }
 
         var ok = await RunAsync(async () => await Api.DeleteDocumentAsync(id), "문서를 지웠습니다.");
-        if (ok) await LoadDocumentsAsync();
+        if (!ok) return;
+
+        await LoadDocumentsAsync();
+        await RefreshCountsAsync();
     }
 
     /// <summary>트리에서 분류 하나를 찾는다. 묻는 창에 이름을 적으려고 쓴다.</summary>
@@ -503,8 +540,8 @@ public partial class RagDocuments
                 : $"색인을 다시 만들었습니다. 토막 {r.Chunks}개.",
                 r is null ? NoticeTone.Error : NoticeTone.Info);
 
-            _categories = await Api.CategoriesAsync();
             await LoadDocumentsAsync();
+            await RefreshCountsAsync();
         }
         catch (Exception ex)
         {

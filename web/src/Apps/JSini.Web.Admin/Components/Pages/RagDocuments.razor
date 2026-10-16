@@ -63,9 +63,20 @@
                           Enabled="@(!_busy)" Click="@ReindexAsync" />
                 <DxButton Text="카테고리 지우기" RenderStyle="ButtonRenderStyle.Link"
                           Enabled="@(!_busy)" Click="@DeleteCategoryAsync" />
+                @* 「문서」는 **지금 올라와 있는 수**다. 색인에 든 수를 적으면
+                   방금 올린 사람이 목록에서 제 파일을 보면서 머리의 0 을 본다. *@
                 <span class="ad-stamp">
                     @(cur.IndexedAt is { } at ? $"{at.Kst("MM-dd HH:mm")} 색인" : "색인 전")
-                    · 문서 @cur.DocCount · 토막 @cur.ChunkCount
+                    · 문서 @cur.DocTotal
+                    @if (cur.DocPending > 0)
+                    {
+                        <strong class="ad-rag__pending" title="「색인 다시 만들기」를 눌러야 검색에 들어갑니다.">색인 대기 @cur.DocPending</strong>
+                    }
+                    @if (cur.DocSkipped > 0)
+                    {
+                        <span class="ad-rag__dim" title="읽을 수 없는 형식이라 색인을 다시 만들어도 안 들어갑니다.">· 제외 @cur.DocSkipped</span>
+                    }
+                    · 토막 @cur.ChunkCount
                 </span>
             }
         </div>
@@ -97,7 +108,8 @@
                         @ondragover="@(() => _dragOver = null)"
                         @ondrop="@(() => DropFolderAsync(null, false))"
                         @onclick="@(() => PickFolderAsync(null, "분류 미지정"))">
-                    분류 미지정
+                    <span class="ad-rag__node-name">분류 미지정</span>
+                    @FolderTally(LooseCount, 0)
                     @if (_dragFolder is not null)
                     {
                         <span class="ad-rag__dim"> — 여기에 놓으면 최상위로</span>
@@ -283,6 +295,21 @@
     /// 접고 펴는 기능은 두지 않았다. 분류가 서너 단계를 넘지 않고,
     /// 접혀 있으면 "어디에 넣었더라" 를 다시 찾아야 한다.
     /// </summary>
+    @* 분류 옆의 파일 수. 제 것이 0 이어도 아래에 있으면 그것을 적는다 —
+       묶음 노릇만 하는 분류가 「0」으로 보이면 비어 있는 것으로 읽힌다. *@
+    private RenderFragment FolderTally(int own, int below) => __builder =>
+    {
+        if (own == 0 && below == 0) return;
+
+        <span class="ad-rag__count" title="@($"이 분류 {own}건{(below > 0 ? $" · 하위 {below}건" : "")}")">
+            @own
+            @if (below > 0)
+            {
+                <span class="ad-rag__count-sub">+@below</span>
+            }
+        </span>
+    };
+
     private RenderFragment RenderNode(RagFolderNode node, int depth) => __builder =>
     {
         @* 줄 위쪽 얇은 띠 — 여기에 놓으면 **형제로, 그 앞에** 끼운다.
@@ -304,7 +331,8 @@
                     @ondragover="@(() => DragOver(node.Id, false))"
                     @ondrop="@(() => DropFolderAsync(node.Id, false))"
                     @onclick="@(() => PickFolderAsync(node.Id, node.Name))">
-                @node.Name
+                <span class="ad-rag__node-name">@node.Name</span>
+                @FolderTally(node.DocCount, node.DescendantCount)
             </button>
             <span class="ad-rag__node-acts">
                 <button type="button" title="하위 분류 추가"

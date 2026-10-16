@@ -26,12 +26,26 @@ public static class RagLibraryEndpoints
             [FromServices] RagLibrary lib, [FromServices] RagStore store, CancellationToken ct) =>
         {
             var rows = await lib.CategoriesAsync(ct);
-            return Results.Ok(ApiResponse<object>.Ok(rows.Select(c => new
+
+            // 문서 수는 **표의 칸이 아니라 지금 세어** 보낸다. 그 칸은 색인을
+            // 만들 때 찍히는 사진이라, 올린 직후에는 0 이다.
+            var tally = await lib.CategoryTalliesAsync(ct);
+
+            return Results.Ok(ApiResponse<object>.Ok(rows.Select(c =>
             {
-                c.Id, c.Name, c.Description, c.IndexedAt, c.DocCount,
-                // 표의 숫자가 아니라 **지금 메모리에 올라와 있는 것**을 보여 준다.
-                // 둘이 다르면 색인을 만든 뒤 서비스가 다시 뜨지 않은 것이다.
-                chunkCount = store.CountOf(c.Id),
+                var t = tally.GetValueOrDefault(c.Id);
+                return new
+                {
+                    c.Id, c.Name, c.Description, c.IndexedAt,
+                    docCount = c.DocCount,
+                    docTotal = t.Total,
+                    docIndexed = t.Indexed,
+                    docPending = t.Pending,
+                    docSkipped = t.Skipped,
+                    // 표의 숫자가 아니라 **지금 메모리에 올라와 있는 것**을 보여 준다.
+                    // 둘이 다르면 색인을 만든 뒤 서비스가 다시 뜨지 않은 것이다.
+                    chunkCount = store.CountOf(c.Id),
+                };
             })));
         }).WithSummary("RAG 카테고리 목록");
 
@@ -69,8 +83,16 @@ public static class RagLibraryEndpoints
             string id, [FromServices] RagLibrary lib, CancellationToken ct) =>
         {
             var rows = await lib.FoldersAsync(id, ct);
-            return Results.Ok(ApiResponse<object>.Ok(
-                rows.Select(f => new { f.Id, f.ParentId, f.Name, f.SortNo })));
+
+            // 분류마다 **그 분류에 바로 든** 문서 수. 하위 분류의 것은 화면이
+            // 더한다 — 어느 분류에 실제로 들었는지는 여기서만 알 수 있다.
+            var tally = await lib.FolderTalliesAsync(id, ct);
+
+            return Results.Ok(ApiResponse<object>.Ok(rows.Select(f => new
+            {
+                f.Id, f.ParentId, f.Name, f.SortNo,
+                docCount = tally.GetValueOrDefault(f.Id),
+            })));
         }).WithSummary("분류 트리");
 
         group.MapPost("/categories/{id}/folders", async (

@@ -8,8 +8,23 @@ public sealed class RagCategoryDto
     public string? Description { get; set; }
     public DateTime? IndexedAt { get; set; }
 
-    /// <summary>색인에 든 문서 수.</summary>
+    /// <summary>
+    /// 색인을 만들 때 표에 찍어 둔 문서 수. <b>올린 직후에는 안 바뀐다</b> —
+    /// 지금 몇 건이 올라와 있는지는 <see cref="DocTotal"/> 이다.
+    /// </summary>
     public int DocCount { get; set; }
+
+    /// <summary>지금 올라와 있는 문서 전부. 서버가 셀 때마다 센 값이다.</summary>
+    public int DocTotal { get; set; }
+
+    /// <summary>그중 색인에 들어간 것.</summary>
+    public int DocIndexed { get; set; }
+
+    /// <summary>아직 색인에 안 들어간 것. <b>「색인 다시 만들기」가 데려갈 수다.</b></summary>
+    public int DocPending { get; set; }
+
+    /// <summary>읽을 수 없어 건너뛴 것과 실패한 것. 색인을 다시 만들어도 안 들어간다.</summary>
+    public int DocSkipped { get; set; }
 
     /// <summary>
     /// <b>지금 메모리에 올라와 있는</b> 토막 수. 표에 적힌 값이 아니다 —
@@ -25,6 +40,9 @@ public sealed class RagFolderDto
     public long? ParentId { get; set; }
     public string Name { get; set; } = string.Empty;
     public int SortNo { get; set; }
+
+    /// <summary>이 분류에 <b>바로</b> 든 문서 수. 하위 분류의 것은 안 센다.</summary>
+    public int DocCount { get; set; }
 }
 
 /// <summary>올려 둔 문서 한 건.</summary>
@@ -73,6 +91,19 @@ public sealed class RagFolderNode
     public long Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public List<RagFolderNode> Children { get; } = [];
+
+    /// <summary>이 분류에 바로 든 문서 수.</summary>
+    public int DocCount { get; set; }
+
+    /// <summary>
+    /// 하위 분류에 든 문서 수를 모두 더한 것.
+    /// <para>
+    /// 이것을 따로 보이는 까닭 — 묶음 노릇만 하는 분류는 <see cref="DocCount"/>
+    /// 가 0 이다. 그 값만 적으면 **아래에 수십 건이 든 분류가 「0」으로 보여**
+    /// 비어 있는 것으로 읽힌다.
+    /// </para>
+    /// </summary>
+    public int DescendantCount => Children.Sum(c => c.DocCount + c.DescendantCount);
 }
 
 /// <summary>올리는 중인 파일 하나의 상태. 화면이 진행바를 그리는 자료다.</summary>

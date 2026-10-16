@@ -62,6 +62,47 @@ public sealed class RagLibrary
             .OrderBy(x => x.Name)
             .ToListAsync(ct);
 
+    /// <summary>카테고리마다 지금 올라와 있는 문서 수를 센다.</summary>
+    /// <remarks>
+    /// <b><c>RagCategoryRow.DocCount</c> 로 대신할 수 없다.</b> 그 칸은 색인을
+    /// 만들 때 찍어 두는 사진이라, 파일을 올린 직후에는 **0 으로 남는다** —
+    /// 올린 사람은 목록에서 제 파일을 보면서 머리의 숫자는 0 인 것을 본다.
+    /// </remarks>
+    public async Task<Dictionary<string, RagDocTally>> CategoryTalliesAsync(
+        CancellationToken ct = default)
+    {
+        var rows = await _db.RagDocuments.AsNoTracking()
+            .GroupBy(x => new { x.CategoryId, x.Status })
+            .Select(g => new { g.Key.CategoryId, g.Key.Status, N = g.Count() })
+            .ToListAsync(ct);
+
+        var map = new Dictionary<string, RagDocTally>();
+        foreach (var r in rows)
+        {
+            var t = map.TryGetValue(r.CategoryId, out var cur) ? cur : new RagDocTally();
+            map[r.CategoryId] = t with
+            {
+                Total = t.Total + r.N,
+                Indexed = t.Indexed + (r.Status == "indexed" ? r.N : 0),
+                Skipped = t.Skipped + (r.Status is "skipped" or "failed" ? r.N : 0),
+            };
+        }
+        return map;
+    }
+
+    /// <summary>분류마다 **그 분류에 바로 든** 문서 수. 하위 분류는 안 센다.</summary>
+    /// <remarks>
+    /// 분류 미지정(<c>FolderId</c> 가 <c>null</c>)은 여기 들어오지 않는다 —
+    /// 카테고리 합계에서 이 값들을 빼면 그 수다.
+    /// </remarks>
+    public async Task<Dictionary<long, int>> FolderTalliesAsync(
+        string categoryId, CancellationToken ct = default)
+        => await _db.RagDocuments.AsNoTracking()
+            .Where(x => x.CategoryId == categoryId && x.FolderId != null)
+            .GroupBy(x => x.FolderId!.Value)
+            .Select(g => new { Id = g.Key, N = g.Count() })
+            .ToDictionaryAsync(x => x.Id, x => x.N, ct);
+
     public async Task<RagCategoryRow> CreateCategoryAsync(
         string id, string name, string? description, string? who, CancellationToken ct = default)
     {
@@ -437,4 +478,14 @@ public sealed class RagLibrary
         => string.Concat((s ?? string.Empty).Trim().ToLowerInvariant()
             .Select(c => (c is >= 'a' and <= 'z') || (c is >= '0' and <= '9') || c is '-' or '_'
                 ? c : '-')).Trim('-');
+}
+
+/// <summary>카테고리 하나에 올라와 있는 문서를 상태별로 센 것.</summary>
+/// <param name="Total">올라와 있는 문서 전부.</param>
+/// <param name="Indexed">색인에 들어간 것.</param>
+/// <param name="Skipped">읽을 수 없어 건너뛴 것과 실패한 것.</param>
+public readonly record struct RagDocTally(int Total = 0, int Indexed = 0, int Skipped = 0)
+{
+    /// <summary>아직 색인에 안 들어간 것. <b>올린 직후의 그 수다.</b></summary>
+    public int Pending => Total - Indexed - Skipped;
 }
