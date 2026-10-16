@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using JSini.Web.Http;
 
 namespace JSini.Web.Components.Settings;
@@ -135,6 +135,9 @@ public sealed class PortalPrefs(GatewayClient gateway, ILogger<PortalPrefs> logg
 
     /// <summary>알림(토스트)이 뜨는 자리. 없으면 <c>bottom-right</c>.</summary>
     public const string ToastPositionKey = "portal.toast.position";
+
+    /// <summary>데스크탑 오른쪽 서랍(빠른 지시 등)의 기억된 창 너비(px).</summary>
+    public const string RightDrawerWidthKey = "portal.rightDrawer.width";
 
     /// <summary>게이트웨이에서 이 값을 다루는 경로.</summary>
     private const string Path = "auth/user/preferences";
@@ -370,6 +373,30 @@ public sealed class PortalPrefsData
         _values.TryGetValue(key, out var value) && value.ValueKind == JsonValueKind.String
             ? value.GetString()
             : null;
+
+    /// <summary>정수로. 고른 적이 없거나 양의 정수가 아니면 <c>null</c>.</summary>
+    public int? Number(string key)
+    {
+        if (!_values.TryGetValue(key, out var value))
+        {
+            return null;
+        }
+
+        if (value.ValueKind == JsonValueKind.Number && value.TryGetInt32(out var num) && num > 0)
+        {
+            return num;
+        }
+
+        if (value.ValueKind == JsonValueKind.String
+            && int.TryParse(value.GetString(), System.Globalization.NumberStyles.Integer,
+                System.Globalization.CultureInfo.InvariantCulture, out var parsed)
+            && parsed > 0)
+        {
+            return parsed;
+        }
+
+        return null;
+    }
 
     /// <summary>
     /// 날것 JSON 으로. 배열·객체를 그대로 받는 쪽이 쓴다

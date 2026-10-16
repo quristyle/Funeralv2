@@ -67,16 +67,39 @@ const FLOATING_SELECTOR = [
     '.dxbl-calendar'
 ].join(',');
 
-function getSavedWidth(id, minW = MIN_WIDTH, maxW = MAX_WIDTH) {
+function isDesktopViewport() {
+    return typeof window !== 'undefined' && window.innerWidth >= 768;
+}
+
+function saveWidthToStorage(id, width) {
+    try {
+        if (id) {
+            localStorage.setItem(STORAGE_KEY_PREFIX + id, String(width));
+        }
+        localStorage.setItem('jsini_drawer_width_jsini-quick-ask-drawer', String(width));
+        localStorage.setItem(GLOBAL_STORAGE_KEY, String(width));
+    } catch (_) {}
+}
+
+function getSavedWidth(id, minW = MIN_WIDTH, maxW = MAX_WIDTH, fallbackWidth = null) {
     let val = null;
     try {
-        const specific = localStorage.getItem(STORAGE_KEY_PREFIX + id);
-        if (specific) val = Number(specific);
-        if (!val) {
+        if (id) {
+            const specific = localStorage.getItem(STORAGE_KEY_PREFIX + id);
+            if (specific) val = Number(specific);
+        }
+        if (!val || isNaN(val)) {
             const global = localStorage.getItem(GLOBAL_STORAGE_KEY);
             if (global) val = Number(global);
         }
+        if (!val || isNaN(val)) {
+            const quickAsk = localStorage.getItem('jsini_drawer_width_jsini-quick-ask-drawer');
+            if (quickAsk) val = Number(quickAsk);
+        }
     } catch (_) {}
+    if ((!val || isNaN(val)) && typeof fallbackWidth === 'number' && fallbackWidth > 0) {
+        val = fallbackWidth;
+    }
     if (typeof val === 'number' && !isNaN(val) && val > 0) {
         return Math.max(minW, Math.min(val, maxW));
     }
@@ -84,10 +107,32 @@ function getSavedWidth(id, minW = MIN_WIDTH, maxW = MAX_WIDTH) {
 }
 
 function applyDrawerWidth(el, width, updateCssVar = true) {
-    if (!el) return;
-    el.style.width = width + 'px';
     if (updateCssVar) {
         document.documentElement.style.setProperty('--jsini-drawer-width', width + 'px');
+    }
+    if (!el) return;
+    if (isDesktopViewport()) {
+        el.style.width = width + 'px';
+    } else {
+        el.style.removeProperty('width');
+    }
+}
+
+function syncAllDrawersWidth(width) {
+    document.documentElement.style.setProperty('--jsini-drawer-width', width + 'px');
+    for (const [drawerId, st] of drawers.entries()) {
+        st.width = width;
+        const dEl = document.getElementById(drawerId);
+        if (dEl) {
+            applyDrawerWidth(dEl, width, false);
+        }
+    }
+}
+
+function notifyDotNetWidthChanged(id, width) {
+    const state = drawers.get(id);
+    if (state && state.dotnet) {
+        state.dotnet.invokeMethodAsync('OnWidthChanged', Math.round(width)).catch(() => {});
     }
 }
 
@@ -109,6 +154,7 @@ function attachResizer(id, drawerEl, minWidth = MIN_WIDTH, maxWidth = MAX_WIDTH)
 
         const effectiveMin = minWidth || MIN_WIDTH;
         const effectiveMax = maxWidth || Math.max(effectiveMin, Math.floor(window.innerWidth * 0.85));
+        let lastClamped = getSavedWidth(id, effectiveMin, effectiveMax);
 
         function onMouseMove(moveEvent) {
             if (!isResizing) return;
@@ -118,11 +164,11 @@ function attachResizer(id, drawerEl, minWidth = MIN_WIDTH, maxWidth = MAX_WIDTH)
             // window.innerWidth - 마우스 X좌표가 곧 서랍의 너비가 된다.
             const rawWidth = window.innerWidth - moveEvent.clientX;
             const maxW = Math.min(effectiveMax, Math.max(effectiveMin, Math.floor(window.innerWidth * 0.9)));
-            const clamped = Math.max(effectiveMin, Math.min(rawWidth, maxW));
+            const clamped = Math.round(Math.max(effectiveMin, Math.min(rawWidth, maxW)));
+            lastClamped = clamped;
 
-            applyDrawerWidth(drawerEl, clamped, true);
-            const state = drawers.get(id);
-            if (state) state.width = clamped;
+            syncAllDrawersWidth(clamped);
+            saveWidthToStorage(id, clamped);
         }
 
         function onMouseUp() {
@@ -135,14 +181,14 @@ function attachResizer(id, drawerEl, minWidth = MIN_WIDTH, maxWidth = MAX_WIDTH)
             window.removeEventListener('mousemove', onMouseMove);
             window.removeEventListener('mouseup', onMouseUp);
 
-            const finalWidth = drawerEl.offsetWidth;
-            const state = drawers.get(id);
-            if (state) state.width = finalWidth;
+            const measured = drawerEl.offsetWidth;
+            const finalWidth = Math.round(
+                measured >= effectiveMin ? Math.min(measured, effectiveMax) : lastClamped
+            );
 
-            try {
-                localStorage.setItem(STORAGE_KEY_PREFIX + id, finalWidth);
-                localStorage.setItem(GLOBAL_STORAGE_KEY, finalWidth);
-            } catch (_) {}
+            syncAllDrawersWidth(finalWidth);
+            saveWidthToStorage(id, finalWidth);
+            notifyDotNetWidthChanged(id, finalWidth);
         }
 
         window.addEventListener('mousemove', onMouseMove);
@@ -153,13 +199,9 @@ function attachResizer(id, drawerEl, minWidth = MIN_WIDTH, maxWidth = MAX_WIDTH)
     resizer.addEventListener('dblclick', function (e) {
         e.preventDefault();
         e.stopPropagation();
-        applyDrawerWidth(drawerEl, DEFAULT_WIDTH, true);
-        const state = drawers.get(id);
-        if (state) state.width = DEFAULT_WIDTH;
-        try {
-            localStorage.setItem(STORAGE_KEY_PREFIX + id, DEFAULT_WIDTH);
-            localStorage.setItem(GLOBAL_STORAGE_KEY, DEFAULT_WIDTH);
-        } catch (_) {}
+        syncAllDrawersWidth(DEFAULT_WIDTH);
+        saveWidthToStorage(id, DEFAULT_WIDTH);
+        notifyDotNetWidthChanged(id, DEFAULT_WIDTH);
     });
 }
 
@@ -230,10 +272,15 @@ function clickHandler(e) {
 document.addEventListener('mousedown', clickHandler);
 document.addEventListener('touchstart', clickHandler, { passive: true });
 
-export function init(id, dotnet, minWidth = MIN_WIDTH, maxWidth = MAX_WIDTH) {
-    const savedWidth = getSavedWidth(id, minWidth, maxWidth);
+export function init(id, dotnet, minWidth = MIN_WIDTH, maxWidth = MAX_WIDTH, initialWidth = null, instanceId = null) {
+    const savedWidth = getSavedWidth(id, minWidth, maxWidth, initialWidth);
+    if (typeof initialWidth === 'number' && initialWidth > 0) {
+        saveWidthToStorage(id, savedWidth);
+    }
+
     drawers.set(id, {
         dotnet: dotnet,
+        instanceId: instanceId,
         isOpen: false,
         isPinned: false,
         width: savedWidth,
@@ -243,12 +290,14 @@ export function init(id, dotnet, minWidth = MIN_WIDTH, maxWidth = MAX_WIDTH) {
 
     const el = document.getElementById(id);
     if (el) {
-        applyDrawerWidth(el, savedWidth, false);
+        applyDrawerWidth(el, savedWidth, true);
         attachResizer(id, el, minWidth, maxWidth);
+    } else {
+        document.documentElement.style.setProperty('--jsini-drawer-width', savedWidth + 'px');
     }
 }
 
-export function updateState(id, isOpen, isPinned) {
+export function updateState(id, isOpen, isPinned, preferredWidth = null) {
     const state = drawers.get(id);
     const el = document.getElementById(id);
 
@@ -260,9 +309,16 @@ export function updateState(id, isOpen, isPinned) {
         state.isOpen = isOpen;
         state.isPinned = isPinned;
 
-        if (isOpen && el) {
-            const width = state.width || getSavedWidth(id, state.minWidth, state.maxWidth);
-            applyDrawerWidth(el, width, true);
+        const savedWidth = getSavedWidth(
+            id,
+            state.minWidth,
+            state.maxWidth,
+            preferredWidth || state.width
+        );
+        state.width = savedWidth;
+
+        if (el) {
+            applyDrawerWidth(el, savedWidth, isOpen);
         }
     }
     updateBodyClass();
@@ -275,7 +331,7 @@ function updateBodyClass() {
     for (const [id, state] of drawers.entries()) {
         if (state.isOpen && state.isPinned) {
             hasPinned = true;
-            pinnedWidth = state.width || getSavedWidth(id, state.minWidth, state.maxWidth);
+            pinnedWidth = getSavedWidth(id, state.minWidth, state.maxWidth, state.width);
             break;
         }
     }
@@ -286,7 +342,11 @@ function updateBodyClass() {
     document.body.classList.toggle('jsini-has-pinned-drawer', hasPinned);
 }
 
-export function dispose(id) {
+export function dispose(id, instanceId = null) {
+    const state = drawers.get(id);
+    if (state && instanceId && state.instanceId && state.instanceId !== instanceId) {
+        return;
+    }
     drawers.delete(id);
     updateBodyClass();
 }

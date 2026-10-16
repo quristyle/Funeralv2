@@ -36,6 +36,7 @@
 @implements IDisposable
 
 <aside class="jsini-right-drawer @CssClass @(IsOpen ? "jsini-right-drawer--open" : "")"
+       style="@DrawerStyle"
        aria-hidden="@(IsOpen ? "false" : "true")"
        id="@Id">
     @if (!IsPhone)

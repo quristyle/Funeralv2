@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using JSini.Web.Components.Settings;
 using Microsoft.JSInterop;
 
@@ -198,6 +198,17 @@ public sealed class PortalBoot(IJSRuntime js, PortalPrefs prefs, ILogger<PortalB
     /// 화면 크기에 따라 알맞은 폭이 다르므로 사용자가 아니라 기기에 남는다.
     /// </summary>
     public const string SidebarWidthKey = "jsini-sidebar-width";
+
+    /// <summary>
+    /// 데스크탑 환경에서 끌어 넓혀 둔 오른쪽 서랍(<see cref="RightSideDrawer"/>) 폭(px).
+    /// 다음에 열 때도 기억된 창 너비로 열리도록 브라우저와 계정에 함께 보존한다.
+    /// </summary>
+    public const string RightDrawerWidthKey = "jsini_right_drawer_width";
+
+    /// <summary>
+    /// 빠른 지시 서랍(<c>jsini-quick-ask-drawer</c>)의 개별 저장 너비 열쇠.
+    /// </summary>
+    public const string QuickAskDrawerWidthKey = "jsini_drawer_width_jsini-quick-ask-drawer";
 
     /// <summary>
     /// 모바일 화면의 떠다니는 메뉴 단추(FAB) 위치.
@@ -419,6 +430,8 @@ public sealed class PortalBoot(IJSRuntime js, PortalPrefs prefs, ILogger<PortalB
         NoticeDismissedKey,
         PinnedTabsKey,
         SidebarWidthKey,
+        RightDrawerWidthKey,
+        QuickAskDrawerWidthKey,
         PushAskNeverKey,
         PushAskSnoozeKey,
         GeoAskNeverKey,
@@ -1264,6 +1277,32 @@ public sealed class PortalBoot(IJSRuntime js, PortalPrefs prefs, ILogger<PortalB
         _ => fallback,
     };
 
+    /// <summary>오른쪽 서랍 너비가 바뀌었을 때 알린다.</summary>
+    public event Action<int>? RightDrawerWidthChanged;
+
+    /// <summary>
+    /// 데스크탑 환경에서 조절한 오른쪽 서랍 너비(px)를 브라우저와 계정에 함께 저장하고 알린다.
+    /// </summary>
+    public async Task SetRightDrawerWidthAsync(int widthPx)
+    {
+        var clamped = Math.Clamp(widthPx, 300, 1200);
+        try
+        {
+            var raw = clamped.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            await js.InvokeVoidAsync("localStorage.setItem", RightDrawerWidthKey, raw);
+            await js.InvokeVoidAsync("localStorage.setItem", QuickAskDrawerWidthKey, raw);
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException)
+        {
+            logger.LogDebug(ex, "오른쪽 서랍 너비를 브라우저에 저장하지 못했다.");
+        }
+
+        Remember(state => state.WithRightDrawerWidth(clamped));
+        RightDrawerWidthChanged?.Invoke(clamped);
+
+        await prefs.SetAsync(PortalPrefs.RightDrawerWidthKey, clamped);
+    }
+
     // ── 오가는 모양 ───────────────────────────────────────────
 
     /// <summary>theme.js 의 <c>jsiniBoot.read</c> 에 넘기는 것.</summary>
@@ -1366,6 +1405,12 @@ public sealed class PortalBoot(IJSRuntime js, PortalPrefs prefs, ILogger<PortalB
         /// </para>
         /// </summary>
         public int? SidebarWidthPx { get; private init; }
+
+        /// <summary>
+        /// 데스크탑에서 조절해 둔 오른쪽 서랍 폭(px). 없거나 읽을 수 없으면 <c>null</c> 이고,
+        /// 그때는 기본 폭(416px)을 쓴다.
+        /// </summary>
+        public int? RightDrawerWidthPx { get; private set; }
 
         /// <summary>지금 고른 테마. theme.js 가 안 실렸으면 <c>null</c>.</summary>
         public ThemeWire? Theme { get; private init; }
@@ -1496,6 +1541,9 @@ public sealed class PortalBoot(IJSRuntime js, PortalPrefs prefs, ILogger<PortalB
             return copy;
         }
 
+        internal BrowserState WithRightDrawerWidth(int value) =>
+            Patch(c => c.RightDrawerWidthPx = value);
+
         internal BrowserState WithFabPosition(string value) => Patch(c => c.FabPosition = value);
 
         internal BrowserState WithFabHidden(bool value) => Patch(c => c.FabHidden = value);
@@ -1544,6 +1592,7 @@ public sealed class PortalBoot(IJSRuntime js, PortalPrefs prefs, ILogger<PortalB
             c.HelpDeskFabHidden = account.Flag(PortalPrefs.HelpDeskFabHiddenKey) ?? c.HelpDeskFabHidden;
             c.ToastPosition = NormalizeToastPosition(
                 account.Text(PortalPrefs.ToastPositionKey) ?? c.ToastPosition);
+            c.RightDrawerWidthPx = account.Number(PortalPrefs.RightDrawerWidthKey) ?? c.RightDrawerWidthPx;
         });
 
         internal static BrowserState From(BootWire wire) => new()
@@ -1562,6 +1611,8 @@ public sealed class PortalBoot(IJSRuntime js, PortalPrefs prefs, ILogger<PortalB
             GeoSyncedAt = Moment(Get(wire.Local, GeoSyncedAtKey)),
             PinnedTabsJson = Get(wire.Local, PinnedTabsKey),
             SidebarWidthPx = Pixels(Get(wire.Local, SidebarWidthKey)),
+            RightDrawerWidthPx = Pixels(Get(wire.Local, QuickAskDrawerWidthKey))
+                ?? Pixels(Get(wire.Local, RightDrawerWidthKey)),
             Theme = wire.Theme,
             FabPosition = NormalizeFabPosition(Get(wire.Local, FabPositionKey)),
             FabHidden = Has(wire.Local, FabHiddenKey),

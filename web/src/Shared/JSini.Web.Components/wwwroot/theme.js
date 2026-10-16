@@ -524,6 +524,18 @@
 
   apply(normalize(stored()));
 
+  // 데스크탑에서 조절해 둔 오른쪽 서랍 너비를 첫 그림 전에 CSS 변수에 먼저 심는다.
+  try {
+    var savedDrawerW = window.localStorage.getItem('jsini_drawer_width_jsini-quick-ask-drawer')
+      || window.localStorage.getItem('jsini_right_drawer_width');
+    if (savedDrawerW) {
+      var drawerPx = parseInt(savedDrawerW, 10);
+      if (drawerPx >= 300 && drawerPx <= 1200) {
+        document.documentElement.style.setProperty('--jsini-drawer-width', drawerPx + 'px');
+      }
+    }
+  } catch (e) {}
+
   /**
    * 기기 밝기가 바뀌는 것을 듣는다. **'system' 을 고른 사람만** 따라간다.
    *

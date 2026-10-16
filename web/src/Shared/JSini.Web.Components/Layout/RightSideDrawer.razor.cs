@@ -6,6 +6,7 @@ namespace JSini.Web.Components.Layout;
 public partial class RightSideDrawer
 {
     [Inject] private IJSRuntime JS { get; set; } = default!;
+    [Inject] private PortalBoot Boot { get; set; } = default!;
 
     [Parameter] public string Id { get; set; } = $"drawer-{Guid.NewGuid():N}";
     [Parameter] public bool IsOpen { get; set; }
@@ -49,6 +50,15 @@ public partial class RightSideDrawer
 
     private IJSObjectReference? _module;
     private DotNetObjectReference<RightSideDrawer>? _objRef;
+    private readonly string _instanceId = Guid.NewGuid().ToString("N");
+    private int? _widthPx;
+
+    /// <summary>
+    /// 데스크탑 환경에서만 기억된 너비를 인라인 스타일로 그린다.
+    /// 휴대폰에서는 CSS 의 <c>min(26rem, 100vw)</c> 규칙이 그대로 작동하도록 비워 둔다.
+    /// </summary>
+    private string? DrawerStyle =>
+        !IsPhone && _widthPx is > 0 ? $"width: {_widthPx}px;" : null;
 
     /// <summary>
     /// <b>지금 실제로 못이 박혀 있나.</b> 휴대폰에서는 언제나 거짓이다 —
@@ -56,6 +66,23 @@ public partial class RightSideDrawer
     /// 그 한 번의 되알림이 부모에게 닿기 전에도 바깥 클릭이 들어올 수 있다.
     /// </summary>
     private bool Pinned => IsPinned && !IsPhone;
+
+    protected override void OnInitialized()
+    {
+        Boot.RightDrawerWidthChanged += OnBootWidthChanged;
+    }
+
+    private void OnBootWidthChanged(int widthPx)
+    {
+        var clamped = Math.Clamp(widthPx, MinWidth, MaxWidth);
+        if (_widthPx == clamped)
+        {
+            return;
+        }
+
+        _widthPx = clamped;
+        _ = InvokeAsync(StateHasChanged);
+    }
 
     /// <summary>
     /// 화면이 좁아지면 꽂아 둔 핀을 뽑는다. 책상에서 고정해 둔 채 창을 줄이면
@@ -75,14 +102,21 @@ public partial class RightSideDrawer
     {
         if (firstRender)
         {
+            var bootState = await Boot.ReadAsync();
+            if (bootState.RightDrawerWidthPx is { } saved && saved > 0)
+            {
+                _widthPx = Math.Clamp(saved, MinWidth, MaxWidth);
+                StateHasChanged();
+            }
+
             _module = await JS.InvokeAsync<IJSObjectReference>("import", "./_content/JSini.Web.Components/js/drawer-click.js");
             _objRef = DotNetObjectReference.Create(this);
-            await _module.InvokeVoidAsync("init", Id, _objRef, MinWidth, MaxWidth);
+            await _module.InvokeVoidAsync("init", Id, _objRef, MinWidth, MaxWidth, _widthPx, _instanceId);
         }
 
         if (_module != null)
         {
-            await _module.InvokeVoidAsync("updateState", Id, IsOpen, Pinned);
+            await _module.InvokeVoidAsync("updateState", Id, IsOpen, Pinned, _widthPx);
         }
     }
 
@@ -93,7 +127,7 @@ public partial class RightSideDrawer
 
         if (_module != null)
         {
-            await _module.InvokeVoidAsync("updateState", Id, IsOpen, Pinned);
+            await _module.InvokeVoidAsync("updateState", Id, IsOpen, Pinned, _widthPx);
         }
     }
 
@@ -101,6 +135,19 @@ public partial class RightSideDrawer
     {
         IsOpen = false;
         await IsOpenChanged.InvokeAsync(false);
+    }
+
+    /// <summary>
+    /// 데스크탑에서 마우스로 창 너비를 조절했을 때 JS 가 알려 준다.
+    /// 브라우저 저장소와 사용자 계정 설정에 함께 기록해 다음 실행 때도 기억된 너비로 열리게 한다.
+    /// </summary>
+    [JSInvokable]
+    public async Task OnWidthChanged(int width)
+    {
+        var clamped = Math.Clamp(width, MinWidth, MaxWidth);
+        _widthPx = clamped;
+        await Boot.SetRightDrawerWidthAsync(clamped);
+        StateHasChanged();
     }
 
     /// <summary>
@@ -119,10 +166,11 @@ public partial class RightSideDrawer
 
     public void Dispose()
     {
+        Boot.RightDrawerWidthChanged -= OnBootWidthChanged;
         _objRef?.Dispose();
         if (_module != null)
         {
-            _ = _module.InvokeVoidAsync("dispose", Id);
+            _ = _module.InvokeVoidAsync("dispose", Id, _instanceId);
             _ = _module.DisposeAsync();
         }
     }
