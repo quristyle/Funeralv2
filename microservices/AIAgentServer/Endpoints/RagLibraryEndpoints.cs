@@ -91,7 +91,8 @@ public static class RagLibraryEndpoints
             return Results.Ok(ApiResponse<object>.Ok(rows.Select(f => new
             {
                 f.Id, f.ParentId, f.Name, f.SortNo,
-                docCount = tally.GetValueOrDefault(f.Id),
+                docCount = tally.GetValueOrDefault(f.Id).Total,
+                docPending = tally.GetValueOrDefault(f.Id).Pending,
             })));
         }).WithSummary("분류 트리");
 

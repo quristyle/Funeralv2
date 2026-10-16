@@ -77,6 +77,10 @@ public partial class RagDocuments
         }
     }
 
+    /// <summary>분류에 안 들어간 문서 중 아직 색인에 안 든 수.</summary>
+    private int LoosePending
+        => Math.Max(0, (Current?.DocPending ?? 0) - _tree.Sum(n => n.PendingTotal));
+
     /// <summary>
     /// 머리와 트리의 숫자를 다시 센다.
     /// </summary>
@@ -158,7 +162,10 @@ public partial class RagDocuments
         // 재귀로 한 번 훑으면 끝난다.
         var byId = flat.ToDictionary(
             f => f.Id,
-            f => new RagFolderNode { Id = f.Id, Name = f.Name, DocCount = f.DocCount });
+            f => new RagFolderNode
+            {
+                Id = f.Id, Name = f.Name, DocCount = f.DocCount, DocPending = f.DocPending,
+            });
         var roots = new List<RagFolderNode>();
 
         foreach (var f in flat)

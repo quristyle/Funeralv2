@@ -43,6 +43,9 @@ public sealed class RagFolderDto
 
     /// <summary>이 분류에 <b>바로</b> 든 문서 수. 하위 분류의 것은 안 센다.</summary>
     public int DocCount { get; set; }
+
+    /// <summary>그중 아직 색인에 안 들어간 것.</summary>
+    public int DocPending { get; set; }
 }
 
 /// <summary>올려 둔 문서 한 건.</summary>
@@ -95,6 +98,9 @@ public sealed class RagFolderNode
     /// <summary>이 분류에 바로 든 문서 수.</summary>
     public int DocCount { get; set; }
 
+    /// <summary>그중 아직 색인에 안 들어간 것.</summary>
+    public int DocPending { get; set; }
+
     /// <summary>
     /// 하위 분류에 든 문서 수를 모두 더한 것.
     /// <para>
@@ -104,6 +110,15 @@ public sealed class RagFolderNode
     /// </para>
     /// </summary>
     public int DescendantCount => Children.Sum(c => c.DocCount + c.DescendantCount);
+
+    /// <summary>
+    /// 이 분류와 그 아래에서 아직 색인에 안 들어간 문서 수.
+    /// <para>
+    /// 하위까지 더하는 까닭 — 접지 않는 트리라 눈에는 다 보이지만, 가지가
+    /// 길면 <b>어느 가지를 펴 봐야 하는지</b>는 위에서 알아야 한다.
+    /// </para>
+    /// </summary>
+    public int PendingTotal => DocPending + Children.Sum(c => c.PendingTotal);
 }
 
 /// <summary>올리는 중인 파일 하나의 상태. 화면이 진행바를 그리는 자료다.</summary>

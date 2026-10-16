@@ -90,18 +90,33 @@ public sealed class RagLibrary
         return map;
     }
 
-    /// <summary>분류마다 **그 분류에 바로 든** 문서 수. 하위 분류는 안 센다.</summary>
+    /// <summary>분류마다 **그 분류에 바로 든** 문서를 상태별로 센 것. 하위 분류는 안 센다.</summary>
     /// <remarks>
     /// 분류 미지정(<c>FolderId</c> 가 <c>null</c>)은 여기 들어오지 않는다 —
     /// 카테고리 합계에서 이 값들을 빼면 그 수다.
     /// </remarks>
-    public async Task<Dictionary<long, int>> FolderTalliesAsync(
+    public async Task<Dictionary<long, RagDocTally>> FolderTalliesAsync(
         string categoryId, CancellationToken ct = default)
-        => await _db.RagDocuments.AsNoTracking()
+    {
+        var rows = await _db.RagDocuments.AsNoTracking()
             .Where(x => x.CategoryId == categoryId && x.FolderId != null)
-            .GroupBy(x => x.FolderId!.Value)
-            .Select(g => new { Id = g.Key, N = g.Count() })
-            .ToDictionaryAsync(x => x.Id, x => x.N, ct);
+            .GroupBy(x => new { Id = x.FolderId!.Value, x.Status })
+            .Select(g => new { g.Key.Id, g.Key.Status, N = g.Count() })
+            .ToListAsync(ct);
+
+        var map = new Dictionary<long, RagDocTally>();
+        foreach (var r in rows)
+        {
+            var t = map.TryGetValue(r.Id, out var cur) ? cur : new RagDocTally();
+            map[r.Id] = t with
+            {
+                Total = t.Total + r.N,
+                Indexed = t.Indexed + (r.Status == "indexed" ? r.N : 0),
+                Skipped = t.Skipped + (r.Status is "skipped" or "failed" ? r.N : 0),
+            };
+        }
+        return map;
+    }
 
     public async Task<RagCategoryRow> CreateCategoryAsync(
         string id, string name, string? description, string? who, CancellationToken ct = default)

@@ -5405,3 +5405,11 @@
     background: color-mix(in srgb, var(--bs-warning, #f59f00) 18%, transparent);
     font-weight: 600;
 }
+
+/* 색인에 안 든 수. 머리의 「색인 대기」와 **같은 색으로** 둔다 — 자리마다
+   색이 다르면 같은 뜻인 줄 모른다. */
+.ad-rag__count--wait {
+    background: color-mix(in srgb, var(--bs-warning, #f59f00) 18%, transparent);
+    font-weight: 600;
+    margin-left: 0;
+}
