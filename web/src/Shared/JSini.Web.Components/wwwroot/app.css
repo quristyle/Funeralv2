@@ -6780,7 +6780,8 @@ a.jsini-social__btn:focus-visible {
 /* 판 안에서는 화면의 읽기 좋은 폭(52rem)이 도리어 걸린다 — 판이 이미
    그보다 좁아서 아무 일도 안 하지만, 나중에 판을 넓히면 알맹이만 가운데
    덜 찬 채로 남는다. 판을 꽉 채우게 풀어 둔다. */
-.jsini-quick-drawer .pm-ask {
+.jsini-quick-drawer .pm-ask,
+.jsini-quick-drawer-custom .pm-ask {
   max-width: none;
 }
 

@@ -49,6 +49,16 @@ function scrollBox(selector) {
   return document.scrollingElement || document.documentElement;
 }
 
+function listScrollBox(selector) {
+  const root = document.querySelector(selector);
+  if (!root) return null;
+
+  const inner = root.querySelector('.pm-ask__scroll');
+  if (inner) return inner;
+
+  return scrollBox(selector);
+}
+
 /**
  * 목록에서 보던 자리를 적어 둔다. **목록이 아직 보일 때** 부른다.
  * 이미 적어 둔 것이 있으면 덮지 않는다 — 탭에서 탭으로 갈아타는 길도
@@ -56,7 +66,7 @@ function scrollBox(selector) {
  * 자리」로 바뀐다.
  */
 export function remember(selector) {
-  const box = scrollBox(selector);
+  const box = listScrollBox(selector);
   if (!box) return;
 
   if (!saved.has(box)) {
@@ -102,7 +112,7 @@ export function toTop(selector) {
 export function restore(selector) {
   showActiveTab(selector);
 
-  const box = scrollBox(selector);
+  const box = listScrollBox(selector);
   if (!box) return;
 
   const top = saved.get(box);

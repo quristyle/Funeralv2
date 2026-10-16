@@ -338,7 +338,7 @@
        **판이 둘이라 둘 다 감춘다**(적는 자리 · 카드 목록). 한쪽만 감추면
        상세 아래에 나머지 판이 그대로 이어 붙어, 결과문을 끝까지 내려간
        자리에서 카드가 다시 나온다 — 실제로 그렇게 밟았다. *@
-    <CommCont CssClass="@PaneCss">
+    <CommCont CssClass="@WritePaneCss">
 
         @if (_targets.Count == 0)
         {
@@ -585,12 +585,8 @@
        제목을 달지 않는다. 이 판 위가 보내는 자리고 그 바로 아래에 카드가
        깔리면 **그것이 방금 보낸 것들이라는 사실은 자리로 이미 말한다.**
        모바일에서 제목 한 줄은 카드 한 층만큼의 높이다. *@
-    <CommCont CssClass="@PaneCss">
-        @if (_recent.Count == 0)
-        {
-            <PageNotice Tone="NoticeTone.Info" Text="아직 보낸 것이 없습니다." />
-        }
-        else
+    <CommCont CssClass="@ListPaneCss">
+        @if (_recent.Count > 0)
         {
             @* ── 몇 단으로 깔 것인가 (2026-09-25) ───────────────
 
@@ -629,11 +625,19 @@
                             @onclick="@(() => SetCols(n))">@n</button>
                 }
             </div>
+        }
 
-            @* 단 수는 **격자에 실어 내린다**(`--pm-ask-cols`). 단마다 클래스를
-               따로 두면 CSS 가 같은 규칙을 셋으로 베끼고, 넷째 단을 더하는
-               날 고칠 자리가 또 둘이 된다. *@
-            <ul class="pm-ask__list" style="--pm-ask-cols: @_cols">
+        <div class="pm-ask__scroll">
+            @if (_recent.Count == 0)
+            {
+                <PageNotice Tone="NoticeTone.Info" Text="아직 보낸 것이 없습니다." />
+            }
+            else
+            {
+                @* 단 수는 **격자에 실어 내린다**(`--pm-ask-cols`). 단마다 클래스를
+                   따로 두면 CSS 가 같은 규칙을 셋으로 베끼고, 넷째 단을 더하는
+                   날 고칠 자리가 또 둘이 된다. *@
+                <ul class="pm-ask__list" style="--pm-ask-cols: @_cols">
                 @foreach (var t in _recent)
                 {
                     @* 카드 한 장이 건 하나고 **얼굴 하나 + 두 층**이다.
@@ -796,10 +800,11 @@
             }
         }
 
-        @* 휴대폰에서 목록 끝까지 굴리면 단추와 같은 만큼 더 펼친다.
-           감지점은 늘 DOM 에 둬야 다시 펼칠 때 관찰을 이어 갈 수 있다. *@
-        <span class="pm-ask__more-sentinel"
-              aria-hidden="true"
-              @ref="_moreSentinel"></span>
+            @* 휴대폰에서 목록 끝까지 굴리면 단추와 같은 만큼 더 펼친다.
+               감지점은 늘 DOM 에 둬야 다시 펼칠 때 관찰을 이어 갈 수 있다. *@
+            <span class="pm-ask__more-sentinel"
+                  aria-hidden="true"
+                  @ref="_moreSentinel"></span>
+        </div>
     </CommCont>
 </div>

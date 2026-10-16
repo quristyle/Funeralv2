@@ -1421,8 +1421,18 @@ public partial class AiAskPanel
     /// <summary>
     /// 적는 자리와 카드 목록에 붙일 클래스. 상세를 보는 동안 <b>둘 다</b>
     /// 감춘다 — 한쪽만 감추면 상세 아래에 나머지 판이 이어 붙는다.
+    /// 상단 입력부는 고정(<c>pm-ask__write</c>)하고 아래 목록 판(<c>pm-ask__recent</c>)은
+    /// 남은 높이를 받아 스크롤되도록 구분한다.
     /// </summary>
     private string? PaneCss => Viewing is null ? null : "pm-ask__pane--off";
+
+    private string WritePaneCss => Viewing is null
+        ? "pm-ask__write"
+        : "pm-ask__write pm-ask__pane--off";
+
+    private string ListPaneCss => Viewing is null
+        ? "pm-ask__recent"
+        : "pm-ask__recent pm-ask__pane--off";
 
     /// <summary>
     /// 탭이 볼 건. <b>받아 둔 것 전부에서 찾는다</b> — 깔린 넉 장에서만 찾으면

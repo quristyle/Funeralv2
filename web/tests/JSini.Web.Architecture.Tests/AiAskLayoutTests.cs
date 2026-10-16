@@ -1,0 +1,83 @@
+using Xunit;
+
+namespace JSini.Web.Architecture.Tests;
+
+/// <summary>
+/// 「빠른 지시」(<c>AiAskPanel</c>)의 상단 입력부 고정 및 하단 목록 스크롤 구조를 검사한다.
+/// </summary>
+public sealed class AiAskLayoutTests
+{
+    [Fact]
+    public void 상단_입력부와_하단_목록_판이_분리되고_목록은_스크롤_영역을_갖는다()
+    {
+        var razor = PanelRazor();
+        var code = PanelCode();
+
+        Assert.Contains("CssClass=\"@WritePaneCss\"", razor, StringComparison.Ordinal);
+        Assert.Contains("CssClass=\"@ListPaneCss\"", razor, StringComparison.Ordinal);
+        Assert.Contains("class=\"pm-ask__scroll\"", razor, StringComparison.Ordinal);
+
+        var colsAt = razor.IndexOf("class=\"pm-ask__cols\"", StringComparison.Ordinal);
+        var scrollAt = razor.IndexOf("class=\"pm-ask__scroll\"", StringComparison.Ordinal);
+        var listAt = razor.IndexOf("class=\"pm-ask__list\"", StringComparison.Ordinal);
+        var sentinelAt = razor.IndexOf("class=\"pm-ask__more-sentinel\"", StringComparison.Ordinal);
+
+        Assert.True(colsAt >= 0 && scrollAt > colsAt, "단 수 고르개(.pm-ask__cols)가 스크롤 영역 위에 있어야 한다");
+        Assert.True(listAt > scrollAt, "목록(.pm-ask__list)이 스크롤 영역(.pm-ask__scroll) 안에 있어야 한다");
+        Assert.True(sentinelAt > listAt, "더보기 감지점(.pm-ask__more-sentinel)이 스크롤 영역 안에 있어야 한다");
+
+        Assert.Contains("\"pm-ask__write\"", code, StringComparison.Ordinal);
+        Assert.Contains("\"pm-ask__recent\"", code, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void projmng_css_가_입력부를_고정하고_아래_목록을_스크롤시킨다()
+    {
+        var css = ProjMngCss();
+
+        var containerRule = Rule(css, ".jsini-shell__content:has(> .pm-ask:not(:has(> .pm-ask__view))),");
+        Assert.Contains("overflow: hidden", containerRule, StringComparison.Ordinal);
+
+        var recentRule = Rule(css, ".pm-ask__recent {");
+        Assert.Contains("flex: 1 1 0", recentRule, StringComparison.Ordinal);
+        Assert.Contains("min-height: 0", recentRule, StringComparison.Ordinal);
+
+        var scrollRule = Rule(css, ".pm-ask__scroll {");
+        Assert.Contains("flex: 1 1 0", scrollRule, StringComparison.Ordinal);
+        Assert.Contains("min-height: 0", scrollRule, StringComparison.Ordinal);
+        Assert.Contains("overflow-y: auto", scrollRule, StringComparison.Ordinal);
+    }
+
+    private static string Rule(string css, string selector)
+    {
+        var at = css.IndexOf(selector, StringComparison.Ordinal);
+        Assert.True(at >= 0, $"규칙을 못 찾았다: {selector}");
+
+        var end = css.IndexOf('}', at);
+        Assert.True(end > at, $"규칙이 안 닫혔다: {selector}");
+
+        return css[at..end];
+    }
+
+    private static string PanelRazor() => RazorSource.Read(Path.Combine(
+        SolutionRoot(), "src", "Apps", "JSini.Web.ProjMng", "Components", "Shared", "AiAskPanel.razor"));
+
+    private static string PanelCode() => RazorSource.Read(Path.Combine(
+        SolutionRoot(), "src", "Apps", "JSini.Web.ProjMng", "Components", "Shared", "AiAskPanel.razor.cs"));
+
+    private static string ProjMngCss() => RazorSource.Read(Path.Combine(
+        SolutionRoot(), "src", "Apps", "JSini.Web.ProjMng", "wwwroot", "projmng.css"));
+
+    private static string SolutionRoot()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+
+        while (dir is not null && !Directory.Exists(Path.Combine(dir.FullName, "src")))
+        {
+            dir = dir.Parent;
+        }
+
+        Assert.NotNull(dir);
+        return dir!.FullName;
+    }
+}

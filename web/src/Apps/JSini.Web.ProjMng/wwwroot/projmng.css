@@ -2633,6 +2633,59 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge:not([class*='jsi
   min-width: 0;
 }
 
+/* ── 상단 입력부 고정 · 하단 목록 스크롤 ─────────────────────
+
+   빠른 지시 화면(`.jsini-shell__content`)과 헤더 서랍(`.jsini-right-drawer__body`)
+   모두에서 상단 작업 지시 입력부(`.pm-ask__write`)는 고정되고, 아래쪽 리스트
+   (`.pm-ask__recent` 안의 `.pm-ask__scroll`)만 남은 높이를 받아 스크롤된다.
+   휴대폰에서 상세 탭(`.pm-ask__view`)을 보고 있을 때는 본문 전체가 구르도록
+   `:not(:has(> .pm-ask__view))` 로 가른다. */
+.jsini-shell__content:has(> .pm-ask:not(:has(> .pm-ask__view))),
+.jsini-right-drawer__body:has(> .pm-ask:not(:has(> .pm-ask__view))) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.pm-ask:not(:has(> .pm-ask__view)) {
+  flex: 1 1 0;
+  min-height: 0;
+  height: 100%;
+}
+
+.pm-ask > .commcont + .commcont {
+  margin-top: 0;
+}
+
+.pm-ask > .commcont {
+  margin-bottom: 0;
+}
+
+.pm-ask > .pm-ask__tabs,
+.pm-ask__write {
+  flex: 0 0 auto;
+}
+
+.pm-ask__recent {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.pm-ask__recent > .commcont__body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.pm-ask__scroll {
+  flex: 1 1 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+}
+
 /* ── 보낸 것 목록 ──────────────────────────────────────────── */
 
 /* 목록이 아니라 **카드**다. 줄로 늘어놓으면 제목 · 상태 · 시각 · 걸린 시간이
@@ -2671,6 +2724,7 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge:not([class*='jsi
    벌어지면 방금 보낸 것이 자판 밖으로 밀린다 — 한 층을 새로 내는 것이 아니라
    **카드 한 층의 절반쯤**으로 눌러 둔다. */
 .pm-ask__cols {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: flex-end;

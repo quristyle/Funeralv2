@@ -127,6 +127,9 @@ export function attachMoreObserver(sentinel, dotnet) {
     reset: () => {
       exhausted = false;
       inFlight = false;
+      if (container) {
+        container.scrollTop = 0;
+      }
     }
   });
 }
