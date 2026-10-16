@@ -7,6 +7,7 @@ namespace JSini.Web.Components.Layout;
 
 public partial class AiChatPanel
 {
+    [Parameter] public bool IsDrawer { get; set; }
     [Inject] private AiChatClient Chat { get; set; } = default!;
 
     private readonly List<AiChatMessage> _messages = [];
@@ -25,6 +26,12 @@ public partial class AiChatPanel
 
     /// <summary>대화를 지우기 전에 묻는 창.</summary>
     private ConfirmDialog? _confirm;
+
+    /// <summary>대화 목록(히스토리) 패널 열림 여부.</summary>
+    private bool _historyOpen;
+
+    /// <summary>복사 완료 피드백용 인덱스.</summary>
+    private int? _copiedIndex;
 
     /// <summary>이름 바꾸기 칸이 열려 있나.</summary>
     private bool _renaming;
@@ -71,6 +78,51 @@ public partial class AiChatPanel
     /// </summary>
     private string CurrentTitle =>
         _sessions.FirstOrDefault(s => s.Id == _sessionId)?.Label ?? "새 대화";
+
+    private void ToggleHistory() => _historyOpen = !_historyOpen;
+    private void CloseHistory() => _historyOpen = false;
+
+    private async Task SelectSessionAsync(string sessionId)
+    {
+        _historyOpen = false;
+        await OpenAsync(sessionId);
+    }
+
+    private async Task StartNewChatAsync()
+    {
+        _historyOpen = false;
+        await NewAsync();
+    }
+
+    private async Task AskPromptAsync(string prompt)
+    {
+        if (_streaming || string.IsNullOrWhiteSpace(prompt)) return;
+        _input = prompt;
+        await SendAsync();
+    }
+
+    private void StopGenerating()
+    {
+        _cts?.Cancel();
+        _streaming = false;
+        StateHasChanged();
+    }
+
+    private async Task CopyMessageAsync(string content, int index)
+    {
+        if (string.IsNullOrWhiteSpace(content)) return;
+        var ok = await Js.InvokeAsync<bool>("jsiniChat.copyText", content);
+        if (ok)
+        {
+            _copiedIndex = index;
+            StateHasChanged();
+            _ = Task.Delay(2000).ContinueWith(_ =>
+            {
+                _copiedIndex = null;
+                _ = InvokeAsync(StateHasChanged);
+            });
+        }
+    }
 
     /// <summary>
     /// 화면을 열면 <b>보던 대화를 그대로 다시 연다.</b>

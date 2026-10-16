@@ -58,8 +58,14 @@
    위로 한 뼘 떠오른다.
 
    `:has()` 를 모르는 브라우저에는 묶인 높이가 그대로 남는다(아래 첫 규칙). */
+/* AI 대화 화면 (D11). 알맹이는 공용 `AiChatPanel` 이고, 여기서는 자리만 준다.
+   ChatGPT 웹/모바일 스타일에 맞게 좌우/상단 여백을 없애고 화면 전체를 채운다. */
 .site-ai-chat {
-  height: min(70vh, 44rem);
+  height: 100%;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .jsini-shell__content:has(> .site-ai-chat) {
@@ -67,6 +73,26 @@
   flex-direction: column;
   overflow: hidden;
   min-height: 0;
+  padding-top: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+/* 휴대폰에서 하단 띠가 있을 때와 없을 때 입력창이 가리지 않도록 처리 */
+@media (max-width: 767px) {
+  .jsini-shell__content:has(> .site-ai-chat) {
+    padding-bottom: calc(var(--jsini-bottomnav-h) + env(safe-area-inset-bottom)) !important;
+  }
+
+  .jsini-shell--bottomnav-hidden .jsini-shell__content:has(> .site-ai-chat) {
+    padding-bottom: env(safe-area-inset-bottom) !important;
+  }
+}
+
+@media (min-width: 768px) {
+  .jsini-shell__content:has(> .site-ai-chat) {
+    padding-bottom: 0 !important;
+  }
 }
 
 .jsini-shell__content:has(> .site-ai-chat) > .site-ai-chat {

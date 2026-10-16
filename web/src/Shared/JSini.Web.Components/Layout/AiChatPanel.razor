@@ -1,180 +1,281 @@
 @*
-    AI 대화 알맹이 (D11). 껍데기가 둘이라 갈라 두었다 —
-    화면 하나(`/site/ai/chat`)와 헤더에서 여는 서랍이 **같은 이것**을 쓴다.
-
-    [왜 갈랐나]
-
-    옛 포털도 화면과 헤더 대화창 둘 다 있었다. 복사해 두면 한쪽에만 고침이
-    들어가고, 그 어긋남은 「화면에서는 되는데 헤더에서는 안 된다」로 나타난다.
-    말풍선·스트리밍·오류 처리는 한 벌만 있으면 된다.
-
-    [안내는 답이 아니다]
-
-    서버는 답 글자와 안내(`notice`)를 갈라 보낸다. 안내를 답에 이어 붙이면
-    화면이 그것을 답의 일부로 저장하고 **다음 턴 문맥으로 다시 올려보낸다.**
-    그래서 안내는 따로 모아 따로 보여 준다.
-
-    [대화는 서버에 남는다 — 2026-10-08]
-
-    여태는 회로가 사는 동안만 있었다. 새로고침하면 사라졌고, 「아까 물어본
-    것」을 다시 보려면 같은 질문을 다시 쳐야 했다.
-
-    지금은 **주제별로 갈라 서버에 담는다**(`scom.ai_chat_sessions`). 담는 일은
-    서버가 한다 — 화면이 답을 다 받은 뒤 올리는 길이면 **창을 먼저 닫은
-    대화가 통째로 사라진다**(`AiChatStore` 머리말).
-
-    [왜 주제별인가]
-
-    한 줄기로 길게 이어 두면 다음 턴마다 그 전체가 문맥으로 다시 올라간다 —
-    토큰이 눈덩이가 되고(사용량 화면에서 그대로 보인다) 상관없는 옛 얘기가
-    답을 흐린다.
-
-    제목은 **첫 질문에서 따온다.** 물어보려고 연 창에서 제목부터 지으라고
-    하면 그 자리에서 막힌다. 마음에 안 들면 ✎ 로 고친다.
+    AI 대화 알맹이 — ChatGPT 웹/모바일 UI/UX 스타일 (D11).
+    화면 하나(`/site/ai/chat`)와 헤더에서 여는 서랍이 공용으로 쓰며,
+    데스크탑과 모바일 모든 환경에서 최상의 대화 경험을 제공한다.
 *@
 
 @implements IDisposable
 
-<div class="jsini-chat">
-    @* ── 주제 고르개 ─────────────────────────────────────────
-       서랍이 26rem 이라 한 줄로 끝낸다 — 목록을 판으로 펴면 대화가 들어갈
-       자리가 없다. 화면(`/site/ai/chat`)에서도 같은 줄을 쓴다. 갈라 두면
-       「화면에서는 되는데 서랍에서는 안 된다」가 돌아온다. *@
-    <div class="jsini-chat__topics">
-        @if (_renaming)
-        {
-            <DxTextBox @bind-Text="@_renameText"
-                       BindValueMode="BindValueMode.OnInput"
-                       NullText="주제 이름 (비우면 「새 대화」)"
-                       CssClass="jsini-chat__rename" />
+<div class="jsini-chat @(IsDrawer ? "jsini-chat--drawer" : "jsini-chat--full")">
+    @* ── 상단 바 (ChatGPT Header Bar) ─────────────────────────── *@
+    <header class="jsini-chat__header">
+        <div class="jsini-chat__header-left">
+            <button type="button" class="jsini-chat__header-btn jsini-chat__header-btn--history"
+                    title="대화 목록 열기" @onclick="ToggleHistory">
+                <span class="jsini-icon-menu" aria-hidden="true"></span>
+                <span class="jsini-chat__header-btn-text">목록</span>
+            </button>
 
-            <DxButton IconCssClass="jsini-icon-check" Title="이름 저장"
-                      RenderStyle="ButtonRenderStyle.Link" Click="@SaveRenameAsync" />
-
-            <DxButton IconCssClass="jsini-icon-close" Title="그만두기"
-                      RenderStyle="ButtonRenderStyle.Link"
-                      Click="@(() => _renaming = false)" />
-        }
-        else
-        {
-            @* 값이 `null` 일 수 있다(아직 아무 대화도 없을 때). 그때는 빈
-               고르개가 뜨고, 무엇이든 물어보면 그 자리에서 하나 생긴다. *@
-            <DxComboBox Data="@_sessions"
-                        Value="@_sessionId"
-                        ValueChanged="@((string? id) => OpenAsync(id))"
-                        ValueExpression="@(() => _sessionId)"
-                        TextFieldName="@nameof(AiChatSession.Label)"
-                        ValueFieldName="@nameof(AiChatSession.Id)"
-                        NullText="새 대화"
-                        CssClass="jsini-chat__pick" />
-
-            <DxButton IconCssClass="jsini-icon-plus" Title="새 대화"
-                      RenderStyle="ButtonRenderStyle.Link"
-                      Enabled="@(!_streaming)" Click="@NewAsync" />
-
-            <DxButton IconCssClass="jsini-icon-edit" Title="주제 이름 바꾸기"
-                      RenderStyle="ButtonRenderStyle.Link"
-                      Enabled="@(_sessionId is not null)" Click="@BeginRename" />
-
-            @* 되돌릴 수 없다 — 묻고 지운다(`ConfirmDialog`). *@
-            <DxButton IconCssClass="jsini-icon-trash" Title="이 대화 지우기"
-                      CssClass="commgrd__icon--warn"
-                      RenderStyle="ButtonRenderStyle.Link"
-                      Enabled="@(!_streaming && _sessionId is not null)"
-                      Click="@ConfirmDeleteAsync" />
-        }
-    </div>
-
-    @* [지금 누가 답하는가]
-
-       자동 전환 때문에 **설정한 것과 실제로 답하는 것이 다를 수 있다.**
-       전환 안내는 '바뀐 순간' 에만 뜨므로, 그 줄을 놓치거나 대화를 비우면
-       지금 상태를 알 길이 없다. 그래서 늘 보이는 자리에 한 줄 둔다.
-
-       물어보기 전에는 설정상의 **기본값**을, 답이 오기 시작하면 **실제로 답한**
-       공급자를 보여 준다. 둘을 같은 자리에 쓰면 거짓말이 되므로 말머리로 가른다. *@
-    @if (_who is { Length: > 0 })
-    {
-        <div class="jsini-chat__who" title="@_whoHint">
-            <span class="jsini-chat__who-dot @(_whoLive ? "is-live" : "")"></span>
-            <span class="jsini-chat__who-text">@_who</span>
-        </div>
-    }
-
-    <div class="jsini-chat__log" @ref="_logRef">
-        @if (_messages.Count == 0)
-        {
-            <p class="jsini-chat__empty">
-                무엇이든 물어보세요. 답은 오는 대로 한 글자씩 나타납니다.
-            </p>
-        }
-
-        @foreach (var message in _messages)
-        {
-            <div class="jsini-chat__row jsini-chat__row--@(message.Role == "user" ? "me" : "ai")">
-                <div class="jsini-chat__bubble">
-                    @* `white-space: pre-wrap` 로 줄바꿈을 살린다. HTML 로 그리지
-                       않는다 — 답에 태그가 섞여 오면 그대로 실행된다. *@
-                    @message.Content
+            @if (_who is { Length: > 0 })
+            {
+                <div class="jsini-chat__model-badge" title="@_whoHint">
+                    <span class="jsini-chat__who-dot @(_whoLive ? "is-live" : "")"></span>
+                    <span class="jsini-chat__model-name">@(_whoLive ? _who : "JSini AI")</span>
                 </div>
-            </div>
-        }
+            }
+        </div>
 
-        @if (_notices.Count > 0)
-        {
-            <div class="jsini-chat__notices">
-                @foreach (var notice in _notices)
+        <div class="jsini-chat__header-center">
+            @if (_renaming)
+            {
+                <div class="jsini-chat__header-rename">
+                    <DxTextBox @bind-Text="@_renameText"
+                               BindValueMode="BindValueMode.OnInput"
+                               NullText="주제 이름"
+                               CssClass="jsini-chat__rename-box" />
+                    <button type="button" class="jsini-chat__header-action-btn" title="저장" @onclick="SaveRenameAsync">
+                        <span class="jsini-icon-check"></span>
+                    </button>
+                    <button type="button" class="jsini-chat__header-action-btn" title="취소" @onclick="@(() => _renaming = false)">
+                        <span class="jsini-icon-close"></span>
+                    </button>
+                </div>
+            }
+            else
+            {
+                <div class="jsini-chat__header-title" title="@CurrentTitle (클릭하여 이름 변경)" @onclick="BeginRename">
+                    <span class="jsini-chat__title-text">@CurrentTitle</span>
+                    @if (_sessionId is not null)
+                    {
+                        <span class="jsini-icon-edit jsini-chat__title-edit-icon" aria-hidden="true"></span>
+                    }
+                </div>
+            }
+        </div>
+
+        <div class="jsini-chat__header-right">
+            <button type="button" class="jsini-chat__header-btn jsini-chat__header-btn--new"
+                    title="새 대화 시작" disabled="@_streaming" @onclick="StartNewChatAsync">
+                <span class="jsini-icon-plus" aria-hidden="true"></span>
+                <span class="jsini-chat__header-btn-text">새 대화</span>
+            </button>
+
+            @if (_sessionId is not null)
+            {
+                <button type="button" class="jsini-chat__header-btn jsini-chat__header-btn--danger"
+                        title="이 대화 지우기" disabled="@_streaming" @onclick="ConfirmDeleteAsync">
+                    <span class="jsini-icon-trash" aria-hidden="true"></span>
+                </button>
+            }
+        </div>
+    </header>
+
+    @* ── 대화 히스토리 오프캔버스 패널 (ChatGPT History Drawer) ───── *@
+    @if (_historyOpen)
+    {
+        <div class="jsini-chat__history-scrim" @onclick="CloseHistory"></div>
+        <aside class="jsini-chat__history-panel" aria-label="대화 기록">
+            <div class="jsini-chat__history-header">
+                <div class="jsini-chat__history-header-left">
+                    <span class="jsini-icon-robot jsini-chat__history-header-icon" aria-hidden="true"></span>
+                    <span class="jsini-chat__history-title">대화 기록</span>
+                </div>
+                <button type="button" class="jsini-chat__history-close" title="닫기" @onclick="CloseHistory">
+                    <span class="jsini-icon-close" aria-hidden="true"></span>
+                </button>
+            </div>
+
+            <div class="jsini-chat__history-new">
+                <button type="button" class="jsini-chat__history-new-btn" @onclick="StartNewChatAsync">
+                    <span class="jsini-icon-plus" aria-hidden="true"></span>
+                    <span>새 대화 시작</span>
+                </button>
+            </div>
+
+            <div class="jsini-chat__history-list">
+                @if (_sessions.Count == 0)
                 {
-                    <div class="jsini-chat__notice">@notice</div>
+                    <div class="jsini-chat__history-empty">
+                        <p>아직 나눈 대화가 없습니다.</p>
+                        <span>새로운 대화를 시작해보세요.</span>
+                    </div>
+                }
+                @foreach (var session in _sessions)
+                {
+                    var isSelected = session.Id == _sessionId;
+                    <div class="jsini-chat__history-item @(isSelected ? "is-selected" : "")"
+                         @onclick="@(() => SelectSessionAsync(session.Id))">
+                        <div class="jsini-chat__history-item-main">
+                            <span class="jsini-icon-robot jsini-chat__history-item-icon" aria-hidden="true"></span>
+                            <span class="jsini-chat__history-item-title" title="@session.Label">@session.Label</span>
+                        </div>
+                        <div class="jsini-chat__history-item-meta">
+                            <span class="jsini-chat__history-item-time">
+                                @session.UpdatedAt.ToLocalTime().ToString("MM.dd HH:mm")
+                            </span>
+                        </div>
+                    </div>
                 }
             </div>
-        }
+        </aside>
+    }
 
-        @if (_streaming)
-        {
-            <div class="jsini-chat__typing">답변을 만들고 있습니다…</div>
-        }
+    @* ── 메시지 영역 (ChatGPT Message Feed) ─────────────────────── *@
+    <div class="jsini-chat__log" @ref="_logRef">
+        <div class="jsini-chat__feed-container">
+            @if (_messages.Count == 0)
+            {
+                <div class="jsini-chat__welcome">
+                    <div class="jsini-chat__welcome-symbol">
+                        <span class="jsini-icon-robot" aria-hidden="true"></span>
+                    </div>
+                    <h2 class="jsini-chat__welcome-heading">무엇을 도와드릴까요?</h2>
+                    <p class="jsini-chat__welcome-sub">
+                        포털 시스템 사용법, 업무 절차, 기술 관련 질문을 자유롭게 물어보세요.
+                    </p>
+
+                    <div class="jsini-chat__prompt-grid">
+                        <button type="button" class="jsini-chat__prompt-card"
+                                @onclick="@(() => AskPromptAsync("프로젝트관리 WBS 화면에서 작업 일정과 진척도를 확인하는 방법을 알려줘"))">
+                            <span class="jsini-chat__prompt-badge">📋 일정 조회</span>
+                            <strong class="jsini-chat__prompt-title">WBS 작업 일정 및 진척도</strong>
+                            <span class="jsini-chat__prompt-desc">프로젝트 일정 확인 방법 안내</span>
+                        </button>
+
+                        <button type="button" class="jsini-chat__prompt-card"
+                                @onclick="@(() => AskPromptAsync("헬프데스크에서 고장 접수나 지원 요청을 등록하는 절차를 설명해줘"))">
+                            <span class="jsini-chat__prompt-badge">🛠️ 지원 요청</span>
+                            <strong class="jsini-chat__prompt-title">헬프데스크 요청 등록 절차</strong>
+                            <span class="jsini-chat__prompt-desc">고장 접수 및 업무 지원 신청 안내</span>
+                        </button>
+
+                        <button type="button" class="jsini-chat__prompt-card"
+                                @onclick="@(() => AskPromptAsync("포털에서 내가 자주 쓰는 메뉴를 찾고 바로가기로 지정하는 방법 알려줘"))">
+                            <span class="jsini-chat__prompt-badge">🔍 메뉴 바로가기</span>
+                            <strong class="jsini-chat__prompt-title">메뉴 검색 및 즐겨찾기</strong>
+                            <span class="jsini-chat__prompt-desc">주요 기능 찾기 및 하단 띠 설정</span>
+                        </button>
+
+                        <button type="button" class="jsini-chat__prompt-card"
+                                @onclick="@(() => AskPromptAsync("포털 AI 어시스턴트가 제공하는 주요 기능과 활용 팁을 알려줘"))">
+                            <span class="jsini-chat__prompt-badge">💡 AI 활용 팁</span>
+                            <strong class="jsini-chat__prompt-title">AI 비서 기능 및 활용 가이드</strong>
+                            <span class="jsini-chat__prompt-desc">빠른 지시와 질의응답 활용 팁</span>
+                        </button>
+                    </div>
+                </div>
+            }
+
+            @for (var i = 0; i < _messages.Count; i++)
+            {
+                var message = _messages[i];
+                var index = i;
+                var isMe = message.Role == "user";
+
+                <div class="jsini-chat__row @(isMe ? "jsini-chat__row--user" : "jsini-chat__row--ai")">
+                    @if (!isMe)
+                    {
+                        <div class="jsini-chat__avatar" aria-hidden="true">
+                            <span class="jsini-icon-robot"></span>
+                        </div>
+                    }
+
+                    <div class="jsini-chat__message-content">
+                        @if (!isMe)
+                        {
+                            <div class="jsini-chat__author-name">JSini AI</div>
+                        }
+
+                        <div class="jsini-chat__bubble">
+                            @message.Content
+                            @if (!isMe && _streaming && index == _messages.Count - 1)
+                            {
+                                <span class="jsini-chat__cursor" aria-hidden="true"></span>
+                            }
+                        </div>
+
+                        @if (!isMe && !string.IsNullOrWhiteSpace(message.Content))
+                        {
+                            <div class="jsini-chat__message-tools">
+                                <button type="button" class="jsini-chat__tool-btn" title="답변 복사"
+                                        @onclick="@(() => CopyMessageAsync(message.Content, index))">
+                                    <span class="@(_copiedIndex == index ? "jsini-icon-check" : "jsini-icon-copy")" aria-hidden="true"></span>
+                                    <span>@(_copiedIndex == index ? "복사됨!" : "복사")</span>
+                                </button>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+
+            @if (_notices.Count > 0)
+            {
+                <div class="jsini-chat__notices">
+                    @foreach (var notice in _notices)
+                    {
+                        <div class="jsini-chat__notice">
+                            <span class="jsini-icon-bolt jsini-chat__notice-icon" aria-hidden="true"></span>
+                            <span>@notice</span>
+                        </div>
+                    }
+                </div>
+            }
+
+            @if (_streaming && _messages.Count > 0 && string.IsNullOrEmpty(_messages[^1].Content))
+            {
+                <div class="jsini-chat__typing">
+                    <div class="jsini-chat__avatar jsini-chat__avatar--small" aria-hidden="true">
+                        <span class="jsini-icon-robot"></span>
+                    </div>
+                    <div class="jsini-chat__typing-bubble">
+                        <span class="jsini-chat__typing-dot"></span>
+                        <span class="jsini-chat__typing-dot"></span>
+                        <span class="jsini-chat__typing-dot"></span>
+                    </div>
+                    <span class="jsini-chat__typing-text">답변을 생성하고 있습니다…</span>
+                </div>
+            }
+        </div>
     </div>
 
-    @* 폼을 쓰지 않는다. 이 부품이 서랍(레이아웃) 안에도 들어가는데, 거기서
-       폼은 진짜 POST 로 새는 길이 된다 — 잠금화면에서 실제로 밟았다.
+    @* ── 하단 입력 영역 (ChatGPT Pill Input Container) ─────────── *@
+    <div class="jsini-chat__input-area">
+        <div class="jsini-chat__input-container" @ref="_inputRef" @onkeydown="@OnKeyDownAsync">
+            <div class="jsini-chat__capsule">
+                <DxMemo @bind-Text="@_input"
+                        BindValueMode="BindValueMode.OnInput"
+                        Rows="1"
+                        MaxRows="6"
+                        ResizeMode="MemoResizeMode.Auto"
+                        NullText="메시지를 입력하세요 (줄바꿈은 Shift+Enter)"
+                        Enabled="@(!_streaming)"
+                        CssClass="jsini-chat__textarea" />
 
-       [여러 줄로 쓴다 — 2026-10-09]
+                <div class="jsini-chat__capsule-actions">
+                    @if (_streaming)
+                    {
+                        <button type="button" class="jsini-chat__circle-btn jsini-chat__circle-btn--stop"
+                                title="답변 생성 중단" @onclick="StopGenerating">
+                            <span class="jsini-icon-stop" aria-hidden="true"></span>
+                        </button>
+                    }
+                    else
+                    {
+                        var canSend = !string.IsNullOrWhiteSpace(_input);
+                        <button type="button"
+                                class="jsini-chat__circle-btn jsini-chat__circle-btn--send @(canSend ? "is-active" : "")"
+                                title="전송" disabled="@(!canSend)" @onclick="SendAsync">
+                            <span class="jsini-icon-arrow-up" aria-hidden="true"></span>
+                        </button>
+                    }
+                </div>
+            </div>
 
-       한 줄짜리(`DxTextBox`)였다. 물어보는 말이 길어지면 앞이 밀려 나가
-       **방금 친 끝만 보였고**, 줄을 나눠 쓸 수가 없어 표나 코드·목록을
-       붙여 넣으면 한 줄로 뭉개졌다.
-
-       `DxMemo` 로 바꾸되 **처음에는 한 줄 높이**로 둔다(`Rows="1"`).
-       대화가 들어갈 자리를 처음부터 빼앗지 않으려는 것이고, 글이 길어지면
-       `ResizeMode="Auto"` 가 스스로 늘어난다. 여섯 줄에서 멈추고
-       (`MaxRows`) 그 뒤로는 안에서 굴린다 — 안 막으면 긴 글 한 번에
-       대화 기록이 통째로 밀려 올라간다(서랍은 세로가 짧다).
-
-       손잡이로 끄는 것은 두지 않았다. `Auto` 가 이미 내용에 맞추고,
-       손으로 끈 높이가 남으면 다음 글에 그 높이가 그대로 따라붙는다.
-
-       Enter 로 보내고 **Shift+Enter 로 줄을 바꾼다.** 보낼지 말지는 아래
-       `OnKeyDownAsync` 가 정하고, Enter 가 줄까지 바꾸지 않도록 기본 동작을
-       끄는 일만 JS(`jsiniChat.armEnter`)가 한다 — 까닭은 그 머리말에 있다. *@
-    <div class="jsini-chat__input" @ref="_inputRef" @onkeydown="@OnKeyDownAsync">
-        <DxMemo @bind-Text="@_input"
-                BindValueMode="BindValueMode.OnInput"
-                Rows="1"
-                MaxRows="6"
-                ResizeMode="MemoResizeMode.Auto"
-                NullText="메시지를 입력하고 Enter (줄바꿈은 Shift+Enter)"
-                Enabled="@(!_streaming)"
-                CssClass="jsini-chat__box" />
-
-        <DxButton Text="전송"
-                  RenderStyle="ButtonRenderStyle.Primary"
-                  Enabled="@(!_streaming && !string.IsNullOrWhiteSpace(_input))"
-                  Click="@SendAsync" />
-
+            <p class="jsini-chat__disclaimer">
+                AI는 실수를 할 수 있습니다. 중요한 정보는 다시 확인하세요.
+            </p>
+        </div>
     </div>
 </div>
 
-@* 대화를 지우는 것은 되돌릴 수 없다. 작은 아이콘 단추라 더욱 묻는다
-   (`ConfirmDialog` 머리말). *@
 <ConfirmDialog @ref="_confirm" />

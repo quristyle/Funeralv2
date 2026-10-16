@@ -6101,31 +6101,128 @@ a.jsini-social__btn:focus-visible {
   margin: 0;
 }
 
-/* ── AI 대화 (D11) ────────────────────────────────────────────
-   화면(/site/ai/chat)과 헤더 서랍이 같은 부품을 쓰므로 스타일도 한 벌이다.
-   높이는 부모가 정한다 — 서랍은 화면 높이, 화면은 site.css 의 .site-ai-chat 이 정한다. */
+/* ── AI 대화 — ChatGPT UI/UX 스타일 (D11) ──────────────────────
+   화면(/site/ai/chat)과 헤더 서랍이 같은 부품을 쓰며,
+   ChatGPT 특유의 미려하고 집중도 높은 대화 UI를 제공한다.
+   모바일 터치 환경을 주력으로 삼아 하단 캡슐 입력바와 슬라이드 히스토리 패널을 완벽 지원한다. */
 .jsini-chat {
   display: flex;
   flex-direction: column;
   height: 100%;
   min-height: 0;
+  background: var(--jsini-bg);
+  position: relative;
+  overflow: hidden;
 }
 
-/* [지금 누가 답하는가]
+/* ── 상단 헤더 바 (ChatGPT Header) ── */
+.jsini-chat__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--jsini-border);
+  background: var(--jsini-surface);
+  flex-shrink: 0;
+  z-index: 10;
+}
 
-   자동 전환 때문에 **고른 것과 실제로 답하는 것이 다를 수 있다.** 전환 안내는
-   '바뀐 순간' 에만 뜨는 곁말이라, 지금 상태를 늘 보여 주는 자리가 따로 필요하다.
+.jsini-chat__header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  flex-shrink: 0;
+}
 
-   대화 기록 **밖**에 둔다 — 안에 두면 굴려 올렸을 때 사라지고, 그때가 바로
-   "지금 무슨 AI 지?" 를 묻는 순간이다. */
-.jsini-chat__who {
+.jsini-chat__header-center {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0 0.25rem;
+}
+
+.jsini-chat__header-right {
   display: flex;
   align-items: center;
   gap: 0.35rem;
-  padding: 0 0.15rem 0.4rem;
+  flex-shrink: 0;
+}
+
+/* 헤더 버튼 공통 */
+.jsini-chat__header-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  height: 2.1rem;
+  padding: 0 0.55rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--jsini-border);
+  background: var(--jsini-surface);
+  color: var(--jsini-text);
+  font-size: var(--jsini-fs-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.jsini-chat__header-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--jsini-accent) 10%, var(--jsini-surface));
+  border-color: var(--jsini-accent);
+}
+
+.jsini-chat__header-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.jsini-chat__header-btn--new {
+  background: var(--jsini-accent);
+  color: #fff;
+  border-color: var(--jsini-accent);
+  font-weight: 500;
+}
+
+.jsini-chat__header-btn--new:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.jsini-chat__header-btn--danger {
+  color: #e03131;
+}
+
+.jsini-chat__header-btn--danger:hover:not(:disabled) {
+  background: color-mix(in srgb, #e03131 12%, var(--jsini-surface));
+  border-color: #e03131;
+}
+
+@media (max-width: 480px) {
+  .jsini-chat__header-btn-text {
+    display: none;
+  }
+  .jsini-chat__header-btn {
+    padding: 0 0.5rem;
+  }
+}
+
+/* 모델 알약 뱃지 */
+.jsini-chat__model-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 9999px;
+  background: color-mix(in srgb, var(--jsini-text-muted) 12%, transparent);
   color: var(--jsini-text-muted);
-  /* 사다리를 쓴다. rem 으로 박으면 이 글자만 크기 여섯 단계를 안 따라온다. */
   font-size: var(--jsini-fs-xs);
+  white-space: nowrap;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .jsini-chat__who-dot {
@@ -6133,135 +6230,694 @@ a.jsini-social__btn:focus-visible {
   width: 0.45rem;
   height: 0.45rem;
   border-radius: 50%;
-  /* 아직 실제로 답한 것을 모르는 상태(설정상의 기본값). 속을 비워 둔다. */
   border: 1px solid currentColor;
 }
 
-/* 실제로 답한 공급자를 아는 상태. 채워서 '살아 있는 값' 임을 가른다. */
 .jsini-chat__who-dot.is-live {
-  border-color: var(--jsini-accent);
-  background: var(--jsini-accent);
+  border-color: #10a37f;
+  background: #10a37f;
 }
 
-.jsini-chat__who-text {
-  /* 서랍은 좁다. 이름이 길면 줄이 늘지 않고 끝을 줄인다 —
-     한 줄이 두 줄이 되면 대화 자리가 그만큼 줄어든다. */
+.jsini-chat__model-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+/* 대화 제목 (클릭 시 이름 변경) */
+.jsini-chat__header-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: 100%;
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.4rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.jsini-chat__header-title:hover {
+  background: color-mix(in srgb, var(--jsini-text-muted) 10%, transparent);
+}
+
+.jsini-chat__title-text {
+  font-size: var(--jsini-fs-base);
+  font-weight: 600;
+  color: var(--jsini-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.jsini-chat__title-edit-icon {
+  width: 0.9rem;
+  height: 0.9rem;
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+/* 제목 인라인 편집 */
+.jsini-chat__header-rename {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  width: 100%;
+  max-width: 280px;
+}
+
+.jsini-chat__rename-box {
+  flex: 1;
+  min-width: 0;
+}
+
+.jsini-chat__header-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 0.35rem;
+  border: 1px solid var(--jsini-border);
+  background: var(--jsini-surface);
+  color: var(--jsini-text);
+  cursor: pointer;
+}
+
+/* ── 대화 히스토리 슬라이드 오프캔버스 ── */
+.jsini-chat__history-scrim {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(2px);
+  z-index: 80;
+  animation: jsiniFadeIn 0.2s ease;
+}
+
+.jsini-chat__history-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: min(320px, 86vw);
+  background: var(--jsini-surface);
+  border-right: 1px solid var(--jsini-border);
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.18);
+  z-index: 85;
+  display: flex;
+  flex-direction: column;
+  animation: jsiniSlideInLeft 0.22s ease-out;
+}
+
+@keyframes jsiniSlideInLeft {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes jsiniFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.jsini-chat__history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--jsini-border);
+}
+
+.jsini-chat__history-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.jsini-chat__history-header-icon {
+  width: 1.2rem;
+  height: 1.2rem;
+  color: var(--jsini-accent);
+}
+
+.jsini-chat__history-title {
+  font-weight: 600;
+  font-size: var(--jsini-fs-md);
+  color: var(--jsini-text);
+}
+
+.jsini-chat__history-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.4rem;
+  border: none;
+  background: transparent;
+  color: var(--jsini-text-muted);
+  cursor: pointer;
+}
+
+.jsini-chat__history-close:hover {
+  background: color-mix(in srgb, var(--jsini-text-muted) 15%, transparent);
+  color: var(--jsini-text);
+}
+
+.jsini-chat__history-new {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--jsini-border);
+}
+
+.jsini-chat__history-new-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.65rem 1rem;
+  border-radius: 0.6rem;
+  border: 1px dashed var(--jsini-border);
+  background: color-mix(in srgb, var(--jsini-accent) 6%, transparent);
+  color: var(--jsini-accent);
+  font-weight: 500;
+  font-size: var(--jsini-fs-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.jsini-chat__history-new-btn:hover {
+  background: color-mix(in srgb, var(--jsini-accent) 14%, transparent);
+  border-color: var(--jsini-accent);
+}
+
+.jsini-chat__history-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.jsini-chat__history-empty {
+  padding: 2.5rem 1rem;
+  text-align: center;
+  color: var(--jsini-text-muted);
+  font-size: var(--jsini-fs-sm);
+}
+
+.jsini-chat__history-empty span {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: var(--jsini-fs-xs);
+  opacity: 0.75;
+}
+
+.jsini-chat__history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.55rem;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  user-select: none;
+}
+
+.jsini-chat__history-item:hover {
+  background: color-mix(in srgb, var(--jsini-text-muted) 8%, transparent);
+}
+
+.jsini-chat__history-item.is-selected {
+  background: color-mix(in srgb, var(--jsini-accent) 12%, transparent);
+  border-left: 3px solid var(--jsini-accent);
+}
+
+.jsini-chat__history-item-main {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.jsini-chat__history-item-icon {
+  width: 0.95rem;
+  height: 0.95rem;
+  flex-shrink: 0;
+  opacity: 0.65;
+}
+
+.jsini-chat__history-item-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--jsini-fs-sm);
+  color: var(--jsini-text);
+  font-weight: 500;
+}
+
+.jsini-chat__history-item-meta {
+  flex-shrink: 0;
+}
+
+.jsini-chat__history-item-time {
+  font-size: 11px;
+  color: var(--jsini-text-muted);
+}
+
+/* ── 대화 피드 (Message Feed) ── */
 .jsini-chat__log {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 0.75rem;
-  border: 1px solid var(--jsini-border);
-  border-radius: 0.5rem;
+  padding: 1rem 0.75rem;
   background: var(--jsini-bg);
+  scroll-behavior: smooth;
 }
 
-.jsini-chat__empty {
-  margin: 2rem 0;
-  color: var(--jsini-text-muted);
+.jsini-chat__feed-container {
+  width: 100%;
+  max-width: 48rem;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.jsini-chat--drawer .jsini-chat__feed-container {
+  max-width: 100%;
+  gap: 0.9rem;
+}
+
+/* 환영 화면 (ChatGPT Empty State) */
+.jsini-chat__welcome {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   text-align: center;
+  padding: 2rem 0.5rem 1.5rem;
+  margin: auto 0;
 }
 
+.jsini-chat__welcome-symbol {
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--jsini-accent) 15%, transparent);
+  color: var(--jsini-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--jsini-accent) 20%, transparent);
+}
+
+.jsini-chat__welcome-symbol .jsini-icon-robot {
+  width: 1.8rem;
+  height: 1.8rem;
+}
+
+.jsini-chat__welcome-heading {
+  font-size: calc(var(--jsini-fs-xl) * 1.1);
+  font-weight: 700;
+  color: var(--jsini-text);
+  margin: 0 0 0.5rem;
+}
+
+.jsini-chat__welcome-sub {
+  font-size: var(--jsini-fs-sm);
+  color: var(--jsini-text-muted);
+  max-width: 28rem;
+  margin: 0 0 1.5rem;
+  line-height: 1.6;
+}
+
+/* 추천 프롬프트 그리드 (ChatGPT Prompt Cards) */
+.jsini-chat__prompt-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.65rem;
+  width: 100%;
+  max-width: 42rem;
+}
+
+@media (max-width: 600px) {
+  .jsini-chat__prompt-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.jsini-chat__prompt-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  padding: 0.85rem 1rem;
+  border-radius: 0.85rem;
+  border: 1px solid var(--jsini-border);
+  background: var(--jsini-surface);
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+}
+
+.jsini-chat__prompt-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--jsini-accent);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
+
+.jsini-chat__prompt-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--jsini-accent);
+  margin-bottom: 0.3rem;
+}
+
+.jsini-chat__prompt-title {
+  font-size: var(--jsini-fs-sm);
+  font-weight: 600;
+  color: var(--jsini-text);
+  margin-bottom: 0.2rem;
+}
+
+.jsini-chat__prompt-desc {
+  font-size: var(--jsini-fs-xs);
+  color: var(--jsini-text-muted);
+  line-height: 1.4;
+}
+
+/* 메시지 행 (Message Rows) */
 .jsini-chat__row {
   display: flex;
-  margin-bottom: 0.6rem;
+  gap: 0.75rem;
+  width: 100%;
 }
 
-.jsini-chat__row--me { justify-content: flex-end; }
-.jsini-chat__row--ai { justify-content: flex-start; }
+.jsini-chat__row--user {
+  justify-content: flex-end;
+}
 
+.jsini-chat__row--ai {
+  justify-content: flex-start;
+}
+
+.jsini-chat__avatar {
+  flex: 0 0 2rem;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--jsini-accent) 15%, transparent);
+  color: var(--jsini-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0.15rem;
+}
+
+.jsini-chat__avatar .jsini-icon-robot {
+  width: 1.15rem;
+  height: 1.15rem;
+}
+
+.jsini-chat__message-content {
+  display: flex;
+  flex-direction: column;
+  max-width: 82%;
+  min-width: 0;
+}
+
+.jsini-chat__row--ai .jsini-chat__message-content {
+  max-width: calc(100% - 2.75rem);
+}
+
+.jsini-chat__author-name {
+  font-size: var(--jsini-fs-xs);
+  font-weight: 600;
+  color: var(--jsini-text-muted);
+  margin-bottom: 0.3rem;
+}
+
+/* 말풍선 스타일 */
 .jsini-chat__bubble {
-  max-width: 80%;
-  padding: 0.55rem 0.75rem;
-  border-radius: 0.6rem;
-  /* 줄바꿈을 살린다. 답을 HTML 로 그리지 않으므로 이 한 줄이 서식의 전부다. */
+  padding: 0.75rem 1rem;
+  font-size: var(--jsini-fs-base);
+  line-height: 1.65;
   white-space: pre-wrap;
   word-break: break-word;
-  line-height: 1.55;
 }
 
-.jsini-chat__row--me .jsini-chat__bubble {
+/* 사용자 말풍선: 알약형 라운드 버블 */
+.jsini-chat__row--user .jsini-chat__bubble {
+  border-radius: 1.25rem 1.25rem 0.3rem 1.25rem;
   background: var(--jsini-accent);
   color: #fff;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--jsini-accent) 25%, transparent);
 }
 
+/* AI 말풍선: ChatGPT 스타일 자연스러운 텍스트 카드 */
 .jsini-chat__row--ai .jsini-chat__bubble {
+  border-radius: 0.3rem 1.25rem 1.25rem 1.25rem;
   background: var(--jsini-surface);
   border: 1px solid var(--jsini-border);
+  color: var(--jsini-text);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.03);
 }
 
-/* 안내는 말풍선이 아니다 — 대화 문맥에 들어가지 않는 곁말이라 다르게 보인다. */
+/* 깜빡이는 커서 */
+.jsini-chat__cursor {
+  display: inline-block;
+  width: 0.45rem;
+  height: 1.05rem;
+  vertical-align: -0.15rem;
+  margin-left: 0.2rem;
+  background-color: var(--jsini-accent);
+  animation: jsiniBlink 0.8s infinite;
+}
+
+@keyframes jsiniBlink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* AI 답변 하단 도구(복사 등) */
+.jsini-chat__message-tools {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.35rem;
+  padding-left: 0.2rem;
+}
+
+.jsini-chat__tool-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.35rem;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--jsini-text-muted);
+  font-size: var(--jsini-fs-xs);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.jsini-chat__tool-btn:hover {
+  background: color-mix(in srgb, var(--jsini-text-muted) 12%, transparent);
+  color: var(--jsini-text);
+  border-color: var(--jsini-border);
+}
+
+/* 안내 및 노티스 */
 .jsini-chat__notices {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
   margin-top: 0.5rem;
 }
 
 .jsini-chat__notice {
-  padding: 0.35rem 0.6rem;
-  margin-bottom: 0.3rem;
-  border-left: 3px solid var(--jsini-accent);
-  color: var(--jsini-text-muted);
-  font-size: var(--jsini-fs-sm);
-}
-
-.jsini-chat__typing {
-  padding: 0.35rem 0.2rem;
-  color: var(--jsini-text-muted);
-  font-size: var(--jsini-fs-sm);
-}
-
-/* 글상자가 여러 줄이라 **아래를 맞춘다.** 가운데로 두면 글이 길어질수록
-   「전송」이 글상자 한가운데로 떠올라, 눈이 찾는 자리(오른쪽 아래 구석)에서
-   벗어난다. 줄이 하나일 때의 모습은 양쪽 끝이 같으므로 달라지지 않는다. */
-.jsini-chat__input {
   display: flex;
-  align-items: flex-end;
-  gap: 0.4rem;
-  padding-top: 0.6rem;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.8rem;
+  border-radius: 0.5rem;
+  border-left: 3px solid var(--jsini-accent);
+  background: color-mix(in srgb, var(--jsini-accent) 8%, transparent);
+  color: var(--jsini-text-muted);
+  font-size: var(--jsini-fs-sm);
 }
 
-/* `min-width: 0` 이 있어야 긴 한 줄이 「전송」을 밀어내지 않는다 —
-   주제 고르개와 같은 까닭이다(flex 항목은 제 내용보다 작아지지 않는다). */
-.jsini-chat__box {
-  flex: 1;
-  min-width: 0;
+.jsini-chat__notice-icon {
+  width: 1rem;
+  height: 1rem;
+  color: var(--jsini-accent);
+  flex-shrink: 0;
 }
 
-/* 손잡이를 지운다. `ResizeMode="Auto"` 가 이미 내용에 맞춰 늘리는데
-   손으로 끈 높이가 남으면 **그다음 글에도 그 높이가 따라붙는다** — 한 줄만
-   쓰려는데 여섯 줄짜리 칸이 서 있는 모양이 된다. 오른쪽 아래 구석의 그
-   삼각형이 「전송」 바로 위에 겹쳐 보이는 것도 걸린다. */
-.jsini-chat__box textarea {
-  resize: none;
+/* 답변 생성 중 인디케이터 */
+.jsini-chat__typing {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0;
 }
 
-/* ── 주제 고르개 ─────────────────────────────────────────────
-   대화 줄기를 고르고, 새로 열고, 이름을 고치고, 지운다.
+.jsini-chat__avatar--small {
+  width: 1.6rem;
+  height: 1.6rem;
+  flex: 0 0 1.6rem;
+}
 
-   **한 줄로 끝낸다.** 이 부품은 26rem 짜리 서랍 안에도 들어가는데,
-   목록을 판으로 펴면 정작 대화가 들어갈 자리가 없다. 고르개가 남는 폭을
-   다 먹고(`flex: 1`) 단추 넷은 제 크기만 쓴다.
+.jsini-chat__avatar--small .jsini-icon-robot {
+  width: 0.95rem;
+  height: 0.95rem;
+}
 
-   아래에 선을 하나 긋는다 — 고르개와 대화는 다른 켜이고, 선이 없으면
-   첫 말풍선이 고르개에 붙어 그 줄의 일부처럼 보인다. */
-.jsini-chat__topics {
+.jsini-chat__typing-bubble {
   display: flex;
   align-items: center;
   gap: 0.25rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid var(--jsini-border);
+  padding: 0.5rem 0.75rem;
+  border-radius: 1rem;
+  background: var(--jsini-surface);
+  border: 1px solid var(--jsini-border);
 }
 
-/* `min-width: 0` 이 있어야 긴 주제 이름이 단추를 밀어내지 않는다 —
-   flex 항목은 기본으로 제 내용보다 작아지지 않는다. */
-.jsini-chat__pick,
-.jsini-chat__rename {
+.jsini-chat__typing-dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: var(--jsini-accent);
+  animation: jsiniTypingBounce 1.4s infinite ease-in-out both;
+}
+
+.jsini-chat__typing-dot:nth-child(1) { animation-delay: -0.32s; }
+.jsini-chat__typing-dot:nth-child(2) { animation-delay: -0.16s; }
+
+@keyframes jsiniTypingBounce {
+  0%, 80%, 100% { transform: scale(0); opacity: 0.4; }
+  40% { transform: scale(1); opacity: 1; }
+}
+
+.jsini-chat__typing-text {
+  font-size: var(--jsini-fs-xs);
+  color: var(--jsini-text-muted);
+}
+
+/* ── 하단 입력창 (ChatGPT Pill Capsule Input Bar) ───────────── */
+.jsini-chat__input-area {
+  flex-shrink: 0;
+  padding: 0.6rem 0.75rem 0.8rem;
+  background: var(--jsini-bg);
+  border-top: 1px solid var(--jsini-border);
+  position: relative;
+  z-index: 10;
+}
+
+.jsini-chat__input-container {
+  width: 100%;
+  max-width: 48rem;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.jsini-chat__capsule {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  padding: 0.35rem 0.5rem 0.35rem 0.85rem;
+  border-radius: 1.75rem;
+  border: 1px solid var(--jsini-border);
+  background: var(--jsini-surface);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.jsini-chat__capsule:focus-within {
+  border-color: var(--jsini-accent);
+  box-shadow: 0 4px 20px color-mix(in srgb, var(--jsini-accent) 20%, transparent);
+}
+
+.jsini-chat__textarea {
   flex: 1;
   min-width: 0;
+  border: none !important;
+  background: transparent !important;
+}
+
+.jsini-chat__textarea textarea {
+  border: none !important;
+  background: transparent !important;
+  padding: 0.4rem 0 !important;
+  resize: none !important;
+  box-shadow: none !important;
+  line-height: 1.5;
+  font-size: var(--jsini-fs-base);
+}
+
+.jsini-chat__capsule-actions {
+  flex-shrink: 0;
+  padding-bottom: 0.15rem;
+}
+
+/* 원형 전송/중지 버튼 */
+.jsini-chat__circle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.jsini-chat__circle-btn--send {
+  background: color-mix(in srgb, var(--jsini-text-muted) 20%, transparent);
+  color: var(--jsini-text-muted);
+}
+
+.jsini-chat__circle-btn--send.is-active {
+  background: var(--jsini-accent);
+  color: #fff;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--jsini-accent) 35%, transparent);
+}
+
+.jsini-chat__circle-btn--send.is-active:hover {
+  filter: brightness(1.1);
+  transform: scale(1.05);
+}
+
+.jsini-chat__circle-btn--stop {
+  background: #e03131;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(224, 49, 49, 0.35);
+  animation: jsiniPulseStop 1.8s infinite;
+}
+
+@keyframes jsiniPulseStop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+.jsini-chat__disclaimer {
+  margin: 0.45rem 0 0;
+  text-align: center;
+  font-size: 11px;
+  color: var(--jsini-text-muted);
+  opacity: 0.75;
 }
 
 /* ── AI 대화 서랍 ────────────────────────────────────────────
