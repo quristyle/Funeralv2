@@ -60,6 +60,8 @@
             {
                 <DxButton Text="색인 다시 만들기" RenderStyle="ButtonRenderStyle.Primary"
                           Enabled="@(!_busy)" Click="@ReindexAsync" />
+                <DxButton Text="카테고리 지우기" RenderStyle="ButtonRenderStyle.Link"
+                          Enabled="@(!_busy)" Click="@DeleteCategoryAsync" />
                 <span class="ad-stamp">
                     @(cur.IndexedAt is { } at ? $"{at.Kst("MM-dd HH:mm")} 색인" : "색인 전")
                     · 문서 @cur.DocCount · 토막 @cur.ChunkCount
@@ -166,9 +168,13 @@
     }
 </div>
 
-@* ── 카테고리 추가 ─────────────────────────────────────────── *@
-<DxPopup @bind-Visible="_newCategoryVisible" HeaderText="카테고리 추가" Width="420px">
-    <BodyTemplate>
+@* ── 카테고리 추가 ───────────────────────────────────────────
+
+   **`DxPopup` 을 직접 쓰지 않는다.** 그러면 `ShowFooter` 를 빠뜨렸을 때
+   바닥이 통째로 안 그려져 **「만들기」 단추가 사라진다** — 실제로 그랬다.
+   공통 팝업은 그 값이 기본으로 켜져 있고, 바깥을 눌러도 안 닫힌다. *@
+<CommPopup @bind-Visible="_newCategoryVisible" HeaderText="카테고리 추가" Width="420">
+    <BodyContentTemplate Context="popup">
         <div class="ad-rag__form">
             <label>열쇠</label>
             <DxTextBox @bind-Text="_newCategoryId" NullText="hr-policy" />
@@ -180,17 +186,18 @@
             <DxTextBox @bind-Text="_newCategoryName" NullText="사내 규정" />
             <div class="ad-rag__dim">사람이 보는 이름입니다. 한글로 적으세요.</div>
         </div>
-    </BodyTemplate>
-    <FooterContentTemplate>
-        <DxButton Text="만들기" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveCategoryAsync" />
+    </BodyContentTemplate>
+    <FooterContentTemplate Context="popup">
+        <DxButton Text="만들기" RenderStyle="ButtonRenderStyle.Primary"
+                  Enabled="@(!_busy)" Click="@SaveCategoryAsync" />
         <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
                   Click="@(() => _newCategoryVisible = false)" />
     </FooterContentTemplate>
-</DxPopup>
+</CommPopup>
 
 @* ── 분류 추가 ─────────────────────────────────────────────── *@
-<DxPopup @bind-Visible="_newFolderVisible" HeaderText="분류 추가" Width="380px">
-    <BodyTemplate>
+<CommPopup @bind-Visible="_newFolderVisible" HeaderText="분류 추가" Width="380">
+    <BodyContentTemplate Context="popup">
         <div class="ad-rag__form">
             <label>이름</label>
             <DxTextBox @bind-Text="_newFolderName" NullText="휴가" />
@@ -198,13 +205,18 @@
                 @(_newFolderParent is null ? "최상위에 만듭니다." : "고른 분류 아래에 만듭니다.")
             </div>
         </div>
-    </BodyTemplate>
-    <FooterContentTemplate>
-        <DxButton Text="만들기" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveFolderAsync" />
+    </BodyContentTemplate>
+    <FooterContentTemplate Context="popup">
+        <DxButton Text="만들기" RenderStyle="ButtonRenderStyle.Primary"
+                  Enabled="@(!_busy)" Click="@SaveFolderAsync" />
         <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
                   Click="@(() => _newFolderVisible = false)" />
     </FooterContentTemplate>
-</DxPopup>
+</CommPopup>
+
+@* 지우기는 **묻고 지운다.** 카테고리를 지우면 분류·문서·디스크의 파일까지
+   함께 사라지고, 되돌릴 방법이 없다. *@
+<ConfirmDialog @ref="_confirm" />
 
 @code {
     /// <summary>

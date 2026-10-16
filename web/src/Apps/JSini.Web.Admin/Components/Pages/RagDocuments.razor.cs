@@ -22,6 +22,13 @@ public partial class RagDocuments
 
     private bool _busy;
 
+    /// <summary>
+    /// 「정말 지웁니까」를 묻는 창. <b>지우기는 전부 이것을 거친다</b> —
+    /// 카테고리를 지우면 분류·문서·디스크의 파일까지 함께 사라지고
+    /// 되돌릴 방법이 없다.
+    /// </summary>
+    private ConfirmDialog? _confirm;
+
     // 새 카테고리 만들기
     private bool _newCategoryVisible;
     private string _newCategoryId = string.Empty;
@@ -128,7 +135,18 @@ public partial class RagDocuments
 
     private async Task DeleteCategoryAsync()
     {
-        if (_categoryId is null) return;
+        if (_categoryId is null || _confirm is null) return;
+
+        // **무엇이 사라지는지 숫자로 적는다.** "정말 지웁니까" 만으로는
+        // 카테고리 하나가 문서 수십 건을 데려간다는 것을 알 수 없다.
+        var docs = Current?.DocCount ?? 0;
+        if (!await _confirm.AskAsync(
+                $"「{Current?.Name ?? _categoryId}」 카테고리를 지웁니다.\n"
+                + $"분류와 문서 {docs}건, 디스크의 파일까지 함께 사라집니다. 되돌릴 수 없습니다.",
+                "카테고리 지우기"))
+        {
+            return;
+        }
 
         var ok = await RunAsync(
             async () => await Api.DeleteCategoryAsync(_categoryId),
@@ -169,6 +187,17 @@ public partial class RagDocuments
 
     private async Task DeleteFolderAsync(long id)
     {
+        if (_confirm is null) return;
+
+        var name = Find(_tree, id)?.Name ?? "이 분류";
+        if (!await _confirm.AskAsync(
+                $"「{name}」 분류를 지웁니다.\n"
+                + "아래 분류도 함께 사라집니다. 문서는 지워지지 않고 분류 미지정으로 올라갑니다.",
+                "분류 지우기"))
+        {
+            return;
+        }
+
         var ok = await RunAsync(
             async () => await Api.DeleteFolderAsync(id),
             "분류를 지웠습니다. 안에 있던 문서는 분류 미지정으로 올라갑니다.");
@@ -239,8 +268,29 @@ public partial class RagDocuments
 
     private async Task DeleteDocumentAsync(long id)
     {
+        if (_confirm is null) return;
+
+        var name = _documents.FirstOrDefault(d => d.Id == id)?.FileName ?? "이 문서";
+        if (!await _confirm.AskAsync(
+                $"「{name}」 을 지웁니다. 디스크의 파일도 함께 사라집니다.", "문서 지우기"))
+        {
+            return;
+        }
+
         var ok = await RunAsync(async () => await Api.DeleteDocumentAsync(id), "문서를 지웠습니다.");
         if (ok) await LoadDocumentsAsync();
+    }
+
+    /// <summary>트리에서 분류 하나를 찾는다. 묻는 창에 이름을 적으려고 쓴다.</summary>
+    private static RagFolderNode? Find(IEnumerable<RagFolderNode> nodes, long id)
+    {
+        foreach (var n in nodes)
+        {
+            if (n.Id == id) return n;
+            if (Find(n.Children, id) is { } hit) return hit;
+        }
+
+        return null;
     }
 
     // ── 색인 ────────────────────────────────────────────────────
