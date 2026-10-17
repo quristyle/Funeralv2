@@ -285,6 +285,17 @@
         }
 
         <div class="pm-ask__scroll">
+            @* 최근 리스트 쓸어내려 새로고침(Pull-to-refresh) 인디케이터 *@
+            <div class="pm-ask__pull" aria-hidden="true">
+                <span class="pm-ask__pull-icon">
+                    <svg class="pm-ask__pull-arrow" viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
+                        <path fill-rule="evenodd" d="M8 1a.5.5 0 0 1 .5.5v11.793l3.146-3.147a.5.5 0 0 1 .708.708l-4 4a.5.5 0 0 1-.708 0l-4-4a.5.5 0 0 1 .708-.708L7.5 13.293V1.5A.5.5 0 0 1 8 1z"/>
+                    </svg>
+                    <span class="pm-ask__pull-spinner"></span>
+                </span>
+                <span class="pm-ask__pull-text">당겨서 새로고침</span>
+            </div>
+
             @if (_recent.Count == 0)
             {
                 <div class="pm-ask__empty-card">

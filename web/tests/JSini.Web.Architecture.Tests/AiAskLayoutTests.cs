@@ -80,6 +80,40 @@ public sealed class AiAskLayoutTests
         Assert.Contains("CycleCols()", code, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void 최근_리스트에서_쓸어내려_새로고침하는_인디케이터와_처리기_연결을_갖는다()
+    {
+        var razor = PanelRazor();
+        var code = PanelCode();
+        var css = ProjMngCss();
+
+        // 1. 마크업: 스크롤 영역 안에 pull 인디케이터가 있고 목록 위에 위치한다.
+        Assert.Contains("class=\"pm-ask__pull\"", razor, StringComparison.Ordinal);
+        Assert.Contains("class=\"pm-ask__pull-arrow\"", razor, StringComparison.Ordinal);
+        Assert.Contains("class=\"pm-ask__pull-spinner\"", razor, StringComparison.Ordinal);
+        Assert.Contains("class=\"pm-ask__pull-text\"", razor, StringComparison.Ordinal);
+
+        var scrollAt = razor.IndexOf("class=\"pm-ask__scroll\"", StringComparison.Ordinal);
+        var pullAt = razor.IndexOf("class=\"pm-ask__pull\"", StringComparison.Ordinal);
+        var listAt = razor.IndexOf("class=\"pm-ask__list\"", StringComparison.Ordinal);
+
+        Assert.True(pullAt > scrollAt, "새로고침 인디케이터(.pm-ask__pull)가 스크롤 영역(.pm-ask__scroll) 안에 있어야 한다");
+        Assert.True(listAt > pullAt, "새로고침 인디케이터(.pm-ask__pull)가 카드 목록(.pm-ask__list) 위에 위치해야 한다");
+
+        // 2. C# 코드: 모듈 부착 및 JSInvokable 콜백
+        Assert.Contains("ask-pull.js", code, StringComparison.Ordinal);
+        Assert.Contains("attachPullRefresh", code, StringComparison.Ordinal);
+        Assert.Contains("AttachPullRefreshAsync()", code, StringComparison.Ordinal);
+        Assert.Contains("RefreshRecentFromSwipeDownAsync()", code, StringComparison.Ordinal);
+
+        // 3. CSS: pull 인디케이터 스타일 및 애니메이션 정의
+        var pullRule = Rule(css, ".pm-ask__pull {");
+        Assert.Contains("--pm-ask-pull-y", pullRule, StringComparison.Ordinal);
+        Assert.Contains("overflow: hidden", pullRule, StringComparison.Ordinal);
+        Assert.Contains(".pm-ask__pull.pm-ask__pull--ready", css, StringComparison.Ordinal);
+        Assert.Contains(".pm-ask__pull.pm-ask__pull--refreshing", css, StringComparison.Ordinal);
+    }
+
     private static string Rule(string css, string selector)
     {
         var at = css.IndexOf(selector, StringComparison.Ordinal);

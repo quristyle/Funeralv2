@@ -195,6 +195,12 @@ public partial class AiAskPanel
     /// <summary>휴대폰 목록 끝에서 더 펼치기를 감지하는 JS 모듈.</summary>
     private IJSObjectReference? _moreModule;
 
+    /// <summary>최근 목록 쓸어내려 새로고침(Pull-to-Refresh)을 받는 JS 모듈.</summary>
+    private IJSObjectReference? _pullModule;
+
+    /// <summary>최근 목록 쓸어내려 새로고침 시 되부를 때 쥐는 손잡이.</summary>
+    private DotNetObjectReference<AiAskPanel>? _pullRef;
+
     /// <summary>
     /// 그 모듈이 되부를 때 쥐는 손잡이. <b>반드시 치운다</b> — 안 치우면
     /// 회로가 닫혀도 이 부품이 JS 쪽 참조에 매달려 남는다.
@@ -804,6 +810,9 @@ public partial class AiAskPanel
 
         // 휴대폰에서 목록 끝에 닿으면 더 펼친다.
         await AttachMoreObserverAsync();
+
+        // 최근 리스트에서 쓸어내려 새로고침(Pull-to-refresh)을 붙인다.
+        await AttachPullRefreshAsync();
     }
 
     private async Task AttachDraftListenerAsync()
@@ -895,6 +904,36 @@ public partial class AiAskPanel
         });
 
         return hasMore;
+    }
+
+    /// <summary>
+    /// 최근 목록에서 아래로 쓸어내리면(pull-to-refresh) 리스트를 새로고침하게 한다.
+    /// </summary>
+    private async Task AttachPullRefreshAsync()
+    {
+        try
+        {
+            _pullModule ??= await JS.InvokeAsync<IJSObjectReference>(
+                "import", "./_content/JSini.Web.ProjMng/js/ask-pull.js");
+            _pullRef ??= DotNetObjectReference.Create(this);
+
+            await _pullModule.InvokeVoidAsync("attachPullRefresh", $"#{_domId}", _pullRef);
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException)
+        {
+        }
+    }
+
+    /// <summary>
+    /// 최근 리스트에서 아래로 쓸어내려(pull-to-refresh) 새로고침을 요청했다.
+    /// </summary>
+    [JSInvokable]
+    public async Task RefreshRecentFromSwipeDownAsync()
+    {
+        await RefreshAsync(CancellationToken.None);
+        await LoadUsageAsync();
+        await ResetMoreObserverAsync();
+        Follow();
     }
 
     /// <summary>
@@ -1827,6 +1866,20 @@ public partial class AiAskPanel
 
         _moreRef?.Dispose();
         _moreRef = null;
+
+        _pullRef?.Dispose();
+        _pullRef = null;
+
+        if (_pullModule is not null)
+        {
+            try
+            {
+                await _pullModule.DisposeAsync();
+            }
+            catch (Exception ex) when (ex is JSException or JSDisconnectedException)
+            {
+            }
+        }
 
         if (_draftModule is not null)
         {
