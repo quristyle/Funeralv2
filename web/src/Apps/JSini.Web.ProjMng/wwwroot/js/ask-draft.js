@@ -74,3 +74,46 @@ export function clearDraft(selector, storageKey) {
     }
   }
 }
+
+/**
+ * 글상자에서 Ctrl+Enter(맥은 ⌘+Enter)를 「지시하기」 누름으로 넘긴다.
+ *
+ * [왜 Blazor 의 @onkeydown 이 아닌가]
+ *
+ * 두 가지가 걸린다.
+ *
+ * 1. 줄바꿈을 막아야 한다. Blazor 의 `@onkeydown:preventDefault` 는 **키를
+ *    가리지 않고** 걸리므로, 글상자에 걸면 타자가 통째로 안 먹는다.
+ *    키를 보고 그때만 막는 길은 브라우저 쪽에만 있다.
+ * 2. 글상자의 값이 **아직 C# 에 없을 수 있다.** 편집기가 300ms 를 모았다
+ *    보내므로(`InputDelay`), 마지막 글자를 치고 바로 누르면 그 글자가 빠진
+ *    채로 간다. 그래서 누른 그 순간의 `textarea.value` 를 함께 올려보낸다.
+ */
+const keyed = new WeakSet();
+
+export function attachSubmitKey(selector, dotNetRef) {
+  const container = document.querySelector(selector);
+  if (!container) return;
+
+  const textarea = container.querySelector('textarea') || container;
+  if (!textarea || keyed.has(textarea)) return;
+
+  keyed.add(textarea);
+
+  textarea.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter') return;
+    if (!e.ctrlKey && !e.metaKey) return;
+
+    // 한글 조합 중에는 키가 'Process'/229 로 와서 여기까지 오지 않는다.
+    if (e.isComposing) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    try {
+      dotNetRef.invokeMethodAsync('SubmitFromKeyAsync', textarea.value);
+    } catch (err) {
+      // 회로가 이미 끊긴 경우
+    }
+  });
+}

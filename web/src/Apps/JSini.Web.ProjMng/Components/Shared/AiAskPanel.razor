@@ -113,7 +113,12 @@
            `@@bind-Text:event="oninput"` 을 걸면 회로가 끊긴다(DevExpress 편집기는
            평범한 `input` 이 아니다. 빌드는 통과하므로 쳐 봐야 안다) — 부품이
            주는 `BindValueMode` 를 쓴다. 기본값 `OnLostFocus` 로 두면 칸을
-           떠나기 전까지 값이 안 넘어와 다 적고도 단추가 회색이다. *@
+           떠나기 전까지 값이 안 넘어와 다 적고도 단추가 회색이다.
+
+           **Ctrl+Enter 는 「지시하기」와 같다.** 여기에 `@@onkeydown` 을 걸지
+           않는다 — 줄바꿈을 막는 `preventDefault` 가 키를 가리지 않아 타자가
+           통째로 안 먹는다. 브라우저가 받아서 올려 준다(`ask-draft.js` 의
+           `attachSubmitKey` → `SubmitFromKeyAsync`). *@
         <DxMemo @bind-Text="Text"
                 BindValueMode="BindValueMode.OnInput"
                 InputDelay="300"
@@ -121,18 +126,6 @@
                 CssClass="pm-ask__text"
                 NullText="무엇을 시킬지, 또는 무엇이 궁금한지 적으십시오. 첫 줄이 제목이 됩니다."
                 Enabled="@(!Busy)" />
-
-        @if (_draftRestored)
-        {
-            <div class="pm-ask__draft">
-                <span class="pm-ask__draft-text">
-                    작성 중이던 내용을 복원했습니다@(_draftSavedAt.HasValue ? $" ({_draftSavedAt.Value.Kst("MM-dd HH:mm")})" : "").
-                </span>
-                <button type="button" class="pm-ask__draft-clear" @onclick="ClearDraftAsync">
-                    내용 비우기
-                </button>
-            </div>
-        }
 
         @* ── 함께 보내는 파일 ─────────────────────────────────
            고르개는 아래 단추 줄에 아이콘으로 서고, 여기에는 고르고 난 뒤에만

@@ -177,9 +177,6 @@ public partial class AiAskPanel
     private string _kind = "claude";
     private string? _text;
 
-    /// <summary>복원된 임시본이 화면에 채워졌는지 여부.</summary>
-    private bool _draftRestored;
-
     /// <summary>임시본이 저장되었던 시각.</summary>
     private DateTime? _draftSavedAt;
 
@@ -188,6 +185,12 @@ public partial class AiAskPanel
 
     /// <summary>DOM 레벨 실시간 임시저장 JS 모듈.</summary>
     private IJSObjectReference? _draftModule;
+
+    /// <summary>
+    /// 글상자의 Ctrl+Enter 를 받을 때 쥐는 손잡이. <b>반드시 치운다</b> —
+    /// 안 치우면 회로가 닫혀도 이 부품이 JS 쪽 참조에 매달려 남는다.
+    /// </summary>
+    private DotNetObjectReference<AiAskPanel>? _draftRef;
 
     /// <summary>카드 밀기를 받는 JS 모듈.</summary>
     private IJSObjectReference? _swipeModule;
@@ -244,11 +247,6 @@ public partial class AiAskPanel
             }
 
             _text = value;
-
-            if (_draftRestored && string.IsNullOrWhiteSpace(_text))
-            {
-                _draftRestored = false;
-            }
 
             TrackDraft();
         }
@@ -467,18 +465,18 @@ public partial class AiAskPanel
     }
 
     /// <summary>
-    /// 단추 글자. <b>올리기를 켜면 바뀐다</b> — 누르기 직전에 눈이 닿는
-    /// 마지막 글자가 여기라, 여기서까지 「메일로 받기」라고만 적혀 있으면
-    /// 배포가 나가는 줄 모르고 누른다.
+    /// 단추 글자. 평소에는 <b>「지시하기」</b> 하나이고, 일하는 동안만
+    /// 무엇을 하고 있는지로 바뀐다.
     /// </summary>
     /// <remarks>
-    /// 설명 줄(옛 <c>SendNote</c>)을 걷어낸 뒤로 <b>올리기가 어느 쪽인지 말하는
-    /// 자리가 여기와 묻는 창 둘뿐이다.</b> 글자를 흐리게 고치지 않는다.
+    /// 한동안 올리기 여부를 이 글자가 말했다(「보내고 올리기까지」 ·
+    /// 「보내고 메일로 받기」). 올리기는 이제 고른 대상이 정하는 것이지
+    /// 사람이 이 화면에서 켜고 끄는 것이 아니라서, 누르는 단추의 이름을
+    /// <b>하는 일 하나로</b> 되돌렸다.
     /// </remarks>
     private string SendText => _uploading || _selectedFileNames.Count > 0 ? "첨부 올리는 중"
         : Busy ? "보내는 중"
-        : PushOn ? "보내고 올리기까지"
-        : "보내고 메일로 받기";
+        : "지시하기";
 
     /// <summary>기억을 사람마다 갈라 두려고 본다. 로그인 아이디만 쓴다.</summary>
     [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
@@ -791,11 +789,12 @@ public partial class AiAskPanel
             _cols = PickCols(pref.ListCols);
             Show(_all);
 
-            // 작성 중이던 임시본이 있으면 복원한다
+            // 작성 중이던 임시본이 있으면 복원한다. **안내 줄은 세우지 않는다** —
+            // 글상자에 그 글이 그대로 서 있는 것으로 이미 보이고, 지우는 것은
+            // 글상자에서 지우면 된다.
             if (!string.IsNullOrWhiteSpace(pref.DraftText))
             {
                 _text = pref.DraftText;
-                _draftRestored = true;
                 _draftSavedAt = pref.DraftSavedAt;
             }
 
@@ -821,10 +820,41 @@ public partial class AiAskPanel
         {
             _draftModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "./_content/JSini.Web.ProjMng/js/ask-draft.js");
             await _draftModule.InvokeVoidAsync("attachDraft", DraftSelector, Prefs.CurrentKey);
+
+            // Ctrl+Enter 로 보내는 길. 같은 글상자를 잡으므로 같은 모듈이 한다.
+            _draftRef ??= DotNetObjectReference.Create(this);
+            await _draftModule.InvokeVoidAsync("attachSubmitKey", DraftSelector, _draftRef);
         }
         catch (Exception ex) when (ex is JSException or JSDisconnectedException)
         {
         }
+    }
+
+    /// <summary>글상자에서 Ctrl+Enter 를 눌렀다 — 「지시하기」와 같다.</summary>
+    /// <param name="text">
+    /// 누른 그 순간 글상자에 있던 글. <b>들고 있는 값을 쓰지 않는다</b> —
+    /// 편집기가 300ms 를 모았다 보내므로(<c>InputDelay</c>), 마지막 글자를
+    /// 치고 바로 누르면 그 글자가 빠진 채로 간다.
+    /// </param>
+    [JSInvokable]
+    public async Task SubmitFromKeyAsync(string? text)
+    {
+        await InvokeAsync(async () =>
+        {
+            // 속성으로 넣는다 — 임시저장 타이머까지 함께 다시 건다.
+            Text = string.IsNullOrWhiteSpace(text) ? null : text;
+
+            if (!CanSend)
+            {
+                // 보낼 수 없는 까닭은 단추가 이미 말하고 있다(대상 미선택 ·
+                // 첨부 올리는 중 · 보내는 중). 여기서 또 띄우지 않는다.
+                StateHasChanged();
+                return;
+            }
+
+            await SendAsync();
+            StateHasChanged();
+        });
     }
 
     /// <summary>
@@ -1030,32 +1060,6 @@ public partial class AiAskPanel
         _draftDelay?.Cancel();
         _draftDelay?.Dispose();
         _draftDelay = null;
-    }
-
-    /// <summary>
-    /// 복원되었거나 작성 중이던 임시본을 비운다.
-    /// </summary>
-    private async Task ClearDraftAsync()
-    {
-        CancelDraftDelay();
-        _text = null;
-        _draftRestored = false;
-        _draftSavedAt = null;
-
-        await Prefs.ClearDraftAsync();
-
-        if (_draftModule is not null)
-        {
-            try
-            {
-                await _draftModule.InvokeVoidAsync("clearDraft", DraftSelector, Prefs.CurrentKey);
-            }
-            catch (Exception ex) when (ex is JSException or JSDisconnectedException)
-            {
-            }
-        }
-
-        StateHasChanged();
     }
 
     /// <summary>
@@ -1302,8 +1306,8 @@ public partial class AiAskPanel
             return;
         }
 
-        // 올리기를 켠 채로 보내도 **묻지 않는다.** 대상이 허용한 것만 켜지고
-        // 단추 글자가 이미 「보내고 올리기까지」다 — 위 머리말 참고.
+        // 올리기를 켠 채로 보내도 **묻지 않는다.** 대상이 허용한 것만 켜진다
+        // — 위 머리말 참고.
         Busy = true;
 
         // **`try` 밖에 둔다.** 적어 둔 것을 손에 쥔 채로 단추를 먼저 놓아 준다.
@@ -1365,7 +1369,6 @@ public partial class AiAskPanel
         // 붙어 보이고, 보내면 묶이지 않아 소리 없이 빠진다.
         _attached = [];
         _text = null;
-        _draftRestored = false;
         _draftSavedAt = null;
 
         CancelDraftDelay();
@@ -1844,6 +1847,8 @@ public partial class AiAskPanel
         _swipeRef = null;
         _moreRef?.Dispose();
         _moreRef = null;
+        _draftRef?.Dispose();
+        _draftRef = null;
     }
 
     public async ValueTask DisposeAsync()
@@ -1853,6 +1858,8 @@ public partial class AiAskPanel
 
         _swipeRef?.Dispose();
         _swipeRef = null;
+        _draftRef?.Dispose();
+        _draftRef = null;
         if (_moreModule is not null)
         {
             try
