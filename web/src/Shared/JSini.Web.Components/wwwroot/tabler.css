@@ -714,9 +714,6 @@ a { color: var(--tb-primary); }
   --dxbl-treeview-item-selection-bg: var(--tb-primary-lt);
   --dxbl-treeview-item-selection-color: var(--tb-primary);
   --dxbl-treeview-item-selection-focused-color: var(--tb-primary);
-  --dxbl-treeview-btn-icon-size-s: 9px;
-  --dxbl-treeview-btn-icon-size-m: 10px;
-  --dxbl-treeview-btn-icon-size-l: 11px;
 }
 
 /* 토스트 */
