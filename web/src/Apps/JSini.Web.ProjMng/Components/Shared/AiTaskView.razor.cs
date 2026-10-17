@@ -200,18 +200,26 @@ public partial class AiTaskView
     private IReadOnlyList<AiTaskFileDto> _files = [];
 
     /// <summary>
-    /// 「처리 파일」 — <b>이번 작업이 만들고 고친 파일들.</b> 셋째 탭의 알맹이다.
+    /// 「처리 파일」 — <b>이 작업이 만들고 고친 파일들, 차수별로.</b>
+    /// 셋째 탭의 알맹이다.
     /// </summary>
     /// <remarks>
     /// <b><see cref="_files"/> 와 반대 방향이다.</b> 그쪽은 사람이 지시에 붙여
     /// 올려 보낸 것(들어간 것)이고 이쪽은 AI 가 저장소에 남긴 것(나온 것)이다.
-    /// 둘이 한 판에 있으므로 이름을 섞지 않는다. 읽는 법은 <c>AiRunFiles.Parse</c>.
+    /// 둘이 한 판에 있으므로 이름을 섞지 않는다. 짓는 법은
+    /// <see cref="AiRunFileTurns.Build"/>.
+    /// <para>
+    /// <b>차수 하나에 묶음 하나다</b>(2026-10-18). 목록은 처음부터 실행 줄마다
+    /// 제 몫을 들고 있었는데(<c>ai_task_run.changed_files</c>) 여기서 <b>가장
+    /// 최근 실행 하나만</b> 집어 올렸다 — 그래서 이어서 지시한 건에서 앞 차수가
+    /// 만든 파일은 화면 어디에도 없었다.
+    /// </para>
     /// <para>
     /// <b>그리는 일은 <see cref="AiTaskFilesTab"/> 이 한다</b>(2026-10-15) —
-    /// 빈 탭에 적을 말도, 아래 한 줄도 그 부품이 짓는다.
+    /// 빈 탭에 적을 말도, 묶음마다의 아래 한 줄도 그 부품이 짓는다.
     /// </para>
     /// </remarks>
-    private IReadOnlyList<AiRunFile> _changed = [];
+    private IReadOnlyList<AiRunFileTurn> _changed = [];
 
     /// <summary>
     /// 로그가 <b>모두 몇 줄인가.</b> 탭 이름에 적는다.
@@ -617,16 +625,15 @@ public partial class AiTaskView
             _answeredKey = answered?.RunKey;
             _summary = AiRunSummary.Parse(answered?.SummaryText);
 
-            // **처리 파일은 가장 최근 실행의 것이다.** 요약과 달리 「답을 준
-            // 실행」에서 집지 않는다 — 아무 말 없이 파일만 고치고 끝나는 건이
-            // 실제로 있고(`result_text` 가 빈 건), 그때 답을 준 지난 실행의
-            // 파일 목록을 올려 두면 **이번에 고친 것이 아닌 파일이** 이번 건의
-            // 처리 파일로 보인다.
-            _changed = AiRunFiles.Parse(newest?.ChangedFiles, newest?.DiffStat);
-
             // **차수별로 가른다**(2026-10-15). 실행 줄 하나가 한 차수고, 그때
             // 간 지시문과 그 답이 그 줄에 함께 있다 — 짓는 법은 `AiTaskTurns`.
             _turns = Item is { } task ? AiTaskTurns.Build(task, runs) : [];
+
+            // **처리 파일도 차수별이다**(2026-10-18). 한동안 여기서 집던 것은
+            // 가장 최근 실행 하나의 목록이었고, 그래서 3차까지 간 건에서
+            // **1·2차가 만든 파일이 화면 어디에도 없었다** — 왜 합쳐 펴지
+            // 않는지는 `AiRunFileTurns` 머리말.
+            _changed = AiRunFileTurns.Build(_turns);
 
             // **끝난 지 오래된 건은 기다리는 시늉을 하지 않는다** — 위
             // <see cref="SummaryFresh"/> 참고. 서버가 준 시각은 UTC 라

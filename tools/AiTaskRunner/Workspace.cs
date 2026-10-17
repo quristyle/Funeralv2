@@ -276,6 +276,41 @@ public sealed class Workspace(RunnerOptions options, ILogger<Workspace> logger)
                 throw new InvalidOperationException($"worktree 를 만들지 못했습니다:\n{add.Output}");
             }
 
+            // **기준은 정본의 HEAD 가 아니라 이 worktree 가 선 자리다** (2026-10-18).
+            //
+            // 위에서 잡은 `baseSha` 는 정본(`path`)의 HEAD 다. 그런데 worktree 는
+            // 그 자리가 아니라 방금 받은 `origin/<ref>` 에서 갈라진다 — 둘은
+            // **정본이 최신일 때만** 같다. 정본이 뒤처지면(더러워서 ff 가 안 됐거나,
+            // 다른 가지를 보고 있거나) 그 차이가 통째로 「이 차수가 건드린 파일」로
+            // 둔갑한다.
+            //
+            // 실제로 그렇게 났다. 정본에 448건이 staged 로 남아 ff 가 막혔고,
+            // `baseSha` 가 108 커밋 뒤의 것으로 굳었다 — 실행 724~728 다섯 건이
+            // 전부 **201줄**(상한 200 + 「외 N개」)로 쌓였고, 그 목록은 그 차수가
+            // 한 줄도 건드린 적 없는 `CLAUDE.md` · `ApiGateway/Program.cs` 따위였다.
+            //
+            // 더 나쁜 쪽은 화면이 아니라 **게이트**다. 같은 값으로 금지 경로를
+            // 재므로(`PushGate` ②) `.github/` · `deploy/` · `Directory.Packages.props`
+            // 가 그 목록에 들어 있고, 그 차수는 **무엇을 고쳤든 올리기가 막힌다.**
+            //
+            // worktree 의 HEAD 를 그대로 읽으면 그 자리가 곧 「이 차수가 시작한
+            // 곳」이라 차수마다 제 몫만 센다 — AI 가 중간에 커밋해도 HEAD 만
+            // 앞으로 가므로 그 커밋까지 함께 세어진다.
+            var at = await GitAsync(dir, ct, "rev-parse", "HEAD");
+
+            if (at.ExitCode == 0 && at.Output.Trim() is { Length: > 0 } sha)
+            {
+                if (!string.Equals(sha, baseSha, StringComparison.Ordinal))
+                {
+                    // **조용히 바꾸지 않는다.** 정본이 뒤처져 있다는 뜻이고,
+                    // 그것은 그 장비에 사람이 손볼 것이 남아 있다는 신호다.
+                    await say($"[준비] 정본({Short(baseSha)})과 worktree({Short(sha)})가 "
+                              + "다른 자리입니다. 처리 파일·게이트는 worktree 를 기준으로 셉니다.");
+                }
+
+                baseSha = sha;
+            }
+
             return new Prepared
             {
                 Path = dir,

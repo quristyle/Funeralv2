@@ -446,7 +446,7 @@
                               Active="@(_tab == TabAsk)"
                               OnOpenLog="@OpenLogTab" />
 
-                <AiTaskFilesTab Item="@AskItem" Run="@_openRun" Changed="@_changed" />
+                <AiTaskFilesTab Item="@AskItem" Run="@_openRun" Turns="@_changed" />
 
                 @* 줄은 **고른 차수의 것**이다(`_openRun`). 안 따르면 1차를 눌러도
                    3차 로그가 그대로 서서 띠가 먹통으로 보인다. *@

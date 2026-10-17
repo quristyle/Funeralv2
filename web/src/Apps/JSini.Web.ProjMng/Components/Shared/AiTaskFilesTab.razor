@@ -28,15 +28,27 @@
    **올린 파일(`pm-peek__files`)과 다른 것이다.** 그쪽은 사람이 지시에
    붙여 넣은 것이라 「지시」 바로 아래에 그대로 둔다. 이쪽은 AI 가
    저장소에 남긴 것이다. *@
+
+@* ── **차수를 갈라 쌓는다** (2026-10-18) ─────────────
+   한동안 이 탭이 그리던 것은 **가장 최근 실행 하나**의 목록이었다.
+   그런데 「이어서 지시」는 새 건을 만들지 않고 같은 건에 차수를
+   하나 더 붙인다 — 3차까지 간 건에서 이 탭은 3차가 건드린 것만
+   보여 주면서 **그것이 이 작업의 전부인 척** 했다. 1·2차가 만든
+   파일은 화면 어디에도 없었다.
+
+   합쳐서 한 벌로 펴지도 않는다. 같은 파일을 1차가 만들고 3차가
+   고치는 일이 흔한데 한 줄로 접으면 **어느 차수의 일이었는지가
+   사라진다** — 지시와 결과를 차수별로 편 것과 같은 까닭이다. *@
 <DxTabPage Text="@TabText">
     <div class="pm-peek__pane">
-        @if (Changed.Count > 0)
+        @if (HasAny)
         {
             @* **경로를 재는 뿌리를 맨 위에 한 번 적는다**(2026-10-17).
                줄마다 적힌 것은 「대상 위치 다음부터」라, 그 뿌리를 안 적으면
                `web/src/…` 가 어느 저장소의 것인지 화면 어디에도 없다.
                작업마다 대상이 다르고(저장소 · 폴더 · 다른 장비) 한 사람이
-               여러 대상을 번갈아 본다. *@
+               여러 대상을 번갈아 본다. **차수가 몇이든 뿌리는 하나다** —
+               대상은 작업에 매여 있다. *@
             @if (Item?.TargetPath is { Length: > 0 } root)
             {
                 <p class="pm-peek__chg-root">
@@ -45,46 +57,72 @@
                 </p>
             }
 
-            <ul class="pm-peek__chg">
-                @foreach (var f in Changed)
-                {
-                    @* 「외 N개」 줄은 파일이 아니다. 배지도 경로도 없이
-                       한 줄만 적는다 — 배지를 달면 그것이 파일 이름처럼 읽힌다. *@
-                    @if (f.Kind == AiRunFileKind.More)
+            @* **아무것도 안 고친 차수는 묶음을 안 세운다.** 「2차 · 0개」가
+               서면 목록이 길어지기만 하고, 그 차수가 무엇을 했는지는 옆
+               탭의 결과문이 말한다. *@
+            @foreach (var turn in Turns.Where(t => t.Files.Count > 0))
+            {
+                <section class="pm-peek__chg-turn">
+                    @* 차수가 하나뿐이면 머리를 안 세운다 — 「1차」 한 줄은
+                       가르는 것이 없이 자리만 먹는다. *@
+                    @if (ShowTurnHeads)
                     {
-                        <li class="pm-peek__chg-row pm-peek__chg-row--more">@f.Path</li>
+                        <h4 class="pm-peek__chg-turn-head">@TurnHead(turn)</h4>
                     }
-                    else
-                    {
-                        <li class="pm-peek__chg-row @RowClass(f)">
-                            @if (f.KindText is { Length: > 0 } word)
+
+                    <ul class="pm-peek__chg">
+                        @foreach (var f in turn.Files)
+                        {
+                            @* 「외 N개」 줄은 파일이 아니다. 배지도 경로도 없이
+                               한 줄만 적는다 — 배지를 달면 그것이 파일 이름처럼 읽힌다. *@
+                            @if (f.Kind == AiRunFileKind.More)
                             {
-                                @* 추정 줄에는 배지 안에 확인 표를 달아 둔다. 색만으로는
-                                   색을 못 가리는 사람에게 아무 말도 하지 않는다. *@
-                                <span class="pm-peek__chg-mark @f.KindClass">@word@f.CheckMark</span>
+                                <li class="pm-peek__chg-row pm-peek__chg-row--more">@f.Path</li>
                             }
+                            else
+                            {
+                                <li class="pm-peek__chg-row @RowClass(f)">
+                                    @if (f.KindText is { Length: > 0 } word)
+                                    {
+                                        @* 추정 줄에는 배지 안에 확인 표를 달아 둔다. 색만으로는
+                                           색을 못 가리는 사람에게 아무 말도 하지 않는다. *@
+                                        <span class="pm-peek__chg-mark @f.KindClass">@word@f.CheckMark</span>
+                                    }
 
-                            <span class="pm-peek__chg-path" title="@f.Hint">
-                                @if (f.Folder is { Length: > 0 } folder)
-                                {
-                                    @* **접는 일은 CSS 가 한다**(`pm-peek__chg-dir`).
-                                       글자 사이에 보이지 않는 끊을 자리(U+200B)를
-                                       넣는 길도 있지만, 그러면 **경로를 복사해
-                                       붙여넣은 사람이 안 보이는 글자를 함께
-                                       가져간다** — 그 경로로는 파일이 안 열린다. *@
-                                    <span class="pm-peek__chg-dir">@folder/</span>
-                                }
+                                    <span class="pm-peek__chg-path" title="@f.Hint">
+                                        @if (f.Folder is { Length: > 0 } folder)
+                                        {
+                                            @* **접는 일은 CSS 가 한다**(`pm-peek__chg-dir`).
+                                               글자 사이에 보이지 않는 끊을 자리(U+200B)를
+                                               넣는 길도 있지만, 그러면 **경로를 복사해
+                                               붙여넣은 사람이 안 보이는 글자를 함께
+                                               가져간다** — 그 경로로는 파일이 안 열린다. *@
+                                            <span class="pm-peek__chg-dir">@folder/</span>
+                                        }
 
-                                <span class="pm-peek__chg-name">@f.Name</span>
-                            </span>
-                        </li>
+                                        <span class="pm-peek__chg-name">@f.Name</span>
+                                    </span>
+                                </li>
+                            }
+                        }
+                    </ul>
+
+                    @* 가지 · 「몇 줄이 바뀌었나」. **이름 목록이 말하지 않는
+                       것이 여기 있다** — 그 차수의 답 아래에 선 줄과 같은
+                       값이고(`AiTaskAskTab.TurnHint`), 둘 다 **그 차수**의
+                       것이다. 차수마다 제 가지가 따로 나므로 여기 있어야 한다. *@
+                    @if (TurnHint(turn) is { Length: > 0 } turnHint)
+                    {
+                        <p class="jsini-hint pm-peek__chg-turn-hint">@turnHint</p>
                     }
-                }
-            </ul>
+                </section>
+            }
 
             @* **확인 표가 무슨 뜻인지는 어딘가에 적혀 있어야 한다.**
                배지의 글자와 다른 색만으로는 「고장인가」로도 읽힌다. 해당하는
-               줄이 하나라도 있을 때만 선다 — git 이 다 본 건에는 할 말이 없다. *@
+               줄이 하나라도 있을 때만 선다 — git 이 다 본 건에는 할 말이 없다.
+               **차수를 통틀어 센다** — 설명은 목록 전체에 거는 말이라
+               묶음마다 되풀이하면 같은 글이 차수 수만큼 선다. *@
             @if (MissingCount > 0)
             {
                 <p class="jsini-hint pm-peek__chg-warn">
@@ -117,12 +155,11 @@
                 </p>
             }
 
-            @* 가지 · 「몇 줄이 바뀌었나」 · 올린 자리. **이름 목록이
-               말하지 않는 것이 여기 있다** — 결과문 아래의 그 줄과
-               같은 값이고(`RunHint`), 둘 다 이 실행의 것이다. *@
-            @if (Hint is { Length: > 0 } fileHint)
+            @* 올린 자리. **작업에 하나뿐이라 맨 끝에 한 번만 적는다** —
+               차수마다 깔면 안 올린 차수까지 올라간 것처럼 보인다. *@
+            @if (PushHint is { Length: > 0 } push)
             {
-                <p class="jsini-hint">@fileHint</p>
+                <p class="jsini-hint">@push</p>
             }
         }
         else

@@ -228,7 +228,7 @@
                           Active="@(Live && _tab == TabAsk)"
                           OnOpenLog="@OpenLogTabAsync" />
 
-            <AiTaskFilesTab Item="@t" Run="@_run" Changed="@_changed" />
+            <AiTaskFilesTab Item="@t" Run="@_run" Turns="@_changed" />
 
             @* 줄은 **이 탭을 펴야** 받아 온다(`_logRead`) — 「폈다」를 아는
                것이 `DxTabs` 를 들고 있는 이쪽이다. *@

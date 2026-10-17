@@ -272,15 +272,16 @@ public partial class AiTaskList
     private IReadOnlyList<AiTaskTurn> _turns = [];
 
     /// <summary>
-    /// 「처리 파일」 — <b>펴 둔 차수가 만들고 고친 파일들.</b>
+    /// 「처리 파일」 — <b>펴 둔 차수가 만들고 고친 파일들.</b> 묶음 하나다.
     /// </summary>
     /// <remarks>
-    /// <b><see cref="AiTaskView"/> 와 다른 차수를 본다.</b> 그쪽은 늘 가장 최근
-    /// 실행의 것인데, 이 화면에는 차수를 고르는 띠가 있어 <see cref="_openRun"/>
-    /// 을 따른다 — 안 따르면 1차를 눌러도 3차가 고친 파일이 그대로 서서
-    /// 띠가 먹통으로 보인다.
+    /// <b><see cref="AiTaskView"/> 와 담는 것이 다르다.</b> 그쪽은 차수를
+    /// 고르는 자리가 없어 <b>모든 차수를 쌓아</b> 넘기는데, 이 화면에는 차수를
+    /// 고르는 띠가 있어 <see cref="_openRun"/> <b>하나만</b> 넘긴다 — 띠로
+    /// 1차를 눌렀는데 아래에 1·2·3차가 다 서 있으면 띠가 먹통으로 보인다.
+    /// 담는 그릇은 같다(<see cref="AiRunFileTurn"/>).
     /// </remarks>
-    private IReadOnlyList<AiRunFile> _changed = [];
+    private IReadOnlyList<AiRunFileTurn> _changed = [];
 
     /// <summary>
     /// 이 지시와 <b>함께 올라온 파일들.</b> 첫 차수 아래에 선다.
@@ -327,8 +328,15 @@ public partial class AiTaskList
     /// 펴 둔 차수가 고친 파일을 다시 읽는다. <b><see cref="_openRun"/> 이
     /// 바뀌는 자리마다 부른다.</b>
     /// </summary>
+    /// <remarks>
+    /// <b>묶음 하나로 싼다.</b> 받는 쪽은 차수별 묶음 여럿을 그리게 되어
+    /// 있는데(<see cref="AiTaskFilesTab.Turns"/>) 여기서 보여 줄 것은 띠로
+    /// 고른 그 차수뿐이다 — 묶음이 하나면 차수 머리도 안 선다.
+    /// </remarks>
     private void TakeRunFiles()
-        => _changed = AiRunFiles.Parse(_openRun?.ChangedFiles, _openRun?.DiffStat);
+        => _changed = _openRun is { } run
+            ? [new AiRunFileTurn(run.Seq, run, AiRunFiles.Parse(run.ChangedFiles, run.DiffStat))]
+            : [];
 
     /// <summary>받아 둔 로그 줄. <b>그릴 때는 꼬리 500줄만</b> 쓴다.</summary>
     private readonly List<AiLogLineDto> _lines = [];

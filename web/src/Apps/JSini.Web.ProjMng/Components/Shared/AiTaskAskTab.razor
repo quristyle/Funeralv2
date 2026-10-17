@@ -20,7 +20,7 @@
     <DxTabs @bind-ActiveTabIndex="_tab" TabClick="@OnTabClick"
             CssClass="pm-tabfit" ScrollMode="TabsScrollMode.NoScroll">
         <AiTaskAskTab   Item="@t" Run="@_run" Turns="@_turns" … />
-        <AiTaskFilesTab Item="@t" Run="@_run" Changed="@_changed" />
+        <AiTaskFilesTab Item="@t" Run="@_run" Turns="@_changed" />
         <AiTaskLogTab   Lines="@LogLines" … />
         <DxTabPage Text="이 화면에만 있는 탭">…</DxTabPage>
     </DxTabs>
