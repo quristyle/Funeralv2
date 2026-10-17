@@ -342,13 +342,32 @@
                        쓰면 Razor 가 그 자리에서 속성이 끝난 것으로 읽는다. *@
                     var cls = RowClass(line);
 
+                    var text = _state.Out[i];
+                    var hasRepeat = false;
+                    var count = 1;
+                    var mainText = text;
+                    if (CollapseRepeats && TryGetRepeat(text, out var rCount, out var rText))
+                    {
+                        hasRepeat = true;
+                        count = rCount;
+                        mainText = rText;
+                    }
+
                     <div @key="line" role="listitem" class="@cls"
                          @onclick="@(() => OnRowClickedAsync(line))">
                         @if (ShowLineNumbers)
                         {
                             <span class="pm-xlat__rownum">@line</span>
                         }
-                        <span class="pm-xlat__rowtext">@_state.Out[i]</span>
+                        @if (hasRepeat)
+                        {
+                            <span class="pm-xlat__repeat-badge">@count</span>
+                            <span class="pm-xlat__rowtext">@mainText</span>
+                        }
+                        else
+                        {
+                            <span class="pm-xlat__rowtext">@text</span>
+                        }
                     </div>
                 }
             </div>

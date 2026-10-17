@@ -111,6 +111,13 @@ public partial class LogTranslateView
     [Parameter] public bool ShowLineNumbers { get; set; }
 
     /// <summary>
+    /// 반복되는 로그 구간을 하나로 합쳐 반복 횟수 뱃지와 함께 한 번만 표시할지 여부.
+    /// 기본값은 <b>거짓(false)</b>이며, 로그 탭(<see cref="AiTaskLogTab"/>)에서는 <b>참(true)</b>으로 켜서
+    /// 브라우저 개발자 도구 콘솔창이나 로그 시스템처럼 연속으로 반복되는 로그 구간을 합치고 반복 회수를 보여준다.
+    /// </summary>
+    [Parameter] public bool CollapseRepeats { get; set; }
+
+    /// <summary>
     /// 옮겨 갈 말. <b>한국어로 고정이다</b> — 왼쪽 칸이 이미 원문이라, 가는
     /// 말을 영어로 돌리면 영어 로그를 영어로 옮긴 판이 되어 볼 것이 없다.
     /// 고를 것이 하나뿐인 고르개는 자리만 먹으므로 두지 않는다.
@@ -415,17 +422,49 @@ public partial class LogTranslateView
     /// </remarks>
     private void SyncSource()
     {
-        var incoming = Lines as IList<string> ?? [.. Lines];
+        var incoming = PrepareIncomingLines();
 
         if (incoming.Count == _state.Source.Count && SharesHead(incoming, _state.Source.Count))
         {
             return;
         }
 
+        // 1) 줄 수는 같은데 마지막 줄의 반복 횟수만 늘어난 경우 (돌고 있는 건에서 같은 줄이 계속 찍힐 때)
+        if (incoming.Count == _state.Source.Count && incoming.Count > 0 && SharesHead(incoming, incoming.Count - 1))
+        {
+            var last = incoming.Count - 1;
+            _state.Source[last] = incoming[last];
+            if (!_state.DoneLines.Contains(last))
+            {
+                _state.Out[last] = incoming[last];
+            }
+            return;
+        }
+
+        // 2) 앞부분이 그대로이고 뒤에 새 줄만 늘어난 경우
         if (incoming.Count > _state.Source.Count && SharesHead(incoming, _state.Source.Count))
         {
-            // 자란 만큼만 뒤에 붙인다. **자리는 그대로**라 옮겨 둔 줄이
-            // 제자리에 남는다.
+            for (var i = _state.Source.Count; i < incoming.Count; i++)
+            {
+                var line = incoming[i] ?? string.Empty;
+
+                _state.Source.Add(line);
+                _state.Out.Add(line);
+            }
+
+            return;
+        }
+
+        // 3) 새 줄이 늘어났는데 직전 꼬리 줄의 반복 횟수도 함께 늘어난 경우
+        if (incoming.Count > _state.Source.Count && _state.Source.Count > 0 && SharesHead(incoming, _state.Source.Count - 1))
+        {
+            var last = _state.Source.Count - 1;
+            _state.Source[last] = incoming[last];
+            if (!_state.DoneLines.Contains(last))
+            {
+                _state.Out[last] = incoming[last];
+            }
+
             for (var i = _state.Source.Count; i < incoming.Count; i++)
             {
                 var line = incoming[i] ?? string.Empty;
@@ -440,6 +479,110 @@ public partial class LogTranslateView
         // 앞부분이 달라졌다 — 꼬리만 그리는 상한에 걸려 앞이 잘려 나갔다.
         // 옮겨 둔 것을 버린다. 이어 붙이면 번역이 엉뚱한 줄에 붙는다.
         _state.Reset(incoming.Select(line => line ?? string.Empty));
+    }
+
+    /// <summary>
+    /// 들어온 원본 줄들을 화면에 올릴 줄들로 다듬는다.
+    /// <see cref="CollapseRepeats"/> 가 켜져 있으면 연속으로 중복되는 줄들을 하나로 묶고 반복 횟수를 붙인다.
+    /// </summary>
+    private List<string> PrepareIncomingLines()
+    {
+        var raw = Lines as IList<string> ?? [.. Lines];
+        if (!CollapseRepeats || raw.Count == 0)
+        {
+            return raw as List<string> ?? [.. raw];
+        }
+
+        return CollapseRepeatsList(raw);
+    }
+
+    /// <summary>
+    /// 연속으로 반복되는 동일한 문자열 줄들을 하나로 축약하고 반복 횟수를 표시한다.
+    /// </summary>
+    public static List<string> CollapseRepeatsList(IList<string> lines)
+    {
+        if (lines is null || lines.Count == 0)
+        {
+            return [];
+        }
+
+        var result = new List<string>(lines.Count);
+        string? current = null;
+        var count = 0;
+
+        for (var i = 0; i < lines.Count; i++)
+        {
+            var line = lines[i] ?? string.Empty;
+
+            if (current is null)
+            {
+                current = line;
+                count = 1;
+                continue;
+            }
+
+            if (string.Equals(current, line, StringComparison.Ordinal))
+            {
+                count++;
+            }
+            else
+            {
+                result.Add(FormatRepeatLine(current, count));
+                current = line;
+                count = 1;
+            }
+        }
+
+        if (current is not null)
+        {
+            result.Add(FormatRepeatLine(current, count));
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// 반복 횟수가 포함된 한 줄 텍스트를 구성한다.
+    /// </summary>
+    public static string FormatRepeatLine(string line, int count)
+    {
+        if (count <= 1)
+        {
+            return line;
+        }
+
+        return string.IsNullOrEmpty(line)
+            ? $"({count})"
+            : $"({count}) {line}";
+    }
+
+    /// <summary>
+    /// <c>(숫자) 내용</c> 형태로 시작하는 반복 요약 줄인지 검사하고 반복 횟수와 본문을 분리한다.
+    /// </summary>
+    public static bool TryGetRepeat(string? line, out int count, out string raw)
+    {
+        count = 1;
+        raw = line ?? string.Empty;
+        if (string.IsNullOrEmpty(line) || line[0] != '(')
+        {
+            return false;
+        }
+
+        var close = line.IndexOf(')');
+        if (close > 1 && close < 10)
+        {
+            var span = line.AsSpan(1, close - 1);
+            if (int.TryParse(span, out var parsed) && parsed > 1)
+            {
+                count = parsed;
+                raw = close + 1 < line.Length && line[close + 1] == ' '
+                    ? line[(close + 2)..]
+                    : line[(close + 1)..];
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>들어온 줄의 앞 <paramref name="count"/> 줄이 들고 있던 것과 같은가.</summary>
@@ -1039,7 +1182,7 @@ public partial class LogTranslateView
             var leftReset = await PushSideAsync(_original, _pushedSrc, _state.Source);
             var rightReset = await PushSideAsync(_modified, _pushedOut, _state.Out);
 
-            if (leftReset || rightReset)
+            if (leftReset || rightReset || CollapseRepeats)
             {
                 // `setValue` 는 켜 둔 불을 함께 지운다. 다시 켠다.
                 await DrawMarksAsync();
@@ -1223,6 +1366,27 @@ public partial class LogTranslateView
         if (!onLeft && _redoLine >= 1 && _redoLine <= count)
         {
             marks.Add(WholeLine(_redoLine, "pm-xlat__redo", "pm-xlat__redo-num"));
+        }
+
+        if (CollapseRepeats)
+        {
+            var list = onLeft ? _pushedSrc : _pushedOut;
+            for (var i = 0; i < count; i++)
+            {
+                var lineNum = i + 1;
+                if (TryGetRepeat(list[i], out var repeatCount, out _))
+                {
+                    var prefixLen = $"({repeatCount})".Length;
+                    marks.Add(new ModelDeltaDecoration
+                    {
+                        Range = new BlazorMonaco.Range(lineNum, 1, lineNum, prefixLen + 1),
+                        Options = new ModelDecorationOptions
+                        {
+                            InlineClassName = "pm-xlat__repeat-badge",
+                        },
+                    });
+                }
+            }
         }
 
         return marks;
@@ -1529,7 +1693,20 @@ public partial class LogTranslateView
         {
             var gen = _state.Generation;
 
-            var answer = await Xlat.TranslateAsync([text], TargetLang, cts.Token);
+            var toTranslate = text;
+            var hasRepeat = false;
+            var repeatCount = 1;
+            if (CollapseRepeats && TryGetRepeat(text, out var rCount, out var cleanText))
+            {
+                hasRepeat = true;
+                repeatCount = rCount;
+                if (!string.IsNullOrWhiteSpace(cleanText))
+                {
+                    toTranslate = cleanText;
+                }
+            }
+
+            var answer = await Xlat.TranslateAsync([toTranslate], TargetLang, cts.Token);
 
             if (cts.IsCancellationRequested)
             {
@@ -1545,7 +1722,8 @@ public partial class LogTranslateView
 
             if (answer?.Lines is [{ Length: > 0 } got, ..])
             {
-                _state.Out[at] = got;
+                var finalOut = hasRepeat ? FormatRepeatLine(got, repeatCount) : got;
+                _state.Out[at] = finalOut;
                 _state.DoneLines.Add(at);
                 _state.Who = Who(answer) ?? _state.Who;
 

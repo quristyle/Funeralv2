@@ -6808,6 +6808,39 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   user-select: none;
 }
 
+/* 반복 구간 뱃지 — 브라우저 개발자 도구 콘솔의 반복 회수 표시 스타일 */
+.pm-xlat__repeat-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.4em;
+  height: 1.35em;
+  padding: 0 0.4em;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+  color: #ffffff !important;
+  background-color: var(--jsini-primary, #0054a6);
+  border-radius: 9999px;
+  user-select: none;
+  flex: 0 0 auto;
+  align-self: center;
+  letter-spacing: -0.02em;
+}
+
+/* Monaco 편집기 안의 인라인 반복 뱃지 */
+.monaco-editor .pm-xlat__repeat-badge {
+  display: inline-block;
+  padding: 1px 5px;
+  font-size: 0.75em;
+  font-weight: 700;
+  line-height: 1.2;
+  color: #ffffff !important;
+  background-color: var(--jsini-primary, #0054a6);
+  border-radius: 9999px;
+  vertical-align: 1px;
+}
+
 /* 글. 줄바꿈은 켜고 시작한다 — 맞출 짝이 없는 자리라 끈 채로 두면 로그
    한 줄이 화면 폭의 몇 배다. */
 .pm-xlat__rowtext {
