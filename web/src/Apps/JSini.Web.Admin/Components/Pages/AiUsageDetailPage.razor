@@ -1,0 +1,113 @@
+@page "/admin/status/ai-usage/detail/{UserId}"
+@page "/admin/status/ai-usage/detail"
+@attribute [RouteKey("admin.status.ai-usage.detail")]
+@attribute [ScreenAccess("admin.status.ai-usage")]
+
+@*
+    [AI 건별 사용량] — AI 사용량(/admin/status/ai-usage)에서 사용자 줄을 더블클릭하여 들어오는 상세 화면.
+
+    팝업 대신 독립 화면으로 처리되어 레이아웃 상단에 메뉴탭(PortalTabs)으로 나타난다.
+    화면 하단 오른쪽에 항상 닫기 버튼이 제공되어 목록 화면으로 돌아갈 수 있다.
+*@
+
+@inherits DataPage
+@implements IDisposable
+
+<PageTitle>@(TabTitle) · 포털관리</PageTitle>
+
+<CommCont>
+    <div class="ad-ai-usage-detail">
+        <div class="ad-ai-usage-detail__head">
+            <div class="ad-ai-usage-detail__title-area">
+                <h2 class="ad-ai-usage-detail__title">@DetailHeaderTitle</h2>
+                <div class="ad-ai-usage-detail__sub">
+                    <span class="jsini-text-muted">기간: @PeriodText</span>
+                    @if (!string.IsNullOrWhiteSpace(feature))
+                    {
+                        <span class="jsini-text-muted"> · 기능: @FeatureText(feature)</span>
+                    }
+                    <span class="jsini-text-muted"> · 총 @_detail.Count.ToString("N0")건</span>
+                </div>
+            </div>
+
+            <div class="ad-ai-usage-detail__tools">
+                <DxButton RenderStyle="ButtonRenderStyle.Secondary"
+                          RenderStyleMode="ButtonRenderStyleMode.Outline"
+                          IconCssClass="jsini-icon-refresh"
+                          Text="새로고침"
+                          Enabled="@(!Loading)"
+                          Click="@ReloadAsync" />
+            </div>
+        </div>
+
+        @if (_detail.Count == 0 && !Loading)
+        {
+            <p class="jsini-hint" style="padding: 1rem 0;">이 기간에 호출 기록이 없습니다.</p>
+        }
+        else
+        {
+            @if (_detail.Count >= RecentCap)
+            {
+                <p class="jsini-hint" style="margin-bottom: 0.5rem;">최근 @RecentCap 건만 보여 줍니다. 그 앞의 호출은 기간을 좁혀 보십시오.</p>
+            }
+
+            <CommGrd TItem="AiUsageCallDto"
+                     Data="@_detail"
+                     ExportName="@ExportFileName"
+                     EmptyText="호출 기록이 없습니다."
+                     Reload="@ReloadAsync">
+                <Columns>
+                    <DxGridDataColumn FieldName="@nameof(AiUsageCallDto.OccurredAtKst)" Caption="시각" Width="140"
+                                      DisplayFormat="MM-dd HH:mm:ss" />
+
+                    <DxGridDataColumn Caption="기능" Width="120">
+                        <CellDisplayTemplate Context="cell">
+                            @FeatureText(((AiUsageCallDto)cell.DataItem).Feature)
+                        </CellDisplayTemplate>
+                    </DxGridDataColumn>
+
+                    <DxGridDataColumn FieldName="@nameof(AiUsageCallDto.Model)" Caption="모델" MinWidth="160"
+                                      TextAlignment="GridTextAlignment.Left" />
+
+                    <DxGridDataColumn FieldName="@nameof(AiUsageCallDto.PromptTokens)" Caption="보냄" Width="90"
+                                      DisplayFormat="N0" />
+
+                    <DxGridDataColumn FieldName="@nameof(AiUsageCallDto.CompletionTokens)" Caption="받음" Width="90"
+                                      DisplayFormat="N0" />
+
+                    <DxGridDataColumn Caption="응답" Width="90">
+                        <CellDisplayTemplate Context="cell">
+                            @(((AiUsageCallDto)cell.DataItem).LatencyMs is { } ms ? $"{ms / 1000.0:0.0}초" : "-")
+                        </CellDisplayTemplate>
+                    </DxGridDataColumn>
+
+                    <DxGridDataColumn Caption="결과" MinWidth="160">
+                        <CellDisplayTemplate Context="cell">
+                            @{
+                                var row = (AiUsageCallDto)cell.DataItem;
+                            }
+                            @if (row.Ok)
+                            {
+                                <span class="jsini-badge jsini-badge--on">정상</span>
+                            }
+                            else
+                            {
+                                <span class="jsini-badge jsini-badge--off" title="@row.FailReason">실패</span>
+                                <span class="jsini-text-muted" style="margin-left: 0.35rem;">@row.FailReason</span>
+                            }
+                        </CellDisplayTemplate>
+                    </DxGridDataColumn>
+                </Columns>
+            </CommGrd>
+        }
+    </div>
+</CommCont>
+
+@* 하단 오른쪽에 항상 보이도록 제공되는 닫기 버튼 *@
+<div class="ad-ai-usage-detail__bottom-actions">
+    <DxButton Text="닫기"
+              RenderStyle="ButtonRenderStyle.Secondary"
+              RenderStyleMode="ButtonRenderStyleMode.Contained"
+              IconCssClass="jsini-icon-close"
+              Click="@ClosePage" />
+</div>

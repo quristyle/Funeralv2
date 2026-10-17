@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components;
 using JSini.Web.Components.Data;
 using JSini.Web.Admin.Api;
 
@@ -8,12 +8,6 @@ public partial class AiUsageList
 {
     [Inject] private AdminClient Api { get; set; } = default!;
 
-    /// <summary>
-    /// 서버가 최근 호출을 잘라 주는 줄 수. <b>서버의 값과 같아야 한다</b> —
-    /// 작으면 「잘렸다」 안내가 안 뜨고, 크면 안 잘린 목록에 그 안내가 뜬다.
-    /// </summary>
-    private const int RecentCap = 200;
-
     /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
     private string ConditionSummary => SchSummary.Of(
         SchSummary.Period(_from, _to),
@@ -22,10 +16,6 @@ public partial class AiUsageList
 
     private IReadOnlyList<AiUsageByUserDto> _all = [];
 
-    /// <summary>창에 띄운 한 사람의 최근 호출.</summary>
-    private IReadOnlyList<AiUsageCallDto> _detail = [];
-
-    private bool _detailVisible;
     private AiUsageByUserDto? _picked;
 
     private DateTime? _from = AppTime.TodayDate.AddDays(-30);
@@ -91,10 +81,6 @@ public partial class AiUsageList
     /// <summary>타일 아래에 적을 기간. 사람이 고른 날짜 그대로다.</summary>
     private string PeriodText => SchSummary.Period(_from, _to) ?? "전체 기간";
 
-    private string DetailTitle => _picked is null
-        ? "최근 호출"
-        : $"{_picked.Who} — 최근 호출";
-
     /// <summary>
     /// 고른 줄을 들고 있는다. <b>값과 알림을 같이 준다</b> — 알림만 받으면
     /// 화면이 보관하지 않는다는 뜻이 되어 강조가 곧 풀린다(CommGrd 머리말).
@@ -120,27 +106,28 @@ public partial class AiUsageList
     }
 
     /// <summary>
-    /// 그 사람의 최근 호출을 읽어 창에 띄운다.
+    /// 그 사람의 최근 호출을 건별 사용량 상세 화면으로 연다.
     /// </summary>
     /// <remarks>
-    /// <b>같은 조건으로 묻는다</b> — 기간·기능을 안 실으면 창의 목록이 표의
-    /// 건수와 안 맞아, 어느 쪽이 맞는지 알 수 없게 된다.
+    /// <b>같은 조건으로 묻는다</b> — 기간·기능을 실어 보내 상세 화면의 목록이
+    /// 표의 건수와 맞도록 한다.
     /// </remarks>
-    private async Task OpenDetailAsync(AiUsageByUserDto row)
+    private void OpenDetail(AiUsageByUserDto row)
     {
         _picked = row;
-        _detail = [];
 
-        // **먼저 띄우지 않는다.** 읽다 실패했는데 빈 창이 떠 있으면
-        // 「이 사람은 쓴 적이 없다」로 읽힌다.
-        await LoadAsync(async () =>
-        {
-            _detail = await Api.GetAiUsageRecentAsync(
-                DateOf(_from), DateOf(_to), _feature, row.UserId);
+        var query = new List<string>();
+        if (_from.HasValue) query.Add($"from={_from.Value:yyyy-MM-dd}");
+        if (_to.HasValue) query.Add($"to={_to.Value:yyyy-MM-dd}");
+        if (!string.IsNullOrWhiteSpace(_feature)) query.Add($"feature={Uri.EscapeDataString(_feature)}");
+        if (!string.IsNullOrWhiteSpace(row.UserName)) query.Add($"name={Uri.EscapeDataString(row.UserName)}");
 
-            _detailVisible = true;
-            return _detail.Count;
-        }, string.Empty, "호출 기록을 읽지 못했습니다");
+        var qs = query.Count > 0 ? "?" + string.Join("&", query) : "";
+        var userIdPart = string.IsNullOrWhiteSpace(row.UserId)
+            ? "_system"
+            : Uri.EscapeDataString(row.UserId);
+
+        Navigation.NavigateTo($"/admin/status/ai-usage/detail/{userIdPart}{qs}");
     }
 
     /// <summary>
