@@ -229,6 +229,13 @@ public sealed class AiUsageSnapshot
     public long? LimitTokens { get; set; }
     public long? RemainingTokens { get; set; }
     public string? PlanNm { get; set; }
+
+    /// <summary>
+    /// 로그인(갱신 토큰)이 끊기는 시각. <b>한도 갱신 시각과 다르다</b> — 사람이
+    /// 그 장비에서 다시 로그인해야 풀린다.
+    /// </summary>
+    public DateTime? AuthExpiresAt { get; set; }
+
     public string? RawText { get; set; }
     public string? ErrorText { get; set; }
     public DateTime ObservedAt { get; set; }

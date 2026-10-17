@@ -66,6 +66,13 @@ public sealed class AiUsageItem
 
     public string? PlanNm { get; set; }
 
+    /// <summary>
+    /// 로그인(갱신 토큰)이 끊기는 시각. <b>한도 갱신 시각과 다르다</b> — 저절로
+    /// 다시 차지 않고 사람이 그 장비에 붙어 다시 로그인해야 풀린다.
+    /// </summary>
+    /// <remarks>말해 주는 CLI 만 채운다. 비어 있는 것이 정상이다.</remarks>
+    public DateTime? AuthExpiresAt { get; set; }
+
     /// <summary>CLI 출력 원문. <b>늘 함께 올린다</b> — 형식이 바뀌면 이것만이 단서다.</summary>
     public string? RawText { get; set; }
 

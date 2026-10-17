@@ -282,7 +282,7 @@ public sealed class UsageReporter(
             items = adapter.UsageFormat?.ToLowerInvariant() switch
             {
                 "agy" or "antigravity" => UsageAgy.Parse(kind, raw),
-                "claude" => UsageClaude.Parse(kind, raw, adapter.UsageTranscriptRoot),
+                "claude" => UsageClaude.Parse(kind, raw, adapter.UsageTranscriptRoot, adapter.UsageAuthFile),
                 "copilot" => UsageCopilot.Parse(kind, raw),
                 _ => [UsageText.Parse(kind, raw)],
             };

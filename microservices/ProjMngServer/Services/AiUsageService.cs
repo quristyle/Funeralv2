@@ -97,14 +97,14 @@ public sealed class AiUsageService(
                        week_pct, week_reset_at,
                        week_opus_pct, week_opus_reset_at,
                        month_pct, month_reset_at,
-                       limit_tokens, remaining_tokens, plan_nm,
+                       limit_tokens, remaining_tokens, plan_nm, auth_expires_at,
                        raw_text, error_text, observed_at )
                 VALUES ( @runner, @kind, @bucket, @ok,
                          @sessionPct, @sessionResetAt,
                          @weekPct, @weekResetAt,
                          @weekOpusPct, @weekOpusResetAt,
                          @monthPct, @monthResetAt,
-                         @limitTokens, @remainingTokens, @plan,
+                         @limitTokens, @remainingTokens, @plan, @authExpiresAt,
                          @raw, @error, now() )
                 ON CONFLICT (runner_nm, runner_kind, bucket_nm) DO UPDATE
                    SET ok                 = EXCLUDED.ok,
@@ -119,6 +119,7 @@ public sealed class AiUsageService(
                        limit_tokens       = EXCLUDED.limit_tokens,
                        remaining_tokens   = EXCLUDED.remaining_tokens,
                        plan_nm            = EXCLUDED.plan_nm,
+                       auth_expires_at    = EXCLUDED.auth_expires_at,
                        raw_text           = EXCLUDED.raw_text,
                        error_text         = EXCLUDED.error_text,
                        observed_at        = now(),
@@ -140,6 +141,7 @@ public sealed class AiUsageService(
                 limitTokens = item.LimitTokens,
                 remainingTokens = item.RemainingTokens,
                 plan = Trim(item.PlanNm, 50),
+                authExpiresAt = item.AuthExpiresAt,
                 raw = Trim(item.RawText, MaxRawLength),
                 error = Trim(item.ErrorText, 1000),
             }, tx);
@@ -152,14 +154,14 @@ public sealed class AiUsageService(
                        week_pct, week_reset_at,
                        week_opus_pct, week_opus_reset_at,
                        month_pct, month_reset_at,
-                       limit_tokens, remaining_tokens, plan_nm,
+                       limit_tokens, remaining_tokens, plan_nm, auth_expires_at,
                        observed_at )
                 VALUES ( @runner, @kind, @bucket, @ok,
                          @sessionPct, @sessionResetAt,
                          @weekPct, @weekResetAt,
                          @weekOpusPct, @weekOpusResetAt,
                          @monthPct, @monthResetAt,
-                         @limitTokens, @remainingTokens, @plan,
+                         @limitTokens, @remainingTokens, @plan, @authExpiresAt,
                          now() )
                 """, new
             {
@@ -178,6 +180,7 @@ public sealed class AiUsageService(
                 limitTokens = item.LimitTokens,
                 remainingTokens = item.RemainingTokens,
                 plan = Trim(item.PlanNm, 50),
+                authExpiresAt = item.AuthExpiresAt,
             }, tx);
 
             if (!seen.TryGetValue(kind, out var buckets))
@@ -282,6 +285,13 @@ public sealed class AiUsageItem
     public long? LimitTokens { get; set; }
     public long? RemainingTokens { get; set; }
     public string? PlanNm { get; set; }
+
+    /// <summary>
+    /// 로그인(갱신 토큰)이 끊기는 시각. <b>한도 갱신 시각과 다르다</b> — 저절로
+    /// 다시 차지 않고 사람이 그 장비에서 다시 로그인해야 풀린다.
+    /// </summary>
+    public DateTime? AuthExpiresAt { get; set; }
+
     public string? RawText { get; set; }
     public string? ErrorText { get; set; }
 }

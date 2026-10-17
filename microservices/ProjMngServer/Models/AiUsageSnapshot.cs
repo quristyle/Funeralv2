@@ -78,6 +78,17 @@ public sealed class AiUsageSnapshot
     public string? PlanNm { get; set; }
 
     /// <summary>
+    /// 로그인(갱신 토큰)이 끊기는 시각.
+    /// </summary>
+    /// <remarks>
+    /// <b>한도 갱신 시각과 다르다.</b> 주간·세션 한도는 저절로 다시 차지만
+    /// 이것은 사람이 그 장비에 붙어 다시 로그인해야 풀린다 — 끊기면 한도뿐
+    /// 아니라 그 CLI 로 시킨 작업도 함께 실패한다.
+    /// <para>말해 주는 CLI 만 채운다. 비어 있는 것이 정상이다.</para>
+    /// </remarks>
+    public DateTime? AuthExpiresAt { get; set; }
+
+    /// <summary>
     /// CLI 출력 원문. <b>가려낸 숫자가 전부가 아니다</b> — 출력 형식이 바뀌면
     /// 여기를 봐야 무엇이 바뀌었는지 안다.
     /// </summary>

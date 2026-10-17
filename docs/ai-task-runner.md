@@ -3394,6 +3394,7 @@ DTO 는 `JSini.Web.ProjMng.Api` 에 있다. 이름이 같으면 화면 안에서
 
 표: `projmng.ai_usage_snapshot` — `deploy/sql/projmng-ai-usage-2026-09-20.sql`
        + `deploy/sql/projmng-ai-usage-bucket-2026-09-21.sql` (칸 나누기 · 월간)
+       + `deploy/sql/projmng-ai-usage-auth-2026-10-18.sql` (로그인 만료일)
 올리는 쪽: `tools/AiTaskRunner/UsageReporter.cs` ·
        `UsageClaude.cs`(claude) · `UsageAgy.cs`(agy) · `UsageCopilot.cs`(copilot) ·
        `UsageText.cs`(그 밖의 CLI · claude 의 내려앉는 길)
@@ -3474,6 +3475,41 @@ Usage:                 0 input, 0 output, 0 cache read, 0 cache write
 그것을 「출력에서 한도를 찾지 못했습니다」로만 적으면 **파서를 들여다보게
 된다** — 고칠 곳은 실행기 장비의 로그인이다. 퍼센트가 한 글자도 없으면
 그렇게 짚어 준다.
+
+#### 화면이 「OAuth 재로그인 필요」라고 말하게 하는 길
+
+까닭 글의 맨 앞에 표를 하나 붙인다 — `UsageClaude.AuthMark` (`[OAUTH]`).
+화면은 그 표를 보고 배지를 「OAuth 재로그인 필요」로 바꾸고, 사람에게 보일
+때는 떼어 낸다(`AiUsageText.NeedsAuth` · `AiUsageText.Why`). **DB 칸을
+늘리지 않으려고 까닭 글 하나에 실어 보내는 값이라, 바꾸려면 양쪽을 함께
+고쳐야 한다.**
+
+여느 실패와 가르는 까닭은 하나다 — 출력 형식이 바뀐 것은 **파서를 고치는
+일**이고 로그인이 끊긴 것은 **그 장비에 붙어 다시 로그인하는 일**이다.
+한 덩이로 「읽지 못함」이라 적으면 늘 앞엣것부터 뒤진다.
+
+### 로그인이 언제 끊기는가 (2026-10-18)
+
+표 칸: `auth_expires_at` — `deploy/sql/projmng-ai-usage-auth-2026-10-18.sql`
+
+2026-10-17 에 운영 실행기의 claude 갱신 토큰이 만료됐다. **끊기고 나서야
+알았고 그때는 반나절이 지나 있었다.** 그 날짜는 끊기기 전부터
+`~/.claude/.credentials.json` 의 `refreshTokenExpiresAt` 에 적혀 있다 —
+어댑터의 `UsageAuthFile` 로 자리를 적고, 거기서 **요금제 이름과 만료 시각만**
+꺼낸다(토큰은 읽지 않는다). 화면은 그것을 배지로 달고 2주 안쪽이면 색을
+올린다.
+
+**한도의 갱신 시각과 섞지 않는다.** 주간·세션 한도는 저절로 다시 차지만
+이것은 사람이 손으로 풀어야 끝나고, 끊긴 동안에는 그 CLI 로 시킨 작업도
+함께 실패한다.
+
+말해 주지 않는 CLI 가 있다 — **비어 있는 것이 정상인 칸이다.**
+
+| CLI | 들고 있는 것 | 화면에 적나 |
+|---|---|---|
+| `claude` | 갱신 토큰 만료(`refreshTokenExpiresAt`) · 요금제(`subscriptionType`) | **둘 다** |
+| `antigravity` | `~/.gemini/antigravity-cli/antigravity-oauth-token` 의 **한 시간짜리** 접근 토큰 만료뿐 | 아니오 — 시간마다 바뀌어 적을 값이 못 된다 |
+| `copilot` | 요금제(`copilot_plan`) · 몫 갱신일(`quota_reset_date_utc`) | 이미 적고 있다(요금제 배지 · 월간 갱신) |
 
 #### `agy` — print 모드가 슬래시 명령을 펴 준다
 
@@ -4313,7 +4349,7 @@ web/CLAUDE.md 의 「화면에 이미 있는 것을 다시 말하지 않는다�
 | **결과 알림이 한 사람에게만 간다** | 관리자 휴대폰이 조용한데 시킨 사람은 잘 받는다 | `scom.push_send_logs` 를 그 아이디로 조회해 **줄이 아예 없으면 대상 선정**이다 — `AiTasks:ResultNotifyRoles` 를 본다 (8-4.6). 줄이 있는데 `is_success=false` 면 발송 쪽이다 |
 | **한도 SQL 을 안 돌렸다** | 현황 화면의 한도 칸만 빈다 | 표가 없으면 그 조회만 건너뛴다 — 곁들이는 칸 하나 때문에 대시보드 전체가 안 열리면 고장이 실제보다 커 보인다. 로그에 SQL 파일 이름이 남는다 (11.6) |
 | **CLI 의 `/usage` 출력 형식이 바뀌었다** | 한도 칸이 「읽지 못함」 | 원문을 늘 함께 올린다. 화면에서 접힌 「원문」을 펴 보고 `UsageArgs` 나 해당 파서(`UsageClaude`·`UsageAgy`·`UsageCopilot`·`UsageText`)를 고친다 (11.6) |
-| **claude 의 로그인이 끊겼다** | claude 칸만 「비용 요약이 돌아왔습니다」 | 갱신 토큰은 만료된다. 그때 `/usage` 는 오류가 아니라 비용 요약을 주고 **작업 실행도 같이 죽는다** — 실행기 장비에서 다시 로그인한다 (11.6) |
+| **claude 의 로그인이 끊겼다** | claude 칸에 「OAuth 재로그인 필요」 | 갱신 토큰은 만료된다. 그때 `/usage` 는 오류가 아니라 비용 요약을 주고 **작업 실행도 같이 죽는다** — 실행기 장비에서 다시 로그인한다. 끊기기 전에는 같은 자리에 「로그인 MM-DD 만료」가 떠 있다 (11.6) |
 | **copilot 의 한도 주소가 사라졌다** | copilot 칸만 「HTTP 404」 | 내부 통로라 예고 없이 사라질 수 있다. `UsageUrl` 을 고친다 — **조용히 비지 않고 시끄럽게 실패하는 것**이 여기서 노린 것이다 (11.6) |
 | **copilot 이 다시 로그인했다** | copilot 칸만 「HTTP 401」 | 토큰을 베껴 두지 않고 `~/.copilot/config.json` 에서 그때그때 읽으므로 대개 저절로 낫는다. 안 나으면 그 장비에서 `copilot login` (11.6) |
 

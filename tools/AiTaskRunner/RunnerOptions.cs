@@ -326,6 +326,16 @@ public sealed class AdapterOptions
     public string UsageTokenPath { get; set; } = string.Empty;
 
     /// <summary>
+    /// 로그인 정보가 든 JSON 파일. <c>claude</c> 형식이 쓴다.
+    /// </summary>
+    /// <remarks>
+    /// <b>토큰을 쓰려는 것이 아니라 「언제 끊기나」를 읽으려는 것이다</b> —
+    /// 요금제 이름과 갱신 토큰의 만료 시각만 꺼낸다(<see cref="UsageClaude"/>).
+    /// 맨 앞의 <c>~</c> 는 집 폴더로 편다. 비어 있으면 안 읽는다.
+    /// </remarks>
+    public string UsageAuthFile { get; set; } = string.Empty;
+
+    /// <summary>
     /// 세션 기록이 쌓이는 폴더. <c>claude</c> 형식이 쓴다.
     /// </summary>
     /// <remarks>

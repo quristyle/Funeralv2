@@ -225,6 +225,15 @@ public partial class AiDashboard
     private static string KindText(string? kind) => AiUsageText.Kind(kind);
 
     /// <summary>
+    /// 이 줄이 「로그인이 끊겼다」인가. <b>「빠른 지시」의 고르개와 같은 잣대다</b>
+    /// (<see cref="AiUsageText.NeedsAuth(AiUsageSnapshot)"/>).
+    /// </summary>
+    private static bool NeedsAuth(AiUsageSnapshot usage) => AiUsageText.NeedsAuth(usage);
+
+    /// <summary>까닭을 사람이 읽는 글로 — 기계가 보는 표는 떼어 낸다.</summary>
+    private static string Why(AiUsageSnapshot usage) => AiUsageText.Why(usage);
+
+    /// <summary>
     /// 같은 CLI 안에서 무엇의 한도인가. <b>CLI 가 쓰는 이름을 크게 바꾸지 않는다</b> —
     /// 원문을 펴 봤을 때 화면의 어느 칸인지 바로 짚을 수 있어야 한다.
     /// </summary>

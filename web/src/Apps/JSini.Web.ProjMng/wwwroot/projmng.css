@@ -6605,6 +6605,28 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   color: var(--jsini-text-muted);
 }
 
+/* 로그인이 끊겼을 때. **흐릿하게 두지 않는다** — 여느 「읽지 못함」과 달리
+   사람이 장비에 붙어 손으로 풀어야 끝나는 고장이고, 그동안 그 CLI 로 시킨
+   작업도 같이 실패한다. */
+.pm-aidash__auth {
+  padding: var(--jsini-sp-xs);
+  border: 1px solid var(--jsini-danger, #d63939);
+  border-radius: var(--jsini-radius-sm);
+  background: color-mix(in srgb, var(--jsini-danger, #d63939) 10%, transparent);
+  font-size: var(--jsini-fs-xs);
+  line-height: 1.5;
+}
+
+.pm-aidash__auth > strong {
+  color: var(--jsini-danger, #d63939);
+}
+
+.pm-aidash__auth code {
+  padding: 0 var(--jsini-sp-3xs, 2px);
+  border-radius: var(--jsini-radius-xs, 3px);
+  background: var(--jsini-surface-2, rgba(0, 0, 0, 0.06));
+}
+
 .pm-aidash__tokens {
   font-size: var(--jsini-fs-sm);
 }

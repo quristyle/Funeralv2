@@ -245,7 +245,21 @@
                                     <span class="jsini-badge">@usage.PlanNm</span>
                                 }
 
-                                @if (!usage.Ok)
+                                @if (AiUsageText.AuthRemain(usage) is { Length: > 0 } auth)
+                                {
+                                    @* 끊기고 나서 아는 것과 끊기기 전에 아는 것의 차이가
+                                       반나절이다. 가까워지면 색으로 앞세운다. *@
+                                    <span class="jsini-badge @(AiUsageText.AuthExpiring(usage)
+                                                               ? "jsini-badge--warn" : string.Empty)">@auth</span>
+                                }
+
+                                @if (NeedsAuth(usage))
+                                {
+                                    @* 「읽지 못함」과 한 덩이로 묶지 않는다 — 고칠 곳이
+                                       파서가 아니라 실행기 장비의 로그인이다. *@
+                                    <span class="jsini-badge jsini-badge--err">@AiUsageText.AuthText</span>
+                                }
+                                else if (!usage.Ok)
                                 {
                                     <span class="jsini-badge jsini-badge--err">읽지 못함</span>
                                 }
@@ -274,7 +288,7 @@
                                     </div>
                                 }
 
-                                @if (usage.ErrorText is { Length: > 0 } note)
+                                @if (Why(usage) is { Length: > 0 } note)
                                 {
                                     @* 읽기에 성공했는데 까닭이 적혀 있는 경우 —
                                        「무제한」처럼 **숫자가 없는 것이 맞는** 상태다.
@@ -282,9 +296,24 @@
                                     <div class="pm-aidash__stamp">@note</div>
                                 }
                             }
+                            else if (NeedsAuth(usage))
+                            {
+                                @* 할 일이 하나뿐인 고장이다. 까닭보다 **무엇을 해야
+                                   하는지**를 앞세우고, 어느 장비인지를 함께 적는다 —
+                                   실행기가 여럿이면 그것만으로 못 찾는다. *@
+                                <div class="pm-aidash__auth">
+                                    <strong>@AiUsageText.AuthText</strong>
+                                    <div>
+                                        <code>@usage.RunnerNm</code> 장비에서
+                                        <code>@KindText(usage.RunnerKind)</code> 로 다시 로그인하십시오.
+                                        로그인이 끊기면 한도뿐 아니라 <b>그 CLI 로 시킨 작업도 함께 실패합니다.</b>
+                                    </div>
+                                    <div class="pm-aidash__stamp">@Why(usage)</div>
+                                </div>
+                            }
                             else
                             {
-                                <div class="pm-aidash__meter-error">@(usage.ErrorText ?? "이유가 적혀 있지 않습니다.")</div>
+                                <div class="pm-aidash__meter-error">@(Why(usage) is { Length: > 0 } why ? why : "이유가 적혀 있지 않습니다.")</div>
                             }
 
                             <div class="pm-aidash__stamp">@Ago(usage.ObservedAt) 기준</div>

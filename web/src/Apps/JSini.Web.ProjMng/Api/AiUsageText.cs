@@ -20,6 +20,86 @@ namespace JSini.Web.ProjMng.Api;
 public static class AiUsageText
 {
     /// <summary>
+    /// 실행기가 「다시 로그인해야 한다」를 알릴 때 까닭 글 맨 앞에 붙이는 표.
+    /// </summary>
+    /// <remarks>
+    /// <b>DB 칸을 늘리지 않으려고 까닭 글 하나에 실어 보내는 값이다</b> —
+    /// 붙이는 쪽은 <c>AiTaskRunner.UsageClaude.AuthMark</c> 이고, 바꾸려면 둘을
+    /// 함께 고쳐야 한다. 화면에 글자로 내보내지 않는다(<see cref="Why"/>).
+    /// </remarks>
+    public const string AuthMark = "[OAUTH]";
+
+    /// <summary>
+    /// 로그인이 끊긴 CLI 에 다는 배지 글자. <b>무엇을 해야 하는지가 적혀 있다.</b>
+    /// </summary>
+    public const string AuthText = "OAuth 재로그인 필요";
+
+    /// <summary>
+    /// 이 줄이 「로그인이 끊겼다」인가.
+    /// </summary>
+    /// <remarks>
+    /// <b>여느 실패와 가른다.</b> 출력 형식이 바뀐 것과 로그인이 끊긴 것은
+    /// 사람이 할 일이 전혀 다르다 — 앞엣것은 파서를 고치는 일이고 뒤엣것은
+    /// 실행기 장비에 붙어 다시 로그인하는 일이다. 한 덩이로 「읽지 못함」이라
+    /// 적으면 늘 앞엣것부터 뒤진다.
+    /// </remarks>
+    public static bool NeedsAuth(AiUsageSnapshot usage)
+        => usage.ErrorText?.StartsWith(AuthMark, StringComparison.Ordinal) == true;
+
+    /// <summary>한 CLI 의 줄 가운데 하나라도 로그인이 끊겼나.</summary>
+    public static bool NeedsAuth(IEnumerable<AiUsageSnapshot> rows)
+        => rows.Any(NeedsAuth);
+
+    /// <summary>까닭을 사람이 읽는 글로. <b>표는 떼어 낸다.</b></summary>
+    public static string Why(AiUsageSnapshot usage)
+    {
+        var text = usage.ErrorText?.Trim();
+
+        if (string.IsNullOrEmpty(text))
+        {
+            return string.Empty;
+        }
+
+        return text.StartsWith(AuthMark, StringComparison.Ordinal)
+            ? text[AuthMark.Length..].TrimStart()
+            : text;
+    }
+
+    /// <summary>
+    /// 로그인이 곧 끊긴다고 보는 기준. <b>2주</b>.
+    /// </summary>
+    /// <remarks>
+    /// 끊기면 한도뿐 아니라 그 CLI 로 시킨 작업도 함께 실패하고, 푸는 데
+    /// 사람이 그 장비에 붙어야 한다 — 「오늘 처리할 일」이 되기 전에
+    /// 눈에 들어와야 하는 종류라 넉넉히 잡는다.
+    /// </remarks>
+    private static readonly TimeSpan AuthSoon = TimeSpan.FromDays(14);
+
+    /// <summary>로그인 만료가 코앞인가. 이미 지난 것도 여기 든다.</summary>
+    public static bool AuthExpiring(AiUsageSnapshot usage)
+        => usage.AuthExpiresAt is { } at && at - AppTime.UtcNow <= AuthSoon;
+
+    /// <summary>
+    /// 로그인 만료를 한 줄 글로 — <c>로그인 11-15 만료 · 27일 남음</c>.
+    /// </summary>
+    /// <remarks>
+    /// <b>날짜만으로는 모자라다.</b> 그 날짜가 가까운지 먼지는 머릿속에서
+    /// 빼기를 해야 알고, 이 값은 UTC 로 쌓였다가 한국 시각으로 옮겨 적힌
+    /// 것이라 <b>틀리게 빼기 쉽다</b>(한도 갱신 시각과 같은 까닭이다).
+    /// </remarks>
+    public static string AuthRemain(AiUsageSnapshot usage)
+    {
+        if (usage.AuthExpiresAt is not { } at)
+        {
+            return string.Empty;
+        }
+
+        return at <= AppTime.UtcNow
+            ? $"로그인 {at.Kst("MM-dd")} 만료됨"
+            : $"로그인 {at.Kst("MM-dd")} 만료 · {Remain(at)}";
+    }
+
+    /// <summary>
     /// 한도 값이 오래됐나. <b>보고 주기(15분)의 네 배</b>를 기준으로 한다 —
     /// 한두 번 걸러도 소란을 떨지 않되, 반나절 묵은 값을 최신인 척하지 않게.
     /// </summary>
@@ -162,7 +242,7 @@ public static class AiUsageText
     {
         if (!usage.Ok)
         {
-            var why = string.IsNullOrWhiteSpace(usage.ErrorText) ? "읽지 못함" : usage.ErrorText!;
+            var why = Why(usage) is { Length: > 0 } text ? text : "읽지 못함";
             var head = Bucket(usage);
 
             return head.Length > 0 ? $"{head} {why}" : why;
@@ -184,7 +264,7 @@ public static class AiUsageText
 
         // 읽기에 성공했는데 까닭이 적혀 있는 경우 — 「무제한」·「한도 소진됨」처럼
         // **숫자만으로는 못 알아채는** 상태다. 숫자가 있어도 함께 적는다.
-        if (usage.ErrorText is { Length: > 0 } note)
+        if (Why(usage) is { Length: > 0 } note)
         {
             parts.Add(note);
         }
@@ -232,6 +312,11 @@ public static class AiUsageText
             return new Badge("보고 없음", "jsini-badge--off");
         }
 
+        if (NeedsAuth(rows))
+        {
+            return new Badge(AuthText, "jsini-badge--err");
+        }
+
         if (rows.Any(r => !r.Ok))
         {
             return new Badge("읽지 못함", "jsini-badge--err");
@@ -243,7 +328,7 @@ public static class AiUsageText
         {
             // 값이 하나도 없다. 「무제한」처럼 **숫자가 없는 것이 맞는** 상태가
             // 여기 온다 — 실패와 같은 빨강으로 보이면 안 된다.
-            var note = rows.Select(r => r.ErrorText).FirstOrDefault(t => !string.IsNullOrWhiteSpace(t));
+            var note = rows.Select(Why).FirstOrDefault(t => t.Length > 0);
 
             return new Badge(string.IsNullOrWhiteSpace(note) ? "한도 값 없음" : note!, "jsini-badge--off");
         }
@@ -312,6 +397,11 @@ public static class AiUsageText
         if (rows.Count == 0)
         {
             return new Badge("보고없음", "jsini-badge--off");
+        }
+
+        if (NeedsAuth(rows))
+        {
+            return new Badge("로그인필요", "jsini-badge--err");
         }
 
         if (rows.Any(r => !r.Ok))

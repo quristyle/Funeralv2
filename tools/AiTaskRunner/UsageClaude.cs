@@ -51,6 +51,19 @@ public static class UsageClaude
     private const string DefaultRoot = "~/.claude/projects";
 
     /// <summary>
+    /// 「다시 로그인해야 한다」를 화면이 알아보는 표. 까닭 글의 맨 앞에 붙는다.
+    /// </summary>
+    /// <remarks>
+    /// <b>글자를 눈으로 맞춰 보라고 두는 것이 아니다.</b> 화면은 이 표를 보고
+    /// 배지를 「OAuth 재로그인 필요」로 바꾸고, 사람에게 보일 때는 떼어 낸다
+    /// (<c>AiUsageText.NeedsAuth</c>). 여느 실패와 같은 「읽지 못함」으로
+    /// 묶이면 <i>고칠 곳이 실행기 장비의 로그인인데 파서를 들여다보게 된다.</i>
+    /// 표를 바꾸면 화면 쪽도 함께 고쳐야 한다 — DB 칸을 늘리지 않으려고
+    /// 까닭 글 하나에 실어 보내는 값이다.
+    /// </remarks>
+    public const string AuthMark = "[OAUTH]";
+
+    /// <summary>
     /// <c>/usage</c> 한 번의 결과를 한도 칸들로 옮긴다.
     /// </summary>
     /// <param name="kind">CLI 종류. 그대로 실어 보낸다.</param>
@@ -59,13 +72,26 @@ public static class UsageClaude
     /// 그 안에 세션 번호(<c>session_id</c>)와 사람이 읽을 글(<c>result</c>)이 들어 있다.
     /// </param>
     /// <param name="transcriptRoot">세션 기록이 쌓이는 폴더. 비어 있으면 기본값.</param>
-    public static List<AiUsageItem> Parse(string kind, string raw, string transcriptRoot)
+    /// <param name="authFile">로그인 정보가 든 JSON. 비어 있으면 안 읽는다.</param>
+    public static List<AiUsageItem> Parse(
+        string kind, string raw, string transcriptRoot, string authFile = "")
     {
         var (sessionId, text) = Envelope(raw);
 
         // 봉투를 못 열었으면 받은 것을 그대로 보여 준다 — 사람이 보면 안다.
         var shown = string.IsNullOrWhiteSpace(text) ? raw : text;
 
+        var items = Read(kind, sessionId, transcriptRoot, shown);
+
+        Stamp(items, authFile);
+
+        return items;
+    }
+
+    /// <summary>한도 칸을 만든다. 로그인 정보는 아직 얹지 않는다.</summary>
+    private static List<AiUsageItem> Read(
+        string kind, string? sessionId, string transcriptRoot, string shown)
+    {
         if (sessionId is null)
         {
             return [.. Fallback(kind, shown)];
@@ -94,10 +120,85 @@ public static class UsageClaude
                 RunnerKind = kind,
                 Ok = false,
                 RawText = shown,
-                ErrorText = "구독 한도를 돌려주지 않았습니다. "
-                    + "실행기 장비의 claude 로그인이 끊겼을 수 있습니다 — 그 장비에서 다시 로그인하십시오.",
+                ErrorText = $"{AuthMark} 구독 한도를 돌려주지 않았습니다. "
+                    + "실행기 장비의 claude 로그인이 끊겼습니다 — 그 장비에서 다시 로그인하십시오.",
             },
         ];
+    }
+
+    // ── 로그인 정보 ─────────────────────────────────────────
+
+    /// <summary>
+    /// 요금제와 <b>로그인이 끊기는 날</b>을 한 칸에만 얹는다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>한도와 다른 종류의 시각이다.</b> 주간 한도는 저절로 다시 차지만
+    /// 이것은 사람이 그 장비에 붙어 다시 로그인해야 풀린다. 2026-10-17 에
+    /// 실제로 끊겼고, 그 날짜는 그 전부터 이 파일에 적혀 있었다.
+    /// </para>
+    /// <para>
+    /// <b>토큰은 읽지 않는다.</b> 꺼내는 것은 요금제 이름과 만료 시각뿐이다.
+    /// </para>
+    /// <para>
+    /// 칸이 여럿일 때 <b>계정 칸에만</b> 얹는다 — 모델로 끊은 주간마다
+    /// 같은 배지를 달면 같은 사실이 화면에 두 번 앉는다.
+    /// </para>
+    /// </remarks>
+    private static void Stamp(List<AiUsageItem> items, string authFile)
+    {
+        if (items.Count == 0 || string.IsNullOrWhiteSpace(authFile))
+        {
+            return;
+        }
+
+        var (plan, expiresAt) = Auth(authFile);
+
+        if (plan is null && expiresAt is null)
+        {
+            return;
+        }
+
+        var head = items.FirstOrDefault(i => string.IsNullOrEmpty(i.BucketNm)) ?? items[0];
+
+        head.PlanNm ??= plan;
+        head.AuthExpiresAt ??= expiresAt;
+    }
+
+    /// <summary>로그인 정보 파일에서 요금제와 만료 시각을 꺼낸다.</summary>
+    /// <returns>못 읽으면 둘 다 <c>null</c>. <b>던지지 않는다</b> — 곁들이는 일이다.</returns>
+    private static (string? Plan, DateTime? ExpiresAt) Auth(string file)
+    {
+        try
+        {
+            var full = Expand(file);
+
+            if (!File.Exists(full))
+            {
+                return (null, null);
+            }
+
+            using var doc = JsonDocument.Parse(File.ReadAllText(full));
+
+            if (!doc.RootElement.TryGetProperty("claudeAiOauth", out var oauth)
+                || oauth.ValueKind != JsonValueKind.Object)
+            {
+                return (null, null);
+            }
+
+            var plan = Text(oauth, "subscriptionType");
+
+            // 1970 부터의 **밀리초**다. 초로 읽으면 1970 년이 나온다.
+            var expiresAt = Number(oauth, "refreshTokenExpiresAt") is { } ms and > 0
+                ? DateTimeOffset.FromUnixTimeMilliseconds((long)ms).UtcDateTime
+                : (DateTime?)null;
+
+            return (plan, expiresAt);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        {
+            return (null, null);
+        }
     }
 
     // ── 봉투 ────────────────────────────────────────────────
@@ -344,8 +445,8 @@ public static class UsageClaude
                     RunnerKind = kind,
                     Ok = false,
                     RawText = shown,
-                    ErrorText = "한도가 아니라 비용 요약이 돌아왔습니다. "
-                        + "실행기 장비의 claude 로그인이 끊겼을 수 있습니다 — 그 장비에서 다시 로그인하십시오.",
+                    ErrorText = $"{AuthMark} 한도가 아니라 비용 요약이 돌아왔습니다. "
+                        + "실행기 장비의 claude 로그인이 끊겼습니다 — 그 장비에서 다시 로그인하십시오.",
                 },
             ];
         }

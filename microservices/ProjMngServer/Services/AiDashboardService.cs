@@ -545,6 +545,7 @@ public sealed class AiDashboardService(
                    limit_tokens       AS LimitTokens,
                    remaining_tokens   AS RemainingTokens,
                    plan_nm            AS PlanNm,
+                   auth_expires_at    AS AuthExpiresAt,
                    raw_text           AS RawText,
                    error_text         AS ErrorText,
                    observed_at        AS ObservedAt

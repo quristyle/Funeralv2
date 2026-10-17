@@ -141,4 +141,107 @@ public sealed class AiUsageTextTests
     {
         Assert.Equal("1분 미만 남음", AiUsageText.Remain(AppTime.UtcNow.AddSeconds(30)));
     }
+
+    // ── 로그인이 끊긴 상태 ─────────────────────────────────
+
+    private static AiUsageSnapshot Failed(string? error) => new()
+    {
+        Ok = false,
+        RunnerKind = "claude",
+        ErrorText = error,
+        ObservedAt = AppTime.UtcNow,
+    };
+
+    /// <summary>
+    /// 출력 형식이 바뀐 것과 로그인이 끊긴 것은 사람이 할 일이 다르다 —
+    /// 한 덩이로 「읽지 못함」이라 적으면 늘 파서부터 뒤진다.
+    /// </summary>
+    [Fact]
+    public void 로그인이_끊기면_읽지_못함이_아니라_재로그인_필요다()
+    {
+        var badge = AiUsageText.Of([Failed($"{AiUsageText.AuthMark} 비용 요약이 돌아왔습니다.")]);
+
+        Assert.Equal(AiUsageText.AuthText, badge.Text);
+        Assert.Equal("jsini-badge--err", badge.Css);
+    }
+
+    [Fact]
+    public void 여느_실패는_그대로_읽지_못함이다()
+    {
+        var badge = AiUsageText.Of([Failed("출력에서 한도를 찾지 못했습니다.")]);
+
+        Assert.Equal("읽지 못함", badge.Text);
+    }
+
+    [Fact]
+    public void 닫힌_칸에서도_로그인_필요를_가른다()
+    {
+        Assert.Equal("로그인필요",
+            AiUsageText.Mini([Failed($"{AiUsageText.AuthMark} 끊겼습니다.")]).Text);
+        Assert.Equal("읽지못함",
+            AiUsageText.Mini([Failed("형식이 바뀌었습니다.")]).Text);
+    }
+
+    /// <summary>기계가 보는 표는 사람 눈에 닿지 않는다.</summary>
+    [Fact]
+    public void 까닭을_적을_때_표는_떼어_낸다()
+    {
+        var usage = Failed($"{AiUsageText.AuthMark} 다시 로그인하십시오.");
+
+        Assert.Equal("다시 로그인하십시오.", AiUsageText.Why(usage));
+        Assert.DoesNotContain(AiUsageText.AuthMark, AiUsageText.Row(usage));
+    }
+
+    [Fact]
+    public void 표가_없는_까닭은_그대로_둔다()
+    {
+        Assert.Equal("형식이 바뀌었습니다.", AiUsageText.Why(Failed("형식이 바뀌었습니다.")));
+        Assert.Equal(string.Empty, AiUsageText.Why(Failed(null)));
+    }
+
+    // ── 로그인 만료일 ───────────────────────────────────────
+
+    private static AiUsageSnapshot WithAuth(DateTime? expiresAt) => new()
+    {
+        Ok = true,
+        RunnerKind = "claude",
+        WeekPct = 30m,
+        AuthExpiresAt = expiresAt,
+        ObservedAt = AppTime.UtcNow,
+    };
+
+    [Fact]
+    public void 로그인_만료일이_없으면_아무것도_안_적는다()
+    {
+        Assert.Equal(string.Empty, AiUsageText.AuthRemain(WithAuth(null)));
+        Assert.False(AiUsageText.AuthExpiring(WithAuth(null)));
+    }
+
+    /// <summary>날짜만 적으면 가까운지 먼지를 머릿속에서 빼야 안다.</summary>
+    [Fact]
+    public void 로그인_만료일은_남은_기간과_함께_적는다()
+    {
+        var text = AiUsageText.AuthRemain(WithAuth(AppTime.UtcNow.AddDays(27).AddMinutes(1)));
+
+        Assert.StartsWith("로그인 ", text);
+        Assert.Contains("만료 · ", text);
+        Assert.Contains("27일", text);
+        Assert.EndsWith("남음", text);
+    }
+
+    [Fact]
+    public void 이미_지난_로그인_만료일은_만료됨으로_적는다()
+    {
+        Assert.EndsWith("만료됨", AiUsageText.AuthRemain(WithAuth(AppTime.UtcNow.AddDays(-1))));
+    }
+
+    [Theory]
+    [InlineData(40, false)]
+    [InlineData(15, false)]
+    [InlineData(13, true)]
+    [InlineData(-1, true)]
+    public void 두_주_안쪽이면_곧_끊긴다고_본다(int days, bool expected)
+    {
+        Assert.Equal(expected, AiUsageText.AuthExpiring(WithAuth(AppTime.UtcNow.AddDays(days))));
+    }
 }
