@@ -180,6 +180,16 @@ public partial class AiDashboard
     /// </summary>
     private static bool Stale(DateTime observedAt) => AiUsageText.Stale(observedAt);
 
+    /// <summary>
+    /// 갱신까지 남은 시간. <b>「빠른 지시」의 고르개와 같은 글자를 쓴다</b>
+    /// (<see cref="AiUsageText.Remain"/>).
+    /// </summary>
+    /// <remarks>
+    /// 그려지는 순간을 기준으로 센다 — 화면을 오래 열어 두었으면 다시 조회해야
+    /// 줄어든다. 절대 시각을 옆에 함께 적는 까닭이 그것이다.
+    /// </remarks>
+    private static string Remain(DateTime resetAt) => AiUsageText.Remain(resetAt);
+
     private string MomText => Forecast.MonthOverMonth is { } mom
         ? $"{(mom >= 0 ? "+" : string.Empty)}{mom:0.#}%"
         : "비교할 자료 없음";

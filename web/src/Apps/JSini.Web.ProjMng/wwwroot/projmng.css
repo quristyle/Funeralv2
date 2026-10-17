@@ -6220,6 +6220,21 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   color: var(--jsini-text-muted);
 }
 
+/* 갱신 시각 옆의 「지금부터 얼마 남았나」. 절대 시각보다 이쪽을 먼저 읽게
+   진하게 두되, 계량기의 퍼센트 숫자보다는 작게 남긴다 — 이 줄이 숫자만큼
+   진해지면 막대가 안 보인다(바로 위 .pm-aidash__stamp 와 같은 까닭). */
+.pm-aidash__remain {
+  color: var(--jsini-text);
+  font-weight: 600;
+}
+
+.pm-aidash__remain::before {
+  content: "·";
+  margin: 0 0.25rem;
+  color: var(--jsini-text-muted);
+  font-weight: 400;
+}
+
 /* 타일 아래 한 줄. 큰 숫자 하나로는 못 하는 말을 여기서 한다
    (중앙값 · 근거 · 내역). */
 .pm-aidash__sub {

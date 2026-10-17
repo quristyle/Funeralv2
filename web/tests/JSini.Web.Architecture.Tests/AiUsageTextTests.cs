@@ -89,4 +89,56 @@ public sealed class AiUsageTextTests
 
         Assert.Equal("jsini-badge--off", badge.Css);
     }
+
+    /// <summary>
+    /// 갱신까지 남은 시간(<see cref="AiUsageText.Remain"/>).
+    /// </summary>
+    /// <remarks>
+    /// <b>날짜를 세는지가 요점이다.</b> 월간 한도는 갱신이 보름 뒤라, 시간으로만
+    /// 적으면 「355시간 남음」이 되어 아무도 못 읽는다.
+    /// </remarks>
+    [Fact]
+    public void 하루가_넘게_남으면_날짜부터_적는다()
+    {
+        var text = AiUsageText.Remain(AppTime.UtcNow.AddDays(14).AddHours(19).AddMinutes(22).AddSeconds(1));
+
+        Assert.StartsWith("14일 ", text);
+        Assert.Contains("19시간", text);
+        Assert.EndsWith("남음", text);
+    }
+
+    [Fact]
+    public void 하루가_안_남으면_시간과_분만_적는다()
+    {
+        var text = AiUsageText.Remain(AppTime.UtcNow.AddHours(9).AddMinutes(49).AddSeconds(1));
+
+        Assert.DoesNotContain("일", text);
+        Assert.Contains("9시간", text);
+        Assert.Contains("49분", text);
+    }
+
+    /// <summary>0 인 칸은 적지 않는다 — 「2일 0시간 0분」은 읽는 품만 늘린다.</summary>
+    [Fact]
+    public void 떨어지는_칸은_빼고_적는다()
+    {
+        var text = AiUsageText.Remain(AppTime.UtcNow.AddDays(2).AddSeconds(1));
+
+        Assert.Equal("2일 남음", text);
+    }
+
+    [Fact]
+    public void 갱신시각이_지났으면_곧_갱신이다()
+    {
+        Assert.Equal("곧 갱신", AiUsageText.Remain(AppTime.UtcNow.AddMinutes(-5)));
+    }
+
+    /// <summary>
+    /// 1분이 안 남았을 때 「0분 남음」이라고 적지 않는다 — 떨어지는 칸을 빼고
+    /// 적는 규칙 때문에 그 자리는 글자가 통째로 비어 「 남음」이 된다.
+    /// </summary>
+    [Fact]
+    public void 일분이_안_남으면_일분_미만이다()
+    {
+        Assert.Equal("1분 미만 남음", AiUsageText.Remain(AppTime.UtcNow.AddSeconds(30)));
+    }
 }

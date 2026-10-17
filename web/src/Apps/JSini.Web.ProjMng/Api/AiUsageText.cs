@@ -27,6 +27,55 @@ public static class AiUsageText
     public static bool Stale(DateTime observedAt)
         => AppTime.UtcNow - observedAt > TimeSpan.FromMinutes(60);
 
+    /// <summary>갱신 시각이 이미 지났을 때 적는 말.</summary>
+    /// <remarks>
+    /// 「0분 남음」이라고 적지 않는다 — 한도 값은 15분마다 올라오므로 지난
+    /// 갱신 시각은 <b>아직 새 값이 안 올라온 것</b>이지 멈춘 것이 아니다.
+    /// </remarks>
+    private const string SoonText = "곧 갱신";
+
+    /// <summary>
+    /// 갱신 시각까지 <b>지금부터</b> 얼마나 남았나. 예: <c>1일 1시간 30분 남음</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>절대 시각만으로는 모자라다.</b> 「11-01 18:00 갱신」을 읽은 사람은
+    /// 머릿속에서 빼기를 해야 하는데, 그 값이 UTC 로 쌓였다가 한국 시각으로
+    /// 옮겨 적힌 것이라 <b>틀리게 빼기 쉽다.</b> 남은 시간을 함께 적으면
+    /// 「지금 돌려도 되나」에 바로 답이 된다.
+    /// </para>
+    /// <para>
+    /// <b>날짜까지 센다.</b> 월간 한도(<c>copilot</c>)는 갱신이 보름 뒤라
+    /// 시간으로만 적으면 「355시간 남음」이 되는데, 그 숫자는 아무도 못 읽는다.
+    /// </para>
+    /// <para>
+    /// <paramref name="resetAt"/> 은 서버가 준 UTC 다 — UTC 끼리 잰다.
+    /// </para>
+    /// </remarks>
+    public static string Remain(DateTime resetAt)
+    {
+        var left = resetAt - AppTime.UtcNow;
+
+        if (left <= TimeSpan.Zero)
+        {
+            return SoonText;
+        }
+
+        if (left < TimeSpan.FromMinutes(1))
+        {
+            return "1분 미만 남음";
+        }
+
+        // 0 인 칸은 적지 않는다 — 「2일 0시간 0분」은 읽는 품만 늘린다.
+        var parts = new List<string>(3);
+
+        if (left.Days > 0) parts.Add($"{left.Days}일");
+        if (left.Hours > 0) parts.Add($"{left.Hours}시간");
+        if (left.Minutes > 0) parts.Add($"{left.Minutes}분");
+
+        return $"{string.Join(" ", parts)} 남음";
+    }
+
     /// <summary>CLI 이름.</summary>
     public static string Kind(string? kind) => kind switch
     {
@@ -212,10 +261,11 @@ public static class AiUsageText
             var resetText = string.Empty;
             if (weekRow?.WeekResetAt is { } resetAt)
             {
-                var diff = resetAt - AppTime.UtcNow;
-                var rem = diff > TimeSpan.Zero
-                    ? $"갱신까지 {(int)diff.TotalHours}시간 {diff.Minutes}분 남음"
-                    : "곧 갱신";
+                // 「얼마나 남았나」는 대시보드의 한도 칸과 **같은 글자**를 쓴다
+                // (<see cref="Remain"/>) — 갈라 두면 같은 값이 한쪽은
+                // 「355시간」, 다른 쪽은 「14일」이 된다.
+                var span = Remain(resetAt);
+                var rem = span == SoonText ? span : $"갱신까지 {span}";
                 resetText = $" <span class=\"pm-usage-reset\">({rem})</span>";
             }
 
