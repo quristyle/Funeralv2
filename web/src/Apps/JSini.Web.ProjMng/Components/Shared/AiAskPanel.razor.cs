@@ -34,10 +34,12 @@ public partial class AiAskPanel
     /// </summary>
     private const string AskPath = "/projmng/ai/ask";
 
-    /// <summary>고르는 칸 한 줄.</summary>
-    public sealed record PickOption(string Value, string Text);
-
-    private IReadOnlyList<PickOption> AllKinds = [];
+    /// <summary>
+    /// 공통코드(<c>AI_MODEL</c>)에서 읽은 AI 전부. <b>고르개가 쓰는 형을
+    /// 그대로 든다</b>(<see cref="AiModelOption"/>) — 화면마다 제 기록을
+    /// 두고 옮겨 담던 것을 걷었다.
+    /// </summary>
+    private IReadOnlyList<AiModelOption> AllKinds = [];
 
     /// <summary>
     /// 처음 보이는 건수이자 <b>「더보기」가 한 번에 늘리는 수</b>의 <b>밑값</b>이다.
@@ -287,7 +289,7 @@ public partial class AiAskPanel
     private bool? _shown;
 
     /// <summary>고른 대상이 허용한 AI 만 고르게 한다(「AI 작업」 화면과 같은 규칙).</summary>
-    private IReadOnlyList<PickOption> AllowedKinds
+    private IReadOnlyList<AiModelOption> AllowedKinds
     {
         get
         {
@@ -305,7 +307,7 @@ public partial class AiAskPanel
         }
     }
 
-    private IReadOnlyList<PickOption> RunnerKinds => AllowedKinds;
+    private IReadOnlyList<AiModelOption> RunnerKinds => AllowedKinds;
 
     /// <summary>
     /// 실행기가 올려 둔 AI 별 한도. <b>고르개 목록에 그대로 적는다.</b>
@@ -349,14 +351,6 @@ public partial class AiAskPanel
             ? []
             : [.. _usage.Where(u => string.Equals(u.RunnerKind, kind, StringComparison.OrdinalIgnoreCase))];
 
-    /// <summary>고르개 한 줄에 다는 배지.</summary>
-    private AiUsageText.Badge KindBadge(string? kind)
-        => _usageSeen
-            ? AiUsageText.Of(UsageOf(kind))
-            : new AiUsageText.Badge("한도 확인 중", "jsini-badge--off");
-
-    /// <summary>지금 고른 AI 의 배지. 닫힌 고르개 옆에 선다.</summary>
-    private AiUsageText.Badge PickedBadge => KindBadge(_kind);
 
     /// <summary>
     /// 한도를 읽어 둔다. <b>화면을 막지 않는다</b> — 못 읽으면 고르개가
@@ -741,7 +735,7 @@ public partial class AiAskPanel
     private async Task LoadModelsAsync()
     {
         var models = await ModelCodes.GetAsync();
-        AllKinds = [.. models.Select(x => new PickOption(x.Value, x.Text))];
+        AllKinds = models;
     }
 
     /// <summary>

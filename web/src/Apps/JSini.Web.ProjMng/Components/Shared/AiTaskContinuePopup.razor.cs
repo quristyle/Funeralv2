@@ -323,13 +323,6 @@ public partial class AiTaskContinuePopup
             ? []
             : [.. _usage.Where(u => string.Equals(u.RunnerKind, kind, StringComparison.OrdinalIgnoreCase))];
 
-    private AiUsageText.Badge KindBadge(string? kind)
-        => _usageSeen
-            ? AiUsageText.Of(UsageOf(kind))
-            : new AiUsageText.Badge("한도 확인 중", "jsini-badge--off");
-
-    private AiUsageText.Badge PickedContinueBadge => KindBadge(_continueKind);
-
     private async Task LoadUsageAsync()
     {
         _usage = await Dashboard.UsageAsync();

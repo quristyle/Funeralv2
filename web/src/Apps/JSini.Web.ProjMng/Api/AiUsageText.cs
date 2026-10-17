@@ -226,10 +226,57 @@ public static class AiUsageText
             ? string.Join(" / ", textParts)
             : $"사용 {top:0.#}%" + (stale ? " · 오래된 값" : string.Empty);
 
-        var targetPct = maxWeek ?? top;
+        var targetPct = TargetPct(rows) ?? top;
         var css = stale ? "jsini-badge--off" : UsageCss(targetPct);
 
         return new Badge(text, css);
+    }
+
+    /// <summary>
+    /// 배지의 색과 수치를 정하는 값. <b>주간이 있으면 주간</b>이고, 없으면 가장
+    /// 높은 것이다 — 한도에 먼저 걸리는 쪽이 주간이라 그것을 앞세운다.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Of"/> 와 <see cref="Mini"/> 가 같이 쓴다. 각자 고르게 두면
+    /// 펼친 목록과 닫힌 칸의 <b>색이 어긋나는데 아무 오류도 안 난다.</b>
+    /// </remarks>
+    private static decimal? TargetPct(IReadOnlyCollection<AiUsageSnapshot> rows)
+        => rows.Max(r => r.WeekPct) ?? TopPct(rows);
+
+    /// <summary>
+    /// 한 CLI 를 <b>짧은 배지</b> 하나로. 닫힌 고르개 칸에 다는 것이 이것이다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="Of"/> 의 글자는 「세션 12% / 주간 45% (갱신까지 30시간 12분 남음)」
+    /// 까지 늘어나 <b>닫힌 칸에 들어가지 않는다.</b> 여기서는 숫자 하나와 색만
+    /// 남기고, 풀어 쓴 글은 그 칸의 <c>title</c> 이 맡는다.
+    /// </para>
+    /// <para>
+    /// 갈라 보는 상태는 <see cref="Of"/> 와 같다 — 「보고 없음」과
+    /// 「다 안 썼음」을 섞지 않는다.
+    /// </para>
+    /// </remarks>
+    public static Badge Mini(IReadOnlyCollection<AiUsageSnapshot> rows)
+    {
+        if (rows.Count == 0)
+        {
+            return new Badge("보고없음", "jsini-badge--off");
+        }
+
+        if (rows.Any(r => !r.Ok))
+        {
+            return new Badge("읽지못함", "jsini-badge--err");
+        }
+
+        if (TargetPct(rows) is not { } pct)
+        {
+            return new Badge("한도없음", "jsini-badge--off");
+        }
+
+        var stale = rows.All(r => Stale(r.ObservedAt));
+
+        return new Badge($"{pct:0}%", stale ? "jsini-badge--off" : UsageCss(pct));
     }
 
     /// <summary>

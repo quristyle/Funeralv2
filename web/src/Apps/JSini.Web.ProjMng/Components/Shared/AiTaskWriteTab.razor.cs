@@ -51,18 +51,21 @@ public partial class AiTaskWriteTab
     /// 고를 수 있는 AI. <b>고른 대상이 허용한 것만</b> 걸러서 넘긴다 —
     /// 거르는 일은 대상의 <c>RunnerKinds</c> 를 아는 부르는 쪽 몫이다.
     /// </summary>
-    [Parameter] public IReadOnlyList<PickOption> Runners { get; set; } = [];
+    [Parameter] public IReadOnlyList<AiModelOption> Runners { get; set; } = [];
 
     /// <summary>
-    /// 그 AI 의 한도를 한 조각으로. <b>안 주면 배지를 안 그린다.</b>
+    /// 그 AI 의 한도 줄들을 집어 주는 길. <b>안 주면 배지를 안 그린다.</b>
+    /// 고르개(<see cref="AiRunnerPick"/>)에 그대로 넘긴다.
     /// </summary>
     /// <remarks>
     /// <b>이름만 보여 주면 다 쓴 CLI 를 고르게 된다.</b> 그리고 그것은 실행기가
     /// 집어가 실패로 끝난 뒤에야 드러난다 — 이 화면의 일은 몇십 분씩 걸려
-    /// 그때 사람은 이미 자리를 뜬 뒤다. 글자로 바꾸는 규칙은 화면이 들고 있지
-    /// 않다(<see cref="AiUsageText.Of"/>).
+    /// 그때 사람은 이미 자리를 뜬 뒤다.
     /// </remarks>
-    [Parameter] public Func<string?, AiUsageText.Badge>? RunnerBadge { get; set; }
+    [Parameter] public Func<string?, IReadOnlyCollection<AiUsageSnapshot>>? RunnerUsage { get; set; }
+
+    /// <summary>한도를 한 번이라도 받아 봤나. 거짓이면 「확인 중」으로 적힌다.</summary>
+    [Parameter] public bool UsageSeen { get; set; } = true;
 
     /// <summary>고른 대상이 「저장소에 올리기」를 허용하는가.</summary>
     [Parameter] public bool AllowPush { get; set; }
@@ -140,11 +143,4 @@ public partial class AiTaskWriteTab
         new("always", "끝나면 언제나"), new("on_success", "성공했을 때만"),
         new("on_failure", "실패했을 때만"),
     ];
-
-    /// <summary>그 AI 의 한도 배지. <b>안 받았으면 빈 조각</b>이라 아무것도 안 그린다.</summary>
-    private AiUsageText.Badge BadgeOf(string? kind)
-        => RunnerBadge?.Invoke(kind) ?? new AiUsageText.Badge(string.Empty, string.Empty);
-
-    /// <summary>지금 고른 AI 의 배지. 닫힌 고르개 아래에 선다.</summary>
-    private AiUsageText.Badge PickedBadge => BadgeOf(Item?.RunnerKind);
 }

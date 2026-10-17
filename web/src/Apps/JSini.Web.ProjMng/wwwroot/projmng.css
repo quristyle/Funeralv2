@@ -1313,22 +1313,6 @@
   padding-bottom: var(--jsini-sp-sm);
 }
 
-/* 고른 AI 의 한도 한 줄. 폼 바로 아래에 붙는다.
-
-   **값이 없으면 마크업째 안 그린다**(화면 쪽 `@if`). 자리를 늘 차지하게
-   두면 빈 줄이 하나 늘어 그만큼 편집기가 낮아진다 — 「빠른 지시」의
-   `pm-ask__limit` 와 같은 규칙이고, 거기서는 자판 때문에 더 아팠다. */
-.pm-ai-limit {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  margin-top: var(--jsini-sp-sm);
-  font-size: var(--jsini-fs-sm);
-  color: var(--jsini-text-muted);
-}
-
-
 /* ── 편집기 머리줄 ───────────────────────────────────────────
 
    「지시 내용」이라는 이름과 「AI 도우미」 단추가 한 줄에 선다.
@@ -2083,10 +2067,14 @@
    글상자가 1.5미터로 늘어나면 그것대로 못 쓴다.
    ---------------------------------------------------------- */
 
+/* **판 사이를 벌리지 않는다**(`gap: 0`). 적는 자리와 카드 목록은 위아래로
+   이어진 한 장이다 — 맞붙는 쪽의 테두리와 둥근 귀를 서로 걷어 이음매를
+   지운다(`pm-ask__write` · `pm-ask__recent`). 탭 줄은 제 `margin-bottom` 을
+   갖고 있어 이 값에 기대지 않는다. */
 .pm-ask {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 0;
   max-width: 52rem;
   margin: 0 auto;
   width: 100%;
@@ -2101,42 +2089,69 @@
   margin-bottom: 0.75rem;
 }
 
-.pm-ask__target { flex: 3 1 14rem; }
-.pm-ask__kind { flex: 1 1 9rem; }
+/* 바탕 너비를 좁게 잡아 **휴대폰에서도 한 줄에 선다.** 넓어지면 `flex-grow`
+   비율대로 벌어져 대상 쪽이 더 넓다 — 작업소 이름이 AI 이름보다 길다.
+   AI 쪽이 9rem 보다 넓어진 것은 닫힌 칸이 이제 한도 배지까지 이고 있어서다. */
+.pm-ask__target { flex: 3 1 9rem; }
+.pm-ask__kind { flex: 2 1 10rem; }
 
-/* AI 고르개 한 줄 — 이름과 한도가 두 층이다.
+/* ── AI 고르개(`AiRunnerPick`) ────────────────────────────────
+   네 화면이 같은 부품을 쓴다 — 「빠른 지시」·「AI 작업」 작성 탭·
+   다시 시키기·이어서 지시. 그래서 이름이 `pm-ask__` 가 아니다.
 
    **목록 칸의 높이를 고정하지 않는다.** CLI 마다 한도 줄 수가 달라서
    (claude 는 하나, antigravity 는 둘) 높이를 못 박으면 긴 쪽이 잘린다.
    DevExpress 가 칸 안쪽 여백을 이미 주므로 여기서는 세로만 세운다. */
-.pm-ask__kinditem {
+.pm-aipick__item {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
   min-width: 0;
 }
 
-.pm-ask__kindhead {
+.pm-aipick__head,
+.pm-aipick__sel {
   display: flex;
   align-items: center;
   gap: 0.4rem;
   min-width: 0;
 }
 
-/* 이름이 길어도 배지를 밀어내지 않는다 — 배지가 밀리면 「사용 92%」가
-   목록 밖으로 나가 **가장 봐야 할 값이 안 보인다.** */
-.pm-ask__kindname {
-  flex: 1 1 auto;
+/* 닫힌 칸 안의 한 줄 — 고른 AI 의 이름과 한도. **칸을 꽉 채워야** 배지가
+   오른쪽 끝에 붙고 이름이 그 앞을 다 쓴다. DevExpress 가 틀을 감싸는 칸에
+   기본 `min-width` 를 주므로 거기까지 풀어 줘야 말줄임이 걸린다. */
+.pm-aipick__sel {
+  width: 100%;
+}
+
+.pm-aipick .dxbl-edit-cnt,
+.pm-aipick .dxbl-edit-cnt > * {
   min-width: 0;
+}
+
+/* 이름이 길어도 배지를 밀어내지 않는다 — 배지가 밀리면 「사용 92%」가
+   목록 밖으로 나가 **가장 봐야 할 값이 안 보인다.**
+
+   그렇다고 `min-width: 0` 으로 두지는 않는다. 좁은 칸(「AI 작업」 작성 폼의
+   AI 칸)에서 **이름이 0 까지 줄어 배지만 남았다** — 어느 AI 인지가 통째로
+   사라지는 것은 한도가 안 보이는 것보다 나쁘다. 바닥을 주면 둘 다 보이고
+   이름 쪽이 … 로 잘린다. */
+.pm-aipick__name {
+  flex: 1 1 auto;
+  min-width: 3.25rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.pm-ask__kindhead .jsini-badge,
-.pm-ask__limit .jsini-badge,
-.pm-ai-limit .jsini-badge,
-.pm-peek__usage {
+/* 펼친 목록은 넓다 — 거기서는 바닥이 필요 없고, 두면 짧은 이름 뒤에
+   빈 자리가 생겨 배지가 가운데로 뜬다. */
+.pm-aipick__item .pm-aipick__name {
+  min-width: 0;
+}
+
+.pm-aipick__head .jsini-badge,
+.pm-aipick__sel .jsini-badge {
   flex: 0 0 auto;
   font-size: 0.75em;
   padding: 0.15em 0.4em;
@@ -2153,26 +2168,11 @@
    있어서 강조색에 묻히지 않고, 글자색도 그 바탕에 맞춰 고른 값이다 —
    여기서 `inherit` 로 덮으면 밝은 바탕(0~65%)에 흰 글자가 얹혀
    **고른 줄에서만 한도가 안 보인다.** */
-.dxbl-list-box-item-selected .pm-ask__kindhead .jsini-badge:not([class*='jsini-badge--usage-']),
-.dxbl-list-box-item-focused .pm-ask__kindhead .jsini-badge:not([class*='jsini-badge--usage-']),
-li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge:not([class*='jsini-badge--usage-']) {
+.dxbl-list-box-item-selected .pm-aipick__head .jsini-badge:not([class*='jsini-badge--usage-']),
+.dxbl-list-box-item-focused .pm-aipick__head .jsini-badge:not([class*='jsini-badge--usage-']),
+li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini-badge--usage-']) {
   color: inherit;
   border-color: currentColor;
-}
-
-/* 닫힌 고르개 아래 한 줄. 고른 AI 의 한도다.
-
-   **자리를 늘 차지하게 두지 않는다** — 값이 없으면 마크업째 안 그린다.
-   글상자 위에 빈 줄이 하나 늘면 자판이 올라온 화면에서 단추가 그만큼
-   내려간다(단추 줄을 한 줄로 묶은 것과 같은 까닭). */
-.pm-ask__limit {
-  display: flex;
-  align-items: baseline;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-  margin: -0.35rem 0 0.75rem;
-  font-size: 0.85em;
-  color: var(--jsini-text-muted);
 }
 
 
@@ -2697,24 +2697,33 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge:not([class*='jsi
   flex: 0 0 auto;
 }
 
+/* 한 장의 **윗동강**. 아래 테두리와 아래쪽 둥근 귀를 뗀다 — 두면 목록 판의
+   윗선과 겹쳐 가운데에 2px 짜리 선이 하나 생긴다.
+
+   그림자도 뗀다. 아래로 드리우는 그림자(`0 4px 18px`)라 목록 판 위에
+   얹히면서 **붙여 놓은 자리에 그늘 띠**를 만든다 — 한 장의 그림자는
+   아랫동강이 통째로 진다. */
 .pm-ask__write {
   flex: 0 0 auto;
   background: var(--jsini-surface);
   border: 1px solid var(--jsini-border);
-  border-radius: 1rem;
-  padding: 1.25rem;
-  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.04);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  border-bottom: 0;
+  border-radius: 1rem 1rem 0 0;
+  padding: 1.25rem 1.25rem 1rem;
+  transition: border-color 0.2s ease;
 }
 
+/* 한 장의 **아랫동강**. 구르는 것은 이 안의 `.pm-ask__scroll` 뿐이다 —
+   판 자신은 남은 높이를 받아 제자리에 선다. 맞붙는 윗선이 없으므로
+   이음매에서 안쪽 여백만 좁혀 준다(위 `1rem` + 여기 `0.75rem`). */
 .pm-ask__recent {
   flex: 1 1 0;
   min-height: 0;
   overflow: hidden;
   background: var(--jsini-surface);
   border: 1px solid var(--jsini-border);
-  border-radius: 1rem;
-  padding: 1.25rem;
+  border-radius: 0 0 1rem 1rem;
+  padding: 0.75rem 1.25rem 1.25rem;
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.04);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
@@ -2735,29 +2744,15 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge:not([class*='jsi
 
 /* ── 보낸 것 목록 ──────────────────────────────────────────── */
 
-/* 목록 헤더 & 카운트 */
+/* 단 고르개만 선 줄. 제목도 건수도 없고 **밑줄도 긋지 않는다** — 카드가
+   저마다 테두리를 갖고 있어 선이 하나 더 서면 칸이 겹으로 둘린다.
+   고르개 하나뿐이라 `flex-end` 다(`space-between` 이면 왼쪽에 붙는다). */
 .pm-ask__list-head {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-bottom: 0.85rem;
-  padding-bottom: 0.6rem;
-  border-bottom: 1px solid var(--jsini-border);
-}
-
-.pm-ask__list-title {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.95rem;
-  font-weight: 700;
-  color: var(--jsini-text);
-}
-
-.pm-ask__list-label {
-  color: var(--jsini-text);
+  justify-content: flex-end;
+  margin-bottom: 0.5rem;
 }
 
 /* 목록이 아니라 **카드**다. */
@@ -3351,7 +3346,14 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge:not([class*='jsi
   opacity: 0.65;
 }
 
-.pm-ask__target {
+/* 카드의 작업 대상 한 줄. **`pm-ask__target`(대상 고르개)과 이름이 같으면
+   안 된다** — 한동안 같았고, 뒤에 선 이 규칙이 고르개의 폭과 글자 크기까지
+   덮어 **글상자 위 칸이 흐릿하게 쪼그라들어 있었다.**
+
+   상한 40%는 이름이 잘려도(`portal…`) 지키는 값이다. 올려 보았더니 반 폭
+   카드에서 실행일시 옆에 못 서고 **제 줄을 하나 차지해** 카드가 한 층씩
+   높아졌다 — 전체 이름은 `title` 이 들고 있으니 여기서는 높이를 산다. */
+.pm-ask__to {
   flex: 0 1 auto;
   min-width: 0;
   max-width: 40%;
@@ -3360,10 +3362,6 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge:not([class*='jsi
   white-space: nowrap;
   font-size: 0.8em;
   opacity: 0.75;
-}
-
-.pm-ask__target-kind {
-  font-weight: 700;
 }
 
 /* 아직 안 읽은 남긴말. **내가 올린 요청 카드에만 선다**(`IsMine`).
@@ -5226,20 +5224,13 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge:not([class*='jsi
 
 /* 묻는 창 둘(「이어서 지시」· 「수동 재시도」)의 AI 고르는 칸.
 
-   **한 줄이다** — 고르개와 그 AI 의 남은 한도가 나란히 선다.
+   **한 줄이다** — 라벨도 옆 배지도 없이 고르개 하나다.
 
-   [라벨을 걷고 한도를 끌어올렸다 — 2026-10-11]
-
-   전에는 칸 앞에 라벨(`.pm-peek__label`)이 서고 **그 아래 또 한 줄**에 한도
-   배지(`.pm-ai-limit`)가 있었다. 라벨은 고르개에 AI 이름이 이미 적혀 있어
-   한 번 더 하는 말이었고, 한도는 고를 때 가장 보고 싶은 값인데 칸에서 한 줄
-   떨어져 있었다. 층이 둘에서 하나로 줄었다 — 이 창은 휴대폰에서 화면을 꽉
-   채우고 그 아래에 글상자(다섯 줄)와 단추 줄이 서므로, **줄 하나가 곧 자판
-   밑으로 내려가는 단추**다.
-
-   칸이 남은 폭을 다 쓰고(`flex: 1`) 배지는 제 너비만 갖는다. AI 이름이
-   「안티그래비티 (agy)」처럼 길어서 `max-content` 로 두면 칸마다 폭이 달라
-   보인다. */
+   한동안 칸 앞에 라벨(`.pm-peek__label`)이 서고 그 아래 또 한 줄에 한도
+   배지가 있었다(2026-10-11 에 둘을 한 층으로). 이제 한도는 **고르개 칸
+   안에** 들어가 옆 배지마저 사라졌다(`AiRunnerPick`) — 이 창은 휴대폰에서
+   화면을 꽉 채우고 그 아래에 글상자와 단추 줄이 서므로, **줄 하나가 곧
+   자판 밑으로 내려가는 단추**다. */
 .pm-peek__field {
   display: flex;
   gap: var(--jsini-sp-sm);
@@ -5258,13 +5249,6 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge:not([class*='jsi
 .pm-peek__kind {
   flex: 1 1 auto;
   min-width: 0;
-}
-
-/* 한도 배지. **밀리지 않고 접히지 않는다** — 「사용 92%」가 두 줄로 꺾이면
-   칸 높이가 들쭉날쭉해지고, 밀리면 가장 봐야 할 값이 창 밖으로 나간다.
-   치수는 위의 배지 묶음이 함께 정한다(`.pm-peek__usage`). */
-.pm-peek__usage {
-  white-space: nowrap;
 }
 
 /* 「수동 재시도」 창의 지난 회차 자국 — 상태 · AI · 횟수 · 끝난 시각 · 까닭.
@@ -5417,7 +5401,6 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge:not([class*='jsi
      flex 기본값(`1 1 auto`)으로 늘어나 편집기 몫을 가져간다 — 한도 줄과
      편집기 머리줄이 그래서 여기 있다. */
   .pm-ai-write > .pm-editform,
-  .pm-ai-write > .pm-ai-limit,
   .pm-ai-write > .pm-ai-editor__bar,
   .pm-ai-write > .pm-ai-opts {
     flex: 0 0 auto;

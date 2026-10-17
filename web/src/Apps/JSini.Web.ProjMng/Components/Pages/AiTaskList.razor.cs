@@ -218,7 +218,7 @@ public partial class AiTaskList
         new("user", "사용자 요청"), new("admin", "직접 작성"),
     ];
 
-    private IReadOnlyList<PickOption> RunnerKinds = [];
+    private IReadOnlyList<AiModelOption> RunnerKinds = [];
 
     private static readonly PickOption[] NotifyWhens =
     [
@@ -322,13 +322,6 @@ public partial class AiTaskList
     private bool IsMine =>
         _me is { Length: > 0 } me
         && string.Equals(me, AskItem?.CreId?.Trim(), StringComparison.OrdinalIgnoreCase);
-
-    /// <summary>
-    /// 「작성」 탭에 넘길 AI 목록. <b>부품이 제 고르개 타입을 가진다</b> —
-    /// 화면마다 <c>PickOption</c> 이 따로라 넘기는 자리에서 한 번 옮긴다.
-    /// </summary>
-    private IReadOnlyList<AiTaskWriteTab.PickOption> WriteRunners =>
-        [.. AllowedRunners.Select(o => new AiTaskWriteTab.PickOption(o.Value, o.Text))];
 
     /// <summary>
     /// 펴 둔 차수가 고친 파일을 다시 읽는다. <b><see cref="_openRun"/> 이
@@ -461,7 +454,7 @@ public partial class AiTaskList
     /// 목록에서 조용히 사라지면 왜 못 고르는지 알 길이 없다.
     /// </para>
     /// </remarks>
-    private IReadOnlyList<PickOption> AllowedRunners
+    private IReadOnlyList<AiModelOption> AllowedRunners
     {
         get
         {
@@ -481,7 +474,7 @@ public partial class AiTaskList
             }
 
             return [.. allowed.Select(v =>
-                RunnerKinds.FirstOrDefault(o => o.Value == v) ?? new PickOption(v, v))];
+                RunnerKinds.FirstOrDefault(o => o.Value == v) ?? new AiModelOption(v, v))];
         }
     }
 
@@ -517,15 +510,6 @@ public partial class AiTaskList
         => string.IsNullOrWhiteSpace(kind)
             ? []
             : [.. _usage.Where(u => string.Equals(u.RunnerKind, kind, StringComparison.OrdinalIgnoreCase))];
-
-    /// <summary>고르개 한 줄에 다는 배지.</summary>
-    private AiUsageText.Badge KindBadge(string? kind)
-        => _usageSeen
-            ? AiUsageText.Of(UsageOf(kind))
-            : new AiUsageText.Badge("한도 확인 중", "jsini-badge--off");
-
-    /// <summary>지금 고른 AI 의 배지. 닫힌 고르개 아래에 선다.</summary>
-    private AiUsageText.Badge PickedBadge => KindBadge(_edit?.RunnerKind);
 
     /// <summary>
     /// 한도를 읽어 둔다. <b>화면을 막지 않는다</b> — 못 읽으면 고르개가
@@ -580,7 +564,7 @@ public partial class AiTaskList
     private async Task LoadModelsAsync()
     {
         var models = await ModelCodes.GetAsync();
-        RunnerKinds = [.. models.Select(x => new PickOption(x.Value, x.Text))];
+        RunnerKinds = models;
     }
 
     /// <summary>

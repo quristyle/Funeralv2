@@ -212,11 +212,6 @@ public partial class AiTaskActions
     }
 
     /// <summary>
-    /// 고른 AI 의 남은 한도. <b>「이어서 지시」( <see cref="AiTaskContinuePopup"/> )와 같은 통을 본다</b>.
-    /// </summary>
-    private AiUsageText.Badge PickedRetryBadge => KindBadge(_retryKind);
-
-    /// <summary>
     /// 지난 회차가 <b>어떻게 끝났나</b>. 창 머리 아래 한 줄로 선다.
     /// </summary>
     /// <remarks>
@@ -317,11 +312,6 @@ public partial class AiTaskActions
         => string.IsNullOrWhiteSpace(kind)
             ? []
             : [.. _usage.Where(u => string.Equals(u.RunnerKind, kind, StringComparison.OrdinalIgnoreCase))];
-
-    private AiUsageText.Badge KindBadge(string? kind)
-        => _usageSeen
-            ? AiUsageText.Of(UsageOf(kind))
-            : new AiUsageText.Badge("한도 확인 중", "jsini-badge--off");
 
     private async Task LoadUsageAsync()
     {

@@ -281,7 +281,7 @@
 
                                             @if (!string.IsNullOrWhiteSpace(t.TargetNm))
                                             {
-                                                <span class="pm-ask__target">@t.TargetNm</span>
+                                                <span class="pm-ask__to">@t.TargetNm</span>
                                             }
 
                                             @if (t.IsUserRequest)
@@ -546,8 +546,9 @@
                                 CanEdit="@CanEdit"
                                 Busy="@Busy"
                                 Targets="@_enabledTargets"
-                                Runners="@WriteRunners"
-                                RunnerBadge="@KindBadge"
+                                Runners="@AllowedRunners"
+                                RunnerUsage="@UsageOf"
+                                UsageSeen="@_usageSeen"
                                 AllowPush="@SelectedTargetAllowsPush"
                                 PushLabel="@PushLabel"
                                 TargetChanged="@PickTarget"
