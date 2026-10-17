@@ -1,0 +1,17 @@
+@*
+    헤더에서 여는 AI 대화 단추.
+    판은 격자 바깥의 AiChatDrawer 가 그린다.
+*@
+@implements IDisposable
+
+@if (ChatMenu is { } chat)
+{
+    @* 아이콘 단추의 좌우 여백을 「조금작게」에서 멈춘다 —
+       이유는 ThemeSize.Chrome 머리말에. 여기만 감싼다. *@
+    <CascadingValue Name="@ThemeSize.CascadeName" TValue="SizeMode?" Value="@Size.Chrome">
+        <DxButton RenderStyle="ButtonRenderStyle.Link"
+                  IconCssClass="jsini-icon-robot"
+                  Title="@ChatTitle(chat)"
+                  Click="@(() => OpenChat(chat))" />
+    </CascadingValue>
+}

@@ -980,10 +980,10 @@ DevExpress 단추의 **좌우 여백**은 `SizeMode` 가 정하기 때문이다.
 |---|---|
 | `HeaderTools` | 자기 단추 넷 |
 | `ThemeToggle` | `.jsini-theme-anchor` 만 (**서랍 속은 아니다**) |
-| `AiChatDrawer` | 여는 단추만 (**`<aside>` 판은 아니다**) |
+| `AiChatToggle` | 여는 단추만 |
 | `CommGrd` | `commgrd__footer` 만 (**표 자신은 아니다**) |
 
-**헤더를 통째로 감싸지 않는다.** 테마 서랍·AI 서랍·사용자 판이 DOM 에서
+**헤더를 통째로 감싸지 않는다.** 사용자 판 등이 DOM 에서
 `.jsini-header` 의 **자손**이라, 통째로 감싸면 그 판들의 내용까지 「조금작게」로
 눌린다. 그것들은 껍데기가 아니라 **내용**이고 사용자가 고른 크기를 따라야 한다.
 

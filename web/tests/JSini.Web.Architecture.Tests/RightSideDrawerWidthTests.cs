@@ -74,6 +74,32 @@ public sealed class RightSideDrawerWidthTests
         Assert.Equal(640, merged.RightDrawerWidthPx);
     }
 
+    [Fact]
+    public void 오른쪽_서랍들은_헤더_안이_아니라_격자_바깥에_배치되어_컨텐츠에_가려지지_않는다()
+    {
+        var mainLayoutRazor = RazorSource.Read(Path.Combine(
+            SolutionRoot(),
+            "src", "Shared", "JSini.Web.Components", "Layout", "MainLayout.razor"));
+
+        var headerStart = mainLayoutRazor.IndexOf("<header class=\"jsini-header\"", StringComparison.Ordinal);
+        var headerEnd = mainLayoutRazor.IndexOf("</header>", headerStart, StringComparison.Ordinal);
+        Assert.True(headerStart >= 0 && headerEnd > headerStart, "MainLayout 에 헤더가 존재해야 합니다.");
+
+        var headerContent = mainLayoutRazor.Substring(headerStart, headerEnd - headerStart);
+        var afterHeader = mainLayoutRazor.Substring(headerEnd);
+
+        // 헤더 안에는 단추만 있고 서랍 판은 없어야 한다
+        Assert.Contains("<AiChatToggle", headerContent);
+        Assert.DoesNotContain("<AiChatDrawer", headerContent);
+        Assert.DoesNotContain("<QuickAskDrawer", headerContent);
+
+        // 서랍 판들은 헤더 바깥(격자 루트)에 위치해야 한다
+        Assert.Contains("<QuickAskDrawer", afterHeader);
+        Assert.Contains("<AiChatDrawer", afterHeader);
+        Assert.Contains("<NotificationInboxDrawer", afterHeader);
+        Assert.Contains("<ThemeSettingsDrawer", afterHeader);
+    }
+
     private static string SolutionRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);

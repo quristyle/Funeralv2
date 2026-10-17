@@ -448,6 +448,9 @@ public static class JSiniWebApp
         // 그 안에 그릴 알맹이는 업무 모듈이 따로 등록한다(QuickAskContent).
         services.AddScoped<QuickAskReveal>();
 
+        // AI 대화 서랍을 헤더 단추에서 여닫는 손잡이. 같은 이유로 scoped 다.
+        services.AddScoped<AiChatReveal>();
+
         // 이 창이 어디서 접속했는지. scoped 인 이유가 잠금과 같다 — 창마다 다르다.
         // 값을 채우는 곳은 SidebarFooter 이고, 왜 그쪽인지는 ClientAddress 머리말에 있다.
         services.AddScoped<ClientAddress>();
