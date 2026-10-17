@@ -2847,7 +2847,17 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   to { transform: rotate(360deg); }
 }
 
-/* 목록 헤더: 좌측에 완료건 일괄확인, 우측에 단 수 조절 */
+/* 목록 헤더: 좌측에 완료건 일괄확인, 우측에 단 수 조절.
+
+   이 줄을 **컨테이너로 삼는다**(`container-type: inline-size`) — 단 수
+   고르개가 아이콘 하나로 접힐지 1·2·3·4 로 펴질지를 창 폭이 아니라 이 줄의
+   폭으로 가르기 위해서다. 같은 판이 화면으로도 서고 오른쪽 서랍 안으로도
+   서는데, 서랍은 데스크탑에서도 300px 까지 좁아진다
+   (`RightSideDrawer.MinWidth`).
+
+   `container-type` 은 `contain: layout` 을 함께 걸어 이 상자가 떠 있는 것
+   (`position: fixed`)의 기준이 된다 — 그래서 **판 전체가 아니라 이 줄에만**
+   건다. 이 줄 안에는 단추 둘뿐이고 창이 없다. */
 .pm-ask__list-head {
   flex: 0 0 auto;
   display: flex;
@@ -2855,6 +2865,9 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   justify-content: space-between;
   gap: 0.5rem;
   margin-bottom: 0.5rem;
+
+  container-type: inline-size;
+  container-name: pm-ask-head;
 }
 
 .pm-ask__list-left {
@@ -2938,7 +2951,9 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   padding: 0;
 }
 
-/* 단 수 아이콘 스위치 */
+/* 단 수 고르개. 한 벌만 적어 두고 **여기서 가른다** —
+   좁으면 순환 아이콘(`.pm-ask__col-btn`) 하나, 넓으면 캡슐형 세그먼트
+   (`.pm-ask__cols-label` + `.pm-ask__col` 넷)다. 맨 아래 컨테이너 질의 참고. */
 .pm-ask__cols {
   flex: 0 0 auto;
   display: inline-flex;
@@ -2946,6 +2961,14 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   border: 1px solid var(--jsini-border);
   border-radius: 999px;
   background: var(--jsini-bg);
+}
+
+/* 바탕(좁은 쪽)은 세그먼트를 접어 둔다. `display: none` 이라 읽어 주는
+   장치에도, 탭 차례에도 들어오지 않는다 — 같은 일을 하는 단추가 둘로
+   읽히면 안 된다. */
+.pm-ask__cols-label,
+.pm-ask__col {
+  display: none;
 }
 
 .pm-ask__col-btn {
@@ -2986,6 +3009,34 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 .pm-ask__col-num {
   font-size: var(--jsini-fs-2xs);
   font-weight: 600;
+}
+
+/* ── 넓은 쪽: 1·2·3·4 가 모두 선다 ─────────────────────────────
+   경계 420px 은 **재어서 고른 값**이다(헤드리스 크롬 · 모형 한 장).
+   이 줄에 함께 서는 것은 왼쪽 「완료건 일괄확인」(배지까지 **156px**)과
+   오른쪽 세그먼트(**157px**)뿐이고, 둘 사이 틈 0.5rem 을 더하면 321px 이다.
+   그보다 좁으면 둘이 서로를 눌러 글자가 깨지므로 여유를 두고 420px 에서
+   편다 — 휴대폰은 판 여백을 빼면 390px 짜리 화면에서도 358px 이라 자연히
+   아이콘 쪽에 남고, 서랍은 넉넉히 끌어 두었을 때만 펴진다(바닥 300px).
+   **단추가 하나 늘면 이 값은 통째로 다시 재야 한다.** */
+@container pm-ask-head (min-width: 420px) {
+  /* 세그먼트는 칸 사이에 틈이 있어야 눌린 칸이 캡슐로 보인다. */
+  .pm-ask__cols {
+    gap: 3px;
+    padding: 3px;
+  }
+
+  .pm-ask__col-btn {
+    display: none;
+  }
+
+  .pm-ask__cols-label {
+    display: inline-block;
+  }
+
+  .pm-ask__col {
+    display: inline-block;
+  }
 }
 
 .pm-ask__cols-label {

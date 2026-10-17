@@ -81,6 +81,55 @@ public sealed class AiAskLayoutTests
     }
 
     [Fact]
+    public void 단_수_고르개는_좁으면_아이콘_하나_넓으면_1234_가_모두_선다()
+    {
+        var razor = PanelRazor();
+        var css = ProjMngCss();
+
+        // 1. 마크업: 두 벌이 한 상자 안에 함께 있다. 좁은 쪽은 순환 아이콘,
+        //    넓은 쪽은 「단」 이름표 + 1·2·3·4 다.
+        Assert.Contains("class=\"pm-ask__col-btn\"", razor, StringComparison.Ordinal);
+        Assert.Contains("CycleCols", razor, StringComparison.Ordinal);
+        Assert.Contains("class=\"pm-ask__cols-label\"", razor, StringComparison.Ordinal);
+        Assert.Contains("class=\"pm-ask__col\"", razor, StringComparison.Ordinal);
+        Assert.Contains("foreach (var n in ColChoices)", razor, StringComparison.Ordinal);
+        Assert.Contains("SetCols(n)", razor, StringComparison.Ordinal);
+        Assert.Contains("aria-pressed=\"@(_cols == n ? \"true\" : \"false\")\"", razor, StringComparison.Ordinal);
+
+        var colsAt = razor.IndexOf("class=\"pm-ask__cols\"", StringComparison.Ordinal);
+        var cycleAt = razor.IndexOf("class=\"pm-ask__col-btn\"", StringComparison.Ordinal);
+        var segAt = razor.IndexOf("class=\"pm-ask__col\"", StringComparison.Ordinal);
+        var scrollAt = razor.IndexOf("class=\"pm-ask__scroll\"", StringComparison.Ordinal);
+
+        Assert.True(cycleAt > colsAt && segAt > cycleAt && scrollAt > segAt,
+            "순환 아이콘과 1·2·3·4 가 같은 .pm-ask__cols 상자 안에, 스크롤 영역 위에 있어야 한다");
+
+        // 2. `_isPhone` 으로 가르지 않는다 — 같은 판이 좁은 서랍 안으로도 선다.
+        Assert.DoesNotContain("_isPhone", razor[colsAt..scrollAt], StringComparison.Ordinal);
+
+        // 3. CSS: 머리 줄이 컨테이너이고, 바탕은 세그먼트를 접어 둔다.
+        var head = Rule(css, ".pm-ask__list-head {");
+        Assert.Contains("container-type: inline-size", head, StringComparison.Ordinal);
+        Assert.Contains("container-name: pm-ask-head", head, StringComparison.Ordinal);
+
+        var folded = Rule(css, ".pm-ask__cols-label,\n.pm-ask__col {");
+        Assert.Contains("display: none", folded, StringComparison.Ordinal);
+
+        // 4. 넓어지면 뒤집힌다 — 컨테이너 질의 안에서 순환 아이콘이 접히고
+        //    이름표·1·2·3·4 가 선다.
+        var queryAt = css.IndexOf("@container pm-ask-head (min-width: 420px)", StringComparison.Ordinal);
+        Assert.True(queryAt >= 0, "컨테이너 질의(@container pm-ask-head)가 있어야 한다");
+
+        var queryEnd = css.IndexOf("\n}", queryAt, StringComparison.Ordinal);
+        Assert.True(queryEnd > queryAt, "컨테이너 질의가 안 닫혔다");
+
+        var wide = css[queryAt..queryEnd];
+        Assert.Contains(".pm-ask__col-btn", wide, StringComparison.Ordinal);
+        Assert.Contains(".pm-ask__cols-label", wide, StringComparison.Ordinal);
+        Assert.Contains(".pm-ask__col", wide, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void 최근_리스트에서_쓸어내려_새로고침하는_인디케이터와_처리기_연결을_갖는다()
     {
         var razor = PanelRazor();
