@@ -41,6 +41,28 @@
 
     브라우저에 적어 둔다(`localStorage`). 왜 서버가 아닌지는 아래 저장 코드의
     주석에 적었다.
+
+    [넘치면 양끝 화살표와 「열린 화면」 목록이 선다]
+
+    탭은 열두 개까지 열린다(`PortalTabs.MaxTabs`). 줄바꿈을 하지 않으므로
+    (`app.css` 의 `.jsini-tabs__list`) 칸을 넘기면 **뒤에 연 탭이 화면 밖으로
+    밀려 나가** 보이지도 눌리지도 않았다. 굴림 막대도 감춰 두어서(`scrollbar-width`)
+    거기에 더 있다는 것조차 안 보였다.
+
+    그래서 **넘칠 때만** 셋을 세운다 — 왼쪽 끝의 「〈」, 오른쪽 끝의 「〉」,
+    그리고 「⋯」 바로 앞의 **열린 화면 목록**. 넘치지 않을 때는 그리지 않는다.
+    늘 세워 두면 아무 일도 못 하는 단추 셋이 탭 자리를 먹는다.
+
+    넘쳤는지는 **브라우저만 안다**(`scrollWidth` 대 `clientWidth`). 그래서
+    `js/tab-scroll.js` 가 재어 되알려 준다 — 그 파일 머리말에 왜 JS 여야 하는지와
+    화살표가 생겼다 사라져도 깜박이지 않는 까닭이 있다.
+
+    [켜진 탭은 가려져 있으면 끌어온다]
+
+    탭이 켜지는 길은 탭을 누르는 것만이 아니다 — 사이드바·즐겨찾기·바로가기·
+    뒤로 가기로 가도 그 탭이 켜진다. 그 탭이 굴림 밖에 있으면 **어느 화면을
+    보고 있는지가 탭 줄에서 사라진다.** 그래서 켜진 주소가 바뀔 때마다 그 탭을
+    보이는 자리까지 끌어온다(`reveal`).
 *@
 
 @implements IDisposable
@@ -50,7 +72,21 @@
 @if (Tabs.Items.Count > 0)
 {
     <div class="jsini-tabs">
-        <div class="jsini-tabs__list">
+        @* 양끝 화살표. **넘칠 때만** 그린다 — 늘 두면 아무 일도 못 하는
+           단추가 탭 자리를 먹는다. 끝에 닿으면 꺼 둔다(`_canLeft`/`_canRight`):
+           눌러도 안 움직이는 단추는 고장으로 읽힌다. *@
+        @if (_over)
+        {
+            <span class="jsini-tabs__nav">
+                <DxButton IconCssClass="jsini-icon-chevron-left"
+                          RenderStyle="ButtonRenderStyle.Link"
+                          Title="앞쪽 탭 보기"
+                          Enabled="@_canLeft"
+                          Click="@(() => StepAsync(-1))" />
+            </span>
+        }
+
+        <div class="jsini-tabs__list" @ref="_list">
             @foreach (var tab in Tabs.Items)
             {
                 var active = string.Equals(tab.Href, Tabs.ActiveHref, StringComparison.OrdinalIgnoreCase);
@@ -78,6 +114,29 @@
             }
         </div>
 
+        @if (_over)
+        {
+            <span class="jsini-tabs__nav">
+                <DxButton IconCssClass="jsini-icon-chevron-right"
+                          RenderStyle="ButtonRenderStyle.Link"
+                          Title="뒤쪽 탭 보기"
+                          Enabled="@_canRight"
+                          Click="@(() => StepAsync(1))" />
+            </span>
+
+            @* 열린 화면 **전부**를 적은 목록. 「⋯」 바로 앞이다.
+
+               화살표는 한 칸씩 밀어 찾는 길이고 이쪽은 **이름으로 바로 집는**
+               길이다. 탭이 열둘까지 가면 화살표만으로는 「그 화면이 어느 쪽에
+               있었는지」를 기억해야 한다. *@
+            <span id="jsini-tabs-all">
+                <DxButton IconCssClass="jsini-icon-tab-list"
+                          RenderStyle="ButtonRenderStyle.Link"
+                          Title="열린 화면"
+                          Click="@OpenAllMenuAsync" />
+            </span>
+        }
+
         @* 오른쪽 끝 단추. 오른쪽 클릭과 **같은 창**을 연다 — 대상만 「보고 있는
            탭」으로 바뀐다. 항목을 따로 적어 두었을 때 셋만 있었고, 그래서
            같은 자리에서 할 수 있는 일이 어느 쪽으로 열었느냐에 따라 달랐다. *@
@@ -88,6 +147,32 @@
                       Click="@OpenMenuForActiveAsync" />
         </span>
     </div>
+
+    @* 열린 화면 목록 창.
+
+       **단추와 함께 그린다**(`@if (_over)`) — `PositionTarget` 이 가리키는
+       `#jsini-tabs-all` 이 넘칠 때만 있는 요소라, 창만 따로 남겨 두면 가리킬
+       자리가 없는 창이 된다.
+
+       닫기·고정 같은 것은 **안 붙인다.** 그런 일은 「⋯」 과 오른쪽 클릭이
+       이미 하고 있고(이 파일 머리말 「메뉴는 하나다」), 여기까지 늘리면
+       같은 일을 하는 창이 둘이 된다. 이 목록이 하는 일은 **가는 것** 하나다. *@
+    @if (_over)
+    {
+        <DxContextMenu @ref="_allMenu" CssClass="jsini-tabmenu" PositionTarget="#jsini-tabs-all">
+            <Items>
+                @foreach (var tab in Tabs.Items)
+                {
+                    @* 보고 있는 탭에는 체크, 고정한 탭에는 압정. 둘 다 아니면
+                       **빈 그림**을 둔다 — 비워 두면 그 줄만 글자가 왼쪽으로
+                       붙어 목록이 들쭉날쭉해진다. *@
+                    <DxContextMenuItem Text="@tab.Title"
+                                       IconCssClass="@AllMenuIcon(tab)"
+                                       Click="@(() => Go(tab))" />
+                }
+            </Items>
+        </DxContextMenu>
+    }
 
     @* 오른쪽 클릭 창. 항목은 `_target` 을 보고 그때그때 이름이 바뀐다
        (고정/고정 해제 · 담기/빼기). 대상이 없으면 아무것도 그리지 않는다. *@

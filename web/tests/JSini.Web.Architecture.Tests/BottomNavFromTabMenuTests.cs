@@ -137,20 +137,62 @@ public sealed class BottomNavFromTabMenuTests
     }
 
     /// <summary>
-    /// 묻는 창은 <c>.jsini-tabs</c> <b>밖</b>에 그린다. 안에 두면 휴대폰에서
-    /// 탭 줄을 통째로 감추므로(<c>display: none</c>) <b>창이 아예 안 뜬다</b> —
-    /// 오른쪽 클릭 창이 같은 이유로 같은 자리에 있다.
+    /// 창들은 <c>.jsini-tabs</c> <b>밖</b>에 그린다. 안에 두면 휴대폰에서
+    /// 탭 줄을 통째로 감추므로(<c>display: none</c>) <b>창이 아예 안 뜬다</b>.
     /// </summary>
+    /// <remarks>
+    /// 끝나는 자리를 <b>세어서</b> 찾는다. 한동안 그 뒤에 오는 주석 글자로
+    /// 집고 있었는데, 탭 줄에 창이 하나 더 붙자(열린 화면 목록) 그 글자가
+    /// 밀려 <b>탭 줄 상자를 못 찾는다</b>로 떨어졌다 — 정작 창들은 제자리였다.
+    /// </remarks>
     [Fact]
-    public void 묻는_창은_감춰지는_탭_줄_밖에_있다()
+    public void 창들은_감춰지는_탭_줄_밖에_있다()
     {
         var razor = File.ReadAllText(TabBarRazorPath());
 
-        var listEnd = razor.IndexOf("</div>\n\n    @* 오른쪽 클릭 창", StringComparison.Ordinal);
-        var dialog = razor.IndexOf("<BottomNavSwapDialog", StringComparison.Ordinal);
+        var listEnd = TabsBoxEnd(razor);
 
         Assert.True(listEnd > 0, "`TabBar.razor` 에서 탭 줄 상자의 끝을 못 찾았다.");
-        Assert.True(dialog > listEnd, "묻는 창이 `.jsini-tabs` 상자 안에 있다 — 휴대폰에서 안 뜬다.");
+
+        foreach (var tag in new[] { "<BottomNavSwapDialog", "<DxContextMenu" })
+        {
+            Assert.True(
+                razor.IndexOf(tag, StringComparison.Ordinal) > listEnd,
+                $"`{tag}` 가 `.jsini-tabs` 상자 안에 있다 — 휴대폰에서 안 뜬다.");
+        }
+    }
+
+    /// <summary>
+    /// <c>.jsini-tabs</c> 상자가 닫히는 자리. 여는 태그부터 <c>&lt;div</c> 와
+    /// <c>&lt;/div&gt;</c> 를 세어 깊이가 0 이 되는 곳이다.
+    /// </summary>
+    private static int TabsBoxEnd(string razor)
+    {
+        var at = razor.IndexOf("<div class=\"jsini-tabs\">", StringComparison.Ordinal);
+
+        if (at < 0)
+        {
+            return -1;
+        }
+
+        var depth = 0;
+
+        for (var i = at; i < razor.Length; i++)
+        {
+            if (string.CompareOrdinal(razor, i, "</div>", 0, 6) == 0)
+            {
+                if (--depth == 0)
+                {
+                    return i;
+                }
+            }
+            else if (string.CompareOrdinal(razor, i, "<div", 0, 4) == 0)
+            {
+                depth++;
+            }
+        }
+
+        return -1;
     }
 
     /// <summary>

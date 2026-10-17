@@ -27,6 +27,9 @@ public partial class TabBar
 
     private DxContextMenu? _menu;
 
+    /// <summary>열린 화면 목록 창. 넘칠 때만 그려진다(<c>_over</c>).</summary>
+    private DxContextMenu? _allMenu;
+
     /// <summary>다섯이 다 찼을 때 무엇과 바꿀지 묻는 창.</summary>
     private BottomNavSwapDialog? _swap;
 
@@ -55,6 +58,40 @@ public partial class TabBar
     /// </para>
     /// </summary>
     private const string PinnedKey = PortalBoot.PinnedTabsKey;
+
+    /* ── 넘치는 탭 줄 ───────────────────────────────────────────
+
+       탭 줄은 줄바꿈 대신 가로로 구른다(`app.css` 의 `.jsini-tabs__list`).
+       그래서 칸을 넘기면 뒤에 연 탭이 화면 밖으로 밀려 나가고, 굴림 막대도
+       감춰 두어서 **거기에 더 있다는 것조차 안 보였다.**
+
+       넘쳤는지와 지금 어디까지 굴러갔는지는 **브라우저만 안다.** `js/tab-scroll.js`
+       가 재어 `OnOverflowChanged` 로 되알려 주고, 그 값으로 양끝 화살표와
+       「열린 화면」 목록을 세운다. 안 넘치면 셋 다 안 그린다. */
+
+    /// <summary>탭 줄의 굴림 상자. JS 가 이 요소를 재고 민다.</summary>
+    private ElementReference _list;
+
+    private IJSObjectReference? _scroll;
+    private DotNetObjectReference<TabBar>? _self;
+
+    /// <summary>JS 를 이 요소에 붙였는가. 탭이 없으면 요소 자체가 없다.</summary>
+    private bool _attached;
+
+    /// <summary>탭이 칸을 넘치는가. 양끝 화살표와 목록 단추가 이 값으로 선다.</summary>
+    private bool _over;
+
+    /// <summary>그쪽으로 더 갈 데가 있는가. 끝에 닿으면 화살표를 꺼 둔다.</summary>
+    private bool _canLeft;
+
+    private bool _canRight;
+
+    /// <summary>
+    /// 마지막으로 <b>보이는 자리까지 끌어온</b> 탭의 주소. 켜진 주소가 이것과
+    /// 달라졌을 때만 끌어온다 — 그리는 때마다 부르면 사람이 손으로 굴려 둔
+    /// 자리를 매번 되돌려 놓는다.
+    /// </summary>
+    private string? _revealed;
 
     protected override void OnInitialized()
     {
@@ -133,6 +170,84 @@ public partial class TabBar
 
     /// <summary>보고 있는 탭. 못 찾으면 첫 탭이고, 탭이 없으면 <c>null</c> 이다.</summary>
     private PortalTab? ActiveTab => Tabs.ActiveTab;
+
+    /* ── 양끝 화살표와 「열린 화면」 목록 ────────────────────────── */
+
+    /// <summary>
+    /// 브라우저가 재어 보낸 것. <b>바뀔 때만</b> 올라온다(<c>tab-scroll.js</c>).
+    /// </summary>
+    /// <param name="over">탭이 칸을 넘치는가.</param>
+    /// <param name="left">왼쪽으로 더 갈 데가 있는가.</param>
+    /// <param name="right">오른쪽으로 더 갈 데가 있는가.</param>
+    [JSInvokable]
+    public void OnOverflowChanged(bool over, bool left, bool right)
+    {
+        _over = over;
+        _canLeft = left;
+        _canRight = right;
+
+        InvokeAsync(StateHasChanged);
+    }
+
+    /// <summary>
+    /// 탭 줄을 한 칸 민다. <c>dir</c> 이 -1 이면 앞쪽, 1 이면 뒤쪽이다.
+    /// </summary>
+    /// <remarks>
+    /// 민 뒤의 상태(끝에 닿았나)는 <b>되묻지 않는다</b> — 굴림이 끝나면 브라우저가
+    /// <c>scroll</c> 로 알려 주고, 그때 화살표가 꺼진다. 여기서 재면 미끄러지는
+    /// 중간값을 읽어 끝에 닿지도 않았는데 단추가 꺼진다.
+    /// </remarks>
+    private async Task StepAsync(int dir)
+    {
+        if (_scroll is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _scroll.InvokeVoidAsync("step", _list, dir);
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or ObjectDisposedException)
+        {
+            // 회로가 닫히는 중이다. 굴리지 못한 것이 전부다.
+        }
+    }
+
+    /// <summary>열린 화면을 모두 적은 목록을 연다.</summary>
+    private async Task OpenAllMenuAsync()
+    {
+        if (_allMenu is not null)
+        {
+            await _allMenu.ShowAsync(ContextMenuPosition.Bottom);
+        }
+    }
+
+    /// <summary>
+    /// 목록 한 줄의 그림. 보고 있는 탭은 체크, 고정한 탭은 압정, 나머지는 빈 자리다.
+    ///
+    /// <para>
+    /// 빈 자리를 <c>jsini-icon-blank</c> 로 채우는 것은 **줄을 맞추기 위해서**다.
+    /// 비워 두면 그 줄만 글자가 왼쪽으로 붙어 목록이 들쭉날쭉해진다.
+    /// </para>
+    /// </summary>
+    private string AllMenuIcon(PortalTab tab) =>
+        IsActive(tab) ? "jsini-icon-check"
+        : tab.Pinned ? "jsini-icon-pin"
+        : "jsini-icon-blank";
+
+    /// <summary>
+    /// 목록에서 고른 탭으로 간다. <b>탭이 라우팅을 하지 않는다</b>(이 파일 머리말) —
+    /// 주소로 옮기고, 옮긴 결과를 보고 탭이 켜진다. 그러면 켜진 탭을 보이는
+    /// 자리까지 끌어오는 일(<see cref="SyncScrollAsync"/>)도 그대로 따라온다.
+    /// </summary>
+    private void Go(PortalTab tab)
+    {
+        if (!IsActive(tab))
+        {
+            Navigation.NavigateTo(tab.Href);
+        }
+    }
 
     private bool IsActive(PortalTab tab) =>
         string.Equals(tab.Href, Tabs.ActiveHref, StringComparison.OrdinalIgnoreCase);
@@ -387,7 +502,76 @@ public partial class TabBar
        것을 되살리면 탭 줄이 한 번 더 그려진다.
     */
 
+    /// <summary>
+    /// 그릴 때마다 <b>굴림 쪽을 먼저 맞춘다.</b> 되살리기는 첫 그림에 한 번뿐이다.
+    /// </summary>
     protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await SyncScrollAsync();
+        await RestoreAsync(firstRender);
+    }
+
+    /// <summary>
+    /// 탭 줄에 JS 를 붙이고, 켜진 탭이 가려져 있으면 끌어온다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 붙이는 일을 <c>firstRender</c> 에 걸지 않는다. 탭이 하나도 없으면
+    /// <b>줄 자체가 안 그려져</b>(<c>@if (Tabs.Items.Count &gt; 0)</c>) 첫 그림에는
+    /// 붙일 요소가 없다. 요소가 선 그림에서 붙는다.
+    /// </para>
+    /// <para>
+    /// 회로가 닫히는 중이면 조용히 넘어간다. 화살표 셋 때문에 화면을 떠나는 것이
+    /// 오류가 되어서는 안 된다(<c>CommGrd.SyncScrollAsync</c> 와 같은 판단).
+    /// </para>
+    /// </remarks>
+    private async Task SyncScrollAsync()
+    {
+        try
+        {
+            if (Tabs.Items.Count == 0)
+            {
+                // 줄이 통째로 사라졌다. 붙여 둔 것은 JS 쪽이 다음에 붙을 때
+                // 스스로 걷는다(떨어져 나간 요소를 쓸어 낸다).
+                _attached = false;
+                _revealed = null;
+                return;
+            }
+
+            _scroll ??= await Js.InvokeAsync<IJSObjectReference>(
+                "import", "./_content/JSini.Web.Components/js/tab-scroll.js");
+
+            if (!_attached)
+            {
+                _self ??= DotNetObjectReference.Create(this);
+
+                await _scroll.InvokeVoidAsync("attach", _list, _self);
+                _attached = true;
+            }
+
+            // 켜진 탭이 바뀌었을 때만 끌어온다. 그릴 때마다 부르면 사람이 손으로
+            // 굴려 둔 자리를 매번 되돌려 놓는다.
+            if (!string.Equals(_revealed, Tabs.ActiveHref, StringComparison.OrdinalIgnoreCase))
+            {
+                // 첫 번째는 미끄러뜨리지 않는다 — 화면이 뜨자마자 탭 줄이
+                // 혼자 흘러가면 무엇이 움직인 것인지 눈이 못 쫓는다.
+                var smooth = _revealed is not null;
+
+                _revealed = Tabs.ActiveHref;
+
+                await _scroll.InvokeVoidAsync("reveal", _list, smooth);
+            }
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or ObjectDisposedException)
+        {
+            // 최악이라야 화살표가 안 서고 켜진 탭이 가려진 채로 있을 뿐이다.
+        }
+    }
+
+    /// <summary>
+    /// 브라우저가 들고 있던 것(고정 탭 · 아래 띠)을 되살린다. 회로마다 한 번이다.
+    /// </summary>
+    private async Task RestoreAsync(bool firstRender)
     {
         if (!firstRender || _restored)
         {
@@ -461,6 +645,12 @@ public partial class TabBar
 
     public void Dispose()
     {
+        // 붙여 둔 관찰자를 여기서 떼지 않는다 — 떠나는 참이라 그 요소를 가리킬
+        // 수 없고, JS 를 부를 수 있는 자리도 아니다(회로가 닫히는 중일 수 있다).
+        // 떨어져 나간 요소는 다음에 붙는 쪽이 쓸어 낸다(`tab-scroll.js` 의 attach).
+        _self?.Dispose();
+        _self = null;
+
         Tabs.Changed -= OnTabsChanged;
         Tabs.PinsChanged -= OnPinsChanged;
         Favorites.Changed -= OnTabsChanged;

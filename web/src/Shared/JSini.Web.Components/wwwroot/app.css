@@ -2090,6 +2090,33 @@ body.jsini-drawer-resizing {
 
 .jsini-tab__close:hover { opacity: 1; }
 
+/* ── 넘칠 때 서는 단추들 ─────────────────────────────────
+
+   앞쪽 화살표 · (탭 줄) · 뒤쪽 화살표 · 열린 화면 목록 · 「⋯」.
+   앞의 셋은 **넘칠 때만** 그려지므로(`TabBar.razor` 의 `_over`) 안 넘치는
+   동안은 탭이 쓰는 자리가 지금까지와 같다.
+
+   `flex: 0 0 auto` 가 중요하다 — 이 줄은 flex 상자이고 탭 줄만 늘어나야
+   하는데(`flex: 1`), 안 묶어 두면 탭이 많을 때 **단추가 먼저 쪼그라들어**
+   그림이 찌그러진다(세로 flex 에서 줄이 눌리던 것과 같은 함정이다).
+   ---------------------------------------------------------- */
+
+.jsini-tabs__nav,
+#jsini-tabs-all,
+#jsini-tabs-more {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* 끝에 닿으면 꺼진다. DevExpress 가 꺼진 단추를 옅게 그리지만, 이 줄은 바탕이
+   테마마다 달라 그것만으로는 켜진 것과 구분이 흐린 테마가 있다. 한 단 더 옅게
+   하고 **손 모양을 지운다** — 눌러도 되는 것처럼 보이지 않게. */
+.jsini-tabs__nav .dxbl-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
 /* ── 브레드크럼 ──────────────────────────────────────────
 
    **헤더 안, 로고 옆이다.** 데모는 본문 위에 제 줄(3rem)로 두는데 우리는
@@ -2231,6 +2258,27 @@ button.jsini-crumbs__item:hover { opacity: 1; }
 .jsini-icon-chevron-down {
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+}
+
+/* 탭 줄의 양끝 화살표. 위 꺾쇠와 **굵기·모서리가 같아야 한다** — `chevron-down`
+   을 돌려 쓰지 않는 것은 `transform` 이 DevExpress 단추 안에서 글자 정렬까지
+   함께 돌리기 때문이고, 갈라 두면 각도가 어긋나므로 같은 획으로 다시 그렸다. */
+.jsini-icon-chevron-left {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 4L6 8l4 4'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 4L6 8l4 4'/%3E%3C/svg%3E");
+}
+
+.jsini-icon-chevron-right {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 4l4 4-4 4'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 4l4 4-4 4'/%3E%3C/svg%3E");
+}
+
+/* 「열린 화면」 목록. **햄버거(`jsini-icon-menu`)를 쓰지 않는다** — 그 그림은
+   헤더에서 사이드바를 여닫는 단추라, 같은 그림이 바로 아래 줄에서 다른 일을
+   하면 어느 쪽이 무엇인지 그림으로는 안 갈린다. 점을 붙여 「목록」으로 읽히게 한다. */
+.jsini-icon-tab-list {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.75 4.5a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0M6 4.5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5M3.75 8a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0M6 8a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7A.5.5 0 0 1 6 8m-2.25 3.5a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0M6 11.5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.75 4.5a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0M6 4.5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5M3.75 8a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0M6 8a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7A.5.5 0 0 1 6 8m-2.25 3.5a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0M6 11.5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5'/%3E%3C/svg%3E");
 }
 
 /* ── 표의 「관리」 칸이 쓰는 아이콘 ────────────────────────────
