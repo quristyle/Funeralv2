@@ -2426,6 +2426,40 @@ ProjMngServer 로 가고, 열쇠가 GUID 가 아니라 번호라 자리를 갈�
 보고 일했는지가 사라진다 — 지시문을 실행 줄에 스냅샷으로 남기는 것
 (`ai_task_run.instruction`)과 같은 까닭이다.
 
+### 8-5.7 **CLI 까지 갔는지를 끝까지 몰아 본 기록** (2026-10-17)
+
+「붙여 보낸 파일이 정말 AI 에게 넘어가는가」는 **운영 자료로는 답이 안 난다** —
+`ai_task_file` 이 이 날까지 한 줄도 없다(묶인 것도 떠 있는 것도 0. 식별자는
+6번까지 나갔으니 올려 본 사람은 있었고, 안 보낸 채 하루가 지나 쓸려 나간
+것들이다). 그래서 **대역 서버와 가짜 CLI 로 한 바퀴 돌려** 확인했다.
+
+- 대역 서버: `/api/ai-runner/claim` 에 첨부 넷을 단 건을 하나 물려 주고
+  (같은 이름 둘 · 한글 이름 하나 · **일부러 403 을 주는 하나**),
+  `runs/1/files/{번호}` 로 바이트를 내준다.
+- 가짜 CLI: `Runner__Adapters__claude__Executable` 을 **stdin 을 파일로
+  받아 적는 셸 하나**로 덮는다. CLI 가 실제로 무엇을 받았는지는 이것 말고는
+  볼 길이 없다.
+- 담장 셋 — `Runner__Queue__Enabled=false` ·
+  `Runner__ServerUrl` 대역 · `Runner__WorkspaceRoot=/tmp/...`.
+  (`UsageEnabled=false` · `StatusSeconds=0` 도 함께. 안 끄면 운영 화면의
+  한도 칸을 이 시험이 덮어쓴다.)
+
+받아 적힌 지시문이 이랬다 — **지시 본문 뒤에 경로가 그대로 붙어 CLI 의
+stdin 으로 들어간다.**
+
+```
+- `…/prompts/task-182-run-1-files/shot.png` — 그림 · 원래 이름 `shot.png` · 26 B
+- `…/prompts/task-182-run-1-files/8-shot.png` — 그림 · 원래 이름 `shot.png` · 26 B
+- `…/prompts/task-182-run-1-files/메모.txt` — 파일 · 원래 이름 `메모.txt` · 43 B
+- (받지 못함) 원래 이름 `없는것.bin` · 3 B
+```
+
+겹친 이름에 번호가 붙고(8-5.4), 못 받은 것이 그 자리에 남고, 내려받은
+바이트가 원본과 같고, 폴더가 작업공간 **밖**(`prompts/…-files/`)이라는 것까지
+같이 확인된다. 묶기 쪽(`BindAsync`)은 운영 DB 에서 **되돌리는 거래
+(`BEGIN`…`ROLLBACK`)** 로 따로 확인했다 — 올린 사람이 다르면 0건, 같으면
+1건이 묶이고 집어가기 질의가 그 줄을 집어 온다.
+
 
 ## 8-3. 끝난 작업에 **이어서 지시하기**
 
