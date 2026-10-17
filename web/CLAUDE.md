@@ -679,7 +679,7 @@ preview.tabler.io 의 생김새를 옮겼다. Fluent · Classic · Bootswatch �
 |---|---|---|
 | 부품 | Bootstrap 5.3 + DevExpress `bootstrap-external.bs5.min.css` | DevExpress 부품을 Bootstrap 변수(`--bs-*`)로 그린다. theme.js 가 싣는다 |
 | 값 | `Components/wwwroot/tabler.css` | 그 `--bs-*` 와 우리 `--jsini-*` 를 **Tabler 값으로 채우고**, 편집기·표·팝업·폼·셸을 Tabler 치수로 입힌다. `<head>` 의 **맨 마지막**에 실린다 |
-| 고르기 | `theme.js` · `ThemeToggle` | 밝기 **3**(밝게·어둡게·**시스템**) · 강조색 12 · 바탕 톤 5(slate/gray/zinc/neutral/stone) · 모서리 · 크기. `<html>` 의 `data-bs-theme` · `data-tb-base` · `data-tb-radius` 와 `--tb-primary` 만 바꾼다 — 파일을 다시 받지 않는다 |
+| 고르기 | `theme.js` · `ThemeToggle` | 밝기 **3**(밝게·어둡게·**시스템**) · 강조색 12 · 바탕 톤 24(스마트 스와치) · 모서리(0~5 슬라이더) · 크기(9단계 슬라이더). `<html>` 의 `data-bs-theme` · `data-tb-base` · `data-tb-radius` 와 `--tb-primary` 만 바꾼다 — 파일을 다시 받지 않는다 |
 
 - **폼 라벨은 칸 위에 둔다**(Tabler `.form-label`). 떠 있는 라벨(`float-label.js`)은 걷었다.
   `DxFormLayout` 은 기본이 가로 배치라 tabler.css 가 세로로 세운다 — 선택자 자릿수를

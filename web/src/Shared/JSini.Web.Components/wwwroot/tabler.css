@@ -34,16 +34,10 @@
   --tb-800: #262626; --tb-900: #171717; --tb-950: #0a0a0a;
 }
 
-:root[data-tb-base='slate'] {
-  --tb-50: #f8fafc; --tb-100: #f1f5f9; --tb-200: #e2e8f0; --tb-300: #cbd5e1;
-  --tb-400: #94a3b8; --tb-500: #64748b; --tb-600: #475569; --tb-700: #334155;
-  --tb-800: #1e293b; --tb-900: #0f172a; --tb-950: #020617;
-}
-
-:root[data-tb-base='gray'] {
-  --tb-50: #f9fafb; --tb-100: #f3f4f6; --tb-200: #e5e7eb; --tb-300: #d1d5db;
-  --tb-400: #9ca3af; --tb-500: #6b7280; --tb-600: #4b5563; --tb-700: #374151;
-  --tb-800: #1f2937; --tb-900: #111827; --tb-950: #030712;
+:root[data-tb-base='stone'] {
+  --tb-50: #fafaf9; --tb-100: #f5f5f4; --tb-200: #e7e5e4; --tb-300: #d6d3d1;
+  --tb-400: #a8a29e; --tb-500: #78716c; --tb-600: #57534e; --tb-700: #44403c;
+  --tb-800: #292524; --tb-900: #1c1917; --tb-950: #0c0a09;
 }
 
 :root[data-tb-base='zinc'] {
@@ -52,10 +46,130 @@
   --tb-800: #27272a; --tb-900: #18181b; --tb-950: #09090b;
 }
 
-:root[data-tb-base='stone'] {
-  --tb-50: #fafaf9; --tb-100: #f5f5f4; --tb-200: #e7e5e4; --tb-300: #d6d3d1;
-  --tb-400: #a8a29e; --tb-500: #78716c; --tb-600: #57534e; --tb-700: #44403c;
-  --tb-800: #292524; --tb-900: #1c1917; --tb-950: #0c0a09;
+:root[data-tb-base='gray'] {
+  --tb-50: #f9fafb; --tb-100: #f3f4f6; --tb-200: #e5e7eb; --tb-300: #d1d5db;
+  --tb-400: #9ca3af; --tb-500: #6b7280; --tb-600: #4b5563; --tb-700: #374151;
+  --tb-800: #1f2937; --tb-900: #111827; --tb-950: #030712;
+}
+
+:root[data-tb-base='slate'] {
+  --tb-50: #f8fafc; --tb-100: #f1f5f9; --tb-200: #e2e8f0; --tb-300: #cbd5e1;
+  --tb-400: #94a3b8; --tb-500: #64748b; --tb-600: #475569; --tb-700: #334155;
+  --tb-800: #1e293b; --tb-900: #0f172a; --tb-950: #020617;
+}
+
+:root[data-tb-base='taupe'] {
+  --tb-50: #fbfaf9; --tb-100: #f3f1f1; --tb-200: #e8e4e3; --tb-300: #d8d2d0;
+  --tb-400: #aba09c; --tb-500: #7c6d67; --tb-600: #5b4f4b; --tb-700: #473c39;
+  --tb-800: #2b2422; --tb-900: #1d1816; --tb-950: #0c0a09;
+}
+
+:root[data-tb-base='olive'] {
+  --tb-50: #fbfbf9; --tb-100: #f4f4f0; --tb-200: #e8e8e3; --tb-300: #d8d8d0;
+  --tb-400: #abab9c; --tb-500: #7c7c67; --tb-600: #5b5b4b; --tb-700: #474739;
+  --tb-800: #2b2b22; --tb-900: #1d1d16; --tb-950: #0c0c09;
+}
+
+:root[data-tb-base='red'] {
+  --tb-50: #fef2f2; --tb-100: #fee2e2; --tb-200: #fecaca; --tb-300: #fca5a5;
+  --tb-400: #f87171; --tb-500: #ef4444; --tb-600: #dc2626; --tb-700: #b91c1c;
+  --tb-800: #991b1b; --tb-900: #7f1d1d; --tb-950: #450a0a;
+}
+
+:root[data-tb-base='orange'] {
+  --tb-50: #fff7ed; --tb-100: #ffedd5; --tb-200: #fed7aa; --tb-300: #fdba74;
+  --tb-400: #fb923c; --tb-500: #f97316; --tb-600: #ea580c; --tb-700: #c2410c;
+  --tb-800: #9a3412; --tb-900: #7c2d12; --tb-950: #431407;
+}
+
+:root[data-tb-base='amber'] {
+  --tb-50: #fffbeb; --tb-100: #fef3c7; --tb-200: #fde68a; --tb-300: #fcd34d;
+  --tb-400: #fbbf24; --tb-500: #f59e0b; --tb-600: #d97706; --tb-700: #b45309;
+  --tb-800: #92400e; --tb-900: #78350f; --tb-950: #451a03;
+}
+
+:root[data-tb-base='yellow'] {
+  --tb-50: #fefce8; --tb-100: #fef9c3; --tb-200: #fef08a; --tb-300: #fde047;
+  --tb-400: #facc15; --tb-500: #eab308; --tb-600: #ca8a04; --tb-700: #a16207;
+  --tb-800: #854d0e; --tb-900: #713f12; --tb-950: #422006;
+}
+
+:root[data-tb-base='lime'] {
+  --tb-50: #f7fee7; --tb-100: #ecfccb; --tb-200: #d9f99d; --tb-300: #bef264;
+  --tb-400: #a3e635; --tb-500: #84cc16; --tb-600: #65a30d; --tb-700: #4d7c0f;
+  --tb-800: #3f6212; --tb-900: #365314; --tb-950: #1a2e05;
+}
+
+:root[data-tb-base='green'] {
+  --tb-50: #f0fdf4; --tb-100: #dcfce7; --tb-200: #bbf7d0; --tb-300: #86efac;
+  --tb-400: #4ade80; --tb-500: #22c55e; --tb-600: #16a34a; --tb-700: #15803d;
+  --tb-800: #166534; --tb-900: #14532d; --tb-950: #052e16;
+}
+
+:root[data-tb-base='emerald'] {
+  --tb-50: #ecfdf5; --tb-100: #d1fae5; --tb-200: #a7f3d0; --tb-300: #6ee7b7;
+  --tb-400: #34d399; --tb-500: #10b981; --tb-600: #059669; --tb-700: #047857;
+  --tb-800: #065f46; --tb-900: #064e3b; --tb-950: #022c22;
+}
+
+:root[data-tb-base='teal'] {
+  --tb-50: #f0fdfa; --tb-100: #ccfbf1; --tb-200: #99f6e4; --tb-300: #5eead4;
+  --tb-400: #2dd4bf; --tb-500: #14b8a6; --tb-600: #0d9488; --tb-700: #0f766e;
+  --tb-800: #115e59; --tb-900: #134e4a; --tb-950: #042f2e;
+}
+
+:root[data-tb-base='cyan'] {
+  --tb-50: #ecfeff; --tb-100: #cffafe; --tb-200: #a5f3fc; --tb-300: #67e8f9;
+  --tb-400: #22d3ee; --tb-500: #06b6d4; --tb-600: #0891b2; --tb-700: #0e7490;
+  --tb-800: #155e75; --tb-900: #164e63; --tb-950: #083344;
+}
+
+:root[data-tb-base='sky'] {
+  --tb-50: #f0f9ff; --tb-100: #e0f2fe; --tb-200: #bae6fd; --tb-300: #7dd3fc;
+  --tb-400: #38bdf8; --tb-500: #0ea5e9; --tb-600: #0284c7; --tb-700: #0369a1;
+  --tb-800: #075985; --tb-900: #0c4a6e; --tb-950: #082f49;
+}
+
+:root[data-tb-base='blue'] {
+  --tb-50: #eff6ff; --tb-100: #dbeafe; --tb-200: #bfdbfe; --tb-300: #93c5fd;
+  --tb-400: #60a5fa; --tb-500: #3b82f6; --tb-600: #2563eb; --tb-700: #1d4ed8;
+  --tb-800: #1e40af; --tb-900: #1e3a8a; --tb-950: #172554;
+}
+
+:root[data-tb-base='indigo'] {
+  --tb-50: #eef2ff; --tb-100: #e0e7ff; --tb-200: #c7d2fe; --tb-300: #a5b4fc;
+  --tb-400: #818cf8; --tb-500: #6366f1; --tb-600: #4f46e5; --tb-700: #4338ca;
+  --tb-800: #3730a3; --tb-900: #312e81; --tb-950: #1e1b4b;
+}
+
+:root[data-tb-base='violet'] {
+  --tb-50: #f5f3ff; --tb-100: #ede9fe; --tb-200: #ddd6fe; --tb-300: #c4b5fd;
+  --tb-400: #a78bfa; --tb-500: #8b5cf6; --tb-600: #7c3aed; --tb-700: #6d28d9;
+  --tb-800: #5b21b6; --tb-900: #4c1d95; --tb-950: #2e1065;
+}
+
+:root[data-tb-base='purple'] {
+  --tb-50: #faf5ff; --tb-100: #f3e8ff; --tb-200: #e9d5ff; --tb-300: #d8b4fe;
+  --tb-400: #c084fc; --tb-500: #a855f7; --tb-600: #9333ea; --tb-700: #7e22ce;
+  --tb-800: #6b21a8; --tb-900: #581c87; --tb-950: #3b0764;
+}
+
+:root[data-tb-base='fuchsia'] {
+  --tb-50: #fdf4ff; --tb-100: #fae8ff; --tb-200: #f5d0fe; --tb-300: #f0abfc;
+  --tb-400: #e879f9; --tb-500: #d946ef; --tb-600: #c026d3; --tb-700: #a21caf;
+  --tb-800: #86198f; --tb-900: #701a75; --tb-950: #4a044e;
+}
+
+:root[data-tb-base='pink'] {
+  --tb-50: #fdf2f8; --tb-100: #fce7f3; --tb-200: #fbcfe8; --tb-300: #f9a8d4;
+  --tb-400: #f472b6; --tb-500: #ec4899; --tb-600: #db2777; --tb-700: #be185d;
+  --tb-800: #9d174d; --tb-900: #831843; --tb-950: #500724;
+}
+
+:root[data-tb-base='rose'] {
+  --tb-50: #fff1f2; --tb-100: #ffe4e6; --tb-200: #fecdd3; --tb-300: #fda4af;
+  --tb-400: #fb7185; --tb-500: #f43f5e; --tb-600: #e11d48; --tb-700: #be123c;
+  --tb-800: #9f1239; --tb-900: #881337; --tb-950: #4c0519;
 }
 
 /* ── 2. Tabler 토큰 ─────────────────────────────────────── */
@@ -94,6 +208,12 @@
 :root[data-tb-radius='1'] { --tb-radius-scale: 1; }
 :root[data-tb-radius='1.5'] { --tb-radius-scale: 1.5; }
 :root[data-tb-radius='2'] { --tb-radius-scale: 2; }
+:root[data-tb-radius='2.5'] { --tb-radius-scale: 2.5; }
+:root[data-tb-radius='3'] { --tb-radius-scale: 3; }
+:root[data-tb-radius='3.5'] { --tb-radius-scale: 3.5; }
+:root[data-tb-radius='4'] { --tb-radius-scale: 4; }
+:root[data-tb-radius='4.5'] { --tb-radius-scale: 4.5; }
+:root[data-tb-radius='5'] { --tb-radius-scale: 5; }
 
 :root,
 :root[data-bs-theme='light'] {
@@ -1233,6 +1353,75 @@ a { color: var(--tb-primary); }
 
 .tb-swatch--on {
   box-shadow: 0 0 0 2px var(--tb-surface), 0 0 0 4px var(--swatch);
+}
+
+.tb-custom__value {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--tb-primary);
+}
+
+.tb-slider-box {
+  width: 100%;
+  padding: 0.25rem 0;
+}
+
+.tb-range-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--tb-surface-3);
+  outline: none;
+  margin: 0.5rem 0;
+  cursor: pointer;
+  transition: background 0.15s ease-in-out;
+}
+
+.tb-range-slider:focus-visible {
+  box-shadow: 0 0 0 2px var(--tb-surface), 0 0 0 4px var(--tb-primary);
+}
+
+.tb-range-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 50%;
+  background: var(--tb-primary);
+  border: 2px solid var(--tb-surface);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  transition: transform 0.1s ease-in-out;
+}
+
+.tb-range-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+.tb-range-slider::-moz-range-thumb {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 50%;
+  background: var(--tb-primary);
+  border: 2px solid var(--tb-surface);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  transition: transform 0.1s ease-in-out;
+}
+
+.tb-range-slider::-moz-range-thumb:hover {
+  transform: scale(1.15);
+}
+
+.tb-slider-ticks {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.6875rem;
+  color: var(--tb-muted);
+  padding: 0 2px;
+  user-select: none;
 }
 
 /* 스크롤 막대 — 굵기·색은 app.css 한 곳에서만 정한다.

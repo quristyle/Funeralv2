@@ -44,8 +44,67 @@ public partial class ThemeSettingsDrawer
     private string _base = "neutral";
     private string _radius = "1";
     private string _font = "play";
+    private string _sizeStep = "medium";
 
-    private bool IsSize(string id) => Size.Step == id;
+    private bool IsSize(string id) => (Size.Step ?? _sizeStep) == id;
+
+    private int GetSizeMax() => _catalog.Sizes.Count > 0 ? _catalog.Sizes.Count - 1 : 8;
+
+    private int GetSizeIndex(string step)
+    {
+        var list = _catalog.Sizes;
+        if (list.Count == 0) return 4;
+        for (var i = 0; i < list.Count; i++)
+        {
+            if (list[i].Id == step) return i;
+        }
+        return 4;
+    }
+
+    private string GetSizeName(string step)
+    {
+        var list = _catalog.Sizes;
+        for (var i = 0; i < list.Count; i++)
+        {
+            if (list[i].Id == step) return list[i].Name;
+        }
+        return "보통";
+    }
+
+    private void OnRadiusInput(string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            _radius = value;
+            StateHasChanged();
+        }
+    }
+
+    private async Task SetRadiusAsync(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return;
+        _radius = value;
+        await SetAsync("setRadius", value);
+    }
+
+    private void OnSizeInput(string? value)
+    {
+        if (int.TryParse(value, out var idx) && idx >= 0 && idx < _catalog.Sizes.Count)
+        {
+            _sizeStep = _catalog.Sizes[idx].Id;
+            StateHasChanged();
+        }
+    }
+
+    private async Task OnSizeChangeAsync(string? value)
+    {
+        if (int.TryParse(value, out var idx) && idx >= 0 && idx < _catalog.Sizes.Count)
+        {
+            var id = _catalog.Sizes[idx].Id;
+            _sizeStep = id;
+            await SetSizeAsync(id);
+        }
+    }
 
     /// <summary>
     /// 그 밝기 칸에 세울 그림 이름. 목록이 들고 온 것을 그대로 쓰고,
@@ -82,6 +141,10 @@ public partial class ThemeSettingsDrawer
         {
             Read(new Current(theme.Mode, theme.Color, theme.Base, theme.Radius, theme.Size, theme.Font));
             StateHasChanged();
+        }
+        else
+        {
+            _sizeStep = Size.Step ?? "medium";
         }
     }
 
@@ -121,6 +184,7 @@ public partial class ThemeSettingsDrawer
         _base = c.Base ?? "neutral";
         _radius = c.Radius ?? "1";
         _font = c.Font ?? "play";
+        _sizeStep = c.Size ?? Size.Step ?? "medium";
 
         Size.Set(c.Size);
     }

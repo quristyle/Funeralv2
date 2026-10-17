@@ -152,22 +152,47 @@
     { id: 'cyan', name: 'Cyan', swatch: '#17a2b8' },
   ];
 
-  /** 바탕 톤. 색 값은 tabler.css 의 `[data-tb-base]` 에 있다 — 여기는 네모 색만. */
+  /** 바탕 톤 (24종류). 색 값은 tabler.css 의 `[data-tb-base]` 에 있다 — 여기는 네모 색만. */
   var BASES = [
     { id: 'neutral', name: 'Neutral', swatch: '#737373' },
-    { id: 'slate', name: 'Slate', swatch: '#64748b' },
-    { id: 'gray', name: 'Gray', swatch: '#6b7280' },
-    { id: 'zinc', name: 'Zinc', swatch: '#71717a' },
     { id: 'stone', name: 'Stone', swatch: '#78716c' },
+    { id: 'zinc', name: 'Zinc', swatch: '#71717a' },
+    { id: 'gray', name: 'Gray', swatch: '#6b7280' },
+    { id: 'slate', name: 'Slate', swatch: '#64748b' },
+    { id: 'taupe', name: 'Taupe', swatch: '#7c6d67' },
+    { id: 'olive', name: 'Olive', swatch: '#7c7c67' },
+    { id: 'red', name: 'Red', swatch: '#ef4444' },
+    { id: 'orange', name: 'Orange', swatch: '#f97316' },
+    { id: 'amber', name: 'Amber', swatch: '#f59e0b' },
+    { id: 'yellow', name: 'Yellow', swatch: '#eab308' },
+    { id: 'lime', name: 'Lime', swatch: '#84cc16' },
+    { id: 'green', name: 'Green', swatch: '#22c55e' },
+    { id: 'emerald', name: 'Emerald', swatch: '#10b981' },
+    { id: 'teal', name: 'Teal', swatch: '#14b8a6' },
+    { id: 'cyan', name: 'Cyan', swatch: '#06b6d4' },
+    { id: 'sky', name: 'Sky', swatch: '#0ea5e9' },
+    { id: 'blue', name: 'Blue', swatch: '#3b82f6' },
+    { id: 'indigo', name: 'Indigo', swatch: '#6366f1' },
+    { id: 'violet', name: 'Violet', swatch: '#8b5cf6' },
+    { id: 'purple', name: 'Purple', swatch: '#a855f7' },
+    { id: 'fuchsia', name: 'Fuchsia', swatch: '#d946ef' },
+    { id: 'pink', name: 'Pink', swatch: '#ec4899' },
+    { id: 'rose', name: 'Rose', swatch: '#f43f5e' },
   ];
 
-  /** 모서리 배율. 뿌리 값(6px · 8px)에 곱한다. */
+  /** 모서리 배율 (0 ~ 5). 뿌리 값(6px · 8px)에 곱한다. */
   var RADII = [
     { id: '0', name: '0' },
     { id: '0.5', name: '0.5' },
     { id: '1', name: '1' },
     { id: '1.5', name: '1.5' },
     { id: '2', name: '2' },
+    { id: '2.5', name: '2.5' },
+    { id: '3', name: '3' },
+    { id: '3.5', name: '3.5' },
+    { id: '4', name: '4' },
+    { id: '4.5', name: '4.5' },
+    { id: '5', name: '5' },
   ];
 
   /**
@@ -413,6 +438,7 @@
     root.setAttribute('data-tb-color', color.id);
     root.setAttribute('data-tb-base', spec.base);
     root.setAttribute('data-tb-radius', spec.radius);
+    root.style.setProperty('--tb-radius-scale', spec.radius);
 
     if (spec.font && spec.font !== 'system') root.setAttribute('data-tb-font', spec.font);
     else root.removeAttribute('data-tb-font');
@@ -493,6 +519,16 @@
     return DEFAULT.size;
   }
 
+  /** 0 ~ 5 범위의 모서리 배율 (0.5 단위). */
+  function normalizeRadius(value) {
+    var num = parseFloat(value);
+    if (!isNaN(num) && num >= 0 && num <= 5) {
+      var step = Math.round(num * 2) / 2;
+      return String(step);
+    }
+    return DEFAULT.radius;
+  }
+
   /**
    * 저장된 값을 지금 아는 모양으로 좁힌다. 모르는 값은 기본값으로.
    *
@@ -516,7 +552,7 @@
       mode: mode || DEFAULT.mode,
       color: find(COLORS, spec.color) ? spec.color : DEFAULT.color,
       base: find(BASES, spec.base) ? spec.base : DEFAULT.base,
-      radius: find(RADII, spec.radius) ? spec.radius : DEFAULT.radius,
+      radius: normalizeRadius(spec.radius),
       size: normalizeSize(spec.size),
       font: find(FONTS, spec.font) ? spec.font : DEFAULT.font,
     };
