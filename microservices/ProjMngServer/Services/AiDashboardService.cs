@@ -577,6 +577,14 @@ public sealed class AiDashboardService(
     /// <summary>
     /// 시간별 AI 모델 사용량 추이 (최근 24시간, 주간 사용량 비율 %).
     /// </summary>
+    /// <remarks>
+    /// <b>한 번의 보고에 줄이 여럿인 CLI 가 있어 두 번 접는다</b> — 안쪽에서
+    /// 한 시각의 한도 줄들을 <c>MAX</c> 로 하나로 접고, 바깥에서 그 값을 시간으로
+    /// 평균한다. 줄 단위로 바로 평균하면 <i>한 주머니가 찼는데 다른 주머니가
+    /// 비어서 선이 반으로 내려앉는다.</i> 막히는 것은 평균이 아니라 넷 중
+    /// 하나가 100%에 닿는 순간이다(<c>AiUsageText.TopPct</c> 와 같은 규칙).
+    /// 일별·월별도 같은 모양이다.
+    /// </remarks>
     private async Task<List<AiUsageTrendPoint>> UsageHourlyAsync(IDbConnection db)
     {
         try
@@ -593,13 +601,19 @@ public sealed class AiDashboardService(
                             date_trunc('hour', {NowKst}),
                             interval '1 hour') AS h(hour)
                   LEFT JOIN (
-                        SELECT date_trunc('hour', (observed_at AT TIME ZONE 'Asia/Seoul')) AS bucket,
-                               ROUND(AVG(week_pct) FILTER (WHERE runner_kind = 'claude')::numeric, 1) AS claude_pct,
-                               ROUND(AVG(week_pct) FILTER (WHERE runner_kind = 'antigravity')::numeric, 1) AS antigravity_pct,
-                               ROUND(AVG(COALESCE(week_pct, month_pct)) FILTER (WHERE runner_kind = 'copilot')::numeric, 1) AS copilot_pct,
-                               ROUND(AVG(COALESCE(week_pct, month_pct))::numeric, 1) AS avg_pct
-                          FROM projmng.ai_usage_history
-                         WHERE (observed_at AT TIME ZONE 'Asia/Seoul') >= date_trunc('hour', {NowKst}) - interval '23 hours'
+                        SELECT bucket,
+                               ROUND(AVG(pct) FILTER (WHERE runner_kind = 'claude')::numeric, 1) AS claude_pct,
+                               ROUND(AVG(pct) FILTER (WHERE runner_kind = 'antigravity')::numeric, 1) AS antigravity_pct,
+                               ROUND(AVG(pct) FILTER (WHERE runner_kind = 'copilot')::numeric, 1) AS copilot_pct,
+                               ROUND(AVG(pct)::numeric, 1) AS avg_pct
+                          FROM (
+                                SELECT date_trunc('hour', (observed_at AT TIME ZONE 'Asia/Seoul')) AS bucket,
+                                       runner_kind, runner_nm, observed_at,
+                                       MAX(COALESCE(week_pct, month_pct)) AS pct
+                                  FROM projmng.ai_usage_history
+                                 WHERE (observed_at AT TIME ZONE 'Asia/Seoul') >= date_trunc('hour', {NowKst}) - interval '23 hours'
+                                 GROUP BY 1, 2, 3, 4
+                          ) k
                          GROUP BY 1
                   ) s ON s.bucket = h.hour
                  ORDER BY h.hour
@@ -629,14 +643,20 @@ public sealed class AiDashboardService(
                   FROM generate_series(@from::timestamp, @to::timestamp - interval '1 day',
                                        interval '1 day') AS d(day)
                   LEFT JOIN (
-                        SELECT date_trunc('day', (observed_at AT TIME ZONE 'Asia/Seoul')) AS bucket,
-                               ROUND(AVG(week_pct) FILTER (WHERE runner_kind = 'claude')::numeric, 1) AS claude_pct,
-                               ROUND(AVG(week_pct) FILTER (WHERE runner_kind = 'antigravity')::numeric, 1) AS antigravity_pct,
-                               ROUND(AVG(COALESCE(week_pct, month_pct)) FILTER (WHERE runner_kind = 'copilot')::numeric, 1) AS copilot_pct,
-                               ROUND(AVG(COALESCE(week_pct, month_pct))::numeric, 1) AS avg_pct
-                          FROM projmng.ai_usage_history
-                         WHERE (observed_at AT TIME ZONE 'Asia/Seoul') >= @from
-                           AND (observed_at AT TIME ZONE 'Asia/Seoul') <  @to
+                        SELECT bucket,
+                               ROUND(AVG(pct) FILTER (WHERE runner_kind = 'claude')::numeric, 1) AS claude_pct,
+                               ROUND(AVG(pct) FILTER (WHERE runner_kind = 'antigravity')::numeric, 1) AS antigravity_pct,
+                               ROUND(AVG(pct) FILTER (WHERE runner_kind = 'copilot')::numeric, 1) AS copilot_pct,
+                               ROUND(AVG(pct)::numeric, 1) AS avg_pct
+                          FROM (
+                                SELECT date_trunc('day', (observed_at AT TIME ZONE 'Asia/Seoul')) AS bucket,
+                                       runner_kind, runner_nm, observed_at,
+                                       MAX(COALESCE(week_pct, month_pct)) AS pct
+                                  FROM projmng.ai_usage_history
+                                 WHERE (observed_at AT TIME ZONE 'Asia/Seoul') >= @from
+                                   AND (observed_at AT TIME ZONE 'Asia/Seoul') <  @to
+                                 GROUP BY 1, 2, 3, 4
+                          ) k
                          GROUP BY 1
                   ) s ON s.bucket = d.day
                  ORDER BY d.day
@@ -668,13 +688,19 @@ public sealed class AiDashboardService(
                             date_trunc('month', {NowKst}),
                             interval '1 month') AS m(mon)
                   LEFT JOIN (
-                        SELECT date_trunc('month', (observed_at AT TIME ZONE 'Asia/Seoul')) AS bucket,
-                               ROUND(AVG(week_pct) FILTER (WHERE runner_kind = 'claude')::numeric, 1) AS claude_pct,
-                               ROUND(AVG(week_pct) FILTER (WHERE runner_kind = 'antigravity')::numeric, 1) AS antigravity_pct,
-                               ROUND(AVG(COALESCE(week_pct, month_pct)) FILTER (WHERE runner_kind = 'copilot')::numeric, 1) AS copilot_pct,
-                               ROUND(AVG(COALESCE(week_pct, month_pct))::numeric, 1) AS avg_pct
-                          FROM projmng.ai_usage_history
-                         WHERE (observed_at AT TIME ZONE 'Asia/Seoul') >= date_trunc('month', {NowKst}) - interval '11 months'
+                        SELECT bucket,
+                               ROUND(AVG(pct) FILTER (WHERE runner_kind = 'claude')::numeric, 1) AS claude_pct,
+                               ROUND(AVG(pct) FILTER (WHERE runner_kind = 'antigravity')::numeric, 1) AS antigravity_pct,
+                               ROUND(AVG(pct) FILTER (WHERE runner_kind = 'copilot')::numeric, 1) AS copilot_pct,
+                               ROUND(AVG(pct)::numeric, 1) AS avg_pct
+                          FROM (
+                                SELECT date_trunc('month', (observed_at AT TIME ZONE 'Asia/Seoul')) AS bucket,
+                                       runner_kind, runner_nm, observed_at,
+                                       MAX(COALESCE(week_pct, month_pct)) AS pct
+                                  FROM projmng.ai_usage_history
+                                 WHERE (observed_at AT TIME ZONE 'Asia/Seoul') >= date_trunc('month', {NowKst}) - interval '11 months'
+                                 GROUP BY 1, 2, 3, 4
+                          ) k
                          GROUP BY 1
                   ) s ON s.bucket = m.mon
                  ORDER BY m.mon
