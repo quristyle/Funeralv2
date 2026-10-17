@@ -20,6 +20,8 @@ public partial class HeaderTools
     [Inject] private NotificationClient Notifications { get; set; } = default!;
     [Inject] private NotificationDrawer NotificationDrawerHandle { get; set; } = default!;
     [Inject] private ThemeSize Size { get; set; } = default!;
+    [Inject] private HeaderIconManager HeaderIcons { get; set; } = default!;
+    [Inject] private IPermissionContext Permissions { get; set; } = default!;
 
     /// <summary>
     /// 사용자 판을 접는 손잡이. <b>이 띠의 단추가 여는 것은 모두 그 판 뒤로
@@ -107,8 +109,16 @@ public partial class HeaderTools
     /// <summary>서랍으로 열리나. 휴대폰이거나 알맹이가 없으면 거짓이다.</summary>
     private bool AskDocks => !IsPhone && Ask.CanDock;
 
-    /// <summary>빠른 지시 단추를 그릴 수 있나. 책상 화면에서는 서랍이 준비되었거나 메뉴 권한이 있으면 그린다.</summary>
-    private bool CanShowAsk => AskMenu is not null || AskDocks;
+    /// <summary>빠른 지시 단추를 그릴 수 있나. 책상 화면에서는 서랍이 준비되었거나 메뉴 권한이 있으면 그리고, 환경설정에서 켜져 있어야 한다.</summary>
+    private bool CanShowAsk => (AskMenu is not null || AskDocks) && HeaderIcons.IsIconEnabled("quick_ask");
+
+    /// <summary>쪽지 단추를 그릴 수 있나. 메뉴 권한이 있고 환경설정에서 켜져 있어야 한다.</summary>
+    private bool CanShowNote => (MenuLookup.Find(Menus.VisibleMenus, "admin.note.write", "/admin/note/write") != null || Permissions.CanView("/admin/note/write"))
+                                && HeaderIcons.IsIconEnabled("note");
+
+    /// <summary>알림 단추를 그릴 수 있나. 메뉴 권한이 있고 환경설정에서 켜져 있어야 한다.</summary>
+    private bool CanShowNotification => (MenuLookup.Find(Menus.VisibleMenus, "admin.push.history", "/system/push/history") != null || Permissions.CanView("/system/push/history"))
+                                        && HeaderIcons.IsIconEnabled("notification");
 
     /// <summary>
     /// ⚡ 에 얹는 글. <b>누르면 무엇이 일어나는지를 적는다</b> — 같은 단추가
@@ -155,6 +165,7 @@ public partial class HeaderTools
     protected override void OnInitialized()
     {
         Favorites.Changed += OnFavoritesChanged;
+        HeaderIcons.Changed += OnFavoritesChanged;
 
         // 화면을 옮길 때마다 안 읽은 수를 다시 센다. **쪽지함에서 읽고 나왔는데
         // 숫자가 그대로면 그것이 고장으로 보인다** — 이 부품은 레이아웃에 붙어
@@ -391,6 +402,7 @@ public partial class HeaderTools
     public void Dispose()
     {
         Favorites.Changed -= OnFavoritesChanged;
+        HeaderIcons.Changed -= OnFavoritesChanged;
         Menus.MenusChanged -= OnFavoritesChanged;
         Ask.Changed -= OnFavoritesChanged;
         NotificationDrawerHandle.Read -= CountUnreadAsync;

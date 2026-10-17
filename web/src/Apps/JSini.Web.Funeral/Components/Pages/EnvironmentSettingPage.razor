@@ -1,4 +1,4 @@
-﻿@page "/funeral/setting/environment"
+@page "/funeral/setting/environment"
 @attribute [RouteKey("funeral.setting.environment")]
 
 @*
@@ -358,6 +358,51 @@
                     ValueChanged="@((string val) => OnToastPositionChangedAsync(val))"
                     Style="width: 160px;" />
     </div>
+</section>
+
+</div>
+
+@* ── 상단 아이콘 ───────────────────────────────────────────
+
+   레이아웃 상단 헤더에 표시되는 빠른 도구 아이콘들의 사용 여부를 설정한다.
+   사용자 권한이 부여된 아이콘만 목록에 나타나며, 스위치로 사용 여부를 제어한다.
+   설정은 계정에 저장되어 기기에 구애받지 않고 유지된다. *@
+<div class="fn-env__group">
+
+<h2 class="jsini-subhead">상단 아이콘</h2>
+
+<section class="jsini-settings">
+    @if (PermittedHeaderIcons.Count == 0)
+    {
+        <div class="jsini-setting">
+            <div class="jsini-setting__desc text-muted">사용 가능한 상단 아이콘이 없습니다.</div>
+        </div>
+    }
+    else
+    {
+        @foreach (var icon in PermittedHeaderIcons)
+        {
+            <div class="jsini-setting">
+                <div>
+                    <div class="jsini-setting__name">
+                        @if (!string.IsNullOrWhiteSpace(icon.Icon))
+                        {
+                            <span class="@icon.Icon me-1" aria-hidden="true"></span>
+                        }
+                        @icon.Title
+                    </div>
+                    @if (!string.IsNullOrWhiteSpace(icon.Description))
+                    {
+                        <div class="jsini-setting__desc">@icon.Description</div>
+                    }
+                </div>
+
+                <DxCheckBox CheckType="CheckType.Switch"
+                            Checked="@HeaderIcons.IsIconEnabled(icon.IconKey)"
+                            CheckedChanged="@((bool v) => OnHeaderIconToggledAsync(icon.IconKey, v))" />
+            </div>
+        }
+    }
 </section>
 
 </div>

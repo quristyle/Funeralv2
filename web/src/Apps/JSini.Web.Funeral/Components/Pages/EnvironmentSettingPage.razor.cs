@@ -1,8 +1,9 @@
-﻿using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components;
 using JSini.Web.Abstractions;
 using JSini.Web.Components.Data;
 using JSini.Web.Components.Layout;
 using JSini.Web.Components.Settings;
+using JSini.Web.Models;
 
 namespace JSini.Web.Funeral.Components.Pages;
 
@@ -12,6 +13,7 @@ public partial class EnvironmentSettingPage
     [Inject] private IMenuProvider Menus { get; set; } = default!;
     [Inject] private CurrentUser Me { get; set; } = default!;
     [Inject] private HomePathClient Home { get; set; } = default!;
+    [Inject] private HeaderIconManager HeaderIcons { get; set; } = default!;
 
     // ── 홈 화면 ─────────────────────────────────────────────────
     //
@@ -38,6 +40,8 @@ public partial class EnvironmentSettingPage
         Me.Changed += OnMeChanged;
         _homeChoice = PortalHome.ToChoice(Me.HomePath);
 
+        HeaderIcons.Changed += OnHeaderIconsChanged;
+
         // 떠다니는 단추는 **이 화면 말고 다른 자리에서도 고쳐진다** — 그 단추를
         // 길게 누르면 그 자리에서 제 설정이 열린다(`FabHoldMenu`). 휴대폰에서는
         // 이 화면을 보는 **동안에도** 그 단추가 떠 있으므로, 안 듣고 있으면
@@ -52,6 +56,7 @@ public partial class EnvironmentSettingPage
     public void Dispose()
     {
         Me.Changed -= OnMeChanged;
+        HeaderIcons.Changed -= OnHeaderIconsChanged;
 
         Boot.FabPositionChanged -= OnFabPositionChangedFromElsewhere;
         Boot.FabHiddenChanged -= OnFabHiddenChangedFromElsewhere;
@@ -89,6 +94,19 @@ public partial class EnvironmentSettingPage
         _homeChoice = PortalHome.ToChoice(Me.HomePath);
         StateHasChanged();
     });
+
+    private void OnHeaderIconsChanged() => _ = InvokeAsync(StateHasChanged);
+
+    /// <summary>
+    /// 현재 사용자에게 권한이 부여된 상단 아이콘 목록.
+    /// </summary>
+    private IReadOnlyList<LayoutHeaderIconDto> PermittedHeaderIcons =>
+        HeaderIcons.GetPermittedIcons(Permissions);
+
+    private async Task OnHeaderIconToggledAsync(string iconKey, bool enabled)
+    {
+        await HeaderIcons.SetIconEnabledAsync(iconKey, enabled);
+    }
 
     /// <summary>이 목록을 만들 때 본 메뉴 트리. 참조로 비교한다.</summary>
     private IReadOnlyList<MenuNode>? _homeSource;

@@ -80,9 +80,19 @@ public class AppDbContext : DbContext
     /// <summary>배치를 받을 역할들</summary>
     public DbSet<ReportMailScheduleRole> ReportMailScheduleRoles { get; set; }
 
+    /// <summary>레이아웃 상단 도구 아이콘 목록 및 기본 사용 여부</summary>
+    public DbSet<LayoutHeaderIcon> LayoutHeaderIcons { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<LayoutHeaderIcon>(entity =>
+        {
+            entity.ToTable("layout_header_icons", "scom");
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.IconKey).IsUnique();
+        });
 
         // 재설정은 토큰 해시로만 찾는다. 색인이 없으면 링크를 누를 때마다
         // 표를 통째로 훑는다 — 그리고 이 표는 지우지 않고 쌓인다.

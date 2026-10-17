@@ -46,4 +46,9 @@ public class PortalBootstrapDto
     /// </para>
     /// </remarks>
     public JsonElement Preferences { get; set; }
+
+    /// <summary>
+    /// 레이아웃 상단 도구 아이콘 목록 및 기본 사용 여부.
+    /// </summary>
+    public List<LayoutHeaderIconDto> HeaderIcons { get; set; } = [];
 }

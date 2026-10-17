@@ -4,7 +4,7 @@
 *@
 @implements IDisposable
 
-@if (ChatMenu is { } chat)
+@if (ChatMenu is { } chat && HeaderIcons.IsIconEnabled("ai_chat"))
 {
     @* 아이콘 단추의 좌우 여백을 「조금작게」에서 멈춘다 —
        이유는 ThemeSize.Chrome 머리말에. 여기만 감싼다. *@

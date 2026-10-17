@@ -40,6 +40,7 @@ public sealed class PortalBootstrap(
     MenuFavorites favorites,
     CurrentUser me,
     PortalPrefs prefs,
+    HeaderIconManager headerIcons,
     ILogger<PortalBootstrap> logger)
 {
     /// <summary>넷을 채운다. 통에 있으면 게이트웨이를 부르지 않는다.</summary>
@@ -113,6 +114,9 @@ public sealed class PortalBootstrap(
         // **왕복을 아끼려고 여기 실려 온다**(`PortalPrefs` 머리말).
         prefs.Seed(wire.Preferences);
         KeepPrefsFresh(wire);
+
+        // 여섯째 — 레이아웃 상단 도구 아이콘 목록 및 기본값 설정
+        headerIcons.Apply(wire.HeaderIcons);
     }
 
     /// <summary>
@@ -209,6 +213,9 @@ public sealed class PortalBootstrap(
         /// </summary>
         [JsonPropertyName("preferences")]
         public JsonElement Preferences { get; set; }
+
+        [JsonPropertyName("headerIcons")]
+        public List<JSini.Web.Models.LayoutHeaderIconDto> HeaderIcons { get; set; } = [];
 
         /// <summary>
         /// 이 응답으로 만든 메뉴 트리를 기억하는 통.

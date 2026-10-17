@@ -403,6 +403,9 @@ public static class JSiniWebApp
         // 레이아웃이 뜰 때 넷을 한 번에 읽는 자리(PortalBootstrap 머리말).
         services.AddScoped<PortalBootstrap>();
 
+        // 레이아웃 상단 도구 아이콘 관리자
+        services.AddScoped<Layout.HeaderIconManager>();
+
         // 계정에 담긴 화면 설정(휴대폰 아래 띠 · 바로가기 단추 사용 여부 ·
         // 토스트 자리). **브라우저가 아니라 사람에게 붙는다** — 기기가
         // 달라도 같은 띠가 떠야 한다는 것이 그 다섯의 요구다(PortalPrefs 머리말).

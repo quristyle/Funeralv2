@@ -2,11 +2,14 @@
     테마 서랍을 여는 단추.
 *@
 
-<CascadingValue Name="@ThemeSize.CascadeName" TValue="SizeMode?" Value="@Size.Chrome">
-    <span class="jsini-theme-anchor">
-        <DxButton RenderStyle="ButtonRenderStyle.Link"
-                  IconCssClass="jsini-icon-palette"
-                  Title="테마"
-                  Click="@ToggleAsync" />
-    </span>
-</CascadingValue>
+@if (IsEnabled)
+{
+    <CascadingValue Name="@ThemeSize.CascadeName" TValue="SizeMode?" Value="@Size.Chrome">
+        <span class="jsini-theme-anchor">
+            <DxButton RenderStyle="ButtonRenderStyle.Link"
+                      IconCssClass="jsini-icon-palette"
+                      Title="테마"
+                      Click="@ToggleAsync" />
+        </span>
+    </CascadingValue>
+}

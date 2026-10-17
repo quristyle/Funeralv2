@@ -38,7 +38,8 @@ public static class PortalBootstrapEndpoints
             [FromServices] IMenuService menuService,
             [FromServices] IMenuFavoriteService favoriteService,
             [FromServices] IUserService userService,
-            [FromServices] IAccountPreferenceService preferenceService) =>
+            [FromServices] IAccountPreferenceService preferenceService,
+            [FromServices] AuthServer.Data.AppDbContext db) =>
         {
             if (user is null)
             {
@@ -62,6 +63,23 @@ public static class PortalBootstrapEndpoints
             // 때마다 왕복이 하나씩 늘어난다 — 이 묶음이 막으려던 바로 그것이다.
             var preferences = await preferenceService.GetAsync(user.UserId);
 
+            // 레이아웃 상단 도구 아이콘 목록 및 기본값 설정
+            var headerIcons = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync(
+                System.Linq.Queryable.Select(
+                    System.Linq.Queryable.OrderBy(
+                        System.Linq.Queryable.Where(db.LayoutHeaderIcons, x => !x.IsDeleted),
+                        x => x.OrderNo),
+                    x => new LayoutHeaderIconDto(
+                        x.Id,
+                        x.IconKey,
+                        x.Title,
+                        x.Icon,
+                        x.RouteKey,
+                        x.Path,
+                        x.DefaultEnabled,
+                        x.OrderNo,
+                        x.Description)));
+
             return Results.Ok(ApiResponse<PortalBootstrapDto>.Ok(new PortalBootstrapDto
             {
                 Menus = menus,
@@ -69,8 +87,32 @@ public static class PortalBootstrapEndpoints
                 Favorites = favorites,
                 User = info,
                 Preferences = preferences,
+                HeaderIcons = headerIcons,
             }));
         })
         .WithName("GetPortalBootstrap");
+
+        app.MapGet("/layout/header-icons", async (
+            [FromServices] AuthServer.Data.AppDbContext db) =>
+        {
+            var headerIcons = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.ToListAsync(
+                System.Linq.Queryable.Select(
+                    System.Linq.Queryable.OrderBy(
+                        System.Linq.Queryable.Where(db.LayoutHeaderIcons, x => !x.IsDeleted),
+                        x => x.OrderNo),
+                    x => new LayoutHeaderIconDto(
+                        x.Id,
+                        x.IconKey,
+                        x.Title,
+                        x.Icon,
+                        x.RouteKey,
+                        x.Path,
+                        x.DefaultEnabled,
+                        x.OrderNo,
+                        x.Description)));
+
+            return Results.Ok(ApiResponse<List<LayoutHeaderIconDto>>.Ok(headerIcons));
+        })
+        .WithName("GetLayoutHeaderIcons");
     }
 }

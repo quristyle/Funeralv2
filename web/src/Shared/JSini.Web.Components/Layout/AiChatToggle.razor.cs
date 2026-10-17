@@ -12,6 +12,7 @@ public partial class AiChatToggle
     [Inject] private NavigationManager Navigation { get; set; } = default!;
     [Inject] private UserMenuDrawer UserDrawer { get; set; } = default!;
     [Inject] private AiChatReveal Reveal { get; set; } = default!;
+    [Inject] private HeaderIconManager HeaderIcons { get; set; } = default!;
 
     /// <summary>
     /// 휴대폰인가. 🤖 가 하는 일이 이 값으로 갈린다 — 책상에서는 판을
@@ -58,6 +59,7 @@ public partial class AiChatToggle
     {
         Menus.MenusChanged += OnChanged;
         Reveal.Changed += OnChanged;
+        HeaderIcons.Changed += OnChanged;
     }
 
     private void OnChanged() => InvokeAsync(StateHasChanged);
@@ -66,5 +68,6 @@ public partial class AiChatToggle
     {
         Menus.MenusChanged -= OnChanged;
         Reveal.Changed -= OnChanged;
+        HeaderIcons.Changed -= OnChanged;
     }
 }
