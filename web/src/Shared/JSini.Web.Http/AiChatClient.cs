@@ -174,15 +174,20 @@ public sealed class AiChatClient(HttpClient http)
     /// 화면이 따로 올리지 않는다. 비우면 아무 데도 안 남는다.
     /// </param>
     /// <param name="cancellationToken">서랍을 닫거나 화면을 떠나면 끊는다.</param>
+    /// <param name="preferRag">
+    /// 사내 자료(RAG)를 먼저 뒤질지. 켜면 맞는 사내 문서가 있을 때
+    /// <b>웹은 안 뒤지고</b>, 없으면 웹·모델로 간다. 끄면 사내 문서를 안 본다.
+    /// </param>
     public async IAsyncEnumerable<AiChatPart> StreamAsync(
         IReadOnlyList<AiChatMessage> messages,
         string? sessionId = null,
+        bool preferRag = true,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "ai/chat/stream")
         {
             // System.Net.Http.Json 기본이 웹 규칙(camelCase)이라 서버 바인딩과 맞는다.
-            Content = JsonContent.Create(new { messages, sessionId }),
+            Content = JsonContent.Create(new { messages, sessionId, preferRag }),
         };
         request.Headers.Accept.ParseAdd("text/event-stream");
 

@@ -156,6 +156,28 @@ public partial class AiChatPanel
 
     [Inject] private IJSRuntime Js { get; set; } = default!;
 
+    [Inject] private PortalBoot Boot { get; set; } = default!;
+
+    /// <summary>
+    /// 사내 자료(RAG)를 먼저 뒤질지. <b>기본은 켬</b>이고 기기에 남는다
+    /// (<see cref="PortalBoot.AiRagOffKey"/>).
+    /// </summary>
+    private bool _preferRag = true;
+
+    /// <summary>
+    /// 고르개를 눌렀을 때. 저장은 <see cref="PortalBoot"/> 가 한다.
+    /// </summary>
+    /// <remarks>
+    /// <b>지금 쓰고 있는 대화에 곧바로 먹는다</b> — 다음에 보내는 질문부터
+    /// 적용되고, 이미 받은 답은 그대로 둔다. 되돌려 다시 묻는 길을 주지 않는
+    /// 까닭은 그것이 같은 질문을 한 번 더 치는 것과 다르지 않기 때문이다.
+    /// </remarks>
+    private async Task OnPreferRagChangedAsync(ChangeEventArgs e)
+    {
+        _preferRag = e.Value is bool b ? b : !_preferRag;
+        await Boot.SetAiPreferRagAsync(_preferRag);
+    }
+
     /// <summary>
     /// 지금 대화의 제목. 고르개와 이름 바꾸기 칸이 쓴다.
     /// </summary>
@@ -474,7 +496,8 @@ public partial class AiChatPanel
             // 마지막 빈 칸은 보내지 않는다 — 서버 문맥에 빈 답이 섞인다.
             var context = _messages.Take(_messages.Count - 1).ToList();
 
-            await foreach (var part in Chat.StreamAsync(context, turnSession, _cts.Token))
+            await foreach (var part in Chat.StreamAsync(
+                context, turnSession, _preferRag, _cts.Token))
             {
                 if (part.IsUsedMarker && part.Notice is { Length: > 0 } used)
                 {
@@ -595,6 +618,26 @@ public partial class AiChatPanel
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        // 고른 적이 있으면 그것을 따른다. **회로가 붙은 뒤에만 읽는다** —
+        // 프리렌더에는 브라우저가 없다. 왕복은 안 는다(`PortalBoot` 가 레이아웃의
+        // 한 번 읽기에 실어 온다).
+        if (firstRender && RendererInfo.IsInteractive)
+        {
+            try
+            {
+                var boot = await Boot.ReadAsync();
+                if (boot.AiPreferRag != _preferRag)
+                {
+                    _preferRag = boot.AiPreferRag;
+                    StateHasChanged();
+                }
+            }
+            catch (Exception ex) when (ex is JSException or InvalidOperationException)
+            {
+                // 못 읽으면 기본값(켬)으로 둔다. 대화를 막을 일이 아니다.
+            }
+        }
+
         // Enter 막이는 **한 번만** 건다. 글상자가 그려진 뒤여야 하므로
         // 여기서 걸고, JS 쪽도 같은 칸에 두 번 걸리지 않게 표시를 남긴다.
         if (!_enterArmed)

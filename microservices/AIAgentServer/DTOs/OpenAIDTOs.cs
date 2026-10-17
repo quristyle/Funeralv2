@@ -15,6 +15,26 @@ public class ChatRequestDto
     public string? Provider { get; set; }
 
     /// <summary>
+    /// 사내 문서(RAG)를 먼저 뒤질지. <b>안 보내면 켠 것으로 본다.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 켜면 사내 문서를 먼저 찾고, <b>맞는 것이 있으면 웹은 안 뒤진다</b>
+    /// (<c>Mcp:SkipWhenRagScore</c>). 없으면 그때 웹과 모델이 아는 것으로 간다.
+    /// </para>
+    /// <para>
+    /// 끄면 사내 문서를 아예 안 본다 — 쓰임새가 분명하다. 올려 둔 매뉴얼과
+    /// 상관없는 것을 물을 때 그 문서가 끼어들지 않게 하는 것이고,
+    /// 실제로 그렇게 끼어들어 모델이 엉뚱한 답을 한 적이 있다.
+    /// </para>
+    /// <para>
+    /// <b>기본값을 「켬」으로 두는 까닭</b> — 안 보내는 옛 화면과 다른 부르는
+    /// 자리(요약 · 번역 따위)가 지금까지와 같이 돌아야 한다.
+    /// </para>
+    /// </remarks>
+    public bool? PreferRag { get; set; }
+
+    /// <summary>
     /// 쓸 모델. 사용자가 환경설정에서 고른 값이며 <b>공급자가 모델 선택을 허용할
     /// 때만</b> 쓰인다(지금은 OpenRouter).
     /// </summary>

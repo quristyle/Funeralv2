@@ -172,6 +172,22 @@ public sealed class PortalBoot(IJSRuntime js, PortalPrefs prefs, ILogger<PortalB
     public const string GeoAskNeverKey = "jsini-geo-ask-never";
 
     /// <summary>
+    /// AI 대화에서 <b>사내 자료를 안 뒤질지</b>. 비어 있으면 뒤지는 것이 기본이다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 켜면 올려 둔 사내 문서(RAG)를 먼저 찾고, 맞는 것이 있으면 웹은 안
+    /// 뒤진다. 없으면 그때 웹과 모델이 아는 것으로 간다.
+    /// </para>
+    /// <para>
+    /// <b>계정이 아니라 기기에 남긴다.</b> 같은 사람이 자리를 옮겨 가며
+    /// 묻는 것이 다르다 — 업무 자리에서는 매뉴얼을 보고 싶고 밖에서는
+    /// 일반적인 것을 묻는다. 테마·글자 크기와 같은 갈래다.
+    /// </para>
+    /// </remarks>
+    public const string AiRagOffKey = "jsini-ai-rag-off";
+
+    /// <summary>
     /// 이 브라우저에서 <b>위치 일을 마지막으로 다룬</b> 때(UTC, <c>o</c> 꼴).
     /// </summary>
     /// <remarks>
@@ -436,6 +452,7 @@ public sealed class PortalBoot(IJSRuntime js, PortalPrefs prefs, ILogger<PortalB
         PushAskSnoozeKey,
         GeoAskNeverKey,
         GeoSyncedAtKey,
+        AiRagOffKey,
         FabPositionKey,
         FabHiddenKey,
         HelpDeskFabPositionKey,
@@ -904,6 +921,34 @@ public sealed class PortalBoot(IJSRuntime js, PortalPrefs prefs, ILogger<PortalB
 
         Remember(state => state.WithZoomUnlocked(unlocked));
         ZoomUnlockedChanged?.Invoke(unlocked);
+    }
+
+    /// <summary>AI 대화의 「사내 자료 우선」이 바뀌었을 때 알린다.</summary>
+    public event Action<bool>? AiPreferRagChanged;
+
+    /// <summary>
+    /// AI 대화에서 <b>사내 자료를 먼저 뒤질지</b>를 저장한다.
+    /// </summary>
+    /// <remarks>
+    /// 기본이 「켬」이라 <b>끌 때만 적는다</b>. 켜면 열쇠를 지운다 —
+    /// 적어 둘 것이 없고, 남겨 두면 기본값이 바뀌는 날 두 뜻이 생긴다.
+    /// </remarks>
+    public async Task SetAiPreferRagAsync(bool prefer)
+    {
+        try
+        {
+            if (prefer) await js.InvokeVoidAsync("localStorage.removeItem", AiRagOffKey);
+            else await js.InvokeVoidAsync("localStorage.setItem", AiRagOffKey, "1");
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException)
+        {
+            logger.LogDebug(ex, "사내 자료 우선 여부를 브라우저에 남기지 못했다.");
+        }
+
+        // **읽어 둔 한 벌도 함께 고친다.** 안 고치면 업무를 옮겨 레이아웃이
+        // 새로 생길 때 옛 값이 되살아난다(FabHoldMenu 에서 밟은 그 자리).
+        Remember(state => state.WithAiPreferRag(prefer));
+        AiPreferRagChanged?.Invoke(prefer);
     }
 
     /// <summary>아래 띠를 쓸지가 바뀌었을 때 알린다.</summary>
@@ -1512,6 +1557,11 @@ public sealed class PortalBoot(IJSRuntime js, PortalPrefs prefs, ILogger<PortalB
         public bool ZoomUnlocked { get; private set; }
 
         /// <summary>
+        /// AI 대화에서 사내 자료(RAG)를 먼저 뒤질지. <b>기본은 켬이다.</b>
+        /// </summary>
+        public bool AiPreferRag { get; private set; } = true;
+
+        /// <summary>
         /// 이 한 벌에서 <b>한 칸만 갈아 끼운 새 것.</b> 나머지는 그대로 옮긴다.
         /// </summary>
         /// <remarks>
@@ -1572,6 +1622,8 @@ public sealed class PortalBoot(IJSRuntime js, PortalPrefs prefs, ILogger<PortalB
 
         internal BrowserState WithZoomUnlocked(bool value) => Patch(c => c.ZoomUnlocked = value);
 
+        internal BrowserState WithAiPreferRag(bool value) => Patch(c => c.AiPreferRag = value);
+
         /// <summary>
         /// 계정에 담긴 것들을 얹은 새 한 벌(<see cref="PortalPrefs"/>).
         /// </summary>
@@ -1625,6 +1677,10 @@ public sealed class PortalBoot(IJSRuntime js, PortalPrefs prefs, ILogger<PortalB
             ToastPositionStored = Get(wire.Local, ToastPositionKey),
             GeoSyncMinutes = NormalizeGeoSyncMinutes(Minutes(Get(wire.Local, GeoSyncIntervalKey))),
             ZoomUnlocked = Has(wire.Local, ZoomUnlockedKey),
+
+            // **적혀 있으면 끈 것이다.** 기본이 「켬」이라 켠 상태에는 적을
+            // 것이 없다 — 아래 띠·알림 권유의 열쇠들과 같은 규칙이다.
+            AiPreferRag = !Has(wire.Local, AiRagOffKey),
         };
 
         /// <summary>

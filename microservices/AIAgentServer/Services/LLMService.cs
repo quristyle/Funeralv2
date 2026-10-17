@@ -67,13 +67,21 @@ public interface ILLMService
     /// 쓸 모델. <b>공급자가 모델 선택을 허용할 때만</b> 쓰인다(지금은 OpenRouter).
     /// 믿을 수 없는 입력이라 서버가 무료 여부를 확인한다.
     /// </param>
+    /// <param name="preferRag">
+    /// 사내 문서를 먼저 뒤질지. 켜면 맞는 것이 있을 때 <b>웹은 안 뒤지고</b>,
+    /// 없으면 웹·모델로 간다. 끄면 사내 문서를 아예 안 본다.
+    /// </param>
     Task<string> ChatAsync(
         List<Message> messages,
         string? provider = null,
         bool allowFailover = true,
-        string? model = null);
+        string? model = null,
+        bool preferRag = true);
+
+    /// <inheritdoc cref="ChatAsync"/>
     IAsyncEnumerable<ChatStreamPart> StreamChatAsync(
-        List<Message> messages, string? provider = null, string? model = null);
+        List<Message> messages, string? provider = null, string? model = null,
+        bool preferRag = true);
 }
 
 /// <summary>
@@ -174,7 +182,8 @@ public class LLMService : ILLMService
         List<Message> messages,
         string? provider = null,
         bool allowFailover = true,
-        string? model = null)
+        string? model = null,
+        bool preferRag = true)
     {
         var target = _registry.Resolve(provider);
         EnsureSystemPrompt(messages, ChatSystemPrompt);
@@ -182,7 +191,10 @@ public class LLMService : ILLMService
         // 사내 문서에서 근거를 찾아 시스템 프롬프트에 붙인다(RAG).
         // 못 찾거나 임베딩 서버가 죽어 있으면 조용히 건너뛴다 — 자료가 없다고
         // 대화를 막을 까닭은 없다.
-        var ragHit = await _rag.AugmentAsync(messages);
+        //
+        // **사람이 끌 수 있다**(`preferRag`). 끄면 아예 안 뒤진다 — 올려 둔
+        // 매뉴얼과 상관없는 것을 물을 때 그 문서가 끼어들지 않게 하는 길이다.
+        var ragHit = preferRag ? await _rag.AugmentAsync(messages) : null;
 
         // 사내 문서에서 못 찾은 것만 웹에서 찾는다. 기본은 꺼져 있다
         // (Mcp:AugmentChat) — 켜면 질문마다 "찾아볼까" 를 묻는 왕복이 하나 는다.
@@ -258,13 +270,15 @@ public class LLMService : ILLMService
     }
 
     public async IAsyncEnumerable<ChatStreamPart> StreamChatAsync(
-        List<Message> messages, string? provider = null, string? model = null)
+        List<Message> messages, string? provider = null, string? model = null,
+        bool preferRag = true)
     {
         var target = _registry.Resolve(provider);
         EnsureSystemPrompt(messages, ChatSystemPrompt);
 
         // 자료를 붙이고, 무엇을 참고했는지 **답과 섞이지 않게** 안내로 내보낸다.
-        var ragHit = await _rag.AugmentAsync(messages);
+        // 사람이 「사내 자료 우선」을 끄면 사내 문서는 건너뛰고 웹·모델로 간다.
+        var ragHit = preferRag ? await _rag.AugmentAsync(messages) : null;
         if (ragHit is not null)
         {
             yield return ChatStreamPart.Info(ragHit.Notice, "rag");

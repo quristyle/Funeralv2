@@ -102,7 +102,23 @@ public sealed class FileServerClient
         req.Headers.TryAddWithoutValidation(
             "X-User-Id", string.IsNullOrWhiteSpace(who) ? SystemActor : who);
 
-        var res = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+        HttpResponseMessage res;
+        try
+        {
+            res = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // **던지지 않는다.** 부르는 쪽은 색인을 만드는 고리라, 여기서 던지면
+            // 파일 **하나**를 못 받은 것이 그 카테고리의 색인을 통째로 멎게 한다.
+            // 못 받은 문서는 「실패」로 적히고 나머지는 계속 간다.
+            //
+            // 실제로 밟았다 — 파일 서버가 바깥 호스트로 302 를 주는 환경에서
+            // 그 호스트가 안 풀려 색인이 첫 문서에서 끝났다.
+            _logger.LogWarning(ex, "파일 서버에서 {Id} 를 받지 못했습니다.", fileId);
+            return null;
+        }
+
         if (!res.IsSuccessStatusCode)
         {
             _logger.LogWarning(

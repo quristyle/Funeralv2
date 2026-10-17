@@ -31,6 +31,16 @@ public sealed class RagStore
     /// <summary>한 문서에서 가져올 수 있는 최대 토막 수.</summary>
     private const int MaxPerSource = 2;
 
+    /// <summary>
+    /// 이 점수를 넘는 벡터 일치는 <b>RRF 보다 먼저</b> 집는다.
+    /// </summary>
+    /// <remarks>
+    /// <c>Rag:MinVectorScore</c>(자료로 쓸 최소 점수)와 같은 값으로 둔다 —
+    /// 어차피 그 아래는 쓰는 쪽이 걸러 내므로, 여기서 먼저 집어 봐야 버려진다.
+    /// 실측에서 사내 질문은 0.71~0.78, 상관없는 질문은 0.26~0.32 로 갈렸다.
+    /// </remarks>
+    private const double StrongVectorScore = 0.60;
+
     private static readonly Regex Hangul = new(@"[가-힣]{2,}", RegexOptions.Compiled);
 
     private readonly ILogger<RagStore> _logger;
@@ -292,10 +302,44 @@ public sealed class RagStore
         // 가져갔고, 정답이 든 짧은 문서가 그 아래로 밀렸다.
         var perSource = new Dictionary<string, int>(StringComparer.Ordinal);
         var picked = new List<RagHit>();
+        var seeded = new HashSet<int>();
+
+        // **확실한 벡터 일치는 먼저 집는다.**
+        //
+        // RRF 는 벡터 1위와 낱말 1위를 **같은 무게**로 섞는다. 둘 다 어중간한
+        // 토막(벡터 3위 · 낱말 2위)이 **벡터 1위지만 낱말 400위**인 토막을
+        // 이기는 일이 생기는데, 0.77 짜리 코사인 일치는 어중간한 것이 아니다.
+        //
+        // 실제로 밟았다 — 올린 사내 문서 한 장(그 카테고리 안에서 0.770)이
+        // 저장소 문서 784토막에 밀려 **상위 4 안에도 못 들었고**, 그래서
+        // 「사내 자료 우선」을 켜도 웹으로 샜다. 말투를 조금만 바꿔도 들었다
+        // 나갔다 해서 더 나빴다.
+        //
+        // 어중간한 것까지 끌어올리지는 않는다 — 문턱 아래는 전처럼 RRF 가 정한다.
+        if (queryVector is not null)
+        {
+            foreach (var (idx, _) in all
+                         .Select((x, i) => (i, x.Vec))
+                         .Where(x => x.Vec >= StrongVectorScore)
+                         .OrderByDescending(x => x.Vec))
+            {
+                if (picked.Count >= topK) break;
+
+                var (chunk, vec, kw) = all[idx];
+                var usedHere = perSource.GetValueOrDefault(chunk.Source);
+                if (usedHere >= MaxPerSource) continue;
+
+                perSource[chunk.Source] = usedHere + 1;
+                picked.Add(new RagHit(chunk, fused.GetValueOrDefault(idx), vec, kw));
+                seeded.Add(idx);
+            }
+        }
 
         foreach (var kv in fused.OrderByDescending(x => x.Value))
         {
             if (picked.Count >= topK) break;
+
+            if (seeded.Contains(kv.Key)) continue;
 
             var (chunk, vec, kw) = all[kv.Key];
             var used = perSource.GetValueOrDefault(chunk.Source);

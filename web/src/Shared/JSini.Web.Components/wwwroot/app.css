@@ -6941,12 +6941,36 @@ a.jsini-social__btn:focus-visible {
   100% { transform: scale(1); }
 }
 
-.jsini-chat__disclaimer {
+/* 입력칸 아래 고르개 줄. 「AI는 실수를 할 수 있습니다」 안내가 있던 자리다. */
+.jsini-chat__opts {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
   margin: 0.45rem 0 0;
-  text-align: center;
-  font-size: 11px;
+}
+
+.jsini-chat__opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: var(--jsini-fs-xs);
   color: var(--jsini-text-muted);
-  opacity: 0.75;
+  cursor: pointer;
+  user-select: none;
+}
+
+/* 켜면 글자도 함께 또렷해진다 — 체크 하나만으로는 작은 글씨에서 잘 안 보인다. */
+.jsini-chat__opt:has(.jsini-chat__opt-box:checked) .jsini-chat__opt-text {
+  color: var(--jsini-text);
+  font-weight: 600;
+}
+
+.jsini-chat__opt-box {
+  width: 0.9rem;
+  height: 0.9rem;
+  margin: 0;
+  accent-color: var(--tb-primary);
+  cursor: pointer;
 }
 
 

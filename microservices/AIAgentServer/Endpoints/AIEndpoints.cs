@@ -756,7 +756,8 @@ public static class AIEndpoints
             try
             {
                 var reply = await llmService.ChatAsync(
-                    request.Messages, provider, allowFailover: true, model: request.Model);
+                    request.Messages, provider, allowFailover: true, model: request.Model,
+                    preferRag: request.PreferRag ?? true);
                 return Results.Ok(ApiResponse<string>.Ok(reply));
             }
             catch (AiProviderException ex)
@@ -810,8 +811,9 @@ public static class AIEndpoints
 
             try
             {
+                // **안 보내면 켠 것으로 본다** — 옛 화면이 그대로 돌아야 한다.
                 await foreach (var part in llmService.StreamChatAsync(
-                    request.Messages, provider, request.Model))
+                    request.Messages, provider, request.Model, request.PreferRag ?? true))
                 {
                     if (part.Notice is null && part.Text is { Length: > 0 } saved)
                     {
