@@ -518,6 +518,14 @@ public class UserService : IUserService
                 DeptId = a.DepartmentId,
                 DeptName = a.Department?.Name,
                 CreatedAt = a.CreatedAt,
+
+                // 「들어온 때」와 「마지막으로 쓴 때」. 둘 다 계정 표의 칸이라
+                // 조인이 없다 — 기록 표를 줄마다 집계하면 예순 줄짜리 목록이
+                // 수만 줄을 훑게 된다(DTO 머리말).
+                LastLoginAt = a.LastLoginAt,
+                LastLoginIp = a.LastLoginIp,
+                LastSeenAt = a.LastSeenAt,
+
                 RoleIds = rolesInfo?.RoleIds ?? new List<string>(),
                 RoleNames = rolesInfo?.RoleNames ?? new List<string>(),
 

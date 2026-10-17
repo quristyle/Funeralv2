@@ -20,6 +20,30 @@ public class AccountDto
     public string? DeptId { get; set; }
     public string? DeptName { get; set; }
     public DateTime CreatedAt { get; set; }
+
+    /// <summary>
+    /// 마지막으로 <b>로그인한</b> 시각 (UTC). 한 번도 없으면 <c>null</c>.
+    /// </summary>
+    /// <remarks>
+    /// <c>scom.accounts.last_login_at</c> 그대로다. 줄마다
+    /// <c>account_login_logs</c> 를 집계하지 않는 까닭은 그 표가 계정 하나에
+    /// 수백 줄이고, 목록은 예순 줄을 한꺼번에 그리기 때문이다.
+    /// </remarks>
+    public DateTime? LastLoginAt { get; set; }
+
+    /// <summary>마지막 로그인 때의 접속 IP. 목록의 설명 풍선에 쓴다.</summary>
+    public string? LastLoginIp { get; set; }
+
+    /// <summary>
+    /// 마지막으로 포털을 <b>쓴</b> 시각 (UTC). 한 번도 없으면 <c>null</c>.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="LastLoginAt"/> 과 가르는 까닭은 <c>Entities.Account.LastSeenAt</c>
+    /// 머리말에 있다 — 브라우저가 토큰을 들고 있으면 로그인 화면을 안 거치므로
+    /// <b>로그인 시각만 보면 매일 쓰는 사람도 「한 달 전 사람」으로 보인다.</b>
+    /// </remarks>
+    public DateTime? LastSeenAt { get; set; }
+
     public List<string> RoleIds { get; set; } = new();
     public List<string> RoleNames { get; set; } = new();
 

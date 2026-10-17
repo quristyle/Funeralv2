@@ -51,6 +51,7 @@ public interface IMenuUsageService
 /// <inheritdoc />
 public sealed class MenuUsageService(
     AppDbContext db,
+    IAccountActivityService activity,
     ILogger<MenuUsageService> logger) : IMenuUsageService
 {
     /// <summary>
@@ -106,6 +107,13 @@ public sealed class MenuUsageService(
         });
 
         await db.SaveChangesAsync(ct);
+
+        // 화면을 옮긴 것이 「쓰고 있다」의 신호다 — 계정의 마지막 사용시각을
+        // 여기서 민다. 포털은 한 회로 안에서 라우팅만 바뀌어 서버로 요청이
+        // 안 나가므로(이 파일 머리말) **이 길 말고는 찍을 자리가 없다.**
+        // 너무 잦은 갱신은 그쪽이 1분 간격으로 거른다.
+        await activity.TouchAsync(loginId, ct);
+
         await SweepAsync(ct);
 
         return true;

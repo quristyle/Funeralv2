@@ -487,6 +487,55 @@ public partial class UserList
         return flat;
     }
 
+    /// <summary>
+    /// 「얼마나 지났나」 한 마디. 시각 밑에 흐리게 덧붙인다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 예순 줄을 훑는 눈이 찾는 것은 날짜가 아니라 <b>오래된 정도</b>다.
+    /// <c>2026-07-02</c> 를 보고 오늘과 빼는 일을 줄마다 시키면 아무도 안 한다.
+    /// </para>
+    /// <para>
+    /// <b>「오늘·어제」는 한국 달력으로 센다.</b> 서버가 주는 것은 UTC 이고,
+    /// 그대로 빼서 24시간으로 나누면 한국의 오전 아홉 시 전 아홉 시간 동안
+    /// <b>오늘 아침에 쓴 것이 「어제」</b>로 나온다
+    /// (<c>docs/utc-time.md</c>). 날짜로 바꿔 놓고 날 수를 센다.
+    /// </para>
+    /// </remarks>
+    private static string Ago(DateTime? utc)
+    {
+        if (utc is null) return string.Empty;
+
+        var days = AppTime.Today.DayNumber - DateOnly.FromDateTime(AppTime.ToKorea(utc.Value)).DayNumber;
+
+        return days switch
+        {
+            // 시계가 어긋나 미래로 적힌 줄. 「-3일 전」보다는 아무 말도 안 하는 것이 낫다.
+            < 0 => string.Empty,
+            0 => "오늘",
+            1 => "어제",
+            < 7 => $"{days}일 전",
+            < 30 => $"{days / 7}주 전",
+            < 365 => $"{days / 30}개월 전",
+            _ => $"{days / 365}년 전",
+        };
+    }
+
+    /// <summary>
+    /// 마지막 로그인 칸의 설명 풍선. 접속 IP 가 있으면 함께 적는다.
+    /// </summary>
+    /// <remarks>
+    /// IP 를 제 칸으로 두지 않는 까닭은 칸이 이미 열몇 개라서다 — 하나 더
+    /// 늘리면 그만큼 가로로 더 구른다. 「낯선 데서 들어왔나」를 볼 때만
+    /// 필요한 값이라 마우스를 올린 자리에 둔다.
+    /// </remarks>
+    private static string LoginTitle(AccountDto a)
+    {
+        var at = $"마지막 로그인 {a.LastLoginAt.Kst("yyyy-MM-dd HH:mm:ss")} (한국 시각)";
+
+        return string.IsNullOrWhiteSpace(a.LastLoginIp) ? at : $"{at}\n접속 IP {a.LastLoginIp}";
+    }
+
     private static string StatusText(string status) => status?.ToUpperInvariant() switch
     {
         "ACTIVE" => "정상",

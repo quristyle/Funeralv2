@@ -141,6 +141,10 @@ builder.Services.AddScoped<IMenuRoleService, MenuRoleService>();
 // 접속 기록 — 계정 정보 화면의 '활동' 이 이 값을 읽는다
 builder.Services.AddScoped<ILoginLogService, LoginLogService>();
 
+// 마지막 사용시각 — 「들어온 때」(last_login_at)와 따로 「마지막으로 무언가를
+// 한 때」를 계정에 찍는다. 계정 관리 목록이 안 쓰는 계정을 가려내는 값이다.
+builder.Services.AddScoped<IAccountActivityService, AccountActivityService>();
+
 // 화면 환경설정 — 계정에 붙여 두어 어느 PC 에서 로그인해도 따라오게 한다.
 // 헤더 톱니의 드로어와 /setting/environment 가 같은 값을 읽고 쓴다.
 builder.Services.AddScoped<IAccountPreferenceService, AccountPreferenceService>();

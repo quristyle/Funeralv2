@@ -103,6 +103,36 @@ public sealed class AccountDto
     public string? DeptId { get; set; }
     public string? DeptName { get; set; }
     public DateTime CreatedAt { get; set; }
+
+    /// <summary>
+    /// 마지막으로 <b>로그인한</b> 시각 (UTC). 한 번도 없으면 <c>null</c>.
+    /// </summary>
+    public DateTime? LastLoginAt { get; set; }
+
+    /// <summary>마지막 로그인 때의 접속 IP. 목록의 설명 풍선에만 쓴다.</summary>
+    public string? LastLoginIp { get; set; }
+
+    /// <summary>
+    /// 마지막으로 포털을 <b>쓴</b> 시각 (UTC). 한 번도 없으면 <c>null</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="LastLoginAt"/> 과 가르는 까닭 — access token 이 7일이고 갱신
+    /// 쿠키가 30일이라 <b>브라우저를 안 닫는 사람은 로그인 화면을 한 달에 한 번도
+    /// 안 거친다.</b> 로그인 시각만 보면 매일 쓰는 사람이 「한 달 전 사람」으로
+    /// 보이는데, 안 쓰는 계정을 가려내려고 목록을 여는 것이라 그 값으로는
+    /// 묻고 싶은 것에 못 답한다.
+    /// </para>
+    /// <para>
+    /// 서버가 미는 자리는 둘이다 — 로그인이 끝날 때와 <b>화면을 옮길 때</b>
+    /// (<c>MenuUsageRecorder</c> 가 보내는 길). 뒤엣것이 쓸모의 거의 전부인데,
+    /// 포털은 한 회로 안에서 라우팅만 바뀌어 화면을 옮겨도 서버에 요청이
+    /// 안 나가기 때문이다. <b>그래서 화면에 머물기만 한 시간은 안 센다</b> —
+    /// 「마지막으로 화면을 연 때」로 읽어야 맞다.
+    /// </para>
+    /// </remarks>
+    public DateTime? LastSeenAt { get; set; }
+
     public List<string> RoleNames { get; set; } = [];
 
     /// <summary>연결된 소셜 공급자 목록 (google, naver, kakao 등)</summary>

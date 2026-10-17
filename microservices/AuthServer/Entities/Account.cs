@@ -87,6 +87,37 @@ public class Account : BaseEntity<string>
     public string? LastLoginIp { get; set; }
 
     /// <summary>
+    /// 마지막으로 포털을 <b>쓴</b> 시각 (UTC). 아직 한 번도 안 썼으면 null 이다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="LastLoginAt"/> 과 다른 값이다. 로그인은 <b>들어온 때</b>고
+    /// 이것은 <b>마지막으로 무언가를 한 때</b>다 — 아침에 한 번 들어와
+    /// 하루 종일 쓰는 사람은 둘이 열 시간 넘게 벌어진다. 「안 쓰는 계정」을
+    /// 가려내는 물음에 답하는 것은 이쪽이다. 로그인만 보면 <b>브라우저가
+    /// 토큰을 들고 있어 로그인 화면을 안 거치는 사람</b>이 전부 「오래 전에
+    /// 들어온 사람」으로 보인다(access token 이 7일, 갱신 쿠키가 30일이다).
+    /// </para>
+    ///
+    /// <para>
+    /// 적는 자리는 둘이다 — 로그인이 끝날 때(<c>LoginCompletion</c>)와
+    /// 화면을 옮길 때(<c>MenuUsageService.RecordAsync</c>). 뒤엣것이
+    /// 쓸모의 거의 전부인데, 포털은 <b>한 회로 안에서 라우팅만 바뀌어</b>
+    /// 서버에 요청이 안 나가기 때문에 그 길 말고는 「지금 쓰고 있다」를
+    /// 아는 자리가 없다(<c>docs/menu-usage.md</c>).
+    /// </para>
+    ///
+    /// <para>
+    /// <b>기록(<c>scom.menu_usage_logs</c>)에서 매번 세지 않고 칸으로 둔다.</b>
+    /// 그 표는 한 해가 지나면 스스로 걷어내므로(<c>RetentionDays</c>),
+    /// 집계로 셈하면 <b>일 년 넘게 안 쓴 계정이 「한 번도 안 쓴 계정」과
+    /// 같은 그림</b>이 된다 — 가려내려는 것이 바로 그 계정들이다.
+    /// </para>
+    /// </remarks>
+    [Column("last_seen_at")]
+    public DateTime? LastSeenAt { get; set; }
+
+    /// <summary>
     /// 비밀번호를 마지막으로 바꾼 시각 (UTC). 90일 만료 계산의 기준이다.
     /// <para>
     /// null 이면 기준을 알 수 없다는 뜻이라 만료로 보지 않는다.

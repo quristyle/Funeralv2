@@ -18,7 +18,7 @@ namespace AuthServer.Services;
 ///
 /// <list type="number">
 ///   <item>계정 상태를 본다(승인 대기 · 정지).</item>
-///   <item>마지막 접속 시각·아이피를 적는다.</item>
+///   <item>마지막 접속 시각·아이피와 마지막 사용시각을 적는다.</item>
 ///   <item>접속 기록을 한 줄 쌓는다.</item>
 ///   <item>비밀번호 사용 기간을 계산한다.</item>
 ///   <item>토큰 한 벌을 발급한다.</item>
@@ -95,6 +95,12 @@ public sealed class LoginCompletion(
         {
             account.LastLoginAt = loginAt;
             account.LastLoginIp = clientIp;
+
+            // 「마지막으로 쓴 때」도 함께 민다. 들어온 것 자체가 쓴 것이고,
+            // 여기서 안 밀면 로그인만 하고 화면을 한 번도 안 옮긴 사람이
+            // **한 번도 안 쓴 사람**으로 보인다(그 값은 사용기록 길이 민다).
+            account.LastSeenAt = loginAt;
+
             await db.SaveChangesAsync(cancellationToken);
         }
         catch (Exception ex)

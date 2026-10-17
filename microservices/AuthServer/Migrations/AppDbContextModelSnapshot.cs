@@ -80,6 +80,11 @@ namespace AuthServer.Migrations
                         .HasColumnName("last_login_ip")
                         .HasComment("최근 로그인 시 접속 IP.\n            게이트웨이 뒤에 있으므로 X-Forwarded-For 의 첫 값을 쓴다.");
 
+                    b.Property<DateTime?>("LastSeenAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("last_seen_at")
+                        .HasComment("마지막으로 포털을 쓴 시각 (UTC). 아직 한 번도 안 썼으면 null 이다.");
+
                     b.Property<string>("Password")
                         .IsRequired()
                         .HasColumnType("text")

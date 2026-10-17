@@ -17,6 +17,9 @@
     **누가 어떤 화면을 언제 보았는지**도 여기 쌓인다 — 회로 안에서 라우팅만
     바뀌어 서버 로그에는 안 남으므로 셸이 적어 보낸다:
     [docs/menu-usage.md](docs/menu-usage.md)
+    계정 관리 목록의 **마지막 로그인 · 마지막 사용**이 그 길에 얹혀 있다 —
+    토큰이 7일·갱신 쿠키가 30일이라 **로그인 시각만 보면 매일 쓰는 사람도
+    「한 달 전 사람」**이다: [docs/account-activity.md](docs/account-activity.md)
     **권한관리 밖의 주소는 기본으로 막히고** 막힌 사람과 주소가 여기 쌓인다 —
     메뉴에 올릴 수 없는 상세 화면은 `[ScreenAccess]` 로 **부모 메뉴를 가리킨다**:
     [docs/screen-access.md](docs/screen-access.md)
@@ -199,6 +202,8 @@ nginx 설정 정본은 [deploy/nginx/](deploy/nginx/) 에 있다 — Blazor 회�
   접수·완료·종료 알림: 구독표가 둘로 갈려 **완료 알림이 0 통**이던 까닭과 고친 길
 - [docs/screen-access.md](docs/screen-access.md) — 메뉴에 없는 화면이 주소만으로
   열리던 구멍: 기본 차단으로 뒤집은 길과 「차단 접근기록」 화면
+- [docs/account-activity.md](docs/account-activity.md) — 계정의 마지막 로그인과
+  **마지막 사용**: 둘을 가른 까닭 · 쌓는 자리 둘 · 결합이 안 옮기던 로그인 시각
 - [deploy/llm/README.md](deploy/llm/README.md) — 추론 장비의 상태 수집기 정본과,
   「GPU 를 읽지 못했습니다」를 재부팅 없이 푸는 길
 - [docs/spa-migration-analysis.md](docs/spa-migration-analysis.md) — 현재 시스템의

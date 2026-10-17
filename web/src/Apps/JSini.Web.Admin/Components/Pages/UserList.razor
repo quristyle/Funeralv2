@@ -209,6 +209,73 @@
             <DxGridDataColumn FieldName="@nameof(AccountDto.CreatedAt)" Caption="등록일" Width="110"
                               DisplayFormat="yyyy-MM-dd" />
 
+            @* ── 마지막 로그인 · 마지막 사용 ───────────────────
+               [둘을 가른다]
+
+               「마지막 로그인」만으로는 안 쓰는 계정을 못 가려낸다 —
+               access token 이 7일이고 갱신 쿠키가 30일이라 **브라우저를 안
+               닫는 사람은 로그인 화면을 한 달에 한 번도 안 거친다.** 매일
+               쓰는 사람이 「한 달 전 사람」으로 보인다.
+
+               그래서 서버가 칸을 둘 들고 있다(`scom.accounts` 의
+               `last_login_at` · `last_seen_at`). 뒤엣것은 화면을 옮길 때마다
+               사용기록 길이 밀어 준다 — 포털은 한 회로 안에서 라우팅만
+               바뀌어 서버에 요청이 안 나가므로 그 길 말고는 「쓰고 있다」를
+               아는 자리가 없다(docs/menu-usage.md).
+
+               [시각 밑에 「며칠 전」을 함께 적는다]
+
+               훑는 눈이 찾는 것은 날짜가 아니라 **얼마나 오래됐나**다.
+               `2026-07-02` 를 보고 오늘과 빼는 일을 예순 줄에 걸쳐 시키면
+               아무도 안 한다. 시각은 그대로 두고 한 줄을 덧붙인다.
+
+               [UTC 를 그대로 그리지 않는다]
+
+               서버가 주는 것은 UTC 다. `DisplayFormat` 에 맡기면 아홉 시간
+               이른 값이 조용히 찍히므로 `Kst()` 로 보여 주기 직전에 한 번만
+               바꾼다(docs/utc-time.md). `FieldName` 은 그대로 두어 **정렬은
+               원래 값(UTC)으로** 돈다 — 글자로 정렬하면 null 과 섞여 흐트러진다. *@
+
+            <DxGridDataColumn FieldName="@nameof(AccountDto.LastLoginAt)" Caption="마지막 로그인" Width="135">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var a = (AccountDto)cell.DataItem;
+                    }
+                    @if (a.LastLoginAt is null)
+                    {
+                        <span class="jsini-text-muted" title="이 계정으로 로그인한 기록이 없습니다.">–</span>
+                    }
+                    else
+                    {
+                        <div style="display: flex; flex-direction: column; gap: 1px;"
+                             title="@LoginTitle(a)">
+                            <span>@a.LastLoginAt.Kst("yyyy-MM-dd HH:mm")</span>
+                            <span class="jsini-text-muted" style="font-size: .75rem;">@Ago(a.LastLoginAt)</span>
+                        </div>
+                    }
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(AccountDto.LastSeenAt)" Caption="마지막 사용" Width="135">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var a = (AccountDto)cell.DataItem;
+                    }
+                    @if (a.LastSeenAt is null)
+                    {
+                        <span class="jsini-text-muted" title="포털을 쓴 기록이 없습니다.">–</span>
+                    }
+                    else
+                    {
+                        <div style="display: flex; flex-direction: column; gap: 1px;"
+                             title="마지막으로 화면을 연 때입니다(한국 시각). 화면에 머물기만 한 시간은 세지 않습니다.">
+                            <span>@a.LastSeenAt.Kst("yyyy-MM-dd HH:mm")</span>
+                            <span class="jsini-text-muted" style="font-size: .75rem;">@Ago(a.LastSeenAt)</span>
+                        </div>
+                    }
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
             @* ── 알림 넷 ─────────────────────────────────────
                기본으로 감춰 두지 않는다. 감추면 칸 고르개를 여는 사람만
                보게 되고, 그러면 붙인 값이 없다 — 발송이 안 닿는 까닭을
