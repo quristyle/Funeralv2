@@ -48,6 +48,53 @@ public sealed class AiAskLayoutTests
         Assert.Contains("overflow-y: auto", scrollRule, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// 가로로 눕힌 휴대폰(짧은 가로 화면)에서 목록이 0px 로 눌리지 않아야 한다.
+    /// 쌓인 배치에서는 목록이 <c>min-height</c> 로 제 몫을 먼저 떼어 가고,
+    /// 너비가 되는 화면에서는 좌우로 쪼개 목록이 창 높이를 통째로 받는다.
+    /// </summary>
+    [Fact]
+    public void 짧은_가로화면에서는_목록이_제_몫을_먼저_떼어_가고_판을_좌우로_쪼갠다()
+    {
+        var css = ProjMngCss();
+
+        // ① 쌓인 채로 남는 자리(서랍·아주 좁은 기기) — 적는 자리가 줄어들 수 있어야
+        //    하고 목록에 바닥(min-height)이 있어야 한다.
+        Assert.Contains("@media (orientation: landscape) and (max-height: 560px) {", css, StringComparison.Ordinal);
+
+        var writeRule = Rule(css, ".pm-ask:not(:has(> .pm-ask__view)) > .pm-ask__write {");
+        Assert.Contains("flex: 0 1 auto", writeRule, StringComparison.Ordinal);
+        Assert.Contains("min-height: 0", writeRule, StringComparison.Ordinal);
+
+        var recentRule = Rule(css, ".pm-ask:not(:has(> .pm-ask__view)) > .pm-ask__recent {");
+        Assert.Contains("min-height: min(", recentRule, StringComparison.Ordinal);
+
+        // 글상자의 세로 화면용 30vh 상한은 눕히면 바닥처럼 굳어 안 줄어든다 — 걷어낸다.
+        var textRule = Rule(css, ".pm-ask:not(:has(> .pm-ask__view)) .pm-ask__text {");
+        Assert.Contains("flex: 1 1 auto", textRule, StringComparison.Ordinal);
+        Assert.Contains("max-height: none", textRule, StringComparison.Ordinal);
+
+        // ② 너비가 되는 화면만 좌우로 쪼갠다. 오른쪽 서랍(300px 까지 좁아진다)은
+        //    해당되지 않도록 화면으로 선 판에만 건다.
+        Assert.Contains(
+            "@media (orientation: landscape) and (max-height: 560px) and (min-width: 520px) {",
+            css,
+            StringComparison.Ordinal);
+
+        var rowRule = Rule(css, ".jsini-shell__content > .pm-ask:not(:has(> .pm-ask__view)) {");
+        Assert.Contains("flex-direction: row", rowRule, StringComparison.Ordinal);
+
+        var sideWriteRule = Rule(
+            css,
+            ".jsini-shell__content > .pm-ask:not(:has(> .pm-ask__view)) > .pm-ask__write {");
+        Assert.Contains("border-right: 0", sideWriteRule, StringComparison.Ordinal);
+
+        var sideRecentRule = Rule(
+            css,
+            ".jsini-shell__content > .pm-ask:not(:has(> .pm-ask__view)) > .pm-ask__recent {");
+        Assert.Contains("flex: 1 1 0", sideRecentRule, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void 빠른지시_목록의_카드를_누르면_상세화면_주소로_이동한다()
     {

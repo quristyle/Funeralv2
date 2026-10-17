@@ -3818,6 +3818,166 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   }
 }
 
+/* ── 가로로 눕힌 휴대폰 ──────────────────────────────────────
+
+   [무엇이 안 보였나]
+
+   세로로 들면 창 높이가 800 안팎이라 적는 자리(`.pm-ask__write`)가 제 키
+   270px 안팎을 다 가져가도 아래 목록에 남는 높이가 넉넉하다. **눕히면 창
+   높이가 390px 뿐이다.** 그때 위 규칙대로라면 `flex: 0 0 auto` 인 적는 자리가
+   제 키를 먼저 가져가고 `flex: 1 1 0` 인 목록은 **남는 것을 받아 0px 로
+   눌린다** — 카드가 여덟 장 있어도 한 장도 안 보이고, 화면 아래가 통째로 빈
+   것처럼 뜬다(2026-10-17 에 844×390 으로 재서 확인했다. `.pm-ask__scroll` 의
+   높이가 0, `.pm-ask__recent` 는 화면 밖인 380px 에서 시작했다).
+
+   [어떻게 고쳤나 — 쌓지 않고 **옆에 세운다**]
+
+   높이를 아무리 쪼개도 세로로 쌓은 채로는 안 된다. 눕힌 창에서 쓸 수 있는
+   높이는 260px 남짓인데, 적는 자리는 대상·AI 고르개 줄(43px) + 글상자 +
+   보내기 단추 줄(44px) 로 **최소 160px** 을 쓴다. 남는 100px 으로는 카드가
+   한 장 반밖에 안 들어간다 — 요청받은 서넛과 거리가 멀다.
+
+   눕힌 화면에 모자란 것은 높이지 **너비가 아니다**(844px). 그래서 짧은 가로
+   화면에서는 한 장을 위아래가 아니라 **왼쪽(적는 자리) · 오른쪽(목록)으로
+   쪼갠다.** 목록이 창 높이를 통째로 받아 카드 서넛이 그대로 서고, 글상자는
+   오히려 세로로 들었을 때보다 커진다.
+
+   [옆에 못 세우는 자리]
+
+   같은 알맹이가 오른쪽 서랍(`QuickAskDrawer`)에도 실리는데 그쪽은 데스크탑
+   에서도 300px 까지 좁아져 쪼갤 너비가 없다. 그래서 쪼개기는 **화면으로 선
+   판에만**(`.jsini-shell__content >`) 걸고, 서랍과 아주 좁은 기기에는 쌓은
+   채로 목록에 `min-height` 를 떼어 주는 길을 남긴다.
+
+   `max-height` 로 가른다 — `orientation` 만 보면 눕힌 태블릿까지 걸리는데,
+   그쪽은 높이가 넉넉해 원래대로 쌓는 편이 읽기 좋다. */
+@media (orientation: landscape) and (max-height: 560px) {
+
+  /* 적는 자리를 **줄어들 수 있는 칸**으로 바꾼다(`0 1 auto` + `min-height: 0`).
+     안쪽을 세로 한 줄로 세워, 늘었다 줄었다 하는 몫을 글상자 혼자 지게 한다 —
+     고르개 줄과 보내기 단추 줄은 손가락으로 눌러야 하는 자리라 높이를 안
+     건드린다. 줄여 봐야 몇 px 이고, 사라지면 눕힌 채로는 아예 못 보낸다. */
+  .pm-ask:not(:has(> .pm-ask__view)) > .pm-ask__write {
+    flex: 0 1 auto;
+    min-height: 0;
+    padding: 0.55rem 0.8rem 0.6rem;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .pm-ask:not(:has(> .pm-ask__view)) > .pm-ask__write > .commcont__body {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .pm-ask:not(:has(> .pm-ask__view)) .pm-ask__where {
+    flex: 0 0 auto;
+    margin-bottom: 0.4rem;
+  }
+
+  .pm-ask:not(:has(> .pm-ask__view)) .pm-ask__bar {
+    flex: 0 0 auto;
+    margin-top: 0.5rem;
+  }
+
+  /* 글상자. 세로 화면의 `30vh` 상한은 눕히면 거꾸로 **바닥처럼 굳어** 글상자가
+     절대 안 줄어드는 원인이 되므로 걷어낸다(`none`). 대신 두 줄은 들어가도록
+     바닥만 남긴다. */
+  .pm-ask:not(:has(> .pm-ask__view)) .pm-ask__text {
+    flex: 1 1 auto;
+    min-height: 2.5rem;
+    max-height: none;
+  }
+
+  .pm-ask:not(:has(> .pm-ask__view)) .pm-ask__text .dxbl-memo-scroll-container {
+    height: 100%;
+    max-height: none;
+  }
+
+  .pm-ask:not(:has(> .pm-ask__view)) .pm-ask__text textarea {
+    height: 100%;
+    min-height: 0;
+    max-height: none;
+    padding: 0.4rem 0.7rem;
+  }
+
+  /* 목록이 제 몫을 **먼저** 떼어 간다. 쌓인 채로 남는 자리(서랍·아주 좁은
+     기기)에서 쓰이는 값이다 — `min()` 의 뒤쪽이 천장이고, 이것이 없으면 짧은
+     기기에서 이 값이 통째로 먹혀 보내기 단추가 화면 밖으로 밀린다. */
+  .pm-ask:not(:has(> .pm-ask__view)) > .pm-ask__recent {
+    min-height: min(10.5rem, 38%);
+    padding: 0.5rem 0.8rem 0.6rem;
+  }
+
+  .pm-ask:not(:has(> .pm-ask__view)) .pm-ask__list-head {
+    margin-bottom: 0.35rem;
+  }
+
+  /* 카드 사이와 카드 안쪽을 조금씩 줄인다. 누르는 자리의 바닥
+     (`.pm-ask__head` 의 `min-height`)은 **그대로 둔다** — 눕혔다고 손가락이
+     작아지지 않는다. */
+  .pm-ask:not(:has(> .pm-ask__view)) .pm-ask__list {
+    gap: 0.4rem;
+  }
+
+  .pm-ask:not(:has(> .pm-ask__view)) .pm-ask__head {
+    padding: 0.35rem 0.6rem;
+  }
+}
+
+/* 화면으로 선 판만 **좌우로 쪼갠다.** 너비 기준(520px)은 눕힌 휴대폰이면
+   다 넘는 값이다 — 가장 작은 축인 아이폰 SE 1세대가 568px 이다. 그 아래로
+   떨어지는 것은 창을 반으로 쪼개 쓰는 자리(안드로이드 분할화면)뿐이고,
+   거기서는 쪼갤 너비가 없으니 위의 쌓인 배치를 그대로 쓴다. */
+@media (orientation: landscape) and (max-height: 560px) and (min-width: 520px) {
+
+  .jsini-shell__content > .pm-ask:not(:has(> .pm-ask__view)) {
+    flex-direction: row;
+    max-width: none;
+  }
+
+  /* 한 장의 **왼쪽**. 맞붙는 쪽이 아래에서 오른쪽으로 바뀌었으므로 떼어낸
+     테두리와 둥근 귀도 그쪽으로 옮긴다(세로 배치의 `border-bottom: 0` 을
+     되돌리고 `border-right` 를 뗀다). */
+  .jsini-shell__content > .pm-ask:not(:has(> .pm-ask__view)) > .pm-ask__write {
+    flex: 0 0 min(26rem, 46%);
+    min-width: 0;
+    border-bottom: 1px solid var(--jsini-border);
+    border-right: 0;
+    border-radius: 1rem 0 0 1rem;
+  }
+
+  /* 반으로 쪼갠 왼쪽은 좁다(568px 짜리 화면에서 259px). 고르개 둘의 바탕
+     너비(9rem · 10rem)를 그대로 두면 **두 줄로 갈라지면서** 적는 자리가
+     49px 더 길어지고, 가장 짧은 기기(320px)에서 보내기 단추가 판 밖으로
+     밀린다. 여기서는 바탕 너비만 좁혀 한 줄로 세운다 — 넓어지면 원래대로
+     `flex-grow` 비율대로 벌어진다.
+
+     `min-width: 0` 이 함께 가야 한다. 기본값 `auto` 는 「속 내용보다 작아지지
+     말라」는 뜻이라, 바탕 너비만 줄여 놓으면 DevExpress 편집기의 min-content
+     폭에 걸려 **그대로 두 줄로 갈라진다**(2026-10-17 에 568×320 으로 재서
+     확인했다. `flex` 는 `3 1 96px` 인데 칸은 232px 였다). */
+  .jsini-shell__content > .pm-ask:not(:has(> .pm-ask__view)) .pm-ask__target {
+    flex: 3 1 6rem;
+    min-width: 0;
+  }
+
+  .jsini-shell__content > .pm-ask:not(:has(> .pm-ask__view)) .pm-ask__kind {
+    flex: 2 1 6rem;
+    min-width: 0;
+  }
+
+  /* 한 장의 **오른쪽**. 창 높이를 통째로 받으므로 위에서 떼어 둔
+     `min-height` 가 더 묶을 것이 없다. */
+  .jsini-shell__content > .pm-ask:not(:has(> .pm-ask__view)) > .pm-ask__recent {
+    flex: 1 1 0;
+    min-width: 0;
+    border-radius: 0 1rem 1rem 0;
+  }
+}
+
 /* ── AI 작업 요청 (`pm-req`) ──────────────────────────────────
 
    일반 사용자가 지시를 적어 두는 자리다(`AiRequestList`). 「빠른 지시」와
