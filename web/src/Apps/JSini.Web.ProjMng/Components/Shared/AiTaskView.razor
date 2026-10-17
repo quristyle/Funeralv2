@@ -105,11 +105,6 @@
         </span>
     </div>
 
-    @if (!string.IsNullOrWhiteSpace(t.LastError))
-    {
-        <PageNotice Tone="NoticeTone.Error" Text="@t.LastError" />
-    }
-
     @if (!string.IsNullOrWhiteSpace(t.NotifyError))
     {
         <PageNotice Tone="NoticeTone.Warning" Text="@($"결과 알림: {t.NotifyError}")" />
