@@ -4,10 +4,11 @@ using JSini.Web.Abstractions;
 
 namespace JSini.Web.Components.Layout;
 
-public partial class Breadcrumb
+public partial class Breadcrumb : IDisposable
 {
     [Inject] private MenuReveal Menus { get; set; } = default!;
     [Inject] private TabMenuRequest TabMenu { get; set; } = default!;
+    [Inject] private PortalTabs Tabs { get; set; } = default!;
 
     /// <summary>뿌리부터 지금 화면까지의 메뉴 줄기.</summary>
     [Parameter, EditorRequired] public IReadOnlyList<MenuNode> Trail { get; set; } = [];
@@ -22,6 +23,21 @@ public partial class Breadcrumb
     /// 모르므로 거짓이고, 재고 나면 다시 그려진다 — 그전에 누를 수는 없다.
     /// </remarks>
     [Parameter] public bool IsPhone { get; set; }
+
+    /// <summary>지금 보고 있는 활성 탭. 메뉴가 없는 화면의 휴대폰 헤더 표시에 쓴다.</summary>
+    private PortalTab? ActiveTab => Tabs.ActiveTab;
+
+    protected override void OnInitialized()
+    {
+        Tabs.Changed += OnTabsChanged;
+    }
+
+    private void OnTabsChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose()
+    {
+        Tabs.Changed -= OnTabsChanged;
+    }
 
     /// <summary>
     /// 사이드바에 「이 메뉴를 펴서 보여 달라」고 한다. 받는 쪽은

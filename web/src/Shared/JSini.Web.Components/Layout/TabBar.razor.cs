@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 using DevExpress.Blazor;
@@ -132,8 +132,7 @@ public partial class TabBar
     });
 
     /// <summary>보고 있는 탭. 못 찾으면 첫 탭이고, 탭이 없으면 <c>null</c> 이다.</summary>
-    private PortalTab? ActiveTab =>
-        Tabs.Items.FirstOrDefault(IsActive) ?? Tabs.Items.FirstOrDefault();
+    private PortalTab? ActiveTab => Tabs.ActiveTab;
 
     private bool IsActive(PortalTab tab) =>
         string.Equals(tab.Href, Tabs.ActiveHref, StringComparison.OrdinalIgnoreCase);

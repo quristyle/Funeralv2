@@ -114,6 +114,27 @@ public sealed class AiAskLayoutTests
         Assert.Contains(".pm-ask__pull.pm-ask__pull--refreshing", css, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void 상세화면_상단_빠른지시_돌아가기_링크는_제거된다()
+    {
+        var razor = TaskViewRazor();
+
+        Assert.DoesNotContain("pm-taskview__back", razor, StringComparison.Ordinal);
+        Assert.DoesNotContain("← 빠른 지시", razor, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Breadcrumb_은_모바일에서_Trail이_없어도_활성탭이_있으면_화면메뉴를_표시한다()
+    {
+        var razor = BreadcrumbRazor();
+        var code = BreadcrumbCode();
+
+        Assert.Contains("else if (IsPhone && ActiveTab is { } activeTab)", razor, StringComparison.Ordinal);
+        Assert.Contains("TabMenu.Request(args)", razor, StringComparison.Ordinal);
+        Assert.Contains("ActiveTab => Tabs.ActiveTab", code, StringComparison.Ordinal);
+        Assert.Contains("Tabs.Changed += OnTabsChanged", code, StringComparison.Ordinal);
+    }
+
     private static string Rule(string css, string selector)
     {
         var at = css.IndexOf(selector, StringComparison.Ordinal);
@@ -133,6 +154,15 @@ public sealed class AiAskLayoutTests
 
     private static string ProjMngCss() => RazorSource.Read(Path.Combine(
         SolutionRoot(), "src", "Apps", "JSini.Web.ProjMng", "wwwroot", "projmng.css"));
+
+    private static string TaskViewRazor() => RazorSource.Read(Path.Combine(
+        SolutionRoot(), "src", "Apps", "JSini.Web.ProjMng", "Components", "Pages", "AiTaskViewPage.razor"));
+
+    private static string BreadcrumbRazor() => RazorSource.Read(Path.Combine(
+        SolutionRoot(), "src", "Shared", "JSini.Web.Components", "Layout", "Breadcrumb.razor"));
+
+    private static string BreadcrumbCode() => RazorSource.Read(Path.Combine(
+        SolutionRoot(), "src", "Shared", "JSini.Web.Components", "Layout", "Breadcrumb.razor.cs"));
 
     private static string SolutionRoot()
     {

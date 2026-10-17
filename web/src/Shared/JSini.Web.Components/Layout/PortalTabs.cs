@@ -46,6 +46,10 @@ public sealed class PortalTabs
     /// <summary>지금 보고 있는 탭의 주소.</summary>
     public string? ActiveHref { get; private set; }
 
+    /// <summary>지금 보고 있는 활성 탭. 못 찾으면 첫 탭이고, 탭이 없으면 <c>null</c> 이다.</summary>
+    public PortalTab? ActiveTab =>
+        _tabs.FirstOrDefault(t => Same(t.Href, ActiveHref)) ?? _tabs.FirstOrDefault();
+
     /// <summary>탭이 바뀌었다. 탭 줄이 다시 그린다.</summary>
     public event Action? Changed;
 
