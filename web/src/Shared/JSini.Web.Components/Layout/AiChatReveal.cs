@@ -14,23 +14,44 @@ namespace JSini.Web.Components.Layout;
 /// </remarks>
 public sealed class AiChatReveal
 {
+    /// <summary>
+    /// 같은 자리에 겹쳐 서는 오른쪽 판 무리. <b>펴기 전에 다른 판을 접는다</b>
+    /// (<see cref="RightDrawerGroup"/>).
+    /// </summary>
+    private readonly RightDrawerGroup _group;
+
+    public AiChatReveal(RightDrawerGroup group)
+    {
+        _group = group;
+        _group.Register(this, Close);
+    }
+
     /// <summary>지금 펴져 있나.</summary>
     public bool IsOpen { get; private set; }
 
     /// <summary>여닫힘이 갈렸다. 판과 단추가 함께 듣는다.</summary>
     public event Action? Changed;
 
-    /// <summary>여닫는다.</summary>
+    /// <summary>여닫는다. <b>펴지는 쪽일 때만</b> 다른 오른쪽 판을 접는다.</summary>
     public void Toggle()
     {
-        IsOpen = !IsOpen;
-        Changed?.Invoke();
+        if (IsOpen)
+        {
+            Close();
+            return;
+        }
+
+        Open();
     }
 
-    /// <summary>연다.</summary>
+    /// <summary>연다. <b>다른 오른쪽 판을 먼저 접는다.</b></summary>
     public void Open()
     {
         if (IsOpen) return;
+
+        // 먼저 접고 편다. 뒤에 접으면 방금 편 것까지 함께 접힌다.
+        _group.CloseOthers(this);
+
         IsOpen = true;
         Changed?.Invoke();
     }

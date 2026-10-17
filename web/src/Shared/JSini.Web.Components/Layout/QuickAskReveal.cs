@@ -26,12 +26,27 @@ namespace JSini.Web.Components.Layout;
 ///
 /// <para>scoped 다. 한 사람이 열었다고 모두의 서랍이 열리면 안 된다.</para>
 /// </remarks>
-/// <param name="services">
-/// 알맹이가 등록됐는지 보려고 받는다. <see cref="QuickAskContent"/> 는
-/// <b>없을 수 있어서</b> 생성자로 못 받는다 — 그 이유는 그쪽 머리말에.
-/// </param>
-public sealed class QuickAskReveal(IServiceProvider services)
+public sealed class QuickAskReveal
 {
+    /// <summary>
+    /// 알맹이가 등록됐는지 보려고 들고 있다. <see cref="QuickAskContent"/> 는
+    /// <b>없을 수 있어서</b> 생성자로 못 받는다 — 그 이유는 그쪽 머리말에.
+    /// </summary>
+    private readonly IServiceProvider _services;
+
+    /// <summary>
+    /// 같은 자리에 겹쳐 서는 오른쪽 판 무리. <b>펴기 전에 다른 판을 접는다</b>
+    /// (<see cref="RightDrawerGroup"/>).
+    /// </summary>
+    private readonly RightDrawerGroup _group;
+
+    public QuickAskReveal(IServiceProvider services, RightDrawerGroup group)
+    {
+        _services = services;
+        _group = group;
+        _group.Register(this, Close);
+    }
+
     /// <summary>
     /// 서랍이 <b>지금 펴져 있는지를 알맹이에게 흘려 주는 이름</b>
     /// (<see cref="Microsoft.AspNetCore.Components.CascadingValue{TValue}"/>).
@@ -64,17 +79,37 @@ public sealed class QuickAskReveal(IServiceProvider services)
     /// <summary>
     /// 서랍에 그릴 부품. 업무 모듈이 등록하지 않았으면 <c>null</c> 이다.
     /// </summary>
-    public Type? PanelType => services.GetService<QuickAskContent>()?.PanelType;
+    public Type? PanelType => _services.GetService<QuickAskContent>()?.PanelType;
 
     /// <summary>
     /// 서랍으로 열 수 있나. <b>거짓이면 단추는 화면으로 옮겨 간다.</b>
     /// </summary>
     public bool CanDock => PanelType is not null;
 
-    /// <summary>여닫는다.</summary>
+    /// <summary>여닫는다. <b>펴지는 쪽일 때만</b> 다른 오른쪽 판을 접는다.</summary>
     public void Toggle()
     {
-        IsOpen = !IsOpen;
+        if (IsOpen)
+        {
+            Close();
+            return;
+        }
+
+        Open();
+    }
+
+    /// <summary>편다. <b>다른 오른쪽 판을 먼저 접는다.</b></summary>
+    public void Open()
+    {
+        if (IsOpen)
+        {
+            return;
+        }
+
+        // 먼저 접고 편다. 뒤에 접으면 방금 편 것까지 함께 접힌다.
+        _group.CloseOthers(this);
+
+        IsOpen = true;
         Changed?.Invoke();
     }
 

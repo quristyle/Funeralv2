@@ -439,6 +439,11 @@ public static class JSiniWebApp
         services.AddMemoryCache();
         services.AddSingleton<PortalBootstrapStore>();
 
+        // 오른쪽에서 밀려 들어오는 판 넷을 **한 번에 하나만** 펴 두는 자리.
+        // 손잡이 넷이 생성자에서 제 접는 길을 걸어 두므로 **손잡이보다 먼저**
+        // 있어야 한다(RightDrawerGroup 머리말).
+        services.AddScoped<RightDrawerGroup>();
+
         // 테마 서랍을 사용자 메뉴에서도 열 수 있게 하는 손잡이.
         services.AddScoped<ThemeDrawer>();
         services.AddScoped<UserMenuDrawer>();

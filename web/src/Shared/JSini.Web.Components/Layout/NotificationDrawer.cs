@@ -33,6 +33,18 @@ namespace JSini.Web.Components.Layout;
 /// </remarks>
 public sealed class NotificationDrawer
 {
+    /// <summary>
+    /// 같은 자리에 겹쳐 서는 오른쪽 판 무리. <b>펴기 전에 다른 판을 접는다</b>
+    /// (<see cref="RightDrawerGroup"/>).
+    /// </summary>
+    private readonly RightDrawerGroup _group;
+
+    public NotificationDrawer(RightDrawerGroup group)
+    {
+        _group = group;
+        _group.Register(this, Close);
+    }
+
     /// <summary>여닫으라는 요청. 서랍이 받는다.</summary>
     public event Action<bool>? OpenRequested;
 
@@ -49,8 +61,12 @@ public sealed class NotificationDrawer
     /// </remarks>
     public event Func<Task>? Changed;
 
-    /// <summary>서랍을 편다.</summary>
-    public void Open() => OpenRequested?.Invoke(true);
+    /// <summary>서랍을 편다. <b>다른 오른쪽 판을 먼저 접는다.</b></summary>
+    public void Open()
+    {
+        _group.CloseOthers(this);
+        OpenRequested?.Invoke(true);
+    }
 
     /// <summary>서랍을 접는다.</summary>
     public void Close() => OpenRequested?.Invoke(false);

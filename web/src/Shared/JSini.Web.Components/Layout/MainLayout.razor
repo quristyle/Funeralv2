@@ -414,6 +414,14 @@
    `_isPhone` 은 **고정핀 때문에** 내려 준다 — 책상에서 못 박아 둔 판은 알림을
    눌러 화면을 옮겨도 펴진 채로 두고, 휴대폰에서는 핀을 그리지 않는다
    (`RightSideDrawer` 머리말). *@
+@* 아래 넷은 **한 자리에 겹쳐 선다**(`right: 0` · `z-index: 1040`). 쌓임
+   순서를 가르는 것은 여기 적힌 차례뿐이라, 펴 둔 판이 있는데 그보다 **위에
+   적힌 판**을 열면 뒤에 가려 한 뼘도 안 보였다 — 단추는 눌렸고 판도 열렸는데
+   화면이 그대로여서 「단추가 고장 났다」로 읽힌다.
+
+   그래서 **한 번에 하나만 편다** — 여는 쪽이 아니라 손잡이 넷이 스스로
+   서로를 접는다(`RightDrawerGroup`). 여는 자리가 여섯이라 거기마다 적으면
+   반드시 몇을 빠뜨리고, 빠뜨린 자리에서만 판이 겹친다. *@
 <NotificationInboxDrawer IsPhone="@_isPhone" />
 <ThemeSettingsDrawer IsPhone="@_isPhone" />
 <QuickAskDrawer IsPhone="@_isPhone" />
