@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>연결할 수 없습니다 · JSINI</title>
+
+<!--
+  뒷단(업무 포털 :5557 · 소개 사이트 :5556 · 게이트웨이 :5265)이 죽었을 때
+  nginx 가 직접 내려 주는 화면이다. 정본은 이 파일이고, 서버의
+  /srv/jsini/nginx-errors/ 로 복사해서 쓴다 (deploy/nginx/README.md 참조).
+
+  [바깥을 하나도 부르지 않는다]
+
+  이 화면이 뜨는 상황은 **그 바깥을 서빙하던 것이 죽은 상황**이다. CSS·글꼴·
+  로고를 따로 불러 오게 두면 그것들이 전부 다시 502 로 떨어져, 하필 가장
+  망가져 보이면 안 될 화면이 제일 망가져 보인다. 그래서 스타일·로고·파비콘을
+  전부 이 파일 안에 넣는다. 네트워크 요청은 아래 「되살아났나」 확인 하나뿐이다.
+
+  [브랜드 글꼴을 싣지 않는 이유도 같다]
+
+  S-CoreDream 은 한 무게에 350KB 라 base64 로 품을 수 없고, 서버에서 받아
+  오려면 위와 같은 문제가 된다. 글자는 장비 글꼴로 그리고, 브랜드는 로고(SVG)와
+  5색 · 각진 모서리로 낸다. 브랜드 규칙은 docs/brand/README.md 2·5절.
+
+  [업무 포털과 소개 사이트가 같은 파일을 쓴다]
+
+  둘 다 같은 nginx 뒤에 있고, 보는 사람에게 할 말도 같다. 그래서 안내문에
+  「사내」나 「방문」 같은 한쪽에만 맞는 말을 쓰지 않는다 — 한쪽을 위해 말을
+  바꾸려거든 파일을 둘로 가르지 말고, 이 화면을 아예 쓰지 않는 쪽을 정한다.
+  스타일이 300줄이라, 베껴 둔 둘째 장은 반드시 첫 장과 어긋난다.
+
+  [502 만이 아니다]
+
+  503(서비스 없음) · 504(응답 시간 초과)도 같은 원인에서 나오고 사람이 보는
+  것도 같다. 숫자만 SSI 로 갈아 끼워 한 파일이 셋을 받는다.
+-->
+
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyByb2xlPSJpbWciIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgdmlld0JveD0iMCAwIDEwMCAxMDAiPgogIDx0aXRsZT5KU0lOSTwvdGl0bGU+CiAgPHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIHJ4PSIxOCIgcnk9IjE4IiBmaWxsPSIjMGEwYTBhIiAvPgogIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDEyLjAwMCwyMi44NTcpIHNjYWxlKDAuOTA0NzYyKSI+CiAgICAgIDxwYXRoIGQ9Ik00MCwwIEw4NCwwIEw4NCwxMiBMNTIsMTIgTDUyLDI0IEw4NCwyNCBMODQsNjAgTDQwLDYwIEw0MCw0OCBMNzIsNDggTDcyLDM2IEw0MCwzNiBaIiBmaWxsPSIjOWFhMWFiIiAvPgogICAgICA8cGF0aCBkPSJNMzIsMTIgTDQ0LDAgTDQ0LDYwIEwwLDYwIEwwLDQ4IEwzMiw0OCBaIiBmaWxsPSIjZTZlOGVhIiAvPgogIDwvZz4KPC9zdmc+Cg==">
+
+<!-- 자바스크립트를 꺼 둔 브라우저 몫. 켜져 있으면 아래 스크립트가 더 똑똑하게
+     (되살아났는지 물어보고, 간격을 늘려 가며) 다시 시도한다. -->
+<noscript><meta http-equiv="refresh" content="20"></noscript>
+
+<style>
+/* ── 브랜드 5색 ─────────────────────────────────────────────
+   액센트 색은 두지 않는다. 강조는 색이 아니라 대비로 낸다.
+   (docs/brand/README.md 2절) */
+:root {
+  --ink: #0a0a0a;
+  --graphite: #1c1c1e;
+  --steel: #6e6e73;
+  --mist: #d2d2d7;
+  --paper: #ffffff;
+
+  --bg: var(--paper);
+  --fg: var(--ink);
+  --muted: var(--steel);
+  --rule: var(--mist);
+
+  /* 로고는 밝은 바탕용 2톤(J=Ink · S=Steel)이 기본이다.
+     어두운 바탕에서는 아래에서 녹아웃(J=Paper · S=Mist)으로 바뀐다 —
+     한 색으로 눌러 쓰면 J 와 S 가 한 덩어리가 된다(브랜드 5절 금지). */
+  --logo-j: var(--ink);
+  --logo-s: var(--steel);
+  --logo-word: var(--ink);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: var(--ink);
+    --fg: var(--paper);
+    --muted: var(--mist);
+    --rule: var(--graphite);
+
+    --logo-j: var(--paper);
+    --logo-s: var(--mist);
+    --logo-word: var(--paper);
+  }
+}
+
+/* 브랜드가 각진 스타일이다. 각도는 0 · 45 · 90 만 쓰고 둥근 모서리를 쓰지 않는다. */
+*, *::before, *::after {
+  box-sizing: border-box;
+  border-radius: 0;
+}
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  min-height: 100svh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem 1.25rem;
+
+  background: var(--bg);
+  color: var(--fg);
+
+  /* 장비에 있으면 브랜드 글꼴로 그리고, 없으면 OS 글꼴로 떨어진다.
+     파일을 받아 오지는 않는다(위 머리말). */
+  font-family: 'S-CoreDream', 'Play', -apple-system, BlinkMacSystemFont,
+    'Segoe UI', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR', sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+
+  /* 한글은 띄어쓰기에서 끊는다. 기본값(break-all 에 가까운 한글 처리)으로 두면
+     「돌아옵 / 니다」처럼 낱말 한가운데가 갈려서, 좁은 화면일수록 안내문이
+     읽기 어려워진다. 혼자 한 줄을 다 채우는 긴 낱말만 예외로 끊는다. */
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+
+/* 가운데에 서지만 글은 왼쪽으로 맞춘다 — 가운데 정렬한 안내문은 줄이 길어지면
+   읽는 자리가 매번 달라진다. 폭은 한 줄 40자 언저리에서 끊기게 잡았다. */
+.down {
+  width: 100%;
+  max-width: 33rem;
+}
+
+.down__logo {
+  display: block;
+  width: 168px; /* 가로 조합의 최소 사용 크기는 120px 이다(브랜드 4절) */
+  height: auto;
+}
+
+.down__logo .j { fill: var(--logo-j); }
+.down__logo .s { fill: var(--logo-s); }
+.down__logo .word { fill: var(--logo-word); }
+
+.down__rule {
+  height: 1px;
+  margin: 1.75rem 0;
+  background: var(--rule);
+}
+
+.down__title {
+  margin: 0 0 0.75rem;
+  font-size: 1.625rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.35;
+}
+
+.down__lead {
+  margin: 0;
+  max-width: 28rem;
+  color: var(--muted);
+  font-size: 0.9375rem;
+  line-height: 1.75;
+}
+
+/* ── 다시 시도 줄 ──────────────────────────────────────────── */
+
+.down__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  margin-top: 1.75rem;
+}
+
+.down__btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.5rem 1.125rem;
+  border: 1px solid var(--fg);
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.12s linear, color 0.12s linear;
+}
+
+.down__btn:hover,
+.down__btn:focus-visible {
+  background: var(--fg);
+  color: var(--bg);
+}
+
+.down__btn--quiet {
+  border-color: var(--rule);
+  color: var(--muted);
+}
+
+.down__btn--quiet:hover,
+.down__btn--quiet:focus-visible {
+  border-color: var(--fg);
+  background: transparent;
+  color: var(--fg);
+}
+
+/* ── 기다림 표시 ───────────────────────────────────────────
+   심볼을 굴리지 않는다. 상승 조각이 차례로 솟는 것이 이 브랜드의 대기
+   표시다(브랜드 6절). 움직임은 거들 뿐이라, 꺼 둔 사람에게는 멈춘 그림을
+   보여 준다. */
+
+.down__wait {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+.down__shards {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  color: var(--muted);
+}
+
+.down__shards rect {
+  transform-origin: center bottom;
+  animation: shard-rise 1.1s ease-in-out infinite;
+}
+
+.down__shards rect:nth-of-type(1) { animation-delay: 0s; }
+.down__shards rect:nth-of-type(2) { animation-delay: 0.12s; }
+.down__shards rect:nth-of-type(3) { animation-delay: 0.24s; }
+.down__shards rect:nth-of-type(4) { animation-delay: 0.36s; }
+
+@keyframes shard-rise {
+  0%, 100% { transform: scaleY(0.55); }
+  50%      { transform: scaleY(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .down__shards rect { animation: none; }
+  .down__btn { transition: none; }
+}
+
+/* ── 적어 보낼 것 ──────────────────────────────────────────
+   「안 돼요」 한 마디로 오는 전화를 줄이려고 둔다. 무엇이 · 어디서 ·
+   언제인지 세 줄이면 담당자가 로그를 찾아갈 수 있다. */
+
+.down__facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.3rem 1.25rem;
+  margin: 0;
+  font-size: 0.8125rem;
+}
+
+.down__facts dt {
+  color: var(--muted);
+}
+
+.down__facts dd {
+  margin: 0;
+  /* 추적해 적어 보내는 값이라 한 번에 집히게 둔다. */
+  user-select: all;
+  word-break: break-all;
+}
+
+.down__code {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.down__foot {
+  margin: 1.5rem 0 0;
+  color: var(--muted);
+  font-size: 0.8125rem;
+}
+
+@media (max-width: 30rem) {
+  body { padding: 2rem 1.125rem; }
+  .down__logo { width: 140px; }
+  .down__title { font-size: 1.375rem; }
+  .down__rule { margin: 1.5rem 0; }
+}
+</style>
+</head>
+
+<body>
+<main class="down">
+
+  <!-- JSINI 가로 조합. web/src/Shared/JSini.Web.Components/wwwroot/brand/
+       logo-horizontal.svg 와 같은 좌표이고, 색만 바탕에 따라 갈리게
+       클래스로 뺐다. -->
+  <svg class="down__logo" viewBox="0 0 228 60" role="img" aria-label="JSINI">
+    <title>JSINI</title>
+    <g transform="translate(-18,-30)">
+      <path class="s" d="M58,30 L102,30 L102,42 L70,42 L70,54 L102,54 L102,90 L58,90 L58,78 L90,78 L90,66 L58,66 Z"/>
+    </g>
+    <g transform="translate(-18,-30)">
+      <path class="j" d="M50,42 L62,30 L62,90 L18,90 L18,78 L50,78 Z"/>
+    </g>
+    <path class="word" d="M124,21 L130,15 L130,45 L108,45 L108,39 L124,39 Z"/>
+    <path class="word" d="M140,15 L162,15 L162,21 L146,21 L146,27 L162,27 L162,45 L140,45 L140,39 L156,39 L156,33 L140,33 Z"/>
+    <path class="word" d="M172,15 L178,15 L178,45 L172,45 Z"/>
+    <path class="word" d="M188,45 L188,15 L194,15 L206,35 L206,15 L212,15 L212,45 L206,45 L194,25 L194,45 Z"/>
+    <path class="word" d="M222,15 L228,15 L228,45 L222,45 Z"/>
+  </svg>
+
+  <div class="down__rule"></div>
+
+  <h1 class="down__title">지금은 연결할 수 없습니다</h1>
+
+  <p class="down__lead">
+    서버가 응답하지 않습니다. 점검이나 재배포 중이면 잠시 뒤 저절로 돌아옵니다.
+    잘못 누르신 것이 아니니 그대로 두고 기다리셔도 됩니다.
+  </p>
+
+  <div class="down__actions">
+    <button type="button" class="down__btn" id="down-retry">다시 시도</button>
+    <!-- 자바스크립트 없이도 눌리는 길을 하나 남긴다. -->
+    <a class="down__btn down__btn--quiet" href="/">첫 화면으로</a>
+  </div>
+
+  <p class="down__wait">
+    <svg class="down__shards" viewBox="0 0 48 48" role="img" aria-hidden="true" focusable="false">
+      <g transform="translate(4.84,0) skewX(-12.4)">
+        <rect x="5"  y="28" width="6" height="16" fill="currentColor" opacity="0.3"/>
+        <rect x="16" y="22" width="6" height="22" fill="currentColor" opacity="0.5"/>
+        <rect x="27" y="16" width="6" height="28" fill="currentColor" opacity="0.75"/>
+        <rect x="38" y="10" width="6" height="34" fill="currentColor" opacity="1"/>
+      </g>
+    </svg>
+    <span id="down-wait" aria-live="polite">되살아났는지 자동으로 확인합니다.</span>
+  </p>
+
+  <div class="down__rule"></div>
+
+  <dl class="down__facts">
+    <dt>오류</dt>
+    <dd><span class="down__code"><!--# echo var="status" default="502" --></span> 뒷단 서버 응답 없음</dd>
+    <dt>주소</dt>
+    <dd id="down-host">—</dd>
+    <dt>시각</dt>
+    <dd id="down-time">—</dd>
+  </dl>
+
+  <p class="down__foot">
+    한참 뒤에도 같은 화면이면 위 세 줄을 그대로 담당자에게 알려 주세요.
+  </p>
+
+</main>
+
+<script>
+/*
+  하는 일은 셋이다 — 적어 보낼 값을 채우고, 되살아났는지 물어보고,
+  되살아났으면 보던 화면으로 되돌린다.
+
+  [왜 그냥 새로고침을 반복하지 않는가]
+
+  아직 죽어 있으면 이 화면이 다시 그려질 뿐인데, 그때마다 화면이 깜빡이고
+  스크롤이 튄다. 머리(HEAD)만 물어보면 죽어 있는 동안에는 화면이 가만히
+  있는다. 간격도 5초에서 30초까지 늘려 간다 — 켜 둔 채 잊은 탭이 밤새
+  뒷단을 두드리지 않게.
+*/
+(function () {
+  'use strict';
+
+  var waitEl = document.getElementById('down-wait');
+  var hostEl = document.getElementById('down-host');
+  var timeEl = document.getElementById('down-time');
+  var btnEl = document.getElementById('down-retry');
+
+  hostEl.textContent = location.host + location.pathname;
+
+  /* 담은 시각은 브라우저의 지금이다. 보여 주기 직전에 한 번만 한국 시각으로
+     만든다(docs/utc-time.md 와 같은 규칙). 장비 시계가 다른 띠에 맞춰져
+     있어도 적어 보낸 값이 서버 로그와 같은 눈금이 되게 띠를 박아 둔다. */
+  try {
+    timeEl.textContent = new Intl.DateTimeFormat('ko-KR', {
+      dateStyle: 'medium', timeStyle: 'medium', timeZone: 'Asia/Seoul', hour12: false
+    }).format(new Date()) + ' (KST)';
+  } catch (e) {
+    timeEl.textContent = new Date().toString();
+  }
+
+  btnEl.addEventListener('click', function () { location.reload(); });
+
+  var gap = 5;      // 다음 확인까지의 간격(초)
+  var left = gap;   // 남은 초
+  var asking = false;
+
+  function draw() {
+    waitEl.textContent = asking
+      ? '되살아났는지 확인하는 중입니다…'
+      : '되살아났는지 자동으로 확인합니다 · ' + left + '초';
+  }
+
+  function ask() {
+    asking = true;
+    draw();
+
+    fetch(location.href, { method: 'HEAD', cache: 'no-store' })
+      .then(function (res) {
+        /* 500 미만이면 뒷단이 대답한 것이다 — 404 여도 서버는 살아 있다.
+           502·503·504 는 아직 nginx 가 혼자 대답하고 있다는 뜻이다. */
+        if (res.status < 500) {
+          location.reload();
+          return;
+        }
+        down();
+      })
+      .catch(down); // 망이 끊겼거나 nginx 까지 죽었다
+
+    function down() {
+      asking = false;
+      gap = Math.min(gap + 5, 30);
+      left = gap;
+      draw();
+    }
+  }
+
+  draw();
+
+  setInterval(function () {
+    /* 보지 않는 탭에서는 세지 않는다. 돌아오면 남은 초부터 이어 센다. */
+    if (document.hidden || asking) { return; }
+    left -= 1;
+    if (left > 0) { draw(); return; }
+    ask();
+  }, 1000);
+}());
+</script>
+</body>
+</html>
