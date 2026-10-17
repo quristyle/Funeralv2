@@ -435,7 +435,7 @@ public partial class AiTaskContinuePopup : IDisposable
             var same = string.Equals(_continueKind, Item?.RunnerKind, StringComparison.OrdinalIgnoreCase);
 
             return same
-                ? "지난 회차와 같은 AI 가 이어서 처리합니다."
+                ? string.Empty
                 : $"지난 회차({KindName(Item?.RunnerKind)})와 다른 AI 에게 맡깁니다 — 지난 진행은 그대로 전달됩니다.";
         }
     }

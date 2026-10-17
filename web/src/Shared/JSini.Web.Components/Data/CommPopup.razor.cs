@@ -38,6 +38,24 @@ public partial class CommPopup
     /// <summary>Esc 로 닫을지. 되돌릴 수 있는 창은 켜 두는 편이 손에 맞다.</summary>
     [Parameter] public bool CloseOnEscape { get; set; } = true;
 
+    /// <summary>
+    /// 데스크톱에서 창 모서리를 잡아 크기를 조절할 수 있게 할지.
+    /// 기본은 <c>true</c> 다.
+    /// </summary>
+    [Parameter] public bool AllowResize { get; set; } = true;
+
+    /// <summary>창의 최소 너비.</summary>
+    [Parameter] public string? MinWidth { get; set; }
+
+    /// <summary>창의 최소 높이.</summary>
+    [Parameter] public string? MinHeight { get; set; }
+
+    /// <summary>
+    /// 휴대폰(화면 폭 767px 이하)에서 창이 화면을 꽉 채울지 여부.
+    /// 기본은 <c>true</c> 다. 확인 창(<c>ConfirmDialog</c>)처럼 짧은 대화창은 끈다.
+    /// </summary>
+    [Parameter] public bool FullOnMobile { get; set; } = true;
+
     /// <summary>바깥에서 덧붙일 CSS 클래스.</summary>
     [Parameter] public string? CssClass { get; set; }
 
@@ -46,6 +64,7 @@ public partial class CommPopup
 
     /// <summary>
     /// 창에 실제로 붙는 클래스. <c>jsini-popup</c> 을 <b>항상</b> 붙이고
+    /// 모바일 꽉 채움일 때 <c>jsini-popup--full-mobile</c> 을 더하며
     /// 화면이 준 것을 뒤에 잇는다.
     ///
     /// <para>
@@ -69,9 +88,16 @@ public partial class CommPopup
     /// 때문이다 — 같이 가두면 바닥 판이 화면을 다 못 채운다.
     /// </para>
     /// </summary>
-    private string PopupClass => string.IsNullOrWhiteSpace(CssClass)
-        ? "jsini-popup"
-        : $"jsini-popup {CssClass}";
+    private string PopupClass
+    {
+        get
+        {
+            var baseClass = FullOnMobile ? "jsini-popup jsini-popup--full-mobile" : "jsini-popup";
+            return string.IsNullOrWhiteSpace(CssClass)
+                ? baseClass
+                : $"{baseClass} {CssClass}";
+        }
+    }
 
     /// <summary>
     /// 머리에 실제로 붙는 클래스. <c>jsini-drag-head</c> 를 <b>항상</b> 붙이고

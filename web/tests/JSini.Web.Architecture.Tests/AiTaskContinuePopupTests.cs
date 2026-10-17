@@ -74,6 +74,36 @@ public sealed class AiTaskContinuePopupTests
         Assert.Contains("OnCommVisibleChanged", popupCsText, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void 이어서_지시_팝업에서_불필요한_동일_AI_설명문구가_제거되었다()
+    {
+        var popupCsPath = ContinuePopupPath + ".cs";
+        var popupCsText = ReadFile(popupCsPath);
+
+        // "지난 회차와 같은 AI 가 이어서 처리합니다." 문구 제거 확인
+        Assert.DoesNotContain("지난 회차와 같은 AI 가 이어서 처리합니다.", popupCsText, StringComparison.Ordinal);
+
+        var popupRazorText = ReadFile(ContinuePopupPath);
+        Assert.Contains("!string.IsNullOrWhiteSpace(ContinueKindNote)", popupRazorText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void 공통_팝업_CommPopup은_데스크톱_크기조절과_모바일_화면채움을_지원한다()
+    {
+        var commPopupCsPath = "src/Shared/JSini.Web.Components/Data/CommPopup.razor.cs";
+        var commPopupCsText = ReadFile(commPopupCsPath);
+
+        Assert.Contains("public bool AllowResize { get; set; } = true;", commPopupCsText, StringComparison.Ordinal);
+        Assert.Contains("public bool FullOnMobile { get; set; } = true;", commPopupCsText, StringComparison.Ordinal);
+        Assert.Contains("public string? MinWidth { get; set; }", commPopupCsText, StringComparison.Ordinal);
+        Assert.Contains("public string? MinHeight { get; set; }", commPopupCsText, StringComparison.Ordinal);
+        Assert.Contains("jsini-popup--full-mobile", commPopupCsText, StringComparison.Ordinal);
+
+        var commPopupRazorPath = "src/Shared/JSini.Web.Components/Data/CommPopup.razor";
+        var commPopupRazorText = ReadFile(commPopupRazorPath);
+        Assert.Contains("AllowResize=\"@AllowResize\"", commPopupRazorText, StringComparison.Ordinal);
+    }
+
     private static string ReadFile(string relative)
     {
         var path = Path.Combine(SolutionRoot(), relative.Replace('/', Path.DirectorySeparatorChar));
@@ -94,3 +124,6 @@ public sealed class AiTaskContinuePopupTests
         return dir!.FullName;
     }
 }
+
+
+

@@ -32,7 +32,10 @@
                           UsageSeen="@_usageSeen" />
         </div>
 
-        <p class="jsini-hint">@ContinueKindNote</p>
+        @if (!string.IsNullOrWhiteSpace(ContinueKindNote))
+        {
+            <p class="jsini-hint">@ContinueKindNote</p>
+        }
 
         @* 글상자를 제 상자로 감싼다. 치는 대로 적어 두는 JS 가 잡을 수 있도록 인스턴스별 ID 부여 *@
         <div id="@_continueDomId">

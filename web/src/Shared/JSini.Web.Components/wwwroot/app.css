@@ -8553,6 +8553,33 @@ a.jsini-social__btn:focus-visible {
     max-width: calc(100vw - 1.5rem) !important;
     margin: 0 auto !important;
   }
+
+  /* 휴대폰(≤767px)에서 창이 화면을 꽉 채우도록 한다.
+     CommPopup 의 FullOnMobile(기본값 true)이 이 규칙을 탄다. */
+  .dxbl-modal > .dxbl-modal-root > .dxbl-popup.jsini-popup--full-mobile {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    height: 100% !important;
+    height: 100dvh !important;
+    max-height: 100% !important;
+    max-height: 100dvh !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  .jsini-popup--full-mobile .dxbl-modal-content {
+    height: 100% !important;
+    max-height: none !important;
+    border-radius: 0 !important;
+  }
+
+  .jsini-popup--full-mobile .dxbl-modal-body {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow-y: auto;
+  }
 }
 
 /* ── 표의 편집 창을 CommPopup 과 같게 보이게 한다 ──────────────
