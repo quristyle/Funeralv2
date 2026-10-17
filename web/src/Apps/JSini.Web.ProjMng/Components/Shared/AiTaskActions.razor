@@ -88,7 +88,7 @@
         <DxButton RenderStyle="ButtonRenderStyle.Primary"
                   Enabled="@(!_retrying && !_confirming)"
                   Click="@OpenContinueModalAsync">
-            <span class="pm-peek__btn-text--full">이어서 지시</span>
+            <span class="pm-peek__btn-text--full">이어하기</span>
             <span class="pm-peek__btn-text--short">이어서</span>
         </DxButton>
     }
@@ -108,7 +108,7 @@
         <DxButton RenderStyle="ButtonRenderStyle.Success"
                   Enabled="@(!_retrying && !_confirming)"
                   Click="@DoConfirmAsync">
-            <span class="pm-peek__btn-text--full">사용자확인완료</span>
+            <span class="pm-peek__btn-text--full">확인 완료</span>
             <span class="pm-peek__btn-text--short">확인</span>
         </DxButton>
     }
@@ -136,7 +136,7 @@
            그러면 방금 보던 건을 목록에서 다시 찾아야 한다. *@
         <DxButton RenderStyle="ButtonRenderStyle.Secondary"
                   Click="@(() => GoDetail(t.TaskKey))">
-            <span class="pm-peek__btn-text--full">자세히 보기</span>
+            <span class="pm-peek__btn-text--full">자세히</span>
             <span class="pm-peek__btn-text--short">자세히</span>
         </DxButton>
     }
@@ -204,7 +204,7 @@
     </BodyContentTemplate>
 
     <FooterContentTemplate Context="popupContext">
-        <DxButton Text="재시도 요청" RenderStyle="ButtonRenderStyle.Primary"
+        <DxButton Text="재시도" RenderStyle="ButtonRenderStyle.Primary"
                   Enabled="@(!_retrying)"
                   Click="@DoRetryAsync" />
         <DxButton Text="취소" RenderStyle="ButtonRenderStyle.Secondary"

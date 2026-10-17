@@ -5735,11 +5735,12 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
      단추(바닥에서 76px)가 그보다 아래였으니, 화면을 쓰는 사람에게는
      **그 화면의 단추가 셸의 보조 단추보다 위**로 보였다.
 
-     그래서 0 으로 붙인다. 셸 쪽에서 `.jsini-actbar` 를 가진 본문의 아래
-     여백을 띠 높이에 **딱 맞춰** 두므로(숨 쉬는 1rem 은 이 줄이 제 여백으로
-     갖는다) 0 이 곧 띠의 윗금이다. 띠를 끄면 그 여백이 안전영역뿐이라
-     같은 0 이 화면 맨 아래가 된다 — 갈래를 둘로 둘 까닭이 없어져
-     `--bottomnav-hidden` 쪽 규칙도 함께 걷었다.
+     셸 쪽에서 `.jsini-actbar` 를 가진 본문의 아래 여백을 하단 네비게이션
+     높이에 맞춰 둔다(기본 60px, 아이콘만 쓰면 44px, 띠를 끄면 안전영역).
+     단추 줄이 바닥에 완전히 맞닿으면 하단 네비게이션과 너무 딱 붙으므로,
+     `bottom: 0.5rem; margin-bottom: 0.5rem;` 을 두어 네비게이션 사용 여부나
+     라벨 표시 여부와 무관하게 항상 하단 윗금으로부터 0.5rem(8px)의 숨 쉴 여백을
+     일정하게 유지한다.
 
      높이를 **보장한다.** 떠다니는 단추가 올라서는 거리는 셸이
      `--jsini-actbar-height` 만큼 민다. 그 값과 실제 줄 높이가 어긋나면
@@ -5749,7 +5750,8 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
      (`pm-peek__btn-text--short`), 그래도 넘치면 옆으로 민다. */
   .pm-taskview__acts,
   .pm-ask__viewacts {
-    bottom: 0;
+    bottom: 0.5rem;
+    margin-bottom: 0.5rem;
     min-height: auto;
     padding: 0;
 

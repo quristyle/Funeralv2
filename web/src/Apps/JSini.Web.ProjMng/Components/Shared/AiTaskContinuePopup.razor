@@ -52,7 +52,7 @@
     </BodyContentTemplate>
 
     <FooterContentTemplate Context="popupContext">
-        <DxButton Text="이어서 지시 요청" RenderStyle="ButtonRenderStyle.Primary"
+        <DxButton Text="이어서 요청" RenderStyle="ButtonRenderStyle.Primary"
                   Enabled="@(!string.IsNullOrWhiteSpace(_continueAddition) && !_continuing)"
                   Click="@DoContinueAsync" />
         <DxButton Text="취소" RenderStyle="ButtonRenderStyle.Secondary"
