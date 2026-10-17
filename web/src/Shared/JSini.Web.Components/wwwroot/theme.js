@@ -2338,3 +2338,158 @@
     target.scrollTo({ top: 0, behavior: still ? 'auto' : 'smooth' });
   });
 })();
+
+/**
+ * ── 스크롤에 따른 상단 헤더 자동 숨김 / 복원 ────────────────────
+ *
+ * 레이아웃 상단에는 로고부터 사용자 프로필까지 표현되는 헤더(.jsini-header)가 있다.
+ * 레이아웃 컨텐츠가 길어져 스크롤이 생기는 경우 일정 크기 이상으로 스크롤이 내려가면
+ * 상단 헤더가 위로 올라가 숨겨져 화면의 세로 공간을 더 확보하고,
+ * 스크롤을 다시 올리면 상단 헤더가 다시 나타난다.
+ */
+(function () {
+  var SHELL = '.jsini-shell';
+  var BOX = '.jsini-shell__content';
+  var HIDDEN_CLASS = 'jsini-shell--header-hidden';
+
+  /** 헤더 높이 남짓 내려왔을 때부터 숨김을 허용한다. 상단 근처에서는 늘 보인다. */
+  var SCROLL_THRESHOLD = 60;
+
+  /** 미세한 손떨림이나 터치 떨림으로 헤더가 깜빡이지 않게 하는 최소 이동 거리 (px). */
+  var DELTA_THRESHOLD = 5;
+
+  /** 본문 높이의 이만큼은 되어야 「화면을 구르는 상자」로 친다. */
+  var MIN_RATIO = 0.5;
+
+  var lastScrollTop = 0;
+  var ticking = false;
+
+  function isDrawerOrMenuOpen() {
+    if (document.querySelector('.jsini-user__menu')) return true;
+    if (document.querySelector('.jsini-user__face.is-on')) return true;
+    if (document.querySelector('.jsini-shell--nav-open')) return true;
+    if (document.querySelector('.jsini-note-scrim--on')) return true;
+    if (document.querySelector('.jsini-theme-drawer--on')) return true;
+    if (document.querySelector('.jsini-right-drawer--open')) return true;
+    if (document.querySelector('.jsini-ai-drawer--open')) return true;
+    if (document.querySelector('.jsini-quick-drawer--open')) return true;
+    return false;
+  }
+
+  function showHeader(shell) {
+    if (!shell) shell = document.querySelector(SHELL);
+    if (shell && shell.classList.contains(HIDDEN_CLASS)) {
+      shell.classList.remove(HIDDEN_CLASS);
+    }
+  }
+
+  function hideHeader(shell) {
+    if (!shell) shell = document.querySelector(SHELL);
+    if (shell && !shell.classList.contains(HIDDEN_CLASS)) {
+      shell.classList.add(HIDDEN_CLASS);
+    }
+  }
+
+  function isMainScroller(el, content) {
+    return el.clientHeight >= content.clientHeight * MIN_RATIO;
+  }
+
+  function handleScroll(scroller) {
+    if (!scroller) return;
+
+    var shell = document.querySelector(SHELL);
+    if (!shell) return;
+
+    // AI 에이전트 대화 화면이거나 메뉴/서랍이 열려 있는 동안에는 헤더를 숨기지 않는다.
+    if (document.querySelector('.site-ai-chat') || isDrawerOrMenuOpen()) {
+      showHeader(shell);
+      lastScrollTop = Math.max(0, scroller.scrollTop || 0);
+      return;
+    }
+
+    // 컨텐츠가 길어져서 스크롤이 생기는 경우에만 동작한다.
+    if (scroller.scrollHeight <= scroller.clientHeight + 20) {
+      showHeader(shell);
+      return;
+    }
+
+    var currentScrollTop = scroller.scrollTop || 0;
+    if (currentScrollTop < 0) currentScrollTop = 0;
+
+    // 일정 크기 이하(상단 근처)에서는 헤더가 항상 나타난다.
+    if (currentScrollTop <= SCROLL_THRESHOLD) {
+      showHeader(shell);
+      lastScrollTop = currentScrollTop;
+      return;
+    }
+
+    var delta = currentScrollTop - lastScrollTop;
+    if (Math.abs(delta) < DELTA_THRESHOLD) {
+      return;
+    }
+
+    if (delta > 0) {
+      // 스크롤이 내려가는 경우 -> 상단 헤더가 위로 올라가 세로 공간 확보
+      hideHeader(shell);
+    } else {
+      // 스크롤을 다시 올리는 경우 -> 상단 헤더 다시 표시
+      showHeader(shell);
+    }
+
+    lastScrollTop = currentScrollTop;
+  }
+
+  document.addEventListener('scroll', function (e) {
+    var el = e.target;
+    if (!el || el.nodeType !== 1 || !el.closest) return;
+
+    var content = el.closest(BOX);
+    if (!content) return;
+
+    if (content.querySelector('.site-ai-chat') || el.closest('.site-ai-chat')) return;
+    if (el !== content && !isMainScroller(el, content)) return;
+
+    if (!ticking) {
+      window.requestAnimationFrame(function () {
+        handleScroll(el);
+        ticking = false;
+      });
+      ticking = true;
+    }
+  }, { capture: true, passive: true });
+
+  window.addEventListener('scroll', function () {
+    var scroller = document.scrollingElement || document.documentElement || document.body;
+    if (!ticking) {
+      window.requestAnimationFrame(function () {
+        handleScroll(scroller);
+        ticking = false;
+      });
+      ticking = true;
+    }
+  }, { passive: true });
+
+  // 화면 이동 또는 본문 변경 시 헤더를 기본 표시 상태로 복원
+  var WATCHED_KEY = '__jsiniHeaderScrollWatched';
+  function watchContent(content) {
+    if (!content || content[WATCHED_KEY] || typeof MutationObserver !== 'function') return;
+    content[WATCHED_KEY] = true;
+
+    new MutationObserver(function () {
+      lastScrollTop = 0;
+      showHeader();
+    }).observe(content, { childList: true });
+  }
+
+  function initObserver() {
+    var content = document.querySelector(BOX);
+    if (content) watchContent(content);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initObserver);
+  } else {
+    initObserver();
+  }
+})();
+

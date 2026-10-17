@@ -41,7 +41,8 @@
      낮아지는 것까지 함께 하는 이유는, 아이콘과 로고만 줄이면 **띠는 그대로
      높아서** 작은 아이콘이 빈 띠 가운데 떠 보이기 때문이다. 이 값 하나로
      격자·모바일 사이드바·테마 서랍이 다 따라온다. */
-  --jsini-header-height: calc(3.5rem * var(--jsini-chrome-scale));
+  --jsini-header-base-height: calc(3.5rem * var(--jsini-chrome-scale));
+  --jsini-header-height: var(--jsini-header-base-height);
 
   /*
     아이콘 한 변의 길이.
@@ -402,11 +403,23 @@ body {
   grid-template-rows: var(--jsini-header-height) 1fr;
   height: 100vh;
   overflow: hidden;
-  transition: grid-template-columns 0.2s ease-in-out;
+  transition: grid-template-columns 0.2s ease-in-out, grid-template-rows 0.25s ease-in-out;
 }
 
 .jsini-shell--collapsed {
   grid-template-columns: 0 1fr;
+}
+
+/* 스크롤 다운 시 상단 헤더 숨김으로 화면의 세로 공간을 더 확보한다 */
+.jsini-shell--header-hidden {
+  --jsini-header-height: 0px;
+}
+
+.jsini-shell--header-hidden .jsini-header {
+  transform: translateY(-100%);
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
 }
 
 /* 아래 띠의 **이름을 감추기로** 한 사람에게 붙는 표시(`MainLayout.ShellCss`).
@@ -931,7 +944,8 @@ body {
   grid-column: 1 / -1;
   display: flex;
   align-items: center;
-  height: var(--jsini-header-height);
+  height: var(--jsini-header-base-height);
+  min-height: var(--jsini-header-base-height);
 
   /* 헤더는 띠 하나고 여기 있는 것이 전부 아이콘 단추다. 본문보다 한 단계
      크게 — 데모의 상단 바가 그 정도다.
@@ -946,6 +960,8 @@ body {
   background: var(--jsini-bg);
   box-shadow: 0 2px 6px 0 rgb(0 0 0 / 12%);
   z-index: 1030;
+  transition: transform 0.25s ease-in-out, opacity 0.2s ease-in-out, visibility 0.25s;
+  will-change: transform;
 }
 
 /* 메뉴 접기 단추. 데모는 동그란 단추다. */
@@ -2591,6 +2607,7 @@ button.jsini-crumbs__item:hover { opacity: 1; }
     left: 0;
     z-index: 1030;
     box-shadow: 0 0 24px rgb(0 0 0 / 25%);
+    transition: top 0.25s ease-in-out;
   }
 
   /* **펴진 표시가 붙었을 때만 그린다.** 접힘(`--collapsed`)을 보고 감추던
@@ -11674,5 +11691,13 @@ body.jsini-imgview-open {
   .jsini-shell__content:has(> .commcont > .commcont__body > .commgrd--cards) .commgrd--cards > .dxbl-grid {
     height: auto;
     max-height: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jsini-shell,
+  .jsini-header,
+  .jsini-shell__sidebar {
+    transition: none !important;
   }
 }
