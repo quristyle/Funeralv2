@@ -57,6 +57,29 @@ public sealed class AiAskLayoutTests
         Assert.DoesNotContain("if (!_isPhone)", code, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void 완료건_일괄확인_버튼과_4단_순환_아이콘이_목록_상단에_제공된다()
+    {
+        var razor = PanelRazor();
+        var code = PanelCode();
+
+        Assert.Contains("class=\"pm-ask__batch-btn\"", razor, StringComparison.Ordinal);
+        Assert.Contains("ConfirmCompletedBatchAsync", razor, StringComparison.Ordinal);
+        Assert.Contains("class=\"pm-ask__col-btn\"", razor, StringComparison.Ordinal);
+        Assert.Contains("CycleCols", razor, StringComparison.Ordinal);
+
+        var batchAt = razor.IndexOf("class=\"pm-ask__batch-btn\"", StringComparison.Ordinal);
+        var colsAt = razor.IndexOf("class=\"pm-ask__cols\"", StringComparison.Ordinal);
+        var scrollAt = razor.IndexOf("class=\"pm-ask__scroll\"", StringComparison.Ordinal);
+
+        Assert.True(batchAt >= 0 && scrollAt > batchAt, "완료건 일괄확인 버튼이 스크롤 영역 위에 있어야 한다");
+        Assert.True(colsAt > batchAt, "완료건 일괄확인 버튼이 단 수 버튼보다 좌측(앞)에 있어야 한다");
+
+        Assert.Contains("ColChoices = [1, 2, 3, 4]", code, StringComparison.Ordinal);
+        Assert.Contains("ConfirmCompletedBatchAsync()", code, StringComparison.Ordinal);
+        Assert.Contains("CycleCols()", code, StringComparison.Ordinal);
+    }
+
     private static string Rule(string css, string selector)
     {
         var at = css.IndexOf(selector, StringComparison.Ordinal);

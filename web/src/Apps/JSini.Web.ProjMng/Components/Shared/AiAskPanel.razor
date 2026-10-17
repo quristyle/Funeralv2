@@ -228,16 +228,58 @@
         @if (_recent.Count > 0)
         {
             <div class="pm-ask__list-head">
-                <div class="pm-ask__cols" role="group" aria-label="카드 단 수">
-                    <span class="pm-ask__cols-label">단</span>
+                <div class="pm-ask__list-left">
+                    <button type="button" class="pm-ask__batch-btn"
+                            disabled="@(_batchConfirming || CompletedCount == 0)"
+                            title="@(CompletedCount > 0 ? $"완료건 {CompletedCount}건 일괄 사용자확인" : "확인할 완료건이 없습니다")"
+                            aria-label="완료건 일괄 사용자확인"
+                            @onclick="ConfirmCompletedBatchAsync">
+                        <span class="pm-ask__batch-icon" aria-hidden="true">
+                            <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
+                                <path d="M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.4-6.425a.247.247 0 0 1 .02-.022Z"/>
+                            </svg>
+                        </span>
+                        <span class="pm-ask__batch-label">완료건 일괄확인</span>
+                        @if (CompletedCount > 0)
+                        {
+                            <span class="pm-ask__batch-badge">@CompletedCount</span>
+                        }
+                    </button>
+                </div>
 
-                    @foreach (var n in ColChoices)
-                    {
-                        <button type="button" class="pm-ask__col"
-                                aria-pressed="@(_cols == n ? "true" : "false")"
-                                title="@($"가로 {n}단으로 깔기")"
-                                @onclick="@(() => SetCols(n))">@n</button>
-                    }
+                <div class="pm-ask__cols" role="group" aria-label="카드 단 수">
+                    <button type="button" class="pm-ask__col-btn"
+                            title="@($"가로 {_cols}단 (클릭 시 {NextCols}단)")"
+                            aria-label="@($"가로 {_cols}단 보기, 클릭 시 {NextCols}단으로 전환")"
+                            @onclick="CycleCols">
+                        <span class="pm-ask__col-icon" aria-hidden="true">
+                            <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor">
+                                @if (_cols == 1)
+                                {
+                                    <rect x="2" y="2" width="12" height="12" rx="1.5" />
+                                }
+                                else if (_cols == 2)
+                                {
+                                    <rect x="2" y="2" width="5.5" height="12" rx="1" />
+                                    <rect x="8.5" y="2" width="5.5" height="12" rx="1" />
+                                }
+                                else if (_cols == 3)
+                                {
+                                    <rect x="1.5" y="2" width="3.7" height="12" rx="1" />
+                                    <rect x="6.15" y="2" width="3.7" height="12" rx="1" />
+                                    <rect x="10.8" y="2" width="3.7" height="12" rx="1" />
+                                }
+                                else
+                                {
+                                    <rect x="1" y="2" width="2.8" height="12" rx="0.75" />
+                                    <rect x="4.7" y="2" width="2.8" height="12" rx="0.75" />
+                                    <rect x="8.5" y="2" width="2.8" height="12" rx="0.75" />
+                                    <rect x="12.2" y="2" width="2.8" height="12" rx="0.75" />
+                                }
+                            </svg>
+                        </span>
+                        <span class="pm-ask__col-num">@($"{_cols}단")</span>
+                    </button>
                 </div>
             </div>
         }

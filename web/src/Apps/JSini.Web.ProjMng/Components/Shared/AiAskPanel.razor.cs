@@ -54,7 +54,7 @@ public partial class AiAskPanel
     private const int RecentMax = 10;
 
     /// <summary>고를 수 있는 단 수. 화면의 고르개가 이 차례로 선다.</summary>
-    private static readonly int[] ColChoices = [1, 2, 3];
+    private static readonly int[] ColChoices = [1, 2, 3, 4];
 
     /// <summary>
     /// 기억이 없을 때의 단 수. <b>한동안 이 값 하나뿐이었다</b> — 고르개가
@@ -1128,6 +1128,67 @@ public partial class AiAskPanel
         // 채움분이 단 수의 배수라 여기서 다시 센다.
         Show(_all);
         Remember();
+    }
+
+    /// <summary>
+    /// 다음에 전환될 단 수 (1 -> 2 -> 3 -> 4 -> 1 순환).
+    /// </summary>
+    private int NextCols => _cols >= 4 ? 1 : _cols + 1;
+
+    /// <summary>
+    /// 단 처리를 단일 아이콘으로 토글한다. 누를 때마다 단의 수치가 올라가고 4단 이후 1단으로 순환한다.
+    /// </summary>
+    private void CycleCols() => SetCols(NextCols);
+
+    /// <summary>완료건 일괄확인을 진행 중인가.</summary>
+    private bool _batchConfirming;
+
+    /// <summary>확인 대상인 완료건 수 (TaskStatus == "succeeded").</summary>
+    private int CompletedCount => _done.Count;
+
+    /// <summary>
+    /// 완료된 빠른 지시 건(succeeded)을 모두 사용자 확인 완료 처리한다.
+    /// </summary>
+    private async Task ConfirmCompletedBatchAsync()
+    {
+        if (_batchConfirming)
+        {
+            return;
+        }
+
+        var targets = _done.ToList();
+        if (targets.Count == 0)
+        {
+            return;
+        }
+
+        _batchConfirming = true;
+
+        // 열어 둔 탭 중 대상 건이 있으면 닫는다
+        foreach (var t in targets)
+        {
+            CloseView(t.TaskKey);
+        }
+
+        // 화면에서 즉시 내린다 (낙관적 갱신)
+        var targetKeys = targets.Select(t => t.TaskKey).ToHashSet();
+        Show([.. _all.Where(t => !targetKeys.Contains(t.TaskKey))]);
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            await Task.WhenAll(targets.Select(t => Api.ConfirmAsync(t.TaskKey)));
+            Say($"완료건 {targets.Count}건을 일괄 확인 처리했습니다.");
+        }
+        catch (Exception ex)
+        {
+            Say($"일부 작업을 확인 처리하지 못했습니다 — {ex.Message}", NoticeTone.Error);
+        }
+        finally
+        {
+            _batchConfirming = false;
+            await RefreshAsync(CancellationToken.None);
+        }
     }
 
     /// <summary>

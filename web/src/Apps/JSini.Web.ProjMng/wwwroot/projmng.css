@@ -2742,17 +2742,82 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   overscroll-behavior-y: contain;
 }
 
-/* ── 보낸 것 목록 ──────────────────────────────────────────── */
-
-/* 단 고르개만 선 줄. 제목도 건수도 없고 **밑줄도 긋지 않는다** — 카드가
-   저마다 테두리를 갖고 있어 선이 하나 더 서면 칸이 겹으로 둘린다.
-   고르개 하나뿐이라 `flex-end` 다(`space-between` 이면 왼쪽에 붙는다). */
+/* 목록 헤더: 좌측에 완료건 일괄확인, 우측에 단 수 조절 */
 .pm-ask__list-head {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
+  gap: 0.5rem;
   margin-bottom: 0.5rem;
+}
+
+.pm-ask__list-left {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
+/* 완료건 일괄 사용자확인 단추 */
+.pm-ask__batch-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 1.85rem;
+  padding: 0 0.65rem;
+  border: 1px solid var(--jsini-border);
+  border-radius: 999px;
+  background: var(--jsini-bg);
+  color: var(--jsini-text-muted);
+  font: inherit;
+  font-size: var(--jsini-fs-2xs);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pm-ask__batch-btn:hover:not(:disabled) {
+  border-color: var(--jsini-accent);
+  color: var(--jsini-text);
+  background: color-mix(in srgb, var(--jsini-accent) 8%, var(--jsini-surface));
+}
+
+.pm-ask__batch-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.pm-ask__batch-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--jsini-accent, #1677ff);
+}
+
+.pm-ask__batch-label {
+  white-space: nowrap;
+}
+
+.pm-ask__batch-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.15rem;
+  height: 1.15rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: var(--jsini-accent, #1677ff);
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+@media (max-width: 480px) {
+  .pm-ask__batch-label {
+    display: none;
+  }
 }
 
 /* 목록이 아니라 **카드**다. */
@@ -2768,16 +2833,54 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   padding: 0;
 }
 
-/* 단 수 고르개 캡슐형 세그먼트 스위치 */
+/* 단 수 아이콘 스위치 */
 .pm-ask__cols {
   flex: 0 0 auto;
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  padding: 3px;
   border: 1px solid var(--jsini-border);
   border-radius: 999px;
   background: var(--jsini-bg);
+}
+
+.pm-ask__col-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 1.85rem;
+  padding: 0 0.65rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--jsini-text-muted);
+  font: inherit;
+  font-size: var(--jsini-fs-2xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pm-ask__col-btn:hover {
+  background: color-mix(in srgb, currentcolor 8%, var(--jsini-surface));
+  color: var(--jsini-text);
+}
+
+.pm-ask__col-btn:focus-visible {
+  outline: 2px solid var(--jsini-accent);
+  outline-offset: 1px;
+}
+
+.pm-ask__col-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--jsini-accent, #1677ff);
+}
+
+.pm-ask__col-num {
+  font-size: var(--jsini-fs-2xs);
+  font-weight: 600;
 }
 
 .pm-ask__cols-label {
