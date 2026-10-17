@@ -47,6 +47,21 @@ public sealed class AiTaskContinuePopupTests
         Assert.Contains("AiTaskAlways.Append", popupText, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void 이어서_지시_단추는_완료뿐만_아니라_IsBusy_상태에서도_표시된다()
+    {
+        var taskActionsText = ReadFile(TaskActionsPath);
+        Assert.Contains("t.TaskStatus == \"succeeded\" || t.IsBusy", taskActionsText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void 공통_팝업은_진행중_안내와_자동_요청을_지원한다()
+    {
+        var popupText = ReadFile(ContinuePopupPath);
+        Assert.Contains("_autoSubmitOnComplete", popupText, StringComparison.Ordinal);
+        Assert.Contains("현재 작업이", popupText, StringComparison.Ordinal);
+    }
+
     private static string ReadFile(string relative)
     {
         var path = Path.Combine(SolutionRoot(), relative.Replace('/', Path.DirectorySeparatorChar));

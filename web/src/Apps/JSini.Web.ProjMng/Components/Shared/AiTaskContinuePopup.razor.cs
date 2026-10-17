@@ -14,7 +14,7 @@ namespace JSini.Web.ProjMng.Components.Shared;
 /// 완료된 작업에 추가 지시를 덧붙여 새로 요청할 때 사용하는 공통 컴포넌트다.
 /// </para>
 /// </summary>
-public partial class AiTaskContinuePopup
+public partial class AiTaskContinuePopup : IDisposable
 {
     [Inject] private AiTaskClient Api { get; set; } = default!;
     [Inject] private AiModelCodes ModelCodes { get; set; } = default!;
@@ -42,6 +42,18 @@ public partial class AiTaskContinuePopup
     private string? _continueAddition;
     private string? _continueError;
     private string? _continueKind;
+
+    /// <summary>작업 완료 시 자동으로 이어서 지시를 요청할지 여부</summary>
+    private bool _autoSubmitOnComplete = true;
+
+    /// <summary>진행 중인 작업 감시용 폴링 토큰</summary>
+    private CancellationTokenSource? _pollCts;
+
+    /// <summary>이전 확인된 상태</summary>
+    private string? _lastItemStatus;
+
+    /// <summary>마지막으로 처리한 작업 객체</summary>
+    private AiTaskDto? _lastHandledItem;
 
     /// <summary>
     /// 글상자를 가리키는 고유 ID. 한 화면에 여러 팝업이 존재해도 충돌하지 않도록 한다.
@@ -81,6 +93,12 @@ public partial class AiTaskContinuePopup
                 Close();
             }
         }
+
+        if (_visible && Item is { } current && current.TaskKey == _continueTaskKey && current != _lastHandledItem)
+        {
+            _lastHandledItem = current;
+            await HandleStatusChangeAsync(current);
+        }
     }
 
     /// <summary>지정된 작업을 대상으로 이어서 지시 팝업을 연다.</summary>
@@ -97,6 +115,9 @@ public partial class AiTaskContinuePopup
         _continueRestored = false;
         _continueSavedAt = null;
         _continueTaskKey = item.TaskKey;
+        _lastItemStatus = item.TaskStatus;
+        _lastHandledItem = item;
+        _autoSubmitOnComplete = item.IsBusy;
 
         if (!_kindsRead)
         {
@@ -136,6 +157,16 @@ public partial class AiTaskContinuePopup
         }
 
         _continueAttachPending = _continueTaskKey > 0;
+
+        if (item.IsBusy)
+        {
+            StartPoll();
+        }
+        else
+        {
+            StopPoll();
+        }
+
         await InvokeAsync(StateHasChanged);
     }
 
@@ -150,10 +181,79 @@ public partial class AiTaskContinuePopup
         await ContinueDrafts.AttachAsync(ContinueSelector, _continueTaskKey);
     }
 
+    /// <summary>작업 상태 전이를 감지하여 완료 시 자동 요청 또는 알림을 처리한다.</summary>
+    private async Task HandleStatusChangeAsync(AiTaskDto fresh)
+    {
+        var prevStatus = _lastItemStatus;
+        Item = fresh;
+        _lastItemStatus = fresh.TaskStatus;
+
+        if (prevStatus is "queued" or "preparing" or "running" && fresh.TaskStatus == "succeeded")
+        {
+            StopPoll();
+            if (_autoSubmitOnComplete && !string.IsNullOrWhiteSpace(_continueAddition) && !_continuing)
+            {
+                await DoContinueAsync();
+            }
+        }
+        else if (prevStatus is "queued" or "preparing" or "running" && fresh.IsFinal && fresh.TaskStatus != "succeeded")
+        {
+            StopPoll();
+            _autoSubmitOnComplete = false;
+            _continueError = $"선행 작업이 '{fresh.StatusText}'(으)로 완료되지 않아 자동 요청을 중단했습니다.";
+        }
+        else if (!fresh.IsBusy)
+        {
+            StopPoll();
+        }
+
+        StateHasChanged();
+    }
+
+    private void StartPoll()
+    {
+        if (_pollCts is not null) return;
+        var cts = new CancellationTokenSource();
+        _pollCts = cts;
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                while (!cts.IsCancellationRequested && _visible && _continueTaskKey > 0)
+                {
+                    await Task.Delay(2500, cts.Token);
+                    if (cts.IsCancellationRequested || !_visible || _continueTaskKey <= 0) return;
+
+                    var fresh = await Api.GetAsync(_continueTaskKey, cts.Token);
+                    if (fresh is null || cts.IsCancellationRequested || !_visible) return;
+
+                    await InvokeAsync(async () =>
+                    {
+                        if (!_visible || cts.IsCancellationRequested) return;
+                        _lastHandledItem = fresh;
+                        await HandleStatusChangeAsync(fresh);
+                    });
+                }
+            }
+            catch (OperationCanceledException) { }
+            catch { }
+        }, cts.Token);
+    }
+
+    private void StopPoll()
+    {
+        _pollCts?.Cancel();
+        _pollCts?.Dispose();
+        _pollCts = null;
+    }
+
     /// <summary>팝업을 닫는다. 적어 둔 임시본은 보존된다.</summary>
     public void Close()
     {
         if (_continuing) return;
+
+        StopPoll();
 
         _visible = false;
         _lastVisible = false;
@@ -174,6 +274,11 @@ public partial class AiTaskContinuePopup
         }
 
         StateHasChanged();
+    }
+
+    public void Dispose()
+    {
+        StopPoll();
     }
 
     private async Task PickContinueKindAsync(string? kind)
@@ -205,6 +310,12 @@ public partial class AiTaskContinuePopup
             return;
         }
 
+        if (t.IsBusy)
+        {
+            _continueError = "작업이 아직 완료되지 않았습니다. 완료 후 다시 시도하십시오.";
+            return;
+        }
+
         _continuing = true;
         _continueError = null;
 
@@ -217,6 +328,8 @@ public partial class AiTaskContinuePopup
             if (updated is not null)
             {
                 updated = await Api.RequestAsync(t.TaskKey);
+                StopPoll();
+
                 _visible = false;
                 _lastVisible = false;
 

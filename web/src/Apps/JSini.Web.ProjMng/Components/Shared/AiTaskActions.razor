@@ -83,11 +83,12 @@
 
 @if (Item is { } t)
 {
-    @if (t.TaskStatus == "succeeded")
+    @if (t.TaskStatus == "succeeded" || t.IsBusy)
     {
         <DxButton RenderStyle="ButtonRenderStyle.Primary"
                   Enabled="@(!_retrying && !_confirming)"
-                  Click="@OpenContinueModalAsync">
+                  Click="@OpenContinueModalAsync"
+                  Title="@(t.IsBusy ? "작업 완료 후 이어서 지시할 내용을 미리 작성합니다" : "완료된 작업에 이어서 지시합니다")">
             <span class="pm-peek__btn-text--full">이어하기</span>
             <span class="pm-peek__btn-text--short">이어서</span>
         </DxButton>
@@ -213,8 +214,8 @@
     </FooterContentTemplate>
 </CommPopup>
 
-@* 완료된 작업에 이어서 지시하기 공통 팝업 *@
-<AiTaskContinuePopup @ref="_continuePopup" OnContinued="@OnContinueFinishedAsync" />
+@* 완료된 작업 또는 진행중인 작업에 이어서 지시하기 공통 팝업 *@
+<AiTaskContinuePopup @ref="_continuePopup" Item="@Item" OnContinued="@OnContinueFinishedAsync" />
 
 
 @* 작성중인 건을 지우기 전에 묻는다. 재시도·이어서 지시 창과 같은 이유로

@@ -6,11 +6,19 @@
     모든 이어서 지시가 동일한 UI/UX 를 경험하도록 한다.
 *@
 
+@implements IDisposable
+
 <CommPopup @bind-Visible="_visible"
            HeaderText="이어서 지시"
            Width="min(36rem, calc(100vw - 2rem))"
            CloseOnOutsideClick="false">
     <BodyContentTemplate>
+        @if (Item?.IsBusy == true)
+        {
+            <PageNotice Tone="NoticeTone.Info"
+                        Text="@($"현재 작업이 '{Item?.StatusText}' 상태입니다. 지시 내용을 미리 작성해 두시면 작업이 완료되는 즉시 이어서 요청할 수 있습니다.")" />
+        }
+
         @* 이 회차를 맡을 AI. 고르개는 공통 부품이고(`AiRunnerPick`)
            남은 한도가 그 칸 안에 함께 선다. *@
         <div class="pm-peek__field">
@@ -45,6 +53,15 @@
             </div>
         }
 
+        @if (Item?.IsBusy == true)
+        {
+            <div class="pm-peek__auto-continue" style="margin-top: 0.5rem;">
+                <DxCheckBox @bind-Checked="_autoSubmitOnComplete">
+                    작업 완료 시 자동으로 이어서 지시 요청
+                </DxCheckBox>
+            </div>
+        }
+
         @if (!string.IsNullOrWhiteSpace(_continueError))
         {
             <PageNotice Tone="NoticeTone.Error" Text="@_continueError" />
@@ -52,10 +69,25 @@
     </BodyContentTemplate>
 
     <FooterContentTemplate Context="popupContext">
-        <DxButton Text="이어서 요청" RenderStyle="ButtonRenderStyle.Primary"
-                  Enabled="@(!string.IsNullOrWhiteSpace(_continueAddition) && !_continuing)"
-                  Click="@DoContinueAsync" />
-        <DxButton Text="취소" RenderStyle="ButtonRenderStyle.Secondary"
+        @if (Item?.IsBusy == true && !_autoSubmitOnComplete)
+        {
+            <DxButton Text="작업 완료 후 요청 가능" RenderStyle="ButtonRenderStyle.Primary"
+                      Enabled="false"
+                      Title="현재 작업이 진행 중입니다. 작업이 완료되면 버튼이 활성화됩니다." />
+        }
+        else if (Item?.IsBusy == true && _autoSubmitOnComplete)
+        {
+            <DxButton Text="완료 시 자동 요청 대기중" RenderStyle="ButtonRenderStyle.Primary"
+                      Enabled="false"
+                      Title="작업이 완료되면 작성하신 지시 내용이 자동으로 서버에 요청됩니다." />
+        }
+        else
+        {
+            <DxButton Text="이어서 요청" RenderStyle="ButtonRenderStyle.Primary"
+                      Enabled="@(!string.IsNullOrWhiteSpace(_continueAddition) && !_continuing && Item?.IsBusy != true)"
+                      Click="@DoContinueAsync" />
+        }
+        <DxButton Text="@(Item?.IsBusy == true ? "닫기 (작성내용 보존)" : "취소")" RenderStyle="ButtonRenderStyle.Secondary"
                   Enabled="@(!_continuing)"
                   Click="@Close" />
     </FooterContentTemplate>
