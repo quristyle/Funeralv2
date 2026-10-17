@@ -46,6 +46,24 @@ public sealed record AiChatSession(string Id, string? Title, DateTime UpdatedAt)
     public string Label => string.IsNullOrWhiteSpace(Title) ? "새 대화" : Title;
 }
 
+/// <summary>
+/// 녹음 한 마디를 글로 바꾼 결과.
+/// </summary>
+/// <param name="Ok">바꿨나. 거짓이면 <paramref name="Message"/> 에 까닭이 있다.</param>
+/// <param name="Text">
+/// 알아들은 글. <b>성공했는데 비어 있을 수 있다</b> — 아무 말도 없는 녹음을
+/// 보냈을 때가 그렇고, 그것은 고장이 아니다. 화면이 그 둘을 갈라 안내한다
+/// (<see cref="HeardNothing"/>).
+/// </param>
+/// <param name="Message">못 바꾼 까닭. 바꿨으면 <c>null</c>.</param>
+public sealed record AiTranscript(bool Ok, string Text, string? Message)
+{
+    public static AiTranscript Failed(string message) => new(false, string.Empty, message);
+
+    /// <summary>서버는 멀쩡히 답했는데 알아들은 말이 없다. 고장이 아니다.</summary>
+    public bool HeardNothing => Ok && string.IsNullOrWhiteSpace(Text);
+}
+
 /// <summary>지금 쓰이는 AI 한 줄. 물어보기 전에 보여 줄 기본값을 담는다.</summary>
 /// <param name="Label">사람에게 보여 줄 이름(<c>Gemini Free · gemini-3.8-flash</c>).</param>
 /// <param name="Configured">키까지 채워져 실제로 부를 수 있는 상태인지.</param>
@@ -207,6 +225,72 @@ public sealed class AiChatClient(HttpClient http)
             {
                 yield return part;
             }
+        }
+    }
+
+    // ── 말소리를 글로 (STT) ─────────────────────────────────
+
+    /// <summary>
+    /// 녹음한 한 마디를 글로 바꾼다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 브라우저가 녹음한 바이트를 <b>회로를 거쳐</b> 받아 여기서 게이트웨이에
+    /// 붙인다. 브라우저가 게이트웨이를 직접 부르지 않는 까닭은
+    /// <c>chat-voice.js</c> 머리말에 있다 — CORS 와 토큰이다.
+    /// </para>
+    /// <para>
+    /// <b>못 바꿔도 던지지 않는다.</b> 받아쓰기가 끊긴 것은 고장이 아니라 흔한
+    /// 일이고(서버를 아직 안 올렸을 수도 있다), 그때 화면이 해야 하는 일은
+    /// 오류 화면이 아니라 "글로 물어 주세요" 라는 안내다.
+    /// </para>
+    /// </remarks>
+    /// <param name="base64">녹음된 바이트. <c>chat-voice.js</c> 의 <c>stop()</c> 이 준다.</param>
+    /// <param name="contentType">그 바이트의 종류. 브라우저마다 다르다.</param>
+    /// <param name="fileName">받아쓰기 서버 로그에 남을 이름. 확장자만 쓸모가 있다.</param>
+    /// <param name="ct">화면을 떠나거나 음성 모드를 닫으면 끊는다.</param>
+    public async Task<AiTranscript> TranscribeAsync(
+        string base64,
+        string contentType,
+        string fileName,
+        CancellationToken ct = default)
+    {
+        try
+        {
+            using var response = await http.PostAsJsonAsync(
+                "ai/stt",
+                new { audioBase64 = base64, contentType, fileName },
+                ct);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                return AiTranscript.Failed(
+                    $"받아쓰기 요청이 실패했습니다. ({(int)response.StatusCode})");
+            }
+
+            using var document = await JsonDocument.ParseAsync(
+                await response.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
+
+            // 봉투: { data: { result: [ { ok, text, latencyMs, message } ] } }
+            if (!document.RootElement.TryGetProperty("data", out var data)
+                || !data.TryGetProperty("result", out var result)
+                || result.ValueKind != JsonValueKind.Array
+                || result.GetArrayLength() == 0)
+            {
+                return AiTranscript.Failed("받아쓰기 결과를 읽지 못했습니다.");
+            }
+
+            var row = result[0];
+
+            return new AiTranscript(
+                Ok: row.TryGetProperty("ok", out var ok) && ok.ValueKind == JsonValueKind.True,
+                Text: row.TryGetProperty("text", out var t) ? t.GetString() ?? string.Empty : string.Empty,
+                Message: row.TryGetProperty("message", out var m) ? m.GetString() : null);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or JsonException
+            or NotSupportedException or TaskCanceledException)
+        {
+            return AiTranscript.Failed($"받아쓰기 서버에 닿지 못했습니다 — {ex.Message}");
         }
     }
 

@@ -4,7 +4,9 @@
     데스크탑과 모바일 모든 환경에서 최상의 대화 경험을 제공한다.
 *@
 
-@implements IDisposable
+@* JS 부품(녹음·읽어주기)을 들고 있어서 비동기로 거둔다 — 마이크를 닫는 일이
+   거기 걸려 있다. 안 닫으면 탭에 녹음 표시가 켜진 채로 남는다. *@
+@implements IAsyncDisposable
 
 <div class="jsini-chat @(IsDrawer ? "jsini-chat--drawer" : "jsini-chat--full")">
     @* ── 상단 바 (ChatGPT Header Bar) ─────────────────────────── *@
@@ -232,12 +234,29 @@
     <div class="jsini-chat__input-area">
         <div class="jsini-chat__input-container" @ref="_inputRef" @onkeydown="@OnKeyDownAsync">
             <div class="jsini-chat__capsule">
+                @* ── 받아쓰기 마이크 (1단계) ──────────────────────────
+                   누르면 듣고, 다시 누르면 **입력칸에 채운다.** 바로 보내지
+                   않는 까닭은 `ToggleDictationAsync` 머리말에 — 받아쓰기는
+                   틀릴 수 있고, 틀린 채로 나가면 AI 가 엉뚱한 답을 한 것으로
+                   보인다. *@
+                @if (_voiceSupported != false)
+                {
+                    <button type="button"
+                            class="jsini-chat__mic-btn @(_listening ? "is-listening" : "") @(_transcribing ? "is-busy" : "")"
+                            title="@(_listening ? "말하기를 끝내고 글로 옮깁니다" : "말로 입력하기")"
+                            disabled="@(_streaming || _transcribing)"
+                            @onclick="ToggleDictationAsync">
+                        <span class="@(_transcribing ? "jsini-icon-hourglass" : "jsini-icon-microphone")"
+                              aria-hidden="true"></span>
+                    </button>
+                }
+
                 <DxMemo @bind-Text="@_input"
                         BindValueMode="BindValueMode.OnInput"
                         Rows="1"
                         MaxRows="6"
                         ResizeMode="MemoResizeMode.Auto"
-                        NullText="메시지를 입력하세요 (줄바꿈은 Shift+Enter)"
+                        NullText="@(_listening ? "듣고 있습니다…" : "메시지를 입력하세요 (줄바꿈은 Shift+Enter)")"
                         Enabled="@(!_streaming)"
                         CssClass="jsini-chat__textarea" />
 
@@ -245,21 +264,44 @@
                     @if (_streaming)
                     {
                         <button type="button" class="jsini-chat__circle-btn jsini-chat__circle-btn--stop"
-                                title="답변 생성 중단" @onclick="StopGenerating">
+                                title="답변 생성 중단" @onclick="StopGeneratingAsync">
                             <span class="jsini-icon-stop" aria-hidden="true"></span>
                         </button>
                     }
                     else
                     {
                         var canSend = !string.IsNullOrWhiteSpace(_input);
-                        <button type="button"
-                                class="jsini-chat__circle-btn jsini-chat__circle-btn--send @(canSend ? "is-active" : "")"
-                                title="전송" disabled="@(!canSend)" @onclick="SendAsync">
-                            <span class="jsini-icon-arrow-up" aria-hidden="true"></span>
-                        </button>
+
+                        @* 입력칸이 비어 있으면 보내기 자리에 **음성 모드**를 둔다.
+                           ChatGPT 와 같은 자리다 — 쓸 말이 없을 때만 보이므로
+                           단추가 하나 더 늘어난 것으로 느껴지지 않는다. *@
+                        @if (!canSend && _voiceSupported != false)
+                        {
+                            <button type="button"
+                                    class="jsini-chat__circle-btn jsini-chat__circle-btn--voice"
+                                    title="음성으로 대화하기" @onclick="OpenVoiceModeAsync">
+                                <span class="jsini-icon-soundwave" aria-hidden="true"></span>
+                            </button>
+                        }
+                        else
+                        {
+                            <button type="button"
+                                    class="jsini-chat__circle-btn jsini-chat__circle-btn--send @(canSend ? "is-active" : "")"
+                                    title="전송" disabled="@(!canSend)" @onclick="@(() => SendAsync())">
+                                <span class="jsini-icon-arrow-up" aria-hidden="true"></span>
+                            </button>
+                        }
                     }
                 </div>
             </div>
+
+            @if (_voiceNotice is { Length: > 0 } micNotice && !_voiceMode)
+            {
+                <p class="jsini-chat__mic-notice">
+                    <span class="jsini-icon-alert" aria-hidden="true"></span>
+                    <span>@micNotice</span>
+                </p>
+            }
 
             <p class="jsini-chat__disclaimer">
                 AI는 실수를 할 수 있습니다. 중요한 정보는 다시 확인하세요.
@@ -267,5 +309,119 @@
         </div>
     </div>
 </div>
+
+@* ══ 음성 모드 (2단계) ═══════════════════════════════════════════
+   **라우트가 아니라 이 부품의 한 상태다.** 새 화면으로 빼면 ① 공용 부품이
+   갈라지고(이 알맹이는 화면과 헤더 서랍이 함께 쓴다) ② DB 메뉴 등록과 권한
+   배정이 따라온다(`@@page` 가 메뉴 경로와 같아야 하고, 권한관리 밖의 주소는
+   기본으로 막힌다). 기능 하나를 얹자고 치를 값이 아니다.
+
+   닫으면 **대화는 그대로 남는다** — 글 화면으로 돌아갈 뿐이다. 말로 물은
+   것이 뒤에 글로 읽히는 것이 이 설계의 요점이다. *@
+@if (_voiceMode)
+{
+    <div class="jsini-voice" role="dialog" aria-modal="true" aria-label="음성으로 대화하기">
+
+        <div class="jsini-voice__top">
+            @* 둘 다 **끌 수 있어야 한다.** 읽어주기는 사무실에서 민폐고,
+               자동 종료는 옆자리 말소리에 끊긴다. *@
+            <div class="jsini-voice__toggles">
+                <button type="button"
+                        class="jsini-voice__toggle @(_speakReplies ? "is-on" : "")"
+                        title="@(_speakReplies ? "답변 읽어주기 끄기" : "답변 읽어주기 켜기")"
+                        @onclick="@(() => _speakReplies = !_speakReplies)">
+                    <span class="jsini-icon-volume" aria-hidden="true"></span>
+                    <span class="jsini-voice__toggle-text">읽어주기</span>
+                </button>
+
+                <button type="button"
+                        class="jsini-voice__toggle @(_autoEnd ? "is-on" : "")"
+                        title="@(_autoEnd ? "말이 끊기면 자동으로 전송합니다. 끄면 직접 눌러 끝냅니다" : "직접 눌러 말하기를 끝냅니다")"
+                        @onclick="@(() => _autoEnd = !_autoEnd)">
+                    <span class="jsini-icon-bolt" aria-hidden="true"></span>
+                    <span class="jsini-voice__toggle-text">자동 종료</span>
+                </button>
+            </div>
+
+            <button type="button" class="jsini-voice__close" title="음성 모드 닫기"
+                    @onclick="CloseVoiceModeAsync">
+                <span class="jsini-icon-close" aria-hidden="true"></span>
+            </button>
+        </div>
+
+        <div class="jsini-voice__stage">
+            @* 오브. **소리 크기는 JS 가 이 칸의 CSS 변수에 직접 적는다** —
+               회로로 올리면 말하는 동안 초당 수십 번 서버가 깨어난다. *@
+            <button type="button" @ref="_orbRef"
+                    class="jsini-voice__orb @VoiceStageClass"
+                    title="@VoiceOrbHint"
+                    disabled="@(_transcribing || _streaming)"
+                    @onclick="TapOrbAsync">
+                <span class="jsini-voice__orb-ring" aria-hidden="true"></span>
+                <span class="jsini-voice__orb-core" aria-hidden="true"></span>
+                <span class="jsini-voice__orb-icon @VoiceOrbIcon" aria-hidden="true"></span>
+            </button>
+
+            <p class="jsini-voice__state">@VoiceStateText</p>
+
+            @if (_voiceNotice is { Length: > 0 } notice)
+            {
+                <p class="jsini-voice__notice">
+                    <span class="jsini-icon-alert" aria-hidden="true"></span>
+                    <span>@notice</span>
+                </p>
+            }
+        </div>
+
+        @* 자막. **반드시 띄운다** — 받아쓰기가 틀렸을 때 사람이 알아야 하고,
+           시끄러운 자리에서 소리를 끄고도 쓸 수 있어야 한다. *@
+        <div class="jsini-voice__caption">
+            @if (_heard is { Length: > 0 } said)
+            {
+                <div class="jsini-voice__said">
+                    <span class="jsini-voice__said-label">나</span>
+                    <span class="jsini-voice__said-text">@said</span>
+                </div>
+            }
+
+            @if (LastReply is { Length: > 0 } reply)
+            {
+                <div class="jsini-voice__reply">
+                    <span class="jsini-voice__said-label">JSini AI</span>
+                    <span class="jsini-voice__reply-text">@reply</span>
+                </div>
+            }
+            else if (_heard is null)
+            {
+                @* 보여 줄 말이 아직 없다. **빈 상자로 두지 않는다** — 자리는
+                   오브가 뛰지 않게 고정해 두었으므로, 비우면 까닭 없이 큰
+                   빈 칸이 떠 있고 사람은 그것을 고장으로 읽는다. *@
+                <p class="jsini-voice__hint">
+                    @(_listening
+                        ? "말씀하시면 여기에 받아쓴 글이 보입니다."
+                        : "가운데를 누르고 말씀하세요.")
+                </p>
+            }
+        </div>
+
+        <div class="jsini-voice__actions">
+            @if (_streaming || _speaking)
+            {
+                <button type="button" class="jsini-voice__action jsini-voice__action--stop"
+                        @onclick="StopGeneratingAsync">
+                    <span class="jsini-icon-stop" aria-hidden="true"></span>
+                    <span>그만</span>
+                </button>
+            }
+
+            <button type="button" class="jsini-voice__action"
+                    title="음성 모드를 닫고 글로 이어서 묻습니다"
+                    @onclick="CloseVoiceModeAsync">
+                <span class="jsini-icon-edit" aria-hidden="true"></span>
+                <span>글로 전환</span>
+            </button>
+        </div>
+    </div>
+}
 
 <ConfirmDialog @ref="_confirm" />

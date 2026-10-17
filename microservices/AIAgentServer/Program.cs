@@ -112,6 +112,10 @@ builder.Services.AddScoped<AIAgentServer.Services.Mcp.WebAugmenter>();
 // LLM 장비 하드웨어 상태. 추론과 같은 주소·같은 키를 쓰므로 설정이 따로 없다.
 builder.Services.AddHttpClient<LlmHostMetricsClient>();
 
+// 말소리를 글로 (STT). 브라우저가 가진 받아쓰기를 안 쓰는 까닭은 SpeechClient
+// 머리말에 있다 — 아이폰에 없고, 말소리가 바깥으로 나간다.
+builder.Services.AddHttpClient<SpeechClient>();
+
 // RAG·웹 검색이 실제로 도는지 눌러 보는 자리. **싱글턴이라야 한다** —
 // 재어 둔 값(2분)을 들고 있어야 상태 화면의 10초 조회가 임베딩 서버의
 // CPU 를 그때마다 물지 않는다.

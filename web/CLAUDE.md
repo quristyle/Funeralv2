@@ -59,6 +59,8 @@ web/
   docs/
     menu-route-map.md               DB 메뉴 179건 ↔ Blazor 라우트 정본 표
     menu-path-cutover.sql           DB path 를 새 경로로 바꾸는 SQL (아직 안 돌렸다)
+    ai-chat-ui-standard.md          **가리키는 줄뿐이다** — 정본은 ../docs/ 에 있다
+                                    (AI쳇 화면·서랍·음성 모드의 생김새 규격)
   tests/JSini.Web.Architecture.Tests/
 ```
 

@@ -1,8 +1,20 @@
 /**
- * 지시 상세 — 처리 요약 음성으로 읽어주기 (TTS, Web Speech API).
+ * 읽어주기 (TTS, Web Speech API) — **공용 부품이다.**
  *
- * 브라우저의 speechSynthesis 를 사용하여 요약 내용 전체(결론, 세부 항목, 확인할 것)를
- * 한국어로 문장/항목 단위로 순차 재생한다.
+ * 브라우저의 speechSynthesis 를 사용하여 한국어 글을 문장/항목 단위로 순차 재생한다.
+ *
+ * [쓰는 자리 둘]
+ *
+ * 1. 프로젝트관리 지시 상세 — 처리 요약을 통째로 읽는다 (`speak`).
+ *    글이 다 있는 채로 시작하는 자리다.
+ * 2. AI쳇 음성 모드 — 답이 오는 대로 문장씩 읽는다
+ *    (`beginStream` / `pushStream` / `endStream`).
+ *    **답이 다 오기를 기다리면 안 되는 자리다** — 긴 답을 끝까지 기다리면
+ *    사람은 몇 초 동안 아무 소리도 못 듣고, 음성 대화의 값이 사라진다.
+ *
+ * 원래 ProjMng 안에 있던 것을 올렸다. 아래 브라우저 버그 대응이 한 벌뿐이어야
+ * 해서다 — 복사해 두면 한쪽에만 고침이 들어가고, 그 어긋남은 「지시 상세에서는
+ * 되는데 음성 모드에서는 중간에 끊긴다」로 나타난다.
  *
  * [브라우저 이슈 대응]
  * 1. 크롬 등에서 긴 발화(약 15초 이상)를 하나의 Utterance 로 재생 시 발화가 중간에 강제 취소되는 현상:
@@ -22,6 +34,18 @@ let activeUtterance = null;
 let chunkTimeoutTimer = null;
 let watchdogTimer = null;
 let cachedVoice = null;
+
+/**
+ * 읽을 글이 **아직 더 올 수 있나.**
+ *
+ * 음성 모드에서 참이 된다. 이 값이 참인 동안에는 큐가 비어도 "다 읽었다" 로
+ * 치지 않는다 — 다음 문장이 오는 중일 뿐이다. 거짓으로 뒀다가는 문장 사이마다
+ * 화면이 「말하는 중 → 끝남 → 말하는 중」으로 깜빡인다.
+ */
+let streamOpen = false;
+
+/** 큐가 비어 멈춰 서 있나. 다음 글이 오면 여기서 다시 굴린다. */
+let awaitingMore = false;
 
 function clearChunkTimeout() {
   if (chunkTimeoutTimer) {
@@ -101,6 +125,8 @@ function cleanup() {
   }
   currentChunks = [];
   currentChunkIndex = 0;
+  streamOpen = false;
+  awaitingMore = false;
 }
 
 function splitIntoChunks(input) {
@@ -160,12 +186,20 @@ function speakNextChunk() {
   }
 
   if (currentChunkIndex >= currentChunks.length) {
-    // 요약의 모든 항목을 다 읽었음
+    // **아직 더 올 수 있으면 멈춰 서서 기다린다.** 여기서 끝냈다가는
+    // 문장 사이마다 "다 읽었다" 가 화면으로 올라가 상태가 깜빡인다.
+    if (streamOpen) {
+      awaitingMore = true;
+      return;
+    }
+
+    // 읽을 것을 다 읽었음
     cleanup();
     notifyState(false);
     return;
   }
 
+  awaitingMore = false;
   const chunkText = currentChunks[currentChunkIndex];
   const utterance = new SpeechSynthesisUtterance(chunkText);
   utterance.lang = 'ko-KR';
@@ -273,6 +307,84 @@ export function speak(input, dotNetHelper) {
   }, 50);
 
   return true;
+}
+
+/**
+ * 흘려 읽기를 연다 — AI쳇 음성 모드가 쓴다.
+ *
+ * 이 뒤로 `pushStream` 으로 문장을 밀어 넣으면 **오는 대로 읽는다.**
+ * 다 밀어 넣었으면 `endStream` 으로 닫는다.
+ *
+ * `speak` 와 갈라 둔 까닭: `speak` 는 글이 다 있는 채로 시작해서 큐가 비면
+ * 끝나는 물건이다. 스트리밍에서는 큐가 비는 일이 **읽기가 끝난 것이 아니라
+ * 다음 문장을 기다리는 것**이라, 그 둘을 한 함수에 담으면 조건이 엉킨다.
+ */
+export function beginStream(dotNetHelper) {
+  if (!isSupported()) {
+    return false;
+  }
+
+  stop();
+
+  currentHelper = dotNetHelper;
+  currentChunks = [];
+  currentChunkIndex = 0;
+  isCanceled = false;
+  isSpeakingState = true;
+  streamOpen = true;
+  awaitingMore = true;
+
+  notifyState(true);
+  startWatchdog();
+  return true;
+}
+
+/**
+ * 읽을 글을 뒤에 붙인다. 멈춰 서 있었으면 다시 굴린다.
+ *
+ * **문장 단위로 넣는 것은 부르는 쪽의 몫이다.** 글자가 오는 대로 한 자씩
+ * 넣으면 한 글자짜리 발화가 줄줄이 생겨서 말이 끊어져 들린다 — C# 쪽이
+ * 문장 끝(`.!?` · 줄바꿈)까지 모았다가 한 번에 넣는다.
+ */
+export function pushStream(text) {
+  if (!streamOpen || isCanceled || !text) {
+    return false;
+  }
+
+  const chunks = splitIntoChunks(text);
+  if (chunks.length === 0) {
+    return false;
+  }
+
+  for (const c of chunks) {
+    currentChunks.push(c);
+  }
+
+  // 멈춰 서 있었으면 다시 굴린다. 읽는 중이면 `onFinish` 가 알아서 집어 간다.
+  if (awaitingMore) {
+    awaitingMore = false;
+    speakNextChunk();
+  }
+
+  return true;
+}
+
+/**
+ * 더 올 글이 없다고 알린다. **남은 큐는 끝까지 읽는다.**
+ *
+ * 이미 큐가 비어 멈춰 서 있었으면 그 자리에서 끝난다.
+ */
+export function endStream() {
+  if (!streamOpen) {
+    return;
+  }
+
+  streamOpen = false;
+
+  if (awaitingMore) {
+    cleanup();
+    notifyState(false);
+  }
 }
 
 export function stop() {

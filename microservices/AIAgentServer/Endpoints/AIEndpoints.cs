@@ -248,10 +248,11 @@ public static class AIEndpoints
         {
             var force = recheck == true;
 
-            // 눌러 보는 둘은 서로 기다릴 까닭이 없다. 임베딩이 20초를 끌어도
+            // 눌러 보는 것들은 서로 기다릴 까닭이 없다. 임베딩이 20초를 끌어도
             // MCP 쪽 답은 그대로 나온다.
             var embedTask = probe.EmbeddingAsync(force, ct);
             var mcpTask = probe.McpServerAsync(force, ct);
+            var sttTask = probe.SpeechAsync(force, ct);
             var toolsTask = mcp.ListAsync(ct);
 
             // 문서 수는 DB 를, 토막 수는 메모리를 본다 — 둘이 어긋나는 것이
@@ -260,9 +261,10 @@ public static class AIEndpoints
             var docStats = (await library.DocumentStatsAsync(ct))
                 .ToDictionary(x => x.CategoryId, StringComparer.Ordinal);
 
-            await Task.WhenAll(embedTask, mcpTask, toolsTask);
+            await Task.WhenAll(embedTask, mcpTask, sttTask, toolsTask);
             var embed = await embedTask;
             var mcpServer = await mcpTask;
+            var stt = await sttTask;
             var tools = await toolsTask;
 
             // 저장소 문서(docs/*.md)는 DB 에 없는 카테고리로 따로 들어간다.
@@ -350,10 +352,24 @@ public static class AIEndpoints
                         checkedAt = mcpServer.CheckedAt,
                     },
                 },
+
+                // 말로 묻는 길. **이것이 끊겨도 대화는 멀쩡하다** — 글로 묻는
+                // 길은 그대로라, 서비스 상태로는 안 갈린다. RAG·웹 검색과 같은
+                // 갈래라 여기 함께 둔다.
+                speech = new
+                {
+                    reachable = stt.Reachable,
+                    model = stt.Model,
+                    language = stt.Language,
+                    latencyMs = stt.LatencyMs,
+                    endpoint = stt.Endpoint,
+                    message = stt.Message,
+                    checkedAt = stt.CheckedAt,
+                },
             }));
         })
         .WithName("GetAiFeatureStatus")
-        .WithSummary("사내 문서 검색(RAG)과 웹 검색(MCP)의 상태");
+        .WithSummary("사내 문서 검색(RAG)·웹 검색(MCP)·받아쓰기(STT)의 상태");
 
         // 웹 검색을 **실제로 한 번** 돌려 본다.
         //
@@ -675,6 +691,55 @@ public static class AIEndpoints
             }
         })
         .WithName("DeepCheckLlm");
+
+        // ── 말소리를 글로 (STT) ──────────────────────────────────
+        //
+        // 화면이 녹음한 한 마디를 받아 글로 돌려준다. 그 글을 어떻게 쓸지는
+        // 화면이 정한다 — 입력칸에 채우기도 하고(받아쓰기), 바로 질문으로
+        // 보내기도 한다(음성 모드).
+        //
+        // **소리를 base64 로 받는다.** 화면이 Blazor Server 라 브라우저가
+        // 게이트웨이를 직접 부르지 못하고(CORS), 회로를 거쳐 서버가 여기로
+        // 보낸다. 한 마디는 수십 KB 라 그 길로 충분하다.
+        group.MapPost("/stt", async (
+            [FromBody] SttRequest body,
+            [FromServices] SpeechClient speech,
+            CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(body.AudioBase64))
+            {
+                return Results.BadRequest(ApiResponse<object>.Fail("소리가 비어 있습니다.", "C400"));
+            }
+
+            byte[] audio;
+            try
+            {
+                audio = Convert.FromBase64String(body.AudioBase64);
+            }
+            catch (FormatException)
+            {
+                return Results.BadRequest(ApiResponse<object>.Fail("소리를 읽지 못했습니다.", "C400"));
+            }
+
+            var result = await speech.TranscribeAsync(
+                audio,
+                body.ContentType ?? "audio/webm",
+                body.FileName ?? "utterance.webm",
+                ct);
+
+            // **실패도 200 으로 돌려준다.** 화면이 까닭을 사람에게 보여 주어야
+            // 하는데, 400 으로 돌리면 공용 오류 처리가 먼저 삼켜 버린다.
+            // 「받아쓰기가 안 됐다」는 것 자체가 정상적인 답이다.
+            return Results.Ok(ApiResponse<object>.Ok(new
+            {
+                ok = result.Ok,
+                text = result.Text,
+                latencyMs = result.LatencyMs,
+                message = result.Message,
+            }));
+        })
+        .WithName("Transcribe")
+        .WithSummary("녹음한 말소리를 글로 바꾼다");
 
         group.MapPost("/chat", async (
             HttpContext context,
@@ -1015,3 +1080,13 @@ public static class AIEndpoints
 
 /// <summary>웹 검색 대화 요청.</summary>
 public sealed record WebAskRequest(string Question, string? Provider);
+
+/// <summary>
+/// 받아쓰기 요청. 소리를 base64 로 싣는다.
+/// </summary>
+/// <param name="ContentType">
+/// 녹음의 종류. <b>브라우저마다 다르다</b> — 크롬은 <c>audio/webm;codecs=opus</c>,
+/// 사파리는 <c>audio/mp4</c> 를 준다. 가리지 않고 그대로 넘긴다.
+/// </param>
+/// <param name="FileName">받아쓰기 서버 로그에 남을 이름. 확장자만 쓸모가 있다.</param>
+public sealed record SttRequest(string AudioBase64, string? ContentType, string? FileName);

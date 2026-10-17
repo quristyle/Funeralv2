@@ -967,8 +967,11 @@ public partial class AiTaskView
 
         try
         {
+            // 읽어주기는 **공용 부품이다.** AI쳇의 음성 모드가 같은 것을 쓴다 —
+            // 브라우저 버그 대응(청크 나누기·GC 참조 유지·pause 와치독)이
+            // 한 벌뿐이어야 한다.
             _speechJs ??= await Js.InvokeAsync<IJSObjectReference>(
-                "import", "./_content/JSini.Web.ProjMng/js/task-speech.js");
+                "import", "./_content/JSini.Web.Components/js/speech.js");
             _dotNetRef ??= DotNetObjectReference.Create(this);
 
             var ok = await _speechJs.InvokeAsync<bool>("speak", lines, _dotNetRef);

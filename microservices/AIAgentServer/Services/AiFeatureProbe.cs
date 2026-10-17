@@ -51,9 +51,11 @@ public sealed class AiFeatureProbe
 
     private readonly SemaphoreSlim _embedGate = new(1, 1);
     private readonly SemaphoreSlim _mcpGate = new(1, 1);
+    private readonly SemaphoreSlim _sttGate = new(1, 1);
 
     private EmbeddingProbe? _embed;
     private McpServerProbe? _mcp;
+    private SpeechProbe? _stt;
 
     public AiFeatureProbe(
         IServiceScopeFactory scopes,
@@ -209,8 +211,131 @@ public sealed class AiFeatureProbe
         }
     }
 
+    // ── 받아쓰기 서버 ───────────────────────────────────────────
+
+    /// <param name="force">재어 둔 값을 버리고 지금 다시 묻는다.</param>
+    public async Task<SpeechProbe> SpeechAsync(bool force = false, CancellationToken ct = default)
+    {
+        if (!force && Fresh(_stt?.CheckedAt)) return _stt!;
+
+        await _sttGate.WaitAsync(ct);
+        try
+        {
+            if (!force && Fresh(_stt?.CheckedAt)) return _stt!;
+            return _stt = await MeasureSpeechAsync(ct);
+        }
+        finally
+        {
+            _sttGate.Release();
+        }
+    }
+
+    /// <summary>
+    /// 받아쓰기 서버를 <b>실제로 한 번 눌러 본다.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 모델 목록만 물어도 「서버가 떠 있나」는 알 수 있다. 그런데 그것으로는
+    /// <b>모델을 못 올린 상태</b>가 안 갈린다 — 서버는 멀쩡히 200 을 주면서
+    /// 받아쓰기만 전부 실패하는 자리가 있다(가중치를 내려받다 만 경우가 그렇다).
+    /// 임베딩 쪽에서 같은 까닭으로 실제 벡터를 만들어 보는 것과 같다.
+    /// </para>
+    /// <para>
+    /// 그래서 <b>아주 짧은 무음</b>을 만들어 보낸다. 돌아오는 글은 비어 있는
+    /// 것이 맞고, 여기서 보는 것은 글이 아니라 「끝까지 돌았는가」다.
+    /// </para>
+    /// </remarks>
+    private async Task<SpeechProbe> MeasureSpeechAsync(CancellationToken ct)
+    {
+        using var scope = _scopes.CreateScope();
+        var speech = scope.ServiceProvider.GetRequiredService<SpeechClient>();
+
+        var endpoint = speech.Endpoint;
+        if (string.IsNullOrWhiteSpace(endpoint))
+        {
+            return new SpeechProbe(false, speech.Model, speech.Language, null, null,
+                "받아쓰기 서버 주소가 설정돼 있지 않습니다. (Stt:Endpoint 또는 AI:Providers:jsini)",
+                DateTime.UtcNow);
+        }
+
+        try
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(TimeSpan.FromSeconds(30));
+
+            var r = await speech.TranscribeAsync(SilenceWav(), "audio/wav", "probe.wav", cts.Token);
+
+            return new SpeechProbe(
+                Reachable: r.Ok,
+                Model: speech.Model,
+                Language: speech.Language,
+                LatencyMs: r.LatencyMs,
+                Endpoint: endpoint,
+                Message: r.Message,
+                CheckedAt: DateTime.UtcNow);
+        }
+        catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+        {
+            return new SpeechProbe(false, speech.Model, speech.Language, null, endpoint,
+                "받아쓰기 서버가 제때 답하지 않았습니다. (30초)", DateTime.UtcNow);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "받아쓰기 서버를 눌러 보지 못했습니다. endpoint={Endpoint}", endpoint);
+            return new SpeechProbe(false, speech.Model, speech.Language, null, endpoint,
+                $"받아쓰기 서버에 닿지 못했습니다: {ex.Message}", DateTime.UtcNow);
+        }
+    }
+
+    /// <summary>
+    /// 0.2초짜리 무음 WAV. 16kHz · 16bit · 모노 — whisper 가 안쪽에서 맞추는 모양이라
+    /// 변환 없이 바로 들어간다.
+    /// </summary>
+    private static byte[] SilenceWav()
+    {
+        const int sampleRate = 16000;
+        const int samples = sampleRate / 5;
+        const int dataBytes = samples * 2;
+
+        var buf = new byte[44 + dataBytes];
+        var w = new BinaryWriter(new MemoryStream(buf));
+
+        w.Write("RIFF"u8);
+        w.Write(36 + dataBytes);
+        w.Write("WAVE"u8);
+        w.Write("fmt "u8);
+        w.Write(16);                      // fmt 길이
+        w.Write((short)1);                // PCM
+        w.Write((short)1);                // 모노
+        w.Write(sampleRate);
+        w.Write(sampleRate * 2);          // 초당 바이트
+        w.Write((short)2);                // 한 칸 바이트
+        w.Write((short)16);               // 비트
+        w.Write("data"u8);
+        w.Write(dataBytes);
+        // 나머지는 0 — 그것이 무음이다.
+
+        return buf;
+    }
+
     private static bool Fresh(DateTime? at) => at is { } t && DateTime.UtcNow - t < Ttl;
 }
+
+/// <summary>
+/// 받아쓰기 서버를 한 번 눌러 본 결과.
+/// </summary>
+/// <param name="Language">
+/// 알아들을 말을 일러 주었나. 비어 있으면 서버가 스스로 가린다 —
+/// <b>짧은 말이 엉뚱한 언어로 가려지는</b> 자리라 보통은 채워 둔다.
+/// </param>
+public sealed record SpeechProbe(
+    bool Reachable,
+    string Model,
+    string? Language,
+    int? LatencyMs,
+    string? Endpoint,
+    string? Message,
+    DateTime CheckedAt);
 
 /// <summary>
 /// 임베딩 서버를 한 번 눌러 본 결과.

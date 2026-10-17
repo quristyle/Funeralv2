@@ -31,9 +31,18 @@
     웹 검색(MCP)의 상태도 함께 보여 준다** — 장비가 멀쩡해도 그 둘은 따로
     끊어지고(임베딩 서버 · 색인 · 도구 서버), 그때도 대화는 아는 것만으로
     멀쩡히 돌아서 서비스 상태로는 안 갈린다. **설정만 보면 죽어도 초록이라**
-    임베딩 서버를 실제로 한 번 눌러 본 값을 함께 담는다(2분 동안 재어 둔다). **「GPU 를 읽지 못했습니다」는 거의 늘
+    임베딩 서버를 실제로 한 번 눌러 본 값을 함께 담는다(2분 동안 재어 둔다).
+    **「GPU 를 읽지 못했습니다」는 거의 늘
     드라이버 판 어긋남**이고(꾸러미만 올라가고 커널 모듈은 그대로),
     그때도 **추론은 멀쩡히 돌아서** 서비스 상태로는 안 갈린다
+
+    **AI쳇은 말로도 쓴다** — 받아쓰기는 우리 장비가 하고(`POST /api/ai/stt`)
+    읽어주기는 브라우저가 한다. 브라우저 받아쓰기를 안 쓰는 까닭은 **아이폰에
+    아예 없고 말소리가 구글 서버로 나가기** 때문이다. 그 길도 같은 상태 화면에
+    실리고 **무음 하나를 실제로 보내 본** 값이다 — 모델을 못 올린 서버는 멀쩡히
+    200 을 주면서 받아쓰기만 전부 실패한다. 끊겨도 대화는 멀쩡하다(마이크 단추만
+    접힌다): [docs/ai-voice-chat.md](docs/ai-voice-chat.md),
+    올리는 길은 [deploy/stt/](deploy/stt/)
 
     내 요청글에 **댓글이 달렸을 때** 글 주인에게 가는 앱푸시·이메일과 그것을
     끄는 자리는 [docs/helpdesk-comment-notify.md](docs/helpdesk-comment-notify.md) —
@@ -171,6 +180,9 @@ nginx 설정 정본은 [deploy/nginx/](deploy/nginx/) 에 있다 — Blazor 회�
 - [docs/utc-time.md](docs/utc-time.md) — 시각을 UTC 로 다루는 규칙과 한국 시각이 남은 자리
 - [docs/geolocation-background.md](docs/geolocation-background.md) — 포털을 닫은 뒤에도
   위치를 모을 수 있나(서비스워커에 `geolocation` 은 **없다** — 실측과 그래도 할 수 있는 일)
+- [docs/ai-voice-chat.md](docs/ai-voice-chat.md) — AI쳇을 말로 쓰는 길: 받아쓰기와
+  음성 모드를 가른 까닭 · 소리를 회로로 넘기는 까닭 · 서랍이 `fixed` 를 가두는 함정
+- [deploy/stt/README.md](deploy/stt/README.md) — 받아쓰기 서버 정본과 모델 고르기
 - [docs/note-delivery.md](docs/note-delivery.md) — 쪽지: 빠른 대상 선택 · 휴대폰
   전체화면 · 푸시가 안 닿았을 때 메일로 전환하는 길
 - [docs/mail-send.md](docs/mail-send.md) — 메일 보내기: 「메시지 발송」과 무엇이
