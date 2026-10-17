@@ -2,6 +2,7 @@ using AuthServer.Data;
 using AuthServer.DTOs;
 using AuthServer.Entities;
 using Microsoft.EntityFrameworkCore;
+using JSini.Shared.DTOs;
 
 namespace AuthServer.Services;
 
@@ -14,6 +15,9 @@ public class UserService : IUserService
     private readonly IRoleAssignmentService _roleAssignments;
     private readonly IConfiguration _config;
     private readonly IEmailVerificationService? _emailVerification;
+    private readonly AccountMailClient? _mail;
+    private readonly SignupNotifyClient? _notify;
+    private readonly ILogger<UserService>? _logger;
 
     /// <summary>
     /// UserService 생성자
@@ -22,12 +26,18 @@ public class UserService : IUserService
         AppDbContext db,
         IRoleAssignmentService roleAssignments,
         IConfiguration config,
-        IEmailVerificationService? emailVerification = null)
+        IEmailVerificationService? emailVerification = null,
+        AccountMailClient? mail = null,
+        SignupNotifyClient? notify = null,
+        ILogger<UserService>? logger = null)
     {
         _db = db;
         _roleAssignments = roleAssignments;
         _config = config;
         _emailVerification = emailVerification;
+        _mail = mail;
+        _notify = notify;
+        _logger = logger;
     }
 
     /// <summary><c>account_profile_details</c> 의 <c>Watermark</c>. 없으면 켜진 것이다.</summary>
@@ -1331,4 +1341,404 @@ public class UserService : IUserService
         && !path.StartsWith("//", StringComparison.Ordinal)
         && !path.Any(char.IsWhiteSpace)
         && !path.Any(char.IsControl);
+
+    /// <inheritdoc cref="IUserService.MergeAccountAsync"/>
+    public async Task<(bool Ok, string? Error)> MergeAccountAsync(
+        string sourceAccountId, string targetAccountId, string approver, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(sourceAccountId))
+        {
+            return (false, "결합할 원본 계정을 지정해 주십시오.");
+        }
+
+        if (string.IsNullOrWhiteSpace(targetAccountId))
+        {
+            return (false, "결합할 대상 계정을 입력해 주십시오.");
+        }
+
+        var sourceAccount = await _db.Accounts
+            .Include(a => a.ProfileDetails)
+            .FirstOrDefaultAsync(a => a.Id == sourceAccountId || a.UserId == sourceAccountId, ct);
+
+        if (sourceAccount is null)
+        {
+            return (false, "결합할 원본 계정을 찾을 수 없습니다.");
+        }
+
+        var targetAccount = await _db.Accounts
+            .Include(a => a.ProfileDetails)
+            .FirstOrDefaultAsync(a => a.Id == targetAccountId || a.UserId == targetAccountId, ct);
+
+        if (targetAccount is null)
+        {
+            return (false, $"결합할 대상 계정 '{targetAccountId}'을(를) 찾을 수 없습니다.");
+        }
+
+        if (sourceAccount.Id == targetAccount.Id)
+        {
+            return (false, "원본 계정과 대상 계정이 동일하여 결합할 수 없습니다.");
+        }
+
+        // 1. 소셜 로그인 연결 이전/병합
+        var sourceSocials = await _db.AccountSocialLogins
+            .Where(l => l.AccountId == sourceAccount.Id)
+            .ToListAsync(ct);
+
+        var targetSocials = await _db.AccountSocialLogins
+            .Where(l => l.AccountId == targetAccount.Id)
+            .ToListAsync(ct);
+
+        foreach (var login in sourceSocials)
+        {
+            var existingSameProvider = targetSocials
+                .FirstOrDefault(t => t.Provider.Equals(login.Provider, StringComparison.OrdinalIgnoreCase));
+
+            if (existingSameProvider is not null)
+            {
+                existingSameProvider.ProviderUserId = login.ProviderUserId;
+                existingSameProvider.Email = login.Email ?? existingSameProvider.Email;
+                existingSameProvider.DisplayName = login.DisplayName ?? existingSameProvider.DisplayName;
+                existingSameProvider.LastLoginAt = login.LastLoginAt ?? existingSameProvider.LastLoginAt;
+                existingSameProvider.UpdatedAt = DateTime.UtcNow;
+                existingSameProvider.UpdatedBy = approver;
+
+                _db.AccountSocialLogins.Remove(login);
+            }
+            else
+            {
+                login.AccountId = targetAccount.Id;
+                login.Account = targetAccount;
+                login.UpdatedAt = DateTime.UtcNow;
+                login.UpdatedBy = approver;
+            }
+        }
+
+        // 2. WebAuthn 패스키 자격증명 이전
+        var webAuthnCreds = await _db.AccountWebAuthnCredentials
+            .Where(c => c.AccountId == sourceAccount.Id)
+            .ToListAsync(ct);
+
+        foreach (var cred in webAuthnCreds)
+        {
+            cred.AccountId = targetAccount.Id;
+            cred.Account = targetAccount;
+        }
+
+        // 3. 즐겨찾기(MenuFavorites) 병합
+        var sourceFavs = await _db.MenuFavorites
+            .Where(f => f.AccountId == sourceAccount.Id)
+            .ToListAsync(ct);
+
+        var targetFavMenuIds = await _db.MenuFavorites
+            .Where(f => f.AccountId == targetAccount.Id)
+            .Select(f => f.MenuId)
+            .ToListAsync(ct);
+
+        foreach (var fav in sourceFavs)
+        {
+            if (!targetFavMenuIds.Contains(fav.MenuId))
+            {
+                fav.AccountId = targetAccount.Id;
+                fav.Account = targetAccount;
+            }
+            else
+            {
+                _db.MenuFavorites.Remove(fav);
+            }
+        }
+
+        // 4. 역할(RoleAccounts) 병합
+        var sourceRoles = await _db.RoleAccounts
+            .Where(ra => ra.AccountId == sourceAccount.Id)
+            .ToListAsync(ct);
+
+        var targetRoleIds = await _db.RoleAccounts
+            .Where(ra => ra.AccountId == targetAccount.Id)
+            .Select(ra => ra.RoleId)
+            .ToListAsync(ct);
+
+        foreach (var ra in sourceRoles)
+        {
+            if (!targetRoleIds.Contains(ra.RoleId))
+            {
+                ra.AccountId = targetAccount.Id;
+            }
+            else
+            {
+                _db.RoleAccounts.Remove(ra);
+            }
+        }
+
+        // 5. 사용자 환경설정(AccountPreferences) 병합
+        var sourcePref = await _db.AccountPreferences
+            .FirstOrDefaultAsync(p => p.AccountId == sourceAccount.Id, ct);
+
+        if (sourcePref is not null)
+        {
+            var targetHasPref = await _db.AccountPreferences
+                .AnyAsync(p => p.AccountId == targetAccount.Id, ct);
+
+            if (!targetHasPref)
+            {
+                sourcePref.AccountId = targetAccount.Id;
+                sourcePref.Account = targetAccount;
+            }
+            else
+            {
+                _db.AccountPreferences.Remove(sourcePref);
+            }
+        }
+
+        // 6. 로그인 로그(AccountLoginLogs) 이전
+        var sourceLogs = await _db.AccountLoginLogs
+            .Where(l => l.AccountId == sourceAccount.Id)
+            .ToListAsync(ct);
+
+        foreach (var log in sourceLogs)
+        {
+            log.AccountId = targetAccount.Id;
+        }
+
+        // 7. 프로필 상세 정보(AccountProfileDetails) 병합
+        var sourceEmail = sourceAccount.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Email")?.Content;
+        var sourcePhone = sourceAccount.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Phone")?.Content;
+
+        var existingEmails = targetAccount.ProfileDetails?
+            .Where(p => p.DetailType == "Email")
+            .Select(p => p.Content)
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .ToList() ?? [];
+
+        // 원본 계정의 이메일들 이전
+        var sourceEmails = sourceAccount.ProfileDetails?
+            .Where(p => p.DetailType == "Email")
+            .Select(p => p.Content)
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .ToList() ?? [];
+
+        foreach (var em in sourceEmails)
+        {
+            if (!existingEmails.Contains(em, StringComparer.OrdinalIgnoreCase))
+            {
+                _db.AccountProfileDetails.Add(new AccountProfileDetail
+                {
+                    AccountId = targetAccount.Id,
+                    Account = targetAccount,
+                    DetailType = "Email",
+                    Content = em,
+                    IsPrimary = existingEmails.Count == 0,
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = approver,
+                });
+                existingEmails.Add(em);
+            }
+        }
+
+        // 소셜 로그인 이메일 병합
+        foreach (var login in sourceSocials)
+        {
+            if (!string.IsNullOrWhiteSpace(login.Email) && !existingEmails.Contains(login.Email, StringComparer.OrdinalIgnoreCase))
+            {
+                _db.AccountProfileDetails.Add(new AccountProfileDetail
+                {
+                    AccountId = targetAccount.Id,
+                    Account = targetAccount,
+                    DetailType = "Email",
+                    Content = login.Email,
+                    IsPrimary = existingEmails.Count == 0,
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = approver,
+                });
+                existingEmails.Add(login.Email);
+            }
+        }
+
+        // 전화번호 병합
+        var existingPhones = targetAccount.ProfileDetails?
+            .Where(p => p.DetailType == "Phone")
+            .Select(p => p.Content)
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .ToList() ?? [];
+
+        var sourcePhones = sourceAccount.ProfileDetails?
+            .Where(p => p.DetailType == "Phone")
+            .Select(p => p.Content)
+            .Where(c => !string.IsNullOrWhiteSpace(c))
+            .ToList() ?? [];
+
+        foreach (var ph in sourcePhones)
+        {
+            if (!existingPhones.Contains(ph, StringComparer.OrdinalIgnoreCase))
+            {
+                _db.AccountProfileDetails.Add(new AccountProfileDetail
+                {
+                    AccountId = targetAccount.Id,
+                    Account = targetAccount,
+                    DetailType = "Phone",
+                    Content = ph,
+                    IsPrimary = existingPhones.Count == 0,
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = approver,
+                });
+                existingPhones.Add(ph);
+            }
+        }
+
+        // 아바타 승계
+        if (string.IsNullOrWhiteSpace(targetAccount.AvatarGroupId) && !string.IsNullOrWhiteSpace(sourceAccount.AvatarGroupId))
+        {
+            targetAccount.AvatarGroupId = sourceAccount.AvatarGroupId;
+            var sourceAvatar = sourceAccount.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Avatar")?.Content;
+            if (!string.IsNullOrWhiteSpace(sourceAvatar) && targetAccount.ProfileDetails?.All(p => p.DetailType != "Avatar") == true)
+            {
+                _db.AccountProfileDetails.Add(new AccountProfileDetail
+                {
+                    AccountId = targetAccount.Id,
+                    Account = targetAccount,
+                    DetailType = "Avatar",
+                    Content = sourceAvatar,
+                    IsPrimary = true,
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = approver,
+                });
+            }
+        }
+
+        // 개발 업무용 확장 속성(Dev.) 병합: 대상 계정에 없는 속성 보완
+        var sourceDevDetails = sourceAccount.ProfileDetails?
+            .Where(p => p.DetailType.StartsWith("Dev.", StringComparison.OrdinalIgnoreCase))
+            .ToList() ?? [];
+
+        foreach (var dev in sourceDevDetails)
+        {
+            var targetHasDev = targetAccount.ProfileDetails?.Any(p =>
+                string.Equals(p.DetailType, dev.DetailType, StringComparison.OrdinalIgnoreCase)) == true;
+
+            if (!targetHasDev && !string.IsNullOrWhiteSpace(dev.Content))
+            {
+                _db.AccountProfileDetails.Add(new AccountProfileDetail
+                {
+                    AccountId = targetAccount.Id,
+                    Account = targetAccount,
+                    DetailType = dev.DetailType,
+                    Content = dev.Content,
+                    Label = dev.Label,
+                    Remark = dev.Remark,
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = approver,
+                });
+            }
+        }
+
+        // 기존 결합 이력 이전
+        var existingSourceMerges = sourceAccount.ProfileDetails?
+            .Where(p => p.DetailType == "SocialMerge" || p.DetailType == "MergedSocial")
+            .ToList() ?? [];
+
+        foreach (var sm in existingSourceMerges)
+        {
+            sm.AccountId = targetAccount.Id;
+            sm.Account = targetAccount;
+        }
+
+        // 이번 결합 이력(SocialMerge) 기록
+        var mergeInfo = $"{sourceEmail}|{sourcePhone}|{approver}|{DateTime.UtcNow:O}";
+        if (sourceSocials.Count > 0)
+        {
+            foreach (var login in sourceSocials)
+            {
+                _db.AccountProfileDetails.Add(new AccountProfileDetail
+                {
+                    AccountId = targetAccount.Id,
+                    Account = targetAccount,
+                    DetailType = "SocialMerge",
+                    Content = login.Provider,
+                    Label = sourceAccount.UserId,
+                    Remark = mergeInfo,
+                    CreatedAt = DateTime.UtcNow,
+                    CreatedBy = approver,
+                });
+            }
+        }
+        else
+        {
+            _db.AccountProfileDetails.Add(new AccountProfileDetail
+            {
+                AccountId = targetAccount.Id,
+                Account = targetAccount,
+                DetailType = "SocialMerge",
+                Content = "account",
+                Label = sourceAccount.UserId,
+                Remark = mergeInfo,
+                CreatedAt = DateTime.UtcNow,
+                CreatedBy = approver,
+            });
+        }
+
+        // 1단계 저장: 대상 계정 변경사항 및 이전된 레코드 저장
+        await _db.SaveChangesAsync(ct);
+
+        // 2단계 저장: 원본 계정 프로필 상세 및 원본 계정 엔티티 삭제
+        if (sourceAccount.ProfileDetails is { Count: > 0 })
+        {
+            _db.AccountProfileDetails.RemoveRange(sourceAccount.ProfileDetails);
+        }
+
+        _db.Accounts.Remove(sourceAccount);
+        await _db.SaveChangesAsync(ct);
+
+        _logger?.LogInformation(
+            "계정 결합 완료: {SourceLoginId}({SourceId}) -> {TargetLoginId}({TargetId}) (처리자 {Approver})",
+            sourceAccount.UserId, sourceAccount.Id, targetAccount.UserId, targetAccount.Id, approver);
+
+        // 알림 발송: 앱 푸시 알림 및 이메일 알림
+        if (_notify is not null)
+        {
+            try
+            {
+                await _notify.NotifyOwnersAsync(
+                    [targetAccount.UserId, sourceAccount.UserId],
+                    "[JSini 포털] 계정 결합 완료",
+                    $"{System.Net.WebUtility.HtmlEncode(targetAccount.UserName ?? targetAccount.UserId)} 님의 계정에 '{sourceAccount.UserId}' 계정이 결합되었습니다.",
+                    "/admin/system/account",
+                    targetAccount.UserId,
+                    "AUTH_ACCOUNT",
+                    ct);
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, "계정 결합 앱 푸시 알림 발송 실패");
+            }
+        }
+
+        if (_mail is not null)
+        {
+            var mailTargets = existingEmails.Concat(sourceEmails)
+                .Where(e => !string.IsNullOrWhiteSpace(e) && e.Contains('@'))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            foreach (var mailAddr in mailTargets)
+            {
+                try
+                {
+                    await _mail.SendAsync(
+                        mailAddr,
+                        "[JSini 포털] 계정이 결합되었습니다",
+                        $@"<h2>계정 결합 안내</h2>
+<p>{System.Net.WebUtility.HtmlEncode(targetAccount.UserName ?? targetAccount.UserId)} 님의 계정(<b>{System.Net.WebUtility.HtmlEncode(targetAccount.UserId)}</b>)에 기존 계정(<b>{System.Net.WebUtility.HtmlEncode(sourceAccount.UserId)}</b>)이 정상적으로 결합되었습니다.</p>
+<p>소셜 연동, 연락처 정보 등이 대상 계정으로 통합되었습니다.</p>",
+                        "AUTH_ACCOUNT",
+                        NotificationEvents.AccountMail,
+                        ct);
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogWarning(ex, "계정 결합 안내 메일 발송 실패: {Email}", mailAddr);
+                }
+            }
+        }
+
+        return (true, null);
+    }
 }

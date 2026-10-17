@@ -275,6 +275,10 @@
            본다(`SystemEndpoints` 의 그 경로). *@
         <RowActions Context="a">
             <PermissionView Action="MenuAction.Update">
+                <DxButton IconCssClass="jsini-icon-link" Title="다른 계정으로 결합"
+                          RenderStyle="ButtonRenderStyle.Link"
+                          Click="@(() => AskMergeAsync(a))" />
+
                 <DxButton IconCssClass="jsini-icon-lock" Title="비밀번호 초기화"
                           CssClass="commgrd__icon--warn"
                           RenderStyle="ButtonRenderStyle.Link"
@@ -555,3 +559,39 @@
 @* 초기화를 묻는 창. `CommGrd` 가 삭제에 쓰는 것과 같은 부품인데, 그쪽 것은
    표 안에 숨어 있어 화면이 쓸 수 없다. *@
 <ConfirmDialog @ref="_confirm" />
+
+@* 계정 결합 창. 기존 계정을 다른 계정으로 결합(Merge)하여 통합한다. *@
+<CommPopup @bind-Visible="_mergingVisible" HeaderText="계정 결합" Width="480px">
+    <BodyContentTemplate Context="mergePopup">
+        <p class="jsini-hint">
+            <strong>@(_mergeSource?.UserName ?? "-")</strong> (@(_mergeSource?.LoginId ?? "-")) 계정을 다른 기존 계정으로 결합합니다.
+            <br />
+            소셜 연동, 연락처 등이 대상 계정으로 통합되고, 원본 계정은 삭제됩니다.
+        </p>
+
+        <div style="margin-top: 12px;">
+            <label style="display: block; margin-bottom: 4px; font-weight: 500;">결합할 대상 계정 선택</label>
+            <DxComboBox Data="@MergeTargetCandidates"
+                        TextFieldName="@nameof(AccountDto.DisplayText)"
+                        ValueFieldName="@nameof(AccountDto.LoginId)"
+                        @bind-Value="_mergeTargetAccountId"
+                        SearchMode="ListSearchMode.AutoSearch"
+                        SearchFilterCondition="ListSearchFilterCondition.Contains"
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                        NullText="계정을 선택하거나 아래에 아이디를 직접 입력하세요" />
+        </div>
+
+        <div style="margin-top: 10px;">
+            <label style="display: block; margin-bottom: 4px; font-weight: 500;">대상 계정 아이디 직접 입력</label>
+            <DxTextBox @bind-Text="_mergeTargetAccountId" NullText="대상 계정 로그인 아이디" />
+        </div>
+    </BodyContentTemplate>
+
+    <FooterContentTemplate Context="popupContext">
+        <DxButton Text="결합" RenderStyle="ButtonRenderStyle.Primary"
+                  Enabled="@(!string.IsNullOrWhiteSpace(_mergeTargetAccountId))"
+                  Click="@MergeAsync" />
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
+                  Click="@(() => _mergingVisible = false)" />
+    </FooterContentTemplate>
+</CommPopup>

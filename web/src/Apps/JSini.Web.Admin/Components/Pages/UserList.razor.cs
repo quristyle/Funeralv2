@@ -55,6 +55,15 @@ public partial class UserList
     /// <summary>초기화를 묻는 창.</summary>
     private ConfirmDialog? _confirm;
 
+    /// <summary>계정 결합 창이 열려 있는가.</summary>
+    private bool _mergingVisible;
+    private AccountDto? _mergeSource;
+    private string? _mergeTargetAccountId;
+
+    /// <summary>결합 대상 계정 후보 (원본 계정 제외).</summary>
+    private IReadOnlyList<AccountDto> MergeTargetCandidates =>
+        _all.Where(a => a.Id != _mergeSource?.Id && a.LoginId != _mergeSource?.LoginId).ToList();
+
     // PENDING 은 거르기에만 있고 편집 목록(StatusOptions)에는 없다. 승인은
     // [가입 신청] 화면이 하는 일이라, 여기서 손으로 PENDING 을 지정하면
     // 그 사람이 이유 없이 로그인하지 못한다.
@@ -509,4 +518,55 @@ public partial class UserList
         "google" => "구글",
         _ => provider ?? "-",
     };
+
+    /// <summary>
+    /// 기존 계정을 다른 계정으로 결합하기 위한 팝업을 연다.
+    /// </summary>
+    private void AskMergeAsync(AccountDto a)
+    {
+        _mergeSource = a;
+        _mergeTargetAccountId = null;
+
+        // 원본 계정과 이메일이나 이름이 일치하는 대상 계정이 있으면 자동 추천
+        var matched = _all.FirstOrDefault(candidate =>
+            candidate.Id != a.Id
+            && candidate.LoginId != a.LoginId
+            && ((!string.IsNullOrWhiteSpace(a.Email) && (string.Equals(candidate.Email, a.Email, StringComparison.OrdinalIgnoreCase) || candidate.Emails.Any(e => string.Equals(e, a.Email, StringComparison.OrdinalIgnoreCase))))
+                || (!string.IsNullOrWhiteSpace(a.UserName) && string.Equals(candidate.UserName, a.UserName, StringComparison.OrdinalIgnoreCase))));
+
+        if (matched is not null)
+        {
+            _mergeTargetAccountId = matched.LoginId;
+        }
+
+        _mergingVisible = true;
+    }
+
+    /// <summary>
+    /// 원본 계정을 대상 계정으로 결합한다.
+    /// </summary>
+    private async Task MergeAsync()
+    {
+        if (_mergeSource is null || string.IsNullOrWhiteSpace(_mergeTargetAccountId))
+        {
+            return;
+        }
+
+        var source = _mergeSource;
+        var targetId = _mergeTargetAccountId.Trim();
+        var name = string.IsNullOrWhiteSpace(source.UserName) ? source.LoginId : source.UserName;
+
+        var ok = await RunAsync(
+            () => Api.MergeAccountAsync(source.Id, targetId),
+            $"{name} 님의 계정을 결합했습니다.",
+            "계정을 결합하지 못했습니다");
+
+        _mergingVisible = false;
+
+        if (ok)
+        {
+            await ReloadAsync();
+            Say($"{name} 님의 계정을 결합했습니다.");
+        }
+    }
 }

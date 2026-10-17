@@ -64,6 +64,12 @@ public sealed class AdminClient(GatewayClient gateway)
         => gateway.DeleteAsync($"auth/system/account/{id}", ct);
 
     /// <summary>
+    /// 기존 계정을 대상 계정으로 결합한다. 소셜 연동, 연락처 등이 대상 계정으로 이전되고 원본 계정은 정리된다.
+    /// </summary>
+    public Task MergeAccountAsync(string sourceId, string targetId, CancellationToken ct = default)
+        => gateway.PostAsync($"auth/system/account/{Uri.EscapeDataString(sourceId)}/merge?targetId={Uri.EscapeDataString(targetId)}", null, ct);
+
+    /// <summary>
     /// 그 계정의 비밀번호를 초기화한다. 서버가 새로 발급한 값을 돌려준다.
     ///
     /// <para>

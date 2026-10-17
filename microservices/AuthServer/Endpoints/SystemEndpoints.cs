@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using AuthServer.Entities;
 using AuthServer.Services;
 using AuthServer.DTOs;
@@ -41,6 +41,42 @@ public static class SystemEndpoints
             return success ? Results.Ok(ApiResponse<bool>.Ok(true)) : Results.NotFound(ApiResponse<object>.Fail("계정을 찾을 수 없습니다.", "404"));
         })
         .WithName("DeleteAccount");
+
+        // ── 계정 결합 ───────────────────────────────────────
+        //
+        // 기존 계정을 다른 계정으로 병합(소셜 연동, 연락처 이전)하고 원본 계정을 정리한다.
+        // 계정 데이터가 이동 및 삭제되는 중요한 작업이므로 관리자 권한을 검증한다.
+        group.MapPost("/account/{id}/merge", async (
+            string id,
+            [FromQuery] string targetId,
+            UserContext? user,
+            HttpContext http,
+            [FromServices] IUserService userService,
+            CancellationToken ct) =>
+        {
+            if (user is null) return Results.Unauthorized();
+
+            if (!IsAdmin(user, http))
+            {
+                return Results.Json(
+                    ApiResponse<object>.Fail("관리자만 계정을 결합할 수 있습니다.", "403"),
+                    statusCode: StatusCodes.Status403Forbidden);
+            }
+
+            if (string.IsNullOrWhiteSpace(targetId))
+            {
+                return Results.BadRequest(ApiResponse<object>.Fail(
+                    "결합할 대상 계정을 지정해 주십시오.", "INVALID"));
+            }
+
+            var (ok, error) = await userService.MergeAccountAsync(id, targetId, user.UserId, ct);
+
+            return ok
+                ? Results.Ok(ApiResponse<object>.Ok(data: null!, message: "계정을 결합했습니다."))
+                : Results.BadRequest(ApiResponse<object>.Fail(
+                    error ?? "결합할 수 없습니다. 대상 계정과 상태를 확인해 주십시오.", "INVALID"));
+        })
+        .WithName("MergeAccount");
 
         // ── 비밀번호 초기화 ─────────────────────────────────
         //

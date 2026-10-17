@@ -1,4 +1,4 @@
-﻿using AuthServer.DTOs;
+using AuthServer.DTOs;
 
 namespace AuthServer.Services;
 
@@ -100,6 +100,18 @@ public interface IUserService
     /// 못 찾으면 <c>(false, 까닭)</c>.
     /// </returns>
     Task<(bool Success, string? Error)> UpdateHomePathAsync(string userId, string? homePath);
+
+    /// <summary>
+    /// 기존 계정을 대상 계정으로 결합(Merge)합니다.
+    /// 소셜 연동, 연락처, WebAuthn 자격증명 등이 대상 계정으로 이전되고 원본 계정은 삭제됩니다.
+    /// </summary>
+    /// <param name="sourceAccountId">결합될 원본 계정의 식별자(Id 또는 UserId)</param>
+    /// <param name="targetAccountId">결합을 받아들일 대상 계정의 식별자(Id 또는 UserId)</param>
+    /// <param name="approver">작업 수행자(관리자 아이디)</param>
+    /// <param name="ct">취소 토큰</param>
+    /// <returns>성공 여부 및 실패 시 오류 메시지</returns>
+    Task<(bool Ok, string? Error)> MergeAccountAsync(
+        string sourceAccountId, string targetAccountId, string approver, CancellationToken ct = default);
 }
 
 /// <summary>
