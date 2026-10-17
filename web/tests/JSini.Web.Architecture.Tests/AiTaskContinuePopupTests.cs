@@ -62,6 +62,18 @@ public sealed class AiTaskContinuePopupTests
         Assert.Contains("현재 작업이", popupText, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void 부모_재렌더링시_Visible_파라미터_부재로_팝업이_닫히지_않도록_SetParametersAsync_를_재정의한다()
+    {
+        var popupCsPath = ContinuePopupPath + ".cs";
+        var popupCsText = ReadFile(popupCsPath);
+
+        Assert.Contains("override async Task SetParametersAsync(ParameterView parameters)", popupCsText, StringComparison.Ordinal);
+        Assert.Contains("parameters.TryGetValue<bool>(nameof(Visible)", popupCsText, StringComparison.Ordinal);
+        Assert.Contains("_hasVisibleParam", popupCsText, StringComparison.Ordinal);
+        Assert.Contains("OnCommVisibleChanged", popupCsText, StringComparison.Ordinal);
+    }
+
     private static string ReadFile(string relative)
     {
         var path = Path.Combine(SolutionRoot(), relative.Replace('/', Path.DirectorySeparatorChar));

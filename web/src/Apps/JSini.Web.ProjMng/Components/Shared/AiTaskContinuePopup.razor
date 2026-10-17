@@ -8,7 +8,8 @@
 
 @implements IDisposable
 
-<CommPopup @bind-Visible="_visible"
+<CommPopup Visible="@_visible"
+           VisibleChanged="@OnCommVisibleChanged"
            HeaderText="이어서 지시"
            Width="min(36rem, calc(100vw - 2rem))"
            CloseOnOutsideClick="false">

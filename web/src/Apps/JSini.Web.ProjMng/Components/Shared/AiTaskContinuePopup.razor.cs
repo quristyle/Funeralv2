@@ -36,6 +36,7 @@ public partial class AiTaskContinuePopup : IDisposable
     [Parameter] public bool Visible { get; set; }
     [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
 
+    private bool _hasVisibleParam;
     private bool _visible;
     private bool _lastVisible;
     private bool _continuing;
@@ -72,9 +73,15 @@ public partial class AiTaskContinuePopup : IDisposable
     private IReadOnlyList<AiUsageSnapshot> _usage = [];
     private bool _usageSeen;
 
+    public override async Task SetParametersAsync(ParameterView parameters)
+    {
+        _hasVisibleParam = parameters.TryGetValue<bool>(nameof(Visible), out _);
+        await base.SetParametersAsync(parameters);
+    }
+
     protected override async Task OnParametersSetAsync()
     {
-        if (Visible != _lastVisible)
+        if (_hasVisibleParam && Visible != _lastVisible)
         {
             _lastVisible = Visible;
             if (Visible && !_visible)
@@ -93,11 +100,28 @@ public partial class AiTaskContinuePopup : IDisposable
                 Close();
             }
         }
+        else if (!_hasVisibleParam)
+        {
+            _lastVisible = _visible;
+        }
 
         if (_visible && Item is { } current && current.TaskKey == _continueTaskKey && current != _lastHandledItem)
         {
             _lastHandledItem = current;
             await HandleStatusChangeAsync(current);
+        }
+    }
+
+    private void OnCommVisibleChanged(bool visible)
+    {
+        if (!visible)
+        {
+            Close();
+        }
+        else
+        {
+            _visible = true;
+            _lastVisible = true;
         }
     }
 
@@ -151,6 +175,7 @@ public partial class AiTaskContinuePopup : IDisposable
 
         _visible = true;
         _lastVisible = true;
+        Visible = true;
         if (VisibleChanged.HasDelegate)
         {
             await VisibleChanged.InvokeAsync(true);
@@ -257,6 +282,7 @@ public partial class AiTaskContinuePopup : IDisposable
 
         _visible = false;
         _lastVisible = false;
+        Visible = false;
         _continueAddition = null;
         _continueError = null;
         _continueKind = null;
@@ -332,6 +358,7 @@ public partial class AiTaskContinuePopup : IDisposable
 
                 _visible = false;
                 _lastVisible = false;
+                Visible = false;
 
                 _continueRestored = false;
                 _continueSavedAt = null;
