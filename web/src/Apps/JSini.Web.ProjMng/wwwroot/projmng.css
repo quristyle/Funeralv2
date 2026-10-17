@@ -1511,7 +1511,7 @@
 /* ── 편집기 아이콘 줄 (`EditorActions` — 복사 · 자동 줄바꿈) ──────
 
    Monaco 가 선 자리마다 **같은 아이콘이 같은 모양으로** 선다. 한동안
-   `CodeEditor` 안에만 있어서, 비교 편집기를 직접 세우는 로그 번역판
+   `CodeEditor` 안에만 있어서, 편집기를 직접 세우는 로그 번역판
    (`LogTranslateView`)에는 복사 아이콘이 아예 없었다.
 
    글자를 붙이지 않는다 — 편집기 본문 위에 얹히는 줄이라, 글자가 있으면
@@ -6849,14 +6849,14 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 
 
 /* ────────────────────────────────────────────────────────────
-   로그 — 원문·번역 좌우 비교 (`LogTranslateView`)
+   로그 — 줄을 눌러 옮기는 판 (`LogTranslateView`)
 
-   「AI 작업」 상세의 **로그 탭 그 자체다.** 머리띠 한 줄과 Monaco 비교
-   편집기 한 틀이 전부다.
+   「AI 작업」 상세의 **로그 탭 그 자체다.** 머리띠 한 줄과 Monaco 한 틀이
+   전부다.
 
    보는 법을 고르는 줄(`.pm-peek__logmode`)과 그 옆의 글상자
    (`.pm-peek__pre--log`)가 함께 있었다. 원문을 보여 주는 자리가 둘이 되어
-   걷어냈다 — 지금은 왼쪽 칸 하나다.
+   걷어냈고, 2026-10-17 에 좌우 비교 편집기까지 걷어 **칸이 하나**다.
    ──────────────────────────────────────────────────────────── */
 
 .pm-xlat {
@@ -6882,19 +6882,12 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   opacity: 0.75;
 }
 
-/* 칸 이름 — 왼쪽 「원문」 · 오른쪽 「번역 · 한국어」.
+/* 칸 이름 — 「번역 · 한국어」 하나다.
 
-   머리띠 끝의 한 마디(「왼쪽 원문 · 오른쪽 번역」)로는 모자랐다. 번역이 덜
-   된 판은 좌우가 둘 다 영어라 **글만 봐서는 어느 쪽이 원문인지 못 가린다.**
-
-   **반반을 믿고 적던 글이었다.** 그래서 한동안 가운데 가름쇠를 끌어 옮기는
-   길을 닫아 두었다(`EnableSplitViewResizing = false`) — 끌 수 있게 두면 칸은
-   7:3 이 되는데 이름표는 5:5 에 남아 **이름이 남의 칸을 가리켰다.**
-
-   지금은 **이름표가 가름쇠를 따라간다**(2026-10-15). 왼쪽 칸의 오른쪽 끝을
-   브라우저가 재어 `--pm-xlat-left` 에 적어 주고(`monaco-loader.js` 의
-   `watchSplit`), 왼쪽 이름표가 그만큼만 차지한다. 값이 없으면 반반이라
-   **JS 가 안 실려도 전과 같다.** */
+   **한동안 둘이었다**(「원문」·「번역 · 한국어」). 좌우 비교 편집기를 걷으면서
+   (2026-10-17 · `LogTranslateView` 머리말) 가리킬 칸이 하나가 되었고, 가름쇠를
+   따라다니게 하던 길(`--pm-xlat-left` · `monaco-loader.js` 의 `watchSplit`)도
+   함께 없어졌다. */
 .pm-xlat__heads {
   display: flex;
   margin: 0 0 -0.25rem;
@@ -6903,27 +6896,20 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   opacity: 0.8;
 }
 
-/* 이름표 한 칸. 이름은 왼쪽, 복사 아이콘은 **오른쪽 끝**이다 —
-   그 칸의 글이 끝나는 자리에 그 칸을 복사하는 단추가 선다.
+/* 이름표. 이름은 왼쪽, 아이콘 줄은 **오른쪽 끝**이다 — 글이 끝나는 자리에
+   그 글을 복사하는 단추가 선다.
 
    **테두리까지 이 폭 안이다**(`box-sizing`). 저장소에 테두리 상자를 기본으로
    만드는 규칙이 없어서(tabler.css 에도 없다) 안 적으면 좌우 여백 16px 이
-   폭에 **더해진다** — 반반일 때는 좌우가 똑같이 밀려 안 드러나지만, 왼쪽에
-   px 를 박는 순간 이름표 경계가 칸 경계보다 16px 오른쪽에 선다. */
+   폭에 **더해진다.** */
 .pm-xlat__head {
   display: flex;
   align-items: center;
   gap: 0.25rem;
   box-sizing: border-box;
-  flex: 1 1 50%;
+  flex: 1 1 100%;
   min-width: 0;
   padding: 0 0.5rem;
-}
-
-/* 왼쪽(원문) 이름표 — **폭을 가름쇠가 정한다.** 줄지도 늘지도 않는다
-   (`0 0`) — 늘게 두면 오른쪽 이름표가 밀어내 다시 어긋난다. */
-.pm-xlat__head--left {
-  flex: 0 0 var(--pm-xlat-left, 50%);
 }
 
 .pm-xlat__head-name {
@@ -6945,56 +6931,6 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   height: 1.25rem;
 }
 
-/* 오른쪽 이름표 앞의 세로선이 편집기 가운데 가름쇠와 같은 자리에 선다.
-   휴대폰에서는 칸이 하나뿐이라 그 선이 설 자리가 없다(클래스를 안 붙인다).
-
-   **남는 폭을 먹는다**(`1 1 auto`). 왼쪽이 px 로 못 박혀 있으므로 나머지가
-   곧 오른쪽 칸이다. */
-.pm-xlat__head--right {
-  flex: 1 1 auto;
-  border-left: 1px solid var(--jsini-border);
-}
-
-/* ── 휴대폰 — 번역 칸 하나만 선다 ────────────────────────────
-
-   좌우로 가르면 한 칸이 스무 글자라 **양쪽 다 못 읽는다.** 비교 편집기
-   대신 번역 모델 하나를 보통 편집기에 걸어 통째로 보여 준다
-   (`LogTranslateView` 머리말). 여기서 하는 일은 그 한 칸이 폭을 다
-   쓰게 두는 것뿐이다. */
-.pm-xlat--solo .pm-xlat__head {
-  flex: 1 1 100%;
-}
-
-/* ── 가운데 가름쇠 — 평소에는 가는 선, 손이 닿으면 굵어진다 ────
-
-   Monaco 가 그려 두는 손잡이다(`.monaco-sash`). **그대로 두면 눈에 안
-   보인다** — 칠하는 규칙은 있는데(`.monaco-sash.hover:before`) 그 값이
-   `--vscode-sash-hoverBorder` 이고, 우리가 쓰는 **홀로 선 Monaco 에는 그
-   변수가 비어 있다**(재어 확인했다 — 마우스를 올리면 `hover` 가 붙는데
-   바탕색은 `rgba(0,0,0,0)` 그대로였다). 끌 수 있다는 것을 알 길이 없다.
-
-   **굵기(`--vscode-sash-size`)는 건드리지 않는다.** Monaco 가 손잡이의
-   왼쪽 자리를 `경계 - 2px` 로 박아 두어서, 그 변수를 10px 로 키우면
-   손잡이 가운데가 칸 경계에서 3px 밀린다(재어 확인했다 — 643 ↔ 640). */
-.pm-xlat .monaco-sash.vertical::before {
-  width: 1px;
-  left: calc(50% - 0.5px);
-  background: var(--jsini-border);
-}
-
-.pm-xlat .monaco-sash.vertical.hover::before,
-.pm-xlat .monaco-sash.vertical.active::before {
-  width: 3px;
-  left: calc(50% - 1.5px);
-  background: var(--jsini-accent, currentColor);
-}
-
-/* 누르면 무슨 일이 나는지. 눌러 보기 전에 읽혀야 하는 글이라 판 아래에 둔다. */
-.pm-xlat__foot {
-  font-size: var(--jsini-fs-xs);
-  opacity: 0.7;
-}
-
 /* 진행과 누가 답했는지. 남는 폭을 먹어 오른쪽 끝에 선다. */
 .pm-xlat__stat {
   margin-left: auto;
@@ -7005,8 +6941,7 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 
    **넓은 화면에서는 높이를 여기서 준다.** Monaco 는 부모의 높이를 재서 제 몸을
    그리므로, 높이가 없는 상자에 넣으면 만들어지기는 하는데 줄이 하나도 안
-   보인다. 값은 이 자리에 있던 글상자(22rem)보다 넉넉하다 — 좌우로 나뉘어 한
-   줄이 접히는 일이 잦아 같은 높이면 보이는 줄이 절반이 된다.
+   보인다. 값은 이 자리에 있던 글상자(22rem)보다 넉넉하다.
 
    휴대폰의 목록(`pm-xlat__list`)도 같은 틀을 쓴다. 그쪽은 높이를 안 받는다
    (아래 `@media`). */
@@ -7174,7 +7109,7 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   overflow-wrap: normal;
 }
 
-/* 누른 줄. **비교판의 불과 같은 색이다** — 기기를 돌려 넓은 화면이 되면
+/* 누른 줄. **넓은 화면 편집기의 불과 같은 색이다** — 기기를 돌려 폭이 바뀌면
    같은 줄에 같은 색이 서야 한 화면으로 읽힌다. */
 .pm-xlat__row--hit {
   background: color-mix(in srgb, var(--jsini-accent, #0054a6) 22%, transparent);
@@ -7207,54 +7142,28 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   opacity: 0.7;
 }
 
-/* 비교 편집기의 바뀜 색을 눌러 둔다.
-
-   Monaco 의 비교 편집기는 **고친 자리**를 보여 주려고 만들어진 것이라,
-   다른 줄마다 지우기 빨강 · 더하기 초록을 깐다. 그런데 여기서 좌우가 다른
-   것은 고친 것이 아니라 **번역**이고, 번역은 거의 모든 줄이 다르다 —
-   그대로 두면 판 전체가 빨강과 초록으로 덮여 글자가 안 읽힌다.
-
-   지우지 않고 **눌러만 둔다.** 옅게 남겨 두면 「좌우가 같은 줄」(아직 안
-   옮긴 줄)과 「옮겨진 줄」이 여전히 구분된다 — 어디까지 왔는지를 머리띠의
-   숫자 말고 판에서도 읽을 수 있다. */
-.pm-xlat .line-insert,
-.pm-xlat .line-delete,
-.pm-xlat .char-insert,
-.pm-xlat .char-delete {
-  background: color-mix(in srgb, var(--jsini-color-primary, #0054a6) 6%, transparent) !important;
-  border: none !important;
-}
-
-/* 좌우 줄 수가 같아 끼울 빈 칸이 없으므로 빗금 칸은 뜰 일이 거의 없지만,
-   뜰 때 무늬가 튀지 않게 함께 눌러 둔다. */
-.pm-xlat .diagonal-fill {
-  opacity: 0.25;
-}
-
 /* ── 커서가 선 줄에 켜는 불 ──────────────────────────────────
 
-   **좌우 두 칸에 같은 색이 선다.** 왼쪽 108번째 줄을 누르면 오른쪽 108번째
-   줄에도 같은 불이 켜져, 그 줄의 번역이 무엇인지 눈으로 따라갈 필요가 없다.
-
    Monaco 가 들고 있는 「지금 줄」 표시(`renderLineHighlight`)를 끄고 이것으로
-   대신한다 — 그것은 **커서가 있는 칸에만** 켜져서 반쪽이다.
+   대신한다 — **색을 우리가 정해야** 짚은 줄과 지금 옮기고 있는 줄이 한 자에서
+   갈린다.
 
-   **강조색을 쓰고 `!important` 를 붙인다.** 이 줄에는 비교 편집기가 깐 바꿈
-   색(`.line-insert`)이 이미 얹혀 있고 그쪽이 `!important` 다. 같은 무게로
-   적지 않으면 **번역된 줄에서만 불이 안 켜진다** — 하필 거의 모든 줄이다. */
+   **`!important` 는 그대로 둔다.** 한동안 여기 비교 편집기가 서서 바꿈 색
+   (`.line-insert` — 그쪽이 `!important` 였다)을 이기려고 붙인 것인데, 지금은
+   편집기 테마가 까는 바탕과 겨루는 자리다. */
 .pm-xlat .pm-xlat__hit {
   background: color-mix(in srgb, var(--jsini-accent, #0054a6) 22%, transparent) !important;
   box-shadow: inset 2px 0 0 var(--jsini-accent, #0054a6);
 }
 
-/* 줄 번호도 함께 짙게. 좌우를 번호로 짚어 말할 때(「108번째 줄」) 그 번호가
+/* 줄 번호도 함께 짙게. 번호로 짚어 말할 때(「108번째 줄」) 그 번호가
    눈에 먼저 들어와야 한다. */
 .pm-xlat .pm-xlat__hit-num {
   color: var(--jsini-accent, #0054a6) !important;
   font-weight: 700;
 }
 
-/* 지금 혼자 다시 옮기고 있는 줄. **오른쪽에만** 선다 — 바뀌는 것이 그쪽이다.
+/* 지금 옮기고 있는 줄.
 
    로컬 LLM 왕복이 몇 초라, 표시가 없으면 **눌러도 아무 일이 없는 것**으로
    보인다. 머리띠의 글자(「108번째 줄을 다시 옮기는 중…」)는 눈이 가 있는

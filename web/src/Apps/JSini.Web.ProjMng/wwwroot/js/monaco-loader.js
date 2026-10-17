@@ -110,7 +110,7 @@ const TAP_SLOP_PX = 12;
 const TAP_HOLD_MS = 700;
 
 /**
- * 휴대폰에서 **줄을 손가락으로 눌렀다**는 것을 되알려 준다.
+ * **줄을 손가락으로 눌렀다**는 것을 되알려 준다.
  *
  * [왜 따로 받아야 하나]
  *
@@ -139,10 +139,10 @@ const TAP_HOLD_MS = 700;
  *
  * [어느 편집기를 지켜보나]
  *
- * **상자의 id 를 받아 그 안에 선 편집기를 전부 찾는다**(`getEditors`). 비교
- * 편집기는 칸이 둘인데 **누른 자리를 되물을 수 있는 것은 칸 안쪽의 편집기**다 —
- * 비교 편집기 자신에게는 `getTargetAtClientPoint` 가 없다. 상자로 묶어 찾으면
- * 그 둘이 한꺼번에 걸리고, 같은 화면에 선 **남의 편집기**는 안 걸린다.
+ * **상자의 id 를 받아 그 안에 선 편집기를 찾는다**(`getEditors`). 편집기를
+ * 그대로 넘겨받지 않는 까닭은 `.NET` 쪽이 쥔 것이 BlazorMonaco 의 감싸개라
+ * 브라우저의 편집기 객체가 아니어서다. 상자로 묶어 찾으면 같은 화면에 선
+ * **남의 편집기**(로그 탭 · 결과 차수)는 안 걸린다.
  *
  * @param hostIds 편집기가 선 상자(div)의 id 들.
  * @param caller `OnLineTappedAsync(줄번호, 자리종류)` 를 받을 .NET 부품.
@@ -167,7 +167,7 @@ function watchOne(host, editor, caller) {
 
   if (!node || !host.contains(node)) { return; }
 
-  // **한 편집기에 한 번만 건다.** 거는 자리(`AttachModelsAsync`)는 그리기
+  // **한 편집기에 한 번만 건다.** 거는 자리(`AttachModelAsync`)는 그리기
   // 뒷정리마다 지나가므로, 표시가 없으면 같은 누름이 여러 번 올라간다.
   if (node.dataset.jsiniTap === '1') { return; }
 
@@ -221,132 +221,4 @@ function watchOne(host, editor, caller) {
     caller.invokeMethodAsync('OnLineTappedAsync', line, spot.type ?? 0)
       .catch(() => { /* 회로가 끊겼다. 알릴 곳이 없다. */ });
   }, { passive: true });
-}
-
-/**
- * 비교 편집기의 **가운데 가름쇠**를 지켜보고, 칸 이름표를 그 자리에 맞춘다.
- *
- * [왜 필요한가]
- *
- * Monaco 는 `enableSplitViewResizing` 하나로 좌우를 끌어 넓히는 길을 들고
- * 있다. 그런데 칸 이름표(「원문」·「번역 · 한국어」)는 **편집기 밖**에 따로
- * 선 줄이라, 끌어서 7:3 으로 만들면 이름표만 5:5 에 남아 **이름이 남의 칸을
- * 가리킨다.** 그 어긋남 때문에 한동안 끄는 길을 아예 닫아 두었다.
- *
- * 여기서 왼쪽 칸의 폭을 그대로 읽어 이름표 줄에 `--pm-xlat-left` 로 적어
- * 준다. 끄는 동안에도 따라오므로 이름표가 칸을 떠나지 않는다.
- *
- * [회로를 거치지 않는다]
- *
- * 끄는 동안 프레임마다 .NET 을 왕복하면 Blazor Server 에서는 이름표가
- * 손가락보다 한참 뒤에 따라온다. 자리를 맞추는 일은 **브라우저 안에서만**
- * 끝내고, 회로로는 손을 뗀 뒤의 **비율 하나**만 올려 보낸다(탭을 건너갔다
- * 와도 끌어 둔 자리가 남게 하려는 것이다 — `OnSplitMoved`).
- *
- * [무엇을 재는가]
- *
- * 왼쪽 칸(`.editor.original`)의 **오른쪽 끝**에서 틀의 왼쪽 끝을 뺀다.
- * 폭을 그냥 더하지 않는 까닭은 틀에 1px 테두리가 있어서다 — 폭만 세면
- * 이름표가 그만큼 왼쪽으로 밀린다.
- *
- * [왜 ResizeObserver 인가]
- *
- * Monaco 는 가름쇠가 움직였다는 것을 밖으로 알려 주지 않는다(`onDidLayoutChange`
- * 는 편집기 안쪽 치수다). 칸 자체의 크기를 지켜보면 **끌 때도 · 창이 바뀔
- * 때도 · 글자 크기가 바뀔 때도** 한 길로 걸린다.
- *
- * [첫 자리를 여기서 놓는 까닭]
- *
- * 끌어 둔 자리는 .NET 쪽이 들고 있는데(`AiLogXlatState.SplitRatio`) 그 값을
- * 편집기 옵션으로 넘길 수가 없다 — **BlazorMonaco 가 `splitViewDefaultRatio`
- * 를 `int?` 로 선언해 두었다.** Monaco 가 받는 것은 0~1 사이의 소수라 그
- * 칸으로는 0 과 1 밖에 못 보낸다.
- *
- * 그래서 숫자를 그대로 받아 여기서 `updateOptions` 로 민다. **갓 세운
- * 편집기에만 듣는다** — Monaco 는 사람이 한 번이라도 끈 자리(`_sashRatio`)를
- * 기본값보다 위에 두기 때문이다(재어 확인했다 — 끈 뒤에 옵션을 바꾸면
- * 아무 일도 안 난다). 부르는 자리가 `SetModel` 바로 뒤라 늘 갓 세운 편집기다.
- *
- * @param hostId 비교 편집기가 선 상자(div)의 id.
- * @param headsId 칸 이름표 줄의 id.
- * @param ratio 왼쪽 칸이 차지할 첫 몫(0~1).
- * @param caller `OnSplitMoved(비율)` 을 받을 .NET 부품.
- */
-export function watchSplit(hostId, headsId, ratio, caller) {
-  const host = document.getElementById(hostId);
-  const heads = document.getElementById(headsId);
-
-  if (!host || !heads) { return; }
-
-  // **아직 안 섰을 수 있다.** 모델을 걸자마자 부르므로 비교 편집기의 속이
-  // 한 박자 늦게 생긴다. 몇 번 더 들여다보고 포기한다.
-  let tries = 0;
-
-  const arm = () => {
-    const left = host.querySelector('.editor.original');
-
-    if (!left) {
-      if (++tries < 40) { setTimeout(arm, 50); }
-      return;
-    }
-
-    // **한 칸에 한 번만 건다.** 거는 자리(`AttachModelsAsync`)는 그리기
-    // 뒷정리마다 지나간다. 편집기가 갈리면 칸도 새로 생기므로 그때는 다시 걸린다.
-    if (left.dataset.jsiniSplit === '1') { return; }
-
-    left.dataset.jsiniSplit = '1';
-
-    // 끌어 두었던 자리로 되돌린다. 갓 세운 편집기에만 듣는다(머리말).
-    applyRatio(host, ratio);
-
-    // 이름표가 기댈 틀. 테두리를 들고 있는 바깥 상자다.
-    const box = host.closest('.pm-xlat__editor') ?? host;
-
-    /** 마지막으로 올려 보낸 비율. 같은 값을 거듭 올리지 않는다. */
-    let sent = -1;
-
-    const apply = () => {
-      const l = left.getBoundingClientRect();
-      const b = box.getBoundingClientRect();
-
-      if (b.width <= 0) { return; }
-
-      heads.style.setProperty('--pm-xlat-left', `${l.right - b.left}px`);
-
-      // 올려 보내는 것은 **편집기가 쓰는 자**와 같아야 한다 — Monaco 는
-      // 제 속 폭에 대한 비율로 들고 있다(`splitViewDefaultRatio`).
-      const inner = host.getBoundingClientRect().width;
-
-      if (inner <= 0) { return; }
-
-      const ratio = Math.min(0.95, Math.max(0.05, l.width / inner));
-
-      if (Math.abs(ratio - sent) < 0.005) { return; }
-
-      sent = ratio;
-
-      caller?.invokeMethodAsync?.('OnSplitMoved', ratio)
-        .catch(() => { /* 회로가 끊겼다. 알릴 곳이 없다. */ });
-    };
-
-    new ResizeObserver(apply).observe(left);
-
-    apply();
-  };
-
-  arm();
-}
-
-/** 갓 세운 비교 편집기를 끌어 두었던 자리로 되돌린다. */
-function applyRatio(host, ratio) {
-  if (!(ratio > 0.05 && ratio < 0.95) || Math.abs(ratio - 0.5) < 0.005) { return; }
-
-  const diff = (window.monaco?.editor?.getDiffEditors?.() ?? [])
-    .find((d) => host.contains(d.getContainerDomNode?.() ?? d.getDomNode?.()));
-
-  try {
-    diff?.updateOptions?.({ splitViewDefaultRatio: ratio });
-  } catch {
-    // 판올림으로 그 옵션이 없어졌다. 반반으로 선다 — 끌어서 고칠 수 있다.
-  }
 }

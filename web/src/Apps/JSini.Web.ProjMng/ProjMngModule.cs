@@ -103,7 +103,7 @@ public sealed class ProjMngModule : IPortalModule
         // 같은 이유로 화면 밖에 둔다 — 탭을 옮겨도 기억이 남아야 한다.
         services.AddScoped<Components.Shared.AiAskPrefs>();
 
-        // 로그 번역(원문·번역 좌우 비교)을 들고 있는 곳. 같은 까닭으로 화면
+        // 로그 번역(줄을 눌러 그 한 줄만 옮긴 것)을 들고 있는 곳. 같은 까닭으로 화면
         // 밖이다 — 로그 탭의 알맹이는 다른 탭으로 건너가는 순간 버려지는데,
         // 사람이 줄을 짚어 가며 모은 번역은 살아 있어야 한다.
         services.AddScoped<Components.Shared.AiLogXlatStore>();

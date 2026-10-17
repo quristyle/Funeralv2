@@ -8,7 +8,7 @@ namespace JSini.Web.ProjMng.Components.Shared;
 /// [무엇을 고친 것인가]
 /// </para>
 /// <para>
-/// 비교 판(<see cref="LogTranslateView"/>)은 로그 탭 <b>안</b>에 있고, 그
+/// 번역 판(<see cref="LogTranslateView"/>)은 로그 탭 <b>안</b>에 있고, 그
 /// 탭은 <c>DxTabs</c> 가 쥐고 있다. 「지시와 결과」로 한 번 건너가면 탭의
 /// 알맹이가 통째로 버려지고 돌아올 때 <b>새로 태어난다</b> — 판이 들고 있던
 /// 번역도 함께 없어진다.
@@ -35,7 +35,7 @@ public sealed class AiLogXlatStore
 {
     /// <summary>
     /// 들고 있을 건수. 넘으면 <b>가장 오래 안 본 것부터</b> 버린다 —
-    /// 로그 삼백 줄 두 벌이 한 건이라 무한정 쌓이면 회로가 무거워진다.
+    /// 로그 삼백 줄이 한 건이라 무한정 쌓이면 회로가 무거워진다.
     /// </summary>
     /// <remarks>
     /// <b>한 건이 자리 하나가 아니다</b>(2026-10-16). 결과문도 이 통을 쓰게
@@ -96,7 +96,7 @@ public sealed class AiLogXlatState
     /// </summary>
     public List<string> Source { get; set; } = [];
 
-    /// <summary>오른쪽 칸에 적을 줄들. <b>아직 안 옮긴 자리에는 원문이 있다.</b></summary>
+    /// <summary>칸에 적을 줄들. <b>아직 안 옮긴 자리에는 원문이 있다.</b></summary>
     public List<string> Out { get; set; } = [];
 
     /// <summary>
@@ -120,24 +120,6 @@ public sealed class AiLogXlatState
 
     /// <summary>마지막으로 걸린 사정. 머리띠에 한 줄로 적는다.</summary>
     public string? Error { get; set; }
-
-    /// <summary>
-    /// 좌우 칸을 가르는 자리. <b>왼쪽 칸이 차지하는 몫</b>(0~1)이고 반반이
-    /// 처음 값이다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 사람이 가운데 가름쇠를 끌면 바뀐다. <b>여기 두는 까닭은 번역과 같다</b> —
-    /// 로그 탭을 떠나면 편집기가 통째로 버려지고 돌아올 때 새로 서는데, 판이
-    /// 들고 있으면 끌어 둔 자리가 그때마다 한가운데로 되돌아간다.
-    /// </para>
-    /// <para>
-    /// <b><see cref="Rewind"/> 도 <see cref="Reset"/> 도 건드리지 않는다.</b>
-    /// 저 둘이 버리는 것은 <b>옮긴 글</b>이고, 칸을 얼마나 벌려 놓고 보는지는
-    /// 줄의 내용과 아무 상관이 없다.
-    /// </para>
-    /// </remarks>
-    public double SplitRatio { get; set; } = 0.5;
 
     /// <summary>옮겨 둔 것을 버린다. 줄 자체는 그대로다.</summary>
     public void Rewind()

@@ -19,8 +19,8 @@ public partial class LogTranslateView
     [Inject] private ThemeSize Size { get; set; } = default!;
 
     /// <summary>
-    /// 볼 로그 줄. <b>이 판이 로그 탭의 전부다</b> — 원문을 보여 주는 자리가
-    /// 여기 왼쪽 칸 하나뿐이라, 받은 줄을 그대로 다 그린다.
+    /// 볼 로그 줄. <b>이 판이 로그 탭의 전부다</b> — 줄을 보여 주는 자리가
+    /// 여기 하나뿐이라, 받은 줄을 그대로 다 그린다.
     /// </summary>
     [Parameter] public IReadOnlyList<string> Lines { get; set; } = [];
 
@@ -42,9 +42,9 @@ public partial class LogTranslateView
     /// 다른 말이다.
     /// </summary>
     /// <remarks>
-    /// <b>눈에 보이는 글자는 이것으로 안 갈린다.</b> 칸 이름표(「원문」·「번역 ·
-    /// 한국어」)와 발치의 안내는 어느 글에나 그대로 맞는 말이라 그냥 둔다 —
-    /// 자리마다 다른 말을 적으면 같은 판이 화면마다 다른 물건으로 읽힌다.
+    /// <b>눈에 보이는 글자는 이것으로 안 갈린다.</b> 칸 이름표(「번역 ·
+    /// 한국어」)는 어느 글에나 그대로 맞는 말이라 그냥 둔다 — 자리마다 다른
+    /// 말을 적으면 같은 판이 화면마다 다른 물건으로 읽힌다.
     /// </remarks>
     [Parameter] public string Subject { get; set; } = "로그";
 
@@ -78,7 +78,7 @@ public partial class LogTranslateView
     /// 높이는 <b>Monaco 에게 물어서</b> 잡는다(<see cref="ApplyFitAsync"/> ·
     /// <c>OnDidContentSizeChange…</c>). 줄 수로 어림하지 않는 까닭은 줄바꿈이다 —
     /// 접힌 줄은 한 줄이 두 줄 세 줄 높이가 되는데 그 횟수는 칸 폭이 정하고,
-    /// 칸 폭은 가름쇠를 끌면 바뀐다.
+    /// 칸 폭은 창을 좁히면 바뀐다.
     /// </para>
     /// <para>
     /// <b>휴대폰은 이 값과 상관없다.</b> 거기는 Monaco 가 아니라 <c>div</c>
@@ -98,8 +98,8 @@ public partial class LogTranslateView
     /// 그 뒤로는 사람의 뜻이 이긴다(<see cref="_wrapTouched"/>).
     /// </summary>
     /// <remarks>
-    /// 로그는 꺼서 시작한다 — 접힌 줄이 좌우로 짝이 어긋나 보이게 만드는데,
-    /// 로그는 줄 하나가 단서라 그 짝이 이 판의 전부다. <b>결과문은 켜서
+    /// 로그는 꺼서 시작한다 — 접힌 줄이 섞이면 <b>줄 번호와 눈에 보이는 줄이
+    /// 어긋나</b> 「몇 번째 줄에서 걸렸나」를 세기 나쁘다. <b>결과문은 켜서
     /// 시작한다</b> — 사람이 쓰듯 적은 글이라 한 줄이 화면 폭의 몇 배이고,
     /// 꺼 두면 문단마다 옆으로 밀어 가며 읽어야 한다.
     /// </remarks>
@@ -118,8 +118,8 @@ public partial class LogTranslateView
     [Parameter] public bool CollapseRepeats { get; set; }
 
     /// <summary>
-    /// 옮겨 갈 말. <b>한국어로 고정이다</b> — 왼쪽 칸이 이미 원문이라, 가는
-    /// 말을 영어로 돌리면 영어 로그를 영어로 옮긴 판이 되어 볼 것이 없다.
+    /// 옮겨 갈 말. <b>한국어로 고정이다</b> — 들어오는 것이 영어 로그라, 가는
+    /// 말을 영어로 돌리면 옮기기 전과 같은 판이 되어 볼 것이 없다.
     /// 고를 것이 하나뿐인 고르개는 자리만 먹으므로 두지 않는다.
     /// </summary>
     private const string TargetLang = "ko";
@@ -140,13 +140,6 @@ public partial class LogTranslateView
     /// <summary>편집기 DOM 요소의 id. 한 화면에 둘이 설 수 있어 겹치지 않게 짓는다.</summary>
     private readonly string _id = $"pm-xlat-{Guid.NewGuid():N}";
 
-    /// <summary>
-    /// 칸 이름표 줄의 id. <b>브라우저가 가름쇠 자리를 여기에 적는다</b>
-    /// (<c>--pm-xlat-left</c> · <see cref="WatchSplitAsync"/>). 편집기 id 에
-    /// 매달아 지으므로 한 화면에 판이 둘이어도 안 겹친다.
-    /// </summary>
-    private string HeadsId => $"{_id}-heads";
-
     /// <summary>휴대폰에서 줄을 그리는 목록 상자. 바닥으로 보낼 때 이것을 넘긴다.</summary>
     private ElementReference _listEl;
 
@@ -159,13 +152,17 @@ public partial class LogTranslateView
     /// 브라우저가 되알려 줄 때 쥘 손잡이. 한 번만 만들고 치울 때 놓는다.
     /// </summary>
     /// <remarks>
-    /// 올라오는 것이 둘이다 — <b>손가락 누름</b>(<see cref="OnLineTappedAsync"/>)과
-    /// <b>가름쇠를 옮긴 자리</b>(<see cref="OnSplitMoved"/>). <b>손잡이는 한
-    /// 벌이다</b> — 둘로 나누면 치울 때 한쪽을 빠뜨리는 날이 온다.
+    /// 올라오는 것은 <b>손가락 누름</b> 하나다(<see cref="OnLineTappedAsync"/>).
+    /// 한동안 <b>가름쇠를 옮긴 자리</b>도 같은 손잡이로 올라왔는데, 칸이
+    /// 하나가 되면서 가를 자리가 없어졌다(머리말의 2026-10-17).
     /// </remarks>
     private DotNetObjectReference<LogTranslateView>? _tap;
 
-    private StandaloneDiffEditor? _diff;
+    /// <summary>
+    /// 번역 칸을 쥐고 있는 편집기. <b>넓은 화면에만 있다</b> — 휴대폰은
+    /// Monaco 를 안 세우므로 <c>null</c> 이고, 구르는 자리는 브라우저가 쥔다.
+    /// </summary>
+    private StandaloneCodeEditor? _editor;
 
     /// <summary>
     /// 휴대폰인가. 참이면 <b>Monaco 가 아예 서지 않는다</b> — 줄을 <c>div</c>
@@ -185,27 +182,23 @@ public partial class LogTranslateView
     /// <summary>바닥으로 보낼 때 세어 둔 줄 수. 자랐을 때만 다시 민다.</summary>
     private int _listCount;
 
-    /// <summary>왼쪽(원문) · 오른쪽(번역) 모델. 둘 다 만들어야 비교가 선다.</summary>
-    private TextModel? _original;
-    private TextModel? _modified;
+    /// <summary>
+    /// 편집기에 거는 모델. <b>하나다</b> — 아직 안 옮긴 줄에는 원문이 들어
+    /// 있으므로(<see cref="AiLogXlatState.Out"/>) 칸 하나로 족하다.
+    /// </summary>
+    private TextModel? _model;
 
     /// <summary>
     /// 모델을 만들었나. <b>편집기와 따로 센다</b> — 화면 폭이 바뀌면 편집기는
     /// 통째로 갈리는데 옮겨 둔 줄은 그대로 살아 있어야 한다.
     /// </summary>
-    private bool _modelsBuilt;
+    private bool _modelBuilt;
 
     /// <summary>
     /// 지금 모델을 걸어 둔 편집기. <b>참조로 가른다</b> — 폭이 바뀌어 편집기가
     /// 갈리면 이 값이 달라지므로, 새로 선 쪽에 다시 건다.
     /// </summary>
     private Editor? _attachedTo;
-
-    /// <summary>
-    /// 번역 칸을 쥐고 있는 편집기. <b>넓은 화면에만 있다</b> — 휴대폰은
-    /// Monaco 를 안 세우므로 <c>null</c> 이고, 구르는 자리는 브라우저가 쥔다.
-    /// </summary>
-    private StandaloneCodeEditor? ModifiedView => _diff?.ModifiedEditor;
 
     /// <summary>
     /// 옮긴 것. <b>화면 밖에 있다</b> — 로그 탭의 알맹이는 다른 탭으로
@@ -236,9 +229,8 @@ public partial class LogTranslateView
     /// </remarks>
     private int _fitPx;
 
-    /// <summary>좌우 칸이 각각 <b>몇 px 짜리 글</b>을 들고 있나. Monaco 가 알려 준다.</summary>
-    private double _leftContent;
-    private double _rightContent;
+    /// <summary>칸이 <b>몇 px 짜리 글</b>을 들고 있나. Monaco 가 알려 준다.</summary>
+    private double _contentPx;
 
     /// <summary>
     /// 내용에 맞추더라도 <b>이보다 낮게는 안 간다</b>(px). 한 줄짜리 결과에
@@ -250,10 +242,9 @@ public partial class LogTranslateView
     /// 커서가 선 줄(1부터). <b>0 이면 아직 아무 데도 안 눌렀다.</b>
     /// </summary>
     /// <remarks>
-    /// 이 하나로 <b>좌우 두 칸에 같은 불을 켠다</b>. Monaco 가 들고 있는
-    /// 「지금 줄」 표시(<c>renderLineHighlight</c>)를 쓰지 않는 까닭이 그것이다 —
-    /// 그것은 <b>커서가 있는 칸에만</b> 켜지는데, 여기서 보려는 것은 왼쪽
-    /// 108번째 줄과 <b>짝인 오른쪽 108번째 줄</b>이다.
+    /// Monaco 가 들고 있는 「지금 줄」 표시(<c>renderLineHighlight</c>)를 쓰지
+    /// 않는 까닭은 <b>색을 우리가 정해야</b> 하기 때문이다 — 옮기는 중인 줄
+    /// (<see cref="_redoLine"/>)과 한 자에서 갈려야 눈으로 구분된다.
     /// </remarks>
     private int _focusLine;
 
@@ -268,8 +259,7 @@ public partial class LogTranslateView
     private CancellationTokenSource? _lineWork;
 
     /// <summary>켜 둔 불의 표. 다음에 지울 것을 Monaco 가 이 이름으로 찾는다.</summary>
-    private List<string> _leftMarks = [];
-    private List<string> _rightMarks = [];
+    private List<string> _marksOn = [];
 
     /// <summary>
     /// 글을 미는 길목의 빗장. <b>미는 쪽이 둘이다</b> — 로그가 자라 뒤에
@@ -282,7 +272,7 @@ public partial class LogTranslateView
     /// <summary>
     /// 불을 켜고 끄는 길목의 빗장. <b>부르는 자리가 넷이다</b> — 커서가
     /// 움직였을 때 · 줄을 눌렀을 때 · 한 줄이 돌아왔을 때 · 글을 통째로
-    /// 갈아 끼운 뒤. 엇갈리면 <see cref="_leftMarks"/> 에 <b>이미 없는
+    /// 갈아 끼운 뒤. 엇갈리면 <see cref="_marksOn"/> 에 <b>이미 없는
     /// 이름</b>이 남아, 꺼야 할 불이 켜진 채로 굳는다.
     /// </summary>
     private readonly SemaphoreSlim _marks = new(1, 1);
@@ -297,15 +287,12 @@ public partial class LogTranslateView
     /// 어디까지인지 바로 나오고, 그 토막만 <c>ApplyEdits</c> 로 꽂는다 —
     /// 켜 둔 불도 그대로 남는다(<c>setValue</c> 는 지운다).
     /// </remarks>
-    private readonly List<string> _pushedSrc = [];
     private readonly List<string> _pushedOut = [];
 
     /// <summary>
     /// 복사 아이콘이 집어 갈 글. <b>편집기가 아니라 들고 있는 줄에서 만든다</b> —
     /// 보이는 것과 같은 것이고(민 것이 그것이다), 회로 왕복이 없다.
     /// </summary>
-    private string SourceText => string.Join('\n', _state.Source);
-
     private string OutText => string.Join('\n', _state.Out);
 
     /// <summary>
@@ -325,10 +312,7 @@ public partial class LogTranslateView
     /// </summary>
     private string LoadingText => $"{Subject}{Particle(Subject)} 불러오는 중…";
 
-    /// <summary>낭독기에게 읽어 줄 왼쪽 칸 이름.</summary>
-    private string SourceAria => $"원문 {Subject}";
-
-    /// <summary>낭독기에게 읽어 줄 오른쪽 칸(과 휴대폰 목록) 이름.</summary>
+    /// <summary>낭독기에게 읽어 줄 칸(과 휴대폰 목록) 이름.</summary>
     private string OutAria => $"한국어로 옮긴 {Subject}";
 
     /// <summary>
@@ -382,8 +366,12 @@ public partial class LogTranslateView
             {
                 // **아직 한 줄도 안 옮겼다.** 여기에 「0/300줄」을 적으면
                 // 그것이 「도는 중인데 아직 안 됐다」로 읽힌다 — 이 판은
-                // 누르기 전에는 아무것도 하지 않으므로 그렇게 적는다.
-                return $"{_state.Source.Count}줄 · 줄을 누르면 그 줄을 옮깁니다";
+                // 누르기 전에는 아무것도 하지 않으므로 줄 수만 적는다.
+                //
+                // **쓰는 법을 적지 않는다.** 한동안 여기에 「줄을 누르면 그
+                // 줄을 옮깁니다」가, 판 발치에도 같은 뜻의 안내가 한 줄 더
+                // 붙어 있었다. 같은 말이 두 번 서면 둘 다 안 읽힌다.
+                return $"{_state.Source.Count}줄";
             }
 
             var head = $"{_state.Source.Count}줄 가운데 {_state.DoneLines.Count}줄 옮김";
@@ -749,7 +737,7 @@ public partial class LogTranslateView
     /// (<see cref="AiLogXlatStore"/>)에 있다.
     /// </para>
     /// <para>
-    /// <b>휴대폰으로 가면 비교 편집기를 우리 손으로 치운다.</b> BlazorMonaco 의
+    /// <b>휴대폰으로 가면 편집기를 우리 손으로 치운다.</b> BlazorMonaco 의
     /// 부품이 화면에서 사라져도 <b>브라우저의 Monaco 는 그대로 남는다</b> —
     /// 재어 확인했다(폭을 한 번 바꿀 때마다 편집기가 하나씩 쌓였다). 손잡이도
     /// 함께 놓는다. Blazor 는 사라진 부품의 참조(<c>@ref</c>)를 비워 주지
@@ -769,10 +757,10 @@ public partial class LogTranslateView
 
         _phone = phone;
 
-        // 줄바꿈은 휴대폰에서 켜고 시작한다. 넓은 화면에서 끄는 까닭은 좌우
-        // 짝이 눈으로 흐트러지지 않게 하려는 것인데(`BuildOptions` 머리말),
-        // 칸이 하나뿐인 자리에는 맞출 짝이 없다. 거기서 끈 채로 두면 로그 한
-        // 줄이 화면 폭의 몇 배라 **옆으로 밀어 가며 읽어야 한다.**
+        // 줄바꿈은 휴대폰에서 켜고 시작한다. 넓은 화면에서 끄는 까닭은 줄
+        // 번호와 눈에 보이는 줄을 맞춰 두려는 것인데(`BuildOptions` 머리말),
+        // 스무 글자짜리 폭에서는 그것이 안 지켜진다. 거기서 끈 채로 두면 로그
+        // 한 줄이 화면 폭의 몇 배라 **옆으로 밀어 가며 읽어야 한다.**
         //
         // 사람이 단추를 한 번이라도 눌렀으면 그 뜻을 지킨다.
         if (!_wrapTouched)
@@ -786,9 +774,9 @@ public partial class LogTranslateView
             // 대부분이 방금 찍힌 줄을 보려는 것이다.
             _listTailed = false;
 
-            if (_diff is { } leaving)
+            if (_editor is { } leaving)
             {
-                _diff = null;
+                _editor = null;
                 _attachedTo = null;
 
                 try
@@ -829,13 +817,13 @@ public partial class LogTranslateView
     /// </remarks>
     private async Task OnEditorReadyAsync()
     {
-        if (!_modelsBuilt)
+        if (!_modelBuilt)
         {
             // 모델이 아직 없다. 만든 뒤에 그리기 뒷정리가 건다.
             return;
         }
 
-        if (await AttachModelsAsync())
+        if (await AttachModelAsync())
         {
             await PushValuesAsync();
         }
@@ -871,15 +859,15 @@ public partial class LogTranslateView
             return;
         }
 
-        if (!_modelsBuilt)
+        if (!_modelBuilt)
         {
-            await BuildModelsAsync();
+            await BuildModelAsync();
             return;
         }
 
         // 지금 서 있는 편집기에 모델을 건다. 폭이 바뀌어 편집기가 갈렸으면
         // 여기서 새 쪽에 다시 걸린다.
-        if (!await AttachModelsAsync())
+        if (!await AttachModelAsync())
         {
             return;
         }
@@ -975,8 +963,8 @@ public partial class LogTranslateView
     /// <remarks>
     /// <para>
     /// 로그를 펴는 일 대부분이 <b>방금 찍힌 줄</b>을 보려는 것인데, 맨 위에서
-    /// 서면 거기까지 삼백 줄을 굴려야 한다. 비교 편집기 쪽에서
-    /// <c>RevealLine</c> 이 하던 몫이다.
+    /// 서면 거기까지 삼백 줄을 굴려야 한다. 넓은 화면에서 <c>RevealLine</c>
+    /// 이 하는 몫이다.
     /// </para>
     /// <para>
     /// <b>미는 것이 목록이 아니라 쪽이다</b>(<c>js/log-tail.js</c> 의
@@ -1034,26 +1022,22 @@ public partial class LogTranslateView
     }
 
     /// <summary>
-    /// 좌우 모델을 만든다. <b>편집기와 따로 만든다</b> — 화면 폭이 바뀌면
+    /// 모델을 만든다. <b>편집기와 따로 만든다</b> — 화면 폭이 바뀌면
     /// 편집기는 통째로 갈리는데 옮겨 둔 줄은 살아 있어야 한다.
     /// </summary>
     /// <remarks>
-    /// <b>글자를 편집기가 아니라 모델에 넣는다.</b> 비교 편집기는 모델 둘을
-    /// 짝지어 받고, 짝을 맞추는 일(같은 줄을 같은 높이에 세우기)도 모델을
-    /// 보고 한다 — 편집기에 글을 직접 밀면 그 짝이 다시 계산되지 않는다.
+    /// <b>글자를 편집기가 아니라 모델에 넣는다.</b> 바뀐 토막만 꽂으려면
+    /// (<see cref="PushSideAsync"/>) 모델이 있어야 하고, 켜 둔 불도 모델에
+    /// 매달린다 — 편집기에 글을 직접 밀면 둘 다 못 한다.
     /// </remarks>
-    private async Task BuildModelsAsync()
+    private async Task BuildModelAsync()
     {
         try
         {
             // 주소가 모델의 열쇠다. 한 화면에 둘이 설 수 있어 겹치지 않게 짓는다.
-            _original = await Global.CreateModel(
-                Js, string.Join('\n', _state.Source), "plaintext",
-                $"inmemory://jsini/{_id}/original");
-
-            _modified = await Global.CreateModel(
+            _model = await Global.CreateModel(
                 Js, string.Join('\n', _state.Out), "plaintext",
-                $"inmemory://jsini/{_id}/modified");
+                $"inmemory://jsini/{_id}/out");
         }
         catch (Exception ex) when (ex is JSException or JSDisconnectedException
             or ObjectDisposedException or TaskCanceledException)
@@ -1061,13 +1045,10 @@ public partial class LogTranslateView
             return;
         }
 
-        _pushedSrc.Clear();
-        _pushedSrc.AddRange(_state.Source);
-
         _pushedOut.Clear();
         _pushedOut.AddRange(_state.Out);
 
-        _modelsBuilt = true;
+        _modelBuilt = true;
 
         // 이번 그리기에는 아직 거는 일이 남았다. 다음 뒷정리에서 이어 간다.
         StateHasChanged();
@@ -1078,7 +1059,7 @@ public partial class LogTranslateView
     /// </summary>
     /// <remarks>
     /// <para>
-    /// 거는 곳은 <b>비교 편집기 하나</b>다(휴대폰에는 편집기가 없다). 이미
+    /// 거는 곳은 <b>편집기 하나</b>다(휴대폰에는 편집기가 없다). 이미
     /// 걸려 있으면 아무것도 하지 않는다 — 그리기 뒷정리는 글을 밀 때마다
     /// 지나간다.
     /// </para>
@@ -1088,14 +1069,14 @@ public partial class LogTranslateView
     /// 들어갔는데 <b>줄이 하나도 안 그려지는</b> 일이 난다.
     /// </para>
     /// </remarks>
-    private async Task<bool> AttachModelsAsync()
+    private async Task<bool> AttachModelAsync()
     {
-        if (_original is not { } left || _modified is not { } right)
+        if (_model is not { } model)
         {
             return false;
         }
 
-        Editor? target = _diff;
+        Editor? target = _editor;
 
         if (target is null)
         {
@@ -1114,22 +1095,21 @@ public partial class LogTranslateView
 
         try
         {
-            if (target is StandaloneDiffEditor diff)
+            if (target is StandaloneCodeEditor view)
             {
-                await diff.SetModel(new DiffEditorModel { Original = left, Modified = right });
+                await view.SetModel(model);
                 await ApplyThemeAsync();
 
-                await diff.OriginalEditor.Layout();
-                await diff.ModifiedEditor.Layout();
-            }
+                await view.Layout();
 
-            // **바닥을 보여 준다.** 로그를 펴는 일 대부분이 방금 찍힌 줄을
-            // 보려는 것인데, 맨 위에서 서면 거기까지 삼백 줄을 굴려야 한다.
-            // 폭이 바뀌어 편집기가 갈렸을 때도 같다 — 새 편집기는 맨 위에서
-            // 선다(`js/log-tail.js` 가 글상자에 하던 일이다).
-            if (Tail && _pushedOut.Count > 1 && ModifiedView is { } view)
-            {
-                await view.RevealLine(_pushedOut.Count);
+                // **바닥을 보여 준다.** 로그를 펴는 일 대부분이 방금 찍힌 줄을
+                // 보려는 것인데, 맨 위에서 서면 거기까지 삼백 줄을 굴려야 한다.
+                // 폭이 바뀌어 편집기가 갈렸을 때도 같다 — 새 편집기는 맨 위에서
+                // 선다(`js/log-tail.js` 가 글상자에 하던 일이다).
+                if (Tail && _pushedOut.Count > 1)
+                {
+                    await view.RevealLine(_pushedOut.Count);
+                }
             }
 
             // 편집기가 갈리면 켜 둔 불도 함께 사라진다. 다시 켠다.
@@ -1138,10 +1118,6 @@ public partial class LogTranslateView
             // 손가락 누름은 Monaco 가 알려 주지 않는다. **새로 선 편집기마다**
             // 직접 지켜본다(`OnLineTappedAsync` 머리말).
             await WatchTapsAsync(target);
-
-            // 가름쇠가 움직였다는 것도 알려 주지 않는다. 칸의 크기를 직접
-            // 지켜보고 이름표를 그 자리에 맞춘다.
-            await WatchSplitAsync();
 
             // 내용에 맞추는 틀이면 **여기서 한 번 직접 묻는다**(머리말).
             await MeasureFitAsync();
@@ -1172,15 +1148,15 @@ public partial class LogTranslateView
     /// <c>watchTaps</c> · 까닭은 <see cref="OnLineTappedAsync"/>).
     /// </para>
     /// <para>
-    /// <b>주는 것은 편집기가 아니라 그것이 선 상자의 id 다.</b> 비교 편집기는
-    /// 칸이 둘인데 누른 자리를 되물을 수 있는 것은 칸 안쪽의 편집기라, 상자로
-    /// 묶어 찾으면 그 둘이 한꺼번에 걸린다.
+    /// <b>주는 것은 편집기가 아니라 그것이 선 상자의 id 다.</b> 같은 화면에
+    /// 판이 둘 설 수 있어(로그 탭 · 결과 차수) 상자로 묶어 찾으면 남의
+    /// 편집기가 안 걸린다.
     /// </para>
     /// <para>
     /// <b>휴대폰 때문에 생긴 길인데 지금은 휴대폰이 안 쓴다</b> — 거기서는
     /// Monaco 가 아니라 <c>div</c> 목록이라 그냥 눌린다. 남겨 두는 까닭은
     /// <b>손가락이 달린 넓은 화면</b>(태블릿·터치 노트북)이다. 거기서는
-    /// 비교 편집기가 서고, Monaco 는 거기서도 <c>onMouseDown</c> 을 안 울린다.
+    /// Monaco 가 서고, 거기서도 <c>onMouseDown</c> 은 안 울린다.
     /// </para>
     /// </remarks>
     private async Task WatchTapsAsync(Editor target)
@@ -1206,76 +1182,6 @@ public partial class LogTranslateView
     }
 
     /// <summary>
-    /// 가운데 가름쇠를 지켜보고 <b>칸 이름표를 그 자리에 맞춘다.</b>
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 이름표 줄(「원문」·「번역 · 한국어」)은 편집기 <b>밖</b>에 따로 서 있어서,
-    /// 칸을 끌어 7:3 으로 만들면 이름표만 5:5 에 남아 <b>이름이 남의 칸을
-    /// 가리킨다.</b> 그 어긋남 때문에 한동안 끄는 길을 아예 닫아 두었다.
-    /// </para>
-    /// <para>
-    /// <b>자리를 맞추는 일은 브라우저 안에서 끝난다</b>(<c>js/monaco-loader.js</c>
-    /// 의 <c>watchSplit</c>). 끄는 동안 프레임마다 회로를 왕복하면 Blazor
-    /// Server 에서는 이름표가 손가락보다 한참 뒤에 따라온다 — 올라오는 것은
-    /// 손을 뗀 뒤의 비율 하나다(<see cref="OnSplitMoved"/>).
-    /// </para>
-    /// <para>
-    /// <b>끌어 두었던 자리를 되돌리는 것도 그쪽이 한다.</b> 비율을 함께
-    /// 넘기는 까닭은 <c>BuildOptions</c> 머리말에 있다 — 그 옵션의 칸이
-    /// <c>int?</c> 라 소수를 못 싣는다.
-    /// </para>
-    /// <para>
-    /// <b>휴대폰에서는 걸 것이 없다</b> — 거기는 Monaco 가 아니고 칸도 하나다.
-    /// 부르는 자리(<see cref="AttachModelsAsync"/>)가 이미 넓은 화면뿐이라
-    /// 따로 가리지 않는다.
-    /// </para>
-    /// </remarks>
-    private async Task WatchSplitAsync()
-    {
-        if (_loader is not { } loader)
-        {
-            return;
-        }
-
-        try
-        {
-            _tap ??= DotNetObjectReference.Create(this);
-
-            await loader.InvokeVoidAsync("watchSplit", _id, HeadsId, _state.SplitRatio, _tap);
-        }
-        catch (Exception ex) when (ex is JSException or JSDisconnectedException
-            or ObjectDisposedException or TaskCanceledException)
-        {
-            // 아직 안 섰거나 회로가 끊겼다. 다음에 걸릴 때 다시 건다.
-        }
-    }
-
-    /// <summary>
-    /// 사람이 가름쇠를 옮겼다. <b>적어 두기만 한다</b>(<see cref="AiLogXlatState.SplitRatio"/>).
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 쓰는 자리는 <b>편집기를 다시 세울 때</b> 하나다
-    /// (<c>SplitViewDefaultRatio</c>). 지금 서 있는 편집기는 이미 그 자리에
-    /// 있으므로 여기서 할 일이 없다.
-    /// </para>
-    /// <para>
-    /// <b>다시 그리지 않는다.</b> 이 알림은 끄는 동안에도 몇 번 올라오는데
-    /// (브라우저가 0.5% 문턱으로 추려 보낸다) 그때마다 회로가 화면을 다시
-    /// 그리면 <b>Monaco 가 통째로 다시 서서</b> 끌던 손이 떨어진다.
-    /// </para>
-    /// </remarks>
-    [JSInvokable]
-    public void OnSplitMoved(double ratio)
-    {
-        if (double.IsFinite(ratio) && ratio is > 0 and < 1)
-        {
-            _state.SplitRatio = ratio;
-        }
-    }
-
-    /// <summary>
     /// 편집기 테마를 문서의 <c>data-theme</c> 에 맞춘다(theme.js 가 정한다).
     /// 흰 바탕에 밝은 편집기가 얹히면 그 부분만 튀어 보인다.
     /// </summary>
@@ -1292,7 +1198,7 @@ public partial class LogTranslateView
     /// </summary>
     private async Task PushValuesAsync()
     {
-        if (!_modelsBuilt)
+        if (!_modelBuilt)
         {
             return;
         }
@@ -1307,18 +1213,16 @@ public partial class LogTranslateView
             // 이 길은 그리기 뒷정리마다 지나간다 — 바뀐 것이 없는 날에도
             // 재면 단추 한 번 누를 때마다 쓸데없는 왕복이 선다. 따라 내릴
             // 일이 생기는 것도 줄이 늘었을 때뿐이다.
-            var grew = _pushedSrc.Count != _state.Source.Count
-                || _pushedOut.Count != _state.Out.Count;
+            var grew = _pushedOut.Count != _state.Out.Count;
 
             // **밀기 전에 「바닥에 붙어 있나」를 잰다.** 민 뒤에 재면 늘어난
             // 줄 때문에 늘 거짓이라, 돌고 있는 건을 지켜보는 사람이 새 줄을
             // 한 번도 못 본다.
             var tail = Tail && grew && await AtBottomAsync();
 
-            var leftReset = await PushSideAsync(_original, _pushedSrc, _state.Source);
-            var rightReset = await PushSideAsync(_modified, _pushedOut, _state.Out);
+            var reset = await PushSideAsync(_model, _pushedOut, _state.Out);
 
-            if (leftReset || rightReset || CollapseRepeats)
+            if (reset || CollapseRepeats)
             {
                 // `setValue` 는 켜 둔 불을 함께 지운다. 다시 켠다.
                 await DrawMarksAsync();
@@ -1327,8 +1231,7 @@ public partial class LogTranslateView
             // 줄이 늘었고 사람이 바닥을 보고 있었으면 새 줄까지 따라 내린다.
             // **위를 읽는 중이면 놓아 둔다** — 읽던 자리가 튀는 것이 새 줄을
             // 놓치는 것보다 나쁘다.
-            if (tail && (leftReset || rightReset) && _pushedOut.Count > 1
-                && ModifiedView is { } view)
+            if (tail && reset && _pushedOut.Count > 1 && _editor is { } view)
             {
                 await view.RevealLine(_pushedOut.Count);
             }
@@ -1350,7 +1253,7 @@ public partial class LogTranslateView
     /// </summary>
     private async Task<bool> AtBottomAsync()
     {
-        if (ModifiedView is not { } view)
+        if (_editor is not { } view)
         {
             return false;
         }
@@ -1372,7 +1275,7 @@ public partial class LogTranslateView
     }
 
     /// <summary>
-    /// 한 칸을 맞춘다. <b>돌려주는 것은 「통째로 갈아 끼웠나」</b> — 그랬다면
+    /// 모델을 맞춘다. <b>돌려주는 것은 「통째로 갈아 끼웠나」</b> — 그랬다면
     /// 켜 둔 불이 함께 지워졌으므로 부르는 쪽이 다시 켠다.
     /// </summary>
     /// <remarks>
@@ -1395,9 +1298,9 @@ public partial class LogTranslateView
 
         if (pushed.Count != want.Count)
         {
-            // 읽던 자리는 **번역 칸**에서 잰다. 휴대폰에서는 그것이 혼자 선
-            // 편집기고, 넓은 화면에서는 비교 편집기의 오른쪽 칸이다.
-            var view = ModifiedView;
+            // 읽던 자리를 지킨다. 휴대폰에서는 편집기가 없어 그냥 넘어간다
+            // (거기서 구르는 것은 쪽이다).
+            var view = _editor;
             var top = view is not null ? await view.GetScrollTop() : 0;
 
             await model.SetValue(string.Join('\n', want));
@@ -1452,17 +1355,16 @@ public partial class LogTranslateView
     }
 
     /// <summary>
-    /// 불을 켠다 — <b>좌우 같은 줄에 같은 색</b>.
+    /// 불을 켠다 — <b>짚은 줄과 지금 도는 줄</b>.
     /// </summary>
     /// <remarks>
     /// Monaco 가 들고 있는 「지금 줄」 표시(<c>renderLineHighlight</c>)를 끄고
-    /// 이것으로 대신하는 까닭은 <b>그것이 커서가 있는 칸에만 켜지기</b>
-    /// 때문이다. 여기서 보려는 것은 왼쪽 108번째 줄과 <b>짝인 오른쪽
-    /// 108번째 줄</b>이라, 불이 한 칸에만 켜지면 반쪽이다.
+    /// 이것으로 대신하는 까닭은 <b>색을 우리가 정해야</b> 하기 때문이다 —
+    /// 짚은 줄과 옮기는 중인 줄이 한 자에서 갈려야 눈으로 구분된다.
     /// </remarks>
     private async Task DrawMarksAsync()
     {
-        if (_original is not { } left || _modified is not { } right)
+        if (_model is not { } model)
         {
             return;
         }
@@ -1471,8 +1373,7 @@ public partial class LogTranslateView
 
         try
         {
-            _leftMarks = await left.DeltaDecorations(_leftMarks, MarksFor(onLeft: true), null);
-            _rightMarks = await right.DeltaDecorations(_rightMarks, MarksFor(onLeft: false), null);
+            _marksOn = await model.DeltaDecorations(_marksOn, Marks(), null);
         }
         catch (Exception ex) when (ex is JSException or JSDisconnectedException
             or ObjectDisposedException or TaskCanceledException)
@@ -1485,28 +1386,27 @@ public partial class LogTranslateView
     }
 
     /// <summary>
-    /// 그 칸에 켤 불들. <b>줄 수는 모델에 들어 있는 것으로 센다</b>
-    /// (<see cref="_pushedSrc"/>) — 아직 안 민 줄에 불을 켜면 Monaco 가 던진다.
+    /// 켤 불들. <b>줄 수는 모델에 들어 있는 것으로 센다</b>
+    /// (<see cref="_pushedOut"/>) — 아직 안 민 줄에 불을 켜면 Monaco 가 던진다.
     /// </summary>
-    private List<ModelDeltaDecoration> MarksFor(bool onLeft)
+    private List<ModelDeltaDecoration> Marks()
     {
         var marks = new List<ModelDeltaDecoration>();
-        var count = onLeft ? _pushedSrc.Count : _pushedOut.Count;
+        var count = _pushedOut.Count;
 
         if (_focusLine >= 1 && _focusLine <= count)
         {
             marks.Add(WholeLine(_focusLine, "pm-xlat__hit", "pm-xlat__hit-num"));
         }
 
-        // 옮기는 중인 줄은 **오른쪽에만** 표시한다. 바뀌는 것이 그쪽이다.
-        if (!onLeft && _redoLine >= 1 && _redoLine <= count)
+        if (_redoLine >= 1 && _redoLine <= count)
         {
             marks.Add(WholeLine(_redoLine, "pm-xlat__redo", "pm-xlat__redo-num"));
         }
 
         if (CollapseRepeats)
         {
-            var list = onLeft ? _pushedSrc : _pushedOut;
+            var list = _pushedOut;
             for (var i = 0; i < count; i++)
             {
                 var lineNum = i + 1;
@@ -1540,30 +1440,16 @@ public partial class LogTranslateView
     };
 
     /// <summary>
-    /// 한 칸의 <b>글이 차지하는 높이</b>가 달라졌다(Monaco 가 알려 준다).
+    /// <b>글이 차지하는 높이</b>가 달라졌다(Monaco 가 알려 준다).
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// 줄이 늘거나, 줄바꿈을 켜고 끄거나, 가름쇠를 끌어 칸 폭이 바뀌면 온다.
+    /// 줄이 늘거나, 줄바꿈을 켜고 끄거나, 창이 좁아져 칸 폭이 바뀌면 온다.
     /// <b>이 셋이 전부 같은 자리로 모인다</b> — 어림잡아 재면 그 가운데 하나는
     /// 반드시 빠뜨린다.
-    /// </para>
-    /// <para>
-    /// 좌우를 따로 적어 두는 까닭은 <b>사건이 한 칸 몫만 들고 오기</b>
-    /// 때문이다. 틀은 둘 가운데 높은 쪽에 맞춰야 짧은 칸이 남는 자리를
-    /// 비운다.
-    /// </para>
     /// </remarks>
-    private Task OnLeftSizedAsync(ContentSizeChangedEvent e)
+    private Task OnSizedAsync(ContentSizeChangedEvent e)
     {
-        _leftContent = e.ContentHeight;
-
-        return ApplyFitAsync();
-    }
-
-    private Task OnRightSizedAsync(ContentSizeChangedEvent e)
-    {
-        _rightContent = e.ContentHeight;
+        _contentPx = e.ContentHeight;
 
         return ApplyFitAsync();
     }
@@ -1578,15 +1464,14 @@ public partial class LogTranslateView
     /// </remarks>
     private async Task MeasureFitAsync()
     {
-        if (!Fit || _phone || _diff is not { } diff)
+        if (!Fit || _phone || _editor is not { } view)
         {
             return;
         }
 
         try
         {
-            _leftContent = await diff.OriginalEditor.GetContentHeight();
-            _rightContent = await diff.ModifiedEditor.GetContentHeight();
+            _contentPx = await view.GetContentHeight();
         }
         catch (Exception ex) when (ex is JSException or JSDisconnectedException
             or ObjectDisposedException or TaskCanceledException)
@@ -1614,8 +1499,7 @@ public partial class LogTranslateView
             return;
         }
 
-        var content = Math.Max(_leftContent, _rightContent);
-        var want = (int)Math.Max(content, FitMin);
+        var want = (int)Math.Max(_contentPx, FitMin);
         if (MaxHeight is { } max && max >= FitMin)
         {
             want = Math.Min(want, max);
@@ -1630,15 +1514,14 @@ public partial class LogTranslateView
 
         StateHasChanged();
 
-        if (_diff is not { } diff)
+        if (_editor is not { } view)
         {
             return;
         }
 
         try
         {
-            await diff.OriginalEditor.Layout();
-            await diff.ModifiedEditor.Layout();
+            await view.Layout();
         }
         catch (Exception ex) when (ex is JSException or JSDisconnectedException
             or ObjectDisposedException or TaskCanceledException)
@@ -1647,8 +1530,7 @@ public partial class LogTranslateView
     }
 
     /// <summary>
-    /// 커서가 움직였다. <b>좌우 어느 칸에서 움직였든 같은 곳으로 온다</b> —
-    /// 짝인 줄은 번호가 같아서, 어느 쪽에서 왔는지 가릴 까닭이 없다.
+    /// 커서가 움직였다. 그 줄에 불을 켠다.
     /// </summary>
     private Task OnCursorMovedAsync(CursorPositionChangedEvent e)
         => FocusLineAsync(e.Position?.LineNumber ?? 0);
@@ -1671,11 +1553,9 @@ public partial class LogTranslateView
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>좌우 어느 칸을 눌러도 같다.</b> 한때는 왼쪽(원문)에만 걸어 두었다 —
-    /// 「번역문을 눌러 번역을 시키는 것은 뜻이 맞지 않는다」가 까닭이었는데,
-    /// 아직 안 옮긴 줄은 오른쪽에도 <b>원문이 서 있다.</b> 그 글을 누른
-    /// 사람에게 왼쪽 것은 되고 오른쪽 것은 안 되는 까닭이 보일 리 없다.
-    /// 짝인 줄은 번호가 같으므로 어느 쪽에서 왔는지 가리지 않는다.
+    /// <b>이미 옮긴 줄을 눌러도 받는다.</b> 번역이 어설픈 줄을 집어서 고쳐
+    /// 받는 자리라, 「번역문을 눌러 번역을 시키는 것은 뜻이 맞지 않는다」로
+    /// 막지 않는다(<see cref="TranslateLineAsync"/>).
     /// </para>
     /// <para>
     /// <b>커서 사건으로 하지 않는 까닭</b>이 있다. 커서는 화살표로도 움직이는데
@@ -1688,7 +1568,7 @@ public partial class LogTranslateView
 
     /// <summary>
     /// 휴대폰 목록에서 그 줄에 붙일 이름들. <b>켜 둔 불이 여기서 나온다</b> —
-    /// 비교 편집기 쪽의 자리(<see cref="DrawMarksAsync"/>)에 해당한다.
+    /// 편집기 쪽의 자리(<see cref="DrawMarksAsync"/>)에 해당한다.
     /// </summary>
     private string RowClass(int line)
     {
@@ -1710,8 +1590,9 @@ public partial class LogTranslateView
     /// 같은 <c>div</c> 안의 글자다).
     /// </para>
     /// <para>
-    /// <b>불 켜기와 옮기기는 넓은 화면과 같은 자리로 간다</b> — 가는 길이
-    /// 갈라지면 같은 화면이 기기마다 다르게 군다.
+    /// <b>불 켜기와 옮기기는 넓은 화면과 같은 자리로 간다</b>
+    /// (<see cref="FocusLineAsync"/> · <see cref="TranslateLineAsync"/>) —
+    /// 가는 길이 갈라지면 같은 화면이 기기마다 다르게 군다.
     /// </para>
     /// </remarks>
     private async Task OnRowClickedAsync(int line)
@@ -1775,7 +1656,7 @@ public partial class LogTranslateView
     }
 
     /// <summary>
-    /// 그 줄 하나만 옮긴다. <b>옮긴 글은 짝인 오른쪽 줄 자리에 꽂힌다.</b>
+    /// 그 줄 하나만 옮긴다. <b>옮긴 글은 누른 그 자리에 꽂힌다.</b>
     /// </summary>
     /// <remarks>
     /// 이미 옮긴 줄을 또 눌러도 다시 간다 — 번역이 어설픈 줄을 집어서 고쳐
@@ -1928,7 +1809,7 @@ public partial class LogTranslateView
     }
 
     /// <summary>
-    /// 옮긴 줄을 모두 되돌린다. 오른쪽 칸이 다시 원문이 된다.
+    /// 옮긴 줄을 모두 되돌린다. 판이 다시 통째로 원문이 된다.
     /// </summary>
     /// <remarks>
     /// <b>옮기는 단추가 아니다.</b> 옮기는 일은 줄을 눌러 시키므로, 머리띠에
@@ -1987,15 +1868,15 @@ public partial class LogTranslateView
 
         try
         {
-            // 서 있는 편집기에만 민다. 휴대폰에서는 외짝 편집기가 그것이다.
-            if (_diff is { } diff)
+            // 서 있는 편집기에만 민다. 휴대폰에는 Monaco 가 없고, 거기
+            // 목록은 이름(`pm-xlat__list--nowrap`)으로 접고 편다.
+            if (_editor is { } view)
             {
-                await diff.UpdateOptions(new DiffEditorOptions
+                await view.UpdateOptions(new EditorUpdateOptions
                 {
                     WordWrap = _wrap ? "on" : "off",
                 });
             }
-
         }
         catch (Exception ex) when (ex is JSException or JSDisconnectedException
             or ObjectDisposedException)
@@ -2012,49 +1893,24 @@ public partial class LogTranslateView
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>고치는 자리가 아니라 견주는 자리다.</b> 그래서 양쪽 다 읽기 전용이고
-    /// (<c>ReadOnly</c> · <c>OriginalEditable</c>), 바꿈 표시와 되돌리기 단추를
-    /// 끈다 — 이 둘이 가리키는 「바뀜」은 번역이지 누가 고친 것이 아니다.
+    /// <b>고치는 자리가 아니라 읽는 자리다</b>(<c>ReadOnly</c>).
     /// </para>
     /// <para>
-    /// <b>빈칸을 무시하지 않는다</b>(<c>IgnoreTrimWhitespace = false</c>).
-    /// 로그는 들여쓰기가 뜻을 들고 있어서, 무시하게 두면 들여쓰기만 다른 줄이
-    /// 같은 줄로 묶여 짝이 어긋난다.
-    /// </para>
-    /// <para>
-    /// 줄바꿈은 <b>꺼서 시작한다.</b> 켜면 한 줄이 여러 줄 높이가 되고, 좌우의
-    /// 접히는 횟수가 달라 짝이 눈으로 흐트러진다 — 이 판이 하려는 일이 그
-    /// 짝이라 기본값은 끄는 쪽이다. 긴 줄을 통째로 읽어야 하면 단추로 켠다.
+    /// 줄바꿈은 <b>꺼서 시작한다.</b> 켜면 한 줄이 여러 줄 높이가 되어 줄
+    /// 번호와 눈에 보이는 줄이 어긋나는데, 로그에서 「몇 번째 줄에서
+    /// 걸렸나」는 그 번호로 센다. 긴 줄을 통째로 읽어야 하면 단추로 켠다.
     /// </para>
     /// <para>
     /// <b>「지금 줄」 표시를 끈다</b>(<c>RenderLineHighlight = "none"</c>).
-    /// 그것은 <b>커서가 있는 칸에만</b> 켜지는데, 여기서 보려는 것은 왼쪽
-    /// 108번째 줄과 <b>짝인 오른쪽 108번째 줄</b>이다. 좌우에 같이 켜는 일은
-    /// 우리가 한다(<see cref="DrawMarksAsync"/>) — 둘 다 켜 두면 한쪽 줄에만
-    /// 색이 두 겹으로 얹혀 좌우가 다른 색으로 보인다.
+    /// 짚은 줄과 <b>지금 옮기고 있는 줄</b>을 다른 색으로 갈라야 하는데
+    /// (<see cref="DrawMarksAsync"/>), 둘 다 켜 두면 한 줄에 색이 두 겹으로
+    /// 얹혀 그 갈래가 안 보인다.
     /// </para>
     /// <para>
-    /// <b>가운데 가름쇠를 끌 수 있다</b>(<c>EnableSplitViewResizing</c>).
-    /// 한동안 꺼 두었던 자리다 — 칸 이름표(「원문」·「번역」)가 반반을 믿고
-    /// 서 있어서, 끌어 7:3 으로 만들면 <b>이름이 남의 칸을 가리켰다.</b>
-    /// 지금은 이름표가 칸을 따라가므로(<see cref="WatchSplitAsync"/>) 막을
-    /// 까닭이 없다.
-    /// </para>
-    /// <para>
-    /// <b>첫 자리는 여기서 못 준다.</b> 탭을 건너갔다 오면 편집기가 새로
-    /// 서는데 그때 끌어 둔 자리로 되돌리려면 <c>SplitViewDefaultRatio</c> 에
-    /// 0~1 사이의 소수를 넣어야 하고, <b>BlazorMonaco 가 그 칸을 <c>int?</c>
-    /// 로 선언해 두었다</b> — 넣을 수 있는 것이 0 과 1 뿐이다. 그래서 그
-    /// 한 줄만 브라우저 쪽에서 민다(<see cref="WatchSplitAsync"/>).
-    /// </para>
-    /// <para>
-    /// <b>좁아져도 좌우를 걷지 않는다</b>(<c>UseInlineViewWhenSpaceIsLimited
-    /// = false</c>). Monaco 는 기본으로 폭이 900px 아래면 좌우 비교를 걷고
-    /// 한 칸짜리 인라인 비교로 갈아타는데, 그 자리에서 <b>왼쪽 칸이 42px 짜리
-    /// 토막으로 주저앉는다</b>(재어 확인했다 — 899px). 이름표 둘이 그대로
-    /// 서 있으므로 「원문」이 가리킬 칸이 없어진다. 휴대폰은 여기까지 오지도
-    /// 않으므로(위) 이 구간은 태블릿과 좁힌 창이고, 거기서 할 일은 칸을 걷는
-    /// 것이 아니라 <b>끌어서 보고 싶은 쪽을 넓히는 것</b>이다.
+    /// <b>칸은 하나다</b>(2026-10-17). 한동안 여기 좌우 비교 편집기가 섰는데,
+    /// 아직 안 옮긴 줄은 양쪽에 같은 글이 서서 <b>읽을 폭만 반으로 줄였다</b>
+    /// (머리말). 지금은 평범한 편집기 하나라 가름쇠·인라인 비교·바꿈 표시를
+    /// 끄던 옵션이 통째로 필요 없다.
     /// </para>
     /// <para>
     /// <b>휴대폰에서 줄을 짚어도 자판이 올라오지 않게 한다</b>
@@ -2062,7 +1918,7 @@ public partial class LogTranslateView
     /// 모자란다 — 그것은 <b>글자가 들어오는 것만</b> 막고, 글자를 받는 숨은
     /// 칸은 그대로 선다. 휴대폰은 그 칸에 초점이 가는 것만 보고 자판을
     /// 올리므로, 줄 하나 짚을 때마다 화면 절반이 자판에 덮인다. 여기는
-    /// <b>읽고 견주는 자리</b>라 자판이 할 일이 아예 없다.
+    /// <b>읽는 자리</b>라 자판이 할 일이 아예 없다.
     /// </para>
     /// <para>
     /// 두 가지를 같이 적어야 한다. Monaco 가 글자를 받는 길이 둘로 갈려
@@ -2092,28 +1948,19 @@ public partial class LogTranslateView
     /// 줄어들어서, 그 자리는 굴림을 브라우저에게 돌려주는 쪽으로 풀었다.
     /// </para>
     /// </remarks>
-    private StandaloneDiffEditorConstructionOptions BuildOptions(StandaloneDiffEditor editor) => new()
+    private StandaloneEditorConstructionOptions BuildOptions(StandaloneCodeEditor editor) => new()
     {
         AutomaticLayout = true,
         ReadOnly = true,
-        OriginalEditable = false,
         DomReadOnly = true,
         EditContext = false,
-        RenderSideBySide = true,
-        EnableSplitViewResizing = true,
-        UseInlineViewWhenSpaceIsLimited = false,
         RenderLineHighlight = "none",
-        RenderIndicators = false,
-        RenderMarginRevertIcon = false,
-        RenderOverviewRuler = false,
-        IgnoreTrimWhitespace = false,
         FontSize = (int)Math.Round(_fontPx),
         LineNumbers = ShowLineNumbers ? "on" : "off",
         Minimap = new EditorMinimapOptions { Enabled = false },
         ScrollBeyondLastLine = false,
         WordWrap = _wrap ? "on" : "off",
-        OriginalAriaLabel = SourceAria,
-        ModifiedAriaLabel = OutAria,
+        AriaLabel = OutAria,
 
         // ── 굴릴 때마다 도는 것을 눌러 둔다 ──────────────────
         // 로그에는 접을 블록도, 들여쓰기 뜻도, 괄호 짝도, 색값도 없다.
@@ -2170,7 +2017,7 @@ public partial class LogTranslateView
     /// </summary>
     private async Task ApplyFontSizeAsync()
     {
-        if (_loader is not { } loader || _diff is null)
+        if (_loader is not { } loader || _editor is null)
         {
             return;
         }
@@ -2188,14 +2035,13 @@ public partial class LogTranslateView
 
             _fontPx = px;
 
-            if (_diff is { } diff)
+            if (_editor is { } view)
             {
-                await diff.UpdateOptions(new DiffEditorOptions
+                await view.UpdateOptions(new EditorUpdateOptions
                 {
                     FontSize = (int)Math.Round(px),
                 });
             }
-
         }
         catch (Exception ex) when (ex is JSException or JSDisconnectedException
             or ObjectDisposedException or TaskCanceledException)
@@ -2210,15 +2056,15 @@ public partial class LogTranslateView
     /// <para>
     /// Monaco 의 모델은 편집기가 아니라 <c>monaco.editor</c> 전역에 매달려
     /// 있어서, 안 놓으면 이 판을 열 때마다 브라우저에 로그 한 벌이 통째로
-    /// 쌓인다. 그런데 <b>비교 편집기가 아직 그 모델을 쥔 채로 놓으면</b>
-    /// 브라우저가 이렇게 던진다 —
+    /// 쌓인다. 그런데 <b>편집기가 아직 그 모델을 쥔 채로 놓으면</b>
+    /// 브라우저가 던진다 — 비교 편집기를 쓰던 때에는 그 말이
+    /// <c>TextModel got disposed before DiffEditorWidget model got reset</c>
+    /// 이었고, 탭을 건너갈 때마다 났다(<c>DxTabs</c> 가 안 보이는 탭의
+    /// 알맹이를 버린다).
     /// </para>
-    /// <code>TextModel got disposed before DiffEditorWidget model got reset</code>
     /// <para>
-    /// 탭을 건너갈 때마다 났다(<c>DxTabs</c> 가 안 보이는 탭의 알맹이를
-    /// 버린다). 부품 둘이 치워지는 차례는 우리가 정할 수 없지만
-    /// <c>DisposeEditor</c> 한 줄은 정할 수 있다 —
-    /// <b>편집기를 먼저 치운다.</b>
+    /// 부품 둘이 치워지는 차례는 우리가 정할 수 없지만 <c>DisposeEditor</c>
+    /// 한 줄은 정할 수 있다 — <b>편집기를 먼저 치운다.</b>
     /// </para>
     /// </remarks>
     public async ValueTask DisposeAsync()
@@ -2227,29 +2073,24 @@ public partial class LogTranslateView
 
         CancelLineWork();
 
-        if (_diff is { } diff)
+        if (_editor is { } view)
         {
             try
             {
-                await diff.DisposeEditor();
+                await view.DisposeEditor();
             }
             catch (Exception ex) when (ex is JSException or JSDisconnectedException
                 or ObjectDisposedException or TaskCanceledException)
             {
             }
 
-            _diff = null;
+            _editor = null;
         }
 
         _attachedTo = null;
 
-        foreach (var model in new[] { _original, _modified })
+        if (_model is { } model)
         {
-            if (model is null)
-            {
-                continue;
-            }
-
             try
             {
                 await model.DisposeModel();
@@ -2259,10 +2100,9 @@ public partial class LogTranslateView
             {
                 // 회로가 이미 끊겼다(사용자가 탭을 닫았다). 놓을 것이 없다.
             }
-        }
 
-        _original = null;
-        _modified = null;
+            _model = null;
+        }
 
         if (_loader is not null)
         {
