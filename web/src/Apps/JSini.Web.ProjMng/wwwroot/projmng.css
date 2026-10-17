@@ -3426,11 +3426,23 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 
    시각을 앞에 두는 이유는 그것이 **자리가 고정된 값**이기 때문이다. 뒤에
    두면 제목 길이에 따라 시각의 x 좌표가 카드마다 달라져, 넉 장을 세로로
-   훑을 때 눈이 그 값을 따라다녀야 한다. */
+   훑을 때 눈이 그 값을 따라다녀야 한다.
+
+   1단과 2단에서 제목이 길어도 3번째 줄로 내려가지 않도록 nowrap 으로 묶고,
+   너비를 넘치면 제목 꼬리가 말줄임(...) 처리된다. */
 .pm-ask__line--sub {
+  flex-wrap: nowrap;
   gap: 0.35rem;
+  align-items: center;
   justify-content: flex-start;
   min-width: 0;
+}
+
+/* 3단 및 4단에서 독립된 제목 줄 */
+.pm-ask__line--title {
+  display: block;
+  min-width: 0;
+  width: 100%;
 }
 
 /* 카드 두 층에 서는 공통 배지(「요청」·「임시」). **줄이지 않는다.**
@@ -3614,6 +3626,55 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   white-space: nowrap;
   font-size: 0.9em;
   font-weight: 600;
+}
+
+/* ── 단별 레이아웃 제어 (1단~4단) ─────────────────────────── */
+
+/* 2단 이상 — 대상(TargetName) 숨김 (1단에서만 표시) */
+.pm-ask__list[data-cols='2'] .pm-ask__to,
+.pm-ask__list[data-cols='3'] .pm-ask__to,
+.pm-ask__list[data-cols='4'] .pm-ask__to,
+.pm-ask__item--cols-2 .pm-ask__to,
+.pm-ask__item--cols-3 .pm-ask__to,
+.pm-ask__item--cols-4 .pm-ask__to {
+  display: none !important;
+}
+
+/* 3단 및 4단 — 1번줄의 처리시간 숨김 */
+.pm-ask__list[data-cols='3'] .pm-ask__span,
+.pm-ask__list[data-cols='4'] .pm-ask__span,
+.pm-ask__item--cols-3 .pm-ask__span,
+.pm-ask__item--cols-4 .pm-ask__span {
+  display: none !important;
+}
+
+/* 4단 — 1번줄 모델배지와 상태만 표시 (차수배지 숨김) */
+.pm-ask__list[data-cols='4'] .pm-ask__turn-badge,
+.pm-ask__item--cols-4 .pm-ask__turn-badge {
+  display: none !important;
+}
+
+/* 4단 — 3번줄과 4번줄에 걸쳐서 제목을 2줄로 표현 */
+.pm-ask__list[data-cols='4'] .pm-ask__title,
+.pm-ask__item--cols-4 .pm-ask__title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  white-space: normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-all;
+  line-height: 1.35;
+  max-height: calc(1.35em * 2);
+}
+
+/* 3단 및 4단 — 카드가 3줄 이상이 되므로 헤더 아이템을 상단 정렬 */
+.pm-ask__list[data-cols='3'] .pm-ask__head,
+.pm-ask__list[data-cols='4'] .pm-ask__head,
+.pm-ask__item--cols-3 .pm-ask__head,
+.pm-ask__item--cols-4 .pm-ask__head {
+  align-items: flex-start;
 }
 
 /* ── 차수가 2회 이상인 카드의 차수별 제목 목록 ───────────────

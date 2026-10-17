@@ -332,11 +332,10 @@
             {
                 @* 단 수는 격자에 실어 내린다(`--pm-ask-cols`) — 단마다 클래스를
                    두면 CSS 가 같은 규칙을 셋으로 베낀다. *@
-                <ul class="pm-ask__list" style="--pm-ask-cols: @_cols">
+                <ul class="pm-ask__list" data-cols="@_cols" style="--pm-ask-cols: @_cols">
                 @foreach (var t in _recent)
                 {
-                    @* 카드 한 장이 건 하나고 얼굴 하나 + 두 층이다 —
-                       윗층이 「끝났나 · 얼마나 걸렸나」, 아랫층이 「언제 · 무엇을」.
+                    @* 카드 한 장이 건 하나고 얼굴 하나 + 단별 줄 구성이다.
                        상태는 카드의 색이기도 하다(`pm-ask__item--@t.StatusTone`).
 
                        끝난 건은 오른쪽으로 밀어 사용자 확인 완료로 치운다
@@ -345,7 +344,7 @@
                        `@@key` 가 없으면 가운데 한 장이 빠질 때 Blazor 가 맨 끝을
                        지우고 글자만 밀어 올려 손짓이 엉뚱한 카드에 굳는다. *@
                     <li @key="t.TaskKey"
-                        class="pm-ask__item pm-ask__item--@t.StatusTone"
+                        class="pm-ask__item pm-ask__item--@t.StatusTone pm-ask__item--cols-@_cols"
                         data-task="@t.TaskKey" data-swipe="@(t.IsFinal || t.IsDraft ? "1" : null)">
 
                         @if (t.IsFinal || t.IsDraft)
@@ -375,42 +374,76 @@
                                     <span class="pm-ask__state">@t.StatusText</span>
                                     @if (t.TurnCount >= 2)
                                     {
-                                        <span class="pm-ask__turn-badge" title="@($"처리차수 {t.TurnCount}차")">@($"{t.TurnCount}차")</span>
+                                        @if (_cols < 4)
+                                        {
+                                            <span class="pm-ask__turn-badge" title="@($"처리차수 {t.TurnCount}차")">@($"{t.TurnCount}차")</span>
+                                        }
                                     }
-                                    <span class="pm-ask__span">@AiTaskWhen.Elapsed(t)</span>
+                                    @* 3단, 4단에서는 1번줄의 처리시간 숨김 (1단, 2단에서만 표시) *@
+                                    @if (_cols < 3)
+                                    {
+                                        <span class="pm-ask__span">@AiTaskWhen.Elapsed(t)</span>
+                                    }
                                 </span>
 
-                                <span class="pm-ask__line pm-ask__line--sub">
-                                    <span class="pm-ask__when">@AiTaskWhen.RunAt(t, compact: true)</span>
+                                @if (_cols <= 2)
+                                {
+                                    @* 1단, 2단: 2번째 줄에 시간, (1단만 대상), 배지, 제목이 한 줄로 말줄임되어 2줄 유지 *@
+                                    <span class="pm-ask__line pm-ask__line--sub">
+                                        <span class="pm-ask__when">@AiTaskWhen.RunAt(t, compact: true)</span>
 
-                                    @* 어디에서 돌았나. **「저장소」 같은 고정 라벨은 적지 않는다** —
-                                       모든 카드에 똑같이 붙는 글자는 가려 주는 것이 없고,
-                                       반 폭 카드에서 제목이 쓸 자리만 먹는다. 무엇을 가리키는
-                                       이름인지는 `title` 과 낭독기 이름이 말한다. *@
-                                    @if (TargetName(t) is { } targetName)
-                                    {
-                                        <span class="pm-ask__to"
-                                              title="@($"{TargetKindText(t)}: {targetName}")"
-                                              aria-label="@($"{TargetKindText(t)}: {targetName}")">@targetName</span>
-                                    }
+                                        @* 대상은 1단에서만 표시 (2단 이상에서는 숨김) *@
+                                        @if (_cols == 1 && TargetName(t) is { } targetName)
+                                        {
+                                            <span class="pm-ask__to"
+                                                  title="@($"{TargetKindText(t)}: {targetName}")"
+                                                  aria-label="@($"{TargetKindText(t)}: {targetName}")">@targetName</span>
+                                        }
 
-                                    @* 파일이 붙어 간 표시 — 개수만 적는다. *@
-                                    @if (t.FileCount > 0)
-                                    {
-                                        <span class="pm-ask__clipmark"
-                                              title="@($"파일 {t.FileCount}개가 함께 갔습니다")">@t.FileCount</span>
-                                    }
+                                        @* 파일이 붙어 간 표시 — 개수만 적는다. *@
+                                        @if (t.FileCount > 0)
+                                        {
+                                            <span class="pm-ask__clipmark"
+                                                  title="@($"파일 {t.FileCount}개가 함께 갔습니다")">@t.FileCount</span>
+                                        }
 
-                                    @* 관리자가 답을 달았는데 아직 안 읽은 건.
-                                       「안 읽음」은 올린 사람 기준이라 내 요청에만 적는다. *@
-                                    @if (t.IsUserRequest && t.UnreadNoteCount > 0 && IsMine(t))
-                                    {
-                                        <span class="pm-ask__new"
-                                              title="관리자가 남긴 말이 있습니다">새 남긴말 @t.UnreadNoteCount</span>
-                                    }
+                                        @* 관리자가 답을 달았는데 아직 안 읽은 건.
+                                           「안 읽음」은 올린 사람 기준이라 내 요청에만 적는다. *@
+                                        @if (t.IsUserRequest && t.UnreadNoteCount > 0 && IsMine(t))
+                                        {
+                                            <span class="pm-ask__new"
+                                                  title="관리자가 남긴 말이 있습니다">새 남긴말 @t.UnreadNoteCount</span>
+                                        }
 
-                                    <span class="pm-ask__title">@t.Title</span>
-                                </span>
+                                        <span class="pm-ask__title">@t.Title</span>
+                                    </span>
+                                }
+                                else
+                                {
+                                    @* 3단, 4단:
+                                       2번줄: 시간 (및 부가 배지)
+                                       3단: 3번째 줄로 제목 표시 (1줄 말줄임)
+                                       4단: 3번줄과 4번줄에 걸쳐서 제목 표현 (2줄 말줄임) *@
+                                    <span class="pm-ask__line pm-ask__line--sub">
+                                        <span class="pm-ask__when">@AiTaskWhen.RunAt(t, compact: true)</span>
+
+                                        @if (t.FileCount > 0)
+                                        {
+                                            <span class="pm-ask__clipmark"
+                                                  title="@($"파일 {t.FileCount}개가 함께 갔습니다")">@t.FileCount</span>
+                                        }
+
+                                        @if (t.IsUserRequest && t.UnreadNoteCount > 0 && IsMine(t))
+                                        {
+                                            <span class="pm-ask__new"
+                                                  title="관리자가 남긴 말이 있습니다">새 남긴말 @t.UnreadNoteCount</span>
+                                        }
+                                    </span>
+
+                                    <span class="pm-ask__line pm-ask__line--title">
+                                        <span class="pm-ask__title">@t.Title</span>
+                                    </span>
+                                }
                             </span>
                         </button>
                     </li>

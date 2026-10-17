@@ -150,6 +150,34 @@ public sealed class AiAskLayoutTests
     }
 
     [Fact]
+    public void 최근_목록에서_1단부터_4단까지_단별_표현방식이_정상_적용된다()
+    {
+        var razor = PanelRazor();
+        var css = ProjMngCss();
+
+        // 1단: 3번째 줄로 내려가지 않도록 2번째 줄 nowrap 처리, 대상 표시
+        var subRule = Rule(css, ".pm-ask__line--sub {");
+        Assert.Contains("flex-wrap: nowrap", subRule, StringComparison.Ordinal);
+        Assert.Contains("@if (_cols == 1 && TargetName(t) is { } targetName)", razor, StringComparison.Ordinal);
+
+        // 2단: 2줄 유지 및 대상 숨김 (1단에서만 표시)
+        Assert.Contains(".pm-ask__list[data-cols='2'] .pm-ask__to", css, StringComparison.Ordinal);
+
+        // 3단: 1번줄 처리시간 숨김, 2번줄 시간, 3번째줄 제목 분리
+        Assert.Contains("@if (_cols < 3)", razor, StringComparison.Ordinal);
+        var spanIfAt = razor.IndexOf("@if (_cols < 3)", StringComparison.Ordinal);
+        var spanAt = razor.IndexOf("<span class=\"pm-ask__span\">@AiTaskWhen.Elapsed(t)</span>", StringComparison.Ordinal);
+        Assert.True(spanIfAt >= 0 && spanAt > spanIfAt, "처리시간은 _cols < 3 조건에서만 표시되어야 한다");
+        Assert.Contains("class=\"pm-ask__line pm-ask__line--title\"", razor, StringComparison.Ordinal);
+        Assert.Contains(".pm-ask__list[data-cols='3'] .pm-ask__span", css, StringComparison.Ordinal);
+
+        // 4단: 1번줄 모델배지·상태만 (차수배지 _cols < 4, 처리시간 _cols < 3), 3~4번줄 제목 2줄 표시
+        Assert.Contains("@if (_cols < 4)", razor, StringComparison.Ordinal);
+        Assert.Contains("-webkit-line-clamp: 2", css, StringComparison.Ordinal);
+        Assert.Contains(".pm-ask__list[data-cols='4'] .pm-ask__title", css, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Breadcrumb_은_모바일에서_Trail이_없어도_활성탭이_있으면_화면메뉴를_표시한다()
     {
         var razor = BreadcrumbRazor();
