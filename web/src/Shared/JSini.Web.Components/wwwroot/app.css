@@ -1658,78 +1658,55 @@ body {
   transform: translateY(-50%);
 }
 
-/* ── 화살표 크기는 글자 크기를 따라간다 ───────────────────
+/* ── 화살표는 글자 크기에 맞춰 더 가늘고 작게 표현된다 ───────
 
    [무엇이 문제였나 — 재어 본 값]
 
    테마 서랍에서 크기를 바꾸면 제목과 메뉴 아이콘은 함께 움직이는데
-   **화살표만 두 칸에서 12px 로 같았다.** DevExpress 가 그 그림을 글자가
-   아니라 여백 토큰으로 재기 때문이다 —
+   화살표는 DevExpress 기본 SVG(두꺼운 다각형 면)가 그대로 쓰여
+   투박하고 굵어 보였다.
 
-       --dxbl-treeview-btn-icon-size-s: var(--dxds-spacing-120)   → 12px
-       --dxbl-treeview-btn-icon-size-m: var(--dxds-spacing-120)   → 12px, 같다
-       --dxbl-treeview-btn-icon-size-l: var(--dxds-spacing-160)   → 16px
+   [가늘고 작은 꺽쇠로 공통 처리]
 
-   | 크기 | 제목 | 메뉴 아이콘 | 화살표(전) | 화살표(후) |
-   |---|---|---|---|---|
-   | 작게 | 12px | 13.8px | 12px | 12px |
-   | 보통 | 14px | 16.1px | **12px** | **14px** |
-   | 크게 | 16px | 18.4px | 16px | 16px |
+   화살표 크기는 글자 크기에 비례해 약 0.72배(보통 14px 기준 약 10px)로
+   작게 잡고, DevExpress 기본 두꺼운 SVG 대신 선 두께 1.2px 의
+   가늘고 섬세한 꺽쇠 SVG 마스크로 교체한다.
 
-   바뀌는 것은 보통 한 칸뿐이다(12 → 14px). 작게·크게는 DevExpress 가 고른
-   값과 우연히 같다 — 그래서 이 고침은 **보통에서만 눈에 띈다.**
-
-   [그림 규칙과 다투지 않고 **그쪽 변수**를 덮는다]
-
-   화살표 그림을 겨누는 DevExpress 규칙은 클래스 여섯 개짜리다 —
-
-       .dxbl-treeview .dxbl-treeview-item > .dxbl-treeview-item-content
-         > .dxbl-btn:not(.dxbl-nav-expand-btn-custom) > .dxbl-image
-
-   그것을 이기려면 우리 선택자도 그만큼 길어져야 하고, 그 길이가 곧
-   **DevExpress 마크업 구조에 대한 의존**이 된다(한 겹만 바뀌어도 안 걸린다).
-   그래서 그 규칙이 **읽는 변수**를 나무 뿌리에서 덮는다. 뿌리에서 그 값을
-   정하는 규칙은 클래스 둘(`.dxbl-treeview.dxbl-sm`)이라 셋으로 이긴다.
-
-   값은 **그 줄의 글자 크기 그대로**다(`--dxbl-treeview-font-size`). 우리가
-   고른 배수가 아니라 DevExpress 가 크기 단마다 정해 둔 값을 그대로 쓰는 것이라,
-   테마를 올려 단 값이 바뀌어도 함께 따라온다. 크게에서는 DevExpress 가
-   원래 고른 16px 과 같아진다.
-   ---------------------------------------------------------- */
-
+   자릿수로 이긴다: 이 값을 정하는 테마 규칙이 `.dxbl-treeview.dxbl-sm`
+   (클래스 둘)이라 셋으로 적었다. */
 .jsini-sidebar .jsini-sidebar__tree.dxbl-treeview {
-  /* ── 메뉴 글자는 **여섯 단계를 그대로 따라간다** ──────────
-
-     [고르는 단계는 여섯인데 DevExpress 는 셋이다]
-
-     테마 서랍의 크기는 가장작게 · 아주작게 · 작게 · 조금작게 · 보통 · 크게
-     여섯이고, 그중 앞의 넷이 DevExpress **Small 하나로 접힌다**
-     (`ThemeSize.Steps` — 없는 SizeMode 를 흘리면 그리드·달력·팝업이 안 따라와
-     한 화면에 두 크기가 된다). 그래서 메뉴 글자가 DevExpress 의 단 값
-     (`--dxbl-treeview-font-size`)에 묶여 있는 동안은 **앞의 네 단계가 전부
-     12px 로 같았다.** 재어 확인했다 —
-
-         가장작게 12 · 아주작게 12 · 작게 12 · 조금작게 12 · 보통 14 · 크게 16
-
-     여섯 단계를 아는 것은 우리 사다리뿐이므로(`--jsini-fs-base` 를
-     `data-dx-size` 로 고른다) 나무의 글자 크기를 그 값으로 덮는다. 그러면
-
-         가장작게 10 · 아주작게 11 · 작게 12 · 조금작게 13 · 보통 14 · 크게 16
-
-     이 되고, 화살표(바로 아래 줄)와 메뉴 아이콘(`1.15em`)이 함께 따라온다.
-
-     [줄 높이는 건드리지 않는다]
-
-     우리가 넣은 네 단계는 **밀도는 「작게」 그대로 두고 글자만 줄이는 것**이
-     뜻이다(사다리 머리말). 줄 높이·단추 높이는 DevExpress 가 Small 로 잡은
-     값을 그대로 쓴다 — 여기서 그것까지 비율로 바꾸면 서랍의 단계가 사실상
-     여섯 개의 밀도가 되어, 부품(그리드·달력)과 어긋나는 자리가 다시 생긴다.
-
-     자릿수로 이긴다: 이 값을 정하는 테마 규칙이 `.dxbl-treeview.dxbl-sm`
-     (클래스 둘)이라 셋으로 적었다. */
   --dxbl-treeview-font-size: var(--jsini-fs-base);
 
-  --dxbl-treeview-btn-icon-size: var(--dxbl-treeview-font-size);
+  /* 글자 크기보다 작고 가늘게 비례 축소한다 (보통 14px 기준 약 10px). */
+  --dxbl-treeview-btn-icon-size: calc(var(--dxbl-treeview-font-size) * 0.72);
+}
+
+/* ── 트리뷰 및 사이드바 트리의 펼침/접힘 꺽쇠: 가늘고 작게 공통 처리 ──────────
+   DevExpress 기본 SVG 는 두껍고 투박한 면(polygon)으로 그려진다.
+   내부 그래픽을 숨기고 공통의 가늘고 작은 꺽쇠 SVG 마스크로 교체한다.
+   접힘은 오른쪽(>), 펼침은 아래(v) 꺽쇠로 표현된다. */
+.dxbl-treeview .dxbl-treeview-item-content > .dxbl-btn.dxbl-btn-tool > .dxbl-image {
+  width: var(--dxbl-treeview-btn-icon-size, 10px);
+  height: var(--dxbl-treeview-btn-icon-size, 10px);
+  background-color: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6.5 5l3 3-3 3'/%3E%3C/svg%3E") no-repeat center;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6.5 5l3 3-3 3'/%3E%3C/svg%3E") no-repeat center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  transition: transform 0.15s ease;
+}
+
+.dxbl-treeview .dxbl-treeview-item-content > .dxbl-btn.dxbl-btn-tool > .dxbl-image > * {
+  display: none !important;
+}
+
+/* 펼쳐진 상태: 아래쪽 꺽쇠 (v) */
+.dxbl-treeview .dxbl-treeview-item-content > .dxbl-btn.dxbl-btn-tool[data-expanded="True"] > .dxbl-image,
+.dxbl-treeview .dxbl-treeview-item-content > .dxbl-btn.dxbl-btn-tool[data-expanded="true"] > .dxbl-image,
+.dxbl-treeview .dxbl-treeview-item-content > .dxbl-btn.dxbl-btn-tool:has(use[href*="collapse"]) > .dxbl-image,
+.dxbl-treeview .dxbl-treeview-item-content > .dxbl-btn.dxbl-btn-tool[aria-expanded="true"] > .dxbl-image {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 6.5L8 9.5l3-3'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 6.5L8 9.5l3-3'/%3E%3C/svg%3E");
 }
 
 /* 화살표가 앉을 자리. 제목이 길면 여기서 잘린다.
@@ -2251,11 +2228,12 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M7.313 1.262a1 1 0 0 1 1.374 0l4.844 4.579c.3.283.469.678.469 1.09v5.57a1.5 1.5 0 0 1-1.5 1.5h-2A1.5 1.5 0 0 1 9 12.5V10a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v2.5A1.5 1.5 0 0 1 5.5 14h-2A1.5 1.5 0 0 1 2 12.5V6.93c0-.412.17-.807.47-1.09zM8 1.988l-4.844 4.58A.5.5 0 0 0 3 6.93v5.57a.5.5 0 0 0 .5.5h2a.5.5 0 0 0 .5-.5V10a1.5 1.5 0 0 1 1.5-1.5h1A1.5 1.5 0 0 1 10 10v2.5a.5.5 0 0 0 .5.5h2a.5.5 0 0 0 .5-.5V6.93a.5.5 0 0 0-.156-.363z'/%3E%3C/svg%3E");
 }
 
-/* 접었다 펴는 판(`<details>`)의 꺾쇠. 펴지면 CSS 가 뒤집는다 — 위를 보는
-   꺾쇠를 따로 두지 않는 이유는 둘이 갈리면 각도가 어긋나기 때문이다. */
+/* 접었다 펴는 판(`<details>`)·검색 조건·바로가기 등의 공통 꺾쇠.
+   가늘고 작게 표현한다. 펴지면 CSS 가 뒤집는다 — 위/오른쪽을 보는 꺾쇠를
+   따로 두지 않는 이유는 둘이 갈리면 각도와 굵기가 어긋나기 때문이다. */
 .jsini-icon-chevron-down {
-  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.646 5.646a.5.5 0 0 1 .708 0L8 9.293l3.646-3.647a.5.5 0 0 1 .708.708l-4 4a.5.5 0 0 1-.708 0l-4-4a.5.5 0 0 1 0-.708'/%3E%3C/svg%3E");
-  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.646 5.646a.5.5 0 0 1 .708 0L8 9.293l3.646-3.647a.5.5 0 0 1 .708.708l-4 4a.5.5 0 0 1-.708 0l-4-4a.5.5 0 0 1 0-.708'/%3E%3C/svg%3E");
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 6.5L8 9.5l3-3'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23000' stroke-width='1.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 6.5L8 9.5l3-3'/%3E%3C/svg%3E");
 }
 
 /* ── 표의 「관리」 칸이 쓰는 아이콘 ────────────────────────────
@@ -2738,7 +2716,7 @@ button.jsini-crumbs__item:hover { opacity: 1; }
     width: 0;
     height: 0;
     margin-top: 2px;
-    border: 4px solid transparent;
+    border: 3px solid transparent;
     border-top-color: currentcolor;
     opacity: 0.55;
   }
