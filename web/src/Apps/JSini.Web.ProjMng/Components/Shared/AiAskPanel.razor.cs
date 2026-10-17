@@ -1365,31 +1365,13 @@ public partial class AiAskPanel
     }
 
     /// <summary>
-    /// 카드를 눌렀다. <b>휴대폰이면 판 안의 탭, 넓은 화면이면 포털 탭</b>이다.
+    /// 카드를 눌렀다. <b>포털 탭으로 연다</b> — 다른 메뉴 화면들처럼
+    /// 레이아웃 상단의 탭 줄에 상세 화면 탭이 선다.
     /// </summary>
-    /// <remarks>
-    /// 넓은 화면에서 옮겨 가는 주소는 앱알림·메일이 싣는 것과 같다 —
-    /// 두 벌로 두면 한쪽만 고쳐져 어긋난다.
-    /// <para>
-    /// <b>구른 자리를 적는 일이 상태를 바꾸기 전에 있어야 한다.</b> 목록이
-    /// 감춰지고 나면 판이 짧아져 브라우저가 그 값을 깎는다 — 그 뒤에 재면
-    /// 돌아올 자리가 엉뚱해진다(<c>ask-view.js</c> 머리말).
-    /// </para>
-    /// </remarks>
-    private async Task PeekAsync(long taskKey)
+    private Task PeekAsync(long taskKey)
     {
-        if (!_isPhone)
-        {
-            Navigation.NavigateTo($"/projmng/ai/task/{taskKey}");
-            return;
-        }
-
-        if (_view is null)
-        {
-            await RememberScrollAsync();
-        }
-
-        OpenView(taskKey);
+        Navigation.NavigateTo($"/projmng/ai/task/{taskKey}");
+        return Task.CompletedTask;
     }
 
     /// <summary>

@@ -48,6 +48,15 @@ public sealed class AiAskLayoutTests
         Assert.Contains("overflow-y: auto", scrollRule, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void 빠른지시_목록의_카드를_누르면_상세화면_주소로_이동한다()
+    {
+        var code = PanelCode();
+
+        Assert.Contains("Navigation.NavigateTo($\"/projmng/ai/task/{taskKey}\")", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("if (!_isPhone)", code, StringComparison.Ordinal);
+    }
+
     private static string Rule(string css, string selector)
     {
         var at = css.IndexOf(selector, StringComparison.Ordinal);
