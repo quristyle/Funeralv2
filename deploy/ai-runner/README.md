@@ -88,14 +88,33 @@ docker compose logs -f projmng | grep -i "AI 작업 감시자"
 운영 장비의 .NET SDK 는 8.0 이고 이 프로그램은 net10.0 이라 **거기서는 빌드가
 안 된다.** 자체 포함으로 말아서 통째로 올린다(약 110MB).
 
+> **`appsettings.Local.json` 을 건드리지 않는다.** 그 파일에 장비 토큰이
+> 들어 있고 publish 산출물에는 없다 — `--delete` 가 지워 버리면 실행기가
+> 뜨자마자 집어가기를 거절당한다. csproj 가 publish 에서 빼 두었지만
+> rsync 에도 함께 적는다(빼는 자리가 하나뿐이면 그것이 사라진 날 조용히
+> 덮어쓴다 — 개발 장비의 설정이 올라가면 실행기가 제 이름을 `quri-dev` 로
+> 말하기 시작한다).
+
+> **돌고 있는 건이 있으면 기다린다.** 멈추면 그 건은 실패로 끝난다 —
+> 화면(`/projmng/ai/dashboard`)이나 `ps -ef | grep -E "claude|agy|copilot"`
+> 로 본다.
+
 ```bash
 # 개발 장비에서
 cd ~/Funeralv2/tools/AiTaskRunner
 dotnet publish -c Release -r linux-x64 --self-contained true -o /tmp/ai-runner
 
+ssh jsini-prod "sudo systemctl stop ai-task-runner"
 ssh jsini-prod "mkdir -p /home/lee/ai-task-runner"
-rsync -a --delete /tmp/ai-runner/ jsini-prod:/home/lee/ai-task-runner/
-ssh jsini-prod "chmod +x /home/lee/ai-task-runner/AiTaskRunner"
+rsync -a --delete --exclude appsettings.Local.json /tmp/ai-runner/ jsini-prod:/home/lee/ai-task-runner/
+ssh jsini-prod "chmod +x /home/lee/ai-task-runner/AiTaskRunner && sudo systemctl start ai-task-runner"
+```
+
+올라간 뒤 한 주기(15분) 안에 한도가 새 값으로 바뀌는지 본다 — 그것이
+새 코드가 돌고 있다는 가장 빠른 신호다.
+
+```bash
+journalctl -u ai-task-runner -n 30 --no-pager | grep -i 사용량
 ```
 
 ### ③ 장비 쪽 설정과 폴더
