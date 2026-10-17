@@ -105,6 +105,58 @@ public sealed class AiTaskWhenNearTests
             AiTaskWhen.RunAt(task));
     }
 
+    /// <summary>
+    /// <b>머리띠의 시각 둘도 같은 규칙이다</b>(2026-10-17). 한동안 이 표기는
+    /// 휴대폰에서만 섰고 책상에서는 <c>yyyy-MM-dd HH:mm</c> 열여섯 글자가
+    /// 그대로 붙었다 — 거기 서는 건도 거의 오늘·이번 달 것이라 <b>앞의 열
+    /// 글자가 거의 늘 같은 글자</b>였다.
+    /// </summary>
+    /// <remarks>
+    /// <b>눈으로는 못 지킨다.</b> 되돌아가도 화면은 멀쩡하고, 오늘 것을 보는
+    /// 동안에는 「날짜가 함께 보이는구나」로만 읽힌다.
+    /// </remarks>
+    [Fact]
+    public void 머리띠의_작성과_동작은_짧은_표기를_쓴다()
+    {
+        var razor = TaskViewRazor();
+
+        // 작성 — 보낸 시각. 짧게 적고 연월일은 `title` 에 남긴다.
+        Assert.Contains("title=\"@t.CreDt.Kst(\"yyyy-MM-dd HH:mm\")\">@AiTaskWhen.Near(t.CreDt)", razor);
+
+        // 동작 — 실제로 돈 시각. 같은 짝이다.
+        Assert.Contains("title=\"@AiTaskWhen.RunAt(t)\">@AiTaskWhen.RunAt(t, compact: true)", razor);
+    }
+
+    /// <summary>
+    /// <b>폭으로 갈리지 않는다.</b> 갈라 두면 같은 건의 같은 시각이 기기마다
+    /// 다른 꼴로 서고, 그 갈래를 되살리는 쪽이 사람 눈에는 「휴대폰만 짧다」로
+    /// 보여 틀림으로 읽히지 않는다.
+    /// </summary>
+    [Fact]
+    public void 머리띠가_폭을_재지_않는다()
+    {
+        var razor = TaskViewRazor();
+
+        Assert.DoesNotContain("_isPhone", razor);
+        Assert.DoesNotContain("DxLayoutBreakpoint", razor);
+    }
+
+    private static string TaskViewRazor() => RazorSource.Read(Path.Combine(
+        SolutionRoot(), "src", "Apps", "JSini.Web.ProjMng", "Components", "Shared", "AiTaskView.razor"));
+
+    private static string SolutionRoot()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+
+        while (dir is not null && !Directory.Exists(Path.Combine(dir.FullName, "src")))
+        {
+            dir = dir.Parent;
+        }
+
+        Assert.NotNull(dir);
+        return dir!.FullName;
+    }
+
     /// <summary>한국 벽시계로 적은 날·시각을, 서버가 주는 꼴(UTC)로 되돌린다.</summary>
     private static DateTime Kst(DateOnly day, int hour, int minute) =>
         AppTime.FromKorea(day.ToDateTime(new TimeOnly(hour, minute)));
