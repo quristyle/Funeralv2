@@ -7,6 +7,11 @@ AI쳇을 **말로** 쓰는 길의 뒷단이다. 브라우저가 녹음한 한 �
 | `docker-compose.yml` | `/srv/stt/docker-compose.yml` | 받아쓰기 서버(speaches, OpenAI 호환) |
 | `stt-nginx.conf.example` | — | 장비 nginx 에 덧붙일 자리의 **본보기** |
 
+> **2026-10-17 에 올렸다.** `Systran/faster-whisper-small` · CPU(int8) ·
+> `127.0.0.1:11437`. 그날 재어 본 값 — 장비 안에서 말소리 한 마디 **1.8초**,
+> 운영 포털에서 끝까지 **1.76초**, 무음 조사 **72ms**. GPU 는 그때 이미
+> 96·97% 차 있어(추론이 쓴다) CPU 말고는 자리가 없었다.
+
 ## 길
 
 ```
@@ -66,33 +71,55 @@ CPU 로 돌리는 것과 같은 까닭이다. 받아쓰기는 임베딩과 달�
 ## 올리기
 
 ```bash
-ssh root@192.168.219.227 'mkdir -p /srv/stt'
-scp deploy/stt/docker-compose.yml root@192.168.219.227:/srv/stt/
-ssh root@192.168.219.227 'cd /srv/stt && docker compose up -d'
+ssh jsini-gpu-root 'mkdir -p /srv/stt'
+scp deploy/stt/docker-compose.yml jsini-gpu-root:/srv/stt/
+ssh jsini-gpu-root 'cd /srv/stt && docker compose up -d'
 ```
 
 모델을 미리 받아 둔다. **이것을 건너뛰면 첫 녹음이 몇 분을 기다린다:**
 
 ```bash
-ssh root@192.168.219.227 'docker exec jsini-stt \
-  uv run huggingface-cli download Systran/faster-whisper-small'
+ssh jsini-gpu-root 'docker exec jsini-stt huggingface-cli download Systran/faster-whisper-small'
 ```
 
 nginx 에 자리를 낸다 — `stt-nginx.conf.example` 의 블록을 추론·임베딩과 같은
-server 블록에 덧붙이고 토큰을 채운 뒤:
+server 블록, **`location /` 바로 위**에 덧붙인다. 그 블록이 나머지를 전부
+추론 서버로 넘기므로 뒤에 두면 받아쓰기가 거기로 가서 404 가 난다.
+
+토큰을 블록 안에 적지 않는다 — 그 파일 맨 위의
+`map $http_authorization $llm_client` 하나가 이미 가르고 있고, 블록마다
+다시 적으면 키를 바꾸는 날 **고친 자리와 안 고친 자리**가 생긴다.
 
 ```bash
-ssh root@192.168.219.227 'nginx -t && systemctl reload nginx'
+ssh jsini-gpu-root 'cp -a /etc/nginx/sites-available/lmstudio /root/lmstudio.bak.$(date +%F-%H%M%S)'
+# … 블록을 끼운 뒤 …
+ssh jsini-gpu-root 'nginx -t && systemctl reload nginx'
 ```
+
+**`nginx -t` 를 건너뛰지 않는다.** 이 파일 하나가 추론·임베딩·자동완성까지
+들고 있어서, 문법이 깨진 채 reload 하면 **AI 가 통째로 멎는다.**
 
 ## 확인
 
 장비 안에서 먼저. 무음을 보내 `{"text": ...}` 가 오면 선 것이다:
 
 ```bash
-ssh root@192.168.219.227 'head -c 44 /dev/zero > /tmp/s.wav && \
-  curl -s -F file=@/tmp/s.wav -F model=Systran/faster-whisper-small \
-       http://127.0.0.1:11437/v1/audio/transcriptions'
+ssh jsini-gpu-root 'curl -s -F file=@/usr/share/sounds/alsa/Front_Center.wav \
+  -F model=Systran/faster-whisper-small -F language=en \
+  http://127.0.0.1:11437/v1/audio/transcriptions'
+```
+
+**무음이 아니라 말소리를 보낸다.** 무음은 `{"text":""}` 를 주는데 그것은
+「돌긴 돈다」까지만 말해 준다 — 모델이 반쯤 망가져도 같은 답이 나온다.
+그 장비에 들어 있는 `Front_Center.wav` 가 사람 목소리라 그대로 쓸 수 있고,
+`{"text":"Front. Center."}` 가 나오면 끝까지 선 것이다.
+
+토큰 없이 nginx 를 거쳐 보면 **401 이어야 맞다**:
+
+```bash
+ssh jsini-gpu-root 'curl -s -o /dev/null -w "%{http_code}\n" \
+  -F file=@/usr/share/sounds/alsa/Front_Center.wav -F model=Systran/faster-whisper-small \
+  http://127.0.0.1:11434/stt/v1/audio/transcriptions'
 ```
 
 그다음 포털에서 — **「AI 기능 상태」 화면의 받아쓰기 칸**이 정본이다.
