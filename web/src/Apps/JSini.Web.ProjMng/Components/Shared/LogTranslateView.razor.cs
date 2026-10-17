@@ -64,8 +64,9 @@ public partial class LogTranslateView
     [Parameter] public bool Tail { get; set; } = true;
 
     /// <summary>
-    /// 높이를 <b>내용에 맞출까.</b> 거짓이면 틀에 박힌 30rem 이다
-    /// (<c>projmng.css</c> 의 <c>.pm-xlat__editor</c>).
+    /// 높이를 <b>내용에 맞출까.</b> 기본값은 <b>참(true)</b>이다 —
+    /// 기본적으로 스크롤 없이 내용 전체가 다 보이도록 틀이 커진다.
+    /// 스크롤이 필요한 화면(예: 로그 탭)에서는 <c>Fit="false"</c> 로 끈다.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -84,7 +85,13 @@ public partial class LogTranslateView
     /// 목록이고, 높이는 이미 내용이 정한다(구르는 자리는 쪽 하나다).
     /// </para>
     /// </remarks>
-    [Parameter] public bool Fit { get; set; }
+    [Parameter] public bool Fit { get; set; } = true;
+
+    /// <summary>
+    /// 스크롤이 필요할 때 틀의 최대 높이(px).
+    /// 지정하지 않으면 내용 전체가 스크롤 없이 표현되도록 제한 없이 키워진다.
+    /// </summary>
+    [Parameter] public int? MaxHeight { get; set; }
 
     /// <summary>
     /// 줄바꿈을 <b>켜고 시작할까.</b> 사람이 단추를 한 번이라도 누르면
@@ -226,14 +233,6 @@ public partial class LogTranslateView
     /// 띠만 한 틀이 서면 머리띠·이름표와 구분이 안 된다.
     /// </summary>
     private const int FitMin = 96;
-
-    /// <summary>
-    /// 내용에 맞추더라도 <b>이보다 높게는 안 간다</b>(px — 30rem). 박아 둔
-    /// 높이와 같은 값이다. 그보다 긴 글은 <b>틀 안에서 구른다</b> — 쪽이
-    /// 통째로 길어지는 것보다 낫다고 본 자리가 아니라, 로그 탭과 같은 자리로
-    /// 모아 둔 것이다.
-    /// </summary>
-    private const int FitMax = 480;
 
     /// <summary>
     /// 커서가 선 줄(1부터). <b>0 이면 아직 아무 데도 안 눌렀다.</b>
@@ -1315,7 +1314,12 @@ public partial class LogTranslateView
             return;
         }
 
-        var want = (int)Math.Clamp(Math.Max(_leftContent, _rightContent), FitMin, FitMax);
+        var content = Math.Max(_leftContent, _rightContent);
+        var want = (int)Math.Max(content, FitMin);
+        if (MaxHeight is { } max && max >= FitMin)
+        {
+            want = Math.Min(want, max);
+        }
 
         if (Math.Abs(want - _fitPx) <= 4)
         {
@@ -1836,6 +1840,7 @@ public partial class LogTranslateView
             // 위아래 끝의 그늘. 굴릴 때마다 다시 그려지는데 3px 짜리 막대
             // 옆에서 알려 주는 것이 없다.
             UseShadows = false,
+            AlwaysConsumeMouseWheel = false,
         },
     };
 
