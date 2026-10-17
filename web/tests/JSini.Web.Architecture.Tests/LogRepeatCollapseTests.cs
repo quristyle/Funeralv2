@@ -115,6 +115,197 @@ public sealed class LogRepeatCollapseTests
     }
 
     [Fact]
+    public void 두_줄_패턴이_연속으로_반복되면_묶음은_한번만_표시되고_첫줄에_수치가_표시된다()
+    {
+        var input = new List<string>
+        {
+            "Step 1: Download package",
+            "Step 2: Verify checksum",
+            "Step 1: Download package",
+            "Step 2: Verify checksum",
+            "Step 1: Download package",
+            "Step 2: Verify checksum",
+        };
+
+        var actual = LogTranslateView.CollapseRepeatsList(input);
+
+        Assert.Equal(2, actual.Count);
+        Assert.Equal("(3) Step 1: Download package", actual[0]);
+        Assert.Equal("Step 2: Verify checksum", actual[1]);
+    }
+
+    [Fact]
+    public void 세_줄_패턴이_연속으로_반복되면_묶음은_한번만_표시되고_첫줄에_수치가_표시된다()
+    {
+        var input = new List<string>
+        {
+            "Checking database...",
+            "Connecting to replica...",
+            "Connection established.",
+            "Checking database...",
+            "Connecting to replica...",
+            "Connection established.",
+        };
+
+        var actual = LogTranslateView.CollapseRepeatsList(input);
+
+        Assert.Equal(3, actual.Count);
+        Assert.Equal("(2) Checking database...", actual[0]);
+        Assert.Equal("Connecting to replica...", actual[1]);
+        Assert.Equal("Connection established.", actual[2]);
+    }
+
+    [Fact]
+    public void 네_줄_패턴이_연속으로_반복되면_묶음은_한번만_표시되고_첫줄에_수치가_표시된다()
+    {
+        var input = new List<string>
+        {
+            "[1/4] Pre-check",
+            "[2/4] Compilation",
+            "[3/4] Packaging",
+            "[4/4] Deployment",
+            "[1/4] Pre-check",
+            "[2/4] Compilation",
+            "[3/4] Packaging",
+            "[4/4] Deployment",
+            "[1/4] Pre-check",
+            "[2/4] Compilation",
+            "[3/4] Packaging",
+            "[4/4] Deployment",
+        };
+
+        var actual = LogTranslateView.CollapseRepeatsList(input);
+
+        Assert.Equal(4, actual.Count);
+        Assert.Equal("(3) [1/4] Pre-check", actual[0]);
+        Assert.Equal("[2/4] Compilation", actual[1]);
+        Assert.Equal("[3/4] Packaging", actual[2]);
+        Assert.Equal("[4/4] Deployment", actual[3]);
+    }
+
+    [Fact]
+    public void 다섯_줄_패턴이_연속으로_반복되면_묶음은_한번만_표시되고_첫줄에_수치가_표시된다()
+    {
+        var input = new List<string>
+        {
+            "Line 1", "Line 2", "Line 3", "Line 4", "Line 5",
+            "Line 1", "Line 2", "Line 3", "Line 4", "Line 5",
+        };
+
+        var actual = LogTranslateView.CollapseRepeatsList(input);
+
+        Assert.Equal(5, actual.Count);
+        Assert.Equal("(2) Line 1", actual[0]);
+        Assert.Equal("Line 2", actual[1]);
+        Assert.Equal("Line 3", actual[2]);
+        Assert.Equal("Line 4", actual[3]);
+        Assert.Equal("Line 5", actual[4]);
+    }
+
+    [Fact]
+    public void 여섯_줄_이상의_패턴은_최대_5줄_제한으로_인해_축약되지_않고_그대로_유지된다()
+    {
+        var input = new List<string>
+        {
+            "Line 1", "Line 2", "Line 3", "Line 4", "Line 5", "Line 6",
+            "Line 1", "Line 2", "Line 3", "Line 4", "Line 5", "Line 6",
+        };
+
+        var actual = LogTranslateView.CollapseRepeatsList(input);
+
+        Assert.Equal(12, actual.Count);
+        Assert.Equal(input, actual);
+    }
+
+    [Fact]
+    public void 단일줄_반복과_여러줄_반복이_섞여있는_경우_각각_올바르게_축약된다()
+    {
+        var input = new List<string>
+        {
+            "Initial setup",
+            "Initial setup",
+            "Initial setup",
+            "Ping",
+            "Pong",
+            "Ping",
+            "Pong",
+            "All completed.",
+        };
+
+        var actual = LogTranslateView.CollapseRepeatsList(input);
+
+        var expected = new List<string>
+        {
+            "(3) Initial setup",
+            "(2) Ping",
+            "Pong",
+            "All completed.",
+        };
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void 내부에_중복된_줄을_포함하는_묶음_패턴도_전체_묶음으로_우선_축약된다()
+    {
+        var input = new List<string>
+        {
+            "A", "A", "B",
+            "A", "A", "B",
+            "A", "A", "B",
+        };
+
+        var actual = LogTranslateView.CollapseRepeatsList(input);
+
+        Assert.Equal(3, actual.Count);
+        Assert.Equal("(3) A", actual[0]);
+        Assert.Equal("A", actual[1]);
+        Assert.Equal("B", actual[2]);
+    }
+
+    [Fact]
+    public void 반복_도중_불완전한_패턴이_뒤에_남으면_완전한_반복만_묶고_나머지는_그대로_유지된다()
+    {
+        var input = new List<string>
+        {
+            "Ping",
+            "Pong",
+            "Ping",
+            "Pong",
+            "Ping", // 2회 반복 후 마지막에 Ping만 남음
+        };
+
+        var actual = LogTranslateView.CollapseRepeatsList(input);
+
+        var expected = new List<string>
+        {
+            "(2) Ping",
+            "Pong",
+            "Ping",
+        };
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void 빈_줄을_포함하는_여러줄_패턴도_정상적으로_축약된다()
+    {
+        var input = new List<string>
+        {
+            "Header",
+            "",
+            "Header",
+            "",
+        };
+
+        var actual = LogTranslateView.CollapseRepeatsList(input);
+
+        Assert.Equal(2, actual.Count);
+        Assert.Equal("(2) Header", actual[0]);
+        Assert.Equal("", actual[1]);
+    }
+
+    [Fact]
     public void AiTaskLogTab은_LogTranslateView에_CollapseRepeats_참을_전달한다()
     {
         var root = WorkspaceRoot();

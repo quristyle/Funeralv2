@@ -125,6 +125,11 @@ public partial class LogTranslateView
     private const string TargetLang = "ko";
 
     /// <summary>
+    /// 여러 줄 반복 축약 시 묶음으로 허용할 최대 줄 수 (기본값 5줄).
+    /// </summary>
+    public const int MaxRepeatPatternLength = 5;
+
+    /// <summary>
     /// 이보다 긴 줄은 <b>한 번에 보낼 수 있는 양을 넘긴다.</b> 옮기지 않고
     /// 사정을 알린다 — 잘라 보내면 번역문이 문장 가운데서 끊겨 원문보다
     /// 읽기 나쁘다. 서버의 상한(<c>LLMService.MaxTranslateInput</c> = 12000)
@@ -429,16 +434,57 @@ public partial class LogTranslateView
             return;
         }
 
-        // 1) 줄 수는 같은데 마지막 줄의 반복 횟수만 늘어난 경우 (돌고 있는 건에서 같은 줄이 계속 찍힐 때)
-        if (incoming.Count == _state.Source.Count && incoming.Count > 0 && SharesHead(incoming, incoming.Count - 1))
+        // 1) 줄 수는 같은데 반복 횟수만 늘어난 경우 (돌고 있는 건에서 단일 또는 여러줄 패턴이 계속 찍힐 때)
+        if (incoming.Count == _state.Source.Count && incoming.Count > 0)
         {
-            var last = incoming.Count - 1;
-            _state.Source[last] = incoming[last];
-            if (!_state.DoneLines.Contains(last))
+            var sameRaw = true;
+            for (var i = 0; i < incoming.Count; i++)
             {
-                _state.Out[last] = incoming[last];
+                var inc = incoming[i] ?? string.Empty;
+                var src = _state.Source[i] ?? string.Empty;
+                if (string.Equals(inc, src, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var hasIncRepeat = TryGetRepeat(inc, out _, out var incRaw);
+                var hasSrcRepeat = TryGetRepeat(src, out _, out var srcRaw);
+                var rawInc = hasIncRepeat ? incRaw : inc;
+                var rawSrc = hasSrcRepeat ? srcRaw : src;
+
+                if (!string.Equals(rawInc, rawSrc, StringComparison.Ordinal))
+                {
+                    sameRaw = false;
+                    break;
+                }
             }
-            return;
+
+            if (sameRaw)
+            {
+                for (var i = 0; i < incoming.Count; i++)
+                {
+                    if (string.Equals(incoming[i], _state.Source[i], StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    _state.Source[i] = incoming[i];
+                    if (_state.DoneLines.Contains(i))
+                    {
+                        if (TryGetRepeat(incoming[i], out var newCount, out _))
+                        {
+                            var outRaw = TryGetRepeat(_state.Out[i], out _, out var cleanOut) ? cleanOut : _state.Out[i];
+                            _state.Out[i] = FormatRepeatLine(outRaw, newCount);
+                        }
+                    }
+                    else
+                    {
+                        _state.Out[i] = incoming[i];
+                    }
+                }
+
+                return;
+            }
         }
 
         // 2) 앞부분이 그대로이고 뒤에 새 줄만 늘어난 경우
@@ -455,25 +501,64 @@ public partial class LogTranslateView
             return;
         }
 
-        // 3) 새 줄이 늘어났는데 직전 꼬리 줄의 반복 횟수도 함께 늘어난 경우
-        if (incoming.Count > _state.Source.Count && _state.Source.Count > 0 && SharesHead(incoming, _state.Source.Count - 1))
+        // 3) 새 줄이 늘어났는데 직전 꼬리 부근 줄들의 반복 횟수도 함께 늘어난 경우
+        if (incoming.Count > _state.Source.Count && _state.Source.Count > 0)
         {
-            var last = _state.Source.Count - 1;
-            _state.Source[last] = incoming[last];
-            if (!_state.DoneLines.Contains(last))
+            var mismatch = 0;
+            while (mismatch < _state.Source.Count && string.Equals(incoming[mismatch] ?? string.Empty, _state.Source[mismatch], StringComparison.Ordinal))
             {
-                _state.Out[last] = incoming[last];
+                mismatch++;
             }
 
-            for (var i = _state.Source.Count; i < incoming.Count; i++)
+            var tailRepeatOnly = mismatch < _state.Source.Count && mismatch >= Math.Max(0, _state.Source.Count - MaxRepeatPatternLength);
+            if (tailRepeatOnly)
             {
-                var line = incoming[i] ?? string.Empty;
+                for (var i = mismatch; i < _state.Source.Count; i++)
+                {
+                    var inc = incoming[i] ?? string.Empty;
+                    var src = _state.Source[i] ?? string.Empty;
+                    var hasIncRepeat = TryGetRepeat(inc, out _, out var incRaw);
+                    var hasSrcRepeat = TryGetRepeat(src, out _, out var srcRaw);
+                    var rawInc = hasIncRepeat ? incRaw : inc;
+                    var rawSrc = hasSrcRepeat ? srcRaw : src;
 
-                _state.Source.Add(line);
-                _state.Out.Add(line);
+                    if (!string.Equals(rawInc, rawSrc, StringComparison.Ordinal))
+                    {
+                        tailRepeatOnly = false;
+                        break;
+                    }
+                }
             }
 
-            return;
+            if (tailRepeatOnly)
+            {
+                for (var i = mismatch; i < _state.Source.Count; i++)
+                {
+                    _state.Source[i] = incoming[i];
+                    if (_state.DoneLines.Contains(i))
+                    {
+                        if (TryGetRepeat(incoming[i], out var newCount, out _))
+                        {
+                            var outRaw = TryGetRepeat(_state.Out[i], out _, out var cleanOut) ? cleanOut : _state.Out[i];
+                            _state.Out[i] = FormatRepeatLine(outRaw, newCount);
+                        }
+                    }
+                    else
+                    {
+                        _state.Out[i] = incoming[i];
+                    }
+                }
+
+                for (var i = _state.Source.Count; i < incoming.Count; i++)
+                {
+                    var line = incoming[i] ?? string.Empty;
+
+                    _state.Source.Add(line);
+                    _state.Out.Add(line);
+                }
+
+                return;
+            }
         }
 
         // 앞부분이 달라졌다 — 꼬리만 그리는 상한에 걸려 앞이 잘려 나갔다.
@@ -498,44 +583,95 @@ public partial class LogTranslateView
 
     /// <summary>
     /// 연속으로 반복되는 동일한 문자열 줄들을 하나로 축약하고 반복 횟수를 표시한다.
+    /// 1줄뿐만 아니라 최대 <paramref name="maxPatternLength"/>줄(기본 5줄)까지의 동일 반복 패턴을 묶어서
+    /// 수치를 표시하고 묶음은 한 번만 표시되도록 한다.
     /// </summary>
-    public static List<string> CollapseRepeatsList(IList<string> lines)
+    public static List<string> CollapseRepeatsList(IList<string> lines, int maxPatternLength = MaxRepeatPatternLength)
     {
         if (lines is null || lines.Count == 0)
         {
             return [];
         }
 
-        var result = new List<string>(lines.Count);
-        string? current = null;
-        var count = 0;
-
-        for (var i = 0; i < lines.Count; i++)
+        if (maxPatternLength < 1)
         {
-            var line = lines[i] ?? string.Empty;
+            maxPatternLength = 1;
+        }
 
-            if (current is null)
+        var result = new List<string>(lines.Count);
+        var n = lines.Count;
+        var i = 0;
+
+        while (i < n)
+        {
+            var bestPatternLen = 1;
+            var bestRepeatCount = 1;
+            var maxLinesSaved = 0;
+
+            var maxLen = Math.Min(maxPatternLength, (n - i) / 2);
+
+            for (var len = 1; len <= maxLen; len++)
             {
-                current = line;
-                count = 1;
-                continue;
+                var repeatCount = 1;
+
+                while (i + (repeatCount + 1) * len <= n)
+                {
+                    var matches = true;
+                    for (var k = 0; k < len; k++)
+                    {
+                        var expected = lines[i + k] ?? string.Empty;
+                        var actual = lines[i + repeatCount * len + k] ?? string.Empty;
+                        if (!string.Equals(expected, actual, StringComparison.Ordinal))
+                        {
+                            matches = false;
+                            break;
+                        }
+                    }
+
+                    if (!matches)
+                    {
+                        break;
+                    }
+
+                    repeatCount++;
+                }
+
+                if (repeatCount >= 2)
+                {
+                    var linesSaved = (repeatCount - 1) * len;
+                    var totalCovered = repeatCount * len;
+                    var bestTotalCovered = bestRepeatCount * bestPatternLen;
+
+                    // 더 많은 줄을 절약하는 패턴을 우선한다.
+                    // 절약 줄 수가 같다면 더 많은 전체 입력 줄을 커버하는 것을 선택하고,
+                    // 그마저 같다면 더 작은 패턴 길이를 우선한다.
+                    if (linesSaved > maxLinesSaved ||
+                        (linesSaved == maxLinesSaved && totalCovered > bestTotalCovered))
+                    {
+                        maxLinesSaved = linesSaved;
+                        bestPatternLen = len;
+                        bestRepeatCount = repeatCount;
+                    }
+                }
             }
 
-            if (string.Equals(current, line, StringComparison.Ordinal))
+            if (bestRepeatCount >= 2)
             {
-                count++;
+                var firstLine = lines[i] ?? string.Empty;
+                result.Add(FormatRepeatLine(firstLine, bestRepeatCount));
+
+                for (var k = 1; k < bestPatternLen; k++)
+                {
+                    result.Add(lines[i + k] ?? string.Empty);
+                }
+
+                i += bestRepeatCount * bestPatternLen;
             }
             else
             {
-                result.Add(FormatRepeatLine(current, count));
-                current = line;
-                count = 1;
+                result.Add(lines[i] ?? string.Empty);
+                i++;
             }
-        }
-
-        if (current is not null)
-        {
-            result.Add(FormatRepeatLine(current, count));
         }
 
         return result;
