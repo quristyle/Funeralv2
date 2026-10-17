@@ -8628,6 +8628,51 @@ a.jsini-social__btn:focus-visible {
     flex: 1 1 auto;
     overflow-y: auto;
   }
+
+  /* ── 키보드가 올라오면 창을 **보이는 만큼**으로 줄인다 ──────────
+
+     꽉 채운 창에서 글칸을 누르면 키보드가 올라오고 **창의 아래쪽을 덮는다** —
+     거기 「저장」과 「닫기」가 있다. 본문을 밀어 올려도 닿지 않는다. 창의 키가
+     여전히 화면 전체이기 때문이다.
+
+     브라우저는 키보드가 떠도 **레이아웃 뷰포트를 줄이지 않는다.** `100vh` 도
+     `100dvh` 도 `100%` 도 그대로다(크롬의 기본값이 `resizes-visual` 이고 iOS
+     사파리는 아예 다른 길로 같은 결과를 낸다). 줄어드는 것은 **보이는
+     뷰포트**뿐이고 그 값을 아는 것은 `window.visualViewport` 하나라, CSS 만으로는
+     풀 수 없다. 재어 내려 주는 쪽은 `keyboard-inset.js` 다.
+
+     **창을 담는 판(`dxbl-modal-root`)부터 줄인다.** 그 판이
+     `position: fixed; height: 100%` 라, 그것을 그대로 두고 창만 줄이면 판이
+     창을 가운데 세워(`align-items: center`) 남은 틈이 **위아래로 반씩** 생긴다 —
+     아래 절반은 여전히 키보드 밑이다.
+
+     `top` 을 함께 주는 까닭은 iOS 다. 그쪽은 키보드를 띄우며 **쪽 전체를 밀어
+     올리는데**, `fixed` 는 레이아웃 뷰포트를 기준으로 서므로 그만큼 화면 위로
+     나간다. `--jsini-vv-top` 이 그 어긋남이다(안드로이드에서는 보통 0 이다).
+
+     **`html.jsini-kb-open` 이 붙었을 때만 돈다.** 늘 걸어 두면 주소창이 접히고
+     펴지는 것과 손가락 확대까지 창 크기를 흔든다 — 고치려던 것은 키보드 하나다.
+
+     값이 없으면 `100dvh` 로 되돌아가므로, `visualViewport` 가 없는 브라우저와
+     스크립트가 아직 안 실린 순간에도 지금까지와 똑같이 보인다. */
+  html.jsini-kb-open .dxbl-modal > .dxbl-modal-root:has(> .dxbl-popup.jsini-popup),
+  html.jsini-kb-open .dxbl-modal > .dxbl-modal-root:has(> .dxbl-popup.jsini-gridpopup) {
+    top: var(--jsini-vv-top, 0px) !important;
+    height: var(--jsini-vvh, 100dvh) !important;
+  }
+
+  html.jsini-kb-open .dxbl-modal > .dxbl-modal-root > .dxbl-popup.jsini-popup--full-mobile {
+    height: var(--jsini-vvh, 100dvh) !important;
+    max-height: var(--jsini-vvh, 100dvh) !important;
+  }
+
+  /* 꽉 채우지 않는 창(`FullOnMobile="false"` · 표의 편집 창)은 자리를 옮기지
+     않는다 — 키만 가두면 판이 알아서 가운데 세운다. `1rem` 은 위아래 0.5rem
+     씩이고, 창이 키보드에 딱 붙으면 잘린 것인지 구별이 안 된다. */
+  html.jsini-kb-open .dxbl-modal > .dxbl-modal-root > .dxbl-popup.jsini-popup:not(.jsini-popup--full-mobile),
+  html.jsini-kb-open .dxbl-modal > .dxbl-modal-root > .dxbl-popup.jsini-gridpopup {
+    max-height: calc(var(--jsini-vvh, 100dvh) - 1rem) !important;
+  }
 }
 
 /* ── 표의 편집 창을 CommPopup 과 같게 보이게 한다 ──────────────

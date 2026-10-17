@@ -120,6 +120,24 @@
 *@
 <script defer src="@Assets["_content/JSini.Web.Components/passkey.js"]"></script>
 
+@*
+    휴대폰 키보드가 먹은 높이를 CSS 변수로 내려 준다. 꽉 채운 공통 팝업
+    (`CommPopup` 의 FullOnMobile)에서 **키보드가 바닥의 「저장」·「닫기」를
+    덮는 것**을 막는 한 겹이다.
+
+    브라우저는 키보드가 떠도 레이아웃 뷰포트를 줄이지 않아 `100dvh` 가 그대로다 —
+    줄어드는 것을 아는 것은 `window.visualViewport` 뿐이라 CSS 만으로는 못 푼다.
+    받는 쪽 규칙은 app.css 의 「키보드가 올라오면」 구역에 있다.
+
+    **여기(공통 <head>)에 두는 이유는 창이 서른 개가 넘어서다.** 창마다
+    모듈을 붙였다 떼면 반드시 몇 개를 빠뜨리고, 빠뜨린 창은 휴대폰으로 글을
+    적어 보는 사람이 나올 때까지 아무도 모른다.
+
+    **`defer` 다.** 첫 그림과 상관이 없고, 값이 서기 전에는 CSS 의 되돌림 값
+    (`100dvh` · `0px`)이 지금까지와 똑같이 동작한다.
+*@
+<script defer src="@Assets["_content/JSini.Web.Components/keyboard-inset.js"]"></script>
+
 @* 모듈 전용 스타일. 셸은 모듈 이름을 알지 못하고 모듈이 스스로 알려 준다
    (IPortalModule.StyleSheet). 그래야 모듈을 넣고 빼는 데 셸을 고칠 일이 없다.
 
