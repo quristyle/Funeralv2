@@ -1336,14 +1336,15 @@ a { color: var(--tb-primary); }
 }
 
 .tb-custom__swatches {
-  display: grid;
-  grid-template-columns: repeat(6, 2rem);
+  display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
 }
 
 .tb-swatch {
   width: 2rem;
   height: 2rem;
+  flex: 0 0 2rem;
   border: 0;
   border-radius: 50%;
   background: var(--swatch);
