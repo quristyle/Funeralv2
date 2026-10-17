@@ -197,8 +197,28 @@
                                                 <span class="jsini-badge jsini-badge--warn" title="저장하지 않은 임시본이 있습니다">임시</span>
                                             }
 
-                                            <span class="pm-ask__title">@t.Title</span>
+                                            @if (t.TurnTitles.Count < 2)
+                                            {
+                                                <span class="pm-ask__title">@t.Title</span>
+                                            }
                                         </span>
+
+                                        @if (t.TurnTitles.Count >= 2)
+                                        {
+                                            <span class="pm-ask__turns">
+                                                @foreach (var turn in t.TurnTitles)
+                                                {
+                                                    var turnTitle = string.IsNullOrWhiteSpace(turn.Title)
+                                                        ? (turn.No == 1 ? t.Title : $"{turn.No}차 작업")
+                                                        : turn.Title;
+
+                                                    <span class="pm-ask__turn" title="@($"{turn.No}차: {turnTitle}")">
+                                                        <span class="pm-ask__turn-no">@(turn.No)차</span>
+                                                        <span class="pm-ask__turn-title">@turnTitle</span>
+                                                    </span>
+                                                }
+                                            </span>
+                                        }
                                     </span>
                                 </button>
                             </li>

@@ -46,6 +46,16 @@ public sealed class AiTask
     /// </remarks>
     public string? NextTurnTitle { get; set; }
 
+    /// <summary>DB 서브쿼리로 가져온 차수별 정보 JSON (내부용).</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string? TurnTitlesJson { get; set; }
+
+    /// <summary>
+    /// 이 건에 딸린 차수별 제목 목록 (1차부터 오름차순).
+    /// 차수가 2회 이상일 때 화면에서 차수별 제목을 보여주는 데 쓴다.
+    /// </summary>
+    public List<AiTaskTurnTitleDto> TurnTitles { get; set; } = [];
+
     /// <summary>AI 에게 줄 지시문. 편집기에 쓰는 그 글이다.</summary>
     public string? Contents { get; set; }
 
@@ -254,6 +264,9 @@ public sealed class AiTask
     /// </para>
     /// </remarks>
     public bool IsUserRequest { get; set; }
+
+    /// <summary>지금 도는 중인가. 편집과 삭제를 막는 기준이다.</summary>
+    public bool IsBusy => AiTaskStatus.IsBusy(TaskStatus);
 }
 
 /// <summary>작업요청여부.</summary>
@@ -299,3 +312,19 @@ public static class AiTaskStatus
     public static bool IsBusy(string? v) =>
         v is Queued or Preparing or Running;
 }
+
+/// <summary>
+/// 작업 한 건의 차수별 제목과 상태.
+/// </summary>
+public sealed class AiTaskTurnTitleDto
+{
+    /// <summary>몇 차인가 (1부터 시작).</summary>
+    public int No { get; set; }
+
+    /// <summary>그 차수의 제목.</summary>
+    public string? Title { get; set; }
+
+    /// <summary>그 차수의 실행 상태.</summary>
+    public string? Status { get; set; }
+}
+

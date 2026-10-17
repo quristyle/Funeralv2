@@ -451,6 +451,12 @@ public sealed class AiTaskDto
     /// </remarks>
     public string? NextTurnTitle { get; set; }
 
+    /// <summary>
+    /// 이 건에 딸린 차수별 제목 목록 (1차부터 오름차순).
+    /// 차수가 2회 이상일 때 모바일 카드 등에서 차수별 제목을 보여주는 데 쓴다.
+    /// </summary>
+    public List<AiTaskTurnTitleDto> TurnTitles { get; set; } = [];
+
     public string? Contents { get; set; }
     public string? ContentFormat { get; set; } = "markdown";
 
@@ -707,3 +713,19 @@ public sealed class AiTaskDto
         ? string.Empty
         : TimeSpan.FromMilliseconds(DurationMs.Value).ToString(@"h\:mm\:ss");
 }
+
+/// <summary>
+/// 작업 한 건의 차수별 제목과 상태.
+/// </summary>
+public sealed class AiTaskTurnTitleDto
+{
+    /// <summary>몇 차인가 (1부터 시작).</summary>
+    public int No { get; set; }
+
+    /// <summary>그 차수의 제목.</summary>
+    public string? Title { get; set; }
+
+    /// <summary>그 차수의 실행 상태.</summary>
+    public string? Status { get; set; }
+}
+

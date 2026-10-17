@@ -3602,6 +3602,47 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   font-weight: 600;
 }
 
+/* ── 차수가 2회 이상인 카드의 차수별 제목 목록 ───────────────
+   차수가 여러 번 돈 건은 한 줄 대표 제목만으로는 각 차수에 무엇을 시켰는지
+   알 수 없다. 모바일 카드에서 차수 번호와 함께 제목을 줄줄이 세운다. */
+.pm-ask__turns {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-top: 0.15rem;
+  min-width: 0;
+}
+
+.pm-ask__turn {
+  display: flex;
+  align-items: baseline;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.pm-ask__turn-no {
+  flex: 0 0 auto;
+  font-size: 0.72em;
+  font-weight: 700;
+  color: var(--jsini-primary, #1976d2);
+  background: color-mix(in srgb, var(--jsini-primary, #1976d2) 12%, transparent);
+  padding: 0.05rem 0.35rem;
+  border-radius: 4px;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.pm-ask__turn-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.88em;
+  font-weight: 600;
+  color: var(--jsini-text);
+}
+
 /* 목록 아래 「더보기」 줄. **격자 밖이다** — 안에 넣으면 반 폭 칸 하나를
    차지해 옆에 빈자리가 생긴다.
 

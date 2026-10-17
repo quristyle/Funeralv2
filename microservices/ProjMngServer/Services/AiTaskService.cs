@@ -1,4 +1,5 @@
 using System.Data;
+using System.Text.Json;
 
 using Dapper;
 using JSini.Shared.Infrastructure.Time;
@@ -50,6 +51,14 @@ public sealed class AiTaskService(
         ( SELECT COUNT(*)::int FROM projmng.ai_task_note n
            WHERE n.task_key = a.task_key AND n.is_deleted = false
              AND n.read_dt IS NULL ) AS UnreadNoteCount,
+        -- 차수별 제목과 상태 목록. 차수가 2회 이상일 때 모바일 카드에 차수별 제목을 표시한다.
+        ( SELECT json_agg(json_build_object(
+                   'no', r.seq,
+                   'title', r.turn_title,
+                   'status', r.run_status
+                 ) ORDER BY r.seq)::text
+            FROM projmng.ai_task_run r
+           WHERE r.task_key = a.task_key ) AS TurnTitlesJson,
         a.target_key      AS TargetKey,
         b.target_nm       AS TargetNm,
         b.target_kind     AS TargetKind,
@@ -151,7 +160,57 @@ public sealed class AiTaskService(
             excludeDone,
         });
 
-        return [.. rows];
+        var list = rows.AsList();
+        foreach (var item in list)
+        {
+            if (!string.IsNullOrWhiteSpace(item.TurnTitlesJson))
+            {
+                try
+                {
+                    item.TurnTitles = JsonSerializer.Deserialize<List<AiTaskTurnTitleDto>>(
+                        item.TurnTitlesJson, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? [];
+                }
+                catch
+                {
+                    item.TurnTitles = [];
+                }
+            }
+
+            // 1차 제목이 비어있으면 건의 대표 제목으로 보완
+            if (item.TurnTitles.Count > 0 && item.TurnTitles[0].No == 1 && string.IsNullOrWhiteSpace(item.TurnTitles[0].Title))
+            {
+                item.TurnTitles[0].Title = item.Title;
+            }
+
+            // 아직 실행 줄이 없는 차수(대기 중인 차수)가 있을 때:
+            var hasUnstartedTurn = !string.IsNullOrWhiteSpace(item.NextTurnTitle)
+                || (item.IsBusy && (item.TurnTitles.Count == 0 || item.FinishedAt is not null));
+
+            if (hasUnstartedTurn)
+            {
+                var nextNo = item.TurnTitles.Count == 0 ? 1 : item.TurnTitles.Max(t => t.No) + 1;
+                var nextTitle = !string.IsNullOrWhiteSpace(item.NextTurnTitle)
+                    ? item.NextTurnTitle
+                    : (nextNo == 1 ? item.Title : null);
+
+                item.TurnTitles.Add(new AiTaskTurnTitleDto
+                {
+                    No = nextNo,
+                    Title = nextTitle,
+                    Status = item.TaskStatus,
+                });
+            }
+
+            foreach (var t in item.TurnTitles)
+            {
+                if (!string.IsNullOrWhiteSpace(t.Title))
+                {
+                    t.Title = t.Title.Trim();
+                }
+            }
+        }
+
+        return list;
     }
 
     public async Task<AiTask?> GetAsync(long taskKey)

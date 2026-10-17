@@ -117,4 +117,25 @@ public sealed class AiTaskDtoTests
         Assert.Equal("완료", succeeded.StatusText);
         Assert.Equal("on", succeeded.StatusTone);
     }
+
+    [Fact]
+    public void TurnTitles_2회이상인_지시의_차수목록을_담을수있다()
+    {
+        var task = new AiTaskDto
+        {
+            TaskKey = 100,
+            Title = "2차 작업 제목",
+            TurnTitles =
+            [
+                new() { No = 1, Title = "1차 작업 제목", Status = "succeeded" },
+                new() { No = 2, Title = "2차 작업 제목", Status = "succeeded" },
+            ]
+        };
+
+        Assert.Equal(2, task.TurnTitles.Count);
+        Assert.Equal(1, task.TurnTitles[0].No);
+        Assert.Equal("1차 작업 제목", task.TurnTitles[0].Title);
+        Assert.Equal(2, task.TurnTitles[1].No);
+        Assert.Equal("2차 작업 제목", task.TurnTitles[1].Title);
+    }
 }
