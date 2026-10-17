@@ -117,6 +117,11 @@ builder.Services.AddScoped<AiResultSummarizer>();
 // 알림 관문에 매달린다. 완료 처리가 부르고, 알림은 적힌 것을 읽는다.
 builder.Services.AddScoped<AiRunSummaryWriter>();
 
+// 「처리 파일」 목록을 합쳐 `ai_task_run.changed_files` 에 적는 일의 주인.
+// 실행기가 보낸 git 목록(정본)과 결과문에서 모델이 뽑은 목록(보강)을 합친다 —
+// 실행기 쪽 한 길만 두었더니 운영에서 그 칸이 통째로 비어 있었다(2026-10-17).
+builder.Services.AddScoped<AiRunFileWriter>();
+
 // 끝난 실행을 보고 제목을 다시 짓는다. **제목 칸을 비우고 저장한 건만** 손댄다
 // (`ai_task.title_auto`) — 사람이 적은 제목은 읽지도 않는다.
 builder.Services.AddScoped<AiTaskTitler>();

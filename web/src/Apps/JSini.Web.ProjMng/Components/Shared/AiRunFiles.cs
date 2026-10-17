@@ -31,7 +31,13 @@ public enum AiRunFileKind
 /// <summary>처리 파일 한 줄.</summary>
 /// <param name="Kind">무엇을 당했나.</param>
 /// <param name="Path">저장소 뿌리에서 본 경로. <see cref="AiRunFileKind.More"/> 면 「외 N개」 같은 글이다.</param>
-public sealed record AiRunFile(AiRunFileKind Kind, string Path)
+/// <param name="Derived">
+/// <b>git 이 본 것이 아니라 결과문에서 뽑아낸 줄인가.</b> 담긴 글에서 상태 칸이
+/// <c>M?</c> 처럼 <c>?</c> 로 끝나는 줄이다 — 서버가 둘을 합치면서 그 표를 단다
+/// (<c>ProjMngServer.Services.AiChangedFiles</c>). 화면은 그 줄에 「추정」을 적어
+/// <b>확인된 것과 섞지 않는다</b>.
+/// </param>
+public sealed record AiRunFile(AiRunFileKind Kind, string Path, bool Derived = false)
 {
     /// <summary>경로의 마지막 마디 — 화면이 굵게 쓰는 이름.</summary>
     public string Name
@@ -71,13 +77,28 @@ public sealed record AiRunFile(AiRunFileKind Kind, string Path)
     };
 
     /// <summary>배지에 걸 꾸밈 이름. 색은 CSS 가 정한다.</summary>
-    public string KindClass => Kind switch
-    {
-        AiRunFileKind.Added => "pm-peek__chg-mark--add",
-        AiRunFileKind.Deleted => "pm-peek__chg-mark--del",
-        AiRunFileKind.Modified or AiRunFileKind.TypeChanged => "pm-peek__chg-mark--mod",
-        _ => "pm-peek__chg-mark--move",
-    };
+    /// <remarks>
+    /// <b>추정 줄은 색을 따로 쓴다.</b> 「추가」 배지가 확인된 것과 같은 초록으로
+    /// 서면, 옆에 작게 붙은 「추정」을 못 보고 지나간 사람에게 그 줄은 <b>git 이
+    /// 본 것과 구별되지 않는다</b>.
+    /// </remarks>
+    public string KindClass => Derived
+        ? "pm-peek__chg-mark--guess"
+        : Kind switch
+        {
+            AiRunFileKind.Added => "pm-peek__chg-mark--add",
+            AiRunFileKind.Deleted => "pm-peek__chg-mark--del",
+            AiRunFileKind.Modified or AiRunFileKind.TypeChanged => "pm-peek__chg-mark--mod",
+            _ => "pm-peek__chg-mark--move",
+        };
+
+    /// <summary>
+    /// 줄에 마우스를 올렸을 때의 설명. <b>추정 줄에만 있다</b> — 왜 이 줄이
+    /// 다른 색인지는 어딘가에 적혀 있어야 한다.
+    /// </summary>
+    public string Hint => Derived
+        ? $"{Path} (AI 의 결과문에서 뽑은 경로입니다. git 으로 확인되지 않았습니다.)"
+        : Path;
 }
 
 /// <summary>
@@ -149,7 +170,9 @@ public static class AiRunFiles
                 continue;
             }
 
-            rows.Add(new AiRunFile(KindOf(cols[0]), path));
+            // 상태 칸이 `?` 로 끝나면 **git 이 본 것이 아니라 결과문에서 뽑은
+            // 줄**이다(`M?`). 서버가 둘을 합치면서 그 표를 단다.
+            rows.Add(new AiRunFile(KindOf(cols[0]), path, cols[0].EndsWith('?')));
         }
 
         return rows;
@@ -189,7 +212,8 @@ public static class AiRunFiles
 
     /// <summary>
     /// 상태 칸 하나를 갈래로. <b>앞 한 글자만 본다</b> — 이름이 바뀐 줄의
-    /// <c>R100</c> 처럼 닮은 정도가 붙어 오는 날것도 같은 갈래로 읽힌다.
+    /// <c>R100</c> 처럼 닮은 정도가 붙어 오는 날것도, <c>M?</c> 처럼 추정 표가
+    /// 붙은 것도 같은 갈래로 읽힌다(<c>-</c> 는 갈래를 모르는 줄이다).
     /// </summary>
     private static AiRunFileKind KindOf(string mark) => (mark.Length > 0 ? mark[..1] : mark) switch
     {

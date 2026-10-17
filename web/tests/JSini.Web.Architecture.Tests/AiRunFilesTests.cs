@@ -124,4 +124,53 @@ public sealed class AiRunFilesTests
         Assert.Empty(AiRunFiles.Parse(null, null));
         Assert.Empty(AiRunFiles.Parse("   ", "\n\n"));
     }
+
+    /// <summary>
+    /// 상태 칸이 <c>?</c> 로 끝나면 <b>git 이 본 것이 아니라 결과문에서 뽑은 줄</b>
+    /// 이다(<c>ProjMngServer.Services.AiChangedFiles.Merge</c> 가 그 표를 단다).
+    /// 갈래는 그대로 읽히고 배지 색만 갈린다.
+    /// </summary>
+    [Fact]
+    public void 물음표가_붙은_상태는_추정_줄이다()
+    {
+        var rows = AiRunFiles.Parse("M\tweb/a.razor\nA?\tdocs/b.md", diffStat: null);
+
+        Assert.False(rows[0].Derived);
+        Assert.Equal(AiRunFileKind.Modified, rows[0].Kind);
+        Assert.Equal("pm-peek__chg-mark--mod", rows[0].KindClass);
+        Assert.Equal("web/a.razor", rows[0].Hint);
+
+        Assert.True(rows[1].Derived);
+        Assert.Equal(AiRunFileKind.Added, rows[1].Kind);
+        Assert.Equal("추가", rows[1].KindText);
+
+        // **확인된 것과 같은 색으로 세우지 않는다.** 배지에 달린 작은 「?」를
+        // 못 보고 지나간 사람에게 둘이 구별되지 않는다.
+        Assert.Equal("pm-peek__chg-mark--guess", rows[1].KindClass);
+        Assert.Contains("git 으로 확인되지 않았습니다", rows[1].Hint);
+    }
+
+    /// <summary>
+    /// 갈래를 모르는 추정 줄은 <c>-?</c> 다. <b><c>?</c> 하나로 적지 않는다</b> —
+    /// 그러면 「모르는 줄」과 「추정 줄」이 같은 모양이 된다.
+    /// </summary>
+    [Fact]
+    public void 갈래를_모르는_추정_줄도_추정으로_읽힌다()
+    {
+        var rows = AiRunFiles.Parse("-?\tscripts/x.sh", diffStat: null);
+
+        Assert.True(rows[0].Derived);
+        Assert.Equal(AiRunFileKind.Unknown, rows[0].Kind);
+        Assert.Equal(string.Empty, rows[0].KindText);
+    }
+
+    /// <summary>「외 N개」 줄에는 추정 표가 붙지 않는다 — 그 줄은 파일이 아니다.</summary>
+    [Fact]
+    public void 외_N개_줄은_추정이_아니다()
+    {
+        var rows = AiRunFiles.Parse("A?\ta.cs\n…\t외 3개", diffStat: null);
+
+        Assert.True(rows[0].Derived);
+        Assert.False(rows[1].Derived);
+    }
 }

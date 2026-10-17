@@ -49,6 +49,12 @@ public partial class AiTaskFilesTab
     private int ChangedCount => Changed.Count(f => f.Kind != AiRunFileKind.More);
 
     /// <summary>
+    /// 그중 <b>결과문에서 뽑은 줄</b>이 몇인가. 목록 아래의 한 줄이 이 수로
+    /// 설지 말지가 갈린다(<see cref="AiRunFile.Derived"/>).
+    /// </summary>
+    private int GuessCount => Changed.Count(f => f.Derived && f.Kind != AiRunFileKind.More);
+
+    /// <summary>
     /// 탭에 적을 이름. <b>개수를 여기 적는다</b> — 건너오기 전에도
     /// 「몇 개인가」는 알아야 건너올지가 정해진다.
     /// </summary>

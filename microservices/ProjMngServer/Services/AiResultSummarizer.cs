@@ -224,6 +224,33 @@ public sealed class AiResultSummarizer(
         configuration.GetValue("AiTasks:SummaryMaxChars", defaultValue: 6000);
 
     /// <summary>
+    /// 결과문에서 <b>처리 파일 목록을 뽑아낼 것인가.</b> 요약과 따로 끌 수 있어야
+    /// 한다 — 이쪽은 메일이 기다리는 값이 아니라 화면의 탭 한 장이라, AI 가
+    /// 붐비는 장비에서는 이것만 꺼 두는 선택이 있다.
+    /// </summary>
+    private readonly bool _extractFilesEnabled =
+        configuration.GetValue("AiTasks:ExtractChangedFiles", defaultValue: true);
+
+    /// <summary>
+    /// 파일 목록을 뽑는 호출의 상한(초).
+    /// </summary>
+    /// <remarks>
+    /// 요약과 같은 값을 쓴다. 이 호출은 요약과 <b>나란히</b> 나가므로
+    /// (<c>AiRunService.PrepareSummaryAndTitleAsync</c>) 더 길게 잡아 봐야
+    /// 완료 뒤처리 전체의 상한에 먼저 걸린다.
+    /// </remarks>
+    private readonly int _extractTimeoutSeconds =
+        Math.Clamp(configuration.GetValue("AiTasks:ExtractTimeoutSeconds", defaultValue: 45), 1, 300);
+
+    /// <summary>
+    /// 한 번에 몇 개까지 받나. <b>넉넉히 두지 않는다</b> — 모델이 경로를 지어내기
+    /// 시작하면 그 수만큼 거짓이 목록에 선다. git 이 본 것은 이 상한과 무관하게
+    /// 다 들어간다(<see cref="AiChangedFiles.MaxLines"/>).
+    /// </summary>
+    private readonly int _extractMaxFiles =
+        Math.Clamp(configuration.GetValue("AiTasks:ExtractMaxFiles", defaultValue: 50), 1, 200);
+
+    /// <summary>
     /// 편집자의 성격. <b>사실을 더하지 말라</b>가 이 프롬프트의 전부다 —
     /// 요약이 원문에 없는 말을 하면 그 메일은 읽을수록 해롭다.
     /// </summary>
@@ -247,6 +274,15 @@ public sealed class AiResultSummarizer(
         + "무엇을 시킨 일인지 나타내는 아주 짧은 제목(20자 내외)을 한국어로 작성합니다. "
         + "결과나 완료 여부를 추측해 쓰지 마십시오. "
         + "설명이나 따옴표, 머리말 없이 제목 한 줄만 답하십시오.";
+
+    /// <summary>
+    /// <b>결과문에서 파일 경로만 건져 내는 독자.</b> 글을 쓰는 일이 아니라
+    /// 베껴 적는 일이라, 성격을 「지어내지 말라」 하나로 못 박는다.
+    /// </summary>
+    private const string FilesSystemPrompt =
+        "당신은 작업 보고서에서 파일 경로를 뽑아내는 도구입니다. 주어진 글에 실제로 "
+        + "적혀 있는 경로만 그대로 옮겨 적고, 없는 경로를 만들어 내지 마십시오. "
+        + "설명 없이 JSON 하나만 답합니다.";
 
     /// <summary>
     /// AI 서비스 호출 공통부. <b>가리기·실패 시 처신이 요약과 제목 생성에 한 벌로 적용된다.</b>
@@ -397,6 +433,138 @@ public sealed class AiResultSummarizer(
             """;
 
         return OneLine(await ChatAsync(TurnTitleSystemPrompt, prompt, _titleTimeoutSeconds, ct));
+    }
+
+    /// <summary>
+    /// 결과문을 읽혀 <b>이 실행이 건드린 파일 목록을 뽑아 온다.</b>
+    /// <b>어떤 이유로든 못 하면 null 이다 — 던지지 않는다.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>왜 모델에게 묻나.</b> 정본은 실행기가 <c>git diff --name-status</c> 로
+    /// 물어 온 목록이다. 그것이 더 정확하지만 늘 손에 들어오지는 않는다 —
+    /// git 이 아닌 대상(폴더 복사본)에는 물을 데가 없고, 실행기가 옛 바이너리면
+    /// 그 칸을 아예 안 보낸다. 그때 「처리 파일」 탭이 통째로 비어 <b>기능이
+    /// 고장난 것처럼</b> 보인다(2026-10-17 에 운영에서 276건 전부가 그랬다).
+    /// </para>
+    /// <para>
+    /// <b>여기서 온 줄은 「추정」이다.</b> 합치는 자리가 그 표를 달고
+    /// (<see cref="AiChangedFiles.Merge"/>), 같은 경로를 git 도 보았으면
+    /// <b>git 쪽이 이긴다</b>. 모델이 「새로 만들었다」고 적은 파일이 실은 이미
+    /// 있던 것을 고친 경우가 흔하다.
+    /// </para>
+    /// <para>
+    /// <b>빈 목록과 실패를 가른다.</b> 고친 파일이 없는 건(물어보기만 한 지시)은
+    /// 빈 목록이고, 모델이 못 받아 준 것은 널이다 — 앞엣것은 다시 부를 일이
+    /// 아니고 뒤엣것은 다음 바퀴에 다시 본다.
+    /// </para>
+    /// </remarks>
+    public async Task<IReadOnlyList<AiChangedFile>?> ExtractFilesAsync(
+        string? instruction, string? resultText, CancellationToken ct = default)
+    {
+        if (!_extractFilesEnabled || string.IsNullOrWhiteSpace(resultText))
+        {
+            return null;
+        }
+
+        // **가리는 것이 먼저다.** 이 아래로는 우리 장비 밖으로 나갈 수 있다.
+        var body = Clip(SecretMask.Apply(resultText), _maxChars);
+        var asked = Clip(SecretMask.Apply(instruction), 1000);
+
+        var reply = await ChatAsync(
+            FilesSystemPrompt, AskFiles(asked, body, _extractMaxFiles), _extractTimeoutSeconds, ct);
+
+        return reply is null ? null : FilesFromJson(reply);
+    }
+
+    /// <summary>파일 목록을 받아 오는 한 통. <b>무엇을 넣지 말라를 못 박는다.</b></summary>
+    private static string AskFiles(string? instruction, string? resultText, int max) => $$"""
+        아래는 사람이 시킨 지시문과, AI 실행기가 그것을 처리하고 남긴 결과 원문입니다.
+        이 작업에서 **실제로 새로 만들어지거나 고쳐지거나 지워진 파일**의 경로를 뽑아 주십시오.
+
+        [규칙]
+        - 글에 적혀 있는 경로만 쓰십시오. **없는 파일을 지어내지 마십시오.**
+        - 저장소 뿌리에서 본 상대 경로로 적으십시오(앞의 `./` 나 절대 경로는 빼고).
+        - **읽기만 한 파일**, 예시로 든 경로, 명령어·URL·패키지 이름은 넣지 마십시오.
+        - kind 는 added(새로 만듦) · modified(고침) · deleted(지움) 중 하나입니다.
+        - 최대 {{max}}개까지. 확실한 것부터 적으십시오.
+        - 고친 파일이 없으면 빈 배열로 답하십시오.
+        - 설명·머리말 없이 아래 모양의 JSON 하나만 답하십시오.
+
+        {"files":[{"path":"web/src/Apps/Foo/Bar.razor","kind":"modified"}]}
+
+        ## 시킨 것
+        {{instruction ?? "(적힌 것이 없습니다)"}}
+
+        ## 결과 원문
+        {{resultText}}
+        """;
+
+    /// <summary>
+    /// 모델이 준 글에서 파일 목록을 꺼낸다.
+    /// </summary>
+    /// <remarks>
+    /// <b>JSON 울타리를 치는 모델이 있다.</b> 요약 쪽과 같은 수를 쓴다 — 첫
+    /// <c>{</c> 와 마지막 <c>}</c> 사이만 떠서 읽는다. 못 읽으면 <b>빈 목록이
+    /// 아니라 널</b>이다(다음 바퀴에 다시 본다).
+    /// </remarks>
+    private IReadOnlyList<AiChangedFile>? FilesFromJson(string reply)
+    {
+        var start = reply.IndexOf('{');
+        var end = reply.LastIndexOf('}');
+
+        if (start < 0 || end <= start)
+        {
+            logger.LogInformation("처리 파일 뽑기를 건너뜁니다 — 모델이 JSON 을 주지 않았습니다.");
+            return null;
+        }
+
+        try
+        {
+            using var doc = JsonDocument.Parse(reply[start..(end + 1)]);
+
+            if (!doc.RootElement.TryGetProperty("files", out var files)
+                || files.ValueKind != JsonValueKind.Array)
+            {
+                return null;
+            }
+
+            var rows = new List<AiChangedFile>();
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+
+            foreach (var item in files.EnumerateArray())
+            {
+                if (rows.Count >= _extractMaxFiles)
+                {
+                    break;
+                }
+
+                // 경로만 줄로 적어 주는 모델도 있다 — `["a/b.cs", …]`.
+                var raw = item.ValueKind == JsonValueKind.String
+                    ? item.GetString()
+                    : item.ValueKind == JsonValueKind.Object && item.TryGetProperty("path", out var p)
+                        ? p.GetString()
+                        : null;
+
+                if (AiChangedFiles.Normalize(raw) is not { } path || !seen.Add(path))
+                {
+                    continue;
+                }
+
+                var word = item.ValueKind == JsonValueKind.Object && item.TryGetProperty("kind", out var k)
+                    ? k.GetString()
+                    : null;
+
+                rows.Add(new AiChangedFile(AiChangedFiles.KindFromWord(word), path, Derived: true));
+            }
+
+            return rows;
+        }
+        catch (JsonException)
+        {
+            logger.LogInformation("처리 파일 뽑기를 건너뜁니다 — 모델의 JSON 을 읽지 못했습니다.");
+            return null;
+        }
     }
 
     /// <summary>

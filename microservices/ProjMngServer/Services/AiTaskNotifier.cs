@@ -974,16 +974,29 @@ public sealed class AiTaskNotifier(
     /// git 의 상태 글자 한 자를 한국어로. <b>모르는 글자는 그대로 둔다</b> —
     /// 지어낸 말보다 낫다.
     /// </summary>
-    private static string ChangeWord(string mark) => mark switch
+    /// <remarks>
+    /// <b>뒤의 <c>?</c> 는 「추정」이다</b>(<c>M?</c>) — git 이 본 것이 아니라
+    /// 결과문에서 뽑은 줄이고(<see cref="AiChangedFiles"/>), 메일에서도 그렇게
+    /// 적어야 받는 사람이 둘을 섞지 않는다. <c>-</c> 는 갈래를 모르는 줄이라
+    /// 말을 붙이지 않는다.
+    /// </remarks>
+    private static string ChangeWord(string mark)
     {
-        "A" => "추가",
-        "M" => "수정",
-        "D" => "삭제",
-        "R" => "이름변경",
-        "C" => "복사",
-        "T" => "형식변경",
-        _ => mark,
-    };
+        var guess = mark.EndsWith('?');
+        var word = (guess ? mark[..^1] : mark) switch
+        {
+            "A" => "추가",
+            "M" => "수정",
+            "D" => "삭제",
+            "R" => "이름변경",
+            "C" => "복사",
+            "T" => "형식변경",
+            "-" => "확인필요",
+            var other => other,
+        };
+
+        return guess ? $"{word}·추정" : word;
+    }
 
     /// <summary>한 줄짜리 알림 칸 — 배포·브랜치처럼 짧은 사실.</summary>
     private static string Note(string label, string valueHtml) => $"""

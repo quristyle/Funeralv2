@@ -43,13 +43,15 @@
                     }
                     else
                     {
-                        <li class="pm-peek__chg-row">
+                        <li class="pm-peek__chg-row @(f.Derived ? "pm-peek__chg-row--guess" : null)">
                             @if (f.KindText is { Length: > 0 } word)
                             {
-                                <span class="pm-peek__chg-mark @f.KindClass">@word</span>
+                                @* 추정 줄에는 배지 안에 「?」를 달아 둔다. 색만으로는
+                                   색을 못 가리는 사람에게 아무 말도 하지 않는다. *@
+                                <span class="pm-peek__chg-mark @f.KindClass">@word@(f.Derived ? "?" : null)</span>
                             }
 
-                            <span class="pm-peek__chg-path" title="@f.Path">
+                            <span class="pm-peek__chg-path" title="@f.Hint">
                                 @if (f.Folder is { Length: > 0 } folder)
                                 {
                                     <span class="pm-peek__chg-dir">@folder/</span>
@@ -61,6 +63,16 @@
                     }
                 }
             </ul>
+
+            @* **「추정」이 무슨 뜻인지는 어딘가에 적혀 있어야 한다.**
+               배지의 `?` 와 다른 색만으로는 「고장인가」로도 읽힌다. 추정
+               줄이 하나라도 있을 때만 선다 — git 이 다 본 건에는 할 말이 없다. *@
+            @if (GuessCount > 0)
+            {
+                <p class="jsini-hint">
+                    「?」 표가 붙은 @GuessCount 건은 AI 의 결과문에서 뽑은 것입니다. git 으로는 확인되지 않았습니다.
+                </p>
+            }
 
             @* 가지 · 「몇 줄이 바뀌었나」 · 올린 자리. **이름 목록이
                말하지 않는 것이 여기 있다** — 결과문 아래의 그 줄과

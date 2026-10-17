@@ -312,6 +312,30 @@ public sealed class RunnerWorker(
 
             await FlushAsync(true);
 
+            // ── 모델이 손을 뗀 **그 자리에서** 무엇이 바뀌었는지 묻는다 ──
+            //
+            // **게이트보다 앞이다**(2026-10-17). 여태는 게이트가 끝난 뒤에
+            // 물었는데, 게이트는 커밋하고 `git rebase origin/<가지>` 까지 한다 —
+            // 그 뒤의 `git diff <기준>` 에는 **그 사이 남이 올린 것까지** 섞여
+            // 들어온다. 그리고 실패하거나 막힌 갈래에서는 작업공간이 치워져
+            // (`ParkAsync`) 물어볼 자리 자체가 없어진다.
+            //
+            // 여기서 물으면 **AI 가 남긴 것만** 정확히 센다 — 스스로 커밋한
+            // 것도(기준과의 차이라 커밋 여부와 무관하다), 커밋 전의 새 파일도
+            // (`ls-files --others`) 함께 들어온다.
+            var changedFiles = await workspace.ChangedFilesAsync(prepared, ct);
+
+            // 「몇 줄이 바뀌었나」도 같은 자리에서 한 번 떠 둔다. 게이트가
+            // 커밋하고 나면 `diff --stat HEAD` 가 **비어서** 돌아오기 때문에,
+            // 게이트를 안 탄 건(실패·올리기 꺼짐)의 이 칸이 통째로 비어 있었다.
+            var diffBeforeGate = await workspace.DiffStatAsync(prepared, ct);
+
+            if (changedFiles is { Length: > 0 })
+            {
+                await SayAsync($"[파일] 이번에 건드린 파일 {ChangedFileCount(changedFiles)}개를 적어 둡니다.");
+                await FlushAsync(true);
+            }
+
             // ── push 게이트 ─────────────────────────────────
             //
             // **성공했을 때만 본다.** 실패한 결과를 올릴 이유가 없다.
@@ -349,13 +373,10 @@ public sealed class RunnerWorker(
                 await FlushAsync(true);
             }
 
-            var diff = push?.DiffStat ?? await workspace.DiffStatAsync(prepared, ct);
-
-            // **무엇이 바뀌었나는 따로 묻는다.** 위의 `--stat` 은 긴 경로를
-            // 줄여 내고 그것이 다시 500자 칸에서 잘려, 「처리 파일」 목록으로는
-            // 못 쓴다(`Workspace.ChangedFilesAsync` 머리말). 치우기(`ParkAsync`)
-            // **앞**에서 물어야 한다 — stash 로 옮긴 뒤에는 바뀐 것이 없다.
-            var changedFiles = await workspace.ChangedFilesAsync(prepared, ct);
+            // **게이트가 센 것을 먼저 쓴다.** 그쪽은 커밋 뒤의
+            // `diff --stat <기준> HEAD` 라 올라간 건에서 더 정확하다. 게이트를
+            // 안 탔으면 CLI 직후에 떠 둔 값이고, 그것도 없으면 지금 다시 묻는다.
+            var diff = push?.DiffStat ?? diffBeforeGate ?? await workspace.DiffStatAsync(prepared, ct);
 
             // **정본을 다음 실행에 넘기기 전에 치운다.** 원본 직접으로 돌았고
             // 게이트가 커밋까지 가지 못했으면(CLI 실패 · 금지 경로) 고친 파일이
@@ -632,6 +653,15 @@ public sealed class RunnerWorker(
         >= 1024 => $"{bytes / 1024.0:0.#} KB",
         _ => $"{bytes} B",
     };
+
+    /// <summary>
+    /// 로그 한 줄에 적을 개수. <b>「외 N개」 줄은 빼고 센다</b> — 그 줄은
+    /// 파일이 아니라 상한에 걸려 접힌 나머지가 몇이더라는 말이다
+    /// (<c>Workspace.ChangedFileLines</c>).
+    /// </summary>
+    private static int ChangedFileCount(string text) =>
+        text.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Count(line => !line.StartsWith('…'));
 
     private Task FailAsync(ServerClient.Claim claim, string message, CancellationToken ct)
         => server.CompleteAsync(claim.RunKey, claim.Token, new

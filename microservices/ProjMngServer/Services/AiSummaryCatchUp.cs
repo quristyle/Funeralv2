@@ -177,6 +177,73 @@ public sealed class AiSummaryCatchUp(
         await SendOverdueMailsAsync(db, writer, notifier, tried, ct);
 
         await FillTurnTitlesAsync(db, scope.ServiceProvider.GetRequiredService<AiTaskTitler>(), ct);
+
+        await FillChangedFilesAsync(db, scope.ServiceProvider.GetRequiredService<AiRunFileWriter>(), ct);
+    }
+
+    /// <summary>
+    /// <b>「처리 파일」을 아직 안 합친 실행</b>을 몇 건 주워 채운다 —
+    /// <c>ai_task_run.changed_files</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 그 칸을 채우는 자리도 요약과 같은 꼴이었다 — 완료 뒤처리의 한 번이
+    /// 전부고, 모델이 빈손이면 끝이다. 그런데 이쪽은 <b>옛 건이 통째로 비어
+    /// 있다</b>: 운영 실행기가 그 칸이 생기기 전(2026-10-12) 바이너리라
+    /// <b>최근 2주 276건 전부</b>에 git 목록조차 없었다. 그 건들은 완료 뒤처리를
+    /// 이미 지나갔으므로 <b>여기서만</b> 채워진다.
+    /// </para>
+    /// <para>
+    /// <b>결과문이 있는 건만 본다.</b> 합칠 보강이 결과문에서 나오는데
+    /// (<c>AiResultSummarizer.ExtractFilesAsync</c>) 그것이 없으면 모델을 불러
+    /// 봐야 같은 빈손이다.
+    /// </para>
+    /// <para>
+    /// 요약 채우기와 같은 규칙이다 — <b>한 바퀴에 몇 건만</b>, <b>오래된 것은
+    /// 줍지 않는다</b>, <b>한 건이라도 못 채우면 그 바퀴는 거기서 멈춘다</b>
+    /// (AI 가 지금 못 받는다는 뜻이라 남은 건을 더 두드려 봐야 같은 답이다).
+    /// </para>
+    /// </remarks>
+    private async Task FillChangedFilesAsync(
+        NpgsqlConnection db, AiRunFileWriter writer, CancellationToken ct)
+    {
+        if (_withinDays == 0)
+        {
+            return;
+        }
+
+        var keys = (await db.QueryAsync<long>(new CommandDefinition("""
+            SELECT r.run_key
+              FROM projmng.ai_task_run r
+             WHERE r.finished_at IS NOT NULL
+               AND r.finished_at > now() - make_interval(days => @days)
+               AND r.files_merged_at IS NULL
+               AND r.result_text IS NOT NULL
+               AND btrim(r.result_text) <> ''
+             ORDER BY r.finished_at DESC
+             LIMIT @batch
+            """, new { days = _withinDays, batch = _batch }, cancellationToken: ct))).ToList();
+
+        if (keys.Count == 0)
+        {
+            return;
+        }
+
+        logger.LogInformation("처리 파일을 안 합친 실행 {Count}건을 채워 봅니다.", keys.Count);
+
+        foreach (var runKey in keys)
+        {
+            ct.ThrowIfCancellationRequested();
+
+            // **던지지 않는다**(그쪽이 통째로 감싸고 있다).
+            if (!await writer.EnsureAsync(runKey, ct))
+            {
+                logger.LogInformation(
+                    "실행 {RunKey} 의 처리 파일을 아직 채우지 못했습니다. 이번 바퀴는 여기서 멈춥니다.",
+                    runKey);
+                break;
+            }
+        }
     }
 
     /// <summary>

@@ -20,7 +20,7 @@ namespace ProjMngServer.Services;
 /// </remarks>
 public sealed class AiRunService(
     IConfiguration configuration, AiTaskNotifier notifier, AiRunSummaryWriter summaries,
-    AiTaskTitler titler, AiTaskQueue queue, ILogger<AiRunService> logger)
+    AiRunFileWriter files, AiTaskTitler titler, AiTaskQueue queue, ILogger<AiRunService> logger)
 {
     private readonly string _connectionString =
         configuration.GetConnectionString("jsini")
@@ -653,12 +653,23 @@ public sealed class AiRunService(
 
         try
         {
+            // **처리 파일 합치기를 나란히 보낸다.** 둘 다 모델 왕복 한 번인데
+            // 서로 볼 것이 없다 — 차례로 부르면 앱푸시가 그 둘을 더한 만큼
+            // 늦는다(이 자리의 상한이 곧 푸시까지의 거리다). 스스로 삼키므로
+            // 여기서 던지지 않고, 상한에 걸리면 따라잡기가 다시 집는다.
+            var merging = files.EnsureAsync(runKey, cts.Token);
+
             // 요약 한 번에 제목까지 온다. 여기서 제목 칸이 채워지면 아래는
             // 모델을 안 부르고 돌아온다(`title_run_key` 도장).
             var summary = await summaries.EnsureAsync(runKey, ct: cts.Token);
 
             // 요약이 제목을 못 붙인 건의 되받기 — 짧은 제목 한 줄이라 빠르다.
             await titler.TitleAsync(runKey, cts.Token);
+
+            // **메일이 이것을 읽는다**(「처리 파일」 칸). 여기서 안 기다리면
+            // 메일에는 git 목록만 실리고 화면에만 합쳐진 것이 뜬다 — 같은
+            // 실행이 두 말을 하는 자리다.
+            await merging;
 
             return summary is not null;
         }
