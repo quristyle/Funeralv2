@@ -28,16 +28,57 @@ public enum AiRunFileKind
     More,
 }
 
+/// <summary>
+/// 추정 줄을 <b>실제 파일에 대 보았나, 대 보았으면 무엇이었나.</b>
+/// </summary>
+/// <remarks>
+/// <para>
+/// 상태 칸의 <b>마지막 한 글자</b>로 온다 — <c>M?</c> 아직 · <c>M*</c> 있음 ·
+/// <c>M!</c> 없음 · <c>M~</c> 여럿. 백엔드의
+/// <c>ProjMngServer.Services.AiChangedFileCheck</c> 와 같은 갈래이고, 두 벌인
+/// 것은 프론트가 백엔드 프로젝트를 참조하지 않기 때문이다.
+/// </para>
+/// <para>
+/// <b>대 보는 것은 실행기다</b>(<c>AiTaskRunner.FileProbe</c>). 서버는
+/// 컨테이너 안이라 대상 경로를 볼 수 없다.
+/// </para>
+/// </remarks>
+public enum AiRunFileCheck
+{
+    /// <summary>댈 것이 없다 — git 이 센 줄이다.</summary>
+    None,
+
+    /// <summary>추정 줄인데 <b>아직 안 대 봤다</b>.</summary>
+    Pending,
+
+    /// <summary>대 보니 <b>실제로 있는 파일</b>이다. 경로도 온 경로로 펴져 있다.</summary>
+    Found,
+
+    /// <summary>대 보니 <b>대상에 그런 파일이 없다</b>.</summary>
+    Missing,
+
+    /// <summary>이름만 맞는 것이 <b>여럿이라 고르지 못했다</b>.</summary>
+    Ambiguous,
+}
+
 /// <summary>처리 파일 한 줄.</summary>
 /// <param name="Kind">무엇을 당했나.</param>
-/// <param name="Path">저장소 뿌리에서 본 경로. <see cref="AiRunFileKind.More"/> 면 「외 N개」 같은 글이다.</param>
+/// <param name="Path">
+/// <b>대상 위치에서 본 경로</b>(<c>ai_target.target_path</c> 다음부터).
+/// <see cref="AiRunFileKind.More"/> 면 「외 N개」 같은 글이다.
+/// </param>
 /// <param name="Derived">
 /// <b>git 이 본 것이 아니라 결과문에서 뽑아낸 줄인가.</b> 담긴 글에서 상태 칸이
-/// <c>M?</c> 처럼 <c>?</c> 로 끝나는 줄이다 — 서버가 둘을 합치면서 그 표를 단다
+/// <c>M?</c> 처럼 확인 표로 끝나는 줄이다 — 서버가 둘을 합치면서 그 표를 단다
 /// (<c>ProjMngServer.Services.AiChangedFiles</c>). 화면은 그 줄에 「추정」을 적어
 /// <b>확인된 것과 섞지 않는다</b>.
 /// </param>
-public sealed record AiRunFile(AiRunFileKind Kind, string Path, bool Derived = false)
+/// <param name="Check">그 추정 줄을 실제 파일에 대 본 결과.</param>
+public sealed record AiRunFile(
+    AiRunFileKind Kind,
+    string Path,
+    bool Derived = false,
+    AiRunFileCheck Check = AiRunFileCheck.None)
 {
     /// <summary>경로의 마지막 마디 — 화면이 굵게 쓰는 이름.</summary>
     public string Name
@@ -81,24 +122,57 @@ public sealed record AiRunFile(AiRunFileKind Kind, string Path, bool Derived = f
     /// <b>추정 줄은 색을 따로 쓴다.</b> 「추가」 배지가 확인된 것과 같은 초록으로
     /// 서면, 옆에 작게 붙은 「추정」을 못 보고 지나간 사람에게 그 줄은 <b>git 이
     /// 본 것과 구별되지 않는다</b>.
+    /// <para>
+    /// <b>없는 경로만 한 칸 더 간다</b>(<see cref="AiRunFileCheck.Missing"/>).
+    /// 그 줄은 「덜 미더운 것」이 아니라 <b>틀린 것</b>이라, 회색으로 물러서
+    /// 있으면 목록을 훑는 눈이 그냥 지나간다.
+    /// </para>
     /// </remarks>
-    public string KindClass => Derived
-        ? "pm-peek__chg-mark--guess"
-        : Kind switch
-        {
-            AiRunFileKind.Added => "pm-peek__chg-mark--add",
-            AiRunFileKind.Deleted => "pm-peek__chg-mark--del",
-            AiRunFileKind.Modified or AiRunFileKind.TypeChanged => "pm-peek__chg-mark--mod",
-            _ => "pm-peek__chg-mark--move",
-        };
+    public string KindClass => Check == AiRunFileCheck.Missing
+        ? "pm-peek__chg-mark--gone"
+        : Derived
+            ? "pm-peek__chg-mark--guess"
+            : Kind switch
+            {
+                AiRunFileKind.Added => "pm-peek__chg-mark--add",
+                AiRunFileKind.Deleted => "pm-peek__chg-mark--del",
+                AiRunFileKind.Modified or AiRunFileKind.TypeChanged => "pm-peek__chg-mark--mod",
+                _ => "pm-peek__chg-mark--move",
+            };
+
+    /// <summary>
+    /// 배지 뒤에 붙는 <b>확인 표 한 글자</b>. 색만으로는 색을 못 가리는 사람에게
+    /// 아무 말도 하지 않는다.
+    /// </summary>
+    /// <remarks>
+    /// <c>?</c> 아직 안 대 봤다 · <c>✓</c> 실제로 있다 · <c>✕</c> 그런 파일이
+    /// 없다 · <c>?</c> 이름만 맞는 것이 여럿이다(글은 줄 설명에 적는다).
+    /// </remarks>
+    public string CheckMark => Check switch
+    {
+        AiRunFileCheck.Found => "✓",
+        AiRunFileCheck.Missing => "✕",
+        AiRunFileCheck.Ambiguous => "?",
+        AiRunFileCheck.Pending => "?",
+        _ => string.Empty,
+    };
 
     /// <summary>
     /// 줄에 마우스를 올렸을 때의 설명. <b>추정 줄에만 있다</b> — 왜 이 줄이
     /// 다른 색인지는 어딘가에 적혀 있어야 한다.
     /// </summary>
-    public string Hint => Derived
-        ? $"{Path} (AI 의 결과문에서 뽑은 경로입니다. git 으로 확인되지 않았습니다.)"
-        : Path;
+    public string Hint => Check switch
+    {
+        AiRunFileCheck.Found =>
+            $"{Path} (AI 의 결과문에서 뽑은 경로입니다. 대상에 실제로 있는 파일임을 확인했습니다.)",
+        AiRunFileCheck.Missing =>
+            $"{Path} (AI 의 결과문에서 뽑은 경로인데, 대상에 그런 파일이 없습니다.)",
+        AiRunFileCheck.Ambiguous =>
+            $"{Path} (AI 의 결과문에서 뽑은 경로입니다. 같은 이름의 파일이 여럿이라 어느 것인지 가리지 못했습니다.)",
+        AiRunFileCheck.Pending =>
+            $"{Path} (AI 의 결과문에서 뽑은 경로입니다. 아직 실제 파일에 대 보지 않았습니다.)",
+        _ => Path,
+    };
 }
 
 /// <summary>
@@ -170,9 +244,12 @@ public static class AiRunFiles
                 continue;
             }
 
-            // 상태 칸이 `?` 로 끝나면 **git 이 본 것이 아니라 결과문에서 뽑은
-            // 줄**이다(`M?`). 서버가 둘을 합치면서 그 표를 단다.
-            rows.Add(new AiRunFile(KindOf(cols[0]), path, cols[0].EndsWith('?')));
+            // 상태 칸의 **마지막 한 글자가 확인 표**다 — 그것이 붙어 있으면
+            // git 이 본 것이 아니라 결과문에서 뽑은 줄이다(`M?` · `M*` ·
+            // `M!` · `M~`). 서버가 합치면서 달고, 실행기가 대 본 뒤 바꾼다.
+            var check = CheckOf(cols[0]);
+
+            rows.Add(new AiRunFile(KindOf(cols[0]), path, check != AiRunFileCheck.None, check));
         }
 
         return rows;
@@ -226,6 +303,24 @@ public static class AiRunFiles
         "…" => AiRunFileKind.More,
         _ => AiRunFileKind.Unknown,
     };
+
+    /// <summary>
+    /// 상태 칸 하나에서 <b>확인 표</b>만 읽는다 — 마지막 한 글자다.
+    /// </summary>
+    /// <remarks>
+    /// 백엔드의 <c>AiChangedFiles.CheckOf</c> 와 짝이다. <b>표가 없으면 git 이
+    /// 센 줄</b>이고, 확인 표를 쓰기 전에 쌓인 글(<c>M?</c>)은 그대로
+    /// <see cref="AiRunFileCheck.Pending"/> 으로 읽힌다.
+    /// </remarks>
+    private static AiRunFileCheck CheckOf(string mark) =>
+        (mark.Length > 1 ? mark[^1] : ' ') switch
+        {
+            '?' => AiRunFileCheck.Pending,
+            '*' => AiRunFileCheck.Found,
+            '!' => AiRunFileCheck.Missing,
+            '~' => AiRunFileCheck.Ambiguous,
+            _ => AiRunFileCheck.None,
+        };
 
     private static IEnumerable<string> Lines(string? text) =>
         string.IsNullOrWhiteSpace(text)

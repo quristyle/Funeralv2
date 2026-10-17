@@ -32,6 +32,19 @@
     <div class="pm-peek__pane">
         @if (Changed.Count > 0)
         {
+            @* **경로를 재는 뿌리를 맨 위에 한 번 적는다**(2026-10-17).
+               줄마다 적힌 것은 「대상 위치 다음부터」라, 그 뿌리를 안 적으면
+               `web/src/…` 가 어느 저장소의 것인지 화면 어디에도 없다.
+               작업마다 대상이 다르고(저장소 · 폴더 · 다른 장비) 한 사람이
+               여러 대상을 번갈아 본다. *@
+            @if (Item?.TargetPath is { Length: > 0 } root)
+            {
+                <p class="pm-peek__chg-root">
+                    <span class="pm-peek__chg-root-label">기준</span>
+                    <span class="pm-peek__chg-root-path">@root</span>
+                </p>
+            }
+
             <ul class="pm-peek__chg">
                 @foreach (var f in Changed)
                 {
@@ -43,17 +56,22 @@
                     }
                     else
                     {
-                        <li class="pm-peek__chg-row @(f.Derived ? "pm-peek__chg-row--guess" : null)">
+                        <li class="pm-peek__chg-row @RowClass(f)">
                             @if (f.KindText is { Length: > 0 } word)
                             {
-                                @* 추정 줄에는 배지 안에 「?」를 달아 둔다. 색만으로는
+                                @* 추정 줄에는 배지 안에 확인 표를 달아 둔다. 색만으로는
                                    색을 못 가리는 사람에게 아무 말도 하지 않는다. *@
-                                <span class="pm-peek__chg-mark @f.KindClass">@word@(f.Derived ? "?" : null)</span>
+                                <span class="pm-peek__chg-mark @f.KindClass">@word@f.CheckMark</span>
                             }
 
                             <span class="pm-peek__chg-path" title="@f.Hint">
                                 @if (f.Folder is { Length: > 0 } folder)
                                 {
+                                    @* **접는 일은 CSS 가 한다**(`pm-peek__chg-dir`).
+                                       글자 사이에 보이지 않는 끊을 자리(U+200B)를
+                                       넣는 길도 있지만, 그러면 **경로를 복사해
+                                       붙여넣은 사람이 안 보이는 글자를 함께
+                                       가져간다** — 그 경로로는 파일이 안 열린다. *@
                                     <span class="pm-peek__chg-dir">@folder/</span>
                                 }
 
@@ -64,13 +82,38 @@
                 }
             </ul>
 
-            @* **「추정」이 무슨 뜻인지는 어딘가에 적혀 있어야 한다.**
-               배지의 `?` 와 다른 색만으로는 「고장인가」로도 읽힌다. 추정
+            @* **확인 표가 무슨 뜻인지는 어딘가에 적혀 있어야 한다.**
+               배지의 글자와 다른 색만으로는 「고장인가」로도 읽힌다. 해당하는
                줄이 하나라도 있을 때만 선다 — git 이 다 본 건에는 할 말이 없다. *@
-            @if (GuessCount > 0)
+            @if (MissingCount > 0)
+            {
+                <p class="jsini-hint pm-peek__chg-warn">
+                    「✕」 표가 붙은 @MissingCount 건은 AI 의 결과문에서 뽑은 경로인데,
+                    대상 위치에 <b>그런 파일이 없습니다</b>. 지어낸 경로이거나 이름만 비슷한 것입니다.
+                </p>
+            }
+
+            @if (AmbiguousCount > 0)
             {
                 <p class="jsini-hint">
-                    「?」 표가 붙은 @GuessCount 건은 AI 의 결과문에서 뽑은 것입니다. git 으로는 확인되지 않았습니다.
+                    「?」 표가 붙은 @AmbiguousCount 건은 같은 이름의 파일이 여럿이라
+                    어느 것인지 가리지 못했습니다.
+                </p>
+            }
+
+            @if (FoundCount > 0)
+            {
+                <p class="jsini-hint">
+                    「✓」 표가 붙은 @FoundCount 건은 AI 의 결과문에서 뽑았지만
+                    대상 위치에 실제로 있는 파일임을 확인했습니다 (git 이 센 것은 아닙니다).
+                </p>
+            }
+
+            @if (PendingCount > 0)
+            {
+                <p class="jsini-hint">
+                    「?」 표가 붙은 @PendingCount 건은 AI 의 결과문에서 뽑은 것입니다.
+                    아직 실제 파일에 대 보지 않았습니다.
                 </p>
             }
 

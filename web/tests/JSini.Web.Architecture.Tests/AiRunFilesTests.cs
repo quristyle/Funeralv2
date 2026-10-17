@@ -147,7 +147,11 @@ public sealed class AiRunFilesTests
         // **확인된 것과 같은 색으로 세우지 않는다.** 배지에 달린 작은 「?」를
         // 못 보고 지나간 사람에게 둘이 구별되지 않는다.
         Assert.Equal("pm-peek__chg-mark--guess", rows[1].KindClass);
-        Assert.Contains("git 으로 확인되지 않았습니다", rows[1].Hint);
+
+        // 아직 대 보기 전이다 — 실행기가 대 보면 이 말이 셋 중 하나로 갈린다
+        // (「실제로 있는 파일」 · 「그런 파일이 없습니다」 · 「여럿이라」).
+        Assert.Equal(AiRunFileCheck.Pending, rows[1].Check);
+        Assert.Contains("아직 실제 파일에 대 보지 않았습니다", rows[1].Hint);
     }
 
     /// <summary>
@@ -172,5 +176,122 @@ public sealed class AiRunFilesTests
 
         Assert.True(rows[0].Derived);
         Assert.False(rows[1].Derived);
+    }
+
+    // ── 대 보기 (2026-10-17) ────────────────────────────────
+    //
+    // 추정 줄을 **실제 파일에 대 본 결과**가 상태 칸의 마지막 한 글자로 온다.
+    // 대 보는 것은 실행기고(`AiTaskRunner.FileProbe`) 이쪽은 읽어 그릴 뿐이다.
+
+    /// <summary>
+    /// 확인 표 넷을 읽는다. 백엔드의 <c>AiChangedFiles.MarkOf</c> 와 짝이다.
+    /// </summary>
+    [Theory]
+    [InlineData("M?", AiRunFileCheck.Pending)]
+    [InlineData("M*", AiRunFileCheck.Found)]
+    [InlineData("M!", AiRunFileCheck.Missing)]
+    [InlineData("M~", AiRunFileCheck.Ambiguous)]
+    [InlineData("M", AiRunFileCheck.None)]
+    public void 확인_표를_읽는다(string mark, AiRunFileCheck expected)
+    {
+        var rows = AiRunFiles.Parse($"{mark}\tweb/a.razor", diffStat: null);
+
+        Assert.Equal(expected, rows[0].Check);
+        Assert.Equal(expected != AiRunFileCheck.None, rows[0].Derived);
+        Assert.Equal(AiRunFileKind.Modified, rows[0].Kind);
+    }
+
+    /// <summary>
+    /// <b>없는 경로는 한 칸 더 간다.</b> 나머지 추정 줄은 「덜 미더운 것」이지만
+    /// 그 줄은 <b>틀린 것</b>이라, 같은 회색으로 물러서 있으면 목록을 훑는
+    /// 눈이 그냥 지나간다.
+    /// </summary>
+    [Fact]
+    public void 없는_경로는_따로_센다()
+    {
+        var rows = AiRunFiles.Parse(
+            "M*\tweb/a.razor\nA!\tAiChangedFiles.Merge\nM~\tappsettings.json", diffStat: null);
+
+        Assert.Equal("pm-peek__chg-mark--guess", rows[0].KindClass);
+        Assert.Equal("✓", rows[0].CheckMark);
+        Assert.Contains("실제로 있는 파일", rows[0].Hint);
+
+        Assert.Equal("pm-peek__chg-mark--gone", rows[1].KindClass);
+        Assert.Equal("✕", rows[1].CheckMark);
+        Assert.Contains("그런 파일이 없습니다", rows[1].Hint);
+
+        Assert.Equal("pm-peek__chg-mark--guess", rows[2].KindClass);
+        Assert.Contains("여럿이라", rows[2].Hint);
+    }
+
+    /// <summary>git 이 센 줄에는 확인 표가 없다 — 댈 것이 없다.</summary>
+    [Fact]
+    public void git_줄에는_확인_표가_없다()
+    {
+        var rows = AiRunFiles.Parse("M\tweb/a.razor", diffStat: null);
+
+        Assert.Equal(string.Empty, rows[0].CheckMark);
+        Assert.Equal("web/a.razor", rows[0].Hint);
+    }
+
+    /// <summary>
+    /// <b>경로를 재는 뿌리를 목록 맨 위에 적는다.</b> 줄마다 적힌 것은
+    /// 「대상 위치 다음부터」라, 그 줄이 없으면 어느 저장소의 것인지
+    /// 화면 어디에도 없다.
+    /// </summary>
+    [Fact]
+    public void 탭이_대상_위치를_적는다()
+    {
+        var razor = RazorSource.Read(Path.Combine(
+            RepoRoot(), "src", "Apps", "JSini.Web.ProjMng", "Components", "Shared",
+            "AiTaskFilesTab.razor"));
+
+        Assert.Contains("Item?.TargetPath", razor);
+        Assert.Contains("pm-peek__chg-root", razor);
+    }
+
+    /// <summary>
+    /// <b>긴 이름은 접힌다.</b> 꼭 모자랄 때만 끊고(`anywhere`) 앞자리는
+    /// 어디서나 끊는다(`break-all`) — 이름이 두 동강 나면 눈으로 훑어
+    /// 찾을 수가 없다.
+    /// </summary>
+    [Fact]
+    public void 긴_경로는_잘리지_않고_접힌다()
+    {
+        var css = File.ReadAllText(Path.Combine(
+            RepoRoot(), "src", "Apps", "JSini.Web.ProjMng", "wwwroot", "projmng.css"));
+
+        var name = Block(css, ".pm-peek__chg-name");
+        var dir = Block(css, ".pm-peek__chg-dir");
+
+        Assert.Contains("overflow-wrap: anywhere", name);
+        Assert.Contains("word-break: break-all", dir);
+
+        // **말줄임으로 자르지 않는다.** `rtl` 로 앞을 접어 봤더니 구분자가
+        // 반대쪽으로 옮겨 붙어 **없는 경로**가 멀쩡한 얼굴로 섰다.
+        Assert.DoesNotContain("text-overflow", Block(css, ".pm-peek__chg-path"));
+    }
+
+    private static string Block(string css, string selector)
+    {
+        var at = css.IndexOf(selector + " {", StringComparison.Ordinal);
+
+        Assert.True(at >= 0, $"{selector} 규칙이 없습니다.");
+
+        return css[at..(css.IndexOf('}', at) + 1)];
+    }
+
+    private static string RepoRoot()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+
+        while (dir is not null && !Directory.Exists(Path.Combine(dir.FullName, "src")))
+        {
+            dir = dir.Parent;
+        }
+
+        Assert.NotNull(dir);
+
+        return dir!.FullName;
     }
 }

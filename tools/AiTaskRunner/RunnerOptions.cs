@@ -112,6 +112,17 @@ public sealed class RunnerOptions
     /// </remarks>
     public int StatusSeconds { get; set; } = 180;
 
+    /// <summary>
+    /// 「처리 파일」의 추정 줄을 <b>실제 파일에 대 보는</b> 주기(초).
+    /// 0 이면 안 본다.
+    /// </summary>
+    /// <remarks>
+    /// 대 보는 일 자체는 <c>git ls-files</c> 한 번이라 싸지만, <b>대 볼 것이
+    /// 생기는 때</b>는 작업이 끝난 직후뿐이다. 너무 자주 물으면 빈 답만
+    /// 오가고, 너무 뜸하면 사람이 화면을 열었을 때 아직 「추정」으로 서 있다.
+    /// </remarks>
+    public int FileCheckSeconds { get; set; } = 45;
+
     /// <summary>로그를 모아 보내는 기준 — 줄 수와 시간 중 먼저 오는 쪽.</summary>
     public int FlushLines { get; set; } = 40;
 

@@ -49,10 +49,43 @@ public partial class AiTaskFilesTab
     private int ChangedCount => Changed.Count(f => f.Kind != AiRunFileKind.More);
 
     /// <summary>
-    /// 그중 <b>결과문에서 뽑은 줄</b>이 몇인가. 목록 아래의 한 줄이 이 수로
-    /// 설지 말지가 갈린다(<see cref="AiRunFile.Derived"/>).
+    /// 대 본 결과가 <paramref name="check"/> 인 줄이 몇인가. 목록 아래의 설명
+    /// 줄들이 이 수로 설지 말지가 갈린다.
     /// </summary>
-    private int GuessCount => Changed.Count(f => f.Derived && f.Kind != AiRunFileKind.More);
+    /// <remarks>
+    /// <b>「외 N개」 줄은 빼고 센다</b> — 그 줄에는 확인 표를 안 붙이므로
+    /// 걸릴 일이 없지만, 세는 자리마다 같은 조건을 적어 두어야 상한에 걸린
+    /// 건에서 수가 하나씩 어긋나지 않는다.
+    /// </remarks>
+    private int CountOf(AiRunFileCheck check) =>
+        Changed.Count(f => f.Check == check && f.Kind != AiRunFileKind.More);
+
+    /// <summary>대 보니 <b>그런 파일이 없는</b> 줄. 가장 먼저 말해야 하는 수다.</summary>
+    private int MissingCount => CountOf(AiRunFileCheck.Missing);
+
+    /// <summary>이름만 맞는 것이 여럿이라 못 고른 줄.</summary>
+    private int AmbiguousCount => CountOf(AiRunFileCheck.Ambiguous);
+
+    /// <summary>대 보니 실제로 있는 파일이던 줄.</summary>
+    private int FoundCount => CountOf(AiRunFileCheck.Found);
+
+    /// <summary>아직 안 대 본 줄. 실행기가 곧 대 본다.</summary>
+    private int PendingCount => CountOf(AiRunFileCheck.Pending);
+
+    /// <summary>
+    /// 줄 한 장에 걸 꾸밈 이름.
+    /// </summary>
+    /// <remarks>
+    /// <b>없는 경로만 따로 센다.</b> 나머지 추정 줄은 「덜 미더운 것」이라
+    /// 점선으로 물러서 있으면 되지만, 없는 경로는 <b>틀린 것</b>이라 같은
+    /// 모습으로 두면 목록을 훑는 눈이 그냥 지나간다.
+    /// </remarks>
+    private static string? RowClass(AiRunFile f) => f.Check switch
+    {
+        AiRunFileCheck.Missing => "pm-peek__chg-row--gone",
+        AiRunFileCheck.None => null,
+        _ => "pm-peek__chg-row--guess",
+    };
 
     /// <summary>
     /// 탭에 적을 이름. <b>개수를 여기 적는다</b> — 건너오기 전에도

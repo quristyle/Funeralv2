@@ -975,15 +975,24 @@ public sealed class AiTaskNotifier(
     /// 지어낸 말보다 낫다.
     /// </summary>
     /// <remarks>
-    /// <b>뒤의 <c>?</c> 는 「추정」이다</b>(<c>M?</c>) — git 이 본 것이 아니라
-    /// 결과문에서 뽑은 줄이고(<see cref="AiChangedFiles"/>), 메일에서도 그렇게
-    /// 적어야 받는 사람이 둘을 섞지 않는다. <c>-</c> 는 갈래를 모르는 줄이라
-    /// 말을 붙이지 않는다.
+    /// <para>
+    /// <b>뒤에 붙은 한 글자는 확인 표다</b> — git 이 본 것이 아니라 결과문에서
+    /// 뽑은 줄이고(<see cref="AiChangedFiles"/>), 실행기가 그것을 실제 파일에
+    /// 대 본 결과가 거기 적힌다. 메일에서도 그렇게 적어야 받는 사람이 셋을
+    /// 섞지 않는다. <c>-</c> 는 갈래를 모르는 줄이라 말을 붙이지 않는다.
+    /// </para>
+    /// <para>
+    /// <b>없는 경로를 숨기지 않는다.</b> 메일은 목록을 훑고 마는 자리라
+    /// 빼 버리면 「AI 가 고쳤다고 적었는데 그런 파일이 없다」는 사실이
+    /// 아무 데도 안 남는다 — 화면과 같은 판단이다.
+    /// </para>
     /// </remarks>
     private static string ChangeWord(string mark)
     {
-        var guess = mark.EndsWith('?');
-        var word = (guess ? mark[..^1] : mark) switch
+        var check = AiChangedFiles.CheckOf(mark);
+        var head = check == AiChangedFileCheck.None ? mark : mark[..^1];
+
+        var word = head switch
         {
             "A" => "추가",
             "M" => "수정",
@@ -995,7 +1004,14 @@ public sealed class AiTaskNotifier(
             var other => other,
         };
 
-        return guess ? $"{word}·추정" : word;
+        return check switch
+        {
+            AiChangedFileCheck.Pending => $"{word}·추정",
+            AiChangedFileCheck.Found => $"{word}·추정(파일 있음)",
+            AiChangedFileCheck.Missing => $"{word}·추정(없는 경로)",
+            AiChangedFileCheck.Ambiguous => $"{word}·추정(여러 곳)",
+            _ => word,
+        };
     }
 
     /// <summary>한 줄짜리 알림 칸 — 배포·브랜치처럼 짧은 사실.</summary>

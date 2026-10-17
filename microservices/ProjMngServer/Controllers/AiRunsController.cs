@@ -243,6 +243,43 @@ public sealed class AiRunnerController(
         return Ok(ApiResponse<int>.Ok(saved));
     }
 
+    // ── 처리 파일 대 보기 ───────────────────────────────────
+    //
+    // 바로 위의 둘과 **같은 까닭으로 여기 있다** — 서버는 대상 경로를 볼 수
+    // 없다. 「AI 결과문에서 뽑은 그 경로가 정말 있는 파일인가」에 답할 수
+    // 있는 것은 호스트에 상주하는 실행기뿐이다
+    // (<c>AiRunFileCheckService</c> 머리말).
+
+    /// <summary>이 장비가 대 볼 추정 경로들.</summary>
+    [HttpGet("file-checks")]
+    public async Task<IActionResult> FileChecksAsync(
+        [FromQuery] string? runnerName, [FromServices] AiRunFileCheckService checks, CancellationToken ct)
+    {
+        if (RunnerTokenBad() is { } bad)
+        {
+            return bad;
+        }
+
+        var jobs = await checks.PendingAsync(runnerName ?? "runner", ct);
+        return Ok(ApiResponse<List<AiRunFileCheckJob>>.Ok(jobs));
+    }
+
+    /// <summary>대 본 결과를 받아 새긴다.</summary>
+    [HttpPost("file-checks")]
+    public async Task<IActionResult> FileChecksReportAsync(
+        [FromBody] FileCheckRequest req,
+        [FromServices] AiRunFileCheckService checks,
+        CancellationToken ct)
+    {
+        if (RunnerTokenBad() is { } bad)
+        {
+            return bad;
+        }
+
+        var saved = await checks.ApplyAsync(req.RunnerName ?? "runner", req.Items ?? [], ct);
+        return Ok(ApiResponse<int>.Ok(saved));
+    }
+
     /// <summary>
     /// 장비 토큰을 본다. 틀리면 그 응답을, 맞으면 <c>null</c> 을 돌려준다.
     /// </summary>
@@ -282,5 +319,12 @@ public sealed class AiRunnerController(
         public string? RunnerName { get; set; }
 
         public List<AiTargetStatus>? Items { get; set; }
+    }
+
+    public sealed class FileCheckRequest
+    {
+        public string? RunnerName { get; set; }
+
+        public List<AiRunFileCheckReport>? Items { get; set; }
     }
 }

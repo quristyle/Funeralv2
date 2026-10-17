@@ -59,12 +59,18 @@ public sealed class AiRunFileWriter(
         {
             await using var db = new NpgsqlConnection(_connectionString);
 
+            // **대상 위치까지 읽는다.** 모델이 결과문에 온 경로를 적어 오면
+            // 그 뿌리를 떼 내야 「대상 위치 다음부터」가 된다
+            // (<see cref="AiChangedFiles.Normalize"/>).
             var row = await db.QuerySingleOrDefaultAsync<FileRow>(new CommandDefinition("""
                 SELECT r.instruction     AS Instruction,
                        r.result_text     AS ResultText,
                        r.changed_files   AS ChangedFiles,
-                       r.files_merged_at AS MergedAt
+                       r.files_merged_at AS MergedAt,
+                       g.target_path     AS TargetPath
                   FROM projmng.ai_task_run r
+                  JOIN projmng.ai_task t   ON t.task_key   = r.task_key
+                  JOIN projmng.ai_target g ON g.target_key = t.target_key
                  WHERE r.run_key = @runKey
                 """, new { runKey }, cancellationToken: ct));
 
@@ -87,7 +93,8 @@ public sealed class AiRunFileWriter(
             // **경로만 적힌 목록이지만 가리는 손길은 거친다.** 작업공간 경로에
             // 사람 이름이나 토큰이 섞여 들어온 적이 있다(`AiRunService.CompleteAsync`
             // 가 실행기 쪽 값에 같은 일을 한다).
-            var merged = SecretMask.Apply(AiChangedFiles.Merge(row.ChangedFiles, derived));
+            var merged = SecretMask.Apply(
+                AiChangedFiles.Merge(row.ChangedFiles, derived, row.TargetPath));
 
             await db.ExecuteAsync(new CommandDefinition("""
                 UPDATE projmng.ai_task_run
@@ -129,5 +136,8 @@ public sealed class AiRunFileWriter(
         public string? ChangedFiles { get; set; }
 
         public DateTime? MergedAt { get; set; }
+
+        /// <summary>대상 위치 — 경로를 재는 뿌리다.</summary>
+        public string? TargetPath { get; set; }
     }
 }

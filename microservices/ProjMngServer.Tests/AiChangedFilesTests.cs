@@ -190,4 +190,139 @@ public class AiChangedFilesTests
         Assert.Equal(AiChangedFileKind.More, rows[^1].Kind);
         Assert.Equal("외 50개", rows[^1].Path);
     }
+
+    // ── 대 보기 (2026-10-17) ────────────────────────────────
+    //
+    // 결과문에서 뽑은 경로에는 **파일이 아닌 것**과 **마디가 빠진 것**이
+    // 섞여 든다. 실제로 대 보는 것은 실행기지만(`AiTaskRunner.FileProbe` —
+    // 서버는 컨테이너 안이라 대상 경로를 못 본다) 그 답을 목록에 새기는
+    // 규칙은 여기 있다.
+
+    /// <summary>
+    /// <b>대상 위치를 알면 그 뿌리를 뗀다.</b> 모델은 결과문에 장비의 온
+    /// 경로를 그대로 옮겨 적는 일이 잦다.
+    /// </summary>
+    [Theory]
+    [InlineData("/home/lee/Funeralv2/web/a.razor", "/home/lee/Funeralv2", "web/a.razor")]
+    [InlineData("/home/lee/Funeralv2/web/a.razor", "/home/lee/Funeralv2/", "web/a.razor")]
+    [InlineData("/home/lee/Other/web/a.razor", "/home/lee/Funeralv2", "home/lee/Other/web/a.razor")]
+    [InlineData("web/a.razor", "/home/lee/Funeralv2", "web/a.razor")]
+    public void 대상_위치를_떼_낸다(string raw, string target, string expected)
+        => Assert.Equal(expected, AiChangedFiles.Normalize(raw, target));
+
+    /// <summary>
+    /// 뿌리 이름이 <b>겹치는 데까지만 같은</b> 경로는 떼지 않는다 —
+    /// <c>/home/lee/Funeralv2x/…</c> 는 다른 자리다.
+    /// </summary>
+    [Fact]
+    public void 뿌리와_이름만_닮은_경로는_안_뗀다()
+        => Assert.Equal(
+            "home/lee/Funeralv2x/web/a.razor",
+            AiChangedFiles.Normalize("/home/lee/Funeralv2x/web/a.razor", "/home/lee/Funeralv2"));
+
+    /// <summary>합친 직후의 추정 줄은 <b>아직 안 대 본 것</b>이다.</summary>
+    [Fact]
+    public void 합친_직후의_추정_줄은_아직이다()
+    {
+        var rows = AiChangedFiles.Parse(AiChangedFiles.Merge(
+            null, [new AiChangedFile(AiChangedFileKind.Modified, "web/a.razor", Derived: true)]));
+
+        Assert.Equal(AiChangedFileCheck.Pending, rows[0].Check);
+    }
+
+    /// <summary>확인 표 넷이 <b>글자로 오간다.</b> 적는 쪽과 읽는 쪽이 짝이다.</summary>
+    [Theory]
+    [InlineData(AiChangedFileCheck.Pending, "M?")]
+    [InlineData(AiChangedFileCheck.Found, "M*")]
+    [InlineData(AiChangedFileCheck.Missing, "M!")]
+    [InlineData(AiChangedFileCheck.Ambiguous, "M~")]
+    public void 확인_표를_적고_되읽는다(AiChangedFileCheck check, string mark)
+    {
+        Assert.Equal(mark, AiChangedFiles.MarkOf(AiChangedFileKind.Modified, derived: true, check));
+        Assert.Equal(check, AiChangedFiles.CheckOf(mark));
+        Assert.Equal(AiChangedFileKind.Modified, AiChangedFiles.KindOf(mark));
+    }
+
+    /// <summary>git 이 센 줄에는 표가 없다 — 댈 것이 없다.</summary>
+    [Fact]
+    public void git_줄에는_확인_표가_없다()
+    {
+        Assert.Equal("M", AiChangedFiles.MarkOf(AiChangedFileKind.Modified, derived: false));
+        Assert.Equal(AiChangedFileCheck.None, AiChangedFiles.CheckOf("M"));
+    }
+
+    /// <summary>
+    /// 대 본 결과가 <b>표를 바꾸고 반 마디짜리 경로를 편다.</b>
+    /// </summary>
+    [Fact]
+    public void 대_본_결과가_표와_경로를_고친다()
+    {
+        var next = AiChangedFiles.ApplyChecks(
+            "M?\tweb/AiAskPanel.razor\nA?\tAiChangedFiles.Merge",
+            new Dictionary<string, (string, AiChangedFileCheck)>
+            {
+                ["web/AiAskPanel.razor"] =
+                    ("web/src/Apps/JSini.Web.ProjMng/Components/Shared/AiAskPanel.razor",
+                     AiChangedFileCheck.Found),
+                ["AiChangedFiles.Merge"] = (string.Empty, AiChangedFileCheck.Missing),
+            });
+
+        Assert.Equal(
+            "M*\tweb/src/Apps/JSini.Web.ProjMng/Components/Shared/AiAskPanel.razor\n"
+            + "A!\tAiChangedFiles.Merge",
+            next);
+    }
+
+    /// <summary>
+    /// <b>펴고 나니 git 줄과 같아지면 그 줄을 버린다.</b> 안 버리면 같은
+    /// 파일이 「수정」과 「수정·추정」 두 줄로 선다.
+    /// </summary>
+    [Fact]
+    public void 펴서_겹치면_git_줄만_남는다() => Assert.Equal(
+        "M\tweb/src/Shared/AiAskPanel.razor",
+        AiChangedFiles.ApplyChecks(
+            "M\tweb/src/Shared/AiAskPanel.razor\nM?\tweb/AiAskPanel.razor",
+            new Dictionary<string, (string, AiChangedFileCheck)>
+            {
+                ["web/AiAskPanel.razor"] =
+                    ("web/src/Shared/AiAskPanel.razor", AiChangedFileCheck.Found),
+            }));
+
+    /// <summary>
+    /// <b>답이 안 온 줄은 그대로 둔다</b> — 「아직」인 채 남아 다음 바퀴에
+    /// 다시 물린다. 아무것도 안 바뀌었으면 널이라 헛 UPDATE 를 안 친다.
+    /// </summary>
+    [Fact]
+    public void 답이_없으면_그대로고_널이다()
+    {
+        Assert.Null(AiChangedFiles.ApplyChecks(
+            "M?\tweb/a.razor",
+            new Dictionary<string, (string, AiChangedFileCheck)>
+            {
+                ["docs/other.md"] = (string.Empty, AiChangedFileCheck.Missing),
+            }));
+
+        Assert.Null(AiChangedFiles.ApplyChecks(
+            null, new Dictionary<string, (string, AiChangedFileCheck)>()));
+    }
+
+    /// <summary>
+    /// 「외 N개」 줄에는 <b>확인 표를 붙이지 않는다</b> — 그 줄은 파일이 아니다.
+    /// </summary>
+    [Fact]
+    public void 외_N개_줄은_대_보지_않는다()
+    {
+        Assert.Equal(
+            "…",
+            AiChangedFiles.MarkOf(AiChangedFileKind.More, derived: true, AiChangedFileCheck.Missing));
+
+        var next = AiChangedFiles.ApplyChecks(
+            "M?\tweb/a.razor\n…\t외 3개",
+            new Dictionary<string, (string, AiChangedFileCheck)>
+            {
+                ["web/a.razor"] = ("web/a.razor", AiChangedFileCheck.Found),
+            });
+
+        Assert.Equal("M*\tweb/a.razor\n…\t외 3개", next);
+    }
 }

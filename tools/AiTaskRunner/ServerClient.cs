@@ -190,6 +190,74 @@ public sealed class ServerClient(HttpClient http, RunnerOptions options, ILogger
         }
     }
 
+    // ── 처리 파일 대 보기 ───────────────────────────────────
+    //
+    // 바로 위의 둘(대상 상태)과 **같은 까닭**이다 — 서버는 컨테이너 안이라
+    // 대상 경로를 볼 수 없다. 「AI 결과문에서 뽑은 그 경로가 정말 있는
+    // 파일인가」는 호스트에 있는 쪽만 답할 수 있다(<see cref="FileProbe"/>).
+
+    /// <summary>대 볼 것이 있나 물어본다. 없으면 빈 목록이다.</summary>
+    public async Task<List<FileCheckJob>> FileCheckJobsAsync(CancellationToken ct)
+    {
+        try
+        {
+            using var req = new HttpRequestMessage(
+                HttpMethod.Get,
+                $"/api/ai-runner/file-checks?runnerName={Uri.EscapeDataString(options.Name)}");
+
+            req.Headers.Add("X-AiTask-Token", options.RunnerToken);
+
+            using var res = await http.SendAsync(req, ct);
+
+            if (!res.IsSuccessStatusCode)
+            {
+                // **404 는 고장이 아니다.** 서버가 이 길을 아직 모르는 판일 수
+                // 있다(실행기와 서버가 따로 배포된다).
+                logger.LogDebug("대 볼 목록을 받지 못했습니다: HTTP {Code}", (int)res.StatusCode);
+                return [];
+            }
+
+            var body = await res.Content.ReadFromJsonAsync<Envelope<FileCheckJob>>(Json, ct);
+            return body?.Data?.Result ?? [];
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogDebug("대 볼 목록을 묻지 못했습니다: {Message}", ex.Message);
+            return [];
+        }
+    }
+
+    /// <summary>대 본 결과를 올린다. <b>못 올려도 다음 바퀴에 다시 묻는다.</b></summary>
+    public async Task ReportFileChecksAsync(IReadOnlyList<FileCheckReport> items, CancellationToken ct)
+    {
+        if (items.Count == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            using var req = new HttpRequestMessage(HttpMethod.Post, "/api/ai-runner/file-checks")
+            {
+                Content = JsonContent.Create(
+                    new { runnerName = options.Name, items }, options: Json),
+            };
+
+            req.Headers.Add("X-AiTask-Token", options.RunnerToken);
+
+            using var res = await http.SendAsync(req, ct);
+
+            if (!res.IsSuccessStatusCode)
+            {
+                logger.LogDebug("대 본 결과를 거절당했습니다: HTTP {Code}", (int)res.StatusCode);
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogDebug("대 본 결과를 올리지 못했습니다: {Message}", ex.Message);
+        }
+    }
+
     /// <summary>살아 있다고 알린다. 취소 요청이 왔으면 참을 돌려준다.</summary>
     /// <returns>
     /// <c>null</c> 이면 <b>서버가 이 실행을 모른다</b>(끝났거나 토큰이 다르다).
@@ -395,6 +463,43 @@ public sealed class ServerClient(HttpClient http, RunnerOptions options, ILogger
 
         /// <summary>마지막으로 본 시각. <b>서버가 찍은 값</b>이다.</summary>
         public DateTime? ProbedAt { get; set; }
+    }
+
+    /// <summary>대 볼 실행 한 건.</summary>
+    public sealed class FileCheckJob
+    {
+        public long RunKey { get; set; }
+
+        /// <summary>대상 위치 — <b>경로를 재는 뿌리</b>다.</summary>
+        public string? TargetPath { get; set; }
+
+        public string? TargetKind { get; set; }
+
+        /// <summary>그때 일하던 자리. 아직 남아 있으면 거기도 본다.</summary>
+        public string? WorkspacePath { get; set; }
+
+        /// <summary>그때 쓰던 가지. 대상 작업본이 뒤처져 있어도 거기서는 보인다.</summary>
+        public string? GitBranch { get; set; }
+
+        public List<string> Paths { get; set; } = [];
+    }
+
+    /// <summary>한 실행에 대한 답 묶음.</summary>
+    public sealed class FileCheckReport
+    {
+        public long RunKey { get; set; }
+
+        public List<FileCheckAnswer> Results { get; set; } = [];
+    }
+
+    /// <summary>한 줄의 답. <c>state</c> 는 <c>found</c>·<c>missing</c>·<c>ambiguous</c>.</summary>
+    public sealed class FileCheckAnswer
+    {
+        public string Raw { get; set; } = string.Empty;
+
+        public string Path { get; set; } = string.Empty;
+
+        public string State { get; set; } = "missing";
     }
 
     public sealed class Target

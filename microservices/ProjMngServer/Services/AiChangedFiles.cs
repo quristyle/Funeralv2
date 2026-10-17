@@ -29,14 +29,67 @@ public enum AiChangedFileKind
     More,
 }
 
+/// <summary>
+/// 추정 줄을 <b>실제 파일에 대 보았나, 대 보았으면 무엇이었나.</b>
+/// </summary>
+/// <remarks>
+/// <para>
+/// <b>왜 필요한가 (2026-10-17).</b> 결과문에서 뽑은 경로는 모델이 글을 읽고
+/// 적은 것이라 <b>파일이 아닌 것이 섞인다.</b> 운영에 쌓인 추정 줄을 훑어
+/// 보니 <c>AiChangedFiles.Merge</c>(메서드 이름) ·
+/// <c>projmng.ai_task_run.files_merged_at</c>(DB 칸 이름) 같은 것이 그대로
+/// 「처리 파일」로 서 있었고, 반대로 <c>web/AiAskPanel.razor</c> 처럼
+/// <b>중간 마디가 빠진 경로</b>도 흔했다(참값은
+/// <c>web/src/Apps/JSini.Web.ProjMng/Components/Shared/AiAskPanel.razor</c>).
+/// </para>
+/// <para>
+/// <b>대 보는 것은 실행기다.</b> 서버는 컨테이너 안이라 대상 경로를 볼 수
+/// 없다(<c>AiRunnerController</c> 의 「대상의 git 상태」와 같은 까닭).
+/// 실행기가 저장소 목록에 대 보고 <see cref="Found"/> · <see cref="Missing"/> ·
+/// <see cref="Ambiguous"/> 중 하나로 답한다.
+/// </para>
+/// </remarks>
+public enum AiChangedFileCheck
+{
+    /// <summary>댈 것이 없다 — git 이 센 줄이다.</summary>
+    None,
+
+    /// <summary>추정 줄인데 <b>아직 안 대 봤다</b>(<c>M?</c>).</summary>
+    Pending,
+
+    /// <summary>
+    /// 대 보니 <b>실제로 있는 파일</b>이다(<c>M*</c>). 경로가 반 마디였으면
+    /// 이때 <b>온 경로로 고쳐져</b> 있다.
+    /// </summary>
+    Found,
+
+    /// <summary>대 보니 <b>대상에 그런 파일이 없다</b>(<c>M!</c>).</summary>
+    Missing,
+
+    /// <summary>
+    /// 이름만 맞는 것이 <b>여럿이라 고르지 못했다</b>(<c>M~</c>).
+    /// <c>appsettings.json</c> 처럼 저장소에 열넷씩 있는 이름이 여기로 온다.
+    /// </summary>
+    Ambiguous,
+}
+
 /// <summary>처리 파일 한 줄.</summary>
 /// <param name="Kind">무엇을 당했나.</param>
 /// <param name="Path">저장소 뿌리에서 본 경로.</param>
 /// <param name="Derived">
 /// <b>git 이 본 것이 아니라 결과문에서 뽑아낸 것인가.</b> 참이면 상태 글자 뒤에
-/// <c>?</c> 가 붙어 저장된다(<c>M?</c>) — 화면과 메일이 그것을 「추정」으로 적는다.
+/// 확인 표가 하나 붙어 저장된다(<c>M?</c> · <c>M*</c> · <c>M!</c> · <c>M~</c>) —
+/// 화면과 메일이 그것을 「추정」으로 적는다.
 /// </param>
-public sealed record AiChangedFile(AiChangedFileKind Kind, string Path, bool Derived = false);
+/// <param name="Check">
+/// 그 추정 줄을 실제 파일에 대 본 결과. <see cref="Derived"/> 가 거짓이면
+/// 언제나 <see cref="AiChangedFileCheck.None"/> 이다.
+/// </param>
+public sealed record AiChangedFile(
+    AiChangedFileKind Kind,
+    string Path,
+    bool Derived = false,
+    AiChangedFileCheck Check = AiChangedFileCheck.None);
 
 /// <summary>
 /// 「처리 파일」 목록을 <b>읽고 · 합치고 · 적는</b> 규칙 한 벌.
@@ -100,8 +153,10 @@ public static class AiChangedFiles
             }
 
             var mark = cols[0];
+            var check = CheckOf(mark);
 
-            rows.Add(new AiChangedFile(KindOf(mark), path, mark.EndsWith('?')));
+            rows.Add(new AiChangedFile(
+                KindOf(mark), path, check != AiChangedFileCheck.None, check));
         }
 
         return rows;
@@ -129,7 +184,12 @@ public static class AiChangedFiles
     /// </remarks>
     /// <param name="gitText">실행기가 보내 온 정본 글. 없을 수 있다.</param>
     /// <param name="derived">결과문에서 뽑은 것. 없을 수 있다.</param>
-    public static string? Merge(string? gitText, IReadOnlyList<AiChangedFile>? derived)
+    /// <param name="targetPath">
+    /// 이 작업의 대상 위치. 모델이 적어 준 <b>온 경로에서 이것을 떼</b>
+    /// 「대상 위치 다음부터」로 맞춘다(<see cref="Normalize"/>).
+    /// </param>
+    public static string? Merge(
+        string? gitText, IReadOnlyList<AiChangedFile>? derived, string? targetPath = null)
     {
         var merged = new List<AiChangedFile>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -151,12 +211,14 @@ public static class AiChangedFiles
 
         foreach (var row in derived ?? [])
         {
-            if (Normalize(row.Path) is not { } path || !seen.Add(path))
+            if (Normalize(row.Path, targetPath) is not { } path || !seen.Add(path))
             {
                 continue;
             }
 
-            merged.Add(row with { Path = path, Derived = true });
+            // **합치는 자리에서는 아직 아무것도 대 보지 않았다.** 대 보는 것은
+            // 실행기고(<c>AiRunFileCheckService</c>), 그 답이 오면 표가 바뀐다.
+            merged.Add(row with { Path = path, Derived = true, Check = AiChangedFileCheck.Pending });
         }
 
         if (merged.Count == 0)
@@ -192,7 +254,7 @@ public static class AiChangedFiles
                 sb.Append('\n');
             }
 
-            sb.Append(MarkOf(row.Kind, row.Derived)).Append('\t').Append(row.Path);
+            sb.Append(MarkOf(row.Kind, row.Derived, row.Check)).Append('\t').Append(row.Path);
         }
 
         return sb.ToString();
@@ -202,12 +264,26 @@ public static class AiChangedFiles
     /// 모델이 준 경로를 쓸 수 있는 꼴로. <b>경로가 아니면 널이다.</b>
     /// </summary>
     /// <remarks>
+    /// <para>
     /// 모델은 <c>./web/x.razor</c> · <c>/home/lee/…/web/x.razor</c> ·
     /// <c>`web/x.razor`</c> 처럼 제각각으로 적는다. 앞머리와 따옴표를 떼고
     /// 역슬래시를 세워 <b>git 이 적은 것과 같은 모양</b>으로 맞춰야 중복이
     /// 걸러진다 — 안 맞추면 같은 파일이 두 줄로 선다.
+    /// </para>
+    /// <para>
+    /// <b>대상 경로를 알면 그것부터 뗀다</b>(2026-10-17). 모델은 결과문에
+    /// <c>/home/lee/Funeralv2/web/x.razor</c> 처럼 <b>장비의 온 경로</b>를
+    /// 그대로 옮겨 적는 일이 잦은데, 그것을 모르면 앞의 <c>/</c> 만 떨어져
+    /// <c>home/lee/Funeralv2/web/x.razor</c> 라는 <b>없는 경로</b>가 선다.
+    /// 「대상 위치 다음부터」가 화면이 적어야 할 경로다.
+    /// </para>
     /// </remarks>
-    public static string? Normalize(string? raw)
+    /// <param name="raw">모델이 적어 준 날것.</param>
+    /// <param name="targetPath">
+    /// 이 작업의 대상 위치(<c>ai_target.target_path</c>). 없으면 안 떼고,
+    /// 작업공간 뿌리를 떼는 옛 규칙만 걸린다.
+    /// </param>
+    public static string? Normalize(string? raw, string? targetPath = null)
     {
         var path = (raw ?? string.Empty).Trim().Trim('`', '"', '\'', ' ');
 
@@ -217,6 +293,20 @@ public static class AiChangedFiles
         }
 
         path = path.Replace('\\', '/');
+
+        // **대상 위치가 먼저다.** 알고 있는 뿌리를 떼는 쪽이 짐작보다 정확하다.
+        if (targetPath is { Length: > 0 } root)
+        {
+            var head = root.Replace('\\', '/').TrimEnd('/');
+
+            if (head.Length > 0
+                && path.Length > head.Length + 1
+                && path[head.Length] == '/'
+                && path.StartsWith(head, StringComparison.Ordinal))
+            {
+                path = path[(head.Length + 1)..];
+            }
+        }
 
         // 절대 경로는 작업공간 뿌리를 떼 낸다 — 뿌리 이름은 실행마다 다르므로
         // 알아낼 수 없고, 저장소 안의 자리만 남기면 git 쪽과 맞는다.
@@ -288,10 +378,34 @@ public static class AiChangedFiles
         };
 
     /// <summary>
-    /// 갈래를 상태 칸 글자로. <b>추정이면 <c>?</c> 를 붙인다</b> — 옛 읽개도
+    /// 상태 칸 하나에서 <b>확인 표</b>만 읽는다.
+    /// </summary>
+    /// <remarks>
+    /// 마지막 한 글자다 — <c>?</c> 아직 · <c>*</c> 있음 · <c>!</c> 없음 ·
+    /// <c>~</c> 여럿. 표가 없으면 git 이 센 줄이라
+    /// <see cref="AiChangedFileCheck.None"/> 이다.
+    /// </remarks>
+    public static AiChangedFileCheck CheckOf(string? mark) =>
+        (mark is { Length: > 1 } m ? m[^1] : ' ') switch
+        {
+            '?' => AiChangedFileCheck.Pending,
+            '*' => AiChangedFileCheck.Found,
+            '!' => AiChangedFileCheck.Missing,
+            '~' => AiChangedFileCheck.Ambiguous,
+            _ => AiChangedFileCheck.None,
+        };
+
+    /// <summary>
+    /// 갈래를 상태 칸 글자로. <b>추정이면 확인 표를 하나 붙인다</b> — 옛 읽개도
     /// 앞 한 글자만 보므로 그대로 읽히고(뜻만 모른다), 새 읽개는 그 표를 본다.
     /// </summary>
-    public static string MarkOf(AiChangedFileKind kind, bool derived)
+    /// <remarks>
+    /// 표는 넷이다. <c>?</c> 아직 안 대 봤다 · <c>*</c> 대 보니 있다 ·
+    /// <c>!</c> 대 보니 없다 · <c>~</c> 이름만 맞는 것이 여럿이라 못 골랐다.
+    /// <b>확인 표를 안 쓰던 때의 글(<c>M?</c>)은 그대로 「아직」으로 읽힌다.</b>
+    /// </remarks>
+    public static string MarkOf(
+        AiChangedFileKind kind, bool derived, AiChangedFileCheck check = AiChangedFileCheck.Pending)
     {
         var mark = kind switch
         {
@@ -310,7 +424,97 @@ public static class AiChangedFiles
         };
 
         // 「외 N개」 줄에는 추정 표를 붙이지 않는다. 그 줄은 파일이 아니다.
-        return derived && kind != AiChangedFileKind.More ? mark + "?" : mark;
+        if (!derived || kind == AiChangedFileKind.More)
+        {
+            return mark;
+        }
+
+        return mark + check switch
+        {
+            AiChangedFileCheck.Found => "*",
+            AiChangedFileCheck.Missing => "!",
+            AiChangedFileCheck.Ambiguous => "~",
+            _ => "?",
+        };
+    }
+
+    /// <summary>
+    /// <b>대 본 결과를 목록에 새긴다.</b> 실행기가 돌려준 답
+    /// (<c>AiRunFileCheckService.ApplyAsync</c>)이 여기로 온다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 하는 일이 둘이다. ① 추정 줄의 <b>확인 표</b>를 바꾸고, ② 반 마디였던
+    /// 경로를 <b>실행기가 찾아 준 온 경로로 고친다</b>.
+    /// </para>
+    /// <para>
+    /// <b>고치고 나면 겹칠 수 있다.</b> <c>web/AiAskPanel.razor</c> 가
+    /// <c>web/src/…/AiAskPanel.razor</c> 로 펴지면 git 이 이미 센 줄과 같아진다 —
+    /// 그때는 <b>git 줄만 남긴다</b>(합칠 때와 같은 규칙). 추정끼리 겹쳐도
+    /// 앞의 것만 남는다.
+    /// </para>
+    /// <para>
+    /// <b>답이 안 온 줄은 그대로 둔다</b> — 「아직」인 채로 남아 다음 바퀴에
+    /// 다시 물린다. 아무것도 안 바뀌었으면 <c>null</c> 이라, 부르는 쪽이
+    /// 헛 UPDATE 를 치지 않는다.
+    /// </para>
+    /// </remarks>
+    /// <param name="text">지금 적혀 있는 글.</param>
+    /// <param name="results">날것 경로 → (찾은 경로, 결과).</param>
+    public static string? ApplyChecks(
+        string? text, IReadOnlyDictionary<string, (string Path, AiChangedFileCheck Check)> results)
+    {
+        var rows = Parse(text);
+
+        if (rows.Count == 0 || results.Count == 0)
+        {
+            return null;
+        }
+
+        var kept = new List<AiChangedFile>(rows.Count);
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        var changed = false;
+
+        // git 줄이 먼저 자리를 잡아야 **펴진 추정 줄이 그 위로 겹치지 않는다.**
+        foreach (var row in rows.Where(r => !r.Derived && r.Kind != AiChangedFileKind.More))
+        {
+            seen.Add(row.Path);
+        }
+
+        foreach (var row in rows)
+        {
+            if (row.Kind == AiChangedFileKind.More || !row.Derived)
+            {
+                kept.Add(row);
+                continue;
+            }
+
+            if (!results.TryGetValue(row.Path, out var found))
+            {
+                kept.Add(row);
+                continue;
+            }
+
+            var path = found.Check == AiChangedFileCheck.Found && found.Path.Length > 0
+                ? found.Path
+                : row.Path;
+
+            if (!seen.Add(path))
+            {
+                // 펴 놓고 보니 이미 있는 줄이다. **지우는 것도 바뀐 것이다.**
+                changed = true;
+                continue;
+            }
+
+            if (path != row.Path || found.Check != row.Check)
+            {
+                changed = true;
+            }
+
+            kept.Add(row with { Path = path, Check = found.Check });
+        }
+
+        return changed ? Format(kept) : null;
     }
 
     private static IEnumerable<string> Lines(string? text) =>

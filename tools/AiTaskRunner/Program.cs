@@ -60,6 +60,7 @@ builder.Services.AddHttpClient("usage", client =>
 
 builder.Services.AddSingleton<Workspace>();
 builder.Services.AddSingleton<GitProbe>();
+builder.Services.AddSingleton<FileProbe>();
 builder.Services.AddSingleton<CliRunner>();
 builder.Services.AddSingleton<PushGate>();
 builder.Services.AddSingleton<QueueListener>();
@@ -73,6 +74,11 @@ builder.Services.AddHostedService<UsageReporter>();
 // 없다**(컨테이너 안이고 경로는 호스트의 것) — 「대상 git 상태」 화면이 읽는
 // 값을 이쪽이 만든다(설계 11.7).
 builder.Services.AddHostedService<TargetStatusWorker>();
+
+// 「처리 파일」의 추정 줄(AI 결과문에서 뽑은 경로)이 **정말 있는 파일인가**를
+// 대 보고 서버에 적는다. 위엣것과 같은 까닭으로 여기 있다 — 대 볼 자리가
+// 호스트의 저장소다. 반 마디짜리 경로는 이때 **온 경로로 펴진다**.
+builder.Services.AddHostedService<FileCheckWorker>();
 
 // 복사본 작업공간은 끝나도 안 지운다(결과가 거기 있다). 그래서 쌓이고,
 // 이것이 오래된 것만 치운다.

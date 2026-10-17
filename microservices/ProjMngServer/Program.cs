@@ -122,6 +122,11 @@ builder.Services.AddScoped<AiRunSummaryWriter>();
 // 실행기 쪽 한 길만 두었더니 운영에서 그 칸이 통째로 비어 있었다(2026-10-17).
 builder.Services.AddScoped<AiRunFileWriter>();
 
+// 그 목록 중 **결과문에서 뽑은 줄이 실제로 있는 파일인가**를 가린다. 서버는
+// 컨테이너 안이라 대상 경로를 볼 수 없어 **실행기에게 물어** 답을 새긴다
+// (`/api/ai-runner/file-checks` — 「대상의 git 상태」와 같은 길이다).
+builder.Services.AddScoped<AiRunFileCheckService>();
+
 // 끝난 실행을 보고 제목을 다시 짓는다. **제목 칸을 비우고 저장한 건만** 손댄다
 // (`ai_task.title_auto`) — 사람이 적은 제목은 읽지도 않는다.
 builder.Services.AddScoped<AiTaskTitler>();
