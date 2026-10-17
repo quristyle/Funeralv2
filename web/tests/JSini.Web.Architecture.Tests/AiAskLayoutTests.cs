@@ -220,10 +220,41 @@ public sealed class AiAskLayoutTests
         Assert.Contains("class=\"pm-ask__line pm-ask__line--title\"", razor, StringComparison.Ordinal);
         Assert.Contains(".pm-ask__list[data-cols='3'] .pm-ask__span", css, StringComparison.Ordinal);
 
-        // 4단: 1번줄 모델배지·상태만 (차수배지 _cols < 4, 처리시간 _cols < 3), 3~4번줄 제목 2줄 표시
+        // 4단: 1번줄 모델배지·상태만 (차수배지 _cols < 4, 처리시간 _cols < 3), 상태 2글자 표시, 3~4번줄 제목 2줄 표시
         Assert.Contains("@if (_cols < 4)", razor, StringComparison.Ordinal);
+        Assert.Contains("StatusText(t, _cols)", razor, StringComparison.Ordinal);
+        Assert.Equal("계속", JSini.Web.ProjMng.Components.Shared.AiAskPanel.StatusText("계속진행중", 4));
+        Assert.Equal("계속", JSini.Web.ProjMng.Components.Shared.AiAskPanel.StatusText("계속대기중", 4));
+        Assert.Equal("실행", JSini.Web.ProjMng.Components.Shared.AiAskPanel.StatusText("실행중", 4));
+        Assert.Equal("완료", JSini.Web.ProjMng.Components.Shared.AiAskPanel.StatusText("완료", 4));
+        Assert.Equal("대기", JSini.Web.ProjMng.Components.Shared.AiAskPanel.StatusText("대기", 4));
+        Assert.Equal("계속진행중", JSini.Web.ProjMng.Components.Shared.AiAskPanel.StatusText("계속진행중", 3));
+        Assert.Equal("계속대기중", JSini.Web.ProjMng.Components.Shared.AiAskPanel.StatusText("계속대기중", 1));
+        Assert.Contains(".pm-ask__list[data-cols='4'] .pm-ask__rows > .pm-ask__line:first-child", css, StringComparison.Ordinal);
         Assert.Contains("-webkit-line-clamp: 2", css, StringComparison.Ordinal);
         Assert.Contains(".pm-ask__list[data-cols='4'] .pm-ask__title", css, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("계속진행중", 4, "계속")]
+    [InlineData("계속대기중", 4, "계속")]
+    [InlineData("실패·재시도", 4, "실패")]
+    [InlineData("이어서 대기", 4, "이어")]
+    [InlineData("시간초과", 4, "시간")]
+    [InlineData("실행중", 4, "실행")]
+    [InlineData("준비중", 4, "준비")]
+    [InlineData("작성중", 4, "작성")]
+    [InlineData("완료", 4, "완료")]
+    [InlineData("실패", 4, "실패")]
+    [InlineData("대기", 4, "대기")]
+    [InlineData("취소", 4, "취소")]
+    [InlineData("중단", 4, "중단")]
+    [InlineData("계속진행중", 3, "계속진행중")]
+    [InlineData("계속대기중", 2, "계속대기중")]
+    [InlineData("실패·재시도", 1, "실패·재시도")]
+    public void 최근_목록에서_4단_일때_상태문자열은_2글자만_표시된다(string input, int cols, string expected)
+    {
+        Assert.Equal(expected, JSini.Web.ProjMng.Components.Shared.AiAskPanel.StatusText(input, cols));
     }
 
     [Fact]

@@ -386,7 +386,7 @@
                                        가르는 것은 색이라 `title` 로 이름을 단다. *@
                                     <span class="pm-ai pm-ai--@AiRunnerMark.Tone(t.RunnerKind)"
                                           title="@KindName(t.RunnerKind)">@AiRunnerMark.Letter(t.RunnerKind)</span>
-                                    <span class="pm-ask__state">@t.StatusText</span>
+                                    <span class="pm-ask__state" title="@t.StatusText">@StatusText(t, _cols)</span>
                                     @if (t.TurnCount >= 2)
                                     {
                                         @if (_cols < 4)

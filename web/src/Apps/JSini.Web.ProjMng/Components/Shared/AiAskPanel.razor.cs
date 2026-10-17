@@ -236,6 +236,28 @@ public partial class AiAskPanel
         return string.IsNullOrWhiteSpace(name) ? null : name;
     }
 
+    /// <summary>
+    /// 카드 첫째 줄에 표시할 상태 문자열.
+    /// 4단 보기(_cols >= 4)에서는 폭이 좁아 다음 줄로 밀려 내려가지 않도록 2글자만 표시한다.
+    /// </summary>
+    internal static string StatusText(string? text, int cols)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return string.Empty;
+        }
+
+        if (cols >= 4 && text.Length > 2)
+        {
+            return text[..2];
+        }
+
+        return text;
+    }
+
+    internal static string StatusText(AiTaskDto task, int cols) =>
+        StatusText(task.StatusText, cols);
+
     private string? Text
     {
         get => _text;

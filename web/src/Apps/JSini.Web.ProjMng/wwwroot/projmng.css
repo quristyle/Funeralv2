@@ -3705,6 +3705,12 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   display: none !important;
 }
 
+/* 4단 — 1번줄(모델배지·상태) 줄바꿈 방지 */
+.pm-ask__list[data-cols='4'] .pm-ask__rows > .pm-ask__line:first-child,
+.pm-ask__item--cols-4 .pm-ask__rows > .pm-ask__line:first-child {
+  flex-wrap: nowrap;
+}
+
 /* 4단 — 3번줄과 4번줄에 걸쳐서 제목을 2줄로 표현 */
 .pm-ask__list[data-cols='4'] .pm-ask__title,
 .pm-ask__item--cols-4 .pm-ask__title {
