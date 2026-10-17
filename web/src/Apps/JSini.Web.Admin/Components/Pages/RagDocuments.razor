@@ -42,50 +42,67 @@
 
     @* ── 카테고리 줄 ──────────────────────────────────────── *@
     <div class="ad-rag__bar">
-        <span class="ad-rag__label">카테고리</span>
+        <div class="ad-rag__bar-lead">
+            <span class="ad-rag__label">카테고리</span>
 
-        @foreach (var c in _categories)
-        {
-            <button type="button"
-                    class="@($"ad-rag__cat {(c.Id == _categoryId ? "ad-rag__cat--on" : "")}")"
-                    @onclick="@(() => PickCategoryAsync(c.Id))">
-                @c.Name
-                <span class="ad-rag__dim">@c.ChunkCount</span>
-            </button>
-        }
+            <div class="ad-rag__cat-list">
+                @foreach (var c in _categories)
+                {
+                    <button type="button"
+                            class="@($"ad-rag__cat {(c.Id == _categoryId ? "ad-rag__cat--on" : "")}")"
+                            @onclick="@(() => PickCategoryAsync(c.Id))">
+                        <span>@c.Name</span>
+                        <span class="ad-rag__cat-count">@c.ChunkCount</span>
+                    </button>
+                }
+            </div>
 
-        <div class="ad-rag__bar-tail">
-            <DxButton Text="카테고리 추가" RenderStyle="ButtonRenderStyle.Secondary"
+            <DxButton Text="+ 카테고리 추가" RenderStyle="ButtonRenderStyle.Secondary"
                       Click="@OpenNewCategory" />
-            @if (Current is { } cur)
-            {
-                <DxButton Text="색인 다시 만들기" RenderStyle="ButtonRenderStyle.Primary"
-                          Enabled="@(!_busy)" Click="@ReindexAsync" />
-                <DxButton Text="카테고리 지우기" RenderStyle="ButtonRenderStyle.Link"
-                          Enabled="@(!_busy)" Click="@DeleteCategoryAsync" />
-                @* 「문서」는 **지금 올라와 있는 수**다. 색인에 든 수를 적으면
-                   방금 올린 사람이 목록에서 제 파일을 보면서 머리의 0 을 본다. *@
-                <span class="ad-stamp">
-                    @(cur.IndexedAt is { } at ? $"{at.Kst("MM-dd HH:mm")} 색인" : "색인 전")
-                    · 문서 @cur.DocTotal
+        </div>
+
+        @if (Current is { } cur)
+        {
+            <div class="ad-rag__bar-tail">
+                <div class="ad-rag__metrics">
+                    <span class="jsini-badge @(cur.IndexedAt is not null ? "jsini-badge--on" : "jsini-badge--off")">
+                        @(cur.IndexedAt is { } at ? $"{at.Kst("MM-dd HH:mm")} 색인" : "색인 전")
+                    </span>
+                    <span class="jsini-badge jsini-badge--info">문서 @cur.DocTotal</span>
                     @if (cur.DocPending > 0)
                     {
-                        <strong class="ad-rag__pending" title="「색인 다시 만들기」를 눌러야 검색에 들어갑니다.">색인 대기 @cur.DocPending</strong>
+                        <span class="jsini-badge jsini-badge--warn" title="「색인 다시 만들기」를 눌러야 검색에 들어갑니다.">
+                            색인 대기 @cur.DocPending
+                        </span>
                     }
                     @if (cur.DocSkipped > 0)
                     {
-                        <span class="ad-rag__dim" title="읽을 수 없는 형식이라 색인을 다시 만들어도 안 들어갑니다.">· 제외 @cur.DocSkipped</span>
+                        <span class="jsini-badge jsini-badge--off" title="읽을 수 없는 형식이라 색인을 다시 만들어도 안 들어갑니다.">
+                            제외 @cur.DocSkipped
+                        </span>
                     }
-                    · 토막 @cur.ChunkCount
-                </span>
-            }
-        </div>
+                    <span class="jsini-badge jsini-badge--muted">토막 @cur.ChunkCount</span>
+                </div>
+
+                <div class="ad-rag__bar-acts">
+                    <DxButton Text="색인 다시 만들기" RenderStyle="ButtonRenderStyle.Primary"
+                              Enabled="@(!_busy)" Click="@ReindexAsync" />
+                    <DxButton Text="카테고리 지우기" RenderStyle="ButtonRenderStyle.Link"
+                              Enabled="@(!_busy)" Click="@DeleteCategoryAsync" />
+                </div>
+            </div>
+        }
     </div>
 
     @if (_categoryId is null)
     {
-        <div class="ad-rag__empty">
-            카테고리가 없습니다. <strong>카테고리 추가</strong>로 먼저 하나 만드세요.
+        <div class="ad-rag__empty-card">
+            <div class="ad-rag__empty-symbol">
+                <span class="jsini-icon-refresh"></span>
+            </div>
+            <h3 class="ad-rag__empty-title">등록된 RAG 카테고리가 없습니다</h3>
+            <p class="ad-rag__empty-desc">문서를 업로드하고 AI 색인을 생성하려면 먼저 카테고리를 추가하세요.</p>
+            <DxButton Text="+ 새 카테고리 추가" RenderStyle="ButtonRenderStyle.Primary" Click="@OpenNewCategory" />
         </div>
     }
     else
@@ -95,38 +112,42 @@
             @* ── 왼쪽: 분류 트리 ──────────────────────────── *@
             <aside class="ad-rag__tree">
                 <div class="ad-rag__tree-head">
-                    <span>분류</span>
-                    <span class="ad-rag__dim" title="끌어 놓으면 부모와 차례가 바뀝니다. 색인에는 영향이 없습니다.">끌어 옮김</span>
-                    <DxButton Text="＋" RenderStyle="ButtonRenderStyle.Link"
-                              Click="@(() => OpenNewFolder(null))" title="최상위 분류 추가" />
+                    <div class="ad-rag__tree-title">
+                        <span>분류 목록</span>
+                        <span class="ad-rag__dim-badge" title="끌어 놓으면 부모와 차례가 바뀝니다. 색인에는 영향이 없습니다.">드래그 이동</span>
+                    </div>
+                    <button type="button" class="ad-rag__add-btn"
+                            @onclick="@(() => OpenNewFolder(null))" title="최상위 분류 추가">＋</button>
                 </div>
 
-                @* 여기에 분류를 떨구면 최상위로 올라온다. *@
-                <button type="button"
-                        class="@($"ad-rag__node {(_folderId is null ? "ad-rag__node--on" : "")} {(_dragOver is null && _dragFolder is not null ? "ad-rag__node--target" : "")}")"
-                        @ondragover:preventDefault="true"
-                        @ondragover="@(() => _dragOver = null)"
-                        @ondrop="@(() => DropFolderAsync(null, false))"
-                        @onclick="@(() => PickFolderAsync(null, "분류 미지정"))">
-                    <span class="ad-rag__node-name">분류 미지정</span>
-                    @FolderTally(LooseCount, 0, LoosePending)
-                    @if (_dragFolder is not null)
+                <div class="ad-rag__tree-nodes">
+                    @* 여기에 분류를 떨구면 최상위로 올라온다. *@
+                    <button type="button"
+                            class="@($"ad-rag__node {(_folderId is null ? "ad-rag__node--on" : "")} {(_dragOver is null && _dragFolder is not null ? "ad-rag__node--target" : "")}")"
+                            @ondragover:preventDefault="true"
+                            @ondragover="@(() => _dragOver = null)"
+                            @ondrop="@(() => DropFolderAsync(null, false))"
+                            @onclick="@(() => PickFolderAsync(null, "분류 미지정"))">
+                        <span class="ad-rag__node-name">분류 미지정</span>
+                        @FolderTally(LooseCount, 0, LoosePending)
+                        @if (_dragFolder is not null)
+                        {
+                            <span class="ad-rag__node-hint">— 최상위로</span>
+                        }
+                    </button>
+
+                    @foreach (var n in _tree)
                     {
-                        <span class="ad-rag__dim"> — 여기에 놓으면 최상위로</span>
+                        @RenderNode(n, 0)
                     }
-                </button>
 
-                @foreach (var n in _tree)
-                {
-                    @RenderNode(n, 0)
-                }
-
-                @if (_tree.Count == 0)
-                {
-                    <div class="ad-rag__dim ad-rag__tree-empty">
-                        분류가 없습니다. ＋ 로 만드세요.
-                    </div>
-                }
+                    @if (_tree.Count == 0)
+                    {
+                        <div class="ad-rag__tree-empty">
+                            등록된 분류가 없습니다. 위의 ＋ 로 추가하세요.
+                        </div>
+                    }
+                </div>
             </aside>
 
             @* ── 오른쪽: 문서 ─────────────────────────────── *@
@@ -134,24 +155,37 @@
                Blazor 의 drop 이벤트로는 파일 목록을 받을 수 없다. *@
             <section class="ad-rag__docs ad-rag__drop" @ref="_dropZone">
                 <div class="ad-rag__docs-head">
-                    <strong>@_folderLabel</strong>
-                    <span class="ad-rag__dim">문서 @_documents.Count 건</span>
+                    <div class="ad-rag__docs-title">
+                        <strong>@_folderLabel</strong>
+                        <span class="jsini-badge jsini-badge--info">문서 @_documents.Count 건</span>
+                    </div>
 
-                    <label class="ad-rag__upload">
+                    <label class="ad-rag__upload" title="문서 파일 선택">
                         <InputFile @ref="_fileInput" OnChange="@OnFilesAsync" multiple disabled="@_busy" />
                         <span>@(_busy ? "올리는 중…" : "파일 올리기")</span>
                     </label>
                 </div>
 
-                <div class="ad-rag__hint">
-                    <strong>파일을 이 영역에 끌어다 놓으면</strong> 바로 올라갑니다 — <strong>여러 개를 한꺼번에</strong> 놓아도 됩니다. 단추로 골라도 됩니다.
-                    쓸 수 있는 형식: 글자 파일(.md .txt .csv .json .yaml .log .sql 등) · .pdf · .html
-                    — 한 번에 20개, 파일당 50MB 까지.
-                    <strong>올린 뒤 「색인 다시 만들기」를 눌러야 검색에 들어갑니다.</strong>
-                    파일 줄을 끌어 왼쪽 분류에 놓으면 그리로 옮겨집니다 — 색인에는 영향이 없습니다.
+                <div class="ad-rag__guide">
+                    <div class="ad-rag__guide-item">
+                        <span class="ad-rag__guide-bullet">·</span>
+                        <span><strong>파일 업로드:</strong> 영역 내로 파일을 끌어다 놓거나 상단 [파일 올리기] 단추로 선택 (최대 20개, 개당 50MB)</span>
+                    </div>
+                    <div class="ad-rag__guide-item">
+                        <span class="ad-rag__guide-bullet">·</span>
+                        <span><strong>지원 형식:</strong> 글자 파일(.md .txt .csv .json .yaml .log .sql 등) · .pdf · .html</span>
+                    </div>
+                    <div class="ad-rag__guide-item">
+                        <span class="ad-rag__guide-bullet">·</span>
+                        <span><strong>색인 반영:</strong> 문서를 등록한 후 상단의 <strong>「색인 다시 만들기」</strong>를 실행해야 AI 대화/검색에 반영됩니다.</span>
+                    </div>
                 </div>
 
-                <div class="ad-rag__drop-hint">놓으면 「@_folderLabel」 에 바로 올라갑니다 (여러 개 가능)</div>
+                <div class="ad-rag__drop-hint">
+                    <div class="ad-rag__drop-hint-box">
+                        <span>놓으면 <strong>「@_folderLabel」</strong> 에 바로 올라갑니다 (여러 개 가능)</span>
+                    </div>
+                </div>
 
                 @* ── 올리는 중 ────────────────────────────────────
                    파일마다 줄을 세운다. **다 올라가도 지우지 않는다** —
@@ -160,7 +194,7 @@
                 {
                     <div class="ad-rag__up-list">
                         <div class="ad-rag__up-head">
-                            <strong>올리기 @_uploads.Count(x => x.State is "done" or "failed") / @_uploads.Count</strong>
+                            <span>올리기 진행 (@_uploads.Count(x => x.State is "done" or "failed") / @_uploads.Count)</span>
                             @if (!_busy)
                             {
                                 <DxButton Text="치우기" RenderStyle="ButtonRenderStyle.Link" Click="@ClearUploads" />
@@ -175,10 +209,19 @@
                                     <span class="ad-rag__dim">
                                         @switch (u.State)
                                         {
-                                            case "waiting": <text>대기</text> break;
-                                            case "sending": <text>@Bytes(u.SentBytes) / @Bytes(u.TotalBytes) · @u.Percent.ToString("0")%</text> break;
-                                            case "done": <text>@(u.ServerStatus == "skipped" ? "건너뜀" : "올림") · @Bytes(u.TotalBytes)</text> break;
-                                            default: <text>실패</text> break;
+                                            case "waiting": <span class="jsini-badge jsini-badge--off">대기</span> break;
+                                            case "sending": <span class="jsini-badge jsini-badge--info">@Bytes(u.SentBytes) / @Bytes(u.TotalBytes) (@u.Percent.ToString("0")%)</span> break;
+                                            case "done":
+                                                if (u.ServerStatus == "skipped")
+                                                {
+                                                    <span class="jsini-badge jsini-badge--warn">건너뜀 · @Bytes(u.TotalBytes)</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="jsini-badge jsini-badge--on">올림 · @Bytes(u.TotalBytes)</span>
+                                                }
+                                                break;
+                                            default: <span class="jsini-badge jsini-badge--err">실패</span> break;
                                         }
                                     </span>
                                 </div>
@@ -199,59 +242,67 @@
 
                 @if (_documents.Count == 0)
                 {
-                    <div class="ad-rag__empty">이 분류에는 문서가 없습니다.</div>
+                    <div class="ad-rag__empty-docs">
+                        <div class="ad-rag__empty-docs-symbol">
+                            <span class="jsini-icon-refresh"></span>
+                        </div>
+                        <div class="ad-rag__empty-docs-title">등록된 문서가 없습니다</div>
+                        <div class="ad-rag__empty-docs-desc">파일을 이 영역에 끌어다 놓거나 상단의 [파일 올리기]로 문서를 등록하세요.</div>
+                    </div>
                 }
                 else
                 {
-                    <table class="ad-llm__table ad-rag__table">
-                        <thead>
-                            <tr>
-                                <th>파일</th><th>상태</th><th>토막</th><th>크기</th>
-                                <th>올린 때</th><th>올린 이</th><th>옮기기 · 지우기</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach (var d in _documents)
-                            {
-                                @* 줄을 끌어 왼쪽 분류에 떨구면 옮겨진다. *@
-                                <tr draggable="true"
-                                    class="@(_dragDoc == d.Id ? "ad-rag__row--dragging" : "")"
-                                    @ondragstart="@(() => _dragDoc = d.Id)"
-                                    @ondragend="@(() => { _dragDoc = null; _dragOver = null; })">
-                                    <td>
-                                        @* **링크를 못 끌게 막는다.** 안 막으면 줄이 아니라
-                                           주소가 끌려서, 이름을 잡고 끈 사람에게만 안 된다. *@
-                                        <a href="@Api.DownloadUrl(d.Id)" target="_blank" rel="noopener"
-                                           draggable="false">@d.FileName</a>
-                                        @if (!string.IsNullOrWhiteSpace(d.Error))
-                                        {
-                                            <div class="ad-rag__err">@d.Error</div>
-                                        }
-                                    </td>
-                                    <td><span class="jsini-badge @StatusBadge(d.Status)">@StatusLabel(d.Status)</span></td>
-                                    <td>@(d.ChunkCount > 0 ? d.ChunkCount.ToString() : "-")</td>
-                                    <td>@Bytes(d.SizeBytes)</td>
-                                    <td>@d.CreatedAt.Kst("MM-dd HH:mm")</td>
-                                    <td>@d.CreatedBy</td>
-                                    <td class="ad-rag__row-acts">
-                                        @* 끌어 옮기기만 두면 화면 어디에도 안 보이는
-                                           몸짓이 유일한 길이 된다. *@
-                                        <select class="ad-rag__move" title="다른 분류로 옮기기"
-                                                @onchange="@(e => MoveDocumentAsync(d.Id, ParseFolder(e.Value)))">
-                                            @foreach (var (id, label) in FlatFolders())
-                                            {
-                                                @* 지금 분류를 `selected` 로 집는다. `<select value=…>` 로
-                                                   주면 옵션보다 먼저 그려져 안 잡히는 자리가 있다. *@
-                                                <option value="@(id?.ToString() ?? "")" selected="@(id == _folderId)">@label</option>
-                                            }
-                                        </select>
-                                        <DxButton Text="지우기" RenderStyle="ButtonRenderStyle.Link"
-                                                  Click="@(() => DeleteDocumentAsync(d.Id))" />
-                                    </td>
+                    <div class="ad-rag__table-wrap">
+                        <table class="ad-llm__table ad-rag__table">
+                            <thead>
+                                <tr>
+                                    <th>파일</th><th>상태</th><th>토막</th><th>크기</th>
+                                    <th>올린 때</th><th>올린 이</th><th>옮기기 · 지우기</th>
                                 </tr>
-                            }
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                @foreach (var d in _documents)
+                                {
+                                    @* 줄을 끌어 왼쪽 분류에 떨구면 옮겨진다. *@
+                                    <tr draggable="true"
+                                        class="@(_dragDoc == d.Id ? "ad-rag__row--dragging" : "")"
+                                        @ondragstart="@(() => _dragDoc = d.Id)"
+                                        @ondragend="@(() => { _dragDoc = null; _dragOver = null; })">
+                                        <td class="ad-rag__td-name">
+                                            @* **링크를 못 끌게 막는다.** 안 막으면 줄이 아니라
+                                               주소가 끌려서, 이름을 잡고 끈 사람에게만 안 된다. *@
+                                            <a href="@Api.DownloadUrl(d.Id)" target="_blank" rel="noopener"
+                                               draggable="false" class="ad-rag__file-link">@d.FileName</a>
+                                            @if (!string.IsNullOrWhiteSpace(d.Error))
+                                            {
+                                                <div class="ad-rag__err">@d.Error</div>
+                                            }
+                                        </td>
+                                        <td><span class="jsini-badge @StatusBadge(d.Status)">@StatusLabel(d.Status)</span></td>
+                                        <td>@(d.ChunkCount > 0 ? d.ChunkCount.ToString() : "-")</td>
+                                        <td>@Bytes(d.SizeBytes)</td>
+                                        <td>@d.CreatedAt.Kst("MM-dd HH:mm")</td>
+                                        <td>@d.CreatedBy</td>
+                                        <td class="ad-rag__row-acts">
+                                            @* 끌어 옮기기만 두면 화면 어디에도 안 보이는
+                                               몸짓이 유일한 길이 된다. *@
+                                            <select class="ad-rag__move" title="다른 분류로 옮기기"
+                                                    @onchange="@(e => MoveDocumentAsync(d.Id, ParseFolder(e.Value)))">
+                                                @foreach (var (id, label) in FlatFolders())
+                                                {
+                                                    @* 지금 분류를 `selected` 로 집는다. `<select value=…>` 로
+                                                       주면 옵션보다 먼저 그려져 안 잡히는 자리가 있다. *@
+                                                    <option value="@(id?.ToString() ?? "")" selected="@(id == _folderId)">@label</option>
+                                                }
+                                            </select>
+                                            <DxButton Text="지우기" RenderStyle="ButtonRenderStyle.Link"
+                                                      Click="@(() => DeleteDocumentAsync(d.Id))" />
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
                 }
             </section>
         </div>
@@ -364,9 +415,9 @@
                 @FolderTally(node.DocCount, node.DescendantCount, node.PendingTotal)
             </button>
             <span class="ad-rag__node-acts">
-                <button type="button" title="하위 분류 추가"
+                <button type="button" class="ad-rag__node-act" title="하위 분류 추가"
                         @onclick="@(() => OpenNewFolder(node.Id))">＋</button>
-                <button type="button" title="지우기"
+                <button type="button" class="ad-rag__node-act" title="지우기"
                         @onclick="@(() => DeleteFolderAsync(node.Id))">×</button>
             </span>
         </div>
