@@ -38,8 +38,13 @@ public sealed class UsageReporter(
     IHttpClientFactory httpFactory,
     ILogger<UsageReporter> logger) : BackgroundService
 {
-    /// <summary>출력에서 들고 갈 길이 상한. 서버 쪽 칸도 4000 이다.</summary>
-    private const int MaxRawLength = 4000;
+    /// <summary>
+    /// 받은 것을 들고 갈 길이 상한. <b>화면에 실리는 길이가 아니다</b> — 그것은
+    /// 서버가 4000 으로 자른다. 여기서 같이 4000 에 묶으면 <c>claude</c> 의
+    /// JSON 봉투가 잘려 <i>열리지 않는 봉투</i>가 되고, 한도를 읽는 길이 통째로
+    /// 글자 읽기로 내려앉는다.
+    /// </summary>
+    private const int MaxRawLength = 16000;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -277,6 +282,7 @@ public sealed class UsageReporter(
             items = adapter.UsageFormat?.ToLowerInvariant() switch
             {
                 "agy" or "antigravity" => UsageAgy.Parse(kind, raw),
+                "claude" => UsageClaude.Parse(kind, raw, adapter.UsageTranscriptRoot),
                 "copilot" => UsageCopilot.Parse(kind, raw),
                 _ => [UsageText.Parse(kind, raw)],
             };

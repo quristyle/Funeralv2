@@ -3395,7 +3395,8 @@ DTO 는 `JSini.Web.ProjMng.Api` 에 있다. 이름이 같으면 화면 안에서
 표: `projmng.ai_usage_snapshot` — `deploy/sql/projmng-ai-usage-2026-09-20.sql`
        + `deploy/sql/projmng-ai-usage-bucket-2026-09-21.sql` (칸 나누기 · 월간)
 올리는 쪽: `tools/AiTaskRunner/UsageReporter.cs` ·
-       `UsageText.cs`(claude) · `UsageAgy.cs`(agy) · `UsageCopilot.cs`(copilot)
+       `UsageClaude.cs`(claude) · `UsageAgy.cs`(agy) · `UsageCopilot.cs`(copilot) ·
+       `UsageText.cs`(그 밖의 CLI · claude 의 내려앉는 길)
 받는 쪽: `AiRunnerController.UsageAsync` → `AiUsageService`
 
 ### 왜 서버가 직접 묻지 않나
@@ -3414,9 +3415,65 @@ DTO 는 `JSini.Web.ProjMng.Api` 에 있다. 이름이 같으면 화면 안에서
 
 | CLI | 어떻게 | 형식 | 칸이 몇 개 |
 |---|---|---|---|
-| `claude` | `-p /usage` | 사람이 읽는 문장 | 하나 (세션 · 주간 · 주간 Opus) |
+| `claude` | `-p /usage --output-format json` | **세션 기록의 JSON** | 계정 하나 + **모델로 끊은 주간마다** |
 | `antigravity` | `-p=/usage` | 탭으로 끊은 네 칸 표 | **모델군마다** (Gemini · Claude and GPT) |
 | `copilot` | **명령이 없다** → 한도 주소 | JSON | **한도 종류마다** (chat · completions …) |
+
+#### `claude` — 화면에 찍히는 글이 아니라 세션 기록을 읽는다
+
+표준출력에 오는 것은 사람이 보라고 만든 문단이다:
+
+```
+Current session: 0% used
+Current week (all models): 39% used · resets Oct 15, 10:59pm (Asia/Seoul)
+Current week (Fable): 0% used · resets Oct 15, 11pm (Asia/Seoul)
+
+What's contributing to your limits usage?
+…
+Last 24h · 2703 requests · 29 sessions
+  70% of your usage was at >150k context
+```
+
+**아래 단락이 함정이다.** `29 sessions` 가 「세션」 머리글로 읽히고 바로 다음
+줄의 `70%` 가 *세션 한도*로 걸어 들어온다. 지금은 위의 진짜 줄이 먼저 와서
+가려져 있을 뿐이고, 한 줄만 빠지면 그대로 앉는다.
+
+**모델로 끊은 주간을 통째로 흘린다.** `UsageText` 에는 `opus` 라는 낱말만
+박혀 있어 `Current week (Fable)` 이 아무 칸에도 안 들어갔다 — 2026-10-17 의
+실측에서 `weekly_scoped 3%` 가 매번 사라졌다.
+
+그래서 같은 호출이 세션 기록
+(`~/.claude/projects/<폴더>/<세션id>.jsonl`)에 남기는 구조를 읽는다:
+
+```json
+"rate_limits": { "limits": [
+  { "kind": "session",       "group": "session", "percent": 0,  "resets_at": null },
+  { "kind": "weekly_all",    "group": "weekly",  "percent": 39, "resets_at": "2026-10-15T13:59:59+00:00" },
+  { "kind": "weekly_scoped", "group": "weekly",  "percent": 3,  "resets_at": "2026-10-15T14:00:00+00:00",
+    "scope": { "model": { "display_name": "Fable" } } }
+]}
+```
+
+`--output-format json` 은 그 봉투의 `session_id` 때문에 붙인다 — 그것으로
+방금 만든 기록을 찾는다. 창의 뜻은 `kind` 가 아니라 `group` 으로 가른다
+(`weekly_scoped` 처럼 이름이 늘어나도 묶음은 그대로다). 시각이 절대값으로
+와서 **「오늘인가 내일인가」 추측이 통째로 사라진다.**
+
+모델로 끊은 주간은 `agy` 의 모델군과 같은 이유로 칸을 따로 낸다
+(`BucketNm` = 모델 이름) — 계정 전체의 주간과 한 모델의 주간은 서로 다른
+주머니라, 한 줄로 뭉개면 둘 중 하나가 찬 것이 안 보인다.
+
+**로그인이 끊기면 오류가 아니라 비용 요약이 온다.** 기록에는 `"limits": null`
+이 남고 표준출력은 이렇게 된다:
+
+```
+Total cost:            $0.0000
+Usage:                 0 input, 0 output, 0 cache read, 0 cache write
+```
+
+그것을 「출력에서 한도를 찾지 못했습니다」로만 적으면 **파서를 들여다보게
+된다** — 고칠 곳은 실행기 장비의 로그인이다. 퍼센트가 한 글자도 없으면
+그렇게 짚어 준다.
 
 #### `agy` — print 모드가 슬래시 명령을 펴 준다
 
@@ -4255,7 +4312,8 @@ web/CLAUDE.md 의 「화면에 이미 있는 것을 다시 말하지 않는다�
 | 작업 요청 알림이 안 온다 | 요청은 목록에 있는데 **관리자 휴대폰이 조용하다** | 알림 서비스 로그에 「역할 …인 계정이 없어…」 또는 「VAPID 설정 없음」이 남는다. 받는 사람이 푸시를 껐을 수도 있다 — 발송 이력이 사유별로 답한다 (11.8.7) |
 | **결과 알림이 한 사람에게만 간다** | 관리자 휴대폰이 조용한데 시킨 사람은 잘 받는다 | `scom.push_send_logs` 를 그 아이디로 조회해 **줄이 아예 없으면 대상 선정**이다 — `AiTasks:ResultNotifyRoles` 를 본다 (8-4.6). 줄이 있는데 `is_success=false` 면 발송 쪽이다 |
 | **한도 SQL 을 안 돌렸다** | 현황 화면의 한도 칸만 빈다 | 표가 없으면 그 조회만 건너뛴다 — 곁들이는 칸 하나 때문에 대시보드 전체가 안 열리면 고장이 실제보다 커 보인다. 로그에 SQL 파일 이름이 남는다 (11.6) |
-| **CLI 의 `/usage` 출력 형식이 바뀌었다** | 한도 칸이 「읽지 못함」 | 원문을 늘 함께 올린다. 화면에서 접힌 「원문」을 펴 보고 `UsageArgs` 나 해당 파서(`UsageText`·`UsageAgy`·`UsageCopilot`)를 고친다 (11.6) |
+| **CLI 의 `/usage` 출력 형식이 바뀌었다** | 한도 칸이 「읽지 못함」 | 원문을 늘 함께 올린다. 화면에서 접힌 「원문」을 펴 보고 `UsageArgs` 나 해당 파서(`UsageClaude`·`UsageAgy`·`UsageCopilot`·`UsageText`)를 고친다 (11.6) |
+| **claude 의 로그인이 끊겼다** | claude 칸만 「비용 요약이 돌아왔습니다」 | 갱신 토큰은 만료된다. 그때 `/usage` 는 오류가 아니라 비용 요약을 주고 **작업 실행도 같이 죽는다** — 실행기 장비에서 다시 로그인한다 (11.6) |
 | **copilot 의 한도 주소가 사라졌다** | copilot 칸만 「HTTP 404」 | 내부 통로라 예고 없이 사라질 수 있다. `UsageUrl` 을 고친다 — **조용히 비지 않고 시끄럽게 실패하는 것**이 여기서 노린 것이다 (11.6) |
 | **copilot 이 다시 로그인했다** | copilot 칸만 「HTTP 401」 | 토큰을 베껴 두지 않고 `~/.copilot/config.json` 에서 그때그때 읽으므로 대개 저절로 낫는다. 안 나으면 그 장비에서 `copilot login` (11.6) |
 

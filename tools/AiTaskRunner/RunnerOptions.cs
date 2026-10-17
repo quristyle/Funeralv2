@@ -326,11 +326,20 @@ public sealed class AdapterOptions
     public string UsageTokenPath { get; set; } = string.Empty;
 
     /// <summary>
-    /// 받은 것을 무엇으로 읽나 — <c>text</c>(기본) · <c>agy</c> · <c>copilot</c>.
+    /// 세션 기록이 쌓이는 폴더. <c>claude</c> 형식이 쓴다.
     /// </summary>
     /// <remarks>
-    /// <b>형식마다 읽는 법이 아주 다르다.</b> <c>claude</c> 는 사람이 읽는
-    /// 문장이고, <c>agy</c> 는 탭으로 끊은 표이며, <c>copilot</c> 은 JSON 이다.
+    /// <b>한도의 정본이 화면 글자가 아니라 이 폴더에 있다</b>(<see cref="UsageClaude"/>).
+    /// 맨 앞의 <c>~</c> 는 집 폴더로 편다. 비어 있으면 <c>~/.claude/projects</c> 다.
+    /// </remarks>
+    public string UsageTranscriptRoot { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 받은 것을 무엇으로 읽나 — <c>text</c>(기본) · <c>claude</c> · <c>agy</c> · <c>copilot</c>.
+    /// </summary>
+    /// <remarks>
+    /// <b>형식마다 읽는 법이 아주 다르다.</b> <c>claude</c> 는 세션 기록의 JSON,
+    /// <c>agy</c> 는 탭으로 끊은 표, <c>copilot</c> 은 응답 JSON 이다.
     /// 하나의 정규식으로 셋을 다 받으려 들면 <i>어느 것도 제대로 못 읽는데
     /// 숫자는 나오는</i> 상태가 된다.
     /// </remarks>
