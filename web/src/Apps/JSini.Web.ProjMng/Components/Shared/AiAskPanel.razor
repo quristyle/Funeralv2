@@ -313,7 +313,12 @@
                 </div>
             </div>
 
-            @if (_recent.Count == 0)
+            @if (_recent.Count == 0 && !_recentLoaded)
+            {
+                @* 아직 묻는 중이다. 「없습니다」를 먼저 세우면 카드가 그것을 밀어내며
+                   들어와 화면이 한 번 뒤집힌다. *@
+            }
+            else if (_recent.Count == 0)
             {
                 <div class="pm-ask__empty-card">
                     <div class="pm-ask__empty-symbol" aria-hidden="true">

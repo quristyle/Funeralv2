@@ -161,6 +161,12 @@ public partial class AiAskPanel
     private IReadOnlyList<AiTaskDto> _recent = [];
 
     /// <summary>
+    /// 목록을 <b>한 번이라도 물어봤나</b>(실패 포함). 묻기 전의 빈 목록과
+    /// 물어보니 빈 목록은 다르다 — 앞엣것에 「아직 없습니다」를 세우면 안 된다.
+    /// </summary>
+    private bool _recentLoaded;
+
+    /// <summary>
     /// 「더보기」를 몇 번 눌렀나. 한 번에 완료된 것 <see cref="RecentMax"/> 장씩
     /// 더 꺼낸다. <b>다시 읽어도 유지된다</b> — 5초마다 도는 타이머가 이 값을
     /// 되돌리면 펼쳐 놓고 보던 것이 눈앞에서 접힌다.
@@ -529,69 +535,59 @@ public partial class AiAskPanel
             Prefs.Use(_me);
         }
 
-        // ── 기다리는 것은 둘뿐이다 ───────────────────────────
-        //
         // **고르개를 세우는 것만 기다린다.** AI 고르개는 목록이 올 때까지
         // 회색이고(`Enabled` 가 `AllowedKinds.Count` 를 본다), 대상 고르개는
         // 기억을 얹는 자리(`OnAfterRenderAsync`)가 목록이 와 있는 것을 전제로
-        // 한다. 이 둘이 「화면이 섰다」의 정의다.
-        //
-        // 모델 목록은 거의 통에서 바로 온다(`DevCommonCodeClient` — 모두가
-        // 나눠 쓰는 참조자료다). 그러면 이 `await` 가 동기로 끝나 **첫 그림부터
-        // 고르개가 켜져 있다.**
+        // 한다. 모델 목록은 거의 통에서 바로 온다(`DevCommonCodeClient`).
         await LoadModelsAsync();
-        await LoadTargetsAsync();
 
-        // 나머지는 배경으로 돌린다 — 아래.
+        // 나머지는 대상과 **나란히** 묻는다 — 대상 뒤에 줄 세우면 화면의
+        // 알맹이인 카드 목록이 왕복 하나만큼 늦게 선다.
         _ = LoadAsideAsync();
+
+        await LoadTargetsAsync();
     }
 
     /// <summary>
-    /// <b>곁들이는 것들.</b> 한도 · 붙여 둔 첨부 · 최근 보낸 것.
+    /// <b>곁들이는 것들.</b> 최근 보낸 것 · 한도 · 붙여 둔 첨부를 <b>한꺼번에</b>
+    /// 묻고 온 것부터 얹는다.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// [왜 기다리지 않나 — 고르개가 회색으로 보이던 까닭]
+    /// 셋 다 고르개를 세우는 값이 아니라 기다리지 않는다. 그중 카드 목록이
+    /// 화면의 알맹이라, 다른 둘 뒤에 줄 세우지 않는다 — 줄 세우면 그 사이
+    /// 「아직 요청한 빠른 지시가 없습니다」가 먼저 섰다가 카드에 밀려난다.
     /// </para>
     /// <para>
-    /// 한동안 <see cref="OnInitializedAsync"/> 가 다섯을 <b>줄줄이</b> 기다렸다
-    /// (모델 → 한도 → 대상 → 첨부 → 최근). Blazor 는 그 처리기가 끝나야 다시
-    /// 그리므로, 회로가 붙고부터 다섯 왕복이 다 끝날 때까지 <see cref="AllKinds"/>
-    /// 가 빈 목록이었고 <b>AI 고르개가 그동안 내내 회색</b>이었다.
-    /// </para>
-    /// <para>
-    /// 프리렌더가 그것을 더 나쁘게 보이게 했다. 정적 SSR 판은 목록을 다 받고
-    /// 그려지므로 <b>켜진 고르개</b>가 먼저 보이고, 회로가 붙으면서 같은 화면이
-    /// 처음부터 다시 서면서 <b>꺼졌다가</b> 다시 켜진다 — 사람이 보는 것은
-    /// 「열릴 때 가끔 비활성화되어 있다」다.
-    /// </para>
-    /// <para>
-    /// 그중 <b>한도는 고르개를 세우는 값이 아니다.</b> 목록에 곁들여 적는
-    /// 글자일 뿐이고(<see cref="_usage"/>), 없으면 이름만 보여 주면 된다.
-    /// 그것을 기다리느라 고를 수 없게 두는 것은 앞뒤가 바뀐 것이다.
-    /// </para>
-    /// <para>
-    /// <b>셋 다 화면을 막지 않는 것들이다</b> — 각자 제 실패를 삼킨다. 여기서는
-    /// 순서만 지킨다(한도가 가장 빨리 쓸모 있어진다).
+    /// <b>프리렌더에서는 묻지 않는다.</b> 그 판은 회로가 붙으면 버려지므로
+    /// 거기서 게이트웨이를 부르면 같은 것을 두 번 묻는다(<c>DataPage.CanLoad</c>
+    /// 와 같은 까닭).
     /// </para>
     /// </remarks>
     private async Task LoadAsideAsync()
     {
+        if (!RendererInfo.IsInteractive)
+        {
+            return;
+        }
+
         try
         {
-            await LoadUsageAsync();
-            await Redraw();
-
-            await LoadStagedFilesAsync();
-
-            // 안에서 `Follow()` 까지 건다. 이것이 마지막이어야 하는 이유는
-            // 따라가기가 제 리듬으로 다시 그리기 시작하기 때문이다.
-            await LoadRecentAsync();
-            await Redraw();
+            await Task.WhenAll(
+                // 안에서 `Follow()` 까지 건다 — 따라가기가 제 리듬으로 다시 그린다.
+                Then(LoadRecentAsync()),
+                Then(LoadUsageAsync()),
+                Then(LoadStagedFilesAsync()));
         }
         catch (ObjectDisposedException)
         {
             // 다 받기 전에 화면을 떠났다. 정상이다.
+        }
+
+        async Task Then(Task load)
+        {
+            await load;
+            await Redraw();
         }
     }
 
@@ -1126,6 +1122,10 @@ public partial class AiAskPanel
 
             return _recent.Count;
         }, emptyMessage: string.Empty, failMessage: "보낸 것을 읽지 못했습니다");
+
+        // 카드부터 세운다 — 얼굴은 아래에서 따로 채운다.
+        _recentLoaded = true;
+        StateHasChanged();
 
         // 지시자의 얼굴. **깔린 카드만이 아니라 받아 둔 것 전부**를 채운다 —
         // 「더보기」는 서버를 다시 부르지 않으므로(`ShowMore`) 여기서 안
@@ -1753,6 +1753,7 @@ public partial class AiAskPanel
             }
 
             Show(rows);
+            _recentLoaded = true;
 
             // 따라가는 동안 **남이 보낸 건이 끼어든다.** 첫 조회 때와 같이
             // 모르는 아이디만 묻는다 — 아는 것은 들고 있으므로 이 고리가
