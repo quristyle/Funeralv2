@@ -89,6 +89,7 @@ public sealed class AiAskLayoutTests
 
         // 1. 마크업: 스크롤 영역 안에 pull 인디케이터가 있고 목록 위에 위치한다.
         Assert.Contains("class=\"pm-ask__pull\"", razor, StringComparison.Ordinal);
+        Assert.Contains("class=\"pm-ask__pull-inner\"", razor, StringComparison.Ordinal);
         Assert.Contains("class=\"pm-ask__pull-arrow\"", razor, StringComparison.Ordinal);
         Assert.Contains("class=\"pm-ask__pull-spinner\"", razor, StringComparison.Ordinal);
         Assert.Contains("class=\"pm-ask__pull-text\"", razor, StringComparison.Ordinal);
@@ -106,10 +107,12 @@ public sealed class AiAskLayoutTests
         Assert.Contains("AttachPullRefreshAsync()", code, StringComparison.Ordinal);
         Assert.Contains("RefreshRecentFromSwipeDownAsync()", code, StringComparison.Ordinal);
 
-        // 3. CSS: pull 인디케이터 스타일 및 애니메이션 정의
+        // 3. CSS: pull 인디케이터 스타일 및 애니메이션 정의 (카드 뒤에 묻히지 않도록 z-index 부여 및 캡슐 배지 스타일)
         var pullRule = Rule(css, ".pm-ask__pull {");
         Assert.Contains("--pm-ask-pull-y", pullRule, StringComparison.Ordinal);
         Assert.Contains("overflow: hidden", pullRule, StringComparison.Ordinal);
+        Assert.Contains("z-index:", pullRule, StringComparison.Ordinal);
+        Assert.Contains(".pm-ask__pull-inner {", css, StringComparison.Ordinal);
         Assert.Contains(".pm-ask__pull.pm-ask__pull--ready", css, StringComparison.Ordinal);
         Assert.Contains(".pm-ask__pull.pm-ask__pull--refreshing", css, StringComparison.Ordinal);
     }

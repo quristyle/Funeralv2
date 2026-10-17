@@ -160,7 +160,7 @@ export function attachPullRefresh(selector, dotnet) {
     pullEl.classList.remove('pm-ask__pull--ready');
     pullEl.classList.add('pm-ask__pull--refreshing');
     setStyle('--pm-ask-pull-ms', `${SETTLE_MS}ms`);
-    setStyle('--pm-ask-pull-y', '44px');
+    setStyle('--pm-ask-pull-y', '48px');
     if (textEl) textEl.textContent = '새로고침 중...';
 
     dotnet.invokeMethodAsync('RefreshRecentFromSwipeDownAsync')

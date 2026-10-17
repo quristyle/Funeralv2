@@ -2742,8 +2742,12 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   overscroll-behavior-y: contain;
 }
 
-/* 최근 리스트 쓸어내려 새로고침(Pull-to-Refresh) 인디케이터 */
+/* 최근 리스트 쓸어내려 새로고침(Pull-to-Refresh) 인디케이터 —
+   카드의 z-index(2)보다 확실히 앞선 레이어(z-index: 10)에 서며,
+   투명한 배경에 묻혀 리스트 뒤로 보이지 않도록 독립된 캡슐 배지 형태로 띄운다. */
 .pm-ask__pull {
+  position: relative;
+  z-index: 10;
   --pm-ask-pull-y: 0px;
   --pm-ask-pull-ms: 0ms;
 
@@ -2753,10 +2757,6 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.45rem;
-  font-size: var(--jsini-fs-2xs, 0.75rem);
-  font-weight: 500;
-  color: var(--jsini-text-muted);
   pointer-events: none;
   user-select: none;
   transition: height var(--pm-ask-pull-ms, 0ms) cubic-bezier(0.2, 0.8, 0.2, 1),
@@ -2767,6 +2767,38 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 .pm-ask__pull.pm-ask__pull--active,
 .pm-ask__pull.pm-ask__pull--refreshing {
   opacity: 1;
+}
+
+/* 카드 및 리스트 전면에 입체적으로 떠 있는 플로팅 배지 캡슐 */
+.pm-ask__pull-inner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  background: var(--jsini-surface);
+  border: 1px solid var(--jsini-border);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
+  font-size: var(--jsini-fs-2xs, 0.75rem);
+  font-weight: 600;
+  color: var(--jsini-text-muted);
+  transform: scale(0.94);
+  transition: transform 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.pm-ask__pull.pm-ask__pull--ready .pm-ask__pull-inner {
+  transform: scale(1);
+  border-color: var(--jsini-accent, #1677ff);
+  color: var(--jsini-accent, #1677ff);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--jsini-accent, #1677ff) 20%, transparent);
+}
+
+.pm-ask__pull.pm-ask__pull--refreshing .pm-ask__pull-inner {
+  transform: scale(1);
+  border-color: var(--jsini-accent, #1677ff);
+  color: var(--jsini-text);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--jsini-accent, #1677ff) 20%, transparent);
 }
 
 .pm-ask__pull-icon {
