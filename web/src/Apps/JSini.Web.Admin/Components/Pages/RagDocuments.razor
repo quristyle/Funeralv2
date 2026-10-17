@@ -271,8 +271,19 @@
                                         <td class="ad-rag__td-name">
                                             @* **링크를 못 끌게 막는다.** 안 막으면 줄이 아니라
                                                주소가 끌려서, 이름을 잡고 끈 사람에게만 안 된다. *@
-                                            <a href="@Api.DownloadUrl(d.Id)" target="_blank" rel="noopener"
-                                               draggable="false" class="ad-rag__file-link">@d.FileName</a>
+                                            @if (RagLibraryClient.DownloadUrl(d) is { } href)
+                                            {
+                                                <a href="@href" target="_blank" rel="noopener"
+                                                   draggable="false" class="ad-rag__file-link"
+                                                   title="내려받기">@d.FileName</a>
+                                            }
+                                            else
+                                            {
+                                                @* 아직 파일 서버로 안 옮긴 줄. 누를 데가 없는
+                                                   링크를 거는 것보다 까닭을 적는 편이 낫다. *@
+                                                <span class="ad-rag__file-link ad-rag__file-link--off"
+                                                      title="파일 서버로 아직 안 옮긴 문서라 내려받을 수 없습니다.">@d.FileName</span>
+                                            }
                                             @if (!string.IsNullOrWhiteSpace(d.Error))
                                             {
                                                 <div class="ad-rag__err">@d.Error</div>

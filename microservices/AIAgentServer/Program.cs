@@ -100,6 +100,11 @@ builder.Services.AddSingleton<CliRelay>();
 builder.Services.AddHttpClient<AIAgentServer.Services.Rag.EmbeddingClient>();
 builder.Services.AddSingleton<AIAgentServer.Services.Rag.RagStore>();
 builder.Services.AddScoped<AIAgentServer.Services.Rag.RagIndexer>();
+// RAG 문서의 실물을 맡는 곳. **올리기가 큰 파일이라 기본 100초로는 모자란다**
+// — 색인할 때도 문서마다 한 번씩 받아 온다.
+builder.Services.AddHttpClient<AIAgentServer.Services.Rag.FileServerClient>(c =>
+    c.Timeout = TimeSpan.FromMinutes(10));
+
 builder.Services.AddScoped<AIAgentServer.Services.Rag.RagLibrary>();
 builder.Services.AddScoped<AIAgentServer.Services.Rag.RagAugmenter>();
 

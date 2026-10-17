@@ -24,6 +24,7 @@ public sealed class RagLibrary
 {
     private readonly AiUsageDbContext _db;
     private readonly EmbeddingClient _embed;
+    private readonly FileServerClient _files;
     private readonly RagStore _store;
     private readonly IConfiguration _config;
     private readonly ILogger<RagLibrary> _logger;
@@ -31,12 +32,14 @@ public sealed class RagLibrary
     public RagLibrary(
         AiUsageDbContext db,
         EmbeddingClient embed,
+        FileServerClient files,
         RagStore store,
         IConfiguration config,
         ILogger<RagLibrary> logger)
     {
         _db = db;
         _embed = embed;
+        _files = files;
         _store = store;
         _config = config;
         _logger = logger;
@@ -194,7 +197,7 @@ public sealed class RagLibrary
         // 파일까지 지운다. **표만 지우면 디스크에 남아 쌓인다.**
         foreach (var d in await _db.RagDocuments.Where(x => x.CategoryId == id).ToListAsync(ct))
         {
-            TryDeleteFile(d.StoredPath);
+            await DropFileAsync(d, ct);
         }
 
         _db.RagCategories.Remove(row);   // 분류·문서는 FK CASCADE 가 지운다
@@ -380,22 +383,35 @@ public sealed class RagLibrary
         var safeName = Path.GetFileName(fileName);
         if (string.IsNullOrWhiteSpace(safeName)) throw new ArgumentException("파일 이름이 없습니다.");
 
-        var rel = Path.Combine(Slug(categoryId), DateTime.UtcNow.ToString("yyyyMM"),
-                               $"{Guid.NewGuid():N}{Path.GetExtension(safeName)}");
-        var full = Path.Combine(Root, rel);
-        Directory.CreateDirectory(Path.GetDirectoryName(full)!);
+        // **받은 것을 먼저 임시 파일에 받아 둔다.** 들어오는 스트림은 한 번만
+        // 읽히는데 할 일이 둘이다 — 지문(SHA256)을 뜨고, 파일 서버로 보낸다.
+        // 메모리에 들면 50MB 짜리가 그대로 힙에 앉는다.
+        var temp = Path.Combine(Path.GetTempPath(), $"rag-{Guid.NewGuid():N}.tmp");
 
         long size;
         string hash;
-        await using (var fs = File.Create(full))
+        Guid fileId;
+        try
         {
-            await content.CopyToAsync(fs, ct);
-            size = fs.Length;
-        }
+            await using (var fs = File.Create(temp))
+            {
+                await content.CopyToAsync(fs, ct);
+                size = fs.Length;
+            }
 
-        await using (var read = File.OpenRead(full))
+            await using (var read = File.OpenRead(temp))
+            {
+                hash = Convert.ToHexString(await SHA256.HashDataAsync(read, ct)).ToLowerInvariant();
+            }
+
+            await using (var read = File.OpenRead(temp))
+            {
+                fileId = await _files.UploadAsync(read, safeName, contentType, who, ct);
+            }
+        }
+        finally
         {
-            hash = Convert.ToHexString(await SHA256.HashDataAsync(read, ct)).ToLowerInvariant();
+            TryDeleteTemp(temp);
         }
 
         var row = new RagDocumentRow
@@ -406,7 +422,8 @@ public sealed class RagLibrary
             ContentType = contentType,
             SizeBytes = size,
             Sha256 = hash,
-            StoredPath = rel.Replace('\\', '/'),
+            FileId = fileId,
+            StoredPath = string.Empty,   // 실물은 파일 서버에 있다. 이 칸은 옛 줄만 쓴다.
             Status = DocumentText.IsSupported(safeName) ? "pending" : "skipped",
             Error = DocumentText.IsSupported(safeName)
                 ? null
@@ -419,13 +436,20 @@ public sealed class RagLibrary
         return row;
     }
 
-    public async Task<(string Path, string Name)?> OpenAsync(long id, CancellationToken ct = default)
+    public async Task<(Stream Content, string Name)?> OpenAsync(long id, CancellationToken ct = default)
     {
         var row = await _db.RagDocuments.AsNoTracking().FirstOrDefaultAsync(x => x.Id == id, ct);
         if (row is null) return null;
 
+        if (row.FileId is { } fid)
+        {
+            var stream = await _files.OpenAsync(fid, ct: ct);
+            return stream is null ? null : (stream, row.FileName);
+        }
+
+        // 아직 안 옮긴 줄. 이사가 끝나면 이 갈래는 안 쓰인다.
         var full = Path.Combine(Root, row.StoredPath);
-        return File.Exists(full) ? (full, row.FileName) : null;
+        return File.Exists(full) ? (File.OpenRead(full), row.FileName) : null;
     }
 
     public async Task DeleteDocumentAsync(long id, CancellationToken ct = default)
@@ -433,7 +457,7 @@ public sealed class RagLibrary
         var row = await _db.RagDocuments.FirstOrDefaultAsync(x => x.Id == id, ct)
                   ?? throw new InvalidOperationException("없는 문서입니다.");
 
-        TryDeleteFile(row.StoredPath);
+        await DropFileAsync(row, ct);
         _db.RagDocuments.Remove(row);
         await _db.SaveChangesAsync(ct);
     }
@@ -477,15 +501,27 @@ public sealed class RagLibrary
                 continue;
             }
 
-            var full = Path.Combine(Root, d.StoredPath);
-            if (!File.Exists(full))
+            // **글자를 뽑는 쪽은 길을 받는다**(PdfPig 이 그렇다). 파일 서버에
+            // 있는 것은 임시 파일로 한 번 내려 받아 넘기고 바로 치운다.
+            var (full, temp) = await MaterializeAsync(d, ct);
+            if (full is null)
             {
                 d.Status = "failed";
-                d.Error = "파일이 디스크에 없습니다.";
+                d.Error = "파일을 찾지 못했습니다.";
                 continue;
             }
 
-            var text = DocumentText.Extract(full, d.FileName, out var why);
+            string text;
+            string? why;
+            try
+            {
+                text = DocumentText.Extract(full, d.FileName, out why);
+            }
+            finally
+            {
+                if (temp) TryDeleteTemp(full);
+            }
+
             if (text.Length == 0)
             {
                 d.Status = "failed";
@@ -545,6 +581,139 @@ public sealed class RagLibrary
     }
 
     // ── 거들기 ──────────────────────────────────────────────────
+
+    /// <summary>실물을 치운다. 옮긴 줄은 파일 서버에, 안 옮긴 줄은 디스크에 있다.</summary>
+    private async Task DropFileAsync(RagDocumentRow row, CancellationToken ct)
+    {
+        if (row.FileId is { } fid) await _files.DeleteAsync(fid, ct);
+        else TryDeleteFile(row.StoredPath);
+    }
+
+    /// <summary>
+    /// 글자를 뽑을 수 있게 <b>길 하나</b>로 만들어 준다.
+    /// </summary>
+    /// <returns>
+    /// 길과 「임시 파일인가」. 임시면 쓴 쪽이 치운다 — 여기서 치우면 돌려주는
+    /// 순간 없어진다.
+    /// </returns>
+    private async Task<(string? Path, bool Temp)> MaterializeAsync(
+        RagDocumentRow row, CancellationToken ct)
+    {
+        if (row.FileId is not { } fid)
+        {
+            var legacy = Path.Combine(Root, row.StoredPath);
+            return File.Exists(legacy) ? (legacy, false) : (null, false);
+        }
+
+        var stream = await _files.OpenAsync(fid, ct: ct);
+        if (stream is null) return (null, false);
+
+        var temp = Path.Combine(Path.GetTempPath(),
+            $"rag-{Guid.NewGuid():N}{Path.GetExtension(row.FileName)}");
+
+        await using (stream)
+        await using (var fs = File.Create(temp))
+        {
+            await stream.CopyToAsync(fs, ct);
+        }
+
+        return (temp, true);
+    }
+
+    private void TryDeleteTemp(string path)
+    {
+        try
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
+        catch (Exception ex)
+        {
+            // 임시 파일이 남는 것뿐이다. 하던 일을 멈출 까닭이 없다.
+            _logger.LogDebug(ex, "임시 파일을 못 지웠습니다: {Path}", path);
+        }
+    }
+
+    /// <summary>
+    /// 아직 디스크에 있는 문서를 파일 서버로 옮긴다. <b>여러 번 돌려도 된다</b> —
+    /// 이미 옮긴 줄(<c>FileId</c> 가 있는 줄)은 건너뛴다.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>원본을 지우지 않는다.</b> 옮긴 뒤 한동안 멀쩡한 것을 보고 사람이
+    /// 지우는 편이 낫다 — 여기서 함께 지우면 파일 서버 쪽이 잘못됐을 때
+    /// 되돌릴 바이트가 없다.
+    /// </para>
+    /// <para>
+    /// <b>운영 컨테이너에서만 돌린다.</b> 개발 장비는 운영과 **같은 DB** 를
+    /// 보는데(docs 의 개발 환경 설명) 디스크와 파일 서버는 제 것이라,
+    /// 개발에서 돌리면 <b>운영 줄에 개발 파일 서버의 아이디가 적힌다</b> —
+    /// 그 줄은 운영에서 영영 404 다. 실제로 한 번 그렇게 적었다(시험 문서
+    /// 넷이라 지우고 끝냈다). 바이트가 없는 줄은 건너뛰므로 사고가 커지지는
+    /// 않지만, <b>개발 장비에 우연히 같은 파일이 남아 있으면 그것이 올라간다.</b>
+    /// </para>
+    /// </remarks>
+    public async Task<(int Moved, int Missing, int Failed)> MigrateToFileServerAsync(
+        string? who, CancellationToken ct = default)
+    {
+        var rows = await _db.RagDocuments
+            .Where(x => x.FileId == null && !x.IsDeleted)
+            .ToListAsync(ct);
+
+        int moved = 0, missing = 0, failed = 0;
+
+        foreach (var row in rows)
+        {
+            var full = Path.Combine(Root, row.StoredPath);
+            if (string.IsNullOrWhiteSpace(row.StoredPath) || !File.Exists(full))
+            {
+                missing++;
+                _logger.LogWarning(
+                    "RAG 이사: {Id} ({Name}) 의 바이트가 디스크에 없습니다.", row.Id, row.FileName);
+                continue;
+            }
+
+            try
+            {
+                // **올리기 전에 지문을 맞춰 본다.** 디스크에 같은 이름의 다른
+                // 바이트가 있을 수 있다(환경을 잘못 짚은 경우가 그렇다).
+                // 어긋나면 옮기지 않는다 — 엉뚱한 파일에 아이디를 달아 두면
+                // 겉보기에는 멀쩡하고 내용만 다르다.
+                if (!string.IsNullOrWhiteSpace(row.Sha256))
+                {
+                    await using var probe = File.OpenRead(full);
+                    var hash = Convert.ToHexString(await SHA256.HashDataAsync(probe, ct))
+                        .ToLowerInvariant();
+
+                    if (!string.Equals(hash, row.Sha256, StringComparison.OrdinalIgnoreCase))
+                    {
+                        failed++;
+                        _logger.LogError(
+                            "RAG 이사: {Id} ({Name}) 의 지문이 다릅니다. 옮기지 않습니다.",
+                            row.Id, row.FileName);
+                        continue;
+                    }
+                }
+
+                await using var read = File.OpenRead(full);
+                row.FileId = await _files.UploadAsync(
+                    read, row.FileName, row.ContentType, who ?? row.CreatedBy, ct);
+
+                await _db.SaveChangesAsync(ct);
+                moved++;
+            }
+            catch (Exception ex)
+            {
+                failed++;
+                _logger.LogError(ex, "RAG 이사: {Id} ({Name}) 를 옮기지 못했습니다.", row.Id, row.FileName);
+            }
+        }
+
+        _logger.LogInformation(
+            "RAG 이사 끝 — 옮김 {Moved} · 바이트 없음 {Missing} · 실패 {Failed} ({Who})",
+            moved, missing, failed, who);
+
+        return (moved, missing, failed);
+    }
 
     private void TryDeleteFile(string relative)
     {

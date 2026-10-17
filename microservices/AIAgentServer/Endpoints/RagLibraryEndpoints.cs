@@ -167,6 +167,11 @@ public static class RagLibraryEndpoints
             {
                 d.Id, d.FileName, d.ContentType, d.SizeBytes, d.Status,
                 d.ChunkCount, d.Error, d.IndexedAt, d.CreatedAt, d.CreatedBy,
+
+                // 파일 서버의 아이디. **화면이 내려받기 주소를 짓는 열쇠다** —
+                // 셸의 중계가 이 값을 받는다. 아직 안 옮긴 줄은 비어 있고,
+                // 그때는 화면이 링크 대신 글자만 보여 준다.
+                d.FileId,
             })));
         }).WithSummary("분류 안의 문서 목록");
 
@@ -204,11 +209,29 @@ public static class RagLibraryEndpoints
         group.MapGet("/documents/{docId:long}/download", async (
             long docId, [FromServices] RagLibrary lib, CancellationToken ct) =>
         {
+            // **실물은 파일 서버에 있다.** 길이 아니라 흐름으로 받아 그대로
+            // 흘려보낸다 — 이쪽 디스크에 한 벌 받아 두면 그 파일을 누가
+            // 치우느냐가 또 하나의 일이 된다.
             var f = await lib.OpenAsync(docId, ct);
             return f is null
                 ? Results.NotFound()
-                : Results.File(f.Value.Path, "application/octet-stream", f.Value.Name);
+                : Results.Stream(f.Value.Content, "application/octet-stream", f.Value.Name);
         }).WithSummary("문서 내려받기");
+
+        // 디스크에 있던 옛 문서를 파일 서버로 옮긴다. **여러 번 돌려도 된다.**
+        group.MapPost("/documents/migrate-to-fileserver", async (
+            [FromServices] RagLibrary lib, HttpContext http, CancellationToken ct) =>
+        {
+            try
+            {
+                var (moved, missing, failed) = await lib.MigrateToFileServerAsync(Who(http), ct);
+                return Results.Ok(ApiResponse<object>.Ok(new { moved, missing, failed }));
+            }
+            catch (Exception ex)
+            {
+                return Results.Ok(ApiResponse<object>.Fail(ex.Message, "C400"));
+            }
+        }).WithSummary("RAG 문서를 파일 서버로 옮기기 (한 번만 쓰는 길)");
 
         group.MapPut("/documents/{docId:long}/folder", async (
             long docId, [FromBody] MoveDocumentRequest body,

@@ -193,6 +193,7 @@ public class AiUsageDbContext(DbContextOptions<AiUsageDbContext> options) : DbCo
             e.Property(x => x.ContentType).HasColumnName("content_type");
             e.Property(x => x.SizeBytes).HasColumnName("size_bytes");
             e.Property(x => x.Sha256).HasColumnName("sha256");
+            e.Property(x => x.FileId).HasColumnName("file_id");
             e.Property(x => x.StoredPath).HasColumnName("stored_path");
             e.Property(x => x.Status).HasColumnName("status");
             e.Property(x => x.ChunkCount).HasColumnName("chunk_count");
@@ -379,7 +380,19 @@ public class RagDocumentRow
     /// <summary>같은 내용을 색인에 두 번 넣지 않으려고 적어 둔다.</summary>
     public string? Sha256 { get; set; }
 
-    /// <summary><c>Rag:UploadRoot</c> 기준 상대 경로.</summary>
+    /// <summary>
+    /// 파일 서버가 붙인 아이디. <b>실물은 그쪽에 있다.</b>
+    /// </summary>
+    /// <remarks>
+    /// 비어 있으면 <see cref="StoredPath"/> 로 읽던 옛 줄이다
+    /// (<c>deploy/sql/rag-documents-fileserver-2026-10-17.sql</c>).
+    /// </remarks>
+    public Guid? FileId { get; set; }
+
+    /// <summary>
+    /// <c>Rag:UploadRoot</c> 기준 상대 경로. <b>옛 길이다</b> —
+    /// <see cref="FileId"/> 가 없는 줄만 이것으로 읽는다.
+    /// </summary>
     public string StoredPath { get; set; } = string.Empty;
 
     /// <summary><c>pending</c> · <c>indexed</c> · <c>failed</c> · <c>skipped</c></summary>

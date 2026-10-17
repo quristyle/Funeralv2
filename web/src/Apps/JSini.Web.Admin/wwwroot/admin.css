@@ -5853,3 +5853,10 @@
   color: var(--ad-rag-text);
   margin-top: 0.5rem;
 }
+
+/* 아직 파일 서버로 안 옮긴 문서. 링크처럼 보이면 눌러 보게 되므로 밑줄을 뗀다. */
+.ad-rag__file-link--off {
+    color: var(--tb-muted);
+    text-decoration: none;
+    cursor: default;
+}

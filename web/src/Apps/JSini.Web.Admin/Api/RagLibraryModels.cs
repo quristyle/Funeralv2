@@ -67,6 +67,16 @@ public sealed class RagDocumentDto
     public DateTime? IndexedAt { get; set; }
     public DateTime CreatedAt { get; set; }
     public string? CreatedBy { get; set; }
+
+    /// <summary>
+    /// 파일 서버의 아이디. <b>내려받기 주소를 짓는 열쇠다.</b>
+    /// </summary>
+    /// <remarks>
+    /// 비어 있으면 아직 파일 서버로 안 옮긴 줄이다 — 그때는 링크를 걸지 않는다.
+    /// 거는 주소가 셸의 중계(<c>FileDownload.UrlFor</c>)인 까닭은 브라우저에
+    /// 게이트웨이 토큰이 없기 때문이다(BFF).
+    /// </remarks>
+    public Guid? FileId { get; set; }
 }
 
 /// <summary>올리기 결과 한 건.</summary>

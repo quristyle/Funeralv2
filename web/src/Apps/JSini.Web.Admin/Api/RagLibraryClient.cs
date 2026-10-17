@@ -3,6 +3,8 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using JSini.Web.Http;
 
+using JSini.Web.Components.Data;
+
 namespace JSini.Web.Admin.Api;
 
 /// <summary>
@@ -82,7 +84,26 @@ public sealed class RagLibraryClient(GatewayClient gateway, HttpClient http)
     public Task DeleteDocumentAsync(long docId, CancellationToken ct = default)
         => gateway.DeleteAsync($"ai/rag/documents/{docId}", ct);
 
-    public string DownloadUrl(long docId) => $"ai/rag/documents/{docId}/download";
+    /// <summary>
+    /// 내려받기 주소. <b>셸이 중계하는 길이다.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 전에는 <c>ai/rag/documents/{id}/download</c> 를 그대로 돌려주었다. 그것은
+    /// <b>게이트웨이 기준 경로</b>(이 클래스의 <c>HttpClient</c> 가 쓰는 값)인데
+    /// 화면이 그 글자를 <c>&lt;a href&gt;</c> 에 걸어서, 브라우저가 **지금 쪽
+    /// 주소 기준**으로 풀었다 —
+    /// <c>/admin/ai/rag-documents</c> + <c>ai/rag/…</c> →
+    /// <c>/admin/ai/ai/rag/documents/4/download</c>. 앞에 슬래시를 붙여도 안 된다.
+    /// 포털(:5557)에는 <c>/api</c> 가 없고 브라우저에는 게이트웨이 토큰도 없다(BFF).
+    /// </para>
+    /// <para>
+    /// 그래서 파일 서버의 아이디로 <see cref="FileDownload.UrlFor"/> 를 부른다 —
+    /// 공지 첨부·자료실과 같은 길이고, 권한 판정도 파일 서버가 한다.
+    /// </para>
+    /// </remarks>
+    public static string? DownloadUrl(RagDocumentDto doc)
+        => doc.FileId is { } id ? FileDownload.UrlFor(id.ToString(), doc.FileName) : null;
 
     /// <summary>
     /// 파일 <b>하나</b>를 올린다.
