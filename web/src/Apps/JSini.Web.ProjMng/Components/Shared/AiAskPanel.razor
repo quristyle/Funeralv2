@@ -360,8 +360,11 @@
 
                         <button type="button" class="pm-ask__head"
                                 @onclick="@(() => PeekAsync(t.TaskKey))">
-                            @* 지시자의 얼굴. 사진이 없으면 이름 첫 글자다. *@
-                            <UserFaceMark LoginId="@t.CreId" CssClass="pm-face" />
+                            @* 지시자의 얼굴. 2단 이상에서는 제목 가독성을 위해 숨긴다(1단에서만 표시). *@
+                            @if (_cols < 2)
+                            {
+                                <UserFaceMark LoginId="@t.CreId" CssClass="pm-face" />
+                            }
 
                             <span class="pm-ask__rows">
                                 <span class="pm-ask__line">
@@ -370,6 +373,10 @@
                                     <span class="pm-ai pm-ai--@AiRunnerMark.Tone(t.RunnerKind)"
                                           title="@KindName(t.RunnerKind)">@AiRunnerMark.Letter(t.RunnerKind)</span>
                                     <span class="pm-ask__state">@t.StatusText</span>
+                                    @if (t.TurnCount >= 2)
+                                    {
+                                        <span class="pm-ask__turn-badge" title="@($"처리차수 {t.TurnCount}차")">@($"{t.TurnCount}차")</span>
+                                    }
                                     <span class="pm-ask__span">@AiTaskWhen.Elapsed(t)</span>
                                 </span>
 

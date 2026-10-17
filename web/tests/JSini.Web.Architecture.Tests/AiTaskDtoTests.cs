@@ -138,4 +138,14 @@ public sealed class AiTaskDtoTests
         Assert.Equal(2, task.TurnTitles[1].No);
         Assert.Equal("2차 작업 제목", task.TurnTitles[1].Title);
     }
+
+    [Fact]
+    public void TurnCount_기본값은_1차이고_2차이상일_때만_배지대상이다()
+    {
+        var task1 = new AiTaskDto();
+        Assert.Equal(1, task1.TurnCount);
+
+        var task2 = new AiTaskDto { TurnCount = 2 };
+        Assert.True(task2.TurnCount >= 2);
+    }
 }

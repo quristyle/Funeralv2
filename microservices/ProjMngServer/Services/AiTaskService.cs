@@ -35,6 +35,24 @@ public sealed class AiTaskService(
         a.title           AS Title,
         a.contents        AS Contents,
         a.content_format  AS ContentFormat,
+        -- 처리차수. 실행 이력의 최대 seq 또는 진행/대기 중인 차수.
+        COALESCE(( SELECT MAX(r.seq)::int FROM projmng.ai_task_run r
+                    WHERE r.task_key = a.task_key ), 0)
+        + CASE WHEN a.task_status IN ('queued', 'preparing')
+                AND EXISTS (
+                    SELECT 1 FROM projmng.ai_task_run r2
+                     WHERE r2.task_key = a.task_key AND r2.finished_at IS NOT NULL
+                )
+                AND NOT EXISTS (
+                    SELECT 1 FROM projmng.ai_task_run r3
+                     WHERE r3.task_key = a.task_key AND r3.finished_at IS NULL
+                )
+               THEN 1
+               WHEN NOT EXISTS (
+                    SELECT 1 FROM projmng.ai_task_run r4
+                     WHERE r4.task_key = a.task_key
+               ) THEN 1
+               ELSE 0 END AS TurnCount,
         -- 붙은 첨부 개수. **목록이 배지 하나를 세우는 값**이라 개수만 센다 —
         -- 이름까지 끌고 오면 카드 열 장을 그리는 조회가 그만큼 무거워지고,
         -- 정작 이름은 눌러서 여는 자리에서만 쓴다.

@@ -127,6 +127,29 @@ public sealed class AiAskLayoutTests
     }
 
     [Fact]
+    public void 최근_목록에서_2단_이상일_때_프로필이_숨겨지고_2차_이상일_때_처리차수_배지가_표시된다()
+    {
+        var razor = PanelRazor();
+        var css = ProjMngCss();
+
+        // 1. 2단 이상일 때 프로필 숨김 (1단에서만 UserFaceMark 노출)
+        Assert.Contains("@if (_cols < 2)", razor, StringComparison.Ordinal);
+        var faceIfAt = razor.IndexOf("@if (_cols < 2)", StringComparison.Ordinal);
+        var faceMarkAt = razor.IndexOf("<UserFaceMark LoginId=\"@t.CreId\" CssClass=\"pm-face\" />", StringComparison.Ordinal);
+        Assert.True(faceIfAt >= 0 && faceMarkAt > faceIfAt, "UserFaceMark는 _cols < 2 조건 안에서만 그려져야 한다");
+
+        // 2. 2차 이상일 때 처리차수 배지 표기
+        Assert.Contains("@if (t.TurnCount >= 2)", razor, StringComparison.Ordinal);
+        Assert.Contains("class=\"pm-ask__turn-badge\"", razor, StringComparison.Ordinal);
+        Assert.Contains("@($\"{t.TurnCount}차\")", razor, StringComparison.Ordinal);
+
+        // 3. CSS 규칙 존재
+        var turnRule = Rule(css, ".pm-ask__turn-badge {");
+        Assert.Contains("white-space: nowrap", turnRule, StringComparison.Ordinal);
+        Assert.Contains("border-radius: 999px", turnRule, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Breadcrumb_은_모바일에서_Trail이_없어도_활성탭이_있으면_화면메뉴를_표시한다()
     {
         var razor = BreadcrumbRazor();

@@ -62,6 +62,12 @@ public sealed class AiTask
     /// <summary>본문 형식. 지금은 <c>markdown</c> 하나다.</summary>
     public string? ContentFormat { get; set; } = "markdown";
 
+    /// <summary>
+    /// 처리차수. 실행 이력의 최대 seq 또는 진행/대기 중인 차수. 조인해 온다 — <b>읽기 전용</b>.
+    /// 2차 이상일 때 화면 카드에 배지로 표시된다.
+    /// </summary>
+    public int TurnCount { get; set; } = 1;
+
     // ── 함께 보낸 파일 ──────────────────────────────────────
 
     /// <summary>

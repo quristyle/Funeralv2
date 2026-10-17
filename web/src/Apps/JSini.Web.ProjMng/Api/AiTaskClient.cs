@@ -460,6 +460,17 @@ public sealed class AiTaskDto
     public string? Contents { get; set; }
     public string? ContentFormat { get; set; } = "markdown";
 
+    private int _turnCount = 1;
+
+    /// <summary>
+    /// 처리차수. 읽기 전용 — 서버가 세어 준다. 2차 이상일 때 최근 목록 카드에 배지로 표시된다.
+    /// </summary>
+    public int TurnCount
+    {
+        get => TurnTitles.Count > 0 ? Math.Max(_turnCount, TurnTitles.Max(t => t.No)) : _turnCount;
+        set => _turnCount = value;
+    }
+
     // ── 함께 보낸 파일 ──────────────────────────────────────
 
     /// <summary>

@@ -3447,6 +3447,20 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   white-space: nowrap;
 }
 
+/* 처리차수 배지 — 2차 이상일 때 첫째 줄에 선다. */
+.pm-ask__turn-badge {
+  flex: 0 0 auto;
+  font-size: 0.72em;
+  font-weight: 700;
+  padding: 0.05rem 0.35rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--jsini-accent) 45%, var(--jsini-border));
+  background: color-mix(in srgb, var(--jsini-accent) 12%, transparent);
+  color: var(--jsini-accent);
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
 /* 상태 글자. 띠와 같은 색을 쓴다(`--pm-ask-tone`). */
 .pm-ask__state {
   font-size: 0.8em;
