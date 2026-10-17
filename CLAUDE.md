@@ -171,6 +171,9 @@ nginx 설정 정본은 [deploy/nginx/](deploy/nginx/) 에 있다 — Blazor 회�
 ## 규칙
 
 - 커밋 메시지·주석·문서는 한국어로 쓴다.
+- **주석은 코드를 보고는 알 수 없는 것만 한두 줄로 적는다.** 날짜 박힌 변경
+  이력과 「한동안 …이었다」처럼 지금 없는 모양을 설명하는 글은 적지 않는다 —
+  그런 것은 git 이력이 들고 있다. 규칙과 정리 진행은 [docs/comment-cleanup.md](docs/comment-cleanup.md).
 - 설정 우선순위: 환경변수(`scripts/secrets.env`) > appsettings. `Jwt__Key` 같은 이중 밑줄 표기.
 - 비밀값(JWT 키, VAPID 키, DB 비밀번호 등)은 절대 커밋하지 않는다. `scripts/secrets.env.example`만 갱신한다.
 - EF Core 마이그레이션을 추가하면 배포 전 운영 DB 반영 여부를 반드시 확인한다.
