@@ -252,6 +252,24 @@
    화면에서 친 글자가 아무 데도 안 적힌다. id 로 제 상자 안에서만 찾게 한다. *@
 <div class="pm-ask" id="@_domId">
 
+    @* ── 상단 히어로 배너 ─────────────────────────────────
+       AI 대화 표준 규격에 부합하는 정돈된 인트로 배너.
+       길에서 한 줄 던지고 백그라운드 처리 후 결과를 받는 정체성을 한눈에 보여 준다. *@
+    <div class="pm-ask__hero">
+        <div class="pm-ask__hero-symbol" aria-hidden="true">
+            <span class="jsini-icon-bolt"></span>
+        </div>
+        <div class="pm-ask__hero-content">
+            <div class="pm-ask__hero-head">
+                <h2 class="pm-ask__hero-title">빠른 AI 지시</h2>
+                <span class="jsini-badge jsini-badge--info">백그라운드 비동기</span>
+            </div>
+            <p class="pm-ask__hero-desc">
+                길에서 한 줄 던지면 백그라운드에서 AI가 수행하고, 완료 시 이메일과 알림으로 보고서를 전송합니다.
+            </p>
+        </div>
+    </div>
+
     @* ── 판 안의 탭 줄 (휴대폰) ────────────────────────────
 
        열어 본 건이 하나라도 있을 때만 선다. 아무것도 안 열었을 때 「빠른
@@ -564,73 +582,68 @@
             </PermissionView>
         </div>
 
-        @* 여기에 설명 줄을 두지 않는다 (2026-09-24).
-
-           한동안 단추 아래에 한 줄(`SendNote`)이 있어 올리기가 어느 쪽인지 ·
-           메일이 가는지를 풀어 적었고, 보낸 뒤에는 「보냈습니다 — …」 안내가
-           한 줄 더 섰다. 둘 다 **화면에 이미 있는 것을 다시 말하는 글**이다 —
-           올리기는 단추 글자(`SendText`)와 묻는 창이, 메일·앱알림은 체크칸
-           자신이, 보냈다는 사실은 토스트와 바로 아래 카드가 말한다.
-
-           휴대폰에서 그 두 줄은 **글상자와 카드 사이를 벌려** 방금 보낸 것이
-           자판 밖으로 밀려나게 했다. 「길에서 한 줄 던지는 자리」라는 이 화면의
-           전제와 정면으로 어긋난다.
-
-           보낸 결과는 토스트가 말한다(`RunAsync` 의 `okMessage`) — 잠깐 떴다
-           지는 것이 맞는 종류고, 그것이 이 저장소의 규칙이다(`PageNotice` 머리말). *@
+        <div class="pm-ask__disclaimer">
+            AI는 백그라운드에서 작업을 수행하며 결과가 다를 수 있습니다. 최종 산출물을 확인하세요.
+        </div>
     </CommCont>
 
-    @* ── 보낸 것 ──────────────────────────────────────────
-
-       제목을 달지 않는다. 이 판 위가 보내는 자리고 그 바로 아래에 카드가
-       깔리면 **그것이 방금 보낸 것들이라는 사실은 자리로 이미 말한다.**
-       모바일에서 제목 한 줄은 카드 한 층만큼의 높이다. *@
+    @* ── 보낸 것 ────────────────────────────────────────── *@
     <CommCont CssClass="@ListPaneCss">
-        @if (_recent.Count > 0)
-        {
-            @* ── 몇 단으로 깔 것인가 (2026-09-25) ───────────────
-
-               한동안 **둘씩** 하나뿐이었다. 그런데 같은 알맹이가 뜨는 자리가
-               셋이다 — 세로로 쥔 휴대폰 · 헤더에서 여는 서랍(좁고 길다) ·
-               책상의 넓은 화면. 한 벌의 수로는 그 셋을 다 맞출 수 없다.
-
-                 · 휴대폰에서 반 폭이면 제목이 **두어 낱말 만에** 잘린다.
-                   무엇을 시킨 건인지가 사라지면 상태만 남아도 소용이 없다.
-                 · 넓은 화면에서 두 장은 한 줄을 다 못 쓴다. 카드가 옆으로
-                   늘어져 오른쪽이 허옇게 남고, 그만큼 세로로 길어진다.
-
-               그래서 **사람이 고른다.** 고른 것은 기억한다
-               (`AiAskPrefs.ListCols`, 브라우저) — 기기마다 다른 것이 맞는
-               값이라 서버가 아니다. 왜 브라우저인지는 그 파일 머리말에.
-
-               자리는 목록 **위 오른쪽**이다. 아래 「더보기」 줄에 붙이면
-               **카드가 적을 때 그 줄이 아예 안 서서** 고르는 길이 사라진다.
-
-               글자는 숫자뿐이다. 카드 한 층도 안 되는 높이에 「1단·2단·3단」
-               여섯 글자를 밀어 넣을 이유가 없고, 무엇을 고르는 줄인지는
-               왼쪽의 「단」이 말한다. 화면 낭독기에는 `title` 이 온 말을
-               읽어 준다.
-
-               **좁다고 되돌리지 않는다.** 휴대폰에서 셋을 고른 사람은 제목이
-               잘리는 것을 알고 고른 것이다(한눈에 몇 장 보는 쪽을 택했다).
-               화면 폭이 그 선택을 말없이 덮으면 「눌렀는데 안 바뀐다」가 된다. *@
-            <div class="pm-ask__cols" role="group" aria-label="카드 단 수">
-                <span class="pm-ask__cols-label">단</span>
-
-                @foreach (var n in ColChoices)
+        <div class="pm-ask__list-head">
+            <div class="pm-ask__list-title">
+                <span class="pm-ask__list-label">최근 보낸 지시</span>
+                @if (_recent.Count > 0)
                 {
-                    <button type="button" class="pm-ask__col"
-                            aria-pressed="@(_cols == n ? "true" : "false")"
-                            title="@($"가로 {n}단으로 깔기")"
-                            @onclick="@(() => SetCols(n))">@n</button>
+                    <span class="jsini-badge jsini-badge--muted">@_recent.Count</span>
                 }
             </div>
-        }
+
+            @if (_recent.Count > 0)
+            {
+                <div class="pm-ask__cols" role="group" aria-label="카드 단 수">
+                    <span class="pm-ask__cols-label">단</span>
+
+                    @foreach (var n in ColChoices)
+                    {
+                        <button type="button" class="pm-ask__col"
+                                aria-pressed="@(_cols == n ? "true" : "false")"
+                                title="@($"가로 {n}단으로 깔기")"
+                                @onclick="@(() => SetCols(n))">@n</button>
+                    }
+                </div>
+            }
+        </div>
 
         <div class="pm-ask__scroll">
             @if (_recent.Count == 0)
             {
-                <PageNotice Tone="NoticeTone.Info" Text="아직 보낸 것이 없습니다." />
+                <div class="pm-ask__empty-card">
+                    <div class="pm-ask__empty-symbol" aria-hidden="true">
+                        <span class="jsini-icon-robot"></span>
+                    </div>
+                    <h3 class="pm-ask__empty-title">아직 요청한 빠른 지시가 없습니다</h3>
+                    <p class="pm-ask__empty-desc">
+                        무엇을 시킬지 또는 궁금한 점을 위 입력창에 적어 보내보세요.<br />
+                        AI가 백그라운드에서 작업을 수행하고 완료 시 보고서를 전송합니다.
+                    </p>
+                    <div class="pm-ask__prompts">
+                        <button type="button" class="pm-ask__prompt-btn"
+                                @onclick="@(() => SetPrompt("최근 커밋 변경 내역과 현재 브랜치 상태 요약해줘"))">
+                            <span class="pm-ask__prompt-icon">💡</span>
+                            <span class="pm-ask__prompt-text">최근 커밋 변경 내역과 브랜치 상태 요약해줘</span>
+                        </button>
+                        <button type="button" class="pm-ask__prompt-btn"
+                                @onclick="@(() => SetPrompt("전체 아키텍처 테스트와 백엔드 테스트 실행하고 결과 알려줘"))">
+                            <span class="pm-ask__prompt-icon">🧪</span>
+                            <span class="pm-ask__prompt-text">전체 테스트 실행하고 결과 알려줘</span>
+                        </button>
+                        <button type="button" class="pm-ask__prompt-btn"
+                                @onclick="@(() => SetPrompt("코드베이스의 미해결 TODO 및 개선 검토 항목 정리해줘"))">
+                            <span class="pm-ask__prompt-icon">📝</span>
+                            <span class="pm-ask__prompt-text">미해결 TODO 및 개선 검토 항목 정리해줘</span>
+                        </button>
+                    </div>
+                </div>
             }
             else
             {

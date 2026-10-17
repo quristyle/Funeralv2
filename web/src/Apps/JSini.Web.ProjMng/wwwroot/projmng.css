@@ -2086,8 +2086,62 @@
 .pm-ask {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 1.25rem;
   max-width: 52rem;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* ── 상단 히어로 배너 (`.pm-ask__hero`) ─────────────────────── */
+.pm-ask__hero {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.1rem 1.35rem;
+  background: var(--jsini-surface);
+  border: 1px solid var(--jsini-border);
+  border-radius: 1rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+}
+
+.pm-ask__hero-symbol {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--jsini-accent) 14%, var(--jsini-surface));
+  color: var(--jsini-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--jsini-accent) 18%, transparent);
+}
+
+.pm-ask__hero-content {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.pm-ask__hero-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.2rem;
+}
+
+.pm-ask__hero-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--jsini-text);
+}
+
+.pm-ask__hero-desc {
+  font-size: 0.82rem;
+  color: var(--jsini-text-muted);
+  margin: 0;
+  line-height: 1.45;
 }
 
 /* 대상과 AI 를 한 줄에. 좁아지면 각자 한 줄을 갖는다 —
@@ -2095,7 +2149,7 @@
 .pm-ask__where {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 0.65rem;
   margin-bottom: 0.75rem;
 }
 
@@ -2185,27 +2239,30 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge:not([class*='jsi
 
 .pm-ask__text {
   width: 100%;
+  border-radius: 0.75rem;
+  border: 1px solid var(--jsini-border);
+  background: var(--jsini-bg);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pm-ask__text:focus-within {
+  border-color: var(--jsini-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--jsini-accent) 22%, transparent);
 }
 
 /* 글자 크기는 **서랍에서 고른 단계를 따른다**(`--jsini-fs-md`).
-
-   한동안 `1rem` 이 박혀 있었다. 까닭은 아래 iOS 한 줄인데, 그 값이
-   `<html>`(16px)에 묶여 있어 **크기 여섯 단계 중 어느 것을 골라도 이 칸만
-   꿈쩍하지 않았다** — 가장 많이 들여다보는 칸이 하필 그랬다.
    (web/CLAUDE.md 「글자 크기를 `rem` 으로 박지 않는다」) */
 .pm-ask__text textarea {
-  min-height: min(6rem, 30vh);
+  min-height: min(6.5rem, 30vh);
   font-size: var(--jsini-fs-md);
-  line-height: 1.5;
+  line-height: 1.6;
   overflow-y: auto;
+  border: none;
+  background: transparent;
+  padding: 0.75rem 0.9rem;
 }
 
-/* **손가락으로 쓰는 기기에서만 16px 바닥을 둔다.** iOS 사파리는 글자가
-   16px 보다 작은 칸에 들어가는 순간 화면을 확대하고, 그 확대는 저절로
-   풀리지 않아 「적고 나면 화면이 커져 있다」가 된다.
-
-   바닥을 모든 기기에 두면 위에서 되찾은 것을 그대로 잃는다 — 책상에서
-   작게 고른 사람은 손가락으로 쓰지 않는다. */
+/* **손가락으로 쓰는 기기에서만 16px 바닥을 둔다.** */
 @media (pointer: coarse) {
   .pm-ask__text textarea {
     font-size: max(var(--jsini-fs-md), 1rem);
@@ -2218,11 +2275,12 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge:not([class*='jsi
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  margin: 0.4rem 0 0;
-  padding: 0.35rem 0.65rem;
-  font-size: 0.85em;
-  background: var(--jsini-bg-subtle, rgba(0, 0, 0, 0.04));
-  border-radius: 4px;
+  margin: 0.5rem 0 0;
+  padding: 0.4rem 0.85rem;
+  font-size: 0.82rem;
+  background: color-mix(in srgb, var(--jsini-accent) 8%, var(--jsini-surface));
+  border: 1px solid color-mix(in srgb, var(--jsini-accent) 20%, transparent);
+  border-radius: 999px;
 }
 
 .pm-ask__draft-text {
@@ -2233,10 +2291,11 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge:not([class*='jsi
   padding: 0;
   background: none;
   border: none;
-  color: var(--jsini-primary, #1976d2);
+  color: var(--jsini-accent);
   cursor: pointer;
   text-decoration: underline;
   font-size: 0.9em;
+  font-weight: 600;
 }
 
 .pm-ask__draft-clear:hover {
@@ -2485,7 +2544,7 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge:not([class*='jsi
   display: flex;
   align-items: center;
   gap: 0.5rem 1rem;
-  margin: 0.75rem 0 0;
+  margin: 0.85rem 0 0;
 }
 
 /* 체크박스 스타일은 더 이상 쓰이지 않으나 하위 호환성을 위해 유지 */
@@ -2497,11 +2556,32 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge:not([class*='jsi
 /* 보내기(올리기) 단추. 첨부 아이콘과 같은 라인 우측 끝에 배치 */
 .pm-ask__go {
   min-height: 2.75rem;
-  padding-inline: 1.25rem;
+  padding-inline: 1.5rem;
   margin-left: auto;
   font-weight: 600;
+  font-size: 0.92rem;
   white-space: nowrap;
   flex-shrink: 0;
+  border-radius: 999px;
+  background: var(--jsini-accent);
+  border: 1px solid var(--jsini-accent);
+  color: #fff;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--jsini-accent) 28%, transparent);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pm-ask__go:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--jsini-accent) 38%, transparent);
+}
+
+.pm-ask__disclaimer {
+  font-size: 0.75rem;
+  color: var(--jsini-text-muted);
+  text-align: center;
+  margin-top: 0.75rem;
+  line-height: 1.45;
+  opacity: 0.85;
 }
 
 
@@ -2525,10 +2605,12 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge:not([class*='jsi
 
   display: flex;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.3rem 0;
+  gap: 0.35rem;
+  padding: 0.4rem;
   background: var(--jsini-bg);
-  border-bottom: 1px solid var(--jsini-border);
+  border: 1px solid var(--jsini-border);
+  border-radius: 999px;
+  margin-bottom: 0.75rem;
 
   overflow-x: auto;
   scrollbar-width: none;
@@ -2548,11 +2630,12 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge:not([class*='jsi
   align-items: center;
 
   max-width: 11rem;
-  border: 1px solid var(--jsini-border);
-  border-radius: 0.3rem;
-  background: var(--jsini-surface);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
   color: var(--jsini-text-muted);
   font-size: var(--jsini-fs-2xs);
+  transition: all 0.15s ease;
 }
 
 /* 고른 칸은 **면으로** 칠한다. 테두리를 두껍게 하면 그 칸만 키가 커져 줄이
@@ -2562,6 +2645,7 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge:not([class*='jsi
   background: var(--jsini-accent);
   color: #fff;
   font-weight: 600;
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--jsini-accent) 30%, transparent);
 }
 
 /* 맨 앞 칸(「빠른 지시」)은 상자 자신이 단추다. 안쪽 여백만 준다. */
@@ -2661,15 +2745,30 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge:not([class*='jsi
   margin-bottom: 0;
 }
 
-.pm-ask > .pm-ask__tabs,
+.pm-ask > .pm-ask__tabs {
+  flex: 0 0 auto;
+}
+
 .pm-ask__write {
   flex: 0 0 auto;
+  background: var(--jsini-surface);
+  border: 1px solid var(--jsini-border);
+  border-radius: 1rem;
+  padding: 1.25rem;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.04);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .pm-ask__recent {
   flex: 1 1 0;
   min-height: 0;
   overflow: hidden;
+  background: var(--jsini-surface);
+  border: 1px solid var(--jsini-border);
+  border-radius: 1rem;
+  padding: 1.25rem;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.04);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .pm-ask__recent > .commcont__body {
@@ -2688,23 +2787,32 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge:not([class*='jsi
 
 /* ── 보낸 것 목록 ──────────────────────────────────────────── */
 
-/* 목록이 아니라 **카드**다. 줄로 늘어놓으면 제목 · 상태 · 시각 · 걸린 시간이
-   한 줄을 다투다가 좁은 화면에서 제목부터 잘린다.
+/* 목록 헤더 & 카운트 */
+.pm-ask__list-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--jsini-border);
+}
 
-   **몇 단으로 깔지는 사람이 고른다**(`--pm-ask-cols`, 1~3). 화면이 그 값을
-   상자에 실어 내리고 여기서는 단 수만 받아 쓴다. 기본은 둘이고 한동안
-   그것 하나뿐이었다 — 넉 장을 한 줄에 한 장씩 쌓으면 세로로 길어져 마지막
-   장이 자판 아래로 밀리는데, 둘씩 놓으면 높이가 반이라 한눈에 들어온다.
+.pm-ask__list-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--jsini-text);
+}
 
-   **화면 폭으로 이 값을 되돌리지 않는다.** 좁은 화면에서 셋을 고른 사람은
-   제목이 잘리는 것을 알고 고른 것이고, 반 폭에서 잘리는 제목은 눌러서 본다.
-   폭이 고른 값을 말없이 덮으면 「눌렀는데 안 바뀐다」가 된다.
+.pm-ask__list-label {
+  color: var(--jsini-text);
+}
 
-   `minmax(0, 1fr)` 이라야 한다 — 맨 `1fr` 은 최소 너비가 내용이라 긴 제목
-   하나가 제 칸을 밀어내고, 세 단에서는 그것이 바로 드러난다.
-
-   `align-items: start` 가 필요하다 — 없으면 격자가 같은 줄의 카드를
-   **펼친 쪽 높이에 맞춰 늘려** 옆 카드에 빈 바닥이 생긴다. */
+/* 목록이 아니라 **카드**다. */
 .pm-ask__list {
   --pm-ask-cols: 2;
 
@@ -2712,45 +2820,45 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge:not([class*='jsi
   display: grid;
   grid-template-columns: repeat(var(--pm-ask-cols), minmax(0, 1fr));
   align-items: start;
-  gap: 0.5rem;
+  gap: 0.6rem;
   margin: 0;
   padding: 0;
 }
 
-/* 단 수 고르개. **목록 위 오른쪽**에 붙는다 — 아래 「더보기」 줄에 두면
-   카드가 적을 때 그 줄이 안 서서 고르는 길이 사라진다.
-
-   높이를 아낀다. 이 판은 「길에서 한 줄 던지는 자리」라 글상자와 카드 사이가
-   벌어지면 방금 보낸 것이 자판 밖으로 밀린다 — 한 층을 새로 내는 것이 아니라
-   **카드 한 층의 절반쯤**으로 눌러 둔다. */
+/* 단 수 고르개 캡슐형 세그먼트 스위치 */
 .pm-ask__cols {
   flex: 0 0 auto;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: flex-end;
-  gap: 0.35rem;
-  margin-bottom: 0.35rem;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--jsini-border);
+  border-radius: 999px;
+  background: var(--jsini-bg);
 }
 
 .pm-ask__cols-label {
   color: var(--jsini-text-muted);
   font-size: var(--jsini-fs-2xs);
+  padding-left: 0.35rem;
+  padding-right: 0.15rem;
 }
 
-/* 칸 셋이 한 덩어리다(`pm-axis` 와 같은 모양). 글자가 한 자뿐이라 좌우
-   여백으로 누르는 자리를 만든다 — 손가락으로 겨누는 자리라 2rem 은 남긴다. */
 .pm-ask__col {
   appearance: none;
-  min-width: 2rem;
-  padding: 0.2rem 0.45rem;
-  border: 1px solid var(--jsini-border);
-  border-radius: 0.3rem;
-  background: var(--jsini-surface);
+  min-width: 1.85rem;
+  height: 1.65rem;
+  padding: 0 0.5rem;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
   color: var(--jsini-text-muted);
   font: inherit;
   font-size: var(--jsini-fs-2xs);
-  line-height: 1.6;
+  font-weight: 600;
+  line-height: 1.65rem;
   cursor: pointer;
+  transition: all 0.15s ease;
 }
 
 .pm-ask__col:hover {
@@ -2758,18 +2866,99 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge:not([class*='jsi
   color: var(--jsini-text);
 }
 
-/* 고른 칸은 **면으로** 칠한다. 테두리를 두껍게 하면 그 칸만 키가 커져 줄이
-   들썩인다 — 테마 서랍과 `pm-axis` 가 같은 까닭으로 같은 방법을 쓴다. */
 .pm-ask__col[aria-pressed='true'] {
   border-color: var(--jsini-accent);
   background: var(--jsini-accent);
   color: #fff;
   font-weight: 600;
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--jsini-accent) 30%, transparent);
 }
 
 .pm-ask__col:focus-visible {
   outline: 2px solid var(--jsini-accent);
   outline-offset: 1px;
+}
+
+/* ── 빈 상태 (Empty States & Quick Prompts) ──────────────────── */
+.pm-ask__empty-card {
+  padding: 2.75rem 1.5rem;
+  text-align: center;
+  background: color-mix(in srgb, var(--jsini-surface) 60%, var(--jsini-bg));
+  border: 1px dashed var(--jsini-border);
+  border-radius: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.pm-ask__empty-symbol {
+  width: 3.8rem;
+  height: 3.8rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--jsini-accent) 12%, var(--jsini-surface));
+  color: var(--jsini-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--jsini-accent) 18%, transparent);
+}
+
+.pm-ask__empty-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--jsini-text);
+  margin-bottom: 0.4rem;
+}
+
+.pm-ask__empty-desc {
+  font-size: 0.85rem;
+  color: var(--jsini-text-muted);
+  max-width: 440px;
+  margin-bottom: 1.35rem;
+  line-height: 1.5;
+}
+
+.pm-ask__prompts {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+  max-width: 440px;
+}
+
+.pm-ask__prompt-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 1rem;
+  border-radius: 0.75rem;
+  border: 1px solid var(--jsini-border);
+  background: var(--jsini-surface);
+  color: var(--jsini-text);
+  font-size: 0.82rem;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+}
+
+.pm-ask__prompt-btn:hover {
+  border-color: var(--jsini-accent);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px color-mix(in srgb, var(--jsini-accent) 14%, transparent);
+}
+
+.pm-ask__prompt-icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.pm-ask__prompt-text {
+  flex: 1 1 auto;
+  line-height: 1.4;
 }
 
 /* 상태를 카드의 색으로 말한다. 왼쪽 띠가 그 색이고 상태 글자도 같은 색이다.
@@ -2783,9 +2972,19 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge:not([class*='jsi
   --pm-ask-tone: var(--jsini-text-muted);
 
   border: 1px solid var(--jsini-border);
-  border-left: 0.35rem solid var(--pm-ask-tone);
-  border-radius: 0.5rem;
+  border-left: 4px solid var(--pm-ask-tone);
+  border-radius: 0.75rem;
+  background: var(--jsini-surface);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
   overflow: hidden;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pm-ask__item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+  border-color: color-mix(in srgb, var(--jsini-accent) 35%, var(--jsini-border));
+  border-left-color: var(--pm-ask-tone);
 }
 
 .pm-ask__item--on { --pm-ask-tone: #2e7d32; }
@@ -3266,6 +3465,7 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge:not([class*='jsi
   min-height: 2.75rem;
   padding-inline: 1.25rem;
   font-weight: 600;
+  border-radius: 999px;
 }
 
 /* 접기. **더보기보다 흐리고 좁다** — 되돌리는 길이지 권하는 길이 아니다.
@@ -3274,12 +3474,33 @@ li:hover > * > .pm-ask__kinditem .pm-ask__kindhead .jsini-badge:not([class*='jsi
   flex: 0 0 auto;
   min-height: 2.5rem;
   opacity: 0.75;
+  border-radius: 999px;
 }
 
 .pm-ask__more-sentinel {
   display: block;
   height: 1px;
   pointer-events: none;
+}
+
+@media (max-width: 640px) {
+  .pm-ask__hero {
+    padding: 0.85rem 1rem;
+    gap: 0.75rem;
+  }
+  .pm-ask__hero-symbol {
+    width: 2.35rem;
+    height: 2.35rem;
+    font-size: 1.15rem;
+  }
+  .pm-ask__hero-title {
+    font-size: 1.05rem;
+  }
+  .pm-ask__write,
+  .pm-ask__recent {
+    padding: 1rem;
+    border-radius: 0.85rem;
+  }
 }
 
 /* ── AI 작업 요청 (`pm-req`) ──────────────────────────────────

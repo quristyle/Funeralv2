@@ -1026,6 +1026,15 @@ public partial class AiAskPanel
     }
 
     /// <summary>
+    /// 추천 프롬프트를 입력창에 채운다.
+    /// </summary>
+    private void SetPrompt(string prompt)
+    {
+        Text = prompt;
+        StateHasChanged();
+    }
+
+    /// <summary>
     /// 대상 목록. <b>실패해도 화면을 막지 않는다</b> — 최근 보낸 것은 보여야
     /// 「왜 아무것도 없나」를 알 수 있다.
     /// </summary>
