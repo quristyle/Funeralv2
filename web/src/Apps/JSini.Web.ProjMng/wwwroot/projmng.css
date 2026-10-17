@@ -5699,7 +5699,12 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 
    휴대폰에서 「빠른 지시」 판 안에 서는 상세도 같은 줄을 쓴다
    (`pm-ask__viewacts`). 서는 단추가 같은 부품(`AiTaskActions`)이라 모양까지
-   갈라 둘 이유가 없다. */
+   갈라 둘 이유가 없다.
+
+   줄이 가로 전체를 차지해 사용되지 않는 공간까지 덮어쓰지 않도록,
+   버튼들이 차지하는 만큼만 차지하도록 폭을 맞추고(`width: fit-content; align-self: flex-end`),
+   배경색을 없애 뒤의 내용이 보이도록 하며(`background: transparent; border: none; box-shadow: none`),
+   버튼과 박스 사이 공간을 최소화한다(`padding: 0`). */
 .pm-taskview__acts,
 .pm-ask__viewacts {
   position: sticky;
@@ -5708,12 +5713,16 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
+  align-self: flex-end;
+  width: fit-content;
+  max-width: 100%;
   gap: 0.5rem;
   margin-top: auto;
-  padding: 0.75rem 0;
-  background: var(--jsini-bg);
-  border-top: 1px solid var(--jsini-border);
-  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.05);
+  margin-inline-start: auto;
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
 }
 
 @media (max-width: 767px) {
@@ -5741,8 +5750,8 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   .pm-taskview__acts,
   .pm-ask__viewacts {
     bottom: 0;
-    min-height: var(--jsini-actbar-height);
-    padding: 0.5rem 0;
+    min-height: auto;
+    padding: 0;
 
     /* 줄을 내리지 않는다. 오른쪽으로 모으는 일은 `justify-content` 가
        아니라 **첫 단추의 왼쪽 여백**이 한다 — `flex-end` 로 모아 둔 줄이
