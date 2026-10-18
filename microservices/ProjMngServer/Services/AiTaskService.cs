@@ -590,18 +590,19 @@ public sealed class AiTaskService(
 
         var affected = await db.ExecuteAsync("""
             UPDATE projmng.ai_task
-               SET request_flag = 'requested',
-                   task_status  = 'queued',
-                   requested_at = now(),
-                   started_at   = NULL,
-                   finished_at  = NULL,
-                   duration_ms  = NULL,
-                   last_error    = NULL,
-                   notify_error  = NULL,
-                   attempt_count = 0,
-                   row_version   = row_version + 1,
-                   mod_id       = @userId,
-                   mod_dt       = now()
+               SET request_flag   = 'requested',
+                   task_status    = 'queued',
+                   user_confirmed = false,
+                   requested_at   = now(),
+                   started_at     = NULL,
+                   finished_at    = NULL,
+                   duration_ms    = NULL,
+                   last_error     = NULL,
+                   notify_error   = NULL,
+                   attempt_count  = 0,
+                   row_version    = row_version + 1,
+                   mod_id         = @userId,
+                   mod_dt         = now()
              WHERE task_key   = @taskKey
                AND is_deleted = false
                AND task_status NOT IN ('queued', 'preparing', 'running')
@@ -765,6 +766,7 @@ public sealed class AiTaskService(
                    runner_kind                  = @kind,
                    task_status                  = 'idle',
                    request_flag                 = 'none',
+                   user_confirmed               = false,
                    pending_continue_addition    = NULL,
                    pending_continue_runner_kind = NULL,
                    pending_continue_user_id     = NULL,
@@ -924,20 +926,21 @@ public sealed class AiTaskService(
 
         var affected = await db.ExecuteAsync("""
             UPDATE projmng.ai_task
-               SET contents      = @newContents,
-                   runner_kind   = @kind,
-                   request_flag  = 'requested',
-                   task_status   = 'queued',
-                   requested_at  = now(),
-                   started_at    = NULL,
-                   finished_at   = NULL,
-                   duration_ms   = NULL,
-                   last_error    = NULL,
-                   notify_error  = NULL,
-                   attempt_count = 0,
-                   row_version   = row_version + 1,
-                   mod_id        = @userId,
-                   mod_dt        = now()
+               SET contents       = @newContents,
+                   runner_kind    = @kind,
+                   request_flag   = 'requested',
+                   task_status    = 'queued',
+                   user_confirmed = false,
+                   requested_at   = now(),
+                   started_at     = NULL,
+                   finished_at    = NULL,
+                   duration_ms    = NULL,
+                   last_error     = NULL,
+                   notify_error   = NULL,
+                   attempt_count  = 0,
+                   row_version    = row_version + 1,
+                   mod_id         = @userId,
+                   mod_dt         = now()
              WHERE task_key   = @taskKey
                AND is_deleted = false
                AND task_status NOT IN ('queued', 'preparing', 'running')
