@@ -139,8 +139,52 @@ public partial class RagDocuments
         }
     }
 
+    private CancellationTokenSource? _pollCts;
+
+    private void StartPollingPendingIndex()
+    {
+        _pollCts?.Cancel();
+        _pollCts?.Dispose();
+        _pollCts = new CancellationTokenSource();
+        _ = PollPendingIndexAsync(_pollCts.Token);
+    }
+
+    private async Task PollPendingIndexAsync(CancellationToken ct)
+    {
+        try
+        {
+            for (var i = 0; i < 20; i++)
+            {
+                await Task.Delay(3000, ct);
+                if (ct.IsCancellationRequested) break;
+
+                await RefreshCountsAsync();
+                await LoadDocumentsAsync();
+                await InvokeAsync(StateHasChanged);
+
+                if ((Current?.DocPending ?? 0) == 0)
+                {
+                    break;
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch
+        {
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
+        if (_pollCts is not null)
+        {
+            _pollCts.Cancel();
+            _pollCts.Dispose();
+            _pollCts = null;
+        }
+
         if (_drop is not null)
         {
             try
@@ -168,6 +212,10 @@ public partial class RagDocuments
 
         await LoadTreeAsync();
         await LoadDocumentsAsync();
+        if (Current?.DocPending > 0)
+        {
+            StartPollingPendingIndex();
+        }
         return _categories.Count;
     });
 
@@ -211,6 +259,10 @@ public partial class RagDocuments
         _folderLabel = "분류 미지정";
         await LoadTreeAsync();
         await LoadDocumentsAsync();
+        if (Current?.DocPending > 0)
+        {
+            StartPollingPendingIndex();
+        }
     }
 
     private async Task PickFolderAsync(long? id, string label)
@@ -516,6 +568,11 @@ public partial class RagDocuments
             if (bad > 0) msg += $" {bad}건은 올리지 못했습니다.";
 
             Say(msg, bad > 0 || skipped > 0 ? NoticeTone.Warning : NoticeTone.Info);
+
+            if (done > 0 && done > skipped)
+            {
+                StartPollingPendingIndex();
+            }
         }
         finally
         {
@@ -590,6 +647,7 @@ public partial class RagDocuments
 
         await LoadDocumentsAsync();
         await RefreshCountsAsync();
+        StartPollingPendingIndex();
     }
 
     /// <summary>트리에서 분류 하나를 찾는다. 묻는 창에 이름을 적으려고 쓴다.</summary>

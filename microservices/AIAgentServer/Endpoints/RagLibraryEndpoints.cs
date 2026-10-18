@@ -180,6 +180,7 @@ public static class RagLibraryEndpoints
         group.MapPost("/categories/{id}/documents", async (
             string id, [FromQuery] long? folderId,
             HttpRequest request, [FromServices] RagLibrary lib,
+            [FromServices] RagBackgroundIndexer indexer,
             HttpContext http, CancellationToken ct) =>
         {
             if (!request.HasFormContentType)
@@ -194,11 +195,19 @@ public static class RagLibraryEndpoints
             }
 
             var saved = new List<object>();
+            var anyPending = false;
             foreach (var f in form.Files)
             {
                 await using var s = f.OpenReadStream();
                 var row = await lib.UploadAsync(id, folderId, f.FileName, f.ContentType, s, Who(http), ct);
                 saved.Add(new { row.Id, row.FileName, row.SizeBytes, row.Status, row.Error });
+                if (row.Status == "pending") anyPending = true;
+            }
+
+            // 파일이 정상적으로 등록되면 백그라운드에서 색인 처리가 자동으로 진행된다.
+            if (anyPending)
+            {
+                indexer.QueueReindex(id);
             }
 
             return Results.Ok(ApiResponse<object>.Ok(saved));
@@ -249,11 +258,18 @@ public static class RagLibraryEndpoints
         }).WithSummary("문서를 다른 분류로 옮기기 (색인에는 영향 없음)");
 
         group.MapDelete("/documents/{docId:long}", async (
-            long docId, [FromServices] RagLibrary lib, CancellationToken ct) =>
+            long docId, [FromServices] RagLibrary lib,
+            [FromServices] RagBackgroundIndexer indexer,
+            CancellationToken ct) =>
         {
             try
             {
-                await lib.DeleteDocumentAsync(docId, ct);
+                var categoryId = await lib.DeleteDocumentAsync(docId, ct);
+                if (!string.IsNullOrEmpty(categoryId))
+                {
+                    // 문서 삭제 시에도 벡터 스토어와 통계 동기화를 위해 백그라운드로 색인을 자동 갱신한다.
+                    indexer.QueueReindex(categoryId);
+                }
                 return Results.Ok(ApiResponse<object>.Ok(new { deleted = docId }));
             }
             catch (Exception ex)
@@ -264,11 +280,13 @@ public static class RagLibraryEndpoints
 
         // ── 색인 ────────────────────────────────────────────
         group.MapPost("/categories/{id}/reindex", async (
-            string id, [FromServices] RagLibrary lib, CancellationToken ct) =>
+            string id, [FromServices] RagLibrary lib,
+            [FromServices] RagBackgroundIndexer indexer,
+            CancellationToken ct) =>
         {
             try
             {
-                var index = await lib.ReindexAsync(id, ct);
+                var index = await indexer.ReindexDirectAsync(id, lib, ct);
                 return Results.Ok(ApiResponse<object>.Ok(new
                 {
                     category = id,

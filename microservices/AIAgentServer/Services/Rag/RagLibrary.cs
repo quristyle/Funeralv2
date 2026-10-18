@@ -452,14 +452,16 @@ public sealed class RagLibrary
         return File.Exists(full) ? (File.OpenRead(full), row.FileName) : null;
     }
 
-    public async Task DeleteDocumentAsync(long id, CancellationToken ct = default)
+    public async Task<string> DeleteDocumentAsync(long id, CancellationToken ct = default)
     {
         var row = await _db.RagDocuments.FirstOrDefaultAsync(x => x.Id == id, ct)
                   ?? throw new InvalidOperationException("없는 문서입니다.");
 
+        var categoryId = row.CategoryId;
         await DropFileAsync(row, ct);
         _db.RagDocuments.Remove(row);
         await _db.SaveChangesAsync(ct);
+        return categoryId;
     }
 
     // ── 색인 ────────────────────────────────────────────────────

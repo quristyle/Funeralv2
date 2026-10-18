@@ -106,6 +106,8 @@ builder.Services.AddHttpClient<AIAgentServer.Services.Rag.FileServerClient>(c =>
     c.Timeout = TimeSpan.FromMinutes(10));
 
 builder.Services.AddScoped<AIAgentServer.Services.Rag.RagLibrary>();
+builder.Services.AddSingleton<AIAgentServer.Services.Rag.RagBackgroundIndexer>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<AIAgentServer.Services.Rag.RagBackgroundIndexer>());
 builder.Services.AddScoped<AIAgentServer.Services.Rag.RagAugmenter>();
 
 // MCP — 바깥 도구(웹 검색 등)를 모델이 쓰게 한다. 도구 목록은 코드가 아니라
