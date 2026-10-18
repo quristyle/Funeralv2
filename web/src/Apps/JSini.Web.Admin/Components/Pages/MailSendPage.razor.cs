@@ -219,6 +219,32 @@ public partial class MailSendPage
         RendererInfo.IsInteractive ? LoadRecentAsync() : Task.CompletedTask;
 
     /// <summary>
+    /// 받는 사람으로 미리 넣을 주소(<c>?to=</c>). 아바타 카드의 「이메일 쓰기」가 준다.
+    /// </summary>
+    [SupplyParameterFromQuery(Name = "to")] public string? ToQuery { get; set; }
+
+    /// <summary>
+    /// 이미 넣은 <see cref="ToQuery"/>. 탭이 살아 있는 채로 다시 오면 매개변수만 바뀌므로
+    /// 같은 값으로 다시 그려질 때 쓰던 받는 사람 칸을 건드리지 않으려고 둔다.
+    /// </summary>
+    private string? _toApplied;
+
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
+
+        var to = ToQuery?.Trim();
+        if (string.IsNullOrEmpty(to) || string.Equals(to, _toApplied, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        _toApplied = to;
+        _tab = TabCompose;
+        _to = AddAddress(_to, to);
+    }
+
+    /// <summary>
     /// 최근 주소를 읽는다. <b>조용히 실패한다</b> — 이것이 없어도 메일은
     /// 주소를 쳐서 보낼 수 있고, 여기서 화면을 막으면 못 보낼 이유가 없는
     /// 사람이 못 보낸다.

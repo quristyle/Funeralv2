@@ -106,6 +106,65 @@ public static class UserEndpoints
         })
         .WithName("GetUserFaces");
 
+        // ── 사람 카드 한 장 ──────────────────────────────────────
+        //
+        // 아바타를 누르면 뜨는 카드가 부른다. 얼굴 목록과 달리 **메일·전화가
+        // 실려서 사람이 누른 한 명만** 준다. 익명 통과 경로라 신원을 여기서 본다.
+        group.MapGet("/card", async (
+            UserContext? user, [FromQuery] string? id,
+            [FromServices] AppDbContext db, CancellationToken ct) =>
+        {
+            if (user is null)
+            {
+                return Results.Json(ApiResponse<object>.Fail("인증 정보가 없습니다.", "401"), statusCode: 401);
+            }
+
+            var loginId = id?.Trim();
+            if (string.IsNullOrEmpty(loginId))
+            {
+                return Results.Json(ApiResponse<object>.Fail("사람을 지정하지 않았습니다.", "400"), statusCode: 400);
+            }
+
+            var account = await db.Accounts
+                .Where(a => !a.IsDeleted && a.UserId == loginId)
+                .Select(a => new
+                {
+                    a.Id, a.UserId, a.UserName, a.RealName,
+                    Department = a.Department != null ? a.Department.Name : null,
+                })
+                .FirstOrDefaultAsync(ct);
+
+            if (account is null)
+            {
+                return Results.Json(ApiResponse<object>.Fail("사람을 찾을 수 없습니다.", "404"), statusCode: 404);
+            }
+
+            var details = await db.AccountProfileDetails
+                .Where(d => d.AccountId == account.Id
+                    && !d.IsDeleted
+                    && d.Content != ""
+                    && (d.DetailType == "Avatar" || d.DetailType == "Email" || d.DetailType == "Phone"))
+                .Select(d => new { d.DetailType, d.Content, d.IsPrimary })
+                .ToListAsync(ct);
+
+            string? Primary(string type) => details
+                .Where(d => d.DetailType == type)
+                .OrderByDescending(d => d.IsPrimary)
+                .Select(d => d.Content)
+                .FirstOrDefault();
+
+            return Results.Ok(ApiResponse<UserCardDto>.Ok(new UserCardDto
+            {
+                UserId = account.UserId,
+                Name = FirstFilled(account.UserName, account.RealName, account.UserId),
+                Avatar = Primary("Avatar"),
+                Department = account.Department,
+                Email = Primary("Email"),
+                Phone = Primary("Phone"),
+            }));
+        })
+        .WithName("GetUserCard");
+
         // 계정 활동 정보. 계정 정보 화면이 쓴다.
         //
         // **자기 것만 볼 수 있다.** 조회할 계정을 요청에서 받지 않고

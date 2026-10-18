@@ -195,7 +195,7 @@
                         <div class="ad-orgc__row" draggable="@(CanMove ? "true" : "false")"
                              @ondragstart="@(() => BeginDragUser(user.Id))">
 
-                            <UserAvatar Photo="@user.Avatar"
+                            <UserAvatar Photo="@user.Avatar" LoginId="@user.LoginId"
                                         Name="@(string.IsNullOrWhiteSpace(user.UserName) ? user.LoginId : user.UserName)"
                                         CssClass="ad-orgc__face" />
 

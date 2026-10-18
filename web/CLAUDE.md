@@ -3434,6 +3434,10 @@ DTO 에 하나 더 둔다(`AiDashboardRecent.StartedAtKst`).
   이미 아는 주소는 `Photo` 로 준다. 업무 DB 의 사진 칸(`helpdesk.customer.photo` 등)은
   운영에서 비어 있어서, 그것만 보고 그린 댓글이 사진 있는 사람을 첫 글자로 그렸다.
   `<img>` 를 손수 그리면 `CommentAvatarTests` 가 막는다.
+  **`LoginId` 를 준 얼굴은 누르면 사람 카드가 뜬다**(사진·이름·부서·쪽지·이메일·전화) —
+  책상에서는 얼굴 곁 말풍선, 휴대폰에서는 가운데 창에 닫기 단추. 카드는 레이아웃의
+  `UserCardHost` 한 벌이 그리고 연락처는 누른 한 명만 묻는다(`auth/user/card`).
+  **줄 전체가 단추인 목록 안의 얼굴은 `Card="false"`** 로 끈다(`UserCardTests`).
 - 조건줄은 `jsini-toolbar`, 통계 타일은 `jsini-stats`, 상태 표시는 `jsini-badge`.
 - 모듈 전용 스타일은 그 모듈 `wwwroot/*.css` 에 두고
   `IPortalModule.StyleSheet` 로 알린다. 셸은 모듈 이름을 알지 못한다.

@@ -2586,6 +2586,12 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M14 1a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H4.414A2 2 0 0 0 3 11.586l-2 2V2a1 1 0 0 1 1-1zM2 0a2 2 0 0 0-2 2v12.793a.5.5 0 0 0 .854.353l2.853-2.853A1 1 0 0 1 4.414 12H14a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2z'/%3E%3C/svg%3E");
 }
 
+/* 전화 (telephone). Bootstrap Icons(MIT) 의 telephone 이다. 사람 카드의 「전화하기」. */
+.jsini-icon-telephone {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.654 1.328a.678.678 0 0 0-1.015-.063L1.605 2.3c-.483.484-.661 1.169-.45 1.77a17.6 17.6 0 0 0 4.168 6.608 17.6 17.6 0 0 0 6.608 4.168c.601.211 1.286.033 1.77-.45l1.034-1.034a.678.678 0 0 0-.063-1.015l-2.307-1.794a.68.68 0 0 0-.58-.122l-2.19.547a1.75 1.75 0 0 1-1.657-.459L5.482 8.062a1.75 1.75 0 0 1-.46-1.657l.548-2.19a.68.68 0 0 0-.122-.58zM1.884.511a1.745 1.745 0 0 1 2.612.163L6.29 2.98c.329.423.445.974.315 1.494l-.547 2.19a.68.68 0 0 0 .178.643l2.457 2.457a.68.68 0 0 0 .644.178l2.189-.547a1.75 1.75 0 0 1 1.494.315l2.306 1.794c.829.645.905 1.87.163 2.611l-1.034 1.034c-.74.74-1.846 1.065-2.877.702a18.6 18.6 0 0 1-7.01-4.42 18.6 18.6 0 0 1-4.42-7.009c-.362-1.03-.037-2.137.703-2.877z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.654 1.328a.678.678 0 0 0-1.015-.063L1.605 2.3c-.483.484-.661 1.169-.45 1.77a17.6 17.6 0 0 0 4.168 6.608 17.6 17.6 0 0 0 6.608 4.168c.601.211 1.286.033 1.77-.45l1.034-1.034a.678.678 0 0 0-.063-1.015l-2.307-1.794a.68.68 0 0 0-.58-.122l-2.19.547a1.75 1.75 0 0 1-1.657-.459L5.482 8.062a1.75 1.75 0 0 1-.46-1.657l.548-2.19a.68.68 0 0 0-.122-.58zM1.884.511a1.745 1.745 0 0 1 2.612.163L6.29 2.98c.329.423.445.974.315 1.494l-.547 2.19a.68.68 0 0 0 .178.643l2.457 2.457a.68.68 0 0 0 .644.178l2.189-.547a1.75 1.75 0 0 1 1.494.315l2.306 1.794c.829.645.905 1.87.163 2.611l-1.034 1.034c-.74.74-1.846 1.065-2.877.702a18.6 18.6 0 0 1-7.01-4.42 18.6 18.6 0 0 1-4.42-7.009c-.362-1.03-.037-2.137.703-2.877z'/%3E%3C/svg%3E");
+}
+
 /* 가는 선의 말풍선 + — 댓글 달기. */
 .jsini-icon-comment-plus {
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7.9 20A9 9 0 1 0 4 16.1L2 22z'/%3E%3Cpath d='M8 12h8M12 8v8'/%3E%3C/svg%3E");
@@ -5295,6 +5301,217 @@ a.jsini-social__btn:focus-visible {
 /* 큰 얼굴. 생활과환경의 「오늘 생일」 칸이 쓰던 값이다. */
 .jsini-face--lg {
   --jsini-face-size: 2.2rem;
+}
+
+/* ── 사람 카드 (`UserCardHost`) ─────────────────────────────
+
+   얼굴을 누르면 뜬다. 책상에서는 얼굴 곁의 말풍선(자리는 `js/user-card.js`),
+   휴대폰에서는 화면 가운데 창이다. 덮개가 바깥 누름을 받아 닫는다.
+   DevExpress 창(1050)보다 위, 그림 미리보기(19000)보다 아래에 둔다.
+   ---------------------------------------------------------- */
+
+.jsini-face--card {
+  cursor: pointer;
+}
+
+.jsini-face--card:hover,
+.jsini-face--card:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--jsini-accent) 55%, transparent);
+  outline-offset: 1px;
+}
+
+.jsini-ucard-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 1540;
+  background: transparent;
+}
+
+.jsini-ucard-scrim--dim {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.jsini-ucard {
+  --jsini-ucard-arrow: 50%;
+
+  position: fixed;
+  z-index: 1541;
+  box-sizing: border-box;
+  width: 19rem;
+  max-width: calc(100vw - 16px);
+  padding: 1rem;
+  border: 1px solid var(--jsini-border);
+  border-radius: var(--jsini-radius-lg, 12px);
+  background: var(--jsini-surface-raised, var(--jsini-surface));
+  color: var(--jsini-text);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+  outline: none;
+}
+
+/* 자리를 재기 전에는 왼쪽 위 귀퉁이에 한 번 그려지므로 감춰 둔다. */
+.jsini-ucard--bubble:not([data-placed]) {
+  visibility: hidden;
+}
+
+/* 말풍선 꼬리. 테두리를 잇도록 같은 색 네모를 45° 돌려 반만 내민다. */
+.jsini-ucard--bubble::before {
+  content: "";
+  position: absolute;
+  left: var(--jsini-ucard-arrow);
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  background: inherit;
+  border: inherit;
+  transform: rotate(45deg);
+}
+
+.jsini-ucard--bubble[data-side="bottom"]::before {
+  top: -7px;
+  border-right: 0;
+  border-bottom: 0;
+}
+
+.jsini-ucard--bubble[data-side="top"]::before {
+  bottom: -7px;
+  border-left: 0;
+  border-top: 0;
+}
+
+.jsini-ucard--center {
+  top: 50%;
+  left: 50%;
+  width: min(20rem, calc(100vw - 2rem));
+  padding: 1.25rem 1.25rem 1rem;
+  transform: translate(-50%, -50%);
+}
+
+.jsini-ucard__close {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--jsini-text-muted);
+  cursor: pointer;
+}
+
+.jsini-ucard__close:hover {
+  background: color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.jsini-ucard__head {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  min-width: 0;
+}
+
+.jsini-ucard--center .jsini-ucard__head {
+  flex-direction: column;
+  text-align: center;
+}
+
+.jsini-face.jsini-ucard__face {
+  --jsini-face-size: 4rem;
+  --jsini-face-initial-size: var(--jsini-fs-xl, 1.5rem);
+}
+
+.jsini-ucard--center .jsini-face.jsini-ucard__face {
+  --jsini-face-size: 5.5rem;
+}
+
+.jsini-ucard__who {
+  min-width: 0;
+}
+
+.jsini-ucard__name {
+  font-size: var(--jsini-fs-lg);
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jsini-ucard__sub {
+  font-size: var(--jsini-fs-sm);
+  color: var(--jsini-text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.jsini-ucard__contact {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0.35rem 0.6rem;
+  margin: 0.9rem 0 0;
+  padding: 0.7rem 0 0;
+  border-top: 1px solid var(--jsini-border);
+  font-size: var(--jsini-fs-sm);
+}
+
+.jsini-ucard__contact dt {
+  color: var(--jsini-text-muted);
+  line-height: 1;
+}
+
+.jsini-ucard__contact dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.jsini-ucard__muted {
+  grid-column: 1 / -1;
+  color: var(--jsini-text-muted);
+}
+
+.jsini-ucard__actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.4rem;
+  margin-top: 0.9rem;
+}
+
+.jsini-ucard__act {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.55rem 0.25rem;
+  border: 1px solid var(--jsini-border);
+  border-radius: var(--jsini-radius-md, 8px);
+  background: transparent;
+  color: var(--jsini-text);
+  font: inherit;
+  font-size: var(--jsini-fs-xs);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.jsini-ucard__act [class^='jsini-icon-'] {
+  --jsini-icon-size: 1.15rem;
+  color: var(--jsini-accent);
+}
+
+.jsini-ucard__act:hover:not(:disabled) {
+  border-color: var(--jsini-accent);
+  background: color-mix(in srgb, var(--jsini-accent) 8%, transparent);
+  color: var(--jsini-text);
+}
+
+.jsini-ucard__act:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 /* ── 묶음 메뉴 길잡이 ────────────────────────────────────── */

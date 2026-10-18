@@ -137,7 +137,7 @@
                         @onclick="@(() => SelectAsync(target))">
                     @if (target.Kind == "account")
                     {
-                        <UserAvatar LoginId="@target.LoginId" Name="@target.Name" CssClass="ad-target__face" />
+                        <UserAvatar LoginId="@target.LoginId" Name="@target.Name" Card="false" CssClass="ad-target__face" />
                     }
                     else
                     {

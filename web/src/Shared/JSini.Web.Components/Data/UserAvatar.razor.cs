@@ -5,6 +5,7 @@ namespace JSini.Web.Components.Data;
 public partial class UserAvatar
 {
     [Inject] private UserFaceClient Faces { get; set; } = default!;
+    [Inject] private UserCard Cards { get; set; } = default!;
 
     /// <summary>그릴 사람의 포털 로그인 아이디. 사진을 안 주면 이것으로 얼굴을 묻는다.</summary>
     [Parameter] public string? LoginId { get; set; }
@@ -29,6 +30,33 @@ public partial class UserAvatar
 
     /// <summary>덧붙일 모양 이름. 치수·색을 바꾸는 자리가 쓴다(<c>pm-face</c>).</summary>
     [Parameter] public string? CssClass { get; set; }
+
+    /// <summary>
+    /// 누르면 사람 카드를 띄울까. <see cref="LoginId"/> 가 있을 때만 뜻이 있다.
+    /// 단추 안에 놓인 얼굴은 끈다 — 줄을 누르려던 손이 카드를 연다.
+    /// </summary>
+    [Parameter] public bool Card { get; set; } = true;
+
+    private bool Clickable => Card && !string.IsNullOrWhiteSpace(LoginId);
+
+    /// <summary>말풍선이 붙을 자리. 카드가 이 아이디로 아바타를 찾는다.</summary>
+    private readonly string _anchorId = $"jsini-face-{Guid.NewGuid():N}";
+
+    private void OnClick()
+    {
+        if (Clickable)
+        {
+            Cards.Open(LoginId!, _anchorId, Who, PhotoUrl);
+        }
+    }
+
+    private void OnKeyDown(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e)
+    {
+        if (e.Key is "Enter" or " ")
+        {
+            OnClick();
+        }
+    }
 
     /// <summary>못 받은 사진 주소. 같은 주소가 다시 와도 깨진 그림을 또 그리지 않는다.</summary>
     private string? _broken;

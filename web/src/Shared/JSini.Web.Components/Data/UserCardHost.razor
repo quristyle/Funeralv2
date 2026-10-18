@@ -1,0 +1,93 @@
+@*
+    [아바타를 누르면 뜨는 사람 카드] — 레이아웃에 한 벌만 둔다(`MainLayout` 끝).
+
+    화면은 이 부품을 적지 않는다. `UserAvatar` 가 `UserCard.Open` 으로 연다.
+
+    책상에서는 누른 아바타 곁에 **말풍선**으로 붙고(자리는 `js/user-card.js` 가 잰다),
+    휴대폰에서는 **화면 가운데** 뜨고 닫기 단추가 붙는다. 어느 쪽이든 바깥을 누르면
+    닫힌다 — 바깥 누름은 화면 전체를 덮는 투명한 덮개가 받는다. DxPopup 의
+    `CloseOnOutsideClick` 은 손가락을 뗄 때의 가짜 누름으로 뜨자마자 닫히는 일이
+    있어 쓰지 않는다(web/CLAUDE.md 의 길게 누르기 항목).
+*@
+
+@if (Cards.Current is { } req)
+{
+    <div class="jsini-ucard-scrim @(IsPhone ? "jsini-ucard-scrim--dim" : "")"
+         @onclick="@Cards.Close"></div>
+
+    <div class="jsini-ucard @(IsPhone ? "jsini-ucard--center" : "jsini-ucard--bubble")"
+         role="dialog" aria-label="@($"{NameOf(req)} 프로필")" tabindex="-1"
+         @ref="_card" @onkeydown="@OnKeyDown">
+
+        @if (IsPhone)
+        {
+            <button type="button" class="jsini-ucard__close" title="닫기" aria-label="닫기"
+                    @onclick="@Cards.Close">
+                <span class="jsini-icon-close" aria-hidden="true"></span>
+            </button>
+        }
+
+        <div class="jsini-ucard__head">
+            <UserAvatar Photo="@PhotoOf(req)" Name="@NameOf(req)" Card="false" CssClass="jsini-ucard__face" />
+            <div class="jsini-ucard__who">
+                <div class="jsini-ucard__name">@NameOf(req)</div>
+                @if (_info?.Department is { } dept)
+                {
+                    <div class="jsini-ucard__sub">@dept</div>
+                }
+                <div class="jsini-ucard__sub jsini-ucard__id">@req.LoginId</div>
+            </div>
+        </div>
+
+        <dl class="jsini-ucard__contact">
+            @if (_loading)
+            {
+                <dd class="jsini-ucard__muted">연락처를 불러오는 중…</dd>
+            }
+            else
+            {
+                <dt><span class="jsini-icon-mail" aria-label="이메일"></span></dt>
+                <dd>@(Email ?? "등록된 이메일 없음")</dd>
+                <dt><span class="jsini-icon-telephone" aria-label="전화"></span></dt>
+                <dd>@(Phone ?? "등록된 전화번호 없음")</dd>
+            }
+        </dl>
+
+        <div class="jsini-ucard__actions">
+            <button type="button" class="jsini-ucard__act" @onclick="@(() => WriteNote(req.LoginId))">
+                <span class="jsini-icon-comment" aria-hidden="true"></span>
+                <span>쪽지쓰기</span>
+            </button>
+            <button type="button" class="jsini-ucard__act" disabled="@(Email is null)"
+                    title="@(Email is null ? "등록된 이메일이 없습니다" : Email)"
+                    @onclick="@WriteMail">
+                <span class="jsini-icon-mail" aria-hidden="true"></span>
+                <span>이메일쓰기</span>
+            </button>
+            @if (Phone is { } phone)
+            {
+                <a class="jsini-ucard__act" href="@TelHref(phone)" title="@phone" @onclick="@Cards.Close">
+                    <span class="jsini-icon-telephone" aria-hidden="true"></span>
+                    <span>전화하기</span>
+                </a>
+            }
+            else
+            {
+                <button type="button" class="jsini-ucard__act" disabled title="등록된 전화번호가 없습니다">
+                    <span class="jsini-icon-telephone" aria-hidden="true"></span>
+                    <span>전화하기</span>
+                </button>
+            }
+        </div>
+    </div>
+}
+
+@* 카드를 닫고 띄운다. 받는 사람이 매번 다르므로 창을 통째로 새로 만든다
+   (`NoteWritePopup.DefaultTo` 는 처음 한 번만 읽힌다). *@
+@if (_noteTo is { } to)
+{
+    <NoteWritePopup Visible="true"
+                    DefaultTo="@([to])"
+                    Fill="@IsPhone"
+                    VisibleChanged="@(v => { if (!v) _noteTo = null; })" />
+}

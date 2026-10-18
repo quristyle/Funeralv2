@@ -27,7 +27,22 @@
     제 이름을 덧붙여 그 변수만 덮는다.
 *@
 
-<span class="jsini-face @CssClass" title="@Who">
+@*
+    ────────────────────────────────────────────────────────────
+    [누르면 사람 카드가 뜬다]
+
+    `LoginId` 가 있으면 누를 수 있다 — 프로필 사진 · 이름 · 쪽지 · 이메일 · 전화가
+    담긴 카드가 뜬다(`UserCardHost`). 이미 단추 안에 있는 얼굴(줄 전체가 눌리는
+    목록 · 머리띠의 내 얼굴)은 `Card="false"` 로 끈다 — 눌림이 둘로 갈린다.
+*@
+
+<span class="jsini-face @(Clickable ? "jsini-face--card" : null) @CssClass" title="@Who"
+      id="@(Clickable ? _anchorId : null)"
+      role="@(Clickable ? "button" : null)"
+      tabindex="@(Clickable ? "0" : null)"
+      aria-haspopup="@(Clickable ? "dialog" : null)"
+      @onclick="@OnClick" @onclick:stopPropagation="@Clickable" @onclick:preventDefault="@Clickable"
+      @onkeydown="@OnKeyDown">
     @if (PhotoUrl is { Length: > 0 } photo)
     {
         @* 못 받아 오면 깨진 그림 대신 첫 글자로 돌아간다. *@
