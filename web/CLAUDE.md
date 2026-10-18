@@ -3360,6 +3360,11 @@ DTO 에 하나 더 둔다(`AiDashboardRecent.StartedAtKst`).
   덮어 다른 줄을 고르려던 누름이 판 속 삭제에 떨어지기 때문이고(재어 확인했다),
   `StopOutsideClickPropagation="false"` 는 끄지 않으면 다른 줄의 「⋮」가 한 번에
   안 열리기 때문이다. `CommTree` 의 관리 칸은 아직 단추를 늘어놓는다.
+  > **휴대폰에서 판이 열린 채 안 보였다**(투명 · 0×0). 셸이 좁은 화면에서
+  > 분할 판을 `display: contents` 로 지우는데 거기 `overflow: hidden` 이 남아,
+  > DevExpress 가 그 0×0 상자를 판을 가두는 틀로 셌다. 그 판들에
+  > `overflow: visible` 을 준다. 판이 붙는 `.commgrd__more` 는 「⋮」 폭으로
+  > 묶는다 — 카드에서 칸 폭만큼 늘어나면 판이 카드 왼쪽 끝에 선다.
 - **줄을 두 번 누르는 것은 「연다」는 뜻이다**(`OnRowDoubleClick`, 그 줄을 준다).
   상세 화면으로 가거나 창을 띄우는 데만 쓰고 지우기·보내기는 걸지 않는다 —
   **화면 어디에도 안 보이는 몸짓**이라 모르고 눌렀을 때 일어나도 되는 일만

@@ -2638,6 +2638,9 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   .jsini-shell__split > .dxbl-splitter-pane,
   .jsini-shell__split > .dxbl-splitter-pane > .dxbl-splitter-pane-content {
     display: contents !important;
+    /* 상자가 없어도 DevExpress 판(`DxFlyout`)은 조상의 `overflow: hidden` 을
+       잘라 내는 틀로 센다 — 0×0 틀이라 판이 열린 채 투명하게 숨는다(재어 확인했다). */
+    overflow: visible !important;
   }
 
   .jsini-shell__split > .dxbl-splitter-separator {
@@ -3499,7 +3502,7 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   gap: 0.25rem;
 }
 
-/* 관리 칸에는 「⋮」 하나만 서고, 누르면 그 아래로 이 판이 펴진다.
+/* 관리 칸에는 「⋮」 하나만 서고, 누르면 그 왼쪽으로 이 판이 펴진다.
    판 안의 단추 줄은 칸에 있던 것과 같은 `.commgrd__actions` 라 크기·색이 그대로다. */
 .commgrd__actmenu {
   --dxbl-flyout-body-padding-x: 0.25rem;
@@ -3508,6 +3511,13 @@ button.jsini-crumbs__item:hover { opacity: 1; }
 
 .commgrd__actions--menu {
   flex-wrap: nowrap;
+}
+
+/* 판이 붙는 자리라 「⋮」 폭으로 묶는다. 칸 폭만큼 늘어나면 카드에서는 그 왼쪽
+   끝이 카드 왼쪽 끝이라 판이 「⋮」에서 멀리 떨어져 선다. */
+.commgrd__more {
+  width: fit-content;
+  margin-inline: auto;
 }
 
 /* 자료 칸의 기본 정렬. 어느 칸에 붙일지는 CommGrd 가 정한다 —
@@ -12085,6 +12095,10 @@ body.jsini-imgview-open {
 
   .commgrd--cards .dxbl-grid-table > tbody > tr > td.commgrd__cell--act .commgrd__actions {
     justify-content: flex-end;
+  }
+
+  .commgrd--cards .dxbl-grid-table > tbody > tr > td.commgrd__cell--act .commgrd__more {
+    margin-right: 0;
   }
 
   /* 체크 칸. 이름이 없으므로 위 제목 셈에 끼지 않고, 제목 줄 오른쪽 위에
