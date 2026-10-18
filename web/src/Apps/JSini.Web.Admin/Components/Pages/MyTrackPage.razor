@@ -86,20 +86,22 @@
 
 <PageTitle>내 이동경로 · 포털관리</PageTitle>
 
-<CommSch OnSearch="@ReloadAsync" Busy="@Loading" MobileSummary="@ConditionSummary">
+@* 날짜와 기록일 선택 및 이동, 위치 기록은 화면의 주 조작이므로 모바일에서도 접지 않는다. *@
+<CommSch OnSearch="@ReloadAsync" Busy="@Loading" ReloadIcon="true" Foldable="false">
     <Fields>
         <CommSchItem Label="날짜">
             @* 한국 달력 날짜다. 서버도 같은 달력으로 하루를 끊는다 —
                UTC 자정으로 끊으면 한국의 하루가 아침 아홉 시에 갈린다. *@
             <DxDateEdit Date="@_date" DateChanged="@((DateTime? d) => PickDateAsync(d))"
-                        Style="width: 150px" />
+                        CssClass="jsini-dateedit--click-open"
+                        Style="width: 140px" />
         </CommSchItem>
 
         <CommSchItem Label="기록이 있는 날">
             @* **빈 날을 피하게 해 주는 고르개다.** 포털을 안 연 날에는 한 줄도
                안 쌓이므로 빈 날이 드물지 않다 — 이것이 없으면 사람이 하루씩
                눌러 가며 기록을 찾는다. *@
-            <DxComboBox Data="@_days" Style="width: 190px"
+            <DxComboBox Data="@_days" Style="width: 180px"
                         NullText="@(_days.Count == 0 ? "최근 기록이 없습니다" : "고르기")"
                         Value="@CurrentDay"
                         ValueChanged="@((LocationTrackDayDto? d) => PickDayAsync(d))"
@@ -122,28 +124,38 @@
         @* **「어제」가 아니라 「이전」이다.** 보고 있는 날에서 하루씩 옮기는
            단추라, 사흘 전을 보는 중에 「어제」라고 적혀 있으면 어제로 뛰는
            것처럼 읽힌다. *@
-        <DxButton Text="이전" RenderStyle="ButtonRenderStyle.Secondary"
+        <DxButton RenderStyle="ButtonRenderStyle.Secondary"
+                  IconCssClass="jsini-icon-chevron-left"
                   Title="하루 앞으로 갑니다."
+                  aria-label="이전"
                   Click="@(() => ShiftAsync(-1))" />
 
-        <DxButton Text="다음" RenderStyle="ButtonRenderStyle.Secondary"
+        <DxButton RenderStyle="ButtonRenderStyle.Secondary"
+                  IconCssClass="jsini-icon-chevron-right"
                   Title="하루 뒤로 갑니다."
+                  aria-label="다음"
                   Enabled="@(_date < AppTime.TodayDate)"
                   Click="@(() => ShiftAsync(1))" />
 
-        <DxButton Text="오늘" RenderStyle="ButtonRenderStyle.Secondary"
+        <DxButton RenderStyle="ButtonRenderStyle.Secondary"
+                  IconCssClass="jsini-icon-calendar"
+                  Title="오늘 날짜로 갑니다."
+                  aria-label="오늘"
                   Enabled="@(_date != AppTime.TodayDate)"
                   Click="@(() => PickDateAsync(AppTime.TodayDate))" />
 
-        <DxButton Text="전체 보기" RenderStyle="ButtonRenderStyle.Secondary"
+        <DxButton RenderStyle="ButtonRenderStyle.Secondary"
+                  IconCssClass="jsini-icon-expand"
                   Title="그날 지나온 자리가 모두 들어오게 맞춥니다."
+                  aria-label="전체 보기"
                   Click="@FitAsync" />
 
         @* **지금 있는 자리를 한 점 보탠다.** 30분 주기를 기다리지 않고
            도착한 즉시 직접 찍어 둘 수 있게 한다. *@
-        <DxButton Text="지금위치 기록" RenderStyle="ButtonRenderStyle.Primary"
+        <DxButton RenderStyle="ButtonRenderStyle.Primary"
                   IconCssClass="jsini-icon-pin"
                   Title="지금 위치를 측정하여 오늘 이동 경로에 기록합니다."
+                  aria-label="지금위치 기록"
                   Enabled="@(!_recording && !Loading)"
                   Click="@RecordLocationAsync" />
     </Actions>

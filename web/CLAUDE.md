@@ -2061,6 +2061,12 @@ DB: `deploy/sql/portal-menu-location-map-2026-09-25.sql` (운영 반영 완료)
 - **지금위치 기록 단추가 있다.** 30분 주기 동기화를 기다리지 않고 사람이 도착한
   즉시 찍을 수 있도록 조회줄에 단추를 뒀다(`GeoLocator.RecordCurrentAsync`).
   기록 후 오늘 날짜로 화면을 맞추고 즉시 새로고침한다.
+- **조회영역은 모바일에서도 접지 않는다(`Foldable="false"`).** 날짜 이동과 선택,
+  위치 기록이 화면의 주 조작이라 접어 두면 매번 펴야 한다.
+- **조회영역의 단추들은 모두 아이콘으로 둔다.** 이전(`jsini-icon-chevron-left`),
+  다음(`jsini-icon-chevron-right`), 오늘(`jsini-icon-calendar`),
+  전체 보기(`jsini-icon-expand`), 지금위치 기록(`jsini-icon-pin`),
+  조회(`ReloadIcon="true"`)로 글자를 빼 좁은 화면에서도 한 줄에 단정하게 들어온다.
 
 지도 부품에 더한 것은 **선 하나**(`setPath`)다. 비어 있으면 그 판은 통째로
 감춰지므로 「위치 지도」는 이것이 생긴 줄도 모른다. 겹친 점을 벌리는 판정도

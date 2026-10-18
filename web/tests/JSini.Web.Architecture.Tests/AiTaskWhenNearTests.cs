@@ -161,7 +161,7 @@ public sealed class AiTaskWhenNearTests
         Assert.Equal("-", AiTaskWhen.Elapsed(new AiTaskDto()));
 
         // 대기 중인 경우
-        Assert.Equal("대기 중", AiTaskWhen.Elapsed(new AiTaskDto { Status = "WAITING" }));
+        Assert.Equal("대기 중", AiTaskWhen.Elapsed(new AiTaskDto { TaskStatus = "queued" }));
     }
 
     private static string TaskViewRazor() => RazorSource.Read(Path.Combine(
