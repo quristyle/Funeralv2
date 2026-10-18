@@ -31,8 +31,10 @@
 // 주소만 남으므로(`request-editor.js`), 되살린 글에서도 그대로 보인다. 적어 두는
 // 것은 그 주소 한 줄이지 그림 자체가 아니다.
 //
-// 사건은 편집기 **껍데기**에서 받는다. `input` 은 거품처럼 올라오므로 안쪽
-// 칸을 짚지 않아도 되고, 편집기가 그 칸을 다시 만들어도 처리기가 살아 있다.
+// 사건은 칸이 아니라 **문서**에서 받고, 어느 칸에서 났는지는 그때 가린다.
+// 편집기는 브라우저 쪽에서 스스로를 세우는 부품이라 지켜보기를 거는 순간에
+// 글칸이 아직 없을 수 있고(회선이 느리면 늘 그렇다), 되살리거나 폭이 바뀌면
+// 껍데기째 다시 만들어진다. 칸에 걸면 그 둘 다에서 **조용히 하나도 안 적힌다.**
 
 /// 입력이 이만큼(ms) 멈추면 적는다. 회로를 타지 않으므로 짧게 잡아도 된다 —
 /// 잃는 것을 마지막 한 문장 밑으로 줄이는 것이 요점이다.
@@ -65,10 +67,6 @@ const extras = new Map();
 /// 편집기의 글 쓰는 칸. 찾는 시점을 미루는 까닭은 `request-editor.js` 와 같다.
 function areaIn(box) {
     return box ? box.querySelector('[contenteditable="true"]') : null;
-}
-
-function areaOf(selector) {
-    return areaIn(document.querySelector(selector));
 }
 
 /// 제목 칸. `DxTextBox` 가 그리는 `<input>` 을 껍데기 안에서 찾는다 —
@@ -229,10 +227,8 @@ function detach(w) {
         w.timer = null;
     }
 
-    w.box.removeEventListener('input', w.onInput);
-    w.title.removeEventListener('input', w.onInput);
-    w.box.removeEventListener('blur', w.onHide, true);
-    w.title.removeEventListener('blur', w.onHide, true);
+    document.removeEventListener('input', w.onInput, true);
+    document.removeEventListener('focusout', w.onBlur, true);
     document.removeEventListener('visibilitychange', w.onHide);
     window.removeEventListener('pagehide', w.onHide);
     window.removeEventListener('beforeunload', w.onHide);
@@ -244,8 +240,8 @@ function detach(w) {
 function write(w) {
     w.timer = null;
 
-    const area = areaIn(w.box);
-    const title = inputIn(w.title);
+    const area = areaIn(document.querySelector(w.editorSelector));
+    const title = inputIn(document.querySelector(w.titleSelector));
 
     // 편집기가 화면에서 사라졌다. **적어 둔 것을 건드리지 않는다** — 여기서
     // 빈 글로 덮으면 화면을 떠나는 순간 임시본이 지워진다.
@@ -311,30 +307,35 @@ function tell(w) {
     }
 }
 
-/// 제목 칸과 편집기를 지켜보기 시작한다. 아직 화면에 없으면 거짓 —
-/// 부르는 쪽이 다음 그리기에 다시 본다(`request-editor.js` 의 `bind` 와 같다).
+/// 제목 칸과 편집기를 지켜보기 시작한다. **칸이 아직 화면에 없어도 건다** —
+/// 적을 때마다 이름으로 다시 찾으므로 늦게 서거나 다시 세워져도 상관없다.
 export function attach(key, titleSelector, editorSelector, owner) {
-    const box = document.querySelector(editorSelector);
-    const title = document.querySelector(titleSelector);
-
-    if (!box || !areaIn(box) || !title || !inputIn(title)) return false;
-
     for (const w of watchers) {
-        if (w.key === key && w.box === box) return true;
+        if (w.key === key) {
+            w.owner = owner;
+            return true;
+        }
     }
 
-    const w = { key, box, title, owner, timer: null, told: false, hasUserTyped: false };
+    const w = { key, titleSelector, editorSelector, owner, timer: null, told: false, hasUserTyped: false };
 
-    w.onInput = () => {
-        // 화면이 사라졌다. 손을 뗀다 — 화면을 옮길 때마다 하나씩 쌓인다.
-        if (!box.isConnected) {
-            detach(w);
-            return;
-        }
+    const mine = (e) => {
+        const at = e.target instanceof Element ? e.target : null;
+        return !!at && !!(at.closest(editorSelector) || at.closest(titleSelector));
+    };
+
+    w.onInput = (e) => {
+        // 사람이 친 것만 센다. 스크립트가 쏜 사건(편집기가 스스로 서는 중 등)은
+        // 빈 칸을 그대로 적어 되살릴 글을 덮을 수 있다.
+        if (!e.isTrusted || !mine(e)) return;
 
         w.hasUserTyped = true;
         if (w.timer) clearTimeout(w.timer);
         w.timer = setTimeout(() => write(w), DELAY_MS);
+    };
+
+    w.onBlur = (e) => {
+        if (mine(e)) flush(w);
     };
 
     // 탭을 닫거나 다른 탭으로 옮기거나 새로고침할 때 기다리던 것을 바로 적는다. 휴대폰에서는
@@ -344,10 +345,8 @@ export function attach(key, titleSelector, editorSelector, owner) {
 
     watchers.add(w);
 
-    box.addEventListener('input', w.onInput);
-    title.addEventListener('input', w.onInput);
-    box.addEventListener('blur', w.onHide, true);
-    title.addEventListener('blur', w.onHide, true);
+    document.addEventListener('input', w.onInput, true);
+    document.addEventListener('focusout', w.onBlur, true);
     document.addEventListener('visibilitychange', w.onHide);
     window.addEventListener('pagehide', w.onHide);
     window.addEventListener('beforeunload', w.onHide);
@@ -376,40 +375,4 @@ export function touch(key) {
     }
 
     return false;
-}
-
-/// 화면(DOM)에 제목과 본문을 직접 주입한다.
-/// 편집기가 완전히 초기화되기까지 약간의 지연이 있을 수 있으므로 재시도한다.
-export function restore(editorSelector, titleSelector, title, html) {
-    let attempts = 15;
-    const tryApply = () => {
-        const box = document.querySelector(editorSelector);
-        const titleBox = document.querySelector(titleSelector);
-        const area = areaIn(box);
-        const input = inputIn(titleBox);
-
-        let areaReady = !!area;
-        let inputReady = !!input;
-
-        if (inputReady && typeof title === 'string' && title !== '') {
-            if (input.value !== title) {
-                input.value = title;
-                input.dispatchEvent(new Event('input', { bubbles: true }));
-                input.dispatchEvent(new Event('change', { bubbles: true }));
-            }
-        }
-
-        if (areaReady && typeof html === 'string' && html !== '') {
-            if (area.innerHTML !== html) {
-                area.innerHTML = html;
-                area.dispatchEvent(new Event('input', { bubbles: true }));
-            }
-        }
-
-        if ((!areaReady || !inputReady) && attempts-- > 0) {
-            setTimeout(tryApply, 50);
-        }
-    };
-
-    tryApply();
 }

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using System.Text.Json;
 using Microsoft.AspNetCore.Components.Forms;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.JSInterop;
 using DevExpress.Blazor;
 using JSini.Web.Http;
@@ -32,6 +33,8 @@ public partial class RequestNew
     /// 그것이 없으면 공용 PC 에서 남이 쓰다 만 글이 내 화면에 뜬다.
     /// </summary>
     private const string DraftKeyPrefix = "jsini-hd-request-draft:";
+
+    [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
 
     /// <summary>
     /// 도구줄 「그림」 단추에 붙이는 이름표. <b>JS 가 이 이름으로 그 단추를
@@ -86,6 +89,16 @@ public partial class RequestNew
 
     /// <summary>붙여넣기 처리기를 걸었는가.</summary>
     private bool _bound;
+
+    /// <summary>붙여넣기 처리기를 거는 중이다. 기다리는 동안 다음 그리기가 또 걸지 않게 막는다.</summary>
+    private bool _binding;
+
+    private const int BindAttempts = 20;
+
+    private static readonly TimeSpan BindWait = TimeSpan.FromMilliseconds(250);
+
+    /// <summary>편집기 한 벌에만 붙는 이름. <c>@key</c> 와 같은 값으로 짓는다.</summary>
+    private string EditorInstanceClass => $"hd-content-editor--{(_isPhone ? "p" : "w")}{_editorKey}";
 
     /// <summary>
     /// 편집기를 다시 세우는 열쇠. 임시 보관된 글을 되살리거나(새로고침 복원),
@@ -294,7 +307,9 @@ public partial class RequestNew
             return;
         }
 
-        await FlushContentAsync();
+        // 빈 것으로는 덮지 않는다. 되살린 글이 아직 편집기에 안 얹힌 사이에 폭이
+        // 갈리면(회선이 느린 휴대폰에서 늘 그렇다) 빈 칸을 읽어 그 글을 지운다.
+        await FlushContentAsync(keepIfBlank: true);
 
         _isPhone = isPhone;
 
@@ -338,19 +353,34 @@ public partial class RequestNew
     /// <summary>편집기에 붙여넣기·끌어놓기·「그림」 단추 처리기를 건다.</summary>
     private async Task BindEditorAsync()
     {
-        if (_bound)
+        if (_bound || _binding)
         {
             return;
         }
 
+        _binding = true;
         try
         {
             _editorJs ??= await JS.InvokeAsync<IJSObjectReference>(
                 "import", "./_content/JSini.Web.HelpDesk/js/request-editor.js");
 
-            // 거짓이면 편집기가 아직 화면에 없다는 뜻이다. 다음 그리기에 다시 본다.
-            _bound = await _editorJs.InvokeAsync<bool>(
-                "bind", EditorSelector, PasteInputId, "." + PictureButtonClass);
+            // 글칸이 설 때까지 여기서 기다린다 — 다음 그리기를 기다리면 회선이 느릴 때
+            // 영영 안 걸린다. 다시 세우는 사이에는 옛 편집기가 남아 있으므로 이 한 벌의
+            // 이름으로 짚는다(공통 이름이면 옛것에 걸고 끝난다).
+            for (var attempt = 0; attempt < BindAttempts && !_bound; attempt++)
+            {
+                var selector = "." + EditorInstanceClass;
+
+                var bound = await _editorJs.InvokeAsync<bool>(
+                    "bind", selector, PasteInputId, "." + PictureButtonClass);
+
+                _bound = bound && selector == "." + EditorInstanceClass;
+
+                if (!_bound)
+                {
+                    await Task.Delay(BindWait);
+                }
+            }
         }
         catch (JSException)
         {
@@ -360,6 +390,10 @@ public partial class RequestNew
         catch (InvalidOperationException)
         {
             // 회로가 닫히는 중이다(화면을 옮기는 순간 등).
+        }
+        finally
+        {
+            _binding = false;
         }
     }
 
@@ -515,7 +549,9 @@ public partial class RequestNew
     {
         _draftRead = true;
 
-        var owner = Context.Identity?.JsiniUserId?.Trim();
+        // 헬프데스크 신원(`auth-links/me`)으로 짓지 않는다. 그 조회는 실패하면 조용히
+        // 비어서, 적을 때와 읽을 때 열쇠가 갈려(`…:?` ↔ `…:아이디`) 아무것도 안 되살아났다.
+        var owner = AuthState is null ? null : (await AuthState).User.Identity?.Name?.Trim();
         _draftKey = DraftKeyPrefix + (string.IsNullOrEmpty(owner) ? "?" : owner);
 
         // 「재요청」으로 들어왔으면 **그쪽이 먼저다**. 사람이 방금 누른 단추가
@@ -543,15 +579,12 @@ public partial class RequestNew
             {
                 _title = saved.Title;
                 _content = saved.Html ?? string.Empty;
-                _restoredAt = DateTimeOffset.FromUnixTimeMilliseconds((long)saved.SavedAt).LocalDateTime;
+                _restoredAt = DateTimeOffset.FromUnixTimeMilliseconds((long)saved.SavedAt).UtcDateTime;
 
                 // 편집기가 되살린 글을 화면에 그릴 수 있도록 다시 세운다.
                 _editorKey++;
                 _bound = false;
                 _draftWatched = false;
-
-                // DOM 에도 직접 값을 주입한다 (C# 렌더링과의 이중 보장).
-                await _draftJs.InvokeVoidAsync("restore", EditorSelector, TitleSelector, _title, _content);
             }
         }
         catch (JSException)
@@ -578,7 +611,7 @@ public partial class RequestNew
         {
             _self ??= DotNetObjectReference.Create(this);
 
-            // 거짓이면 칸이 아직 화면에 없다. 다음 그리기에 다시 본다.
+            // 칸이 아직 안 섰어도 걸린다 — JS 가 문서에서 사건을 받고 적을 때 칸을 찾는다.
             _draftWatched = await _draftJs.InvokeAsync<bool>(
                 "attach", _draftKey, TitleSelector, EditorSelector, _self);
         }
@@ -953,7 +986,7 @@ public partial class RequestNew
     /// <b>읽지 못하면 있던 값을 그대로 둔다.</b> 여기서 비우면 잘 써 둔 본문까지
     /// 날아가고, 증상이 「가끔 빈 글이 등록된다」로만 보인다.
     /// </remarks>
-    private async Task FlushContentAsync()
+    private async Task FlushContentAsync(bool keepIfBlank = false)
     {
         try
         {
@@ -964,7 +997,7 @@ public partial class RequestNew
 
             var markup = await _editorJs.InvokeAsync<string?>("readMarkup", EditorSelector);
 
-            if (markup is not null)
+            if (markup is not null && !(keepIfBlank && RequestContentHtml.IsBlank(markup)))
             {
                 _content = markup;
             }
