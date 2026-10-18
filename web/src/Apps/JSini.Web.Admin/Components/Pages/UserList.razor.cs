@@ -356,7 +356,31 @@ public partial class UserList
         }
     }
 
-    private Task DeleteAsync(AccountDto a) => Api.DeleteAccountAsync(a.Id);
+    /// <summary>
+    /// 계정을 삭제하기 전에 확인하고 지운다.
+    /// </summary>
+    private async Task ConfirmDeleteAsync(AccountDto a)
+    {
+        var who = string.IsNullOrWhiteSpace(a.UserName)
+            ? a.LoginId
+            : $"{a.UserName}({a.LoginId})";
+
+        if (_confirm is null
+            || !await _confirm.AskAsync(
+                $"「{who}」 계정을 정말 삭제하시겠습니까?",
+                title: "계정 삭제",
+                confirmText: "삭제"))
+        {
+            return;
+        }
+
+        if (await RunAsync(() => Api.DeleteAccountAsync(a.Id), "계정을 삭제했습니다.", "계정을 삭제하지 못했습니다"))
+        {
+            await ReloadAsync();
+        }
+    }
+
+    private Task DeleteAsync(AccountDto a) => ConfirmDeleteAsync(a);
 
     /// <summary>
     /// 그 사람의 비밀번호를 초기화하고, 서버가 발급한 값을 창에 띄운다.

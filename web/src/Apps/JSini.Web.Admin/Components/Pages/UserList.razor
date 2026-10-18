@@ -97,12 +97,12 @@
              Data="@Shown"
              EditFormTitle="계정"
              PopupEditFormCssClass="ad-editpopup"
+             ActionsWidth="180"
              ExportName="계정"
              EmptyText="조건에 맞는 계정이 없습니다."
              OnNew="@FillNew"
              OnEditOpen="@PrepareEdit"
              OnSave="@SaveAsync"
-             OnDelete="@DeleteAsync"
              Reload="@ReloadAsync">
         <Columns>
             <DxGridDataColumn FieldName="@nameof(AccountDto.LoginId)" Caption="아이디" Width="140">
@@ -355,6 +355,13 @@
             <DxButton IconCssClass="jsini-icon-bell" Title="앱 현황"
                       RenderStyle="ButtonRenderStyle.Link"
                       Click="@(() => Navigation.NavigateTo($"/admin/system/account/{Uri.EscapeDataString(a.LoginId)}/app"))" />
+
+            <PermissionView Action="MenuAction.Delete">
+                <DxButton IconCssClass="jsini-icon-trash" Title="삭제"
+                          CssClass="commgrd__icon--warn"
+                          RenderStyle="ButtonRenderStyle.Link"
+                          Click="@(() => ConfirmDeleteAsync(a))" />
+            </PermissionView>
         </RowActions>
 
         <EditFormTemplate Context="edit">
