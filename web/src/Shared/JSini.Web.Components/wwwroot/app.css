@@ -6483,13 +6483,6 @@ a.jsini-social__btn:focus-visible {
   padding: 0 0.25rem;
 }
 
-.jsini-chat__header-right {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  flex-shrink: 0;
-}
-
 /* 헤더 버튼 공통 */
 .jsini-chat__header-btn {
   display: inline-flex;
@@ -6516,26 +6509,6 @@ a.jsini-social__btn:focus-visible {
 .jsini-chat__header-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
-}
-
-.jsini-chat__header-btn--new {
-  background: var(--jsini-accent);
-  color: #fff;
-  border-color: var(--jsini-accent);
-  font-weight: 500;
-}
-
-.jsini-chat__header-btn--new:hover:not(:disabled) {
-  filter: brightness(1.08);
-}
-
-.jsini-chat__header-btn--danger {
-  color: #e03131;
-}
-
-.jsini-chat__header-btn--danger:hover:not(:disabled) {
-  background: color-mix(in srgb, #e03131 12%, var(--jsini-surface));
-  border-color: #e03131;
 }
 
 @media (max-width: 480px) {
@@ -6820,7 +6793,92 @@ a.jsini-social__btn:focus-visible {
 }
 
 .jsini-chat__history-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
   flex-shrink: 0;
+}
+
+.jsini-chat__history-item {
+  position: relative;
+}
+
+.jsini-chat__history-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: none;
+  border-radius: 0.4rem;
+  background: transparent;
+  color: var(--jsini-text-muted);
+  cursor: pointer;
+}
+
+.jsini-chat__history-more:hover,
+.jsini-chat__history-item.is-menu-open .jsini-chat__history-more {
+  background: color-mix(in srgb, var(--jsini-text-muted) 15%, transparent);
+  color: var(--jsini-text);
+}
+
+/* 메뉴 바깥을 누르면 닫는 투명한 막. 목록(z 없음)보다 위, 펼친 항목보다 아래. */
+.jsini-chat__history-menu-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.jsini-chat__history-item.is-menu-open {
+  z-index: 2;
+}
+
+.jsini-chat__history-menu {
+  position: absolute;
+  top: calc(100% - 0.25rem);
+  right: 0.5rem;
+  min-width: 8rem;
+  padding: 0.25rem;
+  border: 1px solid var(--jsini-border);
+  border-radius: 0.5rem;
+  background: var(--jsini-surface);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+  z-index: 3;
+  cursor: default;
+}
+
+/* 목록 끝자락은 위로 연다 — 아래로 열면 목록 스크롤 밖으로 숨는다. */
+.jsini-chat__history-item:nth-last-child(-n+2):not(:first-child) .jsini-chat__history-menu {
+  top: auto;
+  bottom: calc(100% - 0.25rem);
+}
+
+.jsini-chat__history-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  border: none;
+  border-radius: 0.35rem;
+  background: transparent;
+  color: var(--jsini-text);
+  font-size: var(--jsini-fs-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.jsini-chat__history-menu-item--danger {
+  color: #e03131;
+}
+
+.jsini-chat__history-menu-item:hover:not(:disabled) {
+  background: color-mix(in srgb, #e03131 12%, transparent);
+}
+
+.jsini-chat__history-menu-item:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .jsini-chat__history-item-time {

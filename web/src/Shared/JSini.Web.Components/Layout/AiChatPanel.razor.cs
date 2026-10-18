@@ -30,6 +30,9 @@ public partial class AiChatPanel
     /// <summary>대화 목록(히스토리) 패널 열림 여부.</summary>
     private bool _historyOpen;
 
+    /// <summary>목록에서 「…」 메뉴를 펼친 대화. 한 번에 하나만 펼친다.</summary>
+    private string? _menuSessionId;
+
     /// <summary>복사 완료 피드백용 인덱스.</summary>
     private int? _copiedIndex;
 
@@ -184,8 +187,22 @@ public partial class AiChatPanel
     private string CurrentTitle =>
         _sessions.FirstOrDefault(s => s.Id == _sessionId)?.Label ?? "새 대화";
 
-    private void ToggleHistory() => _historyOpen = !_historyOpen;
-    private void CloseHistory() => _historyOpen = false;
+    private void ToggleHistory()
+    {
+        _historyOpen = !_historyOpen;
+        _menuSessionId = null;
+    }
+
+    private void CloseHistory()
+    {
+        _historyOpen = false;
+        _menuSessionId = null;
+    }
+
+    private void ToggleSessionMenu(string sessionId) =>
+        _menuSessionId = _menuSessionId == sessionId ? null : sessionId;
+
+    private void CloseSessionMenu() => _menuSessionId = null;
 
     private async Task SelectSessionAsync(string sessionId)
     {
@@ -373,29 +390,37 @@ public partial class AiChatPanel
     }
 
     /// <summary>
-    /// 묻고 지운다. <b>되살릴 수 없다</b> — 물어본 말과 받은 답이 함께 사라진다.
+    /// 목록의 「…」 메뉴에서 고른 대화를 묻고 지운다. <b>되살릴 수 없다</b> —
+    /// 물어본 말과 받은 답이 함께 사라진다.
     /// </summary>
-    private async Task ConfirmDeleteAsync()
+    private async Task ConfirmDeleteAsync(AiChatSession session)
     {
-        if (_sessionId is null || _confirm is null) return;
+        _menuSessionId = null;
+        if (_confirm is null) return;
+        if (_streaming && session.Id == _sessionId) return;
 
         // 무엇이 사라지는지 적는다. 「정말 지웁니까」만으로는 어느 대화를
         // 고른 채였는지 확인할 수 없다(ConfirmDialog 머리말).
         if (!await _confirm.AskAsync(
-                $"「{CurrentTitle}」 대화를 지웁니다. 주고받은 말이 함께 사라집니다.",
+                $"「{session.Label}」 대화를 지웁니다. 주고받은 말이 함께 사라집니다.",
                 title: "대화 지우기"))
         {
             return;
         }
 
-        await DeleteAsync();
+        await DeleteAsync(session.Id);
     }
 
-    private async Task DeleteAsync()
+    private async Task DeleteAsync(string id)
     {
-        if (_sessionId is not { } id) return;
-
         await Chat.DeleteSessionAsync(id);
+
+        // 보고 있지 않은 대화를 지웠으면 목록만 고친다.
+        if (id != _sessionId)
+        {
+            await ReloadSessionsAsync();
+            return;
+        }
 
         _sessionId = null;
         _messages.Clear();

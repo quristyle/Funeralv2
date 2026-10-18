@@ -54,22 +54,6 @@
                 </div>
             }
         </div>
-
-        <div class="jsini-chat__header-right">
-            <button type="button" class="jsini-chat__header-btn jsini-chat__header-btn--new"
-                    title="새 대화 시작" disabled="@_streaming" @onclick="StartNewChatAsync">
-                <span class="jsini-icon-plus" aria-hidden="true"></span>
-                <span class="jsini-chat__header-btn-text">새 대화</span>
-            </button>
-
-            @if (_sessionId is not null)
-            {
-                <button type="button" class="jsini-chat__header-btn jsini-chat__header-btn--danger"
-                        title="이 대화 지우기" disabled="@_streaming" @onclick="ConfirmDeleteAsync">
-                    <span class="jsini-icon-trash" aria-hidden="true"></span>
-                </button>
-            }
-        </div>
     </header>
 
     @* ── 대화 히스토리 오프캔버스 패널 (ChatGPT History Drawer) ───── *@
@@ -94,6 +78,11 @@
                 </button>
             </div>
 
+            @if (_menuSessionId is not null)
+            {
+                <div class="jsini-chat__history-menu-scrim" @onclick="CloseSessionMenu"></div>
+            }
+
             <div class="jsini-chat__history-list">
                 @if (_sessions.Count == 0)
                 {
@@ -105,7 +94,8 @@
                 @foreach (var session in _sessions)
                 {
                     var isSelected = session.Id == _sessionId;
-                    <div class="jsini-chat__history-item @(isSelected ? "is-selected" : "")"
+                    var menuOpen = session.Id == _menuSessionId;
+                    <div class="jsini-chat__history-item @(isSelected ? "is-selected" : "") @(menuOpen ? "is-menu-open" : "")"
                          @onclick="@(() => SelectSessionAsync(session.Id))">
                         <div class="jsini-chat__history-item-main">
                             <span class="jsini-icon-robot jsini-chat__history-item-icon" aria-hidden="true"></span>
@@ -115,7 +105,28 @@
                             <span class="jsini-chat__history-item-time">
                                 @session.UpdatedAt.ToLocalTime().ToString("MM.dd HH:mm")
                             </span>
+                            <button type="button" class="jsini-chat__history-more"
+                                    title="더보기" aria-haspopup="menu" aria-expanded="@(menuOpen ? "true" : "false")"
+                                    @onclick="@(() => ToggleSessionMenu(session.Id))"
+                                    @onclick:stopPropagation="true">
+                                <span class="jsini-icon-more" aria-hidden="true"></span>
+                            </button>
                         </div>
+
+                        @if (menuOpen)
+                        {
+                            <div class="jsini-chat__history-menu" role="menu"
+                                 @onclick:stopPropagation="true">
+                                @* 답을 받는 중인 대화는 못 지운다 — 흐르는 답이 지운 대화에 쌓인다. *@
+                                <button type="button" role="menuitem"
+                                        class="jsini-chat__history-menu-item jsini-chat__history-menu-item--danger"
+                                        disabled="@(_streaming && isSelected)"
+                                        @onclick="@(() => ConfirmDeleteAsync(session))">
+                                    <span class="jsini-icon-trash" aria-hidden="true"></span>
+                                    <span>삭제</span>
+                                </button>
+                            </div>
+                        }
                     </div>
                 }
             </div>
