@@ -929,6 +929,34 @@
   max-height: none;
 }
 
+/* 지정 사용자 탭의 좌우 판(사용자 표 | 조직도). 좁은 화면에서는 위아래로
+   쌓는다 — 바깥 `ad-vsplit` 과 같은 경계, 같은 방법(`display: contents`)이다.
+   조직도는 수백 줄이라 높이를 묶어 안에서 굴린다. */
+@media (width < 992px) {
+  .ad-hsplit,
+  .ad-hsplit > .dxbl-splitter-pane,
+  .ad-hsplit > .dxbl-splitter-pane > .dxbl-splitter-pane-content {
+    display: contents;
+  }
+
+  .ad-hsplit > .dxbl-splitter-separator { display: none; }
+
+  .ad-hsplit > .dxbl-splitter-pane > .dxbl-splitter-pane-content > .commgrd {
+    margin-bottom: 1rem;
+  }
+
+  .ad-hsplit > .dxbl-splitter-pane > .dxbl-splitter-pane-content > .commtree {
+    display: flex;
+    flex-direction: column;
+    max-height: 60vh;
+  }
+
+  .ad-hsplit > .dxbl-splitter-pane > .dxbl-splitter-pane-content > .commtree > .dxbl-grid {
+    flex: 1;
+    min-height: 0;
+  }
+}
+
 /* 메뉴명 칸. 두 줄이다 — 위가 이름(과 일괄 단추), 아래가 코드·주소. */
 .ad-rolemenu__name {
   display: inline-flex;
