@@ -4594,6 +4594,14 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   background: var(--jsini-bg);
 }
 
+/* 지시문에 적힌 화면 주소. 글자는 그대로 두고 링크 모양만 입힌다. */
+.pm-peek__ask-link {
+  color: var(--bs-link-color, var(--tb-primary));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  word-break: break-all;
+}
+
 /* 한 판 안의 칸 이름 — 「처리 요약」 · 「지시」 · 「결과」.
 
    셋이 한 판에 이어 서므로 **어디서 어디까지가 무엇인지**를 이 줄이

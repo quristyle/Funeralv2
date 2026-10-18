@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components;
+using JSini.Web.Components.Menu;
 using JSini.Web.ProjMng.Api;
 
 namespace JSini.Web.ProjMng.Components.Shared;
@@ -100,6 +101,12 @@ public partial class AiTaskAskPane
     /// <summary>
     /// 펴고 접은 모습을 어느 건의 것으로 들고 있나. <b>건이 바뀌면 턴다.</b>
     /// </summary>
+    [Inject] private RouteInventory Routes { get; set; } = default!;
+
+    /// <summary>지시문을 글자와 화면 링크로 가른다. 실려 있는 화면의 주소만 링크가 된다.</summary>
+    private IReadOnlyList<AiTaskAskPiece> AskPieces(string text) =>
+        AiTaskAskLinks.Split(text, path => AiTaskAskLinks.Matches(path, Routes.Paths));
+
     private long? _key;
 
     /// <summary>

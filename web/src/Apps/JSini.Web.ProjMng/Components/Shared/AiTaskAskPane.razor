@@ -73,7 +73,7 @@
             }
             else
             {
-                <pre class="pm-peek__pre pm-peek__pre--ask">@first</pre>
+                <pre class="pm-peek__pre pm-peek__pre--ask">@AskText(first)</pre>
             }
         }
 
@@ -154,7 +154,9 @@
 
                         @if (turn.Ask is { Length: > 0 } ask)
                         {
-                            <pre class="pm-peek__pre pm-peek__pre--ask">@ask</pre>
+                            @* 적힌 화면 주소(`/helpdesk/monitor/maintenance`)는 **글자 그대로 링크**다 —
+                               누르면 포털 탭으로 그 화면이 열리고 권한은 그 화면이 따진다. *@
+                            <pre class="pm-peek__pre pm-peek__pre--ask">@AskText(ask)</pre>
 
                             @* **지우지는 않는다.** 그때 실제로 간 글이
                                무엇이었나는 「왜 AI 가 그렇게 했나」를
@@ -171,7 +173,7 @@
 
                                 @if (leadOpen)
                                 {
-                                    <pre class="pm-peek__pre pm-peek__pre--lead">@lead</pre>
+                                    <pre class="pm-peek__pre pm-peek__pre--lead">@AskText(lead)</pre>
                                 }
                             }
                         }
@@ -319,3 +321,21 @@
         }
     }
 </div>
+
+@code {
+    // `<pre>` 안이라 토막을 글자 그대로 잇는다 — 사이에 빈칸이 끼면 그대로 보인다.
+    private RenderFragment AskText(string text) => __builder =>
+    {
+        foreach (var piece in AskPieces(text))
+        {
+            if (piece.Href is { } href)
+            {
+                <a class="pm-peek__ask-link" href="@href">@piece.Text</a>
+            }
+            else
+            {
+                @piece.Text
+            }
+        }
+    };
+}
