@@ -221,12 +221,10 @@
        어느 쪽이 보이는지를 코드에서 읽을 수 없게 된다 — 감추는 일은 CSS
        한 곳(`helpdesk.css` 의 `.hd-form--wide`)에서만 한다. *@
     <label class="hd-field hd-title-field">
-        <span class="hd-field__label">제목</span>
         <DxTextBox @bind-Text="_title" NullText="제목" />
     </label>
 
     <div class="hd-field hd-content-field">
-        <span class="hd-field__label">내용</span>
 
         @* 값을 **파라미터로 되받지 않는다.** `DxHtmlEditor` 가 알려 주는
            시점은 친 다음 `InputDelay`(기본 500ms) 뒤라, 마지막 줄을 치고
@@ -253,14 +251,7 @@
 
         @if (_restoredAt is { } savedAt)
         {
-            @* **되살렸다고 말해 준다.** 아무 말 없이 글이 차 있으면 사람은
-               「전에 등록하다 만 것인가」를 화면에서 알 길이 없다. *@
-            @* 지우는 단추는 **곁단추 줄**에 있다(아래). 여기서는 되살렸다는
-               말만 한다 — 글 한가운데에 지우는 단추를 두면 읽다가 누른다. *@
-            <span class="jsini-hint">
-                <b>@savedAt.Kst("M월 d일 HH:mm")</b> 에 이 브라우저에
-                적어 둔 내용을 되살렸습니다. 아직 등록되지 않은 글입니다.
-            </span>
+            @* **되살린경우 *@
         }
 
         @if (_draftBlocked)

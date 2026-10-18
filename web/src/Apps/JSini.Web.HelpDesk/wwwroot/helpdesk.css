@@ -126,8 +126,8 @@
 
 /* 펼쳐 둔 동안 눌린 티를 낸다. */
 .hd-tools .hd-ai__btn.is-on {
-  border-color: var(--jsini-primary);
-  color: var(--jsini-primary);
+  border-color: var(--jsini-accent);
+  color: var(--jsini-accent);
 }
 
 /* 펼친 판. **흐름 위에 띄운다** — 자리를 차지하게 두면 열 때마다 편집기가

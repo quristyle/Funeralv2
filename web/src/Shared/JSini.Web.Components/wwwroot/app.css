@@ -1304,7 +1304,7 @@ body {
 
 .jsini-sidebar__search {
   flex: 0 0 auto;
-  height: 3rem;
+  height: 2.75rem !important;
   display: flex;
   align-items: center;
   padding: 0 0.75rem;
@@ -11559,7 +11559,7 @@ body.jsini-imgview-open {
 
 .jsini-right-drawer__resizer:hover::before,
 .jsini-right-drawer--resizing .jsini-right-drawer__resizer::before {
-  background-color: var(--jsini-primary, #0d6efd);
+  background-color: var(--jsini-accent);
 }
 
 @media (max-width: 767px) {

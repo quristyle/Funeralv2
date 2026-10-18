@@ -810,7 +810,7 @@
    ---------------------------------------------------------- */
 
 .pm-save--dirty {
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--jsini-primary, #3f7ad6) 45%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--jsini-accent) 45%, transparent);
 }
 
 /* ── 그림 바탕 (격자·점) ──────────────────────────────────────
@@ -957,8 +957,8 @@
 }
 
 .pm-tools__seg-btn--on {
-  border-color: var(--jsini-primary, #3f7ad6);
-  background: color-mix(in srgb, var(--jsini-primary, #3f7ad6) 14%, var(--jsini-surface));
+  border-color: var(--jsini-accent);
+  background: color-mix(in srgb, var(--jsini-accent) 14%, var(--jsini-surface));
   font-weight: 600;
 }
 
@@ -1094,7 +1094,7 @@
    테를 그리기 때문이다. 그러면 **자판이 이제 여기로 온다는 것을 알릴 길이
    없어진다.** 이 화면에서는 그 표시가 곧 단축키가 산다는 뜻이라 늘 그린다. */
 .pm-mind:focus {
-  outline: 2px solid var(--jsini-primary, #3f7ad6);
+  outline: 2px solid var(--jsini-accent);
   outline-offset: -2px;
 }
 
@@ -1536,10 +1536,10 @@
   z-index: 10;
   padding: 0.15rem 0.25rem;
   border-radius: 6px;
-  background: var(--jsini-surface, rgba(255, 255, 255, 0.92));
+  background: var(--jsini-surface);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
-  border: 1px solid var(--jsini-border, #e3e5e8);
+  border: 1px solid var(--jsini-border);
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
   opacity: 0.85;
   transition: opacity 0.15s ease, box-shadow 0.15s ease;
@@ -1566,18 +1566,18 @@
   border-radius: 4px;
   background: transparent;
   cursor: pointer;
-  color: var(--jsini-text-muted, #6b7280);
+  color: var(--jsini-text-muted);
   transition: color 0.15s, background 0.15s, border-color 0.15s;
 }
 
 .pm-edact__btn:hover {
-  color: var(--jsini-text-main, #111827);
-  background: var(--jsini-hover-bg, rgba(0, 0, 0, 0.06));
+  color: var(--jsini-text);
+  background: var(--jsini-surface-hover);
 }
 
 /* 줄바꿈 켜짐. 켜고 끈 것이 아이콘 색으로 바로 읽혀야 한다. */
 .pm-edact__btn.is-active {
-  color: var(--jsini-primary, #0070cc);
+  color: var(--jsini-accent);
   background: rgba(0, 112, 204, 0.12);
   border-color: rgba(0, 112, 204, 0.28);
 }
@@ -1612,9 +1612,9 @@
   flex-direction: column;
   min-width: 11rem;
   padding: 0.25rem;
-  border: 1px solid var(--jsini-border, #e3e5e8);
+  border: 1px solid var(--jsini-border);
   border-radius: 6px;
-  background: var(--jsini-surface, #fff);
+  background: var(--jsini-surface);
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
   font-size: var(--jsini-fs-sm);
   font-weight: 400;
@@ -1629,7 +1629,7 @@
   border: 0;
   border-radius: 4px;
   background: transparent;
-  color: var(--jsini-text-main, #111827);
+  color: var(--jsini-text);
   text-align: left;
   white-space: nowrap;
   cursor: pointer;
@@ -1637,7 +1637,7 @@
 
 .pm-edact__item:hover,
 .pm-edact__item:focus-visible {
-  background: var(--jsini-hover-bg, rgba(0, 0, 0, 0.06));
+  background: var(--jsini-surface-hover);
 }
 
 .pm-edact__item.is-copied {
@@ -1693,7 +1693,7 @@
 }
 
 .pm-edact__switch.is-on {
-  background: var(--jsini-primary, #0070cc);
+  background: var(--jsini-accent);
 }
 
 .pm-edact__switch.is-on::after {
@@ -3864,8 +3864,8 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   flex: 0 0 auto;
   font-size: 0.72em;
   font-weight: 700;
-  color: var(--jsini-primary, #1976d2);
-  background: color-mix(in srgb, var(--jsini-primary, #1976d2) 12%, transparent);
+  color: var(--jsini-accent);
+  background: color-mix(in srgb, var(--jsini-accent) 12%, transparent);
   padding: 0.05rem 0.35rem;
   border-radius: 4px;
   line-height: 1.25;
@@ -7495,7 +7495,7 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   font-weight: 700;
   line-height: 1;
   color: #ffffff !important;
-  background-color: var(--jsini-primary, #0054a6);
+  background-color: var(--jsini-accent);
   border-radius: 9999px;
   user-select: none;
   flex: 0 0 auto;
@@ -7511,7 +7511,7 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   font-weight: 700;
   line-height: 1.2;
   color: #ffffff !important;
-  background-color: var(--jsini-primary, #0054a6);
+  background-color: var(--jsini-accent);
   border-radius: 9999px;
   vertical-align: 1px;
 }

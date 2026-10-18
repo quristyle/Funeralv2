@@ -2817,7 +2817,7 @@
 
 /* 고른 줄은 **면으로** 칠한다. 테두리를 두르면 그 줄만 키가 커져 목록이 들썩인다
    (테마 서랍에서 같은 이유로 같은 선택을 했다). */
-.ad-pick--on { background: color-mix(in srgb, var(--jsini-primary, #3f7ad6) 10%, transparent); }
+.ad-pick--on { background: color-mix(in srgb, var(--jsini-accent) 10%, transparent); }
 
 .ad-pick__name { font-weight: 600; }
 

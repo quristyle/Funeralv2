@@ -27,7 +27,7 @@
 
 .pm-dates__tab--on {
   color: #fff;
-  background: var(--jsini-primary, #3b82f6);
+  background: var(--jsini-accent);
 }
 
 .pm-dates__nav {
