@@ -72,7 +72,8 @@ public sealed class RequestDraftTests
 
             var css = declared.Groups["css"].Value;
 
-            Assert.True(Regex.IsMatch(page, @"(class|CssClass)=""[^""]*\b" + css + @"\b"),
+            // 값이 식일 수 있다(편집기는 한 벌마다 이름을 하나 더 단다) — 같은 줄 안에서 찾는다.
+            Assert.True(Regex.IsMatch(page, @"(class|CssClass)=""[^\r\n]*\b" + css + @"\b"),
                 $"화면에 `{css}` 가 붙은 칸이 없다. JS 가 그 칸을 못 찾으면 "
                 + "임시 보관이 **아무 말 없이** 안 된다.");
         }
@@ -99,11 +100,17 @@ public sealed class RequestDraftTests
     /// <remarks>
     /// 빠지면 공용 PC 에서 <b>남이 쓰다 만 글이 내 화면에 뜬다.</b> 헬프데스크에
     /// 오는 글에는 고객사 이름과 장애 내용이 들어 있다.
+    ///
+    /// 그 사람은 <b>로그인 신원</b>에서 읽는다. 헬프데스크 신원(<c>JsiniUserId</c>)은
+    /// 조회가 실패하면 조용히 비어서, 적을 때와 읽을 때 열쇠가 갈렸다.
     /// </remarks>
     [Fact]
     public void 임시보관_열쇠는_사람마다_다르다()
     {
-        Assert.Matches(@"DraftKeyPrefix\s*\+[\s\S]{0,200}?JsiniUserId|JsiniUserId[\s\S]{0,200}?DraftKeyPrefix\s*\+", Page());
+        var page = Page();
+
+        Assert.Matches(@"User\.Identity\?\.Name[\s\S]{0,200}?DraftKeyPrefix\s*\+", page);
+        Assert.DoesNotMatch(@"DraftKeyPrefix\s*\+[\s\S]{0,200}?JsiniUserId|JsiniUserId[\s\S]{0,200}?DraftKeyPrefix\s*\+", page);
     }
 
     /// <summary>

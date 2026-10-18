@@ -244,7 +244,7 @@
                       BindMarkupMode="HtmlEditorBindMarkupMode.OnDelayedInput"
                       CustomizeToolbar="@CustomizeToolbar"
                       NullText="내용 — 어떤 화면에서 무엇이 어떻게 됐는지 적고, 화면 캡처는 여기에 그대로 붙여넣으십시오."
-                      CssClass="hd-content-editor" />
+                      CssClass="@($"hd-content-editor {EditorInstanceClass}")" />
 
         @if (_pasting > 0)
         {
@@ -258,7 +258,7 @@
             @* 지우는 단추는 **곁단추 줄**에 있다(아래). 여기서는 되살렸다는
                말만 한다 — 글 한가운데에 지우는 단추를 두면 읽다가 누른다. *@
             <span class="jsini-hint">
-                <b>@savedAt.ToString("M월 d일 HH:mm")</b> 에 이 브라우저에
+                <b>@savedAt.Kst("M월 d일 HH:mm")</b> 에 이 브라우저에
                 적어 둔 내용을 되살렸습니다. 아직 등록되지 않은 글입니다.
             </span>
         }
