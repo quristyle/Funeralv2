@@ -85,6 +85,7 @@ public sealed class UserCard(GatewayClient gateway, ILogger<UserCard> logger)
                 string.IsNullOrWhiteSpace(wire.Name) ? wire.UserId.Trim() : wire.Name.Trim(),
                 // 바깥 기본 이미지 주소는 걸지 않는다(UserFaceClient 와 같은 규칙).
                 FileDownload.FileIdOf(wire.Avatar) is { } fileId ? FileDownload.ThumbnailUrlFor(fileId) : null,
+                Blank(wire.Company),
                 Blank(wire.Department),
                 Blank(wire.Email),
                 Blank(wire.Phone));
@@ -113,7 +114,7 @@ public sealed record UserCardRequest(string LoginId, string AnchorId, string? Na
 
 /// <summary>카드에 그리는 한 사람.</summary>
 public sealed record UserCardInfo(
-    string UserId, string Name, string? Photo, string? Department, string? Email, string? Phone);
+    string UserId, string Name, string? Photo, string? Company, string? Department, string? Email, string? Phone);
 
 /// <summary><c>auth/user/card</c> 응답 한 벌.</summary>
 public sealed class UserCardWire
@@ -121,6 +122,7 @@ public sealed class UserCardWire
     public string? UserId { get; set; }
     public string? Name { get; set; }
     public string? Avatar { get; set; }
+    public string? Company { get; set; }
     public string? Department { get; set; }
     public string? Email { get; set; }
     public string? Phone { get; set; }

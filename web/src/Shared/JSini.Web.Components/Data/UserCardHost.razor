@@ -31,7 +31,17 @@
             <UserAvatar Photo="@PhotoOf(req)" Name="@NameOf(req)" Card="false" CssClass="jsini-ucard__face" />
             <div class="jsini-ucard__who">
                 <div class="jsini-ucard__name">@NameOf(req)</div>
-                @if (_info?.Department is { } dept)
+                @if (_info?.Company is { } company)
+                {
+                    <div class="jsini-ucard__sub jsini-ucard__org">
+                        <span class="jsini-ucard__company">@company</span>
+                        @if (_info.Department is { } dept)
+                        {
+                            <span class="jsini-ucard__dept">@dept</span>
+                        }
+                    </div>
+                }
+                else if (_info?.Department is { } dept)
                 {
                     <div class="jsini-ucard__sub">@dept</div>
                 }
@@ -58,12 +68,22 @@
                 <span class="jsini-icon-comment" aria-hidden="true"></span>
                 <span>쪽지쓰기</span>
             </button>
-            <button type="button" class="jsini-ucard__act" disabled="@(Email is null)"
-                    title="@(Email is null ? "등록된 이메일이 없습니다" : Email)"
-                    @onclick="@WriteMail">
-                <span class="jsini-icon-mail" aria-hidden="true"></span>
-                <span>이메일쓰기</span>
-            </button>
+            @* 이 장비에 깔린 메일 프로그램으로 연다. 브라우저가 mailto: 를 넘기는 길이라
+               포털을 떠나지 않는다(Blazor 는 http 가 아닌 주소를 가로채지 않는다). *@
+            @if (Email is { } email)
+            {
+                <a class="jsini-ucard__act" href="@MailHref(email)" title="@email" @onclick="@Cards.Close">
+                    <span class="jsini-icon-mail" aria-hidden="true"></span>
+                    <span>이메일쓰기</span>
+                </a>
+            }
+            else
+            {
+                <button type="button" class="jsini-ucard__act" disabled title="등록된 이메일이 없습니다">
+                    <span class="jsini-icon-mail" aria-hidden="true"></span>
+                    <span>이메일쓰기</span>
+                </button>
+            }
             @if (Phone is { } phone)
             {
                 <a class="jsini-ucard__act" href="@TelHref(phone)" title="@phone" @onclick="@Cards.Close">

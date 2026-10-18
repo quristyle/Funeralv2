@@ -5448,6 +5448,17 @@ a.jsini-social__btn:focus-visible {
   white-space: nowrap;
 }
 
+/* 회사 · 부서 한 줄. 회사는 본문색으로 세워 소속이 먼저 읽히게 한다. */
+.jsini-ucard__company {
+  color: var(--jsini-text);
+  font-weight: 600;
+}
+
+.jsini-ucard__dept::before {
+  content: "·";
+  margin: 0 0.35em;
+}
+
 .jsini-ucard__contact {
   display: grid;
   grid-template-columns: auto 1fr;

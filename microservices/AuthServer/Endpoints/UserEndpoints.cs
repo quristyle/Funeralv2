@@ -131,6 +131,10 @@ public static class UserEndpoints
                 {
                     a.Id, a.UserId, a.UserName, a.RealName,
                     Department = a.Department != null ? a.Department.Name : null,
+                    // 계정에 회사가 없으면 부서의 회사를 쓴다.
+                    Company = a.Company != null ? a.Company.Name
+                        : a.Department != null && a.Department.Company != null ? a.Department.Company.Name
+                        : null,
                 })
                 .FirstOrDefaultAsync(ct);
 
@@ -158,6 +162,7 @@ public static class UserEndpoints
                 UserId = account.UserId,
                 Name = FirstFilled(account.UserName, account.RealName, account.UserId),
                 Avatar = Primary("Avatar"),
+                Company = account.Company,
                 Department = account.Department,
                 Email = Primary("Email"),
                 Phone = Primary("Phone"),

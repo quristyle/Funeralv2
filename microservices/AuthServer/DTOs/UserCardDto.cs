@@ -12,6 +12,7 @@ public class UserCardDto
     public string UserId { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string? Avatar { get; set; }
+    public string? Company { get; set; }
     public string? Department { get; set; }
     public string? Email { get; set; }
     public string? Phone { get; set; }

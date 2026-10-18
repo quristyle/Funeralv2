@@ -1,4 +1,3 @@
-using JSini.Web.Components.Security;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
@@ -9,20 +8,12 @@ public partial class UserCardHost : IAsyncDisposable
 {
     [Inject] private UserCard Cards { get; set; } = default!;
     [Inject] private UserFaceClient Faces { get; set; } = default!;
-    [Inject] private PermissionContext Permissions { get; set; } = default!;
-    [Inject] private NavigationManager Nav { get; set; } = default!;
     [Inject] private IJSRuntime Js { get; set; } = default!;
 
     /// <summary>휴대폰이면 가운데 창, 아니면 말풍선. 레이아웃이 재는 값 그대로다.</summary>
     [Parameter] public bool IsPhone { get; set; }
 
     private const string ModulePath = "./_content/JSini.Web.Components/js/user-card.js";
-
-    /// <summary>
-    /// 받는 사람 칸에 주소를 미리 넣어 주는 「메일 보내기」 화면. 그 메뉴를 못 보는
-    /// 사람은 메일 프로그램(<c>mailto:</c>)으로 연다.
-    /// </summary>
-    private const string MailSendPath = "/admin/mail/send";
 
     private IJSObjectReference? _module;
     private ElementReference _card;
@@ -113,6 +104,10 @@ public partial class UserCardHost : IAsyncDisposable
     private static string TelHref(string phone) =>
         "tel:" + new string(phone.Where(c => char.IsDigit(c) || c == '+').ToArray());
 
+    /// <summary>주소에 섞인 공백·쉼표가 받는 사람을 둘로 가르지 않게 하나만 남긴다.</summary>
+    private static string MailHref(string email) =>
+        "mailto:" + email.Split([',', ';', ' '], StringSplitOptions.RemoveEmptyEntries)[0];
+
     private void OnKeyDown(KeyboardEventArgs e)
     {
         if (e.Key == "Escape")
@@ -125,25 +120,6 @@ public partial class UserCardHost : IAsyncDisposable
     {
         Cards.Close();
         _noteTo = loginId;
-    }
-
-    private void WriteMail()
-    {
-        if (Email is not { } email)
-        {
-            return;
-        }
-
-        Cards.Close();
-
-        if (Permissions.CanView(MailSendPath))
-        {
-            Nav.NavigateTo($"{MailSendPath}?to={Uri.EscapeDataString(email)}");
-        }
-        else
-        {
-            Nav.NavigateTo($"mailto:{email}", forceLoad: true);
-        }
     }
 
     public async ValueTask DisposeAsync()

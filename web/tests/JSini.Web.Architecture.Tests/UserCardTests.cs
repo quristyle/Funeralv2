@@ -77,17 +77,28 @@ public sealed class UserCardTests
     }
 
     [Fact]
-    public void 메일_보내기_화면은_받는_사람을_주소로_받는다()
+    public void 이메일쓰기는_장비의_메일_프로그램을_연다()
     {
-        var cs = Read("Apps", "JSini.Web.Admin", "Components", "Pages", "MailSendPage.razor.cs");
+        var razor = Read("Shared", "JSini.Web.Components", "Data", "UserCardHost.razor");
+        var cs = Read("Shared", "JSini.Web.Components", "Data", "UserCardHost.razor.cs");
 
-        Assert.Contains("[SupplyParameterFromQuery(Name = \"to\")]", cs);
+        // 포털 안의 「메일 보내기」 화면으로 돌리지 않는다 — mailto: 를 브라우저에 넘긴다.
+        Assert.Contains("href=\"@MailHref(email)\"", razor);
+        Assert.Contains("\"mailto:\" +", cs);
+        Assert.DoesNotContain("/admin/mail/send", cs);
+        Assert.DoesNotContain("NavigateTo", cs);
+    }
 
-        var host = Read("Shared", "JSini.Web.Components", "Data", "UserCardHost.razor.cs");
-        Assert.Contains("private const string MailSendPath = \"/admin/mail/send\";", host);
-        Assert.Contains(
-            "@page \"/admin/mail/send\"",
-            Read("Apps", "JSini.Web.Admin", "Components", "Pages", "MailSendPage.razor"));
+    [Fact]
+    public void 카드는_회사와_부서를_함께_적는다()
+    {
+        var razor = Read("Shared", "JSini.Web.Components", "Data", "UserCardHost.razor");
+        Assert.Contains("_info?.Company is { } company", razor);
+        Assert.Contains("class=\"jsini-ucard__company\"", razor);
+
+        var card = Read("Shared", "JSini.Web.Components", "Data", "UserCard.cs");
+        Assert.Contains("Blank(wire.Company)", card);
+        Assert.Contains("public string? Company { get; set; }", card);
     }
 
     private static string Read(params string[] parts) =>
