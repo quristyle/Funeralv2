@@ -250,7 +250,7 @@
 @inherits DataPage
 @implements IDisposable
 
-<PageTitle>환경설정 · 장례식장</PageTitle>
+<PageTitle>환경설정</PageTitle>
 
 <div class="fn-env">
 
@@ -297,12 +297,6 @@
 
 <section class="jsini-settings">
     <div class="jsini-setting">
-        <div>
-            <div class="jsini-setting__name">로그인한 뒤 처음 열리는 화면</div>
-            <div class="jsini-setting__desc">
-                고르지 않으면 이 화면이 열립니다. <b>계정에 저장됩니다</b>.
-            </div>
-        </div>
 
         @*
             고르개가 179건짜리 목록이라 **글자를 쳐서 찾게** 한다 — 아래 띠
@@ -337,7 +331,6 @@
    **휴대폰 묶음이 아니라 이 묶음**이다. 넓은 화면에서도 뜨는 것이라서다. *@
 <div class="fn-env__group">
 
-<h2 class="jsini-subhead">화면</h2>
 
 <section class="jsini-settings">
     @* **테마 서랍에서 옮겨 온 것이다.** 저 서랍이 정하는 것은 테마(밝기·
@@ -346,9 +339,6 @@
     <div class="jsini-setting">
         <div>
             <div class="jsini-setting__name">알림(토스트) 위치</div>
-            <div class="jsini-setting__desc">
-                <b>계정에 저장되어 어느 기기에서나 같습니다</b>.
-            </div>
         </div>
 
         <DxComboBox Data="@_toastPositions"
@@ -369,7 +359,6 @@
    설정은 계정에 저장되어 기기에 구애받지 않고 유지된다. *@
 <div class="fn-env__group">
 
-<h2 class="jsini-subhead">상단 아이콘</h2>
 
 <section class="jsini-settings">
     @if (PermittedHeaderIcons.Count == 0)
@@ -417,7 +406,6 @@
    묶음을 따로 둔다(그쪽 머리말). *@
 <div class="fn-env__group">
 
-<h2 class="jsini-subhead">휴대폰</h2>
 
 <section class="jsini-settings">
 
@@ -586,8 +574,6 @@
    (`PortalPrefs.BottomNavHiddenKey` · `BottomNavItemsKey`). 둘을 갈라 두면
    **칸은 따라오는데 띠가 안 뜨는** 기기가 생긴다. *@
 <div class="fn-env__group">
-
-<h2 class="jsini-subhead">모바일 하단 네비게이션</h2>
 
 <section class="jsini-settings">
     <div class="jsini-setting">
@@ -759,20 +745,9 @@
 
 <div class="fn-env__group">
 
-<h2 class="jsini-subhead">찾으시는 것이 여기 없다면</h2>
 
 <section class="jsini-settings">
-    <div class="jsini-setting">
-        <div>
-            <div class="jsini-setting__name">장례식장 업무 규칙</div>
-            <div class="jsini-setting__desc">
-                기존 고객 연결·장비·화면에 관한 규칙은 「업무 설정」에서 켜고 끕니다.
-            </div>
-        </div>
 
-        <DxButton Text="업무 설정으로" RenderStyle="ButtonRenderStyle.Secondary"
-                  NavigateUrl="/funeral/setting/work-options" />
-    </div>
 
     <div class="jsini-setting">
         <div>

@@ -9364,8 +9364,8 @@ body {
 
 .commgrd .dxbl-grid-header-content,
 .commtree .dxbl-grid-header-content {
-  min-height: 2.75rem;
-  padding: 0.6rem 0.75rem;
+  min-height: 1rem;
+  /* padding: 0.6rem 0.75rem; */
   /* Tabler: thead 텍스트는 muted보다 약간 선명한 중간 톤 */
   color: var(--jsini-text-muted);
   font-size: var(--jsini-fs-xs);

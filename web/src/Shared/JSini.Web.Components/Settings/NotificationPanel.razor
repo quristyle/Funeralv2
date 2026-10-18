@@ -91,8 +91,6 @@
 {
 <section class="jsini-npanel__prefs">
 
-<h2 class="jsini-subhead">알림</h2>
-
 <PageNotice Tone="NoticeTone.Warning">
     <div class="jsini-npanel__down">
         <div class="jsini-npanel__down-text">
@@ -607,9 +605,7 @@ else
    실려 오므로(`subscriptions`) 안 그린다고 왕복이 줄지도 않았다. *@
 <section class="jsini-npanel__devices">
 
-<h2 class="jsini-subhead">등록된 기기 (@Devices.Count)</h2>
-
-<CommGrd TItem="PushDeviceDto" Data="@Devices"
+<CommGrd TItem="PushDeviceDto" Data="@Devices" ShowHeader="false"
          PageSizeSelectorVisible="false">
     <Columns>
         @* **원문 UA 를 그대로 두지 않는다.** 「Mozilla/5.0 (Windows NT 10.0…」
