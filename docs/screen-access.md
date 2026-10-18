@@ -219,6 +219,40 @@ EF 마이그레이션 `20261012170121_AddBlockedAccessLogs` 를 그대로 뽑은
 **DB 를 볼 수 없으므로 「이 열쇠의 메뉴가 실제로 있나」는 못 따진다.** 그건 운영에서
 이 화면의 `UNMANAGED` 줄이 말해 준다.
 
+## 메뉴에 없는 화면의 권한을 주려면
+
+**사용자에게 메뉴를 바로 매는 표는 없다.** 권한은 언제나 역할 × 메뉴
+(`scom.role_menus`)이고, 사람은 역할에 들어가서 받는다(`role_accounts` ·
+`role_departments` · `role_companies` — 역할 관리의 「지정 사용자」 탭).
+그러니 「이 사람에게」는 「이 사람이 든 역할에」이거나 「이 사람만 든 역할을
+하나 만들어서」다.
+
+메뉴에 없는 화면은 `[ScreenAccess]` 가 가리킨 **부모 메뉴의 열람 권한**을 따른다.
+그래서 길이 셋이다.
+
+| | 방법 | 고치는 곳 | 따라오는 것 |
+|---|---|---|---|
+| ① | 부모 메뉴의 열람을 역할에 켠다 | 메뉴 권한(`/admin/auth/menu-role`)에서 체크 하나 | 그 역할의 사이드바에 **부모 메뉴(목록)도 함께 선다** |
+| ② | 상세 화면만 따로 숨은 메뉴로 올린다 | 메뉴 관리에서 메뉴 하나(`hide_in_menu` 켬, `route_key` = 화면의 `RouteKey`) + 메뉴 권한 | 그 열쇠의 메뉴가 생기는 순간 **부모 대신 그것이 판정한다**(`Resolve` 의 ② 가 ③ 보다 먼저다). 지금 부모로 열던 역할에도 같이 켜 두지 않으면 **그 사람들이 막힌다** |
+| ③ | 화면이 가리키는 부모를 바꾼다 | 코드의 `[ScreenAccess("…")]` 와 배포 | 부모는 지금 **하나만** 적을 수 있다 |
+
+`menu_path` 칸이 비어 있지 않은 `NO_PERMISSION` 줄은 ① 이나 ② 로 풀리고,
+`UNMANAGED` 는 ② 나 ③ 이어야 풀린다.
+
+### 보기 — `/projmng/ai/task/{번호}` (AI 지시 상세)
+
+`[ScreenAccess("projmng.ai.tasks")]` 라 **지시 목록(`PM_AI_TASKS`)을 열 수 있는
+역할**만 연다 — 지금은 `SYSTEM_ADMINISTRATOR` · `ADMINISTRATOR` · `PROJMNG_ADMIN`.
+
+그런데 **빠른지시(`/projmng/ai/ask`)의 카드를 누르면 이 화면으로 간다.** 빠른지시만
+받은 역할(`DEVELOPMENT_TEST1`)의 사람은 카드를 누를 때마다 막힌다 — 차단 기록의
+`from_path` 가 `/projmng/ai/ask` 인 줄이 그것이다. 서버(`GET /api/ai-tasks/{번호}`)는
+로그인만 보므로 막는 것은 이 문 하나다.
+
+- 지시 목록까지 보여 줘도 되면 ① — `DEVELOPMENT_TEST1` 에 `PM_AI_TASKS` 열람.
+- 상세만 주려면 ② — 숨은 메뉴의 `route_key` 를 `projmng.ai.task-view` 로 두고,
+  위 세 역할과 `DEVELOPMENT_TEST1` 에 열람을 켠다.
+
 ## 지금 「관리 밖」으로 남아 있는 것
 
 `/admin/news/breaking`(뉴스속보 목록)은 DB 메뉴가 없고 들어오는 단추도 없다.
