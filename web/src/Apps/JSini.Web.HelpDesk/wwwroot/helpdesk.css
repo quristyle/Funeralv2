@@ -3134,3 +3134,12 @@
   cursor: pointer;
 }
 
+@media (max-width: 767px), (pointer: coarse) {
+  .hd-maintenance-period input {
+    caret-color: transparent;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+}
+
+

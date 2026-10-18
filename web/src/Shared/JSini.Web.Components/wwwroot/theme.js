@@ -2537,10 +2537,55 @@
     initObserver();
   }
 
-  // 날짜/연월 편집기(jsini-dateedit--click-open): 입력부(input)를 클릭했을 때 달력 다이얼로그를 연다.
+  // 날짜/연월 편집기(jsini-dateedit--click-open, hd-maintenance-period):
+  // 모바일 환경에서는 입력부를 클릭했을 때 키보드가 활성화되지 않고 달력 다이얼로그만 나타나도록 한다.
+  function isMobileDateEditDevice() {
+    return (window.matchMedia && (window.matchMedia('(max-width: 767px)').matches || window.matchMedia('(pointer: coarse)').matches))
+      || ('ontouchstart' in window)
+      || (navigator.maxTouchPoints > 0);
+  }
+
+  function applyDateEditMobileReadOnly() {
+    if (!isMobileDateEditDevice()) return;
+    var inputs = document.querySelectorAll('.jsini-dateedit--click-open input, .hd-maintenance-period input');
+    for (var i = 0; i < inputs.length; i++) {
+      var inp = inputs[i];
+      if (inp.getAttribute('inputmode') !== 'none') {
+        inp.setAttribute('inputmode', 'none');
+      }
+      if (!inp.readOnly) {
+        inp.setAttribute('readonly', 'readonly');
+        inp.readOnly = true;
+      }
+    }
+  }
+
+  document.addEventListener('pointerdown', function (e) {
+    var input = e.target && e.target.closest && e.target.closest('.jsini-dateedit--click-open input, .hd-maintenance-period input');
+    if (input && isMobileDateEditDevice()) {
+      input.setAttribute('inputmode', 'none');
+      input.setAttribute('readonly', 'readonly');
+      input.readOnly = true;
+    }
+  }, { capture: true, passive: true });
+
+  document.addEventListener('focusin', function (e) {
+    var input = e.target && e.target.closest && e.target.closest('.jsini-dateedit--click-open input, .hd-maintenance-period input');
+    if (input && isMobileDateEditDevice()) {
+      input.setAttribute('inputmode', 'none');
+      input.setAttribute('readonly', 'readonly');
+      input.readOnly = true;
+    }
+  }, true);
+
   document.addEventListener('click', function (e) {
     var input = e.target && e.target.closest && e.target.closest('.jsini-dateedit--click-open input, .hd-maintenance-period input');
     if (input) {
+      if (isMobileDateEditDevice()) {
+        input.setAttribute('inputmode', 'none');
+        input.setAttribute('readonly', 'readonly');
+        input.readOnly = true;
+      }
       var edit = input.closest('.jsini-dateedit--click-open, .hd-maintenance-period');
       if (edit) {
         var btn = edit.querySelector('button');
@@ -2550,4 +2595,18 @@
       }
     }
   });
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () {
+      applyDateEditMobileReadOnly();
+      if (typeof MutationObserver === 'function' && document.body) {
+        new MutationObserver(applyDateEditMobileReadOnly).observe(document.body, { childList: true, subtree: true });
+      }
+    });
+  } else {
+    applyDateEditMobileReadOnly();
+    if (typeof MutationObserver === 'function' && document.body) {
+      new MutationObserver(applyDateEditMobileReadOnly).observe(document.body, { childList: true, subtree: true });
+    }
+  }
 })();

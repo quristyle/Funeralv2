@@ -9317,6 +9317,14 @@ body {
   cursor: pointer;
 }
 
+@media (max-width: 767px), (pointer: coarse) {
+  .jsini-dateedit--click-open input {
+    caret-color: transparent;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+}
+
 /* 조회 조건은 카드 안의 조용한 작업 영역으로 보이게 한다. */
 .commsch {
   gap: var(--jsini-sp-md) var(--jsini-sp-xl);
