@@ -72,7 +72,7 @@
      *
      * 창이 줄어드는 것과 브라우저가 글칸을 보이게 미는 것은 **따로 논다** —
      * 브라우저는 줄기 전의 자로 한 번 밀어 두고 끝내므로, 우리가 창을 줄인
-     * 뒤에는 글칸이 다시 밖으로 나가 있을 수 있다. 창 안의 글칸만 본다.
+     * 뒤에는 글칸이 다시 밖으로 나가 있을 수 있다. 창 안이나 본문 폼의 글칸을 본다.
      */
     function keepFocusVisible() {
         var el = document.activeElement;
@@ -81,7 +81,7 @@
             return;
         }
 
-        if (!el.closest('.jsini-popup')) {
+        if (!el.closest('.jsini-popup') && !el.closest('.hd-form') && !el.closest('.jsini-shell__content')) {
             return;
         }
 

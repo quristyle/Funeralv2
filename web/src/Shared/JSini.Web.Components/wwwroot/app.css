@@ -8705,6 +8705,30 @@ a.jsini-social__btn:focus-visible {
   html.jsini-kb-open .dxbl-modal > .dxbl-modal-root > .dxbl-popup.jsini-gridpopup {
     max-height: calc(var(--jsini-vvh, 100dvh) - 1rem) !important;
   }
+
+  /* ── 키보드가 올라오면 셸 전체도 보이는 높이로 줄인다 ────────
+     휴대폰에서 키보드가 올라오면 레이아웃 뷰포트는 그대로이고
+     보이는 뷰포트만 줄어든다. 셸이 100vh 에 묶여 있으면 본문 아래쪽
+     (등록 단추 등)이 키보드 뒤로 숨는다. 셸 높이를 보이는 만큼으로 줄이고,
+     타이핑 중에는 쓸모없는 하단 띠와 떠다니는 단추를 감추며 본문 아래 여백을 되돌린다. */
+  html.jsini-kb-open .jsini-shell {
+    height: var(--jsini-vvh, 100dvh) !important;
+    max-height: var(--jsini-vvh, 100dvh) !important;
+  }
+
+  html.jsini-kb-open .jsini-bottom-nav {
+    display: none !important;
+  }
+
+  html.jsini-kb-open .jsini-shell__content {
+    padding-bottom: var(--jsini-shell-pad-bottom) !important;
+  }
+
+  html.jsini-kb-open .jsini-shell__fab--bottom-left,
+  html.jsini-kb-open .jsini-shell__fab--bottom-right,
+  html.jsini-kb-open .jsini-shell__fab--scroll-top {
+    display: none !important;
+  }
 }
 
 /* ── 표의 편집 창을 CommPopup 과 같게 보이게 한다 ──────────────

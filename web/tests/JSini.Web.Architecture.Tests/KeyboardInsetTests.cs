@@ -137,6 +137,17 @@ public sealed class KeyboardInsetTests
         Assert.Contains("jsini-popup--full-mobile", Css(), StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// 모바일 화면에서 키보드가 올라오면 셸도 보이는 높이로 줄어든다.
+    /// </summary>
+    [Fact]
+    public void 키보드가_올라오면_셸도_줄어든다()
+    {
+        Assert.Matches(
+            new Regex(@"html\.jsini-kb-open\s+\.jsini-shell[^{]*\{[^}]*height:\s*var\(--jsini-vvh,\s*100dvh\)"),
+            Css());
+    }
+
     // ── 키보드와 주소창을 가른다 ────────────────────────────────
 
     /// <summary>
