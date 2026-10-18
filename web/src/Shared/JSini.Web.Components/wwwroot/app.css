@@ -3156,6 +3156,31 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   }
 }
 
+/* 조건 하나 + 새로고침 아이콘만 있는 판(`commsch--inline`)은 좁은 화면에서도
+   **한 줄로 선다.** 아래 묶음대로 단추 줄을 내리면 아이콘 하나가 판 한 줄을
+   통째로 먹는다. 선택자 자릿수가 높아 아래 묶음보다 앞에 있어도 이긴다. */
+@media (max-width: 767px) {
+  .commsch.commsch--inline {
+    flex-wrap: nowrap;
+    align-items: center;
+    column-gap: 0.5rem;
+  }
+
+  .commsch--inline .commsch__fields {
+    width: auto;
+    flex: 1 1 0;
+  }
+
+  .commsch--inline .commsch__actions {
+    width: auto;
+    align-self: center;
+  }
+
+  .commsch--inline .commsch__actions .dxbl-btn {
+    min-width: 0;
+  }
+}
+
 /* 좁은 화면에서는 단추 줄이 통째로 아래로 내려간다. 오른쪽에 매달아 두면
    조건 한 칸과 단추 셋이 한 줄에 끼어 둘 다 못 읽는다. */
 @media (max-width: 767px) {

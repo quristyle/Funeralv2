@@ -31,6 +31,9 @@ public partial class CommSch
     /// </summary>
     [Parameter] public bool ReloadIcon { get; set; }
 
+    // 단추가 새로고침 아이콘 하나뿐이면 좁은 화면에서도 조건과 한 줄에 세운다(app.css `commsch--inline`).
+    private bool Inline => ReloadIcon && Actions is null && !OnReset.HasDelegate && !CanFold;
+
     /// <summary>
     /// 조회 중인가. 켜면 <b>조회 단추가 잠긴다.</b>
     ///
