@@ -46,6 +46,28 @@ public sealed class CommentAvatarTests
         Assert.Contains("string? AvatarUrl(string? photo)", cs);
     }
 
+    [Fact]
+    public void 댓글과_삭제_링크는_모두_아이콘으로_표현된다()
+    {
+        var razor = CommentThreadRazor();
+
+        // 아이콘 클래스로 표현
+        Assert.Contains("IconCssClass=\"jsini-icon-comment\"", razor);
+        Assert.Contains("IconCssClass=\"jsini-icon-trash\"", razor);
+
+        // 텍스트 속성은 사용하지 않음
+        Assert.DoesNotContain("Text=\"삭제\"", razor);
+        Assert.DoesNotContain("Text=\"답글\"", razor);
+
+        // 접근성 및 툴팁
+        Assert.Contains("Title=\"삭제\"", razor);
+        Assert.Contains("aria-label=\"삭제\"", razor);
+
+        // CSS 마스크 정의 존재 확인
+        var css = File.ReadAllText(Path.Combine(RepoRoot(), "web", "src", "Shared", "JSini.Web.Components", "wwwroot", "app.css"));
+        Assert.Matches(@"\.jsini-icon-comment\s*\{[^}]*mask-image", css);
+    }
+
     private static string CommentThreadRazor() => File.ReadAllText(Path.Combine(
         RepoRoot(), "web", "src", "Apps", "JSini.Web.HelpDesk", "Components", "Shared", "CommentThread.razor"));
 
