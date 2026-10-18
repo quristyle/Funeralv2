@@ -2067,6 +2067,10 @@ DB: `deploy/sql/portal-menu-location-map-2026-09-25.sql` (운영 반영 완료)
   다음(`jsini-icon-chevron-right`), 오늘(`jsini-icon-calendar`),
   전체 보기(`jsini-icon-expand`), 지금위치 기록(`jsini-icon-pin`),
   조회(`ReloadIcon="true"`)로 글자를 빼 좁은 화면에서도 한 줄에 단정하게 들어온다.
+- **조회영역의 조건 칸들은 라벨을 두지 않는다.** 날짜와 기록일 선택 칸에서
+  라벨(`Label="날짜"`, `Label="기록이 있는 날"`)을 빼 조회 컨트롤들이
+  하나의 줄로 단정하게 들어오도록 하고, 자리표시 글(`NullText`)과 풍선 도움말
+  (`Title`)로 역할을 알린다.
 
 지도 부품에 더한 것은 **선 하나**(`setPath`)다. 비어 있으면 그 판은 통째로
 감춰지므로 「위치 지도」는 이것이 생긴 줄도 모른다. 겹친 점을 벌리는 판정도
