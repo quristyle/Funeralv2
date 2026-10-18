@@ -198,8 +198,8 @@
 
     @* 칸 이름표. **이제 하나다** — 칸이 하나이기 때문이다(머리말의 2026-10-17).
 
-       이름 오른쪽 끝에 **아이콘 줄이 선다**(`EditorActions` — 다른 편집기와
-       같은 부품·같은 모양): 통째로 복사하는 아이콘과 **자동 줄바꿈**이다.
+       이름 오른쪽 끝에 **「…」 메뉴가 선다**(`EditorActions` — 다른 편집기와
+       같은 부품·같은 모양): 통째로 복사 · **자동 줄바꿈** · 줄 번호다.
        편집기 안에 띄우지 않는 까닭은 **글을 가리기** 때문이다 — 로그는
        오른쪽 위 귀퉁이에도 글자가 있다. *@
     <div class="pm-xlat__heads">
@@ -209,7 +209,9 @@
             <EditorActions CopyTitle="번역 전체 복사"
                            Text="@OutText"
                            WordWrap="@_wrap"
-                           WordWrapChanged="@SetWrapAsync" />
+                           WordWrapChanged="@SetWrapAsync"
+                           LineNumbers="@_lineNumbers"
+                           LineNumbersChanged="@SetLineNumbersAsync" />
         </span>
     </div>
 
@@ -257,7 +259,7 @@
 
                     <div @key="line" role="listitem" class="@cls"
                          @onclick="@(() => OnRowClickedAsync(line))">
-                        @if (ShowLineNumbers)
+                        @if (_lineNumbers)
                         {
                             <span class="pm-xlat__rownum">@line</span>
                         }

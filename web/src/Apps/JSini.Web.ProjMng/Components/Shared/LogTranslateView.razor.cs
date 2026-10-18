@@ -110,6 +110,9 @@ public partial class LogTranslateView
     /// </summary>
     [Parameter] public bool ShowLineNumbers { get; set; }
 
+    /// <summary>줄 번호 상태. 첫 값만 <see cref="ShowLineNumbers"/> 에서 받는다.</summary>
+    private bool _lineNumbers;
+
     /// <summary>
     /// 반복되는 로그 구간을 하나로 합쳐 반복 횟수 뱃지와 함께 한 번만 표시할지 여부.
     /// 기본값은 <b>거짓(false)</b>이며, 로그 탭(<see cref="AiTaskLogTab"/>)에서는 <b>참(true)</b>으로 켜서
@@ -390,6 +393,7 @@ public partial class LogTranslateView
         // 줄바꿈의 첫 자리. **여기서만 받는다** — 그 뒤로는 단추를 누른
         // 사람의 뜻과 폭이 정한다(`OnPhoneChangedAsync` · `SetWrapAsync`).
         _wrap = Wrap;
+        _lineNumbers = ShowLineNumbers;
     }
 
     protected override void OnParametersSet()
@@ -1923,6 +1927,36 @@ public partial class LogTranslateView
     }
 
     /// <summary>
+    /// 줄 번호를 켜거나 끈다. 「…」 메뉴의 스위치가 부른다. 휴대폰 목록은
+    /// 다시 그리면 따라오고, 서 있는 편집기에는 옵션을 민다.
+    /// </summary>
+    private async Task SetLineNumbersAsync(bool on)
+    {
+        if (_lineNumbers == on)
+        {
+            return;
+        }
+
+        _lineNumbers = on;
+        StateHasChanged();
+
+        try
+        {
+            if (_editor is { } view)
+            {
+                await view.UpdateOptions(new EditorUpdateOptions
+                {
+                    LineNumbers = _lineNumbers ? "on" : "off",
+                });
+            }
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException
+            or ObjectDisposedException)
+        {
+        }
+    }
+
+    /// <summary>
     /// 편집기 옵션.
     /// </summary>
     /// <remarks>
@@ -1990,7 +2024,7 @@ public partial class LogTranslateView
         EditContext = false,
         RenderLineHighlight = "none",
         FontSize = (int)Math.Round(_fontPx),
-        LineNumbers = ShowLineNumbers ? "on" : "off",
+        LineNumbers = _lineNumbers ? "on" : "off",
         Minimap = new EditorMinimapOptions { Enabled = false },
         ScrollBeyondLastLine = false,
         WordWrap = _wrap ? "on" : "off",

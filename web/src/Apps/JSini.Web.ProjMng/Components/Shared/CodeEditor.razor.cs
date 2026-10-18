@@ -82,6 +82,9 @@ public partial class CodeEditor
     /// </summary>
     [Parameter] public bool ShowLineNumbers { get; set; }
 
+    /// <summary>줄 번호 상태. 「…」 메뉴의 스위치와 Monaco 옵션을 함께 조종한다.</summary>
+    private bool _lineNumbers;
+
     /// <summary>
     /// 편집기 글자 크기(px). <b>본문과 같은 크기를 따라간다.</b>
     /// </summary>
@@ -103,6 +106,7 @@ public partial class CodeEditor
     protected override void OnInitialized()
     {
         _wordWrap = WordWrap;
+        _lineNumbers = ShowLineNumbers;
 
         // 서랍에서 크기를 바꾸면 다시 재서 밀어 넣는다. 옵션은 편집기를 만들 때
         // 한 번만 평가되므로(BuildOptions 머리말) 여기서 듣지 않으면 **이미 떠
@@ -221,7 +225,7 @@ public partial class CodeEditor
         EditContext = ReadOnly ? false : null,
         AutomaticLayout = true,
         FontSize = (int)Math.Round(_fontPx),
-        LineNumbers = ShowLineNumbers ? "on" : "off",
+        LineNumbers = _lineNumbers ? "on" : "off",
         Minimap = new EditorMinimapOptions { Enabled = false },
         ScrollBeyondLastLine = false,
         TabSize = 2,
@@ -251,6 +255,20 @@ public partial class CodeEditor
             await editor.UpdateOptions(new EditorUpdateOptions
             {
                 WordWrap = _wordWrap ? "on" : "off",
+            });
+        }
+    }
+
+    /// <summary>줄 번호를 켜거나 끈다. 자동 줄바꿈과 같은 길이다.</summary>
+    private async Task SetLineNumbersAsync(bool on)
+    {
+        _lineNumbers = on;
+
+        if (_editor is { } editor)
+        {
+            await editor.UpdateOptions(new EditorUpdateOptions
+            {
+                LineNumbers = _lineNumbers ? "on" : "off",
             });
         }
     }

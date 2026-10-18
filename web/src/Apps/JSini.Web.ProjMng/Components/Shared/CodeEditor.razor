@@ -44,7 +44,7 @@
 <div class="pm-editor" style="height: @Height">
     @if (EffectiveShowActions)
     {
-        @* 편집기 안쪽 오른쪽 위에 얹는 아이콘 줄(복사 · 자동 줄바꿈).
+        @* 편집기 안쪽 오른쪽 위에 얹는 「…」 메뉴(복사 · 자동 줄바꿈 · 줄 번호).
 
            **모양도 손짓도 이 부품이 들고 있다**(`EditorActions`). 한동안 여기
            풀어 적혀 있었는데, 그래서 Monaco 를 직접 세우는 다른 자리
@@ -58,7 +58,9 @@
                        CopyTitle="내용 복사"
                        TextProvider="@ReadEditorTextAsync"
                        WordWrap="@_wordWrap"
-                       WordWrapChanged="@SetWordWrapAsync" />
+                       WordWrapChanged="@SetWordWrapAsync"
+                       LineNumbers="@_lineNumbers"
+                       LineNumbersChanged="@SetLineNumbersAsync" />
     }
 
     @if (_loaded)

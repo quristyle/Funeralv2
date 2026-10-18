@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 
 namespace JSini.Web.ProjMng.Components.Shared;
@@ -40,13 +41,38 @@ public partial class EditorActions : IDisposable
 
     [Parameter] public EventCallback<bool> WordWrapChanged { get; set; }
 
-    /// <summary>복사했다는 표시(체크 아이콘)를 켜 둔 동안인가.</summary>
+    /// <summary>
+    /// 줄 번호를 보이는가. <see cref="LineNumbersChanged"/> 를 걸어 준 자리에만
+    /// 스위치가 선다.
+    /// </summary>
+    [Parameter] public bool LineNumbers { get; set; }
+
+    [Parameter] public EventCallback<bool> LineNumbersChanged { get; set; }
+
+    /// <summary>「…」 판이 펴져 있나.</summary>
+    private bool _open;
+
+    private void Toggle() => _open = !_open;
+
+    private void Close() => _open = false;
+
+    private void OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Escape")
+        {
+            _open = false;
+        }
+    }
+
+    /// <summary>복사했다는 표시(체크 아이콘 · 「복사되었습니다」)를 켜 둔 동안인가.</summary>
     private bool _copied;
 
     /// <summary>표시를 끄는 대기. 연달아 누르면 앞엣것을 거둔다.</summary>
     private CancellationTokenSource? _copiedCts;
 
     private Task ToggleWrapAsync() => WordWrapChanged.InvokeAsync(!WordWrap);
+
+    private Task ToggleLineNumbersAsync() => LineNumbersChanged.InvokeAsync(!LineNumbers);
 
     /// <summary>
     /// 글을 클립보드에 넣는다. <b>된 때에만</b> 표시를 켠다 — 안 된 것을
@@ -100,15 +126,17 @@ public partial class EditorActions : IDisposable
         _copied = true;
         StateHasChanged();
 
-        // **여기서 기다리지 않는다.** 기다리면 누른 사람의 손짓이 1.5초 동안
+        // **여기서 기다리지 않는다.** 기다리면 누른 사람의 손짓이 그동안
         // 회로에 매달린 채로 남는다.
         _ = Task.Run(async () =>
         {
             try
             {
-                await Task.Delay(1500, cts.Token);
+                // 판 안에서 「복사되었습니다」를 잠깐 보인 뒤 판째 닫는다.
+                await Task.Delay(700, cts.Token);
 
                 _copied = false;
+                _open = false;
 
                 await InvokeAsync(StateHasChanged);
             }
