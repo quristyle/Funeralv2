@@ -87,7 +87,7 @@
 <PageTitle>내 이동경로 · 포털관리</PageTitle>
 
 @* 날짜와 기록일 선택 및 이동, 위치 기록은 화면의 주 조작이므로 모바일에서도 접지 않는다. *@
-<CommSch OnSearch="@ReloadAsync" Busy="@Loading" ReloadIcon="true" Foldable="false">
+<CommSch CssClass="ad-track__sch" OnSearch="@ReloadAsync" Busy="@Loading" ReloadIcon="true" Foldable="false">
     <Fields>
         <CommSchItem>
             @* 한국 달력 날짜다. 서버도 같은 달력으로 하루를 끊는다 —
@@ -118,7 +118,9 @@
                지도는 그대로 둔다 — 지도가 함께 바뀌면 날것을 보려던 사람이
                보고 있던 자리를 잃는다. *@
             <DxCheckBox Checked="@_raw"
-                        CheckedChanged="@((bool on) => { _raw = on; })">
+                        CheckedChanged="@((bool on) => { _raw = on; })"
+                        Title="원시 기록으로 보기"
+                        aria-label="원시 기록으로 보기">
                 원시 기록으로 보기
             </DxCheckBox>
         </CommSchItem>

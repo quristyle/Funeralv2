@@ -4,6 +4,9 @@ namespace JSini.Web.Components.Data;
 
 public partial class CommSch
 {
+    /// <summary>추가 CSS 클래스.</summary>
+    [Parameter] public string? CssClass { get; set; }
+
     /// <summary>조회 조건들. <c>CommSchItem</c> 을 넣는다.</summary>
     [Parameter] public RenderFragment? Fields { get; set; }
 
