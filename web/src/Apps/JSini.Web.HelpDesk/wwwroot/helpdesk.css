@@ -1415,7 +1415,15 @@
 }
 
 .hd-cmt__acts {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
   margin-top: 0.2rem;
+}
+
+.hd-cmt__acts .dxbl-btn {
+  padding: 0.15rem 0.35rem;
+  line-height: 1;
 }
 
 .hd-cmt__write {

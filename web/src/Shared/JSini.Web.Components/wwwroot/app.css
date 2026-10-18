@@ -2387,7 +2387,7 @@ button.jsini-crumbs__item:hover { opacity: 1; }
    close=cancel · undo=arrow_undo · more=dots_horizontal · fold=text_collapse_all ·
    unfold=text_expand_all · expand=full_screen_maximize ·
    child-plus=add_expand_square · copy=copy · chevron-down=chevron_down ·
-   mail=mail · open=open
+   mail=mail · open=open · comment=chat_left · reply=reply
 
    **`jsini-icon-blank` · `jsini-icon-robot` · `jsini-icon-bolt` 만 우리 것이다** —
    첫째는 자리만 차지하는 빈칸이고, 나머지 둘에 맞는 그림이 그 라이브러리에 없다.
@@ -2592,6 +2592,18 @@ button.jsini-crumbs__item:hover { opacity: 1; }
 .jsini-icon-link {
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.715 6.542 3.343 7.914a3 3 0 1 0 4.243 4.243l1.828-1.829A3 3 0 0 0 8.586 5.5L8 6.086a1 1 0 0 0-.154.199 2 2 0 0 1 .861 3.337L6.88 11.45a2 2 0 1 1-2.83-2.83l.793-.792a4 4 0 0 1-.128-1.287z'/%3E%3Cpath d='M6.586 4.672A3 3 0 0 0 7.414 9.5l.775-.776a2 2 0 0 1-.896-3.346L9.12 3.55a2 2 0 1 1 2.83 2.83l-.793.792c.112.42.155.855.128 1.287l1.372-1.372a3 3 0 1 0-4.243-4.243z'/%3E%3C/svg%3E");
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.715 6.542 3.343 7.914a3 3 0 1 0 4.243 4.243l1.828-1.829A3 3 0 0 0 8.586 5.5L8 6.086a1 1 0 0 0-.154.199 2 2 0 0 1 .861 3.337L6.88 11.45a2 2 0 1 1-2.83-2.83l.793-.792a4 4 0 0 1-.128-1.287z'/%3E%3Cpath d='M6.586 4.672A3 3 0 0 0 7.414 9.5l.775-.776a2 2 0 0 1-.896-3.346L9.12 3.55a2 2 0 1 1 2.83 2.83l-.793.792c.112.42.155.855.128 1.287l1.372-1.372a3 3 0 1 0-4.243-4.243z'/%3E%3C/svg%3E");
+}
+
+/* 댓글 (comment). Bootstrap Icons(MIT) 의 chat-left 다. */
+.jsini-icon-comment {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M14 1a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H4.414A2 2 0 0 0 3 11.586l-2 2V2a1 1 0 0 1 1-1zM2 0a2 2 0 0 0-2 2v12.793a.5.5 0 0 0 .854.353l2.853-2.853A1 1 0 0 1 4.414 12H14a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M14 1a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H4.414A2 2 0 0 0 3 11.586l-2 2V2a1 1 0 0 1 1-1zM2 0a2 2 0 0 0-2 2v12.793a.5.5 0 0 0 .854.353l2.853-2.853A1 1 0 0 1 4.414 12H14a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2z'/%3E%3C/svg%3E");
+}
+
+/* 답글 (reply). Bootstrap Icons(MIT) 의 reply 다. */
+.jsini-icon-reply {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M6.598 5.013a.144.144 0 0 1 .202.134V6.3a.5.5 0 0 0 .5.5c.667 0 2.013.005 3.3.822.984.624 1.99 1.76 2.595 3.876-1.02-.983-2.185-1.516-3.205-1.799a8.7 8.7 0 0 0-1.921-.306 7 7 0 0 0-.798.008h-.013l-.005.001h-.001L7.3 9.9v1.2a.145.145 0 0 1-.202.135L2.35 8.857a.145.145 0 0 1 0-.27zM5.598 3.513a1.144 1.144 0 0 0-1.606 1.074v1.896L1.646 8.829a1.144 1.144 0 0 0 0 1.632l2.346 2.346a1.144 1.144 0 0 0 1.606-1.074v-1.896c2.518.237 4.795 1.232 6.002 3.82a.5.5 0 0 0 .918-.284C12.33 9.404 10.518 7.02 7.3 6.643V4.587a1.144 1.144 0 0 0-1.606-1.074'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M6.598 5.013a.144.144 0 0 1 .202.134V6.3a.5.5 0 0 0 .5.5c.667 0 2.013.005 3.3.822.984.624 1.99 1.76 2.595 3.876-1.02-.983-2.185-1.516-3.205-1.799a8.7 8.7 0 0 0-1.921-.306 7 7 0 0 0-.798.008h-.013l-.005.001h-.001L7.3 9.9v1.2a.145.145 0 0 1-.202.135L2.35 8.857a.145.145 0 0 1 0-.27zM5.598 3.513a1.144 1.144 0 0 0-1.606 1.074v1.896L1.646 8.829a1.144 1.144 0 0 0 0 1.632l2.346 2.346a1.144 1.144 0 0 0 1.606-1.074v-1.896c2.518.237 4.795 1.232 6.002 3.82a.5.5 0 0 0 .918-.284C12.33 9.404 10.518 7.02 7.3 6.643V4.587a1.144 1.144 0 0 0-1.606-1.074'/%3E%3C/svg%3E");
 }
 
 /* ── 좁은 화면 ───────────────────────────────────────────
