@@ -132,7 +132,7 @@
      하나는 **작아질 때만 따라가야** 한다는 것이다. 글자를 크게 하면 사다리는
      1rem 까지 오르지만 헤더 아이콘까지 커지면 띠에 아이콘이 꽉 차 답답해진다.
 
-     그래서 이 값은 **「조금작게」에서 멈춘다(0.929).** 「보통」·「크게」를 골라도
+     그래서 이 값은 **「조금작게」에서 멈춘다(0.86).** 「보통」·「크게」를 골라도
      껍데기는 더 커지지 않는다 — 글자만 커진다. 한동안 캡이 「보통」(1)이었는데
      그 둘이 여전히 크게 느껴졌다.
 
@@ -140,9 +140,10 @@
      (`.jsini-header` 의 `--jsini-icon-size`). 글자 사다리를 그대로 쓰면
      그 「한 단계 크게」가 없어진다. 배율만 받아 자기 기준값에 곱한다.
 
-     값은 `--jsini-fs-base / 0.875rem`(보통 기준)이다. CSS 는 길이를 길이로
-     나눌 수 없어서 미리 계산해 적는다 — 사다리를 고치면 이 줄도 같이 고친다. */
-  --jsini-chrome-scale: 0.929;
+     값은 `--jsini-fs-base / 0.875rem`(보통 기준)에 0.93 을 곱한 것이다 — 그대로는
+     껍데기가 크게 느껴졌다. CSS 는 길이를 길이로 나눌 수 없어서 미리 계산해
+     적는다 — 사다리를 고치면 이 줄도 같이 고친다. */
+  --jsini-chrome-scale: 0.86;
 
   --jsini-fs-2xs: calc(var(--jsini-fs-base) * 0.78);
   --jsini-fs-xs: calc(var(--jsini-fs-base) * 0.86);
@@ -180,20 +181,20 @@
    DevExpress 에 Large 보다 큰 모드가 없어서 한동안 1rem 이 천장이었다.
    화면을 멀리 두고 보는 자리(상황판)나 눈이 불편한 사람에게는 그것으로
    모자란다. 부품은 Large 에 세워 두고 글자만 더 올리는 것이 유일한 길이다. */
-:root[data-dx-size='xxsmall'] { --jsini-fs-base: 0.625rem; --jsini-chrome-scale: 0.714; }
-:root[data-dx-size='xsmall'] { --jsini-fs-base: 0.6875rem; --jsini-chrome-scale: 0.786; }
-:root[data-dx-size='small'] { --jsini-fs-base: 0.75rem; --jsini-chrome-scale: 0.857; }
+:root[data-dx-size='xxsmall'] { --jsini-fs-base: 0.625rem; --jsini-chrome-scale: 0.66; }
+:root[data-dx-size='xsmall'] { --jsini-fs-base: 0.6875rem; --jsini-chrome-scale: 0.73; }
+:root[data-dx-size='small'] { --jsini-fs-base: 0.75rem; --jsini-chrome-scale: 0.80; }
 /* 여기가 껍데기의 **최대**다. 아래 다섯이 이 값을 그대로 쓴다. */
-:root[data-dx-size='compact'] { --jsini-fs-base: 0.8125rem; --jsini-chrome-scale: 0.929; }
+:root[data-dx-size='compact'] { --jsini-fs-base: 0.8125rem; --jsini-chrome-scale: 0.86; }
 
 /* **「보통」부터 위로는 배율이 모두 「조금작게」와 같다.** 사다리는 0.875 →
    1.5rem 까지 계속 오르지만 껍데기는 여기서 멈춘다 — 글자만 커진다.
-   (`:root` 의 기본값도 같은 0.929 다 — 기본 단계가 「보통」이므로.) */
-:root[data-dx-size='medium'] { --jsini-fs-base: 0.875rem; --jsini-chrome-scale: 0.929; }
-:root[data-dx-size='large'] { --jsini-fs-base: 1rem; --jsini-chrome-scale: 0.929; }
-:root[data-dx-size='xlarge'] { --jsini-fs-base: 1.125rem; --jsini-chrome-scale: 0.929; }
-:root[data-dx-size='xxlarge'] { --jsini-fs-base: 1.25rem; --jsini-chrome-scale: 0.929; }
-:root[data-dx-size='xxxlarge'] { --jsini-fs-base: 1.5rem; --jsini-chrome-scale: 0.929; }
+   (`:root` 의 기본값도 같은 0.86 이다 — 기본 단계가 「보통」이므로.) */
+:root[data-dx-size='medium'] { --jsini-fs-base: 0.875rem; --jsini-chrome-scale: 0.86; }
+:root[data-dx-size='large'] { --jsini-fs-base: 1rem; --jsini-chrome-scale: 0.86; }
+:root[data-dx-size='xlarge'] { --jsini-fs-base: 1.125rem; --jsini-chrome-scale: 0.86; }
+:root[data-dx-size='xxlarge'] { --jsini-fs-base: 1.25rem; --jsini-chrome-scale: 0.86; }
+:root[data-dx-size='xxxlarge'] { --jsini-fs-base: 1.5rem; --jsini-chrome-scale: 0.86; }
 
 /* ── 간격·모서리·그림자 사다리 (base-design) ────────────────
 
@@ -9051,7 +9052,7 @@ body {
 }
 
 .jsini-sidebar__search {
-  height: 3.25rem;
+  height: 2.17rem;
   padding: 0 0.875rem;
   background: var(--jsini-surface-muted);
   border-bottom-color: var(--jsini-border);
