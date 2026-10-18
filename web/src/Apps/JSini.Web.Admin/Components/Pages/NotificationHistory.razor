@@ -94,7 +94,7 @@
     </Fields>
 </CommSch>
 
-<CommCont CssClass="@(_isPhone ? "ad-notebox--phone" : null)">
+<CommCont CssClass="@(_isPhone ? "ad-notebox ad-notebox--phone" : "ad-notebox")">
     @* ── 목록을 그리는 길이 **둘이다** ─────────────────────────────
 
        데스크톱은 표(`CommGrd`), 휴대폰은 카드 목록이다.
@@ -320,6 +320,7 @@
        DevExpress 는 셀 안의 누름도 `RowClick` 으로 올린다(재어 확인했다). *@
     <CommGrd TItem="NotificationDto" Data="@Shown" PageSize="30"
              ExportName="알림함"
+             CssClass="ad-notebox__grid"
              SelectionMode="GridSelectionMode.Multiple"
              AllowSelectRowByClick="false"
              SelectedItems="@_selectedItems"

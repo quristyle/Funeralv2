@@ -4242,6 +4242,27 @@
   display: block;
 }
 
+/* ── 좁은 브라우저에서도 표 내용이 최소 높이를 가지도록 보장 ───
+
+   검색조건 줄바꿈이나 작은 창(세로 해상도 부족) 환경에서
+   셸과 CommCont의 flex: 1; overflow: hidden 구조로 인해
+   그리드가 0에 가깝게 납작해져 행이 전혀 보이지 않는 문제를 방지한다.
+   창이 너무 낮아지면 셸 본문에서 세로 스크롤(overflow-y: auto)로 온전히 확인 가능. */
+.jsini-shell__content:has(> .ad-notebox) {
+  overflow-y: auto;
+}
+
+.ad-notebox:not(.ad-notebox--phone),
+.ad-notebox:not(.ad-notebox--phone) > .commcont__body,
+.ad-notebox .commgrd {
+  min-height: 360px;
+}
+
+.ad-notebox .commgrd > .dxbl-grid,
+.ad-notebox .ad-notebox__grid {
+  min-height: 240px;
+}
+
 /* 일괄 동작 띠. 표의 `Toolbar` 와 같은 자리에 같은 것이 선다.
 
    흘려 담는다 — 「전체」 체크 · 고른 건수 · 단추 둘이 360px 한 줄에 다 들어가지
