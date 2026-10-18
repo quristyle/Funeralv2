@@ -83,58 +83,6 @@ public partial class CommentThread
                 ? login
                 : $"#{node.Comment.AuthorId}";
 
-    private static readonly HashSet<string> _brokenAvatars = new(StringComparer.OrdinalIgnoreCase);
-
-    private void MarkAvatarUnavailable(string url)
-    {
-        if (_brokenAvatars.Add(url))
-        {
-            StateHasChanged();
-        }
-    }
-
-    /// <summary>
-    /// 작성자 프로필 이미지 주소.
-    /// 사진이 없거나 비어 있으면 <c>null</c>을 돌려준다.
-    /// </summary>
-    private static string? AvatarUrl(CommentNode node)
-    {
-        var photo = node.Comment.Author?.Photo;
-        if (string.IsNullOrWhiteSpace(photo))
-        {
-            return null;
-        }
-
-        if (Guid.TryParse(photo, out _))
-        {
-            return FileDownload.AvatarUrlFor(photo);
-        }
-
-        if (FileDownload.FileIdOf(photo) is { } fileId)
-        {
-            return FileDownload.AvatarUrlFor(fileId);
-        }
-
-        var relay = FileDownload.RelayUrl(photo);
-        return string.IsNullOrWhiteSpace(relay) ? null : relay;
-    }
-
-    /// <summary>
-    /// 프로필 사진이 없을 때 아바타에 표시할 작성자 첫 글자(이니셜).
-    /// </summary>
-    private static string AuthorInitial(CommentNode node)
-    {
-        var name = AuthorName(node).Trim();
-        if (string.IsNullOrEmpty(name))
-        {
-            return "?";
-        }
-
-        return char.IsHighSurrogate(name[0]) && name.Length > 1
-            ? name[..2]
-            : name[..1].ToUpperInvariant();
-    }
-
     private static bool IsAdmin(CommentNode node) =>
         string.Equals(node.Comment.AuthorType, "admin", StringComparison.OrdinalIgnoreCase);
 

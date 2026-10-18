@@ -162,23 +162,12 @@
 .ad-orgc__node--user { background: var(--jsini-bg); }
 
 .ad-orgc__icon,
+/* 동그라미는 공용 부품(`UserAvatar` · `jsini-face`)이다. 치수와 색만 덮는다. */
 .ad-orgc__face {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  background: var(--jsini-theme-hover);
-  font-size: var(--jsini-fs-2xs);
-  overflow: hidden;
-}
-
-.ad-orgc__face img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+  --jsini-face-size: 30px;
+  --jsini-face-bg: var(--jsini-theme-hover);
+  --jsini-face-ink: var(--jsini-text);
+  --jsini-face-initial-size: var(--jsini-fs-2xs);
 }
 
 .ad-orgc__text {
@@ -1087,6 +1076,11 @@
   font-weight: 600;
 }
 
+.ad-target__face {
+  --jsini-face-size: 28px;
+  --jsini-face-initial-size: var(--jsini-fs-sm);
+}
+
 .ad-target__body {
   flex: 1;
   min-width: 0;
@@ -1364,17 +1358,13 @@
 
 .ad-profile__photo:hover { border-color: var(--jsini-accent); }
 
-.ad-profile__photo-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-/* 사진이 없는 계정이 훨씬 많다. 첫 글자를 크게 두어 **비어 보이지 않게** 한다. */
-.ad-profile__photo-initial {
-  font-size: 2.2rem;
-  font-weight: 600;
-  color: var(--jsini-text-muted);
+/* 사진이 없는 계정이 훨씬 많다. 첫 글자를 크게 두어 **비어 보이지 않게** 한다.
+   단추가 점선 테두리를 갖고 동그라미는 그 안을 꽉 채운다. */
+.ad-profile__face {
+  --jsini-face-size: 100%;
+  --jsini-face-bg: transparent;
+  --jsini-face-ink: var(--jsini-text-muted);
+  --jsini-face-initial-size: 2.2rem;
 }
 
 /* 얹었을 때만 보이는 글자. 안 얹으면 얼굴을 가리지 않는다. */
@@ -2140,8 +2130,8 @@
     height: 56px;
   }
 
-  .ad-profile__photo-initial {
-    font-size: 1.5rem;
+  .ad-profile__face {
+    --jsini-face-initial-size: 1.5rem;
   }
 
   /* 이름 쪽이 남은 폭을 갖는다. `min-width: 0` 이 없으면 긴 소속 이름이
@@ -3794,20 +3784,9 @@
 }
 
 .ad-signup__face {
-  flex: none;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 50%;
-  object-fit: cover;
-  background: var(--jsini-border, #e5e7eb);
-}
-
-.ad-signup__face--letter {
-  display: grid;
-  place-items: center;
-  color: var(--jsini-text-muted);
-  font-size: 0.8125rem;
-  font-weight: 600;
+  --jsini-face-size: 2rem;
+  --jsini-face-bg: var(--jsini-border, #e5e7eb);
+  --jsini-face-initial-size: 0.8125rem;
 }
 
 .ad-signup__name {

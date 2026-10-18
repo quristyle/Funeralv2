@@ -1086,17 +1086,15 @@ body {
   border-color: var(--jsini-accent);
 }
 
-.jsini-user__img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-/* 사진이 없는 계정이 훨씬 많다. 첫 글자를 넣어 **비어 보이지 않게** 한다. */
-.jsini-user__initial {
-  font-size: var(--jsini-fs-md);
-  font-weight: 700;
-  color: var(--jsini-text-muted);
+/* 얼굴은 공용 동그라미(`UserAvatar` · `jsini-face`)다. 단추가 테두리를 갖고
+   동그라미는 그 안을 꽉 채운다. 사진이 없는 계정이 훨씬 많아 첫 글자가
+   **비어 보이지 않게** 그 자리를 지킨다. `.jsini-face` 가 이 파일에서 더 뒤에
+   있으므로 두 클래스를 겹쳐 적어야 이긴다. */
+.jsini-face.jsini-user__avatar {
+  --jsini-face-size: 100%;
+  --jsini-face-bg: transparent;
+  --jsini-face-ink: var(--jsini-text-muted);
+  --jsini-face-initial-size: var(--jsini-fs-md);
 }
 
 /* 덮개는 헤더를 덮지 않는다 — 덮으면 방금 누른 얼굴로 다시 닫을 수 없다.
@@ -1156,24 +1154,11 @@ body {
   border-bottom: 1px solid var(--jsini-border);
 }
 
-.jsini-user__head-img,
-.jsini-user__head-initial {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  overflow: hidden;
-  border-radius: 50%;
-  object-fit: cover;
-}
-
-.jsini-user__head-initial {
-  background: color-mix(in srgb, currentcolor 10%, transparent);
-  font-size: var(--jsini-fs-lg);
-  font-weight: 700;
-  color: var(--jsini-text-muted);
+.jsini-face.jsini-user__head-avatar {
+  --jsini-face-size: 40px;
+  --jsini-face-bg: color-mix(in srgb, currentcolor 10%, transparent);
+  --jsini-face-ink: var(--jsini-text-muted);
+  --jsini-face-initial-size: var(--jsini-fs-lg);
 }
 
 .jsini-user__head-text { min-width: 0; }
@@ -5265,7 +5250,7 @@ a.jsini-social__btn:focus-visible {
 
 /* ── 사람의 얼굴 (`jsini-face`) ────────────────────────────
 
-   사진, 없으면 첫 글자. 부품은 `Data/UserFaceMark.razor` 다.
+   사진, 없으면 첫 글자. 부품은 `Data/UserAvatar.razor` 다.
 
    **모양만 여기 있다.** 치수와 색은 변수로 열어 두고 쓰는 모듈이 제 이름을
    덧붙여(`CssClass`) 그것만 덮는다 — 프로젝트관리의 얼굴(1.75rem)과
@@ -9855,24 +9840,12 @@ body {
    키워도 그 칸만 글자가 한 픽셀 내려앉아 띠가 어긋나 보인다.
    동그라미와 테두리는 헤더의 얼굴(`.jsini-user__face`)과 같은 뜻이다. */
 .jsini-bottom-nav__avatar {
-    width: 20px;
-    height: 20px;
-    margin-bottom: 4px;
-    border-radius: 50%;
-    object-fit: cover;
-    background: color-mix(in srgb, currentColor 12%, transparent);
-    flex: 0 0 auto;
-}
+    --jsini-face-size: 20px;
+    --jsini-face-bg: color-mix(in srgb, currentColor 12%, transparent);
+    --jsini-face-ink: currentColor;
+    --jsini-face-initial-size: var(--jsini-fs-2xs);
 
-/* 사진이 없는 계정이 훨씬 많다. 첫 글자를 넣어 **비어 보이지 않게** 한다
-   (헤더와 같은 처리). 20px 동그라미라 글자는 사다리 맨 아래 단이다. */
-.jsini-bottom-nav__initial {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: var(--jsini-fs-2xs);
-    font-weight: 700;
-    line-height: 1;
+    margin-bottom: 4px;
 }
 
 /* 띠의 글자는 한 줄로 자른다. 이름을 사람이 짓는 자리라(환경설정) 길게
@@ -10319,20 +10292,7 @@ body {
 }
 
 .jsini-notify__face {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.4rem;
-  height: 1.4rem;
-  border-radius: 50%;
-  object-fit: cover;
-  background: var(--jsini-surface-muted, rgba(127, 127, 127, 0.18));
-  font-size: var(--jsini-fs-2xs);
-  font-weight: 700;
-}
-
-.jsini-notify__face--text {
-  color: var(--jsini-text-muted);
+  --jsini-face-size: 1.4rem;
 }
 
 .jsini-notify__empty {

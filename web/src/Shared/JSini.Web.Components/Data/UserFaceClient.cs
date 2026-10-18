@@ -94,19 +94,102 @@ public sealed class UserFaceClient(GatewayClient gateway, ILogger<UserFaceClient
     /// </remarks>
     public async Task EnsureAsync(IEnumerable<string?> loginIds, CancellationToken ct = default)
     {
-        var missing = loginIds
+        var wanted = loginIds
             .Where(id => !string.IsNullOrWhiteSpace(id))
             .Select(id => id!.Trim())
             .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        // 남이 이미 묻고 있는 아이디는 그 답을 함께 기다린다. 「물어봤다」만
+        // 보고 돌아가면 부르는 쪽이 답이 오기 전에 첫 글자를 그리고 끝난다.
+        var pending = wanted
+            .Where(_inflight.ContainsKey)
+            .Select(id => _inflight[id])
+            .Distinct()
+            .ToList();
+
+        var missing = wanted
             .Where(id => !_asked.Contains(id))
             .Take(Chunk)
             .ToList();
 
-        if (missing.Count == 0)
+        if (missing.Count > 0)
         {
-            return;
+            var fetch = FetchAsync(missing, ct);
+            if (!fetch.IsCompleted)
+            {
+                foreach (var id in missing)
+                {
+                    _inflight[id] = fetch;
+                }
+            }
+
+            pending.Add(fetch);
         }
 
+        if (pending.Count > 0)
+        {
+            await Task.WhenAll(pending);
+        }
+    }
+
+    /// <summary>
+    /// 아바타 하나가 제 얼굴을 묻는다. <b>같은 그림 차례에 물은 것들을 모아</b>
+    /// 한 번에 보낸다 — 목록 스무 줄이 저마다 부르면 왕복도 스물이 된다.
+    /// </summary>
+    /// <remarks>
+    /// 형제 부품들의 <c>OnParametersSetAsync</c> 는 한 그림 차례 안에서 첫
+    /// <c>await</c> 까지 잇달아 돈다. 그래서 한 번 양보하고 나서 보내면
+    /// 그 사이에 줄을 선 아이디가 모두 한 묶음이 된다.
+    /// </remarks>
+    public Task WhenKnownAsync(string? loginId)
+    {
+        if (string.IsNullOrWhiteSpace(loginId))
+        {
+            return Task.CompletedTask;
+        }
+
+        var id = loginId.Trim();
+        if (_inflight.TryGetValue(id, out var running))
+        {
+            return running;
+        }
+
+        if (_asked.Contains(id))
+        {
+            return Task.CompletedTask;
+        }
+
+        _queued ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        _queued.Add(id);
+        return _queuedFlush ??= FlushQueuedAsync();
+    }
+
+    private HashSet<string>? _queued;
+    private Task? _queuedFlush;
+
+    private async Task FlushQueuedAsync()
+    {
+        await Task.Yield();
+
+        var ids = _queued ?? [];
+        _queued = null;
+        _queuedFlush = null;
+
+        // 상한(Chunk)을 넘는 줄도 다 묻는다 — 한 묶음만 보내면 나머지가 첫 글자로 남는다.
+        while (ids.Count > 0)
+        {
+            var chunk = ids.Take(Chunk).ToList();
+            ids.ExceptWith(chunk);
+            await EnsureAsync(chunk);
+        }
+    }
+
+    /// <summary>지금 묻고 있는 아이디와 그 조회.</summary>
+    private readonly Dictionary<string, Task> _inflight = new(StringComparer.OrdinalIgnoreCase);
+
+    private async Task FetchAsync(List<string> missing, CancellationToken ct)
+    {
         // **묻기 전에 적어 둔다.** 조회가 도는 동안 사람이 조건을 바꾸면
         // 같은 아이디를 또 묻게 된다.
         foreach (var id in missing)
@@ -148,6 +231,13 @@ public sealed class UserFaceClient(GatewayClient gateway, ILogger<UserFaceClient
             Forget(missing);
 
             logger.LogWarning(ex, "사람의 얼굴을 읽지 못했다. 첫 글자로 그린다.");
+        }
+        finally
+        {
+            foreach (var id in missing)
+            {
+                _inflight.Remove(id);
+            }
         }
     }
 

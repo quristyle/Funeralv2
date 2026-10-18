@@ -87,10 +87,4 @@ public sealed class SignupPendingDto
         "google" => "구글",
         var other => other,
     };
-
-    /// <summary>사진이 없을 때 동그라미에 넣을 한 글자.</summary>
-    public string Initial =>
-        (string.IsNullOrWhiteSpace(UserName) ? LoginId : UserName).Trim() is { Length: > 0 } s
-            ? s[..1].ToUpperInvariant()
-            : "?";
 }

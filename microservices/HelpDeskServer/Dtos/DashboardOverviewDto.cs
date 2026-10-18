@@ -341,6 +341,12 @@ public sealed class DashboardAdminDto {
   /// <summary>사진 URL.</summary>
   public string? Photo { get; set; }
 
+  /// <summary>
+  /// 포털 로그인 아이디. 사진의 정본은 포털 계정이라 화면이 이것으로 얼굴을 다시 묻는다
+  /// — <see cref="Photo"/> 는 헬프데스크 쪽 칸이고 비어 있는 것이 보통이다.
+  /// </summary>
+  public string? LoginId { get; set; }
+
   /// <summary>맡은 전체 건수.</summary>
   public int Assigned { get; set; }
 

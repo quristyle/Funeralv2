@@ -105,12 +105,6 @@ public partial class NotifySendPopup
     }
 
     /// <summary>사진이 없을 때 동그라미에 넣을 글자 한 자.</summary>
-    private static string InitialOf(NotifyRecipient person)
-    {
-        var text = string.IsNullOrWhiteSpace(person.Name) ? person.LoginId : person.Name;
-        return string.IsNullOrWhiteSpace(text) ? "?" : text.Trim()[..1].ToUpperInvariant();
-    }
-
     /// <summary>
     /// 고른 길로 보낸다.
     /// </summary>

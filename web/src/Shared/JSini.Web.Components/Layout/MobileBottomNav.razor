@@ -55,16 +55,10 @@
                     사진 → 없으면 첫 글자 → 못 받아 오면 다시 첫 글자
                     (`CurrentUser.MarkAvatarUnavailable`).
                 *@
-                @if ((Me.AvatarThumbnailUrl ?? Me.AvatarUrl) is { Length: > 0 } avatar)
-                {
-                    <img class="jsini-bottom-nav__avatar" src="@avatar" alt=""
-                         @onerror="@(() => Me.MarkAvatarUnavailable())" />
-                }
-                else
-                {
-                    <span class="jsini-bottom-nav__avatar jsini-bottom-nav__initial"
-                          aria-hidden="true">@Me.Initial</span>
-                }
+                <UserAvatar Photo="@(Me.AvatarThumbnailUrl ?? Me.AvatarUrl)"
+                            Name="@(Me.DisplayName ?? Me.Username)"
+                            OnPhotoError="@(() => Me.MarkAvatarUnavailable())"
+                            CssClass="jsini-bottom-nav__avatar" />
             }
             else
             {

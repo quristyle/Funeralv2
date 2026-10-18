@@ -30,25 +30,11 @@
     {
         <li class="hd-cmt" id="@($"comment-{node.Comment.Id}")">
             <div class="hd-cmt__head">
-                @{
-                    var avatar = AvatarUrl(node);
-                    var authorName = AuthorName(node);
-                }
-                @if (!string.IsNullOrEmpty(avatar) && !_brokenAvatars.Contains(avatar))
-                {
-                    <img class="hd-cmt__avatar"
-                         src="@avatar"
-                         alt="@authorName"
-                         title="@authorName"
-                         loading="lazy"
-                         @onerror="@(() => MarkAvatarUnavailable(avatar))" />
-                }
-                else
-                {
-                    <span class="hd-cmt__avatar hd-cmt__avatar--initial"
-                          title="@authorName"
-                          aria-hidden="true">@AuthorInitial(node)</span>
-                }
+                @* 사진의 정본은 포털 계정이다 — 업무 DB 의 사진 칸(`Author.Photo`)은
+                   비어 있는 것이 보통이라 쓴 사람의 로그인 아이디로 얼굴을 묻는다. *@
+                <UserAvatar LoginId="@node.Comment.CreatedBy"
+                            Name="@AuthorName(node)"
+                            CssClass="hd-cmt__avatar" />
                 <span class="hd-cmt__when">@When(node)</span>
 
                 @if (node.Children.Count > 0)

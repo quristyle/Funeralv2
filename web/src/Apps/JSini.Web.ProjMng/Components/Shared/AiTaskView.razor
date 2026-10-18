@@ -70,10 +70,10 @@
         <span class="pm-ai pm-ai--lg pm-ai--@AiRunnerMark.Tone(t.RunnerKind)"
               title="@KindName(t.RunnerKind)" aria-label="@KindName(t.RunnerKind)">@AiRunnerMark.Letter(t.RunnerKind)</span>
 
-        @* 지시자 — 얼굴이 먼저고 이름이 뒤다(`UserFaceMark` 는 카드와 한 벌).
+        @* 지시자 — 얼굴이 먼저고 이름이 뒤다(`UserAvatar` 는 카드와 한 벌).
            「지시자」 라벨은 적지 않는다. 낭독기에게는 `aria-label` 로 말한다. *@
         <span class="pm-peek__cell pm-peek__cell--who" aria-label="@($"지시자 {Who(t)}")">
-            <UserFaceMark LoginId="@t.CreId" CssClass="pm-face pm-face--lg" />
+            <UserAvatar LoginId="@t.CreId" CssClass="pm-face pm-face--lg" />
             <span class="pm-peek__value">@Who(t)</span>
         </span>
 

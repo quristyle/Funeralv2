@@ -211,19 +211,13 @@
             <button type="button" class="ad-profile__photo"
                     title="프로필 사진 관리"
                     @onclick="@(() => Go(Tab.Avatar))">
-                @if (Me.AvatarUrl is { Length: > 0 } avatar)
-                {
-                    @* 못 받아 오면 깨진 그림 대신 첫 글자로 돌아간다
-                       (CurrentUser.MarkAvatarUnavailable 참고). *@
-                    <img class="ad-profile__photo-img" src="@avatar" alt="프로필 사진"
-                         @onerror="@(() => Me.MarkAvatarUnavailable())" />
-                }
-                else
-                {
-                    @* 사진이 없는 계정이 훨씬 많다. **없는 것이 오류처럼 보이면
-                       안 된다** — 사람롤의 대상 목록과 같은 방식으로 첫 글자를 쓴다. *@
-                    <span class="ad-profile__photo-initial">@Initial</span>
-                }
+                @* 못 받아 오면 깨진 그림 대신 첫 글자로 돌아간다
+                   (CurrentUser.MarkAvatarUnavailable 참고). 사진이 없는 계정이
+                   훨씬 많다 — **없는 것이 오류처럼 보이면 안 된다.** *@
+                <UserAvatar Photo="@Me.AvatarUrl"
+                            Name="@(_info?.RealName ?? _info?.Username)"
+                            OnPhotoError="@(() => Me.MarkAvatarUnavailable())"
+                            CssClass="ad-profile__face" />
                 <span class="ad-profile__photo-veil">사진 관리</span>
             </button>
 

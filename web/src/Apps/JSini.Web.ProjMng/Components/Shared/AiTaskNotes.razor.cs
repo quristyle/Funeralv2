@@ -102,7 +102,7 @@ public partial class AiTaskNotes
         }
 
         // 얼굴은 **모아서 한 번에** 묻는다. 줄마다 묻게 두면 대화 열 줄짜리
-        // 한 건이 게이트웨이를 열 번 두드린다(`UserFaceMark` 머리말).
+        // 한 건이 게이트웨이를 열 번 두드린다(`UserAvatar` 머리말).
         await Faces.EnsureAsync(_rows.Select(r => r.CreId));
 
         await MarkReadAsync(taskKey);

@@ -1,86 +1,108 @@
+using System.Text.RegularExpressions;
 using Xunit;
 
 namespace JSini.Web.Architecture.Tests;
 
+/// <summary>
+/// 사람의 얼굴은 공용 부품 <c>UserAvatar</c> 하나로만 그린다.
+/// </summary>
+/// <remarks>
+/// 헬프데스크 댓글이 업무 DB 의 사진 칸(<c>helpdesk.customer.photo</c> — 운영에서 전부 빈 값)만
+/// 보고 그려서, 포털 계정에 사진이 있는 사람이 첫 글자로 떴다. 사진을 찾는 길과 못 받았을 때
+/// 물러서는 길이 화면마다 갈라지면 같은 일이 다른 화면에서 또 난다.
+/// </remarks>
 public sealed class CommentAvatarTests
 {
     [Fact]
-    public void 프로필_사진이_없는_댓글_작성자는_이니셜_첫글자를_표시한다()
+    public void 댓글_작성자_얼굴은_포털_계정에서_로그인_아이디로_찾는다()
     {
-        var razor = CommentThreadRazor();
-        var cs = CommentThreadCs();
+        var razor = Read("Apps", "JSini.Web.HelpDesk", "Components", "Shared", "CommentThread.razor");
 
-        // 프로필 이미지가 없을 때 이니셜 첫글자를 표현하는 태그 확인
-        Assert.Contains("AuthorInitial(node)", razor);
-        Assert.Contains("hd-cmt__avatar--initial", razor);
+        Assert.Contains("<UserAvatar LoginId=\"@node.Comment.CreatedBy\"", razor);
 
-        // 코드 비하인드에서 이니셜 계산 함수 존재 확인
-        Assert.Contains("string AuthorInitial(CommentNode node)", cs);
-        Assert.Contains("ToUpperInvariant()", cs);
+        // 업무 DB 의 사진 칸으로 되돌아가면 사진이 있는 사람이 다시 첫 글자로 뜬다.
+        Assert.DoesNotContain("Author?.Photo", RazorSource.Read(Path.Combine(
+            Root(), "Apps", "JSini.Web.HelpDesk", "Components", "Shared", "CommentThread.razor")));
     }
 
     [Fact]
-    public void 프로필_사진이_있는_댓글_작성자는_프로필_사진을_표시한다()
+    public void 담당자_카드도_로그인_아이디로_얼굴을_찾는다()
     {
-        var razor = CommentThreadRazor();
-        var cs = CommentThreadCs();
+        var razor = Read("Apps", "JSini.Web.HelpDesk", "Components", "Pages", "HelpDeskDashboard.razor");
 
-        // 사진이 있을 때 img 태그로 프로필 사진 표시
-        Assert.Contains("<img class=\"hd-cmt__avatar\"", razor);
-        Assert.Contains("src=\"@avatar\"", razor);
-
-        // 사진이 비어있을 때는 null 반환하여 이니셜로 폴백
-        Assert.Contains("return null;", cs);
+        Assert.Contains("<UserAvatar LoginId=\"@a.LoginId\"", razor);
     }
 
     [Fact]
-    public void 담당자_카드에서도_프로필_사진과_이니셜_표현이_함께_동작한다()
+    public void 얼굴_부품은_사진을_안_받으면_스스로_묻고_묶어서_보낸다()
     {
-        var razor = DashboardRazor();
-        var cs = DashboardCs();
+        var cs = Read("Shared", "JSini.Web.Components", "Data", "UserAvatar.razor.cs");
+        var client = Read("Shared", "JSini.Web.Components", "Data", "UserFaceClient.cs");
 
-        // 담당자 카드에서 프로필 사진 및 이니셜 분기 확인
-        Assert.Contains("AvatarUrl(a.Photo)", razor);
-        Assert.Contains("hd-card__avatar--img", razor);
-        Assert.Contains("Initial(a.AdminName)", razor);
-        Assert.Contains("string? AvatarUrl(string? photo)", cs);
+        Assert.Contains("Faces.WhenKnownAsync(LoginId)", cs);
+
+        // 한 번 양보한 뒤 모아서 보낸다 — 없으면 목록 스무 줄이 왕복 스물이 된다.
+        Assert.Contains("await Task.Yield();", client);
+
+        // 남이 묻고 있는 아이디는 그 답을 함께 기다린다.
+        Assert.Contains("_inflight", client);
+    }
+
+    [Fact]
+    public void 얼굴_부품은_사진을_못_받으면_첫_글자로_돌아간다()
+    {
+        var razor = Read("Shared", "JSini.Web.Components", "Data", "UserAvatar.razor");
+
+        Assert.Contains("@onerror=\"@(() => OnImageErrorAsync(photo))\"", razor);
+        Assert.Contains("jsini-face__initial", razor);
+    }
+
+    /// <summary>
+    /// 사람의 얼굴을 <c>&lt;img&gt;</c> 로 손수 그리는 자리가 다시 생기지 않게 한다.
+    /// 클래스 이름에 얼굴·아바타가 든 그림이 있으면 그것이 그 자리다.
+    /// </summary>
+    [Fact]
+    public void 사람의_얼굴을_손수_그리는_화면이_없다()
+    {
+        // 사람이 아닌 것의 그림 — 알림에 떴던 아이콘(날씨 · 앱 로고일 수 있다).
+        string[] allowed = ["jsini-note-drawer__face"];
+
+        var offenders = Directory
+            .EnumerateFiles(Root(), "*.razor", SearchOption.AllDirectories)
+            .Where(f => !f.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}"))
+            .Where(f => !f.EndsWith("UserAvatar.razor", StringComparison.Ordinal))
+            .SelectMany(f => Regex
+                .Matches(File.ReadAllText(f), "<img[^>]*class=\"([^\"]*(?:avatar|face)[^\"]*)\"", RegexOptions.IgnoreCase)
+                .Select(m => (File: Path.GetFileName(f), Class: m.Groups[1].Value)))
+            .Where(x => !allowed.Any(a => x.Class.Contains(a, StringComparison.Ordinal)))
+            .Select(x => $"{x.File}: {x.Class}")
+            .ToList();
+
+        Assert.True(offenders.Count == 0, "UserAvatar 로 바꿀 자리: " + string.Join(", ", offenders));
     }
 
     [Fact]
     public void 댓글과_삭제_링크는_모두_아이콘으로_표현된다()
     {
-        var razor = CommentThreadRazor();
+        var razor = Read("Apps", "JSini.Web.HelpDesk", "Components", "Shared", "CommentThread.razor");
 
-        // 아이콘 클래스로 표현
-        Assert.Contains("IconCssClass=\"jsini-icon-comment\"", razor);
-        Assert.Contains("IconCssClass=\"jsini-icon-trash\"", razor);
+        Assert.Contains("IconCssClass=\"jsini-icon-comment-plus\"", razor);
+        Assert.Contains("IconCssClass=\"jsini-icon-close\"", razor);
 
-        // 텍스트 속성은 사용하지 않음
         Assert.DoesNotContain("Text=\"삭제\"", razor);
         Assert.DoesNotContain("Text=\"답글\"", razor);
 
-        // 접근성 및 툴팁
         Assert.Contains("Title=\"삭제\"", razor);
         Assert.Contains("aria-label=\"삭제\"", razor);
 
-        // CSS 마스크 정의 존재 확인
-        var css = File.ReadAllText(Path.Combine(RepoRoot(), "web", "src", "Shared", "JSini.Web.Components", "wwwroot", "app.css"));
-        Assert.Matches(@"\.jsini-icon-comment\s*\{[^}]*mask-image", css);
+        var css = Read("Shared", "JSini.Web.Components", "wwwroot", "app.css");
+        Assert.Matches(@"\.jsini-icon-comment-plus\s*\{[^}]*mask-image", css);
     }
 
-    private static string CommentThreadRazor() => File.ReadAllText(Path.Combine(
-        RepoRoot(), "web", "src", "Apps", "JSini.Web.HelpDesk", "Components", "Shared", "CommentThread.razor"));
+    private static string Read(params string[] parts) =>
+        File.ReadAllText(Path.Combine([Root(), .. parts]));
 
-    private static string CommentThreadCs() => File.ReadAllText(Path.Combine(
-        RepoRoot(), "web", "src", "Apps", "JSini.Web.HelpDesk", "Components", "Shared", "CommentThread.razor.cs"));
-
-    private static string DashboardRazor() => File.ReadAllText(Path.Combine(
-        RepoRoot(), "web", "src", "Apps", "JSini.Web.HelpDesk", "Components", "Pages", "HelpDeskDashboard.razor"));
-
-    private static string DashboardCs() => File.ReadAllText(Path.Combine(
-        RepoRoot(), "web", "src", "Apps", "JSini.Web.HelpDesk", "Components", "Pages", "HelpDeskDashboard.razor.cs"));
-
-    private static string RepoRoot()
+    private static string Root()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
 
@@ -90,6 +112,6 @@ public sealed class CommentAvatarTests
         }
 
         Assert.NotNull(dir);
-        return dir!.FullName;
+        return Path.Combine(dir!.FullName, "web", "src");
     }
 }

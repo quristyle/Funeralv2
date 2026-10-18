@@ -392,15 +392,6 @@ public partial class Profile
         }
     }
 
-    private string Initial
-    {
-        get
-        {
-            var source = _info?.RealName ?? _info?.Username;
-            return string.IsNullOrWhiteSpace(source) ? "?" : source.Trim()[..1].ToUpperInvariant();
-        }
-    }
-
     private string? Affiliation
     {
         get

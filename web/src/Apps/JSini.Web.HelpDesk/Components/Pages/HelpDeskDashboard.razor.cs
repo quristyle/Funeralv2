@@ -421,56 +421,6 @@ public partial class HelpDeskDashboard
     private static string BarLabel(IEnumerable<Seg> shown) =>
         string.Join(" · ", shown.Select(s => $"{s.Label} {s.Count}건"));
 
-    private static readonly HashSet<string> _brokenAvatars = new(StringComparer.OrdinalIgnoreCase);
-
-    private void MarkAvatarUnavailable(string url)
-    {
-        if (_brokenAvatars.Add(url))
-        {
-            StateHasChanged();
-        }
-    }
-
-    /// <summary>
-    /// 담당자 프로필 이미지 주소. 사진이 없거나 비어 있으면 <c>null</c>을 돌려준다.
-    /// </summary>
-    private static string? AvatarUrl(string? photo)
-    {
-        if (string.IsNullOrWhiteSpace(photo))
-        {
-            return null;
-        }
-
-        if (Guid.TryParse(photo, out _))
-        {
-            return FileDownload.AvatarUrlFor(photo);
-        }
-
-        if (FileDownload.FileIdOf(photo) is { } fileId)
-        {
-            return FileDownload.AvatarUrlFor(fileId);
-        }
-
-        var relay = FileDownload.RelayUrl(photo);
-        return string.IsNullOrWhiteSpace(relay) ? null : relay;
-    }
-
-    /// <summary>
-    /// 얼굴 자리에 넣을 첫 글자. 이모지처럼 두 칸을 쓰는 글자는 잘라 내면
-    /// 깨진 네모가 되므로 짝을 지켜 두 칸을 가져온다.
-    /// </summary>
-    private static string Initial(string? name)
-    {
-        var t = name?.Trim();
-
-        if (string.IsNullOrEmpty(t))
-        {
-            return "?";
-        }
-
-        return char.IsHighSurrogate(t[0]) && t.Length > 1 ? t[..2] : t[..1].ToUpperInvariant();
-    }
-
     /// <summary>
     /// 날짜 한 칸. <b>표에 있던 그대로 서버가 준 값을 그냥 찍는다</b> —
     /// 시간대를 여기서 옮기면 표를 보던 사람과 카드를 보는 사람이 하루

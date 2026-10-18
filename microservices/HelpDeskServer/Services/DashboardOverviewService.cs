@@ -108,13 +108,13 @@ public sealed class DashboardOverviewService(AppDbContext db, IPortalCompanyDire
     // 담당자가 표에서 통째로 빠진다.** 「배정 0」도 봐야 하는 자료다.
     var admins = await db.Admins
         .Where(a => !a.IsDeleted)
-        .Select(a => new { a.Id, a.UserName, a.Photo })
+        .Select(a => new { a.Id, a.UserName, a.Photo, a.LoginId })
         .ToListAsync(ct);
 
     var companyNames = await companies.GetNamesAsync(ct);
 
     return Fold(me, scoped, companyNames, rows, commentCounts,
-        admins.Select(a => (a.Id, a.UserName, a.Photo)).ToList(), days, months, topN);
+        admins.Select(a => (a.Id, a.UserName, a.Photo, a.LoginId)).ToList(), days, months, topN);
   }
 
   /// <summary>
@@ -126,7 +126,7 @@ public sealed class DashboardOverviewService(AppDbContext db, IPortalCompanyDire
       IReadOnlyDictionary<string, string> companyNames,
       List<Row> rows,
       IReadOnlyDictionary<int, int> commentCounts,
-      List<(int Id, string UserName, string? Photo)> admins,
+      List<(int Id, string UserName, string? Photo, string? LoginId)> admins,
       int days,
       int months,
       int topN) {
@@ -418,7 +418,7 @@ public sealed class DashboardOverviewService(AppDbContext db, IPortalCompanyDire
   /// <summary>담당자별 집계. 한 건도 안 맡은 담당자도 0 으로 한 줄 선다.</summary>
   private static List<DashboardAdminDto> AdminRows(
       List<Row> rows,
-      List<(int Id, string UserName, string? Photo)> admins,
+      List<(int Id, string UserName, string? Photo, string? LoginId)> admins,
       DateOnly monthStart,
       int totalCompleted) {
     var byAdmin = rows
@@ -441,6 +441,7 @@ public sealed class DashboardOverviewService(AppDbContext db, IPortalCompanyDire
             AdminId = id,
             AdminName = who.UserName ?? list.FirstOrDefault()?.AdminName ?? $"#{id}",
             Photo = who.Photo,
+            LoginId = who.LoginId,
             Assigned = list.Count,
             InProgress = list.Count(r => r.Status == ImprovementStatus.InProgress),
             Talking = list.Count(r => r.Status is ImprovementStatus.Consultation or ImprovementStatus.Negotiation),

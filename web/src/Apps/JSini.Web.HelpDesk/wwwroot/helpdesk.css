@@ -904,20 +904,11 @@
    쓴다 — 헬프데스크 사진은 아직 포털에서 꺼내 볼 길이 없어서,
    `img` 로 걸면 깨진 그림 아이콘이 카드마다 선다. */
 .hd-card__avatar {
-  display: grid;
-  place-items: center;
-  flex: 0 0 auto;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 50%;
-  background: var(--jsini-border, #e0e0e0);
-  font-size: var(--jsini-fs-sm);
-  font-weight: 700;
-  line-height: 1;
-}
+  --jsini-face-size: 2rem;
+  --jsini-face-bg: var(--jsini-border, #e0e0e0);
+  --jsini-face-ink: var(--jsini-text, inherit);
+  --jsini-face-initial-size: var(--jsini-fs-sm);
 
-.hd-card__avatar--img {
-  object-fit: cover;
   border: 1px solid var(--jsini-border, #e0e0e0);
 }
 
@@ -1364,27 +1355,16 @@
   margin-bottom: 0.5rem;
 }
 
+/* 동그라미는 공용 부품(`UserAvatar` · app.css 의 `jsini-face`)이 그린다.
+   여기서는 치수와 색만 덮는다. */
 .hd-cmt__avatar {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  border-radius: 50%;
-  object-fit: cover;
-  flex: 0 0 auto;
-  border: 1px solid var(--jsini-border, #e0e0e0);
-  background: var(--jsini-border, #e0e0e0);
-  font-size: var(--jsini-fs-sm);
-  font-weight: 700;
-  line-height: 1;
-  color: var(--jsini-text, inherit);
-  user-select: none;
-}
+  --jsini-face-size: 2rem;
+  --jsini-face-bg: var(--jsini-border, #e0e0e0);
+  --jsini-face-ink: var(--jsini-text, inherit);
+  --jsini-face-initial-size: var(--jsini-fs-sm);
 
-.hd-cmt__avatar--initial {
-  background: var(--jsini-border, #e0e0e0);
-  color: var(--jsini-text, inherit);
+  border: 1px solid var(--jsini-border, #e0e0e0);
+  user-select: none;
 }
 
 .hd-cmt__who {

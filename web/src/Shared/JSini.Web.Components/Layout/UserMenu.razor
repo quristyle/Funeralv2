@@ -83,17 +83,12 @@
                     aria-haspopup="menu"
                     aria-expanded="@(_open ? "true" : "false")"
                     @onclick="@(() => _open = !_open)">
-                @if ((Me.AvatarThumbnailUrl ?? Me.AvatarUrl) is { Length: > 0 } avatar)
-                {
-                    @* 못 받아 오면 깨진 그림 대신 첫 글자로 돌아간다
-                       (CurrentUser.MarkAvatarUnavailable 참고). *@
-                    <img class="jsini-user__img" src="@avatar" alt=""
-                         @onerror="@(() => Me.MarkAvatarUnavailable())" />
-                }
-                else
-                {
-                    <span class="jsini-user__initial">@Initial(context)</span>
-                }
+                @* 못 받아 오면 깨진 그림 대신 첫 글자로 돌아간다
+                   (CurrentUser.MarkAvatarUnavailable 참고). *@
+                <UserAvatar Photo="@(Me.AvatarThumbnailUrl ?? Me.AvatarUrl)"
+                            Name="@FaceName(context)"
+                            OnPhotoError="@(() => Me.MarkAvatarUnavailable())"
+                            CssClass="jsini-user__avatar" />
             </button>
 
             @* 덮개. 판 밖을 누르면 닫힌다. **헤더는 덮지 않는다** —
@@ -116,15 +111,10 @@
                 <div class="jsini-user__menu" role="menu">
 
                 <div class="jsini-user__head">
-                    @if ((Me.AvatarThumbnailUrl ?? Me.AvatarUrl) is { Length: > 0 } headAvatar)
-                    {
-                        <img class="jsini-user__head-img" src="@headAvatar" alt=""
-                             @onerror="@(() => Me.MarkAvatarUnavailable())" />
-                    }
-                    else
-                    {
-                        <span class="jsini-user__head-initial">@Initial(context)</span>
-                    }
+                    <UserAvatar Photo="@(Me.AvatarThumbnailUrl ?? Me.AvatarUrl)"
+                                Name="@FaceName(context)"
+                                OnPhotoError="@(() => Me.MarkAvatarUnavailable())"
+                                CssClass="jsini-user__head-avatar" />
 
                     <div class="jsini-user__head-text">
                         <div class="jsini-user__head-name">

@@ -23,7 +23,7 @@ public partial class UserRoleMap
     }
 
     /// <summary>왼쪽 목록의 한 칸. 사람과 회사·부서를 같은 모양으로 다룬다.</summary>
-    private sealed record Target(string Id, string Kind, string Name, string Meta);
+    private sealed record Target(string Id, string Kind, string Name, string Meta, string? LoginId = null);
 
     private Mode _mode = Mode.Account;
     private string? _keyword;
@@ -157,7 +157,8 @@ public partial class UserRoleMap
                 "account",
                 a.Name,
                 string.Join(" · ", new[] { a.LoginId, a.DepartmentName, a.CompanyName }
-                    .Where(x => !string.IsNullOrWhiteSpace(x))!)))
+                    .Where(x => !string.IsNullOrWhiteSpace(x))!),
+                a.LoginId))
         ];
     }
 

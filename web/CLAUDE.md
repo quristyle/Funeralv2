@@ -3429,6 +3429,11 @@ DTO 에 하나 더 둔다(`AiDashboardRecent.StartedAtKst`).
   `TextAlignment` 를 적는다 — 적으면 그 값이 이긴다. CSS 로 하지 않는 이유는
   DevExpress 가 **우리가 정한 것과 자기가 자료형을 보고 정한 것에 같은 클래스**를
   붙여서, CSS 만으로는 둘을 구분할 수 없기 때문이다.
+- **사람의 얼굴은 `UserAvatar` 하나로 그린다**(`Components/Data`). 로그인 아이디만
+  주면 포털 계정의 사진을 스스로 묻고(같은 그림 차례의 것을 모아 한 번에),
+  이미 아는 주소는 `Photo` 로 준다. 업무 DB 의 사진 칸(`helpdesk.customer.photo` 등)은
+  운영에서 비어 있어서, 그것만 보고 그린 댓글이 사진 있는 사람을 첫 글자로 그렸다.
+  `<img>` 를 손수 그리면 `CommentAvatarTests` 가 막는다.
 - 조건줄은 `jsini-toolbar`, 통계 타일은 `jsini-stats`, 상태 표시는 `jsini-badge`.
 - 모듈 전용 스타일은 그 모듈 `wwwroot/*.css` 에 두고
   `IPortalModule.StyleSheet` 로 알린다. 셸은 모듈 이름을 알지 못한다.

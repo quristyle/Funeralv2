@@ -67,15 +67,9 @@
                 <CellDisplayTemplate Context="cell">
                     @{ var row = (SignupPendingDto)cell.DataItem; }
                     <div class="ad-signup__who">
-                        @if (row.FaceUrl is { Length: > 0 } picture)
-                        {
-                            <img class="ad-signup__face" src="@picture" alt=""
-                                 loading="lazy" referrerpolicy="no-referrer" />
-                        }
-                        else
-                        {
-                            <span class="ad-signup__face ad-signup__face--letter" aria-hidden="true">@row.Initial</span>
-                        }
+                        <UserAvatar Photo="@row.FaceUrl"
+                                    Name="@(string.IsNullOrWhiteSpace(row.UserName) ? row.LoginId : row.UserName)"
+                                    CssClass="ad-signup__face" />
                         <strong class="ad-signup__name">@row.UserName</strong>
                     </div>
                 </CellDisplayTemplate>

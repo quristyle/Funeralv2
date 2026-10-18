@@ -183,6 +183,9 @@ public sealed class DashboardAdmin
     public int AdminId { get; set; }
     public string AdminName { get; set; } = string.Empty;
     public string? Photo { get; set; }
+
+    /// <summary>포털 로그인 아이디. 얼굴은 이것으로 포털 계정에 묻는다(<c>Photo</c> 는 대개 비어 있다).</summary>
+    public string? LoginId { get; set; }
     public int Assigned { get; set; }
     public int InProgress { get; set; }
     public int Talking { get; set; }

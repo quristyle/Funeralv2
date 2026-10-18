@@ -125,7 +125,7 @@
             @foreach (var person in _today)
             {
                 <div class="le-today__row">
-                    <UserFaceMark LoginId="@person.SubjectId" Name="@person.Name" />
+                    <UserAvatar LoginId="@person.SubjectId" Name="@person.Name" />
                     <span class="le-today__name">@person.Name</span>
                     <span class="le-dept">@person.DepartmentName</span>
                     <span class="jsini-badge">축하 @person.MessageCount</span>
@@ -174,7 +174,7 @@
                     var who = (BirthdayPerson)cell.DataItem;
                 }
                 <span class="le-who">
-                    <UserFaceMark LoginId="@who.SubjectId" Name="@who.Name" />
+                    <UserAvatar LoginId="@who.SubjectId" Name="@who.Name" />
                     <span>@who.Name</span>
                 </span>
             </CellDisplayTemplate>

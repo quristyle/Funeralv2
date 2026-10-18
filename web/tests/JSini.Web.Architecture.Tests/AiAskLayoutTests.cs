@@ -228,11 +228,11 @@ public sealed class AiAskLayoutTests
         var razor = PanelRazor();
         var css = ProjMngCss();
 
-        // 1. 2단 이상일 때 프로필 숨김 (1단에서만 UserFaceMark 노출)
+        // 1. 2단 이상일 때 프로필 숨김 (1단에서만 UserAvatar 노출)
         Assert.Contains("@if (_cols < 2)", razor, StringComparison.Ordinal);
         var faceIfAt = razor.IndexOf("@if (_cols < 2)", StringComparison.Ordinal);
-        var faceMarkAt = razor.IndexOf("<UserFaceMark LoginId=\"@t.CreId\" CssClass=\"pm-face\" />", StringComparison.Ordinal);
-        Assert.True(faceIfAt >= 0 && faceMarkAt > faceIfAt, "UserFaceMark는 _cols < 2 조건 안에서만 그려져야 한다");
+        var faceMarkAt = razor.IndexOf("<UserAvatar LoginId=\"@t.CreId\" CssClass=\"pm-face\" />", StringComparison.Ordinal);
+        Assert.True(faceIfAt >= 0 && faceMarkAt > faceIfAt, "UserAvatar는 _cols < 2 조건 안에서만 그려져야 한다");
 
         // 2. 2차 이상일 때 처리차수 배지 표기
         Assert.Contains("@if (t.TurnCount >= 2)", razor, StringComparison.Ordinal);

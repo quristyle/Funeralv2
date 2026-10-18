@@ -696,9 +696,6 @@ public partial class OrgChart
         _ => node.Email ?? node.LoginId ?? string.Empty,
     };
 
-    private static string Initial(string? name) =>
-        string.IsNullOrWhiteSpace(name) ? "?" : name.Trim()[..1].ToUpperInvariant();
-
     private string Draggable(Node node) =>
         CanMove && node.Kind != OrgKind.Company ? "true" : "false";
 

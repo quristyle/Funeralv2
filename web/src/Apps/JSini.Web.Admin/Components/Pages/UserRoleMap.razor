@@ -135,7 +135,14 @@
                 <button type="button"
                         class="ad-target @(target.Id == _selected?.Id && target.Kind == _selected?.Kind ? "ad-target--on" : "")"
                         @onclick="@(() => SelectAsync(target))">
-                    <span class="ad-target__avatar" style="--seed: @Seed(target.Name)">@Initial(target.Name)</span>
+                    @if (target.Kind == "account")
+                    {
+                        <UserAvatar LoginId="@target.LoginId" Name="@target.Name" CssClass="ad-target__face" />
+                    }
+                    else
+                    {
+                        <span class="ad-target__avatar" style="--seed: @Seed(target.Name)">@Initial(target.Name)</span>
+                    }
                     <span class="ad-target__body">
                         <span class="ad-target__name">@target.Name</span>
                         <span class="ad-target__meta">@target.Meta</span>

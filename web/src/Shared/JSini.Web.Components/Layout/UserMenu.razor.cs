@@ -180,19 +180,12 @@ public partial class UserMenu
 
     private void OnMeChanged() => InvokeAsync(StateHasChanged);
 
-    /// <summary>사진이 없을 때 동그라미에 넣을 글자 한 자.</summary>
-    private string Initial(AuthenticationState state)
-    {
-        if (Me.IsLoaded)
-        {
-            return Me.Initial;
-        }
-
-        // 아직 못 읽었으면 쿠키 클레임의 이름으로 대신한다. 헤더가 잠깐
-        // 「?」로 보이는 것보다 낫다.
-        var name = state.User.Identity?.Name;
-        return string.IsNullOrWhiteSpace(name) ? "?" : name.Trim()[..1].ToUpperInvariant();
-    }
+    /// <summary>
+    /// 얼굴 동그라미가 첫 글자를 딸 이름. 아직 못 읽었으면 쿠키 클레임의
+    /// 이름으로 대신한다 — 헤더가 잠깐 「?」로 보이는 것보다 낫다.
+    /// </summary>
+    private string? FaceName(AuthenticationState state) =>
+        Me.IsLoaded ? Me.DisplayName ?? Me.Username : state.User.Identity?.Name;
 
     private void Close() => _open = false;
 

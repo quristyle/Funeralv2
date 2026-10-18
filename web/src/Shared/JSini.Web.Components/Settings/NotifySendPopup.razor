@@ -67,14 +67,8 @@
                 @foreach (var person in Targets)
                 {
                     <span class="jsini-notify__chip" title="@person.LoginId">
-                        @if (person.Photo is { Length: > 0 } photo)
-                        {
-                            <img class="jsini-notify__face" src="@photo" alt="" />
-                        }
-                        else
-                        {
-                            <span class="jsini-notify__face jsini-notify__face--text">@InitialOf(person)</span>
-                        }
+                        <UserAvatar LoginId="@person.LoginId" Name="@person.Name" Photo="@person.Photo"
+                                    CssClass="jsini-notify__face" />
                         <span>@person.Name</span>
                     </span>
                 }
