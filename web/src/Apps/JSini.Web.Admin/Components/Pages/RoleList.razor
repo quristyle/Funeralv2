@@ -184,6 +184,9 @@
                                  Reload="@(() => LoadUsersAsync())"
                                  RowActions="@UserActions"
                                  ActionsWidth="90"
+                                 SelectedItem="@_pickedUser"
+                                 SelectedItemChanged="@((RoleUserDto? u) => _pickedUser = u)"
+                                 OnRowDoubleClick="@RemoveUserAsync"
                                  AllowDragRows="true"
                                  AllowedDropTarget="DevExpress.Blazor.GridAllowedDropTarget.External"
                                  ItemsDropped="@OnGridItemsDroppedAsync">
@@ -206,11 +209,32 @@
                                 </DxSplitterPane>
 
                                 <DxSplitterPane>
+                                    @* 위아래로 쌓이는 좁은 화면에서만 선다 — 끌어 놓기가 손가락으로는
+                                       어렵다. 위 표에서 고른 사람을 빼고, 아래 조직도에서 고른 사람을 넣는다. *@
+                                    <PermissionView Action="MenuAction.Update">
+                                        <div class="ad-roleshift">
+                                            <DxButton Text="넣기" IconCssClass="jsini-icon-arrow-up"
+                                                      RenderStyle="ButtonRenderStyle.Primary"
+                                                      RenderStyleMode="ButtonRenderStyleMode.Outline"
+                                                      Title="아래 조직도에서 고른 사람에게 이 역할을 겁니다"
+                                                      Enabled="@CanAddPicked"
+                                                      Click="@(() => AddNodeAsync(_pickedNode!))" />
+                                            <DxButton Text="빼기" IconCssClass="jsini-icon-arrow-up ad-roleshift__down"
+                                                      RenderStyle="ButtonRenderStyle.Danger"
+                                                      RenderStyleMode="ButtonRenderStyleMode.Outline"
+                                                      Title="위 표에서 고른 사람에게서 이 역할을 뗍니다"
+                                                      Enabled="@(_pickedUser is not null)"
+                                                      Click="@(() => RemoveUserAsync(_pickedUser!))" />
+                                        </div>
+                                    </PermissionView>
                                     <CommTree TItem="OrgNode" Data="@_orgTree"
                                               KeyFieldName="@nameof(OrgNode.Id)"
                                               ParentKeyFieldName="@nameof(OrgNode.ParentId)"
                                               ChildrenFieldName="@nameof(OrgNode.Children)"
                                               EmptyText="조직도를 불러오지 못했습니다."
+                                              SelectedItem="@_pickedNode"
+                                              SelectedItemChanged="@((OrgNode? n) => _pickedNode = n)"
+                                              OnRowDoubleClick="@AddNodeAsync"
                                               AllowDragRows="true"
                                               AllowedDropTarget="DevExpress.Blazor.TreeListAllowedDropTarget.External"
                                               ItemsDropped="@OnTreeItemsDroppedAsync">

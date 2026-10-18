@@ -166,6 +166,12 @@ public partial class CommTree<TItem>
     [Parameter] public EventCallback<TItem?> SelectedItemChanged { get; set; }
 
     /// <summary>
+    /// 줄을 두 번 눌렀을 때. 그 줄을 준다 — <c>CommGrd.OnRowDoubleClick</c> 과 같은 약속이고,
+    /// splat 으로 넘기면 500 으로 죽는 것도 같아서 파라미터로 선언한다.
+    /// </summary>
+    [Parameter] public EventCallback<TItem> OnRowDoubleClick { get; set; }
+
+    /// <summary>
     /// 줄을 끌어 옮길 수 있는가. <b>권한으로 켜고 끄는 자리</b>다 —
     /// <c>AllowDragRows="@(_canMove)"</c>.
     ///
@@ -720,6 +726,18 @@ public partial class CommTree<TItem>
         _selected = item;
 
         return SelectedItemChanged.InvokeAsync(item is TItem typed ? typed : default);
+    }
+
+    private Task OnRowDoubleClickAsync(TreeListRowClickEventArgs e)
+    {
+        if (!OnRowDoubleClick.HasDelegate)
+        {
+            return Task.CompletedTask;
+        }
+
+        return e.TreeList.GetDataItem(e.VisibleIndex) is TItem item
+            ? OnRowDoubleClick.InvokeAsync(item)
+            : Task.CompletedTask;
     }
 
     private static bool IsEventCallback(Type type) =>

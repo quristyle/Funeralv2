@@ -79,16 +79,38 @@ public partial class RoleList
         _orgTree = nodes;
     }
 
-    private async Task OnGridItemsDroppedAsync(DevExpress.Blazor.GridItemsDroppedEventArgs e)
+    private Task OnGridItemsDroppedAsync(DevExpress.Blazor.GridItemsDroppedEventArgs e) =>
+        e.DroppedItems.FirstOrDefault() is OrgNode node ? AddNodeAsync(node) : Task.CompletedTask;
+
+    /// <summary>위 표에서 고른 사람(빼기 단추).</summary>
+    private RoleUserDto? _pickedUser;
+
+    /// <summary>아래 조직도에서 고른 줄(넣기 단추). 부서 줄일 수도 있다.</summary>
+    private OrgNode? _pickedNode;
+
+    private bool CanAddPicked =>
+        _pickedNode is { IsUser: true } n && _users.All(u => u.Id != n.Id);
+
+    /// <summary>
+    /// 조직도의 사람 하나에게 이 역할을 건다 — 끌어 놓기 · 두 번 누르기 · 넣기 단추가 같이 쓴다.
+    /// 부서 줄과 이미 지정된 사람은 조용히 건너뛴다(두 번 누르기는 부서를 펴는 손짓과 겹친다).
+    /// </summary>
+    private async Task AddNodeAsync(OrgNode node)
     {
-        if (e.DroppedItems.FirstOrDefault() is OrgNode node && node.IsUser)
+        if (_role is null || !_canEdit || !node.IsUser || _users.Any(u => u.Id == node.Id))
         {
-            if (_role is null) return;
-            var ok = await RunAsync(
-                () => Api.AssignRoleUsersAsync(_role.Id, [node.Id]),
-                $"{node.Name}에게 「{_role.Name}」 을(를) 걸었습니다.",
-                "사용자를 지정하지 못했습니다");
-            if (ok) await LoadUsersAsync();
+            return;
+        }
+
+        var ok = await RunAsync(
+            () => Api.AssignRoleUsersAsync(_role.Id, [node.Id]),
+            $"{node.Name}에게 「{_role.Name}」 을(를) 걸었습니다.",
+            "사용자를 지정하지 못했습니다");
+
+        if (ok)
+        {
+            _pickedNode = null;
+            await LoadUsersAsync();
         }
     }
 
@@ -315,6 +337,7 @@ public partial class RoleList
     private Task SelectRoleAsync(RoleDto? role)
     {
         _role = role;
+        _pickedUser = null;
 
         if (role is null)
         {
@@ -412,7 +435,7 @@ public partial class RoleList
     /// </summary>
     private async Task RemoveUserAsync(RoleUserDto user)
     {
-        if (_role is null)
+        if (_role is null || !_canEdit)
         {
             return;
         }
@@ -424,6 +447,7 @@ public partial class RoleList
 
         if (ok)
         {
+            _pickedUser = null;
             await LoadUsersAsync();
         }
     }
