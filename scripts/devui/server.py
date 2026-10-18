@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-JSini 개발 서버 제어판 — backend_run_ubuntu.sh 를 감싸는 로컬 웹 UI.
+JSini 개발 서버 제어판 — backend_run_ubuntu.sh(Windows 에서는 dev.bat)를 감싸는 로컬 웹 UI.
 
-이 서버는 서비스 목록을 스스로 갖지 않는다. backend_run_ubuntu.sh 의 SERVICES 표를
+이 서버는 서비스 목록을 스스로 갖지 않는다. 그 스크립트의 서비스 표를
 읽어서 쓴다. 표가 이 파일과 스크립트 양쪽에 있으면 반드시 어긋나기 때문이다.
 기동·중지도 전부 그 스크립트에 넘긴다. 이 파일은 버튼과 상태 표시만 한다.
 
@@ -13,6 +13,7 @@ JSini 개발 서버 제어판 — backend_run_ubuntu.sh 를 감싸는 로컬 웹
 logs/<이름>.log 에 쌓여 이 화면의 "로그" 단추로 본다.
 
 실행:  python3 scripts/devui/server.py        (127.0.0.1:5600)
+       python scripts/devui/server.py --detach   창 없이 떼어 띄우고 바로 돌아온다(devui.cmd)
 """
 import html
 import json
@@ -26,8 +27,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+IS_WIN = os.name == "nt"
 ROOT = Path(__file__).resolve().parents[2]
-SCRIPT = ROOT / "backend_run_ubuntu.sh"
+SCRIPT = ROOT / ("dev.bat" if IS_WIN else "backend_run_ubuntu.sh")
 LOG_DIR = ROOT / "logs"
 PORT = int(os.environ.get("DEVUI_PORT", "5600"))
 MAX_LINES = 4000          # 작업 하나당 보관할 출력 줄 수
@@ -44,6 +46,8 @@ def load_services():
     스크립트 안의 `# ── 프론트 ──` 주석 대신 경로를 쓰는 것은, 주석 문구는
     누가 고쳐도 조용히 어긋나지만 디렉터리 구조는 그렇지 않기 때문이다.
     """
+    if IS_WIN:
+        return load_services_bat()
     text = SCRIPT.read_text(encoding="utf-8")
     m = re.search(r"^SERVICES=\((.*?)^\)", text, re.S | re.M)
     if not m:
@@ -57,6 +61,27 @@ def load_services():
                     "group": "front" if path.startswith("web/") else "back"})
     if not out:
         sys.exit("SERVICES 표가 비어 있습니다.")
+    return out
+
+
+def load_services_bat():
+    """dev.bat 의 서비스 표. SVC_KEYS 가 순서를, `set "SVC_<이름>=표시이름|경로|포트|SERVER_NAME|명령"` 이 내용을 준다."""
+    text = SCRIPT.read_text(encoding="utf-8")
+    m = re.search(r'^set "SVC_KEYS=([^"]*)"', text, re.M)
+    if not m:
+        sys.exit(f"{SCRIPT} 에서 SVC_KEYS 를 찾지 못했습니다.")
+    rows = dict(re.findall(r'^set "SVC_(\w+)=([^"|]*\|[^"]*)"', text, re.M))
+    out = []
+    for key in m.group(1).split():
+        parts = rows.get(key, "").split("|")
+        if len(parts) < 4 or not parts[2].isdigit():
+            continue
+        label, path, port, name = parts[0], parts[1].replace("\\", "/"), parts[2], parts[3]
+        out.append({"key": key, "label": label, "path": path,
+                    "port": int(port), "name": name,
+                    "group": "front" if path.startswith("web/") else "back"})
+    if not out:
+        sys.exit("dev.bat 의 서비스 표가 비어 있습니다.")
     return out
 
 
@@ -111,6 +136,8 @@ def load_modules():
 
 def listening_ports():
     """LISTEN 중인 포트 집합. ss 를 매번 띄우지 않으려고 /proc 를 직접 읽는다."""
+    if IS_WIN:
+        return listening_ports_win()
     ports = set()
     for path in ("/proc/net/tcp", "/proc/net/tcp6"):
         try:
@@ -122,6 +149,28 @@ def listening_ports():
                         ports.add(int(parts[1].split(":")[1], 16))
         except OSError:
             pass
+    return ports
+
+
+def listening_ports_win():
+    """Windows 에는 /proc 이 없어 netstat 을 읽는다.
+
+    상태 칸(LISTENING)은 OS 언어에 따라 번역될 수 있어 보지 않고, 상대 주소가
+    `*:0` 인 TCP 줄을 대기 중으로 본다.
+    """
+    ports = set()
+    try:
+        out = subprocess.run(["netstat", "-an"], capture_output=True, text=True,
+                             errors="replace", creationflags=subprocess.CREATE_NO_WINDOW,
+                             timeout=10).stdout
+    except (OSError, subprocess.SubprocessError):
+        return ports
+    for line in out.splitlines():
+        parts = line.split()
+        if len(parts) >= 3 and parts[0] == "TCP" and parts[2].endswith(":0"):
+            local = parts[1].rsplit(":", 1)
+            if len(local) == 2 and local[1].isdigit():
+                ports.add(int(local[1]))
     return ports
 
 
@@ -167,7 +216,7 @@ class Job:
         self.title = title
         self.args = args
         self.cmd = cmd or [str(SCRIPT), *args]
-        self.shown = shown or f"./{SCRIPT.name} {' '.join(args)}"
+        self.shown = shown or f"{'' if IS_WIN else './'}{SCRIPT.name} {' '.join(args)}"
         self.lines = []
         self.running = True
         self.exit = None
@@ -187,32 +236,50 @@ class Job:
         # 서비스마다 터미널 창을 여는 대신 백그라운드로 띄우게 한다.
         # 제어판에서 열두 개를 만지는데 창이 열두 개 뜨면 화면을 덮는다.
         env["DEV_BACKGROUND"] = "1"
+        if IS_WIN:
+            # 작업마다 보이지 않는 콘솔을 따로 준다. dev.bat 이 띄운 서비스도
+            # 그 콘솔을 물려받으므로 창이 하나도 뜨지 않는다.
+            spawn = {"creationflags": subprocess.CREATE_NO_WINDOW
+                                      | subprocess.CREATE_NEW_PROCESS_GROUP}
+        else:
+            # 작업도 제 세션에서 돌린다. 제어판을 손으로(setsid 없이) 띄운
+            # 경우 터미널이 닫힐 때 날아가는 SIGHUP 이 빌드·기동 중인
+            # 작업까지 덮치는 것을 막는다.
+            spawn = {"start_new_session": True}
         try:
             self._proc = subprocess.Popen(
                 self.cmd,
                 cwd=str(ROOT),
+                stdin=subprocess.DEVNULL,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
+                encoding="utf-8",       # dev.bat 은 chcp 65001 로 돈다
+                errors="replace",
                 bufsize=1,
                 env=env,
-                # 작업도 제 세션에서 돌린다. 제어판을 손으로(setsid 없이) 띄운
-                # 경우 터미널이 닫힐 때 날아가는 SIGHUP 이 빌드·기동 중인
-                # 작업까지 덮치는 것을 막는다.
-                start_new_session=True,
+                **spawn,
             )
         except OSError as e:
             self._add(f"실행 실패: {e}")
             self.exit, self.running = 127, False
             return
 
-        for line in self._proc.stdout:
-            self._add(line.rstrip("\n"))
+        # 출력의 끝(EOF)이 아니라 프로세스가 끝나는 것을 기다린다. Windows 는
+        # 상속 가능한 핸들을 손자에게 통째로 넘겨서, dev.bat 이 띄운 서비스와
+        # MSBuild 노드가 이 파이프를 물고 있는 한 EOF 가 오지 않는다.
+        pump = threading.Thread(target=self._pump, daemon=True)
+        pump.start()
         self._proc.wait()
+        pump.join(timeout=3)
         self.exit = self._proc.returncode
         self._add("")
         self._add("완료" if self.exit == 0 else f"실패 (종료 코드 {self.exit})")
         self.running = False
+
+    def _pump(self):
+        for line in self._proc.stdout:
+            self._add(line.rstrip("\n"))
 
     def snapshot(self, offset):
         with self._lock:
@@ -476,7 +543,7 @@ summary::marker{color:var(--muted)}
   <button id="allstop" class="ico danger" title="전체 중지" aria-label="전체 중지">■</button>
   <button id="all" class="ico" title="전체 재기동" aria-label="전체 재기동">⟳</button>
 </header>
-<div class="hint">backend_run_ubuntu.sh 를 그대로 호출합니다.
+<div class="hint">__SCRIPT__ 를 그대로 호출합니다.
   <b>⟳</b> 재기동 · <b>■</b> 중지 · <b>☰</b> 로그 · <b>↗</b> 브라우저로 열기 ·
   <b>↓</b> 소스 받기(git pull) — 단추에 마우스를 올리면 무엇인지 나옵니다.
   서비스는 터미널 창 없이 백그라운드로 뜨고, 서비스마다 작업이 따로 돌기 때문에
@@ -771,7 +838,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = urlparse(self.path).path
         if path == "/":
-            self._send(200, PAGE, "text/html; charset=utf-8")
+            self._send(200, PAGE.replace("__SCRIPT__", SCRIPT.name), "text/html; charset=utf-8")
         elif path == "/api/state":
             open_ports = listening_ports()
             jobs = RUNNER.state()
@@ -851,11 +918,18 @@ class Handler(BaseHTTPRequestHandler):
             # --ff-only 인 까닭: 단추 한 번에 머지 커밋이 생기는 것보다, 갈라져
             # 있으면 그냥 거절당하고 터미널에서 손으로 푸는 편이 낫다.
             key, title, args = None, "소스 받기", []
-            return self._start(key, title, args,
-                               cmd=["bash", "-c",
-                                    'echo "브랜치: $(git rev-parse --abbrev-ref HEAD)"; '
-                                    "echo; git pull --ff-only"],
-                               shown="git pull --ff-only")
+            if IS_WIN:
+                # 목록이 아니라 문자열로 넘긴다 — 목록이면 Python 이 따옴표를 \" 로
+                # 바꾸는데 cmd 는 그것을 모른다. cmd 의 echo 는 한글을 cp949 로
+                # 내보내므로 머리말은 ASCII 로 둔다.
+                cmd = ('cmd /d /s /c "(for /f "delims=" %b in '
+                       "('git rev-parse --abbrev-ref HEAD') do @echo branch: %b)"
+                       ' & echo. & git pull --ff-only"')
+            else:
+                cmd = ["bash", "-c",
+                       'echo "브랜치: $(git rev-parse --abbrev-ref HEAD)"; '
+                       "echo; git pull --ff-only"]
+            return self._start(key, title, args, cmd=cmd, shown="git pull --ff-only")
         else:
             self._json({"error": f"알 수 없는 동작: {action}"}, 400)
             return
@@ -870,7 +944,35 @@ class Handler(BaseHTTPRequestHandler):
             self._json({"job": job.id, "title": job.title})
 
 
+def detach():
+    """창 없이 떼어 띄우고 바로 돌아온다 — Windows 의 setsid 자리(devui.cmd 가 부른다).
+
+    부른 터미널의 콘솔을 물려받으면 그 창을 닫을 때 함께 죽으므로 보이지 않는
+    새 콘솔을 주고, 터미널이 작업 개체(job)로 자식을 묶어 두는 경우를 위해
+    거기서도 빠져나온다.
+    """
+    LOG_DIR.mkdir(exist_ok=True)
+    env = {**os.environ, "PYTHONUTF8": "1", "PYTHONUNBUFFERED": "1"}
+    base = subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
+    with open(LOG_DIR / "devui.log", "wb") as log:
+        for flags in (base | subprocess.CREATE_BREAKAWAY_FROM_JOB, base):
+            try:
+                child = subprocess.Popen([sys.executable, str(Path(__file__).resolve())],
+                                         cwd=str(ROOT), stdin=subprocess.DEVNULL,
+                                         stdout=log, stderr=subprocess.STDOUT,
+                                         env=env, creationflags=flags, close_fds=True)
+                break
+            except OSError:
+                continue    # 작업 개체가 빠져나가기를 막아 둔 경우
+        else:
+            sys.exit("제어판을 띄우지 못했습니다.")
+    print(child.pid)
+
+
 def main():
+    if IS_WIN and "--detach" in sys.argv[1:]:
+        detach()
+        return
     if not os.access(SCRIPT, os.X_OK):
         sys.exit(f"{SCRIPT} 를 실행할 수 없습니다.")
 

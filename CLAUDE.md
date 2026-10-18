@@ -129,6 +129,8 @@ dev.bat site web          소개 사이트 백엔드(:5480)와 프론트(:5556)
 재기동하는 동안에도 다른 것을 만질 수 있고, 서비스도 터미널 창 없이 백그라운드로
 뜬다(`DEV_BACKGROUND=1`) — 출력은 `logs/<이름>.log` 에 쌓이고 화면의 ☰ 단추로 본다.
 같은 환경변수를 주면 `backend_run_ubuntu.sh` 도 창 없이 띄운다.
+Windows 에서는 `devui.cmd` / `devui_stop.cmd` 로 같은 제어판을 띄우고 끈다 —
+그때 제어판이 부르는 것은 `dev.bat` 이고, 같은 `DEV_BACKGROUND=1` 을 받는다.
 
 빌드 확인: 백엔드는 해당 서비스 디렉터리에서 `dotnet build`, 프론트는 `web/` 에서 `dotnet build` 와 `dotnet test`(아키텍처 규칙 검사).
 

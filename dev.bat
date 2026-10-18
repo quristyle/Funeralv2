@@ -49,6 +49,13 @@ setlocal enabledelayedexpansion
 ::     (dev.bat stop ^<service^>).
 ::   - Rude edits (adding a type, changing a signature) restart the service
 ::     instead of prompting (DOTNET_WATCH_RESTART_ON_RUDE_EDIT).
+::
+:: ------------------------------------------------------------
+:: Background mode (DEV_BACKGROUND=1)
+::   Services start without a window and log into logs\^<name^>.log.
+::   The dev control panel (devui.cmd -^> scripts\devui\server.py) calls
+::   this script that way, one job per service, so builds can overlap -
+::   builds queue on a lock directory (see :build_lock).
 :: ============================================================
 
 set "EXITCODE=0"
@@ -57,6 +64,8 @@ set "ROOT_DIR=%~dp0"
 if "%ROOT_DIR:~-1%"=="\" set "ROOT_DIR=%ROOT_DIR:~0,-1%"
 
 set "SECRETS_FILE=%ROOT_DIR%\scripts\secrets.env"
+set "LOG_DIR=%ROOT_DIR%\logs"
+set "BUILD_LOCK=%LOG_DIR%\.build.lock"
 
 :: Start command for every service.
 ::
@@ -99,7 +108,7 @@ if exist "%SECRETS_FILE%" (
 ::
 ::   blazor  work portal shell (:5557). Eight work MFEs live in this one process.
 ::   web     public site (:5556). Separate site, unrelated to the portal.
-set "SVC_KEYS=gateway auth funeral ai file helpdesk projmng site notify life cargo blazor web"
+set "SVC_KEYS=gateway auth funeral ai file helpdesk projmng site notify life cargo mcp blazor web"
 
 :: What `dev.bat all` starts = everything.
 ::
@@ -107,7 +116,7 @@ set "SVC_KEYS=gateway auth funeral ai file helpdesk projmng site notify life car
 :: its own process and starting all of them opened nineteen windows. There is
 :: one shell now, and since the Vue portal is gone, leaving it out means the
 :: portal does not come up at all.
-set "SVC_KEYS_DEFAULT=gateway auth funeral ai file helpdesk projmng site notify life cargo blazor web"
+set "SVC_KEYS_DEFAULT=gateway auth funeral ai file helpdesk projmng site notify life cargo mcp blazor web"
 
 :: Group alias. `mfe` is muscle memory, kept alive - it now means the shell.
 set "GROUP_mfe=blazor"
@@ -126,6 +135,8 @@ set "SVC_notify=Notification Server|microservices\NotificationServer|5460|NOTIFY
 set "SVC_life=LifeEnv Server|microservices\LifeEnvServer|5490|LIFEENV|%START_CMD%"
 :: CargoTrust (JSini transport - freight client trust info).
 set "SVC_cargo=CargoTrust Server|microservices\CargoTrustServer|5500|CARGOTRUST|%START_CMD%"
+:: MCP tool server (web search, page fetch). AIAgentServer connects as a client.
+set "SVC_mcp=MCP Tool Server|microservices\McpServer|5510|MCP_TOOLS|%START_CMD%"
 
 :: ------------------------------------------------------------
 :: Front end (web\)
@@ -377,14 +388,32 @@ exit /b 1
 call :svc_get %~1
 
 echo    - building !SVC_LABEL! ...
+if defined DEV_BACKGROUND call :build_lock
 pushd "!SVC_DIR!"
 dotnet build
-if errorlevel 1 (
-    popd
-    exit /b 1
-)
+set "BUILD_RC=!errorlevel!"
 popd
+if defined DEV_BACKGROUND rmdir "%BUILD_LOCK%" 2>nul
+if not "!BUILD_RC!"=="0" exit /b 1
 exit /b 0
+
+:: Queue builds when several jobs run at once (background mode only).
+:: Two builds touching a shared project (microservices\Common) at the same
+:: moment corrupt its obj\ folder. mkdir is atomic, so the directory is the
+:: lock. A lock left by a killed job is ignored after 10 minutes.
+:build_lock
+if not exist "%LOG_DIR%" mkdir "%LOG_DIR%" 2>nul
+set "LOCK_WAIT=0"
+:build_lock_try
+mkdir "%BUILD_LOCK%" 2>nul && exit /b 0
+if "!LOCK_WAIT!"=="0" echo      ^(waiting for another build to finish...^)
+set /a LOCK_WAIT+=1
+if !LOCK_WAIT! geq 600 (
+    echo      [WARN] waited 10 minutes. Building without the lock.
+    exit /b 0
+)
+ping -n 2 127.0.0.1 > nul
+goto build_lock_try
 
 :start_service
 call :svc_get %~1
@@ -402,9 +431,22 @@ set "DOTNET_WATCH_HOT_RELOAD=1"
 :: A prompt would freeze the service until someone looks at the window.
 set "DOTNET_WATCH_RESTART_ON_RUDE_EDIT=1"
 
+if defined DEV_BACKGROUND goto start_service_bg
+
 start "!SVC_LABEL!" /D "!SVC_DIR!" cmd /k !SVC_CMD!
 echo    [OK] !SVC_LABEL! started ^(port !SVC_PORT! - watching, edits apply^)
 timeout /t 2 /nobreak > nul
+exit /b 0
+
+:: No window: shares the caller's (hidden) console, output goes to the log.
+:: The command line stays `cmd /c dotnet watch run ...` - dev-stop.ps1
+:: recognises that shape as the top of the service chain.
+:: ping instead of timeout: timeout refuses to run with redirected input.
+:start_service_bg
+if not exist "%LOG_DIR%" mkdir "%LOG_DIR%"
+start "" /B /D "!SVC_DIR!" cmd /d /c "!SVC_CMD! > "%LOG_DIR%\%~1.log" 2>&1" < nul
+echo    [OK] !SVC_LABEL! started ^(port !SVC_PORT! - watching, background, log logs\%~1.log^)
+ping -n 3 127.0.0.1 > nul
 exit /b 0
 
 :: ============================================================
@@ -447,7 +489,11 @@ for %%k in (!TARGETS!) do call :start_service %%k
 echo.
 echo ====================================================
 echo Done:!TARGETS!
-echo Each service logs into its own new window.
+if defined DEV_BACKGROUND (
+    echo Each service logs into logs\^<name^>.log.
+) else (
+    echo Each service logs into its own new window.
+)
 echo ====================================================
 exit /b 0
 
