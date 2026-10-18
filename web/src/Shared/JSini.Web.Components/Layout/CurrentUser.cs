@@ -1,4 +1,4 @@
-﻿using JSini.Web.Components.Data;
+using JSini.Web.Components.Data;
 using JSini.Web.Http;
 
 namespace JSini.Web.Components.Layout;
@@ -58,8 +58,20 @@ public sealed class CurrentUser(GatewayClient gateway, ILogger<CurrentUser> logg
     /// <summary>로그인 아이디.</summary>
     public string? Username { get; private set; }
 
+    /// <summary>소속 회사 ID.</summary>
+    public string? CompanyId { get; private set; }
+
+    /// <summary>소속 회사명.</summary>
+    public string? CompanyName { get; private set; }
+
     /// <summary>회사 · 부서. 사용자 메뉴 머리에 한 줄로 붙인다.</summary>
     public string? Affiliation { get; private set; }
+
+    /// <summary>보유한 권한 식별자 목록.</summary>
+    public List<string> Roles { get; private set; } = [];
+
+    /// <summary>시스템 또는 포털 관리자 여부.</summary>
+    public bool IsAdmin => Roles.Contains("ADMINISTRATOR") || Roles.Contains("SYSTEM_ADMINISTRATOR");
 
     /// <summary>
     /// 권한 그룹. 헤더의 로고 옆에 선다.
@@ -162,10 +174,13 @@ public sealed class CurrentUser(GatewayClient gateway, ILogger<CurrentUser> logg
         {
             DisplayName = string.IsNullOrWhiteSpace(info.RealName) ? info.Username : info.RealName;
             Username = info.Username;
+            CompanyId = info.CompanyId;
+            CompanyName = info.CompanyName;
             Affiliation = Join(info.CompanyName, info.DeptName);
             RoleText = info.RoleNames is { Count: > 0 } names
                 ? string.Join(" · ", names.Where(n => !string.IsNullOrWhiteSpace(n)))
                 : null;
+            Roles = info.Roles ?? [];
             AvatarUrl = OwnFileUrl(info.Avatar);
             AvatarThumbnailUrl = OwnThumbnailUrl(info.Avatar);
             Watermark = info.Watermark;
@@ -272,6 +287,7 @@ public sealed class CurrentUser(GatewayClient gateway, ILogger<CurrentUser> logg
     {
         public string? Username { get; set; }
         public string? RealName { get; set; }
+        public string? CompanyId { get; set; }
         public string? CompanyName { get; set; }
         public string? DeptName { get; set; }
         public string? Avatar { get; set; }

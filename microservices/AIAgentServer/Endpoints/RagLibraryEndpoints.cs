@@ -23,11 +23,18 @@ public static class RagLibraryEndpoints
 
         // ── 카테고리 ────────────────────────────────────────
         group.MapGet("/categories", async (
+            [FromQuery] string? companyId,
+            UserContext? user,
             [FromServices] RagLibrary lib, [FromServices] RagStore store, CancellationToken ct) =>
         {
-            var rows = await lib.CategoriesAsync(ct);
+            // 비관리자는 본인 소속 회사 카테고리만 조회할 수 있다.
+            var filterCompanyId = (user is not null && !user.IsAdmin)
+                ? user.CompanyId
+                : companyId;
 
-            // 문서 수는 **표의 칸이 아니라 지금 세어** 보낸다. 그 칸은 색인을
+            var rows = await lib.CategoriesAsync(filterCompanyId, ct);
+
+            // 문서 수는 표의 칸이 아니라 지금 세어 보낸다. 그 칸은 색인을
             // 만들 때 찍히는 사진이라, 올린 직후에는 0 이다.
             var tally = await lib.CategoryTalliesAsync(ct);
 
@@ -37,13 +44,14 @@ public static class RagLibraryEndpoints
                 return new
                 {
                     c.Id, c.Name, c.Description, c.IndexedAt,
+                    c.CompanyId,
+                    companyName = c.Company?.Name,
                     docCount = c.DocCount,
                     docTotal = t.Total,
                     docIndexed = t.Indexed,
                     docPending = t.Pending,
                     docSkipped = t.Skipped,
-                    // 표의 숫자가 아니라 **지금 메모리에 올라와 있는 것**을 보여 준다.
-                    // 둘이 다르면 색인을 만든 뒤 서비스가 다시 뜨지 않은 것이다.
+                    // 표의 숫자가 아니라 지금 메모리에 올라와 있는 것을 보여 준다.
                     chunkCount = store.CountOf(c.Id),
                 };
             })));
@@ -51,12 +59,30 @@ public static class RagLibraryEndpoints
 
         group.MapPost("/categories", async (
             [FromBody] CreateCategoryRequest body,
+            UserContext? user,
             [FromServices] RagLibrary lib, HttpContext http, CancellationToken ct) =>
         {
             try
             {
-                var row = await lib.CreateCategoryAsync(body.Id, body.Name, body.Description, Who(http), ct);
-                return Results.Ok(ApiResponse<object>.Ok(new { row.Id, row.Name }));
+                // 비관리자는 본인 소속 회사로만 카테고리를 만들 수 있다.
+                string? targetCompanyId;
+                if (user is not null && !user.IsAdmin)
+                {
+                    if (string.IsNullOrWhiteSpace(user.CompanyId))
+                    {
+                        return Results.Ok(ApiResponse<object>.Fail("소속 회사 정보가 없어 카테고리를 만들 수 없습니다.", "C403"));
+                    }
+                    targetCompanyId = user.CompanyId;
+                }
+                else
+                {
+                    targetCompanyId = !string.IsNullOrWhiteSpace(body.CompanyId)
+                        ? body.CompanyId
+                        : user?.CompanyId;
+                }
+
+                var row = await lib.CreateCategoryAsync(body.Id, body.Name, body.Description, targetCompanyId, Who(http), ct);
+                return Results.Ok(ApiResponse<object>.Ok(new { row.Id, row.Name, row.CompanyId }));
             }
             catch (Exception ex)
             {
@@ -65,12 +91,17 @@ public static class RagLibraryEndpoints
         }).WithSummary("RAG 카테고리 만들기");
 
         group.MapDelete("/categories/{id}", async (
-            string id, [FromServices] RagLibrary lib, HttpContext http, CancellationToken ct) =>
+            string id, UserContext? user, [FromServices] RagLibrary lib, HttpContext http, CancellationToken ct) =>
         {
             try
             {
+                await lib.EnsureCategoryAccessAsync(id, user, ct);
                 await lib.DeleteCategoryAsync(id, Who(http), ct);
                 return Results.Ok(ApiResponse<object>.Ok(new { deleted = id }));
+            }
+            catch (UnauthorizedAccessException uex)
+            {
+                return Results.Ok(ApiResponse<object>.Fail(uex.Message, "C403"));
             }
             catch (Exception ex)
             {
@@ -80,30 +111,43 @@ public static class RagLibraryEndpoints
 
         // ── 분류 (트리) ─────────────────────────────────────
         group.MapGet("/categories/{id}/folders", async (
-            string id, [FromServices] RagLibrary lib, CancellationToken ct) =>
+            string id, UserContext? user, [FromServices] RagLibrary lib, CancellationToken ct) =>
         {
-            var rows = await lib.FoldersAsync(id, ct);
-
-            // 분류마다 **그 분류에 바로 든** 문서 수. 하위 분류의 것은 화면이
-            // 더한다 — 어느 분류에 실제로 들었는지는 여기서만 알 수 있다.
-            var tally = await lib.FolderTalliesAsync(id, ct);
-
-            return Results.Ok(ApiResponse<object>.Ok(rows.Select(f => new
+            try
             {
-                f.Id, f.ParentId, f.Name, f.SortNo,
-                docCount = tally.GetValueOrDefault(f.Id).Total,
-                docPending = tally.GetValueOrDefault(f.Id).Pending,
-            })));
+                await lib.EnsureCategoryAccessAsync(id, user, ct);
+                var rows = await lib.FoldersAsync(id, ct);
+
+                // 분류마다 그 분류에 바로 든 문서 수. 하위 분류의 것은 화면이
+                // 더한다 — 어느 분류에 실제로 들었는지는 여기서만 알 수 있다.
+                var tally = await lib.FolderTalliesAsync(id, ct);
+
+                return Results.Ok(ApiResponse<object>.Ok(rows.Select(f => new
+                {
+                    f.Id, f.ParentId, f.Name, f.SortNo,
+                    docCount = tally.GetValueOrDefault(f.Id).Total,
+                    docPending = tally.GetValueOrDefault(f.Id).Pending,
+                })));
+            }
+            catch (UnauthorizedAccessException uex)
+            {
+                return Results.Ok(ApiResponse<object>.Fail(uex.Message, "C403"));
+            }
         }).WithSummary("분류 트리");
 
         group.MapPost("/categories/{id}/folders", async (
             string id, [FromBody] CreateFolderRequest body,
-            [FromServices] RagLibrary lib, HttpContext http, CancellationToken ct) =>
+            UserContext? user, [FromServices] RagLibrary lib, HttpContext http, CancellationToken ct) =>
         {
             try
             {
+                await lib.EnsureCategoryAccessAsync(id, user, ct);
                 var row = await lib.CreateFolderAsync(id, body.ParentId, body.Name, Who(http), ct);
                 return Results.Ok(ApiResponse<object>.Ok(new { row.Id, row.ParentId, row.Name }));
+            }
+            catch (UnauthorizedAccessException uex)
+            {
+                return Results.Ok(ApiResponse<object>.Fail(uex.Message, "C403"));
             }
             catch (Exception ex)
             {
@@ -113,12 +157,17 @@ public static class RagLibraryEndpoints
 
         group.MapPut("/folders/{folderId:long}", async (
             long folderId, [FromBody] RenameFolderRequest body,
-            [FromServices] RagLibrary lib, HttpContext http, CancellationToken ct) =>
+            UserContext? user, [FromServices] RagLibrary lib, HttpContext http, CancellationToken ct) =>
         {
             try
             {
+                await lib.EnsureFolderAccessAsync(folderId, user, ct);
                 await lib.RenameFolderAsync(folderId, body.Name, Who(http), ct);
                 return Results.Ok(ApiResponse<object>.Ok(new { folderId, body.Name }));
+            }
+            catch (UnauthorizedAccessException uex)
+            {
+                return Results.Ok(ApiResponse<object>.Fail(uex.Message, "C403"));
             }
             catch (Exception ex)
             {
@@ -126,16 +175,21 @@ public static class RagLibraryEndpoints
             }
         }).WithSummary("분류 이름 바꾸기");
 
-        // 끌어다 옮기기. **색인은 건드리지 않는다** — 분류는 사람이 보려고
+        // 끌어다 옮기기. 색인은 건드리지 않는다 — 분류는 사람이 보려고
         // 있는 것이고 색인은 카테고리 단위다.
         group.MapPut("/folders/{folderId:long}/move", async (
             long folderId, [FromBody] MoveFolderRequest body,
-            [FromServices] RagLibrary lib, HttpContext http, CancellationToken ct) =>
+            UserContext? user, [FromServices] RagLibrary lib, HttpContext http, CancellationToken ct) =>
         {
             try
             {
+                await lib.EnsureFolderAccessAsync(folderId, user, ct);
                 await lib.MoveFolderAsync(folderId, body.ParentId, body.BeforeId, Who(http), ct);
                 return Results.Ok(ApiResponse<object>.Ok(new { folderId, body.ParentId, body.BeforeId }));
+            }
+            catch (UnauthorizedAccessException uex)
+            {
+                return Results.Ok(ApiResponse<object>.Fail(uex.Message, "C403"));
             }
             catch (Exception ex)
             {
@@ -144,12 +198,17 @@ public static class RagLibraryEndpoints
         }).WithSummary("분류 옮기기 (부모·차례)");
 
         group.MapDelete("/folders/{folderId:long}", async (
-            long folderId, [FromServices] RagLibrary lib, CancellationToken ct) =>
+            long folderId, UserContext? user, [FromServices] RagLibrary lib, CancellationToken ct) =>
         {
             try
             {
+                await lib.EnsureFolderAccessAsync(folderId, user, ct);
                 await lib.DeleteFolderAsync(folderId, ct);
                 return Results.Ok(ApiResponse<object>.Ok(new { deleted = folderId }));
+            }
+            catch (UnauthorizedAccessException uex)
+            {
+                return Results.Ok(ApiResponse<object>.Fail(uex.Message, "C403"));
             }
             catch (Exception ex)
             {
@@ -160,29 +219,43 @@ public static class RagLibraryEndpoints
         // ── 문서 ────────────────────────────────────────────
         group.MapGet("/categories/{id}/documents", async (
             string id, [FromQuery] long? folderId,
-            [FromServices] RagLibrary lib, CancellationToken ct) =>
+            UserContext? user, [FromServices] RagLibrary lib, CancellationToken ct) =>
         {
-            var rows = await lib.DocumentsAsync(id, folderId, ct);
-            return Results.Ok(ApiResponse<object>.Ok(rows.Select(d => new
+            try
             {
-                d.Id, d.FileName, d.ContentType, d.SizeBytes, d.Status,
-                d.ChunkCount, d.Error, d.IndexedAt, d.CreatedAt, d.CreatedBy,
-
-                // 파일 서버의 아이디. **화면이 내려받기 주소를 짓는 열쇠다** —
-                // 셸의 중계가 이 값을 받는다. 아직 안 옮긴 줄은 비어 있고,
-                // 그때는 화면이 링크 대신 글자만 보여 준다.
-                d.FileId,
-            })));
+                await lib.EnsureCategoryAccessAsync(id, user, ct);
+                var rows = await lib.DocumentsAsync(id, folderId, ct);
+                return Results.Ok(ApiResponse<object>.Ok(rows.Select(d => new
+                {
+                    d.Id, d.FileName, d.ContentType, d.SizeBytes, d.Status,
+                    d.ChunkCount, d.Error, d.IndexedAt, d.CreatedAt, d.CreatedBy,
+                    // 파일 서버의 아이디. 화면이 내려받기 주소를 짓는 열쇠다
+                    d.FileId,
+                })));
+            }
+            catch (UnauthorizedAccessException uex)
+            {
+                return Results.Ok(ApiResponse<object>.Fail(uex.Message, "C403"));
+            }
         }).WithSummary("분류 안의 문서 목록");
 
-        // 올리기. **여러 개를 한 번에 받는다** — 한 건씩 고르게 하면
+        // 올리기. 여러 개를 한 번에 받는다 — 한 건씩 고르게 하면
         // 폴더째 올리려는 사람이 수십 번 같은 창을 연다.
         group.MapPost("/categories/{id}/documents", async (
             string id, [FromQuery] long? folderId,
-            HttpRequest request, [FromServices] RagLibrary lib,
+            HttpRequest request, UserContext? user, [FromServices] RagLibrary lib,
             [FromServices] RagBackgroundIndexer indexer,
             HttpContext http, CancellationToken ct) =>
         {
+            try
+            {
+                await lib.EnsureCategoryAccessAsync(id, user, ct);
+            }
+            catch (UnauthorizedAccessException uex)
+            {
+                return Results.Ok(ApiResponse<object>.Fail(uex.Message, "C403"));
+            }
+
             if (!request.HasFormContentType)
             {
                 return Results.BadRequest(ApiResponse<object>.Fail("파일이 없습니다.", "C400"));
@@ -216,18 +289,26 @@ public static class RagLibraryEndpoints
         .WithSummary("문서 올리기 (여러 개)");
 
         group.MapGet("/documents/{docId:long}/download", async (
-            long docId, [FromServices] RagLibrary lib, CancellationToken ct) =>
+            long docId, UserContext? user, [FromServices] RagLibrary lib, CancellationToken ct) =>
         {
-            // **실물은 파일 서버에 있다.** 길이 아니라 흐름으로 받아 그대로
-            // 흘려보낸다 — 이쪽 디스크에 한 벌 받아 두면 그 파일을 누가
-            // 치우느냐가 또 하나의 일이 된다.
+            try
+            {
+                await lib.EnsureDocumentAccessAsync(docId, user, ct);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Forbid();
+            }
+
+            // 실물은 파일 서버에 있다. 길이 아니라 흐름으로 받아 그대로
+            // 흘려보낸다.
             var f = await lib.OpenAsync(docId, ct);
             return f is null
                 ? Results.NotFound()
                 : Results.Stream(f.Value.Content, "application/octet-stream", f.Value.Name);
         }).WithSummary("문서 내려받기");
 
-        // 디스크에 있던 옛 문서를 파일 서버로 옮긴다. **여러 번 돌려도 된다.**
+        // 디스크에 있던 옛 문서를 파일 서버로 옮긴다. 여러 번 돌려도 된다.
         group.MapPost("/documents/migrate-to-fileserver", async (
             [FromServices] RagLibrary lib, HttpContext http, CancellationToken ct) =>
         {
@@ -244,12 +325,17 @@ public static class RagLibraryEndpoints
 
         group.MapPut("/documents/{docId:long}/folder", async (
             long docId, [FromBody] MoveDocumentRequest body,
-            [FromServices] RagLibrary lib, HttpContext http, CancellationToken ct) =>
+            UserContext? user, [FromServices] RagLibrary lib, HttpContext http, CancellationToken ct) =>
         {
             try
             {
+                await lib.EnsureDocumentAccessAsync(docId, user, ct);
                 await lib.MoveDocumentAsync(docId, body.FolderId, Who(http), ct);
                 return Results.Ok(ApiResponse<object>.Ok(new { moved = docId, body.FolderId }));
+            }
+            catch (UnauthorizedAccessException uex)
+            {
+                return Results.Ok(ApiResponse<object>.Fail(uex.Message, "C403"));
             }
             catch (Exception ex)
             {
@@ -258,12 +344,13 @@ public static class RagLibraryEndpoints
         }).WithSummary("문서를 다른 분류로 옮기기 (색인에는 영향 없음)");
 
         group.MapDelete("/documents/{docId:long}", async (
-            long docId, [FromServices] RagLibrary lib,
+            long docId, UserContext? user, [FromServices] RagLibrary lib,
             [FromServices] RagBackgroundIndexer indexer,
             CancellationToken ct) =>
         {
             try
             {
+                await lib.EnsureDocumentAccessAsync(docId, user, ct);
                 var categoryId = await lib.DeleteDocumentAsync(docId, ct);
                 if (!string.IsNullOrEmpty(categoryId))
                 {
@@ -271,6 +358,10 @@ public static class RagLibraryEndpoints
                     indexer.QueueReindex(categoryId);
                 }
                 return Results.Ok(ApiResponse<object>.Ok(new { deleted = docId }));
+            }
+            catch (UnauthorizedAccessException uex)
+            {
+                return Results.Ok(ApiResponse<object>.Fail(uex.Message, "C403"));
             }
             catch (Exception ex)
             {
@@ -280,12 +371,13 @@ public static class RagLibraryEndpoints
 
         // ── 색인 ────────────────────────────────────────────
         group.MapPost("/categories/{id}/reindex", async (
-            string id, [FromServices] RagLibrary lib,
+            string id, UserContext? user, [FromServices] RagLibrary lib,
             [FromServices] RagBackgroundIndexer indexer,
             CancellationToken ct) =>
         {
             try
             {
+                await lib.EnsureCategoryAccessAsync(id, user, ct);
                 var index = await indexer.ReindexDirectAsync(id, lib, ct);
                 return Results.Ok(ApiResponse<object>.Ok(new
                 {
@@ -294,6 +386,10 @@ public static class RagLibraryEndpoints
                     dimensions = index.Dimensions,
                     builtAt = index.BuiltAt,
                 }));
+            }
+            catch (UnauthorizedAccessException uex)
+            {
+                return Results.Ok(ApiResponse<object>.Fail(uex.Message, "C403"));
             }
             catch (Exception ex)
             {
@@ -308,7 +404,7 @@ public static class RagLibraryEndpoints
            ?? http.User.Identity?.Name;
 }
 
-public sealed record CreateCategoryRequest(string Id, string Name, string? Description);
+public sealed record CreateCategoryRequest(string Id, string Name, string? Description, string? CompanyId = null);
 public sealed record CreateFolderRequest(long? ParentId, string Name);
 public sealed record RenameFolderRequest(string Name);
 public sealed record MoveFolderRequest(long? ParentId, long? BeforeId);

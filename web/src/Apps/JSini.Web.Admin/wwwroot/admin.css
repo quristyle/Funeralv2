@@ -5219,6 +5219,12 @@
   font-variant-numeric: tabular-nums;
 }
 
+.ad-rag__cat-comp {
+  font-size: 0.72rem;
+  opacity: 0.65;
+  font-weight: normal;
+}
+
 .ad-rag__bar-tail {
   margin-left: auto;
   display: flex;

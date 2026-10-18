@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 
 namespace AIAgentServer;
 
@@ -22,7 +22,15 @@ public class UserContext
 {
     public string UserId { get; set; } = string.Empty;
     public string Role { get; set; } = string.Empty;
+    public string[] Roles { get; set; } = [];
     public string CompanyId { get; set; } = string.Empty;
+
+    /// <summary>
+    /// 관리자 계열 판정 (시스템관리자 또는 관리자).
+    /// </summary>
+    public bool IsAdmin =>
+        Roles.Contains("ADMINISTRATOR") || Roles.Contains("SYSTEM_ADMINISTRATOR") ||
+        Role is "ADMINISTRATOR" or "SYSTEM_ADMINISTRATOR";
 
     /// <summary>
     /// Minimal API 매개변수 바인딩 로직
@@ -31,6 +39,10 @@ public class UserContext
     {
         var userId = context.Request.Headers["X-User-Id"].ToString();
         var role = context.Request.Headers["X-User-Role"].ToString();
+        var rolesHeader = context.Request.Headers["X-User-Roles"].ToString();
+        var roles = string.IsNullOrWhiteSpace(rolesHeader)
+            ? (string.IsNullOrEmpty(role) ? [] : new[] { role })
+            : rolesHeader.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         var companyId = context.Request.Headers["X-User-Company-Id"].ToString();
 
         // 사용자 ID가 없는 경우 null 반환 (엔드포인트에서 체크 가능)
@@ -43,6 +55,7 @@ public class UserContext
         {
             UserId = userId,
             Role = role,
+            Roles = roles,
             CompanyId = companyId
         };
 

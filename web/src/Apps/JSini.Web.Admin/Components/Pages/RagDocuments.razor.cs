@@ -10,7 +10,16 @@ namespace JSini.Web.Admin.Components.Pages;
 public partial class RagDocuments
 {
     [Inject] private RagLibraryClient Api { get; set; } = default!;
+    [Inject] private AdminClient AdminApi { get; set; } = default!;
+    [Inject] private CurrentUser CurrentUser { get; set; } = default!;
     [Inject] private IJSRuntime Js { get; set; } = default!;
+
+    private IReadOnlyList<CompanyDto> _companies = [];
+    private string? _selectedCompanyId;
+    private bool _isAdmin;
+    private string? _myCompanyId;
+    private string? _myCompanyName;
+    private string? _newCategoryCompanyId;
 
     private IReadOnlyList<RagCategoryDto> _categories = [];
     private IReadOnlyList<RagDocumentDto> _documents = [];
@@ -97,7 +106,7 @@ public partial class RagDocuments
     /// </remarks>
     private async Task RefreshCountsAsync()
     {
-        _categories = await Api.CategoriesAsync();
+        _categories = await Api.CategoriesAsync(_selectedCompanyId);
         await LoadTreeAsync();
     }
 
@@ -201,7 +210,29 @@ public partial class RagDocuments
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        _categories = await Api.CategoriesAsync();
+        _isAdmin = CurrentUser.IsAdmin;
+        _myCompanyId = CurrentUser.CompanyId;
+        _myCompanyName = CurrentUser.CompanyName;
+
+        if (_isAdmin && _companies.Count == 0)
+        {
+            try
+            {
+                _companies = await AdminApi.GetCompaniesAsync();
+            }
+            catch
+            {
+                _companies = [];
+            }
+        }
+
+        // 일반 사용자라면 자신의 소속 회사 카테고리만 볼 수 있도록 강제
+        if (!_isAdmin)
+        {
+            _selectedCompanyId = _myCompanyId;
+        }
+
+        _categories = await Api.CategoriesAsync(_selectedCompanyId);
 
         if (_categoryId is null || _categories.All(c => c.Id != _categoryId))
         {
@@ -218,6 +249,15 @@ public partial class RagDocuments
         }
         return _categories.Count;
     });
+
+    private async Task OnCompanyFilterChangedAsync(string? companyId)
+    {
+        _selectedCompanyId = string.IsNullOrWhiteSpace(companyId) ? null : companyId;
+        _categoryId = null;
+        _folderId = null;
+        _folderLabel = "분류 미지정";
+        await ReloadAsync();
+    }
 
     private async Task LoadTreeAsync()
     {
@@ -278,6 +318,9 @@ public partial class RagDocuments
     {
         _newCategoryId = string.Empty;
         _newCategoryName = string.Empty;
+        _newCategoryCompanyId = !_isAdmin
+            ? _myCompanyId
+            : (!string.IsNullOrWhiteSpace(_selectedCompanyId) ? _selectedCompanyId : _myCompanyId);
         _newCategoryVisible = true;
     }
 
@@ -289,9 +332,11 @@ public partial class RagDocuments
             return;
         }
 
+        var targetCompanyId = !_isAdmin ? _myCompanyId : _newCategoryCompanyId;
+
         var ok = await RunAsync(async () =>
         {
-            await Api.CreateCategoryAsync(_newCategoryId, _newCategoryName, null);
+            await Api.CreateCategoryAsync(_newCategoryId, _newCategoryName, null, targetCompanyId);
         }, "카테고리를 만들었습니다.");
 
         if (!ok) return;

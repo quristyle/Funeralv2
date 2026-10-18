@@ -25,12 +25,21 @@ public sealed class RagLibraryClient(GatewayClient gateway, HttpClient http)
     // ── 카테고리 ────────────────────────────────────────────────
 
     public Task<IReadOnlyList<RagCategoryDto>> CategoriesAsync(CancellationToken ct = default)
-        => gateway.GetListAsync<RagCategoryDto>("ai/rag/categories", ct);
+        => CategoriesAsync(companyId: null, ct);
+
+    public Task<IReadOnlyList<RagCategoryDto>> CategoriesAsync(
+        string? companyId, CancellationToken ct = default)
+    {
+        var url = string.IsNullOrWhiteSpace(companyId)
+            ? "ai/rag/categories"
+            : $"ai/rag/categories?companyId={Uri.EscapeDataString(companyId)}";
+        return gateway.GetListAsync<RagCategoryDto>(url, ct);
+    }
 
     public Task<object?> CreateCategoryAsync(
-        string id, string name, string? description, CancellationToken ct = default)
+        string id, string name, string? description, string? companyId = null, CancellationToken ct = default)
         => gateway.PostAsync<object>("ai/rag/categories",
-            new { id, name, description }, ct);
+            new { id, name, description, companyId }, ct);
 
     public Task DeleteCategoryAsync(string id, CancellationToken ct = default)
         => gateway.DeleteAsync($"ai/rag/categories/{Uri.EscapeDataString(id)}", ct);

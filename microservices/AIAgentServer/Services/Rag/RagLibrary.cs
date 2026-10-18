@@ -60,10 +60,21 @@ public sealed class RagLibrary
     // ── 카테고리 ────────────────────────────────────────────────
 
     public Task<List<RagCategoryRow>> CategoriesAsync(CancellationToken ct = default)
-        => _db.RagCategories.AsNoTracking()
-            .Where(x => !x.IsDeleted)
-            .OrderBy(x => x.Name)
-            .ToListAsync(ct);
+        => CategoriesAsync(companyId: null, ct);
+
+    public Task<List<RagCategoryRow>> CategoriesAsync(string? companyId, CancellationToken ct = default)
+    {
+        var q = _db.RagCategories.AsNoTracking()
+            .Include(x => x.Company)
+            .Where(x => !x.IsDeleted);
+
+        if (!string.IsNullOrWhiteSpace(companyId))
+        {
+            q = q.Where(x => x.CompanyId == companyId);
+        }
+
+        return q.OrderBy(x => x.Name).ToListAsync(ct);
+    }
 
     /// <summary>카테고리마다 지금 올라와 있는 문서 수를 센다.</summary>
     /// <remarks>
@@ -166,7 +177,7 @@ public sealed class RagLibrary
     }
 
     public async Task<RagCategoryRow> CreateCategoryAsync(
-        string id, string name, string? description, string? who, CancellationToken ct = default)
+        string id, string name, string? description, string? companyId, string? who, CancellationToken ct = default)
     {
         id = Slug(id);
         if (id.Length == 0) throw new ArgumentException("열쇠는 영문·숫자·하이픈이어야 합니다.");
@@ -179,6 +190,7 @@ public sealed class RagLibrary
         var row = new RagCategoryRow
         {
             Id = id,
+            CompanyId = string.IsNullOrWhiteSpace(companyId) ? null : companyId.Trim(),
             Name = string.IsNullOrWhiteSpace(name) ? id : name.Trim(),
             Description = description,
             CreatedAt = DateTime.UtcNow,
@@ -187,6 +199,54 @@ public sealed class RagLibrary
         _db.RagCategories.Add(row);
         await _db.SaveChangesAsync(ct);
         return row;
+    }
+
+    public Task<RagCategoryRow?> GetCategoryAsync(string id, CancellationToken ct = default)
+        => _db.RagCategories.AsNoTracking()
+            .Include(x => x.Company)
+            .FirstOrDefaultAsync(x => x.Id == id && !x.IsDeleted, ct);
+
+    /// <summary>
+    /// 카테고리 접근 권한을 확인한다.
+    /// 관리자는 모든 카테고리에 접근 가능하고, 일반 사용자는 자신의 소속회사 카테고리만 제어할 수 있다.
+    /// </summary>
+    public async Task<RagCategoryRow> EnsureCategoryAccessAsync(
+        string categoryId, UserContext? user, CancellationToken ct = default)
+    {
+        var category = await _db.RagCategories.FirstOrDefaultAsync(x => x.Id == categoryId && !x.IsDeleted, ct)
+                       ?? throw new InvalidOperationException($"없는 카테고리입니다: {categoryId}");
+
+        if (user is not null && !user.IsAdmin)
+        {
+            if (string.IsNullOrWhiteSpace(user.CompanyId) || category.CompanyId != user.CompanyId)
+            {
+                throw new UnauthorizedAccessException("소속 회사의 카테고리만 관리하고 제어할 수 있습니다.");
+            }
+        }
+
+        return category;
+    }
+
+    /// <summary>
+    /// 폴더(분류)가 속한 카테고리에 대한 접근 권한을 확인한다.
+    /// </summary>
+    public async Task EnsureFolderAccessAsync(long folderId, UserContext? user, CancellationToken ct = default)
+    {
+        if (user is null || user.IsAdmin) return;
+        var folder = await _db.RagFolders.AsNoTracking().FirstOrDefaultAsync(x => x.Id == folderId, ct)
+                     ?? throw new InvalidOperationException("없는 분류입니다.");
+        await EnsureCategoryAccessAsync(folder.CategoryId, user, ct);
+    }
+
+    /// <summary>
+    /// 문서가 속한 카테고리에 대한 접근 권한을 확인한다.
+    /// </summary>
+    public async Task EnsureDocumentAccessAsync(long docId, UserContext? user, CancellationToken ct = default)
+    {
+        if (user is null || user.IsAdmin) return;
+        var doc = await _db.RagDocuments.AsNoTracking().FirstOrDefaultAsync(x => x.Id == docId, ct)
+                  ?? throw new InvalidOperationException("없는 문서입니다.");
+        await EnsureCategoryAccessAsync(doc.CategoryId, user, ct);
     }
 
     public async Task DeleteCategoryAsync(string id, string? who, CancellationToken ct = default)

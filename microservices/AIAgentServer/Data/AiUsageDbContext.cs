@@ -67,6 +67,9 @@ public class AiUsageDbContext(DbContextOptions<AiUsageDbContext> options) : DbCo
     // 카테고리(RAG 단위) → 분류(트리) → 파일. 파일 실물은 디스크에 있고
     // 여기에는 경로와 색인 상태만 있다 — deploy/sql/rag-documents-2026-10-16.sql
 
+    /// <summary>소속 회사 이름을 붙이려고 읽는 매핑. 조회 전용이다.</summary>
+    public DbSet<CompanyRow> Companies => Set<CompanyRow>();
+
     public DbSet<RagCategoryRow> RagCategories => Set<RagCategoryRow>();
 
     public DbSet<RagFolderRow> RagFolders => Set<RagFolderRow>();
@@ -148,11 +151,21 @@ public class AiUsageDbContext(DbContextOptions<AiUsageDbContext> options) : DbCo
             e.Property(x => x.IsDeleted).HasColumnName("is_deleted");
         });
 
+        modelBuilder.Entity<CompanyRow>(e =>
+        {
+            e.ToTable("companies", "scom");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("id");
+            e.Property(x => x.Name).HasColumnName("name");
+            e.Property(x => x.IsDeleted).HasColumnName("is_deleted");
+        });
+
         modelBuilder.Entity<RagCategoryRow>(e =>
         {
             e.ToTable("rag_categories", "scom");
             e.HasKey(x => x.Id);
             e.Property(x => x.Id).HasColumnName("id");
+            e.Property(x => x.CompanyId).HasColumnName("company_id");
             e.Property(x => x.Name).HasColumnName("name");
             e.Property(x => x.Description).HasColumnName("description");
             e.Property(x => x.Status).HasColumnName("status");
@@ -164,6 +177,11 @@ public class AiUsageDbContext(DbContextOptions<AiUsageDbContext> options) : DbCo
             e.Property(x => x.UpdatedAt).HasColumnName("updated_at");
             e.Property(x => x.UpdatedBy).HasColumnName("updated_by");
             e.Property(x => x.IsDeleted).HasColumnName("is_deleted");
+
+            e.HasOne(x => x.Company)
+                .WithMany()
+                .HasForeignKey(x => x.CompanyId)
+                .IsRequired(false);
         });
 
         modelBuilder.Entity<RagFolderRow>(e =>
@@ -321,6 +339,14 @@ public class AiChatMessageRow
     public DateTime CreatedAt { get; set; }
 }
 
+/// <summary>회사 한 줄. <b>조회 전용이다.</b></summary>
+public class CompanyRow
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public bool IsDeleted { get; set; }
+}
+
 /// <summary>RAG 단위 하나. 색인 파일 하나에 대응한다.</summary>
 /// <remarks>
 /// <b>섞으면 안 되는 자료를 가르는 자리다.</b> 사내 규정과 제품 설명서를 한
@@ -329,6 +355,13 @@ public class AiChatMessageRow
 public class RagCategoryRow
 {
     public string Id { get; set; } = string.Empty;
+
+    /// <summary>소속 회사 식별자. 회사별 카테고리 분리 관리용이다.</summary>
+    public string? CompanyId { get; set; }
+
+    /// <summary>소속 회사 정보 (조회 전용 네비게이션).</summary>
+    public CompanyRow? Company { get; set; }
+
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
     public int Status { get; set; } = 1;

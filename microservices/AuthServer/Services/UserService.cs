@@ -346,6 +346,7 @@ public class UserService : IUserService
             UserId = account.UserId,
             Username = account.UserId,
             RealName = account.UserName,
+            CompanyId = account.CompanyId ?? account.Company?.Id,
             CompanyName = account.Company?.Name,
             DeptName = account.Department?.Name,
             Avatar = !string.IsNullOrEmpty(avatar) ? avatar : "https://gw.alipayobjects.com/zos/antfincdn/XAosXuNZyF/BiazfanxmamNRoxxVxka.png",

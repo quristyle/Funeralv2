@@ -4,6 +4,8 @@ namespace JSini.Web.Admin.Api;
 public sealed class RagCategoryDto
 {
     public string Id { get; set; } = string.Empty;
+    public string? CompanyId { get; set; }
+    public string? CompanyName { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
     public DateTime? IndexedAt { get; set; }

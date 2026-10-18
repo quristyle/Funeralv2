@@ -16,6 +16,9 @@ public class UserInfoDto
     /// <summary>사용자 실명</summary>
     public string? RealName { get; set; }
 
+    /// <summary>소속 회사 ID</summary>
+    public string? CompanyId { get; set; }
+
     /// <summary>소속 회사명</summary>
     public string? CompanyName { get; set; }
 

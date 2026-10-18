@@ -43,6 +43,27 @@
     @* ── 카테고리 줄 ──────────────────────────────────────── *@
     <div class="ad-rag__bar">
         <div class="ad-rag__bar-lead">
+            @if (_isAdmin)
+            {
+                <span class="ad-rag__label">회사</span>
+                <select class="form-select form-select-sm"
+                        value="@(_selectedCompanyId ?? "")"
+                        @onchange="@(async e => await OnCompanyFilterChangedAsync(e.Value?.ToString()))"
+                        style="width: 150px; display: inline-block;">
+                    <option value="">전체 회사</option>
+                    @foreach (var comp in _companies)
+                    {
+                        <option value="@comp.Id">@comp.Name</option>
+                    }
+                </select>
+            }
+            else if (!string.IsNullOrEmpty(_myCompanyName))
+            {
+                <span class="jsini-badge jsini-badge--info" title="소속 회사의 카테고리만 관리할 수 있습니다.">
+                    @_myCompanyName
+                </span>
+            }
+
             <span class="ad-rag__label">카테고리</span>
 
             <div class="ad-rag__cat-list">
@@ -52,6 +73,10 @@
                             class="@($"ad-rag__cat {(c.Id == _categoryId ? "ad-rag__cat--on" : "")}")"
                             @onclick="@(() => PickCategoryAsync(c.Id))">
                         <span>@c.Name</span>
+                        @if (_isAdmin && string.IsNullOrEmpty(_selectedCompanyId) && !string.IsNullOrEmpty(c.CompanyName))
+                        {
+                            <span class="ad-rag__cat-comp">(@c.CompanyName)</span>
+                        }
                         <span class="ad-rag__cat-count">@c.ChunkCount</span>
                     </button>
                 }
@@ -100,7 +125,11 @@
             <div class="ad-rag__empty-symbol">
                 <span class="jsini-icon-refresh"></span>
             </div>
-            <h3 class="ad-rag__empty-title">등록된 RAG 카테고리가 없습니다</h3>
+            <h3 class="ad-rag__empty-title">
+                @(!string.IsNullOrEmpty(_myCompanyName) && !_isAdmin 
+                    ? $"{_myCompanyName}에 등록된 RAG 카테고리가 없습니다" 
+                    : "등록된 RAG 카테고리가 없습니다")
+            </h3>
             <p class="ad-rag__empty-desc">문서를 업로드하고 AI 색인을 생성하려면 먼저 카테고리를 추가하세요.</p>
             <DxButton Text="+ 새 카테고리 추가" RenderStyle="ButtonRenderStyle.Primary" Click="@OpenNewCategory" />
         </div>
@@ -328,6 +357,27 @@
 <CommPopup @bind-Visible="_newCategoryVisible" HeaderText="카테고리 추가" Width="420">
     <BodyContentTemplate Context="popup">
         <div class="ad-rag__form">
+            <label>소속 회사</label>
+            @if (_isAdmin)
+            {
+                <select class="form-select form-select-sm"
+                        @bind="_newCategoryCompanyId">
+                    <option value="">(회사 미지정 / 공용)</option>
+                    @foreach (var comp in _companies)
+                    {
+                        <option value="@comp.Id">@comp.Name</option>
+                    }
+                </select>
+                <div class="ad-rag__dim">카테고리를 소유할 회사를 선택합니다.</div>
+            }
+            else
+            {
+                <div class="form-control form-control-sm bg-light text-muted">
+                    @(!string.IsNullOrEmpty(_myCompanyName) ? _myCompanyName : (_myCompanyId ?? "소속 회사"))
+                </div>
+                <div class="ad-rag__dim">사용자 소속 회사로 자동 지정됩니다.</div>
+            }
+
             <label>열쇠</label>
             <DxTextBox @bind-Text="_newCategoryId" NullText="hr-policy" />
             <div class="ad-rag__dim">
