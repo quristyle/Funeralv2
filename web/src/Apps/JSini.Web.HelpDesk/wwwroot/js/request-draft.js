@@ -231,8 +231,11 @@ function detach(w) {
 
     w.box.removeEventListener('input', w.onInput);
     w.title.removeEventListener('input', w.onInput);
+    w.box.removeEventListener('blur', w.onHide, true);
+    w.title.removeEventListener('blur', w.onHide, true);
     document.removeEventListener('visibilitychange', w.onHide);
     window.removeEventListener('pagehide', w.onHide);
+    window.removeEventListener('beforeunload', w.onHide);
 
     watchers.delete(w);
 }
@@ -253,8 +256,12 @@ function write(w) {
 
     // **요청자 하나만 고른 것은 적지 않는다.** 되살려도 화면에 아무 글이 없어
     // 「전에 쓰다 만 것이 있다」는 안내만 뜨는데, 그건 도움이 아니라 군더더기다.
+    // 사용자가 직접 입력한 적이 없는 상태에서(초기화/복원 중) 빈 글로 판정되어
+    // 기존 보관 글이 지워지는 일이 없도록 보호한다.
     if (text.trim() === '' && html === '') {
-        drop(w.key);
+        if (w.hasUserTyped) {
+            drop(w.key);
+        }
         return;
     }
 
@@ -316,7 +323,7 @@ export function attach(key, titleSelector, editorSelector, owner) {
         if (w.key === key && w.box === box) return true;
     }
 
-    const w = { key, box, title, owner, timer: null, told: false };
+    const w = { key, box, title, owner, timer: null, told: false, hasUserTyped: false };
 
     w.onInput = () => {
         // 화면이 사라졌다. 손을 뗀다 — 화면을 옮길 때마다 하나씩 쌓인다.
@@ -325,22 +332,25 @@ export function attach(key, titleSelector, editorSelector, owner) {
             return;
         }
 
+        w.hasUserTyped = true;
         if (w.timer) clearTimeout(w.timer);
         w.timer = setTimeout(() => write(w), DELAY_MS);
     };
 
-    // 탭을 닫거나 다른 탭으로 옮기면 기다리던 것을 바로 적는다. 휴대폰에서는
+    // 탭을 닫거나 다른 탭으로 옮기거나 새로고침할 때 기다리던 것을 바로 적는다. 휴대폰에서는
     // 화면을 가리는 것이 곧 **앱이 접히는 것**이라, 여기서 안 적으면 다시
-    // 돌아왔을 때 마지막 몇 자가 비어 있다. (다시 보일 때도 불리지만 그때는
-    // 기다리던 것이 없어 아무 일도 하지 않는다.)
+    // 돌아왔을 때 마지막 몇 자가 비어 있다.
     w.onHide = () => flush(w);
 
     watchers.add(w);
 
     box.addEventListener('input', w.onInput);
     title.addEventListener('input', w.onInput);
+    box.addEventListener('blur', w.onHide, true);
+    title.addEventListener('blur', w.onHide, true);
     document.addEventListener('visibilitychange', w.onHide);
     window.addEventListener('pagehide', w.onHide);
+    window.addEventListener('beforeunload', w.onHide);
 
     return true;
 }
@@ -359,10 +369,47 @@ export function touch(key) {
     for (const w of watchers) {
         if (w.key !== key) continue;
 
+        w.hasUserTyped = true;
         if (w.timer) clearTimeout(w.timer);
         w.timer = setTimeout(() => write(w), DELAY_MS);
         return true;
     }
 
     return false;
+}
+
+/// 화면(DOM)에 제목과 본문을 직접 주입한다.
+/// 편집기가 완전히 초기화되기까지 약간의 지연이 있을 수 있으므로 재시도한다.
+export function restore(editorSelector, titleSelector, title, html) {
+    let attempts = 15;
+    const tryApply = () => {
+        const box = document.querySelector(editorSelector);
+        const titleBox = document.querySelector(titleSelector);
+        const area = areaIn(box);
+        const input = inputIn(titleBox);
+
+        let areaReady = !!area;
+        let inputReady = !!input;
+
+        if (inputReady && typeof title === 'string' && title !== '') {
+            if (input.value !== title) {
+                input.value = title;
+                input.dispatchEvent(new Event('input', { bubbles: true }));
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }
+
+        if (areaReady && typeof html === 'string' && html !== '') {
+            if (area.innerHTML !== html) {
+                area.innerHTML = html;
+                area.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        }
+
+        if ((!areaReady || !inputReady) && attempts-- > 0) {
+            setTimeout(tryApply, 50);
+        }
+    };
+
+    tryApply();
 }

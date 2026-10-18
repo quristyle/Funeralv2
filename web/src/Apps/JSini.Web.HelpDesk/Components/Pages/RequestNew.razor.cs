@@ -87,6 +87,12 @@ public partial class RequestNew
     /// <summary>붙여넣기 처리기를 걸었는가.</summary>
     private bool _bound;
 
+    /// <summary>
+    /// 편집기를 다시 세우는 열쇠. 임시 보관된 글을 되살리거나(새로고침 복원),
+    /// 지우고 새로 쓸 때 바꾼다.
+    /// </summary>
+    private int _editorKey;
+
     // ── 쓰던 글 (임시 보관) ──────────────────────────────────
 
     private IJSObjectReference? _draftJs;
@@ -519,6 +525,13 @@ public partial class RequestNew
         // 나가 버렸을 때 **아무 데도 없는 글**이 된다.
         var seeded = await SeedFromSourceAsync();
 
+        if (seeded)
+        {
+            _editorKey++;
+            _bound = false;
+            _draftWatched = false;
+        }
+
         try
         {
             _draftJs ??= await JS.InvokeAsync<IJSObjectReference>(
@@ -531,6 +544,14 @@ public partial class RequestNew
                 _title = saved.Title;
                 _content = saved.Html ?? string.Empty;
                 _restoredAt = DateTimeOffset.FromUnixTimeMilliseconds((long)saved.SavedAt).LocalDateTime;
+
+                // 편집기가 되살린 글을 화면에 그릴 수 있도록 다시 세운다.
+                _editorKey++;
+                _bound = false;
+                _draftWatched = false;
+
+                // DOM 에도 직접 값을 주입한다 (C# 렌더링과의 이중 보장).
+                await _draftJs.InvokeVoidAsync("restore", EditorSelector, TitleSelector, _title, _content);
             }
         }
         catch (JSException)
@@ -662,6 +683,9 @@ public partial class RequestNew
     {
         _title = null;
         _content = string.Empty;
+        _editorKey++;
+        _bound = false;
+        _draftWatched = false;
 
         await ForgetDraftAsync(andStop: false);
     }
@@ -684,16 +708,20 @@ public partial class RequestNew
     /// <summary>적어 둔 한 벌. <c>request-draft.js</c> 의 <c>read</c> 가 주는 모양이다.</summary>
     private sealed class SavedDraft
     {
+        [System.Text.Json.Serialization.JsonPropertyName("title")]
         public string? Title { get; set; }
 
+        [System.Text.Json.Serialization.JsonPropertyName("html")]
         public string? Html { get; set; }
 
         /// <summary>
         /// 골라 두었던 요청자(고객) 번호. 고른 적이 없으면 <c>null</c> 이다.
         /// </summary>
+        [System.Text.Json.Serialization.JsonPropertyName("requester")]
         public string? Requester { get; set; }
 
         /// <summary>적은 때. 브라우저가 주는 값이라 <b>1970 년부터의 밀리초</b>다.</summary>
+        [System.Text.Json.Serialization.JsonPropertyName("savedAt")]
         public double SavedAt { get; set; }
     }
 

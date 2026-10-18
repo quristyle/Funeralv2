@@ -234,11 +234,11 @@
            그림을 **우리가 DOM 에 직접 꽂으므로** 편집기의 모형보다 화면
            쪽이 늘 최신이다. 그래서 등록할 때 편집기에게 직접 묻는다
            (`FlushContentAsync`). 메일 보내기 화면과 같은 구도다. *@
-        @* **`@@key` 가 `_isPhone` 이다.** 폭이 경계를 넘으면 편집기를 통째로
-           다시 세운다 — 도구줄의 `GetVisible` 은 도구줄이 다시 그려질 때만
-           읽히기 때문이고, 걷어 올 것과 다시 걸 것은 `OnPhoneChangedAsync` 에
-           적어 두었다. 평소에는 이 값이 안 바뀌므로 다시 세울 일도 없다. *@
-        <DxHtmlEditor @key="_isPhone"
+        @* **`@key` 가 `_isPhone` 과 `_editorKey` 의 조합이다.** 폭이 경계를
+           넘거나, 임시 보관된 글을 되살리거나(새로고침 복원), 지우고 새로 쓸 때
+           편집기를 통째로 다시 세운다 — DxHtmlEditor 는 내부 모델을 들고 있어서
+           Markup 파라미터 변경만으로는 첫 렌더 뒤 화면이 따라오지 않기 때문이다. *@
+        <DxHtmlEditor @key="@($"{_isPhone}_{_editorKey}")"
                       Markup="@_content"
                       MarkupChanged="@(v => _content = v ?? string.Empty)"
                       BindMarkupMode="HtmlEditorBindMarkupMode.OnDelayedInput"
