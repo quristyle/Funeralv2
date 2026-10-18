@@ -916,6 +916,11 @@
   line-height: 1;
 }
 
+.hd-card__avatar--img {
+  object-fit: cover;
+  border: 1px solid var(--jsini-border, #e0e0e0);
+}
+
 .hd-card__name {
   flex: 1 1 auto;
   min-width: 0;
@@ -1360,13 +1365,26 @@
 }
 
 .hd-cmt__avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 2rem;
   height: 2rem;
   border-radius: 50%;
   object-fit: cover;
   flex: 0 0 auto;
   border: 1px solid var(--jsini-border, #e0e0e0);
-  background: var(--jsini-surface-muted, #f8f9fa);
+  background: var(--jsini-border, #e0e0e0);
+  font-size: var(--jsini-fs-sm);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--jsini-text, inherit);
+  user-select: none;
+}
+
+.hd-cmt__avatar--initial {
+  background: var(--jsini-border, #e0e0e0);
+  color: var(--jsini-text, inherit);
 }
 
 .hd-cmt__who {

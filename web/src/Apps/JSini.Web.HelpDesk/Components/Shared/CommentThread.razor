@@ -30,12 +30,25 @@
     {
         <li class="hd-cmt" id="@($"comment-{node.Comment.Id}")">
             <div class="hd-cmt__head">
-                <img class="hd-cmt__avatar"
-                     src="@AvatarUrl(node)"
-                     alt="@AuthorName(node)"
-                     title="@AuthorName(node)"
-                     loading="lazy"
-                     onerror="this.onerror=null;this.src='@FileDownload.FallbackAvatarPath';" />
+                @{
+                    var avatar = AvatarUrl(node);
+                    var authorName = AuthorName(node);
+                }
+                @if (!string.IsNullOrEmpty(avatar) && !_brokenAvatars.Contains(avatar))
+                {
+                    <img class="hd-cmt__avatar"
+                         src="@avatar"
+                         alt="@authorName"
+                         title="@authorName"
+                         loading="lazy"
+                         @onerror="@(() => MarkAvatarUnavailable(avatar))" />
+                }
+                else
+                {
+                    <span class="hd-cmt__avatar hd-cmt__avatar--initial"
+                          title="@authorName"
+                          aria-hidden="true">@AuthorInitial(node)</span>
+                }
                 <span class="hd-cmt__when">@When(node)</span>
 
                 @if (node.Children.Count > 0)

@@ -375,7 +375,22 @@
             {
                 <article class="jsini-card hd-card">
                     <header class="hd-card__head">
-                        <span class="hd-card__avatar" aria-hidden="true">@Initial(a.AdminName)</span>
+                        @{
+                            var adminAvatar = AvatarUrl(a.Photo);
+                        }
+                        @if (!string.IsNullOrEmpty(adminAvatar) && !_brokenAvatars.Contains(adminAvatar))
+                        {
+                            <img class="hd-card__avatar hd-card__avatar--img"
+                                 src="@adminAvatar"
+                                 alt="@a.AdminName"
+                                 title="@a.AdminName"
+                                 loading="lazy"
+                                 @onerror="@(() => MarkAvatarUnavailable(adminAvatar))" />
+                        }
+                        else
+                        {
+                            <span class="hd-card__avatar" aria-hidden="true">@Initial(a.AdminName)</span>
+                        }
                         <span class="hd-card__name" title="@a.AdminName">@a.AdminName</span>
                         <span class="hd-card__lead">@Num(a.Completed)<small>완료</small></span>
                     </header>
