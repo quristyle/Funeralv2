@@ -83,6 +83,26 @@ public partial class CommentThread
                 ? login
                 : $"#{node.Comment.AuthorId}";
 
+    /// <summary>
+    /// 작성자 프로필 이미지 주소.
+    /// 사진이 없거나 비어 있으면 포털 기본 아바타(<see cref="FileDownload.FallbackAvatarPath"/>)를 쓴다.
+    /// </summary>
+    private static string AvatarUrl(CommentNode node)
+    {
+        var photo = node.Comment.Author?.Photo;
+        if (string.IsNullOrWhiteSpace(photo))
+        {
+            return FileDownload.FallbackAvatarPath;
+        }
+
+        if (Guid.TryParse(photo, out _))
+        {
+            return FileDownload.AvatarUrlFor(photo);
+        }
+
+        return FileDownload.RelayUrl(photo) ?? FileDownload.FallbackAvatarPath;
+    }
+
     private static bool IsAdmin(CommentNode node) =>
         string.Equals(node.Comment.AuthorType, "admin", StringComparison.OrdinalIgnoreCase);
 

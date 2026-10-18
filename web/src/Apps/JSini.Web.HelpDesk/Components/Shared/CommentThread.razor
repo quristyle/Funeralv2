@@ -30,8 +30,12 @@
     {
         <li class="hd-cmt" id="@($"comment-{node.Comment.Id}")">
             <div class="hd-cmt__head">
-                <span class="jsini-badge @AuthorClass(node)">@AuthorKind(node)</span>
-                <span class="hd-cmt__who">@AuthorName(node)</span>
+                <img class="hd-cmt__avatar"
+                     src="@AvatarUrl(node)"
+                     alt="@AuthorName(node)"
+                     title="@AuthorName(node)"
+                     loading="lazy"
+                     onerror="this.onerror=null;this.src='@FileDownload.FallbackAvatarPath';" />
                 <span class="hd-cmt__when">@When(node)</span>
 
                 @if (node.Children.Count > 0)
