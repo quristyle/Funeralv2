@@ -31,16 +31,18 @@
 
 <PageTitle>유지보수 현황 · 헬프데스크</PageTitle>
 
-@* 조건은 연·월 둘이다. 자료 판(`CommCont`)은 쓰지 않는다 — 통계 타일과
-   표가 쌓인 화면이라 감싸면 남은 높이를 그 판이 다 먹어 아래가 잘린다. *@
-<CommSch OnSearch="@ReloadAsync" MobileSummary="@ConditionSummary">
+@* 조건은 연월 하나다. 자료 판(`CommCont`)은 쓰지 않는다 — 통계 타일과
+   표가 쌓인 화면이라 감싸면 남은 높이를 그 판이 다 먹어 아래가 잘린다.
+   고르는 즉시 다시 읽으므로 접지 않는다 — 접혀 있으면 달을 바꿀 때마다 펴야 한다. *@
+<CommSch OnSearch="@ReloadAsync" SearchText="다시 읽기" ReloadIcon="true" Foldable="false">
     <Fields>
-        <CommSchItem Label="연">
-            <DxSpinEdit @bind-Value="_year" MinValue="2000" MaxValue="2100" Style="width: 110px" />
-        </CommSchItem>
-
-        <CommSchItem Label="월">
-            <DxSpinEdit @bind-Value="_month" MinValue="1" MaxValue="12" Style="width: 90px" />
+        <CommSchItem Label="연월">
+            <DxDateEdit T="DateTime" Date="@_period" DateChanged="@((DateTime d) => OnPeriodChangedAsync(d))"
+                        CalendarViewMode="CalendarViewMode.Year"
+                        PickerDisplayMode="DatePickerDisplayMode.Calendar"
+                        Format="yyyy-MM" DisplayFormat="yyyy년 MM월"
+                        MinDate="@(new DateTime(2000, 1, 1))" MaxDate="@(new DateTime(2100, 12, 31))"
+                        Style="width: 150px" />
         </CommSchItem>
     </Fields>
 </CommSch>

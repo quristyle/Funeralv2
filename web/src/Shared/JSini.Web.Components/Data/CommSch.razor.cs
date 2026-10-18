@@ -22,6 +22,16 @@ public partial class CommSch
     [Parameter] public string SearchText { get; set; } = "조회";
 
     /// <summary>
+    /// 조회 단추를 <b>새로고침 아이콘 하나</b>로 그린다. <see cref="SearchText"/> 는 풍선 도움말로 간다.
+    ///
+    /// <para>
+    /// 조건이 바뀌는 즉시 다시 읽는 화면에서 쓴다 — 거기서 단추는 「조회」가 아니라
+    /// 「지금 다시 읽기」라, 글자 단추가 서 있으면 눌러야 반영되는 것으로 읽힌다.
+    /// </para>
+    /// </summary>
+    [Parameter] public bool ReloadIcon { get; set; }
+
+    /// <summary>
     /// 조회 중인가. 켜면 <b>조회 단추가 잠긴다.</b>
     ///
     /// <para>

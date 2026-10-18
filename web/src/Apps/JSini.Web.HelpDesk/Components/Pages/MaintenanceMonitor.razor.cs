@@ -10,14 +10,11 @@ public partial class MaintenanceMonitor
     [Inject] private HelpDeskApi Api { get; set; } = default!;
     [Inject] private HelpDeskContext Context { get; set; } = default!;
 
-    /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
-    private string ConditionSummary => $"{_year} 년 {_month} 월";
-
     /// <summary>해결 시간 구간 한 칸.</summary>
     public sealed record Bucket(string Label, int Count);
 
-    private int _year;
-    private int _month;
+    /// <summary>고른 달. 날짜는 늘 1일로 둔다.</summary>
+    private DateTime _period;
 
     private MonthlyReport? _report;
     private IReadOnlyList<DailyRequestStat> _daily = [];
@@ -27,9 +24,20 @@ public partial class MaintenanceMonitor
     {
         // 지난달로 연다 — 이번 달은 아직 진행 중이라 숫자가 매일 바뀐다.
         var last = AppTime.TodayDate.AddMonths(-1);
-        _year = last.Year;
-        _month = last.Month;
+        _period = new DateTime(last.Year, last.Month, 1);
 
+        await ReloadAsync();
+    }
+
+    private async Task OnPeriodChangedAsync(DateTime picked)
+    {
+        var period = new DateTime(picked.Year, picked.Month, 1);
+        if (period == _period)
+        {
+            return;
+        }
+
+        _period = period;
         await ReloadAsync();
     }
 
@@ -40,9 +48,9 @@ public partial class MaintenanceMonitor
         // 고객으로 연결된 계정은 자기 회사만 본다. 관리자는 비워 전체를 본다.
         _report = Context.CompanyId is { Length: > 0 } companyId
             ? await Api.GetAsync<MonthlyReport>(
-                "requests/report/monthly", new { year = _year, month = _month, companyId })
+                "requests/report/monthly", new { year = _period.Year, month = _period.Month, companyId })
             : await Api.GetAsync<MonthlyReport>(
-                "requests/report/monthly", new { year = _year, month = _month });
+                "requests/report/monthly", new { year = _period.Year, month = _period.Month });
 
         _daily = _report?.DailyStats ?? [];
 

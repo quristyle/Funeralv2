@@ -99,7 +99,7 @@
     더 먹는 화면, 그리고 **그 칸이 거르개가 아니라 화면의 주 조작인 화면**
     (참여 배정의 「프로젝트/사람」 · 전문 해석기의 설비 모델)은
     `Foldable="false"` 로 끈다 — 접어 두면 일할 때마다 펴야 한다.
-    **까닭은 그 태그 위에 적는다.** 끈 것이 아홉인데 이유가 제각각이라,
+    **까닭은 그 태그 위에 적는다.** 끈 것이 열인데 이유가 제각각이라,
     적어 두지 않으면 다음 사람이 「빠뜨린 것」으로 읽고 도로 켠다.
 
     접혀 있어도 **화면 단추(`Actions`)는 머리줄 오른쪽에 남는다.** 「등록」이
@@ -146,11 +146,22 @@
 
                 @if (OnSearch.HasDelegate)
                 {
-                    <DxButton Text="@SearchText"
-                              RenderStyle="ButtonRenderStyle.Primary"
-                              IconCssClass="jsini-icon-search"
-                              Enabled="@(!Busy)"
-                              Click="@SearchAsync" />
+                    @if (ReloadIcon)
+                    {
+                        <DxButton Title="@SearchText"
+                                  RenderStyle="ButtonRenderStyle.Secondary"
+                                  IconCssClass="jsini-icon-refresh"
+                                  Enabled="@(!Busy)"
+                                  Click="@SearchAsync" />
+                    }
+                    else
+                    {
+                        <DxButton Text="@SearchText"
+                                  RenderStyle="ButtonRenderStyle.Primary"
+                                  IconCssClass="jsini-icon-search"
+                                  Enabled="@(!Busy)"
+                                  Click="@SearchAsync" />
+                    }
                 }
             </div>
         }
