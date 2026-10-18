@@ -103,6 +103,42 @@ export function baseFontPx() {
   return Number.isFinite(px) && px > 0 ? px : 14;
 }
 
+/**
+ * 본문 글꼴. `fontSize` 와 같은 까닭으로 **풀린 값**을 넘긴다 — Monaco 는
+ * `var(--tb-font)` 를 못 읽는다. 사람이 [화면 설정 → 글꼴]에서 고른 것이 여기 담긴다.
+ */
+export function baseFontFamily() {
+  return getComputedStyle(document.body).fontFamily || '';
+}
+
+let followingFont = false;
+
+/**
+ * 글꼴을 바꾸면 **이미 떠 있는** 번역 판(`.pm-xlat`)도 따라 바꾼다. 서랍은
+ * `<html data-tb-font>` 만 갈고 회로에 알리지 않으므로 여기서 지켜본다.
+ * 받아 오는 글꼴(`swap`)은 다 온 뒤에 너비를 다시 재야 커서·줄바꿈이 맞는다.
+ */
+export function followBodyFont() {
+  if (followingFont) { return; }
+  followingFont = true;
+
+  const remeasure = () => window.monaco?.editor?.remeasureFonts();
+
+  new MutationObserver(() => {
+    const family = baseFontFamily();
+
+    for (const ed of window.monaco?.editor?.getEditors() ?? []) {
+      if (ed.getContainerDomNode()?.closest('.pm-xlat')) {
+        ed.updateOptions({ fontFamily: family });
+      }
+    }
+
+    document.fonts?.ready.then(remeasure);
+  }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-tb-font'] });
+
+  document.fonts?.addEventListener('loadingdone', remeasure);
+}
+
 /** 손가락이 이만큼 넘게 움직였으면 누름이 아니라 **굴리기**다(px). */
 const TAP_SLOP_PX = 12;
 

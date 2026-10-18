@@ -4597,7 +4597,10 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 
    길면 판이 길어지게 둔다. 판은 창이든 화면이든 이미 구르는 자리가
    하나씩 있다 — 창은 `CommPopup` 의 `Scrollable`, 화면은 페이지 그대로. */
+/* `<pre>` 는 Bootstrap 이 고정폭을 건다 — 사람이 [화면 설정 → 글꼴]에서
+   고른 글꼴이 이겨야 한다. */
 .pm-peek__pre {
+  font-family: var(--tb-font);
   margin: 0 0 0.5rem;
   padding: 0.6rem 0.75rem;
   white-space: pre-wrap;
@@ -7455,7 +7458,7 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
    확대도 함께 막는다.** 구를 것이 없는 상자에는 넘겨 줄 손짓이 없다 —
    기본값으로 두면 세로는 쪽이 받고, 가로는 줄바꿈을 끈 판이 받는다. */
 .pm-xlat__list {
-  font-family: var(--jsini-font-mono, ui-monospace, "Cascadia Mono", "D2Coding", monospace);
+  font-family: var(--tb-font);
   font-size: var(--jsini-fs-sm);
   line-height: 1.45;
 }

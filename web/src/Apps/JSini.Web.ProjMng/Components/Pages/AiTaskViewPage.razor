@@ -49,8 +49,7 @@
                       Title="다시 읽기" />
         </div>
 
-        <AiTaskView Item="@_item" Live="true" ReloadTick="@_tick"
-                    MissingText="그런 지시를 찾지 못했습니다. 지워졌거나 주소가 잘못되었습니다." />
+        <AiTaskView Item="@_item" Live="true" ReloadTick="@_tick" />
 
         @if (_item is not null)
         {

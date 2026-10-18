@@ -221,6 +221,9 @@ public partial class LogTranslateView
 
     private double _fontPx = 14;
 
+    /// <summary>사람이 고른 본문 글꼴(풀린 값). 비면 Monaco 기본(고정폭)이다.</summary>
+    private string? _fontFamily;
+
     /// <summary>
     /// 내용에 맞춰 잡은 틀 높이(px). <b>0 이면 아직 못 쟀다</b> — 그동안은
     /// CSS 가 정한 30rem 이 선다.
@@ -978,6 +981,8 @@ public partial class LogTranslateView
             // **편집기를 그리기 전에 잰다.** 옵션은 만들 때 한 번만 평가되므로
             // 여기서 놓치면 첫 그림이 기본 크기로 뜬다.
             _fontPx = await loader.InvokeAsync<double>("baseFontPx");
+            _fontFamily = await loader.InvokeAsync<string>("baseFontFamily");
+            await loader.InvokeVoidAsync("followBodyFont");
         }
         catch (Exception ex) when (ex is JSException or JSDisconnectedException
             or ObjectDisposedException or TaskCanceledException)
@@ -2024,6 +2029,7 @@ public partial class LogTranslateView
         EditContext = false,
         RenderLineHighlight = "none",
         FontSize = (int)Math.Round(_fontPx),
+        FontFamily = string.IsNullOrEmpty(_fontFamily) ? null : _fontFamily,
         LineNumbers = _lineNumbers ? "on" : "off",
         Minimap = new EditorMinimapOptions { Enabled = false },
         ScrollBeyondLastLine = false,

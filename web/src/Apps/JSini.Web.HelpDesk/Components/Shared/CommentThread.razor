@@ -97,19 +97,20 @@
                 <div class="hd-cmt__acts">
                     @if (CanReply)
                     {
-                        <DxButton IconCssClass="jsini-icon-comment"
+                        <DxButton IconCssClass="jsini-icon-comment-plus"
                                   RenderStyle="ButtonRenderStyle.Link"
                                   SizeMode="SizeMode.Small"
+                                  CssClass="hd-cmt__act"
                                   Title="@(IsOpen(node) ? "답글 접기" : "댓글")"
                                   aria-label="@(IsOpen(node) ? "답글 접기" : "댓글")"
                                   Click="@(() => ToggleAsync(node))" />
                     }
                     @if (CanDelete(node))
                     {
-                        <DxButton IconCssClass="jsini-icon-trash"
+                        <DxButton IconCssClass="jsini-icon-close"
                                   RenderStyle="ButtonRenderStyle.Link"
                                   SizeMode="SizeMode.Small"
-                                  CssClass="text-danger"
+                                  CssClass="hd-cmt__act hd-cmt__act--del"
                                   Title="삭제"
                                   aria-label="삭제"
                                   Click="@(() => DeleteAsync(node))" />
