@@ -271,6 +271,21 @@ public sealed class AiTask
     /// </remarks>
     public bool IsUserRequest { get; set; }
 
+    /// <summary>현재 작업 완료 시 자동으로 이어서 지시할 내용 (예약).</summary>
+    public string? PendingContinueAddition { get; set; }
+
+    /// <summary>예약된 이어서 지시의 실행기 종류.</summary>
+    public string? PendingContinueRunnerKind { get; set; }
+
+    /// <summary>예약된 이어서 지시 등록자.</summary>
+    public string? PendingContinueUserId { get; set; }
+
+    /// <summary>예약된 이어서 지시 등록 시각.</summary>
+    public DateTime? PendingContinueAt { get; set; }
+
+    /// <summary>예약된 이어서 지시가 있는가.</summary>
+    public bool HasPendingContinue => !string.IsNullOrWhiteSpace(PendingContinueAddition);
+
     /// <summary>지금 도는 중인가. 편집과 삭제를 막는 기준이다.</summary>
     public bool IsBusy => AiTaskStatus.IsBusy(TaskStatus);
 }

@@ -226,6 +226,20 @@ public sealed class AiTasksController(
         => Respond(await service.ContinueAsync(taskKey, req.Addition, req.RunnerKind, UserId));
 
     /// <summary>
+    /// <b>진행 중인 작업에 대해 완료 후 이어서 지시할 내용을 예약/저장한다.</b>
+    /// </summary>
+    [HttpPost("{taskKey:long}/pending-continue")]
+    public async Task<IActionResult> SetPendingContinueAsync(long taskKey, [FromBody] PendingContinueRequest req)
+        => Respond(await service.SetPendingContinueAsync(taskKey, req.Addition, req.RunnerKind, UserId));
+
+    /// <summary>
+    /// <b>예약된 이어서 지시를 취소한다.</b>
+    /// </summary>
+    [HttpDelete("{taskKey:long}/pending-continue")]
+    public async Task<IActionResult> ClearPendingContinueAsync(long taskKey)
+        => Respond(await service.SetPendingContinueAsync(taskKey, null, null, UserId));
+
+    /// <summary>
     /// <b>실패한 작업을 수동으로 다시 요청한다.</b> 추가 지시사항을 얹을 수 있다.
     /// </summary>
     [HttpPost("{taskKey:long}/retry")]
@@ -263,6 +277,15 @@ public sealed class AiTasksController(
         /// <summary>
         /// 이 회차를 맡을 AI. <b>비우면 지난 회차의 실행기를 그대로 쓴다.</b>
         /// </summary>
+        public string? RunnerKind { get; set; }
+    }
+
+    public sealed class PendingContinueRequest
+    {
+        /// <summary>작업 완료 후 이어서 시킬 일.</summary>
+        public string? Addition { get; set; }
+
+        /// <summary>이어서 시킬 때 맡길 AI.</summary>
         public string? RunnerKind { get; set; }
     }
 

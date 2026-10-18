@@ -114,12 +114,16 @@ public sealed class AiTaskService(
         -- 아직 실행 줄이 없는 차수의 제목. **화면이 그 차수의 머리줄에 건다** —
         -- 보냈는데 아무도 안 집어 간 동안에도 「무엇을 시킨 차수인가」가 보여야
         -- 한다(`AiTurnTitler`).
-        a.next_turn_title AS NextTurnTitle,
-        a.is_user_request AS IsUserRequest,
-        a.cre_id          AS CreId,
-        a.cre_dt          AS CreDt,
-        a.mod_id          AS ModId,
-        a.mod_dt          AS ModDt
+        a.next_turn_title              AS NextTurnTitle,
+        a.pending_continue_addition    AS PendingContinueAddition,
+        a.pending_continue_runner_kind AS PendingContinueRunnerKind,
+        a.pending_continue_user_id     AS PendingContinueUserId,
+        a.pending_continue_at          AS PendingContinueAt,
+        a.is_user_request              AS IsUserRequest,
+        a.cre_id                       AS CreId,
+        a.cre_dt                       AS CreDt,
+        a.mod_id                       AS ModId,
+        a.mod_dt                       AS ModDt
         """;
 
     /// <summary>
@@ -757,19 +761,90 @@ public sealed class AiTaskService(
 
         var affected = await db.ExecuteAsync("""
             UPDATE projmng.ai_task
-               SET contents     = @body,
-                   runner_kind  = @kind,
-                   task_status  = 'idle',
-                   request_flag = 'none',
-                   last_error   = NULL,
-                   notify_error = NULL,
-                   row_version  = row_version + 1,
-                   mod_id       = @userId,
-                   mod_dt       = now()
+               SET contents                     = @body,
+                   runner_kind                  = @kind,
+                   task_status                  = 'idle',
+                   request_flag                 = 'none',
+                   pending_continue_addition    = NULL,
+                   pending_continue_runner_kind = NULL,
+                   pending_continue_user_id     = NULL,
+                   pending_continue_at          = NULL,
+                   last_error                   = NULL,
+                   notify_error                 = NULL,
+                   row_version                  = row_version + 1,
+                   mod_id                       = @userId,
+                   mod_dt                       = now()
              WHERE task_key = @taskKey AND is_deleted = false
             """, new { taskKey, body, kind, userId });
 
         return affected == 0
+            ? AiTaskEditResult.Conflict("그 사이에 상태가 바뀌었습니다.")
+            : AiTaskEditResult.Ok(await GetAsync(taskKey));
+    }
+
+    /// <summary>
+    /// <b>진행 중인 작업에 대해 완료 후 이어서 지시할 내용을 예약/저장하거나 취소한다.</b>
+    /// </summary>
+    public async Task<AiTaskEditResult> SetPendingContinueAsync(
+        long taskKey, string? addition, string? runnerKind, string? userId)
+    {
+        var current = await GetAsync(taskKey);
+        if (current is null)
+        {
+            return AiTaskEditResult.NotFound();
+        }
+
+        using var db = Open();
+
+        if (string.IsNullOrWhiteSpace(addition))
+        {
+            // 예약 취소
+            var affected = await db.ExecuteAsync("""
+                UPDATE projmng.ai_task
+                   SET pending_continue_addition    = NULL,
+                       pending_continue_runner_kind = NULL,
+                       pending_continue_user_id     = NULL,
+                       pending_continue_at          = NULL,
+                       row_version                  = row_version + 1,
+                       mod_id                       = @userId,
+                       mod_dt                       = now()
+                 WHERE task_key = @taskKey AND is_deleted = false
+                """, new { taskKey, userId });
+
+            return affected == 0
+                ? AiTaskEditResult.Conflict("그 사이에 상태가 바뀌었습니다.")
+                : AiTaskEditResult.Ok(await GetAsync(taskKey));
+        }
+
+        var kind = string.IsNullOrWhiteSpace(runnerKind)
+            ? current.RunnerKind
+            : runnerKind.Trim();
+
+        if (string.IsNullOrWhiteSpace(kind))
+        {
+            kind = "claude";
+        }
+
+        if (!string.Equals(kind, current.RunnerKind, StringComparison.OrdinalIgnoreCase)
+            && !RunnerAllowed(current.TargetRunnerKinds, kind))
+        {
+            return AiTaskEditResult.Conflict(
+                $"고른 대상은 '{kind}' 실행기를 허용하지 않습니다.");
+        }
+
+        var updated = await db.ExecuteAsync("""
+            UPDATE projmng.ai_task
+               SET pending_continue_addition    = @addition,
+                   pending_continue_runner_kind = @kind,
+                   pending_continue_user_id     = @userId,
+                   pending_continue_at          = now(),
+                   row_version                  = row_version + 1,
+                   mod_id                       = @userId,
+                   mod_dt                       = now()
+             WHERE task_key = @taskKey AND is_deleted = false
+            """, new { taskKey, addition = addition.Trim(), kind, userId });
+
+        return updated == 0
             ? AiTaskEditResult.Conflict("그 사이에 상태가 바뀌었습니다.")
             : AiTaskEditResult.Ok(await GetAsync(taskKey));
     }

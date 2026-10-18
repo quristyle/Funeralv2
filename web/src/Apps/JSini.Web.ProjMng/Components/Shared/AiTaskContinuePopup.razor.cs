@@ -43,6 +43,7 @@ public partial class AiTaskContinuePopup : IDisposable
     private string? _continueAddition;
     private string? _continueError;
     private string? _continueKind;
+    private bool _hasSavedPending;
 
     /// <summary>작업 완료 시 자동으로 이어서 지시를 요청할지 여부</summary>
     private bool _autoSubmitOnComplete = true;
@@ -142,6 +143,16 @@ public partial class AiTaskContinuePopup : IDisposable
         _lastItemStatus = item.TaskStatus;
         _lastHandledItem = item;
         _autoSubmitOnComplete = item.IsBusy;
+        _hasSavedPending = item.HasPendingContinue;
+
+        if (_hasSavedPending && !string.IsNullOrWhiteSpace(item.PendingContinueAddition))
+        {
+            _continueAddition = item.PendingContinueAddition;
+            if (!string.IsNullOrWhiteSpace(item.PendingContinueRunnerKind))
+            {
+                _continueKind = MatchKindCase(item.PendingContinueRunnerKind);
+            }
+        }
 
         if (!_kindsRead)
         {
@@ -154,9 +165,12 @@ public partial class AiTaskContinuePopup : IDisposable
             await LoadUsageAsync();
         }
 
-        _continueKind = MatchKindCase(item.RunnerKind);
+        if (!_hasSavedPending || string.IsNullOrWhiteSpace(_continueKind))
+        {
+            _continueKind = MatchKindCase(item.RunnerKind);
+        }
 
-        if (_continueTaskKey > 0)
+        if (_continueTaskKey > 0 && !_hasSavedPending)
         {
             ContinueDrafts.Use(await MeAsync());
 
@@ -212,20 +226,41 @@ public partial class AiTaskContinuePopup : IDisposable
         var prevStatus = _lastItemStatus;
         Item = fresh;
         _lastItemStatus = fresh.TaskStatus;
+        _hasSavedPending = fresh.HasPendingContinue;
 
-        if (prevStatus is "queued" or "preparing" or "running" && fresh.TaskStatus == "succeeded")
+        if (prevStatus is "queued" or "preparing" or "running")
         {
-            StopPoll();
-            if (_autoSubmitOnComplete && !string.IsNullOrWhiteSpace(_continueAddition) && !_continuing)
+            if (fresh.TaskStatus == "succeeded")
             {
-                await DoContinueAsync();
+                StopPoll();
+                if (!_hasSavedPending && _autoSubmitOnComplete && !string.IsNullOrWhiteSpace(_continueAddition) && !_continuing)
+                {
+                    await DoContinueAsync();
+                }
+                else if (_hasSavedPending)
+                {
+                    Close();
+                    if (OnContinued.HasDelegate)
+                    {
+                        await OnContinued.InvokeAsync(fresh);
+                    }
+                }
             }
-        }
-        else if (prevStatus is "queued" or "preparing" or "running" && fresh.IsFinal && fresh.TaskStatus != "succeeded")
-        {
-            StopPoll();
-            _autoSubmitOnComplete = false;
-            _continueError = $"선행 작업이 '{fresh.StatusText}'(으)로 완료되지 않아 자동 요청을 중단했습니다.";
+            else if (fresh.IsContinuing || (fresh.TaskStatus == "queued" && fresh.LastRunKey is not null))
+            {
+                StopPoll();
+                Close();
+                if (OnContinued.HasDelegate)
+                {
+                    await OnContinued.InvokeAsync(fresh);
+                }
+            }
+            else if (fresh.IsFinal && fresh.TaskStatus != "succeeded")
+            {
+                StopPoll();
+                _autoSubmitOnComplete = false;
+                _continueError = $"선행 작업이 '{fresh.StatusText}'(으)로 완료되지 않아 자동 요청을 중단했습니다.";
+            }
         }
         else if (!fresh.IsBusy)
         {
@@ -288,6 +323,7 @@ public partial class AiTaskContinuePopup : IDisposable
         _continueKind = null;
         _continueRestored = false;
         _continueSavedAt = null;
+        _hasSavedPending = false;
 
         if (VisibleChanged.HasDelegate)
         {
@@ -382,6 +418,95 @@ public partial class AiTaskContinuePopup : IDisposable
         catch (Exception ex)
         {
             _continueError = $"이어서 지시 요청 중 오류가 발생했습니다: {ex.Message}";
+        }
+        finally
+        {
+            _continuing = false;
+        }
+    }
+
+    private async Task SavePendingContinueAsync()
+    {
+        if (Item is not { } t || _continuing)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_continueAddition))
+        {
+            return;
+        }
+
+        _continuing = true;
+        _continueError = null;
+
+        try
+        {
+            var addition = AiTaskAlways.Append(_continueAddition);
+            var updated = await Api.SetPendingContinueAsync(t.TaskKey, addition!, _continueKind);
+            if (updated is not null)
+            {
+                Item = updated;
+                _hasSavedPending = true;
+                await ContinueDrafts.ClearAsync(ContinueSelector, t.TaskKey);
+
+                if (OnContinued.HasDelegate)
+                {
+                    await OnContinued.InvokeAsync(updated);
+                }
+
+                Close();
+            }
+        }
+        catch (ApiException ex)
+        {
+            _continueError = $"자동 요청 예약에 실패했습니다: {ex.Message}";
+        }
+        catch (Exception ex)
+        {
+            _continueError = $"자동 요청 예약 중 오류가 발생했습니다: {ex.Message}";
+        }
+        finally
+        {
+            _continuing = false;
+        }
+    }
+
+    private async Task CancelPendingContinueAsync()
+    {
+        if (Item is not { } t || _continuing)
+        {
+            return;
+        }
+
+        _continuing = true;
+        _continueError = null;
+
+        try
+        {
+            await Api.ClearPendingContinueAsync(t.TaskKey);
+            t.PendingContinueAddition = null;
+            t.PendingContinueRunnerKind = null;
+            t.PendingContinueUserId = null;
+            t.PendingContinueAt = null;
+            _hasSavedPending = false;
+            _continueAddition = null;
+            await ContinueDrafts.ClearAsync(ContinueSelector, t.TaskKey);
+
+            if (OnContinued.HasDelegate)
+            {
+                await OnContinued.InvokeAsync(t);
+            }
+
+            Close();
+        }
+        catch (ApiException ex)
+        {
+            _continueError = $"자동 요청 취소에 실패했습니다: {ex.Message}";
+        }
+        catch (Exception ex)
+        {
+            _continueError = $"자동 요청 취소 중 오류가 발생했습니다: {ex.Message}";
         }
         finally
         {

@@ -16,8 +16,16 @@
     <BodyContentTemplate>
         @if (Item?.IsBusy == true)
         {
-            <PageNotice Tone="NoticeTone.Info"
-                        Text="@($"현재 작업이 '{Item?.StatusText}' 상태입니다. 지시 내용을 미리 작성해 두시면 작업이 완료되는 즉시 이어서 요청할 수 있습니다.")" />
+            @if (_hasSavedPending)
+            {
+                <PageNotice Tone="NoticeTone.Info"
+                            Text="@($"현재 작업이 '{Item?.StatusText}' 상태이며, 완료 시 자동으로 이어서 지시하도록 예약되어 있습니다.")" />
+            }
+            else
+            {
+                <PageNotice Tone="NoticeTone.Info"
+                            Text="@($"현재 작업이 '{Item?.StatusText}' 상태입니다. 지시 내용을 미리 작성해 두시면 작업이 완료되는 즉시 이어서 요청할 수 있습니다.")" />
+            }
         }
 
         @* 이 회차를 맡을 AI. 고르개는 공통 부품이고(`AiRunnerPick`)
@@ -73,17 +81,29 @@
     </BodyContentTemplate>
 
     <FooterContentTemplate Context="popupContext">
-        @if (Item?.IsBusy == true && !_autoSubmitOnComplete)
+        @if (Item?.IsBusy == true)
         {
-            <DxButton Text="작업 완료 후 요청 가능" RenderStyle="ButtonRenderStyle.Primary"
-                      Enabled="false"
-                      Title="현재 작업이 진행 중입니다. 작업이 완료되면 버튼이 활성화됩니다." />
-        }
-        else if (Item?.IsBusy == true && _autoSubmitOnComplete)
-        {
-            <DxButton Text="완료 시 자동 요청 대기중" RenderStyle="ButtonRenderStyle.Primary"
-                      Enabled="false"
-                      Title="작업이 완료되면 작성하신 지시 내용이 자동으로 서버에 요청됩니다." />
+            @if (!_autoSubmitOnComplete)
+            {
+                <DxButton Text="작업 완료 후 요청 가능" RenderStyle="ButtonRenderStyle.Primary"
+                          Enabled="false"
+                          Title="현재 작업이 진행 중입니다. 체크박스를 켜면 완료 시 자동 요청을 예약할 수 있습니다." />
+            }
+            else
+            {
+                <DxButton Text="@(_hasSavedPending ? "완료 시 자동 요청 수정" : "완료 시 자동 요청")"
+                          RenderStyle="ButtonRenderStyle.Primary"
+                          Enabled="@(!string.IsNullOrWhiteSpace(_continueAddition) && !_continuing)"
+                          Click="@SavePendingContinueAsync"
+                          Title="작업이 완료되면 작성하신 지시 내용이 자동으로 서버에서 이어서 실행됩니다." />
+            }
+
+            @if (_hasSavedPending)
+            {
+                <DxButton Text="자동 요청 취소" RenderStyle="ButtonRenderStyle.Danger"
+                          Enabled="@(!_continuing)"
+                          Click="@CancelPendingContinueAsync" />
+            }
         }
         else
         {

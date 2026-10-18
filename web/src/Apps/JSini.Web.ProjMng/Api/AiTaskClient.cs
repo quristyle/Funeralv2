@@ -140,6 +140,21 @@ public sealed class AiTaskClient(GatewayClient gateway)
             $"{Url}/{taskKey}/continue", new { addition, runnerKind }, ct);
 
     /// <summary>
+    /// <b>진행 중인 작업에 완료 시 이어서 지시할 내용을 예약 저장한다.</b>
+    /// </summary>
+    public Task<AiTaskDto?> SetPendingContinueAsync(
+        long taskKey, string addition, string? runnerKind = null, CancellationToken ct = default)
+        => gateway.PostAsync<AiTaskDto>(
+            $"{Url}/{taskKey}/pending-continue", new { addition, runnerKind }, ct);
+
+    /// <summary>
+    /// <b>예약된 이어서 지시를 취소한다.</b>
+    /// </summary>
+    public Task ClearPendingContinueAsync(
+        long taskKey, CancellationToken ct = default)
+        => gateway.DeleteAsync($"{Url}/{taskKey}/pending-continue", ct);
+
+    /// <summary>
     /// <b>실패한 작업을 수동으로 다시 요청한다.</b> 추가 지시사항이 있으면 본문 뒤에 덧붙인다.
     /// </summary>
     public Task<AiTaskDto?> RetryAsync(
@@ -566,6 +581,21 @@ public sealed class AiTaskDto
     /// </para>
     /// </remarks>
     public bool IsUserRequest { get; set; }
+
+    /// <summary>현재 작업 완료 시 자동으로 이어서 지시할 내용 (예약).</summary>
+    public string? PendingContinueAddition { get; set; }
+
+    /// <summary>예약된 이어서 지시의 실행기 종류.</summary>
+    public string? PendingContinueRunnerKind { get; set; }
+
+    /// <summary>예약된 이어서 지시 등록자.</summary>
+    public string? PendingContinueUserId { get; set; }
+
+    /// <summary>예약된 이어서 지시 등록 시각.</summary>
+    public DateTime? PendingContinueAt { get; set; }
+
+    /// <summary>예약된 이어서 지시가 있는가.</summary>
+    public bool HasPendingContinue => !string.IsNullOrWhiteSpace(PendingContinueAddition);
 
     public DateTime? RequestedAt { get; set; }
     public DateTime? StartedAt { get; set; }

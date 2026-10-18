@@ -20,7 +20,8 @@ namespace ProjMngServer.Services;
 /// </remarks>
 public sealed class AiRunService(
     IConfiguration configuration, AiTaskNotifier notifier, AiRunSummaryWriter summaries,
-    AiRunFileWriter files, AiTaskTitler titler, AiTaskQueue queue, ILogger<AiRunService> logger)
+    AiRunFileWriter files, AiTaskTitler titler, AiTaskQueue queue,
+    IServiceScopeFactory scopeFactory, ILogger<AiRunService> logger)
 {
     private readonly string _connectionString =
         configuration.GetConnectionString("jsini")
@@ -455,7 +456,10 @@ public sealed class AiRunService(
             SELECT t.task_key AS TaskKey, t.attempt_count AS Count, t.attempt_max AS Max,
                    COALESCE(g.isolation_mode,
                             CASE WHEN g.target_kind = 'repo' THEN 'worktree' ELSE 'copy' END)
-                     AS Isolation
+                     AS Isolation,
+                   t.pending_continue_addition AS PendingAddition,
+                   t.pending_continue_runner_kind AS PendingRunnerKind,
+                   t.pending_continue_user_id AS PendingUserId
               FROM projmng.ai_task t
               JOIN projmng.ai_target g ON g.target_key = t.target_key
              WHERE t.task_key = ( SELECT task_key FROM projmng.ai_task_run WHERE run_key = @runKey )
@@ -472,8 +476,12 @@ public sealed class AiRunService(
         // 집어 간다 — 상태도 대기로 되돌린다.
         await db.ExecuteAsync("""
             UPDATE projmng.ai_task t
-               SET task_status    = CASE WHEN @retry THEN 'queued' ELSE @status END,
-                   request_flag   = CASE WHEN @retry THEN 'requested' ELSE 'none' END,
+               SET task_status                  = CASE WHEN @retry THEN 'queued' ELSE @status END,
+                   request_flag                 = CASE WHEN @retry THEN 'requested' ELSE 'none' END,
+                   pending_continue_addition    = CASE WHEN @status = 'succeeded' THEN NULL ELSE t.pending_continue_addition END,
+                   pending_continue_runner_kind = CASE WHEN @status = 'succeeded' THEN NULL ELSE t.pending_continue_runner_kind END,
+                   pending_continue_user_id     = CASE WHEN @status = 'succeeded' THEN NULL ELSE t.pending_continue_user_id END,
+                   pending_continue_at          = CASE WHEN @status = 'succeeded' THEN NULL ELSE t.pending_continue_at END,
 
                    -- **다시 넣은 것은 지연 시간 뒤로 요청 시각을 찍는다.** 안 찍으면
                    -- 처음 보낸 시각이 그대로 남아, 감시자가 보기에 이미
@@ -548,6 +556,38 @@ public sealed class AiRunService(
         // 알림·요약·제목은 **기다리지 않는다.** 실행기의 완료 보고가 그 시간만큼
         // 늦어질 이유가 없다 — 그 사이 실행 슬롯이 묶인다.
         _ = SummarizeThenNotifyAsync(runKey);
+
+        if (!retry && status == AiTaskStatus.Succeeded && !string.IsNullOrWhiteSpace(counters.PendingAddition))
+        {
+            logger.LogInformation("작업 {TaskKey} 가 성공 완료되어 예약된 이어서 지시를 자동 실행합니다.", counters.TaskKey);
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    // 완료 후 요약/알림 처리가 먼저 시작될 수 있도록 짧게 대기
+                    await Task.Delay(1000);
+                    using var scope = scopeFactory.CreateScope();
+                    var taskService = scope.ServiceProvider.GetRequiredService<AiTaskService>();
+                    var contResult = await taskService.ContinueAsync(
+                        counters.TaskKey, counters.PendingAddition, counters.PendingRunnerKind, counters.PendingUserId);
+                    if (contResult.IsOk)
+                    {
+                        var reqResult = await taskService.RequestAsync(counters.TaskKey, counters.PendingUserId);
+                        logger.LogInformation("작업 {TaskKey} 예약된 이어서 지시 자동 요청 완료: ok={Ok}",
+                            counters.TaskKey, reqResult.IsOk);
+                    }
+                    else
+                    {
+                        logger.LogWarning("작업 {TaskKey} 예약된 이어서 지시 실패: {Conflict}",
+                            counters.TaskKey, contResult.ConflictMessage);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "작업 {TaskKey} 예약된 이어서 지시 처리 중 예외 발생", counters.TaskKey);
+                }
+            });
+        }
 
         return true;
     }
@@ -729,6 +769,9 @@ public sealed class AiRunService(
         /// </para>
         /// </summary>
         public string? Isolation { get; set; }
+        public string? PendingAddition { get; set; }
+        public string? PendingRunnerKind { get; set; }
+        public string? PendingUserId { get; set; }
     }
 
     // ── 조회 (화면이 쓴다) ──────────────────────────────────
