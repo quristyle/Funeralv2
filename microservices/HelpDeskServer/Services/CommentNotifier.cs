@@ -1,13 +1,15 @@
 using System.Net;
 
+using HelpDeskServer.Data;
 using HelpDeskServer.Models;
 using HtmlAgilityPack;
 using JSini.Shared.DTOs;
+using Microsoft.EntityFrameworkCore;
 
 namespace HelpDeskServer.Services;
 
 /// <summary>
-/// <b>내가 쓴 요청글에 댓글이 달렸다</b>를 그 글의 주인에게 알린다 — 앱 푸시와 이메일.
+/// <b>내가 쓴 요청글에 댓글이 달렸거나, 내가 쓴 댓글에 답글이 달렸다</b>를 당사자에게 알린다 — 앱 푸시와 이메일.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -25,6 +27,14 @@ namespace HelpDeskServer.Services;
 /// 이메일은 처음부터 없었다. 요청 <b>등록</b>과 <b>완료</b>에는 메일이 나가는데
 /// (<c>EMailUtil</c>) 댓글에는 없어서, 글을 올린 사람은 답이 달린 것을 <b>그
 /// 요청글을 다시 열어 봐야</b> 알았다.
+/// </para>
+///
+/// <para>
+/// [댓글에 답글이 달렸을 때의 알림]
+/// </para>
+/// <para>
+/// 댓글에 답글이 달리면(<c>ParentCommentId</c>), 그 부모 댓글의 작성자에게 답글 알림을 보낸다.
+/// 요청글 작성자와 부모 댓글 작성자가 같은 사람일 때는 답글 알림 한 통만 보내어 중복 수신을 막는다.
 /// </para>
 ///
 /// <para>
@@ -77,7 +87,7 @@ namespace HelpDeskServer.Services;
 /// </remarks>
 public interface ICommentNotifier {
   /// <summary>
-  /// 댓글 하나를 알린다. 글 주인을 포털 계정으로 풀지 못하면 아무것도 하지 않는다.
+  /// 댓글 하나를 알린다. 당사자를 포털 계정으로 풀지 못하면 아무것도 하지 않는다.
   /// </summary>
   /// <param name="comment">방금 저장한 댓글. 아이디가 채워져 있어야 한다(주소에 싣는다).</param>
   /// <param name="request">그 댓글이 달린 요청글.</param>
@@ -103,15 +113,18 @@ public sealed class CommentNotifier : ICommentNotifier {
   /// </summary>
   private const int PreviewLength = 120;
 
+  private readonly AppDbContext _db;
   private readonly IRequestOwnerResolver _owners;
   private readonly INotifyGateway _gateway;
   private readonly ILogger<CommentNotifier> _logger;
 
   /// <summary>서비스를 생성한다.</summary>
   public CommentNotifier(
+      AppDbContext db,
       IRequestOwnerResolver owners,
       INotifyGateway gateway,
       ILogger<CommentNotifier> logger) {
+    _db = db;
     _owners = owners;
     _gateway = gateway;
     _logger = logger;
@@ -122,24 +135,6 @@ public sealed class CommentNotifier : ICommentNotifier {
       ImprovementComment comment, ImprovementRequest request,
       string authorName, string? actorLoginId, CancellationToken ct = default) {
 
-    var ownerLoginId = await _owners.OwnerLoginIdAsync(request, ct);
-
-    if (string.IsNullOrWhiteSpace(ownerLoginId)) {
-      // **오류가 아니다.** 계정 연결이 없는 옛 요청글이 있다 — 그때는 보낼 곳이
-      // 없을 뿐이다. 다만 조용히 0 명이 되는 자리는 알아챌 수 있어야 한다.
-      _logger.LogInformation(
-          "요청 {RequestId} 의 작성자를 포털 계정으로 풀지 못해 댓글 알림을 보내지 않았습니다 "
-          + "(customerId={CustomerId}, createdBy={CreatedBy}).",
-          request.Id, request.CustomerId, request.CreatedBy);
-      return;
-    }
-
-    // **누가 썼든 글 주인에게 알린다 (2026-10-12 고침).** 여기에는
-    // `ownerLoginId == actorLoginId` 면 돌아서는 줄이 있었는데, 글을 올린
-    // 사람이 곧 그 글을 처리하는 관리자인 이 회사에서는 그것이 **유일한
-    // 길**이라 댓글 알림이 **한 통도 나가지 않았다** — 머리말의
-    // [자기 글에 자기가 단 답글도 보낸다] 참고.
-
     var preview = Preview(comment.CommentText);
 
     // **앱 알림과 메일이 같은 한 줄을 쓴다.** 두 벌로 두면 한쪽만 고쳐져
@@ -147,20 +142,65 @@ public sealed class CommentNotifier : ICommentNotifier {
     // 뒤의 조각(`#comment-…`)은 상세 화면이 댓글마다 달아 둔 자리 이름이다.
     var url = $"/helpdesk/request/detail/{request.Id}#comment-{comment.Id}";
 
-    await SendPushAsync(request, ownerLoginId, authorName, preview, url, actorLoginId, ct);
-    await SendEmailAsync(request, ownerLoginId, authorName, comment, url, ct);
+    // 1. 부모 댓글이 있는 경우(답글) 부모 댓글 작성자를 확인한다.
+    ImprovementComment? parentComment = null;
+    string? parentAuthorLoginId = null;
+
+    if (comment.ParentCommentId is { } parentId && parentId > 0) {
+      parentComment = await _db.Comments
+          .AsNoTracking()
+          .FirstOrDefaultAsync(c => c.Id == parentId, ct);
+
+      if (parentComment != null) {
+        parentAuthorLoginId = await _owners.CommentAuthorLoginIdAsync(parentComment, ct);
+        if (string.IsNullOrWhiteSpace(parentAuthorLoginId)) {
+          _logger.LogInformation(
+              "부모 댓글 {ParentCommentId} 의 작성자를 포털 계정으로 풀지 못했습니다 "
+              + "(authorId={AuthorId}, authorType={AuthorType}, createdBy={CreatedBy}).",
+              parentComment.Id, parentComment.AuthorId, parentComment.AuthorType, parentComment.CreatedBy);
+        }
+      }
+    }
+
+    // 2. 요청글 작성자를 확인한다.
+    var ownerLoginId = await _owners.OwnerLoginIdAsync(request, ct);
+    if (string.IsNullOrWhiteSpace(ownerLoginId)) {
+      _logger.LogInformation(
+          "요청 {RequestId} 의 작성자를 포털 계정으로 풀지 못했습니다 "
+          + "(customerId={CustomerId}, createdBy={CreatedBy}).",
+          request.Id, request.CustomerId, request.CreatedBy);
+    }
+
+    if (string.IsNullOrWhiteSpace(parentAuthorLoginId) && string.IsNullOrWhiteSpace(ownerLoginId)) {
+      return;
+    }
+
+    // 3. 부모 댓글 작성자에게 답글 알림 발송
+    if (!string.IsNullOrWhiteSpace(parentAuthorLoginId)) {
+      await SendPushAsync(request, parentAuthorLoginId, authorName, preview, url, actorLoginId, isReply: true, ct);
+      await SendEmailAsync(request, parentAuthorLoginId, authorName, comment, url, isReply: true, ct);
+    }
+
+    // 4. 요청글 작성자에게 댓글 알림 발송 (부모 댓글 작성자와 동일한 사람이면 중복 발송 방지)
+    if (!string.IsNullOrWhiteSpace(ownerLoginId)
+        && !string.Equals(ownerLoginId, parentAuthorLoginId, StringComparison.OrdinalIgnoreCase)) {
+      await SendPushAsync(request, ownerLoginId, authorName, preview, url, actorLoginId, isReply: false, ct);
+      await SendEmailAsync(request, ownerLoginId, authorName, comment, url, isReply: false, ct);
+    }
   }
 
   /// <summary>앱 푸시 한 통. 알림 서비스가 받는 사람의 기기를 찾아 보낸다.</summary>
   private async Task SendPushAsync(
-      ImprovementRequest request, string ownerLoginId, string authorName,
-      string preview, string url, string? actorLoginId, CancellationToken ct) {
+      ImprovementRequest request, string targetLoginId, string authorName,
+      string preview, string url, string? actorLoginId, bool isReply, CancellationToken ct) {
+
+    var label = isReply ? "답글" : "댓글";
 
     var payload = new {
-      owners = new[] { new { ownerType = "jsini", ownerKey = ownerLoginId } },
+      owners = new[] { new { ownerType = "jsini", ownerKey = targetLoginId } },
 
       message = new {
-        title = $"댓글 - {authorName}",
+        title = $"{label} - {authorName}",
         body = preview,
         url,
 
@@ -182,7 +222,7 @@ public sealed class CommentNotifier : ICommentNotifier {
     };
 
     await _gateway.PostAsync(
-        "/notifications/push", payload, CallerId, "댓글 앱푸시", $"요청 {request.Id}", ct);
+        "/notifications/push", payload, CallerId, $"{label} 앱푸시", $"요청 {request.Id} -> {targetLoginId}", ct);
   }
 
   /// <summary>이메일 한 통. 본문에 댓글 원문과 그 글로 가는 고리를 싣는다.</summary>
@@ -193,13 +233,15 @@ public sealed class CommentNotifier : ICommentNotifier {
   /// 받아 저쪽에서 풀어 준다.
   /// </remarks>
   private async Task SendEmailAsync(
-      ImprovementRequest request, string ownerLoginId, string authorName,
-      ImprovementComment comment, string url, CancellationToken ct) {
+      ImprovementRequest request, string targetLoginId, string authorName,
+      ImprovementComment comment, string url, bool isReply, CancellationToken ct) {
+
+    var label = isReply ? "답글" : "댓글";
 
     var payload = new {
-      toUser = ownerLoginId,
-      subject = $"[헬프데스크] {request.Title} — {authorName} 님의 댓글",
-      body = EmailBody(request, authorName, comment, url),
+      toUser = targetLoginId,
+      subject = $"[헬프데스크] {request.Title} — {authorName} 님의 {label}",
+      body = EmailBody(request, authorName, comment, url, isReply),
 
       // 저쪽 DTO 의 속성 이름은 `Html` 이다. `isHtml` 로 적으면 붙지 않고
       // 조용히 기본값이 쓰여 본문이 태그 그대로 보인다.
@@ -211,12 +253,12 @@ public sealed class CommentNotifier : ICommentNotifier {
     };
 
     await _gateway.PostAsync(
-        "/emails/send", payload, CallerId, "댓글 이메일", $"요청 {request.Id}", ct);
+        "/emails/send", payload, CallerId, $"{label} 이메일", $"요청 {request.Id} -> {targetLoginId}", ct);
   }
 
   /// <summary>
   /// 메일 본문. <b>댓글 원문을 그대로 싣는다</b> — 미리보기만 보내면 받는 사람이
-  /// 메일을 읽고도 포털을 열어야 한다.
+  /// 메일을 읽고도 포털을 열어야 한다. 포털 확인 링크는 단추 형태로 제공한다.
   /// </summary>
   /// <remarks>
   /// 댓글은 서식 편집기로 쓴 HTML 이라 <c>html = true</c> 로 보낸다. 그림은
@@ -224,19 +266,30 @@ public sealed class CommentNotifier : ICommentNotifier {
   /// 주소만 남는다 — 메일 크기가 부풀지 않는다.
   /// </remarks>
   private static string EmailBody(
-      ImprovementRequest request, string authorName, ImprovementComment comment, string url) {
+      ImprovementRequest request, string authorName, ImprovementComment comment, string url, bool isReply) {
 
     var portalUrl = $"https://portal.jsini.co.kr{url}";
     var title = WebUtility.HtmlEncode(request.Title ?? string.Empty);
     var who = WebUtility.HtmlEncode(authorName);
 
+    var messageText = isReply
+        ? $"<strong>{who}</strong> 님이 요청글 「{title}」 에 남기신 댓글에 답글을 남겼습니다."
+        : $"<strong>{who}</strong> 님이 요청글 「{title}」 에 댓글을 남겼습니다.";
+
     return $"""
-      <div style="font-family:'Malgun Gothic',sans-serif;font-size:14px;color:#222;">
-        <p><strong>{who}</strong> 님이 요청글 「{title}」 에 댓글을 남겼습니다.</p>
-        <blockquote style="margin:16px 0;padding:12px 16px;border-left:3px solid #ccc;background:#fafafa;">
+      <div style="font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:14px;color:#222;line-height:1.6;">
+        <p style="margin:0 0 12px 0;">{messageText}</p>
+        <blockquote style="margin:16px 0;padding:12px 16px;border-left:3px solid #007bff;background:#f8f9fa;">
           {comment.CommentText}
         </blockquote>
-        <p><a href="{portalUrl}" target="_blank">포털에서 열어 보기</a></p>
+        <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:20px;">
+          <tr>
+            <td align="center" style="background-color:#007bff;border-radius:4px;">
+              <a href="{portalUrl}" target="_blank"
+                 style="display:inline-block;padding:10px 22px;font-family:'Apple SD Gothic Neo','Malgun Gothic',sans-serif;font-size:14px;font-weight:bold;color:#ffffff;text-decoration:none;border-radius:4px;">포털에서 확인</a>
+            </td>
+          </tr>
+        </table>
       </div>
       """;
   }

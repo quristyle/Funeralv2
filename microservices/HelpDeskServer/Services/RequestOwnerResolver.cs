@@ -36,6 +36,11 @@ public interface IRequestOwnerResolver {
   /// 요청글 <b>접수자</b>(담당자)의 포털 로그인 아이디. 접수자가 없거나 못 찾으면 <c>null</c>.
   /// </summary>
   Task<string?> AssigneeLoginIdAsync(ImprovementRequest request, CancellationToken ct = default);
+
+  /// <summary>
+  /// 댓글 <b>작성자</b>의 포털 로그인 아이디. 못 찾으면 <c>null</c>.
+  /// </summary>
+  Task<string?> CommentAuthorLoginIdAsync(ImprovementComment comment, CancellationToken ct = default);
 }
 
 /// <inheritdoc />
@@ -93,6 +98,50 @@ public sealed class RequestOwnerResolver : IRequestOwnerResolver {
         .FirstOrDefaultAsync(ct);
 
     return Person(loginId);
+  }
+
+  /// <inheritdoc />
+  /// <remarks>
+  /// <para>
+  /// 댓글 작성자의 포털 로그인 아이디를 푼다.
+  /// </para>
+  /// <para>
+  /// 1. 계정 연결표(<c>auth_user_links</c>)를 먼저 본다.
+  /// </para>
+  /// <para>
+  /// 2. 담당자(<c>admin</c>)면 <c>admin.loginid</c>, 고객(<c>customer</c>)이면 <c>customer.loginid</c> 를 확인한다.
+  /// </para>
+  /// <para>
+  /// 3. 작성 시점의 감사 사용자(<c>CreatedBy</c>)를 받침으로 쓴다.
+  /// </para>
+  /// </remarks>
+  public async Task<string?> CommentAuthorLoginIdAsync(
+      ImprovementComment comment, CancellationToken ct = default) {
+
+    var userType = string.Equals(comment.AuthorType, "admin", StringComparison.OrdinalIgnoreCase) ? "admin" : "customer";
+    var linked = await LinkedLoginIdAsync(userType, comment.AuthorId, ct);
+    if (!string.IsNullOrWhiteSpace(linked)) return linked;
+
+    if (userType == "admin" && comment.AuthorId > 0) {
+      var loginId = await _db.Admins
+          .AsNoTracking()
+          .Where(a => a.Id == comment.AuthorId && !a.IsDeleted)
+          .Select(a => a.LoginId)
+          .FirstOrDefaultAsync(ct);
+      var person = Person(loginId);
+      if (!string.IsNullOrWhiteSpace(person)) return person;
+    }
+    else if (userType == "customer" && comment.AuthorId > 0) {
+      var loginId = await _db.Customers
+          .AsNoTracking()
+          .Where(c => c.Id == comment.AuthorId && !c.IsDeleted)
+          .Select(c => c.LoginId)
+          .FirstOrDefaultAsync(ct);
+      var person = Person(loginId);
+      if (!string.IsNullOrWhiteSpace(person)) return person;
+    }
+
+    return Person(comment.CreatedBy);
   }
 
   /// <summary>계정 연결표 한 줄을 읽는다.</summary>
