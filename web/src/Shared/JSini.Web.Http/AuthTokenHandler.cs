@@ -13,6 +13,19 @@ namespace JSini.Web.Http;
 /// (<c>Authorization</c> 붙이기 · <c>Accept-Language</c> 붙이기 ·
 /// <c>authenticateResponseInterceptor</c> 의 갱신 로직)를 한 군데로 모은 것이다.
 /// 화면은 이제 토큰을 아예 모른다.
+///
+/// <para>
+/// [이 인스턴스는 <b>모든 사용자가 함께 쓴다</b> — 사람의 것을 칸에 두지 않는다]
+/// </para>
+///
+/// <para>
+/// <c>AddHttpMessageHandler</c> 로 붙인 핸들러는 <c>HttpClientFactory</c> 가 자기
+/// 스코프에서 만들어 핸들러 줄째 몇 분씩 돌려 쓴다. 받은 <see cref="ITokenStore"/>
+/// 도 그 스코프의 한 벌이다. 그래서 「누구의 토큰인가」는 언제나 <b>지금 요청의
+/// 인증 쿠키</b>로 갈리게 하고(<c>TokenStore</c> · <c>RefreshedTokens</c>), 이
+/// 클래스의 칸에는 사람마다 다를 수 있는 값을 두지 않는다 — 두면 그 값이
+/// 남의 요청에 실려 <b>남의 이름 · 메뉴 · 권한으로</b> 화면이 뜬다.
+/// </para>
 /// </summary>
 public sealed class AuthTokenHandler(
     ITokenStore tokens,
@@ -39,19 +52,12 @@ public sealed class AuthTokenHandler(
     private static readonly HttpRequestOptionsKey<string> SentToken = new("JSini.SentToken");
 
     /// <summary>
-    /// 한 회로 안에서 갱신이 겹치지 않게 한다. 화면 하나가 API 를 대여섯 개
-    /// 동시에 부르는 일이 흔한데, 모두 401 을 받으면 갱신도 그 수만큼 나간다.
-    /// 그러면 마지막 것만 살아남고 앞선 토큰들은 즉시 무효가 된다.
+    /// 갱신이 겹치지 않게 한다. 화면 하나가 API 를 대여섯 개 동시에 부르는 일이
+    /// 흔한데, 모두 401 을 받으면 갱신도 그 수만큼 나간다. 그러면 마지막 것만
+    /// 살아남고 앞선 토큰들은 즉시 무효가 된다. 인스턴스가 공용이라 남의 갱신과도
+    /// 줄을 서지만, 갱신은 며칠에 한 번이라 값이 작다.
     /// </summary>
     private readonly SemaphoreSlim _refreshLock = new(1, 1);
-
-    /// <summary>
-    /// 갱신 요청이 <b>세션을 거절했는가</b>(401·403). 참일 때만 토큰을 버린다.
-    ///
-    /// 갱신 경로가 아예 없거나(404) 서버에 닿지 못한 것은 세션이 죽었다는
-    /// 근거가 아니다. 그것으로 토큰을 버리면 멀쩡한 토큰까지 잃는다.
-    /// </summary>
-    private bool _sessionRejected;
 
     protected override async Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request,
@@ -83,7 +89,7 @@ public sealed class AuthTokenHandler(
 
         response.Dispose();
 
-        var refreshed = await TryRefreshAsync(sentToken, cancellationToken);
+        var (refreshed, sessionRejected) = await TryRefreshAsync(sentToken, cancellationToken);
 
         if (!refreshed)
         {
@@ -96,7 +102,7 @@ public sealed class AuthTokenHandler(
             //
             // 정말로 세션이 죽었다면 다음 호출도 401 을 받는다. 그때 셸이
             // 로그인으로 보내므로 늦지 않는다.
-            if (_sessionRejected)
+            if (sessionRejected)
             {
                 tokens.Clear();
             }
@@ -159,14 +165,18 @@ public sealed class AuthTokenHandler(
     }
 
     /// <summary>
-    /// access token 을 갱신한다. 성공하면 참.
+    /// access token 을 갱신한다. 성공하면 <c>Refreshed</c> 가 참.
+    /// <c>SessionRejected</c> 는 갱신 요청이 <b>세션을 거절했는가</b>(401·403)이고,
+    /// 참일 때만 토큰을 버린다 — 갱신 경로가 없거나(404) 서버에 닿지 못한 것은
+    /// 세션이 죽었다는 근거가 아니다.
     /// </summary>
     /// <param name="sentToken">
     /// 401 을 받은 그 요청이 <b>들고 나갔던</b> 토큰. 통에 들어 있는 것이 이미
     /// 이것과 다르면 옆 요청이 먼저 갱신해 둔 것이므로 그대로 쓴다.
     /// </param>
     /// <param name="cancellationToken">취소 토큰</param>
-    private async Task<bool> TryRefreshAsync(string? sentToken, CancellationToken cancellationToken)
+    private async Task<(bool Refreshed, bool SessionRejected)> TryRefreshAsync(
+        string? sentToken, CancellationToken cancellationToken)
     {
         await _refreshLock.WaitAsync(cancellationToken);
         try
@@ -175,12 +185,12 @@ public sealed class AuthTokenHandler(
             var current = await tokens.GetAccessTokenAsync(cancellationToken);
             if (!string.Equals(current, sentToken, StringComparison.Ordinal))
             {
-                return current is { Length: > 0 };
+                return (current is { Length: > 0 }, false);
             }
 
             if (await tokens.GetRefreshCookieAsync(cancellationToken) is not { Length: > 0 } cookie)
             {
-                return false;
+                return (false, false);
             }
 
             // **절대 주소여야 한다.** `BaseAddress` 는 <see cref="HttpClient"/> 의
@@ -206,36 +216,31 @@ public sealed class AuthTokenHandler(
                 // 없다는 뜻일 뿐이고(AuthServer 가 `Auth:RefreshTokenDays` 를
                 // 0 으로 두면 그렇게 답한다), 그것으로 들고 있는 토큰까지
                 // 버릴 이유가 없다.
-                _sessionRejected =
+                var rejected =
                     response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden;
 
                 logger.Log(
-                    _sessionRejected ? LogLevel.Information : LogLevel.Debug,
+                    rejected ? LogLevel.Information : LogLevel.Debug,
                     "토큰 갱신 실패 ({Status}). 세션 거절 여부: {Rejected}",
-                    (int)response.StatusCode, _sessionRejected);
+                    (int)response.StatusCode, rejected);
 
-                return false;
+                return (false, rejected);
             }
 
             var token = await ReadTokenAsync(response, cancellationToken);
             if (token is not { Length: > 0 })
             {
                 logger.LogWarning("토큰 갱신 응답에서 access token 을 찾지 못했다.");
-                return false;
+                return (false, false);
             }
 
             tokens.UpdateAccessToken(token);
-
-            // **표시를 되돌린다.** 한 번 세워 두고 안 내리면, 뒷날 리프레시
-            // 쿠키가 없어 갱신을 못 한 것까지 「서버가 세션을 거절했다」로 읽혀
-            // 멀쩡한 토큰을 버린다.
-            _sessionRejected = false;
-            return true;
+            return (true, false);
         }
         catch (HttpRequestException ex)
         {
             logger.LogWarning(ex, "토큰 갱신 중 서버에 연결하지 못했다.");
-            return false;
+            return (false, false);
         }
         catch (InvalidOperationException ex)
         {
@@ -246,11 +251,10 @@ public sealed class AuthTokenHandler(
             // 보낸다」로 끝나야 하는 일인데, 사용자가 본 것은 추적 번호가 적힌
             // 오류 화면이었고 하던 일이 통째로 날아갔다.
             //
-            // 갱신에 실패했다고 토큰을 버리지는 않는다(_sessionRejected 가
-            // 거짓이다) — 서버가 세션을 거절한 것이 아니라 우리 쪽이 요청을
-            // 못 만든 것이기 때문이다.
+            // 갱신에 실패했다고 토큰을 버리지는 않는다 — 서버가 세션을 거절한
+            // 것이 아니라 우리 쪽이 요청을 못 만든 것이기 때문이다.
             logger.LogError(ex, "토큰 갱신 요청을 만들지 못했다.");
-            return false;
+            return (false, false);
         }
         finally
         {

@@ -298,6 +298,8 @@ public static class JSiniWebApp
         // 공유되면 어느 앱이든 꺼내 쓸 수 있다. 별도 세션 저장소가 필요 없다.
         // TokenStore 가 회로 전(정적 SSR) 에는 HttpContext 로 사용자를 본다.
         services.AddHttpContextAccessor();
+        // 갱신한 토큰은 사람마다의 TokenStore 가 아니라 이 통에 담는다 — 까닭은 그 머리말.
+        services.AddSingleton<RefreshedTokens>();
         services.AddScoped<ITokenStore, TokenStore>();
         services.AddJSiniGateway(configuration);
         // 부트스트랩이 구현체의 Apply 를 부르므로 구현체도 함께 올린다.
