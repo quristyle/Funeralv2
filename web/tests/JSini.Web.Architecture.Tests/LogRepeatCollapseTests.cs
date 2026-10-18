@@ -203,7 +203,7 @@ public sealed class LogRepeatCollapseTests
     }
 
     [Fact]
-    public void 여섯_줄_이상의_패턴은_최대_5줄_제한으로_인해_축약되지_않고_그대로_유지된다()
+    public void 여섯_줄_패턴이_연속으로_반복되면_최대_10줄_범위_내이므로_정상적으로_축약된다()
     {
         var input = new List<string>
         {
@@ -213,8 +213,68 @@ public sealed class LogRepeatCollapseTests
 
         var actual = LogTranslateView.CollapseRepeatsList(input);
 
-        Assert.Equal(12, actual.Count);
+        Assert.Equal(6, actual.Count);
+        Assert.Equal("(2) Line 1", actual[0]);
+        Assert.Equal("Line 2", actual[1]);
+        Assert.Equal("Line 3", actual[2]);
+        Assert.Equal("Line 4", actual[3]);
+        Assert.Equal("Line 5", actual[4]);
+        Assert.Equal("Line 6", actual[5]);
+    }
+
+    [Fact]
+    public void 열_줄_패턴이_연속으로_반복되면_최대_10줄_범위_내이므로_정상적으로_축약된다()
+    {
+        var pattern = Enumerable.Range(1, 10).Select(n => $"Line {n}").ToList();
+        var input = pattern.Concat(pattern).ToList();
+
+        var actual = LogTranslateView.CollapseRepeatsList(input);
+
+        Assert.Equal(10, actual.Count);
+        Assert.Equal("(2) Line 1", actual[0]);
+        for (var i = 1; i < 10; i++)
+        {
+            Assert.Equal($"Line {i + 1}", actual[i]);
+        }
+    }
+
+    [Fact]
+    public void 열한_줄_이상의_패턴은_최대_10줄_제한으로_인해_축약되지_않고_그대로_유지된다()
+    {
+        var pattern = Enumerable.Range(1, 11).Select(n => $"Line {n}").ToList();
+        var input = pattern.Concat(pattern).ToList();
+
+        var actual = LogTranslateView.CollapseRepeatsList(input);
+
+        Assert.Equal(22, actual.Count);
         Assert.Equal(input, actual);
+    }
+
+    [Fact]
+    public void 세_줄_패턴_앞에_첫_줄이_중복되어도_세_줄_패턴이_선점당하지_않고_올바르게_축약된다()
+    {
+        var input = new List<string>
+        {
+            "Connecting...",
+            "Connecting...",
+            "Querying...",
+            "Done.",
+            "Connecting...",
+            "Querying...",
+            "Done.",
+        };
+
+        var actual = LogTranslateView.CollapseRepeatsList(input);
+
+        var expected = new List<string>
+        {
+            "Connecting...",
+            "(2) Connecting...",
+            "Querying...",
+            "Done.",
+        };
+
+        Assert.Equal(expected, actual);
     }
 
     [Fact]

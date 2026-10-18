@@ -125,9 +125,9 @@ public partial class LogTranslateView
     private const string TargetLang = "ko";
 
     /// <summary>
-    /// 여러 줄 반복 축약 시 묶음으로 허용할 최대 줄 수 (기본값 5줄).
+    /// 여러 줄 반복 축약 시 묶음으로 허용할 최대 줄 수 (기본값 10줄).
     /// </summary>
-    public const int MaxRepeatPatternLength = 5;
+    public const int MaxRepeatPatternLength = 10;
 
     /// <summary>
     /// 이보다 긴 줄은 <b>한 번에 보낼 수 있는 양을 넘긴다.</b> 옮기지 않고
@@ -571,7 +571,7 @@ public partial class LogTranslateView
 
     /// <summary>
     /// 연속으로 반복되는 동일한 문자열 줄들을 하나로 축약하고 반복 횟수를 표시한다.
-    /// 1줄뿐만 아니라 최대 <paramref name="maxPatternLength"/>줄(기본 5줄)까지의 동일 반복 패턴을 묶어서
+    /// 1줄뿐만 아니라 최대 <paramref name="maxPatternLength"/>줄(기본 10줄)까지의 동일 반복 패턴을 묶어서
     /// 수치를 표시하고 묶음은 한 번만 표시되도록 한다.
     /// </summary>
     public static List<string> CollapseRepeatsList(IList<string> lines, int maxPatternLength = MaxRepeatPatternLength)
@@ -586,79 +586,113 @@ public partial class LogTranslateView
             maxPatternLength = 1;
         }
 
-        var result = new List<string>(lines.Count);
         var n = lines.Count;
-        var i = 0;
+        var dpSaved = new int[n + 1];
+        var bestLen = new int[n];
+        var bestCount = new int[n];
 
-        while (i < n)
+        for (var i = n - 1; i >= 0; i--)
         {
-            var bestPatternLen = 1;
-            var bestRepeatCount = 1;
-            var maxLinesSaved = 0;
+            // 기본 옵션: i번째 줄을 축약하지 않고 그대로 출력
+            dpSaved[i] = dpSaved[i + 1];
+            bestLen[i] = 1;
+            bestCount[i] = 1;
 
             var maxLen = Math.Min(maxPatternLength, (n - i) / 2);
 
-            for (var len = 1; len <= maxLen; len++)
+            // 긴 패턴(최대 10줄)부터 1줄까지 탐색하여 3줄 등의 다중 줄 반복 패턴이
+            // 1번 줄의 부분 반복으로 인해 선점되어 누락되는 현상을 방지한다.
+            for (var len = maxLen; len >= 1; len--)
             {
-                var repeatCount = 1;
-
-                while (i + (repeatCount + 1) * len <= n)
+                var maxK = 1;
+                while (i + (maxK + 1) * len <= n)
                 {
-                    var matches = true;
-                    for (var k = 0; k < len; k++)
+                    var match = true;
+                    for (var m = 0; m < len; m++)
                     {
-                        var expected = lines[i + k] ?? string.Empty;
-                        var actual = lines[i + repeatCount * len + k] ?? string.Empty;
+                        var expected = lines[i + m] ?? string.Empty;
+                        var actual = lines[i + maxK * len + m] ?? string.Empty;
                         if (!string.Equals(expected, actual, StringComparison.Ordinal))
                         {
-                            matches = false;
+                            match = false;
                             break;
                         }
                     }
 
-                    if (!matches)
+                    if (!match)
                     {
                         break;
                     }
 
-                    repeatCount++;
+                    maxK++;
                 }
 
-                if (repeatCount >= 2)
+                if (maxK < 2)
                 {
-                    var linesSaved = (repeatCount - 1) * len;
-                    var totalCovered = repeatCount * len;
-                    var bestTotalCovered = bestRepeatCount * bestPatternLen;
+                    continue;
+                }
 
-                    // 더 많은 줄을 절약하는 패턴을 우선한다.
-                    // 절약 줄 수가 같다면 더 많은 전체 입력 줄을 커버하는 것을 선택하고,
-                    // 그마저 같다면 더 작은 패턴 길이를 우선한다.
-                    if (linesSaved > maxLinesSaved ||
-                        (linesSaved == maxLinesSaved && totalCovered > bestTotalCovered))
+                for (var c = maxK; c >= 2; c--)
+                {
+                    var immediateSaved = (c - 1) * len;
+                    var saved = immediateSaved + dpSaved[i + c * len];
+                    var currentImmediateSaved = (bestCount[i] - 1) * bestLen[i];
+
+                    var isBetter = false;
+                    if (saved > dpSaved[i])
                     {
-                        maxLinesSaved = linesSaved;
-                        bestPatternLen = len;
-                        bestRepeatCount = repeatCount;
+                        isBetter = true;
+                    }
+                    else if (saved == dpSaved[i] && saved > 0)
+                    {
+                        // 전체 절약 줄 수가 같다면 즉시 절약 줄 수가 더 많은 것을 우선하고,
+                        // 그마저 같다면 더 긴 패턴 길이를 우선한다.
+                        if (immediateSaved > currentImmediateSaved)
+                        {
+                            isBetter = true;
+                        }
+                        else if (immediateSaved == currentImmediateSaved)
+                        {
+                            if (len > bestLen[i])
+                            {
+                                isBetter = true;
+                            }
+                        }
+                    }
+
+                    if (isBetter)
+                    {
+                        dpSaved[i] = saved;
+                        bestLen[i] = len;
+                        bestCount[i] = c;
                     }
                 }
             }
+        }
 
-            if (bestRepeatCount >= 2)
+        var result = new List<string>(n);
+        var idx = 0;
+        while (idx < n)
+        {
+            var count = bestCount[idx];
+            var len = bestLen[idx];
+
+            if (count >= 2)
             {
-                var firstLine = lines[i] ?? string.Empty;
-                result.Add(FormatRepeatLine(firstLine, bestRepeatCount));
+                var firstLine = lines[idx] ?? string.Empty;
+                result.Add(FormatRepeatLine(firstLine, count));
 
-                for (var k = 1; k < bestPatternLen; k++)
+                for (var k = 1; k < len; k++)
                 {
-                    result.Add(lines[i + k] ?? string.Empty);
+                    result.Add(lines[idx + k] ?? string.Empty);
                 }
 
-                i += bestRepeatCount * bestPatternLen;
+                idx += count * len;
             }
             else
             {
-                result.Add(lines[i] ?? string.Empty);
-                i++;
+                result.Add(lines[idx] ?? string.Empty);
+                idx++;
             }
         }
 
