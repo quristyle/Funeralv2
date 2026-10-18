@@ -141,6 +141,29 @@ public sealed class AiTaskWhenNearTests
         Assert.DoesNotContain("DxLayoutBreakpoint", razor);
     }
 
+    /// <summary>
+    /// 작업에 걸린 시간은 <b>mm:ss</b> 로 적는다. 모바일 화면에서 2줄로
+    /// 꺾이지 않도록 두 자리 분·초로 통일한다.
+    /// </summary>
+    [Fact]
+    public void 작업에_걸린_시간은_mmss_꼴로_적는다()
+    {
+        // 5초 -> 00:05
+        Assert.Equal("00:05", AiTaskWhen.Elapsed(new AiTaskDto { DurationMs = 5000 }));
+
+        // 3분 24초 -> 03:24
+        Assert.Equal("03:24", AiTaskWhen.Elapsed(new AiTaskDto { DurationMs = 204000 }));
+
+        // 1시간 2분 3초 -> 1:02:03
+        Assert.Equal("1:02:03", AiTaskWhen.Elapsed(new AiTaskDto { DurationMs = 3723000 }));
+
+        // 잰 시각이 없는 경우
+        Assert.Equal("-", AiTaskWhen.Elapsed(new AiTaskDto()));
+
+        // 대기 중인 경우
+        Assert.Equal("대기 중", AiTaskWhen.Elapsed(new AiTaskDto { Status = "WAITING" }));
+    }
+
     private static string TaskViewRazor() => RazorSource.Read(Path.Combine(
         SolutionRoot(), "src", "Apps", "JSini.Web.ProjMng", "Components", "Shared", "AiTaskView.razor"));
 

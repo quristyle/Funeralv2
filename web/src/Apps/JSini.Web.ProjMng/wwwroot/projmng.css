@@ -4552,6 +4552,32 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   white-space: nowrap;
 }
 
+/* 휴대폰에서는 머리띠 항목들이 2줄로 꺾이지 않도록 간격을 좁히고 한 줄로 세운다 */
+@media (max-width: 767px) {
+  .pm-peek__top {
+    gap: 0.35rem 0.55rem;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .pm-peek__top::-webkit-scrollbar {
+    display: none;
+  }
+
+  .pm-peek__top > * {
+    flex-shrink: 0;
+  }
+
+  .pm-peek__cell {
+    gap: 0.2rem;
+  }
+
+  .pm-peek__cell--who {
+    gap: 0.25rem;
+  }
+}
+
 .pm-peek__pane {
   padding-top: 0.6rem;
 }

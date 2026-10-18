@@ -146,7 +146,7 @@ internal static class AiTaskWhen
     /// <para>
     /// 음수는 「-」로 흘리지 않고 0 으로 눌러 적는다. 두 시계가 몇 초 어긋나면
     /// 방금 시작한 건이 통째로 사라지는데, <b>그 자리에 아무것도 없는 것이
-    /// 「0초」보다 나쁘다.</b>
+    /// 「00:00」보다 나쁘다.</b>
     /// </para>
     /// </remarks>
     public static string Elapsed(AiTaskDto t)
@@ -162,7 +162,7 @@ internal static class AiTaskWhen
 
         if (t.IsBusy)
         {
-            // 아직 집어 가지 않았다. 「0초」라고 적으면 **돌다가 즉시 끝난 것**과
+            // 아직 집어 가지 않았다. 「00:00」이라고 적으면 **돌다가 즉시 끝난 것**과
             // 구별이 안 된다.
             return t.StartedAt is { } running ? Span(AppTime.UtcNow - running) : "대기 중";
         }
@@ -227,7 +227,11 @@ internal static class AiTaskWhen
         return parts.Count == 0 ? "-" : string.Join(" · ", parts);
     }
 
-    /// <summary>걸린 시간 한 토막. 큰 자리 둘까지만 적는다.</summary>
+    /// <summary>
+    /// 걸린 시간 한 토막 — <b><c>mm:ss</c></b> 로 적는다.
+    /// 좁은 화면(모바일 머리띠 등)에서 2줄로 꺾이지 않도록 두 자리 분·초로
+    /// 통일한다. 한 시간을 넘기면 <c>h:mm:ss</c> 로 시 자리를 둔다.
+    /// </summary>
     private static string Span(TimeSpan d)
     {
         if (d < TimeSpan.Zero)
@@ -235,8 +239,8 @@ internal static class AiTaskWhen
             d = TimeSpan.Zero;
         }
 
-        return d.TotalMinutes < 1 ? $"{(int)d.TotalSeconds}초"
-            : d.TotalHours < 1 ? $"{(int)d.TotalMinutes}분 {d.Seconds}초"
-            : $"{(int)d.TotalHours}시간 {d.Minutes}분";
+        return d.TotalHours >= 1
+            ? $"{(int)d.TotalHours}:{d.Minutes:00}:{d.Seconds:00}"
+            : $"{(int)d.TotalMinutes:00}:{d.Seconds:00}";
     }
 }
