@@ -138,6 +138,14 @@
         <DxButton Text="전체 보기" RenderStyle="ButtonRenderStyle.Secondary"
                   Title="그날 지나온 자리가 모두 들어오게 맞춥니다."
                   Click="@FitAsync" />
+
+        @* **지금 있는 자리를 한 점 보탠다.** 30분 주기를 기다리지 않고
+           도착한 즉시 직접 찍어 둘 수 있게 한다. *@
+        <DxButton Text="지금위치 기록" RenderStyle="ButtonRenderStyle.Primary"
+                  IconCssClass="jsini-icon-pin"
+                  Title="지금 위치를 측정하여 오늘 이동 경로에 기록합니다."
+                  Enabled="@(!_recording && !Loading)"
+                  Click="@RecordLocationAsync" />
     </Actions>
 </CommSch>
 

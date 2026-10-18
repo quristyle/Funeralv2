@@ -13,9 +13,10 @@ namespace JSini.Web.Components.Settings;
 /// </para>
 ///
 /// <para>
-/// 위치를 잡아 저장하는 자리가 셋이다 — 알림 판의 「내 위치 잡기」
+/// 위치를 잡아 저장하는 자리가 넷이다 — 알림 판의 「내 위치 잡기」
 /// (<see cref="NotificationPanel"/>), 로그인 뒤에 뜨는 권유 창
-/// (<c>LocationAskPopup</c>), 그리고 그 창이 뒤에서 도는 <b>조용한 확인</b>.
+/// (<c>LocationAskPopup</c>), 그 창이 뒤에서 도는 <b>조용한 확인</b>,
+/// 그리고 내 이동경로(<c>/admin/location/my-track</c>)의 「지금위치 기록」.
 /// 그런데 이 절차에는 <b>순서를 틀리면 조용히 어긋나는 대목이 셋</b> 있다.
 /// </para>
 ///
@@ -196,6 +197,32 @@ public sealed class GeoLocator(
     }
 
     /// <summary>
+    /// 지금 위치를 측정하여 이동 경로에 기록하고 저장한다.
+    /// <c>/admin/location/my-track</c> 의 「지금위치 기록」 단추 등에서 부른다.
+    /// </summary>
+    public async Task<GeoSaveResult> RecordCurrentAsync(CancellationToken ct = default)
+    {
+        var geo = await LocateAsync();
+        if (!geo.Ok)
+        {
+            return new GeoSaveResult(false, geo.Error ?? "위치를 받지 못했습니다.", NoticeTone.Warning, null, false);
+        }
+
+        NotificationSettingsDto? settings = null;
+        try
+        {
+            settings = await api.GetMyPreferencesAsync(ct);
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "알림 설정을 읽지 못했다. 빈 설정으로 기록한다.");
+        }
+
+        var pref = settings?.Preference ?? new NotificationPreferenceDto();
+        return await SaveAsync(pref, geo, enableLocalWeather: false);
+    }
+
+    /// <summary>
     /// 잡은 좌표를 저장한다. 머리말의 순서 셋을 지킨다.
     /// </summary>
     /// <param name="pref">
@@ -228,6 +255,8 @@ public sealed class GeoLocator(
                 // 것이 이때이고(`LocationTrackService.RecordAsync`), 아래 두 번째
                 // 저장은 같은 줄에 이름만 채워 넣는다.
                 WeatherAccuracy = geo.Accuracy,
+
+                WeatherPlace = !moved ? pref.WeatherPlace : null,
 
                 WeatherLocalEnabled = enableLocalWeather ? true : null,
             });

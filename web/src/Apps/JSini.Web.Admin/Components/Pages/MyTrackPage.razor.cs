@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using JSini.Web.Models;
 using JSini.Web.Components.Data;
+using JSini.Web.Components.Settings;
 using JSini.Web.Admin.Api;
 
 namespace JSini.Web.Admin.Components.Pages;
@@ -9,7 +10,11 @@ namespace JSini.Web.Admin.Components.Pages;
 public partial class MyTrackPage
 {
     [Inject] private AdminClient Api { get; set; } = default!;
+    [Inject] private GeoLocator Geo { get; set; } = default!;
     [Inject] private IJSRuntime Js { get; set; } = default!;
+
+    /// <summary>지금 위치를 재어 기록하는 중인가. 단추를 잠근다.</summary>
+    private bool _recording;
 
     /// <summary>지도 판. JS 가 여기에 타일 · 선 · 점을 붙인다.</summary>
     private ElementReference _stage;
@@ -149,6 +154,35 @@ public partial class MyTrackPage
         var next = _date.AddDays(days);
 
         return next > AppTime.TodayDate ? Task.CompletedTask : PickDateAsync(next);
+    }
+
+    /// <summary>
+    /// 지금 위치를 재서 오늘 이동 경로에 한 점 기록한다.
+    /// </summary>
+    private async Task RecordLocationAsync()
+    {
+        if (_recording) return;
+
+        _recording = true;
+        try
+        {
+            var result = await Geo.RecordCurrentAsync();
+            Say(result.Message, result.Tone);
+
+            if (!result.Ok) return;
+
+            // 기록은 오늘 날짜로 들어가므로, 과거를 보고 있었으면 오늘로 옮긴다.
+            if (_date != AppTime.TodayDate)
+            {
+                _date = AppTime.TodayDate;
+            }
+
+            await ReloadAsync();
+        }
+        finally
+        {
+            _recording = false;
+        }
     }
 
     /// <summary>점·선을 다시 실어 달라고 적어 둔다. 실제로 싣는 것은 그린 뒤다.</summary>
