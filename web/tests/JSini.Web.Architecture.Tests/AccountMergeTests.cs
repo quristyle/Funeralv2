@@ -35,6 +35,10 @@ public sealed class AccountMergeTests
         Assert.Contains("Title=\"다른 계정으로 결합\"", razorSource);
         Assert.Contains("AskMergeAsync(a)", razorSource);
 
+        // 마스크 규칙이 없으면 아이콘 묶음의 바탕색만 남아 꽉 찬 네모로 그려진다.
+        var css = ReadRepoFile("web/src/Shared/JSini.Web.Components/wwwroot/app.css");
+        Assert.Matches(@"\.jsini-icon-link\s*\{[^}]*mask-image", css);
+
         // 계정 결합 팝업
         Assert.Contains("<CommPopup @bind-Visible=\"_mergingVisible\" HeaderText=\"계정 결합\"", razorSource);
         Assert.Contains("<DxComboBox Data=\"@MergeTargetCandidates\"", razorSource);
