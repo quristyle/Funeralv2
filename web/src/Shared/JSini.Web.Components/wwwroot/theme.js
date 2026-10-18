@@ -2339,13 +2339,22 @@
   });
 })();
 
+
 /**
  * ── 스크롤에 따른 상단 헤더 자동 숨김 / 복원 ────────────────────
  *
- * 레이아웃 상단에는 로고부터 사용자 프로필까지 표현되는 헤더(.jsini-header)가 있다.
- * 레이아웃 컨텐츠가 길어져 스크롤이 생기는 경우 일정 크기 이상으로 스크롤이 내려가면
- * 상단 헤더가 위로 올라가 숨겨져 화면의 세로 공간을 더 확보하고,
- * 스크롤을 다시 올리면 상단 헤더가 다시 나타난다.
+ * 내리면 헤더(.jsini-header)를 위로 숨겨 세로 공간을 내주고, 올리면 되돌린다.
+ *
+ * **사람이 굴린 것에만 반응한다.** `scrollTop` 은 사람 손 말고도 바뀐다 —
+ * 로그처럼 아래로 자라는 내용, 스크롤 고정(scroll anchoring), 바닥에서 상자가
+ * 커질 때의 끌어당김(clamp), 그리고 **헤더를 숨기고 꺼내는 일 자체**가 본문
+ * 높이를 56px 바꾼다. 그것까지 받으면 숨김 → 본문이 커져 위치가 당겨짐 →
+ * 「올렸다」로 읽혀 복원 → … 으로 헤더가 깜빡이며 끝없이 오르내린다.
+ * 그래서 세 겹으로 거른다.
+ *   1) 휠·터치·키·스크롤 막대 누름이 막 있었을 때만 방향을 읽는다.
+ *   2) 상자의 `scrollHeight`·`clientHeight` 가 지난번과 다르면 내용이 바뀐
+ *      것이므로 기준만 새로 잡고 넘어간다.
+ *   3) 헤더를 바꾼 직후 전환(0.25s) 동안은 방향을 읽지 않는다.
  */
 (function () {
   var SHELL = '.jsini-shell';
@@ -2361,8 +2370,54 @@
   /** 본문 높이의 이만큼은 되어야 「화면을 구르는 상자」로 친다. */
   var MIN_RATIO = 0.5;
 
-  var lastScrollTop = 0;
+  /** 휠·키 입력 뒤 이만큼은 사람이 굴린 것으로 친다 (ms). 부드러운 굴림이 이어지는 시간. */
+  var INPUT_WINDOW = 400;
+
+  /** 손을 뗀 뒤에도 관성으로 구르는 시간 (ms). */
+  var MOMENTUM_WINDOW = 1200;
+
+  /** 헤더를 바꾼 뒤 격자 전환(app.css 0.25s)이 끝날 때까지 방향을 읽지 않는다 (ms). */
+  var TOGGLE_SETTLE = 350;
+
+  /** 상자마다 지난번 위치와 크기를 적어 두는 자리. */
+  var STATE = '__jsiniHeaderScrollState';
+
   var ticking = false;
+  var inputUntil = 0;
+  var pointerDown = false;
+  var touching = false;
+  var settleUntil = 0;
+
+  function now() {
+    return (window.performance && performance.now) ? performance.now() : Date.now();
+  }
+
+  function markInput(ms) {
+    var t = now() + ms;
+    if (t > inputUntil) inputUntil = t;
+  }
+
+  function isUserScrolling() {
+    return pointerDown || touching || now() < inputUntil;
+  }
+
+  var SCROLL_KEYS = {
+    ArrowUp: 1, ArrowDown: 1, PageUp: 1, PageDown: 1, Home: 1, End: 1, ' ': 1, Spacebar: 1
+  };
+
+  window.addEventListener('wheel', function () { markInput(INPUT_WINDOW); }, { capture: true, passive: true });
+  window.addEventListener('keydown', function (e) {
+    if (SCROLL_KEYS[e.key]) markInput(INPUT_WINDOW);
+  }, { capture: true, passive: true });
+  window.addEventListener('touchstart', function () { touching = true; }, { capture: true, passive: true });
+  window.addEventListener('touchend', function () { touching = false; markInput(MOMENTUM_WINDOW); }, { capture: true, passive: true });
+  window.addEventListener('touchcancel', function () { touching = false; markInput(MOMENTUM_WINDOW); }, { capture: true, passive: true });
+  // 스크롤 막대 끌기. 터치에서 오는 pointer 는 위 touch 쪽이 맡는다.
+  window.addEventListener('pointerdown', function (e) {
+    if (e.pointerType === 'mouse' || e.pointerType === 'pen') pointerDown = true;
+  }, { capture: true, passive: true });
+  window.addEventListener('pointerup', function () { pointerDown = false; markInput(INPUT_WINDOW); }, { capture: true, passive: true });
+  window.addEventListener('pointercancel', function () { pointerDown = false; }, { capture: true, passive: true });
 
   function isDrawerOrMenuOpen() {
     if (document.querySelector('.jsini-user__menu')) return true;
@@ -2376,18 +2431,12 @@
     return false;
   }
 
-  function showHeader(shell) {
+  function setHidden(shell, hidden) {
     if (!shell) shell = document.querySelector(SHELL);
-    if (shell && shell.classList.contains(HIDDEN_CLASS)) {
-      shell.classList.remove(HIDDEN_CLASS);
-    }
-  }
+    if (!shell || shell.classList.contains(HIDDEN_CLASS) === hidden) return;
 
-  function hideHeader(shell) {
-    if (!shell) shell = document.querySelector(SHELL);
-    if (shell && !shell.classList.contains(HIDDEN_CLASS)) {
-      shell.classList.add(HIDDEN_CLASS);
-    }
+    shell.classList.toggle(HIDDEN_CLASS, hidden);
+    settleUntil = now() + TOGGLE_SETTLE;
   }
 
   function isMainScroller(el, content) {
@@ -2400,43 +2449,52 @@
     var shell = document.querySelector(SHELL);
     if (!shell) return;
 
+    var top = Math.max(0, scroller.scrollTop || 0);
+    var sh = scroller.scrollHeight;
+    var ch = scroller.clientHeight;
+
+    var prev = scroller[STATE];
+    scroller[STATE] = { top: top, sh: sh, ch: ch };
+
     // AI 에이전트 대화 화면이거나 메뉴/서랍이 열려 있는 동안에는 헤더를 숨기지 않는다.
     if (document.querySelector('.site-ai-chat') || isDrawerOrMenuOpen()) {
-      showHeader(shell);
-      lastScrollTop = Math.max(0, scroller.scrollTop || 0);
+      setHidden(shell, false);
       return;
     }
 
-    // 컨텐츠가 길어져서 스크롤이 생기는 경우에만 동작한다.
-    if (scroller.scrollHeight <= scroller.clientHeight + 20) {
-      showHeader(shell);
+    // 상단 근처에서는 누가 굴렸든 늘 보인다 — 보이는 쪽으로는 되먹임이 생기지 않는다.
+    if (top <= SCROLL_THRESHOLD) {
+      setHidden(shell, false);
       return;
     }
 
-    var currentScrollTop = scroller.scrollTop || 0;
-    if (currentScrollTop < 0) currentScrollTop = 0;
+    // 아래부터는 방향을 읽는 일이라 위 머리말의 세 겹을 지난 것만 받는다.
+    if (!prev) return;
+    if (prev.sh !== sh || prev.ch !== ch) return;
+    if (now() < settleUntil) return;
+    if (!isUserScrolling()) return;
 
-    // 일정 크기 이하(상단 근처)에서는 헤더가 항상 나타난다.
-    if (currentScrollTop <= SCROLL_THRESHOLD) {
-      showHeader(shell);
-      lastScrollTop = currentScrollTop;
-      return;
-    }
+    // 숨겨서 본문이 커지면 굴릴 것이 없어질 수 있다 — 그때 꺼내면 다시 굴릴 것이
+    // 생겨 오르내리므로, 이 판정은 숨김을 꺼내는 데 쓰지 않는다.
+    if (sh <= ch + 20) return;
 
-    var delta = currentScrollTop - lastScrollTop;
+    var delta = top - prev.top;
     if (Math.abs(delta) < DELTA_THRESHOLD) {
+      // 기준을 잃지 않도록 조금씩 움직인 것은 누적해서 본다.
+      scroller[STATE].top = prev.top;
       return;
     }
 
-    if (delta > 0) {
-      // 스크롤이 내려가는 경우 -> 상단 헤더가 위로 올라가 세로 공간 확보
-      hideHeader(shell);
-    } else {
-      // 스크롤을 다시 올리는 경우 -> 상단 헤더 다시 표시
-      showHeader(shell);
-    }
+    setHidden(shell, delta > 0);
+  }
 
-    lastScrollTop = currentScrollTop;
+  function schedule(scroller) {
+    if (ticking) return;
+    ticking = true;
+    window.requestAnimationFrame(function () {
+      ticking = false;
+      handleScroll(scroller);
+    });
   }
 
   document.addEventListener('scroll', function (e) {
@@ -2449,35 +2507,22 @@
     if (content.querySelector('.site-ai-chat') || el.closest('.site-ai-chat')) return;
     if (el !== content && !isMainScroller(el, content)) return;
 
-    if (!ticking) {
-      window.requestAnimationFrame(function () {
-        handleScroll(el);
-        ticking = false;
-      });
-      ticking = true;
-    }
+    watchContent(content);
+    schedule(el);
   }, { capture: true, passive: true });
 
   window.addEventListener('scroll', function () {
-    var scroller = document.scrollingElement || document.documentElement || document.body;
-    if (!ticking) {
-      window.requestAnimationFrame(function () {
-        handleScroll(scroller);
-        ticking = false;
-      });
-      ticking = true;
-    }
+    schedule(document.scrollingElement || document.documentElement || document.body);
   }, { passive: true });
 
-  // 화면 이동 또는 본문 변경 시 헤더를 기본 표시 상태로 복원
+  // 화면을 옮기면 헤더를 기본 표시 상태로 되돌린다.
   var WATCHED_KEY = '__jsiniHeaderScrollWatched';
   function watchContent(content) {
     if (!content || content[WATCHED_KEY] || typeof MutationObserver !== 'function') return;
     content[WATCHED_KEY] = true;
 
     new MutationObserver(function () {
-      lastScrollTop = 0;
-      showHeader();
+      setHidden(null, false);
     }).observe(content, { childList: true });
   }
 
@@ -2492,4 +2537,3 @@
     initObserver();
   }
 })();
-
