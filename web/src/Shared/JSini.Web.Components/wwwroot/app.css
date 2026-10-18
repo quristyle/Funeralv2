@@ -9289,6 +9289,29 @@ body {
   box-shadow: 0 0 0 0.2rem var(--jsini-focus);
 }
 
+/* 연월 캘린더 등 입력부(글칸)를 클릭해도 달력 다이얼로그가 열리게 한다.
+   드롭다운 버튼의 가상 요소(::after)로 입력창 전체를 덮어, 입력부를 눌러도
+   달력 아이콘 단추를 누른 것과 똑같이 달력 다이얼로그가 뜨도록 한다. */
+.jsini-dateedit--click-open,
+.jsini-dateedit--click-open input {
+  cursor: pointer;
+}
+
+.jsini-dateedit--click-open button {
+  position: static !important;
+}
+
+.jsini-dateedit--click-open button::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  cursor: pointer;
+}
+
 /* 조회 조건은 카드 안의 조용한 작업 영역으로 보이게 한다. */
 .commsch {
   gap: var(--jsini-sp-md) var(--jsini-sp-xl);

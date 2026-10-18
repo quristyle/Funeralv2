@@ -2536,4 +2536,18 @@
   } else {
     initObserver();
   }
+
+  // 날짜/연월 편집기(jsini-dateedit--click-open): 입력부(input)를 클릭했을 때 달력 다이얼로그를 연다.
+  document.addEventListener('click', function (e) {
+    var input = e.target && e.target.closest && e.target.closest('.jsini-dateedit--click-open input, .hd-maintenance-period input');
+    if (input) {
+      var edit = input.closest('.jsini-dateedit--click-open, .hd-maintenance-period');
+      if (edit) {
+        var btn = edit.querySelector('button');
+        if (btn && e.target !== btn && !btn.contains(e.target)) {
+          btn.click();
+        }
+      }
+    }
+  });
 })();
