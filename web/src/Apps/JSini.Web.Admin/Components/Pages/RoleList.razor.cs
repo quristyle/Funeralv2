@@ -23,6 +23,9 @@ public partial class RoleList
     /// <summary>편집 창이 등록으로 열렸는가. 식별자를 잠글지 정한다.</summary>
     private bool _isNew;
 
+    private bool _roleEditOpen;
+    private RoleDto _editRole = new();
+
     // ── 지정 사용자 ────────────────────────────────────────
     private IReadOnlyList<RoleUserDto> _users = [];
 
@@ -616,9 +619,30 @@ public partial class RoleList
 
     // ── 역할 CRUD ──────────────────────────────────────────
 
-    private void FillNew(RoleDto r) => r.Status = 1;
+    private void OpenNew()
+    {
+        _isNew = true;
+        _editRole = new RoleDto
+        {
+            Status = 1,
+            Permissions = [],
+        };
+        _roleEditOpen = true;
+    }
 
-    private void OnEditOpen(RoleDto r, bool isNew) => _isNew = isNew;
+    private void OpenEdit(RoleDto r)
+    {
+        _isNew = false;
+        _editRole = new RoleDto
+        {
+            Id = r.Id,
+            Name = r.Name,
+            Remark = r.Remark,
+            Status = r.Status,
+            Permissions = [.. r.Permissions],
+        };
+        _roleEditOpen = true;
+    }
 
     /// <summary>
     /// 삭제 확인 문구. 고른 역할이면 지정 사용자 수를 함께 말한다 —
@@ -634,24 +658,60 @@ public partial class RoleList
         return $"역할 「{r.Name}」({r.Id}) 을(를) 지웁니다.{scope}\n되돌릴 수 없습니다.";
     }
 
-    private async Task SaveAsync((RoleDto Item, bool IsNew) e)
+    private async Task SaveRoleAsync()
     {
-        var body = new SaveRoleDto
+        if (string.IsNullOrWhiteSpace(_editRole.Name))
         {
-            Id = e.Item.Id,
-            Name = e.Item.Name,
-            Remark = e.Item.Remark,
-            Status = e.Item.Status,
-            Permissions = e.Item.Permissions,
-        };
-
-        if (e.IsNew)
-        {
-            await Api.CreateRoleAsync(body);
+            Say("역할 이름을 적어 주십시오.", NoticeTone.Warning);
             return;
         }
 
-        await Api.UpdateRoleAsync(e.Item.Id, body);
+        if (string.IsNullOrWhiteSpace(_editRole.Id))
+        {
+            Say("식별자를 적어 주십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        var id = _editRole.Id.Trim();
+        var body = new SaveRoleDto
+        {
+            Id = id,
+            Name = _editRole.Name.Trim(),
+            Remark = _editRole.Remark?.Trim(),
+            Status = _editRole.Status,
+            Permissions = _editRole.Permissions,
+        };
+
+        var ok = await RunAsync(async () =>
+        {
+            if (_isNew)
+            {
+                await Api.CreateRoleAsync(body);
+            }
+            else
+            {
+                await Api.UpdateRoleAsync(id, body);
+            }
+        },
+        _isNew ? $"역할 「{body.Name}」 을(를) 등록했습니다." : $"역할 「{body.Name}」 을(를) 저장했습니다.",
+        "역할을 저장하지 못했습니다");
+
+        if (!ok)
+        {
+            return;
+        }
+
+        _roleEditOpen = false;
+        await ReloadAsync();
+
+        if (_role is not null && _role.Id == body.Id)
+        {
+            var updated = _all.FirstOrDefault(r => r.Id == body.Id);
+            if (updated is not null)
+            {
+                _role = updated;
+            }
+        }
     }
 
     private Task DeleteAsync(RoleDto r) => Api.DeleteRoleAsync(r.Id);

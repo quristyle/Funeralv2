@@ -83,6 +83,12 @@
                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
         </CommSchItem>
     </Fields>
+    <Actions>
+        <PermissionView Action="MenuAction.Create">
+            <DxButton Text="역할 등록" RenderStyle="ButtonRenderStyle.Secondary"
+                      IconCssClass="jsini-icon-plus" Click="@OpenNew" />
+        </PermissionView>
+    </Actions>
 </CommSch>
 
 @* 끌어서 나누는 판 둘. 사람롤과 같은 부품이고 규칙도 같다(admin.css 의
@@ -95,17 +101,30 @@
     <section class="ad-vsplit__pane ad-vsplit__pane--left">
         <CommGrd TItem="RoleDto"
                  Data="@Shown"
-                 EditFormTitle="역할"
+                 MobileCards="false"
                  ExportName="역할"
                  PageSize="20"
-                 OnNew="@FillNew"
-                 OnEditOpen="@OnEditOpen"
-                 OnSave="@SaveAsync"
                  OnDelete="@DeleteAsync"
                  DeleteConfirm="@DeleteMessage"
                  Reload="@ReloadAsync"
                  SelectedItem="@_role"
-                 SelectedItemChanged="@SelectRoleAsync">
+                 SelectedItemChanged="@SelectRoleAsync"
+                 ActionsWidth="84">
+            <ContextMenuItems>
+                <PermissionView Action="MenuAction.Create">
+                    <CommMenuItem Text="역할 등록" IconCssClass="jsini-icon-plus" Click="@OpenNew" />
+                </PermissionView>
+            </ContextMenuItems>
+
+            <RowActions Context="r">
+                <PermissionView Action="MenuAction.Update">
+                    <DxButton IconCssClass="jsini-icon-edit"
+                              Title="수정"
+                              RenderStyle="ButtonRenderStyle.Link"
+                              Click="@(() => OpenEdit(r))" />
+                </PermissionView>
+            </RowActions>
+
             <Columns>
                 <DxGridDataColumn FieldName="@nameof(RoleDto.Name)" Caption="역할 이름" MinWidth="140">
                     <CellDisplayTemplate Context="cell">
@@ -131,55 +150,6 @@
                     </CellDisplayTemplate>
                 </DxGridDataColumn>
             </Columns>
-
-            <EditFormTemplate Context="edit">
-                @{
-                    var r = (RoleDto)edit.EditModel;
-                }
-                <DxFormLayout CssClass="ad-editform">
-                    <DxFormLayoutItem Caption="식별자" ColSpanMd="6">
-                        @* 등록 여부를 식별자로 되짚지 않는다 — 새 역할에 이미 있는
-                           식별자를 치는 순간 칸이 잠겨 지울 수도 없어진다.
-                           창을 열 때 한 번 정해 둔 것(`_isNew`)을 쓴다.
-
-                           자동 번호가 아닌 이유는 **권한 판정과 로그에 그대로
-                           찍히기 때문**이다. 숫자면 로그를 봐도 무슨 역할인지
-                           알 수 없다. 바꾸면 그 역할이 걸린 계정·메뉴 권한이
-                           통째로 끊기므로 수정에서는 잠근다. *@
-                        <DxTextBox @bind-Text="r.Id" />
-                    </DxFormLayoutItem>
-
-                    <DxFormLayoutItem Caption="역할 이름" ColSpanMd="6">
-                        @* AI 추천은 아래 단추를 누를 때 묻는다(`AiCodeSuggest`).
-                           치는 동안 저절로 묻던 것은 무료 한도를 태워서 걷었다. *@
-                        <DxTextBox @bind-Text="r.Name" />
-                    </DxFormLayoutItem>
-
-                    @* 이름을 한글로 적고 「AI 추천」을 누르면 식별자로 쓸 영문을 하나 제안한다.
-                       옛 Vue 등록 창(`system/role/modules/form.vue`)에 있던
-                       `AiCodeSuggester` 자리다 — Blazor 로 옮기면서 빠졌다.
-
-                       **등록할 때만 뜬다.** 수정에서는 식별자가 이미 잠겨
-                       있어서(위 칸의 `ReadOnly`) 추천을 띄우면 누르라는 뜻으로
-                       읽히는데 눌러도 아무 일이 없다.
-
-                       `Natural` 을 켜지 않는다 — 운영의 역할 식별자가
-                       `SYSTEM_ADMINISTRATOR` · `FUNERAL_HOME_OPERATION` 처럼
-                       대문자 스네이크라 기본값(축약형)이 그 모양을 준다. *@
-                    <DxFormLayoutItem ColSpanMd="12" CaptionPosition="CaptionPosition.Vertical">
-                        <AiCodeSuggest Word="@r.Name"
-                                       OnPick="@(code => r.Id = code)" />
-                    </DxFormLayoutItem>
-
-                    <DxFormLayoutItem Caption="설명" ColSpanMd="12">
-                        <DxMemo @bind-Text="r.Remark" Rows="3" />
-                    </DxFormLayoutItem>
-
-                    <DxFormLayoutItem Caption="사용" ColSpanMd="12">
-                        <DxCheckBox @bind-Checked="r.IsActive">사용</DxCheckBox>
-                    </DxFormLayoutItem>
-                </DxFormLayout>
-            </EditFormTemplate>
         </CommGrd>
     </section>
     </DxSplitterPane>
@@ -437,6 +407,44 @@
         <DxButton Text="추가" RenderStyle="ButtonRenderStyle.Primary"
                   Enabled="@(_picked.Count > 0)"
                   Click="@AssignAsync" />
+    </FooterContentTemplate>
+</CommPopup>
+
+@* 역할 등록·수정 창. 공통 팝업(CommPopup)으로 띄운다. *@
+<CommPopup @bind-Visible="_roleEditOpen"
+           HeaderText="@(_isNew ? "역할 등록" : "역할 수정")"
+           Width="560px">
+    <BodyContentTemplate Context="popup">
+        <DxFormLayout CssClass="ad-editform">
+            <DxFormLayoutItem Caption="식별자" ColSpanMd="6">
+                <DxTextBox @bind-Text="_editRole.Id" ReadOnly="@(!_isNew)" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="역할 이름" ColSpanMd="6">
+                <DxTextBox @bind-Text="_editRole.Name" />
+            </DxFormLayoutItem>
+
+            @if (_isNew)
+            {
+                <DxFormLayoutItem ColSpanMd="12" CaptionPosition="CaptionPosition.Vertical">
+                    <AiCodeSuggest Word="@_editRole.Name"
+                                   OnPick="@(code => _editRole.Id = code)" />
+                </DxFormLayoutItem>
+            }
+
+            <DxFormLayoutItem Caption="설명" ColSpanMd="12">
+                <DxMemo @bind-Text="_editRole.Remark" Rows="3" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="사용" ColSpanMd="12">
+                <DxCheckBox @bind-Checked="_editRole.IsActive">사용</DxCheckBox>
+            </DxFormLayoutItem>
+        </DxFormLayout>
+    </BodyContentTemplate>
+
+    <FooterContentTemplate Context="popupContext">
+        <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveRoleAsync" />
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _roleEditOpen = false)" />
     </FooterContentTemplate>
 </CommPopup>
 
