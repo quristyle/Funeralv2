@@ -38,7 +38,7 @@
     {
         <CommCont Title="@($"{_me.CompanyName ?? "우리 회사"}에 관한 거래")">
             <CommGrd TItem="PublicTransaction" Data="@_transactions" ExportName="회사거래"
-                     RowActions="@DisputeButton" ActionsWidth="100">
+                     RowActions="@DisputeButton">
                 <Columns>
                     <DxGridDataColumn FieldName="@nameof(PublicTransaction.TransportDate)" Caption="운송일" Width="110" DisplayFormat="yyyy-MM-dd" />
                     <DxGridDataColumn FieldName="@nameof(PublicTransaction.Route)" Caption="구간" MinWidth="130" />

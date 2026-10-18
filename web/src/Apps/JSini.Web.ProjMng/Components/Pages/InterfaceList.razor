@@ -79,7 +79,6 @@
                  EmptyText="인터페이스가 없습니다."
                  PageSize="25"
                  RowActions="@RowActions"
-                 ActionsWidth="80"
                  Reload="@SearchAsync">
             <ContextMenuItems>
                 <PermissionView Action="MenuAction.Create">
@@ -303,7 +302,6 @@ else if (_master is not null)
                  EmptyText="처리 단계가 없습니다."
                  PageSize="10"
                  RowActions="@StepActions"
-                 ActionsWidth="170"
                  Reload="@LoadDetailAsync">
             <ContextMenuItems>
                 <PermissionView Action="MenuAction.Create">
@@ -331,7 +329,6 @@ else if (_master is not null)
                  EmptyText="메모가 없습니다."
                  PageSize="10"
                  RowActions="@NoteActions"
-                 ActionsWidth="180"
                  Reload="@LoadDetailAsync">
             <ContextMenuItems>
                 <PermissionView Action="MenuAction.Create">

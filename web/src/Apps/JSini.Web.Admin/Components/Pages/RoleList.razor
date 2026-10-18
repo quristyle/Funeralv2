@@ -111,8 +111,7 @@
                  DeleteConfirm="@DeleteMessage"
                  Reload="@ReloadAsync"
                  SelectedItem="@_role"
-                 SelectedItemChanged="@SelectRoleAsync"
-                 ActionsWidth="84">
+                 SelectedItemChanged="@SelectRoleAsync">
             <ContextMenuItems>
                 <PermissionView Action="MenuAction.Create">
                     <CommMenuItem Text="역할 등록" IconCssClass="jsini-icon-plus" Click="@OpenNew" />
@@ -183,7 +182,6 @@
                                  EmptyText="지정된 사용자가 없습니다."
                                  Reload="@(() => LoadUsersAsync())"
                                  RowActions="@UserActions"
-                                 ActionsWidth="90"
                                  SelectedItem="@_pickedUser"
                                  SelectedItemChanged="@((RoleUserDto? u) => _pickedUser = u)"
                                  OnRowDoubleClick="@RemoveUserAsync"

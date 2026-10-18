@@ -62,13 +62,6 @@ public partial class CommGrd<TItem>
     [Parameter] public RenderFragment<TItem>? RowActions { get; set; }
 
     /// <summary>
-    /// 관리 칸의 너비(px). 비우면 단추 수에 맞춘 기본값을 쓴다 —
-    /// 수정·삭제 둘이면 84, <see cref="RowActions"/> 가 있으면 116.
-    /// 단추를 셋 이상 넣으면 여기서 직접 정한다.
-    /// </summary>
-    [Parameter] public int? ActionsWidth { get; set; }
-
-    /// <summary>
     /// 표 위 머리줄의 제목. 안 주면 머리줄에 건수만 선다.
     ///
     /// <para>
@@ -482,8 +475,11 @@ public partial class CommGrd<TItem>
         _ => null,
     };
 
-    /// <summary>관리 칸 너비(px).</summary>
-    private int ActionsPixels => ActionsWidth ?? (RowActions is null ? 84 : 116);
+    /// <summary>관리 칸 너비(px). 「⋮」 하나만 서므로 화면과 무관하게 같다.</summary>
+    private const int ActionsPixels = 48;
+
+    /// <summary>관리 칸을 세우는가 — 그 안의 판도 같은 조건이다.</summary>
+    private bool HasActions => EditsInPopup || OnDelete.HasDelegate || RowActions is not null;
 
     /// <summary><c>Width</c> 는 글자로, <c>MinWidth</c> 는 정수로 받는다.</summary>
     private string ActionsColumnWidth =>
@@ -664,6 +660,14 @@ public partial class CommGrd<TItem>
     protected override void OnParametersSet()
     {
         _forwarded = Coerce(Extra);
+
+        // 자료가 갈리면 관리 판을 닫는다. 판은 줄을 차례 번호로 가리키므로,
+        // 열린 채 다시 읽히면 「수정」이 다른 줄을 연다(자동 갱신 화면).
+        if (!ReferenceEquals(_actionsData, Data))
+        {
+            _actionsData = Data;
+            _actionsOpen = false;
+        }
 
         // 선택의 주인이 화면이면 그 값을 따른다. 아니면 표가 들고 있는 것을
         // 그대로 둔다 — 여기서 안 준 값(늘 null)을 덮어쓰면 줄을 눌러도
@@ -1479,6 +1483,51 @@ public partial class CommGrd<TItem>
 
         return saved;
     }
+
+    /// <summary>표마다 다른 앞머리. 판이 붙을 「⋮」를 선택자로 가리키는 데 쓴다.</summary>
+    private readonly string _uid = "commgrd-" + Guid.NewGuid().ToString("N")[..8];
+
+    private string ActionsAnchorId(int visibleIndex) => $"{_uid}-act-{visibleIndex}";
+
+    private bool _actionsOpen;
+    private int _actionsIndex = -1;
+    private object? _actionsRow;
+    private string? _actionsTarget;
+    private object? _actionsData;
+
+    /// <summary>
+    /// 같은 줄을 다시 누르면 닫고, 다른 줄이면 그 줄로 옮겨 연다.
+    ///
+    /// <para>
+    /// 대개는 바깥 누름이 앞 판을 먼저 닫아 둔다. 아직 열려 있으면 <b>닫았다가
+    /// 한 그림 뒤에 연다</b> — 열린 채 붙을 자리만 바꾸면 판이 옛 줄 곁에 남는다.
+    /// </para>
+    /// </summary>
+    private async Task ToggleActions(int visibleIndex, object? dataItem)
+    {
+        var wasOpen = _actionsOpen;
+        if (wasOpen && _actionsIndex == visibleIndex)
+        {
+            CloseActions();
+            return;
+        }
+
+        if (wasOpen)
+        {
+            _actionsOpen = false;
+            StateHasChanged();
+            await Task.Delay(50);
+        }
+
+        _actionsIndex = visibleIndex;
+        _actionsRow = dataItem;
+        _actionsTarget = "#" + ActionsAnchorId(visibleIndex);
+        _actionsOpen = true;
+    }
+
+    private void CloseActions() => _actionsOpen = false;
+
+    private void OnActionsOpenChanged(bool open) => _actionsOpen = open;
 
     private Task EditAsync(int visibleIndex) => _grid?.StartEditRowAsync(visibleIndex) ?? Task.CompletedTask;
 

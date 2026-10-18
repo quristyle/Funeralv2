@@ -143,7 +143,7 @@
 
             @Columns
 
-            @if (EditsInPopup || OnDelete.HasDelegate || RowActions is not null)
+            @if (HasActions)
             {
                 @* **오른쪽에 붙박는다.** 칸이 열몇 개인 관리 화면은 가로로
                    굴러야 하는데, 그때 「수정 · 삭제」가 스크롤 저편으로 사라진다 —
@@ -154,40 +154,27 @@
                    「붙박은 오른쪽 칸만큼」 왼쪽으로 민다 — 카드에서는 그 폭이
                    카드 전체라, 막대가 **카드 한가운데를 세로로 가른다**
                    (재어 확인했다 — `right: 338px`). *@
-                <DxGridDataColumn Name="@ActionsColumnName" Caption="관리"
+                @* **칸에는 「⋮」 하나만 둔다.** 단추를 줄마다 늘어놓으면 화면마다 수가
+                   달라 칸 폭이 84~330px 로 갈렸고, 그 폭이 붙박은 오른쪽에서 자료 칸을
+                   그대로 먹었다. 누르면 단추들이 판(`DxFlyout`)으로 펴진다 — 아래 판 참고.
+                   제목은 비운다. 칸이 무엇인지는 「⋮」가 이미 말한다. *@
+                <DxGridDataColumn Name="@ActionsColumnName" Caption=""
                                   Width="@ActionsColumnWidth" MinWidth="@ActionsPixels"
                                   FixedPosition="@(Carded ? GridColumnFixedPosition.None : GridColumnFixedPosition.Right)"
                                   AllowSort="false" AllowGroup="false">
                     <CellDisplayTemplate Context="cell">
-                        <div class="commgrd__actions">
-                            @if (RowActions is not null && cell.DataItem is TItem row)
-                            {
-                                @RowActions(row)
-                            }
-
-                            @* 편집 자리가 표 밖인 화면에는 달지 않는다 — 줄을 누르는
-                               것이 곧 편집이라, 같은 일을 하는 단추가 하나 더 생긴다. *@
-                            @if (EditsInPopup)
-                            {
-                                <PermissionView Action="MenuAction.Update">
-                                    <DxButton IconCssClass="jsini-icon-edit"
-                                              Title="수정"
-                                              RenderStyle="ButtonRenderStyle.Link"
-                                              Click="@(() => EditAsync(cell.VisibleIndex))" />
-                                </PermissionView>
-                            }
-
-                            @if (OnDelete.HasDelegate)
-                            {
-                                <PermissionView Action="MenuAction.Delete">
-                                    <DxButton IconCssClass="jsini-icon-trash"
-                                              Title="삭제"
-                                              CssClass="commgrd__icon--warn"
-                                              RenderStyle="ButtonRenderStyle.Link"
-                                              Click="@(() => ConfirmDeleteAsync(cell.VisibleIndex, cell.DataItem))" />
-                                </PermissionView>
-                            }
-                        </div>
+                        @* 누름이 줄로 번지지 않게 끊는다 — 번지면 「줄을 누르면 연다」
+                           화면에서 판이 펴지자마자 상세로 넘어간다. *@
+                        <span class="commgrd__actions commgrd__more"
+                              id="@ActionsAnchorId(cell.VisibleIndex)"
+                              @onclick:stopPropagation="true"
+                              @ondblclick:stopPropagation="true">
+                            <DxButton IconCssClass="jsini-icon-more-vertical"
+                                      Title="관리"
+                                      CssClass="@(_actionsOpen && _actionsIndex == cell.VisibleIndex ? "commgrd__icon--on" : null)"
+                                      RenderStyle="ButtonRenderStyle.Link"
+                                      Click="@(() => ToggleActions(cell.VisibleIndex, cell.DataItem))" />
+                        </span>
                     </CellDisplayTemplate>
                 </DxGridDataColumn>
             }
@@ -212,6 +199,61 @@
             @DetailRowTemplate?.Invoke(detail)
         </DetailRowTemplate>
     </DxGrid>
+
+    @* 관리 칸 「⋮」 가 펴는 판. 표에 하나만 두고 누른 줄을 따라 옮겨 붙는다.
+       표 밖에 두는 까닭은 붙박은 칸과 표의 굴림 상자가 넘친 것을 잘라 내기 때문이다.
+       판 안의 누름은 무엇이든 판을 닫는다(`CloseActions`) — 단추가 화면의 것이라
+       일일이 손댈 수 없어 거품으로 받는다.
+       **「⋮」 왼쪽 옆으로 편다.** 아래로 펴면 판이 다음 줄들의 「⋮」를 덮어, 다른
+       줄을 고르려던 누름이 판 안의 단추(삭제일 수도 있다)에 떨어진다(재어 확인했다).
+       `StopOutsideClickPropagation` 을 끈다 — 켜 두면 판을 닫은 바깥 누름이 삼켜져
+       다른 줄의 「⋮」를 눌러도 그 줄의 판이 안 열린다. *@
+    @if (HasActions)
+    {
+        <DxFlyout IsOpen="@_actionsOpen"
+                  IsOpenChanged="@OnActionsOpenChanged"
+                  PositionTarget="@_actionsTarget"
+                  PreventCloseOnPositionTargetClick="true"
+                  StopOutsideClickPropagation="false"
+                  Position="FlyoutPosition.Left"
+                  CssClass="commgrd__actmenu">
+            <BodyContentTemplate Context="flyout">
+                @if (_actionsRow is TItem row)
+                {
+                    var index = _actionsIndex;
+                    <div class="commgrd__actions commgrd__actions--menu" @onclick="@CloseActions">
+                        @if (RowActions is not null)
+                        {
+                            @RowActions(row)
+                        }
+
+                        @* 편집 자리가 표 밖인 화면에는 달지 않는다 — 줄을 누르는
+                           것이 곧 편집이라, 같은 일을 하는 단추가 하나 더 생긴다. *@
+                        @if (EditsInPopup)
+                        {
+                            <PermissionView Action="MenuAction.Update">
+                                <DxButton IconCssClass="jsini-icon-edit"
+                                          Title="수정"
+                                          RenderStyle="ButtonRenderStyle.Link"
+                                          Click="@(() => EditAsync(index))" />
+                            </PermissionView>
+                        }
+
+                        @if (OnDelete.HasDelegate)
+                        {
+                            <PermissionView Action="MenuAction.Delete">
+                                <DxButton IconCssClass="jsini-icon-trash"
+                                          Title="삭제"
+                                          CssClass="commgrd__icon--warn"
+                                          RenderStyle="ButtonRenderStyle.Link"
+                                          Click="@(() => ConfirmDeleteAsync(index, row))" />
+                            </PermissionView>
+                        }
+                    </div>
+                }
+            </BodyContentTemplate>
+        </DxFlyout>
+    }
 
     @* DeleteConfirm 을 준 화면만 쓴다. 안 준 화면은 DevExpress 기본 확인창이 뜬다. *@
     <ConfirmDialog @ref="_confirm" />

@@ -92,7 +92,7 @@
         </Actions>
         <ChildContent>
         <CommGrd TItem="UnpaidTransaction" Data="@_rows" ExportName="미지급거래"
-                 Reload="@ReloadAsync" RowActions="@RowButtons" ActionsWidth="175"
+                 Reload="@ReloadAsync" RowActions="@RowButtons"
                  EmptyText="조건에 맞는 미지급 거래가 없습니다.">
             <Columns>
                 <DxGridDataColumn FieldName="@nameof(UnpaidTransaction.TransportDate)" Caption="운송일" Width="105" DisplayFormat="yyyy-MM-dd" />

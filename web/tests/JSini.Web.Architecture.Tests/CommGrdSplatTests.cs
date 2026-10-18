@@ -87,6 +87,36 @@ public sealed class CommGrdSplatTests
     }
 
     /// <summary>
+    /// 관리 칸은 「⋮」 하나라 폭이 늘 같다. 그래서 <c>ActionsWidth</c> 를 걷었는데,
+    /// 화면에 남아 있으면 선언 없는 이름이 되어 <c>DxGrid</c> 로 흘러가고
+    /// <b>그 화면이 열리는 순간 죽는다</b>(빌드는 통과한다).
+    /// </summary>
+    [Fact]
+    public void 화면이_CommGrd_에_ActionsWidth_를_적지_않는다()
+    {
+        var offenders = new List<string>();
+
+        foreach (var file in RazorFiles().Where(f => Path.GetFileName(f) != "CommGrd.razor"))
+        {
+            var text = RazorSource.Read(file);
+
+            foreach (var (start, tag) in OpeningTags(text, "CommGrd"))
+            {
+                if (Regex.IsMatch(tag, "\\sActionsWidth="))
+                {
+                    var line = text.Take(start).Count(c => c == '\n') + 1;
+                    offenders.Add($"{Path.GetFileName(file)}:{line}");
+                }
+            }
+        }
+
+        Assert.True(
+            offenders.Count == 0,
+            "CommGrd 에 ActionsWidth 가 남아 있습니다 — 관리 칸은 「⋮」 하나라 폭을 정하지 않습니다.\n  "
+            + string.Join("\n  ", offenders));
+    }
+
+    /// <summary>
     /// <c>DxGrid</c> 의 <c>EventCallback</c> 파라미터 중 <c>CommGrd</c> 가
     /// 선언하지 않은 것들. <b>목록을 손으로 적지 않는다</b> — DevExpress 를
     /// 올리면 새 이름이 생기고, <c>CommGrd</c> 가 하나를 선언하면 그 이름은
