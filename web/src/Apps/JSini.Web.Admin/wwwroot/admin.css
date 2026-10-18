@@ -955,6 +955,35 @@
     flex: 1;
     min-height: 0;
   }
+
+  /* 지정 사용자 탭의 조직도는 묶지 않고 다 편다 — 쪽이 구르는 자리에서 나무가
+     또 구르면 손가락이 두 겹 스크롤 사이를 오간다. 사용자 추가 창의 조직도는
+     창 본문 안이라 위의 60vh 를 그대로 둔다. */
+  .ad-roletabs__body .ad-hsplit > .dxbl-splitter-pane > .dxbl-splitter-pane-content > .commtree,
+  .ad-roletabs__body .ad-hsplit > .dxbl-splitter-pane > .dxbl-splitter-pane-content > .commtree > .dxbl-grid {
+    max-height: none;
+    height: auto;
+  }
+
+  /* 역할 목록도 높이를 묶지 않는다. 가상 스크롤을 꺼 두었으므로(RoleList)
+     줄이 전부 깔려 있고, 58vh 만 걷으면 표가 줄 수만큼 펴진다. */
+  .ad-rolelist > .commgrd > .dxbl-grid {
+    max-height: none;
+    height: auto;
+  }
+
+  /* 탭 상자들이 펴진 나무를 자르지 않게 한다 — 넓은 화면에서 판 높이에 묶으려고
+     건 `overflow: hidden` 이 여기서는 쪽 아래를 잘라 낼 뿐이다. */
+  .ad-roletabs,
+  .ad-roletabs > .dxbl-tabs-content-panel,
+  .ad-roletabs .dxbl-tabs-content {
+    overflow: visible;
+  }
+
+  .ad-roletabs .dxbl-tabs-content,
+  .ad-roletabs__body {
+    height: auto;
+  }
 }
 
 /* 메뉴명 칸. 두 줄이다 — 위가 이름(과 일괄 단추), 아래가 코드·주소. */

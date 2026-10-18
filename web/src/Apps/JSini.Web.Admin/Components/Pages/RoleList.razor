@@ -98,12 +98,15 @@
     <Panes>
 
     <DxSplitterPane Size="30%" MinSize="240px" MaxSize="60%">
-    <section class="ad-vsplit__pane ad-vsplit__pane--left">
+    <section class="ad-vsplit__pane ad-vsplit__pane--left ad-rolelist">
+        @* 역할은 열몇 개뿐이라 가상 스크롤 없이 한 쪽에 다 깐다 — 휴대폰에서는
+           표가 높이를 묶지 않고 자기 줄 수만큼 펴진다(admin.css `.ad-rolelist`). *@
         <CommGrd TItem="RoleDto"
                  Data="@Shown"
                  MobileCards="false"
                  ExportName="역할"
-                 PageSize="20"
+                 VirtualScrollingEnabled="false"
+                 PageSize="1000"
                  OnDelete="@DeleteAsync"
                  DeleteConfirm="@DeleteMessage"
                  Reload="@ReloadAsync"
