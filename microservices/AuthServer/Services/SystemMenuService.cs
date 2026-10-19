@@ -177,6 +177,9 @@ public class SystemMenuService : ISystemMenuService
     /// </summary>
     public async Task<bool> IsPathExistsAsync(string path, string? id)
     {
+        // 빈 경로는 중복이 아니다 — 묶음·버튼은 경로를 쓰지 않는다.
+        if (string.IsNullOrWhiteSpace(path)) return false;
+
         return await _db.SystemMenus.AnyAsync(m => m.Path == path && m.Id != id);
     }
 

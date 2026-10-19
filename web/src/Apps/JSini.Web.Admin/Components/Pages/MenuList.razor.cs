@@ -51,8 +51,11 @@ public partial class MenuList
     /// <summary>화면을 고른다. 화면이 있는 메뉴만.</summary>
     private bool UsesScreen => Kind == "MENU";
 
-    /// <summary>경로는 권한 열쇠다. 버튼·바깥 링크에는 화면이 없어 쓰지 않는다.</summary>
+    /// <summary>경로는 권한 열쇠다. 묶음은 칸이 있어도 쓰지 않는다 — 입력은 되지만 검증하지 않는다.</summary>
     private bool UsesPath => Kind is "CATALOG" or "EMBEDDED" or "MENU";
+
+    /// <summary>경로를 필수로 보고 중복을 확인하는 유형. 묶음·버튼·바깥 링크는 경로를 검증하지 않는다.</summary>
+    private bool ValidatesPath => Kind is "EMBEDDED" or "MENU";
 
     /// <summary>아이콘은 버튼 말고는 모두 쓴다.</summary>
     private bool UsesIcon => Kind != "BUTTON";
@@ -669,7 +672,7 @@ public partial class MenuList
             return;
         }
 
-        if (UsesPath && string.IsNullOrWhiteSpace(_edit.Path))
+        if (ValidatesPath && string.IsNullOrWhiteSpace(_edit.Path))
         {
             Say("이 유형은 경로를 넣어야 합니다.", NoticeTone.Warning);
             return;
@@ -684,7 +687,7 @@ public partial class MenuList
 
         // 이름·경로가 겹치는지 먼저 묻는다 — 저장 때 서버도 검사하지만 폼을 다 채운 뒤 거절당하지 않게. 경로 겹침은 쓰는 유형에서만 본다.
         var duplicate = await Api.MenuNameExistsAsync(_edit.Name, _isNew ? null : _editId)
-            || (UsesPath && await Api.MenuPathExistsAsync(_edit.Path, _isNew ? null : _editId));
+            || (ValidatesPath && await Api.MenuPathExistsAsync(_edit.Path, _isNew ? null : _editId));
 
         if (duplicate)
         {
