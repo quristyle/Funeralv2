@@ -266,10 +266,13 @@
 }
 
 @* ── 4. 시간대별 상세 로그 ────────────────────────────── *@
-@* 휴대폰에서도 표로 둔다 — 시간대를 위아래로 견주어 읽는 표라 카드로 펴면 그 비교가 사라진다. *@
+@* 휴대폰에서도 표로 둔다 — 시간대를 위아래로 견주어 읽는 표라 카드로 펴면 그 비교가 사라진다.
+   스물네 줄을 표 안에서 굴리지 않고 다 펼친다 — 쪽이 이미 구르는 화면이라 표 안 굴림은 겹 스크롤이다.
+   가상 스크롤을 끄면 쪽나누기가 서므로 한 쪽을 하루치보다 넉넉히 잡는다. *@
+<div class="hd-sysmon__log">
 <CommGrd TItem="HourPoint" Data="@_rows" Title="24시간 시간대별 정밀 성능 지표 로그"
          Unit="시간대" ExportName="한주운영시스템모니터링" Reload="@ReloadAsync"
-         MobileCards="false">
+         MobileCards="false" VirtualScrollingEnabled="false" PageSize="100">
     <Columns>
         <DxGridDataColumn FieldName="@nameof(HourPoint.Slot)" Caption="시간대"
                           Width="160" MinWidth="150" TextAlignment="GridTextAlignment.Left" />
@@ -317,6 +320,7 @@
         </DxGridDataColumn>
     </Columns>
 </CommGrd>
+</div>
 
 @code {
     @* C# 파일에서는 마크업을 쓸 수 없다. 그래서 **마크업을 돌려주는 멤버만**

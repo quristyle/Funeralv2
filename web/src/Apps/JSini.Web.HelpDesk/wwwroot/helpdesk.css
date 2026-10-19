@@ -2618,6 +2618,11 @@
   color: #2e7d32;
 }
 
+/* 시간대별 로그 표는 높이 상한(58vh)을 풀어 줄을 모두 세운다. */
+.hd-sysmon__log .commgrd {
+  --commgrd-max-height: none;
+}
+
 /* ── 한주계량기 수집상태 (`/helpdesk/hanju/gauge-collection`) ──
 
    왼쪽이 계량기 나무, 오른쪽이 고른 하나의 상태와 이력이다. 좌우를 나누는
