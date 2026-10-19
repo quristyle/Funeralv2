@@ -266,8 +266,10 @@
 }
 
 @* ── 4. 시간대별 상세 로그 ────────────────────────────── *@
+@* 휴대폰에서도 표로 둔다 — 시간대를 위아래로 견주어 읽는 표라 카드로 펴면 그 비교가 사라진다. *@
 <CommGrd TItem="HourPoint" Data="@_rows" Title="24시간 시간대별 정밀 성능 지표 로그"
-         Unit="시간대" ExportName="한주운영시스템모니터링" Reload="@ReloadAsync">
+         Unit="시간대" ExportName="한주운영시스템모니터링" Reload="@ReloadAsync"
+         MobileCards="false">
     <Columns>
         <DxGridDataColumn FieldName="@nameof(HourPoint.Slot)" Caption="시간대"
                           Width="160" MinWidth="150" TextAlignment="GridTextAlignment.Left" />
