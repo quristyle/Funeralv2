@@ -479,11 +479,14 @@
   opacity: 0.75;
 }
 
-/* 요약 영역 — 검색영역 아래 컴팩트한 한 줄의 띠. 전체·묶음·화면·숨김·중지 건수를 한 줄로 압축해 본문 트리/그리드 영역을 최대한 넓힌다. */
+/* 요약 영역 — 검색영역 아래 컴팩트한 한 줄의 띠. 전체·묶음·화면·숨김·중지 건수를 한 줄로 압축해 본문 트리/그리드 영역을 최대한 넓힌다.
+   접히면 두 줄이 되어 표를 밀어내므로 줄바꿈을 막고, 그래도 넘치는 좁은 폭에서는 옆으로 민다. */
 .ad-menu-strip {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
   gap: 0.35rem 0.85rem;
   padding: 0.35rem 0.85rem;
   margin-bottom: 0.5rem;
@@ -534,6 +537,26 @@
   height: 0.75rem;
   background-color: var(--jsini-border);
   align-self: center;
+}
+
+/* 휴대폰 폭에서는 칸 다섯을 고르게 나눠 한 줄에 담는다 — 구분선은 칸 테두리가 대신한다. */
+@media (width < 576px) {
+  .ad-menu-strip {
+    gap: 0;
+    padding: 0.3rem 0.2rem;
+  }
+
+  .ad-menu-strip__item {
+    flex: 1 1 0;
+    min-width: max-content;
+    justify-content: center;
+    gap: 0.2rem;
+    padding: 0.1rem 0.15rem;
+  }
+
+  .ad-menu-strip__sep {
+    display: none;
+  }
 }
 
 /* ── 끌어서 나누는 좌우 분할 (`ad-vsplit`) ────────────────
