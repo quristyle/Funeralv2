@@ -11477,7 +11477,8 @@ html.jsini-toast-zoomed .dxbl-toast-portal {
    생겨야 내려받는다. 그래서 기본을 쓰는 사람의 첫 화면은 조금도 무거워지지
    않는다(로그인 카드 머리말의 「글꼴을 가져오지 않았다」와 같은 걱정이다).
 
-   뒤따르는 한글 글꼴을 꼭 적는다. Play 는 라틴 문자뿐이라 한글을 모르고,
+   뒤따르는 한글 글꼴을 꼭 적는다. Play 는 라틴 문자뿐이라 한글을 모르므로
+   바로 뒤에 Pretendard 를 받쳐 한글을 그린다(기기마다 고딕이 달라지지 않게).
    S-CoreDream 도 파일을 받기 전 잠깐은 뒤엣것으로 그린다(`swap`).
    ---------------------------------------------------------- */
 
@@ -11518,13 +11519,33 @@ html.jsini-toast-zoomed .dxbl-toast-portal {
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+2122;
 }
 
+/* Play 의 한글 받침. 상용 한글 2,780자 조각(subset)이라 드문 음절은 그 뒤의
+   시스템 고딕으로 그려진다. 한글 범위로 묶어 두어 라틴은 늘 Play 가 그린다. */
+@font-face {
+  font-family: 'Pretendard';
+  font-style: normal;
+  font-weight: 100 550;
+  font-display: swap;
+  src: url('fonts/Pretendard-Regular.subset.woff2') format('woff2');
+  unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7AF, U+D7B0-D7FF, U+FF00-FFEF;
+}
+
+@font-face {
+  font-family: 'Pretendard';
+  font-style: normal;
+  font-weight: 551 900;
+  font-display: swap;
+  src: url('fonts/Pretendard-Bold.subset.woff2') format('woff2');
+  unicode-range: U+1100-11FF, U+3000-303F, U+3130-318F, U+A960-A97F, U+AC00-D7AF, U+D7B0-D7FF, U+FF00-FFEF;
+}
+
 :root[data-tb-font='scoredream'] {
   --tb-font: 'S-CoreDream', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR',
     system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
 :root[data-tb-font='play'] {
-  --tb-font: 'Play', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR',
+  --tb-font: 'Play', 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', 'Noto Sans KR',
     system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
@@ -11533,7 +11554,7 @@ html.jsini-toast-zoomed .dxbl-toast-portal {
    `font: inherit` 를 걸어, 한 겹이면 그쪽이 이긴다. */
 .tb-custom .tb-pill.tb-pill--font-system { font-family: system-ui, -apple-system, 'Segoe UI', 'Malgun Gothic', sans-serif; }
 .tb-custom .tb-pill.tb-pill--font-scoredream { font-family: 'S-CoreDream', 'Malgun Gothic', sans-serif; }
-.tb-custom .tb-pill.tb-pill--font-play { font-family: 'Play', 'Malgun Gothic', sans-serif; }
+.tb-custom .tb-pill.tb-pill--font-play { font-family: 'Play', 'Pretendard', 'Malgun Gothic', sans-serif; }
 
 /* 로그인 · 가입 신청 카드 맨 아래의 개인정보처리방침 · 이용약관. 조용히 두되
    방침만 굵게 — 법이 「쉽게 확인할 수 있게」를 요구한다. */

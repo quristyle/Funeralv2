@@ -22,4 +22,14 @@
 - 받은 곳: Google Fonts
 - 이용 조건: SIL Open Font License 1.1
 - 넣어 둔 것: 400 · 700, `latin` 조각
-- **라틴 문자 전용이다.** 한글은 시스템 한글 글꼴(맑은 고딕 · Apple SD 고딕)로 그려진다.
+- **라틴 문자 전용이다.** 한글은 바로 뒤의 Pretendard 가 그린다(아래).
+
+## Pretendard
+
+- 받은 곳: `https://cdn.jsdelivr.net/npm/pretendard@1.3.9/dist/web/static/woff2-subset/Pretendard-{무게}.subset.woff2`
+- 만든 곳: 길형진(orioncactus/pretendard)
+- 이용 조건: SIL Open Font License 1.1
+- 넣어 둔 것: `Regular`(400) · `Bold`(700), **subset**(상용 한글 2,780자). 하나에 270KB.
+  통짜 파일은 하나에 780KB 라 조각을 넣었다 — 조각에 없는 드문 음절은 시스템 고딕으로 그려진다.
+- **Play 의 한글 받침으로만 쓴다.** `unicode-range` 를 한글 범위로 묶어, Play 를 고른 사람의
+  화면에 한글이 있을 때만 내려받는다.
