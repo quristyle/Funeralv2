@@ -51,6 +51,19 @@ public partial class HanjuSystemMonitor
     /// <summary>1분 자동 조회. 스위치를 켠 동안에만 돈다.</summary>
     protected override TimeSpan RefreshInterval => TimeSpan.FromSeconds(60);
 
+    /// <summary>틀을 자리표시로 먼저 세우므로 옮김 표시로 덮지 않는다.</summary>
+    protected override bool CoverWhileLoading => false;
+
+    private const string MinuteHeight = "170px";
+    private const string HourHeight = "210px";
+
+    private static readonly IReadOnlyList<string> MinuteTitles = ["1H CPU", "1H I/O", "1H Memory", "1H Traffic"];
+    private static readonly IReadOnlyList<string> HourTitles =
+        ["24H CPU Load (%)", "24H I/O Latency (ms)", "24H Memory Stability", "24H Subsystem Stalls"];
+
+    /// <summary>24시간 차트를 그릴 차례인가. 첫 자료가 그려진 다음 그림에서 켠다 — 여덟 장을 한 그림에 몰면 그리는 동안 브라우저가 멎는다.</summary>
+    private bool _showHours;
+
     private RealtimeRow? _now;
     private IReadOnlyList<MinutePoint> _minutes = [];
     private IReadOnlyList<HourPoint> _hours = [];
@@ -62,6 +75,19 @@ public partial class HanjuSystemMonitor
     private string _updatedAt = "-";
 
     protected override Task OnInitializedAsync() => ReloadAsync();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_showHours || _hours.Count == 0)
+        {
+            return;
+        }
+
+        // 점수판·1시간 차트가 브라우저에 그려질 틈을 준 뒤 24시간 차트를 얹는다.
+        await Task.Delay(120);
+        _showHours = true;
+        StateHasChanged();
+    }
 
     /// <summary>스위치. 끌 때 바로 서야 한다 — 끄고도 한 번 더 읽히면 「껐는데 왜 바뀌나」가 된다.</summary>
     private void ToggleAuto(bool on)

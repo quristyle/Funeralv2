@@ -15,6 +15,9 @@ public abstract class DataPage : BasePage
     /// <summary>옮기는 동안의 표시. 이 화면의 첫 조회가 끝날 때까지 덮어 둔다 — LoadAsync 가 잡고 놓는다. 같은 화면의 「조회」는 세지 않는다(PageTransition 머리말).</summary>
     [Inject] private PageTransition Transition { get; set; } = default!;
 
+    /// <summary>첫 조회 동안 옮김 표시로 본문을 덮을지. 자리표시로 틀을 먼저 세우는 화면은 끈다 — 덮으면 그 틀이 조회가 끝날 때까지 안 보여 화면이 굳은 것처럼 읽힌다.</summary>
+    protected virtual bool CoverWhileLoading => true;
+
     /// <summary>동작의 결과를 알리는 곳. 화면이 직접 부르지 않고 LoadAsync · RunAsync · Say 가 부른다 — 예전의 Notice·Tone 두 값은 지웠다. 두면 어떤 화면은 토스트로, 어떤 화면은 안내 줄로 같은 말을 하게 되고, 지우면 옛 줄을 든 화면은 빌드가 막는다. 사라지면 안 되는 상태 안내는 여전히 PageNotice 로 화면이 그린다.</summary>
     [Inject] protected Toasts Toasts { get; set; } = default!;
 
@@ -31,14 +34,22 @@ public abstract class DataPage : BasePage
         string failMessage = "조회하지 못했습니다")
     {
         Loading = true;
+        var cover = CoverWhileLoading;
 
         // 첫 await 앞이어야 한다 — 뒤로 밀면 조회가 시작되기도 전에 레이아웃의 첫 그림이 끝나 표시가 먼저 걷힌다.
-        Transition.Claim();
+        if (cover)
+        {
+            Transition.Claim();
+        }
 
         // 프리렌더에서는 조회하지 않고 Loading 을 켠 채로 돌아간다(CanLoad 머리말). 잡은 것은 여기서 놓는다 — 안 놓으면 회로가 붙기 전까지 표시가 안 걷힌다.
         if (!CanLoad)
         {
-            Transition.Release();
+            if (cover)
+            {
+                Transition.Release();
+            }
+
             return;
         }
 
@@ -62,7 +73,11 @@ public abstract class DataPage : BasePage
         finally
         {
             Loading = false;
-            Transition.Release();
+
+            if (cover)
+            {
+                Transition.Release();
+            }
         }
     }
 

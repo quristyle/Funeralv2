@@ -1983,6 +1983,60 @@
   --commgrd-max-height: none;
 }
 
+/* 자료가 오기 전의 자리표시. 크기를 실제 값·차트와 맞춰 두어 자료가 들어와도 판이 들썩이지 않는다. */
+.hd-skel {
+  display: block;
+  border-radius: 4px;
+  background: linear-gradient(90deg,
+      color-mix(in srgb, var(--jsini-text-muted) 12%, transparent) 25%,
+      color-mix(in srgb, var(--jsini-text-muted) 22%, transparent) 50%,
+      color-mix(in srgb, var(--jsini-text-muted) 12%, transparent) 75%);
+  background-size: 200% 100%;
+  animation: hd-skel-flow 1.4s ease-in-out infinite;
+}
+
+.hd-skel--badge {
+  display: inline-block;
+  width: 3rem;
+  height: 1.25rem;
+}
+
+.hd-skel--value {
+  width: 6rem;
+  height: calc(var(--jsini-fs-2xl) * 1.1);
+}
+
+.hd-skel--line {
+  width: 60%;
+  height: 0.9em;
+}
+
+.hd-skel--chart {
+  width: 100%;
+}
+
+@keyframes hd-skel-flow {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+
+/* 자료가 들어온 칸은 스며들듯 나타난다 — 자리표시에서 값으로 툭 바뀌면 깜박임으로 읽힌다. */
+.hd-sysmon__fade {
+  animation: hd-sysmon-in 0.35s ease-out both;
+}
+
+@keyframes hd-sysmon-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hd-skel,
+  .hd-sysmon__fade {
+    animation: none;
+  }
+}
+
 /* ── 한주계량기 수집상태 (`/helpdesk/hanju/gauge-collection`) ─────────── */
 /* 왼쪽은 계량기 나무, 오른쪽은 고른 하나의 상태와 이력이다. 좌우를 나누는 규칙은 위 `hd-vsplit` 에 있고, 여기는 판 안쪽만 적는다. */
 

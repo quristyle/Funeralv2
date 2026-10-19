@@ -14,6 +14,9 @@
 
     @* 차트 여덟 장은 @NoAnim 으로 첫 렌더 애니메이션을 끈다 — 자료는 0.5초 안에 오는데 차트가 메인 스레드를 붙잡아 클릭이 얼었다. *@
 
+    @* 틀(점수판·차트 칸·표)은 자료를 기다리지 않고 먼저 선다 — 덮개로 가리면 조회 동안 화면이 굳은 것으로 읽힌다(CoverWhileLoading).
+       자료가 오면 점수판과 1시간 차트가 먼저, 24시간 차트는 한 박자 뒤에 그려진다 — 여덟 장을 한 번에 그리면 그 사이 브라우저가 멎는다. *@
+
 @inherits AutoRefreshPage
 
 <PageTitle>한주운영시스템 모니터링 · 헬프데스크</PageTitle>
@@ -31,68 +34,107 @@
 </div>
 
 @* ── 1. 실시간 건강 상태 ──────────────────────────────── *@
-@if (_now is not null)
-{
-    <div class="hd-sysmon__head">
-        <h2 class="jsini-subhead">Real-Time System Health Scorecard</h2>
-        <span class="jsini-badge @StateBadge(_now.State)">@_now.State</span>
-    </div>
+<div class="hd-sysmon__head">
+    <h2 class="jsini-subhead">Real-Time System Health Scorecard</h2>
+    @if (_now is not null)
+    {
+        <span class="jsini-badge @StateBadge(_now.State) hd-sysmon__fade">@_now.State</span>
+    }
+    else if (Loading)
+    {
+        <span class="hd-skel hd-skel--badge"></span>
+    }
+</div>
 
-    <div class="hd-sysmon__cards">
-        @foreach (var metric in Metrics)
-        {
-            var value = metric.Pick(_now);
-            var verdict = metric.Judge(value);
+<div class="hd-sysmon__cards">
+    @foreach (var metric in Metrics)
+    {
+        <div class="hd-sysmon__card">
+            @if (_now is not null)
+            {
+                var value = metric.Pick(_now);
+                var verdict = metric.Judge(value);
 
-            <div class="hd-sysmon__card">
                 <div class="hd-sysmon__card-head">
                     <span class="hd-sysmon__card-title">@metric.Title</span>
-                    <span class="jsini-badge @verdict.Badge">@verdict.Label</span>
+                    <span class="jsini-badge @verdict.Badge hd-sysmon__fade">@verdict.Label</span>
                 </div>
 
-                <div class="hd-sysmon__value hd-sysmon__value--@metric.Key">
+                <div class="hd-sysmon__value hd-sysmon__value--@metric.Key hd-sysmon__fade">
                     @value.ToString(metric.Format)<span class="hd-sysmon__unit">@metric.Unit</span>
                 </div>
 
                 <div class="hd-sysmon__guide">@metric.Guide</div>
                 <p class="hd-sysmon__desc">@metric.Desc</p>
-                <p class="hd-sysmon__advice">"@verdict.Advice"</p>
-            </div>
-        }
-    </div>
-}
+                <p class="hd-sysmon__advice hd-sysmon__fade">"@verdict.Advice"</p>
+            }
+            else
+            {
+                <div class="hd-sysmon__card-head">
+                    <span class="hd-sysmon__card-title">@metric.Title</span>
+                    @if (Loading)
+                    {
+                        <span class="hd-skel hd-skel--badge"></span>
+                    }
+                </div>
+
+                @if (Loading)
+                {
+                    <span class="hd-skel hd-skel--value"></span>
+                }
+                else
+                {
+                    <div class="hd-sysmon__value hd-sysmon__value--@metric.Key">-</div>
+                }
+
+                <div class="hd-sysmon__guide">@metric.Guide</div>
+                <p class="hd-sysmon__desc">@metric.Desc</p>
+                <p class="hd-sysmon__advice">
+                    @if (Loading)
+                    {
+                        <span class="hd-skel hd-skel--line"></span>
+                    }
+                </p>
+            }
+        </div>
+    }
+</div>
 
 @* ── 2. 최근 1시간 고해상도 추이 ──────────────────────── *@
+<h2 class="jsini-subhead">1-Hour Precision Monitoring (5m Interval)</h2>
+
+<div class="hd-charts hd-charts--quad">
 @if (_minutes.Count > 0)
 {
-    <h2 class="jsini-subhead">1-Hour Precision Monitoring (5m Interval)</h2>
-
-    <div class="hd-charts hd-charts--quad">
-        <div class="hd-chart">
+        <div class="hd-chart hd-sysmon__fade">
             <h3 class="hd-chart__title">1H CPU</h3>
-            <DxChart Data="@_minutes" Width="100%" Height="170px">
+            <DxChart Data="@_minutes" Width="100%" Height="@MinuteHeight">
                 <DxChartLegend Visible="false" />
                 @NoAnim
                 @TimeAxis
                 <DxChartValueAxis TickInterval="@(15)" EndOnTick="false">
                     <DxChartAxisRange StartValue="@(0d)" EndValue="@(90d)" />
                 </DxChartValueAxis>
-                <DxChartLineSeries T="MinutePoint" TArgument="string" TValue="double"
+                <DxChartSplineSeries T="MinutePoint" TArgument="string" TValue="double"
                                    ArgumentField="p => p.Label" ValueField="p => p.Cpu"
-                                   Color="@CpuColor" Name="CPU" />
+                                   Color="@CpuColor" Name="CPU">
+                    <DxChartSeriesPoint Visible="false" />
+                </DxChartSplineSeries>
                 @MinuteTip
             </DxChart>
         </div>
 
-        <div class="hd-chart">
+        <div class="hd-chart hd-sysmon__fade">
             <h3 class="hd-chart__title">1H I/O</h3>
-            <DxChart Data="@_minutes" Width="100%" Height="170px">
+            <DxChart Data="@_minutes" Width="100%" Height="@MinuteHeight">
                 <DxChartLegend Visible="false" />
                 @NoAnim
                 @TimeAxis
-                <DxChartLineSeries T="MinutePoint" TArgument="string" TValue="double"
+                <DxChartSplineSeries T="MinutePoint" TArgument="string" TValue="double"
                                    ArgumentField="p => p.Label" ValueField="p => p.Io"
-                                   Color="@IoColor" Name="I/O" />
+                                   Color="@IoColor" Name="I/O">
+                    <DxChartSeriesPoint Visible="false" />
+                </DxChartSplineSeries>
                 <DxChartLineSeries T="MinutePoint" TArgument="string" TValue="double"
                                    ArgumentField="p => p.Label" ValueField="p => p.IoLimit"
                                    Color="@IoFaintColor" DashStyle="ChartDashStyle.Dash" Name="기준선(20ms)">
@@ -102,15 +144,17 @@
             </DxChart>
         </div>
 
-        <div class="hd-chart">
+        <div class="hd-chart hd-sysmon__fade">
             <h3 class="hd-chart__title">1H Memory</h3>
-            <DxChart Data="@_minutes" Width="100%" Height="170px">
+            <DxChart Data="@_minutes" Width="100%" Height="@MinuteHeight">
                 <DxChartLegend Visible="false" />
                 @NoAnim
                 @TimeAxis
-                <DxChartLineSeries T="MinutePoint" TArgument="string" TValue="double"
+                <DxChartSplineSeries T="MinutePoint" TArgument="string" TValue="double"
                                    ArgumentField="p => p.Label" ValueField="p => p.Ple"
-                                   Color="@PleColor" Name="PLE" />
+                                   Color="@PleColor" Name="PLE">
+                    <DxChartSeriesPoint Visible="false" />
+                </DxChartSplineSeries>
                 <DxChartLineSeries T="MinutePoint" TArgument="string" TValue="double"
                                    ArgumentField="p => p.Label" ValueField="p => p.PleGood"
                                    Color="@PleFaintColor" DashStyle="ChartDashStyle.Dot" Name="권장(1000s)">
@@ -125,18 +169,20 @@
             </DxChart>
         </div>
 
-        <div class="hd-chart">
+        <div class="hd-chart hd-sysmon__fade">
             <h3 class="hd-chart__title">1H Traffic</h3>
-            <DxChart Data="@_minutes" Width="100%" Height="170px">
+            <DxChart Data="@_minutes" Width="100%" Height="@MinuteHeight">
                 <DxChartLegend Visible="false" />
                 @NoAnim
                 @TimeAxis
                 <DxChartValueAxis EndOnTick="false">
                     <DxChartAxisRange StartValue="@(0d)" EndValue="@(1000d)" />
                 </DxChartValueAxis>
-                <DxChartLineSeries T="MinutePoint" TArgument="string" TValue="double"
+                <DxChartSplineSeries T="MinutePoint" TArgument="string" TValue="double"
                                    ArgumentField="p => p.Label" ValueField="p => p.Tps"
-                                   Color="@TpsColor" Name="TPS" />
+                                   Color="@TpsColor" Name="TPS">
+                    <DxChartSeriesPoint Visible="false" />
+                </DxChartSplineSeries>
                 <DxChartLineSeries T="MinutePoint" TArgument="string" TValue="double"
                                    ArgumentField="p => p.Label" ValueField="p => p.TpsHigh"
                                    Color="@TpsFaintColor" DashStyle="ChartDashStyle.Dash" Name="상한(500)">
@@ -150,38 +196,42 @@
                 @MinuteTip
             </DxChart>
         </div>
-    </div>
 }
+else
+{
+    @ChartSlot(MinuteTitles, MinuteHeight, Loading)
+}
+</div>
 
 @* ── 3. 24시간 장기 추이 ──────────────────────────────── *@
-@if (_hours.Count > 0)
-{
-    <h2 class="jsini-subhead">24-Hour Operational Trends Analysis</h2>
+<h2 class="jsini-subhead">24-Hour Operational Trends Analysis</h2>
 
-    <div class="hd-charts hd-charts--quad">
-        <div class="hd-chart">
+<div class="hd-charts hd-charts--quad">
+@if (_hours.Count > 0 && _showHours)
+{
+        <div class="hd-chart hd-sysmon__fade">
             <h3 class="hd-chart__title">24H CPU Load (%)</h3>
-            <DxChart Data="@_hours" Width="100%" Height="210px">
+            <DxChart Data="@_hours" Width="100%" Height="@HourHeight">
                 <DxChartLegend Position="RelativePosition.Outside" />
                 @NoAnim
                 @TimeAxis
                 <DxChartValueAxis TickInterval="@(15)" EndOnTick="false">
                     <DxChartAxisRange StartValue="@(0d)" EndValue="@(90d)" />
                 </DxChartValueAxis>
-                <DxChartAreaSeries T="HourPoint" TArgument="string" TValue="double"
+                <DxChartSplineAreaSeries T="HourPoint" TArgument="string" TValue="double"
                                    ArgumentField="p => p.Label" ValueField="p => p.Cpu"
                                    Color="@CpuColor" Opacity="0.15" Name="평균 CPU (%)" />
                 @HourTip
             </DxChart>
         </div>
 
-        <div class="hd-chart">
+        <div class="hd-chart hd-sysmon__fade">
             <h3 class="hd-chart__title">24H I/O Latency (ms)</h3>
-            <DxChart Data="@_hours" Width="100%" Height="210px">
+            <DxChart Data="@_hours" Width="100%" Height="@HourHeight">
                 <DxChartLegend Position="RelativePosition.Outside" />
                 @NoAnim
                 @TimeAxis
-                <DxChartAreaSeries T="HourPoint" TArgument="string" TValue="double"
+                <DxChartSplineAreaSeries T="HourPoint" TArgument="string" TValue="double"
                                    ArgumentField="p => p.Label" ValueField="p => p.PeakIo"
                                    Color="@IoColor" Opacity="0.15" Name="피크 I/O (ms)" />
                 <DxChartLineSeries T="HourPoint" TArgument="string" TValue="double"
@@ -193,22 +243,22 @@
             </DxChart>
         </div>
 
-        <div class="hd-chart">
+        <div class="hd-chart hd-sysmon__fade">
             <h3 class="hd-chart__title">24H Memory Stability</h3>
-            <DxChart Data="@_hours" Width="100%" Height="210px">
+            <DxChart Data="@_hours" Width="100%" Height="@HourHeight">
                 <DxChartLegend Position="RelativePosition.Outside" />
                 @NoAnim
                 @TimeAxis
-                <DxChartLineSeries T="HourPoint" TArgument="string" TValue="double"
+                <DxChartSplineSeries T="HourPoint" TArgument="string" TValue="double"
                                    ArgumentField="p => p.Label" ValueField="p => p.AvgPle"
                                    Color="@PleAvgColor" Name="평균 PLE (s)">
                     <DxChartSeriesPoint Visible="false" />
-                </DxChartLineSeries>
-                <DxChartLineSeries T="HourPoint" TArgument="string" TValue="double"
+                </DxChartSplineSeries>
+                <DxChartSplineSeries T="HourPoint" TArgument="string" TValue="double"
                                    ArgumentField="p => p.Label" ValueField="p => p.MinPle"
                                    Color="@TpsColor" DashStyle="ChartDashStyle.Dot" Name="최소 PLE (s)">
                     <DxChartSeriesPoint Visible="false" />
-                </DxChartLineSeries>
+                </DxChartSplineSeries>
                 <DxChartLineSeries T="HourPoint" TArgument="string" TValue="double"
                                    ArgumentField="p => p.Label" ValueField="p => p.PleGood"
                                    Color="@PleFaintColor" DashStyle="ChartDashStyle.Dash" Name="권장선(1000s)">
@@ -223,30 +273,35 @@
             </DxChart>
         </div>
 
-        <div class="hd-chart">
+        <div class="hd-chart hd-sysmon__fade">
             <h3 class="hd-chart__title">24H Subsystem Stalls</h3>
-            <DxChart Data="@_hours" Width="100%" Height="210px">
+            <DxChart Data="@_hours" Width="100%" Height="@HourHeight">
                 <DxChartLegend Position="RelativePosition.Outside" />
                 @NoAnim
                 @TimeAxis
-                <DxChartAreaSeries T="HourPoint" TArgument="string" TValue="double"
+                <DxChartSplineAreaSeries T="HourPoint" TArgument="string" TValue="double"
                                    ArgumentField="p => p.Label" ValueField="p => p.TempDb"
                                    Color="@PleColor" Opacity="0.2" Name="TempDB 지연" />
-                <DxChartAreaSeries T="HourPoint" TArgument="string" TValue="double"
+                <DxChartSplineAreaSeries T="HourPoint" TArgument="string" TValue="double"
                                    ArgumentField="p => p.Label" ValueField="p => p.Log"
                                    Color="@LogColor" Opacity="0.15" Name="로그 지연" />
                 @HourTip
             </DxChart>
         </div>
-    </div>
 }
+else
+{
+    @ChartSlot(HourTitles, HourHeight, Loading || _hours.Count > 0)
+}
+</div>
 
 @* ── 4. 시간대별 상세 로그 ────────────────────────────── *@
 @* 휴대폰에서도 표로 둔다 — 시간대를 견주어 읽는 표라 카드로 펴면 비교가 사라진다. 쪽이 이미 구르므로 표 안에서는 굴리지 않고 전부 펼친다. *@
 <div class="hd-sysmon__log">
 <CommGrd TItem="HourPoint" Data="@_rows" Title="24시간 시간대별 정밀 성능 지표 로그"
          Unit="시간대" ExportName="한주운영시스템모니터링" Reload="@ReloadAsync"
-         MobileCards="false" VirtualScrollingEnabled="false" PageSize="100">
+         MobileCards="false" VirtualScrollingEnabled="false" PageSize="100"
+         EmptyText="@(Loading ? "불러오는 중입니다…" : "표시할 자료가 없습니다.")">
     <Columns>
         <DxGridDataColumn FieldName="@nameof(HourPoint.Slot)" Caption="시간대"
                           Width="160" MinWidth="150" TextAlignment="GridTextAlignment.Left" />
@@ -326,6 +381,25 @@
         <DxChartTooltip Enabled="true">
             <div class="jsini-tip">@context.Point.Argument 시 · @context.Point.SeriesName @Tip(context.Point.Value)</div>
         </DxChartTooltip>
+    };
+
+    @* 자료가 오기 전의 차트 칸. 제목과 높이를 실제 차트와 같게 두어 자료가 와도 화면이 들썩이지 않는다. *@
+    private static RenderFragment ChartSlot(IReadOnlyList<string> titles, string height, bool waiting) => __builder =>
+    {
+        foreach (var title in titles)
+        {
+            <div class="hd-chart">
+                <h3 class="hd-chart__title">@title</h3>
+                @if (waiting)
+                {
+                    <div class="hd-skel hd-skel--chart" style="height: @height"></div>
+                }
+                else
+                {
+                    <p class="hd-chart__empty" style="height: @height">자료가 없습니다.</p>
+                }
+            </div>
+        }
     };
 
     @* 넘긴 값은 붉게. 「몇인가」보다 「넘겼나」가 먼저 읽혀야 하는 칸이다. *@
