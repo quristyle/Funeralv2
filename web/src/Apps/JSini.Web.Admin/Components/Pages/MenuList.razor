@@ -31,37 +31,21 @@
     </Actions>
 </CommSch>
 
+@* 건수를 누르면 그 건수의 메뉴만 표로 보인다. 검색 조건과는 함께 걸리고, 「전체」는 거름을 푼다. *@
 @if (_stats is not null)
 {
-    <div class="ad-menu-strip" role="status" aria-label="메뉴 현황 요약">
-        <div class="ad-menu-strip__item">
-            <span class="ad-menu-strip__label">전체</span>
-            <span class="ad-menu-strip__val">@_stats.Total</span>
-        </div>
+    <div class="ad-menu-strip" role="group" aria-label="메뉴 현황 요약">
+        @StripItem(null, "전체", _stats.Total)
         <span class="ad-menu-strip__sep" aria-hidden="true"></span>
-        <div class="ad-menu-strip__item">
-            <span class="ad-menu-strip__label">묶음</span>
-            <span class="ad-menu-strip__val">@_stats.Catalogs</span>
-        </div>
+        @StripItem(MenuSlice.Catalogs, "묶음", _stats.Catalogs)
         <span class="ad-menu-strip__sep" aria-hidden="true"></span>
-        <div class="ad-menu-strip__item">
-            <span class="ad-menu-strip__label">화면</span>
-            <span class="ad-menu-strip__val">@_stats.Screens</span>
-        </div>
+        @StripItem(MenuSlice.Screens, "화면", _stats.Screens)
         <span class="ad-menu-strip__sep" aria-hidden="true"></span>
-        <div class="ad-menu-strip__item">
-            <span class="ad-menu-strip__label">숨김</span>
-            <span class="ad-menu-strip__val">@_stats.Hidden</span>
-        </div>
+        @StripItem(MenuSlice.Hidden, "숨김", _stats.Hidden)
         <span class="ad-menu-strip__sep" aria-hidden="true"></span>
-        <div class="ad-menu-strip__item">
-            <span class="ad-menu-strip__label">중지</span>
-            <span class="ad-menu-strip__val">@_stats.Stopped</span>
-        </div>
+        @StripItem(MenuSlice.Stopped, "중지", _stats.Stopped)
     </div>
 }
-
-
 
 @* 검색어가 있으면 나무를 접고 평평한 목록으로 보인다 — 나무인 채 거르면 걸리지 않은 묶음이 결과에 섞인다. *@
 <CommCont>
@@ -269,6 +253,16 @@ else
 </CommPopup>
 
 @code {
+    /// <summary>요약 띠의 한 칸. 고른 칸은 aria-pressed 로 가른다.</summary>
+    private RenderFragment StripItem(MenuSlice? slice, string label, int count) =>@<button type="button"
+            class="ad-menu-strip__item @(_slice == slice ? "ad-menu-strip__item--on" : "")"
+            aria-pressed="@(_slice == slice ? "true" : "false")"
+            title="@(slice is null ? "거름을 풀고 전체를 봅니다" : $"{label} 메뉴만 봅니다")"
+            @onclick="@(() => PickSlice(slice))">
+        <span class="ad-menu-strip__label">@label</span>
+        <span class="ad-menu-strip__val">@count</span>
+    </button>;
+
     /// <summary>
     /// 관리 칸의 단추들. 표와 나무가 <b>같은 조각</b>을 쓴다.
     ///

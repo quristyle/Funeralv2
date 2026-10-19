@@ -499,6 +499,23 @@
   align-items: baseline;
   gap: 0.35rem;
   white-space: nowrap;
+  padding: 0.1rem 0.45rem;
+  margin: 0;
+  font: inherit;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--jsini-radius, 4px);
+  cursor: pointer;
+}
+
+.ad-menu-strip__item:hover {
+  border-color: var(--jsini-border);
+}
+
+.ad-menu-strip__item--on,
+.ad-menu-strip__item--on:hover {
+  border-color: var(--jsini-accent);
+  background: var(--jsini-accent-soft);
 }
 
 .ad-menu-strip__label {

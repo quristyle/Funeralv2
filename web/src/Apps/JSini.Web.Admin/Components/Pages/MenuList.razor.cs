@@ -18,7 +18,8 @@ public partial class MenuList
     /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
     private string ConditionSummary => SchSummary.Of(
         SchSummary.Or(_keyword),
-        SchSummary.On(_onlyHidden, "숨긴 메뉴만"));
+        SchSummary.On(_onlyHidden, "숨긴 메뉴만"),
+        SliceLabel(_slice));
 
     private IReadOnlyList<SystemMenuDto> _menus = [];
 
@@ -91,6 +92,33 @@ public partial class MenuList
 
     private sealed record Stats(int Total, int Catalogs, int Screens, int Hidden, int Stopped);
 
+    /// <summary>요약 띠에서 고를 수 있는 갈래. 판정은 <see cref="InSlice"/> 한 곳에 둔다 — 건수와 거른 줄 수가 갈리면 안 된다.</summary>
+    private enum MenuSlice { Catalogs, Screens, Hidden, Stopped }
+
+    /// <summary>요약 띠에서 고른 갈래. null 이면 거르지 않는다.</summary>
+    private MenuSlice? _slice;
+
+    private static bool InSlice(SystemMenuDto m, MenuSlice slice) => slice switch
+    {
+        MenuSlice.Catalogs => string.Equals(m.Type, "CATALOG", StringComparison.OrdinalIgnoreCase),
+        MenuSlice.Screens => string.Equals(m.Type, "MENU", StringComparison.OrdinalIgnoreCase),
+        MenuSlice.Hidden => m.Meta.HideInMenu,
+        MenuSlice.Stopped => m.Status != 1,
+        _ => true,
+    };
+
+    private static string? SliceLabel(MenuSlice? slice) => slice switch
+    {
+        MenuSlice.Catalogs => "묶음",
+        MenuSlice.Screens => "화면",
+        MenuSlice.Hidden => "숨김",
+        MenuSlice.Stopped => "중지",
+        _ => null,
+    };
+
+    /// <summary>요약 칸을 눌렀을 때. 고른 칸을 다시 누르면 푼다.</summary>
+    private void PickSlice(MenuSlice? slice) => _slice = _slice == slice ? null : slice;
+
     private static readonly object[] TypeOptions =
     [
         new { Value = "MENU", Text = "화면" },
@@ -100,13 +128,18 @@ public partial class MenuList
         new { Value = "BUTTON", Text = "버튼" },
     ];
 
-    private bool Filtering => !string.IsNullOrWhiteSpace(_keyword) || _onlyHidden;
+    private bool Filtering => !string.IsNullOrWhiteSpace(_keyword) || _onlyHidden || _slice is not null;
 
     private IReadOnlyList<SystemMenuDto> Flat
     {
         get
         {
             IEnumerable<SystemMenuDto> rows = _flat;
+
+            if (_slice is { } slice)
+            {
+                rows = rows.Where(m => InSlice(m, slice));
+            }
 
             if (_onlyHidden)
             {
@@ -298,10 +331,10 @@ public partial class MenuList
 
         _stats = new Stats(
             _flat.Count,
-            _flat.Count(m => string.Equals(m.Type, "CATALOG", StringComparison.OrdinalIgnoreCase)),
-            _flat.Count(m => string.Equals(m.Type, "MENU", StringComparison.OrdinalIgnoreCase)),
-            _flat.Count(m => m.Meta.HideInMenu),
-            _flat.Count(m => m.Status != 1));
+            _flat.Count(m => InSlice(m, MenuSlice.Catalogs)),
+            _flat.Count(m => InSlice(m, MenuSlice.Screens)),
+            _flat.Count(m => InSlice(m, MenuSlice.Hidden)),
+            _flat.Count(m => InSlice(m, MenuSlice.Stopped)));
     }
 
     /// <summary>사람이 읽는 제목. 서버가 다국어 표에서 찾아 TitleText 에 넣고, 못 찾으면 Title 이 글자다.</summary>
