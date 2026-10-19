@@ -69,7 +69,6 @@ public static MC_Models? GetModelByHeader(string? mc_name) {
 
 
           if (string.IsNullOrEmpty(request.Content)) return Results.BadRequest("Content is empty");
-          //var lines = request.Content.Split(new[] { "\r\n", "\r", "\n" }, StringSplitOptions.None);
           var line = request.Content;
           var heads = request.Heads ?? new List<string>();// RX, TX,count,CRC 등 헤더 리스트
 
@@ -79,8 +78,6 @@ public static MC_Models? GetModelByHeader(string? mc_name) {
 
           var results = bci.Results; // new List<object>();
 
-      //      foreach (var line in lines) {
-                //if (string.IsNullOrWhiteSpace(line)) { results.Add(""); continue; }
 
                 // 헤더(RX/TX) 추출 및 필터링
                 bci.TargetContent = line;
@@ -139,7 +136,7 @@ public static MC_Models? GetModelByHeader(string? mc_name) {
                 var model = GetModelByHeader(request.Model);
 
                 // 모델을 못 찾으면 머리말을 떼어 낼 기준이 없다. 원문을 그대로 둔다.
-                // 전에는 이 줄에서 곧바로 NullReferenceException 이 났다.
+                // 여기서 null 을 읽지 않도록 가드한다.
                 bci.TargetContentNotHead = model != null && bci.TargetContent.StartsWith(model.StartKey)
                     ? bci.TargetContent[model.StartKey.Length..].Trim()
                     : bci.TargetContent;
@@ -174,7 +171,6 @@ results.Add(new {
                 ModelUsed = request.Model
             });
 
-      //      }
 
 
 
@@ -571,10 +567,8 @@ private static ITagCodeBook CreateKepcoTagCodeBook() {
 private static void CrcResultAdd(string crcName, List<object> results, string targetContent ) {
 
 
-//Console.WriteLine($"Calculating {crcName} start ... : **{targetContent}**");
 
 
-// Console.WriteLine($"Calculating {crcName} for content: **{targetContent}**");
   string c1 = CrcResultChangeCont(crcName, targetContent);
 
 
@@ -582,17 +576,14 @@ private static void CrcResultAdd(string crcName, List<object> results, string ta
                 var tokens = targetContent.Split(' ', StringSplitOptions.RemoveEmptyEntries);
 var t2 = string.Join(" ", tokens.Skip(1));
 
-// Console.WriteLine($"Calculating {crcName} for t2 content: **{t2}**");
   string c2 = CrcResultChangeCont(crcName, t2);
 
 var t3 = string.Join(" ", tokens.Take(tokens.Length - 2));
-// Console.WriteLine($"Calculating {crcName} for t3 content: **{t3}**");
   string c3 = CrcResultChangeCont(crcName, t3);
 
 var t4 = tokens.Length > 3
     ? string.Join(" ", tokens.Skip(1).Take(tokens.Length - 3))
     : "";
-// Console.WriteLine($"Calculating {crcName} for t4 content: **{t4}**");
   string c4 = CrcResultChangeCont(crcName, t4);
 
 

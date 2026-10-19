@@ -10,58 +10,38 @@ using HtmlAgilityPack;
 
 namespace HelpDeskServer.Services;
 
-/// <summary>
-/// Web Push 구독 정보를 관리하는 저장소 인터페이스
-/// </summary>
+/// <summary>Web Push 구독 정보를 관리하는 저장소 인터페이스</summary>
 public interface IPushSubscriptionStore {
-  /// <summary>
-  /// 새로운 구독 정보를 추가합니다.
-  /// </summary>
+  /// <summary>새로운 구독 정보를 추가합니다.</summary>
   /// <param name="dto">구독 정보 DTO</param>
   /// <param name="userId">사용자 ID</param>
   /// <param name="userType">사용자 타입 ("Admin" 또는 "Customer")</param>
   void Add(PushSubscriptionDto dto, int userId, string userType);
-  /// <summary>
-  /// Endpoint URL을 기준으로 구독 정보를 삭제합니다.
-  /// </summary>
+  /// <summary>Endpoint URL을 기준으로 구독 정보를 삭제합니다.</summary>
   /// <param name="endpoint">삭제할 구독의 Endpoint URL</param>
   Task RemoveByEndpointAsync(string endpoint);
-  /// <summary>
-  /// Endpoint URL을 기준으로 구독 여부를 확인합니다.
-  /// </summary>
+  /// <summary>Endpoint URL을 기준으로 구독 여부를 확인합니다.</summary>
   /// <param name="endpoint">확인할 구독의 Endpoint URL</param>
   /// <returns>구독 중이면 true, 아니면 false</returns>
   Task<bool> IsSubscribedAsync(string endpoint);
-  /// <summary>
-  /// 특정 사용자의 모든 구독 정보를 조회합니다.
-  /// </summary>
+  /// <summary>특정 사용자의 모든 구독 정보를 조회합니다.</summary>
   /// <param name="userId">사용자 ID</param>
   /// <param name="userType">사용자 타입</param>
   Task<IReadOnlyCollection<Models.PushSubscription>> GetSubscriptionsByUserAsync(int userId, string userType);
-  /// <summary>
-  /// 특정 고객사에 속한 모든 사용자의 구독 정보를 조회합니다.
-  /// </summary>
+  /// <summary>특정 고객사에 속한 모든 사용자의 구독 정보를 조회합니다.</summary>
   /// <param name="companyId">고객사 식별자 — 포털(<c>scom.companies.id</c>)의 값</param>
   Task<IReadOnlyCollection<Models.PushSubscription>> GetSubscriptionsByCompanyAsync(string companyId);
-  /// <summary>
-  /// 모든 관리자의 구독 정보를 조회합니다.
-  /// </summary>
+  /// <summary>모든 관리자의 구독 정보를 조회합니다.</summary>
   Task<IReadOnlyCollection<Models.PushSubscription>> GetAdminSubscriptionsAsync();
-  /// <summary>
-  /// 모든 구독 정보를 조회합니다.
-  /// </summary>
+  /// <summary>모든 구독 정보를 조회합니다.</summary>
   Task<IReadOnlyCollection<Models.PushSubscription>> GetAllAsync();
 }
 
-/// <summary>
-/// 데이터베이스를 사용하여 Web Push 구독 정보를 영구적으로 관리하는 클래스
-/// </summary>
+/// <summary>데이터베이스를 사용하여 Web Push 구독 정보를 영구적으로 관리하는 클래스</summary>
 public sealed class DbPushSubscriptionStore : IPushSubscriptionStore {
   private readonly AppDbContext _db;
 
-  /// <summary>
-  /// 생성자
-  /// </summary>
+  /// <summary>생성자</summary>
   /// <param name="db">데이터베이스 컨텍스트</param>
   public DbPushSubscriptionStore(AppDbContext db) {
     _db = db;
@@ -155,22 +135,16 @@ public sealed class DbPushSubscriptionStore : IPushSubscriptionStore {
   }
 }
 
-/// <summary>
-/// Web Push 알림 발송을 처리하는 서비스 인터페이스
-/// </summary>
+/// <summary>Web Push 알림 발송을 처리하는 서비스 인터페이스</summary>
 public interface IWebPushService {
-  /// <summary>
-  /// 단일 구독자에게 푸시 알림을 보냅니다.
-  /// </summary>
+  /// <summary>단일 구독자에게 푸시 알림을 보냅니다.</summary>
   /// <param name="subscription"></param>
   /// <param name="message"></param>
   /// <param name="recipientId"></param>
   /// <param name="ct"></param>
   /// <returns></returns>
   Task SendAsync(WebPush.PushSubscription subscription, PushMessageDto message, int? recipientId, CancellationToken ct = default);
-  /// <summary>
-  /// 여러 구독자에게 푸시 알림을 브로드캐스트합니다.
-  /// </summary>
+  /// <summary>여러 구독자에게 푸시 알림을 브로드캐스트합니다.</summary>
   /// <param name="subscriptions">대상 구독 정보 목록</param>
   /// <param name="message">보낼 메시지 내용</param>
   /// <param name="ct">취소 토큰</param>
@@ -178,17 +152,13 @@ public interface IWebPushService {
   Task<int> BroadcastAsync(IEnumerable<Models.PushSubscription> subscriptions, PushMessageDto message, CancellationToken ct = default);
 }
 
-/// <summary>
-/// Web Push 알림 발송을 처리하는 서비스 구현 클래스
-/// </summary>
+/// <summary>Web Push 알림 발송을 처리하는 서비스 구현 클래스</summary>
 public sealed class WebPushService : IWebPushService {
   private readonly VapidOptions _vapid;
   private readonly IServiceScopeFactory _scopeFactory;
   private readonly ILogger<WebPushService> _logger;
 
-  /// <summary>
-  /// 생성자
-  /// </summary>
+  /// <summary>생성자</summary>
   /// <param name="options">VAPID 키 옵션</param>
   /// <param name="scopeFactory">서비스 스코프 팩토리</param>
   /// <param name="logger">로거</param>
@@ -232,10 +202,7 @@ public sealed class WebPushService : IWebPushService {
     }, ct);
   }
 
-  /// <summary>
-  /// 푸시 수명(초). 여섯 시간이 지나면 푸시 서비스가 버린다 — 반나절 지난
-  /// 알림을 굳이 배달해 봐야 소음이고, 내용은 헬프데스크 화면에 남아 있다.
-  /// </summary>
+  /// <summary>푸시 수명(초). 여섯 시간이 지나면 푸시 서비스가 버린다 — 반나절 지난 알림을 굳이 배달해 봐야 소음이고, 내용은 헬프데스크 화면에 남아 있다.</summary>
   private const int DefaultTtlSeconds = 21600;
 
 

@@ -3,55 +3,16 @@ using Xunit;
 
 namespace JSini.Web.Architecture.Tests;
 
-/// <summary>
-/// 아래 띠(<c>MobileBottomNav</c>)의 「메뉴」 칸이 <b>여닫이인가</b>.
-///
-/// <para>
-/// [왜 기계가 봐야 하는가]
-/// </para>
-///
-/// <para>
-/// 그 칸은 헤더의 ☰ · 떠다니는 단추 · 로고와 <b>같은 물건</b>이다 —
-/// 넷 다 <c>_sidebarOpen</c> 하나를 여닫는다. 그런데 앞의 셋은
-/// <c>ToggleSidebarAsync</c> 를 부르고, 칸만 <c>MenuReveal</c> 을 거쳐
-/// <c>OnMenuRevealRequested</c> 로 들어온다. 그쪽은 브레드크럼도 쓰는 길이라
-/// <b>「펴져 있으면 아무것도 안 한다」가 기본</b>이고, 그 자리에 띠의 표시를
-/// 가려내는 갈래가 없으면 <b>판이 덮여 있는 채로 같은 자리를 다시 눌러도
-/// 아무 일이 없다.</b>
-/// </para>
-///
-/// <para>
-/// 화면은 멀쩡하다 — 띠도 보이고 누름도 들어온다(띠가 z-index 1030 으로
-/// 사이드바와 같은 층에 서 있어서 덮개에 먹히지 않는다). 휴대폰 폭으로
-/// 열어 봐야 드러나는 종류라 여기서 글자로 지킨다.
-/// </para>
-///
-/// <para>
-/// <b>브레드크럼 쪽은 반대로 접으면 안 된다</b> — 「이 메뉴를 보여 달라」에
-/// 판을 닫는 것은 부탁의 반대다. 그래서 갈래는 <c>BottomNav.MenuPath</c>
-/// 하나로만 좁혀져 있어야 한다.
-/// </para>
-/// </summary>
+/// <summary>아래 띠(MobileBottomNav)의 「메뉴」 칸은 여닫이여야 한다. 칸·헤더 ☰·떠다니는 단추·로고는 같은 물건이고, 칸만 MenuReveal 을 거쳐 「펴져 있으면 아무것도 안 한다」 쪽으로 들어가 덮인 판을 다시 눌러도 닫히지 않는다.
+/// 브레드크럼은 반대로 접으면 안 되므로 갈래는 BottomNav.MenuPath 로만 좁힌다. 휴대폰 폭에서만 드러나 글자로 지킨다.</summary>
 public sealed class BottomNavMenuToggleTests
 {
-    /// <summary>
-    /// 「메뉴」 칸은 여전히 <c>MenuReveal</c> 로 그 표시를 보낸다.
-    /// 여기가 바뀌면 아래 두 검사가 지키는 것이 뜻을 잃는다.
-    /// </summary>
-    /// <remarks>
-    /// 보는 자리가 <c>MobileBottomNav</c> 가 아니라 <see cref="BottomNav"/> 다 —
-    /// 같은 칸 목록을 넓은 화면 헤더도 그리게 되면서(<c>HeaderNavTools</c>)
-    /// 누름 판정이 <c>BottomNav.Open</c> 한 곳으로 모였다. 그리는 쪽을 보면
-    /// <b>둘 중 하나만 고쳐도 검사가 통과한다.</b>
-    /// </remarks>
+    /// <summary>「메뉴」 칸은 MenuReveal 로 표시를 보낸다. 보는 자리는 MobileBottomNav 가 아니라 BottomNav 다 — 넓은 화면 헤더도 같은 칸 목록을 그리므로 둘 중 하나만 고쳐도 통과하는 것을 막는다.</summary>
     [Fact]
     public void 띠의_메뉴_칸은_표시를_보낸다() =>
         Assert.Contains("reveal.Request(MenuPath)", BottomNavSource(), StringComparison.Ordinal);
 
-    /// <summary>
-    /// 펴져 있을 때 <b>그 표시로 들어오면 접는다.</b> 「펴져 있으면 돌아간다」로만
-    /// 두면 다시 누르는 것이 죽은 누름이 된다.
-    /// </summary>
+    /// <summary>펴져 있을 때 그 표시로 들어오면 접는다. 「펴져 있으면 돌아간다」로만 두면 다시 누르는 것이 죽은 누름이 된다.</summary>
     [Fact]
     public void 펴져_있으면_그_표시로_접는다()
     {
@@ -61,10 +22,7 @@ public sealed class BottomNavMenuToggleTests
         Assert.Contains("CloseSidebar()", body, StringComparison.Ordinal);
     }
 
-    /// <summary>
-    /// <b>접는 것은 그 표시일 때뿐이다.</b> 조건 없이 접으면 브레드크럼으로
-    /// 메뉴를 보여 달라고 한 사람의 판까지 닫힌다.
-    /// </summary>
+    /// <summary>접는 것은 그 표시일 때뿐이다 — 조건 없이 접으면 브레드크럼으로 메뉴를 보여 달라고 한 사람의 판까지 닫힌다.</summary>
     [Fact]
     public void 접는_것은_그_표시일_때뿐이다()
     {
@@ -77,9 +35,7 @@ public sealed class BottomNavMenuToggleTests
             + "조건 없이 접으면 브레드크럼이 판을 여는 길이 함께 죽는다.");
     }
 
-    /// <summary>
-    /// 펴는 길은 그대로다 — 접혀 있으면 어느 부탁이든 편다.
-    /// </summary>
+    /// <summary>펴는 길은 그대로다 — 접혀 있으면 어느 부탁이든 편다.</summary>
     [Fact]
     public void 접혀_있으면_여전히_편다() =>
         Assert.Contains("OpenSidebarAsync()", RevealHandler(), StringComparison.Ordinal);
@@ -92,9 +48,7 @@ public sealed class BottomNavMenuToggleTests
 
         Assert.True(start >= 0, "`MainLayout` 에 `OnMenuRevealRequested` 가 없다.");
 
-        // 다음 멤버 선언까지를 몸통으로 본다. 중괄호를 세지 않는 것은 그
-        // 안에 람다와 문자열이 섞여 있어 정규식으로는 어차피 정확하지 않기
-        // 때문이다 — 여기서 필요한 것은 「이 처리기 안에 그 글자가 있나」뿐이다.
+        // 다음 멤버 선언까지를 몸통으로 본다. 중괄호를 세지 않는다 — 람다와 문자열이 섞여 정규식으로는 정확하지 않고, 필요한 것은 「이 처리기 안에 그 글자가 있나」뿐이다.
         var next = Regex.Match(source[start..], @"\n    (?:///|private|protected|public)", RegexOptions.None);
         var end = next.Success && next.Index > 0 ? start + next.Index : source.Length;
 

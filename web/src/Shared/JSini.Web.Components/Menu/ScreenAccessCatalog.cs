@@ -28,36 +28,9 @@ public sealed record ScreenAccessRule(
     bool Declared,
     string? Reason);
 
-/// <summary>
-/// 실려 있는 화면마다 <b>권한의 출처</b>를 모아 둔다. 기동 때 한 번 만들고
-/// 그 뒤로는 읽기만 한다 — <see cref="RouteInventory"/> 와 같은 자리, 같은 수명이다.
-/// </summary>
-/// <remarks>
-/// <para>
-/// [왜 주소가 아니라 화면 클래스로 찾나]
-/// </para>
-///
-/// <para>
-/// 상세 화면의 주소에는 매개변수가 들어 있다
-/// (<c>/admin/system/account/{LoginId}/app</c>). 주소를 열쇠로 삼으면 그
-/// 템플릿을 여기서 <b>다시 맞춰 봐야</b> 하는데, 그 짝맞추기는 이미 Blazor
-/// 라우터가 한 일이다. 두 벌이 되면 언젠가 갈리고, 갈리는 쪽이 「막아야 할 것을
-/// 안 막는」 방향일 수 있다. 라우터가 고른 <see cref="RouteData.PageType"/> 을
-/// 그대로 열쇠로 쓰면 그 길이 없다.
-/// </para>
-///
-/// <para>
-/// [포괄 라우트는 기본이 열림이다]
-/// </para>
-///
-/// <para>
-/// <c>_Pending.razor</c>(<c>@page "/admin/{*rest}"</c>)는 화면이 아니라
-/// <b>「아직 화면이 없다」는 안내</b>다. 보여 줄 자료가 없으므로 막을 것도 없고,
-/// 막으면 오타 주소가 전부 차단 기록으로 쌓여 <b>진짜 막힌 줄이 묻힌다</b>.
-/// 포괄이라도 자료를 보여 주는 화면(셸의 <c>Embedded</c>)은 스스로
-/// <c>[ScreenAccess(ScreenAccessKind.Menu)]</c> 를 적어 이 기본값을 덮는다.
-/// </para>
-/// </remarks>
+/// <summary>실려 있는 화면마다 권한의 출처를 모아 둔다. 기동 때 한 번 만들고 그 뒤로는 읽기만 한다 — RouteInventory 와 같은 자리다.
+/// 주소가 아니라 화면 클래스로 찾는다 — 상세 화면의 주소에는 매개변수가 들어 있어 주소를 열쇠로 삼으면 템플릿을 여기서 다시 맞춰 봐야 하는데, 그 짝맞추기는 이미 라우터가 한 일이다. 두 벌이 되면 언젠가 갈리고 갈리는 쪽이 막아야 할 것을 여는 방향일 수 있다.
+/// 포괄 라우트(_Pending)는 화면이 아니라 아직 화면이 없다는 안내라 기본이 열림이다 — 막으면 오타 주소가 전부 차단 기록으로 쌓여 진짜 막힌 줄이 묻힌다. 자료를 보여 주는 포괄 화면은 스스로 ScreenAccess(Menu) 를 적어 기본을 덮는다.</summary>
 public sealed class ScreenAccessCatalog
 {
     private readonly Dictionary<Type, ScreenAccessRule> _byType;

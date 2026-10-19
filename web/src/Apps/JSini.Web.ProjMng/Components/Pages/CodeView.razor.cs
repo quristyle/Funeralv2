@@ -11,10 +11,7 @@ public partial class CodeView
     /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
     private string ConditionSummary => SchSummary.Or(_projectName);
 
-    /// <summary>
-    /// 고른 프로젝트의 <b>이름</b>. 화면이 든 것은 코드뿐이고 목록은
-    /// <c>CodeSelect</c> 안에 있어, 그 부품이 <c>@bind-Text</c> 로 올려 준다.
-    /// </summary>
+    /// <summary>고른 프로젝트의 이름. 코드만 들고, 목록은 CodeSelect 가 쥐고 있다.</summary>
     private string? _projectName;
 
     private IReadOnlyList<SourceInfoDto> _rows = [];

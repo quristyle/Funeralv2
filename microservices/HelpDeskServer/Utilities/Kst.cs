@@ -1,20 +1,6 @@
 namespace HelpDeskServer.Utilities;
 
-/// <summary>
-/// 한국 표준시 도우미. (CargoTrustServer · LifeEnvServer 와 같은 복사본)
-///
-/// <para>
-/// 요청·완료 시각은 전부 <b>UTC</b> 로 저장되어 있는데, 현황판이 묻는 것은
-/// 「<b>오늘</b> 몇 건 들어왔나」 · 「무슨 <b>요일</b>에 몰리나」 · 「몇 <b>시</b>에
-/// 몰리나」다. 그 판정을 UTC 로 하면 한국의 오전 9시 전 아홉 시간이 전날로
-/// 밀려, 하루 집계가 통째로 어긋난다. <b>저장은 UTC, 날짜·요일·시간대 판정만
-/// KST</b> 로 한다.
-/// </para>
-///
-/// <para>
-/// 컨테이너의 TZ 설정에 기대지 않는다 — 운영 컨테이너는 UTC 로 뜬다.
-/// </para>
-/// </summary>
+/// <summary>한국 표준시 도우미. 저장은 UTC, 날짜·요일·시간대 판정만 KST 로 한다(UTC 로 하면 오전 9시 전이 전날로 밀린다). 컨테이너 TZ 에 기대지 않는다.</summary>
 public static class Kst {
   private static readonly TimeZoneInfo Zone = ResolveZone();
 
@@ -30,18 +16,7 @@ public static class Kst {
   /// <summary>오늘(KST)</summary>
   public static DateOnly Today => DateOnly.FromDateTime(Now);
 
-  /// <summary>
-  /// UTC 시각 → KST 벽시계.
-  ///
-  /// <para>
-  /// <b><c>Kind</c> 를 따지지 않고 전부 UTC 로 읽는다.</b> 2026-09-29 에 이 DB 의
-  /// 시각 칸을 전부 <c>timestamp with time zone</c> 으로 맞췄으므로
-  /// (<c>deploy/sql/utc-timestamptz-2026-09-29.sql</c>) 이제는 대개 <c>Utc</c> 로
-  /// 올라온다. 그래도 한 줄을 남겨 둔다 — 원시 SQL 이나 <c>::timestamp</c> 캐스팅을
-  /// 거친 값은 <c>Unspecified</c> 로 오고, 그때 <c>ConvertTimeFromUtc</c> 가 그것을
-  /// 현지 시각으로 오해해 <b>그 칸만</b> 아홉 시간 어긋난다.
-  /// </para>
-  /// </summary>
+  /// <summary>UTC 시각을 KST 벽시계로 바꾼다. Kind 를 따지지 않고 UTC 로 읽는다 — Unspecified 로 오면 현지로 오해해 그 칸만 아홉 시간 어긋난다.</summary>
   public static DateTime FromUtc(DateTime value) =>
       TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(value, DateTimeKind.Utc), Zone);
 

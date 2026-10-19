@@ -1,36 +1,9 @@
 /**
- * 빠른 지시(AiAsk) 및 AI 작업 목록 카드 — **밀어서 확인 완료 · 삭제**.
- *
- * [왜 JS 가 손짓을 직접 받나]
- *
- * Blazor Server 는 모든 이벤트가 웹소켓을 타고 서버로 왕복한다. 손가락을
- * 끄는 동안 `pointermove` 는 초당 수십 번 온다 — 그것을 서버로 보내면
- * 카드가 손가락을 몇 백 ms 씩 늦게 따라오고, 회선이 흔들리는 자리
- * (이 화면의 전제다)에서는 아예 멈춘다. **끄는 동안은 브라우저 혼자 그리고**,
- * 서버는 다 밀고 난 뒤 「이 건을 확인(삭제) 처리해 달라」 한 번만 듣는다.
- *
- * [왜 클래스가 아니라 인라인 CSS 변수로 그리나]
- *
- * 이 목록은 5초마다 다시 그려진다. Blazor 가 카드의 `class` 를 제 손으로
- * 쥐고 있어서, 손짓 중에 그 갱신이 한 번 끼면 **JS 가 붙인 클래스가
- * 소리 없이 지워진다** — 카드가 밀린 자리에 굳는다.
- *
- * 그래서 움직이는 값을 전부 인라인 사용자 지정 속성으로 싣는다. Blazor 는
- * `style` 을 아예 그리지 않으므로(카드에 `style` 속성이 없다) 그 자리는
- * 건드리지 않는다.
- *
- *   --pm-ask-swipe     밀린 거리(px). **부호가 있다** — 양수 오른쪽(확인/완료),
- *                      음수 왼쪽(삭제). 본문이 그만큼 가고 그쪽 띠가 열린다.
- *   --pm-ask-swipe-ms  그 둘의 전환 시간. 끄는 동안은 0(손가락을 그대로
- *                      따라와야 한다), 손을 뗀 뒤에만 시간이 붙는다.
- *   --pm-ask-ready     문턱을 넘었나(0/1). 띠의 ✓ 또는 🗑 가 이 값으로 커진다.
- *   --pm-ask-alive     카드가 살아 있나(1) 사라지는 중인가(0).
- *
- * [세로 스크롤을 뺏지 않는다]
- *
- * 카드에 `touch-action: pan-y` 를 건다(projmng.css). 세로로 끌면 브라우저가
- * 제 스크롤을 하고 우리에게는 `pointercancel` 이 온다. 가로로 끌 때만 우리
- * 차례다 — 그마저도 **처음 몇 px 로 방향을 가려** 세로가 이기면 손을 뗀다.
+ * 빠른 지시·AI 작업 카드를 밀어서 확인 완료(오른쪽)·삭제(왼쪽)한다.
+ * 끄는 동안은 브라우저가 혼자 그린다 — pointermove 를 서버로 보내면 손가락을 몇 백 ms 늦게 따라온다. 서버는 다 민 뒤 한 번만 듣는다.
+ * 움직이는 값은 인라인 사용자 지정 속성으로 싣는다: Blazor 가 카드의 class 를 갈아 치우면 손짓 중에 JS 가 붙인 클래스가 지워진다.
+ *   --pm-ask-swipe(부호 있는 거리) · --pm-ask-swipe-ms(끄는 동안 0) · --pm-ask-ready(문턱 넘음) · --pm-ask-alive(살아 있나)
+ * 세로 스크롤은 touch-action: pan-y 가 브라우저에 넘긴다 — 가로가 확정된 뒤에만 막는다.
  */
 
 /** 이미 손짓을 받고 있는 판. 같은 알맹이가 화면과 서랍에 함께 뜬다. */
@@ -98,8 +71,7 @@ export function attachSwipe(selector, dotnet) {
     if (card || acking) return;
     if (e.pointerType === 'mouse' && e.button !== 0) return;
 
-    // 밀 수 있는 카드에만 `data-swipe` 가 붙는다 — 아직 도는 건은 확인할
-    // 것이 없다(화면이 `IsFinal` 로 가린다).
+    // 밀 수 있는 카드에만 data-swipe 가 붙는다 — 확인할 것이 없는 건(아직 도는 건)은 화면이 가린다.
     const el = e.target.closest ? e.target.closest('.pm-ask__item[data-swipe]') : null;
     if (!el || !root.contains(el)) return;
 
@@ -113,8 +85,7 @@ export function attachSwipe(selector, dotnet) {
     dir = 0;
     dx = 0;
 
-    // 여기서 `preventDefault` 하지 않는다. 그냥 누른 것일 수 있고, 그때는
-    // 평소대로 카드가 열려야 한다.
+    // preventDefault 하지 않는다 — 그냥 누른 것일 수 있고, 그때는 평소대로 카드가 열려야 한다.
   });
 
   root.addEventListener('pointermove', (e) => {
@@ -190,10 +161,7 @@ export function attachSwipe(selector, dotnet) {
   root.addEventListener('pointerup', release);
   root.addEventListener('pointercancel', release);
 
-  /**
-   * 문턱을 넘겼다. **띠가 카드를 다 덮고 나서** 스러지게 한다 — 그 사이에
-   * 「무엇이 일어났는지」(✓ 확인 완료 / 🗑 삭제)를 읽을 수 있다. 서버는 그다음이다.
-   */
+  /** 문턱을 넘겼다. 띠가 카드를 다 덮은 뒤에 스러지게 해 「무엇이 일어났는지」를 읽을 수 있게 한다. 서버는 그다음이다. */
   const commit = (el, way) => {
     acking = true;
 
@@ -216,16 +184,14 @@ export function attachSwipe(selector, dotnet) {
             drop(el);
           }
         } catch (err) {
-          // 회로가 닫혔거나 서버가 못 받았다. 카드를 제자리로 돌려 둔다 —
-          // 스러진 채로 두면 **처리되지도 않은 건이 화면에서 사라진다.**
+          // 회로가 닫혔거나 서버가 못 받았다. 카드를 제자리로 돌려 둔다 — 스러진 채 두면 처리되지 않은 건이 사라진다.
           drop(el);
         }
       }, FADE_MS);
     }, ACK_MS);
   };
 
-  // 끌고 난 뒤에 따라오는 `click` 을 막는다. 안 막으면 손을 떼는 순간
-  // 카드가 열려 **민 자리에 상세 창이 뜬다.**
+  // 끌고 난 뒤의 click 을 막는다 — 안 막으면 손을 뗀 순간 민 자리에 상세 창이 뜬다.
   root.addEventListener('click', (e) => {
     if (Date.now() - draggedAt > 250) return;
 

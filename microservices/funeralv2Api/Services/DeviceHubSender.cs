@@ -19,8 +19,6 @@ public interface IDeviceHubSender
     /// <summary>
     /// 원격 모니터 전원 제어 명령을 해당 장비에 즉시 전달한다.
     /// </summary>
-    /// <param name="deviceCode">대상 장비 코드</param>
-    /// <param name="on">true 면 화면 켜기, false 면 끄기</param>
     Task SendScreenPowerAsync(string deviceCode, bool on);
 
     /// <summary>
@@ -61,11 +59,7 @@ public class DeviceHubSender : IDeviceHubSender
     }
 
     /// <summary>
-    /// 원격 모니터 전원 제어 명령 전송.
-    ///
-    /// DB 에 저장하지 않는 즉시 실행 명령이다.
-    /// 장비가 재기동되면 화면은 다시 켜진 상태로 뜨는 것이 사이니지 운영상 안전하므로
-    /// 상태를 영속화하지 않는다. (꺼진 채로 부팅되면 원격에서 되살릴 수단이 없다)
+    /// 원격 모니터 전원 명령을 즉시 보낸다. 저장하지 않는다 — 꺼진 채 부팅되면 원격으로 되살릴 수단이 없다.
     /// </summary>
     public async Task SendScreenPowerAsync(string deviceCode, bool on)
     {
@@ -77,8 +71,7 @@ public class DeviceHubSender : IDeviceHubSender
     }
 
     /// <summary>
-    /// 플레이어 앱 재시작 명령 전송. 즉시 실행 명령이라 저장하지 않는다.
-    /// 옛 시스템의 `SHUTDOWN='reboot'` 지시(하트비트 응답 방식)를 SignalR 푸시로 옮긴 것.
+    /// 플레이어 앱 재시작 명령을 SignalR 로 보낸다. 저장하지 않는다.
     /// </summary>
     public async Task SendAppRestartAsync(string deviceCode)
     {
@@ -118,12 +111,8 @@ public class DeviceHubSender : IDeviceHubSender
     }
 
     /// <summary>
-    /// 호실 ID를 조회하여 해당 호실에 속한 모든 장비들의 코드로 SignalR 변경 이벤트 브로드캐스팅.
-    ///
-    /// 이 메서드는 배정이 바뀌는 자리(등록·수정·이동·출상·취소)에서만 불린다.
-    /// 그래서 여기서 함께 내보내는 <c>RoomAssignmentChanged</c> 가 곧 "호실 점유가
-    /// 바뀌었다" 는 신호다 — 열려 있는 빈소현황 화면들이 이것을 받고 재조회한다
-    /// (47번 문서 4단계).
+    /// 호실에 속한 장비들에 SignalR 변경 이벤트를 보낸다. 배정이 바뀌는 자리에서만 불리므로
+    /// RoomAssignmentChanged 가 곧 호실 점유 변경 신호다.
     /// </summary>
     public async Task SendDeviceChangedByRoomIdAsync(string roomId)
     {

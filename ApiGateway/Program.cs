@@ -12,40 +12,13 @@ using Microsoft.AspNetCore.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 로컬 개별 설정 (Git 제외). 다른 서비스들과 같은 자리에 같은 방식으로 둔다.
-//
-// **이 줄이 없으면 아래 D1-B 의 키 검사가 뜻대로 동작하지 않는다.** 키를
-// appsettings.Local.json 에만 두어도 게이트웨이는 그 파일을 읽지 못해
-// 저장소에 남아 있는 예전 값으로 검증하게 된다. 그러면 AuthServer 가 Local 키로
-// 서명한 토큰이 전부 401 이 되고(실제로 그 상태를 겪었다), 더 나쁘게는
-// "잘 알려진 키를 못 쓰게 한다" 는 목적 자체가 조용히 깨진다.
+// 로컬 개별 설정(Git 제외). 이 줄이 없으면 Local 키를 못 읽어 저장소의 옛 키로 검증한다(D1-B).
 builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
 
-// **환경변수를 다시 맨 뒤로 올린다.** .NET 은 나중에 더한 소스가 이기는데,
-// 바로 위 한 줄이 기본 소스들(환경변수 포함) **뒤에** 붙으면서 Local.json 이
-// 환경변수를 덮고 있었다 — 저장소 규칙(`환경변수 > appsettings`)과 정반대다.
-//
-// 그 뒤집힘이 조용해서 한 번 크게 헤맸다. 운송관리를 붙일 때(2026-09-24)
-// 클러스터 주소를 `ReverseProxy__Clusters__…` 로 넣었는데 **`printenv` 에는
-// 보이는데 게이트웨이는 localhost:5500 을 불렀다.** 환경변수가 안 먹는 것으로
-// 결론 내고 Local.json 으로 돌아갔고, 그래서 「새 서비스를 붙일 때마다 운영
-// 서버의 파일을 손으로 고친다」가 규칙이 되었다. 실제로 MCP(2026-10-16)에서
-// 그 손질을 빠뜨려 [MSA 서버 상태] 의 MCP 카드가 늘 빨갰다.
-//
-// 지금 두 곳에 함께 있는 키는 없다(운영 게이트웨이 컨테이너에 `Jwt__*` ·
-// `ReverseProxy__*` 가 하나도 없고, 개발 `secrets.env` 도 `Database__Schema` ·
-// `Vapid__*` 뿐이다). 그래서 이 줄이 바꾸는 것은 **앞으로의 우선순위뿐**이다.
+// 환경변수는 맨 뒤에 둔다. 앞 줄의 Local.json 이 환경변수를 덮으면 「환경변수 > appsettings」 규칙이 뒤집힌다.
 builder.Configuration.AddEnvironmentVariables();
 
-// 요청 본문 크기 상한 (대용량 비디오 · 첨부 업로드 대응)
-//
-// **500MB 로는 모자란 자리가 생겼다.** AI 작업 첨부가 한 장 100MB · 한 건
-// 5장이라(`AiTaskFileService`), 다섯 장을 한 번에 고르면 본문이 정확히
-// 500MB 에 multipart 경계선 몫이 더 붙어 **딱 그만큼 넘친다.** 그때 나는 것은
-// 413 이고, 뒤쪽 서비스의 상한을 아무리 올려도 여기서 이미 끊긴 뒤다.
-//
-// 게이트웨이는 본문을 모아 두지 않고 흘려보내므로(YARP), 이 값을 올린다고
-// 메모리가 그만큼 열리지는 않는다. 실제로 막는 자리는 각 서비스의 창구다.
+// 요청 본문 상한. AI 첨부 다섯 장(장당 100MB)이 500MB 를 넘어 1GB 로 둔다. 게이트웨이는 본문을 모으지 않고 흘린다.
 const long MaxBodyBytes = 1024L * 1024 * 1024; // 1GB
 
 builder.WebHost.ConfigureKestrel(options =>
@@ -60,34 +33,14 @@ builder.Services.Configure<Microsoft.AspNetCore.Http.Features.FormOptions>(optio
 });
 
 
-// 1. JWT 검증 설정 (1차 검증)
-// ── 서명 키 (결정 D1-B) ─────────────────────────────────────
-//
-// 예전에는 이 자리에 키가 평문으로 박혀 있었고, 설정이 비어 있으면 **조용히 그 값을
-// 썼다.** 저장소를 볼 수 있는 사람이면 누구나 관리자 토큰을 만들 수 있었다는 뜻이다.
-//
-// 이제 키는 appsettings.Local.json (git 제외) 에만 있고, 없으면 기동에 실패한다.
-// 조용히 잘 알려진 키로 도는 것보다 뜨지 않는 편이 낫다.
+// 1. JWT 검증 (1차). 서명 키는 appsettings.Local.json(Git 제외)에만 있고, 없으면 기동에 실패한다.
 var jwtKey = JwtKeyGuard.Require(builder.Configuration, "Jwt:Key", "ApiGateway");
 var key = Encoding.ASCII.GetBytes(jwtKey);
 
-// ── 파일 읽기 경로에서만 쿠키를 신원으로 받는다 ──────────────────
-//
-// 화면이 사진을 `<img src="/api/file/thumbnail/{id}">` 로 그리는데 브라우저는 그런 태그에
-// `Authorization` 헤더를 붙여 주지 않는다. 그래서 로그인한 사람이 포털에서 사진을 보는
-// 요청도 이 아래로는 익명으로 내려갔고, 파일 읽기 라우트를 익명으로 열어 둘 수밖에 없었다.
-// 결국 파일 아이디만 알면 누구나 남의 첨부를 받을 수 있는 상태였다.
-//
-// 로그인할 때 같은 토큰을 `jsini_file_at` 쿠키로도 심는다(AuthServer/Endpoints/AuthEndpoints.cs).
-// 브라우저는 그 쿠키를 스스로 보내므로, 여기서 받아 주면 `<img>` 요청도 신원이 붙는다.
-//
-// **읽기 경로에서만 받는다.** 업로드·삭제·공개여부 변경에까지 쿠키를 받아 주면
-// 남의 사이트가 우리 주소로 요청을 걸어 파일을 지울 수 있다(CSRF).
-// 쿠키 자체도 `Path=/api/file` · `SameSite=Lax` 로 심어 두었지만, 그것에만 의지하지 않는다.
-//
-// 쿠키 이름을 바꾸려면 AuthServer 쪽도 함께 바꿔야 한다.
+// 파일 읽기 경로에서만 쿠키를 신원으로 받는다. <img> 는 Authorization 헤더를 못 붙이므로 jsini_file_at 쿠키를 쓴다.
+// 업로드·삭제 등에는 받지 않는다(CSRF). 쿠키 이름을 바꾸면 AuthServer 도 함께 바꾼다.
 const string fileCookieName = "jsini_file_at";
-// 파일 쿠키를 이미 심었는지 판단하는 지문 쿠키 (아래 자가 치유 미들웨어 참고).
+// 파일 쿠키를 심었는지 확인하는 지문 쿠키(아래 자가 치유 참고).
 const string fileCookieCheckName = "jsini_file_at_chk";
 string[] fileCookiePaths =
 [
@@ -98,19 +51,8 @@ string[] fileCookiePaths =
     "/api/file/resize"
 ];
 
-// ── 앱알림 아이콘 열쇠 ──────────────────────────────────────────
-//
-// 알림 아이콘은 화면이 아니라 **브라우저 자신**이 받아 간다. 알림이 로그인해
-// 있지 않은 기기에도 도착하므로 그 요청에는 쿠키도 토큰도 실리지 않고, 프로필
-// 사진은 익명에게 열리지 않아 아이콘이 늘 그림자로 떨어졌다. 그래서 알림
-// 서비스가 **사진 한 장짜리 열쇠**를 주소에 실어 보낸다
-// (NotificationServer/Services/AvatarIconToken.cs).
-//
-// 열쇠도 우리 키로 서명한 토큰이라 그대로 두면 **한 시간짜리 로그인**이 된다.
-// 여기서 쓸 자리를 파일 읽기 경로로 묶는다 — 위의 쿠키에 건 것과 같은 제한이고,
-// 어느 파일이냐까지는 FileServer 가 본다(PublicFileAccessFilter).
-//
-// **글자를 바꾸려면 세 곳을 함께 바꿔야 한다** (알림 서비스 · 여기 · FileServer).
+// 앱알림 아이콘 열쇠는 브라우저가 쿠키 없이 가져가므로 파일 읽기 경로에서만 신원이다.
+// 열쇠도 한 시간짜리 토큰이다. 글자를 바꾸면 알림 서비스 · 게이트웨이 · FileServer 세 곳을 함께 바꾼다.
 const string iconTokenSubjectPrefix = "push-icon:";
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -129,8 +71,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
         options.Events = new JwtBearerEvents
         {
-            // 아이콘 열쇠는 파일 읽기 경로에서만 신원이 된다. 다른 자리에서는
-            // 아예 신원이 아닌 것으로 본다 (위 iconTokenSubjectPrefix 주석).
+            // 아이콘 열쇠는 파일 읽기 경로에서만 신원이다 (iconTokenSubjectPrefix 참고).
             OnTokenValidated = ctx =>
             {
                 var subject = ctx.Principal?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -195,7 +136,6 @@ builder.Services.AddReverseProxy()
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
     .AddTransforms(transformContext =>
     {
-        // 모든 요청에 대해 실행될 트랜스폼 추가
         transformContext.AddRequestTransform(async requestContext =>
         {
             // [보안] 외부에서 보낸 X-User-* 헤더를 무조건 제거하여 위조 방지
@@ -210,25 +150,21 @@ builder.Services.AddReverseProxy()
             var user = requestContext.HttpContext.User;
             if (user.Identity?.IsAuthenticated == true)
             {
-                // 게이트웨이가 검증한 JWT 클레임에서 정보 추출
                 var userId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 var roles = user.FindAll(ClaimTypes.Role).Select(c => c.Value).ToArray();
                 var companyId = user.FindFirst("CompanyId")?.Value;
                 var userName = user.FindFirst("RealName")?.Value ?? user.FindFirst(ClaimTypes.Name)?.Value;
                 var email = user.FindFirst(ClaimTypes.Email)?.Value;
-                // 이 계정이 어느 MSA 레코드에서 왔는지 (`<서비스>:<테이블>:<원본키>`).
-                // 이관으로 만들어진 계정은 아이디에 접두어가 붙어 있어(`jskim` → `pm_jskim`)
-                // 로그인 아이디만으로는 각 서비스가 자기 사용자를 찾을 수 없다.
+                // 이관 계정은 아이디에 접두어가 붙어(pm_jskim) 아이디만으로는 각 서비스가 사용자를 못 찾는다.
+                // 계정이 온 MSA 레코드(<서비스>:<테이블>:<원본키>)를 함께 싣는다.
                 var msaSource = user.FindFirst("MsaSource")?.Value;
 
-                // 검증된 정보를 바탕으로 내부 전용 헤더 재생성
                 if (!string.IsNullOrEmpty(userId))
                 {
                     requestContext.ProxyRequest.Headers.Add("X-User-Id", userId);
                 }
 
-                // X-User-Role 은 단수라 역할이 여럿인 계정을 표현하지 못한다.
-                // 기존 서비스가 읽고 있으므로 첫 역할을 그대로 두고, 전체는 X-User-Roles 로 함께 보낸다.
+                // X-User-Role 은 단수라 여러 역할을 못 담는다. 기존 서비스 호환을 위해 첫 역할을 두고, 전체는 X-User-Roles 로 보낸다.
                 if (roles.Length > 0)
                 {
                     requestContext.ProxyRequest.Headers.Add("X-User-Role", roles[0]);
@@ -244,8 +180,7 @@ builder.Services.AddReverseProxy()
                     requestContext.ProxyRequest.Headers.Add("X-User-Company-Id", companyId);
                 }
 
-                // 이름은 한글이라 그대로 실으면 HTTP 헤더(Latin-1)에서 깨진다. URL 인코딩해서 보낸다.
-                // 받는 쪽은 Uri.UnescapeDataString 으로 되돌린다.
+                // 이름은 한글이라 헤더(Latin-1)에서 깨지므로 URL 인코딩해 보내고, 받는 쪽이 Uri.UnescapeDataString 으로 되돌린다.
                 if (!string.IsNullOrEmpty(userName))
                 {
                     requestContext.ProxyRequest.Headers.Add("X-User-Name", Uri.EscapeDataString(userName));
@@ -263,22 +198,11 @@ builder.Services.AddReverseProxy()
         });
     });
 
-// [헬스체크]
-// 게이트웨이의 능동 헬스체크와 오케스트레이터(K8s/로드밸런서)의 liveness 프로빙 대상.
-// 인증 없이 접근 가능해야 하므로 별도 정책을 걸지 않는다.
+// 헬스체크 대상(LB · liveness). 인증 없이 열어 둔다.
 builder.Services.AddHttpClient();
 builder.Services.AddHealthChecks();
 
-// ============================================================
-// 레이트 리미팅 — 로그인·비밀번호 관련 경로
-// ============================================================
-//
-// 로그인은 아이디·비밀번호만 맞으면 통과하므로 무차별 대입에 노출된다.
-// 비밀번호 초기화 경로는 더 위험하다 — 성공하면 피해자가 로그인하지 못하게 된다.
-//
-// 두 경로에만 IP 단위 창(window) 제한을 건다.
-// 사람이 쓰기에는 넉넉하고(1분에 10회), 자동화 공격에는 의미 있게 느린 수준이다.
-// 어느 경로에 적용할지는 appsettings 의 라우트에서 RateLimiterPolicy 로 지정한다.
+// 레이트 리미팅 — 로그인·비밀번호 초기화 경로에 IP 단위 창(1분 10회)을 건다. 라우트에서 RateLimiterPolicy 로 지정한다.
 builder.Services.AddRateLimiter(options =>
 {
     options.AddPolicy("auth-attempts", httpContext =>
@@ -294,12 +218,7 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0
             }));
 
-    // 소개 사이트의 문의 접수처럼 **로그인하지 않은 사람이 쓰는** 경로에 건다.
-    // 로그인보다 더 조인다(분당 3회) — 사람이 문의를 그보다 자주 보낼 일이 없고,
-    // 익명 쓰기는 한 번 열리면 곧 스팸의 통로가 된다.
-    //
-    // 캡차 대신 이것과 허니팟으로 시작한다(결정 D-S4). 외부 스크립트를 부르지 않는 쪽을
-    // 골랐는데, 준수사항 5(글꼴은 저장소 안의 파일만)와 같은 취지다 — 내부망에서도 돌아야 한다.
+    // 로그인 없이 쓰는 경로(소개 사이트 문의)는 분당 3회로 조인다. 캡차 대신 허니팟과 함께 쓰며 외부 스크립트는 부르지 않는다(D-S4).
     options.AddPolicy("public-write", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
             partitionKey: httpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault()
@@ -312,18 +231,8 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0
             }));
 
-    // ── 서비스워커가 「푸시가 닿았다」고 보고하는 익명 경로 ──────────────────
-    //
-    // 쪽지의 전환 메일(NoteFallbackMailer)이 이 보고 하나로 「보냈다」와 「닿았다」를
-    // 가른다. 거절되면 **멀쩡히 받은 사람에게 메일이 한 통 더 간다** — 그래서
-    // 문의 접수(분당 3회)만큼 조이지 않는다.
-    //
-    // [값을 이렇게 잡은 이유]
-    // 기기 하나가 쪽지 한 통에 한 번 보고한다. 평소에는 분당 0~1 건이고, 몰리는
-    // 순간은 **절전에서 깬 기기가 밀려 있던 푸시를 한꺼번에 받을 때**다
-    // (docs/push-delivery.md). 그래도 쪽지는 한 번에 서른 명이 상한이라
-    // (NoteRecipientResolver.MaxRecipients) 한 기기가 한 창에 수십을 넘기 어렵다.
-    // 사무실이 NAT 뒤에서 공인 IP 하나를 쓰는 것까지 보아 60 으로 둔다.
+    // 서비스워커의 「푸시가 닿았다」 보고(익명). 쪽지 메일 전환이 이 보고로 보냈다/닿았다를 가른다.
+    // 거절되면 멀쩡히 받은 사람에게 메일이 또 가므로 문의보다 느슨하다(분당 60). 절전 해제로 몰리는 푸시와 NAT 공유 IP 를 고려했다.
     options.AddPolicy("push-ack", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
             partitionKey: httpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault()
@@ -336,30 +245,8 @@ builder.Services.AddRateLimiter(options =>
                 QueueLimit = 0
             }));
 
-    // ── 사이니지 플레이어가 부르는 익명 읽기 경로 (결정 D-M3) ────────────────
-    //
-    // 이 경로들은 **로그인 없이** 열려 있다. 플레이어가 브라우저도 아니고 로그인도
-    // 하지 않기 때문인데, 그래서 열쇠가 장비 코드 하나뿐이고 그것이 `JSI-06-0001`
-    // 처럼 추측 가능하다(46번 문서 6절). 대입으로 긁어 가는 것을 늦춘다.
-    //
-    // [값을 이렇게 잡은 이유]
-    // 리미터 칸은 **장비별이 아니라 장례식장별**이다 — 한 건물의 장비가 NAT 뒤에서
-    // 공인 IP 하나를 공유한다. 실측(2026-09-03): 장비 10대 중 **8대가 IP 하나**를 쓴다.
-    //
-    // 평상시 이 경로들의 통행량은 0 에 가깝다. 설정 변경은 SignalR 로 밀어 주고,
-    // REST 는 **장비가 뜰 때와 설정이 바뀔 때만** 부른다(실패 시 재시도도 20초 간격이다).
-    // 문제는 정전 복구처럼 **한 건물의 화면이 동시에 켜지는 순간**이다.
-    // 장비 하나가 뜰 때 3~15회(장비·고인·안내/키오스크·리본별 미디어)를 부르므로
-    // 화면 40개면 한 창에 600회까지 몰릴 수 있다. 900 은 그 1.5배다.
-    //
-    // [이것이 막는 것과 막지 못하는 것]
-    // 막는 것: 지속적인 긁어 가기와 그로 인한 서비스 마비.
-    // **막지 못하는 것: 코드 대입 자체다.** 900/분이면 네 자리 코드 공간을 10여 분에
-    // 훑는다. 추측 자체를 막는 것은 D-M1(장비별 임의 비밀)이고 이건 완화책이다.
-    //
-    // SignalR 허브(`/api/funeral/hubs/device/**`)에는 **걸지 않는다.** 재연결이
-    // 몰릴 때 negotiate 가 거부되면 밀어 주기 통로가 끊겨, 화면이 옛 내용을 계속
-    // 띄운 채 아무도 모르는 상태가 된다.
+    // 플레이어가 부르는 익명 읽기 경로. 열쇠가 추측 가능한 장비 코드뿐이라 요청 수를 제한한다(분당 900, 장례식장 단위 — NAT 공유 IP 고려).
+    // 코드 대입 자체는 막지 못한다. 근본 대책은 아래 장비 토큰(D-M1)이다. SignalR 허브에는 걸지 않는다(거부되면 밀어주기가 끊긴다).
     options.AddPolicy("player-read", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
             partitionKey: httpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault()
@@ -417,36 +304,9 @@ app.Use(async (context, next) =>
 app.UseAuthentication();
 app.UseAuthorization();
 
-// ============================================================
-// 플레이어 익명 경로의 장비 토큰 검증 (결정 D-M1 기반 · 기본 꺼짐)
-// ============================================================
-//
-// 익명 라우트 여섯의 열쇠가 추측 가능한 장비 코드 하나라는 문제(46번 문서 6절)의
-// 근본 대책이다. D-M3(요청 제한)은 긁어 가는 속도만 늦출 뿐 대입 자체를 못 막는다.
-//
-// **기본 꺼짐이라 지금은 켜기 전과 똑같이 동작한다** (이 저장소의 관례 —
-// 19번 문서의 스위치 둘, 배포 진행 보고와 같은 방식). 켜면 아래 경로들은
-// `X-Device-Token` 헤더(또는 웹소켓용 `?deviceToken=`)가 목록의 값과 맞아야 통과한다.
-//
-//   PlayerAuth:RequireDeviceToken   true 로 켠다 (appsettings.Local.json 에서)
-//   PlayerAuth:DeviceTokens         허용 토큰 목록 (Local.json 에만 둔다 — 비밀이다)
-//
-// [단계적 설계 — 왜 목록인가]
-// 장비별 개별 토큰(DB 칸)이 최종 모습이지만, 지금 funeralv2 스키마는 빈소현황
-// 개편(47번)이 한창이라 마이그레이션을 섞을 수 없다. 공유 목록은 게이트웨이
-// 설정만으로 되고, 플레이어 쪽 동작(설정에 키 입력 → 헤더로 전송)은 개별 토큰이
-// 되어도 그대로다 — 서버 판정만 목록 대조에서 DB 대조로 바뀐다.
-//
-// [켜는 순서 — 순서가 틀리면 현장 화면이 꺼진다]
-//  1. 플레이어 v1.0.1 이상을 현장에 깔고 환경 설정에 장비 인증 키를 넣는다
-//  2. 모든 장비에 키가 들어간 것을 확인한 뒤
-//  3. Local.json 에 DeviceTokens 를 넣고 RequireDeviceToken 을 켠다
-//
-// 막을 때는 401 이 아니라 **404** 를 준다 — 파일 필터와 같은 이유로,
-// "그 장비 코드는 있다" 는 것조차 알려 주지 않는다.
-//
-// 로그인 사용자(JWT 검증 통과)는 토큰 없이도 지나간다. 포털 화면이 진단용으로
-// 이 경로를 부르게 되어도 막히지 않게 하기 위한 것이다.
+// 플레이어 익명 경로의 장비 토큰 검증(D-M1, 기본 꺼짐). 켜면 X-Device-Token(웹소켓은 ?deviceToken=)이 PlayerAuth:DeviceTokens 목록과 맞아야 통과한다.
+// 켜는 순서: 플레이어 v1.0.1 이상 배포 → 모든 장비에 키 입력 확인 → Local.json 에 DeviceTokens 입력 후 RequireDeviceToken 을 켠다. 순서가 틀리면 현장 화면이 꺼진다.
+// 막을 때는 401 이 아니라 404 다(장비 코드의 존재를 알리지 않는다). JWT 로그인 사용자는 토큰 없이 통과한다. 목록 방식은 개별 토큰(DB)으로 가기 전의 임시 형태다.
 var playerAuthSection = app.Configuration.GetSection("PlayerAuth");
 string[] playerTokenPaths = playerAuthSection.GetSection("Paths").Get<string[]>() ?? new[]
 {
@@ -460,8 +320,7 @@ string[] playerTokenPaths = playerAuthSection.GetSection("Paths").Get<string[]>(
 
 app.Use(async (context, next) =>
 {
-    // GetValue 를 요청마다 다시 읽는다 — reloadOnChange 로 Local.json 을 고치면
-    // 재기동 없이 켜고 끌 수 있다.
+    // 요청마다 설정을 다시 읽어 Local.json 변경을 재기동 없이 반영한다.
     if (!app.Configuration.GetValue("PlayerAuth:RequireDeviceToken", false))
     {
         await next();
@@ -508,36 +367,14 @@ app.Use(async (context, next) =>
     });
 });
 
-// ============================================================
-// 파일 읽기 쿠키(jsini_file_at) 자가 치유
-// ============================================================
-//
-// 쿠키는 원래 로그인할 때 AuthServer 가 심는다. 그런데 심는 순간이 로그인 한 번뿐이라,
-// 이 장치가 들어오기(2026-08-27) 전에 로그인해 둔 세션은 토큰(수명 7일)이 멀쩡한데
-// 쿠키가 없다. 그 상태에서는 `<img src="/api/file/…">` 가 전부 익명으로 판정되어
-// 프로필 사진·첨부 이미지가 조용히 404 로 사라진다. 실제로 겪었다 —
-// /profile 의 프로필 사진 관리가 빈 화면으로 보였다(27번 문서 5절).
-// 쿠키만 지워진 브라우저(쿠키 정리 등)도 같은 증상이 된다.
-//
-// 그래서 게이트웨이가 스스로 고친다. Authorization 헤더의 토큰으로 인증된 요청이 오면
-// 같은 토큰을 쿠키로 다시 심는다. 토큰은 이 위의 인증 미들웨어가 이미 검증한 것이다.
-//
-// 매 요청 Set-Cookie 를 반복하지 않으려면 "이미 심었는가" 를 알아야 하는데,
-// 파일 쿠키는 Path=/api/file 이라 파일 경로가 아닌 요청에는 실려 오지 않아 직접 볼 수 없다.
-// 그래서 지문(SHA-256) 쿠키를 Path=/ 로 함께 둔다. 지문이 현재 토큰과 같으면 건너뛴다.
-// 지문 자리에 토큰을 그대로 두지 않는 이유: Path=/ 쿠키는 모든 요청에 실리는데,
-// 굳이 넓힐 필요 없는 자리까지 토큰이 실려 다니게 된다. 지문으로는 토큰을 되만들 수 없다.
-//
-// 로그인의 심기(AuthServer)는 그대로 둔다 — 로그인 직후 첫 화면의 이미지는
-// 아직 API 호출이 없어도 나와야 하기 때문이다. 여기는 그 뒤의 구멍을 메우는 자리다.
+// 파일 쿠키(jsini_file_at) 자가 치유. 로그인 때만 심는 구조라 쿠키가 없는 옛 세션(토큰은 유효)의 이미지가 익명 404 가 되는 것을 막는다.
+// 검증된 Authorization 토큰이면 쿠키를 다시 심는다. 매번 심지 않도록 Path=/ 의 SHA-256 지문 쿠키로 같은 토큰인지 보며, 지문으로는 토큰을 되만들 수 없다.
+// 로그인 때의 심기(AuthServer)는 그대로 둔다. 로그인 직후 첫 이미지는 API 호출 없이 나와야 하기 때문이다.
 app.Use(async (context, next) =>
 {
     var authHeader = context.Request.Headers.Authorization.ToString();
 
-    // **알림 아이콘 열쇠는 심지 않는다.** 그 토큰은 사진 한 장을 여는 것이고
-    // 수명이 한 시간이라, 쿠키로 심으면 「로그인 신원」 자리에 그것이 앉는다.
-    // (지금은 이 요청이 셸의 HttpClient 에서 오고 그쪽은 쿠키 통을 꺼 두어
-    // 브라우저까지 가지 않는다 — 여기서 막는 것은 그 전제가 바뀌는 날을 위한 것이다.)
+    // 알림 아이콘 열쇠는 심지 않는다. 한 장짜리 열쇠가 로그인 신원 자리에 앉는 것을 막는다(셸 HttpClient 는 쿠키 통을 끈다).
     var subject = context.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
     var isIconToken = subject is not null
         && subject.StartsWith(iconTokenSubjectPrefix, StringComparison.Ordinal);
@@ -555,15 +392,14 @@ app.Use(async (context, next) =>
             context.Request.Cookies.TryGetValue(fileCookieCheckName, out var planted);
             if (!string.Equals(planted, fingerprint, StringComparison.Ordinal))
             {
-                // 만료는 토큰과 같게 둔다. exp 는 유닉스 초이고, 검증을 통과한 토큰이라 값이 있다.
-                // 혹시 없으면 세션 쿠키로 둔다 — 브라우저를 닫으면 사라질 뿐, 더 오래 살지는 않는다.
+                // 만료는 토큰과 같게 둔다(exp 는 유닉스 초). 없으면 세션 쿠키로 둔다.
                 DateTimeOffset? expires = null;
                 if (long.TryParse(context.User.FindFirst("exp")?.Value, out var expUnix))
                 {
                     expires = DateTimeOffset.FromUnixTimeSeconds(expUnix);
                 }
 
-                // 옵션은 AuthServer 가 심을 때와 같아야 한다(특히 Path). 다르면 딴 쿠키가 된다.
+                // 옵션(특히 Path)은 AuthServer 가 심을 때와 같아야 한다. 다르면 다른 쿠키가 된다.
                 var secure = !app.Environment.IsDevelopment();
                 context.Response.Cookies.Append(fileCookieName, token, new CookieOptions
                 {
@@ -588,23 +424,9 @@ app.Use(async (context, next) =>
     await next();
 });
 
-// ============================================================
-// 비밀번호 사용 기간 만료 차단
-// ============================================================
-//
-// 90일마다 비밀번호를 바꾸도록 **요구**한다. 화면에서 안내만 하면 요구가 아니라 부탁이다.
-// API 를 직접 부르면 그대로 통과하므로, 실제 차단은 모든 요청이 지나가는 이곳에서 한다.
-//
-// 판단 근거는 토큰의 `PwdChangedAt` 클레임(비밀번호를 마지막으로 바꾼 시각)이다.
-// **만료 여부를 불린으로 싣지 않고 시각을 싣는 이유**는 토큰 수명이 7일이기 때문이다.
-// 불린이면 토큰을 받은 뒤 만료되는 구간(발급 시점에는 아직 안 지났던 경우)을 놓친다.
-// 시각을 싣고 매 요청마다 다시 계산하면 그 구간이 없다.
-//
-// 막지 않는 경로가 있다. 비밀번호를 바꾸려면 로그인 상태로 그 화면까지 가야 하므로,
-// **비밀번호를 바꾸는 데 꼭 필요한 만큼만** 열어 둔다.
-//
-// 정책을 끄려면 Auth:PasswordExpiryDays 를 0 으로 둔다(코드 수정 없이 되돌릴 수 있어야 한다).
-// AuthServer 도 같은 설정을 읽는다 — 그쪽은 화면에 보여 줄 값을 만들고, 차단은 여기서만 한다.
+// 비밀번호 사용 기간(Auth:PasswordExpiryDays) 만료 차단. 화면 안내만으로는 API 직접 호출을 못 막아 여기서 막는다.
+// 토큰의 PwdChangedAt 시각 클레임으로 매 요청 계산한다. 불린을 실으면 토큰 수명 중 만료되는 구간을 놓친다. 0 이면 끈다.
+// 비밀번호를 바꾸는 데 필요한 경로만 열어 둔다.
 var passwordExpiryDays = builder.Configuration.GetValue<int?>("Auth:PasswordExpiryDays") ?? 90;
 
 // 만료 상태에서도 통과시키는 경로. 앞부분이 일치하면 통과한다(대소문자 무시).
@@ -642,8 +464,7 @@ if (passwordExpiryDays > 0)
         }
 
         var changedAtRaw = user.FindFirst("PwdChangedAt")?.Value;
-        // 클레임이 없으면 기준을 모르는 것이다. 모른다는 이유로 잠그지 않는다
-        // (칸을 새로 만든 직후처럼 데이터가 아직 없는 상황에서 전원이 갇힌다).
+        // 클레임이 없으면 기준을 모르므로 잠그지 않는다(칸을 막 만든 직후 전원이 갇히는 것을 막는다).
         if (string.IsNullOrWhiteSpace(changedAtRaw) ||
             !DateTimeOffset.TryParse(
                 changedAtRaw,
@@ -678,17 +499,7 @@ if (passwordExpiryDays > 0)
     });
 }
 
-// ============================================================
-// [서버 상태 모니터링]
-// 게이트웨이가 알고 있는 모든 클러스터/목적지를 실제로 찔러 상태를 모아준다.
-//
-// 관리자 화면에서 브라우저가 각 서비스(:5264, :5320 ...)를 직접 호출하는 것은
-// CORS 와 내부망 접근 문제로 불가능하다. 유일하게 모든 서비스를 알고 있는
-// 게이트웨이가 대신 조회해 한 번에 돌려주는 구조가 맞다.
-//
-// YARP 의 능동 헬스체크 결과에 의존하지 않고 요청 시점에 직접 프로브한다.
-// (헬스체크를 꺼두더라도 이 화면은 정상 동작해야 한다)
-// ============================================================
+// 서버 상태 모니터링. 게이트웨이가 아는 클러스터를 요청 시점에 직접 찔러 모은다(브라우저는 CORS·내부망 때문에 각 서비스를 못 부른다).
 app.MapGet("/api/gateway/status", async (
     IProxyStateLookup lookup,
     IHttpClientFactory httpClientFactory,
@@ -714,24 +525,16 @@ app.MapGet("/api/gateway/status", async (
             try
             {
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                // LLM 처럼 딸린 것을 점검하는 서비스는 응답이 조금 더 걸린다.
-                // 서비스 쪽 점검 타임아웃(3초)보다 넉넉해야 우리가 먼저 끊지 않는다.
+                // LLM 처럼 딸린 것을 점검하는 서비스는 응답이 더 걸리므로 서비스 쪽 점검 타임아웃(3초)보다 넉넉히 기다린다.
                 cts.CancelAfter(TimeSpan.FromSeconds(6));
 
                 var response = await client.GetAsync(probeUrl, cts.Token);
                 httpStatus = (int)response.StatusCode;
-                // /health 를 제공하지 않는 구버전이라도 응답 자체가 오면 프로세스는 살아 있다.
+                // /health 가 없는 구버전은 응답이 오기만 하면 살아 있는 것으로 본다.
                 status = response.IsSuccessStatusCode ? "UP" : "DEGRADED";
 
-                // ── 딸린 것까지 읽는다 ──────────────────────────────
-                //
-                // **상태 코드만 보면 안 된다.** 프로세스가 멀쩡하면 200 이므로,
-                // LLM 장비가 꺼진 AIAgentServer 도 UP 으로 보였다. 그것이 이 화면에서
-                // "동작한다" 고 오해하게 만든 원인이다.
-                //
-                // 각 서비스가 자기 의존 대상을 점검해 본문에 담아 보내므로
-                // (JSini.Shared.Infrastructure/HealthChecks) 게이트웨이는 **읽어 올리기만** 한다.
-                // 판정 기준을 게이트웨이에 두면 LLM 주소·모델명을 여기서도 알아야 한다.
+                // 상태 코드만으로는 부족하다. 프로세스가 살아 있으면 200 이라 LLM 이 꺼진 AIAgentServer 도 UP 으로 보였다.
+                // 본문의 점검 결과(JSini.Shared.Infrastructure/HealthChecks)를 읽어 올리기만 하고, 판정 기준은 각 서비스에 둔다.
                 var body = await response.Content.ReadAsStringAsync(cts.Token);
                 var parsed = HealthBody.Parse(body);
                 if (parsed is not null)
@@ -739,8 +542,7 @@ app.MapGet("/api/gateway/status", async (
                     dependencies = parsed.Dependencies;
                     reason = parsed.Reason;
 
-                    // 서비스가 스스로 Degraded 라고 하면 그 말을 따른다.
-                    // 프로세스는 살아 있으니 DOWN 은 아니고, 제 일을 못 하니 UP 도 아니다.
+                    // 서비스가 Degraded 라고 하면 그 말을 따른다(살아 있으나 제 일을 못 함).
                     if (status == "UP" && parsed.IsDegraded) status = "DEGRADED";
                 }
             }
@@ -816,7 +618,6 @@ app.Lifetime.ApplicationStarted.Register(() =>
     var env = app.Environment.EnvironmentName;
     var pid = Environment.ProcessId;
 
-    // 🔥 서버명 기반 색상 자동 매핑
     var color = serverName.ToUpper() switch
     {
         "GATEWAY" => Color.Cyan,
@@ -826,7 +627,6 @@ app.Lifetime.ApplicationStarted.Register(() =>
         _ => Color.White
     };
 
-    // 🔥 환경 색상
     var envColor = env switch
     {
         "Development" => Color.Green,
@@ -835,13 +635,11 @@ app.Lifetime.ApplicationStarted.Register(() =>
         _ => Color.Grey
     };
 
-    // 🚀 Figlet 배너
     AnsiConsole.Write(
         new FigletText(serverName + "")
             .Color(color)
             .Centered());
 
-    // 🌐 URL + PORT
     var urlLines = app.Urls.Select(url =>
     {
         try
@@ -855,7 +653,6 @@ app.Lifetime.ApplicationStarted.Register(() =>
         }
     });
 
-    // 📦 패널 내용
     var panelContent =
         $"[bold {color}]{serverName} SERVICE STARTED[/]\n" +
         $"[yellow]PID:[/] {pid}\n" +
@@ -869,7 +666,6 @@ app.Lifetime.ApplicationStarted.Register(() =>
 
     AnsiConsole.Write(panel);
 
-    // 하단 구분선
     AnsiConsole.Write(
         new Rule($"[bold {color}]READY[/]")
             .RuleStyle(color.ToString())

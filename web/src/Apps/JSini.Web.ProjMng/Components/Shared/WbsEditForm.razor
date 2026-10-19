@@ -1,14 +1,6 @@
 @*
-    WBS 편집 창 — **WBS 화면과 일정표 화면이 같이 쓴다.**
-
-    둘은 같은 표(`dev_wbs`)를 보고 `schedule_type` 하나로 갈린다. 그래서 고칠
-    칸도 같다 — 화면마다 폼을 따로 두면 한쪽에만 칸을 더하는 날이 온다.
-
-    [옛 저장이 다루지 않던 칸들이 여기 있다]
-
-    `gb1` · `gb2` · `proc_lvl` · `build_user` · `build_status` · `qc_user` 는
-    목록에는 나오는데 **고칠 길이 없었다** — `sp_proj_wbs_exec` 의 update 가
-    그 칸들을 손대지 않았다. 이제 저장된다.
+    WBS 편집 창. WBS 화면과 일정표 화면이 같은 표를 같이 고치므로 폼을 하나로 둔다.
+    목록에는 나오는데 고칠 길이 없던 칸(gb1 · gb2 · proc_lvl · build_user 등)도 이제 저장된다.
 *@
 
 <DxFormLayout CssClass="pm-editform">

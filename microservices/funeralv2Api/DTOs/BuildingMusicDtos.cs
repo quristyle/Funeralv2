@@ -1,12 +1,8 @@
 namespace funeralv2Api.DTOs;
 
 /// <summary>
-/// 건물별 음원 배정 화면의 한 줄.
+/// 건물별 음원 배정 화면의 한 줄. 위에 음원 목록, 아래에 건물 목록을 두고 건물 줄의 체크로 연결을 켠다.
 /// </summary>
-/// <remarks>
-/// 옛 <c>page/rsrc/music_build.jsp</c> 는 위에 음원 목록, 아래에 건물 목록을 두고
-/// 건물 줄의 <c>mapping</c> 체크박스로 연결을 켰다. 그 모양을 그대로 옮긴다.
-/// </remarks>
 public class BuildingMusicDto
 {
     public string BuildingId { get; set; } = string.Empty;

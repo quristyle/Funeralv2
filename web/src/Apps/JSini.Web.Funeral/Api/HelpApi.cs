@@ -2,13 +2,8 @@ using JSini.Web.Http;
 
 namespace JSini.Web.Funeral.Api;
 
-// ── 도움말 (F.A.Q · Q&A · 자료실) ─────────────────────────────────
-//
-// 이 셋은 funeralv2Api 가 아니라 **AuthServer** 에 있다 — 포털 공통 자료라
-// 모든 MSA 사용자에게 같은 내용이 보인다. Vue 원본:
-// fronts/apps/jsini-portal/src/api/portal/{faq,qna,help-archive}/index.ts.
-//
-// 버튼을 켜고 끄는 판단은 서버가 준 값(canManage · canWrite · canEdit)을 쓴다.
+// F.A.Q · Q&A · 자료실은 funeralv2Api 가 아니라 AuthServer 에 있다(포털 공통 자료).
+// 버튼 노출은 서버가 준 canManage · canWrite · canEdit 을 쓴다.
 
 /// <summary>F.A.Q 한 건</summary>
 public sealed class Faq
@@ -215,14 +210,7 @@ public sealed class HelpApi(GatewayClient gateway)
 
     // ── 플레이어 배포본 ─────────────────────────────────────────
 
-    /// <summary>
-    /// 최신 플레이어 릴리스와 그 첨부 파일.
-    ///
-    /// <para>
-    /// 경로가 <c>player-release</c> 인 것은 <b>포털관리의 릴리스 화면과 같은 통로</b>이기
-    /// 때문이다 — 한쪽이 발행하고 한쪽이 내려받는다. GitHub 토큰은 AuthServer 에만 있다.
-    /// </para>
-    /// </summary>
+    /// <summary>최신 플레이어 릴리스와 그 첨부 파일. 경로가 player-release 인 것은 포털관리 릴리스 화면과 같은 통로이기 때문이다. GitHub 토큰은 AuthServer 에만 있다.</summary>
     public async Task<PlayerLatest> GetPlayerLatestAsync(CancellationToken ct = default)
         => await gateway.GetOneAsync<PlayerLatest>("auth/system/player-release/latest", ct)
            ?? new PlayerLatest();

@@ -1,16 +1,6 @@
 namespace JSini.Web.Admin.Api;
 
-/// <summary>
-/// 답의 <b>근거를 대는 두 길</b>의 상태 — 사내 문서 검색(RAG)과 웹 검색(MCP).
-/// </summary>
-/// <remarks>
-/// <para>
-/// 「LLM 장비 상태」 화면이 하드웨어와 함께 읽는다. <b>장비가 멀쩡해도 이 둘은
-/// 따로 끊어지기 때문이다</b> — 임베딩 서버가 죽거나, 색인이 비었거나,
-/// McpServer 가 안 떠 있거나. 그때도 대화는 멀쩡히 돌아서(아는 것만으로 답한다)
-/// 서비스 상태로는 갈리지 않는다.
-/// </para>
-/// </remarks>
+/// <summary>답의 근거를 대는 두 길의 상태 — 사내 문서 검색(RAG)과 웹 검색(MCP).</summary>
 public sealed class AiFeatureStatusDto
 {
     public RagStatusDto? Rag { get; set; }
@@ -29,7 +19,7 @@ public sealed class RagStatusDto
     /// <summary>이 점수에 못 미치는 토막은 넣지 않는다.</summary>
     public double MinVectorScore { get; set; }
 
-    /// <summary>대화에서 찾아볼 카테고리. <b>비어 있으면 전부</b>.</summary>
+    /// <summary>대화에서 찾아볼 카테고리. 비어 있으면 전부.</summary>
     public string? ChatCategory { get; set; }
 
     /// <summary>저장소 문서(docs/*.md)가 들어가는 카테고리 열쇠.</summary>
@@ -62,10 +52,7 @@ public sealed class RagCategoryStatusDto
 
     public int Chunks { get; set; }
 
-    /// <summary>
-    /// 그 가운데 벡터가 붙은 토막 수. <b>토막 수와 다르면 낱말 검색밖에 못 한다</b> —
-    /// 임베딩 서버가 죽은 채로 색인을 돌렸다는 뜻이다.
-    /// </summary>
+    /// <summary>그 가운데 벡터가 붙은 토막 수. 토막 수와 다르면 낱말 검색밖에 못 한다 — 임베딩 서버가 죽은 채로 색인을 돌렸다는 뜻이다.</summary>
     public int VectorChunks { get; set; }
 
     /// <summary>토막이 나온 문서 수.</summary>
@@ -79,7 +66,7 @@ public sealed class RagCategoryStatusDto
     public int Documents { get; set; }
     public int DocumentsIndexed { get; set; }
 
-    /// <summary><b>0 이 아니면 「색인 다시 만들기」를 눌러야 한다.</b></summary>
+    /// <summary>0 이 아니면 「색인 다시 만들기」를 눌러야 한다.</summary>
     public int DocumentsPending { get; set; }
 
     public int DocumentsFailed { get; set; }
@@ -87,17 +74,12 @@ public sealed class RagCategoryStatusDto
     public long DocumentBytes { get; set; }
 }
 
-/// <summary>임베딩 서버를 실제로 한 번 눌러 본 결과.</summary>
-/// <remarks>
-/// <b>설정만 보면 안 되는 자리다.</b> 이 서버가 죽어도 색인은 디스크에 그대로
-/// 남아 있어 숫자가 멀쩡해 보이고, 그 사이 모든 질문이 낱말 검색만으로 답한다.
-/// </remarks>
 public sealed class EmbeddingStatusDto
 {
     public bool Reachable { get; set; }
     public string? Model { get; set; }
 
-    /// <summary>돌아온 벡터의 차원. <b>색인에 적힌 것과 다르면 모델이 바뀐 것</b>이다.</summary>
+    /// <summary>돌아온 벡터의 차원. 색인에 적힌 것과 다르면 모델이 바뀐 것이다.</summary>
     public int Dimensions { get; set; }
 
     public int? LatencyMs { get; set; }
@@ -114,10 +96,7 @@ public sealed class WebSearchStatusDto
     /// <summary>도구를 아예 쓰는지 (<c>Mcp:Enabled</c>).</summary>
     public bool Enabled { get; set; }
 
-    /// <summary>
-    /// 보통 대화에서도 웹을 찾는지 (<c>Mcp:AugmentChat</c>).
-    /// <b>꺼 두는 것이 기본이다</b> — 꺼져 있어도 「웹 검색」 화면은 그대로 쓴다.
-    /// </summary>
+    /// <summary>보통 대화에서도 웹을 찾는지 (<c>Mcp:AugmentChat</c>). 꺼 두는 것이 기본이다 — 꺼져 있어도 「웹 검색」 화면은 그대로 쓴다.</summary>
     public bool AugmentChat { get; set; }
 
     public int MaxToolRounds { get; set; }
@@ -155,14 +134,6 @@ public sealed class McpServerStatusDto
     public DateTime CheckedAt { get; set; }
 }
 
-/// <summary>
-/// 웹 검색을 한 번 실제로 돌려 본 결과.
-/// </summary>
-/// <remarks>
-/// <b>0건도 실패다.</b> 기본 뒷단(DuckDuckGo)은 HTML 화면을 긁는 것이라
-/// 구조가 바뀌면 오류 없이 빈 목록이 온다 — 가장 흔한 고장이 그것이고,
-/// 상태 숫자로는 절대 안 보인다.
-/// </remarks>
 public sealed class WebSearchCheckDto
 {
     public string? Query { get; set; }

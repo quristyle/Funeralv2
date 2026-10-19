@@ -36,10 +36,7 @@ public partial class MindMapCanvas
     /// <summary>CSS 높이. <c>100%</c> 를 주려면 부모에 높이가 정해져 있어야 한다.</summary>
     [Parameter] public string Height { get; set; } = "100%";
 
-    /// <summary>
-    /// 캔버스가 바뀔 때마다 불린다(머리말). 화면은 「저장 안 한 변경」을
-    /// 띄우고, mermaid 글 칸이 열려 있으면 다시 만든다.
-    /// </summary>
+    /// <summary>캔버스가 바뀔 때마다 불린다. 화면은 「저장 안 한 변경」을 띄우고 mermaid 글을 다시 만든다.</summary>
     [Parameter] public EventCallback OnChanged { get; set; }
 
     /// <summary>JS 에서 부른다. <b>이름을 바꾸면 그쪽도 함께 고친다.</b></summary>
@@ -53,10 +50,7 @@ public partial class MindMapCanvas
         await instance.InvokeVoidAsync("load", model);
     }
 
-    /// <summary>
-    /// 지금 나무를 돌려준다. <b>좌표는 없다</b> — 마인드맵은 자리를 저장하지
-    /// 않는다(<see cref="MindMapModel"/> 머리말).
-    /// </summary>
+    /// <summary>지금 나무를 돌려준다. 좌표는 없다 — 마인드맵은 자리를 저장하지 않는다.</summary>
     public async Task<MindMapModel> SaveAsync()
     {
         if (_instance is null)
@@ -85,20 +79,14 @@ public partial class MindMapCanvas
         return await _instance.InvokeAsync<NodeSelection?>("selection");
     }
 
-    /// <summary>
-    /// 고른 마디 <b>아래</b>에 하나 만든다. 아무것도 안 골랐으면 뿌리 아래다.
-    /// 만들자마자 이름을 고치는 상태로 들어간다.
-    /// </summary>
+    /// <summary>고른 마디 아래에 하나 만든다. 아무것도 안 골랐으면 뿌리 아래다. 만들자마자 이름 고치기 상태로 들어간다.</summary>
     public async Task AddChildAsync()
     {
         var instance = await EnsureAsync();
         await instance.InvokeVoidAsync("addChild");
     }
 
-    /// <summary>
-    /// 고른 마디 <b>옆</b>에 하나 만든다. 뿌리를 골랐으면 <b>아래에 만든다</b> —
-    /// 마인드맵의 뿌리는 하나뿐이라 형제를 둘 자리가 없다.
-    /// </summary>
+    /// <summary>고른 마디 옆에 하나 만든다. 뿌리를 골랐으면 아래에 만든다 — 뿌리는 하나뿐이라 형제를 둘 자리가 없다.</summary>
     public async Task AddSiblingAsync()
     {
         var instance = await EnsureAsync();
@@ -116,10 +104,7 @@ public partial class MindMapCanvas
     /// <summary>
     /// 고른 마디와 그 아래를 지운다.
     /// </summary>
-    /// <returns>
-    /// 지운 마디 수. <b>0 이면 지울 수 없었다는 뜻</b>이다 — 아무것도 안
-    /// 골랐거나 뿌리를 골랐을 때다. 화면이 그것으로 까닭을 말한다.
-    /// </returns>
+    /// <returns>지운 마디 수. 0 이면 지울 수 없었다는 뜻이다(아무것도 안 골랐거나 뿌리).</returns>
     public async Task<int> RemoveAsync()
     {
         if (_instance is null) return 0;
@@ -172,11 +157,8 @@ public partial class MindMapCanvas
             return _instance;
         }
 
-        // **RCL 정적자원 경로로 부른다.** `./js/...` 로 적으면 문서 주소를
-        // 기준으로 풀려 `/projmng/design/mind-map` 에서 404 가 되고, import 가
-        // 던지면서 **회로가 통째로 끊긴다** — 그림이 안 그려지는 것이 아니라
-        // 그때부터 화면의 아무 단추도 안 눌린다. `DiagramViewer` 가 실제로
-        // 그 길로 한 번 무너졌다.
+        // RCL 정적자원 경로로 부른다. ./js/ 로 적으면 문서 주소 기준으로 풀려 404 가 되고,
+        // import 가 던져 회로가 끊긴다(그림만 안 그려지는 것이 아니라 단추가 전부 죽는다).
         _module ??= await Js.InvokeAsync<IJSObjectReference>(
             "import", "./_content/JSini.Web.ProjMng/js/mind-map.js");
         _self ??= DotNetObjectReference.Create(this);
@@ -192,11 +174,7 @@ public partial class MindMapCanvas
         }
     }
 
-    /// <summary>
-    /// 회로가 끊기거나 화면을 떠날 때 그래프를 파괴한다. 안 하면 maxgraph 가
-    /// document 에 걸어 둔 리스너가 남는다. 회로가 이미 끊긴 뒤라면 JS 를 부를
-    /// 수 없으므로 조용히 넘어간다 — 그 경우 브라우저 문서도 함께 사라진다.
-    /// </summary>
+    /// <summary>회로가 끊기거나 화면을 떠날 때 그래프를 파괴한다. 회로가 이미 끊겼으면 JS 호출 없이 넘어간다.</summary>
     public async ValueTask DisposeAsync()
     {
         try

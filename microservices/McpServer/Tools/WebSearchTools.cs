@@ -3,20 +3,8 @@ using ModelContextProtocol.Server;
 
 namespace McpServer.Tools;
 
-/// <summary>
-/// 모델이 부를 수 있는 웹 도구들.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <b>설명문(Description)이 곧 사용 설명서다.</b> 모델은 이 글만 보고 언제 무엇을
-/// 부를지 정한다. 애매하게 적으면 안 불러도 될 때 부르고, 불러야 할 때 안 부른다.
-/// </para>
-/// <para>
-/// <b>검색과 본문 가져오기를 나눠 둔다.</b> 검색 결과의 요약만으로 답할 수 있는
-/// 질문이 많고, 그때 본문까지 받아오면 느려지기만 한다. 모델이 "요약으로는
-/// 모자라다" 고 판단할 때만 두 번째를 부르게 한다.
-/// </para>
-/// </remarks>
+/// <summary>모델이 부를 수 있는 웹 도구들. 설명문(Description)이 곧 사용 설명서라 모델은 그 글만 보고 언제 부를지 정한다.
+/// 검색과 본문 가져오기를 나눠 두어, 요약으로 답할 수 있는 질문은 검색만 하게 한다.</summary>
 [McpServerToolType]
 public sealed class WebSearchTools
 {

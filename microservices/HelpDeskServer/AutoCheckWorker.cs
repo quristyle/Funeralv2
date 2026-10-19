@@ -17,9 +17,7 @@ using HelpDeskServer.Models;
 
 namespace HelpDeskServer.Services {
 
-  /// <summary>
-  /// AutoCheckWorker
-  /// </summary>
+  /// <summary>AutoCheckWorker</summary>
   public class AutoCheckWorker : BackgroundService {
     private readonly ILogger<AutoCheckWorker> _logger;
     private readonly IServiceScopeFactory _serviceScopeFactory;
@@ -31,9 +29,7 @@ namespace HelpDeskServer.Services {
 
 
 
-    /// <summary>
-    /// 생성자
-    /// </summary>
+    /// <summary>생성자</summary>
     public AutoCheckWorker(
         ILogger<AutoCheckWorker> logger,
         IServiceScopeFactory serviceScopeFactory,
@@ -50,9 +46,7 @@ namespace HelpDeskServer.Services {
       _httpClient = new HttpClient();
     }
 
-    /// <summary>
-    /// 실행 메서드
-    /// </summary>
+    /// <summary>실행 메서드</summary>
     /// <param name="stoppingToken"></param>
     /// <returns></returns>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken) {

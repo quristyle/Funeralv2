@@ -3,30 +3,9 @@ using JSini.Web.Http;
 namespace JSini.Web.CargoTrust.Admin.Api;
 
 /// <summary>
-/// CargoTrustServer 의 관리자 엔드포인트. 게이트웨이의 <c>/api/cargotrust/admin/*</c> 로 나간다.
+/// CargoTrustServer 의 관리자 엔드포인트. 게이트웨이의 <c>/api/cargotrust/admin/*</c> 로 나간다. 계약은 docs/cargotrust/05-api-design.md 「관리자 엔드포인트」절이다.
+/// 관리자인지는 여기서 따지지 않는다 — 서버가 X-User-Roles 로 가리고 403 을 주며, 화면이 따지면 서버 판정과 어긋난다.
 /// </summary>
-/// <remarks>
-/// <para>
-/// 계약은 docs/cargotrust/05-api-design.md 의 「관리자 엔드포인트」절이다. 거기 적힌
-/// 것만 부른다 — 화면이 편하자고 없는 엔드포인트를 지어내면 백엔드와 어긋난다.
-/// </para>
-///
-/// <para>
-/// [관리자인지 여기서 따지지 않는다]
-/// </para>
-///
-/// <para>
-/// 서버가 <c>X-User-Roles</c> 로 가리고 아니면 403 을 준다. 그 403 은
-/// <see cref="ApiException"/> 이 되어 <c>DataPage</c> 가 토스트로 이유를 띄운다.
-/// 화면이 한 번 더 따지면 서버의 관리자 판정(역할 설정 · <c>user_type = ADMIN</c>)과
-/// 반드시 어긋난다 — 어긋나는 쪽은 늘 「들어가야 하는데 못 들어가는」 쪽이라 원인을
-/// 찾기가 나쁘다.
-/// </para>
-///
-/// <para>
-/// 목록은 서버가 상한(500)에서 자르고 페이징하지 않는다. 표가 쪽을 나눈다.
-/// </para>
-/// </remarks>
 public sealed class CargoAdminClient(GatewayClient gateway)
 {
     /// <summary>게이트웨이가 CargoTrustServer 의 <c>/admin</c> 으로 넘기는 접두사.</summary>
@@ -119,10 +98,7 @@ public sealed class CargoAdminClient(GatewayClient gateway)
                 ("from", CargoAdminFormat.QueryDay(from)),
                 ("to", CargoAdminFormat.QueryDay(to))), ct);
 
-    /// <summary>
-    /// 쿼리스트링. 값이 없거나 빈 글자면 뺀다 — 빈 <c>status=</c> 를 실으면 서버가
-    /// 「상태가 빈 글자인 것」을 찾아 빈 목록을 줄 수 있다.
-    /// </summary>
+    /// <summary>쿼리스트링. 값이 없거나 빈 글자면 뺀다 — 빈 status= 를 실으면 서버가 빈 글자 상태를 찾아 빈 목록을 준다.</summary>
     private static string Query(params (string Key, object? Value)[] parameters)
     {
         var parts = parameters

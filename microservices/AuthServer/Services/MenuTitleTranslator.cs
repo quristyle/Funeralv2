@@ -4,43 +4,13 @@ using Microsoft.EntityFrameworkCore;
 
 namespace AuthServer.Services;
 
-/// <summary>
-/// 메뉴 제목의 다국어를 <b>서버에서 한 번에</b> 붙인다.
-///
-/// [화면이 옮기지 않고 서버가 옮기는 이유]
-///
-/// 예전에는 화면이 제목마다 <c>$t()</c> 를 불렀다. 그런데 저장된 제목
-/// 대부분(179건 중 162건)이 번역 키가 아니라 이미 완성된 글자라서, vue-i18n 이
-/// "그런 키는 없다" 는 경고를 <b>한 번 새로 그릴 때마다 수백 줄</b> 쏟아냈다.
-/// 옮길 것이 적은데도 화면이 늦게 뜬 이유가 이것이다.
-///
-/// 그래서 언어 하나에 해당하는 <c>scom.i18n_resources</c> 를 사전 하나로 읽어
-/// (왕복 한 번) 제목을 맞춰 본다. 화면은 내려온 글자를 그대로 찍기만 한다.
-///
-/// [두 서비스가 같은 코드를 쓰게 뽑아 둔 것이다]
-///
-/// 메뉴를 내려보내는 곳이 둘이다 — 사이드바용 <c>MenuService</c>(<c>/menu/all</c>)와
-/// 메뉴 관리 화면용 <c>SystemMenuService</c>. 한동안 <b>뒤엣것만</b> 번역을 붙였고,
-/// 그래서 관리 화면에서는 "메뉴 관리" 로 보이는 항목이 사이드바에서는
-/// <c>system.menu.title</c> 로 보였다. 복제해 두면 반드시 다시 갈라지므로
-/// 여기 한 벌만 둔다.
-/// </summary>
+/// <summary>메뉴 제목의 다국어를 서버에서 한 번에 붙인다. 저장된 제목 대부분이 번역 키가 아니라 완성된 글자라, 화면이 제목마다 <c>$t()</c> 를 부르면 키 없음 경고가 쏟아지므로 서버가 옮긴다.</summary>
 public static class MenuTitleTranslator
 {
     /// <summary>제목을 옮길 언어를 못 받았을 때 쓰는 기본 언어.</summary>
     public const string DefaultLocale = "ko";
 
-    /// <summary>
-    /// 메뉴 제목에 해당하는 번역만 사전으로 읽어 온다.
-    ///
-    /// 표 전체를 읽지 않고 <b>실제로 쓰이는 제목</b>만 <c>IN</c> 으로 좁힌다
-    /// (지금은 179건 중 키처럼 생긴 것 17건뿐이다).
-    /// 언어를 못 찾으면 <c>ko</c> 로 한 번 더 본다 — 화면에 키가 그대로 뜨는 것보다
-    /// 다른 언어의 글자라도 보이는 편이 관리에 낫다.
-    /// </summary>
-    /// <param name="db">DB 컨텍스트</param>
-    /// <param name="menus">제목을 모을 메뉴들</param>
-    /// <param name="locale">옮길 언어. 비우면 <c>ko</c>.</param>
+    /// <summary>메뉴 제목에 해당하는 번역만 사전으로 읽어 온다. 실제로 쓰이는 제목만 IN 으로 좁히고, 언어를 못 찾으면 ko 로 한 번 더 본다 — 키가 그대로 뜨는 것보다 다른 언어 글자라도 보이는 편이 낫다.</summary>
     public static async Task<Dictionary<string, string>> LoadAsync(
         AppDbContext db, List<SystemMenu> menus, string? locale)
     {
@@ -81,35 +51,14 @@ public static class MenuTitleTranslator
         return map;
     }
 
-    /// <summary>
-    /// 저장된 제목을 화면에 찍을 글자로 옮긴다.
-    ///
-    /// 사전에 있으면 옮긴 글자를, 없으면 <c>null</c> 을 준다.
-    /// <b>키가 아닌 제목(이미 완성된 글자)도 null 이다</b> — 옮길 것이 없으니
-    /// 화면이 저장된 글자를 그대로 쓰면 된다.
-    /// </summary>
+    /// <summary>저장된 제목을 화면에 찍을 글자로 옮긴다. 사전에 있으면 옮긴 글자를, 없으면 null 을 준다. 키가 아닌 제목도 null 이다 — 옮길 것이 없으니 화면이 저장된 글자를 그대로 쓴다.</summary>
     public static string? Resolve(string? title, Dictionary<string, string> titles)
     {
         if (string.IsNullOrWhiteSpace(title)) return null;
         return titles.TryGetValue(title, out var text) ? text : null;
     }
 
-    /// <summary>
-    /// 메뉴 하나를 <b>사람이 읽는 이름</b>으로 줄인다 —
-    /// 옮긴 제목 → 저장된 제목 → <c>name</c>.
-    ///
-    /// <para>
-    /// 이 세 단계가 화면의 규칙이다(<c>MenuWireDto.ToNode</c> · 메뉴롤 ·
-    /// 사람롤이 전부 같은 순서로 고른다). 한 응답만 <c>name</c> 을 그대로 주면
-    /// <b>한 메뉴가 화면마다 다른 이름으로 보인다</b> — 역할 관리의 메뉴 권한
-    /// 나무가 그래서 <c>CtaReviews</c> 를 늘어놓고 있었다.
-    /// </para>
-    ///
-    /// <para>
-    /// 이름을 완성해 내려보내는 자리는 서버다. 화면이 세 칸을 받아 스스로
-    /// 고르게 두면 그 순서가 화면 수만큼 복제되고, 그중 하나는 반드시 어긋난다.
-    /// </para>
-    /// </summary>
+    /// <summary>메뉴 하나를 사람이 읽는 이름으로 줄인다 — 옮긴 제목 → 저장된 제목 → name. 이 순서가 화면의 규칙이라, 한 응답만 name 을 그대로 주면 메뉴마다 이름이 달라진다.</summary>
     public static string Display(SystemMenu menu, Dictionary<string, string> titles)
     {
         var text = Resolve(menu.Title, titles);

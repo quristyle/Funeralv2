@@ -2,9 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace HelpDeskServer.Dtos;
 
-/// <summary>
-/// 관리자 비밀번호 변경을 위한 DTO
-/// </summary>
+/// <summary>관리자 비밀번호 변경을 위한 DTO</summary>
 /// <param name="OldPassword">기존 비밀번호</param>
 /// <param name="NewPassword">새 비밀번호</param>
 public record AdminChangePasswordDto(

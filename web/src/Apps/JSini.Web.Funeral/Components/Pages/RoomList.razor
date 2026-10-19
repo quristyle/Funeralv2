@@ -1,43 +1,8 @@
 @page "/funeral/building/room"
 @attribute [RouteKey("funeral.building.room")]
 
-@*
-    [호실 관리] — DB 메뉴 `/building/room`.
-    이력: Vue `views/funeral/building/room/index` → 여기.
-
-    [읽기만 하고 있었고, 구분이 코드값 그대로 보였다]
-
-    등록·수정·삭제가 빠져 있었다. 그리고 「구분」 칸에 `FUNERAL_HALL` 같은
-    **코드값이 그대로** 나오고 있었다 — 옛 화면은 공통코드 `ROOM_TYPE` 을 읽어
-    「빈소」로 옮겨 보여 주었다.
-
-    [호실은 층에 붙는다]
-
-    건물만 고르고 층을 안 고르면 어느 층에도 속하지 않은 호실이 만들어진다.
-    등록 폼에서 층을 반드시 고르게 한다.
-
-    [상태는 지우는 것과 다르다]
-
-    쓰지 않는 호실은 지우지 않고 `INACTIVE` 로 둔다. 그 호실을 가리키는 옛
-    기록(고인 이력·과금)이 남아 있어 지우면 그 기록이 끊긴다.
-
-    [건물을 고르면 호실이 하나도 안 나왔다]
-
-    `GetRoomsAsync` 의 첫 인자는 `companyId` 다. 자리로 넘기면 건물이 회사
-    자리에, 층이 건물 자리에 들어간다 — 회사 식별자에 건물 식별자를 넣었으니
-    맞는 것이 있을 리 없고, **건물을 고른 순간 목록이 0 건이 된다.**
-    (게이트웨이로 직접 확인했다: `buildingId` 로 7건, `companyId` 자리에 같은
-    값을 넣으면 0건.)
-
-    빌드는 통과한다 — 셋 다 `string?` 이라 형식이 맞다. 이름을 붙여 막는다.
-
-    [정렬 순서가 통째로 빠져 있었다]
-
-    목록에도 편집 칸에도 없었다. 서버는 주고받고 있었고(`RoomDto.SortOrder`)
-    현황판이 그 값으로 줄을 세운다. **이름으로 세우면 「101호」보다 「10호」가
-    앞에 온다** — 글자 순서라 그렇다. 그래서 포털에서 순서를 못 고치는 동안
-    현황판의 호실 차례를 바로잡을 길이 없었다.
-*@
+@* [호실 관리] — DB 메뉴 `/building/room`. 호실은 층에 붙고, 등록 폼은 층을 반드시 고르게 한다(건물만 고르면 어느 층에도 속하지 않는 호실이 된다).
+쓰지 않는 호실은 지우지 않고 INACTIVE 로 둔다. 옛 기록(고인 이력·과금)이 그 호실을 가리킨다. 정렬은 SortOrder 로 하며, 이름으로 세우면 101호보다 10호가 앞에 온다. *@
 
 @inherits DataPage
 
@@ -62,9 +27,7 @@
 
             <DxGridDataColumn Caption="구분" Width="120">
                 <CellDisplayTemplate Context="cell">
-                    @* 저장된 것은 코드값이고 보여 줄 것은 이름이다. 코드 목록에 없는
-                       옛 값이면 값을 그대로 보여 준다 — 빈칸으로 두면 자료가 없는
-                       것처럼 보인다. *@
+                    @* 저장값은 코드값, 보여 줄 것은 이름이다. 코드 목록에 없는 옛 값은 그대로 보여 준다. 빈칸으로 두면 자료가 없는 것처럼 보인다. *@
                     @_roomTypeLabel(((Room)cell.DataItem).RoomType)
                 </CellDisplayTemplate>
             </DxGridDataColumn>
@@ -91,8 +54,7 @@
             }
             <DxFormLayout CssClass="fn-editform">
                 <DxFormLayoutItem Caption="건물" ColSpanMd="6">
-                    @* 건물을 바꾸면 층을 비워야 해서 @@bind- 를 못 쓴다. 대신 식을
-                       직접 준다 — 형변환도 메서드도 없는 순수한 멤버 접근이어야 한다. *@
+                    @* 건물을 바꾸면 층을 비워야 해서 @@bind- 를 못 쓴다. 식을 직접 준다. 형변환·메서드가 없는 순수한 멤버 접근이어야 한다. *@
                     <DxComboBox Data="@_buildings" Value="@r.BuildingId"
                                 ValueChanged="@((string? v) => { r.BuildingId = v; r.FloorId = null; })"
                                 ValueExpression="@(() => r.BuildingId)"
@@ -101,8 +63,7 @@
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="층" ColSpanMd="6">
-                    @* 건물을 바꾸면 층을 다시 골라야 한다. 위에서 FloorId 를 비우는
-                       이유가 그것이다 — 안 비우면 다른 건물의 층이 붙는다. *@
+                    @* 건물을 바꾸면 층을 다시 골라야 해서 FloorId 를 비운다. 안 비우면 다른 건물의 층이 붙는다. *@
                     <DxComboBox Data="@FloorsOf(r.BuildingId)" @bind-Value="r.FloorId"
                                 TextFieldName="@nameof(Floor.Name)"
                                 ValueFieldName="@nameof(Floor.Id)" />
@@ -123,7 +84,6 @@
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="정렬" ColSpanMd="3">
-                    @* 이름으로 세우면 「101호」보다 「10호」가 앞에 온다. *@
                     <DxSpinEdit @bind-Value="r.SortOrder" MinValue="0" />
                 </DxFormLayoutItem>
 

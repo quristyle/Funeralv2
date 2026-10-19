@@ -1,22 +1,4 @@
-@*
-    포털 계정·사업장 셀렉트 — Vue 의 `BizSelect.vue` 를 잇는다.
-
-    `Type` 하나만 주면 나머지(어느 MSA 의 어느 API 를 어떻게 부르는지)는
-    DB 메타데이터(`scom.biz_select_configs`)가 정한다 — `Api/BizOptions.cs` 참고.
-    프로젝트관리에서는 담당자(portal_account) 를 고르는 화면 네 개가 쓴다
-    (todo · todo-monitor · user · monitoring).
-
-    [값은 문자열이다]
-
-    원본 값이 숫자 ID 여도 문자열로 통일한다. 이 앱의 파라미터는 결국
-    프로시저 문자열 사전(`MainParam`)으로 나가므로 여기서 맞춰 두는 편이
-    화면마다 변환하는 것보다 낫다. Vue 의 `value: any` 와 다른 점이다.
-
-    [다중선택은 태그박스다]
-
-    Vue 는 antd Select 에 `mode="multiple"` 을 넘겼다. DevExpress 는 다중선택이
-    별도 부품(DxTagBox)이라 `Multiple` 파라미터로 가른다.
-*@
+@* 포털 계정·사업장 셀렉트. Type 하나만 주면 어느 API 를 어떻게 부를지는 DB 메타데이터(scom.biz_select_configs)가 정한다 — Api/BizOptions.cs 참고. 값은 문자열로 통일한다(파라미터가 프로시저 문자열 사전으로 나가므로). 다중선택은 DxTagBox 라 Multiple 로 가른다. *@
 
 @if (Multiple)
 {
@@ -33,10 +15,7 @@
 }
 else
 {
-        @* **검증을 끈다.** 이 부품은 `Value`/`ValueChanged` 로 값을 주고받으므로
-       DevExpress 가 기대하는 `ValueExpression` 이 없다. `EditForm` 안(표의 편집
-       창)에 들어가면 그것을 필수로 보고 던지는데, 그 예외가 **회로를 끊어**
-       그 순간부터 화면 전체가 안 눌린다. 우리는 DevExpress 검증을 쓰지 않는다. *@
+        @* 검증을 끈다 — 이 부품은 Value/ValueChanged 라 DevExpress 가 기대하는 ValueExpression 이 없고, EditForm 안에서 그 예외가 회로를 끊는다. *@
 <DxComboBox Data="@_options"
                 TextFieldName="@nameof(BizOption.Label)"
                 ValueFieldName="@nameof(BizOption.Value)"

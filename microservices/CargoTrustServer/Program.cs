@@ -84,10 +84,7 @@ builder.Services.AddHttpClient<TollPlazaSyncService>(client =>
     // 공공데이터가 느릴 때 관리자 화면이 통째로 매달리지 않게 상한을 둔다.
     client.Timeout = TimeSpan.FromSeconds(30);
 
-    // **User-Agent 가 없으면 막힌다.** data.ex.co.kr 앞의 방화벽이 맨 요청을
-    // 「Request Blocked」 HTML 과 함께 400 으로 돌려보낸다(2026-10-06 실측).
-    // HttpClient 는 기본으로 User-Agent 를 안 붙이므로 여기서 붙인다 —
-    // 이것이 없으면 키가 맞아도 한 줄도 못 받는다.
+    // User-Agent 가 없으면 data.ex.co.kr 앞의 방화벽이 맨 요청을 400 으로 막는다. 키가 맞아도 한 줄도 못 받는다.
     client.DefaultRequestHeaders.UserAgent.ParseAdd(
         "Mozilla/5.0 (compatible; JSiniCargoTrust/1.0; +https://portal.jsini.co.kr)");
     client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
@@ -148,12 +145,7 @@ app.UseSerilogRequestLogging();
 // ============================================================
 // 6. 엔드포인트
 // ============================================================
-// 게이트웨이가 /api/cargotrust 접두사를 떼고 넘겨 주므로 여기서는 루트 기준이다.
-// 인증은 게이트웨이가 끝냈고(X-User-* 헤더), 외부에서 직접 못 붙게
-// Kestrel 이 루프백(127.0.0.1)에만 묶여 있다 — appsettings.json 참조.
-//
-// 모든 업무 경로가 한 그룹 아래에 선다. 신원(401) · 사용자 줄 · 차단(403)을 그룹 필터
-// 하나가 맡아서, 새 경로를 더해도 그 검사를 빠뜨릴 수 없다.
+// 게이트웨이가 /api/cargotrust 를 떼고 넘기므로 루트 기준이다. 신원(401)·사용자 줄·차단(403)은 그룹 필터 하나가 맡는다.
 var api = app.MapGroup("/")
     .AddEndpointFilter<CargoUserFilter>()
     .AddApiResponseWrapper();

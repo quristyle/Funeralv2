@@ -49,8 +49,7 @@ public class NightDiscountEngineTests
     [Fact]
     public void 전날_밤에_열린_창이_새벽까지_이어진다()
     {
-        // 새벽 01:00~05:00. 이 창은 **전날** 21시에 열렸다 — 하루 전부터 훑지
-        // 않으면 통째로 0 이 되고, 그 틀림은 「할인이 안 되네」로만 보인다.
+        // 새벽 01~05시 창은 전날 21시에 열렸다 — 하루 전부터 훑지 않으면 통째로 0 이 된다.
         Assert.Equal(240, NightDiscountEngine.OverlapMinutes(At(7, 1), At(7, 5), Closed));
     }
 

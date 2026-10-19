@@ -1,22 +1,8 @@
 namespace LifeEnvServer.Dtos;
 
 /// <summary>
-/// 기상 타임라인 정보 DTO
+/// 기상 타임라인 한 칸(날짜·시간·기온·강수·하늘·바람 등). IsForecast 로 실황과 예보를 가른다.
 /// </summary>
-/// <param name="Date">날짜</param>
-/// <param name="Time">시간</param>
-/// <param name="Temp">온도</param>
-/// <param name="Pop">강수 확률</param>
-/// <param name="Rain">강수량</param>
-/// <param name="Sky">하늘 상태</param>
-/// <param name="Pty">강수 형태</param>
-/// <param name="WindSpeed">풍속</param>
-/// <param name="WindDir">풍향</param>
-/// <param name="Reh">습도</param>
-/// <param name="Uuu">동서바람</param>
-/// <param name="Vvv">남북바람</param>
-/// <param name="Sno">적설량</param>
-/// <param name="IsForecast">예보 여부</param>
 public record WeatherTimelineDto(
     string Date,
     string Time,

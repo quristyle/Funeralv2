@@ -4,45 +4,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HelpDeskServer.Services;
 
-/// <summary>
-/// 요청 한 줄을 <b>접수한 사람(담당자)</b>을 정한다. 가리킬 줄이 없으면 만든다.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <c>improvementrequest.adminid</c> 는 <c>admin</c> 을 가리키는 외래키다.
-/// 그래서 「접수」를 누른 사람을 접수자로 적으려면 그 사람을 가리키는
-/// <c>admin</c> 줄이 <b>먼저</b> 있어야 한다.
-/// </para>
-///
-/// <para>
-/// 그런데 운영 헬프데스크는 자료를 옮기지 않은 새 DB 를 쓰기 때문에
-/// (<c>web/docs/decisions-needed.md</c> D14) <b>담당자가 0명</b>이다.
-/// 접수자를 고르게 두면 고를 것이 없고, 없는 번호를 그대로 넣으면
-/// <c>SaveChangesAsync</c> 가 <c>DbUpdateException</c> 을 던져
-/// 「An error occurred while saving the entity changes.」 한 줄만 화면에 나간다.
-/// 요청자(고객)에서 겪은 것과 <b>같은 일</b>이라 같은 길로 푼다 —
-/// <see cref="IRequesterProvisioner"/> 참고.
-/// </para>
-///
-/// <para>
-/// 인증·권한은 포털이 단독으로 맡는다(<see cref="HelpdeskPrincipal"/>).
-/// 헬프데스크의 <c>admin</c> 줄은 <b>업무 자료가 가리킬 대상</b>일 뿐이므로,
-/// 담당자 권한이 있는 사람이 처음 무언가를 접수할 때 포털 신원에서 만들어 준다.
-/// </para>
-///
-/// <para>
-/// <b><c>auth_user_links</c> 에는 손대지 않는다.</b> 요청자 쪽
-/// (<see cref="RequesterProvisioner"/>)은 연결을 남기지만 여기서 그러면
-/// 고객으로 이어 둔 계정의 연결을 담당자로 덮어쓴다 — 그 사람이 쓴 글과
-/// 댓글이 가리키던 고객 번호가 <b>신원 해석에서 사라진다.</b> 접수자는
-/// 로그인 아이디와 이름으로 다시 찾으면 되므로 연결이 필요 없다.
-/// </para>
-/// </remarks>
+/// <summary>요청 한 줄을 <b>접수한 사람(담당자)</b>을 정한다. 가리킬 줄이 없으면 만든다. improvementrequest.adminid 는 admin 을 가리키는 외래키다.</summary>
 public interface IAssigneeProvisioner {
-  /// <summary>
-  /// 지금 요청을 보낸 사람을 가리키는 담당자 번호를 정한다.
-  /// 담당자 권한이 없거나 포털 신원이 없으면 <c>null</c>.
-  /// </summary>
+  /// <summary>지금 요청을 보낸 사람을 가리키는 담당자 번호를 정한다. 담당자 권한이 없거나 포털 신원이 없으면 <c>null</c>.</summary>
   /// <param name="me">지금 요청을 보낸 사람</param>
   /// <param name="auditUser">만들어지는 줄에 남길 작성자</param>
   /// <param name="ct">취소 토큰</param>

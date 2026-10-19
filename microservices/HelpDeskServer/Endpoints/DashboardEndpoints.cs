@@ -9,22 +9,13 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace HelpDeskServer.Endpoints;
 
-/// <summary>
-/// 대시보드 통계 관련 엔드포인트
-/// </summary>
+/// <summary>대시보드 통계 관련 엔드포인트</summary>
 public static class DashboardEndpoints {
-  /// <summary>
-  /// 대시보드 관련 엔드포인트를 애플리케이션에 매핑합니다.
-  /// </summary>
+  /// <summary>대시보드 관련 엔드포인트를 애플리케이션에 매핑합니다.</summary>
   public static void MapDashboardEndpoints(this IEndpointRouteBuilder routes) {
     var group = routes.MapGroup("/api/dashboard");
 
-    // 현황판 한 판. 요약 · 상태 · 유형 · 월별 · 일별 · 요일 · 시간대 ·
-    // 회사별 · 담당자별 · 대기 적체 · 요청자 · 최근 접수를 한 번에 준다.
-    //
-    // 통로를 하나로 둔 까닭과 메모리에서 접는 까닭은 DashboardOverviewService
-    // 머리말에 있다. 고객으로 연결된 계정은 **제 회사로 범위가 강제된다** —
-    // companyId 를 적어 보내도 서비스가 덮어쓴다.
+    // 현황판 한 번에 받는 묶음(DashboardOverviewService). 고객으로 연결된 계정은 제 회사로 범위가 강제되며, companyId 를 보내도 서비스가 덮어쓴다.
     group.MapGet("/overview", (
         HttpContext http,
         DashboardOverviewService overview,
@@ -37,16 +28,12 @@ public static class DashboardEndpoints {
             () => overview.BuildAsync(http.GetHelpdeskPrincipal(), companyId, days, months, topN, ct)))
         .RequireAuthorization();
 
-    // 고객사별 요청 통계를 조회합니다.
-    //
-    // 회사 이름은 **포털에서 온다**. 헬프데스크에 회사 표가 없으므로 join 할 것이
-    // 없고, 아이디로 묶은 뒤 이름만 나중에 붙인다.
+    // 고객사별 요청 통계. 회사 이름은 포털에서 오므로 아이디로 묶고 이름은 나중에 붙인다.
     group.MapGet("/company-stats", (AppDbContext db, IPortalCompanyDirectory companies, CancellationToken ct) =>
         ApiResponseBuilder.CreateAsync(async () => {
       var stats = await db.Requests
           .Where(r => r.Customer != null && r.Customer.CompanyId != null)
-          // 앞의 Where 가 걸러 낸 뒤라 SQL 로는 null 이 올 수 없다. 컴파일러는 그것을
-          // 따라가지 못하므로 ! 로 알려 준다 (검사를 한 번 더 넣으면 SQL 도 그만큼 늘어난다).
+          // 앞의 Where 가 걸러 냈으므로 null 이 올 수 없다. 컴파일러가 따라가지 못해 ! 로 알린다.
           .GroupBy(r => r.Customer!.CompanyId!)
           .Select(g => new {
             Id = g.Key,
@@ -87,12 +74,8 @@ public static class DashboardEndpoints {
       }).ToList();
     }));
 
-    // 현재 로그인한 관리자의 업무 통계를 조회합니다.
-    //
-    // 담당자 권한이면 연결이 없어도 조회할 수 있다. 다만 "본인 배정" 은 헬프데스크 레코드가
-    // 있어야 세는 것이라, 연결이 없으면 그 칸은 0 이 된다. 대신 미배정 건수는 팀이 아니라
-    // 전체를 세어 준다 — 팀이 없는 사람에게 0 만 보여 주는 것보다 관리 조회에 쓸모가 있다.
-    // 화면이 상황을 알 수 있도록 linked / adminRecord 를 함께 내려보낸다.
+    // 로그인한 관리자의 업무 통계. 담당자 권한이면 연결이 없어도 조회되고, 연결이 없으면 본인 배정 칸은 0 이 아니라 셀 수 없음이다.
+    // 미배정은 전체로 센다. linked / adminRecord 를 함께 내려 화면이 둘을 구분하게 한다.
     group.MapGet("/admin-stats", async (HttpContext http, AppDbContext db) => {
       var me = http.GetHelpdeskPrincipal();
       if (!me.IsAdmin) {
@@ -101,23 +84,8 @@ public static class DashboardEndpoints {
             statusCode: StatusCodes.Status403Forbidden);
       }
 
-      // [「내 것」을 찾는 길이 둘이다 — 연결표와 로그인 아이디]
-      //
-      // 연결표(`auth_user_links`)에 `admin` 으로 이어져 있으면 그 줄이 곧
-      // 자기 자신이다. 그런데 **그 연결은 사실상 안 생긴다** — 접수자 줄을
-      // 만드는 `AssigneeProvisioner` 가 연결표에 일부러 손대지 않기 때문이다
-      // (고객으로 이어 둔 연결을 담당자로 덮으면 그 사람이 쓴 글과 댓글이
-      // 가리키던 고객 번호가 신원 해석에서 사라진다).
-      //
-      // 그래서 운영에서는 담당자가 **고객으로 연결된 채** 접수를 하고 있었고,
-      // 이 집계는 그때 `adminId` 가 null 이 되어 **전부 0** 을 돌려주었다 —
-      // 같은 사람이 `all-admin-stats` 에서는 열한 건으로 나오는데 「나의」는
-      // 0 인, 화면만 보고는 알 수 없는 어긋남이다.
-      //
-      // 두 번째 길이 접수자 줄을 만들 때 쓰는 것과 **같은 열쇠**다 —
-      // 포털 로그인 아이디와 이름(`AssigneeProvisioner` 의 같은 자리 주석:
-      // 아이디만 보면 포털 `admin` 과 헬프데스크 `admin` 이 서로 다른 사람인
-      // 경우에 남의 줄을 집어 온다).
+      // 「내 것」을 찾는 길은 연결표와 로그인 아이디 둘이다. 연결표는 담당자 연결이 사실상 안 생기므로(AssigneeProvisioner 가 연결표를 건드리지 않는다)
+      // 로그인 아이디와 이름이 둘 다 같은 줄로 찾는다 — 아이디만 보면 포털 admin 과 헬프데스크 admin 이 섞여 남의 줄을 집는다.
       var adminId = me.IsLinkedAdmin ? me.HelpdeskUserId : null;
 
       if (adminId is null && me.IsAdmin && !string.IsNullOrWhiteSpace(me.JsiniUserId)) {
@@ -130,16 +98,7 @@ public static class DashboardEndpoints {
             .FirstOrDefaultAsync();
       }
 
-      // [미배정 건수는 **전체**다 (2026-10-07)]
-      //
-      // 전에는 「내가 속한 팀이 맡은 업체」의 것만 셌다(`adminteams` →
-      // `teamcompanies` → 그 회사의 요청). 팀 표를 걷어내면서 그 범위가
-      // 없어졌다 — 소속을 정하는 곳은 포털(부서)이고 헬프데스크는 그것을
-      // 들고 있지 않다.
-      //
-      // 범위를 잃는 것이 아니라 **처음부터 비어 있었다.** 운영 DB 의
-      // `adminteams` 와 `teamcompanies` 는 둘 다 0행이라, 연결된 담당자라도
-      // 맡은 업체가 없어 이 숫자는 늘 0 이었다.
+      // 미배정 건수는 전체다. 팀 범위는 처음부터 비어 있었다(소속은 포털이 정하고 헬프데스크는 들고 있지 않다).
       var pendingCount = await db.Requests.CountAsync(r => r.Status == ImprovementStatus.Pending);
 
       // 4. 본인 배정된 요청들 집계 (진행, 완료 등). 연결이 없으면 셀 대상이 없다.
@@ -170,8 +129,7 @@ public static class DashboardEndpoints {
         NegotiationCount = negotiationCount,
         TotalRequests = await db.Requests.CountAsync(),
 
-        // 셀 수 있었나. **0 건인 것과 셀 수 없었던 것은 다르다** —
-        // 화면이 그 둘을 구분해 적을 수 있어야 한다.
+        // 0 건과 셀 수 없었던 것은 다르다. 화면이 그 둘을 구분해 적을 수 있어야 한다.
         Linked = adminId.HasValue,
 
         // 실제로 센 담당자 번호. 화면의 「내 것만 보기」가 이 값으로
@@ -197,10 +155,7 @@ public static class DashboardEndpoints {
       // 모든 관리자와 그들의 통계를 가져옵니다.
       var admins = await db.Admins.ToListAsync();
 
-      // 미배정 건수는 **담당자마다 같다** — 전체 건수다. 전에는 그 사람이
-      // 속한 팀이 맡은 업체로 좁혔는데, 팀 표를 걷어내면서 좁힐 근거가
-      // 없어졌다(위 `admin-stats` 의 같은 자리 주석). 사람마다 다시 세지
-      // 않고 한 번만 센다.
+      // 미배정 건수는 담당자마다 같다 — 전체 건수다. 사람마다 다시 세지 않고 한 번만 센다.
       var pendingCount = await db.Requests
           .CountAsync(r => r.Status == ImprovementStatus.Pending);
 
@@ -349,11 +304,7 @@ public static class DashboardEndpoints {
       return Results.Ok(new { success = true, data = result });
     }).RequireAuthorization();
 
-    // 현재 로그인한 고객(사용자)이 속한 회사의 요청 통계를 조회합니다.
-    //
-    // ⚠ 전에는 uid 를 login_type 확인 없이 고객 ID 로 썼다. uid 는 담당자에게도 붙는 값이라,
-    //    담당자 #4 가 부르면 **고객 #4** 의 회사 통계가 나왔다(운영 데이터에서 재현됨).
-    //    서로 다른 사람의 자료다. 그래서 고객으로 연결된 계정만 받는다.
+    // 로그인한 고객의 회사 요청 통계. uid 는 담당자에게도 붙는 값이라 login_type 이 고객인 계정만 받는다(담당자 #4 가 부르면 고객 #4 의 자료가 나왔다).
     group.MapGet("/my-company-stats", async (HttpContext http, AppDbContext db) => {
       var me = http.GetHelpdeskPrincipal();
       if (!me.IsCustomer || !me.HelpdeskUserId.HasValue) {
@@ -389,8 +340,7 @@ public static class DashboardEndpoints {
       return Results.Ok(new { success = true, data = result });
     }).RequireAuthorization();
 
-    // 현재 로그인한 고객(사용자)이 속한 회사의 지난 12개월간 월별 요청 통계를 조회합니다.
-    // my-company-stats 와 같은 문제가 있었다 — 위 주석 참고.
+    // 고객 회사의 지난 12개월 월별 통계. 위 my-company-stats 와 같은 규칙을 따른다.
     group.MapGet("/my-monthly-stats", async (HttpContext http, AppDbContext db) => {
       var me = http.GetHelpdeskPrincipal();
       if (!me.IsCustomer || !me.HelpdeskUserId.HasValue) {
@@ -440,10 +390,7 @@ public static class DashboardEndpoints {
             .Select(g => new { Status = g.Key, Count = g.Count() })
             .ToListAsync()));
 
-    // 각 고객사별 요청 수를 조회합니다.
-    //
-    // 회사 목록은 포털이 준다. 요청이 한 건도 없는 회사까지 0 으로 보여 주려면
-    // 목록 쪽이 기준이어야 한다 — 요청에서 뽑아 묶으면 그런 회사가 통째로 빠진다.
+    // 고객사별 요청 수. 요청이 없는 회사도 0 으로 보이도록 기준은 포털의 회사 목록이다.
     group.MapGet("/companies/requests", (AppDbContext db, IPortalCompanyDirectory companies, CancellationToken ct) =>
         ApiResponseBuilder.CreateAsync(async () => {
           var names = await companies.GetNamesAsync(ct);
@@ -464,12 +411,7 @@ public static class DashboardEndpoints {
               .ToList();
         }));
 
-    // 팀별 부하(/teams/workload)는 제거했다.
-    //
-    // 「조직 관리」 메뉴의 팀·팀-고객사 화면만 부르던 통계인데, 조직 관리를
-    // JSini 관리 포털(AuthServer)에 넘기면서 그 두 화면을 걷어냈다.
-    // 담당자별 부하(/admins/workload)는 남는다 — 운영 리포트의
-    // 용량 계획 화면이 쓴다.
+    // 팀 부하(/teams/workload)는 없다 — 조직 관리가 포털로 넘어가면서 그 화면이 사라졌다. 담당자별 부하(/admins/workload)는 용량 계획 화면이 쓴다.
 
     // 각 관리자별 할당된 요청 및 완료한 요청 수를 조회합니다.
     group.MapGet("/admins/workload", (AppDbContext db) => ApiResponseBuilder.CreateAsync(
@@ -501,11 +443,7 @@ public static class DashboardEndpoints {
             .Select(g => new { EntityType = g.Key, Count = g.Count() })
             .ToListAsync()));
 
-    // 프로젝트 WBS 통계(/project-stats/{projectId})는 제거했다.
-    //
-    // 「프로젝트」 메뉴 묶음과 함께 사라진 통계다. 부르는 화면이 원래도
-    // 없었고(이관하면서 프로젝트 정보 화면이 목록만 쓰게 됐다), 묶음을
-    // 걷어낸 뒤로는 되살릴 자리조차 없다.
+    // 프로젝트 WBS 통계는 없다 — 프로젝트 메뉴 묶음과 함께 사라졌다.
 
     // 푸시 알림 발송 성공률 통계를 조회합니다.
     group.MapGet("/push-stats", (AppDbContext db, [FromQuery] int days = 7) => ApiResponseBuilder.CreateAsync(async () => {

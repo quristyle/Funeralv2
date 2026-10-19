@@ -2,13 +2,7 @@ using JSini.Web.Http;
 
 namespace JSini.Web.ProjMng.Api;
 
-/// <summary>
-/// 할 일. <b>프로시저를 부르지 않는다.</b>
-/// </summary>
-/// <remarks>
-/// 옛 길은 셋이었다 — <c>sp_home_todo_exec</c> · <c>_make</c> · <c>_pay</c>.
-/// 등록·수정자는 <b>서버가 게이트웨이 신원으로 채운다</b> — 보내지 않는다.
-/// </remarks>
+/// <summary>할 일. 프로시저를 부르지 않는다. 등록·수정자는 서버가 게이트웨이 신원으로 채운다 — 보내지 않는다.</summary>
 public sealed class HomeTodoClient(GatewayClient gateway)
 {
     private const string Url = "projmng/home-todos";

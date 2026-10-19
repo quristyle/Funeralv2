@@ -4,64 +4,23 @@ using AIAgentServer.DTOs;
 
 namespace AIAgentServer.Services;
 
-/// <summary>
-/// 공급자가 돌려준 답. <b>형식이 다른 두 계열을 같은 모양으로 읽게 해 준다.</b>
-/// </summary>
-/// <remarks>
-/// <para>
-/// 예전에는 <see cref="LLMService"/> 가 <see cref="HttpResponseMessage"/> 를 직접 들고
-/// 본문을 <c>choices[0].message.content</c> 로, 스트림을 <c>data: {...}</c> 줄로 읽었다.
-/// 공급자가 전부 OpenAI 호환이라 그래도 됐다.
-/// </para>
-/// <para>
-/// <b>Claude 를 붙이면서 그 가정이 깨졌다.</b> Anthropic Messages API 는 응답이
-/// <c>content</c> 블록 배열이고 스트리밍 이벤트도 다르다. 게다가 공식 SDK 를 쓰므로
-/// <c>HttpResponseMessage</c> 자체가 없다 — 타입이 붙은 객체가 나온다.
-/// </para>
-/// <para>
-/// 그래서 <b>"답을 읽는 방법" 만 추상으로 남긴다.</b> 자동 전환 · 모델 바꿔치기 ·
-/// 기록 자르기 · 생각 블록 걷어내기는 전부 위층에 그대로 있고, 이 아래만 갈린다.
-/// </para>
-/// </remarks>
+/// <summary>공급자가 돌려준 답. <b>형식이 다른 두 계열을 같은 모양으로 읽게 해 준다.</b></summary>
 public abstract class AiResponseBody : IDisposable
 {
-    /// <summary>
-    /// 공급자가 알려 준 토큰 수. <b>다 읽고 나서야 값이 있다.</b>
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 사람별 사용량(<c>scom.ai_usage_logs</c>)이 이 값으로 쌓인다. 읽기 전에
-    /// 보면 언제나 <c>null</c> 이다 — 비스트리밍은 본문을 받아야 알고,
-    /// 스트리밍은 <b>맨 마지막 조각</b>에 실려 온다.
-    /// </para>
-    /// <para>
-    /// <b><c>null</c> 은 「모른다」지 「0」이 아니다.</b> 안 주는 공급자가 있고
-    /// (Anthropic SDK 경로), 스트림이 중간에 끊기면 마지막 조각을 못 본다.
-    /// 적는 쪽은 그 둘을 갈라 둔다 — 0 으로 적으면 합계가 조용히 틀린다.
-    /// </para>
-    /// </remarks>
+    /// <summary>공급자가 알려 준 토큰 수. <b>다 읽고 나서야 값이 있다.</b> 사람별 사용량(scom.ai_usage_logs)이 이 값으로 쌓인다.</summary>
     public AiTokenUsage? Usage { get; protected set; }
 
     /// <summary>완성된 답 전체를 읽는다. 스트리밍이 아닌 호출에서 쓴다.</summary>
     public abstract Task<string> ReadTextAsync();
 
-    /// <summary>
-    /// 답을 조각으로 읽는다. <b>생각 블록을 걷어내기 전의 날 글자</b>를 흘린다 —
-    /// 거르는 것은 <see cref="ReasoningFilter"/> 의 몫이라 여기서 하지 않는다.
-    /// </summary>
+    /// <summary>답을 조각으로 읽는다. <b>생각 블록을 걷어내기 전의 날 글자</b>를 흘린다 — 거르는 것은 <see cref="ReasoningFilter"/> 의 몫이라 여기서 하지 않는다.</summary>
     public abstract IAsyncEnumerable<string> ReadDeltasAsync(
         CancellationToken cancellationToken = default);
 
     public virtual void Dispose() { }
 }
 
-/// <summary>
-/// OpenAI 호환 공급자(로컬 LLM · Groq · OpenRouter)의 답.
-/// </summary>
-/// <remarks>
-/// <b>내용은 예전 코드 그대로다.</b> <see cref="LLMService"/> 안에 흩어져 있던 파싱을
-/// 옮겨 온 것이고 판단은 하나도 바꾸지 않았다.
-/// </remarks>
+/// <summary>OpenAI 호환 공급자(로컬 LLM · Groq · OpenRouter)의 답.</summary>
 public sealed class OpenAiResponseBody : AiResponseBody
 {
     private static readonly JsonSerializerOptions JsonOptions =
@@ -133,13 +92,7 @@ public sealed class OpenAiResponseBody : AiResponseBody
     public override void Dispose() => _response.Dispose();
 }
 
-/// <summary>
-/// 호출 한 번에 쓴 토큰. <b>공급자가 알려 준 값 그대로</b>다.
-/// </summary>
-/// <remarks>
-/// 우리가 세지 않는다 — 글자 수로 어림하면 모델마다 토큰 쪼개는 법이 달라
-/// 두 배씩 틀린다. 안 알려 주면 <b>모르는 채로 둔다</b>.
-/// </remarks>
+/// <summary>호출 한 번에 쓴 토큰. <b>공급자가 알려 준 값 그대로</b>다. 우리가 세지 않는다</summary>
 /// <param name="PromptTokens">보낸 쪽. 대화가 길어질수록 커진다(문맥을 다시 올린다).</param>
 /// <param name="CompletionTokens">답한 쪽.</param>
 /// <param name="TotalTokens">둘의 합. 공급자가 준 값을 그대로 쓴다.</param>

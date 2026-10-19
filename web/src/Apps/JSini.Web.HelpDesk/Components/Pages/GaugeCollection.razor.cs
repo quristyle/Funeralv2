@@ -13,10 +13,10 @@ public partial class GaugeCollection
 {
     [Inject] private OadrApi Oadr { get; set; } = default!;
 
-    /// <summary>지연 몇 분부터 「중지」로 보는가. 옛 화면이 쓰던 값이다.</summary>
+    /// <summary>지연 몇 분부터 「중지」로 보는가.</summary>
     private const int StoppedMinutes = 5;
 
-    /// <summary>옛 화면과 같은 60초. 다만 <b>스위치를 켠 동안에만</b> 돈다.</summary>
+    /// <summary>60초 자동 조회. 스위치를 켠 동안에만 돈다.</summary>
     protected override TimeSpan RefreshInterval => TimeSpan.FromSeconds(60);
 
     private ConfirmDialog? _confirm;
@@ -58,10 +58,7 @@ public partial class GaugeCollection
         new("고객", Grouping.Customer),
     ];
 
-    /// <summary>
-    /// 나무의 줄 하나. 묶음 줄과 계량기 줄이 <b>같은 형</b>이다 —
-    /// <c>CommTree</c>(DxTreeList)는 자식 목록을 한 가지 형으로만 받는다.
-    /// </summary>
+    /// <summary>나무의 줄 하나. 묶음 줄과 계량기 줄이 같은 형이다 — CommTree(DxTreeList)는 자식 목록을 한 가지 형으로만 받는다.</summary>
     public sealed class GaugeNode
     {
         public string Key { get; init; } = string.Empty;
@@ -85,10 +82,7 @@ public partial class GaugeCollection
 
     private bool HasReplica => !string.IsNullOrWhiteSpace(_gauge?.DstMcId);
 
-    /// <summary>
-    /// 수집중인가. <b>프로시저가 준 <c>run_state</c> 를 쓰지 않는다</b> —
-    /// 까닭은 화면 머리말에 있다.
-    /// </summary>
+    /// <summary>수집중인가. 프로시저가 준 run_state 는 쓰지 않는다.</summary>
     private bool Running => (_hour?.LastMgap ?? _gauge?.LastMgap ?? 0) <= StoppedMinutes;
 
     /// <summary>수집 서버. 요약을 아직 못 읽었으면 장비의 포트로 대신한다.</summary>
@@ -96,10 +90,7 @@ public partial class GaugeCollection
 
     // ── 액션 ────────────────────────────────────────────────
 
-    /// <summary>
-    /// 액션 단추 하나. <paramref name="Writes"/> 가 켜진 것은 **되돌릴 수 없다** —
-    /// 누르기 전에 한 번 묻는다.
-    /// </summary>
+    /// <summary>액션 단추 하나. Writes 가 켜진 것은 되돌릴 수 없다 — 누르기 전에 한 번 묻는다.</summary>
     private sealed record GaugeAction(
         string Text, string Procedure, ButtonRenderStyle On, bool Writes = false);
 
@@ -118,17 +109,12 @@ public partial class GaugeCollection
 
     // ── 목록 ────────────────────────────────────────────────
 
-    /// <summary>
-    /// 계량기 목록을 읽고 나무를 세운다. 고른 것이 없으면 <b>처음 걸러진
-    /// 하나</b>를 저절로 고른다 — 옛 화면과 같다. 빈 오른쪽 판으로 열면
-    /// 사람이 아무것도 안 하고 「고장인가」를 먼저 묻는다.
-    /// </summary>
+    /// <summary>계량기 목록을 읽고 나무를 세운다. 고른 것이 없으면 처음 걸러진 하나를 저절로 고른다 — 빈 오른쪽 판으로 열면 사람이 「고장인가」를 먼저 묻는다.</summary>
     private Task ReloadAsync() => LoadAsync(async () =>
     {
         var list = await Oadr.ExecuteProcedureAsync<List<Gauge>>("P_QURI_MC") ?? [];
 
-        // 복제 **대상**으로 지목된 계량기를 미리 모은다. 목록 줄에 표시를
-        // 달고, 「복제계측기」 거르개가 양쪽을 다 남기기 위해서다.
+        // 복제 대상으로 지목된 계량기를 미리 모은다 — 목록 줄에 표시를 달고, 「복제계측기」 거르개가 양쪽을 남기기 위해서다.
         var targets = list
             .Select(g => g.DstMcId)
             .Where(id => !string.IsNullOrWhiteSpace(id))
@@ -157,10 +143,7 @@ public partial class GaugeCollection
     private static IEnumerable<GaugeNode> Leaves(GaugeNode node) =>
         node.IsGroup ? node.Children : [node];
 
-    /// <summary>
-    /// 거르고 묶어 나무를 다시 세운다. 서버에 다시 묻지 않는다 —
-    /// 147대짜리 목록이라 브라우저 안에서 끝내는 것이 빠르다.
-    /// </summary>
+    /// <summary>거르고 묶어 나무를 다시 세운다. 서버에 다시 묻지 않는다 — 목록이 작아 브라우저 안에서 끝내는 것이 빠르다.</summary>
     private void Rebuild(HashSet<string>? targets = null)
     {
         _replicaTargets = targets ?? _replicaTargets;
@@ -198,7 +181,7 @@ public partial class GaugeCollection
         ReplicaTarget = _replicaTargets.Contains(gauge.McId),
     };
 
-    /// <summary>이름이나 설명에 걸리면 남긴다. 옛 화면과 같은 두 칸이다.</summary>
+    /// <summary>이름이나 설명에 걸리면 남긴다.</summary>
     private static bool Matches(Gauge gauge, string search) =>
         search.Length == 0
         || gauge.McId.Contains(search, StringComparison.OrdinalIgnoreCase)
@@ -216,10 +199,7 @@ public partial class GaugeCollection
         Rebuild();
     }
 
-    /// <summary>
-    /// 체크칸 셋. 하나만 바꾸고 나머지는 그대로 둔다 — 셋을 각각 다른
-    /// 처리기로 두면 같은 줄이 셋이 된다.
-    /// </summary>
+    /// <summary>체크칸 셋. 하나만 바꾸고 나머지는 그대로 둔다 — 셋을 각각 다른 처리기로 두면 같은 줄이 셋이 된다.</summary>
     private Task SetFilterAsync(bool? active = null, bool? maintenance = null, bool? replicated = null)
     {
         _onlyActive = active ?? _onlyActive;
@@ -227,8 +207,7 @@ public partial class GaugeCollection
         _onlyReplicated = replicated ?? _onlyReplicated;
         Rebuild();
 
-        // 걸러진 뒤에도 고른 것이 목록에 남아 있나. 없으면 오른쪽 판은
-        // 목록에 없는 계량기를 계속 보여 준다.
+        // 걸러진 뒤에도 고른 것이 목록에 남아 있나 — 없으면 오른쪽 판이 목록에 없는 계량기를 계속 보여 준다.
         if (_gauge is not null && !_nodes.SelectMany(Leaves).Any(n => n.Key == _gauge.McId))
         {
             var first = _nodes.SelectMany(Leaves).FirstOrDefault();
@@ -250,10 +229,7 @@ public partial class GaugeCollection
 
     // ── 고르기와 조회 ───────────────────────────────────────
 
-    /// <summary>
-    /// 나무에서 줄을 골랐다. <b>묶음 줄은 고른 것으로 치지 않는다</b> —
-    /// 묶음에는 보여 줄 수집 이력이 없다.
-    /// </summary>
+    /// <summary>나무에서 줄을 골랐다. 묶음 줄은 고른 것으로 치지 않는다 — 묶음에는 수집 이력이 없다.</summary>
     private async Task PickAsync(GaugeNode? node)
     {
         if (node is null || node.IsGroup || node.Gauge is null)
@@ -280,9 +256,7 @@ public partial class GaugeCollection
             return;
         }
 
-        // ADJ 재계산은 한주 쪽 자료를 다시 쓴다. 옛 화면에는 묻는 자리가
-        // 없었는데, 조회 단추 여섯 사이에 섞여 있어 **빗나간 손가락 하나로**
-        // 돌아간다.
+        // ADJ 재계산은 한주 쪽 자료를 다시 쓴다 — 조회 단추 사이에 섞여 있어 빗나간 손가락 하나로 돌아가므로 묻는다.
         if (action.Writes
             && _confirm is not null
             && !await _confirm.AskAsync(
@@ -307,11 +281,7 @@ public partial class GaugeCollection
         return _rows.Rows.Count;
     }, "조회 결과가 없습니다.", "다시 읽지 못했습니다");
 
-    /// <summary>
-    /// 스위치. 켜면 시계가 돌고 끄면 선다. 옛 화면은 남은 초를 세어
-    /// 보여 주었는데, 여기서는 <b>적지 않는다</b> — 이 포털은 Blazor Server 라
-    /// 1초마다 세는 숫자 하나가 회로를 분당 예순 번 두드린다.
-    /// </summary>
+    /// <summary>스위치. 켜면 시계가 돌고 끄면 선다. 남은 초를 적지 않는다 — Blazor Server 라 1초마다 세는 숫자가 회로를 분당 예순 번 두드린다.</summary>
     private void ToggleAuto(bool on)
     {
         _auto = on;
@@ -329,15 +299,7 @@ public partial class GaugeCollection
     /// <summary>자동 조회. 안내 줄을 건드리지 않는다.</summary>
     protected override Task RefreshAsync() => FetchAsync();
 
-    /// <summary>
-    /// 고른 계량기를 지금 액션으로 읽는다.
-    ///
-    /// <para>
-    /// 요약 줄(<c>P_QURI_HOUR</c>)은 <b>액션과 따로</b> 읽는다. 액션이 실시간이나
-    /// Peak 면 그 응답에 지연·다음 예정이 없어서, 그대로 두면 머리띠가 아까
-    /// 값에 굳는다 — 옛 화면도 같은 까닭으로 둘을 나눠 불렀다.
-    /// </para>
-    /// </summary>
+    /// <summary>고른 계량기를 지금 액션으로 읽는다. 요약 줄(P_QURI_HOUR)은 액션과 따로 읽는다 — 실시간·Peak 응답에는 지연·다음 예정이 없어 그대로 두면 머리띠가 옛 값에 굳는다.</summary>
     private async Task FetchAsync()
     {
         if (_gauge is null)
@@ -369,10 +331,7 @@ public partial class GaugeCollection
             : summary.Result?.FirstOrDefault();
     }
 
-    /// <summary>
-    /// OADR 이 준 시각 글자. <b>표준시를 옮기지 않는다</b> — 꼬리표가 없는
-    /// 한주 DB 의 벽시계 값이라 UTC 로 읽으면 아홉 시간이 어긋난다.
-    /// </summary>
+    /// <summary>OADR 이 준 시각 글자. 표준시를 옮기지 않는다 — 꼬리표가 없는 한주 DB 의 벽시계 값이라 UTC 로 읽으면 아홉 시간이 어긋난다.</summary>
     private static string Stamp(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
@@ -384,10 +343,8 @@ public partial class GaugeCollection
         return text.Length >= 19 ? text[..19] : text;
     }
 
-    // ── OADR 응답 ───────────────────────────────────────────
-    //
-    // 외부 시스템이라 칸 이름이 MSSQL 그대로다. 우리 쪽 이름 규칙으로는 못
-    // 맞추므로 칸마다 `JsonPropertyName` 을 적는다.
+    // ── OADR 응답 ──
+    // 외부 시스템이라 칸 이름이 MSSQL 그대로다 — 칸마다 JsonPropertyName 을 적는다.
 
     /// <summary>`P_QURI_MC` 한 줄 — 계량기 하나의 메타.</summary>
     public sealed class Gauge
@@ -402,10 +359,7 @@ public partial class GaugeCollection
         [JsonPropertyName("Maintenance_YN")] public string? MaintenanceYn { get; set; }
         [JsonPropertyName("USE_FLAG")] public string? UseFlag { get; set; }
         [JsonPropertyName("dst_mc_id")] public string? DstMcId { get; set; }
-        /// <summary>
-        /// 마지막 수집에서 몇 분 지났나. <b>null 이 온다</b> — 아직 한 번도
-        /// 안 들어온 계량기가 그렇다. `int` 로 받으면 목록 전체가 깨진다.
-        /// </summary>
+        /// <summary>마지막 수집에서 몇 분 지났나. null 이 온다 — 아직 한 번도 안 들어온 계량기가 그렇다. int 로 받으면 목록 전체가 깨진다.</summary>
         [JsonPropertyName("last_mgap")] public int? LastMgap { get; set; }
     }
 

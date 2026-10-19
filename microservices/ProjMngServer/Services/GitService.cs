@@ -5,32 +5,10 @@ using ProjMngServer.Models;
 
 namespace ProjMngServer.Services;
 
-/// <summary>
-/// 빌드 상태 — 저장소마다 <b>가장 최근 Actions 실행 하나</b>.
-/// </summary>
-/// <remarks>
-/// <para>
-/// 저장소 하나에 왕복이 둘이다(최근 하나 · 최근 성공 하나). 최근 성공을 같이
-/// 묻는 까닭은 지금 깨져 있을 때 <b>언제까지 됐는지</b>가 화면에서 가장 먼저
-/// 찾는 값이어서다.
-/// </para>
-///
-/// <para>
-/// 결과를 잠깐 들고 있다(기본 60초). 토큰이 없으면 시간당 60회뿐이라
-/// 이 캐시가 특히 중요하다 — 화면을 몇 번 새로 고치면 바닥난다.
-/// </para>
-/// </remarks>
+/// <summary>빌드 상태 — 저장소마다 가장 최근 Actions 실행 하나. 최근 성공도 같이 묻는다 — 지금 깨져 있을 때 언제까지 됐는지가 가장 먼저 필요해서다.</summary>
 public sealed class GitService(IConfiguration configuration, GitHubClient github)
 {
-    /// <summary>
-    /// 담아 둔 결과 한 벌.
-    /// </summary>
-    /// <remarks>
-    /// <b>남은 한도를 여기 같이 담는다.</b> <see cref="GitHubClient"/> 는 요청
-    /// 마다 새로 생기므로(scoped) 캐시로 답하는 요청은 호출을 한 번도 안 해
-    /// 한도를 모른다 — 그러면 화면의 「남은 한도」가 <b>캐시가 듣는 동안 내내
-    /// 비어 있고</b>, 하필 그 칸은 「왜 갑자기 안 보이나」를 보려고 만든 자리다.
-    /// </remarks>
+    /// <summary>담아 둔 결과 한 벌. 남은 한도도 여기 같이 담는다 — 캐시로 답한 요청은 호출을 안 해 한도를 모르므로, 따로 두면 화면의 남은 한도가 캐시가 듣는 동안 틀린 값으로 남는다.</summary>
     private sealed record Entry(
         List<GitRunRow> Rows, DateTimeOffset At, int? RateRemaining, int? RateLimit);
 

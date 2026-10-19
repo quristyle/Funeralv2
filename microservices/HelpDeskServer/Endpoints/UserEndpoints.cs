@@ -9,9 +9,7 @@ using System.Linq;
 
 namespace HelpDeskServer.Endpoints;
 
-/// <summary>
-/// 사용자 관련 엔드포인트
-/// </summary>
+/// <summary>사용자 관련 엔드포인트</summary>
 public static class UserEndpoints
 {
     public static void MapUserEndpoints(this IEndpointRouteBuilder app)
@@ -19,8 +17,8 @@ public static class UserEndpoints
         var group = app.MapGroup("/api/users").RequireAuthorization();
 
         // 관리자가 조회할 수 있는 모든 사용자(관리자, 고객) 목록을 반환합니다.
-        // 담당자 권한이면 볼 수 있다. 전에는 헬프데스크 계정 연결이 admin 인 경우만 통과시켜서,
-        // 포털에서 관리자 역할을 받은 계정도 연결이 없으면 403 이었다.
+        // 담당자 권한이면 볼 수 있다. 연결이 admin 인 계정만 통과시키면,
+        // 포털 관리자 역할만 있고 연결이 없는 계정도 403 을 받지 않는다.
         group.MapGet("/", async (AppDbContext db, HttpContext http) =>
         {
             if (!http.GetHelpdeskPrincipal().IsAdmin)

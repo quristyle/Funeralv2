@@ -5,24 +5,13 @@ namespace funeralv2Api.Services;
 /// <summary>
 /// 정보 화면 묶음 서비스 — 호실히스토리 · 고인정보조회 · 나의정보 · 미리보기.
 /// </summary>
-/// <remarks>
-/// 알림정보는 2026-09-03 에 걷어냈다 (<see cref="Endpoints.InfoEndpoints"/> 머리말).
-/// </remarks>
 public interface IInfoService
 {
     // ── 호실 히스토리 ───────────────────────────────────────────
 
     /// <summary>
-    /// 호실을 거쳐 간 고인들. 끝난 것과 지금 쓰는 것을 모두 담는다.
+    /// 호실을 거쳐 간 고인들(끝난 것과 지금 쓰는 것 모두). 인자는 비우면 전체다. inUse: true 사용 중 · false 출상 · null 둘 다.
     /// </summary>
-    /// <param name="buildingId">건물로 좁힌다. 비우면 전 건물.</param>
-    /// <param name="roomId">호실로 좁힌다. 비우면 전 호실.</param>
-    /// <param name="from">이 날짜부터. 비우면 처음부터.</param>
-    /// <param name="to">이 날짜까지. 비우면 끝까지.</param>
-    /// <param name="keyword">고인 성명 일부. 이름으로 바로 찾을 때 쓴다.</param>
-    /// <param name="inUse">
-    /// <c>true</c> 사용 중만 · <c>false</c> 출상만 · <c>null</c> 둘 다.
-    /// </param>
     Task<List<RoomHistoryDto>> GetRoomHistoriesAsync(
         string? buildingId, string? roomId, DateTime? from, DateTime? to,
         string? keyword, bool? inUse);

@@ -17,9 +17,7 @@ public class BaseService {
   }
 
 
-  /// <summary>
-  /// 포로시저의 파라미터정보를 리턴
-  /// </summary>
+  /// <summary>포로시저의 파라미터정보를 리턴</summary>
   /// <param name="db"></param>
   /// <param name="schema_name"></param>
   /// <param name="procedureName"></param>
@@ -111,28 +109,7 @@ public class BaseService {
   }
 
 
-  /// <summary>
-  /// 등록된 DB 접속 정보를 가져온다. 없으면 <c>null</c>.
-  ///
-  /// <para>
-  /// [**캐시하지 않는다** — 실제로 밟았다]
-  /// </para>
-  /// <para>
-  /// 예전에는 찾은 것을 프로세스 살아 있는 동안 정적 목록에 담아 두었다
-  /// (<c>AppData.DB_Infos</c>). 그래서 [프로젝트 DB 등록] 화면에서 주소나
-  /// 포트를 고쳐도 <b>서버가 옛 주소로 계속 붙으러 갔다</b> — 다시 띄우기
-  /// 전까지. 「주소를 바꿨는데 여전히 옛 포트로 간다」는 신고가 그것이었다.
-  /// </para>
-  /// <para>
-  /// 그 앞에는 <b>못 찾은 것까지 담아</b> 그 <c>null</c> 때문에 다음 호출부터
-  /// 전부 터지던 시절도 있었다(DB 를 안 고르고 실행을 누르면 그 상태가 됐다).
-  /// 캐시가 없으면 두 가지가 같이 없어진다.
-  /// </para>
-  /// <para>
-  /// 값은 <c>projmng.devdbinfo</c> 한 줄이고 그 DB 는 같은 요청이 이미 쓰고
-  /// 있다. 아껴서 얻는 것보다 <b>틀린 주소로 붙는 것</b>이 훨씬 비싸다.
-  /// </para>
-  /// </summary>
+  /// <summary>등록된 DB 접속 정보를 가져온다. 없으면 <c>null</c>. 캐시하지 않는다 — 정적 목록에 담으면 DB 등록 화면에서 바꾼 주소가 재시작 전까지 옛 값으로 남는다.</summary>
   public DbInfo? GetDbInfo(string db_nick) {
 
     // 빈 이름은 물어볼 것이 없다. DB 까지 가지 않는다.

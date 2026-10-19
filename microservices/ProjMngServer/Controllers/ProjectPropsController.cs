@@ -5,9 +5,7 @@ using ProjMngServer.Services;
 
 namespace ProjMngServer.Controllers;
 
-/// <summary>
-/// 프로젝트 속성. 옛 <c>sp_dev_proj_prop_exec</c> 를 대신한다.
-/// </summary>
+/// <summary>프로젝트 속성.</summary>
 [ApiController]
 [Route("api/project-props")]
 public sealed class ProjectPropsController(ProjectPropService service) : ControllerBase {

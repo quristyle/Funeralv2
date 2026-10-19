@@ -4,18 +4,9 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace funeralv2Api.Entities;
 
 /// <summary>
-/// 계정별 장례식장 업무 설정 한 줄.
+/// 계정별 장례식장 업무 설정 한 줄. 옛 t_account_conf 에 해당하며 코드 이름·기본값은 SettingCatalog 가 든다.
+/// 옛 코드 중 vben 개인 환경설정과 겹치는 넷은 옮기지 않았다.
 /// </summary>
-/// <remarks>
-/// 옛 <c>smfr.t_account_conf</c>(140행)에 해당한다. 옛 표는 키가
-/// <c>(a_key, conf_cd)</c> 복합키였고 값은 <c>'Y'</c>/<c>'N'</c> 문자열이었다.
-/// 코드 이름은 <c>t_code</c> 에 따로 있었는데, 여기서는 화면이 코드표를 또 뒤지지 않도록
-/// <see cref="Services.SettingCatalog"/> 에 코드·이름·기본값을 함께 둔다.
-///
-/// 옛 코드 여덟 중 넷(page_tab_view · side_bar_open · side_menu_expend ·
-/// side_bar_autohide)은 vben 개인 환경설정과 겹쳐서 옮기지 않았다.
-/// 어떻게 할지는 40번 문서의 D-F3.
-/// </remarks>
 [Table("account_settings")]
 public class AccountSetting
 {

@@ -9,13 +9,7 @@ public partial class WorkOptionSetting
 
     private IReadOnlyList<EnvironmentSetting> _all = [];
 
-    /// <summary>
-    /// 서버가 준 묶음을 그대로 그린다.
-    ///
-    /// <b>화면이 묶음 이름을 열거하지 않는다.</b> 그 값은 DB 에 있고 언제든
-    /// 늘고 바뀐다 — 열거하면 새 묶음이 조용히 사라진다. 실제로 그래서
-    /// 설정 넷이 전부 안 보이고 있었다.
-    /// </summary>
+    /// <summary>서버가 준 묶음을 그대로 그린다. 묶음 이름을 화면이 열거하면 DB 에 새로 생긴 묶음이 조용히 사라진다.</summary>
     private IEnumerable<IGrouping<string, EnvironmentSetting>> Groups =>
         _all.GroupBy(s => string.IsNullOrWhiteSpace(s.GroupName) ? "기타" : s.GroupName)
             .OrderBy(g => g.Key, StringComparer.Ordinal);
@@ -30,8 +24,7 @@ public partial class WorkOptionSetting
 
     private async Task ToggleAsync(EnvironmentSetting setting, bool value)
     {
-        // **화면 값을 먼저 바꾼다.** 서버 왕복을 기다리면 스위치가 눌린 뒤
-        // 잠깐 제자리에 있어서 사용자가 한 번 더 누른다.
+        // 화면 값을 먼저 바꾼다. 서버 왕복을 기다리면 스위치가 눌린 뒤 잠깐 제자리에 있어 한 번 더 누르게 된다.
         setting.Enabled = value;
 
         if (await RunAsync(() => Api.UpdateEnvironmentSettingAsync(setting.Code, value),

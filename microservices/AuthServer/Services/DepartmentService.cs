@@ -21,13 +21,8 @@ public class DepartmentService : IDepartmentService
     /// <param name="companyId">조회할 회사. 비우면 요청한 사람의 회사를 쓴다.</param>
     /// <param name="userContext">게이트웨이가 넘긴 신원</param>
     /// <param name="allCompanies">
-    /// 모든 회사의 부서를 함께 볼지.
-    /// <para>
-    /// **회사 인자를 비우는 것으로는 '전체' 를 표현할 수 없다.** 비우면 요청한 사람의
-    /// 회사로 좁혀지기 때문이다(아래 fallback). 부서 관리 화면의 '전체' 가 실제로는
-    /// 자기 회사만 보여 주고 있었던 것이 그래서였다.
-    /// 전체를 보려면 이 값을 켜야 한다 — 뜻이 분명해지고, 기존 호출은 그대로 동작한다.
-    /// </para>
+    /// 모든 회사의 부서를 함께 볼지. 회사 인자를 비우는 것으로는 '전체'를 표현할 수 없다 — 비우면 요청한 사람의 회사로 좁혀진다.
+    /// 전체를 보려면 이 값을 켜야 한다.
     /// </param>
     public async Task<List<DepartmentDto>> GetDeptListAsync(
         string? companyId, UserContext? userContext, bool allCompanies = false)
@@ -48,10 +43,7 @@ public class DepartmentService : IDepartmentService
         var departments = await query.ToListAsync();
 
         // ── 부서별 소속 인원 ──────────────────────────────────
-        //
-        // 부서 목록·트리에서 "어디에 사람이 있는지" 를 바로 보여 주려고 함께 센다.
-        // 부서마다 따로 세면 부서 수만큼 질의가 나가므로(N+1) 한 번에 묶는다.
-        // 사용자는 부서 하나에만 붙으므로(accounts.department_id) 중복 계산이 없다.
+        // 부서마다 따로 세면 N+1 이므로 한 번에 묶는다. 사용자는 부서 하나에만 붙어 중복 계산이 없다.
         var deptIds = departments.Select(d => d.Id).ToList();
         var userCounts = await _db.Accounts
             .Where(a => !a.IsDeleted && a.DepartmentId != null && deptIds.Contains(a.DepartmentId))
@@ -74,8 +66,7 @@ public class DepartmentService : IDepartmentService
             .ThenBy(d => d.Name)
             .Select(d =>
             {
-                // 자식 트리는 한 번만 만든다. 예전에는 같은 호출을 두 번 해서
-                // (Any() 확인 + 실제 값) 깊은 트리에서 지수적으로 늘어났다.
+                // 자식 트리는 한 번만 만든다 — Any() 확인과 실제 값을 따로 만들면 깊은 트리에서 지수적으로 늘어난다.
                 var children = BuildDeptTree(depts, d.Id, userCounts);
                 var own = userCounts.GetValueOrDefault(d.Id);
 
@@ -319,8 +310,7 @@ public class DepartmentService : IDepartmentService
             account.CompanyId = null; // 소속 회사도 함께 해제하여 무소속으로 지정
         }
 
-        // 이 한 줄이 빠져 있었다. 응답은 "해제되었습니다" 였지만 실제로는 아무것도 저장되지 않았다
-        // (같은 서비스의 다른 메서드는 모두 부르고 있다). 화면의 '해제' 버튼도 그동안 동작하지 않았다.
+        // 이 줄이 없으면 응답만 「해제되었습니다」이고 아무것도 저장되지 않는다. 같은 서비스의 다른 메서드는 모두 부른다.
         await _db.SaveChangesAsync();
         return true;
     }

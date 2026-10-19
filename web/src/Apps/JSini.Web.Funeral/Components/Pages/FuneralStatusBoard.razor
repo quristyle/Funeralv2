@@ -1,19 +1,8 @@
 @page "/funeral/status/funeral-status"
 @attribute [RouteKey("funeral.status.funeral-status")]
 
-@*
-    [빈소 현황] — DB 메뉴 `/status/funeral-status`.
-    이력: Vue `views/funeral/status/funeral-status/index` → 여기.
-
-    **파일 이름이 화면 이름과 다르다.** 컴포넌트를 `FuneralStatus` 로 두면 같은
-    이름의 자료 타입(`Api.FuneralStatus`)을 가린다 — Razor 가 만드는 클래스는
-    `Components.Pages` 네임스페이스에 들어가고 그쪽이 더 가까워서, 화면 안에서
-    `FuneralStatus` 라고 쓰면 자료가 아니라 화면 자신을 가리킨다. 실제로 밟은
-    함정이라 이름을 갈라 둔다.
-
-    한동안 이 화면은 하드코딩한 자료를 보여 주고 있었다(골격을 잡을 때 넣은 것).
-    실제 API 에 붙였다.
-*@
+@* [빈소 현황] — DB 메뉴 `/status/funeral-status`. 파일 이름을 FuneralStatus 로 두면 같은 이름의 자료 타입(Api.FuneralStatus)을 가린다.
+Razor 가 만드는 클래스는 Components.Pages 네임스페이스에 들어가 더 가까우므로, 화면 안의 이름이 자료가 아니라 화면을 가리키게 된다. *@
 
 @inherits AutoRefreshPage
 

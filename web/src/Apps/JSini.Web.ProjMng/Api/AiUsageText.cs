@@ -2,47 +2,16 @@ using JSini.Web.Components.Data;
 
 namespace JSini.Web.ProjMng.Api;
 
-/// <summary>
-/// AI CLI 한도(<see cref="AiUsageSnapshot"/>)를 사람이 읽는 글자로 바꾼다.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <b>왜 화면 밖에 두나.</b> 같은 값을 이제 두 곳이 그린다 — 「AI 작업 현황」의
-/// 한도 칸과 「빠른 지시」의 AI 고르개다. 화면마다 제 <c>switch</c> 를 두면
-/// <c>copilot</c> 을 「Copilot」이라 부르는 화면과 「코파일럿」이라 부르는 화면이
-/// 생기고, 그 어긋남은 <b>아무 오류도 내지 않는다.</b>
-/// </para>
-/// <para>
-/// <b>퍼센트는 「쓴 비율」이다.</b> 뒤집지 않는다 — 까닭은
-/// <see cref="AiUsageSnapshot"/> 머리말에.
-/// </para>
-/// </remarks>
+/// <summary>AI CLI 한도(<see cref="AiUsageSnapshot"/>)를 사람이 읽는 글자로 바꾼다. 화면마다 따로 두면 어긋나도 오류가 안 나므로 여기 모은다.</summary>
 public static class AiUsageText
 {
-    /// <summary>
-    /// 실행기가 「다시 로그인해야 한다」를 알릴 때 까닭 글 맨 앞에 붙이는 표.
-    /// </summary>
-    /// <remarks>
-    /// <b>DB 칸을 늘리지 않으려고 까닭 글 하나에 실어 보내는 값이다</b> —
-    /// 붙이는 쪽은 <c>AiTaskRunner.UsageClaude.AuthMark</c> 이고, 바꾸려면 둘을
-    /// 함께 고쳐야 한다. 화면에 글자로 내보내지 않는다(<see cref="Why"/>).
-    /// </remarks>
+    /// <summary>실행기가 재로그인 필요를 알릴 때 까닭 글 맨 앞에 붙이는 표. 실행기 쪽 AuthMark 와 같아야 한다.</summary>
     public const string AuthMark = "[OAUTH]";
 
-    /// <summary>
-    /// 로그인이 끊긴 CLI 에 다는 배지 글자. <b>무엇을 해야 하는지가 적혀 있다.</b>
-    /// </summary>
+    /// <summary>로그인이 끊긴 CLI 의 배지 글자.</summary>
     public const string AuthText = "OAuth 재로그인 필요";
 
-    /// <summary>
-    /// 이 줄이 「로그인이 끊겼다」인가.
-    /// </summary>
-    /// <remarks>
-    /// <b>여느 실패와 가른다.</b> 출력 형식이 바뀐 것과 로그인이 끊긴 것은
-    /// 사람이 할 일이 전혀 다르다 — 앞엣것은 파서를 고치는 일이고 뒤엣것은
-    /// 실행기 장비에 붙어 다시 로그인하는 일이다. 한 덩이로 「읽지 못함」이라
-    /// 적으면 늘 앞엣것부터 뒤진다.
-    /// </remarks>
+    /// <summary>이 줄이 로그인 끊김인가. 「읽지 못함」과 가른다 — 로그인 끊김은 장비에 붙어 다시 로그인해야 풀린다.</summary>
     public static bool NeedsAuth(AiUsageSnapshot usage)
         => usage.ErrorText?.StartsWith(AuthMark, StringComparison.Ordinal) == true;
 
@@ -65,28 +34,14 @@ public static class AiUsageText
             : text;
     }
 
-    /// <summary>
-    /// 로그인이 곧 끊긴다고 보는 기준. <b>2주</b>.
-    /// </summary>
-    /// <remarks>
-    /// 끊기면 한도뿐 아니라 그 CLI 로 시킨 작업도 함께 실패하고, 푸는 데
-    /// 사람이 그 장비에 붙어야 한다 — 「오늘 처리할 일」이 되기 전에
-    /// 눈에 들어와야 하는 종류라 넉넉히 잡는다.
-    /// </remarks>
+    /// <summary>로그인 끊김이 코앞이라고 보는 기간(2주). 끊기면 그 CLI 작업도 함께 실패하므로 넉넉히 본다.</summary>
     private static readonly TimeSpan AuthSoon = TimeSpan.FromDays(14);
 
     /// <summary>로그인 만료가 코앞인가. 이미 지난 것도 여기 든다.</summary>
     public static bool AuthExpiring(AiUsageSnapshot usage)
         => usage.AuthExpiresAt is { } at && at - AppTime.UtcNow <= AuthSoon;
 
-    /// <summary>
-    /// 로그인 만료를 한 줄 글로 — <c>로그인 11-15 만료 · 27일 남음</c>.
-    /// </summary>
-    /// <remarks>
-    /// <b>날짜만으로는 모자라다.</b> 그 날짜가 가까운지 먼지는 머릿속에서
-    /// 빼기를 해야 알고, 이 값은 UTC 로 쌓였다가 한국 시각으로 옮겨 적힌
-    /// 것이라 <b>틀리게 빼기 쉽다</b>(한도 갱신 시각과 같은 까닭이다).
-    /// </remarks>
+    /// <summary>로그인 만료를 한 줄 글로. 날짜만 적으면 빼기를 해야 해서 남은 기간을 함께 적는다.</summary>
     public static string AuthRemain(AiUsageSnapshot usage)
     {
         if (usage.AuthExpiresAt is not { } at)
@@ -99,39 +54,14 @@ public static class AiUsageText
             : $"로그인 {at.Kst("MM-dd")} 만료 · {Remain(at)}";
     }
 
-    /// <summary>
-    /// 한도 값이 오래됐나. <b>보고 주기(15분)의 네 배</b>를 기준으로 한다 —
-    /// 한두 번 걸러도 소란을 떨지 않되, 반나절 묵은 값을 최신인 척하지 않게.
-    /// </summary>
-    /// <remarks><paramref name="observedAt"/> 은 서버가 준 UTC 다 — UTC 끼리 잰다.</remarks>
+    /// <summary>한도 값이 오래됐나. 보고 주기(15분)의 네 배를 넘으면 오래된 것으로 본다. UTC 끼리 잰다.</summary>
     public static bool Stale(DateTime observedAt)
         => AppTime.UtcNow - observedAt > TimeSpan.FromMinutes(60);
 
-    /// <summary>갱신 시각이 이미 지났을 때 적는 말.</summary>
-    /// <remarks>
-    /// 「0분 남음」이라고 적지 않는다 — 한도 값은 15분마다 올라오므로 지난
-    /// 갱신 시각은 <b>아직 새 값이 안 올라온 것</b>이지 멈춘 것이 아니다.
-    /// </remarks>
+    /// <summary>갱신 시각이 지났을 때 적는 말. 「0분 남음」이라 적지 않는다 — 새 값이 아직 안 올라온 것이다.</summary>
     private const string SoonText = "곧 갱신";
 
-    /// <summary>
-    /// 갱신 시각까지 <b>지금부터</b> 얼마나 남았나. 예: <c>1일 1시간 30분 남음</c>.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>절대 시각만으로는 모자라다.</b> 「11-01 18:00 갱신」을 읽은 사람은
-    /// 머릿속에서 빼기를 해야 하는데, 그 값이 UTC 로 쌓였다가 한국 시각으로
-    /// 옮겨 적힌 것이라 <b>틀리게 빼기 쉽다.</b> 남은 시간을 함께 적으면
-    /// 「지금 돌려도 되나」에 바로 답이 된다.
-    /// </para>
-    /// <para>
-    /// <b>날짜까지 센다.</b> 월간 한도(<c>copilot</c>)는 갱신이 보름 뒤라
-    /// 시간으로만 적으면 「355시간 남음」이 되는데, 그 숫자는 아무도 못 읽는다.
-    /// </para>
-    /// <para>
-    /// <paramref name="resetAt"/> 은 서버가 준 UTC 다 — UTC 끼리 잰다.
-    /// </para>
-    /// </remarks>
+    /// <summary>갱신까지 지금부터 남은 시간(예: 1일 1시간 30분 남음). 날짜까지 세야 월간 한도가 읽힌다.</summary>
     public static string Remain(DateTime resetAt)
     {
         var left = resetAt - AppTime.UtcNow;
@@ -166,10 +96,7 @@ public static class AiUsageText
         _ => kind,
     };
 
-    /// <summary>
-    /// 같은 CLI 안에서 무엇의 한도인가. <b>CLI 가 쓰는 이름을 크게 바꾸지 않는다</b> —
-    /// 원문을 펴 봤을 때 화면의 어느 칸인지 바로 짚을 수 있어야 한다.
-    /// </summary>
+    /// <summary>같은 CLI 안에서 무엇의 한도인가. CLI 가 쓰는 이름을 바꾸지 않아, 원문을 봐도 화면 칸을 바로 짚는다.</summary>
     public static string Bucket(AiUsageSnapshot usage) => usage.BucketNm switch
     {
         null or "" => string.Empty,
@@ -179,21 +106,11 @@ public static class AiUsageText
         var other => other,
     };
 
-    /// <summary>
-    /// 토큰이냐 크레딧이냐. 세는 단위가 다른데 같은 말로 적으면 숫자의 크기가
-    /// 엉뚱하게 읽힌다 — 200 크레딧과 200 토큰은 전혀 다른 이야기다.
-    /// </summary>
+    /// <summary>토큰이냐 크레딧이냐. 같은 말로 적으면 숫자 크기가 엉뚱하게 읽힌다.</summary>
     public static string Unit(string? kind)
         => kind == "copilot" ? "남은 크레딧" : "남은 토큰";
 
-    /// <summary>
-    /// 한 줄에서 <b>가장 많이 쓴 창</b>의 비율. 세션·주간·주간 Opus·월간 중
-    /// 제일 큰 값이다.
-    /// </summary>
-    /// <remarks>
-    /// <b>평균이 아니다.</b> 막히는 것은 넷 중 하나가 100%에 닿는 순간이므로,
-    /// 평균을 적으면 「주간이 다 찼는데 화면은 40%」가 된다.
-    /// </remarks>
+    /// <summary>한 줄에서 가장 많이 쓴 창의 비율. 평균이 아니다 — 하나만 닿아도 막히기 때문이다.</summary>
     public static decimal? TopPct(AiUsageSnapshot usage)
     {
         decimal? top = null;
@@ -212,10 +129,7 @@ public static class AiUsageText
         return top;
     }
 
-    /// <summary>
-    /// 한 CLI 를 통틀어 가장 많이 쓴 비율. 한도 줄이 여럿인 CLI
-    /// (<c>antigravity</c> · <c>copilot</c>)도 배지 하나로 말하려고 쓴다.
-    /// </summary>
+    /// <summary>한 CLI 를 통틀어 가장 많이 쓴 비율. 배지 하나로 말하려고 쓴다.</summary>
     public static decimal? TopPct(IEnumerable<AiUsageSnapshot> rows)
     {
         decimal? top = null;
@@ -231,13 +145,7 @@ public static class AiUsageText
         return top;
     }
 
-    /// <summary>
-    /// 한도 줄 하나를 한 줄 글로. 예: <c>자동완성 월간 4.9% 남은 크레딧 1,903/2,000</c>.
-    /// </summary>
-    /// <remarks>
-    /// <b>없는 칸은 적지 않는다.</b> CLI 마다 가진 창이 달라서(세션만 있는 것,
-    /// 달로만 끊는 것) 빈 칸을 <c>-</c> 로 채우면 한 줄이 못 읽게 길어진다.
-    /// </remarks>
+    /// <summary>한도 줄 하나를 한 줄 글로. 없는 칸은 적지 않는다 — 빈 칸을 - 로 채우면 줄이 못 읽게 길어진다.</summary>
     public static string Row(AiUsageSnapshot usage)
     {
         if (!usage.Ok)
@@ -262,8 +170,7 @@ public static class AiUsageText
                 : $"{Unit(usage.RunnerKind)} {left:N0}");
         }
 
-        // 읽기에 성공했는데 까닭이 적혀 있는 경우 — 「무제한」·「한도 소진됨」처럼
-        // **숫자만으로는 못 알아채는** 상태다. 숫자가 있어도 함께 적는다.
+        // 읽기는 됐어도 까닭이 있으면(무제한 · 한도 소진) 숫자만으로는 모르니 함께 적는다.
         if (Why(usage) is { Length: > 0 } note)
         {
             parts.Add(note);
@@ -280,9 +187,7 @@ public static class AiUsageText
         return bucket.Length > 0 ? $"{bucket} {body}" : body;
     }
 
-    /// <summary>
-    /// 한 CLI 의 한도 줄 <b>전부</b>를 한 줄 글로 잇는다. 줄이 없으면 빈 글자다.
-    /// </summary>
+    /// <summary>한 CLI 의 한도 줄 전부를 한 줄 글로 잇는다.</summary>
     public static string Summary(IEnumerable<AiUsageSnapshot> rows)
         => string.Join(" / ", rows.Select(Row));
 
@@ -291,20 +196,7 @@ public static class AiUsageText
     /// <param name="Css">공통 배지의 색 수식(<c>jsini-badge--*</c>).</param>
     public readonly record struct Badge(string Text, string Css);
 
-    /// <summary>
-    /// 한 CLI 를 배지 하나로. <b>고르개 목록에 다는 것이 이것이다.</b>
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>「보고 없음」과 「다 안 썼음」을 가른다.</b> 올라온 줄이 없는 CLI 를
-    /// 0%로 그리면 <i>여유가 넘치는 CLI</i> 처럼 보이는데, 실제로는 실행기가
-    /// 그 CLI 를 못 묻고 있는 상태다(대시보드의 같은 칸이 적어 둔 함정이다).
-    /// </para>
-    /// <para>
-    /// 색의 경계는 70% · 90% 다. 오래된 값은 <b>색을 쓰지 않는다</b> — 반나절
-    /// 묵은 30%를 초록으로 칠하면 그 초록이 거짓말이 된다.
-    /// </para>
-    /// </remarks>
+    /// <summary>한 CLI 를 고르개 목록의 배지 하나로. 보고 없음과 다 안 썼음을 가르고, 색은 70%·90% 경계다. 오래된 값은 색을 쓰지 않는다.</summary>
     public static Badge Of(IReadOnlyCollection<AiUsageSnapshot> rows)
     {
         if (rows.Count == 0)
@@ -326,8 +218,7 @@ public static class AiUsageText
 
         if (TopPct(rows) is not { } top)
         {
-            // 값이 하나도 없다. 「무제한」처럼 **숫자가 없는 것이 맞는** 상태가
-            // 여기 온다 — 실패와 같은 빨강으로 보이면 안 된다.
+            // 숫자가 없는 것이 맞는 상태(무제한 등)다. 실패처럼 빨강으로 보이면 안 된다.
             var note = rows.Select(Why).FirstOrDefault(t => t.Length > 0);
 
             return new Badge(string.IsNullOrWhiteSpace(note) ? "한도 값 없음" : note!, "jsini-badge--off");
@@ -346,9 +237,7 @@ public static class AiUsageText
             var resetText = string.Empty;
             if (weekRow?.WeekResetAt is { } resetAt)
             {
-                // 「얼마나 남았나」는 대시보드의 한도 칸과 **같은 글자**를 쓴다
-                // (<see cref="Remain"/>) — 갈라 두면 같은 값이 한쪽은
-                // 「355시간」, 다른 쪽은 「14일」이 된다.
+                // 남은 기간은 대시보드 한도 칸과 같은 Remain 으로 짠다 — 갈라 두면 같은 값이 다르게 적힌다.
                 var span = Remain(resetAt);
                 var rem = span == SoonText ? span : $"갱신까지 {span}";
                 resetText = $" <span class=\"pm-usage-reset\">({rem})</span>";
@@ -367,31 +256,11 @@ public static class AiUsageText
         return new Badge(text, css);
     }
 
-    /// <summary>
-    /// 배지의 색과 수치를 정하는 값. <b>주간이 있으면 주간</b>이고, 없으면 가장
-    /// 높은 것이다 — 한도에 먼저 걸리는 쪽이 주간이라 그것을 앞세운다.
-    /// </summary>
-    /// <remarks>
-    /// <see cref="Of"/> 와 <see cref="Mini"/> 가 같이 쓴다. 각자 고르게 두면
-    /// 펼친 목록과 닫힌 칸의 <b>색이 어긋나는데 아무 오류도 안 난다.</b>
-    /// </remarks>
+    /// <summary>배지의 색과 수치를 정하는 값. 주간이 있으면 주간, 없으면 가장 높은 것이다. Of 와 Mini 가 같이 쓴다(각자 고르면 색이 어긋난다).</summary>
     private static decimal? TargetPct(IReadOnlyCollection<AiUsageSnapshot> rows)
         => rows.Max(r => r.WeekPct) ?? TopPct(rows);
 
-    /// <summary>
-    /// 한 CLI 를 <b>짧은 배지</b> 하나로. 닫힌 고르개 칸에 다는 것이 이것이다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <see cref="Of"/> 의 글자는 「세션 12% / 주간 45% (갱신까지 30시간 12분 남음)」
-    /// 까지 늘어나 <b>닫힌 칸에 들어가지 않는다.</b> 여기서는 숫자 하나와 색만
-    /// 남기고, 풀어 쓴 글은 그 칸의 <c>title</c> 이 맡는다.
-    /// </para>
-    /// <para>
-    /// 갈라 보는 상태는 <see cref="Of"/> 와 같다 — 「보고 없음」과
-    /// 「다 안 썼음」을 섞지 않는다.
-    /// </para>
-    /// </remarks>
+    /// <summary>한 CLI 를 짧은 배지 하나로. 닫힌 고르개 칸에 쓰며, 풀어 쓴 글은 title 이 맡는다.</summary>
     public static Badge Mini(IReadOnlyCollection<AiUsageSnapshot> rows)
     {
         if (rows.Count == 0)
@@ -419,9 +288,7 @@ public static class AiUsageText
         return new Badge($"{pct:0}%", stale ? "jsini-badge--off" : UsageCss(pct));
     }
 
-    /// <summary>
-    /// 사용량(%)을 5 단위 단계(0, 5, 10, … 100)로 세분화하여 배지 수식어를 돌려준다.
-    /// </summary>
+    /// <summary>사용량(%)을 5 단위 단계로 나눠 배지 수식어를 돌려준다.</summary>
     public static string UsageCss(decimal pct)
     {
         var clamped = Math.Clamp(pct, 0m, 100m);

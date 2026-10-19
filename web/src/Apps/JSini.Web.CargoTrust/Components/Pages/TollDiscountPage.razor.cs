@@ -20,18 +20,7 @@ public partial class TollDiscountPage
     private string _sectionType = CargoCodes.Closed;
 
     /// <summary>
-    /// 고른 시각이 <b>진입</b>인가 <b>진출</b>인가.
-    ///
-    /// <para>
-    /// 기사가 아는 쪽이 둘 중 하나다 — 「지금 올라탄다」일 때도 있고
-    /// 「몇 시까지 대야 한다」일 때도 있다. 뒤엣것을 진입으로만 받으면
-    /// 사람이 머릿속에서 소요시간을 빼서 넣어야 하고, 그 뺄셈이 틀리면
-    /// <b>할인율이 조용히 틀린다</b>.
-    /// </para>
-    ///
-    /// <para>
-    /// 개방식에는 이 가름이 없다 — 통과 시각 한 점이라 들고 나는 것이 같은 일이다.
-    /// </para>
+    /// 고른 시각이 진입인가 진출인가. 기사는 둘 중 아는 쪽만 말하므로, 뒤엣것을 진입으로만 받으면 소요시간 뺄셈이 틀려 할인율이 조용히 틀린다.
     /// </summary>
     private string _anchor = EntryAnchor;
 
@@ -43,24 +32,12 @@ public partial class TollDiscountPage
     private DateTime _atDate = AppTime.TodayDate;
 
     /// <summary>
-    /// 진입 시각 — 시와 분을 따로 고른다. 열자마자 지금(한국 시각)이다.
-    ///
-    /// <para>
-    /// 기사가 쓰는 때는 거의 「지금 올라탄다」라서, 대개 여기를 고치지 않고
-    /// 소요시간만 누르면 된다. 분은 <b>안 깎는다</b> — 23:58 과 00:02 는
-    /// 야간창 안이라는 점에서 같지만, 반올림해 보여 주면 사람이 제가 적은 값과
-    /// 다른 수를 보게 된다.
-    /// </para>
+    /// 진입 시각. 열자마자 지금(한국 시각)이다. 분은 깎지 않는다 — 반올림해 보여 주면 사람이 적은 값과 다른 수를 보게 된다.
     /// </summary>
     private int _atHour = AppTime.ToKorea(AppTime.UtcNow).Hour;
 
     /// <summary>
-    /// 고른 분. 고르개가 10분 단위라 <b>지금을 10분으로 내린 값</b>으로 연다.
-    ///
-    /// <para>
-    /// 올리지 않고 내리는 까닭: 고르는 시각이 대개 이미 지났거나 지금인 일이라,
-    /// 올리면 아직 오지 않은 시각이 기본값이 된다.
-    /// </para>
+    /// 고른 분. 고르개가 10분 단위라 지금을 10분으로 내린 값으로 연다 — 올리면 아직 오지 않은 시각이 기본값이 된다.
     /// </summary>
     private int _atMinute = AppTime.ToKorea(AppTime.UtcNow).Minute / 10 * 10;
 
@@ -107,13 +84,7 @@ public partial class TollDiscountPage
     private string OtherSideLabel => AnchorIsEntry ? "진출" : "진입";
 
     /// <summary>
-    /// 추천 카드가 「무엇을 옮기라」고 말하는가.
-    ///
-    /// <para>
-    /// 소요시간을 늘려 닿은 답(<c>DURATION</c>)이면 옮기는 것은 <b>반대쪽</b>이고,
-    /// 시각을 옮겨 닿은 답(<c>SHIFT</c>)이면 <b>고른 쪽</b>이다. 뒤엣것은
-    /// 소요시간이 그대로라 반대쪽이 따라 움직인다.
-    /// </para>
+    /// 추천 카드가 무엇을 옮기라고 말하는가. DURATION 답이면 옮기는 것은 반대쪽이고, SHIFT 답이면 고른 쪽이다.
     /// </summary>
     private string ShiftSideLabel =>
         _suggest?.Mode == "SHIFT"
@@ -171,26 +142,7 @@ public partial class TollDiscountPage
     private const string StateKey = "jsini-toll-pick";
 
     /// <summary>
-    /// 되찾는 것은 <b>고른 것</b>뿐이다. 날짜와 시각은 담지 않는다 —
-    /// 이 화면을 여는 까닭이 거의 「지금 올라탄다」라서, 어제 적어 둔 시각이
-    /// 되살아나면 사람이 그것을 못 보고 어제 기준으로 셈한 할인율을 읽는다.
-    ///
-    /// <para>
-    /// [회로가 아니라 <b>브라우저</b>에 적는다]
-    /// </para>
-    ///
-    /// <para>
-    /// 처음에는 <c>ScreenState</c>(회로 수명)에 맡겼다. 그것은 「떠났다 돌아오기」만
-    /// 버티고 <b>새로고침에 사라진다</b> — 이 저장소가 그 자리를 그렇게 정해 둔 것은
-    /// 조건을 지우려고 F5 를 누른 사람에게 빠져나갈 길을 주려는 것이었다.
-    /// </para>
-    ///
-    /// <para>
-    /// 그런데 여기 담기는 것은 조회 조건이 아니라 <b>이 기사가 늘 쓰는 값</b>이다 —
-    /// 내 차, 내가 다니는 구간, 늘 걸리는 시간. 그것이 F5 한 번에 사라지면
-    /// 매번 네 번을 다시 누른다. 사이드바 폭을 브라우저에 적어 두는 것과 같은
-    /// 성질이라(기기에 붙는 값) <c>localStorage</c> 로 옮겼다.
-    /// </para>
+    /// 되찾는 것은 고른 것뿐이다. 날짜와 시각은 담지 않는다 — 어제 적어 둔 시각이 되살아나면 어제 기준 할인율을 읽게 된다. 회로 상태가 아니라 브라우저(localStorage)에 적는다.
     /// </summary>
     private sealed record Kept(
         string SectionType, string Anchor, string? VehicleId, string Duration, string? Target, bool HelpOpen,
@@ -207,9 +159,7 @@ public partial class TollDiscountPage
     private static readonly IReadOnlyList<SchOption> SectionChips = CargoCodes.SectionTypeChips;
 
     /// <summary>
-    /// 소요시간. 화물 운행에서 실제로 나오는 길이만 고른다 —
-    /// 분 단위로 적게 하면 손가락으로 쓰기 어렵고, 비율의 분모라 몇 분 차이로는
-    /// 띠가 바뀌지도 않는다.
+    /// 소요시간 칩. 화물 운행에서 나오는 길이만 고른다 — 분 단위는 손가락으로 쓰기 어렵고, 비율의 분모라 몇 분 차이로는 띠가 바뀌지 않는다.
     /// </summary>
     private static readonly IReadOnlyList<SchOption> DurationChips =
     [
@@ -231,33 +181,12 @@ public partial class TollDiscountPage
     ];
 
     /// <summary>
-    /// 고를 수 있는 시(時) — <b>24시간 전부</b>.
-    ///
-    /// <para>
-    /// 한동안 「가장 긴 소요시간으로도 야간창에 닿지 못하는 시각」을 빼 두었다.
-    /// 폐쇄식에서 넷(07~10)이 빠졌는데, <b>이 화면의 쓰임을 하나 놓친 추림이었다</b> —
-    /// 앞으로 잡을 운행만 보는 것이 아니라 <b>이미 지나온 운행</b>의 할인율을
-    /// 확인하는 데도 쓴다. 실제 통과 시각이 09시였던 사람은 그 시각을 고를 수가
-    /// 없었고, 「0%라 고를 이유가 없다」는 우리 판단이 그 사람에게는
-    /// 「왜 내 시각이 없지」였다.
-    /// </para>
-    ///
-    /// <para>
-    /// 넷을 아끼자고 고르개가 묻는 말을 바꿀 값어치가 없다. 전부 둔다.
-    /// </para>
+    /// 고를 수 있는 시(時) — 24시간 전부. 가장 긴 소요시간으로도 야간창에 닿지 못하는 시각을 빼면, 이미 지나온 운행의 할인율을 확인할 때 실제 통과 시각을 고를 수 없다.
     /// </summary>
     private static readonly IReadOnlyList<int> HourOptions = [.. Enumerable.Range(0, 24)];
 
     /// <summary>
-    /// 고를 수 있는 분 — <b>10분 단위 여섯</b>.
-    ///
-    /// <para>
-    /// 한동안 「지금」의 분이 눈금에 없으면 그 값을 한 줄 끼워 넣었다. 열자마자
-    /// 보이는 시각이 실제 시각과 1분도 안 어긋나게 하려던 것인데, <b>값에 비해
-    /// 비싼 규칙이었다</b> — 00·10·20·30·40·50 사이에 41 하나가 끼면 고르개가
-    /// 고장 난 것처럼 보이고, 정작 그 1분은 비율을 바꾸지 못한다(분모가 몇 시간이다).
-    /// 다섯 시간 운행에서 9분은 비율로 3%p 안쪽이라 띠가 바뀌지 않는다.
-    /// </para>
+    /// 고를 수 있는 분 — 10분 단위 여섯. 「지금」의 분을 눈금에 끼워 넣지 않는다 — 고르개가 고장 난 것처럼 보이고 1분은 비율을 바꾸지 못한다.
     /// </summary>
     private static readonly IReadOnlyList<int> MinuteOptions = [0, 10, 20, 30, 40, 50];
 
@@ -314,28 +243,7 @@ public partial class TollDiscountPage
     }
 
     /// <summary>
-    /// 적어 둔 것을 되찾고 첫 셈을 돌린다.
-    ///
-    /// <para>
-    /// <b>여기여야 한다.</b> 브라우저 저장소는 회로가 붙은 뒤에만 읽을 수 있어서
-    /// (프리렌더 중에는 JS 를 못 부른다) <c>OnInitialized</c> 에서는 꺼낼 수가 없다.
-    /// </para>
-    ///
-    /// <para>
-    /// [<c>firstRender</c> 를 기다리면 안 된다 — 실제로 밟았다]
-    /// </para>
-    ///
-    /// <para>
-    /// Blazor 는 <c>OnInitializedAsync</c> 가 <b>첫 <c>await</c> 에 닿는 순간</b>
-    /// 한 번 그리고, 그 그림에 대해 <c>firstRender</c> 가 참으로 들어온다.
-    /// 그때는 차량 목록이 아직 비어 있어서 「그때 고른 차가 지금도 있나」가
-    /// 언제나 거짓이 된다 — <b>구간·소요시간·목표는 되찾아지는데 차량만 조용히
-    /// 기본값으로 떨어졌다.</b> 한 칸만 안 돌아오니 저장이 되는 줄 알고 넘어간다.
-    /// </para>
-    ///
-    /// <para>
-    /// 그래서 기다리는 것은 그림의 차례가 아니라 <b>자료가 다 왔는가</b>(<c>_loaded</c>)다.
-    /// </para>
+    /// 적어 둔 것을 되찾고 첫 셈을 돌린다. 저장소는 회로가 붙은 뒤에만 읽히고, 차량 목록이 올 때까지(_loaded) 기다린다 — firstRender 를 기다리면 차량만 기본값으로 떨어진다.
     /// </summary>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -377,18 +285,7 @@ public partial class TollDiscountPage
     }
 
     /// <summary>
-    /// 칩을 누르면 값을 바꾸고 바로 다시 셈한다.
-    ///
-    /// <para>
-    /// [<c>StateHasChanged</c> 가 <b>기다리기 전에</b> 와야 한다 — 실제로 밟았다]
-    /// </para>
-    ///
-    /// <para>
-    /// Blazor 는 이벤트 처리기가 <b>끝난 뒤에</b> 다시 그린다. 그래서 여기서 바로
-    /// 왕복을 기다리면 <b>칩 색이 그 왕복이 끝나야 바뀐다</b> — 눌렀는데 아무 일도
-    /// 안 일어나는 몇백 밀리초가 생기고, 그것이 「느리다」로 느껴지는 전부였다.
-    /// 값을 바꾸자마자 한 번 그려 두면 색은 즉시 바뀌고 결과만 나중에 온다.
-    /// </para>
+    /// 칩을 누르면 값을 바꾸고 다시 셈한다. StateHasChanged 를 왕복을 기다리기 전에 부른다 — Blazor 는 핸들러가 끝나야 그리므로 기다리면 칩 색이 늦게 바뀐다.
     /// </summary>
     private Task PickAsync(Action apply)
     {
@@ -406,13 +303,7 @@ public partial class TollDiscountPage
     }
 
     /// <summary>
-    /// 구간을 고르면 <b>그 구간이 아는 것</b>을 따라 채운다 — 구간 유형과 주행시간.
-    ///
-    /// <para>
-    /// 주행시간은 소요시간 칩에 한 줄로 더해 두고 그것을 고른다. 칩을 치워 버리지
-    /// 않는 까닭은 이 화면의 요점이 <b>「더 끌면 어떻게 되나」</b>이기 때문이다 —
-    /// 휴게소에서 쉬는 시간을 사람이 더해 볼 수 있어야 한다.
-    /// </para>
+    /// 구간을 고르면 구간 유형과 주행시간을 채운다. 주행시간은 소요시간 칩에 한 줄로 더해 두므로 칩을 치우지 않는다 — 휴게소 시간을 사람이 더해 볼 수 있어야 한다.
     /// </summary>
     private Task OnFromPlazaAsync(string? code) => PickPlazaAsync(() => _fromPlaza = code);
 
@@ -441,8 +332,7 @@ public partial class TollDiscountPage
     }
 
     /// <summary>
-    /// 고른 것을 맡긴다. <b>누를 때마다 맡긴다</b> — 떠날 때 한 번만 맡기면
-    /// 탭을 닫거나 창을 새로 여는 길에서 그 호출이 안 온다.
+    /// 고른 것을 맡긴다. 누를 때마다 맡긴다 — 떠날 때 한 번만 맡기면 탭을 닫는 길에서 그 호출이 안 온다.
     /// </summary>
     private void Keep() =>
         _ = JS.InvokeVoidAsync("localStorage.setItem", StateKey,
@@ -453,12 +343,7 @@ public partial class TollDiscountPage
     // ── 셈 ───────────────────────────────────────────────────
 
     /// <summary>
-    /// 지금 고른 값으로 셈한다. <b>단추가 없으므로 여기가 유일한 길이다.</b>
-    ///
-    /// <para>
-    /// 정방향은 늘 돌린다 — 「지금 조건이면 얼마」가 이 화면의 바닥이다.
-    /// 목표를 골랐을 때만 역방향을 더 돌려 「몇 시에 나가면 되는지」를 붙인다.
-    /// </para>
+    /// 지금 고른 값으로 셈한다. 단추가 없으므로 여기가 유일한 길이다. 정방향은 늘 돌리고, 목표를 골랐을 때만 역방향을 더 돌린다.
     /// </summary>
     private async Task RecalcAsync()
     {
@@ -521,18 +406,7 @@ public partial class TollDiscountPage
     }
 
     /// <summary>
-    /// 통행료를 묻는다. <b>구간이나 차종이 바뀌었을 때만</b> 부른다.
-    ///
-    /// <para>
-    /// 요금은 시각·소요시간·목표와 아무 상관이 없다. 그런데 처음에는 셈할 때마다
-    /// 함께 불러서, 칩 하나 누를 때마다 왕복이 하나 더 붙었다(새 구간이면 0.6초).
-    /// 깎인 금액은 <b>정상요금 × 할인율</b>이라 화면에서 곱하면 그만이다 —
-    /// 할인율을 정하는 곳은 여전히 엔진 한 군데다.
-    /// </para>
-    ///
-    /// <para>
-    /// 못 받아도 조용하다. 통행료가 없다고 할인율까지 못 보게 할 일이 아니다.
-    /// </para>
+    /// 통행료를 묻는다. 구간이나 차종이 바뀌었을 때만 부른다 — 요금은 시각·소요시간과 무관하다. 깎인 금액은 정상요금 × 할인율로 화면에서 곱하고, 할인율을 정하는 곳은 엔진 한 군데다.
     /// </summary>
     private async Task LoadFareAsync()
     {
@@ -577,14 +451,7 @@ public partial class TollDiscountPage
         long.TryParse(_vehicleId, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id) ? id : null;
 
     /// <summary>
-    /// 편집기가 준 시각을 <b>KST 벽시계</b>로 못 박는다.
-    ///
-    /// <para>
-    /// 운영 컨테이너의 시계는 UTC 다(TZ=Etc/UTC). <c>Kind</c> 를 그대로 두면
-    /// 직렬화기가 오프셋 <c>+00:00</c> 을 붙여 보내고, 서버는 그것을 한국 시각으로
-    /// 읽어 <b>아홉 시간이 어긋난다.</b> 그 어긋남은 오류 없이 할인율이 한 띠
-    /// 밀리는 모습으로만 드러난다.
-    /// </para>
+    /// 편집기가 준 시각을 KST 벽시계로 못 박는다. Kind 를 그대로 두면 +00:00 이 붙어 서버가 아홉 시간을 어긋나게 읽고, 할인율이 오류 없이 한 띠 밀린다.
     /// </summary>
     private static DateTime Wall(DateTime value) => DateTime.SpecifyKind(value, DateTimeKind.Unspecified);
 }

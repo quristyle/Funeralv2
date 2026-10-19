@@ -19,9 +19,7 @@ public static class ExampleEndpoints
         })
         .WithName("GetDemoTableList");
 
-        // 파일 업로드 예제
-        // IFormFile 은 [FromForm] 없이도 폼에서 묶인다. 붙여 두면 Swashbuckle 이
-        // 파라미터를 못 읽어 /swagger/v1/swagger.json 이 통째로 500 이 된다.
+        // IFormFile 은 [FromForm] 없이 폼에서 묶인다. 붙이면 Swashbuckle 이 swagger.json 을 500 으로 만든다.
         group.MapPost("/upload", async (IFormFile file, [FromServices] ILoggerFactory loggerFactory) =>
         {
             var logger = loggerFactory.CreateLogger("ExampleEndpoints");

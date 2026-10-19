@@ -4,21 +4,8 @@ using Xunit;
 
 namespace JSini.Web.Architecture.Tests;
 
-/// <summary>
-/// 「지시와 결과」를 <b>차수마다 한 묶음</b>으로 가르는 규칙(2026-10-15).
-/// </summary>
-/// <remarks>
-/// <para>
-/// 화면으로는 확인하기 나쁜 자리다 — 2차·3차를 눈으로 보려면 실행기가 운영
-/// 장비에서 같은 건을 두 번 세 번 돌아야 한다. 그래서 서버가 짓는 두 가지
-/// 지시문 모양(<c>AiTaskService.BuildContinuation</c> 의 「## 이번에 할 일」과
-/// <c>RetryAsync</c> 의 「## 재시도 추가 지시」)을 여기 박아 둔다.
-/// </para>
-/// <para>
-/// <b>이 가르기가 틀리면 조용히 틀린다.</b> 1차 자리에 3차의 글이 앉아도
-/// 화면은 멀쩡히 그려지고, 읽는 사람은 그것을 1차에 적은 글로 믿는다.
-/// </para>
-/// </remarks>
+/// <summary>「지시와 결과」를 차수마다 한 묶음으로 가르는 규칙. 서버가 짓는 지시문 두 모양(BuildContinuation 의 「## 이번에 할 일」, RetryAsync 의 「## 재시도 추가 지시」)을 여기 박아 둔다.
+/// 틀리면 조용히 틀린다 — 1차 자리에 3차 글이 앉아도 화면은 멀쩡하다.</summary>
 public sealed class AiTaskTurnsTests
 {
     /// <summary>1차의 지시문에는 머리표가 없다 — 통째로 사람이 적은 글이다.</summary>
@@ -68,10 +55,7 @@ public sealed class AiTaskTurnsTests
         Assert.Contains("목록 정렬을 바꿔라", lead);
     }
 
-    /// <summary>
-    /// 머리표가 둘 다 있으면 <b>마지막 것</b>이다 — 이어서 지시한 건을 다시
-    /// 재시도하면 사람이 마지막에 적은 것은 뒤엣것이다.
-    /// </summary>
+    /// <summary>머리표가 둘 다 있으면 마지막 것이 이번 글이다 — 이어서 지시한 건을 재시도하면 사람이 마지막에 적은 것은 뒤엣것이다.</summary>
     [Fact]
     public void 머리표가_둘이면_마지막_것을_집는다()
     {
@@ -109,12 +93,7 @@ public sealed class AiTaskTurnsTests
         Assert.True(turns[^1].IsLast);
     }
 
-    /// <summary>
-    /// 보냈는데 아직 아무도 안 집어 간 차수에도 <b>자리를 만든다.</b>
-    /// </summary>
-    /// <remarks>
-    /// 보낸 글이 어디에도 안 보이면 보는 사람은 그것이 갔는지조차 알 수 없다.
-    /// </remarks>
+    /// <summary>보냈는데 아직 아무도 안 집어 간 차수에도 자리를 만든다 — 보낸 글이 어디에도 안 보이면 갔는지조차 알 수 없다.</summary>
     [Fact]
     public void 아직_안_돈_차수도_자리를_얻는다()
     {
@@ -158,21 +137,13 @@ public sealed class AiTaskTurnsTests
 
         Assert.Equal("그때 적어 보낸 글", AiTaskTurns.Build(task, [one]).Single().Ask);
 
-        // 이어서 지시한 건은 본문이 **마지막 차수의 것으로 덮여** 있어
-        // 끌어다 쓰면 1차 자리에 2차 글이 앉는다.
+        // 이어서 지시한 건은 본문이 마지막 차수의 것으로 덮여 있어 끌어다 쓰면 1차 자리에 2차 글이 앉는다.
         var two = AiTaskTurns.Build(task, [Run(2, "둘째"), Run(1, instruction: null)]);
 
         Assert.Null(two[0].Ask);
     }
 
-    /// <summary>
-    /// 보낼 때 기계가 붙인 문구는 <b>본문에서 걷는다</b>(<c>AiTaskAlways.Strip</c>).
-    /// </summary>
-    /// <remarks>
-    /// 사람이 적은 것이 아니고 건마다 똑같아서, 안 걷으면 <b>적은 적도 없는
-    /// 네 문단이 제가 적은 두 줄보다 길게</b> 선다 — 차수를 셋 쌓은 건에서는
-    /// 그것이 세 번 선다.
-    /// </remarks>
+    /// <summary>보낼 때 기계가 붙인 문구는 본문에서 걷는다(AiTaskAlways.Strip). 사람이 적은 것이 아니라 건마다 같아서, 안 걷으면 적은 적 없는 문단이 차수마다 되풀이된다.</summary>
     [Fact]
     public void 늘_따라붙는_문구는_본문에서_걷는다()
     {
@@ -183,14 +154,11 @@ public sealed class AiTaskTurnsTests
         Assert.Null(lead);
     }
 
-    /// <summary>
-    /// <b>옛 판의 문구도 걷는다.</b> 표에 쌓인 지시문은 그때그때의 판을 그대로
-    /// 들고 있다 — 지금 글과 통째로 견주면 옛 건에서는 하나도 안 걷힌다.
-    /// </summary>
+    /// <summary>옛 판의 문구도 걷는다. 표에 쌓인 지시문은 그때의 판을 그대로 들고 있어서, 지금 글과 통째로 견주면 옛 건은 하나도 안 걷힌다.</summary>
     [Fact]
     public void 문단이_덜_붙던_옛_판도_걷는다()
     {
-        // 2026-09-24 의 첫 판 — 커밋·push 와 DB 두 문단뿐이었다.
+        // 첫 판 — 커밋·push 와 DB 두 문단뿐이었다.
         var old = string.Join("\n\n", AiTaskAlways.Blocks[0], AiTaskAlways.Blocks[2]);
 
         var (ask, _) = AiTaskAsk.Split($"쪽수를 20개로 늘려라.\n\n{old}");
@@ -211,10 +179,7 @@ public sealed class AiTaskTurnsTests
         Assert.StartsWith("## 이전까지의 진행", lead);
     }
 
-    /// <summary>
-    /// <b>접어 둔 글에는 문구가 남는다.</b> 그쪽은 그때 실행기에게 실제로 간
-    /// 글이라, 「왜 AI 가 그렇게 했나」를 되짚을 때 빠져 있으면 안 된다.
-    /// </summary>
+    /// <summary>접어 둔 글에는 문구가 남긴다 — 그때 실행기에게 실제로 간 글이라 「왜 그렇게 했나」를 되짚을 때 빠져 있으면 안 된다.</summary>
     [Fact]
     public void 앞에_덧댄_글에는_문구가_그대로_남는다()
     {
@@ -227,11 +192,7 @@ public sealed class AiTaskTurnsTests
         Assert.Contains(AiTaskAlways.Blocks[0], lead, StringComparison.Ordinal);
     }
 
-    /// <summary>
-    /// 문구밖에 없는 글은 <b>통째로 둔다.</b> 걷고 나서 아무것도 안 남으면
-    /// 화면에 「적어 둔 내용이 없습니다」가 서는데, 그것은 보낸 적이 없다는
-    /// 말이라 거짓이다.
-    /// </summary>
+    /// <summary>문구밖에 없는 글은 통째로 둔다 — 걷고 아무것도 안 남으면 「적어 둔 내용이 없습니다」가 서는데, 그것은 보낸 적이 없다는 거짓이다.</summary>
     [Fact]
     public void 문구밖에_없는_글은_통째로_둔다()
     {

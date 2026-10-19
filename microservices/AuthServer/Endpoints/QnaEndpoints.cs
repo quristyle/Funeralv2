@@ -8,16 +8,7 @@ namespace AuthServer.Endpoints;
 /// <summary>
 /// Q&amp;A 엔드포인트
 /// </summary>
-/// <remarks>
-/// 누구나 질문하고 관리자가 답한다. 답글에 답글을 다는 것도 같은 방식이라
-/// 깊이 제한이 없다.
-///
-/// 보이는 범위와 권한 판정은 모두 <see cref="IQnaService"/> 가 한다.
-/// 화면은 서버가 내려준 값(`canManage` · `canEdit` · `isMine`)만 보고 버튼을 켠다.
-///
-/// 게이트웨이의 `/api/auth/**` 경로는 Anonymous 라 인증을 걸지 않는다.
-/// 그래서 여기서 UserContext 가 없으면 401 을 돌려준다.
-/// </remarks>
+/// 권한 판정과 보이는 범위는 IQnaService 가 한다. 화면은 서버가 내려준 canManage · canEdit · isMine 만 보고 버튼을 켠다. 익명 경로(/api/auth/**)라 UserContext 가 없으면 401 이다.
 public static class QnaEndpoints
 {
     public static void MapQnaEndpoints(this IEndpointRouteBuilder app)

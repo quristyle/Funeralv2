@@ -2,62 +2,19 @@
 @attribute [RouteKey("admin.status.menu-usage")]
 
 @*
-    [메뉴 사용기록] — DB 메뉴 `/admin/status/menu-usage`.
-
-    **상태관리 묶음에 둔다.** 바로 옆이 「AI 사용량」이다 — 그쪽이 「누가 AI 를
-    얼마나 쓰나」를 보고 이쪽이 「누가 어떤 화면을 보나」를 본다. 묻는 모양이
-    같아서 한 자리에 있어야 둘을 견주어 읽는다.
-
-    ────────────────────────────────────────────────────────────
-    [서버 로그로는 알 수 없었다]
-
-    포털은 한 회로 안에서 라우팅만 바뀐다. 화면을 옮겨도 **HTTP 요청이 한 건도
-    나가지 않으므로** 접근 로그에는 로그인 한 번과 WebSocket 하나뿐이다.
-    「누가 어떤 화면을 보았나」를 아는 자리는 **레이아웃 하나뿐**이라, 거기서
-    화면을 열 때마다 한 줄씩 적어 보낸다(`MenuUsageRecorder`) — 이 화면은 그
-    줄들을 읽는다.
-
-    **쌓기 시작한 날 이전의 값은 없다.** 그 앞의 기간을 고르면 빈 목록이다.
-
-    ────────────────────────────────────────────────────────────
-    [보기 넷 — 같은 자료에 묻는 물음이 넷이다]
-
-    | 보기 | 답하는 물음 |
-    |---|---|
-    | 사용자별 | 누가 포털을 많이 쓰나 |
-    | 화면별 | 어떤 화면이 실제로 쓰이나 (안 쓰는 메뉴를 가려낸다) |
-    | 기록 | **누가 어떤 화면을 언제 보았나** — 이 표가 있는 까닭 그 자체다 |
-    | 타임라인 | 하루가 어떻게 흘렀나 — 어느 화면에서 어디로 갔나 |
-
-    보기를 바꾸는 자리를 조회판에 둔 것은 그것이 **조회 조건**이기 때문이다
-    (「내 이동경로」의 ‘원시 기록으로 보기’와 같은 자리).
-
-    ────────────────────────────────────────────────────────────
-    [건수와 화면 수를 함께 적는다]
-
-    「한 화면을 백 번 새로고친 사람」과 「백 개를 돌아본 사람」은 건수만으로는
-    같아 보인다. 사람별 표가 **화면 수**와 **가장 많이 본 화면**을 함께 들고
-    있는 까닭이 그것이다.
-
-    ────────────────────────────────────────────────────────────
-    [「사이」는 머문 시간이 아니다]
-
-    타임라인의 `+12분` 은 **앞 칸에서 다음 칸까지**다. 그 화면에 머문 시간이
-    아니다 — 떠난 순간은 아무도 재지 않는다. 그날 마지막으로 연 화면은 포털을
-    닫을 때까지 떠 있었을 수도 있고 1초 뒤에 닫혔을 수도 있다. 「내 이동경로」가
-    머문 시간을 모자라는 쪽으로 두는 것과 같은 자리이고, 여기서는 아예 다른
-    이름으로 부른다.
+    [메뉴 사용기록] DB 메뉴 `/admin/status/menu-usage`. 상태관리 묶음에 두어 옆의 AI 사용량과 견주어 읽는다.
+    포털은 회로 안에서 라우팅만 바뀌어 서버 로그에 안 남는다 — 화면을 열 때마다 MenuUsageRecorder 가 한 줄씩 보낸다. 쌓기 시작한 날 이전 값은 없다.
+    타임라인의 +12분 은 앞 칸에서 다음 칸까지지 머문 시간이 아니다 — 떠난 순간은 아무도 재지 않는다.
 *@
 
 @inherits DataPage
 
-<PageTitle>메뉴 사용기록 · 포털관리</PageTitle>
+<PageTitle>메뉴 사용기록</PageTitle>
 
 <CommSch OnSearch="@ReloadAsync" OnReset="@Reset" Busy="@Loading" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="기간">
-            @* 기본은 최근 7일이다. 이 화면을 여는 까닭이 대개 「요즘 누가
-               무엇을 보나」라서, 처음부터 전부 더해 보여 줄 값이 없다. *@
+            @* 기본은 최근 7일이다. 요즘 누가 무엇을 보는지가 이 화면을 여는 까닭이다. *@
             <div class="ad-checks">
                 <DxDateEdit @bind-Date="_from" CssClass="ad-editform__date" />
                 <span class="jsini-text-muted">~</span>
@@ -73,9 +30,7 @@
         </CommSchItem>
 
         <CommSchItem Label="사용자">
-            @* **목록은 조회해 온 자료에서 만든다.** 계정 전체를 싣지 않는 까닭은
-               기록이 없는 사람을 고르면 늘 빈 목록이기 때문이다 — 고를 수 있는
-               것은 그 기간에 포털을 쓴 사람뿐이어야 한다. *@
+            @* 목록은 조회해 온 자료에서 만든다 — 기록이 없는 사람을 고르면 늘 빈 목록이라 그 기간에 포털을 쓴 사람만 고를 수 있다. *@
             <DxComboBox Data="@_users" Value="@PickedUser"
                         ValueChanged="@((MenuUsageByUserDto? u) => PickUserAsync(u))"
                         ValueExpression="@(() => PickedUser)"
@@ -92,8 +47,7 @@
     </Fields>
 </CommSch>
 
-@* 타일 넷. **표가 답하지 않는 것만 올린다** — 보기마다 표가 바뀌는데 「이
-   기간이 통틀어 얼마인가」는 어느 표에도 없다. *@
+@* 타일 넷. 표가 답하지 않는 「이 기간이 통틀어 얼마인가」만 올린다. *@
 <div class="jsini-stats">
     <div class="jsini-stat">
         <div class="jsini-stat__label">열람</div>
@@ -114,9 +68,7 @@
     </div>
 </div>
 
-@* **잘렸다는 사실은 판 밖에서 말한다.** 말 없이 자르면 「이 기간에 그만큼
-   뿐」으로 읽힌다. 판 안에 두면 표가 판 높이를 꽉 채우는 규칙에 걸려
-   안내가 스크롤 저편으로 밀린다. *@
+@* 잘렸다는 사실은 판 밖에서 말한다 — 말 없이 자르면 「이 기간에 그만큼뿐」으로 읽힌다. *@
 @if (Truncated is { } cut)
 {
     <PageNotice Tone="NoticeTone.Info"
@@ -144,8 +96,7 @@
                 <DxGridDataColumn FieldName="@nameof(MenuUsageByUserDto.Views)" Caption="열람" Width="90"
                                   DisplayFormat="N0" />
 
-                @* **건수 옆에 화면 수가 있어야 한다**(머리말). 둘이 떨어져
-                   있으면 「많이 본 사람」과 「넓게 본 사람」이 구분되지 않는다. *@
+                @* 건수 옆에 화면 수가 있어야 한다 — 떨어져 있으면 많이 본 사람과 넓게 본 사람이 구분되지 않는다. *@
                 <DxGridDataColumn FieldName="@nameof(MenuUsageByUserDto.Screens)" Caption="화면" Width="80"
                                   DisplayFormat="N0" />
 
@@ -172,8 +123,7 @@
 
                 <DxGridDataColumn Caption="마지막" Width="130">
                     <CellDisplayTemplate Context="cell">
-                        @* 서버가 주는 값은 UTC 다. 한국 시각은 **보여 주기 직전에
-                           한 번만** 만든다(docs/utc-time.md). *@
+                        @* 서버가 주는 값은 UTC 다 — 한국 시각은 보여 주기 직전에 한 번만 만든다(docs/utc-time.md). *@
                         @(((MenuUsageByUserDto)cell.DataItem).LastViewAt.Kst("MM-dd HH:mm"))
                     </CellDisplayTemplate>
                 </DxGridDataColumn>
@@ -240,8 +190,7 @@
                 <DxGridDataColumn FieldName="@nameof(MenuUsageDto.MenuPath)" Caption="경로" MinWidth="160"
                                   TextAlignment="GridTextAlignment.Left" />
 
-                @* 「어디서 왔나」. 화면 하나만 보면 알 수 없는 것이 **길**이라,
-                   기록 줄에 앞 화면을 함께 적어 둔다. *@
+                @* 어디서 왔나 — 화면 하나만 보면 알 수 없는 길이라 기록 줄에 앞 화면을 함께 적는다. *@
                 <DxGridDataColumn Caption="앞 화면" MinWidth="140"
                                   TextAlignment="GridTextAlignment.Left">
                     <CellDisplayTemplate Context="cell">
@@ -263,12 +212,7 @@
     }
     else
     {
-        @* ── 일자별 타임라인 ──────────────────────────────────
-
-           표로 그리지 않는 까닭은 **읽는 방향이 다르기** 때문이다. 표는 칸을
-           견주어 보는 것이고, 여기서 사람이 보는 것은 「위에서 아래로 하루가
-           어떻게 흘렀나」다. 날짜가 머리띠로 서고 그 아래에 시각이 줄줄이
-           서야 그 읽기가 된다. *@
+        @* ── 일자별 타임라인 ── 표로 그리지 않는다 — 읽는 방향이 다르다. 위에서 아래로 하루가 어떻게 흘렀나를 보려고 날짜를 머리띠로 세우고 시각을 줄줄이 세운다. *@
 
         @if (_days.Count == 0)
         {
@@ -297,16 +241,13 @@
 
                                     <span class="ad-usagetl__name" title="@item.MenuPath">@item.Screen</span>
 
-                                    @* 사람을 고른 보기에서는 같은 이름이 줄마다
-                                       서므로 적지 않는다. 안 고르면 **누구의
-                                       줄인지가 이 글자 하나에 달려 있다.** *@
+                                    @* 사람을 고른 보기에서는 같은 이름이 줄마다 서므로 적지 않는다. 안 고르면 누구의 줄인지가 이 글자 하나에 달려 있다. *@
                                     @if (_userId is null)
                                     {
                                         <span class="ad-usagetl__who">@item.Who</span>
                                     }
 
-                                    @* 「앞 칸에서 여기까지」다. 머문 시간이 아니라서
-                                       말풍선에 그 말을 적어 둔다(머리말). *@
+                                    @* 앞 칸에서 여기까지다 — 머문 시간이 아니라서 말풍선에 그 말을 적는다. *@
                                     @if (item.Seq > 1 && item.GapMinutes > 0)
                                     {
                                         <span class="ad-usagetl__gap"

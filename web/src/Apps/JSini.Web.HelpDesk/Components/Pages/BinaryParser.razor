@@ -2,46 +2,17 @@
 @attribute [RouteKey("helpdesk.util.binary-parser")]
 
 @*
-    [바이너리 파서] — DB 메뉴 `/helpdesk/util/binary-parser`.
-    이력: Vue `views/helpdesk/util/binary-parser.vue` → 여기.
-    엔드포인트: `POST utils/parse-binary`
-
-    설비가 보낸 전문을 사람이 읽을 수 있게 푼다. 16진수로 적은 전문을 규칙에 따라 푼다.
-
-    [원문을 지우지 않는다]
-
-    푼 결과만 남기지 않고 넣은 원문을 화면에 그대로 둔다. 파싱이 틀렸을 때
-    무엇을 넣었는지 알아야 고칠 수 있는데, 지워 버리면 다시 붙여 넣어야 한다.
-
-    [보내는 칸 이름이 서버와 달랐다 — 늘 400 이었다]
-
-    본문을 `{ raw }` 로 보내고 있었다. 서버가 받는 칸은 `content` 다
-    (`record ParseRequest(string Content, …)`). 모델 바인딩은 모르는 칸을
-    **조용히 버리므로** `Content` 가 비고, 서버가 곧바로
-    「Content is empty」로 400 을 낸다 — 무엇을 넣어도 그랬다.
-
-    게이트웨이로 두 모양을 나란히 던져 확인했다.
-
-        { "raw": "02 30 31" }      →  400  Content is empty
-        { "content": "02 30 31" }  →  200
-
-    [보관한 전문이 안 보이고 있었다]
-
-    설비 모델마다 **전문 샘플을 저장해 두고 꺼내 쓴다**(`mc-models/{id}/samples`).
-    한 번 겪은 전문을 다시 손으로 붙여 넣지 않으려고 만든 것이다. 서버에도
-    자료 타입에도 다 있었는데 화면에 꺼내는 자리가 없었다 —
-    **매번 어딘가에서 전문을 찾아 붙여 넣어야 했다.**
+    [바이너리 파서] — DB 메뉴 `/helpdesk/util/binary-parser`. 엔드포인트 `POST utils/parse-binary`
+    서버 칸은 content 다. raw 로 보내면 모델 바인딩이 조용히 버려 「Content is empty」 400 이 난다.
+    입력 원문은 지우지 않는다(틀린 파싱을 고치려면 넣은 것이 남아 있어야 한다). 설비 모델의 전문 샘플(mc-models/{id}/samples)을 꺼내 쓴다.
 *@
 
 @inherits DataPage
 
 <PageTitle>바이너리 파서 · 헬프데스크</PageTitle>
 
-@* 조회 단추를 주지 않는다 — 이 화면은 조회하는 것이 아니라 아래 칸에 붙인
-   전문을 그 자리에서 해석한다. 고르개 둘은 「무엇으로 해석할까」와 「무엇을
-   붙일까」라 조건이고, 나머지 둘은 동작이다. *@
-@* 접지 않는다 — 이 둘은 거르개가 아니라 **화면의 주 입력**이다(설비 모델을
-   고르면 아래 판이 통째로 바뀐다). 접어 두면 일할 때마다 펴야 한다. *@
+@* 조회 단추가 없다 — 아래 칸에 붙인 전문을 그 자리에서 해석한다. *@
+@* 접지 않는다 — 화면의 주 입력이다. 설비 모델을 고르면 아래 판이 통째로 바뀐다. *@
 <CommSch Foldable="false">
     <Fields>
         <CommSchItem Label="설비 모델">

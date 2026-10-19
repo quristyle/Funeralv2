@@ -4,51 +4,19 @@ using Xunit;
 
 namespace JSini.Web.Architecture.Tests;
 
-/// <summary>
-/// AI 사용량 배지 색띠(<c>.jsini-badge--usage-*</c>) 검증.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <b>왜 이름만으로는 모자랐나.</b> 옆의 <see cref="AiUsageTextTests"/> 는
-/// 70% 와 99% 가 <b>서로 다른 수식어</b>를 받는 것까지 지켰다. 그런데 그 수식어
-/// 둘이 가리키는 색이 투명도만 다른 물감이라, 흰 판에 얹으면 색차가 ΔE 13 —
-/// <b>화면에서는 같은 색이었다.</b> 이름이 갈려도 색이 안 갈리면 고쳐진 것이
-/// 아니다. 그 사이를 메우는 것이 이 검사다.
-/// </para>
-/// <para>
-/// <b>CSS 를 글자로 읽는다.</b> 색은 코드가 아니라 스타일시트에 있으므로
-/// 빌드도 다른 검사도 못 본다. 정본 두 벌(공통 <c>app.css</c> · 모듈
-/// <c>projmng.css</c>)을 직접 펴서 잰다.
-/// </para>
-/// </remarks>
+/// <summary>AI 사용량 배지 색띠(.jsini-badge--usage-*) 검증. 이름이 갈려도 색이 안 갈리면 고쳐진 것이 아니라서, 두 수식어가 가리키는 색의 차이를 흰 판 위에서 잰다.
+/// CSS 는 빌드가 못 보므로 정본 두 벌(app.css · projmng.css)을 글자로 읽는다.</summary>
 public sealed class AiUsageBadgePaletteTests
 {
-    /// <summary>
-    /// <b>맨 마지막에 실리는 스타일시트.</b> 바탕 규칙(<c>.jsini-badge</c>)을
-    /// 다시 까는 것이 여기 있으므로, 색띠가 여기 없으면 앞의 두 벌은 무의미하다.
-    /// 싣는 차례는 <c>JSiniHead.razor</c> 가 정한다.
-    /// </summary>
+    /// <summary>맨 마지막에 실리는 스타일시트. 바탕 규칙(.jsini-badge)을 다시 까므로 색띠가 여기 없으면 앞의 두 벌은 무의미하다.
+    /// 싣는 차례는 JSiniHead.razor 가 정한다.</summary>
     private const string LastSheetName = "tabler.css";
 
     private static readonly string LastSheet =
         Path.Combine("src", "Shared", "JSini.Web.Components", "wwwroot", LastSheetName);
 
-    /// <summary>색띠를 들고 있는 스타일시트 정본 세 벌.</summary>
-    /// <remarks>
-    /// <para>
-    /// 셋으로 나뉜 것은 모듈 CSS 가 셸을 거치지 않고 따로 실리고, 그 위에
-    /// Tabler 테마가 <b>맨 마지막에</b> 한 벌 더 실리기 때문이다.
-    /// <b>갈라지면 화면마다 다른 색이 된다</b> — 아래에서 같은지도 본다.
-    /// </para>
-    /// <para>
-    /// <b>tabler.css 를 뒤늦게 들였다.</b> 앞의 둘에만 색띠를 깔아 두었더니
-    /// 화면에서는 스물한 칸이 <b>전부 회색</b>이었다 — 그 파일의
-    /// <c>.jsini-badge</c> 가 바탕을 다시 깔고 가장 늦게 실려서, 자릿수가
-    /// 같은 <c>--usage-*</c> 가 통째로 졌다. 수식어는 제대로 붙어 있었으므로
-    /// (헤드리스로 재어 <c>--usage-70</c> + <c>rgb(245,245,245)</c> 확인)
-    /// 이름만 보는 검사로는 영영 안 잡힌다.
-    /// </para>
-    /// </remarks>
+    /// <summary>색띠를 들고 있는 스타일시트 정본 세 벌. 모듈 CSS 는 셸을 거치지 않고 따로 실리고 Tabler 가 맨 마지막에 한 벌 더 실리므로, 갈라지면 화면마다 다른 색이 된다.
+    /// tabler.css 를 뒤늦게 들였을 때 앞의 둘에만 깔린 색띠가 전부 회색이 된 적이 있다 — 바탕 규칙이 가장 늦게 실려 자릿수가 같은 --usage-* 가 졌다. 이름만 보는 검사로는 안 잡힌다.</summary>
     private static readonly string[] Sheets =
     [
         Path.Combine("src", "Shared", "JSini.Web.Components", "wwwroot", "app.css"),
@@ -73,10 +41,7 @@ public sealed class AiUsageBadgePaletteTests
         Assert.Equal(Steps.ToList(), palette.Keys.Order().ToList());
     }
 
-    /// <summary>
-    /// <b>바탕이 투명하면 안 된다.</b> 이 고장의 뿌리가 알파였다 —
-    /// <c>rgba(…, 0.18)</c> 로 깔면 스물한 칸이 전부 흰색 가까이로 몰린다.
-    /// </summary>
+    /// <summary>바탕이 투명하면 안 된다 — 알파로 깔면 스물한 칸이 전부 흰색 가까이로 몰린다.</summary>
     [Theory]
     [MemberData(nameof(StyleSheets))]
     public void 바탕색은_불투명한_값이다(string relative)
@@ -92,11 +57,7 @@ public sealed class AiUsageBadgePaletteTests
         }
     }
 
-    /// <summary>
-    /// <b>쓸수록 짙어진다.</b> 색조만 바꾸면 색을 못 가리는 눈에는 한 칸도
-    /// 안 갈린다. 밝기가 <b>한 번도 되튀지 않고</b> 내려가야 「아래쪽일수록
-    /// 많이 썼다」로 읽힌다 — 옛 띠는 0%→40% 구간이 도리어 밝아졌다.
-    /// </summary>
+    /// <summary>쓸수록 짙어진다. 밝기가 한 번도 되튀지 않고 내려가야 「아래쪽일수록 많이 썼다」로 읽힌다.</summary>
     [Theory]
     [MemberData(nameof(StyleSheets))]
     public void 밝기가_단조롭게_떨어진다(string relative)
@@ -112,10 +73,7 @@ public sealed class AiUsageBadgePaletteTests
         }
     }
 
-    /// <summary>
-    /// 이웃한 두 칸이 눈에 갈려야 한다. ΔE 5 는 <b>작은 딱지에서 겨우
-    /// 알아볼 만한</b> 선이다.
-    /// </summary>
+    /// <summary>이웃한 두 칸이 눈에 갈려야 한다. ΔE 5 는 작은 딱지에서 겨우 알아볼 만한 선이다.</summary>
     [Theory]
     [MemberData(nameof(StyleSheets))]
     public void 이웃한_칸끼리_색이_갈린다(string relative)
@@ -130,10 +88,7 @@ public sealed class AiUsageBadgePaletteTests
         }
     }
 
-    /// <summary>
-    /// <b>이 고장을 그대로 재 본다.</b> 70% 와 95%(=99% 가 떨어지는 칸)는
-    /// 한눈에 갈려야 한다. 고치기 전 값이 ΔE 13.1 이었다.
-    /// </summary>
+    /// <summary>70% 와 95%(=99% 가 떨어지는 칸)는 한눈에 갈려야 한다 — 이름만 갈리고 색이 같은 고장을 잡는다.</summary>
     [Theory]
     [MemberData(nameof(StyleSheets))]
     public void 칠십퍼센트와_구십구퍼센트는_한눈에_갈린다(string relative)
@@ -157,10 +112,7 @@ public sealed class AiUsageBadgePaletteTests
         }
     }
 
-    /// <summary>
-    /// 짙은 칸에만 흰 글자를 쓴다. 밝은 바탕에 흰 글자가 얹히면
-    /// <b>대비 검사는 통과해도</b> 눈에는 날아간다.
-    /// </summary>
+    /// <summary>짙은 칸에만 흰 글자를 쓴다 — 밝은 바탕에 흰 글자가 얹히면 대비 검사는 통과해도 눈에는 날아간다.</summary>
     [Theory]
     [MemberData(nameof(StyleSheets))]
     public void 흰_글자는_짙은_칸에만_쓴다(string relative)
@@ -173,11 +125,7 @@ public sealed class AiUsageBadgePaletteTests
         }
     }
 
-    /// <summary>
-    /// <b>테두리를 적지 않는다.</b> 바탕 규칙(<c>.jsini-badge</c>)이
-    /// <c>border: 0</c> 이라 한 픽셀도 안 그려진다 — 적어 두면 색을 준 것처럼
-    /// 읽혀서, 안 갈리는 칸을 <b>갈린다고 착각하게</b> 만든다.
-    /// </summary>
+    /// <summary>테두리를 적지 않는다 — 바탕 규칙이 border: 0 이라 한 픽셀도 안 그려지고, 적어 두면 안 갈리는 칸을 갈린다고 착각하게 만든다.</summary>
     [Theory]
     [MemberData(nameof(StyleSheets))]
     public void 안_그려지는_테두리색을_적지_않는다(string relative)
@@ -200,11 +148,7 @@ public sealed class AiUsageBadgePaletteTests
         }
     }
 
-    /// <summary>
-    /// <b>맨 마지막 스타일시트 안에서도 차례가 맞아야 한다.</b> 색띠가
-    /// <c>.jsini-badge</c> 바탕 규칙보다 <b>앞</b>에 적히면, 같은 파일
-    /// 안에서도 자릿수가 같아 뒤엣것이 이겨 다시 회색이 된다.
-    /// </summary>
+    /// <summary>맨 마지막 스타일시트 안에서도 차례가 맞아야 한다 — 색띠가 바탕 규칙보다 앞에 적히면 뒤엣것이 이겨 다시 회색이 된다.</summary>
     [Fact]
     public void 마지막_스타일시트에서_색띠가_바탕_규칙보다_뒤에_있다()
     {

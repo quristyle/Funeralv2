@@ -10,76 +10,23 @@ using System.Xml.Linq;
 
 namespace HelpDeskServer.Data;
 
-/// <summary>
-/// 애플리케이션의 데이터베이스 컨텍스트 클래스
-/// </summary>
+/// <summary>애플리케이션의 데이터베이스 컨텍스트.</summary>
 public class AppDbContext : DbContext {
-  /// <summary>
-  /// 이 서비스가 쓰는 스키마 이름. 기본은 <c>helpdesk</c> 다.
-  ///
-  /// [왜 정적인가]
-  ///
-  /// EF 는 모델을 <b>컨텍스트 타입마다 한 번</b> 만들어 캐싱한다. 그 시점에
-  /// 스키마를 알아야 하는데, 모델을 만드는 <c>OnModelCreating</c> 에는 설정을
-  /// 넘길 자리가 없다. 한 프로세스가 두 스키마를 동시에 보는 일이 없으므로
-  /// 기동할 때 한 번 정하고 그대로 쓴다.
-  ///
-  /// [왜 설정으로 뺐나 — 실제로 밟았다]
-  ///
-  /// 헬프데스크 전용 DB(스키마 <c>helpdesk</c>)로 접속 문자열을 옮겼는데 이 값이
-  /// <c>jsini</c> 로 박혀 있어서 <b>모든 요청이 500 이었다</b> —
-  /// <c>relation "jsini.auth_user_links" does not exist</c>. 화면 서른다섯 개가
-  /// 통째로 비었고, 원인이 프런트처럼 보였다.
-  ///
-  /// [기본값을 helpdesk 로 올린 이유 — 2026-09-07]
-  ///
-  /// 한동안 기본값이 <c>jsini</c> 였다. 운영을 건드리지 않으려고 그렇게 뒀는데,
-  /// 마이그레이션 파일이 전부 <c>helpdesk</c> 스키마 기준으로 바뀌면서 어긋났다.
-  /// 설정 없이 <c>dotnet ef migrations add</c> 를 하면 모델(<c>jsini</c>)과
-  /// 스냅샷(<c>helpdesk</c>)이 달라 테이블을 통째로 옮기는 마이그레이션이 나온다.
-  ///
-  /// [운영도 새 DB 로 옮겼다 — 2026-09-13]
-  ///
-  /// 그 전까지 운영은 옛 DB(<c>jinrecept</c> / 스키마 <c>jsini</c>)를 봤고,
-  /// 설정에 <c>Database:Schema=jsini</c> 를 넣어야 했다. <b>그 줄이 없는 채로
-  /// 돌고 있었다</b> — 기본값이 <c>helpdesk</c> 로 올라간 뒤로 운영의 모든 요청이
-  /// <c>relation "helpdesk.improvementrequest" does not exist</c> 로 500 이었다.
-  /// 컨테이너 로그에만 남고 화면은 그냥 비어 보여서 오래 지나도 드러나지 않았다.
-  ///
-  /// 이제 운영 접속 문자열이 <c>helpdesk</c> DB(스키마 <c>helpdesk</c>)를 가리키므로
-  /// <b>설정으로 스키마를 지정하지 않는다.</b> 지정하면 기본값과 어긋날 때
-  /// 같은 500 이 되돌아온다.
-  ///
-  /// <b>옛 DB 의 자료는 옮기지 않았다.</b> <c>jinrecept</c> 는 그대로 남아 있고
-  /// (개선요청 702 · 댓글 826 · 푸시로그 31,814), 새 DB 는 비어 있다. 옮길지는
-  /// 따로 정할 일이고, 되돌리려면 운영 설정의 접속 문자열만 원복하면 된다
-  /// (<c>appsettings.Local.json.bak-jinrecept-20260913</c>).
-  /// </summary>
+  /// <summary>이 서비스가 쓰는 스키마 이름(기본 helpdesk). 기동할 때 한 번 정해 쓴다 — EF 모델이 컨텍스트마다 한 번만 만들어지기 때문이다.
+  /// 스키마를 설정으로 따로 지정하면 기본값과 어긋나 「relation does not exist」 500 이 돌아온다.</summary>
   public static string Schema { get; set; } = "helpdesk";
 
   private readonly IHttpContextAccessor? _httpContextAccessor;
 
-  /// <summary>
-  /// 마이그레이션 도구를 위한 생성자
-  /// </summary>
-  /// <param name="options">DB 컨텍스트 옵션</param>
+  /// <summary>마이그레이션 도구용 생성자.</summary>
   public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
-  /// <summary>
-  /// 의존성 주입을 위한 생성자
-  /// </summary>
-  /// <param name="options">DB 컨텍스트 옵션</param>
-  /// <param name="httpContextAccessor">HTTP 컨텍스트 접근자</param>
+  /// <summary>DI 용 생성자.</summary>
   public AppDbContext(DbContextOptions<AppDbContext> options, IHttpContextAccessor httpContextAccessor) : base(options) {
     _httpContextAccessor = httpContextAccessor;
   }
 
-  // 고객사 표(`customercompany`)는 없다.
-  //
-  // 회사는 **포털이 단독으로 관리한다**(`scom.companies`). 헬프데스크가 제
-  // 회사 표를 들고 있던 것은 단독 시스템이던 시절의 잔재라, 표와 DbSet 을 함께
-  // 걷어냈다. 업무 자료는 회사를 **포털 아이디(글자)** 로 가리키고,
-  // 이름이 필요하면 `IPortalCompanyDirectory` 로 푼다.
+  // 고객사 표는 없다. 회사는 포털이 관리하고(scom.companies), 업무 자료는 포털 회사 아이디(글자)로 가리키며 이름은 IPortalCompanyDirectory 로 푼다.
 
   /// <summary>고객 테이블</summary>
   public DbSet<Customer> Customers { get; set; }
@@ -129,28 +76,16 @@ public class AppDbContext : DbContext {
 
 
 
-  /// <summary>
-  /// 푸시 메시지 테이블
-  /// </summary>
+  /// <summary>푸시 메시지 테이블</summary>
   public DbSet<PushMessage> PushMessages { get; set; } // 추가
 
-  /// <summary>
-  /// 푸시 메시지 수신자 테이블
-  /// </summary>
+  /// <summary>푸시 메시지 수신자 테이블</summary>
   public DbSet<PushMessageRecipient> PushMessageRecipients { get; set; } // 추가
 
   /// <summary>사용자 속성 테이블</summary>
   public DbSet<UserProperty> UserProperties { get; set; }
 
-  // [메뉴·권한 표 다섯을 걷어냈다 (2026-10-07)]
-  //
-  // `menu` · `menurole` · `approle` · `appuserrole` · `rolemenupermission`.
-  // 단독 시스템이던 시절 헬프데스크가 제 메뉴와 제 권한을 들고 있던 자리인데,
-  // 지금 그 둘을 정하는 곳은 포털 하나다 — 이 서비스는 포털 토큰에 실려 온
-  // 역할만 보고 판정한다(`HelpdeskPrincipal.IsAdmin`).
-  //
-  // **코드가 한 줄도 읽지 않고 있었고 운영 DB 에도 전부 0행이었다.** 남겨 두면
-  // 다음 사람이 「권한은 여기도 봐야 하나」를 매번 확인하게 된다.
+  // 메뉴·권한 표는 두지 않는다. 권한은 포털 토큰의 역할로만 판정한다(HelpdeskPrincipal.IsAdmin).
 
   /// <summary>일정 관리 테이블</summary>
   public DbSet<Schedule> Schedules { get; set; }
@@ -177,25 +112,19 @@ public class AppDbContext : DbContext {
 
 
 
-  /// <summary>
-  /// 데이터베이스에 대한 변경사항을 저장하고 감사 속성을 설정합니다.
-  /// </summary>
+  /// <summary>데이터베이스에 대한 변경사항을 저장하고 감사 속성을 설정합니다.</summary>
   public override int SaveChanges() {
     SetAuditProperties();
     return base.SaveChanges();
   }
 
-  /// <summary>
-  /// 데이터베이스에 대한 변경사항을 비동기적으로 저장하고 감사 속성을 설정합니다.
-  /// </summary>
+  /// <summary>데이터베이스에 대한 변경사항을 비동기적으로 저장하고 감사 속성을 설정합니다.</summary>
   public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default) {
     SetAuditProperties();
     return base.SaveChangesAsync(cancellationToken);
   }
 
-  /// <summary>
-  /// 감사 속성을 설정합니다.
-  /// </summary>
+  /// <summary>감사 속성을 설정합니다.</summary>
   private void SetAuditProperties() {
     var entries = ChangeTracker
         .Entries<BaseEntity>()
@@ -207,9 +136,7 @@ public class AppDbContext : DbContext {
       string user;
 
       if (httpContextForAudit?.User?.Identity?.IsAuthenticated ?? false) {
-        // 포털 계정으로 들어온 요청이면 JSini 로그인 아이디를 남긴다.
-        // 예전에는 헬프데스크 내부 숫자 ID('uid')만 남아 나중에 누구인지 알아보기 어려웠다.
-        // 헬프데스크 자체 토큰으로 들어온 요청은 예전과 같이 내부 ID 를 남긴다.
+        // 포털 계정으로 들어온 요청이면 JSini 로그인 아이디를, 헬프데스크 자체 토큰이면 내부 ID 를 남긴다.
         user = httpContextForAudit.AuditUser();
       }
       else {
@@ -253,33 +180,11 @@ public class AppDbContext : DbContext {
 
 
 
-  /*
-
-      protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-      {
-          // 개발 환경에서만 SQL 쿼리를 콘솔에 로깅합니다.
-          // 실제 운영 환경에서는 성능에 영향을 줄 수 있으므로 주의해야 합니다.
-          optionsBuilder.LogTo(Console.WriteLine, Microsoft.Extensions.Logging.LogLevel.Information);
-          base.OnConfiguring(optionsBuilder);
-      }
-  */
 
 
-  // protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-  // {
-  //     if (!optionsBuilder.IsConfigured)
-  //     {
-  //         optionsBuilder.UseNpgsql("YourConnectionStringHere",
-  //             x => x.MigrationsHistoryTable("__EFMigrationsHistory", "public"));
-  //     }
-  // }
 
 
-  /// <summary>
-  /// 데이터베이스 옵션을 구성합니다.
-  /// </summary>
-  /// <param name="optionsBuilder"></param>
-  /// <exception cref="InvalidOperationException"></exception>
+  /// <summary>데이터베이스 옵션을 구성한다.</summary>
   protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) {
     if (!optionsBuilder.IsConfigured) {
       var conn = Environment.GetEnvironmentVariable("helpdesk")
@@ -293,7 +198,7 @@ public class AppDbContext : DbContext {
           npgsqlOptions => npgsqlOptions.MigrationsHistoryTable("__EFMigrationsHistory", Schema)
       );
 
-      // 로그를 보고자 하는 코드.. 이것은 까묵지 말고 꼭 나중에 지워야함. 쿼리 노출
+      // 쿼리 노출용 로깅. 디버깅이 끝나면 지운다.
       optionsBuilder.LogTo(Console.WriteLine, Microsoft.Extensions.Logging.LogLevel.Information);
 
 
@@ -304,31 +209,8 @@ public class AppDbContext : DbContext {
 
 
 
-  /*
 
-  protected override void OnModelCreating(ModelBuilder modelBuilder)
-  {
-      modelBuilder.HasDefaultSchema("helpdesk");
-
-      // BaseEntity 상속 구조를 명시적으로 TPT로 지정
-      foreach (var entityType in modelBuilder.Model.GetEntityTypes())
-      {
-          if (entityType.ClrType.IsSubclassOf(typeof(BaseEntity)))
-          {
-              modelBuilder.Entity(entityType.ClrType).ToTable(entityType.ClrType.Name.ToLower());
-          }
-      }
-
-      ...
-  }
-
-
-  */
-
-  /// <summary>
-  /// 
-  /// </summary>
-  /// <param name="modelBuilder"></param>
+  /// <summary>모델 구성.</summary>
   protected override void OnModelCreating(ModelBuilder modelBuilder) {
     // 기본 스키마. 값은 기동할 때 설정에서 정한다 (Schema 주석 참고).
     modelBuilder.HasDefaultSchema(Schema);
@@ -349,8 +231,7 @@ public class AppDbContext : DbContext {
         .WithMany(t => t.TeamCompanies)
         .HasForeignKey(tc => tc.TeamId);
 
-    // 회사 쪽 탐색 속성은 없다 — 회사 표가 헬프데스크에 없기 때문이다.
-    // `CompanyId` 는 포털 회사 아이디를 그대로 담는 글자이고 외래키가 아니다.
+    // 회사 쪽 탐색 속성은 없다. CompanyId 는 포털 회사 아이디를 담는 글자이고 외래키가 아니다.
 
     // 관리자-팀 N:N 관계 키 설정
     modelBuilder.Entity<AdminTeam>()
@@ -451,28 +332,12 @@ public class AppDbContext : DbContext {
         .OnDelete(DeleteBehavior.Cascade);
 
 
-    // --- 추가: UserProperty 메타데이터 정리 및 명시 매핑 ---
-    // var upEntity = modelBuilder.Entity<UserProperty>().Metadata;
-
-    // // shadow 또는 잘못 생성된 AdminId 프로퍼티가 있으면,
-    // // 먼저 해당 프로퍼티를 사용하는 FK들을 제거한 뒤 프로퍼티 제거
-    // var shadowAdminProp = upEntity.FindProperty("AdminId") ?? upEntity.FindProperty("adminid");
-    // if (shadowAdminProp != null) {
-    //   // 해당 프로퍼티를 사용하는 모든 FK 수집 및 제거
-    //   var fks = upEntity.GetForeignKeys().Where(fk => fk.Properties.Any(p => p.Name == shadowAdminProp.Name)).ToList();
-    //   foreach (var fk in fks) {
-    //     upEntity.RemoveForeignKey(fk);
-    //   }
-    //   upEntity.RemoveProperty(shadowAdminProp);
-    // }
 
 
 
-    //foreach (var entity in modelBuilder.Model.GetEntityTypes())        {
     // 테이블/컬럼명 소문자 변환 및 XML 주석을 DB 코멘트로 적용
     var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
 
-    //var xmlPath = Path.Combine(AppContext.BaseDirectory, "HelpDeskServer.xml");
     var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
     XDocument? xmlDoc = null;
     if (File.Exists(xmlPath)) {
@@ -481,7 +346,6 @@ public class AppDbContext : DbContext {
 
     // BaseEntity를 상속하는 모든 엔티티의 Id 속성에 대해 자동 증가(Identity) 설정
 
-    // BaseEntity를 상속하는 모든 엔티티의 Id 속성에 대해 자동 증가(Identity) 설정
     foreach (var entityType in modelBuilder.Model.GetEntityTypes()
         .Where(e =>
             e.ClrType != null &&
@@ -492,20 +356,11 @@ public class AppDbContext : DbContext {
 
 
 
-      // foreach (var entityType in modelBuilder.Model.GetEntityTypes()
-      //     .Where(e => e.ClrType.IsSubclassOf(typeof(BaseEntity))))
-      // {
-      // modelBuilder.Entity(entityType.ClrType)
-      //     .ToTable(entityType.ClrType.Name.ToLower(), "jsini"); // 테이블명과 스키마를 명시적으로 설정
 
       modelBuilder.Entity(entityType.ClrType)
           .Property(nameof(BaseEntity.Id))
           .UseIdentityByDefaultColumn();
 
-      // BaseEntity에 새로 추가된 속성을 모든 하위 엔티티에 적용합니다.
-      // modelBuilder.Entity(entityType.ClrType)
-      //     .Property(nameof(BaseEntity.RemoteAddress))
-      //     .HasColumnType("varchar(50)"); // 데이터베이스 컬럼 타입을 명시적으로 지정합니다.
     }
 
 

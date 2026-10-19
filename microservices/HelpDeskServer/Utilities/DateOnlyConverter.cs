@@ -4,9 +4,7 @@ using System.Globalization;
 
 namespace HelpDeskServer.Utilities
 {
-    /// <summary>
-    /// JSON 직렬화/역직렬화 시 "yyyy-MM-dd" 형식의 문자열과 DateTime? 타입을 변환하는 JsonConverter.
-    /// </summary>
+    /// <summary>JSON 직렬화/역직렬화 시 "yyyy-MM-dd" 형식의 문자열과 DateTime? 타입을 변환하는 JsonConverter.</summary>
     public class DateOnlyConverter : JsonConverter<DateTime?>
     {
         private const string DateFormat = "yyyy-MM-dd";

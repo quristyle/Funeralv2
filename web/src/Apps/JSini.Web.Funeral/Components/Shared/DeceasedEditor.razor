@@ -1,28 +1,5 @@
-@*
-    [고인 등록 · 수정]
-
-    인적 사항과 상주·계약자·담당자를 한 번에 저장한다
-    (`funeral/building/deceased/{id}/detail`). 서버가 그 묶음을 통째로 받는다.
-
-    [등록도 수정도 할 수 없었다]
-
-    「고인 관리」 화면에는 호실 이동·발인·삭제만 있었다. 화면 주석에는
-    「고인 자료를 등록하고 고친다」고 적혀 있었는데 그 길이 없었다 —
-    장례식장 업무의 시작이 여기라 이것이 없으면 나머지가 다 비어 있게 된다.
-    클라이언트에는 읽기·저장이 이미 있었다.
-
-    [호실은 여기서 정하지 않는다]
-
-    배정은 전용 통로(`MoveDeceasedRoomAsync`)가 따로 있다. 상세 저장으로
-    옮기면 같은 요청에 이름·나이까지 실려 나가고, 그 사이 다른 사람이 고친
-    값을 덮는다. **등록할 때만** 첫 호실을 고르게 하고, 그 뒤로는 목록의
-    「호실 이동」이 맡는다.
-
-    [주민번호는 받되 목록에 보내지 않는다]
-
-    서버가 상세에서만 준다. 목록 화면에 흘리지 않는 것이 그쪽 판단이고,
-    이 폼도 그 판단을 따른다.
-*@
+@* [고인 등록 · 수정] — 인적 사항과 상주·계약자·담당자를 한 번에 저장한다(funeral/building/deceased/{id}/detail). 서버가 그 묶음을 통째로 받는다.
+호실은 여기서 정하지 않는다. 등록 때만 첫 호실을 고르고 이동은 목록의 호실 이동이 맡는다. 상세 저장으로 옮기면 그 사이 다른 사람의 값을 덮는다. 주민번호는 상세에서만 오므로 목록에는 흘리지 않는다. *@
 
 @inherits DataPage
 
@@ -75,8 +52,6 @@
                     @if (IsNew)
                     {
                         <DeviceField Label="첫 호실">
-                            @* 등록할 때만 고른다. 그 뒤 이동은 목록의 「호실 이동」이
-                               맡는다 — 상세 저장으로 옮기면 인적 사항까지 함께 나간다. *@
                             <DxComboBox Data="@Rooms" TextFieldName="@nameof(Room.Name)"
                                         ValueFieldName="@nameof(Room.Id)"
                                         @bind-Value="_form.RoomId"
@@ -96,13 +71,7 @@
                 </div>
             </section>
 
-            @*
-                사진.
-
-                영정사진은 **한 장**이고 빈소 화면이 그 자리에 띄운다. 추모 앨범은
-                여러 장이 순서대로 도는 것이라 파일 그룹이다 — 그래서 다루는
-                부품이 다르다.
-            *@
+            @* 영정사진은 한 장이라 빈소 화면이 그 자리에 띄우고, 추모 앨범은 여러 장이 도는 파일 그룹이라 부품이 다르다. *@
             <section class="fn-devsec is-on">
                 <h3 class="fn-devsec__head">
                     사진
@@ -130,8 +99,7 @@
                                 @if (!string.IsNullOrWhiteSpace(_form.MemorialPhotoFileId)
                                      || !string.IsNullOrWhiteSpace(_form.MemorialPhotoUrl))
                                 {
-                                    @* 지우는 것은 **연결을 끊는 것**이다. 파일 자체는 FileServer 에
-                                       남는다 — 다른 화면이 옛 주소를 들고 있을 수 있다. *@
+                                    @* 지우는 것은 연결을 끊는 것이다. 파일은 FileServer 에 남는다(옛 주소를 든 화면이 있을 수 있다). *@
                                     <DxButton Text="빼기" RenderStyle="ButtonRenderStyle.Secondary"
                                               Enabled="@(!_uploading)" Click="@ClearPortrait" />
                                 }
@@ -147,13 +115,7 @@
                 </div>
             </section>
 
-            @*
-                시설 사용.
-
-                안치실·염습실처럼 **빈소와 따로 쓰는 자리**를 언제부터 언제까지
-                썼는지 적는다. 이 값이 정산으로 그대로 간다 — 시간과 단가를
-                넣으면 금액이 나온다.
-            *@
+            @* 시설 사용: 안치실·염습실처럼 빈소와 따로 쓰는 자리. 이 값이 정산으로 그대로 가고, 시간과 단가를 넣으면 금액이 나온다. *@
             <section class="fn-devsec is-on">
                 <h3 class="fn-devsec__head">
                     시설 사용
@@ -197,8 +159,7 @@
                             </DeviceField>
 
                             <DeviceField Label="사용 시간">
-                                @* 시작·종료를 넣으면 저절로 채워진다. 손으로도 고칠 수 있다 —
-                                   실제로 쓴 시간이 시계와 다른 경우가 있다. *@
+                                @* 시작·종료를 넣으면 채워진다. 손으로도 고칠 수 있다. 실제로 쓴 시간이 시계와 다를 때가 있다. *@
                                 <DxSpinEdit Value="@facility.UseHours"
                                             ValueChanged="@((double v) => SetFacilityHours(facility, v))"
                                             ValueExpression="@(() => facility.UseHours)"

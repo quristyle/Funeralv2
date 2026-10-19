@@ -4,27 +4,8 @@ using JSini.Shared.Domain;
 
 namespace NotificationServer.Entities;
 
-/// <summary>
-/// 사용자 한 명의 알림 수신 설정 (사람 하나 = 행 하나)
-/// </summary>
-/// <remarks>
-/// <b><see cref="PushSubscription"/> 과 무엇이 다른가.</b> 구독은 <i>기기</i> 다 —
-/// 브라우저마다 한 행이고, 브라우저를 지우면 사라진다. 이 표는 <i>사람의 뜻</i> 이다 —
-/// 기기를 다 지워도 남고, 새 기기로 구독하면 그 뜻이 그대로 적용된다.
-///
-/// <para>
-/// 주인은 구독 표와 같은 문자열 한 쌍이다(<c>ownerType</c> + <c>ownerKey</c>).
-/// 포털 계정은 <c>("jsini", 로그인 아이디)</c> 다 — 게이트웨이가 주는
-/// <c>X-User-Id</c> 가 <c>scom.accounts.user_id</c> 이기 때문이다.
-/// </para>
-///
-/// <para>
-/// <b>행이 없으면 "켜짐" 이다.</b> 기본값을 꺼짐으로 두면 설정 화면을 한 번도 열지
-/// 않은 사람이 알림을 못 받게 되고, 이 표가 생기기 전과 동작이 달라진다.
-/// 날씨만 예외로 꺼짐이 기본이다 — 업무 알림이 아니라 곁들이는 알림이라
-/// 원하는 사람만 받는 편이 맞다.
-/// </para>
-/// </remarks>
+/// <summary>사용자 한 명의 알림 수신 설정(사람 하나 = 행 하나). 구독은 기기의 것이고 이 표는 사람의 뜻이라 기기를 지워도 남는다.
+/// 행이 없으면 켜짐이다(날씨 알림만 예외로 꺼짐). 포털 계정 주인은 ("jsini", 로그인 아이디)다.</summary>
 [Table("notification_preferences", Schema = "scom")]
 public class NotificationPreference : BaseEntity<string>
 {
@@ -43,117 +24,35 @@ public class NotificationPreference : BaseEntity<string>
     [Column("owner_key")]
     public string OwnerKey { get; set; } = string.Empty;
 
-    /// <summary>
-    /// 브라우저 푸시를 받을지. 끄면 구독이 남아 있어도 보내지 않는다
-    /// (<c>PushSender</c> 가 발송 직전에 본다).
-    /// </summary>
-    /// <remarks>
-    /// 구독을 지우는 것과 다르다. 구독을 지우면 다시 켤 때 브라우저 권한부터
-    /// 다시 받아야 한다. 이 스위치는 그대로 두고 발송만 멈춘다.
-    /// </remarks>
+    /// <summary>브라우저 푸시를 받을지. 끄면 구독은 남기고 발송만 멈춘다(구독을 지우면 다시 켤 때 권한을 다시 받아야 한다).</summary>
     [Column("push_enabled")]
     public bool PushEnabled { get; set; } = true;
 
-    /// <summary>
-    /// 이메일 알림을 받을지. <b>역할로 보내는 메일</b>(<c>toRole</c>)에만 걸린다 —
-    /// 주소를 직접 적어 보내는 메일(문의 접수 회신 등)은 업무 메일이라 끄지 않는다.
-    /// </summary>
+    /// <summary>이메일 알림을 받을지. 역할로 보내는 메일(toRole)에만 걸리고, 주소를 직접 적어 보내는 업무 메일은 끄지 않는다.</summary>
     [Column("email_enabled")]
     public bool EmailEnabled { get; set; } = true;
 
-    /// <summary>
-    /// <b>쪽지를 메일로도 받을지.</b> 기본은 꺼짐이다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <see cref="EmailEnabled"/> 와 갈래가 다르다. 그쪽은 <b>업무 알림</b>(역할로
-    /// 보내는 메일)이고, 이쪽은 <b>사람이 나에게 쓴 글</b>이다. 쪽지는 이미 쪽지함에
-    /// 남고 앱 푸시로 두드리므로, 메일까지 받으면 받는 쪽에 <b>지워야 할 것이 하나
-    /// 더 생긴다</b> — 그래서 원하는 사람만 켠다.
-    /// </para>
-    ///
-    /// <para>
-    /// <b>보내는 사람이 정하지 않는다.</b> 한동안 쪽지 쓰기 화면에 「메일」 체크가
-    /// 있었는데, 메일을 하나 더 받을지는 <b>받는 사람의 사정</b>이지 보내는 사람이
-    /// 고를 일이 아니다.
-    /// </para>
-    /// </remarks>
+    /// <summary>쪽지를 메일로도 받을지(기본 꺼짐). 쪽지는 이미 쪽지함과 앱 푸시로 닿으므로 메일은 원하는 사람만 받는다. 보내는 사람이 정하지 않는다.</summary>
     [Column("note_email_enabled")]
     public bool NoteEmailEnabled { get; set; }
 
-    /// <summary>
-    /// <b>내 글에 달린 댓글</b>을 앱 푸시로 받을지. 기본은 켜짐이다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <see cref="PushEnabled"/> 아래에 있는 <b>갈래 스위치</b>다. 그것을 끄면
-    /// 아무것도 안 오고, 이것만 끄면 <b>댓글 알림만</b> 멎는다 — 헬프데스크에
-    /// 글을 자주 쓰는 사람은 답글 하나하나가 다 울리는 것을 버거워하는데,
-    /// 그렇다고 배포·쪽지까지 막으려는 것은 아니다.
-    /// </para>
-    /// <para>
-    /// 판정은 발송 직전에 <c>PushSender</c> 가 한다 — 알림구분이
-    /// <c>HELPDESK_COMMENT</c>(<see cref="JSini.Shared.DTOs.PushCategories.HelpDeskComment"/>)
-    /// 인 발송에만 걸린다.
-    /// </para>
-    /// </remarks>
+    /// <summary>내 글에 달린 댓글을 앱 푸시로 받을지(기본 켜짐). PushEnabled 아래의 갈래라 이것만 끄면 댓글 알림만 멎는다. 판정은 발송 직전 PushSender 가 한다.</summary>
     [Column("comment_push_enabled")]
     public bool CommentPushEnabled { get; set; } = true;
 
-    /// <summary>
-    /// <b>내 글에 달린 댓글</b>을 이메일로 받을지. 기본은 켜짐이다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <see cref="EmailEnabled"/> 와 갈래가 다르다. 그쪽은 <b>역할로 오는</b> 업무
-    /// 메일이고, 이쪽은 내가 <b>이름을 걸고 쓴 글</b>에 달린 답이라 받는 사람이
-    /// 지목돼 온다 — 그래서 역할 메일의 스위치로는 가려지지 않는다
-    /// (<c>EmailEndpoints.ResolveUserEmailsAsync</c> 머리말).
-    /// </para>
-    /// <para>
-    /// <see cref="NoteEmailEnabled"/>(쪽지 메일)와 기본값이 반대인 것도 뜻이 있다.
-    /// 쪽지는 쪽지함에 남지만 <b>헬프데스크 댓글은 그 요청글을 열어야만 보인다</b> —
-    /// 답이 달린 줄 모르고 며칠이 지나는 쪽이 메일 한 통보다 나쁘다.
-    /// </para>
-    /// </remarks>
+    /// <summary>내 글에 달린 댓글을 이메일로 받을지(기본 켜짐). 역할 메일 스위치로는 가려지지 않는다. 쪽지 메일과 기본값이 반대인 것은 댓글이 요청글을 열어야만 보여서다.</summary>
     [Column("comment_email_enabled")]
     public bool CommentEmailEnabled { get; set; } = true;
 
-    /// <summary>
-    /// 날씨(기상 특보 · 임계치) 알림을 받을지. <b>기본은 꺼짐이다.</b>
-    /// </summary>
-    /// <remarks>
-    /// 판정은 LifeEnvServer 가 이미 돌리고 있지만 <b>발송 경로는 아직 없다</b>
-    /// (결정 D-G1, docs/analysis/38-ghub-migration.md). 이 값은 그 결정이 붙을 때
-    /// "누구에게" 의 답이 되도록 지금 받아 둔다.
-    /// </remarks>
+    /// <summary>날씨(기상 특보 · 임계치) 알림을 받을지(기본 꺼짐). 발송 경로는 아직 없고, 이 값은 그 발송이 붙을 때 답이 되도록 미리 받아 둔다.</summary>
     [Column("weather_enabled")]
     public bool WeatherEnabled { get; set; }
 
-    /// <summary>
-    /// <b>내 위치 날씨</b> 알림을 받을지. 기본은 꺼짐이다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <see cref="WeatherEnabled"/> 와 갈래가 다르다. 그쪽은 <b>기상청이 발표한
-    /// 특보</b>가 회사가 등록해 둔 지점에 걸렸을 때만 울리는 <b>사건</b> 알림이고,
-    /// 이쪽은 <b>내가 서 있는 곳</b>의 지금 날씨와 예보를 <b>사건이 없어도 시각마다</b>
-    /// 보내는 것이다. 한 스위치에 얹으면 특보만 받고 싶은 사람이 매일 아침 알림을
-    /// 함께 받게 된다.
-    /// </para>
-    /// <para>
-    /// <b>위치 없이는 켜도 소용없다.</b> 브라우저가 위경도를 한 번 줘야
-    /// (<see cref="WeatherLat"/>) 보낼 곳이 생긴다 — 화면이 그 순서를 강제한다.
-    /// </para>
-    /// </remarks>
+    /// <summary>내 위치 날씨 알림을 받을지(기본 꺼짐). 특보와 달리 사건이 없어도 시각마다 보내므로 스위치를 따로 둔다. 위치 없이는 켜도 소용없다.</summary>
     [Column("weather_local_enabled")]
     public bool WeatherLocalEnabled { get; set; }
 
-    /// <summary>브라우저 Geolocation 이 준 위도(10진 도).</summary>
-    /// <remarks>
-    /// <b>기기가 아니라 사람에 붙는다.</b> 구독표(<see cref="PushSubscription"/>)는
-    /// 브라우저 하나가 한 줄이라 거기 두면 기기를 바꿀 때마다 위치를 다시 잡아야 한다.
-    /// </remarks>
+    /// <summary>브라우저 Geolocation 이 준 위도(10진 도). 기기가 아니라 사람에 붙는다.</summary>
     [Column("weather_lat")]
     public double? WeatherLat { get; set; }
 
@@ -161,10 +60,7 @@ public class NotificationPreference : BaseEntity<string>
     [Column("weather_lon")]
     public double? WeatherLon { get; set; }
 
-    /// <summary>
-    /// 보여 줄 지역 이름(예: <c>울산광역시 남구 삼산동</c>). <b>표시 전용이다</b> —
-    /// 어느 격자로 물을지는 발송기가 위경도에서 다시 계산한다.
-    /// </summary>
+    /// <summary>보여 줄 지역 이름. 표시 전용이고, 격자는 발송기가 위경도에서 다시 계산한다.</summary>
     [Column("weather_place")]
     public string? WeatherPlace { get; set; }
 
@@ -176,28 +72,11 @@ public class NotificationPreference : BaseEntity<string>
     [Column("weather_located_at")]
     public DateTime? WeatherLocatedAt { get; set; }
 
-    /// <summary>
-    /// 위치를 마지막으로 <b>확인한</b> 때. 위의 것과 갈래가 다르다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 브라우저는 포털이 열려 있는 동안 <b>권한이 이미 허용된 경우에만</b> 조용히
-    /// 위치를 다시 재어 보낸다(<c>GeoLocator</c>). 자리가 안 바뀌었으면 위의
-    /// <see cref="WeatherLocatedAt"/> 은 그대로 두고 이 칸만 찍는다 — 그래야
-    /// 「옛 동네 날씨가 오는가」와 「그동안 확인은 했는가」를 갈라 말할 수 있다.
-    /// </para>
-    /// <para>
-    /// 좌표가 실려 왔다고 찍지 않는다. 설정 화면은 스위치 하나에도 설정 전체를
-    /// 보내므로 <c>WeatherLocated</c> 가 참일 때만 찍는다(그 DTO 머리말).
-    /// </para>
-    /// </remarks>
+    /// <summary>위치를 마지막으로 확인한 때. 자리가 안 바뀌었으면 WeatherLocatedAt 은 그대로 두고 이 칸만 찍는다 — 옛 동네 날씨와 확인 시각을 갈라 말하려고.</summary>
     [Column("weather_synced_at")]
     public DateTime? WeatherSyncedAt { get; set; }
 
-    /// <summary>
-    /// 마지막으로 보낸 때. <b>같은 시각 칸에 두 번 보내지 않으려고 본다</b> —
-    /// 발송기가 5분마다 도는데 이 값이 없으면 한 시간에 열두 번 간다.
-    /// </summary>
+    /// <summary>마지막으로 보낸 때. 같은 시각 칸에 두 번 보내지 않으려고 본다 — 발송기가 5분마다 돌아 이 값이 없으면 한 시간에 열두 번 간다.</summary>
     [Column("weather_local_sent_at")]
     public DateTime? WeatherLocalSentAt { get; set; }
 }

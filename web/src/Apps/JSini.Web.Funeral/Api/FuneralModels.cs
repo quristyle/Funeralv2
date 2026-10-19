@@ -1,12 +1,7 @@
 namespace JSini.Web.Funeral.Api;
 
-// ── 장례식장 DTO 모음 ─────────────────────────────────────────────
-//
-// Vue 원본: fronts/apps/jsini-portal/src/api/funeral/**/index.ts 의 인터페이스를
-// 그대로 옮겼다. 백엔드(funeralv2Api, .NET)가 camelCase JSON 으로 내려주고
-// GatewayClient 가 대소문자를 가리지 않으므로 속성 이름만 PascalCase 로 바꾼다.
-//
-// 화면 폼에 바로 바인딩할 수 있게 전부 변경 가능(mutable) 클래스다.
+// 장례식장 DTO. 백엔드가 camelCase JSON 을 주고 GatewayClient 가 대소문자를 가리지 않아 속성은 PascalCase 다.
+// 폼에 바로 바인딩하도록 전부 변경 가능(mutable) 클래스다.
 
 /// <summary>건물 (빈소가 있는 시설 한 동)</summary>
 public sealed class Building
@@ -23,10 +18,7 @@ public sealed class Building
     public string? BuildingPhotoGroupId { get; set; }
     public string? ParkingPhotoGroupId { get; set; }
 
-    /// <summary>
-    /// 전경 사진 주소들. <b>서버가 세어 준다 — 보내지 않는다.</b>
-    /// 목록에서 「몇 장인가」를 보여 주는 데만 쓴다(그룹 아이디가 정본이다).
-    /// </summary>
+    /// <summary>전경 사진 주소들. 서버가 세어 주며 보내지 않는다 — 그룹 아이디가 정본이다.</summary>
     public List<string> BuildingPhotos { get; set; } = [];
 
     /// <summary>주차장 안내 이미지 주소들. <see cref="BuildingPhotos"/> 와 같다.</summary>
@@ -60,23 +52,12 @@ public sealed class Room
     /// <summary>ACTIVE · INACTIVE</summary>
     public string Status { get; set; } = "ACTIVE";
 
-    /// <summary>
-    /// 나열 순서. <b>이름으로 세우면 「101호」보다 「10호」가 앞에 온다</b>(글자 순서라
-    /// 그렇다). 현황판과 목록이 이 값으로 줄을 세운다.
-    /// </summary>
+    /// <summary>나열 순서. 이름으로 세우면 101호보다 10호가 앞에 온다. 현황판과 목록이 이 값으로 줄을 세운다.</summary>
     public int SortOrder { get; set; }
 
     public string? Remark { get; set; }
 
-    /// <summary>
-    /// 편집 폼의 「사용」 스위치가 묶이는 자리.
-    ///
-    /// <para>
-    /// 팝업 안 편집기는 <c>@@bind-</c> 로 묶어야 한다 — 값과 콜백을 따로 주면
-    /// 검증 식이 없어 <b>팝업이 말없이 안 열린다.</b> 자료가 글자라 그대로는
-    /// 못 묶으므로 형이 맞는 창을 낸다.
-    /// </para>
-    /// </summary>
+    /// <summary>편집 폼의 「사용」 스위치. 팝업 안 편집기는 @@bind- 로 묶어야 한다. 값과 콜백을 따로 주면 검증 식이 없어 팝업이 말없이 안 열린다.</summary>
     public bool IsActive
     {
         get => Status == "ACTIVE";
@@ -146,10 +127,7 @@ public sealed class MediaSource
     public string? ThumbnailFileId { get; set; }
     public string? OriginalFileId { get; set; }
 
-    /// <summary>
-    /// 브라우저가 바로 트는 변환본(H.264). 원본이 그대로 안 열리는 형식일 때
-    /// 서버가 만들어 둔다. <b>재생은 이것을 먼저 본다.</b>
-    /// </summary>
+    /// <summary>브라우저가 바로 트는 변환본(H.264). 원본이 안 열리는 형식이면 서버가 만든다. 재생은 이것을 먼저 본다.</summary>
     public string? WebmUrl { get; set; }
 
     /// <summary>변환본이 실제로 있는가. 서버가 판정해 준다.</summary>
@@ -158,14 +136,7 @@ public sealed class MediaSource
     /// <summary>음원 변환본(AAC).</summary>
     public string? AacUrl { get; set; }
 
-    /// <summary>
-    /// 변환 상태 — <c>READY</c> · <c>PROCESSING</c> · <c>COMPLETED</c> · <c>FAILED</c>.
-    ///
-    /// <para>
-    /// 올린 직후에는 변환이 아직 안 끝났을 수 있다. <b>이 값이 없으면 화면에서
-    /// 「왜 안 나오는지」를 알 길이 없다</b> — 재처리 단추만 있고 이유가 없었다.
-    /// </para>
-    /// </summary>
+    /// <summary>변환 상태 — READY · PROCESSING · COMPLETED · FAILED. 이 값이 없으면 화면이 「왜 안 나오는지」를 알 길이 없다.</summary>
     public string Status { get; set; } = "COMPLETED";
 
     /// <summary>변환이 실패한 이유. 실패했을 때만 있다.</summary>
@@ -453,14 +424,7 @@ public sealed class FuneralStatus
 
     public DateTime? UpdatedAt { get; set; }
 
-    /// <summary>
-    /// 지금 고인이 모셔져 있는가.
-    ///
-    /// <b><c>Status</c> 문자열을 화면에서 비교하지 않는다.</b> 서버가 쓰는 값이
-    /// EMPTY · IN_USE 두 가지만이 아니고(출상 대기 같은 중간 상태가 있다),
-    /// 화면마다 각자 비교하면 어느 화면은 중간 상태를 빈방으로 센다.
-    /// 판정을 여기 한 줄로 모아 둔다.
-    /// </summary>
+    /// <summary>지금 고인이 모셔져 있는가. Status 문자열을 화면에서 비교하지 않는다 — 출상 대기 같은 중간 상태가 있어 화면마다 비교하면 어느 화면은 빈방으로 센다.</summary>
     public bool Occupied => !string.IsNullOrEmpty(DeceasedId);
 }
 

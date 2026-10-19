@@ -13,10 +13,7 @@ public partial class MindMapView
     /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
     private string ConditionSummary => SchSummary.Of(_projectName, _title);
 
-    /// <summary>
-    /// 고른 프로젝트의 <b>이름</b>. 화면이 든 것은 코드뿐이고 목록은
-    /// <c>CodeSelect</c> 안에 있어, 그 부품이 <c>@bind-Text</c> 로 올려 준다.
-    /// </summary>
+    /// <summary>고른 프로젝트의 이름. 코드만 들고, 목록은 CodeSelect 가 쥐고 있다.</summary>
     private string? _projectName;
 
     /// <summary>이 화면이 다루는 속성 갈래. 열쇠의 한 칸이다.</summary>
@@ -30,32 +27,19 @@ public partial class MindMapView
 
     private string? _projectCode;
 
-    /// <summary>
-    /// 지금 다루는 마인드맵의 제목. <b>빈 글자가 「아직 없다」</b>다 —
-    /// 적는 칸(<c>DxTextBox</c>)이 널을 주지 않기 때문이다.
-    /// </summary>
+    /// <summary>지금 다루는 마인드맵의 제목. 빈 글자가 「아직 없다」다 — 적는 칸이 널을 주지 않는다.</summary>
     private string _title = string.Empty;
 
-    /// <summary>
-    /// 고르개에서 고른 제목. <see cref="_title"/> 과 갈라 둔다 — 새 이름을
-    /// 적는 순간 고르개의 값은 목록에 없는 것이 되고, 그때 고르개에 그 값을
-    /// 밀어 넣으면 DevExpress 가 지워 버린다(위 칸 주석).
-    /// </summary>
+    /// <summary>고르개에서 고른 제목. _title 과 갈라 둔다 — 새 이름을 적는 순간 고르개 값이 목록에 없어지고, 그때 그 값을 넣으면 DevExpress 가 지운다.</summary>
     private string? _picked;
 
     /// <summary>고른 프로젝트에 저장된 마인드맵 제목들.</summary>
     private List<string> _titles = [];
 
-    /// <summary>
-    /// 캔버스를 고쳤는데 아직 저장 안 했다. 그림은 저장 단추를 눌렀을 때만
-    /// 서버로 가므로, 그 사실을 화면이 말해 주지 않으면 사람이 잃는다.
-    /// </summary>
+    /// <summary>캔버스를 고쳤는데 아직 저장 안 했다. 그림은 저장 단추를 눌렀을 때만 서버로 가므로, 화면이 알려 주지 않으면 사람이 잃는다.</summary>
     private bool _dirty;
 
-    /// <summary>
-    /// 지금 보고 있는 것이 <b>서버에 있는 마인드맵</b>인가. 삭제 단추를 켜고
-    /// 끄는 데 쓴다 — 아직 저장 안 한 새 그림에는 지울 것이 없다.
-    /// </summary>
+    /// <summary>서버에 있는 마인드맵인가. 삭제 단추를 켜고 끄는 데 쓴다.</summary>
     private bool _saved;
 
     /// <summary>mermaid 글 칸이 펴져 있는가.</summary>
@@ -63,10 +47,7 @@ public partial class MindMapView
 
     private string _mermaid = string.Empty;
 
-    /// <summary>
-    /// 모양 목록을 받아 둔다. <b>캔버스가 생긴 뒤에만</b> 물을 수 있다 —
-    /// 그 목록은 JS 모듈 안에 있고, 모듈은 캔버스가 처음 그려질 때 실린다.
-    /// </summary>
+    /// <summary>모양 목록을 받아 둔다. 캔버스가 생긴 뒤에만 물을 수 있다(목록은 JS 모듈 안에 있다).</summary>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender || _canvas is null || _shapes.Count > 0)
@@ -80,10 +61,7 @@ public partial class MindMapView
 
     /* ── 목록·불러오기·저장 ─────────────────────────────────── */
 
-    /// <summary>
-    /// 제목 목록을 채운다. <b>그림은 아직 안 읽는다</b> — 어느 것을 열지는
-    /// 사람이 고른다.
-    /// </summary>
+    /// <summary>제목 목록을 채운다. 그림은 아직 안 읽는다 — 어느 것을 열지는 사람이 고른다.</summary>
     private Task LoadTitlesAsync()
     {
         _title = string.Empty;
@@ -108,11 +86,7 @@ public partial class MindMapView
            "마인드맵 목록을 읽지 못했습니다");
     }
 
-    /// <summary>
-    /// 고르개에서 고른 제목을 적는 칸으로 옮긴다. <b>두 칸이 같은 것을
-    /// 가리키게 하는 유일한 자리다</b> — 반대 방향(적는 칸 → 고르개)은 가지
-    /// 않는다(목록에 없는 값을 고르개에 넣으면 지워진다).
-    /// </summary>
+    /// <summary>고르개에서 고른 제목을 적는 칸으로 옮긴다. 두 칸이 같은 것을 가리키게 하는 유일한 자리다 — 반대 방향은 가지 않는다(목록에 없는 값을 고르개에 넣으면 지워진다).</summary>
     private void PickTitle(string? name)
     {
         _picked = name;
@@ -134,9 +108,7 @@ public partial class MindMapView
 
             _saved = saved.Count > 0;
 
-            // 저장본이 없으면 뿌리 하나짜리 새 그림에서 시작한다. 빈 캔버스를
-            // 주면 「무엇부터 하라는 것인가」가 되고, 마인드맵은 뿌리가
-            // 있어야만 시작할 수 있는 그림이다.
+            // 저장본이 없으면 뿌리 하나짜리 새 그림에서 시작한다 — 빈 캔버스는 무엇부터 하라는지 알 수 없다.
             var model = _saved ? MindMapModel.Parse(raw) : NewMap();
 
             if (_canvas is not null)
@@ -152,10 +124,7 @@ public partial class MindMapView
         }, "저장된 마인드맵이 없습니다. 새로 그려 저장하십시오.", "마인드맵을 읽지 못했습니다");
     }
 
-    /// <summary>
-    /// 새 마인드맵을 캔버스에 올린다. <b>서버에는 아무 일도 하지 않는다</b> —
-    /// 제목을 적고 「저장」을 눌렀을 때 생긴다.
-    /// </summary>
+    /// <summary>새 마인드맵을 캔버스에 올린다. 서버에는 아무 일도 하지 않는다 — 제목을 적고 「저장」을 눌렀을 때 생긴다.</summary>
     private async Task NewMapAsync()
     {
         if (_canvas is null)
@@ -212,8 +181,7 @@ public partial class MindMapView
                 PropType = PropType,
                 PropVal = model.ToJson(),
 
-                // 설명 칸에 마디 수를 남긴다. DB 속성 화면에서 값을 펼치지
-                // 않고도 빈 그림과 그린 그림을 가릴 수 있다.
+                // 설명 칸에 마디 수를 남겨, DB 속성 화면에서 펼치지 않고도 빈 그림과 그린 그림을 가린다.
                 PropComm = $"마인드맵 · 마디 {model.Count}개",
                 PropUseYn = "Y",
             }),
@@ -298,8 +266,7 @@ public partial class MindMapView
     {
         if (_canvas is null) return;
 
-        // **먼저 무엇을 지우는지 알아본다.** 자식이 딸린 마디를 지우면 그
-        // 아래가 통째로 사라지는데, 그 사실을 묻지 않고 지우면 되돌릴 길이 없다.
+        // 먼저 무엇을 지우는지 알아본다 — 자식이 딸린 마디를 묻지 않고 지우면 아래가 통째로 사라져 되돌릴 길이 없다.
         var node = await _canvas.SelectionAsync();
 
         if (node is null)
@@ -366,15 +333,7 @@ public partial class MindMapView
 
     /* ── mermaid 글 ─────────────────────────────────────────── */
 
-    /// <summary>
-    /// 캔버스가 바뀌었다.
-    ///
-    /// <para>
-    /// mermaid 글은 <b>칸이 펴져 있을 때만</b> 다시 만든다. 닫혀 있는 칸을
-    /// 채우려고 마디 하나 고칠 때마다 나무를 통째로 받아 오면, 안 보는 글을
-    /// 위해 회로를 왕복하는 셈이다.
-    /// </para>
-    /// </summary>
+    /// <summary>캔버스가 바뀌었다. mermaid 글은 칸이 펴져 있을 때만 다시 만든다 — 닫힌 칸을 위해 마디마다 나무를 받아 오면 안 보는 글 때문에 회로를 왕복한다.</summary>
     private async Task OnCanvasChangedAsync()
     {
         _dirty = true;
@@ -403,10 +362,7 @@ public partial class MindMapView
         _mermaid = (await _canvas.SaveAsync()).ToMermaid();
     }
 
-    /// <summary>
-    /// 글을 읽어 그림을 다시 그린다. <b>지금 그림을 덮어쓴다</b> — 되돌릴 수
-    /// 없으므로 한 번 묻는다.
-    /// </summary>
+    /// <summary>글을 읽어 그림을 다시 그린다. 지금 그림을 덮어쓰므로 되돌릴 수 없어 한 번 묻는다.</summary>
     private async Task ApplyTextAsync()
     {
         if (_canvas is null) return;
@@ -420,18 +376,14 @@ public partial class MindMapView
 
         await _canvas.LoadAsync(model);
 
-        // 읽은 글을 그대로 두지 않는다. 사람이 적은 글과 우리가 읽어 낸 나무가
-        // 어긋난 자리(못 읽은 줄·따옴표)를 **눈으로 볼 수 있어야** 한다.
+        // 읽은 글을 그대로 두지 않는다 — 사람이 적은 글과 읽어 낸 나무가 어긋난 자리(못 읽은 줄·따옴표)를 눈으로 볼 수 있어야 한다.
         await RefreshTextAsync();
 
         _dirty = true;
         Say($"마디 {model.Count}개를 읽었습니다. 「저장」을 눌러야 남습니다.");
     }
 
-    /// <summary>
-    /// 한 번 묻는다. 확인창이 아직 안 그려졌으면(프리렌더) 그대로 진행한다 —
-    /// 그 상태에서는 사람이 단추를 누를 수도 없다.
-    /// </summary>
+    /// <summary>확인창. 아직 안 그려졌으면(프리렌더) 그대로 진행한다 — 그 상태에서는 사람이 단추를 누를 수도 없다.</summary>
     private async Task<bool> Ask(string message, string confirmText = "삭제")
         => _confirm is null || await _confirm.AskAsync(message, confirmText: confirmText);
 }

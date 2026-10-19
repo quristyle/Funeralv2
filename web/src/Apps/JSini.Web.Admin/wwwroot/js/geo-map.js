@@ -74,105 +74,73 @@
     다시 서는 순간(`show` 또는 `ResizeObserver`)에 그때의 크기로 셈한다.
 */
 
-/** 타일 한 장의 변. OSM 표준이다. */
+/* * 타일 한 장의 변. OSM 표준이다. */
 const TILE = 256;
 
 const MIN_ZOOM = 3;
 const MAX_ZOOM = 18;
 
-/** 점이 하나뿐일 때 쓰는 확대 단계 — 동네 이름이 읽히는 정도. */
+/* * 점이 하나뿐일 때 쓰는 확대 단계 — 동네 이름이 읽히는 정도. */
 const SINGLE_ZOOM = 15;
 
-/** 「맞춤」이 가장자리에 두는 여백(픽셀). */
+/* * 「맞춤」이 가장자리에 두는 여백(픽셀). */
 const PAD = 48;
 
-/**
- * 겹친 점을 벌리는 반지름(픽셀). 점 지름이 22px 이라 그보다 커야 서로 안 문다.
- */
+/* 겹친 점을 벌리는 반지름(픽셀). 점 지름이 22px 이라 그보다 커야 서로 안 문다. */
 const SPREAD_RADIUS = 18;
 
-/**
- * 이만큼 안에 든 점들은 **겹친 것으로 보고 벌린다**(픽셀).
- *
- * 작은 핀의 머리가 22px 이라 그 언저리여야 한다 — 더 크게 잡으면 확대해
- * 떼어 놓은 점들이 도로 모이고, 작게 잡으면 머리가 서로를 덮어 **숫자가
- * 가려진 채로** 남는다. 가려진 쪽이 더 나쁘다(점이 없는 것으로 읽힌다).
- */
+/* 이만큼 안에 든 점들은 **겹친 것으로 보고 벌린다**(픽셀). 작은 핀의 머리가 22px 이라 그 언저리여야 한다 — 더 크게 잡으면 확대해 떼어 놓은 점들이 도로
+   모이고, 작게 잡으면 머리가 서로를 덮어 **숫자가 가려진 채로** 남는다. 가려진 쪽이 더 나쁘다(점이 없는 것으로 읽힌다). */
 const NEAR_PIXELS = 18;
 
 function clamp(v, lo, hi) {
     return Math.max(lo, Math.min(hi, v));
 }
 
-/** 경도 → 세상 픽셀 x. */
+/* * 경도 → 세상 픽셀 x. */
 function lonToX(lon, worldSize) {
     return (lon + 180) / 360 * worldSize;
 }
 
-/** 위도 → 세상 픽셀 y (웹 메르카토르). 극지방은 ±85.05 도에서 잘린다. */
+/* * 위도 → 세상 픽셀 y (웹 메르카토르). 극지방은 ±85.05 도에서 잘린다. */
 function latToY(lat, worldSize) {
     const rad = clamp(lat, -85.05112878, 85.05112878) * Math.PI / 180;
     return (1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2 * worldSize;
 }
 
-/**
- * 지도를 붙인다.
- *
- * @param host   타일과 점이 들어갈 상자. `position: relative; overflow: hidden` 이어야 한다.
- * @param dotnet 점을 눌렀을 때 부를 .NET 쪽 손잡이 (`PickMarker(key)`).
- */
+/* 지도를 붙인다. @param host 타일과 점이 들어갈 상자. `position: relative; overflow: hidden` 이어야 한다. @param
+   dotnet 점을 눌렀을 때 부를 .NET 쪽 손잡이 (`PickMarker(key)`). */
 export function create(host, dotnet) {
     let zoom = 11;
 
-    // 가운데의 세상 픽셀 좌표. 처음에는 대한민국 가운데쯤을 본다 —
-    // 점이 오면 `fit` 이 곧바로 옮긴다.
+    // 가운데의 세상 픽셀 좌표. — 점이 오면 `fit` 이 곧바로 옮긴다.
     let worldSize = TILE * Math.pow(2, zoom);
     let cx = lonToX(127.8, worldSize);
     let cy = latToY(36.3, worldSize);
 
-    /**
-     * 찍을 점들. `{ key, lat, lon, name, muted, badge? }`
-     *
-     * `badge` 가 있으면 **작은 핀**으로 찍고 그 글자만 적는다(머리말).
-     * 없으면 이름표다 — 「위치 지도」가 그쪽이다.
-     */
+    /* 찍을 점들. `{ key, lat, lon, name, muted, badge? }` `badge` 가 있으면 **작은 핀**으로 찍고 그 글자만 적는다(머리말). 없으면
+       이름표다 — 「위치 지도」가 그쪽이다. */
     let markers = [];
 
-    /*
-        점들을 잇는 선. `{ lat, lon }` 의 배열이고 **비어 있는 것이 기본**이다 —
-        「위치 지도」는 선을 긋지 않는다(한 사람씩 떨어진 점이라 이을 뜻이 없다).
-
-        「내 이동경로」(/admin/location/my-track)만 이것을 채운다. 거기서는
-        점의 차례가 곧 시간이라, 선이 없으면 **어디서 어디로 갔는지**를 번호를
-        눈으로 따라가며 재구성해야 한다.
-    */
+    /* 점들을 잇는 선. `{ lat, lon }` 의 배열이고 **비어 있는 것이 기본**이다 — 「위치 지도」는 선을 긋지 않는다(한 사람씩 떨어진 점이라 이을 뜻이 없다).
+       「내 이동경로」(/admin/location/my-track)만 이것을 채운다. */
     let path = [];
 
-    /** 지금 고른 점의 열쇠. 목록에서 고른 것도 여기로 온다. */
+    /* * 지금 고른 점의 열쇠. 목록에서 고른 것도 여기로 온다. */
     let picked = null;
 
-    /**
-     * 자리가 없어 미뤄 둔 맞추기. 판이 감춰진 동안 「전부 보기」가 불리면
-     * 여기에 적어 두었다가 판이 다시 설 때 셈한다(머리말).
-     */
+    /* 자리가 없어 미뤄 둔 맞추기. 판이 감춰진 동안 「전부 보기」가 불리면 여기에 적어 두었다가 판이 다시 설 때 셈한다(머리말). */
     let pendingFit = false;
 
-    /** 떼어 냈나. 뗀 뒤에 불리면 <b>떼어 낸 노드에 타일을 붙인다.</b> */
+    /* * 떼어 냈나. 뗀 뒤에 불리면 <b>떼어 낸 노드에 타일을 붙인다.</b> */
     let disposed = false;
 
     const tiles = document.createElement('div');
     tiles.className = 'ad-geomap__tiles';
     host.appendChild(tiles);
 
-    /*
-        선을 담는 판. **타일 위 · 점 아래**다 — 점보다 위에 두면 선이 점을
-        가로질러 번호를 덮고, 타일 아래에 두면 아예 안 보인다.
-
-        `<svg>` 인 까닭은 선 하나를 긋자고 캔버스를 들이면 **다시 그리는 책임이
-        우리에게 넘어오기** 때문이다. 끌 때마다 지우고 다시 칠해야 하고, 고해상도
-        화면에서는 `devicePixelRatio` 까지 우리가 맞춰야 한다. SVG 는 좌표만
-        갈아 끼우면 브라우저가 알아서 그린다.
-    */
+    /* 선을 담는 판. **타일 위 · 점 아래**다 — 점보다 위에 두면 선이 점을 가로질러 번호를 덮고, 타일 아래에 두면 아예 안 보인다. `<svg>` 인 까닭은 선
+       하나를 긋자고 캔버스를 들이면 **다시 그리는 책임이 우리에게 넘어오기** 때문이다. 끌 때마다 */
     const trail = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     trail.setAttribute('class', 'ad-geomap__trail');
     host.appendChild(trail);
@@ -185,16 +153,11 @@ export function create(host, dotnet) {
     pins.className = 'ad-geomap__pins';
     host.appendChild(pins);
 
-    /*
-        타일 <img> 를 열쇠(z/x/y)로 들고 있는다. 매번 새로 만들면 끌 때마다
-        같은 그림을 다시 붙이게 되고, 브라우저 캐시가 받쳐 주더라도 **한 번은
-        빈 칸이 보인다** — 지도가 깜빡이는 것으로 나타난다.
-    */
+    /* 타일 <img> 를 열쇠(z/x/y)로 들고 있는다. 매번 새로 만들면 끌 때마다 같은 그림을 다시 붙이게 되고, 브라우저 캐시가 받쳐 주더라도 **한 번은 빈 칸이
+       보인다** — 지도가 깜빡이는 것으로 나타난다. */
     const tileCache = new Map();
 
-    /**
-     * 셈할 만한 자리가 있나. 감춰진 판(`display: none`)은 0 × 0 이다.
-     */
+    /* 셈할 만한 자리가 있나. 감춰진 판(`display: none`)은 0 × 0 이다. */
     function hasBox() {
         return host.clientWidth >= 20 && host.clientHeight >= 20;
     }
@@ -250,8 +213,7 @@ export function create(host, dotnet) {
             }
         }
 
-        // 화면 밖으로 나간 타일은 떼어 낸다. 남겨 두면 크게 끌어 본 만큼
-        // <img> 가 쌓여 수천 장이 된다.
+        // 화면 밖으로 나간 타일은 떼어 낸다. 남겨 두면 크게 끌어 본 만큼 <img> 가 쌓여 수천 장이 된다.
         for (const [key, img] of tileCache) {
             if (!alive.has(key)) {
                 img.remove();
@@ -263,10 +225,7 @@ export function create(host, dotnet) {
         renderPins(left, top);
     }
 
-    /**
-     * 점들을 잇는 선을 다시 놓는다. 선이 없으면 판을 숨긴다 —
-     * 「위치 지도」는 이 자리를 쓰지 않는다.
-     */
+    /* 점들을 잇는 선을 다시 놓는다. 선이 없으면 판을 숨긴다 — 「위치 지도」는 이 자리를 쓰지 않는다. */
     function renderTrail(left, top, w, h) {
         if (path.length < 2) {
             trail.style.display = 'none';
@@ -283,25 +242,12 @@ export function create(host, dotnet) {
             .join(' '));
     }
 
-    /**
-     * 점을 놓는다. <b>화면에서 포개지는</b> 것들은 작은 원으로 벌린다.
-     */
+    /* 점을 놓는다. <b>화면에서 포개지는</b> 것들은 작은 원으로 벌린다. */
     function renderPins(left, top) {
         pins.textContent = '';
 
-        /*
-            **좌표가 아니라 화면 거리로 묶는다.**
-
-            한동안 좌표를 소수점 다섯째 자리(약 1m)까지 잘라 열쇠로 썼는데,
-            그 자가 막으려던 것은 「겹쳐서 못 누른다」이지 「좌표가 같다」가
-            아니었다. 자른 자리의 **경계를 사이에 두고 10m 떨어진 두 점**은
-            열쇠가 달라 안 벌어지고, 그런데도 화면에서는 완전히 포개진다 —
-            이동 경로에서 사무실을 나갔다 돌아온 날이 꼭 그 꼴이라(같은 건물의
-            두 자리) 뒤에 그려진 점이 앞엣것을 통째로 덮었다.
-
-            픽셀로 재면 그 틈이 없다. 확대하면 저절로 갈라지는 것도 덤이다 —
-            자른 자리는 아무리 확대해도 같은 묶음에 남는다.
-        */
+        /* 자른 자리의 **경계를 사이에 두고 10m 떨어진 두 점**은 열쇠가 달라 안 벌어지고, 그런데도 화면에서는 완전히 포개진다 — 이동 경로에서 사무실을 나갔다 돌아온 날이
+           꼭 그 꼴이라(같은 건물의 두 자리) 뒤에 그려진 점이 앞엣것을 통째로 덮었다. 픽셀로 재면 그 틈이 없다. 확대하면 저절로 갈라지는 것도 덤이다 */
         const groups = [];
 
         for (const m of markers) {
@@ -326,8 +272,7 @@ export function create(host, dotnet) {
                     dx = Math.cos(angle) * r;
                     dy = Math.sin(angle) * r;
 
-                    // 벌린 점은 원래 자리로 선을 긋는다 — 안 그으면 사람이
-                    // 실제로 서 있지 않은 곳에 점이 있는 것으로 읽힌다.
+                    // 벌린 점은 원래 자리로 선을 긋는다
                     const link = document.createElement('div');
                     link.className = 'ad-geomap__link';
                     link.style.left = `${baseX}px`;
@@ -345,8 +290,7 @@ export function create(host, dotnet) {
                 pin.style.left = `${baseX + dx}px`;
                 pin.style.top = `${baseY + dy}px`;
 
-                // **이름은 어느 꼴에서든 여기 들어간다.** 작은 핀은 이것이
-                // 이름을 보는 유일한 길이다(눌러서 카드를 여는 것 말고는).
+                // **이름은 어느 꼴에서든 여기 들어간다.** 작은 핀은 이것이 이름을 보는 유일한 길이다(눌러서 카드를 여는 것 말고는).
                 pin.title = m.name;
 
                 const label = document.createElement('span');
@@ -375,15 +319,13 @@ export function create(host, dotnet) {
     }
 
     // ── 끌기 · 확대 ─────────────────────────────────────────
-    //
-    // 조직도 캔버스(`org-chart.js`)와 같은 까닭으로 포인터 이벤트를 쓴다 —
-    // 마우스·손가락·펜이 한 벌로 처리된다.
+    // 조직도 캔버스(`org-chart.js`)와 같은 까닭으로 포인터 이벤트를 쓴다 — 마우스·손가락·펜이 한 벌로 처리된다.
 
     const pointers = new Map();
     let panFrom = null;
     let pinchFrom = null;
 
-    /** 끈 거리. 이보다 적게 움직였으면 「누른 것」으로 본다. */
+    /* * 끈 거리. 이보다 적게 움직였으면 「누른 것」으로 본다. */
     const DRAG_SLOP = 4;
     let moved = 0;
 
@@ -432,9 +374,7 @@ export function create(host, dotnet) {
         host.releasePointerCapture?.(e.pointerId);
 
         if (pointers.size === 0) {
-            // **끌지 않고 뗐으면 고른 것을 푼다.** 점 하나를 고른 채 두면
-            // 옆의 목록이 그 사람을 계속 펴 놓고 있어, 지도를 둘러보는 동안
-            // 엉뚱한 사람의 카드를 보게 된다.
+            // **끌지 않고 뗐으면 고른 것을 푼다.** 점 하나를 고른 채 두면 옆의 목록이 그 사람을 계속 펴 놓고 있어, 지도를 둘러보는 동안 엉뚱한 사람의 카드를 보게 된다.
             if (panFrom && moved < DRAG_SLOP && picked !== null) {
                 picked = null;
                 render();
@@ -461,7 +401,7 @@ export function create(host, dotnet) {
         return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
     }
 
-    /** 화면의 한 점을 붙잡은 채 확대 단계를 바꾼다. 커서 아래 것이 제자리에 남는다. */
+    /* * 화면의 한 점을 붙잡은 채 확대 단계를 바꾼다. 커서 아래 것이 제자리에 남는다. */
     function zoomAt(nextZoom, screenX, screenY) {
         const next = clamp(Math.round(nextZoom), MIN_ZOOM, MAX_ZOOM);
         if (next === zoom) return;
@@ -490,9 +430,7 @@ export function create(host, dotnet) {
     host.addEventListener('pointerup', onPointerUp);
     host.addEventListener('pointercancel', onPointerUp);
 
-    // 판이 다시 서면(휴대폰에서 「지도」로 돌아오면) 여기가 먼저 불린다.
-    // 미뤄 둔 맞추기가 있으면 그것부터 갚는다 — 그냥 그리면 감추기 직전
-    // 자리에 멈춰 있는 것으로 보인다.
+    // 판이 다시 서면(휴대폰에서 「지도」로 돌아오면) 여기가 먼저 불린다. 미뤄 둔 맞추기가 있으면 그것부터 갚는다 — 그냥 그리면 감추기 직전 자리에 멈춰 있는 것으로 보인다.
     const resizes = new ResizeObserver(() => {
         if (pendingFit) fitAll();
         else render();
@@ -502,12 +440,8 @@ export function create(host, dotnet) {
     render();
 
     return {
-        /**
-         * 찍을 점을 갈아 끼운다. `fit` 이 참이면 전부 보이게 맞춘다.
-         *
-         * **맞추는 것은 자료가 바뀔 때만이다.** 걸러 보기만 해도 매번 맞추면
-         * 사람이 손으로 옮겨 둔 자리가 조건을 만질 때마다 되돌아간다.
-         */
+        /* 찍을 점을 갈아 끼운다. `fit` 이 참이면 전부 보이게 맞춘다. **맞추는 것은 자료가 바뀔 때만이다.** 걸러 보기만 해도 매번 맞추면 사람이 손으로 옮겨 둔 자리가
+           조건을 만질 때마다 되돌아간다. */
         setMarkers(items, fit) {
             markers = items ?? [];
 
@@ -520,22 +454,14 @@ export function create(host, dotnet) {
             else render();
         },
 
-        /**
-         * 점들을 잇는 선을 갈아 끼운다. `{ lat, lon }` 의 배열이고 차례가 곧 선이다.
-         *
-         * **점과 따로 두는 까닭.** 선을 이을 차례는 점의 차례와 같을 수도
-         * 있지만(이동 경로), 「위치 지도」처럼 이을 뜻이 없는 화면도 있다.
-         * `setMarkers` 가 선까지 정하면 그 화면이 선을 끄는 방법이 없다.
-         *
-         * **맞추기를 하지 않는다.** 부르는 쪽은 점도 함께 갈아 끼우므로
-         * (`setMarkers(…, true)`), 여기서 또 맞추면 같은 셈이 두 번 돈다.
-         */
+        /* 점들을 잇는 선을 갈아 끼운다. `{ lat, lon }` 의 배열이고 차례가 곧 선이다. **점과 따로 두는 까닭.** 선을 이을 차례는 점의 차례와 같을 수도
+           있지만(이동 경로), 「위치 지도」처럼 이을 뜻이 없는 화면도 있다. `setMarkers` 가 선까지 정하면 그 화면이 선을 끄는 방법이 없다. */
         setPath(points) {
             path = points ?? [];
             render();
         },
 
-        /** 목록에서 고른 것을 지도에도 알린다. 그 자리로 옮기고 점을 키운다. */
+        /* * 목록에서 고른 것을 지도에도 알린다. 그 자리로 옮기고 점을 키운다. */
         focus(key) {
             picked = key;
 
@@ -551,25 +477,18 @@ export function create(host, dotnet) {
             render();
         },
 
-        /** 전부 보이게 맞춘다. 단추가 부른다. */
+        /* * 전부 보이게 맞춘다. 단추가 부른다. */
         fit: fitAll,
 
-        /**
-         * 감춰져 있던 판이 다시 섰다. 미뤄 둔 맞추기가 있으면 갚고, 없으면
-         * 다시 그린다.
-         *
-         * `ResizeObserver` 가 같은 일을 하지만 **그것 하나에 기대지 않는다** —
-         * 접기가 `display: none` 이 아니라 폭만 같은 경우(형제 판이 사라져
-         * 높이만 늘어나는 식)에는 관찰자가 이 순간을 못 잡을 수 있고, 그러면
-         * 지도가 감추기 직전 그림에 멈춘다.
-         */
+        /* 감춰져 있던 판이 다시 섰다. 미뤄 둔 맞추기가 있으면 갚고, 없으면 다시 그린다. `ResizeObserver` 가 같은 일을 하지만 **그것 하나에 기대지 않는다**
+           — 접기가 `display: none` 이 아니라 폭만 같은 경우(형제 판이 사라져 높이만 늘어나는 식)에는 관찰자가 이 순간을 못 잡을 수 있고, 그러면 지도가 감추기 직 */
         show() {
             if (disposed) return;
             if (pendingFit) fitAll();
             else render();
         },
 
-        /** 한 단계씩 확대·축소. 화면 가운데를 붙잡는다. */
+        /* * 한 단계씩 확대·축소. 화면 가운데를 붙잡는다. */
         zoomBy(step) {
             const rect = host.getBoundingClientRect();
             zoomAt(zoom + step, rect.left + host.clientWidth / 2, rect.top + host.clientHeight / 2);
@@ -590,18 +509,12 @@ export function create(host, dotnet) {
         },
     };
 
-    /**
-     * 점 전부가 들어오는 가장 가까운 확대 단계를 고른다.
-     *
-     * 점이 하나면 「들어오는 단계」가 최대치라 지구 반대편까지 보이게 된다 —
-     * 그때는 동네가 읽히는 단계로 못박는다.
-     */
+    /* 점 전부가 들어오는 가장 가까운 확대 단계를 고른다. 점이 하나면 「들어오는 단계」가 최대치라 지구 반대편까지 보이게 된다 — 그때는 동네가 읽히는 단계로 못박는다. */
     function fitAll() {
         if (disposed) return;
 
-        // **자리가 없으면 셈하지 않는다.** 감춰진 판은 0 × 0 이라 여기서
-        // 억지로 셈하면 `best` 가 최소 단계로 떨어져 지구 전체가 나온다.
-        // 적어 두었다가 판이 다시 설 때 갚는다(머리말).
+        // **자리가 없으면 셈하지 않는다.** 감춰진 판은 0 × 0 이라 여기서 억지로 셈하면 `best` 가 최소 단계로 떨어져 지구 전체가 나온다. 적어 두었다가 판이 다시 설 때
+        // 갚는다(머리말).
         if (!hasBox()) {
             pendingFit = true;
             return;
@@ -609,10 +522,8 @@ export function create(host, dotnet) {
 
         pendingFit = false;
 
-        // **선의 점도 함께 센다.** 선이 점 밖으로 나가는 화면은 아직 없지만
-        // (이동 경로는 머문 자리를 그대로 잇는다), 빠뜨려 두면 그런 화면이
-        // 생기는 날 **선의 끝이 화면 밖으로 잘린 채** 「전부 보기」가 끝났다고
-        // 말한다 — 들여다봐도 틀린 줄 모르는 종류다.
+        // **선의 점도 함께 센다.** 선이 점 밖으로 나가는 화면은 아직 없지만 (이동 경로는 머문 자리를 그대로 잇는다), 빠뜨려 두면 그런 화면이 생기는 날 **선의 끝이 화면
+        // 밖으로 잘린 채** 「전부 보기」가 끝났다고 말한다 — 들여다봐도 틀린 줄 모르는 종류다.
         const spots = [...markers, ...path];
 
         if (spots.length === 0) {
@@ -633,10 +544,8 @@ export function create(host, dotnet) {
 
         let best = SINGLE_ZOOM;
 
-        // **한자리에 모여 있으면 「다 들어오는 단계」가 최대치가 된다.**
-        // 한 사무실에 앉은 사람들이 그렇다 — 좌표 차이가 0 이라 어느 단계에서도
-        // 들어오고, 그대로 두면 건물 하나만 보이는 18 단계까지 당겨진다.
-        // 그때는 점이 하나일 때와 같은 단계로 둔다(동네가 읽히는 정도).
+        // **한자리에 모여 있으면 「다 들어오는 단계」가 최대치가 된다.** 한 사무실에 앉은 사람들이 그렇다 — 좌표 차이가 0 이라 어느 단계에서도 들어오고, 그대로 두면 건물 하나만
+        // 보이는 18 단계까지 당겨진다. 그때는 점이 하나일 때와 같은 단계로 둔다(동네가 읽히는 정도).
         const spread = Math.max(
             Math.abs(Math.max(...lats) - Math.min(...lats)),
             Math.abs(Math.max(...lons) - Math.min(...lons)));

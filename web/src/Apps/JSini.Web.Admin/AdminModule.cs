@@ -6,9 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace JSini.Web.Admin;
 
-/// <summary>
-/// 포털관리 모듈이 셸에 자기를 알리는 자리.
-/// </summary>
+/// <summary>포털관리 모듈이 셸에 자기를 알리는 자리.</summary>
 public sealed class AdminModule : IPortalModule
 {
     public string Key => "admin";
@@ -27,26 +25,20 @@ public sealed class AdminModule : IPortalModule
         // 가입 신청 승인. 계정 관리와 갈라 둔 이유는 그 클래스 주석에 있다.
         services.AddScoped<SignupClient>();
 
-        // 알림구분(공통코드 NOTI_CATEGORY). 알림 화면 셋이 함께 읽고
-        // 참조자료 통에 담아 둔다 — 그 클래스 머리말 참고.
+        // 알림구분(공통코드 NOTI_CATEGORY). 알림 화면 셋이 함께 읽고 참조자료 통에 담아 둔다 — 그 클래스 머리말 참고.
         services.AddScoped<PushCategoryClient>();
 
-        // 「메일 보내기」 — 보내기 · 보낸함 · 최근 주소 · AI 요약. AdminClient 에
-        // 얹지 않은 까닭은 그 클래스 머리말에 있다.
+        // 「메일 보내기」 — 보내기 · 보낸함 · 최근 주소 · AI 요약. AdminClient 에 얹지 않은 까닭은 그 클래스 머리말에 있다.
         services.AddScoped<MailClient>();
 
-        // 계정에 매달린 차량(운송관리 DB). 통로를 따로 둔 까닭은 그 클래스
-        // 머리말에 있다 — 운송관리를 쓰는 곳에만 있는 개념이라, 안 쓰면
-        // 메뉴만 끄면 되게 해 둔다.
+        // 계정에 매달린 차량(운송관리 DB). 통로를 따로 둔 까닭은 그 클래스 머리말에 있다 — 운송관리를 쓰는 곳에만 있는 개념이라, 안 쓰면 메뉴만 끄면 되게 해 둔다.
         services.AddScoped<CargoVehicleClient>();
 
-        // 공지 첨부 업로드 (D5). GatewayClient 에는 멀티파트가 없어 따로 두지만
-        // 같은 BaseAddress·같은 토큰 처리로 등록해 인증이 갈라지지 않게 한다.
+        // 공지 첨부 업로드 (D5). GatewayClient 에는 멀티파트가 없어 따로 두지만 같은 BaseAddress·같은 토큰 처리로 등록해 인증이 갈라지지 않게 한다.
         var baseUrl = configuration["Gateway:BaseUrl"] ?? "http://localhost:5265/api/";
         if (!baseUrl.EndsWith('/')) baseUrl += "/";
 
-        // RAG 문서함. 올리기가 멀티파트라 공지 첨부와 같은 방식으로 둔다 —
-        // 같은 BaseAddress·같은 토큰 처리라야 인증이 갈라지지 않는다.
+        // RAG 문서함. 올리기가 멀티파트라 공지 첨부와 같은 방식으로 둔다 — 같은 BaseAddress·같은 토큰 처리라야 인증이 갈라지지 않는다.
         services.AddHttpClient<RagLibraryClient>(client =>
             {
                 client.BaseAddress = new Uri(baseUrl);
@@ -61,17 +53,13 @@ public sealed class AdminModule : IPortalModule
             {
                 client.BaseAddress = new Uri(baseUrl);
 
-                // 공지 첨부는 문서·그림이라 장례식장의 영상만큼 크지 않다.
-                // 그래도 기본 100초는 짧다 — 20MB 를 느린 회선으로 올리면 넘긴다.
+                // 공지 첨부는 문서·그림이라 장례식장의 영상만큼 크지 않다. 그래도 기본 100초는 짧다 — 20MB 를 느린 회선으로 올리면 넘긴다.
                 client.Timeout = TimeSpan.FromMinutes(5);
             })
             .ConfigurePrimaryHttpMessageHandler(ServiceCollectionExtensions.NoCookieJar)
             .AddHttpMessageHandler<AuthTokenHandler>();
 
-        // 프로필 사진 업로드는 여기 없다. 브라우저가 `DxUpload` 으로 셸의
-        // `/uploads/profile-photo` 로 보내고 셸이 게이트웨이로 넘긴다
-        // (`JSini.Web.Components/Data/ProfilePhotoUpload`). 모듈이 들고 있던
-        // `ProfileImageClient` 는 그래서 지웠다 — 같은 일을 하는 통로를 둘 두면
-        // 언젠가 한쪽에만 규칙이 붙는다.
+        // 프로필 사진 업로드는 여기 없다. 브라우저가 `DxUpload` 으로 셸의 `/uploads/profile-photo` 로 보내고 셸이 게이트웨이로 넘긴다
+        // (`JSini.Web.Components/Data/ProfilePhotoUpload`). 모듈이 들고 있던 `ProfileImageClient` 는 그래서 지웠다
     }
 }

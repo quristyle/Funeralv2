@@ -9,18 +9,7 @@ namespace ProjMngServer.Services;
 /// <summary>
 /// 지연 현황 — 「도래했는데 실적이 비어 있다」.
 /// </summary>
-/// <remarks>
-/// <para>
-/// 착수지연과 종료지연은 서로 독립이다. 한 줄이 둘 다일 수 있어서 합계를
-/// 더하면 겹쳐 세어진다 — 그래서 <c>BothLate</c>·<c>AnyLate</c> 를 따로 준다.
-/// </para>
-///
-/// <para>
-/// 판정식은 <see cref="WbsBoardSql.StartLate"/>·<see cref="WbsBoardSql.FinishLate"/>
-/// 한 벌이고 [상세 목록]의 지연 필터도 그것을 쓴다. <b>갈라 두면 차트에서
-/// 눌러 넘어간 목록의 건수가 차트와 달라진다.</b>
-/// </para>
-/// </remarks>
+/// 착수지연과 종료지연은 독립이라 합계를 더하면 겹쳐 센다 — BothLate·AnyLate 를 따로 준다. 판정식은 상세 목록의 지연 필터와 한 벌이다(갈라 두면 차트와 목록의 건수가 달라진다).
 public sealed class WbsDelayService(IConfiguration configuration)
 {
     private readonly string _connectionString =

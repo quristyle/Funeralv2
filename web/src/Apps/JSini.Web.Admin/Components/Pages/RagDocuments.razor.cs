@@ -33,11 +33,7 @@ public partial class RagDocuments
 
     private bool _busy;
 
-    /// <summary>
-    /// 「정말 지웁니까」를 묻는 창. <b>지우기는 전부 이것을 거친다</b> —
-    /// 카테고리를 지우면 분류·문서·디스크의 파일까지 함께 사라지고
-    /// 되돌릴 방법이 없다.
-    /// </summary>
+    /// <summary>「정말 지웁니까」를 묻는 창. 지우기는 전부 이것을 거친다 — 카테고리를 지우면 분류·문서·디스크의 파일까지 함께 사라지고 되돌릴 수 없다.</summary>
     private ConfirmDialog? _confirm;
 
     // ── 끌어다 놓기 ─────────────────────────────────────────────
@@ -75,11 +71,7 @@ public partial class RagDocuments
     private RagCategoryDto? Current
         => _categories.FirstOrDefault(c => c.Id == _categoryId);
 
-    /// <summary>분류에 안 들어간 문서 수. 전체에서 분류에 든 것을 뺀 값이다.</summary>
-    /// <remarks>
-    /// 서버가 따로 세어 주지 않는다 — 분류별 수를 이미 보내므로 빼면 나오고,
-    /// 칸을 하나 더 두면 둘이 어긋나는 날이 온다.
-    /// </remarks>
+    /// <summary>분류에 안 들어간 문서 수. 분류별 수를 이미 받으므로 전체에서 빼서 낸다 — 칸을 따로 두면 둘이 어긋난다.</summary>
     private int LooseCount
     {
         get
@@ -96,14 +88,7 @@ public partial class RagDocuments
     private int LoosePending
         => Math.Max(0, (Current?.DocPending ?? 0) - _tree.Sum(n => n.PendingTotal));
 
-    /// <summary>
-    /// 머리와 트리의 숫자를 다시 센다.
-    /// </summary>
-    /// <remarks>
-    /// <b>문서를 올리거나 지운 뒤에는 반드시 부른다.</b> 목록만 다시 읽으면
-    /// 아래에는 올린 파일이 보이는데 머리는 0 으로 남아, 올라가지 않은 것처럼
-    /// 읽힌다 — 실제로 그렇게 보였다.
-    /// </remarks>
+    /// <summary>머리와 트리의 숫자를 다시 센다. 문서를 올리거나 지운 뒤에는 반드시 부른다 — 목록만 다시 읽으면 머리가 0 으로 남아 올라가지 않은 것처럼 보인다.</summary>
     private async Task RefreshCountsAsync()
     {
         _categories = await Api.CategoriesAsync(_selectedCompanyId);
@@ -112,23 +97,16 @@ public partial class RagDocuments
 
     protected override async Task OnInitializedAsync() => await ReloadAsync();
 
-    /// <summary>
-    /// 떨구기 귀를 단다. <b>회로가 붙은 뒤에만</b> 한다 — 프리렌더에는
-    /// 브라우저가 없어 JS 를 부를 수 없다.
-    /// </summary>
+    /// <summary>떨구기 귀를 단다. 회로가 붙은 뒤에만 한다 — 프리렌더에는 브라우저가 없어 JS 를 부를 수 없다.</summary>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!RendererInfo.IsInteractive) return;
 
-        // **`firstRender` 에만 달면 영영 안 달린다.** 떨굴 판은 카테고리가
-        // 있어야 서는데(`@if`), 첫 그림에는 아직 못 읽었다 — `OnInitializedAsync`
-        // 가 기다리는 사이에 빈 쪽 가지가 먼저 그려진다. 그래서 **판이 설 때**
-        // 단다. 실제로 그래서 끌어다 놓기가 통째로 죽어 있었다.
+        // firstRender 에만 달면 영영 안 달린다 — 떨굴 판은 카테고리가 있어야 서므로 판이 설 때 단다.
         var standing = _categoryId is not null && _fileInput?.Element is { } el;
         if (!standing)
         {
-            // 판이 사라졌다(카테고리를 다 지웠다). 다음에 서면 다시 단다 —
-            // 그때는 DOM 요소가 아예 다른 것이라 옛 귀가 아무 데도 안 붙어 있다.
+            // 판이 사라졌다가 다시 서면 DOM 이 달라 옛 귀는 아무 데도 안 붙어 있으니 다시 단다.
             _wired = false;
             return;
         }
@@ -350,8 +328,7 @@ public partial class RagDocuments
     {
         if (_categoryId is null || _confirm is null) return;
 
-        // **무엇이 사라지는지 숫자로 적는다.** "정말 지웁니까" 만으로는
-        // 카테고리 하나가 문서 수십 건을 데려간다는 것을 알 수 없다.
+        // 무엇이 사라지는지 숫자로 적는다 — 카테고리 하나가 문서 수십 건을 데려간다는 것은 「정말 지웁니까」로는 알 수 없다.
         var docs = Current?.DocCount ?? 0;
         if (!await _confirm.AskAsync(
                 $"「{Current?.Name ?? _categoryId}」 카테고리를 지웁니다.\n"
@@ -424,22 +401,10 @@ public partial class RagDocuments
 
     // ── 분류 끌어 옮기기 ────────────────────────────────────────
 
-    /// <summary>
-    /// 끌어 놓은 자리로 분류를 옮긴다.
-    /// </summary>
-    /// <param name="targetId">놓은 분류. null 이면 최상위.</param>
-    /// <param name="before">
-    /// 참이면 그 분류 <b>앞에</b> 끼우고(형제가 된다), 거짓이면 그 <b>아래로</b>
-    /// 넣는다(자식이 된다). 줄의 위쪽 가장자리냐 가운데냐로 갈린다.
-    /// </param>
-    /// <remarks>
-    /// <b>색인은 건드리지 않는다.</b> 색인은 카테고리 단위라 분류를 옮겨도
-    /// 내용이 그대로다 — 다시 색인하라고 하지 않는다.
-    /// </remarks>
+    /// <summary>끌어 놓은 자리로 분류를 옮긴다. before 가 참이면 그 분류 앞에 끼우고(형제), 거짓이면 아래로 넣는다(자식). 색인은 분류를 옮겨도 내용이 그대로라 다시 색인하라고 하지 않는다.</summary>
     private async Task DropFolderAsync(long? targetId, bool before)
     {
-        // 문서를 끌고 있으면 그쪽 일이다. **줄 사이의 틈(before)에 떨군 것은
-        // 버린다** — 그 틈은 「형제로, 그 앞에」라는 뜻이라 문서에는 말이 안 된다.
+        // 문서를 끌고 있으면 그쪽 일이다. 줄 사이의 틈에 떨군 것은 버린다 — 문서에는 「형제로 그 앞에」라는 뜻이 없다.
         if (_dragDoc is { } doc)
         {
             _dragDoc = null;
@@ -510,24 +475,17 @@ public partial class RagDocuments
     /// <summary>파일 하나의 상한. 넘으면 게이트웨이가 먼저 끊는다.</summary>
     private const long MaxBytes = 50L * 1024 * 1024;
 
-    /// <summary>
-    /// 지금 올리고 있는 것들. <b>끝나도 지우지 않는다</b> — 건너뛴 파일과 그
-    /// 까닭을 사람이 읽을 시간이 있어야 한다. 다음에 올릴 때 비운다.
-    /// </summary>
+    /// <summary>지금 올리고 있는 것들. 끝나도 지우지 않는다 — 건너뛴 파일과 그 까닭을 읽을 시간이 있어야 한다. 다음에 올릴 때 비운다.</summary>
     private readonly List<RagUploadItem> _uploads = [];
 
-    /// <summary>
-    /// 진행을 화면에 반영한 마지막 시각. <b>버퍼마다 다시 그리면 회로가 넘친다</b> —
-    /// 큰 파일 하나에 수천 번이 된다.
-    /// </summary>
+    /// <summary>진행을 화면에 반영한 마지막 시각. 버퍼마다 다시 그리면 큰 파일 하나에 수천 번이 된다.</summary>
     private DateTime _lastTick = DateTime.MinValue;
 
     private async Task OnFilesAsync(InputFileChangeEventArgs e)
     {
         if (_categoryId is null) return;
 
-        // 올리는 중에 또 떨구는 일이 있다. 조용히 무시하면 **떨궜는데 아무
-        // 일도 안 일어난 것처럼** 보여서 사람이 같은 동작을 되풀이한다.
+        // 올리는 중에 떨군 것을 조용히 무시하면 아무 일도 없는 것으로 보여 사람이 되풀이한다.
         if (_busy)
         {
             Say("아직 올리는 중입니다. 끝나면 다시 놓아 주세요.", NoticeTone.Warning);
@@ -558,9 +516,7 @@ public partial class RagDocuments
 
         try
         {
-            // **한 건씩 보낸다.** 묶어 보내면 어디까지 갔는지 알 수 없어
-            // 큰 파일에서 화면이 멎은 것처럼 보인다. 하나가 실패해도
-            // 나머지는 계속 간다.
+            // 한 건씩 보낸다 — 묶어 보내면 어디까지 갔는지 알 수 없어 큰 파일에서 멎은 것처럼 보인다. 하나가 실패해도 나머지는 계속 간다.
             for (var i = 0; i < picked.Count && i < _uploads.Count; i++)
             {
                 var file = picked[i];
@@ -629,11 +585,7 @@ public partial class RagDocuments
     private void ClearUploads() => _uploads.Clear();
 
     /// <summary>문서 한 건을 다른 분류로 옮긴다.</summary>
-    /// <remarks>
-    /// <b>색인을 다시 만들라고 하지 않는다.</b> 분류는 사람이 보기 좋으라고
-    /// 있는 것이고 검색은 카테고리 전체에서 한다 — 토막에도 디스크의 자리에도
-    /// 분류가 적혀 있지 않다. 분류 자체를 끌어 옮길 때와 같은 까닭이다.
-    /// </remarks>
+    /// <summary>문서 한 건을 다른 분류로 옮긴다. 색인을 다시 만들라고 하지 않는다 — 검색은 카테고리 전체에서 하고 분류는 보기 좋으라고 있다.</summary>
     private async Task MoveDocumentAsync(long docId, long? folderId)
     {
         if (folderId == _folderId) return;   // 보고 있는 그 분류에 떨궜다
@@ -656,10 +608,7 @@ public partial class RagDocuments
         => long.TryParse(v?.ToString(), out var n) ? n : null;
 
     /// <summary>고르개에 세울 분류 목록. 깊이만큼 들여 적는다.</summary>
-    /// <remarks>
-    /// 끌어 옮기기만 두면 **화면 어디에도 안 보이는 몸짓**이 유일한 길이 된다 —
-    /// 키보드로도, 좁은 화면에서도 옮길 수 없다.
-    /// </remarks>
+    /// <summary>고르개에 세울 분류 목록. 깊이만큼 들여 적는다. 끌어 옮기기만 두면 화면 어디에도 안 보이는 몸짓이 유일한 길이 되어 키보드·좁은 화면에서 옮길 수 없다.</summary>
     private List<(long? Id, string Label)> FlatFolders()
     {
         var list = new List<(long?, string)> { (null, "분류 미지정") };
@@ -709,14 +658,7 @@ public partial class RagDocuments
 
     // ── 색인 ────────────────────────────────────────────────────
 
-    /// <summary>
-    /// 카테고리를 통째로 다시 색인한다.
-    /// </summary>
-    /// <remarks>
-    /// <b>올리기만 해서는 찾아지지 않는다.</b> 문서를 넣고 이 단추를 눌러야
-    /// 검색에 들어간다 — 올릴 때마다 자동으로 돌리면 열 개를 올릴 때 열 번
-    /// 도는데, 한 번에 몇 분씩 걸린다(임베딩이 CPU 로 돈다).
-    /// </remarks>
+    /// <summary>카테고리를 통째로 다시 색인한다. 올리기만 해서는 찾아지지 않는다 — 올릴 때마다 돌리면 열 번 도는데 한 번에 몇 분씩 걸린다(임베딩이 CPU 로 돈다).</summary>
     private async Task ReindexAsync()
     {
         if (_categoryId is null) return;

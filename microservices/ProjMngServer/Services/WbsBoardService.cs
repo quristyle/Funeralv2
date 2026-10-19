@@ -6,27 +6,8 @@ using static ProjMngServer.Services.WbsBoardSql;
 
 namespace ProjMngServer.Services;
 
-/// <summary>
-/// WBS 대시보드의 집계와 상세 목록 — <c>projmng.wbs_work</c>.
-/// </summary>
-/// <remarks>
-/// <para>
-/// 사내망에서 따로 돌던 대시보드를 옮겨 온 것이다. 원본은 외부 패키지를 하나도
-/// 쓸 수 없어(nuget 이 막혀 있었다) <b>PostgreSQL 프로토콜을 직접 구현한</b>
-/// 드라이버로 조회했다(<c>Pg.cs</c> · <c>PgWriter.cs</c>, 442줄). 여기서는
-/// 다른 서비스와 같이 Dapper 를 쓴다 — 그 두 파일은 옮기지 않았다.
-/// </para>
-///
-/// <para>
-/// [모든 조회가 프로젝트를 받는다]
-/// </para>
-///
-/// <para>
-/// 원본은 프로젝트 하나 전용이라 그런 조건이 없었다. 여기서는 <c>prjRid</c> 가
-/// 조회마다 들어간다 — <b>기본값을 두지 않는다.</b> 빠뜨리면 컴파일이 막히는
-/// 편이, 남의 프로젝트 숫자가 섞여 나오는 것보다 낫다.
-/// </para>
-/// </remarks>
+/// <summary>WBS 대시보드의 집계와 상세 목록 — <c>projmng.wbs_work</c>.</summary>
+/// 사내망 대시보드를 옮겨 온 것이다. 원본의 드라이버 대신 Dapper 를 쓰고, 모든 조회는 prjRid 를 받는다 — 빠뜨리면 컴파일이 실패하는 편이 남의 프로젝트 숫자가 섞이는 것보다 낫다.
 public sealed class WbsBoardService(IConfiguration configuration)
 {
     private readonly string _connectionString =
@@ -199,10 +180,7 @@ public sealed class WbsBoardService(IConfiguration configuration)
 
     // ──────────────────────────────────────────────────────── 담당자 고르개
 
-    /// <summary>
-    /// 담당자 목록. 기간을 주면 <b>그 기간에 실제로 배정된 사람만</b> 나온다 —
-    /// 고르개에 빈 결과만 내는 항목이 섞이지 않는다.
-    /// </summary>
+    /// <summary>담당자 목록. 기간을 주면 그 기간에 실제로 배정된 사람만 준다 — 고르개에 빈 결과 항목이 섞이지 않게 한다.</summary>
     public async Task<List<WbsBoardUserOption>> UsersAsync(
         int prjRid, string? scope, string? basis, string? month, string? week)
     {
@@ -228,14 +206,8 @@ public sealed class WbsBoardService(IConfiguration configuration)
 
     // ──────────────────────────────────────────────────────── 상세 목록
 
-    /// <summary>
-    /// 드릴다운 목록. 조건이 열둘이라 <see cref="WbsBoardQuery"/> 로 받는다.
-    /// </summary>
-    /// <remarks>
-    /// 지연·진행 상태 조건은 [지연 현황]·[진척률 현황] 화면과 <b>같은 식</b>을
-    /// 쓴다(<see cref="WbsBoardSql"/>). 그래서 차트에서 눌러 넘어온 목록의
-    /// 건수가 차트의 숫자와 어긋나지 않는다.
-    /// </remarks>
+    /// <summary>드릴다운 목록. 조건이 열둘이라 WbsBoardQuery 로 받는다.</summary>
+    /// 지연·진행 상태 조건은 지연·진척률 화면과 같은 WbsBoardSql 을 써야 차트 숫자와 목록 건수가 맞는다.
     public async Task<List<WbsBoardRow>> RowsAsync(int prjRid, WbsBoardQuery query)
     {
         var c = DateCol(query.Basis);
@@ -329,9 +301,7 @@ public sealed class WbsBoardService(IConfiguration configuration)
         return [.. rows];
     }
 
-    /// <summary>
-    /// 단건 수정. <see cref="WbsBoardSql.Editable"/> 에 있는 칸만 받는다.
-    /// </summary>
+    /// <summary>단건 수정. <see cref="WbsBoardSql.Editable"/> 에 있는 칸만 받는다.</summary>
     /// <returns>고친 줄 수. 받을 칸이 하나도 없으면 <c>-1</c>.</returns>
     public async Task<int> PatchRowAsync(int prjRid, string activityId, IDictionary<string, object?> patch)
     {

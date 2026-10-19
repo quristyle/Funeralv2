@@ -7,29 +7,8 @@ namespace ProjMngServer.Services;
 /// <summary>
 /// EAI 인터페이스 카탈로그 — <c>projmng.if_*</c>.
 /// </summary>
-/// <remarks>
-/// <para>
-/// <b>조회는 뷰, 편집은 원본 표</b>다. 뷰가 코드값을 이름으로 풀고 단계·메모를
-/// 세어 주므로 목록 화면이 조인을 다시 짜지 않는다.
-/// </para>
-///
-/// <para>
-/// <c>updated_at</c> 은 <b>보내지 않는다</b> — DB 트리거가 찍는다. 어느 길로
-/// 고쳐도 빠지지 않고, 화면이 보낸 시각과 서버 시각이 어긋날 일도 없다.
-/// </para>
-///
-/// <para>
-/// [프로젝트는 뿌리에서만 본다]
-/// </para>
-///
-/// <para>
-/// <c>prj_rid</c> 는 <c>if_master</c>·<c>if_system</c>·<c>if_attr_def</c> 셋에만
-/// 있다. 단계·메모·항목값은 <b>인터페이스를 타고</b> 걸러진다 — 그래서 이 서비스의
-/// 단계·메모 조회는 <c>ifId</c> 를 받되 <b>그 인터페이스가 이 프로젝트 것인지
-/// 먼저 확인한다</b>(<see cref="OwnsAsync"/>). 확인을 빠뜨리면 번호만 알면
-/// 남의 프로젝트 단계를 읽고 고칠 수 있다.
-/// </para>
-/// </remarks>
+/// 조회는 뷰, 편집은 원본 표다. updated_at 은 보내지 않는다 — DB 트리거가 찍는다.
+/// prj_rid 는 if_master·if_system·if_attr_def 에만 있고 단계·메모·항목값은 인터페이스를 타고 걸러진다. 그래서 ifId 를 받는 조회는 먼저 OwnsAsync 로 이 프로젝트 것인지 확인한다 — 빠뜨리면 번호만 알고 남의 단계를 고칠 수 있다.
 public sealed class InterfaceService(IConfiguration configuration)
 {
     private readonly string _connectionString =
@@ -417,18 +396,8 @@ public sealed class InterfaceService(IConfiguration configuration)
     /// <summary>
     /// 차례를 통째로 다시 매긴다.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>한 번에 못 바꾼다.</b> <c>(if_id, step_no)</c> 가 유일이라, 2번을 1번으로
-    /// 옮기는 순간 아직 자리를 안 비운 1번과 부딪힌다. 그래서 세 걸음으로 간다 —
-    /// ① 전부 음수로 대피 ② 받은 차례대로 1..N ③ 목록에 없던 단계는 그 뒤로.
-    /// </para>
-    ///
-    /// <para>
-    /// 세 걸음이 한 트랜잭션이다. 가운데서 끊기면 <b>차례가 전부 음수인 상태</b>로
-    /// 남는데, 그 꼴은 화면에서 되돌릴 방법이 없다.
-    /// </para>
-    /// </remarks>
+    /// 한 번에 못 바꾼다 — (if_id, step_no) 가 유일이라 2번을 1번으로 옮기면 부딪힌다. 그래서 전부 음수로 대피 → 1..N 재번호 → 목록에 없던 단계는 뒤로, 세 걸음을 한 트랜잭션으로 묶는다.
+    /// 가운데서 끊기면 차례가 전부 음수로 남아 화면에서 되돌릴 방법이 없다.
     public async Task<int> ReorderStepsAsync(int ifId, IReadOnlyList<int> stepIds)
     {
         using var db = Open();

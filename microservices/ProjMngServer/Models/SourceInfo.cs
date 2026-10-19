@@ -55,9 +55,7 @@ public sealed class SourceInfoDetail
     public string? SrcPatternComment { get; set; }
 
     /// <summary>
-    /// <b>등록할 때만 쓰이던 칸</b>이다 — 옛 프로시저의 update 문에 이 칸이
-    /// 없어서, 한 번 넣은 값을 화면에서 고칠 방법이 없었다. 아래
-    /// <c>SourceInfoService</c> 머리말 참고.
+    /// 수정 질의에도 함께 넣어야 한다 — 빠지면 한 번 넣은 값을 화면에서 고칠 수 없다(SourceInfoService 머리말).
     /// </summary>
     public string? SrcPatternNullvalue { get; set; }
 }

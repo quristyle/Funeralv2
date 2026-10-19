@@ -55,8 +55,7 @@ public partial class QnaList
         _canWrite = list.CanWrite;
         _canManage = list.CanManage;
 
-        // **잘렸으면 반드시 말한다.** 「전부다」로 읽고 넘어가면 없는 것을
-        // 찾게 된다. 조회의 **결과**라 안내 줄이 아니라 토스트로 나간다.
+        // 잘렸으면 반드시 말한다. 조회 결과라 안내 줄이 아니라 토스트로 낸다.
         if (_total > _items.Count)
         {
             Say($"전체 {_total}건 중 {_items.Count}건입니다. 검색으로 좁히십시오.");
@@ -82,8 +81,7 @@ public partial class QnaList
         _title = null;
         _content = null;
 
-        // 답글은 대상의 공개 여부를 따라간다. 비공개 질문에 공개 답글이 붙으면
-        // 질문 없이 답만 보이게 된다.
+        // 답글은 대상의 공개 여부를 따라간다. 비공개 질문에 공개 답글이 붙으면 답만 보이게 된다.
         _isPublic = post.IsPublic;
         _editing = true;
     }
@@ -121,8 +119,7 @@ public partial class QnaList
         }
         else
         {
-            // 답글이면 parentId 만 보낸다. 뿌리는 서버가 찾는다 — 화면이
-            // 계산해 보내면 깊은 답글에서 어긋나 스레드가 갈라진다.
+            // 답글이면 parentId 만 보낸다. 뿌리는 서버가 찾는다(화면이 계산하면 깊은 답글에서 스레드가 갈라진다).
             saved = await RunAsync(
                 () => Api.CreateQnaPostAsync(new
                 {
@@ -154,12 +151,7 @@ public partial class QnaList
         }
     }
 
-    /// <summary>
-    /// 공개 여부를 뒤집는다.
-    ///
-    /// 뿌리 글이면 답글까지 함께 바꾼다. 질문만 비공개로 돌리면 답글이 남아
-    /// 무엇에 대한 답인지 모르는 글이 떠 있게 된다.
-    /// </summary>
+    /// <summary>공개 여부를 뒤집는다. 뿌리 글이면 답글까지 함께 바꾼다 — 질문만 비공개로 돌리면 답만 남는다.</summary>
     private async Task ToggleVisibilityAsync(QnaPost post)
     {
         var next = !post.IsPublic;

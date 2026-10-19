@@ -8,39 +8,14 @@ using RabbitMQ.Client;
 
 namespace NotificationServer.Services;
 
-/// <summary>
-/// 이메일 발송 (큐에 넣는 방식).
-/// </summary>
+/// <summary>이메일 발송(큐에 넣는 방식). 결과는 큐에 넣었다까지만 안다.</summary>
 public interface IEmailQueueSender
 {
     Task<SendEmailResultDto> SendAsync(SendEmailDto request, CancellationToken ct = default);
 }
 
-/// <summary>
-/// 이메일 발송 구현체
-/// </summary>
-/// <remarks>
-/// <b>SMTP 로 직접 보내지 않는다.</b> 헬프데스크가 하던 방식을 그대로 옮겼다.
-/// (직발송이 필요하면 <see cref="IEmailSender"/> — <c>/emails/send</c> — 를 쓴다.
-/// SMTP 설정은 <c>EmailSettings</c> 로 들어왔다.)
-///
-/// <list type="number">
-///   <item><description>메일 내용을 JSON 파일로 떨어뜨린다</description></item>
-///   <item><description>"이 스크립트를 이 파일로 돌려 달라" 를 큐에 넣는다</description></item>
-///   <item><description>배포 장비의 소비자가 스크립트를 실행해 실제로 보낸다</description></item>
-/// </list>
-///
-/// <para>
-/// 그래서 <b>결과는 "큐에 넣었다" 까지만 알 수 있다.</b> 실제로 보내졌는지는 모른다 —
-/// 배포 도구에서 같은 한계를 다뤘던 것과 같은 구조다(28-release-tool.md).
-/// 진짜 발송 결과가 필요해지면 배포 도구처럼 되돌려 보고받는 길을 붙여야 한다.
-/// </para>
-///
-/// <para>
-/// JSON 의 키 이름(<c>title</c>·<c>body</c>·<c>mailto</c>)은 <b>바꾸면 안 된다.</b>
-/// 배포 장비의 스크립트가 그 이름으로 읽는다.
-/// </para>
-/// </remarks>
+/// <summary>메일 내용을 JSON 파일로 떨어뜨리고 run_script 큐에 발송 스크립트를 넣는다. 배포 장비의 소비자가 실제로 보낸다.
+/// JSON 키 이름(title·body·mailto)은 배포 장비 스크립트가 읽으므로 바꾸면 안 된다.</summary>
 public class EmailQueueSender : IEmailQueueSender
 {
     private readonly EmailQueueOptions _options;
@@ -96,7 +71,7 @@ public class EmailQueueSender : IEmailQueueSender
 
         try
         {
-            // 연결은 보낼 때만 연다. 브로커가 내려가 있어도 서비스 기동에는 영향이 없다.
+            // 연결은 보낼 때만 연다(브로커가 내려가 있어도 서비스 기동에는 영향이 없다).
             var factory = new ConnectionFactory
             {
                 HostName = string.IsNullOrWhiteSpace(_options.HostName)
@@ -107,8 +82,7 @@ public class EmailQueueSender : IEmailQueueSender
             await using var connection = await factory.CreateConnectionAsync(ct);
             await using var channel = await connection.CreateChannelAsync(cancellationToken: ct);
 
-            // durable 은 기존 큐와 같아야 한다. run_script 는 non-durable 로 존재한다 —
-            // durable 로 다시 선언하면 브로커가 PRECONDITION_FAILED 를 낸다.
+            // durable 은 기존 큐와 같아야 한다(다르게 선언하면 브로커가 PRECONDITION_FAILED 를 낸다).
             await channel.QueueDeclareAsync(
                 queue: _options.QueueName,
                 durable: false,
@@ -138,7 +112,7 @@ public class EmailQueueSender : IEmailQueueSender
         {
             _logger.LogError(ex, "메일 발송 요청을 큐에 넣지 못했습니다. to={To}", request.To);
 
-            // 떨어뜨린 파일은 지우지 않는다. 큐만 복구하면 사람이 다시 밀어 넣을 수 있다.
+            // 떨어뜨린 파일은 지우지 않는다(큐만 복구하면 사람이 다시 밀어 넣을 수 있다).
             return new SendEmailResultDto
             {
                 SpoolFile = spoolFile,

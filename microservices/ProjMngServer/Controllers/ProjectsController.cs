@@ -5,41 +5,7 @@ using ProjMngServer.Services;
 
 namespace ProjMngServer.Controllers;
 
-/// <summary>
-/// 프로젝트 목록 — <c>/api/projects</c>.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <b>옛 <c>ProjController</c> 와 다른 점</b> — 그쪽은 프로시저 이름을 몸에
-/// 실어 보내면 무엇이든 돌려주는 <b>범용 통로</b>다. 여기는 프로젝트 하나만
-/// 아는 평범한 REST 다.
-/// </para>
-///
-/// <para>
-/// 그래서 얻는 것 셋 —
-/// </para>
-///
-/// <list type="number">
-///   <item>
-///     <b>봉투가 다른 서비스와 같아진다</b>(<c>ApiResponse</c>). 포털의
-///     <c>GatewayClient</c> 가 그대로 벗겨 읽고, 화면은 <c>DataTable</c> 이
-///     아니라 타입 있는 목록을 받는다 — <c>CommGrd</c> 가 요구하는 모양이다.
-///   </item>
-///   <item>
-///     <b>무엇을 부를 수 있는지가 경로에 드러난다.</b> 범용 통로는 프로시저
-///     이름만 맞으면 무엇이든 열리므로, 무엇이 쓰이는지 코드로 셀 수 없다.
-///   </item>
-///   <item>
-///     <b>실패가 업무 문구로 온다.</b> 프로시저는 실패를 음수 코드 하나로
-///     알려서 화면이 「빈 표」와 구분하지 못했다.
-///   </item>
-/// </list>
-///
-/// <para>
-/// 게이트웨이가 <c>/api/projmng/**</c> 를 이 서비스로 넘기므로 포털이 부르는
-/// 주소는 <c>auth</c> 계열과 같은 모양이 된다 — <c>projmng/projects</c>.
-/// </para>
-/// </remarks>
+/// <summary>프로젝트 목록(<c>/api/projects</c>). 옛 <c>ProjController</c> 와 달리 프로시저 이름을 받는 범용 통로가 아니라 프로젝트 하나만 아는 평범한 REST 다.</summary>
 [ApiController]
 [Route("api/projects")]
 public sealed class ProjectsController(ProjectService service) : ControllerBase

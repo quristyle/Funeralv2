@@ -3,38 +3,11 @@ using Xunit;
 
 namespace JSini.Web.Architecture.Tests;
 
-/// <summary>
-/// 휴대폰 아래 띠의 <b>이름을 감췄을 때</b> 띠가 실제로 얇아지고 그만큼을
-/// 본문이 돌려받는가(<c>app.css</c> 의 <c>--jsini-bottomnav-h</c>).
-///
-/// <para>
-/// [왜 글자로 검사하나]
-/// </para>
-///
-/// <para>
-/// 띠는 <c>position: fixed</c> 라 <b>자리를 차지하지 않는다.</b> 본문·사이드바·
-/// 떠다니는 단추·오른쪽 서랍이 저마다 띠 높이만큼 비켜서 있고, 그 숫자가
-/// 한동안 아홉 자리에 <b>60px 로 베껴 적혀</b> 있었다. 토큰 하나로 모아 두지
-/// 않으면 「이름을 감췄더니 띠는 얇아졌는데 본문 아래가 그대로 비어 있다」가
-/// 되는데, <b>빌드도 테스트도 화면도 멀쩡하다</b> — 드러나는 조건이
-/// 「휴대폰 · 이름 감춤」 둘이 겹칠 때뿐이라 눈으로는 못 지킨다.
-/// </para>
-///
-/// <para>
-/// 그래서 여기서 재는 것은 배치가 아니라 <b>그 아홉이 같은 토큰을 보고
-/// 있는지</b>다.
-/// </para>
-/// </summary>
+/// <summary>휴대폰 아래 띠의 이름을 감췄을 때 띠가 실제로 얇아지고 본문이 그만큼 돌려받는지 글자로 지킨다(app.css 의 --jsini-bottomnav-h).
+/// 띠는 fixed 라 자리를 차지하지 않고, 비켜서는 숫자를 토큰 하나로 모아 두지 않으면 띠만 얇아지고 본문 아래가 빈다. 빌드와 화면은 멀쩡해 눈으로는 못 지킨다.</summary>
 public sealed class BottomNavLabelTests
 {
-    /// <summary>
-    /// 기본은 60px 이고, 이름을 감춘 사람에게만 44px 이다.
-    /// </summary>
-    /// <remarks>
-    /// 44px 보다 더 줄이지 않는 까닭은 app.css 의 같은 자리에 적어 두었다 —
-    /// 아이콘만 남으면 28px 까지도 되지만, 칸 여덟이 나란히 선 띠에서
-    /// 세로로 좁히는 만큼 손가락이 빗나간다.
-    /// </remarks>
+    /// <summary>기본은 60px, 이름을 감춘 사람에게만 44px 이다. 44px 보다 더 줄이지 않는다 — 칸 여덟이 나란히 선 띠에서 세로로 좁히면 손가락이 빗나간다.</summary>
     [Fact]
     public void 이름을_감추면_띠_높이_토큰이_줄어든다()
     {
@@ -47,26 +20,13 @@ public sealed class BottomNavLabelTests
             StringComparison.Ordinal);
     }
 
-    /// <summary>
-    /// 띠 자신의 높이가 그 토큰이다. 여기만 숫자로 두면 토큰을 고쳐도
-    /// <b>띠만 안 따라온다</b> — 본문은 비켰는데 띠가 그대로인 꼴이다.
-    /// </summary>
+    /// <summary>띠 자신의 높이가 그 토큰이다. 여기만 숫자로 두면 토큰을 고쳐도 띠만 안 따라온다.</summary>
     [Fact]
     public void 띠_높이는_그_토큰이다() =>
         Assert.Contains("height: calc(var(--jsini-bottomnav-h) + env(safe-area-inset-bottom))",
             Rule(@"^\.jsini-bottom-nav \{(.*?)\n\}"), StringComparison.Ordinal);
 
-    /// <summary>
-    /// <b>띠를 피해 서 있는 자리에 숫자가 남아 있지 않다.</b> 60px(띠 높이) ·
-    /// 76px(띠 + 틈 16) · 120px(띠 + 숨 쉴 틈 60) 셋이 그 숫자였다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 「띠를 쓰지 않기로 한 사람」(<c>--bottomnav-hidden</c>)의 되돌림 규칙은
-    /// 뺀다 — 거기 적힌 60px 은 <b>띠 높이가 아니라</b> 띠가 없는 자리에
-    /// 남겨 두는 숨 쉴 틈이라, 띠가 얇아진다고 함께 줄 값이 아니다.
-    /// </para>
-    /// </remarks>
+    /// <summary>띠를 피해 서 있는 자리에 숫자가 남아 있지 않다(60·76·120px 가 그 숫자였다). 띠를 안 쓰는 사람의 되돌림(--bottomnav-hidden)의 60px 은 띠 높이가 아니라 숨 쉴 틈이라 제외한다.</summary>
     [Theory]
     [InlineData("60px")]
     [InlineData("76px")]
@@ -85,13 +45,7 @@ public sealed class BottomNavLabelTests
             + string.Join('\n', left));
     }
 
-    /// <summary>
-    /// 이름은 <b>자리만 뺏고 글자는 남긴다.</b> <c>display: none</c> 으로
-    /// 지우면 칸(<c>&lt;button&gt;</c>)의 <b>읽을 이름이 통째로 사라진다</b> —
-    /// 아이콘은 <c>aria-hidden</c> 이고 얼굴 그림은 <c>alt=""</c> 라, 화면
-    /// 낭독기에는 「단추」만 다섯 줄로 남는다. 눈으로 보는 화면은 멀쩡하므로
-    /// 이 고장은 눈으로는 안 드러난다.
-    /// </summary>
+    /// <summary>이름은 자리만 뺏고 글자는 남긴다. display:none 으로 지우면 칸의 읽을 이름이 사라져 화면 낭독기에는 「단추」만 다섯 줄로 남는다. 눈으로 보는 화면은 멀쩡해 눈으로는 안 드러난다.</summary>
     [Fact]
     public void 이름은_지우지_않고_자리만_뺏는다()
     {
@@ -103,11 +57,7 @@ public sealed class BottomNavLabelTests
         Assert.DoesNotContain("display: none", rule, StringComparison.Ordinal);
     }
 
-    /// <summary>
-    /// 아이콘 아래 틈(4px)도 함께 걷는다. 그 틈은 <b>이름과의 사이</b>를
-    /// 벌리려고 둔 것이라, 이름이 없는 띠에서는 아이콘을 4px 위로 밀어
-    /// 올리기만 한다.
-    /// </summary>
+    /// <summary>아이콘 아래 틈(4px)도 함께 걷는다. 그 틈은 이름과의 사이를 벌리려 둔 것이라, 이름이 없으면 아이콘을 위로 밀어 올릴 뿐이다.</summary>
     [Fact]
     public void 아이콘_아래_틈도_함께_걷는다()
     {
@@ -120,10 +70,7 @@ public sealed class BottomNavLabelTests
             css, StringComparison.Ordinal);
     }
 
-    /// <summary>
-    /// 셸이 그 표시를 실제로 붙이는가. CSS 만 있고 붙이는 쪽이 없으면
-    /// <b>스위치가 조용히 아무 일도 안 한다.</b>
-    /// </summary>
+    /// <summary>셸이 그 표시를 실제로 붙이는가. CSS 만 있고 붙이는 쪽이 없으면 스위치가 조용히 아무 일도 안 한다.</summary>
     [Fact]
     public void 셸이_그_표시를_붙인다()
     {

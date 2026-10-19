@@ -7,28 +7,8 @@ using NotificationServer.Services;
 
 namespace NotificationServer.Endpoints;
 
-/// <summary>
-/// 이메일 직발송 엔드포인트 (<c>/api/notification/emails/*</c>)
-/// </summary>
-/// <remarks>
-/// <para>
-/// 이메일이 나가는 길이 둘이다:
-/// <list type="bullet">
-///   <item><description><c>POST /notifications/email</c> — <b>큐 방식.</b> 배포 장비의
-///   스크립트가 실제로 보낸다. 결과는 "큐에 넣었다" 까지만 안다.</description></item>
-///   <item><description><c>POST /emails/send</c> (이 파일) — <b>SMTP 직발송.</b>
-///   <c>EmailSettings</c>(appsettings.Local.json)의 SMTP 서버로 즉시 보내고
-///   성공·실패를 바로 안다. 문의 접수 알림처럼 "지금 갔는지" 가 중요한 곳에 쓴다.</description></item>
-/// </list>
-/// </para>
-///
-/// <para>
-/// 받는 사람은 부르는 쪽이 정한다 (결정 D8-A). 다만 <b>아이디·역할로 받는 것</b>
-/// (<c>toUser</c> · <c>toRole</c>)은 예외로 여기서 푼다 — 아이디·역할 → 이메일
-/// 명단은 scom(이 서비스의 DB)에 있고, 다른 서비스(SiteServer·ProjMngServer 등)는
-/// 그 DB 를 볼 수 없기 때문이다.
-/// </para>
-/// </remarks>
+/// <summary>이메일 직발송 엔드포인트(/api/notification/emails/*). 큐 방식과 달리 SMTP 로 즉시 보내 성공·실패를 바로 안다.
+/// 받는 사람은 부르는 쪽이 정하되 toUser·toRole 은 여기서 scom 을 보고 푼다.</summary>
 public static class EmailEndpoints
 {
     public static void MapEmailEndpoints(this IEndpointRouteBuilder app)
@@ -36,10 +16,7 @@ public static class EmailEndpoints
         var group = app.MapGroup("/emails").WithTags("Emails");
 
         // ── SMTP 직발송 ─────────────────────────────────────
-        //
-        // 다른 엔드포인트처럼 부른 이(X-User-Id)를 요구한다. 게이트웨이를 거친
-        // 호출은 게이트웨이가 채우고, 서비스 간 직접 호출은 자기 이름을 적어 보낸다
-        // (예: SiteServer 가 "SITE_INQUIRY" 로 부른다).
+        // 게이트웨이를 거친 호출은 X-User-Id 를 게이트웨이가 채우고, 서비스 간 직접 호출은 자기 이름을 적는다.
         group.MapPost("/send", async (
             [FromBody] SendEmailDto request,
             UserContext? user,
@@ -54,22 +31,12 @@ public static class EmailEndpoints
             if (user is null) return Results.Unauthorized();
 
             // ── 받는 사람을 **안 적어도 되는 부름이 있다** ──────
-            //
-            // 받는 역할의 정본이 「알림관리」인 이벤트는 부르는 쪽이 역할을 적어
-            // 보내지 않는다(소개 사이트 문의 — `NotificationEventRow.PolicyRequired`).
-            // 설정 파일과 표 두 자리에 역할이 있으면 화면에서 체크를 다 풀어도
-            // 설정 파일로 되돌아가, **껐는데 간다**가 되기 때문이다.
-            //
-            // 그래서 여기서 막지 않는다. 막으면 화면에서 역할을 켜 두어도 메일이
-            // 한 통도 안 나가고, 부르는 쪽 로그에는 「받는 사람이 필요합니다」만
-            // 남아 고칠 자리가 안 보인다. **아래에서 정책으로 푼 뒤에도 0 명이면**
-            // 그때 까닭을 적어 400 으로 답한다.
+            // 받는 역할을 알림관리가 정하는 이벤트는 역할을 안 적어도 된다. 정책으로 푼 뒤에도 0명이면 400 으로 까닭을 적는다.
             var addressed = !string.IsNullOrWhiteSpace(request.To)
                             || !string.IsNullOrWhiteSpace(request.ToRole)
                             || !string.IsNullOrWhiteSpace(request.ToUser);
 
-            // 정책이 받는 사람을 채워 줄 수 있는 부름인가. 코드도 구분도 없으면
-            // 물어볼 표가 없으므로 그때는 지금처럼 바로 막는다.
+            // 정책이 받는 사람을 채울 수 있는 부름인가 — 코드도 구분도 없으면 바로 막는다.
             var policyCanFill = !string.IsNullOrWhiteSpace(request.EventCode)
                                 || !string.IsNullOrWhiteSpace(request.Category);
 
@@ -84,10 +51,7 @@ public static class EmailEndpoints
             }
 
             // ── 첨부를 먼저 본다 ─────────────────────────────
-            //
-            // **보내기 전에 막는다.** 상한과 판정은 포털의 「메일 보내기」와
-            // 한 곳을 쓴다(`EmailAttachmentGuard` 머리말) — 양쪽에 적어 두면
-            // 어느 날 한쪽만 늘어난다.
+            // 보내기 전에 막는다(상한·판정은 포털 메일 보내기와 EmailAttachmentGuard 한 곳).
             if (!EmailAttachmentGuard.TryCheck(
                     request.Attachments, out _, out var fileError, out var fileCode))
             {
@@ -98,21 +62,13 @@ public static class EmailEndpoints
             var logger = loggerFactory.CreateLogger("EmailEndpoints");
 
             // ── 알림관리(회사의 규칙) ───────────────────────
-            //
-            // **푸시와 같은 문을 쓴다**(`PushSender` 의 같은 자리). 보내는 쪽마다
-            // 정책을 묻게 하면 한 곳만 잊어도 새는 설정이 된다.
-            //
-            // **주소를 직접 적은 몫(`to`)은 건드리지 않는다.** 어느 계정인지
-            // 확실치 않아 역할을 물을 길이 없고, 그것은 갈래 스위치가 이미
-            // 내린 판단이다(`SendEmailDto.Category` 머리말).
+            // 푸시와 같은 문으로 정책을 묻는다. 주소를 직접 적은 몫(to)은 묻지 않는다(갈래 스위치가 이미 판단했다).
             var decision = await policies.ResolveAsync(
                 request.EventCode, request.Category, NotificationChannel.Email, ct);
 
             if (decision.Blocked)
             {
-                // **실패가 아니다.** 400 으로 답하면 부르는 쪽 로그에 오류가
-                // 쌓이고, 설정을 존중한 결과가 고장으로 읽힌다. 그렇다고
-                // 「보냈습니다」라고도 하지 않는다 — 자료는 거짓이다.
+                // 실패가 아니다(400 이면 설정 존중이 고장으로 읽힌다). 「보냈다」고도 하지 않는다.
                 logger.LogInformation(
                     "알림관리에서 이벤트를 꺼 두어 메일을 보내지 않았습니다. "
                     + "event={Event} category={Category} by={By}",
@@ -132,8 +88,7 @@ public static class EmailEndpoints
 
             var unknownUsers = new List<string>();
 
-            // 갈래를 껐다는 까닭으로 빠진 사람. **「이메일이 없다」와 갈라 둔다** —
-            // 아래에서 받는 사람이 0 이 됐을 때 할 말이 전혀 다르다.
+                // 갈래를 끈 사람은 「이메일이 없다」와 갈라 센다(받는 사람이 0 일 때 할 말이 다르다).
             var optedOutUsers = new List<string>();
 
             if (!string.IsNullOrWhiteSpace(request.ToUser))
@@ -142,11 +97,7 @@ public static class EmailEndpoints
                     .Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                     .ToList();
 
-                // **갈래를 끈 사람을 여기서 던다.** 사람을 지목해 보내는 메일은
-                // 본인의 뜻을 보지 않는 것이 규칙이지만(`IAccountEmailResolver`
-                // 머리말), 댓글 알림은 업무 메일이 아니라 두드림이라 설정 화면에
-                // 스위치가 있다. 부르는 쪽이 이 판정을 기억하게 하지 않는다 —
-                // 한 곳만 잊으면 새는 설정이 된다.
+                // 갈래를 끈 사람은 여기서 던진다(댓글 알림은 설정 스위치를 따른다).
                 if (string.Equals(
                         PushCategories.Normalize(request.Category),
                         PushCategories.HelpDeskComment,
@@ -160,11 +111,7 @@ public static class EmailEndpoints
                     }
                 }
 
-                // **정책 거름막은 「당사자에게 가는」 알림에만 건다.** 역할로
-                // 가는 알림에서 아이디를 짚어 보낸 몫(AI 작업 결과가 시킨
-                // 본인에게 돌아가는 따위)은 그 일의 일부라 회사 규칙으로
-                // 가릴 것이 아니다 — 까닭은 `PushSender.ExpandOwnersAsync`
-                // 머리말에 같은 글로 적어 두었다.
+                // 정책 거름막은 당사자에게 가는 알림에만 건다(역할 대상은 PushSender.ExpandOwnersAsync 가 본다).
                 if (decision is { Unrestricted: false, TargetsRoles: false })
                 {
                     var allowed = await policies.GetLoginIdsInRolesAsync(decision.RoleIds, ct);
@@ -177,9 +124,7 @@ public static class EmailEndpoints
                             "알림관리 정책에 안 들어 메일에서 뺐습니다: {Users} (event={Event})",
                             string.Join(", ", blocked), request.EventCode ?? request.Category);
 
-                        // **「이메일이 없다」와 갈라 둔다** — 아래에서 받는 사람이
-                        // 0 이 됐을 때 할 말이 전혀 다르다. 본인이 끈 것과도
-                        // 갈라야 하지만 고칠 자리가 「알림관리」 하나라 같이 센다.
+                        // 「이메일이 없다」와 갈라 센다(본인이 끈 것과 함께 세지만 고칠 자리는 알림관리 하나다).
                         optedOutUsers.AddRange(blocked);
                         ids = ids.Where(allowed.Contains).ToList();
                     }
@@ -191,10 +136,7 @@ public static class EmailEndpoints
                 unknownUsers.AddRange(ids.Where(i => !found.ContainsKey(i)));
             }
 
-            // **역할로 보내는 몫은 정책이 정한다.** 부르는 쪽이 설정에 적어 둔
-            // 역할(`InquiryMail:ToRole` 따위)을 대신하므로, 설정 파일을 고치지
-            // 않고 화면에서 수신 역할을 바꿀 수 있다. 당사자에게 가는 알림이면
-            // 반대로 정책 안에 든 역할만 남긴다.
+            // 역할로 보내는 몫은 정책이 정한다(설정 파일의 역할을 대신한다).
             var toRoles = (request.ToRole ?? string.Empty)
                 .Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -209,15 +151,11 @@ public static class EmailEndpoints
 
             if (toRoles.Count > 0)
             {
-                // 역할을 **여럿** 받는다. 쉼표로 이어 보내면 여기서 갈라 모으고,
-                // 아래에서 주소를 한 번 추리므로 두 역할에 걸친 사람도 한 통만
-                // 받는다 — 보고서 메일 배치가 그 길로 온다.
+                // 역할을 여럿 받는다. 쉼표로 모아 한 번 추리므로 두 역할에 걸친 사람도 한 통만 받는다.
                 recipients.AddRange(await ResolveRoleEmailsAsync(db, prefs, toRoles, ct));
             }
 
-            // 주소 꼴이 아닌 것은 여기서 빠진다. **무엇이 빠졌는지 들고 간다** —
-            // 그냥 「받는 사람이 없습니다」로만 답하면 부르는 쪽이 자기가 보낸
-            // 값의 어디가 틀렸는지 알 수 없다.
+            // 주소 꼴이 아닌 것은 빠지고, 빠진 것은 들고 가서 부르는 쪽이 알게 한다.
             var malformed = recipients
                 .Where(r => !System.Net.Mail.MailAddress.TryCreate(r, out _))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
@@ -228,9 +166,7 @@ public static class EmailEndpoints
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
-            // **본인이 껐을 뿐인 것은 실패가 아니다.** 400 으로 답하면 부르는 쪽
-            // 로그에 오류가 쌓이고, 설정을 존중한 결과가 고장으로 읽힌다.
-            // 그렇다고 「보냈습니다」라고도 하지 않는다 — 자료는 거짓(false)이다.
+            // 본인이 껐을 뿐이면 실패가 아니다(400 이면 고장으로 읽힌다). 「보냈다」고도 하지 않는다(false).
             if (recipients.Count == 0 && optedOutUsers.Count > 0)
             {
                 logger.LogInformation(
@@ -244,7 +180,7 @@ public static class EmailEndpoints
 
             if (recipients.Count == 0)
             {
-                // 역할·아이디에 이메일 가진 사용자가 없을 수도 있다 — 조용히 성공으로 말하지 않는다.
+                // 역할·아이디에 메일 가진 사용자가 없을 수 있다(조용히 성공으로 말하지 않는다).
                 logger.LogWarning(
                     "이메일 받는 사람이 없습니다. to={To} toUser={User} toRole={Role} by={By}",
                     request.To, request.ToUser, request.ToRole, user.UserId);
@@ -254,9 +190,7 @@ public static class EmailEndpoints
                     : malformed.Count > 0
                         ? $"주소 꼴이 아닙니다: {string.Join(", ", malformed)}"
 
-                        // **고칠 자리를 가려서 적는다.** 부르는 쪽이 아무도 안
-                        // 적어 보냈는데 정책에도 역할이 없으면, 고칠 자리는
-                        // 「역할에 사람이 없다」가 아니라 알림관리 화면이다.
+                        // 고칠 자리는 역할에 사람이 없는 것이 아니라 알림관리 화면이다.
                         : !addressed && decision.Unrestricted
                             ? "알림관리에 받는 역할이 없습니다 — 포털관리 › 알림관리에서 "
                               + "이 이벤트의 「이메일」을 켠 역할이 하나라도 있어야 보냅니다."
@@ -267,22 +201,12 @@ public static class EmailEndpoints
             }
 
             // ── 평문이면 회사 메일 꼴을 입힌다 ─────────────────
-            //
-            // **글자만 덩그러니 나가는 길을 남겨 두지 않는다.** 업무 화면의
-            // 「알림 보내기」(생일 축하 등)는 사람이 친 글을 그대로 넘기는데,
-            // 그때까지 그 글은 아무 틀 없이 도착했다 — 같은 포털이 보낸
-            // 비밀번호 찾기·문의 접수 메일과 나란히 놓으면 회사 메일로 보이지
-            // 않는다. 틀은 여기 한 곳에만 둔다(`NoticeEmailTemplate` 머리말).
-            //
-            // HTML 로 온 것은 부르는 쪽이 이미 완성된 문서를 보낸 것이라
-            // 손대지 않는다 — 틀을 두 겹으로 씌우면 클라이언트마다 다르게 무너진다.
+            // 평문이면 회사 메일 틀을 입힌다(NoticeEmailTemplate). HTML 은 이미 완성된 문서라 손대지 않는다.
             var body = request.Html
                 ? request.Body
                 : NoticeEmailTemplate.Render(request.Subject, request.Body, request.SenderName);
 
-            // 평문 갈래도 같이 싣는다 — 원본이 이미 평문이라 만드는 값이 거의
-            // 들지 않는다(`IEmailSender.SendAsync` 의 `textBody`). HTML 로 온
-            // 것은 원본이 평문이 아니므로 만들 것이 없다.
+            // 평문 갈래도 함께 싣는다(IEmailSender.SendAsync 의 textBody).
             var textBody = request.Html
                 ? null
                 : NoticeEmailTemplate.PlainAlternative(request.Subject, request.Body, request.SenderName);
@@ -296,9 +220,7 @@ public static class EmailEndpoints
                 logger.LogInformation("이메일 직발송 완료. to={To} role={Role} files={Files} by={By}",
                     string.Join(",", recipients), request.ToRole, request.Attachments.Count, user.UserId);
 
-                // **보낸 것을 표에도 남긴다.** 로그 파일만으로는 「이 사람에게
-                // 무엇이 나갔나」에 답할 수 없다 — 그것을 묻는 자리가 계정
-                // 앱 현황 화면이다(EmailSendLog 머리말).
+                // 보낸 것을 표에도 남긴다(로그 파일만으로는 무엇이 나갔는지 답할 수 없다).
                 await EmailSendLog.WriteAsync(
                     db, logger, recipients, request.Subject, request.Body, request.Html,
                     user.UserId, success: true, failureReason: null, ct);
@@ -307,13 +229,11 @@ public static class EmailEndpoints
             }
             catch (Exception ex)
             {
-                // 실패를 성공으로 말하지 않는다 — 부르는 쪽이 재시도 여부를 정한다.
+                // 실패를 성공으로 말하지 않는다(재시도 여부는 부르는 쪽이 정한다).
                 logger.LogError(ex, "이메일 직발송 실패. to={To} by={By}",
                     string.Join(",", recipients), user.UserId);
 
-                // **못 보낸 것도 남긴다.** 푸시 기록이 그러는 까닭과 같다 —
-                // 안 남기면 「그 시각에 아무 일도 없었다」로 보이고, 그것이
-                // 「보낸 적 없다」와 구분되지 않는다.
+                // 못 보낸 것도 남긴다(안 남기면 「아무 일도 없었다」와 구분되지 않는다).
                 await EmailSendLog.WriteAsync(
                     db, logger, recipients, request.Subject, request.Body, request.Html,
                     user.UserId, success: false, failureReason: "메일 서버가 받지 않음", ct);
@@ -326,36 +246,10 @@ public static class EmailEndpoints
         .WithName("SendEmailDirect");
     }
 
-    // 로그인 아이디 → 대표 메일을 푸는 질의는 `IAccountEmailResolver` 로
-    // 옮겼다. **메일을 내는 자리가 둘이 되었기 때문**이다(직발송 · PushSender 의
-    // 메일 곁가지) — 베껴 두면 「대표 메일 우선」이 두 곳에 산다.
-    //
-    // **본인이 이메일 알림을 껐는지는 거기서도 안 본다.** 역할로 가는 메일은
-    // 「그 역할인 사람 아무나」에게 가는 알림이라 본인의 뜻을 지킬 수 있지만,
-    // 아이디를 짚어 보내는 것은 부르는 쪽이 사람을 하나 고른 것이다 — AI 작업의
-    // 「끝나면 메일로 받기」처럼 그 건마다 본인이 켠 업무 메일이 이 길로 온다.
-    // 알림 설정으로 그것을 막으면 켠 사람이 왜 안 오는지 알 길이 없다.
+    // 아이디 → 대표 메일 질의는 IAccountEmailResolver 에 둔다. 아이디를 짚은 업무 메일은 본인 설정으로 막지 않는다.
 
-    /// <summary>
-    /// 역할 사용자들의 이메일을 푼다 — 계정마다 하나(대표 이메일 우선).
-    /// scom 은 이 서비스의 DB 라 조회만 한다 (Entities/ScomIdentityRows.cs 머리말).
-    /// </summary>
-    /// <remarks>
-    /// <b>본인이 이메일 알림을 끈 사람은 빠진다.</b> 역할로 보내는 메일은 "그 역할인
-    /// 사람 아무나" 에게 가는 알림이라 본인의 뜻을 지킬 수 있다.
-    ///
-    /// <para>
-    /// 반대로 <c>to</c> 에 주소를 직접 적어 보내는 메일은 걸러내지 않는다 — 문의 회신
-    /// 처럼 "이 주소로 보내야 하는" 업무 메일이고, 주소만으로는 어느 계정인지도 확실치
-    /// 않다. 알림 설정으로 업무 메일을 막으면 조용히 일이 끊긴다.
-    /// </para>
-    ///
-    /// <para>
-    /// 설정의 주인 키는 <c>accounts.user_id</c>(로그인 아이디)다 — 게이트웨이가 주는
-    /// <c>X-User-Id</c> 가 그 값이라 구독도 같은 키로 저장된다. <c>role_accounts</c> 는
-    /// <c>accounts.id</c> 를 가리키므로 둘을 함께 들고 와서 맞춰야 한다.
-    /// </para>
-    /// </remarks>
+/// <summary>역할 사용자들의 이메일을 푼다(계정마다 하나, 대표 이메일 우선). 본인이 이메일을 끈 사람은 뺀다.
+/// 주인 키는 accounts.user_id 다(role_accounts 는 accounts.id 를 가리켜 맞춰 든다).</summary>
     private static async Task<List<string>> ResolveRoleEmailsAsync(
         AppDbContext db, INotificationPreferenceService prefs,
         IReadOnlyCollection<string> roleIds, CancellationToken ct)

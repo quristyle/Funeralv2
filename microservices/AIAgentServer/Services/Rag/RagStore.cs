@@ -4,41 +4,14 @@ using System.Text.RegularExpressions;
 
 namespace AIAgentServer.Services.Rag;
 
-/// <summary>
-/// 색인을 들고 있다가 질문에 맞는 토막을 꺼내 준다.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <b>벡터만 쓰면 안 된다.</b> 벡터 검색은 "비슷한 뜻" 은 잘 찾지만
-/// <c>DEPLOY_NOTIFY_TOKEN</c> 이나 <c>LlmHostMetricsClient</c> 같은 <b>정확한 이름</b>
-/// 은 못 찾는다. 반대로 낱말 검색은 "푸시가 늦어요" 로 "알림 TTL" 문서를 못 찾는다.
-/// 둘을 섞어야 둘 다 된다.
-/// </para>
-/// <para>
-/// 점수를 합칠 때 <b>값을 더하지 않고 순위를 더한다</b>(RRF). 코사인 점수와
-/// BM25 점수는 자릿수도 분포도 달라서, 정규화해 더하면 가중치를 문서마다 다시
-/// 맞춰야 한다. 순위는 그런 사정이 없다.
-/// </para>
-/// <para>
-/// 저장은 JSON 파일 하나다. 지금 대상(<c>docs/*.md</c>)이 400KB 뿐이라 토막이
-/// 수백 개이고, 전부 메모리에서 비교해도 1밀리초다. <b>벡터 DB 는 수십만 건부터
-/// 의미가 있다</b> — 운영 DB 에 pgvector 를 설치하는 것은 그때 할 일이다.
-/// </para>
-/// </remarks>
+/// <summary>색인을 들고 있다가 질문에 맞는 토막을 꺼내 준다. 벡터만 쓰면 안 된다.</summary>
 public sealed class RagStore
 {
     private static readonly Regex AsciiWord = new(@"[A-Za-z_][A-Za-z0-9_]{1,}", RegexOptions.Compiled);
     /// <summary>한 문서에서 가져올 수 있는 최대 토막 수.</summary>
     private const int MaxPerSource = 2;
 
-    /// <summary>
-    /// 이 점수를 넘는 벡터 일치는 <b>RRF 보다 먼저</b> 집는다.
-    /// </summary>
-    /// <remarks>
-    /// <c>Rag:MinVectorScore</c>(자료로 쓸 최소 점수)와 같은 값으로 둔다 —
-    /// 어차피 그 아래는 쓰는 쪽이 걸러 내므로, 여기서 먼저 집어 봐야 버려진다.
-    /// 실측에서 사내 질문은 0.71~0.78, 상관없는 질문은 0.26~0.32 로 갈렸다.
-    /// </remarks>
+    /// <summary>이 점수를 넘는 벡터 일치는 <b>RRF 보다 먼저</b> 집는다. Rag:MinVectorScore(자료로 쓸 최소 점수)와 같은 값으로 둔다</summary>
     private const double StrongVectorScore = 0.60;
 
     private static readonly Regex Hangul = new(@"[가-힣]{2,}", RegexOptions.Compiled);
@@ -81,20 +54,7 @@ public sealed class RagStore
     public int CountOf(string category)
         => _shards.TryGetValue(category, out var sh) ? sh.Index.Chunks.Count : 0;
 
-    /// <summary>
-    /// 한 카테고리 색인의 겉모습. <b>상태 화면이 읽는다.</b>
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>벡터가 붙은 토막 수를 따로 센다.</b> 임베딩 서버가 죽은 채 색인을
-    /// 돌리면 토막은 그대로 생기고 벡터만 비는데, 토막 수만 보면 멀쩡해 보인다 —
-    /// 그 색인은 낱말 검색밖에 못 한다. 화면에서 가려져야 하는 고장이다.
-    /// </para>
-    /// <para>
-    /// 파일 크기는 디스크에서 읽는다. 메모리에 든 것과 어긋나면(색인은 돌았는데
-    /// 저장이 안 됐다든지) 다시 뜰 때 사라지는 색인이라는 뜻이다.
-    /// </para>
-    /// </remarks>
+    /// <summary>한 카테고리 색인의 겉모습. <b>상태 화면이 읽는다.</b> 벡터가 붙은 토막 수를 따로 센다.</summary>
     public RagIndexStat? StatOf(string category)
     {
         if (!_shards.TryGetValue(category, out var sh)) return null;
@@ -130,14 +90,7 @@ public sealed class RagStore
 
     // ── 낱말 쪼개기 ─────────────────────────────────────────────
 
-    /// <summary>
-    /// 낱말 검색용으로 글을 쪼갠다.
-    /// </summary>
-    /// <remarks>
-    /// 한국어는 형태소 분석기 없이 낱말 경계를 못 가른다. 그래서 <b>글자 두 개씩
-    /// 겹쳐 가며(bigram)</b> 쪼갠다 — "빈소배정" 을 "빈소·소배·배정" 으로 보는 식이다.
-    /// 조사가 붙어도("빈소를") 앞부분이 겹쳐서 걸린다. 영문·식별자는 통째로 둔다.
-    /// </remarks>
+    /// <summary>낱말 검색용으로 글을 쪼갠다. 한국어는 형태소 분석기 없이 낱말 경계를 못 가른다.</summary>
     internal static string[] Tokenize(string text)
     {
         var terms = new List<string>();
@@ -217,9 +170,7 @@ public sealed class RagStore
         await JsonSerializer.SerializeAsync(fs, slim, cancellationToken: ct);
     }
 
-    /// <summary>
-    /// 디스크에 있는 색인 파일을 모두 읽는다. 기동 때 한 번 부른다.
-    /// </summary>
+    /// <summary>디스크에 있는 색인 파일을 모두 읽는다. 기동 때 한 번 부른다.</summary>
     public async Task<int> LoadAllAsync(CancellationToken ct = default)
     {
         var dir = Path.GetDirectoryName(_path);
@@ -310,7 +261,7 @@ public sealed class RagStore
         // 토막(벡터 3위 · 낱말 2위)이 **벡터 1위지만 낱말 400위**인 토막을
         // 이기는 일이 생기는데, 0.77 짜리 코사인 일치는 어중간한 것이 아니다.
         //
-        // 실제로 밟았다 — 올린 사내 문서 한 장(그 카테고리 안에서 0.770)이
+        // 올린 사내 문서 한 장(그 카테고리 안에서 0.770)이
         // 저장소 문서 784토막에 밀려 **상위 4 안에도 못 들었고**, 그래서
         // 「사내 자료 우선」을 켜도 웹으로 샜다. 말투를 조금만 바꿔도 들었다
         // 나갔다 해서 더 나빴다.

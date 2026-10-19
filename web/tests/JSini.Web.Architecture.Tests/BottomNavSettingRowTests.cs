@@ -3,33 +3,11 @@ using Xunit;
 
 namespace JSini.Web.Architecture.Tests;
 
-/// <summary>
-/// 환경설정의 「아래 띠 고르기」 줄이 <b>휴대폰에서 한 줄</b>인가
-/// (<c>funeral.css</c> 의 <c>.fn-bnav__row</c>).
-///
-/// <para>
-/// [왜 글자로 검사하나]
-/// </para>
-///
-/// <para>
-/// 줄에 차례 바꾸기 꺾쇠 둘을 더했더니 휴대폰에서 <b>줄이 하나 더</b>
-/// 생겼다 — 감싸는 상자(<c>flex-wrap: wrap</c>)는 폭이 모자랄 때 글상자를
-/// 줄이는 대신 먼저 뒷것들을 아래로 떨어뜨리기 때문이다. 빌드도 테스트도
-/// 통과했고 화면도 열렸다. 사람이 휴대폰으로 열어 보고서야 드러났다.
-/// </para>
-///
-/// <para>
-/// 여기서 <b>배치를 잴 수는 없다</b>(테스트는 브라우저가 아니다). 대신
-/// 고쳐 둔 두 규칙이 <b>짝으로 남아 있는지</b>만 본다 — 하나만 지워지면
-/// 그 자리가 되돌아간다.
-/// </para>
-/// </summary>
+/// <summary>환경설정의 「아래 띠 고르기」 줄이 휴대폰에서 한 줄인가(funeral.css 의 .fn-bnav__row). 줄에 꺾쇠 둘을 더했더니 flex-wrap 이 뒷것을 아래로 떨어뜨려 줄이 하나 더 생겼고,
+/// 빌드·테스트·화면은 멀쩡했다. 배치는 잴 수 없어 고쳐 둔 두 규칙이 짝으로 남아 있는지만 본다.</summary>
 public sealed class BottomNavSettingRowTests
 {
-    /// <summary>
-    /// 기본은 <c>nowrap</c> 이다. 폭이 모자라면 줄을 내리는 대신
-    /// 글상자가 줄어든다(이름 칸이 먼저 준다 — <c>flex: 0 3 7rem</c>).
-    /// </summary>
+    /// <summary>기본은 nowrap 이다. 폭이 모자라면 줄을 내리는 대신 글상자가 줄어든다(이름 칸이 먼저 준다).</summary>
     [Fact]
     public void 줄은_감기지_않는다()
     {
@@ -38,11 +16,7 @@ public sealed class BottomNavSettingRowTests
         Assert.Contains("flex-wrap: nowrap", rule, StringComparison.Ordinal);
     }
 
-    /// <summary>
-    /// <b>칸 셋으로 갈리는 넓은 화면(1200px 이상)에서는 다시 감는다.</b>
-    /// 그때 이 판이 앉는 자리는 260px 남짓이라 휴대폰(360px)보다 좁고,
-    /// 한 줄에 붙이면 메뉴 고르개가 40px 로 눌린다.
-    /// </summary>
+    /// <summary>칸 셋으로 갈리는 넓은 화면(1200px 이상)에서는 다시 감는다 — 이 판은 260px 남짓에 앉아 한 줄에 붙이면 메뉴 고르개가 40px 로 눌린다.</summary>
     [Fact]
     public void 셋으로_갈린_칸에서는_다시_감는다()
     {
@@ -51,10 +25,7 @@ public sealed class BottomNavSettingRowTests
         Assert.Contains("flex-wrap: wrap", rule, StringComparison.Ordinal);
     }
 
-    /// <summary>
-    /// 이름 칸에 바닥이 있다. 없으면 320px 에서 20px 까지 눌려 글자가
-    /// 한 자도 안 남는다.
-    /// </summary>
+    /// <summary>이름 칸에 바닥이 있다. 없으면 320px 에서 20px 까지 눌려 글자가 한 자도 안 남는다.</summary>
     [Fact]
     public void 이름_칸이_먼저_줄되_바닥이_있다()
     {

@@ -2,55 +2,16 @@
 @attribute [RouteKey("helpdesk.dashboard.reception")]
 
 @*
-    [접수 대시보드] — DB 메뉴 `/helpdesk/dashboard/reception`.
-    이력: JinReception `views/pages/moni/RequestMonitor.vue`(`/request_monitor`) → 여기.
-    엔드포인트: `dashboard/admin-stats` · `dashboard/all-admin-stats` ·
-                `dashboard/company-stats` · `requests/srch`
-
-    **「내가 얼마나 받아서 얼마나 끝냈나」를 보는 자리다.** 이미 있는
-    「헬프데스크 현황」(`/helpdesk/dashboard`)과 겹치지 않는다 — 그쪽은
-    `dashboard/overview` 한 통로로 업무 전체를 펴 보이고, 여기는 **사람**이
-    가운데다(나 · 담당자별 · 회사별 접수율).
-
-    [DB 를 새로 만들지 않았다]
-
-    옛 화면이 부르던 넷이 **이 시스템에 이미 다 있다.** 표도 칸도 그대로다 —
-    더한 것은 `all-admin-stats` 응답의 `loginId` 한 칸뿐이고, 그것도
-    `helpdesk.admin.loginid` 에 이미 들어 있던 값을 실어 보낸 것이다.
-
-    [사람의 이름과 얼굴은 포털이 정본이다]
-
-    헬프데스크의 `admin.username`·`admin.photo` 는 담당자 줄을 만들 때 한 번
-    베껴 둔 값이라(`AssigneeProvisioner`), 포털에서 이름을 고치거나 사진을
-    바꿔도 따라오지 않는다. 그래서 **서버는 `loginId` 만 주고 화면이
-    `auth/user/faces` 에 한 번 더 묻는다**(`UserFaceClient`). 사진이 없거나
-    못 읽으면 이름 첫 글자가 그 자리를 지킨다.
-
-    그 부품은 이 화면이 **세 번째 사용자**라 공용(`JSini.Web.Components`)으로
-    올렸다 — 프로젝트관리·생활과환경이 한 벌씩 베껴 쓰고 있었고, 저장소의
-    규칙이 「두 모듈이 쓰면 복제, 세 번째부터 승격」이다(web/CLAUDE.md).
-
-    [숫자를 누르면 그 목록이 열린다]
-
-    옛 화면은 Pinia 스토어에 조건을 담고 목록으로 보냈다. 이 포털의 요청
-    처리 화면은 **주소에 조건을 싣는다**(`status` · `admin` · `company` ·
-    `open`) — 스토어가 없어도 되고, 그 주소를 그대로 복사해 둘 수 있다.
-    **`open=false` 를 꼭 함께 보낸다** — 그 화면의 기본값이 「처리 중인
-    것만」이라, 안 끄면 완료·종료 타일이 빈 목록으로 열린다.
-
-    [접수율·완료율은 화면이 센다]
-
-    `admin-stats` 는 건수만 준다. 비율은 **옛 화면과 같은 식**으로 화면에서
-    낸다 — 내가 받은 것 ÷ 전체, 내가 끝낸 것 ÷ 내가 받은 것. 서버가 같은
-    것을 다시 세게 하지 않는 이유는 기준(무엇을 「받은 것」으로 보나)이
-    이 화면의 뜻이기 때문이다.
-
-    [연결이 없으면 「내 것」이 0 이다]
-
-    포털 계정과 헬프데스크 담당자 줄이 이어져 있어야 「나에게 배정된 것」을
-    셀 수 있다(`HelpdeskPrincipal.IsLinkedAdmin`). 안 이어져 있으면 숫자가
-    0 인 것이 아니라 **셀 수가 없는** 것이라, 그 사실을 적어 둔다.
+    [접수 대시보드] — DB 메뉴 `/helpdesk/dashboard/reception`. 엔드포인트 `dashboard/admin-stats` · `dashboard/all-admin-stats` · `dashboard/company-stats` · `requests/srch`
+    나 · 담당자별 · 회사별 접수율과 완료율을 보는 자리다. 헬프데스크 현황(dashboard/overview)은 업무 전체를, 이 화면은 사람을 가운데 둔다.
+    담당자 이름·사진은 포털이 정본이다. 헬프데스크 쪽 admin 줄은 베낀 값이라 서버는 loginId 만 주고, 화면이 auth/user/faces 에 한 번 더 묻는다.
 *@
+
+    @* 숫자를 누르면 요청 목록이 주소에 조건을 싣고 열린다. open=false 를 꼭 싣는다 — 그 화면의 기본이 「처리 중만」이라 안 끄면 완료·종료 타일이 빈 목록으로 열린다. *@
+
+    @* 비율은 화면이 낸다 — 내가 받은 것 ÷ 전체, 내가 끝낸 것 ÷ 내가 받은 것. admin-stats 는 건수만 준다. *@
+
+    @* 포털 계정과 담당자 줄이 이어져 있어야 「내 것」을 셀 수 있다. 안 이어져 있으면 0 이 아니라 셀 수 없는 것이다. *@
 
 @using JSini.Web.HelpDesk.Api
 
@@ -78,9 +39,7 @@
     </span>
 </div>
 
-@* 「0 건」과 「셀 수 없었다」는 다르다 — 서버가 나를 가리키는 담당자 줄을
-   못 찾으면 위의 여섯은 없는 것이 아니라 모르는 것이다. 요청을 한 번
-   접수하면 그 줄이 생긴다(`AssigneeProvisioner`). *@
+@* 「0 건」과 「셀 수 없었다」는 다르다. 나를 가리키는 담당자 줄이 없으면 위 숫자는 없는 것이 아니라 모르는 것이다. 요청을 한 번 접수하면 그 줄이 생긴다(AssigneeProvisioner). *@
 @if (Context.IsAdmin && !_mine.Linked)
 {
     <PageNotice Tone="NoticeTone.Warning"
@@ -105,7 +64,7 @@
         }
     </div>
 
-    @* 접수율 · 완료율. 옛 화면의 Knob 두 개다. *@
+    @* 접수율 · 완료율 — 도넛 두 장. *@
     <div class="hd-rcp__gauges">
         @Gauge("나의 접수율", AcceptanceRate, $"{Handled} / {_mine.TotalRequests}", AcceptColor, ManageHref(null, mine: true))
         @Gauge("나의 완료율", CompletionRate, $"{Closed} / {Handled}", DoneColor, ManageHref(DoneStatuses, mine: true))
@@ -214,10 +173,8 @@
 </DashboardSection>
 
 @code {
-    @* C# 파일에서는 마크업을 쓸 수 없다. 되풀이되는 조각만 여기 남는다. *@
 
-    @* 비율 하나를 고리로 그린다. 옛 화면의 Knob 자리다 — 도넛 조각 둘에
-       가운데 글자를 얹는다. `DxPieChart` 의 안지름을 키워 고리로 만든다. *@
+    @* 비율 하나를 고리로 그린다 — 도넛 조각 둘에 가운데 글자를 얹는다. DxPieChart 의 안지름을 키워 고리로 만든다. *@
     private RenderFragment Gauge(string title, double rate, string under, string color, string href) =>
         @<div class="jsini-card hd-rcp__gauge">
             <span class="hd-rcp__gauge-title">@title</span>

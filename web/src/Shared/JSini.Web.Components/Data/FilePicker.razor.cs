@@ -14,37 +14,16 @@ public partial class FilePicker
     /// <summary>한 개 최대 크기(바이트). DevExpress 가 넘는 파일에 표시를 붙여 막는다.</summary>
     [Parameter] public long MaxBytes { get; set; } = 100L * 1024 * 1024;
 
-    /// <summary>
-    /// 모두 합쳐 최대 크기(바이트). <c>0</c> 이면 총량을 따지지 않는다.
-    ///
-    /// <para>
-    /// <b>메일 첨부 때문에 생겼다.</b> 서버가 총량으로 막는데(15MB) 화면은
-    /// 한 개 크기만 보고 있었다. 안내 문구에는 「모두 합쳐 15MB」라고 적혀
-    /// 있었지만 <b>실제로 막지 않아서</b>, 5개 × 15MB 를 다 받아 올린 뒤에야
-    /// 서버가 거절했다. 먼저 말해 주려고 둔 상한이 먼저 말해 주지 못한 셈이다.
-    /// </para>
-    /// </summary>
+    /// <summary>모두 합쳐 최대 크기(바이트). 0 이면 총량을 따지지 않는다. 메일 첨부 때문에 생겼다 — 서버는 총량 15MB 로 막는데 화면은 한 개 크기만 보고 있어, 5개 × 15MB 를 다 받아 올린 뒤에야 거절됐다. 먼저 말해 주려고 둔 상한이 먼저 말해 주지 못한 셈이다.</summary>
     [Parameter] public long MaxTotalBytes { get; set; }
 
-    /// <summary>
-    /// 받을 형식. 쉼표로 여럿 (<c>image/*</c> · <c>video/mp4,video/webm</c>).
-    /// 비우면 아무거나.
-    /// </summary>
+    /// <summary>받을 형식. 쉼표로 여럿(image/* · video/mp4,video/webm). 비우면 아무거나.</summary>
     [Parameter] public string? Accept { get; set; }
 
     /// <summary>칸 아래 적을 안내. 무엇을 올리는 자리인지 화면마다 다르다.</summary>
     [Parameter] public string? Hint { get; set; }
 
-    /// <summary>
-    /// 그 안내 줄을 그릴 것인가.
-    ///
-    /// <para>
-    /// 끄는 자리는 <b>고르개가 아이콘 하나로 줄어 다른 줄에 끼어 있는 때</b>다
-    /// (「빠른 지시」의 단추 줄). 거기서는 한 줄이 통째로 줄을 풀어 버린다.
-    /// 끈 쪽은 같은 말을 아이콘의 <c>title</c> 로 달아 준다 — 지우는 것이
-    /// 아니라 자리를 옮기는 것이다.
-    /// </para>
-    /// </summary>
+    /// <summary>그 안내 줄을 그릴 것인가. 끄는 자리는 고르개가 아이콘 하나로 줄어 다른 줄에 끼어 있을 때다 — 한 줄이 통째로 줄을 풀어 버린다. 끈 쪽은 같은 말을 아이콘의 title 로 달아 자리를 옮긴다.</summary>
     [Parameter] public bool ShowHint { get; set; } = true;
 
     /// <summary>고른 것이 바뀔 때마다. 화면은 이 목록을 들고 있다가 저장할 때 읽는다.</summary>
@@ -58,44 +37,22 @@ public partial class FilePicker
 
     private DxFileInput? _input;
 
-    /// <summary>
-    /// 고르기 단추의 아이디. <c>ExternalSelectButtonCssSelector</c> 가 이것으로
-    /// 우리 단추를 찾는다.
-    /// </summary>
-    /// <remarks>
-    /// <b>부품마다 달라야 한다.</b> 한 화면에 첨부 칸이 둘인 자리가 있는데
-    /// (영정 사진과 미디어), 아이디를 글자로 박아 두면 둘째 칸의 단추가 첫째
-    /// 칸의 파일 고르개를 연다 — 고른 파일이 엉뚱한 칸에 붙는다.
-    /// </remarks>
+    /// <summary>고르기 단추의 아이디. ExternalSelectButtonCssSelector 가 이것으로 우리 단추를 찾는다. 부품마다 달라야 한다 — 한 화면에 첨부 칸이 둘이면 아이디를 글자로 박아 둔 둘째 칸의 단추가 첫째 칸의 고르개를 연다.</summary>
     private readonly string _selectId = $"jsini-pick-{Guid.NewGuid():N}";
 
-    /// <summary>
-    /// 받아 둔 파일. 열쇠는 DevExpress 가 파일마다 붙이는 <c>Guid</c> 다.
-    ///
-    /// <b>이름으로 열쇠를 삼지 않는다</b> — 같은 이름을 두 번 고를 수 있고,
-    /// 그때 한쪽을 빼면 엉뚱한 임시 파일이 지워진다.
-    /// </summary>
+    /// <summary>받아 둔 파일. 열쇠는 DevExpress 가 파일마다 붙이는 Guid 다 — 이름으로 열쇠를 삼으면 같은 이름을 두 번 고를 때 한쪽을 뺀 것이 엉뚱한 임시 파일을 지운다.</summary>
     private readonly Dictionary<string, PickedFile> _byGuid = [];
 
     /// <summary>이 부품이 만든 임시 폴더. 사라질 때 통째로 지운다.</summary>
     private string? _tempDir;
 
-    /// <summary>
-    /// 총량을 넘겨 우리가 빼는 중인가.
-    ///
-    /// <c>RemoveFiles</c> 가 <see cref="OnSelectedFilesChangedAsync"/> 를 다시
-    /// 부르므로, 막지 않으면 자기가 부른 것을 또 처리하며 맴돈다.
-    /// </summary>
+    /// <summary>총량을 넘겨 우리가 빼는 중인가. RemoveFiles 가 OnSelectedFilesChangedAsync 를 다시 부르므로 막지 않으면 자기가 부른 것을 또 처리하며 맴돈다.</summary>
     private bool _trimming;
 
     /// <summary>지금 들고 있는 것. 고른 순서를 지킨다.</summary>
     private IReadOnlyList<PickedFile> Files => [.. _byGuid.Values];
 
-    /// <summary>
-    /// DevExpress 의 <c>MaxFileSize</c> 는 <c>int</c> 다(약 2.1GB).
-    /// 우리 상한이 그보다 크면 여기서 잘린다 — 그 값을 넘길 일이 없지만,
-    /// 넘기면 <c>OverflowException</c> 이 아니라 조용히 음수가 되므로 막아 둔다.
-    /// </summary>
+    /// <summary>DevExpress 의 MaxFileSize 는 int 다(약 2.1GB). 우리 상한이 그보다 크면 여기서 자른다 — 넘기면 OverflowException 이 아니라 조용히 음수가 되므로 막아 둔다.</summary>
     private int DxMaxFileSize => (int)Math.Min(MaxBytes, int.MaxValue);
 
     private List<string>? AcceptedTypes => string.IsNullOrWhiteSpace(Accept)
@@ -116,14 +73,7 @@ public partial class FilePicker
         }
     }
 
-    /// <summary>
-    /// 고른 것이 바뀌었다. <b>빼기와 총량을 여기서 처리한다.</b>
-    /// </summary>
-    /// <remarks>
-    /// 이 이벤트는 파일이 서버로 넘어오기 <b>전</b>에 온다. 총량을 여기서
-    /// 따져야 넘치는 파일을 **받기 전에** 돌려보낼 수 있다 — 다 받은 뒤에
-    /// 빼면 사람은 이미 기다린 뒤다.
-    /// </remarks>
+    /// <summary>고른 것이 바뀌었다. 빼기와 총량을 여기서 처리한다. 이 이벤트는 파일이 서버로 넘어오기 전에 온다 — 총량을 여기서 따져야 넘치는 파일을 받기 전에 돌려보낼 수 있다.</summary>
     private async Task OnSelectedFilesChangedAsync(IEnumerable<UploadFileInfo> selected)
     {
         if (_trimming)
@@ -202,13 +152,7 @@ public partial class FilePicker
         await FilesChanged.InvokeAsync(Files);
     }
 
-    /// <summary>
-    /// 파일이 서버로 넘어온다. 임시 파일로 받아 둔다.
-    /// </summary>
-    /// <remarks>
-    /// <b>올릴 주소가 없다.</b> <c>DxFileInput</c> 은 바이트를 우리 회로로
-    /// 넘겨 줄 뿐이고, 그 다음은 전부 서버 코드다(머리말의 <c>DxUpload</c> 얘기).
-    /// </remarks>
+    /// <summary>파일이 서버로 넘어온다. 임시 파일로 받아 둔다. 올릴 주소가 없다 — DxFileInput 은 바이트를 우리 회로로 넘겨 줄 뿐이고 그 다음은 전부 서버 코드다.</summary>
     private async Task OnFilesUploadingAsync(FilesUploadingEventArgs e)
     {
         foreach (var file in e.Files)
@@ -316,20 +260,7 @@ public partial class FilePicker
         _ => $"{bytes} B",
     };
 
-    /// <summary>
-    /// 임시 파일을 지운다.
-    /// </summary>
-    /// <remarks>
-    /// <b><see cref="ClearAsync"/> 를 부르지 않는다.</b> 그쪽은 자식 부품
-    /// (<c>DxFileInput</c>)의 목록을 비우고 <see cref="FilesChanged"/> 를 부르는데,
-    /// 사라지는 중에는 둘 다 위험하다 — 자식이 이미 사라졌을 수 있고, 콜백을
-    /// 받는 화면도 마찬가지다. 그 자리에서 던지면 <b>회로가 끊긴다</b>.
-    ///
-    /// <para>
-    /// 여기서 해야 하는 일은 **디스크를 치우는 것** 하나뿐이다. 화면에 알릴
-    /// 일도, 목록을 비울 일도 없다 — 부품이 통째로 없어지는 참이다.
-    /// </para>
-    /// </remarks>
+    /// <summary>임시 파일을 지운다. ClearAsync 를 부르지 않는다 — 그쪽은 자식의 목록을 비우고 FilesChanged 를 부르는데 사라지는 중에는 둘 다 위험하다(던지면 회로가 끊긴다). 여기서 할 일은 디스크를 치우는 것 하나뿐이다.</summary>
     public ValueTask DisposeAsync()
     {
         foreach (var file in _byGuid.Values)

@@ -6,27 +6,8 @@ namespace ProjMngServer.Services;
 /// <summary>
 /// 알림 서비스가 돌려준 푸시 응답을 <b>「갔다」와 「안 갔다」로 가른다.</b>
 /// </summary>
-/// <remarks>
-/// <para>
-/// <b>2xx 가 곧 배달은 아니다.</b> <c>POST /notifications/push</c> 는 한 대도
-/// 못 보냈을 때 <b>202</b> 와 까닭을 준다 — 구독한 기기 없음 · 본인이 푸시를 끔 ·
-/// 서버에 VAPID 설정 없음. 저쪽이 일부러 그렇게 갈라 놓았는데
-/// (<c>NotificationEndpoints</c> 의 「보낸 것이 하나도 없으면 성공으로 말하지
-/// 않는다」), 부르는 쪽이 <c>IsSuccessStatusCode</c> 만 보면 그 구분이 여기서
-/// 통째로 사라진다.
-/// </para>
-/// <para>
-/// 실제로 그렇게 사라졌다. 시스템 관리자(<c>kdh</c>)의 구독 기기가 없어져
-/// 2026-09-24 부터 그 계정으로 간 푸시가 <b>한 건도 배달되지 않았는데</b>,
-/// 보낸 쪽(<c>ai_task.notify_error</c>)은 내내 비어 있어 작업 화면은
-/// 「알림 정상」으로 보였다. 받는 사람만 아는 고장은 아무도 안 고친다.
-/// </para>
-/// <para>
-/// <b>부르는 자리가 둘이라 여기 하나만 둔다</b> — 결과 알림
-/// (<see cref="AiTaskNotifier"/>)과 요청·남긴말 알림
-/// (<see cref="AiRequestAlerter"/>). 한쪽에만 적으면 반드시 갈라진다.
-/// </para>
-/// </remarks>
+/// 알림 서비스는 한 대도 못 보냈을 때도 2xx(202)로 답하므로 상태 코드만 보면 안 된다 — 구독 기기 없음 · 본인이 푸시를 끔 · VAPID 설정 없음이 그 예다.
+/// 결과 알림과 요청 알림 두 곳이 같이 쓰므로 여기 한 벌만 둔다 — 한쪽에만 적으면 반드시 갈라진다.
 internal static class PushOutcome
 {
     /// <summary>한 건도 안 나갔는데 까닭조차 못 읽었을 때 쓸 말.</summary>

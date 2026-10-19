@@ -26,7 +26,7 @@ public partial class TodoMonitor
 
     private Task SearchAsync() => LoadAsync(async () =>
     {
-        // 나란히 읽는다. 서로 기다릴 이유가 없다(머리말).
+        // 나란히 읽는다 — 서로 기다릴 이유가 없다.
         var pay = Api.PayAsync(_userCode);
         var todos = Api.ListAsync(
             _userCode,

@@ -6,16 +6,8 @@ using Microsoft.EntityFrameworkCore;
 namespace LifeEnvServer.Services;
 
 /// <summary>
-/// 위경도 한 쌍으로 <b>그 지점</b>의 지금 날씨와 예보를 만든다 — 「내 위치 날씨」의 속.
+/// 위경도 한 쌍으로 그 지점의 지금 날씨와 예보를 만든다. 설정 화면 미리보기와 알림 본문이 같은 글을 보도록 둘 다 여기를 부른다.
 /// </summary>
-/// <remarks>
-/// <para>
-/// 쓰는 곳이 둘이다 — 설정 화면이 「여기가 맞나」를 미리 보여 줄 때
-/// (<c>GET /weather/point</c>)와, 발송기가 알림 본문을 만들 때
-/// (<see cref="LocalWeatherNotifyService"/>). <b>둘이 같은 글을 보여야 한다</b> —
-/// 미리 본 것과 실제로 온 알림의 말이 다르면 사람은 둘 중 하나를 믿지 못한다.
-/// </para>
-/// </remarks>
 public class PointWeatherService
 {
     private readonly LifeEnvDbContext _db;
@@ -31,14 +23,8 @@ public class PointWeatherService
     }
 
     /// <summary>
-    /// <b>이름과 격자만</b>. 기상청을 부르지 않는다.
+    /// 이름과 격자만 돌려준다. 기상청을 부르지 않는다 — 설정 화면이 열릴 때마다 불리므로 여기서 기상청을 부르면 느린 날 지역 이름조차 안 뜬다.
     /// </summary>
-    /// <remarks>
-    /// 설정 화면이 <b>열릴 때마다</b> 저장해 둔 좌표가 어디인지 보여 주려고 부른다.
-    /// 거기서 <see cref="GetAsync"/> 를 부르면 실황·단기예보 두 왕복이 매번 붙고,
-    /// 기상청이 느린 날에는 <b>지역 이름조차 안 뜬다</b> — 이름은 우리 표에만
-    /// 있으므로 바깥 없이 답한다.
-    /// </remarks>
     public async Task<PointPlaceDto> GetPlaceAsync(double lat, double lon, CancellationToken ct = default)
     {
         var (nx, ny) = GridConverter.ToGrid(lat, lon);
@@ -57,16 +43,9 @@ public class PointWeatherService
         };
     }
 
-    /// <summary>한 지점의 날씨. 기상청이 답하지 않아도 지역 이름과 격자는 채워 돌려준다.</summary>
-    /// <param name="lat">위도.</param>
-    /// <param name="lon">경도.</param>
-    /// <param name="ct">중단 신호.</param>
-    /// <param name="weekly">
-    /// 참이면 <b>주간 예보</b>(<see cref="PointWeatherDto.Weekly"/>)까지 채운다 —
-    /// 기상청 왕복이 둘 늘어난다(중기 육상 · 중기 기온). 기본이 거짓인 까닭은
-    /// 이 응답을 쓰는 세 자리 중 둘(알림 본문 · 설정 화면 미리보기)이 그것을
-    /// 쓰지 않기 때문이다. 늘 채우면 알림이 그만큼 늦게 나간다.
-    /// </param>
+    /// <summary>
+    /// 한 지점의 날씨. 기상청이 답하지 않아도 지역 이름과 격자는 채운다. weekly 가 참이면 주간 예보까지 채운다 — 기상청 왕복이 둘 늘어나므로 알림 본문은 거짓으로 둔다.
+    /// </summary>
     public async Task<PointWeatherDto> GetAsync(
         double lat, double lon, bool weekly = false, CancellationToken ct = default)
     {
@@ -104,9 +83,7 @@ public class PointWeatherService
         var forecast = await _api.GetVilageForecastAsync(nx, ny);
         if (forecast != null) result.Days = SummarizeDays(forecast);
 
-        // **단기예보를 다시 받지 않는다.** 주간 예보의 앞쪽 이틀은 위에서 이미
-        // 받아 둔 그 응답에서 갈라 낸다 — 등록 지역의 `mid-term/{id}` 도 같은
-        // 식으로 단기와 중기를 이어 붙인다.
+        // 단기예보를 다시 받지 않는다. 주간 예보의 앞 이틀은 위에서 받은 응답에서 갈라 낸다.
         if (weekly) result.Weekly = await BuildWeeklyAsync(forecast, found, ct);
 
         result.Summary = BuildSummary(result);
@@ -114,29 +91,15 @@ public class PointWeatherService
     }
 
     /// <summary>
-    /// 한 지점의 <b>주간 예보</b> — 내일부터 열흘. 앞쪽은 단기예보, 뒤쪽은 중기예보다.
+    /// 한 지점의 주간 예보(내일부터 열흘). 앞쪽은 단기예보, 뒤쪽은 중기예보다.
+    /// 중기예보는 격자로 못 묻고 시·도·시·군으로 구역코드를 고른다 — 이름을 못 찾으면 주간 예보도 없다. 중기 구역은 시·군 단위다.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>중기예보는 격자로 못 묻는다.</b> 기상청이 따로 매긴 구역코드 하나로만
-    /// 묻는데, 등록 지역은 그 코드를 사람이 적어 넣어 두었고 한 지점에는 적을
-    /// 자리가 없다. 그래서 좌표에서 찾아낸 시·도·시·군으로 코드를 고른다
-    /// (<see cref="MidTermRegions"/>). <b>이름을 못 찾았으면 주간 예보도 없다</b> —
-    /// 바다 한가운데의 좌표가 그렇고, 그때는 빈 목록이 맞다.
-    /// </para>
-    /// <para>
-    /// <b>중기예보 구역은 시·군 단위다.</b> 단기예보의 5km 격자보다 훨씬 성기고,
-    /// 하늘 상태·강수확률은 아예 도(道) 단위다. 화면이 그 사실을 한 줄로 말해야
-    /// 사람이 이 숫자를 격자 예보와 같은 것으로 읽지 않는다.
-    /// </para>
-    /// </remarks>
     private async Task<List<MidTermForecastDto>> BuildWeeklyAsync(
         List<Dictionary<string, string>>? forecast, PlaceName? place, CancellationToken ct)
     {
         var today = Kst.Now.Date;
 
-        // 단기예보에서 **오늘을 뺀** 나머지 날. 오늘은 위의 실황과 사흘 예보가
-        // 이미 말했고, 주간 예보 줄의 첫 칸이 「오늘」이면 같은 말이 두 번 선다.
+        // 단기예보에서 오늘을 뺀 나머지 날. 오늘은 실황과 사흘 예보가 이미 말했으므로 같은 말이 두 번 서지 않게 한다.
         List<MidTermForecastDto> shortTerm = forecast is null
             ? []
             : SummarizeHalfDays(forecast, today);
@@ -193,13 +156,8 @@ public class PointWeatherService
     }
 
     /// <summary>
-    /// 단기예보를 <b>오전·오후로 갈라</b> 하루 한 줄로 접는다 — 중기예보와 같은 모양.
+    /// 단기예보를 오전·오후로 갈라 하루 한 줄로 접는다. 주간 예보 카드가 오전·오후 두 칸을 그리므로 반나절이 단위다.
     /// </summary>
-    /// <remarks>
-    /// 위 <see cref="SummarizeDays"/> 와 접는 단위가 다르다. 저쪽은 알림 한 줄에
-    /// 실을 「오늘 몇 도에 비가 오나」라 하루를 통째로 접고, 이쪽은 주간 예보
-    /// 카드가 <b>오전 / 오후</b> 두 칸을 그리므로 반나절이 단위다.
-    /// </remarks>
     private static List<MidTermForecastDto> SummarizeHalfDays(
         List<Dictionary<string, string>> forecast, DateTime today)
     {
@@ -222,14 +180,8 @@ public class PointWeatherService
 
             var rows = g.ToList();
 
-            // **하루가 다 찬 날만 센다.** 단기예보의 마지막 날은 잘려 온다 —
-            // 오전 몇 시간만 실려 오고(기상청이 거기까지만 내거나 numOfRows 에서
-            // 잘리거나), 그 몇 시간으로 접으면 「최고 21℃ · 맑음」 같은 <b>반나절
-            // 짜리 하루</b>가 나온다. 그 날은 중기예보가 제대로 말해 주므로 여기서
-            // 비워 둔다(아래에서 중기가 그 자리를 채운다).
-            //
-            // 다 찼는지는 <b>TMN·TMX 로 본다</b>. 기상청이 그 둘을 하루에 한 번씩
-            // (06시·15시 칸) 싣기 때문에, 둘이 다 있으면 아침과 오후가 다 온 것이다.
+            // 하루가 다 찬 날만 센다. 단기예보 마지막 날은 잘려 와 반나절짜리 하루가 되므로 비워 두고 중기예보가 채운다.
+            // 다 찼는지는 TMN·TMX 로 본다 — 하루 한 번씩 실리므로 둘 다 있으면 아침과 오후가 다 온 것이다.
             double? min = FirstValue(rows, "TMN");
             double? max = FirstValue(rows, "TMX");
 
@@ -301,24 +253,9 @@ public class PointWeatherService
             .Max();
 
     /// <summary>
-    /// 가장 가까운 행정구역 이름. 격자표(<c>ghub.grid_coordinates</c>)에서 찾는다.
+    /// 가장 가까운 행정구역 이름을 격자표(ghub.grid_coordinates)에서 찾는다. 역지오코딩은 쓰지 않는다 — 바깥 서비스가 죽으면 날씨 알림이 함께 멎는다.
+    /// 위경도가 0 인 행은 뺀다(빠지지 않으면 먼 바다 좌표가 그 빈 줄에 붙는다). 거리는 제곱합으로 비교한다 — 순서만 맞으면 된다.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>역지오코딩을 사지 않는다.</b> 이미 3800 곳의 읍면동 중심 좌표를 들고 있고,
-    /// 알림에 필요한 것은 「어느 동네인가」 한 줄뿐이다. 바깥 서비스를 하나 더
-    /// 물리면 그쪽이 죽었을 때 날씨 알림이 함께 멎는다.
-    /// </para>
-    /// <para>
-    /// <b>위경도가 <c>0</c> 인 행을 뺀다.</b> 표에 그런 줄이 둘 있는데, 빼지 않으면
-    /// 먼 남해상의 좌표를 물었을 때 그 빈 줄이 「가장 가까운 곳」으로 뽑힌다.
-    /// </para>
-    /// <para>
-    /// 거리는 <b>제곱합 그대로</b> 비교한다. 위도 1도와 경도 1도의 실제 길이가 다르지만
-    /// (한반도에서 경도 쪽이 약 0.8배), 가장 가까운 하나를 고르는 데는 순서만 맞으면
-    /// 되고 후보들이 다 가까이 모여 있어 그 비율이 순서를 바꾸지 않는다.
-    /// </para>
-    /// </remarks>
     private async Task<PlaceName?> ResolvePlaceAsync(double lat, double lon, CancellationToken ct)
     {
         try
@@ -349,19 +286,14 @@ public class PointWeatherService
 
             if (near.Count == 0) return null;
 
-            // **읍·면·동이 있는 줄을 먼저 고른다.** 표에는 시·군·구까지만 적힌
-            // 줄(구청 자리)이 섞여 있고, 그 줄이 하필 제일 가까운 경우가 있다 —
-            // 그러면 「울산광역시 동구」에서 끝나 동네 이름이 영영 안 나온다.
-            // 실제로 그랬다(울산 동구 35.5086,129.4215).
+            // 읍·면·동이 있는 줄을 먼저 고른다. 시·군·구까지만 적힌 줄이 더 가까울 때 동네 이름이 영영 안 나오기 때문이다.
             var pick = near.FirstOrDefault(g => !string.IsNullOrWhiteSpace(g.Region3)) ?? near[0];
 
             var region1 = Trimmed(pick.Region1);
             var region2 = Trimmed(pick.Region2);
             var region3 = Trimmed(pick.Region3);
 
-            // **세종시는 1단계와 2단계가 같은 글자다**(표에 그렇게 들어 있다).
-            // 그대로 이으면 「세종특별자치시 세종특별자치시 보람동」이 되고,
-            // 시·도 칸과 시·군·구 칸에 같은 이름이 두 번 적힌다.
+            // 세종시는 1단계와 2단계가 같은 글자라 그대로 이으면 「세종특별자치시 세종특별자치시」가 된다. 두 번째는 뺀다.
             if (string.Equals(region1, region2, StringComparison.Ordinal))
             {
                 region2 = null;
@@ -385,13 +317,8 @@ public class PointWeatherService
     }
 
     /// <summary>
-    /// 읍·면·동이 있는 줄을 찾으려고 <b>몇 줄까지 들춰 보나</b>.
+    /// 읍·면·동 줄을 찾으려고 들춰 보는 줄 수. 늘리면 옆 동네 이름을, 줄이면 구청 자리만 있는 곳에서 동 이름을 놓친다.
     /// </summary>
-    /// <remarks>
-    /// 도심에서는 이 스무 줄이 반경 2km 안에 다 들어오고, 시골에서도 같은 군을
-    /// 벗어나지 않는다. 더 늘리면 <b>옆 동네 이름</b>을 끌어올 수 있고, 줄이면
-    /// 구청 자리만 있는 곳에서 동 이름을 못 찾는다.
-    /// </remarks>
     private const int NearbyRows = 20;
 
     private static string? Trimmed(string? value) =>
@@ -404,13 +331,8 @@ public class PointWeatherService
     private sealed record PlaceName(string Name, string? Region1, string? Region2, string? Region3);
 
     /// <summary>
-    /// 단기예보(시간별)를 <b>하루 단위로</b> 접는다.
+    /// 단기예보(시간별)를 하루 단위로 접는다. 알림 한 통에는 시간별 예보가 다 안 실리므로 오늘의 최저·최고와 비 여부만 남긴다.
     /// </summary>
-    /// <remarks>
-    /// 알림 한 통에 시간별 예보를 다 실을 수 없다 — 안드로이드는 두세 줄에서 자른다.
-    /// 사람이 아침에 알고 싶은 것은 <b>오늘 얼마나 춥고 더운가</b>와 <b>비가 오는가</b>
-    /// 둘이라, 그 둘만 남긴다.
-    /// </remarks>
     private static List<PointWeatherDayDto> SummarizeDays(List<Dictionary<string, string>> forecast)
     {
         var today = Kst.Now.Date;
@@ -424,9 +346,7 @@ public class PointWeatherService
             {
                 var rows = g.ToList();
 
-                // TMN·TMX 는 하루에 한 번만 실린다(각각 06시·15시 칸). 없는 날은
-                // 시간별 기온(TMP)에서 뽑는다 — 오늘치는 이미 지난 시각이 빠져 있어
-                // 실제 최저보다 높게 나오지만, 없는 것보다 낫다.
+                // TMN·TMX 는 하루 한 번만 실린다. 없는 날은 시간별 기온(TMP)에서 뽑는다 — 오늘치는 지난 시각이 빠져 실제 최저보다 높게 나오지만 없는 것보다 낫다.
                 var temps = rows
                     .Where(r => r.ContainsKey("TMP") && double.TryParse(r["TMP"], out _))
                     .Select(r => double.Parse(r["TMP"]))
@@ -466,8 +386,7 @@ public class PointWeatherService
     }
 
     /// <summary>
-    /// 하루를 한 낱말로. <b>비·눈이 하늘 상태를 이긴다</b> — 「구름많음」이라 적어 두고
-    /// 비가 오면 그 알림은 틀린 것이 된다.
+    /// 하루를 한 낱말로. 비·눈이 하늘 상태를 이긴다 — 구름많음이라 적어 두고 비가 오면 알림이 틀린다.
     /// </summary>
     private static string? DayCondition(List<Dictionary<string, string>> rows)
     {
@@ -502,14 +421,8 @@ public class PointWeatherService
     }
 
     /// <summary>
-    /// 주간 예보 칸의 이름 — <c>내일</c> · <c>모레</c> · <c>3일후</c>.
+    /// 주간 예보 칸 이름 — 내일 · 모레 · 3일후. 등록 지역과 같은 말을 쓰려고 LabelFor 와 갈라 둔 것이다.
     /// </summary>
-    /// <remarks>
-    /// 위 <see cref="LabelFor"/> 와 갈라 둔 까닭은 <b>등록 지역과 같은 말을 쓰기
-    /// 위해서</b>다. 등록 지역의 주간 예보는 사흘 뒤부터 「3일후」로 적는데
-    /// (<c>mid-term/{id}</c>), 내 위치만 「10/1」로 적으면 같은 화면의 위아래가
-    /// 다른 말을 한다. 사흘 예보 줄은 날짜를 그대로 보여 주므로 저쪽이 <c>M/d</c> 다.
-    /// </remarks>
     private static string WeekLabel(DateTime date, DateTime today)
     {
         var diff = (date.Date - today).Days;
@@ -535,12 +448,8 @@ public class PointWeatherService
     }
 
     /// <summary>
-    /// 알림 본문. <b>첫 줄이 지금, 둘째 줄부터가 예보다.</b>
+    /// 알림 본문. 첫 줄이 지금, 둘째 줄부터가 예보다. 알림창은 접히면 첫 줄만 보이므로 지금 날씨를 맨 앞에 둔다.
     /// </summary>
-    /// <remarks>
-    /// 알림창은 접혀 있을 때 한 줄만 보인다. 그래서 「지금 몇 도에 무슨 날씨인가」를
-    /// 맨 앞에 둔다 — 펼치지 않고도 답이 되는 것이 그것 하나뿐이다.
-    /// </remarks>
     private static string BuildSummary(PointWeatherDto point)
     {
         var lines = new List<string>();

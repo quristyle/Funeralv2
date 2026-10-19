@@ -3,14 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace funeralv2Api.Entities;
 
-/// <summary>
-/// 건물에 배정한 음원.
-/// </summary>
-/// <remarks>
-/// 옛 <c>smfr.t_music_build</c>(<c>ms_seq</c> · <c>b_key</c> 두 칸뿐)에 해당한다.
-/// 음원 목록은 모든 건물이 공유하지만 실제로 트는 것은 건물마다 다르다 —
-/// 그 연결을 담는다.
-/// </remarks>
+/// <summary>건물에 배정한 음원. 음원 목록은 건물끼리 공유하고, 실제로 트는 건물별 연결을 담는다.</summary>
 [Table("building_music")]
 public class BuildingMusic
 {

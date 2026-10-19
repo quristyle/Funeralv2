@@ -54,12 +54,7 @@ public partial class FaqListPage
         _editing = true;
     }
 
-    /// <summary>
-    /// 편집 창에 <b>복사본</b>을 띄운다.
-    ///
-    /// 원본을 그대로 묶으면 저장을 취소해도 화면에는 이미 바뀐 값이 남는다 —
-    /// 화면과 서버가 어긋난 채로 보이고, 새로 고치기 전에는 알 수 없다.
-    /// </summary>
+    /// <summary>편집 창에 복사본을 띄운다. 원본을 묶으면 취소해도 화면에 이미 바뀐 값이 남는다.</summary>
     private void StartEdit(Faq faq)
     {
         _isNew = false;

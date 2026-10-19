@@ -6,6 +6,11 @@ using Microsoft.Extensions.Options;
 namespace CargoTrustServer.Toll;
 
 /// <summary>영업소 둘 사이의 통행료·거리·주행시간.</summary>
+/// <param name="FromCode">출발 영업소 코드.</param>
+/// <param name="FromName">출발 영업소 이름.</param>
+/// <param name="ToCode">도착 영업소 코드.</param>
+/// <param name="ToName">도착 영업소 이름.</param>
+/// <param name="DistanceKm">거리(km).</param>
 /// <param name="DriveMinutes">도로공사가 보는 주행시간. 추천의 소요시간 바닥값으로 쓴다.</param>
 /// <param name="Fares">차종별 정상요금(원). 열쇠는 <see cref="VehicleClass"/> 다.</param>
 public record TollFare(
@@ -18,28 +23,8 @@ public record TollFare(
     IReadOnlyDictionary<VehicleClass, int> Fares);
 
 /// <summary>
-/// 영업소간 통행요금을 바깥에서 묻는다.
-///
-/// <para>
-/// [영업소처럼 보관하지 않는다]
-/// </para>
-///
-/// <para>
-/// 영업소는 477줄이라 통째로 받아 두었지만, 요금은 <b>영업소 쌍</b>이라
-/// 35만 줄이다(2026-10-07 실측). 그걸 다 끌어와 두면 받는 데도 오래 걸리고
-/// 요금이 오를 때마다 전부 다시 받아야 한다. 묻는 쌍은 사람이 고른 하나뿐이라
-/// <b>그때그때 묻고 짧게 기억한다.</b>
-/// </para>
-///
-/// <para>
-/// [할인요금 칸은 비어 있다]
-/// </para>
-///
-/// <para>
-/// 응답에 시간대별 할인요금 칸(<c>odn1Dc*</c> · <c>odn2Dc*</c>)이 있는데 실제로는
-/// 0 으로 온다. 그래서 할인액은 <b>우리가 센 비율로 곱한다</b> — 그 편이 설계와도
-/// 맞는다. 야간 비율로 할인율을 정하는 곳은 한 군데(<see cref="NightDiscountEngine"/>)여야 한다.
-/// </para>
+/// 영업소간 통행요금을 그때그때 바깥에 묻는다. 영업소는 통째로 보관하지만 요금은 쌍이라 35만 줄이므로, 묻는 쌍만 짧게 기억한다.
+/// 응답의 할인요금 칸은 0 으로 오므로 할인액은 우리 비율로 곱한다 — 야간 비율로 할인율을 정하는 곳은 NightDiscountEngine 한 군데다.
 /// </summary>
 public class TollFareClient(
     HttpClient http,
@@ -53,10 +38,7 @@ public class TollFareClient(
     /// </summary>
     private static readonly TimeSpan CacheFor = TimeSpan.FromHours(24);
 
-    /// <summary>
-    /// 차종 칸 이름. <b>6번이 경차다</b> — 1~5종 뒤에 붙어 있어 순서로 짐작하면 틀린다
-    /// (서울→부산에서 1종 18,600 · 6번 9,300 으로 맞춰 보았다).
-    /// </summary>
+    /// <summary>차종 칸 이름. 6번이 경차다 — 1~5종 뒤에 붙어 있어 순서로 짐작하면 틀린다.</summary>
     private static readonly (VehicleClass Class, string Field)[] FareFields =
     [
         (VehicleClass.C1, "nrmlKnd1Amt"),

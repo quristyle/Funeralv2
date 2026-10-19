@@ -22,8 +22,7 @@ builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, relo
 builder.Services.AddControllers(options => {
   // 요청 본문의 SSUserId 를 게이트웨이 신원(X-User-Id)으로 갈아 끼운다.
   options.Filters.Add<UserIdentityActionFilter>();
-  // 옛 ProjMngWasm 봉투를 표준 봉투(ApiResponse)로 갈아입힌다 (결정 D-A1, 2026-09-04).
-  // 서비스·프로시저 규약은 그대로다 — 직렬화 경계에서만 바뀐다.
+  // 프로시저 봉투를 표준 봉투(ApiResponse)로 바꾼다. 서비스·프로시저 규약은 그대로고 직렬화 경계에서만 바뀐다.
   options.Filters.Add<ApiEnvelopeResultFilter>();
 });
 
@@ -44,10 +43,7 @@ builder.Services.AddScoped<DbLogicService>();
 builder.Services.AddScoped<ActivityInfoService>();
 builder.Services.AddScoped<ProjectPropService>();
 
-// WBS 대시보드 — 사내망에서 따로 돌던 물건을 옮겨 온 것이다
-// (deploy/sql/projmng-wbs-2026-09-23.sql 이 표를 만든다).
-// `WbsService` 와 이름이 비슷하지만 **다른 표**다 — 그쪽은 프로젝트별 공정표
-// (`dev_wbs`), 이쪽은 화면 단위 원장(`wbs_work`)이다.
+// WBS 대시보드 원장(wbs_work). 프로젝트별 공정표(dev_wbs)를 다루는 WbsService 와는 다른 표다.
 builder.Services.AddScoped<WbsBoardService>();
 builder.Services.AddScoped<WbsProgressService>();
 builder.Services.AddScoped<WbsDelayService>();
@@ -66,18 +62,12 @@ builder.Services.AddScoped<GitHubClient>();
 builder.Services.AddScoped<GitService>();
 builder.Services.AddScoped<GitMonitorService>();
 
-// AI 작업 지시 — docs/ai-task-runner.md.
-// 작업 서비스가 대상 서비스를 받는다 — push 를 켤 수 있는 대상인지 되묻기 때문이다.
-// 그 값 하나가 운영 배포를 일으키므로 화면 말고 여기서도 본다.
+// AI 작업 지시(docs/ai-task-runner.md). 대상 서비스가 push 를 켤 수 있는지 여기서도 본다 — 그 값 하나가 운영 배포를 일으킨다.
 builder.Services.AddScoped<AiTargetService>();
 
-// 대상의 git 상태. **서버가 git 을 부르는 서비스가 아니다** — 컨테이너 안에서
-// 호스트 경로를 볼 수 없어서, 실행기가 들여다보고 적어 둔 것을 받아 두었다가
-// 화면에 내주는 자리다(설계 11.7).
+// 대상의 git 상태. 서버는 git 을 부르지 않고, 실행기가 적어 둔 값을 받아 화면에 내준다.
 builder.Services.AddScoped<AiTargetStatusService>();
-// 지시에 함께 올린 그림·파일. **바이트가 DB 에 있다** — 이 컨테이너에는
-// 붙은 디스크가 없어서, 파일 시스템에 담으면 다음 배포에 사라진다
-// (deploy/sql/projmng-ai-task-file-2026-09-25.sql 머리말).
+// 지시에 실은 그림·파일의 바이트는 DB 에 둔다 — 이 컨테이너에는 붙은 디스크가 없다.
 builder.Services.AddScoped<AiTaskFileService>();
 
 builder.Services.AddScoped<AiTaskService>();
@@ -97,7 +87,7 @@ builder.Services.AddScoped<AiUsageService>();
 // 수명이라 아무것도 막지 못한다(AiUsageCache 머리말).
 builder.Services.AddSingleton<AiUsageCache>();
 
-// 끝난 작업을 메일로 알린다. **못 보내도 작업 상태를 바꾸지 않는다**(설계 8-2).
+// 끝난 작업을 메일로 알린다. 못 보내도 작업 상태를 바꾸지 않는다.
 // 알림 서비스를 부르므로 HttpClient 공장이 필요하다.
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<AiTaskNotifier>();
@@ -109,17 +99,13 @@ builder.Services.AddScoped<AiTaskNotifier>();
 builder.Services.AddSingleton<AiRequestAlerter>();
 
 // 결과 요약을 AI 에게 다시 쓰게 한다(AIAgentServer 를 부른다).
-// **실패하면 null 을 주고 끝난다** — 메일은 옛 방식으로 그대로 나간다.
+// 실패하면 null 을 주고 끝난다 — 메일은 요약 없이 그대로 나간다.
 builder.Services.AddScoped<AiResultSummarizer>();
 
-// 그 요약을 `ai_task_run.summary_text` 에 적는 일의 주인. **알림에서 떼어 냈다** —
-// 메일도 앱푸시도 끈 건에도 요약은 있어야 하고, 알림 안에 두면 그 수명이
-// 알림 관문에 매달린다. 완료 처리가 부르고, 알림은 적힌 것을 읽는다.
+// 결과 요약을 적는 일의 주인. 알림 설정과 무관하게 요약은 있어야 해서 알림에서 떼어 냈다.
 builder.Services.AddScoped<AiRunSummaryWriter>();
 
-// 「처리 파일」 목록을 합쳐 `ai_task_run.changed_files` 에 적는 일의 주인.
-// 실행기가 보낸 git 목록(정본)과 결과문에서 모델이 뽑은 목록(보강)을 합친다 —
-// 실행기 쪽 한 길만 두었더니 운영에서 그 칸이 통째로 비어 있었다(2026-10-17).
+// 처리 파일 목록(ai_task_run.changed_files)은 실행기 git 목록과 결과문 추출 목록을 합쳐 적는다. 한 길만 두면 운영에서 칸이 비었다.
 builder.Services.AddScoped<AiRunFileWriter>();
 
 // 그 목록 중 **결과문에서 뽑은 줄이 실제로 있는 파일인가**를 가린다. 서버는
@@ -131,27 +117,21 @@ builder.Services.AddScoped<AiRunFileCheckService>();
 // (`ai_task.title_auto`) — 사람이 적은 제목은 읽지도 않는다.
 builder.Services.AddScoped<AiTaskTitler>();
 
-// **시키는 순간** 그 차수의 제목을 짓는다(`ai_task_run.turn_title`). 위엣것이
-// 「끝난 뒤의 제목」이라면 이쪽은 「시킨 일의 제목」이고, 차수를 접어 둔 머리줄이
-// 돌고 있는 동안에도 무엇을 시킨 차수인지 말할 수 있게 하는 값이다.
+// 시키는 순간 그 차수의 제목을 짓는다(turn_title). 머리줄이 돌고 있는 동안에도 무엇을 시킨 차수인지 말하게 한다.
 builder.Services.AddScoped<AiTurnTitler>();
 
 // 큐는 **종(bell)** 이다. 메시지에 taskKey 하나만 싣고 실제 상태 변경은
 // DB 의 원자적 UPDATE 가 한다 — 그래서 메시지를 잃어도 손실이 아니라 지연이다.
 builder.Services.AddSingleton<AiTaskQueue>();
 
-// 그 종을 **뒤에서** 울린다. 요청 처리 안에서 울리면 AMQP 연결 한 번이
-// 화면의 「보내는 중」에 그대로 붙는다 — 큐에 넣는 일이 사람을 기다리게 할
-// 이유가 없다.
+// 종은 요청 처리 뒤에 울린다 — 안에서 울리면 AMQP 연결 한 번이 화면의 「보내는 중」에 붙는다.
 builder.Services.AddHostedService<AiTaskBell>();
 
 // 멈춘 것을 찾아내는 감시자. **이 기능에서 가장 나쁜 실패는 조용히 멈춰
 // 있는 것**이라 프로세스가 사는 동안 계속 돈다.
 builder.Services.AddHostedService<AiStaleSweeper>();
 
-// 비어 있는 「처리 요약」을 뒤늦게 채운다. 끝나는 순간의 한 번은 결과 메일이
-// 기다리는 자리라 오래 못 붙잡는데, 하필 그때 AI 가 붐비면 그 건의 요약은
-// **영영** 없었다. 그 한 번을 빠른 길로 두고, 놓친 것은 여기가 줍는다.
+// 비어 있는 처리 요약을 뒤늦게 채운다. 완료 순간의 한 번은 빠른 길이고, 놓친 것은 여기서 줍는다.
 builder.Services.AddHostedService<AiSummaryCatchUp>();
 
 // Dapper 가 DateOnly 를 파라미터로 다루게 한다. **여기 한 곳에서만 등록한다** —
@@ -191,15 +171,8 @@ builder.Services.AddSwaggerGen(c => {
 // ============================================================
 // 4. 인증/인가
 // ============================================================
-// 실제 인가 판단은 게이트웨이가 한다. 이 서비스는 루프백에만 바인딩되어 있어
-// 게이트웨이를 지나지 않은 요청은 같은 장비에서만 들어올 수 있다.
-// 그래도 토큰이 실려 오면 검증은 해 둔다(게이트웨이 우회 시 최소 방어선).
-// 키는 appsettings.Local.json (git 제외) 에만 있다 (결정 D1-B).
-//
-// **아래 `if (!IsNullOrWhiteSpace)` 를 그대로 둔 이유**: 이 서비스는 키가 없으면
-// JWT 검증을 아예 등록하지 않는 구조였다. 그래서 키가 빠지면 조용히 검증이 사라진다.
-// 자리표시자·옛 평문 키·너무 짧은 값은 여기서 걸러 기동을 막고, "설정에 아예 없는"
-// 경우만 예전처럼 건너뛴다 — 이 서비스가 게이트웨이 뒤에만 있다는 전제를 바꾸지 않으려는 것이다.
+// 실제 인가는 게이트웨이가 한다. 루프백에만 바인딩하며, 토큰이 실려 오면 최소 방어선으로 검증한다.
+// 키가 빠져 검증이 조용히 사라지지 않도록 자리표시자·짧은 키는 기동을 막는다.
 var jwtKey = string.IsNullOrWhiteSpace(builder.Configuration["Jwt:Key"])
     ? null
     : JSini.Shared.Infrastructure.JwtKeyGuard.Require(

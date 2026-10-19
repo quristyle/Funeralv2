@@ -2,20 +2,7 @@ using System.Text.Json.Serialization;
 
 namespace JSini.Web.Admin.Api;
 
-/// <summary>
-/// LLM 장비(호스트명 <c>llm</c>)의 하드웨어 상태.
-/// </summary>
-/// <remarks>
-/// <para>
-/// 장비는 운영서버와 같은 내부망에 있어 브라우저가 직접 묻지 못한다.
-/// 포털 → 게이트웨이 → AIAgentServer → 장비 nginx → 수집기 순으로 간다.
-/// </para>
-/// <para>
-/// <b>장비가 꺼져 있어도 200 이 온다.</b> 그때는 <see cref="Reachable"/> 이 거짓이고
-/// <see cref="Metrics"/> 가 비어 있으며 <see cref="Message"/> 에 까닭이 담긴다 —
-/// 화면이 빈 자리 대신 "왜" 를 보여 줄 수 있어야 하기 때문이다.
-/// </para>
-/// </remarks>
+/// <summary>LLM 장비(호스트명 <c>llm</c>)의 하드웨어 상태.</summary>
 public sealed class LlmHardwareDto
 {
     public bool Reachable { get; set; }
@@ -23,7 +10,7 @@ public sealed class LlmHardwareDto
     /// <summary>닿지 못했을 때의 까닭. 닿았으면 null.</summary>
     public string? Message { get; set; }
 
-    /// <summary>실제로 물어본 주소. 개발 PC 와 운영이 서로 다르다.</summary>
+    /// <summary>개발 PC 와 운영이 서로 다르다.</summary>
     public string? Endpoint { get; set; }
 
     public LlmMetricsDto? Metrics { get; set; }
@@ -115,7 +102,7 @@ public sealed class LlmGpuDto
     public double? PowerLimit { get; set; }
     public double? PowerMaxLimit { get; set; }
 
-    /// <summary>실제로 걸려 있는 전력 한도. 기본값보다 낮으면 누군가 줄여 둔 것이다.</summary>
+    /// <summary>기본값보다 낮으면 누군가 줄여 둔 것이다.</summary>
     public double? EnforcedPowerLimit { get; set; }
 
     public int? ClocksSm { get; set; }
@@ -124,11 +111,8 @@ public sealed class LlmGpuDto
     public int? ClocksMaxSm { get; set; }
     public int? ClocksMaxMem { get; set; }
 
-    /// <summary>
-    /// PCIe 폭·세대. <b>유휴일 때는 Gen1 로 떨어진다</b> — 절전이지 고장이 아니다.
-    /// 다만 폭(<see cref="PcieLinkWidthCurrent"/>)이 최대보다 작으면 메인보드 레인
-    /// 배분이 그런 것이라 바뀌지 않는다.
-    /// </summary>
+    /// <summary>PCIe 폭·세대. 유휴일 때는 Gen1 로 떨어진다 — 절전이지 고장이 아니다. 다만 폭(<see cref="PcieLinkWidthCurrent"/>)이 최대보다 작으면
+    /// 메인보드 레인 배분이 그런 것이라 바뀌지 않는다.</summary>
     public int? PcieLinkGenCurrent { get; set; }
     public int? PcieLinkGenMax { get; set; }
     public int? PcieLinkWidthCurrent { get; set; }
@@ -185,7 +169,7 @@ public sealed class LlmServiceDto
     public string? SubState { get; set; }
     public string? Enabled { get; set; }
 
-    /// <summary><b>이 값이 늘고 있으면 무언가 반복해 죽고 있다.</b> 상태는 active 로 보인다.</summary>
+    /// <summary>이 값이 늘고 있으면 무언가 반복해 죽고 있다. 상태는 active 로 보인다.</summary>
     public int Restarts { get; set; }
 
     public long? MemoryBytes { get; set; }

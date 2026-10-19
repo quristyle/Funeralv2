@@ -5,35 +5,7 @@ using JSini.Shared.DTOs;
 
 namespace AuthServer.Services;
 
-/// <summary>
-/// 가입 신청이 들어왔다는 것을 관리자에게 <b>앱푸시</b>로 알리는 클라이언트.
-/// </summary>
-/// <remarks>
-/// <para>
-/// 메일(<see cref="AccountMailClient"/>)과 짝이다. 메일은 자리를 비운 관리자에게
-/// 남는 기록이고, 푸시는 그 자리에서 곧바로 승인하게 하는 길이다 — 신청자는
-/// 승인을 기다리며 화면 앞에 있다.
-/// </para>
-/// <para>
-/// NotificationServer 의 <b>기존</b> <c>/notifications/push</c> 를 부른다.
-/// 역할 이름을 그대로 넘기면 그쪽이 사람으로 풀고, 푸시를 끈 사람도 그쪽이
-/// 거른다(헬프데스크 요청 알림과 같은 길). 루프백 직접 호출이다.
-/// </para>
-/// <para>
-/// [아이콘은 신청자의 얼굴이다]
-/// </para>
-/// <para>
-/// 다른 알림과 같이 <c>iconOwnerKey</c> 에 신청자 아이디를 싣는다. 신청할 때
-/// 공급자 사진을 우리 FileServer 로 옮겨 계정 대표 사진으로 걸어 두었으므로
-/// (<c>SocialAvatarImporter</c>) NotificationServer 가 그 사진을 찾아 사진 한 장짜리
-/// 열쇠를 붙인 우리 주소로 채운다. <b>공급자 주소를 그대로 싣지 않는다</b> — 공급자가
-/// 주소를 바꾸거나 막으면 아이콘이 깨지고, 받는 기기마다 바깥으로 요청이 나간다.
-/// 사진을 못 옮겼으면 그쪽 기본 그림이 나온다.
-/// </para>
-/// <para>
-/// 실패해도 신청은 이미 저장되었고 메일도 따로 간다. 그래서 로그만 남긴다.
-/// </para>
-/// </remarks>
+/// <summary>가입 신청이 들어왔다는 것을 관리자에게 앱푸시로 알리는 클라이언트. 메일(<see cref="AccountMailClient"/>)과 짝이다 — 메일은 자리를 비운 관리자에게 남는 기록이고, 푸시는 그 자리에서 바로 승인하게 하는 길이다.</summary>
 public class SignupNotifyClient
 {
     private readonly HttpClient _http;
@@ -49,9 +21,7 @@ public class SignupNotifyClient
         _http.Timeout = TimeSpan.FromSeconds(10);
     }
 
-    /// <summary>
-    /// 역할(<c>SYSTEM_ADMINISTRATOR</c>)에게 「가입 신청이 들어왔다」 푸시를 보낸다.
-    /// </summary>
+    /// <summary>역할(<c>SYSTEM_ADMINISTRATOR</c>)에게 「가입 신청이 들어왔다」 푸시를 보낸다.</summary>
     /// <param name="role">받을 역할.</param>
     /// <param name="accountId">신청 계정 아이디. 같은 신청의 알림을 한 장으로 겹치는 데 쓴다.</param>
     /// <param name="title">알림 제목.</param>
@@ -107,9 +77,7 @@ public class SignupNotifyClient
         }
     }
 
-    /// <summary>
-    /// 특정 사용자들(로그인 아이디 목록)에게 앱 푸시 알림을 발송합니다.
-    /// </summary>
+    /// <summary>특정 사용자들(로그인 아이디 목록)에게 앱 푸시 알림을 발송합니다.</summary>
     public async Task NotifyOwnersAsync(
         IEnumerable<string> ownerKeys, string title, string body, string? url, string? iconOwnerKey, string sender,
         CancellationToken ct = default)

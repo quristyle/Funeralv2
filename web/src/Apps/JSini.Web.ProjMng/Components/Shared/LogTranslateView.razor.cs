@@ -18,126 +18,46 @@ public partial class LogTranslateView
 
     [Inject] private ThemeSize Size { get; set; } = default!;
 
-    /// <summary>
-    /// 볼 로그 줄. <b>이 판이 로그 탭의 전부다</b> — 줄을 보여 주는 자리가
-    /// 여기 하나뿐이라, 받은 줄을 그대로 다 그린다.
-    /// </summary>
+    /// <summary>볼 로그 줄. 이 판이 로그 탭의 전부라 받은 줄을 그대로 다 그린다.</summary>
     [Parameter] public IReadOnlyList<string> Lines { get; set; } = [];
 
-    /// <summary>
-    /// 옮긴 것을 어느 이름으로 들고 있을지. <b>건마다 달라야 한다</b> —
-    /// 같으면 다른 지시를 열었을 때 앞 건의 번역이 그대로 보인다.
-    /// </summary>
+    /// <summary>옮긴 것을 든 이름. 건마다 달라야 한다 — 같으면 다른 지시를 열었을 때 앞 건의 번역이 보인다.</summary>
     [Parameter, EditorRequired] public string StateKey { get; set; } = string.Empty;
 
-    /// <summary>
-    /// 지금 보이고 있나. <b>거짓이 되면 돌고 있는 줄을 거둔다</b> — 탭을 떠난
-    /// 사람 때문에 로컬 LLM 이 계속 돌 까닭이 없다.
-    /// </summary>
+    /// <summary>보이고 있나. 거짓이 되면 돌고 있는 줄을 거둔다 — 탭을 떠난 사람 때문에 로컬 LLM 이 계속 돌 까닭이 없다.</summary>
     [Parameter] public bool Active { get; set; } = true;
 
-    /// <summary>
-    /// 여기 선 줄이 <b>무엇인가.</b> 낭독기에게 읽어 주는 이름과 「불러오는
-    /// 중」 한 줄에 들어간다 — 그리는 법은 같아도 「원문 로그」와 「원문 결과」는
-    /// 다른 말이다.
-    /// </summary>
-    /// <remarks>
-    /// <b>눈에 보이는 글자는 이것으로 안 갈린다.</b> 칸 이름표(「번역 ·
-    /// 한국어」)는 어느 글에나 그대로 맞는 말이라 그냥 둔다 — 자리마다 다른
-    /// 말을 적으면 같은 판이 화면마다 다른 물건으로 읽힌다.
-    /// </remarks>
+    /// <summary>여기 선 줄이 무엇인가. 낭독기와 「불러오는 중」 줄에 들어간다. 칸 이름표는 어느 글에도 맞아 그대로 둔다.</summary>
     [Parameter] public string Subject { get; set; } = "로그";
 
-    /// <summary>
-    /// 새 줄이 붙으면 <b>바닥까지 따라 내릴까.</b>
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 로그는 참이다 — 펴는 일 대부분이 방금 찍힌 줄을 보려는 것이고, 돌고
-    /// 있는 건은 바닥으로 자란다.
-    /// </para>
-    /// <para>
-    /// <b>결과문은 거짓이다.</b> 그 글은 자라지 않고 <b>첫 줄부터 읽는 글</b>이라,
-    /// 펴자마자 끝으로 내려가 있으면 사람이 맨 위로 되올려야 한다.
-    /// </para>
-    /// </remarks>
+    /// <summary>새 줄이 붙을 때 바닥까지 따라 내릴까. 로그는 참이고, 결과문은 첫 줄부터 읽는 글이라 거짓이다.</summary>
     [Parameter] public bool Tail { get; set; } = true;
 
-    /// <summary>
-    /// 높이를 <b>내용에 맞출까.</b> 기본값은 <b>참(true)</b>이다 —
-    /// 기본적으로 스크롤 없이 내용 전체가 다 보이도록 틀이 커진다.
-    /// 스크롤이 필요한 화면(예: 로그 탭)에서는 <c>Fit="false"</c> 로 끈다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 로그는 늘 길어서 박아 둔 높이가 맞는다. <b>결과문은 길이가 제각각</b>
-    /// 이라 — 세 줄짜리도 있고 이백 줄짜리도 있다 — 그 자리에 30rem 짜리
-    /// 틀을 세우면 세 줄 아래로 <b>빈 상자가 한 뼘</b> 남는다.
-    /// </para>
-    /// <para>
-    /// 높이는 <b>Monaco 에게 물어서</b> 잡는다(<see cref="ApplyFitAsync"/> ·
-    /// <c>OnDidContentSizeChange…</c>). 줄 수로 어림하지 않는 까닭은 줄바꿈이다 —
-    /// 접힌 줄은 한 줄이 두 줄 세 줄 높이가 되는데 그 횟수는 칸 폭이 정하고,
-    /// 칸 폭은 창을 좁히면 바뀐다.
-    /// </para>
-    /// <para>
-    /// <b>휴대폰은 이 값과 상관없다.</b> 거기는 Monaco 가 아니라 <c>div</c>
-    /// 목록이고, 높이는 이미 내용이 정한다(구르는 자리는 쪽 하나다).
-    /// </para>
-    /// </remarks>
+    /// <summary>내용에 맞춰 틀 높이를 잡을까(기본 참). 높이는 Monaco 에게 물어 잡는다 — 줄 수로 어림하면 줄바꿈 때문에 틀린다. 휴대폰은 이 값과 상관없다.</summary>
     [Parameter] public bool Fit { get; set; } = true;
 
-    /// <summary>
-    /// 스크롤이 필요할 때 틀의 최대 높이(px).
-    /// 지정하지 않으면 내용 전체가 스크롤 없이 표현되도록 제한 없이 키워진다.
-    /// </summary>
+    /// <summary>스크롤이 필요할 때 틀의 최대 높이(px). 비우면 제한 없이 내용만큼 자란다.</summary>
     [Parameter] public int? MaxHeight { get; set; }
 
-    /// <summary>
-    /// 줄바꿈을 <b>켜고 시작할까.</b> 사람이 단추를 한 번이라도 누르면
-    /// 그 뒤로는 사람의 뜻이 이긴다(<see cref="_wrapTouched"/>).
-    /// </summary>
-    /// <remarks>
-    /// 로그는 꺼서 시작한다 — 접힌 줄이 섞이면 <b>줄 번호와 눈에 보이는 줄이
-    /// 어긋나</b> 「몇 번째 줄에서 걸렸나」를 세기 나쁘다. <b>결과문은 켜서
-    /// 시작한다</b> — 사람이 쓰듯 적은 글이라 한 줄이 화면 폭의 몇 배이고,
-    /// 꺼 두면 문단마다 옆으로 밀어 가며 읽어야 한다.
-    /// </remarks>
+    /// <summary>줄바꿈을 켜고 시작할까. 사람이 단추를 한 번이라도 누르면 그 뜻이 이긴다. 로그는 꺼서 시작하고(줄 번호와 눈에 보이는 줄을 맞추려고), 결과문은 켠다.</summary>
     [Parameter] public bool Wrap { get; set; }
 
-    /// <summary>
-    /// 줄 번호를 보일지. 기본값은 <b>숨김(false)</b>이다.
-    /// </summary>
+    /// <summary>줄 번호를 보일지. 기본은 숨김.</summary>
     [Parameter] public bool ShowLineNumbers { get; set; }
 
     /// <summary>줄 번호 상태. 첫 값만 <see cref="ShowLineNumbers"/> 에서 받는다.</summary>
     private bool _lineNumbers;
 
-    /// <summary>
-    /// 반복되는 로그 구간을 하나로 합쳐 반복 횟수 뱃지와 함께 한 번만 표시할지 여부.
-    /// 기본값은 <b>거짓(false)</b>이며, 로그 탭(<see cref="AiTaskLogTab"/>)에서는 <b>참(true)</b>으로 켜서
-    /// 브라우저 개발자 도구 콘솔창이나 로그 시스템처럼 연속으로 반복되는 로그 구간을 합치고 반복 회수를 보여준다.
-    /// </summary>
+    /// <summary>연속으로 반복되는 로그 구간을 하나로 합쳐 반복 횟수와 함께 한 번만 보인다. 로그 탭에서 켠다.</summary>
     [Parameter] public bool CollapseRepeats { get; set; }
 
-    /// <summary>
-    /// 옮겨 갈 말. <b>한국어로 고정이다</b> — 들어오는 것이 영어 로그라, 가는
-    /// 말을 영어로 돌리면 옮기기 전과 같은 판이 되어 볼 것이 없다.
-    /// 고를 것이 하나뿐인 고르개는 자리만 먹으므로 두지 않는다.
-    /// </summary>
+    /// <summary>옮겨 갈 말. 한국어로 고정이다 — 들어오는 것이 영어 로그라 영어로 돌리면 볼 것이 없다.</summary>
     private const string TargetLang = "ko";
 
-    /// <summary>
-    /// 여러 줄 반복 축약 시 묶음으로 허용할 최대 줄 수 (기본값 10줄).
-    /// </summary>
+    /// <summary>여러 줄 반복 축약 때 묶음으로 허용할 최대 줄 수.</summary>
     public const int MaxRepeatPatternLength = 10;
 
-    /// <summary>
-    /// 이보다 긴 줄은 <b>한 번에 보낼 수 있는 양을 넘긴다.</b> 옮기지 않고
-    /// 사정을 알린다 — 잘라 보내면 번역문이 문장 가운데서 끊겨 원문보다
-    /// 읽기 나쁘다. 서버의 상한(<c>LLMService.MaxTranslateInput</c> = 12000)
-    /// 보다 넉넉히 낮게 둔다.
-    /// </summary>
+    /// <summary>이보다 긴 줄은 한 번에 보낼 양을 넘으므로 옮기지 않고 알린다 — 잘라 보내면 번역이 문장 가운데서 끊긴다. 서버 상한(LLMService.MaxTranslateInput)보다 낮게 둔다.</summary>
     private const int MaxLineChars = 6000;
 
     /// <summary>편집기 DOM 요소의 id. 한 화면에 둘이 설 수 있어 겹치지 않게 짓는다.</summary>
@@ -151,32 +71,16 @@ public partial class LogTranslateView
 
     private IJSObjectReference? _loader;
 
-    /// <summary>
-    /// 브라우저가 되알려 줄 때 쥘 손잡이. 한 번만 만들고 치울 때 놓는다.
-    /// </summary>
-    /// <remarks>
-    /// 올라오는 것은 <b>손가락 누름</b> 하나다(<see cref="OnLineTappedAsync"/>).
-    /// 한동안 <b>가름쇠를 옮긴 자리</b>도 같은 손잡이로 올라왔는데, 칸이
-    /// 하나가 되면서 가를 자리가 없어졌다(머리말의 2026-10-17).
-    /// </remarks>
+    /// <summary>번역 손잡이. 손가락 누름 하나만 올라온다(OnLineTappedAsync).</summary>
     private DotNetObjectReference<LogTranslateView>? _tap;
 
-    /// <summary>
-    /// 번역 칸을 쥐고 있는 편집기. <b>넓은 화면에만 있다</b> — 휴대폰은
-    /// Monaco 를 안 세우므로 <c>null</c> 이고, 구르는 자리는 브라우저가 쥔다.
-    /// </summary>
+    /// <summary>번역 칸을 쥔 편집기. 넓은 화면에만 있다 — 휴대폰은 Monaco 를 세우지 않아 null 이다.</summary>
     private StandaloneCodeEditor? _editor;
 
-    /// <summary>
-    /// 휴대폰인가. 참이면 <b>Monaco 가 아예 서지 않는다</b> — 줄을 <c>div</c>
-    /// 하나씩 그대로 그리고 굴림은 브라우저에게 맡긴다(머리말의 표).
-    /// </summary>
+    /// <summary>휴대폰인가. 참이면 Monaco 를 세우지 않고 줄을 div 로 그린다.</summary>
     private bool _phone;
 
-    /// <summary>
-    /// 로그의 끝을 보이는 자리에 두는 JS(<c>js/log-tail.js</c>). <b>Monaco 와
-    /// 상관없는 길이다</b> — 그쪽 모듈(3MB 를 받아 오는 자리)과 섞지 않는다.
-    /// </summary>
+    /// <summary>로그 끝을 보이게 하는 JS(js/log-tail.js). Monaco 와 상관없는 길이다.</summary>
     private IJSObjectReference? _tail;
 
     /// <summary>목록을 한 번이라도 다룬 적이 있나. 폭이 바뀌면 다시 거짓이 된다.</summary>
@@ -185,38 +89,21 @@ public partial class LogTranslateView
     /// <summary>바닥으로 보낼 때 세어 둔 줄 수. 자랐을 때만 다시 민다.</summary>
     private int _listCount;
 
-    /// <summary>
-    /// 편집기에 거는 모델. <b>하나다</b> — 아직 안 옮긴 줄에는 원문이 들어
-    /// 있으므로(<see cref="AiLogXlatState.Out"/>) 칸 하나로 족하다.
-    /// </summary>
+    /// <summary>편집기에 거는 모델. 하나다 — 아직 안 옮긴 줄에는 원문이 들어 있어 칸 하나로 족하다.</summary>
     private TextModel? _model;
 
-    /// <summary>
-    /// 모델을 만들었나. <b>편집기와 따로 센다</b> — 화면 폭이 바뀌면 편집기는
-    /// 통째로 갈리는데 옮겨 둔 줄은 그대로 살아 있어야 한다.
-    /// </summary>
+    /// <summary>모델을 만들었나. 편집기와 따로 센다 — 폭이 바뀌어 편집기가 갈려도 옮긴 줄은 살아 있어야 한다.</summary>
     private bool _modelBuilt;
 
-    /// <summary>
-    /// 지금 모델을 걸어 둔 편집기. <b>참조로 가른다</b> — 폭이 바뀌어 편집기가
-    /// 갈리면 이 값이 달라지므로, 새로 선 쪽에 다시 건다.
-    /// </summary>
+    /// <summary>지금 모델을 걸어 둔 편집기. 참조로 가르며, 편집기가 갈리면 새 쪽에 다시 건다.</summary>
     private Editor? _attachedTo;
 
-    /// <summary>
-    /// 옮긴 것. <b>화면 밖에 있다</b> — 로그 탭의 알맹이는 다른 탭으로
-    /// 건너가는 순간 버려지는데(<c>DxTabs</c>) 번역은 살아 있어야 한다
-    /// (<see cref="AiLogXlatStore"/>).
-    /// </summary>
+    /// <summary>옮긴 것. 화면 밖(AiLogXlatStore)에 있어 다른 탭으로 건너가도 번역이 살아 있다.</summary>
     private AiLogXlatState _state = new();
 
     private bool _wrap;
 
-    /// <summary>
-    /// 줄바꿈 단추를 사람이 직접 눌렀나. <b>누른 뒤에는 폭이 바뀌어도 그
-    /// 뜻을 지킨다</b> — 휴대폰으로 넘어갈 때 저절로 켜지는 것은 아직 아무
-    /// 말도 하지 않은 사람에게만 주는 기본값이다.
-    /// </summary>
+    /// <summary>줄바꿈 단추를 사람이 직접 눌렀나. 누른 뒤에는 폭이 바뀌어도 그 뜻을 지킨다.</summary>
     private bool _wrapTouched;
 
     private double _fontPx = 14;
@@ -224,41 +111,19 @@ public partial class LogTranslateView
     /// <summary>사람이 고른 본문 글꼴(풀린 값). 비면 Monaco 기본(고정폭)이다.</summary>
     private string? _fontFamily;
 
-    /// <summary>
-    /// 내용에 맞춰 잡은 틀 높이(px). <b>0 이면 아직 못 쟀다</b> — 그동안은
-    /// CSS 가 정한 30rem 이 선다.
-    /// </summary>
-    /// <remarks>
-    /// <see cref="Fit"/> 이 참일 때만 쓴다. <b>휴대폰에는 안 건다</b> — 거기
-    /// 틀은 높이를 안 받고(내용만큼 길어진다) 인라인 글은 미디어 질의를
-    /// 이기므로, 걸어 두면 목록이 그 높이에 갇혀 제 안에서 구른다.
-    /// </remarks>
+    /// <summary>내용에 맞춘 틀 높이(px). 0 이면 아직 못 쟀다. Fit 일 때만 쓰고, 휴대폰에는 걸지 않는다.</summary>
     private int _fitPx;
 
     /// <summary>칸이 <b>몇 px 짜리 글</b>을 들고 있나. Monaco 가 알려 준다.</summary>
     private double _contentPx;
 
-    /// <summary>
-    /// 내용에 맞추더라도 <b>이보다 낮게는 안 간다</b>(px). 한 줄짜리 결과에
-    /// 띠만 한 틀이 서면 머리띠·이름표와 구분이 안 된다.
-    /// </summary>
+    /// <summary>내용에 맞추더라도 이보다 낮게는 안 간다(px). 한 줄짜리가 띠만 해지는 것을 막는다.</summary>
     private const int FitMin = 96;
 
-    /// <summary>
-    /// 커서가 선 줄(1부터). <b>0 이면 아직 아무 데도 안 눌렀다.</b>
-    /// </summary>
-    /// <remarks>
-    /// Monaco 가 들고 있는 「지금 줄」 표시(<c>renderLineHighlight</c>)를 쓰지
-    /// 않는 까닭은 <b>색을 우리가 정해야</b> 하기 때문이다 — 옮기는 중인 줄
-    /// (<see cref="_redoLine"/>)과 한 자에서 갈려야 눈으로 구분된다.
-    /// </remarks>
+    /// <summary>커서가 선 줄(1부터). 0 이면 아직 아무 데도 안 눌렀다. 줄 표시는 Monaco 것이 아니라 우리 색으로 그린다.</summary>
     private int _focusLine;
 
-    /// <summary>
-    /// 지금 옮기고 있는 줄(1부터). 0 이면 없다. 그 줄에만 따로 불을 켜 둔다 —
-    /// 로컬 LLM 왕복이 몇 초라, 표시가 없으면 <b>눌러도 아무 일이 없는 것</b>
-    /// 으로 보인다.
-    /// </summary>
+    /// <summary>지금 옮기고 있는 줄(1부터, 0 이면 없다). 로컬 LLM 왕복이 몇 초라 이 불이 없으면 눌러도 아무 일이 없는 것으로 보인다.</summary>
     private int _redoLine;
 
     /// <summary>줄 하나를 옮기는 일. 다음 줄을 누르면 앞엣것을 거둔다.</summary>
@@ -267,64 +132,29 @@ public partial class LogTranslateView
     /// <summary>켜 둔 불의 표. 다음에 지울 것을 Monaco 가 이 이름으로 찾는다.</summary>
     private List<string> _marksOn = [];
 
-    /// <summary>
-    /// 글을 미는 길목의 빗장. <b>미는 쪽이 둘이다</b> — 로그가 자라 뒤에
-    /// 붙이는 일과, 누른 줄 하나를 꽂는 일이 같은 때에 돈다. 빗장이 없으면
-    /// 둘이 <see cref="_pushedOut"/> 를 엇갈려 고쳐, <b>민 것과 밀었다고
-    /// 적어 둔 것이 달라진다</b> — 그 뒤로는 바뀐 줄을 못 찾는다.
-    /// </summary>
+    /// <summary>글을 미는 길목의 빗장. 로그가 자라 뒤에 붙이는 일과 누른 줄을 꽂는 일이 엇갈리면 바뀐 줄을 못 찾는다.</summary>
     private readonly SemaphoreSlim _push = new(1, 1);
 
-    /// <summary>
-    /// 불을 켜고 끄는 길목의 빗장. <b>부르는 자리가 넷이다</b> — 커서가
-    /// 움직였을 때 · 줄을 눌렀을 때 · 한 줄이 돌아왔을 때 · 글을 통째로
-    /// 갈아 끼운 뒤. 엇갈리면 <see cref="_marksOn"/> 에 <b>이미 없는
-    /// 이름</b>이 남아, 꺼야 할 불이 켜진 채로 굳는다.
-    /// </summary>
+    /// <summary>불을 켜고 끄는 길목의 빗장. 엇갈리면 이미 없는 이름이 남아 꺼야 할 불이 켜진 채로 굳는다.</summary>
     private readonly SemaphoreSlim _marks = new(1, 1);
 
-    /// <summary>
-    /// 편집기에 <b>실제로 들어 있는</b> 줄들. 바꿀 자리를 이것과 견주어 찾는다.
-    /// </summary>
-    /// <remarks>
-    /// 글 전체를 이어 붙인 문자열로 들고 있었다. 그때는 미는 길이 하나뿐이라
-    /// 통째로 갈아 끼워도 됐는데, <b>줄 하나를 누를 때마다 수백 줄을 회로로
-    /// 실어 나를 수는 없다.</b> 줄 단위로 들고 있으면 바뀐 자리가 어디부터
-    /// 어디까지인지 바로 나오고, 그 토막만 <c>ApplyEdits</c> 로 꽂는다 —
-    /// 켜 둔 불도 그대로 남는다(<c>setValue</c> 는 지운다).
-    /// </remarks>
+    /// <summary>편집기에 실제로 들어 있는 줄들. 바뀐 토막을 이것과 견주어 찾는다 — 글 전체를 회로로 나르지 않으려고 줄 단위로 든다.</summary>
     private readonly List<string> _pushedOut = [];
 
-    /// <summary>
-    /// 복사 아이콘이 집어 갈 글. <b>편집기가 아니라 들고 있는 줄에서 만든다</b> —
-    /// 보이는 것과 같은 것이고(민 것이 그것이다), 회로 왕복이 없다.
-    /// </summary>
+    /// <summary>복사 아이콘이 집어 갈 글. 들고 있는 줄에서 만든다(회로 왕복 없음).</summary>
     private string OutText => string.Join('\n', _state.Out);
 
-    /// <summary>
-    /// 틀에 직접 적을 글. <b><see cref="Fit"/> 일 때만 생긴다</b> — 그때 높이를
-    /// 정하는 것은 CSS 가 아니라 잰 값이다.
-    /// </summary>
-    /// <remarks>
-    /// <b>휴대폰에는 안 건다.</b> 인라인 글은 미디어 질의를 이기므로, 걸어 두면
-    /// 목록이 그 높이에 갇혀 제 안에서 구른다(머리말의 2026-10-15 — 구르는
-    /// 자리는 쪽 하나다).
-    /// </remarks>
+    /// <summary>틀에 직접 적을 글. Fit 일 때만 생기며, 높이는 CSS 가 아니라 잰 값이다.</summary>
     private string? EditorStyle
         => Fit && !_phone && _fitPx > 0 ? $"height: {_fitPx}px" : null;
 
-    /// <summary>
-    /// 아직 Monaco 를 못 받았을 때 그 자리에 적을 한 줄.
-    /// </summary>
+    /// <summary>Monaco 를 못 받았을 때 그 자리에 적을 한 줄.</summary>
     private string LoadingText => $"{Subject}{Particle(Subject)} 불러오는 중…";
 
     /// <summary>낭독기에게 읽어 줄 칸(과 휴대폰 목록) 이름.</summary>
     private string OutAria => $"한국어로 옮긴 {Subject}";
 
-    /// <summary>
-    /// 받침을 보고 <c>을</c>·<c>를</c> 를 고른다. <b>「로그를」과 「결과를」은
-    /// 둘 다 「를」이지만</b> 들어올 이름을 우리가 다 알 수 없다.
-    /// </summary>
+    /// <summary>받침을 보고 을·를 중 고른다. 들어올 이름을 다 알 수 없어 흔한 쪽으로 둔다.</summary>
     private static string Particle(string word)
     {
         if (word.Length == 0)
@@ -343,10 +173,7 @@ public partial class LogTranslateView
         return (last - '\uAC00') % 28 == 0 ? "를" : "을";
     }
 
-    /// <summary>
-    /// 머리띠 오른쪽 한 줄 — 몇 줄 가운데 몇 줄을 옮겼나 · 누가 답했나 ·
-    /// 무엇이 걸렸나.
-    /// </summary>
+    /// <summary>머리띠 오른쪽 한 줄 — 몇 줄 가운데 몇 줄을 옮겼나 · 누가 답했나 · 무엇이 걸렸나.</summary>
     private string StatusText
     {
         get
@@ -363,20 +190,13 @@ public partial class LogTranslateView
 
             if (_redoLine > 0)
             {
-                // **셈보다 이것이 먼저다.** 줄을 누른 사람이 보려는 것은
-                // 전체 셈이 아니라 「내가 누른 그 줄이 지금 도는가」다.
+                // 줄을 누른 사람이 보려는 것은 전체 셈이 아니라 「내가 누른 줄이 지금 도는가」다.
                 return $"{_redoLine}번째 줄을 옮기는 중…";
             }
 
             if (_state.DoneLines.Count == 0)
             {
-                // **아직 한 줄도 안 옮겼다.** 여기에 「0/300줄」을 적으면
-                // 그것이 「도는 중인데 아직 안 됐다」로 읽힌다 — 이 판은
-                // 누르기 전에는 아무것도 하지 않으므로 줄 수만 적는다.
-                //
-                // **쓰는 법을 적지 않는다.** 한동안 여기에 「줄을 누르면 그
-                // 줄을 옮깁니다」가, 판 발치에도 같은 뜻의 안내가 한 줄 더
-                // 붙어 있었다. 같은 말이 두 번 서면 둘 다 안 읽힌다.
+                // 아직 한 줄도 안 옮겼으면 줄 수만 적는다 — 「0/300줄」은 도는 중으로 읽힌다.
                 return $"{_state.Source.Count}줄";
             }
 
@@ -388,13 +208,10 @@ public partial class LogTranslateView
 
     protected override void OnInitialized()
     {
-        // 서랍에서 테마 크기를 바꾸면 다시 재서 밀어 넣는다. 옵션은 편집기를
-        // 만들 때 한 번만 평가되므로(`BuildOptions`) 여기서 안 들으면
-        // **이미 떠 있는 편집기만** 옛 크기로 남는다.
+        // 테마 크기를 바꾸면 다시 잰다. 편집기는 옵션을 만들 때 한 번만 평가하므로 여기서 듣지 않으면 떠 있는 편집기만 옛 크기로 남는다.
         Size.Changed += OnThemeSizeChanged;
 
-        // 줄바꿈의 첫 자리. **여기서만 받는다** — 그 뒤로는 단추를 누른
-        // 사람의 뜻과 폭이 정한다(`OnPhoneChangedAsync` · `SetWrapAsync`).
+        // 줄바꿈의 첫 자리. 여기서만 받고, 그 뒤로는 단추의 뜻과 폭이 정한다.
         _wrap = Wrap;
         _lineNumbers = ShowLineNumbers;
     }
@@ -406,20 +223,7 @@ public partial class LogTranslateView
         SyncSource();
     }
 
-    /// <summary>
-    /// 부모가 준 줄을 들여온다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 로그는 <b>실행 중에 바닥으로 자란다.</b> 늘어난 줄만 뒤에 붙이고 이미
-    /// 옮긴 것은 그대로 둔다 — 자리가 안 밀리므로 옮겨 둔 줄이 제자리에 남는다.
-    /// </para>
-    /// <para>
-    /// <b>앞부분이 달라졌으면 통째로 버린다.</b> 꼬리만 그리는 상한에 걸려
-    /// 앞이 잘려 나간 경우인데, 그대로 이어 붙이면 번역이 <b>엉뚱한 줄에
-    /// 붙는다</b> — 틀린 티가 안 나는 종류라 특히 나쁘다.
-    /// </para>
-    /// </remarks>
+    /// <summary>부모가 준 줄을 들여온다. 자라는 꼬리는 뒤에 붙이고, 앞부분이 달라졌으면 옮긴 것을 통째로 버린다(이어 붙이면 번역이 엉뚱한 줄에 붙는다).</summary>
     private void SyncSource()
     {
         var incoming = PrepareIncomingLines();
@@ -556,15 +360,11 @@ public partial class LogTranslateView
             }
         }
 
-        // 앞부분이 달라졌다 — 꼬리만 그리는 상한에 걸려 앞이 잘려 나갔다.
-        // 옮겨 둔 것을 버린다. 이어 붙이면 번역이 엉뚱한 줄에 붙는다.
+        // 앞부분이 달라졌다 — 옮긴 것을 버린다. 이어 붙이면 번역이 엉뚱한 줄에 붙는다.
         _state.Reset(incoming.Select(line => line ?? string.Empty));
     }
 
-    /// <summary>
-    /// 들어온 원본 줄들을 화면에 올릴 줄들로 다듬는다.
-    /// <see cref="CollapseRepeats"/> 가 켜져 있으면 연속으로 중복되는 줄들을 하나로 묶고 반복 횟수를 붙인다.
-    /// </summary>
+    /// <summary>들어온 원본 줄을 화면에 올릴 줄로 다듬는다. CollapseRepeats 가 켜져 있으면 반복을 묶는다.</summary>
     private List<string> PrepareIncomingLines()
     {
         var raw = Lines as IList<string> ?? [.. Lines];
@@ -576,11 +376,7 @@ public partial class LogTranslateView
         return CollapseRepeatsList(raw);
     }
 
-    /// <summary>
-    /// 연속으로 반복되는 동일한 문자열 줄들을 하나로 축약하고 반복 횟수를 표시한다.
-    /// 1줄뿐만 아니라 최대 <paramref name="maxPatternLength"/>줄(기본 10줄)까지의 동일 반복 패턴을 묶어서
-    /// 수치를 표시하고 묶음은 한 번만 표시되도록 한다.
-    /// </summary>
+    /// <summary>연속으로 반복되는 줄을 하나로 축약하고 반복 횟수를 보인다. 여러 줄 패턴(최대 maxPatternLength 줄)도 묶는다.</summary>
     public static List<string> CollapseRepeatsList(IList<string> lines, int maxPatternLength = MaxRepeatPatternLength)
     {
         if (lines is null || lines.Count == 0)
@@ -607,8 +403,7 @@ public partial class LogTranslateView
 
             var maxLen = Math.Min(maxPatternLength, (n - i) / 2);
 
-            // 긴 패턴(최대 10줄)부터 1줄까지 탐색하여 3줄 등의 다중 줄 반복 패턴이
-            // 1번 줄의 부분 반복으로 인해 선점되어 누락되는 현상을 방지한다.
+            // 긴 패턴부터 찾아야 3줄 반복이 1줄 부분 반복에 선점되어 빠지지 않는다.
             for (var len = maxLen; len >= 1; len--)
             {
                 var maxK = 1;
@@ -652,8 +447,7 @@ public partial class LogTranslateView
                     }
                     else if (saved == dpSaved[i] && saved > 0)
                     {
-                        // 전체 절약 줄 수가 같다면 즉시 절약 줄 수가 더 많은 것을 우선하고,
-                        // 그마저 같다면 더 긴 패턴 길이를 우선한다.
+                        // 절약 줄 수가 같으면 더 긴 패턴을 우선한다.
                         if (immediateSaved > currentImmediateSaved)
                         {
                             isBetter = true;
@@ -706,9 +500,7 @@ public partial class LogTranslateView
         return result;
     }
 
-    /// <summary>
-    /// 반복 횟수가 포함된 한 줄 텍스트를 구성한다.
-    /// </summary>
+    /// <summary>반복 횟수가 붙은 한 줄 텍스트를 만든다.</summary>
     public static string FormatRepeatLine(string line, int count)
     {
         if (count <= 1)
@@ -721,9 +513,7 @@ public partial class LogTranslateView
             : $"({count}) {line}";
     }
 
-    /// <summary>
-    /// <c>(숫자) 내용</c> 형태로 시작하는 반복 요약 줄인지 검사하고 반복 횟수와 본문을 분리한다.
-    /// </summary>
+    /// <summary>(숫자) 내용 형태의 반복 요약 줄인지 보고 횟수와 본문을 나눈다.</summary>
     public static bool TryGetRepeat(string? line, out int count, out string raw)
     {
         count = 1;
@@ -769,26 +559,7 @@ public partial class LogTranslateView
         return true;
     }
 
-    /// <summary>
-    /// 화면 폭이 휴대폰 쪽으로 넘어갔거나 되돌아왔다. <b>보여 주는 것이 통째로 갈린다.</b>
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 옮겨 둔 줄은 그대로 남는다 — 옮긴 글은 편집기가 아니라 화면 밖
-    /// (<see cref="AiLogXlatStore"/>)에 있다.
-    /// </para>
-    /// <para>
-    /// <b>휴대폰으로 가면 편집기를 우리 손으로 치운다.</b> BlazorMonaco 의
-    /// 부품이 화면에서 사라져도 <b>브라우저의 Monaco 는 그대로 남는다</b> —
-    /// 재어 확인했다(폭을 한 번 바꿀 때마다 편집기가 하나씩 쌓였다). 손잡이도
-    /// 함께 놓는다. Blazor 는 사라진 부품의 참조(<c>@ref</c>)를 비워 주지
-    /// 않아, 그대로 두면 이미 치운 편집기에 글을 밀게 된다.
-    /// </para>
-    /// <para>
-    /// <b>넓은 화면으로 돌아오면 그때 Monaco 를 받는다.</b> 휴대폰에서는 아예
-    /// 안 받으므로(<see cref="LoadMonacoAsync"/>) 여기가 받는 유일한 자리다.
-    /// </para>
-    /// </remarks>
+    /// <summary>휴대폰으로 가면 편집기를 우리 손으로 치운다 — BlazorMonaco 가 부품을 치워도 브라우저의 Monaco 는 남고, @ref 도 비워지지 않는다. 넓은 화면으로 돌아오면 그때 Monaco 를 받는다.</summary>
     private async Task OnPhoneChangedAsync(bool phone)
     {
         if (_phone == phone)
@@ -798,11 +569,7 @@ public partial class LogTranslateView
 
         _phone = phone;
 
-        // 줄바꿈은 휴대폰에서 켜고 시작한다. 넓은 화면에서 끄는 까닭은 줄
-        // 번호와 눈에 보이는 줄을 맞춰 두려는 것인데(`BuildOptions` 머리말),
-        // 스무 글자짜리 폭에서는 그것이 안 지켜진다. 거기서 끈 채로 두면 로그
-        // 한 줄이 화면 폭의 몇 배라 **옆으로 밀어 가며 읽어야 한다.**
-        //
+        // 휴대폰에서는 줄바꿈을 켜고 시작한다 — 좁은 폭에서 끄면 로그 한 줄이 화면 폭의 몇 배라 옆으로 밀어 읽어야 한다.
         // 사람이 단추를 한 번이라도 눌렀으면 그 뜻을 지킨다.
         if (!_wrapTouched)
         {
@@ -811,8 +578,7 @@ public partial class LogTranslateView
 
         if (phone)
         {
-            // 목록이 새로 선다. **바닥부터 보여 준다** — 로그를 펴는 일
-            // 대부분이 방금 찍힌 줄을 보려는 것이다.
+            // 목록이 새로 서면 바닥부터 보여 준다.
             _listTailed = false;
 
             if (_editor is { } leaving)
@@ -822,8 +588,7 @@ public partial class LogTranslateView
 
                 try
                 {
-                    // 모델은 살아남는다 — 편집기가 들고 있는 것이 아니라
-                    // `monaco.editor` 전역에 매달려 있다(`DisposeAsync` 머리말).
+                    // 모델은 편집기가 아니라 monaco.editor 전역에 매달려 있어 따로 치운다.
                     await leaving.DisposeEditor();
                 }
                 catch (Exception ex) when (ex is JSException or JSDisconnectedException
@@ -845,17 +610,7 @@ public partial class LogTranslateView
         }
     }
 
-    /// <summary>
-    /// 편집기가 브라우저에 다 섰다. <b>여기서 모델을 건다.</b>
-    /// </summary>
-    /// <remarks>
-    /// 그리기 뒷정리(<see cref="OnAfterRenderAsync"/>)만으로는 모자랐다 —
-    /// Blazor 는 자식의 뒷정리를 <b>기다려 주지 않아서</b>, 폭이 바뀌어 새
-    /// 편집기가 설 때 부모가 먼저 <c>SetModel</c> 을 부른다. 그 부름은 아직
-    /// 없는 편집기를 찾다가 조용히 실패하고, <b>다시 부를 일이 없어 그대로
-    /// 빈 편집기가 남는다</b>(재어 확인했다 — 휴대폰으로 바꾸면 줄이 하나도
-    /// 안 보였다).
-    /// </remarks>
+    /// <summary>편집기가 브라우저에 다 섰다. 여기서 모델을 건다 — Blazor 는 자식의 뒷정리를 기다려 주지 않아, 부모의 SetModel 이 빈 편집기를 남긴다.</summary>
     private async Task OnEditorReadyAsync()
     {
         if (!_modelBuilt)
@@ -874,13 +629,10 @@ public partial class LogTranslateView
     {
         if (_phone)
         {
-            // 휴대폰에는 Monaco 가 없다. 그릴 것은 이미 그려졌고, 남은 일은
-            // **바닥을 보여 주는 것**뿐이다.
+            // 휴대폰에는 Monaco 가 없으니 남은 일은 바닥을 보여 주는 것뿐이다.
             await FollowListAsync();
 
-            // 탭을 떠나면 돌고 있는 줄을 거둔다. **넓은 화면 쪽과 같은
-            // 판단이다**(아래) — 여기서 빠뜨리면 로그 탭을 떠난 사람 때문에
-            // 로컬 LLM 이 휴대폰에서만 계속 돈다.
+            // 탭을 떠나면 돌고 있는 줄을 거둔다 — 넓은 화면과 같은 판단이다.
             if (!Active && _redoLine > 0)
             {
                 CancelLineWork();
@@ -906,8 +658,7 @@ public partial class LogTranslateView
             return;
         }
 
-        // 지금 서 있는 편집기에 모델을 건다. 폭이 바뀌어 편집기가 갈렸으면
-        // 여기서 새 쪽에 다시 걸린다.
+        // 서 있는 편집기에 모델을 건다. 폭이 바뀌어 편집기가 갈렸으면 새 쪽에 다시 건다.
         if (!await AttachModelAsync())
         {
             return;
@@ -922,26 +673,7 @@ public partial class LogTranslateView
         }
     }
 
-    /// <summary>
-    /// Monaco 를 받아 온다. <b>받기 전에 편집기를 그리면 회로가 끊긴다</b> —
-    /// 그 화면만 깨지는 것이 아니라 그때부터 아무 단추도 안 눌린다
-    /// (<c>CodeEditor</c> 와 같은 까닭·같은 길).
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>첫 그리기에서는 아직 폭을 모른다.</b> <c>DxLayoutBreakpoint</c> 는
-    /// 브라우저에 재어 보고 알려 주므로, 이 자리에서 <see cref="_phone"/> 는
-    /// 늘 거짓이다. 그대로 받아 버리면 <b>휴대폰이 3MB 짜리
-    /// <c>editor.main.js</c> 를 쓰지도 않을 편집기 때문에 받는다.</b>
-    /// </para>
-    /// <para>
-    /// 그래서 <b>한 박자 기다렸다가</b> 다시 본다. 늦어 봐야 그 한 박자이고
-    /// (받는 데 드는 시간이 그보다 훨씬 길다), 그 사이에 폭이 안 왔으면
-    /// 받는다 — 지금까지와 같은 자리로 떨어질 뿐 나빠지지 않는다. 휴대폰이라
-    /// 건너뛴 판은 <see cref="OnPhoneChangedAsync"/> 가 넓은 화면으로 돌아올
-    /// 때 다시 부른다.
-    /// </para>
-    /// </remarks>
+    /// <summary>Monaco 를 받아 온다. 받기 전에 편집기를 그리면 회로가 끊긴다. 첫 그리기에서는 폭을 몰라 한 박자 기다렸다가 보고, 휴대폰이면 받지 않는다.</summary>
     private async Task LoadMonacoAsync()
     {
         try
@@ -978,8 +710,7 @@ public partial class LogTranslateView
         {
             await loader.InvokeVoidAsync("ensure");
 
-            // **편집기를 그리기 전에 잰다.** 옵션은 만들 때 한 번만 평가되므로
-            // 여기서 놓치면 첫 그림이 기본 크기로 뜬다.
+            // 옵션은 만들 때 한 번만 평가되므로 편집기를 그리기 전에 잰다.
             _fontPx = await loader.InvokeAsync<double>("baseFontPx");
             _fontFamily = await loader.InvokeAsync<string>("baseFontFamily");
             await loader.InvokeVoidAsync("followBodyFont");
@@ -1000,38 +731,12 @@ public partial class LogTranslateView
         StateHasChanged();
     }
 
-    /// <summary>
-    /// 휴대폰 목록의 <b>끝을 보이는 자리에 둔다.</b>
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 로그를 펴는 일 대부분이 <b>방금 찍힌 줄</b>을 보려는 것인데, 맨 위에서
-    /// 서면 거기까지 삼백 줄을 굴려야 한다. 넓은 화면에서 <c>RevealLine</c>
-    /// 이 하는 몫이다.
-    /// </para>
-    /// <para>
-    /// <b>미는 것이 목록이 아니라 쪽이다</b>(<c>js/log-tail.js</c> 의
-    /// <c>followPage</c>). 휴대폰의 목록은 제 안에서 구르지 않으므로
-    /// (<c>projmng.css</c> 의 <c>.pm-xlat__list</c> — 받은 줄을 전부 그리고
-    /// 높이를 내용에 맡긴다) 글상자가 쓰던 <c>follow</c> 로는 밀 곳이 없다.
-    /// 목록을 담은 <b>구르는 조상</b>을 찾아 그것을 민다.
-    /// </para>
-    /// <para>
-    /// 「위를 읽는 중이면 놓아 둔다」는 그대로다 — 처음 펴면 끝을 보여 주고,
-    /// 사람이 위로 굴린 뒤에는 따라가지 않는다. 읽던 자리가 튀는 것이 새 줄을
-    /// 놓치는 것보다 나쁘다.
-    /// </para>
-    /// <para>
-    /// <b>줄 수가 달라졌을 때만 부른다.</b> 그리기 뒷정리는 단추 한 번에도
-    /// 지나가는데, 그때마다 부르면 회로 왕복이 그만큼 는다.
-    /// </para>
-    /// </remarks>
+    /// <summary>휴대폰 목록의 끝을 보이는 자리에 둔다. 미는 것은 목록을 담은 구르는 조상(js/log-tail.js 의 followPage)이며, 사람이 위로 굴렸으면 따라가지 않는다. 줄 수가 달라졌을 때만 부른다.</summary>
     private async Task FollowListAsync()
     {
         if (!Tail)
         {
-            // 자라지 않는 글이다(결과문). **맨 위에서 선다** — 끝으로
-            // 내려가 있으면 읽으려는 사람이 되올려야 한다.
+            // 자라지 않는 결과문은 맨 위에서 선다.
             return;
         }
 
@@ -1064,15 +769,7 @@ public partial class LogTranslateView
         }
     }
 
-    /// <summary>
-    /// 모델을 만든다. <b>편집기와 따로 만든다</b> — 화면 폭이 바뀌면
-    /// 편집기는 통째로 갈리는데 옮겨 둔 줄은 살아 있어야 한다.
-    /// </summary>
-    /// <remarks>
-    /// <b>글자를 편집기가 아니라 모델에 넣는다.</b> 바뀐 토막만 꽂으려면
-    /// (<see cref="PushSideAsync"/>) 모델이 있어야 하고, 켜 둔 불도 모델에
-    /// 매달린다 — 편집기에 글을 직접 밀면 둘 다 못 한다.
-    /// </remarks>
+    /// <summary>모델을 만든다. 편집기와 따로 만든다 — 글은 모델에 넣어야 바뀐 토막만 꽂을 수 있고, 켜 둔 불도 모델에 매달린다.</summary>
     private async Task BuildModelAsync()
     {
         try
@@ -1097,21 +794,7 @@ public partial class LogTranslateView
         StateHasChanged();
     }
 
-    /// <summary>
-    /// 지금 서 있는 편집기에 모델을 건다. <b>돌려주는 것은 「걸려 있나」</b>.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 거는 곳은 <b>편집기 하나</b>다(휴대폰에는 편집기가 없다). 이미
-    /// 걸려 있으면 아무것도 하지 않는다 — 그리기 뒷정리는 글을 밀 때마다
-    /// 지나간다.
-    /// </para>
-    /// <para>
-    /// <b>건 뒤에 레이아웃을 직접 부른다.</b> <c>AutomaticLayout</c> 을 켜
-    /// 두어도 Blazor Server 에서는 제때 걸리지 않아, 편집기는 만들어지고 값도
-    /// 들어갔는데 <b>줄이 하나도 안 그려지는</b> 일이 난다.
-    /// </para>
-    /// </remarks>
+    /// <summary>지금 선 편집기에 모델을 건다. 돌려주는 것은 「걸려 있나」. 건 뒤 레이아웃을 직접 부른다 — AutomaticLayout 은 Blazor Server 에서 제때 안 걸려 줄이 안 그려진다.</summary>
     private async Task<bool> AttachModelAsync()
     {
         if (_model is not { } model)
@@ -1131,9 +814,7 @@ public partial class LogTranslateView
             return true;
         }
 
-        // **걸기 전에 적어 둔다.** 거는 자리가 둘이라(그리기 뒷정리와
-        // `OnDidInit`) 걸고 나서 적으면 그 사이에 다른 쪽이 또 들어와 같은
-        // 일을 두 번 한다 — 그러면 켜 둔 불이 두 벌로 남는다.
+        // 걸기 전에 적어 둔다 — 거는 자리가 둘이라 걸고 나서 적으면 그 사이 다른 쪽이 같은 일을 두 번 해 불이 두 벌로 남는다.
         _attachedTo = target;
 
         try
@@ -1145,10 +826,7 @@ public partial class LogTranslateView
 
                 await view.Layout();
 
-                // **바닥을 보여 준다.** 로그를 펴는 일 대부분이 방금 찍힌 줄을
-                // 보려는 것인데, 맨 위에서 서면 거기까지 삼백 줄을 굴려야 한다.
-                // 폭이 바뀌어 편집기가 갈렸을 때도 같다 — 새 편집기는 맨 위에서
-                // 선다(`js/log-tail.js` 가 글상자에 하던 일이다).
+                // 바닥을 보여 준다 — 폭이 바뀌어 갈린 새 편집기도 맨 위에서 서지 않게.
                 if (Tail && _pushedOut.Count > 1)
                 {
                     await view.RevealLine(_pushedOut.Count);
@@ -1158,8 +836,7 @@ public partial class LogTranslateView
             // 편집기가 갈리면 켜 둔 불도 함께 사라진다. 다시 켠다.
             await DrawMarksAsync();
 
-            // 손가락 누름은 Monaco 가 알려 주지 않는다. **새로 선 편집기마다**
-            // 직접 지켜본다(`OnLineTappedAsync` 머리말).
+            // 손가락 누름은 Monaco 가 알려 주지 않으므로 새 편집기마다 직접 지켜본다.
             await WatchTapsAsync(target);
 
             // 내용에 맞추는 틀이면 **여기서 한 번 직접 묻는다**(머리말).
@@ -1168,8 +845,7 @@ public partial class LogTranslateView
         catch (Exception ex) when (ex is JSException or JSDisconnectedException
             or ObjectDisposedException or TaskCanceledException)
         {
-            // 아직 안 섰거나 회로가 끊겼다. **적어 둔 것을 지운다** —
-            // 그래야 `OnDidInit` 이 왔을 때 다시 건다.
+            // 아직 안 섰거나 회로가 끊겼다. 적어 둔 것을 지워 OnDidInit 이 올 때 다시 걸게 한다.
             if (ReferenceEquals(_attachedTo, target))
             {
                 _attachedTo = null;
@@ -1181,27 +857,7 @@ public partial class LogTranslateView
         return true;
     }
 
-    /// <summary>
-    /// 지금 선 편집기의 <b>손가락 누름</b>을 지켜본다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// Monaco 가 손가락 누름에 <c>onMouseDown</c> 을 울리지 않아서, 누른
-    /// 자리를 브라우저에서 직접 되묻고 올려 보낸다(<c>js/monaco-loader.js</c> 의
-    /// <c>watchTaps</c> · 까닭은 <see cref="OnLineTappedAsync"/>).
-    /// </para>
-    /// <para>
-    /// <b>주는 것은 편집기가 아니라 그것이 선 상자의 id 다.</b> 같은 화면에
-    /// 판이 둘 설 수 있어(로그 탭 · 결과 차수) 상자로 묶어 찾으면 남의
-    /// 편집기가 안 걸린다.
-    /// </para>
-    /// <para>
-    /// <b>휴대폰 때문에 생긴 길인데 지금은 휴대폰이 안 쓴다</b> — 거기서는
-    /// Monaco 가 아니라 <c>div</c> 목록이라 그냥 눌린다. 남겨 두는 까닭은
-    /// <b>손가락이 달린 넓은 화면</b>(태블릿·터치 노트북)이다. 거기서는
-    /// Monaco 가 서고, 거기서도 <c>onMouseDown</c> 은 안 울린다.
-    /// </para>
-    /// </remarks>
+    /// <summary>선 편집기의 손가락 누름을 지켜본다. Monaco 는 손가락 누름에 onMouseDown 을 울리지 않아 브라우저에서 직접 되묻는다(monaco-loader.js 의 watchTaps). 주는 것은 편집기가 아니라 그 상자의 id 다.</summary>
     private async Task WatchTapsAsync(Editor target)
     {
         if (_loader is not { } loader)
@@ -1224,10 +880,7 @@ public partial class LogTranslateView
         }
     }
 
-    /// <summary>
-    /// 편집기 테마를 문서의 <c>data-theme</c> 에 맞춘다(theme.js 가 정한다).
-    /// 흰 바탕에 밝은 편집기가 얹히면 그 부분만 튀어 보인다.
-    /// </summary>
+    /// <summary>편집기 테마를 문서의 data-theme 에 맞춘다. 흰 바탕에 밝은 편집기가 얹히면 그 부분만 튄다.</summary>
     private async Task ApplyThemeAsync()
     {
         var dark = await Js.InvokeAsync<bool>("jsiniTheme.isDark");
@@ -1235,10 +888,7 @@ public partial class LogTranslateView
         await Global.SetTheme(Js, dark ? "vs-dark" : "vs");
     }
 
-    /// <summary>
-    /// 바뀐 줄만 모델에 민다. <b>바뀐 토막만 간다</b> — 미는 일마다 글 전체를
-    /// 회로로 실어 나르면, 줄 하나를 누를 때마다 수백 줄이 왕복한다.
-    /// </summary>
+    /// <summary>바뀐 줄만 모델에 민다 — 글 전체를 회로로 나르면 줄 하나를 누를 때마다 수백 줄이 왕복한다.</summary>
     private async Task PushValuesAsync()
     {
         if (!_modelBuilt)
@@ -1246,21 +896,15 @@ public partial class LogTranslateView
             return;
         }
 
-        // **빗장을 건다.** 미는 쪽이 둘이다 — 로그가 자라 뒤에 붙이는 일과,
-        // 누른 줄 하나를 꽂는 일. 엇갈리면 민 것과 밀었다고 적어 둔 것이 달라진다.
+        // 빗장을 건다 — 미는 쪽이 둘이라(뒤에 붙이기 · 줄 꽂기) 엇갈리면 민 것과 적어 둔 것이 달라진다.
         await _push.WaitAsync();
 
         try
         {
-            // **줄 수가 달라졌을 때만 잰다.** 재는 데 회로 왕복이 셋 드는데,
-            // 이 길은 그리기 뒷정리마다 지나간다 — 바뀐 것이 없는 날에도
-            // 재면 단추 한 번 누를 때마다 쓸데없는 왕복이 선다. 따라 내릴
-            // 일이 생기는 것도 줄이 늘었을 때뿐이다.
+            // 줄 수가 달라졌을 때만 잰다 — 이 길은 그리기 뒷정리마다 지나가서 재면 왕복이 늘 선다.
             var grew = _pushedOut.Count != _state.Out.Count;
 
-            // **밀기 전에 「바닥에 붙어 있나」를 잰다.** 민 뒤에 재면 늘어난
-            // 줄 때문에 늘 거짓이라, 돌고 있는 건을 지켜보는 사람이 새 줄을
-            // 한 번도 못 본다.
+            // 밀기 전에 바닥에 붙어 있나를 잰다. 민 뒤에 재면 늘어난 줄 때문에 늘 거짓이다.
             var tail = Tail && grew && await AtBottomAsync();
 
             var reset = await PushSideAsync(_model, _pushedOut, _state.Out);
@@ -1271,9 +915,7 @@ public partial class LogTranslateView
                 await DrawMarksAsync();
             }
 
-            // 줄이 늘었고 사람이 바닥을 보고 있었으면 새 줄까지 따라 내린다.
-            // **위를 읽는 중이면 놓아 둔다** — 읽던 자리가 튀는 것이 새 줄을
-            // 놓치는 것보다 나쁘다.
+            // 줄이 늘었고 사람이 바닥을 보고 있었으면 따라 내린다. 위를 읽는 중이면 놓아 둔다.
             if (tail && reset && _pushedOut.Count > 1 && _editor is { } view)
             {
                 await view.RevealLine(_pushedOut.Count);
@@ -1290,10 +932,7 @@ public partial class LogTranslateView
         }
     }
 
-    /// <summary>
-    /// 지금 바닥에 붙어 있나. <b>한 줄 높이만큼은 봐 준다</b> — 딱 맞아떨어지는
-    /// 일이 드물어서, 엄밀히 재면 거의 늘 거짓이 된다.
-    /// </summary>
+    /// <summary>지금 바닥에 붙어 있나. 한 줄 높이만큼은 봐 준다 — 딱 맞아떨어지는 일이 드물다.</summary>
     private async Task<bool> AtBottomAsync()
     {
         if (_editor is not { } view)
@@ -1317,21 +956,7 @@ public partial class LogTranslateView
         }
     }
 
-    /// <summary>
-    /// 모델을 맞춘다. <b>돌려주는 것은 「통째로 갈아 끼웠나」</b> — 그랬다면
-    /// 켜 둔 불이 함께 지워졌으므로 부르는 쪽이 다시 켠다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 줄 수가 같으면 <b>처음과 끝에서 안쪽으로 좁혀</b> 달라진 토막을 찾고 그
-    /// 토막만 <c>applyEdits</c> 로 꽂는다. 한 줄만 달라졌으면 가는 것도 한 줄이다.
-    /// </para>
-    /// <para>
-    /// 줄 수가 달라졌으면(로그가 자랐거나 통째로 갈렸다) <c>setValue</c> 다.
-    /// 그때는 <b>읽던 자리를 지킨다</b> — 그냥 밀면 화면이 맨 위로 튀어,
-    /// 로그를 내려 읽던 사람에게는 그것이 고장으로 보인다.
-    /// </para>
-    /// </remarks>
+    /// <summary>모델을 맞춘다. 돌려주는 것은 통째로 갈아 끼웠나 — 그랬다면 켜 둔 불을 부르는 쪽이 다시 켠다. 줄 수가 같으면 달라진 토막만 applyEdits 로 꽂고, 달라지면 setValue 로 읽던 자리를 지킨다.</summary>
     private async Task<bool> PushSideAsync(TextModel? model, List<string> pushed, List<string> want)
     {
         if (model is null)
@@ -1341,8 +966,7 @@ public partial class LogTranslateView
 
         if (pushed.Count != want.Count)
         {
-            // 읽던 자리를 지킨다. 휴대폰에서는 편집기가 없어 그냥 넘어간다
-            // (거기서 구르는 것은 쪽이다).
+            // 읽던 자리를 지킨다. 휴대폰에는 편집기가 없어 넘어간다.
             var view = _editor;
             var top = view is not null ? await view.GetScrollTop() : 0;
 
@@ -1382,8 +1006,7 @@ public partial class LogTranslateView
         [
             new IdentifiedSingleEditOperation
             {
-                // 끝 칸은 **지금 그 모델에 들어 있는** 줄의 길이다(`pushed`).
-                // 새 줄의 길이로 적으면 짧아진 줄에서 뒷글자가 남는다.
+                // 끝 칸은 지금 모델에 들어 있는 줄의 길이다 — 새 줄 길이로 적으면 짧아진 줄에서 뒷글자가 남는다.
                 Range = new BlazorMonaco.Range(first + 1, 1, last + 1, pushed[last].Length + 1),
                 Text = string.Join('\n', want.GetRange(first, last - first + 1)),
             },
@@ -1397,14 +1020,7 @@ public partial class LogTranslateView
         return false;
     }
 
-    /// <summary>
-    /// 불을 켠다 — <b>짚은 줄과 지금 도는 줄</b>.
-    /// </summary>
-    /// <remarks>
-    /// Monaco 가 들고 있는 「지금 줄」 표시(<c>renderLineHighlight</c>)를 끄고
-    /// 이것으로 대신하는 까닭은 <b>색을 우리가 정해야</b> 하기 때문이다 —
-    /// 짚은 줄과 옮기는 중인 줄이 한 자에서 갈려야 눈으로 구분된다.
-    /// </remarks>
+    /// <summary>불을 켠다 — 짚은 줄과 지금 도는 줄. Monaco 의 지금 줄 표시 대신 우리 색으로 그린다(두 색이 한 자에서 갈려야 구분된다).</summary>
     private async Task DrawMarksAsync()
     {
         if (_model is not { } model)
@@ -1428,10 +1044,7 @@ public partial class LogTranslateView
         }
     }
 
-    /// <summary>
-    /// 켤 불들. <b>줄 수는 모델에 들어 있는 것으로 센다</b>
-    /// (<see cref="_pushedOut"/>) — 아직 안 민 줄에 불을 켜면 Monaco 가 던진다.
-    /// </summary>
+    /// <summary>켤 불들. 줄 수는 모델에 들어 있는 것으로 센다 — 아직 안 민 줄에 불을 켜면 Monaco 가 던진다.</summary>
     private List<ModelDeltaDecoration> Marks()
     {
         var marks = new List<ModelDeltaDecoration>();
@@ -1482,14 +1095,7 @@ public partial class LogTranslateView
         },
     };
 
-    /// <summary>
-    /// <b>글이 차지하는 높이</b>가 달라졌다(Monaco 가 알려 준다).
-    /// </summary>
-    /// <remarks>
-    /// 줄이 늘거나, 줄바꿈을 켜고 끄거나, 창이 좁아져 칸 폭이 바뀌면 온다.
-    /// <b>이 셋이 전부 같은 자리로 모인다</b> — 어림잡아 재면 그 가운데 하나는
-    /// 반드시 빠뜨린다.
-    /// </remarks>
+    /// <summary>글이 차지하는 높이가 달라졌다(Monaco 가 알려 준다). 줄이 늘거나, 줄바꿈을 켜고 끄거나, 칸 폭이 바뀌면 온다.</summary>
     private Task OnSizedAsync(ContentSizeChangedEvent e)
     {
         _contentPx = e.ContentHeight;
@@ -1497,14 +1103,7 @@ public partial class LogTranslateView
         return ApplyFitAsync();
     }
 
-    /// <summary>
-    /// 편집기가 막 섰을 때 <b>한 번 직접 물어본다.</b>
-    /// </summary>
-    /// <remarks>
-    /// 사건만 믿으면 안 된다 — 모델을 걸 때 높이가 이미 정해져 있으면
-    /// <c>OnDidContentSizeChange</c> 가 <b>한 번도 안 온다.</b> 그러면 틀이
-    /// 처음 값(0)에 머물러 CSS 의 30rem 이 그대로 선다.
-    /// </remarks>
+    /// <summary>편집기가 막 섰을 때 한 번 직접 묻는다 — 높이가 이미 정해져 있으면 크기 사건이 한 번도 안 온다.</summary>
     private async Task MeasureFitAsync()
     {
         if (!Fit || _phone || _editor is not { } view)
@@ -1525,16 +1124,7 @@ public partial class LogTranslateView
         await ApplyFitAsync();
     }
 
-    /// <summary>
-    /// 잰 값으로 틀의 높이를 잡는다. <b>잡고 나서 편집기에게 다시 재라고 한다</b> —
-    /// 틀이 커졌는데 편집기가 모르면 아래쪽이 빈 채로 남는다.
-    /// </summary>
-    /// <remarks>
-    /// <b>되돌이가 생기지 않는다.</b> 바뀌는 것은 <i>보는 틀</i>의 높이뿐이고
-    /// 글이 차지하는 높이는 칸 폭과 줄 수가 정하므로, 여기서 높이를 고쳐도
-    /// 같은 사건이 되풀이되지 않는다. 가로 막대가 생겼다 사라지며 서너 px
-    /// 흔들리는 것만 문턱으로 눌러 둔다.
-    /// </remarks>
+    /// <summary>잰 값으로 틀 높이를 잡고 편집기에게 다시 재라고 한다. 되돌이는 생기지 않는다 — 글이 차지하는 높이는 칸 폭과 줄 수가 정한다. 가로 막대가 흔들리는 서너 px 은 문턱으로 누른다.</summary>
     private async Task ApplyFitAsync()
     {
         if (!Fit || _phone)
@@ -1590,29 +1180,11 @@ public partial class LogTranslateView
         await DrawMarksAsync();
     }
 
-    /// <summary>
-    /// 줄을 <b>마우스로</b> 눌렀다. 손가락 누름은 이리로 오지 않는다
-    /// (<see cref="OnLineTappedAsync"/>).
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>이미 옮긴 줄을 눌러도 받는다.</b> 번역이 어설픈 줄을 집어서 고쳐
-    /// 받는 자리라, 「번역문을 눌러 번역을 시키는 것은 뜻이 맞지 않는다」로
-    /// 막지 않는다(<see cref="TranslateLineAsync"/>).
-    /// </para>
-    /// <para>
-    /// <b>커서 사건으로 하지 않는 까닭</b>이 있다. 커서는 화살표로도 움직이는데
-    /// 거기에 번역을 걸면 키를 누르고 있는 동안 로컬 LLM 이 줄줄이 돈다.
-    /// 누름은 사람이 그 줄을 <b>지목한</b> 것이다.
-    /// </para>
-    /// </remarks>
+    /// <summary>줄을 마우스로 눌렀다. 손가락 누름은 OnLineTappedAsync 로 온다. 이미 옮긴 줄도 받는다(고쳐 받는 자리). 커서 사건으로 하지 않는다 — 화살표 키에 로컬 LLM 이 줄줄이 돌기 때문이다.</summary>
     private Task OnLineClickedAsync(EditorMouseEvent e)
         => PickLineAsync(e.Target?.Position?.LineNumber ?? 0, e.Target?.Type);
 
-    /// <summary>
-    /// 휴대폰 목록에서 그 줄에 붙일 이름들. <b>켜 둔 불이 여기서 나온다</b> —
-    /// 편집기 쪽의 자리(<see cref="DrawMarksAsync"/>)에 해당한다.
-    /// </summary>
+    /// <summary>휴대폰 목록에서 그 줄에 붙일 이름들. 켜 둔 불이 여기서 나온다.</summary>
     private string RowClass(int line)
     {
         if (line == _redoLine)
@@ -1623,21 +1195,7 @@ public partial class LogTranslateView
         return line == _focusLine ? "pm-xlat__row pm-xlat__row--hit" : "pm-xlat__row";
     }
 
-    /// <summary>
-    /// 휴대폰 목록에서 <b>줄을 눌렀다.</b>
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 거기서는 Monaco 가 아니라 <c>div</c> 라 <b>따로 받아 올릴 것이 없다</b> —
-    /// 누른 자리의 종류를 되물을 일도, 줄 번호 칸을 가릴 일도 없다(줄 번호는
-    /// 같은 <c>div</c> 안의 글자다).
-    /// </para>
-    /// <para>
-    /// <b>불 켜기와 옮기기는 넓은 화면과 같은 자리로 간다</b>
-    /// (<see cref="FocusLineAsync"/> · <see cref="TranslateLineAsync"/>) —
-    /// 가는 길이 갈라지면 같은 화면이 기기마다 다르게 군다.
-    /// </para>
-    /// </remarks>
+    /// <summary>휴대폰 목록에서 줄을 눌렀다. div 라 따로 받아 올릴 것이 없고, 옮기기와 불 켜기는 넓은 화면과 같은 길로 간다.</summary>
     private async Task OnRowClickedAsync(int line)
     {
         await FocusLineAsync(line);
@@ -1645,37 +1203,12 @@ public partial class LogTranslateView
         await TranslateLineAsync(line);
     }
 
-    /// <summary>
-    /// 줄을 <b>손가락으로</b> 눌렀다. 브라우저에서 <c>js/monaco-loader.js</c> 가
-    /// 적어 보낸다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>Monaco 는 손가락 누름에 <c>onMouseDown</c> 을 울리지 않는다.</b>
-    /// 터치가 있는 브라우저에서는 손짓을 쥐는 다른 길로 갈라지고, 그 길은
-    /// 누름을 커서 옮기기로만 쓴 뒤 흉내 마우스 사건까지 막는다. 재어
-    /// 확인했다 — 터치를 흉내 낸 크롬에서 줄 하나를 눌렀을 때 올라온 것은
-    /// <c>touchstart · touchend · 커서 옮김</c> 뿐이었고 <c>onMouseDown</c> 은
-    /// 한 번도 오지 않았다. 같은 자리를 마우스로 누르면 바로 온다.
-    /// </para>
-    /// <para>
-    /// 그래서 「줄을 눌러 그 한 줄만 옮긴다」가 <b>안드로이드 크롬에서만
-    /// 통째로 죽어 있었다</b> — PC 창을 좁혀 만든 반응형 화면은 멀쩡했다.
-    /// 거기서는 손이 아니라 마우스가 누른다.
-    /// </para>
-    /// <para>
-    /// <b>들어오는 자리를 마우스와 하나로 둔다</b>(<see cref="PickLineAsync"/>) —
-    /// 줄 번호 칸을 지나치는 규칙이 길마다 갈라지면 같은 화면이 기기마다
-    /// 다르게 군다.
-    /// </para>
-    /// </remarks>
+    /// <summary>줄을 손가락으로 눌렀다(monaco-loader.js 가 적어 보낸다). Monaco 는 손가락 누름에 onMouseDown 을 울리지 않아 이 길이 따로 있다. 들어오는 자리는 마우스와 하나로 둔다(PickLineAsync).</summary>
     [JSInvokable]
     public Task OnLineTappedAsync(int line, int targetType)
         => InvokeAsync(() => PickLineAsync(line, (MouseTargetType)targetType));
 
-    /// <summary>
-    /// 사람이 짚은 줄. 불을 옮기고 <b>그 한 줄만 옮긴다.</b>
-    /// </summary>
+    /// <summary>사람이 짚은 줄. 불을 옮기고 그 한 줄만 옮긴다.</summary>
     private async Task PickLineAsync(int line, MouseTargetType? type)
     {
         if (line <= 0)
@@ -1685,11 +1218,7 @@ public partial class LogTranslateView
 
         await FocusLineAsync(line);
 
-        // **글자 자리를 누른 것만 받는다.** 줄 번호 칸을 누르면 그 줄이 통째로
-        // 골라지고 **커서는 다음 줄 머리로 간다**(재어 확인했다 — 1번 줄 번호를
-        // 누르면 커서가 2번 줄이다). 그대로 받으면 불은 2번 줄에 켜지는데
-        // 옮기는 것은 1번 줄이라, 사람 눈에 **엉뚱한 줄이 도는 것**으로
-        // 보인다. 줄 번호 누름은 고르기로 남겨 둔다.
+        // 글자 자리를 누른 것만 받는다. 줄 번호를 누르면 커서가 다음 줄로 가 엉뚱한 줄에 불이 켜진다.
         if (type is not (MouseTargetType.CONTENT_TEXT or MouseTargetType.CONTENT_EMPTY))
         {
             return;
@@ -1698,13 +1227,7 @@ public partial class LogTranslateView
         await TranslateLineAsync(line);
     }
 
-    /// <summary>
-    /// 그 줄 하나만 옮긴다. <b>옮긴 글은 누른 그 자리에 꽂힌다.</b>
-    /// </summary>
-    /// <remarks>
-    /// 이미 옮긴 줄을 또 눌러도 다시 간다 — 번역이 어설픈 줄을 집어서 고쳐
-    /// 받는 자리다. 돌고 있는 그 줄을 또 누른 것만 그냥 지나간다.
-    /// </remarks>
+    /// <summary>그 줄 하나만 옮긴다. 옮긴 글은 누른 자리에 꽂힌다. 돌고 있는 그 줄을 또 누른 것만 지나간다.</summary>
     private async Task TranslateLineAsync(int line)
     {
         var at = line - 1;
@@ -1716,9 +1239,7 @@ public partial class LogTranslateView
 
         if (_redoLine == line)
         {
-            // 같은 줄을 또 눌렀다. **돌고 있는 것을 끊고 다시 시작하지 않는다** —
-            // 끊고 다시 걸면 사람이 기다리는 시간만 길어지고, 브라우저가
-            // 누름을 두 번 올리는 날에는 그 한 번이 통째로 버려진다.
+            // 같은 줄을 또 눌렀다 — 돌고 있는 것을 끊고 다시 걸지 않는다.
             return;
         }
 
@@ -1726,8 +1247,7 @@ public partial class LogTranslateView
 
         if (string.IsNullOrWhiteSpace(text))
         {
-            // 빈 줄은 옮길 것이 없다. 눌러도 조용히 지나간다 —
-            // 「옮길 수 없습니다」를 띄우면 로그의 빈 줄마다 그 말이 뜬다.
+            // 빈 줄은 조용히 지나간다 — 옮길 수 없다는 말을 띄우면 빈 줄마다 뜬다.
             return;
         }
 
@@ -1775,8 +1295,7 @@ public partial class LogTranslateView
 
             if (_state.Generation != gen)
             {
-                // 기다리는 사이에 로그가 통째로 갈렸다(앞이 잘려 나갔다).
-                // 이 답은 **이제 없는 줄의 것**이다.
+                // 기다리는 사이 로그가 갈렸다 — 이 답은 이제 없는 줄의 것이다.
                 return;
             }
 
@@ -1851,13 +1370,7 @@ public partial class LogTranslateView
         }
     }
 
-    /// <summary>
-    /// 옮긴 줄을 모두 되돌린다. 판이 다시 통째로 원문이 된다.
-    /// </summary>
-    /// <remarks>
-    /// <b>옮기는 단추가 아니다.</b> 옮기는 일은 줄을 눌러 시키므로, 머리띠에
-    /// 남는 일은 그 반대 — 섞여 버린 판을 처음 상태로 돌리는 것뿐이다.
-    /// </remarks>
+    /// <summary>옮긴 줄을 모두 되돌린다. 머리띠에 남는 일은 이것뿐이다(옮기기는 줄을 눌러 시킨다).</summary>
     private async Task ClearTranslationsAsync()
     {
         CancelLineWork();
@@ -1882,15 +1395,7 @@ public partial class LogTranslateView
         return string.IsNullOrWhiteSpace(answer.Model) ? name : $"{name} · {answer.Model}";
     }
 
-    /// <summary>
-    /// 자동 줄바꿈을 켜거나 끈다. 편집기의 아이콘 줄이 부른다
-    /// (<c>EditorActions.WordWrapChanged</c>).
-    /// </summary>
-    /// <remarks>
-    /// <b>뒤집지 않고 받은 값을 그대로 쓴다.</b> 아이콘 줄이 들고 있는 것은
-    /// 「지금 어느 쪽인가」이고 올려 주는 것은 「이제 어느 쪽인가」라, 여기서
-    /// 한 번 더 뒤집으면 눌러도 제자리인 단추가 된다.
-    /// </remarks>
+    /// <summary>자동 줄바꿈을 켜거나 끈다. 받은 값을 그대로 쓴다 — 여기서 뒤집으면 눌러도 제자리인 단추가 된다.</summary>
     private async Task SetWrapAsync(bool on)
     {
         if (_wrap == on)
@@ -1900,19 +1405,15 @@ public partial class LogTranslateView
 
         _wrap = on;
 
-        // 한 번이라도 누르면 그 뒤로는 사람의 뜻을 지킨다 — 휴대폰으로
-        // 넘어갈 때 저절로 켜는 일을 더 하지 않는다.
+        // 한 번이라도 누르면 그 뒤로는 사람의 뜻을 지킨다.
         _wrapTouched = true;
 
-        // **아이콘 색을 먼저 바꾼다.** 아래에서 편집기와 치수 재기로 회로를
-        // 몇 번 왕복하는데, 그동안 눌린 아이콘이 옛 모습으로 서 있으면
-        // 「안 눌렸다」로 읽혀 한 번 더 누르게 된다.
+        // 아이콘 색을 먼저 바꾼다 — 아래의 왕복 동안 옛 모습이면 한 번 더 누르게 된다.
         StateHasChanged();
 
         try
         {
-            // 서 있는 편집기에만 민다. 휴대폰에는 Monaco 가 없고, 거기
-            // 목록은 이름(`pm-xlat__list--nowrap`)으로 접고 편다.
+            // 서 있는 편집기에만 민다. 휴대폰 목록은 이름 클래스로 접고 편다.
             if (_editor is { } view)
             {
                 await view.UpdateOptions(new EditorUpdateOptions
@@ -1926,15 +1427,11 @@ public partial class LogTranslateView
         {
         }
 
-        // 접힌 줄 수가 달라지면 글이 차지하는 높이도 달라진다. 사건이
-        // 알려 주기는 하지만, 안 오는 날에도 틀이 틀어지지 않게 한 번 묻는다.
+        // 접힌 줄 수가 달라지면 높이도 달라지므로, 사건이 안 오는 날에도 한 번 묻는다.
         await MeasureFitAsync();
     }
 
-    /// <summary>
-    /// 줄 번호를 켜거나 끈다. 「…」 메뉴의 스위치가 부른다. 휴대폰 목록은
-    /// 다시 그리면 따라오고, 서 있는 편집기에는 옵션을 민다.
-    /// </summary>
+    /// <summary>줄 번호를 켜거나 끈다. 휴대폰 목록은 다시 그리면 따라오고, 서 있는 편집기에는 옵션을 민다.</summary>
     private async Task SetLineNumbersAsync(bool on)
     {
         if (_lineNumbers == on)
@@ -1961,66 +1458,8 @@ public partial class LogTranslateView
         }
     }
 
-    /// <summary>
-    /// 편집기 옵션.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>고치는 자리가 아니라 읽는 자리다</b>(<c>ReadOnly</c>).
-    /// </para>
-    /// <para>
-    /// 줄바꿈은 <b>꺼서 시작한다.</b> 켜면 한 줄이 여러 줄 높이가 되어 줄
-    /// 번호와 눈에 보이는 줄이 어긋나는데, 로그에서 「몇 번째 줄에서
-    /// 걸렸나」는 그 번호로 센다. 긴 줄을 통째로 읽어야 하면 단추로 켠다.
-    /// </para>
-    /// <para>
-    /// <b>「지금 줄」 표시를 끈다</b>(<c>RenderLineHighlight = "none"</c>).
-    /// 짚은 줄과 <b>지금 옮기고 있는 줄</b>을 다른 색으로 갈라야 하는데
-    /// (<see cref="DrawMarksAsync"/>), 둘 다 켜 두면 한 줄에 색이 두 겹으로
-    /// 얹혀 그 갈래가 안 보인다.
-    /// </para>
-    /// <para>
-    /// <b>칸은 하나다</b>(2026-10-17). 한동안 여기 좌우 비교 편집기가 섰는데,
-    /// 아직 안 옮긴 줄은 양쪽에 같은 글이 서서 <b>읽을 폭만 반으로 줄였다</b>
-    /// (머리말). 지금은 평범한 편집기 하나라 가름쇠·인라인 비교·바꿈 표시를
-    /// 끄던 옵션이 통째로 필요 없다.
-    /// </para>
-    /// <para>
-    /// <b>휴대폰에서 줄을 짚어도 자판이 올라오지 않게 한다</b>
-    /// (<c>DomReadOnly</c> · <c>EditContext</c>). <c>ReadOnly</c> 하나로는
-    /// 모자란다 — 그것은 <b>글자가 들어오는 것만</b> 막고, 글자를 받는 숨은
-    /// 칸은 그대로 선다. 휴대폰은 그 칸에 초점이 가는 것만 보고 자판을
-    /// 올리므로, 줄 하나 짚을 때마다 화면 절반이 자판에 덮인다. 여기는
-    /// <b>읽는 자리</b>라 자판이 할 일이 아예 없다.
-    /// </para>
-    /// <para>
-    /// 두 가지를 같이 적어야 한다. Monaco 가 글자를 받는 길이 둘로 갈려
-    /// 있어서다 — 숨은 <c>textarea</c> 와, 크롬 계열에서 기본으로 쓰는
-    /// <c>EditContext</c>. <c>DomReadOnly</c> 는 앞의 것에만 <c>readonly</c> 를
-    /// 달아 주고(자판이 안 올라온다), 뒤의 것은 읽기 전용이라는 말을 듣지
-    /// 않는다. 그래서 <c>EditContext = false</c> 로 <b>옛 길로 돌려놓고</b>
-    /// 거기에 <c>readonly</c> 를 단다. 돌려놓아도 잃는 것이 없다 — 그 길이
-    /// 주는 것은 입력기(IME) 편의인데 여기서는 아무것도 입력하지 않는다.
-    /// </para>
-    /// <para>
-    /// <b>굴릴 때마다 도는 것을 눌러 둔다</b>(접기 · 글리프 칸 · 붙박이 머리 ·
-    /// 들여쓰기 안내선 · 괄호 색 · 같은 낱말 표시 · 코드렌즈 · 색 상자 ·
-    /// 개요 눈금). 여기 들어오는 것은 <b>로그 한 덩어리</b>라 그 가운데 뜻을
-    /// 갖는 것이 하나도 없는데, 그려지는 줄마다 비용은 그대로 든다. 재어 보면
-    /// 한 프레임에 드는 품이 <b>5.1ms → 4.1ms</b> 다(CPU 6배 느리게 · 300줄 ·
-    /// 한 걸음 60px 로 80걸음).
-    /// </para>
-    /// <para>
-    /// <b>오른쪽 클릭 창과 링크는 그대로 둔다.</b> 그 둘은 사람이 쓰는 것이라
-    /// 굴림을 위해 걷을 것이 아니다 — 눌러서 되던 일이 안 되는 쪽이 느린
-    /// 것보다 나쁘다.
-    /// </para>
-    /// <para>
-    /// <b>휴대폰에는 이 옵션이 걸리지 않는다</b> — 거기는 Monaco 가 아니다
-    /// (머리말). 옵션을 아무리 눌러도 손가락 굴림의 버벅임은 20%쯤만
-    /// 줄어들어서, 그 자리는 굴림을 브라우저에게 돌려주는 쪽으로 풀었다.
-    /// </para>
-    /// </remarks>
+    /// <summary>편집기 옵션. 읽는 자리라 ReadOnly 이고 줄바꿈은 꺼서 시작한다(줄 번호와 눈에 보이는 줄을 맞추려고).
+    /// 휴대폰에서 자판이 올라오지 않도록 DomReadOnly 와 EditContext = false 를 함께 둔다 — ReadOnly 만으로는 숨은 입력칸이 자판을 올린다.</summary>
     private StandaloneEditorConstructionOptions BuildOptions(StandaloneCodeEditor editor) => new()
     {
         AutomaticLayout = true,
@@ -2036,15 +1475,12 @@ public partial class LogTranslateView
         WordWrap = _wrap ? "on" : "off",
         AriaLabel = OutAria,
 
-        // ── 굴릴 때마다 도는 것을 눌러 둔다 ──────────────────
-        // 로그에는 접을 블록도, 들여쓰기 뜻도, 괄호 짝도, 색값도 없다.
+        // 로그에는 접을 블록·들여쓰기 뜻·괄호 짝·색값이 없어 굴림마다 도는 기능을 끈다.
         Folding = false,
         GlyphMargin = false,
         StickyScroll = new EditorStickyScrollOptions { Enabled = false },
         BracketPairColorization = new BracketPairColorizationOptions { Enabled = false },
-        // 괄호 안내선은 기본으로 이미 꺼져 있다 — 적지 않는다. 그 칸은
-        // `boolean | 'active'` 라 BlazorMonaco 가 글자로 받는데, 목록에 없는
-        // 글자("false")를 주면 Monaco 가 **말없이 기본값으로 되돌린다.**
+        // 이 칸은 boolean | 'active' 라 글자로 받는다 — "false" 를 주면 Monaco 가 말없이 기본값으로 되돌린다.
         Guides = new GuidesOptions
         {
             Indentation = false,
@@ -2058,37 +1494,25 @@ public partial class LogTranslateView
         RenderWhitespace = "none",
         OverviewRulerLanes = 0,
 
-        // **바닥 단추 줄이 먹는 몫을 비워 둔다.** 이 판 아래에는 붙박인 단추
-        // 줄이 있고(`pm-taskview__acts` — 넓은 화면에서도 `sticky` 다), 그
-        // 줄이 편집기의 아래쪽을 덮는다. 쪽을 굴려 피할 수 있을 것 같지만
-        // **편집기 위에서 굴리면 그 굴림을 Monaco 가 먹으므로** 쪽은 안
-        // 움직인다. 안쪽에 그만큼 여백을 두면 마지막 줄이 줄 위로 올라온다.
+        // 바닥 단추 줄이 편집기 아래를 덮으므로 안쪽에 그만큼 여백을 둔다 — 편집기 위에서 굴리면 Monaco 가 굴림을 먹는다.
         Padding = new EditorPaddingOptions { Bottom = Fit ? 8 : 88 },
 
-        // 막대는 Monaco 가 제 손으로 div 로 그린다(기본 14px) — app.css 의
-        // 3px 규칙이 닿지 않으므로 여기서 같은 굵기로 맞춘다.
+        // 막대는 Monaco 가 div 로 그린다(기본 14px). app.css 의 3px 규칙이 닿지 않아 여기서 맞춘다.
         Scrollbar = new EditorScrollbarOptions
         {
             VerticalScrollbarSize = 3,
             HorizontalScrollbarSize = 3,
 
-            // 위아래 끝의 그늘. 굴릴 때마다 다시 그려지는데 3px 짜리 막대
-            // 옆에서 알려 주는 것이 없다.
+            // 위아래 그늘은 굴릴 때마다 다시 그려져 끈다.
             UseShadows = false,
             AlwaysConsumeMouseWheel = false,
         },
     };
 
-    /// <summary>
-    /// <b><c>InvokeAsync</c> 로 넘긴다.</b> 이 알림은 테마 서랍 쪽에서 오고,
-    /// 한 번 <c>await</c> 하는 순간 회로의 동기화 문맥 밖으로 나간다.
-    /// </summary>
+    /// <summary>InvokeAsync 로 넘긴다 — 이 알림은 테마 서랍에서 오고, await 하는 순간 회로의 동기화 문맥 밖으로 나간다.</summary>
     private void OnThemeSizeChanged() => _ = InvokeAsync(ApplyFontSizeAsync);
 
-    /// <summary>
-    /// 본문 글자 크기를 다시 재서 편집기에 민다. <b>재는 것을 한 박자 미룬다</b> —
-    /// 알림은 화면이 새 크기로 다시 그려지기 <b>전에</b> 온다.
-    /// </summary>
+    /// <summary>본문 글자 크기를 다시 재서 편집기에 민다. 알림은 새 크기로 그리기 전에 오므로 재는 것을 한 박자 미룬다.</summary>
     private async Task ApplyFontSizeAsync()
     {
         if (_loader is not { } loader || _editor is null)
@@ -2123,24 +1547,7 @@ public partial class LogTranslateView
         }
     }
 
-    /// <summary>
-    /// 치울 때의 <b>차례가 중요하다</b> — 편집기를 먼저 놓고 모델을 놓는다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// Monaco 의 모델은 편집기가 아니라 <c>monaco.editor</c> 전역에 매달려
-    /// 있어서, 안 놓으면 이 판을 열 때마다 브라우저에 로그 한 벌이 통째로
-    /// 쌓인다. 그런데 <b>편집기가 아직 그 모델을 쥔 채로 놓으면</b>
-    /// 브라우저가 던진다 — 비교 편집기를 쓰던 때에는 그 말이
-    /// <c>TextModel got disposed before DiffEditorWidget model got reset</c>
-    /// 이었고, 탭을 건너갈 때마다 났다(<c>DxTabs</c> 가 안 보이는 탭의
-    /// 알맹이를 버린다).
-    /// </para>
-    /// <para>
-    /// 부품 둘이 치워지는 차례는 우리가 정할 수 없지만 <c>DisposeEditor</c>
-    /// 한 줄은 정할 수 있다 — <b>편집기를 먼저 치운다.</b>
-    /// </para>
-    /// </remarks>
+    /// <summary>치울 때는 편집기를 먼저 놓고 모델을 놓는다 — 편집기가 쥔 채 모델을 놓으면 브라우저가 던진다. 모델을 안 놓으면 판을 열 때마다 로그 한 벌이 쌓인다.</summary>
     public async ValueTask DisposeAsync()
     {
         Size.Changed -= OnThemeSizeChanged;

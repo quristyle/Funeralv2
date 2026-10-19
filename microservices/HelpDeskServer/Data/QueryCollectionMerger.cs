@@ -1,14 +1,10 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Primitives;
 
-/// <summary>
-/// 두 개의 IQueryCollection을 병합하는 헬퍼 클래스
-/// </summary>
+/// <summary>두 개의 IQueryCollection을 병합하는 헬퍼 클래스</summary>
 public static class QueryCollectionMerger
 {
-    /// <summary>
-    /// 두 개의 IQueryCollection을 병합합니다. q2의 키가 q1에 존재하면 덮어씁니다.
-    /// </summary>
+    /// <summary>두 개의 IQueryCollection을 병합합니다. q2의 키가 q1에 존재하면 덮어씁니다.</summary>
     /// <param name="q1">첫 번째 쿼리 컬렉션</param>
     /// <param name="q2">두 번째 쿼리 컬렉션 (우선순위 높음)</param>
     /// <returns>병합된 새로운 IQueryCollection</returns>

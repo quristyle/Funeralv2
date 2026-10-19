@@ -5,41 +5,8 @@ using JSini.Shared.Domain;
 
 namespace NotificationServer.Entities;
 
-/// <summary>
-/// 포털에서 사람이 손으로 써 보낸 메일 <b>한 통</b>. 보낸 사람의 보관함이다.
-/// </summary>
-/// <remarks>
-/// <para>
-/// [<see cref="PushSendLog"/> 와 무엇이 다른가]
-/// </para>
-///
-/// <para>
-/// 발송 기록은 <b>받는 사람마다 한 줄</b>이고 본문은 500자 미리보기만 남는다
-/// (<c>EmailSendLog</c> 머리말). 「저 사람에게 무엇이 나갔나」에 답하는 표라
-/// 그 모양이 맞다. 그런데 <b>보낸 사람이 자기가 쓴 메일을 다시 열어 보는</b>
-/// 자리에서는 그것으로 모자란다 — 참조 · 첨부 이름 · 서식 본문 전문이 거기
-/// 없고, 한 통이 주소 수만큼 흩어져 있어 「내가 보낸 메일 목록」을 만들 수도
-/// 없다.
-/// </para>
-///
-/// <para>
-/// 그래서 <b>보낸 글 자체</b>를 여기 둔다. 쪽지(<see cref="Note"/>)를 발송
-/// 기록에 얹지 않은 것과 같은 까닭이다 — 두드림이 남긴 자국과 글 자체는
-/// 수명이 다르다. 발송 기록은 그대로 함께 남는다(한 통에 주소 수만큼).
-/// </para>
-///
-/// <para>
-/// [첨부는 이름만 적는다]
-/// </para>
-///
-/// <para>
-/// 메일 첨부는 보낼 때 바이트를 그대로 실어 보내고 어디에도 안 올린다
-/// (<c>EmailAttachmentDto</c> 머리말). 그 바이트를 보관함에 담으면 아무도
-/// 지우지 않는 파일이 보낼 때마다 쌓인다. 보낸 사람이 나중에 묻는 것은
-/// <b>「무엇을 붙여 보냈나」</b>이지 그 파일 자체가 아니다 — 그것은 자기
-/// 장비에 있다.
-/// </para>
-/// </remarks>
+/// <summary>포털에서 사람이 손으로 써 보낸 메일 한 통(보낸 사람의 보관함). 발송 기록은 미리보기뿐이라 보낸 글 전문을 따로 둔다.
+/// 첨부는 이름만 적고 바이트는 보낼 때만 싣는다.</summary>
 [Table("portal_mails", Schema = "scom")]
 public class PortalMail : BaseEntity<string>
 {
@@ -48,19 +15,12 @@ public class PortalMail : BaseEntity<string>
         Id = Guid.NewGuid().ToString();
     }
 
-    /// <summary>보낸 사람의 포털 로그인 아이디(<c>scom.accounts.user_id</c>).</summary>
-    /// <remarks>
-    /// <b>이 표의 주인 키다.</b> 목록도 상세도 최근 주소도 전부 「내 것」으로만
-    /// 묻는다 — 남의 보낸함을 여는 길은 두지 않았다.
-    /// </remarks>
+    /// <summary>보낸 사람의 포털 로그인 아이디. 이 표의 주인 키다 — 목록도 상세도 최근 주소도 내 것으로만 묻는다.</summary>
     [Required]
     [Column("sender_key")]
     public string SenderKey { get; set; } = string.Empty;
 
-    /// <summary>
-    /// 보낸 사람의 이름을 <b>그때 모습 그대로</b> 적어 둔다.
-    /// 까닭은 <see cref="Note.SenderName"/> 과 같다.
-    /// </summary>
+    /// <summary>보낸 사람의 이름을 그때 모습 그대로 적어 둔다(Note.SenderName 과 같은 까닭).</summary>
     [Column("sender_name")]
     public string? SenderName { get; set; }
 
@@ -80,16 +40,7 @@ public class PortalMail : BaseEntity<string>
     [Column("body")]
     public string? Body { get; set; }
 
-    /// <summary>
-    /// 목록 줄에 적을 앞머리 — 태그를 걷어낸 본문 500자.
-    /// </summary>
-    /// <remarks>
-    /// <b>본문이 바로 옆에 있는데 왜 따로 적는가.</b> 보낸함 목록은 서른 줄씩
-    /// 훑는 자리이고 서식 메일 본문은 한 통에 수십 KB 다 — 목록을 그릴 때마다
-    /// 그것을 전부 끌어와 태그를 걷으면, <b>읽지도 않을 글 1MB</b>가 왕복마다
-    /// 오간다. 적는 값은 발송 이력과 같은 규칙으로 만든다
-    /// (<c>EmailSendLog.Preview</c>).
-    /// </remarks>
+    /// <summary>목록 줄에 적을 앞머리 — 태그를 걷어낸 본문 500자. 목록을 그릴 때마다 전문을 끌어와 걷지 않으려고 따로 적는다.</summary>
     [Column("preview")]
     public string? Preview { get; set; }
 
@@ -113,14 +64,7 @@ public class PortalMail : BaseEntity<string>
     [Column("sent_at")]
     public DateTime SentAt { get; set; } = DateTime.UtcNow;
 
-    /// <summary>
-    /// 메일 서버가 받아 주었나.
-    /// </summary>
-    /// <remarks>
-    /// <b>못 보낸 것도 남긴다.</b> 발송 기록이 실패를 남기는 까닭과 같다 —
-    /// 안 남기면 「그 시각에 아무 일도 없었다」가 「보낸 적 없다」와 구분되지
-    /// 않는다. 그리고 실패한 글이야말로 다시 열어 고쳐 보내야 하는 글이다.
-    /// </remarks>
+    /// <summary>메일 서버가 받아 주었나. 못 보낸 것도 남긴다 — 실패한 글이야말로 고쳐 다시 보낼 글이다.</summary>
     [Column("is_success")]
     public bool IsSuccess { get; set; }
 
@@ -128,13 +72,7 @@ public class PortalMail : BaseEntity<string>
     [Column("failure_reason")]
     public string? FailureReason { get; set; }
 
-    /// <summary>
-    /// 같은 발송의 <c>scom.push_send_logs</c> 줄을 묶는 열쇠.
-    /// </summary>
-    /// <remarks>
-    /// 보관함과 발송 기록을 잇는 유일한 끈이다. 「이 메일이 실제로 어느
-    /// 주소까지 갔나」를 묻는 날 두 표를 이 값으로 맞춘다.
-    /// </remarks>
+    /// <summary>같은 발송의 scom.push_send_logs 줄을 묶는 열쇠. 보관함과 발송 기록을 잇는 유일한 끈이다.</summary>
     [Column("batch_id")]
     public string? BatchId { get; set; }
 

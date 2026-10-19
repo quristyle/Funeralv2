@@ -4,30 +4,18 @@ using JSini.Web.Models;
 
 namespace JSini.Web.Admin.Api;
 
-// 공지 DTO 는 여기 없다. **레이아웃과 로그인 화면도 쓰기 때문에**
-// JSini.Web.Models 로 올렸다(`Notice.cs`) — 셸은 업무 모듈을 이름으로 알지
+// 공지 DTO 는 여기 없다. **레이아웃과 로그인 화면도 쓰기 때문에** JSini.Web.Models 로 올렸다(`Notice.cs`) — 셸은 업무 모듈을 이름으로 알지
 // 못하므로 이 모듈에 두면 관리 화면만 쓸 수 있다.
 
 // ============================================================
-// 포털관리 화면들이 쓰는 자료 모양.
-//
-// **백엔드 DTO 를 그대로 참조하지 않는다.** 모듈이 마이크로서비스 프로젝트를
-// 참조하면 프론트가 백엔드 배포에 묶이고, 백엔드가 내부 정리를 할 때마다
-// 화면이 깨진다. 이름과 칸만 맞춘 사본을 둔다 — 실제로 화면이 읽는 칸만.
+// 포털관리 화면들이 쓰는 자료 모양. **백엔드 DTO 를 그대로 참조하지 않는다.** 모듈이 마이크로서비스 프로젝트를 참조하면 프론트가 백엔드 배포에 묶이고, 백엔드가 내부
+// 정리를 할 때마다 화면이 깨진다. 이름과 칸만 맞춘 사본을 둔다
 // ============================================================
 
-/// <summary>포털 계정 한 명. AuthServer 의 <c>AccountDto</c> 와 짝이다.</summary>
-/// <summary>
-/// 사람 한 명의 알림 상태. 계정 관리 화면이 표에 함께 그린다.
-/// </summary>
-/// <remarks>
-/// <b><see cref="Saved"/> 를 함께 본다.</b> 거짓이면 스위치 셋은 그 사람이 고른
-/// 값이 아니라 <b>기본값</b>이다(서버 표에 행이 없다). 둘을 구분하지 않으면
-/// 「전부 켜 두었다」와 「한 번도 안 건드렸다」가 같은 그림이 된다.
-/// </remarks>
+/// <summary>사람 한 명의 알림 상태. 계정 관리 화면이 표에 함께 그린다.</summary>
 public sealed class OwnerNotificationStateDto
 {
-    /// <summary>주인 식별자 — 포털 계정이면 <b>로그인 아이디</b>다.</summary>
+    /// <summary>주인 식별자 — 포털 계정이면 로그인 아이디다.</summary>
     public string OwnerKey { get; set; } = string.Empty;
 
     public bool PushEnabled { get; set; } = true;
@@ -37,9 +25,7 @@ public sealed class OwnerNotificationStateDto
     /// <summary>저장한 적이 있나. 거짓이면 위 셋은 기본값이다.</summary>
     public bool Saved { get; set; }
 
-    /// <summary>
-    /// 구독한 기기 수. <b>0 이면 푸시를 켜 두어도 도착할 곳이 없다.</b>
-    /// </summary>
+    /// <summary>구독한 기기 수. 0 이면 푸시를 켜 두어도 도착할 곳이 없다.</summary>
     public int DeviceCount { get; set; }
 
     public DateTime? LastSentAt { get; set; }
@@ -56,22 +42,7 @@ public sealed class AccountDto
     public string? Phone { get; set; }
     public List<string> Phones { get; set; } = [];
 
-    /// <summary>
-    /// 편집 창의 <c>DxTagBox</c> 가 <c>@bind-Values</c> 로 묶는 자리.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 그 부품은 <c>IEnumerable&lt;string&gt;</c> 를 주고받는데 위의 것은
-    /// <c>List&lt;string&gt;</c> 라 형이 안 맞는다. 그렇다고 <c>Values</c> 와
-    /// <c>ValuesChanged</c> 를 따로 적으면 <b>등록·수정 단추를 눌러도 팝업이
-    /// 말없이 안 열린다</b>(<c>EditFormBindingTests</c>).
-    /// </para>
-    /// <para>
-    /// <b>대표값을 여기서 맞춘다.</b> 표의 「이메일」 칸과 서버로 가는 값이
-    /// <see cref="Email"/> 하나라, 목록만 고치고 대표값을 안 옮기면
-    /// <b>창에서는 바뀌었는데 저장하면 옛 값이 남는다.</b>
-    /// </para>
-    /// </remarks>
+    /// <summary>편집 창의 <c>DxTagBox</c> 가 <c>@bind-Values</c> 로 묶는 자리.</summary>
     [JsonIgnore]
     public IEnumerable<string> EmailValues
     {
@@ -83,7 +54,7 @@ public sealed class AccountDto
         }
     }
 
-    /// <summary>연락처 쪽 짝. 까닭은 <see cref="EmailValues"/> 와 같다.</summary>
+    /// <summary>연락처 쪽 짝. 대표값(Phone)도 여기서 맞춘다.</summary>
     [JsonIgnore]
     public IEnumerable<string> PhoneValues
     {
@@ -104,33 +75,13 @@ public sealed class AccountDto
     public string? DeptName { get; set; }
     public DateTime CreatedAt { get; set; }
 
-    /// <summary>
-    /// 마지막으로 <b>로그인한</b> 시각 (UTC). 한 번도 없으면 <c>null</c>.
-    /// </summary>
+    /// <summary>마지막으로 로그인한 시각 (UTC). 한 번도 없으면 <c>null</c>.</summary>
     public DateTime? LastLoginAt { get; set; }
 
     /// <summary>마지막 로그인 때의 접속 IP. 목록의 설명 풍선에만 쓴다.</summary>
     public string? LastLoginIp { get; set; }
 
-    /// <summary>
-    /// 마지막으로 포털을 <b>쓴</b> 시각 (UTC). 한 번도 없으면 <c>null</c>.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <see cref="LastLoginAt"/> 과 가르는 까닭 — access token 이 7일이고 갱신
-    /// 쿠키가 30일이라 <b>브라우저를 안 닫는 사람은 로그인 화면을 한 달에 한 번도
-    /// 안 거친다.</b> 로그인 시각만 보면 매일 쓰는 사람이 「한 달 전 사람」으로
-    /// 보이는데, 안 쓰는 계정을 가려내려고 목록을 여는 것이라 그 값으로는
-    /// 묻고 싶은 것에 못 답한다.
-    /// </para>
-    /// <para>
-    /// 서버가 미는 자리는 둘이다 — 로그인이 끝날 때와 <b>화면을 옮길 때</b>
-    /// (<c>MenuUsageRecorder</c> 가 보내는 길). 뒤엣것이 쓸모의 거의 전부인데,
-    /// 포털은 한 회로 안에서 라우팅만 바뀌어 화면을 옮겨도 서버에 요청이
-    /// 안 나가기 때문이다. <b>그래서 화면에 머물기만 한 시간은 안 센다</b> —
-    /// 「마지막으로 화면을 연 때」로 읽어야 맞다.
-    /// </para>
-    /// </remarks>
+    /// <summary>마지막으로 포털을 쓴 시각 (UTC). 한 번도 없으면 <c>null</c>.</summary>
     public DateTime? LastSeenAt { get; set; }
 
     public List<string> RoleNames { get; set; } = [];
@@ -151,43 +102,13 @@ public sealed class AccountDto
     [JsonIgnore]
     public string DisplayText => $"{UserName} ({LoginId})" + (string.IsNullOrWhiteSpace(DeptName) ? "" : $" - {DeptName}");
 
-    /// <summary>
-    /// 프로필 사진 주소. 계정 확장 속성(<c>account_profile_details</c> 의
-    /// <c>Avatar</c>)이라 <b>DB 에 <c>/api/file/…</c> 상대경로로 들어 있다</b> —
-    /// 화면에 걸 때 <see cref="JSini.Web.Components.Data.FileDownload.RelayUrl"/>
-    /// 를 씌운다. 조직도가 사람 노드에 쓴다.
-    /// </summary>
+    /// <summary>프로필 사진 주소. 계정 확장 속성(<c>account_profile_details</c> 의 <c>Avatar</c>)이라 DB 에 <c>/api/file/…</c> 상대경로로
+    /// 들어 있다 — 화면에 걸 때 <see cref="JSini.Web.Components.Data.FileDownload.RelayUrl"/> 를 씌운다. 조직도가 사람 노드에 쓴다.</summary>
     public string? Avatar { get; set; }
 
-    /// <summary>
-    /// 개발 업무용 확장 속성 — 사번 · 장비 · 계정 발급 현황 · 옷 치수.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 프로젝트관리의 [개발자 관리] 화면이 들고 있던 것들이다. 그 화면을
-    /// 걷어내면서 이리로 옮겼다(<c>docs/projmng-account-merge.md</c>).
-    /// </para>
-    ///
-    /// <para>
-    /// 사전으로 오가는 까닭은 <b>서버가 칸을 갖고 있지 않기 때문</b>이다 —
-    /// <c>account_profile_details</c> 라는 열쇠-값 표에 <c>Dev.</c> 접두사로
-    /// 들어간다. 속성을 더할 때 마이그레이션이 없다.
-    /// </para>
-    ///
-    /// <para>
-    /// 화면은 이 사전을 직접 만지지 않고 <see cref="Dev"/> 를 쓴다.
-    /// </para>
-    /// </remarks>
     public Dictionary<string, string?> DevAttributes { get; set; } = [];
 
-    /// <summary>
-    /// <see cref="DevAttributes"/> 를 이름 있는 칸으로 보는 창.
-    /// </summary>
-    /// <remarks>
-    /// <b>편집 창이 사전을 열쇠로 직접 바인딩하지 못한다.</b> 열쇠 글자가
-    /// 화면 스물몇 곳에 흩어지면 오타가 오류가 아니라 <b>조용히 빈 칸</b>으로
-    /// 나온다. 열쇠는 여기 한 벌만 둔다.
-    /// </remarks>
+    /// <summary><see cref="DevAttributes"/> 를 이름 있는 칸으로 보는 창.</summary>
     [System.Text.Json.Serialization.JsonIgnore]
     public DevAttributeView Dev => _dev ??= new DevAttributeView(DevAttributes);
 
@@ -205,67 +126,27 @@ public sealed class AccountDto
     /// <summary>축하 대상인가. 끄면 생일 목록에 나오지 않는다.</summary>
     public bool BirthdayCelebrated { get; set; } = true;
 
-    /// <summary>
-    /// 화면에 로그인 아이디 워터마크를 깔지. <b>관리자가 정한다</b> —
-    /// 사용자가 자기 것을 끌 수 있으면 「사진에 누구 화면인지 남게」 하려는
-    /// 목적이 사라진다.
-    /// </summary>
+    /// <summary>화면에 로그인 아이디 워터마크를 깔지. 관리자가 정한다 — 사용자가 자기 것을 끌 수 있으면 「사진에 누구 화면인지 남게」 하려는 목적이 사라진다.</summary>
     public bool Watermark { get; set; } = true;
 
 
-    /// <summary>
-    /// 등록할 때 서버가 발급한 첫 비밀번호. <b>등록 응답에만 담긴다</b> —
-    /// 목록에는 언제나 <c>null</c> 이다.
-    ///
-    /// <para>
-    /// 서버는 해시만 들고 있으므로 <b>이 값을 놓치면 다시 알 방법이 없다.</b>
-    /// 화면이 등록 직후 한 번 띄워서 사람이 옮겨 적게 한다.
-    /// </para>
-    /// </summary>
+    /// <summary>등록할 때 서버가 발급한 첫 비밀번호. 등록 응답에만 담긴다 — 목록에는 언제나 <c>null</c> 이다. 서버는 해시만 들고 있으므로 이 값을 놓치면 다시 알 방법이 없다.
+    /// 화면이 등록 직후 한 번 띄워서 사람이 옮겨 적게 한다.</summary>
     public string? InitialPassword { get; set; }
 
     /// <summary>표에 한 칸으로 보여 줄 역할 이름들.</summary>
     public string RoleText => string.Join(", ", RoleNames);
 
-    /// <summary>
-    /// 편집 폼의 역할 고르개가 묶이는 자리. <see cref="RoleIds"/> 와 같은 값이다.
-    ///
-    /// <para>
-    /// [왜 같은 값을 두 번 두는가 — 팝업이 열리지 않았다]
-    /// </para>
-    ///
-    /// <para>
-    /// DevExpress 편집기는 팝업 안에서 검증 표현식(<c>ValuesExpression</c>)을
-    /// 요구하는데, 그 식이 <b>순수한 멤버 접근이어야 한다.</b> 형이 안 맞아
-    /// <c>(IEnumerable&lt;string&gt;)a.RoleIds</c> 로 적으면 식에 형변환
-    /// 마디가 끼어 이렇게 거절한다 —
-    /// </para>
-    ///
-    /// <code>
-    /// The provided expression contains a UnaryExpression which is not supported.
-    /// </code>
-    ///
-    /// <para>
-    /// <b>화면에는 아무 표시도 나지 않는다.</b> 등록 단추를 눌러도 팝업이
-    /// 그냥 안 열리고, 원인은 브라우저 콘솔에만 있다. 형이 맞는 창을
-    /// 하나 내면 화면은 <c>@@bind-Values="a.Roles"</c> 한 줄로 끝난다.
-    /// </para>
-    /// </summary>
+    /// <summary>편집 폼의 역할 고르개가 묶이는 자리. <see cref="RoleIds"/> 와 같은 값이다. DevExpress 편집기는 팝업 안에서 검증
+    /// 표현식(<c>ValuesExpression</c>)을 요구하는데, 그 식이 순수한 멤버 접근이어야 한다.</summary>
     public IEnumerable<string> Roles
     {
         get => RoleIds;
         set => RoleIds = [.. value];
     }
 
-    /// <summary>
-    /// 편집 폼의 생일 칸이 묶이는 자리. <see cref="BirthDate"/> 와 같은 값이다.
-    ///
-    /// <para>
-    /// 자료는 <c>DateOnly</c> 인데 <c>DxDateEdit</c> 은 <c>DateTime?</c> 을
-    /// 다룬다. 옮기는 일을 화면에서 메서드로 하면 <see cref="Roles"/> 와 같은
-    /// 이유로 거절당한다 — 메서드 호출도 멤버 접근이 아니다.
-    /// </para>
-    /// </summary>
+    /// <summary>편집 폼의 생일 칸이 묶이는 자리. <see cref="BirthDate"/> 와 같은 값이다. 자료는 <c>DateOnly</c> 인데 <c>DxDateEdit</c> 은
+    /// <c>DateTime?</c> 을 다룬다. 옮기는 일을 화면에서 메서드로 하면 <see cref="Roles"/> 와 같은 이유로 거절당한다 — 메서드 호출도 멤버 접근이 아니다.</summary>
     public DateTime? BirthDateTime
     {
         get => BirthDate?.ToDateTime(TimeOnly.MinValue);
@@ -273,15 +154,7 @@ public sealed class AccountDto
     }
 }
 
-/// <summary>
-/// 관리자가 비밀번호를 초기화하고 받아 오는 값. AuthServer 의
-/// <c>IssuedPasswordDto</c> 와 짝이다.
-/// </summary>
-/// <remarks>
-/// <b>이 응답을 놓치면 아무도 그 값을 알 수 없다</b> — 서버는 해시만 들고
-/// 있다. <see cref="AccountDto.InitialPassword"/> 와 같은 규칙이라 화면도
-/// 같은 창으로 보여 준다.
-/// </remarks>
+/// <summary>관리자가 비밀번호를 초기화하고 받아 오는 값. AuthServer 의 <c>IssuedPasswordDto</c> 와 짝이다.</summary>
 public sealed class IssuedPasswordDto
 {
     public string LoginId { get; set; } = string.Empty;
@@ -290,19 +163,13 @@ public sealed class IssuedPasswordDto
 }
 
 // ── AI 사용량 (`ai/usage/*`) ───────────────────────────────
-//
-// AIAgentServer 의 `AiUsageByUserDto` · `AiUsageCallDto` 와 짝이다.
-//
-// **시각은 UTC 로 온다.** 한국 시각으로 바꾸는 일은 화면이 보여 주기 직전에
-// 한 번만 한다(docs/utc-time.md) — 여기서 옮기면 두 번 옮겨진다.
+// AIAgentServer 의 `AiUsageByUserDto` · `AiUsageCallDto` 와 짝이다. **시각은 UTC 로 온다.** 한국 시각으로 바꾸는 일은 화면이
+// 보여 주기 직전에 한 번만 한다(docs/utc-time.md) — 여기서 옮기면 두 번 옮겨진다.
 
 /// <summary>한 사람의 기간 사용량. 표의 한 줄이다.</summary>
 public sealed class AiUsageByUserDto
 {
-    /// <summary>
-    /// 로그인 아이디. <b><c>null</c> 은 사람 없이 난 호출</b>이다 —
-    /// 상태 화면의 정밀 확인처럼 게이트웨이를 거치지 않은 것들이다.
-    /// </summary>
+    /// <summary>로그인 아이디. <c>null</c> 은 사람 없이 난 호출이다 — 상태 화면의 정밀 확인처럼 게이트웨이를 거치지 않은 것들이다.</summary>
     public string? UserId { get; set; }
 
     /// <summary>이름. 계정을 지운 사람은 비어 있다.</summary>
@@ -317,14 +184,12 @@ public sealed class AiUsageByUserDto
     public long CompletionTokens { get; set; }
     public long TotalTokens { get; set; }
 
-    /// <summary>
-    /// 토큰 수를 모르는 호출 수. <b>0 이 아니면 위 합계가 실제보다 작다.</b>
-    /// </summary>
+    /// <summary>토큰 수를 모르는 호출 수. 0 이 아니면 위 합계가 실제보다 작다.</summary>
     public int UnknownTokenCalls { get; set; }
 
     public int? AvgLatencyMs { get; set; }
 
-    /// <summary>마지막으로 쓴 시각. <b>UTC 다.</b></summary>
+    /// <summary>마지막으로 쓴 시각. UTC 다.</summary>
     public DateTime LastCallAt { get; set; }
 
     /// <summary>표에 그릴 이름. 이름을 모르면 아이디, 그것도 없으면 「시스템」.</summary>
@@ -336,7 +201,7 @@ public sealed class AiUsageByUserDto
 /// <summary>호출 한 건. 파고드는 자리의 한 줄이다.</summary>
 public sealed class AiUsageCallDto
 {
-    /// <summary><b>UTC 다.</b></summary>
+    /// <summary>UTC 다.</summary>
     public DateTime OccurredAt { get; set; }
 
     public string? UserId { get; set; }
@@ -363,10 +228,7 @@ public sealed class AiUsageCallDto
         ? UserId ?? "시스템"
         : $"{UserName} ({UserId})";
 
-    /// <summary>
-    /// 그리드 칸에 묶을 한국 시각. <b>칸 안에서 옮길 자리가 없어</b> 여기 둔다 —
-    /// <c>DxGridDataColumn</c> 은 값을 그대로 서식에 넣는다(web/CLAUDE.md).
-    /// </summary>
+    /// <summary>그리드 칸에 묶을 한국 시각. 칸 안에서 옮길 자리가 없어 여기 둔다 — <c>DxGridDataColumn</c> 은 값을 그대로 서식에 넣는다(web/CLAUDE.md).</summary>
     public DateTime OccurredAtKst => OccurredAt.KstTime();
 }
 
@@ -379,10 +241,7 @@ public sealed class RoleDto
     public int Status { get; set; } = 1;
     public List<string> Permissions { get; set; } = [];
 
-    /// <summary>
-    /// 편집 폼의 「사용」 스위치가 묶이는 자리.
-    /// <c>JSini.Web.Models.NoticeDto.IsActive</c> 와 같은 이유다.
-    /// </summary>
+    /// <summary>편집 폼의 「사용」 스위치가 묶이는 자리. <c>JSini.Web.Models.NoticeDto.IsActive</c> 와 같은 이유다.</summary>
     public bool IsActive
     {
         get => Status == 1;
@@ -395,15 +254,8 @@ public sealed class RoleMenuDto
 {
     public string MenuId { get; set; } = string.Empty;
 
-    /// <summary>
-    /// 화면에 찍을 메뉴 이름. <b>서버가 이미 골라 준 글자다.</b>
-    ///
-    /// 한동안 <c>system_menus.name</c> 이 그대로 왔고, 그 칸은 개발용 이름이라
-    /// 권한 나무에 <c>CtaReviews</c>·<c>HelpDeskPushDashboard</c> 가 줄줄이
-    /// 떴다(215건 중 161건). 이제 사이드바·메뉴롤·사람롤과 같은 규칙으로
-    /// (옮긴 제목 → 저장된 제목 → 이름) 서버에서 정해 내려온다 —
-    /// 그래서 <b>여기서 다시 고르지 않는다</b>.
-    /// </summary>
+    /// <summary>화면에 찍을 메뉴 이름. 서버가 이미 골라 준 글자다. 이제 사이드바·메뉴롤·사람롤과 같은 규칙으로 (옮긴 제목 → 저장된 제목 → 이름) 서버에서 정해 내려온다 — 그래서
+    /// 여기서 다시 고르지 않는다.</summary>
     public string MenuName { get; set; } = string.Empty;
 
     /// <summary>개발용 메뉴 이름(<c>system_menus.name</c>). 이름 아래 작게 적는다.</summary>
@@ -423,9 +275,7 @@ public sealed class RoleMenuDto
     public bool CanExcel { get; set; }
 
     // ── 사용자 정의 권한 여덟 개 ────────────────────────────
-    //
-    // **이 칸들이 없어서 저장할 때마다 지워지고 있었다.** 저장은 목록을
-    // 통째로 덮어쓰는데, 읽을 때 버린 값은 보낼 때 false 가 된다.
+    // **이 칸들이 없어서 저장할 때마다 지워지고 있었다.** 저장은 목록을 통째로 덮어쓰는데, 읽을 때 버린 값은 보낼 때 false 가 된다.
 
     public bool CanCust1 { get; set; }
     public bool CanCust2 { get; set; }
@@ -437,10 +287,8 @@ public sealed class RoleMenuDto
     public bool CanCust8 { get; set; }
 
     // ── 이 메뉴가 쓰는 권한 항목 (읽기 전용) ─────────────────
-    //
-    // 메뉴가 안 쓴다고 지정한 항목은 역할에 켜 두어도 효과가 없다 —
-    // 서버가 메뉴의 `use_*` 와 AND 로 묶는다. 켜도 아무 일이 없는 칸을
-    // 보여 주면 「켰는데 왜 안 되지」로 헤매게 된다.
+    // 메뉴가 안 쓴다고 지정한 항목은 역할에 켜 두어도 효과가 없다 — 서버가 메뉴의 `use_*` 와 AND 로 묶는다. 켜도 아무 일이 없는 칸을 보여 주면 「켰는데 왜 안
+    // 되지」로 헤매게 된다.
 
     public bool UseView { get; set; }
     public bool UseSearch { get; set; }
@@ -470,13 +318,8 @@ public sealed class RoleMenuDto
 }
 
 // ── 메뉴 기준 권한 현황 (`auth/system/menu-role/{menuId}`) ──────
-//
-// 역할 관리는 **역할**에서 출발한다 — 「이 역할은 어떤 메뉴를 쓰나」.
-// 이쪽은 반대다 — **「이 메뉴는 누가 쓸 수 있나」**. 같은 자료를 거꾸로 훑는다.
-//
-// 읽기 전용이다. 저장은 이미 있는 경로를 그대로 쓴다
-// (`role-permission/.../menus/save` · `role-scope/remove`) —
-// 같은 일을 하는 저장 경로를 둘로 만들면 한쪽에만 규칙이 붙는다.
+// 역할 관리는 **역할**에서 출발한다 — 「이 역할은 어떤 메뉴를 쓰나」. 이쪽은 반대다 — **「이 메뉴는 누가 쓸 수 있나」**. 같은 자료를 거꾸로 훑는다. 읽기 전용이다.
+// 저장은 이미 있는 경로를 그대로 쓴다
 
 /// <summary>메뉴 하나를 기준으로 본 권한 현황.</summary>
 public sealed class MenuRoleDto
@@ -485,31 +328,19 @@ public sealed class MenuRoleDto
     public string MenuName { get; set; } = string.Empty;
     public string? MenuPath { get; set; }
 
-    /// <summary>이 메뉴가 실제로 쓰는 권한 항목.</summary>
     public MenuUsedPermissionDto Used { get; set; } = new();
 
-    /// <summary>
-    /// 모든 역할과 이 메뉴에 대한 권한.
-    ///
-    /// <b>걸려 있지 않은 역할도 담겨 온다.</b> 화면에서 새로 켜 줄 수 있어야
-    /// 하는데 걸린 것만 주면 「없는 역할」을 고를 방법이 없다.
-    /// </summary>
+    /// <summary>모든 역할과 이 메뉴에 대한 권한. 걸려 있지 않은 역할도 담겨 온다. 화면에서 새로 켜 줄 수 있어야 하는데 걸린 것만 주면 「없는 역할」을 고를 방법이 없다.</summary>
     public List<MenuRoleGrantDto> Roles { get; set; } = [];
 
     public List<MenuRoleTargetDto> Companies { get; set; } = [];
     public List<MenuRoleTargetDto> Departments { get; set; } = [];
     public List<MenuRoleTargetDto> Accounts { get; set; } = [];
 
-    /// <summary>
-    /// 이 메뉴를 실제로 열람할 수 있는 사람 수.
-    ///
-    /// 목록의 건수를 더한 값과 <b>다를 수 있다</b> — 한 사람이 회사와 부서
-    /// 양쪽에서 걸릴 수 있어 사람 단위로 중복을 없앤 값이다.
-    /// </summary>
+    /// <summary>목록의 건수를 더한 값과 다를 수 있다 — 한 사람이 회사와 부서 양쪽에서 걸릴 수 있어 사람 단위로 중복을 없앤 값이다.</summary>
     public int EffectiveUserCount { get; set; }
 }
 
-/// <summary>메뉴가 실제로 쓰는 권한 항목 (<c>system_menus.use_*</c>).</summary>
 public sealed class MenuUsedPermissionDto
 {
     public bool View { get; set; }
@@ -591,15 +422,8 @@ public sealed class MenuRoleTargetDto
     public int UserCount { get; set; }
 }
 
-/// <summary>
-/// 역할에 걸린 사람 한 줄 (<c>role-permission/roles/{id}/users</c>).
-///
-/// <para>
-/// <b><see cref="AccountDto"/> 로 받으면 안 된다.</b> 이름은 비슷한데 모양이
-/// 다르다 — 이쪽 <c>roleNames</c> 는 <b>문자열 하나</b>이고 저쪽은 목록이다.
-/// 그대로 받으면 JSON 을 푸는 자리에서 터진다.
-/// </para>
-/// </summary>
+/// <summary>역할에 걸린 사람 한 줄 (<c>role-permission/roles/{id}/users</c>). <see cref="AccountDto"/> 로 받으면 안 된다. 이름은
+/// 비슷한데 모양이 다르다 — 이쪽 <c>roleNames</c> 는 문자열 하나이고 저쪽은 목록이다. 그대로 받으면 JSON 을 푸는 자리에서 터진다.</summary>
 public sealed class RoleUserDto
 {
     public string Id { get; set; } = string.Empty;
@@ -615,7 +439,7 @@ public sealed class RoleUserDto
     /// <summary>가진 역할의 식별자들.</summary>
     public List<string> Roles { get; set; } = [];
 
-    /// <summary>가진 역할의 이름을 이어 붙인 것. <b>목록이 아니라 한 줄이다.</b></summary>
+    /// <summary>가진 역할의 이름을 이어 붙인 것. 목록이 아니라 한 줄이다.</summary>
     public string? RoleNames { get; set; }
 }
 
@@ -636,19 +460,11 @@ public sealed class CompanyDto
 
     public DateTime? ApprovalDate { get; set; }
 
-    /// <summary>
-    /// 이 회사를 어느 업무 시스템에 노출할지 (<c>COMPANY_USAGE_LOCATION</c> 의 코드값).
-    ///
-    /// <b>목록을 좁히는 열쇠다.</b> 장례식장 화면들은
-    /// <c>FUNERAL_HOME_MANAGEMENT_SYSTEM</c> 이 걸린 회사만 읽는다.
-    /// 비워 두면 그 화면들의 회사 드롭다운에서 사라진다.
-    /// </summary>
+    /// <summary>이 회사를 어느 업무 시스템에 노출할지 (<c>COMPANY_USAGE_LOCATION</c> 의 코드값). 목록을 좁히는 열쇠다. 장례식장 화면들은
+    /// <c>FUNERAL_HOME_MANAGEMENT_SYSTEM</c> 이 걸린 회사만 읽는다. 비워 두면 그 화면들의 회사 드롭다운에서 사라진다.</summary>
     public List<string> UsageLocations { get; set; } = [];
 
-    /// <summary>
-    /// 편집 폼의 사용처 고르개가 묶이는 자리. <see cref="AccountDto.Roles"/> 와 같은 이유다 —
-    /// 형이 안 맞으면 팝업이 말없이 안 열린다.
-    /// </summary>
+    /// <summary>편집 폼의 사용처 고르개가 묶이는 자리. <see cref="AccountDto.Roles"/> 와 같은 이유다 — 형이 안 맞으면 팝업이 말없이 안 열린다.</summary>
     public IEnumerable<string> Usages
     {
         get => UsageLocations;
@@ -693,12 +509,8 @@ public sealed class I18nResourceDto
     public string? Category { get; set; }
 }
 
-/// <summary>
-/// biz-select 설정 한 줄.
-///
-/// 화면의 드롭다운이 무엇을 어디서 읽을지 정하는 표다. 코드를 고치지 않고
-/// 드롭다운을 늘리려고 만든 자리라, 여기가 곧 "메타데이터 관리" 화면이다.
-/// </summary>
+/// <summary>biz-select 설정 한 줄. 화면의 드롭다운이 무엇을 어디서 읽을지 정하는 표다. 코드를 고치지 않고 드롭다운을 늘리려고 만든 자리라, 여기가 곧 "메타데이터 관리"
+/// 화면이다.</summary>
 public sealed class BizSelectConfigDto
 {
     public string Id { get; set; } = string.Empty;
@@ -709,15 +521,13 @@ public sealed class BizSelectConfigDto
     /// <summary>어느 서비스로 나갈지 (<c>auth</c> · <c>helpdesk</c>).</summary>
     public string ServiceCode { get; set; } = "auth";
 
-    /// <summary>서비스 <b>안쪽</b> 경로. 게이트웨이 접두사는 빼고 적는다.</summary>
+    /// <summary>서비스 안쪽 경로. 게이트웨이 접두사는 빼고 적는다.</summary>
     public string ApiUrl { get; set; } = string.Empty;
 
     public string HttpMethod { get; set; } = "GET";
 
     // ── 아래 셋이 없으면 드롭다운이 빈 채로 뜬다 ─────────
-    //
-    // 자료는 오는데 **어느 칸을 보여 주고 어느 칸을 값으로 쓸지** 모르기
-    // 때문이다. 화면에서 그 원인이 안 보이면 「서버가 안 준다」로 읽힌다.
+    // 자료는 오는데 **어느 칸을 보여 주고 어느 칸을 값으로 쓸지** 모르기 때문이다. 화면에서 그 원인이 안 보이면 「서버가 안 준다」로 읽힌다.
 
     /// <summary>사람에게 보여 줄 칸 이름.</summary>
     public string? LabelField { get; set; }
@@ -784,14 +594,7 @@ public sealed class PushFailureReasonDto
     public int Count { get; set; }
 }
 
-/// <summary>
-/// 푸시 발송 이력 한 줄. 출처는 알림 서비스의 <c>scom.push_send_logs</c> 다.
-/// </summary>
-/// <remarks>
-/// <b>아이디가 문자열이다.</b> 그 표의 열쇠가 GUID 라서다 — 전에는 <c>int</c>
-/// 였고, 그때 읽던 헬프데스크 표에는 제목도 대상도 아예 없어서
-/// <c>Title</c>·<c>Body</c>·<c>TargetUser</c> 칸이 **언제나 비어 있었다.**
-/// </remarks>
+/// <summary>푸시 발송 이력 한 줄. 출처는 알림 서비스의 <c>scom.push_send_logs</c> 다.</summary>
 public sealed class PushLogDto
 {
     public string? Id { get; set; }
@@ -805,46 +608,20 @@ public sealed class PushLogDto
     public string? FailureReason { get; set; }
     public DateTime? SentAt { get; set; }
 
-    /// <summary>
-    /// 알림구분 코드값(공통코드 <c>NOTI_CATEGORY</c>). 사람이 읽는 이름은
-    /// 화면이 <see cref="PushCategoryClient"/> 로 붙인다. 구분을 붙이기 전에
-    /// 쌓인 줄과 구분 없이 보낸 것은 비어 있다.
-    /// </summary>
+    /// <summary>알림구분 코드값(공통코드 <c>NOTI_CATEGORY</c>). 사람이 읽는 이름은 화면이 <see cref="PushCategoryClient"/> 로 붙인다. 구분을 붙이기
+    /// 전에 쌓인 줄과 구분 없이 보낸 것은 비어 있다.</summary>
     public string? Category { get; set; }
 
     /// <summary>보낸 사람. 시스템이 저절로 보낸 것은 비어 있다.</summary>
     public string? SentBy { get; set; }
 
-    /// <summary>
-    /// 그 기기가 <b>실제로 받았다고 되알려 온 때</b>. 아직이면 비어 있다.
-    /// </summary>
-    /// <remarks>
-    /// <see cref="Success"/> 는 「푸시 서비스가 받아 주었다」까지이고 이쪽이
-    /// 「기기가 띄웠다」다. 둘이 갈라지는 줄이 곧 <b>못 받고 있는 기기</b>다 —
-    /// 브라우저 자료를 지운 구독에도 푸시 서비스는 한동안 성공을 돌려준다.
-    /// </remarks>
+    /// <summary>아직이면 비어 있다.</summary>
     public DateTime? DeliveredAt { get; set; }
 }
 
-/// <summary>
-/// 알림함의 알림 한 건. <b>발송 한 번이 한 건</b>이다(기기 수와 무관).
-/// </summary>
+/// <summary>알림함의 알림 한 건. 발송 한 번이 한 건이다(기기 수와 무관).</summary>
 
-/// <summary>
-/// 로그인한 사람의 정보. <c>GET auth/user/info</c> 가 주는 것 <b>전부</b>다.
-/// </summary>
-/// <remarks>
-/// <para>
-/// 한동안 「화면이 쓰는 칸만 담는다」고 열몇 개만 적어 두었다. 그 판단이
-/// 여기서는 틀렸다 — 이 응답은 <b>프로필 화면 하나가 통째로 쓰는 자료</b>고,
-/// 빠뜨린 칸이 곧 옮기지 못한 기능이었다. 보안 설정 넷 · 알림 설정 셋 ·
-/// 비밀번호 만료 다섯 · 역할 식별자 · 이관 출처 · 사진 그룹이 전부 그렇게
-/// 빠져 있었다.
-/// </para>
-/// <para>
-/// 서버 쪽 정본은 AuthServer 의 <c>DTOs/UserInfoDto.cs</c> 다.
-/// </para>
-/// </remarks>
+/// <summary>로그인한 사람의 정보. <c>GET auth/user/info</c> 가 주는 것 전부다.</summary>
 public sealed class SocialMergedAccountDto
 {
     public string Provider { get; set; } = string.Empty;
@@ -878,10 +655,7 @@ public sealed class UserInfoDto
     /// <summary>역할 이름(<c>관리자</c>). 화면에는 이것을 쓴다.</summary>
     public List<string> RoleNames { get; set; } = [];
 
-    /// <summary>
-    /// 이 계정이 어느 MSA 레코드에서 왔는지(<c>helpdesk:admin:4</c>).
-    /// 이관으로 만들어진 계정만 값이 있다.
-    /// </summary>
+    /// <summary>이 계정이 어느 MSA 레코드에서 왔는지(<c>helpdesk:admin:4</c>). 이관으로 만들어진 계정만 값이 있다.</summary>
     public string? MsaSource { get; set; }
 
     // ── 고칠 수 있는 것들 ────────────────────────────────
@@ -936,20 +710,15 @@ public sealed class UserInfoDto
 
     public bool BirthDateIsLunar { get; set; }
 
-    /// <summary>
-    /// 프로필 사진 주소. 서버가 값이 없으면 <b>바깥 기본 이미지 주소</b>를
-    /// 채워 준다 — 비어 오는 일이 없다.
-    /// </summary>
+    /// <summary>프로필 사진 주소. 서버가 값이 없으면 바깥 기본 이미지 주소를 채워 준다 — 비어 오는 일이 없다.</summary>
     public string? Avatar { get; set; }
 
     /// <summary>사진이 담긴 파일 그룹. 「프로필 사진 관리」가 이 그룹을 다룬다.</summary>
     public string? AvatarGroupId { get; set; }
 
     // ── 보안 설정 (켬·끔) ────────────────────────────────
-    //
-    // 저장은 `auth/user/settings` 로 한 칸씩 한다. 저장 이름은 여기 속성
-    // 이름과 같다(`SecurityPhone` …) — 서버가 그 글자를 DetailType 으로
-    // 그대로 쓴다.
+    // 저장은 `auth/user/settings` 로 한 칸씩 한다. 저장 이름은 여기 속성 이름과 같다(`SecurityPhone` …) — 서버가 그 글자를 DetailType
+    // 으로 그대로 쓴다.
 
     public bool SecurityPhone { get; set; }
     public bool SecurityQuestion { get; set; }
@@ -976,7 +745,7 @@ public sealed class UserInfoDto
     /// <summary>비밀번호가 만료되는 시각. 정책이 꺼져 있으면 null.</summary>
     public DateTime? PasswordExpiresAt { get; set; }
 
-    /// <summary>만료 기준 일수(기본 90). <b>null 이면 정책이 꺼져 있다.</b></summary>
+    /// <summary>만료 기준 일수(기본 90). null 이면 정책이 꺼져 있다.</summary>
     public int? PasswordExpiryDays { get; set; }
 
     /// <summary>만료까지 남은 일수. 이미 지났으면 0.</summary>
@@ -991,13 +760,8 @@ public sealed class UserInfoDto
     public IReadOnlyList<string> RoleLabels => RoleNames.Count > 0 ? RoleNames : Roles;
 }
 
-/// <summary>
-/// 내 정보 저장.
-///
-/// <b>null 과 빈 문자열이 다르다.</b> 서버가 <c>null</c> 인 칸은 건드리지 않고
-/// 빈 문자열은 「지운다」로 읽는다. 그래서 화면이 안 고친 칸을 <c>null</c> 로
-/// 두면 그 값이 살아남는다.
-/// </summary>
+/// <summary>내 정보 저장. null 과 빈 문자열이 다르다. 서버가 <c>null</c> 인 칸은 건드리지 않고 빈 문자열은 「지운다」로 읽는다. 그래서 화면이 안 고친 칸을
+/// <c>null</c> 로 두면 그 값이 살아남는다.</summary>
 public sealed class UpdateProfileDto
 {
     public string? RealName { get; set; }
@@ -1072,15 +836,7 @@ public sealed class PhoneEditItem
     public string Number { get; set; } = string.Empty;
 }
 
-/// <summary>
-/// 켬·끔 하나를 저장한다 (<c>POST auth/user/settings</c>).
-/// </summary>
-/// <remarks>
-/// <c>FieldName</c> 이 그대로 <c>account_profile_details.detail_type</c> 이 된다.
-/// 그래서 <b>철자가 곧 계약</b>이다 — <c>SecurityPhone</c> 을 <c>securityPhone</c>
-/// 으로 보내면 다른 칸이 하나 더 생기고, 조회는 여전히 옛 칸을 보므로
-/// <b>저장은 성공하는데 값이 안 바뀐 것처럼 보인다.</b>
-/// </remarks>
+/// <summary>켬·끔 하나를 저장한다 (<c>POST auth/user/settings</c>).</summary>
 public sealed class UpdateSettingDto
 {
     public string FieldName { get; set; } = string.Empty;
@@ -1090,19 +846,10 @@ public sealed class UpdateSettingDto
 /// <summary>접속 기록 한 줄.</summary>
 public sealed class LoginLogDto
 {
-    /// <summary>기록된 시각. <b>UTC 다</b> — 표에는 <see cref="AtLocal"/> 을 쓴다.</summary>
+    /// <summary>기록된 시각. UTC 다 — 표에는 <see cref="AtLocal"/> 을 쓴다.</summary>
     public DateTime? At { get; set; }
 
-    /// <summary>
-    /// 우리 시간대로 옮긴 시각. <b>표가 거는 칸은 이쪽이다.</b>
-    /// </summary>
-    /// <remarks>
-    /// <c>At</c> 를 그대로 걸었더니 <b>표만 아홉 시간 뒤처져 보였다.</b>
-    /// 같은 화면 위쪽의 「최근 로그인」은 <c>ToLocalTime()</c> 을 거쳐 21:20 인데
-    /// 표의 같은 줄이 12:20 이었다 — 그리드는 받은 <c>DateTime</c> 을 그대로
-    /// 그리고 시간대를 옮겨 주지 않는다. 두 값이 나란히 있어서 눈에 띄었지
-    /// 표만 있었으면 못 봤을 종류의 어긋남이다.
-    /// </remarks>
+    /// <summary>우리 시간대로 옮긴 시각. 표가 거는 칸은 이쪽이다.</summary>
     public DateTime? AtLocal => At?.ToLocalTime();
 
     public bool Success { get; set; }
@@ -1134,22 +881,7 @@ public sealed class LoginLogDto
         : Device;
 }
 
-/// <summary>
-/// 계정 활동. <c>GET auth/user/activity</c> 가 <b>객체 하나</b>로 준다.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <b>배열이 아니다.</b> 한동안 이 자리를 <c>UserActivityDto</c> 목록
-/// (<c>Action</c>·<c>Detail</c>·<c>IpAddress</c>)으로 적어 두었는데 서버에는
-/// 그런 칸이 없다. 봉투는 객체 하나도 <c>result: [obj]</c> 로 싣기 때문에
-/// 목록으로 읽어도 <b>예외가 나지 않는다</b> — 칸이 전부 <c>null</c> 인 줄이
-/// 하나 그려질 뿐이라 「기록이 아직 없나 보다」로 읽혔다.
-/// </para>
-/// <para>
-/// 자기 것만 볼 수 있다. 조회할 계정을 요청에 싣지 않고 게이트웨이가 넘긴
-/// 신원을 서버가 쓴다.
-/// </para>
-/// </remarks>
+/// <summary>계정 활동. <c>GET auth/user/activity</c> 가 객체 하나로 준다.</summary>
 public sealed class AccountActivityDto
 {
     /// <summary>로그인 성공 횟수 (기록이 쌓이기 시작한 뒤부터).</summary>
@@ -1170,14 +902,7 @@ public sealed class AccountActivityDto
     public List<LoginLogDto> Recent { get; set; } = [];
 }
 
-/// <summary>
-/// 파일 그룹 안의 사진 한 장. 「프로필 사진 관리」가 쓴다.
-/// </summary>
-/// <remarks>
-/// <c>DownloadUrl</c> 로 오는 <c>/api/file/download/{id}</c> 는 <b>Vue 시절
-/// 주소</b>라 포털 오리진에는 없다. 화면은 이 값을 쓰지 않고
-/// <see cref="JSini.Web.Components.Data.FileDownload"/> 로 셸 중계 경로를 만든다.
-/// </remarks>
+/// <summary>파일 그룹 안의 사진 한 장. 「프로필 사진 관리」가 쓴다.</summary>
 public sealed class GroupFileDto
 {
     public string? Id { get; set; }
@@ -1191,26 +916,14 @@ public sealed class GroupFileDto
     public DateTime? CreatedAt { get; set; }
 }
 
-/// <summary>
-/// 배포 현황 한 덩어리.
-///
-/// 서버가 GitHub 과 도커에서 각각 긁어 합쳐 준다. 둘 중 하나가 실패해도
-/// 나머지는 온다 — <c>Github.Error</c> 에 이유가 담긴다.
-/// </summary>
+/// <summary>배포 현황 한 덩어리. 서버가 GitHub 과 도커에서 각각 긁어 합쳐 준다. 둘 중 하나가 실패해도 나머지는 온다 — <c>Github.Error</c> 에 이유가 담긴다.</summary>
 public sealed class DeployStatusDto
 {
     public string? Repo { get; set; }
     public DateTimeOffset? GeneratedAt { get; set; }
     public GithubStatusDto Github { get; set; } = new();
 
-    /// <summary>
-    /// 도커 쪽. <b>배열이 아니라 객체다.</b>
-    ///
-    /// 한동안 <c>List&lt;DockerContainerDto&gt;</c> 로 선언해 두어 두 화면이
-    /// 「응답을 해석하지 못했습니다」로 끝났다 — 배열 자리에 객체가 오면
-    /// System.Text.Json 이 예외를 던지고, 표가 비는 것이 아니라 화면 전체가
-    /// 안 뜬다.
-    /// </summary>
+    /// <summary>도커 쪽. 배열이 아니라 객체다. — 배열 자리에 객체가 오면 System.Text.Json 이 예외를 던지고, 표가 비는 것이 아니라 화면 전체가 안 뜬다.</summary>
     public DockerStatusDto Docker { get; set; } = new();
 }
 
@@ -1232,19 +945,14 @@ public sealed class DockerStatusDto
     public long ImagesTotalMb { get; set; }
 }
 
-/// <summary>
-/// 이미지 정리 결과 (D17). <c>auth/deploy-status/cleanup</c> 이 돌려준다.
-/// </summary>
+/// <summary>이미지 정리 결과 (D17). <c>auth/deploy-status/cleanup</c> 이 돌려준다.</summary>
 public sealed class DockerCleanupDto
 {
     /// <summary>지우지 않고 목록만 본 것인가. 확인 창이 이 값을 보고 문구를 가른다.</summary>
     public bool DryRun { get; set; }
 
-    /// <summary>
-    /// 지웠거나(<see cref="DryRun"/> 이 거짓) 지울(참) 태그들.
-    /// <b>이 목록은 서버가 만든다</b> — 화면이 같은 규칙을 다시 적으면
-    /// 한쪽만 고치는 날 보여 준 것과 지워지는 것이 달라진다.
-    /// </summary>
+    /// <summary>지웠거나(<see cref="DryRun"/> 이 거짓) 지울(참) 태그들. 이 목록은 서버가 만든다 — 화면이 같은 규칙을 다시 적으면 한쪽만 고치는 날 보여 준 것과 지워지는
+    /// 것이 달라진다.</summary>
     public List<string> Removed { get; set; } = [];
 
     /// <summary>지우다 실패한 것들(<c>이름: 상태코드</c>). 비어 있으면 다 지웠다.</summary>
@@ -1253,10 +961,7 @@ public sealed class DockerCleanupDto
     /// <summary>저장소마다 남겨 둔 최근 태그 수. 롤백 여지다.</summary>
     public int KeptRecent { get; set; }
 
-    /// <summary>
-    /// 실제로 회수한 용량(MB). <b>미리보기일 때는 회수량이 아니라 상한이다</b> —
-    /// 도커의 이미지 크기는 공유 레이어를 저마다 온전히 세기 때문이다.
-    /// </summary>
+    /// <summary>미리보기일 때는 회수량이 아니라 상한이다 — 도커의 이미지 크기는 공유 레이어를 저마다 온전히 세기 때문이다.</summary>
     public long SpaceReclaimedMb { get; set; }
 }
 
@@ -1320,7 +1025,7 @@ public sealed class GithubRunnerDto
 /// <summary>컨테이너 한 개.</summary>
 public sealed class DockerContainerDto
 {
-    /// <summary>compose 서비스 이름. <b>서버가 <c>service</c> 로 보낸다.</b></summary>
+    /// <summary>compose 서비스 이름. 서버가 <c>service</c> 로 보낸다.</summary>
     public string? Service { get; set; }
 
     public string? Project { get; set; }
@@ -1354,7 +1059,7 @@ public sealed class DockerImageDto
 
 public sealed class SaveAccountDto
 {
-    /// <summary>로그인 아이디. <b>등록할 때만</b> 쓴다 — 수정에서는 바꿀 수 없다.</summary>
+    /// <summary>로그인 아이디. 등록할 때만 쓴다 — 수정에서는 바꿀 수 없다.</summary>
     public string LoginId { get; set; } = string.Empty;
 
     public string UserName { get; set; } = string.Empty;
@@ -1376,49 +1081,14 @@ public sealed class SaveAccountDto
     /// <summary>축하 대상인가. 끄면 생일 목록에 나오지 않는다.</summary>
     public bool BirthdayCelebrated { get; set; } = true;
 
-    /// <summary>
-    /// 워터마크를 깔지. <b><c>null</c> 은 「건드리지 않음」</b>이라 이 값을
-    /// 안 싣는 호출이 설정을 지우지 않는다.
-    /// </summary>
+    /// <summary>워터마크를 깔지. <c>null</c> 은 「건드리지 않음」이라 이 값을 안 싣는 호출이 설정을 지우지 않는다.</summary>
     public bool? Watermark { get; set; }
 
-    /// <summary>
-    /// 개발 업무용 확장 속성. 사전을 실으면 <b>그것이 그 계정의 전부</b>이고
-    /// (빠진 열쇠는 지운다) <c>null</c> 이면 건드리지 않는다.
-    /// </summary>
+    /// <summary>사전을 실으면 그것이 그 계정의 전부이고 (빠진 열쇠는 지운다) <c>null</c> 이면 건드리지 않는다.</summary>
     public Dictionary<string, string?>? DevAttributes { get; set; }
 }
 
-/// <summary>
-/// <c>Dev.*</c> 확장 속성을 이름 있는 칸으로 보는 창.
-/// </summary>
-/// <remarks>
-/// <para>
-/// 값을 들고 있지 않는다 — 넘겨받은 사전을 그대로 읽고 쓴다. 그래서 창을
-/// 통해 고친 것이 곧 <see cref="AccountDto.DevAttributes"/> 의 값이고,
-/// 저장할 때 따로 모으는 단계가 없다.
-/// </para>
-///
-/// <para>
-/// [빈 글자는 담지 않는다]
-/// </para>
-///
-/// <para>
-/// 칸을 비우면 열쇠를 <b>지운다.</b> 빈 글자를 담아 두면 「안 적었다」와
-/// 「비워 두기로 했다」가 같은 그림이 되고, 칸이 스물여섯이라 대부분 비어
-/// 있는 계정마다 빈 줄이 그만큼 쌓인다. 서버도 같은 규칙이다
-/// (<c>UserService.SyncDevAttributes</c>).
-/// </para>
-///
-/// <para>
-/// [발급 현황은 네모다]
-/// </para>
-///
-/// <para>
-/// 원본 화면이 <c>flag</c> 로 그리던 칸들이고 담기는 값은 <c>Y</c> 한 글자다.
-/// 켠 것만 <c>Y</c> 로 담고 끄면 지운다.
-/// </para>
-/// </remarks>
+/// <summary><c>Dev.*</c> 확장 속성을 이름 있는 칸으로 보는 창.</summary>
 public sealed class DevAttributeView(Dictionary<string, string?> values)
 {
     private string? Text(string key) =>
@@ -1451,10 +1121,7 @@ public sealed class DevAttributeView(Dictionary<string, string?> values)
     public string? Monitor3ChkNo { get => Text("Monitor3ChkNo"); set => Text("Monitor3ChkNo", value); }
     public string? MacAddr { get => Text("MacAddr"); set => Text("MacAddr", value); }
 
-    /// <summary>
-    /// 사용 IP. 사내에서는 <b>이것이 인증 전부</b>였다(접속 IP 를 이 값과 대조).
-    /// 포털에서는 <b>장비 대장으로만</b> 쓴다 — 권한 판정에 쓰지 않는다.
-    /// </summary>
+    /// <summary>사용 IP. 사내에서는 이것이 인증 전부였다(접속 IP 를 이 값과 대조). 포털에서는 장비 대장으로만 쓴다 — 권한 판정에 쓰지 않는다.</summary>
     public string? UseIp { get => Text("UseIp"); set => Text("UseIp", value); }
 
     public bool HubHdmi { get => Flag("HubHdmi"); set => Flag("HubHdmi", value); }
@@ -1480,12 +1147,8 @@ public sealed class DevAttributeView(Dictionary<string, string?> values)
 /// <summary>역할 등록·수정.</summary>
 public sealed class SaveRoleDto
 {
-    /// <summary>
-    /// 역할 식별자. 등록할 때 사람이 정한다(<c>ADMIN</c> 처럼).
-    ///
-    /// 자동 번호가 아닌 이유는 권한 판정과 로그에 그대로 찍히기 때문이다 —
-    /// 숫자면 무슨 역할인지 알 수 없다. 수정할 때는 바꾸지 않는다.
-    /// </summary>
+    /// <summary>역할 식별자. 등록할 때 사람이 정한다(<c>ADMIN</c> 처럼). 자동 번호가 아닌 이유는 권한 판정과 로그에 그대로 찍히기 때문이다 — 숫자면 무슨 역할인지 알 수 없다.
+    /// 수정할 때는 바꾸지 않는다.</summary>
     public string? Id { get; set; }
 
     public string Name { get; set; } = string.Empty;
@@ -1509,14 +1172,8 @@ public sealed class SaveCompanyDto
     public int SortOrder { get; set; }
     public DateTime? ApprovalDate { get; set; }
 
-    /// <summary>
-    /// 사용처 코드값들.
-    ///
-    /// <b>서버 쪽이 일부러 nullable 이다</b> — 값을 싣지 않은 요청은 사용처를
-    /// 건드리지 않는다. 일부 칸만 보내는 호출자가 사용처를 통째로 지우는 일을
-    /// 막기 위한 것이다. 여기서는 화면이 늘 전체를 보내므로 빈 목록이
-    /// '전부 해제' 가 된다.
-    /// </summary>
+    /// <summary>사용처 코드값들. 서버 쪽이 일부러 nullable 이다 — 값을 싣지 않은 요청은 사용처를 건드리지 않는다. 일부 칸만 보내는 호출자가 사용처를 통째로 지우는 일을 막기 위한
+    /// 것이다. 여기서는 화면이 늘 전체를 보내므로 빈 목록이 '전부 해제' 가 된다.</summary>
     public List<string>? UsageLocations { get; set; }
 }
 
@@ -1534,15 +1191,8 @@ public sealed class SaveDeptDto
     public int SortOrder { get; set; }
 }
 
-/// <summary>
-/// 끌어 옮긴 뒤의 부서 자리 한 줄.
-///
-/// <para>
-/// 화면이 <b>확정한 배치</b>를 그대로 보낸다 — 메뉴의 <see cref="MenuOrderDto"/>
-/// 와 같은 모양이다. 한 건만 보내면 서버가 나머지 형제를 어떻게 밀지 짐작해야
-/// 하고, 그 짐작이 방금 눈으로 본 자리와 어긋난다.
-/// </para>
-/// </summary>
+/// <summary>끌어 옮긴 뒤의 부서 자리 한 줄. 화면이 확정한 배치를 그대로 보낸다 — 메뉴의 <see cref="MenuOrderDto"/> 와 같은 모양이다. 한 건만 보내면 서버가
+/// 나머지 형제를 어떻게 밀지 짐작해야 하고, 그 짐작이 방금 눈으로 본 자리와 어긋난다.</summary>
 public sealed class DeptOrderDto
 {
     public string Id { get; set; } = string.Empty;
@@ -1550,20 +1200,15 @@ public sealed class DeptOrderDto
     /// <summary>새 상위 부서. 회사 직속은 <c>null</c>.</summary>
     public string? Pid { get; set; }
 
-    /// <summary>
-    /// 형제 안에서의 순번. <b>1 부터</b> — 0 은 「한 번도 정하지 않은 값」의
-    /// 기본값이라(<c>departments.sort_order</c>) 새로 만든 부서가 맨 앞에
-    /// 끼어들 자리로 비워 둔다. 회사 목록도 같은 규칙이다.
-    /// </summary>
+    /// <summary>형제 안에서의 순번. 1 부터 — 0 은 「한 번도 정하지 않은 값」의 기본값이라(<c>departments.sort_order</c>) 새로 만든 부서가 맨 앞에 끼어들 자리로
+    /// 비워 둔다. 회사 목록도 같은 규칙이다.</summary>
     public int SortOrder { get; set; }
 }
 
 
 // ── 메뉴 ────────────────────────────────────────────────────
-//
-// 셸이 쓰는 `MenuNode`(JSini.Web.Models)와 **일부러 다르다.** 그쪽은 사이드바를
-// 그리는 데 필요한 것만 담은 읽기 전용 모양이고, 이쪽은 메뉴 관리 화면이
-// 고쳐서 되돌려 보내는 모양이라 서버 DTO 를 그대로 따라간다.
+// 셸이 쓰는 `MenuNode`(JSini.Web.Models)와 **일부러 다르다.** 그쪽은 사이드바를 그리는 데 필요한 것만 담은 읽기 전용 모양이고, 이쪽은 메뉴 관리
+// 화면이 고쳐서 되돌려 보내는 모양이라 서버 DTO 를 그대로 따라간다.
 
 /// <summary>메뉴 한 건. 서버의 <c>SystemMenuDto</c> 를 그대로 받는다.</summary>
 public sealed class SystemMenuDto
@@ -1571,23 +1216,13 @@ public sealed class SystemMenuDto
     public string Id { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
 
-    /// <summary>
-    /// 브라우저 경로. <b>권한표와 즐겨찾기의 열쇠</b>라 함부로 바꾸지 않는다.
-    /// 사용자가 실제로 가는 주소는 <see cref="RouteKey"/> 가 정한다.
-    /// </summary>
+    /// <summary>브라우저 경로. 권한표와 즐겨찾기의 열쇠라 함부로 바꾸지 않는다.</summary>
     public string Path { get; set; } = string.Empty;
 
-    /// <summary>
-    /// 이 메뉴가 여는 화면의 열쇠 (<c>funeral.room-status</c>).
-    /// 실려 있는 화면 목록에서 고른 값이다.
-    /// </summary>
+    /// <summary>이 메뉴가 여는 화면의 열쇠 (<c>funeral.room-status</c>). 실려 있는 화면 목록에서 고른 값이다.</summary>
     public string? RouteKey { get; set; }
 
-    /// <summary>
-    /// 옛 Vue 파일 경로. <b>더 이상 읽지 않는다</b> — 라우팅은 Blazor 의
-    /// <c>@page</c> 가 정한다. 목록에 보여 주기는 하되 이관 상태를 가늠하는
-    /// 참고값일 뿐이다.
-    /// </summary>
+    /// <summary>더 이상 읽지 않는다 — 라우팅은 Blazor 의 <c>@page</c> 가 정한다. 목록에 보여 주기는 하되 이관 상태를 가늠하는 참고값일 뿐이다.</summary>
     public string? Component { get; set; }
 
     public string? Pid { get; set; }
@@ -1610,10 +1245,7 @@ public sealed class SystemMenuMetaDto
     /// <summary>저장된 제목. 다국어 키일 수도 있다.</summary>
     public string? Title { get; set; }
 
-    /// <summary>
-    /// 사람이 읽는 제목. <b>서버가 다국어 표를 찾아 넣어 준다.</b>
-    /// 못 찾으면 <c>null</c> 이고, 그때는 <see cref="Title"/> 이 이미 글자다.
-    /// </summary>
+    /// <summary>사람이 읽는 제목. 서버가 다국어 표를 찾아 넣어 준다. 못 찾으면 <c>null</c> 이고, 그때는 <see cref="Title"/> 이 이미 글자다.</summary>
     public string? TitleText { get; set; }
 
     public string? Icon { get; set; }
@@ -1634,10 +1266,7 @@ public sealed class SystemMenuMetaDto
     public bool UseTablet { get; set; } = true;
 }
 
-/// <summary>
-/// 메뉴가 허용하는 동작들. 화면의 등록·수정·삭제·엑셀 단추가 이 값을 본다
-/// (<c>PermissionView</c>).
-/// </summary>
+/// <summary>메뉴가 허용하는 동작들. 화면의 등록·수정·삭제·엑셀 단추가 이 값을 본다 (<c>PermissionView</c>).</summary>
 public sealed class MenuPermissionItemsDto
 {
     public bool UseView { get; set; } = true;
@@ -1649,15 +1278,8 @@ public sealed class MenuPermissionItemsDto
     public bool UseExcel { get; set; } = true;
 }
 
-/// <summary>
-/// 메뉴 한 건의 자리(부모와 순번). 나무에서 끌어 옮긴 결과를 한 번에 저장할 때 쓴다.
-///
-/// <para>
-/// 화면이 <b>확정한 배치</b>를 그대로 보낸다 — 서버가 다시 계산하지 않는다.
-/// 형제 하나가 움직이면 그 묶음 전체의 순번이 바뀌므로, 한 건만 보내면
-/// 서버가 나머지를 어떻게 밀지 짐작해야 하고 그 짐작이 화면과 어긋난다.
-/// </para>
-/// </summary>
+/// <summary>메뉴 한 건의 자리(부모와 순번). 나무에서 끌어 옮긴 결과를 한 번에 저장할 때 쓴다. 화면이 확정한 배치를 그대로 보낸다 — 서버가 다시 계산하지 않는다. 형제 하나가
+/// 움직이면 그 묶음 전체의 순번이 바뀌므로, 한 건만 보내면 서버가 나머지를 어떻게 밀지 짐작해야 하고 그 짐작이 화면과 어긋난다.</summary>
 public sealed class MenuOrderDto
 {
     public string Id { get; set; } = string.Empty;
@@ -1684,10 +1306,7 @@ public sealed class SaveSystemMenuDto
     public string Type { get; set; } = "MENU";
     public string? AuthCode { get; set; }
 
-    /// <summary>
-    /// 0 은 중지, 1 은 사용. <b>일부러 nullable 이다</b> — 값을 안 싣는 요청은
-    /// 서버가 상태를 건드리지 않는다.
-    /// </summary>
+    /// <summary>0 은 중지, 1 은 사용. 일부러 nullable 이다 — 값을 안 싣는 요청은 서버가 상태를 건드리지 않는다.</summary>
     public int? Status { get; set; } = 1;
 
     public SystemMenuMetaDto Meta { get; set; } = new();
@@ -1741,17 +1360,8 @@ public sealed class CommonCodeDto
     public string? Remark { get; set; }
     public List<CommonCodeDto>? Children { get; set; }
 
-    /// <summary>
-    /// 편집 폼의 「사용」 스위치가 묶이는 자리. <see cref="Status"/> 의 0/1 을 가린다.
-    ///
-    /// <para>
-    /// 편집 폼 안의 편집기는 <c>@bind-</c> 로 묶어야 한다. <c>Checked</c> 와
-    /// <c>CheckedChanged</c> 를 따로 주면 검증 식이 없어 <b>팝업이 말없이
-    /// 안 열린다</b> — 화면에는 아무 표시도 안 나고 브라우저 콘솔에만
-    /// <c>requires a value for the 'CheckedExpression' property</c> 가 남는다.
-    /// <c>NoticeDto.IsActive</c> 와 같은 이유로 낸 창이다.
-    /// </para>
-    /// </summary>
+    /// <summary>편집 폼의 「사용」 스위치가 묶이는 자리. <see cref="Status"/> 의 0/1 을 가린다. 편집 폼 안의 편집기는 <c>@bind-</c> 로 묶어야 한다.
+    /// <c>Checked</c> 와 <c>CheckedChanged</c> 를 따로 주면 검증 식이 없어 팝업이 말없이 안 열린다</summary>
     public bool IsActive
     {
         get => Status == 1;
@@ -1775,12 +1385,8 @@ public sealed class SaveCommonCodeDto
 
 // ── 게이트웨이 상태 ─────────────────────────────────────────
 
-/// <summary>
-/// <c>gateway/status</c> 응답.
-///
-/// **봉투에 <c>result</c> 한 겹이 없다** — <c>data</c> 가 곧 이 객체다.
-/// 그래서 <c>GetFlexibleAsync</c> 로 읽는다.
-/// </summary>
+/// <summary><c>gateway/status</c> 응답. **봉투에 <c>result</c> 한 겹이 없다** — <c>data</c> 가 곧 이 객체다. 그래서
+/// <c>GetFlexibleAsync</c> 로 읽는다.</summary>
 public sealed class GatewayStatusDto
 {
     public ServiceHealth? Gateway { get; set; }
@@ -1832,15 +1438,11 @@ public sealed class ServiceDependency
 
 
 // ── 역할 범위 (회사 · 부서 · 사람) ──────────────────────────
-//
 // 역할은 **세 단계에 걸 수 있고 합쳐서 적용된다.** 덮어쓰지 않는다.
-//
 //     회사에 걸면   그 회사 모든 사람에게
 //     부서에 걸면   그 부서 사람에게
 //     사람에 걸면   그 사람에게만
-//
-// 그래서 「사람에서 뺐는데 왜 아직 있지」가 생긴다 — 부서나 회사에서 온
-// 것이기 때문이다. 화면이 **어디서 왔는지**를 함께 보여 줘야 하는 이유다.
+// 그래서 「사람에서 뺐는데 왜 아직 있지」가 생긴다 — 부서나 회사에서 온 것이기 때문이다. 화면이 **어디서 왔는지**를 함께 보여 줘야 하는 이유다.
 
 /// <summary>역할을 걸 수 있는 대상 한 칸. 회사·부서·사람이 같은 모양이다.</summary>
 public sealed class RoleScopeNodeDto
@@ -1854,7 +1456,7 @@ public sealed class RoleScopeNodeDto
     /// <summary><c>company</c> · <c>department</c> · <c>account</c>.</summary>
     public string Kind { get; set; } = string.Empty;
 
-    /// <summary>이 대상에 <b>직접</b> 걸린 역할. 물려받은 것은 없다.</summary>
+    /// <summary>이 대상에 직접 걸린 역할. 물려받은 것은 없다.</summary>
     public List<string> RoleIds { get; set; } = [];
 
     public List<RoleScopeNodeDto> Children { get; set; } = [];
@@ -1869,7 +1471,6 @@ public sealed class RoleScopeTreeDto
     public RoleScopeNodeDto Company { get; set; } = new();
 }
 
-/// <summary>어떤 계정에 실제로 적용되는 역할과, 각 역할이 어느 단계에서 왔는지.</summary>
 public sealed class EffectiveRolesDto
 {
     public List<string> RoleIds { get; set; } = [];
@@ -1877,11 +1478,8 @@ public sealed class EffectiveRolesDto
     /// <summary><see cref="RoleIds"/> 와 같은 순서의 표시 이름.</summary>
     public List<string> RoleNames { get; set; } = [];
 
-    /// <summary>
-    /// 역할 식별자 → 그 역할이 온 단계들(<c>company</c> · <c>department</c> · <c>account</c>).
-    ///
-    /// 한 역할이 여러 단계에 걸려 있을 수 있어 목록이다.
-    /// </summary>
+    /// <summary>역할 식별자 → 그 역할이 온 단계들(<c>company</c> · <c>department</c> · <c>account</c>). 한 역할이 여러 단계에 걸려 있을 수 있어
+    /// 목록이다.</summary>
     public Dictionary<string, List<string>> Sources { get; set; } = [];
 }
 
@@ -1922,10 +1520,7 @@ public sealed class AccountPickDto
     public string? DepartmentId { get; set; }
     public string? DepartmentName { get; set; }
 
-    /// <summary>
-    /// 프로필 사진 주소. <b>없는 쪽이 정상이다</b> — 화면은 이름 첫 글자로
-    /// 대신 그리고, 사진이 없는 것을 오류처럼 보이게 하지 않는다.
-    /// </summary>
+    /// <summary>프로필 사진 주소. 없는 쪽이 정상이다 — 화면은 이름 첫 글자로 대신 그리고, 사진이 없는 것을 오류처럼 보이게 하지 않는다.</summary>
     public string? Avatar { get; set; }
 
     /// <summary>검색에 쓰는 한 줄. 아이디·부서·회사 어느 것으로 쳐도 걸린다.</summary>
@@ -1944,10 +1539,8 @@ public sealed class RoleAssignRequest
 
 
 // ── AI 제공자 상태 ─────────────────────────────────────────
-//
-// AI 는 다른 서비스와 성격이 다르다. 컨테이너가 떠 있어도 **제공자 키가
-// 없거나 하루 한도를 다 썼으면** 대화가 안 되는데, 그것은 헬스체크로 잡히지
-// 않는다. 그래서 서버 상태 화면이 이 값을 따로 본다.
+// AI 는 다른 서비스와 성격이 다르다. 컨테이너가 떠 있어도 **제공자 키가 없거나 하루 한도를 다 썼으면** 대화가 안 되는데, 그것은 헬스체크로 잡히지 않는다. 그래서 서버
+// 상태 화면이 이 값을 따로 본다.
 
 /// <summary><c>ai/providers</c> 응답.</summary>
 public sealed class AiProviderStatusDto
@@ -1967,19 +1560,8 @@ public sealed class AiProviderStatusDto
     public List<AiProviderDto> Providers { get; set; } = [];
 }
 
-/// <summary>
-/// 제공자 하나를 실제로 눌러 본 결과 (<c>ai/health/deep</c> 응답).
-///
-/// <para>
-/// 헬스체크와 다른 것을 본다. 헬스체크는 <b>서비스</b>가 사는지 보고, 이것은
-/// <b>그 제공자로 정말 답이 나오는지</b> 본다 — 가장 짧은 질문을 하나 던진다.
-/// 자동 전환을 끄고 부르므로 다른 제공자가 대신 답해 '정상' 으로 보이는 일이 없다.
-/// </para>
-/// <para>
-/// <b>실패도 200 으로 온다.</b> 「점검이 실패했다」는 것 자체가 정상적인 응답이고,
-/// 화면은 그 이유를 읽어 보여 주어야 한다.
-/// </para>
-/// </summary>
+/// <summary>헬스체크와 다른 것을 본다. 헬스체크는 서비스가 사는지 보고, 이것은 그 제공자로 정말 답이 나오는지 본다 — 가장 짧은 질문을 하나 던진다. 자동 전환을 끄고 부르므로 다른
+/// 제공자가 대신 답해 '정상' 으로 보이는 일이 없다. 실패도 200 으로 온다. 「점검이 실패했다」는 것 자체가 정상적인 응답이고, 화면은 그 이유를 읽어 보여 주어야 한다.</summary>
 public sealed class AiDeepCheckDto
 {
     public bool Ok { get; set; }
@@ -1992,10 +1574,10 @@ public sealed class AiDeepCheckDto
 
     public int LatencyMs { get; set; }
 
-    /// <summary>답이 실제로 생성됐는가. 연결은 됐는데 빈 답이 오는 경우가 있다.</summary>
+    /// <summary>연결은 됐는데 빈 답이 오는 경우가 있다.</summary>
     public bool Generated { get; set; }
 
-    /// <summary>한도 초과인가. <b>고장이 아니다</b> — 화면이 다른 색으로 보여 준다.</summary>
+    /// <summary>한도 초과인가. 고장이 아니다 — 화면이 다른 색으로 보여 준다.</summary>
     public bool RateLimited { get; set; }
 
     public string? Message { get; set; }
@@ -2024,10 +1606,7 @@ public sealed class AiProviderDto
     /// <summary>지금 쓰는 모델.</summary>
     public string? Model { get; set; }
 
-    /// <summary>
-    /// 키가 설정돼 있는가. <b>거짓이면 그 제공자로는 아무것도 못 부른다</b> —
-    /// 컨테이너가 떠 있어도 그렇다.
-    /// </summary>
+    /// <summary>키가 설정돼 있는가. 거짓이면 그 제공자로는 아무것도 못 부른다 — 컨테이너가 떠 있어도 그렇다.</summary>
     public bool Configured { get; set; }
 
     public bool IsDefault { get; set; }
@@ -2045,21 +1624,11 @@ public sealed class AiProviderDto
 }
 
 // ── 메시지 발송 ─────────────────────────────────────────────
-//
-// 이름과 칸은 NotificationServer 의 `SendPushDto`·`SendEmailDto` 와 맞춘 것이다.
-// **어긋나도 예외가 안 난다** — 서버가 못 읽은 칸을 기본값으로 두고 지나가므로,
-// 증상이 「보냈다는데 제목이 비어 있다」로만 보인다.
+// 이름과 칸은 NotificationServer 의 `SendPushDto`·`SendEmailDto` 와 맞춘 것이다. **어긋나도 예외가 안 난다** — 서버가 못 읽은 칸을
+// 기본값으로 두고 지나가므로, 증상이 「보냈다는데 제목이 비어 있다」로만 보인다.
 
-/// <summary>
-/// 알림을 받을 주인 하나.
-///
-/// <para>
-/// <c>OwnerType</c> 은 <b>어느 시스템의 사람인가</b>다 — 포털 계정은
-/// <c>jsini</c>, 헬프데스크는 <c>helpdesk</c>. 이 화면이 보내는 것은 포털
-/// 계정이므로 늘 <c>jsini</c> 이고, <c>OwnerKey</c> 는 <b>로그인 아이디</b>다
-/// (사람의 내부 번호가 아니다 — 구독이 그 값으로 붙어 있다).
-/// </para>
-/// </summary>
+/// <summary>알림을 받을 주인 하나. <c>OwnerType</c> 은 어느 시스템의 사람인가다 — 포털 계정은 <c>jsini</c>, 헬프데스크는 <c>helpdesk</c>. 이 화면이
+/// 보내는 것은 포털 계정이므로 늘 <c>jsini</c> 이고, <c>OwnerKey</c> 는 로그인 아이디다 (사람의 내부 번호가 아니다 — 구독이 그 값으로 붙어 있다).</summary>
 public sealed class PushOwnerDto
 {
     public string OwnerType { get; set; } = "jsini";
@@ -2078,38 +1647,21 @@ public sealed class PushMessageDto
     /// <summary>아이콘 주소. 비우면 브라우저가 기본 아이콘을 쓴다.</summary>
     public string? Icon { get; set; }
 
-    /// <summary>
-    /// 같은 태그의 알림은 브라우저가 <b>하나로 합친다</b>. 같은 건의 갱신을
-    /// 연달아 보낼 때 쓰고, 비워 두면 올 때마다 새 알림으로 쌓인다.
-    /// </summary>
+    /// <summary>같은 태그의 알림은 브라우저가 하나로 합친다. 같은 건의 갱신을 연달아 보낼 때 쓰고, 비워 두면 올 때마다 새 알림으로 쌓인다.</summary>
     public string? Tag { get; set; }
 
-    /// <summary>
-    /// <b>알림구분</b>. 공통코드 <c>NOTI_CATEGORY</c> 에서 고른 코드값이고,
-    /// 서버가 발송 기록에 함께 보관한다.
-    /// </summary>
-    /// <remarks>
-    /// <b>알림창에는 안 뜬다</b> — 받는 사람이 보는 것은 제목·본문·아이콘이다.
-    /// 이 값은 나중에 「내 알림함」과 「발송 이력」이 갈래로 거를 때 쓴다.
-    /// </remarks>
+    /// <summary>알림구분. 공통코드 <c>NOTI_CATEGORY</c> 에서 고른 코드값이고, 서버가 발송 기록에 함께 보관한다.</summary>
     public string? Category { get; set; }
 }
 
-/// <summary>푸시 발송 요청. 대상은 <b>부르는 쪽이 정한다.</b></summary>
+/// <summary>푸시 발송 요청. 대상은 부르는 쪽이 정한다.</summary>
 public sealed class PushSendRequest
 {
     public List<PushOwnerDto> Owners { get; set; } = [];
     public PushMessageDto Message { get; set; } = new();
 }
 
-/// <summary>
-/// 이메일 발송 요청.
-///
-/// <para>
-/// <b>받는 사람은 쉼표로 잇는다</b> — 옛 스크립트 규약이 그래서 서버가 그
-/// 모양을 기대한다.
-/// </para>
-/// </summary>
+/// <summary>이메일 발송 요청. 받는 사람은 쉼표로 잇는다</summary>
 public sealed class EmailSendRequest
 {
     public string To { get; set; } = string.Empty;
@@ -2124,12 +1676,6 @@ public sealed class EmailSendRequest
 }
 
 /// <summary>메일에 붙일 파일 한 개.</summary>
-/// <remarks>
-/// <b>바이트를 그대로 싣는다</b>(base64). 파일 서버에 올려 두고 아이디만
-/// 넘기지 않는 이유는 서버 쪽 같은 이름의 DTO 머리말에 있다 — 요약하면
-/// 메일 첨부는 보내고 나면 쓸 일이 없는데 그 길로 가면 아무도 지우지 않는
-/// 파일이 보낼 때마다 쌓인다.
-/// </remarks>
 public sealed class EmailAttachmentDto
 {
     public string FileName { get; set; } = string.Empty;
@@ -2145,7 +1691,6 @@ public sealed class PushEngagementDto
     /// <summary>보낸 대상 수</summary>
     public int TotalRecipients { get; set; }
 
-    /// <summary>실제로 기기에 닿은 수</summary>
     public int TotalDelivered { get; set; }
 
     /// <summary>열어 본 수</summary>
@@ -2185,9 +1730,7 @@ public sealed class PushUserStatDto
 }
 
 // ── 패스키 (지문 · 얼굴) ─────────────────────────────────────
-//
-// AuthServer 의 `WebAuthnDto.cs` 와 짝이다. 화면이 읽는 칸만 옮겨 왔다 —
-// 공개 키·서명 횟수는 서버 안에서만 뜻이 있어서 여기 없다.
+// AuthServer 의 `WebAuthnDto.cs` 와 짝이다. 화면이 읽는 칸만 옮겨 왔다 — 공개 키·서명 횟수는 서버 안에서만 뜻이 있어서 여기 없다.
 
 /// <summary>「내 정보 → 보안 설정」의 등록된 기기 한 줄.</summary>
 public sealed class PasskeyDto
@@ -2198,10 +1741,7 @@ public sealed class PasskeyDto
     /// <summary>사람이 붙인 이름 (「아이폰 지문」).</summary>
     public string? Label { get; set; }
 
-    /// <summary>
-    /// <c>platform</c>(기기에 붙박이: 지문·얼굴) ·
-    /// <c>cross-platform</c>(따로 꽂는 보안 열쇠).
-    /// </summary>
+    /// <summary><c>platform</c>(기기에 붙박이: 지문·얼굴) · <c>cross-platform</c>(따로 꽂는 보안 열쇠).</summary>
     public string? Attachment { get; set; }
 
     /// <summary>등록 시각 (UTC).</summary>
@@ -2211,9 +1751,7 @@ public sealed class PasskeyDto
     public DateTime? LastUsedAt { get; set; }
 }
 
-/// <summary>
-/// 붙일 수 있는 소셜 공급자 하나. <b>설정된 것만</b> 서버가 알려 준다.
-/// </summary>
+/// <summary>붙일 수 있는 소셜 공급자 하나. 설정된 것만 서버가 알려 준다.</summary>
 public sealed class SocialProviderDto
 {
     /// <summary>공급자 열쇠 (<c>google</c> · <c>naver</c> · <c>kakao</c>). 시작 주소에 들어간다.</summary>
@@ -2223,14 +1761,7 @@ public sealed class SocialProviderDto
     public string DisplayName { get; set; } = string.Empty;
 }
 
-/// <summary>
-/// 「내 정보 → 보안 설정」의 [연결된 소셜 계정] 한 줄.
-/// </summary>
-/// <remarks>
-/// 패스키 목록(<see cref="PasskeyDto"/>)과 나란히 서는 자리다. 다른 점은
-/// <b>이름을 고칠 수 없다</b>는 것 하나다 — 이름은 공급자가 알려 준 값이라
-/// 우리가 지어 주면 다음에 들어올 때 덮인다.
-/// </remarks>
+/// <summary>「내 정보 → 보안 설정」의 한 줄.</summary>
 public sealed class SocialLinkDto
 {
     /// <summary>줄 식별자. 끊을 때 쓴다.</summary>
@@ -2255,33 +1786,18 @@ public sealed class SocialLinkDto
     public DateTime? LastLoginAt { get; set; }
 }
 
-/// <summary>
-/// 서버가 낸 도전값 한 벌. <b>브라우저에 그대로 넘긴다</b> — 그 안을
-/// C# 이 들여다볼 이유가 없고, 들여다보기 시작하면 규격이 바뀔 때마다
-/// 이 파일도 함께 고쳐야 한다.
-/// </summary>
+/// <summary>서버가 낸 도전값 한 벌. 브라우저에 그대로 넘긴다 — 그 안을 C# 이 들여다볼 이유가 없고, 들여다보기 시작하면 규격이 바뀔 때마다 이 파일도 함께 고쳐야 한다.</summary>
 public sealed class PasskeyOptionsDto
 {
     /// <summary>이 도전값을 다시 찾을 번호. 다음 요청에 그대로 실어 보낸다.</summary>
     public string SessionId { get; set; } = string.Empty;
 
-    /// <summary>
-    /// 브라우저의 <c>navigator.credentials.create()</c> 에 넘길 설정.
-    /// 이진값은 base64url 문자열이고 <c>passkey.js</c> 가 바이트로 되돌린다.
-    /// </summary>
+    /// <summary>브라우저의 <c>navigator.credentials.create()</c> 에 넘길 설정. 이진값은 base64url 문자열이고 <c>passkey.js</c> 가 바이트로
+    /// 되돌린다.</summary>
     public System.Text.Json.JsonElement PublicKey { get; set; }
 }
 
-/// <summary>
-/// 브라우저가 기기에서 받아 온 등록 결과. <c>passkey.js</c> 의
-/// <c>register</c> 가 돌려주는 모양 그대로다.
-/// </summary>
-/// <remarks>
-/// <see cref="Ok"/> 가 거짓이면 나머지는 비어 있고 <see cref="Error"/> 에
-/// <b>사용자에게 그대로 보여 줄 문구</b>가 들어 있다 — 브라우저가 던진
-/// 원문(`NotAllowedError: The operation either timed out…`)이 아니라
-/// 그쪽에서 이미 사람 말로 옮긴 것이다.
-/// </remarks>
+/// <summary>브라우저가 기기에서 받아 온 등록 결과. <c>passkey.js</c> 의 <c>register</c> 가 돌려주는 모양 그대로다.</summary>
 public sealed class PasskeyRegistrationDto
 {
     public bool Ok { get; set; }
@@ -2301,35 +1817,18 @@ public sealed class PasskeyRegistrationDto
 /// <summary>이 브라우저가 패스키를 다룰 수 있는가. <c>passkey.js</c> 의 <c>status</c>.</summary>
 public sealed class PasskeyBrowserDto
 {
-    /// <summary>
-    /// WebAuthn 을 쓸 수 있는가. <b>http 로 열면 거짓이다</b> —
-    /// 보안 문맥이 아니면 API 자체가 없기 때문이다.
-    /// </summary>
+    /// <summary>WebAuthn 을 쓸 수 있는가. http 로 열면 거짓이다 — 보안 문맥이 아니면 API 자체가 없기 때문이다.</summary>
     public bool Supported { get; set; }
 
-    /// <summary>
-    /// 이 기기에 붙박이 인증기(지문·얼굴·Hello)가 있는가.
-    /// 없어도 보안 열쇠로는 등록할 수 있어 <b>막는 근거로 쓰지 않는다.</b>
-    /// </summary>
+    /// <summary>이 기기에 붙박이 인증기(지문·얼굴·Hello)가 있는가. 없어도 보안 열쇠로는 등록할 수 있어 막는 근거로 쓰지 않는다.</summary>
     public bool PlatformAuthenticator { get; set; }
 
-    /// <summary>
-    /// 이 기기가 로그인할 때 <b>무엇을 먼저 묻는가</b> (<see cref="PasskeyPriority"/>).
-    ///
-    /// <para>
-    /// 다른 설정들과 달리 <b>서버에 없는 값</b>이다. 읽어야 하는 곳이 로그인
-    /// 화면인데 거기는 로그인 전이라 서버가 누구인지 모르고, 패스키 자체가
-    /// 기기마다 따로라 계정에 적으면 등록하지 않은 기기까지 따라 한다.
-    /// 그래서 브라우저(localStorage)가 들고 <c>passkey.js</c> 가 읽고 쓴다.
-    /// </para>
-    /// </summary>
+    /// <summary>이 기기가 로그인할 때 무엇을 먼저 묻는가 (<see cref="PasskeyPriority"/>). 다른 설정들과 달리 서버에 없는 값이다. 읽어야 하는 곳이 로그인 화면인데
+    /// 거기는 로그인 전이라 서버가 누구인지 모르고, 패스키 자체가 기기마다 따로라 계정에 적으면 등록하지 않은 기기까지 따라 한다.</summary>
     public string Priority { get; set; } = PasskeyPriority.Password;
 }
 
-/// <summary>
-/// 로그인 방식 우선순위 값. <b>글자가 <c>passkey.js</c> 와의 약속</b>이라
-/// 한쪽만 고치면 설정은 저장되는데 로그인 화면이 못 알아본다.
-/// </summary>
+/// <summary>로그인 방식 우선순위 값. 글자가 <c>passkey.js</c> 와의 약속이라 한쪽만 고치면 설정은 저장되는데 로그인 화면이 못 알아본다.</summary>
 public static class PasskeyPriority
 {
     /// <summary>비밀번호를 먼저 묻는다. 저장된 값이 없으면 이것이다.</summary>
@@ -2340,9 +1839,8 @@ public static class PasskeyPriority
 }
 
 // ── 소셜 로그인 설정 점검 ───────────────────────────────────
-//
-// AuthServer 의 `SocialConfigStatusDto` · `SocialProviderConfigDto` 와 짝이다.
-// **열쇠 값은 오지 않는다** — 있는지 없는지만 온다.
+// AuthServer 의 `SocialConfigStatusDto` · `SocialProviderConfigDto` 와 짝이다. **열쇠 값은 오지 않는다** — 있는지 없는지만
+// 온다.
 
 /// <summary>소셜 로그인 설정이 지금 어떤 상태인가 (<c>auth/social/config-status</c>).</summary>
 public sealed class SocialConfigStatusDto
@@ -2356,7 +1854,7 @@ public sealed class SocialConfigStatusDto
     /// <summary>확인된 이메일로 기존 계정에 자동으로 붙이는가.</summary>
     public bool LinkByVerifiedEmail { get; set; }
 
-    /// <summary>지금 실제로 단추가 서는 공급자 수. <b>0 이면 가입 화면에 소셜 칸이 없다.</b></summary>
+    /// <summary>0 이면 가입 화면에 소셜 칸이 없다.</summary>
     public int UsableCount { get; set; }
 
     /// <summary>지금까지 연결된 소셜 계정 수.</summary>
@@ -2390,49 +1888,29 @@ public sealed class SocialProviderConfigDto
 }
 
 // ============================================================
-// 계정 앱 현황 — 계정 하나의 앱·구독·주고받은 기록.
-//
-// 알림 서비스(NotificationServer)의 `OwnerAppStatusDto` 와 짝이다.
-// 기기(`PushDeviceDto`)와 수신 설정(`NotificationPreferenceDto`)은
-// **여기 다시 적지 않는다** — 그 둘은 이미 `JSini.Web.Models` 에 있고
-// 내 환경설정 화면(`NotificationPanel`)이 쓰는 것과 같은 모양이다.
-// 사본을 하나 더 두면 서버가 칸을 늘렸을 때 한쪽만 따라간다.
+// 계정 앱 현황 — 계정 하나의 앱·구독·주고받은 기록. 알림 서비스(NotificationServer)의 `OwnerAppStatusDto` 와 짝이다.
+// 기기(`PushDeviceDto`)와 수신 설정(`NotificationPreferenceDto`)은 **여기 다시 적지 않는다** — 그 둘은 이미 `JSini.Web.Model
 // ============================================================
 
-/// <summary>
-/// 계정 하나의 앱 관련 현황 한 벌.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <b>계정 관리 목록의 칸 넷과 갈래가 다르다.</b> 그쪽(<see cref="OwnerNotificationStateDto"/>)은
-/// 여러 사람을 훑느라 기기를 수 하나로 줄이지만, 이쪽은 한 사람을 파는 자리라
-/// 기기 목록과 실제로 주고받은 기록까지 들고 온다.
-/// </para>
-/// </remarks>
+/// <summary>계정 하나의 앱 관련 현황 한 벌.</summary>
 public sealed class AccountAppStatusDto
 {
     public string OwnerType { get; set; } = string.Empty;
 
-    /// <summary>주인 식별자 — 포털 계정이면 <b>로그인 아이디</b>다.</summary>
+    /// <summary>주인 식별자 — 포털 계정이면 로그인 아이디다.</summary>
     public string OwnerKey { get; set; } = string.Empty;
 
     /// <summary>집계 기간(일). <see cref="Channels"/> · <see cref="Deliveries"/> 가 이 기간의 것이다.</summary>
     public int Days { get; set; }
 
-    /// <summary>
-    /// 실제 계정인가. 거짓이면 <b>지워졌거나 없는 아이디</b>다 — 구독·기록만
-    /// 남아 있을 수 있어 가려 말한다.
-    /// </summary>
+    /// <summary>실제 계정인가. 거짓이면 지워졌거나 없는 아이디다 — 구독·기록만 남아 있을 수 있어 가려 말한다.</summary>
     public bool AccountFound { get; set; }
 
     public string? UserName { get; set; }
     public string? Email { get; set; }
     public string? DeptName { get; set; }
 
-    /// <summary>
-    /// 서버가 푸시를 보낼 수 있는 상태인가(VAPID 키). <b>거짓이면 이 사람이
-    /// 무엇을 해도 푸시가 안 온다</b> — 기기와 스위치만 봐서는 안 보이는 갈래다.
-    /// </summary>
+    /// <summary>서버가 푸시를 보낼 수 있는 상태인가(VAPID 키). 거짓이면 이 사람이 무엇을 해도 푸시가 안 온다 — 기기와 스위치만 봐서는 안 보이는 갈래다.</summary>
     public bool PushAvailable { get; set; }
 
     /// <summary>수신 설정. <c>Saved</c> 가 거짓이면 한 번도 저장한 적 없는 기본값이다.</summary>
@@ -2450,14 +1928,7 @@ public sealed class AccountAppStatusDto
     public List<AppDeliveryRowDto> Deliveries { get; set; } = [];
 }
 
-/// <summary>
-/// 길 하나 × 방향 하나의 집계.
-/// </summary>
-/// <remarks>
-/// <b>줄 수는 사람·기기 단위다.</b> 한 번 보낸 알림이 기기 두 대로 가면 둘이고,
-/// 메일 한 통을 셋에게 보내면 셋이다 — 「몇 번 보냈나」가 아니라 <b>「몇 군데에
-/// 닿으려 했나」</b>를 센다.
-/// </remarks>
+/// <summary>길 하나 × 방향 하나의 집계.</summary>
 public sealed class AppChannelStatDto
 {
     /// <summary><c>push</c> · <c>email</c>.</summary>
@@ -2470,7 +1941,7 @@ public sealed class AppChannelStatDto
     public int Success { get; set; }
     public int Failure { get; set; }
 
-    /// <summary>읽음이 찍힌 줄. <b>메일은 읽음을 알 길이 없어 늘 0</b> 이다.</summary>
+    /// <summary>읽음이 찍힌 줄. 메일은 읽음을 알 길이 없어 늘 0 이다.</summary>
     public int Read { get; set; }
 
     public DateTime? LastAt { get; set; }
@@ -2502,12 +1973,41 @@ public sealed class AppNoteStatDto
     public int Received { get; set; }
     public int Sent { get; set; }
 
-    /// <summary>받은 것 중 <b>메일로도 전달된</b> 것. 본인이 그 스위치를 켰을 때만 는다.</summary>
+    /// <summary>받은 것 중 메일로도 전달된 것. 본인이 그 스위치를 켰을 때만 는다.</summary>
     public int MailForwarded { get; set; }
 
-    /// <summary>아직 안 읽은 쪽지. <b>기간과 무관한 전체</b>다.</summary>
+    /// <summary>아직 안 읽은 쪽지. 기간과 무관한 전체다.</summary>
     public int UnreadTotal { get; set; }
 
     public DateTime? LastReceivedAt { get; set; }
     public DateTime? LastSentAt { get; set; }
+}
+
+/// <summary>메뉴 자동 채우기 요청. 고를 화면과 아이콘을 목록으로 함께 보낸다.</summary>
+public sealed class MenuSuggestRequestDto
+{
+    public string? Brief { get; set; }
+    public string? Parent { get; set; }
+    public List<MenuSuggestScreenDto> Screens { get; set; } = [];
+    public List<string> Icons { get; set; } = [];
+
+    /// <summary>이미 쓰는 메뉴 코드. AI 가 새 코드를 짓을 때 이것과 겹치지 않게 한다.</summary>
+    public List<string> ExistingNames { get; set; } = [];
+}
+
+public sealed class MenuSuggestScreenDto
+{
+    public string Key { get; set; } = string.Empty;
+    public string Path { get; set; } = string.Empty;
+}
+
+/// <summary>추천 결과. 비어 있는 칸은 <c>null</c>.</summary>
+public sealed class MenuSuggestionDto
+{
+    public string? Name { get; set; }
+    public string? TitleKey { get; set; }
+    public string? TitleKo { get; set; }
+    public string? TitleEn { get; set; }
+    public string? Icon { get; set; }
+    public string? ScreenKey { get; set; }
 }

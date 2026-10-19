@@ -14,11 +14,7 @@ public partial class DeviceList
 
     private sealed record Option(string Code, string Name);
 
-    /// <summary>
-    /// 묶음별로 어느 장비 유형이 쓰는가. 비우면 모든 유형이 쓴다.
-    ///
-    /// <b>배경 이미지는 영정사진 장비도 쓴다</b> — 그래서 media 묶음에 유형이 둘이다.
-    /// </summary>
+    /// <summary>묶음별로 어느 장비 유형이 쓰는가. 비우면 모든 유형이 쓴다. 배경 이미지는 영정사진 장비도 쓰므로 media 묶음에 유형이 둘이다.</summary>
     private static readonly (string Key, string Label, string[] Types)[] SectionDefs =
     [
         ("layout", "화면 배치", []),
@@ -93,27 +89,14 @@ public partial class DeviceList
 
     protected override async Task OnInitializedAsync()
     {
-        // 목록을 읽기 전에 듣기 시작한다. 읽는 사이에 온 방송도 받는다 —
-        // 방송이 목록보다 먼저 오면 그 장비는 다음 방송까지 옛 상태로 남는다.
+        // 목록을 읽기 전에 듣기 시작한다. 읽는 사이 온 방송도 받는다(목록보다 먼저 온 방송은 다음 방송까지 옛 상태로 남는다).
         _statusWatch = Status.Subscribe(OnStatusChanged);
 
         await ReloadAsync();
     }
 
-    /// <summary>
-    /// 장비가 붙거나 떨어졌다.
-    ///
-    /// <para>
-    /// <b>목록을 다시 읽지 않는다.</b> 원본(Vue)은 방송을 받을 때마다 목록을
-    /// 다시 조회했다(0.5초로 묶어서). 정전 복구처럼 한 건물이 동시에 켜지면
-    /// 그 한 번이 수십 장비의 조회가 된다. 바뀐 것은 상태 한 칸뿐이라
-    /// 들고 있는 자료에서 그 칸만 고친다.
-    /// </para>
-    ///
-    /// <para>
-    /// 허브 스레드에서 불린다 — <c>InvokeAsync</c> 로 회로에 넘겨야 한다.
-    /// </para>
-    /// </summary>
+    /// <summary>장비가 붙거나 떨어졌다. 목록을 다시 읽지 않는다. 바뀐 것은 상태 한 칸이라 들고 있는 자료에서 그 칸만 고친다.
+    /// 허브 스레드에서 불린다 — <c>InvokeAsync</c> 로 회로에 넘겨야 한다.</summary>
     private void OnStatusChanged(string deviceCode, string status)
     {
         var device = _devices.FirstOrDefault(d =>
@@ -128,8 +111,7 @@ public partial class DeviceList
 
         if (string.Equals(status, "ONLINE", StringComparison.OrdinalIgnoreCase))
         {
-            // 서버가 주는 최근 연결 시각이 UTC 라 여기도 UTC 로 적는다
-            // (docs/utc-time.md). 섞으면 이 칸만 아홉 시간 어긋난다.
+            // 서버의 최근 연결 시각은 UTC 다. 여기서도 UTC 로 적는다(docs/utc-time.md).
             device.LastSeenAt = AppTime.UtcNow;
         }
 
@@ -141,20 +123,13 @@ public partial class DeviceList
         _selected = null;
         _attribute = null;
 
-        // **이름을 붙여 넘긴다.** 첫 인자가 `companyId` 라, 자리로 넘기면
-        // 건물이 회사 자리에 들어가 조건이 통째로 어긋난다. 실제로 그랬다 —
-        // 건물·층·호실을 골라도 목록이 줄지 않았고, 화면만 보면 알 수 없다.
+        // 이름을 붙여 넘긴다. 첫 인자가 companyId 라 자리로 넘기면 건물이 회사 자리에 들어가 조건이 어긋난다.
         _devices = await Api.GetDevicesAsync(
             buildingId: _buildingId, floorId: _floorId, roomId: _roomId);
         return _devices.Count;
     }, "조건에 맞는 기기가 없습니다.", "기기 목록을 읽지 못했습니다");
 
-    /// <summary>
-    /// 고른 기기의 화면 표시 설정.
-    ///
-    /// 자료 목록은 <b>처음 한 번만</b> 읽는다 — 기기를 바꿀 때마다 다시 읽으면
-    /// 목록을 훑는 동안 같은 세 요청이 계속 나간다.
-    /// </summary>
+    /// <summary>고른 기기의 화면 표시 설정. 자료 목록은 처음 한 번만 읽는다 — 기기를 바꿀 때마다 읽으면 같은 세 요청이 계속 나간다.</summary>
     private Task SelectAsync(Device? device)
     {
         _selected = device;
@@ -182,8 +157,7 @@ public partial class DeviceList
 
             var saved = await Api.GetDeviceAttributeAsync(device.Id);
 
-            // 한 번도 설정하지 않은 기기는 속성 행이 없다. 빈 화면 대신
-            // 기본값을 채운 새 속성을 보여 준다 — 어차피 저장하면 만들어진다.
+            // 한 번도 설정하지 않은 기기는 속성 행이 없다. 기본값을 채운 새 속성을 보여 준다.
             _isNewAttribute = saved is null;
             _attribute = saved ?? Defaults(device.Id);
 
@@ -228,9 +202,7 @@ public partial class DeviceList
     }
 
     // ── 자료를 고르면 켜고, 지우면 끈다 ─────────────────────
-    //
     // 「켬」 스위치와 「무엇을」이 따로 놀면 켜 둔 채 빈 화면이 나온다.
-    // 실제로 옛 화면이 그 짝을 손으로 맞추고 있었다.
 
     private void PickVideo(string? id)
     {
@@ -280,12 +252,7 @@ public partial class DeviceList
         _editing = true;
     }
 
-    /// <summary>
-    /// 기기를 지운다.
-    ///
-    /// 화면 표시 설정·장식·문구가 이 기기에 딸려 있다. 서버가 함께 정리하거나
-    /// 남은 것이 있으면 막는다 — 화면이 미리 지우려 들지 않는다.
-    /// </summary>
+    /// <summary>기기를 지운다. 화면 표시 설정·장식·문구가 딸려 있어 서버가 함께 정리하거나 남은 것이 있으면 막는다.</summary>
     private async Task DeleteAsync(Device device)
     {
         if (await RunAsync(() => Api.DeleteDeviceAsync(device.Id),
@@ -311,20 +278,13 @@ public partial class DeviceList
         $"{code} 플레이어를 다시 시작하도록 보냈습니다.",
         "명령을 보내지 못했습니다");
 
-    /// <summary>
-    /// 플레이어에게 지금 새 판을 확인하라고 시킨다.
-    ///
-    /// 서버는 파일을 나르지 않는다 — 릴리스 조회와 판정을 플레이어가 스스로
-    /// 한다. 새 판이 없으면 아무 일도 일어나지 않으므로 확인 창을 두지 않는다.
-    /// </summary>
+    /// <summary>플레이어에게 새 판을 확인하라고 시킨다. 서버는 파일을 나르지 않고 플레이어가 릴리스 조회와 판정을 스스로 한다.
+    /// 새 판이 없으면 아무 일도 없어 확인 창은 두지 않는다.</summary>
     private Task UpdateNowAsync(string code) => RunAsync(
         () => Api.UpdateDeviceNowAsync(code),
         $"{code} 에 새 판 확인을 보냈습니다. 새 판이 없으면 그대로 둡니다.",
         "명령을 보내지 못했습니다");
 
-    /// <summary>
-    /// 그만 듣는다. <b>빠뜨리면 죽은 회로를 계속 붙들고 있게 된다</b> —
-    /// 연결은 프로세스에 하나뿐이라 구독 목록만 쌓인다.
-    /// </summary>
+    /// <summary>그만 듣는다. 빠뜨리면 죽은 회로가 구독 목록에 쌓인다 — 연결은 프로세스에 하나뿐이다.</summary>
     public void Dispose() => _statusWatch?.Dispose();
 }

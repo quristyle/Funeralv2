@@ -2,57 +2,8 @@
 @attribute [RouteKey("projmng.ai.dashboard")]
 
 @*
-    [AI 작업 현황 — 「빠른 지시」와 「AI 작업」이 처리한 것을 세어 보는 자리]
-
-    설계: docs/ai-task-runner.md
-    API: `projmng/ai-dashboard` (집계) · `ai/providers` (공급자 한도)
-
-    ────────────────────────────────────────────────────────────
-    [세는 단위는 「실행」이다 — 「지시」가 아니다]
-
-    한 지시를 세 번 돌리면 **처리한 일은 셋**이고, 그 셋의 처리시간과 성패가
-    서로 다르다. 지시로 세면 재시도가 통째로 안 보이는데, 이 기능에서 사람이
-    가장 알고 싶어 하는 것 중 하나가 「얼마나 다시 돌리고 있나」다.
-
-    그래서 타일도 차트도 실행을 센다. 「지시 건수」는 따로 한 칸을 준다.
-
-    [기간을 타는 것과 「지금」을 갈라 둔다]
-
-    대기·실행 중·미확인은 **언제로 조회하든 지금 값**이다. 기간에 섞으면
-    지난달로 조회한 화면이 「실행 중 0건」이라고 말하면서 실제로는 지금
-    돌고 있는 일이 생긴다. 화면에서도 띠를 갈라 놓고 「지금」이라고 적는다.
-
-    [차트를 두 축으로 겹치지 않는다]
-
-    일별 건수와 일별 평균 처리시간은 **단위가 다르다.** 한 차트에 축 둘을
-    세우면 두 선이 만나는 자리가 아무 뜻도 없는데 사람은 거기서 뜻을 읽는다.
-    차트를 둘로 나눈다.
-
-    [한도는 두 군데에서 온다 — 한 칸에 뭉개지 않는다]
-
-      작업지시 CLI   claude · agy · copilot 의 `/usage`.
-                     **실행기가 읽어 올린 것**이다(서버는 CLI 를 못 부른다).
-      AI 공급자      포털의 AI 도우미가 쓰는 모델. AIAgentServer 가
-                     응답 헤더에서 주워 둔 값이다 — 따로 물어보면 그 호출이
-                     한도를 깎으므로 지나가는 것을 줍는다.
-
-    둘은 **다른 계정의 다른 한도**다. 그리고 둘 다 「언제 기준의 값인가」를
-    반드시 함께 보여 준다 — 그것을 모르면 숫자를 믿을 수 없다.
-
-    [퍼센트는 「쓴 비율」이다]
-
-    남은 비율이 아니다. CLI 가 그렇게 말하기 때문이고, 뒤집어 적으면 원문과
-    화면이 어긋나는 순간을 아무도 못 잡는다.
-
-    [예상 사용 건수는 예언이 아니다]
-
-    최근 28일의 일평균을 그대로 늘려 잡은 것뿐이다. **근거를 같이 적는다** —
-    안 적으면 화면의 숫자가 예언처럼 읽힌다.
-
-    [색]
-
-    상태색은 예약이다(성공·실패·시간초과·중단). 그 색을 「계열 4」로 다시
-    쓰지 않고, 색만으로 뜻을 지지 않게 글자를 늘 같이 둔다.
+AI 작업 현황. 세는 단위는 「실행」이다(재시도가 보이게). 「지금」 값(대기·실행 중)은 기간과 갈라 둔다.
+한도는 두 곳에서 온다(작업지시 CLI · AI 공급자) — 한 칸에 뭉개지 않고, 둘 다 「언제 기준」을 같이 적는다.
 *@
 
 @inherits DataPage
@@ -79,7 +30,7 @@
     </Actions>
 </CommSch>
 
-@* 「지금」 띠. **기간과 갈라 놓는다** — 머리말 참고. *@
+@* 「지금」 띠. 기간과 갈라 놓는다. *@
 <div class="pm-aidash__now">
     <span class="pm-aidash__now-label">지금</span>
 
@@ -93,8 +44,7 @@
         미확인 @Summary.UnconfirmedNow
     </span>
 
-    @* 실행기가 붙어 있는지. **대기가 쌓였는데 실행기가 죽어 있는 것**이
-       이 기능에서 가장 흔한 고장이고, 화면 어디에도 그 말이 없었다. *@
+    @* 실행기가 붙어 있는지. 대기가 쌓였는데 실행기가 죽어 있는 것이 이 기능에서 가장 흔한 고장이다. *@
     <span class="jsini-badge @(Summary.RunnersAlive > 0 ? "jsini-badge--on" : "jsini-badge--err")">
         실행기 @(Summary.RunnersAlive > 0 ? $"{Summary.RunnersAlive}대 연결됨" : "소식 없음")
     </span>
@@ -105,8 +55,7 @@
     }
 </div>
 
-@* ── 머리 숫자 ──────────────────────────────────────────────
-   숫자 하나로 끝나는 것은 차트로 그리지 않는다. *@
+@* 머리 숫자. 숫자 하나로 끝나는 것은 차트로 그리지 않는다. *@
 <div class="jsini-stats pm-aidash__tiles">
     <div class="jsini-stat">
         <span class="jsini-stat__label">처리 실행</span>
@@ -150,8 +99,7 @@
     </div>
 </div>
 
-@* ── 예상 사용 건수 ─────────────────────────────────────────
-   근거를 같이 적는다 — 안 적으면 예언처럼 읽힌다. *@
+@* 예상 사용 건수. 최근 28일 일평균을 늘린 값이라 근거를 같이 적는다. *@
 <CommCont Title="사용량 전망"
           CssClass="pm-aidash__panel">
     <div class="jsini-stats">
@@ -188,8 +136,7 @@
     </div>
 </CommCont>
 
-@* ── AI 모델 한도 ───────────────────────────────────────────
-   차트가 아니라 계량기다. 값이 하나뿐인 비율은 막대 하나가 가장 정확하다. *@
+@* AI 모델 한도. 값이 하나뿐인 비율은 계량기 막대 하나가 가장 정확하다. *@
 <div class="pm-aidash__row">
     <CommCont Title="작업지시 CLI 한도"
               CssClass="pm-aidash__panel">
@@ -197,9 +144,7 @@
             <DxButton IconCssClass="jsini-icon-refresh" RenderStyle="ButtonRenderStyle.Secondary" Click="@SearchAsync" ToolTip="다시 조회" />
         </Actions>
         <ChildContent>
-            @* **쓰는 CLI 셋을 늘 늘어놓는다.** 올라온 것만 그리면 한 CLI 가
-               조용히 빠진 것과 그 CLI 를 안 쓰는 것이 화면에서 같아 보인다 —
-               실제로 antigravity·copilot 이 그렇게 몇 주를 비어 있었다. *@
+            @* 쓰는 CLI 셋을 늘 늘어놓는다 — 올라온 것만 그리면 안 쓰는 것과 끊긴 것이 같아 보인다. *@
             <div class="pm-aidash__meters">
                 @foreach (var kind in UsageKinds)
                 {
@@ -232,9 +177,7 @@
 
                                 @if (BucketText(usage) is { Length: > 0 } bucket)
                                 {
-                                    @* 「무엇의 한도인가」를 CLI 이름 옆에 붙인다.
-                                       없으면 Gemini 가 바닥난 것과 Claude 가 바닥난 것이
-                                       같은 칸으로 보인다. *@
+                                    @* 무엇의 한도인가를 CLI 이름 옆에 붙인다. 없으면 서로 다른 계정의 한도가 같은 칸으로 보인다. *@
                                     <span class="jsini-badge">@bucket</span>
                                 }
 
@@ -247,16 +190,14 @@
 
                                 @if (AiUsageText.AuthRemain(usage) is { Length: > 0 } auth)
                                 {
-                                    @* 끊기고 나서 아는 것과 끊기기 전에 아는 것의 차이가
-                                       반나절이다. 가까워지면 색으로 앞세운다. *@
+                                    @* 끊기기 전에 알던 값과 끊긴 뒤에 아는 것은 반나절 차이다. 가까워지면 색으로 앞세운다. *@
                                     <span class="jsini-badge @(AiUsageText.AuthExpiring(usage)
                                                                ? "jsini-badge--warn" : string.Empty)">@auth</span>
                                 }
 
                                 @if (NeedsAuth(usage))
                                 {
-                                    @* 「읽지 못함」과 한 덩이로 묶지 않는다 — 고칠 곳이
-                                       파서가 아니라 실행기 장비의 로그인이다. *@
+                                    @* 「읽지 못함」과 한 덩이로 묶지 않는다 — 고칠 곳이 실행기 장비의 로그인이라 다르다. *@
                                     <span class="jsini-badge jsini-badge--err">@AiUsageText.AuthText</span>
                                 }
                                 else if (!usage.Ok)
@@ -290,17 +231,13 @@
 
                                 @if (Why(usage) is { Length: > 0 } note)
                                 {
-                                    @* 읽기에 성공했는데 까닭이 적혀 있는 경우 —
-                                       「무제한」처럼 **숫자가 없는 것이 맞는** 상태다.
-                                       실패와 같은 빨강으로 보이면 안 된다. *@
+                                    @* 읽기는 성공했고 까닭이 적힌 경우(무제한처럼 숫자가 없는 것이 맞는 상태)다. 실패와 같은 빨강으로 보이면 안 된다. *@
                                     <div class="pm-aidash__stamp">@note</div>
                                 }
                             }
                             else if (NeedsAuth(usage))
                             {
-                                @* 할 일이 하나뿐인 고장이다. 까닭보다 **무엇을 해야
-                                   하는지**를 앞세우고, 어느 장비인지를 함께 적는다 —
-                                   실행기가 여럿이면 그것만으로 못 찾는다. *@
+                                @* 할 일이 하나뿐인 고장이라 까닭보다 무엇을 할지를 앞세우고 장비 이름을 함께 적는다. *@
                                 <div class="pm-aidash__auth">
                                     <strong>@AiUsageText.AuthText</strong>
                                     <div>
@@ -320,8 +257,7 @@
 
                             @if (usage.RawText is { Length: > 0 })
                             {
-                                @* 가려낸 숫자가 전부가 아니다. 출력 형식이 바뀌면
-                                   여기를 봐야 무엇이 바뀌었는지 안다. *@
+                                @* 가려낸 숫자가 전부가 아니다. 출력 형식이 바뀌면 여기를 봐야 한다. *@
                                 <details class="pm-aidash__raw">
                                     <summary>원문</summary>
                                     <pre>@usage.RawText</pre>
@@ -392,8 +328,7 @@
                             @{
                                 var p = (AiProviderItem)cell.DataItem;
                             }
-                            @* **언제 기준인지를 반드시 같이 준다.** 없으면 한 번도
-                               부르지 않은 공급자다 — 0 이 아니라 「모름」이다. *@
+                            @* 언제 기준인지를 같이 준다. 없으면 한 번도 안 부른 공급자이므로 0 이 아니라 「모름」이다. *@
                             @(p.Usage?.ObservedAt is { } at ? Ago(at) : "호출 없음")
                         </CellDisplayTemplate>
                     </DxGridDataColumn>
@@ -403,8 +338,7 @@
     </CommCont>
 </div>
 
-@* ── AI 모델 주간 사용량 추이 ─────────────────────────────────
-   빠른지시에 사용하는 AI 모델의 주간 사용량 비율(%) 추이를 시간별·일별·월별로 살펴본다. *@
+@* AI 모델 주간 사용량 추이(시간별·일별·월별). *@
 <div class="pm-aidash__row">
     <CommCont Title="시간별 사용량 추이 (최근 24시간)"
               Hint="주간 사용량 비율(%)"
@@ -503,8 +437,7 @@
     </CommCont>
 </div>
 
-@* ── 추세 ───────────────────────────────────────────────────
-   건수와 처리시간은 단위가 달라 **차트를 나눈다**(머리말). *@
+@* 추세. 건수와 처리시간은 단위가 달라 차트를 나눈다. *@
 <div class="pm-aidash__row">
     <CommCont Title="@($"일별 처리 ({Data.From:yyyy-MM-dd} ~ {Data.To:yyyy-MM-dd})")"
               CssClass="pm-aidash__panel">
@@ -587,8 +520,7 @@
     </CommCont>
 </div>
 
-@* ── 사용 빈도 ──────────────────────────────────────────────
-   「언제 시키나」. 한 계열뿐이라 범례를 두지 않는다 — 제목이 이름을 말한다. *@
+@* 사용 빈도. 한 계열뿐이라 범례를 두지 않는다. *@
 <div class="pm-aidash__row">
     <CommCont Title="시간대별 사용 빈도" CssClass="pm-aidash__panel">
         <DxChart Data="@Data.Hourly" Palette="@SinglePalette" Width="100%" Height="220px" CssClass="pm-aidash__chart">
@@ -631,8 +563,7 @@
     </CommCont>
 </div>
 
-@* ── 무엇별 ─────────────────────────────────────────────────
-   순위를 읽는 자리다. 이름이 길어 표가 막대보다 정확하다. *@
+@* 무엇별 순위. 이름이 길어 막대보다 표가 정확하다. *@
 <div class="pm-aidash__row">
     <CommCont Title="실행기(CLI)별" CssClass="pm-aidash__panel">
         @RankTable(Data.ByRunner, "CLI", KindText)
@@ -647,8 +578,7 @@
     </CommCont>
 </div>
 
-@* ── 최근 실행 ──────────────────────────────────────────────
-   숫자만 있는 대시보드는 「그래서 무슨 일이 있었나」에 답하지 못한다. *@
+@* 최근 실행. 숫자만 있는 대시보드는 「무슨 일이 있었나」에 답하지 못한다. *@
 <CommCont Title="최근 실행" CssClass="pm-aidash__panel">
     <CommGrd TItem="AiDashboardRecent" Data="@Data.Recent" PageSize="10"
  ExportName="AI최근실행"
@@ -687,8 +617,7 @@
 
             <DxGridDataColumn FieldName="@nameof(AiDashboardRecent.TargetNm)" Caption="대상" Width="160" />
             <DxGridDataColumn FieldName="@nameof(AiDashboardRecent.CreId)" Caption="지시자" Width="120" />
-            @* 서버가 주는 시각은 UTC 라 **한국 시각으로 옮긴 칸**을 묶는다
-               (`AiDashboardRecent.StartedAtKst` · `docs/utc-time.md`). *@
+            @* 서버 시각은 UTC 라 한국 시각으로 옮긴 칸을 묶는다(StartedAtKst). *@
             <DxGridDataColumn FieldName="@nameof(AiDashboardRecent.StartedAtKst)" Caption="시작"
                               Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
 
@@ -758,8 +687,7 @@
                         <tr>
                             <td>
                                 @(format is null ? row.Label : format(row.Label))
-                                @* 막대를 글자 아래 얇게 깐다. 순위를 눈으로
-                                   먼저 읽게 하는 것이고, 숫자는 그대로 옆에 있다. *@
+                                @* 막대를 글자 아래 얇게 깐다. 숫자는 그대로 옆에 둔다. *@
                                 <span class="pm-aidash__bar"
                                       style="width: @(Share(row.Runs, rows))%"></span>
                             </td>
@@ -787,9 +715,7 @@
                     <span class="pm-aidash__meter-fill"
                           style="width: @value.ToString("0.#")%; background: @MeterColor(value);"></span>
                 </div>
-                @* 「언제 갱신되나」와 「지금부터 얼마나 남았나」를 함께 적는다 —
-                   절대 시각만 있으면 읽는 사람이 머릿속으로 빼기를 해야 하고,
-                   남은 시간만 있으면 **값이 묵었을 때 그것을 못 알아챈다.** *@
+                @* 갱신 시각과 남은 시간을 함께 적는다 — 남은 시간만 있으면 값이 묵었을 때 알아채지 못한다. *@
                 <div class="pm-aidash__stamp">
                     @if (resetAt is { } at)
                     {

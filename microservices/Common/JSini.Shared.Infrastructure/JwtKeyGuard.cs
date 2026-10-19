@@ -3,35 +3,15 @@ using Microsoft.Extensions.Configuration;
 namespace JSini.Shared.Infrastructure;
 
 /// <summary>
-/// JWT 서명 키를 설정에서 읽고, 쓸 수 없는 값이면 기동을 막는다 (결정 D1-B).
+/// JWT 서명 키를 설정에서 읽고, 쓸 수 없는 값이면 기동을 막는다. 폴백 키를 두지 않는다 — 조용히 알려진 키로 도는 것보다 뜨지 않는 편이 낫다.
+/// 키는 appsettings.Local.json(git 제외)에만 둔다.
 /// </summary>
-/// <remarks>
-/// 예전에는 서비스마다 이런 코드가 있었다.
-///
-/// <code>
-/// var jwtKey = config["Jwt:Key"] ?? "a-very-secret-key-that-is-long-enough-for-security";
-/// </code>
-///
-/// <para>
-/// 키를 저장소에서 빼내도 이 폴백이 남아 있으면 아무 의미가 없다. 설정이 비어 있을 때
-/// <b>조용히 잘 알려진 키로 돌기</b> 때문이다. 그 값을 아는 사람은 관리자 토큰을 직접
-/// 만들 수 있고, 게이트웨이는 그것을 정상으로 판정한다.
-/// </para>
-///
-/// <para>
-/// 그래서 폴백을 없애고 여기서 막는다. <b>조용히 취약하게 도는 것보다 뜨지 않는 편이 낫다.</b>
-/// 키는 <c>appsettings.Local.json</c> (git 제외) 에만 둔다.
-/// </para>
-/// </remarks>
 public static class JwtKeyGuard
 {
     /// <summary>설정에 자리표시자만 있으면 아직 키를 넣지 않은 것이다.</summary>
     public const string Placeholder = "__SET_IN_appsettings.Local.json__";
 
-    /// <summary>
-    /// 예전에 저장소에 평문으로 있던 값들. 커밋 이력에 남아 있으므로
-    /// <b>다시 쓰이면 안 된다.</b> 실수로 되돌려 붙여넣는 것을 여기서 막는다.
-    /// </summary>
+/// <summary>커밋 이력에 남은 옛 평문 키. 다시 쓰이면 안 되므로 여기서 거부한다.</summary>
     private static readonly string[] Retired =
     {
         "a-very-secret-key-that-is-long-enough-for-security",

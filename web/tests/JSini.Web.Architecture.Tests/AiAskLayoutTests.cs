@@ -48,11 +48,7 @@ public sealed class AiAskLayoutTests
         Assert.Contains("overflow-y: auto", scrollRule, StringComparison.Ordinal);
     }
 
-    /// <summary>
-    /// 가로로 눕힌 휴대폰(짧은 가로 화면)에서 목록이 0px 로 눌리지 않아야 한다.
-    /// 쌓인 배치에서는 목록이 <c>min-height</c> 로 제 몫을 먼저 떼어 가고,
-    /// 너비가 되는 화면에서는 좌우로 쪼개 목록이 창 높이를 통째로 받는다.
-    /// </summary>
+    /// <summary>가로로 눕힌 휴대폰에서 목록이 0px 로 눌리지 않아야 한다. 쌓인 배치는 목록의 min-height 가 제 몫을 떼고, 너비가 되는 화면에서만 좌우로 쪼갠다.</summary>
     [Fact]
     public void 짧은_가로화면에서는_목록이_제_몫을_먼저_떼어_가고_판을_좌우로_쪼갠다()
     {

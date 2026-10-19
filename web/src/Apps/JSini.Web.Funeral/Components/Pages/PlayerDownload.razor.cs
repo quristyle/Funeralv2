@@ -8,14 +8,7 @@ public partial class PlayerDownload
 {
     [Inject] private HelpApi Api { get; set; } = default!;
 
-    /// <summary>
-    /// OS 별 카드 한 장.
-    ///
-    /// <para>
-    /// <c>Matches</c> 는 자산 이름(소문자)을 받아 이 카드의 파일인지 답한다.
-    /// <b>배포판과 아키텍처까지 본다</b> — 까닭은 화면 머리말에 있다.
-    /// </para>
-    /// </summary>
+    /// <summary>OS 별 카드 한 장. Matches 는 자산 이름(소문자)을 받아 이 카드의 파일인지 답하며, 배포판과 아키텍처까지 본다.</summary>
     private sealed record Platform(
         string Title,
         string Subtitle,
@@ -23,7 +16,6 @@ public partial class PlayerDownload
         string[] Requirements,
         string[] Steps);
 
-    /// <summary>원본(Vue)의 일곱 카드를 그대로 옮겼다. 순서도 같다.</summary>
     private static readonly Platform[] Platforms =
     [
         new("Windows",
@@ -83,11 +75,7 @@ public partial class PlayerDownload
 
     protected override Task OnInitializedAsync() => ReloadAsync();
 
-    /// <summary>
-    /// 릴리스가 없어도 <b>실패가 아니다.</b> 서버가 까닭을 <c>Warning</c> 으로 주고
-    /// 화면은 카드를 「파일 없음」으로 그린다 — 어느 OS 가 준비돼 있는지는
-    /// 릴리스 전에도 보여 줘야 한다.
-    /// </summary>
+    /// <summary>릴리스가 없어도 실패가 아니다. 서버가 까닭을 Warning 으로 주고 화면은 카드를 「파일 없음」으로 그린다.</summary>
     private Task ReloadAsync() => LoadAsync(async () =>
     {
         _latest = await Api.GetPlayerLatestAsync();

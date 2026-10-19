@@ -1,30 +1,9 @@
 namespace JSini.Web.Models;
 
-// ============================================================
-// 차단 접근기록 — **권한 밖의 화면을 누가 어떤 주소로 열려 했나.**
-//
-// ── 여기 있는 이유 — 쌓는 쪽과 보는 쪽이 다른 프로젝트다 ─────
-//
-// 쌓는 것은 공용(`JSini.Web.Components` 의 `BlockedAccessRecorder`)이다.
-// 막는 자리가 라우터 바로 앞이라 그 자리가 셸이어야 하고, 꺼내 보는 것은
-// 포털관리 모듈의 「차단 접근기록」 화면이다. `MenuUsage.cs` 와 같은 자리,
-// 같은 까닭이다(의존 규칙 4).
-//
-// ── 시각은 UTC 로 온다 ──────────────────────────────────────
-//
-// 한국 시각은 **보여 주기 직전에 한 번만** 만든다(docs/utc-time.md).
-// ============================================================
+// 차단 접근기록. 권한 밖의 화면을 누가 어떤 주소로 열려 했나. 쌓는 것은 라우터 앞의 문(공용)이고 보는 것은 포털관리 화면이라 셸에 둔다(MenuUsage 와 같은 까닭).
+// 시각은 UTC 로 온다. 한국 시각은 보여 주기 직전에 만든다(docs/utc-time.md).
 
-/// <summary>
-/// 왜 막혔나. <b>둘을 가르는 것이 이 표의 요점이다</b> — 할 일이 다르다.
-/// </summary>
-/// <remarks>
-/// <para>
-/// 한 칸에 뭉뚱그리면 「권한을 더 주면 되는 줄」과 「메뉴부터 만들어야 하는
-/// 줄」이 같은 얼굴로 쌓인다. 앞엣것은 권한 화면에서 체크 하나면 끝나고,
-/// 뒤엣것은 <b>코드가 고쳐지기 전에는 아무리 권한을 줘도 안 열린다.</b>
-/// </para>
-/// </remarks>
+/// <summary>막힌 까닭. 둘을 가르는 것이 이 표의 요점이다. 권한을 더 주면 되는 것과 메뉴를 만들어야 하는 것은 할 일이 다르다(후자는 코드가 고쳐지기 전에는 권한을 줘도 안 열린다).</summary>
 public static class BlockedAccessReason
 {
     /// <summary>메뉴는 찾았는데 그 사람에게 열람 권한이 없다.</summary>
@@ -45,13 +24,7 @@ public static class BlockedAccessReason
     };
 }
 
-/// <summary>
-/// 「이 주소를 막았다」고 알릴 때 보내는 것.
-/// </summary>
-/// <remarks>
-/// <b>사람은 담지 않는다.</b> 게이트웨이가 붙여 주는 <c>X-User-Id</c> 로
-/// 서버가 정한다 — 몸체에서 받으면 남의 이름으로 기록을 쌓을 수 있다.
-/// </remarks>
+/// <summary>「이 주소를 막았다」고 알릴 때 보내는 것. 사람은 담지 않는다. 서버가 X-User-Id 로 정한다(몸체에서 받으면 남의 이름으로 쌓을 수 있다).</summary>
 public sealed class BlockedAccessRecordDto
 {
     /// <summary>막힌 주소. <b>사람이 실제로 연 그 값</b>이고, 이것이 없으면 서버가 버린다.</summary>
@@ -72,10 +45,7 @@ public sealed class BlockedAccessRecordDto
     /// <summary>직전에 보던 화면. 「어디서 눌러 들어왔나」다.</summary>
     public string? FromPath { get; set; }
 
-    /// <summary>
-    /// 접속 주소. <b>위조할 수 있는 값이라 보여 주기 전용이다</b>
-    /// (<c>ClientAddress</c> 머리말).
-    /// </summary>
+    /// <summary>접속 주소. 위조할 수 있는 값이라 보여 주기 전용이다(ClientAddress 머리말).</summary>
     public string? ClientIp { get; set; }
 }
 
@@ -124,9 +94,7 @@ public sealed class BlockedAccessDto
         : Href;
 }
 
-/// <summary>
-/// 화면 하나의 기간 차단량. <b>「어떤 화면이 관리 밖인가」에 답하는 표다.</b>
-/// </summary>
+/// <summary>화면 하나의 기간 차단량. 「어떤 화면이 관리 밖인가」에 답하는 표다.</summary>
 public sealed class BlockedAccessByScreenDto
 {
     /// <summary>묶는 열쇠 — 화면의 <c>RouteKey</c>, 없으면 주소.</summary>

@@ -2,18 +2,14 @@ using System.Reflection;
 
 namespace AuthServer;
 
-/// <summary>
-/// 게이트웨이로부터 전달받은 사용자 인증 정보 컨텍스트
-/// </summary>
+/// <summary>게이트웨이로부터 전달받은 사용자 인증 정보 컨텍스트</summary>
 public class UserContext
 {
     public string UserId { get; set; } = string.Empty;
     public string Role { get; set; } = string.Empty;
     public string CompanyId { get; set; } = string.Empty;
 
-    /// <summary>
-    /// Minimal API 매개변수 바인딩 로직
-    /// </summary>
+    /// <summary>Minimal API 매개변수 바인딩 로직</summary>
     public static ValueTask<UserContext?> BindAsync(HttpContext context, ParameterInfo parameter)
     {
         var userId = context.Request.Headers["X-User-Id"].ToString();

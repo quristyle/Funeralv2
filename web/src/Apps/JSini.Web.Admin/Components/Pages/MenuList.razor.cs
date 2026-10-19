@@ -1,9 +1,11 @@
+using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Components;
 using DevExpress.Blazor;
 using JSini.Web.Abstractions;
 using JSini.Web.Components.Data;
 using JSini.Web.Components.Layout;
 using JSini.Web.Admin.Api;
+using JSini.Web.Http;
 using JSini.Web.Components.Menu;
 
 namespace JSini.Web.Admin.Components.Pages;
@@ -36,17 +38,51 @@ public partial class MenuList
     private string _editId = string.Empty;
     private SystemMenuDto _edit = new();
 
-    /// <summary>
-    /// 지금 고치는 것이 <b>바깥 화면을 끼워 넣는 메뉴</b>인가.
-    ///
-    /// <para>
-    /// 이 값이 편집 창의 칸 둘을 가른다 — 「화면」은 감추고 「iframe 주소」를
-    /// 내놓는다. 끼워 넣는 메뉴는 셸의 공용 화면 하나(<c>/embed/…</c>)가 전부
-    /// 받으므로 <b>고를 화면이 없다.</b>
-    /// </para>
-    /// </summary>
+    /// <summary>지금 고치는 메뉴가 바깥 화면을 끼워 넣는 메뉴인가. 이 값이 편집 창의 칸 둘을 가른다 — 「화면」은 감추고 「iframe 주소」를 낸다.</summary>
     private bool IsEmbedded =>
         string.Equals(_edit.Type, "EMBEDDED", StringComparison.OrdinalIgnoreCase);
+
+    // ── 유형별 칸 ───────────────────────────────────────────────
+    // 유형마다 쓰는 칸이 다르다. 쓰지 않는 칸은 지우지 않고 끈다 — 유형을 바꿔 되돌렸을 때 적어 둔 값이 남아야 한다.
+    // 조건은 칸마다 적지 않고 이 목록 한 곳에 둔다 — 유형을 추가할 때 빠뜨리지 않게.
+
+    private string Kind => string.IsNullOrWhiteSpace(_edit.Type) ? "MENU" : _edit.Type.Trim().ToUpperInvariant();
+
+    /// <summary>화면을 고른다. 화면이 있는 메뉴만.</summary>
+    private bool UsesScreen => Kind == "MENU";
+
+    /// <summary>경로는 권한 열쇠다. 버튼·바깥 링크에는 화면이 없어 쓰지 않는다.</summary>
+    private bool UsesPath => Kind is "CATALOG" or "EMBEDDED" or "MENU";
+
+    /// <summary>아이콘은 버튼 말고는 모두 쓴다.</summary>
+    private bool UsesIcon => Kind != "BUTTON";
+
+    /// <summary>바깥 링크는 「바깥 링크」 유형만.</summary>
+    private bool UsesLink => Kind == "LINK";
+
+    /// <summary>iframe 주소는 「내장」 유형만 — 그 주소가 곧 화면이다.</summary>
+    private bool UsesIframe => Kind == "EMBEDDED";
+
+    /// <summary>하위를 숨김은 묶음과 화면에만 뜻이 있다.</summary>
+    private bool UsesChildrenHide => Kind is "CATALOG" or "MENU";
+
+    /// <summary>길잡이는 버튼·바깥 링크에서 뜻이 없다.</summary>
+    private bool UsesBreadcrumb => Kind is not ("BUTTON" or "LINK");
+
+    /// <summary>탭 고정은 화면이 있는 메뉴(화면·내장)에서만.</summary>
+    private bool UsesAffixTab => Kind is "EMBEDDED" or "MENU";
+
+    /// <summary>메뉴에서 숨김·탭·기기 노출은 버튼만 뺀다.</summary>
+    private bool UsesVisibility => Kind != "BUTTON";
+
+    /// <summary>권한 항목은 묶음·버튼에는 없다 — 구 화면과 같다.</summary>
+    private bool UsesPermissions => Kind is not ("BUTTON" or "CATALOG");
+
+    /// <summary>메뉴 코드의 모양. 영문자로 시작하는 영문·숫자 2~40자다.</summary>
+    private static readonly Regex MenuCodeShape = new("^[A-Za-z][A-Za-z0-9]{1,39}$");
+
+    /// <summary>고치기 전의 코드. 바꾸지 않았으면 옛 데이터(한글 등)도 그대로 둔다.</summary>
+    private string _originalName = string.Empty;
 
     private Stats? _stats;
 
@@ -87,16 +123,7 @@ public partial class MenuList
         }
     }
 
-    /// <summary>
-    /// 화면 고르개. <b>지금 이 프로세스에 실려 있는 화면 전부</b>다.
-    ///
-    /// DB 를 보지 않는다 — 라우트가 컴파일 시점에 고정이라 기동 때 한 번 훑어
-    /// 둔 목록을 그대로 쓴다(<c>RouteInventory</c>). 그래서 이 목록에 있는
-    /// 화면은 반드시 열리고, 없는 화면은 고를 수가 없다.
-    ///
-    /// 열쇠와 주소를 함께 보여 준다. 열쇠만 보이면 어디로 가는지 알 수 없고,
-    /// 주소만 보이면 저장되는 값이 무엇인지 알 수 없다.
-    /// </summary>
+    /// <summary>화면 고르개. 지금 이 프로세스에 실린 화면 전부다 — 라우트가 컴파일 때 고정이라 기동 때 훑은 목록을 쓴다(RouteInventory). 열쇠와 주소를 함께 보여 준다.</summary>
     private IReadOnlyList<object> ScreenChoices =>
     [
         .. Routes.Entries.Select(e => (object)new
@@ -118,44 +145,17 @@ public partial class MenuList
 
     protected override Task OnInitializedAsync()
     {
-        // `PermissionView` 와 **똑같이** 묻는다 — 물어보기만 하고 다시 읽지
-        // 않는다. 권한은 셸이 한 번 실어 두고, 여기서 또 읽으면 프리렌더까지
-        // 합쳐 게이트웨이를 두 벌 태운다(커밋 「프리렌더에서는 조회하지 않는다」).
-        //
-        // 프리렌더 때 못 실려 있으면 이 값은 false 가 되지만, 회로가 붙으면
-        // 화면이 다시 만들어지면서 여기도 다시 돈다.
+        // 권한은 셸이 한 번 실어 둔 것을 PermissionView 와 같이 묻기만 한다 — 다시 읽으면 게이트웨이를 두 벌 태운다.
+        // 프리렌더 때 못 실려 있으면 false 이고, 회로가 붙어 화면이 다시 만들어지면 여기도 다시 돈다.
         _canMove = Can(MenuAction.Update);
 
         return ReloadAsync();
     }
 
-    /// <summary>
-    /// 이 화면에서 메뉴를 옮길 수 있는가. 표의 「수정」 단추와 <b>같은 판정</b>이다.
-    ///
-    /// <para>
-    /// <c>PermissionView</c> 를 쓸 수 없는 자리라 직접 묻는다 — 끌어 옮기기는
-    /// 그릴지 말지가 아니라 <c>CommTree</c> 의 파라미터로 켜고 끄는 것이다.
-    /// 경로를 꺼내는 규칙은 그 부품과 한 곳(<c>PermissionPath</c>)을 쓴다.
-    /// </para>
-    /// </summary>
+    /// <summary>이 화면에서 메뉴를 옮길 수 있는가. 표의 「수정」 단추와 같은 판정이다 — PermissionView 를 쓸 수 없어 직접 묻는다.</summary>
     private bool _canMove;
 
-    /// <summary>
-    /// 끌어 옮긴 결과를 저장한다.
-    ///
-    /// <para>
-    /// <b>화면이 배치를 확정해서 보낸다.</b> 형제 하나가 움직이면 그 묶음
-    /// 전체의 순번이 바뀌므로, 옮긴 한 건만 보내면 서버가 나머지를 어떻게
-    /// 밀지 짐작해야 하고 그 짐작이 화면과 어긋난다. 떠난 묶음과 도착한
-    /// 묶음 둘을 0 부터 다시 번호 붙여 한 번에 보낸다.
-    /// </para>
-    ///
-    /// <para>
-    /// 자리 계산은 <b>옮길 줄을 빼낸 뒤의</b> 형제 목록에서 한다. 빼기 전
-    /// 목록에서 세면 같은 묶음 안에서 아래로 옮길 때 한 칸씩 어긋난다 —
-    /// 자기가 차지하고 있던 자리가 목록에 아직 남아 있기 때문이다.
-    /// </para>
-    /// </summary>
+    /// <summary>끌어 옮긴 결과를 저장한다. 화면이 배치를 확정해서 보낸다 — 떠난 묶음과 도착한 묶음을 0 부터 다시 번호 붙여 한 번에 보낸다. 자리 계산은 옮길 줄을 뺀 뒤의 형제 목록에서 한다.</summary>
     private async Task OnDroppedAsync(TreeListItemsDroppedEventArgs e)
     {
         if (e.DroppedItems.FirstOrDefault() is not SystemMenuDto moved)
@@ -173,8 +173,7 @@ public partial class MenuList
             : inside ? target.Id
             : _parent.GetValueOrDefault(target.Id);
 
-        // 자기 자신이나 자기 하위 아래로는 옮길 수 없다. 서버도 막지만
-        // 왕복하기 전에 말해 준다 — 끌어 놓은 손이 아직 그 자리에 있다.
+        // 자기 자신이나 하위 아래로는 옮길 수 없다 — 서버도 막지만 왕복 전에 말해 준다.
         if (newParentId is not null && IsUnder(newParentId, moved.Id))
         {
             Say("자기 자신이나 하위 메뉴 아래로는 옮길 수 없습니다.", NoticeTone.Warning);
@@ -232,10 +231,7 @@ public partial class MenuList
             ? [.. _menus]
             : [.. _flat.FirstOrDefault(m => m.Id == parentId)?.Children ?? []];
 
-    /// <summary>
-    /// <paramref name="id"/> 가 <paramref name="ancestorId"/> 자신이거나 그 하위인가.
-    /// 자료가 이미 순환이면 돌지 않도록 걸음 수를 센다.
-    /// </summary>
+    /// <summary>id 가 ancestorId 자신이거나 그 하위인가. 자료가 순환이면 돌지 않게 걸음 수를 센다.</summary>
     private bool IsUnder(string? id, string ancestorId)
     {
         var hops = 0;
@@ -265,27 +261,7 @@ public partial class MenuList
         return _flat.Count;
     }, "등록된 메뉴가 없습니다.", "메뉴 목록을 읽지 못했습니다");
 
-    /// <summary>
-    /// 아이콘 고르개에 줄 목록 — <b>이미 메뉴가 쓰고 있는 아이콘</b>.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 새 엔드포인트를 만들지 않는다. 이 화면은 조회할 때 이미 메뉴 전체를
-    /// 받아 두므로(<c>_flat</c>) 거기서 뽑으면 된다.
-    /// </para>
-    ///
-    /// <para>
-    /// <b>그 목록이 곧 그림이 있는 아이콘들이다.</b> <c>menu-icons.css</c> 를
-    /// 만드는 <c>scripts/build-menu-icons.py</c> 가 <b>DB 에 실제로 쓰이는
-    /// 이름으로</b> 만들기 때문이다. 그래서 고른 것은 반드시 그림이 나온다.
-    /// </para>
-    ///
-    /// <para>
-    /// 목록을 코드에 적어 두지 않는 이유는 <c>MenuIcons</c> 머리말과 같다 —
-    /// 적으면 CSS 를 다시 만들 때 두 곳을 맞춰야 하고, 어긋나면 아이콘이
-    /// 사라지는 쪽으로 틀린다.
-    /// </para>
-    /// </remarks>
+    /// <summary>아이콘 고르개에 줄 목록 — 이미 메뉴가 쓰고 있는 아이콘. 그림이 있는 이름만 나온다(menu-icons.css 를 만드는 스크립트가 DB 의 실제 이름으로 만든다).</summary>
     private IReadOnlyCollection<string> IconChoices =>
         [.. _flat
             .Select(m => m.Meta.Icon)
@@ -325,12 +301,7 @@ public partial class MenuList
             _flat.Count(m => m.Status != 1));
     }
 
-    /// <summary>
-    /// 사람이 읽는 제목.
-    ///
-    /// 서버가 다국어 표에서 찾아 <c>TitleText</c> 에 넣어 준다. 못 찾으면
-    /// <c>Title</c> 이 이미 글자라는 뜻이고, 그것도 비면 이름으로 떨어진다.
-    /// </summary>
+    /// <summary>사람이 읽는 제목. 서버가 다국어 표에서 찾아 TitleText 에 넣고, 못 찾으면 Title 이 글자다.</summary>
     private static string Title(SystemMenuDto m) =>
         !string.IsNullOrWhiteSpace(m.Meta.TitleText) ? m.Meta.TitleText!
         : !string.IsNullOrWhiteSpace(m.Meta.Title) ? m.Meta.Title!
@@ -374,24 +345,46 @@ public partial class MenuList
         return on.Count == 7 ? "전부" : string.Join("·", on);
     }
 
-    private void StartNew()
+    /// <summary>하위 메뉴로 등록할 때의 상위 메뉴 줄. 등록 창 머리에 적는다.</summary>
+    private string? _parentTrail;
+
+    private string EditHeader =>
+        !_isNew ? "메뉴 수정" : _parentTrail is null ? "메뉴 등록" : $"하위 메뉴 등록 · {_parentTrail}";
+
+    private Task StartNew()
     {
         _isNew = true;
         _editId = string.Empty;
         _edit = new SystemMenuDto { Type = "MENU", Status = 1 };
+        _parentTrail = null;
+        ResetTitleTexts();
+        _brief = string.Empty;
         _editing = true;
+        return Task.CompletedTask;
     }
 
-    /// <summary>
-    /// 편집 창에 **복사본**을 띄운다.
-    ///
-    /// 원본을 그대로 묶으면 저장을 취소해도 표에는 이미 바뀐 값이 남는다 —
-    /// 화면과 서버가 어긋난 채로 보이고, 새로 고치기 전에는 알 수 없다.
-    /// </summary>
-    private void StartEdit(SystemMenuDto m)
+    /// <summary>관리 칸의 「하위 메뉴 추가」. 상위 메뉴를 그 줄로 정해 두고 등록 창을 연다.</summary>
+    private Task StartChild(SystemMenuDto parent)
+    {
+        // 버튼 밑에는 메뉴를 달 수 없다. 고르개에서도 빠지므로 여기서 막는다.
+        if (string.Equals(parent.Type, "BUTTON", StringComparison.OrdinalIgnoreCase))
+        {
+            Say("버튼 밑에는 메뉴를 달 수 없습니다.", NoticeTone.Warning);
+            return Task.CompletedTask;
+        }
+
+        StartNew();
+        _edit.Pid = parent.Id;
+        _parentTrail = Trail(parent.Id);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>편집 창에 복사본을 띄운다 — 원본을 묶으면 저장을 취소해도 표에 바뀐 값이 남는다.</summary>
+    private async Task StartEdit(SystemMenuDto m)
     {
         _isNew = false;
         _editId = m.Id;
+        _originalName = m.Name;
         _edit = new SystemMenuDto
         {
             Id = m.Id,
@@ -432,34 +425,276 @@ public partial class MenuList
                 UseExcel = m.Permissions.UseExcel,
             },
         };
+
+        _brief = string.Empty;
         _editing = true;
+
+        // 제목의 번역은 따로 읽는다 — 메뉴 목록에는 저장된 키와 옮긴 글자만 있다.
+        ResetTitleTexts();
+        await EnsureI18nAsync();
+        RefreshTitleTexts();
+    }
+
+    // ── 제목의 다국어 ──────────────────────────────────────────
+    // 제목은 번역 키다 — 서버가 scom.i18n_resources 에서 글자를 붙이고, 이 창에서 한국어·영어 값을 짝으로 고친다. 키가 없는 옛 제목은 번역 칸이 비어 있다.
+
+    /// <summary>번역 표 전체를 한 번 읽어 둔 것. 창을 열 때 채우고, 저장하면 비운다.</summary>
+    private IReadOnlyList<I18nResourceDto>? _i18n;
+
+    private string _titleKo = string.Empty;
+    private string _titleEn = string.Empty;
+
+    private async Task EnsureI18nAsync()
+    {
+        _i18n ??= await Api.GetAllI18nAsync();
+    }
+
+    private void ResetTitleTexts()
+    {
+        _titleKo = string.Empty;
+        _titleEn = string.Empty;
+    }
+
+    /// <summary>현재 제목 키의 한국어·영어 값을 표에서 찾아 칸에 넣는다. 표에 없으면 칸은 그대로다.</summary>
+    private void RefreshTitleTexts()
+    {
+        var key = _edit.Meta.Title?.Trim();
+        if (string.IsNullOrEmpty(key) || _i18n is null)
+        {
+            return;
+        }
+
+        if (_i18n.FirstOrDefault(r => r.Key == key && r.Locale == "ko") is { } ko)
+        {
+            _titleKo = ko.Value;
+        }
+
+        if (_i18n.FirstOrDefault(r => r.Key == key && r.Locale == "en") is { } en)
+        {
+            _titleEn = en.Value;
+        }
+    }
+
+    /// <summary>제목 키 칸을 떠나면 그 키의 번역을 읽어 온다.</summary>
+    private async Task OnTitleKeyChangedAsync()
+    {
+        await EnsureI18nAsync();
+        RefreshTitleTexts();
+    }
+
+    /// <summary>AI 가 고른 영문 이름을 키로 바꿔 넣는다(예: 「Menu Management」 → <c>menu-management</c>).</summary>
+    private async Task PickTitleKeyAsync(string english)
+    {
+        var text = english.Trim();
+        var key = Regex.Replace(text.ToLowerInvariant(), "[^a-z0-9]+", "-").Trim('-');
+        if (key.Length == 0)
+        {
+            return;
+        }
+
+        _edit.Meta.Title = key;
+        if (string.IsNullOrWhiteSpace(_titleEn))
+        {
+            _titleEn = text;
+        }
+
+        await OnTitleKeyChangedAsync();
+    }
+
+    /// <summary>제목 번역을 표에 맞춘다. 있으면 고치고 없으면 만든다. 빈 칸은 건드리지 않는다 — 빈 값으로 지우면 옮긴 글자가 사라진다.</summary>
+    private async Task<bool> SaveTitleTextsAsync()
+    {
+        var key = _edit.Meta.Title?.Trim();
+        var ko = _titleKo.Trim();
+        var en = _titleEn.Trim();
+
+        if (ko.Length == 0 && en.Length == 0)
+        {
+            return true;
+        }
+
+        if (string.IsNullOrEmpty(key))
+        {
+            Say("번역을 적으려면 제목 키를 먼저 넣어 주세요.", NoticeTone.Warning);
+            return false;
+        }
+
+        await EnsureI18nAsync();
+        var rows = _i18n ?? [];
+
+        try
+        {
+            foreach (var (locale, value) in new[] { ("ko", ko), ("en", en) })
+            {
+                if (value.Length == 0)
+                {
+                    continue;
+                }
+
+                var row = rows.FirstOrDefault(r => r.Key == key && r.Locale == locale);
+                if (row is null)
+                {
+                    await Api.CreateI18nAsync(new I18nResourceDto { Key = key, Locale = locale, Value = value, Category = "menu" });
+                }
+                else if (row.Value != value)
+                {
+                    await Api.UpdateI18nAsync(row.Id, new I18nResourceDto { Key = key, Locale = locale, Value = value, Category = row.Category ?? "menu" });
+                }
+            }
+        }
+        catch (ApiException ex)
+        {
+            Say(ex.Message, NoticeTone.Warning);
+            return false;
+        }
+        finally
+        {
+            // 저장한 뒤에는 다시 읽는다 — 다음 창이 옛 표를 보지 않도록.
+            _i18n = null;
+        }
+
+        return true;
+    }
+
+    // ── AI 로 채우기 ───────────────────────────────────────────
+
+    /// <summary>「무엇을 하는 메뉴인가」 한 줄. 비우면 한국어 제목을 설명으로 쓴다.</summary>
+    private string _brief = string.Empty;
+
+    private bool _autoFilling;
+
+    private async Task AutoFillAsync()
+    {
+        var brief = string.IsNullOrWhiteSpace(_brief) ? _titleKo.Trim() : _brief.Trim();
+        if (string.IsNullOrWhiteSpace(brief))
+        {
+            Say("무엇을 하는 메뉴인지 한두 줄 적어 주세요.", NoticeTone.Warning);
+            return;
+        }
+
+        _autoFilling = true;
+        try
+        {
+            var result = await Api.SuggestMenuAsync(new MenuSuggestRequestDto
+            {
+                Brief = brief,
+                Parent = _parentTrail ?? (_edit.Pid is null ? null : Trail(_edit.Pid)),
+                Screens = [.. Routes.Entries.Select(e => new MenuSuggestScreenDto { Key = e.Key, Path = e.Path })],
+                Icons = [.. IconChoices],
+                ExistingNames = [.. _flat.Select(m => m.Name)],
+            });
+
+            if (result is null)
+            {
+                Say("추천을 받지 못했습니다. 다시 눌러 보세요.", NoticeTone.Warning);
+                return;
+            }
+
+            await ApplySuggestionAsync(result);
+        }
+        catch (ApiException ex)
+        {
+            // 대개 「키가 없다」·「하루 한도를 다 썼다」다. 서버가 준 말을 그대로 보인다.
+            Say(ex.Message, NoticeTone.Warning);
+        }
+        catch (Exception)
+        {
+            Say("추천을 받지 못했습니다. 다시 눌러 보세요.", NoticeTone.Warning);
+        }
+        finally
+        {
+            _autoFilling = false;
+        }
+    }
+
+    /// <summary>추천을 칸에 넣는다. 비어 있는 칸만 채운다 — 사람이 고른 값을 AI 가 덮어쓰면 안 된다.</summary>
+    private async Task ApplySuggestionAsync(MenuSuggestionDto s)
+    {
+        if (string.IsNullOrWhiteSpace(_edit.Name) && !string.IsNullOrWhiteSpace(s.Name) && MenuCodeShape.IsMatch(s.Name))
+        {
+            _edit.Name = s.Name;
+        }
+
+        if (string.IsNullOrWhiteSpace(_edit.Meta.Title) && !string.IsNullOrWhiteSpace(s.TitleKey))
+        {
+            _edit.Meta.Title = s.TitleKey;
+        }
+
+        if (!string.IsNullOrWhiteSpace(_edit.Meta.Title))
+        {
+            // 키가 표에 이미 있으면 그 값이 정본이다. 없으면 추천한 번역을 넣는다.
+            await OnTitleKeyChangedAsync();
+            if (string.IsNullOrWhiteSpace(_titleKo) && !string.IsNullOrWhiteSpace(s.TitleKo))
+            {
+                _titleKo = s.TitleKo;
+            }
+
+            if (string.IsNullOrWhiteSpace(_titleEn) && !string.IsNullOrWhiteSpace(s.TitleEn))
+            {
+                _titleEn = s.TitleEn;
+            }
+        }
+
+        if (UsesScreen && string.IsNullOrWhiteSpace(_edit.RouteKey) && !string.IsNullOrWhiteSpace(s.ScreenKey))
+        {
+            _edit.RouteKey = s.ScreenKey;
+
+            // 화면의 주소를 권한 열쇠로 쓴다 — 비어 있을 때만.
+            var route = Routes.Entries.FirstOrDefault(e => e.Key == s.ScreenKey);
+            if (route is not null && UsesPath && string.IsNullOrWhiteSpace(_edit.Path))
+            {
+                _edit.Path = route.Path;
+            }
+        }
+
+        if (UsesIcon && string.IsNullOrWhiteSpace(_edit.Meta.Icon) && !string.IsNullOrWhiteSpace(s.Icon))
+        {
+            _edit.Meta.Icon = s.Icon;
+        }
     }
 
     private async Task SaveAsync()
     {
-        if (string.IsNullOrWhiteSpace(_edit.Name) || string.IsNullOrWhiteSpace(_edit.Path))
+        if (string.IsNullOrWhiteSpace(_edit.Name))
         {
-            Say("메뉴 이름과 경로는 반드시 넣어야 합니다.", NoticeTone.Warning);
+            Say("메뉴 코드를 넣어야 합니다.", NoticeTone.Warning);
+            return;
+        }
+
+        // 새 코드거나 고쳤을 때만 모양을 본다. 옛 한글 코드를 열어 다른 칸만 고칠 때는 막지 않는다.
+        var codeChanged = _isNew || !string.Equals(_edit.Name, _originalName, StringComparison.Ordinal);
+        if (codeChanged && !MenuCodeShape.IsMatch(_edit.Name.Trim()))
+        {
+            Say("메뉴 코드는 영문자로 시작하는 영문·숫자 2~40자여야 합니다. 예: PushHistory", NoticeTone.Warning);
+            return;
+        }
+
+        if (UsesPath && string.IsNullOrWhiteSpace(_edit.Path))
+        {
+            Say("이 유형은 경로를 넣어야 합니다.", NoticeTone.Warning);
             return;
         }
 
         if (IsEmbedded && string.IsNullOrWhiteSpace(_edit.Meta.IframeSrc))
         {
-            // 끼워 넣는 메뉴에서 이 칸은 **곧 화면이다.** 비워 두고 저장하면
-            // 메뉴는 생기는데 눌러도 빈 안내만 뜬다 — 그 상태를 만들어 두느니
-            // 여기서 막는 편이 낫다.
+            // 끼워 넣는 메뉴는 화면이 곧 열쇠다 — 비워 두고 저장하면 눌러도 빈 안내만 뜨므로 여기서 막는다.
             Say("끼워 넣는 메뉴에는 iframe 주소가 있어야 합니다.", NoticeTone.Warning);
             return;
         }
 
-        // 이름·경로가 겹치는지 먼저 묻는다. 저장할 때 서버도 검사하지만,
-        // 여기서 걸러야 사용자가 폼을 다 채운 뒤에 거절당하지 않는다.
+        // 이름·경로가 겹치는지 먼저 묻는다 — 저장 때 서버도 검사하지만 폼을 다 채운 뒤 거절당하지 않게. 경로 겹침은 쓰는 유형에서만 본다.
         var duplicate = await Api.MenuNameExistsAsync(_edit.Name, _isNew ? null : _editId)
-            || await Api.MenuPathExistsAsync(_edit.Path, _isNew ? null : _editId);
+            || (UsesPath && await Api.MenuPathExistsAsync(_edit.Path, _isNew ? null : _editId));
 
         if (duplicate)
         {
-            Say("같은 이름이나 경로를 쓰는 메뉴가 이미 있습니다.", NoticeTone.Warning);
+            Say("같은 코드나 경로를 쓰는 메뉴가 이미 있습니다.", NoticeTone.Warning);
+            return;
+        }
+
+        // 제목 번역을 메뉴보다 먼저 맞춘다 — 메뉴가 먼저 저장되면 그 키가 가리키는 글자가 잠깐 없다.
+        if (!await SaveTitleTextsAsync())
+        {
             return;
         }
 
@@ -468,14 +703,10 @@ public partial class MenuList
             Name = _edit.Name,
             Path = _edit.Path,
 
-            // 끼워 넣는 메뉴는 화면을 고르지 않으므로 열쇠를 비워 저장한다.
-            // 남겨 두면 **없는 화면을 가리키는 메뉴**가 되어(그 화면들은 공용
-            // 화면 하나로 합치면서 지웠다) 기동 로그에 「화면이 없다」로 잡힌다.
-            RouteKey = IsEmbedded ? null : _edit.RouteKey,
+            // 끼워 넣는 메뉴는 화면을 고르지 않으므로 열쇠를 비운다 — 없는 화면을 가리키면 기동 로그에 잡힌다.
+            RouteKey = UsesScreen ? _edit.RouteKey : null,
 
-            // 끼워 넣는 메뉴는 공용 화면 하나가 받는다. 여기서 맞춰 두지 않으면
-            // **DB 를 고쳐 놔도 다음에 만든 메뉴부터 다시 갈린다** — 「화면 파일」
-            // 칸이 비어 있거나 옛 Vue 경로가 남아, 화면이 여럿인 것처럼 읽힌다.
+            // 끼워 넣는 메뉴는 공용 화면 하나가 받는다 — 여기서 맞추지 않으면 다음에 만든 메뉴부터 다시 갈린다.
             Component = IsEmbedded ? EmbeddedRoute.ScreenFile : _edit.Component,
             Pid = _edit.Pid,
             Redirect = _edit.Redirect,

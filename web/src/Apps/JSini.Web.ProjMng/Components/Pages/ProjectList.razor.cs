@@ -15,9 +15,7 @@ public partial class ProjectList
     private IReadOnlyList<ProjectDto> _all = [];
     private string? _keyword;
 
-    /// <summary>
-    /// 검색은 브라우저에서 끝낸다. 프로젝트가 열 건 남짓이라 서버로 보낼 값이 없다.
-    /// </summary>
+    /// <summary>검색은 브라우저에서 끝낸다. 프로젝트가 열 건 남짓이라 서버로 보낼 값이 없다.</summary>
     private IReadOnlyList<ProjectDto> Shown
     {
         get

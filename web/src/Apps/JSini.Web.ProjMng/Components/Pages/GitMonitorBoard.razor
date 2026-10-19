@@ -2,34 +2,15 @@
 @attribute [RouteKey("projmng.wbs.git")]
 
 @*
-    [Git 모니터링]
-
-    이력: 사내망 WBS 대시보드(Vue) `views/GlMonitor.vue`(483줄) → **여기**
-          2026-09-23 에 사내 GitLab 에서 **GitHub** 로 갈아탔다
-          (주소도 `/projmng/wbs/gitlab` → `/projmng/wbs/git`).
-    API: `projmng/git/monitor`
-
-    저장소마다 통계 · 가지 · 태그 · 풀 리퀘스트 · Actions 실행 · 커밋 ·
-    기여자를 모은다.
-
-    [잘린 값을 그냥 보여 주지 않는다]
-
-    두 자리가 **전부가 아니다.**
-      · 7일 커밋은 한 쪽에 100건까지라 꽉 차면 `100+` 로 적는다.
-      · 묵은 가지는 **날짜를 물어본 가지 안에서만** 센다 — GitHub 가 가지
-        목록에 날짜를 안 줘서 가지마다 한 번씩 더 불러야 하고, 그래서 화면에
-        보이는 만큼만 묻는다. 「8개 중」이라고 함께 적는 까닭이다.
-
-    잘린 값을 말없이 보여 주면 「7일에 딱 100건」·「묵은 가지 0」처럼
-    **있을 법한 숫자**로 읽혀 아무도 의심하지 않는다.
+Git 모니터링. 저장소마다 통계·가지·태그·풀 리퀘스트·Actions·커밋·기여자를 모은다(GitHub 기준).
+잘린 값은 말없이 보여 주지 않는다 — 7일 커밋은 100건까지라 100+ 로 적고, 묵은 가지는 물어본 가지 안에서만 세므로 「8개 중」을 함께 적는다.
 *@
 
 @inherits DataPage
 
 <PageTitle>Git 모니터링 · 프로젝트관리</PageTitle>
 
-@* **덩어리로 감싸는 데 뜻이 있다.** `pm-gitmon` 머리말 참고 —
-   이것이 없으면 저장소를 고르는 순간 아래쪽이 굴러도 안 나온다. *@
+@* 덩어리로 감싸는 데 뜻이 있다 — 없으면 저장소를 고르는 순간 아래쪽이 굴러도 안 나온다(pm-gitmon). *@
 <div class="pm-gitmon">
 
 <CommSch OnSearch="@SearchAsync" Busy="@Loading" MobileSummary="@ConditionSummary">
@@ -88,8 +69,7 @@
                     Text="토큰 없이 읽고 있습니다. 공개 저장소는 그대로 보이지만 시간당 60회까지이고, 이 화면은 저장소 하나에 열다섯 번쯤 씁니다 — 토큰을 넣으면 5,000회가 됩니다." />
     }
 
-    @* **못 본 것과 없는 것은 다르다.** 말없이 비워 두면 「이 저장소는 원래
-       방문자가 0 인가 보다」로 읽힌다. *@
+    @* 못 본 것과 없는 것은 다르다 — 말없이 비우면 「이 저장소는 방문자가 0 인가 보다」로 읽힌다. *@
     @foreach (var b in _result.Blocked)
     {
         <PageNotice Tone="NoticeTone.Info"
@@ -313,8 +293,7 @@
     {
         <CommCont Title="가장 최근에 깨진 자리"
                   Hint="@($"{failure.WorkflowName} · {failure.Branch} · {failure.At}")">
-            @* 로그를 통째로 받지 않는다 — 실행 로그는 zip 이고 크다. 잡과
-               단계 이름만 봐도 「어디서 깨졌나」는 답이 나온다. *@
+            @* 로그를 통째로 받지 않는다 — 실행 로그는 zip 이고 크다. 잡과 단계 이름만으로 어디서 깨졌는지 알 수 있다. *@
             @if (failure.Steps.Count == 0)
             {
                 <PageNotice Tone="NoticeTone.Info" Text="깨진 단계를 찾지 못했습니다." />

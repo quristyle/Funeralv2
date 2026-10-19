@@ -1,17 +1,6 @@
 @*
-    문서 껍데기.
-
-    [blazor.web.js 가 없다]
-
-    이 앱은 정적 SSR 전용이다. 스크립트를 실으면 브라우저가 회로를 열려고 하고,
-    서버에는 그것을 받을 것이 없어 콘솔에 오류만 남는다. 히어로 배경 모션은
-    Blazor 와 무관한 평범한 JS 파일 하나로 돈다(shard-motion.js).
-
-    [<title> 과 메타를 여기서 정하지 않는다]
-
-    화면마다 달라야 하므로 각 화면이 <PageTitle> · <HeadContent> 로 넣는다.
-    원본(vite-ssg)은 빌드 뒤 HTML 을 문자열로 치환했는데, 서버 렌더에서는
-    그럴 필요가 없다.
+    문서 껍데기. 정적 SSR 전용이라 blazor.web.js 를 싣지 않는다(회로가 없으니 실으면 콘솔에 오류만 남는다).
+    <title>과 메타는 화면마다 PageTitle · HeadContent 로 넣는다.
 *@
 <!DOCTYPE html>
 <html lang="@SiteMessages.Normalize(Locale)">

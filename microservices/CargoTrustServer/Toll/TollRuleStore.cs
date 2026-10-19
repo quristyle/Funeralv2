@@ -5,27 +5,12 @@ using Microsoft.Extensions.Caching.Memory;
 
 namespace CargoTrustServer.Toll;
 
-/// <summary>
-/// 할인 규칙을 DB 에서 읽어 <see cref="TollRules"/> 로 만든다.
-///
-/// <para>
-/// 규칙은 거의 안 바뀌는데 계산은 자주 불린다. 요청마다 두 표를 읽을 이유가 없어
-/// 짧게 캐시한다 — 관리자가 고쳤을 때 몇 분 안에 반영되면 충분하다.
-/// </para>
-/// </summary>
+/// <summary>할인 규칙을 DB 에서 읽어 TollRules 로 만든다. 규칙은 거의 안 바뀌고 계산은 자주 불리므로 짧게 캐시한다(몇 분이면 관리자 수정이 반영된다).</summary>
 public class TollRuleStore(CargoTrustDbContext db, IMemoryCache cache, ILogger<TollRuleStore> logger)
 {
     private static readonly TimeSpan CacheFor = TimeSpan.FromMinutes(5);
 
-    /// <summary>
-    /// DB 에 규칙이 하나도 없을 때 쓰는 값.
-    ///
-    /// <para>
-    /// <b>이것이 쓰였다는 사실은 응답에 드러난다</b>(<c>ruleSetCode</c> 가
-    /// <c>KEC-BASE(내장)</c> 가 된다). 조용히 쓰면 「스키마 SQL 을 안 돌렸다」는
-    /// 사실이 몇 달 뒤 할인율 분쟁으로 돌아온다.
-    /// </para>
-    /// </summary>
+    /// <summary>DB 에 규칙이 하나도 없을 때 쓰는 내장 값. 응답의 ruleSetCode 가 KEC-BASE(내장)로 나와 드러난다 — 조용히 쓰면 스키마 SQL 을 안 돌린 사실이 나중에 분쟁으로 돌아온다.</summary>
     public static readonly TollRules Fallback = new(
         "KEC-BASE(내장)",
         new NightWindow(new TimeOnly(21, 0), new TimeOnly(6, 0)),

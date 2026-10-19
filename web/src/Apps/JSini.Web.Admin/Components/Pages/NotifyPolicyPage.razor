@@ -2,79 +2,14 @@
 @attribute [RouteKey("admin.system.notify-policy")]
 
 @*
-    [알림관리] — 어떤 **이벤트**가 일어났을 때 어떤 **역할**이 어떤 **길**로
-    알림을 받을지 정한다. DB 메뉴 `/admin/system/notify-policy`.
-    API: `notification/notification-policies/*`(NotificationServer).
-    문서: docs/notify-policy.md
-
-    [무엇을 푸는 화면인가]
-
-    지금까지 「누가 받나」의 답은 **코드와 설정 파일에 흩어져** 있었다 —
-    배포 알림은 `DeployNotify:RoleId`, 헬프데스크 요청은 소스에 박힌
-    `SYSTEM_ADMINISTRATOR`, AI 작업은 `AiTasks:RequestNotifyRoles`.
-    하나를 바꾸려면 저장소를 고쳐 배포해야 했다. 이 화면이 그 답을 DB 로
-    옮긴다.
-
-    [왼쪽이 이벤트, 오른쪽이 받는 쪽이다]
-
-    보고서 메일 화면과 같은 차례다 — 무엇을(왼쪽) 고르고 누구에게(오른쪽)를
-    정한다. 역할을 먼저 고르는 모양도 생각할 수 있지만(「이 역할은 무엇을
-    받나」), 역할이 열여섯이고 이벤트가 열다섯이라 어느 쪽으로 세워도 표가
-    둘인 것은 같고 — **늘어나는 쪽은 이벤트**다.
-
-    [「제한 없음」을 반드시 말해야 한다]
-
-    역할을 하나도 안 걸어 둔 이벤트는 **지금까지와 똑같이 나간다**(정책이
-    없으면 안 막는다 — 서버의 `NotificationPolicyService` 머리말). 그런데
-    체크가 하나도 없는 표는 「아무도 못 받는다」로 읽힌다. 그 오해는
-    **알림을 끄려다 못 끄는** 쪽이라, 띠로 못 박아 둔다.
-
-    [같은 체크 칸이 이벤트에 따라 뜻이 갈린다]
-
-    역할로 가는 알림에서 체크는 **받는 사람을 정하는 것**이고, 당사자에게 가는
-    알림(쪽지·댓글)에서는 **거르는 것**이다. 그래서 오른쪽 머리에 그 한 줄을
-    늘 적는다(`NotifyTargetKinds.Effect`) — 적지 않으면 쪽지 알림에 역할을
-    걸어 두고 「그 역할에게 남의 쪽지가 가는가」를 걱정하게 된다.
-
-    [사용자의 최종 허용은 여기서 다루지 않는다]
-
-    「나는 안 받겠다」는 각자의 환경설정에 있고, 순서는 **정책 → 본인 설정**
-    이다. 정책이 보내라고 해도 본인이 껐으면 안 간다. 「받는 사람」 창이
-    그 둘을 갈라서 보여 준다 — 고칠 자리가 서로 다르기 때문이다.
-
-    [폭은 사람이 정한다 — `DxSplitter`]
-
-    격자(`ad-split`)로 26% 에 못 박아 두었더니 양쪽이 서로 다른 폭을 바랐다 —
-    왼쪽은 이벤트 이름과 설명이 들어가는 카드라 넓을수록 읽기 쉽고, 오른쪽은
-    역할 표가 칸 다섯을 펴야 한다. 역할 관리(`ad-vsplit`)·프로시저 결과와
-    **같은 부품**으로 끌어서 나눈다. 치수·여백·좁은 화면 규칙은 admin.css 의
-    `.ad-vsplit` 가 갖고 있다.
-
-    **판은 `<Panes>` 안에 적어야 한다.** `DxSplitter` 에는 `ChildContent` 가
-    없어서 빼먹어도 빌드가 통과하고 **속이 빈 회색 상자**가 나온다
-    (`DxSplitterPanesTests` 가 막는다).
-
-    [판 둘은 `CommCont` 여야 한다]
-
-    판이 높이를 채우는 규칙이 `.ad-vsplit__pane.commcont` 를 겨눈다
-    (admin.css). 맨 `<div>` 로 두면 안쪽이 한 줄만 그려진다 —
-    메뉴롤 화면이 실제로 그렇게 깨져 있었다.
-
-    [왼쪽은 표가 아니라 카드다]
-
-    칸이 둘(이벤트 · 받는 설정)뿐인 표였는데, 정작 고르는 데 필요한 것 —
-    **설명과 발생처** — 은 오른쪽을 눌러 봐야 보였다. 이벤트가 열다섯뿐이라
-    한 장씩 펴 두어도 길지 않다. 카드는 단추이고(키보드로 닿는다), 지금
-    상태는 왼쪽 굵은 선으로 말한다(`ad-card`·`ad-msa__card` 와 같은 규칙).
-
-    표를 걷으면서 **첫 줄 자동 선택이 함께 사라진다** — `CommGrd` 가 하던
-    일(`AutoSelectFirstRow`)을 `ReloadAsync` 가 대신한다. 아래 띠의
-    「다시 읽기」도 함께 사라지므로 판 머리에 단추로 다시 세운다.
+    [알림관리] 어떤 이벤트가 일어났을 때 어떤 역할이 어떤 길로 알림을 받을지 정한다. DB 메뉴 `/admin/system/notify-policy`. 문서: docs/notify-policy.md
+    왼쪽은 이벤트 카드, 오른쪽은 받는 쪽이다. 정책이 없는 이벤트는 지금까지처럼 나가고, 「제한 없음」은 띠로 반드시 말한다. 본인 설정이 정책 뒤의 마지막 말이다.
+    판 둘은 DxSplitter 로 나누고 <Panes> 안에 적는다 — 없으면 속이 빈 상자가 나온다. 판은 CommCont 여야 높이를 채운다(admin.css).
 *@
 
 @inherits DataPage
 
-<PageTitle>알림관리 · 포털관리</PageTitle>
+<PageTitle>알림관리</PageTitle>
 
 <CommSch OnSearch="@ReloadAsync" OnReset="@ResetAsync" Busy="@Loading"
          MobileSummary="@ConditionSummary">
@@ -138,8 +73,7 @@
                                 <span class="np-card__name">@ev.Name</span>
                                 @if (!ev.Governed)
                                 {
-                                    @* 「보이되 못 건다」를 목록에서부터 말한다 — 눌러서
-                                       체크를 켜 보고 나서 알게 하면 안 된다. *@
+                                    @* 보이되 못 건다를 목록에서부터 말한다 — 눌러 보고 나서 알게 하면 안 된다. *@
                                     <span class="jsini-badge">정책 밖</span>
                                 }
                                 else if (!IsEventActive(ev))
@@ -196,8 +130,7 @@
             }
             else
             {
-                @* 판이 남은 높이를 채우므로 안쪽에서 굴러야 한다 — 안 굴리면
-                   본문의 `overflow: hidden` 에 잘린다. *@
+                @* 판이 남은 높이를 채우므로 안쪽에서 굴러야 한다 — 안 굴리면 본문의 overflow: hidden 에 잘린다. *@
                 <div class="np-edit">
 
                 @if (!string.IsNullOrWhiteSpace(_selected.Description))
@@ -216,9 +149,7 @@
                     <dd>@ChannelText(_selected)</dd>
                 </dl>
 
-                @* ── 지금 어떤 상태인가 ──────────────────────
-                   셋을 **갈라서** 말한다. 「제한 없음」과 「아무도 못 받음」은
-                   체크가 하나도 없는 같은 화면에서 뜻이 정반대다. *@
+                @* 셋을 갈라서 말한다 — 「제한 없음」과 「아무도 못 받음」은 체크가 하나도 없는 같은 화면에서 뜻이 정반대다. *@
                 @if (!_selected.Governed)
                 {
                     <PageNotice Tone="NoticeTone.Warning" Text="@UngovernedText" />
@@ -230,15 +161,7 @@
                 }
                 else if (NoRolePicked)
                 {
-                    @* **푸시와 메일의 기본값이 반대다.** 역할을 안 걸면 푸시는
-                       지금까지와 똑같이 나가지만, 푸시 경로가 함께 내는 메일은
-                       한 통도 안 나간다 — 같은 기본값을 쓰면 이 기능이 켜진 날
-                       배포·생일 알림이 전 직원 메일함으로 쏟아진다. 「제한
-                       없음」 한 마디로 뭉뚱그리면 그 반대가 읽힌다.
-
-                       **이 표가 정본인 이벤트는 그 말조차 반대다**(소개 사이트
-                       문의 — `PolicyRequired`). 보내는 쪽에 적어 둔 기본 역할이
-                       없어서 역할이 비면 알림이 멎는다. 말과 색을 함께 바꾼다. *@
+                    @* 푸시와 메일의 기본값이 반대다 — 같은 기본값을 쓰면 켜진 날 배포·생일 알림이 전 직원 메일함으로 쏟아진다. 소개 사이트 문의처럼 정책이 정본인 이벤트는 역할이 비면 알림이 멎어 말과 색을 함께 바꾼다. *@
                     <PageNotice Tone="@NoRoleTone" Text="@NoRoleText" />
                 }
                 else
@@ -275,11 +198,7 @@
                     </div>
                 </div>
 
-                        @* 역할을 **전부** 보여 주고 체크로 가린다. 「더하기」 창을 따로
-                           두면 걸려 있지 않은 역할이 안 보여서, 「파트너는 왜 안 오나」를
-                           물을 때마다 창을 열어 확인해야 한다. 열여섯 줄이라 다 보인다.
-                           모바일에서도 페이징 없이 한 번에 펼쳐지며, 앱푸시와 이메일 체크가
-                           가로로 나란히 표시된다. *@
+                        @* 역할을 전부 보여 주고 체크로 가린다 — 걸려 있지 않은 역할이 안 보이는 「더하기」 창은 물을 때마다 열어 확인해야 한다. 열여섯 줄이라 페이징 없이 펼친다. *@
                         @if (_rows.Count == 0)
                         {
                             <p class="np-list__empty">등록된 역할이 없습니다.</p>
@@ -351,9 +270,7 @@
                         }
 
                         <div class="np-actions">
-                            @* 받는 사람 보기는 **권한 문을 하나 더 세우지 않는다** —
-                               이 화면을 열 수 있으면 설정을 볼 수 있고, 그 목록은
-                               설정을 읽어 푼 것일 뿐이다. *@
+                            @* 받는 사람 보기는 권한 문을 하나 더 세우지 않는다 — 설정을 볼 수 있는 사람이면 그 목록은 설정을 읽어 푼 것일 뿐이다. *@
                             <DxButton Text="받는 사람" RenderStyle="ButtonRenderStyle.Secondary"
                                       Enabled="@(!Loading)" Click="@OpenRecipientsAsync" />
                         </div>
@@ -557,8 +474,7 @@
     </DxTabPage>
 </DxTabs>
 
-@* 받는 사람. **저장된 설정으로 셈한다** — 화면의 체크 상태로 보여 주면
-   저장하지 않은 값으로 「갑니다」를 말하게 된다. *@
+@* 받는 사람은 저장된 설정으로 셈한다 — 체크 상태로 보여 주면 저장하지 않은 값으로 「갑니다」를 말하게 된다. *@
 <CommPopup @bind-Visible="_showRecipients" HeaderText="받는 사람" Width="720px">
     <BodyContentTemplate Context="popup">
         @if (_preview is null)
@@ -572,9 +488,7 @@
         }
         else if (_preview is { Unrestricted: true, PolicyRequired: true })
         {
-            @* 보내는 쪽이 기본 역할을 안 적어 두는 이벤트다 — 「제한 없음」이
-               아니라 **받을 사람이 없는 것**이다. 창을 연 까닭이 보통
-               「왜 안 오지」라서, 여기서 갈라 말하지 않으면 답이 뒤집힌다. *@
+            @* 보내는 쪽이 기본 역할을 안 적어 두는 이벤트다 — 「제한 없음」이 아니라 받을 사람이 없는 것이다. 여기서 갈라 말하지 않으면 답이 뒤집힌다. *@
             <PageNotice Tone="NoticeTone.Warning"
                         Text="받는 역할이 하나도 없습니다 — 이 알림은 지금 아무에게도 가지 않습니다. 왼쪽에서 역할을 고르십시오." />
         }
@@ -613,8 +527,7 @@
                             @Mark(((NotifyRecipientDto)cell.DataItem).EmailReaches)
                         </CellDisplayTemplate>
                     </DxGridDataColumn>
-                    @* **못 닿는 까닭을 줄마다 적는다.** 고칠 자리가 셋으로
-                       갈린다 — 알림관리 · 그 사람의 환경설정 · 계정 관리. *@
+                    @* 못 닿는 까닭을 줄마다 적는다 — 고칠 자리가 알림관리 · 그 사람의 환경설정 · 계정 관리 셋으로 갈린다. *@
                     <DxGridDataColumn Caption="비고" MinWidth="170" TextAlignment="GridTextAlignment.Left">
                         <CellDisplayTemplate Context="cell">
                             <span class="np-why">@((NotifyRecipientDto)cell.DataItem).Why</span>

@@ -3,23 +3,10 @@ using Xunit;
 
 namespace JSini.Web.Architecture.Tests;
 
-/// <summary>
-/// MFE 구조를 지탱하는 규칙.
-///
-/// 단일 셸로 합치면서 규칙이 하나 늘었다 — <b>셸의 설정과 모듈의 선언이
-/// 일치하는가</b>. 셸은 모듈 타입을 이름으로 쓰지 않고(어셈블리를 훑어
-/// <c>IPortalModule</c> 로 찾는다) 기대 목록은 appsettings 에 적힌 글자라,
-/// <b>컴파일러가 대조해 줄 것이 한 쪽도 없다.</b> 어긋나도 빌드는 통과한다.
-/// </summary>
+/// <summary>MFE 구조를 지탱하는 규칙. 셸의 기대 목록(appsettings)과 모듈의 선언이 일치하는지는 컴파일러가 대조해 주지 않으므로 여기서 본다.</summary>
 public sealed class DependencyRuleTests
 {
-    /// <summary>
-    /// 규칙 1. 업무 앱은 셸을 참조하지 않는다.
-    ///
-    /// 참조하는 순간 의존이 양방향이 되고, 셸을 고칠 때마다 업무 앱을 전부 다시
-    /// 내보내야 한다. 배포를 나눈 의미가 사라진다. 앱이 아는 셸은
-    /// JSini.Web.Abstractions 의 계약뿐이다.
-    /// </summary>
+    /// <summary>규칙 1. 업무 앱은 셸을 참조하지 않는다 — 앱이 아는 셸은 JSini.Web.Abstractions 의 계약뿐이다.</summary>
     [Fact]
     public void 업무앱은_셸을_참조하지_않는다()
     {
@@ -34,14 +21,7 @@ public sealed class DependencyRuleTests
             + "필요한 것이 있으면 JSini.Web.Abstractions 의 계약으로 뽑아라.");
     }
 
-    /// <summary>
-    /// 규칙 2. 업무 앱은 다른 업무 앱을 참조하지 않는다.
-    ///
-    /// 한 프로세스라 참조만 생기면 런타임에 부를 수도 있다 — 막는 것이 이 규칙
-    /// 하나뿐이다. 그리고 빌드 참조가 생기면 배포가 묶인다: 헬프데스크를 고칠 때
-    /// 장례식장도 함께 내보내야 한다.
-    /// 공유가 필요하면 Blazor Common 이나 Shared Models 로 올린다.
-    /// </summary>
+    /// <summary>규칙 2. 업무 앱은 다른 업무 앱을 참조하지 않는다 — 참조가 생기면 배포가 묶인다. 공유는 Blazor Common 이나 Shared Models 로 올린다.</summary>
     [Fact]
     public void 업무앱은_다른_업무앱을_참조하지_않는다()
     {
@@ -67,13 +47,7 @@ public sealed class DependencyRuleTests
         Assert.True(offenders.Count == 0, string.Join(" / ", offenders));
     }
 
-    /// <summary>
-    /// 규칙 3. <b><c>@page</c> 는 자기 모듈의 라우트 접두사로 시작한다.</b>
-    ///
-    /// Piral MFE 구조에서는 단일 SPA 라우터에서 모든 화면을 처리하므로,
-    /// 각 모듈의 모든 <c>@page</c> 는 자기 <c>RoutePrefix</c>(예: <c>/funeral</c>)
-    /// 아래에 있어야 충돌 없이 라우팅된다.
-    /// </summary>
+    /// <summary>규칙 3. @page 는 자기 모듈의 라우트 접두사(RoutePrefix)로 시작한다 — 단일 SPA 라우터에서 충돌 없이 라우팅되려면 그래야 한다.</summary>
     [Fact]
     public void 앱의_라우트는_자기_접두사로_시작한다()
     {
@@ -99,13 +73,7 @@ public sealed class DependencyRuleTests
         Assert.True(offenders.Count == 0, string.Join(" / ", offenders));
     }
 
-    /// <summary>
-    /// 규칙 4. Blazor Common 은 어떤 업무 앱도 참조하지 않는다.
-    ///
-    /// 참조하는 순간 모든 앱이 그 앱에 간접 의존한다 — 가장 알아채기 어려운
-    /// 형태의 결합이다. 빌드는 통과하고, 문제는 "왜 헬프데스크를 고쳤는데
-    /// 장례식장이 깨지지" 로 나타난다.
-    /// </summary>
+    /// <summary>규칙 4. Blazor Common 은 어떤 업무 앱도 참조하지 않는다 — 참조하면 모든 앱이 그 앱에 간접 의존한다.</summary>
     [Fact]
     public void 공통라이브러리는_업무앱을_참조하지_않는다()
     {
@@ -123,12 +91,7 @@ public sealed class DependencyRuleTests
             $"JSini.Web.Components 가 업무 앱을 참조한다: {string.Join(", ", bad)}");
     }
 
-    /// <summary>
-    /// 규칙 5. 앱 식별자와 라우트 접두사는 겹치지 않는다.
-    ///
-    /// 겹치면 셸의 YARP 라우트가 겹쳐서 어느 앱이 그 URL 을 가져갈지 순서에
-    /// 달리게 된다.
-    /// </summary>
+    /// <summary>규칙 5. 앱 식별자와 라우트 접두사는 겹치지 않는다 — 겹치면 셸의 YARP 라우트 순서에 따라 어느 앱이 URL 을 가져갈지 갈린다.</summary>
     [Fact]
     public void 앱_식별자와_접두사는_겹치지_않는다()
     {
@@ -141,17 +104,7 @@ public sealed class DependencyRuleTests
             .Where(g => g.Count() > 1).Select(g => g.Key));
     }
 
-    /// <summary>
-    /// 규칙 6. <b>셸의 PortalApps 설정과 앱의 선언이 일치한다.</b>
-    ///
-    /// 셸은 appsettings 의 <c>PortalApps</c> 에 기대 목록을 적고, 모듈은
-    /// <c>IPortalModule.RoutePrefix</c> 로 자기 접두사를 선언한다. 넘길 곳이
-    /// 없어진 지금은 둘이 어긋나도 화면이 곧바로 깨지지 않는다 — 대신
-    /// <b>기대 목록이 거짓이 된다.</b> 기동 대조(<c>LogCritical</c>)와 진단
-    /// 화면이 그 목록으로 말하므로, 모듈이 빠진 것을 잡으려고 둔 안전망 자신이
-    /// 틀린 값을 가리키게 된다. 빌드도 통과하고 각 파일만 보면 둘 다 정상으로
-    /// 보인다.
-    /// </summary>
+    /// <summary>규칙 6. 셸의 PortalApps 설정과 앱의 선언이 일치한다. 어긋나면 기동 대조와 진단 화면이 틀린 기대 목록을 가리킨다.</summary>
     [Fact]
     public void 셸_설정과_앱_선언이_일치한다()
     {
@@ -185,10 +138,7 @@ public sealed class DependencyRuleTests
         Assert.True(problems.Count == 0, string.Join(" / ", problems));
     }
 
-    /// <summary>
-    /// 앱이 실제로 실려 있는지. 위의 검사들은 앱이 0개여도 모두 통과한다 —
-    /// 어느 날 참조가 빠져서 아무것도 검사하지 않게 되는 것을 막는다.
-    /// </summary>
+    /// <summary>앱이 실제로 실려 있는지. 앱이 0개여도 위의 검사들이 모두 통과하므로 그것을 막는다.</summary>
     [Fact]
     public void 업무앱이_실려_있다()
     {

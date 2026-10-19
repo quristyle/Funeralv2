@@ -3,19 +3,8 @@ namespace ProjMngServer.Models;
 /// <summary>
 /// 관리 대상 프로젝트 한 건 — <c>projmng.dev_proj</c>.
 /// </summary>
-/// <remarks>
-/// <para>
-/// <b>기존 <c>ProjModel.ProjectInfo</c> 를 쓰지 않는다.</b> 그것은 칸이 일곱
-/// 개뿐이고(금액·정렬·일시가 없다) 값이 전부 <c>string?</c> 이다 — 프로시저에
-/// 파라미터를 문자열로 실어 보내던 시절의 그릇이라, 날짜와 금액이 오갈 때마다
-/// 화면과 서버가 각자 파싱했다.
-/// </para>
-///
-/// <para>
-/// 여기서는 <b>DB 의 타입을 그대로</b> 받는다. 날짜는 <see cref="DateOnly"/>,
-/// 금액은 <see cref="int"/> 다. 형식을 맞추는 일은 화면 한 곳에서 한다.
-/// </para>
-/// </remarks>
+/// 기존 ProjModel.ProjectInfo 를 쓰지 않는다 — 칸이 일곱뿐이고 값이 전부 string? 라 날짜·금액이 오갈 때마다 파싱해야 했다.
+/// 여기서는 DB 타입을 그대로 받는다(날짜 DateOnly · 금액 int). 형식을 맞추는 일은 화면 한 곳에서 한다.
 public sealed class Project
 {
     /// <summary>프로젝트 번호. <b>등록할 때는 서버가 정한다</b>(요청 값은 무시).</summary>
@@ -50,12 +39,7 @@ public sealed class Project
     public DateTime? ModDt { get; set; }
 
     /// <summary>
-    /// 등록 일시. <b>등록할 때만 채운다.</b>
-    ///
-    /// <para>
-    /// 옛 프로시저는 <b>수정할 때도 이 값을 <c>now()</c> 로 덮었다</b> —
-    /// 그래서 한 번이라도 고친 프로젝트는 등록일을 잃었다. 옮기면서 고친다.
-    /// </para>
+    /// 등록할 때만 채운다 — 수정 때 덮어쓰면 등록일이 사라진다.
     /// </summary>
     public DateTime? CreDt { get; set; }
 }

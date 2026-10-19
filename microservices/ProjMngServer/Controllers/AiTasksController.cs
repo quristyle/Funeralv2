@@ -5,22 +5,7 @@ using ProjMngServer.Services;
 
 namespace ProjMngServer.Controllers;
 
-/// <summary>AI 작업 — <c>/api/ai-tasks</c>.</summary>
-/// <remarks>
-/// <para>
-/// 게이트웨이가 <c>/api/projmng</c> 를 떼고 <c>/api</c> 를 다시 붙인다
-/// (<c>/api/projmng/ai-tasks</c> → 여기 <c>/api/ai-tasks</c>).
-/// </para>
-/// <para>
-/// <b>이 경로는 인증이 걸려 있다.</b> <c>projmng-route</c> 는 정책을 따로 적지
-/// 않고 게이트웨이의 <c>FallbackPolicy</c>(= 인증 필요)를 따른다 — AI 를
-/// <c>ai-route</c>(익명) 밑에 두지 않은 이유가 이것이다.
-/// </para>
-/// <para>
-/// 등록·수정자는 <b>게이트웨이가 붙여 주는 신원</b>(<c>X-User-Id</c>)으로 채운다.
-/// 본문에 실어 보내면 위조해도 서버가 알 수 없다.
-/// </para>
-/// </remarks>
+/// <summary>AI 작업 — <c>/api/ai-tasks</c>. 게이트웨이가 <c>/api/projmng</c> 를 떼고 <c>/api</c> 를 다시 붙인다.</summary>
 [ApiController]
 [Route("api/ai-tasks")]
 public sealed class AiTasksController(
@@ -32,13 +17,7 @@ public sealed class AiTasksController(
             ? id.ToString()
             : "system";
 
-    /// <summary>
-    /// 요청을 보낸 사람의 <b>이름</b>. 없으면 <c>null</c> — 그때는 아이디로 적는다.
-    /// </summary>
-    /// <remarks>
-    /// 이름은 한글이라 게이트웨이가 URL 인코딩해서 보낸다(<c>ApiGateway/Program.cs</c>).
-    /// 되돌리지 않으면 알림 본문에 <c>%ED%99%8D...</c> 이 그대로 실린다.
-    /// </remarks>
+    /// <summary>요청을 보낸 사람의 이름. 없으면 <c>null</c> — 그때는 아이디로 적는다. 이름은 한글이라 게이트웨이가 URL 인코딩해 보내므로 되돌려 읽는다.</summary>
     private string? UserName
     {
         get
@@ -66,18 +45,9 @@ public sealed class AiTasksController(
         return Ok(ApiResponse<List<AiTask>>.Ok(rows));
     }
 
-    // ── 「AI 작업 요청」 — 일반 사용자의 입구 ──────────────────
-    //
-    // 화면: web/src/Apps/JSini.Web.ProjMng/Components/Pages/AiRequestList.razor
-    //
-    // **위의 것들과 입구를 갈라 둔다.** 이 경로는 게이트웨이가 신원만 확인하고
-    // 역할은 보지 않으므로, 관리자용 경로를 그대로 쓰게 두면 <b>로그인한 누구든
-    // 번호만 바꿔 남의 작업을 고치고 지울 수 있다.</b> 여기 넷은 전부
-    // <c>cre_id = 보낸 사람</c> 을 조건에 넣는다.
+    // 일반 사용자 입구 — 게이트웨이는 신원만 보고 역할은 보지 않으므로 관리자용 경로와 입구를 갈라 둔다.
 
-    /// <summary>
-    /// <b>내가 올린 요청 목록.</b> 남의 것은 한 건도 오지 않는다.
-    /// </summary>
+    /// <summary><b>내가 올린 요청 목록.</b> 남의 것은 한 건도 오지 않는다.</summary>
     [HttpGet("mine")]
     public async Task<IActionResult> MineAsync([FromQuery] string? keyword)
     {
@@ -85,10 +55,7 @@ public sealed class AiTasksController(
         return Ok(ApiResponse<List<AiTask>>.Ok(rows));
     }
 
-    /// <summary>
-    /// <b>지시를 적어 둔다.</b> 저장만 되고 아무 데서도 안 돈다 —
-    /// 작업 대상과 AI 는 관리자가 나중에 채운다.
-    /// </summary>
+    /// <summary><b>지시를 적어 둔다.</b> 저장만 되고 아무 데서도 안 돈다 — 작업 대상과 AI 는 관리자가 나중에 채운다.</summary>
     [HttpPost("mine")]
     public async Task<IActionResult> CreateMineAsync([FromBody] AiTask item)
     {
@@ -118,14 +85,7 @@ public sealed class AiTasksController(
     public async Task<IActionResult> DeleteMineAsync(long taskKey)
         => Respond(await service.DeleteUserRequestAsync(taskKey, UserId));
 
-    // ── 남길말 ──────────────────────────────────────────────
-    //
-    // 설계는 `AiTaskNoteService` 머리말. 요청 하나에 관리자와 올린 사람이
-    // 번갈아 말을 남기고, 남기면 **상대에게 앱푸시**가 간다.
-    //
-    // 여기도 입구가 둘이다. `mine/…` 은 **그 요청을 올린 사람인지**를 서비스가
-    // 먼저 보고, 아니면 「없다」로 답한다 — 남의 요청에 붙은 말은 그 번호에
-    // 무엇이 있다는 사실조차 알려 주지 않는다.
+    // 남길말 입구가 둘이다 — mine/… 은 요청을 올린 사람인지를 서비스가 먼저 본 뒤 다룬다.
 
     /// <summary><b>내가 올린 요청에 붙은 말.</b> 남의 건은 한 줄도 오지 않는다.</summary>
     [HttpGet("mine/{taskKey:long}/notes")]
@@ -143,13 +103,7 @@ public sealed class AiTasksController(
     public async Task<IActionResult> AddMineNoteAsync(long taskKey, [FromBody] AiTaskNote item)
         => RespondNote(await notes.MineAddAsync(taskKey, item.Contents, UserId, UserName));
 
-    /// <summary>
-    /// <b>붙은 말을 전부 읽은 것으로 찍는다.</b> 화면이 그 건을 펼 때 부른다.
-    /// </summary>
-    /// <remarks>
-    /// 줄마다 따로 찍지 않는 까닭은 <c>AiTaskNoteService.MineMarkReadAsync</c>
-    /// 머리말에 있다.
-    /// </remarks>
+    /// <summary>붙은 말을 전부 읽은 것으로 찍는다. 줄마다 따로 찍지 않는 까닭은 <c>AiTaskNoteService.MineMarkReadAsync</c> 머리말에 있다.</summary>
     [HttpPost("mine/{taskKey:long}/notes/read")]
     public async Task<IActionResult> ReadMineNotesAsync(long taskKey)
     {
@@ -165,9 +119,7 @@ public sealed class AiTasksController(
     public async Task<IActionResult> NotesAsync(long taskKey)
         => Ok(ApiResponse<List<AiTaskNote>>.Ok(await notes.ListAsync(taskKey)));
 
-    /// <summary>
-    /// <b>말을 남긴다 — 관리자 쪽 입구.</b> 올린 사람에게 앱푸시가 간다.
-    /// </summary>
+    /// <summary><b>말을 남긴다 — 관리자 쪽 입구.</b> 올린 사람에게 앱푸시가 간다.</summary>
     [HttpPost("{taskKey:long}/notes")]
     public async Task<IActionResult> AddNoteAsync(long taskKey, [FromBody] AiTaskNote item)
         => RespondNote(await notes.AddAsync(taskKey, item.Contents, UserId, UserName));
@@ -210,45 +162,32 @@ public sealed class AiTasksController(
     public async Task<IActionResult> RunsAsync(long taskKey)
         => Ok(ApiResponse<List<AiTaskRun>>.Ok(await runs.RunsAsync(taskKey)));
 
-    /// <summary>
-    /// <b>작업을 요청한다.</b> 요청여부가 <c>requested</c>, 상태가 <c>queued</c> 가 된다.
-    /// </summary>
+    /// <summary><b>작업을 요청한다.</b> 요청여부가 <c>requested</c>, 상태가 <c>queued</c> 가 된다.</summary>
     [HttpPost("{taskKey:long}/request")]
     public async Task<IActionResult> RequestAsync(long taskKey)
         => Respond(await service.RequestAsync(taskKey, UserId));
 
-    /// <summary>
-    /// <b>끝난 작업에 이어서 지시한다.</b> 본문이 「지난 진행 + 이번에 할 일」로 바뀐다.
-    /// <b>이 회차를 맡을 AI 도 갈아탈 수 있다</b>(<c>runnerKind</c>).
-    /// </summary>
+    /// <summary><b>끝난 작업에 이어서 지시한다.</b> 본문이 「지난 진행 + 이번에 할 일」로 바뀐다. <b>이 회차를 맡을 AI 도 갈아탈 수 있다</b>(<c>runnerKind</c>).</summary>
     [HttpPost("{taskKey:long}/continue")]
     public async Task<IActionResult> ContinueAsync(long taskKey, [FromBody] ContinueRequest req)
         => Respond(await service.ContinueAsync(taskKey, req.Addition, req.RunnerKind, UserId));
 
-    /// <summary>
-    /// <b>진행 중인 작업에 대해 완료 후 이어서 지시할 내용을 예약/저장한다.</b>
-    /// </summary>
+    /// <summary><b>진행 중인 작업에 대해 완료 후 이어서 지시할 내용을 예약/저장한다.</b></summary>
     [HttpPost("{taskKey:long}/pending-continue")]
     public async Task<IActionResult> SetPendingContinueAsync(long taskKey, [FromBody] PendingContinueRequest req)
         => Respond(await service.SetPendingContinueAsync(taskKey, req.Addition, req.RunnerKind, UserId));
 
-    /// <summary>
-    /// <b>예약된 이어서 지시를 취소한다.</b>
-    /// </summary>
+    /// <summary><b>예약된 이어서 지시를 취소한다.</b></summary>
     [HttpDelete("{taskKey:long}/pending-continue")]
     public async Task<IActionResult> ClearPendingContinueAsync(long taskKey)
         => Respond(await service.SetPendingContinueAsync(taskKey, null, null, UserId));
 
-    /// <summary>
-    /// <b>실패한 작업을 수동으로 다시 요청한다.</b> 추가 지시사항을 얹을 수 있다.
-    /// </summary>
+    /// <summary><b>실패한 작업을 수동으로 다시 요청한다.</b> 추가 지시사항을 얹을 수 있다.</summary>
     [HttpPost("{taskKey:long}/retry")]
     public async Task<IActionResult> RetryAsync(long taskKey, [FromBody] RetryRequest req)
         => Respond(await service.RetryAsync(taskKey, req?.Addition, req?.Kind, UserId));
 
-    /// <summary>
-    /// <b>사용자 확인 완료</b> 처리한다.
-    /// </summary>
+    /// <summary><b>사용자 확인 완료</b> 처리한다.</summary>
     [HttpPost("{taskKey:long}/confirm")]
     public async Task<IActionResult> ConfirmAsync(long taskKey)
         => Respond(await service.ConfirmAsync(taskKey, UserId));
@@ -262,21 +201,13 @@ public sealed class AiTasksController(
     public async Task<IActionResult> DeleteAsync(long taskKey)
         => Respond(await service.DeleteAsync(taskKey, UserId));
 
-    /// <summary>
-    /// 결과를 HTTP 로 옮긴다.
-    /// </summary>
-    /// <remarks>
-    /// <b>「없다」와 「지금은 안 된다」를 가른다.</b> 둘을 같은 코드로 내려보내면
-    /// 화면이 「없는 작업입니다」라고 말하는데 실제로는 돌고 있는 중인 경우가 생긴다.
-    /// </remarks>
+    /// <summary>결과를 HTTP 로 옮긴다. 「없다」와 「지금은 안 된다」를 가른다 — 같은 코드로 내리면 도는 중인 작업이 「없는 작업」으로 보인다.</summary>
     public sealed class ContinueRequest
     {
         /// <summary>이번에 더 시킬 일.</summary>
         public string? Addition { get; set; }
 
-        /// <summary>
-        /// 이 회차를 맡을 AI. <b>비우면 지난 회차의 실행기를 그대로 쓴다.</b>
-        /// </summary>
+        /// <summary>이 회차를 맡을 AI. <b>비우면 지난 회차의 실행기를 그대로 쓴다.</b></summary>
         public string? RunnerKind { get; set; }
     }
 
@@ -313,10 +244,7 @@ public sealed class AiTasksController(
         return Ok(ApiResponse<AiTask>.Ok(result.Item));
     }
 
-    /// <summary>
-    /// 남길말 저장의 답. <see cref="Respond"/> 와 <b>같은 세 갈래</b>다 —
-    /// 없는 번호는 404, 적을 수 없는 사정은 409.
-    /// </summary>
+    /// <summary>남길말 저장의 답. <see cref="Respond"/> 와 <b>같은 세 갈래</b>다 — 없는 번호는 404, 적을 수 없는 사정은 409.</summary>
     private IActionResult RespondNote(AiTaskNoteResult result)
     {
         if (!result.Found)

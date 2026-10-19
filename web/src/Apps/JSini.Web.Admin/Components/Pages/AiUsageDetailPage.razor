@@ -4,16 +4,13 @@
 @attribute [ScreenAccess("admin.status.ai-usage")]
 
 @*
-    [AI 건별 사용량] — AI 사용량(/admin/status/ai-usage)에서 사용자 줄을 더블클릭하여 들어오는 상세 화면.
-
-    팝업 대신 독립 화면으로 처리되어 레이아웃 상단에 메뉴탭(PortalTabs)으로 나타난다.
-    화면 하단 오른쪽에 항상 닫기 버튼이 제공되어 목록 화면으로 돌아갈 수 있다.
+    [AI 건별 사용량] AI 사용량에서 사용자 줄을 더블클릭하면 여는 독립 화면이다 — 팝업 대신 화면으로 둬 레이아웃 상단 메뉴탭에 올라간다. 닫기 단추는 하단 오른쪽에 항상 둔다.
 *@
 
 @inherits DataPage
 @implements IDisposable
 
-<PageTitle>@(TabTitle) · 포털관리</PageTitle>
+<PageTitle>@(TabTitle)</PageTitle>
 
 <CommCont>
     <div class="ad-ai-usage-detail">

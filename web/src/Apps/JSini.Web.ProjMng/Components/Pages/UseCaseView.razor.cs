@@ -13,10 +13,7 @@ public partial class UseCaseView
     /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
     private string ConditionSummary => SchSummary.Of(_projectName, _name);
 
-    /// <summary>
-    /// 고른 프로젝트의 <b>이름</b>. 화면이 든 것은 코드뿐이고 목록은
-    /// <c>CodeSelect</c> 안에 있어, 그 부품이 <c>@bind-Text</c> 로 올려 준다.
-    /// </summary>
+    /// <summary>고른 프로젝트의 이름. 코드만 들고, 목록은 CodeSelect 가 쥐고 있다.</summary>
     private string? _projectName;
 
     /// <summary>도구상자에 놓을 도형 목록. **JS 가 정본**이라 거기서 받아 온다.</summary>
@@ -28,16 +25,10 @@ public partial class UseCaseView
     /// <summary>도구상자가 보이는가. 숨기면 손잡이만 남는다.</summary>
     private bool _toolsOpen = true;
 
-    /// <summary>
-    /// 핀이 꽂혀 있는가. <b>꽂히면 그림 옆에 자리를 차지하고</b>, 빼면 그림
-    /// 위에 뜬다. 기본은 꽂힘 — 떠 있으면 그 자리에 도형을 놓을 수 없다.
-    /// </summary>
+    /// <summary>핀이 꽂혀 있는가. 꽂히면 그림 옆에 자리를 차지하고, 빼면 그림 위에 뜬다. 기본은 꽂힘 — 떠 있으면 도형을 놓을 수 없다.</summary>
     private bool _toolsPinned = true;
 
-    /// <summary>
-    /// 겹친 것만 밀어내 고루 펼친다. <b>배치를 새로 짜지 않는다</b> —
-    /// 사람이 놓아 둔 자리는 그대로 둔다.
-    /// </summary>
+    /// <summary>겹친 것만 밀어내 고루 펼친다. 배치를 새로 짜지 않는다.</summary>
     private async Task SpreadAsync()
     {
         if (_diagram is null) return;
@@ -50,10 +41,7 @@ public partial class UseCaseView
         }
     }
 
-    /// <summary>
-    /// 보기 좋게 펼친다. <b>관계선이 없으면 격자로 떨어진다</b> — 그 사실을
-    /// 말해 주지 않으면 「눌렀는데 아무 일도 없다」로 보인다.
-    /// </summary>
+    /// <summary>보기 좋게 펼친다. 관계선이 없으면 격자로 떨어지므로 그 사실을 알린다.</summary>
     private async Task ArrangeAsync(string kind)
     {
         if (_diagram is null) return;
@@ -91,10 +79,7 @@ public partial class UseCaseView
         _dirty = true;
     }
 
-    /// <summary>
-    /// 도구상자 목록을 받아 둔다. <b>그림 부품이 생긴 뒤에만</b> 물을 수 있다 —
-    /// 그 목록은 JS 모듈 안에 있고, 모듈은 부품이 처음 그려질 때 실린다.
-    /// </summary>
+    /// <summary>도구상자 목록을 받아 둔다. 그림 부품이 생긴 뒤에만 물을 수 있다(목록은 JS 모듈 안에 있다).</summary>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender || _diagram is null || _shapes.Count > 0)
@@ -112,17 +97,10 @@ public partial class UseCaseView
 
     private DiagramViewer? _diagram;
 
-    /// <summary>
-    /// 캔버스를 고쳤는데 아직 저장 안 했다. 그림은 저장 단추를 눌렀을 때만
-    /// 모델로 되돌아가므로, 그 사실을 화면이 말해 주지 않으면 사람이 배치를
-    /// 잃는다.
-    /// </summary>
+    /// <summary>캔버스를 고쳤는데 아직 저장 안 했다. 그림은 저장 때만 모델로 되돌아가므로, 화면이 알려 주지 않으면 배치를 잃는다.</summary>
     private bool _dirty;
 
-    /// <summary>
-    /// 저장본이 <b>옛 도구(draw.io)의 XML</b> 인가. 그러면 저장을 막는다 —
-    /// 여기서 만든 JSON 으로 덮어쓰면 그 그림은 되돌릴 수 없다.
-    /// </summary>
+    /// <summary>저장본이 옛 도구(draw.io)의 XML 인가. 그러면 저장을 막는다 — JSON 으로 덮으면 되돌릴 수 없다.</summary>
     private bool _legacy;
 
     private string? _projectCode;
@@ -136,10 +114,7 @@ public partial class UseCaseView
     private Task ZoomOutAsync() => _diagram?.ZoomOutAsync() ?? Task.CompletedTask;
     private Task FitAsync() => _diagram?.FitAsync() ?? Task.CompletedTask;
 
-    /// <summary>
-    /// 이름 목록을 채운다. <b>그림은 아직 안 읽는다</b> — 어느 것을 열지는
-    /// 사람이 고른다(첫 것을 열어 두면 큰 그림에서 기다림이 길다).
-    /// </summary>
+    /// <summary>이름 목록을 채운다. 그림은 아직 안 읽는다 — 어느 것을 열지는 사람이 고른다.</summary>
     private Task LoadNamesAsync()
     {
         _name = null;
@@ -185,12 +160,7 @@ public partial class UseCaseView
             var saved = await Api.ListAsync(_projectCode, _name, PropType);
             var raw = saved.FirstOrDefault()?.PropVal;
 
-            // 옛 도구(draw.io)의 XML 이면 파서가 **조용히 빈 그림**을 준다.
-            // 그것을 「아직 안 그렸다」로 읽은 사람이 새로 그려 저장하면 옛
-            // 그림이 사라진다.
-            //
-            // **운영 자료 20건은 2026-09-13 에 옮겼다**(머리말). 지금 이
-            // 갈래로 들어올 것은 누군가 XML 을 다시 붙여 넣은 경우뿐이다.
+            // 옛 도구(draw.io)의 XML 이면 파서가 조용히 빈 그림을 준다. 그것을 「아직 안 그렸다」로 읽고 새로 저장하면 옛 그림이 사라진다. 옛 자료는 옮겨 두었고, 지금 이 갈래로 들어올 것은 XML 을 다시 붙여 넣은 경우뿐이다.
             _legacy = ErdModel.IsLegacyDrawing(raw);
 
             if (_legacy)

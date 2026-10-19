@@ -3,12 +3,7 @@ using CargoTrustServer.Data;
 
 namespace CargoTrustServer.Payments;
 
-/// <summary>
-/// 결제 판정 — 계약 「결제 판정」 그대로.
-///
-/// 거래 줄의 payment_status 는 「지금」이고, 판정할 때마다 payment_record 에 한 줄이 쌓인다.
-/// 운송과 결제는 별개의 사건이라(설계안 9) 받은 금액은 덮어쓰지 않고 **쌓는다**.
-/// </summary>
+/// <summary>결제 판정(계약 「결제 판정」). 거래의 payment_status 는 지금 값이고, 판정할 때마다 payment_record 에 한 줄이 쌓인다 — 받은 금액은 덮어쓰지 않고 쌓는다.</summary>
 public static class PaymentJudge
 {
     /// <summary>
@@ -79,10 +74,7 @@ public static class PaymentJudge
         return record;
     }
 
-    /// <summary>
-    /// 쌓인 금액과 마지막 지급일로 상태를 정한다.
-    /// 누적 ≥ 운송료 → 예정일이 없거나 지급일 ≤ 예정일이면 PAID, 아니면 DELAYED. 모자라면 PARTIAL.
-    /// </summary>
+    /// <summary>쌓인 금액과 마지막 지급일로 상태를 정한다. 누적 ≥ 운송료면 예정일이 없거나 지급일 ≤ 예정일일 때 PAID, 아니면 DELAYED. 모자라면 PARTIAL.</summary>
     public static PaymentStatus Judge(CargoTransaction t)
     {
         if (t.PaidAmount < t.Amount) return PaymentStatus.PARTIAL;

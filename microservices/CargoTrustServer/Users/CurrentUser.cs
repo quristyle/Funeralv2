@@ -3,12 +3,7 @@ using CargoTrustServer.Data;
 
 namespace CargoTrustServer.Users;
 
-/// <summary>
-/// 지금 요청을 보낸 사람. 요청 범위(scoped) 서비스이고 <see cref="Endpoints.CargoUserFilter"/> 가 채운다.
-///
-/// 핸들러는 <c>CurrentUser me</c> 로 받는다. 채워지기 전에는 핸들러가 불리지 않는다 —
-/// 필터가 신원이 없으면 401 로 끊기 때문이다.
-/// </summary>
+/// <summary>지금 요청을 보낸 사람. 요청 범위 서비스이고 CargoUserFilter 가 채운다. 채워지기 전에는 핸들러가 불리지 않는다(신원이 없으면 필터가 401 로 끊는다).</summary>
 public class CurrentUser
 {
     private AppUser? _user;

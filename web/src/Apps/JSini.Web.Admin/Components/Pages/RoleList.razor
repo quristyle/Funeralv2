@@ -2,79 +2,14 @@
 @attribute [RouteKey("admin.auth.role")]
 
 @*
-    [역할 관리] — DB 메뉴 `/auth/role`.
-    이력: Vue `views/portal/system/role/`(index · modules/RoleUserTab ·
-          modules/RoleMenuTab · modules/form) → 여기.
-    API: `auth/system/roles`(역할 CRUD) ·
-         `auth/system/role-permission/roles/{roleId}/users{,/assign}` ·
-         `…/eligible-users` · `…/menus{,/save}`
-
-    [무엇을 하는 화면인가]
-
-        왼쪽   역할을 만들고 고친다
-        오른쪽 고른 역할에 **사람을 지정**하고 **메뉴별 권한**을 정한다
-
-    [옛 화면의 절반이 빠져 있었다]
-
-    Blazor 로 옮기면서 역할 CRUD 와 「이 역할이 걸린 사람」(읽기 전용)만
-    남았다. 옛 화면의 오른쪽 판 — 사용자 매핑과 메뉴 세부 권한 — 이 통째로
-    없었다. 그 자리에 「거는 일은 사람롤에서 합니다」라는 안내만 서 있었다.
-
-    **그런데 서버는 그 길을 다 갖고 있었다.** `role-permission` 의 여섯 경로가
-    `AdminClient` 에 이미 적혀 있고 부르는 곳만 없었다(메뉴 권한 저장은
-    메뉴롤 화면이 한 줄씩 쓰고 있었다). 빠진 것은 화면뿐이라 그것을 채웠다.
-
-    [세 화면이 같은 자료를 다른 방향에서 본다]
-
-    | 화면 | 출발점 | 무엇을 정하나 |
-    |---|---|---|
-    | 여기 | **역할** | 그 역할의 사람과 메뉴 권한을 **한꺼번에** |
-    | `/admin/auth/menu-role` | 메뉴 | 「이 메뉴는 누가 쓰나」 — 역할 한 줄씩 |
-    | `/admin/auth/user-role` | 사람 | 「이 사람은 무엇을 쓰나」 — 합산 결과 |
-
-    **저장 경로는 셋이 같다**(`role-permission`). 화면이 셋이어도 규칙이
-    갈라지지 않는 이유가 그것이고, 그래서 새 저장 경로를 만들지 않았다.
-
-    [오른쪽은 탭이다 — 사람롤과 다른 선택이다]
-
-    사람롤(`/admin/auth/user-role`)은 권한과 메뉴를 가로로 나란히 둔다.
-    여기서는 탭으로 가른다. **칸 수가 다르기 때문이다** — 메뉴 권한 표는
-    메뉴명 + 권한 열다섯 칸이라 반 폭에서는 체크박스가 다 잘린다.
-    옛 화면도 같은 이유로 탭이었다.
-
-    [메뉴가 안 쓰는 권한은 잠근다]
-
-    메뉴가 「쓰지 않는다」고 지정한 항목(`system_menus.use_*`)은 역할에 켜
-    두어도 효과가 없다 — 서버가 AND 로 묶는다. 잠그고, 왜 잠겼는지 셀에
-    적어 둔다. 옛 화면이 같은 규칙이었다.
-
-    사용자 정의 1~8 은 **아무 메뉴도 안 쓰면 칸 자체를 감춘다.** 쓰는 메뉴가
-    있으면 거기 붙인 이름을 칸 제목으로 쓴다 — 이름이 서로 다르면 하나로
-    고를 수 없어 `C1` 로 두고 셀 안내에 각자의 이름을 적는다.
-
-    [체크박스가 많아서 일괄 단추를 둔다]
-
-    메뉴 179개 × 최대 15칸이다. 하나씩 누르는 것이 번거로워 메뉴명 옆에
-    단추 둘을 둔다 — **이 메뉴만**, **이 메뉴와 하위 전체**. 누를 때마다
-    켜기↔끄기가 바뀐다. **잠긴 칸은 건너뛴다** — 켜 두면 저장 결과와
-    화면이 어긋난다(서버가 꺼서 저장한다).
-
-    [누르면 바로 저장된다 (2026-09-24)]
-
-    「권한 저장」 단추가 표 아래 띠에 있었다. 메뉴가 백칠십 줄이라 그 띠까지
-    내려가는 사람이 없었고, 탭 안에서는 띠가 판 밖으로 밀려 **아예 안 보이는**
-    일도 있었다(web/CLAUDE.md 「DxTabs 안에 표·나무를 넣으면」). 체크하고
-    다른 역할을 누르면 고친 것이 말없이 사라졌다 — 화면은 켜진 채로 보였으니
-    저장된 줄 알았다.
-
-    그래서 단추를 걷고 **바뀐 메뉴만** 곧바로 보낸다. 서버는 받은 메뉴만
-    upsert 하고 나머지는 건드리지 않으므로(`RolePermissionService.SaveRoleMenusAsync`)
-    한 줄씩 보내도 다른 줄이 지워지지 않는다. 자세한 규칙은 `SaveRowsAsync`.
+    [역할 관리] DB 메뉴 `/auth/role`. 왼쪽은 역할 CRUD, 오른쪽은 고른 역할에 사람을 지정하고 메뉴별 권한을 정한다.
+    세 화면(역할 · 메뉴롤 · 사람롤)이 같은 role-permission 저장 경로를 쓴다. 오른쪽은 탭이다 — 메뉴 권한 표가 열다섯 칸이라 나란히 두면 체크박스가 잘린다.
+    메뉴가 쓰지 않는다고 한 항목은 잠그고(서버가 AND 로 묶는다), 사용자 정의 칸은 쓰는 메뉴가 없으면 감춘다. 체크는 누르는 즉시 바뀐 메뉴만 저장한다.
 *@
 
 @inherits DataPage
 
-<PageTitle>역할 관리 · 포털관리</PageTitle>
+<PageTitle>역할 관리</PageTitle>
 
 <CommSch OnSearch="@ReloadAsync" MobileSummary="@ConditionSummary">
     <Fields>
@@ -91,16 +26,13 @@
     </Actions>
 </CommSch>
 
-@* 끌어서 나누는 판 둘. 사람롤과 같은 부품이고 규칙도 같다(admin.css 의
-   `.ad-vsplit`). 왼쪽이 좁은 이유는 역할이 열몇 개뿐이라서다 — 오른쪽의
-   권한 표가 폭을 훨씬 많이 쓴다. *@
+@* 끌어서 나누는 판 둘. 사람롤과 같은 부품이다 — 왼쪽이 좁은 까닭은 역할이 열몇 개뿐이고 오른쪽 권한 표가 폭을 많이 쓰기 때문이다. *@
 <DxSplitter CssClass="ad-vsplit" Orientation="Orientation.Horizontal" SeparatorSize="2">
     <Panes>
 
     <DxSplitterPane Size="30%" MinSize="240px" MaxSize="60%">
     <section class="ad-vsplit__pane ad-vsplit__pane--left ad-rolelist">
-        @* 역할은 열몇 개뿐이라 가상 스크롤 없이 한 쪽에 다 깐다 — 휴대폰에서는
-           표가 높이를 묶지 않고 자기 줄 수만큼 펴진다(admin.css `.ad-rolelist`). *@
+        @* 역할은 열몇 개뿐이라 가상 스크롤 없이 한 쪽에 다 깐다. *@
         <CommGrd TItem="RoleDto"
                  Data="@Shown"
                  MobileCards="false"
@@ -167,8 +99,7 @@
         {
             <h2 class="ad-subhead">@_role.Name <span class="ad-stamp">@_role.Id</span></h2>
 
-            @* **탭으로 가른다.** 메뉴 권한 표가 열다섯 칸이라 사람 목록과
-               나란히 두면 체크박스가 다 잘린다(머리말). *@
+            @* 탭으로 가른다 — 메뉴 권한 표가 열다섯 칸이라 사람 목록과 나란히 두면 체크박스가 다 잘린다. *@
             <DxTabs RenderMode="TabsRenderMode.OnDemand" CssClass="ad-roletabs">
 
                 <DxTabPage Text="@($"지정 사용자 ({_users.Count})")">
@@ -207,8 +138,7 @@
                                 </DxSplitterPane>
 
                                 <DxSplitterPane>
-                                    @* 위아래로 쌓이는 좁은 화면에서만 선다 — 끌어 놓기가 손가락으로는
-                                       어렵다. 위 표에서 고른 사람을 빼고, 아래 조직도에서 고른 사람을 넣는다. *@
+                                    @* 위아래로 쌓이는 좁은 화면에서만 선다 — 위 표에서 고른 사람을 빼고 아래 조직도에서 고른 사람을 넣는다. *@
                                     <PermissionView Action="MenuAction.Update">
                                         <div class="ad-roleshift">
                                             <DxButton Text="넣기" IconCssClass="jsini-icon-arrow-up"
@@ -259,8 +189,7 @@
                     <div class="ad-roletabs__body">
                         @if (NoCustomConfigured)
                         {
-                            @* 사용자 정의 칸을 아무 메뉴도 안 쓴다. 칸이 안 보이는 것이
-                               고장으로 읽히지 않게 말해 둔다. *@
+                            @* 사용자 정의 칸을 아무 메뉴도 안 쓰면 칸이 안 보이는 것이 고장으로 읽히지 않게 말해 둔다. *@
                             <PageNotice Tone="NoticeTone.Info"
                                         Text="사용자 정의 권한(1~8)을 쓰는 메뉴가 없어 그 칸은 감춰 두었습니다. [메뉴 관리]에서 켜면 여기에 나타납니다." />
                         }
@@ -272,9 +201,7 @@
                                   EmptyText="메뉴가 없습니다."
                                   Reload="@(() => LoadMenusAsync())">
                             <FooterLeft>
-                                @* 저장 단추 자리. 누르는 즉시 저장되므로 단추 대신
-                                   지금 보내는 중인지만 적는다 — 끝나기 전에 다른 역할로
-                                   옮겨도 되는지를 사람이 알 수 있어야 한다. *@
+                                @* 누르는 즉시 저장되므로 단추 대신 지금 보내는 중인지만 적는다 — 끝나기 전에 다른 역할로 옮겨도 되는지 알 수 있어야 한다. *@
                                 @if (_pendingSaves > 0)
                                 {
                                     <span class="ad-stamp">저장 중…</span>
@@ -287,16 +214,8 @@
                                         @{
                                             var row = (RoleMenuRow)cell.DataItem;
                                         }
-                                        @* **코드가 아니라 메뉴명을 적는다.** 서버가 사이드바와 같은
-                                           규칙으로 골라 준 글자다(`RoleMenuDto.MenuName`). 코드는
-                                           지우지 않고 아래에 작게 깐다 — 「대시보드」가 업무마다
-                                           있어서 이름만으로는 어느 것인지 갈리지 않는다.
-
-                                           **단추는 코드 줄이 아니라 이름 줄에 붙인다.** 한 줄에
-                                           나란히 두면 `/projmng/ai/dashboard` 처럼 긴 코드가 단추를
-                                           칸 밖으로 밀어내 **「행」이 아예 안 보이는 줄**이 생긴다
-                                           (깊은 메뉴에서 그랬다). 이름 줄에 두면 코드가 아무리
-                                           길어도 단추 자리가 흔들리지 않는다. *@
+                                        @* 코드가 아니라 메뉴명을 적는다 — 「대시보드」가 업무마다 있어 이름만으론 갈리지 않으니 코드는 아래 작게 깐다.
+                                           단추는 이름 줄에 붙인다 — 긴 코드가 같은 줄에 있으면 단추를 칸 밖으로 밀어내 행이 안 보이는 줄이 생긴다. *@
                                         <span class="ad-rolemenu__name">
                                             <span class="ad-rolemenu__head">
                                                 <span class="ad-rolemenu__title">@row.MenuName</span>
@@ -334,11 +253,7 @@
                                                 var row = (RoleMenuRow)cell.DataItem;
                                                 var used = item.Used(row.Source);
                                             }
-                                            @* 메뉴가 안 쓰는 항목은 잠근다. 켜도 아무 일이
-                                               없는 칸을 열어 두면 「켰는데 왜 안 되지」가 된다. *@
-                                            @* 고칠 권한이 없으면 보기만 한다 — 누르는 순간
-                                               저장되는 칸이라 막는 자리가 여기다(옛 단추는
-                                               `PermissionView` 안에 있었다). *@
+                                            @* 메뉴가 안 쓰는 항목은 잠근다 — 켜도 아무 일이 없는 칸을 열어 두면 「켰는데 왜 안 되지」가 된다. 고칠 권한이 없으면 보기만 한다. *@
                                             <span title="@item.Hint(row, used)">
                                                 <DxCheckBox Checked="@item.Get(row.Source)"
                                                             CheckedChanged="@((bool v) => SetAsync(row, item, v))"
@@ -359,8 +274,7 @@
     </Panes>
 </DxSplitter>
 
-@* 사용자 추가. **이미 지정된 사람은 서버가 빼고 준다**(`eligible-users`) —
-   화면에서 거르면 서버 판정과 어긋나는 날이 온다. *@
+@* 이미 지정된 사람은 서버가 빼고 준다(eligible-users) — 화면에서 거르면 서버 판정과 어긋난다. *@
 <CommPopup @bind-Visible="_pickerOpen"
            HeaderText="사용자 추가"
            Width="min(900px, calc(100vw - 2rem))">
@@ -373,10 +287,7 @@
                  EmptyText="추가할 수 있는 사용자가 없습니다."
                  Reload="@LoadPickableAsync">
             <Columns>
-                @* **DevExpress 의 다중 선택을 쓰지 않는다.** `CommGrd` 가 그
-                   이름을 선언해 두지 않아 splat 으로 흘러가고, 대리자는
-                   `EventCallback` 으로 감싸이지 않아 화면이 그리기도 전에
-                   500 으로 죽는다(web/CLAUDE.md). 칸 하나를 우리가 그린다. *@
+                @* DevExpress 다중 선택을 쓰지 않는다 — CommGrd 가 이름을 선언하지 않아 대리자가 흘러가 화면이 그리기 전에 500 으로 죽는다(web/CLAUDE.md). 칸 하나를 직접 그린다. *@
                 <DxGridDataColumn Caption="" Width="44">
                     <CellDisplayTemplate Context="cell">
                         @{

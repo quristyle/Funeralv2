@@ -7,69 +7,20 @@ using Microsoft.EntityFrameworkCore;
 namespace AuthServer.Services;
 
 /// <summary>
-/// 보고서 메일 배치의 조회·저장과 한 건 보내기.
+/// 보고서 메일 배치의 조회·저장과 한 건 보내기. 고를 수 있는 보고서 목록은 scom.system_menus 에서 읽는다(코드에 적지 않는다).
+/// 받는 사람 규칙은 NotificationServer 의 /emails/send 와 같아야 하고(미리보기가 다르게 세면 인원이 어긋난다), created_by·updated_by 는 SaveChanges 가 덮어쓰므로 여기서 넣지 않는다.
 /// </summary>
-/// <remarks>
-/// <para>
-/// [고를 수 있는 보고서를 코드에 적지 않는다]
-/// </para>
-///
-/// <para>
-/// 목록은 <c>scom.system_menus</c> 에서 읽는다(<see cref="ReportKeyPrefix"/>).
-/// 운영 리포트 화면이 하나 늘면 이 화면의 목록도 그날부터 함께 는다 —
-/// 코드에 여덟 개를 적어 두면 아홉 번째가 생기는 날 아무도 여기를 안 고친다.
-/// </para>
-///
-/// <para>
-/// [받는 사람을 푸는 규칙은 <b>알림 서비스와 같아야 한다</b>]
-/// </para>
-///
-/// <para>
-/// 실제로 보내는 쪽은 NotificationServer 의 <c>/emails/send</c> 이고, 그쪽은
-/// 역할을 <c>scom.role_accounts</c> → 계정 → <c>Email</c> 속성으로 푼다
-/// (<c>EmailEndpoints.ResolveRoleEmailsAsync</c>). 미리보기가 다른 규칙으로
-/// 세면 화면이 「네 명에게 갑니다」라고 말해 놓고 두 명에게 가는 일이 생긴다.
-/// <b>그래서 여기서도 같은 표를 같은 차례로 본다.</b> 회사·부서에 걸린 역할은
-/// 둘 다 보지 않는다 — 그쪽을 세려면 보내는 쪽부터 함께 고쳐야 한다.
-/// </para>
-///
-/// <para>
-/// [<c>created_by</c> · <c>updated_by</c> 를 여기서 적지 않는다]
-/// </para>
-///
-/// <para>
-/// <see cref="AppDbContext.SaveChangesAsync"/> 의 <c>HandleAuditing</c> 이
-/// 저장 직전에 <b>덮어쓴다</b> — 로그인 주체(없으면 <c>System</c>)로. 그래서
-/// 여기서 사람 이름을 넣어 봐야 사라지고, 넣어 둔 줄은 「되는 줄 알았는데
-/// 안 되는」 코드가 된다. 누가 했는지는 <b>로그와
-/// <see cref="ReportMailSchedule.LastResult"/></b> 가 들고 있다.
-/// </para>
-///
-/// <para>
-/// 다만 <b>본인이 꺼 둔 메일 갈래</b>(<c>scom.notification_preferences</c>)는
-/// 보내는 쪽만 본다. 그 표는 알림 서비스의 것이고 여기서 읽으면 같은 설정을
-/// 두 서비스가 알게 된다 — 미리보기에 그 한 줄을 적어 둔다.
-/// </para>
-/// </remarks>
 public class ReportMailService(
     AppDbContext db,
     ReportMailSender sender,
     ILogger<ReportMailService> logger) : IReportMailService
 {
     /// <summary>
-    /// 보고서로 고를 수 있는 화면의 열쇠 앞머리.
+    /// 보고서로 고를 수 있는 화면의 열쇠 앞머리. 헬프데스크 운영 리포트 묶음(/helpdesk/report/*)이다. 묶음 식별자로 거르지 않는 까닭은 메뉴를 옮기면 그 값이 바뀌기 때문이다.
     /// </summary>
-    /// <remarks>
-    /// 헬프데스크의 <b>운영 리포트</b> 묶음이다(<c>/helpdesk/report/*</c>).
-    /// 묶음 식별자(<c>HD_RPT</c>)로 묶지 않는 까닭은 메뉴를 옮기면 그 값이
-    /// 바뀌기 때문이고, 열쇠는 「한 번 정하면 안 바꾸는 값」이다
-    /// (<c>web/CLAUDE.md</c>).
-    /// </remarks>
     private const string ReportKeyPrefix = "helpdesk.report.";
 
-    /// <summary>
-    /// 묶음 밖에 있지만 같은 종류인 화면. 지금은 「SM 모니터링」 하나다.
-    /// </summary>
+    /// <summary>묶음 밖에 있지만 같은 종류인 화면. 지금은 「SM 모니터링」 하나다.</summary>
     private static readonly string[] ExtraReportKeys = ["helpdesk.monitor.sm"];
 
     /// <inheritdoc />
@@ -285,15 +236,8 @@ public class ReportMailService(
     }
 
     /// <summary>
-    /// 지금 한 번 보낸다.
+    /// 지금 한 번 보낸다. LastSentAt 은 찍지 않는다 — 사람이 누른 한 통 때문에 오늘 정기 발송이 건너뛰어지면 안 된다. 결과만 LastResult 에 적어 화면이 읽게 한다.
     /// </summary>
-    /// <remarks>
-    /// <b><c>LastSentAt</c> 을 찍지 않는다.</b> 그 값은 「주기의 이 칸에 이미
-    /// 보냈나」를 가리는 데 쓰이므로, 사람이 눌러 보낸 한 통 때문에 오늘 아침
-    /// 정기 발송이 건너뛰어지면 안 된다. 대신
-    /// <see cref="ReportMailSchedule.LastResult"/> 에는 적는다 — 눌러 본 결과를
-    /// 화면이 그 자리에서 읽을 수 있어야 하기 때문이다.
-    /// </remarks>
     public async Task<(bool Ok, string Message)> SendNowAsync(
         string id, string actor, CancellationToken ct = default)
     {
@@ -314,24 +258,9 @@ public class ReportMailService(
     }
 
     /// <summary>
-    /// 「미리받아보기」 — 지금 고른 보고서를 부른 사람 본인에게 한 통 보낸다.
+    /// 「미리받아보기」 — 지금 고른 보고서를 부른 사람 본인에게 한 통 보낸다. DB 를 건드리지 않는다.
+    /// 저장하지 않은 배치로도 부를 수 있다(받는 역할을 정하기 전에 메일 꼴부터 보는 것이 흔한 순서). LastResult 를 덮으면 어젯밤 정기 발송의 실패 줄이 사라진다.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// [<b>DB 를 한 칸도 건드리지 않는다</b>]
-    /// </para>
-    /// <para>
-    /// 「지금 보내기」는 적어도 <see cref="ReportMailSchedule.LastResult"/> 에
-    /// 자국을 남긴다 — 그 한 통이 <b>남에게</b> 갔기 때문이다. 이쪽은 누른
-    /// 사람 본인에게만 가므로 배치의 기록에 남길 것이 없다. 남기면 「마지막
-    /// 결과」가 아무도 못 받은 미리보기로 덮여, 정작 어젯밤 정기 발송이
-    /// 실패했다는 줄이 사라진다.
-    /// </para>
-    /// <para>
-    /// 그래서 <b>저장하지 않은 배치</b>로도 부를 수 있다. 받는 역할을 정하기
-    /// 전에 메일 꼴부터 보는 것이 가장 흔한 차례다.
-    /// </para>
-    /// </remarks>
     public async Task<(bool Ok, string Message, ReportMailPreviewResultDto? Result)> SendPreviewAsync(
         ReportMailPreviewDto request, string actor, CancellationToken ct = default)
     {
@@ -395,22 +324,8 @@ public class ReportMailService(
     // ── 안쪽 ────────────────────────────────────────────────
 
     /// <summary>
-    /// 로그인한 사람의 대표 이메일. 없으면 <c>null</c>.
+    /// 로그인한 사람의 대표 이메일. 없으면 null. 계정을 user_id 와 id 로 함께 찾고, 주소를 고르는 차례는 ResolveRecipientsAsync 와 같아야 한다 — 지운 줄을 거르지 않으면 지운 주소로 간다.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 계정을 <c>user_id</c> 로도 <c>id</c> 로도 찾는다 — 게이트웨이가 실어
-    /// 보내는 <c>X-User-Id</c> 가 어느 쪽인지는 토큰을 만든 자리에 달려 있고,
-    /// 이 서버의 다른 조회들도 둘을 함께 본다(<c>UserService</c>).
-    /// </para>
-    /// <para>
-    /// 주소를 고르는 차례는 <see cref="ResolveRecipientsAsync"/> 와 <b>같아야
-    /// 한다</b> — 미리받아보기가 다른 주소로 가면 「받는 사람」 창이 보여 준
-    /// 것과 실제로 받은 메일이 어긋난다. 프로필 상세는 값을 고칠 때 옛 줄을
-    /// 지움 표시만 하고 새 줄을 더하는 자리라, 지운 것을 안 거르면 <b>옛
-    /// 주소</b>로 간다.
-    /// </para>
-    /// </remarks>
     private async Task<string?> FindOwnEmailAsync(string actor, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(actor)) return null;
@@ -487,19 +402,15 @@ public class ReportMailService(
         entity.IsActive = request.IsActive;
         entity.Remark = string.IsNullOrWhiteSpace(request.Remark) ? null : request.Remark.Trim();
 
-        // **안 쓰는 칸은 비운다.** 주마다에서 달마다로 바꾼 배치에 옛 요일이
+        // **안 쓰는 칸은 비운다.** 주마다에서 달마다로 바꾼 배치에 이전 요일이
         // 남아 있으면 DB 를 들여다본 사람이 어느 쪽이 사는 값인지 알 수 없다.
         entity.DayOfWeek = request.Frequency == ReportMailFrequency.Weekly ? request.DayOfWeek : null;
         entity.DayOfMonth = request.Frequency == ReportMailFrequency.Monthly ? request.DayOfMonth : null;
     }
 
     /// <summary>
-    /// 고른 보고서·역할을 <b>통째로 갈아 끼운다.</b>
+    /// 고른 보고서·역할을 통째로 갈아 끼운다. 더한 것과 뺀 것을 가리지 않는다 — 화면이 보내는 것이 「지금 고른 전부」라서다.
     /// </summary>
-    /// <remarks>
-    /// 더한 것과 뺀 것을 가려 내지 않는다 — 화면이 보내는 것이 「지금 고른
-    /// 전부」라서, 차이를 셈하는 코드는 같은 결과를 더 어렵게 얻는 길이다.
-    /// </remarks>
     private void ReplaceChildren(ReportMailSchedule entity, SaveReportMailScheduleDto request)
     {
         if (entity.Reports is { Count: > 0 }) db.RemoveRange(entity.Reports);

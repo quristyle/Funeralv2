@@ -13,12 +13,6 @@ public class WeatherMonitoringService : IWeatherMonitoringService
     private readonly ILogger<WeatherMonitoringService> _logger;
     private readonly WeatherNotifyClient _notify;
 
-    /// <summary>
-    /// WeatherMonitoringService 생성자
-    /// </summary>
-    /// <param name="db">DB 컨텍스트</param>
-    /// <param name="logger">로거</param>
-    /// <param name="notify">기상 알림 발송 클라이언트 (NotificationServer 로 넘긴다, D-G1a)</param>
     public WeatherMonitoringService(LifeEnvDbContext db, ILogger<WeatherMonitoringService> logger, WeatherNotifyClient notify)
     {
         _db = db;
@@ -26,10 +20,7 @@ public class WeatherMonitoringService : IWeatherMonitoringService
         _notify = notify;
     }
 
-    /// <summary>
-    /// 수집된 날씨 정보를 기준으로 설정된 기준을 체크하고 부합할 경우 기록을 저장합니다.
-    /// </summary>
-    /// <param name="weatherInfo">수집된 날씨 정보</param>
+    /// <summary>수집된 날씨가 설정된 기준을 넘으면 기록하고 알린다.</summary>
     public async Task CheckWeatherStandardsAsync(WeatherInfo weatherInfo)
     {
         var standards = await _db.WeatherStandards
@@ -96,10 +87,7 @@ public class WeatherMonitoringService : IWeatherMonitoringService
                         WeatherStandardId = std.Id,
                         EventTime = DateTimeOffset.UtcNow,
                         MeasuredValue = actualValue.Value,
-                        // IsNotified 의 의미는 원본 그대로 "기준 충족을 기록했다"(발송 성공이 아니다).
-                        // 중복 기록 억제(위 isRecentlyNotified 판정)가 이 값에 걸려 있어서다 —
-                        // 발송 성공으로 바꾸면 NotificationServer 장애 때 판정 주기마다 재발송을
-                        // 시도해 복구 순간 알림이 몰린다. 발송 결과는 로그로 남는다.
+                        // IsNotified 는 기준 충족을 기록했다는 뜻이지 발송 성공이 아니다. 중복 억제가 이 값에 걸려 있어 성공일 때만 세우면 장애 뒤 재발송이 몰린다.
                         IsNotified = true,
                         CreatedAt = DateTimeOffset.UtcNow,
                         CreatedBy = "WeatherMonitoring"

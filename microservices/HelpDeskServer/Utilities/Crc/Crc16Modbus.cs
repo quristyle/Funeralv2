@@ -6,9 +6,7 @@ public static class Crc16Modbus
     private const ushort Polynomial = 0xA001;
     private const ushort InitialValue = 0xFFFF;
 
-    /// <summary>
-    /// CRC 계산 (Modbus)
-    /// </summary>
+    /// <summary>CRC 계산 (Modbus)</summary>
     public static ushort Compute(ReadOnlySpan<byte> data)
     {
         ushort crc = InitialValue;
@@ -29,9 +27,7 @@ public static class Crc16Modbus
         return crc;
     }
 
-    /// <summary>
-    /// CRC 검증 (마지막 2바이트가 CRC일 때)
-    /// </summary>
+    /// <summary>CRC 검증 (마지막 2바이트가 CRC일 때)</summary>
     public static bool Validate(ReadOnlySpan<byte> packet)
     {
         if (packet.Length < 3)
@@ -45,9 +41,7 @@ public static class Crc16Modbus
         return computed == received;
     }
 
-    /// <summary>
-    /// CRC 붙이기 (패킷 생성용)
-    /// </summary>
+    /// <summary>CRC 붙이기 (패킷 생성용)</summary>
     public static byte[] AppendCrc(ReadOnlySpan<byte> data)
     {
         ushort crc = Compute(data);

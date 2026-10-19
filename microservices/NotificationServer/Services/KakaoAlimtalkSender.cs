@@ -14,13 +14,8 @@ public interface IKakaoAlimtalkSender
     Task<int> SendWeatherAsync(WeatherEventDto ev, CancellationToken ct = default);
 }
 
-/// <summary>
-/// 비즈뿌리오 알림톡 설정. **기본 꺼짐** — 켜려면 세 가지가 먼저 필요하다.
-///   1) 비즈뿌리오 계정·발신프로필(SenderKey)·승인된 템플릿 코드 (자격증명은 Local.json 에만)
-///   2) 수신 전화번호의 출처 — 포털 계정에는 아직 전화번호 칸이 없어
-///      당분간 Recipients 목록으로 직접 준다
-///   3) 템플릿 본문과 코드가 일치해야 한다 — 알림톡은 승인된 템플릿과 다른 본문을 거부한다
-/// </summary>
+/// <summary>비즈뿌리오 알림톡 설정. 기본 꺼짐. 켜려면 계정·발신프로필·승인 템플릿이 있어야 하고, 수신 번호는 아직 출처가 없어 Recipients 로 직접 준다.
+/// 템플릿 본문은 승인된 것과 글자가 정확히 같아야 한다(다르면 거부된다).</summary>
 public class KakaoOptions
 {
     public const string SectionName = "Kakao";
@@ -48,11 +43,7 @@ public class KakaoOptions
         !string.IsNullOrWhiteSpace(WeatherTemplateCode);
 }
 
-/// <summary>
-/// 비즈뿌리오 REST 이식판. 전송 규약은 GHUB 원본(skgRestApi/Utilities/KakaoUtil.cs)과 같다 —
-/// <c>/v1/token</c>(Basic) 으로 토큰을 받고 <c>/v3/message</c>(Bearer, type=at) 로 보낸다.
-/// 원본의 토큰 캐시(만료 전 재사용)도 그대로 가져왔다.
-/// </summary>
+/// <summary>비즈뿌리오 REST 이식판. 전송 규약은 GHUB 원본과 같다(/v1/token 으로 토큰, /v3/message 로 발송). 토큰은 만료 전까지 재사용한다.</summary>
 public class BizppurioAlimtalkSender : IKakaoAlimtalkSender
 {
     private readonly HttpClient _http;
@@ -93,8 +84,7 @@ public class BizppurioAlimtalkSender : IKakaoAlimtalkSender
         var token = await GetTokenAsync(ct);
         if (token is null) return 0;
 
-        // 주의: 알림톡은 승인된 템플릿과 본문이 정확히 일치해야 한다.
-        // 이 본문 형식으로 템플릿을 승인받거나, 승인받은 템플릿에 이 형식을 맞춘다.
+        // 알림톡은 승인된 템플릿과 본문이 정확히 일치해야 한다 — 이 형식으로 템플릿을 승인받거나 맞춘다.
         var messageText = $"[기상] {ev.StandardName}\n{ev.Location} · 측정 {ev.MeasuredValue:0.#}{ev.Unit} — 기준 충족";
         var sent = 0;
 
@@ -175,7 +165,7 @@ public class BizppurioAlimtalkSender : IKakaoAlimtalkSender
             }
 
             _cachedToken = tokenResponse.AccessToken;
-            // 원본과 같이 만료보다 조금 일찍 갱신한다 (응답의 expired 파싱 실패 시 20시간)
+            // 원본과 같이 만료보다 조금 일찍 갱신한다(expired 파싱 실패 시 20시간).
             _tokenExpiry = DateTime.UtcNow.AddHours(20);
             return _cachedToken;
         }

@@ -1,33 +1,7 @@
 /**
- * 마인드맵 JS interop.
- *
- * [mermaid 를 본떴지, 싣지는 않았다]
- *
- * 마디 모양 여섯 가지(네모·둥근·원·폭발·구름·육각)와 들여쓰기로 층을 나누는
- * 글 형식은 mermaid 의 `mindmap` 그대로다
- * (https://github.com/mermaid-js/mermaid). 그래야 여기서 만든 것을 문서에
- * 그대로 붙여 넣을 수 있고, 남이 써 둔 mermaid 글을 가져올 수도 있다.
- *
- * **그리는 것은 maxgraph 다.** 저장소의 그림 화면 셋(ERD·업무 흐름·유즈케이스)이
- * 이미 maxgraph 로 그리고 그 파일은 로컬 정적 자산이다 — 마인드맵 하나 때문에
- * 렌더러를 하나 더 싣지 않는다(mermaid 를 실으면 dagre·cytoscape 까지 따라온다).
- *
- * [`diagram-viewer.js` 와 갈라 둔 까닭]
- *
- * 저 쪽은 **사람이 놓은 자리**를 저장하는 편집기다. 여기는 반대로 자리를
- * 저장하지 않는다 — 마인드맵의 배치는 나무 모양에서 저절로 나오고, 가지를
- * 하나 더하면 통째로 다시 계산된다. 그래서
- *
- *   · 상자를 끌어 옮길 수 없다 (`setCellsMovable(false)`)
- *   · 선을 사람이 긋지 않는다 (`setConnectable(false)`)
- *   · 바뀔 때마다 **그래프를 새로 짓는다** (`render()`)
- *
- * 저 파일에 옵션을 더해 둘을 겸하게 만들면 두 화면 모두에서 「이 단추는 여기서
- * 무슨 뜻인가」를 매번 따져야 한다.
- *
- * [정본은 `state.root` 다]
- *
- * maxgraph 의 셀은 **그때그때 그린 그림**일 뿐이다. 나무를 고치고 다시 그린다.
+ * 마인드맵 JS interop. 글 형식은 mermaid 의 mindmap 을 본떴고(싣지는 않았다), 그리는 것은 maxgraph 다.
+ * 자리를 저장하지 않는다 — 배치는 나무에서 나오고, 상자는 끌 수 없고, 선도 사람이 긋지 않는다.
+ * 정본은 state.root 다. maxgraph 의 셀은 그때그때 그린 그림일 뿐이다.
  */
 import {
   Graph,
@@ -61,13 +35,7 @@ const FONTS = [
   { size: 13, bold: false },
 ];
 
-/**
- * 가지 색.
- *
- * mermaid 는 뿌리의 자식마다 `section-0..11` 색을 돌려 쓴다. 같은 규칙을
- * 쓰되 값은 포털 바탕에 맞춰 고쳤다 — **가지를 색으로 가르는 것**이 요점이고,
- * 그것이 마인드맵을 한눈에 읽게 만드는 거의 전부다.
- */
+/** 가지 색. mermaid 의 section-0..11 을 본떠 포털 바탕에 맞춘 값이다 — 가지를 색으로 가르는 것이 요점이다. */
 const SECTIONS = [
   { fill: '#e8f1ff', stroke: '#3f7ad6', text: '#1d3f73' },
   { fill: '#fdeef0', stroke: '#d64f63', text: '#7a2432' },
@@ -104,13 +72,7 @@ function pathShape(draw) {
   };
 }
 
-/**
- * mermaid 의 `bang` — 터지는 모양.
- *
- * maxgraph 에는 없는 모양이라 직접 그린다. 뾰족한 끝이 상자 밖으로 나가면
- * 글자가 가장자리에 닿으므로, **바깥 반지름을 상자에 딱 맞추고 안쪽을 파낸다** —
- * 그러면 글자가 들어갈 자리는 안쪽 원만큼 남는다.
- */
+/** mermaid 의 bang(터지는 모양). 바깥 반지름을 상자에 맞추고 안쪽을 파내어 글자 자리를 남긴다. */
 const BANG_SPIKES = 14;
 
 const MIND_SHAPES = {
@@ -132,19 +94,12 @@ const MIND_SHAPES = {
   }),
 };
 
-// **한 번만 등록한다.** 모듈은 한 번 실리고, 그 뒤에 만들어지는 그래프가 모두
-// 이 이름을 알게 된다. `diagram-viewer.js` 가 등록하는 이름들과 겹치지 않게
-// `pmMind` 를 앞에 붙인다 — 등록판은 한 벌뿐이다.
+// 등록은 한 벌뿐이라 diagram-viewer.js 의 이름과 겹치지 않게 pmMind 를 앞에 붙인다.
 for (const [name, shape] of Object.entries(MIND_SHAPES)) {
   ShapeRegistry.add(name, shape);
 }
 
-/**
- * 모양 이름 → maxgraph 스타일 조각.
- *
- * 이름은 **mermaid 가 정한 것**이라 바꾸지 않는다. 저장본과 글 형식이 이
- * 글자를 그대로 쓴다.
- */
+/** 모양 이름 → maxgraph 스타일. 이름은 mermaid 가 정한 것이라 바꾸지 않는다 — 저장본과 글 형식이 같은 글자를 쓴다. */
 const SHAPES = {
   default: { label: '기본', style: { rounded: true, arcSize: 10 } },
   square: { label: '네모', style: { rounded: false } },
@@ -157,10 +112,7 @@ const SHAPES = {
 
 /* ── 글자 재기 ───────────────────────────────────────────────── */
 
-/**
- * 글자 폭을 잰다. 상자 크기를 우리가 정해야 하므로(배치를 직접 짠다) 실제로
- * 그려질 글꼴로 재야 한다 — 어림값을 쓰면 우리말에서 20% 넘게 어긋난다.
- */
+/** 글자 폭을 잰다. 어림값은 우리말에서 20% 넘게 어긋나므로 실제 글꼴로 잰다. */
 let measureCanvas = null;
 
 function measureCtx(font) {
@@ -170,12 +122,7 @@ function measureCtx(font) {
   return ctx;
 }
 
-/**
- * 상자 폭에 맞게 줄을 접는다.
- *
- * **글자 단위로도 끊는다.** 우리말은 띄어쓰기가 드물어 낱말 단위로만 끊으면
- * 「장례식장통합관리시스템」 같은 마디가 상자를 뚫고 나간다.
- */
+/** 상자 폭에 맞게 줄을 접는다. 우리말은 띄어쓰기가 드무니 글자 단위로도 끊는다. */
 function wrap(text, font, maxWidth) {
   const ctx = measureCtx(font);
   const lines = [];
@@ -234,7 +181,7 @@ function adopt(raw, seq) {
   return node;
 }
 
-/** 나무를 저장본 모양으로 되돌린다. 좌표는 담지 않는다(머리말). */
+/** 나무를 저장본 모양으로 되돌린다. 좌표는 담지 않는다. */
 function shed(node) {
   return {
     id: node.id,
@@ -280,15 +227,8 @@ function visibleLeaves(node) {
 /* ── 배치 ────────────────────────────────────────────────────── */
 
 /**
- * 마인드맵 배치.
- *
- * 뿌리를 가운데 두고 **가지를 좌우로 나눈다.** 한쪽으로만 뻗게 두면 마디가
- * 쉰 개만 넘어도 화면이 가로로 길어져 한 번에 볼 수 없다.
- *
- * 나누는 자리는 **잎의 수**로 정한다(마디 수가 아니라). 가지 하나가 깊고
- * 굵으면 그것 하나로 한쪽이 차야 좌우 높이가 맞는다. 순서는 지킨다 —
- * 앞쪽 절반이 오른쪽, 뒤쪽 절반이 왼쪽이다. 큰 것부터 번갈아 놓으면 좌우는
- * 더 고르지만 **적어 넣은 순서가 흐트러져** 글과 그림이 따로 논다.
+ * 마인드맵 배치. 뿌리를 가운데 두고 가지를 좌우로 나눈다. 나누는 자리는 잎의 수로 정한다 — 가지 하나가 굵으면 그것으로 한쪽이 차야 좌우 높이가 맞는다.
+ * 순서는 지킨다(앞쪽 절반 오른쪽, 뒤쪽 절반 왼쪽). 큰 것부터 번갈아 놓으면 적은 순서가 흐트러진다.
  */
 function layout(root, fontFamily) {
   // ① 마디마다 상자 크기를 정한다.
@@ -309,8 +249,7 @@ function layout(root, fontFamily) {
     node.lines = lines;
     node.font = font;
 
-    // 지난 배치의 좌표를 지운다. 접힌 가지는 이번에 자리를 안 잡는데,
-    // 낡은 값이 남아 있으면 아래 「왼쪽 위로 끌어오기」가 그것까지 센다.
+    // 지난 배치의 좌표를 지운다. 접힌 가지는 자리를 안 잡으므로 낡은 값이 남으면 아래 끌어오기가 그것까지 센다.
     node.x = undefined;
     node.y = undefined;
     node.w = Math.max(MIN_W, Math.ceil(textWidth) + padX * 2);
@@ -338,8 +277,7 @@ function layout(root, fontFamily) {
     return height;
   }
 
-  // ③ 한쪽을 내려 놓는다. `dir` 은 +1(오른쪽) · -1(왼쪽).
-  //    `x` 는 **부모 쪽 가장자리**다 — 왼쪽으로 뻗을 때는 거기서 폭을 뺀다.
+  // ③ 한쪽을 내려 놓는다. dir 은 +1(오른쪽) · -1(왼쪽). x 는 부모 쪽 가장자리다.
   function place(node, x, centerY, dir) {
     node.x = dir > 0 ? x : x - node.w;
     node.y = centerY - node.h / 2;
@@ -400,8 +338,7 @@ function layout(root, fontFamily) {
     }
   }
 
-  // ④ 왼쪽 가지 때문에 좌표가 음수다. 화면 왼쪽 위로 끌어온다 —
-  //    maxgraph 는 음수 좌표도 그리지만 「맞춤」이 어긋나고 스크롤이 이상해진다.
+  // ④ 왼쪽 가지 때문에 좌표가 음수다. 화면 왼쪽 위로 끌어온다 — 음수 좌표는 맞춤이 어긋나고 스크롤이 이상해진다.
   let minX = Infinity;
   let minY = Infinity;
 
@@ -421,12 +358,7 @@ function layout(root, fontFamily) {
   });
 }
 
-/**
- * 상자에 적을 글자.
- *
- * 접힌 마디에는 **감춘 수**를 붙인다. 접었다는 것을 테두리(점선)만으로
- * 알리면 「가지가 원래 없는 마디」와 구별되지 않는다.
- */
+/** 상자 글자. 접힌 마디에는 감춘 수를 붙인다 — 테두리(점선)만으로는 가지가 원래 없는 마디와 구별되지 않는다. */
 function labelOf(node) {
   const text = node.text || '(이름 없음)';
 
@@ -450,50 +382,26 @@ export function create(container, dotnet) {
 
   const graph = new Graph(container);
 
-  // **자리는 우리가 정한다**(머리말). 끌어 옮기는 길을 열어 두면 옮긴 자리가
-  // 다음 편집에서 사라져, 사용자가 보기에는 「가끔 되돌아가는 그림」이 된다.
+  // 자리는 우리가 정한다 — 끌 수 있게 열면 옮긴 자리가 다음 편집에서 사라져 「가끔 되돌아가는 그림」이 된다.
   graph.setCellsMovable(false);
   graph.setCellsResizable(false);
   graph.setConnectable(false);
   graph.setDropEnabled(false);
   graph.setPanning(true);
 
-  /*
-    **글자는 SVG 로 그린다(HTML 라벨 끄기).**
-
-    [켜 두었더니 도형을 눌러도 골라지지 않았다]
-
-    HTML 라벨은 글자를 `<foreignObject>` 에 담는데, 그 상자가 **셀 크기가
-    아니라 훨씬 크게** 잡힌다(여기서는 1062x602 — 그림 전체를 덮었다).
-    그것이 도형들 위에 깔리니 마우스가 닿는 것은 언제나 그 상자이고,
-    maxgraph 는 「셀 위가 아니다」로 판정한다. 결과가 둘이다 —
-
-      · 고르기가 안 된다. 누른 자리에 셀이 없다고 보기 때문이다.
-      · 그 판정이 곧 **화면 끌기(panning) 신호**라(`!me.getState()`),
-        도형을 눌러도 그림만 밀린다.
-
-    증상은 「Tab·Enter 가 엉뚱한 마디에 붙는다」로 나타난다. 고른 것이
-    바뀌지 않으니 언제나 **마지막으로 만든 마디** 아래에 붙는다.
-
-    끌 수 있는 까닭은 **줄 접기를 우리가 하기 때문**이다(`wrap`). 상자 크기도
-    우리가 정하므로 maxgraph 에게 맡길 일이 없고, 넘긴 글자의 줄바꿈(`\n`)은
-    SVG 로도 그대로 여러 줄로 그려진다.
-  */
+  // 글자는 SVG 로 그린다(HTML 라벨 끄기). HTML 라벨의 foreignObject 는 셀보다 크게 잡혀 고르기와 화면 끌기를 망친다.
+  // 줄 접기는 우리가 하므로(wrap) 끌 수 있다.
   graph.setHtmlLabels(false);
 
   // 글자는 고칠 수 있다 — 마인드맵에서 그것이 본업이다.
   graph.setCellsEditable(true);
   graph.isCellEditable = (cell) => Boolean(cell?.isVertex?.());
 
-  // **Enter 로 글자를 확정한다.** maxgraph 의 기본값은 반대(Enter 는 줄바꿈,
-  // F2 로만 확정)인데, 그러면 마인드맵에서 제일 잦은 동작인 「적고 다음으로」가
-  // 막힌다 — 적은 사람은 Enter 를 누르고, 글자에 빈 줄만 하나 생긴다.
-  //
-  // 줄바꿈이 필요하면 Shift+Enter 다(위 `isStopEditingEvent` 가 그렇게 가른다).
+  // Enter 로 글자를 확정한다(maxgraph 기본은 F2 확정·Enter 줄바꿈). 마인드맵에서는 적고 다음으로 가는 것이 잦은 동작이다.
+  // 줄바꿈은 Shift+Enter 다(위 isStopEditingEvent 참고).
   graph.setEnterStopsCellEditing(true);
 
-  // 빈 자리를 끌면 그림이 따라 움직인다. 상자를 못 끄니 왼쪽 단추가 놀고 있고,
-  // 마인드맵은 금세 화면보다 커진다.
+  // 빈 자리를 끌면 그림이 움직인다 — 상자를 못 끄니 왼쪽 단추를 이것에 쓴다.
   const panning = graph.getPlugin('PanningHandler');
 
   if (panning) {
@@ -525,23 +433,13 @@ export function create(container, dotnet) {
   }
 
   /**
-   * 전체가 보이게 맞춘다.
-   *
-   * **`graph.fit()` 이 아니다.** 0.24 에서 그 일이 플러그인으로 옮겨 갔다
-   * (`FitPlugin`, 이름은 `fit`). 옛 이름으로 부르면 던지고 회로가 끊긴다.
-   *
-   * [배율 상한은 **인자가 아니라 플러그인의 값**이다]
-   *
-   * `fitCenter()` 가 받는 것은 `margin` 하나뿐이라, `{ maxScale: 1.2 }` 를
-   * 넘기면 **조용히 무시되고** 기본 상한(`maxFitScale = 8`)까지 확대된다.
-   * 마디가 둘뿐인 새 마인드맵에서 바로 드러난다 — 뿌리 하나가 화면을 가득
-   * 채워서, 「글자가 거대하게 나온다」로 보인다. 값은 플러그인에 얹는다.
+   * 전체가 보이게 맞춘다. graph.fit() 은 0.24 에서 플러그인(fit)으로 옮겨 가 옛 이름은 던진다.
+   * 배율 상한은 인자가 아니라 플러그인 값(maxFitScale)이다 — fitCenter 는 margin 만 받아 다른 인자는 조용히 무시된다.
    */
   const fitPlugin = graph.getPlugin('fit');
 
   if (fitPlugin) {
-    // 줄이는 데는 제한이 없다(큰 그림은 얼마든지 작아져야 한다).
-    // 늘리는 쪽만 막는다 — 마디 둘짜리 그림을 8배로 키울 이유가 없다.
+    // 줄이는 데는 제한이 없고, 늘리는 쪽만 막는다 — 마디 둘짜리 그림을 8배로 키울 이유가 없다.
     fitPlugin.maxFitScale = 1.2;
   }
 
@@ -556,8 +454,7 @@ export function create(container, dotnet) {
       ? ROOT_COLORS
       : SECTIONS[((section < 0 ? 0 : section) % SECTIONS.length + SECTIONS.length) % SECTIONS.length];
 
-    // 첫 가지는 색을 채우고, 그 아래는 흰 바탕에 테두리만 같은 색이다.
-    // 다 채우면 깊은 마인드맵이 색 덩어리가 되어 층이 안 보인다.
+    // 첫 가지는 색을 채우고 그 아래는 테두리만 같은 색이다 — 다 채우면 깊은 마인드맵이 색 덩어리가 된다.
     const filled = depth <= 1;
 
     return {
@@ -572,9 +469,7 @@ export function create(container, dotnet) {
       verticalAlign: 'middle',
       align: 'center',
 
-      // **`whiteSpace: 'wrap'` 을 주지 않는다.** 줄은 이미 우리가 상자 폭에
-      // 맞춰 끊어 넣었다(`wrap`). 여기서 또 접게 하면 기준이 둘이 되어,
-      // 우리가 잰 높이와 실제로 그려지는 줄 수가 어긋난다.
+      // whiteSpace 를 주지 않는다 — 줄은 이미 wrap 이 상자 폭에 맞춰 끊었고, 여기서 또 접으면 잰 높이와 그려진 줄 수가 어긋난다.
       shadow: depth === 0,
 
       // 접은 가지는 점선으로 알린다. 글자의 `⊕n` 과 짝이다.
@@ -595,8 +490,7 @@ export function create(container, dotnet) {
       curved: true,
       rounded: true,
 
-      // **나가고 들어오는 자리를 못 박는다.** 안 박으면 maxgraph 가 가까운
-      // 변을 고르는데, 위아래로 늘어선 형제 사이에서 선이 상자 위를 지나간다.
+      // 나가고 들어오는 자리를 못 박는다 — 안 박으면 위아래로 늘어선 형제 사이에서 선이 상자 위를 지난다.
       exitX: dir > 0 ? 1 : 0,
       exitY: 0.5,
       exitDx: 0,
@@ -609,11 +503,7 @@ export function create(container, dotnet) {
   }
 
   /**
-   * 나무를 보고 그래프를 **새로 짓는다.**
-   *
-   * 고쳐 그리지 않는 이유는 마디 하나를 지우면 그 아래가 통째로 옮겨 앉기
-   * 때문이다 — 무엇이 어디로 갔는지 따지는 코드보다 다시 짓는 쪽이 짧고,
-   * 마디 수백 개에서도 눈에 띄는 지연이 없다.
+   * 나무를 보고 그래프를 새로 짓는다. 고쳐 그리면 마디 하나를 지울 때 아래가 옮겨 앉아 따져야 하므로, 다시 짓는 쪽이 짧다.
    */
   function render(keepView = true) {
     drawing = true;
@@ -631,11 +521,8 @@ export function create(container, dotnet) {
       const parentCell = graph.getDefaultParent();
 
       walk(state.root, (node, parent, depth, section) => {
-        // 접힌 가지의 자식은 그리지 않는다. 자리도 안 잡혀 있다.
-        //
-        // **부모가 그려졌는지만 보면 안 된다.** 접은 마디 자신은 그려지므로,
-        // 그 조건만으로는 바로 아래 한 층이 그대로 튀어나온다 — 자리가 없어서
-        // 전부 왼쪽 위 한 점에 겹쳐 쌓인다.
+        // 접힌 가지의 자식은 그리지 않는다 — 자리도 안 잡혀 있다.
+        // 부모가 그려졌는지만으로는 모자라다: 접힌 마디 자신은 그려져서 그 아래가 왼쪽 위에 겹친다.
         if (parent && (parent.collapsed || !cellOfId.has(parent.id))) {
           return;
         }
@@ -667,8 +554,7 @@ export function create(container, dotnet) {
       drawing = false;
     }
 
-    // 고른 것을 되찾는다. 안 그러면 하나 더할 때마다 선택이 풀려,
-    // 자식을 이어 만들려면 매번 다시 집어야 한다.
+    // 고른 것을 되찾는다 — 안 그러면 하나 더할 때마다 선택이 풀려 자식을 이으려면 매번 다시 집어야 한다.
     const cell = state.selected ? cellOfId.get(state.selected) : null;
 
     if (cell) {
@@ -679,8 +565,7 @@ export function create(container, dotnet) {
       state.selected = null;
     }
 
-    // **보던 자리는 저절로 지켜진다.** 배율·이동은 모델이 아니라 뷰의 값이라
-    // 셀을 갈아 끼워도 그대로다. 첫 그림에서만 맞춘다 — 그때는 지킬 자리가 없다.
+    // 보던 자리는 지켜진다 — 배율·이동은 뷰의 값이라 셀을 갈아 끼워도 그대로다. 첫 그림에서만 맞춘다.
     if (!keepView) {
       fitAll();
     }
@@ -713,13 +598,7 @@ export function create(container, dotnet) {
     state.selected = cell ? (nodeOfCell.get(cell)?.id ?? null) : null;
   });
 
-  /**
-   * 글자를 고치면 **줄 접은 것이 아니라 원래 글자**를 편집기에 넣는다.
-   *
-   * 상자에 그려진 값은 우리가 폭에 맞춰 줄을 끊어 넣은 것이고, 접힌 마디에는
-   * `⊕3` 까지 붙어 있다. 그대로 고치게 두면 그 줄바꿈과 꼬리표가 **글자에
-   * 눌러 붙는다.**
-   */
+  /** 글자를 고치면 줄 접은 것이 아니라 원래 글자를 편집기에 넣는다 — 그대로 고치면 줄바꿈과 ⊕n 꼬리표가 글자에 눌러 붙는다. */
   graph.getEditingValue = (cell) => nodeOfCell.get(cell)?.text ?? '';
 
   graph.addListener(InternalEvent.LABEL_CHANGED, (_sender, event) => {
@@ -730,8 +609,7 @@ export function create(container, dotnet) {
 
     node.text = String(event.getProperty('value') ?? '').trim();
 
-    // **이 이벤트 안에서 다시 그리지 않는다.** 아직 maxgraph 의 갱신 묶음이
-    // 안 닫혔고, 그 안에서 셀을 지우면 편집기가 없어진 셀을 붙들고 던진다.
+    // 이 이벤트 안에서 다시 그리지 않는다 — 갱신 묶음이 안 닫혔고, 셀을 지우면 편집기가 없는 셀을 붙들고 던진다.
     queueMicrotask(() => {
       render();
       notifyChanged();
@@ -739,67 +617,32 @@ export function create(container, dotnet) {
     });
   });
 
-  /* ── 키 ───────────────────────────────────────────────────────
-
-     마인드맵은 **손이 자판에서 안 떨어져야** 쓸 만하다. 생각나는 대로
-     적어 내려가는 도구인데 가지 하나 더할 때마다 단추를 찾아 누르면 흐름이
-     끊긴다. 널리 쓰는 규칙을 그대로 따른다 —
-     Tab 아래로, Enter 옆으로, F2 고치기, Delete 지우기.
-     ---------------------------------------------------------- */
+  /* ── 키 ───────────────────────────────────────────────────────── */
 
   /**
-   * **캔버스에 초점을 돌려준다.**
-   *
-   * [이것이 없어서 단축키가 통째로 죽어 있었다]
-   *
-   * 키 처리기는 `container` 에 걸려 있고, `tabindex` 도 달아 두었다. 그런데
-   * **초점이 거기로 가는 일이 없었다** — maxgraph 는 마우스를 자기가 처리하며
-   * `preventDefault()` 를 부르는데, 브라우저가 눌린 곳으로 초점을 옮기는 것이
-   * 바로 그 기본 동작이다. 그래서 도형을 골라도 초점은 `body` 에 남고,
-   * Tab·Enter 는 우리 처리기에 **닿지도 않았다.**
-   *
-   * 증상이 고약하다 — 고르기도 되고 그림도 멀쩡하니 화면은 전혀 고장 나
-   * 보이지 않고, 「단축키만 안 먹는다」로 나타난다. 단추로는 같은 일이 되므로
-   * 자기 자판을 의심하기 십상이다.
-   *
-   * 글자를 고치는 중에는 가져오지 않는다. 그때 초점은 편집기의 것이다.
+   * 캔버스에 초점을 돌려준다. maxgraph 가 마우스를 처리하며 preventDefault 를 부르면 브라우저가 초점을 옮기지 않아, 그대로 두면 Tab·Enter 가 우리 처리기에 닿지 않는다.
+   * 글자를 고치는 중에는 가져오지 않는다 — 그때 초점은 편집기의 것이다.
    */
   function focusCanvas() {
     if (graph.isEditing()) return;
     if (document.activeElement === container) return;
 
-    // `preventScroll` — 캔버스가 화면 아래에 있으면 초점을 주는 것만으로
-    // 창이 확 굴러간다. 단추를 누른 뒤마다 그러면 못 쓴다.
+    // preventScroll — 캔버스가 화면 아래에 있으면 초점만 줘도 창이 굴러가므로 막는다.
     container.focus({ preventScroll: true });
   }
 
   const onKeyDown = (event) => {
-    // 글자를 고치는 중에는 편집기의 키다. 편집기가 확정·취소한 키(Enter·F2·
-    // Escape)는 거기서 전파를 끊으므로(`InternalEvent.consume`) 여기까지 오지도
-    // 않는다.
-    //
-    // **Tab 만은 다르다.** maxgraph 의 편집기는 Tab 을 모른다 — 그대로 두면
-    // 브라우저가 제 일을 해서 **초점이 캔버스 밖 다음 칸으로 나가 버린다.**
-    // 그러면 편집기는 값을 넘기지도 닫히지도 않은 채(`blurEnabled` 가 꺼져
-    // 있다) 남고, `graph.isEditing()` 이 참인 채로 굳는다. 그 뒤로는
-    // 이 처리기가 늘 여기서 돌아가고 `focusCanvas` 도 매번 물러나서,
-    // **단축키가 통째로 죽는다.** 캔버스를 다시 눌러야 풀린다.
-    //
-    // 마인드맵 도구들이 다 그렇듯 「적다가 Tab」은 **확정하고 자식 하나 더」**로
-    // 받는다. 손이 자판에서 안 떨어지는 것이 이 화면의 본업이다.
+    // 글자를 고치는 중에는 편집기의 키다(Enter·F2·Escape 는 편집기가 전파를 끊는다).
+    // Tab 만은 편집기가 모른다 — 그대로 두면 초점이 캔버스 밖으로 나가 편집이 굳고 단축키가 죽는다. 그래서 확정하고 자식을 더한다.
     if (graph.isEditing()) {
       if (event.key !== 'Tab') return;
 
       event.preventDefault();
 
-      // 확정이 먼저다. `stopEditing` 이 LABEL_CHANGED 를 내면 그쪽이 다시
-      // 그리기를 마이크로태스크로 잡아 두는데, 여기서 곧바로 마디를 더하면
-      // **그 다시 그리기가 새 마디의 편집기를 걷어 간다**(셀이 갈려 나가면
-      // maxgraph 가 편집을 취소한다). 그래서 한 칸 뒤로 미뤄 그 뒤에 붙인다.
+      // 확정이 먼저다. 그 뒤에 바로 마디를 더하면 다시 그리기가 새 마디의 편집기를 걷어 가므로 한 칸 뒤로 미룬다.
       graph.stopEditing(false);
 
-      // Shift+Tab 은 「그만 적는다」로만 받는다 — 확정만 하고 마디는 안
-      // 더한다. 초점은 위 확정이 EDITING_STOPPED 로 캔버스에 돌려준다.
+      // Shift+Tab 은 확정만 하고 마디는 더하지 않는다.
       if (!event.shiftKey) {
         queueMicrotask(() => addChild());
       }
@@ -812,10 +655,7 @@ export function create(container, dotnet) {
 
     switch (event.key) {
       case 'Tab':
-        // **고른 것이 없어도 받는다.** 뿌리 아래에 붙는다 — 새 마인드맵을
-        // 열자마자 Tab 을 누르는 것이 가장 흔한 첫 동작인데, 그때 아직
-        // 아무것도 고르지 않은 상태다. 여기서 그냥 돌아가면 초점만 다음
-        // 칸으로 넘어가 「Tab 이 안 먹는다」가 된다.
+        // 고른 것이 없어도 받는다 — 뿌리 아래에 붙는다. 새 마인드맵에서 Tab 이 가장 흔한 첫 동작이다.
         event.preventDefault();
         addChild();
         break;
@@ -852,46 +692,19 @@ export function create(container, dotnet) {
   container.setAttribute('tabindex', '0');
   container.addEventListener('keydown', onKeyDown);
 
-  /*
-    캔버스를 누르면 초점이 여기로 온다(위 `focusCanvas` 머리말).
-
-    [**`pointerdown` 이다. `mousedown` 은 아예 오지 않는다.**]
-
-    maxgraph 는 포인터 사건을 자기가 처리하고 `preventDefault()` 를 부른다.
-    브라우저는 그때 **뒤따르는 흉내 사건을 만들지 않는다** — `mousedown` 도
-    `mouseup` 도 나지 않는다(브라우저에서 확인했다. `pointerdown`·`click` 은
-    나고 `mousedown` 만 없다). 그래서 `mousedown` 으로 걸어 둔 초점 되돌리기는
-    **한 번도 불린 적이 없었다.**
-
-    증상이 고약하다 — 마디를 더하거나 고친 직후에는 우리가 코드로 초점을
-    돌려주므로 단축키가 듣고, **그림을 한 번 누르고 나면 죽는다.** 그런데
-    「다음에 어디에 붙일지 골라 놓고 Tab」이 이 화면에서 가장 잦은 동작이라,
-    쓰는 사람에게는 「Tab·Enter 가 될 때도 있고 안 될 때도 있다」로 보인다.
-
-    캡처 단계로 건다. maxgraph 는 기본 동작을 막으면서 전파도 끊으므로
-    (`InternalEvent.consume`) 거품 단계로 걸면 같은 칸에서도 못 받는다.
-  */
+  // 캔버스 누름은 pointerdown 으로 잡는다 — maxgraph 가 preventDefault 해서 mousedown 은 오지 않는다.
+  // 캡처 단계로 걸어야 maxgraph 의 전파 차단 전에 받는다.
   container.addEventListener('pointerdown', focusCanvas, true);
 
   /**
-   * 글자 고치기가 끝나면 초점을 캔버스로 돌린다.
-   *
-   * 편집기는 사라지면서 초점을 아무 데도 넘기지 않아 `body` 로 떨어진다.
-   * 그러면 **이름을 적고 Enter 로 확정한 바로 다음 Tab 이 안 먹는다** —
-   * 「적고 → 다음 가지」가 이 도구에서 가장 잦은 흐름이라 여기서 끊기면
-   * 단축키가 있으나 마나다.
+   * 글자 고치기가 끝나면 초점을 캔버스로 돌린다 — 편집기가 걷히며 초점을 body 로 떨어뜨리기 때문이다.
    */
   graph.addListener(InternalEvent.EDITING_STOPPED, () => {
     // 편집기가 걷히고 난 뒤에 가져와야 한다 — 이 이벤트는 그 정리보다 먼저 온다.
     queueMicrotask(focusCanvas);
   });
 
-  /**
-   * 만든 마디를 고르고 바로 이름을 고치는 상태로 들어간다.
-   *
-   * 만들고 나서 다시 찾아 더블클릭하게 하면 손이 한 번 더 가고, 마인드맵은
-   * 그 한 번이 스무 번이다.
-   */
+  /** 만든 마디를 고르고 바로 이름 고치기에 들어간다 — 다시 찾아 더블클릭하게 하면 손이 한 번 더 간다. */
   function focusNew(node) {
     render();
     select(node.id);
@@ -920,8 +733,7 @@ export function create(container, dotnet) {
   function addSibling() {
     const node = selected();
 
-    // 아무것도 안 골랐거나 뿌리를 골랐으면 형제를 만들 수 없다 —
-    // 마인드맵의 뿌리는 하나다. 그 자리에서는 자식을 만드는 것이 맞다.
+    // 고른 것이 없거나 뿌리면 형제를 만들 수 없다 — 뿌리는 하나이므로 자식을 만든다.
     const parent = node ? findParent(state.root, node.id) : null;
 
     if (!parent) {
@@ -948,14 +760,13 @@ export function create(container, dotnet) {
 
     parent.children.splice(index, 1);
 
-    // 지운 자리 가까이로 옮겨 준다. 선택이 풀리면 이어서 지울 수 없다.
+    // 지운 자리 가까이로 옮긴다 — 선택이 풀리면 이어서 지울 수 없다.
     state.selected = (parent.children[index] ?? parent.children[index - 1] ?? parent).id;
 
     render();
     notifyChanged();
 
-    // 단추로 지웠으면 초점이 그 단추에 있다. 돌려주지 않으면 이어서
-    // Delete 를 눌러도 아무 일이 없다.
+    // 단추로 지웠으면 초점이 그 단추에 있으므로 캔버스로 돌려준다.
     focusCanvas();
 
     return count;
@@ -1068,10 +879,7 @@ export function create(container, dotnet) {
       return count;
     },
 
-    /**
-     * 첫 가지만 남기고 접는다. **뿌리는 접지 않는다** — 접으면 마인드맵이
-     * 상자 하나가 되어 여는 길이 안 보인다.
-     */
+    /** 첫 가지만 남기고 접는다. 뿌리는 접지 않는다 — 접으면 상자 하나가 되어 여는 길이 안 보인다. */
     collapseAll() {
       let count = 0;
 

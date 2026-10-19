@@ -39,10 +39,7 @@ public sealed class DownloadItem
     public long? FileSize { get; set; }
     public int DownloadCount { get; set; }
 
-    /// <summary>
-    /// 게이트웨이 상대 경로. SiteServer 를 한 번 거친다 — 그쪽이 횟수를 세고
-    /// FileServer 로 302 로 넘긴다. FileServer 를 직접 가리키면 셀 수가 없다.
-    /// </summary>
+    /// <summary>게이트웨이 상대 경로. SiteServer 를 한 번 거친다(횟수를 세고 FileServer 로 넘긴다). FileServer 를 직접 가리키면 셀 수 없다.</summary>
     public string DownloadUrl { get; set; } = string.Empty;
 }
 
@@ -60,10 +57,7 @@ public sealed class InquiryRequest
     /// <summary>개인정보 수집·이용 동의. false 면 서버가 거절한다</summary>
     public bool Consent { get; set; }
 
-    /// <summary>
-    /// 허니팟. 사람에게는 보이지 않는 칸이라 **비어 있어야 정상**이다.
-    /// 채워져 있으면 서버가 조용히 버리고 성공 응답을 준다 — 봇에게 단서를 주지 않는다.
-    /// </summary>
+    /// <summary>허니팟. 사람에게는 안 보이는 칸이라 비어 있어야 정상이다. 채워져 있으면 서버가 조용히 버리고 성공 응답을 준다.</summary>
     public string? Website { get; set; }
 }
 

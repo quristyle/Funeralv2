@@ -1,14 +1,6 @@
 namespace NotificationServer.DTOs;
 
-/// <summary>
-/// 「알림관리」 화면의 <b>한 이벤트</b> — 무엇이 언제 나가는 알림이고, 지금
-/// 어느 역할이 어느 길로 받게 돼 있나.
-/// </summary>
-/// <remarks>
-/// 이벤트와 정책을 한 덩어리로 내려보낸다. 화면이 왼쪽에서 이벤트를 고르면
-/// 오른쪽에 역할 줄이 바로 서야 하는데, 나눠 주면 고를 때마다 왕복이 하나
-/// 붙는다 — 이벤트가 열셋이고 역할이 열여섯이라 전부 합쳐도 작다.
-/// </remarks>
+/// <summary>알림관리 화면의 한 이벤트. 이벤트와 정책을 한 덩어리로 내려보낸다 — 고를 때마다 왕복이 붙지 않게.</summary>
 public class NotificationEventDto
 {
     /// <summary>이벤트 코드. 보내는 쪽이 적어 보내는 글자다.</summary>
@@ -34,21 +26,13 @@ public class NotificationEventDto
 
     public bool SupportsEmail { get; set; }
 
-    /// <summary>
-    /// 메일을 <b>푸시 경로가 함께 내나</b>. 참이면 앱 푸시와 <b>같은 내용</b>이
-    /// 메일로 가고, 거짓이면 보내는 쪽이 제 틀로 따로 낸다. 화면이 이 값으로
-    /// 「이메일」 체크 아래 안내를 가른다.
-    /// </summary>
+    /// <summary>메일을 푸시 경로가 함께 내나. 참이면 앱 푸시와 같은 내용이 메일로 가고, 거짓이면 보내는 쪽이 제 틀로 따로 낸다.</summary>
     public bool EmailFromPush { get; set; }
 
     /// <summary>거짓이면 설정을 받아 두되 발송에는 아직 안 걸린다.</summary>
     public bool Governed { get; set; }
 
-    /// <summary>
-    /// 받는 사람의 <b>정본이 이 표인가</b>. 참이면 역할을 하나도 안 걸었을 때
-    /// 「제한 없음」이 아니라 <b>아무에게도 안 간다</b> —
-    /// <see cref="Entities.NotificationEventRow.PolicyRequired"/> 머리말.
-    /// </summary>
+    /// <summary>받는 사람의 정본이 이 표인가. 참이면 역할을 하나도 안 걸었을 때 아무에게도 안 간다(제한 없음이 아니다).</summary>
     public bool PolicyRequired { get; set; }
 
     /// <summary>끄면 이 이벤트의 알림이 아무에게도 안 간다.</summary>
@@ -59,14 +43,7 @@ public class NotificationEventDto
     /// <summary>이 이벤트에 매달린 역할 줄들.</summary>
     public List<NotificationPolicyDto> Policies { get; set; } = [];
 
-    /// <summary>
-    /// 지금 <b>제한이 없는가</b>. 켜진 줄이 하나도 없으면 참이고, 그때는
-    /// 알림이 지금까지와 똑같이 나간다.
-    /// </summary>
-    /// <remarks>
-    /// 화면이 이 값으로 「제한 없음」 띠를 띄운다. <b>역할 0 개를 「아무도 못
-    /// 받는다」로 읽는 것이 가장 흔한 오해</b>라, 서버가 셈해서 내려보낸다.
-    /// </remarks>
+    /// <summary>지금 제한이 없는가. 켜진 줄이 하나도 없으면 참이고 지금까지처럼 나간다. 역할 0개를 「아무도 못 받는다」로 읽는 것이 가장 흔한 오해라 서버가 셈해 내려보낸다.</summary>
     public bool Unrestricted { get; set; }
 
     /// <summary>마지막으로 정책을 고친 때(UTC). 줄이 없으면 <c>null</c>.</summary>
@@ -87,25 +64,12 @@ public class NotificationPolicyDto
 
     public bool IsActive { get; set; } = true;
 
-    /// <summary>
-    /// 그 역할에 걸린 <b>사람 수</b>. 「골랐는데 아무에게도 안 간다」를 저장하기
-    /// 전에 알아채라고 함께 보낸다 — 보고서 메일의 「받는 사람」 창과 같은 뜻이다.
-    /// </summary>
+    /// <summary>그 역할에 걸린 사람 수. 골랐는데 아무에게도 안 간다를 저장 전에 알아채게 함께 보낸다.</summary>
     public int AccountCount { get; set; }
 }
 
-/// <summary>이벤트 하나의 정책을 통째로 바꾼다.</summary>
-/// <remarks>
-/// <para>
-/// <b>줄 단위가 아니라 이벤트 단위로 받는다.</b> 화면이 체크 칸을 여럿 만지고
-/// 한 번에 저장하는 꼴이라, 줄마다 보내면 중간에 끊겼을 때 반쯤 적용된 정책이
-/// 남는다. 통째로 받으면 「보낸 것이 곧 전부」다.
-/// </para>
-/// <para>
-/// <see cref="Policies"/> 에 없는 역할 줄은 <b>지운다</b>. 체크를 푼 역할을
-/// 남겨 두면 화면과 표가 어긋난다.
-/// </para>
-/// </remarks>
+/// <summary>이벤트 하나의 정책을 통째로 바꾼다. 이벤트 단위로 받아야 중간에 끊겨도 반쯤 적용된 정책이 안 남는다.
+/// Policies 에 없는 역할 줄은 지운다(체크를 푼 역할을 남기면 화면과 표가 어긋난다).</summary>
 public class SaveNotificationPolicyDto
 {
     /// <summary>이벤트를 쓰나. 끄면 그 이벤트의 알림이 아무에게도 안 간다.</summary>
@@ -126,14 +90,7 @@ public class SaveNotificationPolicyRowDto
     public bool IsActive { get; set; } = true;
 }
 
-/// <summary>
-/// 「지금 이 설정이면 누구에게 가나」 — 저장 전에 눌러 보는 자리.
-/// </summary>
-/// <remarks>
-/// 「역할을 골랐는데 아무에게도 안 간다」가 조용히 일어나는 자리가 셋이고
-/// <b>고치는 자리가 서로 다르다</b> — 역할에 사람이 없거나, 계정에 이메일이
-/// 없거나, 본인이 알림을 꺼 두었거나. 셋을 갈라서 보여 준다.
-/// </remarks>
+/// <summary>「지금 이 설정이면 누구에게 가나」. 역할을 골랐는데 아무에게도 안 가는 자리가 셋이고 고치는 곳이 다르다(역할에 사람 없음, 이메일 없음, 본인이 끔).</summary>
 public class NotificationPolicyPreviewDto
 {
     public string EventCode { get; set; } = string.Empty;
@@ -144,11 +101,7 @@ public class NotificationPolicyPreviewDto
     /// <summary>이벤트가 꺼져 있으면 참. 그때는 아무에게도 안 간다.</summary>
     public bool EventDisabled { get; set; }
 
-    /// <summary>
-    /// 받는 사람의 정본이 이 표인가. <see cref="Unrestricted"/> 와 <b>같이</b>
-    /// 참이면 「지금까지와 똑같이 나간다」가 아니라 <b>한 통도 안 나간다</b> —
-    /// 창에 띄우는 말이 정반대라 갈라 보낸다.
-    /// </summary>
+    /// <summary>받는 사람의 정본이 이 표인가. Unrestricted 와 같이 참이면 지금처럼 나가는 것이 아니라 한 통도 안 나간다 — 창에 띄우는 말이 정반대라 갈라 보낸다.</summary>
     public bool PolicyRequired { get; set; }
 
     public List<NotificationPolicyRecipientDto> Recipients { get; set; } = [];

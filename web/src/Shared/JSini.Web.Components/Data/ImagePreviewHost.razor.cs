@@ -16,11 +16,7 @@ public partial class ImagePreviewHost : IAsyncDisposable
     private ElementReference _stage;
     private ElementReference _img;
 
-    /// <summary>
-    /// 지금 JS 에 붙여 둔 그림의 주소. <b>이것이 바뀌면 다시 붙인다</b> —
-    /// 다음 장으로 넘어갔는데 확대율과 회전이 남아 있으면, 세로 사진 뒤의
-    /// 가로 사진이 옆으로 누운 채 세 배로 뜬다.
-    /// </summary>
+    /// <summary>지금 JS 에 붙여 둔 그림의 주소. 이것이 바뀌면 다시 붙인다 — 다음 장으로 넘어갔는데 확대율과 회전이 남으면 세로 사진이 옆으로 누운 채 세 배로 뜬다.</summary>
     private string? _attached;
 
     /// <summary>문서에 문지기를 세웠나. 한 회로에 한 번이면 된다.</summary>
@@ -38,10 +34,7 @@ public partial class ImagePreviewHost : IAsyncDisposable
 
     private string ZoomText => $"{Math.Round(_state.Zoom * 100)}%";
 
-    /// <summary>
-    /// 밝기·대비 표시. <b>기본값이면 아무것도 안 적는다</b> — 늘 「100% · 100%」가
-    /// 서 있으면 도구띠 한 칸이 언제나 뜻 없이 차지된다.
-    /// </summary>
+    /// <summary>밝기·대비 표시. 기본값이면 아무것도 안 적는다 — 늘 100% 로 서 있으면 도구띠 한 칸이 뜻 없이 차지된다.</summary>
     private string LevelText
     {
         get
@@ -55,20 +48,14 @@ public partial class ImagePreviewHost : IAsyncDisposable
         }
     }
 
-    /// <summary>
-    /// 도구띠의 단추 하나.
-    /// </summary>
-    /// <param name="Name">JS 쪽 <c>command()</c> 가 아는 이름.</param>
+    /// <summary>도구띠의 단추 하나.</summary>
+    /// <param name="Name">JS 쪽 command() 가 아는 이름.</param>
     /// <param name="Label">단추에 쓰는 글자.</param>
     /// <param name="Hint">마우스를 올렸을 때. 단축키도 여기 적는다.</param>
     /// <param name="Divider">앞에 가르는 줄을 하나 세울지.</param>
     private sealed record Tool(string Name, string Label, string Hint, bool Divider = false);
 
-    /// <summary>
-    /// 확대·축소를 뺀 나머지 단추들. <b>목록으로 두는 이유</b>는 마크업에서
-    /// 글자 상수를 쓰지 않기 위해서다 — Razor 는 큰따옴표로 연 속성 안의
-    /// 큰따옴표를 속성의 끝으로 읽는다.
-    /// </summary>
+    /// <summary>확대·축소를 뺀 나머지 단추들. 목록으로 두는 것은 마크업에 글자 상수를 쓰지 않기 위해서다 — Razor 는 큰따옴표로 연 속성 안의 큰따옴표를 속성의 끝으로 읽는다.</summary>
     private static readonly Tool[] Tools =
     [
         new("fit", "맞춤", "화면에 맞춘다 (0 키)", Divider: true),
@@ -102,20 +89,7 @@ public partial class ImagePreviewHost : IAsyncDisposable
         _ => "jsini-imgview__btn",
     };
 
-    /// <summary>
-    /// 창이 열렸으면 JS 를 그림에 붙이고, 닫혔으면 뗀다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>문지기(<c>watch</c>)는 창이 닫혀 있어도 세운다.</b> 본문 그림을
-    /// 눌러 창을 여는 길이 그것이라, 창이 열린 뒤에 세우면 첫 번째 누름이
-    /// 아무 일도 하지 않는다.
-    /// </para>
-    /// <para>
-    /// 프리렌더 중에는 여기가 돌지 않는다 — JS 를 부를 수 없는 그 구간을
-    /// 이 자리가 이미 지나 있다.
-    /// </para>
-    /// </remarks>
+    /// <summary>창이 열렸으면 JS 를 그림에 붙이고, 닫혔으면 뗀다. 문지기(watch)는 창이 닫혀 있어도 세운다 — 본문 그림을 눌러 창을 여는 길이 그것이라 창이 열린 뒤에 세우면 첫 누름이 아무 일도 하지 않는다. 프리렌더 중에는 여기가 돌지 않는다.</summary>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         try
@@ -209,13 +183,7 @@ public partial class ImagePreviewHost : IAsyncDisposable
         return Task.CompletedTask;
     }
 
-    /// <summary>
-    /// 본문 안의 그림을 눌렀다. 문지기가 그 칸의 그림을 통째로 넘겨 준다.
-    /// </summary>
-    /// <remarks>
-    /// 이름은 <c>alt</c> · <c>title</c> 에서 온다. 서식 편집기가 붙인 그림에는
-    /// 둘 다 없는 경우가 대부분이라, 없으면 머리띠에 「그림」이라고만 적힌다.
-    /// </remarks>
+    /// <summary>본문 안의 그림을 눌렀다. 문지기가 그 칸의 그림을 통째로 넘겨 목록이 된다. 이름은 alt 와 title 에서 온다 — 서식 편집기가 붙인 그림에는 둘 다 없는 경우가 대부분이라 없으면 머리띠에 그림이라고 적는다.</summary>
     [JSInvokable]
     public Task OpenFromDom(string[] urls, string[] titles, int index)
     {

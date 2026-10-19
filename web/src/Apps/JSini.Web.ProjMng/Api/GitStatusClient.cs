@@ -2,32 +2,8 @@ using JSini.Web.Http;
 
 namespace JSini.Web.ProjMng.Api;
 
-/// <summary>
-/// Git 빌드 상태와 종합 모니터링 — <c>projmng/git</c>.
-/// </summary>
-/// <remarks>
-/// <para>
-/// 2026-09-23 에 사내 GitLab 에서 GitHub 로 갈아탔다. 옛 클라이언트는 git
-/// 이력에 있다.
-/// </para>
-///
-/// <para>
-/// <b>저장소를 안 걸어 둔 프로젝트는 빈 채로 뜬다</b>
-/// (<see cref="GitResultDto{T}.Configured"/>). 실패가 아니다.
-/// </para>
-///
-/// <para>
-/// <b>토큰은 없어도 된다.</b> 공개 저장소는 그대로 읽히고, 토큰이 없으면
-/// 시간당 60회라는 한도가 붙을 뿐이다 —
-/// <see cref="GitResultDto{T}.RateRemaining"/> 이 그 잔량이다.
-/// </para>
-///
-/// <para>
-/// <c>refresh</c> 는 <b>화면의 [새로고침]에만</b> 붙인다. 서버가 결과를 잠깐
-/// 들고 있는데(빌드 상태 60초 · 모니터링 120초), 들어올 때마다 건너뛰면
-/// 토큰 없는 한도를 몇 번 만에 다 쓴다.
-/// </para>
-/// </remarks>
+/// <summary>Git 빌드 상태와 종합 모니터링(projmng/git). 저장소를 안 걸어 둔 프로젝트는 빈 채로 뜬다(실패가 아니다). 토큰은 없어도 되고, 없으면 시간당 60회 한도가 붙는다.
+/// refresh 는 화면의 새로고침에만 붙인다 — 서버가 결과를 잠깐 들고 있어 들어올 때마다 건너뛰면 한도를 금세 쓴다.</summary>
 public sealed class GitStatusClient(GatewayClient gateway)
 {
     private const string Url = "projmng/git";
@@ -65,13 +41,7 @@ public sealed class GitResultDto<T>
 
     public List<T> Rows { get; set; } = [];
 
-    /// <summary>
-    /// 토큰이 없거나 권한이 모자라 <b>못 본 항목</b>.
-    /// </summary>
-    /// <remarks>
-    /// 말없이 비워 두면 「그 저장소는 원래 방문자가 0 인가 보다」로 읽힌다 —
-    /// <b>못 본 것과 없는 것은 다르다.</b>
-    /// </remarks>
+    /// <summary>토큰이 없거나 권한이 모자라 못 본 항목. 말없이 비우면 「원래 0」으로 읽히므로 따로 드러낸다.</summary>
     public List<GitBlockedDto> Blocked { get; set; } = [];
 }
 
@@ -93,10 +63,7 @@ public sealed class GitRunDto
 
     public string? RunsUrl { get; set; }
 
-    /// <summary>
-    /// 한 낱말로 줄인 상태. <c>none</c> 은 <b>실행이 한 번도 없었다</b>는
-    /// 뜻이고 <see cref="Error"/> 가 있는 것(못 읽었다)과 다르다.
-    /// </summary>
+    /// <summary>한 낱말로 줄인 상태. none 은 실행이 한 번도 없었다는 뜻이다 — 못 읽은 것(Error)과 다르다.</summary>
     public string? Status { get; set; }
 
     public string? Error { get; set; }
@@ -314,10 +281,7 @@ public sealed class GitNameCountDto
     public long Count { get; set; }
 }
 
-/// <summary>
-/// 실행 상태를 사람이 읽는 말로. <b>화면마다 적지 않는다</b> — 두 화면이
-/// 같은 값을 쓰는데 한쪽만 고치면 같은 상태가 다른 이름으로 보인다.
-/// </summary>
+/// <summary>실행 상태를 사람이 읽는 말로. 화면마다 적지 않는다 — 한쪽만 고치면 같은 상태가 다른 이름으로 보인다.</summary>
 public static class GitRunText
 {
     public static string Of(string? status) => status switch

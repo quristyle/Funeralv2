@@ -3,23 +3,7 @@ using Microsoft.Extensions.Caching.Memory;
 
 namespace HelpDeskServer.Services;
 
-/// <summary>
-/// 회사 이름을 푸는 단 하나의 통로. 정본은 <b>포털</b>(<c>scom.companies</c>)이다.
-/// </summary>
-/// <remarks>
-/// <para>
-/// 헬프데스크에는 회사 표가 없다. 단독 시스템이던 시절에는 <c>customercompany</c>
-/// 를 제가 관리했지만, 지금 회사를 만들고 고치는 곳은 포털의 회사 관리 화면
-/// (<c>/system/company</c>) 하나뿐이다. 업무 자료는 회사를 <b>포털 아이디</b>로
-/// 가리키고, 화면에 이름을 보여야 할 때만 여기로 묻는다.
-/// </para>
-/// <para>
-/// <b>왜 게이트웨이가 아니라 AuthServer 를 직접 부르는가</b> — 회사 목록은 지금
-/// 요청한 사람이 누구인지와 무관하고, 집계 엔드포인트는 배경 작업에서도 불린다.
-/// 게이트웨이를 거치면 사람마다 토큰을 실어 보내야 한다. AuthServer 가 계정 안내
-/// 메일을 보내려고 FileServer 를 직접 부르는 것과 같은 판단이다.
-/// </para>
-/// </remarks>
+/// <summary>회사 이름을 푸는 단 하나의 통로. 정본은 <b>포털</b>(<c>scom.companies</c>)이다. 헬프데스크에는 회사 표가 없다.</summary>
 public interface IPortalCompanyDirectory {
   /// <summary>회사 아이디 → 이름. 못 읽으면 빈 표를 준다(집계가 죽지 않게).</summary>
   Task<IReadOnlyDictionary<string, string>> GetNamesAsync(CancellationToken ct = default);
@@ -35,10 +19,7 @@ public sealed class PortalCompanyDirectory : IPortalCompanyDirectory {
 
   private const string CacheKey = "portal-companies";
 
-  /// <summary>
-  /// 얼마나 들고 있을지. 회사는 거의 안 바뀌고, 바뀌어도 이름 표시가
-  /// 몇 분 늦는 것뿐이라 짧게 잡을 이유가 없다.
-  /// </summary>
+  /// <summary>얼마나 들고 있을지. 회사는 거의 안 바뀌고, 바뀌어도 이름 표시가 몇 분 늦는 것뿐이라 짧게 잡을 이유가 없다.</summary>
   private static readonly TimeSpan CacheFor = TimeSpan.FromMinutes(5);
 
   private readonly IHttpClientFactory _httpClientFactory;

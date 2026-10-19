@@ -15,19 +15,7 @@ public partial class I18nList
         _keyword,
         SchSummary.On(_onlyMissing, "한쪽만 있는 것"));
 
-    /// <summary>
-    /// 한 키의 두 언어. 서버는 언어별로 한 줄씩 주지만 <b>고칠 때는 짝</b>이다.
-    ///
-    /// <para>
-    /// 한쪽만 고치면 언어를 바꿨을 때 옛 문구가 남는다. 그래서 화면에서 묶는다.
-    /// </para>
-    ///
-    /// <para>
-    /// <b>record 가 아니라 고칠 수 있는 class 다.</b> 이것이 표의 편집 모델이라
-    /// DevExpress 가 매개변수 없는 생성자로 만들고 칸마다 값을 넣는다 —
-    /// 위치 매개변수 record 는 둘 다 안 된다.
-    /// </para>
-    /// </summary>
+    /// <summary>한 키의 두 언어. 서버는 언어별로 한 줄씩 주지만 고칠 때는 짝이다 — 한쪽만 고치면 옛 문구가 남는다. class 로 둔다: DevExpress 가 매개변수 없는 생성자로 만들어 칸마다 값을 넣기 때문이다.</summary>
     private sealed class Pair
     {
         public string Key { get; set; } = string.Empty;
@@ -125,29 +113,10 @@ public partial class I18nList
     /// <summary>고르고 있던 분류를 새 자원에 물려 준다. 이어서 여러 건 넣는 일이 흔하다.</summary>
     private void FillNew(Pair row) => row.Category = _category;
 
-    /// <summary>
-    /// 편집 창이 열릴 때. <b>수정으로 열 때도 불린다</b> — 키를 잠그는 것이
-    /// 그 구분에 걸려 있어서, 등록 때만 불리는 <c>OnNew</c> 로는 앞선 등록의
-    /// 상태가 그대로 남는다.
-    /// </summary>
+    /// <summary>편집 창이 열릴 때. 수정으로 열 때도 불린다 — 키를 잠그는 구분이 여기에 걸려 있다.</summary>
     private void OnEditOpen(Pair row, bool isNew) => _isNew = isNew;
 
-    /// <summary>
-    /// 두 언어를 함께 저장한다.
-    ///
-    /// <para>
-    /// 언어마다 줄이 따로라 최대 두 번 부른다 — 없던 언어는 등록, 있던 언어는
-    /// 수정, 비운 언어는 삭제다. <b>「비웠다」와 「원래 없었다」를 가르는 것</b>이
-    /// 여기서 중요하다.
-    /// </para>
-    ///
-    /// <para>
-    /// 서버 줄(식별자)은 편집 모델에 없다. <b>일부러 넣지 않았다</b> — 편집
-    /// 모델은 DevExpress 가 만든 사본이라 무엇이 옮겨 오는지에 기대면 조용히
-    /// 어긋나고, 그때 나는 사고가 「수정한 것이 새 줄로 하나 더 생긴다」다.
-    /// 대신 지금 읽어 둔 목록에서 <b>키로 찾는다.</b>
-    /// </para>
-    /// </summary>
+    /// <summary>두 언어를 함께 저장한다. 언어마다 줄이 따로라 최대 두 번 부른다 — 없던 언어는 등록, 있던 언어는 수정, 비운 언어는 삭제다. 서버 식별자는 편집 모델에 넣지 않고 지금 읽어 둔 목록에서 키로 찾는다.</summary>
     private async Task SaveAsync((Pair Item, bool IsNew) e)
     {
         var key = e.Item.Key?.Trim();
@@ -167,8 +136,7 @@ public partial class I18nList
             throw new ApiException($"「{key}」 는 이미 있습니다. 그 줄을 고치십시오.");
         }
 
-        // 수정인데 원본을 못 찾으면 **멈춘다.** 그대로 두면 등록으로 흘러가
-        // 같은 키가 두 벌 생기고, 어느 쪽이 보이는지는 순서가 정한다.
+        // 수정인데 원본을 못 찾으면 멈춘다 — 등록으로 흘러가면 같은 키가 두 벌 생긴다.
         var rows = Rows(key);
 
         if (!e.IsNew && rows.Count == 0)
@@ -198,18 +166,13 @@ public partial class I18nList
                 : Api.CreateI18nAsync(body);
         }
 
-        // 있던 것을 비웠으면 지운다. 빈 값으로 남기면 그 언어에서 빈 문구가
-        // 보이는데, 키가 보이는 것보다 알아채기 어렵다.
+        // 있던 것을 비웠으면 지운다 — 빈 값으로 남기면 그 언어에서 키가 그대로 보인다.
         return string.IsNullOrWhiteSpace(value)
             ? Api.DeleteI18nAsync(existing.Id)
             : Api.UpdateI18nAsync(existing.Id, body);
     }
 
-    /// <summary>
-    /// 삭제 확인 문구. <b>지운 뒤에 무슨 일이 나는지</b>까지 적는다 — 번역이
-    /// 사라진 자리에는 빈칸이 아니라 키가 그대로 보인다. 그 사실을 모르면
-    /// 사이드바에 <c>system.menu.title</c> 이 뜬 것을 별개의 사고로 신고한다.
-    /// </summary>
+    /// <summary>삭제 확인 문구. 지운 뒤에는 빈칸이 아니라 키가 그대로 보인다는 것까지 적는다 — 모르면 사이드바의 키를 별개의 사고로 신고한다.</summary>
     private string DeleteMessage(Pair row)
     {
         var langs = string.Join(" · ", Rows(row.Key).Select(r => Language(r.Locale)));

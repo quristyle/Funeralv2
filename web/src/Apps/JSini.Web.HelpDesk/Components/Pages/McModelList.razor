@@ -2,36 +2,16 @@
 @attribute [RouteKey("helpdesk.util.mc-model")]
 
 @*
-    [MC 모델 관리] — DB 메뉴 `/helpdesk/util/mc-model`.
-    이력: Vue `views/helpdesk/util/mc-model` → 여기.
-    엔드포인트: `utils/mc-models`(모델) · `utils/mc-models/{id}/parse-items`(해석 규칙)
-
-    [읽기만 남아 있었다]
-
-    원본은 **전문 해석 규칙을 만드는 화면**이다(873줄). 설비 모델을 등록하고,
-    그 모델의 전문을 어떻게 끊어 읽을지(해석 항목)를 정한다. **바이너리 파서가
-    그 규칙으로 전문을 푼다** — 규칙을 못 만들면 파서가 아무것도 못 푼다.
-    옮길 때는 모델 이름만 보여 주는 표 한 장이 되어 있었다.
-
-    [모델 → 해석 항목 두 층이다]
-
-    왼쪽에서 모델을 고르면 오른쪽에 그 모델의 해석 항목이 나온다. 항목 아래에
-    태그가 한 층 더 있는데(`TagItems`) 그것까지는 아직 옮기지 않았다 —
-    태그 없이도 전문을 끊어 읽는 것은 된다.
-
-    [키는 콤마로 적는다]
-
-    전문 시작을 알아보는 바이트를 `2,48,49` 처럼 적는다. 서버가 그 글자를
-    바이트 목록으로 바꾼다 — 화면이 바꾸지 않는 이유는 그 규칙이 서버에만
-    있고, 화면이 따로 하면 둘이 어긋나서다.
+    [MC 모델 관리] — DB 메뉴 `/helpdesk/util/mc-model`. 엔드포인트 `utils/mc-models`(모델) · `utils/mc-models/{id}/parse-items`(해석 규칙)
+    왼쪽에서 모델을 고르면 오른쪽에 해석 항목이 나온다. 바이너리 파서가 이 규칙으로 전문을 푼다. 태그(TagItems) 층은 아직 옮기지 않았다.
+    키는 콤마로 적는다(2,48,49). 글자를 바이트 목록으로 바꾸는 규칙은 서버에만 있어, 화면이 따로 하면 둘이 어긋난다.
 *@
 
 @inherits DataPage
 
 <PageTitle>MC 모델 관리 · 헬프데스크</PageTitle>
 
-@* 조건이 하나도 없어 조회 판을 세울 것이 없다. 등록은 각 자료 판의 제목
-   줄로, 다시 읽기는 표 아래 띠로 갔다. *@
+@* 조건이 없어 조회 판을 세울 것이 없다. 등록은 각 판의 제목 줄로, 다시 읽기는 표 아래 띠로 간다. *@
 
 <div class="hd-two">
     <CommCont Title="설비 모델">
@@ -53,8 +33,7 @@
 
             </Columns>
 
-            @* 관리 칸은 CommGrd 가 붙인다. 「규칙 보기」는 오른쪽 판을 바꾸는
-               이 화면만의 동작이라 「수정」 앞에 선다. *@
+            @* 관리 칸은 CommGrd 가 붙인다. 「규칙 보기」는 오른쪽 판을 바꾸는 이 화면만의 동작이라 「수정」 앞에 선다. *@
             <RowActions Context="model">
                 <DxButton IconCssClass="jsini-icon-eye"
                           RenderStyle="ButtonRenderStyle.Link"
@@ -135,7 +114,7 @@
             </DxFormLayoutItem>
 
             <DxFormLayoutItem Caption="시작 키" ColSpanMd="12">
-                @* 전문 시작을 알아보는 바이트. 서버가 이 글자를 바이트로 바꾼다. *@
+                @* 전문 시작 바이트. 콤마로 적는다(2,48,49). *@
                 <DxTextBox @bind-Text="_model.StartKey" />
             </DxFormLayoutItem>
         </DxFormLayout>
@@ -167,7 +146,6 @@
             </DxFormLayoutItem>
 
             <DxFormLayoutItem Caption="키" ColSpanMd="12">
-                @* 콤마로 적는다. 서버가 바이트 목록으로 바꾼다. *@
                 <DxTextBox @bind-Text="_keys" />
             </DxFormLayoutItem>
 

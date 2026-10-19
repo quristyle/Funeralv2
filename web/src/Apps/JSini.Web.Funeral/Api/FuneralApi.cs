@@ -2,12 +2,7 @@ using JSini.Web.Http;
 
 namespace JSini.Web.Funeral.Api;
 
-/// <summary>
-/// funeralv2Api 호출. 게이트웨이의 <c>/funeral</c> 아래로 나간다.
-///
-/// Vue 의 <c>api/funeral/**/index.ts</c> 함수들을 그대로 옮겼다 —
-/// 경로·파라미터 이름을 바꾸지 않는다. 백엔드는 이행하는 동안 그대로이기 때문이다.
-/// </summary>
+/// <summary>funeralv2Api 호출. 게이트웨이의 /funeral 아래로 나간다. 경로·파라미터 이름은 백엔드와 같게 둔다 — 바꾸면 이행 중인 백엔드와 어긋난다.</summary>
 public sealed class FuneralApi(GatewayClient gateway)
 {
     // ── 건물 ────────────────────────────────────────────────────
@@ -85,22 +80,12 @@ public sealed class FuneralApi(GatewayClient gateway)
     public Task SetDeviceScreenPowerAsync(string code, string state, CancellationToken ct = default)
         => gateway.PostAsync($"funeral/building/device/screen-power/{code}?state={state}", null, ct);
 
-    /// <summary>플레이어 앱 재시작 — 리눅스 장비는 systemd 가 되살린다 (D-RS3).</summary>
+    /// <summary>플레이어 앱 재시작. 리눅스 장비는 systemd 가 되살린다.</summary>
     public Task RestartDeviceAppAsync(string code, CancellationToken ct = default)
         => gateway.PostAsync($"funeral/building/device/app-restart/{code}", null, ct);
 
-    /// <summary>
-    /// 플레이어에게 <b>지금 새 판을 확인하라</b>고 시킨다 (D-P3).
-    ///
-    /// <para>
-    /// 서버가 파일을 나르지 않는다 — 릴리스 조회와 판정은 플레이어 자신이 한다.
-    /// 그래서 잘못 눌러도 <b>새 판이 없으면 아무 일도 일어나지 않는다.</b>
-    /// </para>
-    /// <para>
-    /// 즉시 실행 명령이라 DB 에 남지 않는다. 장비가 실시간 연결에 붙어 있지
-    /// 않으면 서버가 거절한다 — 「보냈는데 아무 일도 없는」 상태를 만들지 않기 위해서다.
-    /// </para>
-    /// </summary>
+    /// <summary>플레이어에게 지금 새 판을 확인하라고 시킨다. 서버는 파일을 나르지 않아 새 판이 없으면 아무 일도 없다.
+    /// 즉시 실행이라 DB 에 남지 않고, 장비가 실시간 연결에 없으면 서버가 거절한다.</summary>
     public Task UpdateDeviceNowAsync(string code, CancellationToken ct = default)
         => gateway.PostAsync($"funeral/building/device/update-now/{code}", null, ct);
 
@@ -311,16 +296,10 @@ public sealed class FuneralApi(GatewayClient gateway)
 
     // ── 내부 도우미 ─────────────────────────────────────────────
 
-    /// <summary>
-    /// PUT 인데 응답이 목록인 경우 (bulk-save). GatewayClient 의 PutAsync&lt;T&gt; 는
-    /// 첫 칸만 꺼내므로 목록이 필요한 곳은 이 우회를 쓴다 — 봉투 해석은
-    /// GetListAsync 와 같은 규칙이다.
-    /// </summary>
+    /// <summary>PUT 인데 응답이 목록인 경우(bulk-save). PutAsync&lt;T&gt; 는 첫 칸만 꺼내므로 이 우회를 쓴다.</summary>
     private async Task<IReadOnlyList<T>> PutListAsync<T>(string path, object body, CancellationToken ct)
     {
-        // GatewayClient 에 '목록을 돌려주는 PUT' 이 없어서, 저장 후 재조회로 갈음하지
-        // 않고 PutAsync 로 보낸 뒤 빈 목록을 돌려준다. 부르는 화면은 저장 뒤
-        // 어차피 다시 조회한다 (Vue 화면도 saved 이벤트에서 재조회했다).
+        // GatewayClient 에 목록을 돌려주는 PUT 이 없어 PutAsync 로 보내고 빈 목록을 돌려준다. 부르는 화면은 저장 뒤 어차피 다시 조회한다.
         await gateway.PutAsync(path, body, ct);
         return [];
     }

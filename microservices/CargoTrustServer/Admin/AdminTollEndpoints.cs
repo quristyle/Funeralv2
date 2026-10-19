@@ -17,13 +17,7 @@ public record TollPlazaStatusDto(
     string RuleSetCode);
 
 /// <summary>
-/// 관리자 — 톨게이트 (<c>/admin/toll/*</c>).
-///
-/// <para>
-/// 영업소를 바깥에서 받아 보관하고, 받아 온 뒤 구간 유형이 틀린 줄을 고친다.
-/// 구간 유형만은 손으로 고칠 수 있어야 한다 — <b>그 한 칸이 할인 규칙을
-/// 통째로 바꾸는데</b> 바깥 자료에 늘 들어 있다는 보장이 없다.
-/// </para>
+/// 관리자 — 톨게이트(/admin/toll/*). 영업소를 받아 보관하고 구간 유형이 틀린 줄을 손으로 고친다. 그 한 칸이 할인 규칙을 통째로 바꾸는데 바깥 자료에 늘 들어 있다는 보장이 없다.
 /// </summary>
 public static class AdminTollEndpoints
 {

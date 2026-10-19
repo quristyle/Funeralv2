@@ -2,32 +2,9 @@ using System.Net.Http.Json;
 
 namespace HelpDeskServer.Services;
 
-/// <summary>
-/// 알림 서비스(<c>NotificationServer</c>)에 한 통 건네는 통로.
-/// </summary>
-/// <remarks>
-/// <para>
-/// [왜 통로를 따로 두는가]
-/// </para>
-/// <para>
-/// 헬프데스크가 알림 서비스를 부르는 자리가 여럿이다(요청 등록 · 댓글 · 처리
-/// 상태). 그 자리마다 <c>HttpClient</c> 를 만들고 <c>X-User-Id</c> 를 적고
-/// 예외를 삼키는 코드를 다시 쓰면, <b>한 곳만 빠뜨려도 그 알림이 조용히
-/// 사라지거나 반대로 업무를 넘어뜨린다.</b>
-/// </para>
-/// <para>
-/// [절대 위로 던지지 않는다]
-/// </para>
-/// <para>
-/// 알림 서비스가 죽어 있어도 <b>예외를 올려 보내지 않는다.</b> 요청글의 상태는
-/// 이미 저장됐는데 알림 때문에 화면에 「실패했습니다」가 뜨면 사람은 같은 단추를
-/// 한 번 더 누른다. 사유는 로그로만 남긴다.
-/// </para>
-/// </remarks>
+/// <summary>알림 서비스(<c>NotificationServer</c>)에 한 통 건네는 통로. 헬프데스크가 알림 서비스를 부르는 자리가 여럿이다(요청 등록 · 댓글 · 처리 상태).</summary>
 public interface INotifyGateway {
-  /// <summary>
-  /// 알림 서비스의 <paramref name="path"/> 에 <paramref name="payload"/> 를 보낸다.
-  /// </summary>
+  /// <summary>알림 서비스의 <paramref name="path"/> 에 <paramref name="payload"/> 를 보낸다.</summary>
   /// <param name="path">알림 서비스 안의 경로(<c>/notifications/push</c> 따위).</param>
   /// <param name="payload">그대로 JSON 이 되는 값.</param>
   /// <param name="callerId">부른 이로 적을 이름(<c>X-User-Id</c>).</param>

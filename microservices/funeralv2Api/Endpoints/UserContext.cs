@@ -16,8 +16,7 @@ public class UserContext
     public string[] Roles { get; set; } = [];
 
     /// <summary>
-    /// 장비 제어(전원·재시작)와 출상 취소가 허용되는 역할 (47번 문서 D-RS4).
-    /// 옛 시스템의 SUPER_ADMIN · PARTER_ADMIN 검사를 포털 역할로 옮긴 것이다.
+    /// 장비 제어(전원·재시작)와 출상 취소가 허용되는 역할. 옛 SUPER_ADMIN · PARTER_ADMIN 검사를 포털 역할로 옮긴 것이다.
     /// </summary>
     private static readonly string[] ControlRoles =
     [

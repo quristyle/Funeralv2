@@ -25,9 +25,7 @@ public partial class MyTrackPage
     /// <summary>점을 눌렀을 때 JS 가 되부를 손잡이.</summary>
     private DotNetObjectReference<MyTrackPage>? _self;
 
-    /// <summary>
-    /// 보고 있는 날. <b>한국 달력 날짜</b>다 — 서버도 같은 달력으로 하루를 끊는다.
-    /// </summary>
+    /// <summary>보고 있는 날. 한국 달력 날짜다 — 서버도 같은 달력으로 하루를 끊는다.</summary>
     private DateTime _date = AppTime.TodayDate;
 
     /// <summary>서버가 준 하루치 한 벌. 날짜를 바꾸면 통째로 갈린다.</summary>
@@ -42,10 +40,7 @@ public partial class MyTrackPage
     /// <summary>지금 고른 자리. 지도의 점과 왼쪽 목록이 같은 값을 본다.</summary>
     private LocationStayDto? _picked;
 
-    /// <summary>
-    /// 점·선을 다시 실어야 하나. <b>그린 뒤에 보낸다</b> — 조회가 끝나는
-    /// 시점에는 아직 판이 없을 수 있다(첫 진입).
-    /// </summary>
+    /// <summary>점·선을 다시 싣나. 그린 뒤에 보낸다 — 첫 진입에는 아직 판이 없을 수 있다.</summary>
     private bool _dirty;
 
     /// <summary>다시 실을 때 「전체 보기」까지 할 것인가.</summary>
@@ -57,10 +52,7 @@ public partial class MyTrackPage
     /// <summary>휴대폰에서 지금 선 판.</summary>
     private PhoneView _view = PhoneView.Map;
 
-    /// <summary>
-    /// 감춰져 있던 지도 판이 다시 섰다. <b>그린 뒤에 알린다</b> — 이 값을
-    /// 올리는 시점에는 아직 CSS 가 판을 펴기 전이라 크기가 0 이다.
-    /// </summary>
+    /// <summary>감춰져 있던 지도 판이 다시 섰다. 그린 뒤에 알린다 — 이 값을 올릴 때는 CSS 가 판을 펴기 전이라 크기가 0 이다.</summary>
     private bool _reveal;
 
     /// <summary>휴대폰에서 한 번에 하나씩 서는 판.</summary>
@@ -84,10 +76,7 @@ public partial class MyTrackPage
     /// <summary>서버에 보낼 날짜 글자. 내려받기 파일 이름에도 쓰인다.</summary>
     private string DateKey => DateOnly.FromDateTime(_date).ToString("yyyy-MM-dd");
 
-    /// <summary>
-    /// 지금 고른 날에 해당하는 「기록이 있는 날」. <b>없을 수 있다</b> —
-    /// 기록이 없는 날을 직접 고르면 고르개는 빈 채로 남는다.
-    /// </summary>
+    /// <summary>지금 고른 날의 「기록이 있는 날」 항목. 없을 수 있다 — 빈 날을 직접 고르면 고르개는 빈 채로 남는다.</summary>
     private LocationTrackDayDto? CurrentDay =>
         _days.FirstOrDefault(d => d.Date == DateKey);
 
@@ -111,8 +100,7 @@ public partial class MyTrackPage
     {
         _track = await Api.GetMyLocationTrackAsync(DateOnly.FromDateTime(_date));
 
-        // **기록이 있는 날 목록은 함께 읽는다.** 따로 읽으면 오늘치가 방금
-        // 쌓인 날에 고르개가 어제까지만 알고 있게 된다.
+        // 기록이 있는 날 목록은 함께 읽는다 — 따로 읽으면 방금 쌓인 날을 고르개가 모르게 된다.
         _days = await Api.GetMyLocationTrackDaysAsync();
 
         // 사라진 자리를 고른 채로 두지 않는다 — 날짜를 바꾸면 그 자리는 없다.
@@ -121,8 +109,7 @@ public partial class MyTrackPage
             _picked = null;
         }
 
-        // 자료가 바뀌었다. 손으로 옮겨 둔 자리는 되돌아가도 좋다 — 날이
-        // 달라졌으니 보던 자리도 달라진다.
+        // 자료가 바뀌었다 — 날이 달라졌으니 보던 자리도 되돌아가도 좋다.
         Refresh(true);
 
         return Points.Count;
@@ -145,10 +132,7 @@ public partial class MyTrackPage
             ? Task.CompletedTask
             : PickDateAsync(parsed.ToDateTime(TimeOnly.MinValue));
 
-    /// <summary>
-    /// 하루씩 옮긴다. <b>앞으로는 오늘까지만</b> — 내일의 기록은 있을 수 없고,
-    /// 빈 화면을 내주면 사람은 기능이 깨진 것으로 읽는다.
-    /// </summary>
+    /// <summary>하루씩 옮긴다. 앞으로는 오늘까지만 — 내일의 기록은 있을 수 없고, 빈 화면을 내주면 기능이 깨진 것으로 읽힌다.</summary>
     private Task ShiftAsync(int days)
     {
         var next = _date.AddDays(days);
@@ -208,14 +192,7 @@ public partial class MyTrackPage
         _reveal |= view == PhoneView.Map;
     }
 
-    /// <summary>
-    /// 목록에서 자리를 눌렀다 — <b>지도로 넘어가며 그 자리로 옮긴다.</b>
-    /// </summary>
-    /// <remarks>
-    /// <c>PickAsync</c> 를 거치지 않는다 — 그쪽은 이미 고른 줄이면 아무것도
-    /// 하지 않으므로, 지도를 끌어 옮겨 둔 뒤 목록에서 같은 자리를 다시 누르면
-    /// 화면이 그리로 안 돌아온다(「위치 지도」와 같은 자리).
-    /// </remarks>
+    /// <summary>목록에서 자리를 눌렀다 — 지도로 넘어가며 그 자리로 옮긴다. PickAsync 를 거치지 않는다 — 이미 고른 줄이면 아무 일도 하지 않아 지도를 옮긴 뒤 같은 자리를 다시 눌러도 화면이 돌아오지 않는다.</summary>
     private async Task ShowOnMapAsync(LocationStayDto stay)
     {
         _view = PhoneView.Map;
@@ -252,15 +229,12 @@ public partial class MyTrackPage
             _dirty = false;
             _refit = false;
 
-            // **선을 먼저, 점을 나중에.** 선 쪽은 맞추기를 하지 않으므로
-            // (`setPath` 머리말) 점을 싣는 쪽이 마지막이어야 「전체 보기」가
-            // 선까지 센 채로 한 번만 돈다.
+            // 선을 먼저, 점을 나중에 — 선 쪽은 맞추기를 하지 않으므로 점을 싣는 쪽이 마지막이어야 전체 보기가 한 번만 돈다.
             await _map.InvokeVoidAsync("setPath", Stays.Select(s => new { lat = s.Lat, lon = s.Lon }));
             await _map.InvokeVoidAsync("setMarkers", Stays.Select(Pin), refit);
         }
 
-        // 감춰져 있던 판이 방금 섰다. `setMarkers` 다음이어야 한다 — 점을
-        // 먼저 갈아 끼워 두어야 미뤄 둔 맞추기가 제 점들로 셈한다.
+        // 감춰져 있던 판이 방금 섰다 — setMarkers 다음이어야 미뤄 둔 맞추기가 제 점들로 셈한다.
         if (_reveal && _map is not null)
         {
             _reveal = false;
@@ -268,14 +242,7 @@ public partial class MyTrackPage
         }
     }
 
-    /// <summary>
-    /// 지도에서 점을 눌렀다. <b>빈 곳을 누르면 <c>null</c> 이 온다</b> —
-    /// 고른 것을 푸는 길이다.
-    /// </summary>
-    /// <remarks>
-    /// JS 가 되부르는 자리라 <c>StateHasChanged</c> 를 직접 부른다. 회로가
-    /// 일으킨 사건이 아니라서 Blazor 가 알아서 다시 그리지 않는다.
-    /// </remarks>
+    /// <summary>지도에서 점을 눌렀다. 빈 곳을 누르면 null 이 온다 — 고른 것을 푸는 길이다. JS 가 되부르므로 StateHasChanged 를 직접 부른다.</summary>
     [JSInvokable]
     public void PickMarker(string? key)
     {
@@ -286,13 +253,7 @@ public partial class MyTrackPage
         StateHasChanged();
     }
 
-    /// <summary>목록에서 골랐다. <b>지도도 그 자리로 옮긴다.</b></summary>
-    /// <remarks>
-    /// 이미 고른 줄이면 아무것도 안 한다 — 표는 파라미터로 받은 선택을 그대로
-    /// 따르므로(<c>CommGrd.OnParametersSet</c>) 지도에서 고른 것이 표에
-    /// 되비치는데, 그때 이 자리가 또 불리면 점을 누를 때마다 지도가 15 단계로
-    /// 당겨진다.
-    /// </remarks>
+    /// <summary>목록에서 골랐다. 지도도 그 자리로 옮긴다. 이미 고른 줄이면 아무것도 안 한다 — 지도에서 고른 것이 표에 되비치는데 이 자리가 또 불리면 지도가 점을 누를 때마다 당겨진다.</summary>
     private async Task PickAsync(LocationStayDto? stay)
     {
         if (ReferenceEquals(_picked, stay)) return;
@@ -315,20 +276,7 @@ public partial class MyTrackPage
         if (_map is not null) await _map.InvokeVoidAsync("zoomBy", step);
     }
 
-    /// <summary>지도에 넘길 점 하나. JS 는 이 다섯 칸만 본다.</summary>
-    /// <remarks>
-    /// <para>
-    /// <b><c>badge</c> 를 실으면 지도가 작은 핀으로 찍는다</b>(<c>geo-map.js</c>
-    /// 머리말). 이 화면이 그쪽인 까닭은 하루치 자리가 **한 동네에 모이기
-    /// 일쑤**라서다 — 출근·점심·퇴근이 같은 블록이면 「울산광역시 남구 삼산동」
-    /// 같은 이름표 셋이 서로를 통째로 덮어, 몇 번 점이 어디인지조차 안 보인다.
-    /// </para>
-    /// <para>
-    /// 그래도 이름을 <c>name</c> 에 그대로 실어 보낸다 — 지도가 그것을
-    /// <c>title</c> 로 달아 두므로, <b>누르지 않고 손가락만 올려도</b> 어디인지
-    /// 읽힌다. 안 실으면 작은 핀에서 이름을 보는 길이 카드를 여는 것뿐이 된다.
-    /// </para>
-    /// </remarks>
+    /// <summary>지도에 넘길 점 하나. JS 는 이 다섯 칸만 본다. badge 를 실으면 작은 핀으로 찍는다 — 하루치 자리가 한 동네에 모여 이름표가 서로를 덮기 때문이다. 이름은 title 로 달려 손가락만 올려도 보인다.</summary>
     private object Pin(LocationStayDto s) => new
     {
         key = Key(s),
@@ -341,18 +289,14 @@ public partial class MyTrackPage
         // 핀에 적히는 글자. 번호만이다 — 이보다 길면 핀이 아니라 이름표가 된다.
         badge = s.Seq.ToString(),
 
-        // 한 번만 관측된 자리는 흐리게. 「0분」이 「머물지 않았다」로 읽히지
-        // 않도록 지도에서도 갈라 둔다.
+        // 한 번만 관측된 자리는 흐리게 — 0분이 머물지 않은 것으로 읽히지 않게 지도에서도 가른다.
         muted = s.Samples <= 1,
     };
 
     /// <summary>지도의 점을 가리키는 열쇠. <b>번호 하나면 그날 안에서 유일하다.</b></summary>
     private static string Key(LocationStayDto s) => s.Seq.ToString();
 
-    /// <summary>
-    /// 어디인가. <b>지역 이름이 없으면 좌표를 적는다</b> — 빈 칸으로 두면
-    /// 자리를 모르는 것으로 읽힌다.
-    /// </summary>
+    /// <summary>어디인가. 지역 이름이 없으면 좌표를 적는다 — 빈 칸은 자리를 모르는 것으로 읽힌다.</summary>
     private static string Where(LocationStayDto s) =>
         string.IsNullOrWhiteSpace(s.Place) ? Coord(s.Lat, s.Lon) : s.Place!;
 
@@ -364,10 +308,7 @@ public partial class MyTrackPage
     private static string Span(LocationStayDto s) =>
         $"{s.ArrivedAt.Kst("HH:mm")} ~ {s.LeftAt.Kst("HH:mm")}";
 
-    /// <summary>
-    /// 머문 시간을 사람이 읽는 말로. <b>0분도 그대로 적는다</b> — 「—」로
-    /// 두면 셈하지 못한 것처럼 보이는데, 실제로는 한 번만 관측된 자리다.
-    /// </summary>
+    /// <summary>머문 시간을 사람이 읽는 말로. 0분도 그대로 적는다 — 「—」로 두면 셈하지 못한 것으로 보이는데 실제로는 한 번만 관측된 자리다.</summary>
     private static string MinutesText(int minutes) => minutes switch
     {
         <= 0 => "0분",
@@ -376,10 +317,7 @@ public partial class MyTrackPage
         _ => $"{minutes / 60}시간 {minutes % 60}분",
     };
 
-    /// <summary>
-    /// 머문 시간 칸의 도움말. <b>왜 이 값이 짧은지</b>를 그 자리에서 말한다 —
-    /// 화면 머리말은 사람이 안 읽는다.
-    /// </summary>
+    /// <summary>머문 시간 칸의 도움말. 왜 이 값이 짧은지를 그 자리에서 말한다.</summary>
     private static string DwellTitle(LocationStayDto s) => s.Samples <= 1
         ? "한 번만 관측된 자리입니다. 머물지 않았다는 뜻이 아니라, 그 사이에 한 번 본 것입니다."
         : $"관측 {s.Samples}회 — 처음과 마지막 사이입니다. 실제로 머문 시간은 이보다 깁니다.";
@@ -402,8 +340,7 @@ public partial class MyTrackPage
 
     public async ValueTask DisposeAsync()
     {
-        // 회로가 이미 끊겼으면 JS 를 부를 수 없다. 화면을 옮기며 늘 지나는
-        // 길이라 예외를 남기지 않는다 — 「위치 지도」와 같은 자리다.
+        // 회로가 끊겼으면 JS 를 부를 수 없다 — 화면을 옮기며 늘 지나는 길이라 예외를 남기지 않는다.
         try
         {
             if (_map is not null)

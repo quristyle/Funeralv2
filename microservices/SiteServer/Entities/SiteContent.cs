@@ -2,17 +2,8 @@ using JSini.Shared.Domain;
 
 namespace SiteServer.Entities;
 
-/// <summary>
-/// 회사 소개 사이트의 문구 블록. 화면의 한 덩어리(히어로 · 사업영역 · 연혁 ...)가 한 행이다.
-/// </summary>
-/// <remarks>
-/// 왜 블록 단위인가. 소개 사이트의 문구는 표가 아니라 글이다. 컬럼을 잘게 나누면
-/// 문구를 조금 바꿀 때마다 스키마를 건드려야 한다. 그래서 화면의 배치 단위로만 끊고
-/// 안쪽은 본문(<see cref="Body"/>)에 맡긴다.
-///
-/// 언어는 행을 나눠 담는다(<see cref="Locale"/>). 컬럼을 `title_ko` · `title_en` 으로
-/// 늘리는 방식은 언어가 셋이 되는 순간 컬럼이 배로 늘어난다.
-/// </remarks>
+/// <summary>회사 소개 사이트의 문구 블록. 화면의 한 덩어리(히어로·사업영역·연혁 …)가 한 행이다. 문구는 글이라 컬럼을 잘게 나누지 않고 본문(Body)에 맡기며,
+/// 언어는 행을 나눠 담는다 — 컬럼을 언어별로 늘리면 언어가 셋일 때 배가 된다.</summary>
 public class SiteSection : BaseEntity<Guid>
 {
     /// <summary>
@@ -60,11 +51,7 @@ public class SitePost : BaseEntity<Guid>
     /// <summary>본문. 마크다운으로 넣는다</summary>
     public string? Body { get; set; }
 
-    /// <summary>
-    /// 대표 이미지의 FileServer 파일 아이디.
-    /// **이 파일은 <c>is_public</c> 을 켜 두어야 한다.** 켜지 않으면 로그인하지 않은
-    /// 방문자에게 404 로 나간다 (docs/analysis/27-jsini-site-brand.md 5절).
-    /// </summary>
+    /// <summary>대표 이미지의 FileServer 파일 아이디. is_public 을 켜 두어야 한다 — 꺼져 있으면 방문자에게 404 로 나간다.</summary>
     public Guid? CoverFileId { get; set; }
 
     /// <summary>공개 시각. 이 시각이 지나야 공개 조회에 나온다</summary>
@@ -74,14 +61,7 @@ public class SitePost : BaseEntity<Guid>
     public bool IsPublished { get; set; }
 }
 
-/// <summary>
-/// 공개 자료실의 한 자료. 파일 자체는 FileServer 가 보관하고 여기에는 아이디만 둔다.
-/// </summary>
-/// <remarks>
-/// 내려받기 수를 세려면 브라우저가 FileServer 를 직접 열게 두면 안 된다. 그래서
-/// <c>GET /api/site/downloads/{id}/file</c> 로 한 번 거치게 하고, 세고 나서 302 로 넘긴다.
-/// 공지 첨부(AuthServer/Endpoints/HelpArchiveEndpoints.cs)와 같은 방식이다.
-/// </remarks>
+/// <summary>공개 자료실의 한 자료. 파일은 FileServer 가 보관하고 여기는 아이디만 둔다. 내려받기 수를 세려고 브라우저가 FileServer 를 직접 열지 않게 GET /api/site/downloads/{id}/file 을 거쳐 세고 302 로 넘긴다.</summary>
 public class SiteDownload : BaseEntity<Guid>
 {
     /// <summary>언어. <c>ko</c> · <c>en</c></summary>
@@ -96,10 +76,7 @@ public class SiteDownload : BaseEntity<Guid>
     /// <summary>분류 (예: <c>회사소개</c> · <c>제품</c>). 화면의 탭이 된다</summary>
     public string? Category { get; set; }
 
-    /// <summary>
-    /// FileServer 파일 아이디.
-    /// **이 파일은 <c>is_public</c> 을 켜 두어야 한다.**
-    /// </summary>
+    /// <summary>FileServer 파일 아이디. is_public 을 켜 두어야 한다.</summary>
     public Guid FileId { get; set; }
 
     /// <summary>목록에 보여 줄 파일명. FileServer 의 원본명과 달라도 된다</summary>

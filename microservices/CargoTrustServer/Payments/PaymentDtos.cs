@@ -68,15 +68,7 @@ public static class PaymentMap
     public static PaymentRecordDto Record(PaymentRecord p) => Record<PaymentRecordDto>(p);
 }
 
-/// <summary>
-/// BulkPaymentRequest — 여러 거래를 한 번에 처리한다(거래처 상세의 「내 미처리 거래」).
-///
-/// <para>
-/// 금액을 받지 않는 것이 단건(<see cref="PaymentRequest"/>)과의 차이다. 한 번에
-/// 처리하는 자리는 **한 회사가 여러 건을 묶어 입금한** 경우라, 건마다 남은 금액
-/// 전액을 받은 것으로 적는다. 나눠 받은 건은 단건으로 적는다.
-/// </para>
-/// </summary>
+/// <summary>여러 거래를 한 번에 처리한다(거래처 상세의 「내 미처리 거래」). 금액을 받지 않는다 — 묶어 입금한 경우라 건마다 남은 금액 전액으로 적는다.</summary>
 public class BulkPaymentRequest
 {
     public List<long>? TransactionIds { get; set; }
@@ -89,16 +81,7 @@ public class BulkPaymentRequest
 /// <summary>한 번에 처리하다 걸러진 한 건. 무엇이 안 됐는지 화면이 그대로 띄운다.</summary>
 public record BulkPaymentFailureDto(long TransactionId, string Message);
 
-/// <summary>
-/// BulkPaymentResult — 된 것과 안 된 것을 함께 돌려준다.
-///
-/// <para>
-/// 한 건이라도 걸리면 전부 물리는 대신, 되는 것을 처리하고 안 된 것은 이유와 함께
-/// 돌려준다. 여기서 걸리는 것은 「이미 다 받은 거래」처럼 **다른 곳에서 먼저
-/// 처리된 것**이 대부분이라, 통째로 물리면 사람이 고를 것을 하나씩 빼 가며
-/// 다시 눌러야 한다.
-/// </para>
-/// </summary>
+/// <summary>된 것과 안 된 것을 함께 돌려준다. 한 건이 걸려도 전부 물리지 않는다 — 걸리는 것은 대개 다른 곳에서 먼저 처리된 거래라 통째로 물리면 사람이 하나씩 빼며 다시 눌러야 한다.</summary>
 public record BulkPaymentResultDto(
     List<Transactions.MyTransactionDto> Updated,
     List<BulkPaymentFailureDto> Failed);

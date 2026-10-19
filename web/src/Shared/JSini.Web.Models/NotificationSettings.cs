@@ -1,20 +1,7 @@
 namespace JSini.Web.Models;
 
-// ============================================================
-// 알림 설정과 웹푸시 구독.
-//
-// **모듈이 아니라 여기 있다.** 이 설정을 다루는 화면이 둘이다 —
-// 포털관리의 「알림 설정」과 장례식장의 「환경설정」. 둘 다 **로그인한 본인의
-// 설정**을 다루므로 자료 모양이 같아야 하고, 한쪽 모듈에 두면 다른 쪽이
-// 쓸 수 없다(업무 모듈끼리는 참조하지 않는다).
-//
-// 화면 자체도 한 벌이다 — `JSini.Web.Components/Settings/NotificationPanel`.
-//
-// **칸 이름은 NotificationServer 의 DTO 와 글자까지 맞춘다.** 한동안 기기
-// 칸이 `Id`·`LastUsedAt` 이었는데 서버가 보내는 것은 `endpoint`·`lastSentAt`
-// 이라, 「최근 사용」 칸이 **늘 비어 있었고** 기기를 뺄 열쇠(`endpoint`)가
-// 아예 없었다. 어긋나도 예외가 나지 않고 값만 조용히 사라진다.
-// ============================================================
+// 알림 설정과 웹푸시 구독. 포털관리 「알림 설정」과 장례식장 「환경설정」이 같은 자료를 쓰므로 공유 모델에 둔다.
+// 칸 이름은 NotificationServer 의 DTO 와 글자까지 맞춘다. 어긋나도 예외가 나지 않고 값만 조용히 사라진다.
 
 /// <summary>내 알림 수신 설정.</summary>
 public sealed class NotificationPreferenceDto
@@ -25,46 +12,19 @@ public sealed class NotificationPreferenceDto
     /// <summary>기상 특보 알림을 받는가. 생활과환경이 이 값을 본다.</summary>
     public bool WeatherEnabled { get; set; }
 
-    /// <summary>
-    /// <b>쪽지를 메일로도 받는가.</b> 기본은 꺼짐이다.
-    /// </summary>
-    /// <remarks>
-    /// <see cref="EmailEnabled"/> 와 갈래가 다르다. 그쪽은 업무 알림(역할로 오는
-    /// 메일)이고 이쪽은 <b>사람이 나에게 쓴 글</b>이다. 쪽지는 이미 쪽지함에 남고
-    /// 앱 푸시로 두드리므로, 메일까지 받을지는 <b>받는 사람이 정한다</b> —
-    /// 보내는 화면에는 그 체크가 없다.
-    /// </remarks>
+    /// <summary>쪽지를 메일로도 받는가(기본 꺼짐). 쪽지는 쪽지함과 앱 푸시로 이미 닿으므로 받는 사람이 정한다.</summary>
     public bool NoteEmailEnabled { get; set; }
 
-    /// <summary>
-    /// <b>내 글에 달린 댓글</b>을 앱 푸시로 받는가. 기본은 켜짐이다.
-    /// </summary>
-    /// <remarks>
-    /// <see cref="PushEnabled"/> 아래의 <b>갈래 스위치</b>다 — 그것을 끄면 아무것도
-    /// 안 오고, 이것만 끄면 댓글 알림만 멎는다. 판정은 알림 서비스가 발송 직전에
-    /// 한다(알림구분 <c>HELPDESK_COMMENT</c>).
-    /// </remarks>
+    /// <summary>내 글에 달린 댓글을 앱 푸시로 받는가(기본 켜짐). <see cref="PushEnabled"/> 아래의 갈래 스위치이고, 판정은 알림 서비스가 발송 직전에 한다.</summary>
     public bool CommentPushEnabled { get; set; } = true;
 
-    /// <summary>
-    /// <b>내 글에 달린 댓글</b>을 이메일로 받는가. 기본은 켜짐이다.
-    /// </summary>
-    /// <remarks>
-    /// <see cref="EmailEnabled"/>(역할로 오는 업무 메일)와 갈래가 다르다. 헬프데스크
-    /// 댓글은 <b>그 요청글을 열어야만 보이므로</b>, 쪽지 메일과 달리 기본이 켜짐이다.
-    /// </remarks>
+    /// <summary>내 글에 달린 댓글을 이메일로 받는가(기본 켜짐). 댓글은 요청글을 열어야 보이므로 쪽지 메일과 달리 켜 둔다.</summary>
     public bool CommentEmailEnabled { get; set; } = true;
 
-    /// <summary>
-    /// <b>내 위치 날씨</b>를 받는가. 위 <see cref="WeatherEnabled"/>(기상 특보)와
-    /// 다른 스위치다 — 그쪽은 특보가 떴을 때만, 이쪽은 <b>고른 시각마다</b> 온다.
-    /// </summary>
+    /// <summary>내 위치 날씨를 받는가. 기상 특보(<see cref="WeatherEnabled"/>)와 달리 고른 시각마다 온다.</summary>
     public bool WeatherLocalEnabled { get; set; }
 
-    /// <summary>
-    /// 저장해 둔 좌표. <b>없으면 스위치를 켜도 보낼 곳이 없다</b> — 웹은 뒤에서
-    /// 위치를 못 읽으므로 화면이 한 번 받아 저장해 둬야 한다.
-    /// </summary>
+    /// <summary>저장해 둔 좌표. 없으면 스위치를 켜도 보낼 곳이 없다(웹은 뒤에서 위치를 못 읽는다).</summary>
     public double? WeatherLat { get; set; }
 
     public double? WeatherLon { get; set; }
@@ -75,41 +35,19 @@ public sealed class NotificationPreferenceDto
     /// <summary>받을 시각들(KST, 쉼표로 나눈 0~23). 비면 <c>7,18</c> 이다.</summary>
     public string? WeatherHours { get; set; }
 
-    /// <summary>
-    /// 위치를 마지막으로 <b>잡은</b> 때 — <b>좌표가 실제로 달라진 때</b>다.
-    /// 자리가 안 바뀐 사람은 이 값이 오래 그대로다.
-    /// </summary>
+    /// <summary>위치를 마지막으로 잡은 때. 좌표가 실제로 달라졌을 때만 찍힌다.</summary>
     public DateTime? WeatherLocatedAt { get; set; }
 
-    /// <summary>
-    /// 위치를 마지막으로 <b>확인한</b> 때. 브라우저가 저절로 다시 재어 보고
-    /// <b>그대로였을 때도</b> 찍힌다(<see cref="JSini.Web.Models.GeoPermissionResult"/> 가
-    /// <c>granted</c> 인 브라우저에서만 돈다).
-    /// </summary>
-    /// <remarks>
-    /// 화면이 둘을 갈라 보여 준다. 위의 「잡은 때」만 있으면 <b>한자리에 사는
-    /// 사람</b>의 위치가 늘 묵어 보이고, 이것만 있으면 <b>이사한 사람</b>이
-    /// 옛 동네 날씨를 받는 것을 눈치채지 못한다.
-    /// </remarks>
+    /// <summary>위치를 마지막으로 확인한 때(그대로였을 때도 찍힌다). 이사한 사람과 한자리에 사는 사람을 가르는 값이다.</summary>
     public DateTime? WeatherSyncedAt { get; set; }
 
-    /// <summary>
-    /// 저장된 설정인가. 거짓이면 서버가 준 <b>기본값</b>이라는 뜻이다.
-    ///
-    /// 화면이 이것을 구별해야 「아직 정한 적 없음」과 「전부 꺼 둠」이
-    /// 같아 보이지 않는다.
-    /// </summary>
+    /// <summary>저장된 설정인가. 거짓이면 서버가 준 기본값이다. 「정한 적 없음」과 「전부 꺼 둠」을 가르려고 있다.</summary>
     public bool Saved { get; set; }
 
     public DateTime? UpdatedAt { get; set; }
 }
 
-/// <summary>
-/// 내 알림 설정 응답 전체.
-///
-/// 설정만 오는 것이 아니라 <b>푸시를 쓸 수 있는 환경인지</b>와 등록된 기기까지
-/// 함께 온다. 셋이 한 화면에서 같이 쓰이므로 통째로 받는다.
-/// </summary>
+/// <summary>내 알림 설정 응답. 설정과 함께 푸시 가능 여부·공개 키·등록 기기를 한 번에 받는다.</summary>
 public sealed class NotificationSettingsDto
 {
     /// <summary>설정 주인의 종류(<c>jsini</c> · <c>helpdesk</c>).</summary>
@@ -132,13 +70,7 @@ public sealed class NotificationSettingsDto
     public List<PushDeviceDto> Devices { get; set; } = [];
 }
 
-/// <summary>
-/// 브라우저가 만든 구독을 서버에 올릴 때 보내는 것.
-///
-/// 이름은 NotificationServer 의 <c>SubscribeDto</c> 와 맞춘 것이다.
-/// <c>ownerType</c>·<c>ownerKey</c> 는 **일부러 없다** — 서버가 로그인한
-/// 계정으로 정한다(AdminClient.RegisterPushSubscriptionAsync 참조).
-/// </summary>
+/// <summary>브라우저가 만든 구독을 서버에 올릴 때 보내는 것. 이름은 NotificationServer 의 <c>SubscribeDto</c> 와 맞추고, ownerType·ownerKey 는 서버가 로그인 계정으로 정한다.</summary>
 public sealed class PushSubscribeRequest
 {
     /// <summary>푸시 서비스가 준 이 기기의 주소. 구독의 열쇠다.</summary>
@@ -156,13 +88,7 @@ public sealed class PushSubscribeRequest
     public PushDeviceMetadataDto Metadata { get; set; } = new();
 }
 
-/// <summary>
-/// <c>jsiniPwa.subscribe</c> / <c>jsiniPwa.status</c> 가 돌려주는 것.
-///
-/// 브라우저 쪽 사정을 그대로 담는다 — 실패를 <c>false</c> 하나로 뭉개면
-/// 화면이 "안 됐습니다" 말고는 할 말이 없다. iOS 사파리처럼 **홈 화면에
-/// 추가해야 비로소 되는** 경우를 구분해 말해 주려면 이유가 필요하다.
-/// </summary>
+/// <summary><c>jsiniPwa.subscribe</c> / <c>jsiniPwa.status</c> 가 돌려주는 것. 실패를 false 하나로 뭉개지 않고 이유를 담는다(iOS 는 홈 화면 추가가 필요하다).</summary>
 public sealed class PushBrowserResult
 {
     public bool Ok { get; set; }
@@ -176,62 +102,22 @@ public sealed class PushBrowserResult
     /// <summary>이미 구독 중인가.</summary>
     public bool Subscribed { get; set; }
 
-    /// <summary>
-    /// <b>설치된 앱으로 열려 있는가</b>(홈 화면·작업 표시줄의 아이콘으로 연 것).
-    ///
-    /// <para>
-    /// 브라우저 탭으로 열어도 데스크톱에서는 알림이 오지만, <b>iOS 는 홈 화면
-    /// 앱에서만 준다</b> — 거기서는 이 값이 거짓인 동안 구독 자체가 불가능하다.
-    /// 화면이 「왜 안 되는지」를 말하려면 이 구분이 필요하다.
-    /// </para>
-    /// </summary>
+    /// <summary>설치된 앱으로 열려 있는가. iOS 는 홈 화면 앱에서만 알림을 주므로 거짓인 동안 구독 자체가 불가능하다.</summary>
     public bool Standalone { get; set; }
 
-    /// <summary>
-    /// 서비스워커가 이 브라우저에 자리 잡았는가. 없으면 구독을 만들 수 없다 —
-    /// 알림을 실제로 받아 주는 것이 그 워커다.
-    /// </summary>
+    /// <summary>서비스워커가 이 브라우저에 자리 잡았는가. 없으면 구독을 만들 수 없다.</summary>
     public bool ServiceWorker { get; set; }
 
-    /// <summary>
-    /// 브라우저가 <b>설치할 수 있다고 알려 왔는가.</b>
-    ///
-    /// <para>
-    /// <b>거짓이라고 설치가 안 되는 것은 아니다</b> — 이미 설치했거나, 그
-    /// 신호를 주지 않는 브라우저(파이어폭스·사파리)일 수 있다. 그래서 화면은
-    /// 참일 때만 단추를 두고 거짓일 때는 아무 말도 하지 않는다.
-    /// </para>
-    /// </summary>
+    /// <summary>브라우저가 설치할 수 있다고 알려 왔는가. 거짓이라고 설치가 안 되는 것은 아니다(이미 설치했거나 신호를 주지 않는 브라우저). 화면은 참일 때만 단추를 둔다.</summary>
     public bool Installable { get; set; }
 
-    /// <summary>
-    /// <b>이 탭에서 설치를 마쳤는가.</b>
-    ///
-    /// <para>
-    /// 설치가 끝나도 보고 있던 탭은 탭 그대로라 <see cref="Standalone"/> 은
-    /// 거짓으로 남고, 한 번 쓴 설치 신호는 사라져 <see cref="Installable"/> 도
-    /// 거짓이 된다. 그 둘만 보면 <b>방금 설치한 사람이 「아직 안 했다」로
-    /// 읽힌다</b> — 권유 창이 설치를 또 권하지 않게 하려고 있는 값이다.
-    /// </para>
-    /// </summary>
+    /// <summary>이 탭에서 설치를 마쳤는가. 설치 뒤에도 보던 탭은 Standalone 이 거짓이라, 방금 설치한 사람이 아직 안 한 것으로 읽히지 않게 따로 찍는다.</summary>
     public bool Installed { get; set; }
 
-    /// <summary>
-    /// 설치를 <b>어떻게</b> 해야 하는가 — <c>prompt</c>(단추 하나로 된다) ·
-    /// <c>ios</c>(공유 → 홈 화면에 추가) · <c>menu</c>(길이 없다) ·
-    /// <c>none</c>(이미 앱이다).
-    /// </summary>
-    /// <remarks>
-    /// <c>menu</c> 와 <c>none</c> 에서 화면은 <b>아무 말도 하지 않는다</b> —
-    /// 신호를 안 주는 브라우저와 이미 설치해 둔 브라우저가 거기서 구분되지
-    /// 않아서, 말을 얹으면 설치한 사람에게 설치를 권하게 된다(<c>pwa.js</c>).
-    /// </remarks>
+    /// <summary>설치를 어떻게 해야 하는가. prompt(단추) · ios(공유 → 홈 화면에 추가) · menu·none. menu·none 에서 화면은 아무 말도 하지 않는다. 설치한 사람에게 권하면 고장이 된다.</summary>
     public string? InstallHint { get; set; }
 
-    /// <summary>
-    /// <b>휴대폰·태블릿인가.</b> 창 폭이 아니라 기기로 본다 — 좁게 줄여 놓은
-    /// 데스크톱까지 걸리면 되풀이 권유가 거기서도 뜬다(<c>PushAskPopup</c>).
-    /// </summary>
+    /// <summary>휴대폰·태블릿인가. 창 폭이 아니라 기기로 본다(좁힌 데스크톱까지 걸리면 되풀이 권유가 거기서도 뜬다).</summary>
     public bool Mobile { get; set; }
 
     public string? Endpoint { get; set; }
@@ -246,10 +132,7 @@ public sealed class PushBrowserResult
 /// <summary>푸시를 받도록 등록된 기기 하나.</summary>
 public sealed class PushDeviceDto
 {
-    /// <summary>
-    /// 푸시 서비스가 준 이 기기의 주소. <b>구독의 열쇠다</b> — 「지금 이
-    /// 브라우저」를 알아보는 것도, 기기를 목록에서 빼는 것도 이 값으로 한다.
-    /// </summary>
+    /// <summary>서비스워커가 준 기기 주소. 구독의 열쇠다. 「지금 이 브라우저」를 알아보는 것도 기기를 빼는 것도 이 값으로 한다.</summary>
     public string? Endpoint { get; set; }
 
     /// <summary>어디서 구독했는지(<c>portal</c> …).</summary>
@@ -257,29 +140,12 @@ public sealed class PushDeviceDto
 
     public string? UserAgent { get; set; }
 
-    /// <summary>
-    /// 마지막으로 <b>보낸</b> 때. 받은 때가 아니다 — 서버는 보낸 것까지만 안다.
-    /// </summary>
+    /// <summary>마지막으로 보낸 때. 받은 때가 아니다(서버는 보낸 것까지만 안다).</summary>
     public DateTime? LastSentAt { get; set; }
 
     public DateTime? CreatedAt { get; set; }
 
-    /// <summary>
-    /// 마지막으로 그 기기가 <b>받았다고 되알려 온</b> 때. 아직이면 <c>null</c>.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <see cref="LastSentAt"/> 과 짝이고 <b>둘이 갈라지는 자리</b>가 이 칸의
-    /// 전부다 — 보낸 적은 있는데 여기가 비어 있으면 그 기기는 지금 못 받고
-    /// 있다(브라우저 자료를 지웠거나 알림 권한을 껐다). 푸시 서비스는 그런
-    /// 구독에도 한동안 성공을 돌려주므로 <see cref="FailureCount"/> 로는
-    /// 드러나지 않는다.
-    /// </para>
-    /// <para>
-    /// <b>되알림이 생기기 전(2026-10-12)에 보낸 것은 안 센다.</b> 그래서 멀쩡한
-    /// 기기도 한 번은 비어 보인다 — 알림 한 통이면 채워진다.
-    /// </para>
-    /// </remarks>
+    /// <summary>마지막으로 그 기기가 받았다고 되알려 온 때. 아직이면 null. LastSentAt 과 짝이 갈라지면 그 기기는 지금 못 받고 있다.</summary>
     public DateTime? LastDeliveredAt { get; set; }
 
     /// <summary>최근 30일에 이 기기로 <b>보낸</b> 알림 수(성공한 것만).</summary>
@@ -288,10 +154,7 @@ public sealed class PushDeviceDto
     /// <summary>그중 이 기기에 <b>닿은</b> 수. 「넷 중 하나」를 말하는 짝이다.</summary>
     public int RecentDeliveredCount { get; set; }
 
-    /// <summary>
-    /// 연달아 실패한 횟수. 0 이 아니면 그 기기는 <b>못 받고 있을 수 있다</b> —
-    /// 화면이 그것을 말해 주지 않으면 「왜 저 기기만 안 오지」가 된다.
-    /// </summary>
+    /// <summary>연달아 실패한 횟수. 0 이 아니면 그 기기는 못 받고 있을 수 있다.</summary>
     public int FailureCount { get; set; }
 
     public PushDeviceMetadataDto Metadata { get; set; } = new();
@@ -337,10 +200,7 @@ public sealed class PushSubscriptionListDto
     public int Count { get; set; }
 }
 
-/// <summary>
-/// 발송 결과. <b>보낸 것이 없어도 실패가 아니다</b> — 구독한 기기가 없거나
-/// 스위치가 꺼져 있으면 서버는 「보낼 것이 없었다」로 답한다.
-/// </summary>
+/// <summary>발송 결과. 보낼 것이 없어도 실패가 아니다(구독한 기기가 없거나 스위치가 꺼져 있다).</summary>
 public sealed class PushSendResultDto
 {
     /// <summary>실제로 보낸 기기 수. <b>사람 수가 아니다</b> — 한 사람이 여럿일 수 있다.</summary>
@@ -365,22 +225,12 @@ public sealed class PushSendResultDto
 }
 
 
-// ============================================================
-// 내 위치 날씨.
-//
-// 브라우저에게 좌표를 묻고(GeoResult), 그 좌표의 날씨를 서버에서
-// 받아 온다(PointWeatherDto). 둘 다 **설정 화면이 「여기가 맞나」를
-// 되묻기 위해** 있다 — 좌표만 저장해 두면 사람은 자기가 무엇을
-// 저장했는지 알 수 없고, 엉뚱한 동네 날씨가 와도 까닭을 못 찾는다.
-// ============================================================
+// 내 위치 날씨. 좌표를 브라우저에서 받고, 그 좌표의 날씨를 서버에서 받는다. 화면이 「여기가 맞나」를 되묻는 데 쓴다.
 
 /// <summary>
 /// <c>jsiniGeo.locate</c> 가 돌려주는 것.
 /// </summary>
-/// <remarks>
-/// 실패를 <c>false</c> 하나로 뭉개지 않는다 — 권한을 거절한 것과 기기가 못 잡은
-/// 것과 HTTPS 가 아니라 막힌 것은 사람이 할 일이 전혀 다르다.
-/// </remarks>
+/// <remarks>실패를 false 하나로 뭉개지 않는다. 권한 거절·기기가 못 잡음·HTTPS 아님은 사람이 할 일이 다르다.</remarks>
 public sealed class GeoResult
 {
     public bool Ok { get; set; }
@@ -394,26 +244,11 @@ public sealed class GeoResult
     /// <summary>실패했을 때 사람이 읽을 이유.</summary>
     public string? Error { get; set; }
 
-    /// <summary>
-    /// <b>재어 보지도 않았다.</b> 조용한 확인(<c>jsiniGeo.quiet</c>)에서만 참이
-    /// 되고, 권한이 아직 <c>granted</c> 가 아니라는 뜻이다.
-    /// </summary>
-    /// <remarks>
-    /// 실패와 가른다 — 실패는 <b>말해야 하는 것</b>이고(사람이 단추를 눌렀다)
-    /// 이것은 <b>말하면 안 되는 것</b>이다(아무도 시키지 않았다).
-    /// </remarks>
+    /// <summary>재어 보지도 않았다. 조용한 확인에서만 참이 되며 권한이 granted 가 아니라는 뜻이다. 실패와 달리 사람에게 말하면 안 되는 것이다(아무도 시키지 않았다).</summary>
     public bool Skipped { get; set; }
 }
 
-/// <summary>
-/// <c>jsiniGeo.permission</c> 이 돌려주는 것 — 브라우저가 위치를 내줄 사정인가.
-/// </summary>
-/// <remarks>
-/// <see cref="State"/> 는 <c>granted</c> · <c>denied</c> · <c>prompt</c> ·
-/// <c>unknown</c> · <c>unsupported</c> · <c>insecure</c> 중 하나다.
-/// <b><c>unknown</c> 은 「모른다」이지 「안 된다」가 아니다</b> — Permissions API
-/// 가 없는 브라우저(옛 iOS 사파리)라, 물어보면 될 수도 있다.
-/// </remarks>
+/// <summary><c>jsiniGeo.permission</c> 이 돌려주는 브라우저 사정. State 는 granted·denied·prompt·unknown·unsupported·insecure 중 하나이며, unknown 은 「안 된다」가 아니라 「모른다」다(Permissions API 가 없는 옛 iOS 사파리).</summary>
 public sealed class GeoPermissionResult
 {
     public bool Supported { get; set; }
@@ -430,20 +265,7 @@ public sealed class GeoPermissionResult
     public bool CanAsk => Supported && Secure && State is "prompt" or "unknown";
 }
 
-/// <summary>
-/// 좌표만 따로 저장할 때 보내는 것.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <b>설정 전체를 보내지 않는다.</b> 설정 화면은 스위치 하나에도 전체를 보내지만
-/// (사람이 보고 있는 한 벌이다) 이쪽은 <b>뒤에서 도는 저장</b>이라, 전체를 보내면
-/// 다른 탭에서 방금 바꾼 스위치를 조용히 되돌린다.
-/// </para>
-/// <para>
-/// <see cref="WeatherLocated"/> 가 <c>true</c> 인 것이 이 모양의 요점이다 —
-/// 서버는 그것을 보고 「확인한 때」를 찍는다.
-/// </para>
-/// </remarks>
+/// <summary>좌표만 따로 저장할 때 보내는 것. 설정 전체를 보내면 뒤에서 도는 저장이 다른 탭에서 방금 바꾼 스위치를 되돌린다. WeatherLocated 가 참일 때만 서버가 「확인한 때」를 찍는다.</summary>
 public sealed class LocationUpdateDto
 {
     public double WeatherLat { get; set; }
@@ -452,34 +274,17 @@ public sealed class LocationUpdateDto
     /// <summary>알아낸 지역 이름. 아직 모르면 <c>null</c> 이다.</summary>
     public string? WeatherPlace { get; set; }
 
-    /// <summary>
-    /// 브라우저가 말한 오차 반지름(m). <b>설정에는 안 들어간다</b> — 가는 곳은
-    /// 이동 경로 기록 한 줄이다(<c>scom.location_tracks</c>).
-    /// </summary>
-    /// <remarks>
-    /// 그 기록에서 이 값이 쓰이는 까닭은 <b>믿을 수 없는 점을 가려내는
-    /// 단서</b>가 이것뿐이기 때문이다 — 실내에서 받은 좌표는 오차가 천 미터를
-    /// 넘기도 하고, 그 점 하나가 「머문 자리」를 둘로 쪼갠다.
-    /// </remarks>
+    /// <summary>브라우저가 말한 오차 반지름(m). 설정에는 안 들어가고, 이동 경로 기록에서 믿을 수 없는 점을 가려내는 단서로 쓴다.</summary>
     public double? WeatherAccuracy { get; set; }
 
-    /// <summary>
-    /// 「내 위치 날씨」를 함께 켤지. <b>권유 창에서 위치를 처음 잡을 때만</b>
-    /// 참이다 — 설정 화면에서 다시 잡는 것은 스위치를 만지는 일이 아니다.
-    /// </summary>
+    /// <summary>「내 위치 날씨」를 함께 켤지. 권유 창에서 위치를 처음 잡을 때만 참이다.</summary>
     public bool? WeatherLocalEnabled { get; set; }
 
     /// <summary>브라우저가 <b>방금 재어</b> 보낸 것이라는 표시. 늘 참이다.</summary>
     public bool WeatherLocated { get; set; } = true;
 }
 
-/// <summary>
-/// 한 지점의 날씨 — 생활과환경의 <c>GET /life/weather/point</c> 응답.
-/// </summary>
-/// <remarks>
-/// <b>칸 이름을 서버의 <c>PointWeatherDto</c> 와 글자까지 맞춘다.</b> 어긋나도
-/// 예외가 나지 않고 값만 조용히 사라진다 — 기기 목록에서 이미 겪은 일이다.
-/// </remarks>
+/// <summary>한 지점의 날씨(생활과환경 <c>GET /life/weather/point</c>). 칸 이름은 서버 <c>PointWeatherDto</c> 와 글자까지 맞춘다. 어긋나면 예외 없이 값만 사라진다.</summary>
 public sealed class PointWeatherDto
 {
     public double Lat { get; set; }
@@ -505,30 +310,14 @@ public sealed class PointWeatherDto
 
     public List<PointWeatherDayDto> Days { get; set; } = [];
 
-    /// <summary>
-    /// <b>주간 예보</b> — 내일부터 열흘. <c>weekly=true</c> 로 물었을 때만 온다.
-    /// </summary>
-    /// <remarks>
-    /// 설정 화면은 이것을 쓰지 않는다(「여기가 맞나」를 되묻는 자리라 오늘·내일이면
-    /// 족하다). 쓰는 곳은 기상 현황판의 <b>내 위치 주간 예보</b> 하나다 —
-    /// 채우려면 서버가 기상청을 두 번 더 불러야 해서 <b>물은 쪽에만</b> 온다.
-    /// </remarks>
+    /// <summary>주간 예보(내일부터 열흘). <c>weekly=true</c> 로 물었을 때만 온다. 설정 화면은 쓰지 않고 기상 현황판의 주간 예보만 쓴다.</summary>
     public List<PointWeekDayDto> Weekly { get; set; } = [];
 
-    /// <summary>
-    /// 알림 본문으로 나갈 글. <b>화면은 이것을 그대로 보여 준다</b> — 미리 본 것과
-    /// 실제로 오는 알림의 말이 다르면 사람은 둘 중 하나를 믿지 못한다.
-    /// </summary>
+    /// <summary>알림 본문으로 나갈 글. 화면은 이것을 그대로 보여 준다(미리 본 것과 실제 알림이 다르면 안 된다).</summary>
     public string? Summary { get; set; }
 }
 
-/// <summary>
-/// 한 지점 <b>주간 예보</b> 하루치 — 등록 지역의 <c>mid-term/{id}</c> 와 같은 모양.
-/// </summary>
-/// <remarks>
-/// <b>칸 이름을 서버의 <c>MidTermForecastDto</c> 와 글자까지 맞춘다.</b> 어긋나도
-/// 예외가 나지 않고 값만 조용히 사라진다.
-/// </remarks>
+/// <summary>한 지점의 주간 예보 하루치(mid-term 과 같은 모양). 칸 이름은 서버 <c>MidTermForecastDto</c> 와 맞춘다.</summary>
 public sealed class PointWeekDayDto
 {
     /// <summary><c>yyyy-MM-dd</c>.</summary>
@@ -548,21 +337,7 @@ public sealed class PointWeekDayDto
     public int PmPop { get; set; }
 }
 
-/// <summary>
-/// 좌표 하나가 <b>어느 동네인가</b> — 생활과환경의 <c>GET /life/weather/place</c> 응답.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <see cref="PointWeatherDto"/> 와 갈라 둔 까닭은 <b>기상청을 안 부른다</b>는 것이다.
-/// 설정 화면은 열릴 때마다 저장된 좌표의 시·도·동을 보여 주는데, 날씨까지 받아 오면
-/// 기상청이 느린 날에 <b>이름조차 안 뜬다</b>.
-/// </para>
-/// <para>
-/// <b>좌표만 저장된 사람이 실제로 있다.</b> 좌표는 저장됐는데 그 뒤 날씨 조회가
-/// 실패하면 이름이 비는데(<c>GeoLocator.SaveAsync</c> 의 순서), 그때 화면에는
-/// 숫자 두 개만 남았다. 이 길이 그것을 메운다.
-/// </para>
-/// </remarks>
+/// <summary>좌표가 어느 동네인가(생활과환경 <c>GET /life/weather/place</c>). 기상청을 부르지 않으므로 날씨가 느려도 이름은 뜬다. 좌표만 저장된 사람의 이름을 메우는 길이기도 하다.</summary>
 public sealed class PointPlaceDto
 {
     public double Lat { get; set; }

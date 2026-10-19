@@ -36,8 +36,7 @@ public partial class SignupList
         {
             await ReloadAsync();
 
-            // 승인 문구를 조회 안내가 덮는다 — 목록이 비면 LoadAsync 가
-            // "없습니다" 를 띄우기 때문이다. 다시 세워 준다.
+            // 승인 문구를 조회 안내가 덮는다 — 목록이 비면 LoadAsync 가 「없습니다」를 띄우므로 다시 세워 준다.
             Say($"{row.UserName} 님을 승인했습니다. 소속과 역할은 계정 관리에서 붙여 주십시오.");
         }
     }

@@ -4,9 +4,7 @@ using AuthServer.DTOs;
 
 namespace AuthServer.Services;
 
-/// <summary>
-/// 역할(권한) 및 사용자, 메뉴 세부 권한 지정을 위한 비즈니스 서비스 인터페이스
-/// </summary>
+/// <summary>역할(권한) 및 사용자, 메뉴 세부 권한 지정을 위한 비즈니스 서비스 인터페이스</summary>
 public interface IRolePermissionService
 {
     /// <summary>특정 역할에 매핑된 사용자 계정 목록 조회</summary>
@@ -21,10 +19,7 @@ public interface IRolePermissionService
     /// <summary>특정 역할에서 사용자 계정 매핑을 해제</summary>
     Task RemoveUserFromRoleAsync(string roleId, string accountId);
 
-    /// <summary>
-    /// 특정 역할의 전체 메뉴에 대한 세부 권한 지정 정보 목록 조회.
-    /// 메뉴 이름은 사이드바와 같은 규칙으로 옮겨 내려보낸다(<see cref="MenuTitleTranslator.Display"/>).
-    /// </summary>
+    /// <summary>특정 역할의 전체 메뉴에 대한 세부 권한 지정 정보 목록 조회. 메뉴 이름은 사이드바와 같은 규칙으로 옮겨 내려보낸다(<see cref="MenuTitleTranslator.Display"/>).</summary>
     /// <param name="roleId">역할 아이디</param>
     /// <param name="locale">제목을 옮길 언어. 비우면 <c>ko</c>.</param>
     Task<List<RoleMenuDto>> GetMenusByRoleAsync(string roleId, string? locale = null);

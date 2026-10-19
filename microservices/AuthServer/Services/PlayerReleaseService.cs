@@ -11,23 +11,8 @@ namespace AuthServer.Services;
 /// <summary>
 /// 플레이어 릴리스 — GitHub 에 버전 태그를 만들어 릴리스 워크플로를 깨운다.
 /// </summary>
-/// <remarks>
-/// <b>왜 서버를 거치나.</b> 태그를 만들려면 <c>repo</c> 권한 토큰이 필요하다.
-/// 화면에서 GitHub 을 직접 부르면 그 토큰이 브라우저에 실려 누구든 꺼내 갈 수 있다
-/// (저장소가 공개라 더 그렇다). 토큰은 서버에만 두고 화면은 이 서비스만 부른다.
-///
-/// <para>
-/// <b>왜 <c>workflow_dispatch</c> 가 아니라 태그인가.</b> 릴리스 워크플로의 첨부 단계는
-/// <c>if: startsWith(github.ref, 'refs/tags/v')</c> 다. 수동 실행으로는 빌드만 되고
-/// GitHub Release 가 발행되지 않아서, 다운로드 화면이 파일을 찾지 못한다.
-/// </para>
-///
-/// <para>
-/// <b>릴리스 노트는 워크플로가 만든다.</b> 워크플로에 <c>generate_release_notes: true</c> 와
-/// 설치 안내 본문이 이미 들어 있다. 여기서 릴리스를 미리 만들어 두면 그 본문과 부딪히므로,
-/// 이 서비스는 <b>태그만</b> 만든다. 화면이 받은 노트는 태그 객체의 메시지로 남긴다.
-/// </para>
-/// </remarks>
+/// 태그를 만들려면 repo 권한 토큰이 필요하므로 화면이 GitHub 을 직접 부르지 않고 이 서비스만 부른다 — 저장소가 공개라 브라우저에 실린 토큰은 누구든 꺼낼 수 있다.
+/// 태그만 만든다 — workflow_dispatch 로는 첨부 단계가 돌지 않아 다운로드 파일이 생기지 않는다. 노트와 첨부는 워크플로가 태그 푸시로 발행한다.
 public class PlayerReleaseService : IPlayerReleaseService
 {
     /// <summary>권한을 읽어 올 메뉴 경로. 릴리스 발행은 이 메뉴의 can_create 다.</summary>

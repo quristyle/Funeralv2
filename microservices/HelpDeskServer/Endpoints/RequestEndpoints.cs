@@ -22,47 +22,15 @@ namespace HelpDeskServer.Endpoints;
 
 /// <summary> 요청(ImprovementRequest) 엔드포인트 </summary>
 public static class RequestEndpoints {
-  /// <summary>
-  /// 개선 요청 관련 엔드포인트를 애플리케이션에 매핑합니다.
-  /// </summary>
+  /// <summary>개선 요청 엔드포인트를 매핑한다.</summary>
   public static void MapRequestEndpoints(this IEndpointRouteBuilder routes) {
     var group = routes.MapGroup("/api/requests");
 
     // 요청 목록 (필터링 포함)
     group.MapGet("/", (AppDbContext db, ImprovementStatus? status) => ApiResponseBuilder.CreateAsync(async () => {
 
-      /*
-            // base64 이미지 파일보관을 위해
 
-            var requests = await db.Requests.ToListAsync();
-            bool hasChanges = false;
-
-            // 2. 각  요청글을 순회하며 base64 이미지를 파일로 변환합니다.
-            foreach (var request in requests) {
-              string originalText = request.MainPhoto;
-              try {
-                //request.Description = await FileUtil.SaveImageToFile(originalText, request.Id.ToString());
-
-                request.MainPhoto = await FileUtil.GetFirstImageUrl(request.Description);
-                if (originalText != request.MainPhoto) {
-                  hasChanges = true;
-                }
-
-              }
-              catch (Exception eeee) {
-
-              }
-            }
-
-            // 3. 변경 사항이 있는 경우에만 데이터베이스에 저장합니다.
-            if (hasChanges) await db.SaveChangesAsync();
-
-            // 끝.
-
-      */
-
-      // 목록의 「댓글 N」 은 **산 댓글만** 센다. 지운 줄까지 세면 상세에
-      // 보이는 줄 수와 갈린다(상세는 답글 없는 지운 줄을 빼므로).
+      // 목록의 「댓글 N」은 산 댓글만 센다. 상세는 답글 없는 지운 줄을 빼므로 그쪽과 맞춘다.
       var query = db.Requests.Include(r => r.Comments.Where(c => !c.IsDel))
           .AsQueryable();
       if (status.HasValue)
@@ -203,8 +171,7 @@ public static class RequestEndpoints {
                       (r.UserCompletededAt >= startDate && r.UserCompletededAt < endDate))
           .ToListAsync();
 
-      // 1. 평균 사용자 피드백 시간 계산
-      // 관리자 댓글 이후 사용자가 댓글을 달 때까지의 시간 차이
+      // 1. 평균 사용자 피드백 시간 — 관리자 댓글 이후 사용자가 댓글을 달 때까지의 차이.
       double totalFeedbackHours = 0;
       int feedbackCount = 0;
 
@@ -227,9 +194,7 @@ public static class RequestEndpoints {
 
       double avgUserFeedbackHours = feedbackCount > 0 ? Math.Round(totalFeedbackHours / feedbackCount, 1) : 0;
 
-      // 2. 우수 협업 사용자 (Top Engaged Users)
-      //
-      // 회사 이름은 포털에서 푼다 — 헬프데스크에는 회사 표가 없다.
+      // 2. 우수 협업 사용자 (회사명은 포털에서 푼다 — 헬프데스크에는 회사 표가 없다)
       var companyNames = await companies.GetNamesAsync(ct);
 
       var userStats = requests
@@ -276,8 +241,7 @@ public static class RequestEndpoints {
                       r.CompletededAt >= startDate && r.CompletededAt < endDate)
           .ToListAsync();
 
-      // 1. SR(Service Request) vs 결함(Bug) 비율
-      // 이제 IpType에 Error(4)와 Bug(5)가 있으므로 이를 명시적으로 사용
+      // 1. SR(Service Request) vs 결함(Bug) 비율 (IpType 의 Error·Bug 를 명시해서 쓴다)
       var bugCount = requests.Count(r => r.IpType == ImprovementType.Error || r.IpType == ImprovementType.Bug);
       var srCount = requests.Count - bugCount;
 
@@ -285,15 +249,12 @@ public static class RequestEndpoints {
       double bugRatio = requests.Count > 0 ? Math.Round((double)bugCount / requests.Count * 100, 1) : 0;
 
 
-      // 2. 재오픈율 (Re-open Rate)
-      // 로직: 완료일(CompletededAt)이 있는데 현재 상태가 다시 InProgress이거나 Pending인 경우를 재오픈으로 간주
+      // 2. 재오픈율 — 완료일이 있는데 현재 상태가 InProgress·Pending 이면 재오픈으로 본다.
       var reopenedRequests = requests.Count(r => r.CompletededAt.HasValue && 
                                                (r.Status == ImprovementStatus.InProgress || r.Status == ImprovementStatus.Pending));
       double reopenRate = requests.Count > 0 ? Math.Round((double)reopenedRequests / requests.Count * 100, 1) : 0;
 
-      // 3. 변경 작업 성공률 (Change Success Rate)
-      // 로직: '개선'이나 '추가' 타입의 작업 중 완료된 건을 대상으로, 
-      // 완료 후 48시간 이내에 동일 작성자가 '오류' 키워드로 다시 올린 건이 없는 비율 산출 (추정치)
+      // 3. 변경 작업 성공률(추정) — 개선·추가 중 완료된 건에서, 완료 후 48시간 안에 같은 작성자가 '오류' 키워드로 다시 올리지 않은 비율.
       var changeTasks = requests.Where(r => r.IpType == ImprovementType.Improvement || r.IpType == ImprovementType.Addition).ToList();
       var successfulChanges = changeTasks.Count - reopenedRequests; // 재오픈된 변경작업은 실패로 간주
       
@@ -334,23 +295,8 @@ public static class RequestEndpoints {
     }, "Emergency incidents retrieved successfully."));
 
 
-    // 요청 상세
-    //
-    // ────────────────────────────────────────────────────────────
-    // [고객사 이름을 여기서 푼다 (2026-09-28)]
-    //
-    // 상세 화면의 「고객사」가 **늘 `-`** 였다. 응답에 회사 이름이 없었기
-    // 때문이다 — 헬프데스크는 회사를 스스로 관리하지 않아서, 고객 줄에 있는
-    // 것은 **포털 회사 아이디**(`customer.companyid` = `jsini` 같은 글자)뿐이다.
-    //
-    // 이름은 포털에만 있으므로 여기서 한 번 물어 담는다
-    // (`IPortalCompanyDirectory` — 5분 캐시라 줄마다 나가지 않는다).
-    // 못 풀면 **아이디를 그대로** 둔다: 이름을 못 읽었다고 회사를 통째로
-    // 감추면 화면에서 「회사가 없는 사람」과 구별이 안 된다.
-    //
-    // 목록·집계에는 하지 않는다. 줄이 많은 길에서 바깥을 부르면 그 값이
-    // 늦어지는 만큼 표가 통째로 늦어진다.
-    // ────────────────────────────────────────────────────────────
+    // 요청 상세. 고객사 이름은 포털 표에서 한 번 물어 담는다(헬프데스크엔 회사 표가 없다). 못 풀면 아이디를 그대로 둔다 — 회사를 감추면 「회사 없는 사람」과 구별이 안 된다.
+    // 목록·집계에서는 바깥을 부르지 않는다(줄이 많은 길에서 늦어진다).
     group.MapGet("/{id}", (AppDbContext db, IPortalCompanyDirectory companies, HttpContext http, int id) =>
         ApiResponseBuilder.CreateAsync(async () => {
           var ct = http.RequestAborted;
@@ -364,12 +310,7 @@ public static class RequestEndpoints {
 
           if (request is null) return null;
 
-          // 이 응답에도 댓글이 통째로 실린다. 추리고 가리지 않으면 **지운
-          // 댓글의 원문이 그대로 나간다** — `/{id}/comments` 는 가리는데
-          // 여기는 안 가려서 한동안 갈려 있었다. 같은 규칙을 쓴다.
-          //
-          // 고쳐 쓰므로 `AsNoTracking` 이다. 추적 중인 줄의 본문을 건드리면
-          // 뒤에 누가 `SaveChanges` 를 부를 때 안내 문구가 DB 에 박힌다.
+          // 댓글은 여기서도 추리고 가린다 — 안 가리면 지운 댓글의 원문이 그대로 나간다. 고쳐 쓰므로 AsNoTracking 이다(추적 줄을 건드리면 안내 문구가 DB 에 박힌다).
           request.Comments = CommentVisibility.Mask(CommentVisibility.Visible(request.Comments));
 
           request.CompanyName =
@@ -381,8 +322,7 @@ public static class RequestEndpoints {
 
     // 특정 요청에 대한 덧글 목록 조회
     group.MapGet("/{id}/comments", (AppDbContext db, int id) => ApiResponseBuilder.CreateAsync(async () => {
-      // 지움 표시가 선 줄은 **답글을 떠받치고 있을 때만** 남는다.
-      // 왜 가운데를 골랐는지는 `CommentVisibility` 머리말.
+      // 지움 표시가 선 줄은 답글을 떠받치고 있을 때만 남긴다(가운데를 고른 까닭은 CommentVisibility 머리말).
       var comments = CommentVisibility.Visible(await db.Comments
               .Where(c => c.RequestId == id)
               .OrderBy(c => c.CreatedAt)
@@ -424,9 +364,7 @@ public static class RequestEndpoints {
           c.AuthorType,
           c.AuthorId,
           c.ParentCommentId,
-          // 여기까지 온 지운 줄은 **답글을 떠받치고 있는 것뿐이다.** 빼면
-          // 그 답글이 부모를 잃고 뿌리로 튀어 오른다. 화면이 이 값을 보고
-          // 내용 자리를 흐리게 그린다.
+          // 여기까지 온 지운 줄은 답글을 떠받치는 것뿐이다. 빼면 답글이 뿌리로 튀어 오른다. 화면은 내용 자리를 흐리게 그린다.
           c.IsDel,
           c.CreatedAt,
           c.CreatedBy,
@@ -452,20 +390,16 @@ public static class RequestEndpoints {
 
       var finalQuery = QueryCollectionMerger.Merge(http.Request.Query, bodyQuery);
 
-      // Console.WriteLine($"Final query: {finalQuery.ToString()}");
 
 
       var queryWithIncludes = db.Requests
-              // 「댓글 N」 은 산 것만 센다. 다만 **이 걸름만 믿으면 안 된다** —
-              // 화면이 `remove=` 를 보내면 동적 투영을 타는데 그때 걸름이
-              // 묻힌다. 받아 놓고 한 번 더 턴다(`StripDeletedComments`).
+              // 「댓글 N」은 산 것만 센다. 동적 투영을 타면 이 걸름이 묻히므로 받아 놓고 한 번 더 턴다(StripDeletedComments).
               .Include(r => r.Comments.Where(c => !c.IsDel))
               .Include(r => r.Customer)
               .Include(r => r.Admin)
               .AsQueryable();
 
-      // 페이징 전 쿼리로 총 개수 계산
-      // page와 pageSize를 제거하여 총 개수 계산용 쿼리 생성
+      // 총 개수는 페이징 전 쿼리로 센다.
       var countQueryDict = new Dictionary<string, Microsoft.Extensions.Primitives.StringValues>();
       foreach (var kvp in finalQuery) {
         if (!kvp.Key.Equals("page", StringComparison.OrdinalIgnoreCase) &&
@@ -476,7 +410,6 @@ public static class RequestEndpoints {
       var countQueryCollection = new QueryCollection(countQueryDict);
 
       var countQueryWithFilters = queryWithIncludes.ApplyAll(countQueryCollection);
-      // var totalCount = await (countQueryWithFilters is IQueryable<object> cq ? cq.CountAsync() : ((IQueryable)countQueryWithFilters).CountAsync());
       var countList = await (countQueryWithFilters is IQueryable<object> cq ? cq.ToDynamicListAsync() : ((IQueryable)countQueryWithFilters).ToDynamicListAsync());
       var totalCount = countList.Count;
 
@@ -484,7 +417,6 @@ public static class RequestEndpoints {
       var resultQuery = queryWithIncludes.ApplyAll(finalQuery);
 
 
-      //  Console.WriteLine($"result query: {resultQuery.ToString()}");
 
 
 
@@ -517,27 +449,13 @@ public static class RequestEndpoints {
       var form = await httpRequest.ReadFormAsync();
       var me = httpRequest.HttpContext.GetHelpdeskPrincipal();
 
-      // [이 요청의 주인은 누구인가]
-      //
-      // `improvementrequest.customerid` 는 `customer` 를 가리키는 **NOT NULL 외래키**다.
-      // 값이 0 이거나 없는 고객을 가리키면 `SaveChangesAsync` 가 `DbUpdateException` 을
-      // 던지고, 화면에는 그것이 그대로 나갔다 —
-      // 「An error occurred while saving the entity changes.」 한 줄이다.
-      // 글을 다 쓰고 「등록」을 누른 사람은 **무엇이 잘못됐는지 알 길이 없었다.**
-      //
-      // 운영에서 그 자리에 빠진 사람이 **거의 전부**였다. 새 DB 로 옮기면서
-      // 자료를 가져오지 않기로 했기 때문이다(decisions-needed.md D14) — 그래서
-      // **고객이 0명**이고, 고를 수 있는 요청자 자체가 없었다.
-      //
-      // 그러니 「고객을 먼저 등록하라」고 미루지 않는다. 누가 썼는지는 포털
-      // 신원으로 이미 알고 있으므로, 가리킬 줄이 없으면 그 자리에서 만든다
-      // (`IRequesterProvisioner`). 담당자가 남을 대신해 올리는 길은 그대로 둔다.
+      // 요청의 주인(customerid)은 NOT NULL 외래키다. 0 이나 없는 고객을 가리키면 저장이 DbUpdateException 으로 죽어 화면에 영문 오류만 난다.
+      // 그래서 포털 신원으로 요청자를 찾고 없으면 그 자리에서 만든다(IRequesterProvisioner). 담당자가 남을 대신해 올리는 길은 그대로 둔다.
       var formCustomerId = int.TryParse(form["CustomerId"], out var parsed) ? parsed : 0;
       var auditUser = httpRequest.HttpContext.AuditUser();
       var requesterId = await requesters.ResolveAsync(me, formCustomerId, auditUser, httpRequest.HttpContext.RequestAborted);
 
-      // 포털 신원조차 없는 요청(헬프데스크 자체 토큰)만 여기로 온다.
-      // 예외를 던지면 「An error occurred: 」 뒤에 붙어 나가므로 안내로 돌려준다.
+      // 포털 신원이 없는 요청(헬프데스크 자체 토큰)만 여기로 온다 — 예외 대신 안내로 돌려준다.
       if (requesterId is not { } customerId) {
         return ApiResponseBuilder.Fail("요청자(고객)를 정하지 못했습니다. 포털로 다시 로그인한 뒤 등록해 주십시오.");
       }
@@ -556,14 +474,12 @@ public static class RequestEndpoints {
       var result = await ApiResponseBuilder.CreateAsync(async () => {
         var request = new ImprovementRequest {
           Title = requestDto.Title,
-          //Description = requestDto.Description,
           CustomerId = requestDto.CustomerId,
           Status = ImprovementStatus.Pending,
           CreatedBy = requestDto.CreatedBy ?? string.Empty,
           MenuContext = requestDto.MenuContext,
           IpType = int.TryParse(form["iptype"], out int iptypeVal) ? (ImprovementType)iptypeVal : 
                    Enum.TryParse<ImprovementType>(form["iptype"], true, out var iptypeEnum) ? iptypeEnum : ImprovementType.Improvement,
-          //MainPhoto = requestDto.MainPhoto
         };
 
 
@@ -584,8 +500,6 @@ public static class RequestEndpoints {
 
         if (files.Count > 0) {
           var attachments = new List<Attachment>();
-          //var storagePath = "/home/lee/jinAttachment";
-          //var storagePath = configuration.GetValue<string>("FileStorage:BasePath") ?? "/home/lee/jinAttachment";
           var storagePath = Environment.GetEnvironmentVariable("FileStorage_BasePath") ?? "/home/lee/jinAttachment";
 
           Directory.CreateDirectory(storagePath);
@@ -712,32 +626,10 @@ public static class RequestEndpoints {
     })
     .DisableAntiforgery();
 
-
-
-
-
-
     //접수, 반려, 완료 등을 반영한다.
-    //
-    // ────────────────────────────────────────────────────────────
-    // [접수자와 접수일자는 **여기서** 정해진다 (2026-09-28)]
-    //
-    // 상세 화면의 「접수」·「완료」가 이 길로 온다. 그 두 단추는 접수자를
-    // 고르지 않는다 — **누른 사람이 곧 접수자**다. 그래서 `adminId` 를
-    // 실어 보내지 않고, 그 자리를 이 엔드포인트가 지금 부른 사람으로 채운다
-    // (`IAssigneeProvisioner`).
-    //
-    // 화면이 직접 채울 수 없는 까닭이 있다. 화면이 아는 번호는
-    // `HelpDeskContext.HelpdeskUserId` 인데, 그 값은 **담당자로 이어 둔
-    // 계정일 때만** `admin.id` 다. 고객으로 이어 두었거나 연결이 아예 없는
-    // 관리자(포털 역할로만 담당자인 사람)는 그 번호가 `customer.id` 이거나
-    // 없다. 그대로 넣으면 **번호가 겹치는 남이 접수자로 박힌다.**
-    //
-    // 「대기」에서 「완료」를 바로 누르면 접수자·접수일자·완료일자가 한 번에
-    // 들어간다 — 접수를 건너뛴 것이 아니라 그 순간 접수까지 함께 한 것이다.
-    // ────────────────────────────────────────────────────────────
+    // 접수·반려·완료. 접수자는 누른 사람으로 정한다(IAssigneeProvisioner) — 화면의 번호는 담당자 계정일 때만 admin.id 라 그대로 넣으면 남이 박힌다.
+    // 대기에서 완료로 바로 넘겨도 접수자·접수일·완료일이 한 번에 들어간다.
     group.MapPut("/accept/{id}", (HttpContext http, AppDbContext db, int id, ImprovementRequest input, IAssigneeProvisioner assignees, IRequestStatusNotifier statusNotifier, IRabbitMqConnectionProvider provider, ILoggerFactory loggerFactory, IConfiguration configuration) => ApiResponseBuilder.CreateAsync(async () => {
-      //return null;
       var req = await db.Requests.FindAsync(id);
       if (req is null) return null;
 
@@ -752,13 +644,7 @@ public static class RequestEndpoints {
       }
 
       if (input.Status != ImprovementStatus.UserCompleted) { // 사용자 완료시 에는 관리자 코드 변경 안함.
-        // 접수자를 정하는 차례 — 골라 보낸 값이 먼저, 그 다음이 이미 박혀
-        // 있는 접수자, 마지막이 **지금 누른 사람**이다.
-        //
-        // 두 번째 칸이 요점이다. 전에는 `req.AdminId = input.AdminId` 라
-        // 값을 안 실어 보내면 **이미 맡고 있던 사람이 조용히 지워졌다** —
-        // 진행 중인 글을 완료로 넘기는 것만으로 접수자가 사라졌다.
-        // 접수를 풀려면 `PUT /reset/{id}` 를 쓴다.
+        // 접수자 우선순위: 골라 보낸 값 → 이미 박힌 접수자 → 지금 누른 사람. 두 번째 칸이 중요하다 — 값을 안 보내면 맡고 있던 사람이 조용히 지워졌다. 접수를 풀 때는 PUT /reset/{id} 를 쓴다.
         var ct = http.RequestAborted;
         var assigneeId = input.AdminId is > 0 ? input.AdminId
             : req.AdminId
@@ -767,32 +653,15 @@ public static class RequestEndpoints {
         if (assigneeId is > 0) {
           req.AdminId = assigneeId;
 
-          // 접수일자는 접수자와 **짝**이고, 한 번 박히면 다시 움직이지 않는다.
-          // 완료로 넘어갈 때 다시 찍으면 응답 시간이 0 이 되어 버린다.
+          // 접수일자는 접수자와 짝이라 한 번 박히면 움직이지 않는다(완료 때 다시 찍으면 응답 시간이 0 이 된다).
           req.AcceptedAt ??= DateTime.UtcNow;
         }
       }
 
       await db.SaveChangesAsync();
 
-      // ── 처리 상태 알림 (접수 · 완료 · 종료) ───────────────
-      //
-      // [옛 길은 아무 데도 안 닿았다 (2026-10-12)]
-      //
-      // 여기에는 `PushUtil.SendPushMsg(…, customerSubscriptions, …)` 가 있었다.
-      // 그 목록을 담은 표(`helpdesk.pushsubscriptions`)는 **옛 Vue 포털이
-      // 채우던 것**이고 그 화면은 2026-09-05 에 걷어냈다 — 지금 포털에서
-      // 알림을 켜면 구독은 알림 서비스의 `scom.push_subscriptions` 에 들어간다.
-      // 그래서 완료 알림은 **받을 기기가 0 대인 채로 조용히 성공**했다
-      // (운영 확인: 앞의 표 0 줄 · 뒤의 표에 같은 사람 기기 4 대).
-      //
-      // 접수·완료 메일도 같은 꼴로 죽어 있었다 — 받는 사람을 고르는 조건이
-      // `userproperty` 의 `receiveEmail = true` 인데 그 표가 0 줄이라 언제나
-      // 빈 목록이었다. 둘 다 `IRequestStatusNotifier` 로 옮긴다. 거기서는
-      // 「누가 받나」를 알림관리 정책과 본인 설정이 정한다
-      // (`docs/helpdesk-status-notify.md`).
-      //
-      // **알림이 실패해도 상태는 남는다** — `IRequestStatusNotifier` 머리말 참고.
+      // 처리 상태 알림(접수·완료·종료)은 IRequestStatusNotifier 가 보낸다. (PushUtil 직접 발송은 하지 않는다).
+      // 알림이 실패해도 상태는 남는다.
       var notifyAdmin = req.AdminId is { } notifyAssigned
           ? await db.Admins.FindAsync(notifyAssigned)
           : null;
@@ -801,11 +670,7 @@ public static class RequestEndpoints {
       await statusNotifier.NotifyAsync(
           req, input.Status, assigneeName, http.AuditUser(), CancellationToken.None);
 
-      // ── 종료 메일만 옛 길에 남는다 ────────────────────────
-      //
-      // 접수자 주소(`admin.email`)로 **바로** 가므로 이 길은 실제로 살아 있다.
-      // 알림 서비스로 옮기면 포털 계정이 아닌 담당자에게 메일이 끊긴다 —
-      // 앱 푸시는 위에서 함께 보내므로 여기서 또 내지 않는다(두 통이 된다).
+      // 종료 메일만 옛 길에 남는다 — 접수자 주소(admin.email)로 바로 가므로 알림 서비스로 옮기면 메일이 끊긴다. 앱 푸시는 위에서 보내므로 여기서는 내지 않는다.
       if (input.Status == ImprovementStatus.UserCompleted) {
         var mailBody = $@"
 <div style=""max-width: 600px; margin: 0 auto; font-family: 'Malgun Gothic', sans-serif; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;"">
@@ -842,17 +707,14 @@ public static class RequestEndpoints {
 
 
 
-    // 
     group.MapPut("/reset/{id}", (AppDbContext db, int id, ImprovementRequest input) => ApiResponseBuilder.CreateAsync(async () => {
-      //return null;
       var req = await db.Requests.FindAsync(id);
       if (req is null) return null;
 
       req.Status = 0;
       req.AdminId = null;
 
-      // 접수자와 **짝**이라 함께 지운다. 남겨 두면 「대기인데 접수일자가
-      // 있는」 줄이 되어 응답 시간 집계가 그 글을 이미 맡은 것으로 센다.
+      // 접수자와 짝이라 함께 지운다. 남기면 「대기인데 접수일자가 있는」 줄이 되어 응답 시간 집계가 틀린다.
       req.AcceptedAt = null;
 
       await db.SaveChangesAsync();
@@ -867,7 +729,6 @@ public static class RequestEndpoints {
       var title = form["title"].ToString();
       var description = form["description"].ToString();
       var deletedFilesJson = form["deletedFiles"].ToString();
-      //var MainPhoto = form["MainPhoto"];
 
       var logger = loggerFactory.CreateLogger("RequestEndpoints");
 
@@ -897,11 +758,9 @@ public static class RequestEndpoints {
           logger.LogWarning($"Invalid iptype received: {form["iptype"]}");
         }
         req.Title = title;
-        //req.Description = description;
 
         req.Description = await FileUtil.SaveImageToFile(description, req.Id.ToString()) ?? string.Empty;
 
-        //req.MainPhoto = MainPhoto;
         req.MainPhoto = await FileUtil.GetFirstImageUrl(req.Description);
 
 
@@ -924,7 +783,6 @@ public static class RequestEndpoints {
 
           logger.LogError("File Find start");
 
-          //var storagePath = configuration.GetValue<string>("FileStorage:BasePath") ?? "/home/lee/jinAttachment";
           var storagePath = Environment.GetEnvironmentVariable("FileStorage_BasePath") ?? "/home/lee/jinAttachment";
           Directory.CreateDirectory(storagePath);
 
@@ -985,24 +843,7 @@ public static class RequestEndpoints {
     }, "Request deleted successfully."));
   }
 
-  /// <summary>
-  /// 목록 응답에서 <b>지운 댓글을 걷어낸다.</b> 「댓글 N」 이 산 것만 세도록.
-  /// </summary>
-  /// <remarks>
-  /// <para>
-  /// 질의의 <c>Include(r =&gt; r.Comments.Where(c =&gt; !c.IsDel))</c> 만으로는
-  /// 모자란다. 화면이 <c>remove=description,content</c> 를 함께 보내면
-  /// <c>DynamicFilterHelper</c> 의 <b>동적 투영</b>을 타는데, 그 투영이
-  /// <c>Comments</c> 를 제 나름대로 다시 붙인다 — 만들어진 SQL 에
-  /// <i>걸러진 조인과 안 걸러진 조인이 둘 다</i> 생기고, 줄을 채우는 것은
-  /// 뒤엣것이다. 그래서 지운 줄이 그대로 딸려 왔다.
-  /// </para>
-  /// <para>
-  /// 투영이 어떤 모양으로 나오든 결과는 같아야 하므로 <b>받아 놓은 다음에</b>
-  /// 한 번 더 턴다. 목록은 줄 수만 쓰므로 떠받칠 답글을 따질 일이 없다 —
-  /// 상세와 달리 지운 줄을 통째로 뺀다.
-  /// </para>
-  /// </remarks>
+  /// <summary>목록 응답에서 지운 댓글을 걷어낸다(「댓글 N」이 산 것만 세도록). 걸름만 믿으면 안 된다 — remove= 가 동적 투영을 타면 걸름이 묻히므로 받은 뒤 한 번 더 턴다.</summary>
   private static List<dynamic> StripDeletedComments(List<dynamic> items) {
     foreach (var item in items) {
       if (item is not IDictionary<string, object> row) continue;
@@ -1015,13 +856,7 @@ public static class RequestEndpoints {
     return items;
   }
 
-  /// <summary>
-  /// 동적 객체 목록에 첨부파일 정보를 추가합니다.
-  /// </summary>
-  /// <param name="items">동적 객체 목록</param>
-  /// <param name="db">데이터베이스 컨텍스트</param>
-  /// <param name="entityType">엔티티 타입 문자열</param>
-  /// <returns>첨부파일 정보가 추가된 동적 객체 목록</returns>
+  /// <summary>동적 객체 목록에 첨부파일 정보를 추가한다.</summary>
   private static async Task<List<dynamic>> AddAttachmentDataAsync(List<dynamic> items, AppDbContext db, string entityType) {
     if (items == null || !items.Any()) {
       return new List<dynamic>();
@@ -1039,7 +874,7 @@ public static class RequestEndpoints {
     var result = new List<dynamic>();
     foreach (var item in items) {
       var expando = (item as object).ToExpandoWithEnumNames() as IDictionary<string, object>;
-      // 변환에 실패한 항목은 건너뛴다. 전에는 여기서 그대로 터졌다.
+      // 변환에 실패한 항목은 건너뛴다.
       if (expando is null || !expando.TryGetValue("id", out var idValue)) continue;
       var entityId = (int)idValue;
 

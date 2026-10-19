@@ -22,10 +22,7 @@ public partial class WbsRowList
         SchSummary.NameOf(StatusOptions, o => o.Value, o => o.Text, _filter.Status, string.Empty),
         _filter.Q);
 
-    /// <summary>
-    /// 고른 프로젝트의 <b>이름</b>. 화면이 든 것은 코드뿐이고 목록은
-    /// <c>CodeSelect</c> 안에 있어, 그 부품이 <c>@bind-Text</c> 로 올려 준다.
-    /// </summary>
+    /// <summary>고른 프로젝트의 이름. 코드만 들고, 목록은 CodeSelect 가 쥐고 있다.</summary>
     private string? _projectName;
 
     private string? _projectCode;
@@ -72,13 +69,7 @@ public partial class WbsRowList
         new("none", "지연 없음"),
     ];
 
-    /// <summary>
-    /// 다른 화면에서 실려 온 조건을 먼저 읽는다.
-    /// </summary>
-    /// <remarks>
-    /// <b>화면이 스스로 정한 기본값보다 주소가 이긴다.</b> 안 그러면 차트에서
-    /// 눌러 넘어왔는데 조건이 안 걸린 전체 목록이 뜬다.
-    /// </remarks>
+    /// <summary>다른 화면에서 실려 온 조건을 먼저 읽는다. 화면이 정한 기본값보다 주소가 이긴다 — 안 그러면 차트에서 눌러 넘어왔는데 조건 없는 전체 목록이 뜬다.</summary>
     protected override void OnInitialized()
     {
         var query = System.Web.HttpUtility.ParseQueryString(new Uri(Navigation.Uri).Query);
@@ -107,8 +98,7 @@ public partial class WbsRowList
             return 0;
         }
 
-        // 목록·일감 건수·고르개 셋을 나란히 읽는다. 일감 건수는 줄마다 묻지
-        // 않으려고 한 번에 받는 값이다(머리말).
+        // 목록·일감 건수·고르개 셋을 나란히 읽는다. 일감 건수는 줄마다 묻지 않으려고 한 번에 받는다.
         var rows = Api.RowsAsync(rid, _filter);
         var counts = TaskApi.CountsAsync(rid);
         var users = Api.UsersAsync(rid, _filter.Scope, _filter.Basis, _filter.Month, _filter.Week);
@@ -146,10 +136,7 @@ public partial class WbsRowList
         return _rows.Count;
     }, "조건에 맞는 화면이 없습니다.", "목록을 읽지 못했습니다");
 
-    /// <summary>
-    /// 고친 칸만 보낸다. <b>편집 창에 없는 칸은 담지 않는다</b> — 서버가
-    /// 화이트리스트로 한 번 더 거르지만, 보내지 않는 편이 뜻이 분명하다.
-    /// </summary>
+    /// <summary>고친 칸만 보낸다. 편집 창에 없는 칸은 담지 않는다 — 서버도 화이트리스트로 거르지만, 보내지 않는 편이 뜻이 분명하다.</summary>
     private async Task SaveAsync((WbsBoardRowDto Item, bool IsNew) e)
     {
         if (ProjectRid is not int rid || e.Item.ActivityId is null) return;

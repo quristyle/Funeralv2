@@ -61,10 +61,7 @@ public sealed class InterfaceFilesController(
             : Ok(ApiResponse<List<IfFileRow>>.Ok(saved));
     }
 
-    /// <summary>
-    /// 내려받기. <b>무엇이든 첨부로 내려 준다</b> — 올라온 HTML 이 우리 출처에서
-    /// 실행되면 안 된다.
-    /// </summary>
+    /// <summary>내려받기. 무엇이든 첨부로 내려 준다 — 올라온 HTML 이 우리 출처에서 실행되면 안 된다.</summary>
     [HttpGet("{ifId:int}/files/{fileId}")]
     public IActionResult Download([FromQuery] int prjRid, int ifId, string fileId)
     {

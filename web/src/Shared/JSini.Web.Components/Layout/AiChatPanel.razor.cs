@@ -18,10 +18,7 @@ public partial class AiChatPanel
     /// <summary>내 대화 목록. 최근에 말이 오간 순이다.</summary>
     private IReadOnlyList<AiChatSession> _sessions = [];
 
-    /// <summary>
-    /// 지금 보고 있는 대화. <b><c>null</c> 이면 아직 못 만든 것</b>이다 —
-    /// 서버에 못 닿았을 때가 그렇고, 그때도 대화는 된다(안 담길 뿐이다).
-    /// </summary>
+    /// <summary>지금 보고 있는 대화. null 이면 아직 못 만든 것이다 — 서버에 못 닿아도 대화는 된다(안 담길 뿐).</summary>
     private string? _sessionId;
 
     /// <summary>대화를 지우기 전에 묻는 창.</summary>
@@ -55,14 +52,7 @@ public partial class AiChatPanel
 
     private ElementReference _logRef;
 
-    /// <summary>
-    /// 글상자를 감싼 칸. JS 가 여기에 Enter 막이를 건다(<c>jsiniChat.armEnter</c>).
-    /// </summary>
-    /// <remarks>
-    /// 글상자(<c>textarea</c>)가 아니라 <b>바깥 칸</b>을 넘긴다 — 글상자는
-    /// DevExpress 가 그려서 다시 그릴 때 갈릴 수 있고, 그때 거기 건 listener 는
-    /// 함께 사라진다. 바깥 칸은 이 부품이 사는 동안 그대로다.
-    /// </remarks>
+    /// <summary>글상자를 감싼 칸. JS 가 여기에 Enter 막이를 건다(jsiniChat.armEnter). 글상자 자신이 아니라 바깥 칸을 넘긴다 — 글상자는 다시 그릴 때 갈리고 그때 listener 가 사라진다.</summary>
     private ElementReference _inputRef;
 
     /// <summary>Enter 막이를 이미 걸었나. 렌더마다 다시 걸지 않으려고 둔다.</summary>
@@ -74,15 +64,7 @@ public partial class AiChatPanel
     /// <summary>화면을 떠나면 흐르던 스트림을 끊는다. 안 끊으면 서랍을 닫아도 계속 받는다.</summary>
     private CancellationTokenSource? _cts;
 
-    // ── 말로 묻기 ───────────────────────────────────────────
-    //
-    // 두 가지가 한 벌로 산다. **받아쓰기**는 말한 것을 입력칸에 채워 주고
-    // 사람이 확인한 뒤 보낸다. **음성 모드**는 그 확인을 건너뛰고 바로 묻고,
-    // 답을 소리로 읽어 준다.
-    //
-    // 둘이 같은 녹음 부품(`chat-voice.js`)을 쓰고, 가르는 것은 `_voiceMode`
-    // 하나다 — 복사해 두면 「받아쓰기는 되는데 음성 모드에서는 말끝이
-    // 잘린다」 같은 어긋남이 생긴다.
+    // 말로 묻기: 받아쓰기(입력칸에 채우고 확인 후 보냄)와 음성 모드(바로 묻고 소리로 읽음)가 같은 녹음 부품(chat-voice.js)을 쓴다. 가르는 값은 _voiceMode 하나다.
 
     /// <summary>녹음 부품. 쓸 때 한 번만 불러온다.</summary>
     private IJSObjectReference? _voiceJs;
@@ -93,10 +75,7 @@ public partial class AiChatPanel
     /// <summary>JS 가 되부를 자리(자동 종료·읽기 상태).</summary>
     private DotNetObjectReference<AiChatPanel>? _selfRef;
 
-    /// <summary>
-    /// 이 브라우저에서 녹음이 되나. <b><c>null</c> 은 아직 안 물어본 것이다</b> —
-    /// 물어보는 일 자체가 JS 왕복이라 처음 쓸 때까지 미룬다.
-    /// </summary>
+    /// <summary>이 브라우저에서 녹음이 되나. null 은 아직 안 물어본 것 — 물어보는 일이 JS 왕복이라 처음 쓸 때까지 미룬다.</summary>
     private bool? _voiceSupported;
 
     /// <summary>음성 모드(전체화면)가 열려 있나.</summary>
@@ -117,41 +96,19 @@ public partial class AiChatPanel
     /// <summary>음성 모드의 안내 한 줄. 권한 거절·못 알아들음 따위.</summary>
     private string? _voiceNotice;
 
-    /// <summary>
-    /// 소리 크기를 적어 넣을 칸. <b>JS 가 여기에 직접 쓴다</b> —
-    /// 회로로 올리면 말하는 동안 초당 수십 번 서버가 깨어난다.
-    /// </summary>
+    /// <summary>소리 크기를 적어 넣을 칸. JS 가 직접 쓴다 — 회로로 올리면 말하는 동안 초당 수십 번 서버가 깨어난다.</summary>
     private ElementReference _orbRef;
 
     /// <summary>답을 소리로 읽어 줄지. 음성 모드에서 끄면 자막만 남는다.</summary>
     private bool _speakReplies = true;
 
-    /// <summary>
-    /// 조용해지면 스스로 끊을지(VAD).
-    /// </summary>
-    /// <remarks>
-    /// <b>기본은 켠다</b> — 그래야 손을 안 댄다. 다만 사무실에서는 옆자리
-    /// 말소리에 끊기므로 끄는 자리를 남겨 둔다. 끄면 사람이 눌러서 끊는다.
-    /// </remarks>
+    /// <summary>조용해지면 스스로 끊을지(VAD). 기본은 켠다. 사무실에서는 옆자리 말소리에 끊기므로 끄는 자리를 둔다.</summary>
     private bool _autoEnd = true;
 
-    /// <summary>
-    /// 읽어주기가 끝나면 다시 들을까. 음성 모드가 한 턴을 마칠 때 켜 둔다.
-    /// </summary>
-    /// <remarks>
-    /// <b>읽기가 끝난 뒤에 열어야 한다.</b> 읽는 중에 마이크를 열면 제가 읽는
-    /// 소리를 제가 받아쓴다 — 울림 지우기를 켜 두었어도 기기에 따라 샌다.
-    /// </remarks>
+    /// <summary>읽어주기가 끝나면 다시 들을까. 읽는 중에 마이크를 열면 제가 읽는 소리를 제가 받아쓰므로 반드시 읽기가 끝난 뒤에 연다.</summary>
     private bool _listenAfterSpeech;
 
-    /// <summary>
-    /// 아직 안 읽은 글. <b>문장이 될 때까지 모은다.</b>
-    /// </summary>
-    /// <remarks>
-    /// 답은 글자 단위로 온다. 오는 대로 읽어주기에 넣으면 한 글자짜리 발화가
-    /// 줄줄이 생겨서 말이 토막 나 들린다. 그렇다고 다 올 때까지 기다리면
-    /// 긴 답에서 몇 초 동안 아무 소리도 안 난다 — 그 둘 사이가 문장이다.
-    /// </remarks>
+    /// <summary>아직 안 읽은 글. 답은 글자 단위로 오므로 문장이 될 때까지 모은다 — 한 글자씩 읽으면 토막 나고, 다 올 때까지 기다리면 아무 소리도 안 난다.</summary>
     private readonly System.Text.StringBuilder _speakBuffer = new();
 
     /// <summary>이번 턴의 답을 읽어 주는 중인가. 스트림이 끝나면 닫는다.</summary>
@@ -161,29 +118,17 @@ public partial class AiChatPanel
 
     [Inject] private PortalBoot Boot { get; set; } = default!;
 
-    /// <summary>
-    /// 사내 자료(RAG)를 먼저 뒤질지. <b>기본은 켬</b>이고 기기에 남는다
-    /// (<see cref="PortalBoot.AiRagOffKey"/>).
-    /// </summary>
+    /// <summary>사내 자료(RAG)를 먼저 뒤질지. 기본은 켬이고 기기에 남는다(PortalBoot.AiRagOffKey).</summary>
     private bool _preferRag = true;
 
-    /// <summary>
-    /// 고르개를 눌렀을 때. 저장은 <see cref="PortalBoot"/> 가 한다.
-    /// </summary>
-    /// <remarks>
-    /// <b>지금 쓰고 있는 대화에 곧바로 먹는다</b> — 다음에 보내는 질문부터
-    /// 적용되고, 이미 받은 답은 그대로 둔다. 되돌려 다시 묻는 길을 주지 않는
-    /// 까닭은 그것이 같은 질문을 한 번 더 치는 것과 다르지 않기 때문이다.
-    /// </remarks>
+    /// <summary>고르개를 눌렀을 때. 지금 대화에 곧바로 먹는다 — 다음 질문부터 적용되고 받은 답은 그대로 둔다. 저장은 PortalBoot 가 한다.</summary>
     private async Task OnPreferRagChangedAsync(ChangeEventArgs e)
     {
         _preferRag = e.Value is bool b ? b : !_preferRag;
         await Boot.SetAiPreferRagAsync(_preferRag);
     }
 
-    /// <summary>
-    /// 지금 대화의 제목. 고르개와 이름 바꾸기 칸이 쓴다.
-    /// </summary>
+    /// <summary>지금 대화의 제목. 고르개와 이름 바꾸기 칸이 쓴다.</summary>
     private string CurrentTitle =>
         _sessions.FirstOrDefault(s => s.Id == _sessionId)?.Label ?? "새 대화";
 
@@ -223,10 +168,7 @@ public partial class AiChatPanel
         await SendAsync();
     }
 
-    /// <summary>
-    /// 답 만들기를 멈춘다. <b>읽어 주던 것도 함께 멈춘다</b> — 글은 멎었는데
-    /// 소리만 계속 나면 사람은 멈추기가 안 들은 것으로 읽는다.
-    /// </summary>
+    /// <summary>답 만들기를 멈춘다. 읽어 주던 것도 함께 멈춘다 — 글은 멎었는데 소리만 나면 멈추기가 안 들은 것으로 읽힌다.</summary>
     private async Task StopGeneratingAsync()
     {
         _cts?.Cancel();
@@ -253,34 +195,10 @@ public partial class AiChatPanel
         }
     }
 
-    /// <summary>
-    /// 화면을 열면 <b>보던 대화를 그대로 다시 연다.</b>
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 이것이 「새로고침하면 사라진다」를 고치는 자리다. 어느 것을 열지는
-    /// 둘로 정한다 — <b>브라우저가 적어 둔 마지막 대화</b>가 있으면 그것,
-    /// 없으면 <b>가장 최근에 말이 오간 것</b>이다.
-    /// </para>
-    /// <para>
-    /// 적어 두는 쪽이 필요한 까닭은, 지난 대화를 골라 읽다가 새로고침하면
-    /// 목록 맨 앞(= 다른 대화)으로 튀기 때문이다. <b>여는 것만으로는
-    /// <c>updated_at</c> 이 바뀌지 않으므로</b> 그 값으로는 알 수 없다.
-    /// </para>
-    /// <para>
-    /// 서버에 못 닿아도 대화는 된다 — 목록이 비고 담기지 않을 뿐이다.
-    /// 여기서 막으면 AI 가 통째로 멎는다.
-    /// </para>
-    /// </remarks>
+    /// <summary>화면을 열면 보던 대화를 다시 연다. 브라우저가 적어 둔 마지막 대화가 있으면 그것, 없으면 가장 최근에 말이 오간 것. 여는 것만으로는 updated_at 이 바뀌지 않아 서버 값으로는 알 수 없어 따로 적어 둔다.</summary>
     protected override async Task OnInitializedAsync()
     {
-        // **프리렌더에서는 아무것도 하지 않는다.**
-        //
-        // 포털은 프리렌더를 켜 두어서 이 부품이 두 번 만들어진다 — 정적
-        // SSR 로 한 번, 회로가 붙고 또 한 번(`DataPage.CanLoad` 머리말).
-        // 그 첫 번째에는 브라우저가 없어 JS 를 부를 수 없고, 부르면
-        // **화면이 통째로 500 으로 죽는다**(실제로 밟았다). 조회도 두 벌
-        // 나가므로 어차피 건너뛰는 편이 맞다.
+        // 프리렌더에서는 아무것도 하지 않는다 — 정적 SSR 에서 JS 를 부르면 화면이 500 으로 죽는다. 조회도 두 벌 나가므로 건너뛴다(DataPage.CanLoad 머리말).
         if (!RendererInfo.IsInteractive)
         {
             return;
@@ -317,9 +235,7 @@ public partial class AiChatPanel
         _sessions = await Chat.ListSessionsAsync();
     }
 
-    /// <summary>
-    /// 그 대화를 연다. 고르개가 부르고, 화면을 처음 열 때도 부른다.
-    /// </summary>
+    /// <summary>그 대화를 연다. 고르개가 부르고, 화면을 처음 열 때도 부른다.</summary>
     private async Task OpenAsync(string? sessionId)
     {
         if (string.IsNullOrEmpty(sessionId) || sessionId == _sessionId)
@@ -327,8 +243,7 @@ public partial class AiChatPanel
             return;
         }
 
-        // 흐르던 답은 끊는다. 안 끊으면 **지난 대화를 열어 둔 화면에 다른
-        // 대화의 답이 붙는다.**
+        // 흐르던 답은 끊는다 — 안 끊으면 지난 대화를 열어 둔 화면에 다른 대화의 답이 붙는다.
         _cts?.Cancel();
         _streaming = false;
 
@@ -345,9 +260,7 @@ public partial class AiChatPanel
         StateHasChanged();
     }
 
-    /// <summary>
-    /// 새 대화를 연다. <b>제목은 첫 질문이 붙인다</b> — 여기서 묻지 않는다.
-    /// </summary>
+    /// <summary>새 대화를 연다. 제목은 첫 질문이 붙인다.</summary>
     private async Task NewAsync()
     {
         if (await Chat.CreateSessionAsync() is not { } created)
@@ -389,18 +302,14 @@ public partial class AiChatPanel
         await ReloadSessionsAsync();
     }
 
-    /// <summary>
-    /// 목록의 「…」 메뉴에서 고른 대화를 묻고 지운다. <b>되살릴 수 없다</b> —
-    /// 물어본 말과 받은 답이 함께 사라진다.
-    /// </summary>
+    /// <summary>목록의 「…」 메뉴에서 고른 대화를 묻고 지운다. 되살릴 수 없다 — 물어본 말과 받은 답이 함께 사라진다.</summary>
     private async Task ConfirmDeleteAsync(AiChatSession session)
     {
         _menuSessionId = null;
         if (_confirm is null) return;
         if (_streaming && session.Id == _sessionId) return;
 
-        // 무엇이 사라지는지 적는다. 「정말 지웁니까」만으로는 어느 대화를
-        // 고른 채였는지 확인할 수 없다(ConfirmDialog 머리말).
+        // 무엇이 사라지는지 적는다 — 「정말 지웁니까」만으로는 어느 대화를 고른 채인지 확인할 수 없다.
         if (!await _confirm.AskAsync(
                 $"「{session.Label}」 대화를 지웁니다. 주고받은 말이 함께 사라집니다.",
                 title: "대화 지우기"))
@@ -429,8 +338,7 @@ public partial class AiChatPanel
 
         await ReloadSessionsAsync();
 
-        // 지우고 나면 **그다음 대화를 연다.** 빈 화면으로 두면 방금 지운 것이
-        // 아니라 전부 사라진 것처럼 보인다.
+        // 지우고 나면 그다음 대화를 연다 — 빈 화면이면 방금 지운 것이 아니라 전부 사라진 것처럼 보인다.
         if (_sessions.FirstOrDefault() is { } next)
         {
             await OpenAsync(next.Id);
@@ -441,26 +349,7 @@ public partial class AiChatPanel
         }
     }
 
-    /// <summary>
-    /// 글상자에서 Enter 를 받는다. <b>Enter 는 보내기, Shift+Enter 는 줄바꿈</b>이다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 줄바꿈 쪽은 여기서 아무것도 하지 않는 것이 곧 하는 일이다 —
-    /// <c>textarea</c> 의 기본 동작이 줄바꿈이라 지나보내면 줄이 바뀐다.
-    /// </para>
-    /// <para>
-    /// 보내는 쪽은 반대로 그 기본 동작을 꺼야 하는데, 끄는 것은 누르는 그
-    /// 순간에 정해야 해서 여기서는 못 한다(Blazor 의 <c>preventDefault</c> 는
-    /// 그릴 때 박히는 값이다). 그 한 가지만 JS 가 한다 —
-    /// <c>jsiniChat.armEnter</c> 의 조건을 <b>이 조건과 같게</b> 두어야 한다.
-    /// </para>
-    /// <para>
-    /// 한글을 조합하는 중의 Enter 는 글자를 앉히는 Enter 라서 걸러진다 —
-    /// 그때 브라우저가 주는 <c>Key</c> 는 <c>"Enter"</c> 가 아니라
-    /// <c>"Process"</c> 다.
-    /// </para>
-    /// </remarks>
+    /// <summary>글상자에서 Enter 를 받는다. Enter 는 보내기, Shift+Enter 는 줄바꿈. 보내는 쪽의 기본 동작 끔은 JS 가 한다 — armEnter 의 조건을 이 조건과 같게 두어야 한다. 한글 조합 중의 Enter(Key 가 Process)는 걸러진다.</summary>
     private async Task OnKeyDownAsync(KeyboardEventArgs e)
     {
         if (e.Key is "Enter" or "NumpadEnter" && !e.ShiftKey)
@@ -469,10 +358,7 @@ public partial class AiChatPanel
         }
     }
 
-    /// <param name="speakAloud">
-    /// 답을 소리로 읽어 줄지. <b>음성 모드에서만 참</b>이다 — 글로 물었는데
-    /// 소리가 나면 놀란다.
-    /// </param>
+    /// <param name="speakAloud">답을 소리로 읽어 줄지. 음성 모드에서만 참이다 — 글로 물었는데 소리가 나면 놀란다.</param>
     private async Task SendAsync(bool speakAloud = false)
     {
         if (_streaming || string.IsNullOrWhiteSpace(_input))
@@ -480,8 +366,7 @@ public partial class AiChatPanel
             return;
         }
 
-        // 아직 담을 자리가 없으면 먼저 만든다. **만들기에 실패해도 보낸다** —
-        // 대화가 안 담길 뿐이고, 여기서 막으면 서버가 흔들릴 때 AI 가 통째로 멎는다.
+        // 담을 자리가 없으면 먼저 만든다. 만들기에 실패해도 보낸다 — 여기서 막으면 서버가 흔들릴 때 AI 가 멎는다.
         if (_sessionId is null)
         {
             await NewAsync();
@@ -504,13 +389,10 @@ public partial class AiChatPanel
         _cts?.Dispose();
         _cts = new CancellationTokenSource();
 
-        // **이 턴이 어느 대화의 것인지 붙잡아 둔다.** 답을 받는 동안 사람이
-        // 다른 대화를 고를 수 있는데, 그때 `_sessionId` 를 그대로 읽으면
-        // 방금 연 대화에 남의 턴이 담긴다.
+        // 이 턴이 어느 대화의 것인지 붙잡아 둔다 — 답을 받는 동안 다른 대화를 고를 수 있어 _sessionId 를 그대로 읽으면 남의 턴이 섞인다.
         var turnSession = _sessionId;
 
-        // 읽어주기는 **답이 오기 전에** 열어 둔다. 첫 문장이 왔을 때 그제서야
-        // 부품을 불러오면 그 한 번의 왕복만큼 소리가 늦는다.
+        // 읽어주기는 답이 오기 전에 열어 둔다 — 첫 문장이 왔을 때 부품을 부르면 그 왕복만큼 소리가 늦는다.
         if (speakAloud)
         {
             await BeginSpeakAsync();
@@ -556,8 +438,7 @@ public partial class AiChatPanel
         }
         catch (Exception ex)
         {
-            // 오류를 **답에 이어 붙이지 않는다.** 붙이면 다음 턴 문맥에 실려
-            // 나가서 AI 가 그 문장을 자기가 한 말로 읽는다.
+            // 오류를 답에 이어 붙이지 않는다 — 붙이면 다음 턴 문맥에 실려 AI 가 그 문장을 자기가 한 말로 읽는다.
             _notices.Add($"답을 받지 못했습니다 — {ex.Message}");
         }
         finally
@@ -571,19 +452,13 @@ public partial class AiChatPanel
             _streaming = false;
             _scrollPending = true;
 
-            // ── 음성 모드의 한 턴을 닫는다 ──────────────────────
-            //
-            // **다음 차례를 여기서 바로 열지 않는다.** 읽어 주는 중에 마이크를
-            // 열면 제가 읽는 소리를 제가 받아쓴다. 읽기가 끝났다는 것은 JS 가
-            // 알려 주므로(`OnSpeechStateChanged`) 그때까지 표시만 남긴다.
+            // 음성 모드의 한 턴을 닫는다. 다음 차례를 여기서 바로 열지 않는다 — 읽는 중에 마이크를 열면 제 소리를 받아쓴다. 읽기가 끝났다는 소식은 OnSpeechStateChanged 가 준다.
             if (speakAloud)
             {
                 _listenAfterSpeech = _voiceMode;
                 await EndSpeakAsync();
 
-                // **읽어주기가 아예 안 돌았을 수 있다** — 그 브라우저에 TTS 가
-                // 없거나 목소리를 못 잡은 경우다. 그러면 「읽기가 끝났다」는
-                // 소식이 영영 안 오고 음성 모드가 그 자리에 멎는다.
+                // 읽어주기가 아예 안 돌았을 수 있다(TTS 가 없거나 목소리를 못 잡음). 그러면 끝났다는 소식이 안 와서 음성 모드가 멎으므로 여기서 다음으로 넘긴다.
                 if (_voiceMode && _listenAfterSpeech && !_speaking)
                 {
                     _listenAfterSpeech = false;
@@ -596,8 +471,7 @@ public partial class AiChatPanel
                 await StartListeningAsync(auto: _autoEnd);
             }
 
-            // 제목은 **첫 질문이 들어올 때 서버가 붙인다.** 목록을 다시 읽어야
-            // 고르개의 「새 대화」가 그 제목으로 바뀐다. 차례도 이때 앞으로 온다.
+            // 제목은 첫 질문이 들어올 때 서버가 붙인다 — 목록을 다시 읽어야 고르개의 새 대화가 그 제목으로 바뀐다.
             if (turnSession is not null && turnSession == _sessionId)
             {
                 await ReloadSessionsAsync();
@@ -607,16 +481,7 @@ public partial class AiChatPanel
         }
     }
 
-    /// <summary>
-    /// 마지막으로 열어 본 대화를 브라우저에 적어 둔다.
-    /// </summary>
-    /// <remarks>
-    /// <b>사람의 것이 아니라 이 브라우저의 것</b>이라 서버에 두지 않는다 —
-    /// 책상에서 보던 대화와 휴대폰에서 보던 대화가 다를 수 있고, 그것이
-    /// 자연스럽다. 고정 탭·공지 닫힘 표시와 같은 갈래다.
-    ///
-    /// <para>못 해도 조용하다. 그때는 목록 맨 앞엣것이 열린다.</para>
-    /// </remarks>
+    /// <summary>마지막으로 열어 본 대화를 브라우저에 적어 둔다. 사람이 아니라 브라우저의 것이라 서버에 두지 않는다(고정 탭·공지 닫힘과 같은 갈래). 못 하면 목록 맨 앞이 열린다.</summary>
     private async Task RememberAsync(string? sessionId)
     {
         try
@@ -643,9 +508,7 @@ public partial class AiChatPanel
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        // 고른 적이 있으면 그것을 따른다. **회로가 붙은 뒤에만 읽는다** —
-        // 프리렌더에는 브라우저가 없다. 왕복은 안 는다(`PortalBoot` 가 레이아웃의
-        // 한 번 읽기에 실어 온다).
+        // 고른 적이 있으면 그것을 따른다. 회로가 붙은 뒤에만 읽는다 — 프리렌더에는 브라우저가 없다. 왕복은 PortalBoot 의 한 번 읽기에 실어 온다.
         if (firstRender && RendererInfo.IsInteractive)
         {
             try
@@ -663,8 +526,7 @@ public partial class AiChatPanel
             }
         }
 
-        // Enter 막이는 **한 번만** 건다. 글상자가 그려진 뒤여야 하므로
-        // 여기서 걸고, JS 쪽도 같은 칸에 두 번 걸리지 않게 표시를 남긴다.
+        // Enter 막이는 한 번만 건다 — 글상자가 그려진 뒤여야 하므로 여기서 걸고, JS 쪽도 같은 칸에 두 번 걸리지 않게 표시를 남긴다.
         if (!_enterArmed)
         {
             _enterArmed = true;
@@ -676,7 +538,6 @@ public partial class AiChatPanel
             catch (JSException)
             {
                 // 못 걸어도 보내기는 된다 — Enter 가 줄을 함께 바꿀 뿐이다.
-                // 여기서 막으면 대화가 통째로 멎는다.
             }
         }
 
@@ -696,14 +557,9 @@ public partial class AiChatPanel
         }
     }
 
-    // ════════════════════════════════════════════════════════
-    //  말로 묻기
-    // ════════════════════════════════════════════════════════
+    // ── 말로 묻기 ──
 
-    // ── 음성 모드가 그리는 것 ───────────────────────────────
-    //
-    // 네 상태를 **하나의 차례로** 가린다. 조건을 markup 에 흩어 두면
-    // 오브의 그림·글·애니메이션이 서로 다른 상태를 가리키는 날이 온다.
+    // 음성 모드가 그리는 네 상태는 하나의 차례로 가린다 — 조건을 markup 에 흩어 두면 오브의 그림·글·애니메이션이 서로 다른 상태를 가리킨다.
 
     /// <summary>오브에 붙는 상태 클래스. CSS 가 이것으로 애니메이션을 가른다.</summary>
     private string VoiceStageClass =>
@@ -725,33 +581,22 @@ public partial class AiChatPanel
         : _listening ? "듣고 있습니다…"
         : "눌러서 말하기";
 
-    /// <summary>
-    /// 오브를 눌렀을 때 무슨 일이 날지 미리 적는다 — <b>누르기 전에 알아야
-    /// 하는 자리</b>다. 읽어 주는 중에 누르면 말이 끊긴다는 것을 모르면
-    /// 사람은 그 단추를 안 누른다.
-    /// </summary>
+    /// <summary>오브를 누르면 무슨 일이 날지 적는다. 읽어 주는 중에 누르면 말이 끊긴다.</summary>
     private string VoiceOrbHint =>
         _transcribing ? "옮기는 중입니다"
-        // **답이 흐르는 동안은 잠긴다.** 안 잠그면 여기서 마이크가 열리고,
-        // 곧 시작될 읽어주기와 겹쳐 **제가 읽는 소리를 제가 받아쓴다.**
-        // 멈추는 길은 아래 「그만」 단추다.
+        // 답이 흐르는 동안은 잠근다 — 안 잠그면 마이크가 열려 곧 시작될 읽어주기와 겹친다. 멈추는 길은 「그만」 단추다.
         : _streaming ? "답변을 만드는 중입니다 — 멈추려면 아래 「그만」"
         : _speaking ? "읽기를 멈추고 이어서 말합니다"
         : _listening ? "말하기를 끝내고 질문합니다"
         : "눌러서 말하기";
 
-    /// <summary>
-    /// 자막에 쓸 <b>마지막 AI 답</b>. 흐르는 중에는 지금까지 온 만큼 보인다.
-    /// </summary>
+    /// <summary>자막에 쓸 마지막 AI 답. 흐르는 중에는 지금까지 온 만큼 보인다.</summary>
     private string? LastReply =>
         _messages.Count > 0 && _messages[^1].Role != "user"
             ? _messages[^1].Content
             : null;
 
-    /// <summary>
-    /// 녹음 부품을 불러온다. <b>처음 쓸 때까지 미룬다</b> — 대화를 글로만 쓰는
-    /// 사람에게 쓰지도 않을 부품을 내려받게 할 까닭이 없다.
-    /// </summary>
+    /// <summary>녹음 부품을 불러온다. 처음 쓸 때까지 미룬다 — 글로만 쓰는 사람에게 쓰지 않을 부품을 내려받게 할 까닭이 없다.</summary>
     private async Task<IJSObjectReference?> VoiceJsAsync()
     {
         if (_voiceJs is not null) return _voiceJs;
@@ -796,14 +641,7 @@ public partial class AiChatPanel
 
     // ── 1단계 · 받아쓰기 ────────────────────────────────────
 
-    /// <summary>
-    /// 입력칸 옆 마이크. 누르면 듣고, 다시 누르면 <b>입력칸에 채운다.</b>
-    /// </summary>
-    /// <remarks>
-    /// <b>바로 보내지 않는다.</b> 받아쓰기는 틀릴 수 있고, 틀린 채로 나가면
-    /// 사람은 AI 가 엉뚱한 답을 했다고 읽는다. 눈으로 한 번 보고 보내는
-    /// 것까지가 이 단추의 일이다 — 그 확인을 건너뛰는 쪽이 음성 모드다.
-    /// </remarks>
+    /// <summary>입력칸 옆 마이크. 누르면 듣고, 다시 누르면 입력칸에 채운다. 바로 보내지 않는다 — 받아쓰기는 틀릴 수 있다.</summary>
     private async Task ToggleDictationAsync()
     {
         if (_transcribing) return;
@@ -832,9 +670,7 @@ public partial class AiChatPanel
         await StartListeningAsync(auto: _autoEnd);
     }
 
-    /// <summary>
-    /// 음성 모드를 닫는다. <b>대화는 그대로 남는다</b> — 글 화면으로 돌아갈 뿐이다.
-    /// </summary>
+    /// <summary>음성 모드를 닫는다. 대화는 그대로 남는다 — 글 화면으로 돌아갈 뿐이다.</summary>
     private async Task CloseVoiceModeAsync()
     {
         _voiceMode = false;
@@ -848,14 +684,7 @@ public partial class AiChatPanel
         StateHasChanged();
     }
 
-    /// <summary>
-    /// 가운데 오브를 눌렀을 때. <b>지금 무엇을 하고 있느냐에 따라 다르다.</b>
-    /// </summary>
-    /// <remarks>
-    /// 읽어 주는 중이면 <b>말을 끊고 듣기로 넘어간다</b>(끼어들기). 이것이
-    /// 없으면 긴 답을 끝까지 들어야 해서 음성 대화의 값이 사라진다.
-    /// 듣는 중이면 거기서 끊고 묻는다. 둘 다 아니면 듣기 시작한다.
-    /// </remarks>
+    /// <summary>가운데 오브를 누르면 지금 하는 일에 따라 다르다. 읽어 주는 중이면 말을 끊고 듣기로 넘어가고(끼어들기), 듣는 중이면 거기서 끊고 묻는다. 둘 다 아니면 듣기를 시작한다.</summary>
     private async Task TapOrbAsync()
     {
         if (_transcribing) return;
@@ -907,8 +736,7 @@ public partial class AiChatPanel
 
         if (!started)
         {
-            // 거의 늘 권한 거절이다. 그다음이 HTTPS 가 아닌 주소로 들어온 경우 —
-            // 그때는 브라우저가 마이크를 아예 안 열어 준다.
+            // 거의 권한 거절이다. 그다음은 HTTPS 가 아닌 주소라 브라우저가 마이크를 아예 안 열어 준다.
             _voiceNotice = "마이크를 열지 못했습니다. 브라우저의 마이크 권한을 확인해 주세요.";
             StateHasChanged();
             return;
@@ -940,12 +768,7 @@ public partial class AiChatPanel
         }
     }
 
-    /// <summary>
-    /// 녹음을 끝내고 글로 바꾼다.
-    /// </summary>
-    /// <param name="sendStraightAway">
-    /// 참이면 바로 묻는다(음성 모드). 거짓이면 입력칸에 채운다(받아쓰기).
-    /// </param>
+    /// <summary>녹음을 끝내고 글로 바꾼다. sendStraightAway 가 참이면 바로 묻고(음성 모드), 거짓이면 입력칸에 채운다(받아쓰기).</summary>
     private async Task FinishListeningAsync(bool sendStraightAway)
     {
         if (!_listening || _voiceJs is null) return;
@@ -969,8 +792,7 @@ public partial class AiChatPanel
 
             if (!r.Ok)
             {
-                // 받아쓰기가 끊긴 것은 고장이 아니라 흔한 일이다. 글로 묻는
-                // 길은 그대로라 그쪽으로 안내한다.
+                // 받아쓰기가 끊긴 것은 흔한 일이다. 글로 묻는 길을 안내한다.
                 _voiceNotice = $"{r.Message} 글로 물어보실 수 있습니다.";
                 return;
             }
@@ -1009,10 +831,8 @@ public partial class AiChatPanel
         }
     }
 
-    /// <summary>
-    /// 조용해졌거나 2분이 지나 JS 가 스스로 끊었다.
-    /// </summary>
-    /// <param name="why"><c>silence</c> 이거나 <c>max</c>.</param>
+    /// <summary>조용해졌거나 2분이 지나 JS 가 스스로 끊었다.</summary>
+    /// <param name="why">silence 이거나 max.</param>
     [JSInvokable]
     public async Task OnVoiceAutoStop(string why)
     {
@@ -1050,9 +870,7 @@ public partial class AiChatPanel
         }
     }
 
-    /// <summary>
-    /// 새로 온 글자를 모았다가 <b>문장이 되면</b> 읽어주기에 넘긴다.
-    /// </summary>
+    /// <summary>새로 온 글자를 모았다가 문장이 되면 읽어주기에 넘긴다.</summary>
     private async Task FeedSpeakAsync(string piece)
     {
         if (!_speakStreamOpen || _speechJs is null) return;
@@ -1136,8 +954,7 @@ public partial class AiChatPanel
         {
             _speaking = speaking;
 
-            // **읽기가 끝난 뒤에야 마이크를 연다.** 읽는 중에 열면 제가 읽는
-            // 소리를 제가 받아쓴다.
+            // 읽기가 끝난 뒤에야 마이크를 연다 — 읽는 중에 열면 제 소리를 받아쓴다.
             if (!speaking && _listenAfterSpeech && _voiceMode)
             {
                 _listenAfterSpeech = false;
@@ -1148,21 +965,7 @@ public partial class AiChatPanel
         });
     }
 
-    /// <summary>
-    /// 버퍼 앞에서 <b>문장 하나</b>를 떼어 낸다. 아직 없으면 <c>null</c>.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 문장 끝은 <c>. ! ? …</c> 과 줄바꿈이다. <b>마침표 뒤가 숫자면 문장
-    /// 끝이 아니다</b> — 「3.14」나 「1.2 판」이 두 동강 나면 읽는 소리가
-    /// 이상해진다.
-    /// </para>
-    /// <para>
-    /// 문장 끝이 안 와도 <b>너무 길어지면 끊는다.</b> 목록이나 표처럼 마침표
-    /// 없이 길게 가는 글이 있는데, 그것을 다 모을 때까지 기다리면 아무 소리도
-    /// 안 난다.
-    /// </para>
-    /// </remarks>
+    /// <summary>버퍼 앞에서 문장 하나를 떼어 낸다. 아직 없으면 null. 마침표 뒤가 숫자면 문장 끝이 아니다(3.14 가 두 동강 나지 않게). 너무 길어지면 문장 끝이 없어도 끊는다.</summary>
     private const int SpeakFlushAt = 140;
 
     private static string? TakeSentence(System.Text.StringBuilder buffer)
@@ -1204,13 +1007,7 @@ public partial class AiChatPanel
         return piece.Trim();
     }
 
-    /// <summary>
-    /// 브라우저가 녹음해 준 한 마디. <c>chat-voice.js</c> 의 <c>stop()</c> 이 준다.
-    /// </summary>
-    /// <param name="Base64">녹음된 바이트.</param>
-    /// <param name="ContentType">그 바이트의 종류. 브라우저마다 다르다.</param>
-    /// <param name="FileName">받아쓰기 서버 로그에 남을 이름.</param>
-    /// <param name="Ms">녹음 길이(밀리초).</param>
+    /// <summary>브라우저가 녹음해 준 한 마디. chat-voice.js 의 stop() 이 준다.</summary>
     private sealed record VoiceClip(string Base64, string ContentType, string FileName, int Ms);
 
     /// <summary>

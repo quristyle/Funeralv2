@@ -5,12 +5,7 @@ namespace ProjMngServer.Services;
 /// <summary>
 /// 「처리 파일」 한 줄이 무엇을 당했나.
 /// </summary>
-/// <remarks>
-/// git 의 <c>--name-status</c> 글자를 그대로 옮긴 것이고, 화면 쪽
-/// <c>JSini.Web.ProjMng.Components.Shared.AiRunFileKind</c> 와 <b>같은 갈래</b>다.
-/// 두 벌인 것은 프론트가 백엔드 프로젝트를 참조하지 않기 때문이다 — 글자
-/// (<c>A</c> · <c>M</c> · <c>D</c> …)가 둘 사이의 약속이다.
-/// </remarks>
+/// 화면의 AiRunFileKind 와 같은 갈래다. 프론트가 백엔드를 참조하지 않아 두 벌이고, 글자(A · M · D …)가 둘 사이의 약속이다.
 public enum AiChangedFileKind
 {
     /// <summary>무엇을 당했는지 모른다.</summary>
@@ -30,25 +25,8 @@ public enum AiChangedFileKind
 }
 
 /// <summary>
-/// 추정 줄을 <b>실제 파일에 대 보았나, 대 보았으면 무엇이었나.</b>
+/// 추정 줄을 실제 파일에 대 보았나, 대 보았으면 무엇이었나. 모델이 적은 경로는 파일이 아닌 것이 섞이고 반 마디만 남기도 하므로 실행기가 대 본다(서버는 대상 경로를 못 본다).
 /// </summary>
-/// <remarks>
-/// <para>
-/// <b>왜 필요한가 (2026-10-17).</b> 결과문에서 뽑은 경로는 모델이 글을 읽고
-/// 적은 것이라 <b>파일이 아닌 것이 섞인다.</b> 운영에 쌓인 추정 줄을 훑어
-/// 보니 <c>AiChangedFiles.Merge</c>(메서드 이름) ·
-/// <c>projmng.ai_task_run.files_merged_at</c>(DB 칸 이름) 같은 것이 그대로
-/// 「처리 파일」로 서 있었고, 반대로 <c>web/AiAskPanel.razor</c> 처럼
-/// <b>중간 마디가 빠진 경로</b>도 흔했다(참값은
-/// <c>web/src/Apps/JSini.Web.ProjMng/Components/Shared/AiAskPanel.razor</c>).
-/// </para>
-/// <para>
-/// <b>대 보는 것은 실행기다.</b> 서버는 컨테이너 안이라 대상 경로를 볼 수
-/// 없다(<c>AiRunnerController</c> 의 「대상의 git 상태」와 같은 까닭).
-/// 실행기가 저장소 목록에 대 보고 <see cref="Found"/> · <see cref="Missing"/> ·
-/// <see cref="Ambiguous"/> 중 하나로 답한다.
-/// </para>
-/// </remarks>
 public enum AiChangedFileCheck
 {
     /// <summary>댈 것이 없다 — git 이 센 줄이다.</summary>
@@ -76,15 +54,8 @@ public enum AiChangedFileCheck
 /// <summary>처리 파일 한 줄.</summary>
 /// <param name="Kind">무엇을 당했나.</param>
 /// <param name="Path">저장소 뿌리에서 본 경로.</param>
-/// <param name="Derived">
-/// <b>git 이 본 것이 아니라 결과문에서 뽑아낸 것인가.</b> 참이면 상태 글자 뒤에
-/// 확인 표가 하나 붙어 저장된다(<c>M?</c> · <c>M*</c> · <c>M!</c> · <c>M~</c>) —
-/// 화면과 메일이 그것을 「추정」으로 적는다.
-/// </param>
-/// <param name="Check">
-/// 그 추정 줄을 실제 파일에 대 본 결과. <see cref="Derived"/> 가 거짓이면
-/// 언제나 <see cref="AiChangedFileCheck.None"/> 이다.
-/// </param>
+/// <param name="Derived">결과문에서 뽑아낸 것이면 참. 상태 글자 뒤에 확인 표가 붙어 「추정」으로 적힌다.</param>
+/// <param name="Check">추정 줄을 대 본 결과. Derived 가 거짓이면 언제나 None 이다.</param>
 public sealed record AiChangedFile(
     AiChangedFileKind Kind,
     string Path,
@@ -92,35 +63,13 @@ public sealed record AiChangedFile(
     AiChangedFileCheck Check = AiChangedFileCheck.None);
 
 /// <summary>
-/// 「처리 파일」 목록을 <b>읽고 · 합치고 · 적는</b> 규칙 한 벌.
+/// 「처리 파일」 목록을 읽고 합치고 적는 규칙 한 벌. 정본은 실행기의 git 목록이고, 모델 결과문에서 뽑은 줄은 git 이 못 본 것만 「추정」으로 더한다.
+/// git 이 없는 대상이나 실행기가 옛 바이너리면 목록을 안 보내 탭이 비므로 결과문 쪽을 함께 둔다.
 /// </summary>
-/// <remarks>
-/// <para>
-/// [왜 합치나]
-/// </para>
-/// <para>
-/// 정본은 실행기가 <c>git diff --name-status</c> 로 물어 온 목록이다
-/// (<c>AiTaskRunner.Workspace.ChangedFilesAsync</c>). 그것이 가장 정확하지만
-/// <b>늘 손에 들어오지는 않는다</b> — git 이 아닌 대상(폴더 복사본)에는 물을
-/// 데가 없고, 실행기가 옛 바이너리면 그 칸을 아예 안 보내고(2026-10-12 이전),
-/// 작업공간이 치워진 뒤에는 다시 셀 수 없다. 그때 「처리 파일」 탭이 통째로
-/// 비어 <b>기능이 고장난 것처럼</b> 보인다.
-/// </para>
-/// <para>
-/// 그래서 <b>결과문에서 한 벌 더 뽑는다</b>(<c>AiResultSummarizer.ExtractFilesAsync</c>).
-/// AI 는 제가 무엇을 고쳤는지 결과문에 적어 두므로 거기서 경로를 건질 수 있다.
-/// 다만 그것은 <b>모델이 읽어 낸 것</b>이라 git 만큼 미덥지 않다 — 그래서
-/// 합칠 때 <b>git 이 본 것이 언제나 이긴다</b>. git 이 못 본 줄만
-/// <see cref="AiChangedFile.Derived"/> 로 더해지고, 화면은 그 줄에 「추정」을
-/// 달아 <b>둘을 섞지 않는다</b>.
-/// </para>
-/// </remarks>
 public static class AiChangedFiles
 {
     /// <summary>
-    /// 담아 둘 줄 수의 상한. <b>실행기의 같은 값과 맞춘다</b>
-    /// (<c>Workspace.ChangedFileLines</c>) — 대량 치환 한 번이 수천 줄을 DB 와
-    /// 회로로 밀어 넣지 않게.
+    /// 담아 둘 줄 수의 상한. 실행기의 Workspace.ChangedFileLines 와 맞춘다 — 대량 치환 한 번이 수천 줄을 DB 와 회로로 밀어 넣지 않게.
     /// </summary>
     public const int MaxLines = 200;
 
@@ -163,31 +112,12 @@ public static class AiChangedFiles
     }
 
     /// <summary>
-    /// <b>git 이 본 것과 결과문에서 뽑은 것을 합친다.</b>
+    /// git 이 본 것과 결과문에서 뽑은 것을 합친다. git 이 이기고, git 이 못 본 줄만 뒤에 붙는다. 「외 N개」 줄은 늘 맨 끝이다.
+    /// 합쳐도 빈손이면 null — 화면이 그 탭을 「없음」으로 그린다.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 규칙은 셋이다.
-    /// </para>
-    /// <list type="number">
-    ///   <item><description><b>git 이 먼저고, git 이 이긴다.</b> 같은 경로가
-    ///   양쪽에 있으면 git 이 말한 갈래를 쓴다 — 모델이 「새로 만들었다」고 적은
-    ///   파일이 실은 이미 있던 것을 고친 경우가 흔하다.</description></item>
-    ///   <item><description><b>git 이 못 본 줄만 뒤에 붙는다</b>(<c>Derived</c>).
-    ///   앞뒤를 섞지 않으므로 목록을 위에서부터 읽으면 확실한 것이 먼저다.</description></item>
-    ///   <item><description><b>「외 N개」 줄은 늘 맨 끝</b>이다. 그 줄은 파일이
-    ///   아니라 세어 둔 말이라 가운데 끼면 목록이 거기서 끝난 것처럼 읽힌다.</description></item>
-    /// </list>
-    /// <para>
-    /// <b>합쳐도 빈손이면 널이다</b> — 화면이 그 탭을 「없음」으로 그린다.
-    /// </para>
-    /// </remarks>
     /// <param name="gitText">실행기가 보내 온 정본 글. 없을 수 있다.</param>
     /// <param name="derived">결과문에서 뽑은 것. 없을 수 있다.</param>
-    /// <param name="targetPath">
-    /// 이 작업의 대상 위치. 모델이 적어 준 <b>온 경로에서 이것을 떼</b>
-    /// 「대상 위치 다음부터」로 맞춘다(<see cref="Normalize"/>).
-    /// </param>
+    /// <param name="targetPath">이 작업의 대상 위치. 모델이 적은 온 경로에서 이것을 떼 「대상 위치 다음부터」로 맞춘다.</param>
     public static string? Merge(
         string? gitText, IReadOnlyList<AiChangedFile>? derived, string? targetPath = null)
     {
@@ -261,28 +191,11 @@ public static class AiChangedFiles
     }
 
     /// <summary>
-    /// 모델이 준 경로를 쓸 수 있는 꼴로. <b>경로가 아니면 널이다.</b>
+    /// 모델이 준 경로를 쓸 수 있는 꼴로. 앞머리와 따옴표를 떼고 git 과 같은 모양으로 맞춰야 중복이 걸러진다. 경로가 아니면 null.
+    /// 대상 경로를 알면 그것부터 뗀다 — 모델이 장비의 온 경로를 그대로 옮겨 적어 앞 슬래시만 떨어진 없는 경로가 서기 때문이다.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 모델은 <c>./web/x.razor</c> · <c>/home/lee/…/web/x.razor</c> ·
-    /// <c>`web/x.razor`</c> 처럼 제각각으로 적는다. 앞머리와 따옴표를 떼고
-    /// 역슬래시를 세워 <b>git 이 적은 것과 같은 모양</b>으로 맞춰야 중복이
-    /// 걸러진다 — 안 맞추면 같은 파일이 두 줄로 선다.
-    /// </para>
-    /// <para>
-    /// <b>대상 경로를 알면 그것부터 뗀다</b>(2026-10-17). 모델은 결과문에
-    /// <c>/home/lee/Funeralv2/web/x.razor</c> 처럼 <b>장비의 온 경로</b>를
-    /// 그대로 옮겨 적는 일이 잦은데, 그것을 모르면 앞의 <c>/</c> 만 떨어져
-    /// <c>home/lee/Funeralv2/web/x.razor</c> 라는 <b>없는 경로</b>가 선다.
-    /// 「대상 위치 다음부터」가 화면이 적어야 할 경로다.
-    /// </para>
-    /// </remarks>
     /// <param name="raw">모델이 적어 준 날것.</param>
-    /// <param name="targetPath">
-    /// 이 작업의 대상 위치(<c>ai_target.target_path</c>). 없으면 안 떼고,
-    /// 작업공간 뿌리를 떼는 옛 규칙만 걸린다.
-    /// </param>
+    /// <param name="targetPath">이 작업의 대상 위치(ai_target.target_path). 없으면 작업공간 뿌리를 떼는 규칙만 건다.</param>
     public static string? Normalize(string? raw, string? targetPath = null)
     {
         var path = (raw ?? string.Empty).Trim().Trim('`', '"', '\'', ' ');
@@ -378,13 +291,8 @@ public static class AiChangedFiles
         };
 
     /// <summary>
-    /// 상태 칸 하나에서 <b>확인 표</b>만 읽는다.
+    /// 상태 칸 하나에서 확인 표만 읽는다. 표가 없으면 git 이 센 줄이라 None 이다.
     /// </summary>
-    /// <remarks>
-    /// 마지막 한 글자다 — <c>?</c> 아직 · <c>*</c> 있음 · <c>!</c> 없음 ·
-    /// <c>~</c> 여럿. 표가 없으면 git 이 센 줄이라
-    /// <see cref="AiChangedFileCheck.None"/> 이다.
-    /// </remarks>
     public static AiChangedFileCheck CheckOf(string? mark) =>
         (mark is { Length: > 1 } m ? m[^1] : ' ') switch
         {
@@ -396,14 +304,8 @@ public static class AiChangedFiles
         };
 
     /// <summary>
-    /// 갈래를 상태 칸 글자로. <b>추정이면 확인 표를 하나 붙인다</b> — 옛 읽개도
-    /// 앞 한 글자만 보므로 그대로 읽히고(뜻만 모른다), 새 읽개는 그 표를 본다.
+    /// 갈래를 상태 칸 글자로. 추정이면 확인 표(? 아직 · * 있음 · ! 없음 · ~ 여럿)를 하나 붙인다. 확인 표가 없는 글(M?)은 「아직」으로 읽힌다.
     /// </summary>
-    /// <remarks>
-    /// 표는 넷이다. <c>?</c> 아직 안 대 봤다 · <c>*</c> 대 보니 있다 ·
-    /// <c>!</c> 대 보니 없다 · <c>~</c> 이름만 맞는 것이 여럿이라 못 골랐다.
-    /// <b>확인 표를 안 쓰던 때의 글(<c>M?</c>)은 그대로 「아직」으로 읽힌다.</b>
-    /// </remarks>
     public static string MarkOf(
         AiChangedFileKind kind, bool derived, AiChangedFileCheck check = AiChangedFileCheck.Pending)
     {
@@ -439,26 +341,9 @@ public static class AiChangedFiles
     }
 
     /// <summary>
-    /// <b>대 본 결과를 목록에 새긴다.</b> 실행기가 돌려준 답
-    /// (<c>AiRunFileCheckService.ApplyAsync</c>)이 여기로 온다.
+    /// 대 본 결과를 목록에 새긴다. 추정 줄의 확인 표를 바꾸고, 반 마디였던 경로를 실행기가 찾은 온 경로로 고친다.
+    /// 고치고 나면 git 줄과 겹칠 수 있어 git 줄만 남긴다. 답이 안 온 줄은 「아직」인 채로 다음 바퀴에 다시 물리고, 바뀐 것이 없으면 null.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 하는 일이 둘이다. ① 추정 줄의 <b>확인 표</b>를 바꾸고, ② 반 마디였던
-    /// 경로를 <b>실행기가 찾아 준 온 경로로 고친다</b>.
-    /// </para>
-    /// <para>
-    /// <b>고치고 나면 겹칠 수 있다.</b> <c>web/AiAskPanel.razor</c> 가
-    /// <c>web/src/…/AiAskPanel.razor</c> 로 펴지면 git 이 이미 센 줄과 같아진다 —
-    /// 그때는 <b>git 줄만 남긴다</b>(합칠 때와 같은 규칙). 추정끼리 겹쳐도
-    /// 앞의 것만 남는다.
-    /// </para>
-    /// <para>
-    /// <b>답이 안 온 줄은 그대로 둔다</b> — 「아직」인 채로 남아 다음 바퀴에
-    /// 다시 물린다. 아무것도 안 바뀌었으면 <c>null</c> 이라, 부르는 쪽이
-    /// 헛 UPDATE 를 치지 않는다.
-    /// </para>
-    /// </remarks>
     /// <param name="text">지금 적혀 있는 글.</param>
     /// <param name="results">날것 경로 → (찾은 경로, 결과).</param>
     public static string? ApplyChecks(

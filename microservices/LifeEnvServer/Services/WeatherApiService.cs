@@ -209,21 +209,9 @@ public class WeatherApiService {
   }
 
   /// <summary>
-  /// <b>등록되지 않은 한 지점</b>의 초단기 실황. 위경도로 바꾼 격자를 그대로 받는다.
+  /// 등록되지 않은 한 지점의 초단기 실황. 격자를 그대로 받는다. 캐시 열쇠를 등록 지역과 나누는 까닭은,
+  /// 가짜 WeatherLocationId 를 만들면 모든 사람이 캐시 한 칸을 나눠 써서 한 사람의 동네 날씨가 전원에게 가기 때문이다.
   /// </summary>
-  /// <remarks>
-  /// <para>
-  /// <see cref="GetRealTimeWeatherAsync"/> 와 나눠 둔 까닭은 그쪽이 <b>등록된 관측
-  /// 지역</b>(<see cref="WeatherLocation"/>)의 것이기 때문이다. 캐시 열쇠도 어제 기온
-  /// 조회도 전부 <c>WeatherLocationId</c> 를 탄다 — 「내 위치 날씨」는 사람마다 다른
-  /// 지점이고 표에 행이 없으므로 그 길로는 갈 수 없다. 억지로 <c>Id = 0</c> 인 가짜
-  /// 지역을 만들어 넘기면 <b>모든 사람이 캐시 한 칸을 나눠 쓰게 되어</b> 첫 사람의
-  /// 동네 날씨가 나머지 전원에게 간다.
-  /// </para>
-  /// <para>
-  /// 캐시는 격자 기준이다 — 같은 동네에 여럿이 살면 기상청을 한 번만 부른다.
-  /// </para>
-  /// </remarks>
   public async Task<WeatherInfo?> GetPointNowcastAsync(int nx, int ny, string placeName) {
     string cacheKey = $"WeatherPoint_{nx}_{ny}";
     if (_cache.TryGetValue(cacheKey, out WeatherInfo? cached) && cached != null) {

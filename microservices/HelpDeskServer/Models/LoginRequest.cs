@@ -1,9 +1,7 @@
 namespace HelpDeskServer.Models;
 
 
-    /// <summary>
-    /// 로그인 요청 DTO
-    /// </summary>
+    /// <summary>로그인 요청 DTO</summary>
     public class LoginRequest
     {
         /// <summary>로그인 ID</summary>

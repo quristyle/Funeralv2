@@ -2,29 +2,8 @@
 @attribute [RouteKey("projmng.proj.wbs")]
 
 @*
-    [프로젝트 WBS]
-
-    이력: 옛 Blazor `Pages/Proj/ProjWbs.razor` (`/proj-wbs`) → Vue
-          `views/projmng/proj/wbs.vue` → `DynamicGrid` + `sp_proj_wbs_exec`
-          → **여기 (`CommGrd` + REST)**
-    API: `projmng/wbs`
-
-    프로젝트를 고르면 그 프로젝트의 일감이 나온다. **일정표와 같은 표**를
-    보고 `schedule_type` 하나로 갈린다 — 여기는 `WBS` 다.
-
-    ────────────────────────────────────────────────────────────
-    [진행 상태는 적는 칸이 아니다]
-
-    대기·진행·완료는 **개발 시작·종료일로 정해진다.** 시작일이 없으면 대기,
-    시작만 있으면 진행, 둘 다 있으면 완료다. 그래서 표에서 고르는 칸이 아니라
-    날짜를 넣으면 따라 바뀌는 값이고, 서버가 매긴다.
-
-    [옛 조회가 자료를 고쳤다]
-
-    `sp_proj_wbs_exec` 의 조회 갈래는 목록을 내기 전에 `UPDATE dev_wbs` 를
-    돌려 빈 계획 날짜를 개발 종료일로 메웠다. **보기만 하려는 사람이 표를
-    바꾸는 셈**이고 되돌릴 수도 없었다. 지금은 쓰지 않고 읽을 때만 메운다 —
-    화면에 보이는 값은 그대로다.
+프로젝트 WBS. 일정표와 같은 표를 schedule_type 으로 가른 WBS 쪽이다.
+진행 상태(대기·진행·완료)는 적는 칸이 아니라 개발 시작·종료일로 서버가 정한다. 조회는 자료를 고치지 않고 읽을 때만 빈 계획 날짜를 메운다.
 *@
 
 @inherits DataPage
@@ -34,8 +13,7 @@
 <CommSch OnSearch="@SearchAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="프로젝트">
-            @* 프로젝트가 정해지는 순간 조회한다. 첫 항목이 자동으로 골라지므로
-               화면을 열자마자 목록이 찬다 — 옛 화면과 같은 동작이다. *@
+            @* 프로젝트가 정해지는 순간 조회한다 — 첫 항목이 자동으로 골라지므로 화면을 열자마자 목록이 찬다. *@
             <CodeSelect CodeId="projlist" @bind-Value="_projectCode" @bind-Text="_projectName" OnChanged="@(_ => SearchAsync())" />
         </CommSchItem>
 
@@ -72,7 +50,7 @@
                     @{
                         var w = (WbsItemDto)cell.DataItem;
                     }
-                    @* 날짜로 정해지는 값이다(머리말). *@
+                    @* 날짜로 정해지는 값이다. *@
                     <span class="jsini-badge @w.StateClass">@w.StateName</span>
                 </CellDisplayTemplate>
             </DxGridDataColumn>

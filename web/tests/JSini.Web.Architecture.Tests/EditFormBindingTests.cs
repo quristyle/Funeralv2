@@ -3,59 +3,15 @@ using Xunit;
 
 namespace JSini.Web.Architecture.Tests;
 
-/// <summary>
-/// 팝업 편집 폼 안의 DevExpress 편집기는 <c>@bind-</c> 로 묶는다.
-///
-/// <para>
-/// [증상이 「아무 일도 안 일어남」이라 막는다]
-/// </para>
-///
-/// <para>
-/// 편집 폼 안에는 <c>EditContext</c> 가 흐른다. 그 안의 편집기는 자기가 어느
-/// 필드인지 알아야 해서 검증 식을 만드는데, 값을 <c>Checked</c> +
-/// <c>CheckedChanged</c> 처럼 <b>따로</b> 주면 만들 수 없다 —
-/// </para>
-///
-/// <code>
-/// CheckBoxModel requires a value for the 'CheckedExpression' property.
-/// </code>
-///
-/// <para>
-/// <b>화면에는 아무 표시도 나지 않는다.</b> 등록·수정 단추를 눌러도 팝업이
-/// 그냥 안 열리고, 빌드도 다른 테스트도 전부 통과한다. 원인은 브라우저
-/// 콘솔에만 있어서, 화면을 열고 개발자 도구를 봐야 비로소 보인다.
-/// 실제로 두 화면에서 같은 길로 헤맸다(UserList · NoticeList).
-/// </para>
-///
-/// <para>
-/// [식을 직접 주는 것으로는 부족하다]
-/// </para>
-///
-/// <para>
-/// <c>XxxExpression</c> 을 손으로 줄 수도 있지만 그 식은 <b>순수한 멤버
-/// 접근</b>이어야 한다. 형변환(<c>(IEnumerable&lt;string&gt;)a.RoleIds</c>)이나
-/// 메서드 호출(<c>ToDate(a.BirthDate)</c>)을 끼우면 똑같이 죽는다 —
-/// <c>contains a UnaryExpression which is not supported</c>. 형이 안 맞으면
-/// <b>DTO 에 형이 맞는 창을 하나 내는 것</b>이 답이다
-/// (<c>AccountDto.Roles</c> · <c>NoticeDto.IsActive</c> 가 그 예다).
-/// </para>
-///
-/// <para>
-/// 검증이 정말 필요 없는 자리라면 <c>ValidationEnabled="false"</c> 를 적는다.
-/// 그러면 이 검사도 넘어간다 — 다만 그렇게 적은 것이 눈에 보여야 한다.
-/// </para>
-/// </summary>
+/// <summary>팝업 편집 폼 안의 DevExpress 편집기는 @bind- 로 묶는다. 값을 Checked + CheckedChanged 로 따로 주면 EditContext 의 검증 식을 만들 수 없어 CheckedExpression 오류로 죽는데,
+/// 화면에는 팝업이 그냥 안 열리고 빌드·테스트는 통과한다. XxxExpression 을 손으로 줄 때도 순수한 멤버 접근이어야 한다(형변환·메서드 호출이 끼면 UnaryExpression 오류). 형이 안 맞으면 DTO 에 형이 맞는 창을 하나 낸다.</summary>
 public sealed class EditFormBindingTests
 {
     /// <summary>편집 폼 안쪽. <c>CommGrd</c> 는 이 이름으로 팝업을 그린다.</summary>
     private static readonly Regex EditFormBlock =
         new(@"<EditFormTemplate\b.*?</EditFormTemplate>", RegexOptions.Singleline | RegexOptions.Compiled);
 
-    /// <summary>
-    /// DevExpress 편집기가 시작하는 자리. 태그 끝은 <see cref="OpeningTags"/> 가 찾는다 —
-    /// 정규식으로 <c>&gt;</c> 를 찾으면 <c>Click="@(() =&gt; …)"</c> 의 화살표를
-    /// 태그 끝으로 읽어 뒤쪽 속성을 통째로 놓친다. <b>실제로 그래서 오탐이 났다.</b>
-    /// </summary>
+    /// <summary>DevExpress 편집기가 시작하는 자리. 태그 끝은 OpeningTags 가 찾는다 — 정규식으로 > 를 찾으면 Click="@(() => …)" 의 화살표를 태그 끝으로 읽는다.</summary>
     private static readonly Regex EditorOpen =
         new(@"<Dx[A-Za-z]+\b", RegexOptions.Compiled);
 

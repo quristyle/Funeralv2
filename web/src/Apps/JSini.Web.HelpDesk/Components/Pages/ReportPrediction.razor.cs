@@ -41,7 +41,7 @@ public partial class ReportPrediction
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        // 보고서는 `requests` 묶음 밑이고 `year`·`month` 가 필수다.
+        // 보고서는 requests 묶음 밑이고 year·month 가 필수다.
         var now = AppTime.TodayDate;
         _periodLabel = $"{now.Year}년 {now.Month}월";
 
@@ -52,8 +52,7 @@ public partial class ReportPrediction
         _analyzed = Num(json, "totalAnalyzed");
         _rollback = Num(json, "rollbackCount");
 
-        // 응답이 객체라 표는 비고(위 주석) 차트만 남는다.
-        // 차트에 그릴 것이 있으면 「없습니다」 를 띄우지 않는다.
+        // 응답이 객체라 표는 비고 차트만 남는다 — 차트에 그릴 것이 있으면 「없습니다」를 띄우지 않는다.
         return _rows.Rows.Count + (_analyzed > 0 ? 1 : 0);
     }, "집계할 자료가 없습니다.", "장애 예측을 읽지 못했습니다");
 

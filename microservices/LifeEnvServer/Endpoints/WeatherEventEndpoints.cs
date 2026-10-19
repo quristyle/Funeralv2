@@ -33,9 +33,7 @@ public static class WeatherEventEndpoints
                 query = query.Where(r => r.WeatherInfo != null && r.WeatherInfo.WeatherLocationId == locationId);
             }
 
-            // 기간 필터: KST 일자 경계를 UTC 로 환산해 비교한다.
-            // 원본은 endDate 를 선언만 하고 쓰지 않아 startDate 하루치만 조회되는 버그가
-            // 있었다 — startDate~endDate 범위 필터로 고쳤다 (endDate 그 날까지 포함).
+            // 기간 필터는 KST 일자 경계를 UTC 로 환산해 startDate~endDate 전체에 건다.
             if (!string.IsNullOrEmpty(startDate) && DateTime.TryParse(startDate, out var start))
             {
                 var startUtc = Kst.ToUtc(start.Date);
@@ -78,9 +76,7 @@ public static class WeatherEventEndpoints
                 .OrderByDescending(r => r.EventTime)
                 .ToListAsync();
 
-            // 기준(WeatherStandard) 별로 가장 최근 것 하나씩만 추출
-            // Category(예: WIND, RAIN)별 1개인지, Standard(강풍주의보, 강풍경보)별 1개인지 모호하나
-            // "날씨부합기준별" -> WeatherStandardId 기준이 안전함.
+            // 기준(WeatherStandard)별로 가장 최근 것 하나만 뽑는다 — 날씨 부합 기준 ID 로 묶는다.
             var distinctEvents = events
                 .DistinctBy(e => e.WeatherStandardId)
                 .ToList();

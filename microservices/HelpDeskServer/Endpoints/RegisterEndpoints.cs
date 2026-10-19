@@ -14,15 +14,10 @@ using HelpDeskServer.Dtos;
 
 namespace HelpDeskServer.Endpoints;
 
-/// <summary>
-/// 사용자 등록 및 로그인 관련 엔드포인트
-/// </summary>
+/// <summary>사용자 등록 및 로그인 관련 엔드포인트</summary>
 public static class RegisterEndpoints {
-  //public record CustomerCreateDto([Required] string LoginId, [Required] string UserName, [Required] string Email, [Required] string Password, int CompanyId, string? Sex, string? Photo, string? CreatedBy, string? MenuContext);
 
-  /// <summary>
-  /// 사용자 등록 및 로그인 관련 엔드포인트를 애플리케이션에 매핑합니다.
-  /// </summary>
+  /// <summary>사용자 등록 및 로그인 관련 엔드포인트를 애플리케이션에 매핑합니다.</summary>
   public static void MapRegistEndpoints(this IEndpointRouteBuilder routes) {
     var group = routes.MapGroup("/api/users");
 
@@ -160,7 +155,7 @@ public static class RegisterEndpoints {
           user_uid = admin.Id.ToString();
           mustChangePassword = admin.MustChangePassword;
 
-          // 팀 표를 걷어냈다(2026-10-07). 소속은 포털(부서)이 들고 있고
+          // 소속은 포털(부서)이 들고 있고
           // 여기로 오지 않는다 — 빈 값으로 둔다.
           affiliation = "";
           company_id = "";
@@ -237,7 +232,7 @@ public static class RegisterEndpoints {
 
       // 헬프데스크 레코드가 없어도 "누가 로그인했는지" 는 알려 준다.
       //
-      // 전에는 여기서 null 을 돌려주었다(HTTP 404). 화면은 사용자 정보를 아예 받지 못해
+      // null 을 돌려주면(HTTP 404) 화면은 사용자 정보를 아예 받지 못해
       // 이름도 권한도 모르는 상태로 떴다. 포털 계정 46개 중 연결된 것은 하나뿐이었으므로
       // 사실상 한 사람 말고는 전부 이 길로 떨어졌다.
       if (!int.TryParse(token_uid, out var uid)) {
@@ -291,7 +286,7 @@ public static class RegisterEndpoints {
           Email = jsini?.Email ?? adm.Email,
           helpdeskUserName = adm.UserName,
           helpdeskEmail = adm.Email,
-          // 팀 표를 걷어냈다(2026-10-07). 칸은 남겨 둔다 — 화면이 이 이름을
+          // 칸은 남겨 둔다 — 화면이 이 이름을
           // 읽고 있어서, 빼면 역직렬화가 **오류 없이** 건너뛴 채 빈 칸이 된다.
           TeamId = (int?)null,
           teamName = (string?)null,

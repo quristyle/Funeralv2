@@ -1,24 +1,14 @@
 @page "/funeral/building/music-build"
 @attribute [RouteKey("funeral.building.music-build")]
 
-@*
-    [건물별 음원] — DB 메뉴 `/building/music-build`.
-    이력: Vue `views/funeral/building/music-build/index` → 여기.
-
-    음원 하나를 고르면 **모든 건물이 배정 여부와 함께** 온다. 배정된 건물만
-    받는 방식은 쓰지 않는다 — 그러면 "배정 안 된 건물" 을 따로 구해서 빼야 하고,
-    그 사이에 건물이 늘면 화면에 안 보인다.
-
-    저장은 **통째로 바꾼다**. 목록에 없는 건물은 배정이 풀린다.
-*@
+@* [건물별 음원] — DB 메뉴 `/building/music-build`. 음원 하나를 고르면 모든 건물이 배정 여부와 함께 온다. 배정된 건물만 받으면 빠진 건물을 따로 구해야 한다.
+저장은 통째로 바꾼다. 목록에 없는 건물은 배정이 풀린다. *@
 
 @inherits DataPage
 
 <PageTitle>건물별 음원 · 장례식장</PageTitle>
 
-@* 조건은 음원 하나다. 「전체 선택·해제」와 「배정 저장」은 조건이 아니라
-   이 화면만의 동작이라 그 판의 Actions 로 간다 — 한 줄에 섞여 있으면
-   어느 것이 조건인지 흐려진다. *@
+@* 조건은 음원 하나다. 전체 선택·해제와 배정 저장은 이 화면의 동작이라 판의 Actions 에 둔다. *@
 <CommSch OnSearch="@LoadMappingAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="음원">
@@ -29,8 +19,7 @@
     </Fields>
 
     <Actions>
-        @* 건물이 스물이 넘는 곳이 있다. 하나씩 누르는 것과 「전부 켜고 몇 개만
-           끄는 것」은 손이 크게 다르다. *@
+        @* 건물이 스물을 넘는 곳이 있어, 하나씩 누르는 것과 「전부 켜고 몇 개만 끄는 것」은 손이 크게 다르다. *@
         @if (_musicId is not null && _mappings.Count > 0)
         {
             <span class="jsini-badge">@_mappings.Count(m => m.Mapped) / @_mappings.Count</span>

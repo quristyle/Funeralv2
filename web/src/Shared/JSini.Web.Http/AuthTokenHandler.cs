@@ -7,25 +7,8 @@ using Microsoft.Extensions.Logging;
 namespace JSini.Web.Http;
 
 /// <summary>
-/// 나가는 요청마다 토큰을 붙이고, 401 이면 한 번 갱신해서 다시 보낸다.
-///
-/// Vue 의 <c>api/request.ts</c> 에 흩어져 있던 요청 인터셉터
-/// (<c>Authorization</c> 붙이기 · <c>Accept-Language</c> 붙이기 ·
-/// <c>authenticateResponseInterceptor</c> 의 갱신 로직)를 한 군데로 모은 것이다.
-/// 화면은 이제 토큰을 아예 모른다.
-///
-/// <para>
-/// [이 인스턴스는 <b>모든 사용자가 함께 쓴다</b> — 사람의 것을 칸에 두지 않는다]
-/// </para>
-///
-/// <para>
-/// <c>AddHttpMessageHandler</c> 로 붙인 핸들러는 <c>HttpClientFactory</c> 가 자기
-/// 스코프에서 만들어 핸들러 줄째 몇 분씩 돌려 쓴다. 받은 <see cref="ITokenStore"/>
-/// 도 그 스코프의 한 벌이다. 그래서 「누구의 토큰인가」는 언제나 <b>지금 요청의
-/// 인증 쿠키</b>로 갈리게 하고(<c>TokenStore</c> · <c>RefreshedTokens</c>), 이
-/// 클래스의 칸에는 사람마다 다를 수 있는 값을 두지 않는다 — 두면 그 값이
-/// 남의 요청에 실려 <b>남의 이름 · 메뉴 · 권한으로</b> 화면이 뜬다.
-/// </para>
+/// 나가는 요청마다 토큰을 붙이고, 401 이면 한 번 갱신해서 다시 보낸다. 언어 헤더도 여기서 붙인다.
+/// 이 인스턴스는 모든 사용자가 함께 쓴다. 사람마다 다른 값을 칸에 두지 않는다. 두면 남의 요청에 실려 남의 이름·권한으로 화면이 뜬다. 누구의 토큰인지는 지금 요청의 인증 쿠키(TokenStore · RefreshedTokens)로 갈린다.
 /// </summary>
 public sealed class AuthTokenHandler(
     ITokenStore tokens,
@@ -33,39 +16,20 @@ public sealed class AuthTokenHandler(
     Uri gatewayBaseAddress)
     : DelegatingHandler
 {
-    /// <summary>
-    /// 갱신 요청 자체가 401 을 받았을 때 다시 갱신하러 들어가지 않도록 세워 두는 표시.
-    /// 없으면 만료된 리프레시 쿠키 하나로 무한히 돌 수 있다.
-    /// </summary>
+    /// <summary>갱신 요청 자체가 401 을 받았을 때 다시 갱신하러 들어가지 않도록 세우는 표시. 없으면 만료된 리프레시 쿠키 하나로 무한히 돈다.</summary>
     private static readonly HttpRequestOptionsKey<bool> SkipRefresh = new("JSini.SkipRefresh");
 
-    /// <summary>
-    /// <b>이 요청에 우리가 실제로 붙여 보낸 토큰.</b>
-    ///
-    /// <para>
-    /// 401 을 받고 나서 갱신을 할지 말지는 <b>그 요청이 들고 나간 토큰</b>이
-    /// 아직 최신인지로 갈라야 한다. 예전에는 그 자리에서 통(<see cref="ITokenStore"/>)을
-    /// 다시 물었는데, 기다리는 사이에 옆 요청이 이미 갱신해 두었으면 「새 토큰으로
-    /// 보냈는데도 401 이더라」로 읽혀 <b>같은 갱신이 한 번 더</b> 나갔다.
-    /// </para>
-    /// </summary>
+    /// <summary>이 요청이 실제로 붙여 보낸 토큰. 갱신 여부는 통이 아니라 이 값으로 가른다(옆 요청이 이미 갱신했으면 같은 갱신이 또 나가지 않게).</summary>
     private static readonly HttpRequestOptionsKey<string> SentToken = new("JSini.SentToken");
 
-    /// <summary>
-    /// 갱신이 겹치지 않게 한다. 화면 하나가 API 를 대여섯 개 동시에 부르는 일이
-    /// 흔한데, 모두 401 을 받으면 갱신도 그 수만큼 나간다. 그러면 마지막 것만
-    /// 살아남고 앞선 토큰들은 즉시 무효가 된다. 인스턴스가 공용이라 남의 갱신과도
-    /// 줄을 서지만, 갱신은 며칠에 한 번이라 값이 작다.
-    /// </summary>
+    /// <summary>갱신이 겹치지 않게 한다. 여러 호출이 동시에 401 을 받아도 갱신은 한 번만 나간다.</summary>
     private readonly SemaphoreSlim _refreshLock = new(1, 1);
 
     protected override async Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request,
         CancellationToken cancellationToken)
     {
-        // **부르는 쪽이 직접 실어 준 토큰인가.** 붙이기 전에 봐 두어야 알 수 있다.
-        // 그 자리(앱알림 아이콘 중계)는 지금 사용자의 신원이 아니라서, 401 을
-        // 받아도 우리 토큰을 갱신해 봐야 바뀌는 것이 없다.
+        // 부르는 쪽이 직접 실어 준 토큰(앱알림 아이콘 중계)이면 신원이 아니므로, 갱신해 봐야 바뀌는 것이 없다.
         var callerSuppliedToken = request.Headers.Authorization is not null;
 
         await AttachAsync(request, cancellationToken);
@@ -83,8 +47,7 @@ public sealed class AuthTokenHandler(
             return response;
         }
 
-        // **이 요청이 들고 나간 토큰.** 통을 다시 묻지 않는다 — 까닭은
-        // <see cref="SentToken"/> 머리말에 있다.
+        // 이 요청이 들고 나간 토큰. 통을 다시 묻지 않는다(SentToken 머리말).
         request.Options.TryGetValue(SentToken, out var sentToken);
 
         response.Dispose();
@@ -93,22 +56,13 @@ public sealed class AuthTokenHandler(
 
         if (!refreshed)
         {
-            // **갱신할 길이 없을 때는 토큰을 버리지 않는다.**
-            //
-            // 버리면 그 표시가 스코프 끝까지 남아서, 이 뒤의 호출이 전부 토큰
-            // 없이 나가고 화면 전체가 「로그인이 필요합니다」로 끝난다.
-            // 스쳐 지나갈 401 하나가 로그아웃으로 번지는 것이다 — 실제로
-            // 화면 열몇 개가 그렇게 들쭉날쭉하게 실패하고 있었다.
-            //
-            // 정말로 세션이 죽었다면 다음 호출도 401 을 받는다. 그때 셸이
-            // 로그인으로 보내므로 늦지 않는다.
+            // 갱신할 길이 없어도 토큰은 버리지 않는다. 버리면 스코프 끝까지 토큰 없이 나가 화면 전체가 「로그인이 필요합니다」가 된다. 세션이 죽었다면 다음 호출이 401 을 받아 그때 셸이 로그인으로 보낸다.
             if (sessionRejected)
             {
                 tokens.Clear();
             }
 
-            // 401 을 그대로 돌려주면 GatewayClient 가
-            // ApiException(IsUnauthorized) 로 바꾸고, 셸이 로그인으로 보낸다.
+            // 401 은 그대로 돌려준다. GatewayClient 가 IsUnauthorized 로 바꿔 셸이 로그인으로 보낸다.
             return new HttpResponseMessage(HttpStatusCode.Unauthorized)
             {
                 RequestMessage = request,
@@ -117,33 +71,15 @@ public sealed class AuthTokenHandler(
 
         using var retry = await CloneAsync(request, cancellationToken);
 
-        // **옛 토큰을 떼고 보낸다.**
-        //
-        // 복제는 헤더를 그대로 베끼므로 방금 만료된 그 토큰이 재시도에도 실려
-        // 있고, <see cref="AttachAsync"/> 는 이미 붙어 있는 것을 덮지 않는다.
-        // 떼지 않으면 **갱신해 놓고 옛 토큰으로 다시 물어보는 꼴**이 되어 또
-        // 401 을 받는다.
-        //
-        // [이것이 「새로고침하면 되는데」의 정체였다]
-        //
-        // 갱신은 성공하므로 **그 뒤의 요청**은 새 토큰으로 잘 나간다. 실패하는
-        // 것은 만료를 처음 밟은 그 요청들뿐이다. 그래서 휴대폰을 한참 두었다
-        // 돌아와 회로가 다시 서는 순간처럼 **여러 호출이 한꺼번에 나가는 자리**
-        // 에서는 그 첫 묶음이 통째로 빈손이 되고, 화면은 자료 없이 「로그인이
-        // 필요합니다」만 뜬다 — 그런데 새로고침해 보면 멀쩡하다.
+        // 옛 토큰을 떼고 보낸다. 복제가 헤더를 베끼므로 떼지 않으면 갱신하고도 옛 토큰으로 다시 물어 또 401 이 난다.
+        // 만료를 처음 밟은 묶음만 빈손이 되는 것이 「새로고침하면 되는데」의 정체다.
         retry.Headers.Authorization = null;
 
         await AttachAsync(retry, cancellationToken);
         return await base.SendAsync(retry, cancellationToken);
     }
 
-    /// <summary>토큰과 언어를 붙인다.</summary>
-    /// <remarks>
-    /// <b>이미 붙어 있는 <c>Authorization</c> 은 덮지 않는다.</b> 부르는 쪽이
-    /// 직접 실어 준 토큰이 있다는 뜻이고(<c>GatewayClient.SendRawAsync</c> 의
-    /// <c>bearer</c>), 그 자리는 지금 사용자의 신원으로는 통하지 않는 자리다 —
-    /// 덮으면 알림 아이콘이 다시 그림자가 된다.
-    /// </remarks>
+    /// <summary>토큰과 언어를 붙인다. 이미 붙은 Authorization 은 덮지 않는다(부르는 쪽이 직접 실은 토큰, 예: 알림 아이콘 중계의 bearer).</summary>
     private async Task AttachAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         if (request.Headers.Authorization is null
@@ -151,29 +87,19 @@ public sealed class AuthTokenHandler(
         {
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
-            // 401 을 받았을 때 「무엇을 들고 나갔었나」를 알 수 있는 자리는
-            // 여기뿐이다. 갱신 판정이 이 값으로 갈린다.
+            // 401 때 무엇을 들고 나갔는지 알 수 있는 자리가 여기뿐이다. 갱신 판정이 이 값으로 갈린다.
             request.Options.Set(SentToken, token);
         }
 
-        // 서버가 오류 메시지를 이 언어로 내려준다. 지금은 한국어뿐이지만
-        // 백엔드가 Accept-Language 를 보고 있으므로 계속 붙여 둔다.
+        // 백엔드가 Accept-Language 를 보므로 언어는 계속 붙여 둔다.
         if (!request.Headers.Contains("Accept-Language"))
         {
             request.Headers.Add("Accept-Language", "ko-KR");
         }
     }
 
-    /// <summary>
-    /// access token 을 갱신한다. 성공하면 <c>Refreshed</c> 가 참.
-    /// <c>SessionRejected</c> 는 갱신 요청이 <b>세션을 거절했는가</b>(401·403)이고,
-    /// 참일 때만 토큰을 버린다 — 갱신 경로가 없거나(404) 서버에 닿지 못한 것은
-    /// 세션이 죽었다는 근거가 아니다.
-    /// </summary>
-    /// <param name="sentToken">
-    /// 401 을 받은 그 요청이 <b>들고 나갔던</b> 토큰. 통에 들어 있는 것이 이미
-    /// 이것과 다르면 옆 요청이 먼저 갱신해 둔 것이므로 그대로 쓴다.
-    /// </param>
+    /// <summary>access token 을 갱신한다. Refreshed 는 성공, SessionRejected 는 갱신 요청이 세션을 거절했을 때(401·403)만 참이다. 그때만 토큰을 버린다. 404 나 연결 실패는 세션이 죽었다는 근거가 아니다.</summary>
+    /// <param name="sentToken">401 을 받은 요청이 들고 나갔던 토큰. 통의 것이 이미 다르면 옆 요청이 먼저 갱신한 것이다.</param>
     /// <param name="cancellationToken">취소 토큰</param>
     private async Task<(bool Refreshed, bool SessionRejected)> TryRefreshAsync(
         string? sentToken, CancellationToken cancellationToken)
@@ -193,17 +119,7 @@ public sealed class AuthTokenHandler(
                 return (false, false);
             }
 
-            // **절대 주소여야 한다.** `BaseAddress` 는 <see cref="HttpClient"/> 의
-            // 것이지 핸들러의 것이 아니다 — 아래 `base.SendAsync` 는 그 클라이언트를
-            // 건너뛰고 안쪽 핸들러로 바로 들어가므로, 상대 경로를 절대 주소로
-            // 붙여 줄 사람이 아무도 없다.
-            //
-            // 상대 경로로 두었던 동안 **갱신은 단 한 번도 성공하지 못했다.**
-            // `SocketsHttpHandler` 가 그 자리에서 InvalidOperationException 을
-            // 던졌고("An invalid request URI was provided…"), 그것이 오류 화면까지
-            // 올라갔다. 증상이 「이레에 한 번 오류가 났다가 새로고침하면 된다」라
-            // 토큰 만료와 이어 붙이기 어려웠다 — 운영 로그에 남은 단서는
-            // `Sending HTTP request POST *` 한 줄이었다(주소가 비어 있다는 뜻).
+            // BaseAddress 는 HttpClient 의 것이라 아래 base.SendAsync 가 건너뛴다. 상대 경로면 SocketsHttpHandler 가 InvalidOperationException 을 던져 갱신이 한 번도 성공하지 못했다. 절대 주소여야 한다.
             using var request = new HttpRequestMessage(
                 HttpMethod.Post, new Uri(gatewayBaseAddress, "auth/refresh"));
             request.Options.Set(SkipRefresh, true);
@@ -212,10 +128,7 @@ public sealed class AuthTokenHandler(
             using var response = await base.SendAsync(request, cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
-                // 401·403 만 「세션이 죽었다」로 읽는다. 404 는 갱신 경로가
-                // 없다는 뜻일 뿐이고(AuthServer 가 `Auth:RefreshTokenDays` 를
-                // 0 으로 두면 그렇게 답한다), 그것으로 들고 있는 토큰까지
-                // 버릴 이유가 없다.
+                // 401·403 만 세션이 죽었다고 읽는다. 404 는 갱신 경로가 없다는 뜻(RefreshTokenDays 0)일 뿐이라 토큰을 버리지 않는다.
                 var rejected =
                     response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden;
 
@@ -244,15 +157,7 @@ public sealed class AuthTokenHandler(
         }
         catch (InvalidOperationException ex)
         {
-            // **갱신이 깨져도 오류 화면으로 번지면 안 된다.**
-            //
-            // 위의 절대 주소 버그가 이 자리를 그냥 지나갔다 — 타입이
-            // HttpRequestException 이 아니라서다. 갱신 실패는 「로그인으로
-            // 보낸다」로 끝나야 하는 일인데, 사용자가 본 것은 추적 번호가 적힌
-            // 오류 화면이었고 하던 일이 통째로 날아갔다.
-            //
-            // 갱신에 실패했다고 토큰을 버리지는 않는다 — 서버가 세션을 거절한
-            // 것이 아니라 우리 쪽이 요청을 못 만든 것이기 때문이다.
+            // 갱신이 깨져도 오류 화면으로 번지지 않는다. 갱신 실패는 로그인으로 보내는 일이다. 우리 쪽이 요청을 못 만든 것이므로 토큰도 버리지 않는다.
             logger.LogError(ex, "토큰 갱신 요청을 만들지 못했다.");
             return (false, false);
         }
@@ -262,14 +167,7 @@ public sealed class AuthTokenHandler(
         }
     }
 
-    /// <summary>
-    /// 갱신 응답에서 토큰을 꺼낸다.
-    ///
-    /// <c>/auth/refresh</c> 는 봉투의 <c>data</c> 에 토큰 문자열을 그대로 싣는다
-    /// (Vue 의 <c>refreshTokenApi</c> 가 <c>resp.data</c> 를 바로 토큰으로 쓴다).
-    /// 다만 다른 엔드포인트처럼 <c>data.result[0]</c> 로 감싸 오는 경우도 있어
-    /// 둘 다 받아 준다 — 여기서 틀리면 로그인이 조용히 풀린다.
-    /// </summary>
+    /// <summary>갱신 응답에서 토큰을 꺼낸다. data 에 토큰 문자열이 그대로 오거나 data.result[0] 로 감싸여 오므로 둘 다 받는다.</summary>
     private static async Task<string?> ReadTokenAsync(
         HttpResponseMessage response,
         CancellationToken cancellationToken)
@@ -316,12 +214,7 @@ public sealed class AuthTokenHandler(
         }
     }
 
-    /// <summary>
-    /// 재시도용으로 요청을 복제한다.
-    ///
-    /// <see cref="HttpRequestMessage"/> 는 한 번 보내면 다시 보낼 수 없고, 본문
-    /// 스트림은 이미 다 읽혔다. 그래서 본문을 바이트로 떠서 새 요청을 만든다.
-    /// </summary>
+    /// <summary>재시도용으로 요청을 복제한다. 보낸 요청은 다시 못 보내므로 본문을 바이트로 떠서 새 요청을 만든다.</summary>
     private static async Task<HttpRequestMessage> CloneAsync(
         HttpRequestMessage request,
         CancellationToken cancellationToken)

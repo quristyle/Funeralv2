@@ -1,16 +1,7 @@
 @page "/funeral/info/preview"
 @attribute [RouteKey("funeral.info.preview")]
 
-@*
-    [미리보기] — DB 메뉴 `/info/preview`.
-    이력: Vue `views/funeral/info/preview/index` → 여기.
-
-    빈소 화면에 지금 무엇이 나오고 있는지 본다. 서버가 장비마다 미리보기 주소를
-    준다(`PreviewUrl`).
-
-    **오프라인 장비는 그림을 걸지 않는다.** 걸어 두면 브라우저가 끊긴 주소로
-    수십 번 요청하고, 그 실패가 콘솔을 덮어 진짜 오류가 묻힌다.
-*@
+@* [미리보기] — DB 메뉴 `/info/preview`. 서버가 장비마다 미리보기 주소를 준다(PreviewUrl). 오프라인 장비는 그림을 걸지 않는다. 끊긴 주소로 수십 번 요청하면 실패가 콘솔을 덮는다. *@
 
 @inherits DataPage
 
@@ -30,9 +21,7 @@
             {
                 <div class="fn-preview__offline">연결되어 있지 않습니다</div>
             }
-            @* 원본 카드가 달고 있던 것들 — 장비명·코드·유형·최근 접속.
-               미리보기 그림만 있으면 **어느 장비인지 알 수가 없다.**
-               호실이 없는 장비(입구 안내·키오스크)가 특히 그렇다. *@
+            @* 장비명·코드·유형·최근 접속도 함께 본다. 그림만 있으면 호실 없는 장비(입구 안내·키오스크)가 어느 것인지 알 수 없다. *@
             <figcaption class="fn-preview__caption">
                 <span>@(string.IsNullOrWhiteSpace(p.RoomName) ? p.Name : p.RoomName)</span>
                 <span class="jsini-badge @(p.IsOnline ? "jsini-badge--on" : "jsini-badge--off")">

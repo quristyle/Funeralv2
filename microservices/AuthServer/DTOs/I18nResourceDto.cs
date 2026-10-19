@@ -1,8 +1,6 @@
 namespace AuthServer.DTOs;
 
-/// <summary>
-/// 다국어 자원 DTO
-/// </summary>
+/// <summary>다국어 자원 DTO</summary>
 public class I18nResourceDto
 {
     public int Id { get; set; }

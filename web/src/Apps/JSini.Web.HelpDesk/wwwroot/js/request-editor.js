@@ -1,62 +1,11 @@
-// 요청 글 편집기(`DxHtmlEditor`)에 **클립보드 그림**을 붙일 수 있게 하는 자리.
-//
-// [무엇을 막으려고 있는가]
-//
-// 편집기에 그림을 붙여넣으면 그것이 본문에 `data:image/png;base64,…` 로
-// 박힌다. 화면에는 잘 보이므로 다 된 것처럼 보이지만 실제로는 셋이 깨진다.
-//
-//   1. 화면 캡처 한 장이 흔히 1~3MB 다. base64 는 거기에 1/3 을 더한다.
-//      그 글자가 회로(SignalR)로 오가는데 수신 한도가 4MB 이고,
-//      넘으면 오류가 아니라 **회로가 그냥 끊긴다** — 쓰던 글이 통째로 날아간다.
-//   2. 서버가 그 data URI 를 받아 배포 장비 디스크에 떨군다
-//      (`FileUtil.SaveImageToFile`). 결정 D5-B 가 그만두기로 한 방식이고,
-//      컨테이너 안에서는 그 경로가 재배포 때 사라진다.
-//   3. 본문 자체가 수 MB 짜리 글자가 되어 목록·검색·메일이 전부 무거워진다.
-//
-// 그래서 **붙여넣는 그 순간** 파일로 보내고, 본문에는 주소만 남긴다.
-//
-// [흐름]
-//
-//   붙여넣기 → (여기) 편집기에 들어가기 전에 가로챈다
-//            → 숨겨 둔 <InputFile> 에 밀어 넣고 change 를 쏜다
-//            → 화면(Razor)이 그 바이트를 받아 헬프데스크로 올린다
-//            → 받은 주소로 여기 `insertImage` 가 <img> 를 꽂는다
-//
-// 바이트를 회로에 글자로 실어 보내지 않고 `InputFile` 로 보내는 것이 요점이다.
-// 그쪽은 Blazor 가 조각내어 흘려보내므로 위 1번 한도에 걸리지 않는다.
-//
-// [도구줄의 「그림」 단추도 이 길로 온다]
-//
-// 그 단추는 편집기 제 판을 띄워 고른 파일을 base64 로 본문에 꽂는다. 그래서
-// 위 셋을 고스란히 밟는데, **휴대폰에서 특히 그렇다** — 사진 한 장이 화면
-// 캡처보다 훨씬 크기 때문이다. 재어 본 값: 4.3MB 짜리 사진을 그 판으로 고르면
-// 본문이 **5,762,175 글자**가 된다. 위 1번 한도(4MB)의 한 배 반이다.
-//
-// 한 가지가 더 있다. DevExpress 는 그림을 꽂을 자리를 `getSelection().index` 로
-// **비었는지 보지 않고** 읽는다(`applyPicture` — 같은 파일의 다른 명령들은
-// 본다). 휴대폰은 글칸을 짚지 않은 채 도구줄을 누르는 것이 보통이라 그 자리가
-// 빌 수 있고, 그러면 브라우저 쪽 예외라 회로가 끊긴다. 재현해 보지는 못했다 —
-// 고치는 길이 어차피 같아서 여기 적어만 둔다.
-//
-// 그래서 그 단추의 누름을 가로채 같은 파일 칸을 연다. 화면(Razor)이 도구줄의
-// 그 단추에 이름표(`hd-pick-image`)를 붙여 주고, 여기서는 그 이름으로 찾는다.
-//
-//   **여는 일을 회로로 넘기지 않는다.** 파일 고르개는 사람이 누른 그 손짓
-//   안에서 열어야 브라우저가 열어 준다. 서버로 갔다 오면 그 손짓이 이미 끝난
-//   뒤라 휴대폰에서 조용히 막힌다.
+// 요청 글 편집기(DxHtmlEditor)에 클립보드 그림을 붙이는 자리. 그림을 본문에 data URI 로 박으면 회로가 4MB 수신 한도에서 끊기고 배포 디스크에 떨어진다.
+// 그래서 붙여넣기·끌어놓기·「그림」 단추를 가로채 숨긴 파일 칸(InputFile)으로 보내고, 본문에는 받은 주소만 꽂는다.
+// 파일 고르개는 사람이 누른 손짓 안에서 열어야 하므로 그 단추의 누름은 회로로 넘기지 않고 여기서 연다.
 
-/// 편집기마다 「붙여넣기 직전의 글자 자리」를 기억해 둔다.
-///
-/// 올리는 동안 사람이 딴 곳을 누르면 커서가 옮겨 간다. 그때 그 자리에 그림을
-/// 꽂으면 엉뚱한 문단 한가운데에 들어간다. 그래서 **가로챈 순간의 자리**를
-/// 들고 있다가 그 자리에 꽂는다.
+/// 편집기마다 붙여넣기 직전의 글자 자리를 기억해 두고 가로챈 그 자리에 그림을 꽂는다 — 올리는 동안 커서가 옮겨 가도 엉뚱한 곳에 들어가지 않는다.
 const carets = new WeakMap();
 
-/// 편집기의 글자 치는 칸. DevExpress 안쪽 이름을 짚지 않는다 —
-/// 판올림마다 바뀔 자리이고, 우리가 원하는 것은 `contenteditable` 하나다.
-///
-/// **찾는 시점을 미룬다.** 편집기가 그 칸을 다시 만드는 일이 있어서,
-/// 걸 때 잡아 둔 참조를 들고 있으면 어느 순간 화면에 없는 것을 가리킨다.
+/// 편집기의 글 치는 칸(contenteditable). 찾는 것은 미룬다 — 편집기가 그 칸을 다시 만들 수 있다.
 function areaIn(box) {
     return box ? box.querySelector('[contenteditable="true"]') : null;
 }
@@ -73,8 +22,7 @@ function imagesOf(data) {
     const picked = files.filter(f => f && f.type && f.type.startsWith('image/'));
     if (picked.length > 0) return picked;
 
-    // 파일 목록이 비어 있어도 items 에는 들어 있는 브라우저가 있다
-    // (캡처 도구에서 바로 복사한 경우가 그렇다).
+    // 파일 목록이 비어 있어도 items 에는 든 브라우저가 있다(캡처 도구에서 복사한 경우).
     if (!data.items) return [];
 
     return Array.from(data.items)
@@ -87,14 +35,12 @@ function imagesOf(data) {
 function hand(event, data, box, inputId, point) {
     const area = areaIn(box);
 
-    // 편집기 껍데기 안에는 글 쓰는 칸 말고도 입력칸이 있다(링크 판 따위).
-    // 거기에 붙여넣는 것까지 가로채면 안 된다.
+    // 편집기 껍데기 안의 다른 입력칸(링크 판 등)에 붙여넣는 것은 가로채지 않는다.
     if (!area || !area.contains(event.target)) return;
 
     const images = imagesOf(data);
 
-    // **그림이 없으면 손대지 않는다.** 글자 붙여넣기는 편집기가 훨씬 잘한다
-    // (서식 정리·목록·표). 여기서 가로채면 그게 전부 사라진다.
+    // 그림이 없으면 손대지 않는다 — 글자 붙여넣기는 편집기가 서식까지 잘 처리한다.
     if (images.length === 0) return;
 
     const input = document.getElementById(inputId);
@@ -114,16 +60,7 @@ function hand(event, data, box, inputId, point) {
     input.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
-/// 도구줄 「그림」 단추의 누름을 가로채 숨긴 파일 칸을 연다.
-///
-/// [**문서에 건다** — 껍데기가 아니다]
-///
-/// 좁은 화면에서는 도구줄이 접혀 그 단추가 넘침 메뉴로 옮겨 가고, 그 메뉴는
-/// 편집기 바깥에 그려진다. 껍데기에만 걸면 **휴대폰에서 바로 그 경우를 놓친다** —
-/// 고치려던 자리가 그 자리다.
-///
-/// 잡는 단계로 받는 것도 같은 까닭이다. Blazor 는 누름을 문서에서 거품 단계로
-/// 받으므로, 여기서 멈추면 편집기의 판이 아예 열리지 않는다.
+/// 도구줄 「그림」 단추의 누름을 가로채 숨긴 파일 칸을 연다. 문서에 건다 — 좁은 화면에서는 단추가 편집기 바깥 넘침 메뉴로 나가 껍데기에서는 놓친다.
 function watchPictureButton(box, inputId, pictureSelector) {
     const onClick = event => {
         // 편집기가 사라졌다. 손을 뗀다 — 화면을 옮길 때마다 하나씩 쌓인다.
@@ -141,15 +78,12 @@ function watchPictureButton(box, inputId, pictureSelector) {
         event.preventDefault();
         event.stopImmediatePropagation();
 
-        // 지금 글자 자리가 편집기 안이면 그것을 쓴다. 아니면 따라다니며
-        // 적어 둔 마지막 자리가 남아 있고, 그것도 없으면 `insertImage` 가
-        // 글 끝에 붙인다.
+        // 글자 자리가 편집기 안이면 그것을 쓰고, 아니면 적어 둔 마지막 자리, 그것도 없으면 insertImage 가 글 끝에 붙인다.
         const area = areaIn(box);
         const live = area ? caretAt(area, null) : null;
         if (area && live) carets.set(area, live);
 
-        // 같은 사진을 두 번 고를 수 있어야 한다. 값이 남아 있으면 두 번째
-        // 고르기에서 change 가 오지 않는다.
+        // 같은 사진을 두 번 고를 수 있도록 값을 비운다 — 남아 있으면 두 번째 고르기에서 change 가 오지 않는다.
         input.value = '';
         input.click();
     };
@@ -157,10 +91,7 @@ function watchPictureButton(box, inputId, pictureSelector) {
     document.addEventListener('click', onClick, true);
 }
 
-/// 글자 자리를 **미리** 적어 둔다.
-///
-/// 도구줄 단추를 누르면 편집기가 초점을 잃고, 휴대폰은 자판이 내려가면서
-/// 고른 자리까지 지운다. 그 뒤에 물으면 늦다 — 눌리기 전부터 따라다닌다.
+/// 글자 자리를 미리 적어 둔다 — 도구줄 단추를 누르면 편집기가 초점을 잃고 휴대폰은 고른 자리까지 지워서, 눌리기 전부터 따라다닌다.
 function watchCaret(box) {
     const onSelectionChange = () => {
         if (!box.isConnected) {
@@ -198,18 +129,8 @@ function caretAt(area, point) {
     return null;
 }
 
-/// 편집기에 붙여넣기·끌어놓기 처리기를 건다. 이미 걸려 있으면 그냥 참.
-///
-/// 화면이 다시 그려질 때마다 불러도 된다 — 걸렸다는 표시를 껍데기에 남긴다.
-/// 편집기가 통째로 새로 만들어지면 그 표시도 함께 사라지므로 다시 걸린다.
-///
-/// [**글 쓰는 칸이 아니라 껍데기에 건다** — 여기가 갈리는 지점이다]
-///
-/// 한 요소에 걸린 처리기들은 **그 요소가 과녁일 때 등록 순서대로** 불린다.
-/// 잡는 단계로 걸어도 그 순서는 바뀌지 않는다 — 편집기가 먼저 걸어 두었으므로
-/// 같은 칸에 걸면 우리 차례는 **언제나 두 번째**이고, 그때는 이미 편집기가
-/// 그림을 base64 로 박은 뒤다. 한 칸 바깥(껍데기)에서 잡는 단계로 받으면
-/// 과녁에 닿기 전이라 반드시 먼저 불린다.
+/// 편집기에 붙여넣기·끌어놓기 처리기를 건다. 이미 걸려 있으면 그냥 참. 화면이 다시 그려질 때마다 불러도 된다.
+/// 글칸이 아니라 껍데기에 잡는 단계로 건다 — 글칸에 걸면 편집기가 먼저 그림을 base64 로 박은 뒤라 늦다.
 export function bind(editorSelector, inputId, pictureSelector) {
     const box = document.querySelector(editorSelector);
 
@@ -249,8 +170,7 @@ export function insertImage(editorSelector, url, alt) {
     if (selection.rangeCount > 0 && area.contains(selection.getRangeAt(0).startContainer)) {
         range = selection.getRangeAt(0);
     } else {
-        // 자리를 잃었으면 글 끝에 붙인다. 아무 데도 안 넣는 것보다 낫다 —
-        // 올라간 파일만 남고 사람은 그림이 사라진 줄 안다.
+        // 자리를 잃었으면 글 끝에 붙인다 — 아무 데도 안 넣는 것보다 낫다. 올라간 파일만 남고 사람은 그림이 사라진 줄 안다.
         range = document.createRange();
         range.selectNodeContents(area);
         range.collapse(false);
@@ -271,48 +191,26 @@ export function insertImage(editorSelector, url, alt) {
 
     carets.set(area, range.cloneRange());
 
-    // 편집기에게 「바뀌었다」고 알린다. 우리가 DOM 을 직접 건드렸으므로
-    // 이것이 없으면 편집기의 실행취소 이력과 어긋난 채로 남는다.
+    // 편집기에 「바뀌었다」고 알린다 — DOM 을 직접 건드렸으므로 알리지 않으면 실행취소 이력과 어긋난다.
     area.dispatchEvent(new Event('input', { bubbles: true }));
 
     return true;
 }
 
-/// **지금 화면에 있는 글**을 그대로 읽는다.
-///
-/// `DxHtmlEditor` 는 값을 파라미터로 돌려주지 않는다 — `MarkupChanged` 로
-/// 알려 줄 뿐이고 그 알림은 친 다음 잠깐 뒤에 온다(`InputDelay`, 기본 500ms).
-/// 그래서 마지막으로 친 글이 아직 서버로 안 간 채 「등록」이 돌 수 있다.
-/// 게다가 여기서는 **우리가 DOM 에 직접 꽂은 `<img>`** 도 있어서, 편집기의
-/// 모형을 거치지 않고 보이는 것을 그대로 읽는 편이 확실하다.
-///
-/// 관리자 모듈의 `mail-editor.js` 와 같은 일을 한다. 합치지 않는 것은
-/// 「두 모듈이 쓰면 복제, 세 번째부터 승격」(web/CLAUDE.md) 때문이다.
+/// 지금 화면의 글을 그대로 읽는다. MarkupChanged 는 친 뒤 InputDelay(기본 500ms) 뒤에 와서 마지막 글이 빠질 수 있다.
+/// 우리가 DOM 에 직접 꽂은 img 도 보이는 그대로 읽어야 하므로 편집기 모형을 거치지 않는다. 관리자 모듈의 mail-editor.js 와 같은 일이지만 합치지 않는다(web/CLAUDE.md 의 복제 규칙).
 export function readMarkup(editorSelector) {
     const area = areaOf(editorSelector);
     if (!area) return null;
 
-    // 빈 편집기는 브라우저마다 `<p><br></p>` 같은 뼈대를 남긴다. 그것을 본문으로
-    // 넘기면 서버의 「내용이 필요합니다」를 지나쳐 **빈 글**이 등록된다.
-    // 그림만 있고 글자가 없는 것은 빈 글이 아니므로 그때는 남긴다.
+    // 빈 편집기가 남기는 <p><br></p> 같은 뼈대는 빈 글로 보고 넘기지 않는다 — 그림만 있는 글은 빈 글이 아니다.
     const empty = area.innerText.trim() === '' && area.querySelectorAll('img').length === 0;
 
     return empty ? '' : area.innerHTML;
 }
 
-/// 본문 **맨 위**에 HTML 조각 하나를 꽂는다(AI 요약).
-///
-/// [왜 `_content` 에 이어 붙이지 않는가]
-///
-/// 편집기에 글을 돌려주는 길은 `Markup` 파라미터뿐인데, 이 화면은 그 값을
-/// **되받지 않는다**(`MarkupChanged` 로 받아 두기만 한다 — RequestNew 머리말).
-/// 거기에 새 값을 밀어 넣으면 편집기가 글을 통째로 다시 그리고, 그 순간
-/// 커서와 실행취소 이력이 날아간다. 요약은 쓰던 글 위에 한 줄 얹는 일이라
-/// 쓰던 자리를 잃으면 안 된다.
-///
-/// 그림을 꽂는 `insertImage` 와 같은 길이다 — DOM 을 직접 만지고 편집기에게
-/// 「바뀌었다」고 알린다. 다른 점은 자리다. 그림은 **고르던 자리**에 들어가고
-/// 요약은 **언제나 맨 위**다.
+/// 본문 맨 위에 HTML 조각을 꽂는다(AI 요약). _content 에 이어 붙이지 않는다 — Markup 을 밀어 넣으면 편집기가 글을 통째로 다시 그려 커서와 실행취소가 날아간다.
+/// DOM 을 직접 만지고 편집기에 바뀌었다고 알린다. 그림은 고르던 자리에, 요약은 언제나 맨 위에 꽂는다.
 export function prependHtml(editorSelector, html) {
     const area = areaOf(editorSelector);
     if (!area || !html) return false;
@@ -320,9 +218,7 @@ export function prependHtml(editorSelector, html) {
     const holder = document.createElement('div');
     holder.innerHTML = html;
 
-    // 조각이 여러 마디일 수 있어 통째로 옮긴다. `innerHTML` 앞에 글자를
-    // 이어 붙이는 방식은 쓰지 않는다 — 편집기가 들고 있는 노드가 전부
-    // 새것으로 바뀌어 커서가 어디에도 없는 상태가 된다.
+    // 조각이 여러 마디라 통째로 옮긴다 — innerHTML 앞에 글자를 이어 붙이면 편집기가 든 노드가 바뀌어 커서가 사라진다.
     const fragment = document.createDocumentFragment();
     while (holder.firstChild) fragment.appendChild(holder.firstChild);
 

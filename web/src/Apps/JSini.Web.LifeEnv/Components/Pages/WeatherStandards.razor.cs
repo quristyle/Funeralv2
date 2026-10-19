@@ -101,11 +101,11 @@ public partial class WeatherStandards
 
     private Task DeleteAsync(WeatherStandard std) => Client.DeleteStandardAsync(std.Id);
 
-    /// <summary >값이 둘 필요한 연산자인가.</summary >
+    /// <summary>값이 둘 필요한 연산자인가.</summary>
     private static bool NeedsTwo(string? op) =>
         op is "BT" or "NB" or "DGE" or "DLE";
 
-    /// <summary >두 번째 값이 「범위의 끝」이 아니라 「차이」인 연산자인가.</summary >
+    /// <summary>두 번째 값이 「범위의 끝」이 아니라 「차이」인 연산자인가.</summary>
     private static bool IsDiff(string? op) => op is "DGE" or "DLE";
 
     private static string ThresholdText(WeatherStandard row) => row.Operator switch

@@ -7,53 +7,11 @@ namespace AuthServer.Services;
 /// <param name="GroupId">FileServer 파일 그룹. 계정의 <c>avatar_group_id</c> 가 된다.</param>
 /// <param name="FileId">올린 파일 번호. 대표로 지정할 때 쓴다.</param>
 /// <param name="DownloadUrl">FileServer 가 준 주소(<c>/api/file/download/{guid}</c>).</param>
-/// <param name="IsRepresentative">
-/// FileServer 가 이 파일을 대표로 정했는가. 그룹에 대표가 없을 때만 참이다
-/// (새 그룹의 첫 장이 그렇다).
-/// </param>
+/// <param name="IsRepresentative">FileServer 가 대표로 정한 파일인가. 그룹에 대표가 없을 때만 참이다.</param>
 public sealed record ImportedAvatar(string GroupId, string FileId, string DownloadUrl, bool IsRepresentative);
 
-/// <summary>
-/// 소셜 공급자의 프로필 사진을 <b>우리 FileServer 로 옮겨</b> 계정 대표 사진으로 쓸 수
-/// 있게 만든다.
-/// </summary>
-/// <remarks>
-/// <para>
-/// [왜 주소를 그대로 적지 않나]
-/// </para>
-/// <para>
-/// 포털은 계정 사진(<c>Avatar</c>)에서 <b>우리 파일 번호만</b> 뽑아 쓴다
-/// (<c>FileDownload.FileIdOf</c> · <c>AvatarIconResolver</c>). 바깥 주소는 「사진 없음」
-/// 으로 본다 — 화면을 열 때마다 바깥으로 요청이 나가지 않게 하려는 규칙이다.
-/// 그래서 공급자 주소를 적으면 어디에도 보이지 않는다. 바이트를 받아 우리
-/// 파일로 올려야 헤더·조직도·알림 아이콘이 모두 같은 길로 그린다.
-/// </para>
-/// <para>
-/// [올리는 모양은 내 정보의 사진 올리기와 같다]
-/// </para>
-/// <para>
-/// <c>POST /group/upload</c> 에 <c>files</c> · <c>bizType=PROFILE</c> 을 보내 새 그룹을
-/// 만든다(셸의 <c>ProfilePhotoUpload</c>). 첫 장이 저절로 대표가 되므로 대표 지정을
-/// 따로 부르지 않는다. 그래서 신청자가 승인 뒤 [내 정보 → 프로필 사진] 을 열면
-/// 이 사진이 대표로 걸린 그룹이 그대로 보이고, 거기서 바꾸거나 더할 수 있다.
-/// </para>
-/// <para>
-/// FileServer 는 게이트웨이를 거치지 않고 부른다. 사용자 토큰이 없는 자리(가입
-/// 신청은 익명이다)라 게이트웨이의 JWT 검사를 통과할 수 없다. 서비스끼리의
-/// 직접 호출은 메일·푸시와 같은 규약이다.
-/// </para>
-/// <para>
-/// [받아 오는 주소를 좁힌다]
-/// </para>
-/// <para>
-/// 서버가 바깥 주소를 대신 여는 일이라, 공급자 응답에 엉뚱한 주소가 섞이면
-/// 내부망을 두드리는 도구가 된다. 그래서 https · 공급자별 허용 호스트
-/// (<c>PictureHosts</c>) · 크기 상한 · <c>image/*</c> 를 모두 맞아야만 받는다.
-/// </para>
-/// <para>
-/// <b>실패해도 가입 신청은 그대로 된다.</b> 사진은 곁들이는 것이라 로그만 남긴다.
-/// </para>
-/// </remarks>
+/// <summary>소셜 공급자 프로필 사진을 우리 FileServer 로 옮겨 계정 대표 사진으로 건다.</summary>
+/// 포털은 Avatar 에서 우리 파일 번호만 쓰므로 바깥 주소를 적으면 「사진 없음」이 된다. 서버가 바깥 주소를 여는 일이라 https·허용 호스트·크기 상한·image/* 를 모두 맞아야 받는다.
 public class SocialAvatarImporter(
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
@@ -68,17 +26,12 @@ public class SocialAvatarImporter(
     /// <summary>받을 사진의 상한. 프로필 사진은 커야 수백 KB 다.</summary>
     private const long MaxBytes = 5 * 1024 * 1024;
 
-    /// <summary>
-    /// 사진을 받아 FileServer 에 올린다. 어느 단계든 실패하면 <c>null</c>.
-    /// </summary>
+    /// <summary>사진을 받아 FileServer 에 올린다. 어느 단계든 실패하면 <c>null</c>.</summary>
     /// <param name="pictureUrl">공급자가 준 사진 주소(https).</param>
     /// <param name="allowedHosts">받아도 되는 호스트(끝이 같으면 된다). 비어 있으면 받지 않는다.</param>
     /// <param name="provider">공급자 열쇠. 파일 이름에 쓴다.</param>
     /// <param name="createdBy">FileServer 기록에 남길 이름(<c>X-User-Id</c>).</param>
-    /// <param name="groupId">
-    /// 이미 있는 사진 그룹. 주면 <b>그 그룹에 한 장을 더한다</b>([내 정보] 의 카카오 연결).
-    /// 없으면 새 그룹을 만든다(가입 신청).
-    /// </param>
+    /// <param name="groupId">이미 있는 그룹이면 그 그룹에 한 장을 더하고, 없으면 새 그룹을 만든다(가입 신청).</param>
     /// <param name="ct">취소 토큰.</param>
     public async Task<ImportedAvatar?> ImportAsync(
         string pictureUrl, IReadOnlyCollection<string> allowedHosts, string provider, string createdBy,
@@ -160,10 +113,7 @@ public class SocialAvatarImporter(
         return (buffer.ToArray(), contentType);
     }
 
-    /// <summary>
-    /// 그룹의 대표 사진을 바꾼다(<c>PUT /group/{g}/representative/{f}</c>).
-    /// [내 정보] 의 대표 지정 단추가 부르는 것과 같은 자리다.
-    /// </summary>
+    /// <summary>그룹의 대표 사진을 바꾼다. [내 정보] 의 대표 지정 단추가 부르는 것과 같은 자리다.</summary>
     public async Task<bool> SetRepresentativeAsync(
         string groupId, string fileId, string createdBy, CancellationToken ct = default)
     {
@@ -232,11 +182,7 @@ public class SocialAvatarImporter(
         return imported;
     }
 
-    /// <summary>
-    /// 응답에서 그룹과 첫 파일 주소를 꺼낸다. 봉투가
-    /// <c>{ data: { result: [ { groupId, files: [ { downloadUrl } ] } ] } }</c> 다
-    /// (셸의 <c>ProfilePhotoUpload.ReadGroupId</c> 와 같은 모양).
-    /// </summary>
+    /// <summary>응답에서 그룹과 첫 파일 주소를 꺼낸다. 셸의 ProfilePhotoUpload.ReadGroupId 와 같은 모양이다.</summary>
     private static ImportedAvatar? Read(string body)
     {
         using var json = JsonDocument.Parse(body);

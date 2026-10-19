@@ -3,26 +3,8 @@ using JSini.Web.Models;
 
 namespace JSini.Web.Admin.Api;
 
-/// <summary>
-/// 포털관리 화면들이 쓰는 조회·저장. 게이트웨이를 거친다.
-///
-/// [경로가 세 서비스로 갈린다]
-///
-/// 포털관리는 "관리 화면 묶음" 이지 한 서비스가 아니다. 계정·역할·부서·메뉴·
-/// 다국어는 <c>auth/*</c>(AuthServer), 푸시 통계·이력은
-/// <c>helpdesk/dashboard/*</c>(HelpDeskServer), 알림 설정은
-/// <c>notify/*</c>(NotificationServer) 다.
-///
-/// <b>화면이 그 사정을 알 필요는 없다.</b> 여기서 경로만 맞춰 주고, 화면은
-/// 메서드 이름으로 부른다. 서비스가 옮겨 다녀도 고칠 곳이 한 군데다.
-///
-/// [푸시 통계가 헬프데스크에 있는 이유]
-///
-/// 발송 이력 표를 헬프데스크가 들고 있다. 구독 주인을
-/// <c>(int Admin.Id, UserType)</c> 로 잡아 두어 포털 로그인 아이디로는 맞출 수가
-/// 없었고, 옮기려면 표를 새로 설계해야 해서 그대로 두었다
-/// (결정 기록 29-notification-server "일부러 옮기지 않은 것").
-/// </summary>
+/// <summary>포털관리 화면들이 쓰는 조회·저장. 게이트웨이를 거친다.
+/// 계정·역할·부서·메뉴·다국어는 <c>auth/*</c>(AuthServer), 푸시 통계·이력은 <c>helpdesk/dashboard/*</c>, 알림 설정은 <c>notify/*</c>.</summary>
 public sealed class AdminClient(GatewayClient gateway)
 {
     // ── 공지 ────────────────────────────────────────────────────
@@ -47,13 +29,8 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task<IReadOnlyList<AccountDto>> GetAccountsAsync(CancellationToken ct = default)
         => gateway.GetListAsync<AccountDto>("auth/system/account/list", ct);
 
-    /// <summary>
-    /// 계정을 만든다.
-    ///
-    /// <b>돌려받는 값을 버리면 안 된다.</b> 서버가 발급한 첫 비밀번호가
-    /// <see cref="AccountDto.InitialPassword"/> 에 실려 오는데, 저장은 해시로
-    /// 되어 있어 <b>이 응답을 놓치면 아무도 그 값을 알 수 없다.</b>
-    /// </summary>
+    /// <summary>계정을 만든다. 돌려받는 값을 버리면 안 된다. 서버가 발급한 첫 비밀번호가 <see cref="AccountDto.InitialPassword"/> 에 실려 오는데, 저장은
+    /// 해시로 되어 있어 이 응답을 놓치면 아무도 그 값을 알 수 없다.</summary>
     public Task<AccountDto?> CreateAccountAsync(SaveAccountDto account, CancellationToken ct = default)
         => gateway.PostAsync<AccountDto>("auth/system/account", account, ct);
 
@@ -63,27 +40,12 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task DeleteAccountAsync(string id, CancellationToken ct = default)
         => gateway.DeleteAsync($"auth/system/account/{id}", ct);
 
-    /// <summary>
-    /// 기존 계정을 대상 계정으로 결합한다. 소셜 연동, 연락처 등이 대상 계정으로 이전되고 원본 계정은 정리된다.
-    /// </summary>
+    /// <summary>기존 계정을 대상 계정으로 결합한다. 소셜 연동, 연락처 등이 대상 계정으로 이전되고 원본 계정은 정리된다.</summary>
     public Task MergeAccountAsync(string sourceId, string targetId, CancellationToken ct = default)
         => gateway.PostAsync($"auth/system/account/{Uri.EscapeDataString(sourceId)}/merge?targetId={Uri.EscapeDataString(targetId)}", null, ct);
 
-    /// <summary>
-    /// 그 계정의 비밀번호를 초기화한다. 서버가 새로 발급한 값을 돌려준다.
-    ///
-    /// <para>
-    /// <b>돌려받는 값을 버리면 안 된다</b> — 등록과 같은 이유다. 저장은
-    /// 해시라서 이 응답이 그 값을 볼 수 있는 유일한 자리이고, 놓치면
-    /// 다시 초기화하는 수밖에 없다.
-    /// </para>
-    ///
-    /// <para>
-    /// 본문이 없다. 바꿀 값을 고르는 것이 아니라 <b>서버가 발급하는</b> 것이라
-    /// 보낼 것이 없다 — 관리자가 정한 값을 받으면 그 값이 사람 손과 화면을
-    /// 거치는 동안 여러 계정에 같은 것이 깔린다.
-    /// </para>
-    /// </summary>
+    /// <summary>그 계정의 비밀번호를 초기화한다. 서버가 새로 발급한 값을 돌려준다. 돌려받는 값을 버리면 안 된다 — 등록과 같은 이유다. 저장은 해시라서 이 응답이 그 값을 볼 수 있는
+    /// 유일한 자리이고, 놓치면 다시 초기화하는 수밖에 없다. 본문이 없다. 바꿀 값을 고르는 것이 아니라 서버가 발급하는 것이라 보낼 것이 없다</summary>
     public Task<IssuedPasswordDto?> ResetAccountPasswordAsync(string id, CancellationToken ct = default)
         => gateway.PostAsync<IssuedPasswordDto>($"auth/system/account/{id}/password-reset", null, ct);
 
@@ -101,12 +63,8 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task DeleteRoleAsync(string id, CancellationToken ct = default)
         => gateway.DeleteAsync($"auth/system/role/{id}", ct);
 
-    /// <summary>
-    /// 역할에 걸린 사람.
-    ///
-    /// <b>돌려주는 모양이 <see cref="AccountDto"/> 와 다르다</b> —
-    /// <c>roleNames</c> 가 목록이 아니라 문자열 하나다. 그래서 전용 타입으로 받는다.
-    /// </summary>
+    /// <summary>역할에 걸린 사람. 돌려주는 모양이 <see cref="AccountDto"/> 와 다르다 — <c>roleNames</c> 가 목록이 아니라 문자열 하나다. 그래서 전용
+    /// 타입으로 받는다.</summary>
     public Task<IReadOnlyList<RoleUserDto>> GetRoleUsersAsync(string roleId, CancellationToken ct = default)
         => gateway.GetListAsync<RoleUserDto>($"auth/system/role-permission/roles/{roleId}/users", ct);
 
@@ -114,13 +72,7 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task<IReadOnlyList<RoleUserDto>> GetRoleEligibleUsersAsync(string roleId, CancellationToken ct = default)
         => gateway.GetListAsync<RoleUserDto>($"auth/system/role-permission/roles/{roleId}/eligible-users", ct);
 
-    /// <summary>
-    /// 역할에 사람을 건다.
-    ///
-    /// <b>본문 이름이 <c>accountIds</c> 다.</b> 한동안 <c>userIds</c> 로 보내고
-    /// 있었는데, 서버는 그 이름을 모르므로 빈 목록으로 읽고 아무도 걸지 않은 채
-    /// 200 을 돌려준다 — 화면에는 성공으로 보이고 아무 일도 안 일어난다.
-    /// </summary>
+    /// <summary>역할에 사람을 건다. 본문 이름이 <c>accountIds</c> 다. — 화면에는 성공으로 보이고 아무 일도 안 일어난다.</summary>
     public Task AssignRoleUsersAsync(string roleId, IReadOnlyList<string> accountIds, CancellationToken ct = default)
         => gateway.PostAsync($"auth/system/role-permission/roles/{roleId}/users/assign", new { accountIds }, ct);
 
@@ -131,39 +83,12 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task<IReadOnlyList<RoleMenuDto>> GetRoleMenusAsync(string roleId, CancellationToken ct = default)
         => gateway.GetListAsync<RoleMenuDto>($"auth/system/role-permission/roles/{roleId}/menus", ct);
 
-    /// <summary>
-    /// 역할-메뉴 권한을 저장한다.
-    ///
-    /// <para>
-    /// <b>본문은 배열 그대로다 — 감싸면 안 된다.</b> 서버가
-    /// <c>[FromBody] List&lt;SaveRoleMenuDto&gt;</c> 로 받는다. 한동안
-    /// <c>new { menus }</c> 로 감싸 보내고 있었고, 그 결과가 <b>저장할 때마다
-    /// 500</b> 이었다 —
-    /// <c>Failed to read parameter "List&lt;SaveRoleMenuDto&gt; request"</c>.
-    /// </para>
-    ///
-    /// <para>
-    /// 화면에는 「서버 내부 오류」로만 보여서 <b>원인이 본문 모양으로 보이지
-    /// 않는다.</b> 역할 관리와 메뉴롤 두 화면이 이 한 줄을 함께 쓰므로 둘 다
-    /// 저장이 안 되고 있었다.
-    /// </para>
-    ///
-    /// <para>
-    /// 보낸 목록에 없는 메뉴는 <b>건드리지 않는다</b>(서버가 메뉴별로
-    /// upsert 한다). 그래서 화면은 읽어 온 전체 목록을 그대로 돌려보낸다 —
-    /// 일부만 보내면 나머지가 옛 값으로 남는다.
-    /// </para>
-    /// </summary>
+    /// <summary>역할-메뉴 권한 저장. 본문은 배열 그대로 보낸다 — 객체로 감싸면 서버가 거절한다.</summary>
     public Task SaveRoleMenusAsync(string roleId, IReadOnlyList<RoleMenuDto> menus, CancellationToken ct = default)
         => gateway.PostAsync($"auth/system/role-permission/roles/{roleId}/menus/save", menus, ct);
 
-    /// <summary>
-    /// 메뉴 하나를 기준으로 본 권한 현황 — <b>「이 메뉴는 누가 쓸 수 있나」</b>.
-    ///
-    /// 읽기만 있다. 저장은 <see cref="SaveRoleMenusAsync"/> 와
-    /// <see cref="RemoveRoleScopeAsync"/> 를 그대로 쓴다 — 같은 일을 하는
-    /// 저장 경로를 둘로 만들면 한쪽에만 규칙이 붙는다.
-    /// </summary>
+    /// <summary>메뉴 하나를 기준으로 본 권한 현황 — 「이 메뉴는 누가 쓸 수 있나」. 읽기만 있다. 저장은 <see cref="SaveRoleMenusAsync"/> 와 <see
+    /// cref="RemoveRoleScopeAsync"/> 를 그대로 쓴다 — 같은 일을 하는 저장 경로를 둘로 만들면 한쪽에만 규칙이 붙는다.</summary>
     public Task<MenuRoleDto?> GetMenuRoleAsync(string menuId, CancellationToken ct = default)
         => gateway.GetOneAsync<MenuRoleDto>($"auth/system/menu-role/{menuId}", ct);
 
@@ -181,12 +106,8 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task DeleteCompanyAsync(string id, CancellationToken ct = default)
         => gateway.DeleteAsync($"auth/system/companies/{id}", ct);
 
-    /// <summary>
-    /// 회사 차례를 다시 매긴다. 실은 순서가 그대로 <c>sort_order</c> 가 된다.
-    ///
-    /// <b>옮긴 줄 하나가 아니라 목록 전체를 보낸다</b> — 서버가 자리를 보고
-    /// 번호를 다시 매기기 때문이다(AuthServer <c>ReorderCompaniesAsync</c>).
-    /// </summary>
+    /// <summary>회사 차례를 다시 매긴다. 실은 순서가 그대로 <c>sort_order</c> 가 된다. 옮긴 줄 하나가 아니라 목록 전체를 보낸다 — 서버가 자리를 보고 번호를 다시 매기기
+    /// 때문이다(AuthServer <c>ReorderCompaniesAsync</c>).</summary>
     public Task ReorderCompaniesAsync(
         IReadOnlyList<string> orderedIds, CancellationToken ct = default)
         => gateway.PostAsync("auth/system/companies/reorder", orderedIds, ct);
@@ -194,12 +115,7 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task<IReadOnlyList<AccountDto>> GetCompanyUsersAsync(string companyId, CancellationToken ct = default)
         => gateway.GetListAsync<AccountDto>($"auth/system/companies/{companyId}/users", ct);
 
-    /// <summary>
-    /// 아직 어느 회사에도 안 속한 사람.
-    ///
-    /// <b>회사를 가리지 않는다</b> — 「소속이 없는 사람」이라 어느 회사에 넣든
-    /// 후보가 같다. 서버가 회사 식별자를 받지 않는 이유가 그것이다.
-    /// </summary>
+    /// <summary>아직 어느 회사에도 안 속한 사람. 회사를 가리지 않는다 — 「소속이 없는 사람」이라 어느 회사에 넣든 후보가 같다. 서버가 회사 식별자를 받지 않는 이유가 그것이다.</summary>
     public Task<IReadOnlyList<AccountDto>> GetCompanyEligibleUsersAsync(CancellationToken ct = default)
         => gateway.GetListAsync<AccountDto>("auth/system/companies/eligible-users", ct);
 
@@ -208,25 +124,15 @@ public sealed class AdminClient(GatewayClient gateway)
         string companyId, IReadOnlyList<string> userIds, CancellationToken ct = default)
         => gateway.PostAsync($"auth/system/companies/{companyId}/users", userIds, ct);
 
-    /// <summary>
-    /// 소속을 푼다. <b>회사 식별자를 받지 않는다</b> — 사람에게서 소속을 떼는
-    /// 일이라 어느 회사였는지는 서버가 안다. 여럿을 한 번에 보낸다.
-    /// </summary>
+    /// <summary>소속을 푼다. 회사 식별자를 받지 않는다 — 사람에게서 소속을 떼는 일이라 어느 회사였는지는 서버가 안다. 여럿을 한 번에 보낸다.</summary>
     public Task RemoveCompanyUsersAsync(IReadOnlyList<string> userIds, CancellationToken ct = default)
         => gateway.PostAsync("auth/system/companies/users/remove", userIds, ct);
 
     public Task<IReadOnlyList<DeptDto>> GetDeptsAsync(CancellationToken ct = default)
         => GetDeptsAsync(null, ct);
 
-    /// <summary>
-    /// 부서 나무.
-    ///
-    /// <para>
-    /// <b>회사를 비우는 것은 「전체」가 아니다</b> — 서버가 <b>요청한 사람의
-    /// 회사</b>로 좁힌다(<c>DepartmentService.GetDeptListAsync</c>). 조직도처럼
-    /// 남의 회사를 골라 보는 화면은 반드시 식별자를 넘긴다.
-    /// </para>
-    /// </summary>
+    /// <summary>부서 나무. 회사를 비우는 것은 「전체」가 아니다 — 서버가 요청한 사람의 회사로 좁힌다(<c>DepartmentService.GetDeptListAsync</c>). 조직도처럼
+    /// 남의 회사를 골라 보는 화면은 반드시 식별자를 넘긴다.</summary>
     public Task<IReadOnlyList<DeptDto>> GetDeptsAsync(string? companyId, CancellationToken ct = default)
         => gateway.GetListAsync<DeptDto>(
             "auth/system/dept/list" + Query(("companyId", companyId)), ct);
@@ -243,37 +149,20 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task<IReadOnlyList<AccountDto>> GetDeptUsersAsync(string deptId, CancellationToken ct = default)
         => gateway.GetListAsync<AccountDto>($"auth/system/dept/{deptId}/users", ct);
 
-    /// <summary>
-    /// 부서가 없는 사람.
-    ///
-    /// <para>
-    /// 회사를 <b>비우면 회사도 부서도 없는 사람</b>만 온다. 회사를 주면 그 회사에
-    /// 속했는데 부서만 없는 사람이 함께 온다 — 조직도의 「미소속」 목록은 앞엣것을
-    /// 쓴다(어느 회사 조직도를 보고 있든 후보가 같아야 한다).
-    /// </para>
-    /// </summary>
+    /// <summary>부서가 없는 사람. 회사를 비우면 회사도 부서도 없는 사람만 온다. 회사를 주면 그 회사에 속했는데 부서만 없는 사람이 함께 온다 — 조직도의 「미소속」 목록은 앞엣것을
+    /// 쓴다(어느 회사 조직도를 보고 있든 후보가 같아야 한다).</summary>
     public Task<IReadOnlyList<AccountDto>> GetDeptEligibleUsersAsync(
         string? companyId = null, CancellationToken ct = default)
         => gateway.GetListAsync<AccountDto>(
             "auth/system/dept/eligible-users" + Query(("companyId", companyId)), ct);
 
-    /// <summary>
-    /// 부서를 다른 부서 아래로 옮긴다. <b>하위 부서와 소속 인원이 함께 따라간다.</b>
-    /// 상위를 비우면 회사 직속이 된다.
-    /// </summary>
+    /// <summary>부서를 다른 부서 아래로 옮긴다. 하위 부서와 소속 인원이 함께 따라간다. 상위를 비우면 회사 직속이 된다.</summary>
     public Task MoveDeptAsync(string id, string? parentId, CancellationToken ct = default)
         => gateway.PostAsync(
             $"auth/system/dept/{id}/move" + Query(("parentId", parentId)), null, ct);
 
-    /// <summary>
-    /// 끌어 옮긴 부서 배치를 저장한다. <b>상위와 순번이 함께</b> 바뀐다.
-    ///
-    /// <para>
-    /// <see cref="MoveDeptAsync"/> 와 갈리는 자리다 — 그쪽은 상위만 바꾸고
-    /// 순번을 건드리지 않아, 끌어 놓은 자리가 다시 읽으면 제자리로 돌아간다.
-    /// 떠난 묶음과 도착한 묶음을 통째로 보낸다.
-    /// </para>
-    /// </summary>
+    /// <summary>끌어 옮긴 부서 배치를 저장한다. 상위와 순번이 함께 바뀐다. <see cref="MoveDeptAsync"/> 와 갈리는 자리다 — 그쪽은 상위만 바꾸고 순번을 건드리지 않아,
+    /// 끌어 놓은 자리가 다시 읽으면 제자리로 돌아간다. 떠난 묶음과 도착한 묶음을 통째로 보낸다.</summary>
     public Task ReorderDeptsAsync(IReadOnlyList<DeptOrderDto> items, CancellationToken ct = default)
         => gateway.PostAsync("auth/system/dept/reorder", items, ct);
 
@@ -316,24 +205,12 @@ public sealed class AdminClient(GatewayClient gateway)
 
     // ── 상태 ────────────────────────────────────────────────────
 
-    /// <summary>
-    /// 배포 현황. GitHub 실행 이력과 도커 컨테이너 상태를 서버가 합쳐 준다.
-    ///
-    /// <b>목록이 아니라 단건이다</b> — 응답이 <c>{ github, docker }</c> 한 덩어리다.
-    /// </summary>
+    /// <summary>배포 현황. GitHub 실행 이력과 도커 컨테이너 상태를 서버가 합쳐 준다. 목록이 아니라 단건이다 — 응답이 <c>{ github, docker }</c> 한 덩어리다.</summary>
     public Task<DeployStatusDto?> GetDeployStatusAsync(CancellationToken ct = default)
         => gateway.GetOneAsync<DeployStatusDto>("auth/deploy-status", ct);
 
-    /// <summary>
-    /// 쌓인 도커 이미지를 정리한다 (D17). <b>관리자만</b> — 판정은 서버가 한다.
-    ///
-    /// <para>
-    /// <paramref name="dryRun"/> 이 참이면 <b>지우지 않고 지울 목록만</b> 받는다.
-    /// 화면이 그것을 확인 창에 그대로 띄운다. 목록을 화면이 스스로 계산하지
-    /// 않는 이유는 서버 쪽 주석에 있다 — 규칙이 두 곳에 생기면 <b>보여 준 것과
-    /// 지워지는 것이 달라진다.</b>
-    /// </para>
-    /// </summary>
+    /// <summary>쌓인 도커 이미지를 정리한다 (D17). 관리자만 — 판정은 서버가 한다. <paramref name="dryRun"/> 이 참이면 지우지 않고 지울 목록만 받는다. 화면이
+    /// 그것을 확인 창에 그대로 띄운다. 목록을 화면이 스스로 계산하지 않는 이유는 서버 쪽 주석에 있다 — 규칙이 두 곳에 생기면 보여 준 것과 지워지는 것이 달라진다.</summary>
     public Task<DockerCleanupDto?> CleanupDockerImagesAsync(bool dryRun, CancellationToken ct = default)
         => gateway.PostAsync<DockerCleanupDto>(
             $"auth/deploy-status/cleanup?dryRun={(dryRun ? "true" : "false")}", body: null, ct);
@@ -342,18 +219,8 @@ public sealed class AdminClient(GatewayClient gateway)
         => gateway.GetOneAsync<PlayerReleaseDto>("auth/system/player-release/status", ct);
 
     // ── 푸시 발송 기록 (NotificationServer) ─────────────────────
-    //
-    // **출처가 바뀌었다.** 아래 셋과 발송 이력은 한동안 헬프데스크 DB 를
-    // 읽었는데(`helpdesk/dashboard/…`), 거기에 쓰는 것은 헬프데스크 자신의
-    // 발송 코드뿐이다. 포털관리의 「메시지 발송」은 알림 서비스로 보내므로
-    // **보낸 것이 화면에 한 줄도 안 나왔다.**
-    //
-    // 이제 보낸 쪽(NotificationServer)이 자기 기록을 갖고 그것을 낸다
-    // (`scom.push_send_logs`). 봉투 모양은 헬프데스크 것과 같게 맞춰 두어서
-    // 화면은 그대로 두고 주소만 옮겼다.
-    //
-    // 도달·열람(아래 셋)은 **아직 헬프데스크 쪽에 남는다** — 그것을 세려면
-    // 서비스워커가 「받았다/눌렀다」를 되돌려 줘야 하는데 그 길이 아직 없다.
+    // 포털관리의 「메시지 발송」은 알림 서비스로 보내므로 **보낸 것이 화면에 한 줄도 안 나왔다.** 이제 보낸 쪽(NotificationServer)이 자기 기록을 갖고 그것을
+    // 낸다 (`scom.push_send_logs`). 봉투 모양은 헬프데스크 것과 같게 맞춰 두어서 화면은 그대로 두고 주소만 옮겼다.
     public Task<PushStatsDto?> GetPushStatsAsync(int days = 7, CancellationToken ct = default)
         => gateway.GetFlexibleAsync<PushStatsDto>(
             $"notification/notifications/push/stats?days={days}", ct);
@@ -369,15 +236,10 @@ public sealed class AdminClient(GatewayClient gateway)
             $"notification/notifications/push/failure-reasons?days={days}", ct);
 
     // ── 도달·열람 (HelpDeskServer 의 대시보드 그룹) ─────────────
-    //
-    // 아래 셋은 **헬프데스크 서비스**의 통계다. 그쪽 봉투는 `data` 안에
-    // `result` 한 겹이 없어서, 그 겹을 전제하는 GetOneAsync/GetListAsync 로는
+    // 아래 셋은 **헬프데스크 서비스**의 통계다. 그쪽 봉투는 `data` 안에 `result` 한 겹이 없어서, 그 겹을 전제하는 GetOneAsync/GetListAsync 로는
     // 「응답을 해석하지 못했습니다」로 끝난다. 모양을 가리지 않는 쪽을 쓴다.
 
-    /// <summary>
-    /// 도달·열람 요약. <b>발송 성공과 열람은 다른 이야기다</b> — 성공률만 보면
-    /// 「보냈으니 됐다」로 끝나고, 아무도 안 읽는 알림을 계속 보내게 된다.
-    /// </summary>
+    /// <summary>도달·열람 요약. 발송 성공과 열람은 다른 이야기다 — 성공률만 보면 「보냈으니 됐다」로 끝나고, 아무도 안 읽는 알림을 계속 보내게 된다.</summary>
     public Task<PushEngagementDto?> GetPushEngagementAsync(int days = 7, CancellationToken ct = default)
         => gateway.GetFlexibleAsync<PushEngagementDto>(
             $"helpdesk/dashboard/push-engagement-stats?days={days}", ct);
@@ -394,23 +256,7 @@ public sealed class AdminClient(GatewayClient gateway)
         => gateway.GetFlexibleListAsync<PushUserStatDto>(
             $"helpdesk/dashboard/user-engagement-stats?topN={topN}", ct);
 
-    /// <summary>
-    /// 발송 이력. <b>총건수를 함께 돌려준다.</b>
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 전에는 <c>pageSize</c> 기본값이 50 이고 <b>부르는 화면이 페이지를 넘기지
-    /// 않았다.</b> 그래서 51번째부터는 볼 방법이 없었는데 표에 아무 표시도 안 나서
-    /// 사용자는 그게 전부라고 읽었다 — 느린 것보다 나쁘다.
-    /// </para>
-    ///
-    /// <para>
-    /// 기본값을 없애 <b>부르는 자리가 상한을 정하게</b> 했다. 그리고 총건수를
-    /// 함께 받아 화면이 「전체 N건 중 M건」을 말할 수 있게 한다.
-    /// 기간은 서버가 받는데(<c>startDate</c> · <c>endDate</c>) 아무도 안 싣고
-    /// 있었다 — 이력은 자라기만 하므로 조건 없이 부르면 언젠가 못 쓰게 된다.
-    /// </para>
-    /// </remarks>
+    /// <summary>발송 이력. 총건수를 함께 돌려준다.</summary>
     public Task<(IReadOnlyList<PushLogDto> Items, int Total)> GetPushLogsAsync(
         int pageSize,
         string? reason = null,
@@ -423,38 +269,13 @@ public sealed class AdminClient(GatewayClient gateway)
                 ("page", 1),
                 ("pageSize", pageSize),
                 ("failureReason", reason),
-                // 알림구분은 **서버가 거른다.** 사유(부분 일치)와 달리 공통코드에서
-                // 고른 값이라 한 글자도 안 틀리고, 상한(위 `pageSize`)에 걸리기
-                // 전에 좁혀야 「배포 알림만」이 이레치에서 다 보인다.
+                // 알림구분은 **서버가 거른다.** 사유(부분 일치)와 달리 공통코드에서 고른 값이라 한 글자도 안 틀리고, 상한(위 `pageSize`)에 걸리기 전에 좁혀야 「배포 알림만」이
+                // 이레치에서 다 보인다.
                 ("category", category),
                 ("startDate", from?.ToString("yyyy-MM-dd")),
                 ("endDate", to?.ToString("yyyy-MM-dd"))), ct);
 
-    /// <summary>
-    /// 내 알림 이력 (알림함). <b>「내게 온 것」이라 발송 기록을 받는 쪽에서 본
-    /// 것이다</b> — 같은 표를 발송 이력과 다른 각도로 읽는다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// [출처가 바뀌었다 — 포털에서 보낸 알림이 여기 안 들어왔다]
-    /// </para>
-    ///
-    /// <para>
-    /// 헬프데스크의 알림 표를 읽고 있었다. 거기에 쓰는 것은 헬프데스크 자신뿐이라
-    /// 포털관리의 「메시지 발송」으로 받은 알림은 <b>받은 사람 화면에도 안 보였다.</b>
-    /// </para>
-    ///
-    /// <para>
-    /// 한 줄이 <b>발송 한 번</b>이다. 기기 둘을 쓰는 사람에게 같은 알림이 두 줄로
-    /// 보이지 않도록 서버가 묶어 준다(<c>batch_id</c>).
-    /// </para>
-    ///
-    /// <para>
-    /// 페이징은 여전히 없다 — 기간으로 자른다(화면 기본이 최근 한 달). 서버가
-    /// 상한(2,000줄)을 들고 있다. 제목·내용 검색도 이 상한에 걸리기 전에 서버에서
-    /// 거른다.
-    /// </para>
-    /// </remarks>
+    /// <summary>내 알림 이력 (알림함). 「내게 온 것」이라 발송 기록을 받는 쪽에서 본 것이다 — 같은 표를 발송 이력과 다른 각도로 읽는다.</summary>
     public Task<IReadOnlyList<NotificationDto>> GetMyNotificationsAsync(
         DateTime? from = null,
         DateTime? to = null,
@@ -468,35 +289,21 @@ public sealed class AdminClient(GatewayClient gateway)
                 ("endDate", to?.ToString("yyyy-MM-dd")),
                 ("category", category),
                 ("keyword", keyword),
-                // **안 읽은 것만도 서버로 보낸다.** 화면이 받아 둔 것에서 또
-                // 거르지만(누르는 즉시 반영된다) 그것만으로는 상한(2,000줄)을
-                // 읽은 줄이 먼저 먹는다 — 이 화면의 기본 조건이 그것이라
-                // 한 달치를 받아 몇 줄만 그리게 된다.
+                // **안 읽은 것만도 서버로 보낸다.** 화면이 받아 둔 것에서 또 거르지만(누르는 즉시 반영된다) 그것만으로는 상한(2,000줄)을 읽은 줄이 먼저 먹는다 — 이 화면의 기본
+                // 조건이 그것이라 한 달치를 받아 몇 줄만 그리게 된다.
                 ("unreadOnly", unreadOnly ? "true" : null)), ct);
 
-    /// <summary>
-    /// 읽음으로 표시한다. <b>열쇠는 「발송 한 번」</b>이라 기기가 여럿이어도
-    /// 한 번에 찍힌다 — 줄 단위로 찍으면 다른 기기 줄이 안 읽은 채로 남는다.
-    /// </summary>
+    /// <summary>읽음으로 표시한다. 열쇠는 「발송 한 번」이라 기기가 여럿이어도 한 번에 찍힌다 — 줄 단위로 찍으면 다른 기기 줄이 안 읽은 채로 남는다.</summary>
     public Task MarkNotificationReadAsync(string id, CancellationToken ct = default)
         => gateway.PostAsync(
             $"notification/notifications/inbox/{Uri.EscapeDataString(id)}/read", new { }, ct);
 
-    /// <summary>
-    /// 알림함에서 한 건을 치운다.
-    /// </summary>
+    /// <summary>알림함에서 한 건을 치운다.</summary>
     public Task DeleteNotificationAsync(string id, CancellationToken ct = default)
         => gateway.DeleteAsync(
             $"notification/notifications/inbox/{Uri.EscapeDataString(id)}", ct);
 
-    /// <summary>
-    /// 체크한 것 여럿을 <b>한 번에</b> 읽음으로 찍는다.
-    /// </summary>
-    /// <remarks>
-    /// 한 건짜리 길을 목록만큼 되풀이해 부르지 않는 까닭은 왕복 수와
-    /// <b>절반만 처리되는 것</b> 때문이다 — 서버에서 저장이 한 번이라
-    /// 전부 되거나 전부 안 된다(<c>MarkInboxReadMany</c>).
-    /// </remarks>
+    /// <summary>체크한 것 여럿을 한 번에 읽음으로 찍는다.</summary>
     public Task MarkNotificationsReadAsync(IEnumerable<string> ids, CancellationToken ct = default)
         => gateway.PostAsync(
             "notification/notifications/inbox/read-many", new { ids = ids.ToArray() }, ct);
@@ -510,67 +317,29 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task<GatewayStatusDto?> GetGatewayStatusAsync(CancellationToken ct = default)
         => gateway.GetFlexibleAsync<GatewayStatusDto>("gateway/status", ct);
 
-    /// <summary>
-    /// AI 제공자 상태.
-    ///
-    /// 헬스체크와 다른 것을 본다 — 컨테이너가 떠 있어도 <b>키가 없거나 하루
-    /// 한도를 다 썼으면</b> 대화가 안 되고, 그것은 응답 확인으로 안 잡힌다.
-    /// </summary>
+    /// <summary>AI 제공자 상태. 헬스체크와 다른 것을 본다 — 컨테이너가 떠 있어도 키가 없거나 하루 한도를 다 썼으면 대화가 안 되고, 그것은 응답 확인으로 안 잡힌다.</summary>
     public Task<AiProviderStatusDto?> GetAiProvidersAsync(CancellationToken ct = default)
         => gateway.GetOneAsync<AiProviderStatusDto>("ai/providers", ct);
 
-    /// <summary>
-    /// 소셜 로그인(구글 · 네이버 · 카카오) 설정 상태.
-    ///
-    /// <para>
-    /// AI 제공자와 <b>같은 성격의 고장</b>을 본다 — 서비스가 다 떠 있고 응답도
-    /// 하는데 <b>열쇠가 없으면</b> 가입 화면에 단추가 한 개도 서지 않는다.
-    /// 화면은 멀쩡히 200 을 주므로 응답 확인으로는 절대 안 잡힌다.
-    /// </para>
-    /// </summary>
+    /// <summary>소셜 로그인(구글 · 네이버 · 카카오) 설정 상태. AI 제공자와 같은 성격의 고장을 본다 — 서비스가 다 떠 있고 응답도 하는데 열쇠가 없으면 가입 화면에 단추가 한 개도
+    /// 서지 않는다. 화면은 멀쩡히 200 을 주므로 응답 확인으로는 절대 안 잡힌다.</summary>
     public Task<SocialConfigStatusDto?> GetSocialConfigStatusAsync(CancellationToken ct = default)
         => gateway.GetOneAsync<SocialConfigStatusDto>("auth/social/config-status", ct);
 
-    /// <summary>
-    /// LLM 장비의 하드웨어 상태 (GPU · CPU · 메모리 · 디스크 · 서비스).
-    ///
-    /// <para>
-    /// <b>장비가 꺼져 있어도 예외가 아니다.</b> <c>Reachable=false</c> 와 까닭이
-    /// 담겨 온다 — 「왜 안 보이는지」가 화면이 말해야 하는 것 중 하나라서다.
-    /// </para>
-    /// </summary>
+    /// <summary>LLM 장비의 하드웨어 상태 (GPU · CPU · 메모리 · 디스크 · 서비스). 장비가 꺼져 있어도 예외가 아니다. <c>Reachable=false</c> 와 까닭이 담겨
+    /// 온다 — 「왜 안 보이는지」가 화면이 말해야 하는 것 중 하나라서다.</summary>
     public Task<LlmHardwareDto?> GetLlmHardwareAsync(CancellationToken ct = default)
         => gateway.GetOneAsync<LlmHardwareDto>("ai/llm/hardware", ct);
 
-    /// <summary>
-    /// 사내 문서 검색(RAG)과 웹 검색(MCP)의 상태.
-    ///
-    /// <para>
-    /// 하드웨어와 <b>따로 끊어지는 것들</b>이다 — 장비가 멀쩡해도 임베딩 서버가
-    /// 죽거나 색인이 비면 답에 근거가 안 붙고, 그때도 대화는 아는 것만으로
-    /// 멀쩡히 돌아서 서비스 상태로는 갈리지 않는다.
-    /// </para>
-    /// </summary>
-    /// <param name="recheck">
-    /// 재어 둔 값(2분)을 버리고 <b>지금 다시 눌러 본다</b>. 사람이 「지금 확인」을
-    /// 눌렀을 때만 참이다 — 임베딩은 장비 CPU 를 쓰므로 10초 자동 조회가
-    /// 그때마다 부를 것이 아니다.
-    /// </param>
-    /// <param name="ct">취소 토큰.</param>
+    /// <summary>사내 문서 검색(RAG)과 웹 검색(MCP)의 상태. 하드웨어와 따로 끊어지는 것들이다 — 장비가 멀쩡해도 임베딩 서버가 죽거나 색인이 비면 답에 근거가 안 붙고, 그때도 대화는
+    /// 아는 것만으로 멀쩡히 돌아서 서비스 상태로는 갈리지 않는다.</summary>
     public Task<AiFeatureStatusDto?> GetAiFeatureStatusAsync(
         bool recheck = false, CancellationToken ct = default)
         => gateway.GetOneAsync<AiFeatureStatusDto>(
             $"ai/features/status{(recheck ? "?recheck=true" : string.Empty)}", ct);
 
-    /// <summary>
-    /// 웹 검색을 <b>한 번 실제로</b> 돌려 본다.
-    ///
-    /// <para>
-    /// 상태만으로는 안 갈리는 고장이 있다 — 서버도 떠 있고 도구 목록도 오는데
-    /// 검색 뒷단이 막혀 0건만 오는 경우다. <b>바깥으로 나가는 요청이라</b>
-    /// 사람이 누를 때만 보낸다(「정밀 확인」과 같은 성격이다).
-    /// </para>
-    /// </summary>
+    /// <summary>상태만으로는 안 갈리는 고장이 있다 — 서버도 떠 있고 도구 목록도 오는데 검색 뒷단이 막혀 0건만 오는 경우다. 바깥으로 나가는 요청이라 사람이 누를 때만 보낸다(「정밀
+    /// 확인」과 같은 성격이다).</summary>
     public Task<WebSearchCheckDto?> CheckWebSearchAsync(
         string? query = null, CancellationToken ct = default)
         => gateway.PostAsync<WebSearchCheckDto>(
@@ -580,224 +349,74 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task<IReadOnlyList<AiProviderModelsDto>> GetAiModelsAsync(CancellationToken ct = default)
         => gateway.GetListAsync<AiProviderModelsDto>("ai/models", ct);
 
-    /// <summary>
-    /// 제공자를 하나 실제로 눌러 본다 (「정밀 확인」).
-    ///
-    /// <b>돈이 드는 호출이다</b> — 유료 제공자에게 질문을 하나 던진다.
-    /// 그래서 화면이 자동으로 부르지 않고 사람이 눌렀을 때만 나간다.
-    /// </summary>
+    /// <summary>(「정밀 확인」). 돈이 드는 호출이다 — 유료 제공자에게 질문을 하나 던진다. 그래서 화면이 자동으로 부르지 않고 사람이 눌렀을 때만 나간다.</summary>
     public Task<AiDeepCheckDto?> DeepCheckAiAsync(string provider, CancellationToken ct = default)
         => gateway.PostAsync<AiDeepCheckDto>(
             $"ai/health/deep{Query(("provider", provider))}", new { }, ct);
 
-    /// <summary>
-    /// 한글 이름을 주면 AI 가 쓸 만한 <b>영문 코드</b>를 하나 골라 준다.
-    /// 「사용 여부」→ <c>USE_YN</c> 같은 식이다.
-    ///
-    /// <para>
-    /// <b>제공자·모델을 지정하지 않는다.</b> 옛 Vue 화면은 사용자가 환경설정에서
-    /// 고른 것을 실어 보냈는데, 지금 포털에는 그 설정 자체가 없다. 비워 두면
-    /// 서버가 기본 제공자를 쓴다 — 나중에 설정이 생기면 여기에 붙인다.
-    /// </para>
-    ///
-    /// <para>
-    /// <paramref name="natural"/> 은 축약형(<c>USE_YN</c>) 대신 풀어 쓴 영문을
-    /// 달라는 뜻이다. 코드 값에는 축약형이 맞아서 기본이 <c>false</c> 다.
-    /// </para>
-    ///
-    /// <para><b>한도가 드는 호출이다.</b> 사람이 「AI 추천」 단추를 누를 때만 나가게 한다.</para>
-    /// </summary>
+    /// <summary>한글 이름을 주면 AI 가 쓸 만한 영문 코드를 하나 골라 준다. 「사용 여부」→ <c>USE_YN</c> 같은 식이다. 제공자·모델을 지정하지 않는다. 비워 두면 서버가 기본
+    /// 제공자를 쓴다 — 나중에 설정이 생기면 여기에 붙인다. <paramref name="natural"/> 은 축약형(<c>USE_YN</c>) 대신 풀어 쓴 영문을 달라는 뜻이다.</summary>
     public Task<string?> SuggestCodeAsync(string word, bool natural = false, CancellationToken ct = default)
         => gateway.GetOneAsync<string>(
             $"ai/suggest-code{Query(("word", word), ("natural", natural))}", ct);
 
-    // ── 메시지 발송 ────────────────────────────────────────────
-    //
-    // **내 설정과 갈래가 다르다.** 위쪽(`NotificationClient`)은 「내가 받을
-    // 것」이고 여기는 「남에게 보내는 것」이다 — 관리 권한이 있는 화면만
-    // 부르므로 공용 자리로 올리지 않는다.
+    /// <summary>설명을 보고 메뉴 항목을 고른다(AI). 화면·아이콘 목록은 호출하는 쪽이 준다.</summary>
+    public Task<MenuSuggestionDto?> SuggestMenuAsync(MenuSuggestRequestDto body, CancellationToken ct = default)
+        => gateway.PostAsync<MenuSuggestionDto>("ai/suggest-menu", body, ct);
 
-    /// <summary>
-    /// 고른 사람들에게 웹푸시를 보낸다.
-    ///
-    /// <para>
-    /// <b>보낸 것이 0 이어도 실패가 아니다.</b> 구독한 기기가 없거나 본인이
-    /// 푸시를 꺼 두었으면 서버가 그 수(<c>OwnersWithoutSubscription</c> ·
-    /// <c>OptedOut</c>)와 까닭을 담아 돌려준다 — 화면이 그것을 그대로 옮겨야
-    /// 「보냈다는데 안 온다」가 기기 문제로 오해되지 않는다.
-    /// </para>
-    /// </summary>
+    // ── 메시지 발송 ────────────────────────────────────────────
+    // **내 설정과 갈래가 다르다.** 위쪽(`NotificationClient`)은 「내가 받을 것」이고 여기는 「남에게 보내는 것」이다 — 관리 권한이 있는 화면만 부르므로 공용
+    // 자리로 올리지 않는다.
+
+    /// <summary>고른 사람들에게 웹푸시를 보낸다. 보낸 것이 0 이어도 실패가 아니다. 구독한 기기가 없거나 본인이 푸시를 꺼 두었으면 서버가 그
+    /// 수(<c>OwnersWithoutSubscription</c> · <c>OptedOut</c>)와 까닭을 담아 돌려준다</summary>
     public Task<PushSendResultDto?> SendPushAsync(
         PushSendRequest request, CancellationToken ct = default)
         => gateway.PostAsync<PushSendResultDto>("notification/notifications/push", request, ct);
 
-    /// <summary>
-    /// 이메일을 <b>SMTP 로 바로 보낸다.</b> 성공·실패를 그 자리에서 안다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 한동안 큐 방식(<c>notifications/email</c>)으로 갔다. 그쪽은 스풀 JSON 에
-    /// <b>제목·본문·받는이 셋만</b> 담는 규약이라 — 배포 장비의 스크립트가 그
-    /// 이름으로 읽는다 — <b>HTML 본문도 첨부도 실을 자리가 없다.</b> 화면에
-    /// 서식 편집기와 첨부를 붙이면서 이 길로 옮겼다.
-    /// </para>
-    ///
-    /// <para>
-    /// 잃은 것은 <b>메일 서버가 죽어 있을 때의 버팀</b>이다. 큐 방식은 파일을
-    /// 떨어뜨려 두고 나중에 다시 밀어 넣을 수 있었지만, 직발송은 그 자리에서
-    /// 실패한다. 대신 <b>실패를 즉시 안다</b> — 큐 방식은 「넣었다」까지만
-    /// 알고 실제로 갔는지는 끝내 모른다.
-    /// </para>
-    ///
-    /// <para>
-    /// [<b>돌아오는 것은 참·거짓 하나다 — 객체가 아니다</b>]
-    /// </para>
-    ///
-    /// <para>
-    /// 서버는 <c>ApiResponse&lt;bool&gt;</c> 로 답한다. 봉투에는
-    /// <c>data.result: [true]</c> 가 실려 오는데, 이것을 객체로 읽으려 들면
-    /// <see cref="System.Text.Json.JsonException"/> 이 나고 화면에는
-    /// <b>「메일을 보내지 못했습니다 — 응답을 해석하지 못했습니다.
-    /// (notification/emails/send)」</b> 가 뜬다. <b>메일은 이미 나간 뒤다</b> —
-    /// 200 은 SMTP 가 받아 준 다음에만 오기 때문이다. 그래서 보낸 사람은
-    /// 실패한 줄 알고 다시 누르고, 받는 사람은 같은 메일을 여러 통 받는다
-    /// (2026-09-28 에 실제로 세 통이 나갔다).
-    /// </para>
-    ///
-    /// <para>
-    /// 거짓이 오는 자리도 있다 — <b>받는 사람이 모두 그 갈래의 메일을 꺼 둔
-    /// 경우</b>다. 그것은 실패가 아니라서 서버가 200 으로 답하므로
-    /// <see cref="ApiException"/> 이 나지 않는다. 부르는 쪽이 이 값을 보고
-    /// 「보냈습니다」를 띄울지 정해야 한다.
-    /// </para>
-    /// </remarks>
-    /// <returns>실제로 보냈으면 <c>true</c>.</returns>
+    /// <summary>이메일을 SMTP 로 바로 보낸다. 성공·실패를 그 자리에서 안다.</summary>
     public Task<bool> SendEmailAsync(
         EmailSendRequest request, CancellationToken ct = default)
         => gateway.PostAsync<bool>("notification/emails/send", request, ct);
 
-    /// <summary>
-    /// <b>여러 사람</b>의 알림 상태를 한 번에 읽는다 — 계정 관리 화면이
-    /// 사람마다 「PWA 구독 · 푸시 · 이메일 · 기상특보」를 함께 보여 준다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>누구를 볼지 넘기지 않는다.</b> 주인 종류(<c>jsini</c>) 전부를 받아
-    /// 화면이 로그인 아이디로 맞춘다 — 목록은 조건을 바꿀 때마다 보는 사람이
-    /// 달라지는데, 그때마다 키 예순 개를 실으면 조건 한 번에 URL 이 2KB 다.
-    /// </para>
-    ///
-    /// <para>
-    /// <b>설정을 한 번도 저장하지 않은 사람은 목록에 없다.</b> 그 사람은
-    /// 기본값이고, 화면이 그 사실을 기본값으로 그려야 한다 — 없는 것을
-    /// 「꺼짐」으로 읽으면 반대로 말하게 된다.
-    /// </para>
-    /// </remarks>
+    /// <summary>여러 사람의 알림 상태를 한 번에 읽는다 — 계정 관리 화면이 사람마다 「PWA 구독 · 푸시 · 이메일 · 기상특보」를 함께 보여 준다.</summary>
     public Task<IReadOnlyList<OwnerNotificationStateDto>> GetNotificationStatesAsync(
         CancellationToken ct = default)
         => gateway.GetListAsync<OwnerNotificationStateDto>(
             "notification/notifications/preferences?ownerType=jsini", ct);
 
-    /// <summary>
-    /// 계정 <b>하나</b>의 앱 현황 — 구독한 기기 · 수신 설정 · 주고받은 기록.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 위의 <see cref="GetNotificationStatesAsync"/> 와 짝이다. 그쪽은 목록
-    /// 화면이 <b>여럿을 훑는</b> 자리라 기기를 수 하나로 줄이고, 이쪽은
-    /// <b>한 사람을 파는</b> 자리라 기기 목록과 실제 기록까지 받는다.
-    /// </para>
-    ///
-    /// <para>
-    /// <b>표 넷을 한 번에 받는다.</b> 구독 · 설정 · 발송 기록 · 쪽지를 따로
-    /// 부르면 화면이 넷을 맞춰야 하고 왕복도 넷이다 — 그런데 「왜 저 사람만
-    /// 못 받나」의 답은 거의 언제나 그 넷의 <b>관계</b>에 있다.
-    /// </para>
-    ///
-    /// <para>
-    /// <paramref name="days"/> 는 집계·기록의 기간이다. 기기 목록과 수신 설정은
-    /// 기간과 무관하게 <b>지금 모습</b>이 온다.
-    /// </para>
-    /// </remarks>
+    /// <summary>계정 하나의 앱 현황 — 구독한 기기 · 수신 설정 · 주고받은 기록.</summary>
     public Task<AccountAppStatusDto?> GetAccountAppStatusAsync(
         string loginId, int days = 30, int take = 100, CancellationToken ct = default)
         => gateway.GetOneAsync<AccountAppStatusDto>(
             $"notification/notifications/owners/{Uri.EscapeDataString(loginId)}/app-status"
             + Query(("ownerType", "jsini"), ("days", days), ("take", take)), ct);
 
-    /// <summary>
-    /// <b>위치를 허용한 계정들</b> — 좌표 · 지역 이름 · 마지막으로 잡힌 때,
-    /// 그리고 「쪽지가 닿는가」.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 좌표는 「내 위치 날씨」를 보내려고 받아 둔 것이다. 위치 지도 화면
-    /// (<c>/admin/location/map</c>)이 그 값을 점으로 찍는다 — <b>새로 받지
-    /// 않는다.</b> 사람의 자리를 적는 칸을 하나 더 만들면 한쪽만 갱신되는 날이
-    /// 반드시 온다.
-    /// </para>
-    ///
-    /// <para>
-    /// <b>좌표가 없는 사람은 오지 않는다.</b> 「허용한 계정」이 목록의 뜻이라
-    /// 서버가 거른다 — 화면이 거르면 그 규칙이 화면마다 갈라진다.
-    /// </para>
-    /// </remarks>
+    /// <summary>위치를 허용한 계정들 — 좌표 · 지역 이름 · 마지막으로 잡힌 때, 그리고 「쪽지가 닿는가」.</summary>
     public Task<IReadOnlyList<AccountLocationDto>> GetAccountLocationsAsync(
         CancellationToken ct = default)
         => gateway.GetListAsync<AccountLocationDto>("notification/locations", ct);
 
-    /// <summary>
-    /// <b>내가</b> 그날 지나온 자리 — 점 · 머문 자리 · 요약 한 벌.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 위의 목록과 <b>표가 다르다</b>(<c>scom.location_tracks</c>). 저쪽은 사람
-    /// 하나에 한 줄이라 덮어쓰고, 이쪽은 잴 때마다 쌓인다.
-    /// </para>
-    /// <para>
-    /// <b>주인을 인자로 받지 않는다.</b> 주소에 <c>/me</c> 가 박혀 있고 서버는
-    /// 로그인한 사람으로만 답한다 — 지나온 길은 메뉴 권한으로 열어 줄 종류의
-    /// 자료가 아니라, 남의 것을 물을 길 자체를 두지 않는다.
-    /// </para>
-    /// <para>
-    /// <paramref name="date"/> 는 <b>한국 달력 날짜</b>다. 하루의 경계를 한국
-    /// 자정으로 긋는 것도 서버가 한다 — 화면이 UTC 로 잘라 보내면 한국의
-    /// 하루가 아침 아홉 시에 갈린다.
-    /// </para>
-    /// </remarks>
+    /// <summary>내가 그날 지나온 자리 — 점 · 머문 자리 · 요약 한 벌.</summary>
     public Task<MyLocationTrackDto?> GetMyLocationTrackAsync(
         DateOnly date, CancellationToken ct = default)
         => gateway.GetOneAsync<MyLocationTrackDto>(
             "notification/locations/me/track" + Query(("date", date.ToString("yyyy-MM-dd"))), ct);
 
-    /// <summary>
-    /// 기록이 있는 날들(최근 것부터). 날짜 고르개가 <b>빈 날을 피하게</b> 한다.
-    /// </summary>
-    /// <remarks>
-    /// 포털을 안 연 날에는 한 줄도 안 쌓인다. 이것이 없으면 사람은 기록이
-    /// 있는 날을 하루씩 눌러 가며 찾아야 한다.
-    /// </remarks>
+    /// <summary>기록이 있는 날들(최근 것부터). 날짜 고르개가 빈 날을 피하게 한다.</summary>
     public Task<IReadOnlyList<LocationTrackDayDto>> GetMyLocationTrackDaysAsync(
         int take = 30, CancellationToken ct = default)
         => gateway.GetListAsync<LocationTrackDayDto>(
             "notification/locations/me/track/days" + Query(("take", take)), ct);
 
     // ── 내 알림 설정은 여기 없다 ───────────────────────────────
-    //
-    // 내 알림 설정과 웹푸시 구독은 **공용 클라이언트**가 다룬다
-    // (`JSini.Web.Components/Settings/NotificationClient`). 그 설정을 여는
-    // 화면이 포털관리와 장례식장 둘이라, 한쪽 모듈에 두면 다른 쪽이 못 쓴다 —
-    // 공지(`NoticeClient`)를 올린 것과 같은 까닭이다.
+    // 내 알림 설정과 웹푸시 구독은 **공용 클라이언트**가 다룬다 (`JSini.Web.Components/Settings/NotificationClient`). 그 설정을 여는
+    // 화면이 포털관리와 장례식장 둘이라, 한쪽 모듈에 두면 다른 쪽이 못 쓴다 — 공지(`NoticeClient`)를 올린 것과 같은 까닭이다.
 
     // ── 메뉴 ────────────────────────────────────────────────────
 
-    /// <summary>
-    /// 메뉴 전체를 나무 모양으로. 권한으로 거르지 않은 <b>원본</b>이다 —
-    /// 관리 화면은 자기가 못 보는 메뉴도 고칠 수 있어야 한다.
-    ///
-    /// <paramref name="locale"/> 을 주면 제목의 다국어 키를 서버가 옮겨
-    /// <c>meta.titleText</c> 에 담아 준다.
-    /// </summary>
+    /// <summary>메뉴 전체를 나무 모양으로. 권한으로 거르지 않은 원본이다 — 관리 화면은 자기가 못 보는 메뉴도 고칠 수 있어야 한다. <paramref name="locale"/> 을 주면
+    /// 제목의 다국어 키를 서버가 옮겨 <c>meta.titleText</c> 에 담아 준다.</summary>
     public Task<IReadOnlyList<SystemMenuDto>> GetSystemMenusAsync(
         string? locale = null, CancellationToken ct = default)
         => gateway.GetListAsync<SystemMenuDto>("auth/system/menu/list" + Query(("locale", locale)), ct);
@@ -811,24 +430,13 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task DeleteSystemMenuAsync(string id, CancellationToken ct = default)
         => gateway.DeleteAsync($"auth/system/menu/{id}", ct);
 
-    /// <summary>
-    /// 나무에서 끌어 옮긴 결과를 저장한다. <b>바뀐 묶음을 통째로</b> 보낸다 —
-    /// 한 건만 보내면 형제들의 순번을 서버가 짐작해야 한다.
-    ///
-    /// <para>
-    /// 자기 자신이나 자기 하위를 부모로 지정하면 서버가 막는다(순환 검사).
-    /// 화면도 미리 막지만, 마지막 판단은 서버에 있다.
-    /// </para>
-    /// </summary>
+    /// <summary>나무에서 끌어 옮긴 결과를 저장한다. 바뀐 묶음을 통째로 보낸다 — 한 건만 보내면 형제들의 순번을 서버가 짐작해야 한다. 자기 자신이나 자기 하위를 부모로 지정하면 서버가
+    /// 막는다(순환 검사). 화면도 미리 막지만, 마지막 판단은 서버에 있다.</summary>
     public Task ReorderSystemMenusAsync(IReadOnlyList<MenuOrderDto> items, CancellationToken ct = default)
         => gateway.PostAsync("auth/system/menu/reorder", items, ct);
 
-    /// <summary>
-    /// 이름이 이미 쓰이고 있는지. 등록 폼이 저장 전에 묻는다.
-    ///
-    /// <paramref name="excludeId"/> 는 수정할 때 <b>자기 자신을 빼기</b> 위한
-    /// 것이다. 안 빼면 이름을 안 바꾸고 저장해도 "이미 있다" 가 된다.
-    /// </summary>
+    /// <summary>이름이 이미 쓰이고 있는지. 등록 폼이 저장 전에 묻는다. <paramref name="excludeId"/> 는 수정할 때 자기 자신을 빼기 위한 것이다. 안 빼면 이름을 안
+    /// 바꾸고 저장해도 "이미 있다" 가 된다.</summary>
     public Task<bool> MenuNameExistsAsync(string name, string? excludeId = null, CancellationToken ct = default)
         => ExistsAsync("auth/system/menu/name-exists" + Query(("name", name), ("id", excludeId)), ct);
 
@@ -849,13 +457,8 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task DeleteCodeGroupAsync(string id, CancellationToken ct = default)
         => gateway.DeleteAsync($"auth/system/common-code/groups/{id}", ct);
 
-    /// <summary>
-    /// 한 묶음의 코드들. <paramref name="hierarchical"/> 이면 <c>Children</c> 을
-    /// 채운 나무로, 아니면 평평한 목록으로 온다.
-    ///
-    /// <b>주소가 묶음 <i>코드</i>다</b> — 식별자가 아니다. 서버가 그렇게 열어
-    /// 두었고, 코드가 사람이 정하는 값이라 링크로 주고받기 좋다.
-    /// </summary>
+    /// <summary>한 묶음의 코드들. <paramref name="hierarchical"/> 이면 <c>Children</c> 을 채운 나무로, 아니면 평평한 목록으로 온다. 주소가 묶음 코드다
+    /// — 식별자가 아니다. 서버가 그렇게 열어 두었고, 코드가 사람이 정하는 값이라 링크로 주고받기 좋다.</summary>
     public Task<IReadOnlyList<CommonCodeDto>> GetCodesAsync(
         string groupCode, bool hierarchical = false, CancellationToken ct = default)
         => gateway.GetListAsync<CommonCodeDto>(
@@ -881,12 +484,7 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task<IReadOnlyList<AccountPickDto>> GetRoleScopeAccountsAsync(CancellationToken ct = default)
         => gateway.GetListAsync<AccountPickDto>("auth/system/role-scope/accounts", ct);
 
-    /// <summary>
-    /// 그 계정에 <b>실제로</b> 적용되는 역할과 그것이 온 단계.
-    ///
-    /// 회사 + 부서 + 사람을 합친 결과다. 사람 단계에서 뺐는데도 남아 있는
-    /// 역할이 있다면 위 단계에서 온 것이고, 그 사실을 <c>Sources</c> 가 말해 준다.
-    /// </summary>
+    /// <summary>회사 + 부서 + 사람을 합친 결과다. 사람 단계에서 뺐는데도 남아 있는 역할이 있다면 위 단계에서 온 것이고, 그 사실을 <c>Sources</c> 가 말해 준다.</summary>
     public Task<EffectiveRolesDto?> GetEffectiveRolesAsync(string accountId, CancellationToken ct = default)
         => gateway.GetOneAsync<EffectiveRolesDto>(
             "auth/system/role-scope/effective" + Query(("accountId", accountId)), ct);
@@ -908,80 +506,40 @@ public sealed class AdminClient(GatewayClient gateway)
 
     // ── 내 정보 ─────────────────────────────────────────────────
 
-    // 비밀번호 변경(`auth/user/change-password`)은 여기 없다. 셸의
-    // `/password/change` 가 게이트웨이를 직접 부른다 — 바꾼 직후 재로그인까지
+    // 비밀번호 변경(`auth/user/change-password`)은 여기 없다. 셸의 `/password/change` 가 게이트웨이를 직접 부른다 — 바꾼 직후 재로그인까지
     // 시켜야 해서 두 곳에 두면 뒤처리가 갈라진다(Profile.razor 머리말 참고).
 
     public Task<UserInfoDto?> GetMyInfoAsync(CancellationToken ct = default)
         => gateway.GetOneAsync<UserInfoDto>("auth/user/info", ct);
 
-    /// <summary>
-    /// 접속 이력과 거기서 셈한 값들. <b>객체 하나</b>다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b><c>GetListAsync</c> 로 부르면 안 된다.</b> 한동안 그렇게 적혀 있었고,
-    /// 봉투가 객체 하나도 <c>result: [obj]</c> 로 싣는 탓에 <b>예외 없이</b>
-    /// 칸이 전부 비어 있는 한 줄이 나왔다 — 표에 빈 줄 하나가 그려져
-    /// 「아직 기록이 없구나」로 읽혔다. 실제로는 로그인 횟수도 실패 기록도
-    /// 다 와 있었다.
-    /// </para>
-    /// </remarks>
-    /// <param name="limit">최근 접속 기록을 몇 줄까지 받을지.</param>
-    /// <param name="ct">취소 토큰</param>
+    /// <summary>접속 이력과 거기서 셈한 값들. 객체 하나다.</summary>
     public Task<AccountActivityDto?> GetMyActivityAsync(int limit = 10, CancellationToken ct = default)
         => gateway.GetOneAsync<AccountActivityDto>($"auth/user/activity?limit={limit}", ct);
 
-    /// <summary>
-    /// 내 정보를 고친다.
-    ///
-    /// 이메일·전화가 남과 겹치면 서버가 <b>409</b> 로 이유를 말해 준다 —
-    /// 그 문구를 그대로 보여 줘야 사용자가 무엇을 고칠지 안다.
-    /// </summary>
+    /// <summary>내 정보를 고친다. 이메일·전화가 남과 겹치면 서버가 409 로 이유를 말해 준다 — 그 문구를 그대로 보여 줘야 사용자가 무엇을 고칠지 안다.</summary>
     public Task UpdateMyProfileAsync(UpdateProfileDto profile, CancellationToken ct = default)
         => gateway.PostAsync("auth/user/profile", profile, ct);
 
-    /// <summary>
-    /// 이메일 변경을 위한 인증번호를 발송한다.
-    /// </summary>
+    /// <summary>이메일 변경을 위한 인증번호를 발송한다.</summary>
     public Task<EmailVerificationResultDto?> SendEmailVerificationCodeAsync(string email, CancellationToken ct = default)
         => gateway.PostAsync<EmailVerificationResultDto>("auth/user/email-verification/send", new SendEmailVerificationDto { Email = email }, ct);
 
-    /// <summary>
-    /// 이메일 변경을 위한 인증번호를 검증하고 토큰을 받는다.
-    /// </summary>
+    /// <summary>이메일 변경을 위한 인증번호를 검증하고 토큰을 받는다.</summary>
     public Task<EmailVerificationResultDto?> VerifyEmailCodeAsync(string email, string code, CancellationToken ct = default)
         => gateway.PostAsync<EmailVerificationResultDto>("auth/user/email-verification/verify", new VerifyEmailCodeDto { Email = email, Code = code }, ct);
 
-    /// <summary>
-    /// 켬·끔 하나를 저장한다 (보안 설정 · 알림 설정).
-    /// </summary>
-    /// <remarks>
-    /// 칸을 통째로 보내는 저장이 아니라 <b>한 칸씩</b>이다. 서버가 그렇게
-    /// 생겼다 — <c>account_profile_details</c> 에 이름·값 한 쌍으로 쌓인다.
-    /// 그래서 화면도 스위치를 누르는 즉시 저장하고 「저장」 단추를 두지 않는다.
-    /// </remarks>
-    /// <param name="fieldName">
-    /// 저장 이름. <c>UserInfoDto</c> 의 속성 이름과 <b>글자 그대로</b> 같아야 한다
-    /// (<c>SecurityPhone</c> · <c>AccountPasswordNotify</c> …).
-    /// </param>
-    /// <param name="value">켤지(<c>true</c>) 끌지.</param>
-    /// <param name="ct">취소 토큰</param>
+    /// <summary>켬·끔 하나를 저장한다 (보안 설정 · 알림 설정).</summary>
     public Task UpdateMySettingAsync(string fieldName, bool value, CancellationToken ct = default)
         => gateway.PostAsync("auth/user/settings",
             new UpdateSettingDto { FieldName = fieldName, Value = value }, ct);
 
     // ── 패스키 (지문 · 얼굴) ────────────────────────────────────
-    //
-    // 기기와 이야기하는 쪽은 브라우저(`passkey.js`)고, 여기는 **서버와의
-    // 왕복 셋**뿐이다 — 도전값 받기 · 등록하기 · 목록·삭제.
-    //
-    // 순서가 정해져 있다. 웹푸시 구독과 같은 까닭이다(`PushEnroll`).
+    // 기기와 이야기하는 쪽은 브라우저(`passkey.js`)고, 여기는 **서버와의 왕복 셋**뿐이다 — 도전값 받기 · 등록하기 · 목록·삭제. 순서가 정해져 있다. 웹푸시 구독과
+    // 같은 까닭이다(`PushEnroll`).
     //   ① 서버에서 도전값을 받는다
     //   ② 브라우저가 기기에서 서명을 받는다
     //   ③ 그 결과를 서버가 검증하고 저장한다
-    // ②에서 사용자가 취소하면 ③이 아예 없다 — 그래서 **서버에는 반쪽짜리
-    // 줄이 남지 않는다.** 도전값은 5분 뒤 스스로 사라진다.
+    // ②에서 사용자가 취소하면 ③이 아예 없다 — 그래서 **서버에는 반쪽짜리 줄이 남지 않는다.** 도전값은 5분 뒤 스스로 사라진다.
 
     /// <summary>등록에 쓸 도전값을 받는다. 곧바로 브라우저에 넘긴다.</summary>
     public Task<PasskeyOptionsDto?> CreatePasskeyOptionsAsync(CancellationToken ct = default)
@@ -1000,25 +558,15 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task RenamePasskeyAsync(string id, string label, CancellationToken ct = default)
         => gateway.PutAsync($"auth/webauthn/credentials/{id}", new { label }, ct);
 
-    /// <summary>
-    /// 기기를 지운다. <b>잃어버린 기기를 끊는 유일한 수단이다</b> —
-    /// 공개 키를 지우면 그 기기의 서명이 더는 통하지 않는다.
-    /// </summary>
+    /// <summary>기기를 지운다. 잃어버린 기기를 끊는 유일한 수단이다 — 공개 키를 지우면 그 기기의 서명이 더는 통하지 않는다.</summary>
     public Task DeletePasskeyAsync(string id, CancellationToken ct = default)
         => gateway.DeleteAsync($"auth/webauthn/credentials/{id}", ct);
 
     // ── 연결된 소셜 계정 (구글 · 네이버 · 카카오) ───────────────
-    //
-    // **붙이는 길이 여기 없다.** 붙이려면 공급자에 다녀와야 하는데, 그 왕복은
-    // 브라우저가 실제로 이동해야 하는 일이라 API 호출로는 할 수 없다.
-    // 화면은 `/social/{공급자}/start?mode=link` 로 **이동**하고, 돌아온 셸이
-    // 게이트웨이를 대신 부른다(`SocialLoginFlow`). 그래서 여기는 읽기와
-    // 끊기 둘뿐이다.
+    // 화면은 `/social/{공급자}/start?mode=link` 로 **이동**하고, 돌아온 셸이 게이트웨이를 대신 부른다(`SocialLoginFlow`). 그래서 여기는
+    // 읽기와 끊기 둘뿐이다.
 
-    /// <summary>
-    /// 붙일 수 있는 공급자 목록. <b>익명 경로라 로그인 전에도 같은 값이 나온다</b> —
-    /// 로그인 화면이 단추를 그릴 때 쓰는 그 목록이다.
-    /// </summary>
+    /// <summary>붙일 수 있는 공급자 목록. 익명 경로라 로그인 전에도 같은 값이 나온다 — 로그인 화면이 단추를 그릴 때 쓰는 그 목록이다.</summary>
     public Task<IReadOnlyList<SocialProviderDto>> GetSocialProvidersAsync(
         CancellationToken ct = default)
         => gateway.GetListAsync<SocialProviderDto>("auth/social/providers", ct);
@@ -1027,17 +575,12 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task<IReadOnlyList<SocialLinkDto>> GetSocialLinksAsync(CancellationToken ct = default)
         => gateway.GetListAsync<SocialLinkDto>("auth/social/links", ct);
 
-    /// <summary>
-    /// 연결을 끊는다. <b>끊으면 그 소셜 계정으로는 더 못 들어온다</b> —
-    /// 아이디·비밀번호와 패스키는 그대로다.
-    /// </summary>
+    /// <summary>연결을 끊는다. 끊으면 그 소셜 계정으로는 더 못 들어온다 — 아이디·비밀번호와 패스키는 그대로다.</summary>
     public Task UnlinkSocialAsync(string id, CancellationToken ct = default)
         => gateway.DeleteAsync($"auth/social/links/{id}", ct);
 
     // ── 프로필 사진 (FileServer 파일 그룹) ──────────────────────
-    //
-    // 올리는 것은 여기 없다 — 브라우저가 `DxUpload` 으로 셸의
-    // `/uploads/profile-photo` 로 보내고, 그 중계가 그룹·대표까지 계정에 적는다
+    // 올리는 것은 여기 없다 — 브라우저가 `DxUpload` 으로 셸의 `/uploads/profile-photo` 로 보내고, 그 중계가 그룹·대표까지 계정에 적는다
     // (`ProfilePhotoUpload`). 여기 셋은 그 뒤에 읽고 고치는 일이다.
 
     /// <summary>그룹 안의 사진들. 그룹이 없으면 부르지 않는다.</summary>
@@ -1052,22 +595,14 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task DeleteFileAsync(string fileId, CancellationToken ct = default)
         => gateway.DeleteAsync($"file/{fileId}", ct);
 
-    /// <summary>
-    /// 확인용 주소를 불러 참·거짓만 꺼낸다. 서버가 봉투에 <c>bool</c> 하나를
-    /// 실어 준다(<c>{ result: [true] }</c>).
-    ///
-    /// 못 부르면 <b>거짓으로 본다.</b> 여기서 막아 봐야 저장할 때 서버가 다시
-    /// 검사하므로, 확인이 안 된다고 등록을 막으면 잃는 것만 있다.
-    /// </summary>
+    /// <summary>확인용 주소를 불러 참·거짓만 꺼낸다. 서버가 봉투에 <c>bool</c> 하나를 실어 준다(<c>{ result: }</c>). 못 부르면 거짓으로 본다. 여기서 막아 봐야
+    /// 저장할 때 서버가 다시 검사하므로, 확인이 안 된다고 등록을 막으면 잃는 것만 있다.</summary>
     private async Task<bool> ExistsAsync(string url, CancellationToken ct)
         => await gateway.GetOneAsync<bool>(url, ct);
 
     // ── 오류 추적 ───────────────────────────────────────────────
 
-    /// <summary>
-    /// 오류 목록. <b>스택은 안 실려 온다</b> — 서버가 목록에서 뺀다.
-    /// 스택까지 보려면 <see cref="GetPortalErrorAsync"/> 로 다시 집어 온다.
-    /// </summary>
+    /// <summary>오류 목록. 스택은 안 실려 온다 — 서버가 목록에서 뺀다. 스택까지 보려면 <see cref="GetPortalErrorAsync"/> 로 다시 집어 온다.</summary>
     public Task<IReadOnlyList<PortalErrorDto>> GetPortalErrorsAsync(
         string? keyword = null,
         DateTime? from = null,
@@ -1081,26 +616,15 @@ public sealed class AdminClient(GatewayClient gateway)
                 ("to", to?.ToString("yyyy-MM-dd")),
                 ("take", take)), ct);
 
-    /// <summary>
-    /// 추적 번호 하나로 집어 온다. <b>목록</b>인 이유는 한 요청에서 예외가
-    /// 두 번 날 수 있기 때문이다(본 요청과 오류 화면 재실행).
-    /// </summary>
-    /// <remarks>
-    /// 전체 번호(<c>00-…-00</c>)를 줘도 가운데 32자리만 줘도 같은 것이 나온다 —
-    /// 사람이 전화로 불러 주는 값이라 어느 쪽으로 받아 적을지 고를 수 없다.
-    /// </remarks>
+    /// <summary>추적 번호 하나로 집어 온다. 목록인 이유는 한 요청에서 예외가 두 번 날 수 있기 때문이다(본 요청과 오류 화면 재실행).</summary>
     public Task<IReadOnlyList<PortalErrorDto>> GetPortalErrorAsync(
         string trace, CancellationToken ct = default)
         => gateway.GetListAsync<PortalErrorDto>(
             $"auth/portal-errors/{Uri.EscapeDataString(trace.Trim())}", ct);
 
     // ── AI 사용량 ───────────────────────────────────────────
-    //
-    // **자료를 만드는 쪽이 들고 있다**(AIAgentServer). 읽는 길만 다른 서비스에
-    // 두면 같은 표를 둘이 알게 되고, 칸을 늘릴 때 한쪽만 고쳐진다.
-    //
-    // 날짜는 **UTC 로** 보낸다. 화면이 고르는 것은 한국 날짜이고 그 경계를
-    // 옮기는 일은 화면이 한다 — 여기서 또 만지면 두 번 옮겨진다.
+    // **자료를 만드는 쪽이 들고 있다**(AIAgentServer). 읽는 길만 다른 서비스에 두면 같은 표를 둘이 알게 되고, 칸을 늘릴 때 한쪽만 고쳐진다. 날짜는 **UTC
+    // 로** 보낸다. 화면이 고르는 것은 한국 날짜이고 그 경계를 옮기는 일은 화면이 한다 — 여기서 또 만지면 두 번 옮겨진다.
 
     /// <summary>사람별 사용량 집계. 토큰이 많은 순이다.</summary>
     public Task<IReadOnlyList<AiUsageByUserDto>> GetAiUsageByUserAsync(
@@ -1113,10 +637,7 @@ public sealed class AdminClient(GatewayClient gateway)
                 ("feature", feature)),
             ct);
 
-    /// <summary>
-    /// 최근 호출. <b>집계가 답하지 못하는 「왜 많은가」를 보는 자리다.</b>
-    /// 서버가 200줄에서 자른다.
-    /// </summary>
+    /// <summary>최근 호출. 집계가 답하지 못하는 「왜 많은가」를 보는 자리다. 서버가 200줄에서 자른다.</summary>
     public Task<IReadOnlyList<AiUsageCallDto>> GetAiUsageRecentAsync(
         DateOnly? from = null, DateOnly? to = null, string? feature = null,
         string? userId = null, CancellationToken ct = default)
@@ -1129,14 +650,8 @@ public sealed class AdminClient(GatewayClient gateway)
             ct);
 
     // ── 메뉴 사용기록 ───────────────────────────────────────
-    //
-    // **쌓는 길은 여기에 없다.** 그쪽은 셸의 `MenuUsageRecorder` 가 레이아웃에서
-    // 부른다 — 화면을 옮길 때마다 일어나는 일이라 모듈이 들고 있을 수 없다.
-    // 여기 있는 넷은 **보는 길**이고 넷으로 갈린 까닭은 묻는 물음이 다르기
-    // 때문이다(사람별 · 화면별 · 기록 · 타임라인).
-    //
-    // 날짜는 **한국 달력 날짜 그대로** 보낸다. 하루의 경계를 UTC 로 옮기는
-    // 일은 서버가 한다 — 여기서 또 만지면 두 번 옮겨진다.
+    // **쌓는 길은 여기에 없다.** 그쪽은 셸의 `MenuUsageRecorder` 가 레이아웃에서 부른다 — 화면을 옮길 때마다 일어나는 일이라 모듈이 들고 있을 수 없다. 여기
+    // 있는 넷은 **보는 길**이고 넷으로 갈린 까닭은 묻는 물음이 다르기 때문이다(사람별 · 화면별 · 기록 · 타임라인). 날짜는 **한국 달력 날짜 그대로** 보낸다.
 
     /// <summary>사람별 집계. 많이 본 사람부터다.</summary>
     public Task<IReadOnlyList<MenuUsageByUserDto>> GetMenuUsageByUserAsync(
@@ -1161,10 +676,7 @@ public sealed class AdminClient(GatewayClient gateway)
                 ("keyword", keyword)),
             ct);
 
-    /// <summary>
-    /// 기록 한 줄씩. <b>서버가 <paramref name="take"/> 줄에서 자른다</b> —
-    /// 화면이 잘렸다는 사실을 말해야 한다.
-    /// </summary>
+    /// <summary>기록 한 줄씩. 서버가 <paramref name="take"/> 줄에서 자른다 — 화면이 잘렸다는 사실을 말해야 한다.</summary>
     public Task<IReadOnlyList<MenuUsageDto>> GetMenuUsageLogsAsync(
         DateOnly? from = null, DateOnly? to = null, string? userId = null,
         string? keyword = null, int? take = null, CancellationToken ct = default)
@@ -1191,16 +703,10 @@ public sealed class AdminClient(GatewayClient gateway)
             ct);
 
     // ── 차단 접근기록 ───────────────────────────────────────
-    //
-    // **쌓는 길은 여기에 없다.** 그쪽은 셸의 `BlockedAccessRecorder` 가 라우터
-    // 앞의 문에서 부른다 — 막히는 순간에 일어나는 일이라 모듈이 들고 있을 수
-    // 없다. 여기 있는 셋은 **보는 길**이고 셋으로 갈린 까닭은 묻는 물음이
-    // 다르기 때문이다(화면별 · 사람별 · 기록).
-    //
-    // 날짜는 **한국 달력 날짜 그대로** 보낸다. 하루의 경계를 UTC 로 옮기는
-    // 일은 서버가 한다 — 여기서 또 만지면 두 번 옮겨진다.
+    // **쌓는 길은 여기에 없다.** 그쪽은 셸의 `BlockedAccessRecorder` 가 라우터 앞의 문에서 부른다 — 막히는 순간에 일어나는 일이라 모듈이 들고 있을 수
+    // 없다. 여기 있는 셋은 **보는 길**이고 셋으로 갈린 까닭은 묻는 물음이 다르기 때문이다(화면별 · 사람별 · 기록). 날짜는 **한국 달력 날짜 그대로** 보낸다.
 
-    /// <summary>화면별 집계. <b>「어떤 화면이 관리 밖인가」가 여기 선다.</b></summary>
+    /// <summary>화면별 집계. 「어떤 화면이 관리 밖인가」가 여기 선다.</summary>
     public Task<IReadOnlyList<BlockedAccessByScreenDto>> GetBlockedAccessByScreenAsync(
         DateOnly? from = null, DateOnly? to = null, string? userId = null,
         string? reason = null, string? keyword = null, CancellationToken ct = default)
@@ -1225,10 +731,7 @@ public sealed class AdminClient(GatewayClient gateway)
                 ("keyword", keyword)),
             ct);
 
-    /// <summary>
-    /// 기록 한 줄씩. <b>서버가 <paramref name="take"/> 줄에서 자른다</b> —
-    /// 화면이 잘렸다는 사실을 말해야 한다.
-    /// </summary>
+    /// <summary>기록 한 줄씩. 서버가 <paramref name="take"/> 줄에서 자른다 — 화면이 잘렸다는 사실을 말해야 한다.</summary>
     public Task<IReadOnlyList<BlockedAccessDto>> GetBlockedAccessLogsAsync(
         DateOnly? from = null, DateOnly? to = null, string? userId = null,
         string? reason = null, string? keyword = null, int? take = null,
@@ -1244,9 +747,7 @@ public sealed class AdminClient(GatewayClient gateway)
             ct);
 
     // ── 보고서 메일 배치 ────────────────────────────────────
-    //
-    // **읽기와 쓰기가 같은 문으로 막혀 있다**(서버의 `ReportMailEndpoints`).
-    // 게이트웨이가 /api/auth/** 를 익명으로 열어 두므로 저쪽이 메뉴 권한을
+    // **읽기와 쓰기가 같은 문으로 막혀 있다**(서버의 `ReportMailEndpoints`). 게이트웨이가 /api/auth/** 를 익명으로 열어 두므로 저쪽이 메뉴 권한을
     // 직접 보고, 권한이 없으면 403 이 온다 — 화면은 그 글자를 그대로 띄운다.
 
     /// <summary>고를 수 있는 보고서들. 서버가 메뉴에서 읽어 준다.</summary>
@@ -1277,45 +778,25 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task DeleteReportMailScheduleAsync(string id, CancellationToken ct = default)
         => gateway.DeleteAsync($"auth/system/report-mail/{id}", ct);
 
-    /// <summary>
-    /// 이 배치의 메일을 받게 되는 사람들. <b>이메일이 없는 사람도 담겨 온다</b> —
-    /// 「역할에 걸린 사람이 없다」와 「주소가 없다」는 고치는 자리가 다르다.
-    /// </summary>
+    /// <summary>이 배치의 메일을 받게 되는 사람들. 이메일이 없는 사람도 담겨 온다 — 「역할에 걸린 사람이 없다」와 「주소가 없다」는 고치는 자리가 다르다.</summary>
     public Task<ReportMailRecipientsDto?> GetReportMailRecipientsAsync(
         string id, CancellationToken ct = default)
         => gateway.GetOneAsync<ReportMailRecipientsDto>(
             $"auth/system/report-mail/{id}/recipients", ct);
 
-    /// <summary>
-    /// 지금 한 번 보낸다. <b>주기를 건드리지 않는다</b> — 눌러 본 한 통 때문에
-    /// 다음 정기 발송이 건너뛰어지지 않는다(서버 주석).
-    /// </summary>
+    /// <summary>지금 한 번 보낸다. 주기를 건드리지 않는다 — 눌러 본 한 통 때문에 다음 정기 발송이 건너뛰어지지 않는다(서버 주석).</summary>
     public Task SendReportMailNowAsync(string id, CancellationToken ct = default)
         => gateway.PostAsync($"auth/system/report-mail/{id}/send", null, ct);
 
-    /// <summary>
-    /// 「미리받아보기」 — 지금 고른 보고서를 <b>로그인한 본인에게</b> 한 통 보낸다.
-    /// </summary>
-    /// <remarks>
-    /// 길에 배치 식별자가 없다. <b>저장하기 전에도 눌러야 하기 때문</b>이고,
-    /// 그래서 고른 보고서를 몸통에 담아 보낸다. 돌려받는 것에 <b>보낸 주소</b>가
-    /// 들어 있다 — 「보냈습니다」만으로는 어느 메일함을 열어 볼지 알 수 없다.
-    /// </remarks>
+    /// <summary>「미리받아보기」 — 지금 고른 보고서를 로그인한 본인에게 한 통 보낸다.</summary>
     public Task<ReportMailPreviewResultDto?> SendReportMailPreviewAsync(
         ReportMailPreviewDto request, CancellationToken ct = default)
         => gateway.PostAsync<ReportMailPreviewResultDto>(
             "auth/system/report-mail/preview", request, ct);
 
     // ── 알림관리 (이벤트 × 역할 × 길) ──────────────────────
-    //
-    // **경로가 알림 서버다.** 역할·메뉴는 AuthServer 에 있지만 이 설정이
-    // 걸리는 자리(푸시를 쏘는 곳 · 메일을 보내는 곳)가 둘 다 알림 서버
-    // 안이라, 설정도 거기 둔다 — 발송 경로에서 다른 서비스를 부르면
-    // 「알림이 안 나가는 까닭」에 네트워크가 하나 더 끼어든다.
-    //
-    // **읽기와 쓰기가 같은 문으로 막혀 있다.** 게이트웨이의 알림 경로는
-    // 로그인만 보므로 저쪽이 메뉴 권한을 직접 보고, 권한이 없으면 403 이
-    // 온다 — 화면은 그 글자를 그대로 띄운다.
+    // **경로가 알림 서버다.** 역할·메뉴는 AuthServer 에 있지만 이 설정이 걸리는 자리(푸시를 쏘는 곳 · 메일을 보내는 곳)가 둘 다 알림 서버 안이라, 설정도 거기
+    // 둔다 — 발송 경로에서 다른 서비스를 부르면 「알림이 안 나가는 까닭」에 네트워크가 하나 더 끼어든다.
 
     /// <summary>알림 이벤트 목록. 매달린 역할 줄까지 함께 온다.</summary>
     public Task<IReadOnlyList<NotifyEventDto>> GetNotifyEventsAsync(
@@ -1326,26 +807,17 @@ public sealed class AdminClient(GatewayClient gateway)
                 ("activeOnly", activeOnly ? "true" : null)),
             ct);
 
-    /// <summary>
-    /// 고를 수 있는 역할들. <b>계정 관리의 역할 목록과 다른 길로 받는다</b> —
-    /// 역할마다 걸린 사람 수가 함께 오고, 그 셈은 알림 서버가 한다.
-    /// </summary>
+    /// <summary>고를 수 있는 역할들. 계정 관리의 역할 목록과 다른 길로 받는다 — 역할마다 걸린 사람 수가 함께 오고, 그 셈은 알림 서버가 한다.</summary>
     public Task<IReadOnlyList<NotifyRoleDto>> GetNotifyRolesAsync(CancellationToken ct = default)
         => gateway.GetListAsync<NotifyRoleDto>("notification/notification-policies/roles", ct);
 
-    /// <summary>
-    /// 이벤트 하나의 정책을 <b>통째로</b> 바꾼다. 보낸 것이 곧 전부다 —
-    /// 빠진 역할 줄은 지워진다.
-    /// </summary>
+    /// <summary>이벤트 하나의 정책을 통째로 바꾼다. 보낸 것이 곧 전부다 — 빠진 역할 줄은 지워진다.</summary>
     public Task<NotifyEventDto?> SaveNotifyPolicyAsync(
         string eventCode, SaveNotifyPolicyDto request, CancellationToken ct = default)
         => gateway.PutAsync<NotifyEventDto>(
             $"notification/notification-policies/{Uri.EscapeDataString(eventCode)}", request, ct);
 
-    /// <summary>
-    /// 「지금 이 설정이면 누구에게 가나」. <b>저장된 값으로 셈한다</b> —
-    /// 화면의 체크 상태로 셈하면 저장하지 않은 값으로 「갑니다」를 보여 주게 된다.
-    /// </summary>
+    /// <summary>「지금 이 설정이면 누구에게 가나」. 저장된 값으로 셈한다 — 화면의 체크 상태로 셈하면 저장하지 않은 값으로 「갑니다」를 보여 주게 된다.</summary>
     public Task<NotifyPolicyPreviewDto?> GetNotifyRecipientsAsync(
         string eventCode, CancellationToken ct = default)
         => gateway.GetOneAsync<NotifyPolicyPreviewDto>(

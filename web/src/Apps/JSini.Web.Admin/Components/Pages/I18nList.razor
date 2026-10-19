@@ -2,60 +2,15 @@
 @attribute [RouteKey("admin.system.i18n")]
 
 @*
-    [다국어 관리] — DB 메뉴 `/system/i18n`.
-    이력: Vue `views/portal/system/i18n/list` → 여기.
-
-    화면 문구의 번역을 다룬다. **메뉴 제목도 여기 값을 쓴다** — 사이드바가
-    `system.menu.title` 같은 키를 그대로 보여 주던 것을 서버가 이 표로 옮겨
-    준다(`MenuTitleTranslator`).
-
-    그래서 여기서 값을 고치면 **사이드바가 바로 바뀐다.** 메뉴를 다시 읽는
-    시점부터다.
-
-    [읽기만 하고 있었다]
-
-    등록·수정·삭제가 빠져 있었다. 메뉴 제목을 고칠 수 있는 유일한 자리인데
-    고칠 수가 없었다.
-
-    [한 언어씩만 보고 있었다]
-
-    같은 키의 한국어와 영어는 **짝으로 고쳐야** 한다. 한쪽만 고치면 언어를
-    바꿨을 때 옛 문구가 남는다. 그래서 언어별 목록 대신 **키로 묶어** 두 언어를
-    한 줄에 놓았다.
-
-    [분류로 좁힌다]
-
-    자원이 천 건이 넘는다. 「메뉴 제목만 고치겠다」가 흔한 일이라 분류
-    고르개를 둔다. 조건 셋(분류 · 검색어 · 한쪽만 있는 것)은 다 브라우저 안에서
-    거른다 — 키로 묶으려고 어차피 전부 받아 두기 때문이다.
-
-    [화면 구성은 조회 영역 → 자료 영역이다]
-
-    위에 `CommSch`(조건 셋), 아래에 `CommCont` + `CommGrd`. 손으로 적던
-    도구줄이 있었는데 하던 일이 전부 이 둘에 있다 — 조건은 `CommSch` 의
-    `Fields`, 등록·수정·삭제는 `CommGrd` 의 관리 칸과 아래 띠다.
-
-    자료 영역이 하나뿐이라 `CommCont` 의 제목을 비워 둔다. 사이드바와
-    브레드크럼이 이미 「다국어 관리」라고 말한다.
-
-    [편집 모델이 곧 표의 줄이다]
-
-    `Pair` 를 고칠 수 있는 class 로 둔 이유다. DevExpress 가 그 형으로 편집
-    모델(원본의 사본)을 만들어 폼에 넘긴다. 대신 **서버 줄의 식별자는 그
-    모델에 담지 않는다** — 사본에 무엇이 옮겨 오는지에 기대면 조용히 어긋나고,
-    그때 나는 사고가 「수정한 것이 새 줄로 하나 더 생긴다」다. 저장할 때
-    읽어 둔 목록에서 키로 찾는다.
+    [다국어 관리] DB 메뉴 `/system/i18n`. 화면 문구의 번역을 다룬다 — 메뉴 제목도 여기 값을 써서, 여기서 고치면 사이드바가 바로 바뀐다.
+    같은 키의 한국어·영어는 짝으로 고친다 — 한쪽만 고치면 옛 문구가 남는다. 그래서 키로 묶어 한 줄에 놓는다. 편집 모델은 서버 식별자를 담지 않고 읽어 둔 목록에서 키로 찾는다.
 *@
 
 @inherits DataPage
 
-<PageTitle>다국어 관리 · 포털관리</PageTitle>
+<PageTitle>다국어 관리</PageTitle>
 
-@* ── 조회 영역 ─────────────────────────────────────────
-   조건 셋이 다 브라우저 안에서 거른다(`Shown`) — 자원을 전부 받아 두고
-   키로 묶기 때문이다. 그래도 판을 세우는 이유는 **자리**다.
-
-   「등록」을 여기 두지 않는다 — 표 아래 띠에 이미 있다. *@
+@* 조건 셋이 다 브라우저 안에서 거른다 — 키로 묶으려고 자원을 전부 받아 두기 때문이다. 「등록」은 표 아래 띠에 있어 여기 두지 않는다. *@
 <CommSch OnSearch="@ReloadAsync" OnReset="@ResetAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="분류">
@@ -97,8 +52,7 @@
 
             <DxGridDataColumn FieldName="@nameof(Pair.KoValue)" Caption="한국어" MinWidth="220">
                 <CellDisplayTemplate Context="cell">
-                    @* 한국어가 없으면 화면에 **키가 그대로** 보인다.
-                       그게 「사이드바에 system.menu.title 이 뜬다」의 원인이었다. *@
+                    @* 한국어가 없으면 화면에 키가 그대로 보인다 — 사이드바에 system.menu.title 이 뜨는 원인이 이것이다. *@
                     @MissingOr(((Pair)cell.DataItem).KoValue)
                 </CellDisplayTemplate>
             </DxGridDataColumn>
@@ -116,21 +70,14 @@
             </DxGridDataColumn>
         </Columns>
 
-        @* ── 편집 ──────────────────────────────────────────
-           두 언어를 **한 폼에서** 고친다. 한쪽만 고치면 언어를 바꿨을 때 옛
-           문구가 남아서, 짝으로 놓는 것이 이 화면의 요점이다.
-
-           지역 변수로 한 번 받아 두고 `@@bind-` 는 그 변수에 건다 — 식 안에
-           형변환을 끼우면 DevExpress 가 검증 식을 만들지 못해 팝업이 그냥
-           안 열린다(EditFormBindingTests 주석 참고). *@
+        @* ── 편집 ── 두 언어를 한 폼에서 고친다 — 짝으로 놓는 것이 이 화면의 요점이다. 지역 변수로 받아 bind 를 건다(식에 형변환을 끼우면 팝업이 말없이 안 열린다). *@
         <EditFormTemplate Context="edit">
             @{
                 var row = (Pair)edit.EditModel;
             }
             <DxFormLayout CssClass="ad-editform">
                 <DxFormLayoutItem Caption="키" ColSpanMd="8">
-                    @* 화면 코드가 이 글자를 들고 있다. 바꾸면 그 자리에 키가 그대로
-                       보이게 된다 — 등록할 때만 정하는 이유다. *@
+                    @* 화면 코드가 이 글자를 들고 있다 — 등록할 때만 정한다. *@
                     <DxTextBox @bind-Text="row.Key" ReadOnly="@(!_isNew)" />
                 </DxFormLayoutItem>
 
@@ -145,8 +92,7 @@
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="영어" ColSpanMd="12">
-                    @* 비워 두면 그 언어에서는 키가 그대로 보인다. 지우려면
-                       비우고 저장한다. *@
+                    @* 비워 두면 그 언어에서는 키가 그대로 보인다 — 지우려면 비우고 저장한다. *@
                     <DxTextBox @bind-Text="row.EnValue" />
                 </DxFormLayoutItem>
             </DxFormLayout>

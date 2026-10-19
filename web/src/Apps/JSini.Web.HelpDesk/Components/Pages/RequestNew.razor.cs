@@ -28,30 +28,16 @@ public partial class RequestNew
     /// <summary>제목 칸을 짚는 이름. 쓰던 글을 적어 두는 JS 가 이 안에서 입력칸을 찾는다.</summary>
     private const string TitleSelector = ".hd-title-field";
 
-    /// <summary>
-    /// 쓰던 글을 적어 두는 열쇠의 앞부분. 뒤에 <b>포털 로그인 아이디</b>가 붙는다 —
-    /// 그것이 없으면 공용 PC 에서 남이 쓰다 만 글이 내 화면에 뜬다.
-    /// </summary>
+    /// <summary>쓰던 글을 적어 두는 열쇠의 앞부분. 뒤에 포털 로그인 아이디가 붙는다 — 없으면 공용 PC 에서 남이 쓰다 만 글이 뜬다.</summary>
     private const string DraftKeyPrefix = "jsini-hd-request-draft:";
 
     [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
 
-    /// <summary>
-    /// 도구줄 「그림」 단추에 붙이는 이름표. <b>JS 가 이 이름으로 그 단추를
-    /// 알아본다</b> — 좁은 화면에서는 그 단추가 넘침 메뉴로 옮겨 가 편집기
-    /// 바깥에 그려지므로, 자리로 찾을 수가 없다.
-    /// </summary>
+    /// <summary>도구줄 「그림」 단추의 이름표. JS 가 이 이름으로 알아본다 — 좁은 화면에서는 넘침 메뉴로 옮겨 가 자리로는 찾을 수 없다.</summary>
     private const string PictureButtonClass = "hd-pick-image";
 
-    /// <summary>
-    /// 휴대폰 도구줄에 세우는 명령 아홉. <b>차례가 곧 화면의 차례</b>다.
-    /// </summary>
-    /// <remarks>
-    /// 고른 기준은 「증상 설명을 쓰는 데 손이 가는 것」이다. 글꼴·글자 크기·
-    /// 색·첨자·표·맞춤은 뺐다 — 390px 짜리 도구줄에 담기지도 않거니와, 이
-    /// 화면에 올라오는 글은 서식이 아니라 <b>캡처와 몇 줄</b>이다. 넓은
-    /// 화면에서는 그 전부가 그대로 있다.
-    /// </remarks>
+    /// <summary>휴대폰 도구줄에 세우는 명령 아홉. 차례가 곧 화면의 차례다.
+    /// 글꼴·색·첨자·표·맞춤은 뺐다 — 이 화면의 글은 서식이 아니라 캡처와 몇 줄이다.</summary>
     private static readonly string[] PhoneToolbarItems =
     [
         HtmlEditorToolbarItemNames.Undo,
@@ -65,11 +51,7 @@ public partial class RequestNew
         HtmlEditorToolbarItemNames.ShowInsertPictureDialog,
     ];
 
-    /// <summary>
-    /// 본문에 붙이는 그림 한 장의 상한. 값은 <see cref="ContentImages.MaxBytes"/>
-    /// 하나뿐이다 — 댓글 쓰는 칸과 같은 값을 써야 하고, 두 벌로 두면 화면마다
-    /// 다른 크기에서 막힌다.
-    /// </summary>
+    /// <summary>본문에 붙이는 그림 한 장의 상한. ContentImages.MaxBytes 하나를 댓글 칸과 같이 쓴다 — 두 벌이면 화면마다 다른 크기에서 막힌다.</summary>
     private const long MaxImageBytes = ContentImages.MaxBytes;
 
     /// <summary>한 번에 붙여넣을 수 있는 장수.</summary>
@@ -100,10 +82,7 @@ public partial class RequestNew
     /// <summary>편집기 한 벌에만 붙는 이름. <c>@key</c> 와 같은 값으로 짓는다.</summary>
     private string EditorInstanceClass => $"hd-content-editor--{(_isPhone ? "p" : "w")}{_editorKey}";
 
-    /// <summary>
-    /// 편집기를 다시 세우는 열쇠. 임시 보관된 글을 되살리거나(새로고침 복원),
-    /// 지우고 새로 쓸 때 바꾼다.
-    /// </summary>
+    /// <summary>편집기를 다시 세우는 열쇠. 되살리기나 지우고 새로 쓰기 때 바꾼다.</summary>
     private int _editorKey;
 
     // ── 쓰던 글 (임시 보관) ──────────────────────────────────
@@ -122,28 +101,14 @@ public partial class RequestNew
     /// <summary>지켜보기를 걸었는가.</summary>
     private bool _draftWatched;
 
-    /// <summary>
-    /// 지켜보기를 <b>영영 거두었는가</b>(등록에 성공했다).
-    /// </summary>
-    /// <remarks>
-    /// 이 표시가 없으면 거둔 바로 다음 그리기에 <b>다시 걸린다</b> —
-    /// <see cref="WatchDraftAsync"/> 는 「아직 안 걸렸으면 건다」이기 때문이다.
-    /// 첨부가 실패해 이 화면에 남는 길이 실제로 그렇고, 그러면 이미 등록한
-    /// 글이 다시 적혀 다음에 되살아난다. 헤드리스로 몰아 보고 잡았다.
-    /// </remarks>
+    /// <summary>지켜보기를 영영 거두었는가(등록 성공). 없으면 거둔 다음 그리기에 다시 걸려 등록한 글이 되살아난다.</summary>
     private bool _draftStopped;
 
-    /// <summary>
-    /// 되살린 글이 적힌 때. <c>null</c> 이면 되살린 것이 없다 —
-    /// 안내 줄과 「지우고 새로 쓰기」 단추가 이 값 하나를 본다.
-    /// </summary>
+    /// <summary>되살린 글이 적힌 때. null 이면 되살린 것이 없다 — 안내 줄과 「지우고 새로 쓰기」가 이 값을 본다.</summary>
     private DateTime? _restoredAt;
 
-    /// <summary>
-    /// 브라우저가 적기를 거절했다(사생활 보호 모드 · 용량 초과 · 본문이 너무 큼).
-    /// <b>화면이 이것을 말해야 한다</b> — 임시 보관이 안 되는 것을 모르고 믿는
-    /// 편이 아예 없는 것보다 나쁘다.
-    /// </summary>
+    /// <summary>브라우저가 적기를 거절했다(사생활 보호 · 용량 초과 · 본문이 큼). 화면이 이것을 말해야 한다.
+    /// 모르고 믿는 편이 아예 없는 것보다 나쁘다.</summary>
     private bool _draftBlocked;
 
     protected override async Task OnInitializedAsync()
@@ -152,55 +117,8 @@ public partial class RequestNew
 
     }
 
-    /// <summary>
-    /// 도구줄을 우리 것으로 손본다 — <b>한국어 이름표</b>(<see cref="HtmlEditorKorean"/>) ·
-    /// 「그림」 단추의 이름표 · <b>휴대폰 전용 도구줄</b>.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 넓은 화면에서 바꾸는 것은 이름표뿐이다 — 아이콘·설명·자리는 편집기가
-    /// 정한 그대로 두고, 「그림」을 누를 때 하는 일만 <c>request-editor.js</c>
-    /// 가 브라우저 쪽에서 갈아 끼운다. 단추를 빼고 우리 것을 새로 다는 길도
-    /// 있지만 그러지 않는다. 아이콘이 <c>ImageSource</c> 라 CSS 이름으로 옮겨
-    /// 붙일 수 없어 도구줄에 글자 단추 하나만 튄다. 그리고 <b>가로채기가 어느
-    /// 브라우저에서 안 걸려도 단추가 죽지는 않는다</b> — 그때는 편집기 제 판이
-    /// 열려 예전 그대로다.
-    /// </para>
-    ///
-    /// <para>
-    /// [휴대폰에서는 <b>접히는 길 자체를 없앤다</b> (2026-10-11)]
-    /// </para>
-    /// <para>
-    /// 좁은 화면에서 DevExpress 는 도구줄을 <b>묶음 단위로 접는다</b> —
-    /// 「되돌리기 · 글자 · 문단 · 넣기 · 표」 다섯 개의 드롭다운만 남는다.
-    /// 그런데 <b>그 드롭다운이 포털 안에서는 열리지 않는다.</b> 재어 본 값이다
-    /// (390px · 헤드리스 크롬 · 운영 셸) — 누르면 단추는 눌린 꼴이 되고
-    /// (<c>aria-expanded=true</c>) 판의 알맹이도 DOM 에 만들어지는데, 그 판이
-    /// <c>max-width: 0px; max-height: 0px; opacity: 0</c> 으로 서서 <b>화면에
-    /// 한 점도 안 나온다.</b> 오류도 안 난다. 그래서 증상이 「눌러도 아무 일도
-    /// 안 일어난다」 하나다.
-    /// </para>
-    /// <para>
-    /// 부품만 떼어 <c>/tmp</c> 에 세우면 같은 버전(26.1.4)이 멀쩡히 연다.
-    /// 그러니 셸 안의 무엇과 부딪치는 것인데, 그것을 찾아 비키는 것보다
-    /// <b>접히는 길을 안 쓰는 편</b>이 낫다 — 접힌 도구줄은 열리더라도
-    /// 「묶음을 누르고 → 목록에서 고르기」 두 번이라, 손가락으로 굵게 하나
-    /// 누르는 데 두 번 치게 된다.
-    /// </para>
-    /// <para>
-    /// 그래서 휴대폰에서는 기본 묶음을 <b>통째로 감추고</b>, 바로 눌리는
-    /// 단추 아홉(<see cref="PhoneToolbarItems"/>)을 담은 묶음 하나를 세운다.
-    /// 아홉이면 360px 에서도 한 줄에 들어가 <b>넘침 단추(…)가 아예 안 생긴다</b>
-    /// — 재어서 고른 수다. 더 담으면 그 수가 넘치는 순간 접히는 길로 되돌아간다.
-    /// </para>
-    /// <para>
-    /// 묶음을 둘 다 미리 만들어 두고 <b>보임만 가른다</b>(<c>GetVisible</c>).
-    /// 그 값은 <see cref="Func{TResult}"/> 라 그릴 때마다 다시 읽히므로, 화면을
-    /// 돌리거나 창을 넓혀 <see cref="_isPhone"/> 이 갈리면 도구줄이 따라간다 —
-    /// <c>CustomizeToolbar</c> 는 도구줄이 만들어질 때 한 번만 불리니 여기서
-    /// 갈라 적어서는 그 순간의 폭에 박힌다.
-    /// </para>
-    /// </remarks>
+    /// <summary>도구줄을 우리 것으로 손본다 — 한국어 이름표 · 「그림」 단추 이름표 · 휴대폰 전용 도구줄.
+    /// 휴대폰에서는 접히는 묶음을 없애고 바로 눌리는 아홉 단추 묶음 하나만 세운다(넘침 단추가 안 생기는 수). DevExpress 드롭다운은 포털 안에서 열리지 않는다.</summary>
     private void CustomizeEditorToolbar(DevExpress.Blazor.Office.IToolbar toolbar)
     {
         // 기본 묶음 전부 — 넓은 화면에서만 선다.
@@ -209,9 +127,7 @@ public partial class RequestNew
             toolbar.Groups[g].GetVisible = () => !_isPhone;
         }
 
-        // 휴대폰 묶음. **표준 명령을 이름으로 담는다** — 우리가 새 단추를 그려
-        // 명령을 흉내 내는 것이 아니라, 편집기가 가진 그 명령을 그대로 옮겨
-        // 앉히는 것이라 아이콘·활성/비활성·실행취소 이력이 전부 따라온다.
+        // 휴대폰 묶음. 표준 명령을 이름으로 담는다 — 아이콘·활성 상태·실행취소 이력이 편집기 것 그대로 따라온다.
         var phone = toolbar.Groups.AddCustomGroup();
         phone.GetVisible = () => _isPhone;
 
@@ -227,15 +143,12 @@ public partial class RequestNew
             }
         }
 
-        // **한국어 이름표는 맨 나중에 입힌다.** 위에서 담은 휴대폰 단추도
-        // 함께 훑어야 하고, 그 쪽이 모든 칸을 돌므로 아래 CssClass 는
-        // 그 뒤에 적어야 남는다.
+        // 한국어 이름표는 맨 나중에 입힌다 — 휴대폰 단추도 함께 훑어야 하고 이 칸이 모든 칸을 돈다.
+        // CssClass 는 그 뒤에 적어야 남는다.
         HtmlEditorKorean.Apply(toolbar);
 
-        // 「그림」은 **두 자리에 있다**(기본 묶음 · 휴대폰 묶음). 둘 다 같은
-        // 이름을 달아야 한다 — JS 가 이름으로 찾아 누름을 가로채므로, 한쪽을
-        // 빠뜨리면 바로 그 화면에서 편집기 제 판이 열려 사진이 base64 로
-        // 본문에 박힌다(이 파일 머리말의 그 자리다).
+        // 「그림」은 기본 묶음과 휴대폰 묶음 두 자리에 있고 둘 다 같은 이름을 달아야 한다.
+        // JS 가 이름으로 누름을 가로채므로 한쪽을 빠뜨리면 편집기 제 판이 열려 사진이 base64 로 박힌다.
         var picture = toolbar.Groups[HtmlEditorToolbarGroupNames.InsertElement]
             ?.Items[HtmlEditorToolbarItemNames.ShowInsertPictureDialog];
 
@@ -250,56 +163,17 @@ public partial class RequestNew
         }
     }
 
-    /// <summary>
-    /// 도구줄을 손보는 대리자. <b>한 번 만들어 들고 있는다.</b>
-    /// </summary>
-    /// <remarks>
-    /// 화면에서 <c>@CustomizeEditorToolbar</c> 라고 적으면 <b>그릴 때마다 새
-    /// 대리자</b>가 되어, 부품이 보기에는 매개변수가 계속 바뀐 것이 된다.
-    /// 글 한 자 칠 때마다 도구줄을 다시 세울 일이 아니다.
-    /// </remarks>
+    /// <summary>도구줄을 손보는 대리자. 한 번 만들어 들고 있는다 — @CustomizeEditorToolbar 로 적으면 그릴 때마다 새 대리자가 되어 도구줄을 다시 세운다.</summary>
     private Action<DevExpress.Blazor.Office.IToolbar>? _customizeToolbar;
 
     private Action<DevExpress.Blazor.Office.IToolbar> CustomizeToolbar =>
         _customizeToolbar ??= CustomizeEditorToolbar;
 
-    /// <summary>
-    /// 휴대폰 폭인가(≤767px). <c>DxLayoutBreakpoint</c> 가 채운다.
-    /// </summary>
-    /// <remarks>
-    /// <b>경계를 767 로 적는다.</b> <c>DeviceSize.XSmall</c> 은 576px 미만이라
-    /// <c>helpdesk.css</c> 의 휴대폰 갈래(≤767px)와 어긋나고, 그 사이 폭에서는
-    /// 화면은 휴대폰 꼴인데 도구줄만 넓은 화면 것이 선다. 포털의 다른 화면들도
-    /// 같은 값을 쓴다(<c>RequestManage</c> · <c>AutoGrid</c> · 포털관리).
-    /// </remarks>
+    /// <summary>휴대폰 폭인가(≤767px). DxLayoutBreakpoint 가 채운다 — DeviceSize.XSmall(576px)을 쓰면 helpdesk.css 의 휴대폰 갈래와 어긋난다.</summary>
     private bool _isPhone;
 
-    /// <summary>
-    /// 폭이 경계를 넘나들었다 — 휴대폰을 돌리거나 창을 넓혔다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>편집기를 다시 세운다</b>(<c>@key</c>). <c>GetVisible</c> 을 다시 읽는
-    /// 것은 <b>도구줄이 다시 그려질 때</b>뿐인데, 화면이 다시 그려진다고 그
-    /// 안쪽까지 따라 그려지지는 않는다 — 재어 보았다. 1400px 에서 열어 390px
-    /// 로 좁히면 휴대폰 도구줄이 서야 하는데 <b>접힌 묶음 다섯이 그대로
-    /// 남았다.</b> 처음부터 좁게 열었을 때만 맞는 것이, 고쳐 놓고 보기에
-    /// 제일 나쁜 종류다.
-    /// </para>
-    /// <para>
-    /// 다시 세우기 전에 <b>화면에 있는 글을 먼저 걷어 온다</b>
-    /// (<see cref="FlushContentAsync"/>). 편집기가 알려 주는 값은 친 다음
-    /// <c>InputDelay</c>(기본 500ms) 뒤에 오므로, 치던 중에 화면을 돌리면
-    /// 마지막 몇 자가 <b>새 편집기에 안 실린다</b>. 등록할 때와 같은 길이다.
-    /// </para>
-    /// <para>
-    /// 그리고 브라우저 쪽에 걸어 둔 것 둘을 <b>풀어 둔다</b> — 붙여넣기
-    /// 가로채기와 임시 보관 지켜보기는 <b>그때 그 글칸</b>에 걸려 있어서,
-    /// 새 편집기에는 안 걸린 채다. 걸렸다는 표시만 남아 있으면
-    /// <see cref="OnAfterRenderAsync"/> 가 다시 걸 생각을 하지 않아, 그 뒤로
-    /// <b>붙여넣은 그림이 base64 로 박히고 쓰던 글이 안 적힌다.</b>
-    /// </para>
-    /// </remarks>
+    /// <summary>폭이 경계를 넘나들었다. 편집기를 다시 세운다(@key) — GetVisible 은 도구줄이 다시 그려질 때만 다시 읽혀 그대로 두면 접힌 묶음이 남는다.
+    /// 다시 세우기 전에 글을 걷고(FlushContentAsync), 붙여넣기·임시 보관 걸이를 푼다 — 새 편집기에는 안 걸려 있어 다시 걸리지 않으면 그림이 base64 로 박힌다.</summary>
     private async Task OnPhoneChangedAsync(bool isPhone)
     {
         if (_isPhone == isPhone)
@@ -307,39 +181,23 @@ public partial class RequestNew
             return;
         }
 
-        // 빈 것으로는 덮지 않는다. 되살린 글이 아직 편집기에 안 얹힌 사이에 폭이
-        // 갈리면(회선이 느린 휴대폰에서 늘 그렇다) 빈 칸을 읽어 그 글을 지운다.
+        // 빈 것으로는 덮지 않는다 — 되살린 글이 얹히기 전에 폭이 갈리면 빈 칸을 읽어 그 글을 지운다.
         await FlushContentAsync(keepIfBlank: true);
 
         _isPhone = isPhone;
 
-        // 새 글칸에는 아무것도 안 걸려 있다. 다시 걸게 한다.
+        // 새 글칸에는 아무것도 안 걸려 있으니 다시 건다.
         _bound = false;
         _draftWatched = false;
 
         StateHasChanged();
     }
 
-    /// <summary>
-    /// 편집기에 붙여넣기 처리기를 건다.
-    /// </summary>
-    /// <remarks>
-    /// <b>첫 번째 그리기에만 걸지 않는다.</b> 편집기가 붙는 데 한 박자가 걸려
-    /// 첫 그리기에는 걸 자리가 아직 없다. 걸릴 때까지 그리기마다 다시 보고,
-    /// <b>걸리고 나면 그만 본다</b> — 그리기마다 브라우저를 한 번씩 부르는 것은
-    /// 글 한 자 칠 때마다 왕복이 하나 느는 일이다.
-    ///
-    /// <para>
-    /// 전에는 <c>Context.CanUse</c> 로 먼저 돌려보냈다. 연결이 없으면 편집기
-    /// 자체가 안 그려졌기 때문인데, <b>이제 연결이 없어도 글을 쓴다</b>
-    /// (2026-10-05 규칙 — 관리자가 아니면 모두 고객이고, 가리킬 고객 줄은 서버가
-    /// 첫 글을 쓸 때 만든다).
-    /// </para>
-    /// </remarks>
+    /// <summary>편집기에 붙여넣기 처리기를 건다. 걸릴 때까지 그리기마다 다시 보고 걸리면 그만 본다.
+    /// 연결이 없어도 쓸 수 있으므로 Context.CanUse 로 돌려보내지 않는다(고객 줄은 서버가 첫 글에 만든다).</summary>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        // **적어 둔 것부터 읽는다.** 읽고 나면 화면을 한 번 더 그려야 그 글이
-        // 편집기에 들어가므로, 얹는 일은 다음 차례로 미룬다.
+        // 적어 둔 것부터 읽는다 — 얹으면 화면을 한 번 더 그려야 들어가므로 얹는 일은 다음 차례로 미룬다.
         if (!_draftRead)
         {
             await ReadDraftAsync();
@@ -364,9 +222,7 @@ public partial class RequestNew
             _editorJs ??= await JS.InvokeAsync<IJSObjectReference>(
                 "import", "./_content/JSini.Web.HelpDesk/js/request-editor.js");
 
-            // 글칸이 설 때까지 여기서 기다린다 — 다음 그리기를 기다리면 회선이 느릴 때
-            // 영영 안 걸린다. 다시 세우는 사이에는 옛 편집기가 남아 있으므로 이 한 벌의
-            // 이름으로 짚는다(공통 이름이면 옛것에 걸고 끝난다).
+            // 글칸이 설 때까지 여기서 기다린다 — 다음 그리기를 기다리면 회선이 느릴 때 영영 안 걸린다. 한 벌의 이름으로 짚는다.
             for (var attempt = 0; attempt < BindAttempts && !_bound; attempt++)
             {
                 var selector = "." + EditorInstanceClass;
@@ -384,8 +240,7 @@ public partial class RequestNew
         }
         catch (JSException)
         {
-            // 브라우저에서 못 걸었다. 붙여넣기는 편집기 기본 동작(data URI)으로
-            // 떨어지고, 등록 직전의 훑기가 그것을 파일로 바꾼다. 화면은 산다.
+            // 브라우저에서 못 걸었다 — 붙여넣기는 편집기 기본 동작(data URI)으로 떨어지고, 등록 직전의 훑기가 파일로 바꾼다.
         }
         catch (InvalidOperationException)
         {
@@ -397,56 +252,18 @@ public partial class RequestNew
         }
     }
 
-    // ── 재요청 ───────────────────────────────────────────────
-    //
-    // 상세 화면의 「재요청」이 이 화면으로 보낸다(`?resubmit={번호}`). 거기서
-    // 하는 일은 그 글을 닫는 것까지고, **같은 내용으로 새 글을 채우는 일은
-    // 여기서** 한다 — 왜 그렇게 갈랐는지는 `RequestDetail.ResubmitAsync` 에.
+    // ── 재요청 ──
+    // 상세의 「재요청」이 ?resubmit={번호} 로 보낸다. 같은 내용으로 새 글을 채우는 일은 여기서 한다(RequestDetail.ResubmitAsync).
 
-    /// <summary>
-    /// 「재요청」으로 들어왔을 때 <b>바탕이 되는 요청 번호</b>.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>본문을 주소에 싣지 않는다.</b> 요청 본문에는 화면 캡처가 통째로 들어
-    /// 있어(<c>&lt;img&gt;</c> 가 여러 장) 주소가 쉽게 브라우저·역프록시의 길이
-    /// 한도를 넘는다. 번호만 넘기고 내용은 여기서 다시 읽는다.
-    /// </para>
-    /// <para>
-    /// 이 값이 주소에 남아 있는 것이 도움이 된다 — 새로고침이 나도
-    /// <b>같은 내용으로 다시 채워진다</b>(임시 보관이 막힌 브라우저에서도).
-    /// </para>
-    /// </remarks>
+    /// <summary>「재요청」으로 들어왔을 때 바탕이 되는 요청 번호. 본문은 주소에 싣지 않고 번호만 넘겨 여기서 다시 읽는다(캡처가 커서 주소 길이 한도를 넘는다).</summary>
     [Parameter, SupplyParameterFromQuery(Name = "resubmit")]
     public string? ResubmitId { get; set; }
 
     /// <summary>재요청 글의 제목 앞에 붙는 말.</summary>
     private const string ResubmitPrefix = "[재요청] ";
 
-    /// <summary>
-    /// 재요청의 바탕이 되는 글을 읽어 제목·본문을 채운다. 채웠으면 <c>true</c>.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>본문을 한 번 거른다</b>(<c>NoticeHtml.Sanitize</c>). 두 가지를 한꺼번에
-    /// 하기 때문이다 — 못 믿을 태그를 걷어내는 일과, 저장된 그림 주소
-    /// (<c>/api/file/download/id/…</c>)를 브라우저가 부를 수 있는 중계 주소
-    /// (<c>/files/…</c>)로 옮기는 일. 뒤엣것을 빼먹으면 편집기 안에서 이전
-    /// 글의 캡처가 <b>전부 깨진 네모</b>로 뜬다. 등록할 때 정본으로 되돌리는
-    /// 쪽은 <see cref="RequestContentHtml.ToStored"/> 다.
-    /// </para>
-    /// <para>
-    /// <b>제목의 <c>[재요청]</c> 은 겹쳐 붙이지 않는다.</b> 재요청을 또 재요청
-    /// 하는 일이 있고(같은 증상이 두 번 되살아나는 자리), 그때마다 앞에 쌓으면
-    /// 목록에서 제목이 말머리에 먹힌다. 몇 번째인지는 본문 맨 위의 링크를
-    /// 따라가면 나온다.
-    /// </para>
-    /// <para>
-    /// <b>못 읽어도 화면을 세우지 않는다.</b> 그 글이 지워졌거나 볼 권한이
-    /// 없을 수 있다 — 그때는 그 사실만 말하고 빈 화면으로 시작한다. 여기서
-    /// 던지면 새 요청을 쓸 자리 자체가 사라진다.
-    /// </para>
-    /// </remarks>
+    /// <summary>재요청의 바탕 글을 읽어 제목·본문을 채운다. 채웠으면 true.
+    /// 본문은 NoticeHtml.Sanitize 로 거르고 그림 주소를 중계 주소(/files/…)로 옮긴다 — 빼먹으면 이전 캡처가 깨진 네모가 된다. 못 읽어도 화면은 빈 채로 세운다.</summary>
     private async Task<bool> SeedFromSourceAsync()
     {
         if (!int.TryParse(ResubmitId, out var source) || source <= 0)
@@ -484,15 +301,7 @@ public partial class RequestNew
         return true;
     }
 
-    /// <summary>
-    /// 재요청 본문 — <b>이전 글로 가는 링크 · 빈 줄 · 이전 본문</b>.
-    /// </summary>
-    /// <remarks>
-    /// 링크와 이전 본문 사이에 <b>빈 줄을 하나 둔다.</b> 다시 부탁하는 사람이
-    /// 적어야 하는 것은 「무엇이 아직 안 됐는가」이고, 그 자리가 없으면 긴
-    /// 옛 글 끝까지 굴려 내려가 거기에 적게 된다 — 읽는 담당자는 맨 위부터
-    /// 읽으므로 그 말을 맨 나중에 본다.
-    /// </remarks>
+    /// <summary>재요청 본문 — 이전 글로 가는 링크 · 빈 줄 · 이전 본문. 빈 줄은 다시 부탁하는 사람이 「무엇이 아직 안 됐는가」를 적을 자리다.</summary>
     private static string ResubmitBody(int source, string title, string? body)
     {
         var label = string.IsNullOrWhiteSpace(title) ? $"요청 #{source}" : $"#{source} {title}";
@@ -514,51 +323,20 @@ public partial class RequestNew
             ? value.ToString()
             : null;
 
-    // ── 쓰던 글 ──────────────────────────────────────────────
-    //
-    // 무엇을 고친 것인지는 이 파일 머리말에, 어디에 어떻게 적는지는
-    // `request-draft.js` 에 있다. 여기 있는 것은 **언제 읽고 언제 버리는가**다.
+    // ── 쓰던 글 ──
+    // 언제 읽고 언제 버리는가. 적는 방법은 request-draft.js 에 있다.
 
-    /// <summary>
-    /// 적어 둔 것을 읽어 제목·본문에 얹는다. <b>화면마다 한 번</b>이다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>읽지 못해도 화면을 세우지 않는다.</b> 임시 보관은 없어도 등록은 되는
-    /// 기능이다 — 여기서 던지면 글을 쓸 자리 자체가 사라진다.
-    /// </para>
-    ///
-    /// <para>
-    /// <b>편집기에는 값을 넘기기만 한다.</b> 첫 그리기 뒤에 <c>Markup</c> 을
-    /// 바꿔도 편집기가 그것을 받아 그린다 — 헤드리스로 띄워 되살리기와
-    /// 「지우고 새로 쓰기」를 몰아 보고 잰 것이다(DevExpress 26.1.4). 한때
-    /// 브라우저 쪽에서 직접 얹는 길을 함께 두었는데, 그쪽이 <b>한 번도 돌지
-    /// 않아</b> 걷었다. 값을 <b>읽어 오는</b> 쪽만 편집기를 못 믿는다
-    /// (<see cref="FlushContentAsync"/>) — 그쪽은 늦게 알려 주기 때문이고,
-    /// 넣는 쪽과는 사정이 다르다.
-    /// </para>
-    ///
-    /// <para>
-    /// 끝에 <c>StateHasChanged</c> 를 <b>언제나</b> 부른다. 되살릴 것이 없어도
-    /// 그렇다 — 이 자리에서 그리기가 끊기면 다음
-    /// <c>OnAfterRenderAsync</c> 가 오지 않아 <b>붙여넣기와 지켜보기가 영영
-    /// 걸리지 않는다.</b>
-    /// </para>
-    /// </remarks>
+    /// <summary>적어 둔 것을 읽어 제목·본문에 얹는다. 화면마다 한 번. 읽지 못해도 화면은 세운다(임시 보관은 없어도 등록은 된다).
+    /// 편집기에는 값만 넘긴다. 값을 읽어 오는 쪽만 편집기를 믿지 못한다(FlushContentAsync). 끝에 StateHasChanged 를 언제나 불러야 OnAfterRenderAsync 가 와서 걸이가 선다.</summary>
     private async Task ReadDraftAsync()
     {
         _draftRead = true;
 
-        // 헬프데스크 신원(`auth-links/me`)으로 짓지 않는다. 그 조회는 실패하면 조용히
-        // 비어서, 적을 때와 읽을 때 열쇠가 갈려(`…:?` ↔ `…:아이디`) 아무것도 안 되살아났다.
+        // 헬프데스크 신원으로 키를 짓지 않는다 — 조회가 실패하면 조용히 비어 적을 때와 읽을 때 열쇠가 갈린다.
         var owner = AuthState is null ? null : (await AuthState).User.Identity?.Name?.Trim();
         _draftKey = DraftKeyPrefix + (string.IsNullOrEmpty(owner) ? "?" : owner);
 
-        // 「재요청」으로 들어왔으면 **그쪽이 먼저다**. 사람이 방금 누른 단추가
-        // 시킨 일이라, 여러 날 전에 적어 둔 임시본이 그것을 덮으면 화면에
-        // 엉뚱한 글이 뜬다. 적어 둔 것은 버리지 않는다 — 지켜보기가 곧 이
-        // 내용으로 덮어쓸 참이고, 여기서 미리 지우면 사람이 마음을 바꿔
-        // 나가 버렸을 때 **아무 데도 없는 글**이 된다.
+        // 「재요청」으로 들어왔으면 그쪽이 먼저다 — 오래된 임시본이 덮으면 엉뚱한 글이 뜬다. 임시본은 지우지 않는다(지켜보기가 곧 덮어쓴다).
         var seeded = await SeedFromSourceAsync();
 
         if (seeded)
@@ -623,14 +401,8 @@ public partial class RequestNew
         }
     }
 
-    /// <summary>
-    /// 적어 둔 것을 버린다. <paramref name="andStop"/> 이면 더 적지도 않는다.
-    /// </summary>
-    /// <remarks>
-    /// 등록에 성공한 뒤가 <paramref name="andStop"/> 인 자리다. 그 글은 이미
-    /// 서버에 있으므로 <b>다시 적히면 안 된다</b> — 남으면 다음에 이 화면을
-    /// 열 때 되살아나 같은 요청이 두 번 들어간다.
-    /// </remarks>
+    /// <summary>적어 둔 것을 버린다. andStop 이면 더 적지도 않는다.
+    /// 등록 성공 뒤가 andStop 인 자리다 — 글은 이미 서버에 있어 다시 적히면 같은 요청이 두 번 들어간다.</summary>
     private async Task ForgetDraftAsync(bool andStop)
     {
         _restoredAt = null;
@@ -660,38 +432,17 @@ public partial class RequestNew
         }
     }
 
-    /// <summary>
-    /// 「지우고 새로 쓰기」. 적어 둔 것도, 화면에 얹혀 있는 것도 함께 버린다
-    /// (편집기는 빈 <c>Markup</c> 을 받아 스스로 비운다).
-    /// </summary>
-    /// <remarks>
-    /// <b>묻지 않는다.</b> 여기서 버리는 것은 아직 어디에도 저장되지 않은
-    /// 글이지만, 되살린 직후의 사람이 누르는 단추라 「내가 쓰던 것이 아니다」가
-    /// 이미 분명하다. 되살린 안내 줄과 함께 사라지므로 눌렀다는 것도 보인다.
-    /// </remarks>
+    /// <summary>「지우고 새로 쓰기」. 적어 둔 것과 화면에 얹힌 것을 함께 버린다(편집기는 빈 Markup 을 받아 스스로 비운다).
+    /// 되묻지 않는다 — 방금 되살린 직후 누르는 단추라 쓰던 글이 아니라는 것이 분명하다.</summary>
     /// <summary>되묻는 창. 쓰던 글을 버리는 단추가 그것을 쓴다.</summary>
     private ConfirmDialog? _confirm;
 
-    /// <summary>
-    /// 지울 것이 있는가. <b>없으면 단추를 꺼 둔다</b> — 눌러도 아무 일이
-    /// 없는 단추는 고장으로 읽힌다.
-    /// </summary>
-    /// <remarks>
-    /// <c>_content</c> 는 편집기가 늦게 알려 주는 값이라(<c>InputDelay</c>)
-    /// 방금 친 첫 글자에는 아직 비어 있을 수 있다. 그래도 여기서는 충분하다 —
-    /// 한 박자 뒤에 켜지고, 그 사이에 누를 것이 없다.
-    /// </remarks>
+    /// <summary>지울 것이 있는가. 없으면 단추를 꺼 둔다 — 눌러도 아무 일 없는 단추는 고장으로 읽힌다.
+    /// _content 는 편집기가 늦게 알려 주므로 방금 친 글자에는 비어 있을 수 있으나, 한 박자 뒤에 켜지므로 충분하다.</summary>
     private bool HasSomethingToClear =>
         !string.IsNullOrWhiteSpace(_title) || !RequestContentHtml.IsBlank(_content);
 
-    /// <summary>
-    /// 쓰던 글을 버린다. <b>되묻고 나서</b> 버린다.
-    /// </summary>
-    /// <remarks>
-    /// 전에는 되살린 임시본이 있을 때만 글 사이에 뜨는 단추였다. 곁단추 줄로
-    /// 옮기면서 <b>늘 손에 닿는 자리</b>가 되었고, 되돌릴 수 없는 일이라
-    /// (임시 보관까지 함께 지운다) 한 번 더 묻는다.
-    /// </remarks>
+    /// <summary>쓰던 글을 버린다. 되묻고 나서 버린다 — 늘 손에 닿는 자리라 실수로 누르기 쉽고, 되돌릴 수 없어(임시 보관까지 지운다) 한 번 더 묻는다.</summary>
     private async Task ClearAsync()
     {
         if (_confirm is null)
@@ -760,18 +511,8 @@ public partial class RequestNew
 
     // ── 붙여넣은 그림 ────────────────────────────────────────
 
-    /// <summary>
-    /// 가로챈 그림이 도착했다. 올리고 그 자리에 <c>&lt;img&gt;</c> 를 꽂는다.
-    /// </summary>
-    /// <remarks>
-    /// 들어오는 길이 셋이다 — 붙여넣기 · 끌어놓기 · <b>도구줄의 「그림」 단추</b>.
-    /// 셋 다 <c>request-editor.js</c> 가 같은 파일 칸으로 몰아 주므로 여기는
-    /// 어느 길로 왔는지 알 필요가 없다.
-    ///
-    /// <b>한 장이 실패해도 나머지는 올린다.</b> 여러 장을 한 번에 넣는 일이
-    /// 있고, 그때 첫 장이 크다는 이유로 나머지까지 버리면 사람은 무엇이 들어갔는지
-    /// 모른 채 다시 넣는다.
-    /// </remarks>
+    /// <summary>가로챈 그림이 도착했다. 올리고 그 자리에 img 를 꽂는다. 들어오는 길은 셋(붙여넣기 · 끌어놓기 · 그림 단추)이고 JS 가 한 칸으로 몬다.
+    /// 한 장이 실패해도 나머지는 올린다 — 첫 장 때문에 나머지를 버리면 사람은 무엇이 들어갔는지 모른 채 다시 넣는다.</summary>
     private async Task OnPastedAsync(InputFileChangeEventArgs e)
     {
         List<IBrowserFile> files;
@@ -806,9 +547,7 @@ public partial class RequestNew
 
             try
             {
-                // 브라우저 스트림은 **이 상호작용 동안에만** 읽을 수 있다.
-                // 그대로 HttpClient 에 물리지 않고 여기서 다 받아 둔다 —
-                // 상한이 20MB 라 메모리에 들고 있어도 된다.
+                // 브라우저 스트림은 이 상호작용 동안에만 읽을 수 있다 — 여기서 다 받아 둔다(상한 20MB).
                 using var buffer = new MemoryStream();
                 await using (var source = file.OpenReadStream(MaxImageBytes))
                 {
@@ -833,14 +572,12 @@ public partial class RequestNew
             }
             catch (TimeoutException)
             {
-                // 바이트가 끝내 안 왔다. **여기서 새어 나가면 회로가 끊긴다** —
-                // 쓰던 글이 통째로 날아간다. 한 장 못 넣는 것으로 끝낸다.
+                // 바이트가 끝내 안 왔다 — 여기서 새어 나가면 회로가 끊기고 쓰던 글이 날아가므로 한 장 못 넣는 것으로 끝낸다.
                 Say($"{file.Name} 을(를) 받는 도중 끊겼습니다. 다시 넣어 주십시오.", NoticeTone.Warning);
             }
             catch (JSException ex)
             {
-                // **여기서 새어 나가면 회로가 끊긴다** — 그림 한 장 때문에
-                // 쓰던 글이 통째로 날아간다. 이 자리에서 말하고 넘긴다.
+                // 여기서 새어 나가면 회로가 끊긴다 — 그림 한 장 때문에 쓰던 글이 날아가지 않게 이 자리에서 말하고 넘긴다.
                 Say($"{file.Name} 을(를) 다루지 못했습니다 — {ex.Message}", NoticeTone.Warning);
             }
             finally
@@ -851,15 +588,8 @@ public partial class RequestNew
         }
     }
 
-    /// <summary>
-    /// 그림 하나를 올린다. 돌려주는 것은 <b>본문에 박을 주소</b>, 실패하면 <c>null</c>.
-    /// </summary>
-    /// <remarks>
-    /// 서버가 주는 것은 백엔드 정본 주소(<c>/api/file/download/id/{guid}</c>)다.
-    /// 브라우저가 보는 것은 포털(:5557)이고 거기에는 <c>/api</c> 가 없으므로
-    /// 그대로 걸면 깨진 네모가 된다 — 셸 중계 주소로 옮겨서 넣고, 저장할 때
-    /// 다시 정본으로 되돌린다(<c>RequestContentHtml.ToStored</c>).
-    /// </remarks>
+    /// <summary>그림 하나를 올린다. 돌려주는 것은 본문에 박을 주소, 실패하면 null.
+    /// 서버 정본 주소(/api/file/download/id/…)는 포털에 /api 가 없어 깨지므로 셸 중계 주소로 넣고, 저장할 때 정본으로 되돌린다(RequestContentHtml.ToStored).</summary>
     private async Task<string?> UploadImageAsync(Stream content, string fileName, string contentType)
     {
         var uploaded = await Images.UploadAsync(content, fileName, contentType);
@@ -884,8 +614,7 @@ public partial class RequestNew
         }
         catch (JSException)
         {
-            // 꽂지 못했다. 파일은 이미 올라가 있으므로 주소를 알려 준다 —
-            // 아무 말도 안 하면 사람은 그림이 사라진 줄 안다.
+            // 꽂지 못했다 — 파일은 이미 올라가 있으니 주소를 알려 준다. 아무 말도 안 하면 그림이 사라진 줄 안다.
             Say($"그림을 글에 넣지 못했습니다. 주소: {url}", NoticeTone.Warning);
         }
         catch (InvalidOperationException)
@@ -893,7 +622,7 @@ public partial class RequestNew
         }
     }
 
-    // ── 등록 ─────────────────────────────────────────────────
+    // ── 등록 ──
 
     private async Task SubmitAsync()
     {
@@ -911,8 +640,7 @@ public partial class RequestNew
             // 편집기가 아직 알려 주지 않은 마지막 줄까지 여기서 받아 온다.
             await FlushContentAsync();
 
-            // 브라우저의 required 만 믿지 않는다. 서버도 다시 보지만, 여기서 막으면
-            // 왕복 한 번을 아끼고 무엇이 빠졌는지 바로 알려 줄 수 있다.
+            // 브라우저의 required 만 믿지 않는다 — 서버도 보지만 여기서 막으면 왕복을 아끼고 빠진 칸을 바로 알려 준다.
             if (RequestContentHtml.IsBlank(_content))
             {
                 Say("내용을 채워 주십시오.", NoticeTone.Warning);
@@ -945,9 +673,7 @@ public partial class RequestNew
                 return;
             }
 
-            // **요청이 들어간 그 자리에서** 적어 둔 것을 버린다. 첨부가 뒤에서
-            // 실패해 이 화면에 남더라도 이 글은 이미 서버에 있으므로, 남겨 두면
-            // 다음에 화면을 열 때 되살아나 같은 요청이 두 번 들어간다.
+            // 요청이 들어간 자리에서 적어 둔 것을 버린다 — 첨부가 뒤에서 실패해도 글은 이미 서버에 있어, 남기면 되살아나 두 번 들어간다.
             await ForgetDraftAsync(andStop: true);
 
             var failed = await UploadAsync(created.Value);
@@ -959,17 +685,13 @@ public partial class RequestNew
                     await _picker.ClearAsync();
                 }
 
-                // 목록으로 보낸다. 등록 화면에 남겨 두면 같은 요청을 두 번 넣기 쉽다.
-                //
-                // **「요청 처리」가 그 목록이다**(2026-10-05). 요청자가 제 것만 보던
-                // `/helpdesk/request/list` 를 걷어냈고, 고객으로 들어온 사람에게는
-                // 그 화면이 「요청자 = 나」로 서므로 방금 넣은 것이 맨 위에 있다.
+                // 목록으로 보낸다 — 등록 화면에 남기면 같은 요청을 두 번 넣기 쉽다.
+                // 고객으로 들어오면 「요청 처리」가 「요청자 = 나」로 서서 방금 넣은 것이 맨 위에 있다.
                 Navigation.NavigateTo("/helpdesk/request/manage");
                 return;
             }
 
-            // **목록으로 보내지 않는다.** 요청은 이미 들어갔으므로 다시 등록하면
-            // 안 되고, 첨부만 다시 올릴 자리는 상세 화면이다. 그 말을 해 준다.
+            // 목록으로 보내지 않는다 — 요청은 이미 들어갔으니 다시 등록하면 안 되고, 첨부는 상세 화면에서 올린다.
             Say($"요청은 등록했지만 첨부 {failed}개를 올리지 못했습니다. "
                 + $"요청 {created} 번 상세에서 다시 올려 주십시오.", NoticeTone.Warning);
         }
@@ -979,13 +701,7 @@ public partial class RequestNew
         }
     }
 
-    /// <summary>
-    /// 편집기에서 <b>지금 화면에 있는 글</b>을 읽어 <c>_content</c> 에 담는다.
-    /// </summary>
-    /// <remarks>
-    /// <b>읽지 못하면 있던 값을 그대로 둔다.</b> 여기서 비우면 잘 써 둔 본문까지
-    /// 날아가고, 증상이 「가끔 빈 글이 등록된다」로만 보인다.
-    /// </remarks>
+    /// <summary>편집기에서 지금 화면에 있는 글을 읽어 _content 에 담는다. 읽지 못하면 있던 값을 그대로 둔다(비우면 잘 쓴 본문까지 날아간다).</summary>
     private async Task FlushContentAsync(bool keepIfBlank = false)
     {
         try
@@ -1012,13 +728,7 @@ public partial class RequestNew
         }
     }
 
-    /// <summary>
-    /// 임시 보관에게 <b>지금 화면을 다시 보라</b>고 알린다.
-    /// </summary>
-    /// <remarks>
-    /// 지켜보기는 <c>input</c> 이벤트에 걸려 있어서, 화면이 값을 직접 넣은
-    /// 때(AI 가 지은 제목을 고른 자리)는 그 이벤트가 나지 않는다.
-    /// </remarks>
+    /// <summary>임시 보관에게 지금 화면을 다시 보라고 알린다. 지켜보기는 input 이벤트에 걸려 있어 화면이 값을 직접 넣은 때(AI 제목 고르기)는 이벤트가 안 난다.</summary>
     private async Task TouchDraftAsync()
     {
         if (_draftJs is null || _draftStopped)
@@ -1039,27 +749,14 @@ public partial class RequestNew
     }
 
 
-    /// <summary>
-    /// <b>지금 화면에 있는</b> 본문을 AI 도우미에게 넘긴다.
-    /// </summary>
-    /// <remarks>
-    /// 먼저 편집기에서 읽어 오는 것(<see cref="FlushContentAsync"/>)이 요점이다 —
-    /// <c>_content</c> 만 넘기면 마지막으로 친 줄이 빠진 채로 간다. 「등록」이
-    /// 같은 일을 같은 까닭으로 한다.
-    /// </remarks>
+    /// <summary>지금 화면의 본문을 AI 도우미에게 넘긴다. 먼저 편집기에서 읽어 오는 것이 요점이다 — _content 만 넘기면 마지막 줄이 빠진다.</summary>
     private async Task<string?> FlushedContentAsync()
     {
         await FlushContentAsync();
         return _content;
     }
 
-    /// <summary>AI 가 지은 제목 중 사람이 고른 것을 제목 칸에 넣는다.</summary>
-    /// <remarks>
-    /// <b>적어 두는 쪽에도 알린다.</b> 제목은 브라우저가 화면에서 긁어 가는
-    /// 값인데(<c>request-draft.js</c>), 여기서 넣은 글자는 사람이 친 것이
-    /// 아니라 입력 이벤트가 나지 않는다 — 알리지 않으면 새로고침 한 번에
-    /// 고른 제목만 사라진다.
-    /// </remarks>
+    /// <summary>AI 가 지은 제목 중 사람이 고른 것을 제목 칸에 넣는다. 입력 이벤트가 안 나므로 임시 보관에도 알린다 — 아니면 새로고침에 고른 제목이 사라진다.</summary>
     private async Task ApplyTitleAsync(string title)
     {
         _title = title;
@@ -1068,13 +765,7 @@ public partial class RequestNew
         await TouchDraftAsync();
     }
 
-    /// <summary>AI 가 간추린 덩이를 본문 <b>맨 위</b>에 꽂는다.</summary>
-    /// <remarks>
-    /// <c>_content</c> 를 고쳐 편집기에 되돌리지 않는다 — 그러면 편집기가
-    /// 글을 통째로 다시 그려 커서와 실행취소 이력이 날아간다. 그림을 꽂는
-    /// 길과 같이 DOM 을 직접 만진다(<c>request-editor.js</c> 의
-    /// <c>prependHtml</c>).
-    /// </remarks>
+    /// <summary>AI 가 간추린 덩이를 본문 맨 위에 꽂는다. _content 를 고쳐 편집기에 되돌리면 글이 통째로 다시 그려져 커서와 실행취소가 날아가므로 DOM 을 직접 만진다(prependHtml).</summary>
     private async Task InsertSummaryAsync(string html)
     {
         try
@@ -1086,8 +777,7 @@ public partial class RequestNew
 
             await _editorJs.InvokeAsync<bool>("prependHtml", EditorSelector, html);
 
-            // 꽂은 것을 C# 쪽에도 들여놓는다. 안 그러면 다음에 「등록」이
-            // 읽기 전까지 `_content` 가 요약 없는 옛 글이다.
+            // 꽂은 것을 C# 쪽 _content 에도 들여놓는다 — 아니면 등록이 편집기를 읽기 전까지 요약 없는 옛 글이다.
             await FlushContentAsync();
             await TouchDraftAsync();
         }
@@ -1100,16 +790,8 @@ public partial class RequestNew
         }
     }
 
-    /// <summary>
-    /// 본문에 남아 있는 data URI 그림을 파일로 바꾼다.
-    /// 하나라도 실패하면 <c>null</c> — 그때는 등록하지 않는다.
-    /// </summary>
-    /// <remarks>
-    /// <b>실패해도 그냥 저장하지 않는 이유.</b> base64 한 장이 든 본문은 수 MB 짜리
-    /// 글자다. 그것이 DB 에 들어가면 목록·검색·메일이 그 뒤로 계속 무거워지고,
-    /// 서버는 그 data URI 를 배포 장비 디스크에 떨군다(결정 D5-B 가 그만두기로 한
-    /// 방식이라 컨테이너에서는 재배포 때 사라진다). 한 번 더 누르게 하는 편이 낫다.
-    /// </remarks>
+    /// <summary>본문에 남은 data URI 그림을 파일로 바꾼다. 하나라도 실패하면 null 이고 등록하지 않는다.
+    /// base64 본문을 그대로 저장하면 DB 와 목록·메일이 무거워지고 서버가 그 data URI 를 배포 장비 디스크에 떨군다 — 한 번 더 누르게 하는 편이 낫다.</summary>
     private async Task<string?> AbsorbPendingImagesAsync(string content)
     {
         var absorbed = await Images.AbsorbAsync(content);
@@ -1120,21 +802,13 @@ public partial class RequestNew
             return null;
         }
 
-        // 화면에도 반영해 둔다. 등록이 뒤에서 실패했을 때 편집기에 남아 있는
-        // 것이 다시 base64 이면 누를 때마다 같은 일을 되풀이한다.
+        // 화면에도 반영해 둔다 — 등록이 뒤에서 실패했을 때 편집기에 base64 가 남으면 누를 때마다 같은 일을 되풀이한다.
         _content = absorbed.Url;
 
         return absorbed.Url;
     }
 
-    /// <summary>
-    /// 요청을 만든다. 성공하면 새 요청 번호.
-    ///
-    /// <b>폼으로 보낸다</b> — 서버가 <c>ReadFormAsync</c> 로 읽기 때문이다.
-    /// 칸 이름은 서버가 꺼내 쓰는 그대로여야 한다(<c>Title</c> · <c>Description</c>).
-    /// ASP.NET Core 는 모르는 칸을 말없이 버리므로, 틀려도 오류가 아니라
-    /// **빈 값으로 저장**된다.
-    /// </summary>
+    /// <summary>요청을 만든다. 성공하면 새 요청 번호. 폼으로 보낸다 — 칸 이름(Title · Description)이 서버가 읽는 그대로여야 한다. 모르는 칸은 말없이 버려져 빈 값으로 저장된다.</summary>
     private async Task<int?> CreateAsync(string description)
     {
         int? id = null;
@@ -1147,13 +821,8 @@ public partial class RequestNew
                 { new StringContent(description), "Description" },
             };
 
-            // **고객 번호를 보내지 않는다.** 요청자는 글을 쓴 사람으로 고정이고
-            // (파일 머리말), 서버는 안 보내면 그렇게 한다
-            // (`RequesterProvisioner.ResolveAsync` 의 3번).
-            //
-            // 보내던 시절의 흉터 하나를 적어 둔다 — 한때 `Context.HelpdeskUserId`
-            // 를 그대로 실었는데 담당자에게 그 값은 `admin.id` 라, 번호가 겹치는
-            // 고객이 있으면 **남의 이름으로 요청이 들어갔다.**
+            // 고객 번호는 보내지 않는다 — 요청자는 글을 쓴 사람으로 고정이고, 서버는 안 보내면 그렇게 한다(RequesterProvisioner.ResolveAsync).
+            // HelpdeskUserId 를 실으면 담당자 번호(admin.id)와 겹치는 고객 이름으로 요청이 들어간다.
 
             var created = await Api.PostMultipartAsync<ImprovementRequest>("requests", form);
             id = created?.Id;
@@ -1162,12 +831,7 @@ public partial class RequestNew
         return ok ? id : null;
     }
 
-    /// <summary>
-    /// 첨부를 올린다. 돌려주는 값은 <b>실패한 개수</b>다.
-    ///
-    /// 한 번에 다 보낸다 — 서버가 <c>IFormFileCollection</c> 을 받고, 하나라도
-    /// 실패하면 502 에 어느 것이 실패했는지 담아 준다.
-    /// </summary>
+    /// <summary>첨부를 한 번에 올린다. 돌려주는 값은 실패한 개수. 하나라도 실패하면 서버가 502 로 어느 것인지 담아 준다.</summary>
     private async Task<int> UploadAsync(int requestId)
     {
         if (_files.Count == 0)
@@ -1201,8 +865,7 @@ public partial class RequestNew
         }
         catch (ApiException)
         {
-            // 어느 것이 실패했는지는 서버가 메시지에 담아 주지만, 여기서는
-            // 개수만 쓴다 — 부르는 쪽이 「상세에서 다시 올리라」고 안내한다.
+            // 어느 것이 실패했는지는 여기서 쓰지 않는다 — 개수만 세서 부르는 쪽이 상세에서 다시 올리라고 안내한다.
             return _files.Count;
         }
         finally
@@ -1216,9 +879,7 @@ public partial class RequestNew
 
     public async ValueTask DisposeAsync()
     {
-        // **적어 둔 것은 지우지 않는다.** 화면을 떠나는 것이 곧 글을 버리는
-        // 뜻은 아니다 — 다른 탭에 다녀오거나 창이 닫힌 뒤 돌아왔을 때
-        // 이어서 쓰라고 적어 둔 것이다. 지켜보기만 거둔다.
+        // 적어 둔 것은 지우지 않는다 — 화면을 떠나는 것이 곧 버리는 뜻이 아니라 다녀와서 이어 쓰게 둔다. 지켜보기만 거둔다.
         if (_draftJs is not null)
         {
             try

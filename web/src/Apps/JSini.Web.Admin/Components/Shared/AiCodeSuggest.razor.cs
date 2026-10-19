@@ -38,7 +38,7 @@ public partial class AiCodeSuggest
             return;
         }
 
-        // 이름이 바뀌었으면 옛 이름의 추천을 걷는다. **묻지는 않는다** — 누를 때 묻는다.
+        // **묻지는 않는다** — 누를 때 묻는다.
         if (_asked is not null && (Word?.Trim() ?? "") != _asked)
         {
             Clear();
@@ -82,8 +82,7 @@ public partial class AiCodeSuggest
 
             _code = suggested?.Trim();
 
-            // 빈 답도 실패다. 「AI 추천」 이라고 써 놓고 아무것도 없으면
-            // 눌러야 하는지 기다려야 하는지 알 수 없다.
+            // 빈 답도 실패다. 「AI 추천」 이라고 써 놓고 아무것도 없으면 눌러야 하는지 기다려야 하는지 알 수 없다.
             if (string.IsNullOrEmpty(_code))
             {
                 _failed = "받지 못했습니다.";
@@ -96,8 +95,7 @@ public partial class AiCodeSuggest
                 return;
             }
 
-            // 대개 「키가 없다」·「하루 한도를 다 썼다」다. 서버가 준 말을 그대로
-            // 보여 준다 — 여기서 뭉뚱그리면 설정을 고칠 수 있는 사람이 못 고친다.
+            // 대개 「키가 없다」·「하루 한도를 다 썼다」다. 서버가 준 말을 그대로 보여 준다 — 여기서 뭉뚱그리면 설정을 고칠 수 있는 사람이 못 고친다.
             _failed = ex.Message;
         }
         catch (Exception)

@@ -7,13 +7,7 @@ using JSini.Web.ProjMng.Api;
 
 namespace JSini.Web.ProjMng.Components.Shared;
 
-/// <summary>
-/// AI 작업 「이어서 지시」 공통 팝업.
-/// <para>
-/// 「빠른 지시」( <see cref="AiTaskActions"/> )와 「AI 작업」( <c>AiTaskList</c> )에서
-/// 완료된 작업에 추가 지시를 덧붙여 새로 요청할 때 사용하는 공통 컴포넌트다.
-/// </para>
-/// </summary>
+/// <summary>AI 작업 「이어서 지시」 공통 팝업. 「빠른 지시」와 「AI 작업」이 완료된 작업에 추가 지시를 덧붙여 새로 요청할 때 쓴다.</summary>
 public partial class AiTaskContinuePopup : IDisposable
 {
     [Inject] private AiTaskClient Api { get; set; } = default!;
@@ -57,9 +51,7 @@ public partial class AiTaskContinuePopup : IDisposable
     /// <summary>마지막으로 처리한 작업 객체</summary>
     private AiTaskDto? _lastHandledItem;
 
-    /// <summary>
-    /// 글상자를 가리키는 고유 ID. 한 화면에 여러 팝업이 존재해도 충돌하지 않도록 한다.
-    /// </summary>
+    /// <summary>글상자를 가리키는 고유 ID. 한 화면에 팝업이 여럿이어도 충돌하지 않게 한다.</summary>
     private readonly string _continueDomId = $"pm-continue-{Guid.NewGuid():N}";
     private string ContinueSelector => $"#{_continueDomId}";
 

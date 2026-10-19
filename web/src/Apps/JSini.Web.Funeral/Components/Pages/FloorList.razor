@@ -1,21 +1,7 @@
 @page "/funeral/building/floor"
 @attribute [RouteKey("funeral.building.floor")]
 
-@*
-    [층 관리] — DB 메뉴 `/building/floor`.
-    이력: Vue `views/funeral/building/floor/index` → 여기.
-
-    [읽기만 하고 있었다]
-
-    등록·수정·삭제가 빠져 있었다. 클라이언트에는 이미 있었고 화면만 안
-    부르고 있었다.
-
-    [층은 반드시 건물에 붙는다]
-
-    그래서 등록할 때 건물을 고르지 않으면 저장돼도 목록에 안 보인다 —
-    어느 건물에도 속하지 않기 때문이다. 조건줄에서 고른 건물을 새 층의
-    기본값으로 넣어 그 실수를 줄인다.
-*@
+@* [층 관리] — DB 메뉴 `/building/floor`. 층은 건물에 붙는다. 등록 때 건물을 빼면 목록에서 사라지므로 조건줄의 건물을 새 층의 기본값으로 넣는다. *@
 
 @inherits DataPage
 
@@ -66,8 +52,7 @@
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="정렬" ColSpanMd="4">
-                    @* 이름으로 세우면 「지하1층」이 「1층」보다 앞에 온다. 그래서
-                       순서를 값으로 따로 둔다. *@
+                    @* 순서는 이름이 아니라 값으로 둔다(「지하1층」이 「1층」보다 앞에 오지 않게). *@
                     <DxSpinEdit @bind-Value="f.SortOrder" MinValue="0" />
                 </DxFormLayoutItem>
 

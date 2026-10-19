@@ -1,45 +1,10 @@
 @*
-    [공지 팝업이 스스로 뜨는 자리 — 로그인한 사용자]
-    이력: Vue `app.vue` 의 `<NoticePopup mode="auto">` → 여기.
-
-    레이아웃(`MainLayout`)에 놓인다. 공개 공지까지 함께 뜬다.
-
-    [로그인 화면은 이 부품을 쓰지 않는다]
-
-    한동안 여기 `Public` 파라미터가 있어서 로그인 화면이 같은 부품을 대화형
-    섬으로 올려 썼다. **그 길을 걷어냈다** — 회로가 붙기까지 팝업이 로그인
-    폼보다 460ms 늦게 떴다. 로그인 화면 몫은 `PublicNoticePopup` 이고, 왜
-    갈라졌는지는 그 파일 머리말에 적었다.
-
-    그래서 이 부품은 이제 **로그인한 사용자 하나만** 본다. 갈래가 없어져
-    닫힘 표시도 하나뿐이다(`PortalBoot.NoticeClosedUserKey`).
-
-    [왜 OnAfterRender 인가]
-
-    브라우저 저장소를 읽어야 하는데 프리렌더 중에는 JS 를 부를 수 없다
-    (`JavaScript interop calls cannot be issued during server-side prerendering`).
-    회로가 붙은 **뒤**에 읽는다.
-
-    [「한 번만 뜬다」를 부품 수명에 기대지 않는다 — 실제로 밟았다]
-
-    `OnAfterRenderAsync(firstRender)` 만으로는 모자랐다. **업무를 옮길 때
-    레이아웃이 통째로 다시 만들어지기 때문**이다 — 화면이 다른 모듈에 있으면
-    Piral 의 모듈 컨테이너가 갈리면서 `MainLayout` 이 새로 생기고, 그러면
-    `firstRender` 가 또 참이 된다. 실제로 첫 화면에서 장례식장 도움말로 옮기자
-    공지가 다시 떴다(메뉴·권한도 함께 다시 읽힌다 — 그건 별건이다).
-
-    그래서 **닫았다는 사실을 브라우저에 적어 둔다**(sessionStorage).
-    탭을 닫으면 사라지므로 다음에 새로 열면 다시 뜬다. 잠금화면도 같은 자리를
-    쓴다(`ScreenLock`).
-
-    | 저장소 | 열쇠 | 무엇을 기억하나 | 언제까지 |
-    |---|---|---|---|
-    | sessionStorage | `jsini-notice-closed:user` | 이 탭에서 닫았다 | 탭을 닫을 때까지 |
-    | localStorage | `jsini-notice-dismissed` | 이 공지는 오늘 안 본다 | 날짜가 바뀔 때까지 |
-
-    앞엣것은 **로그인 화면이 지운다**(`jsiniNotice` — 곧 로그인할 참이니 다시
-    떠야 한다). 뒤엣것은 로그인 화면과 **함께 쓰는 값**이라, 담는 모양
-    (<c>DismissRecord</c>)과 「오늘」의 기준을 양쪽이 맞춰야 한다.
+    공지 팝업이 스스로 뜨는 자리 — 로그인한 사용자 하나만 본다(공개 공지까지 함께 뜬다). 레이아웃(MainLayout)에 놓인다.
+    로그인 화면은 이 부품을 쓰지 않는다 — 회로가 붙기까지 팝업이 로그인 폼보다 늦게 떠서 PublicNoticePopup 으로 갈랐다.
+    브라우저 저장소는 프리렌더에서 못 읽으므로 회로가 붙은 뒤에 읽는다.
+    「한 번만 뜬다」는 부품 수명에 기대지 않는다 — 업무를 옮기면 레이아웃이 다시 만들어져 firstRender 가 또 참이 된다.
+    그래서 닫았다는 사실을 브라우저에 적는다: sessionStorage(이 탭에서 닫음 · 탭을 닫을 때까지)와 localStorage(오늘 안 봄 · 날짜가 바뀔 때까지).
+    앞엣것은 로그인 화면이 지우고, 뒤엣것은 로그인 화면과 함께 쓰는 값이라 담는 모양(DismissRecord)과 「오늘」의 기준을 양쪽이 맞춘다.
 *@
 
 @using Microsoft.Extensions.Logging

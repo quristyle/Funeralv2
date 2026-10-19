@@ -4,12 +4,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace AuthServer.Services;
 
-/// <summary>
-/// 메뉴를 기준으로 권한 현황을 거꾸로 읽는다.
-/// </summary>
-/// <remarks>
-/// 읽기 전용이다. 쓰기는 이미 있는 경로를 쓴다 — <see cref="IMenuRoleService"/> 주석 참고.
-/// </remarks>
+/// <summary>메뉴를 기준으로 권한 현황을 거꾸로 읽는다.</summary>
+/// 읽기 전용이다. 쓰기는 기존 역할-메뉴 경로를 쓴다.
 public class MenuRoleService : IMenuRoleService
 {
     private readonly AppDbContext _db;
@@ -65,10 +61,7 @@ public class MenuRoleService : IMenuRoleService
             .ToListAsync();
 
         // ── 3. 이 메뉴를 '열람' 할 수 있게 하는 역할만 골라낸다 ──
-        //
-        // 권한 한 줄이 걸려 있어도 메뉴가 그 항목을 쓰지 않으면 효과가 없다.
-        // MenuService 가 메뉴의 use_* 와 AND 로 묶기 때문이다. 여기서도 같은 규칙을 쓴다 —
-        // 화면이 "닿는다" 고 말한 대상이 실제로는 못 들어오는 일이 없어야 한다.
+        // 권한이 걸려 있어도 메뉴가 그 항목을 쓰지 않으면 들어올 수 없다 — MenuService 가 use_* 와 AND 로 묶는다.
         var viewingRoleIds = grants
             .Where(g => g.CanView && menu.UseView)
             .Select(g => g.RoleId)
@@ -90,9 +83,7 @@ public class MenuRoleService : IMenuRoleService
             .Select(ra => (ra.AccountId, ra.RoleId)), roleNameById);
 
         // ── 5. 실제 열람 가능 사용자 수 ────────────────────────
-        //
-        // 회사·부서·사람 세 갈래를 합친 뒤 사람 단위로 중복을 없앤다.
-        // 목록 건수를 그냥 더하면 회사와 부서 양쪽에 걸린 사람을 두 번 세게 된다.
+        // 회사·부서·사람 세 갈래를 합친 뒤 사람 단위로 중복을 없앤다. 목록 건수를 그냥 더하면 회사와 부서에 걸린 사람이 두 번 센다.
         var effective = await CountEffectiveUsersAsync(
             companyTargets.Select(t => t.Id).ToList(),
             deptTargets.Select(t => t.Id).ToList(),
@@ -292,9 +283,7 @@ public class MenuRoleService : IMenuRoleService
             .ToList();
     }
 
-    /// <summary>
-    /// 세 갈래를 합쳐 사람 단위로 중복을 없앤 수.
-    /// </summary>
+    /// <summary>세 갈래를 합쳐 사람 단위로 중복을 없앤 수.</summary>
     private async Task<int> CountEffectiveUsersAsync(
         List<string> companyIds, List<string> deptIds, List<string> accountIds)
     {

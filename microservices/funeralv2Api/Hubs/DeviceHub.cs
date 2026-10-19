@@ -21,10 +21,7 @@ public class DeviceHub : Hub
     private static readonly ConcurrentDictionary<string, CancellationTokenSource> _disconnectTimeouts = new();
 
     /// <summary>
-    /// 해당 장비코드로 실제 연결(그룹 참여)된 커넥션이 있는지 확인한다.
-    ///
-    /// DB 의 status 컬럼은 프로세스가 죽거나 half-open 연결이 생기면 실제와 어긋난다.
-    /// 명령을 실제로 받을 수 있는지 판단할 때는 DB 가 아니라 이 실시간 연결 정보를 봐야 한다.
+    /// 장비코드로 실제 연결(그룹 참여)된 커넥션이 있는지 본다. DB 의 status 는 half-open 연결에서 어긋나므로 실시간 연결 정보로 판단한다.
     /// </summary>
     public static bool IsDeviceConnected(string deviceCode)
     {
@@ -39,11 +36,8 @@ public class DeviceHub : Hub
         => _connectionDeviceMap.Values.Distinct().ToList();
 
     // ── 앱 버전 보고 (결정 D-P4) ──────────────────────────────────────────
-    //
-    // 플레이어(v1.0.2+)가 등록 직후 자기 버전을 알려 온다. **메모리에만 둔다** —
-    // 서버 재기동으로 비어도 장비들이 재접속하며 다시 채우고(등록 하트비트 60초),
-    // 이것 때문에 DB 스키마를 건드릴 이유가 없다. 포털의 장비 화면이
-    // `/building/device/player-versions` 로 조회한다.
+    // 플레이어가 등록 직후 보고하는 앱 버전. 메모리에만 둔다 — 재기동으로 비어도 장비들이 재접속하며 다시 채운다.
+    // 포털 장비 화면이 /building/device/player-versions 로 조회한다.
 
     /// <summary>장비코드 → (앱 버전, 보고 시각). 메모리 보관.</summary>
     private static readonly ConcurrentDictionary<string, (string Version, DateTime ReportedAt)>

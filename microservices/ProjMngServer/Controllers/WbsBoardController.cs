@@ -7,22 +7,7 @@ using ProjMngServer.Services;
 namespace ProjMngServer.Controllers;
 
 /// <summary>WBS 대시보드 — <c>/api/wbs-board</c>.</summary>
-/// <remarks>
-/// <para>
-/// 이름이 <c>wbs-board</c> 인 까닭 — <c>/api/wbs</c> 는 이미 있다
-/// (<see cref="WbsController"/>, 프로젝트별 공정표). <b>이름만 같고 다른
-/// 물건</b>이라 한 경로에 얹으면 안 된다.
-/// </para>
-///
-/// <para>
-/// [모든 조회가 <c>prjRid</c> 를 받는다]
-/// </para>
-///
-/// <para>
-/// 원본 대시보드는 프로젝트 하나 전용이었다. 여기서는 <b>필수</b>다 —
-/// 기본값을 두면 프로젝트를 안 고른 화면이 조용히 남의 숫자를 보여 준다.
-/// </para>
-/// </remarks>
+/// /api/wbs 는 이미 프로젝트별 공정표가 쓰므로 이름만 같은 이 대시보드는 다른 경로다. 모든 조회는 prjRid 를 필수로 받는다 — 기본값을 두면 프로젝트를 안 고른 화면이 남의 숫자를 보여 준다.
 [ApiController]
 [Route("api/wbs-board")]
 public sealed class WbsBoardController(

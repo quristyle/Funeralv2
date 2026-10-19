@@ -1,13 +1,6 @@
 namespace ProjMngServer.Models;
 
-// Git 저장소에서 읽어 오는 것들. **우리 DB 에 담지 않는다** — 잠깐 들고
-// 있다가 버린다(TTL).
-//
-// [GitLab 에서 GitHub 로 갈아탔다 (2026-09-23)]
-//
-// 사내망에서는 GitLab 이었고 저장소를 `pmm001`…`pmm018` × `be`/`fe` 규칙으로
-// **만들어 냈다.** GitHub 로 오면서 그 규칙이 뜻을 잃어(저장소가 하나다)
-// **설정이 목록을 준다.** 옛 구현은 git 이력에 있다.
+// Git 저장소에서 읽어 오는 값. 우리 DB 에 담지 않고 잠깐 들고 있다가 버린다(TTL). 저장소 목록은 설정이 정한다.
 
 /// <summary>설정이 없을 때도 화면이 뜨게 하는 겉봉.</summary>
 /// <typeparam name="T">줄 하나의 모양.</typeparam>
@@ -16,10 +9,7 @@ public sealed class GitResult<T>
     /// <summary>볼 저장소가 하나라도 있나. 거짓이면 줄이 없다.</summary>
     public bool Configured { get; set; }
 
-    /// <summary>
-    /// 토큰이 있나. <b>없어도 공개 저장소는 읽힌다</b> — 시간당 60회가
-    /// 5,000회로 바뀔 뿐이다.
-    /// </summary>
+    /// <summary>토큰이 있나. <b>없어도 공개 저장소는 읽힌다</b> — 시간당 60회가 5,000회로 바뀔 뿐이다.</summary>
     public bool Authenticated { get; set; }
 
     public string? WebBaseUrl { get; set; }
@@ -27,10 +17,7 @@ public sealed class GitResult<T>
     /// <summary>마지막으로 읽어 온 시각. 캐시라 지금이 아닐 수 있다.</summary>
     public string? LoadedAt { get; set; }
 
-    /// <summary>
-    /// 남은 호출 한도. 토큰 없이 쓰면 금세 바닥나므로 화면이 보여 준다 —
-    /// 「왜 갑자기 안 보이나」의 답이 대개 이것이다.
-    /// </summary>
+    /// <summary>남은 호출 한도. 토큰 없이 쓰면 금세 바닥나므로 화면이 보여 준다 — 「왜 갑자기 안 보이나」의 답이 대개 이것이다.</summary>
     public int? RateRemaining { get; set; }
 
     /// <inheritdoc cref="RateRemaining"/>
@@ -38,13 +25,7 @@ public sealed class GitResult<T>
 
     public List<T> Rows { get; set; } = [];
 
-    /// <summary>
-    /// 토큰이 없거나 권한이 모자라 <b>못 본 항목</b>. 화면이 그대로 보여 준다.
-    /// </summary>
-    /// <remarks>
-    /// 말없이 비워 두면 「그 저장소는 원래 방문자가 0 인가 보다」로 읽힌다.
-    /// <b>못 본 것과 없는 것은 다르다.</b>
-    /// </remarks>
+    /// <summary>토큰이 없거나 권한이 모자라 못 본 항목. 말없이 비워 두면 「방문자가 0」으로 읽히므로 못 본 것과 없는 것을 구분해 화면이 그대로 보여 준다.</summary>
     public List<GitBlocked> Blocked { get; set; } = [];
 }
 
@@ -69,21 +50,10 @@ public sealed class GitRunRow
 
     public string? RunsUrl { get; set; }
 
-    /// <summary>
-    /// 한 낱말로 줄인 상태 — <c>success</c>·<c>failure</c>·<c>cancelled</c>·
-    /// <c>skipped</c>·<c>queued</c>·<c>in_progress</c>.
-    /// </summary>
-    /// <remarks>
-    /// GitHub 는 이것을 <b>둘로 나눠 준다</b> — 끝났는지(<c>status</c>)와
-    /// 어떻게 끝났는지(<c>conclusion</c>). 화면이 그 둘을 다시 조합하게 두면
-    /// 화면마다 규칙이 갈리므로 여기서 하나로 만든다.
-    /// </remarks>
+    /// <summary>한 낱말로 줄인 상태 — success · failure · cancelled · skipped · queued · in_progress. GitHub 는 끝났는지(status)와 어떻게 끝났는지(conclusion)를 둘로 나눠 주므로 여기서 합친다.</summary>
     public string? Status { get; set; }
 
-    /// <summary>
-    /// 실행이 <b>한 번도 없었다</b>는 뜻의 <c>none</c> 이 들어올 수 있다.
-    /// <see cref="Error"/>(못 읽었다)와 다르다.
-    /// </summary>
+    /// <summary>실행이 한 번도 없었다는 뜻의 <c>none</c>. 못 읽은 것(<see cref="Error"/>)과 다르다.</summary>
     public string? Error { get; set; }
 
     public long? RunId { get; set; }
@@ -152,10 +122,7 @@ public sealed class GitMonitorRow
 
     public int Branches { get; set; }
 
-    /// <summary>
-    /// 오래 손대지 않은 가지. <b>보이는 가지만 세어 본 값</b>이다 —
-    /// GitHub 는 가지 목록에 날짜를 주지 않아 하나씩 더 물어야 한다.
-    /// </summary>
+    /// <summary>오래 손대지 않은 가지. <b>보이는 가지만 세어 본 값</b>이다 — GitHub 는 가지 목록에 날짜를 주지 않아 하나씩 더 물어야 한다.</summary>
     public int StaleBranches { get; set; }
 
     /// <summary>날짜를 실제로 물어본 가지 수. 위 <see cref="StaleBranches"/> 의 분모다.</summary>
@@ -172,14 +139,7 @@ public sealed class GitMonitorRow
 
     public int Commits7d { get; set; }
 
-    /// <summary>
-    /// 위 건수가 <b>한 쪽 상한에 걸려 잘렸나</b>. 참이면 실제로는 더 많다.
-    /// </summary>
-    /// <remarks>
-    /// GitHub 는 한 번에 100건까지 준다. 잘린 값을 그냥 보여 주면 「7일에 딱
-    /// 100건」이라는 있을 법한 숫자로 읽혀 <b>아무도 의심하지 않는다.</b>
-    /// 화면은 이 값이 참일 때 <c>100+</c> 로 적는다.
-    /// </remarks>
+    /// <summary>위 건수가 한 쪽 상한에 걸려 잘렸나. 참이면 실제로는 더 많다 — 화면은 <c>100+</c> 로 적는다. GitHub 는 한 번에 100건까지만 주므로 잘린 값을 그냥 보이면 있을 법한 숫자로 읽힌다.</summary>
     public bool Commits7dCapped { get; set; }
 
     public List<GitNameCount> CommitAuthors7d { get; set; } = [];
@@ -197,10 +157,7 @@ public sealed class GitMonitorRow
     /// <summary>이 저장소에서 온 GHCR 이미지. <b>토큰이 있어야 보인다.</b></summary>
     public List<GitPackage> Packages { get; set; } = [];
 
-    /// <summary>
-    /// 가장 최근에 깨진 실행의 <b>어느 단계에서</b> 깨졌나.
-    /// GitHub 까지 가지 않고 원인 자리를 본다.
-    /// </summary>
+    /// <summary>가장 최근에 깨진 실행의 <b>어느 단계에서</b> 깨졌나. GitHub 까지 가지 않고 원인 자리를 본다.</summary>
     public GitFailure? LastFailure { get; set; }
 }
 
@@ -246,11 +203,7 @@ public sealed class GitFailure
     public List<string> Steps { get; set; } = [];
 }
 
-/// <summary>GHCR 컨테이너 이미지 하나.</summary>
-/// <remarks>
-/// 저장소가 아니라 <b>소유자</b>에 매달린다. 배포가 올리는 이미지 열둘이
-/// 여기 보인다 — 운영에 떠 있는 태그와 대조하는 자리다.
-/// </remarks>
+/// <summary>GHCR 컨테이너 이미지 하나. 저장소가 아니라 소유자에 매달린다 — 배포가 올리는 이미지가 여기 보여 운영에 떠 있는 태그와 대조한다.</summary>
 public sealed class GitPackage
 {
     public string? Name { get; set; }

@@ -2,12 +2,7 @@ using System.Reflection;
 
 namespace CargoTrustServer.Endpoints;
 
-/// <summary>
-/// 게이트웨이가 JWT 검증 후 붙여 주는 X-User-* 헤더를 읽는다.
-/// 핸들러 시그니처에 <c>UserContext? user</c> 를 적으면 자동 바인딩된다.
-/// 헤더가 없으면 null — 게이트웨이를 거치지 않은 직접 호출이다.
-/// (다른 서비스들과 같은 복사본이다 — 공유 라이브러리에 두지 않는 것이 관례)
-/// </summary>
+/// <summary>게이트웨이가 붙여 주는 X-User-* 헤더를 읽는다. 헤더가 없으면 null(직접 호출). 다른 서비스와 같은 복사본이다.</summary>
 public class UserContext
 {
     public string UserId { get; set; } = string.Empty;

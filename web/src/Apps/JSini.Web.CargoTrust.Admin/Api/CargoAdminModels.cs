@@ -2,36 +2,8 @@ using System.Text.Json;
 
 namespace JSini.Web.CargoTrust.Admin.Api;
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 운송관리 관리자 화면이 주고받는 자료. 정본은 docs/cargotrust/05-api-design.md 의
-// 「관리자 엔드포인트」절이다 — 여기만 고치지 않는다.
-//
-// [이름에 모두 Admin 을 붙인 까닭]
-//
-// 사용자 모듈(JSini.Web.CargoTrust)에도 거래 · 신고 · 이의제기 자료가 있다. 두 모듈은
-// 서로 참조하지 않으므로 컴파일러가 막아 주지는 않지만, 이름이 같으면 사람이 헷갈린다 —
-// 로그 · 예외 · 검색 결과에 네임스페이스가 잘려 나오면 「어느 쪽 Transaction 인가」를
-// 매번 되짚어야 한다. 계약서가 이미 관리자 쪽에 Admin 을 붙여 두었으므로 그 이름을 쓴다.
-//
-// [전부 class 이고 set 이 열려 있다]
-//
-// 거래처는 CommGrd 의 팝업 편집 창으로 고친다. DevExpress 는 편집 모델을 만들 때
-// 기본 생성자로 새로 만들어 공개 속성을 베낀다 — record 의 init 이나 생성자
-// 매개변수로 두면 편집 창이 말없이 안 열린다. 나머지도 같은 모양으로 맞춰 둔다.
-//
-// [날짜는 DateTime 으로 받는다]
-//
-// 서버는 DateOnly(「yyyy-MM-dd」)로 준다. DateTime 은 그 글자를 그대로 읽고,
-// DevExpress 편집기·표의 DisplayFormat 이 DateTime 을 가장 곱게 다룬다. 이 화면들이
-// 날짜를 **보내는** 자리는 조회 조건뿐이고 그것은 클라이언트가 글자로 만들어 싣는다 —
-// 그래서 DateTime 을 서버로 직렬화할 일(시각이 붙어 DateOnly 파서가 거절하는 일)이 없다.
-//
-// [코드값은 문자열이다]
-//
-// 서버의 enum 을 대문자 글자로 받는다. C# enum 으로 옮기지 않는 이유는 서버가
-// 값을 하나 더하는 순간 역직렬화가 통째로 실패하기 때문이다 — 모르는 코드는
-// 글자 그대로 보이는 편이 빈 화면보다 낫다(CargoAdminCodes 가 그렇게 그린다).
-// ─────────────────────────────────────────────────────────────────────────────
+// 운송관리 관리자 화면의 자료. 정본은 docs/cargotrust/05-api-design.md 의 「관리자 엔드포인트」절이다.
+// 전부 class 에 set 을 열어 둔다(편집 창이 기본 생성자로 베낀다). 코드값은 문자열, 날짜는 DateTime 으로 받는다.
 
 /// <summary>대시보드 — <c>GET admin/dashboard</c>.</summary>
 public sealed class AdminDashboard
@@ -312,12 +284,9 @@ public sealed class AdminAuditEntry
     public string? Action { get; set; }
     public string? TargetType { get; set; }
     public long? TargetId { get; set; }
-
     /// <summary>
-    /// 바뀌기 전. 계약서는 「JSON 문자열」이라 적었지만 <b>JsonElement 로 받는다.</b>
-    /// 저장소가 JSONB 라, 서버가 그 값을 글자로 싸서 주든 객체 그대로 주든
-    /// 둘 다 읽혀야 한다 — <c>string</c> 으로 두면 객체가 오는 순간 목록 전체가
-    /// 역직렬화에서 죽는다. 펴는 것은 <see cref="CargoAdminJson"/> 이 한다.
+    /// 바뀌기 전 값. 계약서는 JSON 문자열이라 했지만 JsonElement 로 받는다 — 객체로 와도 목록이 죽지 않게.
+    /// 펴는 것은 CargoAdminJson 이 한다.
     /// </summary>
     public JsonElement? BeforeData { get; set; }
 

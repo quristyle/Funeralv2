@@ -13,10 +13,7 @@ public partial class WbsDocsBoard
     /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
     private string ConditionSummary => SchSummary.Or(_projectName);
 
-    /// <summary>
-    /// 고른 프로젝트의 <b>이름</b>. 화면이 든 것은 코드뿐이고 목록은
-    /// <c>CodeSelect</c> 안에 있어, 그 부품이 <c>@bind-Text</c> 로 올려 준다.
-    /// </summary>
+    /// <summary>고른 프로젝트의 이름. 코드만 들고, 목록은 CodeSelect 가 쥐고 있다.</summary>
     private string? _projectName;
 
     private string? _projectCode;
@@ -37,10 +34,7 @@ public partial class WbsDocsBoard
 
     private WbsDocDto? Current => _docs.FirstOrDefault(d => d.Id == _selectedId);
 
-    /// <summary>
-    /// 고치던 것이 남아 있나. <b>제목과 본문을 둘 다 본다</b> — 제목만 고치고
-    /// 옮기는 일이 실제로 잦다.
-    /// </summary>
+    /// <summary>고치던 것이 남아 있나. 제목과 본문을 둘 다 본다 — 제목만 고치고 옮기는 일이 잦다.</summary>
     private bool IsDirty =>
         _editing && Current is { } doc
         && (doc.Title != _draftTitle || (doc.Content ?? "") != (_draftContent ?? ""));
@@ -56,8 +50,7 @@ public partial class WbsDocsBoard
 
         _docs = await Api.ListAsync(rid);
 
-        // 보던 쪽이 아직 있으면 그대로 둔다. 저장할 때마다 첫 쪽으로
-        // 튕기면 고친 결과를 눈으로 확인할 수 없다.
+        // 보던 쪽이 있으면 그대로 둔다 — 저장할 때마다 첫 쪽으로 튕기면 고친 결과를 확인할 수 없다.
         if (!_docs.Any(d => d.Id == _selectedId))
         {
             _selectedId = _docs.FirstOrDefault()?.Id;
@@ -66,10 +59,7 @@ public partial class WbsDocsBoard
         return _docs.Count;
     }, "문서가 없습니다.", "문서를 읽지 못했습니다");
 
-    /// <summary>
-    /// 다른 쪽으로 옮긴다. <b>고치던 것이 있으면 먼저 묻는다</b> —
-    /// 안 물으면 쓰던 글이 말없이 사라진다.
-    /// </summary>
+    /// <summary>다른 쪽으로 옮긴다. 고치던 것이 있으면 먼저 묻는다 — 안 물으면 쓰던 글이 말없이 사라진다.</summary>
     private async Task SelectAsync(int id)
     {
         if (id == _selectedId) return;
@@ -130,10 +120,7 @@ public partial class WbsDocsBoard
         _newOpen = true;
     }
 
-    /// <summary>
-    /// 제목만 받아 만들고 <b>바로 편집으로 들어간다.</b> 본문이 빈 쪽을
-    /// 만들어 두고 나중에 찾아오게 하지 않는다.
-    /// </summary>
+    /// <summary>제목만 받아 만들고 바로 편집으로 들어간다. 본문이 빈 쪽을 만들어 나중에 찾아오게 하지 않는다.</summary>
     private async Task CreateAsync()
     {
         if (ProjectRid is not int rid) return;
@@ -152,8 +139,7 @@ public partial class WbsDocsBoard
                 Title = title,
                 Content = "",
 
-                // 맨 뒤에 붙인다. 0 으로 두면 서버가 100 을 주는데, 이미
-                // 100 짜리가 있으면 차례가 겹쳐 목차 순서가 흔들린다.
+                // 맨 뒤에 붙인다. 0 으로 두면 서버가 100 을 주는데, 100 짜리가 이미 있으면 차례가 겹쳐 목차 순서가 흔들린다.
                 SortOrder = _docs.Count == 0 ? 100 : _docs.Max(d => d.SortOrder) + 10,
             }),
             "만들었습니다.", "만들지 못했습니다");

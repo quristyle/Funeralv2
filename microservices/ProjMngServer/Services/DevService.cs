@@ -29,7 +29,7 @@ public class DevService : BaseService {
 
     DateTime sdt = DateTime.UtcNow;
 
-    // 등록되지 않은 별칭이면 null 이다. 전에는 바로 아래에서 NullReferenceException 이 났다.
+    // 등록되지 않은 별칭이면 null 이다. 그대로 쓰면 바로 아래에서 NullReferenceException 이 난다.
     DbInfo? di = GetDbInfo(dbNick);
     if (di == null) {
       ri.Code = -87;
@@ -71,7 +71,6 @@ public class DevService : BaseService {
         var expandoObject = (IDictionary<string, object?>)new ExpandoObject();
         string nm = "";
         object? oval = null;
-        //string empty = null;
         for (int i = 0; i < rdr.FieldCount; i++) {
           nm = rdr.GetName(i);
           oval = rdr.GetValue(i);
@@ -126,7 +125,6 @@ public class DevService : BaseService {
 
   public ResultInfo<dynamic> GetData(Dictionary<string, string> param) {
 
-    //ResultInfo<dynamic> ri = new ResultInfo<dynamic>();
 
     DateTime sdt = DateTime.UtcNow;
     string dbtype = param.TryGetValue("db", out var dbValue) && dbValue != null ? dbValue.ToString() : string.Empty;
@@ -154,7 +152,6 @@ public class DevService : BaseService {
 
     DateTime sdt = DateTime.UtcNow;
     string dbtype = param.TryGetValue("db", out var dbValue) && dbValue != null ? dbValue.ToString() : string.Empty;
-    //string stp = param.TryGetValue("stp", out var stpValue) && stpValue != null ? stpValue.ToString() : string.Empty;
     string sta = param.TryGetValue("sta", out var staValue) && staValue != null ? staValue.ToString() : string.Empty;
     string sob = param.TryGetValue("sob", out var sobValue) && sobValue != null ? sobValue.ToString() : string.Empty;
     string proj = param.TryGetValue("proj", out var projValue) && projValue != null ? projValue.ToString() : string.Empty;
@@ -164,22 +161,17 @@ public class DevService : BaseService {
     DateTime spdt = DateTime.UtcNow;
     DateTime epdt = DateTime.UtcNow;
 
-    //ResultInfo<dynamic> ri = DevExecuteQuery(dbNick, stp, param);
     ResultInfo<dynamic>? ri = null; // DevExecuteQuery(dbNick, dto.ProcName, param);
 
 
 
     if (dto.IsProjDb) {
 
-      //string parameter1 = param["parameter1"]?.ToString(); // "parameter1";
-      //string parameter1 = param.TryGetValue("parameter1", out var parameter1Value) ? parameter1Value : string.Empty;
       string parameter1 = param.GetValue("parameter1");
       var dq = GetProcDbDevsqlresp(dto.ProcName, param["db_rid"].ToString());
       // 등록되지 않은 키면 쿼리가 없다.
       string query = dq?.Dsl_query ?? string.Empty;
-      //if(!string.IsNullOrEmpty(parameter1)) {
         query = query.Replace("$parameter1", parameter1);
-      //}
       ri = GetDataQuery(dbNick, query);
     }
     else {
@@ -283,7 +275,6 @@ public class DevService : BaseService {
         var expandoObject = (IDictionary<string, object?>)new ExpandoObject();
         string nm = "";
         object? oval = null;
-        //string empty = null;
         for (int i = 0; i < rdr.FieldCount; i++) {
           nm = rdr.GetName(i);
           oval = rdr.GetValue(i);
@@ -322,13 +313,7 @@ public class DevService : BaseService {
   }
 
 
-  /// <summary>
-  /// 디비 종류에 맞는 시스템 질의를 가져온다.
-  ///
-  /// <b>캐시하지 않는다</b> — [DB 로직 관리] 화면에서 질의를 고치면 그 다음
-  /// 조회부터 바로 들어야 한다. 담아 두면 다시 띄우기 전까지 옛 SQL 로 돈다
-  /// (접속 정보에서 같은 일을 겪었다 — <see cref="BaseService.GetDbInfo"/>).
-  /// </summary>
+  /// <summary>디비 종류에 맞는 시스템 질의를 가져온다. 캐시하지 않는다 — 질의를 고치면 바로 들어야 해서다.</summary>
   private Devsqlresp? GetDsr(DbInfo di, string dsrKey) =>
     GetDevsqlresp(di.Db_type ?? string.Empty, dsrKey);
 
@@ -382,12 +367,7 @@ public class DevService : BaseService {
 
 
 
-  /// <summary>
-  /// $key 값은 문자열을 바꾼다. 다이렉트 쿼리 문자열 $ 를 바꾼다.
-  /// </summary>
-  /// <param name="dsl_query"></param>
-  /// <param name="param"></param>
-  /// <returns></returns>
+  /// <summary>$key 값은 문자열을 바꾼다. 다이렉트 쿼리 문자열 $ 를 바꾼다.</summary>
   string ChangeQueryDirectQuery(string dsl_query, IDictionary<string, string> param) {
     string result = dsl_query;
     // $key 값은 문자열을 바꾼다. 다이렉트 쿼리 문자열 $
@@ -398,9 +378,6 @@ public class DevService : BaseService {
 
       foreach (string str in _dd_kkk) {
         string key = str.Replace("$", "");
-        //if (param.TryGetValue(key, out var strValue) && strValue != null) {
-          //result = result.Replace(str, strValue);
-        //}
         result = result.Replace(str, param.GetValue(key) );
       }
 

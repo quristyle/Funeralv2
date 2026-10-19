@@ -11,26 +11,13 @@ public partial class ErrorTracePage
 {
     [Inject] private AdminClient Api { get; set; } = default!;
 
-    /// <summary>한 번에 받아 둘 최대 건수. 서버 상한도 같은 값 언저리다(500).</summary>
-    /// <remarks>
-    /// 표가 20건씩 나누므로 200 이면 열 쪽이다. 더 늘리는 대신 기간으로
-    /// 좁히게 한다 — 발송 이력(<c>PushLogs</c>)과 같은 기준이다.
-    /// </remarks>
+    /// <summary>한 번에 받아 둘 최대 건수. 표가 20건씩 나누므로 기간으로 좁히게 하고 여기서 늘리지 않는다(발송 이력과 같은 기준).</summary>
     private const int Cap = 200;
 
-    /// <summary>
-    /// 추적 번호. <b>채워져 있으면 이것만 쓴다</b>(아래 <see cref="ReloadAsync"/>).
-    /// </summary>
+    /// <summary>추적 번호. 채워져 있으면 이것만 쓴다(ReloadAsync).</summary>
     private string? _trace;
 
-    /// <summary>
-    /// 조회 기간. <b>기본이 최근 사흘이다.</b>
-    /// </summary>
-    /// <remarks>
-    /// 발송 이력은 이레인데 여기는 사흘로 둔다. 오류 신고는 대개 당일이나
-    /// 전날 것이고, 기간을 넓게 잡으면 같은 오류가 수십 줄 겹쳐 나와
-    /// 「방금 그 건」을 찾기가 오히려 어려워진다.
-    /// </remarks>
+    /// <summary>조회 기간. 기본은 최근 사흘이다 — 오류 신고는 대개 당일이나 전날 것이고, 넓게 잡으면 같은 오류가 겹쳐 「방금 그 건」을 찾기 어렵다.</summary>
     private DateTime? _from = AppTime.TodayDate.AddDays(-3);
     private DateTime? _to = AppTime.TodayDate;
 
@@ -51,14 +38,7 @@ public partial class ErrorTracePage
         ? SchSummary.Of(SchSummary.Period(_from, _to), _keyword)
         : SchSummary.Of(_trace);
 
-    /// <summary>
-    /// 제목 옆에 옅게 붙는 한마디. <b>상한에 닿았는지</b>를 여기서 말한다.
-    /// </summary>
-    /// <remarks>
-    /// 조회의 결과라 토스트로 띄울 수도 있지만, 이 화면은 줄을 고르고 상세를
-    /// 읽는 동안 조건을 계속 바꾸게 되어 토스트가 연달아 뜬다. 제목 옆에
-    /// 붙여 두면 **지금 보고 있는 목록이 전부인지**가 늘 같은 자리에 있다.
-    /// </remarks>
+    /// <summary>제목 옆에 옅게 붙는 한마디. 상한에 닿았는지를 말한다 — 토스트로 띄우면 줄을 고르는 동안 연달아 뜨므로 제목 옆에 둔다.</summary>
     private string? ListHint => _rows.Count switch
     {
         0 => null,
@@ -68,21 +48,7 @@ public partial class ErrorTracePage
 
     protected override Task OnInitializedAsync() => ReloadAsync();
 
-    /// <summary>
-    /// 조회. <b>추적 번호가 있으면 그것만 쓴다.</b>
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 번호를 들고 온 사람에게 기간이 맞아야 한다고 요구하면 안 된다 — 신고가
-    /// 늦게 올라오는 일이 흔하고(「지난주에 났는데요」), 기본 기간은 사흘이다.
-    /// 번호가 있으면 기간을 아예 보지 않는 쪽이 맞다.
-    /// </para>
-    ///
-    /// <para>
-    /// 번호 조회는 <b>스택까지 실려 온다.</b> 그래서 결과가 하나면 그 자리에서
-    /// 골라 둔다 — 번호를 치고 조회한 사람이 다음에 할 일이 그것뿐이다.
-    /// </para>
-    /// </remarks>
+    /// <summary>조회. 추적 번호가 있으면 그것만 쓴다 — 신고가 늦게 올라와 기간이 안 맞는 일이 흔하다. 번호 조회는 스택까지 실려 와서 결과가 하나면 그 자리에서 고른다.</summary>
     private Task ReloadAsync() => LoadAsync(async () =>
     {
         _picked = null;
@@ -109,21 +75,7 @@ public partial class ErrorTracePage
     "조건에 맞는 오류 기록이 없습니다.",
     "오류 기록을 읽지 못했습니다");
 
-    /// <summary>
-    /// 줄을 골랐을 때. 스택을 그 번호로 따로 읽어 온다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 실패해도 <b>고른 줄은 그대로 둔다.</b> 요청 정보와 메시지는 목록에 이미
-    /// 와 있어서, 스택을 못 읽었다고 상세를 통째로 비우면 있는 것까지 잃는다.
-    /// </para>
-    ///
-    /// <para>
-    /// <see cref="DataPage.LoadAsync"/> 를 쓰지 않는다 — 그쪽은 표의 조회를
-    /// 감싸는 자리라 여기서 부르면 「조회 결과가 없습니다」가 상세 읽기에
-    /// 대고 뜬다.
-    /// </para>
-    /// </remarks>
+    /// <summary>줄을 골랐을 때 스택을 그 번호로 따로 읽어 온다. 실패해도 고른 줄은 그대로 둔다 — 요청 정보와 메시지는 목록에 이미 있다. DataPage.LoadAsync 는 상세 읽기에 「조회 결과가 없습니다」를 대고 띄우므로 쓰지 않는다.</summary>
     private async Task PickAsync(PortalErrorDto? row)
     {
         _picked = row;

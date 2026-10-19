@@ -3,9 +3,7 @@ using JSini.Shared.DTOs;
 namespace CargoTrustServer.Common;
 
 /// <summary>
-/// 실패 응답. 계약(05-api-design.md 「경로와 봉투」)대로 상태코드와 봉투 코드를 짝지어 낸다.
-///
-/// 메시지는 화면이 그대로 띄운다 — 「무엇을 고치면 되는지」가 읽혀야 한다.
+/// 실패 응답. 계약(05-api-design.md)대로 상태코드와 봉투 코드를 짝지어 낸다. 메시지는 화면이 그대로 띄우므로 무엇을 고치면 되는지 읽혀야 한다.
 /// </summary>
 public static class ApiError
 {
@@ -25,8 +23,7 @@ public static class ApiError
         Results.Conflict(ApiResponse<object>.Fail(message, "E409"));
 
     /// <summary>
-    /// 돌려줄 것이 없는 성공(삭제 · 빈 조회).
-    /// <c>Results.Ok(null)</c> 은 응답 래퍼가 감싸지 않고 맨 <c>null</c> 을 내보내므로 봉투를 직접 만든다.
+    /// 돌려줄 것이 없는 성공(삭제 · 빈 조회). Results.Ok(null) 은 래퍼가 감싸지 않으므로 봉투를 직접 만든다.
     /// </summary>
     public static IResult Empty() => Results.Ok(ApiResponse<object>.Ok(null));
 }

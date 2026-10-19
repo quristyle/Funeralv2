@@ -1,8 +1,6 @@
 namespace ProjMngServer.Models;
 
-/// <summary>
-/// WBS 한 줄. 일정표와 <b>같은 표</b>다 — <see cref="ScheduleType"/> 하나로 갈린다.
-/// </summary>
+/// <summary>WBS 한 줄. 일정표와 <b>같은 표</b>다 — <see cref="ScheduleType"/> 하나로 갈린다.</summary>
 public sealed class WbsItem {
 
   /// <summary>일감 번호. 표 전체에서 하나다(프로젝트 안에서가 아니다).</summary>
@@ -56,9 +54,7 @@ public sealed class WbsItem {
   public string? WbsState { get; set; }
 }
 
-/// <summary>
-/// 프로젝트 하나의 WBS 진척 집계. 모니터링 화면의 타일과 차트가 읽는다.
-/// </summary>
+/// <summary>프로젝트 하나의 WBS 진척 집계. 모니터링 화면의 타일과 차트가 읽는다.</summary>
 public sealed class WbsSummary {
 
   public int TotalTaskCount { get; set; }
@@ -66,7 +62,7 @@ public sealed class WbsSummary {
   public int CompletedTaskCount { get; set; }
   public decimal CompletedTaskPct { get; set; }
 
-  /// <summary>완료 + 진행 중. 옛 이름은 <c>comp_and_ing_cnt</c> 다.</summary>
+  /// <summary>완료 + 진행 중.</summary>
   public int CompAndIngCnt { get; set; }
 
   /// <summary>계획 종료일 안에 끝낸 건수.</summary>

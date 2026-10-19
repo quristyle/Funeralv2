@@ -5,27 +5,9 @@ using RabbitMQ.Client.Events;
 namespace AiTaskRunner;
 
 /// <summary>
-/// 종을 듣는다 — RabbitMQ <c>ai_task</c> 큐.
+/// RabbitMQ ai_task 큐의 종을 듣는다. 메시지는 읽지 않고 「가서 물어봐라」만 알린다 — 실제 할 일은 서버의 claim 이 정한다.
+/// 잃어도 안전망 조회가 집고, 두 번 와도 claim 이 빈손을 준다. 받자마자 ack 한다. 브로커가 없으면 Queue:Enabled 를 끄고 PollSeconds 를 짧게 둔다.
 /// </summary>
-/// <remarks>
-/// <para>
-/// <b>메시지를 읽지도 않는다.</b> 본문에는 <c>taskKey</c> 하나뿐이고, 실제로
-/// 무엇을 할지는 서버의 <c>claim</c> 이 정한다. 여기서 하는 일은
-/// <b>「가서 물어봐라」를 알리는 것</b>뿐이다(설계 6.4).
-/// </para>
-/// <para>
-/// 그래서 메시지를 잃어도 손실이 아니라 지연이다 — 안전망 조회가 집는다.
-/// 두 번 와도 <c>claim</c> 이 빈손을 준다.
-/// </para>
-/// <para>
-/// <b>받자마자 ack 한다.</b> 되돌린 메시지가 다시 배달되면 반쯤 고쳐진 저장소
-/// 위에서 같은 지시가 다시 돈다 — 배포 소비자가 같은 이유로 그렇게 한다.
-/// </para>
-/// <para>
-/// <b>브로커가 없어도 실행기는 돈다.</b> 로컬 개발 장비처럼 RabbitMQ 가 없는
-/// 자리에서는 <c>Queue:Enabled</c> 를 끄고 <c>PollSeconds</c> 를 짧게 둔다.
-/// </para>
-/// </remarks>
 public sealed class QueueListener(
     IOptions<RunnerOptions> optionsAccessor, ILogger<QueueListener> logger)
 {
@@ -75,15 +57,14 @@ public sealed class QueueListener(
             arguments: null,
             cancellationToken: ct);
 
-        // 한 번에 하나만 집어 간다. 우리는 메시지를 처리하는 것이 아니라
-        // 깨어나기만 하므로 큰 값이 필요 없다.
+        // 한 번에 하나만 집는다 — 깨어나기만 하므로 큰 값이 필요 없다.
         await channel.BasicQosAsync(0, 1, global: false, cancellationToken: ct);
 
         var consumer = new AsyncEventingBasicConsumer(channel);
 
         consumer.ReceivedAsync += async (_, ea) =>
         {
-            // 무엇이 있어도 ack 한다(위 머리말).
+            // 내용과 무관하게 ack 한다.
             await channel.BasicAckAsync(ea.DeliveryTag, multiple: false, ct);
 
             logger.LogDebug("종이 울렸습니다.");

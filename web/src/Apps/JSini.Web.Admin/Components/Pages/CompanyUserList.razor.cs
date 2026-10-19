@@ -42,12 +42,7 @@ public partial class CompanyUserList
         return _users.Count;
     }, "그 회사에 속한 사용자가 없습니다.", "사용자 목록을 읽지 못했습니다");
 
-    /// <summary>
-    /// 넣을 후보를 읽는다.
-    ///
-    /// 후보는 <b>소속이 없는 사람</b>이다 — 서버가 회사를 가리지 않는다.
-    /// 이미 다른 회사에 속한 사람은 여기 없다.
-    /// </summary>
+    /// <summary>넣을 후보를 읽는다. 후보는 소속이 없는 사람이다 — 서버가 회사를 가리지 않고, 다른 회사에 속한 사람은 여기 없다.</summary>
     private Task OpenAddAsync() => LoadAsync(async () =>
     {
         _picked = [];

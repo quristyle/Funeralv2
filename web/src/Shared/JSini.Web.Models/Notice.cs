@@ -3,23 +3,8 @@ namespace JSini.Web.Models;
 /// <summary>
 /// 공지 한 건. AuthServer 의 <c>NoticeDto</c> 와 짝이다.
 /// </summary>
-/// <remarks>
-/// <para>
-/// <b>여기 있는 이유 — 셋이 쓴다.</b> 포털관리의 공지 관리 화면, 로그인한
-/// 사용자에게 뜨는 팝업(<c>MainLayout</c>), 로그인 화면의 공개 공지 팝업이다.
-/// 셸은 업무 모듈을 이름으로 알지 못하므로 포털관리 모듈에 두면 앞의 하나만
-/// 쓸 수 있다. 「두 모듈이 쓰면 복제, 세 번째부터 승격」의 세 번째다.
-/// </para>
-///
-/// <para>
-/// [전체 공개와 팝업은 다른 것이다]
-/// </para>
-///
-/// <list type="bullet">
-///   <item><see cref="IsPublic"/> — 로그인하지 않아도 보인다(로그인 화면에서 뜬다).</item>
-///   <item><see cref="IsPopup"/> — 팝업으로 띄울지. 끄면 공지 목록에만 남는다.</item>
-/// </list>
-/// </remarks>
+/// <remarks>셋이 쓴다. 포털관리의 공지 관리 화면, 로그인한 사용자에게 뜨는 팝업(MainLayout), 로그인 화면의 공개 공지 팝업이다. 셸은 업무 모듈을 이름으로 알지 못하므로 공용에 둔다.
+/// IsPublic 은 로그인하지 않아도 보이는 것이고, IsPopup 은 팝업으로 띄울지다. 전체 공개와 팝업은 다른 것이다.</remarks>
 public sealed class NoticeDto
 {
     public string Id { get; set; } = string.Empty;
@@ -40,16 +25,7 @@ public sealed class NoticeDto
     /// <summary>첨부파일. 서버가 정렬해서 준다.</summary>
     public List<NoticeFileDto> Files { get; set; } = [];
 
-    /// <summary>
-    /// 편집 폼의 「사용」 스위치가 묶이는 자리. <see cref="Status"/> 의 0/1 을 가린다.
-    ///
-    /// <para>
-    /// 팝업 안 편집기는 <c>@@bind-</c> 로 묶어야 한다. <c>Checked</c> 와
-    /// <c>CheckedChanged</c> 를 따로 주면 검증 식이 없어 <b>팝업이 말없이
-    /// 안 열린다</b> — 화면에는 아무 표시도 안 나고 브라우저 콘솔에만
-    /// <c>requires a value for the 'CheckedExpression' property</c> 가 남는다.
-    /// </para>
-    /// </summary>
+    /// <summary>편집 폼의 「사용」 스위치가 묶이는 자리(Status 의 0/1 을 가린다). 팝업 안 편집기는 @@bind- 로 묶어야 한다. Checked 와 CheckedChanged 를 따로 주면 검증 식이 없어 팝업이 말없이 안 열린다.</summary>
     public bool IsActive
     {
         get => Status == 1;
@@ -60,15 +36,7 @@ public sealed class NoticeDto
 /// <summary>
 /// 공지에 매달린 첨부파일 한 개.
 /// </summary>
-/// <remarks>
-/// <para>
-/// <b>서버가 주는 <c>downloadUrl</c> 을 쓰지 않는다.</b> 그 값은
-/// <c>/api/file/download/id/{fileId}</c> 인데, 그것은 브라우저가 게이트웨이와
-/// 같은 오리진에 있던 Vue 시절의 주소다. 지금 브라우저가 보는 것은 포털
-/// (:5557)이고 거기에는 <c>/api</c> 가 없다. 내려받기는 셸이 중계한다 —
-/// <c>FileDownload.UrlFor</c> 를 쓴다.
-/// </para>
-/// </remarks>
+/// <remarks>서버가 주는 downloadUrl 은 쓰지 않는다. 그것은 게이트웨이와 같은 오리진이던 옛 주소라 포털(:5557)에서는 404 다. 내려받기는 셸이 중계하는 FileDownload.UrlFor 를 쓴다.</remarks>
 public sealed class NoticeFileDto
 {
     public string Id { get; set; } = string.Empty;

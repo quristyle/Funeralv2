@@ -5,20 +5,7 @@ using SiteServer.Services;
 
 namespace SiteServer.Endpoints;
 
-/// <summary>
-/// 소개 사이트의 엔드포인트.
-/// </summary>
-/// <remarks>
-/// 게이트웨이가 세 갈래로 나눠 보낸다 (ApiGateway/appsettings.json).
-///
-/// <list type="table">
-///   <item><term><c>GET /api/site/{**}</c></term><description>익명. 여기의 공개 조회들</description></item>
-///   <item><term><c>POST /api/site/inquiries</c></term><description>익명 + IP 레이트리밋(<c>public-write</c>)</description></item>
-///   <item><term><c>/api/site/admin/{**}</c></term><description>인증 필요. 포털의 관리 화면이 쓴다</description></item>
-/// </list>
-///
-/// 익명으로 열린 것은 <b>조회와 문의 접수뿐</b>이다. 나머지는 전부 <c>admin</c> 아래로 둔다.
-/// </remarks>
+/// <summary>소개 사이트의 엔드포인트. 게이트웨이가 익명 조회, 익명 문의 접수(IP 레이트리밋), admin 아래 관리로 나눠 보내며, 익명으로 열린 것은 조회와 문의 접수뿐이다.</summary>
 public static class SiteEndpoints
 {
     public static void MapSiteEndpoints(this IEndpointRouteBuilder app)
@@ -70,11 +57,7 @@ public static class SiteEndpoints
         })
         .WithName("GetDownloads");
 
-        // 횟수를 세고 FileServer 로 넘긴다. 브라우저가 FileServer 를 직접 열면 셀 수가 없다.
-        //
-        // 넘겨받는 파일은 FileServer 의 `is_public` 이 켜져 있어야 한다. 꺼져 있으면
-        // 넘어간 자리에서 404 가 난다 — 자료를 등록할 때 함께 켜야 한다.
-        // 응답 봉투(ApiResponse)를 쓰지 않는다. 브라우저가 그대로 따라가야 하는 리다이렉트다.
+        // 횟수를 세고 FileServer 로 넘긴다 — 브라우저가 FileServer 를 직접 열면 셀 수가 없다. 넘어가는 파일은 is_public 이 켜져 있어야 하고(꺼져 있으면 넘어간 자리에서 404), 응답 봉투를 쓰지 않는 리다이렉트다.
         pub.MapGet("/downloads/{id:guid}/file", async (
             Guid id, [FromServices] ISiteService svc) =>
         {
@@ -85,14 +68,8 @@ public static class SiteEndpoints
         })
         .WithName("DownloadSiteFile");
 
-        // 문의 접수. 익명 쓰기라 방어가 세 겹이다 —
-        // 게이트웨이의 IP 레이트리밋 · 허니팟 · 동의 확인.
-        //
-        // **화면은 D-S7(동의 문구)이 확정되기 전까지 이 폼을 열지 않는다.**
-        // API 를 먼저 두는 것은 스키마와 방어를 확정해 두려는 것이다.
-        //
-        // 실패해도 왜 실패했는지 자세히 알려 주지 않는다. 허니팟에 걸린 경우는
-        // 성공과 같은 응답을 준다 — 봇에게 무엇에 걸렸는지 알려 주지 않는다.
+        // 문의 접수. 익명 쓰기라 방어가 세 겹이다 — 게이트웨이 IP 레이트리밋 · 허니팟 · 동의 확인. 화면은 D-S7(동의 문구)이 확정될 때까지 폼을 열지 않는다.
+        // 실패 사유는 알려 주지 않고, 허니팟은 성공과 같은 응답을 준다.
         pub.MapPost("/inquiries", async (
             [FromBody] InquiryRequestDto request,
             HttpContext http,
@@ -112,13 +89,7 @@ public static class SiteEndpoints
             var id = await svc.CreateInquiryAsync(
                 request, ip, http.Request.Headers.UserAgent.ToString());
 
-            // 저장된 문의만 담당자에게 알린다 (NotificationServer 직발송).
-            // 허니팟·빈 값(id == null)은 알리지 않고, 알림 실패도 접수 실패로 만들지 않는다.
-            //
-            // **길이 둘이고 서로를 막지 않는다.** 메일은 자리를 비운 담당자에게
-            // 남는 기록이고 푸시는 지금 보게 하는 길이다 — 한쪽이 넘어져도
-            // 다른 쪽은 가야 하므로 둘 다 예외를 삼킨다(각 Notifier 머리말).
-            // 누가 어느 길로 받는지는 포털관리 「알림관리」의 SITE_INQUIRY 가 정한다.
+            // 저장된 문의만 담당자에게 알린다. 메일과 푸시는 서로를 막지 않도록 둘 다 예외를 삼키고, 누가 어느 길로 받는지는 포털관리 알림관리의 SITE_INQUIRY 가 정한다.
             if (id is not null)
             {
                 await mailNotifier.NotifyAsync(id.Value, request, http.RequestAborted);
@@ -130,9 +101,7 @@ public static class SiteEndpoints
         })
         .WithName("CreateInquiry");
 
-        // 조회 집계. 개인을 특정할 값을 쌓지 않는다 — 날짜·경로·언어별 횟수만 올린다.
-        // `path` 를 nullable 로 받는다. 필수(non-nullable)로 두면 값이 없을 때
-        // 미니멀 API 가 본문 없는 400 을 먼저 돌려주고 아래 안내 문구는 쓰이지 않는다.
+        // 조회 집계. 개인을 특정할 값은 쌓지 않고 날짜·경로·언어별 횟수만 올린다. path 는 nullable 로 받아야 빈 값에서 안내 문구가 쓰인다.
         pub.MapPost("/visits", async (
             [FromQuery] string? path, [FromQuery] string? locale,
             [FromServices] ISiteService svc) =>
@@ -226,10 +195,7 @@ public static class SiteEndpoints
         .WithName("AdminSetInquiryStatus");
 
         // ── 답장 ────────────────────────────────────────────
-        //
-        // 문의에 이메일이 있으면 화면이 그 주소를 채워 주고, 없으면(또는 다른 곳으로
-        // 보내야 하면) 관리자가 주소를 적어 보낸다 — 그래서 to 를 요청으로 받는다.
-        // 본문은 관리자가 에디터로 쓴 HTML 이고, 메일 틀은 InquiryEmailTemplates 가 입힌다.
+        // 문의 답장. 주소는 화면이 채우거나 관리자가 적어 보내므로 to 를 요청으로 받는다. 본문은 에디터가 쓴 HTML 이고 메일 틀은 InquiryEmailTemplates 가 입힌다.
         admin.MapPost("/inquiries/{id:guid}/reply", async (
             Guid id, [FromBody] InquiryReplyDto request, UserContext? user,
             [FromServices] Data.SiteDbContext db,

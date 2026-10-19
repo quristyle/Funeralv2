@@ -8,14 +8,7 @@ public partial class AiTargetStatusList
 {
     [Inject] private AiTargetStatusClient Api { get; set; } = default!;
 
-    /// <summary>
-    /// 확인된 지 이만큼 지나면 시각을 흐린 색으로 적는다.
-    /// </summary>
-    /// <remarks>
-    /// 실행기의 기본 주기가 3분이라, 그 두 배가 넘도록 소식이 없으면
-    /// <b>실행기가 안 돌고 있다는 뜻</b>일 때가 많다. 값이 틀린 것보다
-    /// 값이 멈춘 것이 알아채기 어려워서 색으로 말한다.
-    /// </remarks>
+    /// <summary>확인된 지 이만큼 지나면 시각을 흐린 색으로 적는다. 실행기 주기(3분)의 두 배를 넘도록 소식이 없으면 실행기가 멈춘 것일 때가 많다 — 값이 틀린 것보다 멈춘 것이 알아채기 어려워 색으로 말한다.</summary>
     private static readonly TimeSpan StaleAfter = TimeSpan.FromMinutes(10);
 
     private IReadOnlyList<AiTargetStatusDto> _rows = [];
@@ -44,14 +37,7 @@ public partial class AiTargetStatusList
         }
     }
 
-    /// <summary>
-    /// 머리말 한 줄. <b>스냅샷이라는 사실을 늘 말한다.</b>
-    /// </summary>
-    /// <remarks>
-    /// 한 번도 확인된 적이 없는 대상이 있으면 그쪽을 먼저 말한다 —
-    /// 그것은 대개 <b>실행기가 안 떠 있다</b>는 뜻이고, 그 사실을 모르면
-    /// 빈 칸을 「문제 없음」으로 읽는다.
-    /// </remarks>
+    /// <summary>머리말 한 줄. 스냅샷이라는 사실을 늘 말하며, 한 번도 확인된 적 없는 대상이 있으면 그쪽을 먼저 말한다 — 대개 실행기가 안 떠 있다는 뜻이고, 모르면 빈 칸을 「문제 없음」으로 읽는다.</summary>
     private string SnapshotNotice
     {
         get
@@ -76,14 +62,7 @@ public partial class AiTargetStatusList
         return _rows.Count;
     }, "등록된 대상이 없습니다.", "대상 상태를 읽지 못했습니다");
 
-    /// <summary>
-    /// 받은 목록을 화면에 앉힌다.
-    /// </summary>
-    /// <remarks>
-    /// <b>고른 건을 새 목록의 같은 건으로 갈아 끼운다.</b> 그대로 두면
-    /// 아래 「자세히」가 <b>다시 읽기 전의 값</b>을 계속 그린다 — 「지금 확인」을
-    /// 누르고 답이 왔는데 아래만 옛 값인 자리가 된다.
-    /// </remarks>
+    /// <summary>받은 목록을 화면에 앉힌다. 고른 건은 새 목록의 같은 건으로 갈아 끼운다 — 그대로 두면 아래 「자세히」가 다시 읽기 전의 값을 계속 그린다.</summary>
     private void Show(IReadOnlyList<AiTargetStatusDto> rows)
     {
         _rows = rows;
@@ -110,14 +89,7 @@ public partial class AiTargetStatusList
         }
     }
 
-    /// <summary>
-    /// 전부 다시 봐 달라고 한다.
-    /// </summary>
-    /// <remarks>
-    /// 건마다 따로 부른다. 묶어 보내는 경로를 서버에 하나 더 두는 것보다,
-    /// <b>대상이 열 몇인 화면</b>에서 요청 열 몇 번이 싸다 — 그 경로가 생기면
-    /// 한 건짜리와 여러 건짜리가 갈라져 규칙이 둘이 된다.
-    /// </remarks>
+    /// <summary>전부 다시 봐 달라고 한다. 건마다 따로 부른다 — 묶어 보내는 경로를 서버에 두면 한 건짜리와 여러 건짜리 규칙이 둘이 된다.</summary>
     private async Task ProbeAllAsync()
     {
         var targets = _rows.Where(t => !t.ProbePending).ToList();
@@ -145,13 +117,7 @@ public partial class AiTargetStatusList
         }
     }
 
-    /// <summary>
-    /// 답을 기다리는 것이 있으면 따라간다. <b>없으면 타이머를 끈다.</b>
-    /// </summary>
-    /// <remarks>
-    /// 열어 두고 잊기 쉬운 화면이라, 끄지 않으면 회로가 계속 일한다
-    /// (「빠른 지시」가 같은 규칙으로 돈다).
-    /// </remarks>
+    /// <summary>답을 기다리는 것이 있으면 따라간다. 없으면 타이머를 끈다 — 끄지 않으면 열어 두고 잊은 화면에서 회로가 계속 일한다.</summary>
     private void Follow()
     {
         if (!_rows.Any(t => t.ProbePending))
@@ -184,8 +150,7 @@ public partial class AiTargetStatusList
                         return;
                     }
 
-                    // `Show` 를 부르면 여기서 다시 `Follow` 로 들어와 같은
-                    // 타이머를 보고 돌아온다. 끝났으면 거기서 꺼진다.
+                    // Show 는 여기서 다시 Follow 로 들어와 같은 타이머를 보고 돌아온다 — 끝났으면 거기서 꺼진다.
                     Show(rows);
 
                     await InvokeAsync(StateHasChanged);
@@ -228,14 +193,11 @@ public partial class AiTargetStatusList
         }
     }
 
-    /// <summary><b>화면을 떠날 때 반드시 끈다.</b> 안 끄면 회로마다 타이머가 쌓인다.</summary>
+    /// <summary>화면을 떠날 때 반드시 끈다. 안 끄면 회로마다 타이머가 쌓인다.</summary>
     public void Dispose() => StopPoll();
 
     // ── 표기 ────────────────────────────────────────────────
-    //
-    // **서버가 주는 시각은 UTC 다**(`projmng` 의 시각 칸은 timestamptz 이고
-    // DB 세션도 UTC 다). 견주기는 UTC 끼리 하고, 적을 때만 한국 시각으로
-    // 옮긴다 — `AiTaskWhen` 머리말과 `docs/utc-time.md` 에 같은 이야기가 있다.
+    // 서버가 주는 시각은 UTC 다. 견주기는 UTC 끼리 하고, 적을 때만 한국 시각으로 옮긴다(docs/utc-time.md).
 
     private static string When(DateTime? at) => at.Kst("yyyy-MM-dd HH:mm");
 
@@ -260,13 +222,7 @@ public partial class AiTargetStatusList
     private static bool Stale(AiTargetStatusDto t) =>
         t.ProbedAt is not { } at || AppTime.UtcNow - at > StaleAfter;
 
-    /// <summary>
-    /// 등록된 기준 가지와 다른 데 서 있나.
-    /// </summary>
-    /// <remarks>
-    /// 확인되지 않았거나 기준이 비어 있으면 <b>아무 말도 하지 않는다</b> —
-    /// 모르는 것을 경고로 그리면 경고가 늘 켜져 있게 된다.
-    /// </remarks>
+    /// <summary>등록된 기준 가지와 다른 데 서 있나. 확인되지 않았거나 기준이 비어 있으면 아무 말도 하지 않는다 — 모르는 것을 경고로 그리면 경고가 늘 켜진다.</summary>
     private static bool OffDefault(AiTargetStatusDto t) =>
         t.IsRepo
         && t.Branch is { Length: > 0 }

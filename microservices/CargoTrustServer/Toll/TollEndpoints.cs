@@ -7,14 +7,7 @@ using Microsoft.Extensions.Options;
 namespace CargoTrustServer.Toll;
 
 /// <summary>
-/// 톨게이트 심야할인 — <c>/toll/*</c>.
-///
-/// <para>
-/// 계산 둘(<c>calc</c> · <c>suggest</c>)이 알맹이고 나머지는 그 둘을 쓰기 좋게
-/// 하는 것들이다. 규칙(<c>rules</c>)을 내보내는 까닭은 화면이 「무엇을 기준으로
-/// 셌는지」를 결과 옆에 적어야 하기 때문이다 — 숫자만 띄우면 그 숫자가
-/// 어느 제도의 것인지 아무도 모른다.
-/// </para>
+/// 톨게이트 심야할인 API(/toll/*). 계산 둘(calc · suggest)이 알맹이이고, rules 를 내보내는 까닭은 화면이 「무엇을 기준으로 셌는지」를 결과 옆에 적게 하기 위해서다.
 /// </summary>
 public static class TollEndpoints
 {
@@ -39,10 +32,7 @@ public static class TollEndpoints
     private static async Task<IResult> Suggest(TollService toll, TollSuggestRequest req, CancellationToken ct) =>
         await toll.SuggestAsync(req, ct);
 
-    /// <summary>
-    /// 구간 통행료. <paramref name="discount"/> 를 주면 그 비율을 먹인 값도 함께 낸다 —
-    /// 화면이 「18,600원 → 9,300원」을 한 번에 그리게.
-    /// </summary>
+    /// <summary>구간 통행료. discount 를 주면 할인된 값도 함께 낸다.</summary>
     private static async Task<IResult> Fare(
         TollService toll, string? from, string? to, string? vehicleClass, decimal? discount, CancellationToken ct) =>
         await toll.FareAsync(from, to, vehicleClass, discount ?? 0m, ct);
@@ -50,22 +40,12 @@ public static class TollEndpoints
     private static async Task<IResult> History(TollService toll, int? limit, CancellationToken ct) =>
         Results.Ok(await toll.HistoryAsync(limit ?? 30, ct));
 
-    /// <summary>
-    /// 영업소 검색. 이름 조각으로 찾고, 안 주면 앞에서부터 상한만큼 준다.
-    ///
-    /// <para>
-    /// 민자 구간은 요금·할인 체계가 따로라 기본으로 뺀다(<c>includePrivate</c> 로 켠다).
-    /// 섞어 놓으면 사용자가 고른 영업소가 우리가 세지 못하는 구간일 수 있고,
-    /// 그때 틀리는 방향이 <b>할인이 되는 줄 알았는데 안 되는</b> 쪽이다.
-    /// </para>
-    /// </summary>
+    /// <summary>영업소 검색. 민자 구간은 요금·할인 체계가 달라 기본으로 뺀다(includePrivate 로 켠다) — 섞으면 할인이 되는 줄 알았는데 안 되는 쪽으로 틀린다.</summary>
     private static async Task<IResult> Plazas(
         CargoTrustDbContext db, IOptions<CargoTrustOptions> options,
         string? q, bool? includePrivate, CancellationToken ct)
     {
-        // **bool? 이어야 한다.** 최소 API 는 널 못 받는 값 타입 질의 인자를 「반드시
-        // 와야 하는 것」으로 보고, 안 오면 봉투도 없는 맨 400 을 돌려준다 —
-        // 화면에는 까닭 없는 실패로만 보인다.
+        // bool? 이어야 한다 — 최소 API 는 값 타입 질의 인자가 안 오면 봉투 없는 맨 400 을 준다.
         var query = db.TollPlazas.AsNoTracking().Where(p => p.IsActive);
         if (includePrivate != true) query = query.Where(p => !p.IsPrivate);
 

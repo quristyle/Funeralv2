@@ -121,19 +121,13 @@ builder.Services.AddSwaggerGen(c =>
 
 builder.Services.AddHttpContextAccessor();
 
-// [헬스체크]
-// 게이트웨이의 능동 헬스체크와 오케스트레이터(K8s/로드밸런서)의 liveness 프로빙 대상.
-// 인증 없이 접근 가능해야 하므로 별도 정책을 걸지 않는다.
+// 게이트웨이 헬스체크와 오케스트레이터 liveness 대상이라 인증 없이 열어 둔다.
 builder.Services.AddHealthChecks();
 
 
 // ── 딸린 것: DB ────────────────────────────────────────────
-//
-// 프로세스가 살아 있는 것과 서비스가 **제 일을 하는 것**은 다르다.
-// DB 가 끊기면 이 서비스는 사실상 아무것도 못 하므로 Unhealthy(503) 로 본다
-// (LLM 처럼 일부 기능만 막히는 경우는 Degraded 를 쓴다).
-//
-// 상태 화면이 '연결 대상' 줄로 보여 준다. 30초 캐시 · 3초 타임아웃은 도우미가 맡는다.
+// 프로세스 생존과 제 일을 하는 것은 다르다. DB 가 끊기면 Unhealthy(503), 일부 기능만 막히면 Degraded.
+// 상태 화면의 '연결 대상' 줄이 이 결과를 보여 준다. 30초 캐시·3초 타임아웃은 도우미가 맡는다.
 builder.Services.AddHealthChecks()
     .AddDependencyCheck("database", async (sp, ct) =>
     {
@@ -203,12 +197,7 @@ string GetServerName()
 
 app.Lifetime.ApplicationStarted.Register(async () =>
 {
-    // ============================================================
-    // 앱 재기동 시 잔류 ONLINE 장비 일괄 OFFLINE 초기화
-    // 서버/장비가 갑작스럽게 종료된 경우 DB에 ONLINE이 잔류할 수 있으므로,
-    // 재기동 직후 모든 ONLINE 장비를 OFFLINE으로 초기화합니다.
-    // 장비들은 이후 SignalR을 통해 재접속 시 다시 ONLINE으로 갱신됩니다.
-    // ============================================================
+    // 재기동 시 잔류 ONLINE 장비를 OFFLINE 으로 되돌린다. 재접속한 장비는 SignalR 로 다시 ONLINE 이 된다.
     try
     {
         using var scope = app.Services.CreateScope();

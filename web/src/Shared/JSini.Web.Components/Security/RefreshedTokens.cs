@@ -5,35 +5,16 @@ using System.Text;
 namespace JSini.Web.Components.Security;
 
 /// <summary>
-/// 갱신으로 받은 토큰과 「세션 거절」 표시를 <b>로그인 토큰마다</b> 들고 있는 통.
-///
-/// <para>
-/// [왜 <see cref="TokenStore"/> 의 칸이 아니라 따로인가]
-/// </para>
-///
-/// <para>
-/// <c>AuthTokenHandler</c> 는 <c>HttpClientFactory</c> 가 <b>자기 DI 스코프</b>에서
-/// 만들고 그 핸들러 줄을 몇 분씩 <b>모든 사용자에게 돌려 쓴다.</b> 그래서 핸들러가
-/// 받은 <see cref="TokenStore"/> 는 사람의 것이 아니라 공용 한 벌이다. 거기에
-/// 갱신한 토큰을 담아 두면 그다음부터 <b>모든 사람의 요청이 그 토큰으로 나간다</b>.
-/// 서버를 다시 띄운 직후처럼 갱신이 몰리는 자리에서 남의 화면이 뜬다.
-/// </para>
-///
-/// <para>
-/// 열쇠를 <b>지금 요청의 인증 쿠키에 든 토큰</b>(의 지문)으로 두면, 어느 스코프의
-/// 통이 묻든 자기 것만 꺼낸다. 다시 로그인하면 쿠키의 토큰이 바뀌므로 표시도
-/// 저절로 갈린다.
-/// </para>
+/// 갱신으로 받은 토큰과 「세션 거절」 표시를 로그인 토큰마다 들고 있는 싱글턴 통.
+/// TokenStore 의 칸에 두면 안 된다. AuthTokenHandler 가 받는 인스턴스는 모든 사용자가 쓰는 공용 한 벌이라, 한 사람의 갱신이 남의 요청에 실린다.
+/// 열쇠는 지금 요청의 인증 쿠키에 든 토큰(의 지문)이라, 어느 스코프의 통이 묻든 자기 것만 꺼낸다. 다시 로그인하면 열쇠가 바뀌어 표시도 저절로 갈린다.
 /// </summary>
 public sealed class RefreshedTokens
 {
-    /// <summary>갱신한 토큰을 들고 있는 시간. 접근 토큰 수명(7일)보다 조금 길게.</summary>
+    /// <summary>갱신한 토큰을 들고 있는 시간. 접근 토큰 수명보다 조금 길게.</summary>
     public static readonly TimeSpan RefreshedTtl = TimeSpan.FromDays(8);
 
-    /// <summary>
-    /// 거절 표시를 들고 있는 시간. 그 사이 사람은 로그인으로 보내지고, 다시
-    /// 로그인하면 열쇠가 바뀐다 — 오래 들고 있을 까닭이 없다.
-    /// </summary>
+    /// <summary>거절 표시를 들고 있는 시간. 그 사이 사람은 로그인으로 보내지고, 다시 로그인하면 열쇠가 바뀌므로 오래 들고 있을 까닭이 없다.</summary>
     public static readonly TimeSpan RejectedTtl = TimeSpan.FromHours(1);
 
     private readonly ConcurrentDictionary<string, Entry> _entries = new(StringComparer.Ordinal);

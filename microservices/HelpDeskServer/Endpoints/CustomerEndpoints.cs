@@ -19,23 +19,16 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace HelpDeskServer.Endpoints;
 
-/// <summary>
-/// 고객(사용자) 관련 엔드포인트
-/// </summary>
+/// <summary>고객(사용자) 관련 엔드포인트</summary>
 public static class CustomerEndpoints {
-  //public record CustomerCreateDto([Required] string LoginId, [Required] string UserName, [Required] string Email, [Required] string Password, int CompanyId, string? Sex, string? Photo, string? CreatedBy, string? MenuContext);
 
-  /// <summary>
-  /// 고객(사용자) 관련 엔드포인트를 애플리케이션에 매핑합니다.
-  /// </summary>
+  /// <summary>고객(사용자) 관련 엔드포인트를 애플리케이션에 매핑합니다.</summary>
   public static void MapCustomerEndpoints(this IEndpointRouteBuilder routes) {
     var group = routes.MapGroup("/api/customers");
 
     // 고객 목록. 볼 수 있는 범위는 신원이 정한다.
     //
-    // 전에는 login_type 이 "customer" 일 때만 회사로 좁히고 **그 밖에는 전부 반환**했다.
-    // 계정 연결이 없는 포털 계정에는 login_type 자체가 없으므로, 권한이 없는 사용자가
-    // 고객 27명 전원을 그대로 받아 갔다. 판정하지 못했을 때 열리는 방향은 반대여야 한다.
+    // login_type 이 "customer" 일 때만 회사로 좁힌다. 판정하지 못했을 때는 좁히는 방향이어야 한다(연결 없는 계정은 login_type 이 없어 전부 받아 간다).
     group.MapGet("/", (AppDbContext db, HttpContext http) => ApiResponseBuilder.CreateAsync(async () => {
       var me = http.GetHelpdeskPrincipal();
 

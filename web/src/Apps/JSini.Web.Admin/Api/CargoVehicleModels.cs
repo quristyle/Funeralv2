@@ -1,20 +1,10 @@
 namespace JSini.Web.Admin.Api;
 
-// 계정에 매달린 차량. 계약 정본은 docs/cargotrust/06-toll-night-discount.md 다.
-//
-// 운송관리 모듈(JSini.Web.CargoTrust)에도 비슷한 모양이 있지만 복제한다 —
-// 두 모듈이 쓰면 복제가 규칙이고(web/CLAUDE.md), 여기 것에는 **누구 차인지**가
-// 실려 있다. 한 벌로 합치면 차주 화면에서 남의 번호판을 그릴 수 있게 된다.
+// 계정에 매달린 차량. 계약 정본은 docs/cargotrust/06-toll-night-discount.md 다. 운송관리 모듈(JSini.Web.CargoTrust)에도 비슷한
+// 모양이 있지만 복제한다 — 두 모듈이 쓰면 복제가 규칙이고(web/CLAUDE.md), 여기 것에는 **누구 차인지**가 실려 있다.
 
-/// <summary>
-/// 번호판이 말한 것.
-///
-/// <para>
-/// 차량번호로 차종·축수를 주는 <b>무료 공개 API 가 없어서</b>, 바깥을 부르는 대신
-/// 번호판을 읽는다 — 심야할인 판정에 필요한 셋 중 둘(화물차인가 · 사업용인가)이
-/// 번호판에 이미 적혀 있다. 읽기는 <b>서버가 한다.</b>
-/// </para>
-/// </summary>
+/// <summary>번호판이 말한 것. 차량번호로 차종·축수를 주는 무료 공개 API 가 없어서, 바깥을 부르는 대신 번호판을 읽는다 — 심야할인 판정에 필요한 셋 중 둘(화물차인가 ·
+/// 사업용인가)이 번호판에 이미 적혀 있다. 읽기는 서버가 한다.</summary>
 public sealed class PlateReadDto
 {
     public string PlateNo { get; set; } = string.Empty;
@@ -26,7 +16,7 @@ public sealed class PlateReadDto
     public string Usage { get; set; } = "UNKNOWN";
     public string UsageName { get; set; } = string.Empty;
 
-    /// <summary>사업용인가. <b>모르면 null</b> — 아니라고 단정하지 않는다.</summary>
+    /// <summary>사업용인가. 모르면 null — 아니라고 단정하지 않는다.</summary>
     public bool? IsBusiness { get; set; }
 
     public bool? IsFreight { get; set; }
@@ -89,7 +79,7 @@ public sealed class CargoVehicleForm
     public string? Nickname { get; set; }
     public string VehicleClass { get; set; } = "C4";
 
-    /// <summary>축수. 고르개 값이라 문자열이고 <c>"0"</c> 이 <b>「모름」</b>이다. 선택이다.</summary>
+    /// <summary>축수. 고르개 값이라 문자열이고 <c>"0"</c> 이 「모름」이다. 선택이다.</summary>
     public string AxleCount { get; set; } = "0";
 
     public decimal Tonnage { get; set; }
@@ -150,7 +140,7 @@ public sealed class CargoVehicleForm
 /// <summary>차종·축수 고르개. 운송관리 쪽과 같은 값이다(코드표가 정본).</summary>
 public static class CargoVehicleCodes
 {
-    /// <summary>축수. <b>「모름」이 첫 줄이다</b> — 안 고르면 모르는 것이지 0축인 차가 있는 게 아니다.</summary>
+    /// <summary>축수. 「모름」이 첫 줄이다 — 안 고르면 모르는 것이지 0축인 차가 있는 게 아니다.</summary>
     public static readonly IReadOnlyList<object> AxleOptions =
     [
         new { Value = "0", Text = "모름" },

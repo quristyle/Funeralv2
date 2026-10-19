@@ -9,10 +9,7 @@ public partial class MenuRoleMap
 {
     [Inject] private AdminClient Api { get; set; } = default!;
 
-    /// <summary>
-    /// 권한 항목 하나. 어느 칸을 읽고 쓰는지와, 메뉴가 그것을 쓰는지 보는 법을
-    /// 함께 들고 있다. 열다섯 개를 손으로 늘어놓으면 반드시 하나를 빠뜨린다.
-    /// </summary>
+    /// <summary>권한 항목 하나. 어느 칸을 읽고 쓰는지와 메뉴가 그것을 쓰는지를 함께 들고 있다. 손으로 늘어놓으면 하나를 빠뜨리므로 목록으로 둔다.</summary>
     private sealed record PermissionItem(
         string Label,
         Func<MenuUsedPermissionDto, bool> Used,
@@ -42,15 +39,7 @@ public partial class MenuRoleMap
     private IReadOnlyList<SystemMenuDto> _menus = [];
     private string? _keyword;
 
-    /// <summary>
-    /// 고른 메뉴. <b>부품이 받는다</b>(<c>SelectedItem</c>) — 셀 안에 단추를
-    /// 그려 고르던 것을 걷어냈다.
-    ///
-    /// <para>
-    /// 나무와 표가 <b>같은 값을 나눠 쓴다.</b> 검색어를 넣고 지울 때 부품이
-    /// 갈리는데(나무 ↔ 표), 값이 따로면 그때 고른 것이 풀려 오른쪽이 빈다.
-    /// </para>
-    /// </summary>
+    /// <summary>고른 메뉴. 부품이 받는다(SelectedItem) — 나무와 표가 같은 값을 나눠 써야 검색어를 넣고 지울 때 고른 것이 풀리지 않는다.</summary>
     private SystemMenuDto? _selected;
 
     private MenuRoleDto? _detail;
@@ -121,14 +110,7 @@ public partial class MenuRoleMap
         return _menus.Count;
     }, "등록된 메뉴가 없습니다.", "메뉴 목록을 읽지 못했습니다");
 
-    /// <summary>
-    /// 메뉴를 골랐다. <c>CommTree</c>·<c>CommGrd</c> 가 <b>고른 항목</b>을 준다.
-    ///
-    /// <para>
-    /// 고른 것이 풀리면(<c>null</c>) 오른쪽을 비운다 — 옛 현황을 남겨 두면
-    /// 어느 메뉴의 것인지 알 수 없는 표가 된다.
-    /// </para>
-    /// </summary>
+    /// <summary>메뉴를 골랐다. 고른 것이 풀리면(null) 오른쪽을 비운다 — 옛 현황을 남기면 어느 메뉴의 것인지 알 수 없다.</summary>
     private Task SelectAsync(SystemMenuDto? menu)
     {
         _selected = menu;
@@ -143,8 +125,7 @@ public partial class MenuRoleMap
         {
             _detail = await Api.GetMenuRoleAsync(menu.Id);
 
-            // 못 읽었으면 빈 표가 아니라 실패로 말한다. 권한 화면에서
-            // 「아무도 못 쓴다」는 거짓말은 열려 있는 문을 닫힌 것으로 읽게 한다.
+            // 못 읽었으면 빈 표가 아니라 실패로 말한다 — 「아무도 못 쓴다」는 거짓이 열린 문을 닫힌 것으로 읽게 한다.
             if (_detail is null)
             {
                 throw new ApiException("이 메뉴의 권한 현황을 받지 못했습니다.");
@@ -154,17 +135,7 @@ public partial class MenuRoleMap
         }, "이 메뉴에 걸린 역할이 없습니다.", "권한 현황을 읽지 못했습니다");
     }
 
-    /// <summary>
-    /// 역할 한 줄의 권한을 저장한다.
-    ///
-    /// <para>
-    /// 저장 경로는 <b>메뉴별 upsert</b> 다 — 보낸 목록에 없는 메뉴는 건드리지
-    /// 않는다(서버 <c>SaveRoleMenusAsync</c>). 그래도 그 역할의 현재 목록을
-    /// 먼저 받아 이 메뉴 한 줄만 갈아 끼워 보낸다. 한 줄만 보내도 되지만,
-    /// <b>읽은 것을 그대로 돌려보내는 모양이 화면 셋에서 같아야</b> 저장 규칙이
-    /// 갈라지지 않는다(역할 관리는 전체를 보낸다).
-    /// </para>
-    /// </summary>
+    /// <summary>역할 한 줄의 권한을 저장한다. 저장은 메뉴별 upsert 라 보낸 목록에 없는 메뉴는 건드리지 않는다 — 역할 관리와 같은 모양으로 보내야 저장 규칙이 갈라지지 않는다.</summary>
     private async Task SaveRoleAsync(MenuRoleGrantDto role)
     {
         if (_detail is null)
@@ -218,12 +189,7 @@ public partial class MenuRoleMap
         }
     }
 
-    /// <summary>
-    /// 대상에서 역할을 푼다.
-    ///
-    /// <b>그 역할이 이 메뉴를 주던 유일한 길이면 접근이 끊긴다.</b> 어느 역할
-    /// 때문에 닿는지를 목록이 함께 보여 주는 이유가 그것이다.
-    /// </summary>
+    /// <summary>대상에서 역할을 푼다. 그 역할이 이 메뉴를 주던 유일한 길이면 접근이 끊기므로, 어느 역할 때문에 닿는지를 목록이 함께 보여 준다.</summary>
     private async Task DetachAsync((string Kind, string TargetId, string RoleId, string Name) e)
     {
         var ok = await RunAsync(
@@ -241,39 +207,17 @@ public partial class MenuRoleMap
         : !string.IsNullOrWhiteSpace(m.Meta.Title) ? m.Meta.Title!
         : m.Name;
 
-    /// <summary>
-    /// 오른쪽 제목에 쓸 메뉴 이름.
-    ///
-    /// <para>
-    /// 서버가 주는 <c>MenuName</c> 은 DB 의 <c>title</c> 그대로라
-    /// <b>번역 키일 수 있다</b>(<c>system.menu.title</c>). 왼쪽 나무와 같은
-    /// 규칙을 태우지 않으면 <b>한 화면에서 같은 메뉴가 두 이름으로 보인다.</b>
-    /// 골라 둔 메뉴는 이미 번역된 이름을 들고 있으니 그것을 먼저 쓴다.
-    /// </para>
-    /// </summary>
+    /// <summary>오른쪽 제목에 쓸 메뉴 이름. 번역 키일 수 있어 왼쪽 나무와 같은 규칙을 태우고, 골라 둔 메뉴가 이미 번역된 이름을 들고 있으면 그것을 먼저 쓴다.</summary>
     private string MenuName(MenuRoleDto detail) =>
         _selected is not null && string.Equals(_selected.Id, detail.MenuId, StringComparison.Ordinal)
             ? Title(_selected)
             : detail.MenuName;
 
-    /// <summary>
-    /// 나무·표의 한 줄. <b>아이콘은 사이드바와 같은 규칙</b>으로 그린다 —
-    /// 그 규칙은 <see cref="MenuGlyph"/> 가 갖고 있다(사람롤도 같은 것을 쓴다).
-    /// </summary>
-    /// <remarks>
-    /// 화면이 달렸는지는 <see cref="SystemMenuDto.RouteKey"/> 로 본다.
-    /// <c>Component</c>(옛 Vue 경로)도 함께 보는 이유는 <b>열쇠를 아직 안 채운
-    /// 메뉴가 26건 남아 있어서</b>다 — 그것만 보면 그 26건이 전부 폴더로 보인다.
-    /// </remarks>
+    /// <summary>나무·표의 한 줄. 아이콘은 사이드바와 같은 규칙으로 MenuGlyph 가 그린다. 화면이 달렸는지는 RouteKey 로 보되, 열쇠를 아직 안 채운 메뉴가 있어 Component 도 함께 본다.</summary>
     private static bool OpensScreen(SystemMenuDto m) =>
         !string.IsNullOrWhiteSpace(m.RouteKey) || !string.IsNullOrWhiteSpace(m.Component);
 
-    /// <summary>
-    /// 트리를 펴서 검색어에 걸리는 것을 모은다.
-    ///
-    /// 보이는 이름뿐 아니라 <b>저장된 이름과 경로</b>로도 찾히게 한다.
-    /// 화면에는 「분석」이라고 떠도 사람은 <c>analytics</c> 로 기억하고 있을 수 있다.
-    /// </summary>
+    /// <summary>트리를 펴서 검색어에 걸리는 것을 모은다. 보이는 이름뿐 아니라 저장된 이름과 경로로도 찾게 한다 — 화면에는 「분석」이라 떠도 사람은 analytics 로 기억한다.</summary>
     private static void Walk(IEnumerable<SystemMenuDto> nodes, List<SystemMenuDto> into, string keyword)
     {
         foreach (var node in nodes)

@@ -2,34 +2,9 @@
 @attribute [RouteKey("helpdesk.dashboard.customer")]
 
 @*
-    [고객사 현황] — DB 메뉴 `/helpdesk/dashboard/customer`.
-    이력: Vue `views/helpdesk/dashboard/customer` → 여기.
-    엔드포인트: `dashboard/company-stats`
-
-    **서버가 준 대로 보여 주는 화면이다**(AutoGrid). 칸을 손으로 적지 않은
-    이유는 그 부품의 주석에 있다 — 요약하면, 이런 화면이 마흔 개고 백엔드가
-    칸을 더할 때마다 화면을 고치러 가는 것이 이득이 아니기 때문이다.
-
-    매일 들여다보는 화면이 되면 그때 칸을 손으로 적는다.
-
-    고객사별 요청 현황이다. 헬프데스크 현황(`/helpdesk/dashboard`)이 전체를
-    본다면 여기는 **고객사 단위**로 갈라 본다.
-
-    [이름표가 서버와 달랐다]
-
-    이름표에 `openCount`·`closedCount`·`totalCount` 가 적혀 있었는데 서버
-    (`DashboardEndpoints.cs` 의 company-stats)는 그런 칸을 주지 않는다 —
-    상태별 칸(`pendingCount` …)과 `completionRate` 를 준다. AutoGrid 는
-    모르는 칸도 그대로 보여 주므로 표는 나왔지만, 이름표가 안 붙고 순서도
-    엉켰다. 실제 응답 칸으로 바로잡았다.
-
-    [차트 — D3 결정 반영]
-
-    옛 화면(customer.vue)은 도넛·막대(echarts)를 그리던 화면이라 D3 결정
-    대상이다. 다만 옛 화면은 「내 요청」 기준이었고 이 화면은 고객사별
-    집계라, 같은 상태 팔레트로 **고객사별 누적 막대**를 그린다 — 옛 일별
-    추이 차트와 같은 누적 막대 종류다. 재료는 표와 같은 응답이고 따로
-    부르지 않는다.
+    [고객사 현황] — DB 메뉴 `/helpdesk/dashboard/customer`. 엔드포인트 `dashboard/company-stats`
+    칸은 서버가 준 대로 보여 준다(AutoGrid). 이름표의 openCount·closedCount·totalCount 는 응답에 없다 — 상태별 칸(pendingCount …)과 completionRate 가 실제 칸이다.
+    차트는 고객사별 누적 막대(상태 팔레트). 재료는 표와 같은 응답이라 따로 부르지 않는다.
 *@
 
 @inherits DataPage

@@ -4,28 +4,8 @@ using ProjMngServer.Models;
 
 namespace ProjMngServer.Services;
 
-/// <summary>
-/// 프로젝트 속성. 옛 <c>sp_dev_proj_prop_exec</c> 를 대신한다.
-///
-/// <para>
-/// 유스케이스 화면이 그린 도형을 여기 담는다 — 프로젝트 하나에 이름별로
-/// 한 줄이다.
-/// </para>
-///
-/// <para>[옛 프로시저에서 고친 것]</para>
-/// <list type="number">
-///   <item>
-///     <b>지우는 길이 없었다.</b> <c>save</c> 와 조회 둘뿐이라, 한 번 만든
-///     속성은 DB 를 직접 만지지 않으면 없앨 수 없었다.
-///   </item>
-///   <item>
-///     <b>저장이 갈래(<c>prop_type</c>)를 못 고쳤다.</b> 열쇠의 일부라
-///     그것이 맞다 — 대신 <b>이름을 바꾸는 것도 못 한다</b>는 뜻이므로,
-///     화면에서 이름을 고치면 새 줄이 생기고 옛 줄이 남는다. 그 성질을
-///     화면 주석에 적어 두었다.
-///   </item>
-/// </list>
-/// </summary>
+/// <summary>프로젝트 속성(project_prop). 유스케이스 화면이 그린 도형을 담는다.</summary>
+/// 열쇠에 prop_type 이 들어 이름을 바꾸면 새 줄이 생기고 옛 줄이 남는다 — 화면이 이 성질을 안내해야 한다.
 public sealed class ProjectPropService(IConfiguration configuration) {
 
   private readonly string _connectionString =
@@ -70,7 +50,7 @@ public sealed class ProjectPropService(IConfiguration configuration) {
     return [.. rows];
   }
 
-  /// <summary>넣거나 고친다. 열쇠 셋이 같으면 고친다 — 옛 프로시저와 같다.</summary>
+  /// <summary>넣거나 고친다. 열쇠 셋이 같으면 고친다.</summary>
   public async Task<ProjectProp?> SaveAsync(ProjectProp item, CancellationToken ct = default) {
     await using var db = new NpgsqlConnection(_connectionString);
 
@@ -95,7 +75,7 @@ public sealed class ProjectPropService(IConfiguration configuration) {
     return (await ListAsync(item.PrjRid, item.PropCd, item.PropType, ct)).FirstOrDefault();
   }
 
-  /// <summary>지운다. <b>옛 프로시저에는 없던 길이다.</b></summary>
+  /// <summary>지운다.</summary>
   public async Task<bool> DeleteAsync(
       string prjRid, string propCd, string propType, CancellationToken ct = default) {
 

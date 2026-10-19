@@ -23,32 +23,16 @@ public partial class NoteWritePanel
     /// <summary>「닫기」를 눌렀다.</summary>
     [Parameter] public EventCallback OnCancel { get; set; }
 
-    /// <summary>
-    /// 보내고 난 뒤. <b>보낸 통이 하나라도 있을 때만 온다</b> — 창을 닫거나
-    /// 쪽지함을 다시 읽는 쪽이 받는다.
-    /// </summary>
+    /// <summary>보낸 뒤 호출된다. 보낸 통이 하나라도 있을 때만 온다 — 창을 닫거나 쪽지함을 다시 읽는 쪽이 받는다.</summary>
     [Parameter] public EventCallback<NoteSendResultDto> OnSent { get; set; }
 
     /// <summary>창을 열 때 받는 사람 칸에 미리 넣어 둘 아이디들.</summary>
     [Parameter] public IReadOnlyList<string>? DefaultTo { get; set; }
 
-    /// <summary>
-    /// <b>화면을 채우는 모습</b>인가. 휴대폰의 전체화면이 참이다.
-    /// </summary>
-    /// <remarks>
-    /// 마크업은 하나고 이 값만 갈린다 — 내용 칸이 남은 높이를 전부 먹고
-    /// 보내기 줄이 바닥에 붙는다(머리말). 창 모습 그대로 좁은 화면에 넣으면
-    /// 보내기 단추가 자판에 가려져, <b>글을 다 쓰고도 보낼 수가 없다.</b>
-    /// </remarks>
+    /// <summary>화면을 채우는 모습인가. 휴대폰 전체화면이 참이다. 마크업은 하나고 이 값만 갈린다 — 창 모습 그대로면 자판에 보내기 단추가 가려 글을 다 쓰고도 보낼 수 없다.</summary>
     [Parameter] public bool Fill { get; set; }
 
-    /// <summary>
-    /// <b>최근에 쪽지를 보낸 사람들.</b> 딱지 한 번으로 담는다.
-    /// </summary>
-    /// <remarks>
-    /// 쪽지를 쓰는 사람이 가장 자주 하는 일이 「어제 보낸 그 사람에게 또」다 —
-    /// 그때 이름을 다시 치는 것은 순전한 낭비다(머리말).
-    /// </remarks>
+    /// <summary>최근에 쪽지를 보낸 사람들. 딱지 한 번으로 담는다 — 어제 보낸 사람에게 또 보낼 때 이름을 다시 칠 필요가 없다.</summary>
     private IReadOnlyList<NoteRecipientDto> _recent = [];
 
     /// <summary>쪽지를 받을 수 있는 사람 전부. 「전체에서 고르기」가 편다.</summary>
@@ -60,27 +44,10 @@ public partial class NoteWritePanel
     /// <summary>「전체에서 고르기」를 폈나. <b>한 번 펴면 보내고 나서도 접지 않는다.</b></summary>
     private bool _showAll;
 
-    /// <summary>
-    /// 아이디 → 사람. <b>딱지에 이름을 적으려고</b> 든다.
-    /// </summary>
-    /// <remarks>
-    /// 딱지에 담기는 값은 사람이 적은 글자 그대로이고(서버가 푼다), 그것이
-    /// 아이디면 화면에 아이디가 그대로 선다. 빠른 선택·찾기로 담은 사람은
-    /// 이름을 아는 셈이므로 <b>보여 줄 때만</b> 바꿔 준다 — 보내는 값은
-    /// 손대지 않는다.
-    /// </remarks>
+    /// <summary>아이디 → 사람. 딱지에 이름을 적으려고 든다. 보내는 값은 바꾸지 않고 보여 줄 때만 이름으로 바꾼다.</summary>
     private readonly Dictionary<string, NoteRecipientDto> _known = new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>
-    /// 이메일 → 아이디. <b>같은 사람이 딱지 둘로 담기는 것</b>을 막는다.
-    /// </summary>
-    /// <remarks>
-    /// 딱지에 담기는 값이 사람이 적은 글자 그대로라, 주소로 담은 사람과
-    /// 아이디로 담은 사람이 <b>글자로는 다른 값</b>이다. 그대로 두면 주소를
-    /// 쳐 담은 뒤 그 사람의 최근 딱지를 눌렀을 때 하나가 더 담기고, 화면은
-    /// 「2명」이라는데 서버는 아이디로 접어 한 통만 보낸다 — 틀리지는 않지만
-    /// 숫자가 어긋나 보인다. 같은 까닭으로 그 딱지가 「눌린 모습」도 안 된다.
-    /// </remarks>
+    /// <summary>이메일 → 아이디. 같은 사람이 주소로 담기와 아이디로 담기 두 딱지로 갈리는 것을 막는다 — 글자로는 다른 값이라 그대로 두면 「2명」이라 세는데 서버는 한 통만 보낸다.</summary>
     private readonly Dictionary<string, string> _knownByEmail = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>받는 사람 딱지. 적은 글자 그대로 담는다 — 푸는 것은 서버다.</summary>
@@ -90,11 +57,7 @@ public partial class NoteWritePanel
     private string? _title;
     private string? _body;
 
-    /// <summary>제목 칸을 폈나. <b>한 번 펴면 보내고 나서도 접지 않는다.</b></summary>
-    /// <remarks>
-    /// 제목을 쓰는 사람은 이어 보낼 때도 쓴다. 보낼 때마다 도로 접으면 매번
-    /// 같은 단추를 다시 눌러야 한다 — 값만 비운다.
-    /// </remarks>
+    /// <summary>제목 칸을 폈나. 한 번 펴면 보내고 나서도 접지 않는다 — 이어 보낼 때도 쓰는 사람이 많다.</summary>
     private bool _showTitle;
 
     private bool _sending;
@@ -104,24 +67,10 @@ public partial class NoteWritePanel
 
     private bool _searched;
 
-    /// <summary>
-    /// 지금 치고 있는 글자. <b>답이 늦게 와서 앞 글자의 결과가 덮는 것</b>을 막는다.
-    /// </summary>
-    /// <remarks>
-    /// 글자마다 조회가 나가므로 「김」의 결과가 「김병」보다 늦게 올 수 있다.
-    /// 돌아온 답이 지금 친 글자의 것이 아니면 버린다 — 안 그러면 목록이
-    /// 치는 대로 앞뒤로 튄다.
-    /// </remarks>
+    /// <summary>지금 치고 있는 글자. 글자마다 조회가 나가 늦게 온 앞 글자의 답은 버린다 — 안 그러면 목록이 치는 대로 앞뒤로 튄다.</summary>
     private string? _inFlight;
 
-    /// <summary>
-    /// 보낼 수 있는가 — <b>사람과 내용</b>이 있어야 한다.
-    /// </summary>
-    /// <remarks>
-    /// 한동안 제목을 봤는데, 제목은 이제 비워도 서버가 지어 넣는다. 대신 내용이
-    /// 비면 막는다 — 지어 줄 것이 없고, 빈 쪽지는 받는 사람에게 알림 한 번일 뿐
-    /// 아무 말도 아니다.
-    /// </remarks>
+    /// <summary>보낼 수 있는가 — 사람과 내용이 있어야 한다. 제목은 비워도 서버가 지어 넣는다. 빈 쪽지는 알림 한 번일 뿐 아무 말도 아니다.</summary>
     private bool CanSend =>
         !_sending && _picked.Count > 0 && !string.IsNullOrWhiteSpace(_body);
 
@@ -135,10 +84,7 @@ public partial class NoteWritePanel
         await LoadQuickAsync();
     }
 
-    /// <summary>
-    /// 빠른 선택 목록을 읽는다. <b>못 읽어도 조용하다</b> — 치는 길은 그대로
-    /// 살아 있고, 거기서 토스트를 띄우면 창을 열 때마다 빨간 줄이 뜬다.
-    /// </summary>
+    /// <summary>빠른 선택 목록을 읽는다. 못 읽어도 조용하다 — 여기서 토스트를 띄우면 창을 열 때마다 빨간 줄이 뜬다.</summary>
     private async Task LoadQuickAsync()
     {
         try
@@ -164,20 +110,14 @@ public partial class NoteWritePanel
         }
     }
 
-    /// <summary>지금 찾는 중인가 — 칸에 두 글자 이상 쳐 두었다.</summary>
-    /// <remarks>
-    /// 빠른 선택은 이것이 거짓일 때만 보인다. 찾는 중에 아래에 또 다른 목록이
-    /// 서 있으면 어느 쪽을 눌러야 하는지가 매번 물음이 된다.
-    /// </remarks>
+    /// <summary>지금 찾는 중인가 — 칸에 두 글자 이상 쳐 두었다. 빠른 선택은 이것이 거짓일 때만 보인다.</summary>
     private bool Searching => (_entry ?? string.Empty).Trim().Length >= MinQuery;
 
     /// <summary>찾은 사람 중 <b>아직 안 담은</b> 사람들.</summary>
     private IReadOnlyList<NoteRecipientDto> Remaining =>
         [.. _matches.Where(h => !Has(h.LoginId))];
 
-    /// <summary>
-    /// 이 사람을 이미 담았나. <b>아이디로 접어 본다</b>(<see cref="_knownByEmail"/>).
-    /// </summary>
+    /// <summary>이 사람을 이미 담았나. 아이디로 접어 본다(_knownByEmail).</summary>
     private bool Has(string token)
     {
         var key = Canon(token);
@@ -185,14 +125,7 @@ public partial class NoteWritePanel
         return _picked.Any(p => string.Equals(Canon(p), key, StringComparison.OrdinalIgnoreCase));
     }
 
-    /// <summary>
-    /// 적힌 글자를 <b>아는 사람이면 아이디로</b> 바꾼다. 모르는 글자는 그대로다.
-    /// </summary>
-    /// <remarks>
-    /// 견주기에만 쓴다 — <b>보내는 값은 바꾸지 않는다.</b> 서버가 사람이 적은
-    /// 글자에서 다시 푸는 것이 이 화면의 약속이라(머리말), 화면이 푼 아이디를
-    /// 딱지에 담으면 그 약속이 깨진다.
-    /// </remarks>
+    /// <summary>적힌 글자를 아는 사람이면 아이디로 바꾼다. 견주기에만 쓴다 — 보내는 값은 그대로다(서버가 사람이 적은 글자에서 다시 푼다).</summary>
     private string Canon(string token)
     {
         var text = token.Trim();
@@ -226,30 +159,19 @@ public partial class NoteWritePanel
         ? "전체 접기"
         : $"전체에서 고르기 ({_all.Count}명)";
 
-    /// <summary>
-    /// 보내기 단추의 글자. <b>몇 명에게 가는지를 단추가 말한다</b> — 딱지를
-    /// 여럿 담으면 그 줄이 접혀 눈에 다 안 들어온다.
-    /// </summary>
+    /// <summary>보내기 단추의 글자. 몇 명에게 가는지를 단추가 말한다 — 딱지를 여럿 담으면 줄이 접혀 다 안 보인다.</summary>
     private string SendText => _picked.Count > 1
         ? $"쪽지 보내기 ({_picked.Count}명)"
         : "쪽지 보내기";
 
-    /// <summary>
-    /// 딱지에 적을 글자. <b>아는 사람이면 이름으로 적는다</b> — 담기는 값은
-    /// 그대로다(<see cref="_known"/> 머리말).
-    /// </summary>
+    /// <summary>딱지에 적을 글자. 아는 사람이면 이름으로 적는다 — 담기는 값은 그대로다.</summary>
     private string Label(string who) =>
         _known.TryGetValue(Canon(who), out var hit) ? hit.Display : who;
 
-    /// <summary>최근 딱지를 눌렀다 — 담겨 있으면 빼고 아니면 담는다.</summary>
-    /// <remarks>
-    /// 잘못 누른 것을 바로 되돌리는 길이 그 자리에 있어야 한다. 위의 딱지 줄로
-    /// 올라가 × 를 찾게 하면 손가락이 한 번 더 움직인다.
-    /// </remarks>
+    /// <summary>최근 딱지를 눌렀다 — 담겨 있으면 빼고 아니면 담는다. 잘못 누른 것을 그 자리에서 되돌린다.</summary>
     private void Toggle(NoteRecipientDto who)
     {
-        // **글자가 아니라 아이디로 찾는다.** 주소로 쳐 담은 사람을 이 딱지로
-        // 빼려면 둘이 같은 사람이라는 것을 알아야 한다.
+        // 글자가 아니라 아이디로 찾는다 — 주소로 쳐 담은 사람을 이 딱지로 빼려면 같은 사람임을 알아야 한다.
         var had = _picked.FirstOrDefault(
             p => string.Equals(Canon(p), who.LoginId, StringComparison.OrdinalIgnoreCase));
 
@@ -265,15 +187,7 @@ public partial class NoteWritePanel
     /// <summary>제목 칸을 편다. 한 번 펴면 이 판이 살아 있는 동안 그대로 있다.</summary>
     private void ShowTitle() => _showTitle = true;
 
-    /// <summary>
-    /// 받는 사람 칸에서 Enter · 쉼표를 누르면 딱지가 된다.
-    /// </summary>
-    /// <remarks>
-    /// 쉼표까지 받는 것은, 메일 주소를 여럿 붙여 넣는 사람이 그대로 치기
-    /// 때문이다. <c>DxTextBox</c> 는 값을 <c>OnInput</c> 으로 올리므로
-    /// 그 시점의 <c>_entry</c> 에는 쉼표가 아직 없을 수 있다 — 그래서
-    /// 글자가 아니라 <b>키</b>를 본다.
-    /// </remarks>
+    /// <summary>받는 사람 칸에서 Enter 나 쉼표를 누르면 딱지가 된다. 쉼표까지 받는 것은 주소를 여럿 붙여 넣는 사람 때문이다 — OnInput 시점에는 쉼표가 아직 없을 수 있어 글자가 아니라 키를 본다.</summary>
     private async Task OnEntryKeyAsync(KeyboardEventArgs e)
     {
         if (e.Key is "Enter" or "NumpadEnter" or ",")
@@ -294,28 +208,15 @@ public partial class NoteWritePanel
             Add(piece);
         }
 
-        // 손으로 친 글자는 딱지로 **옮겨 간** 것이라 칸을 비운다. 목록도 함께
-        // 비우는 것은 그 글자가 사라졌으니 찾던 결과가 뜻을 잃어서다 —
-        // 목록에서 눌러 담는 길(`Add`)과 갈라지는 지점이다.
+        // 손으로 친 글자는 딱지로 옮겨 간 것이라 칸을 비운다. 목록도 비우는 것은 그 글자가 사라져 찾던 결과가 뜻을 잃어서다.
         _entry = null;
         _matches = [];
         _searched = false;
     }
 
-    /// <summary>
-    /// 딱지 하나를 더한다. <b>같은 사람을 두 번 넣지 않는다.</b>
-    /// </summary>
+    /// <summary>딱지 하나를 더한다. 같은 사람을 두 번 넣지 않는다.</summary>
     /// <param name="who">담을 글자. 아이디거나 사람이 적은 이메일이다.</param>
-    /// <param name="hit">
-    /// 아는 사람이면 함께 준다 — 딱지에 <b>이름</b>을 적으려는 것뿐이고
-    /// 보내는 값은 바뀌지 않는다(<see cref="_known"/> 머리말).
-    /// </param>
-    /// <remarks>
-    /// <b>찾기 목록을 닫지 않는다 (2026-10-10).</b> 예전에는 「방금 고른 사람이
-    /// 목록에 남아 한 번 더 누르게 된다」를 막으려고 통째로 비웠는데, 그러면
-    /// 한 부서에 둘째 사람부터는 같은 글자를 다시 쳐야 했다. 지금은 담긴
-    /// 사람만 목록에서 빠진다(<see cref="Remaining"/>).
-    /// </remarks>
+    /// <param name="hit">아는 사람이면 함께 준다 — 딱지에 이름을 적으려는 것뿐이고 보내는 값은 바뀌지 않는다.</param>
     private void Add(string who, NoteRecipientDto? hit = null)
     {
         var text = who.Trim();
@@ -335,10 +236,7 @@ public partial class NoteWritePanel
 
     private void Remove(string who) => _picked.Remove(who);
 
-    /// <summary>
-    /// 두 글자부터 찾는다. <b>못 찾아도 오류로 말하지 않는다</b> — 찾기는
-    /// 거들 뿐이고, 사람은 아이디를 그대로 적어도 보낼 수 있다.
-    /// </summary>
+    /// <summary>두 글자부터 찾는다. 못 찾아도 오류로 말하지 않는다 — 사람은 아이디를 그대로 적어도 보낼 수 있다.</summary>
     private async Task SearchAsync()
     {
         var q = (_entry ?? string.Empty).Trim();
@@ -362,13 +260,11 @@ public partial class NoteWritePanel
                 return;
             }
 
-            // 서버가 이미 걸러 주지만 한 번 더 거른다 — 받을 길이 없는 사람이
-            // 고를 수 있는 줄로 서면, 보내고 나서야 「닿지 않는다」를 듣는다.
+            // 서버가 걸러 주지만 한 번 더 거른다 — 받을 길이 없는 사람이 고를 수 있는 줄로 서면 보내고 나서야 닿지 않는다는 것을 듣는다.
             _matches = [.. hits.Where(h => h.CanReceive)];
             _searched = true;
 
-            // 찾아서 알게 된 사람도 적어 둔다 — 담지 않고 지나가도, 주소로
-            // 친 딱지와 같은 사람인지 가르는 데 쓰인다.
+            // 찾아서 알게 된 사람도 적어 둔다 — 주소로 친 딱지와 같은 사람인지 가르는 데 쓰인다.
             foreach (var hit in _matches)
             {
                 Remember(hit);
@@ -382,10 +278,7 @@ public partial class NoteWritePanel
         }
     }
 
-    /// <summary>
-    /// 이 사람에게 쪽지가 무엇으로 닿는지. 메일로 닿으면 주소를 함께 적는다 —
-    /// 같은 이름이 둘일 때 가르는 값이기도 하다.
-    /// </summary>
+    /// <summary>이 사람에게 쪽지가 무엇으로 닿는지. 메일로 닿으면 주소를 함께 적는다 — 같은 이름이 둘일 때 가르는 값이기도 하다.</summary>
     private static string Channels(NoteRecipientDto hit) => (hit.PushReachable, hit.EmailReachable) switch
     {
         (true, true) => $"앱 푸시 · 메일 {hit.Email}",
@@ -401,14 +294,12 @@ public partial class NoteWritePanel
             return;
         }
 
-        // 칸에 적다 만 글자가 있으면 그것도 받는 사람이다 — 「추가」를 안 누르고
-        // 바로 보내기를 누르는 것이 사람의 흔한 순서다.
+        // 칸에 적다 만 글자도 받는 사람이다 — 추가를 안 누르고 바로 보내기를 누르는 것이 흔한 순서다.
         AddEntry();
 
         _sending = true;
 
-        // **첫 `await` 앞에서 한 번 그린다.** 안 그리면 보내는 동안 단추가 눌린
-        // 채로 남아 사람이 한 번 더 누른다 — 그러면 같은 쪽지가 두 통 간다.
+        // 첫 await 앞에서 한 번 그린다 — 안 그리면 보내는 동안 단추가 눌린 채 남아 같은 쪽지가 두 통 간다.
         StateHasChanged();
 
         NoteSendResultDto? result = null;
@@ -421,8 +312,7 @@ public partial class NoteWritePanel
         }
         catch (ApiException ex)
         {
-            // 서버가 사람에게 그대로 보여 줄 수 있는 문장을 준다
-            // (「그런 아이디·이메일이 없습니다: …」).
+            // 서버가 사람에게 그대로 보여 줄 문장을 준다(「그런 아이디·이메일이 없습니다: …」).
             error = ex.Message;
         }
         finally
@@ -442,8 +332,7 @@ public partial class NoteWritePanel
                 ? NoticeTone.Warning
                 : NoticeTone.Info);
 
-        // 보냈으면 칸을 비운다. 받는 사람은 남긴다 — 같은 사람에게 이어 보내는
-        // 일이 흔하고, 딱지는 한 번 더 지우면 그만이다.
+        // 보냈으면 칸을 비운다. 받는 사람은 남긴다 — 같은 사람에게 이어 보내는 일이 흔하다.
         _title = null;
         _body = null;
 
@@ -452,14 +341,7 @@ public partial class NoteWritePanel
 
     private Task CancelAsync() => OnCancel.InvokeAsync();
 
-    /// <summary>
-    /// 결과를 사람이 읽는 한 줄로.
-    /// </summary>
-    /// <remarks>
-    /// <b>쪽지와 두드림을 갈라 적는다.</b> 「보냈습니다」로만 말하면 알림이
-    /// 안 간 것을 아무도 모르고, 「실패했습니다」로 말하면 이미 도착한 쪽지를
-    /// 한 번 더 보낸다.
-    /// </remarks>
+    /// <summary>결과를 사람이 읽는 한 줄로. 쪽지와 두드림을 갈라 적는다 — 「보냈습니다」만 말하면 알림이 안 간 것을 아무도 모르고, 「실패했습니다」라 하면 도착한 쪽지를 한 번 더 보낸다.</summary>
     private static string Describe(NoteSendResultDto r)
     {
         var parts = new List<string> { $"쪽지 {r.Sent}통을 보냈습니다" };
@@ -473,8 +355,7 @@ public partial class NoteWritePanel
             parts.Add($"찾지 못한 값: {string.Join(", ", r.Unknown)}");
         }
 
-        // **못 찾은 것과 갈라 적는다.** 아이디가 틀린 것은 다시 칠 일이고,
-        // 푸시를 꺼 둔 것은 다른 길로 연락할 일이다.
+        // 못 찾은 것과 갈라 적는다 — 아이디가 틀린 것은 다시 칠 일이고, 푸시를 꺼 둔 것은 다른 길로 연락할 일이다.
         if (r.Blocked.Count > 0)
         {
             parts.Add($"푸시를 꺼 두어 못 받는 사람: {string.Join(", ", r.Blocked)}");

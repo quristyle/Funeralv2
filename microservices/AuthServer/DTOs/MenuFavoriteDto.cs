@@ -1,13 +1,6 @@
 namespace AuthServer.DTOs;
 
-/// <summary>
-/// 즐겨찾기 메뉴 한 건. 사이드바 즐겨찾기 묶음과 탭 오른쪽 메뉴가 이 값을 쓴다.
-///
-/// <para>
-/// 제목·아이콘은 저장된 값이 아니라 <c>scom.system_menus</c> 에서 그때그때 읽은 값이다.
-/// 메뉴 관리에서 제목을 고치면 즐겨찾기 이름도 함께 따라간다.
-/// </para>
-/// </summary>
+/// <summary>즐겨찾기 메뉴 한 건. 제목·아이콘은 저장하지 않고 scom.system_menus 에서 그때그때 읽는다.</summary>
 public class MenuFavoriteDto
 {
     /// <summary>즐겨찾기한 메뉴 식별자 (<c>scom.system_menus.id</c>)</summary>

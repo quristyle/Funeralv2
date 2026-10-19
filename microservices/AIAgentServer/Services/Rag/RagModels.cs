@@ -1,13 +1,6 @@
 namespace AIAgentServer.Services.Rag;
 
-/// <summary>
-/// 색인에 들어가는 글 토막 하나.
-/// </summary>
-/// <remarks>
-/// <b>출처를 반드시 함께 들고 다닌다.</b> RAG 의 값어치 절반이 "어느 문서에서
-/// 나온 말인가" 를 댈 수 있다는 데 있다. 틀린 답이 나와도 어디를 고치면 되는지
-/// 바로 알 수 있고, 모델이 지어낸 것인지도 가려진다.
-/// </remarks>
+/// <summary>색인에 들어가는 글 토막 하나. 출처를 반드시 함께 들고 다닌다.</summary>
 public sealed class RagChunk
 {
     public required string Id { get; init; }
@@ -39,9 +32,7 @@ public sealed class RagIndexFile
     public List<RagChunk> Chunks { get; set; } = [];
 }
 
-/// <summary>
-/// 카테고리 하나의 색인 상태. <b>상태 화면이 읽는 것이고 검색에는 쓰지 않는다.</b>
-/// </summary>
+/// <summary>카테고리 하나의 색인 상태. <b>상태 화면이 읽는 것이고 검색에는 쓰지 않는다.</b></summary>
 /// <param name="Chunks">색인에 든 토막 수.</param>
 /// <param name="VectorChunks">
 /// 그 가운데 <b>벡터가 붙은</b> 토막 수. 토막 수와 다르면 임베딩이 빠진 채
@@ -61,9 +52,7 @@ public sealed record RagIndexStat(
     DateTime BuiltAt,
     long? FileBytes);
 
-/// <summary>
-/// 카테고리 하나에 올라와 있는 문서의 실태.
-/// </summary>
+/// <summary>카테고리 하나에 올라와 있는 문서의 실태.</summary>
 /// <param name="Pending">
 /// 올렸지만 <b>아직 색인에 안 들어간</b> 문서. 0 이 아니면 「색인 다시 만들기」를
 /// 눌러야 한다 — 올릴 때마다 돌리지 않기 때문에 생기는 정상적인 중간 상태다.

@@ -9,15 +9,8 @@ namespace funeralv2Api.Services;
 public class InfoService : IInfoService
 {
     /// <summary>
-    /// 장비 화면을 웹으로 열 수 있는 주소 서식. <c>{code}</c> 자리에 장비 인증 코드가 들어간다.
+    /// 장비 화면을 웹으로 열 주소 서식. {code} 자리에 장비 인증 코드가 들어간다. 기본값은 두지 않는다 — 재생 장비가 설치형이라 웹 주소가 아직 없다.
     /// </summary>
-    /// <remarks>
-    /// 옛 시스템은 <c>/client_machine/{번호}/index.jsp</c> 를 새 창으로 띄웠다.
-    /// 지금 재생 장비는 설치형(.deb 등)이라 그에 해당하는 웹 주소가 **아직 없다.**
-    /// 그래서 기본값을 두지 않는다 — 없으면 화면이 "주소가 설정되지 않았다" 고 말한다.
-    /// 정해지면 <c>appsettings.Local.json</c> 에 적는다.
-    /// 40번 문서의 D-F4.
-    /// </remarks>
     public const string PreviewUrlTemplateKey = "Device:PreviewUrlTemplate";
 
     private readonly AppDbContext _dbContext;
@@ -78,11 +71,7 @@ public class InfoService : IInfoService
                 : assignQuery.Where(a => a.EndTime != null);
         }
 
-        // 성명으로 찾기.
-        //
-        // 이름은 배정(deceased_rooms)이 아니라 고인(deceaseds)에 있어서, 배정을
-        // 먼저 읽고 걸러내면 필요 없는 행까지 다 끌어온다. 이름에 맞는 고인 키를
-        // 먼저 구해 배정 질의에 넣는다.
+        // 성명 검색: 이름은 고인 쪽에 있으므로 먼저 고인 키를 구해 배정 질의에 넣는다(배정부터 읽으면 행이 불어난다).
         if (!string.IsNullOrWhiteSpace(keyword))
         {
             var trimmed = keyword.Trim();

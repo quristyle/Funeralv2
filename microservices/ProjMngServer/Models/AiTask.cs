@@ -1,19 +1,7 @@
 namespace ProjMngServer.Models;
 
-/// <summary>
-/// AI 에게 시킬 일 한 건 — <c>projmng.ai_task</c>.
-/// </summary>
-/// <remarks>
-/// 설계는 <c>docs/ai-task-runner.md</c> 에 있다.
-///
-/// <para>
-/// <b>요청여부(<see cref="RequestFlag"/>)와 상태(<see cref="TaskStatus"/>)를
-/// 나눠 둔 것이 이 자료의 핵심이다.</b> 앞엣것은 사람의 의사이고 뒤엣것은
-/// 기계의 현재 위치다. 합치면 <i>사람이 취소를 눌렀는데 이미 실행 중</i> 을
-/// 표현할 수 없고, 그때 상태를 '취소' 로 덮으면 <b>실제로는 아직 돌고 있는
-/// CLI 가 화면에서 사라진다.</b>
-/// </para>
-/// </remarks>
+/// <summary>AI 에게 시킬 일 한 건(<c>projmng.ai_task</c>). 설계는 <c>docs/ai-task-runner.md</c>.
+/// 요청여부(RequestFlag)와 상태(TaskStatus)를 나눠 둔 것이 핵심이다 — 합치면 「취소를 눌렀는데 이미 실행 중」을 표현할 수 없고, 상태를 취소로 덮으면 아직 도는 CLI 가 화면에서 사라진다.</summary>
 public sealed class AiTask
 {
     /// <summary>번호. <b>등록할 때는 서버가 정한다.</b></summary>
@@ -22,38 +10,20 @@ public sealed class AiTask
     /// <summary>제목. 비우고 저장하면 서버가 본문에서 만들어 준다.</summary>
     public string? Title { get; set; }
 
-    /// <summary>
-    /// 저장할 때 제목 칸이 비어 있었나. <b>이 값이 거짓이면 기계가 손대지 않는다.</b>
-    /// </summary>
+    /// <summary>저장할 때 제목 칸이 비어 있었나. <b>이 값이 거짓이면 기계가 손대지 않는다.</b></summary>
     public bool TitleAuto { get; set; }
 
-    /// <summary>
-    /// 어느 실행을 보고 지은 제목인가. 화면이 「아직 안 왔다」를 아는 근거.
-    /// </summary>
+    /// <summary>어느 실행을 보고 지은 제목인가. 화면이 「아직 안 왔다」를 아는 근거.</summary>
     public long? TitleRunKey { get; set; }
 
-    /// <summary>
-    /// <b>아직 실행 줄이 없는 차수의 제목</b>을 잠깐 얹어 두는 자리.
-    /// </summary>
-    /// <remarks>
-    /// 시키는 순간 AI 가 지시문을 보고 짓고(<see cref="Services.AiTurnTitler"/>),
-    /// 실행기가 집어 갈 때 <c>ai_task_run.turn_title</c> 로 옮겨 담으면서 비운다.
-    /// <para>
-    /// <b>화면도 이것을 읽는다.</b> 보냈는데 아무도 안 집어 간 차수에는 실행 줄이
-    /// 없어 걸 제목이 여기밖에 없다 — 그 자리가 비면 「무엇을 시킨 차수인가」가
-    /// 집어 갈 때까지 안 보인다.
-    /// </para>
-    /// </remarks>
+    /// <summary>아직 실행 줄이 없는 차수의 제목을 잠깐 얹어 두는 자리. 화면도 이것을 읽는다 — 보냈는데 아무도 집어 가지 않은 차수는 여기밖에 제목이 없다.</summary>
     public string? NextTurnTitle { get; set; }
 
     /// <summary>DB 서브쿼리로 가져온 차수별 정보 JSON (내부용).</summary>
     [System.Text.Json.Serialization.JsonIgnore]
     public string? TurnTitlesJson { get; set; }
 
-    /// <summary>
-    /// 이 건에 딸린 차수별 제목 목록 (1차부터 오름차순).
-    /// 차수가 2회 이상일 때 화면에서 차수별 제목을 보여주는 데 쓴다.
-    /// </summary>
+    /// <summary>이 건에 딸린 차수별 제목 목록 (1차부터 오름차순). 차수가 2회 이상일 때 화면에서 차수별 제목을 보여주는 데 쓴다.</summary>
     public List<AiTaskTurnTitleDto> TurnTitles { get; set; } = [];
 
     /// <summary>AI 에게 줄 지시문. 편집기에 쓰는 그 글이다.</summary>
@@ -62,59 +32,24 @@ public sealed class AiTask
     /// <summary>본문 형식. 지금은 <c>markdown</c> 하나다.</summary>
     public string? ContentFormat { get; set; } = "markdown";
 
-    /// <summary>
-    /// 처리차수. 실행 이력의 최대 seq 또는 진행/대기 중인 차수. 조인해 온다 — <b>읽기 전용</b>.
-    /// 2차 이상일 때 화면 카드에 배지로 표시된다.
-    /// </summary>
+    /// <summary>처리차수. 실행 이력의 최대 seq 또는 진행/대기 중인 차수. 조인해 온다 — <b>읽기 전용</b>. 2차 이상일 때 화면 카드에 배지로 표시된다.</summary>
     public int TurnCount { get; set; } = 1;
 
     // ── 함께 보낸 파일 ──────────────────────────────────────
 
-    /// <summary>
-    /// 붙은 첨부 개수. 조인해 온다 — <b>읽기 전용</b>.
-    /// </summary>
-    /// <remarks>
-    /// 화면이 이 값 하나로 클립 배지를 세운다. 건마다 첨부 목록을 따로 묻게
-    /// 두면 카드 열 장을 그리는 「빠른 지시」가 게이트웨이를 열 번 더 두드린다.
-    /// </remarks>
+    /// <summary>붙은 첨부 개수. 조인해 온다 — <b>읽기 전용</b>.</summary>
     public int FileCount { get; set; }
 
-    /// <summary>
-    /// <b>등록할 때만 쓰는 값</b> — 미리 올려 둔 첨부의 번호들.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 「빠른 지시」는 <b>고르는 순간 올린다.</b> 그때는 작업 번호가 아직
-    /// 없으므로 첨부가 주인 없이 담기고(<c>ai_task_file.task_key IS NULL</c>),
-    /// 보낼 때 이 칸에 그 번호들을 실어 보내 묶는다
-    /// (<c>AiTaskFileService.BindAsync</c>).
-    /// </para>
-    /// <para>
-    /// <b>조회로는 오지 않는다.</b> 붙은 것을 읽는 길은 첨부 목록 조회
-    /// 하나뿐이고, 여기는 언제나 비어 있다.
-    /// </para>
-    /// </remarks>
+    /// <summary><b>등록할 때만 쓰는 값</b> — 미리 올려 둔 첨부의 번호들. 고르는 순간 주인 없이 올라가므로 보낼 때 이 칸으로 묶는다(<c>AiTaskFileService.BindAsync</c>).
+    /// 조회로는 오지 않는다 — 여기는 언제나 비어 있다.</summary>
     public long[]? FileKeys { get; set; }
 
     // ── 오간 남길말 ─────────────────────────────────────────
 
-    /// <summary>
-    /// 이 건에 오간 남길말 수. 조인해 온다 — <b>읽기 전용</b>.
-    /// </summary>
-    /// <remarks>
-    /// 본문은 여기 오지 않는다. 읽는 길은 <c>AiTaskNoteService.ListAsync</c>
-    /// 하나뿐이고 목록은 배지 하나만 세운다.
-    /// </remarks>
+    /// <summary>이 건에 오간 남길말 수. 조인해 온다 — 읽기 전용. 본문은 여기 오지 않는다.</summary>
     public int NoteCount { get; set; }
 
-    /// <summary>
-    /// <b>올린 사람이 아직 안 읽은</b> 남길말 수. 조인해 온다 — <b>읽기 전용</b>.
-    /// </summary>
-    /// <remarks>
-    /// 「AI 작업 요청」 화면이 이 값으로 「새 남긴말」 배지를 세운다. 상태
-    /// 배지로는 답할 수 없는 물음이다 — 관리자가 말만 남기고 아직 대상을
-    /// 안 채웠으면 상태는 여전히 「접수 대기」다.
-    /// </remarks>
+    /// <summary><b>올린 사람이 아직 안 읽은</b> 남길말 수. 조인해 온다 — 읽기 전용. 상태 배지로는 답할 수 없다 — 대상을 아직 안 채운 건은 상태가 그대로 「접수 대기」다.</summary>
     public int UnreadNoteCount { get; set; }
 
     // ── 대상 ────────────────────────────────────────────────
@@ -137,15 +72,7 @@ public sealed class AiTask
     /// <summary>대상이 push 를 허용하는가. 조인해 온다 — <b>읽기 전용</b>.</summary>
     public bool TargetAllowPush { get; set; }
 
-    /// <summary>
-    /// 대상이 허용한 실행기 목록(쉼표로 이은 값). 조인해 온다 — <b>읽기 전용</b>.
-    /// </summary>
-    /// <remarks>
-    /// 화면이 <b>고를 수 있는 AI 를 이 값으로 좁힌다.</b> 「이어서 지시」 창에서
-    /// AI 를 바꿀 수 있게 되면서 필요해졌다 — 그 창은 작업 한 건만 들고 있고
-    /// 대상 목록을 따로 읽지 않으므로, 여기 실어 보내지 않으면 허용하지 않는
-    /// AI 가 칸에 뜨고 <b>요청 단계에서야 거절된다.</b>
-    /// </remarks>
+    /// <summary>대상이 허용한 실행기 목록(쉼표로 이은 값). 화면이 AI 를 이 값으로 좁힌다 — 허용하지 않는 AI 를 칸에 띄우면 요청 단계에서야 거절된다.</summary>
     public string? TargetRunnerKinds { get; set; }
 
     /// <summary>기준 브랜치. 비우면 대상의 기본값을 쓴다.</summary>
@@ -164,44 +91,17 @@ public sealed class AiTask
 
     public int Priority { get; set; }
 
-    /// <summary>
-    /// 제한 시간(분). <b>기본 120 이다</b>(1~1440).
-    ///
-    /// <para>
-    /// 한동안 30 이었는데, 파일을 여럿 고치고 빌드·시험까지 돌리는 건이
-    /// <b>거의 다 해 놓고 잘렸다.</b> 잘린 것은 화면에 「실패」로 앉아
-    /// 무엇이 모자랐는지 보이지 않는다. 두 시간을 기본으로 둔다 —
-    /// 짧게 끝날 건은 어차피 일찍 끝나므로 이 값이 손해가 아니다.
-    /// </para>
-    /// </summary>
+    /// <summary>제한 시간(분). 기본 120(1~1440). 짧은 건은 어차피 일찍 끝나므로 길게 잡아도 손해가 없다.</summary>
     public int TimeoutMinutes { get; set; } = 120;
 
     public int AttemptCount { get; set; }
 
-    /// <summary>
-    /// 재실행 상한. <b>기본 3 이다</b>(1~5).
-    ///
-    /// <para>
-    /// 한동안 1 이었다 — 파일을 고치는 작업이라 자동 재시도가 안전하지 않아서다.
-    /// 설계 6.11 이 그 조건을 적어 두었는데, <b>작업공간이 실행마다 완전히
-    /// 갈리는 것</b>이 전제였다. worktree · 복사본 대상은 지금 그 조건을
-    /// 만족한다(7.3).
-    /// </para>
-    ///
-    /// <para>
-    /// 그래서 자동 재시도는 <b>그 대상에서만</b> 돈다. 원본 직접(inplace)과
-    /// 연락 끊김(interrupted)은 여전히 사람이 보고 다시 누른다 —
-    /// 판정은 <c>AiRunService.CompleteAsync</c> 에 있다.
-    /// </para>
-    /// </summary>
+    /// <summary>재실행 상한. 기본 3(1~5). 자동 재시도는 작업공간이 실행마다 갈리는 대상(worktree · 복사본)에서만 돈다 — 원본 직접(inplace)과 연락 끊김(interrupted)은 사람이 다시 누른다. 판정은 <c>AiRunService.CompleteAsync</c> 에 있다.</summary>
     public int AttemptMax { get; set; } = 3;
 
     // ── 끝난 뒤 ─────────────────────────────────────────────
 
-    /// <summary>
-    /// push 까지 할 것인가. <b>대상이 허용할 때만 켤 수 있다.</b>
-    /// 켜면 이 작업 한 건이 곧 운영 배포 한 번이 된다.
-    /// </summary>
+    /// <summary>push 까지 할 것인가. 대상이 허용할 때만 켤 수 있고, 켜면 이 작업 한 건이 곧 운영 배포 한 번이 된다.</summary>
     public bool AutoPush { get; set; }
 
     /// <summary>끝나면 메일로 받을 것인가.</summary>
@@ -232,16 +132,10 @@ public sealed class AiTask
     public int? LastExitCode { get; set; }
     public string? LastError { get; set; }
 
-    /// <summary>
-    /// push 한 커밋. <b>비어 있지 않으면 운영 배포가 일어났다는 뜻이다.</b>
-    /// </summary>
+    /// <summary>push 한 커밋. 비어 있지 않으면 운영 배포가 일어났다는 뜻이다.</summary>
     public string? PushedCommit { get; set; }
 
-    /// <summary>
-    /// push 직전의 운영 <c>TAG</c>. <b>되돌릴 때 필요한 값</b>이라 미리 적어 둔다 —
-    /// 되돌리기는 <c>/srv/jsini/.env</c> 의 그 값을 이전 것으로 돌리는 일인데,
-    /// 아무도 안 적어 두면 되돌릴 수가 없다.
-    /// </summary>
+    /// <summary>push 직전의 운영 <c>TAG</c>. 되돌릴 때 필요하므로 미리 적어 둔다 — 되돌리기는 <c>/srv/jsini/.env</c> 의 그 값을 이전 것으로 돌리는 일이다.</summary>
     public string? PreviousTag { get; set; }
 
     /// <summary>동시 편집 방지. 저장할 때 읽어 온 값을 그대로 보낸다.</summary>
@@ -255,20 +149,7 @@ public sealed class AiTask
     /// <summary>사용자가 확인 완료했는지 여부</summary>
     public bool UserConfirmed { get; set; }
 
-    /// <summary>
-    /// <b>일반 사용자가 「AI 작업 요청」 화면에서 올린 건인가.</b>
-    /// </summary>
-    /// <remarks>
-    /// 이 건은 저장만 되어 있고 <b>아무 데서도 안 돈다</b> — 요청여부 <c>none</c>,
-    /// 상태 <c>idle</c>, 작업 대상 없음이다. 그런데 그 셋은 관리자가 「AI 작업」
-    /// 화면에서 <b>쓰다 만 건</b>과 글자 하나 다르지 않다. 가르지 못하면
-    /// 「시켜 달라고 올라온 것」이 쓰다 만 제 글 사이에 섞여 영영 안 돌아간다.
-    /// <para>
-    /// 값은 <b>등록할 때 한 번만 정해진다.</b> 관리자가 내용을 고치고 대상·AI 를
-    /// 채워 실제로 시켜도 이 값은 그대로 남는다 — 「누가 부탁한 일이었나」는
-    /// 돌고 난 뒤에도 사라지면 안 되는 사실이다.
-    /// </para>
-    /// </remarks>
+    /// <summary>일반 사용자가 「AI 작업 요청」 화면에서 올린 건인가. 요청여부 none · 상태 idle · 대상 없음이라 관리자의 쓰다 만 건과 글자 하나 다르지 않으므로 이 값으로 가른다. 등록할 때 한 번만 정해지고 돌고 난 뒤에도 남는다.</summary>
     public bool IsUserRequest { get; set; }
 
     /// <summary>현재 작업 완료 시 자동으로 이어서 지시할 내용 (예약).</summary>
@@ -318,11 +199,7 @@ public static class AiTaskStatus
     public const string Timeout = "timeout";
     public const string Canceled = "canceled";
 
-    /// <summary>
-    /// 실행기와 연락이 끊겼다. <b>「실패」와 다른 값이다</b> —
-    /// 실패는 CLI 가 답을 준 것이고 이것은 <b>아무것도 모르는 것</b>이다.
-    /// 파일이 반쯤 고쳐져 있을 수도 있어서 같은 칸에 넣으면 안 된다.
-    /// </summary>
+    /// <summary>실행기와 연락이 끊겼다. 실패와 다른 값이다 — 실패는 CLI 가 답을 준 것이고 이것은 아무것도 모르는 것이라, 파일이 반쯤 고쳐졌을 수 있어 같은 칸에 넣지 않는다.</summary>
     public const string Interrupted = "interrupted";
 
     /// <summary>더 움직이지 않는 상태인가.</summary>
@@ -334,9 +211,7 @@ public static class AiTaskStatus
         v is Queued or Preparing or Running;
 }
 
-/// <summary>
-/// 작업 한 건의 차수별 제목과 상태.
-/// </summary>
+/// <summary>작업 한 건의 차수별 제목과 상태.</summary>
 public sealed class AiTaskTurnTitleDto
 {
     /// <summary>몇 차인가 (1부터 시작).</summary>

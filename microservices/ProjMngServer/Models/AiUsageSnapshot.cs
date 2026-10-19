@@ -1,19 +1,7 @@
 namespace ProjMngServer.Models;
 
-/// <summary>
-/// AI CLI 한도의 마지막 스냅샷 — <c>projmng.ai_usage_snapshot</c>.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <b>실행기가 읽어 올린다.</b> `/usage` 를 아는 것은 CLI 뿐이고 그 CLI 는
-/// 실행기 장비에만 있다. 웹 서버는 이 표를 읽기만 한다.
-/// </para>
-/// <para>
-/// <b>퍼센트는 「쓴 비율」이다.</b> 남은 비율이 아니다 — CLI 가 그렇게
-/// 말하기 때문이고, 화면도 그대로 「사용 n%」로 보여 준다. 뒤집어 적으면
-/// 원문과 화면이 어긋나 무엇이 맞는지 알 수 없어진다.
-/// </para>
-/// </remarks>
+/// <summary>AI CLI 한도의 마지막 스냅샷(projmng.ai_usage_snapshot). 실행기가 올리고 웹 서버는 읽기만 한다.</summary>
+/// 퍼센트는 남은 비율이 아니라 쓴 비율이다 — CLI 가 그렇게 말하고 화면도 그대로 보여 준다.
 public sealed class AiUsageSnapshot
 {
     public long UsageKey { get; set; }
@@ -24,21 +12,11 @@ public sealed class AiUsageSnapshot
     /// <summary>어느 CLI 의 한도인가 — <c>claude</c> · <c>antigravity</c> · <c>copilot</c>.</summary>
     public string? RunnerKind { get; set; }
 
-    /// <summary>
-    /// 같은 CLI 안에서 무엇의 한도인가. 하나뿐인 CLI 는 빈 글자다.
-    /// </summary>
-    /// <remarks>
-    /// <b>CLI 하나가 한 줄이 아니다.</b> <c>antigravity</c> 는 모델군마다
-    /// (Gemini · Claude and GPT), <c>copilot</c> 은 한도 종류마다
-    /// (chat · completions) 따로 센다. 한 줄에 뭉개면 15분마다 서로를 덮으면서
-    /// 화면의 숫자가 주기마다 바뀌는데, <b>둘 다 그럴듯해서 아무도 고장으로
-    /// 읽지 못한다.</b>
-    /// </remarks>
+    /// <summary>같은 CLI 안에서 무엇의 한도인가. 하나뿐인 CLI 는 빈 값이다.</summary>
+    /// CLI 하나가 한 줄이 아니다 — antigravity 는 모델군마다, copilot 은 한도 종류마다 따로 센다. 한 줄에 뭉개면 값이 주기마다 바뀐다.
     public string? BucketNm { get; set; }
 
-    /// <summary>
-    /// 읽기에 성공했는가. <b>거짓이면 숫자가 비어 있고 <see cref="ErrorText"/> 에 이유가 있다.</b>
-    /// </summary>
+    /// <summary>읽기에 성공했는가. <b>거짓이면 숫자가 비어 있고 <see cref="ErrorText"/> 에 이유가 있다.</b></summary>
     public bool Ok { get; set; } = true;
 
     /// <summary>세션 한도 사용률(%). claude 는 5시간 창이다.</summary>
@@ -57,14 +35,8 @@ public sealed class AiUsageSnapshot
 
     public DateTime? WeekOpusResetAt { get; set; }
 
-    /// <summary>
-    /// 월간 한도 사용률(%). <c>copilot</c> 처럼 달로 끊는 CLI 가 쓴다.
-    /// </summary>
-    /// <remarks>
-    /// <b>주간 칸에 밀어 넣지 않는다.</b> 담으면 화면의 「주간」이 CLI 마다
-    /// 다른 기간을 뜻하게 되고, 그 화면으로 「이번 주에 얼마나 남았나」를
-    /// 판단하는 사람이 틀린다.
-    /// </remarks>
+    /// <summary>월간 한도 사용률(%). copilot 처럼 달로 끊는 CLI 만 채운다.</summary>
+    /// 주간 칸에 밀어 넣지 않는다 — 담으면 주간 화면이 다른 기간을 뜻하게 된다.
     public decimal? MonthPct { get; set; }
 
     public DateTime? MonthResetAt { get; set; }
@@ -77,21 +49,11 @@ public sealed class AiUsageSnapshot
     /// <summary>요금제 이름(Max · Pro …).</summary>
     public string? PlanNm { get; set; }
 
-    /// <summary>
-    /// 로그인(갱신 토큰)이 끊기는 시각.
-    /// </summary>
-    /// <remarks>
-    /// <b>한도 갱신 시각과 다르다.</b> 주간·세션 한도는 저절로 다시 차지만
-    /// 이것은 사람이 그 장비에 붙어 다시 로그인해야 풀린다 — 끊기면 한도뿐
-    /// 아니라 그 CLI 로 시킨 작업도 함께 실패한다.
-    /// <para>말해 주는 CLI 만 채운다. 비어 있는 것이 정상이다.</para>
-    /// </remarks>
+    /// <summary>로그인(갱신 토큰)이 끊기는 시각. 한도 갱신과 달리 사람이 장비에서 다시 로그인해야 풀린다.</summary>
+    /// 말해 주는 CLI 만 채우며, 비어 있는 것이 정상이다.
     public DateTime? AuthExpiresAt { get; set; }
 
-    /// <summary>
-    /// CLI 출력 원문. <b>가려낸 숫자가 전부가 아니다</b> — 출력 형식이 바뀌면
-    /// 여기를 봐야 무엇이 바뀌었는지 안다.
-    /// </summary>
+    /// <summary>CLI 출력 원문. 가려낸 숫자가 전부가 아니다 — 출력이 바뀌었는지는 여기를 봐야 안다.</summary>
     public string? RawText { get; set; }
 
     public string? ErrorText { get; set; }

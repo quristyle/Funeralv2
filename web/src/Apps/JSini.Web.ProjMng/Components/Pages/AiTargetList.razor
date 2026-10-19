@@ -2,33 +2,8 @@
 @attribute [RouteKey("projmng.ai.targets")]
 
 @*
-    [AI 작업 대상]
-
-    설계: docs/ai-task-runner.md 9.5
-    API: `projmng/ai-targets`
-
-    AI 가 어디에서 일할지를 등록해 둔다. **작업 화면은 여기 등록된 것에서
-    고르기만 하고 경로를 적지 못한다.**
-
-    ────────────────────────────────────────────────────────────
-    [왜 고르게만 하나]
-
-    화면에서 경로를 자유롭게 적게 두면 `../../srv/jsini/config` 가 들어온다.
-    그 아래에 운영 서비스 열 곳의 접속 정보가 평문으로 있다.
-
-    그래서 가르는 선이 하나다 — **등록은 관리자가, 선택은 작성자가.**
-    작업 저장 API 는 대상 번호만 받고 경로 문자열을 받는 자리가 아예 없다.
-
-    [경로 검사는 서버가 한다]
-
-    여기서 한 번 더 그리지 않는 이유는 규칙이 설정값(`AiTasks:AllowedRoots`)
-    이기 때문이다. 화면에 박아 두면 설정을 바꿨을 때 **안내만 옛말이 된다.**
-    허용 뿌리도 서버에 물어서 보여 준다.
-
-    [「올리기 허용」이 제일 위험한 칸이다]
-
-    켜면 그 대상의 작업이 `main` 에 push 할 수 있고, 이 저장소는 그것이
-    **곧 운영 배포**다. 그래서 목록에서 눈에 띄게 그린다.
+AI 작업 대상. 작업 화면은 여기 등록된 것에서 고르기만 하고 경로는 적지 못한다 — 등록은 관리자가, 선택은 작성자가 한다.
+경로 검사는 서버가 하고(설정 AllowedRoots), 허용 뿌리도 서버에 물어 보여 준다. 「올리기 허용」은 main push 라 곧 운영 배포다.
 *@
 
 @inherits DataPage
@@ -70,8 +45,7 @@
             <DxGridDataColumn FieldName="@nameof(AiTargetDto.RunnerKinds)" Caption="AI" Width="130"
                               TextAlignment="GridTextAlignment.Left" />
 
-            @* 어느 장비가 집을 수 있나. **비면 아무 장비나 집는다** —
-               경로가 그 장비에 없으면 그대로 실패한다. *@
+            @* 어느 장비가 집을 수 있나. 비면 아무 장비나 집는다 — 경로가 그 장비에 없으면 그대로 실패한다. *@
             <DxGridDataColumn Caption="장비" Width="110">
                 <CellDisplayTemplate Context="cell">
                     @{
@@ -145,36 +119,12 @@
                     <DxTextBox @bind-Text="t.DefaultRef" />
                 </DxFormLayoutItem>
 
-                @* 손으로 적던 칸이었다. 실행기 이름을 외워서 쳐야 했고
-                   오타가 나도 저장까지는 되므로, 작업 화면에서 그 AI 가 목록에
-                   안 나올 때에야 알게 된다. 고를 수 있게 바꾼다.
-
-                   [왜 드롭다운이 아니라 체크칸인가 — **둘 다 해 보고 정했다**]
-
-                   다중선택이라 `CodeSelect` 의 방식(`DxDropDownBox` +
-                   `DxListBox ShowCheckboxes`)을 그대로 가져왔는데, **표의 편집
-                   창(모달) 안에서는 목록이 펼쳐지지 않는다.** 칸도 그려지고
-                   화살표도 눌리는데 그것으로 끝이다 — 오류도 콘솔 경고도 없다.
-                   그 부품이 잘 도는 자리는 조건줄(`CommSch`)이고, 모달 안에서는
-                   다르게 움직인다.
-
-                   값이 둘뿐이라 체크칸이 더 낫기도 하다 — **펼치지 않아도
-                   「무엇을 켤 수 있나」가 보인다.** 그것이 원래 `DxTagBox` 를
-                   버리고 체크 목록으로 간 이유이기도 하다.
-
-                   셋째 CLI 가 생겨 칸이 길어지면 그때 다시 본다. *@
+                @* 값이 둘뿐이라 체크칸으로 둔다 — CodeSelect 식 드롭다운은 표의 편집 창(모달) 안에서 펼쳐지지 않는다. *@
                 <DxFormLayoutItem Caption="쓸 수 있는 AI" ColSpanMd="6">
                     <div class="pm-ai-kinds">
                         @foreach (var opt in RunnerOptions)
                         {
-                            @* **`ValidationEnabled="false"` 를 반드시 준다.**
-                               `@bind-Checked` 가 아니라 `Checked`/`CheckedChanged` 로
-                               주고받으므로 DevExpress 가 기대하는 `CheckedExpression`
-                               이 없고, 표의 편집 창은 `EditForm` 안이라 그것을 필수로
-                               보고 **던진다.** 그 예외가 회로를 끊어서 그 순간부터
-                               화면 전체가 안 눌린다 — 편집 창이 안 열리는 것으로
-                               보일 뿐 오류 문구는 브라우저 콘솔에만 남는다.
-                               (`CodeSelect` 머리말에 같은 이야기가 있다. 실제로 밟음) *@
+                            @* ValidationEnabled="false" 를 반드시 준다 — Checked/CheckedChanged 로 주고받으면 DevExpress 가 찾는 CheckedExpression 이 없어, 편집 창(EditForm) 안에서 예외를 던지고 회로가 끊긴다. *@
                             <DxCheckBox Checked="@HasRunner(t, opt.Value)"
                                         CheckedChanged="@((bool on) => ToggleRunner(t, opt.Value, on))"
                                         ValidationEnabled="false">
@@ -184,10 +134,7 @@
                     </div>
                 </DxFormLayoutItem>
 
-                @* **경로는 장비마다 다르다.** 비워 두면 아무 실행기나 집어
-                   가는데, 그 장비에 그 경로가 없으면 「대상 폴더가 없습니다」로
-                   실패한다 — 개발 장비의 폴더를 운영 실행기가 집어 가서 실제로
-                   그렇게 됐다. 장비 이름은 그 실행기 설정의 `Runner:Name` 이다. *@
+                @* 경로는 장비마다 다르다 — 비워 두면 아무 실행기나 집어 가는데, 그 장비에 경로가 없으면 대상 폴더가 없다고 실패한다. 장비 이름은 실행기 설정의 Runner:Name 이다. *@
                 <DxFormLayoutItem Caption="장비" ColSpanMd="6">
                     <DxComboBox Data="@Runners" @bind-Value="t.RunnerNm"
                                 AllowUserInput="true" ValidationEnabled="false"
@@ -204,9 +151,7 @@
                                 ValueFieldName="@nameof(PickOption.Value)" />
                 </DxFormLayoutItem>
 
-                @* 여기가 이 화면에서 제일 조심할 칸이다. 켜는 순간 그 대상의
-                   작업이 `main` 에 push 할 수 있게 되고, 이 저장소는 그것이
-                   곧 운영 배포다. *@
+                @* 켜는 순간 작업이 main 에 push 할 수 있게 되고, 이 저장소는 곧 운영 배포다. *@
                 <DxFormLayoutItem Caption="올리기" ColSpanMd="6">
                     <DxCheckBox @bind-Checked="t.AllowPush">
                         push 를 허용한다 — 이 대상의 작업이 운영 배포를 일으킬 수 있습니다

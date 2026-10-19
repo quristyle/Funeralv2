@@ -2,10 +2,7 @@ using JSini.Web.Admin.Api;
 
 namespace JSini.Web.Admin.Components.Company;
 
-/// <summary>
-/// 회사 속성 판이 쓰는 복사·비교·저장 값 만들기.
-/// 「저장 안 함」 판정과 실제로 보내는 값이 같은 칸 목록을 보게 한곳에 둔다.
-/// </summary>
+/// <summary>회사 속성 판이 쓰는 복사·비교·저장 값 만들기.</summary>
 public static class CompanyForm
 {
     public static CompanyDto Copy(CompanyDto c) => new()
@@ -44,10 +41,7 @@ public static class CompanyForm
         UsageLocations = [.. c.UsageLocations],
     };
 
-    /// <summary>
-    /// 보낼 값이 같은가. 빈 글자와 null 은 같게 본다 — 칸을 눌렀다 비우기만
-    /// 해도 「저장 안 함」이 붙지 않게.
-    /// </summary>
+    /// <summary>보낼 값이 같은가. 빈 글자와 null 은 같게 본다 — 칸을 눌렀다 비우기만 해도 「저장 안 함」이 붙지 않게.</summary>
     public static bool Same(CompanyDto a, CompanyDto b)
     {
         static string N(string? s) => s?.Trim() ?? string.Empty;

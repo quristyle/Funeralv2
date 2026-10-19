@@ -1,6 +1,4 @@
-@*
-    라우터. 회로가 없으므로 rendermode 를 주지 않는다 — 전부 정적 SSR 이다.
-*@
+@* 라우터. 회로가 없으므로 rendermode 를 주지 않는다(전부 정적 SSR). *@
 <Router AppAssembly="@typeof(Program).Assembly">
     <Found Context="routeData">
         <RouteView RouteData="@routeData" DefaultLayout="@typeof(SiteLayout)" />

@@ -6,12 +6,6 @@ using Microsoft.EntityFrameworkCore;
 namespace funeralv2Api.Services;
 
 /// <inheritdoc cref="IStatusService"/>
-/// <remarks>
-/// 옛 시스템은 현황 화면마다 프로시저가 따로 있었다
-/// (<c>monitor/room_status</c> · <c>room_status_simple</c> · <c>mobile/room_status</c>).
-/// 셋이 담는 내용은 같고 그리는 모양만 달라서, 여기서는 한 벌만 만들고
-/// 화면이 필요한 것만 골라 그린다.
-/// </remarks>
 public class StatusService : IStatusService
 {
     private readonly AppDbContext _dbContext;
@@ -60,21 +54,13 @@ public class StatusService : IStatusService
         var summaryOnly = string.Equals(query.Detail, "summary", StringComparison.OrdinalIgnoreCase);
         var rows = await BuildAsync(query.BuildingId, query.FloorId, null, query, summaryOnly);
 
-        // 조회 범위의 '살아 있는' 장비. 요약 숫자는 늘 이것으로 센다.
-        //
-        // 장비 서비스(GetAllAsync·GetByFilterAsync)는 soft-delete 를 거르지 않는다.
-        // 다른 화면과의 계약이라 거기는 그대로 두고, 여기서 한 번 걸러 낸다 —
-        // 안 그러면 **지운 장비가 배너에 '오프라인'으로 남는다.**
+        // 요약 숫자는 살아 있는 장비로만 센다. 장비 서비스는 soft-delete 를 거르지 않으므로(다른 화면과의 계약) 여기서 거른다.
+        // 안 거르면 지운 장비가 배너에 '오프라인'으로 남는다.
         var live = await LoadScopedDeviceStatesAsync(query);
 
         if (summaryOnly)
         {
-            // 타일만 그리는 밀도(상황판). 장비 DTO 조립(속성·미디어명 조인)을 통째로
-            // 건너뛴다. 호실별 장비 수는 BuildAsync 가 이미 가벼운 조회로 세 뒀다.
-            //
-            // **공용 장비는 뼈대만이라도 보낸다.** 빼 버리면 시설별 장비 수가
-            // 밀도에 따라 달라진다 — 입구 안내처럼 호실에 안 매인 장비가 상황판에서만
-            // 사라져 '오프라인 몇 대'가 화면마다 어긋난다.
+            // 상황판 밀도: 장비 DTO 조립을 건너뛴다. 공용 장비는 뼈대만 보내야 시설별 오프라인 수가 밀도마다 어긋나지 않는다.
             return new RoomBoardDto
             {
                 Rooms = rows,
@@ -98,9 +84,7 @@ public class StatusService : IStatusService
             };
         }
 
-        // 장비는 이름·미디어 합성 규칙이 장비 서비스에 이미 있으므로 거기서 받아 붙인다.
-        // GetByFilterAsync 는 필터가 전부 비면 빈 목록을 돌려주므로(전 장비 실수 방지 가드)
-        // '회사 전체' 조회는 전체 목록으로 받는다.
+        // 이름·미디어 합성은 장비 서비스에 있어 거기서 받는다. GetByFilterAsync 는 필터가 전부 비면 빈 목록을 주므로 '회사 전체'는 전체 목록으로 받는다.
         var hasDeviceFilter = !string.IsNullOrWhiteSpace(query.CompanyId)
             || !string.IsNullOrWhiteSpace(query.BuildingId)
             || !string.IsNullOrWhiteSpace(query.FloorId);
@@ -185,14 +169,7 @@ public class StatusService : IStatusService
         string Id, string Name, string Code, string DeviceType, string Status,
         int SortOrder, string? RoomId, string? FloorId, string? BuildingId);
 
-    /// <summary>
-    /// 호실을 축으로 현재 배정과 장비 수를 붙인다.
-    /// </summary>
-    /// <remarks>
-    /// 조회를 네 번으로 나눈 이유는 EF 가 한 번에 엮으면 호실 × 장비 × 상주로
-    /// 행이 불어나 같은 고인을 여러 번 세기 때문이다. 호실 수가 백 단위라
-    /// 나눠 읽고 메모리에서 맞추는 편이 싸다.
-    /// </remarks>
+    /// <summary>호실 축으로 배정과 장비 수를 붙인다. 한 번에 엮으면 행이 불어 같은 고인을 여러 번 세므로 조회를 나눠 메모리에서 맞춘다.</summary>
     private async Task<List<FuneralStatusDto>> BuildAsync(
         string? buildingId, string? floorId, string? roomId, RoomBoardQueryDto? board = null,
         bool summaryOnly = false)
@@ -241,8 +218,7 @@ public class StatusService : IStatusService
             .AsNoTracking()
             .ToDictionaryAsync(f => f.Id, f => f.Name);
 
-        // 지금 배정된 것만. 판정 기준은 `RoomOccupancy` 다 — 끝난 배정은 이력이지
-        // 현황이 아니지만, **끝나기로 예정된 배정은 아직 현황이다.**
+        // 지금 배정된 것만 — 판정은 RoomOccupancy 기준. 끝나기로 예정된 배정도 아직 현황이다.
         var nowUtc = DateTime.UtcNow;
         var assignments = await _dbContext.DeceasedRooms
             .Where(a => !a.IsDeleted && roomIds.Contains(a.RoomId)
@@ -257,7 +233,6 @@ public class StatusService : IStatusService
         var deceasedIds = current.Values.Select(a => a.DeceasedId).Distinct().ToList();
 
         // 점유 판정의 정본: 배정이 살아 있고 + 고인이 '장례 진행중'일 때만 사용 중이다.
-        // 예전에는 화면 A·상황판·플레이어가 제각기 다른 술어를 썼다 (47번 문서 0단계).
         var deceaseds = (await _dbContext.Deceaseds
             .Where(d => !d.IsDeleted && deceasedIds.Contains(d.Id))
             .AsNoTracking()
@@ -298,12 +273,8 @@ public class StatusService : IStatusService
             deceaseds = filtered.ToDictionary(d => d.Id);
         }
 
-        // 빈 호실의 '마지막 퇴실'은 배정 이력의 마지막 종료 시각으로 유도한다.
-        // 출상이 배정을 soft-delete 하므로 IsDeleted 를 가리지 않고 본다.
-        // 대시보드는 그 마지막 고인이 '출상 완료'면 출상 취소 진입점으로도 쓴다.
-        //
-        // **이미 지난 종료만 센다.** 예정일(미래)까지 세면 아직 입실 중인 호실에
-        // "퇴실 2028-06-30" 같은 표시가 붙는다 — 실제로 그렇게 보이고 있었다.
+        // 빈 호실의 마지막 퇴실은 배정 이력의 마지막 종료 시각으로 유도한다. 출상이 배정을 soft-delete 하므로 IsDeleted 를 가리지 않는다.
+        // 이미 지난 종료만 센다 — 예정일까지 세면 입실 중인 호실에 미래 퇴실일이 붙는다.
         var endedAssignments = await _dbContext.DeceasedRooms
             .Where(a => roomIds.Contains(a.RoomId) && a.EndTime != null && a.EndTime <= nowUtc)
             .Select(a => new { a.RoomId, a.DeceasedId, a.EndTime })
@@ -338,7 +309,7 @@ public class StatusService : IStatusService
                 .GroupBy(m => m.DeceasedId)
                 .ToDictionary(
                     g => g.Key,
-                    // 상주로 표시된 사람이 먼저, 없으면 순서대로. 옛 화면도 상주 한 명만 보여 줬다.
+                        // 상주로 표시된 사람이 먼저, 없으면 순서대로.
                     g => string.Join(", ", g.OrderByDescending(m => m.IsChief).ThenBy(m => m.SortOrder).Select(m => m.Name)));
         }
 
@@ -440,9 +411,7 @@ public class StatusService : IStatusService
             .ToList();
     }
 
-    /// <summary>
-    /// 사용 일수를 센다. 하루가 안 돼도 하루로 친다 — 옛 시스템의 셈법이다.
-    /// </summary>
+    /// <summary>사용 일수. 하루가 안 돼도 하루로 센다 (옛 시스템과 같은 셈법).</summary>
     internal static int CountDays(DateTime? start, DateTime? end, DateTime now)
     {
         if (start is null)

@@ -4,16 +4,8 @@ using JSini.Shared.Domain;
 
 namespace AuthServer.Entities;
 
-/// <summary>
-/// F.A.Q 엔티티
-/// </summary>
-/// <remarks>
-/// F.A.Q 는 JSini 관리 포털이 관리하고 모든 MSA 사용자에게 공통으로 보인다.
-/// 각 MSA 가 자기 F.A.Q 를 따로 두지 않는다(공지와 같은 방침).
-///
-/// 쓰는 사람과 읽는 사람이 갈린다 — 관리자만 등록·수정·삭제하고
-/// 나머지 사용자는 읽는다. 판정은 `scom.role_menus` 의 `/help/faq` 권한으로 한다.
-/// </remarks>
+/// <summary>F.A.Q 엔티티</summary>
+/// 공지와 같이 JSini 관리 포털이 관리하고 모든 MSA 가 공통으로 본다. 쓰기는 관리자만, 읽기는 전원이다.
 [Table("faqs", Schema = "scom")]
 public class Faq : BaseEntity<string>
 {

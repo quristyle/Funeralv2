@@ -8,38 +8,8 @@ namespace ProjMngServer.Services;
 /// <summary>
 /// 「AI 작업 요청」이 올라오면 <b>관리자에게 앱 푸시를 보낸다.</b>
 /// </summary>
-/// <remarks>
-/// <para>
-/// <b>왜 필요한가.</b> 일반 사용자가 올린 요청(<see cref="AiTask.IsUserRequest"/>)은
-/// 저장만 되고 <b>아무 데서도 안 돈다</b> — 대상과 AI 를 관리자가 채워 주어야
-/// 비로소 실행된다. 그런데 올라온 것을 알려 주는 길이 하나도 없어서, 관리자가
-/// 「AI 작업 지시」 화면을 스스로 열어 보기 전까지 그 요청은 <b>아무 일도
-/// 일어나지 않은 채 쌓여 있었다.</b> 올린 사람 쪽에서는 그것이 「무시당한 것」과
-/// 구분되지 않는다.
-/// </para>
-///
-/// <para>
-/// <b>보낼 사람을 여기서 풀지 않는다.</b> 관리자가 누구인지는 포털 계정 DB
-/// (<c>jsiniportal</c> 의 <c>scom.role_accounts</c>)에 있고, 프로젝트관리는 아예
-/// 다른 데이터베이스(<c>projmng</c>)를 본다 — 여기서는 조회조차 할 수 없다.
-/// 그래서 <b>역할 이름만 실어 보내고</b> 알림 서비스가 사람으로 편다
-/// (<c>NotificationServer</c> 의 <c>SendPushDto.Roles</c>).
-/// </para>
-///
-/// <para>
-/// <b>올린 사람은 뺀다.</b> 관리자도 이 화면에서 요청을 올릴 수 있는데(역할 셋
-/// 모두 「AI 작업 요청」 메뉴를 갖고 있다), 자기가 방금 누른 일로 자기 휴대폰이
-/// 울리면 받는 쪽은 알림을 꺼 버린다.
-/// </para>
-///
-/// <para>
-/// <b>사람을 기다리게 하지 않는다.</b> 「요청을 올렸다」는 DB 에 한 줄을 적는
-/// 일이고 그것으로 이미 끝이다 — 알림은 그 뒤에 따라붙는 편의라, 그것 때문에
-/// 저장 화면이 묶여 있을 이유가 없다(<see cref="AiTaskBell"/> 와 같은 판단이다).
-/// 그래서 <see cref="Fire"/> 는 기다리지 않고, 못 보낸 알림은 <b>다시 시도하지
-/// 않는다</b> — 요청 자체는 이미 화면에 남아 있다.
-/// </para>
-/// </remarks>
+/// 일반 사용자의 요청은 저장만 되고 관리자가 채울 때까지 아무 데서도 안 돌아, 알림이 없으면 쌓인 채 묻힌다.
+/// 역할 이름만 실어 보내고 알림 서비스가 사람으로 편다(프로젝트관리 DB 에서는 계정을 조회할 수 없다). 올린 사람은 뺀다. 기다리지 않으며 못 보낸 알림은 다시 시도하지 않는다.
 public sealed class AiRequestAlerter(
     IConfiguration configuration, IHttpClientFactory http, ILogger<AiRequestAlerter> logger)
 {
@@ -50,11 +20,7 @@ public sealed class AiRequestAlerter(
     /// <summary>
     /// 알릴 역할. 비우면 <b>아무에게도 안 간다</b> — 설정을 지워 기능을 끌 수 있다.
     /// </summary>
-    /// <remarks>
-    /// 기본값은 「AI 작업 지시」 메뉴(<c>PM_AI_TASKS</c>)를 가진 역할 셋이다.
-    /// 올라온 요청을 실제로 처리하는 화면이 그것이므로, <b>그 화면을 볼 수 있는
-    /// 사람</b>이 곧 이 알림을 받아야 하는 사람이다.
-    /// </remarks>
+    /// 기본값은 「AI 작업 지시」 메뉴(PM_AI_TASKS)를 가진 역할이다 — 그 화면을 볼 수 있는 사람이 곧 받아야 할 사람이다.
     private readonly string[] _roles =
         configuration.GetSection("AiTasks:RequestNotifyRoles").Get<string[]>()
         ?? ["SYSTEM_ADMINISTRATOR", "ADMINISTRATOR", "PROJMNG_ADMIN"];
@@ -69,11 +35,7 @@ public sealed class AiRequestAlerter(
     /// 올린 사람이 <b>자기 요청을 펴 보는 화면</b>. 관리자용 상세와 주소가
     /// 다르다 — 그쪽은 일반 사용자에게 메뉴가 없다.
     /// </summary>
-    /// <remarks>
-    /// 번호를 물음표 뒤에 실어 <b>그 건이 열린 채로</b> 뜨게 한다
-    /// (<c>AiRequestList</c> 의 <c>Task</c> 매개변수). 목록만 열어 주면
-    /// 알림을 누른 사람이 어느 줄에 말이 붙었는지 눈으로 다시 찾아야 한다.
-    /// </remarks>
+    /// 번호를 물음표 뒤에 실어 그 건이 열린 채로 뜨게 한다 — 목록만 열면 알림을 누른 사람이 줄을 다시 찾아야 한다.
     private static string RequestUrl(long taskKey) => $"/projmng/ai/request?task={taskKey}";
 
     /// <summary>
@@ -218,24 +180,8 @@ public sealed class AiRequestAlerter(
     }
 
     /// <summary>실제로 보낸다. 시험에서 결과를 보려고 따로 열어 둔다.</summary>
-    /// <remarks>
-    /// <para>
-    /// <b>가는 곳이 둘이다.</b> 관리자가 적었으면 <b>올린 사람 한 명</b>에게
-    /// 가고(<c>owners</c>), 올린 사람이 적었으면 <b>관리자 역할 전원</b>에게
-    /// 간다(<c>roles</c>) — 뒤엣것이 없으면 사용자가 되물어도 아무도 모른다.
-    /// </para>
-    /// <para>
-    /// <b>줄에서 겹치게 둔다</b>(<c>topic</c>). 한 요청에 말이 여러 줄
-    /// 달리는 동안 휴대폰이 꺼져 있으면, 겹치지 않을 때 그 줄 수만큼이
-    /// 한꺼번에 쏟아진다. 열어 보면 어차피 붙은 말이 다 보이므로 마지막
-    /// 하나면 된다(docs/push-delivery.md).
-    /// </para>
-    /// <para>
-    /// <b>수명은 하루다.</b> 결과 알림(두 시간)보다 길게 잡는 이유는, 그쪽은
-    /// 지나고 나면 화면에서 확인하면 그만인 통보지만 이 말은 <b>답을
-    /// 기다리는 말</b>이라 늦게라도 닿는 편이 낫기 때문이다.
-    /// </para>
-    /// </remarks>
+    /// 관리자가 적었으면 올린 사람 한 명에게, 올린 사람이 적었으면 관리자 역할 전원에게 간다. 줄에서 겹치게(topic) 두어 휴대폰이 꺼져 있다 켜질 때 쌓인 줄만큼 한꺼번에 울리지 않게 한다.
+    /// 수명은 하루다 — 결과 알림(두 시간)보다 길게 잡는 것은 이 말이 답을 기다리는 말이라 늦게라도 닿는 편이 낫기 때문이다.
     public async Task SendNoteAsync(
         AiTask task, AiTaskNote note, string? writerName, CancellationToken ct)
     {

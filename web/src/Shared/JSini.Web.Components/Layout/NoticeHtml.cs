@@ -3,43 +3,8 @@ using JSini.Web.Components.Data;
 
 namespace JSini.Web.Components.Layout;
 
-/// <summary>
-/// 공지 본문(HTML)을 화면에 넣기 전에 거르는 곳.
-/// </summary>
-/// <remarks>
-/// <para>
-/// [왜 있는가]
-/// </para>
-///
-/// <para>
-/// 공지 본문은 <b>서식이 목적</b>이라 글자로 뭉갤 수 없다(F.A.Q·문의 본문과
-/// 다른 점이다 — 그쪽은 태그를 걷어내고 보여 준다). 그래서 <c>MarkupString</c>
-/// 으로 그리는데, 그 순간 본문에 든 것이 전부 브라우저 안에서 실행된다.
-/// </para>
-///
-/// <para>
-/// "관리자만 쓰니까 괜찮다" 로 두지 않는다 — 관리자 계정 하나가 털리면 그
-/// 공지는 <b>로그인 전 화면을 포함해 모든 사용자에게</b> 뜬다. 공지가 전
-/// 서비스 공용이라 피해 범위가 이 포털 밖까지 간다.
-/// </para>
-///
-/// <para>
-/// [빼는 목록이 아니라 남기는 목록이다]
-/// </para>
-///
-/// <para>
-/// <c>&lt;script&gt;</c> 를 지우는 식(deny-list)은 반드시 빠뜨린다 —
-/// <c>onerror</c>·<c>javascript:</c>·<c>&lt;svg&gt;</c> 안의 이벤트까지
-/// 세어야 하고, 브라우저가 새 길을 하나 더 내면 그때부터 뚫린다.
-/// 여기서는 <b>아는 태그와 아는 속성만 통과</b>시키고 나머지는 전부 버린다.
-/// 모르는 태그는 껍데기만 버리고 <b>안의 글자는 남긴다</b> — 서식이 조금
-/// 빠지는 것이 문장이 통째로 사라지는 것보다 낫다.
-/// </para>
-///
-/// <para>
-/// 규칙은 <c>NoticeHtmlTests</c> 가 지킨다.
-/// </para>
-/// </remarks>
+/// <summary>공지 본문(HTML)을 화면에 넣기 전에 거른다. 서식이 목적이라 글자로 뭉갤 수 없고 MarkupString 으로 그리면 본문이 브라우저에서 실행되므로, 관리자 계정이 털리면 로그인 전 화면까지 모든 사용자에게 뜬다 — 그래서 아는 태그와 속성만 통과시킨다(남기는 목록).
+/// 지우는 목록(script 제거)은 onerror · javascript: · svg 안의 이벤트를 놓친다. 모르는 태그는 껍데기만 버리고 글자는 남긴다. 규칙은 NoticeHtmlTests 가 지킨다.</summary>
 public static class NoticeHtml
 {
     /// <summary>남겨 두는 태그. 서식 편집기가 실제로 뱉는 것들이다.</summary>
@@ -52,15 +17,7 @@ public static class NoticeHtml
         "table", "thead", "tbody", "tfoot", "tr", "th", "td", "caption", "colgroup", "col",
     };
 
-    /// <summary>
-    /// 껍데기뿐 아니라 <b>안까지 통째로</b> 버리는 태그.
-    ///
-    /// <para>
-    /// 나머지 모르는 태그는 글자를 남기지만 이것들은 남기면 안 된다 —
-    /// <c>&lt;style&gt;</c> 안의 CSS 나 <c>&lt;script&gt;</c> 안의 코드가
-    /// 화면에 그대로 글자로 쏟아진다.
-    /// </para>
-    /// </summary>
+    /// <summary>껍데기뿐 아니라 안까지 통째로 버리는 태그. 나머지 모르는 태그는 글자를 남기지만 이것들은 남기면 style 안의 CSS 나 script 안의 코드가 글자로 쏟아진다.</summary>
     private static readonly HashSet<string> Dropped = new(StringComparer.OrdinalIgnoreCase)
     {
         "script", "style", "iframe", "object", "embed", "noscript", "template",
@@ -103,14 +60,7 @@ public static class NoticeHtml
     /// <summary>그림으로 받아 주는 시작.</summary>
     private static readonly string[] ImageSchemes = ["http://", "https://", "/", "data:image/"];
 
-    /// <summary>
-    /// <c>style</c> 값에 들어 있으면 그 속성을 통째로 버리는 조각들.
-    ///
-    /// <para>
-    /// 색·정렬만 오는 자리라 <c>url()</c> 이나 <c>@import</c> 가 보이면
-    /// 서식이 아니라 바깥으로 나가려는 것이다.
-    /// </para>
-    /// </summary>
+    /// <summary>style 값에 들어 있으면 그 속성을 통째로 버리는 조각들. 색·정렬만 오는 자리라 url() 이나 @import 가 보이면 바깥으로 나가려는 것이다.</summary>
     private static readonly string[] StyleBanned = ["url(", "expression", "javascript:", "@import", "behavior", "/*"];
 
     /// <summary>본문을 화면에 넣어도 되는 HTML 로 바꾼다.</summary>
@@ -327,42 +277,10 @@ public static class NoticeHtml
         return trimmed;
     }
 
-    /// <summary>
-    /// 본문에 박혀 있는 <c>/api/file/…</c> 주소를 셸의 중계 경로로 옮긴다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// [실제로 밟았다 — 옛 공지의 그림이 안 나온다]
-    /// </para>
-    ///
-    /// <para>
-    /// Vue 시절 서식 편집기가 그림을 올리면 본문에
-    /// <c>&lt;img src="/api/file/download/{guid}"&gt;</c> 가 박혔다. 그때는
-    /// 브라우저가 게이트웨이와 같은 오리진이라 열렸지만, 지금 브라우저가 보는
-    /// 것은 포털(:5557)이고 <b>거기에는 <c>/api</c> 가 없다.</b> 그래서 옛
-    /// 공지를 열면 본문 그림이 전부 깨진 네모로 나온다.
-    /// </para>
-    ///
-    /// <para>
-    /// 저장된 값을 고치지 않고 <b>보여 줄 때만</b> 옮긴다. DB 를 건드리면
-    /// 되돌릴 수 없고, 옛 값이 그대로 있어야 나중에 무엇이 있었는지 알 수 있다.
-    /// </para>
-    ///
-    /// <para>
-    /// 규칙은 <see cref="FileDownload.RelayUrl"/> 한 곳에 있다 — DB 에 저장된
-    /// 영정 사진·미디어 주소도 같은 모양이라 같은 것을 쓴다.
-    /// </para>
-    /// </remarks>
+    /// <summary>본문에 박힌 /api/file/… 주소를 셸의 중계 경로로 옮긴다. Vue 시절 편집기가 박은 그림 주소는 포털 오리진에 /api 가 없어 옛 공지의 그림이 전부 깨진다. 저장된 값은 고치지 않고 보여 줄 때만 옮긴다 — DB 를 건드리면 되돌릴 수 없다. 규칙은 FileDownload.RelayUrl 한 곳에 있다.</summary>
     private static string Relay(string url) => FileDownload.RelayUrl(url) ?? url;
 
-    /// <summary>
-    /// 주소가 아는 시작으로 열리는지 본다.
-    ///
-    /// <para>
-    /// 공백과 제어문자를 먼저 걷어낸다 — <c>java</c> 와 <c>script:</c> 사이에
-    /// 탭이나 줄바꿈을 끼워 넣어도 브라우저는 같은 것으로 읽는다.
-    /// </para>
-    /// </summary>
+    /// <summary>주소가 아는 시작(http · 상대 경로 등)으로 열리는지 본다. 공백과 제어문자를 먼저 걷는다 — java 와 script: 사이에 탭을 끼워도 브라우저는 같은 것으로 읽는다.</summary>
     private static bool HasScheme(string value, string[] schemes)
     {
         var packed = new string(value.Where(ch => !char.IsWhiteSpace(ch) && !char.IsControl(ch)).ToArray());
@@ -406,14 +324,7 @@ public static class NoticeHtml
 
     private sealed record Tag(string Name, string Attributes, bool IsClosing, bool SelfClosing, int End);
 
-    /// <summary>
-    /// <c>&lt;</c> 자리에서 태그 하나를 읽는다.
-    ///
-    /// <para>
-    /// 정규식으로 <c>&gt;</c> 를 찾지 않는다 — 속성 값 안의 부등호
-    /// (<c>title="a &gt; b"</c>)를 태그 끝으로 읽어 뒤가 통째로 어긋난다.
-    /// </para>
-    /// </summary>
+    /// <summary>&lt; 자리에서 태그 하나를 읽는다. 정규식으로 &gt; 를 찾지 않는다 — 속성 값 안의 부등호를 태그 끝으로 읽으면 뒤가 통째로 어긋난다.</summary>
     private static bool TryReadTag(string html, int start, out Tag tag)
     {
         tag = default!;
@@ -563,15 +474,7 @@ public static class NoticeHtml
         }
     }
 
-    /// <summary>
-    /// 속성 값을 따옴표 안에 넣을 수 있게 만든다.
-    ///
-    /// <para>
-    /// <c>&amp;</c> 는 건드리지 않는다 — 원본이 이미 <c>&amp;amp;</c> 로
-    /// 들어오므로 다시 바꾸면 글자로 <c>&amp;amp;</c> 가 보인다. 따옴표만
-    /// 막으면 값이 속성 밖으로 나가지 못한다.
-    /// </para>
-    /// </summary>
+    /// <summary>속성 값을 따옴표 안에 넣을 수 있게 만든다. &amp; 는 건드리지 않는다 — 원본이 이미 &amp;amp; 로 들어와서 다시 바꾸면 글자로 보인다. 따옴표만 막으면 값이 속성 밖으로 나가지 못한다.</summary>
     private static string EscapeAttribute(string value) =>
         value.Replace("\"", "&quot;", StringComparison.Ordinal)
              .Replace("<", "&lt;", StringComparison.Ordinal)

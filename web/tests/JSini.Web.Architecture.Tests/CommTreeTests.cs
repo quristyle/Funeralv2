@@ -7,33 +7,11 @@ using Xunit;
 
 namespace JSini.Web.Architecture.Tests;
 
-/// <summary>
-/// <c>CommTree</c>(공통 나무)에 걸어 두는 두 가지. <b>표에 걸어 둔 것과 같은
-/// 검사</b>다 — 자세한 사연은 <see cref="CommGrdDefaultTests"/> 와
-/// <see cref="CommGrdSplatTests"/> 머리말에 있다.
-///
-/// <para>
-/// 한 파일에 둔 이유는 두 검사가 <b>같은 도우미</b>를 쓰기 때문이다. 표 쪽은
-/// 먼저 만들어져 두 파일로 갈라져 있고, 그 둘을 합치는 일은 여기와 별개다.
-/// </para>
-///
-/// <para>
-/// [나무에도 같은 검사가 필요한 이유]
-/// </para>
-///
-/// <para>
-/// <c>CommTree</c> 도 선언하지 않은 파라미터를 전부 <c>DxTreeList</c> 로 흘려
-/// 보낸다. 그래서 <b>기본값을 화면에 다시 적으면 기본값을 바꿔도 그 화면만
-/// 안 따라오고</b>, <b><c>EventCallback</c> 을 splat 하면 화면이 그리기도 전에
-/// 500 으로 죽는다.</b> 둘 다 빌드로는 잡히지 않는다.
-/// </para>
-/// </summary>
+/// <summary>CommTree 에 걸어 두는 두 검사 — 표(CommGrd)에 걸어 둔 것과 같다. CommTree 도 선언하지 않은 파라미터를 DxTreeList 로 흘리므로,
+/// 기본값을 화면에 적으면 그 화면만 안 따라오고, EventCallback 을 splat 하면 그리기 전에 500 으로 죽는다. 둘 다 빌드로는 잡히지 않는다.</summary>
 public sealed class CommTreeTests
 {
-    /// <summary>
-    /// <c>CommTree.razor</c> 가 <c>DxTreeList</c> 에 주는 값과 자기 파라미터의
-    /// 기본값. 손으로 옮겨 적지 않고 부품 파일에서 읽는다.
-    /// </summary>
+    /// <summary>CommTree.razor 가 DxTreeList 에 주는 값과 자기 파라미터의 기본값. 부품 파일에서 읽는다.</summary>
     private static readonly Lazy<IReadOnlyDictionary<string, string>> Defaults = new(ReadDefaults);
 
     /// <summary>화면이 정할 몫이라 대조에서 빼는 것들.</summary>
@@ -109,12 +87,7 @@ public sealed class CommTreeTests
             + string.Join("\n  ", offenders));
     }
 
-    /// <summary>
-    /// <c>DxTreeList</c> 의 <c>EventCallback</c> 파라미터 중 <c>CommTree</c> 가
-    /// 선언하지 않은 것들. <b>목록을 손으로 적지 않는다</b> — DevExpress 를
-    /// 올리면 새 이름이 생기고, <c>CommTree</c> 가 하나를 선언하면 그 이름은
-    /// 여기서 저절로 빠진다.
-    /// </summary>
+    /// <summary>DxTreeList 의 EventCallback 파라미터 중 CommTree 가 선언하지 않은 것들. 목록을 손으로 적지 않는다.</summary>
     private static HashSet<string> SplattableEventCallbacks()
     {
         var declared = Parameters(typeof(CommTree<object>)).Select(p => p.Name).ToHashSet(StringComparer.Ordinal);
@@ -125,11 +98,7 @@ public sealed class CommTreeTests
             .ToHashSet(StringComparer.Ordinal);
     }
 
-    /// <summary>
-    /// <c>CommTree.razor</c> 에서 기본값을 읽는다. 두 자리를 본다 —
-    /// <c>DxTreeList</c> 여는 태그에 적힌 값과 <c>[Parameter]</c> 의 초기값이다.
-    /// 식(<c>@…</c>)으로 준 것은 계산값이라 뺀다.
-    /// </summary>
+    /// <summary>CommTree.razor 에서 기본값을 읽는다 — DxTreeList 여는 태그의 값과 [Parameter] 초기값을 본다. 식(@…)으로 준 것은 뺀다.</summary>
     private static IReadOnlyDictionary<string, string> ReadDefaults()
     {
         var text = RazorSource.Read(Path.Combine(
@@ -164,10 +133,7 @@ public sealed class CommTreeTests
         type == typeof(EventCallback)
         || (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(EventCallback<>));
 
-    /// <summary>
-    /// 여는 태그를 통째로 집어낸다. 따옴표 안의 <c>&gt;</c> 는 끝이 아니다 —
-    /// <c>Click="@(() =&gt; …)"</c> 같은 값이 흔하다.
-    /// </summary>
+    /// <summary>여는 태그를 통째로 집어낸다. 따옴표 안의 > 는 끝이 아니다.</summary>
     private static IEnumerable<(int Start, string Text)> OpeningTags(string text, string name)
     {
         foreach (Match open in Regex.Matches(text, $@"<{name}\b"))

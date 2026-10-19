@@ -21,8 +21,7 @@ public partial class WeatherResponses
         {
             _standards = await Client.GetStandardsAsync();
 
-            // 첫 기준을 골라 둔다. 안 고르면 빈 표만 보이고 무엇을 해야 하는지
-            // 알 수 없다.
+            // 첫 기준을 골라 둔다 — 안 고르면 빈 표만 보이고 무엇을 할지 알 수 없다.
             _standardId = _standards.FirstOrDefault()?.Id ?? 0;
 
             return _standards.Count;
@@ -62,8 +61,7 @@ public partial class WeatherResponses
 
     private void FillNew(WeatherResponseItem item)
     {
-        // 고른 기준을 물려준다. 안 넣으면 어느 기준에도 속하지 않아
-        // 저장돼도 목록에서 사라진다.
+        // 고른 기준을 물려준다 — 빠지면 어느 기준에도 속하지 않아 저장돼도 목록에서 사라진다.
         item.WeatherStandardId = _standardId;
         item.SortOrder = _responses.Count == 0 ? 1 : _responses.Max(r => r.SortOrder) + 1;
     }

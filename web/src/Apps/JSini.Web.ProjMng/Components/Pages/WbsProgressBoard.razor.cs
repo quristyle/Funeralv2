@@ -16,10 +16,7 @@ public partial class WbsProgressBoard
         WbsBoardOptions.TextOf(WbsBoardOptions.Who, _who),
         SchSummary.NameOf(ViewOptions, o => o.Value, o => o.Text, _view));
 
-    /// <summary>
-    /// 고른 프로젝트의 <b>이름</b>. 화면이 든 것은 코드뿐이고 목록은
-    /// <c>CodeSelect</c> 안에 있어, 그 부품이 <c>@bind-Text</c> 로 올려 준다.
-    /// </summary>
+    /// <summary>고른 프로젝트의 이름. 코드만 들고, 목록은 CodeSelect 가 쥐고 있다.</summary>
     private string? _projectName;
 
     private string? _projectCode;
@@ -54,8 +51,7 @@ public partial class WbsProgressBoard
 
         _summary = await Api.ProgressAsync(rid, _scope);
 
-        // 고른 보기만 읽는다. 셋을 다 읽으면 왕복이 넷이 되고, 항목별은
-        // 건수가 가장 많은 조회다.
+        // 고른 보기만 읽는다 — 셋을 다 읽으면 왕복이 넷이 되고, 항목별은 건수가 가장 많은 조회다.
         return _view switch
         {
             "module" => (_modules = await Api.ProgressByModuleAsync(rid, _scope)).Count,

@@ -4,27 +4,8 @@ using JSini.Web.Components.Data;
 namespace JSini.Web.CargoTrust.Api;
 
 /// <summary>
-/// 서버 코드값(대문자 문자열)을 사람이 읽는 이름과 배지 색으로 푸는 한 곳.
-///
-/// <para>
-/// [왜 한 곳인가]
-/// </para>
-///
-/// <para>
-/// 같은 <c>DELAYED</c> 가 검색 카드 · 상세 표 · 내 거래 · 미수금 네 곳에 뜬다.
-/// 화면마다 <c>switch</c> 를 적으면 한 곳은 「지연」, 다른 곳은 「지연 지급」이
-/// 되고, 색까지 갈리면 **같은 상태가 다른 무게로 읽힌다.** 이 서비스는 판정을
-/// 하지 않고 숫자만 보여 주는 것이 원칙이라(설계안 12·33) 그 무게가 곧 판정이다.
-/// </para>
-///
-/// <para>
-/// [「악성」「위험」「사기」를 쓰지 않는다]
-/// </para>
-///
-/// <para>
-/// 이름은 코드표(05-api-design.md) 그대로다. 미지급을 빨강으로 칠하는 것까지가
-/// 이 화면이 하는 말의 전부다 — 거래처를 한 단어로 부르는 이름표는 어디에도 없다.
-/// </para>
+/// 서버 코드값(대문자 문자열)을 이름과 배지 색으로 푸는 한 곳. 화면마다 switch 를 쓰면 같은 DELAYED 가 곳마다 다른 말·색으로 읽힌다.
+/// 판정어(악성·위험·사기 등)는 쓰지 않는다. 이름은 코드표(05-api-design.md) 그대로다.
 /// </summary>
 public static class CargoCodes
 {
@@ -62,8 +43,7 @@ public static class CargoCodes
     };
 
     /// <summary>
-    /// 배지 색. 받을 것을 다 받은 둘(정상·지연)과 못 받은 것을 가른다 —
-    /// 지연 지급은 늦었어도 **받은 것**이라 미지급과 같은 색을 주지 않는다.
+    /// 배지 색. 정상·지연은 받을 것을 다 받은 상태라 미지급과 같은 색을 주지 않는다 — 지연 지급은 늦었어도 받은 것이다.
     /// </summary>
     public static string PaymentStatusBadge(string? code) => code switch
     {
@@ -74,16 +54,13 @@ public static class CargoCodes
     };
 
     /// <summary>
-    /// 결제 결과를 더 받을 수 있는 상태인가. 서버의 미수금 정의
-    /// (<c>SCHEDULED·PARTIAL·UNPAID·DISPUTE</c>)와 같다 — 미지급으로 적었다가
-    /// 뒤늦게 받는 일이 흔하다.
+    /// 결제 결과를 더 받을 수 있는 상태인가. 서버의 미수금 정의(SCHEDULED·PARTIAL·UNPAID·DISPUTE)와 같다 — 미지급으로 적었다가 뒤늦게 받는 일이 흔하다.
     /// </summary>
     public static bool IsOpen(string? code) =>
         code is Scheduled or Partial or Unpaid or Dispute;
 
     /// <summary>
-    /// 미수금 칸(<c>bucket</c>). 상태와 거의 같지만 <c>DELAYED</c> 의 뜻이 다르다 —
-    /// 여기서는 「늦게 받았다」가 아니라 「예정일이 지났는데 아직 못 받았다」다.
+    /// 미수금 칸(bucket). DELAYED 는 「늦게 받았다」가 아니라 「예정일이 지났는데 아직 못 받았다」를 뜻한다.
     /// </summary>
     public static string BucketName(string? code) => code switch
     {
@@ -105,9 +82,7 @@ public static class CargoCodes
     // ── 거래 검증 상태 ───────────────────────────────────────
 
     /// <summary>
-    /// 거래 검증 상태. <c>FLAGGED</c> 를 「의심」이라 적지 않는다 — 등록한 본인이
-    /// 보는 칸인데, 같은 날 열 건을 넘게 올렸다는 것뿐인 표시를 의심이라 부르면
-    /// 사람을 판정하는 말이 된다.
+    /// 거래 검증 상태. FLAGGED 를 「의심」이라 부르지 않는다 — 같은 날 많이 올렸다는 표시일 뿐이라 사람을 판정하는 말이 되면 안 된다.
     /// </summary>
     public static string ReviewStatusName(string? code) => code switch
     {
@@ -164,8 +139,7 @@ public static class CargoCodes
     // ── 데이터 규모 ──────────────────────────────────────────
 
     /// <summary>
-    /// 건수가 적어 통계를 크게 읽으면 안 되는가(설계안 27). 2건 중 2건 정상과
-    /// 2,000건 중 1,700건 정상을 같은 무게로 보이면 안 된다.
+    /// 건수가 적은 통계를 크게 읽지 않게 한다(설계안 27). 2건 중 2건과 2,000건 중 1,700건을 같은 무게로 보이면 안 된다.
     /// </summary>
     public static bool IsThin(string? confidence) => confidence is "NONE" or "LOW";
 
@@ -266,13 +240,7 @@ public static class CargoCodes
         ["일반", "냉장/냉동", "컨테이너", "중량물", "이사", "기타"];
 
     /// <summary>
-    /// 운송 유형 고르개(<c>NativeSelect</c>). 맨 줄은 「고르지 않음」이다 —
-    /// 이 칸은 비워 둔 채로도 거래가 등록된다(<c>TransactionSaveRequest</c>).
-    ///
-    /// <para>
-    /// 「전체」가 아니라 「고르지 않음」인 까닭은 **조회 조건이 아니라 입력 칸**
-    /// 이어서다. 적는 자리에서 「전체」는 모든 유형이라는 뜻으로 읽힌다.
-    /// </para>
+    /// 운송 유형 고르개. 맨 줄은 「고르지 않음」이다 — 입력 칸이라 「전체」로 두면 모든 유형이라는 뜻으로 읽힌다.
     /// </summary>
     public static readonly IReadOnlyList<SchOption> TransportTypeOptions =
         [new(null, "고르지 않음"), .. TransportTypes.Select(t => new SchOption(t, t))];
@@ -283,9 +251,7 @@ public static class CargoCodes
     public const string Open = "OPEN";
 
     /// <summary>
-    /// 구간 유형. <b>이 한 칸이 할인 규칙을 통째로 바꾼다</b> —
-    /// 야간창도 다르고(21~06 vs 23~05) 세는 법도 다르다(비율 vs 통과 한 점).
-    /// 그래서 「전체」가 없다. 반드시 하나를 고른다.
+    /// 구간 유형. 이 한 칸이 할인 규칙을 통째로 바꾼다(야간창도, 세는 법도 다르다). 그래서 「전체」가 없다.
     /// </summary>
     public static readonly IReadOnlyList<SchOption> SectionTypeOptions =
     [
@@ -294,9 +260,7 @@ public static class CargoCodes
     ];
 
     /// <summary>
-    /// 칩에 쓰는 짧은 이름. 설명은 칩 아래 한 줄로 내린다 —
-    /// 390px 에서 긴 이름은 칩 하나가 두 줄을 먹고, 그러면 고를 것이 넷인 화면이
-    /// 손가락 하나만큼도 안 남는다.
+    /// 칩에 쓰는 짧은 이름. 긴 이름은 390px 에서 칩 하나가 두 줄을 먹으니 설명은 칩 아래로 내린다.
     /// </summary>
     public static readonly IReadOnlyList<SchOption> SectionTypeChips =
     [

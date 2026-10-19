@@ -7,10 +7,7 @@ public partial class DbLogicView
 {
     [Inject] private DbLogicClient Api { get; set; } = default!;
 
-    /// <summary>
-    /// 고를 수 있는 DB 종류. <b>서버가 접속을 만들 때 보는 값과 같아야 한다</b>
-    /// (`ConstInfo.DbTypes` + 실제 등록된 `EDB`).
-    /// </summary>
+    /// <summary>고를 수 있는 DB 종류. 서버가 접속을 만들 때 보는 값과 같아야 한다(ConstInfo.DbTypes + 등록된 EDB).</summary>
     private static readonly string[] DbTypes = ["POSTGRESQL", "MSSQL", "MYSQL", "EDB"];
 
     private IReadOnlyList<DbLogicBaseDto> _bases = [];
@@ -67,7 +64,7 @@ public partial class DbLogicView
 
     private Task SaveBaseAsync((DbLogicBaseDto Item, bool IsNew) e) => Api.SaveAsync(e.Item);
 
-    /// <summary>이름표 삭제. 딸린 질의가 있으면 서버가 막는다(머리말).</summary>
+    /// <summary>이름표 삭제. 딸린 질의가 있으면 서버가 막는다.</summary>
     private async Task DeleteBaseAsync(DbLogicBaseDto b)
     {
         await Api.DeleteAsync(b.DslCd);

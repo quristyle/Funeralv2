@@ -42,7 +42,6 @@ public class ApiResponse<T>
     [JsonPropertyName("realmessage")]
     public string? RealMessage { get; set; }
 
-    // --- 정적 팩토리 메서드 ---
 
     /// <summary>
     /// 성공 응답 객체를 생성합니다.

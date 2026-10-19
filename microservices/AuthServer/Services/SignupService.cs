@@ -41,16 +41,13 @@ public class SignupService(
     /// <summary>신청자가 적은 말을 담아 두는 칸.</summary>
     public const string NoteDetail = "SignupNote";
 
-    /// <summary>
-    /// 소셜로 신청한 사람의 프로필 사진 주소(공급자 쪽). 계정 사진(<c>Avatar</c>)과
-    /// 다른 칸이다 — 사연은 <c>SocialProviderOptions.PicturePath</c> 머리말.
-    /// </summary>
+    /// <summary>소셜 신청자의 프로필 사진 주소(공급자 쪽). 계정 사진(Avatar)과 다른 칸이다.</summary>
     public const string PictureDetail = "SocialPicture";
 
     /// <summary>승인 대기. 이 상태로는 로그인할 수 없다.</summary>
     public const string StatusPending = "PENDING";
 
-    /// <summary>정상. 계정 관리가 예전부터 쓰던 값이라 그대로 쓴다.</summary>
+    /// <summary>정상. 계정 관리가 쓰는 값과 같다.</summary>
     public const string StatusActive = "ACTIVE";
 
     private const string Sender = "AUTH_SIGNUP";
@@ -63,27 +60,8 @@ public class SignupService(
     private int MinPasswordLength =>
         configuration.GetValue("Auth:Signup:MinPasswordLength", 8);
 
-    /// <summary>
-    /// 신청을 계정으로 만들되 <b>상태를 PENDING 으로</b> 둔다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// [신청서 표를 따로 만들지 않았다]
-    /// </para>
-    ///
-    /// <para>
-    /// 계정 상태는 이미 <c>account_profile_details</c> 의 <c>Status</c> 에
-    /// 들어 있고 계정 관리 화면이 그 값을 읽고 쓴다. 신청서를 별도 표로 두면
-    /// 승인할 때 그 줄을 계정으로 옮겨 적는 코드가 생기고, 그 옮겨 적기가
-    /// 어긋나는 날이 온다. <b>처음부터 계정으로 만들고 상태만 다르게</b> 두면
-    /// 승인은 값 하나를 바꾸는 일이 된다.
-    /// </para>
-    ///
-    /// <para>
-    /// 그래서 <b>로그인이 상태를 봐야 한다</b>는 것이 이 설계의 전제다
-    /// (<c>AuthEndpoints</c>). 그 검사가 빠지면 신청하는 즉시 들어올 수 있다.
-    /// </para>
-    /// </remarks>
+    /// <summary>신청을 계정으로 만들되 상태를 PENDING 으로 둔다.</summary>
+    /// 신청서 표를 따로 두지 않는다 — 승인은 상태 값 하나를 바꾸는 일이 되고, 로그인은 상태를 봐야 한다(AuthEndpoints).
     public async Task<(bool Ok, string? Error)> RequestAsync(
         SignupRequestDto request, string? requestIp, CancellationToken ct = default)
     {
@@ -169,8 +147,7 @@ public class SignupService(
     /// <inheritdoc />
     public async Task<List<SignupPendingDto>> GetPendingAsync(CancellationToken ct = default)
     {
-        // 상태가 PENDING 인 계정만 모은다. 상태 칸이 없는 옛 계정은
-        // ACTIVE 로 보므로 여기 걸리지 않는다.
+                // 상태가 PENDING 인 계정만 모은다. 상태 칸이 없는 계정은 ACTIVE 로 보므로 걸리지 않는다.
         var pendingIds = await db.AccountProfileDetails
             .Where(d => d.DetailType == StatusDetail && d.Content == StatusPending)
             .Select(d => d.AccountId)
@@ -279,15 +256,8 @@ public class SignupService(
         return true;
     }
 
-    /// <summary>
-    /// 거절하면 <b>계정을 지운다.</b>
-    /// </summary>
-    /// <remarks>
-    /// 상태만 <c>REJECTED</c> 로 두면 그 아이디가 영영 묶인다 — 잘못 적어
-    /// 거절당한 사람이 같은 아이디로 다시 신청할 수 없다. 게다가 계정 관리
-    /// 목록에 쓰지 않는 줄이 쌓인다. 대기 중인 계정은 역할도 즐겨찾기도
-    /// 없으므로 지워도 딸려 나갈 것이 없다. 누가 언제 거절했는지는 로그에 남는다.
-    /// </remarks>
+    /// <summary>거절하면 계정을 지운다.</summary>
+    /// 상태만 REJECTED 로 두면 그 아이디가 영영 묶여 같은 아이디로 다시 신청할 수 없다.
     public async Task<bool> RejectAsync(
         string accountId, string approver, string? reason, CancellationToken ct = default)
     {

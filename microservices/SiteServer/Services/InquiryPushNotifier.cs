@@ -12,82 +12,17 @@ public interface IInquiryPushNotifier
     Task NotifyAsync(Guid inquiryId, InquiryRequestDto request, CancellationToken ct = default);
 }
 
-/// <summary>
-/// 문의가 접수됐다는 것을 담당자에게 <b>앱 푸시</b>로 알린다 —
-/// NotificationServer 의 <c>/notifications/push</c> 를 부른다.
-/// </summary>
-/// <remarks>
-/// <para>
-/// 메일(<see cref="IInquiryMailNotifier"/>)과 짝이다. 메일은 자리를 비운
-/// 담당자에게 남는 기록이고, 푸시는 <b>지금 보게 하는 길</b>이다 — 문의한
-/// 사람은 답을 기다리고 있고, 늦게 여는 메일함에서는 그 급함이 사라진다.
-/// </para>
-///
-/// <para>
-/// [받는 사람을 여기서 정하지 않는다]
-/// </para>
-///
-/// <para>
-/// <c>eventCode = SITE_INQUIRY</c> 만 실어 보내고 <b>받을 역할은 안 적는다</b>.
-/// 사람으로 푸는 것도, 푸시를 꺼 둔 사람을 거르는 것도 NotificationServer 가
-/// 한다 — 역할표(<c>scom.role_accounts</c>)는 포털 DB 에 있고 이 서비스는
-/// <c>jsinisite</c> 만 본다.
-/// </para>
-///
-/// <para>
-/// 받는 역할의 <b>정본은 포털관리의 「알림관리」</b>
-/// (<c>/admin/system/notify-policy</c>)이고, 거기 <c>SITE_INQUIRY</c> 의
-/// 「앱 푸시」를 켠 역할들에게 간다(<c>docs/notify-policy.md</c>).
-/// </para>
-///
-/// <para>
-/// <b>설정 파일에 기본 역할을 두지 않는다 (2026-10-12).</b> 두 자리에 적혀
-/// 있으면 화면에서 체크를 <b>다 풀었을 때</b> 정책이 「제한 없음」이 되어 설정
-/// 파일의 역할로 되돌아간다 — 관리자가 끈 알림이 계속 가는 쪽이다.
-/// <c>InquiryPush:ToRole</c> · <c>InquiryMail:ToRole</c> 은 이제 <b>표가 비었을
-/// 때만</b> 쓰이는 비상 통로이고, 평소에는 비어 있다.
-/// </para>
-///
-/// <para>
-/// [메일이 두 통 가지 않게]
-/// </para>
-///
-/// <para>
-/// 메일은 <b>지금까지처럼</b> <see cref="IInquiryMailNotifier"/> 가 제 틀로
-/// 따로 낸다. 그래서 <c>notification_events.email_from_push</c> 는
-/// <c>SITE_INQUIRY</c> 에서 <b>거짓으로 둔다</b> — 켜면 푸시 경로가 같은 내용을
-/// 한 통 더 내서 담당자가 문의 하나에 메일 두 통을 받는다.
-/// </para>
-///
-/// <para>
-/// 실패해도 예외를 던지지 않는다. 접수는 이미 저장됐고 메일도 따로 간다 —
-/// 알림이 못 간 것을 접수 실패로 만들면 문의한 사람이 같은 글을 다시 쓴다.
-/// </para>
-/// </remarks>
+/// <summary>문의 접수를 담당자에게 앱 푸시로 알린다(NotificationServer /notifications/push). 메일(IInquiryMailNotifier)과 짝이며, 푸시는 지금 보게 하는 길이다.
+/// 받을 역할은 여기서 정하지 않고 eventCode = SITE_INQUIRY 만 보낸다(포털관리 알림관리가 정본). 메일은 따로 나가므로 email_from_push 는 거짓이어야 두 통이 안 간다. 실패해도 접수는 이미 저장됐으므로 예외를 던지지 않는다.</summary>
 public class InquiryPushNotifier(
     IHttpClientFactory httpClientFactory,
     IConfiguration configuration,
     ILogger<InquiryPushNotifier> logger) : IInquiryPushNotifier
 {
-    /// <summary>
-    /// 눌렀을 때 열 곳 — 포털의 [사이트 문의내역].
-    /// </summary>
-    /// <remarks>
-    /// <b>Blazor 의 <c>@page</c> 주소다.</b> DB 메뉴에는 옛 경로
-    /// (<c>/company/site-inquiries</c>)가 남아 있지만 라우팅의 임자는 이제
-    /// <c>@page</c> 라(<c>web/CLAUDE.md</c>), 알림이 띄우는 창은 실제 라우트로
-    /// 보내야 「눌렀더니 준비 중이 뜬다」가 안 생긴다.
-    /// </remarks>
+    /// <summary>눌렀을 때 열 곳 — 포털의 [사이트 문의내역]. DB 메뉴의 옛 경로 대신 @page 주소를 써야 「준비 중」이 안 뜬다.</summary>
     private const string InquiryListUrl = "/site/inquiries";
 
-    /// <summary>
-    /// 알림의 수명(초) — 하루.
-    /// </summary>
-    /// <remarks>
-    /// 서버 기본값은 여섯 시간이다(<c>Push:DefaultTtlSeconds</c>). 배포 결과처럼
-    /// <b>지나고 나면 뜻이 없는</b> 알림에 맞춘 값인데, 문의는 그 반대다 —
-    /// 주말을 끼고 들어온 문의도 월요일에 보는 편이 낫다.
-    /// </remarks>
+    /// <summary>알림의 수명(초) — 하루. 서버 기본(여섯 시간)은 지나면 뜻이 없는 알림에 맞춘 값이고, 문의는 주말을 끼고 들어와도 월요일에 보는 편이 낫다.</summary>
     private const int TtlSeconds = 24 * 60 * 60;
 
     /// <summary>푸시 본문에 싣는 제목의 최대 길이. 넘으면 말줄임표로 접는다.</summary>
@@ -95,9 +30,7 @@ public class InquiryPushNotifier(
 
     public async Task NotifyAsync(Guid inquiryId, InquiryRequestDto request, CancellationToken ct = default)
     {
-        // **비어 있는 것이 정상이다.** 역할을 정하는 자리는 알림관리이고
-        // (머리말), 여기 적힌 것은 표가 빈 동안만 쓰이는 비상 통로다.
-        // 비었다고 되돌아서면 화면에서 켜 둔 역할에게도 푸시가 안 간다.
+        // 비어 있는 것이 정상이다 — 역할을 정하는 자리는 알림관리이고, 여기 적힌 것은 표가 빈 동안만 쓰는 비상 통로다.
         var roles = ResolveRoles();
 
         var baseUrl = Setting("InquiryPush:NotificationBaseUrl", "InquiryMail:NotificationBaseUrl");
@@ -174,22 +107,7 @@ public class InquiryPushNotifier(
         }
     }
 
-    /// <summary>
-    /// 비상 통로로 적어 둔 역할들. <b>보통은 비어 있다</b> —
-    /// <c>InquiryPush:ToRole</c> 이 없으면 메일과 같은 <c>InquiryMail:ToRole</c>.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 적혀 있어도 <b>알림관리에 역할이 한 줄이라도 걸려 있으면 그것이 이긴다</b>
-    /// (알림 서버가 역할 대상 이벤트에서 정책의 역할로 갈아 끼운다 —
-    /// <c>PushSender.ExpandOwnersAsync</c>). 그래서 평소에는 비워 두고, 표가
-    /// 비는 사고(설치 SQL 을 안 돌린 서버 따위)에만 쓴다.
-    /// </para>
-    /// <para>
-    /// 둘을 가른 까닭은 <b>메일과 푸시의 담당자가 다를 수 있기 때문</b>이고,
-    /// 안 적으면 같은 사람에게 간다.
-    /// </para>
-    /// </remarks>
+    /// <summary>비상 통로로 적어 둔 역할들. 보통은 비어 있다 — 알림관리에 역할이 한 줄이라도 걸리면 그것이 이긴다. 메일과 푸시의 담당자가 다를 수 있어 둘을 가른다.</summary>
     private List<string> ResolveRoles()
     {
         var raw = Setting("InquiryPush:ToRole", "InquiryMail:ToRole");
@@ -200,28 +118,14 @@ public class InquiryPushNotifier(
                      .Distinct(StringComparer.OrdinalIgnoreCase)];
     }
 
-    /// <summary>
-    /// 앞의 열쇠를 보고, <b>비어 있으면</b> 뒤의 것을 쓴다.
-    /// </summary>
-    /// <remarks>
-    /// <c>??</c> 로는 안 된다 — appsettings 에 <c>""</c> 로 적어 둔 칸은
-    /// <c>null</c> 이 아니라 <b>빈 글자</b>로 돌아와서, 물려받기가 조용히 끊기고
-    /// 「설정이 없다」 경고만 남는다.
-    /// </remarks>
+    /// <summary>앞의 열쇠가 비어 있으면 뒤의 것을 쓴다. ?? 는 쓰지 않는다 — appsettings 의 "" 는 null 이 아니라 빈 글자로 와서 물려받기가 끊기기 때문이다.</summary>
     private string? Setting(string key, string fallbackKey)
     {
         var value = configuration[key];
         return string.IsNullOrWhiteSpace(value) ? configuration[fallbackKey] : value;
     }
 
-    /// <summary>
-    /// 알림창에 뜨는 한 줄 — 「누가 · 무엇을」.
-    /// </summary>
-    /// <remarks>
-    /// <b>본문(<c>Message</c>)은 싣지 않는다.</b> 저장 전에 거른 HTML 이라
-    /// 알림창에서는 태그가 글자로 보이고, 길이도 가늠할 수 없다. 자세한 것은
-    /// 눌러서 보는 자리(<see cref="InquiryListUrl"/>)에 있다.
-    /// </remarks>
+    /// <summary>알림창에 뜨는 한 줄 — 「누가 · 무엇을」. 본문은 싣지 않는다(저장 전에 거른 HTML 이라 알림창에서는 태그가 글자로 보인다).</summary>
     private static string BuildBody(InquiryRequestDto request)
     {
         var who = string.IsNullOrWhiteSpace(request.Company)

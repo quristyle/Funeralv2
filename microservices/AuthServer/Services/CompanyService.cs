@@ -37,13 +37,7 @@ public class CompanyService : ICompanyService
             .ProjectToType<CompanyDto>()
             .ToListAsync();
 
-        // ── 소속 사용자·부서 수를 함께 채운다 ──────────────────
-        //
-        // 회사 목록 화면과 사용자 관리 화면(/company/user)이 "어디에 사람이 있는지" 를
-        // 바로 보여 주려면 이 숫자가 필요하다. 목록을 받아 놓고 화면에서 회사마다
-        // 따로 물어보면 회사 수만큼 요청이 나간다 — 여기서 한 번에 묶어 센다.
-        //
-        // 지운 계정·부서는 세지 않는다.
+        // 회사 목록에 소속 사용자·부서 수를 한 번에 묶어 센다 — 화면이 회사마다 따로 물으면 N+1 이다. 지운 계정·부서는 세지 않는다.
         var userCounts = await _context.Accounts
             .Where(a => !a.IsDeleted && a.CompanyId != null)
             .GroupBy(a => a.CompanyId!)
@@ -91,18 +85,8 @@ public class CompanyService : ICompanyService
     /// <summary>
     /// 회사의 사용처를 요청한 목록으로 맞춘다.
     /// </summary>
-    /// <remarks>
-    /// <paramref name="codeValues"/> 가 <c>null</c> 이면 <b>아무것도 하지 않는다</b> —
-    /// 일부 항목만 보내는 호출자(목록 화면의 셀 편집)가 사용처를 지우지 않게 하려는 것이다.
-    /// 빈 목록은 '전부 해제' 다.
-    ///
-    /// <para>
-    /// 있던 것을 지우고 다시 넣지 않고 <b>차이만</b> 반영한다. 그래야 바꾸지 않은 행의
-    /// 등록 정보(<c>created_at</c> · <c>created_by</c>)가 남는다.
-    /// 지울 때는 행을 실제로 지운다 — <c>(company_id, code_value)</c> 에 유일 색인이 걸려 있어
-    /// 지운 표시만 남기면 같은 코드를 다시 넣을 때 부딪힌다.
-    /// </para>
-    /// </remarks>
+    /// <paramref name="codeValues"/> 가 null 이면 아무것도 하지 않는다 — 일부 항목만 보내는 셀 편집이 사용처를 지우지 않도록. 빈 목록은 전부 해제다.
+    /// 차이만 반영해 바꾸지 않은 행의 등록 정보를 남긴다. 지울 때는 실제로 지운다 — (company_id, code_value) 유일 색인 때문에 지운 표시만 남기면 재삽입이 부딪힌다.
     private async Task ApplyUsageLocationsAsync(string companyId, List<string>? codeValues)
     {
         if (codeValues == null) return;

@@ -8,27 +8,8 @@ using ProjMngServer.Models;
 
 namespace ProjMngServer.Services;
 
-/// <summary>
-/// AI 작업 대시보드의 집계 — <c>projmng.ai_task</c> · <c>ai_task_run</c>.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <b>세는 단위는 「실행」이다.</b> 「지시」가 아니다 — 한 지시를 세 번 돌리면
-/// 처리한 일은 셋이고, 그 셋의 처리시간과 성패가 서로 다르다. 지시로 세면
-/// 재시도가 통째로 안 보이고, 그런데 이 기능에서 사람이 가장 알고 싶어 하는
-/// 것 중 하나가 「얼마나 다시 돌리고 있나」다.
-/// </para>
-/// <para>
-/// <b>빈 칸을 지우지 않는다.</b> 일별·시간대별은 자료가 없는 칸도 0 으로 채워
-/// 돌려준다. 있는 것만 주면 차트의 가로축이 들쭉날쭉해져 <i>「아무 일 없던
-/// 사흘」이 아예 없던 일</i>처럼 보인다 — 추세를 보는 화면에서 가장 나쁜 거짓말이다.
-/// </para>
-/// <para>
-/// <b>기간을 타는 것과 「지금」을 갈라 둔다.</b> 대기·실행 중·미확인은 언제로
-/// 조회하든 지금 값이다. 섞으면 지난달로 조회한 화면이 「실행 중 0건」이라고
-/// 말하면서 실제로는 지금 돌고 있는 일이 생긴다.
-/// </para>
-/// </remarks>
+/// <summary>AI 작업 대시보드 집계(ai_task · ai_task_run). 세는 단위는 「실행」이다.</summary>
+/// 빈 날짜 칸은 0 으로 채우고, 대기·실행 중처럼 지금 값인 것은 기간과 무관하게 따로 센다.
 public sealed class AiDashboardService(
     IConfiguration configuration, ILogger<AiDashboardService> logger, AiUsageCache usageCache)
 {
@@ -41,41 +22,18 @@ public sealed class AiDashboardService(
     /// <summary>예상치의 근거 기간(일). 화면에도 이 숫자를 그대로 적어 준다.</summary>
     private const int BasisDays = 28;
 
-    /// <summary>
-    /// 실행기가 살아 있다고 볼 시간. <b>사용량 보고 주기보다 넉넉해야 한다</b> —
-    /// 실행기는 15분에 한 번 보고하므로 5분으로 재면 늘 죽어 보인다.
-    /// </summary>
+    /// <summary>실행기가 살아 있다고 볼 시간. 사용량 보고 주기(15분)보다 넉넉해야 한다.</summary>
     private const int AliveMinutes = 60;
 
-    /// <summary>
-    /// 시작 시각을 <b>한국 벽시계</b>로 본 것. 날짜·요일·시간대 칸을 가르는 기준이다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>저장은 UTC 다</b>(<c>ai_task_run.started_at</c> 은 <c>timestamptz</c>,
-    /// DB 세션 시간대도 UTC). 그런데 이 화면이 묻는 것은 「<b>무슨 요일</b>에
-    /// 몰리나」 · 「몇 <b>시</b>에 몰리나」 · 「<b>오늘</b> 몇 건인가」다. 그
-    /// 판정을 UTC 로 하면 한국의 오전 9시 전 아홉 시간이 전날 칸으로 밀려
-    /// 하루 집계가 통째로 어긋나고, 「새벽 3시에 일한다」는 없는 습관이 생긴다.
-    /// </para>
-    /// <para>
-    /// 그래서 <b>저장과 견주기는 UTC, 달력 칸 가르기만 한국 시각</b>으로 한다.
-    /// 바꾸는 자리는 여기 둘뿐이라 흩어지지 않는다(<c>docs/utc-time.md</c>).
-    /// </para>
-    /// </remarks>
+    /// <summary>시작 시각을 한국 벽시계로 본 것. 날짜·요일·시간대 칸을 가르는 기준이다.</summary>
+    /// 저장과 견주기는 UTC, 달력 칸 가르기만 한국 시각이다(docs/utc-time.md). UTC 로 가르면 오전 9시 전이 전날 칸으로 밀린다.
     private const string StartedKst = "(r.started_at AT TIME ZONE 'Asia/Seoul')";
 
     /// <summary>지금을 한국 벽시계로. <see cref="StartedKst"/> 와 견주는 값이다.</summary>
     private const string NowKst = "(now() AT TIME ZONE 'Asia/Seoul')";
 
-    /// <summary>
-    /// 기간 안의 실행만 고른다. <b>모든 집계가 이 조건을 그대로 쓴다</b> —
-    /// 한 군데만 달라지면 머리 숫자와 차트의 합이 안 맞는다.
-    /// </summary>
-    /// <remarks>
-    /// <c>@from</c> · <c>@to</c> 는 화면이 고른 <b>한국 달력의 날짜</b>라
-    /// 한국 벽시계끼리 견준다(<see cref="StartedKst"/>).
-    /// </remarks>
+    /// <summary>기간 안의 실행만 고른다. 모든 집계가 이 조건을 그대로 쓴다.</summary>
+    /// @from · @to 는 한국 달력 날짜라 한국 벽시계끼리 견준다.
     private const string Scope = $"""
           FROM projmng.ai_task_run r
           JOIN projmng.ai_task t ON t.task_key = r.task_key
@@ -88,11 +46,9 @@ public sealed class AiDashboardService(
     /// <summary>처리시간(초). 아직 안 끝난 실행은 <c>NULL</c> 이라 평균에서 저절로 빠진다.</summary>
     private const string Duration = "EXTRACT(EPOCH FROM (r.finished_at - r.started_at))";
 
-    /// <summary>
-    /// 대시보드 한 판.
-    /// </summary>
+    /// <summary>대시보드 한 판.</summary>
     /// <param name="from">시작(포함). 날짜로 잘라 쓴다.</param>
-    /// <param name="to">끝(포함). 안에서 하루를 더해 <b>미만</b>으로 바꾼다.</param>
+    /// <param name="to">끝(포함). 안에서 하루를 더해 미만으로 바꾼다.</param>
     public async Task<AiDashboardData> LoadAsync(DateTime? from, DateTime? to)
     {
         // 기본은 최근 30일. 자정으로 잘라야 일별 칸과 경계가 맞는다.
@@ -131,34 +87,8 @@ public sealed class AiDashboardService(
         return data;
     }
 
-    /// <summary>
-    /// AI CLI 한도만 따로.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>대시보드 한 판을 부르게 하지 않으려고 낸 자리다.</b> 「빠른 지시」의
-    /// AI 고르개가 목록에 한도를 적는데, 그것 하나 때문에 30일치 집계 열두
-    /// 벌(<see cref="LoadAsync"/>)을 돌리면 <b>글 한 줄 적으러 들어온 화면이
-    /// 가장 무거운 질의를 끌고 온다.</b> 여기는 표 하나를 그대로 읽는다.
-    /// </para>
-    /// <para>
-    /// 대시보드가 쓰는 것과 <b>같은 <see cref="UsageAsync"/></b> 다 — 두 화면이
-    /// 다른 숫자를 말하는 일이 생기지 않는다.
-    /// </para>
-    /// <para>
-    /// <b>통을 거친다</b>(<see cref="AiUsageCache"/>). 값이 바뀌는 것은 실행기가
-    /// 보고할 때(15분)뿐인데 화면은 열릴 때마다 물었다 — 화면 쪽이 이것을
-    /// 기다리지 않도록 고친 뒤로는(<c>AiAskPanel</c>) 늦어도 고르개가 안 막히지만,
-    /// <b>안 물어도 되는 것을 묻는 것</b>은 그대로다.
-    /// </para>
-    /// <para>
-    /// <b>원문(<see cref="AiUsageSnapshot.RawText"/>)은 떼고 준다.</b> 이 자리를
-    /// 쓰는 화면은 퍼센트와 되차는 시각만 적고(<c>AiUsageText</c>) 원문은 「AI 작업
-    /// 현황」의 펼친 칸에서만 쓰는데, <c>copilot</c> 한 줄이 2KB 라 <b>응답의
-    /// 3분의 2가 아무도 안 읽는 글자</b>였다(7.8KB → 2.6KB). 원문이 필요하면
-    /// 대시보드 한 판(<see cref="LoadAsync"/>)에 그대로 실려 있다.
-    /// </para>
-    /// </remarks>
+    /// <summary>AI CLI 한도만 따로 읽는다. 대시보드 한 판을 부르지 않으려고 낸 자리다.</summary>
+    /// 같은 UsageAsync 를 쓰고 원문(RawText)은 떼고 준다 — 화면은 퍼센트만 쓴다.
     public async Task<List<AiUsageSnapshot>> LoadUsageAsync()
     {
         if (usageCache.Get() is { } cached)
@@ -315,14 +245,8 @@ public sealed class AiDashboardService(
              ORDER BY d.day
             """, args)];
 
-    /// <summary>
-    /// 월별 — <b>고른 기간과 무관하게 최근 12개월</b>이다.
-    /// </summary>
-    /// <remarks>
-    /// 기간을 따르게 하면 「최근 7일」로 조회했을 때 월별 차트에 막대가 하나만
-    /// 서고, 그 화면에서 월별이 할 말이 없어진다. 월별이 답하는 질문은
-    /// 「요즘 늘고 있나」이고 그것은 고른 기간과 다른 질문이다.
-    /// </remarks>
+    /// <summary>월별 — 고른 기간과 무관하게 최근 12개월이다.</summary>
+    /// 기간을 따르게 하면 월별 차트가 막대 하나로 무너지므로 기간과 무관하다.
     private async Task<List<AiDashboardPoint>> MonthlyAsync(IDbConnection db)
         => [.. await db.QueryAsync<AiDashboardPoint>($"""
             SELECT to_char(m.mon, 'YYYY-MM')          AS Label,
@@ -395,13 +319,8 @@ public sealed class AiDashboardService(
 
     // ── 무엇별 ──────────────────────────────────────────────
 
-    /// <summary>
-    /// 「무엇별」 집계. 세는 법이 전부 같아서 <b>기준 식만 바꿔 끼운다</b>.
-    /// </summary>
-    /// <remarks>
-    /// <paramref name="keyExpr"/> 는 <b>이 클래스가 부르는 곳에서만 온다</b> —
-    /// 바깥에서 받은 글자를 여기 꽂지 않는다. 꽂으면 그 순간 임의 SQL 통로가 된다.
-    /// </remarks>
+    /// <summary>무엇별 집계. 세는 법이 같아서 기준 식만 바꿔 끼운다.</summary>
+    /// keyExpr 는 이 클래스가 부르는 곳에서만 온다 — 바깥 글자를 꽂으면 임의 SQL 통로가 된다.
     private async Task<List<AiDashboardSlice>> SliceAsync(
         IDbConnection db, object args, string keyExpr)
         => [.. await db.QueryAsync<AiDashboardSlice>($"""
@@ -417,13 +336,7 @@ public sealed class AiDashboardService(
              LIMIT 12
             """, args)];
 
-    /// <summary>
-    /// 처리시간 분포.
-    /// </summary>
-    /// <remarks>
-    /// <b>평균 하나로는 「대부분 1분인데 한 건이 세 시간」을 못 본다.</b>
-    /// 그리고 그 한 건이 대개 사람이 보고 싶어 하는 건이다.
-    /// </remarks>
+    /// <summary>처리시간 분포. 평균 하나로는 한 건의 긴 실행이 묻힌다.</summary>
     private async Task<List<AiDashboardSlice>> DurationAsync(IDbConnection db, object args)
         => [.. await db.QueryAsync<AiDashboardSlice>($"""
             SELECT x.label                                  AS Label,
@@ -457,13 +370,8 @@ public sealed class AiDashboardService(
 
     // ── 예상 사용 건수 ──────────────────────────────────────
 
-    /// <summary>
-    /// 최근 <see cref="BasisDays"/> 일의 일평균으로 늘려 잡는다.
-    /// </summary>
-    /// <remarks>
-    /// <b>고른 기간을 쓰지 않는다.</b> 「어제 하루」로 조회한 화면의 예상치가
-    /// 어제 한 건을 근거로 나오면 그것은 예상이 아니다.
-    /// </remarks>
+    /// <summary>최근 BasisDays 일의 일평균으로 늘려 잡는다.</summary>
+    /// 고른 기간을 쓰면 하루만 조회했을 때 어제 한 건이 예상치가 된다.
     private async Task<AiDashboardForecast> ForecastAsync(IDbConnection db, long todayTokens = 0)
     {
         var row = await db.QuerySingleAsync<ForecastRow>($"""
@@ -487,10 +395,8 @@ public sealed class AiDashboardService(
 
         var perDay = Math.Round(row.BasisRuns / (decimal)BasisDays, 2);
 
-        // 오늘이 얼마나 지났나(0~1). 남은 몫을 일평균으로 채운다 —
-        // 오늘 실적을 지난 비율로 나누는 방식은 새벽 한 건이 하루 백 건으로
-        // 부풀어 예상치가 쓸모없어진다.
-        // 위 SQL 이 한국 달력으로 셌으므로 「오늘이 얼마나 지났나」도 한국 시각이다.
+        // 오늘이 얼마나 지났나(0~1)로 나누면 새벽 한 건이 하루 백 건으로 부풀어, 남은 몫을 일평균으로 채운다.
+        // 위 SQL 이 한국 달력으로 셌으므로 이것도 한국 시각이다.
         var nowKst = AppTime.ToKorea(AppTime.UtcNow);
         var dayPassed = (decimal)(nowKst - nowKst.Date).TotalDays;
         var daysLeftInMonth = DateTime.DaysInMonth(nowKst.Year, nowKst.Month) - nowKst.Day;
@@ -514,16 +420,8 @@ public sealed class AiDashboardService(
 
     // ── 곁들이는 것 ─────────────────────────────────────────
 
-    /// <summary>
-    /// AI CLI 한도. 실행기가 올려 둔 마지막 값이다.
-    /// </summary>
-    /// <remarks>
-    /// <b>표가 없어도 화면을 죽이지 않는다.</b> 이 표는 곁들이는 칸 하나를
-    /// 채울 뿐인데, 운영 반영을 손으로 하는 구조라 「메뉴 SQL 만 돌리고
-    /// 한도 SQL 은 안 돌린」 상태가 반드시 생긴다. 그때 대시보드 전체가
-    /// 열리지 않으면 고장이 실제보다 훨씬 커 보인다 — 로그로 시끄럽게
-    /// 남기고 그 칸만 비운다.
-    /// </remarks>
+    /// <summary>AI CLI 한도. 실행기가 올려 둔 마지막 값이다.</summary>
+    /// 표가 없어도 화면을 죽이지 않는다 — 한도 표만 빠진 상태가 생길 수 있어서다.
     private async Task<List<AiUsageSnapshot>> UsageAsync(IDbConnection db)
     {
         try
@@ -563,9 +461,7 @@ public sealed class AiDashboardService(
         }
         catch (PostgresException ex) when (ex.SqlState == "42703")
         {
-            // **칸이 모자란 것도 같은 종류의 고장이다.** 표는 만들었는데
-            // 뒤에 낸 SQL 을 안 돌린 경우 — 곁들이는 칸 하나 때문에
-            // 대시보드 전체가 안 열리면 고장이 실제보다 훨씬 커 보인다.
+            // 칸이 모자란 것도 같은 종류의 고장이다. 곁들이는 칸 때문에 대시보드 전체가 안 열리면 고장이 과장돼 보인다.
             logger.LogWarning(
                 "projmng.ai_usage_snapshot 에 칸이 모자랍니다({Message}). "
                 + "deploy/sql/projmng-ai-usage-bucket-2026-09-21.sql 를 돌리십시오.",
@@ -575,17 +471,8 @@ public sealed class AiDashboardService(
         }
     }
 
-    /// <summary>
-    /// 시간별 AI 모델 사용량 추이 (최근 24시간, 주간 사용량 비율 %).
-    /// </summary>
-    /// <remarks>
-    /// <b>한 번의 보고에 줄이 여럿인 CLI 가 있어 두 번 접는다</b> — 안쪽에서
-    /// 한 시각의 한도 줄들을 <c>MAX</c> 로 하나로 접고, 바깥에서 그 값을 시간으로
-    /// 평균한다. 줄 단위로 바로 평균하면 <i>한 주머니가 찼는데 다른 주머니가
-    /// 비어서 선이 반으로 내려앉는다.</i> 막히는 것은 평균이 아니라 넷 중
-    /// 하나가 100%에 닿는 순간이다(<c>AiUsageText.TopPct</c> 와 같은 규칙).
-    /// 일별·월별도 같은 모양이다.
-    /// </remarks>
+    /// <summary>시간별 AI 모델 사용량 추이(최근 24시간, 주간 사용량 %).</summary>
+    /// 한 시각의 한도 줄은 MAX 로 접고 그 값을 시간별로 평균한다 — 줄마다 평균하면 한 주머니만 찬 것이 선을 반으로 내린다.
     private async Task<List<AiUsageTrendPoint>> UsageHourlyAsync(IDbConnection db)
     {
         try
@@ -627,9 +514,7 @@ public sealed class AiDashboardService(
         }
     }
 
-    /// <summary>
-    /// 일별 AI 모델 사용량 추이 (조회 기간 기준, 주간 사용량 비율 %).
-    /// </summary>
+    /// <summary>일별 AI 모델 사용량 추이(조회 기간 기준, 주간 사용량 %).</summary>
     private async Task<List<AiUsageTrendPoint>> UsageDailyAsync(IDbConnection db, object args)
     {
         try
@@ -670,9 +555,7 @@ public sealed class AiDashboardService(
         }
     }
 
-    /// <summary>
-    /// 월별 AI 모델 사용량 추이 (최근 12개월, 주간 사용량 비율 %).
-    /// </summary>
+    /// <summary>월별 AI 모델 사용량 추이(최근 12개월, 주간 사용량 %).</summary>
     private async Task<List<AiUsageTrendPoint>> UsageMonthlyAsync(IDbConnection db)
     {
         try
@@ -771,9 +654,7 @@ public sealed class AiDashboardService(
 
     // ── 토큰 사용량 (포털 DB) ──────────────────────────────
 
-    /// <summary>
-    /// 포털 DB(scom.ai_usage_logs)에서 오늘 및 조회 기간 토큰 사용량을 집계한다.
-    /// </summary>
+    /// <summary>포털 DB(scom.ai_usage_logs)에서 오늘 및 조회 기간 토큰 사용량을 집계한다.</summary>
     private async Task PopulateTokensAsync(IDbConnection projmngDb, object args, AiDashboardSummary summary)
     {
         try

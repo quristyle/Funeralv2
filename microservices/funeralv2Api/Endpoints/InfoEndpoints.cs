@@ -7,19 +7,9 @@ using JSini.Shared.Infrastructure.Filters;
 namespace funeralv2Api.Endpoints;
 
 /// <summary>
-/// 정보 화면 묶음 API — 호실히스토리 · 고인정보조회 · 나의정보 · 미리보기.
+/// 정보 화면 묶음 API(호실히스토리 · 고인정보조회 · 나의정보 · 미리보기). 게이트웨이가 /api/funeral 을 떼고 넘긴다.
+/// 알림정보(/notice/*)는 걷어냈다 — 표 두 개도 RemoveFuneralNotices 마이그레이션으로 지웠다.
 /// </summary>
-/// <remarks>
-/// 게이트웨이가 <c>/api/funeral</c> 을 떼고 넘기므로 프론트는
-/// <c>/funeral/info/...</c> 로 부른다.
-///
-/// <para>
-/// <b>알림정보(<c>/notice/*</c>)는 2026-09-03 에 걷어냈다.</b> 쓰지 않는 화면이었고
-/// 그 자리는 포털 공지(AuthServer)와 알림 설정(NotificationServer)이 채우고 있다.
-/// 표 둘(<c>funeral_notices</c> · <c>funeral_notice_reads</c>)도 함께 지웠다 —
-/// 행이 하나도 없었다. 마이그레이션은 <c>RemoveFuneralNotices</c> 다.
-/// </para>
-/// </remarks>
 public static class InfoEndpoints
 {
     public static void MapInfoEndpoints(this IEndpointRouteBuilder app)

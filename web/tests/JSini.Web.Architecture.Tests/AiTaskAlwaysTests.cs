@@ -2,50 +2,20 @@ using Xunit;
 
 namespace JSini.Web.Architecture.Tests;
 
-/// <summary>
-/// AI 에게 보내는 지시에는 <b>커밋·push 를 말해 주는 문구가 무조건 붙는다.</b>
-///
-/// <para>
-/// [왜 막는가]
-/// </para>
-///
-/// <para>
-/// 그 문구는 한동안 <c>AiTaskActions</c> 안의 private const 였고
-/// <b>「이어서 지시」에만</b> 붙었다. 「빠른 지시」로 처음 보낸 건은 그 말을
-/// 못 들어서 <b>다 고쳐 놓고 워크트리에만 남겨 둔 채 끝났다</b> — 사람은
-/// 끝났다는 메일을 받는데 저장소에는 아무것도 없다. 그 사실은 다음 회차가
-/// 같은 일을 다시 시작할 때에야 드러난다.
-/// </para>
-///
-/// <para>
-/// 지금은 <c>AiTaskAlways</c> 한 곳에서 나온다. 막아 두지 않으면 지시를 보내는
-/// 자리가 하나 더 생길 때 <b>그 자리만 조용히 문구 없이</b> 나간다 — 파일만
-/// 보면 정상으로 보이고, 어긋났다는 것은 회차가 헛돈 뒤에 알게 된다.
-/// </para>
-/// </summary>
+/// <summary>AI 에게 보내는 지시에는 커밋·push 를 말해 주는 문구가 무조건 붙는다. 막아 두지 않으면 지시를 보내는 자리가 하나 더 생길 때 그 자리만 조용히 문구 없이 나간다.</summary>
 public sealed class AiTaskAlwaysTests
 {
-    /// <summary>
-    /// 문구의 알맹이. <b>온 문장을 다 적지 않는다</b> — 말끝을 다듬는 것까지
-    /// 테스트가 막으면 문구를 못 고친다. 빠지면 회차가 헛도는 마디만 본다.
-    /// </summary>
+    /// <summary>문구의 알맹이. 온 문장을 다 적지 않는다 — 말끝을 다듬는 것까지 막으면 문구를 못 고친다.</summary>
     private static readonly string[] Must =
     [
         "commit과 push를 수행해라",
 
-        // **가지에 커밋만 하고 끝나는 것**을 막는 마디. 올리기를 켠 채
-        // `succeeded` 로 끝난 지시 넷에 하나가 `pushed_commit` 이 비어
-        // 있었다 — 제 작업 가지를 밀고 「push 했다」로 끝낸 것들이다.
+        // 가지에 커밋만 하고 끝나는 것을 막는 마디. 올리기를 켠 채 succeeded 로 끝난 건 중 하나는 pushed_commit 이 비어 있었다.
         "origin/main 에 들어갔는지",
 
         "DB 연결정보를 소스에서 확인",
 
-        // **다 끝난 건이 두 시간을 버리고 '실패'로 앉는 것**을 막는 마디.
-        // 지시 292 는 `$(find ...)` 가 빈 결과로 펴지는 바람에 파일 인자를
-        // 잃은 `grep` 이 표준입력을 기다리며 멈췄다. 커밋도 push 도 이미
-        // `origin/main` 까지 들어간 뒤였는데, Antigravity CLI 는 print
-        // 모드에서 배경 작업이 다 끝나야 빠져나오므로 `--print-timeout 120m`
-        // 을 꽉 채우고 잘렸다.
+        // 다 끝난 건이 두 시간을 버리고 실패로 앉는 것을 막는 마디 — 표준입력을 기다리며 멈춘 grep 이 print 모드를 120분 채우고 잘렸다.
         "표준입력을 기다리며",
     ];
 
@@ -53,10 +23,7 @@ public sealed class AiTaskAlwaysTests
     private const string Home =
         "src/Apps/JSini.Web.ProjMng/Components/Shared/AiTaskAlways.cs";
 
-    /// <summary>
-    /// 지시를 만들어 보내는 자리들. <b>여기 적힌 파일은 모두</b>
-    /// <c>AiTaskAlways.Append</c> 를 거쳐야 한다.
-    /// </summary>
+    /// <summary>지시를 만들어 보내는 자리들. 여기 적힌 파일은 모두 AiTaskAlways.Append 를 거쳐야 한다.</summary>
     private static readonly string[] Senders =
     [
         // 「빠른 지시」 — 새로 보내는 건(화면과 헤더 서랍이 함께 쓴다).
@@ -110,11 +77,7 @@ public sealed class AiTaskAlwaysTests
             + string.Join("\n  ", missing));
     }
 
-    /// <summary>
-    /// 빈 글에는 붙이지 않는다 — 「이어서 지시」는 덧붙일 말 없이 보낼 수
-    /// 있는데, 거기에 문구만 실어 보내면 <b>사람이 아무 말도 안 했는데 지시가
-    /// 하나 생긴다.</b>
-    /// </summary>
+    /// <summary>빈 글에는 붙이지 않는다 — 덧붙일 말이 없는 이어서 지시에 문구만 실으면 사람이 말한 적 없는 지시가 생긴다.</summary>
     [Fact]
     public void 빈_글에는_붙이지_않는다()
     {
@@ -124,10 +87,7 @@ public sealed class AiTaskAlwaysTests
         Assert.Contains("IsNullOrWhiteSpace(written)", text, StringComparison.Ordinal);
     }
 
-    /// <summary>
-    /// 이미 들어 있으면 또 붙이지 않는다 — 다시 보내기·이어서 지시로 같은 글이
-    /// 몇 번 돌 수 있고, 그때마다 붙으면 지시 끝이 같은 문단으로 도배된다.
-    /// </summary>
+    /// <summary>이미 들어 있으면 또 붙이지 않는다 — 같은 글이 몇 번 돌 때마다 붙으면 지시 끝이 같은 문단으로 도배된다.</summary>
     [Fact]
     public void 두_번_붙이지_않는다()
     {
@@ -153,10 +113,7 @@ public sealed class AiTaskAlwaysTests
         return dir!.FullName;
     }
 
-    /// <summary>
-    /// 훑을 소스. <c>.razor</c> 와 <c>.cs</c> 둘 다 본다 — 문구가 어느 쪽으로도
-    /// 새어 나갈 수 있다.
-    /// </summary>
+    /// <summary>훑을 소스. .razor 와 .cs 둘 다 본다 — 문구가 어느 쪽으로도 새어 나갈 수 있다.</summary>
     private static IEnumerable<string> SourceFiles() =>
         new[] { "*.razor", "*.cs" }
             .SelectMany(pattern => Directory.EnumerateFiles(

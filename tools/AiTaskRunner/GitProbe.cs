@@ -5,43 +5,15 @@ using System.Text;
 namespace AiTaskRunner;
 
 /// <summary>
-/// 대상 폴더 하나를 들여다본다 — <b>읽기만 한다.</b>
+/// 대상 폴더 하나를 들여다본다 — 읽기만 한다. 화면의 「대상 git 상태」 값을 만들며, 서버가 호스트 경로를 볼 수 없어 여기 있다.
+/// fetch 는 하지 않는다 — 앞섬·뒤처짐은 이미 받아 둔 원격 추적 참조로만 센다. 실패는 Snapshot.ProbeError 에 담고 예외를 올리지 않는다.
 /// </summary>
-/// <remarks>
-/// <para>
-/// 화면(「대상 git 상태」)이 보여 줄 값을 만드는 곳이다. 서버가 직접 할 수
-/// 없는 일이라 여기 있다 — ProjMngServer 는 컨테이너 안에서 돌고 이 경로들은
-/// 호스트의 것이다(설계 9.5 · 11.7).
-/// </para>
-/// <para>
-/// <b>고치는 명령을 하나도 부르지 않는다.</b> 특히 <c>fetch</c> 를 하지
-/// 않는다 — 여기서 네트워크를 타면 대상 수만큼의 fetch 가 몇 분마다 돌고,
-/// 그 사이 사람이 보던 값이 조용히 달라진다. 앞섬·뒤처짐은 <b>이미 받아 둔
-/// 원격 추적 참조</b>로만 센다. 그래서 이 화면의 「뒤처짐」은 「마지막으로
-/// 당겨 온 것 기준」이고, 화면이 그렇게 적는다.
-/// </para>
-/// <para>
-/// 실패해도 예외를 올리지 않는다. <see cref="Snapshot.ProbeError"/> 에 이유를
-/// 담아 돌려준다 — 한 대상이 이상하다고 나머지 대상의 상태까지 사라지면
-/// 안 된다.
-/// </para>
-/// </remarks>
 public sealed class GitProbe(ILogger<GitProbe> logger)
 {
-    /// <summary>
-    /// 더러운 파일 목록을 몇 줄까지 싣나.
-    /// </summary>
-    /// <remarks>
-    /// 숫자만으로는 「무엇이 더러운지」를 알 수 없어서 싣지만, 전부 실으면
-    /// 수천 줄이 DB 와 화면으로 간다. 앞 몇 줄이면 <b>「아, 그거」</b>가 된다.
-    /// </remarks>
+    /// <summary>더러운 파일 목록을 앞 몇 줄까지 싣나. 숫자만으로는 무엇이 더러운지 알 수 없고, 전부 실으면 수천 줄이 DB 로 간다.</summary>
     private const int DirtyLines = 20;
 
-    /// <summary>칸을 가르는 글자. git 의 <c>%x1f</c> 가 내놓는 것과 같다.</summary>
-    /// <remarks>
-    /// 탭이나 <c>|</c> 로 가르지 않는 이유는 <b>커밋 제목이 그것을 품는 날</b>
-    /// 조용히 어긋나기 때문이다. 단위 구분자는 제목에 들어갈 수 없는 글자다.
-    /// </remarks>
+    /// <summary>칸을 가르는 글자(git 의 %x1f). 탭이나 | 는 커밋 제목이 품으면 조용히 어긋나므로 쓰지 않는다.</summary>
     private const char Unit = '';
 
     /// <summary>한 대상에 쓰는 시간의 상한. 넘으면 그 대상만 오류로 남는다.</summary>
@@ -59,17 +31,14 @@ public sealed class GitProbe(ILogger<GitProbe> logger)
 
         if (!Directory.Exists(path))
         {
-            // **「이 장비에는」이 중요하다.** 대상은 장비에 묶일 수 있고
-            // (`ai_target.runner_nm`), 안 묶으면 아무 장비나 집는다. 그냥
-            // 「없습니다」로 두면 「내 PC 에는 있는데」가 된다.
+            // 「이 장비에는」이 중요하다 — 대상은 장비에 묶일 수 있고(ai_target.runner_nm), 안 묶으면 아무 장비나 집는다.
             snap.ProbeError = "이 장비에 그 경로가 없습니다.";
             return snap;
         }
 
         snap.PathExists = true;
 
-        // worktree 의 `.git` 은 폴더가 아니라 **파일**이다. 폴더만 보면
-        // worktree 안에서 볼 때 저장소가 아닌 것으로 읽힌다.
+        // worktree 의 .git 은 폴더가 아니라 파일이다. 폴더만 보면 worktree 에서 저장소가 아닌 것으로 읽힌다.
         var dotGit = Path.Combine(path, ".git");
         snap.IsRepo = Directory.Exists(dotGit) || File.Exists(dotGit);
 
@@ -100,26 +69,8 @@ public sealed class GitProbe(ILogger<GitProbe> logger)
         return snap;
     }
 
-    /// <summary>
-    /// 가지·앞섬·뒤처짐과 더러운 칸들.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <c>--porcelain=v2</c> 를 쓴다. v1 은 앞섬·뒤처짐을 <b>괄호 안 문장</b>으로
-    /// 주고 v2 는 <c># branch.ab +3 -1</c> 로 준다 — 갈라 읽을 것이 없다.
-    /// </para>
-    /// <para>
-    /// <c>--untracked-files=normal</c> 을 명시한다. 그 장비의
-    /// <c>status.showUntrackedFiles</c> 설정에 따라 <b>기본값이 달라지고</b>,
-    /// 달라지면 「깨끗하다」가 장비마다 다른 말이 된다.
-    /// </para>
-    /// <para>
-    /// <c>--no-optional-locks</c> 를 붙인다. 평범한 <c>git status</c> 는
-    /// 인덱스를 <b>새로 쓰려 든다</b>(stat 갱신) — 읽기만 하려고 도는 것이
-    /// 사람이 쓰는 저장소의 <c>index.lock</c> 을 집어 실제 작업을 방해할 수
-    /// 있다. 몇 분마다 도는 감시라 특히 그렇다.
-    /// </para>
-    /// </remarks>
+    /// <summary>가지·앞섬·뒤처짐과 더러운 칸들. --porcelain=v2 (v1 은 앞섬을 괄호 문장으로 준다), --untracked-files=normal (장비 설정에 따라 기본값이 달라 고정),
+    /// --no-optional-locks (평범한 status 는 index.lock 을 잡아 작업을 방해한다).</summary>
     private static async Task ReadStatusAsync(string path, Snapshot snap, CancellationToken ct)
     {
         var r = await RunAsync(path, ct,
@@ -149,13 +100,11 @@ public sealed class GitProbe(ILogger<GitProbe> logger)
                 continue;
             }
 
-            // `1`·`2` = 추적 중인 파일이 바뀐 것, `u` = 충돌, `?` = 추적 안 함.
-            // `!`(무시된 파일)는 요청하지 않았으므로 오지 않는다.
+            // 1·2 = 추적 중인 파일 변경, u = 충돌, ? = 추적 안 함. ! 는 요청하지 않아 오지 않는다.
             switch (s[0])
             {
                 case '1' or '2':
-                    // `1 XY …` — X 가 색인(staged), Y 가 작업본(unstaged).
-                    // 한 파일이 둘 다일 수 있어서 **배타적으로 세지 않는다.**
+                    // 1 XY … — X 가 색인, Y 가 작업본. 한 파일이 둘 다일 수 있어 배타적으로 세지 않는다.
                     if (s.Length > 3)
                     {
                         if (s[2] != '.')
@@ -211,8 +160,7 @@ public sealed class GitProbe(ILogger<GitProbe> logger)
         switch (parts[1])
         {
             case "branch.head":
-                // 가지에 올라 있지 않으면 git 이 `(detached)` 를 준다.
-                // **그대로 둔다** — 화면이 그 말을 보여 줘야 한다.
+                // 가지에 없으면 git 이 (detached) 를 준다 — 그대로 둔다. 화면이 그 말을 보여 준다.
                 snap.Branch = parts[2];
                 break;
 
@@ -250,10 +198,7 @@ public sealed class GitProbe(ILogger<GitProbe> logger)
         snap.HeadAuthor = f[1].Trim();
         snap.HeadSubject = f[3].Trim();
 
-        // `%cI` 는 ISO-8601 에 오프셋이 붙는다. **UTC 로 맞춰** 올린다 —
-        // 받는 칸(`ai_target_status.head_dt`)은 timestamptz 이고 이 시스템의
-        // 시각은 전부 UTC 다(docs/utc-time.md). 장비의 지역 시각으로 보내면
-        // 실행기를 어느 나라에서 돌리느냐에 따라 값이 달라진다.
+        // %cI 는 오프셋이 붙는다. UTC 로 맞춰 올린다 — 받는 칸과 시스템 규칙이 UTC 이고, 장비 지역 시각으로 보내면 나라마다 값이 달라진다.
         if (DateTimeOffset.TryParse(
                 f[2].Trim(), CultureInfo.InvariantCulture,
                 DateTimeStyles.None, out var when))
@@ -262,14 +207,7 @@ public sealed class GitProbe(ILogger<GitProbe> logger)
         }
     }
 
-    /// <summary>
-    /// 원격 주소와 stash 수.
-    /// </summary>
-    /// <remarks>
-    /// stash 를 세는 이유는 <b>실행기 자신이 거기에 쌓기</b> 때문이다 —
-    /// 원본 직접으로 돈 작업이 정본에 남긴 변경을 <c>Workspace.ParkAsync</c>
-    /// 가 stash 로 옮긴다. 쌓여 있으면 사람이 치워야 한다는 뜻이다.
-    /// </remarks>
+    /// <summary>원격 주소와 stash 수. stash 는 실행기가 직접 쌓는 곳이라(ParkAsync) 쌓여 있으면 사람이 치워야 한다.</summary>
     private static async Task ReadExtrasAsync(string path, Snapshot snap, CancellationToken ct)
     {
         var remote = await RunAsync(path, ct,
@@ -290,14 +228,7 @@ public sealed class GitProbe(ILogger<GitProbe> logger)
         }
     }
 
-    /// <summary>
-    /// porcelain v2 한 줄을 사람이 읽을 모양으로.
-    /// </summary>
-    /// <remarks>
-    /// v2 는 기계가 읽기 좋은 대신 칸이 여덟아홉이다
-    /// (<c>1 .M N... 100644 … path</c>). 화면에 그대로 내면 아무도 못 읽는다 —
-    /// <b>상태 두 글자와 경로</b>만 남긴다.
-    /// </remarks>
+    /// <summary>porcelain v2 한 줄을 화면용으로 줄인다 — 상태 두 글자와 경로만 남긴다.</summary>
     private static string Pretty(string line)
     {
         if (line[0] == '?')
@@ -329,15 +260,8 @@ public sealed class GitProbe(ILogger<GitProbe> logger)
     private static string Head(string text, int lines) =>
         string.Join(' ', text.Split('\n', StringSplitOptions.RemoveEmptyEntries).Take(lines));
 
-    /// <summary>
-    /// git 한 번. <b>셸을 거치지 않는다</b> — 인자를 하나씩 넣는다.
-    /// </summary>
-    /// <remarks>
-    /// <c>Workspace</c> 에 같은 모양의 것이 있지만 그쪽은 private 이고 여기에
-    /// 필요한 것과 조금 다르다 — <b>아무도 안 보는 사이에 도는 감시</b>라
-    /// 자격을 절대 묻지 못하게 막고 시간 예산에 걸리면 죽인다. 이 저장소의
-    /// 규칙대로 <b>둘이 쓰면 복제, 셋째부터 승격</b>한다.
-    /// </remarks>
+    /// <summary>git 한 번. 셸을 거치지 않고 인자를 하나씩 넣는다. 자격을 묻지 못하게 막고, 시간 예산에 걸리면 죽인다 — 아무도 안 보는 사이에 도는 감시라서다.
+    /// Workspace 의 것과 모양이 같지만 private 이라 따로 둔다(둘이 쓰면 복제, 셋째부터 승격).</summary>
     private static async Task<(int ExitCode, string Output)> RunAsync(
         string workDir, CancellationToken ct, params string[] args)
     {
@@ -355,8 +279,7 @@ public sealed class GitProbe(ILogger<GitProbe> logger)
             psi.ArgumentList.Add(a);
         }
 
-        // 자격을 물으려 들면 **그 자리에서 영영 선다.** 시간 예산이 있어
-        // 죽기는 하지만, 애초에 묻지 못하게 막는 편이 낫다.
+        // 자격을 물으려 들면 그 자리에서 영영 선다 — 시간 예산으로 죽기는 하나 애초에 묻지 못하게 막는다.
         psi.Environment["GIT_TERMINAL_PROMPT"] = "0";
         psi.Environment["GIT_ASKPASS"] = "true";
 
@@ -387,14 +310,7 @@ public sealed class GitProbe(ILogger<GitProbe> logger)
         }
     }
 
-    /// <summary>
-    /// 본 결과 한 벌. 서버로 그대로 올라간다.
-    /// </summary>
-    /// <remarks>
-    /// <b>본 시각을 담지 않는다.</b> 서버가 받을 때 <c>now()</c> 로 찍는다 —
-    /// 이 장비의 시계가 어긋났을 때 화면의 「3분 전」이 「2시간 뒤」가 되지
-    /// 않게 하려는 것이다.
-    /// </remarks>
+    /// <summary>본 결과 한 벌. 본 시각은 담지 않는다 — 서버가 받을 때 now() 로 찍는다(이 장비의 시계가 어긋나도 화면이 틀리지 않게).</summary>
     public sealed class Snapshot
     {
         public long TargetKey { get; set; }

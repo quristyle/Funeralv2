@@ -2,14 +2,7 @@ using HtmlAgilityPack;
 
 namespace SiteServer.Services;
 
-/// <summary>
-/// 문의 본문 HTML 정리.
-///
-/// 공개 폼의 에디터가 만든 HTML 을 그대로 믿지 않는다 — 허용 목록에 있는
-/// 태그·속성만 남기고 전부 벗긴다. 스크립트·스타일·iframe 같은 것은 태그째
-/// 사라지고 글자만 남는다. 관리 화면(v-html)과 메일 본문 양쪽에 들어가므로
-/// **저장하기 전에 한 번** 여기서 거른다.
-/// </summary>
+/// <summary>문의 본문 HTML 정리. 허용 목록의 태그·속성만 남기고 나머지는 벗긴다 — 관리 화면(v-html)과 메일 본문 양쪽에 들어가므로 저장하기 전에 한 번 거른다.</summary>
 public static class InquiryHtmlSanitizer
 {
     // 에디터(굵게·기울임·밑줄·취소선·글자색·목록·인용)가 만드는 것만 허용한다.

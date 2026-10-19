@@ -11,13 +11,9 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace HelpDeskServer.Endpoints;
 
-/// <summary>
-/// Web Push 관련 엔드포인트
-/// </summary>
+/// <summary>Web Push 관련 엔드포인트</summary>
 public static class PushEndpoints {
-  /// <summary>
-  /// Web Push 관련 엔드포인트를 애플리케이션에 매핑합니다.
-  /// </summary>
+  /// <summary>Web Push 관련 엔드포인트를 애플리케이션에 매핑합니다.</summary>
   public static void MapPushEndpoints(this IEndpointRouteBuilder app) {
     var group = app.MapGroup("/api/push");
 
@@ -70,7 +66,6 @@ public static class PushEndpoints {
     })
     .RequireAuthorization(); // 인증된 사용자만 호출 가능
 
-    // [팀 단위 보내기(`notify-team/{teamId}`)를 걷어냈다 (2026-10-07)]
     //
     // 팀 표(`team` · `adminteams`)를 함께 걷어냈다. 소속을 정하는 곳은
     // 포털(부서)이고 헬프데스크는 그것을 들고 있지 않다. 부르는 쪽도 없었고

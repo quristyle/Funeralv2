@@ -5,50 +5,8 @@ using NotificationServer.Entities;
 
 namespace NotificationServer.Services;
 
-/// <summary>
-/// 메일 직발송을 <b>푸시와 같은 표</b>(<c>scom.push_send_logs</c>)에 남긴다.
-/// </summary>
-/// <remarks>
-/// <para>
-/// [왜 표를 새로 만들지 않았나]
-/// </para>
-///
-/// <para>
-/// <see cref="PushSendLog.Channel"/> 은 처음부터 이것을 위해 있던 칸이다
-/// (그 머리말: <i>"같은 화면에서 이메일·문자·카카오도 보내기 때문"</i>).
-/// 표를 새로 만들면 <b>「보낸 기록」이 다시 갈라진다</b> — 「이 사람에게
-/// 무엇이 나갔나」를 물을 때마다 두 표를 합쳐 봐야 한다.
-/// </para>
-///
-/// <para>
-/// [메일은 한 통이 아니라 <b>받는 사람 수만큼</b> 줄이 된다]
-/// </para>
-///
-/// <para>
-/// 푸시가 기기마다 한 줄인 것과 같은 규칙이다. 주소 셋에 보낸 한 통을 한 줄로
-/// 두면 <b>그중 누구에게 갔는지</b>를 그 줄에서 읽을 수 없고, 계정별 현황에서
-/// 그 사람 것만 골라낼 수도 없다. 한 번의 발송은 <see cref="PushSendLog.BatchId"/>
-/// 로 묶인다.
-/// </para>
-///
-/// <para>
-/// [주소를 계정으로 되돌려 적는다]
-/// </para>
-///
-/// <para>
-/// 받는 사람은 세 길(<c>to</c> · <c>toUser</c> · <c>toRole</c>)로 들어오는데
-/// 셋 모두 마지막에는 <b>주소 목록</b>이 된다. 그 주소가 어느 계정의 것인지
-/// 여기서 한 번 되짚어 <c>owner_key</c> 에 로그인 아이디를 적는다 — 안 그러면
-/// 계정 앱 현황 화면이 <c>toUser</c> 로 보낸 것만 알아보고, 같은 사람에게
-/// 주소로 보낸 메일은 남의 것처럼 보인다.
-/// </para>
-///
-/// <para>
-/// 못 찾은 주소는 <see cref="OwnerTypeEmail"/> 로 남긴다. 버리지 않는 이유는
-/// <b>바깥으로 나간 메일도 발신 기록</b>이기 때문이다 — 문의 회신처럼 계정이
-/// 아예 없는 상대가 대부분이다.
-/// </para>
-/// </remarks>
+/// <summary>메일 직발송을 푸시와 같은 표(scom.push_send_logs)에 남긴다. 표를 따로 만들면 보낸 기록이 다시 갈라진다.
+/// 받는 사람 수만큼 줄이 되고(푸시와 같은 규칙), 주소는 로그인 아이디로 되짚어 적는다.</summary>
 public static class EmailSendLog
 {
     /// <summary>포털 계정 주인. 주인 키는 로그인 아이디다.</summary>
@@ -57,33 +15,14 @@ public static class EmailSendLog
     /// <summary>계정을 못 찾은 주소. 주인 키가 <b>메일 주소 그 자체</b>다.</summary>
     public const string OwnerTypeEmail = "email";
 
-    /// <summary>
-    /// 본문 미리보기 길이. 표에 원문을 통째로 넣지 않는 까닭은 서식 메일 본문이
-    /// 수십 KB 라서다 — 되짚는 데 필요한 것은 앞머리 몇 줄뿐이다.
-    /// </summary>
+    /// <summary>본문 미리보기 길이. 서식 메일 본문은 수십 KB 라 앞머리 몇 줄만 남긴다.</summary>
     private const int BodyPreviewLength = 500;
 
     private static readonly Regex TagPattern = new("<[^>]+>", RegexOptions.Compiled);
     private static readonly Regex SpacePattern = new(@"\s+", RegexOptions.Compiled);
 
-    /// <summary>
-    /// 보낸(또는 보내려다 실패한) 메일을 줄로 남긴다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>기록을 못 남겨도 발송은 실패가 아니다.</b> 메일은 이미 나갔으므로
-    /// 여기서 던지면 부르는 쪽이 성공을 실패로 되돌려 말하게 된다 —
-    /// <c>PushSender.LogAsync</c> 와 같은 자세다.
-    /// </para>
-    /// <para>
-    /// 한 번의 발송을 묶는 열쇠(<see cref="PushSendLog.BatchId"/>)를 돌려준다.
-    /// <b>보관함이 그것을 적어 둔다</b> — 포털의 「메일 보내기」가 쓴 글은
-    /// <c>scom.portal_mails</c> 에 한 줄이고, 그 한 줄이 주소마다 흩어진 발송
-    /// 기록과 이어지는 유일한 끈이다(<c>PortalMail.BatchId</c> 머리말).
-    /// 못 적었으면 <c>null</c> 이 아니라 <b>지은 값 그대로</b> 돌려준다 —
-    /// 열쇠는 이미 정해졌고, 다음에 다시 적을 때 같은 값을 써야 한다.
-    /// </para>
-    /// </remarks>
+    /// <summary>보낸(또는 실패한) 메일을 줄로 남긴다. 기록을 못 남겨도 발송은 실패가 아니다(메일은 이미 나갔다).
+    /// 돌려주는 BatchId 는 포털 보관함 한 줄과 이어지는 끈이다.</summary>
     public static async Task<string?> WriteAsync(
         AppDbContext db,
         ILogger logger,
@@ -119,9 +58,7 @@ public static class EmailSendLog
                 OwnerType = known ? OwnerTypePortal : OwnerTypeEmail,
                 OwnerKey = known ? loginId! : address,
 
-                // 푸시에서 이 칸은 「보낸 기기」다. 메일에서 그에 해당하는
-                // 것이 받는 주소라 같은 자리에 적는다 — 계정을 못 찾은 줄도
-                // 주소가 어디였는지는 남아야 한다.
+                // 메일에서 이 칸은 받는 주소다 — 계정을 못 찾은 줄도 주소는 남긴다.
                 Endpoint = address,
 
                 Title = subject,
@@ -144,39 +81,14 @@ public static class EmailSendLog
         {
             logger.LogWarning(ex, "메일 발송 기록을 남기지 못했습니다.");
 
-            // **못 적은 줄을 추적기에서 떼어 낸다.**
-            //
-            // 삼키기만 하면 이 줄들이 `Added` 인 채로 남아, **다음에 누가
-            // `SaveChanges` 를 부르든 같이 딸려 간다.** 부르는 쪽이 이 문맥을
-            // 나눠 쓰는 자리가 실제로 있다 — `PushSender` 의 메일 곁가지는
-            // 이 뒤에 푸시 발송을 마치고 제 기록을 저장하는데(try/catch 가
-            // 없다), 거기서 같은 이유로 또 터지면 **메일도 푸시도 실제로는
-            // 나간 뒤에** 발송 전체가 예외로 끝난다.
-            //
-            // 기록을 못 남긴 것은 이미 로그로 말했다. 그것이 남의 저장까지
-            // 끌고 내려가게 두지 않는다.
+            // 못 적은 줄은 추적기에서 뗀다(남기면 다음 SaveChanges 에 딸려 가서 메일과 푸시가 나간 뒤 발송 전체가 터진다).
             foreach (var row in added) db.Entry(row).State = EntityState.Detached;
         }
 
         return batchId;
     }
 
-    /// <summary>
-    /// 메일 주소 → 로그인 아이디. 대소문자를 가리지 않는다(주소는 그렇게 쓴다).
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>한 주소를 두 계정이 적어 둔 경우가 실제로 있다</b>(운영 DB 에서
-    /// <c>administrator</c> 와 <c>quristyle</c> 이 같은 주소를 쓴다). 어느
-    /// 쪽이 맞는지 여기서 알 방법은 없으므로 고르는 규칙을 <b>못박아 둔다</b> —
-    /// 대표 주소 먼저, 그다음 아이디 순.
-    /// </para>
-    /// <para>
-    /// 순서를 안 정하면 DB 가 주는 대로 받아 <b>같은 주소가 실행할 때마다 다른
-    /// 계정에 붙는다.</b> 그러면 그 사람의 앱 현황에서 메일 기록이 있다 없다
-    /// 하고, 그 흔들림은 「기록이 사라진다」로 신고가 들어온다.
-    /// </para>
-    /// </remarks>
+    /// <summary>메일 주소 → 로그인 아이디. 대소문자를 가리지 않는다. 한 주소를 두 계정이 쓰면 대표 주소 먼저, 그다음 아이디 순으로 고른다(실행마다 바뀌지 않게).</summary>
     private static async Task<Dictionary<string, string>> ResolveOwnersAsync(
         AppDbContext db, IReadOnlyList<string> addresses, CancellationToken ct)
     {
@@ -210,15 +122,7 @@ public static class EmailSendLog
         return map;
     }
 
-    /// <summary>
-    /// 표에 남길 본문 미리보기. 서식 메일은 <b>태그를 걷어 낸다</b> —
-    /// 안 걷으면 목록의 그 칸이 <c>&lt;table style=…</c> 로 시작해 아무것도 읽히지 않는다.
-    /// </summary>
-    /// <remarks>
-    /// <b>보낸 메일 보관함도 이것을 쓴다</b>(<c>MailEndpoints</c>). 거기는 본문
-    /// 전문을 들고 있지만 목록 줄에 적을 글은 같은 규칙이어야 한다 — 따로
-    /// 만들면 발송 이력과 보낸함에서 같은 메일이 다르게 보인다.
-    /// </remarks>
+    /// <summary>표에 남길 본문 미리보기. 서식 메일은 태그를 걷어 낸다. 보낸 메일 보관함도 같은 규칙을 쓴다.</summary>
     internal static string? Preview(string? body, bool html)
     {
         if (string.IsNullOrWhiteSpace(body))

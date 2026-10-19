@@ -2,13 +2,7 @@ using JSini.Web.Http;
 
 namespace JSini.Web.ProjMng.Api;
 
-/// <summary>
-/// WBS · 일정표. <b>프로시저를 부르지 않는다.</b>
-/// </summary>
-/// <remarks>
-/// 옛 길은 둘이었다 — <c>sp_proj_wbs_exec</c>(조회·저장·삭제) ·
-/// <c>sp_proj_wbs_moniter</c>(집계). 등록·수정자는 서버가 채운다.
-/// </remarks>
+/// <summary>WBS · 일정표 REST 클라이언트. 옛 프로시저 둘(sp_proj_wbs_exec · sp_proj_wbs_moniter)을 대신한다. 등록·수정자는 서버가 채운다.</summary>
 public sealed class WbsClient(GatewayClient gateway)
 {
     private const string Url = "projmng/wbs";
@@ -16,11 +10,7 @@ public sealed class WbsClient(GatewayClient gateway)
     /// <summary>목록.</summary>
     /// <param name="prjRid">프로젝트</param>
     /// <param name="compStat"><c>READY</c> · <c>RUNNING</c> · <c>COMP</c> · <c>DISCOMP</c></param>
-    /// <param name="scheduleTypes">
-    /// 구분 — <c>WBS</c> · <c>Public</c> · <c>Private</c>. <b>여럿을 준다.</b>
-    /// 비어 있으면 전체다. 값 하나마다 <c>scheduleType=</c> 을 따로 싣는다 —
-    /// 쉼표로 이어 붙이지 않는다(구분값에 쉼표가 들어가는 날 조용히 갈라진다).
-    /// </param>
+    /// <param name="scheduleTypes">구분(WBS · Public · Private). 여럿이면 값마다 scheduleType= 을 따로 싣는다 — 쉼표로 잇면 구분값에 쉼표가 들어가는 날 갈라진다. 비면 전체.</param>
     /// <param name="from">계획 기간이 이 날 뒤에 걸치는 것만</param>
     /// <param name="to">계획 기간이 이 날 앞에 걸치는 것만</param>
     /// <param name="ct">취소 토큰</param>
@@ -121,11 +111,7 @@ public sealed class WbsItemDto
         _ => string.Empty,
     };
 
-    /// <summary>
-    /// 상태 딱지의 CSS 클래스. <b>화면이 아니라 여기 둔다</b> — WBS 와 일정표가
-    /// 같은 표를 보므로 두 화면이 같은 색이어야 하고, 한쪽 화면에 두면 다른
-    /// 화면이 그 화면의 클래스를 부르게 된다.
-    /// </summary>
+    /// <summary>상태 딱지의 CSS 클래스. 화면이 아니라 여기 둔다 — WBS 와 일정표가 같은 표를 보므로 같은 색이어야 한다.</summary>
     public string StateClass => WbsState switch
     {
         "COMP" => "jsini-badge--on",

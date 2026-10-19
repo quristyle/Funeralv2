@@ -3,60 +3,8 @@ using System.Text.RegularExpressions;
 
 namespace NotificationServer.Services;
 
-/// <summary>
-/// <b>평문으로 들어온 알림 한 통을 회사 메일 꼴로 입힌다.</b>
-/// </summary>
-/// <remarks>
-/// <para>
-/// [왜 서버가 입히나]
-/// </para>
-///
-/// <para>
-/// 메일을 보내는 자리마다 자기 틀을 들고 있었다 — AuthServer 는
-/// <c>AccountEmailTemplates</c>, SiteServer 는 <c>InquiryEmailTemplates</c>,
-/// ProjMngServer 는 <c>AiTaskNotifier.Body</c>. 셋 다 <c>html = true</c> 로
-/// 보내므로 제 모양이 나왔다. <b>틀이 없는 길이 하나 남아 있었다</b> —
-/// 업무 화면의 「알림 보내기」(생일 축하 등)는 사람이 친 글을 그대로
-/// <c>html = false</c> 로 넘겼고, 받는 쪽 메일함에는 <b>글자만 덩그러니</b>
-/// 도착했다. 회사가 보낸 메일로 보이지 않는다.
-/// </para>
-///
-/// <para>
-/// 그 틀을 화면(Blazor)에 두지 않은 까닭은, <b>평문으로 보내는 부르는 쪽이
-/// 앞으로도 늘기 때문</b>이다. HTML 을 만들어 실어 보내게 하면 그 수만큼
-/// 틀이 복제되고, 어느 하나가 어긋나도 메일함에서만 보인다. 여기서 한 번
-/// 입히면 <c>/emails/send</c> 로 오는 <b>모든</b> 평문이 같은 얼굴이 된다.
-/// </para>
-///
-/// <para>
-/// [이미 HTML 로 오는 것은 손대지 않는다]
-/// </para>
-///
-/// <para>
-/// <c>html = true</c> 로 온 본문은 부르는 쪽이 이미 완성된 문서(<c>&lt;html&gt;</c>
-/// 통째)를 보낸 것이다. 거기에 또 틀을 씌우면 문서가 두 겹이 되어 클라이언트마다
-/// 다르게 무너진다. <b>평문일 때만</b> 이 틀을 쓴다.
-/// </para>
-///
-/// <para>
-/// [메일은 웹이 아니다]
-/// </para>
-///
-/// <list type="bullet">
-///   <item><description><b>인라인 스타일만.</b> <c>&lt;style&gt;</c> 블록은
-///   지워지는 클라이언트가 있다.</description></item>
-///   <item><description><b>뼈대는 <c>&lt;table&gt;</c>.</b> Outlook 이
-///   <c>flex</c>·<c>grid</c> 를 못 읽는다.</description></item>
-///   <item><description><b>이미지를 쓰지 않는다.</b> 기본 차단이라 깨진 상자만
-///   남는다 — 로고도 글자로 짠 워드마크다.</description></item>
-/// </list>
-///
-/// <para>
-/// 색값과 뼈대는 <c>AuthServer.Services.AccountEmailTemplates</c> 에서 그대로
-/// 가져왔다. <b>같은 회사가 보내는 메일이 서로 다른 톤으로 말하지 않게</b>
-/// 하는 것이 목적이라, 저쪽을 고치면 여기도 같이 고친다.
-/// </para>
-/// </remarks>
+/// <summary>평문으로 들어온 알림 한 통을 회사 메일 꼴로 입힌다. HTML 로 온 본문은 이미 완성된 문서라 건드리지 않는다.
+/// 메일은 웹이 아니라 인라인 스타일과 table 뼈대만 쓴다. 색값은 AuthServer 의 AccountEmailTemplates 와 같게 둔다.</summary>
 public static class NoticeEmailTemplate
 {
     // 브랜드 색 (비밀번호 찾기 메일 · 소개 사이트 문의 메일과 같은 값)
@@ -65,31 +13,10 @@ public static class NoticeEmailTemplate
     private const string Mist = "#e5e7eb";
     private const string Paper = "#fafafa";
 
-    /// <summary>
-    /// 미리보기 글에 담을 길이. 메일함 목록이 잘라 보여 주는 만큼만 넣는다 —
-    /// 더 넣어 봐야 감춰진 글자로 남는다.
-    /// </summary>
+    /// <summary>미리보기 글에 담을 길이. 메일함 목록이 잘라 보여 주는 만큼만 넣는다.</summary>
     private const int PreheaderLength = 90;
 
-    /// <summary>
-    /// 평문 알림 한 통을 HTML 메일로 만든다.
-    /// </summary>
-    /// <param name="subject">제목. <b>카드의 큰 글씨가 된다.</b></param>
-    /// <param name="plainBody">
-    /// 사람이 친 본문(평문). 빈 줄로 나뉜 덩이가 문단이 되고 그 안의 줄바꿈은
-    /// 그대로 살린다 — <b>친 대로 보이는 것</b>이 이 틀의 약속이다.
-    /// </param>
-    /// <param name="senderName">
-    /// 보낸 사람 이름. 있으면 본문 아래 서명 줄에 적는다. <b>받은 쪽이 먼저
-    /// 묻는 것이 「누가 보냈나」</b>라서다. 없으면 그 줄을 통째로 뺀다.
-    /// </param>
-    /// <param name="actionUrl">
-    /// 눌러서 갈 링크 주소(버튼). 제공되면 본문 하단에 단추로 렌더링된다.
-    /// 주어지지 않아도 본문 끝에 날씨·쪽지·포털 링크가 있으면 자동으로 추출하여 단추로 전환한다.
-    /// </param>
-    /// <param name="actionLabel">
-    /// 단추에 표시할 문구. 생략 시 URL 종류(날씨면 「날씨 확인하기」, 그 외 「포털에서 보기」)에 맞춰 자동 결정된다.
-    /// </param>
+    /// <summary>평문 알림 한 통을 HTML 메일로 만든다. actionUrl 이 없으면 본문 끝의 링크 줄을 찾아 단추로 바꾼다.</summary>
     public static string Render(
         string subject,
         string plainBody,
@@ -100,9 +27,7 @@ public static class NoticeEmailTemplate
         var title = (subject ?? string.Empty).Trim();
         var (cleanText, btnUrl, btnLabel) = ResolveAction(plainBody, actionUrl, actionLabel);
 
-        // **제목과 본문이 같으면 본문을 뺀다.** 부르는 쪽은 내용 칸이 비었을 때
-        // 제목을 본문으로 삼아 보낸다(빈 메일보다 낫다). 그대로 두면 같은
-        // 문장이 큰 글씨와 작은 글씨로 두 번 적힌 메일이 된다.
+        // 제목과 본문이 같으면 본문을 뺀다 — 같은 문장이 큰 글씨와 작은 글씨로 두 번 적히는 것을 막는다.
         var duplicated = string.Equals(cleanText, title, StringComparison.Ordinal);
 
         var inner = new StringBuilder();
@@ -160,16 +85,7 @@ public static class NoticeEmailTemplate
         return Frame(title, Preheader(duplicated ? title : cleanText), inner.ToString());
     }
 
-    /// <summary>
-    /// 같은 내용의 <b>평문 갈래</b>. HTML 과 함께 실어 보낸다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// HTML 만 실은 메일은 <b>평문으로만 읽는 클라이언트에서 빈 칸</b>이 되고,
-    /// 스팸 점수도 올라간다. 원래 들어온 글이 이미 평문이므로 갈래를 만드는
-    /// 값이 거의 들지 않는다 — 안 실을 이유가 없다.
-    /// </para>
-    /// </remarks>
+    /// <summary>같은 내용의 평문 갈래. HTML 과 함께 실어 보낸다 — HTML 만 실으면 평문 클라이언트에서 빈 칸이 되고 스팸 점수도 오른다.</summary>
     public static string PlainAlternative(
         string subject,
         string plainBody,
@@ -207,10 +123,7 @@ public static class NoticeEmailTemplate
         @"(?:^|\n)\s*(?:(?<label>[^\r\n:]+?)\s*:\s*)?(?<url>https?://\S+)\s*$",
         RegexOptions.Compiled);
 
-    /// <summary>
-    /// 본문과 파라미터에서 액션 버튼 정보(URL 및 라벨)를 추출하고,
-    /// 본문에 URL 이 그대로 노출되지 않도록 본문 끝의 링크 줄을 정리한다.
-    /// </summary>
+    /// <summary>본문과 파라미터에서 액션 버튼(URL · 라벨)을 뽑고, 본문 끝의 링크 줄을 정리해 URL 이 평문으로 노출되지 않게 한다.</summary>
     private static (string CleanBody, string? ActionUrl, string? ActionLabel) ResolveAction(
         string? plainBody, string? actionUrl, string? actionLabel)
     {
@@ -291,10 +204,7 @@ public static class NoticeEmailTemplate
         return "포털에서 보기";
     }
 
-    /// <summary>
-    /// 표로 짠 단추. 바탕은 칸이 깔고 여백은 링크가 준다 —
-    /// 그래야 Outlook 에서도 칸 전체가 눌린다(AuthServer.AccountEmailTemplates 와 같은 설계).
-    /// </summary>
+    /// <summary>표로 짠 단추. 바탕은 칸이 깔고 여백은 링크가 준다 — Outlook 에서도 칸 전체가 눌리게 하려고.</summary>
     private static string Button(string label, string href) => $"""
         <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin-top:24px;">
           <tr>
@@ -311,10 +221,7 @@ public static class NoticeEmailTemplate
     private static string Normalize(string? text)
         => (text ?? string.Empty).Replace("\r\n", "\n").Replace('\r', '\n').Trim();
 
-    /// <summary>
-    /// 메일함 목록에서 제목 옆에 따라붙는 미리보기 글. <b>안 넣으면</b>
-    /// 클라이언트가 본문 첫 글자를 아무렇게나 끌어다 쓴다.
-    /// </summary>
+    /// <summary>메일함 목록에서 제목 옆에 붙는 미리보기 글. 안 넣으면 클라이언트가 본문 첫 글자를 아무렇게나 끌어다 쓴다.</summary>
     private static string Preheader(string text)
     {
         var flat = Regex.Replace(text, @"\s+", " ").Trim();
@@ -324,14 +231,7 @@ public static class NoticeEmailTemplate
             : flat[..PreheaderLength] + "…";
     }
 
-    /// <summary>
-    /// 평문을 문단으로 바꾼다 — 빈 줄이 문단을 가르고 한 줄 줄바꿈은
-    /// <c>&lt;br&gt;</c> 로 살린다.
-    /// </summary>
-    /// <remarks>
-    /// <b>이스케이프가 먼저고 주소 잇기가 나중이다.</b> 순서를 바꾸면 우리가
-    /// 넣은 <c>&lt;a&gt;</c> 가 다시 이스케이프되어 태그가 글자로 보인다.
-    /// </remarks>
+    /// <summary>평문을 문단으로 바꾼다. 이스케이프가 먼저고 주소 잇기가 나중이다 — 순서를 바꾸면 넣은 a 태그가 글자로 보인다.</summary>
     private static string Paragraphs(string text)
     {
         var sb = new StringBuilder();
@@ -350,15 +250,7 @@ public static class NoticeEmailTemplate
         return sb.ToString();
     }
 
-    /// <summary>
-    /// 본문에 적힌 <c>http(s)</c> 주소를 누를 수 있게 만든다.
-    /// </summary>
-    /// <remarks>
-    /// <b>이미 이스케이프된 글자를 받는다</b>(위 주석). 그래서 <c>&amp;amp;</c>
-    /// 같은 꼴이 주소 안에 들어 있어도 그대로 두면 된다 — href 에서도 같은
-    /// 뜻이다. 문장 끝의 마침표·괄호는 주소에서 뗀다: 「…를 여십시오.」처럼
-    /// 붙여 쓴 글에서 마침표까지 링크에 들어가면 그 주소는 열리지 않는다.
-    /// </remarks>
+    /// <summary>본문의 http(s) 주소를 누를 수 있게 만든다. 문장 끝 마침표와 괄호는 주소에서 뗀다.</summary>
     private static string Linkify(string escaped) => Regex.Replace(
         escaped,
         @"https?://[^\s<>""]+",
@@ -381,9 +273,7 @@ public static class NoticeEmailTemplate
             return $"""<a href="{url}" style="color:{Ink}; text-decoration:underline;">{url}</a>{tail}""";
         });
 
-    /// <summary>
-    /// 공통 틀 — 상단 브랜드 줄 + 본문 카드 + 하단 서명.
-    /// </summary>
+    /// <summary>공통 틀 — 상단 브랜드 줄 + 본문 카드 + 하단 서명.</summary>
     private static string Frame(string title, string preheader, string inner) => $"""
         <!doctype html>
         <html lang="ko">

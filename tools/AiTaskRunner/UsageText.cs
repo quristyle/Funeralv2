@@ -4,32 +4,8 @@ using System.Text.RegularExpressions;
 namespace AiTaskRunner;
 
 /// <summary>
-/// CLI 의 <c>/usage</c> 출력에서 숫자를 주워 낸다.
+/// CLI 의 /usage 출력에서 숫자를 주워 낸다. 형식이 예고 없이 바뀌므로 원문을 늘 함께 올리고, 줄의 뜻은 순서가 아니라 머리글 낱말로 정하며, 못 읽은 칸은 0 이 아니라 비운다.
 /// </summary>
-/// <remarks>
-/// <para>
-/// <b>형식이 바뀌는 것을 전제로 쓴다.</b> 이 출력은 사람이 보라고 만든
-/// 화면이지 API 가 아니다. 줄 순서도 문구도 예고 없이 바뀌고, 그때 가장
-/// 나쁜 결과는 <i>파싱이 실패했다고 보고를 통째로 버리는 것</i>이다 —
-/// 화면이 「값 없음」으로 굳고 왜 그런지 아무도 모른다.
-/// </para>
-/// <para>
-/// 그래서 셋을 지킨다.
-/// </para>
-/// <list type="number">
-///   <item><description>
-///     <b>원문을 늘 함께 올린다.</b> 못 알아본 것이 있어도 사람이 보면 안다.
-///   </description></item>
-///   <item><description>
-///     <b>줄의 뜻은 「머리글」로 정한다.</b> 순서가 아니라 낱말이다
-///     (session · week · opus). 순서에 기대면 줄이 하나 끼는 순간 전부 어긋난다.
-///   </description></item>
-///   <item><description>
-///     <b>못 읽은 칸은 비운다.</b> 0 으로 채우면 「다 썼다」와 「모른다」가
-///     같은 숫자가 된다 — 이 화면에서 그 둘은 정반대의 행동을 부른다.
-///   </description></item>
-/// </list>
-/// </remarks>
 public static partial class UsageText
 {
     /// <summary>사용률. <c>45%</c> · <c>45 %</c> 를 받는다.</summary>
@@ -81,11 +57,8 @@ public static partial class UsageText
 
         var text = Ansi().Replace(raw ?? string.Empty, string.Empty);
         var section = Section.None;
-        // **여기만 장비의 지역 시각이다.** CLI 는 갱신 시각을 장비 시간대로
-        // 찍는다(`resets Sep 21, 12:10pm (Asia/Seoul)`) — 그 글자를 읽으려면
-        // 같은 시계로 견줘야 「이미 지났으니 내일」 판정이 맞는다.
-        // 올릴 때는 UTC 로 바꾼다(`ParseWhen` 끝) — 이 시스템의 시각은 전부
-        // UTC 다(docs/utc-time.md).
+        // 여기만 장비의 지역 시각이다 — CLI 는 갱신 시각을 장비 시간대로 찍으므로 같은 시계로 견줘야 「이미 지났으니 내일」 판정이 맞는다.
+        // 올릴 때 UTC 로 바꾼다(ParseWhen 끝).
         var now = DateTime.Now;
 
         foreach (var line in text.Split('\n'))
@@ -97,9 +70,7 @@ public static partial class UsageText
                 continue;
             }
 
-            // ① 머리글이면 이 아래 줄들이 무엇에 대한 것인지 바꾼다.
-            //    **머리글 판정을 먼저 한다** — 머리글 줄에 퍼센트가 같이
-            //    적혀 있는 형식(`Current week: 22% used`)도 그래야 맞는다.
+            // ① 머리글이면 이 아래 줄들이 무엇에 대한 것인지 바꾼다 — 퍼센트가 같은 줄에 있어도 머리글을 먼저 본다.
             var lowered = trimmed.ToLowerInvariant();
 
             if (lowered.Contains("opus"))
@@ -187,35 +158,13 @@ public static partial class UsageText
     }
 
     /// <summary>
-    /// 「3:00pm」 · 「Nov 5 at 12:00am」 · 「2026-09-21 10:00」 을 시각으로.
+    /// 「3:00pm」 · 「Nov 5 at 12:00am」 · 「2026-09-21 10:00」 을 시각으로 읽는다. 읽기는 장비의 지역 시각으로, 돌려주기는 UTC 로 한다.
+    /// 형식을 먼저 대 보고(TryParse 에만 맡기면 엉뚱하게 읽는다), 시각만 적힌 것은 이미 지났으면 내일로 민다.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>형식을 먼저 대 본다.</b> <see cref="DateTime.TryParse(string, IFormatProvider, DateTimeStyles, out DateTime)"/>
-    /// 에만 맡기면 <c>Nov 5 12:00am</c> 같은 줄을 <b>조용히 엉뚱하게</b> 읽는다
-    /// (실제로 「오늘 05:12」가 나왔다). 오류가 아니라 그럴듯한 값이 나오는
-    /// 실패라, 화면에는 「갱신 시각이 이미 지났다」로만 보인다.
-    /// </para>
-    /// <para>
-    /// <b>시각만 적힌 것이 가장 흔하다</b>(세션 한도). 그것은 오늘로 보되
-    /// <b>이미 지난 시각이면 내일로</b> 민다 — 한도가 다시 차는 시각은 늘
-    /// 앞에 있기 때문이다.
-    /// </para>
-    /// <para>
-    /// <b>읽기는 장비의 지역 시각으로, 돌려주기는 UTC 로</b> 한다. CLI 가 찍는
-    /// 글자가 지역 시각이고(<c>(Asia/Seoul)</c>), 이 값이 앉을 칸은
-    /// <c>timestamptz</c> 다(<c>docs/utc-time.md</c>).
-    /// </para>
-    /// </remarks>
     /// <param name="now">지금. <b>장비의 지역 시각</b>이어야 한다.</param>
     private static DateTime? ParseWhen(string text, DateTime now)
     {
-        // **괄호와 쉼표를 먼저 걷어낸다.** 실제 출력이
-        // `Sep 21, 12:10pm (Asia/Seoul)` 모양이다 — 꼬리의 시간대 표기와
-        // 날짜 뒤 쉼표 때문에 어느 형식에도 걸리지 않아, 갱신 시각만
-        // 조용히 비어 있었다(퍼센트는 멀쩡해서 더 눈에 안 띈다).
-        // 시간대 이름은 버린다. CLI 가 장비의 시간대로 찍어 주고,
-        // 이 값을 쓰는 쪽도 장비 시각으로 읽는다.
+        // 괄호와 쉼표를 먼저 걷어낸다 — `Sep 21, 12:10pm (Asia/Seoul)` 꼴이 어느 형식에도 안 걸려 갱신 시각이 조용히 비곤 했다. 시간대 이름은 버린다.
         var cleaned = Squeeze().Replace(
                 Parens().Replace(text, " ").Replace(',', ' '), " ")
             .Replace(" at ", " ", StringComparison.OrdinalIgnoreCase)
@@ -237,8 +186,7 @@ public static partial class UsageText
             return null;
         }
 
-        // 날짜가 안 적혀 있으면 오늘로 채워져 있다. 그 경우만 미래로 민다 —
-        // 날짜가 적혀 있었다면 그 값을 존중한다.
+        // 날짜가 안 적혀 있으면 오늘로 채워져 있으니, 그 경우만 미래로 민다.
         var timeOnly = !HasDate(cleaned);
 
         if (timeOnly && parsed <= now)
@@ -255,9 +203,7 @@ public static partial class UsageText
         return DateTime.SpecifyKind(parsed, DateTimeKind.Local).ToUniversalTime();
     }
 
-    /// <summary>
-    /// 대 볼 형식들. <b>차례가 뜻을 가진다</b> — 위에서부터 맞는 것이 이긴다.
-    /// </summary>
+    /// <summary>검사할 형식들. 차례가 뜻을 가진다 — 위에서부터 맞는 것이 이긴다.</summary>
     private static readonly string[] Formats =
     [
         "yyyy-MM-dd HH:mm", "yyyy-MM-dd HH:mm:ss", "yyyy-MM-dd",

@@ -21,31 +21,10 @@ public partial class PushLogs : IAsyncDisposable
         SchSummary.NameOf(_categoryOptions, o => o.Value, o => o.Text, _category),
         _reason);
 
-    /// <summary>
-    /// 한 번에 받아 둘 최대 건수.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>화면이 상한을 정한다.</b> 전에는 클라이언트의 <c>pageSize</c> 기본값
-    /// (50)이 조용히 상한이었고, 화면은 그것을 전부라고 그렸다.
-    /// </para>
-    ///
-    /// <para>
-    /// 표가 30건씩 나누므로 200 이면 일곱 쪽이다. 더 늘리는 대신 기간으로
-    /// 좁히게 한다 — 표 안에서 굴리는 것보다 조건을 좁히는 편이 빠르고,
-    /// 넘으면 위에서 그렇게 말해 준다.
-    /// </para>
-    /// </remarks>
+    /// <summary>한 번에 받아 둘 최대 건수. 화면이 상한을 정한다 — 클라이언트 기본값에 맡기면 그것이 조용히 상한이 된다. 표가 30건씩 나누므로 200 이면 일곱 쪽이고, 더 늘리는 대신 기간으로 좁히게 한다.</summary>
     private const int Cap = 200;
 
-    /// <summary>
-    /// 조회 기간. <b>기본이 최근 이레다.</b>
-    /// </summary>
-    /// <remarks>
-    /// 이력은 지우지 않으므로 자라기만 한다. 조건 없이 열면 언젠가 상한에
-    /// 부딪히고, 그때 사용자가 할 수 있는 일이 없다. 기본값을 두면 화면이
-    /// 열리는 순간부터 조회가 유계다.
-    /// </remarks>
+    /// <summary>조회 기간. 기본은 최근 이레다 — 이력은 자라기만 하므로 기본값이 있어야 조회가 유계다.</summary>
     private DateTime? _from = AppTime.TodayDate.AddDays(-7);
     private DateTime? _to = AppTime.TodayDate;
 
@@ -185,8 +164,7 @@ public partial class PushLogs : IAsyncDisposable
 
     protected override async Task OnInitializedAsync()
     {
-        // **조회와 묶지 않는다.** 공통코드를 못 읽어도 이력은 열려야 한다 —
-        // 그때는 고르개에 「전체」만 남는다.
+        // 조회와 묶지 않는다 — 공통코드를 못 읽어도 이력은 열려야 한다. 그때는 고르개에 「전체」만 남는다.
         _categoryOptions = await Categories.OptionsAsync();
         _categoryName = PushCategoryClient.Labeler(await Categories.GetAsync());
 

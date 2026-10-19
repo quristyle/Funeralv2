@@ -2,15 +2,7 @@ using System.Reflection;
 
 namespace NotificationServer.Endpoints;
 
-/// <summary>
-/// 게이트웨이가 붙여 준 신원.
-/// </summary>
-/// <remarks>
-/// 게이트웨이가 JWT 를 검증한 뒤 <c>X-User-*</c> 헤더로 넘겨 준다. 외부에서 보낸
-/// 같은 이름의 헤더는 게이트웨이가 먼저 지우므로 위조할 수 없다.
-///
-/// <para>다른 서비스(AuthServer·FileServer 등)에 있는 것과 같은 모양이다.</para>
-/// </remarks>
+/// <summary>게이트웨이가 붙여 준 신원(X-User-* 헤더). 외부에서 온 같은 이름의 헤더는 게이트웨이가 먼저 지운다.</summary>
 public class UserContext
 {
     public string UserId { get; set; } = string.Empty;
@@ -18,9 +10,7 @@ public class UserContext
     public string? Name { get; set; }
     public string? Email { get; set; }
 
-    /// <summary>
-    /// 최소 엔드포인트의 매개변수로 바로 받을 수 있게 하는 바인더.
-    /// </summary>
+    /// <summary>최소 엔드포인트의 매개변수로 바로 받을 수 있게 하는 바인더.</summary>
     public static ValueTask<UserContext?> BindAsync(HttpContext context, ParameterInfo parameter)
     {
         var userId = context.Request.Headers["X-User-Id"].ToString();

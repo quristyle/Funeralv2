@@ -2,9 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace HelpDeskServer.Dtos;
 
-/// <summary>
-/// 개선 요청 생성을 위한 DTO
-/// </summary>
+/// <summary>개선 요청 생성을 위한 DTO</summary>
 /// <param name="Title">제목</param>
 /// <param name="Description">내용</param>
 /// <param name="CustomerId">요청 고객 ID</param>

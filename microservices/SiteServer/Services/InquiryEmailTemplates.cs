@@ -4,16 +4,8 @@ using SiteServer.Entities;
 
 namespace SiteServer.Services;
 
-/// <summary>
-/// 문의 관련 메일 본문 템플릿 — **메일 HTML 은 전부 여기서만 만든다.**
-///
-/// 메일 클라이언트는 외부 CSS · 웹폰트 · 스크립트를 지원하지 않으므로
-/// 인라인 스타일 + 표 없는 단순 블록으로만 짠다. 외부 이미지도 넣지 않는다
-/// (수신측이 차단해 깨진 상자만 남는다).
-///
-/// 문의 본문(Message)은 저장 전에 <see cref="InquiryHtmlSanitizer"/> 가 거른
-/// HTML 이라는 전제로 그대로 끼워 넣는다.
-/// </summary>
+/// <summary>문의 관련 메일 본문 템플릿 — 메일 HTML 은 전부 여기서 만든다. 메일 클라이언트는 외부 CSS·웹폰트·스크립트를 지원하지 않으므로 인라인 스타일과 표 없는 블록으로만 짠다.
+/// 문의 본문(Message)은 InquiryHtmlSanitizer 가 거른 HTML 이라 그대로 끼운다.</summary>
 public static class InquiryEmailTemplates
 {
     // 브랜드 잉크 색 (docs/brand — 소개 사이트와 같은 톤)

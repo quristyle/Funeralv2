@@ -90,13 +90,7 @@ public sealed class AiUsageTextTests
         Assert.Equal("jsini-badge--off", badge.Css);
     }
 
-    /// <summary>
-    /// 갱신까지 남은 시간(<see cref="AiUsageText.Remain"/>).
-    /// </summary>
-    /// <remarks>
-    /// <b>날짜를 세는지가 요점이다.</b> 월간 한도는 갱신이 보름 뒤라, 시간으로만
-    /// 적으면 「355시간 남음」이 되어 아무도 못 읽는다.
-    /// </remarks>
+    /// <summary>갱신까지 남은 시간(AiUsageText.Remain). 날짜를 세는지가 요점이다 — 월간 한도는 보름 뒤에 갱신돼 시간으로만 적으면 「355시간 남음」이 되어 아무도 못 읽는다.</summary>
     [Fact]
     public void 하루가_넘게_남으면_날짜부터_적는다()
     {
@@ -132,10 +126,7 @@ public sealed class AiUsageTextTests
         Assert.Equal("곧 갱신", AiUsageText.Remain(AppTime.UtcNow.AddMinutes(-5)));
     }
 
-    /// <summary>
-    /// 1분이 안 남았을 때 「0분 남음」이라고 적지 않는다 — 떨어지는 칸을 빼고
-    /// 적는 규칙 때문에 그 자리는 글자가 통째로 비어 「 남음」이 된다.
-    /// </summary>
+    /// <summary>1분이 안 남았을 때 「0분 남음」이라고 적지 않는다 — 떨어지는 칸을 빼는 규칙 때문에 그 자리는 글자가 비어 「 남음」이 된다.</summary>
     [Fact]
     public void 일분이_안_남으면_일분_미만이다()
     {
@@ -152,10 +143,7 @@ public sealed class AiUsageTextTests
         ObservedAt = AppTime.UtcNow,
     };
 
-    /// <summary>
-    /// 출력 형식이 바뀐 것과 로그인이 끊긴 것은 사람이 할 일이 다르다 —
-    /// 한 덩이로 「읽지 못함」이라 적으면 늘 파서부터 뒤진다.
-    /// </summary>
+    /// <summary>출력 형식이 바뀐 것과 로그인이 끊긴 것은 사람이 할 일이 다르다 — 한 덩이로 「읽지 못함」이라 적으면 늘 파서부터 뒤진다.</summary>
     [Fact]
     public void 로그인이_끊기면_읽지_못함이_아니라_재로그인_필요다()
     {

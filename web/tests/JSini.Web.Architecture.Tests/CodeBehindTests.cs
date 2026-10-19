@@ -3,21 +3,8 @@ using Xunit;
 
 namespace JSini.Web.Architecture.Tests;
 
-/// <summary>
-/// 화면은 마크업(<c>X.razor</c>)과 코드(<c>X.razor.cs</c>)로 나눈다.
-/// </summary>
-/// <remarks>
-/// <para>
-/// razor 에 남아도 되는 <c>@code</c> 는 <b>마크업 템플릿을 돌려주는 멤버</b>뿐이다
-/// (<c>@&lt;div&gt;…</c> · <c>__builder =&gt; { &lt;X /&gt; }</c>). C# 파일에서는
-/// 마크업을 쓸 수 없기 때문이다. 나머지 코드와 주입은 코드비하인드에 둔다.
-/// </para>
-/// <para>
-/// 업무 모듈 화면의 코드비하인드는 <c>BasePage</c> 계열(<c>BasePage</c> ·
-/// <c>DataPage</c> · <c>AutoRefreshPage</c>)을 상속한다 — 주입과 권한 판정
-/// (<c>Can</c>)을 화면마다 다시 적지 않게.
-/// </para>
-/// </remarks>
+/// <summary>화면은 마크업(X.razor)과 코드(X.razor.cs)로 나눈다. razor 의 @code 는 마크업 템플릿을 돌려주는 멤버뿐이고, 나머지 코드와 주입은 코드비하인드에 둔다.
+/// 업무 화면의 코드비하인드는 BasePage 계열을 상속해 주입과 권한 판정(Can)을 화면마다 다시 적지 않는다.</summary>
 public sealed class CodeBehindTests
 {
     private static readonly Regex CodeBlock = new(@"^[ \t]*@code\s*\{", RegexOptions.Multiline);

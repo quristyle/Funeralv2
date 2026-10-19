@@ -46,16 +46,7 @@ public sealed class AiDashboardTests
         Assert.Contains("오늘 사용시간", html);
     }
 
-    /// <summary>
-    /// 「작업지시 CLI 한도」 카드의 계량기는 갱신 시각 옆에 <b>지금부터 남은
-    /// 시간</b>을 함께 적는다.
-    /// </summary>
-    /// <remarks>
-    /// 절대 시각만 적어 두면 읽는 사람이 UTC → 한국 시각으로 옮겨 적힌 값에서
-    /// 빼기를 해야 한다. 글자를 짓는 것은 <c>AiUsageText.Remain</c> 한 곳이고
-    /// (<see cref="AiUsageTextTests"/>가 그 글자를 본다) 여기서는 <b>화면이
-    /// 그것을 부르는지</b>만 본다 — 안 부르면 아무 오류 없이 그냥 안 보인다.
-    /// </remarks>
+    /// <summary>「작업지시 CLI 한도」 계량기는 갱신 시각 옆에 지금부터 남은 시간을 적는다. 글자는 AiUsageText.Remain 한 곳이 짓고, 여기서는 화면이 그것을 부르는지만 본다.</summary>
     [Fact]
     public void 한도_계량기에_갱신까지_남은_시간이_붙는다()
     {

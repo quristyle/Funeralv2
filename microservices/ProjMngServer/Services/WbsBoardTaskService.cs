@@ -5,15 +5,7 @@ using ProjMngServer.Models;
 
 namespace ProjMngServer.Services;
 
-/// <summary>
-/// 화면별 일감 — <c>projmng.wbs_task</c>. 원장 1 : N 일감이다.
-/// </summary>
-/// <remarks>
-/// 옮겨 오면서 <b>부모를 외래키로 걸었다</b>. 원본은 원장에 기본키가 없어서 걸
-/// 대상이 없었고, 그래서 서비스가 손으로 「그 액티비티가 있나」를 물어보고
-/// 있었다. 그 확인은 남겨 둔다 — 외래키가 막아 주는 것은 같지만, 그때 나오는
-/// 것은 <c>23503</c> 이라 화면이 사람에게 보여 줄 말이 못 된다.
-/// </remarks>
+/// <summary>화면별 일감(<c>projmng.wbs_task</c>). 원장 1 : N 일감이다. 부모는 외래키로 건다. 서비스의 존재 확인은 외래키 위반 대신 사람이 읽을 메시지를 주려고 남긴다.</summary>
 public sealed class WbsBoardTaskService(IConfiguration configuration)
 {
     private readonly string _connectionString =
@@ -72,10 +64,7 @@ public sealed class WbsBoardTaskService(IConfiguration configuration)
             """, new { prjRid, activityId });
     }
 
-    /// <summary>
-    /// 새 일감. 차례는 <b>그 화면 안에서 맨 뒤</b>로 붙인다(10 씩 띄운다 —
-    /// 사이에 끼워 넣을 자리를 남겨 둔다).
-    /// </summary>
+    /// <summary>새 일감. 차례는 그 화면 안에서 맨 뒤에 붙이며, 10 씩 띄워 사이에 끼울 자리를 남긴다.</summary>
     public async Task<int> CreateAsync(int prjRid, string activityId, string? taskDiv, string? memo)
     {
         using var db = Open();
@@ -95,10 +84,7 @@ public sealed class WbsBoardTaskService(IConfiguration configuration)
         });
     }
 
-    /// <summary>
-    /// 본문에 담겨 온 것만 고친다. <b>안 담긴 칸은 건드리지 않는다</b> —
-    /// 화면이 메모만 고칠 때 완료 표시가 딸려 지워지면 안 된다.
-    /// </summary>
+    /// <summary>본문에 담겨 온 것만 고친다 — 안 담긴 칸은 건드리지 않는다. 메모만 고칠 때 완료 표시가 딸려 지워지면 안 되기 때문이다.</summary>
     /// <returns>고친 줄 수. 고칠 것이 하나도 없으면 <c>-1</c>.</returns>
     public async Task<int> UpdateAsync(int prjRid, int taskId, IDictionary<string, object?> patch)
     {

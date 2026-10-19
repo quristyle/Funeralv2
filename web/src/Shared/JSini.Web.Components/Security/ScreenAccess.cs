@@ -25,45 +25,11 @@ public sealed record ScreenVerdict(
 }
 
 /// <summary>
-/// <b>화면을 열어도 되는가를 정하는 단 한 곳.</b>
+/// 화면을 열어도 되는가를 정하는 단 한 곳. 사이드바 거르기·탭 줄·브레드크럼·라우터 앞 문(ScreenGate)이 모두 여기에 묻는다. 판정이 두 곳이면 「목록에는 없는데 주소로는 열린다」로 어긋난다.
+/// 기본은 차단이다. 가리킬 메뉴를 못 찾으면 막고(<see cref="BlockedAccessReason.Unmanaged"/>) 기록에 남긴다. 상세 화면은 <see cref="ScreenAccessAttribute"/> 로 부모 메뉴를 가리킨다.
+/// 권한표·메뉴가 아직 안 왔으면 막지 않는다. 그 사이를 권한 없음으로 다루면 차단 안내가 스치고 기록에 쌓여 진짜 막힌 줄이 묻힌다. 실제 통제는 서버가 한다.
+/// scoped 다. 사람마다, 회로마다 권한과 화면이 다르다.
 /// </summary>
-/// <remarks>
-/// <para>
-/// 사이드바 거르기(<c>MenuFilter</c>) · 탭 줄 · 브레드크럼 · 라우터 바로 앞의
-/// 문(<c>ScreenGate</c>)이 모두 여기에 묻는다. 판정이 두 군데가 되면 반드시
-/// 어긋나고, 어긋난 자리가 「목록에는 없는데 주소로는 열린다」가 된다 —
-/// <see cref="IPermissionContext"/> 머리말이 말하는 그 규칙을 화면 단위로 넓힌 것이다.
-/// </para>
-///
-/// <para>
-/// [기본이 차단이다 — 2026-10-13 에 뒤집었다]
-/// </para>
-///
-/// <para>
-/// 그 전에는 <b>메뉴에 줄이 있는 화면만</b> 따졌다. 메뉴에 없는 화면(목록에서
-/// 줄을 골라 들어가는 상세 화면·진단 화면)은 따질 열쇠가 없어 그냥 지나쳤고,
-/// 그래서 계정 관리 권한이 없는 사람이 <c>/admin/system/account/{남의
-/// 아이디}/app</c> 을 <b>주소로 쳐서 열 수 있었다.</b> 지금은 반대다 —
-/// 가리킬 메뉴를 못 찾으면 막고(<see cref="BlockedAccessReason.Unmanaged"/>)
-/// 그 사실을 기록에 남긴다. 상세 화면은
-/// <see cref="ScreenAccessAttribute">[ScreenAccess]</see> 로 부모 메뉴를 가리킨다.
-/// </para>
-///
-/// <para>
-/// [아직 모르는 동안에는 막지 않는다]
-/// </para>
-///
-/// <para>
-/// 권한표와 메뉴는 부트스트랩이 늦게 채운다. 그 사이를 「권한 없음」으로 다루면
-/// 새로고침할 때마다 차단 안내가 한 번 스치고, 그 한 번이 차단 기록에도 쌓여
-/// <b>진짜 막힌 줄이 묻힌다.</b> 실제 통제는 서버가 계속 하므로 이쪽이 안전 범위
-/// 안이다(<see cref="IPermissionContext.IsLoaded"/> 와 같은 판단이다).
-/// </para>
-///
-/// <para>
-/// scoped 다 — 사람마다 권한이 다르고, 지금 보고 있는 화면도 회로마다 다르다.
-/// </para>
-/// </remarks>
 public sealed class ScreenAccess : IDisposable
 {
     private readonly IPermissionContext permissions;
@@ -86,24 +52,11 @@ public sealed class ScreenAccess : IDisposable
         this.catalog = catalog;
         this.logger = logger;
 
-        // **이 줄이 없으면 기본 차단이 사실상 안 돈다.**
-        //
-        // 첫 그림은 권한표가 오기 전이라 무엇이든 통과다(머리말). 부트스트랩이
-        // 권한표와 메뉴를 채우는 것이 그 뒤인데, 그때 아무도 다시 묻지 않으면
-        // 그 통과가 그대로 굳는다. 메뉴가 다시 걸러졌다는 소식이 곧 「권한표가
-        // 채워졌다」는 소식이라(`PortalBootstrap.ApplyAll` 이 권한표를 먼저
-        // 넣는다) 그 자리에서 다시 따진다.
+        // 이 줄이 없으면 기본 차단이 사실상 안 돈다. 권한표가 채워진 뒤 다시 따지는 자리다(PortalBootstrap.ApplyAll 이 권한표를 먼저 넣는다).
         menus.MenusChanged += Refresh;
     }
 
-    /// <summary>
-    /// 지금 열려 있는 화면의 판정. <c>ScreenGate</c> 가 넣고 레이아웃이 읽는다.
-    /// </summary>
-    /// <remarks>
-    /// <b>레이아웃이 스스로 다시 따지지 않게 하려는 값이다.</b> 레이아웃이 아는
-    /// 것은 주소뿐이라 매개변수가 든 상세 화면을 제 힘으로 알아볼 수 없고,
-    /// 알아보려면 라우터가 이미 한 짝맞추기를 한 벌 더 두어야 한다.
-    /// </remarks>
+    /// <summary>지금 열려 있는 화면의 판정. ScreenGate 가 넣고 레이아웃이 읽는다. 레이아웃은 주소만 알아 매개변수 있는 상세 화면을 스스로 알아볼 수 없어 이 값을 쓴다.</summary>
     public ScreenVerdict Current { get; private set; } = ScreenVerdict.Pass;
 
     /// <summary>판정이 바뀌었다. 문이 본문을 다시 그린다.</summary>
@@ -201,15 +154,7 @@ public sealed class ScreenAccess : IDisposable
             ScreenType: rule.Name);
     }
 
-    /// <summary>
-    /// 이 메뉴의 화면을 열 수 있는가. 사이드바를 거르는 규칙과 같다.
-    /// </summary>
-    /// <remarks>
-    /// <b>묶음과 외부 링크는 따지지 않는다.</b> 묶음에는 자기 화면이 없고(길잡이
-    /// 화면이 그리는 것은 링크뿐인데 그 링크들은 각자 다시 걸러진다), 외부 링크는
-    /// 앱 라우트가 아니라 권한표에 줄이 없다 — 막으면 틀리는 방향이
-    /// 「멀쩡한 메뉴가 안 열리는」 쪽이다.
-    /// </remarks>
+    /// <summary>이 메뉴의 화면을 열 수 있는가. 묶음과 외부 링크는 따지지 않는다(묶음은 자기 화면이 없고, 외부 링크는 권한표에 줄이 없다).</summary>
     public bool CanOpen(MenuNode node)
     {
         if (!permissions.IsLoaded || node.IsCatalog || node.IsExternalLink
@@ -221,22 +166,7 @@ public sealed class ScreenAccess : IDisposable
         return permissions.CanView(node.Path);
     }
 
-    /// <summary>
-    /// 이 화면의 권한을 들고 있는 메뉴를 찾는다. 셋째까지 빈손이면 <c>null</c>.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// ① <b>주소로</b> — 사이드바가 건 링크와 같은 값이면 그 메뉴다. 메뉴에
-    /// 올라 있는 화면 대부분이 여기서 끝난다.
-    /// </para>
-    /// <para>
-    /// ② <b>자기 열쇠로</b> — 주소가 메뉴의 <c>path</c> 와 어긋나 있어도
-    /// (<c>RouteAliases</c> 가 아직 안 걷힌 자리) 열쇠는 맞는다.
-    /// </para>
-    /// <para>
-    /// ③ <b>물려받기로</b> — 메뉴에 올릴 수 없는 상세 화면이 부모를 가리킨 것.
-    /// </para>
-    /// </remarks>
+    /// <summary>이 화면의 권한을 들고 있는 메뉴를 찾는다. ① 주소 ② 화면의 열쇠 ③ [ScreenAccess] 가 가리킨 부모 순서로 본다. 셋 다 없으면 null.</summary>
     private MenuNode? Resolve(ScreenAccessRule rule, string href)
     {
         if (menus.Trail(href).LastOrDefault() is { } byHref)

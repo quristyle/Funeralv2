@@ -123,10 +123,7 @@ public partial class CompanyDeptTab
             ? [.. _depts]
             : [.. _flat.FirstOrDefault(d => d.Id == parentId)?.Children ?? []];
 
-    /// <summary>
-    /// 끌어 옮긴 결과를 저장한다. 떠난 묶음과 도착한 묶음의 순번을 다시 매겨
-    /// 한 번에 보낸다 — 옮긴 한 건만 보내면 서버가 나머지를 짐작해야 한다.
-    /// </summary>
+    /// <summary>끌어 옮긴 결과를 저장한다. 떠난 묶음과 도착한 묶음의 순번을 다시 매겨 한 번에 보낸다 — 옮긴 한 건만 보내면 서버가 나머지를 짐작해야 한다.</summary>
     private async Task OnDroppedAsync(TreeListItemsDroppedEventArgs e)
     {
         if (e.DroppedItems.FirstOrDefault() is not DeptDto moved)
@@ -151,8 +148,7 @@ public partial class CompanyDeptTab
 
         var oldParentId = _parent.GetValueOrDefault(moved.Id);
 
-        // 자리는 옮길 줄을 빼낸 뒤에 센다. 빼기 전에 세면 같은 묶음 안에서
-        // 아래로 옮길 때 한 칸 어긋난다.
+        // 자리는 옮길 줄을 빼낸 뒤에 센다. 빼기 전에 세면 같은 묶음 안에서 아래로 옮길 때 한 칸 어긋난다.
         var arrived = Siblings(newParentId).Where(d => d.Id != moved.Id).ToList();
         var at = arrived.Count;
 

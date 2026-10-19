@@ -6,13 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace JSini.Web.ProjMng;
 
-/// <summary>
-/// 프로젝트관리 모듈이 셸에 자기를 알리는 자리.
-///
-/// 셸은 이 클래스를 이름으로 알지 못한다 — 어셈블리를 훑어
-/// <see cref="IPortalModule"/> 구현을 찾아 등록할 뿐이다. 그래서 모듈을
-/// 넣고 빼는 데 셸을 고칠 일이 없다.
-/// </summary>
+/// <summary>프로젝트관리 모듈이 셸에 자기를 알리는 자리. 셸은 이름을 모르고 IPortalModule 구현을 훑어 등록할 뿐이라 넣고 빼는 데 셸을 고칠 일이 없다.</summary>
 public sealed class ProjMngModule : IPortalModule
 {
     public string Key => "projmng";
@@ -21,12 +15,7 @@ public sealed class ProjMngModule : IPortalModule
 
     public string RoutePrefix => "/projmng";
 
-    /// <summary>
-    /// 이 업무 전용 스타일. 셸이 <c>&lt;head&gt;</c> 에 실어 준다.
-    ///
-    /// 한동안 이것이 없어서 화면들이 쓰는 <c>pm-*</c> 클래스 몇 개가
-    /// 정의되지 않은 채였다. 화면은 뜨고 글자도 보이므로 눈에 잘 안 띈다.
-    /// </summary>
+    /// <summary>업무 전용 스타일. 셸이 head 에 실어 준다 — 빠지면 pm-* 클래스가 정의 없이 쓰여도 오류 없이 조용히 틀어진다.</summary>
     public string? StyleSheet => "_content/JSini.Web.ProjMng/projmng.css";
 
 
@@ -34,8 +23,7 @@ public sealed class ProjMngModule : IPortalModule
     {
         services.AddScoped<ProjMngClient>();
 
-        // 프로시저를 걷어내며 생기는 업무 클라이언트들. 범용 통로와 달리
-        // **자기 자료만** 안다 — 화면이 타입 있는 목록을 받고 `CommGrd` 를 쓴다.
+        // 자기 자료만 아는 업무 클라이언트. 화면이 타입 있는 목록을 받아 CommGrd 에 붙인다.
         services.AddScoped<ProjectClient>();
         services.AddScoped<ProjectUserClient>();
         services.AddScoped<DevCommonCodeClient>();
@@ -49,9 +37,7 @@ public sealed class ProjMngModule : IPortalModule
         services.AddScoped<ProjectPropClient>();
         services.AddScoped<CommonCodes>();
 
-        // WBS 대시보드 — 사내망에서 따로 돌던 물건을 옮겨 온 것이다.
-        // `WbsClient` 와 이름이 비슷하지만 **다른 표**다 — 그쪽은 프로젝트별
-        // 공정표, 이쪽은 화면 단위 원장이다.
+        // WBS 대시보드 — 이름은 비슷하지만 다른 표다(WbsClient 는 프로젝트별 공정표).
         services.AddScoped<WbsBoardNames>();
         services.AddScoped<WbsBoardClient>();
         services.AddScoped<WbsBoardTaskClient>();
@@ -61,61 +47,41 @@ public sealed class ProjMngModule : IPortalModule
         // EAI 인터페이스 카탈로그.
         services.AddScoped<InterfaceClient>();
 
-        // Git(GitHub). 저장소를 안 걸어 둔 프로젝트는 빈 채로 뜬다 —
-        // 안 쓰는 프로젝트가 정상이다.
+        // 저장소를 안 걸어 둔 프로젝트는 빈 채로 뜬다 — 안 쓰는 프로젝트가 정상이다.
         services.AddScoped<GitStatusClient>();
 
-        // AI 작업 지시 — docs/ai-task-runner.md.
-        // 게이트웨이 경로는 `projmng/ai-tasks` 다. 백엔드가 ProjMngServer 라
-        // 다른 열한 개와 접두사가 같다.
+        // AI 작업 지시(docs/ai-task-runner.md). 게이트웨이 경로는 projmng/ai-tasks 다.
         services.AddScoped<AiTaskClient>();
         services.AddScoped<AiTargetClient>();
 
-        // 지시문을 쓰는 사람을 돕는 AI 두 가지(제목 짓기·요약 얹기).
-        // 묻는 길은 AI 쳇과 같은 `AiChatClient` 이고 그것은 공용 Http 모듈이
-        // 이미 등록해 두었다 — **이 화면의 「AI」 고르개와 다른 길이다**
-        // (그쪽은 지시를 실제로 돌릴 CLI 를 고른다).
+        // 지시문 돕기(제목 짓기·요약 얹기). 묻는 길은 AI 쳇과 같은 AiChatClient 이고, 이 화면의 AI 고르개(실행할 CLI)와는 다른 길이다.
         services.AddScoped<AiTaskAssist>();
 
-        // AI 작업 현황(대시보드). **읽기뿐이다** — 「AI 작업」·「빠른 지시」가
-        // 만든 자료를 세기만 한다. 모델 한도는 두 군데를 본다(그 클래스 머리말).
+        // AI 작업 현황. 읽기뿐이다 — 모델 한도는 두 군데를 본다(그 클래스 머리말).
         services.AddScoped<AiDashboardClient>();
 
-        // 지시자의 이름과 얼굴. 업무 자료에는 로그인 아이디만 있어서
-        // 계정 쪽(`auth/user/faces`)에 한 번 더 묻는다 — 한 번 물어본 것은
-        // 들고 있으므로 목록을 다시 읽어도 왕복이 늘지 않는다.
+        // 지시자 이름과 얼굴은 계정 쪽에 한 번 더 묻는다 — 한 번 물은 것은 들고 있는다.
 
-        // 대상의 git 상태(「대상 git 상태」 화면). **서버가 세는 값이 아니다** —
-        // 실행기가 호스트에서 들여다보고 적어 둔 스냅샷을 읽는다(설계 11.7).
+        // 대상의 git 상태. 서버가 세는 값이 아니라 호스트 실행기가 적어 둔 스냅샷이다.
         services.AddScoped<AiTargetStatusClient>();
 
-        // 작성 중인 지시문을 브라우저에 적어 두는 곳. 화면이 아니라 서비스인
-        // 이유는 화면이 다시 만들어질 때마다(탭을 옮길 때마다) 새로 태어나는
-        // 것이 화면이기 때문이다 — 적어 둔 곳은 그것보다 오래 남아야 한다.
+        // 작성 중인 지시문을 적어 두는 서비스. 화면은 탭을 옮길 때마다 다시 태어나므로 화면 밖에 둔다.
         services.AddScoped<Components.Shared.AiTaskDraftStore>();
 
-        // 「이어서 지시」 창에 적다 만 글. 위와 따로 두는 것은 담는 모양이
-        // 다르기 때문이다 — 그쪽은 「AI 작업」 편집 화면의 한 벌이고, 이쪽은
-        // 창에 덧붙여 적는 글 한 줄이라 섞으면 되살릴 때 서로의 본문을 덮는다.
+        // 이어서 지시 창의 적다 만 글. 본문 한 벌과 담는 모양이 달라 따로 둔다 — 섞으면 되살릴 때 서로를 덮는다.
         services.AddScoped<Components.Shared.AiContinueDraftStore>();
 
         // 「빠른 지시」에서 마지막에 고른 것(대상 · AI · 올리기 · 메일).
         // 같은 이유로 화면 밖에 둔다 — 탭을 옮겨도 기억이 남아야 한다.
         services.AddScoped<Components.Shared.AiAskPrefs>();
 
-        // 로그 번역(줄을 눌러 그 한 줄만 옮긴 것)을 들고 있는 곳. 같은 까닭으로 화면
-        // 밖이다 — 로그 탭의 알맹이는 다른 탭으로 건너가는 순간 버려지는데,
-        // 사람이 줄을 짚어 가며 모은 번역은 살아 있어야 한다.
+        // 로그 번역을 화면 밖에 둔다 — 탭을 건너가면 버려지는데 짚어 모은 번역은 살아 있어야 한다.
         services.AddScoped<Components.Shared.AiLogXlatStore>();
         services.AddScoped<BizOptions>();
 
-        // 「빠른 지시」 알맹이를 **헤더 서랍에도** 실어 준다(책상 화면에서만).
-        // 셸·레이아웃은 이 부품을 이름으로 알지 못한다 — 업무 모듈을 참조할
-        // 수 없어서, 여기서 타입을 건네고 서랍이 그것을 그린다.
-        // 까닭은 `QuickAskContent` 머리말에.
+        // 빠른 지시 알맹이를 헤더 서랍에도 싣는다(책상 화면만). 셸은 모듈 타입을 모르므로 여기서 타입을 건넨다 — 머리말은 QuickAskContent.
         services.AddSingleton(new QuickAskContent(typeof(Components.Shared.AiAskPanel)));
 
-        // 이 앱 전용 서비스만 여기 등록한다.
-        // 게이트웨이 클라이언트·권한·알림은 셸이 이미 올려 두었다.
+        // 이 앱 전용 서비스만 등록한다. 게이트웨이 클라이언트·권한·알림은 셸이 이미 올렸다.
     }
 }

@@ -1,45 +1,21 @@
 namespace AuthServer.DTOs;
 
 /// <summary>
-/// 소셜 공급자 한 곳의 설정. <c>Auth:Social:Providers:&lt;열쇠&gt;</c> 를 그대로 읽는다.
+/// 소셜 공급자 한 곳의 설정. <c>Auth:Social:Providers:&lt;열쇠&gt;</c> 를 읽는다. 공급자마다 다른 것은 주소 넷과 응답 칸 이름 셋뿐이라 코드에 박지 않는다.
+/// 운영에서 채울 것은 ClientId 와 ClientSecret 둘뿐이다(구글·네이버·카카오는 주소가 appsettings.json 에 있다).
 /// </summary>
-/// <remarks>
-/// <para>
-/// [주소와 칸 이름까지 설정으로 뺀 이유]
-/// </para>
-///
-/// <para>
-/// 공급자마다 다른 것은 <b>주소 넷과 응답 JSON 의 칸 이름 셋</b>뿐이고, 흐름은
-/// 완전히 같다(인가 → 코드 → 토큰 → 프로필). 그 일곱을 코드에 박으면 「등등」에
-/// 해당하는 공급자(애플 · 네이버웍스 · 깃허브 …)를 하나 붙일 때마다 서비스
-/// 클래스에 <c>switch</c> 가지가 늘고, 그 가지가 곧 <b>한쪽만 고치는 자리</b>가 된다.
-/// 설정으로 두면 공급자 추가가 <c>appsettings.json</c> 한 덩이로 끝난다.
-/// </para>
-///
-/// <para>
-/// 그래서 잘 알려진 셋(구글 · 네이버 · 카카오)의 주소·칸 이름은 이미
-/// <c>appsettings.json</c> 에 적혀 있다. 운영에서 채워야 하는 것은
-/// <see cref="ClientId"/> 와 <see cref="ClientSecret"/> <b>둘뿐이다.</b>
-/// </para>
-/// </remarks>
 public sealed class SocialProviderOptions
 {
     /// <summary>화면에 띄울 이름 — 「구글」 · 「네이버」 · 「카카오」.</summary>
     public string DisplayName { get; set; } = string.Empty;
 
     /// <summary>
-    /// 공급자 콘솔에서 받은 앱 아이디. 카카오는 <b>REST API 키</b>다
-    /// (JavaScript 키가 아니다 — 그걸 넣으면 인가 화면이 <c>KOE101</c> 로 막힌다).
+    /// 공급자 콘솔에서 받은 앱 아이디. 카카오는 REST API 키다 — JavaScript 키를 넣으면 인가 화면이 KOE101 로 막힌다.
     /// </summary>
     public string ClientId { get; set; } = string.Empty;
 
     /// <summary>
-    /// 앱 비밀 열쇠. <b>절대 커밋하지 않는다</b> — <c>scripts/secrets.env</c> 나
-    /// <c>appsettings.Local.json</c> 으로만 넣는다.
-    /// <para>
-    /// 카카오는 비워 둘 수 있다(콘솔의 [보안 → Client Secret] 을 켜지 않았으면
-    /// 애초에 값이 없다). 구글·네이버는 반드시 있어야 한다.
-    /// </para>
+    /// 앱 비밀 열쇠. 커밋하지 않고 scripts/secrets.env 나 appsettings.Local.json 으로만 넣는다. 카카오는 비워 둘 수 있고 구글·네이버는 반드시 있어야 한다.
     /// </summary>
     public string ClientSecret { get; set; } = string.Empty;
 
@@ -68,31 +44,17 @@ public sealed class SocialProviderOptions
     public string NamePath { get; set; } = string.Empty;
 
     /// <summary>
-    /// 이메일이 확인된 주소인지를 알려 주는 자리 (<c>true</c>/<c>false</c>).
-    /// <b>비어 있으면 「확인되지 않았다」로 본다</b> — 확인되지 않은 이메일로
-    /// 기존 계정에 붙이는 것이 계정 탈취의 고전적인 길이라, 모를 때는 안전한
-    /// 쪽으로 기운다(<c>Auth:Social:LinkByVerifiedEmail</c> 참고).
+    /// 이메일이 확인된 주소인지 알려 주는 자리. 비어 있으면 확인되지 않은 것으로 본다 — 확인 안 된 이메일로 기존 계정에 붙이는 것이 계정 탈취의 고전적 길이다.
     /// </summary>
     public string EmailVerifiedPath { get; set; } = string.Empty;
 
     /// <summary>
-    /// 프로필 응답에서 <b>프로필 사진 주소</b>가 있는 자리. 없는 공급자는 비워 둔다.
-    /// <para>
-    /// 쓰는 곳이 둘이다. 주소 그대로는 가입 신청 목록·알림 메일·푸시 아이콘이
-    /// 쓰고(<c>SocialPicture</c> 칸), 바이트는 FileServer 로 옮겨 <b>계정 대표 사진</b>
-    /// (<c>Avatar</c>)이 된다. 주소를 <c>Avatar</c> 에 그대로 적지 않는 것은 포털이
-    /// 바깥 주소 사진을 「사진 없음」으로 보기 때문이다(<c>FileDownload.FileIdOf</c>).
-    /// </para>
+    /// 프로필 사진 주소가 있는 자리. 주소는 가입 신청과 알림 아이콘으로 쓰고, 바이트는 FileServer 로 옮겨 계정 대표 사진(Avatar)이 된다. 주소를 Avatar 에 그대로 두면 포털이 「사진 없음」으로 본다.
     /// </summary>
     public string PicturePath { get; set; } = string.Empty;
 
     /// <summary>
-    /// 사진을 <b>받아 와도 되는 호스트</b>. 끝이 같으면 된다(<c>kakaocdn.net</c> 은
-    /// <c>k.kakaocdn.net</c> 도 받는다). 비어 있으면 사진을 옮기지 않는다.
-    /// <para>
-    /// 서버가 바깥 주소를 대신 여는 자리라 목록으로 좁힌다
-    /// (<c>SocialAvatarImporter</c> 머리말).
-    /// </para>
+    /// 사진을 받아 와도 되는 호스트. 끝이 같으면 된다. 비어 있으면 사진을 옮기지 않는다 — 서버가 바깥 주소를 대신 여는 자리라 목록으로 좁힌다.
     /// </summary>
     public string[] PictureHosts { get; set; } = [];
 
@@ -104,10 +66,7 @@ public sealed class SocialProviderOptions
     public string PictureIsDefaultPath { get; set; } = string.Empty;
 
     /// <summary>
-    /// 공급자의 <b>기본 그림 주소</b>(일부만 맞아도 된다). 알려 주는 칸이 없는 공급자
-    /// (네이버)는 주소로 가린다. 사진을 올리지 않은 사람에게 네이버는 회색 사람
-    /// 그림 주소를 준다 — 그것을 대표 사진으로 옮기면 「사진 있음」으로 보여서
-    /// 이름 첫 글자 대신 모두가 같은 그림자를 쓰게 된다.
+    /// 공급자의 기본 그림 주소(일부만 맞아도 된다). 알려 주는 칸이 없는 네이버는 이 주소로 가린다 — 그 그림을 대표 사진으로 옮기면 「사진 있음」이 되어 이름 첫 글자 대신 같은 그림자가 선다.
     /// </summary>
     public string[] DefaultPictureUrls { get; set; } = [];
 
@@ -135,23 +94,12 @@ public sealed class SocialLoginOptions
     public bool Enabled { get; set; } = true;
 
     /// <summary>
-    /// 처음 들어온 소셜 계정을 <b>바로 쓸 수 있게</b> 할 것인가.
-    /// <para>
-    /// 기본은 <c>false</c> 다 — 사내 업무 포털이라 아무나 들어와서는 안 되고,
-    /// 아이디·비밀번호 가입 신청(<c>/signup</c>)이 이미 승인제다. 소셜만 즉시
-    /// 통과시키면 <b>승인제를 우회하는 길</b>이 된다.
-    /// </para>
+    /// 처음 들어온 소셜 계정을 바로 쓰게 할 것인가. 기본은 false — 사내 포털이라 가입 신청의 승인제를 소셜이 우회하면 안 된다.
     /// </summary>
     public bool AutoApprove { get; set; }
 
     /// <summary>
-    /// 공급자가 <b>확인했다고 말한</b> 이메일이 기존 계정과 같으면 그 계정에
-    /// 자동으로 붙일 것인가.
-    /// <para>
-    /// 기본은 <c>false</c> 다. 켜면 편하지만, 공급자가 이메일을 제대로 확인하지
-    /// 않는 순간 <b>남의 이메일로 앱을 하나 만들어 그 사람 계정에 들어가는 길</b>이
-    /// 열린다. 켜더라도 <c>EmailVerifiedPath</c> 가 참을 돌려준 경우에만 붙는다.
-    /// </para>
+    /// 공급자가 확인했다고 말한 이메일이 기존 계정과 같으면 자동으로 붙일 것인가. 기본은 false. 켜더라도 EmailVerifiedPath 가 참일 때만 붙는다.
     /// </summary>
     public bool LinkByVerifiedEmail { get; set; }
 
@@ -171,10 +119,7 @@ public record SocialProviderDto(string Provider, string DisplayName);
 
 /// <summary>인가 화면으로 보낼 주소를 만들어 달라는 요청.</summary>
 /// <param name="Provider">공급자 열쇠.</param>
-/// <param name="RedirectUri">
-/// 공급자가 사람을 되돌려 보낼 주소. <b>셸이 정한다</b> — 공급자 콘솔에 등록한
-/// 값과 <b>글자 하나까지 같아야</b> 한다.
-/// </param>
+/// <param name="RedirectUri">공급자가 사람을 돌려보낼 주소. 셸이 정하며 공급자 콘솔 값과 글자 하나까지 같아야 한다.</param>
 /// <param name="State">셸이 만든 위조 방지 값. 그대로 돌려받아 대조한다.</param>
 public record SocialAuthorizeRequestDto(string Provider, string RedirectUri, string State);
 
@@ -222,18 +167,8 @@ public class SocialLinkDto
     public DateTime? LastLoginAt { get; set; }
 }
 
-// ── 설정 점검 ───────────────────────────────────────────────
-//
-// [왜 이 두 줄이 따로 있나]
-//
-// `SocialProviderDto` 는 **쓸 수 있는 것만** 내보낸다 — 로그인 화면은 그것만
-// 알면 되고, 못 쓰는 공급자까지 알려 주면 없는 길로 가는 단추가 그려진다.
-//
-// 그런데 그 「없는 셈 친다」가 운영하는 사람에게는 **증상이 조용하다.**
-// 열쇠를 안 넣으면 가입 화면에 단추가 한 개도 안 서고, 화면은 멀쩡히 200 을
-// 주며, 헬스체크도 전부 초록이다. AI 공급자에서 이미 겪은 것과 같은 자리라
-// (`AiProviderDto.Configured`) 같은 방식으로 푼다 — **못 쓰는 공급자까지
-// 전부 내보내고, 왜 못 쓰는지를 함께 적는다.**
+// 못 쓰는 공급자는 가입 화면에서 조용히 사라지므로, 설정 점검이 되도록 못 쓰는 것까지 내보내고 왜 못 쓰는지를 함께 적는다.
+// 열쇠가 없어도 화면과 헬스체크는 멀쩡해 보이기 때문이다.
 
 /// <summary>소셜 로그인 설정이 지금 어떤 상태인가. [MSA 서버 상태] 가 읽는다.</summary>
 public sealed class SocialConfigStatusDto
@@ -276,21 +211,12 @@ public sealed class SocialProviderConfigDto
     public bool HasClientId { get; set; }
 
     /// <summary>
-    /// <c>ClientSecret</c> 이 채워져 있는가.
-    /// <para>
-    /// <b>이것이 비어도 <see cref="Usable"/> 은 참일 수 있다</b> — 단추는 서고, 공급자
-    /// 화면까지 다녀온 뒤 토큰을 바꾸는 마지막 걸음에서만 깨진다. 증상이 가장 늦게
-    /// 나타나는 자리라 따로 적는다.
-    /// </para>
+    /// ClientSecret 이 채워져 있는가. 이것이 비어도 Usable 은 참일 수 있다 — 단추는 서고 토큰을 바꾸는 마지막 걸음에서만 깨져서 증상이 가장 늦게 나타난다.
     /// </summary>
     public bool HasClientSecret { get; set; }
 
     /// <summary>
-    /// 공급자 콘솔에 등록해야 하는 콜백 <b>경로</b>.
-    /// <para>
-    /// 경로만 준다. 앞에 붙일 origin 은 포털이 안다 — AuthServer 는 게이트웨이 뒤라
-    /// 바깥 주소(도메인·스킴)를 모른다. <c>SocialLoginFlow.CallbackUri</c> 와 같은 규칙이다.
-    /// </para>
+    /// 공급자 콘솔에 등록할 콜백 경로. 경로만 준다 — 앞의 origin 은 포털이 안다(AuthServer 는 게이트웨이 뒤라 바깥 주소를 모른다).
     /// </summary>
     public string CallbackPath { get; set; } = string.Empty;
 

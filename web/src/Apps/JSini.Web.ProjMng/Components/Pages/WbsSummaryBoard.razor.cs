@@ -11,11 +11,7 @@ public partial class WbsSummaryBoard
 
     private string? _projectCode;
 
-    /// <summary>
-    /// 고른 프로젝트의 <b>이름</b>. 접힌 조회줄에 적는다 — 코드(<c>_projectCode</c>)
-    /// 는 번호라 그 자리에 적어 봐야 무엇을 보고 있는지 알 수 없다.
-    /// 목록은 <c>CodeSelect</c> 안에 있어 그 부품이 <c>@bind-Text</c> 로 올려 준다.
-    /// </summary>
+    /// <summary>고른 프로젝트의 이름. 접힌 조회줄에 적는다 — 코드는 번호라 그 자리에 적어서는 무엇을 보는지 알 수 없다.</summary>
     private string? _projectName;
     private string _basis = "edt";
     private string _scope = "dev";
@@ -26,11 +22,7 @@ public partial class WbsSummaryBoard
 
     private int? ProjectRid => int.TryParse(_projectCode, out var rid) ? rid : null;
 
-    /// <summary>
-    /// 휴대폰에서 접혔을 때 머리줄에 적는 글. 고르개가 넷이라 접어 두면
-    /// 화면의 절반이 돌아오는데, 대신 <b>무엇으로 걸러 본 값인지</b>를
-    /// 여기서 말해 줘야 한다(`CommSch` 머리말).
-    /// </summary>
+    /// <summary>휴대폰에서 접혔을 때 머리줄에 적는 글. 접으면 고르개 넷이 가려지므로, 무엇으로 걸러 본 값인지를 여기서 말해 준다.</summary>
     private string ConditionSummary => SchSummary.Of(
         _projectName,
         WbsBoardOptions.TextOf(WbsBoardOptions.Basis, _basis),
@@ -40,9 +32,7 @@ public partial class WbsSummaryBoard
     private string Period =>
         _summary?.MinDt is null || _summary.MaxDt is null ? "—" : $"{_summary.MinDt} ~ {_summary.MaxDt}";
 
-    // **화면을 열 때 여기서 조회하지 않는다.** 프로젝트 고르개가 첫 항목을
-    // 스스로 고르면서 조회를 건다(`AutoSelectFirst`). 둘 다 하면 프로젝트를
-    // 안 건 조회와 건 조회가 같이 날아가고, 늦게 돌아온 쪽이 화면에 남는다.
+    // 화면을 열 때 여기서 조회하지 않는다 — 프로젝트 고르개가 첫 항목을 고르며 조회를 건다. 둘 다 하면 늦게 돌아온 쪽이 남는다.
     private Task SearchAsync() => LoadAsync(async () =>
     {
         if (ProjectRid is not int rid)

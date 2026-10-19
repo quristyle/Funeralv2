@@ -1,23 +1,12 @@
 namespace JSini.Web.Models;
 
-// ============================================================
-// 위치 — **사람이 허락해서** 서버에 남은 좌표.
-//
-// 이 값은 원래 「내 위치 날씨」를 보내려고 받아 둔 것이다
-// (`NotificationSettings.cs` 의 `NotificationPreferenceDto.WeatherLat`).
-// 지도 화면은 같은 값을 **점으로 찍어** 보여 줄 뿐 새로 받지 않는다.
-//
-// 칸 이름은 NotificationServer 의 DTO 와 맞춘다 — 봉투를 그대로 주고받는다.
-// ============================================================
+// 위치. 사람이 허락해서 서버에 남은 좌표다. 원래 「내 위치 날씨」를 보내려고 받아 둔 값이고(NotificationPreferenceDto.WeatherLat), 지도 화면은 같은 값을 점으로 찍을 뿐이다.
+// 칸 이름은 NotificationServer 의 DTO 와 맞춘다.
 
 /// <summary>
 /// 위치를 허용한 계정 하나 — <b>어디에 있고, 쪽지가 닿는가</b>.
 /// </summary>
-/// <remarks>
-/// 한 줄에 둘을 담는다. 점을 찍는 데 필요한 것(좌표 · 이름)과, 그 점을 눌렀을 때
-/// <b>곧바로 쪽지를 보낼 수 있는지</b>다. 나뉘어 오면 화면이 점을 다 찍어 놓고
-/// 사람마다 「이 사람에게 보낼 수 있나」를 다시 물어야 한다.
-/// </remarks>
+/// <remarks>점을 찍는 데 필요한 것(좌표·이름)과, 그 점을 눌렀을 때 바로 쪽지를 보낼 수 있는지를 한 줄에 담는다. 나뉘어 오면 화면이 사람마다 「보낼 수 있나」를 다시 물어야 한다.</remarks>
 public sealed class AccountLocationDto
 {
     /// <summary>포털 로그인 아이디. <b>쪽지도 이 값 하나로 간다.</b></summary>
@@ -50,11 +39,7 @@ public sealed class AccountLocationDto
     /// <summary>
     /// 자리를 마지막으로 <b>확인한</b> 때. 안 움직였어도 포털을 열면 찍힌다.
     /// </summary>
-    /// <remarks>
-    /// 지도에서 이 값이 중요한 까닭은 <b>점이 얼마나 묵었는지</b>가 그것으로만
-    /// 갈리기 때문이다. 「잡은 때」가 반 년 전이어도 어제 확인했다면 그 사람은
-    /// 줄곧 거기 있는 것이다.
-    /// </remarks>
+/// <remarks>지도에서 점이 얼마나 묵었는지는 이 값으로만 갈린다. 「잡은 때」가 반 년 전이어도 어제 확인했다면 그 사람은 줄곧 거기 있는 것이다.</remarks>
     public DateTime? SyncedAt { get; set; }
 
     /// <summary>
@@ -75,15 +60,7 @@ public sealed class AccountLocationDto
     /// </summary>
     public bool CanReceive => PushReachable || EmailReachable;
 
-    /// <summary>
-    /// 마지막으로 자리가 확인된 때. <b>「확인」이 「잡음」보다 늘 나중</b>이라
-    /// 둘 중 큰 쪽이다.
-    /// </summary>
-    /// <remarks>
-    /// 화면이 「묵음」을 가르는 값이다. 한쪽만 보면 틀린다 — 「잡은 때」만 보면
-    /// 이사를 안 한 사람이 전부 묵은 점이 되고, 「확인한 때」만 보면 그 칸이
-    /// 비어 있는 옛 줄(확인 기록이 생기기 전에 저장된 것)이 전부 묵은 점이 된다.
-    /// </remarks>
+    /// <summary>마지막으로 자리가 확인된 때. 「확인」이 「잡음」보다 늘 나중이라 둘 중 큰 쪽이다. 화면이 묵음을 가르는 값이며, 한쪽만 보면 틀린다.</summary>
     public DateTime? LastKnownAt =>
         (LocatedAt, SyncedAt) switch
         {

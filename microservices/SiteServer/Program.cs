@@ -27,10 +27,7 @@ builder.Host.UseSerilog();
 // ============================================================
 // 2. 데이터베이스
 // ============================================================
-// 포털과 같은 funeralv2 인스턴스를 쓰고 스키마만 site 로 나눈다.
-// **스키마는 이 코드가 만들지 않는다** — docs/sql/site_schema.sql 이 만든다.
-// FileServer 만 Database.Migrate() 를 쓰는데 .gitignore 가 Migrations/ 를 제외하고 있어
-// 그 방식은 다른 장비로 가지 않는다. 나머지 서비스와 같은 방식을 따른다.
+// 포털과 같은 funeralv2 인스턴스를 쓰고 스키마만 site 로 나눈다. 스키마는 docs/sql/site_schema.sql 이 만든다(Migrate 는 Migrations/ 가 제외되어 다른 장비로 가지 않는다).
 var connectionString = builder.Configuration.GetConnectionString("jsinisiteconn")
     ?? builder.Configuration["jsinisiteconn"]
     ?? Environment.GetEnvironmentVariable("jsinisiteconn");
@@ -94,11 +91,7 @@ builder.Services.AddHealthChecks();
 
 // ── 딸린 것: DB ────────────────────────────────────────────
 //
-// 프로세스가 살아 있는 것과 서비스가 **제 일을 하는 것**은 다르다.
-// DB 가 끊기면 이 서비스는 사실상 아무것도 못 하므로 Unhealthy(503) 로 본다
-// (LLM 처럼 일부 기능만 막히는 경우는 Degraded 를 쓴다).
-//
-// 상태 화면이 '연결 대상' 줄로 보여 준다. 30초 캐시 · 3초 타임아웃은 도우미가 맡는다.
+// 프로세스가 살아 있는 것과 제 일을 하는 것은 다르다 — DB 가 끊기면 Unhealthy(503) 로 본다.
 builder.Services.AddHealthChecks()
     .AddDependencyCheck("database", async (sp, ct) =>
     {

@@ -8,32 +8,13 @@ namespace ProjMngServer.Controllers;
 /// <summary>
 /// AI 작업에 함께 보내는 파일 — <c>/api/ai-tasks/…/files</c>.
 /// </summary>
-/// <remarks>
-/// <para>
-/// 화면은 <c>AiAskPanel</c>(빠른 지시)과 <c>AiTaskView</c>(보낸 한 건의 속)다.
-/// 설계는 <c>docs/ai-task-runner.md</c> 의 「함께 보내는 파일」.
-/// </para>
-/// <para>
-/// <b>올리기와 묶기가 갈려 있다.</b> 고르는 순간 <c>POST files</c> 로 담아 두고
-/// (그때는 작업 번호가 없다), 지시를 보낼 때 그 번호들을 <c>AiTask.FileKeys</c>
-/// 에 실어 보내면 등록이 묶는다. 왜 그렇게 했는지는
-/// <c>deploy/sql/projmng-ai-task-file-2026-09-25.sql</c> 머리말에 있다.
-/// </para>
-/// <para>
-/// <b>실행기는 이 경로를 쓰지 않는다.</b> 게이트웨이를 지나지 못하므로
-/// <c>/api/ai-runner/runs/{runKey}/files/{fileKey}</c> 로 따로 받는다
-/// (<c>AiRunnerController</c>).
-/// </para>
-/// </remarks>
+/// 고르는 순간 담아 두고(작업 번호 없음) 지시를 보낼 때 번호를 FileKeys 에 실어 등록이 묶는다. 실행기는 게이트웨이를 지나지 못해 /api/ai-runner 로 따로 받는다(AiRunnerController).
 [ApiController]
 [Route("api/ai-tasks")]
 public sealed class AiTaskFilesController(AiTaskFileService files) : ControllerBase
 {
     /// <summary>요청을 보낸 사람. 없으면 <c>system</c>.</summary>
-    /// <remarks>
-    /// <c>AiTasksController</c> 와 같은 규칙이다 — <b>본문에 실어 보내지
-    /// 않는다.</b> 위조해도 서버가 알 수 없다.
-    /// </remarks>
+    /// 본문에 실어 보내지 않는다 — 본문 값은 믿지 않는다(AiTasksController 와 같은 규칙).
     private string UserId =>
         Request.Headers.TryGetValue("X-User-Id", out var id) && !string.IsNullOrWhiteSpace(id)
             ? id.ToString()
@@ -60,20 +41,8 @@ public sealed class AiTaskFilesController(AiTaskFileService files) : ControllerB
     /// <summary>
     /// <b>고른 파일을 미리 담아 둔다.</b> 아직 어느 작업에도 안 묶인다.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>본문 상한을 두 군데에 건다.</b> <c>RequestSizeLimit</c> 은 Kestrel 의
-    /// 기본값(30MB)을 이 창구에서만 밀어내고, <c>RequestFormLimits</c> 는
-    /// <c>ReadFormAsync</c> 가 따로 들고 있는 multipart 상한(기본 128MB)을
-    /// 밀어낸다. <b>둘 중 하나만 올리면 나머지가 막는다</b> — 증상은 같은
-    /// 413/400 이라 어느 쪽이 막았는지 밖에서는 안 보인다.
-    /// </para>
-    /// <para>
-    /// 값은 <c>MaxBytes × MaxCount</c> 에 여유를 더한 것이다. 여유는 multipart
-    /// 의 경계선·헤더 몫이라 상한을 딱 맞추면 <b>마지막 한 장이 규격 안인데도
-    /// 거절된다.</b>
-    /// </para>
-    /// </remarks>
+    /// 본문 상한은 두 군데에 건다 — RequestSizeLimit 과 RequestFormLimits 중 하나만 올리면 나머지가 막고, 증상은 같은 413/400 이라 밖에서는 어느 쪽인지 안 보인다.
+    /// 상한은 MaxBytes × MaxCount 에 여유를 더한 값이다 — multipart 경계선과 헤더 몫이라 딱 맞추면 마지막 한 장이 규격 안인데도 거절된다.
     [HttpPost("files")]
     [RequestSizeLimit(StageBodyLimit)]
     [RequestFormLimits(MultipartBodyLengthLimit = StageBodyLimit)]
@@ -114,13 +83,7 @@ public sealed class AiTaskFilesController(AiTaskFileService files) : ControllerB
     /// <summary>
     /// 내려받기. <b>그림만 그대로 내보내고 나머지는 전부 첨부다.</b>
     /// </summary>
-    /// <remarks>
-    /// 그림은 화면이 <c>&lt;img&gt;</c> 로 걸어야 해서 원래 형식으로 내보낸다.
-    /// 그 밖에는 무엇이든 <c>application/octet-stream</c> 에 첨부로 내려 준다 —
-    /// 올라온 HTML 이 우리 출처에서 실행되면 안 된다
-    /// (<c>InterfaceFilesController</c> 가 먼저 정한 규칙이다). <c>image/svg+xml</c>
-    /// 이 그림으로 안 쳐지는 것도 같은 이유다(<c>AiTaskFileService.LooksLikeImage</c>).
-    /// </remarks>
+    /// 그림만 원래 형식으로 내보내고 나머지는 application/octet-stream 첨부로 내린다 — 올라온 HTML 이 우리 출처에서 실행되면 안 되고, image/svg+xml 도 그림으로 치지 않는다(AiTaskFileService.LooksLikeImage).
     [HttpGet("files/{fileKey:long}/content")]
     public async Task<IActionResult> ContentAsync(long fileKey)
     {

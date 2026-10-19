@@ -1,64 +1,8 @@
 @page "/funeral/building/device"
 @attribute [RouteKey("funeral.building.device")]
 
-@*
-    [기기 관리] — DB 메뉴 `/building/device`.
-    이력: Vue `views/funeral/building/device/index` → 여기.
-    API: `funeral/building/device/list` · `funeral/building/device-attribute/{deviceId}`
-
-    빈소마다 놓인 디스플레이·플레이어 장비다.
-
-    [조건이 통째로 어긋나 있었다]
-
-    `GetDevicesAsync` 의 첫 인자는 `companyId` 다. 화면이 자리로 넘겨
-    건물이 회사 자리에, 층이 건물 자리에 들어가고 있었다 — 건물·층·호실을
-    골라도 목록이 줄지 않는다. 이름을 붙여 넘겨 고쳤다.
-
-    **온·오프라인은 서버가 판정해 `Status` 로 내려 준다.** 화면이 `LastSeenAt`
-    을 보고 직접 재지 않는다 — 재면 브라우저 시계 기준이 되어, 시각이 어긋난
-    장비에서는 멀쩡한 기기가 오프라인으로 보인다.
-
-    [상태가 조회한 시점에 굳어 있었다]
-
-    장비가 붙고 떨어질 때 `DeviceHub` 가 `DeviceStatusChanged` 를 방송하는데
-    아무도 듣지 않았다. 그래서 **실제로는 켜져 있는 장비가 꺼짐으로 남아 있고**,
-    새로 고침을 눌러야 맞았다. 원본(Vue)은 브라우저마다 허브에 붙었다 —
-    여기서는 포털이 한 번 붙어 열려 있는 화면들에 나눠 준다(`DeviceStatusRelay`).
-
-    [원격 업데이트 지시가 없었다]
-
-    켜기·끄기·재시작만 있었다. 플레이어에게 「지금 새 판을 확인하라」고
-    시키는 길(`update-now/{code}`)이 화면에 없어서, 새 판을 올려도 각 장비가
-    스스로 확인할 때까지 기다려야 했다.
-
-    [등록·수정·삭제가 없었다]
-
-    목록과 원격 명령뿐이었다. 기기를 새로 놓거나 다른 호실로 옮기는 일을
-    포털에서 할 수 없었다 — 클라이언트에는 넷 다 있었고 부르는 곳만 없었다.
-
-    [화면 표시 설정 · 장식 · 문구를 고칠 자리가 없었다]
-
-    목록과 원격 명령(켜기·끄기·재시작)뿐이었다. 그런데 **플레이어가 무엇을
-    어떻게 보여 줄지는 전부 장비 속성(`device-attribute`)이 정한다** —
-    가로·세로, 영정사진 효과, 영상·음악, 층별 안내, 키오스크 동작까지.
-    포털 어느 화면에서도 그 값을 볼 수도 고칠 수도 없었다.
-    화면 위에 얹는 **장식(리본)과 문구**도 마찬가지였다.
-    클라이언트에는 셋 다 읽기·저장이 있었고 부르는 곳만 없었다.
-
-    [장비 유형에 맞는 것을 앞에 둔다]
-
-    속성이 마흔 칸이 넘는다. 영정사진 장비를 보면서 키오스크·층별 안내 설정이
-    다 나오면, 실제로 쓰는 열 칸을 찾아 훑어야 한다. 유형에 해당하는 묶음을
-    앞에 두고 나머지는 뒤로 내린다.
-
-    **숨기지는 않는다.** 유형을 잘못 넣은 장비를 고칠 길은 남아 있어야 한다.
-
-    [속성이 없는 장비가 있다]
-
-    한 번도 설정하지 않은 장비는 속성 행 자체가 없다. 그때는 빈 화면이 아니라
-    **기본값을 채운 새 속성**을 만들어 보여 준다 — 「없다」와 「못 읽었다」를
-    사용자가 구분할 수 없고, 어차피 저장하면 만들어질 값이다.
-*@
+@* [기기 관리] — DB 메뉴 `/building/device`. 온·오프라인은 서버 Status 를 그대로 쓴다. 화면이 LastSeenAt 을 재면 브라우저 시계에 따라 멀쩡한 기기가 꺼져 보인다.
+상태 변화는 DeviceStatusRelay 가 허브에서 받아 열린 화면에 나눠 준다. 유형에 맞는 속성 묶음은 앞에 두고 나머지는 뒤로 내리되 숨기지는 않는다. *@
 
 @inherits DataPage
 @implements IDisposable
@@ -86,9 +30,7 @@
 </div>
 
 <CommCont>
-    @* 선택은 CommGrd 가 선언한 이름으로 받는다. DevExpress 이름을 직접 주면
-       splat 으로 흘러가 람다가 `EventCallback` 으로 감싸이지 않고, 화면이
-       그리기도 전에 500 으로 죽는다 — 이 화면도 그래서 안 열리고 있었다. *@
+    @* 선택은 CommGrd 가 선언한 이름으로 받는다. DevExpress 이름을 직접 주면 람다가 EventCallback 으로 감싸이지 않아 그리기 전에 500 이 난다. *@
     <CommGrd TItem="Device" Data="@_devices" PageSize="20"
              ExportName="기기"
              Reload="@ReloadAsync"
@@ -116,14 +58,7 @@
             <DxGridDataColumn FieldName="@nameof(Device.LastSeenAt)" Caption="최근 연결" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
         </Columns>
 
-        @* ── 관리 칸 ────────────────────────────────────
-           손으로 적은 칸이 둘이었다(「관리」와 「원격」). 조작 자리가 표 안에
-           둘로 갈리면 무엇을 어디서 하는지 매번 눈으로 찾게 된다. 한 칸으로
-           모으고 아이콘·스타일을 CommGrd 가 붙이는 것에 맞췄다.
-
-           수정은 CommGrd 의 내장 편집을 쓰지 않는다 — 이 화면의 편집은
-           `DeviceEditor` 한 벌이 통째로 맡고 있고, 그것은 팝업 편집 폼이
-           아니라 자기 창을 여는 부품이다. *@
+        @* 관리 칸은 하나로 모았다(조작이 두 칸으로 갈리면 찾기 어렵다). 수정은 CommGrd 내장 편집이 아니라 DeviceEditor 가 맡는다. *@
         <RowActions Context="d">
             <PermissionView Action="MenuAction.Update">
                 <DxButton IconCssClass="jsini-icon-edit" Title="수정"
@@ -145,8 +80,6 @@
                           Title="화면을 끈다" Click="@(() => PowerAsync(d.Code, "OFF"))" />
                 <DxButton IconCssClass="jsini-icon-refresh" RenderStyle="ButtonRenderStyle.Link"
                           Title="플레이어를 다시 띄운다" Click="@(() => RestartAsync(d.Code))" />
-                @* 새 판이 없으면 아무 일도 일어나지 않는다 — 릴리스 판정은
-                   플레이어가 스스로 한다. 그래서 확인 창을 두지 않는다. *@
                 <DxButton IconCssClass="jsini-icon-download" RenderStyle="ButtonRenderStyle.Link"
                           Title="새 판이 있으면 받아 간다" Click="@(() => UpdateNowAsync(d.Code))" />
             </PermissionView>
@@ -180,8 +113,7 @@ else if (_attribute is not null)
         }
     </div>
 
-    @* 루프 변수를 section 이라 부르지 않는다 — Razor 가 `@section.Label` 의
-       `@section` 을 @section 디렉티브로 읽어서 RZ1011 로 빌드가 막힌다. *@
+    @* 루프 변수를 section 이라 부르면 @section 디렉티브와 겹쳐 RZ1011 로 빌드가 막힌다. *@
     @foreach (var devSec in Sections(_selected.DeviceType))
     {
         <section class="fn-devsec @(devSec.Relevant ? "is-on" : string.Empty)">
@@ -189,8 +121,6 @@ else if (_attribute is not null)
                 @devSec.Label
                 @if (!devSec.Relevant)
                 {
-                    @* 이 유형에서는 안 쓰는 묶음이다. 숨기지 않는 이유는
-                       유형을 잘못 넣은 장비를 고칠 길이 필요하기 때문이다. *@
                     <span class="fn-note">이 기기 종류에서는 쓰지 않습니다</span>
                 }
             </h3>
@@ -263,8 +193,6 @@ else if (_attribute is not null)
 
                     case "media":
                         <DeviceField Label="영상">
-                            @* 「켬」과 「무엇을」이 짝이다. 자료를 고르면 켜 주고,
-                               지우면 꺼 준다 — 켜 두고 빈 화면이 나오는 일을 막는다. *@
                             <DxComboBox Data="@_videos" TextFieldName="@nameof(MediaSource.Name)"
                                         ValueFieldName="@nameof(MediaSource.Id)"
                                         Value="@_attribute.VideoId"
@@ -352,9 +280,7 @@ else if (_attribute is not null)
         </section>
     }
 
-    @* 장식과 문구는 속성과 저장 경로가 다르다(각자 통째로 바꿔 끼운다).
-       그래서 부품으로 갈라 각자 저장 단추를 들고 있게 했다 — 한 단추로
-       셋을 함께 보내면 하나가 실패했을 때 무엇이 저장됐는지 알 수 없다. *@
+    @* 장식과 문구는 저장 경로가 달라 각자 저장 단추를 든다. 한 단추로 셋을 보내면 실패했을 때 무엇이 저장됐는지 알 수 없다. *@
     <DeviceConfigEditor DeviceId="@_selected.Id" />
     <DeviceRibbonEditor DeviceId="@_selected.Id" />
     <DeviceOverlayEditor DeviceId="@_selected.Id" />

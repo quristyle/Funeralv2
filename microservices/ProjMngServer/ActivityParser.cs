@@ -18,12 +18,6 @@ public class ActivityParser {
 
     foreach (var file in xmlFiles) {
 
-      //if (file.IndexOf("ods.portal-service") >= 0) {
-      //  string aaa = "";
-      //}
-      //else {
-      //  continue;
-      //}
 
       try {
         XDocument doc = XDocument.Load(file);
@@ -51,7 +45,6 @@ public class ActivityParser {
           var resultKeys = new List<string>();
 
           string dao = "";
-          //string resultKey = "";
           string activityClass = "";
           string activity_Type = "proc";
           var activity_context = new List<string>();

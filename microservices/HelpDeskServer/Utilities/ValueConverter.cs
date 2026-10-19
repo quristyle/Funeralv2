@@ -1,10 +1,6 @@
 namespace HelpDeskServer.Utilities;
 
-/// <summary>
-/// 태그에서 추출한 원본 바이트를 DataType 별 규칙에 따라 표현 문자열로 변환한다.
-/// 규칙은 <see cref="TagValueConverter.Register"/> 로 교체/추가할 수 있으므로
-/// 추후 DB 에서 읽어온 규칙으로 런타임 교체가 가능하다.
-/// </summary>
+/// <summary>태그에서 추출한 원본 바이트를 DataType 별 규칙에 따라 표현 문자열로 변환한다. 규칙은 <see cref="TagValueConverter.Register"/> 로 교체/추가할 수 있으므로 추후 DB 에서 읽어온 규칙으로 런타임 교체가 가능하다.</summary>
 public interface IValueConversionRule {
   DataTypeEnum DataType { get; }
   string Convert(byte[] value, ITagCodeBook codeBook);
@@ -141,9 +137,7 @@ public sealed class EnergyLimitValueRule : IValueConversionRule {
   }
 }
 
-/// <summary>
-/// 코드-이름 매핑을 사용하는 타입(CONTROL/REQUEST_CODE/RESPONSE_CODE/APP_CODE) 공통 규칙.
-/// </summary>
+/// <summary>코드-이름 매핑을 사용하는 타입(CONTROL/REQUEST_CODE/RESPONSE_CODE/APP_CODE) 공통 규칙.</summary>
 public sealed class CodeLookupValueRule : IValueConversionRule {
   public DataTypeEnum DataType { get; }
   public CodeLookupValueRule(DataTypeEnum dataType) {

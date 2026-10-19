@@ -1,6 +1,4 @@
-@*
-    바닥글.
-*@
+@* 바닥글. *@
 
 <footer class="site-footer">
     <div class="wrap site-footer__inner">
@@ -14,23 +12,14 @@
                 <span class="site-footer__label">Contact</span>
                 <a href="mailto:@T.Contact.Email">@T.Contact.Email</a>
 
-                @*
-                    관리 포털은 다른 오리진이다(portal.jsini.co.kr — 머리글의 단추와 같은 주소다.
-                    admin.jsini.co.kr 도 같은 포털로 가지만 주소를 하나로 맞춘다). 오리진을 나눠야
-                    공개 사이트와 업무 시스템의 토큰·쿠키 표면이 섞이지 않는다.
-                *@
+                @* 관리 포털은 다른 오리진이라 공개 사이트와 업무 시스템의 토큰·쿠키 표면이 섞이지 않는다. *@
                 <a class="site-footer__portal" href="https://portal.jsini.co.kr" rel="noopener">
                     @T.Footer.Portal →
                 </a>
             </div>
         </div>
 
-        @*
-            개인정보처리방침은 **모든 페이지의 바닥에** 둔다. 법(개인정보 보호법 제30조)이
-            「쉽게 확인할 수 있게」 공개하라고 하고, 구글 OAuth 브랜딩 인증도 첫 화면에서
-            이 링크를 찾는다 — 없으면 「브랜딩이 사용자에게 표시되고 있지 않습니다」로 거절된다.
-            방침은 다른 링크보다 눈에 띄게(굵게) 둔다.
-        *@
+        @* 개인정보처리방침은 모든 페이지의 바닥에 둔다. 법이 쉽게 확인할 수 있게 공개하라고 하고, 구글 OAuth 브랜딩 인증도 이 링크를 찾는다. 다른 링크보다 눈에 띄게 둔다. *@
         <div class="site-footer__rights">
             <span>© @SiteTime.TodayInKorea.Year @T.Footer.Rights</span>
             <nav class="site-footer__legal" aria-label="legal">

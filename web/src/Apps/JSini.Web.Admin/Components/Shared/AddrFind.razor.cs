@@ -11,18 +11,12 @@ public partial class AddrFind
     /// <summary>단추에 적는 글자.</summary>
     [Parameter] public string Text { get; set; } = "주소 찾기";
 
-    /// <summary>
-    /// 주소를 골랐을 때. 우편번호와 주소를 함께 준다.
-    /// 고르지 않고 닫으면 부르지 않는다.
-    /// </summary>
+    /// <summary>주소를 골랐을 때. 우편번호와 주소를 함께 준다. 고르지 않고 닫으면 부르지 않는다.</summary>
     [Parameter] public EventCallback<AddrPick> OnPicked { get; set; }
 
     private IJSObjectReference? _js;
 
-    /// <summary>
-    /// 지금 덮개가 떠 있는가. 떠 있는 동안 단추를 잠근다 —
-    /// 연달아 누르면 덮개가 겹쳐 쌓이고, 뒤엣것을 닫아도 앞엣것이 남는다.
-    /// </summary>
+    /// <summary>지금 덮개가 떠 있는가. 떠 있는 동안 단추를 잠근다 — 연달아 누르면 덮개가 겹쳐 쌓이고, 뒤엣것을 닫아도 앞엣것이 남는다.</summary>
     private bool _opening;
 
     private async Task PickAsync()

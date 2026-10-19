@@ -13,44 +13,16 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 
 namespace HelpDeskServer.Data {
-  /// <summary>
-  /// 동적 필터/정렬/페이징/그룹/집계/HAVING 등 DB에서 가능한 대부분의 기능을
-  /// QueryString 기반으로 생성해 IQueryable 에 적용해 주는 유틸리티입니다.
-  /// </summary>
+  /// <summary>QueryString 기반 동적 필터·정렬·페이징·그룹·집계·HAVING 을 IQueryable 에 적용한다.</summary>
   public static class DynamicFilterHelper {
     // 민감 정보 필드(항상 제외)
     private static readonly HashSet<string> SensitiveFieldNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
             "passwordHash"
         };
-    // 단순 주석: Query string parsing / supported operators
-    // 지원되는 Query parameter 패턴 (예시)
-    // Field=val                -> equals
-    // Field_neq=val            -> !=
-    // Field_gt=val             -> >
-    // Field_gte=val            -> >=
-    // Field_lt=val             -> <
-    // Field_lte=val            -> <=
-    // Field_like=val           -> contains (string)
-    // Field_left=val           -> startswith (string)
-    // Field_right=val          -> endswith (string)
-    // Field_in=val1|val2|val3  -> IN (split by |)
-    // Field_between=low|high   -> between (for comparable)
-    // Field_isnull=true        -> is null / isnotnull
-    // groupBy=Field1,Field2
-    // aggregate=Count:Id,Sum:Amount,Avg:Score,Max:Price,Min:Price
-    // having=Count_Id>5        -> using alias from aggregate (Count_Id)
-    // orderBy=Field asc|desc[,Field2 desc]
-    // select=Field1,Field2     -> projection
-    // page=1&pageSize=20
+    // 지원 연산자: 접미사 _neq·_gt·_gte·_lt·_lte·_like(포함)·_left·_right·_in(|)·_between·_isnull, 그리고 groupBy·aggregate·having·orderBy·select·page.
 
-    /// <summary>
-    /// QueryString 기반으로 전체 흐름(필터->그룹/집계->having->정렬->페이징)을 적용합니다.
-    /// </summary>
-    /// <typeparam name="T">원본 엔티티 타입</typeparam>
-    /// <param name="query">IQueryable 원본</param>
-    /// <param name="qs">HttpContext.Request.Query 또는 IQueryCollection</param>
-    /// <returns>동적 변형이 적용된 IQueryable (groupBy 없으면 IQueryable&lt;T&gt;, 있으면 IQueryable&lt;dynamic&gt;)</returns>
+    /// <summary>필터 → 그룹/집계 → having → 정렬 → 페이징 순서로 전체를 적용한다.</summary>
     public static IQueryable ApplyAll<T>(this IQueryable<T> query, IQueryCollection qs) {
       // 1) WHERE 필터 적용
 
@@ -59,7 +31,6 @@ namespace HelpDeskServer.Data {
       // 2) GROUP BY + AGGREGATE 처리 (있다면)
       if (qs.TryGetValue("groupBy", out var gb) && !string.IsNullOrWhiteSpace(gb)) {
         var grouped = ApplyGroupingAndAggregation(query, qs);
-        // grouped is IQueryable (dynamic type)
         // 3) HAVING (on grouped)
         if (qs.TryGetValue("having", out var having) && !string.IsNullOrWhiteSpace(having)) {
           grouped = grouped.Where(having.ToString());
@@ -94,11 +65,8 @@ namespace HelpDeskServer.Data {
       }
     }
 
-    /// <summary>
-    /// select 또는 remove 쿼리 파라미터를 기반으로 프로젝션을 적용합니다.
-    /// </summary>
+    /// <summary>select 또는 remove 파라미터로 프로젝션을 적용한다.</summary>
     private static IQueryable ApplyProjection(IQueryable query, IQueryCollection qs, Type? entityType = null) {
-      //return query;
       // 1. select가 우선순위가 가장 높음
       if (qs.TryGetValue("select", out var selectVal) && !string.IsNullOrWhiteSpace(selectVal)) {
         // remove와 함께 들어온 경우, select 결과에서 항목/하위 항목을 제거해야 함
@@ -265,15 +233,12 @@ namespace HelpDeskServer.Data {
 
 
 
-    /// <summary>
-    /// QueryString 으로 들어온 where 필터들을 파싱하여 IQueryable 에 Where 절로 적용합니다.
-    /// </summary>
+    /// <summary>QueryString 의 where 필터를 파싱해 Where 절로 적용한다.</summary>
     private static IQueryable<T> ApplyWhereFilters<T>(IQueryable<T> query, IQueryCollection qs) {
       var whereParts = new List<string>();
       var parameters = new List<object>();
 
       var orGroupParts = new List<string>();
-      //var orGroupParameters = new List<object>();
 
       int paramIndex = 0;
 
@@ -295,12 +260,6 @@ namespace HelpDeskServer.Data {
 
 
 
-        // OR 그룹 처리
-        // bool isOrGroup = false;
-        // if (key.StartsWith("_or_", StringComparison.OrdinalIgnoreCase)) {
-        //   isOrGroup = true;
-        //   key = key[4..];
-        // }
 
         // OR 그룹 처리
 
@@ -363,7 +322,6 @@ namespace HelpDeskServer.Data {
                 // add parameter immediately so parameter index matches placeholder
                 parameters.Add(conv);
 
-                //orGroupParameters.Add(conv);
               }
               else {
                 whereParts.Add($"{prop} {symbol} @{paramIndex}");
@@ -380,7 +338,6 @@ namespace HelpDeskServer.Data {
               var part = $"{prop} != null AND {prop}.ToLower().Contains(@{paramIndex})";
               if (isOrGroup) {
                 orGroupParts.Add(part);
-                //orGroupParameters.Add(rawVal.ToLower());
                 parameters.Add(rawVal.ToLower());
               }
               else {
@@ -395,7 +352,6 @@ namespace HelpDeskServer.Data {
               var part = $"{prop} != null AND {prop}.StartsWith(@{paramIndex})";
               if (isOrGroup) {
                 orGroupParts.Add(part);
-                //orGroupParameters.Add(rawVal);
                 parameters.Add(rawVal);
               }
               else {
@@ -432,15 +388,6 @@ namespace HelpDeskServer.Data {
                 typedArray.SetValue(list[i], i);
               }
 
-              // if (isOrGroup) {
-              //   // OR 그룹 내의 IN은 지원이 복잡하므로, 현재는 기본 AND 그룹만 지원.
-              //   whereParts.Add(part);
-              //   parameters.Add(typedArray);
-              // }
-              // else {
-              //   whereParts.Add(part);
-              //   parameters.Add(typedArray);
-              // }
 
               // add parameters immediately for consistent indexing; IN in OR group will be treated same
               whereParts.Add(part);
@@ -457,8 +404,6 @@ namespace HelpDeskServer.Data {
               var part = $"{prop} >= @{paramIndex} AND {prop} <= @{paramIndex + 1}";
               if (isOrGroup) {
                 orGroupParts.Add(part);
-                // orGroupParameters.Add(lo);
-                // orGroupParameters.Add(hi);
                 parameters.Add(lo);
                 parameters.Add(hi);
               }
@@ -485,10 +430,6 @@ namespace HelpDeskServer.Data {
         }
       }
 
-      // if (orGroupParts.Any()) {
-      //   whereParts.Add($"({string.Join(" OR ", orGroupParts)})");
-      //   parameters.AddRange(orGroupParameters);
-      // }
 
 
       if (orGroupParts.Any()) {
@@ -504,12 +445,7 @@ namespace HelpDeskServer.Data {
       return query.Where(whereClause, parameters.ToArray());
     }
 
-    /// <summary>
-    /// groupBy + aggregate 처리를 수행합니다.
-    /// groupBy=Field1,Field2
-    /// aggregate=Count:Id,Sum:Amount,Avg:Score,Max:Price,Min:Price
-    /// 결과는 dynamic IQueryable 로 반환됩니다.
-    /// </summary>
+    /// <summary>groupBy + aggregate 를 처리한다. 결과는 dynamic IQueryable 이고, 집계 값은 Count_Id · Sum_Amount 같은 별칭으로 나온다.</summary>
     private static IQueryable ApplyGroupingAndAggregation<T>(IQueryable<T> query, IQueryCollection qs) {
       var groupByFields = qs["groupBy"].ToString()
           .Split(',', StringSplitOptions.RemoveEmptyEntries)
@@ -525,8 +461,6 @@ namespace HelpDeskServer.Data {
         if (i > 0) keyBuilder.Append(", ");
         var f = groupByFields[i];
         keyBuilder.Append(f);
-        // also add alias same as field
-        // keyBuilder.Append($" as {f}");
       }
       keyBuilder.Append(")");
 
@@ -571,8 +505,7 @@ namespace HelpDeskServer.Data {
             continue;
         }
         else {
-          // we call aggregate on the group items: e.g., Sum(it.Amount) needs "it." prefix in Dynamic LINQ aggregate context
-          // Dynamic.Core supports e.g. Sum(it, "Amount")? simpler: use aggregate functions like Sum(it.Amount)
+          // 집계는 그룹 항목 위에서 호출된다(it.Amount 형태).
           var expr = func switch {
             "count" => $"Count(it.{field})", // Count(it.Field)
             "sum" => $"Sum(it.{field})",
@@ -594,9 +527,7 @@ namespace HelpDeskServer.Data {
       return selected;
     }
 
-    /// <summary>
-    /// 페이징 적용 (page=1 기준, pageSize=0 이면 페이징 없음)
-    /// </summary>
+    /// <summary>페이징. page 는 1부터, pageSize=0 이면 페이징하지 않는다.</summary>
     private static IQueryable ApplyPaging(IQueryable query, IQueryCollection qs) {
       int page = 1;
       int pageSize = 0;
@@ -611,9 +542,7 @@ namespace HelpDeskServer.Data {
       return query;
     }
 
-    /// <summary>
-    /// Helper: checks whether key is special control key (handled elsewhere)
-    /// </summary>
+    /// <summary>특수 제어 키(다른 곳에서 처리)인지 판정한다.</summary>
     private static bool IsSpecialKey(string key) {
       return key.Equals("groupBy", StringComparison.OrdinalIgnoreCase)
           || key.Equals("aggregate", StringComparison.OrdinalIgnoreCase)
@@ -648,12 +577,9 @@ namespace HelpDeskServer.Data {
           || t == typeof(TimeOnly);
     }
 
-    /// <summary>
-    /// Try to convert raw string to target type (supports Nullable&lt;&gt; and enums)
-    /// </summary>
+    /// <summary>원본 문자열을 대상 타입으로 바꾼다. Nullable&lt;&gt; 과 enum 을 지원한다.</summary>
 
-    // true 를 돌려줄 때는 converted 가 반드시 채워진다. 그 약속을 특성으로 적어 두면
-    // 호출부 여섯 곳에서 나던 CS8604 가 사라진다 — 호출부마다 군더더기 검사를 넣지 않아도 된다.
+    // true 를 돌려줄 때 converted 가 채워진다는 약속(호출부의 null 경고를 없앤다).
     private static bool TryConvertToType(string raw, Type targetType, [NotNullWhen(true)] out object? converted) {
       converted = null;
       try {
@@ -678,25 +604,8 @@ namespace HelpDeskServer.Data {
           }
         }
 
-        // DateTime ISO parse
-        //
-        // [시간대가 붙은 글자는 UTC 로 굳힌다 (2026-09-28)]
-        //
-        // 그냥 TryParse 하면 "2026-09-28T00:00:00Z" 가 **Kind=Local** 로 나온다.
-        // 그 값이 Dynamic LINQ 식에 박혀 Npgsql 로 내려가면 timestamptz 칸에는
-        // 쓸 수 없어 질의가 통째로 터진다 —
-        //
-        //     'timestamp with time zone' literal cannot be generated for
-        //     Local DateTime: a UTC DateTime is required
-        //
-        // 그래서 **날짜 조건이 이 API 에서 한 번도 동작한 적이 없었다.** 증상이
-        // 빈 목록이 아니라 500 이라 「서버가 죽었나」로 읽힌다.
-        //
-        // 시간대가 없는 글자(`2026-09-28`)는 그대로 Unspecified 로 둔다. Npgsql 이
-        // timestamptz 리터럴을 만들 때 Unspecified 를 **UTC 로 친다** — 이 DB 의
-        // 시각 칸은 2026-09-29 부터 전부 timestamptz 이므로
-        // (`deploy/sql/utc-timestamptz-2026-09-29.sql`) 그 뜻이 이 시스템의 규칙과
-        // 맞는다(docs/utc-time.md). 부르는 쪽이 시간대를 적으면 그 뜻대로 간다.
+        // 시간대가 붙은 날짜는 UTC 로 굳힌다. 그냥 TryParse 하면 Kind=Local 이 되어 timestamptz 질의가 500 으로 터진다(docs/utc-time.md).
+        // 시간대 없는 글자는 Unspecified 로 두면 Npgsql 이 UTC 로 친다.
         if (destType == typeof(DateTime)) {
           if (HasTimeZone(raw)
               && DateTimeOffset.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.None, out var dto)) {
@@ -719,14 +628,7 @@ namespace HelpDeskServer.Data {
       }
     }
 
-    /// <summary>
-    /// 이 날짜 글자에 시간대가 붙어 있는가 — 끝의 <c>Z</c> 이거나 시각 뒤의
-    /// <c>+09:00</c> · <c>-05:00</c>.
-    /// </summary>
-    /// <remarks>
-    /// 날짜 부분의 구분자(<c>2026-09-28</c>)를 음수 오프셋으로 읽지 않도록
-    /// <b>시각이 시작된 뒤</b>만 본다.
-    /// </remarks>
+    /// <summary>날짜 글자에 시간대가 붙었는지(끝 Z 또는 시각 뒤 ±hh:mm). 날짜 구분자를 음수 오프셋으로 읽지 않도록 시각이 시작된 뒤만 본다.</summary>
     private static bool HasTimeZone(string raw) {
       var s = raw.Trim();
       if (s.Length == 0) return false;

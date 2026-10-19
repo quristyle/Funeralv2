@@ -1,13 +1,6 @@
 namespace JSini.Web.LifeEnv.Api;
 
-// ────────────────────────────────────────────────────────────────
-// LifeEnvServer(기상) 응답 DTO 모음.
-//
-// 서버 원본은 microservices/LifeEnvServer 의 EF 엔티티·record 다.
-// 프로젝트 참조 대신 읽기 전용 사본을 두는 이유는 ApiEnvelope 와 같다 —
-// 프론트가 백엔드의 배포 일정·프레임워크 버전에 묶이지 않게 한다.
-// 여기 적은 필드는 Vue 화면(views/life)이 실제로 읽던 것만이다.
-// ────────────────────────────────────────────────────────────────
+// LifeEnvServer(기상) 응답 DTO. 서버 원본의 읽기 전용 사본이다 — 프로젝트 참조 대신 두어 프론트가 백엔드 배포에 묶이지 않게 한다.
 
 /// <summary>관측 지역 (<c>weather_locations</c>).</summary>
 public sealed class WeatherLocation
@@ -77,10 +70,7 @@ public sealed class WeatherInfo
 
 /// <summary>
 /// 예보 타임라인 한 칸 (과거 실측 + 미래 예보 병합, <c>forecast/{id}</c>).
-///
-/// 서버 필드는 <c>isForecast</c> 다. Vue 는 있지도 않은 <c>isPast</c> 를 읽어서
-/// NOW 표시가 사실상 동작하지 않았다 — 여기서는 서버 필드를 그대로 읽고
-/// <see cref="IsPast"/> 로 의도(과거 = 실측)를 되살린다.
+/// 서버 필드는 isForecast 이고, 과거(실측)는 <see cref="IsPast"/> 로 읽는다.
 /// </summary>
 public sealed class WeatherTimelinePoint
 {
@@ -275,8 +265,7 @@ public sealed class WeatherWarningSentence
 }
 
 /// <summary>
-/// 오늘 통보문 중 관리지역이 걸린 문장 (<c>warnings4location-range</c> 응답).
-/// 서버가 익명 타입으로 내려 주는 모양을 그대로 받는다.
+/// 오늘 통보문 중 관리지역이 걸린 문장. 서버가 익명 타입으로 내려 주는 모양을 그대로 받는다.
 /// </summary>
 public sealed class LocationWarningSentence
 {

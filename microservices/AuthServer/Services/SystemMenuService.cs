@@ -29,19 +29,8 @@ public class SystemMenuService : ISystemMenuService
 
     /// <summary>
     /// 데이터베이스에서 전체 메뉴를 조회하여 계층형 트리 구조로 변환 후 반환합니다.
-    ///
-    /// <para>
-    /// [제목의 다국어를 여기서 붙인다]
-    ///
-    /// 예전에는 화면이 제목마다 <c>$t()</c> 를 불러 옮겼다. 그런데 저장된 제목
-    /// 대부분(180건 중 166건)이 번역 키가 아니라 이미 완성된 글자라서, vue-i18n 이
-    /// "그런 키는 없다" 는 경고를 <b>한 번 새로 그릴 때마다 492줄</b> 쏟아냈다.
-    /// 옮길 것이 적은데도 화면이 늦게 뜬 이유가 이것이다.
-    ///
-    /// 그래서 번역을 <b>서버에서 한 번에</b> 붙인다. 언어 하나에 해당하는
-    /// <c>scom.i18n_resources</c> 를 사전 하나로 읽어(왕복 한 번) 제목을 맞춰 본다.
-    /// 화면은 내려온 글자를 그대로 찍기만 하므로 옮기는 일이 아예 없어진다.
-    /// </para>
+    /// 제목의 번역은 서버에서 한 번에 붙인다 — 화면이 제목마다 $t() 를 부르면 키가 아닌 제목마다 경고가 쏟아져 느려진다.
+    /// 언어 하나의 i18n_resources 를 사전 하나로 읽어(왕복 한 번) 제목을 맞춰 본다.
     /// </summary>
     /// <param name="locale">제목을 옮길 언어. 비우면 <c>ko</c>.</param>
     /// <returns>계층화된 시스템 메뉴 목록</returns>
@@ -76,8 +65,7 @@ public class SystemMenuService : ISystemMenuService
                 Redirect = m.Redirect,
                 Type = m.Type,
                 AuthCode = m.AuthCode,
-                // 이 한 줄이 빠져 있어서 메뉴 관리 화면이 상태를 받지 못했다.
-                // 폼의 스위치는 기본값 1(활성)을 들고 있었으므로 비활성 메뉴도 '활성'으로 보였다.
+                // 상태를 실어 주어야 한다 — 빠지면 폼의 기본값(활성)으로 비활성 메뉴가 활성으로 보인다.
                 Status = m.Status,
                 Meta = new SystemMenuMetaDto
                 {
@@ -106,8 +94,7 @@ public class SystemMenuService : ISystemMenuService
                     UseTablet = m.UseTablet
                 },
                 Permissions = ToPermissionsDto(m),
-                // 같은 가지를 두 번 조립하지 않는다. 예전에는 `Any()` 로 한 번,
-                // 값으로 또 한 번 만들어 메뉴 깊이만큼 일이 곱절로 늘었다.
+                // 같은 가지를 두 번 조립하지 않는다 — Any() 와 값을 따로 만들면 메뉴 깊이만큼 일이 곱절이 된다.
                 Children = BuildMenuTree(menus, m.Id, titles) is { Count: > 0 } kids ? kids : null
             })
             .ToList();
@@ -146,7 +133,7 @@ public class SystemMenuService : ISystemMenuService
     /// <summary>
     /// 요청의 권한 항목 설정을 엔티티에 반영합니다.
     /// 사용하지 않는 사용자 정의 항목의 이름은 남겨두지 않는다 —
-    /// 꺼둔 칸에 예전 이름이 남아 있으면 다시 켰을 때 엉뚱한 이름이 붙는다.
+    /// 꺼둔 칸에 이전 이름이 남아 있으면 다시 켰을 때 엉뚱한 이름이 붙는다.
     /// </summary>
     private static void ApplyPermissions(SystemMenu menu, MenuPermissionItemsDto p)
     {
@@ -211,9 +198,7 @@ public class SystemMenuService : ISystemMenuService
             AuthCode = request.AuthCode,
             // 안 보내면 엔티티 기본값(활성)을 쓴다.
             Status = request.Status ?? 1,
-            // 제목을 따로 입력하지 않은 메뉴는 메뉴 이름을 화면 제목으로 쓴다.
-            // 그래야 관리 화면에서 이름을 바꾼 뒤 다시 읽어도 빈 제목이나
-            // 이전 값이 남아 보이지 않는다.
+            // 제목을 따로 입력하지 않으면 메뉴 이름을 화면 제목으로 쓴다 — 이름을 바꾼 뒤 빈 제목이나 이전 값이 남아 보이지 않게.
             Title = string.IsNullOrWhiteSpace(request.Meta.Title)
                 ? request.Name
                 : request.Meta.Title,
@@ -264,9 +249,7 @@ public class SystemMenuService : ISystemMenuService
         menu.AuthCode = request.AuthCode;
         // 값을 실어 보낸 요청만 상태를 바꾼다. 안 보낸 요청은 지금 상태를 그대로 둔다.
         if (request.Status.HasValue) menu.Status = request.Status.Value;
-        // `name`과 `title`은 원래 별도 값이다. 다만 제목을 입력하지 않았거나
-        // 예전 이름을 그대로 복사해 둔 일반 제목이면 이름 변경을 제목에도
-        // 반영한다. 번역 키나 사용자가 따로 정한 제목은 덮어쓰지 않는다.
+        // 제목을 따로 입력하지 않았거나 이름을 그대로 복사한 일반 제목이면 이름 변경을 제목에도 반영한다. 번역 키나 사용자가 정한 제목은 덮어쓰지 않는다.
         menu.Title = string.IsNullOrWhiteSpace(request.Meta.Title)
             || string.Equals(request.Meta.Title, previousName, StringComparison.Ordinal)
                 ? request.Name
@@ -317,7 +300,7 @@ public class SystemMenuService : ISystemMenuService
     /// 빈 열쇠는 <c>null</c> 로 저장한다.
     ///
     /// 빈 문자열로 두면 "가리키는 화면이 없다"(묶음·외부링크)와
-    /// "아직 안 채웠다"가 구분되지 않는다. 프론트는 <c>null</c> 일 때만 옛
+    /// "아직 안 채웠다"가 구분되지 않는다. 프론트는 <c>null</c> 일 때만 기존
     /// 방식으로 떨어지므로, 그 구분이 이행이 끝났는지를 재는 눈금이다.
     /// </summary>
     private static string? Normalize(string? routeKey) =>

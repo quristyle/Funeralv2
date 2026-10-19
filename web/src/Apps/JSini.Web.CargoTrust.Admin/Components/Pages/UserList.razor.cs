@@ -55,8 +55,7 @@ public partial class UserList
             }
             catch (ApiException ex)
             {
-                // 창은 그대로 둔다 — 회사를 못 읽어도 유형 · 차단 · 메모는 고칠 수 있다.
-                // 다음에 창을 열 때 다시 읽는다.
+                                // 회사를 못 읽어도 창은 그대로 둔다 — 유형 · 차단 · 메모는 고칠 수 있다. 다음에 창을 열 때 다시 읽는다.
                 Say($"거래처 목록을 읽지 못했습니다 — {ex.Message}", NoticeTone.Error);
             }
         }

@@ -6,10 +6,7 @@ using Microsoft.Extensions.Options;
 
 namespace CargoTrustServer.Disputes;
 
-/// <summary>
-/// 업체 이의제기(설계안 14). 차주가 적은 거래에 그 회사가 「사실과 다르다」를 걸 수 있는 길이다 —
-/// 이 길이 없으면 한쪽 말만 쌓이는 서비스가 된다.
-/// </summary>
+/// <summary>업체 이의제기(설계안 14). 차주가 적은 거래에 그 회사가 「사실과 다르다」를 걸 수 있는 길이다 — 없으면 한쪽 말만 쌓인다.</summary>
 public static class DisputeEndpoints
 {
     public static void MapDisputeEndpoints(this RouteGroupBuilder api)

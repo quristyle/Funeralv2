@@ -3,23 +3,8 @@ using Microsoft.Extensions.Logging;
 
 namespace JSini.Web.Components.Data;
 
-/// <summary>
-/// <b>아바타를 누르면 뜨는 사람 카드</b>의 손잡이 — <c>UserAvatar</c> 가 열고
-/// 레이아웃의 <c>UserCardHost</c> 한 벌이 그린다.
-/// </summary>
-/// <remarks>
-/// <para>
-/// 카드를 아바타마다 두지 않는 까닭은 그림 미리보기(<see cref="ImagePreview"/>)와 같다 —
-/// 목록 스무 줄이 저마다 창을 들고 있으면 무겁고, 격자 칸·카드의
-/// <c>overflow: hidden</c> 안에 갇혀 말풍선이 잘린다.
-/// </para>
-///
-/// <para>
-/// 연락처(메일·전화)는 <b>누른 사람 한 명만</b> 묻는다(<c>auth/user/card</c>).
-/// 얼굴 목록(<see cref="UserFaceClient"/>)에 실으면 목록 화면이 열릴 때마다
-/// 줄 수만큼의 연락처가 브라우저로 간다. 회로가 사는 동안은 다시 묻지 않는다.
-/// </para>
-/// </remarks>
+/// <summary>아바타를 누르면 뜨는 사람 카드의 손잡이. UserAvatar 가 열고 레이아웃의 UserCardHost 한 벌이 그린다. 카드를 아바타마다 두지 않는 까닭은 목록 스무 줄이 저마다 창을 들면 무겁고, 격자 칸의 overflow: hidden 에 말풍선이 잘리기 때문이다.
+/// 연락처(메일 · 전화)는 누른 사람 한 명만 묻는다 — 얼굴 목록에 실으면 목록이 열릴 때마다 줄 수만큼 연락처가 브라우저로 간다.</summary>
 public sealed class UserCard(GatewayClient gateway, ILogger<UserCard> logger)
 {
     private const string Url = "auth/user/card";
@@ -33,10 +18,7 @@ public sealed class UserCard(GatewayClient gateway, ILogger<UserCard> logger)
 
     public bool IsOpen => Current is not null;
 
-    /// <summary>
-    /// 카드를 연다. <paramref name="anchorId"/> 는 누른 아바타의 요소 아이디다 —
-    /// 책상에서는 말풍선이 그 아래(자리가 없으면 위)에 붙는다.
-    /// </summary>
+    /// <summary>카드를 연다. anchorId 는 누른 아바타의 요소 아이디다. 책상에서는 말풍선이 그 아래(자리가 없으면 위)에 붙는다.</summary>
     public void Open(string loginId, string anchorId, string? name = null, string? photo = null)
     {
         if (string.IsNullOrWhiteSpace(loginId))
@@ -59,10 +41,7 @@ public sealed class UserCard(GatewayClient gateway, ILogger<UserCard> logger)
         Changed?.Invoke();
     }
 
-    /// <summary>
-    /// 그 사람의 카드 자료. 없는 사람이거나 못 읽었으면 <c>null</c> —
-    /// 카드는 아바타가 이미 아는 이름과 얼굴만으로 선다.
-    /// </summary>
+    /// <summary>그 사람의 카드 자료. 없는 사람이거나 못 읽었으면 null — 카드는 아바타가 이미 아는 이름과 얼굴만으로 선다.</summary>
     public async Task<UserCardInfo?> LoadAsync(string loginId, CancellationToken ct = default)
     {
         if (_known.TryGetValue(loginId, out var known))

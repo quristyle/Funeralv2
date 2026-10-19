@@ -8,18 +8,7 @@ namespace AuthServer.Endpoints;
 /// <summary>
 /// 공지 엔드포인트
 /// </summary>
-/// <remarks>
-/// 공지는 JSini 관리 포털이 관리하고 모든 MSA 사용자에게 공통으로 보인다.
-///
-/// 팝업 조회는 두 갈래다.
-///   GET /notices/popup/public  로그인 전에도 볼 수 있는 공지만. 인증 불필요.
-///   GET /notices/popup         전부. 로그인한 사용자용.
-///
-/// 게이트웨이의 `/api/auth/**` 경로는 Anonymous 라 인증을 걸지 않는다.
-/// 인증이 필요한 엔드포인트는 여기서 UserContext 가 없으면 401 을 돌려준다.
-/// (게이트웨이가 토큰을 검증한 뒤에만 X-User-* 헤더를 붙이고,
-///  외부에서 보낸 같은 이름의 헤더는 지운다.)
-/// </remarks>
+/// 자체 엔드포인트 — 게이트웨이의 /api/auth/** 는 익명이라 여기서 UserContext 가 없으면 401 을 돌려준다. 팝업 조회는 로그인 전용 public 과 로그인 후 전체 두 갈래다.
 public static class NoticeEndpoints
 {
     public static void MapNoticeEndpoints(this IEndpointRouteBuilder app)

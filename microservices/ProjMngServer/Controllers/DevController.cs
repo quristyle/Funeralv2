@@ -13,11 +13,6 @@ public class DevController : ControllerBase {
     _devService = devService;
   }
 
-  //[HttpPost]
-  //public ActionResult<Dictionary<string, object>> PostBody([FromBody] Dictionary<string, string> parameters) {
-  //  var data = _devService.GetData(parameters);
-  //  return Ok(data);
-  //}
 
 
 

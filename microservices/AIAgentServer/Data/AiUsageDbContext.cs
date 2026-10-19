@@ -2,70 +2,29 @@ using Microsoft.EntityFrameworkCore;
 
 namespace AIAgentServer.Data;
 
-/// <summary>
-/// 사람별 AI 사용량을 적고 읽는 자리. <b>이 서비스가 가진 유일한 DB 접점이다.</b>
-/// </summary>
-/// <remarks>
-/// <para>
-/// 포털 DB(<c>jsiniportal</c> / <c>scom</c>)를 쓴다. 서비스별 DB 가 정석이지만
-/// 표 하나 때문에 DB 를 늘리지 않았다 — NotificationServer 가 구독 표 하나로
-/// 같은 판단을 한 자리와 같다(그쪽 <c>AppDbContext</c> 머리말).
-/// </para>
-/// <para>
-/// <b>여기서 계정을 고치지 않는다.</b> <see cref="Accounts"/> 는 「누구의
-/// 사용량인가」에 이름을 붙이려고 읽기만 하는 매핑이고, 정본은 AuthServer 다.
-/// </para>
-/// <para>
-/// [마이그레이션이 없다]
-/// </para>
-/// <para>
-/// 이 프로젝트에는 <c>Migrations</c> 폴더가 없고 <c>scom</c> 의 이력은
-/// AuthServer · FileServer 가 함께 쓴다. 여기에 이력을 하나 더 붙이면 같은
-/// 스키마를 세 곳이 서로 모르고 고치게 된다. 표는 SQL 이 만든다 —
-/// <c>deploy/sql/ai-usage-2026-10-08.sql</c>.
-/// </para>
-/// <para>
-/// [연결이 없어도 서비스는 돈다]
-/// </para>
-/// <para>
-/// 연결 문자열을 안 넣은 개발 장비가 있다. 그때 AI 기능이 통째로 멎으면 안 되므로
-/// <b>적는 쪽이 조용히 건너뛴다</b>(<see cref="Services.AiUsageLog"/>) —
-/// 사용량은 곁다리고 대화가 본일이다.
-/// </para>
-/// </remarks>
+/// <summary>AI 사용량과 AI쳇 대화를 적고 읽는다. 이 서비스가 가진 유일한 DB 접점이다. 포털 DB(scom)를 쓰며, 계정·메뉴·회사는 읽기만 한다(정본은 AuthServer).
+/// 연결 문자열이 없으면 적는 쪽이 조용히 건너뛴다 — 사용량은 곁다리고 대화가 본일이다. 마이그레이션은 두지 않고 표는 SQL(deploy/sql)이 만든다.</summary>
 public class AiUsageDbContext(DbContextOptions<AiUsageDbContext> options) : DbContext(options)
 {
     /// <summary>AI 호출 한 건. 쌓기만 하고 고치지 않는다.</summary>
     public DbSet<AiUsageRow> AiUsageLogs => Set<AiUsageRow>();
 
-    /// <summary>
-    /// 계정 이름을 붙이려고 읽는 매핑. <b>조회 전용이다.</b>
-    /// </summary>
+    /// <summary>계정 이름을 붙이려고 읽는 매핑. <b>조회 전용이다.</b></summary>
     public DbSet<AiUsageAccountRow> Accounts => Set<AiUsageAccountRow>();
 
-    // ── 메뉴 권한 (읽기 전용) ───────────────────────────────
-    //
-    // 「이 화면을 볼 수 있는 사람인가」를 **사이드바와 같은 표에 묻는다.**
-    // 정본은 AuthServer 이고 여기서는 절대 쓰지 않는다 — 계정 이름을 읽는
-    // 것과 같은 자리다(Services/MenuAccess.cs 머리말).
+    // 메뉴 권한은 읽기 전용이다. 정본은 AuthServer 이고 사이드바와 같은 표에 묻는다(Services/MenuAccess.cs).
 
     public DbSet<SystemMenuRow> SystemMenus => Set<SystemMenuRow>();
 
     public DbSet<RoleMenuRow> RoleMenus => Set<RoleMenuRow>();
 
-    // ── AI쳇 대화 보관 ──────────────────────────────────────
-    //
-    // 여태 대화는 회로가 사는 동안만 있었다. 새로고침하면 사라졌고 주제별로
-    // 나눌 수도 없었다 — deploy/sql/ai-chat-2026-10-08.sql 머리말 참고.
+    // AI쳇 대화 보관(deploy/sql/ai-chat-2026-10-08.sql).
 
     public DbSet<AiChatSessionRow> AiChatSessions => Set<AiChatSessionRow>();
 
     public DbSet<AiChatMessageRow> AiChatMessages => Set<AiChatMessageRow>();
 
-    // ── RAG 문서 보관 ───────────────────────────────────────
-    //
-    // 카테고리(RAG 단위) → 분류(트리) → 파일. 파일 실물은 디스크에 있고
-    // 여기에는 경로와 색인 상태만 있다 — deploy/sql/rag-documents-2026-10-16.sql
+    // RAG 문서 보관. 파일 실물은 디스크·파일 서버에 있고 여기에는 경로와 색인 상태만 있다(deploy/sql/rag-documents-2026-10-16.sql).
 
     /// <summary>소속 회사 이름을 붙이려고 읽는 매핑. 조회 전용이다.</summary>
     public DbSet<CompanyRow> Companies => Set<CompanyRow>();
@@ -224,9 +183,7 @@ public class AiUsageDbContext(DbContextOptions<AiUsageDbContext> options) : DbCo
     }
 }
 
-/// <summary>
-/// AI 호출 한 건. 칸의 뜻은 <c>deploy/sql/ai-usage-2026-10-08.sql</c> 머리말에 있다.
-/// </summary>
+/// <summary>AI 호출 한 건. 칸의 뜻은 deploy/sql/ai-usage-2026-10-08.sql 에 있다.</summary>
 public class AiUsageRow
 {
     public long Id { get; set; }
@@ -301,10 +258,7 @@ public class RoleMenuRow
     public bool IsDeleted { get; set; }
 }
 
-/// <summary>
-/// 대화 한 줄기(주제 하나). 칸의 뜻은
-/// <c>deploy/sql/ai-chat-2026-10-08.sql</c> 머리말에 있다.
-/// </summary>
+/// <summary>대화 한 줄기(주제 하나). 칸의 뜻은 deploy/sql/ai-chat-2026-10-08.sql 에 있다.</summary>
 public class AiChatSessionRow
 {
     public string Id { get; set; } = string.Empty;
@@ -348,10 +302,7 @@ public class CompanyRow
 }
 
 /// <summary>RAG 단위 하나. 색인 파일 하나에 대응한다.</summary>
-/// <remarks>
-/// <b>섞으면 안 되는 자료를 가르는 자리다.</b> 사내 규정과 제품 설명서를 한
-/// 색인에 넣으면 "휴가 며칠인가" 에 제품 문서가 섞여 나온다.
-/// </remarks>
+/// <summary>RAG 단위 하나. 색인 파일 하나에 대응하며, 섞으면 안 되는 자료(사내 규정과 제품 설명서)를 가르는 자리다.</summary>
 public class RagCategoryRow
 {
     public string Id { get; set; } = string.Empty;
@@ -378,11 +329,7 @@ public class RagCategoryRow
     public bool IsDeleted { get; set; }
 }
 
-/// <summary>분류 한 칸. 카테고리 안의 트리다.</summary>
-/// <remarks>
-/// <b>분류는 사람이 보기 좋으라고 있는 것이고, 검색은 카테고리 전체에서 한다.</b>
-/// 어느 서랍에 넣었는지 기억해야 찾을 수 있다면 그것은 검색이 아니다.
-/// </remarks>
+/// <summary>분류 한 칸. 카테고리 안의 트리다. 분류는 보기 좋으라고 있고, 검색은 카테고리 전체에서 한다.</summary>
 public class RagFolderRow
 {
     public long Id { get; set; }
@@ -413,19 +360,10 @@ public class RagDocumentRow
     /// <summary>같은 내용을 색인에 두 번 넣지 않으려고 적어 둔다.</summary>
     public string? Sha256 { get; set; }
 
-    /// <summary>
-    /// 파일 서버가 붙인 아이디. <b>실물은 그쪽에 있다.</b>
-    /// </summary>
-    /// <remarks>
-    /// 비어 있으면 <see cref="StoredPath"/> 로 읽던 옛 줄이다
-    /// (<c>deploy/sql/rag-documents-fileserver-2026-10-17.sql</c>).
-    /// </remarks>
+    /// <summary>파일 서버가 붙인 아이디(실물은 그쪽에 있다). 비어 있으면 옛 StoredPath 로 읽는 줄이다.</summary>
     public Guid? FileId { get; set; }
 
-    /// <summary>
-    /// <c>Rag:UploadRoot</c> 기준 상대 경로. <b>옛 길이다</b> —
-    /// <see cref="FileId"/> 가 없는 줄만 이것으로 읽는다.
-    /// </summary>
+    /// <summary>Rag:UploadRoot 기준 상대 경로. 옛 길이며 FileId 가 없는 줄만 이것으로 읽는다.</summary>
     public string StoredPath { get; set; } = string.Empty;
 
     /// <summary><c>pending</c> · <c>indexed</c> · <c>failed</c> · <c>skipped</c></summary>

@@ -2,11 +2,7 @@ using Xunit;
 
 namespace ProjMngServer.Tests;
 
-/// <summary>
-/// 이어서 지시(ContinueAsync), 수동 재시도(RetryAsync), 작업 요청(RequestAsync) 시
-/// 기존에 사용자 확인 완료(user_confirmed = true) 상태였더라도 반드시
-/// 다시 미확인 상태(user_confirmed = false)로 리셋되어야 한다.
-/// </summary>
+/// <summary>이어서 지시(ContinueAsync)·수동 재시도(RetryAsync)·작업 요청(RequestAsync)은 user_confirmed 가 true 여도 false 로 리셋해야 한다.</summary>
 public class AiTaskServiceUserConfirmedTests
 {
     private static string FindAiTaskServiceSource()

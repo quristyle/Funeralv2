@@ -6,126 +6,20 @@ using Microsoft.AspNetCore.Components;
 
 namespace JSini.Web.Components.Layout;
 
-/// <summary>
-/// 휴대폰 화면 아래에 붙는 띠(<see cref="MobileBottomNav"/>)에 무엇을 놓을지.
-///
-/// <para>
-/// [칸 수까지 사람이 고른다 — 셋에서 여덟]
-/// </para>
-///
-/// <para>
-/// 한동안 다섯이 코드에 박혀 있었다(홈 · 빠른지시 · 알림 · 설정 · 내 정보).
-/// 그런데 이 포털은 업무가 여덟이고 사람마다 하루 종일 붙어 있는 화면이
-/// 다르다 — 장례식장만 쓰는 사람에게 「빠른지시」는 한 번도 안 누르는 칸이고,
-/// 그 사람이 정작 자주 여는 빈소 현황은 메뉴를 열어야 닿는다.
-/// </para>
-///
-/// <para>
-/// 무엇을 놓을지만 고를 수 있던 동안에도 <b>칸 수는 다섯으로 묶여 있었다.</b>
-/// 그런데 띠에 바라는 것이 사람마다 다르다 — 업무 하나만 쓰는 사람은 셋이면
-/// 넉넉하고 그 이상은 눌릴 일 없는 칸이 엄지 자리를 먹는 것이고, 업무를 여럿
-/// 오가는 사람은 다섯으로는 모자라 결국 매번 메뉴를 연다. 그래서 칸 수를
-/// <see cref="MinItems"/>~<see cref="MaxItems"/> 사이에서 고르게 한다.
-/// </para>
-///
-/// <para>
-/// [고르지 않으면 홈 · 알림 · 설정 · 프로필 · 메뉴]
-/// </para>
-///
-/// <para>
-/// 저장해 둔 것이 없으면 <see cref="Defaults"/> 다. 다섯 중 <b>업무 하나에
-/// 매인 화면은 하나도 없다</b> — 누가 로그인해도 뜻이 같은 칸만 남기고,
-/// 못 닿는 화면은 맨 끝 「메뉴」로 연다.
-/// </para>
-///
-/// <para>
-/// <b>기본 다섯은 아이콘을 직접 들고 있다</b>(<see cref="BottomNavItem.Icon"/>)
-/// — 넷은 뒤에 메뉴가 없고, 알림도 지금 화면에 떠 있는 그림이 그것이라
-/// 여기서 메뉴 아이콘으로 갈아 끼우면 <b>아무것도 안 고친 사람의 띠가
-/// 바뀐다.</b> 사람이 고른 칸만 메뉴의 아이콘을 따라간다.
-/// </para>
-///
-/// <para>
-/// [계정에 남는다 — 브라우저에 있다가 옮겨 왔다]
-/// </para>
-///
-/// <para>
-/// 한동안 브라우저 저장소였다. 그때의 셈은 <b>이 띠는 휴대폰에서만 보이므로</b>
-/// 계정에 담아 봐야 큰 모니터에서는 쓰이지 않는다는 것이었고, 거기에
-/// 「계정에 두면 읽으려고 왕복이 하나 더 는다」가 붙었다.
-/// </para>
-///
-/// <para>
-/// <b>앞엣것이 틀렸다 — 휴대폰이 한 대라는 전제였다.</b> 회사 휴대폰과 개인
-/// 휴대폰, 태블릿, 홈 화면에 깐 앱(PWA 는 저장소가 또 따로다)이 저마다 다른
-/// 띠를 띄웠고, 한 곳에서 고른 것이 다른 곳에 영영 안 갔다. 캐시를 지우면
-/// 통째로 사라지는 것은 덤이다. 「내가 자주 쓰는 메뉴 다섯」은 기기가 아니라
-/// 사람에게 붙는 값이다.
-/// </para>
-///
-/// <para>
-/// <b>뒤엣것은 공짜로 풀렸다.</b> 값이 부트스트랩 응답에 실려 오므로
-/// (<c>PortalBootstrapDto.Preferences</c>) 왕복이 늘지 않는다 — 읽는 길은
-/// 그대로 <see cref="PortalBoot"/> 한 곳이고, 그것이 브라우저에서 읽은 한 벌
-/// 위에 계정의 값을 얹는다(<c>PortalPrefs</c>).
-/// </para>
-///
-/// <para>
-/// 떠다니는 단추의 <b>자리</b>만 브라우저에 남았다. 그쪽은 손가락으로 끌어
-/// 옮기는 값이라 기기마다 다른 것이 맞다.
-/// </para>
-/// </summary>
+/// <summary>휴대폰 아래 띠(MobileBottomNav)에 무엇을 놓을지. 칸 수는 MinItems 와 MaxItems 사이에서 사람이 고른다.
+/// 고르지 않았으면 Defaults(홈 · 알림 · 설정 · 프로필 · 메뉴) — 업무에 매인 화면은 기본에 두지 않는다.</summary>
 public static class BottomNav
 {
-    /// <summary>
-    /// 띠에 놓을 수 있는 칸 수의 <b>바닥</b>.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 하나·둘만 남기면 띠가 <b>띠로 안 보인다</b> — 360px 를 둘이 나눠 가지면
-    /// 칸 하나가 180px 짜리 단추가 되어 화면 아래에 넓적한 막대가 붙은 꼴이고,
-    /// 그 자리에서 사람은 고장으로 읽는다. 셋이 「가로로 늘어선 칸」으로 보이는
-    /// 가장 적은 수다.
-    /// </para>
-    /// <para>
-    /// <b>이것은 띠를 끄는 길이 아니다.</b> 띠를 아예 없애려면 환경설정의
-    /// 「하단 네비게이션 사용」을 끈다(<c>PortalPrefs.BottomNavHiddenKey</c>). 칸을
-    /// 하나씩 빼서 없애는 길을 열어 두면, 빈 띠가 남은 화면과 꺼 둔 화면이
-    /// 사람 눈에 같아 보이는데 되돌리는 자리가 서로 다르다.
-    /// </para>
-    /// </remarks>
+    /// <summary>띠에 놓을 수 있는 칸 수의 바닥(3). 둘 이하면 띠로 안 보여 고장으로 읽힌다. 띠를 끄는 길은 BottomNavHiddenKey 이고 칸을 빼서 없애는 길이 아니다.</summary>
     public const int MinItems = 3;
 
-    /// <summary>
-    /// 띠에 놓을 수 있는 칸 수의 <b>천장</b>.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 여덟이 320px 에서 버티는 마지막 수다 — 칸 하나가 39px 이고 아이콘이
-    /// 20px 이라 그림은 넉넉하다. 이름은 11px 짜리 두세 글자까지 남고 그 뒤는
-    /// 말줄임으로 잘린다(<c>app.css</c> 의 <c>.jsini-bottom-nav__item</c>).
-    /// </para>
-    /// <para>
-    /// <b>잘리는 쪽을 고른 것이다.</b> 칸이 안 줄어들게 두면 이름 긴 칸이
-    /// 제 폭을 쥐고 버텨 띠 전체가 화면보다 넓어지고, 그러면 <b>맨 끝 칸이
-    /// 화면 밖으로 밀려 아예 못 눌린다</b> — 320px·여덟 칸에 네 글자 이름을
-    /// 채워 재 보면 띠가 376px 이 되어 끝 칸(대개 「메뉴」)이 사라졌다.
-    /// 띠에서 못 닿는 화면을 전부 여는 칸이 그것이라 가장 나쁜 쪽이 잘린다.
-    /// </para>
-    /// <para>
-    /// 이름은 사람이 짧게 고쳐 적을 수 있다(<see cref="BottomNavItem.Title"/>).
-    /// </para>
-    /// </remarks>
+    /// <summary>띠에 놓을 수 있는 칸 수의 천장(8). 320px 에서 버티는 마지막 수다. 이름이 길면 말줄임으로 잘린다 — 칸이 줄지 않으면 띠가 화면보다 넓어져 끝 칸(메뉴)이 밀려 못 눌린다.</summary>
     public const int MaxItems = 8;
 
     /// <summary>홈. 메뉴가 아니라 주소 하나라 따로 둔다.</summary>
     public const string HomePath = "/";
 
-    /// <summary>
-    /// 테마 서랍을 여는 칸. <b>주소가 아니다</b> — 오른쪽 위 팔레트 단추와
-    /// 같은 서랍을 그 자리에서 연다. 주소로 흉내 낼 수 없어서 표시를 하나 쓴다
-    /// (<c>#</c> 로 시작하므로 메뉴 경로와 절대 겹치지 않는다).
-    /// </summary>
+    /// <summary>테마 서랍을 여는 칸. 주소가 아니라 표시(#로 시작)이므로 메뉴 경로와 겹치지 않는다.</summary>
     public const string ThemePath = "#theme";
 
     /// <summary>전체 메뉴(사이드바)를 여는 가짜 주소.</summary>
@@ -134,35 +28,7 @@ public static class BottomNav
     /// <summary>내 정보(프로필)를 여는 가짜 주소.</summary>
     public const string ProfilePath = "#profile";
 
-    /// <summary>
-    /// 고른 적이 없을 때의 다섯 — <b>홈 · 알림 · 설정 · 프로필 · 메뉴</b>.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// [업무 화면을 기본값에 두지 않는다]
-    /// </para>
-    /// <para>
-    /// 한동안 둘째 칸이 「빠른지시」(<c>/projmng/ai/ask</c>)였고 끝 칸이
-    /// 「내 정보」 화면이었다. 둘 다 <b>업무 하나에 매인 화면</b>이라,
-    /// 장례식장만 쓰는 사람에게는 한 번도 안 누르는 칸이 기본으로 붙었다.
-    /// 지금 다섯은 업무를 가리지 않는 것들만 남긴다 — 홈과 알림 말고는
-    /// 아예 주소가 아니라 <b>그 자리에서 무언가를 여는 표시</b>다
-    /// (<see cref="Fixed"/>).
-    /// </para>
-    /// <para>
-    /// [메뉴가 맨 끝인 까닭]
-    /// </para>
-    /// <para>
-    /// 띠에서 못 닿는 화면은 전부 메뉴를 열어야 닿는다. 그 칸이 헤더 왼쪽
-    /// 위 햄버거와 <b>같은 서랍</b>을 여는데, 한 손으로 쥐었을 때 엄지가
-    /// 가장 멀리 닿는 자리가 오른쪽 끝이라 거기 둔다 — 자주 누르는 칸을
-    /// 앞에 두려면 사람이 차례를 바꾸면 된다(<see cref="Move"/>).
-    /// </para>
-    /// <para>
-    /// 다섯 모두 아이콘을 직접 들고 있다 — 메뉴 트리가 아직 안 왔거나
-    /// 관리자가 메뉴 아이콘을 바꿔도 <b>안 고친 사람의 띠는 그대로다.</b>
-    /// </para>
-    /// </remarks>
+    /// <summary>고른 적이 없을 때의 다섯 — 홈 · 알림 · 설정 · 프로필 · 메뉴. 업무에 매인 화면은 기본에 두지 않는다. 메뉴는 못 닿는 화면을 여는 칸이라 끝에 둔다. 다섯 모두 아이콘을 직접 들고 있어 메뉴 아이콘이 바뀌어도 기본 띠는 그대로다.</summary>
     public static readonly IReadOnlyList<BottomNavItem> Defaults =
     [
         new() { Path = HomePath, Title = "홈", Icon = "jsini-icon-home" },
@@ -172,15 +38,7 @@ public static class BottomNav
         new() { Path = MenuPath, Title = "메뉴", Icon = "jsini-icon-menu" },
     ];
 
-    /// <summary>
-    /// 메뉴에 아이콘이 없을 때 대신 붙일 그림들. <b>고정된 하나로 두지
-    /// 않는다</b> — 아이콘 없는 메뉴를 둘 이상 놓으면 띠에 똑같은 그림이
-    /// 나란히 서서 어느 칸이 무엇인지 그림으로는 못 가린다.
-    /// </summary>
-    /// <remarks>
-    /// 이름은 <c>menu-icons.css</c> 에 실제로 있는 것들이다. 없는 이름을 적으면
-    /// <see cref="MenuIcons"/> 의 기본값(동그라미)이 나오므로 조용히 다 같아진다.
-    /// </remarks>
+    /// <summary>메뉴에 아이콘이 없을 때 대신 붙일 그림들. 하나로 두지 않는다 — 같은 그림이 나란히 서면 칸을 가릴 수 없다. 이름은 menu-icons.css 에 실제로 있는 것만 적는다(없으면 기본 동그라미가 나온다).</summary>
     private static readonly string[] FallbackIcons =
     [
         "lucide:layout-dashboard",
@@ -198,25 +56,7 @@ public static class BottomNav
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
     };
 
-    /// <summary>
-    /// 저장해 둔 글자를 칸 목록으로. 비었거나 읽을 수 없거나
-    /// <see cref="MinItems"/> 에 못 미치면 <see cref="Defaults"/> 다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>「칸이 없다」를 돌려주지 않는다.</b> 띠를 쓰기로 해 놓고 칸이 하나도
-    /// 없으면 화면 아래에 빈 띠만 남고, 그 자리에서 사람은 고장으로 읽는다.
-    /// 칸을 다 지우는 것은 「쓰지 않기」로 말해야 한다.
-    /// </para>
-    /// <para>
-    /// <b>모자란 것도 없는 것으로 본다.</b> 한동안 바닥이 하나였고 그때
-    /// 적어 둔 것(칸 하나·둘)이 아직 브라우저에 남아 있다. 그대로 읽어 주면
-    /// 화면은 <see cref="MinItems"/>~<see cref="MaxItems"/> 라고 말하는데
-    /// 띠는 그 밖에 서 있고, 빼기 단추가 처음부터 잠긴 줄이 생긴다 — 그
-    /// 자리에서 사람은 「빼기가 안 먹는다」고 읽는다. 천장을 읽는 쪽에서
-    /// 한 번 더 자르는 것과 같은 까닭이다(저장소는 사람이 고칠 수 있다).
-    /// </para>
-    /// </remarks>
+    /// <summary>저장해 둔 글자를 칸 목록으로. 비었거나 못 읽거나 MinItems 에 못 미치면 Defaults. 「칸 없음」을 돌려주지 않는다 — 빈 띠는 고장으로 읽힌다. 모자란 옛 값도 기본으로 떨어뜨린다.</summary>
     public static IReadOnlyList<BottomNavItem> Parse(string? json)
     {
         if (string.IsNullOrWhiteSpace(json))
@@ -250,48 +90,14 @@ public static class BottomNav
         return cleaned.Length < MinItems ? Defaults : cleaned;
     }
 
-    /// <summary>
-    /// 칸 목록을 저장할 글자로. <see cref="MaxItems"/> 를 넘으면 앞에서 자른다.
-    /// </summary>
-    /// <remarks>
-    /// <b>바닥은 여기서 보지 않는다.</b> 모자란 목록을 적는 길은 화면이 막고
-    /// (빼기 단추가 <see cref="MinItems"/> 에서 잠긴다), 그래도 적힌 것은
-    /// <see cref="Parse"/> 가 읽을 때 기본값으로 떨어뜨린다. 여기서 말없이
-    /// 채워 넣으면 사람이 고르지 않은 칸이 저장된 것 안에 생긴다.
-    /// </remarks>
+    /// <summary>칸 목록을 저장할 글자로. MaxItems 를 넘으면 앞에서 자른다. 바닥은 여기서 보지 않는다 — 화면이 빼기를 막고 Parse 가 읽을 때 기본으로 떨어뜨린다.</summary>
     public static string Serialize(IEnumerable<BottomNavItem> items) =>
         JsonSerializer.Serialize(items.Take(MaxItems).ToArray(), Json);
 
-    /// <summary>
-    /// 칸 하나를 <paramref name="delta"/> 만큼 옮긴다. 옮겼으면 <c>true</c>.
-    /// </summary>
-    /// <param name="items">고칠 목록. <b>이 자리에서 바뀐다.</b></param>
+    /// <summary>칸 하나를 delta 만큼 옮긴다. 옮겼으면 true. 목록의 위가 띠의 왼쪽이다. 맞바꾸지 않고 뽑아서 끼워 두 칸 넘게 옮겨도 나머지 차례가 흐트러지지 않는다. 목록 밖으로는 나가지 않는다.</summary>
+    /// <param name="items">고칠 목록. 이 자리에서 바뀐다.</param>
     /// <param name="index">옮길 칸의 지금 자리.</param>
     /// <param name="delta">몇 칸을 옮길지. 음수면 앞으로(띠에서 왼쪽으로).</param>
-    /// <remarks>
-    /// <para>
-    /// [순서가 곧 띠의 차례다]
-    /// </para>
-    /// <para>
-    /// 이 목록의 <b>위에 있는 칸이 띠에서 왼쪽</b>에 선다
-    /// (<see cref="MobileBottomNav"/> 가 목록을 그 차례대로 그린다). 그래서
-    /// 「무엇을 놓을지」만 고르게 해 두면, 자주 누르는 칸이 엄지가 닿지 않는
-    /// 오른쪽 끝에 남아도 사람이 손쓸 길이 없다 — 빼고 다시 넣어 가며
-    /// 차례를 맞추는 것이 유일한 방법이었다.
-    /// </para>
-    /// <para>
-    /// [자리를 맞바꾸지 않고 뽑아서 끼운다]
-    /// </para>
-    /// <para>
-    /// 한 칸씩 옮길 때는 둘이 같지만, 두 칸 넘게 옮기면 <b>맞바꾸기는 사이에
-    /// 있던 칸까지 흐트러뜨린다.</b> 뽑아서 끼우면 나머지 차례는 그대로다.
-    /// </para>
-    /// <para>
-    /// <b>목록 밖으로는 나가지 않는다.</b> 맨 위에서 더 위로, 맨 아래에서 더
-    /// 아래로 누르면 아무 일도 없이 <c>false</c> 다 — 화면은 그 끝에서 단추를
-    /// 잠그지만, 저장된 것이 사람 손을 탄 뒤에도 자리가 어긋나지 않아야 한다.
-    /// </para>
-    /// </remarks>
     public static bool Move(IList<BottomNavItem> items, int index, int delta)
     {
         if (delta == 0 || index < 0 || index >= items.Count)
@@ -314,41 +120,11 @@ public static class BottomNav
         return true;
     }
 
-    /// <summary>
-    /// 이 칸이 실제로 갈 주소. 못 찾으면 적어 둔 값 그대로다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>메뉴를 한 번 거친다.</b> DB 의 <c>path</c> 와 Blazor 라우트가 아직
-    /// 다를 수 있어서(<see cref="MenuNode.Href"/> 의 머리말), 적어 둔 값으로
-    /// 곧장 가면 이관이 끝나지 않은 화면에서 "준비 중" 이 뜬다.
-    /// </para>
-    /// <para>
-    /// 화면 열쇠(<see cref="BottomNavItem.RouteKey"/>)를 먼저 본다 — 경로는
-    /// 옮겨 가도 그 값은 그대로다.
-    /// </para>
-    /// </remarks>
+    /// <summary>이 칸이 실제로 갈 주소. 못 찾으면 적어 둔 값 그대로다. 메뉴를 한 번 거친다 — DB 경로와 라우트가 다를 수 있어 적어 둔 값으로 곧장 가면 준비 중이 뜬다. 화면 열쇠(RouteKey)를 먼저 본다.</summary>
     public static string Resolve(BottomNavItem item, IReadOnlyList<MenuNode> menus) =>
         Find(item, menus)?.LinkTarget ?? item.Path;
 
-    /// <summary>
-    /// 칸을 눌렀을 때 실제로 일어나는 일. <b>그리는 자리가 둘이라 여기 하나로
-    /// 둔다</b> — 휴대폰 아래 띠(<see cref="MobileBottomNav"/>)와 넓은 화면 헤더
-    /// (<see cref="HeaderNavTools"/>)가 같은 칸 목록을 그린다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 넷으로 갈린다. 앞 셋은 <b>주소가 아니라 그 자리에서 무언가를 여는
-    /// 표시</b>이고(<see cref="Fixed"/>), 나머지는 <b>메뉴를 한 번 거쳐</b>
-    /// 간다(<see cref="Resolve"/>) — 적어 둔 경로가 옛 경로일 수 있다.
-    /// </para>
-    /// <para>
-    /// <b>메뉴 표시는 여닫이다.</b> 펴져 있으면 이 부탁이 판을 접는다 — 접는
-    /// 판정은 상태를 든 쪽에 있다(<c>MainLayout.OnMenuRevealRequested</c>).
-    /// 여기서 여닫으려면 그 상태를 알아야 하고, 그러면 같은 상태를 두 곳이
-    /// 나눠 들게 된다.
-    /// </para>
-    /// </remarks>
+    /// <summary>칸을 눌렀을 때 일어나는 일. 띠와 넓은 화면 헤더가 같은 칸 목록을 그리므로 여기 하나에 둔다. 앞 셋은 그 자리에서 여는 표시(Fixed), 나머지는 메뉴를 거친다(Resolve). 메뉴 표시는 여닫이여서 펴져 있으면 판을 접는다 — 접는 판정은 상태를 든 MainLayout 에 있다.</summary>
     public static void Open(
         BottomNavItem item,
         IReadOnlyList<MenuNode> menus,
@@ -391,24 +167,10 @@ public static class BottomNav
             Same(node.LinkTarget, item.Path) || Same(node.Path, item.Path));
     }
 
-    /// <summary>
-    /// 이 화면이 띠에 <b>이미 서 있는가</b>. 있으면 그 자리, 없으면 <c>-1</c>.
-    /// </summary>
+    /// <summary>이 화면이 띠에 이미 서 있는가. 있으면 그 자리, 없으면 -1. 열쇠를 먼저 본다 — 옛 경로로 맞대면 이미 놓은 칸을 없다고 읽어 같은 화면이 두 번 선다.</summary>
     /// <param name="items">지금 띠에 선 칸들.</param>
     /// <param name="path">찾을 화면의 링크 주소.</param>
-    /// <param name="routeKey">그 화면의 열쇠(<see cref="MenuNode.RouteKey"/>). 없으면 <c>null</c>.</param>
-    /// <remarks>
-    /// <para>
-    /// <b>열쇠를 먼저 본다</b> — <see cref="Find"/> 와 같은 까닭이다. 적어 둔
-    /// 경로는 옛 경로일 수 있어서(라우트가 옮겨 갔다) 경로만 맞대 보면 이미
-    /// 놓아 둔 칸을 「없다」고 읽는다. 그러면 <b>같은 화면이 띠에 둘 서고</b>
-    /// 다섯 중 하나를 헛되이 쓴다.
-    /// </para>
-    /// <para>
-    /// 넣고 빼는 자리가 둘이라(환경설정 판 · 탭 메뉴) 판정을 여기 하나로 둔다 —
-    /// 양쪽이 제각각 맞대 보면 한쪽에서 「이미 있다」가 다른 쪽에서 「없다」가 된다.
-    /// </para>
-    /// </remarks>
+    /// <param name="routeKey">그 화면의 열쇠(MenuNode.RouteKey). 없으면 null.</param>
     public static int IndexOf(IReadOnlyList<BottomNavItem> items, string path, string? routeKey)
     {
         if (!string.IsNullOrWhiteSpace(routeKey))
@@ -433,26 +195,7 @@ public static class BottomNav
         return -1;
     }
 
-    /// <summary>
-    /// 이 칸에 붙일 아이콘 CSS 클래스.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 순서가 있다 — <b>박아 둔 것 → 메뉴의 것 → 임의의 것</b>.
-    /// </para>
-    /// <list type="number">
-    ///   <item>기본 다섯은 아이콘을 직접 들고 있다(<see cref="Defaults"/>).</item>
-    ///   <item>
-    ///     사람이 고른 칸은 <b>메뉴에 달린 아이콘</b>을 따라간다. 관리자가 메뉴
-    ///     아이콘을 바꾸면 띠도 따라 바뀐다 — 그러라고 여기서 이름을 굳히지
-    ///     않고 그릴 때마다 찾는다.
-    ///   </item>
-    ///   <item>
-    ///     아이콘이 없는 메뉴면 경로로 정한 아무 그림 하나를 쓴다. 같은 칸은
-    ///     늘 같은 그림이다(<see cref="FallbackIcons"/>).
-    ///   </item>
-    /// </list>
-    /// </remarks>
+    /// <summary>이 칸에 붙일 아이콘 CSS 클래스. 순서는 박아 둔 것 → 메뉴의 것 → 임의의 것.</summary>
     public static string IconClass(BottomNavItem item, IReadOnlyList<MenuNode> menus)
     {
         if (Sanitize(item.Icon) is { } fixedIcon)
@@ -485,28 +228,7 @@ public static class BottomNav
         return MenuIcons.CssClass(string.IsNullOrWhiteSpace(icon) ? Fallback(item.Path) : icon);
     }
 
-    /// <summary>
-    /// 메뉴가 아닌 넷. <b>고르개 맨 위에 선다</b>(<see cref="Choices"/>).
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 넷 다 <b>갈 주소가 없다</b> — 홈만 주소이고 나머지 셋은 그 자리에서
-    /// 무언가를 여는 표시다(<c>#</c> 로 시작해 메뉴 경로와 겹치지 않는다).
-    /// 메뉴 트리에서 나올 수 없으므로 여기 손으로 적는다.
-    /// </para>
-    /// <para>
-    /// [이름에 괄호를 붙인 까닭]
-    /// </para>
-    /// <para>
-    /// 「메뉴」·「내 정보」로만 적으면 <b>같은 이름의 메뉴와 섞인다</b> — 고르개는
-    /// 179건짜리 목록이고 사람은 글자를 쳐서 찾는다. 괄호 안에 <b>누르면 무슨
-    /// 일이 나는지</b>를 적어 두면 목록에서 갈라 보이고, 「아바타」·「햄버거」
-    /// 처럼 사람이 부르는 말로 쳐도 걸린다.
-    /// </para>
-    /// <para>
-    /// 띠에 적힐 이름은 그 괄호를 뗀 <see cref="BottomNavChoice.Title"/> 다.
-    /// </para>
-    /// </remarks>
+    /// <summary>메뉴가 아닌 넷(홈 · 메뉴 등). 고르개 맨 위에 선다. 셋은 그 자리에서 여는 표시라 주소가 없고 #로 시작해 메뉴 경로와 겹치지 않는다. 이름의 괄호는 메뉴 이름과 섞이지 않게 누르면 무슨 일이 나는지를 적은 것이다.</summary>
     public static readonly IReadOnlyList<BottomNavChoice> Fixed =
     [
         new(HomePath, null, "홈", "jsini-icon-home", "홈"),
@@ -515,15 +237,8 @@ public static class BottomNav
         new(ProfilePath, null, "사용자 프로필 아바타 (내 정보 열기)", "jsini-icon-user", "프로필"),
     ];
 
-    /// <summary>
-    /// 환경설정의 고르개에 놓을 것들. <b>묶음(CATALOG)은 뺀다</b> — 제 화면이
-    /// 없어서 골라 봐야 "준비 중" 이 뜬다.
-    /// </summary>
-    /// <param name="menus">거른 뒤의 메뉴 트리(<see cref="IMenuProvider.VisibleMenus"/>).</param>
-    /// <remarks>
-    /// 이름은 <b>줄기를 붙여</b> 적는다(「포털관리 › 알림 이력」). 붙이지 않으면
-    /// 「목록」·「현황」 같은 이름이 업무마다 있어서 어느 것을 고르는지 알 수 없다.
-    /// </remarks>
+    /// <summary>환경설정의 고르개에 놓을 것들. 묶음(CATALOG)은 뺀다 — 제 화면이 없어 골라 봐야 준비 중이 뜬다.</summary>
+    /// <param name="menus">거른 뒤의 메뉴 트리(IMenuProvider.VisibleMenus).</param>
     public static IReadOnlyList<BottomNavChoice> Choices(IReadOnlyList<MenuNode> menus)
     {
         var choices = new List<BottomNavChoice>(Fixed);
@@ -555,14 +270,7 @@ public static class BottomNav
         }
     }
 
-    /// <summary>
-    /// 경로로 정하는 아무 그림 하나. <b>같은 경로는 늘 같은 그림</b>이다.
-    /// </summary>
-    /// <remarks>
-    /// <c>string.GetHashCode</c> 를 쓰지 않는다 — .NET 의 그 값은 <b>프로세스마다
-    /// 다르다.</b> 그러면 서버를 다시 띄울 때마다 띠의 그림이 바뀌고, 프리렌더와
-    /// 회로가 다른 프로세스면 같은 화면에서 한 번 깜빡인다. FNV-1a 로 굳힌다.
-    /// </remarks>
+    /// <summary>경로로 정하는 아무 그림 하나. 같은 경로는 늘 같은 그림이다. string.GetHashCode 는 프로세스마다 달라 쓰지 않고 FNV-1a 로 굳힌다.</summary>
     private static string Fallback(string path)
     {
         unchecked
@@ -578,15 +286,7 @@ public static class BottomNav
         }
     }
 
-    /// <summary>
-    /// 박아 둔 아이콘 클래스를 검사한다. 이름 꼴이 아니면 <c>null</c> 이고,
-    /// 그때는 메뉴에서 찾는 길로 떨어진다.
-    /// </summary>
-    /// <remarks>
-    /// 값이 브라우저 저장소에서 온다. 클래스 이름 자리에 그대로 붙이는
-    /// 자리라서, 검사하지 않으면 남의 클래스를 하나 더 켜는 글자를 넣을 수 있다
-    /// (<see cref="MenuIcons.CssClass"/> 가 같은 이유로 같은 일을 한다).
-    /// </remarks>
+    /// <summary>박아 둔 아이콘 클래스를 검사한다. 이름 꼴이 아니면 null — 메뉴에서 찾는 길로 떨어진다. 값이 저장소에서 와서 검사하지 않으면 남의 클래스를 켜는 글자가 들어갈 수 있다.</summary>
     private static string? Sanitize(string? icon)
     {
         if (string.IsNullOrWhiteSpace(icon))
@@ -630,52 +330,31 @@ public static class BottomNav
         && string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
 }
 
-/// <summary>
-/// 띠의 칸 하나. <b>글자 열쇠가 짧다</b>(<c>p</c>·<c>t</c>·<c>i</c>·<c>k</c>) —
-/// 브라우저 저장소에 그대로 들어가는 글자라 이름이 길면 칸 다섯에 그만큼이
-/// 다섯 번 붙는다.
-/// </summary>
+/// <summary>띠의 칸 하나. 글자 열쇠가 짧은 것은(p·t·i·k) 브라우저 저장소에 그대로 들어가 칸 다섯에 이름이 그만큼 붙기 때문이다.</summary>
 public sealed record BottomNavItem
 {
-    /// <summary>
-    /// 갈 곳. 메뉴의 링크 주소이거나 <see cref="BottomNav.HomePath"/> ·
-    /// <see cref="BottomNav.ThemePath"/> 다.
-    /// </summary>
+    /// <summary>갈 곳. 메뉴의 링크 주소이거나 HomePath · ThemePath 다.</summary>
     [JsonPropertyName("p")]
     public string Path { get; init; } = string.Empty;
 
-    /// <summary>
-    /// 띠에 적을 이름. <b>사람이 정한다</b> — 메뉴 이름이 「알림 이력 조회」
-    /// 처럼 길면 72px 칸에서 끊기므로, 「알림」 처럼 줄여 적을 수 있어야 한다.
-    /// </summary>
+    /// <summary>띠에 적을 이름. 사람이 정한다 — 메뉴 이름이 길면 72px 칸에서 끊기므로 줄여 적을 수 있어야 한다.</summary>
     [JsonPropertyName("t")]
     public string Title { get; init; } = string.Empty;
 
-    /// <summary>
-    /// 박아 둔 아이콘 클래스. <b>기본 다섯만 갖는다</b> — 사람이 고른 칸은
-    /// 비어 있고, 그때 아이콘은 메뉴에서 찾는다
-    /// (<see cref="BottomNav.IconClass"/>).
-    /// </summary>
+    /// <summary>박아 둔 아이콘 클래스. 기본 다섯만 갖는다 — 사람이 고른 칸은 비어 있고 아이콘은 메뉴에서 찾는다.</summary>
     [JsonPropertyName("i")]
     public string? Icon { get; init; }
 
-    /// <summary>
-    /// 가리키는 화면의 열쇠(<see cref="MenuNode.RouteKey"/>). 경로가 옮겨
-    /// 가도 이 값은 그대로라 <b>먼저 이것으로 찾는다.</b>
-    /// </summary>
+    /// <summary>가리키는 화면의 열쇠(MenuNode.RouteKey). 경로가 옮겨 가도 이 값은 그대로라 먼저 이것으로 찾는다.</summary>
     [JsonPropertyName("k")]
     public string? RouteKey { get; init; }
 }
 
 /// <summary>환경설정의 고르개 한 줄.</summary>
 /// <param name="Path">고르면 칸에 적힐 주소.</param>
-/// <param name="RouteKey">그 화면의 열쇠. 메뉴가 아닌 것(홈·설정)은 <c>null</c>.</param>
+/// <param name="RouteKey">그 화면의 열쇠. 메뉴가 아닌 것(홈·설정)은 null.</param>
 /// <param name="Label">줄기를 붙인 이름 — 「포털관리 › 알림 이력」.</param>
 /// <param name="Icon">미리 보여 줄 아이콘 클래스.</param>
-/// <param name="Title">
-/// 고르면 띠에 적힐 이름. <b><see cref="Label"/> 과 따로 둔다</b> — 고르개는
-/// 「어느 것인지」를 말해야 해서 줄기와 괄호 설명이 붙고(「메뉴 단추 (전체
-/// 메뉴 열기)」), 띠는 72px 이라 그 글자가 두 글자에서 끊긴다.
-/// </param>
+/// <param name="Title">고르면 띠에 적힐 이름. Label 과 따로 둔다 — 고르개는 줄기와 설명이 붙고 띠는 72px 라 짧아야 한다.</param>
 public sealed record BottomNavChoice(
     string Path, string? RouteKey, string Label, string Icon, string Title);

@@ -7,103 +7,40 @@ using Microsoft.Extensions.Options;
 
 namespace HelpDeskServer.Services;
 
-/// <summary>
-/// funeralv2 계정 ↔ 헬프데스크 계정 자동 매칭 정책.
-/// </summary>
+/// <summary>funeralv2 계정 ↔ 헬프데스크 계정 자동 매칭 정책.</summary>
 public class AccountLinkOptions {
   /// <summary>설정 섹션 이름.</summary>
   public const string SectionName = "AccountLink";
 
-  /// <summary>
-  /// 로그인 아이디가 같으면 같은 사람으로 간주할지 여부. 기본 false.
-  /// 아이디가 겹치지만 서로 다른 사람인 계정이 있으면 남의 계정으로 붙어버리므로 함부로 켜지 않는다.
-  /// </summary>
+  /// <summary>로그인 아이디가 같으면 같은 사람으로 볼지(기본 false). 아이디만 같은 다른 사람이 있어 함부로 켜지 않는다.</summary>
   public bool MatchByLoginId { get; set; }
 
-  /// <summary>
-  /// 포털 계정의 <c>MsaSource</c> 값으로 원본 헬프데스크 레코드를 찾을지 여부. 기본 false.
-  ///
-  /// <para>
-  /// <b>아이디·이메일 대조와는 성격이 다르다.</b> 그 둘은 "값이 같으니 같은 사람이겠지" 라는
-  /// 추정이고, 실제로 오탐이 있었다(포털 <c>admin</c> 과 헬프데스크 <c>admin</c> 은 다른 사람).
-  /// 반면 <c>MsaSource</c>(<c>helpdesk:admin:4</c>)는 이관 스크립트가 그 계정을 만들 때
-  /// "이 원본 레코드로 만들었다" 고 남긴 값이다 — 대응 관계가 만들어진 근거 그 자체다.
-  /// </para>
-  ///
-  /// <para>
-  /// 그런데도 기본을 끔으로 두는 이유는 <b>영향 범위</b> 때문이다. 켜면 이관 계정 34개가
-  /// 한꺼번에 헬프데스크 담당자·고객으로 해석되기 시작한다. 지금은 사람이 이어 준 연결
-  /// 하나만 살아 있으므로, 누가 무엇을 보게 되는지 확인한 뒤 켜는 편이 맞다.
-  /// </para>
-  ///
-  /// <para>사람이 만든 연결(<c>auth_user_links</c>)이 언제나 우선한다. 이 값은 그다음이다.</para>
-  /// </summary>
+  /// <summary>포털 계정의 MsaSource(helpdesk:admin:4)로 원본 헬프데스크 레코드를 찾을지(기본 false). 이관 스크립트가 남긴 대응 근거라 추정이 아니다.
+  /// 다만 켜면 이관 계정 전부가 한꺼번에 해석되므로 확인 후 켠다. 사람이 이은 연결(auth_user_links)이 항상 우선한다.</summary>
   public bool MatchByMsaSource { get; set; }
 
-  /// <summary>
-  /// 이메일이 같으면 같은 사람으로 간주할지 여부. 기본 false.
-  ///
-  /// 원래 기본값은 true 였지만 실제로는 한 번도 동작하지 않았다 — 포털 토큰에 이메일 클레임이
-  /// 없어서 대조할 값 자체가 없었다. 토큰에 이메일을 싣게 되면서 비로소 동작하게 되었는데,
-  /// 그대로 켜 두면 지금까지 명시적 연결로만 움직이던 신원 해석이 조용히 달라진다.
-  ///
-  /// 실제 데이터에도 위험이 있다. 포털 계정 quristyle(사용자A)의 이메일이
-  /// 헬프데스크 <b>고객</b> 3번(사용자H)의 이메일과 같다. 명시적 연결이 있어 지금은 가려지지만,
-  /// 연결이 없는 계정이라면 남의 고객 계정으로 붙는다.
-  ///
-  /// 그래서 아이디 대조와 같은 규칙을 적용한다 — <b>추정하지 않는다.</b>
-  /// 데이터가 정리된 환경에서만 켠다.
-  /// </summary>
+  /// <summary>이메일이 같으면 같은 사람으로 볼지(기본 false). 추정이라 아이디 대조와 같은 규칙을 따른다 — 데이터가 정리된 환경에서만 켠다.</summary>
   public bool MatchByEmail { get; set; }
 }
 
-/// <summary>
-/// funeralv2 계정으로 해석된 헬프데스크 사용자.
-/// </summary>
+/// <summary>funeralv2 계정으로 해석된 헬프데스크 사용자.</summary>
 /// <param name="UserType">admin 또는 customer</param>
 /// <param name="HelpdeskUserId">헬프데스크 내부 계정 ID</param>
 /// <param name="CompanyId">고객인 경우 소속 회사 식별자(포털 <c>scom.companies.id</c>)</param>
 /// <param name="UserName">표시용 이름</param>
 public record HelpdeskIdentity(string UserType, int HelpdeskUserId, string? CompanyId, string UserName);
 
-/// <summary>
-/// funeralv2(AuthServer) 계정을 헬프데스크 계정으로 해석한다.
-/// </summary>
+/// <summary>funeralv2(AuthServer) 계정을 헬프데스크 계정으로 해석한다.</summary>
 public interface IFuneralAccountLinkService {
-  /// <summary>
-  /// AuthServer 사용자 식별자로 헬프데스크 계정을 찾는다. 못 찾으면 null.
-  /// </summary>
+  /// <summary>AuthServer 사용자 식별자로 헬프데스크 계정을 찾는다. 못 찾으면 null.</summary>
   /// <param name="authUserId">포털 로그인 아이디</param>
   /// <param name="email">대표 이메일 (이메일 대조를 켠 경우에만 쓰인다)</param>
-  /// <param name="msaSource">
-  /// 포털 계정의 출처 (<c>helpdesk:admin:4</c> 형식). 이관으로 만들어진 계정만 갖고 있다.
-  /// </param>
+  /// <param name="msaSource">포털 계정의 출처(helpdesk:admin:4). 이관으로 만든 계정만 갖는다.</param>
   /// <param name="ct">취소 토큰</param>
   Task<HelpdeskIdentity?> ResolveAsync(string authUserId, string? email, string? msaSource = null, CancellationToken ct = default);
 
-  /// <summary>
-  /// <b>이 포털 계정이 스스로 만든 고객 줄</b>을 찾는다. 없으면 null — <b>만들지는 않는다.</b>
-  /// </summary>
-  /// <remarks>
-  /// <para>
-  /// 2026-10-05 규칙에서 <b>관리자가 아닌 모든 사람은 고객</b>이다
-  /// (<see cref="HelpdeskPrincipal"/>). 그런데 「내 요청」을 가리키려면 고객 번호가
-  /// 있어야 하고, 사람이 이어 준 연결(<c>auth_user_links</c>)은 운영에 <b>한 줄뿐</b>
-  /// 이다. 그래서 요청을 올린 적이 있는 사람은 <see cref="IRequesterProvisioner"/> 가
-  /// 만들어 둔 제 고객 줄로 해석해 준다 — 그래야 자기가 쓴 글을 자기 것으로 본다.
-  /// </para>
-  /// <para>
-  /// <b>찾는 열쇠가 <see cref="IRequesterProvisioner"/> 가 쓰는 것과 같아야 한다</b> —
-  /// 로그인 아이디와 이름이 <b>둘 다</b> 같은 줄. 아이디만 보면 안 된다(포털
-  /// <c>admin</c> 과 헬프데스크 <c>admin</c> 은 다른 사람이라 실제로 오탐이 있었다 —
-  /// <see cref="AccountLinkOptions.MatchByLoginId"/>). 그래서 이것은 추정이 아니다.
-  /// 우리가 그 열쇠로 만든 줄을 그 열쇠로 되찾는 것뿐이다.
-  /// </para>
-  /// <para>
-  /// <b>관리자에게는 부르지 않는다</b>(미들웨어에서 가른다). 관리자의
-  /// <c>HelpdeskUserId</c> 가 고객 번호가 되면 「나에게 배정된 요청」이 엉뚱한 줄을 센다.
-  /// </para>
-  /// </remarks>
+  /// <summary>이 포털 계정이 스스로 만든 고객 줄을 찾는다. 없으면 null이고 만들지는 않는다. 관리자에게는 부르지 않는다(관리자의 HelpdeskUserId 가 고객 번호가 되면 엉뚱한 줄을 센다).
+  /// 열쇠는 로그인 아이디와 이름이 둘 다 같은 줄이다(아이디만으로는 남과 겹친다). 우리가 그 열쇠로 만든 줄을 되찾을 뿐 추정이 아니다.</summary>
   Task<HelpdeskIdentity?> ResolveSelfCustomerAsync(string authUserId, string? userName, CancellationToken ct = default);
 
   /// <summary>매핑 캐시를 비운다. 매핑을 추가/삭제한 직후에 호출한다.</summary>
@@ -119,10 +56,7 @@ public class FuneralAccountLinkService : IFuneralAccountLinkService {
 
   private static string CacheKey(string authUserId) => $"helpdesk:authlink:{authUserId}";
 
-  /// <summary>
-  /// 제 고객 줄 찾기의 캐시 열쇠. <b>이름까지 넣는다</b> — 찾는 열쇠가 둘이라
-  /// 아이디만 넣으면 포털에서 이름을 고친 사람이 옛 결과를 계속 받는다.
-  /// </summary>
+  /// <summary>제 고객 줄 찾기의 캐시 열쇠. 이름까지 넣는다 — 이름만 고친 사람이 옛 결과를 받지 않도록.</summary>
   private static string SelfCacheKey(string authUserId, string userName) =>
       $"helpdesk:selfcustomer:{authUserId}:{userName}";
 
@@ -186,9 +120,7 @@ public class FuneralAccountLinkService : IFuneralAccountLinkService {
       }
     }
 
-    // 3순위: 로그인 아이디가 같은 계정.
-    // 기본값은 끔. 아이디만 같고 실제로는 다른 사람인 경우가 있어(운영 데이터에서 확인됨)
-    // 자동으로 이어주면 남의 계정으로 로그인되는 사고가 난다. 데이터가 정리된 환경에서만 켠다.
+    // 3순위: 로그인 아이디가 같은 계정. 기본은 끔 — 아이디만 같고 다른 사람인 경우가 운영 데이터에 있어 자동으로 이으면 남의 계정으로 로그인된다.
     if (_options.MatchByLoginId) {
       var adminByLoginId = await _db.Admins.AsNoTracking()
           .FirstOrDefaultAsync(a => a.LoginId == authUserId, ct);
@@ -203,8 +135,7 @@ public class FuneralAccountLinkService : IFuneralAccountLinkService {
       }
     }
 
-    // 4순위: 이메일 일치. 아이디 대조보다는 낫지만 이것도 추정이다.
-    // 실제 데이터에 같은 이메일을 쓰는 다른 사람이 있어 기본은 꺼 둔다(AccountLinkOptions 참고).
+    // 4순위: 이메일 일치. 추정이라 기본은 꺼 둔다(같은 이메일을 쓰는 다른 사람이 실제로 있다).
     if (_options.MatchByEmail && !string.IsNullOrWhiteSpace(email)) {
       var adminByEmail = await _db.Admins.AsNoTracking()
           .FirstOrDefaultAsync(a => a.Email == email, ct);
@@ -222,11 +153,7 @@ public class FuneralAccountLinkService : IFuneralAccountLinkService {
     return null;
   }
 
-  /// <summary>
-  /// <c>MsaSource</c> 값에서 헬프데스크 원본 레코드를 읽어낸다.
-  /// 형식은 <c>&lt;서비스&gt;:&lt;테이블&gt;:&lt;원본키&gt;</c> — 예: <c>helpdesk:admin:4</c>.
-  /// 헬프데스크가 아닌 출처(<c>projmng:dev_user:jskim</c>)는 무시한다.
-  /// </summary>
+  /// <summary>MsaSource 값(&lt;서비스&gt;:&lt;테이블&gt;:&lt;원본키&gt;)에서 헬프데스크 원본 레코드를 읽는다. 다른 서비스의 출처는 무시한다.</summary>
   private static (string UserType, int Id)? ParseHelpdeskSource(string? msaSource) {
     if (string.IsNullOrWhiteSpace(msaSource)) return null;
 
@@ -260,8 +187,7 @@ public class FuneralAccountLinkService : IFuneralAccountLinkService {
         ? null
         : new HelpdeskIdentity("customer", mine.Id, mine.CompanyId, mine.UserName);
 
-    // **못 찾은 것도 담되 짧게 담는다.** 요청을 처음 올리는 순간 줄이 생기므로
-    // (`RequesterProvisioner`), 오래 담으면 방금 쓴 글이 한참 남의 것처럼 보인다.
+    // 못 찾은 것도 짧게 캐싱한다. 요청을 처음 올리는 순간 줄이 생기므로, 오래 담으면 방금 쓴 글이 남의 것처럼 보인다.
     _cache.Set(SelfCacheKey(authUserId, name), resolved, TimeSpan.FromMinutes(resolved is null ? 1 : 10));
     return resolved;
   }
@@ -277,12 +203,7 @@ public class FuneralAccountLinkService : IFuneralAccountLinkService {
   }
 }
 
-/// <summary>
-/// funeralv2 토큰으로 들어온 요청에 헬프데스크 내부 클레임(uid / login_type / company_id)을 채워 넣는 미들웨어.
-///
-/// 기존 엔드포인트들은 이 세 클레임만 보고 동작한다. 여기서 채워주면 엔드포인트 코드를 하나도 고치지 않고
-/// funeralv2 계정으로 헬프데스크를 쓸 수 있다.
-/// </summary>
+/// <summary>funeralv2 토큰으로 들어온 요청에 헬프데스크 클레임(uid / login_type / company_id)을 채운다. 엔드포인트 코드를 고치지 않고 funeralv2 계정으로 헬프데스크를 쓰게 한다.</summary>
 public class FuneralIdentityMiddleware {
   private readonly RequestDelegate _next;
   private readonly ILogger<FuneralIdentityMiddleware> _logger;
@@ -316,13 +237,12 @@ public class FuneralIdentityMiddleware {
       var userName = user.FindFirst("RealName")?.Value
                      ?? user.FindFirst(ClaimTypes.Name)?.Value
                      ?? Decode(HeaderValue(context, "X-User-Name"));
-      // 이관으로 만들어진 계정만 갖고 있다. 없으면 예전과 똑같이 동작한다.
+      // 이관으로 만들어진 계정만 갖고 있다. 없으면 그대로 동작한다.
       var msaSource = user.FindFirst("MsaSource")?.Value
                       ?? HeaderValue(context, "X-User-Msa-Source");
 
       if (!string.IsNullOrWhiteSpace(authUserId)) {
-        // JSini 계정 자체를 먼저 심는다. 헬프데스크 계정 연결이 없어도
-        // "누가 요청했는지" 는 알아야 화면 안내와 감사 기록이 제대로 남는다.
+        // JSini 계정은 헬프데스크 연결이 없어도 먼저 심는다 — 누가 요청했는지는 화면 안내와 감사 기록에 필요하다.
         var jsiniClaims = new List<Claim> {
           new(JsiniUserExtensions.UserIdClaim, authUserId),
         };
@@ -333,10 +253,7 @@ public class FuneralIdentityMiddleware {
           jsiniClaims.Add(new Claim(JsiniUserExtensions.EmailClaim, email));
         }
 
-        // 포털 역할로 **관리자**를 판정한다. 역할 목록은 설정에 있어 여기서만 읽을 수 있으므로
-        // 결과를 클레임으로 남기고, 엔드포인트는 HelpdeskPrincipal 로 꺼내 쓴다.
-        //
-        // 이 값이 곧 관리자의 정의다(2026-10-05) — 가진 사람이 관리자, 나머지는 전부 고객.
+        // 포털 역할로 관리자를 판정한다. 역할 목록은 설정에만 있어 여기서 클레임으로 남기고, 엔드포인트는 HelpdeskPrincipal 로 꺼내 쓴다. 가진 사람이 관리자, 나머지는 전부 고객이다.
         var isAdmin = IsAdminByRole(context);
         if (isAdmin) {
           jsiniClaims.Add(new Claim(HelpdeskPrincipalExtensions.AdminByRoleClaim, "true"));
@@ -346,18 +263,13 @@ public class FuneralIdentityMiddleware {
 
         var identity = await linkService.ResolveAsync(authUserId, email, msaSource, context.RequestAborted);
 
-        // 사람이 이어 준 연결이 없는 고객은 **제가 만든 고객 줄**로 해석한다.
-        // 그 줄이 없으면(요청을 올린 적이 없으면) 여전히 null 이다.
-        //
-        // **관리자에게는 하지 않는다.** 관리자의 `uid` 가 고객 번호가 되면
-        // 「나에게 배정된 요청」이 엉뚱한 줄을 센다(`IsLinkedAdmin` 머리말).
+        // 연결이 없는 고객은 제가 만든 고객 줄로 해석한다(없으면 null). 관리자에게는 하지 않는다 — 관리자의 uid 가 고객 번호가 되면 배정 요청을 엉뚱하게 센다.
         if (identity is null && !isAdmin) {
           identity = await linkService.ResolveSelfCustomerAsync(authUserId, userName, context.RequestAborted);
         }
 
         if (identity is null) {
-          // 연결이 없는 것은 오류가 아니다. 조회·관리는 포털 역할로 할 수 있고,
-          // '내 것' 을 가리키는 일만 못 한다. 그래서 경고가 아니라 정보로 남긴다.
+          // 연결이 없는 것은 오류가 아니다. 조회·관리는 포털 역할로 되므로 정보로만 남긴다.
           _logger.LogInformation(
               "포털 계정 {AuthUserId} 에 연결된 헬프데스크 레코드가 없습니다(관리자: {IsAdmin}). 경로: {Path}",
               authUserId, isAdmin, context.Request.Path);
@@ -381,13 +293,7 @@ public class FuneralIdentityMiddleware {
     await _next(context);
   }
 
-  /// <summary>
-  /// 포털 역할이 담당자 권한에 해당하는가.
-  ///
-  /// 역할은 여러 개일 수 있다. 토큰 클레임을 먼저 보고, 없으면 게이트웨이가 붙인
-  /// <c>X-User-Roles</c>(전체) → <c>X-User-Role</c>(첫 번째) 순으로 떨어진다.
-  /// 단수 헤더만 보면 역할이 둘 이상인 계정의 두 번째 역할이 통째로 무시된다.
-  /// </summary>
+  /// <summary>포털 역할이 담당자 권한에 해당하는지. 역할 클레임을 먼저 보고, 없으면 게이트웨이의 X-User-Roles(전체)를 본다 — 단수 헤더만 보면 둘째 역할이 무시된다.</summary>
   private bool IsAdminByRole(HttpContext context) {
     var roles = context.User.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList();
 

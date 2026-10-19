@@ -6,21 +6,8 @@ namespace McpServer.Tools;
 
 public sealed record FetchedPage(string Url, string Title, string Text, bool Truncated);
 
-/// <summary>
-/// 주소 하나를 열어 <b>사람이 읽는 본문만</b> 뽑아 낸다.
-/// </summary>
-/// <remarks>
-/// <para>
-/// HTML 을 그대로 모델에게 주면 안 된다. 메뉴·광고·스크립트가 본문의 몇 배라
-/// 문맥을 다 먹고, 모델이 머리말 글자를 본문으로 착각한다. 그래서
-/// <c>script</c>·<c>style</c>·<c>nav</c> 따위를 걷어내고 글자만 남긴다.
-/// </para>
-/// <para>
-/// <b>아무 주소나 열지 않는다.</b> 모델이 지어낸 주소나, 검색 결과에 섞인
-/// 내부망 주소를 그대로 열면 바깥에서 닿지 못할 곳을 긁게 된다 —
-/// http/https 가 아니거나 사설망·로컬 주소면 거절한다.
-/// </para>
-/// </remarks>
+/// <summary>주소 하나를 열어 사람이 읽는 본문만 뽑는다. HTML 을 그대로 주면 메뉴·광고·스크립트가 본문의 몇 배라 문맥을 먹으므로 script·style·nav 를 걷는다.
+/// 아무 주소나 열지 않는다 — 지어낸 주소나 검색 결과의 내부망 주소를 긁지 않도록 http/https 바깥 주소만 연다.</summary>
 public sealed class WebFetchService
 {
     private static readonly string[] Drop =
@@ -47,9 +34,7 @@ public sealed class WebFetchService
 
         using var res = await _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cts.Token);
 
-        // **던지지 않는다.** 모델이 고른 주소가 404·403 인 일은 흔하고, 그때
-        // 예외로 끊으면 대화가 통째로 죽는다. 사실을 글로 돌려주면 모델이
-        // 다른 주소를 열거나 "못 읽었다" 고 답한다.
+        // 던지지 않는다 — 404·403 은 흔하고, 예외로 끊으면 대화가 통째로 죽는다. 사실을 글로 돌려주면 모델이 다른 주소를 열거나 못 읽었다고 답한다.
         if (!res.IsSuccessStatusCode)
         {
             return new FetchedPage(
@@ -94,10 +79,7 @@ public sealed class WebFetchService
         return new FetchedPage(url, title, text, cut);
     }
 
-    /// <summary>
-    /// 열면 안 되는 주소면 까닭을 돌려준다. 괜찮으면 null.
-    /// <b>바깥 주소만 연다</b> — 모델이 지어낸 내부망 주소를 그대로 긁지 않게.
-    /// </summary>
+    /// <summary>열면 안 되는 주소면 까닭을 돌려준다. 괜찮으면 null. 바깥 주소만 연다.</summary>
     private static string? Reject(string url)
     {
         if (!Uri.TryCreate(url, UriKind.Absolute, out var u)

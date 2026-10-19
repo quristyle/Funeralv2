@@ -2,14 +2,7 @@ using System.Reflection;
 
 namespace SiteServer.Endpoints;
 
-/// <summary>
-/// 게이트웨이가 붙여 준 사용자 정보. 헤더가 없으면 <c>null</c> 로 바인딩된다.
-/// </summary>
-/// <remarks>
-/// 게이트웨이는 외부에서 보낸 같은 이름의 헤더를 무조건 지우고 자기가 검증한 값으로 다시 넣는다
-/// (ApiGateway/Program.cs). 그래서 이 헤더가 있다는 것은 게이트웨이를 통과한 인증된 요청이라는 뜻이다.
-/// 다른 서비스(FileServer · AuthServer)와 같은 모양을 유지한다.
-/// </remarks>
+/// <summary>게이트웨이가 붙여 준 사용자 정보. 헤더가 없으면 null 로 바인딩된다. 게이트웨이가 외부의 같은 이름 헤더를 지우고 검증한 값으로 다시 넣으므로, 헤더가 있으면 통과한 인증 요청이다.</summary>
 public class UserContext
 {
     public string UserId { get; set; } = string.Empty;

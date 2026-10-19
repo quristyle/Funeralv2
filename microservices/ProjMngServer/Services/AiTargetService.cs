@@ -6,41 +6,22 @@ using ProjMngServer.Models;
 
 namespace ProjMngServer.Services;
 
-/// <summary>
-/// AI 작업 대상 — <c>projmng.ai_target</c>.
-/// </summary>
-/// <remarks>
-/// 설계는 <c>docs/ai-task-runner.md</c> 9.5 절이다.
-/// <b>경로 검사가 이 서비스의 존재 이유</b>고, 그것이 <see cref="ValidatePath"/> 다.
-/// </remarks>
+/// <summary>AI 작업 대상(projmng.ai_target). 경로 검사가 이 서비스의 존재 이유이며 그것이 ValidatePath 다.</summary>
+/// 설계는 docs/ai-task-runner.md 9.5 절.
 public sealed class AiTargetService(IConfiguration configuration)
 {
     private readonly string _connectionString =
         configuration.GetConnectionString("jsini")
         ?? throw new InvalidOperationException("연결 문자열 'jsini' 가 없습니다.");
 
-    /// <summary>
-    /// 대상이 놓일 수 있는 뿌리. 설정으로 바꾼다(<c>AiTasks:AllowedRoots</c>).
-    /// </summary>
-    /// <remarks>
-    /// 기본값 둘은 운영 서버에 맞춘 것이다 — 정본 clone 과, 폴더 대상을 모아 둘 자리.
-    /// <b>한 뿌리로 모으면 실행기의 systemd 유닛을 다시 고칠 일이 없다</b>
-    /// (그 유닛의 <c>ReadWritePaths</c> 가 최종 관문이다).
-    /// </remarks>
+    /// <summary>대상이 놓일 수 있는 뿌리. 설정 AiTasks:AllowedRoots 로 바꾼다.</summary>
+    /// 뿌리를 한 곳으로 모아 두면 실행기 systemd 유닛의 ReadWritePaths 를 다시 고칠 일이 없다.
     private readonly string[] _allowedRoots =
         configuration.GetSection("AiTasks:AllowedRoots").Get<string[]>()
         ?? ["/home/lee", "/srv/ai-targets"];
 
-    /// <summary>
-    /// 어떤 경우에도 대상이 될 수 없는 곳.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 뿌리가 <c>/home/lee</c> 로 넓어지면서(2026-09-17) <b>이 목록이 뒷단속이
-    /// 아니라 울타리 본체가 됐다.</b> 그 전에는 뿌리 둘이 좁아서 여기 걸릴 일이
-    /// 거의 없었다.
-    /// </para>
-    /// </remarks>
+    /// <summary>어떤 경우에도 대상이 될 수 없는 곳.</summary>
+    /// 뿌리가 넓어진 뒤로는 이 목록이 뒷단속이 아니라 울타리 본체다.
     private static readonly string[] DeniedPaths =
     [
         // 운영 설정·배포 장치
@@ -51,22 +32,8 @@ public sealed class AiTargetService(IConfiguration configuration)
         "/home/lee/ai-workspaces",
     ];
 
-    /// <summary>
-    /// 숨은 폴더(<c>.</c> 로 시작하는 칸)는 대상이 될 수 없다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <c>/home/lee</c> 밑에서 위험한 것은 거의 전부 숨은 폴더다 —
-    /// <c>.ssh</c> · <c>.claude</c> · <c>.config</c> · <c>.docker</c>(레지스트리
-    /// 자격) · <c>.gnupg</c> · <c>.local/bin</c>(<b>claude·agy 실행 파일 자신</b>) ·
-    /// <c>.bashrc</c>(다음 로그인 셸이 그대로 실행한다).
-    /// </para>
-    /// <para>
-    /// <b>이름을 하나씩 적는 대신 규칙 하나로 막는다.</b> 목록으로 두면 새 도구가
-    /// 새 점 폴더를 만들 때마다 구멍이 하나씩 생기고, 그 구멍은 누가 알려 주지
-    /// 않는다. 일할 폴더가 숨은 폴더인 경우는 실질적으로 없다.
-    /// </para>
-    /// </remarks>
+    /// <summary>숨은 폴더(<c>.</c> 로 시작하는 칸)는 대상이 될 수 없다.</summary>
+    /// 이름을 하나씩 막지 않고 규칙 하나로 막는다 — 목록으로 두면 새 도구가 점 폴더를 만들 때마다 구멍이 생긴다.
     private static bool HasHiddenSegment(string path) =>
         path.Split('/', StringSplitOptions.RemoveEmptyEntries)
             .Any(seg => seg.StartsWith('.'));
@@ -97,9 +64,7 @@ public sealed class AiTargetService(IConfiguration configuration)
         a.mod_dt           AS ModDt
         """;
 
-    /// <summary>
-    /// 대상 목록. <paramref name="onlyEnabled"/> 가 참이면 화면에서 고를 수 있는 것만.
-    /// </summary>
+    /// <summary>대상 목록. <paramref name="onlyEnabled"/> 가 참이면 화면에서 고를 수 있는 것만.</summary>
     public async Task<List<AiTarget>> ListAsync(bool onlyEnabled = false, long? targetKey = null)
     {
         using var db = Open();
@@ -185,10 +150,7 @@ public sealed class AiTargetService(IConfiguration configuration)
         return affected == 0 ? null : await GetAsync(targetKey);
     }
 
-    /// <summary>
-    /// 지운다. <b>행을 없애지 않는다</b> — 그 대상으로 돌린 작업 이력이
-    /// 남아 있고, 없애면 그 이력이 무엇을 가리켰는지 알 수 없게 된다.
-    /// </summary>
+    /// <summary>지운다. 행은 남긴다 — 그 대상으로 돌린 작업 이력이 가리키는 곳을 잃지 않게 한다.</summary>
     public async Task<bool> DeleteAsync(long targetKey, string? userId)
     {
         using var db = Open();
@@ -202,22 +164,8 @@ public sealed class AiTargetService(IConfiguration configuration)
         return affected > 0;
     }
 
-    /// <summary>
-    /// 대상으로 삼아도 되는 경로인가. 안 되면 <b>이유를 돌려준다</b>.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 순서가 있다. <b><c>..</c> 를 푼 뒤에 검사한다</b> — 문자열 그대로 보면
-    /// <c>/home/lee/Funeralv2/../../srv/jsini/config</c> 가 허용 뿌리로 시작하므로
-    /// 그냥 통과한다.
-    /// </para>
-    /// <para>
-    /// 심볼릭 링크는 여기서 풀지 않는다. <b>이 서비스는 컨테이너 안에서 도는데
-    /// 그 경로들은 호스트의 것</b>이라 여기서 <c>realpath</c> 를 불러도 없는
-    /// 경로가 나온다. 링크로 담장을 넘는 것은 실행기가 자기 쪽에서 한 번 더
-    /// 검사하고, 최종 관문은 systemd 의 <c>ReadWritePaths</c> 다.
-    /// </para>
-    /// </remarks>
+    /// <summary>대상으로 삼아도 되는 경로인가. 안 되면 이유를 돌려준다.</summary>
+    /// .. 을 푼 뒤에 검사한다. 심볼릭 링크는 여기서 풀지 않는다 — 컨테이너에서 보는 경로는 호스트 것이라 realpath 가 틀린다.
     public string? ValidatePath(string? path)
     {
         if (string.IsNullOrWhiteSpace(path))
@@ -295,13 +243,7 @@ public sealed class AiTargetService(IConfiguration configuration)
         return "/" + string.Join('/', parts);
     }
 
-    /// <summary>
-    /// <paramref name="path"/> 가 <paramref name="root"/> 아래(또는 자신)인가.
-    /// </summary>
-    /// <remarks>
-    /// <b>문자열 StartsWith 로 하면 안 된다</b> — <c>/srv/ai-targets-secret</c> 이
-    /// <c>/srv/ai-targets</c> 로 시작해서 통과해 버린다. 구분자까지 본다.
-    /// </remarks>
+    /// <summary>path 가 root 아래(또는 자신)인가. 구분자까지 보아 접두사 착오를 막는다.</summary>
     private static bool IsUnder(string path, string root)
     {
         if (path.Equals(root, StringComparison.Ordinal))

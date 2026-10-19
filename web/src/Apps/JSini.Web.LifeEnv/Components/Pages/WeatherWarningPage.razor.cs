@@ -76,9 +76,7 @@ public partial class WeatherWarningPage
                 .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
 
             // 서버는 7일치를 준다. 이틀 안의 것만 현황으로 본다.
-            // **`tmFc` 는 기상청이 적은 한국 벽시계 시각**이라(`ParseMoment`)
-            // 견주는 「지금」도 한국 시각이어야 한다 — 프로세스 시계는 UTC 다
-            // (docs/utc-time.md).
+            // tmFc 는 기상청의 한국 벽시계 시각이라 견주는 「지금」도 KST 여야 한다(docs/utc-time.md).
             var cutoff = AppTime.ToKorea(AppTime.UtcNow).AddHours(-48);
 
             _warnings = [.. warnings.Result
@@ -94,8 +92,7 @@ public partial class WeatherWarningPage
 
             if (_warnings.Count > 0)
             {
-                // 맨 위 그룹을 자동으로 편다. 오른쪽이 비어 있으면 이 화면이
-                // 무엇을 보여 주는 곳인지 알기 어렵다.
+                // 맨 위 그룹을 자동으로 펴서 오른쪽이 비지 않게 한다.
                 await SelectAsync(Groups[0].Latest.Id);
             }
         }
@@ -114,8 +111,7 @@ public partial class WeatherWarningPage
         {
             _detail = await Client.GetWarningFullDetailsAsync(id);
 
-            // 칠할 말은 서버가 준 구역명에서만 뽑는다. 구역명 전체는 공백으로
-            // 나뉜 여러 낱말이라 낱말 단위로도 넣는다.
+            // 칠할 말은 서버가 준 구역명에서 뽑는다. 구역명은 공백으로 나뉘어 낱말 단위로도 넣는다.
             var words = new HashSet<string>(StringComparer.Ordinal);
 
             foreach (var zone in _detail?.RelatedZones ?? [])
@@ -144,11 +140,7 @@ public partial class WeatherWarningPage
     }
 
     /// <summary>
-    /// 이 특보에서 우리 관리지역이 걸린 문장.
-    ///
-    /// 특보 목록이 이미 <c>matchedLocations</c> 와 <c>sentences</c> 를 함께
-    /// 준다(<c>all=true</c>). 그래서 카드 요약을 그리려고 상세를 다시 부를
-    /// 필요가 없다 — 그러면 목록 한 판에 왕복이 수십 번 생긴다.
+    /// 이 특보에서 관리지역이 걸린 문장. 목록 응답이 matchedLocations 와 sentences 를 함께 주므로 카드마다 상세를 다시 부르지 않는다.
     /// </summary>
     private List<LocationHit> MatchedSentences(WeatherWarningItem warning)
     {
@@ -209,8 +201,7 @@ public partial class WeatherWarningPage
             : "jsini-badge--warn";
 
     /// <summary>
-    /// 발표 시각(<c>yyyyMMddHHmm</c>)을 읽는다. 서버가 문자열로 주므로
-    /// 정렬은 문자열 그대로 해도 되지만, 자르고 보여 주려면 날짜여야 한다.
+    /// 발표 시각(yyyyMMddHHmm)을 날짜로 읽는다. 정렬은 문자열로도 되지만 자르고 보여 주려면 날짜여야 한다.
     /// </summary>
     private static DateTime? ParseMoment(string? tmFc) =>
         DateTime.TryParseExact(tmFc, "yyyyMMddHHmm", CultureInfo.InvariantCulture,

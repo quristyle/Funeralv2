@@ -3,9 +3,7 @@ using System.Text.Json.Serialization;
 
 namespace HelpDeskServer.Utilities;
 
-/// <summary>
-/// JSON 역직렬화 시 빈 문자열("")을 decimal? 타입의 null로 변환하는 JsonConverter.
-/// </summary>
+/// <summary>JSON 역직렬화 시 빈 문자열("")을 decimal? 타입의 null로 변환하는 JsonConverter.</summary>
 public class NullableDecimalConverter : JsonConverter<decimal?> {
   /// <inheritdoc />
   public override decimal? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) {

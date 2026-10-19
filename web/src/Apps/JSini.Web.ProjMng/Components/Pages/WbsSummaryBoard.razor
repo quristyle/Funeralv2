@@ -2,25 +2,8 @@
 @attribute [RouteKey("projmng.wbs.summary")]
 
 @*
-    [WBS 요약]
-
-    이력: 사내망 WBS 대시보드(Vue) `views/Summary.vue` → **여기**
-    API: `projmng/wbs-board/stats/summary` · `…/monthly-by-user`
-
-    원장은 `projmng.wbs_work` 다 — 1줄 = 1화면(메뉴). 프로젝트관리의 WBS
-    (`/projmng/wbs`)와 **이름만 같고 다른 표**다. 그쪽은 공정표(1줄 = 1공정)다.
-
-    [대형은 따로 센다]
-
-    `complate_big_yn` 은 같은 줄을 다른 잣대로 한 번 더 세는 값이다. 완료
-    건수에 더하면 완료율이 100 을 넘는다 — 그래서 타일을 나란히 두되
-    합치지 않는다.
-
-    [휴대폰에서는 조회부가 접힌다]
-
-    조건이 넷이라 좁은 화면에서 네 줄이 되고, 그 아래로 타일 여덟이 이어져
-    **정작 보러 온 담당자 표는 화면 두 판 아래**였다. 접기는 `CommSch` 가
-    하고 화면은 접힌 줄에 적을 글자만 만든다(`MobileSummary`).
+WBS 요약. 원장은 projmng.wbs_work 로 1줄 = 1화면(메뉴)이며, 프로젝트관리의 WBS 와 이름만 같은 다른 표다.
+complate_big_yn 은 같은 줄을 다른 잣대로 한 번 더 세는 값이라 완료 건수에 더하면 완료율이 100 을 넘는다 — 타일은 나란히 두고 합치지 않는다. 휴대폰에서는 조회부를 접어 담당자 표가 먼저 보이게 한다.
 *@
 
 @inherits DataPage

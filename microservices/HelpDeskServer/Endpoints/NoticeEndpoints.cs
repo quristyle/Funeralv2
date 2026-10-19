@@ -12,9 +12,7 @@ namespace HelpDeskServer.Endpoints;
 /// <summary> 공지사항 엔드포인트 </summary>
 public static class NoticeEndpoints
 {
-    /// <summary>
-    /// 공지사항 관련 엔드포인트를 애플리케이션에 매핑합니다.
-    /// </summary>
+    /// <summary>공지사항 관련 엔드포인트를 애플리케이션에 매핑합니다.</summary>
     public static void MapNoticeEndpoints(this IEndpointRouteBuilder routes)
     {
         var group = routes.MapGroup("/api/notices");

@@ -9,18 +9,8 @@ namespace ProjMngServer.Services;
 /// <summary>
 /// 계획 진척률 — 「오늘 기준으로 얼마나 지났어야 하는가」.
 /// </summary>
-/// <remarks>
-/// <para>
-/// 실적이 아니다. 계획시작일과 계획종료일만 보고 <b>날짜가 얼마나 흘렀는지</b>를
-/// 센다(<see cref="WbsBoardSql.PlanRate"/>). 그 옆에 실제 완료율을 나란히 두는
-/// 것이 이 화면의 전부다 — 둘이 벌어진 만큼이 늦은 것이다.
-/// </para>
-///
-/// <para>
-/// 기준일은 <b>DB 의 <c>projmng.today_kst()</c></b> 다. 브라우저 시각을 쓰면 시차가
-/// 다른 자리에서 같은 화면이 다른 숫자를 낸다.
-/// </para>
-/// </remarks>
+/// 실적이 아니라 계획 날짜만 보고 날짜가 얼마나 흘렀는지를 센다. 옆의 실제 완료율과 벌어진 만큼이 늦은 것이다.
+/// 기준일은 DB 의 projmng.today_kst() 다 — 브라우저 시각을 쓰면 시차에 따라 같은 화면이 다른 숫자를 낸다.
 public sealed class WbsProgressService(IConfiguration configuration)
 {
     private readonly string _connectionString =

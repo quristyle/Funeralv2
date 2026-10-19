@@ -1,20 +1,8 @@
 namespace AuthServer.DTOs;
 
-// ============================================================
-// 보고서 메일 배치 — 프론트의 `JSini.Web.Admin/Api/ReportMailModels.cs` 와 짝이다.
-//
-// **시각은 UTC 로 주고받는다**(`LastSentAt` · `NextRunAt`). 다만 사람이 고른
-// 보낼 시각(`SendHourKst` · `SendMinuteKst`)만은 **한국 벽시계**다 — 그 까닭은
-// `ReportMailSchedule` 엔티티 머리말에 있다.
-// ============================================================
+// 보고서 메일 배치의 DTO. 시각은 UTC 로 주고받되, 사람이 고른 보낼 시각(SendHourKst·SendMinuteKst)만 한국 벽시계다.
 
-/// <summary>
-/// 고를 수 있는 보고서 하나. 목록은 <b>메뉴에서 온다</b>.
-/// </summary>
-/// <remarks>
-/// 보고서 이름을 코드에 적어 두지 않는다. 운영 리포트 메뉴가 하나 늘면
-/// 이 화면의 목록도 그날부터 함께 는다 — 적어 두면 반드시 한쪽이 뒤처진다.
-/// </remarks>
+/// <summary>고를 수 있는 보고서 하나. 목록은 메뉴에서 온다 — 이름을 코드에 적으면 한쪽이 뒤처진다.</summary>
 public sealed class ReportCatalogItemDto
 {
     /// <summary>화면이 선언한 열쇠. 배치가 가리키는 값이다</summary>
@@ -65,14 +53,7 @@ public sealed class ReportMailScheduleDto
     /// <summary>마지막 발송의 결과 한 줄</summary>
     public string? LastResult { get; set; }
 
-    /// <summary>
-    /// 다음에 보낼 때. <b>UTC 다.</b> 서버가 주기에서 셈한 값이고 저장하지 않는다.
-    /// </summary>
-    /// <remarks>
-    /// 화면이 다시 셈하지 않게 하려고 함께 보낸다 — 같은 규칙을 두 곳에서
-    /// 계산하면 「다음 발송」과 실제가 어긋나고, 그 어긋남은 아무도 못 믿는
-    /// 숫자를 하나 만든다.
-    /// </remarks>
+    /// <summary>다음에 보낼 때(UTC). 서버가 주기에서 셈한 값이라 저장하지 않는다 — 화면이 다시 셈하면 실제와 어긋난다.</summary>
     public DateTime? NextRunAt { get; set; }
 
     /// <summary>고른 보고서들의 열쇠</summary>
@@ -84,19 +65,10 @@ public sealed class ReportMailScheduleDto
     /// <summary>받을 역할의 이름들. 표에 그대로 적는다</summary>
     public List<string> RoleNames { get; set; } = [];
 
-    /// <summary>
-    /// 고른 보고서의 제목들. <b>지금 메뉴에 있는 것만</b> 담긴다 —
-    /// 없어진 보고서는 <see cref="MissingReportKeys"/> 로 간다.
-    /// </summary>
+    /// <summary>고른 보고서의 제목들. 지금 메뉴에 있는 것만 담기고, 없어진 보고서는 MissingReportKeys 로 간다.</summary>
     public List<string> ReportTitles { get; set; } = [];
 
-    /// <summary>
-    /// 고를 때는 있었는데 지금은 메뉴에 없는 보고서의 열쇠.
-    /// </summary>
-    /// <remarks>
-    /// <b>조용히 빼지 않는다.</b> 빼 버리면 배치가 세 건을 보내는 줄 알고
-    /// 두 건만 나가는데, 화면 어디에도 그 사실이 없다.
-    /// </remarks>
+    /// <summary>고를 때는 있었는데 지금은 메뉴에 없는 보고서의 열쇠. 조용히 빼지 않는다 — 빼면 화면 어디에도 그 사실이 남지 않는다.</summary>
     public List<string> MissingReportKeys { get; set; } = [];
 }
 
@@ -126,14 +98,8 @@ public sealed class SaveReportMailScheduleDto
     public List<string> RoleIds { get; set; } = [];
 }
 
-/// <summary>
-/// 이 배치의 메일을 실제로 받게 되는 사람 한 명.
-/// </summary>
-/// <remarks>
-/// <b>보내기 전에 보여 주려고 있다.</b> 「역할을 골랐는데 아무에게도 안 간다」는
-/// 일이 조용히 일어나는 자리가 둘이다 — 그 역할에 걸린 사람이 없거나, 걸려
-/// 있어도 계정에 이메일이 없거나. 둘은 고치는 자리가 다르므로 갈라서 말한다.
-/// </remarks>
+/// <summary>이 배치의 메일을 실제로 받게 되는 사람 한 명. 보내기 전에 보여 주려고 있다.</summary>
+/// 역할은 골랐는데 아무에게도 안 가는 원인이 둘(역할에 사람 없음, 이메일 없음)이라 갈라서 말한다.
 public sealed class ReportMailRecipientDto
 {
     /// <summary>포털 로그인 아이디</summary>
@@ -159,22 +125,8 @@ public sealed class ReportMailRecipientsDto
     public int DeliverableCount { get; set; }
 }
 
-/// <summary>
-/// 「미리받아보기」로 보내 달라는 것. <b>저장한 배치가 아니어도 된다</b> —
-/// 지금 화면에서 고르고 있는 그대로를 받는다.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <see cref="SaveReportMailScheduleDto"/> 를 그대로 쓰지 않는 까닭은
-/// <b>받을 역할이 필요 없기 때문</b>이다. 이 메일은 누른 사람 본인에게만
-/// 간다. 역할 칸을 그대로 두면 「역할을 안 골랐으니 못 보낸다」가 따라붙어,
-/// 정작 받는 사람을 정하기 전에 메일 꼴을 보려는 자리를 막는다.
-/// </para>
-/// <para>
-/// 주기 칸들을 함께 받는 까닭은 메일 머리줄에 그 한 줄이 들어가기 때문이다 —
-/// 안 받으면 미리 본 메일과 실제로 갈 메일이 한 줄 다르다.
-/// </para>
-/// </remarks>
+/// <summary>미리받아보기로 보내 달라는 것. 저장한 배치가 아니어도 되며 누른 사람 본인에게만 간다.</summary>
+/// 역할 칸이 필요 없고, 주기 칸은 메일 머리줄에 들어가므로 함께 받는다.
 public sealed class ReportMailPreviewDto
 {
     /// <summary>배치 이름. 비어 있으면 「미리받아보기」로 적는다</summary>
@@ -197,15 +149,7 @@ public sealed class ReportMailPreviewDto
     public List<string> ReportKeys { get; set; } = [];
 }
 
-/// <summary>
-/// 미리받아보기의 결과. <b>보낸 주소를 함께 돌려준다</b> — 본인 주소라
-/// 가리지 않는다.
-/// </summary>
-/// <remarks>
-/// 「보냈습니다」만 띄우면 메일이 어느 함으로 갔는지 알 수 없다. 계정에
-/// 주소가 여럿 달린 사람은 대표 주소로 가므로, 안 왔다고 할 때 가장 먼저
-/// 볼 것이 <b>어디로 갔나</b>이다.
-/// </remarks>
+/// <summary>미리받아보기 결과. 보낸 주소를 돌려준다 — 안 왔다고 할 때 가장 먼저 볼 것이 어디로 갔나이기 때문이다.</summary>
 public sealed class ReportMailPreviewResultDto
 {
     /// <summary>보낸 주소 (로그인한 본인의 대표 이메일)</summary>

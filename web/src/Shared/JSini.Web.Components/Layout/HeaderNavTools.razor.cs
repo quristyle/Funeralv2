@@ -13,10 +13,7 @@ public partial class HeaderNavTools
     [Inject] private PortalBoot Boot { get; set; } = default!;
     [Inject] private ThemeSize Size { get; set; } = default!;
 
-    /// <summary>
-    /// 지금 헤더에 선 칸들. 아래 띠와 <b>같은 목록이다</b> — 읽기 전에는
-    /// <see cref="BottomNav.Defaults"/> 라 첫 그림에서 빈 자리가 지나가지 않는다.
-    /// </summary>
+    /// <summary>지금 헤더에 선 칸들. 아래 띠와 같은 목록이다 — 읽기 전에는 BottomNav.Defaults 라 첫 그림에서 빈 자리가 지나가지 않는다.</summary>
     private IReadOnlyList<BottomNavItem> _items = BottomNav.Defaults;
 
     private bool _loaded;
@@ -59,18 +56,11 @@ public partial class HeaderNavTools
 
     private void OnMenusChanged() => InvokeAsync(StateHasChanged);
 
-    /// <summary>
-    /// 칸을 눌렀다. 띠와 <b>같은 판정을 쓴다</b>(<see cref="BottomNav.Open"/>) —
-    /// 갈라 적으면 같은 칸이 자리에 따라 다르게 움직인다.
-    /// </summary>
+    /// <summary>칸을 눌렀다. 띠와 같은 판정을 쓴다(BottomNav.Open) — 갈라 적으면 같은 칸이 자리에 따라 다르게 움직인다.</summary>
     private void Go(BottomNavItem item) =>
         BottomNav.Open(item, Menus.AllMenus, Navigation, Theme, Reveal, UserDrawer);
 
-    /// <summary>
-    /// 두 목록이 같은가. 목록끼리 통째로 비교하면 <b>참조만 본다</b> —
-    /// 읽어 온 것이 기본값과 똑같을 때 쓸데없이 한 번 더 그리게 된다
-    /// (<c>MobileBottomNav</c> 의 같은 이름과 같은 까닭이다).
-    /// </summary>
+    /// <summary>두 목록이 같은가. 참조만 보면 읽어 온 것이 기본값과 같을 때 쓸데없이 한 번 더 그린다(MobileBottomNav 와 같은 까닭).</summary>
     private static bool SameItems(
         IReadOnlyList<BottomNavItem> left, IReadOnlyList<BottomNavItem> right) =>
         ReferenceEquals(left, right)

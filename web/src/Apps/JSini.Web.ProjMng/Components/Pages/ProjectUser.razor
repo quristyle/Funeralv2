@@ -2,21 +2,7 @@
 @attribute [RouteKey("projmng.proj.user")]
 
 @*
-    [프로젝트 참여자]
-
-    이력: Vue `views/projmng/proj/user` → `DynamicGrid` +
-          `sp_proj_user_map_list` · `sp_dev_proj_user_map_exec`
-          → `CommGrd` + REST → **여기 (`ParticipationBoard`)**
-
-    화면 실체는 `Components/Shared/ParticipationBoard` 하나다. 이 쪽과 투입
-    관리(`/projmng/proj/appointment`)가 **시작 축만 달리해서** 같은 부품을
-    연다 — 두 메뉴가 각도만 다른 같은 표를 보고 있었고, 갈라 두면 규칙이
-    한쪽에서만 고쳐지는 날이 온다.
-
-    이 메뉴는 「이 프로젝트에 누가」로 연다. 사용자는 화면 안의 기준
-    세그먼트로 언제든 뒤집을 수 있다.
-
-    합친 경위와 규칙 넷은 그 부품의 머리말에 있다.
+프로젝트 참여자. 화면 실체는 ParticipationBoard 하나이고, 투입 관리와 시작 축만 달리해 같은 부품을 연다. 이 메뉴는 「이 프로젝트에 누가」로 연다 — 화면 안 세그먼트로 뒤집을 수 있다.
 *@
 
 <PageTitle>프로젝트 참여자 · 프로젝트관리</PageTitle>

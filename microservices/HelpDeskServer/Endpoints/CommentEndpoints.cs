@@ -10,13 +10,9 @@ using HelpDeskServer.Helpers;
 
 namespace HelpDeskServer.Endpoints;
 
-/// <summary>
-/// 덧글 관련 엔드포인트
-/// </summary>
+/// <summary>덧글 관련 엔드포인트</summary>
 public static class CommentEndpoints {
-  /// <summary>
-  /// 덧글 관련 엔드포인트를 애플리케이션에 매핑합니다.
-  /// </summary>
+  /// <summary>덧글 관련 엔드포인트를 애플리케이션에 매핑합니다.</summary>
   public static void MapCommentEndpoints(this IEndpointRouteBuilder routes) {
     var group = routes.MapGroup("/api/comments");
 
@@ -69,7 +65,7 @@ public static class CommentEndpoints {
         }
 
         // 조회 대상을 특정할 수 없다. 헬프데스크 레코드에 이어지지 않은 계정은 남긴 댓글도 없으므로
-        // 빈 목록이 맞다. 전에는 예외를 던져 화면 전체가 오류로 떨어졌다.
+        // 빈 목록이 맞다(예외를 던지면 화면 전체가 오류로 떨어진다).
         if (!targetUserId.HasValue || string.IsNullOrEmpty(targetUserType)) {
           return new List<MyCommentDto>();
         }
@@ -201,25 +197,18 @@ public static class CommentEndpoints {
       if (request.AdminId.HasValue) {
         Console.WriteLine($"dddddddddddddddd");
         // 담당자와 댓글 작성자가 다를 경우, 담당자에게 알림 발송
-        //if (request.AdminId.Value != comment.AuthorId || !comment.AuthorType.Equals("admin", StringComparison.OrdinalIgnoreCase))
-        //if (request.AdminId.Value != comment.AuthorId || !comment.AuthorType.Equals("admin", StringComparison.OrdinalIgnoreCase))
-        //{
         var assignedAdminSubscriptions = await store.GetSubscriptionsByUserAsync(request.AdminId.Value, "admin");
         if (assignedAdminSubscriptions.Any()) {
           Console.WriteLine($"ggggggggggggg : {authorName}");
           await PushUtil.SendPushMsg(pushTitle, pushBody, pushUrl, assignedAdminSubscriptions, sender);
         }
-        //}
 
         // 댓글 작성자가 관리자가 아닐 경우, 요청자에게도 알림 발송 (자기 댓글 제외)
-        //if (request.CustomerId != comment.AuthorId || !comment.AuthorType.Equals("customer", StringComparison.OrdinalIgnoreCase))
-        //{
         var customerSubscriptions = await store.GetSubscriptionsByUserAsync(request.CustomerId, "customer");
         if (customerSubscriptions.Any()) {
           Console.WriteLine($"hhhhhhhhhhhhhhhh : {authorName}");
           await PushUtil.SendPushMsg(pushTitle, pushBody, pushUrl, customerSubscriptions, sender);
         }
-        //}
       }
       // 요청에 담당자가 배정되지 않은 경우: 모든 관리자에게 알림 발송
       else {
@@ -234,11 +223,7 @@ public static class CommentEndpoints {
 
       // ── 글 주인에게 알린다 (앱 푸시 · 이메일) ──────────────
       //
-      // **위의 발송과 길이 다르다.** 위엣것은 헬프데스크가 제 구독표
-      // (`pushsubscription`)로 보내는 옛 길인데, 그 표를 채우던 Vue 포털은
-      // 이제 없다 — 지금 포털에서 알림을 켜면 구독은 **알림 서비스** 쪽에
-      // 들어간다. 그래서 「내가 쓴 글에 댓글이 달렸다」가 실제로는 한 대에도
-      // 닿지 않았다. 이메일은 아예 없었다.
+      // **위의 발송과 길이 다르다.** 위엣것은 헬프데스크 자체 구독표(`pushsubscription`)로 보내는 길이라, 구독이 알림 서비스에 있는 지금은 닿지 않는다. 이메일은 이쪽에만 있다.
       //
       // 옛 길을 걷어내지 않고 나란히 둔다. 거기 남아 있는 구독(담당자 몫)이
       // 아직 살아 있을 수 있고, 그것을 정리하는 일은 이 고침의 몫이 아니다.

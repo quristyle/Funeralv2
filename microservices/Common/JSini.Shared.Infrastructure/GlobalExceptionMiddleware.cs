@@ -37,7 +37,6 @@ public class GlobalExceptionMiddleware
     {
         context.Response.ContentType = "application/json";
         
-        // 기본적으로 500 에러로 처리하되, 특정 예외 타입에 따라 상태 코드 조정 가능
         context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
 
         var response = ApiResponse<object>.Fail(
@@ -46,13 +45,10 @@ public class GlobalExceptionMiddleware
             realMessage: exception.ToString()
         );
 
-        // 메타데이터 추가
         response.TraceId = context.TraceIdentifier;
         response.Path = context.Request.Path;
         response.Timestamp = DateTime.UtcNow;
 
-        // 개발 환경에서는 상세 에러 메시지 포함 (선택 사항)
-        // response.Message = exception.Message; 
 
         await context.Response.WriteAsJsonAsync(response);
     }

@@ -7,22 +7,7 @@ using Microsoft.AspNetCore.Components;
 
 namespace JSini.Web.Admin.Components.Pages;
 
-/// <summary>
-/// 오른쪽 표의 한 줄 — 역할 하나와 그 역할에 켠 길들.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <b>서버가 준 줄(<see cref="NotifyPolicyDto"/>)을 직접 고치지 않는다.</b>
-/// 그 줄은 왼쪽 목록이 들고 있는 바로 그 객체라, 체크를 건드리는 순간 저장도
-/// 안 한 값이 목록의 「받는 설정」 칸에 적힌다 — 「고치다 말고 다른 이벤트를
-/// 눌렀다」가 되돌릴 수 없게 된다. 보고서 메일 화면이 같은 자리에서 내린
-/// 판단이다.
-/// </para>
-/// <para>
-/// <b>역할 전부가 한 줄씩 있다.</b> 걸지 않은 역할도 체크가 꺼진 채로 있고,
-/// 저장할 때 길을 하나도 안 켠 줄은 빠진다(서버도 같은 것을 버린다).
-/// </para>
-/// </remarks>
+/// <summary>오른쪽 표의 한 줄 — 역할 하나와 그 역할에 켠 길들. 서버가 준 줄을 직접 고치지 않는다 — 체크를 건드리면 저장 안 한 값이 목록의 「받는 설정」 칸에 적힌다. 역할은 전부 한 줄씩 있고, 저장할 때 길을 하나도 안 켠 줄은 빠진다.</summary>
 internal sealed class NotifyPolicyRow
 {
     public required string RoleId { get; init; }
@@ -40,9 +25,7 @@ internal sealed class NotifyPolicyRow
     public bool Picked => Push || Email;
 }
 
-/// <summary>
-/// 역할 중심 탭의 한 줄 — 알림 이벤트 하나와 이 역할에 대한 앱 푸시/이메일 설정.
-/// </summary>
+/// <summary>역할 중심 탭의 한 줄 — 알림 이벤트 하나와 이 역할의 앱 푸시 · 이메일 설정.</summary>
 internal sealed class RoleEventPolicyRow
 {
     public required NotifyEventDto Event { get; init; }
@@ -116,14 +99,7 @@ public partial class NotifyPolicyPage : IDisposable
 
     private ConfirmDialog? _confirm;
 
-    /// <summary>
-    /// 고칠 수 있는 사람인가. <b>체크 칸을 잠그는 데 쓴다</b> — 누르는 즉시
-    /// 값이 바뀌는 칸이라 저장 단추만 가려서는 막지 못한다.
-    /// </summary>
-    /// <remarks>
-    /// 서버도 같은 표(<c>scom.role_menus</c>)를 본다. 여기서 잠그는 것은
-    /// 왕복을 아끼는 것이지 유일한 문이 아니다.
-    /// </remarks>
+    /// <summary>고칠 수 있는 사람인가. 체크 칸을 잠그는 데 쓴다 — 누르는 즉시 값이 바뀌는 칸이라 저장 단추만 가려서는 막지 못한다. 서버도 같은 표를 보므로 여기서 잠그는 것은 왕복을 아끼는 것이다.</summary>
     private bool _canEdit;
 
     /// <summary>
@@ -155,21 +131,11 @@ public partial class NotifyPolicyPage : IDisposable
     /// <summary>역할을 하나도 안 걸었나. 「제한 없음」 띠의 조건이다.</summary>
     private bool NoRolePicked => !_rows.Any(r => r.Picked);
 
-    /// <summary>
-    /// 역할을 하나도 안 걸었을 때 띄우는 말. <b>푸시와 메일을 갈라 적는다.</b>
-    /// </summary>
-    /// <remarks>
-    /// 두 길의 기본값이 반대다 — 푸시는 안 걸면 「지금까지와 똑같이」 나가고,
-    /// 푸시 경로가 함께 내는 메일은 <b>한 통도 안 나간다</b>. 한쪽만 적으면
-    /// 「제한 없음」을 「메일도 모두에게 간다」로 읽는다.
-    /// </remarks>
+    /// <summary>역할을 하나도 안 걸었을 때 띄우는 말. 푸시와 메일을 갈라 적는다 — 푸시는 안 걸면 지금처럼 나가고 메일은 한 통도 안 나가서, 한쪽만 적으면 「제한 없음」을 메일도 모두에게 간다로 읽는다.</summary>
     private string NoRoleText =>
         _selected is { PolicyRequired: true }
 
-            // **여기서는 뜻이 정반대다.** 보내는 쪽이 설정 파일에 기본 역할을
-            // 안 적어 두는 이벤트라(소개 사이트 문의), 역할이 비면 「지금까지와
-            // 똑같이」가 아니라 **아무에게도 안 간다**. 같은 말을 적으면 끈 줄
-            // 모르고 두었다가 들어온 문의를 아무도 못 본다.
+            // 이 이벤트는 설정 파일에 기본 역할이 없어 역할이 비면 아무에게도 안 간다 — 「지금까지처럼」과 같은 말을 적으면 끈 줄을 모르고 들어온 문의를 못 본다.
             ? "받는 역할이 하나도 없습니다 — 이 알림은 지금 아무에게도 가지 않습니다. "
               + "이 목록이 받는 사람의 정본이라, 보내는 쪽에 적어 둔 기본 역할이 없습니다."
 
@@ -199,23 +165,7 @@ public partial class NotifyPolicyPage : IDisposable
         ? "이 알림은 앱 푸시로 나가지 않습니다."
         : "이 역할에 앱 푸시로 보냅니다.";
 
-    /// <summary>
-    /// 「이메일」 체크에 붙는 한 줄. <b>메일이 나가는 길이 두 갈래</b>라 갈라 적는다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 켠 뒤에 받는 것이 서로 다르다 — 푸시 경로가 함께 내는 이벤트는 <b>앱
-    /// 알림과 같은 글</b>이 오고, 보내는 쪽이 따로 내는 이벤트는 그쪽이 만든
-    /// 제 틀의 메일이 온다(가입 신청 · AI 작업 결과). 뭉뚱그려 「이메일로
-    /// 보냅니다」라고만 적으면 켜 본 사람이 받은 메일을 보고 <b>다른 설정이
-    /// 걸린 줄 안다.</b>
-    /// </para>
-    /// <para>
-    /// <b>푸시와 기본값이 반대라는 것도 여기서 말한다.</b> 역할을 안 걸면
-    /// 푸시는 「지금 그대로」 나가지만 메일은 <b>한 통도 안 나간다</b> — 이
-    /// 화면에서 가장 틀리기 쉬운 자리다.
-    /// </para>
-    /// </remarks>
+    /// <summary>「이메일」 체크에 붙는 한 줄. 메일이 나가는 길은 두 갈래다 — 푸시 경로가 함께 내는 이벤트는 앱 알림과 같은 글이, 보내는 쪽이 따로 내는 이벤트는 그쪽이 만든 틀의 메일이 온다. 푸시와 기본값이 반대라는 것도 여기서 말한다.</summary>
     private string MailHint => _selected switch
     {
         { SupportsEmail: false } => "이 알림은 이메일로 나가지 않습니다.",
@@ -240,22 +190,13 @@ public partial class NotifyPolicyPage : IDisposable
         return parts.Count == 0 ? "—" : string.Join(" · ", parts);
     }
 
-    /// <summary>
-    /// 왼쪽 카드의 색갈래. <b>왼쪽 굵은 선 하나로 지금 상태를 말한다</b> —
-    /// 「정책 밖」·「꺼짐」은 딱지로도 적지만 「제한 없음」은 적을 자리가 없어
-    /// 받는 설정 글자에 묻힌다.
-    /// </summary>
-    /// <remarks>
-    /// 색만으로 가르지 않는다 — 카드 아래 줄에 <see cref="NotifyEventDto.ChannelSummary"/>
-    /// 가 늘 글자로 서 있다(색각 이상이 있어도 읽힌다).
-    /// </remarks>
+    /// <summary>왼쪽 카드의 색갈래. 왼쪽 굵은 선 하나로 지금 상태를 말한다 — 색만으로 가르지 않고 카드 아래 줄에 글자가 늘 서 있다.</summary>
     private string CardTone(NotifyEventDto e) => e switch
     {
         { Governed: false } => "off",
         _ when !IsEventActive(e) => "warn",
 
-        // **같은 「체크 0 개」가 파랑과 주황으로 갈린다.** 이 표가 받는 사람의
-        // 정본인 이벤트에서 역할이 비면 알림이 멎은 것이라 경고 쪽이다.
+        // 같은 체크 0 개라도 이 표가 받는 사람의 정본인 이벤트에서는 알림이 멎은 것이라 경고 색을 쓴다.
         { Unrestricted: true, PolicyRequired: true } => "warn",
         { Unrestricted: true } => "free",
         _ => "on",
@@ -269,10 +210,7 @@ public partial class NotifyPolicyPage : IDisposable
 
     protected override async Task OnInitializedAsync()
     {
-        // 서버도 같은 표를 보지만, 체크 칸은 **누르는 즉시** 값이 바뀌므로
-        // 화면에서도 가려야 한다(`_canEdit` 머리말). 경로를 꺼내는 규칙은
-        // `BasePage.Can` 한 곳에 있다 — 두 벌이 되면 감춘 단추와 화면의
-        // 판정이 갈린다.
+        // 체크 칸은 누르는 즉시 값이 바뀌므로 화면에서도 가린다. 경로 판정은 BasePage.Can 한 곳에 있다 — 두 벌이 되면 감춘 단추와 판정이 갈린다.
         _canEdit = Can(MenuAction.Update);
 
         await LoadRolesAsync();
@@ -305,15 +243,12 @@ public partial class NotifyPolicyPage : IDisposable
 
         _events = [.. await Api.GetNotifyEventsAsync(_keyword, _activeOnly)];
 
-        // 보고 있던 이벤트를 다시 집는다. 저장 뒤에 목록을 새로 읽으면 같은
-        // 코드의 **다른 객체**가 오므로, 그대로 두면 오른쪽이 옛 줄을 가리킨다.
+        // 저장 뒤 목록을 새로 읽으면 같은 코드의 다른 객체가 오므로, 보던 이벤트를 다시 집는다.
         var keep = _selected?.Code;
         var visible = VisibleEvents;
         _selected = keep is null ? null : visible.FirstOrDefault(e => e.Code == keep);
 
-        // **첫 줄을 우리가 고른다.** 왼쪽이 표였을 때는 `CommGrd` 가 해 주던
-        // 일이고(`AutoSelectFirstRow`), 카드로 바꾸면서 그 일을 할 사람이
-        // 없어졌다 — 안 하면 화면을 열자마자 오른쪽이 늘 비어 있다.
+        // 첫 줄을 우리가 고른다 — 왼쪽이 표였을 때는 CommGrd 가 했지만 카드로 바꾸면서 그 일을 할 사람이 없어졌다.
         _selected ??= visible.FirstOrDefault();
 
         LoadForm(_selected);
@@ -422,10 +357,7 @@ public partial class NotifyPolicyPage : IDisposable
         ];
     }
 
-    /// <summary>
-    /// 이벤트를 골랐다. 고른 것이 풀리면(<c>null</c>) 폼을 비우지 <b>않는다</b> —
-    /// 표가 다시 그려질 때 잠깐 풀리는 자리가 있고, 그때 비우면 고치던 체크가 사라진다.
-    /// </summary>
+    /// <summary>이벤트를 골랐다. 고른 것이 풀리면(null) 폼을 비우지 않는다 — 표가 다시 그려질 때 잠깐 풀리는 자리가 있어 그때 비우면 고치던 체크가 사라진다.</summary>
     private async Task SelectAsync(NotifyEventDto? row)
     {
         if (row is null || row.Code == _selected?.Code) return;
@@ -440,16 +372,7 @@ public partial class NotifyPolicyPage : IDisposable
         LoadForm(row);
     }
 
-    /// <summary>
-    /// 고른 이벤트를 오른쪽 표로 편다. 역할 전부가 한 줄씩이고, 걸려 있는
-    /// 역할만 체크가 켜진다.
-    /// </summary>
-    /// <remarks>
-    /// <b>꺼 둔 정책 줄(<c>IsActive = false</c>)은 안 켠 것으로 본다.</b>
-    /// 화면에 체크 칸이 둘뿐이라 「켜져 있지만 쉬는 줄」을 그릴 자리가 없고,
-    /// 서버도 켜진 줄만 세어 「제한 없음」을 판정한다 — 그릴 수 없는 상태를
-    /// 들고 있으면 저장할 때 조용히 사라져 화면과 표가 어긋난다.
-    /// </remarks>
+    /// <summary>고른 이벤트를 오른쪽 표로 편다. 역할 전부가 한 줄씩이고 걸린 역할만 체크가 켜진다. 꺼 둔 정책 줄은 안 켠 것으로 본다 — 화면에 체크 칸이 둘뿐이라 쉬는 줄을 그릴 자리가 없다.</summary>
     private void LoadForm(NotifyEventDto? row)
     {
         if (row is null)
@@ -567,9 +490,7 @@ public partial class NotifyPolicyPage : IDisposable
         return Task.CompletedTask;
     }
 
-    /// <summary>
-    /// 카드 목록의 스위치 변경 시 해당 이벤트의 사용 여부를 곧바로 변경 및 저장한다.
-    /// </summary>
+    /// <summary>카드 목록의 스위치 변경 시 해당 이벤트의 사용 여부를 곧바로 바꾸고 저장한다.</summary>
     private async Task OnCardActiveChangedAsync(NotifyEventDto ev, bool value)
     {
         if (!_canEdit || !ev.Governed || IsEventActive(ev) == value)
@@ -614,9 +535,7 @@ public partial class NotifyPolicyPage : IDisposable
         await SavePolicyAsync();
     }
 
-    /// <summary>
-    /// 체크박스 변경 시 곧바로 정책을 저장한다.
-    /// </summary>
+    /// <summary>체크박스 변경 시 곧바로 정책을 저장한다.</summary>
     private async Task SavePolicyAsync()
     {
         if (_selected is null || !_canEdit || !_selected.Governed) return;

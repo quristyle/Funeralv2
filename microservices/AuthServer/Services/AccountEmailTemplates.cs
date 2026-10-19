@@ -3,48 +3,8 @@ namespace AuthServer.Services;
 /// <summary>
 /// 계정 관련 메일 본문 템플릿 — <b>메일 HTML 은 전부 여기서만 만든다.</b>
 /// </summary>
-/// <remarks>
-/// <para>
-/// 자리와 규칙은 SiteServer 의 <c>InquiryEmailTemplates</c> 와 같다. 색값도
-/// 그쪽에서 그대로 가져왔다 — 같은 회사가 보내는 메일이 서로 다른 톤으로
-/// 말하지 않게 한다. 셋째 서비스가 메일을 보내게 되면 그때 공용으로 올린다
-/// (두 곳이면 복제, 세 번째부터 승격).
-/// </para>
-///
-/// <para>
-/// [메일은 웹이 아니다 — 여기서 쓸 수 없는 것들]
-/// </para>
-///
-/// <list type="bullet">
-///   <item><description><b>외부 CSS · 웹폰트 · 스크립트</b>. 클래스를 쓰지 않고
-///   인라인 스타일만 쓴다.</description></item>
-///   <item><description><b>외부 이미지</b>. 대부분의 클라이언트가 기본으로
-///   차단해서 깨진 상자만 남는다. 그래서 로고도 SVG 가 아니라
-///   <b>글자로 짠 워드마크</b>다.</description></item>
-///   <item><description><b>flex · grid</b>. Outlook 이 못 읽는다. 뼈대는
-///   <c>&lt;table&gt;</c> 로 짠다.</description></item>
-/// </list>
-///
-/// <para>
-/// [단추도 표로 짠다]
-/// </para>
-///
-/// <para>
-/// 여백 준 <c>&lt;a&gt;</c> 하나로 단추를 만들면 Outlook 에서 여백이 죽어
-/// <b>밑줄 친 글자 한 줄</b>이 된다. 칸 하나짜리 표를 쓰고 바탕색은 그 칸에,
-/// 여백은 링크에 준다 — 이러면 칸 전체가 눌린다.
-/// </para>
-///
-/// <para>
-/// [단추 밑에 주소를 그대로 한 번 더 적는다]
-/// </para>
-///
-/// <para>
-/// 회사 메일 게이트웨이가 링크를 자기 추적 주소로 바꿔 두는 곳이 있고,
-/// 텍스트 전용으로 읽는 사람도 있다. 그럴 때 <b>손으로 복사할 주소</b>가
-/// 없으면 메일이 도착해도 쓸 수 없다.
-/// </para>
-/// </remarks>
+/// 자리와 규칙은 SiteServer 의 InquiryEmailTemplates 와 같다(색값도 가져왔다 — 같은 회사가 다른 톤으로 말하지 않게).
+/// 메일은 웹이 아니라 외부 CSS·웹폰트·이미지·flex·grid 를 쓰지 않는다(Outlook 이 못 읽고 외부 이미지는 기본 차단된다). 단추는 칸 하나짜리 표로 짜고, 손으로 복사할 주소를 단추 밑에 한 번 더 적는다.
 public static class AccountEmailTemplates
 {
     // 브랜드 색 (소개 사이트 · 문의 메일과 같은 값)
@@ -107,7 +67,7 @@ public static class AccountEmailTemplates
 
     /// <summary>
     /// 표로 짠 단추. 바탕은 칸이 깔고 여백은 링크가 준다 —
-    /// 그래야 Outlook 에서도 칸 전체가 눌린다(머리말 참고).
+    /// 그래야 Outlook 에서도 칸 전체가 눌린다.
     /// </summary>
     private static string Button(string label, string href) => $"""
         <table role="presentation" cellpadding="0" cellspacing="0" border="0">

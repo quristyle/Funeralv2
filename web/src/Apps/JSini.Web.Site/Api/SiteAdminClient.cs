@@ -3,24 +3,12 @@ using JSini.Web.Http;
 namespace JSini.Web.Site.Api;
 
 /// <summary>
-/// 회사 소개 사이트의 <b>관리</b> 조회. 게이트웨이의 <c>/site/admin/*</c> 로 나간다.
-///
-/// [공개 사이트의 클라이언트와 다른 것이다]
-///
-/// <c>JSini.PublicSite</c> 에도 <c>SiteApi</c> 가 있지만 그쪽은 인증 없는 공개
-/// 조회만 한다(문구·글·자료·문의 접수). 여기는 <b>포털에 로그인한 사람</b>이
-/// 접수된 문의를 들여다보는 자리라 인증이 붙고 경로도 <c>/admin</c> 아래다.
-///
-/// 두 클라이언트를 합치지 않는다. 합치면 공개 사이트가 인증 배관을 끌고
-/// 들어오게 되고, 그 앱이 포털의 배포 일정에 묶인다.
+/// 회사 소개 사이트 관리 조회. 게이트웨이의 /site/admin/* 로 나간다. 공개 사이트의 SiteApi 와 합치지 않는다 — 합치면 공개 사이트가 인증 배관을 끌고 들어와 포털 배포에 묶인다.
 /// </summary>
 public sealed class SiteAdminClient(GatewayClient gateway)
 {
     /// <summary>
-    /// 접수된 문의. 상태로 좁힐 수 있다.
-    ///
-    /// 서버가 최근 500건까지만 준다 — 페이징이 없다. 문의는 하루 몇 건이라
-    /// 지금은 충분하고, 넘치면 그때 서버에 페이징을 붙인다.
+    /// 접수된 문의. 상태로 좁힌다. 서버가 최근 500건까지만 주고 페이징이 없다(하루 몇 건이라 충분하다).
     /// </summary>
     public Task<IReadOnlyList<InquiryDto>> GetInquiriesAsync(
         string? status = null, CancellationToken ct = default)
@@ -35,11 +23,7 @@ public sealed class SiteAdminClient(GatewayClient gateway)
 }
 
 /// <summary>
-/// 접수된 문의 한 건.
-///
-/// <c>ClientIp</c> 와 <c>ConsentedAt</c> 은 <b>개인정보 처리 근거</b>다.
-/// 동의 시각과 접수 출처를 남겨 두어야 나중에 "동의 없이 받았다" 는 다툼에
-/// 답할 수 있다. 화면에도 보여 준다.
+/// 접수된 문의 한 건. ClientIp 와 ConsentedAt 은 개인정보 처리 근거라 화면에도 보여 준다 — 동의 없이 받았다는 다툼에 답하려고.
 /// </summary>
 public sealed class InquiryDto
 {

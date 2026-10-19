@@ -22,16 +22,12 @@ using SixLabors.ImageSharp.Formats.Jpeg;
 
 namespace HelpDeskServer.Utilities;
 
-/// <summary>
-/// File 관련 유틸리티 클래스.
-/// </summary>
+/// <summary>File 관련 유틸리티 클래스.</summary>
 public class FileUtil {
 
 
 
-  /// <summary>
-  /// img tag 에 ᅟbase64 이미지이면 이미지 파일을 보관하고 경로로 변경하여 제공.
-  /// </summary>
+  /// <summary>img tag 에 ᅟbase64 이미지이면 이미지 파일을 보관하고 경로로 변경하여 제공.</summary>
   /// <param name="base64Str"></param>
   /// <param name="subDir"></param>
   /// <returns></returns>
@@ -166,9 +162,7 @@ public class FileUtil {
 
 
 
-  /// <summary>
-  /// html에서 처음 발견한 img 테그의 url 을 추출 하여 리턴.
-  /// </summary>
+  /// <summary>html에서 처음 발견한 img 테그의 url 을 추출 하여 리턴.</summary>
   /// <param name="targerString"></param>
   /// <returns></returns>
   public static async Task<string> GetFirstImageUrl(string? targerString) {
@@ -221,9 +215,7 @@ public class FileUtil {
 
 
 
-  /// <summary>
-  /// base64 문자열을 파일로 저장하고 저장된 파일 경로를 반환한다. 
-  /// </summary>
+  /// <summary>base64 문자열을 파일로 저장하고 저장된 파일 경로를 반환한다.</summary>
   /// <param name="subDir">저장 기본 경로 아래에 만들 하위 폴더</param>
   /// <param name="base64Str">data URI 또는 순수 base64 문자열</param>
   /// <param name="conurl">돌려줄 주소의 앞자리. 기본은 <c>pubstor</c>.</param>
@@ -355,9 +347,7 @@ public class FileUtil {
   }
 
 
-  /// <summary>
-  /// 지정된 디렉토리를 삭제합니다.
-  /// </summary>
+  /// <summary>지정된 디렉토리를 삭제합니다.</summary>
   /// <param name="basePath"></param>
   /// <param name="subDir"></param>
   /// <returns></returns>

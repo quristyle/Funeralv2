@@ -6,62 +6,16 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace AIAgentServer.Services;
 
-/// <summary>
-/// LLM 장비까지 실제로 연결되는지 점검한다.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <b>왜 필요한가.</b> 이 서비스는 스스로 답을 만들지 않고 LLM 장비에 물어본다.
-/// 그래서 프로세스가 멀쩡해도 <b>LLM 이 꺼져 있으면 아무 일도 못 한다.</b>
-/// 예전 <c>/health</c> 는 "이 프로세스가 응답한다" 만 알려 주어,
-/// 상태 화면이 LLM 이 죽은 상태에서도 초록으로 보였다.
-/// </para>
-///
-/// <para>
-/// <b>어디까지 확인하나 (두 단계).</b>
-/// </para>
-/// <list type="number">
-///   <item><b>접속</b> — LLM 주소에 HTTP 로 닿는가. 장비 꺼짐·네트워크 단절을 잡는다.</item>
-///   <item>
-///     <b>모델 목록</b> — <c>GET /v1/models</c> 로 <b>설정한 모델이 올라와 있는가.</b>
-///     이것이 특히 중요하다. 장비는 켜져 있는데 그 모델이 로딩돼 있지 않으면
-///     지금까지는 <b>실제 대화 요청에서만 터지는 조용한 실패</b>였다.
-///   </item>
-/// </list>
-///
-/// <para>
-/// <b>추론은 하지 않는다.</b> 실제로 한 토큰이라도 만들어 보면 가장 확실하지만
-/// 점검마다 GPU 를 쓰고, 모델 로드가 걸리면 수십 초씩 늘어져 상태 화면이 답답해진다.
-/// 생성까지 확인하는 것은 화면의 '정밀 확인' 버튼(<c>POST /ai/health/deep</c>)이 맡는다.
-/// </para>
-///
-/// <para>
-/// <b>결과를 캐시한다.</b> 상태 화면은 주기적으로 폴링하고, 게이트웨이도 같은 <c>/health</c> 를
-/// 찌른다. 캐시가 없으면 LLM 장비가 우리 점검 요청만으로 두들겨 맞는다.
-/// </para>
-///
-/// <para>
-/// <b>Degraded 로 보고한다.</b> Unhealthy(503)로 올리면 로드밸런서가 이 서비스를 내려
-/// 화면에서 아예 사라진다. 서비스는 살아 있고 딸린 것이 죽은 상태이므로,
-/// 200 을 유지하면서 본문에 이유를 담는 편이 맞다.
-/// </para>
-/// </remarks>
+/// <summary>LLM 장비까지 실제로 연결되는지 점검한다. 이 서비스는 스스로 답을 만들지 않고 LLM 장비에 물어본다.</summary>
 public class LlmHealthCheck : IHealthCheck
 {
     /// <summary>점검 이름. 화면이 이 이름으로 줄을 만든다.</summary>
     public const string Name = "llm";
 
-    /// <summary>
-    /// 같은 결과를 이 시간 동안 재사용한다.
-    /// 상태 화면 폴링 주기(수십 초)보다 짧게 두어 '너무 오래된 값' 이 되지 않게 한다.
-    /// </summary>
+    /// <summary>같은 결과를 이 시간 동안 재사용한다. 상태 화면 폴링 주기(수십 초)보다 짧게 두어 '너무 오래된 값' 이 되지 않게 한다.</summary>
     private static readonly TimeSpan CacheFor = TimeSpan.FromSeconds(30);
 
-    /// <summary>
-    /// 점검 한 번에 허용하는 시간.
-    /// LLM 장비가 꺼져 있으면 연결이 타임아웃까지 매달리므로 짧게 잡는다 —
-    /// 재어 보니 기본값으로는 6초 넘게 걸려 상태 화면이 그만큼 멈춰 있었다.
-    /// </summary>
+    /// <summary>점검 한 번에 허용하는 시간. LLM 장비가 꺼져 있으면 연결이 타임아웃까지 매달리므로 짧게 잡는다 — 재어 보니 기본값으로는 6초 넘게 걸려 상태 화면이 그만큼 멈춰 있었다.</summary>
     private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(3);
 
     private static readonly SemaphoreSlim Gate = new(1, 1);
@@ -113,7 +67,6 @@ public class LlmHealthCheck : IHealthCheck
 
     private async Task<HealthCheckResult> ProbeAsync(CancellationToken cancellationToken)
     {
-        // [기본 공급자만 본다]
         //
         // 공급자는 여러 개고(로컬 LLM · Groq), **고르는 것은 사용자다.** 헬스체크는
         // 서버 전체의 상태를 말하는 자리이므로 특정 사용자의 선택을 따라갈 수 없다.
@@ -225,14 +178,7 @@ public class LlmHealthCheck : IHealthCheck
         }
     }
 
-    /// <summary>
-    /// 대화 요청 주소에서 모델 목록 주소를 만든다.
-    /// </summary>
-    /// <remarks>
-    /// 설정값은 <c>http://host:11434/v1/chat/completions</c> 처럼 <b>경로까지 들어 있다.</b>
-    /// 그래서 그대로 쓰면 모델 목록을 못 받는다. <c>/v1</c> 까지 남기고 <c>/models</c> 를 붙인다.
-    /// 형식이 다르면 마지막 두 칸을 떼는 대신 원본 호스트에 <c>/v1/models</c> 를 붙인다.
-    /// </remarks>
+    /// <summary>대화 요청 주소에서 모델 목록 주소를 만든다. 설정값은 http://host:11434/v1/chat/completions 처럼 경로까지 들어 있다.</summary>
     internal static string BuildModelsUrl(string apiBase)
     {
         if (!Uri.TryCreate(apiBase, UriKind.Absolute, out var uri))
@@ -255,14 +201,7 @@ public class LlmHealthCheck : IHealthCheck
             : apiBase;
     }
 
-    /// <summary>
-    /// 모델 목록 응답에서 모델 이름을 뽑는다.
-    /// </summary>
-    /// <remarks>
-    /// OpenAI 규격은 <c>{ "data": [ { "id": "..." } ] }</c> 다.
-    /// Ollama 고유 규격(<c>{ "models": [ { "name": "..." } ] }</c>)도 함께 받아 준다 —
-    /// 같은 장비가 두 경로를 다 열어 두는 경우가 있다.
-    /// </remarks>
+    /// <summary>모델 목록 응답에서 모델 이름을 뽑는다. OpenAI 규격은 { "data": } 다.</summary>
     internal static HashSet<string> ParseModelIds(string body)
     {
         var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -300,9 +239,7 @@ public class LlmHealthCheck : IHealthCheck
         return ids;
     }
 
-    /// <summary>
-    /// 캐시를 버린다. '정밀 확인' 을 누른 뒤 화면이 바로 새 값을 보게 한다.
-    /// </summary>
+    /// <summary>캐시를 버린다. '정밀 확인' 을 누른 뒤 화면이 바로 새 값을 보게 한다.</summary>
     public static void InvalidateCache()
     {
         _cached = null;

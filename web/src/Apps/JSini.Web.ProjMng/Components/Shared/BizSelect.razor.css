@@ -1,5 +1,4 @@
-/* 가로로 찌그러지는 것을 막는 최소 너비 — Vue 의 .jsini-bizselect 와 같은 뜻.
-   폭 자체는 화면이 정한다(조건줄의 flex 배치). */
+/* 가로로 찌그러지는 것을 막는 최소 너비. 폭 자체는 화면이 정한다. */
 ::deep .pm-biz-select {
   min-width: 160px;
   max-width: 100%;

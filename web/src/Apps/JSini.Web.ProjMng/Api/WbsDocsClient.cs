@@ -2,11 +2,7 @@ using JSini.Web.Http;
 
 namespace JSini.Web.ProjMng.Api;
 
-/// <summary>팀 공유 문서 — <c>projmng/wbs-board/docs</c>.</summary>
-/// <remarks>
-/// 본문은 서식 편집기가 만든 HTML 이라 <b>그대로 담고 그대로 돌려준다</b>.
-/// 고친 사람은 서버가 게이트웨이 신원으로 채운다 — 보내지 않는다.
-/// </remarks>
+/// <summary>팀 공유 문서(projmng/wbs-board/docs). 본문 HTML 은 그대로 담고 그대로 돌려준다. 고친 사람은 서버가 채운다.</summary>
 public sealed class WbsDocsClient(GatewayClient gateway)
 {
     private const string Url = "projmng/wbs-board/docs";

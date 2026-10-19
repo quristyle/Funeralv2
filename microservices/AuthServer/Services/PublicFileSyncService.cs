@@ -10,25 +10,7 @@ public class PublicFileSyncService : IPublicFileSyncService
     /// <summary>이 클래스가 켜고 끈 행에 남기는 표식. 끌 때 이 표식이 있는 행만 건드린다.</summary>
     private const string Marker = "NoticeSync";
 
-    /// <summary>
-    /// 파일 하나의 공개 여부를 다시 계산해 맞춘다.
-    /// </summary>
-    /// <remarks>
-    /// 판정 기준은 <b>'공개로 설정된 공지에 붙어 있는가'</b> 다 —
-    /// <c>is_public AND status = 1 AND NOT is_deleted</c>.
-    ///
-    /// 게시 기간(<c>start_at</c> · <c>end_at</c>)은 보지 않는다. 팝업 조회는 그것까지 보지만
-    /// (<see cref="NoticeService.GetPopupAsync"/>), 기간은 아무도 저장을 누르지 않아도 지나간다.
-    /// 기간까지 반영하려면 주기 작업이 하나 더 필요한데, 얻는 것은 '기간이 끝난 공지의 첨부를
-    /// 주소를 아는 사람이 더 받을 수 있다' 를 막는 것뿐이다. 그만한 값이 아니다.
-    ///
-    /// 한 파일이 여러 공지에 붙어 있을 수 있어 <c>bool_or</c> 로 모은다.
-    /// 어느 하나라도 공개면 공개다.
-    ///
-    /// 마지막 줄이 중요하다 — <c>s.should OR f.updatedby = 'NoticeSync'</c>.
-    /// 켜는 것은 언제나 하지만 <b>끄는 것은 이 클래스가 켠 것만</b> 한다.
-    /// 소개 사이트 자료실처럼 다른 이유로 공개된 파일을 공지에서 뗐다는 이유로 닫으면 안 된다.
-    /// </remarks>
+    /// <summary>파일 하나의 공개 여부를 다시 계산해 맞춘다. 공개로 설정된 공지에 붙어 있는지가 기준이다 — is_public AND status = 1 AND NOT is_deleted.</summary>
     private const string Sql = """
         UPDATE scom.filemetadatas AS f
            SET ispublic  = s.should,

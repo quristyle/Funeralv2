@@ -17,25 +17,14 @@ public partial class Register
     /// <summary>그릴 소셜 단추들. 서버가 알려 준 것만 들어 있다.</summary>
     private IReadOnlyList<SocialProvider> _socialProviders = [];
 
-    /// <summary>
-    /// 소셜 단추 목록을 받아 둔다. <b>실패해도 화면은 그대로 뜬다</b> —
-    /// 단추가 없을 뿐이고 손으로 채우는 신청은 그대로 되어야 한다.
-    /// </summary>
+    /// <summary>소셜 단추 목록을 받아 둔다. 실패해도 화면은 뜬다(단추가 없을 뿐 손으로 채우는 신청은 되어야 한다).</summary>
     protected override async Task OnInitializedAsync()
     {
         await base.OnInitializedAsync();
         _socialProviders = await Auth.GetSocialProvidersAsync();
     }
 
-    /// <summary>
-    /// 신청을 보낸다.
-    ///
-    /// <para>
-    /// 서버도 같은 것을 검사한다. 여기서 한 번 더 보는 이유는 <b>왕복 없이
-    /// 알려 주려는 것</b>뿐이고, 진짜 판정은 언제나 서버가 한다 —
-    /// 아이디 중복처럼 화면이 알 수 없는 것도 있다.
-    /// </para>
-    /// </summary>
+    /// <summary>신청을 보낸다. 서버도 같은 것을 검사하고, 여기서 보는 것은 왕복 없이 알려 주려는 것뿐이다. 진짜 판정은 서버가 한다(아이디 중복처럼 화면이 모르는 것도 있다).</summary>
     private async Task SubmitAsync()
     {
         if (string.IsNullOrWhiteSpace(_input.LoginId)

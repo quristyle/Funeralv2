@@ -1,13 +1,7 @@
 @page "/{Locale}"
 
 @*
-    첫 화면.
-
-    [DB 가 비어 있어도 그려진다]
-
-    아래 두 덩어리(문구 블록 · 뉴스)는 있으면 붙고 없으면 빠진다. SiteApi 가
-    실패를 빈 목록으로 바꾸므로, 게이트웨이가 내려가 있어도 히어로는 나온다.
-    소개 사이트가 백엔드 상태에 묶여 죽는 것이 최악이기 때문이다.
+    첫 화면. 문구 블록과 뉴스는 있으면 붙고 없으면 빠진다(SiteApi 가 실패를 빈 목록으로 바꾸므로, 게이트웨이가 내려가도 히어로는 나온다).
 *@
 
 <PageTitle>JSINI</PageTitle>
@@ -18,8 +12,7 @@
 </HeadContent>
 
 @*
-    히어로. 문구는 왼쪽, 모션은 오른쪽이다.
-    모션 위에 글자를 얹지 않는다 — 움직이는 배경 위의 글자는 읽기 어렵다.
+    히어로. 문구는 왼쪽, 모션은 오른쪽이다. 움직이는 배경 위에는 글자를 얹지 않는다.
 *@
 <section class="hero">
     <div class="wrap hero__grid">
@@ -31,7 +24,7 @@
         </div>
 
         <div class="hero__motion" aria-hidden="true">
-            @* 그리는 것은 wwwroot/shard-motion.js 다. 회로가 없으므로 평범한 JS 다. *@
+            @* 그리는 것은 wwwroot/shard-motion.js 다(회로가 없으므로 평범한 JS). *@
             <canvas data-shard-motion></canvas>
         </div>
     </div>

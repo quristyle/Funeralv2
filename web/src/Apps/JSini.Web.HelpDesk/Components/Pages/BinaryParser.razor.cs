@@ -52,10 +52,7 @@ public partial class BinaryParser
         }
     }
 
-    /// <summary>
-    /// 보관한 전문을 원문 칸에 붙인다. <b>목록 응답에는 내용이 빠져 있어</b>
-    /// 한 건을 따로 읽는다.
-    /// </summary>
+    /// <summary>보관한 전문을 원문 칸에 붙인다. 목록 응답에는 내용이 빠져 있어 한 건을 따로 읽는다.</summary>
     private Task LoadSampleAsync() => LoadAsync(async () =>
     {
         var sample = await Api.GetAsync<BinarySample>($"utils/samples/{_sampleId}");
@@ -78,14 +75,7 @@ public partial class BinaryParser
         _savingSample = true;
     }
 
-    /// <summary>
-    /// 보관한다.
-    ///
-    /// <para>
-    /// 불러온 전문이 있고 이름을 그대로 두면 <b>덮어쓴다</b>. 이름을 바꾸면
-    /// 새로 만든다 — 원본도 그렇게 갈랐다(덮어쓸 때는 확인을 물었다).
-    /// </para>
-    /// </summary>
+    /// <summary>보관한다. 불러온 전문이 있고 이름을 그대로 두면 덮어쓴다 — 이름을 바꾸면 새로 만든다.</summary>
     private async Task SaveSampleAsync()
     {
         if (string.IsNullOrWhiteSpace(_sampleTitle))

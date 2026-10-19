@@ -6,8 +6,7 @@
   overflow: hidden;
 }
 
-/* Monaco 는 자기 컨테이너의 높이를 그대로 쓴다. 100% 를 주지 않으면
-   높이 0 으로 잡혀 편집기가 안 보인다 — "빈 칸이 뜬다" 의 흔한 원인이다. */
+/* Monaco 는 컨테이너 높이를 그대로 쓴다. 100% 를 주지 않으면 높이 0 이 된다. */
 ::deep .pm-editor__inner,
 ::deep .monaco-editor-container {
   height: 100%;
@@ -21,6 +20,4 @@
   font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
 }
 
-/* 아이콘 줄(복사 · 자동 줄바꿈)의 모양은 `EditorActions` 가 들고 있고,
-   규칙은 모듈 CSS(`projmng.css` 의 `.pm-edact`)에 있다 — 이 파일(범위 CSS)은
-   셸이 아직 싣지 않는다(그 파일의 「편집기 높이」 머리말). */
+/* 아이콘 줄의 모양은 projmng.css 의 .pm-edact 에 있다. 이 파일은 셸이 싣지 않는다. */

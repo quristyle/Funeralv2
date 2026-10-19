@@ -3,22 +3,7 @@ using System.Net.Http.Headers;
 
 namespace AIAgentServer.Services;
 
-/// <summary>
-/// LLM 장비(호스트명 <c>llm</c>)의 하드웨어 상태를 읽어 온다.
-/// </summary>
-/// <remarks>
-/// <para>
-/// 장비는 운영서버와 같은 내부망에 있고 바깥에서 직접 닿지 않는다. 그래서
-/// <b>주소를 따로 설정하지 않고 <c>jsini</c> 공급자의 <c>ApiBase</c> 에서 뽑는다.</b>
-/// 추론을 보내는 곳과 상태를 묻는 곳이 같은 장비이므로, 둘이 어긋날 일이 없다 —
-/// 개발 PC 는 <c>https://llm.jsini.co.kr</c>, 운영은 <c>http://192.168.219.227:11434</c>
-/// 로 자동으로 갈린다.
-/// </para>
-/// <para>
-/// 인증도 추론과 같은 키를 쓴다. 장비 쪽 nginx 가 <c>/metrics</c> 에도 같은
-/// <c>Bearer</c> 검사를 걸어 두었다.
-/// </para>
-/// </remarks>
+/// <summary>LLM 장비(호스트명 <c>llm</c>)의 하드웨어 상태를 읽어 온다. 장비는 운영서버와 같은 내부망에 있고 바깥에서 직접 닿지 않는다.</summary>
 public sealed class LlmHostMetricsClient
 {
     private readonly HttpClient _http;
@@ -35,10 +20,7 @@ public sealed class LlmHostMetricsClient
         _logger = logger;
     }
 
-    /// <summary>
-    /// 상태를 읽어 온다. <b>못 읽어도 예외를 던지지 않는다</b> —
-    /// 장비가 꺼져 있는 것도 화면이 보여 줘야 하는 상태다.
-    /// </summary>
+    /// <summary>상태를 읽어 온다. <b>못 읽어도 예외를 던지지 않는다</b> — 장비가 꺼져 있는 것도 화면이 보여 줘야 하는 상태다.</summary>
     public async Task<LlmHostMetricsResult> ReadAsync(CancellationToken ct = default)
     {
         var provider = _registry.Resolve("jsini");

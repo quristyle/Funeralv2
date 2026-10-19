@@ -80,11 +80,8 @@ public static class DeceasedEndpoints
         })
         .WithName("GetDeceasedDetail");
 
-        // 호실 ID로 현재 고인 상세 정보 조회
-        //
-        // [익명 라우트] 게이트웨이가 이 경로를 로그인 없이 통과시킨다(플레이어용).
-        // 열쇠가 추측 가능한 장비 코드 하나뿐이라, 표출에 쓰지 않는 개인정보는
-        // 내려보내지 않는다 — AnonymousDisplayProjection 주석 참고 (결정 D-M2).
+        // 장비 코드로 고인 상세 조회. [익명 라우트] 로그인 없이 통과하므로 표출용 투영만 내려보낸다.
+        // 열쇠가 추측 가능한 장비 코드 하나뿐이라 개인정보는 빼고 — AnonymousDisplayProjection 참고.
         group.MapGet("/deviceCode/{deviceCode}", async (string deviceCode, [FromServices] IDeceasedService service) =>
         {
             var result = await service.GetDeceasedDetailByDeviceCodeAsync(deviceCode);
@@ -177,9 +174,7 @@ public static class DeceasedEndpoints
         })
         .WithName("MoveDeceasedRoom");
 
-        // 고인 출상 처리 — 상태 전환과 배정 해제만 한다.
-        // 예전에는 화면이 전체 PUT 을 재구성해 보냈는데, 목록 DTO 에 없는
-        // 칸(비고·주민번호 등)이 함께 지워지는 문제가 있었다 (47번 문서 0단계).
+        // 고인 출상 처리 — 상태 전환과 배정 해제만 한다. 전체 PUT 을 쓰지 않는 까닭: 목록 DTO 에 없는 칸이 지워진다.
         group.MapPut("/{id}/depart", async (string id, [FromServices] IDeceasedService service, UserContext? user) =>
         {
             var success = await service.DepartAsync(id, user?.UserId);
@@ -192,7 +187,7 @@ public static class DeceasedEndpoints
         .WithName("Depart");
 
         // 고인 출상 취소 처리 — 되돌아갈 호실에 다른 고인이 있으면 400.
-        // 출상 취소는 관리자 역할만 (47번 문서 D-RS4).
+        // 출상 취소는 관리자 역할만.
         group.MapPut("/{id}/cancel-departure", async (string id, [FromServices] IDeceasedService service, UserContext? user) =>
         {
             if (user is null || !user.CanControlDevices)

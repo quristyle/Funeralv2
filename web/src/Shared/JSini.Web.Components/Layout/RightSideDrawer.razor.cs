@@ -16,24 +16,10 @@ public partial class RightSideDrawer
     [Parameter] public RenderFragment? FooterContent { get; set; }
     [Parameter] public string CssClass { get; set; } = "";
 
-    /// <summary>
-    /// 휴대폰인가. 참이면 <b>고정핀을 안 그리고 꽂힌 핀도 뽑는다</b> —
-    /// 까닭은 머리말의 「고정핀은 책상 화면 것이다」.
-    /// </summary>
+    /// <summary>휴대폰인가. 참이면 고정핀을 안 그리고 꽂힌 핀도 뽑는다 — 까닭은 머리말의 「고정핀은 책상 화면 것이다」.</summary>
     [Parameter] public bool IsPhone { get; set; }
 
-    /// <summary>
-    /// 못 박아 두었나.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>상태를 부모가 들고 있다.</b> 이 판이 들고 있으면 부모는 지금 못이
-    /// 박혀 있는지를 몰라서, 화면을 옮길 때 접을지 말지를 가릴 수가 없다 —
-    /// 셋 다 바로 그 판단을 해야 한다(<c>QuickAskDrawer.OnLocationChanged</c> ·
-    /// <c>NotificationInboxDrawer.OpenAsync</c>). 여닫힘(<see cref="IsOpen"/>)을
-    /// 부모가 들고 있는 것과 같은 구도다.
-    /// </para>
-    /// </remarks>
+    /// <summary>못 박아 두었나. 상태를 부모가 들고 있다 — 이 판이 들고 있으면 부모가 박혀 있는지 몰라 화면을 옮길 때 접을지를 가릴 수 없다(QuickAskDrawer · NotificationInboxDrawer 가 이 판단을 한다). 여닫힘을 부모가 들고 있는 것과 같은 구도다.</summary>
     [Parameter] public bool IsPinned { get; set; }
 
     [Parameter] public EventCallback<bool> IsPinnedChanged { get; set; }
@@ -53,18 +39,11 @@ public partial class RightSideDrawer
     private readonly string _instanceId = Guid.NewGuid().ToString("N");
     private int? _widthPx;
 
-    /// <summary>
-    /// 데스크탑 환경에서만 기억된 너비를 인라인 스타일로 그린다.
-    /// 휴대폰에서는 CSS 의 <c>min(26rem, 100vw)</c> 규칙이 그대로 작동하도록 비워 둔다.
-    /// </summary>
+    /// <summary>데스크탑에서만 기억된 너비를 인라인 스타일로 그린다. 휴대폰에서는 CSS 의 min(26rem, 100vw) 규칙이 그대로 작동하도록 비워 둔다.</summary>
     private string? DrawerStyle =>
         !IsPhone && _widthPx is > 0 ? $"width: {_widthPx}px;" : null;
 
-    /// <summary>
-    /// <b>지금 실제로 못이 박혀 있나.</b> 휴대폰에서는 언제나 거짓이다 —
-    /// 화면이 좁아진 순간 핀을 뽑긴 하지만(<see cref="OnParametersSetAsync"/>),
-    /// 그 한 번의 되알림이 부모에게 닿기 전에도 바깥 클릭이 들어올 수 있다.
-    /// </summary>
+    /// <summary>지금 실제로 못이 박혀 있나. 휴대폰에서는 언제나 거짓이다 — 좁아진 순간 핀을 뽑지만 그 되알림이 닿기 전에도 바깥 클릭이 들어올 수 있다.</summary>
     private bool Pinned => IsPinned && !IsPhone;
 
     protected override void OnInitialized()
@@ -84,11 +63,7 @@ public partial class RightSideDrawer
         _ = InvokeAsync(StateHasChanged);
     }
 
-    /// <summary>
-    /// 화면이 좁아지면 꽂아 둔 핀을 뽑는다. 책상에서 고정해 둔 채 창을 줄이면
-    /// 판이 본문을 통째로 덮는데, 못이 박힌 채라면 바깥을 눌러도 메뉴를 옮겨도
-    /// 안 닫혀서 <b>빠져나오는 길이 머리의 ✕ 하나</b>만 남는다.
-    /// </summary>
+    /// <summary>화면이 좁아지면 꽂아 둔 핀을 뽑는다. 책상에서 고정해 둔 채 창을 좁히면 판이 본문을 덮는데, 핀이 박혀 있으면 바깥을 눌러도 안 닫혀 빠져나오는 길이 머리의 ✕ 하나만 남는다.</summary>
     protected override async Task OnParametersSetAsync()
     {
         if (IsPhone && IsPinned)
@@ -137,10 +112,7 @@ public partial class RightSideDrawer
         await IsOpenChanged.InvokeAsync(false);
     }
 
-    /// <summary>
-    /// 데스크탑에서 마우스로 창 너비를 조절했을 때 JS 가 알려 준다.
-    /// 브라우저 저장소와 사용자 계정 설정에 함께 기록해 다음 실행 때도 기억된 너비로 열리게 한다.
-    /// </summary>
+    /// <summary>데스크탑에서 마우스로 창 너비를 조절했을 때 JS 가 알려 준다. 브라우저 저장소와 사용자 계정 설정에 함께 기록해 다음 실행 때도 같은 너비로 연다.</summary>
     [JSInvokable]
     public async Task OnWidthChanged(int width)
     {

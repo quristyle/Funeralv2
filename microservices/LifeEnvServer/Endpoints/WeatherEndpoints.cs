@@ -9,47 +9,23 @@ using Microsoft.EntityFrameworkCore;
 namespace LifeEnvServer.Endpoints;
 
 /// <summary>
-/// 날씨 관련 엔드포인트 (GHUB skgRestApi 이식)
-///
-/// 원본과 다른 점:
-/// - 게이트웨이가 /api/ghub 접두사를 떼고 넘겨 주므로 그룹은 /weather 다.
-/// - 인증·감사 필터를 걷어냈다 — 인증은 게이트웨이가 끝냈고(X-User-*), 응답 봉투는
-///   공용 <see cref="ApiResponseFilter"/>(AddApiResponseWrapper) 하나만 씌운다.
-/// - 시간 규칙: 저장·비교는 UTC(DateTimeOffset), 기상청 발표 문자열을 다룰 때만 Kst 변환.
-///   (원본의 DateTime.Now / AddHours(±9) 보정을 전부 <see cref="Kst"/> 로 바꿨다)
-/// - 이식하지 않은 원본 엔드포인트: POST /(WeatherInfo 직접 등록 — 호출자 없음),
-///   warnings/details · reports · breaking-news · preliminary-warnings(영구 빈 테이블),
-///   warnings/debug-fetch(API 키 노출 디버그).
+/// 날씨 엔드포인트(GHUB skgRestApi 이식). 게이트웨이가 /api/ghub 을 떼고 넘기므로 그룹은 /weather 다.
+/// 시각은 UTC 로 저장·비교하고 기상청 발표 문자열을 다룰 때만 Kst 로 바꾼다. 인증은 게이트웨이가 끝낸다.
 /// </summary>
 public static class WeatherEndpoints {
-  /// <summary>
-  /// 날씨 정보 엔드포인트를 매핑합니다.
-  /// </summary>
-  /// <param name="app">엔드포인트 라우트 빌더</param>
   public static void MapWeatherEndpoints(this IEndpointRouteBuilder app) {
     var group = app.MapGroup("/weather")
         .WithTags("Weather")
         .AddApiResponseWrapper();
 
-    // 0. 내 위치 한 지점의 날씨
-    //
-    // **등록된 관측 지역이 아니다.** 브라우저가 Geolocation 으로 받아 온 위경도
-    // 한 쌍을 그대로 받아, 격자로 바꾸고 가장 가까운 행정구역 이름을 붙여
-    // 지금 날씨와 사흘치 예보를 만들어 준다.
-    //
-    // 부르는 곳이 둘이다 — 알림 설정 화면의 미리보기(「여기가 맞나」)와
-    // 「내 위치 날씨」 발송기(LocalWeatherNotifyService). 둘이 같은 말을 해야 한다.
-    //
-    // **주간 예보는 `weekly=true` 로 물어야 온다.** 그것을 채우려면 기상청을 두 번
-    // 더 부르는데(중기 육상 · 중기 기온), 부르는 셋 중 둘(알림 본문 · 설정 화면
-    // 미리보기)은 쓰지 않는다 — 늘 채우면 알림이 그만큼 늦게 나간다.
+    // 내 위치 한 지점의 날씨. 등록 지역이 아니라 브라우저 위경도를 격자로 바꿔 답한다.
+    // weekly=true 여야 주간 예보가 온다 — 기상청 왕복이 둘 늘어 알림 본문과 미리보기는 쓰지 않는다.
     group.MapGet("/point", async (double? lat, double? lon, bool? weekly, PointWeatherService points, CancellationToken ct) => {
       if (lat is not { } latitude || lon is not { } longitude) {
         return Results.BadRequest("위도(lat)와 경도(lon)가 필요합니다.");
       }
 
-      // 한반도 밖이면 기상청에 물어도 자료가 없다. 브라우저가 위치를 못 잡았을 때
-      // 0,0 이 오는 일이 실제로 있어, 그것을 「자료 없음」이 아니라 여기서 말한다.
+      // 한반도 밖은 기상청 자료가 없다. 브라우저가 위치를 못 잡으면 0,0 이 올 수 있어 여기서 먼저 답한다.
       if (!GridConverter.IsInKorea(latitude, longitude)) {
         return Results.BadRequest("국내 좌표가 아닙니다. 기상청 예보가 닿지 않는 지점입니다.");
       }
@@ -59,15 +35,8 @@ public static class WeatherEndpoints {
     .WithName("GetPointWeather")
     .WithSummary("위경도 한 지점의 현재 날씨와 예보 (내 위치 날씨)");
 
-    // 0-1. 그 지점이 **어디인가**만 (시·도 / 시·군·구 / 읍·면·동)
-    //
-    // 위 /point 와 달리 **기상청을 부르지 않는다.** 설정 화면은 열릴 때마다
-    // 저장해 둔 좌표가 어느 동네인지 보여 줘야 하는데, 그때마다 실황·단기예보를
-    // 받아 오면 왕복이 둘 늘고 기상청이 느린 날에는 이름조차 안 뜬다.
-    //
-    // **국내 좌표인지를 막지 않는다.** 이름을 못 찾으면 비워서 돌려주면 될 뿐이고,
-    // 화면은 그때 좌표를 그대로 보여 준다 — 400 을 주면 「저장은 됐는데 화면이
-    // 빨갛다」가 된다.
+    // 그 지점의 행정구역 이름만 돌려준다. 기상청을 부르지 않으므로 설정 화면을 열 때마다 불러도 된다.
+    // 이름을 못 찾으면 비워 답한다 — 400 을 주면 저장된 좌표가 화면에서 빨갛게 된다.
     group.MapGet("/place", async (double? lat, double? lon, PointWeatherService points) => {
       if (lat is not { } latitude || lon is not { } longitude) {
         return Results.BadRequest("위도(lat)와 경도(lon)가 필요합니다.");
@@ -254,9 +223,7 @@ public static class WeatherEndpoints {
           weather.WeatherLocationId = loc.Id;
           weather.CreatedBy = "System_API_Fallback"; // 출처 표기
 
-          // WeatherApiService 내에서 YesterdayTemperature를 이미 채우려 시도하지만,
-          // NX/NY 기준이며 LocationId 기준이 아닐 수 있고, 시점 차이가 있을 수 있음.
-          // 확실하게 하기 위해 여기서도 비어있으면 채움.
+          // NX/NY 기준으로 채운 값이 빌 수 있으므로, 비어 있으면 여기서 한 번 더 채운다.
           weather.YesterdayTemperature ??= await FindYesterdayTempAsync();
 
           db.WeatherInfos.Add(weather);
@@ -666,9 +633,7 @@ public static class WeatherEndpoints {
           return Results.Ok(warnings);
       }
 
-      // WarningNum으로 그룹화.
-      // 원본은 WarningNum 이 null 이면 Guid.NewGuid() 로 키를 만들어 호출마다 결과가
-      // 달라졌다 — 발표 식별자 (StnId, TmFc, TmSeq) 문자열 키로 대체한다.
+      // WarningNum 으로 그룹화. 없으면 (StnId, TmFc, TmSeq) 문자열로 대체한다 — 호출마다 키가 달라지지 않게.
       var grouped = allRecent.GroupBy(w => string.IsNullOrEmpty(w.WarningNum)
           ? $"{w.StnId}|{w.TmFc}|{w.TmSeq}"
           : w.WarningNum);
@@ -737,7 +702,7 @@ public static class WeatherEndpoints {
           .Where(s => s.WeatherWarningMsg!.TmFc.StartsWith(todayStr))
           .ToListAsync();
 
-      // Command 조인용 특보 사전 로딩 — 원본은 그룹마다 db.WeatherWarnings.FirstOrDefault
+      // Command 조인용 특보 사전 로딩 — 그룹마다 따로 조회하지 않는다
       // 를 동기 호출하는 N+1 이었다. 오늘 발표분(TmFc 가 오늘로 시작)만 한 번에 가져온다.
       var todayWarnings = await db.WeatherWarnings
           .Where(w => w.TmFc.StartsWith(todayStr))

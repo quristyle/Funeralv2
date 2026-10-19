@@ -12,14 +12,8 @@ public partial class WeekForecastRow
     public IReadOnlyList<MidTermForecast> Days { get; set; } = [];
 
     /// <summary>
-    /// 하늘 상태 한 칸. <b>오전·오후가 같으면 한 번만 적는다.</b>
+    /// 하늘 상태 한 칸. 오전·오후가 같으면 한 번만 적는다. 둘 다 비면 「-」 — 빈칸 둘은 화면이 깨진 것으로 읽힌다.
     /// </summary>
-    /// <remarks>
-    /// 중기예보의 8~10일치는 기상청이 오전·오후를 가르지 않아 서버가 같은 값을
-    /// 양쪽에 넣는다. 그것을 「구름많음 / 구름많음」으로 적으면 사람은 둘을
-    /// 견주려다 같은 말임을 뒤늦게 안다. 둘 다 비면 「-」다 — 빈칸 둘을 보여
-    /// 주면 자료가 없는 것이 아니라 <b>화면이 깨진 것</b>으로 읽힌다.
-    /// </remarks>
     private static string Sky(MidTermForecast day)
     {
         var am = day.AmSky?.Trim() ?? "";

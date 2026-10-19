@@ -22,13 +22,13 @@ public class BlazorUtil {
     if (string.IsNullOrEmpty(input)) return string.Empty;
     if (string.IsNullOrEmpty(pathToRemove)) return input;
 
-    // Normalize the path to remove by replacing backslashes with forward slashes and making it case-insensitive
+        // 경로 구분자를 / 로 맞추고 대소문자를 무시한다.
     string normalizedPath = Regex.Escape(pathToRemove.Replace("\\", "/"));
 
-    // Create a regex pattern to match the normalized path in a case-insensitive manner
+        // 대소문자를 무시하는 정규식으로 맞춘다.
     string pattern = "(?i)" + normalizedPath.Replace("/", "[/\\\\]");
 
-    // Replace the matched path with an empty string
+            // 맞은 경로를 빈 문자열로 바꾼다.
     return Regex.Replace(input, pattern, "", RegexOptions.IgnoreCase);
   }
 
@@ -51,13 +51,8 @@ public class BlazorUtil {
 
     List<Dictionary<string, string>> aaa = new List<Dictionary<string, string>>();
 
-   // string basePath = @"c:\projects\ProjMng";
-   // string projNamespace = @"ProjMngWasm";
-   // string pageRoot = @"Pages";
     string folderPath = basePath + @"/" + projNamespace + @"/";
     string searchPattern = "*.razor";
-    //string pagePattern = "@page\\s+\"(?<url>[^\"]+)\"";
-    //string namePattern = "@\\* description :\\s*(?<title>[^*]+)\\s*\\*@";
 
     Console.WriteLine("folderPath : " + folderPath);
 
@@ -159,7 +154,6 @@ public class BlazorUtil {
 
       try {
 
-        //string[] files = Directory.Exists(folderPath) ? Directory.GetFiles(folderPath, searchPattern, SearchOption.AllDirectories) : Array.Empty<string>();
         string[] files = GetFiles( basePath,  projNamespace, extend.Url_pattern);
 
         // GetFiles 는 언제나 배열을 돌려준다 — null 검사는 필요 없다.
@@ -170,7 +164,6 @@ public class BlazorUtil {
           if (!string.IsNullOrEmpty(basePath)) {
             folderPath = basePath + @"/" + projNamespace + @"/";
 
-            //files = Directory.Exists(folderPath) ? Directory.GetFiles(folderPath, searchPattern, SearchOption.AllDirectories) : Array.Empty<string>();
 
             files = GetFiles(basePath, projNamespace, extend.Url_pattern);
           }

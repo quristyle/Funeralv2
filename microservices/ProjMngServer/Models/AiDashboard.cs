@@ -3,20 +3,8 @@ namespace ProjMngServer.Models;
 /// <summary>
 /// AI 작업 대시보드 한 판 — <c>/api/ai-dashboard</c> 의 응답.
 /// </summary>
-/// <remarks>
-/// <para>
-/// <b>한 번에 다 준다.</b> 조각마다 주소를 두면 화면이 열릴 때 여덟 번
-/// 왕복하고, 그중 하나가 늦으면 화면이 조각조각 채워진다 — 대시보드에서는
-/// 그것이 「자료가 없다」로 읽힌다. 전부 같은 기간·같은 표를 훑는 집계라
-/// 한 연결에서 끝내는 편이 서버에도 싸다.
-/// </para>
-/// <para>
-/// <b>기간과 현재는 다른 값이다.</b> 집계는 고른 기간의 것이고,
-/// <see cref="AiDashboardSummary.QueuedNow"/> 처럼 「지금」을 말하는 칸은
-/// 기간을 타지 않는다. 섞으면 어제로 조회한 화면이 「실행 중 0건」이라고
-/// 말하면서 실제로는 지금 돌고 있는 상황이 생긴다.
-/// </para>
-/// </remarks>
+/// 한 번에 다 준다 — 조각마다 주소를 두면 화면이 여덟 번 왕복하고, 늦은 조각이 「자료가 없다」로 읽힌다.
+/// 기간과 현재는 다른 값이다. QueuedNow 처럼 지금을 말하는 칸은 기간을 타지 않는다 — 섞으면 어제로 본 화면이 지금 상황을 틀리게 말한다.
 public sealed class AiDashboardData
 {
     public DateTime From { get; set; }
@@ -194,11 +182,7 @@ public sealed class AiDashboardSlice
 /// <summary>
 /// 예상 사용 건수.
 /// </summary>
-/// <remarks>
-/// <b>지어내지 않는다.</b> 최근 며칠의 일평균을 그대로 늘려 잡은 것이고,
-/// 무엇을 근거로 했는지(<see cref="BasisDays"/> · <see cref="BasisRuns"/>)를
-/// 함께 준다 — 근거를 안 주면 화면의 숫자가 예언처럼 읽힌다.
-/// </remarks>
+/// 지어내지 않는다 — 최근 며칠의 일평균을 늘려 잡은 것이다. 근거(BasisDays · BasisRuns)를 함께 줘야 화면이 예언처럼 읽히지 않는다.
 public sealed class AiDashboardForecast
 {
     /// <summary>근거 기간(일). 지금은 28일이다.</summary>

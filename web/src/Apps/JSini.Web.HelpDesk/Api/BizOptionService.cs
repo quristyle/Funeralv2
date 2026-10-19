@@ -14,18 +14,8 @@ public sealed record BizOptionsResult(IReadOnlyList<JsonElement> Items, IReadOnl
     public static readonly BizOptionsResult Empty = new([], []);
 }
 
-/// <summary>
-/// 메타데이터로 셀렉트 목록을 읽어 오는 단일 통로 — Vue 의 <c>api/biz-select.ts</c>.
-///
-/// 설정은 전부 DB(<c>scom.biz_select_configs</c>)에 있고
-/// <c>/auth/system/biz-select/configs</c> 로 받는다. 화면은 <c>bizType</c> 만 알면
-/// 되고, "어느 MSA 의 어느 API 를 어떤 모양으로 부르는가" 는 여기서 정한다.
-///
-/// <c>serviceCode</c> 는 <b>봉투를 벗길 클라이언트를 고르는 키</b>다:
-///   auth·funeral·file·ai → <see cref="GatewayClient"/> (funeralv2 봉투),
-///   helpdesk → <see cref="HelpDeskApi"/> (헬프데스크 봉투).
-/// projmng 은 이 앱의 화면이 쓰지 않아 지원하지 않는다(경고만 남긴다).
-/// </summary>
+/// <summary>메타데이터(scom.biz_select_configs)로 셀렉트 목록을 읽는 단일 통로. 화면은 bizType 만 알면 되고, 어느 서비스의 어느 API 를 어떤 모양으로 부를지는 여기서 정한다.
+/// serviceCode 는 봉투를 벗길 클라이언트를 고른다(auth·funeral·file·ai → GatewayClient, helpdesk → HelpDeskApi). projmng 은 이 앱에서 지원하지 않는다(경고만 남긴다).</summary>
 public sealed class BizOptionService(
     GatewayClient gateway,
     HelpDeskApi helpdesk,
@@ -48,11 +38,7 @@ public sealed class BizOptionService(
         public string? ParamPath { get; set; }
     }
 
-    /// <summary>
-    /// bizType 의 목록을 읽어 원본 행과 셀렉트 옵션을 함께 돌려준다.
-    /// 설정이 없으면 경고만 남기고 빈 결과를 준다 — 메타데이터를 아직 안 넣은
-    /// 화면이 통째로 죽지 않게 한다.
-    /// </summary>
+    /// <summary>bizType 의 목록을 읽어 원본 행과 셀렉트 옵션을 함께 돌려준다. 설정이 없으면 경고만 남기고 빈 결과를 준다 — 화면이 통째로 죽지 않게 한다.</summary>
     public async Task<BizOptionsResult> FetchOptionsAsync(
         string bizType,
         IReadOnlyDictionary<string, object?>? runtimeParams = null,
@@ -101,17 +87,8 @@ public sealed class BizOptionService(
 
     private async Task<BizSelectConfig?> GetConfigAsync(string bizType, CancellationToken ct)
     {
-        // 설정은 자주 바뀌지 않는다. 한동안 이 클래스가 필드로 들고 있었는데,
-        // 이 서비스가 scoped 라 **업무를 넘나들면 통째로 사라졌고**(Piral 모듈
-        // 컨테이너가 갈린다) 접속자 수만큼 같은 표를 읽었다.
-        //
-        // 묶음 이름을 프로젝트관리와 함께 쓴다 — 그쪽도 같은 엔드포인트를
-        // 읽으므로, 이름이 갈리면 한쪽에서 버려도 다른 쪽이 옛 값을 계속 본다.
-        // 담기는 형이 서로 달라(각자 자기 DTO 다) 값은 따로 앉는다.
-        //
-        // **SharedAsync 인 근거는 백엔드다** — GET /auth/system/biz-select/configs
-        // 는 IBizSelectConfigService 를 그대로 부르고 그 서비스는 지금 요청의
-        // 신원을 보지 않는다.
+        // 설정을 필드로 두면 scoped 서비스라 업무를 넘나들 때 사라지고 접속자 수만큼 같은 표를 읽는다 — 그래서 SharedAsync 로 둔다(configs 는 요청 신원을 보지 않는다).
+        // 묶음 이름은 프로젝트관리와 같이 쓴다 — 이름이 갈리면 한쪽에서 버려도 다른 쪽이 옛 값을 본다.
         var configs = await data.SharedAsync<IReadOnlyList<BizSelectConfig>>(
             ReferenceData.Groups.BizSelectConfigs, "all",
             async () => await gateway.GetListAsync<BizSelectConfig>(
@@ -145,8 +122,7 @@ public sealed class BizOptionService(
             return [];
         }
 
-        // 포털 계열(auth·funeral·file·ai). serviceCode 가 비어 있으면 예전처럼
-        // apiUrl 이 프리픽스를 이미 품고 있는 것으로 본다.
+        // 포털 계열(auth·funeral·file·ai)은 serviceCode 가 비면 apiUrl 이 프리픽스를 이미 품은 것으로 본다.
         var url = string.IsNullOrEmpty(service)
             ? config.ApiUrl.TrimStart('/')
             : $"{service}/{config.ApiUrl.TrimStart('/')}";
@@ -161,10 +137,7 @@ public sealed class BizOptionService(
         return Extract(posted, config.ResultPath);
     }
 
-    /// <summary>
-    /// 고정 파라미터(staticParams)와 런타임 파라미터를 합친다.
-    /// paramPath 가 있으면 런타임 파라미터를 그 자리(점 표기)에 넣는다.
-    /// </summary>
+    /// <summary>고정 파라미터(staticParams)와 런타임 파라미터를 합친다. paramPath 가 있으면 런타임 값을 그 점 표기 자리에 넣는다.</summary>
     private Dictionary<string, object?> BuildParams(
         BizSelectConfig config,
         IReadOnlyDictionary<string, object?>? runtime)
@@ -257,9 +230,7 @@ public sealed class BizOptionService(
 
     private static List<JsonElement> ExtractRows(IReadOnlyList<JsonElement> rows, string? resultPath)
     {
-        // GatewayClient 가 이미 봉투의 result 배열을 벗겼다. resultPath 가
-        // 'result' 면 할 일이 없고, 다른 경로면 각 행이 아니라 응답 전체 경로라
-        // 여기서는 그대로 둔다 (auth·funeral 설정은 전부 'result' 다).
+        // GatewayClient 가 봉투의 result 배열을 이미 벗겼다 — resultPath 가 result 가 아니면 행이 아니라 응답 전체 경로이므로 그대로 둔다.
         return [.. rows];
     }
 

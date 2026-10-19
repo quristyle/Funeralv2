@@ -2,14 +2,7 @@
 @attribute [RouteKey("life.birthday.messages")]
 
 @*
-    [생일 메시지 확인]
-
-    이력: Vue `views/life/birthday/messages.vue` → 여기.
-    API: `auth/birthday/message`(받은 것) · `auth/birthday/message/sent`(보낸 것)
-         · `auth/birthday/today/messages`(오늘의 생일자들이 받은 것)
-
-    세 목록이 모양은 같고 내용이 다르다. 탭으로 나누되 표는 하나로 둔다 —
-    셋을 따로 만들면 칸 하나를 고칠 때 세 곳을 고쳐야 한다.
+    생일 메시지 확인(받은 것 · 보낸 것 · 오늘의 것). 세 목록은 모양이 같아 탭으로 나누되 표는 하나로 둔다.
 *@
 
 @inherits DataPage

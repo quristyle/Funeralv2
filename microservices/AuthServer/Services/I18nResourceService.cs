@@ -9,9 +9,7 @@ public class I18nResourceService : II18nResourceService
 {
     private readonly AppDbContext _context;
 
-    // 다국어 값을 고치면 **메뉴 제목도 바뀐다** — 서버가 meta.titleText 에
-    // 옮겨 담아 내려보내기 때문이다. 그 트리는 캐시되어 있으므로 여기서
-    // 함께 버리지 않으면 "i18n 을 고쳤는데 사이드바만 옛 글자" 가 된다.
+    // 다국어 값을 고치면 메뉴 제목도 바뀐다 — 메뉴 트리가 캐시되므로 함께 버려야 한다.
     private readonly MenuTreeCache _menuCache;
 
     public I18nResourceService(AppDbContext context, MenuTreeCache menuCache)

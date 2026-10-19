@@ -3,21 +3,7 @@ using Xunit;
 
 namespace JSini.Web.Architecture.Tests;
 
-/// <summary>
-/// 「처리 파일」 묶음을 읽는 규칙.
-/// </summary>
-/// <remarks>
-/// <para>
-/// 화면으로는 확인하기 나쁜 자리다 — 실행기가 운영 장비에서 돈 뒤에야 값이
-/// 생기고, 옛 건을 되읽는 뒷길은 <b>2026-10-12 이전에 쌓인 줄</b>에서만
-/// 나타난다. 그 두 모양을 여기 박아 둔다.
-/// </para>
-/// <para>
-/// <b>특히 8진 탈출이다.</b> 운영의 <c>diff_stat</c> 에 한국어 파일명이
-/// <c>"\355\225\234…"</c> 로 쌓여 있어서, 되돌리지 못하면 그 줄들이 화면에
-/// 역슬래시 숫자 더미로 선다.
-/// </para>
-/// </remarks>
+/// <summary>「처리 파일」 묶음을 읽는 규칙. 칸이 생기기 전 줄은 diff_stat 으로만 되읽고, git 의 8진 탈출(\355\225\234…)을 되돌려야 한국어 경로가 선다.</summary>
 public sealed class AiRunFilesTests
 {
     [Fact]
@@ -71,10 +57,7 @@ public sealed class AiRunFilesTests
         Assert.Equal(string.Empty, rows[1].KindText);
     }
 
-    /// <summary>
-    /// <b>옛 건은 <c>diff_stat</c> 으로만 그린다.</b> 합계 줄과 잘린 토막은 버린다 —
-    /// 그 칸은 480자에서 잘려 있어 마지막 줄이 경로의 반 토막인 건이 실제로 있다.
-    /// </summary>
+    /// <summary>옛 건은 diff_stat 으로만 그린다 — 합계 줄과 480자에서 잘린 토막은 버린다(마지막 줄이 경로 반 토막일 수 있다).</summary>
     [Fact]
     public void 옛_건은_diff_stat_을_되읽는다()
     {
@@ -104,10 +87,7 @@ public sealed class AiRunFilesTests
         Assert.Equal("new.cs", rows[0].Path);
     }
 
-    /// <summary>
-    /// git 이 따옴표로 싸 둔 경로를 되돌린다. <b>바이트를 모아 한 번에 푼다</b> —
-    /// 한 글자가 바이트 셋이라 탈출 하나씩 풀면 글자가 안 된다.
-    /// </summary>
+    /// <summary>git 이 따옴표로 싸 둔 경로를 되돌린다. 바이트를 모아 한 번에 푼다 — 한 글자가 바이트 셋이라 탈출을 하나씩 풀면 글자가 안 된다.</summary>
     [Fact]
     public void 따옴표로_싸인_한국어_경로를_되돌린다()
     {
@@ -125,11 +105,7 @@ public sealed class AiRunFilesTests
         Assert.Empty(AiRunFiles.Parse("   ", "\n\n"));
     }
 
-    /// <summary>
-    /// 상태 칸이 <c>?</c> 로 끝나면 <b>git 이 본 것이 아니라 결과문에서 뽑은 줄</b>
-    /// 이다(<c>ProjMngServer.Services.AiChangedFiles.Merge</c> 가 그 표를 단다).
-    /// 갈래는 그대로 읽히고 배지 색만 갈린다.
-    /// </summary>
+    /// <summary>상태 칸이 ? 로 끝나면 git 이 본 것이 아니라 결과문에서 뽑은 추정 줄이다. 갈래는 그대로 읽히고 배지 색만 갈린다.</summary>
     [Fact]
     public void 물음표가_붙은_상태는_추정_줄이다()
     {
@@ -154,10 +130,7 @@ public sealed class AiRunFilesTests
         Assert.Contains("아직 실제 파일에 대 보지 않았습니다", rows[1].Hint);
     }
 
-    /// <summary>
-    /// 갈래를 모르는 추정 줄은 <c>-?</c> 다. <b><c>?</c> 하나로 적지 않는다</b> —
-    /// 그러면 「모르는 줄」과 「추정 줄」이 같은 모양이 된다.
-    /// </summary>
+    /// <summary>갈래를 모르는 추정 줄은 -? 다. ? 하나로 적으면 모르는 줄과 추정 줄이 같은 모양이 된다.</summary>
     [Fact]
     public void 갈래를_모르는_추정_줄도_추정으로_읽힌다()
     {
@@ -178,10 +151,8 @@ public sealed class AiRunFilesTests
         Assert.False(rows[1].Derived);
     }
 
-    // ── 대 보기 (2026-10-17) ────────────────────────────────
-    //
-    // 추정 줄을 **실제 파일에 대 본 결과**가 상태 칸의 마지막 한 글자로 온다.
-    // 대 보는 것은 실행기고(`AiTaskRunner.FileProbe`) 이쪽은 읽어 그릴 뿐이다.
+    // ── 대 보기 ──────────────────────────────────────────
+    // 추정 줄을 실제 파일에 대 본 결과가 상태 칸 마지막 글자로 온다. 대 보는 것은 실행기(FileProbe)이고 여기는 그릴 뿐이다.
 
     /// <summary>
     /// 확인 표 넷을 읽는다. 백엔드의 <c>AiChangedFiles.MarkOf</c> 와 짝이다.
@@ -201,11 +172,7 @@ public sealed class AiRunFilesTests
         Assert.Equal(AiRunFileKind.Modified, rows[0].Kind);
     }
 
-    /// <summary>
-    /// <b>없는 경로는 한 칸 더 간다.</b> 나머지 추정 줄은 「덜 미더운 것」이지만
-    /// 그 줄은 <b>틀린 것</b>이라, 같은 회색으로 물러서 있으면 목록을 훑는
-    /// 눈이 그냥 지나간다.
-    /// </summary>
+    /// <summary>없는 경로는 한 칸 더 간다 — 그 줄은 틀린 것이라 같은 회색으로 물러서 있으면 목록을 훑는 눈이 그냥 지나간다.</summary>
     [Fact]
     public void 없는_경로는_따로_센다()
     {
@@ -234,11 +201,7 @@ public sealed class AiRunFilesTests
         Assert.Equal("web/a.razor", rows[0].Hint);
     }
 
-    /// <summary>
-    /// <b>경로를 재는 뿌리를 목록 맨 위에 적는다.</b> 줄마다 적힌 것은
-    /// 「대상 위치 다음부터」라, 그 줄이 없으면 어느 저장소의 것인지
-    /// 화면 어디에도 없다.
-    /// </summary>
+    /// <summary>경로를 재는 뿌리를 목록 맨 위에 적는다. 줄마다 적힌 것은 대상 위치 다음부터라, 이 줄이 없으면 어느 저장소의 것인지 알 수 없다.</summary>
     [Fact]
     public void 탭이_대상_위치를_적는다()
     {
@@ -250,11 +213,7 @@ public sealed class AiRunFilesTests
         Assert.Contains("pm-peek__chg-root", razor);
     }
 
-    /// <summary>
-    /// <b>긴 이름은 접힌다.</b> 꼭 모자랄 때만 끊고(`anywhere`) 앞자리는
-    /// 어디서나 끊는다(`break-all`) — 이름이 두 동강 나면 눈으로 훑어
-    /// 찾을 수가 없다.
-    /// </summary>
+    /// <summary>긴 이름은 꼭 모자랄 때만 끊고 앞자리는 어디서나 끊는다 — 이름이 두 동강 나면 눈으로 훑어 찾을 수 없다.</summary>
     [Fact]
     public void 긴_경로는_잘리지_않고_접힌다()
     {

@@ -1,9 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
 
-  <!--
-    헬프데스크 업무 Piral MFE 모듈.
-    단일 셸에서 동적으로 로드되는 Razor Class Library (Pilet) 모듈이다.
-  -->
+  <!-- 헬프데스크 업무 Piral MFE 모듈(Razor Class Library). -->
 
   <PropertyGroup>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>

@@ -1,28 +1,18 @@
 namespace AIAgentServer.DTOs;
 
-/// <summary>
-/// 한 사람의 기간 사용량. 포털관리 「AI 사용량」 화면의 한 줄이다.
-/// </summary>
+/// <summary>한 사람의 기간 사용량. 포털관리 「AI 사용량」 화면의 한 줄이다.</summary>
 public class AiUsageByUserDto
 {
-    /// <summary>
-    /// 로그인 아이디. <b><c>null</c> 은 사람 없이 난 호출</b>이다 —
-    /// 상태 화면의 정밀 확인처럼 게이트웨이를 거치지 않은 것들이다.
-    /// </summary>
+    /// <summary>로그인 아이디. <b><c>null</c> 은 사람 없이 난 호출</b>이다 — 상태 화면의 정밀 확인처럼 게이트웨이를 거치지 않은 것들이다.</summary>
     public string? UserId { get; set; }
 
-    /// <summary>
-    /// 이름. <b>못 찾을 수 있다</b> — 계정을 지워도 그 사람이 쓴 줄은 남는다.
-    /// </summary>
+    /// <summary>이름. <b>못 찾을 수 있다</b> — 계정을 지워도 그 사람이 쓴 줄은 남는다.</summary>
     public string? UserName { get; set; }
 
     /// <summary>호출 건수. 실패도 센다.</summary>
     public int Calls { get; set; }
 
-    /// <summary>
-    /// 그중 실패한 건수. <b>0 이 아니면 눈에 띄어야 한다</b> —
-    /// 「많이 쓰는데 자꾸 실패한다」가 한도·장비 문제의 첫 신호다.
-    /// </summary>
+    /// <summary>그중 실패한 건수. <b>0 이 아니면 눈에 띄어야 한다</b> — 「많이 쓰는데 자꾸 실패한다」가 한도·장비 문제의 첫 신호다.</summary>
     public int FailedCalls { get; set; }
 
     /// <summary>보낸 토큰. 대화가 길어질수록 커진다(문맥을 다시 올린다).</summary>
@@ -34,13 +24,7 @@ public class AiUsageByUserDto
     /// <summary>둘의 합. <b>공급자가 알려 준 줄만</b> 더한 값이다.</summary>
     public long TotalTokens { get; set; }
 
-    /// <summary>
-    /// 토큰 수를 모르는 호출의 건수. <b>0 이 아니면 위 합계가 실제보다 작다.</b>
-    /// </summary>
-    /// <remarks>
-    /// 이 칸이 없으면 화면이 「적게 썼다」와 「덜 세었다」를 구분하지 못한다.
-    /// 토큰을 안 알려 주는 공급자가 있고, 스트림이 중간에 끊겨도 못 받는다.
-    /// </remarks>
+    /// <summary>토큰 수를 모르는 호출의 건수. <b>0 이 아니면 위 합계가 실제보다 작다.</b> 이 칸이 없으면 화면이 「적게 썼다」와 「덜 세었다」를 구분하지 못한다.</summary>
     public int UnknownTokenCalls { get; set; }
 
     /// <summary>한 번에 걸린 평균 시간.</summary>
@@ -50,9 +34,7 @@ public class AiUsageByUserDto
     public DateTime LastCallAt { get; set; }
 }
 
-/// <summary>
-/// 호출 한 건. 집계가 답하지 못하는 <b>「왜 많은가」</b>를 보는 자리다.
-/// </summary>
+/// <summary>호출 한 건. 집계가 답하지 못하는 <b>「왜 많은가」</b>를 보는 자리다.</summary>
 public class AiUsageCallDto
 {
     /// <summary>언제. <b>UTC 다</b> — 한국 시각은 화면이 만든다.</summary>

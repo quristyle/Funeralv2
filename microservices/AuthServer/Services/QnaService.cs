@@ -5,22 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace AuthServer.Services;
 
-/// <summary>
-/// Q&amp;A 서비스 구현체
-/// </summary>
-/// <remarks>
-/// 질문과 답글을 한 테이블에 담고 부모 관계로 잇는다(<see cref="QnaPost"/>).
-/// 그래서 답글의 답글의 답글도 특별한 처리 없이 그대로 이어진다.
-///
-/// [보이는 범위]
-/// 관리자는 전부, 그 외는 '공개된 글 + 내가 쓴 글' 만 본다.
-/// 부모가 안 보이면 그 아래 답글도 함께 감춘다 — 무엇에 대한 답인지 알 수 없는
-/// 답글만 떠 있으면 오히려 혼란스럽기 때문이다.
-///
-/// [권한]
-/// 화면의 `v-perm` 은 버튼을 숨기는 장치일 뿐이다. 요청을 직접 보내면 통과하므로
-/// 쓰기 권한은 여기서 다시 확인한다.
-/// </remarks>
+/// <summary>Q&amp;A 서비스. 질문과 답글을 한 테이블에 담고 부모 관계로 잇는다. 보이는 범위는 관리자는 전부, 그 외는 공개된 글과 자기가 쓴 글이다.</summary>
 public class QnaService : IQnaService
 {
     /// <summary>권한을 읽어 올 메뉴 경로</summary>
@@ -152,9 +137,7 @@ public class QnaService : IQnaService
 
         var canManage = perm.CanCust1;
 
-        // Q&A 는 일반 사용자도 본문을 쓴다. 화면 편집기를 믿지 않고 여기서 세탁한다.
-        // 세탁한 뒤에 비어 있는지 본다 — 편집기는 빈 본문도 `<p></p>` 로 보낸다.
-        // 영상 넣기는 관리자가 쓴 글에만 허용한다.
+        // 일반 사용자도 본문을 쓰므로 화면 편집기를 믿지 않고 여기서 세탁한다 — 세탁 뒤에 비었는지 본다. 영상 넣기는 관리자가 쓴 글에만 허용한다.
         var content = RichTextSanitizer.Sanitize(request.Content, allowEmbeds: canManage)
                       ?? string.Empty;
         if (RichTextSanitizer.IsEmpty(content)) return (QnaResult.Invalid, null);
@@ -198,9 +181,7 @@ public class QnaService : IQnaService
             post.IsAnswer = canManage;
         }
 
-        // 공개 여부는 관리자만 정한다.
-        // 일반 사용자의 글은 비공개로 들어간다 — 관리자가 공개해야 남에게 보인다.
-        // 관리자의 글은 기본 공개다. 답변을 공개해야 질문자가 볼 수 있다.
+        // 공개 여부는 관리자만 정한다 — 일반 사용자의 글은 비공개로 들어가므로 관리자가 공개해야 남에게 보인다.
         post.IsPublic = canManage && (request.IsPublic ?? true);
 
         _db.QnaPosts.Add(post);
@@ -314,21 +295,12 @@ public class QnaService : IQnaService
         return QnaResult.Ok;
     }
 
-    // ============================================================
-    // 내부 도우미
-    // ============================================================
 
-    /// <summary>
-    /// 이 사용자에게 이 글이 보이는지.
-    /// 관리자는 전부, 그 외는 공개된 글과 자기가 쓴 글만 본다.
-    /// </summary>
+    /// <summary>이 사용자에게 이 글이 보이는지. 관리자는 전부, 그 외는 공개된 글과 자기가 쓴 글만 본다.</summary>
     private static bool IsVisible(QnaPost post, string userId, bool canManage)
         => canManage || post.IsPublic || post.AuthorId == userId;
 
-    /// <summary>
-    /// 스레드 하나를 트리로 만든다. 보이지 않는 글은 그 아래 답글까지 함께 뺀다.
-    /// 뿌리가 보이지 않으면 null 을 돌려준다.
-    /// </summary>
+    /// <summary>스레드 하나를 트리로 만든다. 보이지 않는 글은 그 아래 답글까지 함께 뺀다. 뿌리가 보이지 않으면 null.</summary>
     private static QnaPostDto? BuildThread(
         QnaPost root, List<QnaPost> posts, string userId, bool canManage,
         Dictionary<string, string> avatars)
@@ -377,10 +349,7 @@ public class QnaService : IQnaService
         }
     }
 
-    /// <summary>
-    /// 자신과 모든 답글(깊이 제한 없음)을 모은다.
-    /// 삭제·공개 변경을 스레드 아래로 함께 적용할 때 쓴다.
-    /// </summary>
+    /// <summary>자신과 모든 답글(깊이 제한 없음)을 모은다. 삭제·공개 변경을 스레드 아래로 적용할 때 쓴다.</summary>
     private static List<QnaPost> CollectSubtree(QnaPost start, List<QnaPost> thread)
     {
         var result = new List<QnaPost> { start };
@@ -401,19 +370,7 @@ public class QnaService : IQnaService
         return result;
     }
 
-    /// <summary>
-    /// 글쓴이들의 프로필 사진 주소를 한 번에 읽는다.
-    /// </summary>
-    /// <remarks>
-    /// 사진은 `account_profile_details` 의 `Avatar` 항목에 있다(계정 하나에 여러 항목이 있다).
-    ///
-    /// 글마다 계정을 따로 조회하면 스레드 하나에 답글 20개면 20번을 묻게 된다.
-    /// 그래서 화면에 그릴 글의 작성자를 모아 한 번에 읽는다.
-    ///
-    /// 돌려주는 사전은 **계정 키와 로그인 아이디 둘 다**로 찾을 수 있게 담는다 —
-    /// `qna_posts.author_id` 에 무엇이 들어 있어도 찾아진다.
-    /// 사진이 없는 계정은 담지 않는다. 화면이 이름 첫 글자로 대신 그린다.
-    /// </remarks>
+    /// <summary>글쓴이들의 프로필 사진 주소를 한 번에 읽는다. 사진은 <c>account_profile_details</c> 의 Avatar 항목에 있고, 글마다 따로 조회하면 답글 수만큼 묻게 되므로 한 번에 모은다.</summary>
     private async Task<Dictionary<string, string>> LoadAvatarsAsync(
         IEnumerable<string?> authorIds)
     {
@@ -451,10 +408,7 @@ public class QnaService : IQnaService
         return map;
     }
 
-    /// <summary>
-    /// 표시할 작성자 이름을 찾는다.
-    /// 게이트웨이가 넘기는 값은 로그인 아이디라서 그대로 쓰면 화면이 딱딱하다.
-    /// </summary>
+    /// <summary>표시할 작성자 이름을 찾는다. 게이트웨이가 넘기는 값은 로그인 아이디라 그대로 쓰면 화면이 딱딱하다.</summary>
     private async Task<string?> ResolveAuthorNameAsync(string userId)
     {
         var account = await _db.Accounts

@@ -1,32 +1,9 @@
 namespace JSini.Web.Models;
 
-// ============================================================
-// 이동 경로 — **지나온 자리**.
-//
-// 옆의 `AccountLocation.cs` 가 「지금 어디 있나」라면 이쪽은 「어디를
-// 지나왔나」다. 사는 표도 다르다(`scom.location_tracks`) — 저쪽은 사람 하나에
-// 한 줄이라 덮어쓰고, 이쪽은 잴 때마다 쌓인다.
-//
-// ── 「머문 자리」는 저장된 것이 아니라 셈한 것이다 ───────────
-//
-// 표에 쌓이는 것은 **점**뿐이다(포털을 열어 둔 동안 30분에 하나쯤).
-// 사람이 보고 싶은 것은 점이 아니라 「어디에 얼마나 있었나」라, 가까이 붙은
-// 점들을 서버가 하나로 묶어 `LocationStayDto` 로 준다.
-//
-// **화면이 다시 묶지 않는다.** 같은 묶음을 지도·목록·요약 셋이 그리는데,
-// 화면이 묶으면 그 셋이 같은 셈을 하리라는 보장이 코드 읽기뿐이다.
-//
-// 칸 이름은 NotificationServer 의 DTO 와 맞춘다 — 봉투를 그대로 주고받는다.
-// ============================================================
+// 이동 경로. AccountLocation 이 「지금 어디 있나」라면 이쪽은 「어디를 지나왔나」다. 표(scom.location_tracks)는 잴 때마다 쌓인다.
+// 머문 자리는 저장하지 않고 서버가 점을 묶어 셈한다. 화면이 다시 묶으면 지도·목록·요약이 같은 셈을 하리라는 보장이 없다. 칸 이름은 NotificationServer DTO 와 맞춘다.
 
-/// <summary>
-/// 기록된 점 하나 — <b>잰 그대로</b>.
-/// </summary>
-/// <remarks>
-/// 묶지 않은 날것이라 GPS 가 흔든 몇십 미터도 그대로 들어 있다. 화면이 이것을
-/// 따로 보여 주는 까닭은 <b>머문 자리의 묶음을 의심할 수 있어야</b> 하기
-/// 때문이다 — 「여기 있었다」가 틀려 보일 때 볼 곳이 이것뿐이다.
-/// </remarks>
+/// <summary>기록된 점 하나(잰 그대로, 묶지 않은 날것). 머문 자리가 틀려 보일 때 의심할 수 있는 곳이 이것이다.</summary>
 public sealed class LocationTrackPointDto
 {
     /// <summary>잰 때. <b>UTC 다</b> — 한국 시각은 보여 주기 직전에 만든다.</summary>
@@ -48,20 +25,7 @@ public sealed class LocationTrackPointDto
     public bool Moved { get; set; }
 }
 
-/// <summary>
-/// 머문 자리 하나 — <b>가까이 붙은 점들을 묶은 것</b>.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <b><see cref="Minutes"/> 는 「관측된 처음과 마지막 사이」다.</b> 실제로
-/// 머문 시간보다 <b>짧게</b> 나온다 — 닿은 순간과 떠난 순간은 아무도 재지
-/// 않았고, 잰 것은 30분 간격의 표본뿐이기 때문이다.
-/// </para>
-/// <para>
-/// 모자라는 쪽으로 틀리게 두는 것이 뜻이 있다. 다음 관측까지를 머문 것으로
-/// 치면 <b>노트북을 덮고 잔 열 시간</b>이 그대로 사무실 체류 시간이 된다.
-/// </para>
-/// </remarks>
+/// <summary>머문 자리 하나(가까이 붙은 점들을 묶은 것). Minutes 는 관측된 처음과 마지막 사이라 실제보다 짧게 나온다. 모자라는 쪽으로 틀리는 것이 뜻이 있다. 다음 관측까지로 치면 노트북을 덮고 잔 시간이 체류가 된다.</summary>
 public sealed class LocationStayDto
 {
     /// <summary>그날의 몇 번째 자리인가. 1 부터고 지도의 점에 적힌다.</summary>
@@ -122,13 +86,7 @@ public sealed class MyLocationTrackDto
     public double StayRadiusMeters { get; set; }
 }
 
-/// <summary>
-/// 기록이 있는 날 하나. 날짜 고르개가 <b>빈 날을 피하게</b> 해 준다.
-/// </summary>
-/// <remarks>
-/// 포털을 안 연 날에는 한 줄도 안 쌓인다. 이것이 없으면 사람은 기록이 있는
-/// 날을 <b>하루씩 눌러 가며</b> 찾아야 한다.
-/// </remarks>
+/// <summary>기록이 있는 날 하나. 날짜 고르개가 빈 날을 피하게 해 준다. 포털을 안 연 날에는 한 줄도 쌓이지 않는다.</summary>
 public sealed class LocationTrackDayDto
 {
     /// <summary>한국 달력 날짜(<c>yyyy-MM-dd</c>).</summary>

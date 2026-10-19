@@ -1,15 +1,6 @@
 namespace ProjModel;
 
-/// <summary>
-/// 프로시저 실행 결과 (ProjMngWasm 시절의 내부 모양).
-/// </summary>
-/// <remarks>
-/// 예전에는 이것이 **그대로 와이어로 나갔다** — `{ code, message, res, cols, data }`,
-/// 숫자 code 에 음수면 실패. 2026-09-04(D-A1)부터는 밖으로 나가지 않는다.
-/// <see cref="ProjMngServer.Filters.ApiEnvelopeResultFilter"/> 가 다른 여섯 서비스와
-/// 같은 표준 봉투(<c>ApiResponse</c>)로 감싼다. 서비스·프로시저 쪽 규약(음수 코드)은
-/// 그대로다 — 바뀐 것은 직렬화 경계뿐이다.
-/// </remarks>
+/// <summary>프로시저 실행 결과(내부 모양). 밖으로 나가는 와이어 모양이 아니다 — 응답은 다른 형식으로 낸다.</summary>
 public class ResultInfo<T> : IResultInfo {
   public int? Code { get; set; } = 0;
   public string? Message { get; set; } = "success";
@@ -21,9 +12,7 @@ public class ResultInfo<T> : IResultInfo {
   System.Collections.IEnumerable? IResultInfo.Rows => Data;
 }
 
-/// <summary>
-/// 결과 필터가 제네릭 인자와 무관하게 <see cref="ResultInfo{T}"/> 를 읽기 위한 창구.
-/// </summary>
+/// <summary>결과 필터가 제네릭 인자와 무관하게 <see cref="ResultInfo{T}"/> 를 읽기 위한 창구.</summary>
 public interface IResultInfo {
   int? Code { get; }
   string? Message { get; }

@@ -14,27 +14,17 @@ public partial class DbTools
     /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
     private string ConditionSummary => SchSummary.Of(_projectName, _dbItem?.Name, _keyword);
 
-    /// <summary>
-    /// 고른 프로젝트의 <b>이름</b>. 화면이 든 것은 코드뿐이고 목록은
-    /// <c>CodeSelect</c> 안에 있어, 그 부품이 <c>@bind-Text</c> 로 올려 준다.
-    /// </summary>
+    /// <summary>고른 프로젝트의 이름. 코드만 들고, 목록은 CodeSelect 가 쥐고 있다.</summary>
     private string? _projectName;
 
-    /// <summary>
-    /// 감출 칸. 본문은 한 줄이 수천 글자라 표에 그리면 표를 읽을 수가 없다 —
-    /// 본문은 오른쪽 편집기에서 본다. 이름이 둘인 것은 통로마다 대소문자가
-    /// 달라서다.
-    /// </summary>
+    /// <summary>감출 칸. 본문은 한 줄이 수천 글자라 표에 그리지 않고 오른쪽 편집기에서 본다. 이름이 둘인 것은 통로마다 대소문자가 달라서다.</summary>
     private static readonly string[] BodyColumns = ["routine_definition", "Routine_Definition"];
 
     /// <summary>프로시저·함수의 이름 칸. 통로마다 이름이 달라 차례로 본다.</summary>
     private static readonly string[] RoutineNameColumns =
         ["procedurename", "proc_name", "procname", "name", "routine_name"];
 
-    /// <summary>
-    /// DB 종류별 기본 프로시저 뼈대. 옛 <c>WasmUtil</c> 의 상수를 옮긴 것이다.
-    /// EDB 는 PostgreSQL 호환이라 같은 것을 쓴다(옛 화면과 같은 분기).
-    /// </summary>
+    /// <summary>DB 종류별 기본 프로시저 뼈대. EDB 는 PostgreSQL 호환이라 같은 것을 쓴다.</summary>
     private const string PostgresTemplate = """
         CREATE OR REPLACE PROCEDURE {schema}.{name}(
           INOUT p_cursor refcursor,
@@ -83,12 +73,7 @@ public partial class DbTools
     private string? DbNick => _dbItem?.Others.GetValueOrDefault("db_nick");
     private string DbType => _dbItem?.Others.GetValueOrDefault("db_type") ?? string.Empty;
 
-    /// <summary>
-    /// 개발 도구 통로에 실어 보낼 값들.
-    ///
-    /// 넷 다 있어야 한다 — 서버가 <c>db</c>(종류)로 등록된 질의를 고르고,
-    /// <c>dbnick</c> 으로 접속하고, <c>schema</c> 로 범위를 좁힌다.
-    /// </summary>
+    /// <summary>개발 도구 통로에 실어 보낼 값. 넷 다 있어야 한다 — 서버가 db(종류)로 질의를 고르고, dbnick 으로 접속하고, schema 로 범위를 좁힌다.</summary>
     private Dictionary<string, object?> Params() => new()
     {
         ["db"] = DbType,
@@ -137,8 +122,7 @@ public partial class DbTools
 
         var parameters = Params();
 
-        // 나란히 부른다. 한쪽이 그 DB 종류에 등록돼 있지 않아도 나머지는
-        // 보여 준다 — 「이 종류에는 없다」가 정상인 경우가 있다.
+        // 나란히 부른다. 한쪽이 그 DB 종류에 등록돼 있지 않아도 나머지는 보여 준다 — 없는 것이 정상인 종류가 있다.
         var tables = Client.JsContAsync("tablelist", parameters);
         var routines = Client.JsContAsync("proclist", parameters);
         var template = LoadTemplateAsync();
@@ -151,13 +135,7 @@ public partial class DbTools
         return _tables.Table.Rows.Count + _procs.Table.Rows.Count + _funcs.Table.Rows.Count;
     }, "이 DB 에서 읽을 수 있는 개체가 없습니다.", "개체 목록을 읽지 못했습니다");
 
-    /// <summary>
-    /// 이름으로 좁힌다. <b>서버가 못 거르는 DB 종류가 대부분이라 여기서 한다</b>
-    /// (머리말). 이름 칸이 종류마다 달라 몇 가지를 차례로 본다.
-    /// </summary>
-    /// <remarks>
-    /// 거를 값이 없으면 받은 그대로 돌려준다 — 표를 복사할 이유가 없다.
-    /// </remarks>
+    /// <summary>이름으로 좁힌다. 서버가 못 거르는 DB 종류가 대부분이라 여기서 한다. 이름 칸이 종류마다 달라 여러 칸을 차례로 본다. 거를 값이 없으면 받은 그대로 돌려준다.</summary>
     private ProjMngTable Narrow(ProjMngTable source, params string[] nameColumns)
     {
         if (string.IsNullOrWhiteSpace(_keyword))
@@ -180,13 +158,7 @@ public partial class DbTools
         return ProjMngTable.Wrap(table, source.ColumnOrder);
     }
 
-    /// <summary>
-    /// <c>proclist</c> 한 번이 프로시저와 함수를 다 준다. 가르는 것은
-    /// <c>pgtype</c> — <c>sql</c> 이면 함수다.
-    ///
-    /// 그 칸이 없는 DB 종류에서는 <b>가르지 않는다.</b> 잘못 갈라 한쪽 탭이
-    /// 통째로 비면 「이 DB 에는 프로시저가 없다」로 읽힌다.
-    /// </summary>
+    /// <summary>proclist 한 번이 프로시저와 함수를 다 준다. 가르는 것은 pgtype 이다(sql 이면 함수). 그 칸이 없는 DB 종류에서는 가르지 않는다 — 잘못 갈라 한쪽 탭이 비면 「프로시저가 없다」로 읽힌다.</summary>
     private void SplitRoutines(ProjMngResult result)
     {
         var rows = result.Rows ?? [];
@@ -217,16 +189,10 @@ public partial class DbTools
         }), RoutineNameColumns);
     }
 
-    /// <summary>
-    /// 프로시저 생성 뼈대. DB 속성에 등록된 것이 우선이고, 없으면 종류별 기본.
-    ///
-    /// 없다고 실패로 만들지 않는다 — 이 탭이 비는 것과 화면 전체가 실패하는
-    /// 것은 다른 일이다.
-    /// </summary>
+    /// <summary>프로시저 생성 뼈대. DB 속성에 등록된 것이 우선이고 없으면 종류별 기본이다. 없다고 실패로 만들지 않는다 — 탭이 비는 것과 화면 전체가 실패하는 것은 다른 일이다.</summary>
     private async Task LoadTemplateAsync()
     {
-        // **프로시저를 부르지 않는다.** 옛 길은 `sp_dev_db_prop_exec` 였고
-        // 지금은 그 표를 REST 로 읽는다(`ProjectDbClient`).
+        // 프로시저를 부르지 않는다 — 이 표는 REST 로 읽는다(ProjectDbClient).
         var saved = int.TryParse(_dbCode, out var dbRid)
             ? await Dbs.PropsAsync(dbRid)
             : [];
@@ -244,12 +210,7 @@ public partial class DbTools
             };
     }
 
-    /// <summary>
-    /// 고른 테이블의 앞 10건.
-    ///
-    /// 등록된 질의가 아니라 문장을 만들어 보낸다. 그래서 이름을 **서버가 준
-    /// 것에서만** 가져온다 — 사용자가 친 글자를 넣지 않는다.
-    /// </summary>
+    /// <summary>고른 테이블의 앞 10건. 등록된 질의가 아니라 문장을 만들어 보내므로, 이름은 서버가 준 것에서만 가져온다.</summary>
     private Task PreviewAsync(DataRowView? picked)
     {
         _pickedTable = picked;
@@ -266,15 +227,13 @@ public partial class DbTools
 
         return LoadAsync(async () =>
         {
-            // 스키마도 서버가 준 것을 쓴다. 목록에 실려 오면 그것이 정확하다 —
-            // DB 설정의 기본 스키마와 다른 자리에 있는 표가 있다.
+            // 스키마도 서버가 준 것을 쓴다 — DB 설정의 기본 스키마와 다른 자리에 있는 표가 있다.
             var schema = FirstValue(row!, "nspname", "schemaname")
                          ?? _dbItem?.Others.GetValueOrDefault("db_schema");
 
             var qualified = string.IsNullOrWhiteSpace(schema) ? name : $"{schema}.{name}";
 
-            // 문법이 종류마다 다르다. 옛 화면은 오라클 문법(`rownum`)만 있었고,
-            // 실제 대상이 PostgreSQL·MSSQL 이라 그 둘로 나눈다.
+            // 문법이 종류마다 다르다(rownum 은 오라클, 대상은 PostgreSQL·MSSQL) — 그 둘로 나눈다.
             var sql = DbType.Equals("MSSQL", StringComparison.OrdinalIgnoreCase)
                 ? $"SELECT TOP 10 * FROM {qualified}"
                 : $"SELECT * FROM {qualified} LIMIT 10";
@@ -332,12 +291,7 @@ public partial class DbTools
         return Task.CompletedTask;
     }
 
-    /// <summary>
-    /// 여러 이름 중 먼저 있는 칸의 값.
-    ///
-    /// DB 종류마다 등록된 질의가 달라 <b>칸 이름이 제각각</b>이다. 하나만
-    /// 보고 있으면 그 종류에서만 빈칸이 되는데, 원인이 화면에서 안 보인다.
-    /// </summary>
+    /// <summary>여러 이름 중 먼저 있는 칸의 값. DB 종류마다 칸 이름이 제각각이라, 하나만 보면 그 종류에서만 빈칸이 되고 원인이 안 보인다.</summary>
     private static string? FirstValue(DataRow row, params string[] columns)
     {
         foreach (var column in columns)

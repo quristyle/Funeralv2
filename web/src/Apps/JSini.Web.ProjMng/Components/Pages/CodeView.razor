@@ -2,20 +2,8 @@
 @attribute [RouteKey("projmng.db.code")]
 
 @*
-    [프로젝트 코드 목록]
-
-    이력: Vue `views/projmng/proj/code.vue` → `DynamicGrid` +
-          `sp_dev_srcinfo_exec` → **여기 (`CommGrd` + REST)**
-    API: `projmng/source-infos`
-
-    프로젝트에 등록된 **소스 뿌리**를 관리한다. 프로젝트 하나에 뿌리가 여럿
-    붙는다(서버·화면·공용 …) — 소스 추적 화면들이 여기 적힌 경로를 읽는다.
-
-    [URL 패턴 칸은 고칠 수 없다]
-
-    그 값은 이 표가 아니라 **상세**에서 온다(`src_pattern_grp = 'url'` 중
-    하나). 목록에서 「무엇을 다루는 소스인가」를 가늠하는 용도라 보여만 준다.
-    고치는 자리는 [소스 정보] 화면의 오른쪽 판이다.
+프로젝트 코드 목록. 프로젝트에 등록된 소스 뿌리를 관리하며, 소스 추적 화면들이 여기 적힌 경로를 읽는다.
+URL 패턴 칸은 상세에서 오므로 보여만 주고, 고치는 자리는 [소스 정보] 의 오른쪽 판이다.
 *@
 
 @inherits DataPage

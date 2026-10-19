@@ -1,7 +1,5 @@
 namespace funeralv2Api.DTOs;
 
-// 알림정보 DTO 셋(NoticeDto · NoticeCreateDto · NoticeUpdateDto)은 2026-09-03 에
-// 걷어냈다 — 쓰지 않는 화면이었다 (Endpoints/InfoEndpoints.cs 머리말).
 
 /// <summary>
 /// 호실 히스토리 한 줄. 옛 <c>fr.room_goin.list4room</c> 이 돌려주던 모양이다.

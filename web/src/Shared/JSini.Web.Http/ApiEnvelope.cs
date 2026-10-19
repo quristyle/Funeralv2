@@ -3,17 +3,7 @@ using System.Text.Json.Serialization;
 namespace JSini.Web.Http;
 
 /// <summary>
-/// 게이트웨이를 지나 오는 응답 봉투. 서비스가 달라도 모양이 같다.
-///
-/// <code>
-/// { "success": true, "code": "S000", "message": "Success",
-///   "data": { "result": [ … ], "page": { "total": 7 } } }
-/// </code>
-///
-/// 서버 쪽 원본은 <c>JSini.Shared.DTOs.ApiResponse&lt;T&gt;</c> 다. 그 프로젝트를
-/// 직접 참조하지 않고 읽기 전용 사본을 두는 이유는, 프론트가 백엔드의 배포 일정과
-/// 프레임워크 버전에 묶이지 않게 하기 위해서다. 봉투는 몇 년째 모양이 바뀌지
-/// 않았고, 바뀌면 여기 한 파일만 고치면 된다.
+/// 게이트웨이를 지나 오는 응답 봉투. 서비스가 달라도 모양이 같다. 서버 원본은 JSini.Shared.DTOs.ApiResponse 다. 읽기 전용 사본을 두어 프론트가 백엔드의 배포 일정과 프레임워크 버전에 묶이지 않게 한다.
 /// </summary>
 /// <typeparam name="T">봉투 안의 <c>result</c> 한 칸의 타입</typeparam>
 internal sealed class ApiEnvelope<T>
@@ -47,13 +37,7 @@ internal sealed class ApiEnvelope<T>
 }
 
 /// <summary>
-/// 봉투 안쪽. <b>목록이든 객체 하나든 똑같이 <c>result</c> 배열이다.</b>
-///
-/// 객체 하나도 <c>{ result: [obj], page: { total: 1 } }</c> 로 온다
-/// (<c>ApiResponse.BuildSerializedData</c>). 그래서 봉투만 보고는
-/// '1건짜리 목록' 과 '객체 하나' 를 구분할 수 없다 — 구분은 엔드포인트를 아는
-/// 사람만 할 수 있다. <see cref="GatewayClient"/> 가 메서드 이름으로 그 선택을
-/// 드러내는 이유가 이것이다.
+/// 봉투 안쪽. 목록이든 객체 하나든 result 는 배열이다(객체도 한 칸짜리 배열로 온다). 봉투만 보고는 1건짜리 목록과 객체 하나를 구분할 수 없어, 구분은 엔드포인트를 아는 호출 쪽이 한다. GatewayClient 가 메서드 이름으로 그 선택을 드러낸다.
 /// </summary>
 internal sealed class ResultPayload<T>
 {
@@ -71,16 +55,8 @@ internal sealed class PageInfo
 }
 
 /// <summary>
-/// <c>data.result</c> 가 <b>배열이 아니라 객체 하나</b>인 봉투.
-///
-/// 서버가 <c>Result</c> 와 <c>TotalCount</c> 를 가진 DTO 를 돌려주면
-/// <c>ApiResponse.BuildSerializedData</c> 가 그것을 감싸지 않고 그대로 통과시킨다
-/// (<c>IsPassThroughPagedData</c>). 그래서 <c>data.result</c> 자리에 배열 대신
-/// 그 객체가 온다.
-///
-/// 프로젝트관리가 그렇다 — 행뿐 아니라 <b>컬럼 메타</b>까지 함께 돌려주기 때문에
-/// 배열 하나로는 담을 수 없다:
-/// <c>data.result = { rows, cols, res, procCode }</c>.
+/// data.result 가 배열이 아니라 객체 하나인 봉투. 서버가 Result 와 TotalCount 를 가진 DTO 를 돌려주면 ApiResponse 가 감싸지 않고 통과시킨다(IsPassThroughPagedData).
+/// 프로젝트관리가 그렇다. 행뿐 아니라 컬럼 메타까지 함께 돌려주므로 배열 하나로는 담을 수 없다.
 /// </summary>
 internal sealed class ApiObjectEnvelope<T>
 {

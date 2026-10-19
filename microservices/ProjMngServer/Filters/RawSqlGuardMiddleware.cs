@@ -6,8 +6,7 @@ namespace ProjMngServer.Filters;
 /// <c>POST /api/Dev/sql</c> 은 요청 본문의 문자열을 지정된 DB 에 그대로 실행한다.
 /// 개발자용 DB 도구 화면이 쓰는 통로인데, 사실상 임의 SQL 실행이다.
 ///
-/// 이식 전에는 이 서비스가 인증 없이 열려 있었다. 포털에 붙으면 게이트웨이가 JWT 를
-/// 요구하므로 익명 접근은 막히지만, 그것만으로는 <b>로그인한 모든 사용자</b>가
+/// 게이트웨이가 JWT 로 익명 접근은 막지만, 그것만으로는 <b>로그인한 모든 사용자</b>가
 /// 임의 SQL 을 실행할 수 있다. 그래서 역할을 한 번 더 확인한다.
 ///
 /// 허용 역할은 <c>DevTools:RawSqlRoles</c> 설정으로 바꿀 수 있고,
@@ -44,9 +43,8 @@ public class RawSqlGuardMiddleware {
 
     var userId = context.Request.Headers["X-User-Id"].ToString();
 
-    // 역할은 여러 개일 수 있다. 게이트웨이가 X-User-Roles 에 전부 실어 보내고,
-    // X-User-Role 에는 첫 번째만 담는다. 예전에는 단수 헤더만 보느라
-    // 역할이 둘 이상인 계정은 두 번째 역할로 얻은 권한이 통째로 무시됐다.
+        // 역할은 여러 개일 수 있다. 게이트웨이가 X-User-Roles 에 전부 실어 보내고,
+        // X-User-Role 에는 첫 번째만 담으므로 반드시 전체 목록을 읽는다.
     var roles = context.Request.Headers["X-User-Roles"].ToString()
                        .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
@@ -75,7 +73,7 @@ public class RawSqlGuardMiddleware {
   private static async Task Deny(HttpContext context, string message) {
     context.Response.StatusCode = (int)HttpStatusCode.Forbidden;
     context.Response.ContentType = "application/json";
-    // 표준 봉투로 거절한다 (결정 D-A1 — 옛 `{ code: -403, ... }` 봉투는 2026-09-04 에 내렸다).
+    // 표준 봉투로 거절한다.
     await context.Response.WriteAsJsonAsync(
       JSini.Shared.DTOs.ApiResponse<object>.Fail(message, code: "E403"));
   }

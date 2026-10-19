@@ -1,8 +1,6 @@
 namespace AuthServer.DTOs;
 
-/// <summary>
-/// 프론트엔드 UserInfo 타입에 대응하는 사용자 정보 DTO
-/// </summary>
+/// <summary>프론트엔드 UserInfo 타입에 대응하는 사용자 정보 DTO</summary>
 public class UserInfoDto
 {
     /// <summary>사용자 고유 식별자</summary>
@@ -31,16 +29,7 @@ public class UserInfoDto
     /// <summary>아바타 이미지 파일 그룹 ID</summary>
     public string? AvatarGroupId { get; set; }
 
-    /// <summary>
-    /// 화면에 로그인 아이디 워터마크를 깔지. <b>관리자가 정한다</b> —
-    /// 셸이 이 값을 보고 깔거나 걷는다.
-    ///
-    /// <para>
-    /// 여기 담아 내려보내는 이유는 셸이 <b>이미 부르는 왕복</b>이기 때문이다.
-    /// 워터마크만 따로 묻는 통로를 새로 두면 화면이 뜰 때 왕복이 하나 늘고,
-    /// 그 하나가 늦으면 워터마크 없는 화면이 잠깐 보인다.
-    /// </para>
-    /// </summary>
+    /// <summary>화면에 로그인 아이디 워터마크를 깔지. 관리자가 정하며 셸이 이 값을 보고 깔거나 걷는다. 워터마크만 따로 묻는 통로를 두면 화면이 뜰 때 왕복이 하나 늘어 워터마크 없는 화면이 잠깐 보이므로 여기 담는다.</summary>
     public bool Watermark { get; set; } = true;
 
     /// <summary>사용자 설명 또는 이메일</summary>
@@ -52,24 +41,10 @@ public class UserInfoDto
     /// <summary>사용자가 보유한 권한(Role) 식별자 목록 (ADMINISTRATOR 등)</summary>
     public List<string> Roles { get; set; } = new();
 
-    /// <summary>
-    /// 사용자가 보유한 권한(Role) 표시 이름 목록 (관리자, 시스템관리자 …).
-    /// 화면에 역할을 보여 줄 때 쓴다 — 식별자는 사람이 읽기 어렵다.
-    /// </summary>
+    /// <summary>사용자가 보유한 권한(Role) 표시 이름 목록 (관리자, 시스템관리자 …). 화면에 역할을 보여 줄 때 쓴다 — 식별자는 사람이 읽기 어렵다.</summary>
     public List<string> RoleNames { get; set; } = new();
 
-    /// <summary>
-    /// 이 계정이 어느 MSA 레코드에서 만들어졌는지. 형식은 <c>&lt;서비스&gt;:&lt;테이블&gt;:&lt;원본키&gt;</c> 다.
-    /// (<c>helpdesk:admin:4</c> · <c>projmng:dev_user:jskim</c>)
-    ///
-    /// <para>
-    /// 이관 계정은 아이디 충돌을 피하려고 접두어가 붙어 있다(<c>jskim</c> → <c>pm_jskim</c>).
-    /// 그래서 화면이 포털 로그인 아이디로 저쪽 레코드를 찾으면 아무것도 못 찾는다.
-    /// 어느 레코드에서 왔는지는 포털만 알고 있으므로 여기서 함께 내려준다.
-    /// </para>
-    ///
-    /// <para>이관으로 만들어진 계정만 값이 있다. 원래부터 있던 계정은 null 이다.</para>
-    /// </summary>
+    /// <summary>이 계정이 어느 MSA 레코드에서 만들어졌는지. 형식은 <c>&lt;서비스&gt;:&lt;테이블&gt;:&lt;원본키&gt;</c> (<c>helpdesk:admin:4</c> · <c>projmng:dev_user:jskim</c>).</summary>
     public string? MsaSource { get; set; }
 
     /// <summary>추가 토큰 정보 (필요 시)</summary>
@@ -112,9 +87,7 @@ public class UserInfoDto
     public bool TodoTask { get; set; }
     public bool AccountPasswordNotify { get; set; }
 
-    // ── 계정 이력 (/profile 의 '계정 정보' 탭) ──────────────
-    //
-    // 읽기 전용이다. 사용자가 고칠 수 있는 값이 아니라 시스템이 남기는 기록이다.
+    // 계정 이력(/profile 의 계정 정보 탭) — 읽기 전용이고 시스템이 남기는 기록이다.
 
     /// <summary>가입일. 계정을 만든 시각이다.</summary>
     public DateTime? CreatedAt { get; set; }
@@ -122,10 +95,7 @@ public class UserInfoDto
     /// <summary>최근 로그인 성공 시각. 지금 이 화면을 보는 로그인이 곧 최근 로그인이다.</summary>
     public DateTime? LastLoginAt { get; set; }
 
-    /// <summary>
-    /// 최근 로그인 시 접속 IP.
-    /// 클라이언트가 보낸 헤더에서 온 값이라 위조할 수 있으므로 참고용이다.
-    /// </summary>
+    /// <summary>최근 로그인 시 접속 IP. 클라이언트가 보낸 헤더에서 온 값이라 위조할 수 있으므로 참고용이다.</summary>
     public string? LastLoginIp { get; set; }
 
     /// <summary>비밀번호를 마지막으로 바꾼 시각.</summary>
@@ -144,9 +114,7 @@ public class UserInfoDto
     public bool PasswordExpired { get; set; }
 }
 
-/// <summary>
-/// 사용자 계정에 연결 또는 결합된 소셜 계정 상세 정보 DTO
-/// </summary>
+/// <summary>사용자 계정에 연결 또는 결합된 소셜 계정 상세 정보 DTO</summary>
 public class SocialMergedAccountDto
 {
     /// <summary>공급자 키 (google, naver, kakao 등)</summary>

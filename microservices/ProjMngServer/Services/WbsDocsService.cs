@@ -5,13 +5,8 @@ using ProjMngServer.Models;
 
 namespace ProjMngServer.Services;
 
-/// <summary>
-/// 팀 공유 문서 — <c>projmng.wbs_docs</c>. 프로젝트마다 쪽이 여럿이다.
-/// </summary>
-/// <remarks>
-/// 본문은 서식 편집기가 만든 HTML 이라 <b>그대로 담고 그대로 돌려준다.</b>
-/// 붙여넣은 그림은 첨부 서버로 가고 본문에는 주소만 남는다.
-/// </remarks>
+/// <summary>팀 공유 문서 — <c>projmng.wbs_docs</c>. 프로젝트마다 쪽이 여럿이다.</summary>
+/// 본문은 서식 편집기의 HTML 을 그대로 담고 돌린다. 붙여넣은 그림은 첨부 서버로 가고 본문에는 주소만 남는다.
 public sealed class WbsDocsService(IConfiguration configuration)
 {
     private readonly string _connectionString =
@@ -60,10 +55,7 @@ public sealed class WbsDocsService(IConfiguration configuration)
         });
     }
 
-    /// <summary>
-    /// 담겨 온 것만 고친다 — <b>안 담긴 칸은 그대로 둔다.</b> 목차에서 차례만
-    /// 옮길 때 본문이 빈 글자로 덮이면 안 된다.
-    /// </summary>
+    /// <summary>담겨 온 것만 고친다. 안 담긴 칸은 그대로 둔다 — 목록에서 옮길 때 본문이 빈 글자로 덮이면 안 된다.</summary>
     public async Task<int> UpdateAsync(int prjRid, int id, WbsBoardDoc doc, string? userId)
     {
         using var db = Open();

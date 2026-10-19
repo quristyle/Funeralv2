@@ -1,14 +1,7 @@
 @page "/funeral/stat/billing"
 @attribute [RouteKey("funeral.stat.billing")]
 
-@*
-    [요금 내역] — DB 메뉴 `/stat/billing`.
-    이력: Vue `views/funeral/stat/billing/index` → 여기.
-
-    고인 한 명이 여러 시설을 쓰므로 **한 줄 안에 항목이 여러 개**다. 표를 두 겹으로
-    만들지 않고 상세 행(`DetailRowTemplate`)으로 편다 — 두 표를 나란히 두면
-    어느 항목이 어느 고인 것인지 눈으로 이어야 한다.
-*@
+@* [요금 내역] — DB 메뉴 `/stat/billing`. 고인 한 명이 여러 시설을 쓰므로 한 줄 안에 항목이 여럿이다. 표를 두 겹으로 만들지 않고 상세 행(DetailRowTemplate)으로 편다. *@
 
 @inherits DataPage
 
@@ -47,8 +40,7 @@
         <DxGridDataColumn FieldName="@nameof(Billing.RoomName)" Caption="호실" Width="110" />
         <DxGridDataColumn FieldName="@nameof(Billing.StartTime)" Caption="입실" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
 
-        @* 퇴실이 비어 있으면 아직 쓰는 중이다. 사용일수만 보면 그것을 알 수
-           없어 「왜 이 건은 금액이 안 늘지」가 된다. *@
+        @* 퇴실이 비어 있으면 아직 쓰는 중이다. 사용일수만 보면 그것을 알 수 없어 금액이 안 느는 건이 생긴다. *@
         <DxGridDataColumn FieldName="@nameof(Billing.EndTime)" Caption="퇴실" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
 
         <DxGridDataColumn FieldName="@nameof(Billing.UseDays)" Caption="사용일" Width="90" />

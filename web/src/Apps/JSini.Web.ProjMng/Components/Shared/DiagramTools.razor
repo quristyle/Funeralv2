@@ -1,23 +1,8 @@
-@*
-    다이어그램 도구상자 — ERD · 업무 흐름 · 유즈케이스가 같이 쓴다.
-
-    [핀이 하는 일]
-
-        꽂힘(기본)  그림 **옆**에 자리를 차지한다 — 그림을 덮지 않는다.
-        뺌          그림 **위에** 뜬다 — 좁은 화면에서 그림을 넓게 쓸 때.
-
-    숨기면 손잡이만 남긴다. 완전히 없애면 **다시 여는 길이 안 보인다.**
-
-    [목록은 이 부품이 정하지 않는다]
-
-    도형과 선 모양은 `diagram-viewer.js` 가 들고 있고 여기서 받아 그린다.
-    모양을 하나 더 열 때 고칠 곳이 한 곳이어야 하기 때문이다.
-*@
+@* 다이어그램 도구상자 — ERD · 업무 흐름 · 유즈케이스가 같이 쓴다. 핀은 꽂힘(그림 옆 자리)과 뺌(그림 위에 뜸) 둘이고, 숨기면 손잡이만 남긴다. 도형 모양은 diagram-viewer.js 가 들고 있어 여기서 받아 그린다. *@
 
 @if (!Open)
 {
-    @* **자리를 차지하지 않는다.** 숨긴 뒤에도 손잡이가 폭을 먹으면 그림이
-       그만큼 좁아진다 — 그림 위에 떠 있게 두고 캔버스가 폭을 다 쓴다. *@
+    @* 손잡이는 자리를 차지하지 않는다(그림 위에 떠 있다). *@
     <button type="button" class="pm-tools-handle" title="도구상자 열기"
             @onclick="@(() => OpenChanged.InvokeAsync(true))">
         <span class="jsini-icon-palette" aria-hidden="true"></span>
@@ -30,8 +15,7 @@ else
         <header class="pm-tools__head">
             <span class="pm-tools__title">도구상자</span>
 
-            @* 글자 대신 아이콘이다. 머리띠가 좁아 글자 둘이면 제목이 밀린다.
-               무엇인지는 `title` 이 말해 준다. *@
+            @* 글자 대신 아이콘이다 — 머리띠가 좁다. 뜻은 title 이 말한다. *@
             <button type="button"
                     class="pm-tools__icon @(Pinned ? "pm-tools__icon--on" : null)"
                     title="@(Pinned ? "고정 해제 — 그림 위에 띄웁니다" : "고정 — 그림 옆에 붙입니다")"
@@ -40,12 +24,7 @@ else
                 <span class="pm-sr-only">@(Pinned ? "고정 해제" : "고정")</span>
             </button>
 
-            @* 미니맵. 그림이 화면보다 커지면 **지금 어디를 보고 있는지** 알
-               길이 그림 자체밖에 없다 — 켜면 오른쪽 아래에 전체가 뜨고,
-               그 안의 네모를 끌어 옮겨 다닌다.
-
-               **켜는 것이 기본이다.** 끈 채로 저장하면 그 그림은 다음에도
-               꺼진 채로 열린다(`ErdModel.View`). *@
+            @* 미니맵. 그림이 화면보다 클 때 지금 어디를 보는지 알려 준다. 켜는 것이 기본이다 — 끈 채 저장하면 다음에도 꺼진 채로 열린다(ErdModel.View). *@
             <button type="button"
                     class="pm-tools__icon @(MinimapOn ? "pm-tools__icon--on" : null)"
                     title="@(MinimapOn ? "미니맵 끄기" : "미니맵 — 그림 전체와 지금 보는 자리를 오른쪽 아래에 띄웁니다")"
@@ -61,15 +40,7 @@ else
             </button>
         </header>
 
-        @* 바탕 — 없음·격자·점.
-
-           **자석이 여기 딸려 있다.** 격자나 점을 고르면 도형이 그 칸에 붙고
-           「없음」이면 아무 자리에나 놓인다. 보이는 것과 붙는 것을 갈라 두면
-           둘 다 나쁘다 — 그려 놓고 안 붙으면 「이 줄은 뭐냐」가 되고,
-           안 그리고 붙으면 「왜 자꾸 튀느냐」가 된다.
-
-           **머리띠의 아이콘으로 두지 않았다.** 셋 중 하나를 고르는 것이라
-           한 단추로 돌려 쓰면 다음에 무엇이 올지 눌러 봐야 안다. *@
+        @* 바탕 — 없음·격자·점. 자석이 딸려 있어 고르면 도형이 그 칸에 붙는다. 머리띠 아이콘이 아니라 세 칸 묶음으로 둔다: 한 단추로 돌리면 다음에 무엇이 올지 눌러 봐야 안다. *@
         <div class="pm-tools__seg" role="group" aria-label="바탕">
             <span class="pm-tools__seg-label">바탕</span>
 
@@ -96,13 +67,7 @@ else
                 <p class="pm-tools__empty">「@_filter」 에 걸리는 도형이 없습니다.</p>
             }
 
-            @* **아코디언이다.** 묶음이 열이고 도형이 백여든 개라, 다 펼쳐 두면
-               찾는 것이 늘 화면 밖에 있다. `<details>` 를 쓰는 이유는 여닫는
-               일을 브라우저가 하기 때문이다 — 회로 왕복도, 상태도 필요 없고
-               키보드로도 열린다.
-
-               찾는 글자가 있으면 **전부 펼친다** — 걸린 것이 접힌 묶음 안에
-               있으면 「없다」로 보인다. *@
+            @* 아코디언. 묶음이 열이고 도형이 백여든 개라 다 펼치면 찾는 것이 화면 밖에 있다. <details> 는 브라우저가 여닫아 회로 왕복이 없다. 찾는 글자가 있으면 전부 펼친다 — 접힌 묶음 안의 것은 없다로 보인다. *@
             @foreach (var group in Matched.GroupBy(s => s.Group))
             {
                 <details class="pm-tools__group" open="@(IsOpen(group.Key))">
@@ -117,9 +82,7 @@ else
                                     @onclick="@(() => OnShape.InvokeAsync(shape.Kind))">
                                 @Preview(shape, "pm-tool__art")
 
-                                @* 이름과 큰 그림은 **덧붙이는 말**로 띄운다.
-                                   칸에 이름까지 적으면 한 줄에 두 개밖에 못
-                                   들어가 목록이 다섯 배로 길어진다. *@
+                                @* 이름과 큰 그림은 덧붙이는 말로 띄운다 — 칸에 이름까지 적으면 한 줄에 두 개밖에 못 들어간다. *@
                                 <span class="pm-tool__tip">
                                     @Preview(shape, "pm-tool__tip-art")
                                     <span class="pm-tool__tip-name">@shape.Label</span>
@@ -130,8 +93,7 @@ else
                 </details>
             }
 
-            @* 선은 만드는 것이 아니라 **고른 선을 고치는** 것이라 따로 둔다.
-               찾는 글자가 있을 때는 감춘다 — 도형을 찾는 중이기 때문이다. *@
+            @* 선은 고른 선을 고치는 것이라 따로 둔다. 도형을 찾는 중에는 감춘다. *@
             @if (EdgeStyles.Count > 0 && string.IsNullOrWhiteSpace(_filter))
             {
                 <details class="pm-tools__group" open>

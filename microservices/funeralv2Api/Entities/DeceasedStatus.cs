@@ -1,14 +1,8 @@
 namespace funeralv2Api.Entities;
 
 /// <summary>
-/// 고인 장례 상태의 정본. 저장은 이 세 값만 허용한다 (47번 문서 D-RS1).
+/// 고인 장례 상태의 정본. 저장은 이 세 값만 허용한다. 발인 완료는 별도 상태가 아니라 burial_date 경과로 표현한다.
 /// </summary>
-/// <remarks>
-/// 이전에는 화면마다 다른 값(IN_HOSPITAL · DISCHARGED · SETTLEMENT_COMPLETED)을
-/// 쓰고 있었고, 그 어긋남 때문에 빈소현황 카드의 출상 버튼이 else 가지로
-/// '우연히' 노출되고 있었다. 발인 완료는 별도 상태가 아니라
-/// <c>burial_date</c> 경과로 표현한다.
-/// </remarks>
 public static class DeceasedStatus
 {
     /// <summary>장례 진행중 — 호실을 점유하는 유일한 상태</summary>

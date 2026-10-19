@@ -1,23 +1,7 @@
-/* ============================================================
-   운송관리(CargoTrust) 모듈 전용 스타일.
+/* 운송관리 모듈 전용. 공용 CSS 로 올리지 않는다. 색은 전부 테마 토큰(--jsini-*)에서 얻는다 — 값을 박으면 어두운 테마에서 카드만 하얗게 남는다. */
+/* 휴대폰 폭(≤767px)에서는 카드·타일이 한 줄로 쌓이고 사실 목록이 한 칸으로 접힌다. 가로 스크롤은 표에서만 생긴다. */
 
-   모듈 안에서만 쓰이므로 Blazor Common 으로 올리지 않는다 — 올리면 이 스타일이
-   모든 모듈의 결합 지점이 된다. 관리자 모듈이 같은 모양을 쓰게 되면 그쪽이
-   베끼고, 세 번째가 생기면 그때 app.css 로 올린다.
-
-   색은 전부 테마 토큰(--jsini-*)에서 얻는다. 값으로 박으면 테마 스물둘 중
-   어두운 것에서 카드만 하얗게 남는다.
-
-   [휴대폰 폭(≤767px)]
-
-   이 서비스는 차주가 길에서 휴대폰으로 여는 일이 많다. 카드·타일은 격자
-   (`auto-fill` + `minmax`)라 폭이 줄면 한 줄에 하나로 쌓이고, 두 칸짜리
-   사실 목록(`ct-facts`)은 한 칸으로 접힌다. 가로 스크롤이 생기는 자리는 표뿐이다.
-   ============================================================ */
-
-/* 조각이 여럿 쌓이는 화면의 뿌리. CommCont 를 바로 본문에 두면 셸이 그 판에
-   남은 높이를 다 먹이는데(app.css 「본문 높이를 꽉 채운다」), 대시보드 모양의
-   화면은 아래가 잘린다. 한 겹 감싸 그 규칙을 비껴가고 쪽이 구르게 둔다. */
+/* 조각이 여럿 쌓이는 화면의 뿌리. CommCont 를 본문에 바로 두면 셸이 남은 높이를 다 먹여 대시보드 화면이 잘리므로 한 겹 감싼다. */
 .ct-page {
   display: flex;
   flex-direction: column;
@@ -400,9 +384,7 @@ a.ct-card:focus-visible {
   background: color-mix(in srgb, var(--jsini-text) 6%, transparent);
 }
 
-/* 폼을 보내는 단추 줄. `jsini-actions` 를 쓰지 않으므로 배치도 여기서 쥔다
-   (까닭은 TransactionNewPage 의 그 자리 주석 — 표의 「관리」 칸용 여백이
-   보내기 단추까지 따라와 높이를 30px 로 눌렀다). */
+/* 폼 단추 줄. jsini-actions 를 쓰지 않으니 배치를 여기서 쥔다 — 표 칸 여백이 따라오면 단추 높이가 눌린다. */
 .ct-form-actions {
   display: flex;
   flex-wrap: wrap;
@@ -410,17 +392,13 @@ a.ct-card:focus-visible {
   align-items: center;
 }
 
-/* 손가락 크기(44px)를 양쪽 폭에서 지킨다 — 칩과 같은 기준이다.
-   여백은 건드리지 않는다. Tabler 의 기본값(40px)이면 네 칸만 모자라고,
-   그 값은 **tabler.css 가 우리보다 뒤에 실려** 어차피 여기서 못 덮는다
-   (JSiniHead 의 「맨 마지막에 싣는다」). 모자란 높이만 여기서 채운다. */
+/* 손가락 크기(44px)를 양쪽 폭에서 지킨다. 여백은 건드리지 않는다 — Tabler 의 40px 기본값은 tabler.css 가 뒤에 실려 여기서 못 덮으니 높이만 채운다. */
 .ct-form-actions > .dxbl-btn {
   min-height: 44px;
 }
 
 @media (max-width: 767px) {
-  /* 「등록」은 이 화면의 목적이라 남는 폭을 다 가진다. 「다시 쓰기」는 제
-     글자만큼만 — 둘을 같은 크기로 두면 적은 것을 지우는 단추를 잘못 누른다. */
+  /* 「등록」은 남는 폭을 다 가진다. 「다시 쓰기」는 제 글자만큼만 — 같은 크기면 지우는 단추를 잘못 누른다. */
   .ct-form-actions__go {
     flex: 1 1 auto;
   }
@@ -440,9 +418,7 @@ a.ct-card:focus-visible {
 
 /* ── 내 미처리 거래 (거래처 상세) ────────────────────────── */
 
-/* 표가 아니라 줄 목록이다. 칸이 일곱인데 그중 다섯이 짧은 값이라, 표로 두면
-   휴대폰에서 가로로 굴려야 하고 맨 끝의 「따로 · 상세」가 화면 밖으로 나간다.
-   줄로 두면 좁아질 때 아래로 접힌다(카드와 같은 까닭 — CompanySearchPage 머리말). */
+/* 줄 목록이다. 칸 일곱 중 다섯이 짧아 표로 두면 휴대폰에서 가로로 굴러야 하므로, 좁아지면 아래로 접히게 줄로 둔다. */
 .ct-open {
   display: flex;
   flex-direction: column;
@@ -568,8 +544,7 @@ a.ct-card:focus-visible {
 
 /* ── 심야할인 계산 ────────────────────────────────────────── */
 
-/* 넓은 화면에서는 고르는 곳과 결과가 나란히 선다. 좁으면 쌓인다 —
-   「한 화면에 다 보이게」가 두 폭 모두에서 성립하도록. */
+/* 넓으면 고르는 곳과 결과가 나란히 서고, 좁으면 쌓인다. */
 @media (min-width: 900px) {
   .ct-toll {
     display: grid;
@@ -590,8 +565,7 @@ a.ct-card:focus-visible {
   gap: var(--jsini-sp-md);
 }
 
-/* 차량이 한 대일 때. 고르는 것이 아니라 알려 주는 자리다.
-   오른쪽 끝에 설명을 여는 물음표가 선다. */
+/* 차량이 한 대일 때. 고르는 것이 아니라 알려 주는 자리라 오른쪽 끝에 설명 물음표만 선다. */
 .ct-toll-vehicle {
   display: flex;
   align-items: center;
@@ -675,8 +649,7 @@ a.ct-card:focus-visible {
   gap: var(--jsini-sp-sm);
 }
 
-/* OS 의 달력·시계를 쓰는 맨 input 이라, 테마 토큰으로 옷만 입힌다.
-   `color-scheme` 이 있어야 어두운 테마에서 바퀴와 아이콘이 함께 어두워진다. */
+/* OS 달력·시계를 쓰는 맨 input 이라 테마 토큰으로 옷만 입힌다. color-scheme 이 있어야 어두운 테마에서 바퀴·아이콘도 어두워진다. */
 .ct-input {
   flex: 1 1 10rem;
   min-height: 44px;
@@ -699,8 +672,7 @@ a.ct-card:focus-visible {
   gap: var(--jsini-sp-xs);
 }
 
-/* 폼 칸 안에서는 줄 폭을 다 쓴다 — `ct-input` 의 `flex: 1 1 10rem` 은
-   시·분처럼 가로로 늘어선 자리의 값이라 여기서는 듣지 않는다. */
+/* 폼 칸 안에서는 줄 폭을 다 쓴다. ct-input 의 flex 1 1 10rem 은 시·분처럼 가로로 늘어선 자리에서만 듣는다. */
 .ct-input--select,
 .ct-input--free {
   flex: none;
@@ -708,8 +680,7 @@ a.ct-card:focus-visible {
   min-width: 0;
 }
 
-/* OS 가 그리는 화살표 자리를 비워 둔다. 기본 여백으로 두면 긴 유형 이름이
-   화살표 밑으로 들어간다. */
+/* OS 화살표 자리를 비운다. 기본 여백이면 긴 유형 이름이 화살표 밑으로 들어간다. */
 .ct-input--select {
   padding-right: 2rem;
 }
@@ -739,8 +710,7 @@ a.ct-card:focus-visible {
   border-color: var(--jsini-accent);
 }
 
-/* 고른 것은 **테두리와 글자 두께로도** 구분한다 — 색만으로 가르면
-   색을 못 가리는 사람에게는 아무것도 고르지 않은 것으로 보인다. */
+/* 고른 것은 테두리와 글자 두께로도 표시한다 — 색만으로 가르면 색을 못 보는 사람에게 고르지 않은 것으로 보인다. */
 .ct-chip--on {
   border-color: var(--jsini-accent);
   border-width: 2px;
@@ -754,14 +724,12 @@ a.ct-card:focus-visible {
   cursor: default;
 }
 
-/* 결과 안의 사실 목록은 좁은 폭에서도 두 칸을 지킨다 — 칸 이름과 값이
-   한 줄씩 번갈아 쌓이면 훑어보기가 안 된다. */
+/* 결과 안 사실 목록은 좁아도 두 칸을 지킨다 — 한 줄씩 번갈아 쌓이면 훑어볼 수 없다. */
 .ct-facts--tight > div {
   padding: var(--jsini-sp-xs) 0;
 }
 
-/* 결과의 머리. 할인율이 이 화면에서 가장 큰 글자여야 한다 — 사람이 보러 온
-   값이 그것 하나이고, 나머지는 그 값을 믿게 하는 근거다. */
+/* 결과의 머리. 할인율이 이 화면에서 가장 큰 글자다 — 사람이 보러 온 값이고 나머지는 그 값을 믿게 하는 근거다. */
 .ct-toll-headline {
   display: flex;
   align-items: baseline;
@@ -769,8 +737,7 @@ a.ct-card:focus-visible {
 }
 
 .ct-toll-rate {
-  /* 글자 크기 여섯 단계(--jsini-fs-*)를 따라간다. 사용자가 글자를 키우면
-     이 숫자도 함께 커져야 한다 — rem 으로 박으면 혼자 안 따라온다. */
+  /* 글자 크기 단계(--jsini-fs-*)를 따른다. rem 으로 박으면 사용자가 글자를 키워도 이 숫자만 따라오지 않는다. */
   font-size: calc(var(--jsini-fs-2xl) * 1.5);
   font-weight: 700;
   line-height: 1.1;
@@ -792,8 +759,7 @@ a.ct-card:focus-visible {
   margin: var(--jsini-sp-md) 0;
 }
 
-/* 운행 전체가 이 막대 하나다. 음영 조각은 `position: absolute` 로 겹쳐 놓으므로
-   여기에 기준점이 있어야 한다. */
+/* 운행 전체가 이 막대 하나다. 음영 조각이 absolute 로 겹치므로 여기가 기준점이다. */
 .ct-timeline-bar {
   position: relative;
   height: 28px;
@@ -859,16 +825,7 @@ a.ct-card:focus-visible {
 
 /* ── 대상 조건 목록 ───────────────────────────────────────── */
 
-/* ── 구간 유형이 무엇인가 (물음표 안) ────────────────────────
-
-   「폐쇄식 · 개방식」은 요금소 **운영 방식**을 부르는 말이라, 운전하는 사람이
-   자기 노선이 어느 쪽인지 알 길이 화면 어디에도 없었다. 뜻과 함께 **알아보는
-   법**(통행권을 뽑았나 · 요금소를 몇 번 지나나)을 적고, 그 아래 한 줄에
-   그래서 규칙이 어떻게 갈리는지를 붙인다.
-
-   대상 조건 목록(`.ct-checks`)과 **같은 결로 둔다** — 같은 물음표가 여는
-   같은 판이라, 여기만 카드 모양이면 둘이 다른 화면처럼 보인다.
-   ------------------------------------------------------------ */
+/* 구간 유형의 뜻(물음표 안). 「폐쇄식·개방식」은 운영 방식을 부르는 말이라, 알아보는 법(통행권을 뽑았나 · 요금소를 몇 번 지나나)을 함께 적는다. */
 
 .ct-kinds {
   margin: 0;
@@ -894,8 +851,7 @@ a.ct-card:focus-visible {
   color: var(--jsini-text-dim);
 }
 
-/* 규칙은 **제 줄**로 내린다. 뜻풀이에 이어 붙이면 어디까지가 「무엇인가」이고
-   어디부터가 「그래서 얼마인가」인지 한 덩어리로 읽힌다. */
+/* 규칙은 제 줄로 내린다. 뜻풀이에 이어 붙이면 「무엇인가」와 「얼마인가」가 한 덩어리로 읽힌다. */
 .ct-kind-rule {
   display: block;
   margin-top: var(--jsini-sp-2xs);
@@ -921,8 +877,7 @@ a.ct-card:focus-visible {
   background: var(--jsini-surface-2);
 }
 
-/* 판정이 셋이다. 「알 수 없음」을 「아님」과 같은 색으로 칠하면
-   '3축 미만이라 서약서가 필요하다' 가 '대상이 아니다' 로 읽힌다. */
+/* 판정은 셋이다. 「알 수 없음」을 「아님」과 같은 색으로 칠하면 「서약서가 필요」가 「대상이 아님」으로 읽힌다. */
 .ct-check--ok { border-left-color: var(--jsini-success); }
 .ct-check--no { border-left-color: var(--jsini-danger); }
 .ct-check--unknown { border-left-color: var(--jsini-warning); }
@@ -949,8 +904,7 @@ a.ct-card:focus-visible {
 
 /* ── 번호판이 말한 것 ─────────────────────────────────────── */
 
-/* 차량번호 칸 바로 아래 한 줄. 사람이 번호를 적자마자 「이렇게 읽었다」를
-   보여 주는 자리라, 입력 칸과 떨어지면 무엇에 대한 말인지 알 수 없다. */
+/* 차량번호 칸 바로 아래 한 줄. 입력 칸과 떨어지면 무엇에 대한 말인지 알 수 없다. */
 .ct-plate {
   padding: var(--jsini-sp-sm) var(--jsini-sp-md);
   border-left: 3px solid var(--jsini-border);
@@ -961,8 +915,7 @@ a.ct-card:focus-visible {
 
 .ct-plate--ok { border-left-color: var(--jsini-success); }
 
-/* 읽기는 했는데 사업용이 아니거나 화물차가 아닐 때. 막지는 않는다 —
-   실제로 깎아 주는 쪽은 도로공사이고 예외가 있을 수 있다. */
+/* 읽기는 했는데 사업용이 아니거나 화물차가 아닐 때. 막지는 않는다 — 실제 감면은 도로공사가 정하고 예외가 있다. */
 .ct-plate--warn { border-left-color: var(--jsini-warning); }
 
 .ct-plate--idle { color: var(--jsini-text-dim); }
@@ -981,12 +934,8 @@ a.ct-card:focus-visible {
 
 /* ── 나의 차량등록 ───────────────────────────────────────── */
 
-/* 차 한 대가 카드 한 장이다. **폭에 따라 다른 물건이 되지 않게** 표를 쓰지 않는다 —
-   넓어지면 칸이 느는 것이 아니라 카드가 옆으로 늘어선다. 좁아지면 한 줄에 하나로
-   쌓이고, 그때도 쓰는 법이 같다.
-
-   minmax 의 아래끝에 min() 을 씌운 까닭: 280px 로만 적으면 320px 짜리 화면에서
-   패딩까지 더해져 넘치고, 그 순간 옆으로 굴려야 보이는 값이 생긴다. */
+/* 차 한 대가 카드 한 장이다. 폭에 따라 다른 물건이 되지 않게 표를 쓰지 않고, 좁으면 한 줄에 하나로 쌓는다. */
+/* minmax 아래끝의 min() — 280px 로 적으면 320px 화면에서 패딩과 합쳐 넘쳐 옆으로 굴러야 한다. */
 .ct-veh-cards {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
@@ -1021,8 +970,7 @@ a.ct-card:focus-visible {
   color: var(--jsini-text-dim);
 }
 
-/* 표에서 칸으로 흩어져 있던 값을 여기로 접어 넣는다. 폭이 좁아지면 줄을 바꿔
-   담고 옆으로 흐르지 않는다. */
+/* 표 칸으로 흩어져 있던 값을 여기로 접어 넣는다. 좁아지면 줄을 바꿔 담고 옆으로 흐르지 않는다. */
 .ct-veh-card-facts {
   display: flex;
   flex-wrap: wrap;
@@ -1043,8 +991,7 @@ a.ct-card:focus-visible {
   color: var(--jsini-text-dim);
 }
 
-/* 단추는 카드 맨 아래에 붙는다 — 카드마다 적힌 줄 수가 달라도 단추 줄은
-   나란히 선다(`margin-top: auto` 가 남는 높이를 먹는다). */
+/* 단추는 카드 맨 아래에 붙는다 — 줄 수가 달라도 단추 줄은 나란히 선다(margin-top: auto). */
 .ct-veh-card-actions {
   display: flex;
   gap: var(--jsini-sp-sm);
@@ -1092,8 +1039,7 @@ a.ct-card:focus-visible {
   color: var(--jsini-text-dim);
 }
 
-/* 시·분 고르개. `input type=time` 대신 쓴다 — 크롬이 그 칸의 표시를 브라우저
-   말로 정하고 `lang` 을 보지 않아 24시로 못 박을 수가 없다. */
+/* 시·분 고르개. input type=time 은 브라우저 말로 표시가 정해져 24시로 못 박을 수 없어 대신 쓴다. */
 .ct-hm {
   display: flex;
   gap: var(--jsini-sp-sm);
@@ -1139,9 +1085,7 @@ a.ct-card:focus-visible {
 
 /* ── 이 차가 받을 수 있나 ─────────────────────────────────── */
 
-/* 할인율 바로 아래 한 줄. 누르면 대상 조건 목록이 펴진다.
-   **할인율과 다른 물음을 말하는 자리다** — 할인율은 야간 이용비율로만 정해져
-   차를 바꿔도 안 바뀌는데, 「그래서 이 차가 받나」는 차마다 다르다. */
+/* 할인율 바로 아래 한 줄. 누르면 대상 조건 목록이 펴진다. 할인율과 다른 물음이다 — 할인율은 야간 이용비율로만 정해진다. */
 .ct-verdict {
   display: flex;
   align-items: center;
@@ -1188,8 +1132,7 @@ a.ct-card:focus-visible {
   min-width: 0;
 }
 
-/* 할인율 아래 한 칸. 「얼마에서 얼마로」가 한 줄에 보여야 한다 —
-   비율만 보면 그 운행에서 실제로 얼마가 남는지 셈이 또 필요하다. */
+/* 할인율 아래 한 칸. 비율만 보면 그 운행에서 실제로 얼마가 남는지 셈을 또 해야 하므로 「얼마에서 얼마로」를 한 줄에 둔다. */
 .ct-fare {
   margin-top: var(--jsini-sp-sm);
   padding: var(--jsini-sp-md);

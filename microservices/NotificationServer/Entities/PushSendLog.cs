@@ -3,58 +3,14 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace NotificationServer.Entities;
 
-/// <summary>
-/// 푸시 발송 기록 한 줄. <b>대상 한 명 × 기기 하나 = 한 줄</b>이다.
-/// </summary>
-/// <remarks>
-/// <para>
-/// [왜 만들었나 — 보낸 것이 아무 데도 안 남았다]
-/// </para>
-///
-/// <para>
-/// 이 서비스는 구독 표만 만졌다(<c>last_sent_at</c> · <c>failure_count</c>).
-/// 그래서 포털관리의 「메시지 발송」으로 보낸 알림이 <b>현황·발송 이력 화면에
-/// 한 줄도 안 보였다.</b> 그 화면들은 헬프데스크 DB 의 <c>push_notification_logs</c>
-/// 를 읽는데, 그 표에 쓰는 것은 헬프데스크 자신의 발송 코드뿐이다.
-/// </para>
-///
-/// <para>
-/// 남의 서비스 표에 끼어 쓰지 않는다 — DB 가 다르고(헬프데스크는 <c>helpdesk</c>),
-/// 그렇게 하면 발송하는 서비스가 헬프데스크의 스키마 변경에 묶인다.
-/// <b>보낸 쪽이 자기 기록을 갖는다.</b>
-/// </para>
-///
-/// <para>
-/// [못 보낸 것도 남긴다]
-/// </para>
-///
-/// <para>
-/// 성공·실패만 남기면 <b>「왜 안 갔나」에 답할 수 없다.</b> 실제로 가장 흔한 것이
-/// 「그 사람은 구독한 기기가 없다」와 「본인이 알림을 껐다」인데, 그 둘은 발송
-/// 시도조차 일어나지 않아 아무 흔적이 없다. 그래서 그 경우에도 줄을 남기고
-/// <see cref="FailureReason"/> 에 까닭을 적는다 — 화면에서 사유로 거르면
-/// 곧바로 보인다.
-/// </para>
-///
-/// <para>
-/// [지우는 규칙은 아직 없다]
-/// </para>
-///
-/// <para>
-/// 한 번 보낼 때마다 대상 수만큼 줄이 쌓인다. 옛 헬프데스크 DB 에 31,814 줄이
-/// 있었으니 이 속도라면 몇 해는 괜찮지만, <b>정리 규칙이 없다는 것은 적어 둔다</b> —
-/// 필요해지면 기간으로 지우는 것이 맞다(대상·본문까지 들고 있어 개인정보 성격이 있다).
-/// </para>
-/// </remarks>
+/// <summary>푸시 발송 기록 한 줄. <b>대상 한 명 × 기기 하나 = 한 줄</b>이다. 못 보낸 줄도 남긴다(사유를 묶어 보려고).</summary>
 [Table("push_send_logs", Schema = "scom")]
 public class PushSendLog
 {
     /// <summary>웹푸시로 간 줄.</summary>
     public const string ChannelPush = "push";
 
-    /// <summary>
-    /// 메일로 간 줄. <b>받는 사람 하나가 한 줄</b>이다 — 한 통을 셋에게 보내면 셋이다.
-    /// </summary>
+    /// <summary>메일로 간 줄. <b>받는 사람 하나가 한 줄</b>이다.</summary>
     public const string ChannelEmail = "email";
 
     public PushSendLog()
@@ -70,45 +26,11 @@ public class PushSendLog
     [Column("sent_at")]
     public DateTime SentAt { get; set; } = DateTime.UtcNow;
 
-    /// <summary>
-    /// 보낸 길. 지금은 <c>push</c> 뿐이다.
-    ///
-    /// <para>
-    /// 칸을 미리 둔 이유는 <b>같은 화면에서 이메일·문자·카카오도 보내기 때문</b>이다
-    /// (「메시지 발송」의 탭 넷). 그쪽이 붙을 때 표를 새로 만들면 「보낸 기록」이
-    /// 다시 갈라진다.
-    /// </para>
-    /// </summary>
+    /// <summary>보낸 길. 지금은 push 뿐이다. 이메일·문자·카카오도 같은 표를 쓰려고 칸을 미리 둔다.</summary>
     [Column("channel")]
     public string Channel { get; set; } = "push";
 
-    /// <summary>
-    /// <b>알림구분</b>. 공통코드 묶음 <c>NOTI_CATEGORY</c> 의 코드값이다
-    /// (<c>DEPLOY</c> · <c>HELPDESK</c> · <c>NOTICE</c> …).
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// [제목으로는 못 거른다]
-    /// </para>
-    ///
-    /// <para>
-    /// 「배포 알림만 보자」를 제목 부분일치로 하고 있으면, 제목 문구를 한 번
-    /// 다듬는 순간 옛 줄과 새 줄이 갈라진다. <b>보낸 쪽이 자기 갈래를
-    /// 적어 두는 것</b>이 조회의 유일한 단단한 근거다.
-    /// </para>
-    ///
-    /// <para>
-    /// 값의 목록은 코드가 아니라 <b>공통코드가 갖는다</b>
-    /// (<see cref="JSini.Shared.DTOs.PushCategories"/> 머리말). 여기 적힌 값이
-    /// 공통코드에 없어도 저장은 되고, 화면에는 코드값 그대로 뜬다.
-    /// </para>
-    ///
-    /// <para>
-    /// <b>구분을 붙이기 전에 쌓인 줄은 비어 있다</b>(<c>null</c>). 채워 넣을
-    /// 길이 없다 — 그 줄에는 어디서 보냈는지가 아무 데도 안 남아 있다.
-    /// 화면은 그것을 「구분 없음」으로 모아 본다.
-    /// </para>
-    /// </remarks>
+    /// <summary>알림구분(공통코드 NOTI_CATEGORY 의 값). 제목으로는 거르지 않는다. 구분 전에 쌓인 줄은 null 이다.</summary>
     [Column("category")]
     public string? Category { get; set; }
 
@@ -120,10 +42,7 @@ public class PushSendLog
     [Column("owner_key")]
     public string OwnerKey { get; set; } = string.Empty;
 
-    /// <summary>
-    /// 보낸 기기(푸시 구독의 endpoint). <b>못 보낸 줄에는 없다</b> —
-    /// 구독이 없거나 수신을 꺼서 시도 자체를 안 한 경우다.
-    /// </summary>
+    /// <summary>보낸 기기(푸시 구독 endpoint). 구독이 없거나 수신을 꺼서 시도조차 안 한 줄에는 없다.</summary>
     [Column("endpoint")]
     public string? Endpoint { get; set; }
 
@@ -140,11 +59,7 @@ public class PushSendLog
     [Column("is_success")]
     public bool IsSuccess { get; set; }
 
-    /// <summary>
-    /// 못 보낸 까닭. <b>사람이 읽는 짧은 말</b>로 적는다 — 화면에서 이 값으로
-    /// 거르고 묶어 세므로, 예외 메시지를 그대로 넣으면 같은 원인이 열 가지로
-    /// 흩어진다(<see cref="Services.PushSender"/> 의 <c>Reason*</c> 상수).
-    /// </summary>
+    /// <summary>못 보낸 까닭. 사람이 읽는 짧은 말로 적는다(PushSender 의 Reason* 상수).</summary>
     [Column("failure_reason")]
     public string? FailureReason { get; set; }
 
@@ -152,162 +67,22 @@ public class PushSendLog
     [Column("sent_by")]
     public string? SentBy { get; set; }
 
-    /// <summary>
-    /// <b>한 번 보낸 것</b>을 묶는 열쇠. 발송 한 번에 하나 만들어 그때 생긴
-    /// 모든 줄에 같은 값을 넣는다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 이 표의 줄은 <b>기기 단위</b>다. 그런데 「내 알림함」은 사람이 보는
-    /// 화면이라 <b>메시지 단위</b>여야 한다 — 없으면 기기 둘을 쓰는 사람에게
-    /// 같은 알림이 두 줄로 보이고, 하나만 읽음 처리하면 나머지가 남는다.
-    /// </para>
-    ///
-    /// <para>
-    /// 옛 줄에는 없다(<c>null</c>). 그때는 줄 자체를 열쇠로 삼는다 —
-    /// 알림함이 그 갈래를 살핀다.
-    /// </para>
-    /// </remarks>
+    /// <summary>한 번 보낸 것을 묶는 열쇠. 발송 한 번에 하나 만들어 같은 값을 넣는다. 옛 줄은 null 이다.</summary>
     [Column("batch_id")]
     public string? BatchId { get; set; }
 
-    /// <summary>
-    /// 받은 사람이 읽은 때(UTC). 안 읽었으면 <c>null</c>.
-    ///
-    /// <para>
-    /// <b>기기가 아니라 사람의 상태다.</b> 그래서 읽음 처리는 그 묶음
-    /// (<see cref="BatchId"/>)에 딸린 그 사람의 줄을 <b>전부</b> 찍는다 —
-    /// 한 줄만 찍으면 다른 기기 줄이 안 읽은 채로 남는다.
-    /// </para>
-    /// </summary>
+    /// <summary>받은 사람이 읽은 때(UTC). 안 읽었으면 null. 사람의 상태라 같은 묶음의 그 사람 줄을 전부 찍는다.</summary>
     [Column("read_at")]
     public DateTime? ReadAt { get; set; }
 
-    /// <summary>
-    /// 받는 사람이 <b>제 알림함에서 치운 때</b>(UTC). 안 치웠으면 <c>null</c>.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// [읽음과 다른 것이다]
-    /// </para>
-    ///
-    /// <para>
-    /// <see cref="ReadAt"/> 은 「봤다」이고 이것은 「안 볼 것이다」이다. 읽을
-    /// 것도 없이 치우려는 알림이 꽤 있는데, 그것을 읽음으로 찍어 두면
-    /// 「안 읽은 것만」을 풀어 보는 순간 도로 다 나온다.
-    /// </para>
-    ///
-    /// <para>
-    /// [줄을 지우지 않는 까닭]
-    /// </para>
-    ///
-    /// <para>
-    /// 이 표는 <b>받는 사람의 알림함이면서 동시에 보낸 쪽의 발송 기록</b>이다.
-    /// 진짜로 지우면 「푸시 현황」·「발송 이력」의 건수가 함께 줄어든다 —
-    /// 받는 사람이 제 목록을 정리한 것뿐인데 보낸 통계가 바뀐다. 못 간 알림의
-    /// 실패 사유(<see cref="FailureReason"/>)를 모아 보는 자리도 같은 이유로
-    /// 무너진다.
-    /// </para>
-    ///
-    /// <para>
-    /// 그래서 <b>거르는 곳이 알림함 세 길뿐이다</b>(<c>/inbox</c> ·
-    /// <c>/inbox/unread-count</c> · <c>/inbox/read-all</c>). 발송 쪽 화면은
-    /// 이 값을 보지 않는다.
-    /// </para>
-    ///
-    /// <para>
-    /// <b>기기가 아니라 사람의 상태다</b> — 읽음과 같이 그 묶음
-    /// (<see cref="BatchId"/>)에 딸린 그 사람의 줄을 전부 찍는다.
-    /// </para>
-    /// </remarks>
+    /// <summary>받는 사람이 알림함에서 치운 때(UTC). 읽음과 다르다. 줄은 지우지 않는다 — 발송 통계가 함께 줄기 때문이다.</summary>
     [Column("deleted_at")]
     public DateTime? DeletedAt { get; set; }
 
-    /// <summary>
-    /// 이 알림이 <b>실제로 띄운 아이콘 주소</b>. 대개 시킨 사람의 프로필 사진이다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// [왜 남겨야 했나 — 알림함에서는 되짚을 수가 없다]
-    /// </para>
-    ///
-    /// <para>
-    /// 아이콘은 부르는 쪽이 실은 사람의 아이디(<c>IconOwnerKey</c>)로 지목하고
-    /// 발송 직전에 얼굴로 풀린다(<c>PushSender.FillIconAsync</c>). 그 아이디도
-    /// 풀린 주소도 어디에도 안 남아서, <b>알림함은 그 얼굴을 다시 만들 길이
-    /// 없었다.</b>
-    /// </para>
-    ///
-    /// <para>
-    /// <see cref="SentBy"/> 로 대신할 수 없다. 둘은 다른 것을 가리킨다 —
-    /// 「보낸 주체」와 「누가 시킨 일인가」다. 가장 잦은 AI 작업 알림이 바로
-    /// 그 경우로, <c>sent_by</c> 에는 사람이 아니라 <c>AI_TASK</c> 라는 글자가
-    /// 들어 있고 얼굴의 주인은 작업을 지시한 사람이다.
-    /// </para>
-    ///
-    /// <para>
-    /// [열쇠(<c>?t=</c>)는 떼고 담는다]
-    /// </para>
-    ///
-    /// <para>
-    /// 알림으로 나가는 주소에는 그 사진 한 장을 여는 <b>한 시간짜리 열쇠</b>가
-    /// 붙어 있다(<c>AvatarIconTokenFactory</c>) — 로그인해 있지 않은 기기로도
-    /// 알림이 가기 때문이다. 그것을 그대로 담으면 <b>알림함의 얼굴이 한 시간
-    /// 뒤에 조용히 그림자로 바뀐다.</b> 셸의 중계가 열쇠를 <c>Bearer</c> 로
-    /// 올려 보내면서 <b>지금 보는 사람의 신원을 대신하기</b> 때문이고, 시효가
-    /// 지난 열쇠는 401 이다. 로그인해서 보고 있어도 그렇다.
-    /// </para>
-    ///
-    /// <para>
-    /// 그래서 <c>PushSender.IconForLog</c> 가 떼고 담는다. 열쇠 없는 그 주소는
-    /// <b>보는 사람의 신원</b>으로 열리고, 알림함을 보는 사람은 언제나 로그인해
-    /// 있다. 그러니 이 칸은 「푸시가 쓴 그림」이지 「푸시가 쓴 글자 그대로」는
-    /// 아니다.
-    /// </para>
-    ///
-    /// <para>
-    /// 지목하지 않은 알림(배포 알림 등)은 <c>null</c> 이다. 그때 무엇을 그릴지는
-    /// 보는 쪽이 정한다 — 서비스워커는 앱 아이콘을, 알림함은 갈래 그림을 쓴다.
-    /// </para>
-    /// </remarks>
+    /// <summary>이 알림이 실제로 띄운 아이콘 주소. 열쇠(?t=)는 떼고 담아야 알림함에서 보는 사람의 신원으로 열린다.</summary>
     [Column("icon")]
     public string? Icon { get; set; }
-    /// <summary>
-    /// 이 <b>기기에 실제로 닿은 때</b>(UTC). 서비스워커가 알림을 받아 되알려
-    /// 주기 전에는 <c>null</c> 이다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// [「보냈다」와 「닿았다」는 다른 것이다]
-    /// </para>
-    ///
-    /// <para>
-    /// <see cref="IsSuccess"/> 가 참이어도 그것은 <b>푸시 서비스(FCM 등)가
-    /// 받아 주었다</b>는 뜻일 뿐이다. 기기가 꺼져 있으면 푸시 서비스가 수명
-    /// (TTL)까지 들고 있다가 조용히 버리고, 브라우저의 자료를 지운 사람의
-    /// 구독은 <b>한동안 멀쩡한 얼굴로 200 을 돌려받는다</b> — 그 뒤로 그 기기는
-    /// 영영 아무것도 못 받는데 기록에는 성공만 쌓인다.
-    /// </para>
-    ///
-    /// <para>
-    /// 그래서 「기기 넷에 보냈는데 하나만 울린다」를 기록만 보고는 가릴 수가
-    /// 없었다. 이 칸이 그 자리를 메운다 — 서비스워커가 알림을 띄운 뒤
-    /// <c>POST /notifications/push/delivered</c> 로 제 구독 주소를 적어 보내면
-    /// 그 줄에만 시각이 찍힌다(<c>push-sw.js</c>).
-    /// </para>
-    ///
-    /// <para>
-    /// <b>기기의 상태다</b> — 사람의 상태인 <see cref="ReadAt"/>·
-    /// <see cref="DeletedAt"/> 와 달리 묶음 전체로 번지지 않는다. 번지게 하면
-    /// 바로 그 하나(「어느 기기가 못 받고 있나」)를 못 보게 된다.
-    /// </para>
-    ///
-    /// <para>
-    /// <b>못 닿았다는 증거는 아니다.</b> 망이 끊겼거나 보고가 막히면 알림은
-    /// 떴는데 이 칸이 비어 있을 수 있다. 틀리는 방향이 「안 온 것처럼 보인다」
-    /// 쪽이라 기기를 지우는 판단에는 쓰지 않고 화면에 보여 주기만 한다.
-    /// </para>
-    /// </remarks>
+    /// <summary>기기에 실제로 닿은 때(UTC). 서비스워커가 되알려 줄 때만 찍힌다. 푸시 서비스가 받았다는 것과는 다르다.</summary>
     [Column("delivered_at")]
     public DateTime? DeliveredAt { get; set; }
 }

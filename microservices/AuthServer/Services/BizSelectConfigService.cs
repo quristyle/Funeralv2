@@ -6,9 +6,7 @@ using Mapster;
 
 namespace AuthServer.Services;
 
-/// <summary>
-/// BizSelect 메타데이터 설정을 관리하는 서비스 클래스
-/// </summary>
+/// <summary>BizSelect 메타데이터 설정을 관리하는 서비스 클래스</summary>
 public class BizSelectConfigService : IBizSelectConfigService
 {
     private readonly AppDbContext _context;

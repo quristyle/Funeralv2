@@ -3,58 +3,8 @@ using Npgsql;
 
 namespace ProjMngServer.Services;
 
-/// <summary>
-/// <b>비어 있는 「처리 요약」과 「차수 제목」을 뒤늦게 채운다.</b>
-/// </summary>
-/// <remarks>
-/// <para>
-/// <b>왜 생겼나 (2026-09-21).</b> 요약을 만들 기회는 실행이 끝나는 그 한 번뿐이었다
-/// (<see cref="AiRunService"/> 의 <c>SummarizeThenNotifyAsync</c>). 그 한 번은
-/// 결과 메일이 기다리는 자리라 오래 붙잡을 수 없어서 두 번만 시도하고 3초 쉰다 —
-/// <b>AI 가 그 30여 초 동안 붐비면 그 건의 요약은 영영 없다.</b> 아무도 다시
-/// 만들어 주지 않고, 화면은 요약 칸을 통째로 빼고 그린다. 실제로 사흘치 실행의
-/// 절반가량이 그렇게 비어 있었다(95건).
-/// </para>
-/// <para>
-/// <b>그래서 자리를 나눈다.</b> 끝나는 순간의 한 번은 <i>빠른 길</i>로 남겨
-/// 메일을 늦추지 않고, 거기서 못 만든 것은 이 감시자가 주워 간다. 요약을 쓰는
-/// 일은 <see cref="AiRunSummaryWriter"/> 한 곳이 그대로 맡으므로 —
-/// 이미 적혀 있으면 되읽고 끝낸다 — 두 길이 서로 다른 요약을 만들 일은 없다.
-/// </para>
-/// <para>
-/// <b>한 바퀴에 몇 건만 본다.</b> 밀린 것이 수십 건일 때 한꺼번에 부르면 그것이
-/// 곧 새로운 혼잡이고, 무료 공급자의 하루 몫도 한 번에 태운다. 그리고
-/// <b>한 건이라도 실패하면 그 바퀴는 거기서 멈춘다</b> — AI 가 지금 못 받는다는
-/// 뜻이라 남은 건을 더 두드려 봐야 같은 답이다. 다음 바퀴에 다시 본다.
-/// </para>
-/// <para>
-/// <b>오래된 것은 줍지 않는다.</b> 요약은 「끝났나, 내가 볼 것이 있나」를 읽는
-/// 자리라 며칠 지난 건에는 값이 거의 없는데, 그것들까지 훑으면 밀린 목록이
-/// 줄지 않아 정작 방금 끝난 건이 뒤로 밀린다.
-/// </para>
-/// <para>
-/// <b>차수 제목도 같은 바퀴에 줍는다 (2026-10-15).</b> 그 칸
-/// (<c>ai_task_run.turn_title</c>)을 채우는 자리도 둘뿐이고(시킬 때
-/// <see cref="AiTurnTitler"/> · 끝났을 때 <see cref="AiRunSummaryWriter"/>),
-/// 둘 다 모델이 빈손으로 돌아오면 거기서 끝이라 요약이 영영 비던 것과 똑같은
-/// 꼴이 된다. 요약을 먼저 채운 뒤에 줍기 때문에 대개 <b>그 첫 문장을 읽혀</b>
-/// 짓는다 — 모델을 또 부를 일이 거의 없다.
-/// </para>
-/// <para>
-/// <b>미뤄 둔 결과 메일도 여기서 보낸다 (2026-10-14).</b> 이제 결과 메일은
-/// 요약이 손에 들어온 뒤에만 나간다(<c>AiRunService.SummarizeThenNotifyAsync</c>
-/// → <c>deferUntilSummary</c>). 그러므로 <b>여기서 요약을 채우는 일이 곧 밀린
-/// 메일을 풀어 주는 일</b>이다 — 채운 바로 그 자리에서 보낸다. 예전에는 요약
-/// 없는 메일이 먼저 나가고 요약은 뒤늦게 화면에만 생겨서, 받는 사람 눈에
-/// <b>「요약이 만들어지기 전에 메일이 온다」</b>로 보였다.
-/// </para>
-/// <para>
-/// <b>영영 미루지는 않는다.</b> 모델이 며칠째 죽어 있으면 요약도 메일도 안 가는데,
-/// 그 둘 중 메일은 반드시 가야 한다. 끝난 지 <c>AiTasks:MailDeferMinutes</c> 분이
-/// 지나도록 안 나간 건은 <b>요약 없이 그냥 보낸다</b>(그때 메일의 「AI 의 답」 칸은
-/// 옛 방식대로 결과문 앞 몇 줄로 채워진다).
-/// </para>
-/// </remarks>
+/// <summary>비어 있는 처리 요약과 차수 제목을 뒤늦게 채우고, 미뤄 둔 결과 메일을 보낸다.</summary>
+/// 요약은 완료 순간 한 번만 시도해 못 만들면 영영 비므로 이 감시자가 줍는다. 한 바퀴에 몇 건만 보고, 한 건 실패하면 그 바퀴는 멈춘다.
 public sealed class AiSummaryCatchUp(
     IConfiguration configuration,
     IServiceScopeFactory scopes,
@@ -62,20 +12,7 @@ public sealed class AiSummaryCatchUp(
 {
     private readonly string? _connectionString = configuration.GetConnectionString("jsini");
 
-    /// <summary>
-    /// 몇 분마다 보나.
-    /// </summary>
-    /// <remarks>
-    /// <b>열 분이었다. 미룬 메일까지 이 바퀴가 보내게 되면서 둘로 내렸다
-    /// (2026-10-14).</b> 이 주기는 요약을 다시 만들어 보는 간격인 동시에
-    /// <b>미뤄 둔 결과 메일을 집어 가는 간격</b>이다 — 미룸 상한
-    /// (<see cref="_mailDeferMinutes"/>, 기본 5분)보다 성기면 「5분 뒤에 보낸다」가
-    /// 실제로는 15분이 된다. 상한의 절반 아래로 두는 것이 규칙이다.
-    /// <para>
-    /// 헛호출 걱정은 그대로 작지만 — 요약이 빈 건이 없으면 질의 한 번으로
-    /// 끝나고, 모델이 죽어 있으면 첫 실패에서 바퀴를 접는다.
-    /// </para>
-    /// </remarks>
+    /// <summary>몇 분마다 도는가. 미룬 메일을 집어 가는 간격이라 미룸 상한의 절반 아래여야 한다.</summary>
     private readonly TimeSpan _period = TimeSpan.FromMinutes(
         Math.Clamp(configuration.GetValue("AiTasks:SummaryCatchUpMinutes", defaultValue: 2), 1, 720));
 
@@ -87,35 +24,12 @@ public sealed class AiSummaryCatchUp(
     private readonly int _withinDays =
         Math.Clamp(configuration.GetValue("AiTasks:SummaryCatchUpDays", defaultValue: 7), 0, 90);
 
-    /// <summary>
-    /// 결과 메일을 <b>요약 없이라도 보내기까지</b> 기다리는 시간(분).
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>서른 분이었다. 2026-10-14 에 다섯으로 내렸다.</b> 그 값은 「붐비면
-    /// 10~20분은 흔하다」는 바깥 공급자를 전제로 한 것인데, 지금 요약을 만드는
-    /// 것은 같은 장비의 LLM 서버이고 실측이 1.0~1.6초다. 즉 여기까지 오는 건은
-    /// 「붐벼서 늦는 건」이 아니라 <b>모델이 아예 안 받는 건</b>이고, 그런 건을
-    /// 서른 분 붙들고 있어 봐야 요약이 생기지 않는다 — 결과 메일만 늦는다.
-    /// </para>
-    /// <para>
-    /// 완료 직후에 이미 한 번 기다려 봤다는 것도 셈에 넣는다
-    /// (<c>AiTasks:PostRunWaitSeconds</c>, 기본 30초). 이 다섯 분은 <b>그
-    /// 30초로도 안 된 건에 주는 두 번째 기회</b>다.
-    /// </para>
-    /// <para>
-    /// 바닥은 감시자 주기(<see cref="_period"/>)다 — 그보다 짧게 잡으면 바퀴가
-    /// 한 번 돌기도 전에 상한이 지나 「미룬다」는 말이 무의미해진다.
-    /// </para>
-    /// </remarks>
+    /// <summary>결과 메일을 요약 없이라도 보내기까지 기다리는 시간(분).</summary>
+    /// 요약 LLM 은 같은 장비라 여기까지 온 건은 붐벼서 늦은 것이 아니라 모델이 안 받는 것이다. 감시자 주기보다 짧으면 상한이 무의미해진다.
     private readonly int _mailDeferMinutes =
         Math.Clamp(configuration.GetValue("AiTasks:MailDeferMinutes", defaultValue: 5), 1, 1440);
 
-    /// <summary>
-    /// 밀린 메일을 며칠 전 것까지 보나. <b>요약 쪽 창(<see cref="_withinDays"/>)보다
-    /// 좁아지지 않게</b> 이레를 바닥으로 깐다 — 요약 채우기를 꺼 둔 장비에서도
-    /// 결과 메일은 나가야 한다. 그보다 오래된 건은 메일로 받을 값이 없다.
-    /// </summary>
+    /// <summary>밀린 메일을 며칠 전 것까지 본다. 요약 창보다 좁아지지 않게 이레를 바닥으로 깐다.</summary>
     private readonly int _mailWithinDays = Math.Max(
         Math.Clamp(configuration.GetValue("AiTasks:SummaryCatchUpDays", defaultValue: 7), 0, 90), 7);
 
@@ -181,29 +95,8 @@ public sealed class AiSummaryCatchUp(
         await FillChangedFilesAsync(db, scope.ServiceProvider.GetRequiredService<AiRunFileWriter>(), ct);
     }
 
-    /// <summary>
-    /// <b>「처리 파일」을 아직 안 합친 실행</b>을 몇 건 주워 채운다 —
-    /// <c>ai_task_run.changed_files</c>.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 그 칸을 채우는 자리도 요약과 같은 꼴이었다 — 완료 뒤처리의 한 번이
-    /// 전부고, 모델이 빈손이면 끝이다. 그런데 이쪽은 <b>옛 건이 통째로 비어
-    /// 있다</b>: 운영 실행기가 그 칸이 생기기 전(2026-10-12) 바이너리라
-    /// <b>최근 2주 276건 전부</b>에 git 목록조차 없었다. 그 건들은 완료 뒤처리를
-    /// 이미 지나갔으므로 <b>여기서만</b> 채워진다.
-    /// </para>
-    /// <para>
-    /// <b>결과문이 있는 건만 본다.</b> 합칠 보강이 결과문에서 나오는데
-    /// (<c>AiResultSummarizer.ExtractFilesAsync</c>) 그것이 없으면 모델을 불러
-    /// 봐야 같은 빈손이다.
-    /// </para>
-    /// <para>
-    /// 요약 채우기와 같은 규칙이다 — <b>한 바퀴에 몇 건만</b>, <b>오래된 것은
-    /// 줍지 않는다</b>, <b>한 건이라도 못 채우면 그 바퀴는 거기서 멈춘다</b>
-    /// (AI 가 지금 못 받는다는 뜻이라 남은 건을 더 두드려 봐야 같은 답이다).
-    /// </para>
-    /// </remarks>
+    /// <summary>changed_files 가 비어 있는 실행을 몇 건 주워 채운다.</summary>
+    /// 결과문이 있는 건만 본다 — 결과문이 없으면 모델을 불러도 같은 빈손이다.
     private async Task FillChangedFilesAsync(
         NpgsqlConnection db, AiRunFileWriter writer, CancellationToken ct)
     {
@@ -246,30 +139,8 @@ public sealed class AiSummaryCatchUp(
         }
     }
 
-    /// <summary>
-    /// <b>차수 제목이 빈 실행</b>을 몇 건 주워 채운다 — <c>ai_task_run.turn_title</c>.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 그 칸을 채우는 자리는 둘이다 — 시킬 때(<see cref="AiTurnTitler"/>)와 끝났을
-    /// 때(<see cref="AiRunSummaryWriter"/>). <b>둘 다 모델이 빈손으로 돌아오면
-    /// 거기서 끝</b>이라, 그 실행의 차수 머리줄은 영영 번호와 상태만 말한다 —
-    /// 처리 요약이 영영 비던 것과 똑같은 꼴이고, 이 감시자가 생긴 까닭이다.
-    /// </para>
-    /// <para>
-    /// <b>값이 거의 안 든다.</b> 정리된 요약이 있으면 그 첫 문장을 읽혀 짓고
-    /// (<c>AiResultSummarizer.MakeTitleAsync</c> 의 <c>summaryHeadline</c>),
-    /// 요약조차 없는 건만 결과문을 보여 준다. 위 요약 채우기가 이미 한 바퀴를
-    /// 돌고 난 뒤라 대개 앞엣것이다.
-    /// </para>
-    /// <para>
-    /// 요약 채우기와 같은 규칙을 그대로 쓴다 — <b>한 바퀴에 몇 건만</b>,
-    /// <b>오래된 것은 줍지 않는다</b>. 다만 <b>한 건 실패했다고 멈추지는
-    /// 않는다</b>: 제목 짓기는 손잡이로 꺼 둘 수 있고(<c>AiTasks:MakeTitle</c>)
-    /// 그때는 모든 건이 빈손으로 돌아오는데, 그것은 혼잡이 아니라 설정이다.
-    /// 한 바퀴에 <see cref="_batch"/> 번이 상한이라 그래도 폭주하지 않는다.
-    /// </para>
-    /// </remarks>
+    /// <summary>turn_title 이 빈 실행을 몇 건 주워 채운다. 요약의 첫 문장을 읽혀 짓는다.</summary>
+    /// 한 건 실패로 멈추지 않는다 — 제목 짓기를 끈 장비는 모든 건이 빈손이라 그것은 혼잡이 아니라 설정이다. 바퀴 상한은 _batch 로 따로 둔다.
     private async Task FillTurnTitlesAsync(
         NpgsqlConnection db, AiTaskTitler titler, CancellationToken ct)
     {
@@ -305,13 +176,8 @@ public sealed class AiSummaryCatchUp(
         }
     }
 
-    /// <summary>
-    /// 요약이 빈 실행을 몇 건 주워 채우고, <b>채운 자리에서 밀린 메일을 보낸다.</b>
-    /// </summary>
-    /// <returns>
-    /// <b>이번 바퀴에 요약을 만들어 본 실행들.</b> 뒤따르는 밀린 메일 보내기가
-    /// 같은 건을 몇 초 만에 또 두드리지 않도록 넘겨 준다.
-    /// </returns>
+    /// <summary>요약이 빈 실행을 몇 건 주워 채우고, 채운 자리에서 밀린 메일을 보낸다.</summary>
+    /// <returns>이번 바퀴에 요약을 만들어 본 실행들. 밀린 메일 보내기가 같은 건을 또 두드리지 않게 넘긴다.</returns>
     private async Task<HashSet<long>> FillSummariesAsync(
         NpgsqlConnection db, AiRunSummaryWriter writer, AiTaskNotifier notifier, CancellationToken ct)
     {
@@ -324,7 +190,7 @@ public sealed class AiSummaryCatchUp(
 
         // **작업의 마지막 실행인지 같이 읽는다.** 요약의 첫 문장으로 작업 제목을
         // 고쳐 주는 기능이 있는데(`AiRunSummaryWriter.EnsureAsync` 의 retitle),
-        // 밀린 옛 실행에도 그것을 걸면 **지난 실행의 한 줄이 지금 제목을 덮는다.**
+        // 밀린 실행에도 그것을 걸면 지난 실행의 한 줄이 지금 제목을 덮는다.
         var rows = (await db.QueryAsync<Pending>(new CommandDefinition("""
             SELECT r.run_key AS RunKey,
                    (r.run_key = t.last_run_key) AS IsLatest
@@ -381,32 +247,8 @@ public sealed class AiSummaryCatchUp(
         return tried;
     }
 
-    /// <summary>
-    /// <b>너무 오래 미뤄진 결과 메일을 요약 없이 보낸다.</b>
-    /// </summary>
-    /// <remarks>
-    /// 여기까지 온 건은 셋 중 하나다 — 모델이 계속 빈손이거나, 요약을 만들 글이
-    /// 없거나(결과문이 비었다), 보내다 실패했거나. <b>어느 쪽이든 메일은 가야
-    /// 한다.</b> 미룬다는 약속은 「요약을 기다린다」이지 「안 보낸다」가 아니다.
-    /// <para>
-    /// <b>포기하기 전에 한 번 더 만들어 본다.</b> 위의 요약 채우기는 한 바퀴에
-    /// 몇 건만 보고(<c>AiTasks:SummaryCatchUpBatch</c>) <b>한 건이라도 실패하면
-    /// 거기서 바퀴를 접는다</b> — 그래서 밀린 건이 여럿일 때 뒤쪽 것은
-    /// <b>요약을 한 번도 시도해 보지 않은 채</b> 이 자리로 와서 그냥 나갈 수
-    /// 있었다. 이번 바퀴에 이미 두드려 본 건(<paramref name="tried"/>)은
-    /// 건너뛰므로 같은 호출을 몇 초 만에 되풀이하지도 않는다.
-    /// </para>
-    /// <para>
-    /// <b>제목은 고치지 않는다</b>(<c>retitle: false</c>). 여기 오는 것은 끝난 지
-    /// 한참 된 실행이라, 그 한 줄로 작업 제목을 덮으면 <b>그 사이에 끝난 다음
-    /// 실행의 제목</b>이 지워진다.
-    /// </para>
-    /// <para>
-    /// 이 칸이 생기기 전의 실행은 되메움으로 전부 찍혀 있다(2026-10-14 의
-    /// <c>deploy/sql/projmng-ai-mail-sent-at-2026-10-14.sql</c>). 그 한 줄이
-    /// 없으면 여기가 <b>지난 모든 건의 메일을 한꺼번에 쏜다.</b>
-    /// </para>
-    /// </remarks>
+    /// <summary>너무 오래 미뤄진 결과 메일을 요약 없이 보낸다.</summary>
+    /// 포기 전에 한 번 더 만든다(이번 바퀴에 두드린 건은 건너뛴다). 되메움이 없는 실행은 지난 건 메일이 쏟아지므로 mail_sent_at 되메움이 먼저다.
     private async Task SendOverdueMailsAsync(
         NpgsqlConnection db,
         AiRunSummaryWriter writer,
@@ -441,8 +283,7 @@ public sealed class AiSummaryCatchUp(
         {
             ct.ThrowIfCancellationRequested();
 
-            // 마지막 기회. 되면 이 메일이 요약을 싣고 나가고, 안 되면 예전처럼
-            // 요약 없이 나간다 — **어느 쪽이든 메일은 여기서 멈추지 않는다.**
+            // 마지막 기회. 되면 이 메일이 요약을 싣고, 안 되면 요약 없이 나간다. **어느 쪽이든 메일은 여기서 멈추지 않는다.**
             if (_withinDays > 0 && !tried.Contains(runKey))
             {
                 await writer.EnsureAsync(runKey, retitle: false, ct);

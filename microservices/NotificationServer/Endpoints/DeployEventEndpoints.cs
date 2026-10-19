@@ -12,50 +12,14 @@ using NotificationServer.Services;
 
 namespace NotificationServer.Endpoints;
 
-/// <summary>
-/// 배포 알림 (<c>POST /deploy-event</c>) — 새 이미지가 운영에 반영되면 슈퍼관리자에게 푸시한다.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <b>왜 파이프라인이 알려 주는가.</b> "새 이미지가 반영된 시각" 을 확실히 아는 것은
-/// <c>docker compose up -d</c> 를 부른 쪽뿐이다. 서버가 스스로 알아내려면 도커 소켓의
-/// 컨테이너 태그를 주기적으로 훑어 이전 값과 비교해야 하는데, 그러면 (1) 폴링 간격만큼
-/// 늦고 (2) 알림을 보내는 서비스 자신이 방금 재시작된 참이라 <b>이전 값을 잊은 채</b>
-/// 깨어난다 — 매 배포마다 「전부 바뀌었다」로 보이거나, 기준점을 DB 에 따로 들고
-/// 있어야 한다. 부르는 쪽이 한 줄 알려 주는 편이 정확하고 싸다.
-/// </para>
-///
-/// <para>
-/// <b>부르는 쪽</b>: <c>.github/workflows/deploy.yml</c> 의 <c>deploy</c> 잡. 운영 서버에서
-/// 도는 self-hosted 러너라 게이트웨이의 루프백(<c>127.0.0.1:5265</c>)으로 부른다 —
-/// 관통 검증 단계가 이미 같은 주소를 쓰고 있다.
-/// </para>
-///
-/// <para>
-/// <b>인증</b>: 러너에게는 계정이 없다. AuthServer 의 배포 보고(<c>X-Release-Token</c>)와
-/// 같은 방식으로 공유 비밀 하나(<c>X-Deploy-Token</c>)로 인증한다. 게이트웨이에서
-/// 이 경로만 Anonymous 로 열되 <c>public-write</c> 로 조인다.
-/// </para>
-///
-/// <para>
-/// <b>대상</b>: 슈퍼관리자(<c>scom.role_accounts.role_id = SYSTEM_ADMINISTRATOR</c>) 전원.
-/// 푸시를 끈 사람은 <see cref="PushSender"/> 가 알아서 거르므로 여기서 보지 않는다.
-/// </para>
-///
-/// <para>
-/// <b>실패한 배포도 보낸다.</b> 성공만 알리면 알림이 안 온 것이 "배포가 없었다" 인지
-/// "배포가 깨졌다" 인지 구분되지 않는다. 둘 중 알아야 할 쪽은 후자다.
-/// </para>
-/// </remarks>
+/// <summary>배포 알림(POST /deploy-event). 새 이미지가 운영에 반영되면 슈퍼관리자에게 푸시한다. 서버가 태그를 훑으면 재시작 뒤 이전 값을 잊으므로 부르는 쪽이 알린다.
+/// 인증은 AuthServer 배포 보고와 같은 공유 비밀(X-Deploy-Token)이고, 실패한 배포도 보낸다.</summary>
 public static class DeployEventEndpoints
 {
     /// <summary>배포 파이프라인이 공유 비밀을 담는 헤더.</summary>
     private const string TokenHeader = "X-Deploy-Token";
 
-    /// <summary>
-    /// 같은 태그의 알림은 브라우저가 하나로 합친다. 배포는 「가장 최근 것」만 뜻이 있으므로
-    /// 고정값을 쓴다 — 연달아 배포해도 알림이 쌓이지 않고 마지막 것으로 갈린다.
-    /// </summary>
+    /// <summary>같은 태그로 묶여 브라우저가 하나로 합친다. 배포는 가장 최근 것만 뜻이 있으므로 고정값을 쓴다.</summary>
     private const string PushTag = "deploy";
 
     public static void MapDeployEventEndpoints(this IEndpointRouteBuilder app)
@@ -72,8 +36,7 @@ public static class DeployEventEndpoints
             var logger = loggerFactory.CreateLogger("DeployEvent");
             var settings = options.Value;
 
-            // 설정이 없으면 열지 않는다. "토큰이 비었으면 통과" 는 설정을 잊은 장비를
-            // 그대로 공개 발송구로 만든다 (DeployNotifyOptions 머리말).
+            // 설정이 없으면 열지 않는다(토큰이 비어 통과하면 공개 발송구가 된다).
             if (!settings.IsConfigured)
             {
                 logger.LogWarning("DeployNotify:Token 이 없어 배포 알림 요청을 거절했습니다.");
@@ -91,7 +54,7 @@ public static class DeployEventEndpoints
                     statusCode: StatusCodes.Status403Forbidden);
             }
 
-            // 슈퍼관리자 전원. 계정·역할 표는 읽기 전용 매핑이다 (ScomIdentityRows 머리말).
+            // 슈퍼관리자 전원(scom 역할표는 읽기 전용 매핑이다).
             var owners = await (
                 from ra in db.RoleAccounts
                 where ra.RoleId == settings.RoleId && !ra.IsDeleted
@@ -102,8 +65,7 @@ public static class DeployEventEndpoints
 
             if (owners.Count == 0)
             {
-                // 오류가 아니다 — 보낼 사람이 없는 것뿐이다. 다만 배포마다 조용히
-                // 0 건이 되는 상황은 알아챌 수 있어야 하므로 로그에 남긴다.
+                // 보낼 사람이 없는 것은 오류가 아니다(배포마다 0건이면 로그로 알 수 있게 남긴다).
                 logger.LogWarning("{Role} 역할인 계정이 없어 배포 알림을 보내지 않았습니다.", settings.RoleId);
                 return Results.Ok(ApiResponse<object>.Ok(new { targets = 0, sent = 0 }));
             }
@@ -127,9 +89,7 @@ public static class DeployEventEndpoints
                 targets = owners.Count,
                 sent = result.Sent,
 
-                // 알림관리에서 「이메일」을 켠 역할이 있으면 메일로도 나간다.
-                // 배포 워크플로가 읽는 값이라 **푸시와 가려 적는다** — 합치면
-                // 「기기에 갔다」와 「메일함에 갔다」가 구분되지 않는다.
+                // 이메일을 켠 역할에는 메일로도 나간다.
                 mailed = result.Mailed,
                 failed = result.Failed,
                 optedOut = result.OptedOut,
@@ -141,10 +101,7 @@ public static class DeployEventEndpoints
         .WithTags("Deploy");
     }
 
-    /// <summary>
-    /// 토큰 대조. <b>길이가 달라도 같은 시간이 걸리게</b> 해시를 거쳐 비교한다 —
-    /// <c>FixedTimeEquals</c> 는 길이가 다르면 즉시 false 라 길이가 새어 나간다.
-    /// </summary>
+    /// <summary>토큰 대조. 길이가 달라도 같은 시간이 걸리도록 해시를 거쳐 비교한다(FixedTimeEquals 는 길이가 다르면 즉시 false 라 길이가 샌다).</summary>
     private static bool TokenMatches(string expected, string? actual)
     {
         if (string.IsNullOrWhiteSpace(actual)) return false;
@@ -154,14 +111,7 @@ public static class DeployEventEndpoints
             SHA256.HashData(Encoding.UTF8.GetBytes(actual)));
     }
 
-    /// <summary>
-    /// 알림 문구를 만든다.
-    /// </summary>
-    /// <remarks>
-    /// 잠금화면에서는 <b>두 줄이 전부</b>다. 그래서 제목에 성패를, 본문에 커밋 한 줄과
-    /// 짧은 SHA 를 담는다 — 「무엇이 올라갔나」에 답하는 것이 그 둘이다.
-    /// 누가 올렸는지와 워크플로 주소는 눌러서 들어가면 배포 현황 화면에 있다.
-    /// </remarks>
+    /// <summary>알림 문구를 만든다. 잠금화면은 두 줄이 전부라 제목에 성패를, 본문에 커밋 한 줄과 짧은 SHA 를 담는다.</summary>
     private static PushMessageDto BuildMessage(DeployEventDto request, string clickUrl)
     {
         var ok = string.Equals(request.Status, "success", StringComparison.OrdinalIgnoreCase);
@@ -169,7 +119,7 @@ public static class DeployEventEndpoints
 
         var title = ok ? "[배포] 새 버전이 반영되었습니다" : "[배포] 실패했습니다";
 
-        // 커밋 제목이 없을 수 있다(수동 실행 등). 그때는 SHA 만으로도 말이 되게 둔다.
+        // 커밋 제목이 없을 수 있다(수동 실행). 그때는 SHA 만으로 말이 되게 한다.
         var parts = new List<string>();
         if (!string.IsNullOrWhiteSpace(request.Title)) parts.Add(request.Title!.Trim());
         if (!string.IsNullOrWhiteSpace(sha)) parts.Add(sha);
@@ -183,9 +133,7 @@ public static class DeployEventEndpoints
             Body = body,
             Url = string.IsNullOrWhiteSpace(request.Url) ? clickUrl : request.Url,
             Tag = PushTag,
-            // **한 시간 지난 배포 소식은 배달하지 않는다.** 하루에 여러 번 올라가는
-            // 날이면 브라우저를 안 켠 사람의 줄에 그만큼 쌓이고, 나중에 켤 때
-            // 한꺼번에 내려온다. 지난 배포는 배포 현황 화면에 다 있다.
+            // 한 시간 지난 배포 소식은 배달하지 않는다(안 켠 사람에게 쌓였다가 한꺼번에 온다).
             TtlSeconds = 3600,
             Category = PushCategories.Deploy,
         };
@@ -196,13 +144,7 @@ public static class DeployEventEndpoints
         string.IsNullOrWhiteSpace(sha) ? "" : sha.Length <= 7 ? sha : sha[..7];
 }
 
-/// <summary>
-/// 배포 파이프라인이 보내는 배포 한 건.
-/// </summary>
-/// <remarks>
-/// 모든 값이 없어도 동작한다 — 워크플로가 채우지 못한 칸 때문에 알림이 통째로
-/// 안 가는 쪽이 더 나쁘다. 성패만 <see cref="Status"/> 로 분명히 한다.
-/// </remarks>
+/// <summary>배포 파이프라인이 보내는 배포 한 건. 모든 값이 없어도 동작한다(칸이 비었다고 알림이 통째로 빠지는 것이 더 나쁘다).</summary>
 public class DeployEventDto
 {
     /// <summary><c>success</c> 면 성공, 그 밖의 값은 실패로 본다.</summary>
@@ -217,8 +159,6 @@ public class DeployEventDto
     /// <summary>워크플로를 돌린 사람.</summary>
     public string? Actor { get; set; }
 
-    /// <summary>
-    /// 알림을 눌렀을 때 열 주소. 비우면 설정의 <c>DeployNotify:ClickUrl</c>(배포 현황)로 간다.
-    /// </summary>
+    /// <summary>알림을 눌렀을 때 열 주소. 비우면 설정의 DeployNotify:ClickUrl(배포 현황)로 간다.</summary>
     public string? Url { get; set; }
 }

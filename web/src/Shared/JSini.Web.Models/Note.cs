@@ -1,14 +1,7 @@
 namespace JSini.Web.Models;
 
-// ============================================================
-// 쪽지 — 사람에게서 사람에게로 가는 짧은 글.
-//
-// **`NotifySend.cs` 와 갈래가 다르다.** 그쪽은 「고른 사람들에게 두드림 한 번」이고
-// 남는 것이 발송 기록뿐이다. 이쪽은 **글이 본체**라 두드림이 다 막혀도 쪽지함에
-// 남고, 받는 사람을 목록에서 고르는 것이 아니라 **아이디나 이메일을 적어** 정한다.
-//
-// 칸 이름은 NotificationServer 의 DTO 와 맞춘다 — 봉투를 그대로 주고받는다.
-// ============================================================
+// 쪽지. 사람에게서 사람에게로 가는 짧은 글. NotifySend 와 달리 글이 본체라 두드림이 막혀도 쪽지함에 남고, 받는 사람을 아이디나 이메일로 정한다.
+// 칸 이름은 NotificationServer 의 DTO 와 맞춘다.
 
 /// <summary>쪽지를 받을 수 있는 사람 하나. 찾기 결과의 한 줄이다.</summary>
 public sealed class NoteRecipientDto
@@ -30,12 +23,7 @@ public sealed class NoteRecipientDto
     /// <summary>
     /// 푸시 알림을 켜 두었나. <b>거짓이면 이 사람에게는 쪽지를 보낼 수 없다.</b>
     /// </summary>
-    /// <remarks>
-    /// 쪽지는 적어도 앱 푸시로는 닿아야 성립한다 — 쪽지함에만 쌓이면 본인은 왔다는
-    /// 것조차 모르는데 보낸 쪽은 보냈다고 믿는다. 찾기 목록에서 지우지 않고
-    /// <b>못 보낸다고 미리</b> 말해 준다(지워 버리면 「아이디가 틀렸나」를 한참
-    /// 의심하게 된다).
-    /// </remarks>
+    /// <remarks>쪽지는 앱 푸시로 닿아야 성립한다. 찾기 목록에서 지우지 않고 못 보낸다고 미리 말해 준다(지우면 아이디가 틀렸나 하고 의심하게 된다).</remarks>
     public bool PushEnabled { get; set; } = true;
 
     /// <summary>앱 푸시가 실제로 닿는가 — 끄지 않았고 등록한 기기가 있다.</summary>
@@ -44,10 +32,7 @@ public sealed class NoteRecipientDto
     /// <summary>쪽지 메일이 닿는가 — 「쪽지 메일받기」를 켰고 주소가 있다.</summary>
     public bool EmailReachable { get; set; }
 
-    /// <summary>
-    /// 쪽지를 받을 길이 있는가. 둘 중 하나면 된다. <b>찾기 목록은 서버가 이미 이
-    /// 값으로 걸러서 준다</b>(2026-09-24) — 화면은 한 번 더 거를 뿐이다.
-    /// </summary>
+    /// <summary>쪽지를 받을 길이 있는가(둘 중 하나면 된다). 찾기 목록은 서버가 이 값으로 걸러 준다.</summary>
     public bool CanReceive => PushReachable || EmailReachable;
 
     /// <summary>목록에 적는 한 줄. 이름이 없으면 아이디를 쓴다.</summary>
@@ -83,40 +68,17 @@ public sealed class NoteDto
     /// <summary>두드림이 막힌 까닭. 다 갔으면 <c>null</c>.</summary>
     public string? NotifyNote { get; set; }
 
-    /// <summary>
-    /// 앱 푸시가 <b>받는 사람의 기기에 실제로 닿은</b> 때(UTC). 안 닿았으면 <c>null</c>.
-    /// </summary>
-    /// <remarks>
-    /// <see cref="PushSent"/> 와 <b>갈래가 다르다.</b> 그쪽은 「서버가 푸시
-    /// 서비스에 넘겼다」까지고, 이것은 <b>기기의 서비스워커가 받아서 되알려 준</b>
-    /// 때다. 웹푸시는 넘긴 것이 도착한다는 보장이 없다 — 기기가 꺼져 있으면
-    /// 수명(기본 6시간)까지 들고 있다가 조용히 버린다.
-    /// </remarks>
+    /// <summary>앱 푸시가 받는 사람의 기기에 실제로 닿은 때(UTC). 서비스워커가 되알려 준 값이다. PushSent(서버가 푸시 서비스에 넘긴 때)와 다르다. 기기가 꺼져 있으면 수명까지 들고 있다가 버린다.</summary>
     public DateTime? DeliveredAt { get; set; }
 
-    /// <summary>
-    /// 푸시가 안 닿아 <b>대신 보낸 메일</b>이 나간 때(UTC). 안 보냈으면 <c>null</c>.
-    /// </summary>
-    /// <remarks>
-    /// <see cref="EmailSent"/> 와 갈래가 다르다. 그쪽은 보낼 때 받는 사람이
-    /// 「쪽지 메일받기」를 켜 두어 함께 나간 것이고, 이것은 나중에 배치가 대신
-    /// 보낸 것이다.
-    /// </remarks>
+    /// <summary>푸시가 안 닿아 대신 나간 메일의 때(UTC). EmailSent(보낼 때 함께 나간 메일)와 다르고, 배치가 나중에 보낸 것이다.</summary>
     public DateTime? FallbackEmailAt { get; set; }
 
     /// <summary>기기에 닿았나. 보낸함의 「전달」 칸이 이 값을 그린다.</summary>
     public bool IsDelivered { get; set; }
 }
 
-/// <summary>
-/// <b>빠른 선택</b>에 내놓는 사람들 — 아무것도 치지 않은 순간의 화면이다.
-/// </summary>
-/// <remarks>
-/// 찾기는 두 글자를 쳐야 걸린다. 그런데 쪽지를 쓰는 사람이 가장 자주 하는 일은
-/// <b>어제 보낸 그 사람에게 또 보내는 것</b>이라, 그때 이름을 다시 치는 것은
-/// 순전한 낭비다. 둘로 갈라 담는 것은 눈이 가는 순서가 달라서다 — 최근은 딱지로
-/// 늘어놓고, 전체는 접어 두었다가 「전체에서 고르기」로 편다.
-/// </remarks>
+    /// <summary><b>빠른 선택</b>에 내놓는 사람들. 최근 보낸 사람(지금도 받을 수 있는 사람만)과 전체를 나눠 담는다. 최근은 딱지로, 전체는 접어 두었다가 펼친다.</summary>
 public sealed class NoteQuickPickDto
 {
     /// <summary>최근에 쪽지를 보낸 사람들(가까운 순). <b>지금도 받을 수 있는 사람만</b>.</summary>
@@ -129,14 +91,7 @@ public sealed class NoteQuickPickDto
     public bool AllTruncated { get; set; }
 }
 
-/// <summary>
-/// 쪽지 한 번 보낸 결과.
-/// </summary>
-/// <remarks>
-/// <b>쪽지가 간 것과 두드림이 간 것을 갈라 담는다.</b> 쪽지함에는 들어갔는데
-/// 푸시만 막히는 일이 흔해서(구독한 기기가 없다 · 본인이 껐다), 하나로 뭉쳐
-/// 말하면 보낸 사람이 같은 쪽지를 한 번 더 보낸다.
-/// </remarks>
+    /// <summary>쪽지 한 번 보낸 결과. 쪽지함 저장과 두드림을 갈라 담는다. 쪽지함에는 들어갔는데 푸시만 막히는 일이 흔하므로 하나로 뭉치면 같은 쪽지를 또 보내게 된다.</summary>
 public sealed class NoteSendResultDto
 {
     /// <summary>쪽지함에 들어간 통 수. <b>이것이 0 일 때만 실패다.</b></summary>
@@ -154,11 +109,7 @@ public sealed class NoteSendResultDto
     /// <summary>실제로 받은 사람들(표시용).</summary>
     public List<string> Recipients { get; set; } = [];
 
-    /// <summary>
-    /// 찾기는 했으나 <b>푸시를 꺼 두어 쪽지를 받을 수 없는</b> 사람들.
-    /// <see cref="Unknown"/> 과 갈라 담는다 — 「아이디가 틀렸다」와 「그 사람이
-    /// 껐다」는 보내는 쪽이 할 일이 서로 다르다.
-    /// </summary>
+    /// <summary>찾기는 했으나 푸시를 꺼 두어 쪽지를 받을 수 없는 사람들. Unknown(아이디 없음)과 갈라 담는다. 보내는 쪽이 할 일이 다르다.</summary>
     public List<string> Blocked { get; set; } = [];
 
     /// <summary>두드림이 막힌 까닭. 다 갔으면 <c>null</c>.</summary>

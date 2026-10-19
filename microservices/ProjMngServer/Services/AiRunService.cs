@@ -8,16 +8,8 @@ using ProjMngServer.Models;
 
 namespace ProjMngServer.Services;
 
-/// <summary>
-/// 실행기가 쓰는 쪽 — 집어가기 · 하트비트 · 로그 · 완료.
-/// </summary>
-/// <remarks>
-/// <para>
-/// 사람이 쓰는 <see cref="AiTaskService"/> 와 갈라 두었다. 인증이 다르기
-/// 때문이다 — 저쪽은 로그인한 사람이고 이쪽은 <b>run 별 1회용 토큰</b>이다.
-/// 배포 도구가 같은 방식을 쓴다(설계 6.9).
-/// </para>
-/// </remarks>
+/// <summary>실행기가 쓰는 쪽 — 집어가기 · 하트비트 · 로그 · 완료.</summary>
+/// 사람용 AiTaskService 와 달리 run 별 1회용 토큰으로 인증한다.
 public sealed class AiRunService(
     IConfiguration configuration, AiTaskNotifier notifier, AiRunSummaryWriter summaries,
     AiRunFileWriter files, AiTaskTitler titler, AiTaskQueue queue,
@@ -40,22 +32,7 @@ public sealed class AiRunService(
     private readonly int _retryDelaySeconds =
         Math.Max(0, configuration.GetValue("AiTasks:RetryDelaySeconds", 15));
 
-    /// <summary>
-    /// 끝난 뒤 <b>요약과 제목을 기다리는 상한(초)</b>.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 이 시간 안에 요약·제목이 오면 <b>그것을 싣고</b> 앱푸시가 나가고 결과 메일도
-    /// 곧바로 나간다. 안 오면 앱푸시는 <b>적힌 값으로</b> 그냥 나가고, 메일만
-    /// 미뤄 둔다(<c>AiTasks:MailDeferMinutes</c>).
-    /// </para>
-    /// <para>
-    /// <b>30초인 까닭.</b> 요약과 제목은 이제 모델 왕복 <b>한 번</b>이고
-    /// (<see cref="AiRunSummaryWriter"/>), 로컬 LLM 실측이 1.0~1.6초다. 즉 보통은
-    /// 이 상한에 닿지도 않는다 — 여기 걸리는 건은 모델이 죽었거나 붐비는 건이고,
-    /// 그런 건에 더 오래 서 있어 봐야 앱푸시만 늦는다.
-    /// </para>
-    /// </remarks>
+    /// <summary>끝난 뒤 요약과 제목을 기다리는 상한(초). 넘기면 적힌 값으로 앱푸시가 나가고 결과 메일은 미뤄진다.</summary>
     private readonly int _postRunWaitSeconds =
         Math.Clamp(configuration.GetValue("AiTasks:PostRunWaitSeconds", defaultValue: 30), 1, 300);
 
@@ -63,20 +40,7 @@ public sealed class AiRunService(
 
     // ── 집어가기 ────────────────────────────────────────────
 
-    /// <summary>
-    /// 요청된 작업을 <b>한 문장으로</b> 집는다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <c>FOR UPDATE SKIP LOCKED</c> 가 요점이다. 실행기가 둘이거나 종과
-    /// 폴링이 겹쳐 동시에 들어와도 서로 다른 건을 집고, 기다리지도 않는다.
-    /// 읽고 → 판단하고 → 쓰는 세 걸음으로 나누면 같은 건을 둘이 집는다.
-    /// </para>
-    /// <para>
-    /// <b>대상 잠금을 함께 본다.</b> 같은 대상에 두 건이 동시에 돌면 폴더
-    /// 대상은 서로의 파일을 덮는다(설계 9.5).
-    /// </para>
-    /// </remarks>
+    /// <summary>요청된 작업을 한 문장으로 집는다. FOR UPDATE SKIP LOCKED 로 기다리지 않고, 같은 대상의 두 건이 겹치지 않게 대상 잠금도 함께 본다.</summary>
     public async Task<List<AiClaim>> ClaimAsync(
         string runnerName, IReadOnlyList<string> kinds, int capacity)
     {
@@ -141,12 +105,8 @@ public sealed class AiRunService(
             //    본문을 고쳐도 지난 실행이 무엇이었는지 남아야 한다.
             var token = NewToken();
 
-            // 다시 시도하는 것이면 **지난번에 왜 실패했는지**를 지시문 앞에
-            // 얹는다. 안 얹으면 같은 글을 같은 자리에서 다시 읽는 것뿐이라
-            // 대개 같은 이유로 또 실패한다(`RetryPrompt` 머리말).
-            //
-            // `attempt_count` 는 위 ②에서 이미 1 올렸으므로, 여기서 읽은
-            // 값에 1을 더한 것이 이번 시도 번호다.
+            // 다시 시도하는 것이면 지난 실패를 지시문 앞에 얹는다(RetryPrompt). 같은 글을 같은 자리에서 또 읽으면 같은 이유로 또 실패한다.
+            // attempt_count 는 ②에서 이미 올렸으므로 여기서 읽은 값에 1을 더한 것이 이번 시도 번호다.
             var attempt = task.AttemptCount + 1;
 
             var previous = attempt <= 1 ? null : await db.QuerySingleOrDefaultAsync<RetryPrompt.Previous>(
@@ -155,10 +115,7 @@ public sealed class AiRunService(
             var instruction = RetryPrompt.Compose(
                 task.Contents, attempt, Math.Max(task.AttemptMax, 1), previous);
 
-            // 시킬 때 지어 둔 **이 차수의 제목**을 함께 옮겨 담는다
-            // (`AiTurnTitler` 가 `ai_task.next_turn_title` 에 얹어 둔 것).
-            // 모델이 아직 답하지 않았으면 널이고, 그때는 그쪽이 방금 생긴
-            // 이 줄을 찾아와 적는다. 어느 쪽이든 끝난 뒤의 제목이 덮는다.
+            // 시킬 때 지어 둔 이 차수의 제목을 옮긴다. 아직 없으면 null 이고, 그때는 모델 응답 시점에 이 줄에 적는다.
             var runKey = await db.ExecuteScalarAsync<long>("""
                 INSERT INTO projmng.ai_task_run
                      ( task_key, seq, run_status, lease_expires_at, token_hash,
@@ -190,8 +147,7 @@ public sealed class AiRunService(
                  WHERE target_key = @TargetKey
                 """, new { runKey, task.TargetKey }, tx);
 
-            // 얹어 두었던 차수 제목은 **여기서 비운다** — 위에서 실행 줄로
-            // 옮겨 담았다. 안 비우면 다음 차수가 그 제목을 물려받는다.
+            // 옮겨 담은 차수 제목은 여기서 비운다. 안 비우면 다음 차수가 그 제목을 물려받는다.
             await db.ExecuteAsync("""
                 UPDATE projmng.ai_task
                    SET last_run_key    = @runKey,
@@ -248,14 +204,8 @@ public sealed class AiRunService(
     }
 
     /// <summary>
-    /// 이 작업의 <b>가장 최근에 끝난 실행</b> 한 줄. 다시 시도할 때 지시문에
-    /// 얹을 실패 이야기를 여기서 꺼낸다.
+    /// 이 작업의 가장 최근에 끝난 실행 한 줄. finished_at IS NOT NULL 로 거르지 않으면 방금 만든 자기 줄을 지난 실행으로 읽는다.
     /// </summary>
-    /// <remarks>
-    /// <c>finished_at IS NOT NULL</c> 로 거른다 — 지금 막 만든 이번 실행 줄은
-    /// 아직 안 끝났으므로 걸리지 않는다. 그 조건이 없으면 <b>자기 자신</b>을
-    /// 지난 실행으로 읽어 빈 실패 이야기를 얹는다.
-    /// </remarks>
     private const string PreviousRunSql = """
         SELECT seq AS Seq, run_status AS Status, exit_code AS ExitCode,
                error_summary AS Error, result_text AS Result
@@ -269,12 +219,8 @@ public sealed class AiRunService(
     // ── 보고 ────────────────────────────────────────────────
 
     /// <summary>
-    /// 살아 있다고 알린다. 임대를 연장하고 <b>취소 요청이 왔는지 돌려준다</b>.
+    /// 살아 있다고 알린다. 임대를 연장하고 취소 요청이 왔는지 돌려준다. 취소를 응답에 싣는 까닭은 실행기가 받는 포트가 없기 때문이다.
     /// </summary>
-    /// <remarks>
-    /// 취소를 이 응답에 실어 보내는 이유: 실행기에게 들어오는 길을 새로 열지
-    /// 않으려는 것이다. 실행기는 받는 포트가 없다(설계 7.1).
-    /// </remarks>
     public async Task<AiHeartbeat?> HeartbeatAsync(long runKey, string token)
     {
         using var db = Open();
@@ -308,19 +254,9 @@ public sealed class AiRunService(
     }
 
     /// <summary>
-    /// 로그 줄을 쌓는다.
+    /// 로그 줄을 쌓는다. (run_key, seq) 유일 제약 덕에 같은 구간을 두 번 보내도 한 번만 들어간다.
+    /// 상한을 넘으면 조용히 버리지 않고 한 줄을 남긴다 — 아무 말 없이 끊기면 AI 가 멈춘 것으로 읽힌다.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>같은 구간을 두 번 보내도 한 번만 들어간다</b> — <c>(run_key, seq)</c> 에
-    /// 유일 제약이 걸려 있고 충돌은 무시한다. 네트워크가 끊겼다 붙으면
-    /// 실행기는 반드시 다시 보낸다.
-    /// </para>
-    /// <para>
-    /// 상한을 넘으면 <b>조용히 버리지 않고</b> 한 줄을 남긴다. 아무 말 없이
-    /// 끊기면 「AI 가 거기서 멈췄나」로 읽힌다.
-    /// </para>
-    /// </remarks>
     public async Task<bool> AppendLogsAsync(long runKey, string token, IReadOnlyList<AiLogLine> lines)
     {
         using var db = Open();
@@ -344,8 +280,7 @@ public sealed class AiRunService(
 
         foreach (var line in take)
         {
-            // **적재 직전에 가린다.** DB 에 들어간 뒤에 가리면 이미 늦다 —
-            // 화면에도 메일에도 나가고, 지워도 백업에 남는다(설계 9.6).
+            // 적재 직전에 가린다. DB 에 들어간 뒤에 가리면 화면·메일·백업으로 이미 새어 나간다.
             var text = SecretMask.Apply(line.Text) ?? string.Empty;
 
             if (text.Length > _maxEventLength)
@@ -400,15 +335,12 @@ public sealed class AiRunService(
             _ => done.ExitCode == 0 ? AiTaskStatus.Succeeded : AiTaskStatus.Failed,
         };
 
-        // 결과문은 화면에도 뜨고 **메일로 나간다.** 메일은 한 번 나가면
-        // 회수할 수 없는 유일한 출구라 여기서 반드시 가린다.
+        // 결과문은 화면과 메일로 나가므로 여기서 반드시 가린다. 메일은 한 번 나가면 회수할 수 없다.
         done.ResultText = SecretMask.Apply(done.ResultText);
         done.Error = SecretMask.Apply(done.Error);
         done.DiffStat = SecretMask.Apply(done.DiffStat);
 
-        // 경로만 적힌 목록이지만 **가리는 손길은 똑같이 거친다** — 작업공간
-        // 경로에 사람 이름이나 토큰이 섞여 들어온 적이 있다. 빠뜨리면 이 칸만
-        // 가려지지 않은 채 화면과 메일로 나간다.
+        // 경로 목록도 같은 손길을 거친다 — 작업공간 경로에 사람 이름이나 토큰이 섞일 수 있다.
         done.ChangedFiles = SecretMask.Apply(done.ChangedFiles);
 
         await db.ExecuteAsync("""
@@ -434,24 +366,9 @@ public sealed class AiRunService(
             done.WorkspacePath,
         }, tx);
 
-        // ── 다시 시도할 것인가 ──────────────────────────────
-        //
-        // 조건이 셋이고, **셋 다 설계 6.11 에서 나온다.**
-        //
-        // ① 실패로 끝났고 상한이 남았다(`attempt_max`, 1~5).
-        //
-        // ② **연락 끊김(interrupted)은 제외한다.** 서버가 보기엔 죽었지만
-        //    CLI 는 아직 돌고 있을 수 있다. 거기서 같은 일을 또 주면 둘이
-        //    같은 저장소를 고친다. 취소도 제외다 — 사람이 그만두라고 한 것이다.
-        //
-        // ③ **작업공간이 실행마다 갈리는 대상만.** 6.11 이 자동 재시도의
-        //    전제로 못 박아 둔 조건이다. 원본 직접(inplace)은 지난 시도가
-        //    고쳐 놓은 파일 위에서 다시 도는 셈이라, 두 번째 시도가 무엇을
-        //    보고 있는지 아무도 모른다.
-        //
-        // 다시 넣을 때 **지시문에 지난 실패를 얹는 일은 집어 갈 때** 한다
-        // (`ClaimAsync`). 여기서 얹으면 본문(`contents`)을 고치는 셈이 되어
-        // 사람이 화면에서 읽는 글이 바뀐다.
+        // 자동 재시도는 실패이고 상한이 남았을 때만 한다. 연락 끊김(interrupted)은 CLI 가 아직 돌 수 있어 제외하고,
+        // 원본 직접 대상은 지난 시도의 수정 위에서 다시 도니 작업공간이 실행마다 갈리는 대상만 한다.
+        // 지난 실패를 지시문에 얹는 일은 집어 갈 때(ClaimAsync) 한다 — 여기서 얹으면 사람이 읽는 본문이 바뀐다.
         var counters = await db.QuerySingleAsync<Counters>("""
             SELECT t.task_key AS TaskKey, t.attempt_count AS Count, t.attempt_max AS Max,
                    COALESCE(g.isolation_mode,
@@ -469,11 +386,7 @@ public sealed class AiRunService(
                     && counters.Count < Math.Max(counters.Max, 1)
                     && !string.Equals(counters.Isolation, "inplace", StringComparison.OrdinalIgnoreCase);
 
-        // 작업 쪽 요약. **요청여부를 되돌린다** — 한 번 시킨 것이 끝났으므로
-        // 그대로 두면 감시자가 같은 건을 또 집는다.
-        //
-        // 다시 시도할 때만 예외다. 그때는 요청을 **다시 세워** 두어야 실행기가
-        // 집어 간다 — 상태도 대기로 되돌린다.
+        // 작업 쪽 요청여부를 되돌린다 — 그대로 두면 감시자가 같은 건을 또 집는다. 다시 시도할 때만 요청을 다시 세운다.
         await db.ExecuteAsync("""
             UPDATE projmng.ai_task t
                SET task_status                  = CASE WHEN @retry THEN 'queued' ELSE @status END,
@@ -539,15 +452,8 @@ public sealed class AiRunService(
                 queue.Ring(counters.TaskKey);
             }
 
-            // **중간 실패는 알리지 않는다.** 세 번 시도하는 작업이 두 번
-            // 실패하면 「실패」 메일이 두 통 먼저 가고 마지막에 「성공」이
-            // 온다 — 받는 사람은 그 순서를 못 읽는다. 마지막 판정만 알린다.
-            //
-            // **그 뜻을 칸에 적어 둔다.** `mail_sent_at` 이 비어 있는 것은
-            // 「아직 안 보냈다」는 뜻이고, 따라잡기가 그런 건을 주워 보낸다
-            // (<see cref="AiSummaryCatchUp"/>) — 여기서 안 적으면 **안 알리기로
-            // 한 중간 실패가 `AiTasks:MailDeferMinutes`(기본 5분) 뒤에 메일로
-            // 나간다.** 보낸 시각이 아니라 「이 실행의 메일 길은 끝났다」는 도장이다.
+            // 중간 실패는 알리지 않는다(마지막 판정만). mail_sent_at 을 여기서 찍지 않으면 따라잡기가 안 보낸 건으로 주워 가서,
+            // 알리지 않기로 한 중간 실패 메일이 뒤늦게 나간다. 찍는 것은 보낸 시각이 아니라 「이 실행의 메일 길은 끝났다」는 표시다.
             await MarkMailDoneAsync(runKey);
 
             return true;
@@ -593,58 +499,9 @@ public sealed class AiRunService(
     }
 
     /// <summary>
-    /// 끝난 실행의 뒤처리 — <b>요약과 제목을 짧게 기다렸다가, 그것을 실어 앱푸시를
-    /// 쏘고 메일을 보낸다.</b>
+    /// 끝난 실행의 뒤처리. 요약과 제목을 상한까지 기다렸다가 앱푸시 · 결과 메일 순으로 보낸다.
+    /// 앱푸시가 제목을 기다리는 까닭: 「빠른 지시」의 제목은 지시문을 끊은 글이라, 기다리지 않으면 알림창과 목록의 제목이 갈린다.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>걸음은 셋이다 (2026-10-14 에 순서를 다시 잡았다).</b>
-    /// ① 요약·제목을 <see cref="_postRunWaitSeconds"/> 초까지 기다린다 →
-    /// ② 앱푸시 → ③ 결과 메일.
-    /// </para>
-    /// <para>
-    /// <b>앱푸시가 제목을 기다리는 까닭.</b> 알림창에서 가장 크게 읽히는 줄이
-    /// 작업 제목인데(<c>[완료] 제목</c>), 「빠른 지시」로 들어온 건의 제목은
-    /// <b>지시문 앞부분을 끊어 놓은 것</b>이다. 기다리지 않고 쏘면 그 끊긴 글이
-    /// 알림창에 서고, AI 가 지은 제목은 몇 초 뒤 화면에서만 바뀐다 — 받는 사람이
-    /// 알림창과 목록에서 <b>서로 다른 제목</b>을 보게 된다. 그래서 제목이 붙은
-    /// 뒤에 쏜다.
-    /// </para>
-    /// <para>
-    /// <b>그래도 한없이 기다리지는 않는다.</b> 이 자리는 한때 요약과 제목을
-    /// <b>상한 없이</b> 둘 다 기다렸고, 그때의 운영 실측이 <b>끝난 시각에서
-    /// 푸시까지 중앙 13초 · 상위 10% 45초 · 최대 177초</b>였다 (2026-09-25,
-    /// <c>scom.push_send_logs</c> 와 <c>ai_task_run.finished_at</c> 대조). 그 뒤
-    /// 한 번은 아예 안 기다리게 뒤집었는데, 위의 「제목이 둘」 문제가 그대로
-    /// 남았다. 지금은 <b>상한을 걸고 기다린다</b> — 요약과 제목이 모델 왕복
-    /// 한 번으로 줄어(로컬 LLM 실측 1.0~1.6초) 보통은 상한에 닿지도 않고,
-    /// 닿은 건은 <c>AiTaskNotifier.PushFallback</c> 이 적힌 값으로 채운다.
-    /// </para>
-    /// <para>
-    /// <b>메일도 같은 한 번을 기다린 셈이 된다.</b> 메일은 알림창 두 줄이 아니라
-    /// 보고서라, 「무엇을 했다나」 칸이 비면 읽을 값이 절반으로 준다. 상한 안에
-    /// 요약이 들어왔으면 <b>여기서 곧바로</b> 나가고, 못 들어왔으면 <b>아예
-    /// 미룬다</b>(<c>deferUntilSummary</c>). 미룬 건은 <see cref="AiSummaryCatchUp"/>
-    /// 가 요약을 채우는 자리에서 보낸다 — 예전에는 그 경우 <b>요약 없는 메일이
-    /// 먼저 나가고</b> 요약은 10분 뒤에 화면에만 생겼다.
-    /// </para>
-    /// <para>
-    /// <b>요약은 알림 설정과 무관하다.</b> 메일도 앱푸시도 끄고 시킨 건은 화면의
-    /// 「처리 요약」 칸이 결과를 읽는 유일한 자리다 — 그런데 요약을 만드는 일이
-    /// 알림 보내기 안에 들어 있으면 <b>알림을 끈 사람에게만 요약이 없다.</b>
-    /// 그래서 여기서 걸음을 나눠 부른다.
-    /// </para>
-    /// <para>
-    /// <b>제목은 요약과 한 번에 온다.</b> 요약을 받아 오는 그 호출이 짧은 제목까지
-    /// 들고 오고(<see cref="AiRunSummaryWriter"/>), <see cref="AiTaskTitler"/> 는
-    /// 그 도장이 없는 건만 다시 부른다 — 보통은 모델을 부르지 않고 곧장 돌아온다.
-    /// </para>
-    /// <para>
-    /// <b>중간 실패는 여기까지 오지 않는다.</b> 다시 시도할 건은 위에서 돌아간다 —
-    /// 세 번 시도하는 작업이 시도마다 요약을 만들면 모델을 세 번 부르고, 그 요약이
-    /// 작업 제목을 두 번 갈아 치운다. 마지막 판정만 남긴다(알림과 같은 규칙).
-    /// </para>
-    /// </remarks>
     private async Task SummarizeThenNotifyAsync(long runKey)
     {
         try
@@ -653,10 +510,7 @@ public sealed class AiRunService(
             var summarized = await PrepareSummaryAndTitleAsync(runKey);
 
             // ② 앱푸시 — 제목이 붙은 뒤에 쏜다.
-            //
-            // 메일보다 먼저 거두는 까닭이 하나 더 있다: 둘이 같은 칸
-            // (`ai_task.notify_error`)에 적는데 푸시가 그 칸을 비우는 쪽이라,
-            // 순서가 뒤집히면 메일이 남긴 사유를 푸시가 지운다.
+            // 푸시가 notify_error 칸을 비우므로, 메일보다 먼저 쏴야 메일이 남긴 사유를 지우지 않는다.
             await notifier.SendPushAsync(runKey);
 
             // ③ 결과 메일 — **①이 빈손이면 보내지 않고 미룬다.**
@@ -678,25 +532,16 @@ public sealed class AiRunService(
     }
 
     /// <summary>
-    /// 처리 요약과 제목을 <see cref="_postRunWaitSeconds"/> 초까지 기다려 적는다.
-    /// <b>요약이 손에 들어왔으면 true</b> — 그 값으로 결과 메일을 지금 보낼지
-    /// 미룰지가 갈린다.
+    /// 처리 요약과 제목을 상한까지 기다려 적는다. 요약이 손에 들어왔으면 true — 그 값으로 결과 메일을 지금 보낼지 미룰지가 갈린다.
+    /// 요약과 제목 되받기의 상한은 나눠 쓴다. 요약이 상한을 다 쓰면 되받기는 곧장 돌아와 앱푸시가 상한의 두 배를 기다리지 않는다.
     /// </summary>
-    /// <remarks>
-    /// <b>상한은 둘이 나눠 쓴다.</b> 요약이 상한을 다 쓰면 제목 되받기는 이미
-    /// 끊긴 토큰을 받아 곧장 돌아온다 — 그래야 앱푸시가 상한의 <b>두 배</b>를
-    /// 기다리는 일이 안 생긴다. 두 호출 다 스스로 삼키므로 여기서 던지지 않는다.
-    /// </remarks>
     private async Task<bool> PrepareSummaryAndTitleAsync(long runKey)
     {
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(_postRunWaitSeconds));
 
         try
         {
-            // **처리 파일 합치기를 나란히 보낸다.** 둘 다 모델 왕복 한 번인데
-            // 서로 볼 것이 없다 — 차례로 부르면 앱푸시가 그 둘을 더한 만큼
-            // 늦는다(이 자리의 상한이 곧 푸시까지의 거리다). 스스로 삼키므로
-            // 여기서 던지지 않고, 상한에 걸리면 따라잡기가 다시 집는다.
+            // 처리 파일 합치기와 요약은 나란히 보낸다 — 차례로 부르면 앱푸시가 그 둘을 더한 만큼 늦는다.
             var merging = files.EnsureAsync(runKey, cts.Token);
 
             // 요약 한 번에 제목까지 온다. 여기서 제목 칸이 채워지면 아래는
@@ -722,9 +567,7 @@ public sealed class AiRunService(
     }
 
     /// <summary>
-    /// 이 실행의 <b>메일 길을 끝났다고 적는다</b>(<c>ai_task_run.mail_sent_at</c>).
-    /// 보낼 일이 없다고 판정한 자리에서 부른다 — 적지 않으면 따라잡기가
-    /// 「아직 안 보낸 것」으로 보고 주워 간다.
+    /// 이 실행의 메일 길을 끝났다고 적는다(ai_task_run.mail_sent_at). 보낼 일이 없다고 판정한 자리에서 부른다 — 적지 않으면 따라잡기가 안 보낸 건으로 주워 간다.
     /// </summary>
     private async Task MarkMailDoneAsync(long runKey)
     {
@@ -758,15 +601,7 @@ public sealed class AiRunService(
         public int Max { get; set; }
 
         /// <summary>
-        /// 대상의 격리 방식. <b>원본 직접이면 자동 재시도를 하지 않는다</b>(6.11).
-        ///
-        /// <para>
-        /// 우리가 묻는 것은 <b>「원본 직접인가」 하나뿐</b>이고, 그 값은 언제나
-        /// <c>isolation_mode</c> 에 적혀 있다 — 비어 있을 때의 기본값은 worktree
-        /// 아니면 copy 이고 둘 다 격리된 자리다. 그래서 실행기의
-        /// <c>Workspace.IsolationOf</c> 가 <c>.git</c> 유무로 더 따지는 것과
-        /// 갈려도 이 판정의 답은 같다.
-        /// </para>
+        /// 대상의 격리 방식. 원본 직접(isolation_mode)이면 자동 재시도를 하지 않는다. 비어 있으면 격리된 기본값으로 본다.
         /// </summary>
         public string? Isolation { get; set; }
         public string? PendingAddition { get; set; }
@@ -820,23 +655,9 @@ public sealed class AiRunService(
     // ── 안쪽 ────────────────────────────────────────────────
 
     /// <summary>
-    /// 이 토큰이 그 실행의 것인가. <b>끝난 실행은 거절한다</b> —
-    /// 그러면 늦게 온 보고가 끝난 기록을 덮지 않는다.
+    /// 실행기가 이 실행에 붙은 파일 하나를 받아 간다. 실행기는 게이트웨이를 지나지 않으므로 run 토큰으로 연다.
+    /// 조건은 이 실행 작업에 붙은 파일로 한정한다 — file_key 만 보면 토큰 하나로 남의 지시의 파일을 받을 수 있다.
     /// </summary>
-    /// <summary>
-    /// 실행기가 <b>이 실행에 붙은 파일 하나</b>를 받아 간다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 실행기는 게이트웨이를 지나지 않으므로(<c>AiRunnerController</c> 머리말)
-    /// 포털 계정이 없다. 그래서 이미 들고 있는 <b>run 토큰</b>으로 연다 —
-    /// 로그를 올리고 심장 소리를 보내는 그 토큰이다.
-    /// </para>
-    /// <para>
-    /// <b>그 실행의 작업에 붙은 것만 나간다.</b> 조건을 <c>file_key</c> 하나로
-    /// 두면 토큰 하나로 <b>남의 지시에 붙은 사진을 전부</b> 받아 갈 수 있다.
-    /// </para>
-    /// </remarks>
     /// <returns>토큰이 다르거나 그 실행의 파일이 아니면 <c>null</c>.</returns>
     public async Task<(string FileNm, string ContentType, byte[] Bytes)?> RunFileAsync(
         long runKey, string token, long fileKey)
@@ -909,13 +730,9 @@ public sealed class AiClaim
     public AiTarget? Target { get; set; }
 
     /// <summary>
-    /// 지시에 함께 올라온 파일들. <b>바이트는 여기 없다</b> — 실행기가 번호로
-    /// 하나씩 받아 간다(<c>/api/ai-runner/runs/{runKey}/files/{fileKey}</c>).
+    /// 지시에 함께 올라온 파일들. 바이트는 여기 없고 실행기가 번호로 하나씩 받아 간다.
+    /// 실어 보내면 집어가기 한 번이 사진 몇 장을 통째로 끌고 온다 — 집어가기는 1초마다 불리는 자리다.
     /// </summary>
-    /// <remarks>
-    /// 실어 보내면 집어가기 한 번이 사진 몇 장을 통째로 끌고 온다 —
-    /// 집어가기는 실행기가 <b>비어 있어도 1초마다 부르는</b> 자리다.
-    /// </remarks>
     public List<AiClaimFile> Files { get; set; } = [];
 }
 
@@ -998,12 +815,7 @@ public sealed class AiTaskRun
     public string? SummaryText { get; set; }
 
     /// <summary>
-    /// <b>이 차수의 제목.</b> 「지시와 결과」 탭의 접힌 머리줄이 읽는다.
+    /// 이 차수의 제목. 「지시와 결과」 탭의 접힌 머리줄이 읽는다. 없을 수 있다 — 모델이 끝내 답하지 않은 건이 비어 있다.
     /// </summary>
-    /// <remarks>
-    /// 시킬 때 지시문만 보고 한 번(<c>AiTurnTitler</c>), 끝났을 때 결과까지 보고
-    /// 한 번 더(<c>AiRunSummaryWriter</c>) AI 가 짓는다. <b>없을 수 있다</b> —
-    /// 이 칸이 생기기 전의 건과 모델이 끝내 답하지 않은 건이 비어 있다.
-    /// </remarks>
     public string? TurnTitle { get; set; }
 }

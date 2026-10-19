@@ -4,22 +4,7 @@ using Xunit;
 
 namespace JSini.Web.Architecture.Tests;
 
-/// <summary>
-/// 「처리 파일」을 <b>차수마다 한 묶음</b>으로 가르는 규칙(2026-10-18).
-/// </summary>
-/// <remarks>
-/// <para>
-/// <b>이 가르기가 틀리면 조용히 틀린다.</b> 한동안 이 탭이 그리던 것은
-/// <b>가장 최근 실행 하나</b>의 목록이었는데, 화면은 그 목록을 「이 작업이
-/// 고친 파일」이라는 이름으로 멀쩡히 그렸다 — 3차까지 간 건에서 1·2차가
-/// 만든 파일이 어디에도 없다는 것을 보는 사람은 알 길이 없었다.
-/// </para>
-/// <para>
-/// 화면으로는 확인하기 나쁜 자리다 — 2차·3차를 눈으로 보려면 실행기가 운영
-/// 장비에서 같은 건을 두 번 세 번 돌아야 한다. 차수를 가르는 규칙
-/// (<see cref="AiTaskTurnsTests"/>)과 같은 까닭으로 여기 박아 둔다.
-/// </para>
-/// </remarks>
+/// <summary>「처리 파일」을 차수마다 한 묶음으로 가르는 규칙. 틀리면 조용히 틀린다 — 마지막 실행의 목록을 「이 작업이 고친 파일」로 그려도 화면은 멀쩡하다.</summary>
 public sealed class AiRunFileTurnsTests
 {
     /// <summary>
@@ -42,11 +27,7 @@ public sealed class AiRunFileTurnsTests
         Assert.Equal(AiRunFileKind.Deleted, turns[2].Files[1].Kind);
     }
 
-    /// <summary>
-    /// <b>오래된 차수가 앞이다.</b> 서버는 최근 것을 앞에 주지만
-    /// (<c>AiTaskClient.RunsAsync</c>) 사람이 읽는 순서는 반대다 —
-    /// 「지시와 결과」가 서는 순서와도 같아야 한다.
-    /// </summary>
+    /// <summary>오래된 차수가 앞이다. 서버는 최근 것을 앞에 주지만 읽는 순서는 「지시와 결과」와 같게 뒤집는다.</summary>
     [Fact]
     public void 오래된_차수가_앞이다()
     {
@@ -58,10 +39,7 @@ public sealed class AiRunFileTurnsTests
         Assert.Equal([1, 2, 3], turns.Select(t => t.No));
     }
 
-    /// <summary>
-    /// 탭 이름의 수는 <b>같은 경로를 한 번만</b> 센다. 1차가 만든 파일을 3차가
-    /// 또 고쳤다고 해서 「파일이 몇 개냐」의 답이 둘이 되지는 않는다.
-    /// </summary>
+    /// <summary>탭 이름의 수는 같은 경로를 한 번만 센다 — 차수마다 같은 파일을 고쳐도 파일 수는 하나다.</summary>
     [Fact]
     public void 탭의_개수는_경로를_접어_센다()
     {
@@ -74,10 +52,7 @@ public sealed class AiRunFileTurnsTests
         Assert.Equal(3, AiRunFileTurns.DistinctCount(turns));
     }
 
-    /// <summary>
-    /// <b>「외 N개」 줄은 세지 않는다.</b> 그 줄은 파일이 아니라 상한에 걸려
-    /// 접힌 나머지가 몇이더라는 말이다.
-    /// </summary>
+    /// <summary>「외 N개」 줄은 세지 않는다 — 파일이 아니라 상한에 걸려 접힌 나머지다.</summary>
     [Fact]
     public void 외_N개_줄은_개수에서_뺀다()
     {
@@ -88,14 +63,7 @@ public sealed class AiRunFileTurnsTests
         Assert.Equal(1, AiRunFileTurns.DistinctCount(turns));
     }
 
-    /// <summary>
-    /// 확인 표의 수는 <b>차수를 통틀어</b> 센다 — 그 설명은 목록 전체에 거는
-    /// 말이라, 묶음마다 되풀이하면 같은 글이 차수 수만큼 선다.
-    /// </summary>
-    /// <remarks>
-    /// <b>여기는 경로를 접지 않는다.</b> 물어본 것이 「그 표가 붙은 줄이
-    /// 몇이냐」라, 차수 둘에 같은 경로가 서 있으면 보는 눈에도 둘이다.
-    /// </remarks>
+    /// <summary>확인 표의 수는 차수를 통틀어 센다. 경로는 접지 않는다 — 같은 경로가 두 차수에 서 있으면 보는 눈에도 둘이다.</summary>
     [Fact]
     public void 확인_표는_차수를_통틀어_센다()
     {
@@ -109,12 +77,7 @@ public sealed class AiRunFileTurnsTests
         Assert.Equal(0, AiRunFileTurns.CountOf(turns, AiRunFileCheck.Ambiguous));
     }
 
-    /// <summary>
-    /// <b>아직 안 돈 차수는 묶음을 안 만든다.</b> 보냈는데 아무도 안 집어 간
-    /// 차수가 끝에 하나 더 붙는데(<see cref="AiTaskTurns.Build"/>), 그 차수에는
-    /// 실행 줄이 없어 목록도 없다 — 빈 묶음을 세우면 「0개」가 「아직인 것」이
-    /// 아니라 「아무것도 안 고친 것」으로 읽힌다.
-    /// </summary>
+    /// <summary>아직 안 돈 차수는 묶음을 만들지 않는다 — 빈 묶음은 「0개」가 「아직인 것」이 아니라 「아무것도 안 고친 것」으로 읽히게 한다.</summary>
     [Fact]
     public void 아직_안_돈_차수는_묶음이_없다()
     {
@@ -128,10 +91,7 @@ public sealed class AiRunFileTurnsTests
         Assert.Equal(1, turns[0].No);
     }
 
-    /// <summary>
-    /// 한 번도 안 돈 건은 <b>묶음이 하나도 없다</b> — 탭이 「아직 실행된 적이
-    /// 없습니다」 한 줄을 그린다.
-    /// </summary>
+    /// <summary>한 번도 안 돈 건은 묶음이 하나도 없다 — 탭이 「아직 실행된 적이 없습니다」를 그린다.</summary>
     [Fact]
     public void 실행이_없으면_묶음도_없다()
     {
@@ -139,10 +99,7 @@ public sealed class AiRunFileTurnsTests
         Assert.Equal(0, AiRunFileTurns.DistinctCount([]));
     }
 
-    /// <summary>
-    /// 그 칸이 생기기 전(2026-10-12)의 차수는 <c>diff_stat</c> 으로 되읽는다.
-    /// <b>차수별로 갈라도 그 뒷길은 살아 있어야 한다.</b>
-    /// </summary>
+    /// <summary>칸이 생기기 전의 차수는 diff_stat 으로 되읽는다. 차수별로 갈라도 이 뒷길은 살아 있어야 한다.</summary>
     [Fact]
     public void 옛_차수는_diff_stat_으로_되읽는다()
     {
@@ -156,10 +113,7 @@ public sealed class AiRunFileTurnsTests
         Assert.Equal(AiRunFileKind.Unknown, turns[0].Files[0].Kind);
     }
 
-    /// <summary>
-    /// <b>탭이 차수 묶음을 받는다.</b> 한 벌짜리 목록으로 돌아가면 앞 차수가
-    /// 다시 조용히 사라지므로, 마크업에 그 자리를 박아 둔다.
-    /// </summary>
+    /// <summary>탭은 차수 묶음을 받는다. 한 벌짜리 목록으로 돌아가면 앞 차수가 조용히 사라지므로 마크업에 그 자리를 박아 둔다.</summary>
     [Fact]
     public void 탭이_차수_묶음을_그린다()
     {
@@ -175,10 +129,7 @@ public sealed class AiRunFileTurnsTests
         Assert.Contains("ShowTurnHeads", razor);
     }
 
-    /// <summary>
-    /// 차수를 가르는 선은 <b>「지시와 결과」의 그것과 같은 모양</b>이어야 한다 —
-    /// 같은 탭 줄 안에서 차수를 가르는 선이 둘이면 보는 사람이 다른 것으로 읽는다.
-    /// </summary>
+    /// <summary>차수를 가르는 선은 「지시와 결과」의 선과 같은 모양이어야 한다 — 한 줄 안에 선이 둘이면 다른 것으로 읽힌다.</summary>
     [Fact]
     public void 차수를_가르는_선이_있다()
     {

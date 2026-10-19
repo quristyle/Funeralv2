@@ -1,25 +1,6 @@
 namespace JSini.Web.ProjMng.Components.Shared;
 
-/// <summary>
-/// 월 달력에서 <b>한 주 안의 막대를 줄(lane)에 나눠 담는 일</b>.
-///
-/// <para>
-/// 구글 캘린더의 월 보기가 다른 달력들과 갈리는 지점이 이것이다 — 여러 날에
-/// 걸친 일이 칸마다 따로 찍히지 않고 <b>칸을 가로질러 한 줄로 흐른다.</b>
-/// 그 줄이 서로 겹치지 않도록 자리를 나누는 계산이 여기 있다.
-/// </para>
-///
-/// <para>
-/// [화면에서 뽑아낸 이유]
-/// </para>
-///
-/// <para>
-/// 화면(<c>ProjectScheduler</c>) 안에 두면 이 계산을 <b>확인할 길이 없다.</b>
-/// 잘못 담겨도 오류가 나지 않고 막대가 겹치거나 한 줄 밀려 그려질 뿐이라,
-/// 사람이 눈으로 보기 전에는 아무도 모른다. 순수한 계산이므로 밖으로 꺼내
-/// 테스트로 못 박는다.
-/// </para>
-/// </summary>
+/// <summary>월 달력에서 한 주 안의 막대를 줄(lane)에 나눠 담는다. 화면 안에 두면 확인할 길이 없어 순수 계산으로 꺼내 테스트로 못 박는다.</summary>
 public static class CalendarLanes
 {
     /// <summary>
@@ -37,21 +18,7 @@ public static class CalendarLanes
     /// <summary>한 주는 일곱 칸이다.</summary>
     private const int Cols = 7;
 
-    /// <summary>
-    /// 기간들을 한 주(<paramref name="from"/> ~ 그 주 마지막 날)의 줄에 담는다.
-    ///
-    /// <para>
-    /// <b>차례를 여기서 바꾸지 않는다.</b> 넣어 준 차례대로 위에서부터 자리를
-    /// 잡는다 — 무엇이 위에 서야 하는지는 화면이 아는 일이고(먼저 시작한 것,
-    /// 같이 시작했으면 긴 것), 여기서 또 정렬하면 두 곳이 규칙을 나눠 갖는다.
-    /// </para>
-    ///
-    /// <para>
-    /// <b>넘치는 것을 자르지 않는다.</b> 몇 줄까지 보일지는 화면 폭에 딸린
-    /// 값이라 그리는 때 갈린다 — 여기서 자르면 폭이 바뀔 때마다 다시 담아야
-    /// 한다. 자리는 다 주고, 감추는 것은 화면이 한다.
-    /// </para>
-    /// </summary>
+    /// <summary>기간들을 한 주의 줄에 담는다. 차례는 바꾸지 않고(화면이 정한 순서), 넘치는 줄도 자르지 않는다 — 몇 줄을 보일지는 그리는 때 정한다.</summary>
     /// <param name="spans">기간들. 이 주에 걸치지 않는 것은 <b>알아서 건너뛴다</b>.</param>
     /// <param name="from">이 주의 첫날</param>
     /// <returns>담긴 자리들. 넣어 준 차례를 그대로 지킨다.</returns>
@@ -60,8 +27,7 @@ public static class CalendarLanes
     {
         var to = from.AddDays(Cols - 1);
 
-        // 줄마다 「어느 칸이 찼나」를 들고 간다. 칸이 일곱뿐이라 이보다 단순한
-        // 자료는 없다 — 겹침을 재는 일이 곧 칸을 보는 일이다.
+        // 줄마다 어느 칸이 찼는지 든다. 칸이 일곱뿐이라 이보다 단순한 자료는 없다.
         var lanes = new List<bool[]>();
         var slots = new List<Slot>(spans.Count);
 
@@ -69,8 +35,7 @@ public static class CalendarLanes
         {
             var (start, end) = spans[i];
 
-            // 거꾸로 들어간 기간은 화면이 이미 바로잡아 준다. 그래도 여기까지
-            // 흘러오면 아무 줄도 만들지 않는다 — 음수 길이를 그릴 수는 없다.
+            // 거꾸로 든 기간은 화면이 바로잡아 준다. 여기까지 오면 줄을 만들지 않는다(음수 길이).
             if (end < start || start > to || end < from)
             {
                 continue;
@@ -91,11 +56,7 @@ public static class CalendarLanes
         return slots;
     }
 
-    /// <summary>
-    /// <paramref name="col"/> 부터 <paramref name="endCol"/> 까지가 비어 있는 첫 줄.
-    /// 없으면 줄을 하나 늘린다 — <b>위에서부터 채우는 것</b>이 요점이다.
-    /// 빈 자리를 건너뛰면 달력에 이 빠진 줄이 생긴다.
-    /// </summary>
+    /// <summary>col 부터 endCol 까지 비어 있는 첫 줄. 없으면 줄을 하나 늘린다 — 위에서부터 채워야 빈 줄이 안 생긴다.</summary>
     private static int FreeLane(List<bool[]> lanes, int col, int endCol)
     {
         for (var lane = 0; ; lane++)

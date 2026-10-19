@@ -2,53 +2,18 @@
 @attribute [RouteKey("admin.push.history")]
 
 @*
-    [내 알림함] — DB 메뉴 `/system/push/history`.
-    이력: Vue `views/portal/system/push/history` → 여기.
-
-    내가 받은 알림을 본다. 읽음 처리는 서버에 남는다 —
-    화면에서만 지우면 다른 기기에서 다시 안 읽은 것으로 보인다.
-
-    [출처가 바뀌었다 — 포털에서 보낸 알림이 여기 안 들어왔다]
-
-    헬프데스크의 알림 표를 읽고 있었다. 거기에 쓰는 것은 헬프데스크 자신뿐이라
-    포털관리의 「메시지 발송」으로 온 알림은 **받은 사람 화면에도 안 보였다.**
-    지금은 알림 서비스의 발송 기록을 받는 쪽에서 읽는다 — 「발송 이력」과 같은
-    표를 각도만 바꿔 본다.
-
-    [한 줄이 발송 한 번이다]
-
-    그 표의 줄은 기기 단위다. 기기 둘을 쓰는 사람에게 같은 알림이 두 줄로
-    보이지 않도록 서버가 `batch_id` 로 묶어 준다. 읽음도 그 단위다.
-
-    [못 받은 것도 보인다]
-
-    푸시가 실패했거나 본인이 푸시를 꺼 두었어도 **내게 온 소식인 것은 같다.**
-    이 화면이 있는 값어치의 절반이 그것이다 — 못 받은 사람이 나중에라도
-    여기서 보고, 왜 못 받았는지(구독한 기기 없음 · 푸시 꺼 둠)까지 안다.
+    [내 알림함] 내가 받은 알림을 본다. 읽음 처리는 서버에 남는다 — 화면에서만 지우면 다른 기기에서 다시 안 읽은 것으로 보인다.
+    출처는 알림 서버의 발송 기록이다(헬프데스크 표가 아니다). 한 줄은 발송 한 번이고 batch_id 로 묶는다. 푸시가 실패했거나 꺼 둔 알림도 내게 온 소식이면 보여 주고, 못 받은 까닭을 함께 적는다.
 *@
 
 @inherits DataPage
 
-<PageTitle>내 알림함 · 포털관리</PageTitle>
+<PageTitle>내 알림함</PageTitle>
 
-@* 휴대폰인가. **표를 카드 목록으로 바꿔 다는 데 쓴다**(아래 `_isPhone`).
-
-   경계는 CSS 의 휴대폰 경계와 같은 767px 다 — 탭 줄이 사라지고 사이드바가
-   덮개가 되는 그 폭(`app.css` 의 `@@media (max-width: 767px)`)에서 목록도
-   함께 손가락용으로 선다. 어긋나게 적으면 화면은 휴대폰 모양인데 목록만
-   표로 서 있는 폭이 생긴다.
-
-   값은 **첫 그림 뒤에** 온다. 그래서 휴대폰으로 들어와도 표가 한 번은 섰다가
-   곧바로 걷히는데, 걷히는 쪽(`CommGrd`)이 그 뒤에 제 속을 만지다 회로를
-   내리던 일은 고쳐져 있다(`CommGrd` 의 `_gone`). *@
+@* 휴대폰인가(767px, CSS 의 휴대폰 경계와 같은 값). 표를 카드 목록으로 바꿔 단다. 값은 첫 그림 뒤에 오므로 표가 한 번 곧바로 걷히는데, 그 뒤 CommGrd 가 제 속을 만지는 일은 _gone 이 막는다. *@
 <DxLayoutBreakpoint MaxWidth="767" IsActive="_isPhone" IsActiveChanged="@OnPhoneChanged" />
 
-@* **조건을 고치면 그 자리에서 다시 읽는다.** 그래서 칸마다 `@@bind-` 대신
-   값과 변경을 따로 받는다 — `@@bind-` 는 값만 넣고 알려 주지 않는다.
-
-   「조회」 단추는 그대로 둔다. 조건을 안 바꾸고 **새로 온 알림만 확인**하는
-   것이 이 화면에서 가장 잦은 일이고, 휴대폰에서 조건 판을 도로 접는 것도
-   그 단추다(`CommSch.SearchAsync`). *@
+@* 조건을 고치면 그 자리에서 다시 읽는다 — 칸마다 bind 대신 값과 변경을 따로 받는다. 조회 단추는 새로 온 알림만 확인하려는 사람이 쓰는 길이다. *@
 <CommSch OnSearch="@ReloadAsync" SearchText="다시 읽기" Busy="@Loading"
          MobileSummary="@ConditionSummary">
     <Fields>
@@ -61,11 +26,7 @@
                         Style="width: 140px" />
         </CommSchItem>
         <CommSchItem Label="구분">
-            @* 갈래 목록은 **공통코드**가 갖는다(`NOTI_CATEGORY`). 화면에 박아
-               두면 갈래 하나 늘리는 데 배포가 필요하다 — `PushCategoryClient` 머리말.
-
-               이건 서버로 보낸다. 아래 스위치와 달리 **기간 안에 없는 것까지
-               좁히는 조건**이고, 서버가 색인으로 거르는 편이 싸다. *@
+            @* 갈래 목록은 공통코드(NOTI_CATEGORY)가 갖는다 — 화면에 박으면 갈래 하나 늘리는 데 배포가 필요하다. 기간 안에 없는 것을 좁히는 조건이라 서버로 보낸다. *@
             <DxComboBox Data="@_categoryOptions" TData="SchOption" TValue="string"
                         Value="@_category" ValueChanged="@((string? v) => OnCategoryChangedAsync(v))"
                         TextFieldName="@nameof(SchOption.Text)" ValueFieldName="@nameof(SchOption.Value)"
@@ -78,15 +39,7 @@
         </CommSchItem>
 
         <CommSchItem>
-            @* 라벨을 안 붙인다. 스위치 옆 글자가 이미 무엇인지 말한다.
-
-               **기본이 켜짐이다.** 알림함을 여는 까닭이 대개 「안 본 것이
-               있나」라서, 읽은 것까지 섞여 있으면 볼 것을 눈으로 골라내야 한다.
-               다 보려면 끄면 된다.
-
-               받아 둔 것에서 먼저 거르고(누르는 즉시 그림이 바뀐다) 이어서
-               서버에도 조건을 실어 다시 읽는다 — 끌 때 읽은 알림을 그때
-               받아 와야 하기 때문이다(`GetMyNotificationsAsync` 머리말). *@
+            @* 라벨을 안 붙인다 — 스위치 옆 글자가 이미 무엇인지 말한다. 기본이 켜짐이다(안 본 것을 보려고 연다). 받아 둔 것에서 먼저 거르고 서버에도 조건을 실어 다시 읽는다. *@
             <DxCheckBox Checked="@_unreadOnly" CheckedChanged="@((bool on) => OnUnreadChangedAsync(on))">
                 안 읽은 것만
             </DxCheckBox>
@@ -95,30 +48,10 @@
 </CommSch>
 
 <CommCont CssClass="@(_isPhone ? "ad-notebox ad-notebox--phone" : "ad-notebox")">
-    @* ── 목록을 그리는 길이 **둘이다** ─────────────────────────────
-
-       데스크톱은 표(`CommGrd`), 휴대폰은 카드 목록이다.
-
-       한동안 표 하나가 두 모양을 다 맡았다. 칸이 일곱이고(체크 · 받은 때 ·
-       구분 · 제목 · 내용 · 도착 · 상태) 그중 둘은 글이라 넓어야 하므로,
-       360px 화면에서는 **가로로 굴려야 제목 너머를 볼 수 있었다.** 알림함에서
-       가장 자주 읽는 값인 「내용」이 바로 그 스크롤 저편에 있었고, 한 손으로
-       쥔 휴대폰에서 굴려야 보이는 값은 사실상 없는 값이다.
-
-       그래서 휴대폰에서는 **한 건을 한 장에 세로로 편다** — 윗줄에 딱지와
-       받은 때, 그 아래 제목, 그 아래 내용. 칸이 하나라 가로로 구를 일이 없다.
-       같은 판단을 먼저 내린 자리가 헬프데스크 「요청 처리」다(`RequestCards`).
-
-       **할 수 있는 일은 줄지 않는다.** 한 번 눌러 열기 · 체크해서 일괄
-       읽음·삭제 · 한 건 읽음 처리가 양쪽에 그대로 있다. 다른 것은 생김새뿐이다. *@
+    @* ── 목록을 그리는 길이 둘이다 ── 데스크톱은 표, 휴대폰은 카드 목록이다. 표는 360px 에서 가로로 굴려야 내용이 보여서, 휴대폰에서는 한 건을 한 장에 세로로 편다. 할 수 있는 일은 줄지 않는다. *@
     @if (_isPhone)
     {
-        @* 일괄 동작 띠. 표의 `Toolbar` 와 **같은 자리에 같은 것**을 둔다 —
-           휴대폰에만 없으면 체크 칸을 둔 뜻이 살지 않는다.
-
-           「전체」는 표 머리줄의 체크와 같은 뜻이다 — **지금 깔린 것 전부**를
-           고른다(「더보기」로 아직 안 깐 것은 안 잡는다). 아직 안 보이는 줄까지
-           잡으면 일괄삭제가 눈으로 확인한 것보다 많이 지운다. *@
+        @* 일괄 동작 띠 — 표의 Toolbar 와 같은 자리에 같은 것을 둔다. 「전체」는 지금 깔린 것만 고른다 — 아직 안 보이는 것을 잡으면 일괄삭제가 눈으로 확인한 것보다 많이 지운다. *@
         <div class="ad-notecards__bar">
             <DxCheckBox Checked="@AllPicked" CheckedChanged="@((bool on) => PickAll(on))"
                         Enabled="@(PhoneShown.Count > 0)">
@@ -144,43 +77,20 @@
 
         @if (PhoneShown.Count == 0)
         {
-            @* 「없습니다」는 조회가 끝날 때 토스트로 한 번 지나간다(`DataPage`).
-               그 말은 사라지므로 빈 목록 자리에도 적어 둔다 — 안 적으면 조건을
-               좁힌 사람이 **덜 그려진 화면**을 보게 된다. *@
+            @* 「없습니다」는 토스트로 한 번 지나가므로 빈 목록 자리에도 적어 둔다 — 안 적으면 좁힌 사람이 덜 그려진 화면을 본다. *@
             <p class="ad-notecards__empty">받은 알림이 없습니다.</p>
         }
         else
         {
-            @* 손짓을 거는 자리다 — 코드비하인드가 이 `id` 로 찾는다.
-
-               서랍과 달리 **섰다 사라지는 목록**이라(휴대폰이 아니거나 깔린 줄이
-               없으면 이 자리에 다른 것이 선다) 다시 설 때마다 새로 건다. 글자가
-               어긋나면 손짓만 조용히 안 걸리므로 상수 하나를 나눠 쓴다. *@
+            @* 손짓을 거는 자리다 — 코드비하인드가 이 id 로 찾는다. 섰다 사라지는 목록이라 다시 설 때마다 새로 건다. 어긋나면 손짓이 조용히 안 걸리므로 상수 하나를 나눠 쓴다. *@
             <ul class="ad-notecards" id="@SwipeListId">
                 @foreach (var n in PhoneShown)
                 {
-                    @* `@@key` 를 둔다. 읽음 처리·삭제로 가운데 한 장이 빠질 때
-                       Blazor 가 카드를 차례로 대조하면 **맨 끝 것을 지우고
-                       나머지 글자만 밀어 올린다** — 체크가 엉뚱한 줄에 남고,
-                       손짓이 붙어 있던 그 DOM 이 다른 알림의 카드가 되어
-                       **스러지는 중이던 모습 그대로 굳는다.** *@
+                    @* @key 를 둔다 — 읽음 처리·삭제로 가운데 한 장이 빠지면 Blazor 가 맨 끝 것을 지우고 나머지 글자만 밀어 올려, 손짓이 붙은 DOM 이 엉뚱한 알림 카드가 된다. *@
                     <li class="ad-notecards__item @(n.IsRead ? null : "ad-notecards__item--unread")"
                         @key="n.Id" data-note="@n.Id">
 
-                        @* ── 밀어서 읽음 · 밀어서 삭제 ──────────────────────
-
-                           서랍의 카드와 **같은 짝**이다(오른쪽 읽음 · 왼쪽 삭제).
-                           휴대폰에서 알림을 치우는 가장 잦은 손짓이 그것이고,
-                           여기만 반대로 두면 손이 둘을 따로 외워야 한다.
-
-                           띠는 **미는 만큼만 넓어진다**(`--note-swipe`) — 가만히
-                           있을 때는 폭이 0 이라 한 픽셀도 안 보인다. 카드 밑에
-                           깔아 두고 덮는 방식이 아니라서 **본문에 불투명한 바탕을
-                           깔 필요가 없다**(깔면 테마마다 카드 색과 어긋난다).
-
-                           밀 수 없는 자리(키보드 · 화면 낭독기)를 위해 체크 칸과
-                           ✓ 단추는 그대로 둔다. 손짓은 **빠른 길**이지 유일한
-                           길이 아니다. *@
+                        @* ── 밀어서 읽음 · 밀어서 삭제 ── 서랍의 카드와 같은 짝이다(오른쪽 읽음 · 왼쪽 삭제). 띠는 미는 만큼만 넓어지고 본문에 불투명한 깔 것이 필요 없다. 밀 수 없는 자리를 위해 ✓ 단추는 그대로 둔다 — 손짓은 빠른 길이다. *@
                         <span class="ad-notecards__act ad-notecards__act--read"
                               aria-hidden="true">
                             <span class="ad-notecards__act-mark">✓</span>
@@ -193,13 +103,10 @@
                             <span class="ad-notecards__act-mark">🗑</span>
                         </span>
 
-                        @* 미는 것은 카드가 아니라 **이 줄**이다. 카드 자신을
-                           옮기면 띠도 함께 가서 아무것도 열리지 않는다. *@
+                        @* 미는 것은 카드가 아니라 이 줄이다 — 카드 자신을 옮기면 띠도 함께 가서 아무것도 열리지 않는다. *@
                         <div class="ad-notecards__row">
 
-                            @* 체크는 **이 자리에서만** 한다. 카드 본문을 누르는 것은
-                               「연다」이고(표의 `AllowSelectRowByClick="false"` 와 같은
-                               규칙), 번짐을 안 끊으면 체크하려던 손짓이 그 화면을 연다. *@
+                            @* 체크는 이 자리에서만 한다 — 카드 본문을 누르는 것은 「연다」이고, 번짐을 안 끊으면 체크하려던 손짓이 그 줄을 열어 버린다. *@
                             <span class="ad-notecards__check"
                                   @onclick="@(() => { })" @onclick:stopPropagation="true">
                                 <DxCheckBox Checked="@Picked(n)"
@@ -210,17 +117,14 @@
                                  @onclick="@(() => OpenAsync(n))"
                                  @onkeydown="@(e => OnCardKeyAsync(e, n))">
 
-                                @* 얹는 한 줄 — 구분 · 도착 · 상태 · 받은 때.
-                                   표에서 칸 넷이던 것을 딱지로 바꿔 한 줄에 담는다.
-                                   흘려 담으므로 좁으면 아래로 접힐 뿐 옆으로 안 넘친다. *@
+                                @* 얹는 한 줄 — 구분 · 도착 · 상태 · 받은 때. 표에서 칸 넷이던 것을 딱지로 바꿔 한 줄에 흘려 담는다. *@
                                 <div class="ad-notecards__meta">
                                     @if (!string.IsNullOrWhiteSpace(n.Category))
                                     {
                                         <span class="jsini-badge">@_categoryName(n.Category)</span>
                                     }
 
-                                    @* 도착했으면 아무것도 안 적는다 — 정상에 딱지를
-                                       붙이면 눈이 거기로 간다(표와 같은 규칙). *@
+                                    @* 도착했으면 아무것도 적지 않는다 — 정상에 딱지를 붙이면 눈이 거기로 간다. *@
                                     @if (!n.Delivered)
                                     {
                                         <span class="jsini-badge jsini-badge--warn" title="@n.FailureReason">
@@ -233,26 +137,20 @@
                                         <span class="jsini-badge jsini-badge--off">읽음</span>
                                     }
 
-                                    @* 받은 때는 **줄 끝**에 민다. 딱지가 몇 개든 날짜는
-                                       늘 같은 쪽에 있어 눈이 훑기 쉽다. *@
+                                    @* 받은 때는 줄 끝에 민다 — 딱지가 몇 개든 같은 쪽에 있어 눈이 훑기 쉽다. *@
                                     <span class="ad-notecards__when">@n.CreatedAt.Kst("yyyy-MM-dd HH:mm")</span>
                                 </div>
 
                                 <div class="ad-notecards__title">@n.Title</div>
 
-                                @* 표에서 가로로 굴려야 보이던 그 칸이다. 여기서는
-                                   제목 아래에 그대로 깔리고 네 줄까지 받는다 — 더
-                                   긴 것은 눌러서 그 화면에서 본다. *@
+                                @* 표에서 가로로 굴려야 보이던 그 칸이다 — 제목 아래에 그대로 깔리고 네 줄까지 받는다. 긴 것은 눌러서 그 화면에서 본다. *@
                                 @if (!string.IsNullOrWhiteSpace(n.Body))
                                 {
                                     <p class="ad-notecards__text">@n.Body</p>
                                 }
                             </div>
 
-                            @* 한 건만 읽음으로 찍는다. **카드를 누르는 것과 다르다** —
-                               그쪽은 찍고 나서 그 화면으로 데려간다. 볼 것 없이
-                               치우기만 하려는 알림이 훨씬 잦아서 둘을 가른다
-                               (서랍의 ✓ 단추와 같다 · `NotificationInboxDrawer`). *@
+                            @* 한 건만 읽음으로 찍는다 — 카드를 누르는 것과 달리 찍고 나서 그 화면으로 데려가지 않는다. 치우기만 하려는 알림이 잦아 둘을 가른다(서랍의 ✓ 단추와 같다). *@
                             @if (!n.IsRead)
                             {
                                 <span class="ad-notecards__mark"
@@ -269,13 +167,7 @@
             </ul>
         }
 
-        @* 「더보기」. 카드 목록은 쪽을 나누지 않고 받은 것을 남김없이 깔므로,
-           몇 줄을 깔지는 `PhoneShown` 이 정하고 이 단추가 그 수를 늘린다.
-
-           **다 깔고 나서도 자리에 남는다 — 눌리지 않는 채로.** 걷어 버리면
-           「끝」이라는 말도 함께 걷히는데, 표 머리줄도 페이저도 없는 화면이라
-           목록이 끊긴 자리에 아무 표시가 없으면 사람은 그것을 「덜 불러온 것」
-           으로 읽는다(요청 처리에서 같은 길을 밟았다 · `RequestManage`). *@
+        @* 「더보기」. 몇 줄을 깔지는 PhoneShown 이 정하고 이 단추가 그 수를 늘린다. 다 깔고 나서도 자리에 남고 「끝」도 걷지 않는다 — 끊긴 자리에 표시가 없으면 사람은 덜 불러온 것으로 읽는다. *@
         @if (PhoneShown.Count > 0)
         {
             <div class="ad-notecards__more">
@@ -286,8 +178,7 @@
                           Click="@ShowMore" />
             </div>
 
-            @* 휴대폰에서 목록 끝까지 굴리면 단추와 같은 만큼 더 펼친다.
-               감지점은 늘 DOM 에 둬야 다시 펼칠 때 관찰을 이어 갈 수 있다. *@
+            @* 휴대폰에서 목록 끝까지 굴리면 단추와 같은 만큼 더 펼친다. 감지점은 늘 DOM 에 둬야 다시 펼칠 때 관찰을 이어 간다. *@
             <span class="ad-notecards__more-sentinel"
                   aria-hidden="true"
                   @ref="_moreSentinel"></span>
@@ -295,29 +186,7 @@
     }
     else
     {
-    @* 줄을 **한 번 누르면 그 알림이 가리키는 화면**이 열린다(탭이 하나 선다).
-       AI 작업 지시가 그렇게 열리는 첫 갈래다 — `/projmng/ai/task/{번호}` 가
-       이미 탭으로 펼쳐 보는 화면이다(`AiTaskViewPage`).
-
-       **여는 김에 읽음으로 찍는다.** 앱 알림을 눌러 들어올 때와 같다
-       (`PushClickRead`) — 그 화면을 연 사람에게 다시 「봤다」를 누르게 할
-       까닭이 없다. 못 찍어도 조용하다.
-
-       [두 번 누르기에서 한 번 누르기로 바꿨다]
-
-       두 번 누르기는 **화면 어디에도 안 보이는 몸짓**이라 오른쪽 클릭 창에
-       「열기」를 따로 두어야 했고, 휴대폰에는 두 번 누르기가 아예 없었다.
-       알림함의 줄은 **읽으려고 있는 것**이고 여는 일은 되돌리기 쉬우므로
-       (화면이 하나 서는 것뿐이다) 한 번으로 연다.
-
-       **그래서 줄 누르기로는 체크가 안 되게 막았다**(`AllowSelectRowByClick`).
-       안 막으면 여는 그 손짓이 체크까지 같이 해서, 일괄 단추가 노린 것보다
-       한 건 더 잡는다 — 지우기에서는 그 한 건이 그대로 사라진다.
-       체크는 맨 앞 칸에서만 한다.
-
-       **줄 안의 단추는 번짐을 막는다**(`@@onclick:stopPropagation`). 안 막으면
-       「읽음 처리」를 누른 것이 줄 누르기로도 올라가 화면이 떠나 버린다 —
-       DevExpress 는 셀 안의 누름도 `RowClick` 으로 올린다(재어 확인했다). *@
+    @* 줄을 한 번 누르면 그 알림이 가리키는 화면이 열린다 — 여는 김에 읽음으로 찍는다(PushClickRead). 두 번 누르기는 화면 어디에도 안 보이는 몸짓이라 쓰지 않는다. 줄 누르기는 체크를 하지 않고, 줄 안의 단추는 번짐을 막는다(@onclick:stopPropagation). *@
     <CommGrd TItem="NotificationDto" Data="@Shown" PageSize="30"
              ExportName="알림함"
              CssClass="ad-notebox__grid"
@@ -327,10 +196,14 @@
              SelectedItemsChanged="@((IReadOnlyList<NotificationDto> items) => _selectedItems = items)"
              OnRowClick="@OpenAsync"
              Reload="@ReloadAsync">
-        @* 일괄 동작은 **표 위**에 둔다. 오른쪽 클릭 창에만 있을 때는 체크를
-           해 놓고도 그다음에 할 일이 화면에 안 보였다 — 체크 칸을 둔 뜻이
-           살지 않는다. 몇 건을 골랐는지도 여기 적는다. 아래 띠가 아닌 것은
-           그 자리에 동작을 두지 않기 때문이다(`CommGrdFooterTests`). *@
+        <RowActions Context="n">
+            @if (!n.IsRead)
+            {
+                <DxButton Text="읽음 처리" RenderStyle="ButtonRenderStyle.Link"
+                          Click="@(() => MarkReadAsync(n))" />
+            }
+        </RowActions>
+        @* 일괄 동작은 표 위에 둔다 — 오른쪽 클릭 창에만 있으면 체크해 놓고 할 일이 화면에 안 보인다. 몇 건을 골랐는지도 여기 적는다. *@
         <Toolbar>
             <DxButton Text="선택 항목 읽음 처리" IconCssClass="jsini-icon-check"
                       RenderStyle="ButtonRenderStyle.Secondary"
@@ -348,17 +221,13 @@
         <Columns>
             @* 줄마다 체크 칸. 머리줄의 체크가 「보이는 것 전부」를 고른다. *@
             <DxGridSelectionColumn Width="50" />
-            @* 서버가 주는 것은 UTC 라 그대로 그리면 아홉 시간 전으로 보인다.
-               **`ToLocalTime()` 으로는 안 된다** — 컨테이너 시계가 UTC 라
-               (`TZ=Etc/UTC`) 운영에서는 아무 일도 안 한다. 한국 시각을 만드는
-               자리는 `Kst(...)` 하나다(docs/utc-time.md). *@
+            @* 서버가 주는 것은 UTC 라 그대로 그리면 아홉 시간 전으로 보인다 — ToLocalTime() 으로는 안 된다(컨테이너가 UTC 라 아무 일도 안 한다). 한국 시각은 Kst(...) 하나로 만든다(docs/utc-time.md). *@
             <DxGridDataColumn FieldName="@nameof(NotificationDto.CreatedAt)" Caption="받은 때" Width="150">
                 <CellDisplayTemplate Context="cell">
                     @(((NotificationDto)cell.DataItem).CreatedAt.Kst("yyyy-MM-dd HH:mm", string.Empty))
                 </CellDisplayTemplate>
             </DxGridDataColumn>
-            @* 갈래. 공통코드의 이름으로 그린다 — 목록에서 지워진 옛 값이면
-               코드값이 그대로 보인다(`PushCategoryClient.Labeler`). *@
+            @* 갈래. 공통코드의 이름으로 그린다 — 목록에서 지워진 옛 코드값이 그대로 보인다. *@
             <DxGridDataColumn FieldName="@nameof(NotificationDto.Category)" Caption="구분" Width="110">
                 <CellDisplayTemplate Context="cell">
                     @{ var c = ((NotificationDto)cell.DataItem).Category; }
@@ -370,8 +239,7 @@
             </DxGridDataColumn>
             <DxGridDataColumn FieldName="@nameof(NotificationDto.Title)" Caption="제목" MinWidth="200" />
             <DxGridDataColumn FieldName="@nameof(NotificationDto.Body)" Caption="내용" MinWidth="280" />
-            @* 「왔지만 기기에는 안 떴다」를 말해 주는 칸. 도착했으면 아무것도
-               적지 않는다 — 정상에 딱지를 붙이면 눈이 거기로 간다. *@
+            @* 왔지만 기기에는 안 떴다를 말하는 칸. 도착했으면 적지 않는다. *@
             <DxGridDataColumn Caption="도착" Width="150">
                 <CellDisplayTemplate Context="cell">
                     @{ var row = (NotificationDto)cell.DataItem; }
@@ -393,13 +261,7 @@
                     }
                     else
                     {
-                        @* 감싼 자리가 번짐을 끊는다 — 안 끊으면 이 단추를 누른
-                           것이 줄 누르기로도 올라가 그 알림의 화면이 열린다.
-                           「읽음으로만 찍고 여기 남아 있겠다」가 이 단추의 뜻이다. *@
-                        <span @onclick="@(() => { })" @onclick:stopPropagation="true">
-                            <DxButton Text="읽음 처리" RenderStyle="ButtonRenderStyle.Secondary"
-                                      Click="@(() => MarkReadAsync(n))" />
-                        </span>
+                        <span class="jsini-badge jsini-badge--warn">안 읽음</span>
                     }
                 </CellDisplayTemplate>
             </DxGridDataColumn>
@@ -408,7 +270,5 @@
     }
 </CommCont>
 
-@* 일괄삭제만 묻는다. 한 건씩 치우는 길(카드 왼쪽 밀기 · 오른쪽 클릭 창)은
-   눈앞의 그 줄 하나라 되짚기 쉽지만, 체크해 둔 수십 건은 무엇이 사라졌는지
-   되짚을 길이 없다. *@
+@* 일괄삭제만 묻는다 — 한 건씩 치우는 길은 눈앞의 그 줄 하나라 묻지 않는다. 체크해 둔 수십 건은 되짚을 길이 없다. *@
 <ConfirmDialog @ref="_confirm" />

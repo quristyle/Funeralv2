@@ -2,13 +2,7 @@ using JSini.Web.Http;
 
 namespace JSini.Web.ProjMng.Api;
 
-/// <summary>
-/// AI 작업 대상 — <c>projmng/ai-targets</c>.
-/// </summary>
-/// <remarks>
-/// <b>경로를 보내는 유일한 클라이언트다.</b> 작업 쪽은 <c>targetKey</c> 만
-/// 보낸다 — 등록은 관리자가, 선택은 작성자가 한다(설계 9.5).
-/// </remarks>
+/// <summary>AI 작업 대상(projmng/ai-targets). 경로를 보내는 유일한 클라이언트다 — 작업 쪽은 targetKey 만 보낸다.</summary>
 public sealed class AiTargetClient(GatewayClient gateway)
 {
     private const string Url = "projmng/ai-targets";
@@ -18,10 +12,7 @@ public sealed class AiTargetClient(GatewayClient gateway)
         => gateway.GetListAsync<AiTargetDto>(
             onlyEnabled ? $"{Url}?onlyEnabled=true" : Url, ct);
 
-    /// <summary>
-    /// 경로를 어디 아래에 둘 수 있는지. <b>화면에 규칙을 박지 않으려고 물어본다</b> —
-    /// 박아 두면 서버 설정을 바꿨을 때 안내만 옛말이 된다.
-    /// </summary>
+    /// <summary>경로를 둘 수 있는 루트를 서버에게 묻는다 — 화면에 규칙을 박으면 서버 설정을 바꿨을 때 안내만 옛말이 된다.</summary>
     public Task<IReadOnlyList<string>> AllowedRootsAsync(CancellationToken ct = default)
         => gateway.GetListAsync<string>($"{Url}/allowed-roots", ct);
 
@@ -64,13 +55,7 @@ public sealed class AiTargetDto
     public string? PushRef { get; set; } = "main";
     public string? GateMode { get; set; } = "build";
 
-    /// <summary>
-    /// 이 대상을 집을 수 있는 실행기 이름. <b>비면 아무 장비나.</b>
-    /// </summary>
-    /// <remarks>
-    /// DB 는 한 벌인데 경로는 장비마다 다르다 — 개발 장비의 폴더를 운영
-    /// 실행기가 집어 가 「대상 폴더가 없습니다」로 실패한 적이 있다.
-    /// </remarks>
+    /// <summary>이 대상을 집을 수 있는 실행기 이름. 비면 아무 장비나. 경로가 장비마다 달라 실행기를 묶어 둔다.</summary>
     public string? RunnerNm { get; set; }
 
     public bool IsEnabled { get; set; } = true;

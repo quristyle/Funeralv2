@@ -10,37 +10,10 @@ using RabbitMQ.Client.Events;
 namespace AiTaskRunner;
 
 /// <summary>
-/// 「한 줄 물어보기」 — AI 서버의 무료 공급자가 전부 막혔을 때 CLI 로 답하는 마지막 자리.
+/// 「한 줄 물어보기」 — AI 서버의 무료 공급자가 전부 막혔을 때 이 장비의 CLI(agy · claude · copilot)로 답하는 마지막 자리.
+/// 작업 대기열(ai_task)과 다른 요청·응답(RPC)이라 비내구 큐를 쓰고, 메시지마다 유효 시간이 붙어 옛 질문은 버려진다.
+/// 답만 하는 길이라 작업 실행용 권한 인자(--dangerously-skip-permissions)를 주지 않고, 매번 빈 폴더에서 띄운다.
 /// </summary>
-/// <remarks>
-/// <para>
-/// <b>무엇을 위한 것인가.</b> 공통코드 · 역할 식별자 추천은 한 단어짜리 답이다.
-/// AI 서버(<c>AIAgentServer</c>)가 로컬 LLM → Gemini → Groq → OpenRouter 를 다 돌고도
-/// 한도에 막히면, 구독 인증이 끝나 있는 이 장비의 <c>agy</c> · <c>claude</c> ·
-/// <c>copilot</c> 을 차례로 시도한다. AI 서버는 컨테이너 안이라 CLI 를 직접 띄울 수 없다.
-/// </para>
-/// <para>
-/// <b>작업 대기열(<c>ai_task</c>)과 다른 길이다.</b> 그쪽은 DB 가 정본이고 큐는 종이지만,
-/// 이것은 사람이 단추를 누르고 기다리는 동안의 <b>요청·응답(RPC)</b>이다.
-/// 남길 기록이 없으므로 DB 를 거치지 않고, 메시지를 잃으면 부른 쪽이 시간 초과로 끝난다.
-/// 큐도 <b>비내구(non-durable)</b>이고 메시지마다 유효 시간이 붙어 온다 —
-/// 실행기가 내려가 있는 동안 쌓인 옛 질문을 나중에 풀어 CLI 한도를 태우지 않는다.
-/// </para>
-/// <para>
-/// <b>담장 — 작업 실행보다 좁다.</b>
-/// </para>
-/// <list type="bullet">
-///   <item><c>--dangerously-skip-permissions</c> 를 <b>주지 않는다.</b> 답은 글자뿐이라
-///     도구가 필요 없다. 도구를 쓰려 들면 허락을 기다리다 제한 시간에 끊긴다.</item>
-///   <item>각 CLI 에 별도 인자만 주며 작업 실행용 권한 인자는 재사용하지 않는다.</item>
-///   <item>매번 <b>빈 폴더</b>에서 띄우고 끝나면 지운다. 저장소를 보여 주지 않는다.</item>
-///   <item>들어오는 글의 길이를 자른다(<see cref="QuickAskOptions.MaxPromptChars"/>).</item>
-/// </list>
-/// <para>
-/// 질문 안의 「이름」은 사람이 친 글이다. 지시를 흉내 낸 글이 들어와도 위 넷 때문에
-/// 할 수 있는 일은 「글자로 답하기」뿐이다.
-/// </para>
-/// </remarks>
 public sealed class QuickAskWorker(
     IOptions<RunnerOptions> optionsAccessor, ILogger<QuickAskWorker> logger) : BackgroundService
 {
@@ -84,10 +57,8 @@ public sealed class QuickAskWorker(
 
     private async Task ListenAsync(QuickAskOptions quick, CancellationToken ct)
     {
-        // CLI 를 동시에 몇 개까지 띄울지. 한 번에 10초 남짓이라 크게 둘 필요가 없다.
-        //
-        // prefetch 만 올리면 안 된다 — 이 클라이언트는 기본으로 **받은 것을 하나씩
-        // 차례로** 처리기에 넘긴다. 처리기가 CLI 를 기다리는 동안 다음 질문이 줄을 선다.
+        // CLI 를 동시에 몇 개까지 띄울지. 한 번에 10초 남짓이라 작게 둔다.
+        // prefetch 만 올려서는 안 된다 — 이 클라이언트는 받은 것을 하나씩 차례로 처리기에 넘긴다.
         var parallel = (ushort)Math.Clamp(quick.MaxParallel, 1, 10);
 
         var factory = new ConnectionFactory
@@ -99,8 +70,7 @@ public sealed class QuickAskWorker(
         await using var connection = await factory.CreateConnectionAsync(ct);
         await using var channel = await connection.CreateChannelAsync(cancellationToken: ct);
 
-        // **부르는 쪽(AIAgentServer 의 CliRelay)과 선언이 같아야 한다.**
-        // 다르면 브로커가 PRECONDITION_FAILED 를 낸다.
+        // 부르는 쪽(AIAgentServer 의 CliRelay)과 선언이 같아야 한다. 다르면 브로커가 PRECONDITION_FAILED 를 낸다.
         await channel.QueueDeclareAsync(
             queue: quick.QueueName,
             durable: false,
@@ -114,8 +84,7 @@ public sealed class QuickAskWorker(
         var consumer = new AsyncEventingBasicConsumer(channel);
         consumer.ReceivedAsync += async (_, ea) =>
         {
-            // 받자마자 ack 한다. 되돌려 다시 배달되면 같은 질문에 CLI 를 두 번 띄운다 —
-            // 부른 쪽은 이미 첫 답을 기다리다 끝났을 수도 있다.
+            // 받자마자 ack 한다. 되돌려 다시 배달되면 같은 질문에 CLI 를 두 번 띄운다.
             var body = ea.Body.ToArray();
             var replyTo = ea.BasicProperties.ReplyTo;
             var correlationId = ea.BasicProperties.CorrelationId;

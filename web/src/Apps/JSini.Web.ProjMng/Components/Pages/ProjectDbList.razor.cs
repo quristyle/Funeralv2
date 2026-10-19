@@ -13,10 +13,7 @@ public partial class ProjectDbList
     /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
     private string ConditionSummary => SchSummary.Or(_projectName);
 
-    /// <summary>
-    /// 고른 프로젝트의 <b>이름</b>. 화면이 든 것은 코드뿐이고 목록은
-    /// <c>CodeSelect</c> 안에 있어, 그 부품이 <c>@bind-Text</c> 로 올려 준다.
-    /// </summary>
+    /// <summary>고른 프로젝트의 이름. 코드만 들고, 목록은 CodeSelect 가 쥐고 있다.</summary>
     private string? _projectName;
 
     private IReadOnlyList<ProjectDbDto> _dbs = [];
@@ -26,16 +23,10 @@ public partial class ProjectDbList
     private ProjectDbDto? _db;
     private ProjectDbPropDto? _prop;
 
-    /// <summary>
-    /// 편집기에 열려 있는 값. <b>속성 줄의 값을 그대로 쓰지 않는다</b> —
-    /// 타이핑 중에 줄이 다시 읽히면 방금 친 것이 사라진다. 저장할 때 옮긴다.
-    /// </summary>
+    /// <summary>편집기에 열려 있는 값. 속성 줄의 값을 그대로 쓰지 않는다 — 타이핑 중에 줄이 다시 읽히면 방금 친 것이 사라진다. 저장할 때 옮긴다.</summary>
     private string? _value;
 
-    /// <summary>
-    /// 끌어 옮길 수 있는가. <b>「수정」 단추를 감추는 것과 같은 판정</b>이다 —
-    /// 갈라지면 「단추는 없는데 끌어 옮기기는 된다」가 된다.
-    /// </summary>
+    /// <summary>끌어 옮길 수 있는가. 「수정」 단추를 감추는 것과 같은 판정이다 — 갈라지면 단추는 없는데 끌기는 된다.</summary>
     private bool _canReorder;
 
     private int? ProjectRid => int.TryParse(_projectCode, out var rid) ? rid : null;
@@ -57,29 +48,13 @@ public partial class ProjectDbList
 
     protected override Task OnInitializedAsync()
     {
-        // `PermissionView` 와 **똑같이** 묻는다. 끌어 옮기기는 그릴지 말지가
-        // 아니라 표의 파라미터로 켜고 끄는 것이라 직접 판정한다.
+        // PermissionView 와 똑같이 묻는다. 끌어 옮기기는 파라미터로 켜고 끄므로 직접 판정한다.
         _canReorder = Can(MenuAction.Update);
 
         return SearchAsync();
     }
 
-    /// <summary>
-    /// 줄을 끌어다 놓았다. <b>놓는 즉시 저장한다</b>(머리말).
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>표는 스스로 줄을 옮기지 않는다.</b> 우리가 손에 든 목록에서 옮겨
-    /// 새 차례를 만들고, 그것을 통째로 서버에 보낸 뒤 다시 읽는다 —
-    /// 저장이 실패하면 화면이 서버의 차례로 되돌아가야 하기 때문이다.
-    /// </para>
-    ///
-    /// <para>
-    /// 옮긴 줄 하나만 보내지 않는다. 서버는 「이 줄들이 지금 차지한 자리」를
-    /// 모아 다시 나눠 주므로 <b>보이는 줄 전부</b>를 알아야 한다
-    /// (<c>ProjectDbService.ReorderAsync</c>).
-    /// </para>
-    /// </remarks>
+    /// <summary>줄을 끌어다 놓았다. 놓는 즉시 저장한다. 표는 줄을 스스로 옮기지 않으므로 손에 든 목록에서 새 차례를 만들어 통째로 보낸 뒤 다시 읽는다 — 실패하면 서버의 차례로 되돌아가야 한다. 서버는 보이는 줄 전부를 알아야 나눠 주므로 옮긴 줄 하나만 보내지 않는다(ReorderAsync).</summary>
     private async Task OnRowsDroppedAsync(GridItemsDroppedEventArgs e)
     {
         if (e.DroppedItems.FirstOrDefault() is not ProjectDbDto moved
@@ -99,8 +74,7 @@ public partial class ProjectDbList
 
         order.RemoveAt(from);
 
-        // **뽑아낸 뒤에 자리를 찾는다.** 먼저 찾아 두면 위에서 아래로 옮길 때
-        // 목표의 자리가 하나씩 밀려 한 칸 어긋난다.
+        // 뽑아낸 뒤에 자리를 찾는다 — 먼저 찾으면 위에서 아래로 옮길 때 목표 자리가 한 칸 어긋난다.
         var at = order.IndexOf(target);
 
         if (at < 0)
@@ -114,9 +88,7 @@ public partial class ProjectDbList
             () => Api.ReorderAsync([.. order.Select(d => d.DbRid)]),
             "차례를 바꿨습니다.", "차례를 바꾸지 못했습니다");
 
-        // **성공이든 실패든 되읽는다.** 표는 놓는 순간 이미 줄을 옮겨 그렸다 —
-        // 실패했으면 서버의 차례로 되돌려야 하고, 성공했으면 새 숫자를 받아야
-        // 「순서」 칸이 화면과 맞는다.
+        // 성공이든 실패든 되읽는다 — 표는 놓는 순간 줄을 옮겨 그렸으므로, 「순서」 칸이 화면과 맞으려면 서버의 새 숫자를 받아야 한다.
         await SearchAsync();
     }
 
@@ -208,9 +180,7 @@ public partial class ProjectDbList
         }
     }
 
-    /// <summary>
-    /// 새 속성은 <b>고른 접속에 붙는다.</b> 값은 비워 둔다 — 편집기에서 채운다.
-    /// </summary>
+    /// <summary>새 속성은 고른 접속에 붙는다. 값은 비워 둔다 — 편집기에서 채운다.</summary>
     private void FillNewProp(ProjectDbPropDto p) => p.DbRid = _db?.DbRid ?? 0;
 
     private async Task SavePropAsync((ProjectDbPropDto Item, bool IsNew) e)
@@ -226,8 +196,7 @@ public partial class ProjectDbList
         }
         else
         {
-            // 편집 창은 값을 다루지 않는다. 표의 줄에 남아 있는 값을 그대로
-            // 실어 보낸다 — 안 실으면 이름만 고쳐도 값이 지워진다.
+            // 편집 창은 값을 다루지 않는다 — 표의 줄에 남아 있는 값을 그대로 실어 보낸다. 안 실으면 이름만 고쳐도 값이 지워진다.
             await Api.UpdatePropAsync(_db.DbRid, e.Item);
         }
     }

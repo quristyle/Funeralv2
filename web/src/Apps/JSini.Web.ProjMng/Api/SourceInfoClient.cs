@@ -2,14 +2,7 @@ using JSini.Web.Http;
 
 namespace JSini.Web.ProjMng.Api;
 
-/// <summary>
-/// 소스 정보와 그 상세. <b>프로시저를 부르지 않는다.</b>
-/// </summary>
-/// <remarks>
-/// 옛 길은 <c>sp_dev_srcinfo_exec</c>(뿌리)와 <c>sp_dev_srcinfo_dtl_exec</c>
-/// (상세)였다. 상세 주소가 <c>/{srcRid}/details</c> 아래인 것은 <b>상세가 홀로
-/// 서지 않기 때문</b>이다 — 늘 어느 소스의 상세다.
-/// </remarks>
+/// <summary>소스 정보와 그 상세. 프로시저를 부르지 않는다. 상세 주소가 srcRid 아래인 것은 상세가 홀로 서지 않기 때문이다 — 늘 어느 소스의 상세다.</summary>
 public sealed class SourceInfoClient(GatewayClient gateway)
 {
     private const string Url = "projmng/source-infos";
@@ -80,6 +73,6 @@ public sealed class SourceInfoDetailDto
     public string? UrlPattern { get; set; }
     public string? SrcPatternComment { get; set; }
 
-    /// <summary><b>옛 화면에서는 고칠 수 없던 칸</b>이다 — update 에 빠져 있었다.</summary>
+    /// <summary>update 에 실리는 칸.</summary>
     public string? SrcPatternNullvalue { get; set; }
 }

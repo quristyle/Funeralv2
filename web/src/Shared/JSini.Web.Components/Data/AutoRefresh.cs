@@ -2,38 +2,8 @@ using Microsoft.AspNetCore.Components;
 
 namespace JSini.Web.Components.Data;
 
-/// <summary>
-/// 스스로 주기적으로 다시 읽는 화면의 뼈대. <see cref="DataPage"/> 를 잇는다.
-/// </summary>
-/// <remarks>
-/// <para>
-/// [상황판으로 띄워 두는 화면들이 있다]
-/// </para>
-///
-/// <para>
-/// 빈소 현황·간편 현황·장례 현황은 안내 데스크나 사무실 벽에 띄워 둔다.
-/// <b>사람이 새로 고침을 누르러 오지 않는다</b>는 뜻이다. 옛 화면들은 저마다
-/// 30~60초 시계를 돌렸는데, 옮기면서 그것이 다 빠져 화면이 띄워 둔 시각에
-/// 굳어 있었다.
-/// </para>
-///
-/// <para>
-/// [조용히 읽는다 — 이것이 이 뼈대의 핵심이다]
-/// </para>
-///
-/// <para>
-/// <see cref="DataPage.LoadAsync"/> 로 다시 읽으면 안내 줄이 깜빡이고
-/// 「조회 결과가 없습니다」가 저절로 떴다 사라진다. 상황판에서 그 깜빡임은
-/// <b>누가 무언가 눌렀다는 신호로 읽힌다.</b> 그래서 자동 조회는 안내 줄을
-/// 건드리지 않는다.
-/// </para>
-///
-/// <para>
-/// 실패해도 마찬가지다. 사람이 보고 있지 않을 때 빨간 줄을 띄워 봐야 소용이
-/// 없고, 그 순간에는 <b>마지막으로 성공한 화면</b>이 더 쓸모 있다.
-/// 다음 차례에 다시 해 본다.
-/// </para>
-/// </remarks>
+/// <summary>스스로 주기적으로 다시 읽는 화면의 뼈대(DataPage 를 잇는다). 상황판으로 띄워 두는 화면은 사람이 새로 고침을 누르러 오지 않으므로 시계가 필요하다.
+/// 자동 조회는 안내 줄을 건드리지 않는다 — 깜빡이면 누가 눌렀다는 신호로 읽히고, 실패해도 빨간 줄 대신 마지막으로 성공한 화면이 더 쓸모 있다.</summary>
 public abstract class AutoRefreshPage : DataPage, IDisposable
 {
     private Timer? _timer;
@@ -41,30 +11,13 @@ public abstract class AutoRefreshPage : DataPage, IDisposable
     /// <summary>얼마나 자주 다시 읽을지. 화면이 정한다.</summary>
     protected virtual TimeSpan RefreshInterval => TimeSpan.FromSeconds(30);
 
-    /// <summary>
-    /// 자동으로 다시 읽을 때 부르는 것. <b>안내 줄을 건드리지 않게</b> 짠다 —
-    /// 자료만 갈아 끼우고 <c>StateHasChanged</c> 는 이 뼈대가 부른다.
-    /// </summary>
+    /// <summary>자동으로 다시 읽을 때 부르는 것. 안내 줄을 건드리지 않게 짠다 — 자료만 갈아 끼우고 StateHasChanged 는 이 뼈대가 부른다.</summary>
     protected abstract Task RefreshAsync();
 
     /// <summary>마지막으로 성공한 시각. 화면이 「몇 시 기준인지」를 보여 줄 수 있다.</summary>
     protected DateTime? RefreshedAt { get; private set; }
 
-    /// <summary>시계를 켠다. 화면의 <c>OnInitializedAsync</c> 끝에서 부른다.</summary>
-    /// <remarks>
-    /// <para>
-    /// <b>프리렌더에서는 켜지 않는다.</b> 프리렌더된 화면은 HTML 을 만들고 곧
-    /// 버려지는데, 시계는 그것을 모르고 30초 뒤에 발화한다. 그러면 이미 없는
-    /// 화면에서 <c>InvokeAsync(StateHasChanged)</c> 를 부른다 — 첫 진입마다
-    /// 쓸모없는 시계가 하나씩 생기던 자리다.
-    /// </para>
-    ///
-    /// <para>
-    /// 회로가 붙으면 화면이 새로 만들어지고 그때 다시 부르므로, 실제로 도는
-    /// 시계는 그대로 하나다. <see cref="DataPage"/> 가 프리렌더에서 조회를
-    /// 건너뛰는 것과 같은 이유다.
-    /// </para>
-    /// </remarks>
+    /// <summary>시계를 켠다. 화면의 OnInitializedAsync 끝에서 부른다. 프리렌더에서는 켜지 않는다 — 곧 버려질 화면에 시계가 달려 발화하면 이미 없는 화면을 다시 그리려 든다. 회로가 붙으면 화면이 새로 만들어져 그때 다시 부르므로 실제로 도는 시계는 하나다.</summary>
     protected void StartAutoRefresh()
     {
         if (!RendererInfo.IsInteractive)
@@ -93,27 +46,18 @@ public abstract class AutoRefreshPage : DataPage, IDisposable
         }
         catch (Exception)
         {
-            // 스스로 도는 조회다. 실패하면 마지막으로 성공한 화면을 그대로 둔다 —
-            // 까닭은 이 클래스 머리말에 있다.
+            // 스스로 도는 조회다. 실패하면 마지막으로 성공한 화면을 그대로 둔다.
         }
     }
 
-    /// <summary>
-    /// 시계를 끈다. 화면이 <b>사람에게 자동 갱신을 맡길 때</b> 쓴다 —
-    /// 스위치를 끄면 여기로 오고, 켜면 <see cref="StartAutoRefresh"/> 로 간다.
-    /// </summary>
-    /// <remarks>
-    /// 화면을 떠날 때는 부를 것이 없다. <see cref="Dispose"/> 가 같은 일을 한다.
-    /// </remarks>
+    /// <summary>시계를 끈다. 화면이 사람에게 자동 갱신을 맡길 때 쓴다 — 켜면 StartAutoRefresh 로 간다. 화면을 떠날 때는 Dispose 가 같은 일을 한다.</summary>
     protected void StopAutoRefresh()
     {
         _timer?.Dispose();
         _timer = null;
     }
 
-    /// <summary>
-    /// 시계를 놓는다. <b>빠뜨리면 화면을 닫아도 조회가 계속 나간다.</b>
-    /// </summary>
+    /// <summary>시계를 놓는다. 빠뜨리면 화면을 닫아도 조회가 계속 나간다.</summary>
     public virtual void Dispose()
     {
         _timer?.Dispose();

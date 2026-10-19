@@ -11,12 +11,7 @@ public partial class TollTimeline
     [Parameter] public IReadOnlyList<TollNightSegmentInfo> Segments { get; set; } = [];
 
     /// <summary>
-    /// 토막마다 <c>left</c> · <c>width</c> 를 백분율로 만든다.
-    ///
-    /// <para>
-    /// 서버가 준 토막은 이미 운행 구간 안으로 잘려 있지만, 떠내려온 값이 밖을
-    /// 가리켜도 막대가 깨지지 않게 0~100 으로 다시 한 번 가둔다.
-    /// </para>
+    /// 토막마다 left·width 를 백분율로 만든다. 떠내려온 값이 밖을 가려도 막대가 깨지지 않게 0~100 으로 가둔다.
     /// </summary>
     private IEnumerable<string> Bands
     {

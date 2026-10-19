@@ -7,48 +7,8 @@ using Xunit;
 
 namespace JSini.Web.Architecture.Tests;
 
-/// <summary>
-/// <c>CommGrd</c> 에 <c>EventCallback</c> 파라미터를 splat 으로 넘기지 않는다.
-///
-/// <para>
-/// [증상이 「화면이 아예 안 열림」이라 막는다]
-/// </para>
-///
-/// <para>
-/// <c>CommGrd</c> 는 선언하지 않은 파라미터를 전부 <c>Extra</c> 로 받아
-/// <c>DxGrid</c> 에 그대로 넘긴다. 편한 대신 <b>Razor 가 그 값의 형을 모른다.</b>
-/// 문자열이 어긋나는 것은 <c>Coerce</c> 가 맞춰 주지만, <b>대리자</b>는 맞춰
-/// 줄 수 없다 — 감싸 주면 알림 받는이가 화면이 아니라 <c>CommGrd</c> 가 되어
-/// 화면이 다시 그려지지 않는다.
-/// </para>
-///
-/// <code>
-/// SelectedDataItemChanged="@((object? item) => OnGroupChangedAsync(item))"
-/// </code>
-///
-/// <para>
-/// 이렇게 적으면 맨 <c>Func&lt;object, Task&gt;</c> 가 넘어가고, DevExpress 가
-/// 대입할 때 형변환에 실패한다. 화면은 <b>그리기도 전에</b> 500 으로 죽는다 —
-/// </para>
-///
-/// <code>
-/// Unable to set property 'SelectedDataItemChanged' on object of type 'DxGrid'.
-/// Unable to cast object of type 'System.Func`2[…]' to type 'EventCallback`1[…]'.
-/// </code>
-///
-/// <para>
-/// <b>빌드도 다른 테스트도 전부 통과한다.</b> splat 은 검사할 형이 없기
-/// 때문이다. 실제로 공통코드(<c>PortalCommonCode</c>)와
-/// 기기관리(<c>DeviceList</c>) 두 화면이 이 한 줄 때문에 안 열리고 있었고,
-/// 파일만 보면 둘 다 정상으로 보였다.
-/// </para>
-///
-/// <para>
-/// 답은 <b><c>CommGrd</c> 가 그 파라미터를 선언하는 것</b>이다. 선언하면 Razor
-/// 가 화면 쪽에서 <c>EventCallback</c> 으로 감싸 주고, 받는이도 화면이 된다.
-/// 선택은 그렇게 <c>SelectedItem</c> · <c>SelectedItemChanged</c> 로 옮겼다.
-/// </para>
-/// </summary>
+/// <summary>CommGrd 에 EventCallback 파라미터를 splat 으로 넘기지 않는다. CommGrd 는 선언하지 않은 파라미터를 Extra 로 받아 DxGrid 에 넘기는데,
+/// Razor 는 그 값의 형을 몰라 대리자를 맞춰 주지 못하고 화면이 그리기 전에 500 으로 죽는다. 빌드와 다른 테스트는 통과하므로 기계가 막는다 — 답은 CommGrd 가 그 파라미터를 선언하는 것이다.</summary>
 public sealed class CommGrdSplatTests
 {
     [Fact]
@@ -86,11 +46,7 @@ public sealed class CommGrdSplatTests
             + string.Join("\n  ", offenders));
     }
 
-    /// <summary>
-    /// 관리 칸은 「⋮」 하나라 폭이 늘 같다. 그래서 <c>ActionsWidth</c> 를 걷었는데,
-    /// 화면에 남아 있으면 선언 없는 이름이 되어 <c>DxGrid</c> 로 흘러가고
-    /// <b>그 화면이 열리는 순간 죽는다</b>(빌드는 통과한다).
-    /// </summary>
+    /// <summary>관리 칸은 「⋮」 하나라 폭이 늘 같아 ActionsWidth 를 걷었다. 화면에 남으면 선언 없는 이름이 DxGrid 로 흘러가 그 화면이 열리는 순간 죽는다.</summary>
     [Fact]
     public void 화면이_CommGrd_에_ActionsWidth_를_적지_않는다()
     {
@@ -116,12 +72,7 @@ public sealed class CommGrdSplatTests
             + string.Join("\n  ", offenders));
     }
 
-    /// <summary>
-    /// <c>DxGrid</c> 의 <c>EventCallback</c> 파라미터 중 <c>CommGrd</c> 가
-    /// 선언하지 않은 것들. <b>목록을 손으로 적지 않는다</b> — DevExpress 를
-    /// 올리면 새 이름이 생기고, <c>CommGrd</c> 가 하나를 선언하면 그 이름은
-    /// 여기서 저절로 빠진다.
-    /// </summary>
+    /// <summary>DxGrid 의 EventCallback 파라미터 중 CommGrd 가 선언하지 않은 것들. 목록을 손으로 적지 않는다 — 새 이름이 생기면 여기서 드러나고, CommGrd 가 선언하면 저절로 빠진다.</summary>
     private static HashSet<string> SplattableEventCallbacks()
     {
         var declared = Parameters(typeof(CommGrd<object>)).Select(p => p.Name).ToHashSet(StringComparer.Ordinal);
@@ -141,10 +92,7 @@ public sealed class CommGrdSplatTests
         type == typeof(EventCallback)
         || (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(EventCallback<>));
 
-    /// <summary>
-    /// 여는 태그를 통째로 집어낸다. 따옴표 안의 <c>&gt;</c> 는 끝이 아니다 —
-    /// <c>Click="@(() =&gt; …)"</c> 같은 값이 흔하다.
-    /// </summary>
+    /// <summary>여는 태그를 통째로 집어낸다. 따옴표 안의 > 는 끝이 아니다.</summary>
     private static IEnumerable<(int Start, string Text)> OpeningTags(string text, string name)
     {
         foreach (Match open in Regex.Matches(text, $@"<{name}\b"))

@@ -2,12 +2,7 @@ using JSini.Web.Components.Data;
 
 namespace JSini.Web.CargoTrust.Api;
 
-// ────────────────────────────────────────────────────────────────
-// 화면 폼이 묶이는 모델. 요청 DTO 와 떼어 둔 이유는 날짜 하나다 —
-// DxDateEdit 은 DateTime? 을 다루고 서버는 DateOnly("yyyy-MM-dd")만 받는다.
-// 화면에서 메서드로 옮기면 @bind 가 거절하므로 폼 모델이 DateTime? 을 들고,
-// 보낼 때 한 번 옮긴다(ToRequest).
-// ────────────────────────────────────────────────────────────────
+// 요청 DTO 와 떼어 둔 폼 모델. DxDateEdit 은 DateTime? 를 다루고 서버는 DateOnly 만 받으니 ToRequest 에서 옮긴다.
 
 /// <summary>고른 거래처. 검색 결과든 방금 등록한 것이든 이 셋만 있으면 된다.</summary>
 public sealed record CompanyPick(long CompanyId, string CompanyName, string? BusinessNumber)
@@ -44,8 +39,7 @@ public sealed class TransactionDraft
     };
 
     /// <summary>
-    /// 서버에 보내기 전에 막을 것. 서버도 같은 것을 따지지만(설계안 13.2 의 3번)
-    /// 여기서 먼저 막으면 칸을 다 채운 폼이 왕복 한 번 없이 무엇이 틀렸는지 듣는다.
+    /// 서버에 보내기 전에 막는다. 칸을 다 채운 뒤 왕복 없이 무엇이 틀렸는지 듣게 한다.
     /// </summary>
     public string? Problem()
     {
@@ -88,10 +82,7 @@ public sealed class TransactionDraft
     private static string? Trim(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 }
 
-/// <summary>
-/// 결제 등록 팝업이 보여 줄 거래 요약. 내 거래(<see cref="MyTransaction"/>)와
-/// 미수금 한 건(<see cref="ReceivableItem"/>) 양쪽에서 열리므로 공통 칸만 모았다.
-/// </summary>
+/// <summary>결제 등록 팝업의 거래 요약. 내 거래와 미수금 양쪽에서 열려 공통 칸만 모았다.</summary>
 public sealed record PaymentTarget(
     long TransactionId,
     string CompanyName,
@@ -152,10 +143,7 @@ public sealed class PaymentDraft
         return PaidAmount <= 0 ? "받은 금액을 넣으십시오." : null;
     }
 
-    /// <summary>
-    /// 서버가 정할 상태를 미리 짐작한다(05-api-design.md 「결제 판정」과 같은 규칙).
-    /// **보여 주기만 한다** — 저장된 상태는 서버가 돌려준 값을 쓴다.
-    /// </summary>
+    /// <summary>저장될 상태를 미리 짐작해 보여 주기만 한다. 실제 상태는 서버 응답을 쓴다.</summary>
     public string Preview(PaymentTarget target)
     {
         if (!IsReceived)
@@ -191,13 +179,7 @@ public sealed class PaymentDraft
 }
 
 /// <summary>
-/// 차량 등록·수정 폼.
-///
-/// <para>
-/// 요청 DTO 와 떼어 둔 까닭은 톤수 하나다 — 편집기(DxSpinEdit)는 <c>decimal</c> 을
-/// 다루는데 서버는 「안 적었음」을 null 로 받는다. 폼이 0 을 들고 있다가 보낼 때
-/// null 로 옮긴다. 0톤짜리 차는 없으므로 0 은 「안 적었음」으로 읽는 것이 맞다.
-/// </para>
+/// 요청 DTO 와 떼어 둔 폼 모델. 편집기는 decimal 0 을 들고 서버는 「안 적었음」을 null 로 받으니, 0톤은 보낼 때 null 로 옮긴다.
 /// </summary>
 public sealed class VehicleDraft
 {
@@ -207,12 +189,7 @@ public sealed class VehicleDraft
     public string VehicleClass { get; set; } = "C4";
 
     /// <summary>
-    /// 축수. 고르개 값이라 문자열이고 <c>"0"</c> 이 <b>「모름」</b>이다.
-    ///
-    /// <para>
-    /// 번호판은 축수를 말해 주지 않는데, 모른다고 등록을 막으면 할인율 계산까지
-    /// 못 하게 된다. 그 둘은 별개 일이라 <b>선택</b>으로 둔다.
-    /// </para>
+    /// 축수. 고르개 값이라 문자열이고 "0" 이 모름이다. 번호판은 축수를 말해 주지 않으니 등록을 막지 않는다(선택).
     /// </summary>
     public string AxleCount { get; set; } = "0";
 
@@ -238,10 +215,7 @@ public sealed class VehicleDraft
         Memo = v.Memo,
     };
 
-    /// <summary>
-    /// 서버에 가기 전에 막을 것. 서버도 같은 것을 따지지만 여기서 먼저 막으면
-    /// 왕복 한 번 없이 무엇이 틀렸는지 듣는다.
-    /// </summary>
+    /// <summary>서버에 보내기 전에 막는다. 왕복 없이 무엇이 틀렸는지 듣게 한다.</summary>
     public string? Problem()
     {
         if (string.IsNullOrWhiteSpace(PlateNo))

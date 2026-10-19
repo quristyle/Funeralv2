@@ -3,110 +3,8 @@
 @using JSini.Web.LifeEnv.Api
 
 @*
-    [기상 현황판]
-
-    이력: Vue `views/life/weather/dashboard.vue` → 여기.
-    호출: `life/weather`(전 지역 실황) · `life/weather/locations` ·
-          `life/weather/current/{id}` · `life/weather/mid-term/{id}` ·
-          `life/weather/forecast/{id}`(-10h~+10h 타임라인, 추이 차트 재료) ·
-          `life/weather/point?lat&lon&weekly=true`(내 위치 — 등록 지역이 아닌
-          한 지점. 실황·사흘 예보·주간 예보를 한 번에 받는다)
-
-    전 지역 최신 실황을 카드로 늘어놓고, 고른 지역의 실황 상세·오늘의 예보·
-    주간 예보·예보 추이 차트를 아래에 편다.
-
-    [등록 지역이 아닌 곳에 있는 사람이 볼 것이 없었다 (2026-09-28)]
-
-    이 화면이 보여 주던 것은 회사가 등록해 둔 관측 지역뿐이었다
-    (`ghub.weather_locations`). 출장 중이거나 지사가 없는 도시에 사는 사람은
-    가장 가까운 등록 지역을 골라 「대충 이쯤이겠지」로 읽어야 했다.
-
-    브라우저가 준 좌표 한 쌍으로 **그 지점**의 날씨를 만드는 길이 서버에 이미
-    있었다(`life/weather/point`). 알림 설정 화면의 「내 위치 날씨」 미리보기와
-    발송기가 같은 길을 쓰므로, **여기서 보는 글과 알림으로 오는 글이 같은
-    재료**다. 고르는 자리는 셋이다 — 고르개의 맨 윗줄 · 실황 줄 맨 앞의 카드 ·
-    「📍 내 위치」 단추.
-
-    **단추만 위치를 다시 묻는다.** 카드와 고르개는 잡아 둔 좌표로 날씨만 다시
-    받는다 — 볼 때마다 물으면 휴대폰이 GPS 를 켜고 몇 초씩 기다리게 되는데,
-    기상청 격자가 5km 칸이라 그 사이 움직임은 대개 같은 칸 안이다.
-
-    **좌표를 서버에 저장하지 않는다.** 저장은 「내 위치 날씨 *알림*」을 켜는
-    일이고 그 자리는 알림 설정 화면이다(`GeoLocator.SaveAsync`). 날씨를 한 번
-    보는 것으로 알림 설정이 바뀌면 아무도 그것을 예상하지 못한다.
-
-    내 위치에는 **예보 추이가 없다** — 지난 10시간 실측이 수집 이력에서 나오는
-    것이라 등록 지역에만 있다. 그 줄이 없어지는 것이 맞고, 화면이 까닭을 적는다.
-
-    [주간 예보는 내 위치에도 선다 (2026-09-28)]
-
-    처음에는 주간 예보도 없었다. 중기예보는 격자로 못 묻고 기상청이 따로 매긴
-    **구역코드**로만 묻는데, 등록 지역은 그 코드를 사람이 적어 넣었고 한 지점에는
-    적을 자리가 없었기 때문이다. 이제 서버가 좌표에서 찾은 시·도·시·군으로 코드를
-    골라 준다(`MidTermRegions`) — `point?weekly=true` 로 물으면 응답에 `weekly` 가
-    실려 온다. 그 구역은 **시·군 단위**(하늘 상태는 도 단위)라 위 사흘 예보의 5km
-    격자보다 성기고, 화면이 그 말을 힌트에 적는다.
-
-    [오늘과 열흘 사이가 비어 있었다 (2026-09-25)]
-
-    주간 예보는 하루를 한 칸으로 접고, 추이 차트는 시간을 보여 주지만 선이라
-    숫자를 짚어야 읽힌다. 「오늘 오후에 비가 오나, 몇 시부터인가」에 답하는
-    자리가 없었다. **오늘의 예보** 줄이 그 사이에 선다 — 주간 예보와 같은
-    카드 줄이고 눈금만 시간이다. 재료는 추이 차트가 쓰던 `forecast/{id}`
-    응답 그대로라 서버를 더 부르지 않는다(`BuildToday`).
-
-    [실패를 말하지 않고 있었다]
-
-    `try/finally` 로 도는 표시만 끄고 실패는 삼켰다. 게이트웨이가 내려가 있어도
-    **빈 카드**가 나오고, 사용자는 「자료가 없다」로 읽는다.
-
-    [지역을 골라도 아무 일이 없었다]
-
-    위 줄에 「선택한 지역의 주간 예보 및 추이를 시각화한다」고 적혀 있었는데,
-    고르면 **카드에 테두리만 생겼다.** 주간 예보를 부르는 곳이 화면 어디에도
-    없었고(`mid-term`), 어제 대비 기온도 마찬가지였다(`current` 가 준다).
-    클라이언트에는 둘 다 있었다. 실황·주간 예보를 먼저 붙였고, 남아 있던
-    「추이 시각화」는 아래 차트로 마저 해소했다.
-
-    [예보 추이 차트 — D3 결정 반영]
-
-    옛 화면의 예보 추이 차트(echarts, 기온/강수/바람/습도 라디오로 갈아
-    끼움)를 DevExpress `DxChart` 로 되살렸다 — D3: 「DevExpress Blazor
-    차트를, 기존에 차트가 있던 화면에」. 재료는 클라이언트에 이미 있던
-    `forecast/{id}` 타임라인이고 카테고리 전환은 받아 둔 자료를 다시 그리기만
-    한다(옛 화면과 같다). 옛 화면의 NOW 주황 점선은 상수선 대신 실측→예보가
-    갈리는 칸의 X 라벨을 「지금」으로 바꿔 표시한다 — 뜻은 같고 부품은 적다.
-
-    [차트가 점투성이였다]
-
-    21칸 추이에 둥근 점을 다 찍어 놓아, 선이 아니라 점이 먼저 보였다.
-    점을 감추고 곡선 2px 한 줄로 바꿨다 — 「어느 시각인가」는 십자선이,
-    값은 말풍선이 준다. 항목마다 색을 따로 주고(기온 주황 · 강수 파랑 ·
-    바람 청록 · 습도 보라) 그 넷은 밝고 어두운 두 테마에서 모두 재어
-    골랐다. 자세한 것은 아래 색 상수 옆에 적어 두었다.
-
-    [항목 넷을 카드 넷으로 편다]
-
-    전에는 차트가 하나였고, 단추를 누르거나 쓸면 그 자리에서 계열과 값 축을
-    통째로 갈아 끼웠다. 바뀌는 순간이 **깜빡임**이라 어디서 어디로 갔는지가
-    남지 않았고, 쓸기는 손짓 거리를 우리가 재어 흉내 낸 것이라 자주 안 먹었다 —
-    말풍선을 보려고 짚는 손짓과 같은 손짓을 두고 다퉜기 때문이다.
-
-    이제 넷을 **한 줄에 다 그려 놓고** 브라우저의 가로 스크롤에 맡긴다 —
-    바로 위 주간 예보 줄과 같은 몸짓이다. 손가락을 따라 카드가 실제로 밀려
-    가고 떼면 제자리에 붙는다(css 의 `scroll-snap`). 단추 넷은 그 카드까지
-    밀어 주는 일만 하고, 지금 어느 카드가 보이는지는 스크롤이 잠잠해진 뒤
-    JS 가 한 번 알려 준다(`watchDeck`).
-
-    손가락으로 보는 화면에서는 말풍선과 십자선을 **아예 달지 않는다** —
-    기준과 잃는 것은 아래 `_touchOnly` 에 적어 두었다. 차트는 담장
-    (`ErrorBoundary`) 안에 있어, 무엇이 터져도 이 칸만 안내로 바뀌고 나머지
-    화면은 살아 있다.
-
-    [어제 대비를 색만으로 보이지 않는다]
-
-    오르내림에 화살표를 함께 쓴다. 색만으로 가르면 색약인 사람에게는 두 값이
-    같아 보인다 — 이 저장소의 다른 화면과 같은 규칙이다.
+    기상 현황판(DB 메뉴 /life/weather/dashboard). 전 지역 실황 카드 · 고른 지역의 실황·오늘의 예보·주간 예보·추이 차트.
+    내 위치는 브라우저 좌표로 그 지점을 받는다. 위치는 단추만 다시 묻고 서버에 저장하지 않는다(알림 설정의 몫). 추이는 등록 지역에만 있다.
 *@
 
 @inherits DataPage
@@ -118,10 +16,7 @@
     <div class="jsini-split">
         <div class="jsini-inline">
             <span class="le-pick__label">지역 선택:</span>
-            @* 목록 맨 앞에 **내 위치**가 한 줄 더 있다(`_picks`). 등록 지역
-               목록(`_locations`)과 갈라 둔 까닭은 기본값이 여전히 등록 지역의
-               첫 줄이어야 하기 때문이다 — 내 위치가 기본이면 화면이 열리자마자
-               아무도 부르지 않은 위치 물음창이 뜬다. *@
+            @* 맨 앞 줄이 내 위치다. 기본값은 등록 지역의 첫 줄이어야 한다 — 내 위치가 기본이면 열자마자 위치 물음창이 뜬다. *@
             <DxComboBox Data="@_picks"
                         TextFieldName="Name"
                         ValueFieldName="Id"
@@ -130,21 +25,13 @@
                         Style="width: 200px" />
         </div>
         <div class="jsini-inline">
-            @* 고르개에 이미 「내 위치」 줄이 있는데 단추를 따로 둔 까닭은
-               **다시 재는 길**이 필요해서다. 고르개는 같은 값을 다시 고를 수
-               없어(`OnLocationSelected` 가 막는다) 자리를 옮긴 사람이 새 좌표로
-               바꿀 방법이 없다. 이 단추는 누를 때마다 다시 묻는다. *@
+            @* 고르개는 같은 값을 다시 고를 수 없어, 자리를 옮긴 사람이 새 좌표를 잡으려면 이 단추가 필요하다. 누를 때마다 다시 묻는다. *@
             <DxButton Text="📍 내 위치"
                       RenderStyle="@(MyOn ? ButtonRenderStyle.Primary : ButtonRenderStyle.Secondary)"
                       Enabled="@(!_myBusy)"
                       Click="@UseMyLocationAsync" />
 
-            @* 두 단추는 다른 화면으로 가는 길이다. 한동안 Click 이 안 걸려
-               있어서 눌러도 아무 일이 없었다 — 기능이 있는 줄 알고 누르게
-               되므로 없는 것보다 나빴다.
-
-               NavigateUrl 을 쓰면 가운데 클릭으로 새 탭에 열리고 마우스를
-               올렸을 때 주소가 보인다. *@
+            @* 다른 화면으로 가는 단추는 NavigateUrl 로 둔다 — 가운데 클릭으로 새 탭이 열리고 주소가 보인다. *@
             <DxButton Text="시간대별 예보" RenderStyle="ButtonRenderStyle.Secondary"
                       NavigateUrl="/life/weather/forecast" />
             <DxButton Text="특보 현황" RenderStyle="ButtonRenderStyle.Secondary"
@@ -156,9 +43,7 @@
 
 @if (Loading)
 {
-    @* 이 저장소의 도는 표시는 DevExpress 것 한 벌이다(DynamicGrid 와 같다).
-       전에는 Bootstrap `spinner-border` 였는데 기본 테마에 그 클래스가 없어
-       아무것도 없는 빈칸이 잠깐 스쳤다. *@
+    @* 도는 표시는 DevExpress 것을 쓴다 — Bootstrap spinner 클래스는 기본 테마에 없다. *@
     <DxLoadingPanel Visible="true" IsContentBlocked="true" Text="조회 중…" />
 }
 else
@@ -170,16 +55,7 @@ else
     }
 
     <div class="le-obs">
-        @*
-            [내 위치 카드는 등록 지역 앞에 선다 (2026-09-28)]
-
-            한 번이라도 위치를 잡았으면 이 카드가 실황 줄 맨 앞에 남는다 —
-            다른 지역을 보다가 돌아올 때 **다시 재지 않고** 누르기만 하면
-            된다(좌표는 이미 있고 날씨만 다시 받는다).
-
-            앞에 두는 까닭은 「내 것」이라서다. 등록 지역 열댓 개 사이에
-            섞어 두면 찾는 데 드는 눈이 남의 지역과 같아진다.
-        *@
+        @* 내 위치 카드는 실황 줄 맨 앞에 선다. 잡은 뒤에는 누르기만 하면 되고(날씨만 다시 받는다), 등록 지역 사이에 섞으면 찾기 어렵다. *@
         @if (_point is not null)
         {
             <div class="le-obs__card le-obs__card--me @(MyOn ? "is-on" : "")"
@@ -205,9 +81,7 @@ else
                 }
                 else
                 {
-                    @* 지역 이름은 우리 표에서 찾으므로 기상청이 답하지 않아도
-                       카드는 선다. 그때 빈 칸 셋을 보여 주면 자료가 빠진 것처럼
-                       읽히므로 무슨 일인지 적는다. *@
+                    @* 기상청이 답하지 않아도 카드는 선다(지역 이름은 우리 표에서 찾는다). 빈 칸만 보이면 자료가 빠진 것처럼 읽힌다. *@
                     <div class="le-obs__now">
                         <span class="le-obs__cond">기상청 실황을 받지 못했습니다.</span>
                     </div>
@@ -217,7 +91,6 @@ else
 
         @foreach (var w in _weatherList)
         {
-            @* 카드를 누르면 아래 실황·주간 예보·추이가 그 지역으로 바뀐다. *@
             <div class="le-obs__card @(w.WeatherLocationId == _selectedLocationId ? "is-on" : "")"
                  @onclick="@(() => OnLocationSelected(w.WeatherLocationId ?? 0))">
                 <div class="jsini-split">
@@ -237,14 +110,7 @@ else
         }
     </div>
 
-    @*
-        [내 위치를 고르면 이 아래가 그 지점의 것으로 바뀐다]
-
-        등록 지역과 **줄 수가 다르다.** 여기 오는 것은 실황과 사흘 예보
-        둘뿐이고 주간 예보·예보 추이는 없다 — 중기예보 구역 코드와 수집
-        이력이 표에 있어야 만들어지는 것이라 등록 지역에만 있다. 없는 것을
-        빈 카드로 그리지 않고 **왜 없는지를 한 줄로 적는다.**
-    *@
+    @* 내 위치에는 실황과 사흘 예보만 있다 — 추이는 등록 지역에만 있어서 없는 것을 빈 카드로 그리지 않고 한 줄로 적는다. *@
     @if (MyOn)
     {
         @if (_myBusy)
@@ -253,8 +119,7 @@ else
         }
         else if (!string.IsNullOrWhiteSpace(_myError))
         {
-            @* 토스트로 띄우지 않는다. 대개 「권한을 허용하지 않았다」라
-               사람이 읽고 무언가를 해야 하는데, 토스트는 읽기 전에 사라진다. *@
+            @* 토스트가 아니라 화면에 둔다 — 읽고 무언가를 해야 하는 안내라서다. *@
             <PageNotice Tone="NoticeTone.Warning" Text="@_myError" />
         }
 
@@ -270,10 +135,7 @@ else
                                 <span class="le-cur__cond">@now.Condition</span>
                             </div>
 
-                            @* 등록 지역 쪽에는 「어제보다 ▲」가 있는데 여기에는
-                               없다. 어제 기온은 우리가 그 지역을 계속 모아 둔
-                               이력에서 나오는 것이고, 한 지점에는 그 이력이
-                               없다 — 없는 것을 0 으로 적으면 거짓말이 된다. *@
+                            @* 한 지점에는 어제 기온 이력이 없다 — 없는 것을 0 으로 적으면 거짓이 된다. *@
                             @if (now.SensibleTemp is { } feels)
                             {
                                 <span class="le-dept">체감 @feels.ToString("F1")°C</span>
@@ -302,7 +164,6 @@ else
                     }
                     else
                     {
-                        @* 주간 예보 줄과 같은 몸짓이다 — 칸 수만 셋이다. *@
                         <div class="le-week">
                             @foreach (var day in _point.Days)
                             {
@@ -319,8 +180,7 @@ else
                                         <span class="lf-up">@(day.MaxC is { } hi ? $"{hi:0}°" : "-")</span>
                                     </span>
 
-                                    @* 강수확률이 없는 날이 있다. 그 칸에 0% 를
-                                       적으면 「비 안 온다」로 읽히므로 비워 둔다. *@
+                                    @* 강수확률이 없는 날은 비워 둔다 — 0% 로 적으면 「비 안 온다」로 읽힌다. *@
                                     <span class="le-week__pop">
                                         강수 @(day.RainProbability is { } pop ? $"{pop}%" : "-")
                                     </span>
@@ -331,21 +191,7 @@ else
                 </ChildContent>
             </DashboardSection>
 
-            @*
-                [내 위치에도 주간 예보가 선다 (2026-09-28)]
-
-                중기예보는 격자로 못 묻는다 — 기상청이 따로 매긴 **구역코드**
-                하나로만 묻고, 등록 지역은 그 코드를 사람이 적어 넣어 두었다.
-                한 지점에는 적을 자리가 없어 전에는 이 줄이 통째로 없었다.
-
-                이제 서버가 좌표에서 찾은 시·도·시·군으로 코드를 골라 준다
-                (`MidTermRegions`). 그래서 **등록되지 않은 곳에 선 사람도**
-                열흘을 본다. 다만 구역이 시·군 단위(하늘 상태는 도 단위)라
-                위 사흘 예보의 5km 격자보다 성기다 — 그 말을 힌트에 적는다.
-
-                바로 위 사흘 예보와 내일·모레가 겹친다. 겹치는 것이 맞다 —
-                저쪽에만 **오늘**이 있고, 이쪽에만 **오전·오후 나눔**이 있다.
-            *@
+            @* 내 위치의 주간 예보는 서버가 좌표에서 고른 중기 구역으로 받는다. 시·군 단위라 사흘 예보보다 성기고, 사흘 예보와 날짜가 겹치는 것이 맞다. *@
             <DashboardSection Title="주간 예보" Hint="@WeekHint">
                 <ChildContent>
                     @if (_midTerm.Count == 0)
@@ -378,7 +224,6 @@ else
                     {
                         var gap = _current.TemperatureC - yesterday;
 
-                        @* 색만으로 가르지 않는다 — 화살표를 함께 쓴다. *@
                         <span class="@(gap >= 0 ? "lf-up" : "lf-down")">
                             어제보다 @(gap >= 0 ? "▲" : "▼") @Math.Abs(gap).ToString("F1")°C
                         </span>
@@ -396,21 +241,7 @@ else
             </ChildContent>
         </DashboardSection>
 
-        @*
-            [오늘의 예보 — 주간 예보와 같은 몸짓, 눈금만 시간이다 (2026-09-25)]
-
-            주간 예보는 열흘을 하루 한 칸으로 보여 준다. 그 아래 추이 차트는
-            시간을 보여 주지만 **선이라 숫자를 짚어야 읽힌다.** 그 사이가
-            비어 있었다 — 「오늘 오후에 비가 오나, 몇 시부터인가」에 답하는
-            자리가 없었다.
-
-            재료는 이미 받아 둔 것이다(`forecast/{id}` 타임라인, 추이 차트와
-            같은 응답). **거기서 오늘치 예보 칸만 골라** 주간 예보와 같은
-            카드 줄로 편다 — 좁으면 옆으로 구르는 것까지 같다.
-
-            실측 구간은 넣지 않는다. 이 줄의 이름이 「예보」고, 지나간 시각은
-            바로 위 실황과 아래 추이가 이미 말한다.
-        *@
+        @* 오늘의 예보는 추이 차트와 같은 응답에서 오늘치 칸만 고른다. 실측 구간은 넣지 않는다 — 지나간 시각은 위 실황과 아래 추이가 말한다. *@
         <DashboardSection Title="오늘의 예보" Hint="@TodayHint">
             <ChildContent>
                 @if (_todayHours.Count == 0)
@@ -430,8 +261,7 @@ else
                                     <span class="lf-up">@hour.Temp.ToString("0.#")°</span>
                                 </span>
 
-                                @* 초단기 예보에는 강수확률이 없다. 그 칸에 0% 를
-                                   적으면 「비 안 온다」로 읽히므로 비워 둔다. *@
+                                @* 초단기 예보에는 강수확률이 없어 비워 둔다. *@
                                 <span class="le-week__pop">
                                     강수 @(hour.Pop is { } pop ? $"{pop}%" : "-")
                                 </span>
@@ -450,8 +280,7 @@ else
                 }
                 else
                 {
-                    @* 내 위치 쪽과 **같은 줄**이다(WeekForecastRow). 붙여 넣어 두 벌로
-                       두면 한쪽만 고친 날 같은 화면의 위아래가 다른 모양이 된다. *@
+                    @* 내 위치 쪽과 같은 줄(WeekForecastRow)이다 — 두 벌로 두면 한쪽만 고쳐진다. *@
                     <WeekForecastRow Days="_midTerm" />
                 }
             </ChildContent>
@@ -468,10 +297,7 @@ else
             <div class="jsini-card">
                 <div class="jsini-split le-trend__head">
                     <div class="jsini-actions">
-                        @* 옛 화면의 카테고리 라디오 자리. 카드 넷은 이미 다 그려져
-                           있으므로 이 단추들이 하는 일은 **그 카드까지 밀어 주는
-                           것** 하나다 — 서버를 부르지도, 차트를 다시 그리지도
-                           않는다. 손으로 쓸어 넘긴 것과 같은 자리에 선다. *@
+                        @* 단추는 그 카드까지 밀어 줄 뿐이다 — 서버도 차트도 다시 부르지 않는다. *@
                         <DxButton Text="기온"
                                   RenderStyle="@MetricStyle(TrendMetric.Temp)"
                                   Click="@(() => ShowMetric(TrendMetric.Temp))" />
@@ -487,51 +313,19 @@ else
                     </div>
                     <span class="jsini-hint">
                         지난 10시간 실측 · 「지금」 칸부터 예보
-                        @* 넘기기 안내는 손가락으로 보는 화면에만 나온다(css).
-                           마우스로 여는 화면에는 단추 넉 줄과 스크롤 막대가
-                           이미 같은 말을 하고 있다. *@
+                        @* 넘기기 안내는 손가락 화면에서만 보인다(css). *@
                         <span class="le-trend__swipe">· 옆으로 쓸어 넘깁니다</span>
                     </span>
                 </div>
 
-                @*
-                    [카드 넷을 한 줄에 다 그려 놓는다]
-
-                    전에는 차트가 **하나**였고, 단추를 누르거나 쓸면 그 자리에서
-                    계열과 값 축을 통째로 갈아 끼웠다. 바뀌는 순간이 깜빡임이라
-                    어디서 어디로 갔는지가 남지 않았고, 쓸기는 우리가 손짓 거리를
-                    재어 흉내 낸 것이라 자주 안 먹었다.
-
-                    이제 넷을 다 그려 놓고 **브라우저의 가로 스크롤**에 맡긴다 —
-                    바로 위 주간 예보 줄(`le-week`)과 같은 몸짓이다. 손가락을
-                    따라 카드가 실제로 밀려가고 떼면 제자리에 붙는다(css 의
-                    `scroll-snap`). 옆 카드가 조금 보이는 것이 「더 있다」는
-                    안내라 글보다 먼저 읽힌다.
-
-                    함께 사라진 것 — 손짓 거리와 쉬는 시간을 재던 처리, 갈아
-                    끼울 때마다 도는 DevExpress 의 다시 그리기, 그리고 그 다시
-                    그리기가 밀려 쌓여 생기던 멈춤. **차트 넷은 한 번 그려 놓고
-                    다시 그리지 않는다** — 자료도 파라미터도 바뀌지 않아서다.
-
-                    [차트가 회로를 끌어내리지 않게 한다]
-
-                    예전에 항목을 몇 번 갈아 끼우면 화면 아래에 노란 띠와
-                    「새로고침」이 떴다. 그것은 통신 문제가 아니라
-                    `#blazor-error-ui` 다 — 어딘가에서 예외가 밖으로 나가 **탭
-                    전체의 회로가 내려간 것**이고, 그때부터는 차트만이 아니라
-                    사이드바도 헤더도 안 눌린다. 갈아 끼우는 일이 없어졌어도
-                    담장은 남겨 둔다 — 여기서 무엇이 터지든 이 칸만 안내로
-                    바뀌고 나머지 화면은 살아 있다.
-                *@
+                @* 카드 넷은 한 번 그려 두고 가로 스크롤로 넘긴다(css scroll-snap). 담장(ErrorBoundary)은 차트가 터져도 이 칸만 안내로 바꾸려고 둔다. *@
                 <ErrorBoundary @ref="_chartGuard">
                     <ChildContent>
                         <div class="le-trend__deck" @ref="_deck">
                             @foreach (var metric in Slides)
                             {
                                 <section class="le-trend__slide" data-slide="@metric">
-                                    @* 카드 머리가 단위까지 말하므로 값 축에는
-                                       제목을 달지 않는다. 넘기는 중에 반쯤 걸린
-                                       카드도 이 줄만 보이면 무엇인지 안다. *@
+                                    @* 카드 머리가 단위를 말하므로 값 축에는 제목을 달지 않는다. *@
                                     <h3 class="le-trend__slide-head">
                                         <span class="le-trend__mark" style="background: @SlideHex(metric)"></span>
                                         @SlideTitle(metric)
@@ -540,9 +334,7 @@ else
                                     <DxChart Data="@_trend" Width="100%" Height="260px">
                                         <DxChartLegend Visible="false" />
 
-                                        @* X 축의 눈금·세로 격자는 지웠다. 21칸이
-                                           전부 줄이 되면 자료보다 바탕이 시끄럽다.
-                                           가로 격자(값 축)만 남긴다. *@
+                                        @* X 축 눈금과 세로 격자는 두지 않는다 — 21칸이 전부 줄이 되면 바탕이 시끄럽다. *@
                                         <DxChartArgumentAxis>
                                             <DxChartAxisGridLines Visible="false" />
                                             <DxChartAxisTick Visible="false" />
@@ -551,11 +343,7 @@ else
                                                               RotationAngle="0" />
                                         </DxChartArgumentAxis>
 
-                                        @* 세로 한 줄만. 가로선까지 따라다니면 격자가 두 벌이 된다.
-
-                                           손가락으로 보는 화면에서는 **아예 달지 않는다.**
-                                           까닭은 아래 말풍선 자리와 <see cref="_touchOnly"/> 에
-                                           적어 두었다. *@
+                                        @* 세로 십자선은 손가락 화면에서 달지 않는다(<see cref="_touchOnly"/>). *@
                                         @if (!_touchOnly)
                                         {
                                             <DxChartCrosshair Enabled="true" Width="1" Opacity="0.7"
@@ -567,9 +355,7 @@ else
                                         @switch (metric)
                                         {
                                             case TrendMetric.Rain:
-                                                @* 강수량만 막대로 — 옛 화면과 같다. 강수확률(%)은 단위가
-                                                   달라 같은 축에 못 올린다. 주간 예보 줄이 이미 보여 준다.
-                                                   막대는 끝만 둥글리고(4px) 사이에 여백을 둔다. *@
+                                                @* 강수량만 막대로 — 강수확률(%)은 단위가 달라 같은 축에 올리지 않는다. *@
                                                 <DxChartBarSeries T="TrendPoint" TArgument="string" TValue="double?"
                                                                   ArgumentField="p => p.Label"
                                                                   ValueField="p => p.Rain"
@@ -597,8 +383,7 @@ else
                                                                      Name="습도(%)">
                                                     <DxChartSeriesPoint Visible="false" />
                                                 </DxChartSplineSeries>
-                                                @* 습도만 축을 0~100 으로 묶는다. 값이 좁게 모이는
-                                                   날에도 「반쯤인가 거의 다인가」가 그대로 읽힌다. *@
+                                                @* 습도는 축을 0~100 으로 묶는다. *@
                                                 <DxChartValueAxis>
                                                     <DxChartAxisRange StartValue="@(0)" EndValue="@(100)" />
                                                 </DxChartValueAxis>
@@ -615,13 +400,7 @@ else
                                                 break;
                                         }
 
-                                        @* 값을 앞에 크게, 무엇인지는 뒤에 작게 — 말풍선을 볼 때는
-                                           이미 무엇을 보는지 알고 숫자를 찾는다.
-
-                                           **손가락으로 보는 화면에는 달지 않는다.** 마우스가 없는
-                                           화면에서 말풍선을 띄우려면 차트를 짚어야 하는데, 그
-                                           짚는 손짓이 곧 카드를 미는 손짓이다 — 둘이 같은 손짓을
-                                           두고 다툰다. 자세한 것은 <see cref="_touchOnly"/>. *@
+                                        @* 말풍선은 손가락 화면에서 달지 않는다 — 짚는 손짓이 카드를 미는 손짓과 다툰다(<see cref="_touchOnly"/>). *@
                                         @if (!_touchOnly)
                                         {
                                             <DxChartTooltip Enabled="true">

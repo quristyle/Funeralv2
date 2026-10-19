@@ -8,11 +8,7 @@ namespace ProjMngServer.Controllers;
 /// <summary>
 /// 프로젝트 DB 접속 — <c>/api/project-dbs</c>.
 /// </summary>
-/// <remarks>
-/// <b>이 표가 망가지면 개발 도구 화면 전부가 접속을 못 찾는다.</b> 그래서
-/// 삭제에 확인 절차가 화면 쪽에 있고, 비밀번호는 목록에 실어 보내지 않는다
-/// (<see cref="ProjectDb"/> 머리말).
-/// </remarks>
+/// 이 표가 망가지면 개발 도구 화면 전부가 접속을 못 찾는다. 비밀번호는 목록에 실어 보내지 않는다(ProjectDb 머리말).
 [ApiController]
 [Route("api/project-dbs")]
 public sealed class ProjectDbsController(ProjectDbService service) : ControllerBase
@@ -55,13 +51,7 @@ public sealed class ProjectDbsController(ProjectDbService service) : ControllerB
     /// 끌어 옮긴 차례를 저장한다. 몸통은 <b>화면에 보이는 줄 전부를, 보이는
     /// 차례대로</b> 담은 접속 번호 목록이다.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>줄 하나씩 보내는 길을 두지 않는다.</b> 자리를 서로 바꾸는 일이라
-    /// 한 줄만 고치면 언제나 다른 줄과 어긋나고, 그 어긋남이 화면에는
-    /// 안 보인다(차례가 같은 두 줄은 그냥 이름순으로 늘어선다).
-    /// </para>
-    /// </remarks>
+    /// 줄 하나씩 보내는 길은 두지 않는다 — 자리를 서로 바꾸는 일이라 한 줄만 고치면 다른 줄과 어긋나고, 그 어긋남이 화면에는 안 보인다.
     [HttpPost("order")]
     public async Task<IActionResult> ReorderAsync([FromBody] int[] dbRids)
     {

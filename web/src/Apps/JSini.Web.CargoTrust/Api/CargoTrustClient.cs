@@ -4,25 +4,8 @@ using JSini.Web.Http;
 namespace JSini.Web.CargoTrust.Api;
 
 /// <summary>
-/// CargoTrustServer 호출 — 사용자(차주·운송사) 엔드포인트만. 게이트웨이의
-/// <c>/api/cargotrust</c> 아래로 나간다.
-///
-/// <para>
-/// 경로·필드는 docs/cargotrust/05-api-design.md 「사용자 엔드포인트」 그대로다.
-/// <c>/admin/*</c> 은 여기 없다 — 관리자 모듈이 따로 부른다. 여기 두면 차주
-/// 화면 어딘가에서 불렀을 때 403 이 나는 것 말고는 막아 주는 것이 없다.
-/// </para>
-///
-/// <para>
-/// [목록·한 건을 메서드로 가른다]
-/// </para>
-///
-/// <para>
-/// 서버는 모든 응답을 <c>{data:{result:[…]}}</c> 봉투에 싣는다. 목록인지 한 건인지는
-/// 봉투만으로 알 수 없어서 <see cref="GatewayClient"/> 의 이름으로 고른다
-/// (<c>GetListAsync</c> · <c>GetOneAsync</c>). <c>by-number</c> 는 「없음」이
-/// 빈 결과로 오므로 한 건 읽기가 그대로 <c>null</c> 을 준다.
-/// </para>
+/// CargoTrustServer 의 사용자 엔드포인트 호출(게이트웨이 /api/cargotrust). 관리자 경로(/admin/*)는 관리자 모듈이 따로 부른다.
+/// 목록과 한 건은 응답 봉투만으로 구분되지 않아 GetListAsync · GetOneAsync 로 가른다. by-number 의 「없음」은 빈 결과라 null 이 된다.
 /// </summary>
 public sealed class CargoTrustClient(GatewayClient gateway)
 {
@@ -71,13 +54,7 @@ public sealed class CargoTrustClient(GatewayClient gateway)
     // ── 내 거래 ──────────────────────────────────────────────
 
     /// <summary>
-    /// 내 거래(내 것만). 조건은 모두 고를 수 있다.
-    ///
-    /// <para>
-    /// <paramref name="open"/> 은 「아직 처리가 안 된 것」이다 — 상태 넷
-    /// (<c>SCHEDULED·PARTIAL·UNPAID·DISPUTE</c>)이라 <paramref name="status"/> 하나로는
-    /// 못 고른다. 서버가 거르므로 목록 상한에 옛 미처리가 잘리지 않는다.
-    /// </para>
+    /// 내 거래(내 것만). open 은 상태 넷(SCHEDULED·PARTIAL·UNPAID·DISPUTE) 전체라 status 로는 못 고른다. 서버가 거르므로 목록 상한에 잘리지 않는다.
     /// </summary>
     public Task<IReadOnlyList<MyTransaction>> GetMyTransactionsAsync(
         string? status = null, DateOnly? from = null, DateOnly? to = null, long? companyId = null,
@@ -136,8 +113,7 @@ public sealed class CargoTrustClient(GatewayClient gateway)
         => gateway.PostAsync<MyTransaction>($"{Prefix}/transactions/{transactionId}/payment", request, ct);
 
     /// <summary>
-    /// 고른 거래를 한 번에 처리한다. 건마다 <b>남은 금액 전액</b>을 넣은 것과 같고,
-    /// 된 것과 안 된 것이 함께 온다 — 한 건이 걸려도 나머지는 처리된다.
+    /// 고른 거래를 한 번에 처리한다. 건마다 남은 금액 전액을 넣은 것과 같고, 된 것과 안 된 것이 함께 온다.
     /// </summary>
     public Task<BulkPaymentResult?> RegisterPaymentsAsync(
         BulkPaymentRequest request, CancellationToken ct = default)
@@ -156,13 +132,8 @@ public sealed class CargoTrustClient(GatewayClient gateway)
     // ── 미지급 거래 ──────────────────────────────────────────
 
     /// <summary>
-    /// 미지급 거래 목록. <b>내 것만이 아니다</b> — 누가 적었든 <c>UNPAID</c> 로 남은
-    /// 거래를 모아 준다(줄마다 등록자가 가린 이름으로 실린다).
-    ///
-    /// <para>
-    /// 미수금(<see cref="GetReceivablesAsync"/>)과 섞지 않는다. 그쪽은 내가 못 받은
-    /// 돈이고 상태 넷을 담지만, 여기는 <c>UNPAID</c> 하나다.
-    /// </para>
+    /// 미지급 거래 목록. 내 것만이 아니라 누가 적었든 UNPAID 거래를 모은다(등록자 이름은 가려져 실린다).
+    /// 미수금(GetReceivablesAsync)과 섞지 않는다 — 여기는 UNPAID 하나다.
     /// </summary>
     public Task<UnpaidList?> GetUnpaidTransactionsAsync(
         long? companyId = null, string? q = null, DateOnly? from = null, DateOnly? to = null,
@@ -244,10 +215,7 @@ public sealed class CargoTrustClient(GatewayClient gateway)
     public Task<TollSuggestResultInfo?> SuggestTollTimeAsync(TollSuggestRequest request, CancellationToken ct = default)
         => gateway.PostAsync<TollSuggestResultInfo>($"{Prefix}/toll/discount/suggest", request, ct);
 
-    /// <summary>
-    /// 구간 통행료. 못 받아도 <b>빈 값이 온다</b> — 통행료가 없다고 할인율 계산까지
-    /// 막지 않는다.
-    /// </summary>
+    /// <summary>구간 통행료. 못 받아도 빈 값이 온다 — 통행료가 없다고 할인율 계산까지 막지 않는다.</summary>
     public Task<TollFareInfo?> GetTollFareAsync(
         string fromCode, string toCode, string vehicleClass, decimal discount, CancellationToken ct = default)
         => gateway.GetOneAsync<TollFareInfo>(
@@ -260,10 +228,7 @@ public sealed class CargoTrustClient(GatewayClient gateway)
 
     // ── 내 차량 ──────────────────────────────────────────────
 
-    /// <summary>
-    /// 번호판 읽기. <b>저장하지 않는다</b> — 칸을 채우기 전에 「이렇게 읽었다」를
-    /// 먼저 보여 주고, 사람이 그 위에서 고치게 한다.
-    /// </summary>
+    /// <summary>번호판 읽기. 저장하지 않는다 — 읽은 결과를 먼저 보여 주고 사람이 그 위에서 고치게 한다.</summary>
     public Task<PlateReadInfo?> ReadPlateAsync(string plateNo, CancellationToken ct = default)
         => gateway.GetOneAsync<PlateReadInfo>(
             $"{Prefix}/vehicles/plate?no={Uri.EscapeDataString(plateNo)}", ct);

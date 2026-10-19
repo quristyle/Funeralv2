@@ -36,16 +36,11 @@ public partial class ReportMonitoring
         _rows = JsonTable.From(json);
         _bars = ToBars(json);
 
-        // 응답이 객체라 표는 비고(위 주석) 차트만 남는다.
-        // 차트에 그릴 것이 있으면 「없습니다」 를 띄우지 않는다.
+        // 응답이 객체라 표는 비고 차트만 남는다 — 차트에 그릴 것이 있으면 「없습니다」를 띄우지 않는다.
         return _rows.Rows.Count + (_bars.Sum(b => b.Count) > 0 ? 1 : 0);
     }, "집계할 자료가 없습니다.", "운영 모니터링을 읽지 못했습니다");
 
-    /// <summary>
-    /// 상태별 건수 막대. 칸 이름은 서버 <c>AdminStatsDto</c> 와 대조했다.
-    /// 대기는 「내 것」이 아니라 <b>팀 관할 미배정</b> 건수라(서버 주석) 이름을
-    /// 따로 붙인다 — 「대기」로만 적으면 내 배정 대기로 읽힌다.
-    /// </summary>
+    /// <summary>상태별 건수 막대. 칸 이름은 서버 AdminStatsDto 와 대조했다. 대기는 내 것이 아니라 팀 관할 미배정 건수라 이름을 따로 붙인다 — 대기로만 적으면 내 배정 대기로 읽힌다.</summary>
     private static IReadOnlyList<StatusBar> ToBars(JsonElement json) =>
     [
         new("미배정(팀)", Num(json, "pendingCount")),

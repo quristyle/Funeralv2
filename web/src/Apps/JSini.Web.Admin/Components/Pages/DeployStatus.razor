@@ -2,31 +2,15 @@
 @attribute [RouteKey("admin.status.deploy")]
 
 @*
-    [배포 현황] — DB 메뉴 `/system/deploy-status`.
-    이력: Vue `views/portal/system/deploy-status/index` → 여기.
-
-    GitHub 워크플로 실행 이력과 셀프 호스티드 러너 상태를 본다.
-
-    [칸 이름이 서버와 어긋나 있었다]
-
-    `head_branch` · `created_at` 은 **GitHub API 의** 이름이고, 우리 서버는
-    그것을 `branch` · `startedAt` 으로 바꿔 보낸다. 그 이름으로 받고 있어서
-    브랜치·시각 칸이 늘 비어 있었다. 예외가 나지 않는 종류의 어긋남이라
-    「자료가 없나 보다」로 읽혔다.
-
-    [GitHub 이 안 읽혀도 화면은 뜬다]
-
-    서버가 둘을 따로 긁어 합쳐 주고, GitHub 쪽이 실패하면 `github.error` 에
-    이유가 담긴다. 그때도 컨테이너 목록은 온다 — 배포가 안 되는 이유를 보러
-    들어온 사람에게 빈 화면을 주지 않는다.
+    [배포 현황] DB 메뉴 `/system/deploy-status`. GitHub 워크플로 실행 이력과 셀프 호스티드 러너 상태를 본다.
+    GitHub 의 head_branch · created_at 을 서버가 branch · startedAt 으로 바꿔 보내므로 그 이름으로 받아야 한다 — 어긋나면 예외 없이 「자료가 없나 보다」로 읽힌다. GitHub 이 실패해도 컨테이너 목록은 온다.
 *@
 
 @inherits AutoRefreshPage
 
-<PageTitle>배포 현황 · 포털관리</PageTitle>
+<PageTitle>배포 현황</PageTitle>
 
-@* 조회 판을 세울 조건이 없다. 다시 읽기는 두 표의 아래 띠에 각각 붙고
-   (`Reload`), 어디서 언제 읽은 것인지는 도장으로 남긴다. *@
+@* 조회 판을 세울 조건이 없다 — 다시 읽기는 두 표의 아래 띠에 붙이고, 언제 읽은 것인지는 도장으로 남긴다. *@
 <div class="ad-stamps">
     @if (_status?.Repo is { Length: > 0 } repo)
     {
@@ -43,6 +27,14 @@
     <CommGrd TItem="GithubRunDto" Data="@Runs"
              ExportName="워크플로실행"
              Reload="@ReloadAsync">
+    @* 실패한 실행의 로그는 GitHub 에서만 볼 수 있다. 그 자리로 바로 보낸다. *@
+    <RowActions Context="run">
+        @if (run.HtmlUrl is { Length: > 0 } url)
+        {
+            <a href="@url" target="_blank" rel="noopener">로그</a>
+        }
+    </RowActions>
+
     <Columns>
         <DxGridDataColumn FieldName="@nameof(GithubRunDto.StartedAt)" Caption="시각" Width="150"
                           DisplayFormat="yyyy-MM-dd HH:mm" />
@@ -72,18 +64,6 @@
             </CellDisplayTemplate>
         </DxGridDataColumn>
 
-        <DxGridDataColumn Caption="" Width="70" AllowSort="false">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var run = (GithubRunDto)cell.DataItem;
-                }
-                @if (run.HtmlUrl is { Length: > 0 } url)
-                {
-                    @* 실패한 실행의 로그는 GitHub 에서만 볼 수 있다. 그 자리로 바로 보낸다. *@
-                    <a href="@url" target="_blank" rel="noopener">로그</a>
-                }
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
     </Columns>
     </CommGrd>
 </CommCont>

@@ -37,10 +37,7 @@ public class CompanyDto
     /// <summary>
     /// 이 회사에 소속된 사용자 수.
     /// </summary>
-    /// <remarks>
-    /// 회사 목록에서 "어디에 사람이 있는지" 를 바로 보여 주려고 함께 내려준다.
-    /// 회사마다 따로 세면 회사 수만큼 질의가 나가므로(N+1) 한 번에 묶어 센다.
-    /// </remarks>
+    /// 목록에서 어디에 사람이 있는지 보여 주려고 내려준다 — 서버가 한 번에 묶어 센다(N+1 방지).
     public int UserCount { get; set; }
 
     /// <summary>이 회사에 등록된 부서 수.</summary>
@@ -49,10 +46,7 @@ public class CompanyDto
     /// <summary>
     /// 회사 사용처 — 이 회사가 쓰이는 시스템들.
     /// </summary>
-    /// <remarks>
-    /// 공통코드 그룹 <c>COMPANY_USAGE_LOCATION</c> 의 <c>code_value</c> 목록이다.
-    /// 여러 개일 수 있고 <b>빈 목록일 수도 있다</b>(아무 곳에도 배정하지 않은 회사).
-    /// </remarks>
+    /// 공통코드 COMPANY_USAGE_LOCATION 의 code_value 목록. 빈 목록일 수 있다(아무 데도 배정하지 않은 회사).
     public List<string> UsageLocations { get; set; } = new();
 }
 
@@ -83,10 +77,7 @@ public class CompanyCreateDto
 
     /// <summary>
     /// 회사 사용처 (<c>COMPANY_USAGE_LOCATION</c> 의 <c>code_value</c> 목록).
-    ///
-    /// <b>일부러 nullable 이다.</b> 값을 싣지 않은 요청은 사용처를 건드리지 않는다 —
-    /// 회사 목록의 셀 편집처럼 일부 항목만 보내는 호출자가 사용처를 지우는 일을 막는다.
-    /// 빈 목록(<c>[]</c>)을 보내면 '전부 해제' 다.
+    /// 일부러 nullable 이다 — 값을 싣지 않으면 사용처를 건드리지 않는다(셀 편집이 사용처를 지우지 않게). 빈 목록([])은 전부 해제다.
     /// </summary>
     public List<string>? UsageLocations { get; set; }
 }

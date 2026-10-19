@@ -24,8 +24,7 @@ public partial class RoomList
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        // 넷을 나란히. 서로 기다릴 이유가 없다 — 조건(_buildingId · _floorId)은
-        // 이미 화면에 있는 값이라 앞의 조회 결과를 쓰지 않는다.
+        // 넷을 나란히 부른다. 조건(_buildingId · _floorId)은 화면에 있는 값이라 앞의 조회 결과가 필요 없다.
         var buildings = Api.GetBuildingsAsync();
         var floors = Api.GetFloorsAsync();
         var types = Codes.GetAsync("ROOM_TYPE");
@@ -38,9 +37,7 @@ public partial class RoomList
         _roomTypes = types.Result;
         _rooms = rooms.Result;
 
-        // **옮기개를 따로 부르지 않는다.** `LabelerAsync` 는 같은 목록을 다시
-        // 받는데, 차례로 부를 때는 통에 맞아 공짜지만 나란히 부르면 둘 다
-        // 통을 지나쳐 두 번 받는다.
+        // 옮기개(LabelerAsync)는 같은 목록을 다시 받으므로 따로 부르지 않는다. 나란히 부르면 두 번 받는다.
         _roomTypeLabel = CommonCodeClient.Labeler(_roomTypes);
 
         return _rooms.Count;
@@ -54,8 +51,7 @@ public partial class RoomList
 
     private void FillNew(Room r)
     {
-        // 조건줄에서 고른 것을 그대로 물려준다. 안 넣으면 어느 층에도 속하지
-        // 않은 호실이 만들어져 목록에서 사라진다.
+        // 조건줄에서 고른 층을 그대로 넣는다. 빼면 어느 층에도 속하지 않은 호실이 만들어져 목록에서 사라진다.
         r.BuildingId = _buildingId;
         r.FloorId = _floorId;
         r.Status = "ACTIVE";

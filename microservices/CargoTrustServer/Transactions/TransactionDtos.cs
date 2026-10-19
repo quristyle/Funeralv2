@@ -7,10 +7,7 @@ using CargoTrustServer.Statistics;
 
 namespace CargoTrustServer.Transactions;
 
-/// <summary>
-/// PublicTransaction — 등록자는 **가린 이름**으로 싣는다(<see cref="PersonName.Display"/>).
-/// 출발·도착은 첫 낱말만 간다.
-/// </summary>
+/// <summary>공개용 거래 줄. 등록자는 가린 이름으로, 출발·도착은 첫 낱말만 싣는다.</summary>
 public record PublicTransactionDto(
     long TransactionId,
     DateOnly TransportDate,
@@ -51,15 +48,7 @@ public class MyTransactionDto
     public DateTimeOffset UpdatedAt { get; set; }
 }
 
-/// <summary>
-/// UnpaidTransaction — 미지급 거래 목록의 한 줄(<see cref="UnpaidEndpoints"/>).
-///
-/// <para>
-/// <see cref="MyTransactionDto"/> 와 비슷해 보이지만 **남의 거래가 섞인 목록**이다.
-/// 그래서 메모·검증 상태처럼 등록자만 볼 것은 없고, 사업자번호와 등록자 이름은
-/// 가린 꼴로 온다(설계안 29). 출발·도착도 첫 낱말만이다.
-/// </para>
-/// </summary>
+/// <summary>미지급 목록의 한 줄(UnpaidEndpoints). 남의 거래가 섞인 목록이라 메모·검증 상태는 빼고, 사업자번호·등록자는 가린 꼴로 온다.</summary>
 public record UnpaidTransactionDto(
     long TransactionId,
     long CompanyId,
@@ -112,10 +101,7 @@ public record TransactionDetailDto(
 
 public static class TransactionMap
 {
-    /// <summary>
-    /// <paramref name="t"/> 는 <see cref="CargoTransaction.User"/> 가 실려 있어야 한다
-    /// (<c>Include(t =&gt; t.User)</c>). 안 실으면 등록자가 「이름 없음」으로 나간다.
-    /// </summary>
+    /// <summary>t 는 User 가 실려 있어야 한다(Include(t =&gt; t.User)). 안 실으면 등록자가 「이름 없음」으로 나간다.</summary>
     public static PublicTransactionDto Public(CargoTransaction t, bool isAdmin) => new(
         t.TransactionId,
         t.TransportDate,

@@ -26,9 +26,7 @@ public partial class DeployStatus
     {
         _status = await Api.GetDeployStatusAsync();
 
-        // 조회의 **결과**다 — 안내 줄이 아니라 토스트로 나간다.
-        // **자동 조회(`RefreshAsync`)에서는 띄우지 않는다.** 몇 초마다
-        // 같은 말이 다시 떠서 화면을 덮는다.
+        // 조회 결과라 토스트로 낸다. 자동 조회(RefreshAsync)에서는 띄우지 않는다 — 몇 초마다 같은 말이 떠서 화면을 덮는다.
         if (_status?.Github.Error is { Length: > 0 } error)
         {
             Say($"GitHub 을 읽지 못했습니다 — {error}", NoticeTone.Warning);

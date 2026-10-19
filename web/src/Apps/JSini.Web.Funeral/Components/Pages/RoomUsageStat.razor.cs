@@ -23,11 +23,8 @@ public partial class RoomUsageStat
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        // 요약과 목록을 나란히 부른다. 순서에 의미가 없다.
-        //
-        // 요약은 **호실 조건을 받지 않는다** — 서버가 건물과 기간까지만
-        // 받는다. 그래서 호실을 골랐을 때 타일과 표의 건수가 다를 수 있고,
-        // 그 사실을 화면에 적어 둔다.
+        // 요약과 목록을 나란히 부른다.
+        // 요약은 호실 조건을 받지 않으므로(서버가 건물·기간까지만 받는다) 호실을 고르면 타일과 표의 건수가 다를 수 있다.
         var rows = Api.GetRoomUsageStatsAsync(_buildingId, _roomId, _from, _to);
         var summary = Api.GetStatSummaryAsync(_buildingId, _from, _to);
 

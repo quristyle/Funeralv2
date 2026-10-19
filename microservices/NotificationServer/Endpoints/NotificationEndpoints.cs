@@ -10,23 +10,7 @@ using NotificationServer.Services;
 
 namespace NotificationServer.Endpoints;
 
-/// <summary>
-/// 알림 엔드포인트 (<c>/api/notification/*</c>)
-/// </summary>
-/// <remarks>
-/// 이 서비스는 **보내는 일만** 한다 (결정 D8-A).
-///
-/// <para>
-/// 누구에게 보낼지는 부르는 쪽이 정한다. 헬프데스크가 "이 팀의 관리자" 를 알고 싶으면
-/// 자기 DB 에서 골라 주인 키 목록을 넘긴다 — 이 서비스는 팀도 회사도 모른다.
-/// 그래야 포털·장례식장도 같은 서비스를 쓸 수 있다.
-/// </para>
-///
-/// <para>
-/// <b>알림 목록(읽음·전달 표시)은 여기 없다.</b> 그것은 헬프데스크의 화면 기능이고
-/// 헬프데스크 테이블을 읽는다. 옮기면 도메인 로직이 따라와야 해서 남겨 두었다.
-/// </para>
-/// </remarks>
+/// <summary>알림 엔드포인트(/api/notification/*). 보내는 일만 한다. 알림 목록(읽음·전달)은 헬프데스크 기능이라 여기 없다.</summary>
 public static class NotificationEndpoints
 {
     /// <summary>포털 계정의 주인 종류. 게이트웨이가 주는 <c>X-User-Id</c> 가 곧 주인 키다.</summary>
@@ -41,28 +25,8 @@ public static class NotificationEndpoints
     /// <summary>이 사람이 보낸 줄.</summary>
     private const string DirectionSent = "sent";
 
-    /// <summary>
-    /// 계정 하나의 <b>앱 현황</b> 화면 주소를 만든다 (포털관리 → 계정 앱 현황).
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 구독 알림이 이 주소를 달고 간다. 관리자가 알림을 받고 나서 하는 일이 늘
-    /// 같기 때문이다 — <b>누가 · 무슨 기기로 · 제대로 닿는가</b>를 본다. 알림창만
-    /// 띄우고 주소를 비워 두면 포털을 열어 계정 관리에서 그 사람을 찾아 🔔 를
-    /// 누르는 세 걸음을 사람이 대신 걷는다.
-    /// </para>
-    /// <para>
-    /// 화면 쪽 <c>@page</c> 는 <c>/admin/system/account/{LoginId}/app</c> 이다
-    /// (<c>web/src/Apps/JSini.Web.Admin/Components/Pages/AccountAppPage.razor</c>).
-    /// 주소 조각이라 로그인 아이디를 <see cref="Uri.EscapeDataString(string)"/> 로 감싼다 —
-    /// 아이디에 <c>/</c> 나 <c>?</c> 가 들어가면 경로가 어긋난다.
-    /// </para>
-    /// <para>
-    /// 상대 경로로 둔다. 서비스워커가 창의 출처에 붙여 열고(<c>push-sw.js</c>),
-    /// 그래야 알림함의 읽음 표시(<c>?pushId=</c>)도 같은 출처로 남는다 —
-    /// 쪽지함·날씨 알림이 쓰는 방식과 같다.
-    /// </para>
-    /// </remarks>
+    /// <summary>계정 하나의 앱 현황 화면 주소(상대 경로). 구독 알림이 이 주소를 달고 간다.
+    /// 로그인 아이디는 EscapeDataString 으로 감싼다(/ 나 ? 가 들어가면 경로가 어긋난다).</summary>
     private static string AccountAppUrl(string loginId) =>
         $"/admin/system/account/{Uri.EscapeDataString(loginId)}/app";
 
@@ -70,10 +34,7 @@ public static class NotificationEndpoints
     {
         var group = app.MapGroup("/notifications").WithTags("Notifications");
 
-        // ── 화면이 구독을 만들 때 필요한 공개 키 ─────────────
-        //
-        // 공개 키는 비밀이 아니다. 브라우저가 구독을 만들 때 쓰는 값이라 내려가야 한다.
-        // enabled 가 거짓이면 화면이 구독 버튼을 숨기면 된다.
+        // 공개 키는 비밀이 아니다. enabled 가 거짓이면 화면이 구독 버튼을 숨긴다.
         group.MapGet("/vapid-public-key", ([FromServices] IOptions<VapidOptions> vapid) =>
         {
             var v = vapid.Value;
@@ -86,9 +47,7 @@ public static class NotificationEndpoints
         .WithName("GetVapidPublicKey");
 
         // ── 구독 등록 ───────────────────────────────────────
-        //
-        // 같은 브라우저가 다시 구독하면 같은 endpoint 가 온다. 새로 만들지 않고 갱신한다 —
-        // 새로 만들면 같은 기기에 여러 번 보내게 된다.
+        // 같은 브라우저는 같은 endpoint 가 오므로 새로 만들지 않고 갱신한다(새로 만들면 같은 기기에 여러 번 간다).
         group.MapPost("/subscriptions", async (
             [FromBody] SubscribeDto request,
             UserContext? user,
@@ -107,11 +66,7 @@ public static class NotificationEndpoints
                     code: "INVALID_SUBSCRIPTION"));
             }
 
-            // 주인을 지정하지 않으면 로그인한 계정으로 본다.
-            //
-            // **남의 이름으로 구독을 만들지 못하게 한다.** 다른 주인을 지정하는 것은
-            // 헬프데스크처럼 자기 신원 체계를 쓰는 서비스가 서버 대 서버로 부를 때만
-            // 필요한데, 지금은 그 경로가 없으므로 막아 둔다.
+            // 주인을 적지 않으면 로그인 계정으로 본다. 남의 이름으로 구독을 만들지 못하게 막는다.
             var ownerType = string.IsNullOrWhiteSpace(request.OwnerType) ? "jsini" : request.OwnerType;
             var ownerKey = string.IsNullOrWhiteSpace(request.OwnerKey) ? user.UserId : request.OwnerKey;
 
@@ -176,14 +131,11 @@ public static class NotificationEndpoints
                         {
                             Title = "새로운 알림 구독",
                             Body = $"{user.UserId} 님이 새 기기에서 알림을 구독했습니다.",
-                            // 누른 자리에서 바로 그 사람의 [앱 현황]으로 간다.
-                            // 알림이 말하는 것과 화면이 답하는 것이 같은 물음이다 —
-                            // 「누가 어느 기기로 구독했고 그것이 제대로 닿는가」.
+                            // 누르면 그 사람의 [앱 현황]으로 간다.
                             Url = AccountAppUrl(user.UserId),
                             // 새 기기를 등록한 사람의 프로필 사진을 알림 아이콘으로 쓴다.
                             IconOwnerKey = user.UserId,
-                            // 지나고 나면 알림함에서 봐도 되는 소식이다. 하루 뒤에
-                            // 배달돼 봐야 관리자 알림창만 채운다.
+                            // 하루 뒤에 배달되면 알림창만 채우므로 수명을 짧게 준다.
                             TtlSeconds = 3600,
                             Category = PushCategories.Subscription,
                         }
@@ -234,8 +186,7 @@ public static class NotificationEndpoints
         .WithName("Unsubscribe");
 
         // ── 내 구독 확인 ────────────────────────────────────
-        //
-        // 화면이 "이 브라우저가 이미 구독 중인가" 를 알아야 버튼 상태를 정할 수 있다.
+        // 화면이 이 브라우저의 구독 여부로 버튼 상태를 정한다.
         group.MapGet("/subscriptions/me", async (
             UserContext? user, [FromServices] AppDbContext db) =>
         {
@@ -247,17 +198,8 @@ public static class NotificationEndpoints
         .WithName("GetMySubscriptions");
 
         // ── 여러 사람의 알림 상태 (관리 화면) ───────────────
-        //
-        // 계정 관리 화면이 사람마다 「PWA 구독 · 푸시 · 이메일 · 기상특보」를
-        // 함께 보여 준다. 사람마다 따로 물으면 계정 예순에 왕복이 예순이다.
-        //
-        // **누구를 볼지 인자로 받지 않는다.** 주인 종류 하나로 그 종류 전부를
-        // 낸다 — 목록 화면은 조건을 바꿀 때마다 보는 사람이 달라지는데, 그때마다
-        // 키 예순 개를 실어 보내면 조건 한 번에 URL 이 2KB 가 된다.
-        //
-        // **자기 것만 보는 길(`/preferences/me`)을 대신하지 않는다.** 그쪽은
-        // 공개 키와 기기 목록까지 주고, 이쪽은 남의 것을 훑는 자리라 기기를
-        // 수로 줄인다.
+        // 주인 종류 하나로 그 종류 전부를 낸다(키를 인자로 받으면 URL 이 길어진다).
+        // 기기 목록까지 주는 /preferences/me 와 달리 기기는 수로 줄인다.
         group.MapGet("/preferences", async (
             UserContext? user,
             [FromQuery] string? ownerType,
@@ -268,8 +210,7 @@ public static class NotificationEndpoints
 
             var type = string.IsNullOrWhiteSpace(ownerType) ? "jsini" : ownerType;
 
-            // 저장된 뜻. **행이 없는 사람은 여기 안 나온다** — 그 사람은
-            // 기본값이고, 그 사실을 화면이 알아야 해서 `saved` 로 가른다.
+            // 행이 없는 사람은 나오지 않는다. saved 로 기본값과 가른다.
             var prefs = await db.NotificationPreferences
                 .AsNoTracking()
                 .Where(p => p.OwnerType == type)
@@ -286,8 +227,7 @@ public static class NotificationEndpoints
                 })
                 .ToListAsync(ct);
 
-            // 기기 수는 **따로 센다.** 구독과 설정은 서로 없어도 되는 표라
-            // (기기만 있고 설정이 없거나 그 반대) 조인으로 묶으면 한쪽이 빠진다.
+            // 기기 수는 따로 센다(구독과 설정은 서로 없어도 되는 표라 조인하면 한쪽이 빠진다).
             var devices = await db.PushSubscriptions
                 .AsNoTracking()
                 .Where(s => s.OwnerType == type)
@@ -320,8 +260,7 @@ public static class NotificationEndpoints
 
             foreach (var d in devices)
             {
-                // 기기는 있는데 설정을 한 번도 저장하지 않은 사람이 있다.
-                // 그 줄을 여기서 만든다 — 기본값 + 기기 수다.
+                // 기기는 있는데 설정을 한 번도 저장하지 않은 사람 — 기본값과 기기 수로 줄을 만든다.
                 if (!byOwner.TryGetValue(d.OwnerKey, out var state))
                 {
                     state = new OwnerNotificationStateDto { OwnerKey = d.OwnerKey };
@@ -339,20 +278,8 @@ public static class NotificationEndpoints
         .WithName("GetNotificationPreferences");
 
         // ── 계정 하나의 앱 현황 (관리 화면) ─────────────────
-        //
-        // 위의 `/preferences` 와 짝이다. 그쪽은 **여러 사람을 훑는** 자리라
-        // 기기를 수 하나로 줄이고, 이쪽은 **한 사람을 파는** 자리라 기기 목록과
-        // 실제 주고받은 기록까지 싣는다.
-        //
-        // **표 넷을 한 번에 읽는다.** 구독 · 설정 · 발송 기록 · 쪽지가
-        // 따로따로는 답을 못 준다 — 「기기가 0 대인가 · 스위치를 껐는가 ·
-        // 보냈는데 실패했는가 · 아예 보낸 적이 없는가」는 넷을 나란히 놓아야
-        // 갈린다. 화면이 넷을 따로 부르면 그 맞추는 일을 화면이 하게 되고,
-        // 왕복도 넷이 된다.
-        //
-        // **자기 것이라고 특별대접하지 않는다.** 남의 설정을 읽는 자리라
-        // 관리 화면에서만 부른다 — 게이트웨이가 로그인 여부를 보고, 화면은
-        // 포털관리 메뉴 권한 안에 있다.
+        // 구독·설정·발송 기록·쪽지를 한 번에 읽는다(따로 부르면 화면이 맞추고 왕복도 넷이 된다).
+        // 관리 화면에서만 부른다(화면은 포털관리 메뉴 권한 안에 있다).
         group.MapGet("/owners/{ownerKey}/app-status", async (
             string ownerKey,
             UserContext? user,
@@ -388,10 +315,7 @@ public static class NotificationEndpoints
             };
 
             // ── 계정 요약 ────────────────────────────────
-            //
-            // **없을 수 있다.** 계정을 지워도 구독·기록은 남으므로, 그때는
-            // 「없는 아이디」라고 말해 준다 — 빈칸으로 두면 이름이 안 들어온
-            // 것으로 읽힌다.
+            // 계정을 지워도 구독·기록은 남으므로 없을 수 있다(그때는 「없는 아이디」로 말한다).
             var account = await db.Accounts
                 .AsNoTracking()
                 .Where(a => a.UserId == key && !a.IsDeleted)
@@ -424,10 +348,7 @@ public static class NotificationEndpoints
             }
 
             // ── 길 × 방향 집계 ───────────────────────────
-            //
-            // 받은 것은 주인 칸(`owner_key`), 보낸 것은 보낸이 칸(`sent_by`)으로
-            // 가른다. **한 줄이 사람·기기 하나**라 「몇 번 눌렀나」가 아니라
-            // 「몇 군데에 닿으려 했나」를 센다(DTO 머리말).
+            // 받은 것은 owner_key, 보낸 것은 sent_by 로 가른다. 한 줄이 기기 하나라 닿으려 한 곳의 수를 센다.
             var received = await db.PushSendLogs
                 .AsNoTracking()
                 .Where(l => l.SentAt >= from && l.OwnerType == type && l.OwnerKey == key)
@@ -456,9 +377,7 @@ public static class NotificationEndpoints
                 })
                 .ToListAsync(ct);
 
-            // **줄이 없는 칸도 0 으로 세운다.** 빼 버리면 화면이 「푸시 수신」
-            // 칸을 아예 못 그리고, 그러면 「한 건도 없다」와 「그런 칸이 없다」가
-            // 같은 그림이 된다 — 여기서 찾는 답이 대개 앞엣것이다.
+            // 줄이 없는 칸도 0 으로 세운다(빼면 화면이 그 칸을 못 그린다).
             foreach (var channel in new[] { ChannelPush, ChannelEmail })
             {
                 foreach (var (direction, source) in new[]
@@ -483,9 +402,7 @@ public static class NotificationEndpoints
             }
 
             // ── 최근 기록 ────────────────────────────────
-            //
-            // 양쪽을 따로 읽어 섞는다. `owner_key = ? or sent_by = ?` 한 벌로
-            // 읽으면 **자기가 자기에게 보낸 줄**이 하나로 뭉쳐 방향을 잃는다.
+            // 양쪽을 따로 읽어 합친다(한 벌로 읽으면 자기가 자기에게 보낸 줄이 뭉쳐 방향을 잃는다).
             var receivedRows = await db.PushSendLogs
                 .AsNoTracking()
                 .Where(l => l.SentAt >= from && l.OwnerType == type && l.OwnerKey == key)
@@ -535,9 +452,7 @@ public static class NotificationEndpoints
                 .ToList();
 
             // ── 쪽지 ─────────────────────────────────────
-            //
-            // 포털 계정끼리만 주고받으므로 주인 종류를 보지 않는다
-            // (`scom.notes` 머리말). 포털 계정이 아닌 주인에게는 셀 것이 없다.
+            // 포털 계정끼리만 주고받으므로 주인 종류를 보지 않는다.
             if (type == OwnerTypePortal)
             {
                 var inbox = db.Notes.AsNoTracking()
@@ -552,8 +467,7 @@ public static class NotificationEndpoints
                     Sent = await outbox.CountAsync(n => n.SentAt >= from, ct),
                     MailForwarded = await inbox.CountAsync(n => n.SentAt >= from && n.EmailSent, ct),
 
-                    // 안 읽은 것만 기간을 안 건다 — 오래된 것일수록 문제라
-                    // 기간으로 자르면 가장 중요한 것이 먼저 사라진다.
+                    // 안 읽은 것은 기간으로 자르지 않는다(오래된 안 읽은 것이 가장 중요하다).
                     UnreadTotal = await inbox.CountAsync(n => n.ReadAt == null, ct),
 
                     LastReceivedAt = await inbox.MaxAsync(n => (DateTime?)n.SentAt, ct),
@@ -566,8 +480,7 @@ public static class NotificationEndpoints
         .WithName("GetOwnerAppStatus");
 
         // ── 내 알림 설정 화면이 한 번에 받는 상태 ───────────
-        //
-        // 공개 키 · 스위치 셋 · 기기 목록을 따로 부르면 순서에 따라 화면이 깜빡인다.
+        // 공개 키·스위치·기기 목록을 한 번에 내린다(따로 부르면 화면이 깜빡인다).
         group.MapGet("/preferences/me", async (
             UserContext? user,
             [FromServices] AppDbContext db,
@@ -584,7 +497,6 @@ public static class NotificationEndpoints
                 OwnerKey = user.UserId,
                 Preference = await prefs.GetAsync("jsini", user.UserId, ct),
                 PushAvailable = v.IsConfigured,
-                // 공개 키는 비밀이 아니다 — 브라우저가 구독을 만들 때 쓰는 값이다.
                 VapidPublicKey = v.IsConfigured ? v.PublicKey : null,
                 Devices = await DevicesAsync(db, OwnerTypePortal, user.UserId)
             };
@@ -594,8 +506,7 @@ public static class NotificationEndpoints
         .WithName("GetMyNotificationPreference");
 
         // ── 내 알림 설정 저장 ───────────────────────────────
-        //
-        // 자기 것만 바꾼다. 주인을 지정하는 인자를 두지 않는 것이 가장 확실한 방어다.
+        // 자기 것만 바꾼다. 주인을 지정하는 인자가 없는 것이 방어다.
         group.MapPut("/preferences/me", async (
             [FromBody] UpdateNotificationPreferenceDto request,
             UserContext? user,
@@ -605,9 +516,7 @@ public static class NotificationEndpoints
         {
             if (user is null) return Results.Unauthorized();
 
-            // **NoteEmailEnabled 가 이 검사에 빠져 있었다.** 쪽지 메일 스위치만 눌러도
-            // 「바꿀 항목이 없습니다」로 400 이 났다 — 스위치는 도로 튕겨 나오고
-            // 화면에는 까닭이 안 뜬다. 칸을 늘릴 때마다 여기도 함께 늘려야 한다.
+            // NoteEmailEnabled 도 이 검사에 있어야 한다(빠지면 그 스위치만 눌러도 400). 항목을 늘리면 여기도 늘린다.
             if (request.PushEnabled is null &&
                 request.EmailEnabled is null &&
                 request.WeatherEnabled is null &&
@@ -626,16 +535,8 @@ public static class NotificationEndpoints
             var saved = await prefs.SaveAsync("jsini", user.UserId, request, user.UserId, ct);
 
             // ── 지나온 자리를 한 점 쌓는다 ──────────────────
-            //
-            // **「방금 쟀다」가 실려 있을 때만이다.** 설정 화면은 스위치 하나를
-            // 눌러도 좌표를 포함한 설정 전체를 보내므로(`ToggleAsync`), 좌표가
-            // 있다는 것만으로 쌓으면 **가만히 앉아 스위치를 만지는 동안 기록이
-            // 는다.** 같은 표시로 「확인한 때」가 찍힌다
-            // (`NotificationPreferenceService.SaveAsync`).
-            //
-            // **저장 뒤다.** 설정 저장이 실패하면 기록도 남지 않는 편이 맞고,
-            // 무엇보다 이 쪽이 앞에 서면 기록 쌓기가 깨질 때 증상이 「스위치가
-            // 안 눌린다」로 나타난다 — 원인에서 가장 먼 모양이다.
+            // 「방금 쟀다」가 실려 있을 때만 쌓는다(설정 화면은 스위치에도 좌표를 실어 보낸다).
+            // 설정 저장 뒤에 둔다(앞에 두면 기록 실패가 스위치 고장처럼 보인다).
             if (request.WeatherLocated == true
                 && request.WeatherLat is { } lat && request.WeatherLon is { } lon)
             {
@@ -663,16 +564,11 @@ public static class NotificationEndpoints
                     message: "알림 제목이 필요합니다.", code: "INVALID"));
             }
 
-            // **누가 보냈는지 함께 넘긴다.** 발송 뒤에 가장 먼저 묻는 것이고
-            // 기록에 없으면 답할 길이 없다(PushSendLog 머리말).
+            // 누가 보냈는지 함께 넘긴다(기록에 없으면 나중에 답할 길이 없다).
             var result = await sender.SendAsync(request, user.UserId, ct);
 
-            // 보낸 것이 하나도 없으면 성공으로 말하지 않는다. 이유는 result.Message 에 있다.
-            //
-            // **메일도 「보낸 것」으로 센다.** 알림관리에서 이메일을 켜 두면
-            // 구독한 기기가 하나도 없어도 알림은 나간 것이다 — 202 로 답하면
-            // 부르는 쪽(헬프데스크 따위)이 「수신 가능한 기기가 없습니다」를
-            // 경고로 쌓는다(`SendPushResultDto.Mailed`).
+            // 보낸 것이 없으면 성공으로 말하지 않는다(이유는 result.Message).
+            // 메일이 나갔으면 성공으로 센다(구독 기기가 없어도 부르는 쪽이 경고를 쌓지 않게).
             return result.Sent > 0 || result.Mailed > 0
                 ? Results.Ok(ApiResponse<SendPushResultDto>.Ok(result))
                 : Results.Json(
@@ -682,13 +578,7 @@ public static class NotificationEndpoints
         .WithName("SendPush");
 
         // ── 나에게 시험 발송 ────────────────────────────────
-        //
-        // 설정 화면의 [시험 발송] 이다. `/push` 로도 할 수 있지만 그러려면 화면이
-        // 자기 주인 키를 알아야 하고, 남의 키를 적어 보낼 여지가 생긴다.
-        // **대상을 서버가 정하는 길**을 따로 둔다.
-        //
-        // 켜짐 여부도 일부러 건너뛰지 않는다 — 실제로 알림이 가는 길과 같은 길을
-        // 통과해야 시험의 뜻이 있다. 껐으면 202 와 그 이유가 돌아온다.
+        // 대상을 서버가 정한다(주인 키를 화면이 적으면 남의 키가 들어온다). 켜짐 여부도 건너뛰지 않는다(실제 발송과 같은 길을 지나야 시험의 뜻이 있다).
         group.MapPost("/push/test", async (
             [FromBody] PushMessageDto? request,
             UserContext? user,
@@ -700,18 +590,14 @@ public static class NotificationEndpoints
             var message = request ?? new PushMessageDto();
             if (string.IsNullOrWhiteSpace(message.Title)) message.Title = "JSini 포털 시험 알림";
             if (string.IsNullOrWhiteSpace(message.Body)) message.Body = "이 알림이 보이면 설정이 정상입니다.";
-            // 누르면 설정 화면으로. **장례식장 「환경설정」이다** — 포털관리에
-            // 있던 「알림 설정」은 같은 판을 열던 중복이라 걷어냈다(2026-09-25).
+            // 누르면 장례식장 「환경설정」 화면으로 간다.
             if (string.IsNullOrWhiteSpace(message.Url)) message.Url = "/funeral/setting/environment";
 
-            // **시험 알림은 5분이다.** 「눌렀는데 안 온다」를 확인하려고 보내는 것이라
-            // 30분 뒤에 도착하면 시험의 뜻이 없다. 그때는 안 오는 것이 맞는 답이다.
-            // 여러 번 눌러도 줄에는 마지막 하나만 남게 열쇠를 준다.
+            // 시험 알림은 수명을 5분으로 준다(늦게 도착하면 뜻이 없다). 열쇠를 줘 여러 번 눌러도 줄은 하나만 남긴다.
             message.TtlSeconds ??= 300;
             message.Topic ??= "push-test";
 
-            // **구분은 부르는 쪽 말을 안 듣는다.** 이 주소로 온 것은 무엇이든
-            // 시험이고, 시험 줄이 공지나 배포로 섞이면 그 갈래의 건수가 틀어진다.
+            // 구분은 부르는 쪽 말을 듣지 않는다(이 주소로 온 것은 전부 시험이다).
             message.Category = PushCategories.Test;
 
             var result = await sender.SendAsync(new SendPushDto
@@ -732,37 +618,11 @@ public static class NotificationEndpoints
         .WithName("SendTestPushToMe");
 
         // ── 보낸 기록 ───────────────────────────────────────
-        //
-        // [왜 이 서비스에 있나]
-        //
-        // 포털관리의 「푸시 현황」·「발송 이력」은 한동안 **헬프데스크 DB** 를
-        // 읽었다(`helpdesk/dashboard/push-logs`). 그런데 거기에 쓰는 것은
-        // 헬프데스크 자신의 발송 코드뿐이라, 포털에서 보낸 알림은 화면에
-        // 한 줄도 안 나왔다 — 실제로 「메시지 발송」으로 보내고 나서
-        // 「기록이 왜 없나」 하는 물음을 받았다.
-        //
-        // **보낸 쪽이 자기 기록을 갖고 그 기록을 낸다.**
-        //
-        // [봉투 모양을 헬프데스크에 맞춘다]
-        //
-        // 목록은 `{ data, totalcount, totalpagecount }` 다. 프론트의
-        // `GetFlexibleCountedListAsync` 가 그 이름들을 찾아보게 되어 있어서,
-        // 맞춰 두면 화면은 주소만 바꾸면 된다.
+        // 보낸 쪽의 기록을 낸다. 목록 봉투 {data, totalcount, totalpagecount} 는 프론트가 찾는 이름이라 그대로 맞춘다.
 
         // ── 기기에 닿았다 ───────────────────────────────────
-        //
-        // **알림 길 중에 익명인 하나**다(게이트웨이의
-        // `notification-push-delivered-route`). 부르는 쪽은 브라우저의
-        // 서비스워커이고 거기에는 로그인 토큰이 없다 — 이 포털의 토큰은 서버가
-        // 들고 있고 브라우저로 안 내려온다(BFF).
-        //
-        // 신원 대신 **묶음 아이디와 그 기기의 구독 주소** 둘을 열쇠로 쓴다.
-        // 둘 다 그 알림을 실제로 받은 기기만 아는 값이고, 할 수 있는 일이
-        // 「닿았다고 찍는 것」뿐이라 새어도 잃는 것이 없다 — 쪽지 도착 보고
-        // (`/notes/delivered`)와 같은 짜임이다.
-        //
-        // **주인은 묻지 않는다.** 구독 주소가 곧 기기이고, 그 주소로 보낸 줄은
-        // 그 기기의 것뿐이다.
+        // 익명이다(서비스워커가 부르고 토큰이 없다). 묶음 아이디와 구독 주소로 찾고, 닿았다고 찍는 것뿐이라 새어도 잃을 것이 없다.
+        // 주인은 묻지 않는다(구독 주소가 곧 기기다).
         group.MapPost("/push/delivered", async (
             [FromBody] PushDeliveredDto request,
             [FromServices] AppDbContext db,
@@ -771,21 +631,15 @@ public static class NotificationEndpoints
             var nid = (request.Nid ?? string.Empty).Trim();
             var endpoint = (request.Endpoint ?? string.Empty).Trim();
 
-            // **없는 값에도 참을 돌려준다.** 404 로 가르면 묶음 아이디를 하나씩
-            // 넣어 「있는 알림」을 찾아볼 수 있게 된다. 길이 상한은 거름망이다 —
-            // 묶음은 GUID 이고 구독 주소는 푸시 서비스가 주는 URL 이다.
+            // 없는 값에도 참을 돌려준다(404 로 가르면 묶음 아이디로 알림을 찾아볼 수 있다).
             if (nid.Length == 0 || nid.Length > 64
                 || endpoint.Length == 0 || endpoint.Length > 1000)
             {
                 return Results.Ok(ApiResponse<bool>.Ok(true));
             }
 
-            // **묶음 × 기기로 한 줄만 찍는다.** 묶음만으로 찍으면 기기 넷에 보낸
-            // 알림이 한 대만 받고도 넷 다 닿은 것이 되어, 이 기능을 만든 까닭
-            // (「어느 기기가 못 받고 있나」)이 통째로 사라진다.
-            //
-            // **이미 찍힌 것은 그대로 둔다.** 처음 닿은 때가 알고 싶은 값이다 —
-            // 서비스워커가 같은 푸시로 두 번 깨어나는 일이 있다.
+            // 묶음 × 기기로 한 줄만 찍는다(묶음만 찍으면 한 대만 받아도 넷 다 닿은 것이 된다).
+            // 이미 찍힌 것은 두고 처음 닿은 때를 남긴다(같은 푸시로 두 번 깨어나기도 한다).
             var rows = await db.PushSendLogs
                 .Where(l => l.BatchId == nid && l.Endpoint == endpoint
                             && l.DeliveredAt == null)
@@ -819,15 +673,13 @@ public static class NotificationEndpoints
         {
             if (user is null) return Results.Unauthorized();
 
-            // 갈래를 주지 않으면 푸시만 본다 — 이 주소를 부르는 화면이
-            // 「푸시 발송 이력」이다. `channel=email` 로 메일 줄도 볼 수 있다.
+            // 갈래를 주지 않으면 푸시만 본다(메일 줄은 channel=email 로 따로 본다).
             var query = LogQuery(db, startDate, endDate,
                 string.IsNullOrWhiteSpace(channel) ? ChannelPush : channel.Trim());
 
             if (isSuccess.HasValue) query = query.Where(l => l.IsSuccess == isSuccess.Value);
 
-            // 사유는 **부분 일치**다. 화면의 칸이 자유 입력이라 「구독」처럼
-            // 한 토막만 치는 일이 많다.
+            // 사유는 부분 일치다(화면 칸이 자유 입력이라 한 토막만 치는 일이 많다).
             if (!string.IsNullOrWhiteSpace(failureReason))
             {
                 query = query.Where(l => l.FailureReason != null && l.FailureReason.Contains(failureReason));
@@ -842,8 +694,7 @@ public static class NotificationEndpoints
 
             var total = await query.CountAsync(ct);
 
-            // 쪽 크기를 묶어 둔다. 화면이 실수로 0 이나 십만을 보내면 서버가
-            // 통째로 들고 오게 된다.
+            // 쪽 크기를 묶어 둔다(0 이나 십만을 받으면 통째로 들고 오게 된다).
             var size = Math.Clamp(pageSize, 1, 500);
             var skip = Math.Max(0, page - 1) * size;
 
@@ -897,14 +748,7 @@ public static class NotificationEndpoints
             var ng = rows.FirstOrDefault(r => !r.Success)?.Count ?? 0;
             var total = ok + ng;
 
-            // **여기만 `ApiResponse` 를 쓰지 않는다.**
-            //
-            // 그 봉투는 무엇을 담든 `data.result` **배열**로 만든다 — 객체 하나를
-            // 줘도 원소 하나짜리 배열이 된다(ApiResponse.BuildSerializedData).
-            // 목록에는 맞는 규칙인데, 값 한 벌을 받는 화면은 그 배열을 객체로
-            // 읽지 못해 **타일이 통째로 안 그려진다**(실제로 그랬다).
-            //
-            // 아래 목록 엔드포인트와 같은 맨 봉투로 돌려준다.
+            // 이 엔드포인트만 ApiResponse 를 쓰지 않는다(값 한 벌을 받는 화면이 타일을 그릴 수 있게 맨 봉투로 돌려준다).
             return Results.Ok(new
             {
                 success = true,
@@ -913,7 +757,7 @@ public static class NotificationEndpoints
                     totalSent = total,
                     successCount = ok,
                     failureCount = ng,
-                    // **서버가 계산한다.** 화면 둘이 각자 나누면 0건일 때의 답이 갈린다.
+                    // 서버가 계산한다(화면이 각자 나누면 0건일 때의 답이 갈린다).
                     successRate = total == 0 ? 0d : Math.Round(ok * 100d / total, 1),
                 },
             });
@@ -931,8 +775,7 @@ public static class NotificationEndpoints
 
             var from = Since(days);
 
-            // **날짜로 묶는 일을 DB 에 시킨다.** 줄을 다 받아 와서 세면 기간이
-            // 길어질수록 그대로 무거워진다.
+            // 날짜로 묶는 일은 DB 에 시킨다(줄을 다 받아 세면 기간이 길수록 무거워진다).
             var grouped = await db.PushSendLogs
                 .Where(l => l.SentAt >= from && l.Channel == ChannelPush)
                 .GroupBy(l => l.SentAt.Date)
@@ -979,22 +822,8 @@ public static class NotificationEndpoints
         .WithName("GetPushFailureReasons");
 
         // ── 내 알림함 ───────────────────────────────────────
-        //
-        // 「발송 이력」과 **같은 표를 다른 각도로** 본다. 그쪽은 보낸 사람이
-        // 「무엇이 어디로 갔나」를 보는 자리이고, 여기는 받은 사람이 「내게
-        // 무엇이 왔나」를 보는 자리다.
-        //
-        // [줄을 묶어서 낸다]
-        //
-        // 표의 줄은 **기기 단위**다. 기기 둘을 쓰는 사람에게 같은 알림이 두 줄로
-        // 보이면 안 되므로 `batch_id`(발송 한 번) 로 묶는다. 옛 줄에는 그 값이
-        // 없어서 **줄 아이디를 열쇠로 삼는다** — 묶을 것이 없으면 그것이 곧 한 건이다.
-        //
-        // [못 간 것도 보여 준다]
-        //
-        // 푸시가 실패했거나 본인이 푸시를 꺼 두었어도 **내게 온 소식인 것은
-        // 같다.** 알림함이 있는 값어치의 절반이 그것이다 — 알림을 못 받은
-        // 사람이 나중에라도 여기서 본다.
+        // 발송 이력과 같은 표를 받는 사람 쪽에서 본다. 기기 단위 줄은 batch_id 로 묶고, 옛 줄은 줄 아이디가 곧 한 건이다.
+        // 실패하거나 본인이 끈 것도 내게 온 소식이므로 보여 준다.
 
         group.MapGet("/inbox", async (
             UserContext? user,
@@ -1012,9 +841,7 @@ public static class NotificationEndpoints
             var mine = LogQuery(db, startDate, endDate)
                 .Where(l => l.OwnerType == "jsini" && l.OwnerKey == user.UserId)
 
-                // **치운 것은 안 보인다.** 줄은 남아 있다 — 이 표는 발송
-                // 기록이기도 해서, 받는 사람이 제 목록을 정리한 것이
-                // 「푸시 현황」의 건수를 깎으면 안 된다(`DeleteInbox` 머리말).
+                // 치운 줄도 남긴다(이 표는 발송 기록이기도 해서 치운 것이 「푸시 현황」 건수를 깎으면 안 된다).
                 .Where(l => l.DeletedAt == null);
 
             mine = ByCategory(mine, category);
@@ -1031,29 +858,15 @@ public static class NotificationEndpoints
                     || (l.Body != null && EF.Functions.ILike(l.Body, pattern, "\\")));
             }
 
-            // **안 읽은 것만 보기는 여기서도 거른다.**
-            //
-            // 화면도 받아 둔 것에서 거르지만(누르는 즉시 반영된다) 그것만으로는
-            // 부족하다 — 이 화면의 기본 조건이 「안 읽은 것만」이라, 서버가
-            // 다 보내면 **거의 다 읽은 한 달치를 받아 와 몇 줄만 그리게** 된다.
-            // 상한(아래 `take`)도 읽은 줄이 먼저 먹는다.
-            //
-            // 묶음 단위로 본다 — 기기 하나만 찍힌 줄이 있으면 그 묶음은
-            // 읽은 것이다(읽음은 사람의 상태다).
+            // 안 읽은 것만 보기는 서버에서 거른다(상한 take 를 읽은 줄이 먼저 먹지 않게).
+            // 묶음 단위로 본다(기기 하나만 찍힌 줄이 있으면 그 묶음은 읽은 것이다).
             if (unreadOnly)
             {
                 var readBatches = mine.Where(l => l.ReadAt != null).Select(l => l.BatchId ?? l.Id);
                 mine = mine.Where(l => !readBatches.Contains(l.BatchId ?? l.Id));
             }
 
-            // **줄을 받아 와서 묶는다.**
-            //
-            // DB 에서 묶으려 했는데(`GroupBy` + `Any`/`Max` 투영) EF 가 그
-            // 조합을 번역하지 못해 요청이 통째로 죽었다(게이트웨이에는 502 로
-            // 보인다). 여기서 받아 오는 것은 **한 사람의 한 달치**이고 기기
-            // 수만큼만 늘어나는 양이라, 메모리에서 묶는 편이 안전하다.
-            //
-            // 상한은 그래도 건다 — 기간을 아주 넓게 잡는 사람이 있다.
+            // 줄을 받아 메모리에서 묶는다(EF 가 GroupBy 를 번역하지 못해 502 가 났다). 상한은 그래도 건다.
             var rows = (await mine
                     .OrderByDescending(l => l.SentAt)
                     .Take(Math.Clamp(take, 1, 2000) * 4)
@@ -1074,8 +887,7 @@ public static class NotificationEndpoints
                 .GroupBy(l => l.Key)
                 .Select(g =>
                 {
-                    // 한 대라도 갔으면 「도착」이다. 다 못 갔으면 그 까닭을
-                    // 보여 준다 — 「안 왔는데 목록에는 있다」를 설명하는 자리다.
+                    // 한 대라도 갔으면 도착이다. 다 못 갔으면 까닭을 보여 준다.
                     var delivered = g.Any(x => x.IsSuccess);
 
                     return new NotificationRowDto
@@ -1087,15 +899,12 @@ public static class NotificationEndpoints
                         Category = g.First().Category,
                         CreatedAt = g.Max(x => x.SentAt),
 
-                        // **한 기기라도 읽었으면 읽은 것이다.** 읽음은 사람의
-                        // 상태이고, 읽음 처리가 그 묶음을 통째로 찍는다.
+                        // 한 기기라도 읽었으면 읽은 것이다(읽음 처리는 묶음을 통째로 찍는다).
                         IsRead = g.Any(x => x.ReadAt != null),
 
                         Delivered = delivered,
 
-                        // **비어 있지 않은 것을 고른다.** 기기 줄마다 같은 값이
-                        // 들어가지만, 칸이 생기기 전에 보낸 줄이 묶음에 섞여
-                        // 있으면 `First()` 가 빈 줄을 집을 수 있다.
+                        // 비어 있지 않은 줄을 고른다(칸이 생기기 전 줄이 섞이면 First() 가 빈 줄을 집을 수 있다).
                         Icon = g.Select(x => x.Icon).FirstOrDefault(i => !string.IsNullOrWhiteSpace(i)),
 
                         FailureReason = delivered
@@ -1111,22 +920,8 @@ public static class NotificationEndpoints
         })
         .WithName("GetMyInbox");
 
-        // 안 읽은 건수. **상단 띠의 종에 붙는 숫자가 이것이다.**
-        //
-        // [세는 조건이 위 목록과 한 글자도 어긋나면 안 된다]
-        //
-        // 이 숫자를 보고 사람이 여는 것은 바로 위 `/inbox?unreadOnly=true` 다.
-        // 그래서 여기서 세는 것과 거기서 나오는 것이 다르면 **「3건이라더니
-        // 2건만 있다」** 가 된다. 자료가 아니라 숫자가 틀린 것인데, 화면에는
-        // 목록이 모자란 것으로 보인다.
-        //
-        // 실제로 어긋나 있었다 — 목록은 `LogQuery` 가 **푸시만** 보는데
-        // (갈래를 안 주면 그렇다) 여기서는 갈래를 안 가려 **메일로 간 줄까지**
-        // 세고 있었다. 메일만 받은 사람은 종에 숫자가 붙은 채 창을 열면
-        // 「새로운 알림이 없습니다」를 봤다.
-        //
-        // 그래서 목록과 **같은 길**(`LogQuery`)로 센다. 기간은 주지 않는다 —
-        // 목록도 안 주므로 둘 다 전체를 본다.
+        // 안 읽은 건수. 상단 종의 숫자이므로 목록과 같은 길(LogQuery, 푸시만)로 센다.
+        // 목록이 기간을 안 주므로 세도 기간을 주지 않는다.
         group.MapGet("/inbox/unread-count", async (
             UserContext? user,
             [FromServices] AppDbContext db,
@@ -1134,8 +929,7 @@ public static class NotificationEndpoints
         {
             if (user is null) return Results.Unauthorized();
 
-            // **목록과 한 글자도 어긋나면 안 된다** — 위 머리말 참고.
-            // 치운 줄을 여기서만 안 거르면 종에 붙은 숫자가 목록보다 많아진다.
+            // 목록과 한 글자도 어긋나면 안 된다(치운 줄을 여기서만 안 거르면 종 숫자가 목록보다 많아진다).
             var mine = LogQuery(db, null, null)
                 .Where(l => l.OwnerType == "jsini" && l.OwnerKey == user.UserId
                             && l.DeletedAt == null);
@@ -1159,8 +953,7 @@ public static class NotificationEndpoints
         {
             if (user is null) return Results.Unauthorized();
 
-            // 치운 것은 목록에 없으니 찍을 것도 없다. 안 걸러도 겉보기는
-            // 같지만, 치워 둔 옛 줄 수백 개를 함께 갱신하게 된다.
+            // 치운 것은 목록에 없으니 찍을 것도 없다(안 거르면 치워 둔 옛 줄 수백 개를 갱신하게 된다).
             var mine = await db.PushSendLogs
                 .Where(l => l.OwnerType == "jsini" && l.OwnerKey == user.UserId
                             && l.ReadAt == null && l.DeletedAt == null)
@@ -1188,8 +981,7 @@ public static class NotificationEndpoints
         {
             if (user is null) return Results.Unauthorized();
 
-            // **남의 알림을 찍지 못한다.** 열쇠만 보고 갱신하면 아이디를 아는
-            // 사람이 남의 알림함을 건드릴 수 있다.
+            // 열쇠만 보고 갱신하지 않는다(아이디만 아는 사람이 남의 알림함을 건드릴 수 있다).
             var mine = await db.PushSendLogs
                 .Where(l => l.OwnerType == "jsini" && l.OwnerKey == user.UserId
                             && (l.BatchId == id || l.Id == id))
@@ -1212,32 +1004,8 @@ public static class NotificationEndpoints
         })
         .WithName("MarkInboxRead");
 
-        // 알림함에서 한 건을 **치운다.**
-        //
-        // [읽음으로는 안 되는 자리가 있다]
-        //
-        // 읽을 것도 없이 치우려는 알림이 꽤 있다. 그것을 읽음(`/read`)으로
-        // 찍으면 목록에서는 빠지지만 뜻은 「봤다」라서, 「안 읽은 것만」을
-        // 풀어 보는 순간 도로 다 나온다. 화면에서는 **카드를 왼쪽으로 미는
-        // 것**이 이 길이고 오른쪽이 읽음이다.
-        //
-        // [줄은 지우지 않는다]
-        //
-        // 이 표는 받는 사람의 알림함이면서 **보낸 쪽의 발송 기록**이다
-        // (`PushSendLog` 머리말). 진짜로 지우면 「푸시 현황」·「발송 이력」의
-        // 건수가 함께 줄어든다 — 받는 사람이 제 목록을 정리한 것뿐인데
-        // 보낸 통계가 바뀐다. 못 간 알림의 실패 사유를 모아 보는 자리도
-        // 같은 이유로 무너진다. 그래서 `deleted_at` 을 찍고 알림함 세 길
-        // (`/inbox` · `/inbox/unread-count` · `/inbox/read-all`)에서만 거른다.
-        //
-        // [묶음 단위다]
-        //
-        // 읽음과 같다 — 그 묶음(`batch_id`)에 딸린 그 사람의 줄을 전부
-        // 찍는다. 한 줄만 찍으면 기기 둘을 쓰는 사람의 목록에 나머지가 남는다.
-        //
-        // [남의 것을 못 지운다]
-        //
-        // 열쇠만 보고 갱신하지 않는다. 소유자를 함께 본다.
+        // 알림함에서 한 건을 치운다(읽음으로는 부족하다 — 읽음은 안 읽은 것만 보면 도로 나온다).
+        // 줄은 지우지 않고 deleted_at 만 찍는다(이 표는 발송 기록이기도 하다). 묶음 단위로 그 사람의 줄을 찍는다.
         group.MapDelete("/inbox/{id}", async (
             string id,
             UserContext? user,
@@ -1257,9 +1025,7 @@ public static class NotificationEndpoints
                     message: "그런 알림이 없습니다.", code: "NOT_FOUND"));
             }
 
-            // **두 번 눌러도 처음 시각이 남는다.** 이미 치운 줄을 다시 찍으면
-            // 「언제 치웠나」가 마지막 손짓 시각으로 밀린다 — 알림함에서
-            // 보이지 않는 것은 어차피 같으니 덮을 까닭이 없다.
+            // 두 번 눌러도 처음 시각을 남긴다(다시 찍으면 치운 시각이 밀린다).
             var now = DateTime.UtcNow;
             foreach (var row in mine.Where(r => r.DeletedAt is null))
             {
@@ -1271,20 +1037,7 @@ public static class NotificationEndpoints
         })
         .WithName("DeleteInbox");
 
-        // 알림함에서 **고른 것 여럿**을 한꺼번에 읽음으로 찍는다.
-        //
-        // [왜 한 건짜리 길을 되풀이해 부르지 않는가]
-        //
-        // 화면의 머리 체크 하나로 수백 줄이 잡힌다. 그것을 `/inbox/{id}/read`
-        // 로 한 줄씩 부르면 왕복이 그만큼 늘고, 중간에 하나가 끊기면
-        // **어디까지 찍혔는지**를 사람이 알 길이 없다. 여기서는 저장이 한
-        // 번이라 전부 되거나 전부 안 된다.
-        //
-        // [전부가 아니다 — 고른 것만이다]
-        //
-        // `/inbox/read-all` 과 다르다. 그쪽은 조건 없이 그 사람의 안 읽은
-        // 줄을 전부 찍고, 여기는 **사람이 체크한 묶음만** 찍는다.
-        //
+        // 고른 묶음만 읽음으로 찍는다(한 건짜리 길을 되풀이하면 왕복이 늘고 중간에 끊기면 어디까지 찍혔는지 알 수 없다).
         // 묶음 단위·소유자 확인은 한 건짜리 길과 같다.
         group.MapPost("/inbox/read-many", async (
             [FromBody] InboxBulkDto request,
@@ -1317,24 +1070,14 @@ public static class NotificationEndpoints
                 await db.SaveChangesAsync(ct);
             }
 
-            // 센 것은 **묶음 수**다. 기기 둘을 쓰는 사람은 줄이 더 많지만
-            // 화면이 고른 것은 묶음이라, 줄 수를 돌려주면 「3건 골랐는데
-            // 5건 처리」가 된다.
+            // 센 것은 묶음 수다(줄 수를 돌려주면 「3건 골랐는데 5건 처리」가 된다).
             return Results.Ok(ApiResponse<int>.Ok(
                 mine.Select(r => r.BatchId ?? r.Id).Distinct().Count()));
         })
         .WithName("MarkInboxReadMany");
 
-        // 알림함에서 **고른 것 여럿**을 한꺼번에 치운다.
-        //
-        // 줄을 지우지 않고 `deleted_at` 을 찍는 까닭과 묶음 단위인 까닭은
-        // 바로 위 `DELETE /inbox/{id}` 머리말에 있다. 여기서 더해지는 것은
-        // 「한 번의 저장」뿐이다 — 일괄 삭제는 **절반만 지워지는 것**이
-        // 가장 나쁘다.
-        //
-        // **DELETE 가 아니라 POST 다.** 본문에 목록을 싣는 DELETE 는
-        // 중간의 프록시마다 몸체를 다르게 다룬다(게이트웨이도 그 길을
-        // 지난다).
+        // 고른 것 여럿을 한꺼번에 치운다(줄은 지우지 않고 deleted_at 을 찍는다). 절반만 지워지는 것이 가장 나쁘므로 저장은 한 번이다.
+        // DELETE 가 아니라 POST 다(본문을 싣는 DELETE 는 중간 프록시가 몸체를 다르게 다룬다).
         group.MapPost("/inbox/delete-many", async (
             [FromBody] InboxBulkDto request,
             UserContext? user,
@@ -1371,9 +1114,7 @@ public static class NotificationEndpoints
         })
         .WithName("DeleteInboxMany");
 
-        // ── 이메일 발송 ─────────────────────────────────────
-        //
-        // 큐에 넣는 것까지가 이 서비스의 일이다. 실제 발송은 배포 장비의 스크립트가 한다.
+        // 큐에 넣는 것까지가 이 서비스의 일이다.
         group.MapPost("/email", async (
             [FromBody] SendEmailDto request,
             UserContext? user,
@@ -1393,23 +1134,13 @@ public static class NotificationEndpoints
         .WithName("SendEmail");
     }
 
-    /// <summary>
-    /// 기간을 건 기록 질의. 세 통계와 목록이 같은 기준을 써야 해서 한 곳에 둔다 —
-    /// 갈라 두면 「현황의 건수와 이력의 줄 수가 다르다」가 난다.
-    /// </summary>
-    /// <remarks>
-    /// <paramref name="endDate"/> 는 <b>그 날의 끝까지</b> 넣는다. 날짜만 받는
-    /// 칸이라 그대로 비교하면 마지막 날이 통째로 빠진다.
-    /// </remarks>
+    /// <summary>기간을 건 기록 질의. 세 통계와 목록이 같은 기준을 쓴다. endDate 는 그 날의 끝까지 넣는다.</summary>
     private static IQueryable<Entities.PushSendLog> LogQuery(
         AppDbContext db, DateTime? startDate, DateTime? endDate, string? channel = ChannelPush)
     {
         var query = db.PushSendLogs.AsQueryable();
 
-        // **길을 안 거르면 메일이 푸시 통계에 섞인다.** 한동안 이 표에 쓰는
-        // 것이 푸시뿐이라 거를 것이 없었는데, 메일 직발송도 자기 줄을 남기게
-        // 되면서 「푸시 현황」의 건수가 메일만큼 부풀게 됐다. 갈래를 주지
-        // 않으면 푸시만 본다 — 부르는 자리 대부분이 푸시 화면이다.
+        // 길을 안 거르면 메일이 푸시 통계에 섞이므로, 갈래를 주지 않으면 푸시만 본다.
         if (!string.IsNullOrWhiteSpace(channel))
         {
             query = query.Where(l => l.Channel == channel);
@@ -1428,21 +1159,8 @@ public static class NotificationEndpoints
         return query;
     }
 
-    /// <summary>
-    /// 알림구분으로 거른다. 「내 알림함」과 「발송 이력」이 같은 규칙을 써야 한다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 코드값은 <b>한 글자도 틀리지 않게</b> 맞춘다 — 실패 사유와 달리 이것은
-    /// 공통코드에서 고른 값이라 부분 일치로 풀 이유가 없고, 풀어 두면
-    /// <c>AI_TASK</c> 를 찾을 때 <c>AI</c> 로 시작하는 다른 구분까지 딸려 온다.
-    /// </para>
-    /// <para>
-    /// <see cref="PushCategories.Unset"/> 은 <b>구분이 안 붙은 줄</b>을 찾는
-    /// 이름표다. 구분을 붙이기 전에 쌓인 기록과 구분을 빠뜨린 발송이 거기
-    /// 모인다 — 그 자리가 곧 「어디서 빠뜨렸나」를 찾는 자리다.
-    /// </para>
-    /// </remarks>
+    /// <summary>알림구분으로 거른다. 코드값은 부분 일치가 아니라 정확히 맞춘다(AI_TASK 를 AI 로 찾으면 다른 구분이 딸려 온다).
+    /// PushCategories.Unset 은 구분이 안 붙은 줄을 찾는 이름표다.</summary>
     private static IQueryable<Entities.PushSendLog> ByCategory(
         IQueryable<Entities.PushSendLog> query, string? category)
     {
@@ -1461,42 +1179,15 @@ public static class NotificationEndpoints
     private static DateTime Since(int days) =>
         DateTime.UtcNow.Date.AddDays(-Math.Max(1, days) + 1);
 
-    /// <summary>
-    /// 묶음 요청에서 <b>쓸 수 있는 열쇠</b>만 골라낸다.
-    /// </summary>
-    /// <remarks>
-    /// 빈 값은 떨어뜨리고 같은 것은 한 번만 남긴다 — 같은 열쇠가 두 번
-    /// 들어와도 <c>IN</c> 절만 길어질 뿐 결과는 같다. 알림함이 한 번에 주는
-    /// 줄이 상한 2,000 이라 여기 오는 수도 그 안이다.
-    /// </remarks>
+    /// <summary>묶음 요청에서 쓸 수 있는 열쇠만 고른다. 빈 값은 떨어뜨리고 중복은 한 번만 남긴다.</summary>
     private static List<string> Keys(InboxBulkDto request) =>
         [.. (request.Ids ?? [])
             .Where(id => !string.IsNullOrWhiteSpace(id))
             .Select(id => id.Trim())
             .Distinct(StringComparer.Ordinal)];
 
-    /// <summary>
-    /// 한 사람의 기기(구독) 목록. 최근 등록한 것이 위다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <c>/subscriptions/me</c> 와 <c>/preferences/me</c> 가 같은 목록을 준다.
-    /// 두 곳에 같은 질의를 적으면 한쪽만 고치는 일이 생기므로 한 곳으로 모았다.
-    /// </para>
-    /// <para>
-    /// <b>주인을 인자로 받는다.</b> 한동안 로그인한 본인으로 못박혀 있었는데,
-    /// 계정 앱 현황(<c>/owners/{ownerKey}/app-status</c>)이 남의 기기 목록을
-    /// 보여 준다 — 같은 질의를 한 벌 더 적으면 칸이 갈라진다.
-    /// </para>
-    /// </remarks>
-    /// <summary>
-    /// 기기 목록이 <b>도달 기록을 함께 세는 기간</b>(일). 30 일이다.
-    /// </summary>
-    /// <remarks>
-    /// 처음부터 세면 구독을 만든 날 이후의 모든 발송이 들어와, 한 달 전에
-    /// 죽은 기기가 <b>「30건 중 28건 도달」</b>로 보인다 — 이 칸이 답해야 하는
-    /// 물음은 <b>「지금 받고 있나」</b>다.
-    /// </remarks>
+    /// <summary>한 사람의 기기(구독) 목록. 최근 등록순. 주인을 인자로 받는다(본인으로 못 박으면 계정 앱 현황이 남의 기기를 보여 줄 수 없다).</summary>
+    /// <summary>기기 목록이 도달 기록을 세는 기간(일, 30). 처음부터 세면 한 달 전에 죽은 기기가 「30건 중 28건 도달」로 보인다.</summary>
     private const int DeviceDeliveryDays = 30;
 
     private static async Task<List<PushDeviceDto>> DevicesAsync(
@@ -1505,10 +1196,7 @@ public static class NotificationEndpoints
         var devices = await DeviceRowsAsync(db, ownerType, ownerKey);
         if (devices.Count == 0) return devices;
 
-        // ── 기기마다 「보낸 것」과 「닿은 것」을 센다 ─────────
-        //
-        // **성공한 줄만 센다.** 못 보낸 줄(구독 없음·본인이 끔)은 그 기기의
-        // 몫이 아닌데 분모에 넣으면 멀쩡한 기기가 「열 중 둘」로 보인다.
+        // 성공한 줄만 센다(못 보낸 줄은 그 기기 몫이 아니라 분모에 넣으면 멀쩡한 기기가 낮게 보인다).
         var from = Since(DeviceDeliveryDays);
 
         var counts = await db.PushSendLogs

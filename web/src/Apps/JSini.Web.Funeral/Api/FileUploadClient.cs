@@ -5,13 +5,7 @@ using System.Text.Json.Serialization;
 
 namespace JSini.Web.Funeral.Api;
 
-/// <summary>
-/// FileServer 업로드 (게이트웨이 <c>/api/file/upload</c>).
-///
-/// GatewayClient 에는 멀티파트가 없어서 따로 둔다 — 같은 BaseAddress 와
-/// <c>AuthTokenHandler</c> 로 등록하므로(FuneralModule) 토큰 처리도 같다.
-/// Vue 원본: <c>api/examples/upload.ts</c> 의 <c>upload_file</c>.
-/// </summary>
+/// <summary>FileServer 업로드(게이트웨이 /api/file/upload). GatewayClient 는 멀티파트를 못 다뤄 따로 두며, 같은 주소·AuthTokenHandler 로 붙는다.</summary>
 public sealed class FileUploadClient(HttpClient http)
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
@@ -19,14 +13,12 @@ public sealed class FileUploadClient(HttpClient http)
         PropertyNameCaseInsensitive = true,
     };
 
-    /// <summary>
-    /// 파일 하나를 올린다. 성공하면 서버가 발급한 파일 정보(주소·썸네일)를 준다.
-    /// </summary>
-    /// <param name="content">파일 내용 스트림</param>
-    /// <param name="fileName">원본 파일 이름</param>
-    /// <param name="contentType">MIME 타입. 모르면 application/octet-stream.</param>
-    /// <param name="bizType">FileServer 의 업무 구분. 장례식장은 funeralv2.</param>
-    /// <param name="ct">취소 토큰</param>
+    /// <summary>파일 하나를 올린다. 성공하면 서버가 발급한 파일 정보(주소·썸네일)를 준다.</summary>
+    /// <param name="content">올릴 내용.</param>
+    /// <param name="fileName">파일 이름.</param>
+    /// <param name="contentType">모르면 application/octet-stream.</param>
+    /// <param name="bizType">FileServer 업무 구분. 장례식장은 funeralv2.</param>
+    /// <param name="ct">취소 토큰.</param>
     public async Task<UploadedFile?> UploadAsync(
         Stream content,
         string fileName,

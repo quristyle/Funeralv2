@@ -6,10 +6,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HelpDeskServer.Endpoints;
 
-/// <summary>
-/// funeralv2 계정 ↔ 헬프데스크 계정 매핑 관리 엔드포인트.
-/// 로그인 아이디나 이메일이 서로 다른 사용자를 관리자가 직접 이어줄 때 쓴다.
-/// </summary>
+/// <summary>funeralv2 계정 ↔ 헬프데스크 계정 매핑 관리 엔드포인트. 로그인 아이디나 이메일이 서로 다른 사용자를 관리자가 직접 이어줄 때 쓴다.</summary>
 public static class AuthLinkEndpoints {
   /// <summary>매핑 관리 엔드포인트를 등록한다.</summary>
   public static void MapAuthLinkEndpoints(this IEndpointRouteBuilder app) {
@@ -48,9 +45,9 @@ public static class AuthLinkEndpoints {
     // 현재 토큰이 어떤 헬프데스크 계정으로 해석되는지 돌려준다. 연결 상태 점검용.
     // 연결이 없어도 200 으로 돌려준다.
     //
-    // 전에는 uid 가 없으면 예외를 던졌다. 그러면 프론트는 "연결이 없다" 와 "서버가 죽었다" 를
+    // uid 가 없으면 예외를 던지면 프론트는 "연결이 없다" 와 "서버가 죽었다" 를
     // 구분할 수 없고, 담당자 권한이 있는 계정조차 신원을 아예 받지 못해 화면이 통째로 잠겼다.
-    // 이제 무엇을 할 수 있는지(isAdmin)와 무엇이 없는지(linked=false)를 함께 알려 준다.
+    // 무엇을 할 수 있는지(isAdmin)와 무엇이 없는지(linked=false)를 함께 알려 준다.
     group.MapGet("/me", (ClaimsPrincipal principal, HttpContext http) => ApiResponseBuilder.CreateAsync(async () => {
       await Task.CompletedTask;
 

@@ -2,58 +2,14 @@
 @attribute [RouteKey("admin.system.account")]
 
 @*
-    [계정 관리] — DB 메뉴 `/system/account`.
-
-    화면 구성: 조회 영역(CommSch) → 자료 영역(CommCont + CommGrd).
-    로그인 아이디는 등록할 때만 정한다 — 권한표·즐겨찾기의 열쇠라 바꾸면
-    그 사람의 기록이 끊긴다.
-
-    [첫 비밀번호는 등록 직후 한 번만 보인다]
-
-    서버가 계정마다 무작위로 발급해 **해시로만** 저장하고, 발급한 평문은
-    등록 응답에 한 번 실어 보낸다. 그래서 이 창을 닫으면 아무도 그 값을
-    알 수 없다 — 다시 보여 줄 방법이 없으니 창을 스스로 닫게 두고
-    「확인했다」를 누르게 한다.
-
-    받은 사람은 첫 로그인에서 곧바로 비밀번호를 바꾸게 된다(만료 시계를
-    이미 지난 시각으로 넣어 둔다). 바꾸는 화면은 셸의 `/password/change` 다.
-
-    ────────────────────────────────────────────────────────────
-    [알림 상태를 함께 보여 준다]
-
-    「왜 저 사람만 알림을 못 받나」를 알아보려면 여태 그 사람 계정으로
-    로그인해 보는 수밖에 없었다. 자기 설정을 보는 화면(`/funeral/setting/environment`)은
-    **자기 것만** 보여 준다.
-
-    그래서 칸 넷을 붙였다 — **구독**(기기 몇 대) · **푸시** · **이메일** ·
-    **기상특보**. 발송이 안 닿는 까닭이 대개 이 넷 중 하나다.
-
-    [구독과 스위치는 다른 것이다]
-
-    구독은 **기기**다(브라우저마다 한 행). 스위치는 **사람의 뜻**이다.
-    둘을 한 칸으로 뭉치면 못 받는 까닭을 가릴 수 없다 —
-    **기기가 0 대면 푸시를 켜 두어도 도착할 곳이 없고**, 기기가 있어도
-    스위치가 꺼져 있으면 서버가 발송 직전에 거른다.
-
-    [안 저장한 사람과 켜 둔 사람을 구분한다]
-
-    알림 설정 표에는 **한 번이라도 저장한 사람만** 행이 있다. 행이 없으면
-    푸시·이메일은 켜짐, 기상특보는 꺼짐이 기본값이다(`NotificationPreference`
-    머리말). 그 사람을 그냥 「켜짐」으로 그리면 **한 번도 안 건드린 것**과
-    **일부러 켜 둔 것**이 같은 그림이 된다 — 앞엣것은 흐리게 그리고 칸에
-    「기본값」이라고 적어 둔다.
-
-    [따로 읽는다 — 계정 조회를 건드리지 않는다]
-
-    알림은 다른 서비스(NotificationServer)의 표다. 계정 목록에 조인해 오게
-    하면 **알림 서버가 죽었을 때 계정 관리가 통째로 안 열린다.** 두 번 읽고
-    화면에서 로그인 아이디로 맞춘다 — 알림 쪽이 실패하면 그 칸만 비고
-    계정 목록은 그대로 뜬다.
+    [계정 관리] DB 메뉴 `/system/account`. 조회 영역(CommSch) → 자료 영역(CommCont + CommGrd).
+    로그인 아이디는 등록할 때만 정한다(권한표·즐겨찾기의 열쇠). 첫 비밀번호는 등록·초기화 응답에 한 번만 실려 창에 띄운다 — 닫으면 다시 못 본다.
+    알림 상태 넷(구독 · 푸시 · 이메일 · 기상특보)은 다른 서비스 표라 따로 읽는다 — 알림 서버가 죽어도 계정 목록은 뜬다. 행이 없으면 기본값이고 흐리게 그린다.
 *@
 
 @inherits DataPage
 
-<PageTitle>계정 관리 · 포털관리</PageTitle>
+<PageTitle>계정 관리</PageTitle>
 
 @* 조회 안내. 저장·삭제 안내는 CommGrd 가 자기 자리에 띄운다. *@
 
@@ -70,28 +26,15 @@
         </CommSchItem>
     </Fields>
 
-    @* 가입 신청은 DB 메뉴에 없어 사이드바에 뜨지 않는다. 들어가는 길이
-       여기뿐이라 단추를 둔다 — 그 화면의 머리말에 사연이 있다.
-
-       **조회 영역에 둔다.** 표 안 도구줄에 두면 칸이 열몇 개인 이 화면에서
-       가로 스크롤 저편으로 밀려나고, 저쪽 화면과 자리도 어긋난다 —
-       저쪽은 조건 칸이 없어 도구줄의 높이 자체가 다르다. 두 화면을
-       오가는 단추이므로 **같은 자리에 있어야** 오가는 것으로 읽힌다. *@
+    @* 가입 신청은 DB 메뉴에 없어 사이드바에 뜨지 않는다 — 들어가는 길이 여기뿐이라 단추를 둔다. 조회 영역에 둔다(표 안에 두면 가로 스크롤 저편으로 밀린다). *@
     <Actions>
         <DxButton Text="가입현황" RenderStyle="ButtonRenderStyle.Secondary"
                   Click="@(() => Navigation.NavigateTo("/admin/system/signup"))" />
     </Actions>
 </CommSch>
 
-@* `PopupEditFormCssClass` 는 편집 창을 넓히려고 준다. DevExpress 기본 폭이
-   500px 남짓인데 이 폼은 두 줄기라, 표제 칸을 빼면 편집기 하나가 145px 밖에
-   안 남아 「미르작은사장님」 같은 이름이 칸을 꽉 채운다. 생일 줄의 네모 둘도
-   그 폭에서는 두 줄로 접힌다.
-
-   **여는 태그 안에서는 Razor 주석을 쓰지 않는다** — 속성을 적는 자리에 주석을
-   끼우면 Razor 가 그 글자를 **속성 이름으로** 넘기고, 브라우저가
-   `setAttribute` 에서 던지면서 **회로가 끊겨** 표가 통째로 안 그려진다
-   (실제로 밟았다). 할 말은 태그 밖에 적는다. *@
+@* PopupEditFormCssClass 는 편집 창을 넓힌다 — 기본 폭에서는 편집기 하나가 145px 밖에 안 남는다.
+   여는 태그 안에 Razor 주석을 쓰지 않는다 — 속성 자리에 끼우면 회로가 끊겨 표가 통째로 안 그려진다. *@
 <CommCont>
     <CommGrd TItem="AccountDto"
              Data="@Shown"
@@ -208,32 +151,8 @@
             <DxGridDataColumn FieldName="@nameof(AccountDto.CreatedAt)" Caption="등록일" Width="110"
                               DisplayFormat="yyyy-MM-dd" />
 
-            @* ── 마지막 로그인 · 마지막 사용 ───────────────────
-               [둘을 가른다]
-
-               「마지막 로그인」만으로는 안 쓰는 계정을 못 가려낸다 —
-               access token 이 7일이고 갱신 쿠키가 30일이라 **브라우저를 안
-               닫는 사람은 로그인 화면을 한 달에 한 번도 안 거친다.** 매일
-               쓰는 사람이 「한 달 전 사람」으로 보인다.
-
-               그래서 서버가 칸을 둘 들고 있다(`scom.accounts` 의
-               `last_login_at` · `last_seen_at`). 뒤엣것은 화면을 옮길 때마다
-               사용기록 길이 밀어 준다 — 포털은 한 회로 안에서 라우팅만
-               바뀌어 서버에 요청이 안 나가므로 그 길 말고는 「쓰고 있다」를
-               아는 자리가 없다(docs/menu-usage.md).
-
-               [시각 밑에 「며칠 전」을 함께 적는다]
-
-               훑는 눈이 찾는 것은 날짜가 아니라 **얼마나 오래됐나**다.
-               `2026-07-02` 를 보고 오늘과 빼는 일을 예순 줄에 걸쳐 시키면
-               아무도 안 한다. 시각은 그대로 두고 한 줄을 덧붙인다.
-
-               [UTC 를 그대로 그리지 않는다]
-
-               서버가 주는 것은 UTC 다. `DisplayFormat` 에 맡기면 아홉 시간
-               이른 값이 조용히 찍히므로 `Kst()` 로 보여 주기 직전에 한 번만
-               바꾼다(docs/utc-time.md). `FieldName` 은 그대로 두어 **정렬은
-               원래 값(UTC)으로** 돈다 — 글자로 정렬하면 null 과 섞여 흐트러진다. *@
+            @* ── 마지막 로그인 · 마지막 사용 ── 로그인 시각만으로는 안 쓰는 계정을 못 가린다(토큰 7일 · 갱신 쿠키 30일). 마지막 사용은 사용기록이 화면을 옮길 때마다 밀어 준다(docs/menu-usage.md).
+               시각 밑에 「며칠 전」을 덧붙이고, 보여 주기 직전에만 Kst() 로 바꾼다(docs/utc-time.md). *@
 
             <DxGridDataColumn FieldName="@nameof(AccountDto.LastLoginAt)" Caption="마지막 로그인" Width="135">
                 <CellDisplayTemplate Context="cell">
@@ -275,10 +194,7 @@
                 </CellDisplayTemplate>
             </DxGridDataColumn>
 
-            @* ── 알림 넷 ─────────────────────────────────────
-               기본으로 감춰 두지 않는다. 감추면 칸 고르개를 여는 사람만
-               보게 되고, 그러면 붙인 값이 없다 — 발송이 안 닿는 까닭을
-               찾으러 오는 자리가 여기다. *@
+            @* 알림 넷은 기본으로 감춰 두지 않는다 — 발송이 안 닿는 까닭을 찾으러 오는 자리다. *@
 
             @* 구독은 **기기 수**다. 0 이면 푸시를 켜 두어도 갈 곳이 없다. *@
             <DxGridDataColumn Caption="PWA 구독" Width="90">
@@ -324,21 +240,8 @@
             </DxGridDataColumn>
         </Columns>
 
-        @* 줄마다 [앱 현황]으로 가는 길. **칸 넷이 답하지 못하는 것을 그쪽이 답한다** —
-           여기 딱지는 「몇 대 · 켜짐/꺼짐」까지고, 「두 대 중 어느 한 대가 못 받는가 ·
-           무엇을 보냈는데 왜 실패했는가」는 기기와 기록을 줄 단위로 봐야 나온다.
-
-           **관리 칸에 둔다.** 칸이 열몇 개라 화면이 가로로 구르는데, 관리 칸은
-           오른쪽에 붙박여 있어 굴러도 늘 같은 자리다(`CommGrd` 의 그 칸 주석).
-           딱지 옆에 두면 스크롤 저편으로 사라진다. *@
-        @* 비밀번호 초기화도 여기 둔다. 「이 사람」을 가리킨 채로 하는 일이라
-           줄에 붙어 있어야 하고, 편집 창 안에 두면 **저장을 눌러야 끝나는
-           일처럼 보인다** — 실제로는 누르는 즉시 그 사람의 비밀번호가 바뀐다.
-
-           고치기와 같은 권한(`Update`)으로 가린다. 계정을 고칠 수 있는 사람과
-           비밀번호를 초기화할 수 있는 사람을 가르면, 「고칠 수는 있는데
-           잠긴 사람은 못 풀어 주는」 자리가 생긴다. 서버도 역할을 한 번 더
-           본다(`SystemEndpoints` 의 그 경로). *@
+        @* 줄마다 [앱 현황]으로 가는 길 — 칸 넷이 답하지 못하는 「어느 기기가 못 받나」는 그쪽이 답한다. 관리 칸에 둔다(오른쪽에 붙박여 굴러도 같은 자리). *@
+        @* 비밀번호 초기화는 줄에 붙여 둔다 — 편집 창 안에 두면 저장을 눌러야 끝나는 일처럼 보이지만 누르는 즉시 바뀐다. 고치기와 같은 권한(Update)으로 가린다. *@
         <RowActions Context="a">
             <PermissionView Action="MenuAction.Update">
                 <DxButton IconCssClass="jsini-icon-link" Title="다른 계정으로 결합"
@@ -368,19 +271,7 @@
                 var a = (AccountDto)edit.EditModel;
                 var isNew = string.IsNullOrEmpty(a.Id);
             }
-            @* 칸을 **두 줄기**로 세운다 — 왼쪽은 사람을 가리키는 값(아이디·이메일·
-               부서), 오른쪽은 그 사람을 설명하는 값(이름·연락처·상태). 넓게
-               걸리는 것(역할·생일·워터마크)만 12칸으로 한 줄을 통째로 쓴다.
-
-               [체크박스에는 제 이름을 두 번 적지 않는다]
-
-               `음력` 은 왼쪽 표제도 「음력」이고 네모 옆 글자도 「음력」이었다.
-               게다가 표제 칸을 3·4칸으로 쪼개 놓아서, 「생일 목록에 넣는다」가
-               한 글자씩 세로로 흘러내렸다 — 창이 500px 남짓이라 3칸이 60px 밖에
-               안 된다.
-
-               그래서 **관련된 네모는 한 표제 아래 가로로 늘어놓는다**(`ad-checks`).
-               메뉴 관리의 「보이기」·「허용 동작」이 쓰는 것과 같은 자리다. *@
+            @* 칸을 두 줄기로 세운다 — 왼쪽은 사람을 가리키는 값, 오른쪽은 설명하는 값. 체크 네모는 표제 아래 가로로 늘어놓는다(ad-checks) — 칸을 쪼개면 500px 창에서 글자가 세로로 흘러내린다. *@
             <DxFormLayout CssClass="ad-editform">
                 <DxFormLayoutItem Caption="로그인 아이디" ColSpanMd="6">
                     <DxTextBox @bind-Text="a.LoginId" ReadOnly="@(!isNew)" />
@@ -426,17 +317,14 @@
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="역할" ColSpanMd="12">
-                    @* Roles · BirthDateTime 은 형을 맞춰 둔 창이다. 형변환이나
-                       메서드를 끼우면 팝업이 말없이 안 열린다 — AdminModels 참고. *@
+                    @* Roles · BirthDateTime 은 형을 맞춰 둔 창이다. 형변환이나 메서드를 끼우면 팝업이 말없이 안 열린다. *@
                     <DxTagBox Data="@_roles"
                               @bind-Values="a.Roles"
                               TextFieldName="@nameof(RoleDto.Name)"
                               ValueFieldName="@nameof(RoleDto.Id)" />
                 </DxFormLayoutItem>
 
-                @* 날짜와 네모 둘은 **한 가지 일**이다 — 언제 태어났나, 그 날짜를
-                   어느 달력으로 읽나, 그것을 생일 목록에 띄우나. 표제를 셋으로
-                   가르면 읽는 사람이 셋을 따로 판단해야 한다. *@
+                @* 날짜와 네모 둘은 한 가지 일이라 한 표제 아래 둔다. *@
                 <DxFormLayoutItem Caption="생일" ColSpanMd="12">
                     <div class="ad-checks">
                         <DxDateEdit @bind-Date="a.BirthDateTime" CssClass="ad-editform__date" />
@@ -446,42 +334,14 @@
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="워터마크" ColSpanMd="12">
-                    @* 화면 위에 로그인 아이디를 옅게 깔아 두는 표시다. 화면
-                       촬영을 막지는 못한다 — **찍힌 사진에서 누구 화면인지
-                       드러나게** 하려고 있다. 고인·상주 정보가 나오는 화면이
-                       있어 옛 포털도 같은 이유로 켜 두었다.
-
-                       **관리자만 끈다.** 당사자가 자기 것을 끌 수 있으면
-                       그 목적이 사라지므로 환경설정에 두지 않았다.
-
-                       까닭은 네모 옆이 아니라 **아래 한 줄**에 적는다. 옆에
-                       달아 두면 글자가 길어 네모가 두 줄로 접히고, 접힌 둘째
-                       줄이 다음 칸의 표제와 나란해져 어느 칸의 말인지 흐려진다. *@
+                    @* 화면 위에 로그인 아이디를 옅게 깔아 촬영물에서 누구 화면인지 드러나게 한다. 관리자만 끈다 — 당사자가 끌 수 있으면 목적이 사라진다. 까닭은 아래 한 줄에 적는다(옆에 달면 네모가 두 줄로 접힌다). *@
                     <DxCheckBox @bind-Checked="a.Watermark">화면에 아이디를 옅게 깐다</DxCheckBox>
                 </DxFormLayoutItem>
 
-                @* ────────────────────────────────────────────────────────────
-                   개발 업무용 속성 — 프로젝트관리의 [개발자 관리] 화면이 들고
-                   있던 것들이다. 그 화면을 걷어내면서 여기로 옮겼다
-                   (docs/projmng-account-merge.md).
-
-                   [묶음 넷을 접어 둔다]
-
-                   칸이 스물여섯이라 한 줄로 쏟으면 위의 기본 칸 여덟이 파묻힌다.
-                   계정을 만드는 사람 대부분은 이 값들을 안 적는다 — 적는 사람은
-                   개발 인원을 관리하는 한 사람뿐이다. 그래서 **닫힌 채로** 두고
-                   필요한 묶음만 편다.
-
-                   [값을 사전에 담는다]
-
-                   서버에 칸이 없다. `account_profile_details` 라는 열쇠-값 표에
-                   `Dev.` 접두사로 들어간다 — 속성을 더할 때 마이그레이션이
-                   없다. 열쇠 글자는 `DevAttributeView` 한 곳에만 있다.
-                   ──────────────────────────────────────────────────────────── *@
+                @* 개발 업무용 속성 — 프로젝트관리의 개발자 관리 화면에서 옮겨 왔다. 묶음 넷은 닫힌 채로 두고 필요한 것만 편다. 값은 사전에 담긴다(account_profile_details, Dev. 접두사) — 속성을 더해도 마이그레이션이 없다. *@
                 <DxFormLayoutGroup Caption="업무" ColSpanMd="12" Expanded="false">
                     <DxFormLayoutItem Caption="사번" ColSpanMd="4">
-                        @* 사내 자료를 들여올 때 **사번 → 계정 대조 열쇠**로 쓰인다.
-                           그 뒤로도 사람을 찾는 단서로 남긴다. *@
+                        @* 사내 자료를 들여올 때 사번 → 계정 대조 열쇠로 쓰인다. *@
                         <DxTextBox @bind-Text="a.Dev.BpId" />
                     </DxFormLayoutItem>
 
@@ -543,9 +403,7 @@
                     </DxFormLayoutItem>
                 </DxFormLayoutGroup>
 
-                @* 네모 열을 표제 열 개로 가르지 않는다 — 창이 500px 남짓이라
-                   표제 칸이 60px 밖에 안 되고, 「Claude Code」가 한 글자씩
-                   세로로 흘러내린다(위 생일 칸에서 실제로 밟았다). *@
+                @* 네모 열을 표제 열 개로 가르지 않는다 — 창이 500px 남짓이라 표제 칸이 60px 밖에 안 되어 글자가 세로로 흘러내린다. *@
                 <DxFormLayoutGroup Caption="계정 발급 현황" ColSpanMd="12" Expanded="false">
                     <DxFormLayoutItem ColSpanMd="12">
                         <div class="ad-checks">
@@ -577,21 +435,12 @@
     </CommGrd>
 </CommCont>
 
-@* 발급된 비밀번호. 안내 줄이 아니라 창인 이유는 **놓치면 끝**이기 때문이다 —
-   줄로 띄우면 다음 조회에 지워지고, 그러면 (등록이면) 계정을 지웠다 다시 만들거나
-   (초기화면) 한 번 더 초기화하는 수밖에 없다.
-
-   [등록과 초기화가 같은 창을 쓴다]
-
-   둘 다 「서버가 발급한 평문을 지금 한 번만 보여 주고, 받은 사람은 첫 로그인에서
-   바꾼다」로 **똑같다.** 창을 둘로 나누면 한쪽만 고쳐져 갈라진다 — 머리말과
-   안내 한 줄만 갈라 둔다. *@
+@* 발급된 비밀번호를 창으로 두는 까닭은 놓치면 끝이기 때문이다 — 줄로 띄우면 다음 조회에 지워진다. 등록과 초기화가 같은 창을 쓴다(둘 다 평문을 한 번만 보여 준다). *@
 <CommPopup @bind-Visible="_issuedVisible"
          HeaderText="@(_issuedIsReset ? "초기화한 비밀번호" : "첫 비밀번호")"
          CloseOnEscape="false"
          CloseOnOutsideClick="false">
-    @* Context 이름을 바꿔 둔다. 안쪽 DxFormLayoutItem 이 쓰는 기본 이름
-       `context` 와 겹치면 Razor 가 컴파일을 거절한다(RZ9999). *@
+    @* Context 이름을 바꿔 둔다 — 안쪽 DxFormLayoutItem 의 기본 이름 context 와 겹치면 Razor 가 컴파일을 거절한다(RZ9999). *@
     <BodyContentTemplate Context="popup">
         <p class="jsini-hint">
             아래 비밀번호는 <b>지금 한 번만 보입니다.</b> 서버에는 해시로만 남아
@@ -600,8 +449,7 @@
 
         <DxFormLayout CssClass="ad-editform">
             <DxFormLayoutItem Caption="아이디" ColSpanMd="12">
-                @* 이름을 함께 적는다. 아이디만 보고 **엉뚱한 사람에게 전달하는
-                   것**이 이 창에서 날 수 있는 가장 나쁜 실수다. *@
+                @* 이름을 함께 적는다 — 아이디만 보고 엉뚱한 사람에게 전달하는 것이 이 창에서 날 수 있는 가장 나쁜 실수다. *@
                 <DxTextBox Text="@IssuedWho" ReadOnly="true" />
             </DxFormLayoutItem>
 
@@ -616,9 +464,7 @@
         </p>
     </BodyContentTemplate>
     <FooterContentTemplate Context="popupContext">
-        @* 복사를 먼저 둔다. 헷갈리는 글자를 빼 두었어도(`InitialPassword`)
-           열두 글자를 눈으로 옮겨 적는 것은 여전히 틀리기 쉽고, 틀리면
-           「비밀번호가 다릅니다」로 되돌아와 까닭을 찾기 어렵다. *@
+        @* 복사를 먼저 둔다 — 열두 글자를 눈으로 옮겨 적는 것은 틀리기 쉽다. *@
         <DxButton Text="@(_issuedCopied ? "복사됨" : "복사")"
                   IconCssClass="@(_issuedCopied ? "jsini-icon-check" : "jsini-icon-copy")"
                   RenderStyle="ButtonRenderStyle.Secondary"
@@ -629,8 +475,7 @@
     </FooterContentTemplate>
 </CommPopup>
 
-@* 초기화를 묻는 창. `CommGrd` 가 삭제에 쓰는 것과 같은 부품인데, 그쪽 것은
-   표 안에 숨어 있어 화면이 쓸 수 없다. *@
+@* 초기화를 묻는 창. CommGrd 의 삭제 창과 같은 부품이지만 그쪽은 표 안에 숨어 있어 쓸 수 없다. *@
 <ConfirmDialog @ref="_confirm" />
 
 @* 계정 결합 창. 기존 계정을 다른 계정으로 결합(Merge)하여 통합한다. *@

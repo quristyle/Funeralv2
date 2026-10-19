@@ -5,26 +5,7 @@ using RabbitMQ.Client.Events;
 
 namespace AIAgentServer.Services;
 
-/// <summary>
-/// 무료 공급자가 전부 막혔을 때 <b>운영 서버 호스트의 안티그래비티 CLI(<c>agy</c>)</b>에게
-/// 한 줄 추천을 대신 묻는다.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <b>왜 직접 부르지 않나.</b> 이 서비스는 컨테이너 안이고 <c>agy</c> 와 그 로그인 자격은
-/// 호스트에 있다. 호스트에는 이미 AI 작업 실행기(<c>tools/AiTaskRunner</c>)가 systemd 담장 안에서
-/// 상주하므로, 그쪽에 RabbitMQ 로 묻고 답을 받는다(요청·응답, direct reply-to).
-/// 실행기는 받는 포트가 없다는 원칙을 그대로 지킨다 — 둘 다 브로커로 나가기만 한다.
-/// </para>
-/// <para>
-/// 공통코드 추천뿐 아니라 대화의 무료 공급자 폴백에도 쓴다. 대화 스트림은 공급자
-/// 응답 전에 CLI 호출을 끝낸 뒤 한 번에 돌려준다.
-/// </para>
-/// <para>
-/// <b>실행기가 없으면 곧바로 안다.</b> 큐를 선언하면 브로커가 듣는 쪽 수를 알려 준다.
-/// 0 이면 보내지 않고 바로 실패한다 — 보내 놓고 제한 시간을 다 기다리게 하지 않는다.
-/// </para>
-/// </remarks>
+/// <summary>무료 공급자가 전부 막혔을 때 <b>운영 서버 호스트의 안티그래비티 CLI(<c>agy</c>)</b>에게 한 줄 추천을 대신 묻는다. 왜 직접 부르지 않나.</summary>
 public sealed class CliRelay(IConfiguration configuration, ILogger<CliRelay> logger)
 {
     private const string DirectReplyTo = "amq.rabbitmq.reply-to";
@@ -54,9 +35,7 @@ public sealed class CliRelay(IConfiguration configuration, ILogger<CliRelay> log
 
     private readonly TimeSpan _connectTimeout = TimeSpan.FromSeconds(5);
 
-    /// <summary>
-    /// 한 번 묻는다. 실패는 <see cref="AiProviderException"/> 으로 던진다.
-    /// </summary>
+    /// <summary>한 번 묻는다. 실패는 <see cref="AiProviderException"/> 으로 던진다.</summary>
     public async Task<CliRelayAnswer> AskAsync(string prompt, CancellationToken ct = default)
     {
         if (!Enabled)

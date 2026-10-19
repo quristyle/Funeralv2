@@ -41,16 +41,7 @@ public static class PaymentEndpoints
         return Results.Ok(TransactionMap.Mine(t, hasReview, me.IsAdmin, KstDate.Today));
     }
 
-    /// <summary>
-    /// 고른 거래를 한 번에 처리한다. 한 회사가 여러 건을 묶어 입금했을 때 건마다
-    /// 팝업을 열지 않게 하는 길이다(거래처 상세의 「내 미처리 거래」).
-    ///
-    /// <para>
-    /// 판정은 단건과 **똑같은 <see cref="PaymentJudge"/>** 를 거친다. 여기서
-    /// 따로 계산하면 같은 사실이 어느 화면에서 적었는지에 따라 다른 상태로 쌓인다.
-    /// 건마다 넣는 금액은 남은 금액 전액이다 — 나눠 받은 건은 단건으로 적는다.
-    /// </para>
-    /// </summary>
+    /// <summary>고른 거래를 한 번에 처리한다. 판정은 단건과 같은 PaymentJudge 를 거친다 — 따로 계산하면 같은 사실이 화면마다 다른 상태로 쌓인다. 건마다 남은 금액 전액을 넣는다.</summary>
     private static async Task<IResult> RegisterPayments(
         CargoTrustDbContext db, CurrentUser me, BulkPaymentRequest req, CancellationToken ct)
     {
@@ -167,10 +158,7 @@ public static class PaymentEndpoints
         return new ReceivablesDto(summary, items);
     }
 
-    /// <summary>
-    /// 미수금의 칸. 예정(SCHEDULED)은 예정일이 지났으면 DELAYED 칸으로 옮긴다 —
-    /// 상태는 아직 「예정」이지만 받는 사람에게는 이미 늦은 돈이다.
-    /// </summary>
+    /// <summary>미수금의 칸. 예정이 예정일을 지났으면 DELAYED 칸으로 옮긴다 — 상태는 아직 예정이지만 받는 쪽에는 이미 늦은 돈이다.</summary>
     private static string BucketOf(CargoTransaction t, DateOnly today) => t.PaymentStatus switch
     {
         PaymentStatus.SCHEDULED when t.ExpectedPaymentDate is { } e && e < today => "DELAYED",

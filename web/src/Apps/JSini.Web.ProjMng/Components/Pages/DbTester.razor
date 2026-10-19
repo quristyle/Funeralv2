@@ -3,27 +3,8 @@
 @using System.Data
 
 @*
-    [DB 쿼리 테스터] — DB 메뉴 `/projmng/db/tester`.
-    이력: 옛 Blazor `Pages/Develop/DBTester.razor` → Vue `views/projmng/develop/db-tester.vue` → 여기.
-
-    고른 프로젝트 DB 에 문장을 그대로 실행해 본다.
-
-    [없는 액션을 부르고 있었다 — 늘 실패했다]
-
-    `dbtester` 라는 이름으로 개발 도구 통로(`/Dev`)를 부르고 있었다. 그 통로는
-    **미리 등록된** 질의만 이름으로 부르는 곳이고(`projmng.devsqlresp`),
-    거기에 `dbtester` 라는 이름이 없다. 그래서 무엇을 쳐도
-
-        dbtype POSTGRESQL 의 dbtester 가 정의 되지 않았습니다.
-
-    로 끝났다. 옛 화면이 쓰던 길은 따로 있다 — `POST /Dev/sql` 에 문장을 그대로
-    싣는 전용 통로다.
-
-    [DB 를 고르지 않으면 실행하지 않는다]
-
-    별칭이 비면 서버가 접속 정보를 못 찾는다. 예전에는 그 상태로 보내면 서버가
-    NullReferenceException 을 냈고, **그 실패가 서버의 캐시를 더럽혀 그 뒤로
-    모든 DB 도구가 죽었다**(백엔드도 함께 고쳤다). 화면에서 먼저 막는다.
+DB 쿼리 테스터 — 고른 프로젝트 DB 에 문장을 그대로 실행한다. 전용 통로(POST /Dev/sql)로 보낸다(등록된 질의 이름은 여기에 없다).
+별칭이 비면 서버가 접속을 못 찾고 그 실패가 서버 캐시를 더럽히므로, DB 를 고르지 않으면 화면에서 먼저 막는다.
 *@
 
 @inherits DataPage
@@ -47,21 +28,8 @@
 <PageNotice Tone="NoticeTone.Warning"
             Text="여기서 실행한 문장은 대상 DB 에 그대로 나갑니다. UPDATE·DELETE 는 되돌릴 수 없습니다." />
 
-@* 높이 규칙은 **모듈 CSS(`projmng.css`)에 있다.** 이 화면의 `.razor.css`
-   에 두었더니 한 줄도 안 걸려서 편집기와 표가 둘 다 안 보였다 —
-   격리 범위 표시가 `<DxSplitter>` 에는 안 붙는다(그쪽 머리말 참고).
-
-   [판은 반드시 `<Panes>` 안에 적는다]
-
-   `DxSplitter` 에는 `ChildContent` 파라미터가 **없다.** 판을 담는 자리는
-   `Panes` 하나뿐이다. 그런데 이 부품은 `Attributes` 를
-   `CaptureUnmatchedValues` 로 받으므로, `<Panes>` 없이 적은 판들은
-   `ChildContent` 라는 이름의 짝 없는 값이 되어 **그 사전으로 조용히
-   빨려 들어간다.** 빌드도 통과하고 오류도 없다.
-
-   결과는 `<dxbl-splitter class="… pm-query-splitter …"></dxbl-splitter>` —
-   **속이 완전히 빈 상자 하나**다. 화면에는 회색 칸만 남고 편집기도 표도
-   없다. CSS 를 아무리 고쳐도 그릴 것이 없으니 달라지지 않는다. *@
+@* 높이 규칙은 모듈 CSS(projmng.css)에 둔다 — 이 화면의 .razor.css 에서는 격리 범위가 DxSplitter 에 안 붙어 안 걸린다.
+판은 반드시 <Panes> 안에 적는다 — DxSplitter 는 ChildContent 가 없어 Attributes 로 빨려 들어가고, 빌드도 오류도 없이 속이 빈 상자가 된다. *@
 <DxSplitter Orientation="Orientation.Vertical" CssClass="pm-query-splitter">
     <Panes>
         <DxSplitterPane Size="250px" MinSize="100px">

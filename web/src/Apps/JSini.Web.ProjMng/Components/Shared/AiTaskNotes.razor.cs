@@ -15,16 +15,10 @@ public partial class AiTaskNotes
     /// <summary>말이 붙을 요청. <c>null</c> 이면 판이 통째로 빠진다.</summary>
     [Parameter] public AiTaskDto? Item { get; set; }
 
-    /// <summary>
-    /// <b>올린 사람의 자리인가.</b> 참이면 <c>mine</c> 경로를 쓰고, 펴는 순간
-    /// 읽은 것으로 찍는다.
-    /// </summary>
+    /// <summary>올린 사람의 자리인가. 참이면 mine 경로로 읽고, 펴는 순간 읽은 것으로 찍는다.</summary>
     [Parameter] public bool Mine { get; set; }
 
-    /// <summary>
-    /// 안 읽은 말을 읽은 것으로 찍었을 때 부모에게 알린다.
-    /// <b>목록의 배지를 끄는 것이 부모의 일</b>이라서 있다.
-    /// </summary>
+    /// <summary>안 읽은 말을 읽은 것으로 찍으면 부모에게 알린다. 목록 배지를 끄는 것은 부모의 일이다.</summary>
     [Parameter] public EventCallback OnRead { get; set; }
 
     /// <summary>말이 하나 붙었다. 부모가 건수를 다시 읽는다.</summary>
@@ -40,10 +34,7 @@ public partial class AiTaskNotes
     /// <summary>지금 읽어 둔 건. <b>부모가 다른 건을 넘겼는지</b> 보는 값이다.</summary>
     private long _shown;
 
-    /// <summary>
-    /// 서버가 받는 한 줄의 길이(<c>AiTaskNoteService.MaxLength</c>).
-    /// <b>화면도 같은 수로 막는다</b> — 갈라지면 저장을 눌러야만 알게 된다.
-    /// </summary>
+    /// <summary>서버 한도(AiTaskNoteService.MaxLength)와 같은 수다. 갈라지면 저장을 눌러야만 알게 된다.</summary>
     private const int MaxLength = 2000;
 
     private bool CanSave => !_busy
@@ -65,9 +56,7 @@ public partial class AiTaskNotes
     {
         var key = Item?.TaskKey ?? 0;
 
-        // 부모가 몇 초마다 같은 건을 다시 넘기는 자리가 있다(`AiTaskView` 의
-        // 따라가기). **번호가 그대로면 다시 읽지 않는다** — 읽으면 적다 만
-        // 글상자가 그릴 때마다 흔들린다.
+        // 부모가 같은 건을 몇 초마다 다시 넘긴다. 번호가 같으면 다시 읽지 않는다 — 읽으면 쓰던 글상자가 흔들린다.
         if (key == _shown)
         {
             return;
@@ -101,21 +90,13 @@ public partial class AiTaskNotes
             return;
         }
 
-        // 얼굴은 **모아서 한 번에** 묻는다. 줄마다 묻게 두면 대화 열 줄짜리
-        // 한 건이 게이트웨이를 열 번 두드린다(`UserAvatar` 머리말).
+        // 얼굴은 모아서 한 번에 묻는다 — 줄마다 묻으면 게이트웨이를 여러 번 두드린다.
         await Faces.EnsureAsync(_rows.Select(r => r.CreId));
 
         await MarkReadAsync(taskKey);
     }
 
-    /// <summary>
-    /// 펴는 순간 읽은 것으로 찍는다. <b>올린 사람의 자리에서만</b>이다.
-    /// </summary>
-    /// <remarks>
-    /// <b>안 읽은 것이 있을 때만 부른다.</b> 이 판은 목록에서 줄을 누를 때마다
-    /// 서고, 다 읽은 건에까지 쓰기 요청을 보내면 훑어보는 동안 게이트웨이를
-    /// 계속 두드리게 된다.
-    /// </remarks>
+    /// <summary>펴는 순간 읽은 것으로 찍는다. 올린 사람의 자리에서만, 안 읽은 것이 있을 때만 부른다.</summary>
     private async Task MarkReadAsync(long taskKey)
     {
         if (!Mine || !_rows.Any(r => !r.IsOwner && r.ReadDt is null))
@@ -129,13 +110,11 @@ public partial class AiTaskNotes
         }
         catch (ApiException)
         {
-            // **말없이 넘긴다.** 읽음 표시가 늦는 것뿐이고, 사람이 할 수 있는
-            // 일이 없는 실패에 경고를 띄우면 읽으러 온 사람만 놀란다.
+            // 말없이 넘긴다 — 읽음 표시가 늦을 뿐, 사람이 할 일 없는 실패에 경고를 띄우지 않는다.
             return;
         }
 
-        // 손에 쥔 것도 함께 고친다 — 다시 읽지 않으므로 이것을 안 고치면
-        // 「안 읽음」 딱지가 화면에 그대로 남는다.
+        // 손에 쥔 것도 고친다 — 다시 읽지 않으므로 안 고치면 안 읽음 딱지가 남는다.
         foreach (var row in _rows.Where(r => !r.IsOwner && r.ReadDt is null))
         {
             row.ReadDt = AppTime.UtcNow;
@@ -185,17 +164,12 @@ public partial class AiTaskNotes
         _text = null;
         Toasts.Show("남겼습니다. 상대에게 알림이 갑니다.");
 
-        // **서버에서 다시 읽는다.** 방금 보낸 것을 손으로 목록에 끼워 넣으면
-        // 그 사이에 상대가 남긴 줄이 빠진 채로 그려진다.
+        // 서버에서 다시 읽는다 — 손으로 끼우면 그 사이 상대가 남긴 줄이 빠진다.
         await LoadAsync(t.TaskKey);
         await OnAdded.InvokeAsync();
     }
 
-    /// <summary>
-    /// <b>부모가 밖에서 다시 읽게 하는 문</b>. 부모가 목록을 새로 읽어
-    /// 같은 건을 그대로 넘길 때는 <see cref="OnParametersSetAsync"/> 가
-    /// 번호로 걸러 내므로, 그때는 이것을 불러 준다.
-    /// </summary>
+    /// <summary>부모가 목록을 새로 읽어 같은 건을 넘길 때 쓴다. OnParametersSetAsync 는 번호로 걸러 내기 때문이다.</summary>
     public async Task ReloadAsync()
     {
         if (Item is { } t)

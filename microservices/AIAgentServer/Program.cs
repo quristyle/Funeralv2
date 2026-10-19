@@ -50,7 +50,7 @@ builder.Services.AddSingleton<AiUsageLog>();
 
 // 「이 화면을 볼 수 있는 사람인가」를 **사이드바와 같은 표**에 묻는다.
 // 역할 이름을 코드에 적으면 메뉴 권한을 넓혔을 때 조용히 어긋난다
-// (MenuAccess 머리말 — 실제로 밟았다).
+// (MenuAccess 머리말 참고).
 builder.Services.AddMemoryCache();
 builder.Services.AddSingleton<MenuAccess>();
 
@@ -58,36 +58,31 @@ builder.Services.AddSingleton<MenuAccess>();
 // 사는 동안만 있었다(AiChatStore 머리말).
 builder.Services.AddSingleton<AiChatStore>();
 
-// [AI 공급자 목록]
 // 설정(AI:Providers)을 한 번 읽어 두고 계속 쓴다. 요청마다 다시 읽을 이유가 없다.
 // 싱글턴이라 `appsettings` 를 고치면 **재기동해야 반영된다** — 이 저장소의 다른
 // 설정들과 같은 규칙이다(CLAUDE.md: appsettings 변경만으로는 재기동하지 않는다).
 builder.Services.AddSingleton<AiProviderRegistry>();
 
-// [무료 모델 확인]
 // OpenRouter 는 같은 API 로 유료 모델도 부를 수 있다. 사용자가 고른 모델 이름을
 // 그대로 믿으면 과금 대상 호출이 되므로, 카탈로그를 받아 실제 가격이 0 인지 본다.
 // 목록을 캐시하려면 인스턴스가 살아 있어야 해서 싱글턴이다.
 builder.Services.AddSingleton<FreeModelGuard>();
 
-// [Claude 전송기]
 //
 // Anthropic Messages API 는 OpenAI 호환이 아니라 공식 SDK 로 부른다. 그 안에
 // HttpClient 가 들어 있어서 요청마다 새로 만들면 소켓이 쌓인다 — 싱글턴으로 둔다.
 builder.Services.AddSingleton<AnthropicTransport>();
 
-// [마지막 대체 — 안티그래비티 CLI]
 //
 // 무료 공급자가 전부 막혔을 때 한 줄 추천만 호스트의 AI 작업 실행기에 맡긴다.
 // 부를 때마다 브로커 연결을 새로 여는 것이라 상태가 없지만, 설정을 한 번만 읽으려고 싱글턴이다.
 builder.Services.AddSingleton<CliRelay>();
 
-// [AI 호출용 HttpClient]
 //
 // 대기 시간을 두 가지로 나눠 잡는다. 하나로 두면 둘 중 하나가 반드시 망가진다.
 //
 //   · 접속(ConnectTimeout) — **짧게.** 장비가 꺼져 있을 때 빨리 포기하는 값이다.
-//     예전에는 이 설정이 없어 운영체제 재시도에 맡겨졌고, 로컬 LLM 이 꺼져 있으면
+//     이 설정이 없으면 운영체제 재시도에 맡겨져, 로컬 LLM 이 꺼져 있을 때
 //     21초를 기다린 뒤 실패했다. 연결이 맺어진 뒤에는 적용되지 않으므로
 //     짧게 잡아도 생성이 끊기지 않는다.
 //
@@ -146,12 +141,11 @@ builder.Services.AddCors(options =>
     });
 });
 
-// [헬스체크]
 // 게이트웨이의 능동 헬스체크와 오케스트레이터(K8s/로드밸런서)의 liveness 프로빙 대상.
 // 인증 없이 접근 가능해야 하므로 별도 정책을 걸지 않는다.
 //
 // **이 서비스는 LLM 장비 점검을 함께 보고한다.** 프로세스가 멀쩡해도 LLM 이 꺼져 있으면
-// 아무 일도 못 하는데, 예전에는 그 사실이 상태 화면까지 올라오지 않아 초록으로 보였다.
+// 아무 일도 못 하는데, 그 사실이 상태 화면까지 올라와야 한다.
 builder.Services.AddHealthChecks()
     .AddCheck<LlmHealthCheck>(
         LlmHealthCheck.Name,
@@ -174,8 +168,6 @@ app.MapJsiniHealthChecks();
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-    //app.UseSwagger();
-    //app.UseSwaggerUI();
 }
 
 app.UseGlobalExceptionHandler();

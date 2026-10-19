@@ -50,10 +50,7 @@ if (string.IsNullOrWhiteSpace(connectionString)) {
       "HelpDesk DB 접속 문자열이 없습니다. appsettings.Local.json 의 ConnectionStrings:helpdesk 또는 환경변수 helpdesk 를 설정하세요.");
 }
 
-// 스키마 이름. 헬프데스크 전용 DB 로 옮기면서 스키마가 `jsini` 에서 `helpdesk` 로
-// 바뀌었는데 EF 모델에는 박혀 있었다 — 모든 요청이 500 이었다.
-// 기본값은 AppDbContext.Schema 한 곳에만 둔다. 여기에 또 적으면 그쪽을 덮어써서
-// 기본값이 두 군데가 되고, 실제로 그래서 한 번 어긋났다.
+// 스키마 기본값은 AppDbContext.Schema 한 곳에만 둔다 — 여기서 덮으면 기본값이 두 곳이 된다.
 AppDbContext.Schema = builder.Configuration["Database:Schema"] ?? AppDbContext.Schema;
 
 builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(connectionString,
@@ -121,9 +118,7 @@ builder.Services.AddSwaggerGen(c => {
 // ============================================================
 // 6. 인증/인가 구성
 // ============================================================
-// HelpDesk 는 자체 로그인(/api/users/login)으로 토큰을 발급하므로 자기 발급 토큰을 검증한다.
-// 동시에 ApiGateway(AuthServer) 가 발급한 funeralv2 토큰도 수용해야 퍼널v2 메뉴에서 그대로 호출할 수 있다.
-// 따라서 두 발급자/서명키를 모두 유효한 것으로 등록한다.
+// 헬프데스크 자체 발급 토큰과 게이트웨이(funeralv2) 토큰, 두 발급자·서명키를 모두 유효하게 등록한다.
 builder.Services.AddAuthorization();
 
 // 키 둘은 appsettings.Local.json (git 제외) 에만 있다. 없으면 기동에 실패한다 (결정 D1-B).
@@ -131,8 +126,7 @@ builder.Services.AddAuthorization();
 //   Jwt:Key         헬프데스크 자체 로그인용 (LocalLogin 이 꺼져 있어 지금은 쓰이지 않는다)
 //   GatewayJwt:Key  게이트웨이/AuthServer 가 발급한 funeralv2 토큰 검증용 — 이쪽이 실제로 쓰인다
 //
-// 예전에는 둘 다 평문 폴백이 있었고, GatewayJwt 가 비면 헬프데스크 자체 키로 조용히
-// 대체됐다. 그러면 게이트웨이 토큰이 통째로 거부되는데 이유를 알기 어렵다.
+// 평문 폴백은 두지 않는다 — GatewayJwt 가 비어 자체 키로 대체되면 게이트웨이 토큰이 이유 없이 거부된다.
 var jwtKey = JSini.Shared.Infrastructure.JwtKeyGuard.Require(
     builder.Configuration, "Jwt:Key", "HelpDeskServer");
 var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? "helpdesk-api";
@@ -221,20 +215,13 @@ if (builder.Configuration.GetValue("Workers:AutoCheckEnabled", true)) {
   builder.Services.AddHostedService<AutoCheckWorker>();
 }
 
-// [헬스체크]
 // 게이트웨이의 능동 헬스체크와 오케스트레이터(K8s/로드밸런서)의 liveness 프로빙 대상.
 // 인증 없이 접근 가능해야 하므로 별도 정책을 걸지 않는다.
 builder.Services.AddHttpClient();
 builder.Services.AddHealthChecks();
 
 
-// ── 딸린 것: DB ────────────────────────────────────────────
-//
-// 프로세스가 살아 있는 것과 서비스가 **제 일을 하는 것**은 다르다.
-// DB 가 끊기면 이 서비스는 사실상 아무것도 못 하므로 Unhealthy(503) 로 본다
-// (LLM 처럼 일부 기능만 막히는 경우는 Degraded 를 쓴다).
-//
-// 상태 화면이 '연결 대상' 줄로 보여 준다. 30초 캐시 · 3초 타임아웃은 도우미가 맡는다.
+// DB 가 끊기면 Unhealthy(503), 일부 기능만 막히면 Degraded. 프로세스가 살아 있는 것과 제 일을 하는 것은 다르다. 상태 화면은 30초 캐시로 읽는다.
 builder.Services.AddHealthChecks()
     .AddDependencyCheck("database", async (sp, ct) =>
     {
@@ -270,30 +257,15 @@ app.UseAuthorization();
 // ============================================================
 app.MapRegistEndpoints();
 
-// 고객사 엔드포인트(/api/companys)는 제거했다. 회사를 만들고 고치는 곳은
-// 포털의 회사 관리 화면 하나뿐이고, 목록도 포털이 준다
-// (`GET /api/auth/system/companies`). 헬프데스크 쪽 회사 표까지 걷어냈으므로
-// 여기서 내려줄 것이 남아 있지 않다 — 자세한 것은 `IPortalCompanyDirectory`.
+// 고객사·조직 관리·메뉴·권한 엔드포인트는 두지 않는다. 회사·조직·권한은 포털이 관리하고, 헬프데스크의 옛 표는 DB 에 그대로 남아 있다.
 app.MapCustomerEndpoints();
-// 조직 관리 엔드포인트(/api/admins · /api/teams)는 제거했다. 조직과 계정은
-// JSini 관리 포털(AuthServer)이 단독으로 맡는다 — 헬프데스크 쪽 「조직 관리」
-// 메뉴(HD_ORG 와 팀·팀-고객사·담당자)를 함께 걷어냈다. `GET /api/teams` 만
-// 한동안 남겨 두었는데, 그것을 쓰던 프로젝트 관리 화면마저 아래 「프로젝트」
-// 묶음과 함께 사라져 이제 부르는 곳이 없다.
-// 헬프데스크 자체 메뉴·역할·권한 엔드포인트(/api/menus, /api/roles)는 제거했다 (결정 Q4).
-// 메뉴와 권한은 JSini 관리 포털이 일원 관리한다 (scom.system_menus / scom.roles / scom.role_menus).
-// jsini.menu · approle · menurole · rolemenupermission 테이블은 그대로 두었다(DB 는 건드리지 않는다).
 app.MapRequestEndpoints();
 app.MapCommentEndpoints();
 app.MapAttachmentEndpoints();
 app.MapDashboardEndpoints();
 app.MapNoticeEndpoints();
 app.MapFileUploadEndpoints();
-// 「프로젝트」·「일정」 메뉴 묶음을 2026-09-25 에 걷어내면서 그 화면들만 부르던
-// 길도 지웠다 — /api/project 묶음 전부, /api/schedules 묶음 전부,
-// /api/wbs 의 평탄화·단건·등록·수정·삭제, /api/wbslink 묶음 전부다.
-// 남은 `GET /api/wbs` 는 「도구 > 다이어그램」 화면이 항목을 고르는 데 쓴다.
-// 프로젝트·WBS·일정 **레코드**와 표는 그대로다.
+// 프로젝트·일정·WBS 엔드포인트는 두지 않는다. 남은 GET /api/wbs 는 「도구 > 다이어그램」 화면이 항목을 고르는 데 쓴다.
 app.MapWbsEndpoints();
 app.MapWbsDiagramEndpoints();
 app.MapAuthLinkEndpoints();

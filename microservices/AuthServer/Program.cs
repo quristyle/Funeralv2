@@ -41,8 +41,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(connectionString, x => x.MigrationsHistoryTable("__EFMigrationsHistory", "scom")));
 
 // 2. JWT 인증 구성 (AuthServer 자체 엔드포인트 보호용)
-// 키는 appsettings.Local.json (git 제외) 에만 있다. 없으면 기동에 실패한다 (결정 D1-B).
-// 예전에는 여기에 평문 키가 폴백으로 박혀 있어, 설정이 비어도 조용히 그 값으로 돌았다.
+// 키는 appsettings.Local.json(git 제외)에만 있다. 없으면 기동에 실패한다 — 설정이 비어도 조용히 기본 키로 돌지 않게 한다.
 var jwtKey = JSini.Shared.Infrastructure.JwtKeyGuard.Require(
     builder.Configuration, "JwtSettings:SecretKey", "AuthServer");
 var key = Encoding.ASCII.GetBytes(jwtKey);
@@ -74,9 +73,7 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ITimezoneService, TimezoneService>();
-// 사이드바 메뉴 트리는 사용자마다 다르지 않다 — 한 벌만 들고 돌려 쓴다.
-// 포털이 업무 모듈을 넘나들 때마다 메뉴를 다시 읽으므로 왕복이 화면 전환
-// 횟수만큼 났다(MenuTreeCache 머리말).
+// 사이드바 메뉴 트리는 사용자마다 다르지 않아 한 벌만 들고 돌려 쓴다 — 포털이 모듈을 넘나들 때마다 다시 읽지 않게.
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<IEmailVerificationService, EmailVerificationService>();
 builder.Services.AddSingleton<MenuTreeCache>();
@@ -217,18 +214,9 @@ builder.Services.AddHealthChecks()
 
 var app = builder.Build();
 
-// ── 계정 안내 메일이 나갈 수 있는 설정인지 기동 때 한 번 본다 ──────────
-//
-// 비밀번호 찾기와 가입 신청은 **틀려도 조용하다.** 아이디가 있는지 알려 주지
-// 않으려고 화면에는 언제나 「보냈습니다」가 뜨고, 메일이 못 나간 것은 로그에만
-// 남는다. 그래서 「메일이 안 온다」가 문의로 올 때까지 아무도 모른다.
-//
-// 실제로 두 값 다 개발 기본값인 채로 컨테이너에 올라가 기능이 죽어 있었다 —
-// 컨테이너 안에서 127.0.0.1:5460 은 자기 자신이고, 메일에 적히는
-// localhost:5557 은 받는 사람이 열 수 없는 주소다. 값은 compose 의
-// Notify__BaseUrl · Portal__BaseUrl 로 넣는다.
-//
-// 기동을 막지는 않는다. 이 둘이 틀렸다고 로그인까지 못 하게 할 이유는 없다.
+// ── 계정 안내 메일이 나갈 수 있는 설정인지 기동 때 한 번 본다 ──
+// 메일이 못 나가도 화면은 「보냈습니다」를 띄우므로 로그에서만 드러난다. 개발 기본값이면 컨테이너 안에서 닿지 않는 주소를 적으므로 Notify__BaseUrl · Portal__BaseUrl 을 compose 로 넣는다.
+// 기동을 막지는 않는다.
 if (!app.Environment.IsDevelopment())
 {
     var startupLog = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("AccountMail");

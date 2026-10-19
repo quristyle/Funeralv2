@@ -3,45 +3,15 @@
 @attribute [ScreenAccess("admin.system.account")]
 
 @*
-    [가입 신청] — 로그인 화면의 「가입 신청」으로 들어온 것을 승인하거나 거절한다.
-
-    [DB 메뉴에 없다]
-
-    179건 어디에도 대응하는 항목이 없다 — 옛 Vue 에는 이 기능 자체가 없었기
-    때문이다(가입 화면이 껍데기였다). 그래서 사이드바에 뜨지 않고, 계정 관리
-    화면의 단추로 들어온다. 메뉴에 올리려면 `scom.system_menus` 에
-    `/admin/system/signup` 을 더하면 된다 — 라우트가 이미 그 값이다.
-
-    [승인은 상태 하나를 바꾸는 일이다]
-
-    신청은 처음부터 계정으로 만들어지고 상태만 PENDING 이다. 그래서 승인은
-    그 값을 ACTIVE 로 바꾸는 것이 전부고, 옮겨 적는 코드가 없다. 사연은
-    AuthServer 의 `SignupService` 주석에 있다.
-
-    [거절하면 사라진다]
-
-    상태만 REJECTED 로 두면 그 아이디가 영영 묶여서, 잘못 적어 거절당한
-    사람이 같은 아이디로 다시 신청할 수 없다. 그래서 지운다. 누가 언제 무슨
-    사유로 거절했는지는 AuthServer 로그에 남는다.
-
-    [소속과 역할은 여기서 정하지 않는다]
-
-    신청서에 그 칸이 없다 — 있으면 신청자가 스스로 권한을 고르는 셈이다.
-    승인한 뒤 계정 관리에서 붙인다. 승인 직후 그리로 가라는 안내를 띄우는
-    이유가 그것이다.
+    [가입 신청] 로그인 화면의 「가입 신청」으로 들어온 것을 승인하거나 거절한다. DB 메뉴에 없어 사이드바에 뜨지 않고 계정 관리의 단추로 들어온다 — 라우트는 /admin/system/signup 이다.
+    승인은 상태를 PENDING 에서 ACTIVE 로 바꾸는 일이고, 거절은 지운다 — REJECTED 로 두면 아이디가 묶여 다시 신청할 수 없다. 소속과 역할은 신청서에 없어 승인 뒤 계정 관리에서 붙인다.
 *@
 
 @inherits DataPage
 
-<PageTitle>가입 신청 · 포털관리</PageTitle>
+<PageTitle>가입 신청</PageTitle>
 
-@* 거를 조건이 없다 — 승인을 기다리는 것만 내려오고 대개 몇 건이다. 그래도
-   판을 세우는 이유는 **계정 관리와 오가는 단추가 두 화면에서 같은 자리에
-   있어야** 하기 때문이다. 표 안 도구줄에 두면 저쪽은 조건 판 아래, 이쪽은
-   화면 맨 위가 되어 오갈 때마다 단추가 위아래로 뛴다.
-
-   조건 칸이 없으니 「초기화」도 없다(`OnReset` 을 주지 않는다). 「조회」는
-   다시 읽기로 남겨 둔다 — 승인·거절을 다른 사람이 하고 있을 수 있다. *@
+@* 거를 조건이 없다 — 승인을 기다리는 것만 내려온다. 계정 관리와 오가는 단추가 두 화면에서 같은 자리에 있어야 해서 판을 세운다. 「초기화」는 없고 다시 읽기만 있다. *@
 <CommSch OnSearch="@ReloadAsync">
     <Actions>
         <DxButton Text="계정 관리로" RenderStyle="ButtonRenderStyle.Secondary"
@@ -56,12 +26,7 @@
              EmptyText="승인을 기다리는 신청이 없습니다."
              Reload="@ReloadAsync">
         <Columns>
-            @* 이름 칸에 얼굴을 함께 그린다. 사진은 소셜 공급자가 준 것뿐이라
-               직접 입력한 신청은 이름 첫 글자로 대신한다.
-
-               `referrerpolicy` — 카카오 CDN 에 「어느 관리자 화면에서 열었는지」를
-               흘리지 않는다. 신청자 사진 한 장을 보려고 우리 주소를 바깥에
-               알려 줄 까닭이 없다. *@
+            @* 이름 칸에 얼굴을 함께 그린다 — 사진은 소셜 공급자가 준 것만 쓰고, 직접 입력한 신청은 첫 글자로 대신한다. referrerpolicy 는 카카오 CDN 에 우리 주소를 흘리지 않기 위해 건다. *@
             <DxGridDataColumn FieldName="@nameof(SignupPendingDto.UserName)" Caption="신청자" MinWidth="170">
                 <CellDisplayTemplate Context="cell">
                     @{ var row = (SignupPendingDto)cell.DataItem; }
@@ -101,8 +66,7 @@
     </CommGrd>
 </CommCont>
 
-@* 거절 사유를 묻는 창. 사유는 없어도 되지만 **신청자에게 그대로 메일로 간다** —
-   빈 채로 보내면 왜 안 됐는지 알 길이 없어 같은 신청이 다시 들어온다. *@
+@* 거절 사유를 묻는 창. 사유는 없어도 되지만 신청자에게 그대로 메일로 가므로 빈 채로 보내면 같은 신청이 다시 들어온다. *@
 <CommPopup @bind-Visible="_rejecting" HeaderText="가입 신청 거절" Width="420px">
     <BodyContentTemplate>
         <p class="jsini-hint">

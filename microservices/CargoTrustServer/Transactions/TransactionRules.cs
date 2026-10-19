@@ -4,13 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CargoTrustServer.Transactions;
 
-/// <summary>
-/// 거래 등록 검사 (설계안 13.2 · 계약 「거래 등록 검사」).
-///
-/// 통계는 사람이 적어 넣은 거래에서 나온다. 한 사람이 같은 거래를 여러 번 넣거나 한 회사에
-/// 몰아 넣으면 그 회사의 숫자가 통째로 기운다 — 그래서 중복은 막고, 몰아 넣기는 거절 대신
-/// 표시(FLAGGED)해서 관리자가 보게 한다. 거절하면 정말 그만큼 거래한 사람이 기록을 못 남긴다.
-/// </summary>
+/// <summary>거래 등록 검사(설계안 13.2). 중복은 막고, 몰아 넣기는 거절하지 않고 FLAGGED 로 표시해 관리자가 보게 한다 — 거절하면 정말 그만큼 거래한 사람이 기록을 못 남긴다.</summary>
 public static class TransactionRules
 {
     /// <summary>같은 사람이 같은 회사에 하루에 이만큼을 넘기면 표시한다.</summary>
@@ -66,10 +60,7 @@ public static class TransactionRules
             && (exceptId == null || t.TransactionId != exceptId), ct);
     }
 
-    /// <summary>
-    /// 비정상 패턴(5번). 걸리면 사유를, 아니면 null.
-    /// <paramref name="countToday"/> 가 true 면 「오늘 이 회사에 넣은 건수」도 본다(새로 넣을 때만).
-    /// </summary>
+    /// <summary>비정상 패턴(5번). 걸리면 사유를, 아니면 null. countToday 가 참이면 오늘 이 회사에 넣은 건수도 본다(새로 넣을 때만).</summary>
     public static async Task<string?> FlagReasonAsync(
         CargoTrustDbContext db, long userId, long companyId, DateOnly transportDate, bool countToday, CancellationToken ct)
     {

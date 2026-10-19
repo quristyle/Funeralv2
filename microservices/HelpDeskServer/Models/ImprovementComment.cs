@@ -11,9 +11,7 @@ namespace HelpDeskServer.Models {
     /// <summary>개선 요청 ID</summary>
     public int RequestId { get; set; }
 
-    /// <summary>
-    /// 이 덧글이 속한 개선 요청 (Navigation property)
-    /// </summary>
+    /// <summary>이 덧글이 속한 개선 요청 (Navigation property)</summary>
     public ImprovementRequest? Request { get; set; }
 
     /// <summary>덧글 내용</summary>
@@ -39,7 +37,6 @@ namespace HelpDeskServer.Models {
     /// <summary>자식 덧글들</summary>
     public ICollection<ImprovementComment> Children { get; set; } = new List<ImprovementComment>();
 
-    //public ICollection<Attachment> Attachments { get; set; } = new List<Attachment>();
   }
 
 

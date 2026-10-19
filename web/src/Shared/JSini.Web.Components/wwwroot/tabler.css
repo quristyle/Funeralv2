@@ -1,29 +1,4 @@
-/*
-  Tabler 테마 (2026-09-26) — preview.tabler.io 의 생김새를 옮긴다.
-
-  [어떻게 입히나]
-
-  DevExpress 부품은 Bootstrap 테마(`bootstrap-external.bs5.min.css`)로 그린다.
-  그 테마는 색을 `--bs-*` 변수에서 읽으므로, 여기서 그 변수를 **Tabler 값으로
-  채우면** 그리드·편집기·팝업이 한꺼번에 Tabler 색을 따른다. 모서리·높이·여백은
-  DevExpress 자체 변수(`--dxbl-*`)로 준다.
-
-  치수와 색은 눈대중이 아니라 Tabler 1.6 미리보기에서 잰 값이다.
-
-    바탕         밝게 base-50  · 어둡게 base-900
-    카드·판      밝게 #fff     · 어둡게 base-800
-    입력 칸      밝게 #fff     · 어둡게 base-900 (카드보다 한 단 어둡다)
-    글자         밝게 base-700 · 어둡게 base-200,  흐린 글자 base-500 / base-400
-    테두리       밝게 base-200 · 어둡게 base-700,  카드 테두리는 반투명
-    모서리       6px (카드 8px), 서랍의 「모서리」 배율을 곱한다
-    입력·단추    높이 40px, 라벨은 칸 위 14px/500, 칸 사이 16px
-                 (**조회 판만 라벨을 칸 앞에** 둔다 — `.commsch__item`)
-    표 머리      12px/500 대문자, 흐린 글자, 옅은 바탕
-
-  [이 파일이 맨 마지막에 실린다]
-
-  JSiniHead 가 app.css · 모듈 CSS 뒤에 싣는다. 옛 규칙과 같은 자릿수면 이 파일이 이긴다.
-*/
+/* Tabler 테마. preview.tabler.io 의 생김새를 옮긴다. DevExpress 부품은 Bootstrap 테마로 그리므로 --bs-* 변수를 Tabler 값으로 채우면 그리드·편집기·팝업이 한꺼번에 따른다. 치수와 색은 Tabler 1.6 미리보기에서 잰 값이다. JSiniHead 가 app.css 뒤에 실으므로 같은 자릿수면 이 파일이 이긴다. */
 
 /* ── 1. 바탕 톤 팔레트 (Tailwind 회색 계열 — Tabler 가 그대로 쓴다) ── */
 
@@ -258,8 +233,7 @@
   --tb-primary-lt: rgba(var(--tb-primary-rgb), 0.16);
 }
 
-/* ── 3. DevExpress 가 읽는 Bootstrap 변수 ──────────────────
-   Bootstrap 은 `[data-bs-theme=dark]`(0,1,0)에 값을 두므로 `:root[…]`(0,2,0)로 이긴다. */
+/* DevExpress 가 읽는 Bootstrap 변수. data-bs-theme=dark 에 값을 두는 규칙보다 :root[...] 의 자릿수가 높아 이긴다. */
 
 :root,
 :root[data-bs-theme='light'],
@@ -317,9 +291,7 @@
   --bs-body-bg-rgb: 38, 38, 38;
 }
 
-/* ── 4. 우리 토큰을 Tabler 에 잇는다 ─────────────────────
-   app.css 와 모듈 CSS 는 전부 `--jsini-*` 로 색을 적는다. 여기서 뿌리를 갈면
-   옛 규칙들이 그대로 Tabler 색을 따른다. */
+/* 우리 토큰(--jsini-*)을 Tabler 에 잇는다. 뿌리를 갈면 옛 규칙들이 그대로 Tabler 색을 따른다. */
 
 :root,
 :root[data-theme='light'],
@@ -457,21 +429,7 @@ a { color: var(--tb-primary); }
   --dxbl-btn-disabled-color: var(--tb-muted);
   --dxbl-btn-disabled-border-color: var(--tb-border);
 
-  /* **잠긴 단추에 덧씌워지는 흰 겹을 걷는다.**
-
-     DevExpress 의 Bootstrap 다리(`bootstrap-external.bs5`)는 바탕색과 별개로
-     `--dxbl-btn-disabled-background` 에 **40% 흰색 한 겹**을 얹는다
-     (`linear-gradient(rgba(255,255,255,.4), rgba(255,255,255,.4))`). 바로 위에서
-     잠긴 바탕·글자·테두리를 다 정해 두어도 그 겹은 그대로 남는다 — `background-color`
-     가 아니라 `background-image` 라서 서로 덮지 않는다.
-
-     **밝은 테마에서는 흰 판 위의 흰 겹이라 아무 일도 안 난다.** 그래서 한동안
-     아무도 몰랐다. 어두운 테마에서는 판이 통째로 밝아진다 — 바탕 #262626 이
-     #7d7d7d 로 떠 버리는데 글자는 흐린 글자색(#a3a3a3) 그대로라 **대비가
-     1.6:1** 이다(환경설정의 「바로 넣기」 단추 넷이 늘 잠겨 있어 거기서 먼저
-     드러났다). 겹을 걷으면 6.0:1 이 되고 밝은 테마는 한 픽셀도 안 바뀐다.
-
-     잠겼다는 것은 흐린 글자색이 말한다 — 겹이 하던 일이 아니다. */
+/* 잠긴 단추에 덧씌워지는 흰 겹(DevExpress 의 bootstrap 다리가 background-image 로 얹는다)을 걷는다. 어두운 테마에서 이 겹이 있으면 잠긴 단추의 글자 대비가 1.6:1 까지 떨어진다. 잠겼다는 것은 흐린 글자색이 말한다. */
   --dxbl-btn-disabled-background: none;
 }
 
@@ -480,9 +438,7 @@ a { color: var(--tb-primary); }
   --dxbl-btn-disabled-bg: var(--tb-primary);
   --dxbl-btn-disabled-color: var(--tb-primary-fg);
 
-  /* 강조 단추도 같은 겹을 쓴다(위 머리말). 여기서는 **`opacity` 가 잠김을
-     말하는 자리**라, 겹을 그대로 두면 흐려진 것 위에 흰 겹이 또 얹혀
-     어두운 테마에서 흰 글자가 밝은 하늘색 판에 묻힌다(1.9:1 → 3.1:1). */
+/* 강조 단추도 같은 겹을 쓴다. opacity 가 잠김을 말하는 자리라 겹이 그 위에 또 얹히면 흰 글자가 밝은 판에 묻힌다. */
   --dxbl-btn-disabled-background: none;
   opacity: 0.55;
 }
@@ -595,8 +551,7 @@ a { color: var(--tb-primary); }
   color: var(--tb-muted);
 }
 
-/* 관리 칸의 아이콘 단추 — 여백을 줄여 칸 폭 안에 셋이 들어가게 한다.
-   Bootstrap 테마의 기본 좌우 여백(0.75rem)이면 아이콘이 6px 로 눌린다. */
+/* 관리 칸의 아이콘 단추. 좌우 여백을 줄여 칸 폭 안에 셋이 들어가게 한다(기본 0.75rem 이면 아이콘이 눌린다). */
 .commgrd__actions .dxbl-btn,
 .commtree__actions .dxbl-btn,
 .jsini-actions .dxbl-btn,
@@ -722,9 +677,7 @@ a { color: var(--tb-primary); }
   box-shadow: var(--tb-shadow-dropdown);
 }
 
-/* ── 6. 폼 — 라벨은 칸 위에 ─────────────────────────────
-   Tabler `.form-label`: 칸 위 14px/500, 아래 8px, 칸 사이 16px.
-   DxFormLayout 은 기본이 가로 배치(라벨 왼쪽)다. 모든 폼을 세로로 세운다. */
+/* 폼 라벨은 칸 위에 세운다(Tabler form-label). DxFormLayout 은 기본이 가로 배치라 모든 폼을 세로로 세운다. */
 
 .dxbl-fl {
   --dxbl-fl-item-spacing-y: var(--tb-space-field);
@@ -743,8 +696,7 @@ a { color: var(--tb-primary); }
   --dxbl-fl-group-content-padding-y: 1rem;
 }
 
-/* 자릿수를 DevExpress 규칙(`.dxbl-fl .dxbl-fl-item.dxbl-fl-item-horizontal`)과 맞춘다 —
-   클래스 하나라도 모자라면 가로 배치가 이긴다(실제로 그랬다). */
+/* 선택자 자릿수를 DevExpress 규칙과 맞춘다. 클래스 하나라도 모자라면 가로 배치가 이긴다. */
 .dxbl-fl .dxbl-fl-item.dxbl-fl-item-horizontal {
   flex-direction: column;
   align-items: stretch;
@@ -964,10 +916,9 @@ a { color: var(--tb-primary); }
   padding: 1rem var(--tb-space-card);
 }
 
-/* ── 조회 칸: 라벨은 **칸 앞**에 선다 (2026-09-27) ───────────
+/* ── 조회 칸: 라벨은 **칸 앞**에 선다 ───────────
 
-   한동안 Tabler 폼을 따라 라벨을 칸 위에 얹었는데(「라벨은 칸 위 14px/500」),
-   조회 판에서는 그 한 줄이 비싸다. 업무 화면은 쪽이 구르면 안 되므로
+   Tabler 폼의 라벨은 칸 위에 얹지만, 조회 판에서는 그 한 줄이 비싸다. 업무 화면은 쪽이 구르면 안 되므로
    (`.commcont` 의 높이 규칙) **판이 먹는 높이가 그대로 표에서 빠진다** —
    한 화면에 보이는 줄 수가 준다. 재어 보니 판 하나가 100px → 76px 이고
    (계정 관리 · 다국어 자원 · 푸시 기록 셋이 한결같았다), 표의 한 줄이
@@ -1006,8 +957,7 @@ a { color: var(--tb-primary); }
   color: var(--tb-heading);
   line-height: 1.25rem;
 
-  /* 라벨이 두 줄로 접히지 않는다 — 「등록일(시작)」 여덟 자가 접히면
-     칸 하나만 키가 커져 줄이 어긋난다. */
+/* 라벨이 두 줄로 접히지 않는다(칸 하나만 키가 커지면 줄이 어긋난다). */
   white-space: nowrap;
 }
 
@@ -1021,27 +971,19 @@ a { color: var(--tb-primary); }
   border-bottom: 1px solid var(--tb-border-soft);
 }
 
-/* 표의 머리줄(건수)도 같은 띠다. **안쪽 여백을 카드에 맞춘다** — 위의 조회
-   판 라벨·구역 제목과 한 세로줄에 서야 카드 안이 정돈되어 보인다(표만 담은
-   판은 `padding: 0` 이라 머리줄이 스스로 그 여백을 가져야 한다).
-
-   높이는 구역 제목보다 한 단 낮다 — 이름이 아니라 곁들이 표시라서. */
+/* 표의 머리줄(건수)도 같은 띠다. 안쪽 여백을 카드에 맞춰 위의 조회 판 라벨·구역 제목과 한 세로줄에 선다. 높이는 구역 제목보다 한 단 낮다(곁들이 표시라서). */
 .commgrd__head {
   padding: 0.6rem var(--tb-space-card);
   background: transparent;
   border: 0;
 }
 
-/* 제목이 선 머리줄은 왼쪽 여백이 없다 — 앞의 막대가 표의 왼쪽 끝 선에
-   맞춰 서야 한다(app.css 의 `.commgrd__title`). 여기서 한 번 더 적는 것은
-   위 규칙이 `padding` 한 벌로 왼쪽까지 덮어쓰기 때문이다. */
+/* 제목이 선 머리줄은 왼쪽 여백이 없다(앞의 막대가 표의 왼쪽 선에 맞춰 서야 한다). 위 규칙이 padding 한 벌로 왼쪽까지 덮어쓰므로 여기서 다시 적는다. */
 .commgrd__head:has(.commgrd__title) {
   padding-left: 0;
 }
 
-/* 구역 제목 띠가 바로 위에 있으면 **한 줄로 붙인다.** 제목 바로 밑이라
-   건수는 띠가 아니라 제목에 딸린 한마디로 읽히는 편이 낫다 — 위에 바짝
-   붙이고 아래로 띄운다. */
+/* 구역 제목 띠가 바로 위에 있으면 건수는 제목에 딸린 한마디로 읽히도록 한 줄로 붙인다. */
 .commcont__head + .commcont__body .commgrd__head {
   min-height: 0;
   padding-top: 0.5rem;
@@ -1072,8 +1014,7 @@ a { color: var(--tb-primary); }
   color: var(--tb-muted);
 }
 
-/* 표만 담은 판은 안쪽 여백을 없애 표를 판 가장자리에 붙인다(Tabler `.card > .table`).
-   테를 한 번 더 두르면 휴대폰에서 폭만 잃는다. */
+/* 표만 담은 판은 안쪽 여백을 없애 표를 판 가장자리에 붙인다(테를 한 번 더 두르면 휴대폰에서 폭만 잃는다). */
 .commcont:has(> .commcont__body > :is(.commgrd, .commtree):only-child) {
   padding: 0 !important;
   overflow: hidden;
@@ -1083,10 +1024,10 @@ a { color: var(--tb-primary); }
   border-radius: 0;
 }
 
-/* 판 안의 표는 판 테두리와 겹치지 않게 제 테두리를 걷는다. */
+/* 판 안의 표는 제 테두리를 걷는다. 단위를 붙여야 한다. 0 이면 DevExpress 의 calc() 가 무효가 되어 칸 머리 조절 손잡이가 칸 왼쪽에 선다. */
 .commcont .dxbl-grid,
 .commcont .dxbl-treelist {
-  --dxbl-grid-border-width: 0;
+  --dxbl-grid-border-width: 0px;
   border: 0;
 }
 
@@ -1115,7 +1056,7 @@ a { color: var(--tb-primary); }
 
 .ad-vsplit__pane .commgrd .dxbl-grid,
 .ad-vsplit__pane .commtree .dxbl-grid {
-  --dxbl-grid-border-width: 0;
+  --dxbl-grid-border-width: 0px;
   border: 0;
 }
 
@@ -1185,25 +1126,10 @@ a { color: var(--tb-primary); }
 .jsini-badge--warn { background: rgba(var(--tb-yellow-rgb), 0.14); color: color-mix(in srgb, var(--tb-yellow) 80%, #000); }
 .jsini-badge--err { background: rgba(var(--tb-red-rgb), 0.12); color: var(--tb-red); }
 
-/* 좋고 나쁨이 아니라 **갈래**를 말하는 딱지(「대표」·「소셜결합」).
-   app.css 에도 짝이 있지만 **이 파일이 맨 마지막에 실리므로** 여기 값을
-   안 적으면 그 딱지만 `--jsini-*` 로 칠해져 옆의 Tabler 딱지들과 색이 논다. */
+/* 갈래를 말하는 딱지(대표 · 소셜결합). 이 파일이 맨 마지막에 실리므로 값을 안 적으면 그 딱지만 옆 Tabler 딱지와 색이 어긋난다. */
 .jsini-badge--info { background: rgba(var(--tb-primary-rgb), 0.12); color: var(--tb-primary); }
 
-/* AI 사용량 띠 — 0% 에서 100% 까지 5단위 스물한 칸.
-
-   **여기 없으면 스물한 칸이 전부 회색이다.** 위의 `.jsini-badge` 가 바탕을
-   `--tb-surface-3` 로 다시 깔고, 이 파일이 **맨 마지막에 실리므로**
-   app.css · projmng.css 의 `--usage-*` 는 자릿수가 같아도 진다. 실제로
-   빠른 지시의 한도 배지가 주간 71% 에서도 `rgb(245,245,245)` 로 그려졌다 —
-   수식어(`--usage-70`)는 제대로 붙어 있었고 색만 먹혔다. `--on` · `--warn` ·
-   `--err` 은 아래에 짝이 있어서 멀쩡했으므로, 색띠를 5단위로 세분화한
-   그 순간부터 색이 통째로 사라진 것이다(`--info` 머리말이 적어 둔 함정과
-   같은 것이다).
-
-   값은 app.css 의 색띠와 **한 글자도 다르지 않아야 한다** — 밝기 단조 하강 ·
-   이웃 색차 · 대비를 거기서 재어 고른 값이고, `AiUsageBadgePaletteTests` 가
-   세 벌이 같은지까지 지킨다. 바탕이 불투명하므로 어두운 테마 덮개는 없다. */
+/* AI 사용량 띠(0~100%, 스물한 칸). 이 파일이 맨 마지막에 실려 app.css 와 projmng.css 의 같은 값을 이긴다. 값은 app.css 의 색띠와 한 글자도 달라서는 안 되며, AiUsageBadgePaletteTests 가 세 벌이 같은지 지킨다. */
 .jsini-badge--usage-0   { background: #affbdd; color: #0a0600; }
 .jsini-badge--usage-5   { background: #a5f4cc; color: #0a0600; }
 .jsini-badge--usage-10  { background: #9cedb6; color: #0a0600; }
@@ -1317,9 +1243,7 @@ a { color: var(--tb-primary); }
   background: var(--swatch);
 }
 
-/* 그림만 선 칸(밝기 셋). **네모로 세운다** — 글자가 빠진 알약은 가로가 쪼그라들어
-   옆의 색 동그라미(2rem)보다 작아 보이고, 셋이 나란히 서면 크기가 들쭉날쭉해진다.
-   이름은 `title`·`aria-label` 에 있다. */
+/* 그림만 선 칸(밝기 셋). 네모로 세운다(글자가 빠진 알약은 가로가 쪼그라들어 옆의 색 동그라미보다 작아 보인다). 이름은 title·aria-label 에 있다. */
 .tb-pill--icon {
   justify-content: center;
   gap: 0;
@@ -1327,9 +1251,7 @@ a { color: var(--tb-primary); }
   padding: 0.375rem;
 }
 
-/* 그림은 **글자 사다리를 안 탄다.** 이 칸은 글자가 없어 크기를 글자에서 받을
-   길이 없는데, 뿌리의 `--jsini-icon-size` 는 사다리를 타므로 「최대한크게」에서
-   그림이 칸(2.25rem)을 넘어선다. */
+/* 그림은 글자 사다리를 안 탄다(칸에 글자가 없어 크기를 받을 데가 없다). 사다리의 아이콘 크기를 그대로 쓰면 최대한크게에서 그림이 칸을 넘어선다. */
 .tb-pill--icon > [class^='jsini-icon-'],
 .tb-pill--icon > [class*=' jsini-icon-'] {
   --jsini-icon-size: 1.125rem;
@@ -1425,13 +1347,7 @@ a { color: var(--tb-primary); }
   user-select: none;
 }
 
-/* 스크롤 막대 — 굵기·색은 app.css 한 곳에서만 정한다.
-
-   여기 있던 `* { scrollbar-color }` 를 걷었다. 크로미움은 `scrollbar-color`
-   가 `auto` 가 아닌 요소에서 `::-webkit-scrollbar` 를 통째로 무시하는데,
-   이 규칙이 `*` 에 걸려 있어서 app.css 의 3px 규칙이 **화면 전체에서** 죽고
-   브라우저 기본 막대(15~17px)가 그려졌다. 파이어폭스용 색은 app.css 의
-   `@supports not selector(::-webkit-scrollbar)` 블록이 들고 있다. */
+/* 스크롤 막대의 굵기와 색은 app.css 한 곳에서만 정한다. 여기 있던 scrollbar-color 를 걷었다(크로미움은 그것이 auto 가 아니면 webkit 막대 규칙을 통째로 무시한다). */
 
 /* ── 9. 창 머리 · 탭 테 ─────────────────────────────────── */
 
@@ -1444,17 +1360,10 @@ a { color: var(--tb-primary); }
   --dxbl-tabs-tab-border-color: transparent;
 }
 
-/* ── 10. 휴대폰 (≤767px) ───────────────────────────────────
-   preview.tabler.io 를 375px 로 잰 값이다 — 헤더 56px, 좌우 여백 8px,
-   카드는 폭을 다 쓰고 안쪽 16~20px, 칸 40px, 창은 좌우 8px 만 남긴다.
-   높이 사슬·아래 탭 줄 자리는 app.css 의 휴대폰 규칙이 그대로 쥐고 있다 —
-   여기서는 여백과 겉모양만 고친다. */
+/* 휴대폰(≤767px). 375px 에서 잰 값이다. 높이 사슬과 아래 탭 줄 자리는 app.css 가 쥔다. 여기서는 여백과 겉모양만 고친다. */
 
 @media (width < 768px) {
-  /* **본문 여백은 여기서 정하지 않는다** — `app.css` 의 `--jsini-shell-pad-*`
-     하나가 정본이다(2026-10-07 에 3px 로 내려왔다). 여기 8px 짜리 세 줄이
-     `!important` 로 그것을 덮고 있어서, 토큰을 내려도 휴대폰만 8px 로
-     남아 있었다. 테마는 겉모양만 맡고 자리는 안 잡는다. */
+     /* 본문 여백은 여기서 정하지 않는다. app.css 의 --jsini-shell-pad-* 가 정본이고, 여기서 덮으면 토큰을 내려도 휴대폰만 옛 값이 남는다. */
   .jsini-shell__content {
     padding-left: var(--jsini-shell-pad-inline) !important;
     padding-right: var(--jsini-shell-pad-inline) !important;

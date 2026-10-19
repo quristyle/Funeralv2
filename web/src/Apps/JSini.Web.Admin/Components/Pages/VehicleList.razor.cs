@@ -59,8 +59,7 @@ public partial class VehicleList
         _readFor = vehicle?.PlateNo;
         _editing = true;
 
-        // 계정 목록은 **등록할 때만** 필요하다. 목록 화면을 열자마자 읽으면
-        // 차량을 보기만 하러 온 사람에게도 계정 전부를 읽히게 된다.
+        // 계정 목록은 등록할 때만 필요하다 — 목록을 열자마자 읽으면 차량만 보러 온 사람에게도 계정 전부를 읽히게 된다.
         if (_form.IsNew && _accounts.Count == 0)
         {
             _ = LoadAccountsAsync();
@@ -83,8 +82,7 @@ public partial class VehicleList
         }
         catch (JSini.Web.Http.ApiException ex)
         {
-            // 계정을 못 읽어도 창은 떠 있다 — 아이디를 아는 사람은 직접 적을 수 있게
-            // 남겨 두는 편이 창을 닫아 버리는 것보다 낫다.
+            // 계정을 못 읽어도 창은 떠 있다 — 아이디를 아는 사람은 직접 적을 수 있다.
             Say($"계정 목록을 읽지 못했습니다 — {ex.Message}", NoticeTone.Error);
         }
     }
@@ -95,15 +93,7 @@ public partial class VehicleList
         await ReadPlateAsync();
     }
 
-    /// <summary>
-    /// 번호판을 읽어 칸을 채운다.
-    ///
-    /// <para>
-    /// 읽은 값은 <b>등록할 때만</b> 칸에 넣는다. 수정 중에도 밀어 버리면,
-    /// 번호판과 다른 차를 적어 둔 사람이(자가용 번호판에 사업용 허가를 받은 차 같은)
-    /// 매번 되돌려야 한다.
-    /// </para>
-    /// </summary>
+    /// <summary>번호판을 읽어 칸을 채운다. 읽은 값은 등록할 때만 칸에 넣는다 — 수정 중에 밀어 버리면 사람이 적어 둔 차와 다른 값으로 덮인다.</summary>
     private async Task ReadPlateAsync()
     {
         var plate = (_form.PlateNo ?? string.Empty).Trim();
@@ -142,8 +132,7 @@ public partial class VehicleList
             return;
         }
 
-        // 고른 계정의 이름을 함께 보낸다 — 그 사람의 운송관리 줄이 아직 없으면
-        // 서버가 이 이름으로 만든다.
+        // 고른 계정의 이름을 함께 보낸다 — 서버가 이 이름으로 운송관리 줄을 만든다.
         if (_form.IsNew)
         {
             _form.UserName = _accounts.FirstOrDefault(a => a.LoginId == _form.LoginId)?.Text;

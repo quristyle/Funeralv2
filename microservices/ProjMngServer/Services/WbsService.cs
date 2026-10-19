@@ -5,52 +5,8 @@ using ProjMngServer.Models;
 namespace ProjMngServer.Services;
 
 /// <summary>
-/// WBS · 일정표. 옛 <c>sp_proj_wbs_exec</c>(185줄)과
-/// <c>sp_proj_wbs_moniter</c>(94줄)를 대신한다.
-///
-/// <para>
-/// 두 화면이 <b>같은 표</b>를 본다 — <c>schedule_type</c> 이 <c>WBS</c> 면
-/// 산출물 단위, <c>SCHEDULE</c> 이면 날짜 단위다.
-/// </para>
-///
-/// <para>[옛 프로시저에서 고친 것]</para>
-/// <list type="number">
-///   <item>
-///     <b>조회가 자료를 고쳤다.</b> <c>srch</c> 갈래가 목록을 내기 전에
-///     <c>UPDATE dev_wbs</c> 를 돌려 빈 날짜를 <c>dev_edt</c> 로 메웠다.
-///     읽기만 하려는 사람이 표를 바꾸는 셈이고, 되돌릴 수도 없다.
-///     이제 <b>쓰지 않고 읽을 때만 메운다</b>(<c>COALESCE</c>) — 화면에 보이는
-///     값과 거르는 기준은 그대로다.
-///   </item>
-///   <item>
-///     <b>일정표의 기간 탭이 아무 일도 안 했다.</b> 화면은 <c>start_day</c> ·
-///     <c>end_day</c> 를 실어 보내는데 프로시저의 <c>WHERE</c> 에 그 값을 보는
-///     곳이 없었다. 주·월·분기를 아무리 눌러도 목록이 같았다.
-///     이제 <b>계획 기간이 그 구간과 겹치는 것</b>을 낸다.
-///   </item>
-///   <item>
-///     <b>수정이 고친 사람을 안 남겼다.</b> <c>mod_dt</c> 만 찍고
-///     <c>mod_user</c> 는 그대로 두어, 등록한 사람이 끝까지 고친 사람으로
-///     남았다.
-///   </item>
-///   <item>
-///     <b>수정으로 바꿀 수 없는 칸이 많았다</b> — <c>gb1</c> · <c>gb2</c> ·
-///     <c>proc_lvl</c> · <c>build_user</c> · <c>build_status</c> · <c>qc_user</c>.
-///     목록에는 나오는데 고칠 길이 없었다. 이제 저장한다.
-///   </item>
-///   <item>
-///     번호를 <c>max(wbs_id)+1</c> 로 만든다. 다른 표와 같다 — 한 문장으로
-///     좁혔고 진짜 해법은 시퀀스다.
-///   </item>
-///   <item>
-///     <b>담당을 비워 두면 등록이 500 이었다.</b> <c>dev_user</c> 와
-///     <c>schedule_type</c> 이 <c>NOT NULL</c> 인데 화면은 둘 다 선택 칸으로
-///     두고 있어서, 담당을 안 고르고 저장하면 제약 위반이 그대로 올라왔다.
-///     화면에는 「서버 내부 오류」로만 보여 <b>어느 칸 때문인지 알 수 없다.</b>
-///     이제 빈 값으로 메운다(<c>''</c> · <c>'WBS'</c>) — 그 칸들은 「아직
-///     안 정했다」가 정상인 값이라 등록을 막을 이유가 없다.
-///   </item>
-/// </list>
+/// WBS · 일정표. sp_proj_wbs_exec · sp_proj_wbs_moniter 프로시저를 대신한다. 두 화면이 같은 표를 본다 — schedule_type 이 WBS 면 산출물 단위, SCHEDULE 이면 날짜 단위다.
+/// 조회는 표를 고치지 않고(빈 날짜는 읽을 때만 COALESCE 로 메운다), 수정은 고친 사람을 남기며, 담당이 비어도 기본값으로 저장한다.
 /// </summary>
 public sealed class WbsService(IConfiguration configuration) {
 
@@ -59,8 +15,7 @@ public sealed class WbsService(IConfiguration configuration) {
       ?? throw new InvalidOperationException("ConnectionStrings:jsini 가 없습니다.");
 
   /// <summary>
-  /// 읽을 때 메우는 날짜. <b>표를 고치지 않는다</b>(머리말 1).
-  /// 계획 날짜가 비어 있으면 개발 종료일로 본다 — 옛 조회가 UPDATE 로 하던 일이다.
+  /// 표를 고치지 않는다 — 계획 날짜가 비어 있으면 개발 종료일로 보고 읽을 때만 메운다.
   /// </summary>
   private const string Dates = """
       COALESCE(a.plan_sdt, a.dev_edt) AS PlanSdt,
@@ -105,17 +60,9 @@ public sealed class WbsService(IConfiguration configuration) {
   /// 목록을 읽는다.
   /// </summary>
   /// <param name="prjRid">프로젝트. 이 화면들은 프로젝트 없이 보지 않는다.</param>
-  /// <param name="compStat">
-  /// 진행 상태로 좁힌다 — <c>READY</c> · <c>RUNNING</c> · <c>COMP</c> ·
-  /// <c>DISCOMP</c>(아직 안 끝난 것 전부).
-  /// </param>
-  /// <param name="scheduleTypes">
-  /// 구분으로 좁힌다 — <c>WBS</c> · <c>Public</c> · <c>Private</c>.
-  /// <b>여러 개를 받는다</b>(일정표가 구분을 체크로 여럿 고른다).
-  /// 비어 있으면 <b>전체</b>다 — 「아무것도 안 고름」은 「아무것도 안 보임」이
-  /// 아니라 「가리지 않음」이다.
-  /// </param>
-  /// <param name="from">계획 기간이 이 날 뒤에 걸치는 것만(머리말 2).</param>
+  /// <param name="compStat">진행 상태로 좁힌다(READY · RUNNING · COMP · DISCOMP — 아직 안 끝난 것 전부).</param>
+  /// <param name="scheduleTypes">구분으로 좁힌다. 여럿을 받고 비어 있으면 가리지 않는다.</param>
+  /// <param name="from">계획 기간이 이 날 뒤에 걸치는 것만.</param>
   /// <param name="to">계획 기간이 이 날 앞에 걸치는 것만.</param>
   /// <param name="ct">취소 토큰</param>
   public async Task<IReadOnlyList<WbsItem>> ListAsync(
@@ -143,13 +90,7 @@ public sealed class WbsService(IConfiguration configuration) {
     var typeFilter = string.Empty;
 
     if (types.Length > 0) {
-      // **`IN @scheduleTypes` 로 적으면 안 된다.** 그것은 Dapper 가 목록을 값
-      // 수만큼 펼쳐 주는 문법인데, `DynamicParameters.Add` 로 넣은 값에는 그
-      // 펼치기가 걸리지 않는다 — 배열이 그대로 파라미터 하나로 나가고
-      // PostgreSQL 이 `IN $2` 에서 문법 오류를 낸다(실제로 밟았다).
-      //
-      // 배열 하나를 그대로 받는 쪽이 `= ANY(…)` 다. Npgsql 이 `string[]` 을
-      // `text[]` 로 보낸다.
+      // IN @scheduleTypes 로 쓰면 안 된다 — DynamicParameters.Add 로 넣은 배열은 펼쳐지지 않아 PostgreSQL 이 문법 오류를 낸다. 배열 하나를 받는 = ANY(…) 를 쓴다(Npgsql 이 string[] 을 text[] 로 보낸다).
       typeFilter = "AND a.schedule_type = ANY(@scheduleTypes)";
       parameters.Add("scheduleTypes", types);
     }
@@ -202,12 +143,7 @@ public sealed class WbsService(IConfiguration configuration) {
 
   /// <summary>
   /// 새로 넣는다.
-  ///
-  /// <para>
-  /// 계획 날짜를 안 주면 <b>개발 날짜로, 그것도 없으면 오늘로</b> 메운다.
-  /// 옛 프로시저와 같다 — 계획이 빈 줄은 진행 상태를 매길 수 없어 어느
-  /// 집계에도 안 잡힌다.
-  /// </para>
+  /// 계획 날짜를 안 주면 개발 날짜로, 그것도 없으면 오늘로 메운다 — 계획이 빈 줄은 어떤 집계에도 안 잡힌다.
   /// </summary>
   public async Task<WbsItem?> CreateAsync(WbsItem item, string userId, CancellationToken ct = default) {
     await using var db = new NpgsqlConnection(_connectionString);
@@ -242,7 +178,7 @@ public sealed class WbsService(IConfiguration configuration) {
   }
 
   /// <summary>
-  /// 고친다. <b>고친 사람을 남긴다</b>(머리말 3) — 옛 것은 시각만 찍었다.
+  /// 고친 사람(mod_user)을 함께 남긴다.
   /// </summary>
   public async Task<WbsItem?> UpdateAsync(WbsItem item, string userId, CancellationToken ct = default) {
     await using var db = new NpgsqlConnection(_connectionString);
@@ -294,15 +230,8 @@ public sealed class WbsService(IConfiguration configuration) {
   }
 
   /// <summary>
-  /// 진척 집계. 옛 <c>sp_proj_wbs_moniter</c> 를 그대로 옮겼다.
-  ///
-  /// <para>
-  /// <b>세는 기준은 손대지 않았다.</b> 「끝냈다」는 개발 종료일이 있는 것,
-  /// 「늦었다」는 계획 종료일이 지났는데 개발 종료일이 없는 것이다. 비율의
-  /// 분모는 언제나 전체 건수다 — 그래서 진행 중·미시작·지연을 더해도 100 이
-  /// 되지 않는다(계획 날짜가 빈 줄이 어디에도 안 잡힌다). 그 성질이 화면의
-  /// 숫자와 묶여 있어 여기서 바꾸지 않는다.
-  /// </para>
+  /// 진척 집계. 프로시저의 셈법을 그대로 옮겼다.
+  /// 세는 기준은 바꾸지 않았다. 비율의 분모는 전체 건수라 진행·미시작·지연을 더해도 100 이 되지 않는다 — 화면 숫자와 묶여 있다.
   /// </summary>
   public async Task<WbsSummary> SummaryAsync(int prjRid, CancellationToken ct = default) {
     await using var db = new NpgsqlConnection(_connectionString);
@@ -348,7 +277,7 @@ public sealed class WbsService(IConfiguration configuration) {
         """, new { prjRid }, cancellationToken: ct));
 
     // 줄이 하나도 없는 프로젝트여도 빈 집계를 준다 — 화면의 타일이 자리를
-    // 지키게 하려는 것이다. 옛 것은 0 행이라 화면이 빈칸을 그렸다.
+    // 지키게 하려는 것이다. 0 행이면 화면이 빈칸을 그린다.
     return summary ?? new WbsSummary();
   }
 }

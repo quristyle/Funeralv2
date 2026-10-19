@@ -7,11 +7,7 @@ using Microsoft.EntityFrameworkCore;
 namespace CargoTrustServer.Audit;
 
 /// <summary>
-/// 감사 기록(설계안 30). 관리자가 바꾼 것은 전부, 사용자의 거래 수정·삭제도 남긴다 —
-/// 분쟁에서 「처음엔 얼마라고 적었나」를 물을 수 있어야 한다.
-///
-/// 전·후는 엔티티의 **열 값 전부**를 열 이름 그대로 JSONB 에 담는다. 엔티티마다 모양을
-/// 손으로 적으면 열이 늘 때 감사에서 빠지는 칸이 생긴다.
+/// 감사 기록(설계안 30). 관리자가 바꾼 것과 사용자의 거래 수정·삭제를 남긴다. 전·후는 엔티티의 열 값 전부를 JSONB 에 담는다 — 모양을 손으로 적으면 열이 늘 때 빠진다.
 /// </summary>
 public class AuditService(CargoTrustDbContext db, CurrentUser current)
 {

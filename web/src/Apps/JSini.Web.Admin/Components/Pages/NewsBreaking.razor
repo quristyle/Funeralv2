@@ -3,17 +3,8 @@
 @attribute [ScreenAccess("admin.notice")]
 
 @*
-    [뉴스속보 목록] — DB 메뉴 `/admin/news/breaking`.
-
-    [맨 `DxGrid` 에서 `CommGrd` 로 옮겼다]
-
-    이 화면만 표를 직접 그리고 있었다. 그래서 휴대폰에서 카드로 펴는 표시를
-    손으로 달고 있었고(`GridCards.CssClass` · `GridCards.Label`), 머리줄의
-    건수 · 오른쪽 클릭 창(다시 읽기 · 칸별 검색 · 엑셀) · 줄무늬 · 카드일 때
-    가상 스크롤 끄기는 **하나도 없었다.** 공통 표로 옮기니 그 전부가 따라온다.
-
-    새로고침 띠도 걷었다 — 다시 읽기는 `Reload` 로 오른쪽 클릭 창에 선다
-    (web/CLAUDE.md 「표·나무의 동작은 오른쪽 클릭 창에 있다」).
+    [뉴스속보 목록] DB 메뉴 `/admin/news/breaking`. 맨 DxGrid 에서 CommGrd 로 옮겼다 — 머리줄 건수 · 오른쪽 클릭 창(다시 읽기 · 칸별 검색 · 엑셀) · 휴대폰 카드가 공통 표에서 온다.
+    새로고침 띠는 걷었다 — 다시 읽기는 Reload 로 오른쪽 클릭 창에 있다(web/CLAUDE.md).
 *@
 
 @inherits BasePage
@@ -21,8 +12,7 @@
 <PageTitle>뉴스속보 목록</PageTitle>
 
 <CommCont>
-    @* 칸별 검색 줄을 켜 둔다 — 분류·긴급도·출처로 좁혀 보는 표라서다.
-       훑는 검색칸도 함께 둔다(제목으로 찾는 일이 흔하다). *@
+    @* 칸별 검색 줄을 켜 둔다 — 분류·긴급도·출처로 좁혀 보는 표라서, 훑는 검색칸도 함께 둔다. *@
     <CommGrd TItem="NewsItem" Data="@Data"
              ShowFilterRow="true" ShowSearchBox="true"
              ExportName="뉴스속보"

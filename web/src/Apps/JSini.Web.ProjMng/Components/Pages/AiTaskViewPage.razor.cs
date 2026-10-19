@@ -16,11 +16,7 @@ public partial class AiTaskViewPage
     private AiTaskDto? _item;
     private bool _isPhone;
 
-    /// <summary>
-    /// 「다시 읽기」를 누른 횟수. <b>안쪽(<c>AiTaskView</c>)에 그대로 넘긴다</b> —
-    /// 값이 달라진 것이 곧 「상태가 그대로여도 다시 읽어라」는 말이다
-    /// (<c>AiTaskView.ReloadTick</c> 머리말).
-    /// </summary>
+    /// <summary>「다시 읽기」를 누른 횟수. 안쪽(AiTaskView)에 그대로 넘기며, 값이 달라지면 상태가 같아도 다시 읽으라는 뜻이다.</summary>
     private int _tick;
 
     /// <summary>지금 그리고 있는 건. 주소가 바뀌었는지 보는 값이다.</summary>
@@ -35,10 +31,7 @@ public partial class AiTaskViewPage
     private string TabTitle =>
         _item?.Title is { Length: > 0 } title ? title : $"지시 #{TaskKey}";
 
-    /// <summary>
-    /// 「다시 읽기」 단추의 꾸밈. <b>읽는 동안은 돈다</b> — 단추가 꺼지기만
-    /// 하면 누른 것이 먹었는지 안 먹었는지가 갈리지 않는다.
-    /// </summary>
+    /// <summary>「다시 읽기」 단추의 꾸밈. 읽는 동안 돈다 — 단추가 꺼지기만 하면 누른 것이 먹었는지 알 수 없다.</summary>
     private string ReloadCss =>
         Loading ? "pm-taskview__reload is-busy" : "pm-taskview__reload";
 
@@ -54,17 +47,13 @@ public partial class AiTaskViewPage
 
         StopPoll();
 
-        // 받아 오기 전에 먼저 연다. 탭이 늦게 서면 **화면은 바뀌었는데 탭 줄은
-        // 직전 화면을 켜 놓은** 상태가 눈에 띈다.
+        // 받아 오기 전에 먼저 연다 — 탭이 늦게 서면 화면은 바뀌었는데 탭 줄은 직전 화면을 켠 채로 남는다.
         Tabs.Open(Href, TabTitle, standalone: true);
 
         await LoadAsync();
     }
 
-    /// <summary>
-    /// 한 건을 받아 온다. <b>못 찾으면 그대로 둔다</b> — 화면이
-    /// 「찾지 못했습니다」로 말한다.
-    /// </summary>
+    /// <summary>한 건을 받아 온다. 못 찾으면 그대로 두고, 화면이 「찾지 못했습니다」로 말한다.</summary>
     private async Task LoadAsync()
     {
         await LoadOneAsync(
@@ -77,26 +66,7 @@ public partial class AiTaskViewPage
         Follow();
     }
 
-    /// <summary>
-    /// <b>머리줄의 「다시 읽기」.</b> 지금 보고 있는 건을 서버에서 처음부터
-    /// 받아 와 화면 전체를 새것으로 갈아 끼운다.
-    /// </summary>
-    /// <remarks>
-    /// <b>타이머가 메우지 못하는 자리를 메운다.</b> 따라가기(<see cref="Follow"/>)는
-    /// <b>돌고 있는 동안만</b> 돌고 끝나면 스스로 멈춘다. 그런데 끝난 뒤에도
-    /// 바뀌는 것이 있다 — 요약이 뒤늦게 적히고(서버의 감시자), 다른 사람이
-    /// 그 건을 이어 돌리면 차수가 하나 더 선다. 그때 할 수 있는 일이
-    /// <b>브라우저 새로고침(F5)뿐</b>이었는데, 그것은 이 탭과 회로를 통째로
-    /// 다시 세워 편집기 3MB 를 다시 받는 일이다.
-    ///
-    /// <para>
-    /// 신호(<see cref="_tick"/>)는 <b>받아 온 뒤에</b> 올린다. 먼저 올리면
-    /// 첫 <c>await</c> 자리의 그림에 <b>신호만 새것이고 <c>Item</c> 은 아직
-    /// 지난 것</b>인 짝이 안쪽에 닿아, 차수를 지난 건으로 짓고 끝난다 —
-    /// 그다음 그림에서는 신호가 이미 같아져 아무 일도 일어나지 않는다.
-    /// 둘을 함께 보내려면 <b>같은 그림에</b> 실어야 한다.
-    /// </para>
-    /// </remarks>
+    /// <summary>머리줄의 「다시 읽기」. 지금 건을 서버에서 처음부터 받아 화면 전체를 새것으로 갈아 끼운다 — 따라가기가 끝난 뒤의 변화(요약이 뒤늦게 적힘, 차수 추가)를 메운다. 신호(_tick)는 받아 온 뒤 같은 그림에 실어 올려야 안쪽이 지난 건으로 짓지 않는다.</summary>
     private async Task ReloadAsync()
     {
         await LoadAsync();
@@ -116,10 +86,7 @@ public partial class AiTaskViewPage
         StateHasChanged();
     }
 
-    /// <summary>
-    /// 작성중인 건을 지웠거나( <see cref="AiTaskActions"/> ) 사용자 확인을 마쳤다.
-    /// <b>이 탭을 닫고</b> 「빠른 지시」로 돌아간다 — 이 주소가 가리킬 것이 없어졌다.
-    /// </summary>
+    /// <summary>작성중인 건을 지웠거나 사용자 확인을 마쳤다. 이 탭을 닫고 「빠른 지시」로 돌아간다 — 이 주소가 가리킬 것이 없어졌다.</summary>
     private void OnClosedAsync(AiTaskDto _) => ClosePage();
 
     private void OnPhoneChanged(bool isPhone)
@@ -137,10 +104,7 @@ public partial class AiTaskViewPage
         Navigation.NavigateTo("/projmng/ai/ask");
     }
 
-    /// <summary>
-    /// 돌고 있으면 따라간다. <b>상태를 넘겨 줄 부모가 없으므로 이 화면이
-    /// 직접 본다</b> — 안쪽(<c>AiTaskView</c>)은 실행 이력과 로그만 본다.
-    /// </summary>
+    /// <summary>돌고 있으면 따라간다. 상태를 넘겨 줄 부모가 없으므로 이 화면이 직접 본다 — 안쪽은 실행 이력과 로그만 본다.</summary>
     private void Follow()
     {
         if (_item?.IsBusy != true)
@@ -163,8 +127,7 @@ public partial class AiTaskViewPage
             {
                 while (!cts.IsCancellationRequested)
                 {
-                    // 「빠른 지시」 화면과 같은 5초다. 로그는 안쪽이 3초마다
-                    // 따로 따라가므로 여기서 더 자주 물을 이유가 없다.
+                    // 「빠른 지시」와 같은 5초다. 로그는 안쪽이 3초마다 따로 따라가므로 여기서 더 자주 물을 이유가 없다.
                     await Task.Delay(TimeSpan.FromSeconds(5), cts.Token);
 
                     var fresh = await Api.GetAsync(TaskKey, cts.Token);

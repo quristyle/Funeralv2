@@ -14,144 +14,64 @@ public partial class AiAskPanel
     [Inject] private AiTargetClient TargetApi { get; set; } = default!;
     [Inject] private AiModelCodes ModelCodes { get; set; } = default!;
 
-    /// <summary>
-    /// AI 고르개에 한도를 적으려고 둔다. <b>대시보드를 부르는 것이 아니다</b> —
-    /// 한도 표 하나만 읽는 자리를 따로 쓴다(<see cref="AiDashboardClient.UsageAsync"/>).
-    /// </summary>
+    /// <summary>AI 고르개에 한도를 적는다. 대시보드를 부르지 않고 한도 표만 읽는다.</summary>
     [Inject] private AiDashboardClient Dashboard { get; set; } = default!;
     [Inject] private AiAskPrefs Prefs { get; set; } = default!;
     [Inject] private UserFaceClient Faces { get; set; } = default!;
     [Inject] private IJSRuntime JS { get; set; } = default!;
 
-    /// <summary>
-    /// 이 알맹이의 <b>권한 열쇠</b>. 「빠른 지시」 화면의 경로이고
-    /// 권한표(<c>scom.system_menus.path</c>)가 그것으로 쥔다.
-    /// <para>
-    /// 화면 쪽(<c>AiAsk</c>)의 <c>@@page</c> 와 같아야 한다 — 어긋나면 화면에서
-    /// 보이던 단추가 서랍에서만 사라진다. 아키텍처 테스트가 <c>@@page</c> 와 DB
-    /// 경로를 대조하므로 이 값도 그 하나를 따른다.
-    /// </para>
-    /// </summary>
+    /// <summary>이 알맹이의 권한 열쇠. 화면(<c>AiAsk</c>)의 <c>@page</c> 와 같아야 한다 — 어긋나면 서랍에서만 단추가 사라진다.</summary>
     private const string AskPath = "/projmng/ai/ask";
 
-    /// <summary>
-    /// 공통코드(<c>AI_MODEL</c>)에서 읽은 AI 전부. <b>고르개가 쓰는 형을
-    /// 그대로 든다</b>(<see cref="AiModelOption"/>) — 화면마다 제 기록을
-    /// 두고 옮겨 담던 것을 걷었다.
-    /// </summary>
+    /// <summary>공통코드 <c>AI_MODEL</c> 의 AI 전부. 고르개와 같은 형(<see cref="AiModelOption"/>)을 쓴다.</summary>
     private IReadOnlyList<AiModelOption> AllKinds = [];
 
-    /// <summary>
-    /// 처음 보이는 건수이자 <b>「더보기」가 한 번에 늘리는 수</b>의 <b>밑값</b>이다.
-    /// 목록 화면이 아니므로 짧게 둔다 — 기본인 두 단에서 <b>가로 두 장씩
-    /// 다섯 줄</b>이다.
-    /// <para>
-    /// 실제로 쓰는 수는 <see cref="PageCount"/> 다. 단 수가 사람 손에 달려
-    /// 있으므로 <b>여기 적힌 10이 늘 그대로 나가지 않는다</b> — 세 단이면
-    /// 12로 올라간다. 까닭은 그 속성에.
-    /// </para>
-    /// </summary>
+    /// <summary>처음 보이는 건수이자 「더보기」 증분의 밑값. 실제로 쓰는 수는 <see cref="PageCount"/> 다.</summary>
     private const int RecentMax = 10;
 
     /// <summary>고를 수 있는 단 수. 화면의 고르개가 이 차례로 선다.</summary>
     private static readonly int[] ColChoices = [1, 2, 3, 4];
 
-    /// <summary>
-    /// 기억이 없을 때의 단 수. <b>한동안 이 값 하나뿐이었다</b> — 고르개가
-    /// 생기기 전에 쓰던 사람은 아무것도 안 바뀐 화면을 본다.
-    /// </summary>
+    /// <summary>기억이 없을 때의 단 수.</summary>
     private const int ColsDefault = 2;
 
-    /// <summary>
-    /// 카드를 몇 단으로 까는가. 격자에 그대로 실린다(<c>--pm-ask-cols</c>).
-    /// </summary>
+    /// <summary>카드를 몇 단으로 까는가. 격자에 실린다(<c>--pm-ask-cols</c>).</summary>
     private int _cols = ColsDefault;
 
-    /// <summary>
-    /// 한 번에 까는 장수이자 「더보기」가 한 번에 늘리는 수.
-    /// <b><see cref="RecentMax"/> 이상이면서 단 수로 나누어떨어지는 가장 작은 수</b>다
-    /// (한 단 10 · 두 단 10 · 세 단 12).
-    /// </summary>
-    /// <remarks>
-    /// 10을 그대로 쓰면 세 단에서 <b>마지막 줄에 빈 칸이 하나</b> 남는다.
-    /// 「더보기」를 누를 때마다 그 구멍이 같은 자리에 다시 생기므로 한 번
-    /// 어긋나고 마는 것이 아니다.
-    /// <para>
-    /// <b>깔린 장수를 이 값에 맞추지는 못한다.</b> 안 끝난 것은 몇이든 전부
-    /// 깔리기 때문이다(<see cref="Show"/>) — 여기서 고르게 두는 것은
-    /// <b>채움분</b>뿐이다.
-    /// </para>
-    /// </remarks>
+    /// <summary>한 번에 깔고 더보기로 늘리는 장수. 단 수로 나누어떨어지는 가장 작은 수다(10 이면 세 단에서 마지막 줄 빈 칸이 남는다).
+    /// 깔린 장수를 이 값에 맞추지는 못한다 — 안 끝난 것은 몇이든 전부 깔린다(<see cref="Show"/>).</summary>
     private int PageCount => ((RecentMax + _cols - 1) / _cols) * _cols;
 
-    /// <summary>
-    /// 적어 둔 단 수를 화면이 쓸 수 있는 값으로 맞춘다. <b>범위를 벗어나면
-    /// 기본값으로 돌린다</b> — 0을 그대로 쓰면 <c>repeat(0, …)</c> 이 되어
-    /// 카드가 통째로 안 그려지고, 그 화면에는 아무 오류도 안 뜬다.
-    /// </summary>
+    /// <summary>적어 둔 단 수를 허용 값으로 맞춘다. 범위를 벗어나면 기본값으로 돌린다 — 0 이면 <c>repeat(0, …)</c> 이 되어 카드가 통째로 안 그려진다.</summary>
     private static int PickCols(int n) => ColChoices.Contains(n) ? n : ColsDefault;
 
-    /// <summary>
-    /// 한 건에 붙일 수 있는 파일 수. <b>서버의 상한과 같은 값이다</b>
-    /// (<c>AiTaskFileService.MaxCount</c>) — 어긋나면 화면이 받아 놓고 서버가
-    /// 거절하는 자리가 생기고, 그때는 이미 바이트를 다 보낸 뒤다.
-    /// </summary>
+    /// <summary>한 건에 붙일 파일 수. 서버 상한(<c>AiTaskFileService.MaxCount</c>)과 같아야 한다 — 어긋나면 바이트를 다 보낸 뒤 서버가 거절한다.</summary>
     private const int MaxFiles = 5;
 
-    /// <summary>
-    /// 파일 한 개의 상한. <b>서버와 같은 값이어야 한다</b>
-    /// (<c>AiTaskFileService.MaxBytes</c>).
-    /// </summary>
-    /// <remarks>
-    /// 여기가 작으면 붙일 수 있는 것을 화면이 먼저 거절하고, 여기가 크면
-    /// 바이트를 다 올린 뒤에 서버가 거절한다 — 뒤쪽이 더 나쁘다.
-    /// </remarks>
+    /// <summary>파일 한 개의 상한. 서버 <c>AiTaskFileService.MaxBytes</c>와 같아야 한다 — 작으면 화면이 먼저 거절하고, 크면 서버가 다 올린 뒤 거절한다.</summary>
     private const long MaxFileBytes = 100L * 1024 * 1024;
 
-    /// <summary>
-    /// 고르개 아이콘에 다는 설명(<c>title</c>). <b>남은 자리를 적는다</b> —
-    /// 「몇 개까지」보다 「몇 개 더」가 쓸모 있다.
-    /// </summary>
-    /// <remarks>
-    /// 한동안 고르개 아래 한 줄이었다(<c>FilePicker.Hint</c>). 고르개가
-    /// 단추 줄의 아이콘 하나로 줄면서 그 줄을 세울 자리가 없어져 여기로
-    /// 옮겼다 — 아이콘만 남으면 무엇을 고르는 단추인지 말할 데가 없다.
-    /// </remarks>
+    /// <summary>고르개 아이콘의 설명(<c>title</c>). 「몇 개까지」보다 「몇 개 더」처럼 남은 자리를 적는다.</summary>
     private string FileHint =>
         $"화면 사진이나 파일을 함께 보냅니다 — {MaxFiles - _attached.Count}개 더 · 한 개 {MaxFileBytes / 1024 / 1024}MB 까지";
 
     private FilePicker? _picker;
 
-    /// <summary>
-    /// 올려 두었고 <b>아직 어느 지시에도 안 묶인</b> 첨부. 보낼 때 번호만 실어 보낸다.
-    /// </summary>
-    /// <remarks>
-    /// 목록을 브라우저에 기억하지 않는다 — 서버가 하루 지난 것을 치우므로
-    /// 적어 두면 <b>없는 첨부가 붙어 보인다.</b> 화면이 열릴 때 서버에 묻는다
-    /// (<see cref="LoadStagedFilesAsync"/>).
-    /// </remarks>
+    /// <summary>올려 두었고 아직 어느 지시에도 묶이지 않은 첨부. 목록은 브라우저에 기억하지 않고 화면이 열릴 때 서버에 묻는다 — 지난 첨부가 붙어 보이는 것을 막는다.</summary>
     private List<AiTaskFileDto> _attached = [];
 
     /// <summary>바이트를 받거나 임시 첨부 저장을 마치기 전, 선택 사실을 보여 주는 파일명.</summary>
     private IReadOnlyList<string> _selectedFileNames = [];
 
-    /// <summary>
-    /// 지금 올리는 중인가. <b>보내기를 함께 막는다</b> — 덜 올라간 채로 나가면
-    /// 사람은 붙인 줄 아는데 지시에는 안 붙는다.
-    /// </summary>
+    /// <summary>업로드 중. 보내기도 함께 막는다 — 덜 올라간 채로 나가면 지시에 첨부가 빠진다.</summary>
     private bool _uploading;
 
     private IReadOnlyList<AiTargetDto> _targets = [];
 
-    /// <summary>
-    /// 받아 둔 것 <b>전부</b>. 서버가 잘라 주지 않으므로 한 번에 다 온다 —
-    /// 「더보기」는 여기서 몇 장을 꺼내 보이느냐의 문제다.
-    /// </summary>
+    /// <summary>받아 둔 건 전부. 서버가 잘라 주지 않으므로 「더보기」는 여기서 몇 장을 꺼내 보이느냐의 문제다.</summary>
     private IReadOnlyList<AiTaskDto> _all = [];
 
-    /// <summary>
-    /// <b>완료가 아닌</b> 것. 몇 건이든 전부 깔린다(<see cref="Show"/>).
-    /// </summary>
+    /// <summary>완료가 아닌 건. 몇 건이든 전부 깐다.</summary>
     private IReadOnlyList<AiTaskDto> _open = [];
 
     /// <summary>완료된 것. 자리가 남을 때 <b>채우는 데</b> 쓴다.</summary>
@@ -160,30 +80,18 @@ public partial class AiAskPanel
     /// <summary>지금 화면에 깔린 것. <c>_open</c> 전부 + <c>_done</c> 앞쪽 몇 장.</summary>
     private IReadOnlyList<AiTaskDto> _recent = [];
 
-    /// <summary>
-    /// 목록을 <b>한 번이라도 물어봤나</b>(실패 포함). 묻기 전의 빈 목록과
-    /// 물어보니 빈 목록은 다르다 — 앞엣것에 「아직 없습니다」를 세우면 안 된다.
-    /// </summary>
+    /// <summary>목록을 한 번이라도 물어봤나(실패 포함). 묻기 전의 빈 목록과 물어본 뒤 빈 목록은 다르다.</summary>
     private bool _recentLoaded;
 
-    /// <summary>
-    /// 「더보기」를 몇 번 눌렀나. 한 번에 완료된 것 <see cref="RecentMax"/> 장씩
-    /// 더 꺼낸다. <b>다시 읽어도 유지된다</b> — 5초마다 도는 타이머가 이 값을
-    /// 되돌리면 펼쳐 놓고 보던 것이 눈앞에서 접힌다.
-    /// </summary>
-    /// <remarks>
-    /// <b>장수가 아니라 누른 횟수를 들고 있다.</b> 장수로 들고 있으면 돌던 건이
-    /// 완료로 넘어갈 때마다 채움분이 따로 늘어 <b>펼쳐 둔 자리가 저 혼자
-    /// 길어진다.</b> 횟수로 두면 채움분은 채움분대로 다시 계산되고 사람이 늘린
-    /// 몫만 그 위에 얹힌다.
-    /// </remarks>
+    /// <summary>「더보기」를 누른 횟수. 장수가 아니라 횟수로 들어야 완료 전환 때 펼쳐 둔 자리가 저 혼자 길어지지 않는다.
+    /// 다시 읽어도 유지한다 — 5초 타이머가 되돌리면 펼쳐 보던 것이 접힌다.</summary>
     private int _more;
 
     private long? _targetKey;
     private string _kind = "claude";
     private string? _text;
 
-    /// <summary>임시본이 저장되었던 시각.</summary>
+    /// <summary>임시본을 저장한 시각.</summary>
     private DateTime? _draftSavedAt;
 
     /// <summary>본문 입력 후 임시저장 지연 타이머.</summary>
@@ -192,10 +100,7 @@ public partial class AiAskPanel
     /// <summary>DOM 레벨 실시간 임시저장 JS 모듈.</summary>
     private IJSObjectReference? _draftModule;
 
-    /// <summary>
-    /// 글상자의 Ctrl+Enter 를 받을 때 쥐는 손잡이. <b>반드시 치운다</b> —
-    /// 안 치우면 회로가 닫혀도 이 부품이 JS 쪽 참조에 매달려 남는다.
-    /// </summary>
+    /// <summary>글상자의 Ctrl+Enter 를 받는 손잡이. 회로가 닫히면 반드시 치워야 JS 쪽 참조에 남지 않는다.</summary>
     private DotNetObjectReference<AiAskPanel>? _draftRef;
 
     /// <summary>카드 밀기를 받는 JS 모듈.</summary>
@@ -210,16 +115,10 @@ public partial class AiAskPanel
     /// <summary>최근 목록 쓸어내려 새로고침 시 되부를 때 쥐는 손잡이.</summary>
     private DotNetObjectReference<AiAskPanel>? _pullRef;
 
-    /// <summary>
-    /// 그 모듈이 되부를 때 쥐는 손잡이. <b>반드시 치운다</b> — 안 치우면
-    /// 회로가 닫혀도 이 부품이 JS 쪽 참조에 매달려 남는다.
-    /// </summary>
+    /// <summary>그 JS 모듈이 되부를 때 쥐는 손잡이. 회로가 닫히면 반드시 치워야 JS 쪽 참조에 남지 않는다.</summary>
     private DotNetObjectReference<AiAskPanel>? _swipeRef;
 
-    /// <summary>
-    /// 이 부품이 그린 상자의 id. <b>같은 알맹이가 화면과 서랍에 동시에 뜰 수
-    /// 있어서</b> 생긴다 — 위 상자 주석 참고.
-    /// </summary>
+    /// <summary>이 부품 상자의 id. 같은 알맹이가 화면과 서랍에 동시에 뜰 수 있어 고유해야 한다.</summary>
     private readonly string _domId = $"pm-ask-{Guid.NewGuid():N}";
 
     private ElementReference _moreSentinel;
@@ -242,10 +141,7 @@ public partial class AiAskPanel
         return string.IsNullOrWhiteSpace(name) ? null : name;
     }
 
-    /// <summary>
-    /// 카드 첫째 줄에 표시할 상태 문자열.
-    /// 4단 보기(_cols >= 4)에서는 폭이 좁아 다음 줄로 밀려 내려가지 않도록 2글자만 표시한다.
-    /// </summary>
+    /// <summary>카드 첫 줄 상태 문자열. 4단에서는 폭이 좁아 2글자만 쓴다.</summary>
     internal static string StatusText(string? text, int cols)
     {
         if (string.IsNullOrEmpty(text))
@@ -280,44 +176,26 @@ public partial class AiAskPanel
         }
     }
 
-    // _push Removed as we always follow SelectedTargetAllowsPush
-    // _mail, _pwa removed: 알림 처리는 알림관리 및 사용자 환경설정에서 관리하므로 화면 체크박스 미사용
 
     private bool Busy;
 
     /// <summary>보이는 동안 도는 타이머. <b>가려지면 멈춘다.</b></summary>
     private CancellationTokenSource? _poll;
 
-    /// <summary>돌고 있는 건이 있을 때의 간격.</summary>
-    /// <remarks>
-    /// 로그를 따라가는 화면이 아니다. 5초면 넉넉하다 — 2초로 두면 열어 둔
-    /// 판마다 서버를 그만큼 더 부른다.
-    /// </remarks>
+    /// <summary>돌고 있는 건이 있을 때의 간격. 5초면 넉넉하다 — 2초로 두면 열어 둔 판마다 서버를 그만큼 더 부른다.</summary>
     private static readonly TimeSpan FollowBusy = TimeSpan.FromSeconds(5);
 
-    /// <summary>하나도 안 도는 동안의 간격.</summary>
-    /// <remarks>
-    /// <b>여기서 아예 끄지 않는다.</b> 끄면 다른 자리에서 손댄 건과 서버가
-    /// 나중에 지어 주는 제목이 영영 안 따라온다(머리말). 대신 넷 중 하나로
-    /// 늦춰 값을 갚고, 가려진 동안에는 통째로 멈춘다.
-    /// </remarks>
+    /// <summary>하나도 안 도는 동안의 간격. 끄지 않는다 — 끄면 다른 자리에서 손댄 건과 서버가 지은 제목이 안 따라온다.</summary>
     private static readonly TimeSpan FollowIdle = TimeSpan.FromSeconds(20);
 
-    /// <summary>
-    /// 서랍이 펴져 있나. <b>화면(<c>AiAsk</c>)으로 열렸으면 안 내려온다</b> —
-    /// 그때는 <c>null</c> 이고 「늘 보인다」는 뜻이다
-    /// (<see cref="QuickAskReveal.OpenCascade"/>).
-    /// </summary>
+    /// <summary>서랍이 펴져 있나. 화면(<c>AiAsk</c>)으로 열렸으면 <c>null</c> 이고 늘 보인다는 뜻이다.</summary>
     [CascadingParameter(Name = QuickAskReveal.OpenCascade)]
     private bool? DrawerOpen { get; set; }
 
     /// <summary>지금 사람 눈에 보이는 자리인가. 따라갈지 말지를 이 값이 가른다.</summary>
     private bool Shown => DrawerOpen is not false;
 
-    /// <summary>
-    /// 마지막으로 본 <see cref="Shown"/>. <b>첫 판은 <c>null</c> 이다</b> —
-    /// 그때는 <see cref="OnInitializedAsync"/> 가 이미 읽었으므로 또 읽지 않는다.
-    /// </summary>
+    /// <summary>마지막으로 본 <see cref="Shown"/>. 첫 판은 <c>null</c> 이고, 그때는 <see cref="OnInitializedAsync"/> 가 이미 읽었으므로 또 읽지 않는다.</summary>
     private bool? _shown;
 
     /// <summary>고른 대상이 허용한 AI 만 고르게 한다(「AI 작업」 화면과 같은 규칙).</summary>
@@ -341,40 +219,11 @@ public partial class AiAskPanel
 
     private IReadOnlyList<AiModelOption> RunnerKinds => AllowedKinds;
 
-    /// <summary>
-    /// 실행기가 올려 둔 AI 별 한도. <b>고르개 목록에 그대로 적는다.</b>
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>왜 고르는 자리에 적나.</b> 여기서 AI 를 고른 사람은 그것이 얼마나
-    /// 남았는지 모른 채 보낸다 — 다 쓴 CLI 로 보내면 실행기가 집어가서
-    /// <i>실패로 끝난 뒤에야</i> 알게 되고, 그때는 자리를 뜬 뒤다. 한도는
-    /// 이미 「AI 작업 현황」에 있지만 <b>다른 화면을 열어 확인하고 돌아올
-    /// 상황이 아닌 것</b>이 이 화면의 전제다.
-    /// </para>
-    /// <para>
-    /// <b>못 읽어도 조용하다.</b> 곁들이는 값이라 빈 목록이 되고, 그때
-    /// 고르개는 한도 없이 이름만 보여 준다 — 지시를 보내는 데는 지장이 없다.
-    /// </para>
-    /// </remarks>
+    /// <summary>실행기가 올린 AI 별 한도. 고르는 자리에서 보여야 다 쓴 CLI 로 보냈다가 실패하는 일을 막는다.
+    /// 못 읽으면 빈 목록이 되고 고르개는 이름만 보인다 — 지시 전송에는 지장이 없다.</summary>
     private IReadOnlyList<AiUsageSnapshot> _usage = [];
 
-    /// <summary>
-    /// 한도를 <b>한 번이라도 받아 봤나.</b> 받아 보기 전과 받아 봤는데 빈 것은
-    /// 다른 상태다.
-    /// </summary>
-    /// <remarks>
-    /// 이것이 없으면 아직 묻는 중인 CLI 가 <b>「보고 없음」</b>으로 보인다 —
-    /// 그 글자는 「실행기가 그 CLI 를 못 묻고 있다」는 뜻이라
-    /// (<see cref="AiUsageText.Of"/>) 멀쩡한 장비를 들여다보게 만든다.
-    /// 한도를 배경에서 받게 된 뒤로(<see cref="LoadAsideAsync"/>) 그 사이가
-    /// 눈에 보이므로 갈라 둔다.
-    /// <para>
-    /// <b>한 번 참이 되면 돌아가지 않는다.</b> 서랍이 다시 펴질 때도 같은
-    /// 것을 다시 읽는데(<see cref="ReopenAsync"/>), 그때마다 이미 적혀 있던
-    /// 숫자가 「확인 중」으로 되돌아가면 깜빡이기만 한다.
-    /// </para>
-    /// </remarks>
+    /// <summary>한도를 한 번이라도 받았나. 받기 전과 받아서 빈 것은 다르다 — 없으면 묻는 중인 CLI 가 「보고 없음」으로 보인다. 한 번 참이 되면 되돌리지 않는다.</summary>
     private bool _usageSeen;
 
     /// <summary>그 CLI 의 한도 줄들. 한 CLI 가 여럿을 가질 수 있다.</summary>
@@ -384,40 +233,17 @@ public partial class AiAskPanel
             : [.. _usage.Where(u => string.Equals(u.RunnerKind, kind, StringComparison.OrdinalIgnoreCase))];
 
 
-    /// <summary>
-    /// 한도를 읽어 둔다. <b>화면을 막지 않는다</b> — 못 읽으면 고르개가
-    /// 이름만 보여 주고 지시는 그대로 나간다.
-    /// </summary>
-    /// <remarks>
-    /// <b>따라가기(폴링)에 태우지 않는다.</b> 실행기는 15분에 한 번 보고하므로
-    /// 몇 초마다 다시 읽어 봐야 같은 값이고, 이 화면은 안 끝난 건이 있는 동안
-    /// 계속 도는 화면이다 — 태우면 <b>바뀌지도 않는 값을 하루 수백 번</b> 묻는다.
-    /// 화면이 열릴 때와 서랍이 다시 펴질 때만 읽는다.
-    /// </remarks>
+    /// <summary>한도를 읽어 둔다. 화면을 막지 않는다. 따라가기(폴링)에 태우지 않는다 — 실행기는 15분에 한 번 보고하므로 화면이 열릴 때와 서랍이 펴질 때만 읽는다.</summary>
     private async Task LoadUsageAsync()
     {
         _usage = await Dashboard.UsageAsync();
 
-        // **못 읽었어도 참이다.** 「확인 중」에 붙박이게 두면, 실행기가 한 번도
-        // 안 올린 상태(=「보고 없음」)와 게이트웨이가 없는 상태를 둘 다
-        // 「곧 올 것」처럼 보여 주게 된다.
+        // 못 읽었어도 참이다 — 아니면 「보고 없음」과 게이트웨이 없음이 둘 다 「곧 올 것」으로 보인다.
         _usageSeen = true;
     }
 
-    /// <summary>
-    /// 카드의 AI 배지에 달 전체 이름. <b>고르는 칸과 같은 글자</b>를 쓴다 —
-    /// 공통코드(<c>AI_MODEL</c>)에서 읽은 <see cref="AllKinds"/> 에서 집는다.
-    /// </summary>
-    /// <remarks>
-    /// <b>고른 대상이 허용한 것(<see cref="AllowedKinds"/>)으로 찾지 않는다.</b>
-    /// 아래 카드는 지난 건들이라 <b>지금 고른 대상과 무관하고</b>, 그 대상이
-    /// 허용하지 않는 AI 로 돌린 건도 섞여 있다 — 거기서 찾으면 그런 건의
-    /// 배지만 이름을 잃는다.
-    /// <para>
-    /// 못 찾으면 코드값을 그대로 적는다. 목록을 못 받았을 때도(그쪽은 실패해도
-    /// 화면을 막지 않는다) 배지가 <b>이름 없는 색 조각</b>으로 남지 않는다.
-    /// </para>
-    /// </remarks>
+    /// <summary>카드 AI 배지의 전체 이름. 지난 건은 지금 고른 대상과 무관하므로 허용 목록(<see cref="AllowedKinds"/>)으로 찾지 않는다.
+    /// 못 찾으면 코드값을 그대로 적는다.</summary>
     private string KindName(string? kind)
     {
         if (string.IsNullOrWhiteSpace(kind))
@@ -429,10 +255,7 @@ public partial class AiAskPanel
             k => string.Equals(k.Value, kind, StringComparison.OrdinalIgnoreCase))?.Text ?? kind;
     }
 
-    /// <summary>
-    /// 아직 안 보인 건수. <b>단추에 그대로 적는다.</b> 안 끝난 것은 언제나 다
-    /// 깔리므로 <b>여기 남는 것은 완료된 것뿐이다.</b>
-    /// </summary>
+    /// <summary>아직 안 보인 건수. 안 끝난 것은 늘 다 깔리므로 여기 남는 것은 완료된 것뿐이다.</summary>
     private int Rest => Math.Max(0, _all.Count - _recent.Count);
 
     private bool CanSend =>
@@ -444,17 +267,10 @@ public partial class AiAskPanel
     /// <summary>고른 대상이 올리기를 허용하나 (<c>ai_target.allow_push</c>).</summary>
     private bool SelectedTargetAllowsPush => SelectedTarget?.AllowPush == true;
 
-    /// <summary>
-    /// 화면이 내보이는 올리기 상태. <b>허용하지 않는 대상으로 바꾸면 저절로
-    /// 꺼진 것으로 보인다</b> — 켜 둔 채로 회색이 되면 「올라가는 건가 마는
-    /// 건가」를 알 수 없고, 이 화면에서 그 물음은 배포가 걸린 물음이다.
-    /// </summary>
+    /// <summary>화면에 보이는 올리기 상태. 허용하지 않는 대상이면 꺼진 것으로 보여야 한다 — 켜 둔 채 회색이면 올라가는지 알 수 없다.</summary>
     private bool PushOn => SelectedTargetAllowsPush;
 
-    /// <summary>
-    /// 대상 칸이 매인 자리. 바꾸면 <b>AI 를 맞추고 그 자리에서 기억한다.</b>
-    /// 칸이 <c>_targetKey</c> 에 곧장 매이면 이 둘을 할 자리가 없다.
-    /// </summary>
+    /// <summary>대상 칸이 매인 자리. 바꾸면 AI 를 맞추고 그 자리에서 기억한다. 칸을 <c>_targetKey</c> 에 곧장 매면 이 둘을 할 자리가 없다.</summary>
     private long? PickTarget
     {
         get => _targetKey;
@@ -467,8 +283,7 @@ public partial class AiAskPanel
 
             _targetKey = value;
 
-            // 새 대상이 못 쓰는 AI 가 골라져 있을 수 있다. 기억하기 **전에**
-            // 맞춘다 — 안 맞춘 채로 적어 두면 다음에 열 때 그 어긋남이 되살아난다.
+            // 못 쓰는 AI 가 골라져 있을 수 있어 기억하기 전에 맞춘다.
             FixKind();
             Remember();
         }
@@ -479,9 +294,7 @@ public partial class AiAskPanel
         get => _kind;
         set
         {
-            // 비우는 길이 없는 칸이다(`NullText` 를 안 걸었다). 그래도 빈 값이
-            // 들어오면 **고른 것을 지우지 않는다** — 실행기 이름이 빈 채로
-            // 저장되면 그 건은 아무 데서도 안 돈다.
+            // 비우는 칸이 아니다. 빈 값이 들어와도 고른 것을 지우지 않는다 — 빈 이름이 저장되면 그 건은 아무 데서도 안 돈다.
             if (string.IsNullOrWhiteSpace(value) || _kind == value)
             {
                 return;
@@ -492,16 +305,7 @@ public partial class AiAskPanel
         }
     }
 
-    /// <summary>
-    /// 단추 글자. 평소에는 <b>「지시하기」</b> 하나이고, 일하는 동안만
-    /// 무엇을 하고 있는지로 바뀐다.
-    /// </summary>
-    /// <remarks>
-    /// 한동안 올리기 여부를 이 글자가 말했다(「보내고 올리기까지」 ·
-    /// 「보내고 메일로 받기」). 올리기는 이제 고른 대상이 정하는 것이지
-    /// 사람이 이 화면에서 켜고 끄는 것이 아니라서, 누르는 단추의 이름을
-    /// <b>하는 일 하나로</b> 되돌렸다.
-    /// </remarks>
+    /// <summary>지시 단추 글자. 평소엔 「지시하기」이고 일하는 동안만 하는 일로 바뀐다. 올리기 여부는 대상이 정하므로 글자로 말하지 않는다.</summary>
     private string SendText => _uploading || _selectedFileNames.Count > 0 ? "첨부 올리는 중"
         : Busy ? "보내는 중"
         : "지시하기";
@@ -512,58 +316,36 @@ public partial class AiAskPanel
     /// <summary>로그인 아이디. 못 읽었으면 <c>null</c> 이다.</summary>
     private string? _me;
 
-    /// <summary>
-    /// <b>내가 올린 건인가.</b> 「새 남긴말」 배지를 내 카드에만 세우는 데
-    /// 쓴다 — 이 목록에는 남이 보낸 것도 함께 깔린다.
-    /// </summary>
+    /// <summary>내가 올린 건인가. 「새 남긴말」 배지를 내 카드에만 세운다 — 목록에는 남이 보낸 것도 깔린다.</summary>
     private bool IsMine(AiTaskDto t) =>
         _me is { Length: > 0 } me
         && string.Equals(me, t.CreId?.Trim(), StringComparison.OrdinalIgnoreCase);
 
     protected override async Task OnInitializedAsync()
     {
-        // **기억은 사람마다 갈라 둔다.** 공용 PC 에서 남이 고른 대상이 내
-        // 화면에 뜨면 안 된다(「AI 작업」 화면의 임시본과 같은 규칙이다).
+        // 기억은 사람마다 갈라 둔다. 공용 PC 에서 남이 고른 대상이 뜨면 안 된다.
         if (AuthState is not null)
         {
             var state = await AuthState;
 
-            // **기억을 가르는 데도, 카드를 가르는 데도 같은 아이디를 쓴다**
-            // (`IsMine` — 「새 남긴말」 배지가 내 건에만 서게 한다).
+            // 기억을 가르는 것과 카드를 가르는 것이 같은 아이디를 쓴다(<c>IsMine</c>).
             _me = state.User.Identity?.Name?.Trim();
 
             Prefs.Use(_me);
         }
 
-        // **고르개를 세우는 것만 기다린다.** AI 고르개는 목록이 올 때까지
-        // 회색이고(`Enabled` 가 `AllowedKinds.Count` 를 본다), 대상 고르개는
-        // 기억을 얹는 자리(`OnAfterRenderAsync`)가 목록이 와 있는 것을 전제로
-        // 한다. 모델 목록은 거의 통에서 바로 온다(`DevCommonCodeClient`).
+        // 고르개를 세우는 것만 기다린다 — AI 고르개는 목록이 와야 켜진다.
+        // 대상 고르개의 기억 얹기는 목록이 와 있다고 가정한다.
         await LoadModelsAsync();
 
-        // 나머지는 대상과 **나란히** 묻는다 — 대상 뒤에 줄 세우면 화면의
-        // 알맹이인 카드 목록이 왕복 하나만큼 늦게 선다.
+        // 나머지는 대상과 나란히 묻는다 — 줄 세우면 카드 목록이 왕복 하나만큼 늦게 선다.
         _ = LoadAsideAsync();
 
         await LoadTargetsAsync();
     }
 
-    /// <summary>
-    /// <b>곁들이는 것들.</b> 최근 보낸 것 · 한도 · 붙여 둔 첨부를 <b>한꺼번에</b>
-    /// 묻고 온 것부터 얹는다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 셋 다 고르개를 세우는 값이 아니라 기다리지 않는다. 그중 카드 목록이
-    /// 화면의 알맹이라, 다른 둘 뒤에 줄 세우지 않는다 — 줄 세우면 그 사이
-    /// 「아직 요청한 빠른 지시가 없습니다」가 먼저 섰다가 카드에 밀려난다.
-    /// </para>
-    /// <para>
-    /// <b>프리렌더에서는 묻지 않는다.</b> 그 판은 회로가 붙으면 버려지므로
-    /// 거기서 게이트웨이를 부르면 같은 것을 두 번 묻는다(<c>DataPage.CanLoad</c>
-    /// 와 같은 까닭).
-    /// </para>
-    /// </remarks>
+    /// <summary>곁들이는 것(최근 보낸 것 · 한도 · 붙은 첨부)을 한꺼번에 묻는다. 카드 목록이 알맹이라 기다리지 않는다.
+    /// 프리렌더에서는 묻지 않는다 — 그 판은 회로가 붙으면 버려진다.</summary>
     private async Task LoadAsideAsync()
     {
         if (!RendererInfo.IsInteractive)
@@ -591,9 +373,7 @@ public partial class AiAskPanel
         }
     }
 
-    /// <summary>
-    /// 배경에서 받은 것을 화면에 얹는다. <b>떠난 뒤면 조용히 지나간다.</b>
-    /// </summary>
+    /// <summary>배경에서 받은 것을 화면에 얹는다. 떠난 뒤면 조용히 지나간다.</summary>
     private async Task Redraw()
     {
         try
@@ -606,14 +386,7 @@ public partial class AiAskPanel
         }
     }
 
-    /// <summary>
-    /// 붙여 두고 아직 안 보낸 첨부를 되읽는다.
-    /// </summary>
-    /// <remarks>
-    /// <b>화면을 막지 않는다.</b> 첨부를 못 읽는 것과 지시를 못 보내는 것은
-    /// 다른 일이라, 여기서 토스트를 띄우거나 조회 표시를 잡지 않는다 —
-    /// 최악이라도 붙여 둔 것을 다시 고르면 된다.
-    /// </remarks>
+    /// <summary>붙여 두고 아직 안 보낸 첨부를 되읽는다. 화면을 막지 않는다 — 첨부를 못 읽는 것과 지시를 못 보내는 것은 다른 일이다.</summary>
     private async Task LoadStagedFilesAsync()
     {
         try
@@ -626,21 +399,8 @@ public partial class AiAskPanel
         }
     }
 
-    /// <summary>
-    /// 고른 파일을 <b>그 자리에서</b> 올린다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <c>FilesChanged</c> 는 고를 때와 바이트가 넘어온 뒤 두 번 온다. 앞엣것은
-    /// 아직 받아 둔 것이 없어 <b>빈 목록</b>이라 그대로 지나간다.
-    /// </para>
-    /// <para>
-    /// 올린 뒤 <see cref="FilePicker.ClearAsync"/> 로 그쪽 목록을 비운다 —
-    /// 안 비우면 같은 파일이 두 벌로 보이고 다음에 고를 때 앞엣것까지 다시
-    /// 올라간다. 그 호출이 <c>FilesChanged</c> 를 한 번 더 부르므로
-    /// <see cref="_uploading"/> 이 그 되돌이를 막는다.
-    /// </para>
-    /// </remarks>
+    /// <summary>고른 파일을 그 자리에서 올린다. <c>FilesChanged</c> 는 고를 때와 바이트가 넘어온 뒤 두 번 오고, 앞엣것은 빈 목록이라 그냥 지나간다.
+    /// 올린 뒤 <see cref="FilePicker.ClearAsync"/> 로 고르개 목록을 비운다 — 안 비우면 같은 파일이 두 벌로 올라간다. <see cref="_uploading"/> 이 그 되돌이를 막는다.</summary>
     private async Task OnPickedAsync(IReadOnlyList<PickedFile> files)
     {
         if (_uploading || files.Count == 0)
@@ -661,8 +421,7 @@ public partial class AiAskPanel
         }
         catch (ApiException ex)
         {
-            // **여기서 말하지 않으면 아무도 모른다.** 고르개는 제 목록을
-            // 비워 버리므로 실패한 파일이 화면에서 통째로 사라진다.
+            // 여기서 말하지 않으면 아무도 모른다 — 고르개가 제 목록을 비워 실패한 파일이 사라진다.
             Say($"첨부를 올리지 못했습니다 — {ex.Message}", NoticeTone.Error);
         }
         finally
@@ -699,21 +458,8 @@ public partial class AiAskPanel
         StateHasChanged();
     }
 
-    /// <summary>
-    /// 서랍이 여닫혔다. <b>펴지면 그 자리에서 한 번 읽고 다시 따라간다.</b>
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 서랍은 닫아도 이 알맹이를 지우지 않아서(<c>QuickAskDrawer</c>) 다시
-    /// 열어도 아무도 목록을 읽지 않았다 — 처음 열었을 때의 카드가 그대로
-    /// 앉아 있었다. 그것이 이 갈고리를 둔 이유다.
-    /// </para>
-    /// <para>
-    /// <b>읽는 데 <see cref="LoadRecentAsync"/> 를 쓰지 않는다.</b> 그쪽은
-    /// <see cref="DataPage.LoadAsync"/> 를 거치므로 화면 전환 표시를 잡고
-    /// 실패하면 토스트를 띄운다 — 서랍을 여는 손짓마다 그것이 뜨면 방해다.
-    /// </para>
-    /// </remarks>
+    /// <summary>서랍이 여닫혔다. 펴지면 한 번 읽고 따라가기를 건다. 서랍은 닫아도 지우지 않으므로 이 갈고리가 없으면 처음 카드가 그대로 남는다.
+    /// 읽기에 <see cref="LoadRecentAsync"/> 를 쓰지 않는다 — 화면 전환 표시와 실패 토스트가 서랍 여는 손짓마다 뜬다.</summary>
     protected override void OnParametersSet()
     {
         var shown = Shown;
@@ -746,8 +492,7 @@ public partial class AiAskPanel
     {
         await RefreshAsync(CancellationToken.None);
 
-        // 한도도 여기서 다시 읽는다. 서랍은 한 번 열면 계속 살아 있는 부품이라
-        // **하루 종일 안 다시 읽으면** 어제 값을 오늘 값인 척 보여 준다.
+        // 한도도 여기서 다시 읽는다 — 서랍은 살아 있는 부품이라 안 다시 읽으면 어제 값이 오늘 값처럼 보인다.
         await LoadUsageAsync();
 
         Follow();
@@ -760,16 +505,8 @@ public partial class AiAskPanel
         AllKinds = models;
     }
 
-    /// <summary>
-    /// 기억한 것을 얹는다. <b>회로가 붙은 뒤에야 읽을 수 있다</b>(JS 왕복)라
-    /// 첫 렌더 뒤다 — 대상 목록은 그때 이미 와 있다.
-    /// </summary>
-    /// <remarks>
-    /// <b>구르는 자리를 옮기는 일만 첫 렌더 밖에 있다.</b> 그것은 탭을
-    /// 갈아탄 **뒤**에 할 일이라, 아래 빠져나가는 줄 안쪽에 두면 영영 돌지
-    /// 않는다(실제로 그래서 안 먹었다). 옮길 것이 없으면 그 자리에서
-    /// 돌아오므로 왕복이 늘지 않는다.
-    /// </remarks>
+    /// <summary>기억한 것을 얹는다. 회로가 붙은 뒤에야 읽을 수 있어 첫 렌더 뒤에 한다.
+    /// 구르는 자리 옮기기는 첫 렌더 밖에 둔다 — 탭을 갈아탄 뒤의 일이라 빠져나가는 줄 안쪽에 두면 영영 안 돈다.</summary>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await MoveScrollAsync();
@@ -783,8 +520,7 @@ public partial class AiAskPanel
 
         if (pref is not null)
         {
-            // **없어졌거나 꺼진 대상은 얹지 않는다.** 목록에 없는 번호를 넣으면
-            // 칸이 빈 채로 보이고, 사람은 「골랐는데 왜 안 보내지나」를 겪는다.
+            // 없어졌거나 꺼진 대상은 얹지 않는다 — 목록에 없는 번호는 칸을 빈 채로 보이게 한다.
             if (pref.TargetKey is { } key && _targets.Any(t => t.TargetKey == key))
             {
                 _targetKey = key;
@@ -798,18 +534,12 @@ public partial class AiAskPanel
             // 지금 고른 대상이 못 쓰는 AI 였으면 여기서 맞는 것으로 바뀐다.
             FixKind();
 
-            // _push, _mail, _pwa removed: 화면 체크박스 미사용 (알림관리 및 사용자 환경설정에서 처리)
 
-            // 단 수는 **얹고 나서 다시 잘라야 한다.** 첫 판은 기본인 두 단으로
-            // 깔렸고 채움분이 그 수(10)로 계산되어 있어서, 세 단을 기억한
-            // 사람은 여기서 다시 세지 않으면 **마지막 줄에 빈 칸 하나를 둔
-            // 채로** 화면이 선다.
+            // 단 수는 얹고 나서 다시 잘라야 한다 — 첫 판의 채움분은 기본 두 단 기준이라 세 단이면 마지막 줄에 빈 칸이 남는다.
             _cols = PickCols(pref.ListCols);
             Show(_all);
 
-            // 작성 중이던 임시본이 있으면 복원한다. **안내 줄은 세우지 않는다** —
-            // 글상자에 그 글이 그대로 서 있는 것으로 이미 보이고, 지우는 것은
-            // 글상자에서 지우면 된다.
+            // 임시본이 있으면 복원한다. 글상자에 그 글이 이미 보이므로 안내 줄은 세우지 않는다.
             if (!string.IsNullOrWhiteSpace(pref.DraftText))
             {
                 _text = pref.DraftText;
@@ -848,12 +578,7 @@ public partial class AiAskPanel
         }
     }
 
-    /// <summary>글상자에서 Ctrl+Enter 를 눌렀다 — 「지시하기」와 같다.</summary>
-    /// <param name="text">
-    /// 누른 그 순간 글상자에 있던 글. <b>들고 있는 값을 쓰지 않는다</b> —
-    /// 편집기가 300ms 를 모았다 보내므로(<c>InputDelay</c>), 마지막 글자를
-    /// 치고 바로 누르면 그 글자가 빠진 채로 간다.
-    /// </param>
+    /// <param name="text">누른 순간 글상자의 글. 들고 있는 값을 쓰지 않는다 — 편집기가 300ms 를 모아 보내므로 마지막 글자가 빠진다.</param>
     [JSInvokable]
     public async Task SubmitFromKeyAsync(string? text)
     {
@@ -864,8 +589,7 @@ public partial class AiAskPanel
 
             if (!CanSend)
             {
-                // 보낼 수 없는 까닭은 단추가 이미 말하고 있다(대상 미선택 ·
-                // 첨부 올리는 중 · 보내는 중). 여기서 또 띄우지 않는다.
+                // 보낼 수 없는 까닭은 단추가 이미 말하므로 여기서 또 띄우지 않는다.
                 StateHasChanged();
                 return;
             }
@@ -875,20 +599,7 @@ public partial class AiAskPanel
         });
     }
 
-    /// <summary>
-    /// 카드를 오른쪽으로 밀면 확인 완료가 되게 한다.
-    /// </summary>
-    /// <remarks>
-    /// <b>거는 자리가 목록(<c>ul</c>)이 아니라 이 판의 뿌리 상자다.</b> 목록은
-    /// 카드가 하나도 없으면 아예 안 그려지고(그 자리에 「아직 보낸 것이
-    /// 없습니다」가 선다), 다시 생길 때는 **다른 DOM** 이라 걸어 둔 것이
-    /// 사라진다 — 첫 건을 보낸 사람은 그 뒤로 못 민다.
-    /// <para>
-    /// 뿌리는 이 부품이 사는 내내 그대로이므로 <b>한 번만 건다.</b> 카드마다
-    /// 거는 길도 있지만 목록이 5초마다 다시 그려져 그때마다 왕복이 생긴다 —
-    /// 손짓은 눌린 카드를 <c>closest</c> 로 거슬러 찾는다.
-    /// </para>
-    /// </remarks>
+    /// <summary>카드를 오른쪽으로 밀면 확인 완료 처리. 뿌리 상자에 한 번만 건다 — 목록은 카드가 없으면 안 그려져서 다시 생길 때 걸어 둔 것이 사라진다.</summary>
     private async Task AttachSwipeAsync()
     {
         try
@@ -954,9 +665,7 @@ public partial class AiAskPanel
         return hasMore;
     }
 
-    /// <summary>
-    /// 최근 목록에서 아래로 쓸어내리면(pull-to-refresh) 리스트를 새로고침하게 한다.
-    /// </summary>
+    /// <summary>최근 목록을 아래로 쓸어내리면 새로고침한다.</summary>
     private async Task AttachPullRefreshAsync()
     {
         try
@@ -972,9 +681,7 @@ public partial class AiAskPanel
         }
     }
 
-    /// <summary>
-    /// 최근 리스트에서 아래로 쓸어내려(pull-to-refresh) 새로고침을 요청했다.
-    /// </summary>
+    /// <summary>최근 목록에서 아래로 쓸어내려 새로고침을 요청했다.</summary>
     [JSInvokable]
     public async Task RefreshRecentFromSwipeDownAsync()
     {
@@ -984,20 +691,8 @@ public partial class AiAskPanel
         Follow();
     }
 
-    /// <summary>
-    /// <b>민 카드를 확인 완료로 넘긴다.</b> 브라우저가 띠를 다 열고 카드를
-    /// 스러뜨린 뒤에 부른다.
-    /// </summary>
-    /// <remarks>
-    /// <b>화면에서 먼저 빼고 서버에 간다.</b> 반대로 하면 게이트웨이 왕복
-    /// 동안 스러진 카드가 제자리에 그대로 있다가 사라지는데, 그 몇 백 ms 가
-    /// 「민 것이 안 먹었나」로 읽혀 한 번 더 밀게 된다.
-    /// <para>
-    /// 서버가 못 받으면 <b>목록을 다시 읽어 되돌린다.</b> 확인되지 않은 건이
-    /// 화면에서만 사라지면 그 건은 아무 데서도 안 보인다 — 이 목록이
-    /// 「아직 확인 안 한 것」을 보는 유일한 자리다.
-    /// </para>
-    /// </remarks>
+    /// <summary>민 카드를 확인 완료로 넘긴다. 화면에서 먼저 빼고 서버에 간다 — 거꾸로 하면 왕복 동안 스러진 카드가 남아 「안 먹었나」로 읽힌다.
+    /// 서버가 못 받으면 목록을 다시 읽어 되돌린다. 확인 안 된 건이 화면에서만 사라지면 아무 데서도 안 보인다.</summary>
     [JSInvokable]
     public async Task ConfirmSwipedAsync(long taskKey)
     {
@@ -1006,8 +701,7 @@ public partial class AiAskPanel
             return;
         }
 
-        // 그 건을 탭으로 열어 두었으면 함께 닫는다. 두면 목록에서 빠진
-        // 건을 가리킨 채로 「그 건을 놓쳤습니다」만 남는다.
+        // 탭으로 열어 둔 건이면 함께 닫는다 — 아니면 목록에서 빠진 건을 가리킨 채 남는다.
         CloseView(taskKey);
 
         Show([.. _all.Where(t => t.TaskKey != taskKey)]);
@@ -1024,18 +718,13 @@ public partial class AiAskPanel
         }
     }
 
-    /// <summary>
-    /// 고른 것을 적어 둔다. <b>기다리지 않는다</b> — 칸 하나 만질 때마다
-    /// JS 왕복을 기다리면 그만큼 칸이 굼떠 보이고, 적히지 않아도 잃는 것은
-    /// 「다음에 다시 고르는 일」뿐이다.
-    /// </summary>
+    /// <summary>고른 것을 적어 둔다. 기다리지 않는다 — 칸마다 JS 왕복을 기다리면 칸이 굼떠 보인다.</summary>
     private void Remember() => _ = Prefs.SaveAsync(new AiAskPref
     {
         TargetKey = _targetKey,
         RunnerKind = _kind,
 
-        // 올리기는 이제 항상 대상의 허용 여부를 따르므로
-        // 기억할 때도 켜진 상태로 저장한다.
+        // 올리기는 대상의 허용 여부를 따르므로 기억할 때도 켜진 상태로 적는다.
         AutoPush = true,
         NotifyEmail = true,
         NotifyPwa = true,
@@ -1044,9 +733,7 @@ public partial class AiAskPanel
         DraftSavedAt = _draftSavedAt ?? (_text is not null ? AppTime.UtcNow : null),
     });
 
-    /// <summary>
-    /// 본문 입력을 잠시 뒤에 브라우저 저장소에 적어 둔다.
-    /// </summary>
+    /// <summary>본문 입력을 잠시 뒤에 브라우저 저장소에 적어 둔다.</summary>
     private void TrackDraft()
     {
         CancelDraftDelay();
@@ -1080,19 +767,14 @@ public partial class AiAskPanel
         _draftDelay = null;
     }
 
-    /// <summary>
-    /// 추천 프롬프트를 입력창에 채운다.
-    /// </summary>
+    /// <summary>추천 프롬프트를 입력창에 채운다.</summary>
     private void SetPrompt(string prompt)
     {
         Text = prompt;
         StateHasChanged();
     }
 
-    /// <summary>
-    /// 대상 목록. <b>실패해도 화면을 막지 않는다</b> — 최근 보낸 것은 보여야
-    /// 「왜 아무것도 없나」를 알 수 있다.
-    /// </summary>
+    /// <summary>대상 목록. 실패해도 화면을 막지 않는다 — 최근 보낸 것은 보여야 빈 이유를 알 수 있다.</summary>
     private async Task LoadTargetsAsync()
     {
         await LoadAsync(async () =>
@@ -1110,10 +792,7 @@ public partial class AiAskPanel
         FixKind();
     }
 
-    /// <summary>
-    /// 최근 보낸 것. <b>내가 보낸 것만</b>은 서버가 가리지 않으므로 여기서는
-    /// 전부 온다 — 이 기능을 쓰는 사람이 여럿이 되면 그때 서버에 조건을 더한다.
-    /// </summary>
+    /// <summary>최근 보낸 것. 내가 보낸 것만 거르지 않으므로 전부 온다 — 쓰는 사람이 여럿이 되면 서버에 조건을 더한다.</summary>
     private async Task LoadRecentAsync()
     {
         await LoadAsync(async () =>
@@ -1127,28 +806,17 @@ public partial class AiAskPanel
         _recentLoaded = true;
         StateHasChanged();
 
-        // 지시자의 얼굴. **깔린 카드만이 아니라 받아 둔 것 전부**를 채운다 —
-        // 「더보기」는 서버를 다시 부르지 않으므로(`ShowMore`) 여기서 안
-        // 채우면 펼친 순간 얼굴 없는 카드가 깔린다.
-        //
-        // 화면을 막지 않는다. 얼굴은 목록이 다 그려진 뒤에 채워져도 되고,
-        // 못 읽어도 첫 글자가 선다.
+        // 지시자의 얼굴은 받아 둔 것 전부를 채운다 — 더보기가 서버를 다시 부르지 않아 여기서 안 채우면 얼굴 없는 카드가 깔린다.
+        // 화면을 막지 않는다. 못 읽어도 첫 글자가 선다.
         await Faces.EnsureAsync(_all.Select(t => t.CreId));
 
         Follow();
     }
 
-    /// <summary>
-    /// 「완료」인가. <b>카드에 적히는 글자 그대로다</b> — 실패 · 시간초과 ·
-    /// 취소 · 중단은 끝나기는 했어도 완료가 아니다(<c>AiTaskDto.StatusText</c>).
-    /// </summary>
+    /// <summary>완료인가. 카드에 적히는 글자 그대로다 — 실패·시간초과·취소·중단은 끝났어도 완료가 아니다.</summary>
     private static bool IsDone(AiTaskDto t) => t.TaskStatus == "succeeded";
 
-    /// <summary>
-    /// 받은 것을 최근 순으로 세우고 <b>완료가 아닌 것 전부 + 모자란 만큼의
-    /// 완료된 것</b>을 꺼내 놓는다.
-    /// <b>읽어 오는 자리는 둘(첫 조회 · 타이머)인데 자르는 규칙은 하나다.</b>
-    /// </summary>
+    /// <summary>받은 것을 최근 순으로 세우고 완료가 아닌 것 전부와 모자란 만큼의 완료된 것을 꺼낸다. 읽는 자리는 둘이어도 자르는 규칙은 이 하나다.</summary>
     private void Show(IReadOnlyList<AiTaskDto> rows)
     {
         _all = rows
@@ -1158,27 +826,14 @@ public partial class AiAskPanel
         _open = _all.Where(t => !IsDone(t)).ToList();
         _done = _all.Where(IsDone).ToList();
 
-        // 안 끝난 것이 한 판을 넘으면 채움은 0이다 — **깎지는 않는다.**
-        // 아홉이면 아홉 장이 다 깔린다.
+        // 안 끝난 것이 한 판을 넘으면 채움은 0 이다 — 깎지는 않는다.
         var page = PageCount;
         var fill = Math.Max(0, page - _open.Count) + (_more * page);
 
         _recent = _open.Concat(_done.Take(fill)).ToList();
     }
 
-    /// <summary>
-    /// 단 수를 바꾼다. <b>서버를 부르지 않는다</b> — 목록은 이미 다 받아 두었고
-    /// 바뀌는 것은 같은 자료를 몇 줄로 늘어놓느냐뿐이다.
-    /// </summary>
-    /// <remarks>
-    /// <b>「더보기」를 몇 번 눌렀는지(<see cref="_more"/>)는 그대로 둔다.</b>
-    /// 되돌리면 펼쳐 놓고 보던 것이 단을 바꾸는 순간 접힌다 — 5초마다 도는
-    /// 타이머가 그 값을 건드리지 않는 것과 같은 까닭이다.
-    /// <para>
-    /// 다만 <b>한 판의 장수가 함께 바뀌므로</b>(<see cref="PageCount"/>)
-    /// 깔린 장수는 조금 달라진다. 세 단으로 옮기면 열 장이 열두 장이 된다.
-    /// </para>
-    /// </remarks>
+    /// <summary>단 수를 바꾼다. 서버를 부르지 않는다. 「더보기」 횟수는 그대로 둬야 펼쳐 둔 것이 접히지 않는다. 한 판의 장수가 함께 바뀌어 깔린 장수는 달라진다.</summary>
     private void SetCols(int n)
     {
         n = PickCols(n);
@@ -1195,14 +850,10 @@ public partial class AiAskPanel
         Remember();
     }
 
-    /// <summary>
-    /// 다음에 전환될 단 수 (1 -> 2 -> 3 -> 4 -> 1 순환).
-    /// </summary>
+    /// <summary>다음에 바뀔 단 수 (1 -> 2 -> 3 -> 4 -> 1).</summary>
     private int NextCols => _cols >= 4 ? 1 : _cols + 1;
 
-    /// <summary>
-    /// 단 처리를 단일 아이콘으로 토글한다. 누를 때마다 단의 수치가 올라가고 4단 이후 1단으로 순환한다.
-    /// </summary>
+    /// <summary>단 아이콘을 누를 때마다 다음 단 수로 바꾼다.</summary>
     private void CycleCols() => SetCols(NextCols);
 
     /// <summary>완료건 일괄확인을 진행 중인가.</summary>
@@ -1211,9 +862,7 @@ public partial class AiAskPanel
     /// <summary>확인 대상인 완료건 수 (TaskStatus == "succeeded").</summary>
     private int CompletedCount => _done.Count;
 
-    /// <summary>
-    /// 완료된 빠른 지시 건(succeeded)을 모두 사용자 확인 완료 처리한다.
-    /// </summary>
+    /// <summary>완료된 빠른 지시 건을 모두 사용자 확인 완료 처리한다.</summary>
     private async Task ConfirmCompletedBatchAsync()
     {
         if (_batchConfirming)
@@ -1256,9 +905,7 @@ public partial class AiAskPanel
         }
     }
 
-    /// <summary>
-    /// 완료된 것 넉 장 더. 서버를 다시 부르지 않는다 — 이미 다 받아 두었다.
-    /// </summary>
+    /// <summary>완료된 것 넉 장 더. 서버를 다시 부르지 않는다.</summary>
     private void ShowMore()
     {
         _more++;
@@ -1273,10 +920,7 @@ public partial class AiAskPanel
         _ = ResetMoreObserverAsync();
     }
 
-    /// <summary>
-    /// 고른 대상이 못 쓰는 AI 가 남아 있을 수 있다. 그대로 두면 **집어 간 뒤에야**
-    /// 어긋남이 드러난다 — 화면에서는 아무 표시 없이 실패한다.
-    /// </summary>
+    /// <summary>대상이 못 쓰는 AI 가 골라져 있으면 맞춘다. 두면 집어 간 뒤에야 어긋남이 드러나 아무 표시 없이 실패한다.</summary>
     private void FixKind()
     {
         var allowed = AllowedKinds;
@@ -1295,32 +939,8 @@ public partial class AiAskPanel
         }
     }
 
-    /// <summary>
-    /// 적은 것을 작업으로 만들고 바로 요청까지 한다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 「AI 작업」 화면은 저장과 요청을 일부러 나눠 두었다 — 쓰다 만 글이
-    /// 저장만으로 AI 에게 가면 안 되기 때문이다. <b>여기서는 합친다.</b>
-    /// 이 화면에 글을 적는 일 자체가 「보내겠다」는 뜻이고, 단추를 두 번
-    /// 누르게 하면 길에서 쓰는 화면이라는 전제가 무너진다.
-    /// </para>
-    /// <para>
-    /// [단추는 <b>적어 둘 때까지만</b> 묶인다]
-    /// </para>
-    /// <para>
-    /// 예전에는 적기 · 요청 · 목록 다시 읽기 셋을 전부 기다린 뒤에야 단추가
-    /// 풀렸다. 그 셋 중 사람이 꼭 기다려야 하는 것은 <b>첫째뿐</b>이다 —
-    /// 적어 두는 데 성공했으면 그 글은 없어지지 않고, 나머지는 늦어도
-    /// 결과가 달라지지 않는다. 그런데 하필 둘째가 제일 오래 걸렸다(브로커에
-    /// 종을 울리는 자리다. 지금은 서버도 그것을 뒤로 넘긴다 —
-    /// <c>AiTaskBell</c>).
-    /// </para>
-    /// <para>
-    /// 그래서 <b>적어 두면 그 자리에서 글상자를 비우고 단추를 돌려준다.</b>
-    /// 이어지는 것은 <see cref="HandOffAsync"/> 가 뒤에서 한다.
-    /// </para>
-    /// </remarks>
+    /// <summary>적은 것을 작업으로 만들고 바로 요청까지 한다. 「AI 작업」과 달리 저장과 요청을 합친다 — 이 화면에 글을 적는 것이 「보내겠다」는 뜻이다.
+    /// 단추는 적어 둘 때까지만 묶인다. 요청은 기다리지 않고 <see cref="HandOffAsync"/> 가 뒤에서 한다.</summary>
     private async Task SendAsync()
     {
         if (!CanSend)
@@ -1328,8 +948,7 @@ public partial class AiAskPanel
             return;
         }
 
-        // 올리기를 켠 채로 보내도 **묻지 않는다.** 대상이 허용한 것만 켜진다
-        // — 위 머리말 참고.
+        // 올리기를 켠 채로 보내도 묻지 않는다 — 대상이 허용한 것만 켜진다.
         Busy = true;
 
         // **`try` 밖에 둔다.** 적어 둔 것을 손에 쥔 채로 단추를 먼저 놓아 준다.
@@ -1341,10 +960,7 @@ public partial class AiAskPanel
 
             var madeOk = await RunAsync(async () =>
             {
-                // 커밋·push 와 DB 처리를 말해 주는 문구를 **무조건** 뒤에 붙인다
-                // (`AiTaskAlways`). 「이어서 지시」가 쓰는 것과 같은 글이다 —
-                // 처음 보낸 건만 그 말을 못 들어 고친 것이 워크트리에 남는 일이
-                // 있었다.
+                // 커밋·push·DB 문구를 무조건 붙인다 — 이어서 지시와 같은 글이다. 빠지면 고친 것이 워크트리에 남는다.
                 var finalInstruction = AiTaskAlways.Append(_text);
 
                 created = await Api.CreateAsync(new AiTaskDto
@@ -1357,18 +973,15 @@ public partial class AiAskPanel
                     TimeoutMinutes = 120,
                     AttemptMax = 3,
 
-                    // 화면이 아니라 `PushOn` 을 싣는다 — 대상을 바꾸는 사이에
-                    // `_push` 만 참으로 남아 있을 수 있다. 서버도
-                    // `AiTaskService.Normalize` 에서 같은 것을 한 번 더 본다.
+                    // 화면이 아니라 PushOn 을 싣는다 — 대상을 바꾸는 사이 옛 값이 남을 수 있다. 서버도 Normalize 에서 한 번 더 본다.
                     AutoPush = PushOn,
 
-                    // 알림 관리는 권한별 및 사용자 환경설정에 따르므로 항상 알림을 요청하도록 설정한다.
+                    // 알림 여부는 권한별·사용자 설정이 정하므로 여기서는 항상 요청한다.
                     NotifyEmail = true,
                     NotifyPwa = true,
                     NotifyWhen = "always",
 
-                    // 미리 올려 둔 첨부를 이 건에 묶어 달라는 뜻이다. 서버가
-                    // **올린 사람이 나인 것만** 묶는다(`AiTaskFileService.BindAsync`).
+                    // 미리 올린 첨부를 이 건에 묶는다. 서버는 올린 사람이 나인 것만 묶는다(AiTaskFileService.BindAsync).
                     FileKeys = _attached.Count == 0 ? null : [.. _attached.Select(f => f.FileKey)],
                 });
             }, okMessage: "적어 두었습니다. 보내는 중입니다.", failMessage: "보내지 못했습니다");
@@ -1383,12 +996,8 @@ public partial class AiAskPanel
             Busy = false;
         }
 
-        // 여기서부터는 **적어 두기가 끝난 뒤**다. 화면을 먼저 비운다 —
-        // 다음 한 줄을 적기 시작하는 데 서버를 기다릴 이유가 없다.
-        //
-        // **붙인 것도 함께 비운다.** 그 번호들은 방금 이 건에 묶였으므로
-        // 더는 「떠 있는 첨부」가 아니다 — 남겨 두면 다음 건에도 같은 사진이
-        // 붙어 보이고, 보내면 묶이지 않아 소리 없이 빠진다.
+        // 적어 두기가 끝난 뒤다 — 화면을 먼저 비운다.
+        // 붙인 것도 비운다 — 방금 묶인 번호는 더는 떠 있는 첨부가 아니다. 남기면 다음 건에 같은 사진이 붙어 보이고 소리 없이 빠진다.
         _attached = [];
         _text = null;
         _draftSavedAt = null;
@@ -1401,32 +1010,15 @@ public partial class AiAskPanel
             _ = _draftModule.InvokeVoidAsync("clearDraft", DraftSelector, Prefs.CurrentKey);
         }
 
-        // **고른 것은 그대로 둔다.** 글상자만 비운다 — 여기서 잇따라 던지는
-        // 건은 대개 같은 자리에 같은 모양이고, 한때는 올리기만 꺼 두었지만
-        // 그것도 이제 기억한다(위 머리말). 켜져 있다는 사실은 단추 글자와
-        // 묻는 창이 매번 말한다.
+        // 고른 것은 그대로 둔다 — 글상자만 비운다. 같은 자리에 같은 모양을 잇따라 던지는 일이 많다.
+        // 켜진 상태는 단추 글자와 묻는 창이 말한다.
 
-        // 기다리지 않는다. 회로의 실행 맥락에서 이어지므로 `Task.Run` 도
-        // `InvokeAsync` 도 필요 없다 — 이 처리기가 끝난 자리에서 그대로 이어진다.
+        // 기다리지 않는다 — 이 처리기의 실행 맥락에서 이어지므로 Task.Run · InvokeAsync 가 필요 없다.
         _ = HandOffAsync(created.TaskKey);
     }
 
-    /// <summary>
-    /// 적어 둔 것을 <b>실제로 보낸다</b> — 단추를 놓아 준 뒤에 한다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 만들기와 요청이 <b>따로다.</b> 만들기만 되고 요청이 실패하면 「대기」도
-    /// 아닌 채로 남으므로, 그 사실을 화면이 말해야 한다 — 실패 토스트는
-    /// 60초를 머문다(<c>Toasts.Failure</c>). <b>안 간 것을 갔다고 말하는 것이
-    /// 이 화면에서 제일 나쁜 실패다.</b>
-    /// </para>
-    /// <para>
-    /// 여기서 <see cref="DataPage.RunAsync"/> 를 쓰지 않는다. 그것은
-    /// <c>Loading</c> 을 잡는데, 이미 단추를 돌려준 뒤라 <b>사람이 다음 글을
-    /// 적는 동안 화면이 조회 중으로 보인다.</b>
-    /// </para>
-    /// </remarks>
+    /// <summary>적어 둔 것을 실제로 보낸다 — 단추를 놓아 준 뒤에 한다. 만들기와 요청이 따로라 요청이 실패하면 화면이 그 사실을 말해야 한다.
+    /// 안 간 것을 갔다고 말하는 것이 이 화면에서 제일 나쁜 실패다. <c>DataPage.RunAsync</c> 는 쓰지 않는다 — 단추를 돌려준 뒤에 조회 중 표시를 잡는다.</summary>
     private async Task HandOffAsync(long taskKey)
     {
         try
@@ -1438,32 +1030,17 @@ public partial class AiAskPanel
             Say($"적어 두기는 했는데 요청이 안 됐습니다 — {ex.Message}", NoticeTone.Error);
         }
 
-        // 성공했든 아니든 목록은 다시 읽는다. 실패한 건도 「적어만 둔 것」으로
-        // 거기 있어야 「AI 작업」 화면에서 이어 보낼 수 있다.
+        // 성공했든 아니든 목록은 다시 읽는다 — 실패한 건도 「적어만 둔 것」으로 거기 있어야 이어 보낼 수 있다.
         await LoadRecentAsync();
 
         StateHasChanged();
     }
 
-    /// <summary>
-    /// 휴대폰인가. 카드를 눌렀을 때 <b>판 안의 탭으로 펼칠지 포털 탭으로
-    /// 옮길지</b>를 이 값이 가른다(위 머리말).
-    /// </summary>
+    /// <summary>휴대폰인가. 카드를 눌렀을 때 판 안의 탭으로 펼칠지 포털 탭으로 옮길지를 이 값이 가른다.</summary>
     private bool _isPhone;
 
-    /// <summary>
-    /// 폭이 경계를 넘었다. <b>넓어졌으면 판 안의 탭을 걷는다</b> — 그
-    /// 폭에서는 포털의 탭 줄이 같은 일을 하고, 둘이 함께 서 있으면 탭 줄이
-    /// 두 겹이 된다.
-    /// </summary>
-    /// <remarks>
-    /// 보고 있던 건이 있으면 <b>그 주소로 옮겨 간다.</b> 말없이 목록으로
-    /// 되돌리면 화면을 돌렸을 뿐인데 읽던 결과가 사라진다.
-    /// <para>
-    /// 처음 한 번은 거짓에서 거짓으로 오므로 아무 일도 하지 않는다 —
-    /// 부품이 처음 설 때 <see cref="_isPhone"/> 는 거짓이다.
-    /// </para>
-    /// </remarks>
+    /// <summary>폭이 경계를 넘었다. 넓어졌으면 판 안의 탭을 걷는다 — 포털 탭 줄과 겹치면 탭 줄이 두 겹이 된다.
+    /// 보고 있던 건은 그 주소로 옮겨 간다. 처음 한 번은 거짓에서 거짓으로 오므로 아무 일도 하지 않는다.</summary>
     private void OnPhoneChanged(bool phone)
     {
         if (_isPhone == phone)
@@ -1489,51 +1066,26 @@ public partial class AiAskPanel
         }
     }
 
-    /// <summary>
-    /// 카드를 눌렀다. <b>포털 탭으로 연다</b> — 다른 메뉴 화면들처럼
-    /// 레이아웃 상단의 탭 줄에 상세 화면 탭이 선다.
-    /// </summary>
+    /// <summary>카드를 눌렀다. 포털 탭으로 연다 — 다른 메뉴 화면들처럼 레이아웃 상단의 탭 줄에 상세 탭이 선다.</summary>
     private Task PeekAsync(long taskKey)
     {
         Navigation.NavigateTo($"/projmng/ai/task/{taskKey}");
         return Task.CompletedTask;
     }
 
-    /// <summary>
-    /// 한 번에 열어 둘 수 있는 상세 탭 수.
-    ///
-    /// <para>
-    /// 포털 탭 줄은 열둘이지만(<c>PortalTabs</c>) 여기는 휴대폰 한 줄이다.
-    /// 여섯이면 이미 옆으로 밀어야 끝이 보이고, 그보다 늘려 봐야 <b>찾는
-    /// 데 드는 품이 목록에서 다시 누르는 품보다 커진다.</b>
-    /// </para>
-    /// </summary>
+    /// <summary>한 번에 열어 둘 수 있는 상세 탭 수. 포털 탭 줄은 열둘이지만 여기는 휴대폰 한 줄이라 여섯을 넘기면 찾는 품이 다시 누르는 품보다 크다.</summary>
     private const int MaxViews = 6;
 
-    /// <summary>
-    /// 판 안의 탭으로 열어 둔 건들. <b>번호만 들고 있고 자료는 목록에서
-    /// 집는다</b> — 자료를 그대로 붙들면 5초마다 목록이 새로 읽힐 때
-    /// 탭만 옛 값에 남는다. 왼쪽부터 연 순서다.
-    /// </summary>
+    /// <summary>판 안의 탭으로 열어 둔 건들. 번호만 들고 자료는 목록에서 집는다 — 자료를 붙들면 목록이 새로 읽힐 때 탭만 옛 값에 남는다.</summary>
     private readonly List<long> _views = [];
 
-    /// <summary>
-    /// 지금 보고 있는 건. <c>null</c> 이면 적는 자리와 카드 목록이다.
-    /// </summary>
+    /// <summary>지금 보고 있는 건. <c>null</c> 이면 적는 자리와 카드 목록이다.</summary>
     private long? _view;
 
-    /// <summary>
-    /// 지금 보고 있는 건. <b>휴대폰에서만 값이 있다</b> — 넓은 화면에서는
-    /// 포털 탭이 그 일을 하므로 이 판은 늘 목록이다.
-    /// </summary>
+    /// <summary>지금 보고 있는 건. 휴대폰에서만 값이 있다 — 넓은 화면은 포털 탭이 그 일을 한다.</summary>
     private long? Viewing => _isPhone ? _view : null;
 
-    /// <summary>
-    /// 적는 자리와 카드 목록에 붙일 클래스. 상세를 보는 동안 <b>둘 다</b>
-    /// 감춘다 — 한쪽만 감추면 상세 아래에 나머지 판이 이어 붙는다.
-    /// 상단 입력부는 고정(<c>pm-ask__write</c>)하고 아래 목록 판(<c>pm-ask__recent</c>)은
-    /// 남은 높이를 받아 스크롤되도록 구분한다.
-    /// </summary>
+    /// <summary>적는 자리와 카드 목록에 붙일 클래스. 상세를 보는 동안 둘 다 감춘다 — 한쪽만 감추면 상세 아래에 나머지 판이 이어 붙는다.</summary>
     private string? PaneCss => Viewing is null ? null : "pm-ask__pane--off";
 
     private string WritePaneCss => Viewing is null
@@ -1544,32 +1096,17 @@ public partial class AiAskPanel
         ? "pm-ask__recent"
         : "pm-ask__recent pm-ask__pane--off";
 
-    /// <summary>
-    /// 탭이 볼 건. <b>받아 둔 것 전부에서 찾는다</b> — 깔린 넉 장에서만 찾으면
-    /// 탭을 열어 둔 사이에 새 건이 들어와 그 건이 밀려날 때 판이 빈다.
-    /// 목록에서 아주 사라졌으면 <c>null</c> 이고 판이 그렇게 말한다.
-    /// </summary>
+    /// <summary>탭이 볼 건. 받아 둔 것 전부에서 찾는다 — 깔린 넉 장에서만 찾으면 새 건이 들어와 밀려날 때 판이 빈다. 목록에서 사라졌으면 <c>null</c>.</summary>
     private AiTaskDto? ViewItem =>
         Viewing is { } key ? _all.FirstOrDefault(t => t.TaskKey == key) : null;
 
-    /// <summary>
-    /// 탭에 적을 이름. <b>제목이 아직 없으면 번호</b>다 — 서버가 제목을
-    /// 나중에 지어 주는 건이 있어(<c>AiTaskTitler</c>) 그동안 빈 칸이 서면
-    /// 어느 것이 어느 탭인지 모른다.
-    /// </summary>
+    /// <summary>탭에 적을 이름. 제목이 아직 없으면 번호다 — 제목이 나중에 지어지는 건이 있어 빈 칸이 서면 어느 탭인지 모른다.</summary>
     private string ViewTitle(long key) =>
         _all.FirstOrDefault(t => t.TaskKey == key)?.Title is { Length: > 0 } title
             ? title
             : $"지시 #{key}";
 
-    /// <summary>
-    /// 상세를 탭으로 연다. 이미 열려 있으면 <b>그 탭으로 갈아탈 뿐</b>이다 —
-    /// 같은 건이 두 칸을 차지하면 한 줄이 금세 찬다.
-    /// </summary>
-    /// <remarks>
-    /// 상한을 넘으면 <b>가장 먼저 연 것</b>부터 닫는다. 보고 있는 것은
-    /// 닫지 않는다 — 그것이 방금 연 바로 그 탭이다.
-    /// </remarks>
+    /// <summary>상세를 탭으로 연다. 이미 열려 있으면 그 탭으로 갈아탈 뿐이다. 상한을 넘으면 가장 먼저 연 것부터 닫되 보고 있는 것은 닫지 않는다.</summary>
     private void OpenView(long taskKey)
     {
         if (!_views.Contains(taskKey))
@@ -1609,10 +1146,7 @@ public partial class AiAskPanel
 
     private IJSObjectReference? _viewModule;
 
-    /// <summary>
-    /// 구르는 자리를 다루는 모듈. <b>못 실어도 조용히 넘어간다</b> — 잃는 것은
-    /// 「구른 자리가 그대로 남는 것」뿐이고, 그것 때문에 화면을 깨지 않는다.
-    /// </summary>
+    /// <summary>구르는 자리를 다루는 모듈. 못 실어도 조용히 넘어간다 — 잃는 것은 구른 자리가 그대로 남는 것뿐이다.</summary>
     private async Task<IJSObjectReference?> ViewModuleAsync()
     {
         try
@@ -1679,10 +1213,7 @@ public partial class AiAskPanel
         _scroll = ScrollMove.Top;
     }
 
-    /// <summary>
-    /// 탭 하나를 닫는다. <b>보고 있던 탭이면 옆으로 옮겨 간다</b> — 오른쪽이
-    /// 없으면 왼쪽, 그것도 없으면 목록이다(포털 탭 줄과 같은 규칙).
-    /// </summary>
+    /// <summary>탭 하나를 닫는다. 보고 있던 탭이면 오른쪽, 없으면 왼쪽, 그것도 없으면 목록으로 옮겨 간다.</summary>
     private void CloseView(long taskKey)
     {
         var at = _views.IndexOf(taskKey);
@@ -1708,19 +1239,14 @@ public partial class AiAskPanel
         _scroll = _view is null ? ScrollMove.Restore : ScrollMove.Top;
     }
 
-    /// <summary>
-    /// 상세에서 재시도·이어서 지시를 했다. 목록을 다시 읽고 화면을 갱신한다.
-    /// </summary>
+    /// <summary>상세에서 재시도·이어서 지시를 했다. 목록을 다시 읽는다.</summary>
     private async Task OnViewChangedAsync(AiTaskDto _)
     {
         await LoadRecentAsync();
         StateHasChanged();
     }
 
-    /// <summary>
-    /// 사용자 확인을 마쳤거나 작성중인 건을 지웠다. <b>그 탭을 닫는다</b> —
-    /// 그 건은 목록에서 빠지므로 열어 두면 「그 건을 놓쳤습니다」만 남는다.
-    /// </summary>
+    /// <summary>사용자 확인을 마쳤거나 작성중인 건을 지웠다. 그 탭을 닫는다 — 열어 두면 「그 건을 놓쳤습니다」만 남는다.</summary>
     private async Task OnViewClosedAsync(AiTaskDto task)
     {
         CloseView(task.TaskKey);
@@ -1729,18 +1255,7 @@ public partial class AiAskPanel
         StateHasChanged();
     }
 
-    /// <summary>
-    /// 목록을 <b>조용히</b> 다시 읽는다 — 화면 전환 표시도 토스트도 없다.
-    /// </summary>
-    /// <remarks>
-    /// 따라가기(<see cref="Follow"/>)와 서랍이 다시 펴질 때
-    /// (<see cref="ReopenAsync"/>)가 같은 이것을 쓴다. 자르는 규칙은
-    /// <see cref="Show"/> 하나뿐이라 두 자리가 갈릴 일이 없다.
-    /// <para>
-    /// <b>못 읽으면 조용히 지나간다.</b> 다음 바퀴에 다시 본다 — 몇 초마다
-    /// 도는 일로 토스트를 쌓으면 화면이 오류로 뒤덮인다.
-    /// </para>
-    /// </remarks>
+    /// <summary>목록을 조용히 다시 읽는다. 따라가기와 서랍 다시 펴기가 같이 쓴다. 못 읽으면 다음 바퀴에 다시 본다 — 몇 초마다 토스트를 쌓으면 화면이 오류로 뒤덮인다.</summary>
     private async Task RefreshAsync(CancellationToken ct)
     {
         try
@@ -1755,9 +1270,7 @@ public partial class AiAskPanel
             Show(rows);
             _recentLoaded = true;
 
-            // 따라가는 동안 **남이 보낸 건이 끼어든다.** 첫 조회 때와 같이
-            // 모르는 아이디만 묻는다 — 아는 것은 들고 있으므로 이 고리가
-            // 왕복을 늘리지 않는다.
+            // 따라가는 동안 남이 보낸 건이 끼어든다 — 모르는 아이디만 묻는다.
             await Faces.EnsureAsync(_all.Select(t => t.CreId), ct);
 
             await InvokeAsync(StateHasChanged);
@@ -1776,22 +1289,7 @@ public partial class AiAskPanel
         }
     }
 
-    /// <summary>
-    /// <b>보이는 동안 목록을 계속 따라간다.</b> 가려지면 멈춘다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 간격이 둘이다 — 돌고 있는 건이 있으면 <see cref="FollowBusy"/>,
-    /// 하나도 없으면 <see cref="FollowIdle"/> 다. <b>안 돈다고 꺼 버리지
-    /// 않는다</b>: 이 판이 답해야 하는 것 중 절반은 다른 자리에서 일어난
-    /// 일이라(머리말) 꺼 두면 그것이 영영 안 따라온다.
-    /// </para>
-    /// <para>
-    /// 대신 <b>가려졌을 때 끈다.</b> 서랍은 닫아도 알맹이를 안 지우므로,
-    /// 이것이 없으면 ⚡ 를 한 번 누른 사람의 모든 화면이 닫아 둔 판의
-    /// 왕복을 계속 치른다.
-    /// </para>
-    /// </remarks>
+    /// <summary>보이는 동안 목록을 계속 따라간다. 가려지면 멈춘다 — 안 도는 동안도 끄지 않는다: 다른 자리에서 일어난 일이 영영 안 따라온다.</summary>
     private void Follow()
     {
         if (!Shown)
@@ -1814,8 +1312,7 @@ public partial class AiAskPanel
             {
                 while (!cts.IsCancellationRequested)
                 {
-                    // **잰 다음에 잔다.** 자고 일어나서 재면 방금 끝난 건을
-                    // 한 바퀴 더 5초 간격으로 쫓는다.
+                    // 잰 다음에 잔다 — 깨어나서 재면 방금 끝난 건을 한 바퀴 더 쫓는다.
                     var busy = _recent.Any(t => t.IsBusy || t.TitlePending);
 
                     await Task.Delay(busy ? FollowBusy : FollowIdle, cts.Token);

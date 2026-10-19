@@ -1,31 +1,6 @@
 @*
-    되돌릴 수 없는 동작을 하기 전에 한 번 묻는다.
-
-    [왜 부품으로 두는가]
-
-    옛 Vue 포털은 삭제마다 `Popconfirm` 을 달았는데, Blazor 로 옮기면서
-    그것이 통째로 빠져 있었다 — 표 안의 작은 링크 단추를 누르는 즉시 지워졌다.
-    화면마다 팝업을 하나씩 적으면 반드시 몇 개를 빠뜨리고, 빠뜨린 화면은
-    **누군가 잘못 지울 때까지 아무도 모른다.**
-
-    [쓰는 법]
-
-        <ConfirmDialog @@ref="_confirm" />
-
-        if (!await _confirm!.AskAsync($"「{이름}」 을(를) 지웁니다."))
-        {
-            return;
-        }
-
-    [왜 `Task<bool>` 인가]
-
-    부르는 쪽이 `if (…) return;` 한 줄로 끝나야 한다. 콜백을 받는 방식이면
-    "확인을 눌렀을 때 할 일" 을 따로 떼어 두어야 해서, 지우는 코드가 화면
-    아래쪽으로 흩어진다. 답이 올 때까지 기다리는 것은 `TaskCompletionSource`
-    가 한다 — 창을 띄우고, 사람이 누르면 그 결과를 넘긴다.
-
-    `RunContinuationsAsynchronously` 를 켠다. 안 켜면 답을 넘기는 그 자리에서
-    기다리던 코드가 이어 돌아, 렌더 중에 렌더를 부르는 모양이 된다.
+    되돌릴 수 없는 동작을 하기 전에 한 번 묻는다. 옛 포털의 삭제 확인(Popconfirm)이 Blazor 로 옮기며 빠졌었고, 화면마다 창을 적으면 몇 개를 빠뜨려 누군가 잘못 지울 때까지 아무도 모른다.
+    쓰는 법: if (!await _confirm!.AskAsync(...)) return; — 부르는 쪽이 한 줄로 끝나도록 답을 Task<bool> 로 돌려준다. 기다림은 TaskCompletionSource 가 하고, RunContinuationsAsynchronously 를 켜야 답을 넘기는 자리에서 기다리던 코드가 이어 돌지 않는다.
 *@
 
 @* 이 창도 `CommPopup` 을 쓴다. 묻는 창은 짧아서 「본문만 구르기」가 걸릴

@@ -4,23 +4,7 @@ using Microsoft.JSInterop;
 
 namespace JSini.Web.Components.Layout;
 
-/// <summary>
-/// 떠다니는 단추를 <b>오래 누르면</b> 뜨는 창. 왜 생겼는지는 마크업 머리말에 있다.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <b>스스로 손짓을 건다.</b> 셸(<see cref="MainLayout"/>)은 이 부품을 한 줄
-/// 적어 둘 뿐이고, 어느 단추가 눌렸는지는 브라우저가 알려 준다
-/// (<c>js/fab-hold.js</c> → <see cref="OpenForAsync"/>). 셸에 거는 자리를
-/// 두면 <b>단추 둘의 설정이 셸과 여기로 갈라져</b> 한쪽만 고치는 날이 온다.
-/// </para>
-/// <para>
-/// <b>값은 <see cref="PortalBoot"/> 한 곳에만 담긴다.</b> 환경설정 화면
-/// (<c>EnvironmentSettingPage</c>)이 쓰는 그 열쇠 그대로라, 여기서 옮긴 자리가
-/// 거기서도 보이고 그 반대도 같다. 두 화면이 서로를 모르고도 어긋나지 않는
-/// 까닭이 그것이다.
-/// </para>
-/// </remarks>
+/// <summary>떠다니는 단추를 오래 누르면 뜨는 창. 셸은 한 줄만 적고 손짓은 이 부품이 스스로 건다 — 셸에 거면 단추 둘의 설정이 셸과 여기로 갈라진다. 값은 PortalBoot 한 곳에만 담기며 환경설정 화면과 같은 열쇠라 어느 쪽에서 고쳐도 다른 쪽이 따라온다.</summary>
 public partial class FabHoldMenu : IAsyncDisposable
 {
     [Inject] private PortalBoot Boot { get; set; } = default!;
@@ -29,12 +13,7 @@ public partial class FabHoldMenu : IAsyncDisposable
     [Inject] private Toasts Toasts { get; set; } = default!;
     [Inject] private IJSRuntime Js { get; set; } = default!;
 
-    /// <summary>고를 수 있는 귀퉁이 넷. <b>차례가 화면의 차례다</b>(위 둘 · 아래 둘).</summary>
-    /// <remarks>
-    /// 환경설정의 목록과 달리 「(기본)」을 붙이지 않는다. 여기서는 지금 자리에
-    /// 표시가 붙으므로(<c>is-on</c>) 기본값이 무엇인지는 물을 일이 아니고,
-    /// 네모 안에 들어갈 글자는 짧을수록 좋다.
-    /// </remarks>
+    /// <summary>고를 수 있는 귀퉁이 넷. 차례가 화면의 차례다(위 둘 · 아래 둘). 환경설정 목록과 달리 「(기본)」을 붙이지 않는다 — 지금 자리에 표시가 붙으므로 기본값을 물을 일이 아니다.</summary>
     private static readonly IReadOnlyList<FabCorner> Corners =
     [
         new("top-left", "왼쪽 위"),
@@ -53,23 +32,7 @@ public partial class FabHoldMenu : IAsyncDisposable
     /// <summary>지금 다루고 있는 것이 <b>요청 등록 단추</b>인가. 아니면 메뉴 단추다.</summary>
     private bool _help;
 
-    /// <summary>
-    /// 두 단추의 자리를 <b>따로</b> 들고 있는다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 하나로 두면 메뉴 단추를 옮긴 뒤 요청 등록 단추를 길게 눌렀을 때
-    /// <b>남의 자리에 표시가 붙는다.</b>
-    /// </para>
-    /// <para>
-    /// <b><see cref="PortalBoot.ReadAsync"/> 를 다시 부르지 않는다.</b> 그것은
-    /// 회로마다 한 번 읽어 둔 것을 그대로 돌려주는 자리라
-    /// (몇 번을 불러도 왕복은 한 번이다), 창을 열 때마다 불러도 <b>처음 그
-    /// 값</b>이다. 그래서 첫 그림에서 한 번 읽고, 그 뒤로는 바뀔 때마다 오는
-    /// 알림(<see cref="PortalBoot.FabPositionChanged"/> 들)으로 따라간다 —
-    /// 환경설정 화면에서 고친 것도 같은 알림을 타고 여기로 온다.
-    /// </para>
-    /// </remarks>
+    /// <summary>두 단추의 자리를 따로 들고 있는다 — 하나로 두면 메뉴 단추를 옮긴 뒤 요청 등록 단추를 길게 눌렀을 때 남의 자리에 표시가 붙는다. PortalBoot.ReadAsync 를 다시 부르지 않는다 — 회로마다 한 번 읽은 값을 돌려주므로 처음 그 값이다. 첫 그림에서 한 번 읽고 바뀔 때마다 오는 알림으로 따라간다 — 환경설정 화면에서 고친 것도 같은 알림을 타고 온다.</summary>
     private string _menuPosition = "bottom-left";
 
     private string _helpPosition = "bottom-right";
@@ -83,14 +46,7 @@ public partial class FabHoldMenu : IAsyncDisposable
         ? "헬프데스크 요청 등록으로 바로 가는 단추입니다."
         : "메뉴를 여닫는 단추입니다.";
 
-    /// <summary>
-    /// 환경설정 화면의 주소. 메뉴에 없으면(권한이 없으면) <c>null</c> 이다.
-    /// </summary>
-    /// <remarks>
-    /// <b>주소를 글자로 박지 않는다.</b> <c>@page</c> 는 모듈이 소유한 값이라
-    /// 옮겨 갈 수 있고, 그때 여기 사본이 조용히 어긋나면 누른 사람이
-    /// 「준비 중」을 본다(<see cref="PortalHome.SettingsRouteKey"/> 머리말).
-    /// </remarks>
+    /// <summary>환경설정 화면의 주소. 메뉴에 없으면(권한이 없으면) null. 주소를 글자로 박지 않는다 — @page 가 옮겨 가면 사본이 어긋나 누른 사람이 준비 중을 본다(PortalHome.SettingsRouteKey 머리말).</summary>
     private string? SettingsHref => PortalHome.Resolve(null, Menus.VisibleMenus);
 
     protected override void OnInitialized()
@@ -144,13 +100,7 @@ public partial class FabHoldMenu : IAsyncDisposable
         }
     }
 
-    /// <summary>
-    /// 브라우저가 <b>길게 누른 단추</b>를 알려 왔다. <c>menu</c> 아니면 <c>help</c> 다.
-    /// </summary>
-    /// <remarks>
-    /// 모르는 값이 오면 메뉴 단추로 본다 — 길게 눌렀는데 아무 일도 안 일어나는
-    /// 것보다 낫고, 보내는 쪽이 둘 중 하나만 보낸다(<c>js/fab-hold.js</c>).
-    /// </remarks>
+    /// <summary>브라우저가 길게 누른 단추를 알려 왔다 — menu 아니면 help. 모르는 값은 메뉴 단추로 본다 — 길게 눌렀는데 아무 일도 안 나는 것보다 낫다.</summary>
     [JSInvokable]
     public Task OpenForAsync(string kind)
     {
@@ -163,13 +113,7 @@ public partial class FabHoldMenu : IAsyncDisposable
     /// <summary>바깥을 눌렀거나 Esc 로 닫았다. 아무것도 고치지 않는다.</summary>
     private void OnVisibleChanged(bool visible) => _visible = visible;
 
-    /// <summary>
-    /// 고른 귀퉁이로 옮긴다. <b>옮기면서 창을 닫는다.</b>
-    /// </summary>
-    /// <remarks>
-    /// 열어 두면 창이 화면 가운데를 덮고 있어서 <b>옮겨 간 결과가 안 보인다</b> —
-    /// 고르는 일의 목적이 바로 그 그림을 보는 것이다.
-    /// </remarks>
+    /// <summary>고른 귀퉁이로 옮긴다. 옮기면서 창을 닫는다 — 열어 두면 창이 화면 가운데를 덮어 옮겨 간 결과가 안 보인다.</summary>
     private async Task MoveAsync(string corner)
     {
         _visible = false;
@@ -184,14 +128,7 @@ public partial class FabHoldMenu : IAsyncDisposable
         }
     }
 
-    /// <summary>
-    /// 이 단추를 감춘다. <b>되돌리는 길을 함께 말한다.</b>
-    /// </summary>
-    /// <remarks>
-    /// 감춘 단추는 그려지지 않으므로 <b>길게 누를 수도 없다</b> — 이 창으로
-    /// 돌아올 길이 없다. 말해 주지 않으면 「감췄더니 영영 사라졌다」가 되고,
-    /// 그것을 되돌리려고 사람이 찾아가는 곳은 환경설정이 아니라 전화기다.
-    /// </remarks>
+    /// <summary>이 단추를 감춘다. 되돌리는 길을 함께 말한다 — 감춘 단추는 길게 누를 수도 없어 이 창으로 돌아올 길이 없다. 말하지 않으면 영영 사라진 것으로 읽힌다.</summary>
     private async Task HideAsync()
     {
         _visible = false;

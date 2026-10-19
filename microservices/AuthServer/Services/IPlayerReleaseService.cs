@@ -16,30 +16,19 @@ public enum PlayerReleaseOutcome
     Failed,
 }
 
-/// <summary>
-/// 플레이어(funeralv2_player) 릴리스를 GitHub 에 요청하는 서비스.
-/// </summary>
+/// <summary>플레이어(funeralv2_player) 릴리스를 GitHub 에 요청하는 서비스.</summary>
 public interface IPlayerReleaseService
 {
     /// <summary>화면을 처음 그릴 때 필요한 것(설정 여부·권한·최신 커밋·기존 태그).</summary>
     Task<PlayerReleaseStatusDto> GetStatusAsync(string userId);
 
-    /// <summary>
-    /// 버전 태그를 만들어 릴리스 워크플로를 깨운다.
-    /// </summary>
+    /// <summary>버전 태그를 만들어 릴리스 워크플로를 깨운다.</summary>
     Task<(PlayerReleaseOutcome Outcome, PlayerReleaseResultDto Result)> CreateAsync(
         string userId, PlayerReleaseRequestDto request);
 
     /// <summary>그 태그로 도는 워크플로의 진행 상황. 화면이 폴링한다.</summary>
     Task<PlayerReleaseRunDto> GetRunAsync(string tag);
 
-    /// <summary>
-    /// 최신 릴리스와 첨부 파일. 다운로드 화면이 OS 별로 짝지어 보여 준다.
-    ///
-    /// <para>
-    /// 릴리스가 없거나 GitHub 이 응답하지 않아도 <b>던지지 않는다</b> —
-    /// 화면은 떠야 하고, 그 사정은 안내로 말한다.
-    /// </para>
-    /// </summary>
+    /// <summary>최신 릴리스와 첨부 파일. 릴리스가 없거나 GitHub 이 응답하지 않아도 던지지 않는다 — 화면은 떠야 한다.</summary>
     Task<PlayerReleaseLatestDto> GetLatestAsync();
 }

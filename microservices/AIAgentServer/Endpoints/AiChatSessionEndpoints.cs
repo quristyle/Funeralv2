@@ -5,27 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace AIAgentServer.Endpoints;
 
-/// <summary>
-/// 내 AI쳇 대화를 열고 닫는 길. 화면(<c>/site/ai/chat</c>)과 헤더 🤖 서랍이 쓴다.
-/// </summary>
-/// <remarks>
-/// <para>
-/// [권한을 따지지 않는다 — <b>내 것만 보인다</b>]
-/// </para>
-///
-/// <para>
-/// 사용량 조회(<see cref="AiUsageEndpoints"/>)는 <b>남의 것을 보는</b> 길이라
-/// 메뉴 권한을 물었다. 이쪽은 반대다 — 쪽지나 알림 설정처럼 누구나 제 것을
-/// 다루는 일이고, 모든 조회가 <c>userId</c> 를 조건에 넣으므로 남의 대화는
-/// 애초에 손에 잡히지 않는다(<see cref="AiChatStore"/> 머리말).
-/// </para>
-///
-/// <para>
-/// 다만 <b>로그인은 반드시 해야 한다.</b> 게이트웨이의 <c>ai-route</c> 가
-/// 이 묶음을 익명으로 열어 두므로, 사람이 없으면 여기서 막는다 — 안 막으면
-/// <c>user_id</c> 가 빈 대화가 한 뭉치 생기고 그것을 아무나 공유하게 된다.
-/// </para>
-/// </remarks>
+/// <summary>내 AI쳇 대화를 열고 닫는 길. 화면(<c>/site/ai/chat</c>)과 헤더 🤖 서랍이 쓴다. 사용량 조회()는 남의 것을 보는 길이라 메뉴 권한을 물었다.</summary>
 public static class AiChatSessionEndpoints
 {
     public static void MapAiChatSessionEndpoints(this IEndpointRouteBuilder app)

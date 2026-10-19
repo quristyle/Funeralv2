@@ -51,8 +51,7 @@ public partial class DateRangeTabs
 
         Preset = preset;
 
-        // "오늘" 탭은 이름 그대로 오늘로 돌아온다 — 지난달을 보다가 눌렀을 때
-        // 지난달의 같은 날이 나오면 이름이 거짓말이 된다.
+        // "오늘" 탭은 지난달을 보다 눌러도 오늘로 돌아온다 — 같은 날이 나오면 이름이 거짓말이 된다.
         if (preset == DateRangePreset.Day)
         {
             Anchor = AppTime.TodayDate;

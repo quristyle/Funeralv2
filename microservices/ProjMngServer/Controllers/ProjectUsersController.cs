@@ -5,14 +5,8 @@ using ProjMngServer.Services;
 
 namespace ProjMngServer.Controllers;
 
-/// <summary>
-/// 프로젝트 참여자 — <c>/api/project-users</c>.
-/// </summary>
-/// <remarks>
-/// 갈래가 둘인 것은 <b>보는 각도가 둘</b>이기 때문이다 —
-/// 「이 사람이 어느 프로젝트에」(<see cref="AssignmentsAsync"/>)와
-/// 「걸려 있는 짝 전부」(<see cref="ListAsync"/>). 옛 프로시저도 둘이었다.
-/// </remarks>
+/// <summary>프로젝트 참여자 — <c>/api/project-users</c>.</summary>
+/// 갈래가 둘인 것은 보는 각도가 둘이기 때문이다 — 사람 기준(AssignmentsAsync)과 프로젝트 기준(ListAsync).
 [ApiController]
 [Route("api/project-users")]
 public sealed class ProjectUsersController(ProjectUserService service) : ControllerBase
@@ -25,15 +19,8 @@ public sealed class ProjectUsersController(ProjectUserService service) : Control
         return Ok(ApiResponse<List<ProjectAssignment>>.Ok(rows));
     }
 
-    /// <summary>
-    /// 참여를 켜고 끈다. <b>한 건이든 여러 건이든 이 길 하나다.</b> 한 트랜잭션이다.
-    /// </summary>
-    /// <remarks>
-    /// 한 줄짜리 <c>POST assignments</c> 가 따로 있었는데 없앴다. 체크 하나가
-    /// 원소 하나짜리 묶음이라 여기서 똑같이 처리되고, 갈래를 둘로 두면
-    /// <b>한쪽에만 걸리는 버그</b>가 생긴다 — 실제로 넣기가 한쪽은
-    /// <c>WHERE NOT EXISTS</c>, 다른 쪽은 <c>ON CONFLICT</c> 로 갈릴 뻔했다.
-    /// </remarks>
+    /// <summary>참여를 켜고 끈다. <b>한 건이든 여러 건이든 이 길 하나다.</b> 한 트랜잭션이다.</summary>
+    /// 한 건짜리 POST 를 따로 두지 않는다 — 갈래를 한쪽에만 고치면 한쪽에만 걸리는 버그가 생긴다.
     [HttpPost("assignments/bulk")]
     public async Task<IActionResult> SetAssignmentsAsync([FromBody] ProjectAssignmentBulkRequest request)
     {

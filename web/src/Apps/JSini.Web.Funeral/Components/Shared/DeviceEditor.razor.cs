@@ -83,8 +83,6 @@ public partial class DeviceEditor
 
     private async Task LoadRoomsAsync(string? buildingId, string? floorId)
     {
-        // **이름을 붙여 넘긴다.** 첫 인자가 `companyId` 라, 자리로 넘기면
-        // 건물이 회사 자리에 들어가 목록이 통째로 빈다.
         _rooms = string.IsNullOrEmpty(buildingId)
             ? []
             : await Api.GetRoomsAsync(buildingId: buildingId, floorId: floorId);
@@ -94,8 +92,7 @@ public partial class DeviceEditor
     {
         _form!.BuildingId = buildingId;
 
-        // 위를 바꾸면 아래를 푼다. 남겨 두면 다른 건물의 층·호실에 기기가
-        // 붙고, 저장은 되며 현황판에서만 이상해 보인다.
+        // 위를 바꾸면 아래를 푼다. 남겨 두면 다른 건물의 층·호실에 기기가 붙는다.
         _form.FloorId = null;
         _form.RoomId = null;
 

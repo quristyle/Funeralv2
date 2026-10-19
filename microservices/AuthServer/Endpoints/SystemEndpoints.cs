@@ -42,10 +42,7 @@ public static class SystemEndpoints
         })
         .WithName("DeleteAccount");
 
-        // ── 계정 결합 ───────────────────────────────────────
-        //
-        // 기존 계정을 다른 계정으로 병합(소셜 연동, 연락처 이전)하고 원본 계정을 정리한다.
-        // 계정 데이터가 이동 및 삭제되는 중요한 작업이므로 관리자 권한을 검증한다.
+        // 계정 결합 — 계정 데이터가 이동·삭제되는 작업이라 관리자 권한을 검증한다.
         group.MapPost("/account/{id}/merge", async (
             string id,
             [FromQuery] string targetId,
@@ -78,21 +75,7 @@ public static class SystemEndpoints
         })
         .WithName("MergeAccount");
 
-        // ── 비밀번호 초기화 ─────────────────────────────────
-        //
-        // 비밀번호를 잊은 사람을 관리자가 대신 풀어 주는 길이다. 지금 값을
-        // 묻지 않고 갈아 끼우므로 **이 묶음에서 가장 위험한 경로**다 —
-        // 통과하면 남의 계정으로 로그인할 수 있는 값이 손에 들어온다.
-        //
-        // [여기만 역할을 따로 본다]
-        //
-        // 나머지 `/system/*` 는 메뉴 권한(화면이 열리는가)으로 가린다. 그
-        // 판정은 게이트웨이·프론트가 하고 서버는 다시 보지 않는데, 이 경로는
-        // 그 가림막이 한 겹 벗겨지는 순간 바로 계정 탈취가 된다. 그래서
-        // **서버에서 한 번 더 본다** — 배포 현황·오류 추적과 같은 판정이다.
-        //
-        // 발급한 평문은 응답에 한 번만 실린다. 저장은 해시뿐이라 이 답을
-        // 놓치면 아무도 그 값을 알 수 없고, 그때는 다시 초기화하면 된다.
+        // 비밀번호 초기화 — 지금 값을 묻지 않고 갈아 끼우므로 이 묶음에서 가장 위험한 경로다. 여기만 역할을 따로 본다.
         group.MapPost("/account/{id}/password-reset", async (
             string id,
             UserContext? user,
@@ -160,9 +143,7 @@ public static class SystemEndpoints
         })
         .WithName("DeleteRole");
 
-        // 부서(Department) 관리
-        // allCompanies=true 면 모든 회사의 부서를 함께 준다.
-        // 회사 인자를 비우는 것은 '전체' 가 아니라 '요청한 사람의 회사' 다 — 뜻이 다르다.
+        // 부서 — allCompanies=true 면 모든 회사의 부서를 준다. 회사 인자를 비우는 것은 전체가 아니라 요청한 사람의 회사다.
         group.MapGet("/dept/list", async ([FromQuery] string? companyId, [FromQuery] bool? allCompanies,
             UserContext? userContext, [FromServices] IDepartmentService deptService) =>
         {
@@ -230,10 +211,7 @@ public static class SystemEndpoints
         })
         .WithName("MoveDept");
 
-        // 부서 관리 화면(트리)에서 줄을 끌어 놓으면 상위와 순번이 함께 바뀌고,
-        // 형제 여러 개의 순번이 한꺼번에 밀린다. 화면이 확정한 배치를 그대로 받아
-        // 한 번의 왕복으로 저장한다 — `/dept/{id}/move` 는 상위만 바꾸므로
-        // 끌어 옮긴 「자리」가 저장되지 않는다.
+        // 부서·사용자 노드 이동 — 형제 여러 개의 순번이 한꺼번에 밀리므로 화면이 확정한 배치를 한 번의 왕복으로 저장한다. /dept/{id}/move 는 상위만 바꾼다.
         group.MapPost("/dept/reorder", async (UserContext? userContext, [FromBody] List<DeptOrderDto> items, [FromServices] IDepartmentService deptService) =>
         {
             try
@@ -255,9 +233,7 @@ public static class SystemEndpoints
         })
         .WithName("MoveUserDept");
 
-        // 시스템 메뉴 관리
-        // `locale` 은 제목의 다국어를 서버에서 붙일 때 쓴다(안 보내면 ko).
-        // 화면이 제목마다 $t() 를 부르지 않게 하려고 옮긴 글자를 meta.titleText 로 함께 내려보낸다.
+        // 시스템 메뉴 — locale 은 제목 다국어를 서버에서 붙일 때 쓴다(안 보내면 ko). 옮긴 글자를 meta.titleText 로 함께 내려보낸다.
         group.MapGet("/menu/list", async ([FromQuery] string? locale, [FromServices] ISystemMenuService menuService) =>
         {
             var menus = await menuService.GetMenuListAsync(locale);
@@ -300,8 +276,7 @@ public static class SystemEndpoints
         })
         .WithName("MoveSystemMenu");
 
-        // 트리 그리드에서 드래그로 자리를 옮기면 형제 여러 개의 순번이 함께 바뀐다.
-        // 화면이 확정한 배치를 그대로 받아 한 번의 왕복으로 저장한다.
+        // 메뉴 트리 드래그 — 형제 순번이 함께 바뀌므로 확정한 배치를 한 번의 왕복으로 저장한다.
         group.MapPost("/menu/reorder", async ([FromBody] List<MenuOrderDto> items, [FromServices] IMenuService menuService) =>
         {
             try
@@ -413,16 +388,7 @@ public static class SystemEndpoints
         .WithName("DeleteBizSelectConfig");
     }
 
-    /// <summary>
-    /// 관리자 계열인가. 비밀번호 초기화 한 곳만 쓴다.
-    /// </summary>
-    /// <remarks>
-    /// <c>X-User-Role</c> 은 첫 역할 하나뿐이라 전체 목록(<c>X-User-Roles</c>)으로
-    /// 함께 본다. 배포 현황(<c>DeployStatusEndpoints</c>) · 오류 추적
-    /// (<c>PortalErrorEndpoints</c>)이 쓰는 것과 같은 판정이고, 그쪽들과
-    /// 공용으로 묶지 않은 이유도 같다 — 「볼 수 있는 사람」을 넓히고 싶을 때
-    /// 「남의 비밀번호를 갈아 끼울 수 있는 사람」이 말없이 따라 넓어지면 안 된다.
-    /// </remarks>
+    /// <summary>관리자 계열인가. X-User-Role 은 첫 역할 하나뿐이라 전체 목록(X-User-Roles)으로 함께 본다.</summary>
     private static bool IsAdmin(UserContext user, HttpContext http)
     {
         var roles = http.Request.Headers["X-User-Roles"].ToString()

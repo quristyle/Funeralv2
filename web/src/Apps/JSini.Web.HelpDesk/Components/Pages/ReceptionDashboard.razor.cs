@@ -13,24 +13,21 @@ public partial class ReceptionDashboard
     [Inject] private HelpDeskContext Context { get; set; } = default!;
     [Inject] private UserFaceClient Faces { get; set; } = default!;
 
-    /// <summary>옛 화면과 같은 60초. 다만 <b>스위치를 켠 동안에만</b> 돈다.</summary>
+    /// <summary>60초 자동 조회. 스위치를 켠 동안에만 돈다.</summary>
     protected override TimeSpan RefreshInterval => TimeSpan.FromSeconds(60);
 
-    /// <summary>대기 목록에 몇 줄을 세우나. 옛 화면과 같은 넉 줄이다.</summary>
+    /// <summary>대기 목록에 세우는 줄 수(넷).</summary>
     private const int PendingRows = 4;
 
-    // ── 상태 묶음 ───────────────────────────────────────────
-    //
-    // 요청 처리 화면이 받는 글자 그대로다(`RequestManage.StatusQuery`).
-    // 여럿이면 `|` 로 잇는다 — 쉼표로 이으면 서버가 값 하나로 읽는다.
+    // ── 상태 묶음 ──
+    // 요청 처리 화면이 받는 글자 그대로다(RequestManage.StatusQuery). 여럿이면 | 로 잇는다.
 
     private const string PendingStatuses = "Pending";
     private const string DoneStatuses = "Completed|UserCompleted";
     private const string TalkStatuses = "Consultation|Negotiation";
 
-    // ── 색 ──────────────────────────────────────────────────
-    //
-    // 옛 화면의 고리 둘과 같다 — 접수는 검정, 완료는 초록.
+    // ── 색 ──
+    // 접수는 검정, 완료는 초록.
 
     private const string AcceptColor = "#222222";
     private const string DoneColor = "#22c55e";
@@ -53,10 +50,7 @@ public partial class ReceptionDashboard
 
     // ── 나의 숫자 ───────────────────────────────────────────
 
-    /// <summary>
-    /// 내가 받은 것. <b>대기는 빼고 센다</b> — 대기는 아직 아무도 안 받은
-    /// 것이라 「내가 받은 것」에 들어갈 수 없다(옛 화면과 같다).
-    /// </summary>
+    /// <summary>내가 받은 것. 대기는 빼고 센다 — 대기는 아직 아무도 안 받은 것이라 여기 들어갈 수 없다.</summary>
     private int Handled =>
         _mine.InProgressCount + _mine.CompletedCount + _mine.UserCompletedCount
         + _mine.RejectedCount + _mine.ConsultationCount + _mine.NegotiationCount;
@@ -110,42 +104,22 @@ public partial class ReceptionDashboard
 
     private string AdminHint => _admins.Count == 0 ? string.Empty : $"{_admins.Count}명";
 
-    /// <summary>
-    /// 이 담당자를 뭐라고 부를까. <b>포털이 먼저다</b> — 헬프데스크에 베껴 둔
-    /// 이름은 포털에서 고쳐도 따라오지 않는다(화면 머리말).
-    /// </summary>
+    /// <summary>이 담당자를 뭐라고 부를까. 포털이 먼저다 — 헬프데스크에 베껴 둔 이름은 포털에서 고쳐도 따라오지 않는다.</summary>
     private string NameOf(AdminRow admin) =>
         Faces.NameOf(admin.LoginId) is { Length: > 0 } name ? name : admin.AdminName;
 
     private static string LastPending(CompanyRow company) =>
         company.LastPendingDate is { } at ? $"마지막 접수 {at.Kst("yyyy-MM-dd")}" : " ";
 
-    /// <summary>
-    /// 요청이 올라온 시각. <b>서버가 주는 값은 UTC 라</b> 보여 주기 직전에
-    /// 한 번만 한국 시각으로 옮긴다(docs/utc-time.md).
-    /// </summary>
+    /// <summary>요청이 올라온 시각. 서버 값은 UTC 라 보여 주기 직전에 한 번만 한국 시각으로 옮긴다.</summary>
     private static string Stamp(DateTime? at) => at.Kst("MM-dd HH:mm");
 
     // ── 타일 → 요청 처리 목록 ───────────────────────────────
 
     private const string ManagePath = "/helpdesk/request/manage";
 
-    /// <summary>
-    /// 이 숫자가 센 것과 같은 것을 여는 목록 주소.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b><c>open=false</c> 를 늘 싣는다.</b> 요청 처리 화면의 「처리 중인
-    /// 것만」이 기본으로 켜져 있어서, 안 끄면 완료·종료·반려 타일이 빈
-    /// 목록으로 열린다 — 현황판이 못 믿을 것이 되는 가장 빠른 길이다.
-    /// </para>
-    /// <para>
-    /// <paramref name="mine"/> 에 쓰는 번호는 <b>서버가 센 그 번호</b>다
-    /// (<see cref="AdminStats.AdminId"/>). 신원이 들고 있는 헬프데스크 번호는
-    /// 대개 <b>고객 줄</b>을 가리켜서, 그것으로 거르면 엉뚱한 사람의 요청이
-    /// 열린다 — 고객 2번과 담당자 2번은 서로 다른 사람이다.
-    /// </para>
-    /// </remarks>
+    /// <summary>이 숫자가 센 것과 같은 것을 여는 목록 주소. open=false 를 늘 싣는다 — 목록의 기본값이 켜짐이라 안 끄면 완료·반려 타일이 빈 목록으로 열린다.
+    /// mine 에는 서버가 센 담당자 번호(AdminStats.AdminId)를 쓴다 — 신원의 헬프데스크 번호는 대개 고객 줄을 가리켜 엉뚱한 사람의 요청이 열린다.</summary>
     private string ManageHref(
         string? statuses, bool mine = false, int? adminId = null, string? companyId = null)
     {
@@ -181,15 +155,7 @@ public partial class ReceptionDashboard
     /// <summary>자동 조회. 안내 줄을 건드리지 않는다.</summary>
     protected override Task RefreshAsync() => FetchAsync();
 
-    /// <summary>
-    /// 넷을 나란히 부른다. 옛 화면도 <c>Promise.all</c> 로 한꺼번에 던졌다 —
-    /// 차례로 기다리면 마지막 판이 뜨기까지 왕복이 넷 쌓이고, 그 사이에
-    /// 자료가 바뀌면 <b>타일과 카드가 서로 다른 순간</b>을 가리킨다.
-    /// </summary>
-    /// <remarks>
-    /// <b>하나가 실패해도 나머지는 보여 준다.</b> 현황판은 떠 있는 것이
-    /// 중요하다 — 담당자 목록을 못 읽었다고 내 숫자까지 지울 까닭이 없다.
-    /// </remarks>
+    /// <summary>넷을 나란히 부른다 — 차례로 기다리면 왕복이 쌓이고, 그 사이 자료가 바뀌면 타일과 카드가 서로 다른 순간을 가리킨다. 하나가 실패해도 나머지는 보여 준다.</summary>
     private async Task FetchAsync()
     {
         var mine = SafeAsync(() => Api.GetAsync<AdminStats>("dashboard/admin-stats"));
@@ -204,23 +170,13 @@ public partial class ReceptionDashboard
         _pending = pending.Result;
 
         // 건수 0 인 회사까지 카드를 세우면 묶음이 한 화면을 넘는다.
-        // 옛 화면도 받은 것을 그대로 돌렸지만, 거기는 옆으로 넘기는 띠였다.
         _companies = [.. companies.Result.OrderByDescending(c => c.Total).ThenBy(c => c.CompanyName, StringComparer.CurrentCulture)];
 
-        // **이름과 얼굴은 포털에 묻는다.** 담당자 수만큼 묻지 않고 한 번에
-        // 모아서 묻는다(`UserFaceClient`). 실패는 그 부품이 삼키고, 그때는
-        // 헬프데스크에 베껴 둔 이름으로 물러선다.
+        // 이름과 얼굴은 포털에 한꺼번에 묻는다(UserFaceClient). 실패는 그 부품이 삼키고 헬프데스크에 베껴 둔 이름으로 물러선다.
         await Faces.EnsureAsync(_admins.Select(a => a.LoginId));
     }
 
-    /// <summary>
-    /// 아직 아무도 안 받은 요청 넉 줄. 늦게 올라온 것이 위다.
-    /// </summary>
-    /// <remarks>
-    /// <c>description</c>·<c>content</c> 는 안 받는다 — 목록에 쓸 일이 없고
-    /// 서식 편집기로 쓴 본문이라 줄마다 수십 KB 다. 대표 그림은 본문 없이도
-    /// 알 수 있다(<c>mainPhoto</c> · <see cref="RequestThumb"/>).
-    /// </remarks>
+    /// <summary>아직 아무도 안 받은 요청 넉 줄. 늦게 올라온 것이 위다. description·content 는 안 받는다 — 서식 본문이라 줄마다 수십 KB 다. 대표 그림은 mainPhoto 로 안다(RequestThumb).</summary>
     private static Dictionary<string, object?> PendingQuery => new()
     {
         ["page"] = 1,
@@ -269,11 +225,7 @@ public partial class ReceptionDashboard
         }
     }
 
-    /// <summary>
-    /// 스위치. 켜면 시계가 돌고 끄면 선다. 기본은 꺼짐이다 — 띄워 두는
-    /// 상황판이 아니라 들여다보는 화면이라, 보는 동안 카드가 저 혼자
-    /// 움직이면 읽던 자리를 놓친다.
-    /// </summary>
+    /// <summary>자동 조회 스위치. 기본은 꺼짐 — 띄워 두는 상황판이 아니라 들여다보는 화면이라, 저 혼자 움직이면 읽던 자리를 놓친다.</summary>
     private void ToggleAuto(bool on)
     {
         _auto = on;
@@ -304,17 +256,10 @@ public partial class ReceptionDashboard
         /// <summary>지운 것 말고 전체. 접수율의 분모다.</summary>
         public int TotalRequests { get; set; }
 
-        /// <summary>
-        /// 「내 것」을 셀 수 있었나. <b>거짓이면 위의 0 은 「없다」가 아니라
-        /// 「모른다」다</b> — 서버가 나를 가리키는 담당자 줄을 못 찾은 것이다.
-        /// </summary>
+        /// <summary>「내 것」을 셀 수 있었나. 거짓이면 위의 0 은 「없다」가 아니라 「모른다」다 — 서버가 나를 가리키는 담당자 줄을 못 찾은 것이다.</summary>
         public bool Linked { get; set; }
 
-        /// <summary>
-        /// 서버가 실제로 센 담당자 줄 번호. <b>이것으로 목록을 거른다</b> —
-        /// 신원이 들고 있는 헬프데스크 번호는 대개 고객 줄이라 쓰면 안 된다
-        /// (서버 쪽 같은 칸의 머리말).
-        /// </summary>
+        /// <summary>서버가 실제로 센 담당자 줄 번호. 이것으로 목록을 거른다 — 신원의 헬프데스크 번호는 대개 고객 줄이라 쓰면 안 된다.</summary>
         public int? AdminId { get; set; }
     }
 
@@ -326,10 +271,7 @@ public partial class ReceptionDashboard
         /// <summary>헬프데스크에 베껴 둔 이름. <b>포털을 못 읽었을 때만</b> 쓴다.</summary>
         public string AdminName { get; set; } = string.Empty;
 
-        /// <summary>
-        /// 포털 로그인 아이디. 이름과 얼굴을 푸는 열쇠다 —
-        /// 옛 자료로 만들어진 줄은 비어 있을 수 있다.
-        /// </summary>
+        /// <summary>포털 로그인 아이디. 이름과 얼굴을 푸는 열쇠다. 옛 자료로 만든 줄은 비어 있을 수 있다.</summary>
         public string? LoginId { get; set; }
 
         public int PendingCount { get; set; }

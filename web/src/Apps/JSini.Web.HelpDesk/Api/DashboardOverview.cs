@@ -1,12 +1,7 @@
 namespace JSini.Web.HelpDesk.Api;
 
-// 현황판(`dashboard/overview`)이 한 번에 받아 오는 집계 묶음.
-//
-// 서버의 HelpDeskServer/Dtos/DashboardOverviewDto.cs 와 짝이다. **칸 이름을
-// 서버에 맞춰 둔다** — 어긋나면 역직렬화가 오류 없이 0 을 채우고, 증상이
-// 「숫자가 전부 0 이다」로 나타나 원인이 화면처럼 보인다.
-//
-// 통로를 하나로 둔 까닭(왕복 열 번 · 조각마다 다른 순간)은 서버 쪽 머리말에 있다.
+// 현황판(dashboard/overview)이 한 번에 받는 집계 묶음. 서버 DashboardOverviewDto 와 칸 이름을 맞춘다.
+// 어긋나면 역직렬화가 오류 없이 0 을 채워 「숫자가 전부 0」으로 보인다.
 
 /// <summary>현황판 한 판.</summary>
 public sealed class DashboardOverview

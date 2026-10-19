@@ -7,43 +7,8 @@
 @using WeatherWarningItem = JSini.Web.LifeEnv.Api.WeatherWarning
 
 @*
-    [기상 특보 현황] — DB 메뉴 `/life/weather/warning`.
-    이력: 원본 `WeatherWarning.vue` → Vue `views/life/weather/warning.vue` → 여기.
-    호출: `life/weather/warnings?all=true` · `life/weather/warning-zones`
-          · `life/weather/warnings/{id}/full`
-
-    최근 7일 특보에서 **48시간 안의 것만** 추려 특보번호로 묶어 보여 주고,
-    고른 발표분의 통보문을 오른쪽에 편다.
-
-    [표 하나로 되어 있었다]
-
-    특보를 발표 시각 순으로 늘어놓은 표였다. 그래서 세 가지가 없었다.
-
-      · **묶기** — 같은 특보(`warningNum`)의 발령·연장·해제가 흩어져 있어
-        "지금 살아 있는 특보가 무엇인가" 를 읽을 수 없다. 119건이 한 줄씩
-        늘어서 있으면 더 그렇다.
-      · **통보문** — 특보 목록에는 제목뿐이고 본문은 통보문에 있다.
-        `warnings/{id}/full` 을 부르는 곳이 화면에 없었다.
-      · **우리 지역** — 특보가 우리 관리지역에 걸리는지가 이 화면을 보는
-        이유인데, 그 매칭(`matchedLocations` · `warning-zones`)을 쓰지 않았다.
-
-    [48시간으로 자르는 것은 화면의 판단이다]
-
-    서버는 7일치를 준다. 그중 이틀 안의 것만 본다 — 옛 화면과 같다.
-    특보는 몇 시간 단위로 바뀌므로 사흘 전 발령분은 현황이 아니라 이력이다.
-
-    [강조는 서버가 준 구역명으로만 한다]
-
-    통보문 본문에서 우리 관리지역이 걸린 구역명을 노랗게 칠한다. 칠할 말은
-    `relatedZones` 가 준 것만 쓰고, 본문은 **먼저 이스케이프한 뒤** 강조
-    태그만 끼워 넣는다. 통보문은 기상청이 준 남의 글이라 그대로 그리면 안 된다.
-
-    [구역별 발효 현황 표는 넣지 않았다]
-
-    옛 화면에는 `details`(구역별 발효 현황) 표가 있었다. 지금 그 배열은
-    **모든 특보에서 비어 있다**(앞 40건을 다 열어 확인했다). 늘 빈 표가 될
-    자리를 만들어 두면 「자료가 없다」와 「기능이 없다」를 구분할 수 없다.
-    자료가 들어오기 시작하면 그때 붙인다.
+    기상 특보 현황(DB 메뉴 /life/weather/warning). 최근 7일 특보 중 48시간 안의 것을 특보번호로 묶어 보여 주고, 고른 발표분의 통보문을 오른쪽에 편다.
+    통보문 본문은 기상청이 준 글이라 이스케이프한 뒤 우리 지역 구역명(relatedZones)만 강조한다.
 *@
 
 @inherits DataPage
@@ -61,8 +26,7 @@
     </Fields>
 
     <Actions>
-        @* 건수는 단추가 아니지만 판의 오른쪽 끝이 그 자리다. 조건 옆에 두면
-           조건인 줄 읽힌다. *@
+        @* 건수는 판의 오른쪽 끝에 둔다 — 조건 옆에 두면 조건으로 읽힌다. *@
         <span class="le-warn__count">최근 48시간 @Groups.Count 건</span>
     </Actions>
 </CommSch>
@@ -169,9 +133,7 @@
             <WarningSection Title="발효 시각" Body="@msg.T3" Keywords="@_keywords" />
             <WarningSection Title="예고 · 참고" Body="@msg.T4" Keywords="@_keywords" />
 
-            @* 아래 둘은 이 특보만이 아니라 **그 시각의 전국 현황**이다.
-               길지만 접지 않는다 — 우리 지역이 어디에 속하는지 확인하는 곳이
-               여기뿐이고, 접어 두면 아무도 펴지 않는다. *@
+            @* 아래 둘은 그 시각의 전국 현황이다. 접지 않는다 — 우리 지역 소속을 확인하는 곳이라 접으면 아무도 펴지 않는다. *@
             <WarningSection Title="특보 발효 현황" Body="@msg.T6" Keywords="@_keywords" />
             <WarningSection Title="예비특보 발효 현황" Body="@msg.T7" Keywords="@_keywords" />
             <WarningSection Title="그 밖" Body="@msg.Other" Keywords="@_keywords" />

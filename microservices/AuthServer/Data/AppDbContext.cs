@@ -53,14 +53,10 @@ public class AppDbContext : DbContext
     /// <summary>소셜 로그인 연결(구글·네이버·카카오). 공급자 쪽 토큰은 담지 않는다.</summary>
     public DbSet<AccountSocialLogin> AccountSocialLogins { get; set; }
 
-    /// <summary>
-    /// 포털 프론트가 잡은 미처리 예외. 오류 화면의 추적 번호로 찾는다.
-    /// </summary>
+    /// <summary>포털 프론트가 잡은 미처리 예외. 오류 화면의 추적 번호로 찾는다.</summary>
     public DbSet<PortalErrorLog> PortalErrorLogs { get; set; }
 
-    /// <summary>
-    /// 메뉴 열람 기록. 누가 어떤 화면을 언제 보았나 — 쌓기만 하고 고치지 않는다.
-    /// </summary>
+    /// <summary>메뉴 열람 기록. 누가 어떤 화면을 언제 보았나 — 쌓기만 하고 고치지 않는다.</summary>
     public DbSet<MenuUsageLog> MenuUsageLogs { get; set; }
 
     /// <summary>
@@ -69,9 +65,7 @@ public class AppDbContext : DbContext
     /// </summary>
     public DbSet<BlockedAccessLog> BlockedAccessLogs { get; set; }
 
-    /// <summary>
-    /// 보고서 메일 배치. 어떤 보고서를 · 어느 역할에게 · 얼마나 자주 보낼까.
-    /// </summary>
+    /// <summary>보고서 메일 배치. 어떤 보고서를 · 어느 역할에게 · 얼마나 자주 보낼까.</summary>
     public DbSet<ReportMailSchedule> ReportMailSchedules { get; set; }
 
     /// <summary>배치가 고른 보고서들</summary>
@@ -101,11 +95,7 @@ public class AppDbContext : DbContext
             .IsUnique();
 
         // ── 패스키 ────────────────────────────────────────────
-        //
-        // 로그인은 **자격 증명 아이디 하나로만** 주인을 찾는다(아이디를 치지
-        // 않고 들어오는 길이 있으므로 계정으로 좁힐 수가 없다). 색인이 없으면
-        // 로그인마다 표를 통째로 훑고, 고유하지 않으면 같은 열쇠가 두 계정에
-        // 걸려 **누구로 들어올지가 순서에 달리게** 된다.
+        // 로그인은 자격 증명 아이디로만 주인을 찾으므로 색인이 필요하고, 고유해야 같은 열쇠가 두 계정에 걸리지 않는다.
         modelBuilder.Entity<AccountWebAuthnCredential>()
             .HasIndex(c => c.CredentialId)
             .IsUnique();
@@ -114,8 +104,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<AccountWebAuthnCredential>()
             .HasIndex(c => c.AccountId);
 
-        // 계정이 사라지면 패스키도 함께 지운다. 남겨 두면 아무 곳도 가리키지
-        // 않는 공개 키가 쌓이고, 로그인 조회가 매번 그것을 지나간다.
+        // 계정이 사라지면 패스키도 지운다. 남겨 두면 아무 데도 가리키지 않는 공개 키가 쌓인다.
         modelBuilder.Entity<AccountWebAuthnCredential>()
             .HasOne(c => c.Account)
             .WithMany()
@@ -123,10 +112,7 @@ public class AppDbContext : DbContext
             .OnDelete(DeleteBehavior.Cascade);
 
         // ── 소셜 로그인 ───────────────────────────────────────
-        //
-        // 로그인은 **(공급자, 사용자 번호) 짝으로만** 주인을 찾는다. 고유하지
-        // 않으면 같은 구글 계정이 두 포털 계정에 걸려 **누구로 들어올지가
-        // 순서에 달리게** 된다 — 패스키의 자격 증명 아이디와 같은 이유다.
+        // 로그인은 (공급자, 사용자 번호) 짝으로만 주인을 찾으므로 고유해야 한다. 계정이 사라지면 연결도 지운다.
         modelBuilder.Entity<AccountSocialLogin>()
             .HasIndex(l => new { l.Provider, l.ProviderUserId })
             .IsUnique();
@@ -135,8 +121,6 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<AccountSocialLogin>()
             .HasIndex(l => l.AccountId);
 
-        // 계정이 사라지면 연결도 함께 지운다. 남겨 두면 아무 곳도 가리키지 않는
-        // 줄이 쌓이고, 로그인 조회가 매번 그것을 지나간다.
         modelBuilder.Entity<AccountSocialLogin>()
             .HasOne(l => l.Account)
             .WithMany()
@@ -214,13 +198,7 @@ public class AppDbContext : DbContext
             .OnDelete(DeleteBehavior.Cascade);
 
         // ── 포털 오류 기록 ─────────────────────────────────────
-        //
-        // 조회가 둘뿐이다 — **추적 번호 하나로 집어 오거나, 최근 것을 훑거나.**
-        // 앞엣것이 이 표의 존재 이유라 색인이 없으면 쓸모가 없고, 뒤엣것은
-        // 이 표가 쌓이기만 하는 표라서 색인이 없으면 갈수록 느려진다.
-        //
-        // **고유 제약은 걸지 않는다.** 한 요청에서 예외가 두 번 날 수 있다
-        // (본 요청과 오류 화면 재실행). 엔티티 머리말 참고.
+        // 조회는 추적 번호로 집어 오기와 최근 목록 둘뿐이라 색인이 필요하다. 고유 제약은 걸지 않는다 — 한 요청에서 예외가 두 번 날 수 있다.
         modelBuilder.Entity<PortalErrorLog>()
             .HasIndex(e => e.TraceId);
 
@@ -228,13 +206,7 @@ public class AppDbContext : DbContext
             .HasIndex(e => e.OccurredAt);
 
         // ── 메뉴 사용기록 ─────────────────────────────────────
-        //
-        // 조회가 셋이다 — **한 사람의 것을 시간순으로**(기록·타임라인),
-        // **기간 전체를 늦은 것부터**(사람별·화면별 집계), **한 화면이 얼마나
-        // 열렸나**(화면별). 쌓이기만 하는 표라 색인이 없으면 갈수록 느려진다.
-        //
-        // **고유 제약은 걸지 않는다.** 같은 사람이 같은 화면을 1초 안에 두 번
-        // 열 수 있다(뒤로 갔다 다시 오기) — 그 둘은 서로 다른 열람이다.
+        // 조회는 사람별 시간순·기간 집계·화면별 집계다. 고유 제약은 걸지 않는다 — 같은 화면을 1초 안에 두 번 열 수도 있다.
         modelBuilder.Entity<MenuUsageLog>()
             .HasIndex(e => new { e.UserId, e.OccurredAt });
 
@@ -245,13 +217,7 @@ public class AppDbContext : DbContext
             .HasIndex(e => e.MenuPath);
 
         // ── 차단 접근기록 ────────────────────────────────────
-        //
-        // 조회가 셋이다 — **한 사람의 것을 늦은 것부터**(기록·사람별),
-        // **기간 전체를 화면으로 묶어**(화면별), **까닭으로 걸러**(둘 다).
-        // 쌓이기만 하는 표라 색인이 없으면 갈수록 느려진다.
-        //
-        // **고유 제약은 걸지 않는다.** 같은 사람이 같은 주소를 몇 번이고 다시
-        // 두드릴 수 있고, 그 횟수가 이 표에서 뜻이 있는 값이다.
+        // 조회는 사람별·화면별·까닭별이다. 같은 주소를 여러 번 두드린 횟수가 뜻이 있어 고유 제약은 걸지 않는다.
         modelBuilder.Entity<BlockedAccessLog>()
             .HasIndex(e => new { e.UserId, e.OccurredAt });
 
@@ -263,11 +229,7 @@ public class AppDbContext : DbContext
             .HasIndex(e => e.RouteKey);
 
         // ── 보고서 메일 배치 ─────────────────────────────────
-        //
-        // 자식 둘은 **배치를 지우면 함께 지운다**(Cascade). 고른 보고서·역할은
-        // 그 배치 밖에서 뜻이 없는 값이라 남겨 둘 까닭이 없다 — 다만 화면의
-        // 「삭제」는 깃발만 세우므로(soft) 실제로 끊기는 것은 DB 에서 줄을
-        // 통째로 지울 때뿐이다.
+        // 자식 둘은 배치를 지우면 함께 지운다(Cascade). 화면의 삭제는 깃발만 세우므로 실제로 끊기는 것은 DB 에서 줄을 지울 때다.
         modelBuilder.Entity<ReportMailScheduleReport>()
             .HasOne(e => e.Schedule)
             .WithMany(s => s.Reports)

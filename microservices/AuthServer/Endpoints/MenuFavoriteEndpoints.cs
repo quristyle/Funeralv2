@@ -5,21 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace AuthServer.Endpoints;
 
-/// <summary>
-/// 사용자별 즐겨찾기 메뉴 엔드포인트.
-///
-/// <para>
-/// 세 경로 모두 <b>갱신된 목록 전체</b>를 돌려준다. 화면이 추가·해제 후 목록을 다시
-/// 받으러 한 번 더 부르지 않아도 되고, 두 창을 열어 둔 경우에도 방금 누른 창은
-/// 곧바로 맞는 상태가 된다.
-/// </para>
-///
-/// <para>
-/// 대상은 <b>경로</b>로 받는다. 탭이 아는 것이 경로뿐이기 때문이다
-/// (메뉴 조회 API 응답에는 메뉴 식별자가 없다). 저장은 식별자로 한다 —
-/// <see cref="Entities.MenuFavorite"/> 주석 참고.
-/// </para>
-/// </summary>
+/// <summary>사용자별 즐겨찾기 메뉴 엔드포인트. 세 경로 모두 갱신된 목록 전체를 돌려줘서 화면이 다시 받으러 가지 않아도 된다. 대상은 경로로 받는다.</summary>
 public static class MenuFavoriteEndpoints
 {
     /// <summary>즐겨찾기 엔드포인트를 등록한다.</summary>
@@ -64,10 +50,7 @@ public static class MenuFavoriteEndpoints
         })
         .WithName("AddMenuFavorite");
 
-        // 즐겨찾기에서 뺀다. 없으면 아무 일도 하지 않는다.
-        //
-        // 경로를 본문이 아니라 쿼리로 받는다. DELETE 에 본문을 싣는 것은 프록시·클라이언트마다
-        // 취급이 달라 게이트웨이를 거치는 이 구조에서는 쿼리가 안전하다.
+        // 경로를 본문이 아니라 쿼리로 받는다 — DELETE 에 본문을 싣는 것은 프록시·클라이언트마다 취급이 달라 게이트웨이를 거치면 안전하지 않다.
         group.MapDelete("/", async (
             UserContext? user,
             [FromQuery] string path,

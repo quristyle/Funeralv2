@@ -1,51 +1,13 @@
 namespace LifeEnvServer.Utilities;
 
 /// <summary>
-/// 행정구역 이름 → <b>기상청 중기예보 구역코드</b>(육상 · 기온).
+/// 행정구역 이름 → 기상청 중기예보 구역코드(육상 · 기온). 중기예보는 격자로 못 묻고 구역코드로만 물으며,
+/// 내 위치는 좌표에서 찾은 시·도·시·군으로 코드를 고른다. 육상 코드는 기온 코드 앞자리로 가른다.
+/// 코드는 기상청에 실제로 확인한 값이다 — 틀린 코드는 오류가 아니라 빈 응답이 된다.
 /// </summary>
-/// <remarks>
-/// <para>
-/// 중기예보(3~10일)는 격자(<c>nx</c>·<c>ny</c>)로 물을 수 없다. 단기예보와 달리
-/// <b>구역코드</b> 하나로만 묻는데, 그 코드는 위경도에서 계산되는 값이 아니라
-/// 기상청이 따로 매긴 이름표다. 그래서 등록된 관측 지역은 사람이 코드를 손으로
-/// 적어 넣었다(<c>weather_locations.mid_term_land_code</c> · <c>mid_term_temp_code</c>).
-/// </para>
-/// <para>
-/// <b>내 위치에는 그 손으로 적을 자리가 없다.</b> 브라우저가 주는 것은 좌표 한
-/// 쌍뿐이라, 좌표에서 찾아낸 행정구역 이름(<c>ghub.grid_coordinates</c> 의
-/// 시·도 / 시·군·구)으로 코드를 여기서 <b>골라 준다</b>. 그래야 등록되지 않은
-/// 곳에 선 사람도 주간 예보를 볼 수 있다.
-/// </para>
-/// <para>
-/// <b>육상 코드는 기온 코드에서 나온다.</b> 기온 코드의 앞자리가 곧 육상 구역을
-/// 가리키기 때문이다(<c>11D1</c>=강원영서 · <c>11D2</c>=강원영동 · <c>11C1</c>=충북 …).
-/// 표를 둘 두면 둘이 어긋날 수 있어 하나만 둔다.
-/// </para>
-/// <para>
-/// 기준은 공공데이터포털 「기상청_중기예보 조회서비스」의 예보구역 코드표다.
-/// 아래 표는 <c>ghub.grid_coordinates</c> 에 실제로 들어 있는 (시·도, 시·군·구)
-/// <b>270 짝을 한 곳도 빠뜨리지 않고</b> 덮는다 — 도(道) 소속 시·군 178 짝은
-/// 제 코드에 정확히 걸리고, 나머지 92 짝은 광역시의 구·세종·시·군이 빈 줄이라
-/// 시·도 대표 도시로 가는 것이 맞다(2026-09-28 에 대조했다).
-/// </para>
-/// <para>
-/// <b>코드 174 개는 기상청에 실제로 물어 확인했다</b>(2026-09-28) — 기온 164 개는
-/// <c>getMidTa</c> 가, 육상 10 개는 <c>getMidLandFcst</c> 가 모두 한 줄씩 답했다.
-/// 지어낸 코드는 오류가 아니라 <b>빈 응답</b>으로 돌아와서, 화면에는 「주간 예보가
-/// 아직 없습니다」로만 보인다.
-/// </para>
-/// </remarks>
 public static class MidTermRegions
 {
-    /// <summary>
-    /// 좌표에서 찾은 행정구역으로 중기예보 구역코드 두 개를 고른다.
-    /// </summary>
-    /// <param name="region1">시·도 (예: <c>경상남도</c>). 없으면 고를 수 없다.</param>
-    /// <param name="region2">시·군·구 (예: <c>창원시성산구</c>). 없으면 시·도 대표 도시로 간다.</param>
-    /// <returns>
-    /// <c>(육상, 기온)</c> 코드. 시·도조차 모르면 <c>(null, null)</c> —
-    /// 부르는 쪽은 그때 주간 예보를 만들지 않는다.
-    /// </returns>
+    /// <summary>좌표에서 찾은 시·도·시·군으로 (육상, 기온) 구역코드를 고른다. 시·도조차 모르면 (null, null) — 주간 예보를 만들지 않는다.</summary>
     public static (string? Land, string? Temp) Resolve(string? region1, string? region2)
     {
         var temp = TempCode(region1, region2);
@@ -74,13 +36,7 @@ public static class MidTermRegions
         return Defaults.GetValueOrDefault(sido);
     }
 
-    /// <summary>
-    /// 기온 코드 앞자리로 <b>육상</b> 구역을 가른다.
-    /// </summary>
-    /// <remarks>
-    /// 울릉도·독도(<c>11E…</c>)는 중기 육상예보 구역이 따로 없어 경상북도로 묶는다 —
-    /// 하늘 상태만 도 단위가 되고 기온은 울릉도의 것이 그대로 온다.
-    /// </remarks>
+    /// <summary>기온 코드 앞자리로 육상 구역을 가른다. 울릉도·독도는 육상 구역이 없어 경상북도로 묶는다.</summary>
     private static string LandCodeOf(string temp) => temp[..4] switch
     {
         "11C1" => "11C10000",   // 충청북도
@@ -97,25 +53,8 @@ public static class MidTermRegions
     };
 
     /// <summary>
-    /// <c>창원시성산구</c> → <c>창원</c>, <c>강릉시</c> → <c>강릉</c>, <c>울주군</c> → <c>울주</c>.
+    /// 시·군·구 이름에서 중기예보 시 이름을 뽑는다(창원시성산구 → 창원). 구를 먼저 떼야 한다 — 「시흥시」처럼 이름에 「시」가 든 곳이 어긋나지 않는다.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 격자표의 시·군·구 칸에는 <b>구까지 붙은 한 덩이</b>가 들어 있다
-    /// (<c>고양시덕양구</c> · <c>천안시서북구</c>). 중기예보 구역은 시 단위라
-    /// 안쪽의 「시」에서 끊어야 하는데, 그 전에 <b>끝 글자를 먼저 뗀다.</b>
-    /// </para>
-    /// <para>
-    /// <b>순서가 뒤집히면 「시흥시」가 「수원」이 된다.</b> 먼저 「시」를 찾으면
-    /// 이름 자체가 「시」로 시작하는 시·군에서 끊을 자리를 못 찾고, 끝의 「시」도
-    /// 안 떨어져 <c>시흥시</c> 그대로 남는다 — 표에 없는 열쇠라 조용히 시·도
-    /// 대표 도시로 넘어가고, <b>화면에는 엉뚱한 동네의 주간 예보가 멀쩡히 뜬다.</b>
-    /// </para>
-    /// <para>
-    /// 광역시의 구는 떼고 나도 표에 없어 시·도 대표 도시로 넘어간다 —
-    /// 「부산 해운대구」의 중기예보는 「부산」이 맞다.
-    /// </para>
-    /// </remarks>
     private static string? BaseCity(string? region2)
     {
         if (region2 is null) return null;
@@ -133,13 +72,7 @@ public static class MidTermRegions
     private static string? Trim(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    /// <summary>
-    /// 시·도에 시·군이 안 잡혔을 때 세우는 <b>대표 도시</b>.
-    /// </summary>
-    /// <remarks>
-    /// 격자표에는 시·군·구가 빈 행이 실제로 있고(시·도만 적힌 줄), 광역시의 구는
-    /// 아래 <see cref="Cities"/> 에 아예 없다 — 둘 다 여기로 온다.
-    /// </remarks>
+    /// <summary>시·군이 안 잡힐 때 쓰는 시·도 대표 도시. 격자표의 빈 시·군 행과 광역시 구가 여기로 온다.</summary>
     private static readonly Dictionary<string, string> Defaults = new(StringComparer.Ordinal)
     {
         ["서울특별시"] = "11B10101",       // 서울
@@ -164,10 +97,7 @@ public static class MidTermRegions
         ["이어도"] = "11G00601",           // 이어도(격자표에 시·도 칸이 이 이름이다)
     };
 
-    /// <summary>
-    /// 시·군 → 중기 기온 구역코드. <b>열쇠가 (시·도, 시·군)</b>인 까닭은
-    /// 같은 이름이 두 도에 있기 때문이다(고성 · 광주).
-    /// </summary>
+    /// <summary>시·군 → 중기 기온 구역코드. 열쇠가 (시·도, 시·군)인 까닭은 고성·광주처럼 같은 이름이 두 도에 있기 때문이다.</summary>
     private static readonly Dictionary<(string Sido, string City), string> Cities = new()
     {
         // ── 강원특별자치도 ── (11D1 영서 · 11D2 영동)

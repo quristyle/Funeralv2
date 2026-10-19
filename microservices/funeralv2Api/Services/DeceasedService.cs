@@ -1201,15 +1201,7 @@ public class DeceasedService : IDeceasedService
         return urls;
     }
 
-    /// <summary>
-    /// 상주 관계코드(FAM_TYPE) 목록을 AuthServer 에서 가져온다.
-    ///
-    /// 이 메서드는 호실 단위 루프 안에서 반복 호출된다(호실 1개당 2회).
-    /// 예전에는 호출마다 new HttpClient() 로 AuthServer 에 HTTP 요청을 보내서,
-    /// 호실 수에 비례해 왕복 비용이 선형으로 늘어났다.
-    /// 공통코드는 사실상 정적인 데이터이므로 메모리에 캐시하고,
-    /// HttpClient 는 IHttpClientFactory 로 풀링해서 소켓 고갈을 막는다.
-    /// </summary>
+    /// <summary>상주 관계코드(FAM_TYPE) 목록. 호실 루프에서 반복 호출되므로 메모리에 캐시한다.</summary>
     private async Task<Dictionary<string, string>> GetFamTypeRelationNamesAsync()
     {
         if (_cache.TryGetValue(FamTypeCacheKey, out Dictionary<string, string>? cached) && cached != null)
@@ -1267,10 +1259,7 @@ public class DeceasedService : IDeceasedService
         return relationNames;
     }
 
-    /// <summary>
-    /// 상태 값을 정본으로 바꾸고, 허용 값이 아니면 거부한다 (D-RS1).
-    /// 옛 값(IN_HOSPITAL 등)은 받아서 정본으로 고쳐 저장한다.
-    /// </summary>
+    /// <summary>상태 값을 정본으로 바꾸고 허용 값이 아니면 거부한다. 옛 값(IN_HOSPITAL 등)은 정본으로 고쳐 받는다.</summary>
     private static string ValidateStatus(string? status)
     {
         var normalized = DeceasedStatus.Normalize(status);
@@ -1282,11 +1271,7 @@ public class DeceasedService : IDeceasedService
         return normalized;
     }
 
-    /// <summary>
-    /// 호실에 배정해도 되는지 검사한다 — 호실이 살아 있고(ACTIVE),
-    /// 다른 고인이 점유 중이 아니어야 한다. 예전에는 검사 없이 받아서
-    /// 한 호실에 두 고인이 겹치면 화면이 첫 고인만 보여 줬다 (D-RS6).
-    /// </summary>
+    /// <summary>호실이 살아 있고(ACTIVE) 다른 고인이 점유 중이 아니어야 배정할 수 있다. 점유 판정은 RoomOccupancy 기준.</summary>
     private async Task EnsureRoomAssignableAsync(string roomId, string? deceasedId)
     {
         var room = await _context.Rooms.AsNoTracking()
@@ -1344,9 +1329,8 @@ public class DeceasedService : IDeceasedService
 
         await EnsureRoomAssignableAsync(newRoomId, deceasedId);
 
-        // 이전 활성 배정을 끝내고 새 배정을 연다 — 상태·인적 사항은 건드리지 않는다.
-        // 판정은 `RoomOccupancy` 다. 종료 예정일만 적힌 배정을 못 찾으면 옛 호실이
-        // 정리되지 않은 채 새 배정이 열려 **한 고인이 두 호실을 물고 있게 된다.**
+        // 이전 활성 배정을 끝내고 새 배정을 연다. 상태·인적 사항은 건드리지 않는다.
+        // 점유는 RoomOccupancy 기준 — 종료 예정일만 적힌 배정도 끝내야 한 고인이 두 호실을 물지 않는다.
         var now = DateTime.UtcNow;
         var actives = await _context.DeceasedRooms
             .Where(dr => dr.DeceasedId == deceasedId && !dr.IsDeleted
@@ -1426,7 +1410,6 @@ public class DeceasedService : IDeceasedService
         await _context.SaveChangesAsync();
 
         // 3. 호실의 장비들에 알린다 — 플레이어가 즉시 화면을 비운다.
-        //    (옛 시스템의 '장비 reboot 지시'를 대신하는 경로다.)
         foreach (var roomId in assignments.Select(a => a.RoomId).Distinct())
         {
             try
@@ -1460,7 +1443,7 @@ public class DeceasedService : IDeceasedService
             .OrderByDescending(dr => dr.StartTime)
             .FirstOrDefaultAsync();
 
-        // 2. 되돌아갈 호실에 그 사이 다른 고인이 들어왔으면 거부한다 — 옛 시스템의 규칙.
+        // 2. 되돌아갈 호실에 그 사이 다른 고인이 들어왔으면 거부한다.
         if (lastRoomAssignment != null)
         {
             await EnsureRoomAssignableAsync(lastRoomAssignment.RoomId, deceasedId);

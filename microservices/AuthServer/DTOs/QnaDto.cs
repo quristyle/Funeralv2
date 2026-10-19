@@ -1,12 +1,6 @@
 namespace AuthServer.DTOs;
 
-/// <summary>
-/// Q&amp;A 글 (질문 · 답글 공통)
-/// </summary>
-/// <remarks>
-/// 답글은 <see cref="Children"/> 에 다시 같은 모양으로 담긴다.
-/// 답글의 답글의 답글까지 깊이 제한 없이 이어진다.
-/// </remarks>
+/// <summary>Q&amp;A 글(질문 · 답글 공통). 답글은 Children 에 같은 모양으로 깊이 제한 없이 이어진다.</summary>
 public class QnaPostDto
 {
     public string Id { get; set; } = string.Empty;
@@ -34,14 +28,7 @@ public class QnaPostDto
     public string? AuthorId { get; set; }
     public string? AuthorName { get; set; }
 
-    /// <summary>
-    /// 작성자 프로필 사진 주소. 없으면 null — 화면이 이름 첫 글자로 대신 그린다.
-    /// </summary>
-    /// <remarks>
-    /// 이름과 달리 **글에 새겨 두지 않고 조회할 때마다 계정에서 읽는다.**
-    /// 사진은 바뀌는 것이 정상이라, 글마다 그때의 사진을 붙여 두면 지난 글에
-    /// 옛 사진이 남는다. 이름은 표시용 기록이라 새겨 두는 편이 맞다.
-    /// </remarks>
+    /// <summary>작성자 프로필 사진 주소. 없으면 null — 조회할 때마다 계정에서 채운다.</summary>
     public string? AuthorAvatar { get; set; }
 
     public DateTime? CreatedAt { get; set; }
@@ -68,9 +55,7 @@ public class QnaPostDto
     public DateTime? LastPostedAt { get; set; }
 }
 
-/// <summary>
-/// Q&amp;A 질문·답글 등록 요청
-/// </summary>
+/// <summary>Q&amp;A 질문·답글 등록 요청</summary>
 public class CreateQnaPostDto
 {
     /// <summary>답글이면 부모 글 아이디. 질문이면 비운다.</summary>
@@ -88,9 +73,7 @@ public class CreateQnaPostDto
     public bool? IsPublic { get; set; }
 }
 
-/// <summary>
-/// Q&amp;A 글 수정 요청
-/// </summary>
+/// <summary>Q&amp;A 글 수정 요청</summary>
 public class UpdateQnaPostDto
 {
     public string? Title { get; set; }
@@ -100,9 +83,7 @@ public class UpdateQnaPostDto
     public bool? IsPublic { get; set; }
 }
 
-/// <summary>
-/// Q&amp;A 공개 여부 변경 요청 (관리자 전용)
-/// </summary>
+/// <summary>Q&amp;A 공개 여부 변경 요청 (관리자 전용)</summary>
 public class QnaVisibilityDto
 {
     public bool IsPublic { get; set; }
@@ -114,9 +95,7 @@ public class QnaVisibilityDto
     public bool IncludeReplies { get; set; }
 }
 
-/// <summary>
-/// Q&amp;A 목록 응답
-/// </summary>
+/// <summary>Q&amp;A 목록 응답</summary>
 public class QnaListDto
 {
     /// <summary>질문(뿌리) 목록. 답글은 각 항목의 Children 에 담겨 있다.</summary>

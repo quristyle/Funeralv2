@@ -7,14 +7,8 @@ using Microsoft.Extensions.Caching.Memory;
 namespace CargoTrustServer.Toll;
 
 /// <summary>
-/// 계산 엔진과 바깥세상(DB · 차량 · 이력) 사이. <b>엔진은 여전히 아무것도 모른다.</b>
-///
-/// <para>
-/// 여기가 하는 일은 셋이다 — 규칙을 읽어 오고, 차량으로 자격 목록을 만들고,
-/// 사람이 읽을 한 줄(<c>Summary</c>)을 짓는다. 그 한 줄을 서버가 짓는 까닭은
-/// 화면이 둘(사용자 · 관리자)이고 나중에 셋이 될 수도 있어서다 —
-/// 같은 계산을 두고 화면마다 다르게 말하면 그 자체가 틀린 정보가 된다.
-/// </para>
+/// 계산 엔진과 바깥(DB · 차량 · 이력) 사이. 규칙을 읽고 자격 목록을 만들고 사람이 읽을 한 줄(Summary)을 짓는다.
+/// 한 줄을 서버가 짓는 까닭은 화면이 여럿이라, 같은 계산을 화면마다 다르게 말하면 안 되기 때문이다.
 /// </summary>
 public class TollService(
     CargoTrustDbContext db, TollRuleStore rules, TollFareClient fares, IMemoryCache cache, CurrentUser me)
@@ -158,10 +152,8 @@ public class TollService(
                 evaluated.NightRatio, evaluated.DiscountPercent);
         }).ToList();
 
-        // 소요시간을 늘려서는 못 닿았다. 그렇다고 「넓혀 보십시오」로 끝내면
-        // **될 리 없는 것을 권하는 말**이 된다 — 새벽에 들어가면 더 달릴수록
-        // 낮이 늘어 비율이 떨어지기 때문이다. 소요시간을 그대로 두고
-        // **시각을 옮겨** 되는 자리를 찾아 준다.
+        // 소요시간을 늘려서는 못 닿은 경우다. 「넓혀 보십시오」는 될 리 없는 권고다 — 새벽 진입에서는 더 달릴수록 비율이 떨어진다.
+        // 그래서 소요시간은 그대로 두고 시각을 옮겨 되는 자리를 찾는다.
         if (options.Count == 0)
         {
             var shifted = NightDiscountEngine.SuggestByShift(
@@ -422,16 +414,7 @@ public class TollService(
             $"개방식은 통과 시각 한 점으로 봅니다. {from:MM-dd HH:mm}~{to:MM-dd HH:mm} 사이에 지나면 됩니다.");
     }
 
-    /// <summary>
-    /// 고른 차량. <b>짧게 기억한다</b>.
-    ///
-    /// <para>
-    /// 이 화면은 칩을 누를 때마다 셈을 다시 한다. 그때마다 차량을 읽으면 DB 가
-    /// 원격이라(jin114) 누를 때마다 왕복이 하나씩 붙고, 그것이 체감 지연의 큰 쪽이었다.
-    /// 차를 고치려면 이 화면을 떠났다 와야 하므로 <b>30초면 길다</b> — 틀려도
-    /// 자격 목록이 잠깐 옛값일 뿐이고 할인율은 차량을 보지 않는다.
-    /// </para>
-    /// </summary>
+    /// <summary>고른 차량을 30초 기억한다. 칩을 누를 때마다 셈을 다시 하는데 DB 가 원격이라 매번 읽으면 왕복이 붙는다. 틀려도 자격 목록이 잠깐 옛값일 뿐이다(할인율은 차량을 보지 않는다).</summary>
     private async Task<Vehicle?> FindVehicleAsync(long? vehicleId, CancellationToken ct)
     {
         if (vehicleId is not { } id) return null;

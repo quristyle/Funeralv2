@@ -9,18 +9,13 @@ namespace AuthServer.Services;
 /// <summary>
 /// 계정별 화면 환경설정 저장·조회.
 /// </summary>
-/// <remarks>
-/// 서버는 내용을 해석하지 않는다. 프론트가 만든 JSON 을 문자열로 보관하고 그대로 돌려준다.
-/// </remarks>
+/// 서버는 내용을 해석하지 않는다 — 프론트가 만든 JSON 을 문자열로 보관하고 그대로 돌려준다.
 public class AccountPreferenceService : IAccountPreferenceService
 {
     /// <summary>
     /// 받아 줄 최대 크기.
     /// </summary>
-    /// <remarks>
-    /// 사용자가 보낸 값을 그대로 보관하므로 상한이 없으면 DB 를 밀어 넣을 수 있다.
-    /// 실제 설정 차이는 보통 1KB 안쪽이라 64KB 면 넉넉하다.
-    /// </remarks>
+    /// 사용자가 보낸 값을 그대로 보관하므로 상한이 있어야 한다. 실제 설정은 보통 1KB 안쪽이라 64KB 면 넉넉하다.
     public const int MaxPayloadBytes = 64 * 1024;
 
     private static readonly JsonElement EmptyObject =
@@ -115,18 +110,7 @@ public class AccountPreferenceService : IAccountPreferenceService
     /// <summary>
     /// 저장돼 있던 글자에 <paramref name="patch"/> 의 열쇠만 얹어 새 글자를 만든다.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 값이 <c>null</c> 인 열쇠는 <b>빼고 적는다</b>. 「기본값으로 되돌리기」가
-    /// 그 길이고, 빼 두면 읽는 쪽이 <see cref="JsonValueKind.Null"/> 과
-    /// 「없음」을 가릴 필요가 없다.
-    /// </para>
-    /// <para>
-    /// 저장된 것이 깨져 있으면 <b>없던 것으로 본다</b> —
-    /// <see cref="GetAsync"/> 가 같은 자리에서 같은 판단을 한다. 고치려고 부른
-    /// 호출이 「읽을 수 없다」로 막히면 사람이 되돌릴 길이 없다.
-    /// </para>
-    /// </remarks>
+    /// 값이 null 인 열쇠는 빼고 적는다 — 「기본값으로 되돌리기」가 그 길이다. 저장된 것이 깨져 있으면 없던 것으로 본다(GetAsync 와 같은 판단). 고치려는 호출이 막히면 사람이 되돌릴 길이 없다.
     private string Merge(string? stored, JsonElement patch)
     {
         var keep = new Dictionary<string, JsonElement>(StringComparer.Ordinal);

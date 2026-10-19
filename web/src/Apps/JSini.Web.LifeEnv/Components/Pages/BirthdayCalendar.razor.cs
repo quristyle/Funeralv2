@@ -16,8 +16,7 @@ public partial class BirthdayCalendar
     protected override Task OnInitializedAsync() => ReloadAsync();
 
     /// <summary>
-    /// 이 달을 덮는 칸들. 월요일 시작으로 앞뒤 달 며칠이 섞여 나온다 —
-    /// 격자를 7의 배수로 채워야 줄이 어긋나지 않는다.
+    /// 이 달을 덮는 칸들. 앞뒤 달 며칠이 섞여 나오므로 격자를 7의 배수로 채워야 줄이 어긋나지 않는다.
     /// </summary>
     private IEnumerable<DateTime> Days
     {

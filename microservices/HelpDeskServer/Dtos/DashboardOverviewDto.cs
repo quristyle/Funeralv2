@@ -1,25 +1,6 @@
 namespace HelpDeskServer.Dtos;
 
-/// <summary>
-/// 헬프데스크 현황판이 한 번에 받아 가는 집계 묶음.
-///
-/// <para>
-/// [왜 한 덩어리인가]
-/// </para>
-///
-/// <para>
-/// 현황판이 묻는 것이 열 가지가 넘는다(요약 · 상태 · 유형 · 월별 · 일별 ·
-/// 요일 · 시간대 · 회사별 · 담당자별 · 대기 적체 · 최근 접수). 통로를 열 개로
-/// 나누면 <b>화면이 열 번 왕복</b>하고, 그 사이에 자료가 바뀌면 타일과 차트가
-/// 서로 다른 순간을 가리킨다. 재료가 같은 요청 목록 하나라 <b>한 번 읽어
-/// 한꺼번에 접는다</b>.
-/// </para>
-///
-/// <para>
-/// 옛 통로(<c>company-stats</c> · <c>all-admin-stats</c> · <c>admin-stats</c> …)는
-/// 그대로 둔다 — 다른 화면이 쓰고 있다.
-/// </para>
-/// </summary>
+/// <summary>헬프데스크 현황판이 한 번에 받는 집계 묶음. 질문마다 따로 부르면 화면이 열 번 왕복해 타일과 차트가 서로 다른 순간을 가리키므로, 요청 목록을 한 번 읽어 한꺼번에 접는다.</summary>
 public sealed class DashboardOverviewDto {
   /// <summary>이 집계가 무엇을 센 것인지. 화면이 「누구의 숫자인가」를 밝힌다.</summary>
   public DashboardScopeDto Scope { get; set; } = new();
@@ -72,10 +53,7 @@ public sealed class DashboardScopeDto {
   /// <summary>포털 계정이 헬프데스크 사용자에 이어져 있는가.</summary>
   public bool IsLinked { get; set; }
 
-  /// <summary>
-  /// 회사 하나로 좁혀 센 것인가. 고객 계정은 늘 <c>true</c> 다 —
-  /// 남의 회사 요청까지 세어 보여 주면 안 된다.
-  /// </summary>
+  /// <summary>회사 하나로 좁혀 센 것인가. 고객 계정은 늘 <c>true</c> 다 — 남의 회사 요청까지 세어 보여 주면 안 된다.</summary>
   public bool CompanyScoped { get; set; }
 
   /// <summary>좁혀 센 회사의 아이디(포털 값). 전체 범위면 null.</summary>
@@ -156,9 +134,7 @@ public sealed class DashboardSummaryDto {
   /// <summary>이번 달 완료(KST)</summary>
   public int CompletedThisMonth { get; set; }
 
-  /// <summary>
-  /// 이번 달 접수가 지난달보다 몇 % 늘었나. 지난달이 0 이면 0 이다.
-  /// </summary>
+  /// <summary>이번 달 접수가 지난달보다 몇 % 늘었나. 지난달이 0 이면 0 이다.</summary>
   public double MonthOverMonthRate { get; set; }
 
   /// <summary>완료율 — (완료 + 종료) / (전체 − 반려). 반려는 모수에서 뺀다.</summary>
@@ -245,10 +221,7 @@ public sealed class DashboardMonthDto {
   /// <summary>그 달에 반려된 건수.</summary>
   public int Rejected { get; set; }
 
-  /// <summary>
-  /// 그 달 말까지 쌓인 미처리 — 그때까지 들어온 것에서 닫힌 것을 뺀 수.
-  /// 접수·완료 막대만으로는 <b>적체가 늘고 있는지</b>가 안 보인다.
-  /// </summary>
+  /// <summary>그 달 말까지 쌓인 미처리 — 그때까지 들어온 것에서 닫힌 것을 뺀 수. 접수·완료 막대만으로는 <b>적체가 늘고 있는지</b>가 안 보인다.</summary>
   public int Backlog { get; set; }
 
   /// <summary>그 달에 완료된 건의 평균 처리 시간(시간).</summary>
@@ -341,10 +314,7 @@ public sealed class DashboardAdminDto {
   /// <summary>사진 URL.</summary>
   public string? Photo { get; set; }
 
-  /// <summary>
-  /// 포털 로그인 아이디. 사진의 정본은 포털 계정이라 화면이 이것으로 얼굴을 다시 묻는다
-  /// — <see cref="Photo"/> 는 헬프데스크 쪽 칸이고 비어 있는 것이 보통이다.
-  /// </summary>
+  /// <summary>포털 로그인 아이디. 사진의 정본은 포털 계정이라 화면이 이것으로 얼굴을 다시 묻는다 — <see cref="Photo"/> 는 헬프데스크 쪽 칸이고 비어 있는 것이 보통이다.</summary>
   public string? LoginId { get; set; }
 
   /// <summary>맡은 전체 건수.</summary>

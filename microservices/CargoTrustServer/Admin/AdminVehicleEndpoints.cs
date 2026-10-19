@@ -29,14 +29,7 @@ public record AdminVehicleDto(
     DateTimeOffset CreatedAt,
     DateTimeOffset UpdatedAt);
 
-/// <summary>
-/// 관리자가 계정을 지정해 차량을 올린다.
-///
-/// <para>
-/// <c>ExternalUserId</c> 는 포털 로그인 아이디 — 게이트웨이가 보내는 <c>X-User-Id</c> 와
-/// 같은 값이다. <c>DisplayName</c> 은 계정 이름으로, 운송관리 줄이 아직 없을 때 함께 넣어 둔다.
-/// </para>
-/// </summary>
+/// <summary>관리자가 계정을 지정해 차량을 올린다. ExternalUserId 는 포털 로그인 아이디(X-User-Id 와 같은 값)다.</summary>
 public record AdminVehicleCreateRequest(
     string ExternalUserId,
     string? DisplayName,
@@ -51,29 +44,8 @@ public record AdminVehicleCreateRequest(
     string? Memo = null);
 
 /// <summary>
-/// 관리자 — 차량 (<c>/admin/vehicles</c>).
-///
-/// <para>
-/// [계정에 차량을 매다는 자리다]
-/// </para>
-///
-/// <para>
-/// 화면은 <b>계정관리</b>(<c>/admin/system/vehicle</c>)에 있다. 그런데 자료는
-/// 여기(cargotrust)에 있다 — 계정 표(scom.accounts)는 전사 공용이라
-/// 장례식장·헬프데스크 계정까지 차량 개념을 지게 할 수 없다.
-/// <b>관리하는 자리와 자료의 주인은 다른 문제다.</b>
-/// </para>
-///
-/// <para>
-/// [운송관리를 한 번도 안 연 계정에도 달 수 있어야 한다]
-/// </para>
-///
-/// <para>
-/// 운송관리의 사용자 줄(<c>app_user</c>)은 그 사람이 처음 화면을 열 때 생긴다.
-/// 그래서 차량을 미리 등록해 두려면 줄이 없을 수 있다 — 여기서 만들어 준다.
-/// 안 그러면 「먼저 그 사람에게 운송관리를 한 번 열어 달라고 하세요」가 되는데,
-/// 그건 관리 화면이 할 말이 아니다.
-/// </para>
+/// 관리자 — 차량(/admin/vehicles). 화면은 계정관리에 있지만 자료는 cargotrust 에 둔다(전사 계정 표에 차량 개념을 지게 할 수 없다).
+/// 운송관리를 한 번도 안 연 계정에도 달 수 있도록 사용자 줄을 여기서 만든다.
 /// </summary>
 public static class AdminVehicleEndpoints
 {

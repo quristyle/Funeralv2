@@ -31,10 +31,7 @@ public partial class ProcedureResult
         public int MaxLength { get; init; }
         public string? Value { get; set; }
 
-        /// <summary>
-        /// date, datetime 컨트롤용 날짜 값.
-        /// 사용자가 날짜를 변경하면 Value 에 포맷팅된 문자열이 저장된다.
-        /// </summary>
+        /// <summary>date·datetime 컨트롤용 날짜 값. 사용자가 바꾸면 Value 에 포맷된 문자열이 저장된다.</summary>
         public DateTime? DateValue
         {
             get
@@ -63,10 +60,7 @@ public partial class ProcedureResult
     private IReadOnlyList<ProcedureInfo> _procedures = [];
     private IReadOnlyList<ProcedureParameter> _parameters = [];
 
-    /// <summary>
-    /// 목록을 거르는 낱말. 거르는 일은 브라우저 안에서 끝난다 —
-    /// 52건짜리 목록이라 서버에 다시 물을 값어치가 없다.
-    /// </summary>
+    /// <summary>목록을 거르는 낱말. 52건짜리 목록이라 브라우저 안에서 거른다.</summary>
     private string? _keyword;
 
     private string? _selected;
@@ -75,10 +69,7 @@ public partial class ProcedureResult
     private string? Description =>
         _procedures.FirstOrDefault(p => string.Equals(p.Name, _selected, StringComparison.Ordinal))?.Description;
 
-    /// <summary>
-    /// 낱말로 거른 목록. 이름과 설명을 모두 본다 — 옛 화면도 그랬다.
-    /// 프로시저 이름이 영문이라 대소문자를 가리지 않는다.
-    /// </summary>
+    /// <summary>낱말로 거른 목록. 이름과 설명을 모두 보고, 프로시저 이름이 영문이라 대소문자를 가리지 않는다.</summary>
     private IReadOnlyList<ProcedureInfo> Shown
     {
         get
@@ -96,10 +87,7 @@ public partial class ProcedureResult
         }
     }
 
-    /// <summary>
-    /// 왼쪽 판 머리의 건수. 거른 목록이 있으면 <b>거른 뒤의 수</b>가 지금
-    /// 보고 있는 것이라 그쪽을 함께 적는다(<c>CommGrd</c> 머리줄과 같은 규칙).
-    /// </summary>
+    /// <summary>왼쪽 판 머리의 건수. 거른 목록이 있으면 거른 뒤의 수를 적는다(CommGrd 머리줄과 같은 규칙).</summary>
     private string ListHint
     {
         get
@@ -111,20 +99,13 @@ public partial class ProcedureResult
         }
     }
 
-    /// <summary>
-    /// 오른쪽 판 머리. 온전한 프로시저 이름과 <b>총</b> 건수다.
-    /// 표 안의 검색칸으로 거르면 보이는 줄은 줄지만 이 수는 그대로다 —
-    /// 「총」을 붙여 두지 않으면 그때 조용히 틀린 수가 된다.
-    /// </summary>
+    /// <summary>오른쪽 판 머리. 온전한 프로시저 이름과 총 건수다 — 표 안의 검색으로 거른 뒤에도 이 수는 그대로여야 하므로 「총」을 붙인다.</summary>
     private string ResultHint =>
         _rows.Rows.Count == 0 ? _selected ?? string.Empty : $"{_selected} · 총 {_rows.Rows.Count}건";
 
     protected override Task OnInitializedAsync() => ReloadAsync();
 
-    /// <summary>
-    /// 돌릴 수 있는 프로시저 목록. <b>한 프로시저가 인자 수만큼 줄로 온다</b> —
-    /// 이름으로 묶어 인자를 모은다(원본과 같은 처리).
-    /// </summary>
+    /// <summary>돌릴 수 있는 프로시저 목록. 한 프로시저가 인자 수만큼 줄로 오므로 이름으로 묶어 인자를 모은다.</summary>
     private Task ReloadAsync() => LoadAsync(async () =>
     {
         var raw = await Oadr.ExecuteProcedureAsync<JsonElement>("P_QURI_PROC");
@@ -176,16 +157,11 @@ public partial class ProcedureResult
     /// <summary>목록에서 고른 줄인가. 왼쪽 판이 강조에 쓴다.</summary>
     private bool IsPicked(string name) => string.Equals(name, _selected, StringComparison.Ordinal);
 
-    /// <summary>
-    /// 목록에는 공통 접두어를 떼고 보여 준다(원본과 같다). 온전한 이름은
-    /// 줄의 <c>title</c> 과 오른쪽 판 머리에 남는다.
-    /// </summary>
+    /// <summary>목록에는 공통 접두어를 떼고 보여 준다. 온전한 이름은 줄의 title 과 오른쪽 판 머리에 남는다.</summary>
     private static string ShortName(string name) =>
         name.StartsWith(NamePrefix, StringComparison.Ordinal) ? name[NamePrefix.Length..] : name;
 
-    /// <summary>
-    /// 인자 타입이 일시(날짜와 시각)인지 본다 (예: datetime, datetime2, smalldatetime, timestamp 등).
-    /// </summary>
+    /// <summary>인자 타입이 일시(날짜와 시각)인지 본다(datetime · datetime2 · smalldatetime · timestamp 등).</summary>
     private static bool IsDateTimeType(string? dataType)
     {
         if (string.IsNullOrWhiteSpace(dataType))
@@ -197,9 +173,7 @@ public partial class ProcedureResult
         return (t.Contains("date") && t.Contains("time")) || t.Contains("timestamp");
     }
 
-    /// <summary>
-    /// 인자 타입이 날짜만인지 본다 (예: date).
-    /// </summary>
+    /// <summary>인자 타입이 날짜만인지 본다(date).</summary>
     private static bool IsDateType(string? dataType)
     {
         if (string.IsNullOrWhiteSpace(dataType))
@@ -211,9 +185,7 @@ public partial class ProcedureResult
         return t.Contains("date") && !t.Contains("time");
     }
 
-    /// <summary>
-    /// 인자 칸 아래 옅게 붙는 말. 설명·형·길이를 순서대로 잇는다.
-    /// </summary>
+    /// <summary>인자 칸 아래 옅게 붙는 말. 설명·형·길이를 순서대로 잇는다.</summary>
     private static string ParamHint(ProcedureParameter parameter)
     {
         var type = parameter.DataType is { Length: > 0 } dataType

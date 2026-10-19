@@ -52,16 +52,7 @@ public partial class VehicleFields
     }
 
     /// <summary>
-    /// 번호판을 읽어 칸을 채운다.
-    ///
-    /// <para>
-    /// [사람이 고친 값을 덮지 않는다]
-    /// </para>
-    ///
-    /// <para>
-    /// 읽은 값은 <b>등록할 때만</b> 칸에 넣는다. 수정 중에도 밀어 버리면,
-    /// 번호판과 다른 차를 적어 둔 사람이 매번 되돌려야 한다.
-    /// </para>
+    /// 번호판을 읽어 칸을 채운다. 읽은 값은 등록할 때만 넣는다 — 수정 중에도 밀면 번호판과 다른 차를 적어 둔 사람이 매번 되돌려야 한다.
     /// </summary>
     private async Task OnPlateChangedAsync(string? value)
     {
@@ -93,9 +84,7 @@ public partial class VehicleFields
             return;
         }
 
-        // **등록할 때만 채운다.** 수정 중에 번호를 손보면 차종과 사업용 여부를
-        // 다시 밀어 버리는데, 번호판과 다른 차를 적어 둔 사람은(자가용 번호판에
-        // 사업용 허가를 받은 차 같은) 그때마다 되돌려야 한다.
+        // 등록할 때만 채운다. 수정 중에 다시 밀면 번호판과 다른 차를 적어 둔 사람이 매번 되돌려야 한다.
         if (_plate is null || !Draft.IsNew) return;
 
         if (_plate.SuggestedClass is { } cls) Draft.VehicleClass = cls;

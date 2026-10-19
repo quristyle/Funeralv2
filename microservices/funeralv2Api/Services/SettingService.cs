@@ -60,13 +60,8 @@ public class SettingService : ISettingService
     }
 
     /// <summary>
-    /// 있으면 고치고 없으면 만든다.
+    /// 있으면 고치고 없으면 만든다. 유일 인덱스가 있어도 옛 데이터 이관으로 중복이 생길 수 있어 읽을 때는 가장 최근 것을 고른다.
     /// </summary>
-    /// <remarks>
-    /// 같은 (사용자, 코드)로 행이 여럿 생기지 않게 유일 인덱스를 걸어 두었다
-    /// (<c>docs/sql/funeralv2_old_migration.sql</c>). 그래도 옛 데이터를 옮겨 오는
-    /// 등으로 중복이 생길 수 있어 읽을 때는 가장 최근 것을 고른다.
-    /// </remarks>
     private async Task UpsertAsync(string userId, string code, bool enabled)
     {
         var row = await _dbContext.AccountSettings

@@ -35,11 +35,7 @@ public partial class BuildingList
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        // 층은 건물 전체를 한 번에 받아 세어 둔다. 건물마다 따로 물으면
-        // 건물 수만큼 왕복이 생긴다.
-        //
-        // 그리고 건물과 나란히 부른다 — 층 조회가 건물 목록을 쓰지 않으므로
-        // 기다릴 이유가 없다.
+        // 층은 건물 전체를 한 번에 받아 센다(건물마다 물으면 왕복이 건물 수만큼 생긴다). 건물과 나란히 부른다.
         var buildings = Api.GetBuildingsAsync();
         var floorsTask = Api.GetFloorsAsync();
 
@@ -61,8 +57,7 @@ public partial class BuildingList
 
     private void FillNew(Building b)
     {
-        // 회사 식별자는 서버가 토큰에서 정한다. 화면이 넣으면 남의 회사에
-        // 건물을 만들 수 있는 길이 열린다.
+        // 회사 식별자는 서버가 토큰에서 정한다. 화면이 넣으면 남의 회사에 건물을 만들 수 있다.
         b.CompanyId = string.Empty;
     }
 
@@ -72,10 +67,8 @@ public partial class BuildingList
 
     private async Task DeleteAsync(Building b)
     {
-        // 층이 남아 있으면 지우지 않는다. 서버도 막지만 여기서 먼저 말해 주는
-        // 편이 낫다 — 「삭제하지 못했습니다」만 보면 왜인지 알 수 없다.
-        //
-        // 예외로 알린다. CommGrd 가 그것을 받아 안내로 바꾸고 목록을 그대로 둔다.
+        // 층이 남아 있으면 지우지 않는다(서버도 막지만 「삭제하지 못했습니다」만으로는 이유를 모른다).
+        // 예외로 알린다. CommGrd 가 받아 안내로 바꾸고 목록은 그대로 둔다.
         if (_floorCount.GetValueOrDefault(b.Id) is > 0 and var floors)
         {
             throw new ApiException($"이 건물에 층이 {floors}개 있습니다. 층을 먼저 정리하십시오.");

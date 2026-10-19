@@ -2,18 +2,8 @@
 @attribute [RouteKey("projmng.wbs.modules")]
 
 @*
-    [WBS 모듈별 현황]
-
-    이력: 사내망 WBS 대시보드(Vue) `views/Modules.vue` → **여기**
-    API: `projmng/wbs-board/stats/by-module`
-
-    모듈은 서브시스템 코드(`systemcode`)다 — 소스 저장소 이름과 같다.
-
-    [계획 기간과 실적 기간을 나란히 둔다]
-
-    계획은 엑셀 WBS 가 원본이고 실적은 사람이 채우는 값이라, 실적이 적힌
-    건수(`ActSdt`·`ActEdt`)가 전체보다 한참 적은 것이 정상이다. 두 기간을
-    같은 줄에 두면 **어느 모듈이 아직 손도 안 댔는지**가 바로 보인다.
+WBS 모듈별 현황. 모듈은 서브시스템 코드(systemcode)다.
+계획 기간과 실적 기간을 같은 줄에 둔다 — 실적은 사람이 채우므로 적힌 건수가 전체보다 적은 것이 정상이고, 그 차이로 아직 손도 안 댄 모듈이 보인다.
 *@
 
 @inherits DataPage

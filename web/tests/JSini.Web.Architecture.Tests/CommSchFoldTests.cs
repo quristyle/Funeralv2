@@ -3,33 +3,11 @@ using Xunit;
 
 namespace JSini.Web.Architecture.Tests;
 
-/// <summary>
-/// 조건이 있는 조회 판은 <b>접힌 줄에 적을 글자를 함께 준다.</b>
-///
-/// <para>
-/// [왜 테스트로 막는가]
-/// </para>
-///
-/// <para>
-/// 휴대폰(≤767px)에서는 <c>Fields</c> 가 있는 <c>CommSch</c> 가 모두 접힌다.
-/// 접히는 것 자체는 <c>MobileSummary</c> 와 무관하다 — 안 줘도 접힌다. 그래서
-/// <b>빠뜨려도 아무 일도 일어나지 않는다.</b> 머리줄에 「조회 조건 ⌄」만 남고,
-/// 지금 무엇으로 걸러 본 목록인지 알려면 매번 펴 보아야 한다 — 접은 값이
-/// 절반은 사라진다. 화면이 여든이 넘어 눈으로는 못 지킨다.
-/// </para>
-///
-/// <para>
-/// 접지 않기로 한 판(<c>Foldable="false"</c>)은 적을 자리가 없으므로 뺀다.
-/// 조건이 한 칸뿐이거나, 그 칸이 거르개가 아니라 화면의 주 조작인 판들이다 —
-/// 그 까닭은 화면마다 태그 위에 적혀 있다.
-/// </para>
-/// </summary>
+/// <summary>조건이 있는 조회 판은 접힌 줄에 적을 글자를 함께 준다. 휴대폰에서는 Fields 가 있는 CommSch 가 모두 접히는데 MobileSummary 를 빠뜨려도 아무 일이 없어 눈으로는 못 지킨다.
+/// 접지 않기로 한 판(Foldable="false")은 뺀다.</summary>
 public sealed class CommSchFoldTests
 {
-    /// <summary>
-    /// <c>CommSch</c> 여는 태그. 여러 줄에 걸친 것도 잡는다.
-    /// <c>CommSchItem</c> 은 빼야 해서 태그 이름 뒤를 공백·<c>&gt;</c> 로 끊는다.
-    /// </summary>
+    /// <summary>CommSch 여는 태그. 여러 줄에 걸친 것도 잡는다. CommSchItem 은 빼야 해서 태그 이름 뒤를 공백·> 로 끊는다.</summary>
     private static readonly Regex OpeningTag =
         new(@"<CommSch(?=[\s>])[^>]*>", RegexOptions.Singleline | RegexOptions.Compiled);
 
@@ -77,10 +55,7 @@ public sealed class CommSchFoldTests
             + string.Join("\n  ", offenders));
     }
 
-    /// <summary>
-    /// 이 판에 조건 칸이 있는가. 여는 태그 다음부터 <c>&lt;/CommSch&gt;</c>
-    /// 전까지에서 <c>&lt;Fields&gt;</c> 를 찾는다.
-    /// </summary>
+    /// <summary>이 판에 조건 칸(Fields)이 있는가. 여는 태그 다음부터 닫는 태그 전까지에서 찾는다.</summary>
     private static bool HasFields(string text, int tagIndex)
     {
         var close = text.IndexOf("</CommSch>", tagIndex, StringComparison.Ordinal);
@@ -92,10 +67,7 @@ public sealed class CommSchFoldTests
         return text.IndexOf("<Fields>", tagIndex, close - tagIndex, StringComparison.Ordinal) >= 0;
     }
 
-    /// <summary>
-    /// 검사할 <c>.razor</c> 파일들. 빌드 산출물은 뺀다
-    /// (<see cref="RazorCommentTests"/> 와 같은 길찾기다).
-    /// </summary>
+    /// <summary>검사할 .razor 파일들. 빌드 산출물은 뺀다(RazorCommentTests 와 같은 길찾기다).</summary>
     private static IEnumerable<string> RazorFiles()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);

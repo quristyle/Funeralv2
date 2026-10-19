@@ -3,53 +3,8 @@ using JSini.Web.Http;
 
 namespace JSini.Web.Components.Layout;
 
-/// <summary>
-/// 지금 로그인한 사람의 <b>이름과 사진</b>. 헤더의 사용자 단추가 쓴다.
-/// </summary>
-/// <remarks>
-/// <para>
-/// [<c>AuthenticationState</c> 로는 부족하다]
-/// </para>
-///
-/// <para>
-/// 쿠키의 클레임에는 로그인 아이디와 실명까지만 들어 있다. 사진은 계정
-/// 확장 속성(<c>account_profile_details</c> 의 <c>Avatar</c>)이라 게이트웨이에
-/// 물어야 나온다. 헤더에 얼굴을 띄우려면 그 한 번의 조회가 필요하다.
-/// </para>
-///
-/// <para>
-/// [포털관리의 <c>UserInfoDto</c> 를 쓰지 않는다]
-/// </para>
-///
-/// <para>
-/// 헤더는 <b>레이아웃</b>이고 레이아웃은 업무 모듈을 이름으로 알지 못한다
-/// (web/CLAUDE.md). 그래서 필요한 네 칸만 담은 자기 모양을 쓴다. 셸의
-/// <c>PasswordChange</c> 가 같은 이유로 자기 <c>PasswordStatus</c> 를 들고 있다.
-/// </para>
-///
-/// <para>
-/// [사진 주소를 그대로 쓰지 않는다 — 두 가지를 옮긴다]
-/// </para>
-///
-/// <para>
-/// ① <c>/api/file/download/{id}</c> 는 <b>Vue 시절 주소</b>다. 그때는 브라우저가
-/// 게이트웨이와 같은 오리진이었지만 지금 브라우저가 보는 것은 포털(:5557)이고
-/// 거기에는 <c>/api</c> 가 없다 — 그대로 쓰면 사진 자리가 깨진 그림이 된다.
-/// <see cref="FileDownload.UrlFor"/> 로 셸 중계 경로로 옮긴다.
-/// </para>
-///
-/// <para>
-/// ② 사진이 없는 계정에는 서버가 <b>바깥 기본 이미지 주소</b>를 채워 준다
-/// (alipayobjects.com). 그것을 그대로 걸면 화면을 열 때마다 바깥으로 요청이
-/// 나가고, 이 저장소는 <b>런타임에 CDN 을 부르지 않는다</b>(web/CLAUDE.md 의
-/// Bootstrap 항목과 같은 이유다). 우리 파일이 아닌 주소는 「사진 없음」으로
-/// 보고 이름 첫 글자를 대신 그린다.
-/// </para>
-///
-/// <para>
-/// scoped 다 — 회로 하나가 사용자 한 명이다.
-/// </para>
-/// </remarks>
+/// <summary>지금 로그인한 사람의 이름과 사진. 헤더의 사용자 단추가 쓴다. 쿠키 클레임에는 아이디와 실명만 있고 사진은 계정 확장 속성이라 게이트웨이에 한 번 물어야 한다.
+/// 포털관리의 UserInfoDto 를 쓰지 않는다 — 레이아웃은 업무 모듈을 이름으로 알지 못해 필요한 칸만 담은 자기 모양을 쓴다. scoped — 회로 하나가 사용자 한 명이다.</summary>
 public sealed class CurrentUser(GatewayClient gateway, ILogger<CurrentUser> logger)
 {
     /// <summary>실명. 없으면 로그인 아이디.</summary>
@@ -73,58 +28,22 @@ public sealed class CurrentUser(GatewayClient gateway, ILogger<CurrentUser> logg
     /// <summary>시스템 또는 포털 관리자 여부.</summary>
     public bool IsAdmin => Roles.Contains("ADMINISTRATOR") || Roles.Contains("SYSTEM_ADMINISTRATOR");
 
-    /// <summary>
-    /// 권한 그룹. 헤더의 로고 옆에 선다.
-    ///
-    /// <para>
-    /// <b>서버가 이미 내려주고 있었다</b>(<c>/auth/user/info</c> 의
-    /// <c>roleNames</c>). 식별자(<c>SYSTEM_ADMINISTRATOR</c>)가 아니라 사람이
-    /// 읽는 이름(<c>시스템관리자</c>)이다 — 회사·부서·사람 세 단계에서 온
-    /// 것이 합쳐진 결과라, 화면이 다시 셀 필요가 없다.
-    /// </para>
-    ///
-    /// <para>
-    /// 여럿일 수 있다. 헤더는 좁으므로 이어 붙여 한 줄로 두고 넘치는 것은
-    /// CSS 가 자른다. 잘린 것은 <c>title</c> 로 보여 준다.
-    /// </para>
-    /// </summary>
+    /// <summary>권한 그룹(헤더 로고 옆). 서버가 이미 내려주는 roleNames 로, 식별자가 아니라 사람이 읽는 이름이다. 여럿이면 이어 붙이고 넘치는 것은 CSS 가 자르며 잘린 것은 title 로 보여 준다.</summary>
     public string? RoleText { get; private set; }
 
-    /// <summary>
-    /// 사진 주소. <b>우리 파일일 때만 값이 있다</b> — 없으면 <see cref="Initial"/> 을 그린다.
-    /// </summary>
+    /// <summary>사진 주소. 우리 파일일 때만 값이 있다 — 없으면 Initial 을 그린다.</summary>
     public string? AvatarUrl { get; private set; }
 
-    /// <summary>
-    /// 썸네일 사진 주소 (150x150 WebP).
-    /// 헤더 아바타처럼 작은 원형 그림에서 큰 원본 대신 쓴다.
-    /// </summary>
+    /// <summary>썸네일 사진 주소(150x150 WebP). 헤더 아바타처럼 작은 원형 그림에서 원본 대신 쓴다.</summary>
     public string? AvatarThumbnailUrl { get; private set; }
 
     /// <summary>한 번이라도 읽었는가.</summary>
     public bool IsLoaded { get; private set; }
 
-    /// <summary>
-    /// 로그인한 뒤 처음 열릴 화면. <b>DB 의 메뉴 경로</b>다
-    /// (<c>/setting/environment</c> — 브라우저가 갈 주소가 아니다).
-    ///
-    /// <para>
-    /// 안 골랐으면 서버가 <c>/workspace</c> 를 채워 보낸다. 그 값을 「골랐다」로
-    /// 읽지 않는 까닭은 <see cref="PortalHome.IsUnset"/> 에 있다 — 푸는 것도
-    /// 거기 한 곳에서 한다. 여기서는 <b>받은 그대로</b> 들고 있는다.
-    /// </para>
-    /// </summary>
+    /// <summary>로그인한 뒤 처음 열릴 화면의 DB 메뉴 경로(브라우저가 갈 주소가 아니다). 안 골랐으면 서버가 기본값을 채워 보내므로 「골랐다」로 읽지 않는다 — 푸는 곳은 PortalHome.IsUnset 한 곳이다. 여기서는 받은 그대로 든다.</summary>
     public string? HomePath { get; private set; }
 
-    /// <summary>
-    /// 화면에 워터마크를 깔지. <b>관리자가 정한 값</b>이고 셸이 이것을 보고
-    /// 깔거나 걷는다.
-    ///
-    /// <para>
-    /// 아직 못 읽었을 때는 <c>true</c> 다 — 이 표시는 <b>빠지는 쪽이 사고</b>라,
-    /// 모르는 동안 걷어 두는 것보다 깔아 두는 것이 맞다.
-    /// </para>
-    /// </summary>
+    /// <summary>화면에 워터마크를 깔지. 관리자가 정한 값이고 셸이 이것을 보고 깔거나 걷는다. 아직 못 읽었으면 true — 이 표시는 빠지는 쪽이 사고라 모르는 동안은 깔아 두는 것이 맞다.</summary>
     public bool Watermark { get; private set; } = true;
 
     /// <summary>이름·사진이 바뀌었다. 헤더가 다시 그린다.</summary>
@@ -140,13 +59,7 @@ public sealed class CurrentUser(GatewayClient gateway, ILogger<CurrentUser> logg
         }
     }
 
-    /// <summary>
-    /// 게이트웨이에서 다시 읽는다.
-    /// </summary>
-    /// <remarks>
-    /// <b>실패를 삼킨다.</b> 헤더에 얼굴이 안 뜨는 것과 포털이 안 뜨는 것의
-    /// 무게가 다르다 — 못 읽으면 이름만 나온다.
-    /// </remarks>
+    /// <summary>게이트웨이에서 다시 읽는다. 실패는 삼킨다 — 헤더에 얼굴이 안 뜨는 것과 포털이 안 뜨는 것은 무게가 다르다. 못 읽으면 이름만 나온다.</summary>
     public async Task ReloadAsync(CancellationToken cancellationToken = default)
     {
         try
@@ -162,12 +75,7 @@ public sealed class CurrentUser(GatewayClient gateway, ILogger<CurrentUser> logg
         Changed?.Invoke();
     }
 
-    /// <summary>
-    /// 이미 받아 둔 값을 채운다. 부트스트랩 한 방(<c>PortalBootstrap</c>)이
-    /// 쓰는 길이다 — 게이트웨이를 다시 부르지 않는다.
-    ///
-    /// <c>null</c> 이면 못 읽은 것으로 보고 그대로 둔다.
-    /// </summary>
+    /// <summary>이미 받아 둔 값을 채운다. 부트스트랩(PortalBootstrap)이 쓰는 길이라 게이트웨이를 다시 부르지 않는다. null 이면 못 읽은 것으로 보고 그대로 둔다.</summary>
     public void Apply(UserInfoWire? info)
     {
         if (info is not null)
@@ -191,10 +99,7 @@ public sealed class CurrentUser(GatewayClient gateway, ILogger<CurrentUser> logg
         Changed?.Invoke();
     }
 
-    /// <summary>
-    /// 프로필 화면이 사진을 바꾼 뒤 알려 준다. <b>다시 조회하지 않는다</b> —
-    /// 방금 그 화면이 서버에서 받은 값이라 한 번 더 물을 이유가 없다.
-    /// </summary>
+    /// <summary>프로필 화면이 사진을 바꾼 뒤 알린다. 다시 조회하지 않는다 — 방금 그 화면이 서버에서 받은 값이다.</summary>
     public void SetAvatar(string? avatar)
     {
         AvatarUrl = OwnFileUrl(avatar);
@@ -202,33 +107,14 @@ public sealed class CurrentUser(GatewayClient gateway, ILogger<CurrentUser> logg
         Changed?.Invoke();
     }
 
-    /// <summary>
-    /// 환경설정이 첫 화면을 바꾼 뒤 알려 준다. <b>다시 조회하지 않는다</b> —
-    /// 방금 그 화면이 서버에 보낸 값이라 한 번 더 물을 이유가 없다
-    /// (<see cref="SetAvatar"/> 와 같은 규칙).
-    /// </summary>
+    /// <summary>환경설정이 첫 화면을 바꾼 뒤 알린다. 다시 조회하지 않는다(SetAvatar 와 같은 규칙).</summary>
     public void SetHomePath(string? homePath)
     {
         HomePath = homePath;
         Changed?.Invoke();
     }
 
-    /// <summary>
-    /// 사진을 못 받아 왔다. <b>주소를 버리고 이름 첫 글자로 돌아간다.</b>
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 브라우저가 그림을 못 받으면 그 자리에 <b>깨진 그림 아이콘</b>을 그린다.
-    /// 헤더에 그것이 뜨면 사진이 없는 계정(첫 글자가 뜨는 쪽)보다 더 나쁘게
-    /// 보이고, 사용자가 할 수 있는 일은 없다.
-    /// </para>
-    /// <para>
-    /// 못 받는 이유가 하나가 아니다 — 인증이 잠깐 끊겼거나, 개발 장비에서
-    /// 올린 파일이라 운영에 바이트가 없거나(루트 CLAUDE.md), 누가 그 파일을
-    /// 지웠거나. <b>어느 쪽이든 화면이 할 일은 같다.</b> 다음 새로고침에
-    /// 다시 시도한다.
-    /// </para>
-    /// </remarks>
+    /// <summary>사진을 못 받아 왔다. 주소를 버리고 이름 첫 글자로 돌아간다 — 브라우저는 못 받은 그림 자리에 깨진 아이콘을 그려 사진 없는 계정보다 나쁘게 보이고, 사용자가 할 일은 없다. 이유는 인증 끊김·개발 장비에서 올린 파일·삭제 중 무엇이든 화면이 할 일은 같고 다음 새로고침에 다시 시도한다.</summary>
     public void MarkAvatarUnavailable()
     {
         if (AvatarUrl is null && AvatarThumbnailUrl is null)
@@ -244,31 +130,17 @@ public sealed class CurrentUser(GatewayClient gateway, ILogger<CurrentUser> logg
         Changed?.Invoke();
     }
 
-    /// <summary>
-    /// 사진 주소에서 파일 식별자(GUID)를 추출한다.
-    /// 셸 중계 경로(/files/...)와 백엔드 상대경로(/api/file/...) 둘 다 해석한다.
-    /// </summary>
-    /// <remarks>
-    /// 규칙이 <see cref="FileDownload.FileIdOf"/> 로 올라갔다 — 남의 얼굴을
-    /// 그리는 업무 화면도 같은 판정을 해야 하는데, 여기 사본으로 두면
-    /// <b>어긋나는 쪽이 「사진이 있는데 안 나온다」</b>가 된다.
-    /// </remarks>
+    /// <summary>사진 주소에서 파일 식별자(GUID)를 꺼낸다. 셸 중계 경로와 백엔드 상대경로를 둘 다 해석한다. 규칙은 FileDownload.FileIdOf 로 올라갔다 — 여기 사본을 두면 남의 얼굴을 그리는 화면과 어긋난다.</summary>
     private static string? ExtractFileId(string? avatar) => FileDownload.FileIdOf(avatar);
 
-    /// <summary>
-    /// 우리 파일 주소면 셸 원본 중계 경로로 옮겨 돌려주고, 아니면 <c>null</c>.
-    /// 왜 바깥 주소를 버리는지는 이 클래스 머리말에 있다.
-    /// </summary>
+    /// <summary>우리 파일 주소면 셸 원본 중계 경로로 옮겨 돌려주고, 아니면 null.</summary>
     private static string? OwnFileUrl(string? avatar)
     {
         var id = ExtractFileId(avatar);
         return id is not null ? FileDownload.UrlFor(id) : null;
     }
 
-    /// <summary>
-    /// 우리 파일 주소면 셸 썸네일 중계 경로(/files/thumbnail/{id})로 옮겨 돌려주고, 아니면 <c>null</c>.
-    /// 헤더 아바타 등 작은 원형 사진을 그릴 때 용량을 아낀다.
-    /// </summary>
+    /// <summary>우리 파일 주소면 셸 썸네일 중계 경로로 옮겨 돌려주고, 아니면 null. 작은 원형 사진의 용량을 아낀다.</summary>
     private static string? OwnThumbnailUrl(string? avatar)
     {
         var id = ExtractFileId(avatar);
@@ -281,8 +153,7 @@ public sealed class CurrentUser(GatewayClient gateway, ILogger<CurrentUser> logg
         return parts.Length == 0 ? null : string.Join(" · ", parts);
     }
 
-    /// <summary><c>auth/user/info</c> 에서 헤더가 쓰는 칸만.</summary>
-    /// <summary><c>/auth/user/info</c> 응답 한 벌. 부트스트랩도 같은 모양을 싣는다.</summary>
+    /// <summary>auth/user/info 응답 한 벌(부트스트랩도 같은 모양을 싣는다). 헤더가 쓰는 칸만 담는다.</summary>
     public sealed class UserInfoWire
     {
         public string? Username { get; set; }

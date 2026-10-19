@@ -40,53 +40,14 @@ public sealed record BizSelectConfig
 /// <summary>셀렉트 항목 하나.</summary>
 /// <param name="Value">고른 값. 원본이 숫자여도 문자열로 통일한다 — 프로시저 파라미터 규약과 같다.</param>
 /// <param name="Label">사람이 읽는 이름.</param>
-/// <param name="Item">
-/// 서버가 준 원본 행 전체. 라벨·값 말고 다른 컬럼이 필요한 화면이 쓴다
-/// (예: 사용자 화면이 <c>loginId</c> 로 참여자를 거른다).
-/// </param>
+/// <param name="Item">원본 행 전체. 라벨·값 말고 다른 컬럼이 필요한 화면이 쓴다.</param>
 public sealed record BizOption(
     string Value,
     string Label,
     IReadOnlyDictionary<string, string> Item);
 
-/// <summary>
-/// 포털 범용 셀렉트(BizSelect)의 목록을 읽는다 — Vue 의 <c>api/biz-select.ts</c> 를 잇는다.
-///
-/// [설정은 DB 에 있다]
-///
-/// 화면은 <c>bizType</c> 만 알면 된다. "어느 MSA 의 어느 API 를 어떤 모양으로
-/// 부르는가" 는 전부 메타데이터(<c>scom.biz_select_configs</c>)가 정하고,
-/// 그 메타데이터는 AuthServer 가 내려준다. 그래서 이 클라이언트가 <c>auth</c>
-/// 경로를 부른다 — Vue 도 어느 화면에서든 같은 경로를 불렀다.
-///
-/// [봉투 해석이 관대한 이유]
-///
-/// Vue 는 서비스마다 요청 클라이언트가 따로 있어 봉투를 각자 벗겼다
-/// (포털 <c>{code,data}</c> · 헬프데스크 <c>{success,data}</c> · 프로젝트관리
-/// <c>{code,cols,data}</c>). 여기는 클라이언트가 하나라 그 층이 없으므로,
-/// <c>resultPath</c> 를 뿌리·<c>data</c>·<c>data.result</c> 순서로 대 보고
-/// 처음 배열이 나오는 곳을 쓴다. 메타데이터의 <c>resultPath</c> 값을 바꾸지
-/// 않고 세 봉투를 모두 받기 위한 선택이다.
-///
-/// [설정만 캐시한다 — 그리고 회로 바깥에서 한다]
-///
-/// 담기는 것은 <b>메타데이터뿐</b>이다. 실제 목록은 매번 새로 읽는다 —
-/// 파라미터가 화면마다 다르고, 그 결과는 자료라 낡으면 안 된다.
-///
-/// <para>
-/// 한동안 그 메타데이터를 이 클래스가 필드로 들고 있었다. 이 서비스가 scoped 라
-/// <b>업무를 넘나들면 통째로 사라졌고</b>(Piral 모듈 컨테이너가 갈린다), 접속자
-/// 수만큼 같은 표를 읽었다. 지금은 <see cref="ReferenceData"/> 에 맡긴다.
-/// </para>
-///
-/// <para>
-/// <b>헬프데스크와 묶음을 나눠 쓴다</b>(<see cref="ReferenceData.Groups.BizSelectConfigs"/>).
-/// 그쪽도 같은 엔드포인트를 읽으므로 이름이 갈리면 아무 오류 없이 통이 둘로
-/// 나뉜다. 그리고 <c>SharedAsync</c> 인 근거는 백엔드다 —
-/// <c>GET /auth/system/biz-select/configs</c> 는 <c>IBizSelectConfigService</c> 를
-/// 그대로 부르고 그 서비스는 신원을 보지 않는다.
-/// </para>
-/// </summary>
+/// <summary>포털 범용 셀렉트(BizSelect)의 목록을 읽는다. 어느 API 를 어떤 모양으로 부를지는 메타데이터(scom.biz_select_configs)가 정한다.
+/// 메타데이터만 캐시한다(목록은 매번 읽는다). 봉투가 셋이라 resultPath 를 뿌리·data·data.result 순으로 대 본다. 묶음 이름은 헬프데스크와 같아야 한다.</summary>
 public sealed class BizOptions(
     GatewayClient gateway,
     IHttpClientFactory httpFactory,
@@ -101,12 +62,7 @@ public sealed class BizOptions(
         PropertyNameCaseInsensitive = true,
     };
 
-    /// <summary>
-    /// <paramref name="bizType"/> 의 목록을 읽는다.
-    ///
-    /// 설정이 없거나 호출이 실패하면 빈 목록을 준다 — 셀렉트 하나가 안 찬다고
-    /// 화면이 통째로 죽으면 사용자가 무엇을 했는지 알 수 없게 된다(Vue 와 같다).
-    /// </summary>
+    /// <summary><paramref name="bizType"/> 의 목록을 읽는다. 설정이 없거나 실패하면 빈 목록 — 셀렉트 하나가 안 찬다고 화면이 죽으면 안 된다.</summary>
     public async Task<IReadOnlyList<BizOption>> GetAsync(
         string bizType,
         IReadOnlyDictionary<string, object?>? parameters = null,
@@ -166,23 +122,14 @@ public sealed class BizOptions(
         }
     }
 
-    /// <summary>
-    /// 설정 캐시를 비운다. 관리 화면에서 메타데이터를 고친 뒤에 부른다.
-    /// </summary>
-    /// <remarks>
-    /// 이제 통이 하나라 <b>부르면 모두에게 반영된다.</b> 전에는 부른 사람의
-    /// 회로에서만 비어서, 그 화면이 Admin 앱에 있는 동안에는 사실상 회로를
-    /// 새로 여는 것 말고는 방법이 없었다.
-    /// </remarks>
+    /// <summary>설정 캐시를 비운다. 통이 하나라 부르면 모두에게 반영된다.</summary>
     public void ClearCache() => data.Invalidate(ReferenceData.Groups.BizSelectConfigs);
 
     private async Task<BizSelectConfig?> FindConfigAsync(
         string bizType,
         CancellationToken cancellationToken)
     {
-        // 실패는 **예외로** 알린다. 통은 예외가 지나가면 담지 않으므로
-        // (`cache.Set` 에 닿기 전에 밖으로 나간다) 다음에 다시 시도한다.
-        // 그 예외는 위쪽 GetAsync 의 try 가 받아 빈 목록으로 바꾼다.
+        // 실패는 예외로 알린다 — 통은 예외가 지나가면 담지 않으므로 다음에 다시 시도한다.
         var configs = await data.SharedAsync<IReadOnlyList<BizSelectConfig>>(
             ReferenceData.Groups.BizSelectConfigs, "all",
             async () => await gateway.GetListAsync<BizSelectConfig>(ConfigUrl, cancellationToken));
@@ -191,12 +138,7 @@ public sealed class BizOptions(
             string.Equals(c.BizType, bizType, StringComparison.Ordinal));
     }
 
-    /// <summary>
-    /// 고정 파라미터(<c>staticParams</c>)와 화면이 넘긴 런타임 파라미터를 합친다.
-    /// <c>paramPath</c> 가 있으면 런타임 파라미터를 그 자리에 겹쳐 넣는다 —
-    /// 프로시저 이름은 본문 최상위에, 조회 조건은 <c>MainParam</c> 안에 넣어야
-    /// 하는 규약(프로젝트관리)을 메타데이터로 표현하기 위한 것이다.
-    /// </summary>
+    /// <summary>고정 파라미터와 런타임 파라미터를 합친다. paramPath 가 있으면 런타임 값을 그 자리에 넣는다 (프로시저 이름은 최상위, 조회 조건은 MainParam 안).</summary>
     private static Dictionary<string, object?> BuildParams(
         BizSelectConfig config,
         IReadOnlyDictionary<string, object?>? runtime)
@@ -272,14 +214,7 @@ public sealed class BizOptions(
         }
     }
 
-    /// <summary>
-    /// 설정이 가리키는 MSA 를 부른다.
-    ///
-    /// <see cref="GatewayClient"/> 를 쓰지 않고 같은 이름의 HttpClient
-    /// (기본주소·인증 핸들러가 이미 붙어 있다)를 꺼내 쓴다 — 경로·메서드·본문
-    /// 모양이 전부 메타데이터에서 오므로 특정 봉투를 강제하는 타입 메서드로는
-    /// 태울 수 없다.
-    /// </summary>
+    /// <summary>설정이 가리키는 MSA 를 부른다. 같은 이름의 HttpClient 를 꺼내 쓴다 — 경로·본문 모양이 메타데이터에서 와서 타입 메서드로는 태울 수 없다.</summary>
     private async Task<JsonElement?> CallAsync(
         BizSelectConfig config,
         Dictionary<string, object?> parameters,
@@ -290,9 +225,7 @@ public sealed class BizOptions(
         var service = config.ServiceCode?.Trim();
         var apiUrl = config.ApiUrl.StartsWith('/') ? config.ApiUrl : $"/{config.ApiUrl}";
 
-        // 기본주소가 …/api/ 로 끝나므로 앞의 / 를 떼야 상대 경로로 붙는다.
-        // serviceCode 가 비어 있으면 apiUrl 이 프리픽스를 이미 품고 있는 것으로
-        // 본다 (Vue 와 같은 폴백).
+        // 기본주소가 …/api/ 로 끝나므로 앞의 / 를 뗀다. serviceCode 가 비면 apiUrl 이 프리픽스를 품은 것으로 본다.
         var url = string.IsNullOrEmpty(service)
             ? apiUrl.TrimStart('/')
             : $"{service}{apiUrl}";
@@ -307,8 +240,7 @@ public sealed class BizOptions(
         }
         else
         {
-            // 프로젝트관리 규약: MainParam 은 문자열 사전이다. 메타데이터를 타고 온
-            // 값은 숫자일 수 있어 여기서 맞춰 준다 (Vue projmngRequest 와 같다).
+            // MainParam 은 문자열 사전이다 — 메타데이터의 숫자 값을 여기서 맞춘다.
             if (parameters.TryGetValue("MainParam", out var main)
                 && main is Dictionary<string, object?> mainDict)
             {
@@ -362,12 +294,7 @@ public sealed class BizOptions(
         _ => value.ToString() ?? string.Empty,
     };
 
-    /// <summary>
-    /// 응답에서 목록을 찾는다. <c>resultPath</c> 를 뿌리 → <c>data</c> →
-    /// <c>data.result</c> 순서로 대 보고, 그래도 없으면 관행 경로
-    /// (<c>data.result.rows</c> · <c>data.result</c> · <c>result</c> · <c>data</c> · 뿌리)를
-    /// 차례로 본다. 처음 나오는 <b>배열</b>이 답이다.
-    /// </summary>
+    /// <summary>응답에서 목록을 찾는다. resultPath 를 뿌리·data·data.result 순으로 대 보고, 없으면 관행 경로를 차례로 본다. 처음 나오는 배열이 답이다.</summary>
     private static IReadOnlyList<JsonElement> Unwrap(JsonElement root, string? resultPath)
     {
         var candidates = new List<string>();
@@ -379,8 +306,7 @@ public sealed class BizOptions(
             candidates.Add($"data.result.{resultPath}");
         }
 
-        // 표준 봉투의 프로시저 결과는 rows 에 실린다 — Vue 의 projmng 클라이언트가
-        // resultPath='data' 를 rows 로 되짚던 것과 같은 폴백이다.
+        // 표준 봉투의 프로시저 결과는 rows 에 실린다.
         candidates.Add("data.result.rows");
         candidates.Add("data.result");
         candidates.Add("result");

@@ -5,11 +5,7 @@ namespace AuthServer.Services;
 /// <summary>
 /// F.A.Q 서비스 인터페이스
 /// </summary>
-/// <remarks>
-/// 관리자만 등록·수정·삭제하고 나머지 사용자는 읽는다.
-/// '관리자' 판정은 `scom.role_menus` 의 <c>/help/faq</c> 권한으로 하며
-/// 화면이 아니라 **이 서비스가** 판정한다.
-/// </remarks>
+/// 관리자만 등록·수정·삭제하고 나머지는 읽는다. 관리자 판정은 scom.role_menus 의 /help/faq 권한으로 화면이 아니라 이 서비스가 한다.
 public interface IFaqService
 {
     /// <summary>이 사용자가 F.A.Q 를 등록·수정·삭제할 수 있는지</summary>

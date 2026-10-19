@@ -1,11 +1,6 @@
 namespace ProjMngServer.Models;
 
-// EAI 인터페이스 카탈로그 — `projmng.if_*` 일곱 표와 뷰 넷.
-//
-// **조회는 뷰로, 편집은 원본 표로** 한다. 뷰가 코드값을 이름으로 풀어 주고
-// (방향·상태·주기) 단계·메모 건수까지 세어 주기 때문에 목록 화면이 조인을
-// 다시 짤 일이 없다. 갱신시각은 **DB 트리거가 찍는다** — 어느 길로 고쳐도
-// 빠지지 않는다.
+// EAI 인터페이스 카탈로그 — 조회는 뷰로, 편집은 원본 표로 한다. 뷰가 코드값을 이름으로 풀어 주므로 목록 화면이 조인을 다시 짤 일이 없고, 갱신시각은 DB 트리거가 찍는다.
 
 /// <summary>공통코드 한 줄. <b>프로젝트를 가리지 않는다.</b></summary>
 public sealed class IfCodeRow
@@ -69,10 +64,7 @@ public sealed class IfMasterRow
     public string? UpdatedAt { get; set; }
     public string? UpdatedBy { get; set; }
 
-    /// <summary>
-    /// 처리 단계를 한 줄로 이어 붙인 글자
-    /// (<c>1. EAI.T_IF  →  2. HHIP.SP_LOAD</c>). 목록에서 흐름이 바로 보인다.
-    /// </summary>
+    /// <summary>처리 단계를 한 줄로 이어 붙인 글자 (<c>1. EAI.T_IF  →  2. HHIP.SP_LOAD</c>). 목록에서 흐름이 바로 보인다.</summary>
     public string? Flow { get; set; }
 }
 
@@ -162,11 +154,7 @@ public sealed class IfNoteRow
     public string? UpdatedAt { get; set; }
 }
 
-/// <summary>추가 관리항목 한 칸 — <c>v_if_attr</c>.</summary>
-/// <remarks>
-/// 정의 × 인터페이스를 모두 펼친 것이라 <b>값이 없는 항목도 한 줄로 나온다.</b>
-/// 화면은 이 목록만으로 입력 칸을 만든다.
-/// </remarks>
+/// <summary>추가 관리항목 한 칸(<c>v_if_attr</c>). 정의 × 인터페이스를 모두 펼친 것이라 값이 없는 항목도 한 줄로 나온다 — 화면은 이 목록만으로 입력 칸을 만든다.</summary>
 public sealed class IfAttrRow
 {
     public int AttrDefId { get; set; }

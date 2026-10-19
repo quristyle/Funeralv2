@@ -1,18 +1,6 @@
 namespace AuthServer.DTOs;
 
-/// <summary>
-/// 메뉴 하나를 기준으로 본 권한 현황.
-/// </summary>
-/// <remarks>
-/// <c>/system/role-map</c> 은 <b>역할</b>에서 출발한다 — "이 역할은 어떤 메뉴를 쓰나".
-/// 이 DTO 는 그 반대다 — <b>"이 메뉴는 누가 쓸 수 있나"</b>.
-///
-/// <para>
-/// 같은 데이터(<c>role_menus</c> · <c>role_companies</c> · <c>role_departments</c> ·
-/// <c>role_accounts</c>)를 거꾸로 훑는다. 지금까지는 그 방향으로 볼 방법이 없어서
-/// "이 메뉴에 파트너도 들어오나?" 를 알려면 역할을 하나씩 열어 봐야 했다.
-/// </para>
-/// </remarks>
+/// <summary>메뉴 하나를 기준으로 본 권한 현황 — 이 메뉴는 누가 쓸 수 있나. 역할에서 출발하는 <c>/system/role-map</c> 의 반대 방향이다.</summary>
 public class MenuRoleDto
 {
     /// <summary>메뉴 식별자</summary>
@@ -24,23 +12,10 @@ public class MenuRoleDto
     /// <summary>메뉴 경로</summary>
     public string? MenuPath { get; set; }
 
-    /// <summary>
-    /// 이 메뉴가 실제로 쓰는 권한 항목.
-    /// </summary>
-    /// <remarks>
-    /// 메뉴가 쓰지 않는 항목은 역할에 켜 두어도 효과가 없다
-    /// (<c>MenuService</c> 가 메뉴의 <c>use_*</c> 와 AND 로 묶는다).
-    /// 화면이 쓸모없는 체크박스를 보여 주지 않도록 함께 내려준다.
-    /// </remarks>
+    /// <summary>이 메뉴가 실제로 쓰는 권한 항목. 메뉴가 쓰지 않는 항목은 역할에 켜 두어도 효과가 없으므로(MenuService 가 use_* 와 AND 로 묶는다) 함께 내려준다.</summary>
     public MenuUsedPermissionDto Used { get; set; } = new();
 
-    /// <summary>
-    /// 모든 역할과 이 메뉴에 대한 권한.
-    /// </summary>
-    /// <remarks>
-    /// 권한이 걸려 있지 않은 역할도 <b>모두 담는다.</b> 화면에서 새로 켜 줄 수 있어야 하는데
-    /// 걸린 것만 주면 "없는 역할" 을 고를 방법이 없다. 걸린 적 없는 역할은 전부 false 다.
-    /// </remarks>
+    /// <summary>모든 역할과 이 메뉴에 대한 권한. 걸린 적 없는 역할도 모두 담는다 — 걸린 것만 주면 화면에서 「없는 역할」을 새로 켤 방법이 없다.</summary>
     public List<MenuRoleGrantDto> Roles { get; set; } = new();
 
     /// <summary>이 메뉴에 닿는 회사</summary>
@@ -52,13 +27,7 @@ public class MenuRoleDto
     /// <summary>이 메뉴에 닿는 사용자 (사람에게 직접 걸린 역할)</summary>
     public List<MenuRoleTargetDto> Accounts { get; set; } = new();
 
-    /// <summary>
-    /// 이 메뉴를 실제로 열람할 수 있는 사용자 수.
-    /// </summary>
-    /// <remarks>
-    /// 회사·부서·사람 세 단계에 걸린 역할을 모두 합쳐 계산한 뒤 사람 단위로 중복을 없앤다.
-    /// 목록의 건수를 더한 값과 다를 수 있다 — 한 사람이 회사와 부서 양쪽에서 걸릴 수 있다.
-    /// </remarks>
+    /// <summary>이 메뉴를 실제로 열람할 수 있는 사용자 수. 회사·부서·사람에 걸린 역할을 모두 합쳐 사람 단위로 중복을 없앤다 — 목록 건수의 합과 다를 수 있다.</summary>
     public int EffectiveUserCount { get; set; }
 }
 
@@ -123,9 +92,7 @@ public class MenuRoleGrantDto
     public int AccountCount { get; set; }
 }
 
-/// <summary>
-/// 이 메뉴에 닿는 대상 하나 (회사 · 부서 · 사람).
-/// </summary>
+/// <summary>이 메뉴에 닿는 대상 하나 (회사 · 부서 · 사람).</summary>
 public class MenuRoleTargetDto
 {
     /// <summary>대상 식별자</summary>
@@ -140,20 +107,12 @@ public class MenuRoleTargetDto
     /// <summary>사람이면 로그인 아이디</summary>
     public string? LoginId { get; set; }
 
-    /// <summary>
-    /// 어느 역할 때문에 닿는지.
-    /// </summary>
-    /// <remarks>
-    /// 여러 역할이 동시에 걸릴 수 있다. 어느 역할을 풀어야 하는지 알려면 이름이 필요하다.
-    /// </remarks>
+    /// <summary>어느 역할 때문에 닿는지. 여러 역할이 동시에 걸릴 수 있어 어느 역할을 풀어야 하는지 이름이 필요하다.</summary>
     public List<string> ViaRoleNames { get; set; } = new();
 
     /// <summary>어느 역할 때문에 닿는지 (식별자). 화면이 해제 요청을 보낼 때 쓴다.</summary>
     public List<string> ViaRoleIds { get; set; } = new();
 
-    /// <summary>
-    /// 이 대상에 딸린 사람 수.
-    /// 회사면 그 회사 인원, 부서면 그 부서 인원, 사람이면 1 이다.
-    /// </summary>
+    /// <summary>이 대상에 딸린 사람 수. 회사면 그 회사 인원, 부서면 그 부서 인원, 사람이면 1 이다.</summary>
     public int UserCount { get; set; }
 }

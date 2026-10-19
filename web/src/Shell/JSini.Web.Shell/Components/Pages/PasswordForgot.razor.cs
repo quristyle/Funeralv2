@@ -39,8 +39,7 @@ public partial class PasswordForgot
         _tone = NoticeTone.Info;
         _busy = true;
 
-        // 서버가 언제나 성공으로 답하므로 여기서 실패가 오는 것은
-        // 게이트웨이에 닿지 못했을 때(서버가 꺼져 있음)뿐이다.
+        // 서버는 언제나 성공으로 답하므로 여기서 실패가 오는 것은 게이트웨이에 닿지 못했을 때뿐이다.
         try
         {
             await Accounts.RequestPasswordResetAsync(_loginId!.Trim(), _email!.Trim());

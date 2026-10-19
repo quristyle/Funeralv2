@@ -1,38 +1,14 @@
 @page "/funeral/help/qna"
 @attribute [RouteKey("funeral.help.qna")]
 
-@*
-    [Q & A] — DB 메뉴 `/help/qna`.
-    이력: Vue `views/funeral/help/qna/index` → 여기.
-
-    질문과 답글이 **같은 모양**이다(`ParentId` 로만 갈린다). 그래서 깊이 제한이
-    없고, 화면도 재귀로 그린다.
-
-    [읽기만 하고 있었다]
-
-    옛 화면에는 질문 등록·답글·수정·삭제·공개 전환이 있었다. 클라이언트에는
-    메서드가 다 있었고 화면만 안 부르고 있었다 — Q&A 인데 **글을 쓸 수가
-    없었다.**
-
-    [답글은 뿌리를 물려받는다]
-
-    답글을 달 때 `parentId` 만 보내면 서버가 뿌리(`rootId`)를 찾아 이어 준다.
-    화면이 뿌리를 계산하지 않는 이유는, 깊은 답글에서 그 계산이 어긋나면
-    스레드가 둘로 갈라지고 되돌리기 어렵기 때문이다.
-
-    [비공개 전환은 답글까지 함께 물어본다]
-
-    질문을 비공개로 돌리면서 답글은 공개로 두면 답만 보이고 무엇에 대한
-    답인지 알 수 없다. 뿌리 글에서는 「답글까지」를 함께 묻는다.
-*@
+@* [Q & A] — DB 메뉴 `/help/qna`. 질문과 답글은 같은 모양이라(ParentId 로만 갈린다) 깊이 제한이 없고 재귀로 그린다.
+답글은 parentId 만 보내고 뿌리는 서버가 찾는다. 질문을 비공개로 돌리면 답글까지 함께 묻는다. 답만 남으면 무엇에 대한 답인지 알 수 없다. *@
 
 @inherits DataPage
 
 <PageTitle>Q &amp; A · 장례식장</PageTitle>
 
-@* 조건 둘과 등록이 한 줄에 섞여 있었다. 조건은 Fields, 등록은 Actions 로
-   갈랐다 — 글 목록으로 그리는 화면이라 표 아래 띠가 없어 등록 자리는
-   여기가 유일하다. *@
+@* 조건은 Fields, 등록은 Actions 로 갈랐다. 글 목록 화면이라 등록 자리가 여기뿐이다. *@
 <CommSch OnSearch="@ReloadAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="검색어">
@@ -89,12 +65,7 @@
                 </DxFormLayoutItem>
             }
 
-            @* 본문은 **HTML 이다.** 옛 화면이 서식 편집기로 썼고 저장된 글에
-               태그가 들어 있다. 여기를 여러 줄 입력으로 두면 두 가지가 어긋난다 —
-               고치러 열었을 때 태그가 그대로 보이고, 새로 쓴 글은 줄바꿈이
-               사라진다(HTML 로 그려지므로 개행이 무시된다).
-
-               `DxRichEdit` 이 아니다. 그쪽은 문서(docx)를 다루는 부품이다. *@
+            @* 본문은 HTML 이다. 여러 줄 입력으로 두면 고칠 때 태그가 보이고 새 글은 줄바꿈이 사라진다. DxRichEdit 은 docx 부품이라 쓰지 않는다. *@
             <DxFormLayoutItem Caption="내용" ColSpanMd="12">
                 <DxHtmlEditor @bind-Markup="_content"
                               BindMarkupMode="HtmlEditorBindMarkupMode.OnDelayedInput"

@@ -10,15 +10,11 @@ using System.Xml.Linq;
 
 namespace HelpDeskServer.Data;
 
-/// <summary>
-/// 첨부파일 관련 확장 메서드
-/// </summary>
+/// <summary>첨부파일 관련 확장 메서드</summary>
 public static class AttachmentExtensions
 {
     
-    /// <summary>
-    /// 쿼리에 첨부파일 목록을 포함시킵니다.
-    /// </summary>
+    /// <summary>쿼리에 첨부파일 목록을 포함시킵니다.</summary>
     /// <typeparam name="TEntity">첨부파일을 포함할 엔티티 타입</typeparam>
     /// <param name="query">원본 IQueryable</param>
     /// <param name="db">데이터베이스 컨텍스트</param>
@@ -42,17 +38,11 @@ public static class AttachmentExtensions
     }
 }
 
-/// <summary>
-/// Attachments를 포함한 DTO Wrapper
-/// </summary>
+/// <summary>Attachments를 포함한 DTO Wrapper</summary>
 public class TEntityWithAttachments<TEntity>
 {
-    /// <summary>
-    /// 원본 엔티티
-    /// </summary>
+    /// <summary>원본 엔티티</summary>
     public TEntity Entity { get; set; } = default!;
-    /// <summary>
-    /// 첨부파일 목록
-    /// </summary>
+    /// <summary>첨부파일 목록</summary>
     public List<Attachment> Attachments { get; set; } = new();
 }

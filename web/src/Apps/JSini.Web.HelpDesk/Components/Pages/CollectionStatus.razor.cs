@@ -11,7 +11,7 @@ public partial class CollectionStatus
 
     private DataTable _rows = JsonTable.Empty;
 
-    /// <summary>옛 화면과 같은 60초. 설비가 살아 있는지 지켜보는 자리다.</summary>
+    /// <summary>60초 자동 조회. 설비가 살아 있는지 지켜보는 자리다.</summary>
     protected override TimeSpan RefreshInterval => TimeSpan.FromSeconds(60);
 
     protected override async Task OnInitializedAsync()

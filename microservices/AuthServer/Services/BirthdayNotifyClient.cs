@@ -5,21 +5,8 @@ using JSini.Shared.DTOs;
 
 namespace AuthServer.Services;
 
-/// <summary>
-/// 생일 축하 메시지 도착을 NotificationServer 웹푸시로 알리는 클라이언트 (결정 D-G1a · 2026-09-04).
-/// </summary>
-/// <remarks>
-/// <para>
-/// GHUB 원본은 축하 메시지가 등록되면 받는 사람에게 발송(푸시·알림톡)까지 했다.
-/// 사용자 결정으로 발송은 NotificationServer 가 맡는다 — 여기는 그쪽의 **기존**
-/// <c>/notifications/push</c> 를 부를 뿐, 새 기능이 필요 없다(받는 사람이 명확해서
-/// 기상처럼 구독을 뒤질 일이 없다). 푸시를 끈 사람은 그쪽 발송기가 거른다.
-/// </para>
-/// <para>
-/// 루프백 직접 호출(게이트웨이 미경유)이고, 신원은 메시지를 보낸 사용자의 아이디를
-/// 그대로 싣는다. 실패해도 메시지 저장은 이미 끝났으므로 로그만 남긴다.
-/// </para>
-/// </remarks>
+/// <summary>생일 축하 메시지가 도착하면 받는 사람에게 NotificationServer 웹푸시를 보낸다.</summary>
+/// 발송 정책은 NotificationServer 가 맡고 여기서는 push 를 부르기만 한다. 신원은 메시지 저장자 그대로 싣고, 실패해도 저장은 끝난 뒤라 로그만 남긴다.
 public class BirthdayNotifyClient
 {
     private readonly HttpClient _http;
@@ -52,8 +39,7 @@ public class BirthdayNotifyClient
                     body = $"{(string.IsNullOrWhiteSpace(senderName) ? senderId : senderName)} 님이 축하 메시지를 보냈습니다.",
                     url = "/life/birthday",
 
-                    // 알림구분. 받는 쪽 「내 알림함」이 이 값으로 거른다
-                    // (공통코드 NOTI_CATEGORY).
+                    // 알림구분. 받는 쪽 알림함이 이 값으로 분류한다(공통코드 NOTI_CATEGORY).
                     category = PushCategories.Birthday,
                 },
             });

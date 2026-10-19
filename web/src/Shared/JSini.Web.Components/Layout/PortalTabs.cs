@@ -2,40 +2,10 @@ using JSini.Web.Abstractions;
 
 namespace JSini.Web.Components.Layout;
 
-/// <summary>
-/// 열어 둔 업무 화면 목록 — vben 의 탭 바를 옮긴 것.
-///
-/// [한 프로세스가 되면서 오히려 쉬워졌다]
-///
-/// 업무 앱이 각자 프로세스이던 시절에는 탭을 만들 수 없었다. 업무를 옮길 때마다
-/// 브라우저가 문서를 새로 받아서 탭 상태를 들고 있을 자리가 없었기 때문이다.
-/// 지금은 한 회로 안에서 라우팅만 바뀌므로 이 서비스가 그대로 살아 있는다.
-///
-/// [탭이 라우팅을 하지 않는다]
-///
-/// 탭을 누르면 <c>NavigationManager</c> 로 이동하고, <b>이동한 결과를 보고</b>
-/// 탭이 켜진다. 반대로 만들면(탭이 화면을 직접 갈아 끼우면) 주소와 화면이
-/// 어긋나서 새로 고침·뒤로 가기·즐겨찾기가 전부 깨진다.
-///
-/// [화면 상태는 탭에 남지 않는다]
-///
-/// vben 은 <c>keep-alive</c> 로 떠난 화면의 컴포넌트를 살려 두었다. Blazor 에서
-/// 같은 일을 하려면 라우터가 화면을 감춰 두어야 하는데, 그러면 화면 서른 개가
-/// 회로 하나에 살아 있게 되고 그중 자동 갱신하는 화면(빈소현황·SM 모니터링)이
-/// 보이지 않는 채로 계속 서버를 부른다. <b>탭은 주소 목록일 뿐</b>이고 돌아가면
-/// 화면은 다시 그려진다.
-///
-/// scoped 다 — 회로 하나가 곧 사용자 한 명의 창 하나다.
-/// </summary>
+/// <summary>열어 둔 업무 화면 목록(vben 의 탭 바를 옮긴 것). 탭은 주소 목록일 뿐이라 화면 상태를 들고 있지 않는다 — 떠난 화면을 살려 두면 자동 갱신 화면이 보이지 않는 채 서버를 계속 부른다. 탭이 화면을 직접 갈아 끼우지 않고 라우팅 결과를 보고 켠다. scoped — 회로 하나가 곧 창 하나다.</summary>
 public sealed class PortalTabs
 {
-    /// <summary>
-    /// 한 번에 열어 둘 수 있는 탭 수.
-    ///
-    /// 넘으면 <b>가장 오래 안 본 탭</b>부터 닫는다. 무한정 열어 두면 탭 줄이
-    /// 두세 줄이 되어 본문이 좁아지고, 그 상태에서는 탭이 오히려 방해가 된다.
-    /// vben 도 같은 이유로 상한을 두었다.
-    /// </summary>
+    /// <summary>한 번에 열어 둘 탭 수. 넘으면 가장 오래 안 본 탭부터 닫는다 — 무한정 열면 탭 줄이 여러 줄이 되어 본문이 좁아진다.</summary>
     private const int MaxTabs = 12;
 
     private readonly List<PortalTab> _tabs = [];
@@ -53,36 +23,12 @@ public sealed class PortalTabs
     /// <summary>탭이 바뀌었다. 탭 줄이 다시 그린다.</summary>
     public event Action? Changed;
 
-    /// <summary>
-    /// <b>이 주소를 탭으로 둬도 되는가</b> — 볼 권한이 있는 화면인가. 레이아웃이 채운다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// [왜 여기서 거르나 — 2026-09-24]
-    /// </para>
-    /// <para>
-    /// 고정 탭은 <b>브라우저에 적어 둔 주소</b>에서 되살아난다(<see cref="RestorePinned"/>).
-    /// 그 목록은 권한과 무관하게 남으므로, 고정해 둔 뒤 권한이 빠지거나 같은 브라우저를
-    /// 다른 사람이 쓰면 <b>볼 수 없는 화면이 탭 줄에 그대로 섰다.</b> 실제로 조직도 권한이
-    /// 없는 사용자에게 「조직도」 고정 탭이 보였다.
-    /// </para>
-    /// <para>
-    /// 판정 규칙은 이 클래스가 모른다(메뉴·권한표는 레이아웃 쪽 서비스다).
-    /// 비어 있으면 거르지 않는다.
-    /// </para>
-    /// </remarks>
+    /// <summary>이 주소를 탭으로 둬도 되는가 — 볼 권한이 있는 화면인가. 레이아웃이 채운다. 고정 탭은 브라우저에 적어 둔 주소에서 되살아나므로 권한이 빠진 뒤에도 남는다 — 여기서 거르지 않으면 볼 수 없는 화면이 탭 줄에 섰다. 판정 규칙은 이 클래스가 모르고 비어 있으면 거르지 않는다.</summary>
     public Func<string, bool>? CanShow { get; set; }
 
     private bool Allowed(string href) => CanShow?.Invoke(href) ?? true;
 
-    /// <summary>
-    /// 볼 수 없게 된 탭을 걷는다. <b>고정한 탭도 걷는다</b> — 고정은 「늘 열어 둔다」는
-    /// 뜻이지 권한을 넘는다는 뜻이 아니다.
-    /// </summary>
-    /// <remarks>
-    /// 권한표·메뉴가 늦게 도착하므로 되살린 뒤에도 한 번 더 불러야 한다
-    /// (레이아웃의 <c>Track</c>). 걷은 고정 탭은 저장본에서도 빠진다(<see cref="PinsChanged"/>).
-    /// </remarks>
+    /// <summary>볼 수 없게 된 탭을 걷는다. 고정한 탭도 걷는다 — 고정은 늘 열어 둔다는 뜻이지 권한을 넘는다는 뜻이 아니다. 권한표가 늦게 오므로 되살린 뒤에도 한 번 더 부른다. 걷은 고정 탭은 저장본에서도 빠진다.</summary>
     public void Prune()
     {
         if (CanShow is null)
@@ -106,15 +52,10 @@ public sealed class PortalTabs
         PinsChanged?.Invoke();
     }
 
-    /// <summary>
-    /// 지금 주소를 탭으로 만든다. 이미 있으면 그것을 켠다.
-    /// </summary>
-    /// <param name="href">전체 경로 (<c>/projmng/proj/wbs</c>). 질의 문자열은 뗀 것.</param>
+    /// <summary>지금 주소를 탭으로 만든다. 이미 있으면 그것을 켠다.</summary>
+    /// <param name="href">전체 경로(질의 문자열은 뗀 것).</param>
     /// <param name="title">탭에 보일 이름. 메뉴 제목이다.</param>
-    /// <param name="standalone">
-    /// <b>메뉴에 없는 화면인가.</b> 참이면 탭 줄이 메뉴에 딸린 항목
-    /// (즐겨찾기)을 내놓지 않는다 — 자세한 것은 <see cref="PortalTab.Standalone"/>.
-    /// </param>
+    /// <param name="standalone">메뉴에 없는 화면인가. 참이면 탭 줄이 메뉴에 딸린 즐겨찾기 항목을 내놓지 않는다(PortalTab.Standalone).</param>
     public void Open(string href, string title, bool standalone = false)
     {
         if (string.IsNullOrWhiteSpace(href))
@@ -128,8 +69,7 @@ public sealed class PortalTabs
 
         if (existing is not null)
         {
-            // 이름이 늦게 정해질 수 있다. 메뉴를 아직 못 읽었을 때 주소로 열면
-            // 이름이 경로였다가 메뉴가 오면 제목으로 바뀐다.
+            // 메뉴를 아직 못 읽었으면 이름이 경로로 열렸다가 메뉴가 오면 제목으로 바뀐다.
             if (!string.IsNullOrWhiteSpace(title) && existing.Title != title)
             {
                 existing.Title = title;
@@ -153,7 +93,7 @@ public sealed class PortalTabs
     }
 
     /// <summary>탭 하나를 닫는다.</summary>
-    /// <returns>닫은 뒤 옮겨 갈 주소. 옮길 필요가 없으면 <c>null</c>.</returns>
+    /// <returns>닫은 뒤 옮겨 갈 주소. 옮길 필요가 없으면 null.</returns>
     public string? Close(string href)
     {
         var index = _tabs.FindIndex(t => Same(t.Href, href));
@@ -200,41 +140,14 @@ public sealed class PortalTabs
         PinsChanged?.Invoke();
     }
 
-    /// <summary>
-    /// 고정 목록이 바뀌었다. <b>브라우저에 적어 두는 쪽</b>이 듣는다.
-    ///
-    /// <para>
-    /// <see cref="Changed"/> 와 따로 두는 이유는 울리는 횟수가 다르기
-    /// 때문이다. 그쪽은 화면을 옮길 때마다 울리고(탭 하나 열 때마다),
-    /// 이쪽은 사람이 고정을 누를 때만 울린다. 하나로 합치면 화면을 옮길
-    /// 때마다 브라우저 저장소에 쓰게 된다.
-    /// </para>
-    /// </summary>
+    /// <summary>고정 목록이 바뀌었다. 브라우저에 적어 두는 쪽이 듣는다. Changed 와 따로 두는 것은 울리는 횟수가 달라서다 — 화면을 옮길 때마다 울리는 쪽에 물리면 매번 저장소에 쓴다.</summary>
     public event Action? PinsChanged;
 
     /// <summary>고정해 둔 탭들. 브라우저에 적어 둘 값이다.</summary>
     public IReadOnlyList<PinnedTab> PinnedTabs =>
         [.. _tabs.Where(t => t.Pinned).Select(t => new PinnedTab(t.Href, t.Title, t.Standalone))];
 
-    /// <summary>
-    /// 적어 둔 고정 탭을 되살린다. <b>회로가 새로 열릴 때 한 번</b> 부른다.
-    ///
-    /// <para>
-    /// [왜 필요한가 — 새로고침하면 고정이 풀려 있었다]
-    /// </para>
-    ///
-    /// <para>
-    /// 탭 목록은 회로 하나(= 브라우저 탭 하나)에 사는 값이라, F5 를 누르면
-    /// 회로와 함께 사라진다. 고정은 <b>「이 화면은 늘 열어 둔다」는 뜻</b>이라
-    /// 그렇게 사라지면 기능 자체가 없는 것과 같다.
-    /// </para>
-    ///
-    /// <para>
-    /// 되살린 탭은 <b>앞쪽에</b> 적어 둔 순서대로 놓는다. 지금 보고 있는
-    /// 화면은 건드리지 않는다 — 되살리기가 주소를 바꾸면 새로고침할 때마다
-    /// 엉뚱한 화면으로 튄다.
-    /// </para>
-    /// </summary>
+    /// <summary>적어 둔 고정 탭을 되살린다. 회로가 새로 열릴 때 한 번 부른다 — 탭 목록은 회로에 살아 F5 로 사라지므로 고정은 여기서 되살린다. 되살린 탭은 앞쪽에 적어 둔 순서대로 놓고, 보고 있는 화면은 건드리지 않는다(주소가 바뀌면 새로고침마다 엉뚱한 화면으로 튄다).</summary>
     public void RestorePinned(IEnumerable<PinnedTab> pinned)
     {
         var at = 0;
@@ -258,8 +171,7 @@ public sealed class PortalTabs
 
             if (existing is not null)
             {
-                // 지금 보고 있는 화면이 그 탭일 수 있다. 자리는 그대로 두고
-                // 고정 표시만 켠다 — 옮기면 보던 탭이 눈앞에서 뛴다.
+                // 지금 보고 있는 화면이 그 탭일 수 있다 — 자리는 두고 고정 표시만 켠다. 옮기면 보던 탭이 눈앞에서 뛴다.
                 existing.Pinned = true;
                 continue;
             }
@@ -270,8 +182,7 @@ public sealed class PortalTabs
                 Title = string.IsNullOrWhiteSpace(item.Title) ? item.Href : item.Title,
                 Pinned = true,
 
-                // 메뉴에 없는 화면이었다는 사실도 함께 적어 두었다. 안 그러면
-                // 되살린 탭에서만 즐겨찾기 항목이 되살아난다.
+                // 메뉴에 없는 화면이었다는 사실도 함께 적어 둔다 — 안 그러면 되살린 탭에서만 즐겨찾기 항목이 되살아난다.
                 Standalone = item.Standalone,
                 LastSeen = DateTime.UtcNow,
             });
@@ -279,8 +190,7 @@ public sealed class PortalTabs
 
         Changed?.Invoke();
 
-        // 건너뛴 것은 저장본에서도 뺀다. 남겨 두면 새로고침마다 다시 걸러야 하고,
-        // 다른 고정을 바꾸는 순간에야 빠져 저장본과 화면이 한동안 어긋난다.
+        // 건너뛴 것은 저장본에서도 뺀다 — 남기면 새로고침마다 다시 거르고 저장본과 화면이 어긋난다.
         if (skipped)
         {
             PinsChanged?.Invoke();
@@ -297,19 +207,11 @@ public sealed class PortalTabs
         return AfterBulkClose();
     }
 
-    /// <summary>
-    /// 이 탭의 <b>왼쪽</b> 탭들을 닫는다. 고정한 탭은 남는다.
-    ///
-    /// <para>
-    /// 「다른 탭 닫기」와 따로 두는 이유는 쓰는 방식이 다르기 때문이다 —
-    /// 왼쪽은 이미 지나온 화면이고 오른쪽은 방금 벌여 둔 화면이다.
-    /// 하나로 뭉개면 둘 중 하나는 늘 아까운 것을 함께 닫는다.
-    /// </para>
-    /// </summary>
+    /// <summary>이 탭의 왼쪽 탭들을 닫는다. 고정한 탭은 남는다. 「다른 탭 닫기」와 따로 두는 것은 왼쪽은 지나온 화면이고 오른쪽은 방금 벌인 화면이라 쓰는 방식이 다르기 때문이다.</summary>
     /// <returns>옮겨 갈 주소. 보고 있던 탭이 닫혔을 때만 값이 있다.</returns>
     public string? CloseLeft(string href) => CloseSide(href, left: true);
 
-    /// <summary>이 탭의 <b>오른쪽</b> 탭들을 닫는다. 고정한 탭은 남는다.</summary>
+    /// <summary>이 탭의 오른쪽 탭들을 닫는다. 고정한 탭은 남는다.</summary>
     /// <returns>옮겨 갈 주소. 보고 있던 탭이 닫혔을 때만 값이 있다.</returns>
     public string? CloseRight(string href) => CloseSide(href, left: false);
 
@@ -339,14 +241,7 @@ public sealed class PortalTabs
         return AfterBulkClose();
     }
 
-    /// <summary>
-    /// 여럿을 닫은 뒤 보고 있던 탭이 사라졌는지 본다.
-    ///
-    /// <para>
-    /// 사라졌으면 옮겨 갈 주소를 돌려준다. 안 옮기면 주소는 그대로인데 그
-    /// 탭만 없는 상태가 되어, 탭 줄과 화면이 어긋난 채로 남는다.
-    /// </para>
-    /// </summary>
+    /// <summary>여럿을 닫은 뒤 보고 있던 탭이 사라졌는지 본다. 사라졌으면 옮겨 갈 주소를 돌려준다 — 안 옮기면 탭 줄과 화면이 어긋난다.</summary>
     private string? AfterBulkClose()
     {
         if (_tabs.Any(t => Same(t.Href, ActiveHref)))
@@ -401,22 +296,10 @@ public sealed class PortalTabs
         string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
 }
 
-/// <summary>
-/// 브라우저에 적어 두는 고정 탭 한 줄.
-///
-/// <para>
-/// 이름까지 함께 적는 이유는 되살릴 때 메뉴가 아직 안 와 있기 때문이다.
-/// 이름이 없으면 새로고침 직후 탭에 주소가 그대로 보였다가 메뉴가 도착하면
-/// 제목으로 바뀐다.
-/// </para>
-/// </summary>
+/// <summary>브라우저에 적어 두는 고정 탭 한 줄. 이름까지 적는 것은 되살릴 때 메뉴가 아직 안 와 있기 때문이다.</summary>
 /// <param name="Href">탭의 신원인 전체 경로.</param>
 /// <param name="Title">탭에 보일 이름.</param>
-/// <param name="Standalone">
-/// 메뉴에 없는 화면인가(<see cref="PortalTab.Standalone"/>). 예전에 적어 둔
-/// 값에는 이 칸이 없다 — 그때는 거짓이고, 그 시절 고정할 수 있던 탭은 전부
-/// 메뉴 화면이었으므로 맞는 값이다.
-/// </param>
+/// <param name="Standalone">메뉴에 없는 화면인가. 예전에 적어 둔 값에는 이 칸이 없으므로 거짓이 기본이다 — 그때 고정할 수 있던 탭은 전부 메뉴 화면이었다.</param>
 public sealed record PinnedTab(string Href, string Title, bool Standalone = false);
 
 /// <summary>열어 둔 화면 하나.</summary>
@@ -431,23 +314,7 @@ public sealed class PortalTab
     /// <summary>고정했는가. 고정한 탭은 닫기에서 살아남는다.</summary>
     public bool Pinned { get; set; }
 
-    /// <summary>
-    /// <b>메뉴에 없는 화면인가.</b> 자료 번호가 주소에 들어가는 화면
-    /// (<c>/projmng/ai/task/1234</c>)이 그렇다 — 메뉴는 그런 주소를 가리킬 수
-    /// 없어서 DB 메뉴 표에 자리가 없다.
-    ///
-    /// <para>
-    /// 탭 줄이 이 값을 보고 <b>메뉴에 딸린 항목을 감춘다</b>(즐겨찾기).
-    /// 즐겨찾기는 DB 메뉴 경로를 열쇠로 쌓이는데(<c>MenuFavorites</c>),
-    /// 그 표에 없는 주소를 담으면 <b>사이드바에서 영영 못 푸는 줄</b>이
-    /// 하나 남는다.
-    /// </para>
-    ///
-    /// <para>
-    /// 고정은 그대로 둔다 — 그건 메뉴가 아니라 <b>탭</b>의 성질이고, 보던
-    /// 지시를 새로고침 뒤에도 열어 두는 것은 말이 된다.
-    /// </para>
-    /// </summary>
+    /// <summary>메뉴에 없는 화면인가 — 자료 번호가 주소에 들어가는 화면(/projmng/ai/task/1234)이 그렇다. 탭 줄은 이 값이 참이면 메뉴에 딸린 즐겨찾기 항목을 감춘다 — 즐겨찾기는 메뉴 경로를 열쇠로 쌓이므로 표에 없는 주소를 담으면 사이드바에서 영영 못 푸는 줄이 생긴다. 고정은 그대로 둔다(탭의 성질이다).</summary>
     public bool Standalone { get; init; }
 
     /// <summary>마지막으로 본 때. 상한을 넘었을 때 무엇을 닫을지 고르는 데 쓴다.</summary>

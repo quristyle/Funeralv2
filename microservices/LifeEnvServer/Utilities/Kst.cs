@@ -1,11 +1,7 @@
 namespace LifeEnvServer.Utilities;
 
 /// <summary>
-/// 한국 표준시 도우미.
-///
-/// 원본(GHUB)은 서버 TZ 에 의존하는 DateTime.Now 와 +9/-9 시간 보정이 섞여 있어
-/// 배포 환경에 따라 기상청 발표 차수가 어긋났다. 이식하면서 규칙을 하나로 한다:
-/// **저장은 전부 UTC(DateTimeOffset), 기상청 요청 문자열을 만들 때만 KST 로 변환.**
+/// 한국 표준시 도우미. 저장은 전부 UTC(DateTimeOffset)이고, 기상청 요청 문자열을 만들 때만 KST 로 바꾼다.
 /// </summary>
 public static class Kst
 {

@@ -5,14 +5,10 @@ using HelpDeskServer.Data;
 
 namespace HelpDeskServer.Endpoints;
 
-/// <summary>
-/// 첨부파일 관련 엔드포인트
-/// </summary>
+/// <summary>첨부파일 관련 엔드포인트</summary>
 public static class AttachmentEndpoints
 {
-    /// <summary>
-    /// 첨부파일 관련 엔드포인트를 애플리케이션에 매핑합니다.
-    /// </summary>
+    /// <summary>첨부파일 관련 엔드포인트를 애플리케이션에 매핑합니다.</summary>
     public static void MapAttachmentEndpoints(this IEndpointRouteBuilder routes)
     {
         var group = routes.MapGroup("/api/attachments");
@@ -47,7 +43,7 @@ public static class AttachmentEndpoints
         // 옮긴 첨부(fileid 가 있는 것)는 FileServer 로 넘긴다. 파일을 이 서비스가
         // 들고 있지 않으므로 스트림을 읽을 수도 없다.
         //
-        // 아직 옮기지 않은 행은 예전처럼 로컬 경로에서 읽는다. 37건을 옮기는 일은
+        // 아직 옮기지 않은 행은 로컬 경로에서 읽는다. 옮기는 일은
         // 배포 장비에서 도구를 돌려야 하므로(파일 바이트가 그 장비에만 있다),
         // 옮기기 전에 이 경로를 끊으면 기존 첨부를 못 받는다.
         //

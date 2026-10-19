@@ -2,60 +2,19 @@
 @attribute [RouteKey("admin.status.blocked-access")]
 
 @*
-    [차단 접근기록] — DB 메뉴 `/admin/status/blocked-access`.
-
-    **상태관리 묶음에 둔다.** 바로 위가 「메뉴 사용기록」이다 — 그쪽이 **열린**
-    화면을 적고 이쪽이 **막힌** 화면을 적는다. 둘은 한 짝이라 한 자리에 있어야
-    나란히 읽힌다.
-
-    ────────────────────────────────────────────────────────────
-    [무엇에 답하는 화면인가]
-
-    물음이 둘인데 **할 일이 아주 다르다.** 그래서 「까닭」 칸이 이 화면에서
-    가장 중요한 칸이다.
-
-    | 까닭 | 무슨 일인가 | 할 일 |
-    |---|---|---|
-    | **권한 없음** | 메뉴는 있는데 그 역할에 열람이 꺼져 있다 | 메뉴 권한에서 체크 하나 |
-    | **관리 밖** | 가리킬 메뉴가 아예 없다 | 메뉴로 등록하거나 화면이 `[ScreenAccess]` 로 부모를 가리켜야 한다 |
-
-    뒤엣것은 **권한을 아무리 줘도 안 열린다.** 한 칸에 뭉뚱그리면 관리자가
-    권한을 주고 나서 「줬는데 왜 안 되지」로 되돌아온다.
-
-    ────────────────────────────────────────────────────────────
-    [서버 로그로는 알 수 없었다]
-
-    포털은 한 회로 안에서 라우팅만 바뀐다. 주소를 쳐서 들어와도 **HTTP 요청이
-    한 건도 나가지 않으므로** 접근 로그에는 로그인 한 번과 WebSocket 하나뿐이다.
-    막혔다는 사실을 아는 자리는 라우터 앞의 문 하나뿐이고(`ScreenGate`),
-    거기서 한 줄씩 적어 보낸다 — 이 화면은 그 줄들을 읽는다.
-
-    **쌓기 시작한 날(2026-10-13) 이전의 값은 없다.** 그 앞의 기간을 고르면
-    빈 목록이고, 그것은 고장이 아니다.
-
-    ────────────────────────────────────────────────────────────
-    [보기 셋 — 같은 자료에 묻는 물음이 셋이다]
-
-    | 보기 | 답하는 물음 |
-    |---|---|
-    | 화면별 | **어떤 화면이 권한관리 밖인가** — 이 표가 있는 까닭 그 자체다 |
-    | 사용자별 | 누가 자꾸 막히나 (권한이 모자란 사람이 여기 선다) |
-    | 기록 | 누가 **어떤 주소**를 언제 열려 했나 |
-
-    매개변수가 든 **실제 주소**(`/admin/system/account/jupark/app`)는 기록
-    보기에만 있다. 화면별은 열쇠로 묶으므로 「누구의 것을 보려 했나」가
-    거기서는 사라진다 — 그 물음에 답해야 할 때는 기록으로 간다.
+    [차단 접근기록] 권한관리 밖의 주소로 막힌 기록을 본다 — DB 메뉴 `/admin/status/blocked-access`. 바로 위 메뉴 사용기록과 짝이다.
+    까닭은 둘이다. 권한 없음(메뉴는 있는데 열람이 꺼짐 — 권한을 주면 열린다)과 관리 밖(가리킬 메뉴가 없음 — 권한을 줘도 안 열린다). 한 칸에 뭉치면 할 일이 갈린다.
+    쌓기 시작한 날 이전 값은 없다. 막혔다는 사실은 라우터 앞의 ScreenGate 가 한 줄씩 보낸다. 화면별 보기는 열쇠로 묶어 실제 주소가 사라지므로 그 물음은 기록 보기로 간다.
 *@
 
 @inherits DataPage
 
-<PageTitle>차단 접근기록 · 포털관리</PageTitle>
+<PageTitle>차단 접근기록</PageTitle>
 
 <CommSch OnSearch="@ReloadAsync" OnReset="@Reset" Busy="@Loading" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="기간">
-            @* 기본은 최근 7일이다. 이 화면을 여는 까닭이 대개 「요즘 누가 어디서
-               막히나」라서, 처음부터 전부 더해 보여 줄 값이 없다. *@
+            @* 기본은 최근 7일이다 — 요즘 무엇이 막히나를 보려고 여는 화면이라 처음부터 전부 더해 보이지 않는다. *@
             <div class="ad-checks">
                 <DxDateEdit @bind-Date="_from" CssClass="ad-editform__date" />
                 <span class="jsini-text-muted">~</span>
@@ -71,8 +30,7 @@
         </CommSchItem>
 
         <CommSchItem Label="까닭">
-            @* **이 화면에서 가장 자주 쓰는 조건이다.** 「관리 밖」만 걸러 보면
-               손볼 화면 목록이 그대로 나온다. *@
+            @* 이 화면에서 가장 자주 쓰는 조건이다 — 관리 밖만 걸면 손볼 화면 목록이 그대로 나온다. *@
             <DxComboBox Data="@ReasonOptions" Value="@_reason"
                         ValueChanged="@((string? v) => PickReasonAsync(v))"
                         ValueExpression="@(() => _reason)"
@@ -82,8 +40,7 @@
         </CommSchItem>
 
         <CommSchItem Label="사용자">
-            @* **목록은 조회해 온 자료에서 만든다.** 계정 전체를 싣지 않는 까닭은
-               막힌 적 없는 사람을 고르면 늘 빈 목록이기 때문이다. *@
+            @* 목록은 조회해 온 자료에서 만든다 — 막힌 적 없는 사람을 고르면 늘 빈 목록이기 때문이다. *@
             <DxComboBox Data="@_users" Value="@PickedUser"
                         ValueChanged="@((BlockedAccessByUserDto? u) => PickUserAsync(u))"
                         ValueExpression="@(() => PickedUser)"
@@ -100,11 +57,7 @@
     </Fields>
 </CommSch>
 
-@* 타일 넷. **표가 답하지 않는 것만 올린다** — 보기마다 표가 바뀌는데
-   「이 기간이 통틀어 얼마인가」는 어느 표에도 없다.
-
-   「관리 밖」을 제 타일로 세운 까닭은 그것이 **사람이 손봐야 하는 수**이기
-   때문이다. 나머지 셋은 상태를 말하고 이 하나는 할 일을 말한다. *@
+@* 타일 넷. 표가 답하지 않는 「이 기간이 통틀어 얼마인가」를 올린다. 「관리 밖」을 제 타일로 세운 까닭은 사람이 손봐야 하는 수라서다 — 나머지 셋은 상태를, 이 하나는 할 일을 말한다. *@
 <div class="jsini-stats">
     <div class="jsini-stat">
         <div class="jsini-stat__label">차단</div>
@@ -126,8 +79,7 @@
     </div>
 </div>
 
-@* **잘렸다는 사실은 판 밖에서 말한다.** 말 없이 자르면 「이 기간에 그만큼
-   뿐」으로 읽힌다. *@
+@* 잘렸다는 사실은 판 밖에서 말한다 — 말 없이 자르면 「이 기간에 그만큼뿐」으로 읽힌다. *@
 @if (Truncated is { } cut)
 {
     <PageNotice Tone="NoticeTone.Info"
@@ -189,8 +141,7 @@
 
                 <DxGridDataColumn Caption="마지막" Width="130">
                     <CellDisplayTemplate Context="cell">
-                        @* 서버가 주는 값은 UTC 다. 한국 시각은 **보여 주기 직전에
-                           한 번만** 만든다(docs/utc-time.md). *@
+                        @* 서버가 주는 값은 UTC 다 — 한국 시각은 보여 주기 직전에 한 번만 만든다(docs/utc-time.md). *@
                         @(((BlockedAccessByScreenDto)cell.DataItem).LastBlockedAt.Kst("MM-dd HH:mm"))
                     </CellDisplayTemplate>
                 </DxGridDataColumn>
@@ -227,8 +178,7 @@
                 <DxGridDataColumn FieldName="@nameof(BlockedAccessByUserDto.Blocks)"
                                   Caption="차단" Width="90" DisplayFormat="N0" />
 
-                @* 건수 옆에 화면 수가 있어야 한다 — 「한 화면을 백 번 두드린
-                   사람」과 「백 군데서 막힌 사람」은 건수만으로는 같아 보인다. *@
+                @* 건수 옆에 화면 수가 있어야 한다 — 「한 화면을 백 번 누른 사람」과 「백 군데서 막힌 사람」은 건수만으로는 같아 보인다. *@
                 <DxGridDataColumn FieldName="@nameof(BlockedAccessByUserDto.Screens)"
                                   Caption="화면" Width="80" DisplayFormat="N0" />
 
@@ -291,8 +241,7 @@
                 <DxGridDataColumn FieldName="@nameof(BlockedAccessDto.DepartmentName)"
                                   Caption="부서" Width="110" TextAlignment="GridTextAlignment.Left" />
 
-                @* **매개변수가 든 실제 주소.** 「누구의 것을 보려 했나」가 이
-                   칸에만 남는다 — 화면별 보기는 열쇠로 묶어서 여기가 사라진다. *@
+                @* 매개변수가 든 실제 주소. 「누구의 것을 보려 했나」에 답하는 칸이라 기록 보기에만 남는다. *@
                 <DxGridDataColumn FieldName="@nameof(BlockedAccessDto.Href)" Caption="주소"
                                   MinWidth="220" TextAlignment="GridTextAlignment.Left" />
 
@@ -308,8 +257,7 @@
                 <DxGridDataColumn FieldName="@nameof(BlockedAccessDto.Screen)" Caption="화면"
                                   MinWidth="160" TextAlignment="GridTextAlignment.Left" />
 
-                @* 「어디서 왔나」. 주소만 보면 알 수 없는 것이 **길**이라,
-                   기록 줄에 앞 화면을 함께 적어 둔다. *@
+                @* 어디서 왔나 — 주소만 보면 알 수 없는 길이라 기록 줄에 앞 화면을 함께 적는다. *@
                 <DxGridDataColumn Caption="앞 화면" MinWidth="140"
                                   TextAlignment="GridTextAlignment.Left">
                     <CellDisplayTemplate Context="cell">
@@ -327,9 +275,7 @@
                     </CellDisplayTemplate>
                 </DxGridDataColumn>
 
-                @* 위조할 수 있는 값이라 **보여 주기 전용이다**(ClientAddress 머리말).
-                   그래도 적어 두는 것은 「같은 사람인가 같은 자리인가」를 가르는
-                   데 쓰이기 때문이다. *@
+                @* 위조할 수 있는 값이라 보여 주기 전용이다 — 그래도 적어 두는 것은 같은 사람인가 같은 자리인가를 가르는 데 쓰이기 때문이다. *@
                 <DxGridDataColumn FieldName="@nameof(BlockedAccessDto.ClientIp)" Caption="접속지"
                                   Width="130" TextAlignment="GridTextAlignment.Left" />
             </Columns>

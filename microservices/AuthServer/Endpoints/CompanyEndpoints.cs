@@ -16,10 +16,7 @@ public static class CompanyEndpoints
                        .AddApiResponseWrapper();
 
         // 회사 전체 목록 조회
-        //
-        // `usageLocation` 을 주면 그 사용처(COMPANY_USAGE_LOCATION)에 배정된 회사만 준다.
-        // 장례식장 관리시스템 화면들이 FUNERAL_HOME_MANAGEMENT_SYSTEM 으로 좁혀 쓴다.
-        // 안 주면 예전처럼 전부 준다 — 회사 관리 화면이 그대로 동작해야 한다.
+        // usageLocation 을 주면 그 사용처에 배정된 회사만 준다 — 장례식장 시스템 화면이 좁혀 쓴다. 안 주면 전부 준다.
         group.MapGet("/", async ([FromQuery] string? usageLocation, ICompanyService companyService) =>
         {
             var companies = await companyService.GetAllCompaniesAsync(usageLocation);
@@ -60,12 +57,8 @@ public static class CompanyEndpoints
         .WithName("AssignUsersToCompany");
 
         // 회사 차례 다시 매기기
-        //
-        // **`/{id}` 보다 먼저 적는다.** 라우팅은 리터럴이 매개변수를 이기므로
-        // 순서와 무관하게 여기로 오지만, 읽는 사람에게는 위에 있는 편이 낫다.
-        //
-        // 화면이 **보이는 줄 전부**를 순서대로 싣는다. 까닭은
-        // `ICompanyService.ReorderCompaniesAsync` 머리말에 있다.
+        // **/{id} 보다 먼저 적는다.** 리터럴이 매개변수를 이겨 순서와 무관하지만 읽는 사람에게는 위가 낫다.
+        // 화면이 보이는 줄 전부를 순서대로 싣는다(ICompanyService.ReorderCompaniesAsync 머리말).
         group.MapPost("/reorder", async ([FromBody] List<string> orderedIds, ICompanyService companyService) =>
         {
             var success = await companyService.ReorderCompaniesAsync(orderedIds);

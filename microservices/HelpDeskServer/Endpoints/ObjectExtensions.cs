@@ -5,14 +5,10 @@ using System.Text.Json.Serialization;
 
 namespace HelpDeskServer.Helpers;
 
-/// <summary> 
-/// 객체 관련 확장 메서드 
-/// </summary> 
+/// <summary>객체 관련 확장 메서드</summary>
 public static class ObjectExtensions
 {
-    /// <summary>
-    /// 객체를 ExpandoObject로 변환하고, Enum 속성에 대해서는 '...Name' 속성을 추가합니다.
-    /// </summary>
+    /// <summary>객체를 ExpandoObject로 변환하고, Enum 속성에 대해서는 '...Name' 속성을 추가합니다.</summary>
     /// <param name="source">변환할 소스 객체</param>
     /// <returns>변환된 ExpandoObject</returns>
     public static dynamic? ToExpandoWithEnumNames(this object source)

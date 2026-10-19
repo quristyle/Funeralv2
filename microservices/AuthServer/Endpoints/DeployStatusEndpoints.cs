@@ -5,25 +5,9 @@ using JSini.Shared.DTOs;
 
 namespace AuthServer.Endpoints;
 
-/// <summary>
-/// 배포 현황 엔드포인트 — 상태관리 &gt; 배포 현황 화면이 쓴다.
-/// </summary>
-/// <remarks>
-/// GitHub Actions(빌드·배포 이력, 러너)와 운영서버 Docker(떠 있는 컨테이너와
-/// 이미지 태그)를 한 번에 모아 준다. 화면이 GitHub 를 직접 부르지 않는 이유:
-/// 토큰이 브라우저에 노출되기 때문이다. 토큰은 appsettings.Local.json 의
-/// <c>DeployStatus:GithubToken</c> 에만 있고 여기서만 쓴다.
-///
-/// Docker 는 유닉스 소켓(/var/run/docker.sock, 컨테이너에 읽기 전용 마운트)으로
-/// 엔진 API 를 부른다. 소켓이 없으면(개발 장비 등) docker.available=false 로
-/// 조용히 빠진다 — 화면은 GitHub 부분만 보여 주면 된다.
-///
-/// 이미지 정리(POST /cleanup)는 배포가 거듭될수록 옛 태그가 쌓여 디스크를
-/// 차지하는 것을 걷어낸다 — funeralv2-* 저장소마다 사용 중 + 최근 2개만 남긴다.
-/// 관리자 계열(ADMINISTRATOR·SYSTEM_ADMINISTRATOR)만 부를 수 있다.
-///
-/// 게이트웨이의 /api/auth/** 는 Anonymous 라 UserContext 가 없으면 401 을 준다.
-/// </remarks>
+/// <summary>배포 현황 엔드포인트 — 상태관리 &gt; 배포 현황 화면이 쓴다.</summary>
+/// GitHub Actions 이력과 운영 Docker 컨테이너·이미지 태그를 한 번에 모은다. GitHub 토큰은 서버에만 있어 브라우저에 새지 않는다.
+/// Docker 소켓이 없으면 docker.available=false 로 조용히 빠지고, 이미지 정리(POST /cleanup)는 관리자 계열만 부를 수 있다.
 public static class DeployStatusEndpoints
 {
     /// <summary>저장소별로 남겨 둘 최근 태그 수 (사용 중 태그는 별도로 항상 남는다). 롤백 여지다.</summary>
@@ -56,9 +40,7 @@ public static class DeployStatusEndpoints
         });
 
         // ── 컨테이너 로그 ───────────────────────────────────
-        //
-        // 컨테이너에 들어가지 않고 화면에서 로그를 본다. 로그에는 내부 정보가
-        // 섞일 수 있으므로 정리와 같은 관리자 계열 판정을 쓴다.
+        // 로그에는 내부 정보가 섞일 수 있어 정리와 같은 관리자 계열 판정을 쓴다.
         group.MapGet("/logs/{service}", async (string service,
             UserContext? user,
             HttpContext http,
@@ -111,9 +93,7 @@ public static class DeployStatusEndpoints
             if (!File.Exists(socketPath))
                 return Results.Json(ApiResponse<object>.Fail("이 환경에는 Docker 소켓이 없습니다.", "400"), statusCode: 400);
 
-            // `?dryRun=true` 면 지우지 않고 지울 목록만 준다. 화면이 확인 창에
-            // 그대로 띄운다 — 무엇이 사라지는지 보여 주지 않고 되돌릴 수 없는
-            // 단추를 누르게 하지 않는다.
+            // dryRun=true 면 지우지 않고 지울 목록만 준다. 화면이 이 목록으로 확인 창을 띄운다.
             var dryRun = string.Equals(http.Request.Query["dryRun"], "true", StringComparison.OrdinalIgnoreCase);
 
             try
@@ -157,11 +137,7 @@ public static class DeployStatusEndpoints
         return null;
     }
 
-    /// <summary>
-    /// TTY 없이 띄운 컨테이너의 로그는 8바이트 헤더(스트림 종류 1 + 예약 3 + 길이 4)
-    /// 프레임으로 stdout/stderr 가 섞여 온다. 헤더를 걷어내고 본문만 잇는다.
-    /// TTY 로그(헤더 없음)면 그대로 돌려준다.
-    /// </summary>
+    /// <summary>TTY 없이 띄운 컨테이너 로그의 8바이트 헤더 프레임을 걷어내고 본문만 잇는다. TTY 로그는 그대로 돌려준다.</summary>
     private static string DemuxDockerLogs(byte[] buf)
     {
         if (buf.Length == 0) return "";
@@ -341,20 +317,9 @@ public static class DeployStatusEndpoints
         return (images, totalBytes / (1024 * 1024));
     }
 
-    /// <summary>
-    /// funeralv2-* 저장소마다 사용 중 태그 + 최근 <see cref="KeepRecentTags"/>개만 남기고
-    /// 지운 뒤, 이름 없는(dangling) 레이어를 정리한다.
-    /// </summary>
+    /// <summary>funeralv2-* 저장소마다 사용 중 태그와 최근 KeepRecentTags 개만 남기고 지운 뒤, 이름 없는 레이어를 정리한다.</summary>
     /// <param name="socketPath">도커 소켓 경로</param>
-    /// <param name="dryRun">
-    /// 참이면 <b>지우지 않고 지울 목록만</b> 돌려준다.
-    ///
-    /// 화면이 「무엇이 지워지는지」를 먼저 보여 주고 확인받기 위한 것이다.
-    /// 그 목록을 화면이 스스로 계산하게 두지 않는 이유: 그러면 「무엇을 남길지」
-    /// 규칙이 서버와 화면 두 곳에 생기고, 한쪽만 고치는 날 <b>확인 창에 보여 준
-    /// 것과 실제로 지워지는 것이 달라진다.</b> 되돌릴 수 없는 동작에서 그 어긋남은
-    /// 그냥 사고다.
-    /// </param>
+    /// <param name="dryRun">참이면 지우지 않고 지울 목록만 돌려준다. 목록은 서버가 만들어야 확인 창과 실제 삭제가 어긋나지 않는다.</param>
     /// <param name="ct">취소 토큰</param>
     private static async Task<object> CleanupImagesAsync(string socketPath, bool dryRun, CancellationToken ct)
     {

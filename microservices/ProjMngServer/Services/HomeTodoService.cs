@@ -5,47 +5,7 @@ using ProjMngServer.Models;
 
 namespace ProjMngServer.Services;
 
-/// <summary>
-/// 할 일 — <c>projmng.home_todo</c>. <b>프로시저를 쓰지 않는다.</b>
-/// </summary>
-/// <remarks>
-/// <para>
-/// 옛 길은 셋이었다 — <c>sp_home_todo_exec</c>(조회·등록·수정·삭제) ·
-/// <c>sp_home_todo_make</c>(오늘 것 만들기) · <c>sp_home_todo_pay</c>(적립).
-/// </para>
-///
-/// <para>
-/// [고친 것 — 완료 여부가 등록과 수정에서 서로 달랐다]
-/// </para>
-///
-/// <para>
-/// insert 는 <c>p_is_complete = 'Y'</c> 를 보고, update 와 조회 조건은
-/// <c>= 'True'</c> 를 본다. 화면은 불리언을 보내므로 <c>True</c> 가 가는데,
-/// <b>등록에서는 그 값이 'Y' 가 아니라서 늘 「미완료」로 들어갔다.</b>
-/// 완료 상태로 등록하는 길이 아예 없었던 셈이다. 이제 불리언 하나다.
-/// </para>
-///
-/// <para>
-/// 그리고 <b>등록에서 <c>todo_state</c> 를 안 받았다</b>(수정에서만 받는다).
-/// 새 할 일은 늘 상태가 비어 있었다.
-/// </para>
-///
-/// <para>
-/// [「오늘 것 만들기」의 사람 둘이 프로시저에 박혀 있었다]
-/// </para>
-///
-/// <para>
-/// <c>sp_home_todo_make</c> 가 <c>'jjstyle'</c> 과 <c>'hsstyle'</c> 을 코드에
-/// 적어 두고 두 사람 몫을 만든다. 사람이 바뀌면 <b>프로시저를 고쳐야</b> 했다.
-/// 여기서는 <b>대상을 받아서</b> 만든다 — 화면이 누구 것을 만들지 정한다.
-/// </para>
-///
-/// <para>
-/// 무엇을 만드는지는 그대로다 — 공통코드 <c>HOMEWORK</c> 중 <c>cm_val2</c> 가
-/// <c>R</c>·<c>M</c> 인 것. 그 값이 곧 상태(<c>todo_state</c>)가 되고
-/// <c>cm_val</c> 이 금액이 된다.
-/// </para>
-/// </remarks>
+/// <summary>할 일(<c>projmng.home_todo</c>). <b>프로시저를 쓰지 않는다.</b></summary>
 public sealed class HomeTodoService(IConfiguration configuration)
 {
     private readonly string _connectionString =
@@ -72,9 +32,7 @@ public sealed class HomeTodoService(IConfiguration configuration)
         b.cm_nm       AS TodoStateName
         """;
 
-    /// <summary>
-    /// 할 일 목록. 준 조건만 걸린다 — 옛 프로시저의 <c>nvl(…) = ''</c> 묶음과 같은 뜻이다.
-    /// </summary>
+    /// <summary>할 일 목록. 준 조건만 걸린다.</summary>
     public async Task<List<HomeTodo>> ListAsync(
         string? targetUser = null, string? todoState = null,
         bool? isComplete = null, DateOnly? targetDay = null, long? todoKey = null)
@@ -172,21 +130,7 @@ public sealed class HomeTodoService(IConfiguration configuration)
         return affected > 0;
     }
 
-    /// <summary>
-    /// 그 날짜의 되풀이 할 일을 만든다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 공통코드 <c>HOMEWORK</c> 중 <c>cm_val2</c> 가 <c>R</c>·<c>M</c> 인 것을
-    /// 사람마다 한 벌씩 넣는다. <b>사람을 받아서 만든다</b> — 옛 프로시저는
-    /// 두 사람을 코드에 박아 두었다(머리말).
-    /// </para>
-    ///
-    /// <para>
-    /// <b>이미 만든 날은 다시 만들지 않는다.</b> 옛 것은 검사가 없어 두 번
-    /// 누르면 같은 할 일이 두 벌 생겼다.
-    /// </para>
-    /// </remarks>
+    /// <summary>그 날짜의 되풀이 할 일을 만든다. 공통코드 HOMEWORK 중 cm_val2 가 R·M 인 것을 사람마다 한 벌씩 넣는다 — 사람을 받아서 만든다.</summary>
     public async Task<int> MakeAsync(DateOnly targetDay, IReadOnlyList<string> users)
     {
         using var db = Open();

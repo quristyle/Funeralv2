@@ -20,10 +20,7 @@ public partial class ServerStatus
     private DateTime? _readAt;
     private AiProviderStatusDto? _ai;
 
-    /// <summary>
-    /// 소셜 로그인 설정 상태. AI 제공자와 같은 까닭으로 따로 본다 —
-    /// <b>열쇠가 없으면 가입 화면에 단추가 안 서는데 헬스체크는 전부 초록이다.</b>
-    /// </summary>
+    /// <summary>소셜 로그인 설정 상태. 열쇠가 없으면 가입 화면에 단추가 안 서는데 헬스체크는 초록이라 따로 본다.</summary>
     private SocialConfigStatusDto? _social;
     private IReadOnlyList<AiProviderModelsDto> _models = [];
 
@@ -43,15 +40,7 @@ public partial class ServerStatus
     /// <summary>미리보기·지우기가 도는 중. 같은 단추를 두 번 누르는 것을 막는다.</summary>
     private bool _cleaning;
 
-    /// <summary>
-    /// 공급자 콘솔에 등록할 콜백 주소를 완성한다.
-    /// </summary>
-    /// <remarks>
-    /// origin 을 <b>화면이 붙인다</b> — AuthServer 는 게이트웨이 뒤라 포털의 바깥
-    /// 주소를 모르고, 그래서 경로만 보내 준다(<c>SocialProviderConfigDto.CallbackPath</c>).
-    /// 지금 보고 있는 주소를 그대로 쓰므로 <c>SocialLoginFlow.CallbackUri</c> 가
-    /// 실제로 만드는 값과 같아진다.
-    /// </remarks>
+    /// <summary>공급자 콘솔에 등록할 콜백 주소를 완성한다. origin 은 화면이 붙인다 — AuthServer 는 게이트웨이 뒤라 바깥 주소를 모른다.</summary>
     private string CallbackUrl(SocialProviderConfigDto p) =>
         $"{new Uri(Navigation.BaseUri).GetLeftPart(UriPartial.Authority)}{p.CallbackPath}";
 
@@ -80,15 +69,7 @@ public partial class ServerStatus
         StartAutoRefresh();
     }
 
-    /// <summary>
-    /// 자동 조회.
-    ///
-    /// <para>
-    /// <b>정밀 확인(`ai/health/deep`)은 부르지 않는다</b> — 유료 제공자에게
-    /// 실제 요청을 보내는 것이라 10초마다 돌면 돈이 나간다. 그것은 사람이
-    /// 누를 때만 한다. 옛 화면도 자동 갱신에서는 목록만 다시 읽었다.
-    /// </para>
-    /// </summary>
+    /// <summary>자동 조회. 정밀 확인(ai/health/deep)은 부르지 않는다 — 유료 제공자에게 실제 요청을 보내므로 사람이 누를 때만 한다.</summary>
     protected override async Task RefreshAsync()
     {
         await LoadGatewayAsync();
@@ -99,8 +80,7 @@ public partial class ServerStatus
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        // 둘 중 하나가 실패해도 나머지는 보여 준다. 서버 상태를 보러 온
-        // 사람에게 「둘 다 못 읽었습니다」는 쓸모가 없다.
+        // 둘 중 하나가 실패해도 나머지는 보여 준다.
         await LoadGatewayAsync();
         _ai = await SafeAsync(Api.GetAiProvidersAsync, null);
         _models = await SafeAsync(Api.GetAiModelsAsync, []);
@@ -110,12 +90,7 @@ public partial class ServerStatus
         return _services.Count + Containers.Count;
     }, "상태 정보를 받지 못했습니다.", "서버 상태를 읽지 못했습니다");
 
-    /// <summary>
-    /// 「지울 목록만」 먼저 물어보고 확인 창을 연다 (D17).
-    ///
-    /// 목록이 비어도 창은 연다 — 눌렀는데 아무 일도 일어나지 않으면 고장으로
-    /// 읽힌다. 「지울 것이 없습니다」도 답이다.
-    /// </summary>
+    /// <summary>「지울 목록만」 먼저 물어보고 확인 창을 연다. 목록이 비어도 창은 연다 — 「지울 것이 없습니다」도 답이다.</summary>
     private async Task PreviewCleanupAsync()
     {
         if (_cleaning) return;
@@ -131,8 +106,7 @@ public partial class ServerStatus
 
             if (ok)
             {
-                // RunAsync 가 성공 문구를 남기는데, 여기서는 창이 곧 답이라
-                // 안내 줄을 비운다.
+                // 창이 곧 답이라 안내 줄을 비운다.
                 Say(null);
                 _confirmVisible = true;
             }
@@ -143,12 +117,7 @@ public partial class ServerStatus
         }
     }
 
-    /// <summary>
-    /// 실제로 지운다. <b>여기부터는 되돌릴 수 없다.</b>
-    ///
-    /// 끝나면 상태를 다시 읽는다 — 「쌓인 이미지」 표가 줄어든 것이 보여야
-    /// 정말 지워졌는지 알 수 있다.
-    /// </summary>
+    /// <summary>실제로 지운다. 여기부터는 되돌릴 수 없다. 끝나면 상태를 다시 읽어 표가 줄었는지 보여 준다.</summary>
     private async Task RunCleanupAsync()
     {
         if (_cleaning) return;
@@ -164,16 +133,12 @@ public partial class ServerStatus
 
             _confirmVisible = false;
 
-            // **다시 읽는 것이 먼저다.** ReloadAsync 는 시작할 때 안내 줄을
-            // 비우므로, 결과를 먼저 적으면 그 자리에서 지워진다. 표가 줄어든
-            // 것을 보여 준 다음 무엇을 했는지 말한다.
+            // 다시 읽는 것이 먼저다 — ReloadAsync 가 안내 줄을 비우므로 결과는 그 뒤에 적는다.
             await ReloadAsync();
 
             if (ok && result is not null)
             {
-                // 일부만 지워지는 일이 있다(다른 태그가 같은 레이어를 잡고 있는
-                // 경우 등). 「정리했습니다」로 뭉뚱그리면 표가 안 줄어든 이유를
-                // 알 수 없으므로 실패 건수를 함께 말한다.
+                // 일부만 지워지는 일이 있어 실패 건수를 함께 말한다.
                 var message = $"이미지 {result.Removed.Count}개를 지웠습니다 ({result.SpaceReclaimedMb} MB 회수).";
                 if (result.Errors.Count > 0)
                 {
@@ -189,20 +154,13 @@ public partial class ServerStatus
         }
     }
 
-    /// <summary>
-    /// 게이트웨이 상태를 한 번 읽어 자신과 서비스 목록을 함께 채운다.
-    ///
-    /// 둘이 <b>같은 응답</b>에서 온다. 따로 부르면 왕복이 두 번이고, 그 사이에
-    /// 값이 갈려 「게이트웨이는 정상인데 서비스가 전부 중지」처럼 어긋난 화면이 난다.
-    /// </summary>
+    /// <summary>게이트웨이 상태를 한 번 읽어 자신과 서비스 목록을 함께 채운다. 둘이 같은 응답에서 와야 화면이 어긋나지 않는다.</summary>
     private async Task LoadGatewayAsync()
     {
         var status = await SafeAsync(Api.GetGatewayStatusAsync, null);
         if (status is null)
         {
-            // 못 읽었으면 **마지막으로 성공한 화면을 그대로 둔다.** 여기서 목록을
-            // 비우면 「전부 중지」로 보이는데, 실제로 끊긴 것은 게이트웨이 하나이거나
-            // 우리 쪽 회선일 수 있다. 멎어 있는 시각이 그 사실을 말해 준다.
+            // 못 읽었으면 마지막으로 성공한 화면을 그대로 둔다 — 비우면 끊긴 게이트웨이 하나가 전부 중지로 보인다.
             _gateway = null;
             return;
         }
@@ -214,9 +172,7 @@ public partial class ServerStatus
 
     // ── 카드 꾸밈 ───────────────────────────────────────────
     //
-    // 이름과 한 줄 설명은 **꾸밈말일 뿐**이다. 여기 없는 클러스터가 와도
-    // 클러스터 이름이 그대로 나온다 — 서비스를 늘릴 때 이 표를 고치지
-    // 않아도 화면이 깨지지 않아야 한다.
+    // 이름과 설명은 꾸밈말일 뿐이라 표에 없는 클러스터도 이름을 그대로 보여 준다.
 
     private static readonly Dictionary<string, (string Name, string Desc)> ClusterMeta =
         new(StringComparer.OrdinalIgnoreCase)
@@ -232,17 +188,11 @@ public partial class ServerStatus
             ["cargotrust-cluster"] = ("CargoTrustServer", "운송관리 · 거래처 신뢰정보"),
             ["notification-cluster"] = ("NotificationServer", "푸시 · 이메일 발송"),
 
-            // 게이트웨이가 중계하지 않고 **상태만 보는** 서비스다(라우트 없는
-            // 클러스터). 모델이 쓰는 바깥 도구라 AIAgentServer 가 직접 붙는다 —
-            // 이 카드가 빨개도 AI 는 돌아간다. 도구 없이 아는 것만으로 답할 뿐이다.
-            // 이름만 `-cluster` 가 아니다. 주소를 compose 가 환경변수로 주는데
-            // 진입점의 셸이 하이픈 든 이름을 버려서, 그 한 글자 때문에 카드가
-            // 늘 빨갰다 (ApiGateway/appsettings.json 의 그 자리 주석 참고).
+            // 게이트웨이가 중계하지 않고 상태만 보는 서비스다(모델이 쓰는 바깥 도구). 빨개도 AI 는 돈다.
+            // 이름이 -cluster 가 아닌 것은 셸이 하이픈 이름을 버려서다(ApiGateway/appsettings.json).
             ["mcp_cluster"] = ("McpServer", "MCP 도구 · 웹 검색 · 본문 가져오기"),
 
-            // 우리 서비스가 아니다. 외부 고객사 시스템이라 `/health` 규약을
-            // 따르지 않고 게이트웨이도 헬스체크를 걸지 않는다. 이름을 그대로
-            // 두면 **우리 MSA 하나가 죽은 것처럼 읽힌다.**
+            // 우리 서비스가 아니라 헬스체크 규약을 따르지 않는다 — 이름을 그대로 두면 우리 MSA 하나가 죽은 것으로 읽힌다.
             ["oadr-cluster"] = ("OADR (외부)", "외부 고객사 시스템 · 헬스체크 대상 아님"),
         };
 
@@ -251,15 +201,7 @@ public partial class ServerStatus
             ? meta
             : (cluster ?? "gateway", string.Empty);
 
-    /// <summary>
-    /// 게이트웨이가 주는 <c>UP</c> · <c>DEGRADED</c> · <c>DOWN</c> 를 색 이름으로.
-    ///
-    /// <para>
-    /// <b>가운데를 따로 두는 것이 요점이다.</b> <c>DEGRADED</c> 는 프로세스가
-    /// 살아 있고 <b>딸린 것</b>(DB · AI 모델 · 큐)이 끊긴 상태다. 빨강으로
-    /// 칠하면 「서비스가 죽었다」로 읽혀 엉뚱한 곳을 보러 가게 된다.
-    /// </para>
-    /// </summary>
+    /// <summary>게이트웨이의 UP · DEGRADED · DOWN 을 색 이름으로. 가운데는 따로 둔다 — DEGRADED 는 프로세스는 살아 있고 딸린 것(DB · AI 모델 · 큐)이 끊긴 상태라 빨강으로 칠하면 죽은 것으로 읽힌다.</summary>
     private static string ToneOf(string? status) => status?.ToUpperInvariant() switch
     {
         "UP" => "up",
@@ -286,34 +228,14 @@ public partial class ServerStatus
 
     private int CountOf(string tone) => _services.Count(s => ToneOf(s.Status) == tone);
 
-    /// <summary>
-    /// 성한 것보다 <b>탈난 것을 먼저</b> 세운다.
-    ///
-    /// <para>
-    /// 게이트웨이가 주는 차례에는 뜻이 없어서, 열몇 장 중에 빨간 카드 한 장을
-    /// 눈으로 찾아야 했다. 카드는 표와 달리 정렬 단추가 없으므로 화면이 정한다.
-    /// 상태가 바뀔 때만 자리가 움직인다 — 그때는 <b>움직이는 것이 맞다.</b>
-    /// </para>
-    /// </summary>
-    /// <summary>
-    /// 지금 상세를 펴 놓은 서비스의 열쇠.
-    ///
-    /// <para>
-    /// <b>인덱스가 아니라 열쇠로 붙든다.</b> 이 화면은 10초마다 스스로 되묻고,
-    /// 목록은 상태 나쁜 것이 앞으로 오게 정렬된다(<see cref="SortedServices"/>).
-    /// 자리로 잡아 두면 어느 서비스가 죽는 순간 순서가 바뀌면서 보고 있던
-    /// 상세가 말없이 다른 서비스로 갈린다.
-    /// </para>
-    /// </summary>
+    /// <summary>성한 것보다 탈난 것을 먼저 세운다. 상태가 바뀔 때만 자리가 움직인다.</summary>
+    /// <summary>지금 상세를 펴 놓은 서비스의 열쇠. 인덱스가 아니라 열쇠로 붙든다 — 자리로 잡으면 정렬이 바뀌는 순간 보던 상세가 다른 서비스로 갈린다.</summary>
     private string? _selectedKey;
 
     /// <summary>클러스터와 목적지를 합친 열쇠. 클러스터 하나에 목적지가 여럿일 수 있다.</summary>
     private static string KeyOf(ServiceHealth svc) => $"{svc.Cluster}::{svc.Destination}";
 
-    /// <summary>
-    /// 상세를 펼 서비스. 고른 것이 사라졌거나 아직 안 골랐으면
-    /// <b>가장 나쁜 것</b>을 고른다 — 이 화면을 여는 이유가 그것이다.
-    /// </summary>
+    /// <summary>상세를 펼 서비스. 고른 것이 사라졌거나 아직 안 골랐으면 가장 나쁜 것을 고른다.</summary>
     private ServiceHealth? Selected
     {
         get
@@ -328,38 +250,23 @@ public partial class ServerStatus
         }
     }
 
-    // ── 컨테이너 고르기 ────────────────────────────────────────
-    //
-    // 서비스 쪽과 **같은 규칙**이다. 값과 이름만 다르고, 고른 것이 사라졌거나
-    // 아직 안 골랐으면 가장 나쁜 것을 편다.
+    // 서비스 쪽과 같은 규칙이다 — 고른 것이 사라졌거나 안 골랐으면 가장 나쁜 것을 편다.
 
-    /// <summary>
-    /// 오른쪽 상세가 무엇을 펴고 있나. <b>상세가 한 자리</b>라 이 값이 있어야
-    /// 한다 — 열쇠 둘(<c>_selectedKey</c> · <c>_boxKey</c>)은 서로 지우지
-    /// 않으므로, 갈래를 따로 적지 않으면 컨테이너를 누른 뒤에도 서비스 상세가
-    /// 남는다.
-    /// </summary>
+    /// <summary>오른쪽 상세가 무엇을 펴고 있나. 상세는 한 자리라 갈래를 적어야 컨테이너를 누른 뒤 서비스 상세가 남지 않는다.</summary>
     private enum PickKind { Service, Container }
 
     private PickKind _pick = PickKind.Service;
 
     private string? _boxKey;
 
-    /// <summary>
-    /// 컨테이너를 가리키는 열쇠. <b>compose 서비스 이름</b>이다 —
-    /// 컨테이너 아이디는 다시 만들 때마다 바뀌어서, 그것을 열쇠로 두면
-    /// 자동 갱신 한 번에 골라 둔 것이 풀린다.
-    /// </summary>
+    /// <summary>컨테이너를 가리키는 열쇠. compose 서비스 이름이다 — 컨테이너 아이디는 다시 만들 때 바뀌어 자동 갱신에 풀린다.</summary>
     private static string BoxKey(DockerContainerDto box) =>
         box.Service ?? box.Image ?? string.Empty;
 
     private static bool IsUp(string? state) =>
         string.Equals(state, "running", StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>
-    /// 컨테이너 상태를 카드 색으로. <c>restarting</c> 을 <b>죽은 것과 가르는</b>
-    /// 것이 요점이다 — 되살아나려고 도는 중인 것과 멈춘 것은 할 일이 다르다.
-    /// </summary>
+    /// <summary>컨테이너 상태를 카드 색으로. restarting 은 죽은 것과 가른다 — 되살아나려 도는 중과 멈춘 것은 할 일이 다르다.</summary>
     private static string BoxTone(string? state) => state?.ToLowerInvariant() switch
     {
         "running" => "up",
@@ -386,11 +293,7 @@ public partial class ServerStatus
         }
     }
 
-    /// <summary>
-    /// 이 컨테이너에 짝지어지는 서비스 응답. <b>못 찾으면 <c>null</c></b> 이고
-    /// 그때는 상세에 응답 칸이 아예 안 뜬다 — 짝이 없는 컨테이너(nginx·db 따위)에
-    /// 빈 칸을 그리면 「응답을 못 받았다」로 읽힌다.
-    /// </summary>
+    /// <summary>이 컨테이너에 짝지어지는 서비스 응답. 못 찾으면 null 이고, 그때 상세에 응답 칸이 안 뜬다.</summary>
     private ServiceHealth? ServiceOf(DockerContainerDto box) =>
         box.Service is not { Length: > 0 } name
             ? null
@@ -398,10 +301,7 @@ public partial class ServerStatus
                   string.Equals(s.Cluster, name, StringComparison.OrdinalIgnoreCase)
                   || string.Equals(s.Cluster, $"{name}-cluster", StringComparison.OrdinalIgnoreCase));
 
-    /// <summary>
-    /// 카드에 적을 태그. 커밋 SHA 는 마흔 자라 카드를 넘치므로 앞을 자른다 —
-    /// 전체는 툴팁과 상세에 있다.
-    /// </summary>
+    /// <summary>카드에 적을 태그. 커밋 SHA 는 앞을 자른다 — 전체는 툴팁과 상세에 있다.</summary>
     private static string Short(string? tag) =>
         tag is not { Length: > 0 } ? "-" : tag.Length <= 12 ? tag : tag[..12] + "…";
 
@@ -456,12 +356,7 @@ public partial class ServerStatus
     private static string DeepTone(AiDeepCheckDto result) =>
         result.Ok ? "jsini-badge--on" : result.RateLimited ? "jsini-badge--warn" : "jsini-badge--off";
 
-    /// <summary>
-    /// 제공자 하나를 실제로 눌러 본다.
-    ///
-    /// 실패도 결과다 — 서버가 200 에 이유를 담아 준다. 그래서 예외로 다루지
-    /// 않고 그대로 칸에 보여 준다. 연결 자체가 안 될 때만 안내로 올린다.
-    /// </summary>
+    /// <summary>제공자 하나를 실제로 눌러 본다. 실패도 결과라 서버가 준 이유를 칸에 보여 주고, 연결이 안 될 때만 안내로 올린다.</summary>
     private async Task DeepCheckAsync(string provider)
     {
         _checking = provider;

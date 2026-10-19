@@ -7,28 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HelpDeskServer.Services;
 
-/// <summary>
-/// 헬프데스크 현황판 집계.
-///
-/// <para>
-/// [왜 SQL 로 열몇 번 묻지 않고 한 번 읽어 와서 접는가]
-/// </para>
-///
-/// <para>
-/// 현황판이 뽑는 지표가 예순 가지가 넘는데 <b>재료는 요청 목록 하나</b>다.
-/// 지표마다 <c>GroupBy</c> 를 짜면 왕복이 스무 번 나고, 같은 표를 스무 번
-/// 훑는다. 게다가 「몇 시에 몰리나」·「무슨 요일에 몰리나」는 <b>KST 로
-/// 갈라야</b> 맞는데(<see cref="Kst"/> 머리말), 그 환산을 SQL 로 밀어 넣으면
-/// 서버 타임존 설정에 기대게 된다.
-/// </para>
-///
-/// <para>
-/// 그래서 <b>필요한 칸만 골라 한 번 읽고</b> 나머지는 메모리에서 센다. 읽는
-/// 것은 요청 한 줄당 열두 칸이고 본문(<c>description</c>)은 안 가져온다 —
-/// 요청 수가 만 건이라도 몇 MB 다. 그보다 커지면 그때 기간을 자르는 조건을
-/// 먼저 건다(지금 이 DB 는 세 자리다).
-/// </para>
-/// </summary>
+/// <summary>헬프데스크 현황판 집계. 지표마다 SQL 을 짜면 왕복이 많으므로 필요한 칸만 한 번 읽어 메모리에서 센다. KST 환산도 서버 타임존에 기대지 않고 여기서 한다.</summary>
 public sealed class DashboardOverviewService(AppDbContext db, IPortalCompanyDirectory companies) {
   /// <summary>회사를 알 수 없는 요청을 모으는 자리. 빈 칸으로 두면 표에서 사라진다.</summary>
   private const string UnknownCompanyId = "(미지정)";
@@ -45,9 +24,7 @@ public sealed class DashboardOverviewService(AppDbContext db, IPortalCompanyDire
 
   private static readonly string[] WeekdayNames = ["월", "화", "수", "목", "금", "토", "일"];
 
-  /// <summary>
-  /// 현황판 한 판을 만든다.
-  /// </summary>
+  /// <summary>현황판 한 판을 만든다.</summary>
   /// <param name="me">지금 보고 있는 사람. 고객이면 제 회사로 범위가 좁혀진다.</param>
   /// <param name="companyId">여기에 값이 있으면 그 회사 것만 센다.</param>
   /// <param name="days">일별 추이 기간(일).</param>
@@ -117,9 +94,7 @@ public sealed class DashboardOverviewService(AppDbContext db, IPortalCompanyDire
         admins.Select(a => (a.Id, a.UserName, a.Photo, a.LoginId)).ToList(), days, months, topN);
   }
 
-  /// <summary>
-  /// 읽어 온 줄을 화면이 쓰는 모양으로 접는다. DB 를 건드리지 않아 순수 계산이다.
-  /// </summary>
+  /// <summary>읽어 온 줄을 화면이 쓰는 모양으로 접는다. DB 를 건드리지 않아 순수 계산이다.</summary>
   private static DashboardOverviewDto Fold(
       HelpdeskPrincipal me,
       string? scopedCompanyId,
@@ -282,10 +257,7 @@ public sealed class DashboardOverviewService(AppDbContext db, IPortalCompanyDire
           .Where(s => s.Count > 0)
           .OrderByDescending(s => s.Count)];
 
-  /// <summary>
-  /// 월별 추이. <b>빈 달도 0 으로 채워 칸 수를 맞춘다</b> — 안 채우면 차트의
-  /// 가로축이 자료 있는 달만 늘어놓아 「한동안 조용했다」가 안 보인다.
-  /// </summary>
+  /// <summary>월별 추이. <b>빈 달도 0 으로 채워 칸 수를 맞춘다</b> — 안 채우면 차트의 가로축이 자료 있는 달만 늘어놓아 「한동안 조용했다」가 안 보인다.</summary>
   private static List<DashboardMonthDto> MonthlySeries(List<Row> rows, DateOnly today, int months) {
     var first = new DateOnly(today.Year, today.Month, 1).AddMonths(-(months - 1));
     var result = new List<DashboardMonthDto>(months);
@@ -561,9 +533,7 @@ public sealed class DashboardOverviewService(AppDbContext db, IPortalCompanyDire
 
   private static double Round(double value) => Math.Round(value, 1);
 
-  /// <summary>
-  /// 한 번 읽어 온 요청 한 줄. DB 칸과 셈에 쓰는 파생 값을 함께 든다.
-  /// </summary>
+  /// <summary>한 번 읽어 온 요청 한 줄. DB 칸과 셈에 쓰는 파생 값을 함께 든다.</summary>
   private sealed class Row {
     public int Id { get; init; }
     public string Title { get; init; } = string.Empty;

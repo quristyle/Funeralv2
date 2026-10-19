@@ -7,28 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace AuthServer.Endpoints;
 
-/// <summary>
-/// 생일 엔드포인트 — GHUB(생활과환경)에서 이식 (A안: 생일 정본·API 모두 포털).
-/// </summary>
-/// <remarks>
-/// 생일의 정본은 scom.accounts 다 (birth_date · birth_date_is_lunar · birthday_celebrated).
-/// 입력·수정은 계정 관리(/system/account/*)가 하고, 여기서는 조회와 축하 메시지만 다룬다.
-///
-/// 원본(GhubServer BirthdayEndpoints)과 다른 점:
-/// - 명단이 별도 표(ghub.birthday_profiles)가 아니라 포털 계정이다.
-///   이름은 RealName ?? UserName, 소속은 CompanyId/DepartmentId 를
-///   Companies·Departments 와 조인해 얻는다 (같은 DbContext 라 DB 조인).
-/// - 필터가 companyId(그 회사 전체) · departmentId(그 부서) 둘이다.
-///   departmentId 가 있으면 companyId 는 무시한다.
-/// - 메시지는 scom.birthday_messages (BirthdayMessage) 에 저장한다.
-///
-/// 게이트웨이의 `/api/auth/**` 는 Anonymous 라 인증을 걸지 않는다 —
-/// **모든 엔드포인트는 UserContext 가 없으면 401 을 돌려준다.**
-/// "오늘"/"이번 달"/"올해" 판정은 전부 KST(<see cref="Kst"/>) 기준이고, 저장 시각은 UTC 다.
-///
-/// 알림 발송(웹푸시 · 이메일 · 카카오 알림톡)은 이식하지 않았다 —
-/// NotificationServer 연동이 결정 대기다 (docs/analysis/38-ghub-migration.md D-G1).
-/// </remarks>
+/// <summary>생일 엔드포인트. 생일의 정본은 scom.accounts(birth_date · birth_date_is_lunar · birthday_celebrated)이고, 입력·수정은 계정 관리 화면이 한다.</summary>
 public static class BirthdayEndpoints
 {
     public static void MapBirthdayEndpoints(this IEndpointRouteBuilder app)
@@ -241,8 +220,7 @@ public static class BirthdayEndpoints
 
         // ── 축하 메시지 ────────────────────────────────────────
 
-        // 축하 메시지 전송 — 저장하고, 받는 사람에게 웹푸시로 알린다 (D-G1a · 2026-09-04).
-        // 발송은 NotificationServer 가 맡고(사용자 결정), 실패해도 저장은 이미 끝났다.
+        // 축하 메시지는 저장하고 받는 사람에게 웹푸시를 건다 — 발송은 NotificationServer 가 맡고, 실패해도 저장은 이미 끝나 있다.
         group.MapPost("/message", async (UserContext? user, [FromServices] AppDbContext db,
             [FromServices] AuthServer.Services.BirthdayNotifyClient notify,
             [FromBody] SendBirthdayMessageDto request) =>
@@ -309,8 +287,7 @@ public static class BirthdayEndpoints
                 return Results.Ok(ApiResponse<List<BirthdayTodayMessageItem>>.Ok(new List<BirthdayTodayMessageItem>()));
             }
 
-            // 2. 올해 받은 메시지 — 연도 경계는 KST 기준이다. UTC 자정으로 자르면
-            //    1월 1일 0시~9시(KST) 메시지가 작년으로 밀린다.
+            // 올해 받은 메시지 연도 경계는 KST 기준이다 — UTC 자정으로 자르면 1월 1일 0~9시(KST) 메시지가 작년으로 밀린다.
             var yearStartUtc = Kst.ToUtc(new DateTime(currentYear, 1, 1));
 
             var messages = await db.BirthdayMessages.AsNoTracking()
@@ -394,10 +371,7 @@ public static class BirthdayEndpoints
 
     // ── 내부 도우미 ──────────────────────────────────────────
 
-    /// <summary>
-    /// 생일 대상 계정 쿼리. 삭제되지 않았고 생일이 입력된 계정이 대상이다.
-    /// departmentId 가 있으면 그 부서만, 없이 companyId 만 있으면 그 회사 전체다.
-    /// </summary>
+    /// <summary>생일 대상 계정 쿼리. 삭제되지 않고 생일이 입력된 계정이다. departmentId 가 있으면 그 부서, 없으면 companyId 전체.</summary>
     private static IQueryable<Account> FilterBirthdayAccounts(
         AppDbContext db, string? companyId, string? departmentId)
     {
@@ -467,10 +441,7 @@ public static class BirthdayEndpoints
         return result.OrderBy(x => x.OccurrenceDate).ToList();
     }
 
-    /// <summary>
-    /// 이름 · 부서 조인용 딕셔너리 (user_id → 이름/부서).
-    /// user_id 에 유니크 제약이 없어 중복이 있을 수 있다 — 첫 행을 쓴다.
-    /// </summary>
+    /// <summary>이름 · 부서 조인용 딕셔너리(user_id → 이름/부서). user_id 에 유니크 제약이 없어 첫 행을 쓴다.</summary>
     private static async Task<Dictionary<string, BirthdayPersonName>> LoadAccountNamesAsync(
         AppDbContext db, List<string> userIds)
     {
@@ -493,11 +464,7 @@ public static class BirthdayEndpoints
                 g => new BirthdayPersonName(g.First().Name, g.First().DepartmentName));
     }
 
-    /// <summary>
-    /// 저장된 생일(음력이면 음력 월·일로 해석)을 해당 연도의 실제 발생일로 변환한다.
-    /// 음력 변환 로직은 원본 그대로다 — 그 해에 없는 날(윤달 · 작은 달)은 말일로 당기고,
-    /// 양력 2/29 는 평년이면 2/28 로 대체한다.
-    /// </summary>
+    /// <summary>저장된 생일(음력이면 음력 월·일)을 해당 연도의 실제 발생일로 변환한다. 그 해에 없는 날(윤달·작은 달)은 말일로 당기고, 양력 2/29 는 평년이면 2/28 로 대체한다.</summary>
     private static DateTime ToOccurrence(
         KoreanLunisolarCalendar koreanCal, int year, DateOnly birthDate, bool isLunar)
     {
@@ -522,11 +489,7 @@ public static class BirthdayEndpoints
         }
     }
 
-    /// <summary>
-    /// 한국 표준시 도우미 (이 파일 전용).
-    /// AuthServer 는 저장을 전부 UTC 로 하므로, "오늘"/"이번 달"/"올해" 같은
-    /// 벽시계 판정에만 쓴다. 서버 TZ 에 의존하는 DateTime.Now 는 쓰지 않는다.
-    /// </summary>
+    /// <summary>한국 표준시 도우미(이 파일 전용). 벽시계 판정("오늘"·"이번 달"·"올해")에만 쓰고, 저장은 전부 UTC 다. DateTime.Now 는 쓰지 않는다.</summary>
     private static class Kst
     {
         private static readonly TimeZoneInfo Zone = ResolveZone();

@@ -16,10 +16,7 @@ public partial class ProjectMonitoring
     /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
     private string ConditionSummary => SchSummary.Or(_projectName);
 
-    /// <summary>
-    /// 고른 프로젝트의 <b>이름</b>. 화면이 든 것은 코드뿐이고 목록은
-    /// <c>CodeSelect</c> 안에 있어, 그 부품이 <c>@bind-Text</c> 로 올려 준다.
-    /// </summary>
+    /// <summary>고른 프로젝트의 이름. 코드만 들고, 목록은 CodeSelect 가 쥐고 있다.</summary>
     private string? _projectName;
 
     /// <summary>볼 수 있는 각도. 순서가 곧 고르개의 순서다.</summary>
@@ -33,10 +30,7 @@ public partial class ProjectMonitoring
     private IReadOnlyList<ProjectDbDto> _dbs = [];
     private WbsSummaryDto? _summary;
 
-    /// <summary>
-    /// 소스 스캔 결과. <c>null</c> 은 「아직 안 눌렀다」는 뜻이다 — 0 건과
-    /// 구분해야 한다. 스캔은 조회에 딸려 돌지 않는다.
-    /// </summary>
+    /// <summary>소스 스캔 결과. null 은 「아직 안 눌렀다」는 뜻이라 0 건과 구분해야 한다. 스캔은 조회에 딸려 돌지 않는다.</summary>
     private IReadOnlyList<ScanRow>? _scanned;
 
     private string? _projectCode;
@@ -48,7 +42,7 @@ public partial class ProjectMonitoring
 
     private IReadOnlyList<StateCount> _stateCounts = [];
 
-    /// <summary>스캔 결과 한 줄. 소스마다 늘 있는 칸만 담는다(머리말).</summary>
+    /// <summary>스캔 결과 한 줄. 소스마다 늘 있는 칸만 담는다.</summary>
     private sealed class ScanRow
     {
         public string Name { get; init; } = string.Empty;
@@ -84,10 +78,7 @@ public partial class ProjectMonitoring
         }
     }
 
-    // **화면을 열 때 여기서 조회하지 않는다.** 프로젝트 고르개가 첫 항목을
-    // 스스로 고르면서 조회를 건다(`AutoSelectFirst`). 둘 다 하면 **프로젝트를
-    // 안 건 조회와 건 조회가 같이 날아가고**, 늦게 돌아온 쪽이 화면에 남는다 —
-    // 프로젝트를 골랐는데 목록은 전체인 상태가 된다. 실제로 그렇게 보였다.
+    // 화면을 열 때 여기서 조회하지 않는다 — 프로젝트 고르개가 첫 항목을 고르며 조회를 건다. 둘 다 하면 늦게 돌아온 쪽이 남아 목록이 전체로 보인다.
 
     private Task SearchAsync() => LoadAsync(async () =>
     {
@@ -124,7 +115,7 @@ public partial class ProjectMonitoring
         return _wbs.Count + _sources.Count + _users.Count + _dbs.Count;
     }, "그 프로젝트에 등록된 자료가 없습니다.", "진행 현황을 읽지 못했습니다");
 
-    /// <summary>진척 차트의 재료. <b>서버가 센 값을 옮겨 담기만 한다</b>(머리말).</summary>
+    /// <summary>진척 차트의 재료. 서버가 센 값을 옮겨 담기만 한다.</summary>
     private void BuildProgress()
     {
         if (_summary is null || _summary.TotalTaskCount == 0)
@@ -142,12 +133,7 @@ public partial class ProjectMonitoring
         ];
     }
 
-    /// <summary>
-    /// 서버가 소스 경로를 훑어 화면 목록을 센다.
-    ///
-    /// 훑는 것은 <b>서버 장비의 디스크</b>라, 등록된 경로가 그 장비에 없으면
-    /// 아무것도 안 나온다. 그것을 오류가 아니라 안내로 보여 준다.
-    /// </summary>
+    /// <summary>서버가 소스 경로를 훑어 화면 목록을 센다. 훑는 것은 서버 장비의 디스크라, 등록된 경로가 그 장비에 없으면 아무것도 안 나온다 — 오류가 아니라 안내로 보여 준다.</summary>
     private Task ScanAsync() => LoadAsync(async () =>
     {
         _view = Views[^1];

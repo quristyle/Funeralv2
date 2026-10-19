@@ -31,10 +31,7 @@ public partial class TodoList
 
     private string Hint => $"{_rows.Count(t => t.IsComplete)} / {_rows.Count}건 완료";
 
-    /// <summary>
-    /// 되풀이를 만들 수 있는가. <b>사람과 날짜가 있어야 한다</b> —
-    /// 누구 것을 만들지 모르면 만들 수 없다(머리말).
-    /// </summary>
+    /// <summary>되풀이를 만들 수 있는가. 사람과 날짜가 있어야 한다 — 누구 것을 만들지 모르면 만들 수 없다.</summary>
     private bool CanMake => _targetDate is not null && !string.IsNullOrWhiteSpace(_userCode);
 
     private bool? CompleteFilter => _completeYn switch

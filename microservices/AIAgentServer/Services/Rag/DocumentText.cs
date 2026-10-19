@@ -4,15 +4,7 @@ using UglyToad.PdfPig;
 
 namespace AIAgentServer.Services.Rag;
 
-/// <summary>올려 둔 파일에서 글자를 뽑는다.</summary>
-/// <remarks>
-/// <para>
-/// <b>못 읽는 형식을 조용히 넘기지 않는다.</b> 색인에 안 들어간 문서가 있는데
-/// 화면에 아무 표시가 없으면, 사람은 올렸으니 찾아질 것으로 믿고 나중에
-/// "분명히 올렸는데 못 찾는다" 를 겪는다. 그래서 까닭을 글로 돌려주고
-/// 문서 상태를 <c>skipped</c> 로 남긴다.
-/// </para>
-/// </remarks>
+/// <summary>올려 둔 파일에서 글자를 뽑는다. 못 읽는 형식을 조용히 넘기지 않는다.</summary>
 public static class DocumentText
 {
     /// <summary>글자를 바로 읽는 형식.</summary>
@@ -33,10 +25,7 @@ public static class DocumentText
     public static string Describe() =>
         "글자 파일(.md .txt .csv .json .yaml .log .sql 등) · .pdf · .html";
 
-    /// <summary>
-    /// 글자를 뽑는다. 못 뽑으면 <paramref name="reason"/> 에 까닭이 담기고
-    /// 빈 글을 돌려준다.
-    /// </summary>
+    /// <summary>글자를 뽑는다. 못 뽑으면 <paramref name="reason"/> 에 까닭이 담기고 빈 글을 돌려준다.</summary>
     public static string Extract(string path, string fileName, out string? reason)
     {
         reason = null;

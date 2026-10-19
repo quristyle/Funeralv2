@@ -5,16 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace AIAgentServer.Endpoints;
 
-/// <summary>
-/// RAG 문서함 — 카테고리 · 분류 · 파일.
-/// </summary>
-/// <remarks>
-/// 화면: <c>web/src/Apps/JSini.Web.Admin/Components/Pages/RagDocuments.razor</c>
-/// <para>
-/// <b>파일은 운영시스템에 남는다.</b> 올리는 것도 내려받는 것도 여기를 지나고,
-/// LLM 서버는 임베딩만 맡는다.
-/// </para>
-/// </remarks>
+/// <summary>RAG 문서함 — 카테고리 · 분류 · 파일. 화면: web/src/Apps/JSini.Web.Admin/Components/Pages/RagDocuments.razor 파일은 운영시스템에 남는다.</summary>
 public static class RagLibraryEndpoints
 {
     public static void MapRagLibraryEndpoints(this IEndpointRouteBuilder app)

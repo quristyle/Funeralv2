@@ -5,21 +5,7 @@ using Xunit;
 
 namespace JSini.Web.Architecture.Tests;
 
-/// <summary>
-/// 좁은 자리의 시각 표기 — <b>오늘에서 먼 만큼만 적는다</b>(2026-10-15).
-/// </summary>
-/// <remarks>
-/// <para>
-/// 휴대폰에서 이 판을 열어 눈으로 보는 길은 <b>그날 하루치만 확인할 수 있다.</b>
-/// 「지난달 것」과 「작년 것」을 화면으로 보려면 그만큼 묵은 건을 찾아 열어야
-/// 하고, 해가 바뀌는 경계는 한 해에 하루뿐이다.
-/// </para>
-/// <para>
-/// <b>틀려도 화면은 멀쩡하다.</b> 「14일 09:30」은 어느 해 어느 달의 것이든
-/// 같은 얼굴로 서므로, 1년 어긋난 시각을 오늘 것으로 읽어도 읽는 사람이
-/// 알아챌 단서가 없다 — 그것이 여기 박아 두는 까닭이다.
-/// </para>
-/// </remarks>
+/// <summary>좁은 자리의 시각 표기 — 오늘에서 먼 만큼만 적는다. 틀려도 화면은 멀쩡하다: 1년 어긋난 시각도 같은 얼굴로 서서 알아챌 단서가 없으므로 여기 박아 둔다.</summary>
 public sealed class AiTaskWhenNearTests
 {
     /// <summary>오늘 것은 <b>시·분만</b>. 날짜는 읽는 사람이 되채울 수 있다.</summary>
@@ -55,10 +41,7 @@ public sealed class AiTaskWhenNearTests
         Assert.Equal($"{month:00}-14 09:30", AiTaskWhen.Near(Kst(other, 9, 30)));
     }
 
-    /// <summary>
-    /// <b>해가 다르면 해를 붙인다.</b> 떼어도 되는 것은 읽는 사람이 되채울 수
-    /// 있는 것뿐이고, 해는 그렇지 않다.
-    /// </summary>
+    /// <summary>해가 다르면 해를 붙인다 — 해는 읽는 사람이 되채울 수 없다.</summary>
     [Fact]
     public void 지난해_것에는_해가_붙는다()
     {
@@ -68,10 +51,7 @@ public sealed class AiTaskWhenNearTests
         Assert.Equal($"{today.Year - 1}-09-14 09:30", AiTaskWhen.Near(Kst(other, 9, 30)));
     }
 
-    /// <summary>
-    /// <b>달만 견주면 안 된다.</b> 작년 같은 달이 이달로 읽혀 「14일 09:30」이
-    /// 되면, 1년 어긋난 시각이 오늘 것과 같은 꼴로 선다.
-    /// </summary>
+    /// <summary>달만 견주면 안 된다 — 작년 같은 달이 이달로 읽히면 1년 어긋난 시각이 오늘 것과 같은 꼴로 선다.</summary>
     [Fact]
     public void 작년_같은_달을_이달로_읽지_않는다()
     {
@@ -90,10 +70,7 @@ public sealed class AiTaskWhenNearTests
         Assert.Equal("-", AiTaskWhen.Near(null));
     }
 
-    /// <summary>
-    /// 카드와 휴대폰 머리띠가 <b>같은 규칙</b>으로 적는다 —
-    /// <c>RunAt(compact: true)</c> 가 이 표기를 그대로 쓴다.
-    /// </summary>
+    /// <summary>카드와 휴대폰 머리띠가 같은 규칙으로 적는다 — RunAt(compact: true) 가 이 표기를 쓴다.</summary>
     [Fact]
     public void 좁은_자리의_실행일시도_같은_규칙이다()
     {
@@ -105,16 +82,7 @@ public sealed class AiTaskWhenNearTests
             AiTaskWhen.RunAt(task));
     }
 
-    /// <summary>
-    /// <b>머리띠의 시각 둘도 같은 규칙이다</b>(2026-10-17). 한동안 이 표기는
-    /// 휴대폰에서만 섰고 책상에서는 <c>yyyy-MM-dd HH:mm</c> 열여섯 글자가
-    /// 그대로 붙었다 — 거기 서는 건도 거의 오늘·이번 달 것이라 <b>앞의 열
-    /// 글자가 거의 늘 같은 글자</b>였다.
-    /// </summary>
-    /// <remarks>
-    /// <b>눈으로는 못 지킨다.</b> 되돌아가도 화면은 멀쩡하고, 오늘 것을 보는
-    /// 동안에는 「날짜가 함께 보이는구나」로만 읽힌다.
-    /// </remarks>
+    /// <summary>머리띠의 시각 둘도 같은 규칙이다 — 책상에서도 yyyy-MM-dd HH:mm 이 붙으면 앞 열 글자가 거의 늘 같은 글자가 된다. 되돌아가도 화면은 멀쩡해 눈으로는 못 지킨다.</summary>
     [Fact]
     public void 머리띠의_작성과_동작은_짧은_표기를_쓴다()
     {
@@ -127,11 +95,7 @@ public sealed class AiTaskWhenNearTests
         Assert.Contains("title=\"@AiTaskWhen.RunAt(t)\">@AiTaskWhen.RunAt(t, compact: true)", razor);
     }
 
-    /// <summary>
-    /// <b>폭으로 갈리지 않는다.</b> 갈라 두면 같은 건의 같은 시각이 기기마다
-    /// 다른 꼴로 서고, 그 갈래를 되살리는 쪽이 사람 눈에는 「휴대폰만 짧다」로
-    /// 보여 틀림으로 읽히지 않는다.
-    /// </summary>
+    /// <summary>폭으로 갈리지 않는다 — 갈라 두면 같은 건의 같은 시각이 기기마다 다른 꼴로 선다.</summary>
     [Fact]
     public void 머리띠가_폭을_재지_않는다()
     {
@@ -141,10 +105,7 @@ public sealed class AiTaskWhenNearTests
         Assert.DoesNotContain("DxLayoutBreakpoint", razor);
     }
 
-    /// <summary>
-    /// 작업에 걸린 시간은 <b>mm:ss</b> 로 적는다. 모바일 화면에서 2줄로
-    /// 꺾이지 않도록 두 자리 분·초로 통일한다.
-    /// </summary>
+    /// <summary>작업에 걸린 시간은 mm:ss 로 적는다. 휴대폰에서 2줄로 꺾이지 않도록 두 자리 분·초로 통일한다.</summary>
     [Fact]
     public void 작업에_걸린_시간은_mmss_꼴로_적는다()
     {

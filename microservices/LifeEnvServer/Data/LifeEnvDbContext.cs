@@ -4,11 +4,8 @@ using Microsoft.EntityFrameworkCore;
 namespace LifeEnvServer.Data;
 
 /// <summary>
-/// LifeEnvServer(생활과환경) DB 컨텍스트 — DB: ghub, 스키마: ghub.
-///
-/// **스키마는 이 코드가 만들지 않는다** — docs/sql/ghub_schema.sql 이 만든다.
-/// 테이블·컬럼 이름은 원본(GHUB skgRestApi)과 같은 snake_case 변환을 써서
-/// ASIS 자료를 그대로 복사할 수 있게 유지한다.
+/// LifeEnvServer DB 컨텍스트(DB·스키마 ghub). 스키마는 이 코드가 만들지 않는다(docs/sql/ghub_schema.sql).
+/// 테이블·컬럼은 원본과 같은 snake_case 라 옛 자료를 그대로 복사할 수 있다.
 /// </summary>
 public class LifeEnvDbContext(DbContextOptions<LifeEnvDbContext> options) : DbContext(options)
 {
@@ -29,8 +26,7 @@ public class LifeEnvDbContext(DbContextOptions<LifeEnvDbContext> options) : DbCo
     public DbSet<WeatherShortTermForecast> WeatherShortTermForecasts => Set<WeatherShortTermForecast>();
     public DbSet<WeatherUltraSrtForecast> WeatherUltraSrtForecasts => Set<WeatherUltraSrtForecast>();
 
-    // 생일은 여기 없다 — 포털(scom.accounts · scom.birthday_messages, AuthServer API)로
-    // 옮겨졌다 (2026-08-30, A안 — docs/analysis/38-ghub-migration.md 3절).
+    // 생일 정보는 포털(AuthServer)이 맡는다 — 여기에 테이블을 두지 않는다.
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -78,6 +78,7 @@ public partial class AiUsageDetailPage
         ("chat", "AI쳇(한 번에)"),
         ("suggest-code", "공통코드 추천"),
         ("suggest-i18n", "번역 추천"),
+        ("suggest-menu", "메뉴 자동 채우기"),
         ("summarize", "내용 요약"),
         ("translate", "로그 번역"),
     ];

@@ -2,59 +2,9 @@
 @attribute [RouteKey("helpdesk.hanju.procedure-result")]
 
 @*
-    [프로시저 결과] — DB 메뉴 `/helpdesk/hanju/procedure-result`.
-    이력: Vue `views/helpdesk/hanju/procedure-result` → 여기.
-    프로시저: `P_QURI_PROC`(목록·인자) → 고른 프로시저 실행
-
-    [고정 조회 한 건이 되어 있었다]
-
-    원본은 **프로시저를 고르고 인자를 넣어 돌리는 화면**이다(410줄).
-    `P_QURI_PROC` 이 「무엇을 돌릴 수 있고 인자가 무엇인지」를 돌려주고,
-    사람이 고른 뒤 값을 채워 실행한다. 옮길 때는
-    `P_QURI_SERVER_REPORT('PROCEDURE_RESULT')` 한 건만 부르는 표가 되어 있었다 —
-    **고를 수도, 인자를 넣을 수도 없었다.** 이 화면의 일 자체가 빠진 셈이다.
-
-    [왼쪽에서 고르고 오른쪽에서 본다 (2026-10-05)]
-
-    한 번 되살릴 때는 프로시저를 **조회줄의 드롭다운** 하나로 골랐다. 그게
-    원본과 가장 크게 어긋난 자리다 — 원본은 왼쪽 판이 목록, 오른쪽 판이
-    결과다. 드롭다운으로는 무엇을 돌릴 수 있는지 한눈에 안 보이고(열어야
-    보이고, 열어도 설명이 안 따라 나온다) 고르는 자리와 결과가 세로로 멀다.
-
-    [조회 판을 두지 않는다]
-
-    다른 업무 화면은 위에 `CommSch` 를 세운다. 여기는 **조건이라 할 것이
-    없다** — 목록을 거르는 낱말 하나뿐이고 그것은 왼쪽 판의 목록에 딸린
-    것이다. 판을 세워 그 하나를 담으면 화면 꼭대기 한 줄(76px)이 거르개
-    하나에 쓰이고, 정작 거를 목록은 그 아래 다른 판에 있다. 거르개는
-    **거르는 것 바로 위**에 둔다.
-
-    실행 단추도 같은 까닭으로 인자 칸 옆에 있다. 조회 판의 「조회」 자리에
-    두었더니 값을 채우는 자리와 누르는 자리가 화면 위아래로 갈렸다.
-
-    [폭은 사람이 정한다 — `DxSplitter`]
-
-    격자로 못 박아 두었더니(25%) 프로시저 이름이 긴 쪽과 결과 칸이 많은 쪽이
-    서로 다른 폭을 바란다. 셸 사이드바와 같은 부품으로 끌어서 나눈다. 치수·
-    여백·좁은 화면 규칙은 helpdesk.css 의 `hd-vsplit` 가 갖고 있다.
-
-    **판은 `<Panes>` 안에 적어야 한다.** `DxSplitter` 에는 `ChildContent` 가
-    없어서 빼먹어도 빌드가 통과하고 **속이 빈 회색 상자**가 나온다
-    (`DxSplitterPanesTests` 가 막는다).
-
-    [무엇을 돌릴 수 있는지는 DB 가 정한다]
-
-    프로시저 목록과 인자 이름을 화면에 박아 두지 않는다. DB 에 프로시저가
-    늘면 이 화면에 저절로 나온다 — 원본이 그렇게 만들어져 있고, 한주 쪽
-    운영자가 프로시저를 직접 늘린다. 그래서 목록 머리에 다시 읽는 단추를
-    둔다(화면을 떠났다 오지 않고 늘어난 것을 본다).
-
-    [인자 입력 컨트롤]
-
-    기본은 글자(`DxTextBox`)로 입력받되, `DataType` 이 date 면 달력,
-    datetime 이면 달력과 시간(`DxDateEdit`) 컨트롤로 제공한다.
-    서버로 보낼 때는 원래대로 문자열(`yyyy-MM-dd` / `yyyy-MM-dd HH:mm:ss`)로
-    변환되어 전달된다.
+    [프로시저 결과] — DB 메뉴 `/helpdesk/hanju/procedure-result`. P_QURI_PROC(목록·인자)로 고른 프로시저를 실행한다.
+    목록과 인자 이름은 DB 가 정하므로 화면에 박지 않는다(프로시저가 늘면 저절로 나온다). 왼쪽에서 고르고 오른쪽에서 본다.
+    거르개는 거르는 목록 바로 위에 둔다 — 조회 판에 올리면 거를 목록과 떨어진다. 판은 <Panes> 안에 적어야 한다(빼면 빈 상자, DxSplitterPanesTests 가 막는다).
 *@
 
 @inherits DataPage
@@ -67,19 +17,14 @@
     <DxSplitterPane Size="26%" MinSize="240px" MaxSize="60%">
         <CommCont Title="프로시저" Hint="@ListHint" CssClass="hd-vsplit__pane hd-vsplit__pane--left">
             <Actions>
-                @* 목록을 다시 읽는다. 아이콘과 자리를 `CommGrd` 의 아래 띠와
-                   같은 것으로 맞춰 둔다 — 「다시 읽기」가 화면마다 다른
-                   모양으로 서면 안 된다. *@
+                @* 목록을 다시 읽는다. 모양은 CommGrd 의 다시 읽기와 같게 맞춘다. *@
                 <DxButton IconCssClass="jsini-icon-refresh" Title="프로시저 목록을 다시 읽는다"
                           RenderStyle="ButtonRenderStyle.Link"
                           Enabled="@(!Loading)" Click="@ReloadAsync" />
             </Actions>
 
             <ChildContent>
-                @* 거르개. 라벨이 없으므로 자리표시 글이 라벨 노릇을 한다.
-                   치는 대로 목록이 줄어야 해서 `OnInput` 이다 — 기본값
-                   (`OnChange`)은 칸을 벗어나야 값이 넘어온다. 사이드바의 메뉴
-                   검색과 같은 차림이다. *@
+                @* 거르개. 라벨이 없어 자리표시 글이 라벨 노릇을 한다. 치는 대로 줄어야 해서 OnInput 이다(기본 OnChange 는 칸을 벗어나야 넘어온다). *@
                 <DxTextBox Text="@_keyword"
                            TextChanged="@((string? text) => _keyword = text)"
                            BindValueMode="BindValueMode.OnInput"
@@ -88,9 +33,7 @@
                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
                            CssClass="hd-procfilter" />
 
-                @* 목록은 제 안에서 구른다. 인자 칸과 「실행」이 그 **아래**에
-                   붙박이로 남아야 해서다 — 판 전체가 구르면 프로시저를 고르자마자
-                   단추가 화면 밖으로 밀려난다. *@
+                @* 목록만 제 안에서 구른다 — 인자 칸과 「실행」이 그 아래 붙박이로 남아야 한다. 판 전체가 구르면 프로시저를 고르자마자 단추가 밀려난다. *@
                 <div class="hd-proclist">
                     @if (Shown.Count == 0)
                     {
@@ -102,8 +45,7 @@
                     {
                         @foreach (var procedure in Shown)
                         {
-                            @* `<button>` 이라야 키보드로 고를 수 있다. 목록 줄을
-                               `<div @@onclick>` 으로 두면 탭으로 닿지 않는다. *@
+                            @* 목록 줄은 button 이라야 키보드로 고른다. div 에 @onclick 을 달면 탭으로 닿지 않는다. *@
                             <button type="button"
                                     class="hd-proc @(IsPicked(procedure.Name) ? "is-on" : null)"
                                     aria-pressed="@IsPicked(procedure.Name)"
@@ -134,10 +76,7 @@
                         }
                         else
                         {
-                            @* 격자는 **이 칸이** 쥔다. 줄마다 따로 격자를 만들면
-                               이름 길이가 다를 때 칸이 시작하는 자리가 줄마다
-                               어긋난다 — 줄들이 같은 세로줄을 공유해야 한다
-                               (`.hd-param` 은 `display: contents`). *@
+                            @* 격자는 이 칸이 쥔다. 줄마다 격자를 따로 만들면 이름 길이에 따라 칸 시작점이 어긋난다 — 줄들이 같은 세로줄을 공유한다(.hd-param 은 display: contents). *@
                             <div class="hd-params__fields">
                             @foreach (var parameter in _parameters)
                             {
@@ -186,12 +125,7 @@
         }
         else
         {
-            @* 제목이 곧 고른 프로시저다. 짧은 이름은 `Title`, 온전한 이름은 그
-               옆에 옅게 붙는 `Hint` 로 간다 — 목록에서 접두어를 떼고 보여 주므로
-               한 곳에는 온전한 이름이 있어야 한다.
-
-               건수는 **총 건수**라고 적는다. 표 안의 검색칸으로 거르면 보이는 줄은
-               줄지만 이 수는 그대로다 — 「총」을 떼면 그때 조용히 틀린 수가 된다. *@
+            @* 제목이 곧 고른 프로시저다. 짧은 이름은 Title, 온전한 이름은 옆에 옅게 붙는 Hint 로 간다. 건수는 총 건수다 — 표 안 검색으로 거르면 보이는 줄만 줄고 이 수는 그대로다. *@
             <CommCont Title="@ShortName(_selected)" Hint="@ResultHint"
                       CssClass="hd-vsplit__pane hd-vsplit__pane--right">
                 <ChildContent>
@@ -200,12 +134,7 @@
                         <div class="jsini-hint">@Description</div>
                     }
 
-                    @* 결과 칸은 프로시저마다 다르다. 어느 칸을 거를지 미리 적을 수
-                       없어서 표 전체를 훑는 검색칸을 켠다(옛 화면의 「결과 내 검색」).
-
-                       쪽을 나누지 않는다(`AllRows`) — 돌린 결과를 **한 묶음으로**
-                       훑어보는 화면이고, 쪽으로 자르면 「몇 쪽에 있었나」를
-                       사람이 기억해야 한다. 넘치는 줄은 표가 안에서 굴린다. *@
+                    @* 결과 칸은 프로시저마다 달라 표 전체를 훑는 검색칸을 켠다. 쪽을 나누지 않는다(AllRows) — 한 묶음으로 훑는 화면이다. *@
                     <AutoGrid Data="@_rows" Loading="@Loading" SearchBox="true" AllRows="true" />
                 </ChildContent>
             </CommCont>

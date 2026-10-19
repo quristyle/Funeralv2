@@ -22,10 +22,7 @@ public partial class RichText
             .Where(p => p.Length > 0)
             .Select(Split);
 
-    /// <summary>
-    /// 한 문단을 굵은 조각과 보통 조각으로 자른다.
-    /// `**` 개수가 홀수여도 깨지지 않는다 — 마지막 조각이 그냥 보통 글씨가 된다.
-    /// </summary>
+    /// <summary>한 문단을 굵은 조각과 보통 조각으로 자른다. ** 개수가 홀수여도 깨지지 않는다(마지막 조각은 보통 글씨가 된다).</summary>
     private static List<Part> Split(string paragraph) =>
         [.. paragraph.Split("**").Select((text, i) => new Part(text, i % 2 == 1))];
 }

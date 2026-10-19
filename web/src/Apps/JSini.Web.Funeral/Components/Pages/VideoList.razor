@@ -1,35 +1,14 @@
 @page "/funeral/building/video"
 @attribute [RouteKey("funeral.building.video")]
 
-@*
-    [영상 관리] — DB 메뉴 `/building/video`.
-    이력: Vue `views/funeral/building/video/index` → 여기.
-
-    영상은 빈소 디스플레이에서 튼다. 브라우저가 바로 못 트는 형식이 섞여
-    있어 서버가 webm 을 따로 만들고, 목록용 미리보기 그림도 만든다.
-    둘 다 비동기라 방금 올린 자료는 잠깐 비어 있는 것이 정상이다.
-
-    [수정과 삭제가 빠져 있었다]
-
-    목록과 재처리는 있었지만 **이름·정렬을 고치거나 지울 수가 없었다.**
-    클라이언트에는 메서드가 있었고 화면만 안 부르고 있었다.
-
-    [화면 넷이 같은 표를 본다]
-
-    자료는 한 표(`media_sources`)에 있고 `SourceType` 으로 갈린다. 그 넷이
-    목록·수정·삭제·재처리를 똑같이 하므로 `MediaSourceList` 한 벌로 모았다 —
-    손으로 네 번 적으면 반드시 갈라지고, 갈라지는 곳은 늘 권한 판정과 실패
-    처리다.
-
-    올리기는 D5 로 붙였다 — 자세한 것은 `MediaSourceList` 머리말에 있다.
-*@
+@* [영상 관리] — DB 메뉴 `/building/video`. 자료는 media_sources 한 표이고 MediaSourceList 가 그린다.
+webm 변환과 미리보기는 비동기라 방금 올린 자료가 잠깐 비어 있는 것이 정상이다. *@
 
 @inherits DataPage
 
 <PageTitle>영상 관리 · 장례식장</PageTitle>
 
-@* 영상 원본은 크다. 300MB 는 실제로 올라오는 것들(빈소 안내 영상)보다
-   넉넉하게 잡은 값이고, 넘으면 파일 고르는 자리에서 미리 막힌다. *@
+@* 영상 원본 상한. 넘으면 파일 고르는 자리에서 미리 막힌다. *@
 <MediaSourceList SourceType="VIDEO"
                  Title="영상"
                  ShowThumbnail="true"

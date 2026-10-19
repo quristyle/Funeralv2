@@ -12,20 +12,8 @@ public sealed record SearchResult(string Title, string Url, string Snippet);
 /// </summary>
 public sealed record SearchProbe(bool Ok, string Provider, string Endpoint, string? Reason);
 
-/// <summary>
-/// 웹 검색. <b>뒷단을 갈아 끼울 수 있게</b> 만들었다.
-/// </summary>
-/// <remarks>
-/// <para>
-/// 기본은 DuckDuckGo 의 HTML 화면을 읽는 것이다. <b>열쇠가 필요 없어 바로 쓸 수
-/// 있지만, 화면 구조가 바뀌면 깨진다.</b> 검색이 업무에 중요해지면 제대로 된
-/// API(Brave·Google) 로 옮기거나 SearXNG 를 세우는 편이 맞다 — 그래서 설정
-/// 한 줄로 갈리게 해 두었다.
-/// </para>
-/// <para>
-/// <c>Search:Provider</c> 에 <c>duckduckgo</c>(기본) · <c>searxng</c> · <c>brave</c> 를 적는다.
-/// </para>
-/// </remarks>
+/// <summary>웹 검색. 뒷단을 갈아 끼울 수 있다. 기본은 DuckDuckGo 의 HTML 화면을 읽는 것이라 화면 구조가 바뀌면 깨진다 — 검색이 업무에 중요해지면 Brave·Google API 나 SearXNG 로 옮긴다.
+/// Search:Provider 설정 한 줄로 갈린다(duckduckgo · searxng · brave).</summary>
 public sealed class WebSearchService
 {
     private const string UserAgent =
@@ -43,21 +31,7 @@ public sealed class WebSearchService
         _http.DefaultRequestHeaders.UserAgent.ParseAdd(UserAgent);
     }
 
-    /// <summary>
-    /// 뒷단이 지금 쓸 수 있는 상태인지 한 번 두드려 본다. <c>/health</c> 가 쓴다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>프로세스가 살아 있는 것과 검색이 되는 것은 다르다.</b> 이 컨테이너만
-    /// 바깥 인터넷으로 나가므로, 나가는 길이 막히면 MCP 는 200 을 주면서 도구는
-    /// 하나도 못 쓰는 상태가 된다 — AIAgentServer 쪽에서는 「웹을 못 찾는다」로만
-    /// 보이고 어디가 막혔는지 알 수 없다.
-    /// </para>
-    /// <para>
-    /// <b>Brave 만 두드리지 않는다.</b> 그쪽은 요청 수가 곧 요금이라, 점검이
-    /// 한도를 깎아서는 안 된다. 거기서 실제로 틀리는 것은 열쇠이므로 열쇠만 본다.
-    /// </para>
-    /// </remarks>
+    /// <summary>뒷단이 지금 쓸 수 있는지 두드려 본다(/health 가 쓴다). 프로세스가 살아 있어도 나가는 길이 막히면 도구는 못 쓴다. Brave 는 요청 수가 곧 요금이라 두드리지 않고 열쇠만 본다.</summary>
     public async Task<SearchProbe> ProbeAsync(CancellationToken ct)
     {
         var provider = (_config["Search:Provider"] ?? "duckduckgo").ToLowerInvariant();
@@ -83,8 +57,7 @@ public sealed class WebSearchService
                 }
 
             default:
-                // 화면을 긁는 방식이라 **200 만으로는 모자란다** — 구조가 바뀌면
-                // 200 을 받고도 결과가 0 건이다. 줄 무늬가 잡히는지까지 본다.
+                // 화면을 긁는 방식이라 200 만으로는 모자란다 — 구조가 바뀌면 200 을 받고도 결과가 0 건이라 줄 무늬가 잡히는지까지 본다.
                 const string ddg = "https://html.duckduckgo.com/html/";
                 using (var res = await _http.GetAsync($"{ddg}?q=ping", ct))
                 {
@@ -153,10 +126,7 @@ public sealed class WebSearchService
         return outp;
     }
 
-    /// <summary>
-    /// DuckDuckGo 는 주소를 <c>//duckduckgo.com/l/?uddg=...</c> 로 한 겹 싸서 준다.
-    /// 그대로 두면 모델이 출처로 그 추적 주소를 적는다.
-    /// </summary>
+    /// <summary>DuckDuckGo 는 주소를 //duckduckgo.com/l/?uddg=... 로 한 겹 싸서 준다. 그대로 두면 모델이 그 추적 주소를 출처로 적으므로 풀어서 쓴다.</summary>
     private static string Unwrap(string href)
     {
         var m = Regex.Match(href, @"[?&]uddg=([^&]+)");

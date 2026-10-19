@@ -6,20 +6,7 @@ using Microsoft.AspNetCore.Components;
 
 namespace JSini.Web.Admin.Components.Pages;
 
-/// <summary>
-/// 편집 중인 배치의 칸들.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <b>고른 배치(<c>ReportMailScheduleDto</c>)를 직접 고치지 않는다.</b> 그 줄은
-/// 위의 목록 표가 그리고 있는 바로 그 객체라, 칸을 건드리는 순간 저장도 안 한
-/// 값이 표에 적힌다. 「고치다 말고 다른 배치를 눌렀다」가 되돌릴 수 없게 된다.
-/// </para>
-/// <para>
-/// 요일만 글자로 든다 — <c>DxComboBox</c> 의 값 칸이 글자라서다. 숫자로 두면
-/// 고르개가 값을 못 맞춰 늘 비어 보인다.
-/// </para>
-/// </remarks>
+/// <summary>편집 중인 배치의 칸들. 고른 배치 객체를 직접 고치지 않는다 — 목록 표가 그리는 바로 그 객체라 칸을 건드리면 저장 안 한 값이 표에 적힌다. 요일은 글자로 든다(DxComboBox 가 글자라서).</summary>
 internal sealed class ReportMailForm
 {
     /// <summary>고치는 중인 배치. 비어 있으면 새로 만드는 중이다</summary>
@@ -76,14 +63,7 @@ internal sealed class ReportMailForm
             RoleIds = [.. roleIds],
         };
 
-    /// <summary>
-    /// 「미리받아보기」로 보낼 꼴. <b>역할을 담지 않는다</b> — 본인에게만 간다.
-    /// </summary>
-    /// <remarks>
-    /// 주기 칸을 함께 담는 까닭은 메일 머리줄에 그 한 줄이 들어가기 때문이다.
-    /// 저장한 값이 아니라 <b>지금 폼에 적힌 값</b>을 담으므로, 주기를 바꿔 놓고
-    /// 저장하기 전에 눌러도 바꾼 대로 보인다.
-    /// </remarks>
+    /// <summary>「미리받아보기」로 보낼 꼴. 역할은 담지 않는다 — 본인에게만 간다. 주기는 저장한 값이 아니라 지금 폼에 적힌 값을 담는다.</summary>
     public ReportMailPreviewDto ToPreviewRequest(IEnumerable<string> reportKeys) => new()
     {
         Name = Name?.Trim(),
@@ -98,10 +78,7 @@ internal sealed class ReportMailForm
         ReportKeys = [.. reportKeys],
     };
 
-    /// <summary>
-    /// 서버까지 가지 않고 막을 수 있는 것. <b>서버도 같은 것을 막는다</b> —
-    /// 여기 것은 왕복을 아끼는 것이지 유일한 문이 아니다.
-    /// </summary>
+    /// <summary>서버까지 가지 않고 막을 수 있는 것. 서버도 같은 것을 막는다 — 여기 것은 왕복을 아끼는 것이지 유일한 문이 아니다.</summary>
     public string? Problem(int reportCount, int roleCount)
     {
         if (string.IsNullOrWhiteSpace(Name)) return "배치 이름을 적으십시오.";
@@ -158,9 +135,7 @@ public partial class ReportMailList
         : $"{_recipients.Recipients.Count}명 중 {_recipients.DeliverableCount}명에게만 갑니다 — "
           + "나머지는 계정에 이메일이 없습니다. 「계정 관리」에서 넣으십시오.";
 
-    /// <summary>
-    /// 시각 한 줄. <b>받은 값은 UTC 라</b> 보여 주기 직전에 한 번만 옮긴다.
-    /// </summary>
+    /// <summary>시각 한 줄. 받은 값은 UTC 라 보여 주기 직전에 한 번만 옮긴다.</summary>
     private static string Stamp(DateTime? utc) => utc.Kst("MM-dd HH:mm");
 
     protected override async Task OnInitializedAsync()
@@ -174,8 +149,7 @@ public partial class ReportMailList
     {
         _catalog = await Api.GetReportCatalogAsync();
 
-        // 목록이 새로 들어왔으므로 체크도 그 객체들로 다시 맞춘다 — 안 맞추면
-        // 고른 줄이 「같은 열쇠의 다른 객체」가 되어 체크가 조용히 풀린다.
+        // 목록이 새로 들어왔으므로 체크도 그 객체들로 다시 맞춘다 — 같은 열쇠의 다른 객체면 체크가 조용히 풀린다.
         SyncPickedReports(_selected?.ReportKeys ?? []);
         return _catalog.Count;
     }, "고를 수 있는 보고서가 없습니다.", "보고서 목록을 읽지 못했습니다");
@@ -191,8 +165,7 @@ public partial class ReportMailList
     {
         _schedules = await Api.GetReportMailSchedulesAsync(_keyword, _activeOnly);
 
-        // 고르고 있던 배치를 다시 집는다. 저장 뒤에 목록을 새로 읽으면 같은
-        // 식별자의 **다른 객체**가 오므로, 그대로 두면 오른쪽이 옛 줄을 가리킨다.
+        // 저장 뒤 목록을 새로 읽으면 같은 식별자의 다른 객체가 오므로, 고르고 있던 배치를 다시 집는다.
         var keep = _selected?.Id;
         _selected = keep is null ? null : _schedules.FirstOrDefault(s => s.Id == keep);
 
@@ -211,10 +184,7 @@ public partial class ReportMailList
         return ReloadAsync();
     }
 
-    /// <summary>
-    /// 배치를 골랐다. 고른 것이 풀리면(<c>null</c>) 폼을 비우지 <b>않는다</b> —
-    /// 새로 만드는 중일 수 있고, 그때 비우면 적던 값이 사라진다.
-    /// </summary>
+    /// <summary>배치를 골랐다. 고른 것이 풀리면(null) 폼을 비우지 않는다 — 새로 만드는 중일 수 있다.</summary>
     private Task SelectAsync(ReportMailScheduleDto? schedule)
     {
         if (schedule is null) return Task.CompletedTask;
@@ -240,14 +210,7 @@ public partial class ReportMailList
         _pickedRoles = [];
     }
 
-    /// <summary>
-    /// 열쇠 목록을 <b>지금 화면에 실려 있는 객체</b>로 바꾼다.
-    /// </summary>
-    /// <remarks>
-    /// DevExpress 의 체크는 객체 동일성으로 맞춘다. 같은 열쇠라도 다른 인스턴스를
-    /// 주면 체크가 하나도 안 걸린다 — 저장하고 목록을 다시 읽을 때마다 고른
-    /// 보고서가 통째로 풀려 보이는 종류의 증상이다.
-    /// </remarks>
+    /// <summary>열쇠 목록을 지금 화면에 실려 있는 객체로 바꾼다. DevExpress 체크는 객체 동일성으로 맞춘다 — 다른 인스턴스면 체크가 하나도 안 걸린다.</summary>
     private void SyncPickedReports(IReadOnlyCollection<string> keys) =>
         _pickedReports = [.. _catalog.Where(c => keys.Contains(c.RouteKey))];
 
@@ -288,8 +251,7 @@ public partial class ReportMailList
 
         if (!ok) return;
 
-        // 방금 저장한 것을 고른 채로 둔다 — 등록 직후에 「받는 사람」을
-        // 눌러 보는 것이 가장 흔한 다음 동작이다.
+        // 방금 저장한 것을 고른 채로 둔다 — 등록 직후 「받는 사람」을 누르는 것이 가장 흔한 다음 동작이다.
         _selected = saved;
         await ReloadAsync();
     }
@@ -313,10 +275,7 @@ public partial class ReportMailList
         }
     }
 
-    /// <summary>
-    /// 지금 한 번 보낸다. <b>묻고 보낸다</b> — 되돌릴 수 없고 받는 쪽의
-    /// 메일함이 울린다.
-    /// </summary>
+    /// <summary>지금 한 번 보낸다. 묻고 보낸다 — 되돌릴 수 없고 받는 쪽의 메일함이 울린다.</summary>
     private async Task ConfirmSendAsync()
     {
         if (_selected is null || _confirm is null) return;
@@ -337,28 +296,7 @@ public partial class ReportMailList
         }
     }
 
-    /// <summary>
-    /// 「미리받아보기」 — 지금 고른 보고서를 <b>나에게만</b> 한 통 보낸다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// [<b>묻지 않고 보낸다</b>]
-    /// </para>
-    /// <para>
-    /// 「지금 보내기」는 묻는다 — 남의 메일함이 울고 되돌릴 수 없기 때문이다.
-    /// 이쪽은 받는 사람이 누른 사람 본인뿐이라 되돌릴 것이 없다. 한 번 더
-    /// 묻는 창은 「보고서가 메일로 어떻게 보이나」를 확인하려고 몇 번이고
-    /// 누르는 자리에서 방해만 된다.
-    /// </para>
-    /// <para>
-    /// [<c>Loading</c> 대신 제 깃발을 쓴다]
-    /// </para>
-    /// <para>
-    /// <see cref="DataPage.RunAsync"/> 를 쓰면 띄울 문구를 <b>부를 때</b>
-    /// 정해야 하는데, 여기서 할 말은 보내고 나서야 안다 — 어느 주소로 갔는지가
-    /// 그 한 줄의 핵심이다. 그래서 손으로 감싸고, 그동안 단추만 잠근다.
-    /// </para>
-    /// </remarks>
+    /// <summary>미리받아보기 — 지금 고른 보고서를 나에게만 한 통 보낸다. 묻지 않는다(되돌릴 것이 없다). 손으로 감싸는 것은 띄울 문구를 보내고 나서야 알기 때문이다.</summary>
     private async Task SendPreviewAsync()
     {
         if (_previewBusy) return;
@@ -391,10 +329,7 @@ public partial class ReportMailList
         }
     }
 
-    /// <summary>
-    /// 받는 사람을 띄운다. <b>창을 먼저 열고 읽는다</b> — 읽는 동안 아무 일도
-    /// 일어나지 않으면 눌리지 않은 줄 알고 다시 누른다.
-    /// </summary>
+    /// <summary>받는 사람을 띄운다. 창을 먼저 열고 읽는다 — 읽는 동안 아무 일도 없으면 눌리지 않은 줄 알고 다시 누른다.</summary>
     private async Task OpenRecipientsAsync()
     {
         if (_selected is null) return;

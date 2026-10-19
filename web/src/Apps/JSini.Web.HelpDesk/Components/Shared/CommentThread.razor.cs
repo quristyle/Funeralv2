@@ -91,11 +91,7 @@ public partial class CommentThread
     private static string AuthorClass(CommentNode node) =>
         IsAdmin(node) ? "jsini-badge--on" : "";
 
-    /// <summary>
-    /// 쓴 때. <b>UTC 로 오면 이 자리에서 옮긴다</b> — 서버는
-    /// <c>DateTime.UtcNow</c> 로 적고 DB 칸도 <c>timestamptz</c> 라,
-    /// 그대로 찍으면 아홉 시간 전에 쓴 것으로 보인다.
-    /// </summary>
+    /// <summary>쓴 때. UTC 로 오면 이 자리에서 옮긴다 — 서버는 DateTime.UtcNow 로 적고 DB 칸도 timestamptz 라 그대로 찍으면 아홉 시간 전으로 보인다.</summary>
     private static string When(CommentNode node)
     {
         if (node.Comment.CreatedAt is not { } at)
@@ -107,16 +103,7 @@ public partial class CommentThread
         return local.ToString("yyyy-MM-dd HH:mm");
     }
 
-    /// <summary>
-    /// 본문을 화면에 넣을 수 있는 HTML 로 만든다.
-    /// </summary>
-    /// <remarks>
-    /// <c>MarkupString</c> 은 <b>거른 다음에만</b> 쓴다. 댓글을 쓰는 사람에는
-    /// 고객이 들어 있으므로, 거르지 않으면 그 글이 담당자 브라우저에서 그대로
-    /// 실행된다. 요청 본문과 같은 한 벌을 쓴다 — 거기에
-    /// <c>/api/file/…</c> 주소를 셸 중계 경로로 옮기는 일까지 들어 있어,
-    /// 붙여넣은 그림이 포털(:5557)에서도 그대로 보인다.
-    /// </remarks>
+    /// <summary>본문을 화면에 넣을 수 있는 HTML 로 만든다. MarkupString 은 거른 다음에만 쓴다 — 댓글 작성자에는 고객이 있어 거르지 않으면 담당자 브라우저에서 그대로 실행된다.</summary>
     private static MarkupString Body(CommentNode node) =>
         new(NoticeHtml.Sanitize(node.Comment.CommentText));
 }

@@ -13,12 +13,7 @@ public partial class Contact
     private Messages T => SiteMessages.For(Locale);
     private string L => SiteMessages.Normalize(Locale);
 
-    /// <summary>
-    /// 폼이 실어 보내는 값. POST 로 돌아올 때 Blazor 가 여기에 채워 준다.
-    /// </summary>
-    /// 초기값을 주지 않는다(BL0008) — POST 로 돌아올 때 Blazor 가 통째로 갈아
-    /// 끼우므로, 초기값이 있으면 그것이 null 로 덮이는 경우가 생긴다.
-    /// 대신 첫 GET 에서 OnInitialized 가 채운다.
+    /// <summary>폼이 실어 보내는 값. POST 로 돌아올 때 Blazor 가 채운다. 초기값을 주지 않는다(BL0008). 첫 GET 에서 OnInitialized 가 채운다.</summary>
     [SupplyParameterFromForm]
     private ContactInput? Input { get; set; }
 
@@ -26,11 +21,7 @@ public partial class Contact
     private bool _done;
     private string? _error;
 
-    /// <summary>
-    /// 동의 문구. DB(<c>site.sections</c> 의 <c>contact.consent</c>)가 정본이다 —
-    /// 법률 문구라 코드 배포 없이 고칠 수 있어야 한다.
-    /// 블록이 없으면 코드에 둔 문장을 쓴다. <b>동의 문구가 아예 안 보이는 것이 더 나쁘다.</b>
-    /// </summary>
+    /// <summary>동의 문구. DB(site.sections 의 contact.consent)가 정본이다. 블록이 없으면 코드의 문장을 쓴다. 동의 문구가 아예 안 보이는 것이 더 나쁘다.</summary>
     private string ConsentBody =>
         string.IsNullOrWhiteSpace(_consent?.Body) ? T.Contact.Form.ConsentFallback : _consent.Body!;
 
@@ -58,8 +49,7 @@ public partial class Contact
         var email = Input!.Email?.Trim() ?? string.Empty;
         var message = Input!.Message?.Trim() ?? string.Empty;
 
-        // 브라우저의 `required` 만 믿지 않는다. 개발자 도구로 지우면 그만이고,
-        // 스크립트가 폼을 직접 POST 할 수도 있다.
+        // 브라우저의 required 만 믿지 않는다. 개발자 도구로 지우거나 스크립트가 직접 POST 할 수 있다.
         if (name.Length == 0 || email.Length == 0 || message.Length == 0 || !Input!.Consent)
         {
             _error = T.Contact.Form.Required;
@@ -105,10 +95,7 @@ public partial class Contact
         public string? Message { get; set; }
         public bool Consent { get; set; }
 
-        /// <summary>
-        /// 허니팟. 사람에게는 보이지 않는 칸이라 <b>비어 있어야 정상</b>이다.
-        /// 채워져 있으면 서버가 조용히 버리고 성공 응답을 준다 — 봇에게 단서를 주지 않는다.
-        /// </summary>
+        /// <summary>허니팟. 사람에게는 안 보이는 칸이라 비어 있어야 정상이다. 채워져 있으면 서버가 조용히 버리고 성공 응답을 준다.</summary>
         public string? Website { get; set; }
     }
 }

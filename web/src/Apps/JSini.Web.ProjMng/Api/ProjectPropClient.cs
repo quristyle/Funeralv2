@@ -2,12 +2,7 @@ using JSini.Web.Http;
 
 namespace JSini.Web.ProjMng.Api;
 
-/// <summary>
-/// 프로젝트 속성. <b>프로시저를 부르지 않는다.</b>
-/// </summary>
-/// <remarks>
-/// 옛 길은 <c>sp_dev_proj_prop_exec</c> 였고 <b>지우는 갈래가 없었다.</b>
-/// </remarks>
+/// <summary>프로젝트 속성 REST 클라이언트. 옛 프로시저(sp_dev_proj_prop_exec)는 지우는 갈래가 없었다.</summary>
 public sealed class ProjectPropClient(GatewayClient gateway)
 {
     private const string Url = "projmng/project-props";

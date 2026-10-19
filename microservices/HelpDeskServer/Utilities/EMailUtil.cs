@@ -23,16 +23,12 @@ using System.Security.Cryptography.X509Certificates;
 
 namespace HelpDeskServer.Utilities;
 
-/// <summary>
-/// EMail 관련 유틸리티 클래스.
-/// </summary>
+/// <summary>EMail 관련 유틸리티 클래스.</summary>
 public class EMailUtil {
 
 
 
-  /// <summary>
-  /// 이메일 전송
-  /// </summary>
+  /// <summary>이메일 전송</summary>
   /// <param name="mailTos"></param>
   /// <param name="title"></param>
   /// <param name="bodys"></param>
@@ -63,9 +59,7 @@ public class EMailUtil {
 
 
 
-        // var emailData = new { title, body = bodys, mailto = mailTos };
         // string jsonContent = JsonSerializer.Serialize(emailData, new JsonSerializerOptions { WriteIndented = false });
-        // await File.WriteAllTextAsync(jsonFilePath, jsonContent);
 
         var emailData = new { title, body = bodys, mailto = mailTos };
         string jsonContent = JsonSerializer.Serialize(emailData, new JsonSerializerOptions { WriteIndented = false });
@@ -75,7 +69,6 @@ public class EMailUtil {
 
 
 
-        //await File.WriteAllTextAsync(jsonFilePath, base64String, Encoding.UTF8);
         await File.WriteAllTextAsync(jsonFilePath, jsonContent, Encoding.UTF8);
 
 

@@ -2,19 +2,7 @@
 @attribute [RouteKey("projmng.wbs.progress")]
 
 @*
-    [WBS 진척률 현황]
-
-    이력: 사내망 WBS 대시보드(Vue) `views/Progress.vue` → **여기**
-    API: `projmng/wbs-board/progress/summary` · `…/by-user` · `…/by-module` · `…/rows`
-
-    [계획 진척률은 실적이 아니다]
-
-    계획시작일과 계획종료일만 보고 **날짜가 얼마나 흘렀는지**를 센다.
-    그 옆에 실제 완료율을 나란히 두는 것이 이 화면의 전부다 — 둘이 벌어진
-    만큼이 늦은 것이다.
-
-    기준일은 **DB 의 오늘**이다. 브라우저 시각을 쓰면 시차가 다른 자리에서
-    같은 화면이 다른 숫자를 낸다.
+WBS 진척률 현황. 계획 진척률은 날짜가 얼마나 흘렀는지를 세며 실제 완료율과 나란히 둔다 — 둘이 벌어진 만큼이 늦은 것이다. 기준일은 DB 의 오늘이다(브라우저 시각을 쓰면 시차마다 숫자가 달라진다).
 *@
 
 @inherits DataPage

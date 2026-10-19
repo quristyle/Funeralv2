@@ -1,25 +1,16 @@
 namespace JSini.Web.Admin.Api;
 
 // ── 메일 보내기 ─────────────────────────────────────────────
-//
-// 이름과 칸은 NotificationServer 의 `MailComposeDto`·`MailListItemDto` 와 맞춘
-// 것이다. **어긋나도 예외가 안 난다** — 서버가 못 읽은 칸을 기본값으로 두고
-// 지나가므로, 증상이 「보냈다는데 참조가 비어 있다」로만 보인다.
+// 이름과 칸은 NotificationServer 의 `MailComposeDto`·`MailListItemDto` 와 맞춘 것이다. **어긋나도 예외가 안 난다** — 서버가 못
+// 읽은 칸을 기본값으로 두고 지나가므로, 증상이 「보냈다는데 참조가 비어 있다」로만 보인다.
 
-/// <summary>
-/// 보낼 메일 한 통.
-/// </summary>
-/// <remarks>
-/// <b><see cref="EmailSendRequest"/> 와 갈라 둔다.</b> 저쪽은 「메시지 발송」이
-/// 쓰는 알림 통로(<c>notification/emails/send</c>)라 참조도 보관도 없다.
-/// 이쪽은 사람이 쓰는 편지라 참조가 있고, 보낸 글이 보낸함에 남는다.
-/// </remarks>
+/// <summary>보낼 메일 한 통.</summary>
 public sealed class MailComposeRequest
 {
     /// <summary>받는 사람. 여럿이면 쉼표로 잇는다.</summary>
     public string To { get; set; } = string.Empty;
 
-    /// <summary>참조. <b>숨은참조가 아니다</b> — 받는 사람 모두에게 보인다.</summary>
+    /// <summary>참조. 숨은참조가 아니다 — 받는 사람 모두에게 보인다.</summary>
     public string? Cc { get; set; }
 
     public string Subject { get; set; } = string.Empty;
@@ -45,7 +36,7 @@ public sealed class MailSendResult
     public string? Message { get; set; }
 }
 
-/// <summary>보낸 메일함의 한 줄. <b>본문이 없다</b> — 목록은 훑는 자리다.</summary>
+/// <summary>보낸 메일함의 한 줄. 본문이 없다 — 목록은 훑는 자리다.</summary>
 public class MailListItem
 {
     public string Id { get; set; } = string.Empty;
@@ -63,13 +54,13 @@ public class MailListItem
     public bool HasAiSummary { get; set; }
 }
 
-/// <summary>보낸 메일 한 통을 펼친 것. 본문 <b>전문</b>이 들어 있다.</summary>
+/// <summary>보낸 메일 한 통을 펼친 것. 본문 전문이 들어 있다.</summary>
 public sealed class MailDetail : MailListItem
 {
     public string? Body { get; set; }
     public bool IsHtml { get; set; } = true;
 
-    /// <summary>붙였던 파일 이름들. <b>파일 자체는 보관하지 않는다</b>.</summary>
+    /// <summary>붙였던 파일 이름들. 파일 자체는 보관하지 않는다.</summary>
     public List<string> AttachmentNames { get; set; } = [];
 
     public long AttachmentBytes { get; set; }

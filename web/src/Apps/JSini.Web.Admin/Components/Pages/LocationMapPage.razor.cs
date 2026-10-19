@@ -11,15 +11,7 @@ public partial class LocationMapPage
     [Inject] private AdminClient Api { get; set; } = default!;
     [Inject] private IJSRuntime Js { get; set; } = default!;
 
-    /// <summary>
-    /// 「목록 전체에게」로 한 번에 보낼 수 있는 사람 수.
-    /// </summary>
-    /// <remarks>
-    /// 서버가 한 번에 푸는 받는 사람 수와 같아야 한다
-    /// (<c>NoteRecipientResolver.MaxRecipients</c>). 여기가 더 크면 <b>넘은
-    /// 만큼이 앞에서 잘려</b> 뒤쪽 사람만 조용히 못 받는다 — 보낸 쪽은 전원에게
-    /// 갔다고 믿는다.
-    /// </remarks>
+    /// <summary>「목록 전체에게」로 한 번에 보낼 수 있는 사람 수. 서버의 받는 사람 상한(NoteRecipientResolver.MaxRecipients)과 같아야 한다 — 크면 넘은 만큼이 조용히 잘린다.</summary>
     private const int MaxBulk = 30;
 
     /// <summary>지도 판. JS 가 여기에 타일과 점을 붙인다.</summary>
@@ -43,10 +35,7 @@ public partial class LocationMapPage
     private bool _writing;
     private IReadOnlyList<string>? _writeTo;
 
-    /// <summary>
-    /// 점을 다시 실어야 하나. <b>그린 뒤에 보낸다</b> — 조회가 끝나는 시점에는
-    /// 아직 판이 없을 수 있다(첫 진입).
-    /// </summary>
+    /// <summary>점을 다시 실어야 하나. 그린 뒤에 보낸다 — 첫 진입에는 아직 판이 없을 수 있다.</summary>
     private bool _dirty;
 
     /// <summary>다시 실을 때 「전체 보기」까지 할 것인가.</summary>
@@ -58,10 +47,7 @@ public partial class LocationMapPage
     /// <summary>휴대폰에서 지금 선 판. 넓은 화면에서는 쓰이지 않는다.</summary>
     private PhoneView _view = PhoneView.Map;
 
-    /// <summary>
-    /// 감춰져 있던 지도 판이 다시 섰다. <b>그린 뒤에 알린다</b> — 이 값을
-    /// 올리는 시점에는 아직 CSS 가 판을 펴기 전이라 크기가 0 이다.
-    /// </summary>
+    /// <summary>감춰져 있던 지도 판이 다시 섰다. 그린 뒤에 알린다 — 이 값을 올리는 때는 아직 CSS 가 판을 펴기 전이라 크기가 0 이다.</summary>
     private bool _reveal;
 
     /// <summary>걸러 둔 결과. 한 렌더에서 대여섯 번 읽히므로 담아 둔다.</summary>
@@ -79,14 +65,7 @@ public partial class LocationMapPage
         List,
     }
 
-    /// <summary>
-    /// 조건에 걸러진 사람들. 지도와 목록이 같은 것을 본다.
-    /// </summary>
-    /// <remarks>
-    /// <b>한 렌더에서 여러 번 읽힌다</b> — 고르개의 수 · 조건 요약 ·
-    /// 「목록 전체에게」의 수 · 카드 목록 · 지도에 넘길 점. 그래서 담아 두고,
-    /// 조건이 바뀌는 길이 전부 지나는 <c>Refresh</c> 에서 비운다.
-    /// </remarks>
+    /// <summary>조건에 걸러진 사람들. 한 렌더에서 여러 번 읽히므로 담아 두고, 조건이 바뀌는 길이 지나는 Refresh 에서 비운다.</summary>
     private IReadOnlyList<AccountLocationDto> Shown => _shown ??= Sift();
 
     private IReadOnlyList<AccountLocationDto> Sift()
@@ -125,15 +104,13 @@ public partial class LocationMapPage
     {
         _all = await Api.GetAccountLocationsAsync();
 
-        // 사라진 사람을 고른 채로 두지 않는다 — 그 카드의 「쪽지 보내기」는
-        // 이제 목록에 없는 사람에게 간다.
+        // 사라진 사람을 고른 채로 두면 그 카드의 쪽지 보내기가 목록에 없는 사람에게 간다.
         if (_picked is { } prev && !_all.Any(p => p.LoginId == prev.LoginId))
         {
             _picked = null;
         }
 
-        // 자료가 바뀐 때만 맞춘다. 거르기만 했을 때도 맞추면 손으로 옮겨 둔
-        // 자리가 조건을 만질 때마다 되돌아간다.
+        // 자료가 바뀔 때만 맞춘다 — 거르기만 해도 맞추면 손으로 옮겨 둔 자리가 되돌아간다.
         Refresh(true);
 
         return _all.Count;
@@ -154,11 +131,7 @@ public partial class LocationMapPage
         _refit |= refit;
     }
 
-    /// <summary>화면 폭이 경계를 넘었다.</summary>
-    /// <remarks>
-    /// <b>휴대폰을 벗어나면 지도 판이 다시 선다</b> — 목록 보기로 둔 채
-    /// 창을 넓히면 감춰져 있던 판이 그 순간 나타나므로, 그때 한 번 알린다.
-    /// </remarks>
+    /// <summary>화면 폭이 경계를 넘었다. 휴대폰을 벗어나면 지도 판이 다시 선다 — 목록 보기로 둔 채 창을 넓히면 감춰진 판이 그 순간 나타나므로 한 번 알린다.</summary>
     private void OnPhoneChanged(bool active)
     {
         _isPhone = active;
@@ -174,15 +147,7 @@ public partial class LocationMapPage
         _reveal |= view == PhoneView.Map;
     }
 
-    /// <summary>
-    /// 목록에서 사람을 눌렀다 — <b>지도로 넘어가며 그 자리로 옮긴다.</b>
-    /// 누르고 나서 고르개를 또 눌러야 한다면 목록을 쓸 이유가 없다.
-    /// </summary>
-    /// <remarks>
-    /// <c>PickAsync</c> 를 거치지 않는다 — 그쪽은 <b>이미 고른 줄이면 아무것도
-    /// 하지 않으므로</b>, 지도를 끌어 옮겨 둔 뒤 목록에서 같은 사람을 다시
-    /// 누르면 화면이 그 자리로 안 돌아온다.
-    /// </remarks>
+    /// <summary>목록에서 사람을 눌렀다 — 지도로 넘어가며 그 자리로 옮긴다. PickAsync 를 거치지 않는다 — 이미 고른 줄이면 아무 일도 하지 않아 지도를 옮긴 뒤 자리로 돌아오지 않는다.</summary>
     private async Task ShowOnMapAsync(AccountLocationDto row)
     {
         _view = PhoneView.Map;
@@ -236,14 +201,7 @@ public partial class LocationMapPage
         }
     }
 
-    /// <summary>
-    /// 지도에서 점을 눌렀다. <b>빈 곳을 누르면 <c>null</c> 이 온다</b> —
-    /// 고른 것을 푸는 길이다.
-    /// </summary>
-    /// <remarks>
-    /// JS 가 되부르는 자리라 <c>StateHasChanged</c> 를 직접 부른다. 회로가
-    /// 일으킨 사건이 아니라서 Blazor 가 알아서 다시 그리지 않는다.
-    /// </remarks>
+    /// <summary>지도에서 점을 눌렀다. 빈 곳을 누르면 null 이 온다 — 고른 것을 푸는 길이다. JS 가 되부르므로 StateHasChanged 를 직접 부른다.</summary>
     [JSInvokable]
     public void PickMarker(string? loginId)
     {
@@ -254,17 +212,10 @@ public partial class LocationMapPage
         StateHasChanged();
     }
 
-    /// <summary>
-    /// 목록에서 골랐다. <b>지도도 그 자리로 옮긴다</b> — 목록에서 고른 사람이
-    /// 화면 밖에 있으면 고른 것이 눈에 안 보인다.
-    /// </summary>
+    /// <summary>목록에서 골랐다. 지도도 그 자리로 옮긴다 — 화면 밖에 있으면 고른 것이 눈에 안 보인다.</summary>
     private async Task PickAsync(AccountLocationDto? row)
     {
-        // **이미 고른 줄이면 아무것도 안 한다.** 표는 파라미터로 받은 선택을
-        // 그대로 따르므로(`CommGrd.OnParametersSet`) 지도에서 고른 것이 표에
-        // 되비치는데, 그때 이 자리가 또 불리면 **점을 누를 때마다 지도가
-        // 15 단계로 당겨진다** — 전체를 보다가 한 명을 짚는 순간 나머지가
-        // 화면 밖으로 나간다.
+        // 이미 고른 줄이면 아무것도 안 한다 — 지도에서 고른 것이 표에 되비치는데 이 자리가 또 불리면 점을 누를 때마다 지도가 당겨진다.
         if (ReferenceEquals(_picked, row)) return;
 
         _picked = row;
@@ -308,10 +259,7 @@ public partial class LocationMapPage
     private static string Who(AccountLocationDto p) =>
         string.IsNullOrWhiteSpace(p.Name) ? p.LoginId : p.Name!;
 
-    /// <summary>
-    /// 어디에 있나. <b>지역 이름이 없으면 좌표를 적는다</b> — 빈 칸으로 두면
-    /// 자리를 모르는 사람으로 읽힌다.
-    /// </summary>
+    /// <summary>어디에 있나. 지역 이름이 없으면 좌표를 적는다 — 빈 칸은 자리를 모르는 사람으로 읽힌다.</summary>
     private static string Where(AccountLocationDto p) =>
         string.IsNullOrWhiteSpace(p.Place)
             ? FormattableString.Invariant($"{p.Lat:0.####}, {p.Lon:0.####}")
@@ -323,14 +271,7 @@ public partial class LocationMapPage
             ? at.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
             : "알 수 없음";
 
-    /// <summary>
-    /// 목록 칸에 적는 짧은 말 — <b>며칠 전인가</b>.
-    /// </summary>
-    /// <remarks>
-    /// 좁은 칸이라 날짜를 다 적으면 잘린다. 그리고 여기서 사람이 묻는 것은
-    /// 「언제였나」가 아니라 <b>「이 점을 믿어도 되나」</b>라, 날수가 답에 가깝다.
-    /// 정확한 시각은 고른 카드가 적는다.
-    /// </remarks>
+    /// <summary>목록 칸에 적는 짧은 말 — 며칠 전인가. 여기서 사람이 묻는 것은 「이 점을 믿어도 되나」라 날수가 답에 가깝다.</summary>
     private static string Fresh(AccountLocationDto p)
     {
         if (p.LastKnownAt is not { } at) return "—";
@@ -360,8 +301,7 @@ public partial class LocationMapPage
 
     public async ValueTask DisposeAsync()
     {
-        // 회로가 이미 끊겼으면 JS 를 부를 수 없다. 화면을 옮기며 늘 지나는
-        // 길이라 예외를 남기지 않는다 — 조직도와 같은 자리다.
+        // 회로가 끊겼으면 JS 를 부를 수 없다 — 화면을 옮기며 늘 지나는 길이라 예외를 남기지 않는다.
         try
         {
             if (_map is not null)

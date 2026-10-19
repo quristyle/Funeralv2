@@ -8,10 +8,6 @@ namespace funeralv2Api.Data;
 /// </summary>
 public class AppDbContext : DbContext
 {
-    /// <summary>
-    /// AppDbContext 생성자
-    /// </summary>
-    /// <param name="options">DbContext 옵션</param>
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
     {
     }
@@ -91,9 +87,6 @@ public class AppDbContext : DbContext
     /// </summary>
     public DbSet<DeviceTextOverlay> DeviceTextOverlays { get; set; } = null!;
 
-    // 알림 DbSet 둘(FuneralNotices · FuneralNoticeReads)은 2026-09-03 에 걷어냈다 —
-    // `/info/notice` 화면을 쓰지 않아 함께 지웠다 (Endpoints/InfoEndpoints.cs 머리말).
-    // 표도 마이그레이션 `RemoveFuneralNotices` 로 지웠다.
 
     /// <summary>
     /// 계정별 업무 설정 DbSet (옛 <c>t_account_conf</c>)
@@ -107,10 +100,7 @@ public class AppDbContext : DbContext
 
 
 
-    /// <summary>
-    /// 모델 생성 시 규칙 정의 (Fluent API)
-    /// </summary>
-    /// <param name="modelBuilder">ModelBuilder 객체</param>
+    /// <summary>모델 생성 시 규칙 정의 (Fluent API)</summary>
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -136,8 +126,7 @@ public class AppDbContext : DbContext
             .HasIndex(c => c.DeviceId)
             .IsUnique();
 
-        // 한 사람이 같은 설정을 두 줄 갖지 않게 막는다. 서비스는 그래도 가장 최근 것을
-        // 고르도록 짜여 있는데(옛 데이터를 옮겨 올 때를 대비), 새로 생기는 것은 여기서 막는다.
+        // 한 사람당 설정 한 줄을 DB 에서 막는다. 서비스는 옛 데이터 중복에 대비해 가장 최근 것을 고른다.
         modelBuilder.Entity<AccountSetting>()
             .HasIndex(s => new { s.UserId, s.SettingCode })
             .IsUnique();

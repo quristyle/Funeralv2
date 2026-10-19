@@ -22,10 +22,7 @@ public partial class OrgChart
 
     private enum OrgKind { Company, Dept, User }
 
-    /// <summary>
-    /// 그려질 노드 하나. 회사·부서·사람이 같은 모양으로 들어온다 —
-    /// 배치와 연결선이 셋을 가리지 않기 때문이다.
-    /// </summary>
+    /// <summary>그려질 노드 하나. 회사·부서·사람이 같은 모양으로 들어온다 — 배치와 연결선이 셋을 가리지 않기 때문이다.</summary>
     private sealed class Node
     {
         public string Id { get; init; } = string.Empty;
@@ -50,23 +47,13 @@ public partial class OrgChart
 
         public double? ParentY { get; set; }
 
-        /// <summary>
-        /// 세로 조직도에서 부서 아래 세로로 쌓인 사람일 때, <b>바로 위</b> 노드.
-        ///
-        /// <para>
-        /// 부서에서 사람마다 부챗살로 선을 그으면 한 칸에 겹쳐 읽을 수 없다.
-        /// 위에서 아래로 이어 긋기 위한 값이다.
-        /// </para>
-        /// </summary>
+        /// <summary>세로 조직도에서 부서 아래 쌓인 사람의 바로 위 노드. 부챗살로 그으면 한 칸에 겹치므로 위에서 아래로 이어 긋는 값이다.</summary>
         public string? StackPrevId { get; set; }
     }
 
     private sealed record Choice(Node Node, int Depth);
 
-    // ── 배치 치수 ────────────────────────────────────────────
-    //
-    // 카드가 180×50 이다. 원본(Vue)의 값을 그대로 옮겼다 — 눈대중으로 다시
-    // 잡으면 부서가 열몇 개일 때 선이 카드에 닿거나 멀어진다.
+    // 카드 180×50. 원본(Vue)의 값을 그대로 옮겼다 — 눈대중으로 다시 잡으면 선이 카드에 닿거나 멀어진다.
 
     private const double CardWidth = 180;
     private const double CardHeight = 50;
@@ -118,11 +105,7 @@ public partial class OrgChart
     private string MoveTitle =>
         $"[{_moveName}] {(_moveKind == OrgKind.Dept ? "부서" : "사용자")} 이동";
 
-    /// <summary>
-    /// 옮길 수 있는가. 단추는 <c>PermissionView</c> 가 감추지만 <b>끌기는 속성</b>이라
-    /// 여기서 따로 본다 — 감추기만 하고 끌기가 열려 있으면 단추 없는 사람이
-    /// 끌어서 옮길 수 있다. (실제 통제는 서버가 한다.)
-    /// </summary>
+    /// <summary>옮길 수 있는가. 단추는 PermissionView 가 감추지만 끌기는 속성이라 여기서 따로 본다 — 실제 통제는 서버가 한다.</summary>
     private bool CanMove => Can(MenuAction.Update);
 
     protected override async Task OnInitializedAsync()
@@ -174,15 +157,7 @@ public partial class OrgChart
         _needsFit = true;
     }
 
-    /// <summary>
-    /// 조직도를 다시 읽는다.
-    ///
-    /// <para>
-    /// 부서를 먼저 받고, 그 부서들의 사람을 <b>몇 개씩 묶어</b> 나란히 받는다.
-    /// 한꺼번에 다 던지면 부서가 많은 회사에서 게이트웨이로 수십 개가 동시에
-    /// 나가고, 하나씩 기다리면 부서 수만큼 왕복한다.
-    /// </para>
-    /// </summary>
+    /// <summary>조직도를 다시 읽는다. 부서를 먼저 받고 사람은 몇 개씩 묶어 나란히 받는다 — 한꺼번에 던지면 게이트웨이로 수십 개가 동시에 나가고, 하나씩 기다리면 부서 수만큼 왕복한다.</summary>
     private Task ReloadAsync() => LoadAsync(async () =>
     {
         if (string.IsNullOrEmpty(_companyId))
@@ -272,11 +247,7 @@ public partial class OrgChart
         return nodes;
     }
 
-    // ── 배치 ────────────────────────────────────────────────
-    //
-    // 원본(Vue)의 계산을 그대로 옮겼다. 사람을 한 칸에 쌓는 것이 그중 핵심이다 —
-    // 사람도 잎 하나가 한 칸(200px)을 쓰던 때는 여덟 명짜리 부서 하나가 1600px
-    // 을 먹어, 부서 몇 개만 있어도 좌우로 한참 끌어야 전체가 보였다.
+    // 원본(Vue)의 계산을 그대로 옮겼다. 사람을 한 칸에 쌓는 것이 핵심이다 — 사람마다 한 칸을 쓰면 여덟 명짜리 부서 하나가 1600px 을 먹는다.
 
     private void Layout()
     {
@@ -404,22 +375,7 @@ public partial class OrgChart
         }
     }
 
-    /// <summary>
-    /// 연결선. 세로는 부모 아래에서 자식 위로, 가로는 부모 오른쪽에서 자식 왼쪽으로
-    /// 3차 베지어를 긋는다.
-    ///
-    /// <para>
-    /// [조절점은 <b>선의 두 끝</b> 사이에서 잡는다]
-    /// </para>
-    ///
-    /// <para>
-    /// 원본(Vue)은 두 <b>카드의 좌표</b> 사이에서 잡았다(<c>(sourceX + targetX) / 2</c>).
-    /// 카드 크기가 빠져 있어서, 가로 조직도에서는 조절점이 시작점보다 뒤에
-    /// 놓인다 — 칸 간격 250 에 카드가 180 이라 실제로 남는 자리가 70 뿐이다.
-    /// 선이 왼쪽으로 한 번 물러났다 가는 S 자가 되어 부모가 어느 쪽인지
-    /// 헷갈린다. 끝점 기준으로 잡으면 늘 앞으로만 흐른다.
-    /// </para>
-    /// </summary>
+    /// <summary>연결선. 3차 베지어로 긋고 조절점은 두 끝 사이에서 잡는다 — 카드 좌표 사이에서 잡으면 가로 조직도에서 선이 뒤로 물러났다 가는 S 자가 된다.</summary>
     private string LinkPath(Node node)
     {
         var sx = node.ParentX!.Value;
@@ -462,10 +418,7 @@ public partial class OrgChart
 
     private void BeginDragUser(string userId) => _drag = (OrgKind.User, userId);
 
-    /// <summary>
-    /// 노드 위에 놓았다. 회사에 놓으면 회사 직속으로, 부서에 놓으면 그 아래로 간다.
-    /// 사람은 부서에만 놓을 수 있다.
-    /// </summary>
+    /// <summary>노드 위에 놓았다. 회사에 놓으면 회사 직속으로, 부서에 놓으면 그 아래로 간다. 사람은 부서에만 놓을 수 있다.</summary>
     private async Task DropAsync(Node target)
     {
         var drag = _drag;
@@ -507,14 +460,7 @@ public partial class OrgChart
         _moving = true;
     }
 
-    /// <summary>
-    /// 옮겨 갈 수 있는 부서. 이미 받아 둔 나무를 편 것이라 서버를 다시 부르지 않는다.
-    ///
-    /// <para>
-    /// 부서를 옮길 때는 <b>자기 자신과 그 아래 전부</b>를 뺀다 — 자기 밑으로
-    /// 들어가면 나무가 고리가 되어 목록이 통째로 사라진다.
-    /// </para>
-    /// </summary>
+    /// <summary>옮겨 갈 수 있는 부서. 받아 둔 나무를 편 것이라 서버를 다시 부르지 않는다. 자기 자신과 하위는 뺀다 — 자기 밑으로 들어가면 나무가 고리가 된다.</summary>
     private List<Choice> MoveChoices()
     {
         var choices = new List<Choice>();
@@ -568,10 +514,7 @@ public partial class OrgChart
         }
     }
 
-    /// <summary>
-    /// 끌어다 놓기와 이동 팝업이 <b>함께 쓰는</b> 저장 경로.
-    /// 둘로 나누면 한쪽에만 규칙이 붙는다.
-    /// </summary>
+    /// <summary>끌어다 놓기와 이동 팝업이 함께 쓰는 저장 경로. 둘로 나누면 한쪽에만 규칙이 붙는다.</summary>
     private async Task<bool> ApplyMoveAsync(OrgKind kind, string id, string? targetDeptId)
     {
         var ok = await RunAsync(
@@ -649,10 +592,7 @@ public partial class OrgChart
         }
     }
 
-    /// <summary>
-    /// 회사 인자를 넘기지 않는다 — 「어느 회사에도 없는 사람」이라 어느 회사
-    /// 조직도를 보고 있든 후보가 같다.
-    /// </summary>
+    /// <summary>회사 인자를 넘기지 않는다 — 어느 회사에도 없는 사람이라 후보가 어느 회사 조직도에서나 같다.</summary>
     private Task LoadUnassignedAsync() => LoadAsync(async () =>
     {
         _unassigned = await Api.GetDeptEligibleUsersAsync();

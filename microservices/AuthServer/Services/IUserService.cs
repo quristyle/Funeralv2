@@ -38,11 +38,7 @@ public interface IUserService
     /// 그 계정의 비밀번호를 <b>새 값으로 발급해 갈아 끼운다</b>(관리자용).
     /// 계정을 못 찾으면 <c>null</c>.
     /// </summary>
-    /// <remarks>
-    /// 지금 비밀번호를 묻지 않는다 — 비밀번호를 잊은 사람을 대신 풀어 주는
-    /// 길이라 물을 수가 없다. 그래서 <b>부르는 쪽이 관리자인지 먼저 본다</b>
-    /// (<c>SystemEndpoints</c>).
-    /// </remarks>
+    /// 지금 비밀번호를 묻지 않는다 — 잊은 사람을 대신 풀어 주는 길이라 물을 수 없다. 그래서 부르는 쪽이 관리자인지 먼저 본다.
     Task<IssuedPasswordDto?> ResetAccountPasswordAsync(string id);
 
     /// <summary>
@@ -53,27 +49,14 @@ public interface IUserService
     /// <summary>
     /// 로그인한 사용자의 비밀번호를 변경합니다.
     /// </summary>
-    /// <remarks>
-    /// 90일 만료 정책 때문에 사용자가 <b>어쩔 수 없이</b> 이 화면에 오는 경우가 생긴다.
-    /// 그때 "변경에 실패했습니다" 한 마디만 돌려주면 무엇을 고쳐야 하는지 알 수 없으므로,
-    /// 실패 이유를 구분해서 돌려준다.
-    /// </remarks>
+    /// 90일 만료 때문에 사용자가 어쩔 수 없이 오므로, 실패 이유를 구분해서 돌려준다.
     Task<ChangePasswordResult> ChangePasswordAsync(string userId, ChangePasswordDto dto);
 
     /// <summary>
     /// 비밀번호가 맞는지 <b>확인만</b> 한다. 아무것도 바꾸지 않는다.
     /// </summary>
-    /// <remarks>
-    /// 잠금화면이 쓴다(D7). 로그인 API 를 다시 부르는 방법도 있었지만 그러면
-    /// <b>새 토큰이 발급되어 기존 세션과 섞인다</b> — 잠금을 푸는 일이 조용히
-    /// 재로그인이 되는 셈이라, 확인만 하는 길을 따로 뒀다.
-    ///
-    /// <para>
-    /// 돌려주는 것은 참·거짓뿐이다. "계정이 없다" 와 "비밀번호가 틀리다" 를
-    /// 구분해 주지 않는다 — 여기 오는 사람은 이미 로그인한 사람이라
-    /// 구분해 봐야 알려 줄 것이 없고, 구분하면 계정을 골라내는 데 쓰인다.
-    /// </para>
-    /// </remarks>
+    /// 잠금화면이 쓴다. 로그인 API 를 다시 부르면 새 토큰이 기존 세션과 섞이므로 확인만 하는 길을 따로 둔다.
+    /// 「계정 없음」과 「비밀번호 틀림」을 구분하지 않는다 — 구분하면 계정을 골라내는 데 쓰인다.
     Task<bool> VerifyPasswordAsync(string userId, string password);
 
     /// <summary>
@@ -84,13 +67,7 @@ public interface IUserService
     /// <summary>
     /// 로그인한 뒤 처음 열리는 화면을 정한다.
     /// </summary>
-    /// <remarks>
-    /// <see cref="UpdateSettingAsync"/> 와 담기는 표가 같은데도 따로 두는 까닭은
-    /// <b>담기는 값의 꼴이 다르기</b> 때문이다 — 저쪽은 켬·끔(<c>bool</c>)만
-    /// 받아 <c>"true"</c>/<c>"false"</c> 로 적는다. 여기에 글자를 실으려면
-    /// 저 DTO 에 칸을 하나 더해야 하고, 그러면 <b>어느 칸이든 임의의 글자를
-    /// 임의의 <c>DetailType</c> 에 적을 수 있는 길</b>이 열린다.
-    /// </remarks>
+    /// 담기는 값이 켬·끔뿐이라 UpdateSettingAsync 와 따로 둔다 — 글자를 실을 수 있게 되면 어느 칸이든 임의의 글자를 적는 길이 열린다.
     /// <param name="userId">로그인 아이디 또는 계정 식별자.</param>
     /// <param name="homePath">
     /// 메뉴 경로. 비었으면 지정을 <b>푼다</b>(줄을 지운다).

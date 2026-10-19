@@ -10,14 +10,7 @@ namespace AuthServer.Services;
 /// <summary>비밀번호 재설정 링크를 발급하고 받아 준다.</summary>
 public interface IPasswordResetService
 {
-    /// <summary>
-    /// 재설정 링크를 메일로 보낸다.
-    /// </summary>
-    /// <remarks>
-    /// <b>돌려주는 값이 없다.</b> 아이디가 있었는지 · 이메일이 맞았는지 ·
-    /// 메일이 나갔는지를 부르는 쪽이 알면 그대로 화면에 새어 나간다.
-    /// 사연은 구현 주석에 있다.
-    /// </remarks>
+    /// <summary>재설정 링크를 메일로 보낸다. 돌려주는 값이 없다 — 아이디·이메일 유무가 새면 아이디 확인 도구가 된다.</summary>
     Task RequestAsync(string loginId, string email, string? requestIp, CancellationToken ct = default);
 
     /// <summary>링크를 받아 비밀번호를 바꾼다.</summary>
@@ -56,51 +49,16 @@ public class PasswordResetService(
     /// <summary>메일에 적어 보내는 보낸 이 이름. 로그에서 이 기능을 가리키는 이름이기도 하다.</summary>
     private const string Sender = "AUTH_PASSWORD_RESET";
 
-    /// <summary>
-    /// 링크 수명(분). 짧을수록 안전하지만 메일이 늦게 도착하는 곳도 있어
-    /// 기본을 30분으로 둔다.
-    /// </summary>
+    /// <summary>링크 수명(분). 메일이 늦게 도착하는 곳도 있어 기본 30분이다.</summary>
     private int LifetimeMinutes =>
         configuration.GetValue("Auth:PasswordReset:LifetimeMinutes", 30);
 
-    /// <summary>
-    /// 링크에 적을 포털 주소. 없으면 개발 기본값을 쓴다.
-    /// <b>운영에서는 반드시 설정한다</b> — 아니면 메일에 개발 주소가 나간다.
-    /// </summary>
+    /// <summary>링크에 적을 포털 주소. 운영에서는 반드시 설정한다 — 아니면 메일에 개발 주소가 나간다.</summary>
     private string PortalBaseUrl =>
         (configuration["Portal:BaseUrl"] ?? "http://localhost:5557").TrimEnd('/');
 
-    /// <summary>
-    /// 재설정 링크를 만들어 메일로 보낸다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// [무슨 일이 있어도 조용히 끝난다]
-    /// </para>
-    ///
-    /// <para>
-    /// 아이디가 없든 · 이메일이 다르든 · 계정에 이메일이 없든 아무 말도 하지
-    /// 않는다. 이유는 <b>이 경로가 아이디를 확인해 주는 도구가 되기 때문</b>이다.
-    /// 「그런 아이디가 없습니다」를 돌려주면 아이디 목록을 긁을 수 있고, 그건
-    /// 로그인 화면이 「아이디 또는 비밀번호가 잘못되었습니다」로 뭉뚱그려 막아
-    /// 둔 것을 옆문으로 여는 셈이다.
-    /// </para>
-    ///
-    /// <para>
-    /// 대신 <b>로그에는 이유를 남긴다.</b> 사용자가 「메일이 안 온다」고 하면
-    /// 그 로그가 유일한 단서다.
-    /// </para>
-    ///
-    /// <para>
-    /// [앞서 보낸 링크는 죽인다]
-    /// </para>
-    ///
-    /// <para>
-    /// 살아 있는 링크가 여럿이면 가장 오래된 것도 그대로 먹힌다. 메일함을
-    /// 잠깐 본 사람이 옛 링크로 비밀번호를 바꿀 수 있다는 뜻이라, 새로 보낼
-    /// 때 앞엣것을 모두 쓴 것으로 표시한다.
-    /// </para>
-    /// </remarks>
+    /// <summary>재설정 링크를 만들어 메일로 보낸다. 아이디·이메일 유무와 무관하게 응답은 같다.</summary>
+    /// 이유는 로그에만 남긴다. 새로 보낼 때 앞서 보낸 살아 있는 링크는 모두 죽인다 — 옛 메일로 비밀번호를 바꾸는 길을 막는다.
     public async Task RequestAsync(
         string loginId, string email, string? requestIp, CancellationToken ct = default)
     {
@@ -121,15 +79,7 @@ public class PasswordResetService(
         }
 
         // ── 계정에 살아 있는 이메일들 ────────────────────────
-        //
-        // **지운 것과 여러 개를 함께 다뤄야 한다.** 프로필 상세(scom)는 값을
-        // 고칠 때 옛 줄을 지움 표시만 하고 새 줄을 더하는 자리라, 한 계정에
-        // Email 이 여럿 남는 것이 예사다. 예전에는 `FirstOrDefault` 하나로
-        // 집어서 **지워진 옛 주소나 두 번째 주소를 골라 놓고** 사용자가 적은
-        // 지금 주소와 다르다며 조용히 끝났다 — 화면에는 「보냈습니다」가 뜨므로
-        // 아무도 모른다. NotificationServer 의 수신자 해석(EmailEndpoints)은
-        // 처음부터 IsDeleted 를 걸러내고 대표(IsPrimary)를 앞세웠는데,
-        // 이쪽만 그러지 않고 있었다.
+        // 계정 이메일은 여럿일 수 있다(지움 표시된 옛 줄 포함). 하나만 집으면 엉뚱한 주소로 가므로 살아 있는 것 전부를 보고 대표를 앞세운다.
         var stored = account.ProfileDetails?
             .Where(p => p.DetailType == "Email" && !p.IsDeleted && !string.IsNullOrWhiteSpace(p.Content))
             .OrderByDescending(p => p.IsPrimary)
@@ -144,20 +94,13 @@ public class PasswordResetService(
             return;
         }
 
-        // 적어 낸 주소가 **등록된 것 중 하나와** 맞으면 된다. 대표 주소만
-        // 인정하면 회사 메일로 가입해 개인 메일을 덧붙인 사람이 자기 주소를
-        // 적고도 막힌다 — 어느 쪽이든 본인만 열 수 있는 메일함이다.
+        // 적어 낸 주소가 등록된 것 중 하나와 맞으면 된다 — 대표만 인정하면 덧붙인 주소로는 막힌다.
         var target = stored.FirstOrDefault(
             s => string.Equals(s, email.Trim(), StringComparison.OrdinalIgnoreCase));
 
         if (target is null)
         {
-            // **등록된 주소를 가려서 함께 남긴다.** 이 자리가 「메일이 안 온다」의
-            // 가장 흔한 끝이고, 화면은 아이디 노출을 막으려고 여기서도
-            // 「보냈습니다」를 띄우므로 물어본 사람에게 답할 수 있는 것은 이
-            // 로그 한 줄뿐이다. 가린 꼴이면 관리자가 「등록된 주소는 q***e@gmail.com
-            // 입니다」라고 짚어 줄 수 있으면서 로그를 본 사람이 주소를 통째로
-            // 집어 가지는 못한다.
+            // 등록된 주소를 가려서 로그에 남긴다. 화면은 「보냈습니다」만 띄우므로 물어본 사람에게 답할 수 있는 것은 이 로그 한 줄뿐이다.
             logger.LogInformation(
                 "비밀번호 재설정: 이메일이 계정과 다르다 ({LoginId}, 등록 {Count}건 {Stored}, {Ip})",
                 loginId, stored.Count, string.Join(" · ", stored.Select(Mask)), requestIp);
@@ -194,9 +137,7 @@ public class PasswordResetService(
         // 본문 HTML 은 여기서 조립하지 않는다 — 틀은 AccountEmailTemplates 가 갖는다.
         var body = AccountEmailTemplates.PasswordReset(who, link, LifetimeMinutes);
 
-        // **알림관리가 막지 않는 이벤트다**(`governed = false`). 그래도 코드를
-        // 적어 보내는 까닭은 그 화면의 목록에 이 메일이 실제로 있기 때문이다 —
-        // 적지 않으면 「구분 없는 메일」로 섞여 어디서 나가는지 알 수 없다.
+        // 알림관리가 막지 않는 이벤트(governed=false)지만, 코드를 적어 두어야 그 화면 목록에 나타난다.
         var sent = await mail.SendAsync(
             target, AccountEmailTemplates.PasswordResetSubject, body, Sender,
             NotificationEvents.AccountMail, ct);
@@ -273,15 +214,7 @@ public class PasswordResetService(
     private static string HashToken(string raw) =>
         Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes(raw)));
 
-    /// <summary>
-    /// 메일 주소를 로그에 남길 수 있게 가린다 (<c>quristyle@gmail.com</c> →
-    /// <c>q***e@gmail.com</c>).
-    /// </summary>
-    /// <remarks>
-    /// <b>도메인은 남긴다.</b> 「회사 메일인지 개인 메일인지」가 문의에 답할 때
-    /// 가장 쓸모 있는 조각이고, 도메인만으로는 사람을 짚을 수 없다.
-    /// 아이디 쪽은 양 끝 한 글자만 남긴다 — 두 글자 이하면 통째로 가린다.
-    /// </remarks>
+    /// <summary>메일 주소를 로그용으로 가린다(quristyle@gmail.com → q***e@gmail.com). 도메인은 남기고 아이디는 양 끝 한 글자만 남긴다.</summary>
     private static string Mask(string? address)
     {
         if (string.IsNullOrWhiteSpace(address))

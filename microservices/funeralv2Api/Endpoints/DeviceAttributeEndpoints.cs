@@ -23,10 +23,6 @@ public static class DeviceAttributeEndpoints
             [FromServices] IDeviceAttributeService service) =>
         {
             var result = await service.GetByDeviceIdAsync(deviceId);
-            //if (result == null)
-            //{
-            //    return Results.NotFound(ApiResponse<DeviceAttributeDto>.Fail("장비 속성 정보를 찾을 수 없습니다."));
-            //}
             return Results.Ok(ApiResponse<DeviceAttributeDto>.Ok(result));
         }).WithName("GetDeviceAttribute");
 

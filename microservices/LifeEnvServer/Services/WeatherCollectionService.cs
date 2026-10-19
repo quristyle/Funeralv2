@@ -23,12 +23,6 @@ public class WeatherCollectionService : BackgroundService
     // 특보 조회 지점: Weather:WarningStnId (기본 108 = 전국)
     private readonly int _warningStnId;
 
-    /// <summary>
-    /// WeatherCollectionService 생성자
-    /// </summary>
-    /// <param name="scopeFactory">서비스 스코프 팩토리</param>
-    /// <param name="logger">로거</param>
-    /// <param name="configuration">설정</param>
     public WeatherCollectionService(IServiceScopeFactory scopeFactory, ILogger<WeatherCollectionService> logger, IConfiguration configuration)
     {
         _scopeFactory = scopeFactory;
@@ -38,11 +32,6 @@ public class WeatherCollectionService : BackgroundService
         _warningStnId = configuration.GetValue<int>("Weather:WarningStnId", 108);
     }
 
-    /// <summary>
-    /// 백그라운드 작업 실행 메서드
-    /// </summary>
-    /// <param name="stoppingToken">중지 토큰</param>
-    /// <returns>작업 태스크</returns>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("Weather Collection Service is starting. (주기: {Minutes}분)", _period.TotalMinutes);
@@ -305,15 +294,11 @@ public class WeatherCollectionService : BackgroundService
                   var landJson = await weatherApi.GetMidLandForecastAsync(loc.MidTermLandCode!);
                   var tempJson = await weatherApi.GetMidTaAsync(loc.MidTermTempCode!);
 
-                  // 읽어 내는 일은 내 위치 주간 예보와 **같은 자리**를 쓴다
-                  // (MidTermForecastReader) — 한쪽만 고치면 같은 화면에서
-                  // 등록 지역과 내 위치가 다른 말을 한다.
+                  // 읽는 일은 내 위치 주간 예보와 같은 자리(MidTermForecastReader)를 쓴다 — 한쪽만 고치면 두 화면이 다른 말을 한다.
                   var days = MidTermForecastReader.Read(landJson, tempJson, baseDate);
 
                   if (days.Count == 0) {
-                      // 읽어 낸 날이 하나도 없다 — 기상청이 아직 안 냈거나 키가
-                      // 없거나 응답 모양이 바뀐 것이다. 조용히 넘어가면 며칠 뒤
-                      // 「주간 예보가 안 채워진다」만 남고 언제부터인지를 못 찾는다.
+                      // 읽어 낸 날이 하나도 없으면 기상청 미발표, 키 누락, 응답 모양 변경 중 하나다 — 조용히 넘기면 원인을 못 찾는다.
                       _logger.LogWarning("Mid-Term forecast empty for {Name} ({BaseDate})", loc.Name, baseDate);
                       continue;
                   }
@@ -360,9 +345,7 @@ public class WeatherCollectionService : BackgroundService
 
       int count = 0;
 
-      // 이번 사이클에 **새로 관리 지역과 맞은** 특보들. 매칭하는 자리에서 바로
-      // 알리지 않는 까닭은 그때 특보 행의 Id 가 아직 0 이라 발송 표시를 붙일
-      // 곳이 없어서다 — 저장이 끝난 뒤 한꺼번에 내보낸다.
+      // 특보 행의 Id 가 아직 0 이라 발송 표시를 붙일 수 없으므로, 저장이 끝난 뒤 한꺼번에 알린다.
       var pending = new List<PendingWarningNotice>();
 
       foreach (var w in warnings) {
@@ -397,9 +380,7 @@ public class WeatherCollectionService : BackgroundService
         await db.SaveChangesAsync(stoppingToken);
         _logger.LogInformation("Collected {Count} new weather warnings with messages and details.", count);
 
-        // 환경설정에서 「기상 특보」를 켠 사람에게 알린다.
-        // **관리 지역에 걸린 특보만** 보낸다 — 전국 특보를 전부 내보내면
-        // 알림이 하루에도 수십 건이 되어 아무도 보지 않게 된다.
+        // 관리 지역에 걸린 특보만 알린다 — 전국 특보를 다 내보내면 알림이 하루 수십 건이 된다.
         await NotifyMatchedWarningsAsync(scope, db, pending, stoppingToken);
       }
     }
@@ -408,26 +389,13 @@ public class WeatherCollectionService : BackgroundService
     }
   }
 
-  /// <summary>
-  /// 단일 기상 특보를 처리하고 DB에 저장 및 지역 매칭을 수행합니다.
-  /// </summary>
-  /// <returns>
-  /// 새로 만들어진 지역 매칭과 통보문에서 뽑은 특보 종류. 알림을 보낼지는
-  /// 부르는 쪽이 저장을 마친 뒤에 정한다.
-  /// </returns>
+  /// <summary>단일 기상 특보를 처리해 DB 에 저장하고 지역을 매칭한다. 알림 여부는 부르는 쪽이 저장 뒤에 정한다.</summary>
   public async Task<PendingWarningNotice> ProcessWarningAsync(LifeEnvDbContext db, WeatherApiService weatherApi, WeatherWarning w, CancellationToken stoppingToken)
   {
       if (w.Id == 0) {
           // New entity
           w.CreatedBy = string.IsNullOrEmpty(w.CreatedBy) ? "System_Background" : w.CreatedBy;
           db.WeatherWarnings.Add(w);
-          // Save changes immediately to get ID for foreign keys if needed,
-          // but we rely on EF Core navigation fixup usually.
-          // However, for complex relations, ID might be safer.
-          // Let's assume w is added to context and will be saved by caller or here.
-          // In this refactoring, caller (CollectWeatherWarningsAsync) saves at the end.
-          // But for Debug endpoint, we might want to save here.
-          // To support both, we'll let the caller handle SaveChanges for bulk, but here we just add to context.
 
           // Note: If ID is needed for WeatherLocationWarning foreign key,
           // EF Core handles it if we use the navigation property 'WeatherWarning = w'.
@@ -474,31 +442,14 @@ public class WeatherCollectionService : BackgroundService
       return new PendingWarningNotice(w, matches, summary);
   }
 
-  /// <summary>알림을 기다리는 특보 한 건 — 특보 · 새로 맞은 지역들 · 특보 종류 요약.</summary>
-  /// <param name="Warning">기상청 특보</param>
-  /// <param name="Matches">이번에 새로 만들어진 지역 매칭 (이미 있던 것은 빠진다)</param>
-  /// <param name="Summary">통보문에서 뽑은 특보 종류. 예: <c>강풍주의보 · 풍랑주의보</c></param>
+  /// <summary>알림을 기다리는 특보 한 건 — 특보 · 새로 맞은 지역 · 특보 종류 요약.</summary>
   public sealed record PendingWarningNotice(
       WeatherWarning Warning, List<WeatherLocationWarning> Matches, string? Summary);
 
   /// <summary>
-  /// 새로 매칭된 특보를 알림으로 내보내고 발송 표시를 남긴다.
+  /// 새로 맞은 특보를 알린다. 저장이 끝난 뒤 부른다(매칭 시점에는 특보 Id 가 0). IsNotified 는 발송 시도로 세운다 — 성공일 때만 세우면 장애 뒤 밀린 특보가 한꺼번에 쏟아진다.
+  /// 특보 하나에 알림 하나다. 지역마다 보내면 광역 특보 한 건에 알림이 여럿 뜬다.
   /// </summary>
-  /// <remarks>
-  /// <b>저장이 끝난 뒤에 부른다.</b> 매칭하는 자리에서는 특보 행의 Id 가 아직 0 이다.
-  ///
-  /// <para>
-  /// <c>IsNotified</c> 는 <b>보내려고 했다</b>는 뜻으로 세운다(발송 성공이 아니다).
-  /// <see cref="WeatherMonitoringService"/> 가 같은 규칙을 쓰는 이유와 같다 — 성공일 때만
-  /// 세우면 NotificationServer 가 내려가 있는 동안 표시가 서지 않고, 복구되는 순간
-  /// 밀린 특보가 한꺼번에 쏟아진다. 특보는 이미 지나간 일이라 더더욱 그렇다.
-  /// </para>
-  ///
-  /// <para>
-  /// <b>특보 하나에 알림 하나다.</b> 지역마다 보내면 광역 특보 한 건에 알림이 여럿 뜬다 —
-  /// 지역 이름은 본문에 묶어 넣는다.
-  /// </para>
-  /// </remarks>
   private async Task NotifyMatchedWarningsAsync(
       IServiceScope scope, LifeEnvDbContext db, List<PendingWarningNotice> pending, CancellationToken stoppingToken)
   {
@@ -543,21 +494,15 @@ public class WeatherCollectionService : BackgroundService
       await db.SaveChangesAsync(stoppingToken);
   }
 
-  /// <summary>
-  /// 특보 텍스트 내용을 분석하여 관리 지역과 매칭합니다.
-  /// </summary>
-  /// <returns>새로 만들어진 지역 매칭들과, 그 매칭을 만든 줄에서 읽은 특보 종류 요약.</returns>
+  /// <summary>특보 본문을 분석해 관리 지역과 매칭한다. 요약은 우리 지역과 맞은 줄의 특보 종류다.</summary>
   private async Task<(List<WeatherLocationWarning> Matches, string? Summary)> MatchLocationsByContent(LifeEnvDbContext db, WeatherWarning warning, WeatherWarningMsg? msg, CancellationToken stoppingToken)
   {
       var matchedLocationIds = new HashSet<int>();
 
-      // 알림 제목에 쓸 특보 종류. 통보문 한 장에 여러 특보가 섞여 있어
-      // **우리 지역과 실제로 맞은 줄**에서만 거둔다 — 안 맞은 줄까지 넣으면
-      // 알림이 남의 지역 특보까지 읊는다.
+      // 알림 제목의 특보 종류는 우리 지역과 맞은 줄에서만 거둔다 — 안 맞은 줄까지 넣으면 남의 지역 특보를 읊는다.
       var matchedKinds = new List<string>();
 
-      // 2. 텍스트 파싱을 통한 매칭 (getWthrWrnMsg 통보문 활용)
-      // 예: "o 강풍주의보 : 경상북도(영덕, 울진평지, 포항, 경주), 제주도(제주도산지), 부산, 울산, 울릉도.독도"
+      // 2. 통보문 텍스트를 파싱해 매칭한다 (getWthrWrnMsg).
       string contentToParse = msg?.T6 ?? warning.Content ?? "";
 
       if (!string.IsNullOrWhiteSpace(contentToParse))
@@ -578,9 +523,7 @@ public class WeatherCollectionService : BackgroundService
               .Where(z => !string.IsNullOrEmpty(z.RegUp))
               .ToLookup(z => z.RegUp!, z => z.RegId);
 
-          // 파싱 로직: 'o [특보명] : [지역목록]' 패턴 찾기
-          // 단순화를 위해 ':' 뒤의 텍스트를 쉼표나 괄호로 분리하여 키워드 매칭
-          // 정규식 대신 단순 문자열 처리 (복잡한 정규식보다 안정적일 수 있음)
+          // 'o [특보명] : [지역목록]' 형식을 문자열로 나눠 키워드로 매칭한다.
           var lines = contentToParse.Split('\n');
           foreach (var line in lines)
           {
@@ -589,8 +532,7 @@ public class WeatherCollectionService : BackgroundService
               if (parts.Length < 2) continue;
 
               var regionPart = parts[1];
-              // 괄호 안의 내용도 지역명이므로 괄호를 쉼표로 치환하거나 별도 처리
-              // 예: "경상북도(영덕, 울진평지)" -> "경상북도, 영덕, 울진평지" 처럼 인식되게
+              // 괄호 안의 내용도 지역명이므로 쉼표로 바꿔 읽는다.
               var cleanRegions = regionPart
                   .Replace("(", ",")
                   .Replace(")", ",")
@@ -610,21 +552,10 @@ public class WeatherCollectionService : BackgroundService
                       foreach (var id in nameToIds[regionName])
                       {
                           matchedZoneIds.Add(id);
-                          // 2-2. 하위 지역 확장 (Recursive or 1-level)
-                          // 광역(예: 경상북도)이 뜨면 하위 시군구도 모두 포함해야 하는지?
-                          // 보통 '경상북도(포항)' 처럼 명시되면 포항만, '경상북도' 전체면 전체.
-                          // 하지만 통보문엔 "경상북도(영덕, 포항)" 처럼 괄호 안에 세부가 나옴.
-                          // "경상북도" 자체도 매칭하고, "영덕"도 매칭함.
+                          // 광역명만 뜨면 그 하위 지역까지 매칭한다(AddChildrenRecursive).
 
-                          // 만약 "경상북도"만 있고 괄호가 없다면 전체일 수 있음.
-                          // 여기서는 단순하게 매칭된 모든 Zone ID의 하위까지 포함하지는 않고,
-                          // 텍스트에 명시된 지역 위주로 매칭하되,
-                          // 우리 시스템의 WeatherLocation이 '광역' 코드를 가지고 있을 수도 있으므로 해당 ID 추가.
 
-                          // 추가: 만약 우리 시스템 관리지역이 '포항'인데 텍스트에 '경상북도'만 떴다면?
-                          // 보통 특보는 구체적으로 뜸.
-                          // 다만 '전라남도' 라고만 뜨면 전남 전체임. 이 경우 전남 하위의 모든 관리지역을 찾아야 함.
-                          // 이를 위해 하위 코드를 모두 수집.
+                          // 광역명만 뜬 경우(예: 전라남도) 하위 관리 지역을 모두 모은다.
                           AddChildrenRecursive(id, parentToChildren, matchedZoneIds);
                       }
                   }
@@ -718,8 +649,7 @@ public class WeatherCollectionService : BackgroundService
               string? title = null;
               string content = trimmed;
 
-              // 콜론(:)으로 제목/내용 분리 시도
-              // 예: "o 강풍주의보 : 경상북도(영덕, 울진평지)"
+              // 콜론(:)으로 제목과 내용을 나눈다.
               int colonIndex = trimmed.IndexOf(':');
               if (colonIndex <= 0) continue; // 콜론이 없으면 저장하지 않음
 

@@ -2,34 +2,16 @@
 // 전역 네임스페이스에서 도는데, 여기에 네임스페이스를 두면 using 을 따로 붙여야 한다.
 
 /// <summary>
-/// JWT 서명 키를 설정에서 읽고, 쓸 수 없는 값이면 기동을 막는다 (결정 D1-B).
+/// JWT 서명 키를 설정에서 읽고, 쓸 수 없는 값이면 기동을 막는다(D1-B).
+/// JSini.Shared.Infrastructure 의 같은 클래스와 복사본이다. 한쪽을 고치면 다른 쪽도 고친다. 폴백 키는 두지 않는다.
 /// </summary>
-/// <remarks>
-/// <b>같은 클래스가 <c>JSini.Shared.Infrastructure</c> 에도 있다.</b> 일부러 복사해 두었다 —
-/// 게이트웨이는 지금 공용 프로젝트를 하나도 참조하지 않는다(의존성을 일부러 얇게 둔 것으로
-/// 보인다). 키 검사 열 줄 때문에 그 구조를 바꾸는 것보다 복사가 낫다고 보았다.
-/// <b>한쪽을 고치면 다른 쪽도 고친다.</b>
-///
-/// <para>
-/// 예전에는 이랬다.
-/// </para>
-///
-/// <code>
-/// var jwtKey = config["Jwt:Key"] ?? "a-very-secret-key-that-is-long-enough-for-security";
-/// </code>
-///
-/// <para>
-/// 키를 저장소에서 빼내도 이 폴백이 남아 있으면 아무 의미가 없다. 설정이 비어 있을 때
-/// <b>조용히 잘 알려진 키로 돌기</b> 때문이다. 조용히 취약하게 도는 것보다 뜨지 않는 편이 낫다.
-/// </para>
-/// </remarks>
 public static class JwtKeyGuard
 {
     /// <summary>설정에 자리표시자만 있으면 아직 키를 넣지 않은 것이다.</summary>
     public const string Placeholder = "__SET_IN_appsettings.Local.json__";
 
     /// <summary>
-    /// 예전에 저장소에 평문으로 있던 값들. 커밋 이력에 남아 있으므로 다시 쓰이면 안 된다.
+    /// 저장소에 평문으로 있었던 옛 키들. 커밋 이력에 남아 있어 이 값들은 쓸 수 없다.
     /// </summary>
     private static readonly string[] Retired =
     {

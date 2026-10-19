@@ -1,14 +1,6 @@
 namespace AIAgentServer.Services.Rag;
 
-/// <summary>
-/// 문서를 읽어 토막 내고 벡터로 바꿔 색인을 만든다.
-/// </summary>
-/// <remarks>
-/// <b>무엇을 색인하는지는 설정이 정한다</b>(<c>Rag:Sources</c>). 지금은
-/// <c>docs/*.md</c> 와 CLAUDE.md 둘뿐이다 — 소스 코드(1,400여 개 .cs)까지 한꺼번에
-/// 넣으면 검색 품질을 고칠 때 무엇이 원인인지 가릴 수 없다. 작게 시작해 값어치를
-/// 확인하고 늘린다.
-/// </remarks>
+/// <summary>문서를 읽어 토막 내고 벡터로 바꿔 색인을 만든다. 무엇을 색인하는지는 설정이 정한다(Rag:Sources).</summary>
 public sealed class RagIndexer
 {
     private readonly EmbeddingClient _embed;
@@ -47,9 +39,7 @@ public sealed class RagIndexer
         return AppContext.BaseDirectory;
     }
 
-    /// <summary>
-    /// 저장소 문서가 들어가는 카테고리. 사람이 올린 문서와 섞이지 않게 따로 둔다.
-    /// </summary>
+    /// <summary>저장소 문서가 들어가는 카테고리. 사람이 올린 문서와 섞이지 않게 따로 둔다.</summary>
     public string Category => _config["Rag:RepoCategory"] is { Length: > 0 } c ? c : "repo";
 
     private string[] Sources()

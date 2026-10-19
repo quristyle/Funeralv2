@@ -19,51 +19,22 @@ using Microsoft.Extensions.Hosting;
 namespace JSini.Web.Components;
 
 /// <summary>
-/// 셸과 업무 앱이 <b>똑같이</b> 구성되도록 등록을 한 곳에 모은 것.
-///
-/// [이게 없으면 이 구조는 못 버틴다]
-///
-/// 업무 앱이 각자 프로세스이던 시절에는 Program.cs 도 앱마다 있었다. 쿠키 이름
-/// 하나, 인증 만료 시간 하나만 어긋나도 "장례식장에서 헬프데스크로 넘어가면
-/// 로그아웃된다" 가 됐고, 그런 버그는 각 파일만 보면 전부 정상으로 보여
-/// 나란히 놓고 비교해야만 보였다.
-///
-/// 단일 셸로 합친 지금은 이 메서드를 부르는 Program.cs 가 셸 하나뿐이다.
-/// 그래도 등록은 여기 모아 둔다 — 셸의 Program.cs 가 할 일은 이 메서드를 부르고
-/// <b>자기 몫(모듈 훑기 · 로그인 서비스)을 붙이는 것까지</b>다.
+/// 셸의 서비스 등록을 한 곳에 모은다. 쿠키 이름과 DataProtection 응용 이름이 여기서만 정해져야 앱 사이에 로그인이 이어진다.
 /// </summary>
 public static class JSiniWebApp
 {
-    /// <summary>
-    /// 인증 쿠키 이름. <b>이 값을 읽는 곳이 모두 같아야 한다.</b>
-    /// 같은 오리진(nginx 뒤)이므로 이름이 같으면 브라우저가 모두에게 실어 보낸다.
-    /// </summary>
+/// <summary>인증 쿠키 이름. 이 값을 읽는 곳은 모두 같아야 한다.</summary>
     public const string AuthCookieName = "jsini.portal";
 
-    /// <summary>
-    /// Data Protection 응용프로그램 이름.
-    ///
-    /// <b>이 값이 다르면 앱마다 다른 키로 쿠키를 암호화한다.</b> 그러면 셸이 구운
-    /// 쿠키를 장례식장 앱이 풀지 못하고, 사용자는 업무를 옮길 때마다 로그인
-    /// 화면으로 튕긴다. 기본값이 어셈블리 이름이라 아무것도 안 하면 반드시 이렇게 된다.
-    /// </summary>
+/// <summary>Data Protection 응용 이름. 앱마다 다르면 쿠키를 서로 풀지 못한다.</summary>
     private const string DataProtectionAppName = "JSini.Portal";
 
     /// <summary>
     /// 업무 앱과 셸이 공통으로 쓰는 것을 모두 등록한다.
     /// </summary>
     /// <param name="builder">호스트 빌더</param>
-    /// <param name="routePrefix">
-    /// 이 앱이 사는 경로 접두사 (<c>/funeral</c>). 셸은 빈 문자열이다.
-    ///
-    /// <c>UsePathBase</c> 가 이 접두사를 떼고 넘기므로 앱 안의 <c>@page</c> 는
-    /// 접두사 없는 <b>상대 경로</b>다. 그런데 DB 메뉴와 권한표의 열쇠는 접두사가
-    /// 붙은 전체 경로다 — 그 둘을 맞추려고 여기서 접두사를 받는다.
-    /// </param>
-    /// <param name="routeAssemblies">
-    /// 이 앱의 <c>@page</c> 를 담고 있는 어셈블리들. 라우트 대조에 쓴다.
-    /// 보통 자기 어셈블리 하나다.
-    /// </param>
+    /// <param name="routePrefix">앱이 사는 경로 접두사(<c>/funeral</c>). 셸은 빈 문자열. 권한표의 열쇠(전체 경로)와 맞추려고 받는다.</param>
+    /// <param name="routeAssemblies">@page 를 담은 어셈블리. 라우트 대조에 쓴다.</param>
     public static WebApplicationBuilder AddJSiniWebApp(
         this WebApplicationBuilder builder,
         string routePrefix,
@@ -80,93 +51,31 @@ public static class JSiniWebApp
             .AddRazorComponents()
             .AddInteractiveServerComponents(options =>
             {
-                // **회로 유지 기간을 늘린다.** 기본값은 3분이다.
-                // 모바일에서 화면이 꺼지거나, 엘리베이터/지하철/와이파이 전환 등
-                // 일시적으로 연결이 끊겼을 때 3분이 지나면 회로가 폐기되어
-                // 재연결 시 화면 전체 새로고침(reload)이 발생하고 작업 중이던
-                // 상태가 날아간다. 15분으로 늘려 일시적 통신 단절 시에도
-                // 기존 회로에 원활히 재연결되도록 한다.
+                // 연결이 잠깐 끊겨도 회로가 3분 뒤 폐기되지 않도록 15분으로 늘린다.
                 options.DisconnectedCircuitRetentionPeriod = TimeSpan.FromMinutes(15);
                 options.DisconnectedCircuitMaxRetained = 200;
             })
             .AddHubOptions(options =>
             {
-                // **회로의 수신 한도를 올린다.** 기본값은 32KB 다.
-                //
-                // 화면이 서버로 돌려보내는 것 중에 그만한 것이 있다 —
-                // 다이어그램 저장이다. 붙여넣은 그림이 저장본 안에 data URL 로
-                // 들어가서(ProjMng 의 ErdEntity.Image) 한 장만 있어도 32KB 를
-                // 훌쩍 넘는다. 넘으면 오류가 아니라 **회로가 그냥 끊긴다** —
-                // 화면이 멈추고, 사용자는 저장을 눌렀는데 아무 일도 안 일어난
-                // 것으로 본다.
-                //
-                // 그림 쪽은 브라우저에서 먼저 줄이고(한 장 420KB) 들어온다.
-                // 여기 4MB 는 그런 그림 여러 장이 든 그림 한 장분의 여유다.
-                // 무한정 올리지 않는 이유는 이 값이 **연결 하나가 한 번에 물
-                // 수 있는 양**이라, 크게 두면 접속 수만큼 메모리가 열린다.
+                // 다이어그램 저장본(그림이 data URL 로 들어간다)이 기본 32KB 를 넘으면 회로가 끊긴다.
+                // 연결 하나가 한 번에 받는 양이라 4MB 를 넘겨 크게 두지 않는다.
                 options.MaximumReceiveMessageSize = 4 * 1024 * 1024;
 
                 // 일시적인 패킷 지연이나 모바일 망 전환 시 섣부른 연결 끊김을 방지한다.
                 options.ClientTimeoutInterval = TimeSpan.FromSeconds(60);
                 options.HandshakeTimeout = TimeSpan.FromSeconds(30);
 
-                // **브라우저가 서버로 보내는 바이트 흐름을 되살린다.**
-                //
-                // 이것이 없으면 화면에서 고른 파일이 **서버에 영영 닿지 않는다.**
-                // 첨부도, 본문에 넣는 그림도, 서식 편집기가 제 글을 서버에
-                // 돌려주는 일(`DxHtmlEditor.MarkupChanged`)도 전부 이 길이다.
-                // 오류가 뜨지도 않는다 — 화면은 「올리는 중…」에서 멈춘 채
-                // 1분을 기다리다 회로가 끊긴다.
-                //
-                // [무엇이 어긋났나]
-                //
-                // 브라우저는 조각을 `ReceiveJSDataChunk(흐름번호, 조각번호,
-                // **바이트**, 오류)` 넷으로 보낸다. 그런데 SignalR 은 허브
-                // 메서드의 인자 중 **DI 에 등록된 타입이면 사람이 보낸 값이
-                // 아니라 서비스로 보고 빼 버린다**(암묵적 `[FromServices]`,
-                // .NET 8 부터). 셸의 DI 는 Piral.Blazor 때문에 Autofac 이고,
-                // **Autofac 은 `byte[]` 를 언제나 「등록된 것」이라고 답한다**
-                // (배열을 컬렉션으로 풀어 주는 규칙 때문이다). 그래서 서버는
-                // 셋만 기다리고, 넷이 오면 바인딩에서 버린다 —
-                // `Invocation provides 4 argument(s) but target expects 3`.
-                //
-                // 켜 두면 `[FromServices]` 를 명시한 인자만 서비스로 본다.
-                // Blazor 의 허브(`ComponentHub`)는 애초에 그런 인자가 없으므로
-                // 잃는 것이 없다.
+                // 켜지 않으면 SignalR 이 byte[] 인자를 DI 서비스로 보고 빼 버려 파일 조각 인자가 모자란다(Autofac).
+                // 명시적 [FromServices] 인자만 서비스로 본다. Blazor 허브는 그런 인자가 없어 잃는 것이 없다.
                 options.DisableImplicitFromServicesParameters = true;
             });
 
         // ── 응답 압축 ────────────────────────────────────────────
-        //
-        // **HTML 을 아무도 압축하지 않고 있었다.** 정적 자원은 MapStaticAssets 가
-        // 빌드 때 미리 압축해 두지만(.gz/.br 를 함께 만든다) 화면 HTML 은 그
-        // 대상이 아니다. 로그인 화면이 71KB 였고, 업무 화면은 프리렌더된
-        // DevExpress 그리드가 실려 그보다 훨씬 크다.
-        //
-        // 기본 MimeTypes 에 text/html 이 **없다**. 브라우저가 처음 받는 것이
-        // 그것이라 여기서 더한다.
-        //
-        // [앞단 nginx 와 겹쳐도 문제가 없다]
-        //
-        // 이미 압축해서 준 응답에 nginx 가 또 압축하지는 않는다 — Content-Encoding
-        // 이 붙어 있으면 건너뛴다. 그래서 어느 쪽이 하든 결과가 같고, 둘 중
-        // 한쪽만 설정돼 있어도 압축이 된다. nginx 설정은 이 저장소에 없으므로
-        // (서버에서 관리한다) **여기서 하는 것이 확실한 쪽**이다.
-        //
-        // [Brotli 를 먼저 등록한다]
-        //
-        // 협상은 브라우저가 보낸 Accept-Encoding 과 **등록 순서**로 정해진다.
-        // Brotli 가 gzip 보다 20% 가까이 작고 요즘 브라우저는 전부 받는다.
-        // 못 받는 브라우저에는 gzip 이 남는다.
+        // 화면 HTML 은 기본 MimeTypes 에 없어 압축되지 않았다. 여기서 더하고, Brotli 를 gzip 보다 먼저 등록한다(협상은 등록 순서).
+        // nginx 가 이미 압축된 응답은 건너뛰므로 어느 쪽이 해도 결과는 같다.
         services.AddResponseCompression(options =>
         {
-            // 개발은 http, 운영은 nginx 뒤 https 다. 켜 두지 않으면 운영에서만
-            // 압축이 안 되고, 그 차이는 "운영이 느리다" 로만 보인다.
-            //
-            // BREACH 를 걱정할 자리가 아니다 — 그 공격은 **공격자가 넣은 글자와
-            // 비밀값이 같은 응답에 함께 실릴 때** 성립한다. 여기서 압축하는 것은
-            // 화면 HTML 이고, 위조방지 토큰은 매 요청 달라지며 세션 값은 쿠키에
-            // 있다(본문에 없다).
+            // 운영은 nginx 뒤 HTTPS 라 여기서도 켠다. 위조방지 토큰은 매 요청 달라 BREACH 대상이 아니다.
             options.EnableForHttps = true;
 
             options.Providers.Add<BrotliCompressionProvider>();
@@ -176,35 +85,20 @@ public static class JSiniWebApp
             [
                 "text/html",
 
-                // 프리렌더된 화면 말고도 우리가 직접 내려주는 것들이다.
-                // 첨부 중계(FileDownload)는 여기 걸리지 않는다 — 그림과
-                // 압축파일은 이미 압축된 형식이라 다시 압축하면 커지고,
-                // 형식이 목록에 없으면 미들웨어가 건드리지 않는다.
+                // 첨부 중계는 이미 압축된 그림·압축파일이라 목록에 넣지 않는다.
                 "application/json",
                 "image/svg+xml",
             ]);
         });
 
-        // 압축 세기. 기본값(Fastest)은 HTML 에서 눈에 띄게 덜 줄인다.
-        //
-        // **SmallestSize 로 두지 않는다.** 그쪽은 CPU 를 몇 배 쓰면서 몇 %만 더
-        // 줄이는데, 이 응답은 **사용자마다 매번 새로 만들어지는 것**이라 그 값을
-        // 캐시로 회수할 수 없다. 정적 자원과 다른 점이 그것이다.
+        // Optimal 을 쓴다. SmallestSize 는 CPU 를 몇 배 쓰고 몇 % 더 줄이는데, 응답이 사용자마다 달라 캐시로 회수할 수 없다.
         services.Configure<BrotliCompressionProviderOptions>(
             o => o.Level = CompressionLevel.Optimal);
         services.Configure<GzipCompressionProviderOptions>(
             o => o.Level = CompressionLevel.Optimal);
 
         // ── 앱 사이에 쿠키를 공유하기 위한 키 링 ─────────────────
-        //
-        // 개발은 파일 폴더를 함께 본다. 운영(docker compose)은 같은 볼륨을
-        // 일곱 컨테이너에 마운트한다. 여러 대로 늘릴 때는 Redis 로 옮긴다.
-        //
-        // 상대 경로는 **ContentRoot 기준**으로 푼다. 그냥 두면 프로세스의 현재
-        // 디렉터리가 기준이 되는데, 그건 어떻게 띄우느냐에 따라 달라진다 —
-        // `dotnet run` 은 프로젝트 폴더, 컨테이너는 /app, IDE 는 또 다르다.
-        // 앱마다 다른 폴더를 보게 되면 키가 갈라지고, 증상은 "로그인은 되는데
-        // 업무 화면을 누르면 다시 로그인" 이다.
+        // 키 링을 파일로 공유한다. 상대 경로는 ContentRoot 기준으로 풀어야 실행 방식(dotnet run · 컨테이너)에 따라 갈라지지 않는다.
         var configured = configuration["DataProtection:KeyRingPath"];
         var keyRing = string.IsNullOrWhiteSpace(configured)
             ? Path.Combine(Path.GetTempPath(), "jsini-portal-keys")
@@ -225,8 +119,7 @@ public static class JSiniWebApp
                 options.Cookie.HttpOnly = true;
                 options.Cookie.SameSite = SameSiteMode.Lax;
 
-                // 쿠키가 모든 앱 경로로 실려야 한다. 업무 앱이 하위 경로
-                // (/funeral 등)에 있으므로 Path 를 좁히면 그 앱에만 안 간다.
+                // 업무 앱이 하위 경로(/funeral 등)에 있으므로 Path 는 루트여야 한다.
                 options.Cookie.Path = "/";
 
                 // 개발은 http, 운영은 nginx 뒤 https.
@@ -238,15 +131,7 @@ public static class JSiniWebApp
                 options.LogoutPath = "/logout";
                 options.AccessDeniedPath = "/forbidden";
 
-                // **LoginPath 만으로는 안 된다.**
-                //
-                // 업무 앱은 UsePathBase("/funeral") 아래에서 산다. 기본 동작은
-                // LoginPath 앞에 PathBase 를 붙이므로 /funeral/login 으로 나가는데,
-                // 그런 화면은 없다 — 로그인은 셸에만 있다. 사용자는 404 를 본다.
-                //
-                // 그래서 리다이렉트를 직접 쓴다. 사이트 루트 기준 절대 경로로 보내야
-                // 셸에 닿는다. 돌아올 주소에는 PathBase 를 붙여야 원래 업무 화면으로
-                // 돌아온다 — 안 붙이면 /status 만 남아 셸에서 404 가 된다.
+                // LoginPath 만 두면 업무 앱의 PathBase 가 붙어 /funeral/login 으로 가 404 가 된다. 로그인은 셸에만 있으므로 루트 절대 경로로 보내고, 돌아올 주소에만 PathBase 를 붙인다.
                 options.Events.OnRedirectToLogin = context =>
                 {
                     var returnUrl = context.Request.PathBase
@@ -264,247 +149,148 @@ public static class JSiniWebApp
                     return Task.CompletedTask;
                 };
 
-                // 오래 켜 두는 업무 화면이 많다. 8시간이면 하루 근무를 덮고,
-                // 미끄럼 만료라 쓰는 동안에는 풀리지 않는다.
+                // 하루 근무를 덮는 8시간. 미끄럼 만료라 쓰는 동안에는 풀리지 않는다.
                 options.ExpireTimeSpan = TimeSpan.FromHours(8);
                 options.SlidingExpiration = true;
             });
 
-        // **FallbackPolicy 를 쓰지 않는다.**
-        //
-        // 한때 `options.FallbackPolicy = options.DefaultPolicy` 로 두었다. 뜻은
-        // 좋았다 — 화면마다 [Authorize] 를 붙이는 방식이면 새 화면에서 빠뜨리는
-        // 순간 조용히 공개되니까.
-        //
-        // 그런데 그 정책은 <b>명시적 정책이 없는 모든 엔드포인트</b>에 걸린다.
-        // Blazor 회로(`_blazor`)도 예외가 아니라서, 회로 협상이 401 이 되고
-        // OnRedirectToLogin 이 /login 으로 보내고, 업무 앱에는 그런 화면이 없어
-        // 다시 돌고… ERR_TOO_MANY_REDIRECTS 로 끝난다.
-        //
-        // 증상이 지독하다: 화면은 정상으로 그려진다(프리렌더는 되니까). 다만
-        // 아무 버튼도 안 눌린다. curl 로는 보이지 않고 브라우저 콘솔을 봐야 안다.
-        //
-        // 같은 보호는 각 앱의 Components/_Imports.razor 에 `@attribute [Authorize]`
-        // 를 두어 얻는다 — 그 폴더의 모든 컴포넌트에 걸리므로 새 화면에서
-        // 빠뜨릴 수 없고, 엔드포인트가 아니라 컴포넌트에 걸리므로 회로를 건드리지 않는다.
+        // FallbackPolicy 는 쓰지 않는다. 명시 정책 없는 모든 엔드포인트(Blazor 회로 _blazor 포함)에 걸려 협상이 401 → /login 을 돌며 ERR_TOO_MANY_REDIRECTS 가 난다.
+        // 대신 각 앱 Components/_Imports.razor 의 @attribute [Authorize] 로 컴포넌트에 건다.
         services.AddAuthorization();
         services.AddCascadingAuthenticationState();
 
         // ── 게이트웨이 · 권한 · 메뉴 ─────────────────────────────
-        //
-        // 업무 앱도 자기 힘으로 게이트웨이를 부른다. 셸을 거치지 않는다 —
-        // 거치면 셸이 모든 트래픽의 병목이 되고, 앱을 나눈 의미가 없어진다.
-        // 토큰은 인증 쿠키 클레임에 실려 있으므로(TokenStore) 위의 키 링만
-        // 공유되면 어느 앱이든 꺼내 쓸 수 있다. 별도 세션 저장소가 필요 없다.
-        // TokenStore 가 회로 전(정적 SSR) 에는 HttpContext 로 사용자를 본다.
+        // 업무 앱이 게이트웨이를 직접 부른다(BFF). 토큰은 인증 쿠키 클레임에 실려 키 링만 공유하면 어느 앱이든 꺼내 쓴다.
+        // TokenStore 는 회로 전(정적 SSR)에는 HttpContext 로 사용자를 본다.
         services.AddHttpContextAccessor();
-        // 갱신한 토큰은 사람마다의 TokenStore 가 아니라 이 통에 담는다 — 까닭은 그 머리말.
+        // 갱신 토큰은 사용자별 TokenStore 가 아니라 이 싱글턴에 담는다(AuthTokenHandler 는 공용이다).
         services.AddSingleton<RefreshedTokens>();
         services.AddScoped<ITokenStore, TokenStore>();
         services.AddJSiniGateway(configuration);
-        // 부트스트랩이 구현체의 Apply 를 부르므로 구현체도 함께 올린다.
-        // 둘이 같은 인스턴스여야 한다 — 따로 등록하면 부트스트랩이 채운
-        // 권한표와 사이드바가 보는 권한표가 다른 물건이 된다.
+        // 부트스트랩이 구현체의 Apply 를 부른다. 인터페이스와 구현은 같은 인스턴스여야 한다.
         services.AddScoped<PermissionContext>();
         services.AddScoped<IPermissionContext>(sp => sp.GetRequiredService<PermissionContext>());
         services.AddScoped<MenuProvider>();
         services.AddScoped<IMenuProvider>(sp => sp.GetRequiredService<MenuProvider>());
 
-        // 로그인 아이디로 이름과 얼굴을 푸는 창구. **업무 모듈 셋이 쓴다**
-        // (프로젝트관리 · 생활과환경 · 헬프데스크) — 모듈끼리는 참조할 수
-        // 없으므로 셋째가 생긴 자리에서 여기로 올렸다(UserFaceClient 머리말).
+        // 아이디로 이름·얼굴을 푸는 창구. 모듈끼리 참조할 수 없어 여럿이 쓰는 이 자리에 둔다.
         services.AddScoped<UserFaceClient>();
 
-        // 팝업 공지. **레이아웃과 로그인 화면이 함께 쓴다** — 포털관리 모듈에
-        // 두면 레이아웃이 못 쓴다(셸은 모듈을 이름으로 알지 못한다).
+        // 공지 조회. 레이아웃과 로그인 화면이 함께 쓰므로 셸에 둔다(셸은 모듈을 이름으로 알지 못한다).
         services.AddScoped<NoticeClient>();
 
-        // 화면을 열 때마다 한 줄씩 적어 두는 자리. **레이아웃이 부른다** —
-        // 회로 안에서 라우팅만 바뀌므로 서버 접근 로그에는 아무것도 안 남는다
-        // (MenuUsageRecorder 머리말). 보는 쪽은 포털관리의 「메뉴 사용기록」이다.
+        // 메뉴 사용기록. 회로 안 라우팅은 HTTP 로그에 안 남아 레이아웃이 직접 적는다.
         services.AddScoped<MenuUsageRecorder>();
 
-        // 화면을 열어도 되는가를 정하는 **단 한 곳**과, 막은 것을 적는 자리.
-        // 사이드바 거르기 · 탭 줄 · 레이아웃 · 라우터 앞의 문(ScreenGate)이
-        // 모두 앞엣것에 묻는다(ScreenAccess 머리말). 보는 쪽은 포털관리의
-        // 「차단 접근기록」이다.
+        // 화면 접근 판정의 단일 지점과 차단 기록. 사이드바·탭·레이아웃·라우터 앞 문(ScreenGate)이 모두 여기에 묻는다.
         services.AddScoped<ScreenAccess>();
         services.AddScoped<BlockedAccessRecorder>();
 
-        // 내 알림 설정·웹푸시 구독. 화면 둘이 같은 판을 쓴다
-        // (포털관리 「알림 설정」 · 장례식장 「환경설정」).
+        // 내 알림 설정·웹푸시 구독. 환경설정 화면이 쓴다.
         services.AddScoped<Settings.NotificationClient>();
 
-        // 이 브라우저를 구독에 올리는 **절차 한 벌**. 부르는 자리가 둘이다 —
-        // 알림 판의 단추와 로그인 뒤에 뜨는 권유 창(PushAskPopup). 순서를
-        // 틀리면 조용히 깨지는 대목이 셋이라 한 벌만 둔다(PushEnroll 머리말).
+        // 웹푸시 구독 절차. 순서가 틀리면 조용히 깨지므로 한 벌만 둔다(PushEnroll).
         services.AddScoped<Settings.PushEnroll>();
 
-        // 위치를 잡아 저장하는 **절차 한 벌**. 위와 같은 까닭으로 하나만 둔다 —
-        // 부르는 자리가 셋이다(알림 판의 단추 · 로그인 뒤에 뜨는 위치 권유 창 ·
-        // 그 창이 뒤에서 도는 조용한 확인). 순서를 틀리면 좌표가 날아가거나
-        // 다른 탭의 스위치를 되돌린다(GeoLocator 머리말).
+        // 위치 저장 절차. 순서를 틀리면 좌표가 날아가거나 다른 탭의 스위치를 되돌린다(GeoLocator).
         services.AddScoped<Settings.GeoLocator>();
 
-        // **남에게** 알림 한 통 보내기(앱 푸시 · 메일). 위 둘이 「내가 받을 것」
-        // 이라면 이쪽은 「내가 보내는 것」이다. 업무 화면 어디서나 생기는 일이라
-        // 여기 둔다 — 창은 `Settings/NotifySendPopup` 이 그린다.
+        // 남에게 알림을 보낸다(앱 푸시 · 메일). 창은 Settings/NotifySendPopup 이 그린다.
         services.AddScoped<Settings.NotifySender>();
 
-        // 쪽지 — **사람에게서 사람에게로 가는 짧은 글.** 위의 `NotifySender` 가
-        // 「고른 사람들에게 두드림 한 번」이라면 이쪽은 아이디·이메일을 적어
-        // 보내고 글이 쪽지함에 남는다. 여기 있는 까닭은 **쪽지 쓰기가 상단 띠에
-        // 있기 때문**이다 — 헤더는 레이아웃이라 업무 모듈을 이름으로 알지 못한다.
+        // 쪽지 송신. 헤더 띠에 쓰므로 셸(레이아웃)에 둔다.
         services.AddScoped<Settings.NoteClient>();
 
-        // 로그인한 뒤 처음 열리는 화면. 고르는 자리는 장례식장의 환경설정이지만
-        // **쓰는 자리는 셸의 홈**이라 여기 둔다 — 셸은 업무 모듈을 이름으로
-        // 알지 못한다(의존 규칙 4번). 규칙은 `Layout/PortalHome` 이 갖고 있다.
+        // 로그인 뒤 첫 화면 설정. 쓰는 자리가 셸 홈이라 여기 둔다(규칙은 Layout/PortalHome).
         services.AddScoped<Settings.HomePathClient>();
 
-        // 그중 **공개 공지만** 회로 바깥에서 잠깐 들고 있는 통.
-        //
-        // **싱글턴이어야 한다.** 로그인 화면 HTML 을 만드는 길 위에 있는
-        // 왕복이라(`PublicNoticePopup`), scoped 로 두면 요청마다 게이트웨이를
-        // 다녀온다. 담기는 것이 로그인 전에도 보이는 값이라 사람을 섞을
-        // 위험도 없다(PublicNoticeStore 머리말).
+        // 공개 공지 통. 로그인 화면 HTML 과 함께 쓰이므로 싱글턴이다(요청마다 게이트웨이를 부르지 않는다).
         services.AddSingleton<PublicNoticeStore>();
 
         // ── 셸 상태 ──────────────────────────────────────────────
-        //
-        // 셋 다 scoped 다 — 회로 하나가 곧 사용자 한 명의 창 하나다.
-        // 싱글턴으로 두면 열어 둔 탭과 즐겨찾기가 모든 사용자에게 공유된다.
+        // scoped: 회로 하나가 사용자 한 명의 창이다. 싱글턴이면 탭과 즐겨찾기가 모두에게 공유된다.
         services.AddScoped<MenuFavorites>();
         services.AddScoped<PortalTabs>();
 
         // 화면을 옮기는 동안의 표시. 레이아웃이 켜고 `DataPage` 가 끈다.
         services.AddScoped<PageTransition>();
 
-        // 떠난 화면이 맡겨 둔 짐(조건 · 읽어 둔 목록 · 표의 모습). 돌아오면
-        // 그것으로 제 모습을 되살린다 — vben 의 keep-alive 자리다.
-        // **회로마다 하나**여야 한다(ScreenState 머리말).
+        // 떠난 화면의 상태(조건·목록·표 모습)를 맡겨 두는 통. 회로마다 하나다(ScreenState).
         services.AddScoped<ScreenState>();
 
-        // 동작의 결과를 알리는 토스트. **회로마다 하나** — 싱글턴으로 두면
-        // 남이 저장한 것이 내 화면에 뜬다(Toasts 머리말).
+        // 토스트 통. 회로마다 하나여야 한다(싱글턴이면 남의 알림이 뜬다).
         services.AddScoped<Toasts>();
 
-        // 헤더의 브레드크럼이 「이 메뉴를 사이드바에서 보여 달라」고 하는 통.
-        // 그 둘은 형제도 부모 자식도 아니라 파라미터로 잇지 못한다(MenuReveal 머리말).
+        // 브레드크럼이 메뉴 펼침을 사이드바에 요청하는 통(MenuReveal).
         services.AddScoped<MenuReveal>();
 
-        // 휴대폰에서 브레드크럼이 「탭 메뉴를 여기서 열어 달라」고 하는 통.
-        // 탭 줄을 감추는 화면에서 탭 메뉴까지 함께 사라지지 않게 한다
-        // (TabMenuRequest 머리말).
+        // 휴대폰에서 브레드크럼이 탭 메뉴 열기를 요청하는 통(TabMenuRequest).
         services.AddScoped<TabMenuRequest>();
 
-        // 헤더의 사용자 단추가 얼굴과 이름을 여기서 얻는다. 쿠키 클레임에는
-        // 사진이 없어 게이트웨이에 한 번 물어야 한다(CurrentUser 머리말).
+        // 헤더 사용자 단추의 얼굴·이름. 쿠키 클레임에는 사진이 없어 게이트웨이에 묻는다.
         services.AddScoped<CurrentUser>();
 
-        // 레이아웃이 뜰 때 넷을 한 번에 읽는 자리(PortalBootstrap 머리말).
+        // 레이아웃이 뜰 때 한 번에 읽는 부트스트랩(PortalBootstrap).
         services.AddScoped<PortalBootstrap>();
 
         // 레이아웃 상단 도구 아이콘 관리자
         services.AddScoped<Layout.HeaderIconManager>();
 
-        // 계정에 담긴 화면 설정(휴대폰 아래 띠 · 바로가기 단추 사용 여부 ·
-        // 토스트 자리). **브라우저가 아니라 사람에게 붙는다** — 기기가
-        // 달라도 같은 띠가 떠야 한다는 것이 그 다섯의 요구다(PortalPrefs 머리말).
-        //
-        // **scoped 다.** 담기는 것이 사용자 한 명의 설정이고, 값은 위
-        // 부트스트랩이 실어 오므로 이것이 왕복을 따로 내지 않는다.
+        // 계정에 담긴 화면 설정(휴대폰 띠 · 바로가기 · 토스트 자리). 브라우저가 아니라 계정에 붙는다. scoped 다.
         services.AddScoped<Settings.PortalPrefs>();
 
-        // 브라우저에서 읽어 올 것을 한 왕복으로 읽는 자리(PortalBoot 머리말).
-        //
-        // **scoped 다.** 담는 값이 「이 탭의 것」이고(잠금 · 고정 탭) 저장소
-        // 왕복 한 번이 값의 전부라, 부트스트랩처럼 싱글턴 통으로 올릴 이유가
-        // 없다 — 그렇게 하면 탭을 가르는 열쇠가 필요해지는데 Blazor 는
-        // 부품에게 회로 아이디를 알려 주지 않는다.
+        // 브라우저 저장소 값(잠금·고정 탭 등)을 한 왕복으로 읽는다. 탭의 것이라 싱글턴이 아니다(scoped).
         services.AddScoped<PortalBoot>();
 
-        // 참조자료(공통코드 · 회사 목록 · 범용 셀렉트 설정)를 회로 바깥에서
-        // 들고 있는 통. **싱글턴이어야 하는 이유는 아래 부트스트랩 통과 같다** —
-        // 모듈 컨테이너가 갈릴 때 함께 사라지면 아무것도 막지 못한다.
-        //
-        // 손잡이(ReferenceData)는 scoped 다. 사람을 가르는 열쇠를 만들려면
-        // ITokenStore 를 봐야 하고 그것이 scoped 라서 그렇다.
+        // 참조자료(공통코드·회사·셀렉트 설정) 통. 모듈 컨테이너가 갈려도 살아야 하므로 싱글턴이다.
+        // 손잡이 ReferenceData 는 사용자별 ITokenStore 를 보므로 scoped 다.
         services.AddSingleton<ReferenceDataStore>();
         services.AddScoped<ReferenceData>();
 
-        // 그 응답을 사용자별로 잠깐 들고 있는 통.
-        //
-        // **싱글턴이어야 한다.** scoped 로 두면 모듈 컨테이너가 갈릴 때 통도
-        // 함께 사라져서, 막으려던 바로 그 재조회를 하나도 못 막는다
-        // (PortalBootstrapStore 머리말).
+        // 부트스트랩 응답을 사용자별로 잠깐 들고 있는 통. 모듈 컨테이너가 갈려도 살아야 하므로 싱글턴이다.
         services.AddMemoryCache();
         services.AddSingleton<PortalBootstrapStore>();
 
-        // 오른쪽에서 밀려 들어오는 판 넷을 **한 번에 하나만** 펴 두는 자리.
-        // 손잡이 넷이 생성자에서 제 접는 길을 걸어 두므로 **손잡이보다 먼저**
-        // 있어야 한다(RightDrawerGroup 머리말).
+        // 오른쪽 서랍 넷 중 하나만 펴는 묶음. 손잡이보다 먼저 등록해야 손잡이가 접는 길을 걸 수 있다.
         services.AddScoped<RightDrawerGroup>();
 
         // 테마 서랍을 사용자 메뉴에서도 열 수 있게 하는 손잡이.
         services.AddScoped<ThemeDrawer>();
         services.AddScoped<UserMenuDrawer>();
 
-        // 알림함 서랍. 여는 종은 헤더에 있고 판은 격자 바깥에 있어서 — 헤더가
-        // 제 쌓임 맥락을 만드는 탓이다(NotificationDrawer 머리말) — 둘을 잇는다.
+        // 알림함 서랍. 종은 헤더, 판은 셸 바깥에 있어 이 손잡이가 둘을 잇는다(헤더가 쌓임 맥락을 만든다).
         services.AddScoped<NotificationDrawer>();
 
-        // 「빠른 지시」 서랍을 헤더 단추에서 여닫는 손잡이. 같은 이유로 scoped 다.
-        // 그 안에 그릴 알맹이는 업무 모듈이 따로 등록한다(QuickAskContent).
+        // 빠른 지시 서랍 손잡이. 안의 알맹이는 업무 모듈이 등록한다(QuickAskContent).
         services.AddScoped<QuickAskReveal>();
 
         // AI 대화 서랍을 헤더 단추에서 여닫는 손잡이. 같은 이유로 scoped 다.
         services.AddScoped<AiChatReveal>();
 
-        // 이 창이 어디서 접속했는지. scoped 인 이유가 잠금과 같다 — 창마다 다르다.
-        // 값을 채우는 곳은 SidebarFooter 이고, 왜 그쪽인지는 ClientAddress 머리말에 있다.
+        // 창마다 다른 접속 주소. 값은 SidebarFooter 가 채운다.
         services.AddScoped<ClientAddress>();
 
-        // 잠금화면(D7)도 같은 이유로 scoped 다 — 한 사람이 잠갔다고 모두의
-        // 화면이 덮이면 안 된다.
+        // 잠금화면도 scoped 다 — 한 사람이 잠갔다고 모두의 화면이 덮이면 안 된다.
         services.AddScoped<ScreenLock>();
 
-        // 그림 미리보기. **여는 자리가 화면 수만큼 는다** — 목록의 썸네일,
-        // 본문에 박힌 그림, 첨부, 프로필 사진. 창을 화면마다 지으면 되는 일이
-        // 화면마다 달라지므로(회전은 어디에도 없었다) 손잡이 하나로 모은다.
-        // scoped 인 까닭은 위 서랍들과 같다 — 남이 연 그림이 내 화면에 뜨면 안 된다.
+        // 그림 미리보기 창. 여는 자리가 많아 손잡이 하나로 모으고, 사용자별로 scoped 다.
         services.AddScoped<ImagePreview>();
 
-        // 아바타를 누르면 뜨는 사람 카드. 그림 미리보기와 같은 까닭으로 손잡이 하나다.
+        // 아바타를 누르면 뜨는 사람 카드 손잡이.
         services.AddScoped<UserCard>();
 
-        // DevExpress 크기 모드(Small · Medium · Large)도 사람마다 다르다.
-        // 값을 흘리는 것은 SizeModeScope 가 하고, 여기는 그것이 읽을 자리다.
+        // 글자 크기 단계(사람마다 다르다). SizeModeScope 가 흘리는 값을 읽는 자리다.
         services.AddScoped<ThemeSize>();
 
         // ── 오류 기록 ────────────────────────────────────────────
         //
-        // 사용자가 보는 오류 화면(`Error.razor`)은 추적 번호를 적어 준다. 그런데
-        // **그 번호로 컨테이너 로그를 뒤지면 한 줄도 안 나온다** — .NET 콘솔
-        // 로거는 기본값이 `IncludeScopes=false` 라 번호를 찍지 않는다. 그래서
-        // 신고를 받아도 시각으로 더듬는 수밖에 없었고, 운영 로그는 10MB 셋을
-        // 돌려 쓰므로 바쁜 날에는 그 전에 밀려 나간다.
-        //
-        // 번호를 열쇠로 들고 있는 표에 적어 둔다 — 보는 자리는 포털관리의
-        // 「오류 추적」(`/admin/status/error`)이다.
-        //
-        // **셋이 한 벌이다.** 보고 통(싱글턴) · 그것을 돌리는 배경 작업 ·
-        // 파이프라인에 끼는 처리기. 통과 배경 작업이 **같은 인스턴스**여야
-        // 한다 — 따로 등록하면 넣는 통과 읽는 통이 다른 물건이 되어
-        // 조용히 한 건도 안 나간다.
+        // 오류 기록: 추적 번호로 찾도록 표(portal_error_logs)에 적는다. 보고 통·배경 작업·처리기는 같은 인스턴스를 공유해야 한다.
         services.AddHttpClient(Diagnostics.PortalErrorReporter.HttpClientName, client =>
             {
                 var gateway = configuration["Gateway:BaseUrl"] ?? "http://localhost:5265/api/";
                 client.BaseAddress = new Uri(gateway.EndsWith('/') ? gateway : gateway + "/");
 
-                // 오류 기록이 늦게 가도 아무도 기다리지 않는다. 짧게 끊어
-                // 두는 편이 낫다 — 게이트웨이가 죽어 있을 때 큐가 막히는 쪽이
-                // 더 나쁘다.
+                // 게이트웨이가 죽어 있을 때 큐가 막히지 않도록 짧게 끊는다.
                 client.Timeout = TimeSpan.FromSeconds(10);
             })
             .ConfigurePrimaryHttpMessageHandler(ServiceCollectionExtensions.NoCookieJar);
@@ -519,36 +305,15 @@ public static class JSiniWebApp
 
         services.AddSingleton(RouteInventory.Build(routePrefix, assemblies));
 
-        // 화면마다 「권한이 어디서 오는가」. RouteInventory 와 같은 어셈블리를
-        // 훑고 같은 수명을 산다 — 라우트가 컴파일 시점에 고정이라 기동 때 한 번
-        // 만들면 그만이다(ScreenAccessCatalog 머리말).
+        // 화면마다 권한이 어디서 오는지(RouteInventory 와 같은 어셈블리를 훑는다).
         services.AddSingleton(ScreenAccessCatalog.Build(assemblies));
 
         return builder;
     }
 
     /// <summary>
-    /// 날짜의 <b>기본</b> 표기를 <c>yyyy-MM-dd</c> 로 못 박는다.
-    ///
-    /// [왜 필요한가]
-    ///
-    /// 화면 백여 개가 이미 <c>DisplayFormat="yyyy-MM-dd"</c> 를 손으로 적고 있다.
-    /// 그런데 그것을 적지 않은 칸은 <b>CurrentCulture 의 짧은 날짜</b>로 떨어지고,
-    /// ko-KR 의 그것은 <c>yyyy. M. d.</c> 다 — 회사 관리의 「승인일」이
-    /// <c>2026. 9. 15.</c> 로 보이던 것이 그 경우다.
-    ///
-    /// 그래서 <b>한 화면씩 고치지 않는다.</b> 적지 않은 자리의 기본값을 화면들이
-    /// 이미 합의한 그 서식으로 맞추면, 지금 어긋나 있는 칸과 앞으로 새로 생길
-    /// 칸이 한꺼번에 맞는다. 적어 둔 화면들은 값이 같아서 달라지는 것이 없다.
-    ///
-    /// [문화권 자체는 바꾸지 않는다]
-    ///
-    /// ko-KR 을 복제해 <b>날짜 서식만</b> 갈아 끼운다. 숫자·통화·요일 이름·
-    /// 오전/오후는 그대로다. 서식만 바꾸므로 시각(<c>HH:mm</c>)도 건드리지 않는다 —
-    /// 화면들이 적고 있는 것이 <c>yyyy-MM-dd HH:mm</c> 이고 그 뒤쪽은 이미 맞다.
-    ///
-    /// 프로세스 전역이라 Blazor 회로에도 그대로 걸린다. 지역화 미들웨어를
-    /// 쓰지 않으므로 요청마다 문화권을 다시 정하는 곳이 없다.
+    /// 날짜 기본 표기를 <c>yyyy-MM-dd</c> 로 맞춘다. 적지 않은 칸은 CurrentCulture 의 짧은 날짜(ko-KR 은 <c>yyyy. M. d.</c>)로 떨어진다.
+    /// ko-KR 복제본의 날짜 서식만 바꾼다. 프로세스 전역이며 지역화 미들웨어가 없어 회로에도 그대로 걸린다.
     /// </summary>
     private static void UseDashedDates()
     {
@@ -560,18 +325,14 @@ public static class JSiniWebApp
         CultureInfo.DefaultThreadCurrentCulture = culture;
         CultureInfo.DefaultThreadCurrentUICulture = culture;
 
-        // 이 메서드는 DI 를 세우는 중에 불린다. 그 일을 하는 스레드에도
-        // 걸어 두지 않으면 기동 중에 찍는 날짜만 옛 서식으로 남는다.
+        // DI 를 세우는 이 스레드에도 걸어야 기동 중 찍는 날짜가 같은 서식이 된다.
         CultureInfo.CurrentCulture = culture;
         CultureInfo.CurrentUICulture = culture;
     }
 
     /// <summary>
     /// 요청 파이프라인을 공통 순서로 세운다.
-    ///
-    /// 순서가 틀리면 조용히 잘못 동작한다 — 예컨대 UseAuthentication 이
-    /// UseAntiforgery 뒤에 오면 폼 제출이 익명으로 처리된다. 일곱 곳에서
-    /// 각자 순서를 적으면 언젠가 하나가 어긋난다.
+    /// 순서가 틀리면 조용히 잘못 동작한다(UseAuthentication 이 UseAntiforgery 뒤면 폼 제출이 익명 처리된다).
     /// </summary>
     public static WebApplication UseJSiniWebApp(this WebApplication app)
     {
@@ -581,64 +342,26 @@ public static class JSiniWebApp
             app.UseHsts();
         }
 
-        // .NET 9 부터는 UseStaticFiles 가 아니라 MapStaticAssets 다.
-        //
-        // UseStaticFiles 는 RCL 의 _content/... 를 못 찾는다 — 우리 레이아웃과
-        // 테마 CSS 가 전부 JSini.Web.Components 에 있으므로 그러면 화면이
-        // 스타일 없이 뜬다. MapStaticAssets 는 빌드 때 만들어진 매니페스트를
-        // 읽어 RCL 자원까지 함께 서비스하고, 압축·캐시 헤더도 붙여 준다.
-        //
-        // **AllowAnonymous 가 반드시 있어야 한다.**
-        //
-        // 위에서 FallbackPolicy 를 "로그인해야 함" 으로 세웠는데, 그 정책은
-        // 명시적 정책이 없는 <b>모든 엔드포인트</b>에 걸린다 — 정적 자원도
-        // 예외가 아니다. 빼먹으면 CSS·JS 요청이 전부 302 로 로그인으로 튕기고,
-        // 그 결과 <b>로그인 화면 자신이 스타일 없이</b> 뜬다.
-        // 화면은 뜨니까 오류로 보이지 않고, "왜 이렇게 못생겼지" 로만 보인다.
-        // **UseRouting 을 여기서 명시적으로 부른다.**
-        //
-        // 안 부르면 WebApplication 이 파이프라인 맨 앞에 자동으로 끼워 넣는데,
-        // 그건 앱의 UsePathBase 보다 앞이다. 그러면 라우팅이 접두사가 붙은
-        // 원래 경로(/projmng/_blazor)로 매칭을 시도해 회로 협상이 405 가 된다.
-        //
-        // 증상이 고약하다: 화면은 멀쩡히 그려지고(프리렌더는 되니까) 버튼만
-        // 안 눌린다. 브라우저 콘솔을 봐야 "Failed to complete negotiation" 이 보인다.
-        // **압축은 UseRouting 보다 앞이어야 한다.**
-        //
-        // 이 미들웨어는 응답 스트림을 갈아 끼우는 방식으로 동작하므로, 압축할
-        // 응답을 만드는 미들웨어보다 **앞에** 서 있어야 한다. 뒤에 두면 아무
-        // 일도 일어나지 않고 — 오류도 안 난다. 증상이 「압축을 넣었는데 헤더에
-        // Content-Encoding 이 없다」 하나라 원인이 순서로 보이지 않는다.
-        //
-        // 정적 자원(MapStaticAssets)은 이 미들웨어를 거치지 않는 편이 낫지만
-        // 그렇게 갈라 둘 필요가 없다 — 그쪽은 빌드 때 만들어 둔 .br/.gz 를
-        // 그대로 내려주면서 Content-Encoding 을 이미 붙이고, 이 미들웨어는
-        // 그 헤더가 있는 응답을 건드리지 않는다.
+        // 정적 자원은 MapStaticAssets 다(UseStaticFiles 는 RCL 의 _content 를 못 찾는다).
+        // 그 뒤의 AllowAnonymous 는 필수다 — 빼면 정책에 걸려 로그인 화면 CSS 가 302 로 튕긴다.
+        // UseRouting 을 명시적으로 부른다. 안 부르면 자동 라우팅이 UsePathBase 앞에 끼어 회로 협상이 405 가 된다.
+        // 압축은 응답을 만드는 미들웨어보다 앞에 둔다(스트림을 갈아 끼우므로 뒤에 두면 아무 일도 없고 오류도 없다).
+        // 정적 자원은 이미 Content-Encoding 이 붙어 있어 이 미들웨어가 건드리지 않는다.
         app.UseResponseCompression();
 
         app.UseRouting();
 
         app.MapStaticAssets().AllowAnonymous();
 
-        // **순서가 이 셋의 전부다.** 인증 → 인가 → 위조방지.
-        //
-        // 한때 UseAntiforgery 가 맨 앞에 있었다. 그러면 위조방지 미들웨어가
-        // 아직 익명인 요청을 검사하게 되어, 로그인 폼 제출 같은 것이 조용히
-        // 익명으로 처리된다. ASP.NET Core 가 문서로 정해 둔 순서가 이쪽이다.
+        // 인증 → 인가 → 위조방지 순서. 위조방지가 인증보다 앞이면 폼 제출이 익명으로 처리된다.
         app.UseAuthentication();
         app.UseAuthorization();
         app.UseAntiforgery();
 
-        // 첨부 내려받기 중계 (D5). **인증 뒤에 열어야 한다** — 이 경로는
-        // 지금 요청의 신원을 그대로 게이트웨이로 흘려보내는 것이 전부이고,
-        // 그 신원이 서는 곳이 UseAuthentication 이다. 앞에 두면 로그인한
-        // 사람의 요청도 익명으로 나가서 공개 파일만 내려간다.
+        // 첨부 내려받기 중계. 요청의 신원을 그대로 게이트웨이로 흘리므로 UseAuthentication 뒤에 연다.
         app.MapJSiniFileDownload();
 
-        // 프로필 사진 올리기 중계. 같은 이유로 인증 뒤에 열고, **위조방지
-        // (UseAntiforgery) 뒤**여야 한다 — 그 미들웨어가 서 있어야
-        // `DisableAntiforgery()` 가 뜻을 갖는다. 무엇을 대신 검사하는지는
-        // ProfilePhotoUpload 머리말에 있다.
+        // 프로필 사진 올리기 중계. 인증 뒤, 위조방지(UseAntiforgery) 뒤에 연다 — DisableAntiforgery() 가 그 미들웨어에 기댄다.
         app.MapJSiniProfilePhotoUpload();
 
         return app;

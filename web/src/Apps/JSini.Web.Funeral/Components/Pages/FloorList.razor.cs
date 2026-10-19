@@ -20,11 +20,7 @@ public partial class FloorList
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        // 셋을 나란히. 조건(_buildingId)은 이미 화면에 있는 값이라 앞의 조회
-        // 결과를 쓰지 않는다.
-        //
-        // 건물 목록은 편집 폼의 고르개가 쓴다. 나란히 받아도 **셋이 다 온 뒤에**
-        // 담으므로, 첫 등록에서 빈 고르개가 뜨지 않는 것은 그대로다.
+        // 셋을 나란히 받는다. 건물 목록은 편집 폼 고르개가 쓰므로 셋이 다 온 뒤에 담는다.
         var buildings = Api.GetBuildingsAsync();
         var floors = Api.GetFloorsAsync(_buildingId);
         var roomsTask = Api.GetRoomsAsync(_buildingId);
@@ -43,13 +39,7 @@ public partial class FloorList
         return _floors.Count;
     }, "조건에 맞는 층이 없습니다.", "층 목록을 읽지 못했습니다");
 
-    /// <summary>
-    /// 새 층의 기본값.
-    ///
-    /// 조건줄에서 고른 건물을 그대로 넣는다. 안 넣으면 어느 건물에도 속하지
-    /// 않은 층이 만들어져 목록에서 사라진다. 정렬은 마지막 뒤에 붙인다 —
-    /// 0 으로 두면 새 층이 맨 앞에 끼어든다.
-    /// </summary>
+    /// <summary>새 층의 기본값. 조건줄의 건물을 넣고(빼면 목록에서 사라진다), 정렬은 마지막 뒤에 붙인다(0 이면 맨 앞에 끼어든다).</summary>
     private void FillNew(Floor f)
     {
         f.BuildingId = _buildingId ?? _buildings.FirstOrDefault()?.Id ?? string.Empty;

@@ -1,23 +1,8 @@
 @page "/{Locale}/privacy"
 
 @*
-    [개인정보처리방침] — 개인정보 보호법 제30조가 정한 항목을 적는다.
-
-    [사실만 적는다]
-
-    항목은 **코드에서 확인한 것**이다(2026-09-27). 기능을 더하거나 뺄 때 여기도
-    함께 고친다 — 특히 수집 항목(2)과 위탁·국외 이전(5 · 6). 문서가 실제와 다르면
-    그것이 곧 법 위반이다.
-
-      포털 계정       AuthServer  accounts · account_profile_details
-      소셜 가입       AuthServer  account_social_logins · SocialPicture · Avatar
-      문의            SiteServer  문의 접수 (3년 — 문의 화면의 동의 문구와 같다)
-      알림 구독·위치  NotificationServer  push_subscriptions · notification_preferences
-      메일 발송       NotificationServer  EmailSettings (jinnets.co.kr)
-      AI 기능         AIAgentServer  (Groq · OpenRouter · Gemini · Anthropic 등)
-
-    회사 정보(운영자 · 대표자 · 주소 · 보호책임자)는 설정(`Legal`)에서 읽고,
-    **비어 있는 칸은 줄째 그리지 않는다**(LegalInfo 머리말).
+    개인정보처리방침. 항목은 코드에서 확인한 사실만 적는다. 기능을 더하거나 뺄 때 여기도 함께 고친다(수집 항목·위탁·국외 이전). 문서가 실제와 다르면 법 위반이다.
+    회사 정보는 설정(Legal)에서 읽고, 비어 있는 칸은 줄째 그리지 않는다.
 *@
 
 <PageTitle>@(Ko ? "개인정보처리방침" : "Privacy Policy") — JSINI</PageTitle>

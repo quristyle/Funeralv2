@@ -4,34 +4,9 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 namespace JSini.Shared.Infrastructure.HealthChecks;
 
 /// <summary>
-/// 딸린 것(DB · 큐 · 저장소 …)을 점검하는 범용 점검.
+/// 딸린 것(DB · 큐 · 저장소)을 점검하는 범용 점검. 타임아웃과 결과 캐시(폴링이 DB 를 두들기지 않게)를 여기서 한 번만 쓴다.
+/// Degraded 로 볼지 Unhealthy 로 볼지는 부르는 쪽이 정한다 — 일부 기능만 막히면 Degraded.
 /// </summary>
-/// <remarks>
-/// <para>
-/// 서비스마다 점검 클래스를 따로 만들면 같은 뼈대(타임아웃·캐시·예외 처리)가 반복된다.
-/// 점검 내용만 대리자로 받아 그 뼈대를 여기서 한 번만 쓴다.
-/// </para>
-///
-/// <para>
-/// <b>공통 규칙 두 가지.</b>
-/// </para>
-/// <list type="bullet">
-///   <item>
-///     <b>타임아웃.</b> 딸린 것이 죽어 있으면 연결이 타임아웃까지 매달린다.
-///     상태 화면이 그만큼 멈추므로 짧게 끊는다.
-///   </item>
-///   <item>
-///     <b>캐시.</b> 상태 화면은 주기적으로 폴링하고 게이트웨이도 같은 <c>/health</c> 를 찌른다.
-///     캐시가 없으면 점검 요청만으로 DB·큐를 두들기게 된다.
-///   </item>
-/// </list>
-///
-/// <para>
-/// 점검이 실패했을 때 <c>Degraded</c> 로 볼지 <c>Unhealthy</c> 로 볼지는 부르는 쪽이 정한다.
-/// DB 가 끊긴 서비스는 사실상 아무것도 못 하므로 <c>Unhealthy</c> 가 맞고,
-/// LLM 처럼 일부 기능만 막히는 경우는 <c>Degraded</c> 가 맞다.
-/// </para>
-/// </remarks>
 public sealed class DependencyHealthCheck : IHealthCheck
 {
     private readonly string _name;

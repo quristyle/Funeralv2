@@ -4,19 +4,7 @@ using JSini.Shared.Domain;
 
 namespace AuthServer.Entities;
 
-/// <summary>
-/// 자료실 항목 (<c>/help/archive</c>)
-/// </summary>
-/// <remarks>
-/// F.A.Q 와 같은 방침이다 — JSini 관리 포털이 관리하고 모든 MSA 사용자에게 공통으로 보인다.
-/// 관리자가 자료를 올리고 나머지 사용자는 설명을 읽고 내려받는다.
-/// 판정은 <c>scom.role_menus</c> 의 <c>/help/archive</c> 권한으로 한다.
-///
-/// <para>
-/// 항목 하나에 파일이 여러 개 붙을 수 있다(설치 파일 + 설명서 + 예제처럼).
-/// 파일마다 항목을 따로 만들면 같은 설명을 여러 번 적게 된다.
-/// </para>
-/// </remarks>
+/// <summary>자료실 항목(<c>/help/archive</c>). F.A.Q 와 같은 방침이다 — 관리 포털이 관리하고 모든 사용자에게 공통으로 보인다.</summary>
 [Table("help_archives", Schema = "scom")]
 public class HelpArchive : BaseEntity<string>
 {
@@ -34,9 +22,7 @@ public class HelpArchive : BaseEntity<string>
     [Column("title")]
     public string Title { get; set; } = string.Empty;
 
-    /// <summary>
-    /// 자료 설명 (HTML). 이 화면의 핵심이다 — 무엇을 내려받는 것인지 알려 준다.
-    /// </summary>
+    /// <summary>자료 설명 (HTML). 이 화면의 핵심이다 — 무엇을 내려받는 것인지 알려 준다.</summary>
     [Column("description")]
     public string? Description { get; set; }
 
@@ -56,13 +42,7 @@ public class HelpArchive : BaseEntity<string>
     public ICollection<HelpArchiveFile>? Files { get; set; }
 }
 
-/// <summary>
-/// 자료실 첨부파일
-/// </summary>
-/// <remarks>
-/// 모양을 <see cref="NoticeFile"/> 과 똑같이 맞췄다. 첨부는 전부 FileServer 로 가고
-/// 우리는 FileServer 가 발급한 <c>file_id</c> 만 들고 있다.
-/// </remarks>
+/// <summary>자료실 첨부파일. 모양은 NoticeFile 과 맞춘다 — 첨부는 전부 FileServer 로 가고 여기는 발급받은 file_id 만 든다.</summary>
 [Table("help_archive_files", Schema = "scom")]
 public class HelpArchiveFile : BaseEntity<string>
 {

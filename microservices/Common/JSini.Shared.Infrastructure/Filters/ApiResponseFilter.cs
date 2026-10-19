@@ -28,18 +28,15 @@ public class ApiResponseFilter : IEndpointFilter
         // 3. IResult 형태의 응답인 경우
         if (result is IResult iResult)
         {
-            // ASP.NET Core의 HttpResults 중 Value 프로퍼티가 정의되어 있는 경우 (예: Ok<T>, BadRequest<T> 등)
             if (iResult.GetType().GetProperty("Value") is PropertyInfo valueProp)
             {
                 var innerValue = valueProp.GetValue(iResult);
                 
-                // 내부에 이미 ApiResponse가 감싸져 있다면 그대로 반환
                 if (innerValue != null && IsApiResponse(innerValue.GetType()))
                 {
                     return result;
                 }
 
-                // 일반 데이터가 들어있는 경우 상태 코드를 유지하면서 ApiResponse로 감싸서 반환
                 if (innerValue != null)
                 {
                     var wrapped = WrapInApiResponse(innerValue);
@@ -57,13 +54,12 @@ public class ApiResponseFilter : IEndpointFilter
             return result;
         }
 
-        // 4. 일반 비즈니스 데이터 객체인 경우 ApiResponse로 래핑 후 Results.Ok 반환
         var wrappedResult = WrapInApiResponse(result);
         return Results.Ok(wrappedResult);
     }
 
     /// <summary>
-    /// 해당 타입이 ApiResponse<T> 계열인지 판별합니다.
+    /// 해당 타입이 ApiResponse&lt;T&gt; 계열인지 판별합니다.
     /// </summary>
     private static bool IsApiResponse(Type type)
     {

@@ -53,28 +53,9 @@ public sealed class CargoCodeSet
 }
 
 /// <summary>
-/// 운송관리 관리자 화면이 쓰는 코드표. 정본은 docs/cargotrust/05-api-design.md 의 「코드표」다.
+/// 운송관리 관리자 화면이 쓰는 코드표(정본 docs/cargotrust/05-api-design.md 「코드표」). 화면마다 switch 를 적으면 같은 코드의 이름과 딱지 색이 갈리므로 한 곳에 둔다.
+/// 색은 판정이 아니다 — 처리가 필요한지만 알린다. 이름에 「악성」·「위험」을 쓰지 않는다(설계안 12절).
 /// </summary>
-/// <remarks>
-/// <para>
-/// [한 곳에 두는 이유]
-/// </para>
-///
-/// <para>
-/// 같은 코드가 여러 화면에 나온다 — 결제 상태만 해도 대시보드 · 거래 · 결제 · 통계
-/// 넷이다. 화면마다 <c>switch</c> 를 적으면 한 화면에서만 「지연 지급」이 「지연」이
-/// 되고, 딱지 색이 화면마다 갈린다. 여기서 이름과 색을 함께 정한다.
-/// </para>
-///
-/// <para>
-/// [색은 판정이 아니다]
-/// </para>
-///
-/// <para>
-/// 설계안 12절 — 이 서비스는 업체를 판정하지 않는다. 딱지 색은 <b>처리가 필요한가</b>
-/// 를 관리자에게 알리는 것뿐이고, 이름에 「악성」·「위험」 같은 말을 쓰지 않는다.
-/// </para>
-/// </remarks>
 public static class CargoAdminCodes
 {
     /// <summary>결제 상태(<c>PaymentStatus</c>).</summary>
@@ -156,14 +137,8 @@ public static class CargoAdminCodes
         new("DONE", "처리 완료", "on"));
 
     /// <summary>
-    /// 감사 기록의 대상 종류.
-    ///
-    /// <para>
-    /// <b>계약서에 값이 적혀 있지 않다.</b> 관리자가 바꿀 수 있는 것(거래처 · 거래 ·
-    /// 후기 · 신고 · 이의제기 · 사용자)과 사용자가 바꾸는 거래 · 결제에서 뽑았다.
-    /// 서버가 다른 글자를 쓰면 표에는 그 글자가 그대로 보이고(<see cref="CargoCodeSet.NameOf"/>),
-    /// 조회 고르개에서만 빠진다 — 그때 여기를 맞춘다.
-    /// </para>
+    /// 감사 기록의 대상 종류. 계약서에 값이 없어 관리자가 바꾸는 것과 사용자가 바꾸는 것에서 뽑았다 — 서버가 다른 글자를 쓰면
+    /// 표에 그대로 보이고 조회 고르개에서만 빠진다. 그때 여기를 맞춘다.
     /// </summary>
     public static readonly CargoCodeSet AuditTarget = new(
         new("COMPANY", "거래처"),
@@ -174,10 +149,7 @@ public static class CargoAdminCodes
         new("DISPUTE", "이의제기"),
         new("USER", "사용자"));
 
-    /// <summary>
-    /// 신고 · 이의제기가 아직 처리 대기인가 — 접수 · 검토중.
-    /// 서버가 <c>resolved_at</c> 을 채우는 기준(「접수·검토중이 아니면」)과 같다.
-    /// </summary>
+    /// <summary>신고 · 이의제기가 처리 대기인가(접수 · 검토중). 서버가 resolved_at 을 채우는 기준과 같다.</summary>
     public static bool IsOpen(string? status) =>
         string.Equals(status, "RECEIVED", StringComparison.OrdinalIgnoreCase)
         || string.Equals(status, "REVIEWING", StringComparison.OrdinalIgnoreCase);

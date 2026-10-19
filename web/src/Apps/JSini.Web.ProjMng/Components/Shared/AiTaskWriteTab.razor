@@ -1,26 +1,12 @@
 @*
-    「작성」 탭 — 지시를 적는 한 장. 보는 탭 셋(`AiTaskAskTab` ·
-    `AiTaskFilesTab` · `AiTaskLogTab`)과 **반대 방향**이다.
-
-    **자료도 저장도 부르는 쪽 것이다.** 이 부품은 그리고 되돌려 줄 뿐이고,
-    대상·AI·한도를 받아서 그린다 — 제 손으로 또 물으면 같은 값을 두 번
-    받아 오면서 둘이 어긋날 자리만 생긴다.
-
-    **다만 고친 값은 곧장 `Item` 에 들어간다**(`@@bind` 가 그 객체의 칸을
-    친다). 칸마다 콜백을 걸지 않는 까닭은 입력칸이 아홉이고 더 늘기
-    때문이다 — 하나를 빠뜨리면 「그 칸만 조용히 안 올라간다」가 된다.
+    「작성」 탭 — 지시를 적는 한 장. 자료·저장은 부르는 쪽이 하고, 이 부품은 값을 그리고 되돌려 줄 뿐이다.
+    고친 값은 곧장 Item 에 들어간다(@@bind). 칸마다 콜백을 걸지 않는다 — 하나를 빠뜨리면 그 칸만 조용히 안 올라간다.
 *@
 <DxTabPage Text="@TabText">
     <div class="pm-tab-body pm-ai-write">
         @if (Item is { } t)
         {
-            @* 설정 줄 둘 — 위는 「무엇을 어디에서」(제목·대상·AI·제한),
-               아래는 「끝난 뒤에 무엇을」(올리기·알림).
-
-               **자리표시 글자를 두지 않는다.** 칸마다 안내문이 있으면 빈
-               칸이 채워진 것처럼 보인다. 그 대신 라벨이 늘 테두리에 올라가
-               있게 되는데(판정이 `:not(:placeholder-shown)` 이라 — app.css)
-               네 칸이 다 그러므로 오히려 줄이 고르게 선다. *@
+            @* 위 줄은 「무엇을 어디에서」, 아래 줄은 「끝난 뒤에 무엇을」이다. 자리표시 글자는 두지 않는다 — 빈 칸이 채워진 것처럼 보인다. *@
             <DxFormLayout CssClass="pm-editform">
                 <DxFormLayoutItem Caption="제목" ColSpanMd="12" ColSpanLg="5">
                     <DxTextBox @bind-Text="t.Title" Enabled="@CanEdit"
@@ -36,9 +22,7 @@
                                 Enabled="@CanEdit" />
                 </DxFormLayoutItem>
 
-                @* 고른 대상이 허용한 것만 나온다. 고르개는 공통 부품이고
-                   (`AiRunnerPick`) 이름 옆에 남은 한도가 함께 선다 — 그래서
-                   칸이 한 칸 넓다(Lg 2→3). 2 칸에서는 이름이 밀려 사라졌다. *@
+                @* 고른 대상이 허용한 것만 나온다. 이름 옆 한도 때문에 이 칸은 Lg 3 칸이다. *@
                 <DxFormLayoutItem Caption="AI" ColSpanMd="5" ColSpanLg="3">
                     <AiRunnerPick Items="@Runners" @bind-Value="t.RunnerKind"
                                   Enabled="@(CanEdit && t.TargetKey is not null)"
@@ -53,8 +37,7 @@
             </DxFormLayout>
 
 
-            @* 끝난 뒤의 일. **알림을 켜야 뒤의 둘이 살아난다**는 순서가
-               그대로 읽히도록 왼쪽에서 오른쪽으로 놓았다. *@
+            @* 알림을 켜야 뒤의 둘이 살아난다 — 그 순서대로 왼쪽에서 오른쪽에 놓는다. *@
             <div class="pm-ai-opts">
                 <DxCheckBox @bind-Checked="t.AutoPush"
                             Enabled="@(CanEdit && AllowPush)">
@@ -86,9 +69,7 @@
                 </label>
             </div>
 
-            @* 편집기 머리줄. 「AI 도우미」는 **본문 바로 위**가 누를
-               자리다 — 저장 단추 줄에 두면 「저장하기 전에 하는 일」로
-               보이지 않는다. *@
+            @* 「AI 도우미」는 본문 바로 위에 둔다 — 저장 줄에 두면 저장 전 일로 안 보인다. *@
             <div class="pm-ai-editor__bar">
                 <span class="pm-ai-editor__label">지시 내용</span>
 
@@ -100,7 +81,6 @@
                 </PermissionView>
             </div>
 
-            @* 편집기 *@
             <div class="pm-ai-editor">
                 <CodeEditor @bind-Value="t.Contents"
                             Language="markdown"
@@ -158,8 +138,7 @@
         }
         else
         {
-            @* **탭을 통째로 빼지 않는다.** 고른 것이 없는 찰나에만 탭이
-               하나 줄면 부르는 쪽의 탭 번호가 그 찰나에만 틀린다. *@
+            @* 탭을 빼지 않는다 — 찰나에 탭 수가 줄면 부르는 쪽의 탭 번호가 틀린다. *@
             <p class="pm-peek__dim">@EmptyText</p>
         }
     </div>

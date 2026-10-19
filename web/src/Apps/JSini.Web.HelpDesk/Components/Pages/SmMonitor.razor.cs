@@ -53,8 +53,7 @@ public partial class SmMonitor
     {
         var period = new { year = _year, month = _month };
 
-        // 셋을 나란히. **하나가 실패해도 나머지는 보여 준다** —
-        // 현황판은 떠 있는 것이 중요하다.
+        // 셋을 나란히 부른다 — 하나가 실패해도 나머지는 보여 준다. 현황판은 떠 있는 것이 중요하다.
         var report = SafeAsync(() => Api.GetAsync<MonthlyReport>("requests/report/monthly", period));
         var emergency = SafeAsync(() => Api.GetAsync<JsonElement>("requests/report/emergency"));
         var workload = SafeAsync(() => Api.GetAsync<JsonElement>("dashboard/admin-contribution-stats", period));
@@ -75,7 +74,7 @@ public partial class SmMonitor
         return (_report?.TotalRequests ?? 0) + _emergency.Rows.Count;
     }, "그 달에 접수된 요청이 없습니다.", "현황을 읽지 못했습니다");
 
-    /// <summary>실패를 삼키고 <c>default</c> 를 돌려준다. 까닭은 화면 머리말에 있다.</summary>
+    /// <summary>실패를 삼키고 default 를 돌려준다.</summary>
     private static async Task<T?> SafeAsync<T>(Func<Task<T?>> load)
     {
         try

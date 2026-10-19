@@ -6,14 +6,7 @@ using ProjMngServer.Services;
 
 namespace ProjMngServer.Controllers;
 
-/// <summary>EAI 인터페이스 카탈로그 — <c>/api/interfaces</c>.</summary>
-/// <remarks>
-/// <para>
-/// 딸린 자료(단계·메모·항목값)에는 <c>prj_rid</c> 가 없다. 그래서 그것들을
-/// 만지기 전에 <b>그 인터페이스가 이 프로젝트 것인지 먼저 묻는다</b> —
-/// 빠뜨리면 번호만 알면 남의 프로젝트를 읽고 고칠 수 있다.
-/// </para>
-/// </remarks>
+/// <summary>EAI 인터페이스 카탈로그(<c>/api/interfaces</c>). 딸린 자료에는 prj_rid 가 없으므로 만지기 전에 그 인터페이스가 이 프로젝트 것인지 먼저 묻는다 — 빠뜨리면 번호만 알면 남의 프로젝트를 고칠 수 있다.</summary>
 [ApiController]
 [Route("api/interfaces")]
 public sealed class InterfacesController(InterfaceService service) : ControllerBase
@@ -23,23 +16,7 @@ public sealed class InterfacesController(InterfaceService service) : ControllerB
             ? id.ToString()
             : "system";
 
-    /// <summary>
-    /// 본문 한 벌을 DB 에 넣을 수 있는 값으로 바꾼다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// WBS 쪽의 <see cref="WbsBoardSql.JsonValues"/> 를 쓰면 안 된다 —
-    /// 그쪽은 객체·배열을 <b>버린다</b>(그 표에는 담을 자리가 없어서). 여기에는
-    /// <c>ext</c>·<c>params</c> 두 <c>jsonb</c> 칸이 있어서 <b>글자로 굳혀
-    /// 그대로 넘겨야 한다.</b>
-    /// </para>
-    ///
-    /// <para>
-    /// 그것을 모르고 한 번 밟았다 — 화면이 <c>{"ext":{"a":1}}</c> 를 보내면
-    /// 값이 <c>null</c> 이 되고, 그 칸은 <c>NOT NULL</c> 이라 등록이 통째로
-    /// <c>23502</c> 로 끊긴다.
-    /// </para>
-    /// </remarks>
+    /// <summary>본문 한 벌을 DB 에 넣을 수 있는 값으로 바꾼다. WBS 쪽 <see cref="WbsBoardSql.JsonValues"/> 는 객체·배열을 버리므로 쓰지 않는다.</summary>
     private static Dictionary<string, object?> Body(Dictionary<string, JsonElement> body)
     {
         var map = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
@@ -245,10 +222,7 @@ public sealed class InterfacesController(InterfaceService service) : ControllerB
             ? Ok(ApiResponse<List<IfAttrRow>>.Ok(await service.AttrsAsync(ifId)))
             : NotOurs(ifId);
 
-    /// <summary>
-    /// 항목값 한꺼번에 담기. 본문은 <c>{ "12": "값", "13": null }</c> 꼴이고
-    /// 열쇠가 항목 정의 번호다.
-    /// </summary>
+    /// <summary>항목값 한꺼번에 담기. 본문은 <c>{ "12": "값", "13": null }</c> 꼴이고 열쇠가 항목 정의 번호다.</summary>
     [HttpPut("{ifId:int}/attrs")]
     public async Task<IActionResult> SaveAttrsAsync(
         [FromQuery] int prjRid, int ifId, [FromBody] Dictionary<string, JsonElement> body)

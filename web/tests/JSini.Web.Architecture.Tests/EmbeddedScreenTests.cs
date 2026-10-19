@@ -2,25 +2,8 @@ using Xunit;
 
 namespace JSini.Web.Architecture.Tests;
 
-/// <summary>
-/// 바깥 화면 끼워 넣기(<c>Embedded.razor</c>) 화면의 <b>새 창으로 열기 단추</b> 자리와 생김새를 검사한다.
-///
-/// <para>
-/// [왜 기계가 봐야 하는가]
-/// </para>
-///
-/// <para>
-/// `/embed/nums_prod` 나 `/embed/projmng/external/funeral-monitor` 처럼
-/// 타시스템의 frame 을 보여주는 공용 화면(<c>Embedded.razor</c>)은
-/// iframe 이 본문 칸을 <b>통째로</b> 쓰고, 「새 창으로 열기」는 제 줄을 깔지 않고
-/// 그 위에 <b>겹쳐</b> 오른쪽 위에 앉는다. 글자 없이 그림만 보인다.
-/// </para>
-///
-/// <para>
-/// 셋 다 어긋나도 화면은 멀쩡히 그려진다 — 줄이 되살아나면 iframe 이 그만큼
-/// 눌리고, 테두리가 되살아나면 「아이콘만」이 상자가 된다. 눈으로는 지나간다.
-/// </para>
-/// </summary>
+/// <summary>바깥 화면 끼워 넣기(Embedded.razor)의 새 창으로 열기 단추 자리와 생김새를 검사한다. iframe 이 본문 칸을 통째로 쓰고 단추는 제 줄을 깔지 않고 그 위에 겹쳐 앉으므로,
+/// 감싸개 안의 여백·테두리·위치를 글자로 지킨다. 어긋나도 화면은 멀쩡히 그려진다.</summary>
 public sealed class EmbeddedScreenTests
 {
     [Fact]

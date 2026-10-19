@@ -4,121 +4,74 @@ using JSini.Shared.Domain;
 
 namespace AuthServer.Entities;
 
-/// <summary>
-/// 시스템 메뉴 정보 엔티티 클래스
-/// </summary>
+/// <summary>시스템 메뉴 정보 엔티티 클래스</summary>
 [Table("system_menus", Schema = "scom")]
 public class SystemMenu : BaseEntity<string>
 {
-    /// <summary>
-    /// SystemMenu 클래스의 새 인스턴스를 초기화하고 고유 식별자(GUID)를 생성합니다.
-    /// </summary>
+    /// <summary>SystemMenu 클래스의 새 인스턴스를 초기화하고 고유 식별자(GUID)를 생성합니다.</summary>
     public SystemMenu()
     {
         Id = Guid.NewGuid().ToString();
     }
 
-    /// <summary>
-    /// 메뉴 이름 (다국어 키 또는 명칭)
-    /// </summary>
+    /// <summary>메뉴 이름 (다국어 키 또는 명칭)</summary>
     [Required]
     [Column("name")]
     public string Name { get; set; } = string.Empty;
 
-    /// <summary>
-    /// 라우트 경로 (URL)
-    /// </summary>
+    /// <summary>라우트 경로 (URL)</summary>
     [Required]
     [Column("path")]
     public string Path { get; set; } = string.Empty;
 
-    // ── 화면을 가리키는 열쇠 ──────────────────────────────────
-    //
-    // [왜 URL(path) 이 아니라 열쇠인가]
-    //
-    // path 는 역할-메뉴 권한표와 즐겨찾기의 열쇠이기도 하다. 그래서 URL 을
-    // 고치면 그 메뉴의 권한이 조용히 끊긴다 — *권한이 없는데 메뉴가 보이는*
-    // 쪽으로 틀리므로 사실상 못 바꾸는 값이었고, Vue 시절 경로 69건이 그대로
-    // 남아 있는 이유가 그것이다.
-    //
-    // 열쇠를 따로 두면 URL 은 코드가 마음대로 바꿔도 되고 DB 는 화면을 계속
-    // 정확히 가리킨다. 프론트가 실려 있는 화면 목록(RouteInventory)에서
-    // 열쇠로 주소를 푼다 — 사전 조회 한 번이고 DB 를 타지 않는다.
-    //
-    // 아직 안 채운 메뉴는 null 이고, 그때만 프론트가 옛 방식
-    // (RouteAliases + path)으로 떨어진다. 그 수가 곧 남은 이행량이다.
-    //
-    // 주석을 요약(<summary>)에 적지 않는 것은 그 글자가 DB 컬럼 코멘트로
-    // 그대로 들어가기 때문이다.
+    // 화면은 path 대신 열쇠(RouteKey)로 찾는다 — path 는 권한표·즐겨찾기의 열쇠라 바꾸면 권한이 조용히 끊긴다.
+    // 열쇠가 null 이면 프론트가 path 와 RouteAliases 로 주소를 찾는다.
 
     /// <summary>이 메뉴가 가리키는 화면의 열쇠 (예: funeral.room-status)</summary>
     [Column("route_key")]
     public string? RouteKey { get; set; }
 
-    // Vue 시절의 라우트 생성원이다. Blazor 는 @page 로 컴파일 시점에 라우트가
-    // 정해지므로 DB 문자열이 화면을 만들 수 없다 — **지금은 아무도 읽지 않고**
-    // 값은 이력으로만 남겨 둔다.
+    // Vue 시절의 라우트 생성원. Blazor 는 @page 로 라우트를 정하므로 지금은 아무도 읽지 않는 이력 값이다.
 
-    /// <summary>
-    /// 프론트엔드 컴포넌트 파일 경로
-    /// </summary>
+    /// <summary>프론트엔드 컴포넌트 파일 경로</summary>
     [Column("component")]
     public string? Component { get; set; }
 
-    /// <summary>
-    /// 부모 메뉴 식별자 (ID)
-    /// </summary>
+    /// <summary>부모 메뉴 식별자 (ID)</summary>
     [Column("pid")]
     public string? Pid { get; set; }
 
-    /// <summary>
-    /// 리다이렉트할 경로 (URL)
-    /// </summary>
+    /// <summary>리다이렉트할 경로 (URL)</summary>
     [Column("redirect")]
     public string? Redirect { get; set; }
 
-    /// <summary>
-    /// 메뉴 유형 (catalog, menu, button 등, 기본값: menu)
-    /// </summary>
+    /// <summary>메뉴 유형 (catalog, menu, button 등, 기본값: menu)</summary>
     [Required]
     [Column("type")]
     public string Type { get; set; } = "menu";
 
-    /// <summary>
-    /// 권한 식별 코드
-    /// </summary>
+    /// <summary>권한 식별 코드</summary>
     [Column("auth_code")]
     public string? AuthCode { get; set; }
 
-    /// <summary>
-    /// 메뉴 제목 (화면에 표시할 텍스트)
-    /// </summary>
+    /// <summary>메뉴 제목 (화면에 표시할 텍스트)</summary>
     [Column("title")]
     public string? Title { get; set; }
 
-    /// <summary>
-    /// 메뉴 아이콘 명칭 (예: AntDesign 등)
-    /// </summary>
+    /// <summary>메뉴 아이콘 명칭 (예: AntDesign 등)</summary>
     [Column("icon")]
     public string? Icon { get; set; }
 
-    /// <summary>
-    /// 정렬 순서
-    /// </summary>
+    /// <summary>정렬 순서</summary>
     [Column("order_no")]
     public int OrderNo { get; set; } = 0;
 
-    /// <summary>
-    /// 메뉴 표시 숨김 여부
-    /// </summary>
+    /// <summary>메뉴 표시 숨김 여부</summary>
     [Column("hide_in_menu")]
     public bool HideInMenu { get; set; } = false;
 
     // ── 나머지 숨김 설정 셋 ──────────────────────────────────
-    //
-    // 수정 창에는 넷이 있었지만 저장되는 것은 위 `HideInMenu` 하나뿐이었다.
-    // 아래 셋은 칸도 DTO 도 없어서 켜고 저장해도 아무 일이 없었다.
-    // 셋 다 목록 · 브레드크럼 · 탭 바에서만 감추고 라우트는 살려 둔다.
+    // 셋 다 목록·브레드크럼·탭 바에서만 감추고 라우트는 살려 둔다.
 
     /// <summary>하위 메뉴를 메뉴목록에서 감출지 여부</summary>
     [Column("hide_children_in_menu")]
@@ -132,72 +85,48 @@ public class SystemMenu : BaseEntity<string>
     [Column("hide_in_tab")]
     public bool HideInTab { get; set; } = false;
 
-    /// <summary>
-    /// 페이지 캐싱(Keep-Alive) 적용 여부
-    /// </summary>
+    /// <summary>페이지 캐싱(Keep-Alive) 적용 여부</summary>
     [Column("keep_alive")]
     public bool KeepAlive { get; set; } = true;
 
-    /// <summary>
-    /// 탭 고정 여부
-    /// </summary>
+    /// <summary>탭 고정 여부</summary>
     [Column("affix_tab")]
     public bool AffixTab { get; set; } = false;
 
-    /// <summary>
-    /// DOM 캐싱 여부
-    /// </summary>
+    /// <summary>DOM 캐싱 여부</summary>
     [Column("dom_cached")]
     public bool DomCached { get; set; } = false;
 
-    /// <summary>
-    /// 허용 권한 목록 (콤마 구분)
-    /// </summary>
+    /// <summary>허용 권한 목록 (콤마 구분)</summary>
     [Column("authority")]
     public string? Authority { get; set; }
 
-    /// <summary>
-    /// 권한이 없을 때 메뉴 표시 여부
-    /// </summary>
+    /// <summary>권한이 없을 때 메뉴 표시 여부</summary>
     [Column("menu_visible_with_forbidden")]
     public bool MenuVisibleWithForbidden { get; set; } = false;
 
-    /// <summary>
-    /// 외부 링크 URL
-    /// </summary>
+    /// <summary>외부 링크 URL</summary>
     [Column("link")]
     public string? Link { get; set; }
 
-    /// <summary>
-    /// Iframe 소스 URL (웹뷰용)
-    /// </summary>
+    /// <summary>Iframe 소스 URL (웹뷰용)</summary>
     [Column("iframe_src")]
     public string? IframeSrc { get; set; }
 
-    /// <summary>
-    /// 뱃지 유형 (예: dot 등)
-    /// </summary>
+    /// <summary>뱃지 유형 (예: dot 등)</summary>
     [Column("badge_type")]
     public string? BadgeType { get; set; }
 
-    /// <summary>
-    /// 뱃지에 표시할 텍스트 내용
-    /// </summary>
+    /// <summary>뱃지에 표시할 텍스트 내용</summary>
     [Column("badge")]
     public string? Badge { get; set; }
 
-    /// <summary>
-    /// 메뉴 사용 상태 (0: 비활성, 1: 활성)
-    /// </summary>
+    /// <summary>메뉴 사용 상태 (0: 비활성, 1: 활성)</summary>
     [Column("status")]
     public int Status { get; set; } = 1;
 
     // ── 화면 크기별 메뉴목록 노출 ────────────────────────────
-    //
-    // 포털은 PWA 라 휴대폰·태블릿에서도 같은 메뉴를 받는다(40번 문서).
-    // 데스크톱에서만 쓸모 있는 화면까지 작은 화면의 메뉴목록에 나오면 목록만 길어진다.
-    // 아래 두 값이 false 면 그 크기의 **메뉴목록에서만** 빠진다 —
-    // 라우트는 그대로 만들어지므로 주소·즐겨찾기로는 열린다(Status=0 과 다른 뜻이다).
+    // 포털은 PWA 라 작은 화면도 같은 메뉴를 받는다. 아래 값이 false 면 그 크기 메뉴목록에서만 빠지고 라우트는 열린다.
 
     /// <summary>휴대폰 크기(&lt;768px) 메뉴목록 노출 여부</summary>
     [Column("use_mobile")]
@@ -208,11 +137,7 @@ public class SystemMenu : BaseEntity<string>
     public bool UseTablet { get; set; } = true;
 
     // ── 권한 항목 사용 설정 ────────────────────────────────
-    //
-    // role_menus 는 메뉴마다 15가지 권한 칸을 들고 있지만, 메뉴마다 실제로
-    // 의미 있는 권한은 다르다. 아래 값으로 그 메뉴가 어떤 권한을 쓰는지 정해두면
-    // 역할 권한 화면이 해당 항목만 켜서 보여준다.
-    // 사용자 정의 권한 1~8 은 이름을 붙여야 무엇인지 알 수 있으므로 이름도 함께 둔다.
+    // 메뉴마다 권한 칸 15개 중 실제 쓰는 것만 여기 켜서 역할 권한 화면이 해당 항목만 보이게 한다.
 
     /// <summary>열람 권한 사용 여부</summary>
     [Column("use_view")]

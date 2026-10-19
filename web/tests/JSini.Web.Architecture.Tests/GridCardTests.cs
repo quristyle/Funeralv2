@@ -4,16 +4,8 @@ using Xunit;
 
 namespace JSini.Web.Architecture.Tests;
 
-/// <summary>
-/// 휴대폰에서 <b>표를 카드로 펴는</b> 약속을 지킨다.
-///
-/// <para>
-/// 이 장치는 브라우저(CSS)와 서버(C#)가 <b>글자로 맞잡고 있다</b> —
-/// 클래스 이름 하나, 속성 이름 하나. 한쪽만 고쳐도 빌드는 통과하고,
-/// 증상은 <b>그 표만 이름 없는 카드가 되거나 카드가 아예 안 서는 것</b>이라
-/// 넓은 화면에서는 아무 표도 안 난다.
-/// </para>
-/// </summary>
+/// <summary>휴대폰에서 표를 카드로 펴는 약속. 브라우저(CSS)와 서버(C#)가 클래스 이름과 속성 이름을 글자로 맞잡고 있어, 한쪽만 고치면 빌드는 통과하고 그 표만 이름 없는 카드가 되거나 카드가 안 선다.
+/// 넓은 화면에서는 드러나지 않는다.</summary>
 public sealed class GridCardTests
 {
     /// <summary>카드 규칙이 적힌 곳. 여기 없으면 어떤 표도 안 펴진다.</summary>
@@ -34,12 +26,7 @@ public sealed class GridCardTests
         Assert.Contains("@media (max-width: 767px)", css);
     }
 
-    /// <summary>
-    /// 칸 이름은 <c>::after</c> 로 그린다. <c>::before</c> 는 DevExpress 가
-    /// <b>고른 줄의 바탕을 칠하는 데</b> 쓰고 자릿수가 우리보다 높아서,
-    /// 거기에 이름을 담으면 <b>고른 카드에서만 이름이 통째로 사라진다</b>
-    /// (2026-10-11 에 재어 보고 알았다).
-    /// </summary>
+    /// <summary>칸 이름은 ::after 로 그린다 — ::before 는 DevExpress 가 고른 줄의 바탕을 칠하는 데 쓰여, 거기 담으면 고른 카드에서만 이름이 사라진다.</summary>
     [Fact]
     public void 칸_이름은_after_로_그린다()
     {
@@ -57,16 +44,7 @@ public sealed class GridCardTests
         Assert.DoesNotContain("::before", selector);
     }
 
-    /// <summary>
-    /// <b>표를 그리는 자리는 이제 <c>CommGrd</c> 하나다</b>(2026-10-11).
-    ///
-    /// <para>
-    /// 한동안 셋이었다 — 헬프데스크 <c>AutoGrid</c> 와 뉴스속보가 맨
-    /// <c>DxGrid</c> 를 직접 그려서 카드 표시를 손으로 달고 있었다. 둘 다
-    /// 공통 표 위로 옮겼으므로 글자를 손으로 적는 자리가 없어졌다.
-    /// 새로 들이는 것은 아래 <see cref="맨_DxGrid_를_쓰는_화면이_없다"/> 가 막는다.
-    /// </para>
-    /// </summary>
+    /// <summary>표를 그리는 자리는 CommGrd 하나다. 새로 들이는 맨 DxGrid 는 아래 테스트가 막는다.</summary>
     [Fact]
     public void 표를_그리는_자리는_공용_규칙을_쓴다()
     {
@@ -77,16 +55,7 @@ public sealed class GridCardTests
         Assert.Contains("GridCards.Label", source);
     }
 
-    /// <summary>
-    /// <b>맨 <c>DxGrid</c> 를 쓰는 화면이 하나도 없다.</b>
-    ///
-    /// <para>
-    /// 위 테스트는 「표시를 달았나」만 보므로, 표시를 손으로 달아 두면
-    /// 통과한다. 여기서는 <b>감싼 부품을 거치는가</b>를 본다 — 거치지 않으면
-    /// 표시 말고도 머리줄의 건수 · 오른쪽 클릭 창 · 줄무늬 · 관리 칸이
-    /// 통째로 빠지고, 그것은 화면을 열어 보기 전에는 아무 표도 안 난다.
-    /// </para>
-    /// </summary>
+    /// <summary>맨 DxGrid 를 쓰는 화면이 하나도 없다 — 표시를 손으로 달면 통과하므로 감싼 부품을 거치는지 본다. 거치지 않으면 건수·오른쪽 클릭 창·줄무늬·관리 칸이 통째로 빠진다.</summary>
     [Fact]
     public void 맨_DxGrid_를_쓰는_화면이_없다()
     {
@@ -125,11 +94,7 @@ public sealed class GridCardTests
             + string.Join("\n  ", offenders));
     }
 
-    /// <summary>
-    /// 카드일 때는 <b>가상 스크롤을 끄고 쪽 넘김을 켠다.</b> 켜 둔 채로 두면
-    /// DevExpress 가 전체 높이를 열 배 넘게 잘못 어림해(카드는 줄 높이가 290px)
-    /// 굴림 막대가 깨알만 해진다.
-    /// </summary>
+    /// <summary>카드일 때는 가상 스크롤을 끄고 쪽 넘김을 켠다 — 켜 두면 DevExpress 가 전체 높이를 열 배 넘게 잘못 어림해 굴림 막대가 깨알만 해진다.</summary>
     [Fact]
     public void 카드에서는_가상_스크롤을_끈다()
     {
@@ -146,10 +111,7 @@ public sealed class GridCardTests
         Assert.True(grid.IndexOf("PageSize=\"@_pageSize\"", StringComparison.Ordinal) > splat);
     }
 
-    /// <summary>
-    /// 모바일 환경에서 카드로 펴졌을 때는 「표형태로보기」, 표로 전환되었을 때는
-    /// 「카드형태로 변환」 항목이 오른쪽 클릭 창(ContextMenu)에 뜬다.
-    /// </summary>
+    /// <summary>모바일에서 카드로 펴졌을 때는 「표형태로보기」, 표로 바뀌었을 때는 「카드형태로 변환」이 오른쪽 클릭 창에 뜬다.</summary>
     [Fact]
     public void 모바일_카드_표_전환_메뉴_항목이_CommGrd_에_있다()
     {

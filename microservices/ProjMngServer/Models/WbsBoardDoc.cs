@@ -1,8 +1,6 @@
 namespace ProjMngServer.Models;
 
-// 이 파일이 `WbsBoardUser.cs` 였다 — 개발자 명부가 여기 있었다. 2026-09-23 에
-// 그 속성들을 포털 계정으로 옮기고(`scom.account_profile_details` 의 `Dev.*`)
-// 표도 화면도 걷어냈다 — `docs/projmng-account-merge.md`.
+// 개발자 명부는 포털 계정의 Dev.* 속성(scom.account_profile_details)으로 옮겨 이 파일에는 없다(docs/projmng-account-merge.md).
 
 /// <summary>팀 공유 문서 한 쪽 — <c>projmng.wbs_docs</c>.</summary>
 public sealed class WbsBoardDoc

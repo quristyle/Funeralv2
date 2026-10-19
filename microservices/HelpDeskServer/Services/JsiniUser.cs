@@ -90,7 +90,7 @@ public static class JsiniUserExtensions {
     var jsini = context.GetJsiniUser();
     if (jsini is not null) return jsini.UserId;
 
-    // 헬프데스크 자체 토큰으로 들어온 요청(JinReception 등)은 예전대로 내부 ID 를 남긴다.
+    // 헬프데스크 자체 토큰으로 들어온 요청(JinReception 등)은 내부 ID 를 그대로 남긴다.
     return context.User.FindFirst("uid")?.Value
            ?? context.User.Identity?.Name
            ?? "system";

@@ -1,14 +1,7 @@
 @page "/funeral/info/deceased-search"
 @attribute [RouteKey("funeral.info.deceased-search")]
 
-@*
-    [고인 정보 조회] — DB 메뉴 `/info/deceased-search`.
-    이력: Vue `views/funeral/info/deceased-search/index` → 여기.
-
-    고인 현황(`/funeral/status/deceased-status`)과 화면이 비슷하지만 쓰임이 다르다.
-    그쪽은 **지금 진행 중인 것**을 다루고 출상 단추가 있다. 여기는 **지난 것까지
-    찾는** 조회 전용이라 바꾸는 단추가 없다.
-*@
+@* [고인 정보 조회] — DB 메뉴 `/info/deceased-search`. 고인 현황과 달리 지난 고인까지 찾는 조회 전용이라 바꾸는 단추가 없다. *@
 
 @inherits DataPage
 
@@ -24,8 +17,7 @@
 <CommCont>
     <CommGrd TItem="DeceasedLookup" Data="@_rows" PageSize="20">
         <Columns>
-            @* 사진. 조회 화면이라 더 쓸모가 있다 — 이름이 같은 분이 있을 때
-               사람이 가릴 수 있는 것은 얼굴이다. 서버가 이미 주고 있었다. *@
+            @* 사진. 이름이 같은 분이 있을 때 사람이 얼굴로 가려야 해서 둔다. *@
             <DxGridDataColumn Caption="" Width="60" AllowSort="false">
                 <CellDisplayTemplate Context="cell">
                     @{
@@ -51,8 +43,7 @@
             <DxGridDataColumn FieldName="@nameof(DeceasedLookup.Religion)" Caption="종교" Width="90" />
             <DxGridDataColumn FieldName="@nameof(DeceasedLookup.MournerNames)" Caption="상주" MinWidth="140" />
 
-            @* 상태. 이 화면은 지난 고인까지 함께 나오는 자리라
-               「지금 빈소에 계신 분」과 이미 끝난 건을 가려야 한다. *@
+            @* 상태. 지난 고인이 함께 나오므로 「지금 빈소에 계신 분」과 끝난 건을 가른다. *@
             <DxGridDataColumn Caption="상태" Width="120">
                 <CellDisplayTemplate Context="cell">
                     @{

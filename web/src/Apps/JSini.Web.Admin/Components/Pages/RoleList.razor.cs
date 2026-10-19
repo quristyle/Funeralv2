@@ -91,10 +91,7 @@ public partial class RoleList
     private bool CanAddPicked =>
         _pickedNode is { IsUser: true } n && _users.All(u => u.Id != n.Id);
 
-    /// <summary>
-    /// 조직도의 사람 하나에게 이 역할을 건다 — 끌어 놓기 · 두 번 누르기 · 넣기 단추가 같이 쓴다.
-    /// 부서 줄과 이미 지정된 사람은 조용히 건너뛴다(두 번 누르기는 부서를 펴는 손짓과 겹친다).
-    /// </summary>
+    /// <summary>조직도의 사람 하나에게 이 역할을 건다 — 끌어 놓기 · 두 번 누르기 · 넣기 단추가 같이 쓴다. 부서 줄과 이미 지정된 사람은 조용히 건너뛴다.</summary>
     private async Task AddNodeAsync(OrgNode node)
     {
         if (_role is null || !_canEdit || !node.IsUser || _users.Any(u => u.Id == node.Id))
@@ -138,20 +135,13 @@ public partial class RoleList
     /// <summary>이 화면에서 권한을 고칠 수 있는가. 체크박스를 열지 정한다.</summary>
     private bool _canEdit;
 
-    /// <summary>
-    /// 저장을 <b>한 줄로 세운다.</b> 빨리 여러 번 누르면 요청이 동시에 나가고,
-    /// 먼저 보낸 것이 나중에 닿으면 옛 값이 마지막으로 남는다.
-    /// </summary>
+    /// <summary>저장을 한 줄로 세운다 — 빨리 여러 번 누르면 먼저 보낸 것이 나중에 닿아 옛 값이 마지막으로 남는다.</summary>
     private readonly SemaphoreSlim _saveGate = new(1, 1);
 
     /// <summary>보내는 중이거나 차례를 기다리는 저장 수. 아래 띠의 「저장 중…」.</summary>
     private int _pendingSaves;
 
-    /// <summary>
-    /// 나무 한 줄. <b>원본(<see cref="RoleMenuDto"/>)을 그대로 들고 있는다</b> —
-    /// 체크박스가 그 객체를 직접 고치고, 저장할 때는 <see cref="_menus"/> 를
-    /// 평평한 채로 보내면 된다. 값을 복사하면 두 벌이 되어 어긋난다.
-    /// </summary>
+    /// <summary>나무 한 줄. 원본 RoleMenuDto 를 그대로 들고 체크박스가 직접 고친다 — 값을 복사하면 두 벌이 되어 어긋난다.</summary>
     private sealed class RoleMenuRow
     {
         public required RoleMenuDto Source { get; init; }
@@ -159,15 +149,7 @@ public partial class RoleList
         public string MenuId => Source.MenuId;
         public string MenuName => Source.MenuName;
 
-        /// <summary>
-        /// 이름 아래 작게 적을 꼬리표 — 개발용 이름과 주소.
-        ///
-        /// <para>
-        /// 이름이 겹치는 메뉴가 많다(「대시보드」·「통계」가 업무마다 있다).
-        /// 코드를 지우지 않고 자리만 낮춘 이유가 그것이고, <b>이름과 코드가
-        /// 같으면 코드를 뺀다</b> — 같은 글자를 두 줄로 적으면 줄만 높아진다.
-        /// </para>
-        /// </summary>
+        /// <summary>이름 아래 작게 적을 꼬리표(개발용 이름과 주소). 이름과 코드가 같으면 코드를 뺀다.</summary>
         public string Stamp
         {
             get
@@ -187,14 +169,7 @@ public partial class RoleList
         public List<RoleMenuRow> Children { get; } = [];
     }
 
-    /// <summary>
-    /// 권한 항목 하나. 어느 칸을 읽고 쓰는지, 그 메뉴가 그것을 쓰는지,
-    /// 칸 제목을 무엇으로 할지를 함께 들고 있다.
-    /// </summary>
-    /// <remarks>
-    /// 열다섯 개를 마크업에 늘어놓으면 반드시 하나를 빠뜨리고, 빠뜨린 칸은
-    /// <b>저장할 때 꺼져서 나간다</b> — 화면에 없으니 그것을 알 방법도 없다.
-    /// </remarks>
+    /// <summary>권한 항목 하나. 어느 칸을 읽고 쓰는지, 그 메뉴가 쓰는지, 칸 제목을 함께 들고 있다. 마크업에 늘어놓으면 빠뜨린 칸이 저장 때 꺼져 나가므로 목록으로 둔다.</summary>
     private sealed record PermItem(
         string Caption,
         Func<RoleMenuDto, bool> Used,
@@ -242,15 +217,7 @@ public partial class RoleList
         new("C8", m => m.UseCust8, m => m.CanCust8, (m, v) => m.CanCust8 = v, true, m => m.Cust8Name),
     ];
 
-    /// <summary>
-    /// 실제로 그릴 칸.
-    ///
-    /// <para>
-    /// 사용자 정의는 <b>쓰는 메뉴가 하나라도 있을 때만</b> 세운다. 칸 제목은
-    /// 그 칸을 쓰는 메뉴들이 붙인 이름이고, 이름이 서로 다르면 하나로 고를 수
-    /// 없으므로 <c>C1</c> 로 두고 각자의 이름은 셀 안내에 적는다.
-    /// </para>
-    /// </summary>
+    /// <summary>실제로 그릴 칸. 사용자 정의는 쓰는 메뉴가 있을 때만 서고, 제목이 서로 다르면 C1 로 두고 각자의 이름은 셀 안내에 적는다.</summary>
     private List<PermItem> ShownItems
     {
         get
@@ -305,15 +272,12 @@ public partial class RoleList
 
     protected override async Task OnInitializedAsync()
     {
-        // `PermissionView` 와 **똑같이** 묻는다. 체크박스는 그릴지 말지가 아니라
-        // 켜고 끌 수 있는지를 정하는 것이라 직접 판정한다.
+        // PermissionView 와 같이 묻는다 — 체크박스는 그릴지가 아니라 켜고 끌 수 있는지를 직접 판정한다.
         _canEdit = Can(MenuAction.Update);
 
         await ReloadAsync();
 
-        // 조직도는 **역할 목록 뒤에** 읽는다. 지정 사용자 탭의 오른쪽 트리가
-        // 쓰는 것이라 첫 화면에는 안 보이는데, 회사마다 부서를 따로 묻느라
-        // 호출이 여러 번 나간다 — 먼저 읽으면 왼쪽 역할 목록이 그만큼 늦게 뜬다.
+        // 조직도는 역할 목록 뒤에 읽는다 — 회사마다 부서를 따로 묻느라 호출이 여러 번 나가서, 먼저 읽으면 왼쪽 목록이 늦게 뜬다.
         await LoadOrgTreeAsync();
     }
 
@@ -330,10 +294,7 @@ public partial class RoleList
         return _all.Count;
     }, "등록된 역할이 없습니다.", "역할 목록을 읽지 못했습니다");
 
-    /// <summary>
-    /// 역할을 골랐다. 사람과 메뉴를 <b>함께</b> 읽는다 — 탭을 옮길 때마다
-    /// 읽으면 옮겨 다니는 것이 그대로 왕복이 된다.
-    /// </summary>
+    /// <summary>역할을 골랐다. 사람과 메뉴를 함께 읽는다 — 탭을 옮길 때마다 읽으면 그대로 왕복이 된다.</summary>
     private Task SelectRoleAsync(RoleDto? role)
     {
         _role = role;
@@ -424,15 +385,7 @@ public partial class RoleList
         await LoadUsersAsync();
     }
 
-    /// <summary>
-    /// 이 사람에게서 역할을 뗀다.
-    ///
-    /// <para>
-    /// <b>다른 길로 온 역할은 떼어지지 않는다.</b> 회사·부서에 걸린 역할은
-    /// 그 단계에서 풀어야 한다(사람롤 화면). 여기서 다루는 것은 사람에게
-    /// 직접 건 것뿐이다.
-    /// </para>
-    /// </summary>
+    /// <summary>이 사람에게서 역할을 뗀다. 회사·부서에 걸린 역할은 그 단계(사람롤 화면)에서 풀어야 해서 여기서는 사람에게 직접 건 것만 다룬다.</summary>
     private async Task RemoveUserAsync(RoleUserDto user)
     {
         if (_role is null || !_canEdit)
@@ -454,13 +407,7 @@ public partial class RoleList
 
     // ── 메뉴 권한 ──────────────────────────────────────────
 
-    /// <summary>
-    /// 평평한 목록을 나무로 세운다. 서버가 <c>ParentId</c> 를 준다.
-    /// </summary>
-    /// <remarks>
-    /// 부모가 목록에 없으면 뿌리로 올린다 — 빠뜨리면 그 메뉴가 <b>화면에서
-    /// 통째로 사라지고</b>, 안 보이는 줄의 권한이 저장 때 함께 나간다.
-    /// </remarks>
+    /// <summary>평평한 목록을 나무로 세운다. 부모가 목록에 없으면 뿌리로 올린다 — 빠뜨리면 그 메뉴가 화면에서 사라지고 권한이 저장 때 함께 나간다.</summary>
     private static IReadOnlyList<RoleMenuRow> BuildTree(IReadOnlyList<RoleMenuDto> menus)
     {
         var rows = menus.ToDictionary(
@@ -506,19 +453,7 @@ public partial class RoleList
         return all;
     }
 
-    /// <summary>
-    /// 범위 안의 권한을 한 번에 켜거나 끈다.
-    ///
-    /// <para>
-    /// 모두 켜져 있으면 끄고, 아니면 켠다 — 단추 하나로 둘을 다 하려는 것이다.
-    /// 바꾼 줄을 <b>한 번에 모아</b> 곧바로 저장한다.
-    /// </para>
-    ///
-    /// <para>
-    /// <b>잠긴 칸은 건너뛴다.</b> 켜 두면 서버가 꺼서 저장하므로 화면과 결과가
-    /// 어긋난다.
-    /// </para>
-    /// </summary>
+    /// <summary>범위 안의 권한을 한 번에 켜거나 끈다. 모두 켜져 있으면 끄고 아니면 켠다. 잠긴 칸은 건너뛴다 — 켜 두면 서버가 꺼서 저장해 화면과 어긋난다.</summary>
     private Task ToggleAsync(IReadOnlyList<RoleMenuRow> rows)
     {
         var items = ShownItems;
@@ -581,33 +516,7 @@ public partial class RoleList
         return SaveRowsAsync([row.Source]);
     }
 
-    /// <summary>
-    /// 바뀐 메뉴만 저장한다.
-    ///
-    /// <para>
-    /// <b>바뀐 줄만 보내도 된다.</b> 서버는 받은 메뉴만 upsert 하고 목록에
-    /// 없는 메뉴는 건드리지 않는다. 한 줄을 보낼 때는 그 줄의 <b>열다섯 칸을
-    /// 전부</b> 싣는다 — 사용자 정의 여덟 개를 <see cref="RoleMenuDto"/> 가 들고
-    /// 있는 이유이고, 칸을 감출 때도 값은 그대로 실어 보내는 이유다.
-    /// </para>
-    ///
-    /// <para>
-    /// <b>보내는 값은 차례가 왔을 때의 값이다.</b> 줄 객체를 그대로 싣기 때문에
-    /// 기다리는 동안 사람이 또 눌렀으면 그 값이 나간다. 빨리 켰다 끄면 요청이
-    /// 둘 나가지만 마지막에 남는 것은 화면에 보이는 값이다.
-    /// </para>
-    ///
-    /// <para>
-    /// <b>실패하면 서버의 값으로 되돌린다.</b> 누르기 전 값을 기억해 두었다가
-    /// 되돌리는 방식은 그 사이에 다른 칸이 저장된 경우를 못 맞춘다. 역할이
-    /// 이미 바뀌었으면 되돌릴 화면이 없으므로 알리기만 한다.
-    /// </para>
-    ///
-    /// <para>
-    /// 성공은 토스트로 알리지 않는다 — 칸마다 뜨면 백 번 누르는 동안 토스트가
-    /// 쌓인다. 아래 띠의 「저장 중…」 이 사라지는 것으로 끝났음을 안다.
-    /// </para>
-    /// </summary>
+    /// <summary>바뀐 메뉴만 저장한다. 서버는 받은 메뉴만 upsert 하므로 한 줄에는 열다섯 칸을 전부 싣는다. 보내는 값은 차례가 왔을 때의 값이고, 실패하면 서버 값으로 되돌린다. 성공은 토스트로 알리지 않는다.</summary>
     private async Task SaveRowsAsync(IReadOnlyList<RoleMenuDto> rows)
     {
         if (_role is null || rows.Count == 0)
@@ -668,11 +577,7 @@ public partial class RoleList
         _roleEditOpen = true;
     }
 
-    /// <summary>
-    /// 삭제 확인 문구. 고른 역할이면 지정 사용자 수를 함께 말한다 —
-    /// 안 고른 역할은 그 수를 모르므로 말하지 않는다(0명이라고 잘못 적으면
-    /// 안심하고 지운다).
-    /// </summary>
+    /// <summary>삭제 확인 문구. 고른 역할이면 지정 사용자 수를 함께 말한다 — 안 고른 역할은 그 수를 몰라서 말하지 않는다.</summary>
     private string DeleteMessage(RoleDto r)
     {
         var scope = _role is not null && _role.Id == r.Id && _users.Count > 0

@@ -2,105 +2,26 @@
 @attribute [RouteKey("admin.push.send")]
 
 @*
-    [메시지 발송] — 알림관리 › 메시지 발송.
-
-    고른 사람들에게 **웹푸시 · 이메일**을 보낸다. 문자·카카오 칸도 함께 두었는데
-    그 둘은 **아직 보낼 곳이 없다**(아래).
-
-    [받는 사람은 왼쪽, 보낼 내용은 오른쪽이다]
-
-    한동안 위아래로 쌓여 있었다 — 사람 목록이 위, 보낼 내용 탭이 아래. 그런데
-    **이 화면에서 하는 일은 그 둘을 오가는 것**이다. 고르고 나서 내용을 적다가
-    「아까 그 사람 넣었던가」 하고 돌아가고, 명단을 고치고 다시 내려온다.
-    쌓아 두면 그 왕복이 전부 스크롤이고, 목록을 18rem 안에 가둬 두어도
-    내용 칸이 길어지면 **둘을 함께 볼 수가 없다.**
-
-    그래서 좌우로 나눈다(`DxSplitter` · `ad-vsplit`). 셸의 사이드바와 같은
-    부품이고, **폭을 사용자가 정한다** — 왼쪽에 들어오는 이름·부서 길이가
-    회사마다 달라서 고정 비율로는 늘 한쪽이 아쉽다.
-
-    [받는 사람은 한 곳에서 고른다]
-
-    칸마다 사람을 따로 고르게 하면, 같은 사람들에게 푸시와 메일을 함께 보낼 때
-    두 번 고르게 된다. 왼쪽에서 한 번 고르고 오른쪽 칸들이 그 명단을 나눠 쓴다 —
-    **탭을 옮겨도 고른 사람은 그대로다.**
-
-    [보내는 길마다 필요한 값이 다르다]
-
-    | 길 | 열쇠 | 없는 사람은 |
-    |---|---|---|
-    | 푸시 | 로그인 아이디 | 보낼 수는 있다(구독이 없으면 서버가 센다) |
-    | 이메일 | 이메일 주소 | **못 채운다** — 대신 그 자리에 손으로 적을 수 있다 |
-    | 문자 | 휴대폰 번호 | **뺀다** — 번호가 없으면 보낼 데가 없다 |
-
-    그래서 고른 사람 중 **그 길로 보낼 수 없는 사람이 몇인지**를 칸마다 적어
-    둔다. 조용히 빼면 「열 명 골랐는데 왜 일곱만 갔나」를 알 수 없다.
-
-    [메일만 「받는 사람」 칸이 따로 있다]
-
-    다른 길은 왼쪽에서 고른 사람이 곧 받는 사람이다. **메일만 그 사이에 칸이
-    하나 있다** — 고른 사람의 주소로 채워지지만 손으로 고칠 수 있고, 명단에
-    아예 없는 주소를 적어도 나간다.
-
-    까닭이 둘이다. 하나는 **거래처·아직 계정이 없는 사람**에게 같은 글을 함께
-    보내는 일이 흔한데 그때까지는 계정을 만들거나 다른 메일 프로그램을 여는
-    수밖에 없었다는 것. 또 하나는 **계정에 적힌 주소가 그 사람의 지금 주소가
-    아닐 때**가 있다는 것이다.
-
-    한 번 고치면 **왼쪽에서 더 골라도 따라 바뀌지 않는다.** 적어 둔 주소가
-    조용히 되돌아가는 것이 훨씬 나쁘다 — 되돌리는 단추를 칸 옆에 둔다.
-
-    [승인 대기인 사람에게도 보낸다]
-
-    가입 신청을 받아 둔 계정은 상태가 `PENDING` 이고 **아직 로그인하지 못하지만
-    계정과 이메일 주소는 이미 있다.** 그런데 그 사람에게 할 말이 가장 많은
-    때가 바로 그때다 — 「소속을 적어 다시 보내 달라」·「승인했으니 들어와
-    보시라」.
-
-    왼쪽 「상태」 고르개의 가운데 칸(**재직자 + 승인 대기**)이 그 사람들을
-    불러온다. 체크 하나로 전부 켜는 옛 길로 두지 않은 까닭은 **퇴사·잠금까지
-    함께 올라오기** 때문이다. 골라 두면 메일 칸이 「그중 몇이 승인 대기인지」를
-    적어 준다 — 막지는 않는다. 일부러 고른 것이다.
-
-    [보낸 것이 0 이어도 실패가 아니다]
-
-    구독한 기기가 없거나 본인이 푸시를 꺼 두었으면 서버는 **성공 계열로 답하고**
-    그 수를 담아 준다(`OwnersWithoutSubscription` · `OptedOut`). 그것을 그대로
-    옮긴다 — 「보냈습니다」로만 말하면 안 받은 사람이 자기 기기를 의심한다.
-
-    [문자·카카오는 화면만 있다]
-
-    보낼 통로가 아직 정해지지 않았다(어느 대행사를 쓸지 · 발신번호 사전등록 ·
-    알림톡 템플릿 심사). **단추를 눌러도 아무 데도 가지 않는다** — 그 사실을
-    화면이 먼저 말한다. 통로가 정해지면 고칠 곳은 `AdminClient` 의 호출 하나와
-    이 화면의 그 칸뿐이다.
+    [메시지 발송] — 알림관리 › 메시지 발송. 웹푸시 · 이메일을 보낸다. 문자·카카오 칸은 아직 보낼 통로가 없어 단추를 눌러도 아무 데도 가지 않는다.
+    받는 사람은 왼쪽에서 한 번 고르고 오른쪽 탭이 그 명단을 나눠 쓴다. 길마다 열쇠가 달라 못 채운 사람 수를 칸마다 적는다.
 *@
 
 @inherits DataPage
 
-<PageTitle>메시지 발송 · 포털관리</PageTitle>
+<PageTitle>메시지 발송</PageTitle>
 
-@* 조건줄은 **판 밖**에 둔다. 찾기·재직자 조건은 왼쪽 목록에만 걸리지만,
-   판 안에 넣으면 그 판이 좁아질 때 조건 칸이 함께 눌려 글자가 잘린다.
-   화면 백 개가 조건을 같은 자리에 두고 있는 것도 이유다(web/CLAUDE.md). *@
+@* 조건줄은 판 밖에 둔다 — 판이 좁아질 때 조건 칸이 함께 눌려 글자가 잘린다. *@
 <CommSch OnSearch="@LoadAsync" SearchText="사람 다시 읽기" Busy="@Loading" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="찾기">
-            @* 이름·아이디·부서·회사 어느 것으로 쳐도 걸린다. 글자마다 거른다 —
-               목록이 이미 브라우저에 있어 회로를 타지 않는다. *@
+            @* 이름·아이디·부서·회사 어느 것으로 쳐도 걸린다. 목록이 브라우저에 있어 회로를 타지 않는다. *@
             <DxTextBox @bind-Text="_filter"
                        BindValueMode="BindValueMode.OnInput"
                        ValidationEnabled="false" />
         </CommSchItem>
 
         <CommSchItem Label="상태">
-            @* 그만둔 사람에게 보낼 일은 없다. 기본은 재직자만이다.
-
-               가운데 칸(「재직자 + 승인 대기」)이 **가입 신청을 받아 둔 사람**을
-               불러온다 — 그 사람은 아직 로그인하지 못하지만 계정과 이메일
-               주소는 이미 있어서, 「소속을 적어 다시 보내 달라」 같은 말을
-               메일로 해야 한다. 체크 하나로 전부 켜는 길로 두면 퇴사·잠금까지
-               함께 올라와 그만둔 사람에게 메일이 나갈 길이 열린다. *@
+            @* 기본은 재직자만이다. 가운데 칸(재직자 + 승인 대기)은 가입 신청자를 불러오고, 전부 켜면 퇴사·잠금까지 올라온다. *@
             <DxComboBox Data="@ScopeOptions" @bind-Value="_scope"
                         TextFieldName="@nameof(SchOption.Text)"
                         ValueFieldName="@nameof(SchOption.Value)"
@@ -116,19 +37,14 @@
     </Actions>
 </CommSch>
 
-@* 끌어서 나누는 판 둘. 셸의 사이드바와 같은 부품이다 —
-   치수·여백·좁은 화면 규칙은 admin.css 의 `.ad-vsplit` 가 갖고 있다.
-
-   `SeparatorSize="2"` — 셸은 0 이다(사이드바에 이미 테두리가 있어 선이 두
-   겹으로 보였다). 여기는 판에 테두리가 없어 구분선이 유일한 경계라 남긴다. *@
+@* 끌어서 나누는 판 둘. 치수는 admin.css 의 .ad-vsplit 가 갖는다. SeparatorSize 는 판에 테두리가 없어 구분선을 남긴다. *@
 <DxSplitter CssClass="ad-vsplit" Orientation="Orientation.Horizontal" SeparatorSize="2">
     <Panes>
 
     @* ── 왼쪽: 받는 사람 ────────────────────────────── *@
     <DxSplitterPane Size="34%" MinSize="260px" MaxSize="60%">
     <section class="ad-vsplit__pane ad-vsplit__pane--left">
-        @* 제목은 붙잡고 표만 구른다 — 통째로 구르면 「몇 명 고름」이
-           올라가 버려 지금 무엇을 보고 있는지 잃는다. *@
+        @* 제목은 붙잡고 표만 구른다 — 통째로 구르면 「몇 명 고름」도 올라가 버린다. *@
         <h2 class="ad-subhead">받는 사람 (@_picked.Count 명 고름 / 전체 @_accounts.Count 명)</h2>
 
         @if (_picked.Count == 0)
@@ -137,17 +53,8 @@
                         Text="목록에서 받을 사람을 고르십시오." />
         }
 
-        @* 손으로 만든 체크 목록이었다. 표로 바꾸면서 얻은 것 셋 —
-           **칸 머리의 「모두 고르기」**, **칸별 정렬·검색**, 그리고
-           화면 백 개가 같이 쓰는 아래 띠(쪽 넘김·엑셀)다.
-
-           `SelectionMode` 를 여럿으로 두면 체크 칸은 **화면이 손으로** 넣는다
-           (`CommGrd` 머리말) — 자리와 「모두 고르기」 여부가 화면마다 달라서다.
-
-           조건줄(찾기·재직자)은 판 밖에 그대로 둔다. 표 자신의 칸별 검색과
-           겹쳐 보이지만 하는 일이 다르다 — 조건줄은 **읽어 온 목록 전체**를
-           좁히고(그래서 「보이는 N명 모두 고르기」가 그 수를 센다), 칸 검색은
-           그중 한 칸만 본다. *@
+        @* 표로 바꾸면서 칸 머리의 「모두 고르기」·칸별 정렬·아래 띠를 얻었다. 체크 칸은 SelectionMode 가 여럿일 때 화면이 손으로 넣는다(CommGrd 머리말).
+           조건줄은 읽어 온 목록 전체를 좁히고, 칸 검색은 그중 한 칸만 본다. *@
         <CommGrd TItem="AccountDto"
                  Data="@Matched"
                  PageSize="50"
@@ -158,9 +65,7 @@
                  SelectedItemsChanged="@OnPickedChangedAsync"
                  Reload="@LoadAsync">
             <Columns>
-                @* 체크 칸이 맨 앞이다. 머리의 「모두 고르기」는 **지금 쪽**만
-                   집는다(DevExpress 기본) — 쪽을 넘겨 가며 고르는 것보다
-                   조건줄의 「보이는 N명 모두 고르기」가 뜻이 분명하다. *@
+                @* 체크 칸이 맨 앞이다. 머리의 「모두 고르기」는 지금 쪽만 집으므로 조건줄의 「보이는 N명 모두 고르기」를 쓴다. *@
                 <DxGridSelectionColumn Width="40" />
 
                 <DxGridDataColumn FieldName="@nameof(AccountDto.UserName)" Caption="이름" Width="90"
@@ -170,9 +75,7 @@
                 <DxGridDataColumn FieldName="@nameof(AccountDto.DeptName)" Caption="부서" MinWidth="90"
                                   TextAlignment="GridTextAlignment.Left" />
 
-                @* 상태는 **재직자가 아닌 줄에만** 적는다. 예순 줄이 「정상」으로
-                   같은 말을 하면 정작 눈에 걸려야 하는 「승인 대기」가 묻힌다 —
-                   조건을 넓혀 놓고 고를 때 그 한 줄이 보이는 것이 이 칸의 전부다. *@
+                @* 상태는 재직자가 아닌 줄에만 적는다 — 전부 「정상」이면 정작 눈에 걸릴 「승인 대기」가 묻힌다. *@
                 <DxGridDataColumn Caption="상태" Width="84" TextAlignment="GridTextAlignment.Left">
                     <CellDisplayTemplate Context="cell">
                         @{
@@ -185,8 +88,7 @@
                     </CellDisplayTemplate>
                 </DxGridDataColumn>
 
-                @* 어느 길로 못 받는지 그 자리에서 보인다 — 고르고 나서 「왜
-                   빠졌지」를 오른쪽 칸에서 찾게 하지 않는다. *@
+                @* 어느 길로 못 받는지 그 자리에서 보인다. *@
                 <DxGridDataColumn Caption="빠짐" Width="100" TextAlignment="GridTextAlignment.Left">
                     <CellDisplayTemplate Context="cell">
                         @{
@@ -214,17 +116,13 @@
     @* ── 오른쪽: 보낼 내용 ──────────────────────────── *@
     <DxSplitterPane>
     <section class="ad-vsplit__pane ad-vsplit__pane--right ad-send">
-        @* 판이 높이를 정해 주므로 탭 안쪽이 자기 안에서 구른다.
-           `DxTabs` 의 상자 둘을 함께 묶지 않으면 안쪽 내용보다 작아지지
-           않아 「보내기」 단추가 판 밖으로 나간다(web/CLAUDE.md). *@
+        @* 판이 높이를 정해 주므로 탭 안쪽이 자기 안에서 구른다. DxTabs 상자 둘을 묶지 않으면 「보내기」 단추가 판 밖으로 나간다. *@
         <DxTabs RenderMode="TabsRenderMode.OnDemand" CssClass="ad-send__tabs">
 
             @* ── 웹푸시 ─────────────────────────────────────────────── *@
             <DxTabPage Text="PWA 발송">
                 <div class="ad-sendform">
-@* 「브라우저·휴대폰 알림으로 간다」는 탭 이름이 이미 말한다. 남기는 것은
-                       **받는 쪽이 등록해야 도착한다**는 것 하나다 — 그것이 「보냈는데
-                       안 왔다」의 거의 모든 원인이고 화면 어디에도 안 적혀 있다. *@
+@* 남기는 것은 받는 쪽이 등록해야 도착한다는 것 하나다 — 「보냈는데 안 왔다」의 거의 모든 원인이다. *@
                     <PageNotice Tone="NoticeTone.Info"
                                 Text="받는 사람이 이 포털을 알림 설정에서 등록해 두어야 도착합니다." />
 
@@ -235,12 +133,7 @@
 
                     <div class="ad-field">
                         <label class="ad-field__label">알림구분</label>
-                        @* 목록은 **공통코드**(`NOTI_CATEGORY`)가 갖는다 —
-                           갈래를 늘리는 데 배포가 필요 없다.
-
-                           **알림창에는 안 뜬다.** 받는 사람이 보는 것은 제목·내용·
-                           아이콘이고, 이 값은 발송 기록에 함께 남아 나중에 「내
-                           알림함」과 「발송 이력」이 갈래로 거를 때 쓴다. *@
+                        @* 목록은 공통코드(NOTI_CATEGORY)가 갖는다. 알림창에는 안 뜨고, 발송 기록에 남아 알림함과 발송 이력이 거를 때 쓴다. *@
                         <DxComboBox Data="@_categoryOptions" @bind-Value="_push.Category"
                                     TextFieldName="@nameof(SchOption.Text)" ValueFieldName="@nameof(SchOption.Value)"
                                     ValidationEnabled="false" Style="width: 200px" />
@@ -253,9 +146,7 @@
 
                     <div class="ad-field">
                         <label class="ad-field__label">아이콘</label>
-                        @* 고르기 쉽게 몇 개를 단추로 두고, 손으로 적을 수도 있게 둔다.
-                           **주소는 이 포털 안의 것이어야 한다** — 바깥 주소를 적으면
-                           알림이 뜰 때 그쪽으로 요청이 나간다. *@
+                        @* 주소는 이 포털 안의 것이어야 한다 — 바깥 주소를 적으면 알림이 뜰 때 그쪽으로 요청이 나간다. *@
                         <div class="jsini-inline">
                             <DxTextBox @bind-Text="_push.Icon"
                                        BindValueMode="BindValueMode.OnInput"
@@ -301,54 +192,29 @@
             @* ── 이메일 ─────────────────────────────────────────────── *@
             <DxTabPage Text="이메일 발송">
                 <div class="ad-sendform">
-                    @* **큐가 아니라 SMTP 직발송이다.** 서식 본문과 첨부를 붙이면서
-                       길을 옮겼다 — 큐의 스풀 JSON 은 제목·본문·받는이 셋만 담는
-                       규약이라 그 둘을 실을 자리가 없다(`AdminClient` 머리말).
-
-                       그 사실을 **화면에 적지 않는다.** 큐냐 SMTP 냐는 보내는
-                       사람이 할 일을 바꾸지 않고, 성공·실패는 보낸 뒤 토스트가
-                       말한다 — 미리 적어 두면 아래 「고른 N 명 중…」 같은
-                       **정말 봐야 하는 주의**가 그 틈에 묻힌다. *@
-                    @* 주소가 없는 사람은 아래 칸에 안 들어간다. **손으로 적을 수
-                       있게 된 다음부터는 「제외」가 아니라 「몰라서 못 채웠다」**라
-                       고 말해야 한다 — 알면 그 자리에 적으면 된다.
-
-                       칸을 손으로 고친 뒤에는 접는다. 그때는 아래 칸이 고른
-                       사람과 무관해서 이 수가 아무것도 설명하지 못한다. *@
+                    @* SMTP 직발송이다(큐 스풀은 제목·본문·받는이만 담는다). 화면에 적지 않는다 — 미리 적으면 아래의 정말 봐야 할 주의가 묻힌다. *@
+                    @* 주소가 없는 사람은 아래 칸에 안 들어간다. 손으로 적을 수 있게 된 뒤로는 「몰라서 못 채웠다」라고 말해야 한다. 칸을 고치면 접는다. *@
                     @if (!MailToEdited && _picked.Count > 0 && NoEmail.Count > 0)
                     {
                         <PageNotice Tone="NoticeTone.Warning"
                                     Text="@($"고른 {_picked.Count}명 중 {NoEmail.Count}명은 이메일 주소가 없어 아래 받는 사람에 안 들어갔습니다 — {string.Join(" · ", NoEmail.Take(5))}{(NoEmail.Count > 5 ? " 외" : "")}. 주소를 알면 직접 적을 수 있습니다.")" />
                     }
 
-                    @* 승인 대기인 사람을 고를 수 있게 되었으니(왼쪽 「상태」)
-                       **골랐다는 사실을 화면이 말한다.** 막지는 않는다 —
-                       가입 안내·보완 요청이 이 화면에서 나가는 메일이다. *@
+                    @* 승인 대기인 사람을 골랐을 때 화면이 그 사실을 말한다 — 가입 안내·보완 요청이 이 화면에서 나가는 메일이다. *@
                     @if (PickedPending.Count > 0)
                     {
                         <PageNotice Tone="NoticeTone.Info"
                                     Text="@($"고른 사람 중 {PickedPending.Count}명은 아직 승인 대기입니다 — {string.Join(" · ", PickedPending.Take(5))}{(PickedPending.Count > 5 ? " 외" : "")}. 주소가 있으면 메일은 그대로 나갑니다.")" />
                     }
 
-                    @* 주소 꼴이 아닌 것은 **적는 동안** 말한다. 서버도 걸러
-                       주지만 그때는 나머지에게 이미 나간 뒤라, 고쳐 다시 보내면
-                       받은 사람은 같은 메일을 두 번 받는다. *@
+                    @* 주소 꼴이 아닌 것은 적는 동안 말한다 — 서버는 나머지에게 이미 나간 뒤라 고쳐 다시 보내면 두 번 받는다. *@
                     @if (MailBadAddresses.Count > 0)
                     {
                         <PageNotice Tone="NoticeTone.Warning"
                                     Text="@($"주소 꼴이 아닌 것이 {MailBadAddresses.Count}개 있습니다 — {string.Join(" · ", MailBadAddresses.Take(5))}{(MailBadAddresses.Count > 5 ? " 외" : "")}")" />
                     }
 
-                    @* ── 받는 사람 ──────────────────────────────────────
-                       한동안 이 칸이 없었다. 받는 사람은 왼쪽에서 고른 사람이
-                       전부였고, 주소를 **하나 더하거나 고치는 길이 없었다** —
-                       거래처나 아직 계정이 없는 사람에게 같은 글을 함께 보내려면
-                       계정을 만들거나 다른 메일 프로그램을 여는 수밖에 없었다.
-
-                       그래서 **고친 값이 정본**이다(`_mailTo`). 안 고쳤으면
-                       고른 사람의 주소가 그대로 보이고, 한 번 고치면 왼쪽에서
-                       더 골라도 따라 바뀌지 않는다 — 적어 둔 주소가 조용히
-                       되돌아가는 것이 훨씬 나쁘다. 되돌리는 단추를 옆에 둔다. *@
+                    @* 고친 값이 정본이다(_mailTo). 안 고쳤으면 고른 사람의 주소가 보이고, 한 번 고치면 왼쪽에서 더 골라도 따라 바뀌지 않는다. 되돌리는 단추를 옆에 둔다. *@
                     <div class="ad-field">
                         <label class="ad-field__label">받는 사람 <span class="ad-field__must">*</span></label>
 
@@ -378,39 +244,19 @@
                     <div class="ad-field">
                         <label class="ad-field__label">본문 <span class="ad-field__must">*</span></label>
 
-                        @* 공지 화면과 **같은 부품**이다(`DxHtmlEditor`).
-
-                           값을 흘려보내는 시점을 `OnDelayedInput` 으로 당겨 두지만
-                           **그것만 믿지 않는다** — 이 부품이 값을 알려 주는 것은
-                           친 다음 `InputDelay`(기본 500ms) 뒤라, 마지막 줄을 치고
-                           바로 누르면 그 줄이 빠진 채로 나간다. 「보내기」가
-                           편집기와 **같은 판 안**이라 초점이 빠지지도 않는다.
-                           그래서 보낼 때 편집기에게 직접 묻는다(`FlushBodyAsync`). *@
+                        @* 공지 화면과 같은 부품이다. 값은 InputDelay 뒤에 오므로 보낼 때 편집기에게 직접 묻는다(FlushBodyAsync). *@
                         <DxHtmlEditor Markup="@_mail.Body"
                                       MarkupChanged="@(v => _mail.Body = v ?? string.Empty)"
                                       BindMarkupMode="HtmlEditorBindMarkupMode.OnDelayedInput"
                                       CssClass="ad-mail-editor" />
 
-                        @* 평문 스위치를 없앴다. 서식 편집기로 쓴 글을 평문으로 보내면
-                           태그가 그대로 보인다 — 고를 수 있게 두면 그 조합이 반드시
-                           나온다. 서식을 안 쓰면 태그도 안 생기므로 잃는 것이 없다. *@
+                        @* 평문 스위치는 없다 — 서식 편집기 글을 평문으로 보내면 태그가 그대로 보이므로 그 조합을 막는다. *@
                     </div>
 
                     <div class="ad-field">
                         <label class="ad-field__label">첨부</label>
 
-                        @* 공지와 달리 **파일 서버에 올리지 않는다.** 메일 첨부는 보내고
-                           나면 쓸 일이 없는데 올려 두면 아무도 지우지 않는 파일이
-                           보낼 때마다 쌓인다. 보낼 때 바이트를 실어 보낸다.
-
-                           상한은 서버와 맞춘 값이다(다섯 개 · 모두 합쳐 15MB) —
-                           서버도 같은 값으로 막으므로 여기서 막는 것은 **먼저
-                           말해 주려는 것**이다. *@
-                        @* **`MaxTotalBytes` 가 핵심이다.** 서버는 총량으로 막는데
-                           (EmailEndpoints 의 MaxAttachmentBytes) 여기는 한 개 크기만
-                           보고 있었다. 안내에는 「모두 합쳐 15MB」라고 적혀 있었지만
-                           실제로는 5개 × 15MB 를 다 받아 올린 뒤에야 서버가 거절했다 —
-                           먼저 말해 주려고 둔 상한이 먼저 말해 주지 못한 셈이다. *@
+                        @* 파일 서버에 올리지 않고 바이트로 실어 보낸다. 상한(다섯 개 · 합쳐 15MB)은 서버와 맞춘 값이고, 총량을 봐야 한다(MaxTotalBytes). *@
                         <FilePicker MaxFiles="5"
                                     MaxBytes="15728640"
                                     MaxTotalBytes="15728640"
@@ -450,9 +296,7 @@
                     <div class="ad-field">
                         <label class="ad-field__label">내용</label>
                         <DxMemo @bind-Text="_sms.Body" Rows="5" ValidationEnabled="false" />
-                        @* 90바이트가 SMS 와 LMS 를 가르는 선이다. 글자 수가 아니라
-                           바이트라 한글은 두 배로 센다 — 미리 말해 주지 않으면
-                           "짧게 썼는데 왜 장문 요금인가" 가 된다. *@
+                        @* 90바이트가 SMS 와 LMS 를 가르는 선이다. 글자 수가 아니라 바이트라 한글은 두 배로 센다. *@
                         <div class="jsini-hint">
                             @SmsBytes 바이트 / 90 — @(SmsBytes > 90 ? "장문(LMS)으로 나갑니다." : "단문(SMS)입니다.")
                         </div>
@@ -481,9 +325,7 @@
                         <label class="ad-field__label">템플릿 코드</label>
                         <DxTextBox @bind-Text="_kakao.TemplateCode"
                                    ValidationEnabled="false" />
-                        @* 알림톡은 아무 글이나 못 보낸다 — 심사받은 템플릿의 빈칸만
-                           채운다. 그 성질을 화면이 말해 주지 않으면 자유 문구를 적고
-                           실패하는 일이 반복된다. *@
+                        @* 알림톡은 심사받은 템플릿의 빈칸만 채운다 — 그 성질을 화면이 말하지 않으면 자유 문구를 적고 실패한다. *@
                         <div class="jsini-hint">
                             알림톡은 <b>심사받은 템플릿</b>으로만 나갑니다. 아래는 그 템플릿의 빈칸을 채우는 값입니다.
                         </div>

@@ -7,33 +7,8 @@ namespace ProjMngServer.Services;
 /// <summary>
 /// 프로젝트 하나의 Git 설정.
 /// </summary>
-/// <remarks>
-/// <para>
-/// 설정은 <c>Git</c> 아래 두 겹이다 — 바깥이 기본값이고
-/// <c>Git:Projects:{프로젝트번호}</c> 가 그것을 덮는다. 저장소 목록은 프로젝트
-/// 마다 다르므로 보통 아래에만 적는다.
-/// </para>
-///
-/// <para>
-/// [저장소를 만들어 내지 않는다]
-/// </para>
-///
-/// <para>
-/// 사내 GitLab 시절에는 <c>pmm001</c>…<c>pmm018</c> × <c>be</c>/<c>fe</c> 규칙으로
-/// 서른여섯 곳을 <b>계산해서</b> 훑었다. GitHub 로 오면서 그 규칙이 뜻을 잃어
-/// (저장소가 하나다) 설정이 목록을 준다.
-/// </para>
-///
-/// <para>
-/// [토큰이 없어도 돈다]
-/// </para>
-///
-/// <para>
-/// 공개 저장소는 토큰 없이 읽힌다 — 시간당 60회라는 한도가 붙을 뿐이다.
-/// 토큰을 넣으면 5,000회가 되고, 비공개 저장소와 패키지도 보인다.
-/// <b>그래서 「설정됐나」의 기준은 토큰이 아니라 저장소 목록이다.</b>
-/// </para>
-/// </remarks>
+/// 설정은 Git 아래 두 겹이다 — Git:Projects:{프로젝트번호} 가 바깥 기본값을 덮는다.
+/// 토큰이 없어도 공개 저장소는 읽히므로 「설정됐나」의 기준은 토큰이 아니라 저장소 목록이다.
 public sealed class GitOptions
 {
     public string ApiBaseUrl { get; init; } = "https://api.github.com";
@@ -55,11 +30,7 @@ public sealed class GitOptions
     /// <summary>
     /// 날짜를 물어볼 가지 수.
     /// </summary>
-    /// <remarks>
-    /// GitHub 의 가지 목록에는 <b>커밋 날짜가 없다.</b> 묵은 가지를 가리려면
-    /// 가지마다 한 번씩 더 물어야 해서, 화면에 보이는 만큼만 묻는다.
-    /// 0 으로 두면 아예 안 묻고 「묵음」 칸이 비어 있게 된다.
-    /// </remarks>
+    /// GitHub 가지 목록에는 커밋 날짜가 없어 화면에 보이는 만큼만 묻는다. 0 이면 묻지 않고 묵음 칸이 빈다.
     public int BranchDetail { get; init; } = 8;
 
     /// <summary>볼 저장소가 하나라도 있나.</summary>
@@ -113,54 +84,14 @@ public sealed class GitOptions
 /// <summary>
 /// GitHub REST 를 부르는 얇은 창구.
 /// </summary>
-/// <remarks>
-/// <para>
-/// [<c>User-Agent</c> 를 반드시 붙인다]
-/// </para>
-///
-/// <para>
-/// GitHub 는 그 머리글이 없으면 <b>403 으로 끊는다.</b> 토큰이 없어서라고
-/// 읽기 쉬운 자리라 여기 한 곳에서만 만든다.
-/// </para>
-///
-/// <para>
-/// [실패를 예외로 올리지 않는다]
-/// </para>
-///
-/// <para>
-/// 훑는 것 중 몇은 <b>없는 것이 정상</b>이다(태그가 없는 저장소, 토큰이 없어
-/// 못 보는 패키지). 그것을 오류로 올리면 멀쩡한 저장소가 전부 빨갛게 보인다.
-/// 줄 전체가 실패한 것만 부르는 쪽이 <c>Error</c> 에 담는다.
-/// </para>
-/// </remarks>
+/// User-Agent 를 빠뜨리면 GitHub 가 403 으로 끊는다. 실패는 예외로 올리지 않는다 — 없는 것이 정상인 조회가 빨갛게 보이므로, 줄 전체가 실패한 것만 Error 에 담는다.
 public sealed class GitHubClient(IHttpClientFactory factory)
 {
     /// <summary>
     /// 주소마다 마지막으로 받은 표식과 본문.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// [304 는 한도를 깎지 않는다 — 이것이 요점이다]
-    /// </para>
-    ///
-    /// <para>
-    /// 받은 <c>ETag</c> 를 다음 요청에 <c>If-None-Match</c> 로 붙이면 안 바뀐
-    /// 것은 <c>304</c> 로 돌아오고 <b>그 응답은 남은 한도에서 빠지지 않는다.</b>
-    /// 이 화면은 같은 저장소를 되풀이해 읽으므로 대부분의 호출이 그렇게 된다
-    /// — 토큰이 없어 시간당 60회일 때 특히 크다.
-    /// </para>
-    ///
-    /// <para>
-    /// 본문을 <see cref="JsonDocument"/> 가 아니라 <b>글자로</b> 담는 까닭은
-    /// 그 타입이 쓰고 버리는 물건이어서다. 담아 두면 누가 언제 버릴지 알 수
-    /// 없고, 버려진 것을 읽으면 그 자리에서 던진다.
-    /// </para>
-    ///
-    /// <para>
-    /// <b>프로세스 전체가 나눠 쓴다</b>(<c>static</c>). 이 클래스는 요청마다
-    /// 새로 생기므로 인스턴스에 담으면 한 번도 안 맞는다.
-    /// </para>
-    /// </remarks>
+    /// 받은 ETag 를 If-None-Match 로 붙이면 안 바뀐 응답(304)은 한도에서 빠지지 않는다. 본문은 JsonDocument 가 아니라 글자로 담는다 — 버려진 것을 읽으면 던진다.
+    /// 프로세스 전체가 나눠 쓰도록 static 이다. 이 클래스는 요청마다 새로 생긴다.
     private static readonly ConcurrentDictionary<string, (string Tag, string Body)> Tags = new();
 
     /// <summary>마지막 응답이 알려 준 남은 한도. 화면이 보여 준다.</summary>
@@ -267,11 +198,7 @@ public sealed class GitHubClient(IHttpClientFactory factory)
     /// <summary>
     /// 개수만 필요할 때. <b>목록을 통째로 받지 않는다.</b>
     /// </summary>
-    /// <remarks>
-    /// GitHub 는 총 개수를 안 준다. 한 쪽에 하나만 달라고 한 뒤 <c>Link</c>
-    /// 머리글의 마지막 쪽 번호를 읽으면 그것이 개수다. 쪽 나눔이 없으면
-    /// (한 쪽에 다 들어가면) 받은 배열의 길이가 곧 개수다.
-    /// </remarks>
+    /// GitHub 는 총 개수를 주지 않는다. 한 쪽에 하나만 받고 Link 머리글의 마지막 쪽 번호를 읽는다. 쪽 나눔이 없으면 배열 길이가 곧 개수다.
     public async Task<int?> CountAsync(GitOptions opt, string path)
     {
         try
@@ -336,11 +263,7 @@ internal static class GitJson
     /// <summary>
     /// 실행의 상태를 한 낱말로 줄인다.
     /// </summary>
-    /// <remarks>
-    /// GitHub 는 둘로 나눠 준다 — 끝났는지(<c>status</c>)와 어떻게 끝났는지
-    /// (<c>conclusion</c>). <b>안 끝난 실행에는 결론이 없다</b>(<c>null</c>)
-    /// 이므로 그때는 진행 상태를 그대로 쓴다.
-    /// </remarks>
+    /// GitHub 는 진행(status)과 결론(conclusion)을 나눠 준다. 안 끝난 실행은 결론이 null 이라 진행 상태를 그대로 쓴다.
     public static string? RunState(JsonElement run)
     {
         var status = Str(run, "status");

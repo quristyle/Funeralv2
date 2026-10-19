@@ -2,19 +2,8 @@
 @attribute [RouteKey("helpdesk.hanju.fms-log")]
 
 @*
-    [FMS 연동 로그] — DB 메뉴 `/helpdesk/hanju/fms-log`.
-    이력: Vue `views/helpdesk/hanju/fms-log` → 여기.
-    프로시저: `P_QURI_SERVER_REPORT` (`QueryType = 'FMS_LOG'`)
-
-    FMS 와 주고받은 기록이다.
-
-    [프로시저 하나에 QueryType 만 다르다]
-
-    한주 화면 다섯이 같은 프로시저를 부르고 조회 종류만 다르다. 옛 화면도
-    그랬고, 그 통로를 `OadrApi.GetServerReportAsync` 가 감싼다.
-
-    **서버가 준 대로 보여 준다**(AutoGrid). 프로시저가 돌려주는 칸이 조회
-    종류마다 다르고 늘어나기도 해서, 칸을 박아 두면 새 칸이 조용히 사라진다.
+    [FMS 연동 로그] — DB 메뉴 `/helpdesk/hanju/fms-log`. 프로시저 `P_QURI_SERVER_REPORT` (QueryType = 'FMS_LOG')
+    칸은 서버가 준 대로 보여 준다(AutoGrid). 칸을 박으면 조회 종류마다 다른 새 칸이 조용히 사라진다.
 *@
 
 @inherits DataPage

@@ -1,27 +1,8 @@
 @page "/cargotrust/transactions/new"
 @attribute [RouteKey("cargotrust.transactions.new")]
 
-@*
-    거래 등록(CT-005, 설계안 8 · 13.2).
-
-    [거래처는 검색해서 고른다]
-
-    이름을 손으로 적게 하면 같은 회사가 표기만 다른 여러 줄이 되어 통계가 쪼개진다.
-    반드시 등록된 거래처를 고르고, 없으면 그 자리에서 사업자번호로 등록한다
-    (CompanyPicker → CompanyCreatePopup). 거래처 상세의 「이 거래처와 거래 등록」은
-    `?companyId=` 를 실어 와 거래처를 채운 채로 연다.
-
-    [저장하면 그 거래의 상세로 간다]
-
-    운송과 결제는 따로 적는다(설계안 9). 등록하는 날 이미 받았다면 곧바로 상세에서
-    결제 결과를 적으면 된다 — 그래서 목록이 아니라 상세로 옮긴다.
-
-    [검토 대상이 되어도 막지 않는다]
-
-    같은 날 같은 거래처로 열 건을 넘게 올리거나 운송일이 오늘보다 뒤면 서버가
-    거절하지 않고 「검토 대상」으로 표시한다(13.2 의 5번). 조용히 표시만 되면 본인은
-    모르므로 그때는 한마디 한다. 중복(같은 날·금액·구간)은 서버가 409 로 막는다.
-*@
+@* 거래 등록. 거래처는 등록된 곳에서 고른다 — 손으로 적으면 표기가 달라 통계가 쪼개진다. 없으면 그 자리에서 사업자번호로 등록한다.
+    저장하면 상세로 옮긴다(이미 받았다면 거기서 결제 결과를 적는다). 열 건 넘게 올리거나 운송일이 미래면 서버는 막지 않고 「검토 대상」으로만 표시한다. *@
 
 @inherits DataPage
 
@@ -31,10 +12,7 @@
     <section class="ct-panel ct-panel--form">
         <TransactionFields Draft="@_draft" />
 
-        @* **`jsini-actions` 를 쓰지 않는다.** 그 이름은 표의 「관리」 칸에 아이콘
-           단추 셋을 욱여넣으려고 여백을 0.25rem 까지 줄인다(tabler.css). 그것이
-           폼의 보내기 단추까지 따라와 **높이가 30px 로 눌려 있었다**(390px 폭에서
-           재 봤다) — 손가락 크기(44px)의 2/3 다. 여기는 칸이 모자란 자리가 아니다. *@
+        @* 보내기 단추 줄은 jsini-actions 를 쓰지 않고 여기서 배치를 쥔다 — 관리 칸용 여백이 따라와 높이가 30px 로 눌린다. 칸이 모자란 자리가 아니다. *@
         <div class="ct-form-actions">
             <DxButton Text="등록" RenderStyle="ButtonRenderStyle.Primary" CssClass="ct-form-actions__go"
                       Enabled="@(!Loading)" Click="@SaveAsync" />

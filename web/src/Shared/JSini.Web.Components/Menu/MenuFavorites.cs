@@ -3,25 +3,8 @@ using JSini.Web.Http;
 
 namespace JSini.Web.Components.Menu;
 
-/// <summary>
-/// 메뉴 즐겨찾기. 게이트웨이의 <c>/auth/menu/favorites</c> 로 나간다.
-///
-/// [백엔드에 남아 있던 기능이다]
-///
-/// vben 포털에는 탭 오른쪽 메뉴에 "즐겨찾기 추가" 가 있었고 사이드바 맨 위에
-/// 즐겨찾기 묶음이 붙었다. 프론트를 갈아엎으면서 그 화면이 사라졌지만
-/// <b>표도 API 도 그대로 살아 있다</b> — 쓰던 사람의 즐겨찾기가 DB 에 남아 있다.
-///
-/// [경로가 열쇠다]
-///
-/// 즐겨찾기는 메뉴 <c>path</c> 로 담긴다. 그래서 DB 의 옛 경로(<c>/room_status</c>)로
-/// 쌓여 있고, 사이드바가 링크로 거는 것은 새 경로(<c>/funeral/room-status</c>)다.
-/// 판정은 <b>DB 경로끼리</b> 해야 한다 — <c>MenuNode.Path</c> 로 묻고
-/// <c>RouteAliases</c> 로 옮긴 값은 쓰지 않는다. 섞으면 이미 담아 둔 즐겨찾기가
-/// 화면에서 안 담긴 것으로 보인다.
-///
-/// scoped 다. 사람마다 다른 목록이고 게이트웨이 토큰을 물고 있다.
-/// </summary>
+/// <summary>메뉴 즐겨찾기. 게이트웨이의 auth/menu/favorites 로 나간다. 백엔드에 표와 API 가 남아 있어 쓰던 사람의 즐겨찾기가 DB 에 그대로 있다.
+/// 즐겨찾기는 메뉴 path 로 담긴다 — 판정은 DB 경로끼리 한다(MenuNode.Path). RouteAliases 로 옮긴 링크 주소를 쓰면 이미 담아 둔 것이 안 담긴 것으로 보인다. scoped — 사람마다 다른 목록이고 게이트웨이 토큰을 물고 있다.</summary>
 public sealed class MenuFavorites(GatewayClient gateway, ILogger<MenuFavorites> logger)
 {
     private const string Path = "auth/menu/favorites";
@@ -53,10 +36,7 @@ public sealed class MenuFavorites(GatewayClient gateway, ILogger<MenuFavorites> 
         Changed?.Invoke();
     }
 
-    /// <summary>
-    /// 이미 받아 둔 목록을 채운다. 부트스트랩 한 방(<c>PortalBootstrap</c>)이
-    /// 쓰는 길이다 — 게이트웨이를 다시 부르지 않는다.
-    /// </summary>
+    /// <summary>이미 받아 둔 목록을 채운다. 부트스트랩이 쓰는 길이라 게이트웨이를 다시 부르지 않는다.</summary>
     public void Apply(IReadOnlyList<MenuFavorite> items)
     {
         Items = items;
@@ -95,12 +75,7 @@ public sealed class MenuFavorites(GatewayClient gateway, ILogger<MenuFavorites> 
         return !wasFavorite;
     }
 
-    // ── 「고정탭 관리」 화면이 쓰는 셋 ──────────────────────────
-    //
-    // 위의 ToggleAsync 와 달리 **실패를 삼키지 않는다.** 헤더의 별은 눌러도
-    // 아무 일이 없으면 다시 누르면 그만이지만, 관리 화면은 여러 건을 옮겨
-    // 놓는 자리라 「저장된 줄 알았는데 아니었다」가 그대로 남는다.
-    // 화면의 DataPage.RunAsync 가 ApiException 을 받아 이유를 띄운다.
+    // 고정탭 관리 화면이 쓰는 셋은 실패를 삼키지 않는다 — 여러 건을 놓는 자리라 저장된 줄 알았는데 아니었다가 남으면 안 된다. 헤더의 별은 다시 누르면 그만이라 삼킨다. 화면의 DataPage.RunAsync 가 ApiException 을 받아 이유를 띄운다.
 
     /// <summary>담는다. 이미 담겨 있으면 서버가 그대로 둔다.</summary>
     public async Task AddAsync(string path, CancellationToken ct = default)
@@ -117,20 +92,7 @@ public sealed class MenuFavorites(GatewayClient gateway, ILogger<MenuFavorites> 
         Changed?.Invoke();
     }
 
-    /// <summary>
-    /// 순서를 다시 매긴다. <b>원하는 순서대로의 경로 목록을 통째로</b> 보낸다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 「이것을 저기로」가 아니라 「전체가 이 순서다」로 보내는 이유는, 한 칸씩
-    /// 주고받으면 중간에 실패했을 때 서버와 화면의 순서가 <b>서로 다른 채로</b>
-    /// 남기 때문이다. 통째로 보내면 성공이면 같고 실패면 안 바뀐다.
-    /// </para>
-    /// <para>
-    /// 경로는 <b>DB 에 저장된 그대로</b>다 — <c>RouteAliases</c> 로 옮긴 값을
-    /// 보내면 서버가 그 메뉴를 못 찾는다.
-    /// </para>
-    /// </remarks>
+    /// <summary>순서를 다시 매긴다. 원하는 순서대로의 경로 목록을 통째로 보낸다 — 「이것을 저기로」로 보내면 중간에 실패했을 때 서버와 화면의 순서가 서로 달라진다. 통째로 보내면 성공이면 같고 실패면 안 바뀐다. 경로는 DB 에 저장된 그대로다 — RouteAliases 로 옮긴 값을 보내면 서버가 못 찾는다.</summary>
     public async Task ReorderAsync(IEnumerable<string> paths, CancellationToken ct = default)
     {
         Items = await gateway.PutListAsync<MenuFavorite>(

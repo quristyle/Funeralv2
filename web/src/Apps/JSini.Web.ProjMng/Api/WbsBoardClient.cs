@@ -3,39 +3,13 @@ using JSini.Web.Http;
 
 namespace JSini.Web.ProjMng.Api;
 
-/// <summary>
-/// WBS 대시보드 — <c>projmng/wbs-board</c>.
-/// </summary>
-/// <remarks>
-/// <para>
-/// 사내망에서 따로 돌던 대시보드를 옮겨 온 것이다. <b>프로젝트관리의 WBS
-/// (<see cref="WbsClient"/>)와 이름만 같고 다른 물건</b>이다 — 그쪽은 프로젝트별
-/// 공정표(1줄 = 1공정)이고 이쪽은 화면 단위 원장(1줄 = 1화면)이다.
-/// </para>
-///
-/// <para>
-/// <b>모든 조회가 프로젝트 번호를 받는다.</b> 원본은 프로젝트 하나 전용이라
-/// 그 조건이 없었다.
-/// </para>
-///
-/// <para>
-/// [사람 이름은 여기서 붙인다]
-/// </para>
-///
-/// <para>
-/// 서버는 아이디로만 집계한다 — 원장과 포털 계정이 <b>다른 데이터베이스</b>에
-/// 있어 조인할 수가 없다. 이름을 쓰는 화면이 일곱이라 각자 붙이면 갈리므로,
-/// 응답을 돌려주기 전에 <see cref="WbsBoardNames"/> 가 한 번 채운다.
-/// </para>
-/// </remarks>
+/// <summary>WBS 대시보드(projmng/wbs-board). 사내망에서 옮겨 온 것으로, 프로젝트관리의 WBS(<see cref="WbsClient"/>)와 이름만 같고 다른 물건이다 — 모든 조회는 프로젝트 번호를 받는다.
+/// 사람 이름은 서버가 아니라 <see cref="WbsBoardNames"/> 가 응답마다 채운다 — 원장과 계정이 다른 DB 라 조인할 수 없다.</summary>
 public sealed class WbsBoardClient(GatewayClient gateway, WbsBoardNames names)
 {
     private const string Url = "projmng/wbs-board";
 
-    /// <summary>
-    /// 조회 조건을 주소로 엮는다. <b>빈 값은 빼고 보낸다</b> — 서버가
-    /// 「안 걸린다」로 읽는 값이라 빈 글자를 보내면 조건이 걸려 버린다.
-    /// </summary>
+    /// <summary>조회 조건을 주소로 엮는다. 빈 값은 뺀다 — 서버는 빈 글자도 조건으로 읽는다.</summary>
     private static string Query(int prjRid, params (string Key, string? Value)[] parts)
     {
         var query = new List<string> { $"prjRid={prjRid}" };
@@ -110,17 +84,12 @@ public sealed class WbsBoardClient(GatewayClient gateway, WbsBoardNames names)
                 r.UserRealNm = name(r.UserRealId);
             }, ct);
 
-    /// <summary>
-    /// 한 줄의 칸 몇 개를 고친다. <b>보낸 칸만</b> 바뀐다 — 일정·실적은
-    /// 엑셀 WBS 가 원본이라 서버가 받지 않는다.
-    /// </summary>
+    /// <summary>한 줄의 칸 몇 개를 고친다. 보낸 칸만 바뀐다 — 일정·실적은 엑셀 WBS 가 원본이라 서버가 받지 않는다.</summary>
     public async Task PatchRowAsync(
         int prjRid, string activityId, IReadOnlyDictionary<string, object?> patch,
         CancellationToken ct = default)
     {
-        // 게이트웨이 창구에 PATCH 를 위한 짧은 길이 없다. 본문을 직접 싣는
-        // 대신 응답을 **반드시 버려야 한다** — `SendRawAsync` 는 헤더만 읽고
-        // 돌아오므로 연결이 열린 채로 남는다.
+        // 응답은 반드시 버린다 — SendRawAsync 는 헤더만 읽고 돌아와 연결이 열린 채 남는다.
         using var body = JsonContent.Create(patch);
 
         using var response = await gateway.SendRawAsync(
@@ -464,11 +433,7 @@ public sealed class WbsBoardRowDto
 
     public string? UserBpId { get; set; }
 
-    /// <summary>
-    /// 성명. <b>서버가 아니라 <see cref="WbsBoardNames"/> 가 채운다.</b>
-    /// 계정과 안 이어진 사람은 적힌 값 그대로 남는다 — 오타인지 퇴사자인지
-    /// 가려낼 수 있어야 한다.
-    /// </summary>
+    /// <summary>성명. 서버가 아니라 <see cref="WbsBoardNames"/> 가 채운다. 계정과 안 이어진 사람은 적힌 값 그대로 남는다.</summary>
     public string? UserNm { get; set; }
 
     public string? ComplateYn { get; set; }
@@ -494,10 +459,7 @@ public sealed class WbsBoardRowDto
     public int? StartDays { get; set; }
     public int? FinishDays { get; set; }
 
-    // 원장의 표시 칸은 'o' 아니면 빈 값이다. 편집 폼은 `@bind-` 로만 묶을 수
-    // 있고(`EditFormBindingTests`) 확인칸은 참·거짓을 받으므로, 그 사이를
-    // 잇는 속성을 여기 낸다 — 화면마다 변환을 적으면 한 화면만 'Y' 를 쓰는
-    // 날이 온다.
+    // 원장의 표시 칸은 'o' 아니면 빈 값이다. 편집 폼은 @bind- 로만 묶이므로 여기서 참·거짓으로 잇는다.
 
     /// <summary>담당자 완료.</summary>
     public bool Complate
@@ -541,10 +503,7 @@ public sealed class WbsBoardRowDto
         set => DbReadyBigYn = value ? "o" : null;
     }
 
-    /// <summary>
-    /// 일감 건수. <b>서버가 주는 값이 아니다</b> — 화면이
-    /// <see cref="WbsBoardTaskClient.CountsAsync"/> 로 한 번에 받아 채운다.
-    /// </summary>
+    /// <summary>일감 건수. 서버가 주는 값이 아니다 — 화면이 WbsBoardTaskClient.CountsAsync 로 받아 채운다.</summary>
     public int TaskCnt { get; set; }
 
     /// <inheritdoc cref="TaskCnt"/>

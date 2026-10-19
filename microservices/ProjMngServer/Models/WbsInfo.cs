@@ -26,7 +26,7 @@ public class WbsInfo : BaseModel {
         return dev_edt.Value.AddDays(1);
       }
       else {
-        // 계획 종료일도 비어 있으면 보여 줄 날짜가 없다. 전에는 여기서 예외가 났다.
+                // 계획 종료일도 비어 있으면 보여 줄 날짜가 없다.
         return plan_edt?.AddDays(1);
       }
     } 

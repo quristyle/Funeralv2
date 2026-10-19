@@ -8,13 +8,9 @@ using System.Security.Claims;
 
 namespace HelpDeskServer.Endpoints;
 
-/// <summary>
-/// 사용자 속성 관련 엔드포인트
-/// </summary>
+/// <summary>사용자 속성 관련 엔드포인트</summary>
 public static class UserPropertyEndpoints {
-  /// <summary>
-  /// 사용자 속성 관련 엔드포인트를 애플리케이션에 매핑합니다.
-  /// </summary>
+  /// <summary>사용자 속성 관련 엔드포인트를 애플리케이션에 매핑합니다.</summary>
   public static void MapUserPropertyEndpoints(this IEndpointRouteBuilder app) {
     var group = app.MapGroup("/api/user-properties");//.RequireAuthorization();
 

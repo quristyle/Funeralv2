@@ -2,28 +2,12 @@ using System.Security.Cryptography;
 
 namespace AuthServer.Services;
 
-/// <summary>
-/// 계정 비밀번호 해시 도우미
-/// </summary>
-/// <remarks>
-/// PBKDF2(HMAC-SHA256) 를 쓴다. .NET 표준 라이브러리만으로 되고 외부 패키지가 필요 없다.
-///
-/// 저장 형식은 한 줄 문자열이다.
-///   pbkdf2$sha256${반복횟수}${salt(base64)}${hash(base64)}
-///
-/// **기존 평문 비밀번호와 함께 쓸 수 있게 만들었다.**
-/// 저장된 값이 이 형식이 아니면 평문으로 보고 그대로 비교한다.
-/// 그래서 도입하는 순간 로그인이 막히는 일이 없고,
-/// 사용자가 다음에 로그인할 때 조용히 해시로 바뀐다(<see cref="NeedsUpgrade"/>).
-/// </remarks>
+/// <summary>계정 비밀번호 해시 도우미. PBKDF2(HMAC-SHA256)를 쓰며 .NET 표준 라이브러리만으로 된다. 저장 형식은 <c>pbkdf2$sha256$반복횟수$salt$hash</c> 한 줄이다.</summary>
 public static class PasswordHasher
 {
     private const string Prefix = "pbkdf2$sha256$";
 
-    /// <summary>
-    /// 반복 횟수. OWASP 가 PBKDF2-HMAC-SHA256 에 권고하는 하한(2023 기준 600,000)을 따른다.
-    /// 올리면 검증이 느려지는 대신 무차별 대입이 비싸진다.
-    /// </summary>
+    /// <summary>반복 횟수. OWASP 가 PBKDF2-HMAC-SHA256 에 권고하는 하한을 따른다 — 올리면 검증은 느려지고 무차별 대입은 비싸진다.</summary>
     private const int Iterations = 600_000;
 
     private const int SaltSize = 16;   // 128비트
@@ -39,10 +23,7 @@ public static class PasswordHasher
         return $"{Prefix}{Iterations}${Convert.ToBase64String(salt)}${Convert.ToBase64String(hash)}";
     }
 
-    /// <summary>
-    /// 저장된 값과 입력 비밀번호가 맞는지 확인한다.
-    /// 저장된 값이 해시 형식이 아니면 평문으로 보고 비교한다(기존 계정 호환).
-    /// </summary>
+    /// <summary>저장된 값과 입력 비밀번호가 맞는지 본다. 해시 형식이 아니면 평문으로 보고 비교한다(기존 계정 호환).</summary>
     public static bool Verify(string? stored, string? password)
     {
         if (string.IsNullOrEmpty(stored) || password is null)
@@ -85,11 +66,7 @@ public static class PasswordHasher
     /// <summary>이미 해시 형식인지</summary>
     public static bool IsHashed(string stored) => stored.StartsWith(Prefix, StringComparison.Ordinal);
 
-    /// <summary>
-    /// 다시 해시해서 저장해야 하는지.
-    /// 평문이거나 반복 횟수가 지금 기준보다 낮으면 참이다.
-    /// 로그인에 성공한 직후에만 부르면 된다 — 그때는 평문 비밀번호를 알고 있다.
-    /// </summary>
+    /// <summary>다시 해시해 저장해야 하는지. 평문이거나 반복 횟수가 지금 기준보다 낮으면 참이다 — 로그인에 성공한 직후에만 부른다.</summary>
     public static bool NeedsUpgrade(string? stored)
     {
         if (string.IsNullOrEmpty(stored)) return false;

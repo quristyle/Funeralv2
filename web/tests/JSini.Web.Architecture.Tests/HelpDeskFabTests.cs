@@ -3,34 +3,8 @@ using Xunit;
 
 namespace JSini.Web.Architecture.Tests;
 
-/// <summary>
-/// 떠다니는 <b>요청 등록</b> 단추(`.jsini-shell__fab--help`)가 조용히
-/// 어긋나지 않게 지킨다.
-///
-/// <para>
-/// [왜 글자로 검사하나]
-/// </para>
-///
-/// <para>
-/// 이 기능이 틀리는 세 갈래가 <b>전부 화면이 멀쩡한 채로</b> 일어난다.
-/// 빌드도 통과하고 예외도 안 나고 로그도 안 남는다 —
-/// </para>
-///
-/// <list type="bullet">
-///   <item>메뉴 단추를 감췄더니 <b>이 단추까지 함께 사라진다</b>(감추기 규칙이
-///   `.jsini-shell__fab` 전부를 잡을 때)</item>
-///   <item>같은 귀퉁이를 골랐더니 <b>동그라미 둘이 포개진다</b>(미는 규칙이
-///   빠지거나, 자리 칸을 다시 써서 `!important` 에 진다)</item>
-///   <item><b>권한 없는 사람에게 단추가 보인다</b> — 눌러야 「권한이 없습니다」가
-///   뜬다</item>
-/// </list>
-///
-/// <para>
-/// 게다가 어긋날 자리가 <b>파일 넷에 흩어져</b> 있다(열쇠는 `PortalBoot`,
-/// 표시는 `MainLayout.ShellCss`, 감추기와 밀기는 `app.css`, 설정 줄은
-/// 장례식장 환경설정). 한쪽만 고치는 날을 위한 검사다.
-/// </para>
-/// </summary>
+/// <summary>떠다니는 요청 등록 단추가 조용히 어긋나지 않게 지킨다 — 세 갈래(메뉴 단추와 함께 감춰짐, 같은 귀퉁이에 포개짐, 권한 없는 사람에게 보임)가 모두 화면이 멀쩡한 채 일어나고,
+/// 어긋날 자리가 파일 넷에 흩어져 있다.</summary>
 public sealed class HelpDeskFabTests
 {
     /// <summary>요청 등록 단추가 여는 화면. 권한을 묻는 열쇠도 이 경로다.</summary>
@@ -38,15 +12,7 @@ public sealed class HelpDeskFabTests
 
     // ── 저장소 열쇠 ─────────────────────────────────────────────
 
-    /// <summary>
-    /// 열쇠가 <b>메뉴 단추의 것과 다르다.</b>
-    /// </summary>
-    /// <remarks>
-    /// 같은 글자를 쓰면 한쪽을 감추는 순간 다른 쪽도 감춰지고, 자리를 옮기면
-    /// 둘이 함께 옮겨 간다 — <b>고르개 둘이 늘 같은 값을 말하는</b> 것으로
-    /// 보여서 「설정이 안 먹는다」가 아니라 「설정이 하나로 붙어 있다」로
-    /// 나타난다.
-    /// </remarks>
+    /// <summary>열쇠가 메뉴 단추의 것과 다르다 — 같은 글자면 한쪽을 감추거나 옮길 때 둘이 함께 움직여 설정이 하나로 붙어 보인다.</summary>
     [Fact]
     public void 열쇠가_메뉴_단추의_것과_다르다()
     {
@@ -54,14 +20,7 @@ public sealed class HelpDeskFabTests
         Assert.NotEqual(KeyOf("FabHiddenKey"), KeyOf("HelpDeskFabHiddenKey"));
     }
 
-    /// <summary>
-    /// 열쇠 둘이 <b>읽어 오는 목록에 들어 있다.</b>
-    /// </summary>
-    /// <remarks>
-    /// <see cref="PortalBoot"/> 의 공용 왕복은 <c>LocalKeys</c> 에 적힌 것만
-    /// 읽어 온다. 빠뜨리면 <b>저장은 되는데 되살아나지 않는다</b> — 고른
-    /// 자리가 새로고침마다 기본값으로 돌아가고, 감춘 단추가 다시 나온다.
-    /// </remarks>
+    /// <summary>열쇠 둘은 PortalBoot 의 공용 왕복이 읽는 목록(LocalKeys)에 있어야 한다 — 빠지면 저장은 되는데 새로고침마다 기본값으로 돌아간다.</summary>
     [Fact]
     public void 열쇠_둘이_읽어_오는_목록에_있다()
     {
@@ -71,14 +30,7 @@ public sealed class HelpDeskFabTests
         Assert.Contains("HelpDeskFabHiddenKey", list, StringComparison.Ordinal);
     }
 
-    /// <summary>
-    /// 기본 자리가 메뉴 단추와 <b>다른 귀퉁이</b>다.
-    /// </summary>
-    /// <remarks>
-    /// 한 번도 고치지 않은 사람에게 동그라미 둘이 포개져 나오지 않게 한다.
-    /// 미는 규칙이 있긴 하지만 그것은 <b>같은 귀퉁이를 일부러 고른 사람</b>을
-    /// 위한 것이다.
-    /// </remarks>
+    /// <summary>기본 자리가 메뉴 단추와 다른 귀퉁이다 — 한 번도 안 고친 사람에게 동그라미 둘이 포개져 나오지 않게 한다.</summary>
     [Fact]
     public void 기본_자리가_메뉴_단추와_다르다()
     {
@@ -90,13 +42,7 @@ public sealed class HelpDeskFabTests
 
     // ── 감추기 ──────────────────────────────────────────────────
 
-    /// <summary>
-    /// 메뉴 단추를 감추는 규칙이 <b>메뉴 단추만</b> 잡는다.
-    /// </summary>
-    /// <remarks>
-    /// <c>.jsini-shell--fab-hidden .jsini-shell__fab</c> 로 두면 그 표시가
-    /// <b>요청 등록 단추까지 함께</b> 감춘다. 둘은 따로 켜고 끄는 것이다.
-    /// </remarks>
+    /// <summary>메뉴 단추를 감추는 규칙은 메뉴 단추만 잡아야 한다 — .jsini-shell__fab 전체를 잡으면 요청 등록 단추까지 함께 사라진다.</summary>
     [Fact]
     public void 메뉴_단추_감추기가_그_단추만_잡는다()
     {
@@ -125,13 +71,7 @@ public sealed class HelpDeskFabTests
 
     // ── 겹치지 않게 밀기 ────────────────────────────────────────
 
-    /// <summary>
-    /// 같은 귀퉁이에 설 때 미는 규칙이 <b>네 귀퉁이에 다 있다.</b>
-    /// </summary>
-    /// <remarks>
-    /// 하나만 빠져도 그 귀퉁이를 고른 사람에게만 단추가 포개진다 — 그리고
-    /// 포개지면 위엣것만 눌려서 <b>아래엣것은 있는 줄도 모른다.</b>
-    /// </remarks>
+    /// <summary>같은 귀퉁이에 설 때 미는 규칙이 네 귀퉁이에 다 있어야 한다 — 하나라도 빠지면 그 귀퉁이를 고른 사람에게만 단추가 포개지고 아래엣것은 눌리지 않는다.</summary>
     [Theory]
     [InlineData("bottom-left")]
     [InlineData("bottom-right")]
@@ -143,21 +83,7 @@ public sealed class HelpDeskFabTests
             AppCss(),
             StringComparison.Ordinal);
 
-    /// <summary>
-    /// 미는 일을 <b><c>margin</c> 으로</b> 한다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 자리를 정하는 <c>top</c>·<c>bottom</c> 은 <b>다른 규칙이
-    /// <c>!important</c> 로 덮어쓰는 칸</b>이다(아래 띠를 쓰는 사람에게
-    /// 단추를 76px 로 올리는 규칙). 거기에 다시 쓰면 둘 중 하나가 조용히
-    /// 지고, <b>어느 쪽이 이기는지가 띠를 쓰는지에 따라 갈린다</b> —
-    /// 「띠를 껐더니 단추 둘이 포개진다」가 된다.
-    /// </para>
-    /// <para>
-    /// <c>margin</c> 은 그 계산에 더해지므로 어느 조합에서도 한 칸 민다.
-    /// </para>
-    /// </remarks>
+    /// <summary>미는 일은 margin 으로 한다 — top·bottom 은 띠를 쓸 때 다른 규칙이 !important 로 덮는 칸이라, 거기에 다시 쓰면 어느 쪽이 이기는지가 띠 사용 여부에 따라 갈린다.</summary>
     [Fact]
     public void 미는_일은_margin_으로_한다()
     {
@@ -168,13 +94,7 @@ public sealed class HelpDeskFabTests
         }
     }
 
-    /// <summary>
-    /// 미는 것은 <b>메뉴 단추가 서 있을 때뿐</b>이다.
-    /// </summary>
-    /// <remarks>
-    /// 메뉴 단추를 감춰 둔 사람에게까지 밀면 귀퉁이가 비었는데 단추만 한 칸
-    /// 떠 있는 그림이 된다.
-    /// </remarks>
+    /// <summary>미는 것은 메뉴 단추가 서 있을 때뿐이다 — 감춰 둔 사람에게까지 밀면 귀퉁이가 비었는데 단추만 한 칸 떠 있게 된다.</summary>
     [Fact]
     public void 메뉴_단추가_감춰져_있으면_밀지_않는다()
     {
@@ -186,13 +106,7 @@ public sealed class HelpDeskFabTests
 
     // ── 권한 ────────────────────────────────────────────────────
 
-    /// <summary>
-    /// 단추를 그릴지가 <c>/helpdesk/request/new</c> 권한으로 갈린다.
-    /// </summary>
-    /// <remarks>
-    /// <b>권한표를 받기 전에는 그리지 않는다</b>(<c>IsLoaded</c>). 빠뜨리면
-    /// 없던 단추가 떴다가 사라진다.
-    /// </remarks>
+    /// <summary>단추를 그릴지는 /helpdesk/request/new 권한으로 갈린다. 권한표를 받기 전에는 그리지 않는다(IsLoaded) — 빠뜨리면 없던 단추가 떴다가 사라진다.</summary>
     [Fact]
     public void 셸이_권한으로_단추를_가린다()
     {
@@ -204,13 +118,7 @@ public sealed class HelpDeskFabTests
         Assert.Contains("@if (HelpDeskFabAllowed)", MainLayout(), StringComparison.Ordinal);
     }
 
-    /// <summary>
-    /// 설정 화면도 <b>같은 판정</b>을 쓴다.
-    /// </summary>
-    /// <remarks>
-    /// 갈라 두면 「설정은 있는데 단추가 안 나온다」거나 그 반대가 생기고,
-    /// 둘 다 사람 눈에는 <b>설정이 안 먹는 것</b>으로 보인다.
-    /// </remarks>
+    /// <summary>설정 화면도 같은 판정을 쓴다 — 갈라 두면 설정은 있는데 단추가 안 나오거나 그 반대가 되어 설정이 안 먹는 것으로 보인다.</summary>
     [Fact]
     public void 설정_줄도_같은_권한으로_갈린다()
     {
@@ -222,14 +130,7 @@ public sealed class HelpDeskFabTests
         Assert.Contains(NewPath, page, StringComparison.Ordinal);
     }
 
-    /// <summary>
-    /// 감춰 둔 동안은 <b>위치 고르개를 잠근다.</b>
-    /// </summary>
-    /// <remarks>
-    /// 고를 수 있게 두면 아무 일도 일어나지 않는 조작이 하나 생기고, 그
-    /// 자리에서 사람은 「위치가 안 먹는다」고 읽는다 — 바로 위 모바일 메뉴
-    /// 단추 줄과 같은 규칙이다.
-    /// </remarks>
+    /// <summary>감춰 둔 동안은 위치 고르개를 잠근다 — 고를 수 있으면 아무 일도 안 일어나는 조작이 생긴다.</summary>
     [Fact]
     public void 감춰_둔_동안은_위치_고르개를_잠근다() =>
         Assert.Contains(
@@ -239,14 +140,7 @@ public sealed class HelpDeskFabTests
 
     // ── 그 화면에서는 안 그린다 ─────────────────────────────────
 
-    /// <summary>
-    /// <b>이미 요청 등록 화면이면</b> 단추를 안 그리는가.
-    /// </summary>
-    /// <remarks>
-    /// 거기서 이 단추는 <b>눌러도 아무 일도 안 일어난다</b> —
-    /// <c>OpenHelpDeskRequest</c> 가 같은 주소로는 안 옮긴다(옮기면 적던 글이
-    /// 비워진다). 아무 일도 안 일어나는 단추는 「고장」으로 읽힌다.
-    /// </remarks>
+    /// <summary>이미 요청 등록 화면이면 단추를 안 그린다 — 거기서 눌러도 같은 주소로는 옮겨 가지 않아 아무 일도 안 일어나는 단추가 된다.</summary>
     [Fact]
     public void 그_화면에서는_단추를_안_그린다()
     {
@@ -261,20 +155,7 @@ public sealed class HelpDeskFabTests
 
     // ── 생김새 ──────────────────────────────────────────────────
 
-    /// <summary>
-    /// 두 단추가 <b>같은 꼴</b>인가 — 속을 채우지 않는다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 한동안 메뉴 단추만 강조색으로 통째로 칠해져 있었다. <c>opacity: 0.8</c>
-    /// 은 그때도 걸려 있었지만 짙은 색이 깔린 동그라미는 <b>뒤가 안 비친다</b> —
-    /// 귀퉁이에 걸린 글줄이 통째로 지워졌다.
-    /// </para>
-    /// <para>
-    /// 되돌아가기 쉬운 자리다. 바탕 한 줄을 <c>var(--jsini-accent)</c> 로
-    /// 바꾸는 것만으로 되고, <b>빌드도 테스트도 그 자리만 없으면 다 통과한다.</b>
-    /// </para>
-    /// </remarks>
+    /// <summary>두 단추가 같은 꼴인가 — 속을 채우지 않는다. 짙은 색을 통째로 칠하면 뒤가 안 비쳐 귀퉁이 글줄이 지워진다. 바탕 한 줄을 var(--jsini-accent) 로 바꾸는 것만으로 되돌릴 수 있고, 빌드·테스트는 그것을 못 본다.</summary>
     [Fact]
     public void 두_단추의_바탕이_같다()
     {

@@ -1,22 +1,7 @@
-/* ── 사이드바 메뉴 아이콘 ────────────────────────────────
-
-   **손으로 고치지 않는다.** `scripts/build-menu-icons.py` 가 만든다 —
-   DB(`scom.system_menus.icon`)에 실제로 들어 있는 이름 145가지다.
-
-   쓰는 모양은 클래스 둘이다(`MenuIcons.CssClass` 가 만들어 준다) —
-
-       <span class="jsini-mi jsini-mi--lucide-calendar-days"></span>
-
-   앞엣것이 크기·색·mask 규칙을, 뒤엣것이 그림(`--svg`)만 갖는다. 그림을
-   못 찾으면 앞엣것의 기본값(동그라미)이 나온다 — 빈 사각형이 아니다.
-
-   아이콘: lucide(ISC) · carbon(Apache-2.0) · mdi(Apache-2.0) ·
-   material-symbols(Apache-2.0) · charm(MIT). iconify CSS API 로 받았다.
-   ---------------------------------------------------------- */
+/* 사이드바 메뉴 아이콘. scripts/build-menu-icons.py 가 만든다(손으로 고치지 않는다). 쓰는 모양은 jsini-mi 와 jsini-mi--이름 두 클래스이고, 그림을 못 찾으면 기본값(동그라미)이 나온다. */
 
 .jsini-mi {
-  /* 이름을 못 찾았을 때의 그림. 이 기본값이 있어서 CSS 에 없는 아이콘이
-     통짜 사각형(mask 없는 background)으로 나오지 않는다. */
+     /* 이름을 못 찾았을 때의 그림. 기본값이 있어 CSS 에 없는 아이콘이 통짜 사각형으로 나오지 않는다. */
   --svg: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' width='24' height='24'%3E%3Ccircle cx='12' cy='12' r='10' fill='none' stroke='black' stroke-linecap='round' stroke-linejoin='round' stroke-width='2'/%3E%3C/svg%3E");
 
   display: inline-block;

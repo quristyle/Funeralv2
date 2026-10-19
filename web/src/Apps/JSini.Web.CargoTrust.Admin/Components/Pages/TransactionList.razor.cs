@@ -23,8 +23,7 @@ public partial class TransactionList
         SchSummary.Period(_from, _to));
 
     /// <summary>
-    /// 결제 상태 고르개. 맨 앞이 「그대로」(null)다 — 서버가 null 을 「안 바꾼다」로 읽는다.
-    /// 「전체」라고 부르지 않는 이유는 여기가 조건이 아니라 **바꿀 값**이라서다.
+    /// 결제 상태 고르개. 맨 앞 「그대로」(null)는 서버가 「안 바꾼다」로 읽는다 — 조건이 아니라 바꿀 값이라 「전체」라 부르지 않는다.
     /// </summary>
     private static readonly IReadOnlyList<SchOption> PaymentChoices =
         [new SchOption(null, "그대로"), .. CargoAdminCodes.PaymentStatus.Options];
@@ -50,8 +49,7 @@ public partial class TransactionList
     }
 
     /// <summary>
-    /// 주소로 들어온 코드가 고르개에 있는 것일 때만 받는다. 모르는 글자를 그대로 실으면
-    /// 고르개는 빈칸인데 서버는 그 글자로 걸러 빈 목록을 준다 — 왜 비었는지 안 보인다.
+    /// 주소로 들어온 코드는 고르개에 있는 것일 때만 받는다 — 모르는 글자를 실으면 고르개는 빈칸인데 서버는 빈 목록을 준다.
     /// </summary>
     private static string? Known(IReadOnlyList<SchOption> options, string? code) =>
         options.FirstOrDefault(o => string.Equals(o.Value, code, StringComparison.OrdinalIgnoreCase))?.Value;

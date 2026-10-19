@@ -6,9 +6,7 @@ using JSini.Shared.DTOs;
 
 namespace AuthServer.Services;
 
-/// <summary>
-/// 사용자 정보 관련 비즈니스 로직 처리 서비스
-/// </summary>
+/// <summary>사용자 정보 관련 비즈니스 로직 처리 서비스</summary>
 public class UserService : IUserService
 {
     private readonly AppDbContext _db;
@@ -19,9 +17,6 @@ public class UserService : IUserService
     private readonly SignupNotifyClient? _notify;
     private readonly ILogger<UserService>? _logger;
 
-    /// <summary>
-    /// UserService 생성자
-    /// </summary>
     public UserService(
         AppDbContext db,
         IRoleAssignmentService roleAssignments,
@@ -43,31 +38,7 @@ public class UserService : IUserService
     /// <summary><c>account_profile_details</c> 의 <c>Watermark</c>. 없으면 켜진 것이다.</summary>
     private const string WatermarkDetail = "Watermark";
 
-    /// <summary>
-    /// 개발 업무용 확장 속성의 접두사 — <c>Dev.BpId</c> · <c>Dev.NotebookNo</c> ….
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// [칸을 스물다섯 개 만들지 않는다]
-    /// </para>
-    ///
-    /// <para>
-    /// 프로젝트관리의 [개발자 관리] 화면이 쓰던 속성을 계정으로 옮기면서
-    /// (<c>docs/projmng-account-merge.md</c>) 표를 손대지 않았다.
-    /// <c>account_profile_details</c> 가 이미 <b>열쇠-값</b>이라 넣을 자리가
-    /// 있었다 — 속성을 더할 때 마이그레이션이 없다.
-    /// </para>
-    ///
-    /// <para>
-    /// [접두사로 가두는 까닭]
-    /// </para>
-    ///
-    /// <para>
-    /// 같은 표에 <c>MsaCompany</c>·<c>SecurityEmail</c>·<c>HomePath</c> 처럼
-    /// <b>관리 화면이 건드리면 안 되는 것</b>이 섞여 있다. 접두사로 가두면
-    /// 화면이 통째로 덮어써도 그것들은 손대지 않는다.
-    /// </para>
-    /// </remarks>
+    /// <summary>개발 업무용 확장 속성 접두사(<c>Dev.</c>). 같은 표의 <c>MsaCompany</c>·<c>HomePath</c> 같은 칸을 접두사로 가둬 화면 저장이 덮어쓰지 못하게 한다.</summary>
     private const string DevPrefix = "Dev.";
 
     /// <summary>그 계정의 <c>Dev.*</c> 속성. 접두사를 뗀 이름으로 돌려준다.</summary>
@@ -77,21 +48,7 @@ public class UserService : IUserService
             .ToDictionary(p => p.DetailType[DevPrefix.Length..], p => (string?)p.Content)
         ?? [];
 
-    /// <summary>
-    /// <c>Dev.*</c> 속성을 통째로 맞춘다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 보내온 사전이 <b>그 계정의 <c>Dev.*</c> 전부</b>다 — 빠진 열쇠는 지운다.
-    /// 화면이 칸을 비워 저장하는 것이 「지운다」는 뜻이어야 하기 때문이다.
-    /// </para>
-    ///
-    /// <para>
-    /// <c>null</c> 을 보내면(사전 자체가 없으면) <b>건드리지 않는다</b> —
-    /// 이 속성을 모르는 다른 화면·옛 클라이언트가 저장해도 값이 사라지지 않게.
-    /// 사진·생년월일·워터마크와 같은 규칙이다.
-    /// </para>
-    /// </remarks>
+    /// <summary>그 계정의 <c>Dev.*</c> 속성을 통째로 맞춘다. 보낸 사전이 null 이면 건드리지 않고, 빠진 열쇠는 지운다.</summary>
     private void SyncDevAttributes(Entities.Account account, Dictionary<string, string?>? values)
     {
         if (values is null) return;
@@ -106,8 +63,7 @@ public class UserService : IUserService
 
         foreach (var detail in existing)
         {
-            // 값이 비었으면 줄을 남기지 않는다. 빈 글자를 담아 두면
-            // 「안 적었다」와 「비워 두기로 했다」가 같은 그림이 된다.
+            // 빈 값은 줄을 남기지 않는다 — 빈 글자를 담으면 「안 적음」과 「비움」이 구분되지 않는다.
             if (!wanted.TryGetValue(detail.DetailType, out var content)
                 || string.IsNullOrWhiteSpace(content))
             {
@@ -115,8 +71,7 @@ public class UserService : IUserService
                 continue;
             }
 
-            // 지운 표시가 붙어 있으면 되살린다. 읽는 쪽이 그 표시를 보므로
-            // (`DevAttributesOf`) 안 풀면 **저장은 됐는데 안 보인다**가 된다.
+            // 지운 표시가 붙은 것은 되살린다 — 읽는 쪽(DevAttributesOf)이 그 표시를 보므로 안 풀면 저장돼도 안 보인다.
             if (detail.Content != content || detail.IsDeleted)
             {
                 detail.Content = content;
@@ -141,16 +96,7 @@ public class UserService : IUserService
         }
     }
 
-    /// <summary>
-    /// 워터마크 설정을 쓴다.
-    ///
-    /// <para>
-    /// <b>켜는 쪽도 값을 적는다.</b> 「없으면 켜짐」이라 지워도 결과는 같지만,
-    /// 적어 두면 <b>관리자가 한 번 보고 정했다</b>는 사실이 남는다 — 나중에
-    /// 기본값을 바꿀 일이 생겼을 때 「손 안 댄 계정」과 「켜기로 정한 계정」을
-    /// 가를 수 있다.
-    /// </para>
-    /// </summary>
+    /// <summary>워터마크 설정을 쓴다. 켜는 쪽도 값을 적어 「관리자가 정했다」는 사실을 남긴다.</summary>
     private void UpsertWatermark(Entities.Account account, bool on)
     {
         var content = on ? "on" : "off";
@@ -172,11 +118,7 @@ public class UserService : IUserService
         });
     }
 
-    /// <summary>
-    /// 그 계정의 워터마크 설정. <b>「off」 라고 적혀 있을 때만 끈다</b> —
-    /// 값이 없거나 알 수 없는 글자면 켜 둔다. 이 표시는 빠지는 쪽이 사고라,
-    /// 해석이 안 되는 값을 「꺼짐」으로 읽지 않는다.
-    /// </summary>
+    /// <summary>그 계정의 워터마크 설정. 「off」일 때만 끈다 — 해석이 안 되는 값은 켜 둔다.</summary>
     private static bool WatermarkOf(Entities.Account account) =>
         !string.Equals(
             account.ProfileDetails?.FirstOrDefault(p => p.DetailType == WatermarkDetail)?.Content,
@@ -191,13 +133,10 @@ public class UserService : IUserService
         var other => other
     };
 
-    /// <summary>
-    /// 사용자 정보를 조회하고 DTO로 변환하여 반환
-    /// </summary>
+    /// <summary>사용자 정보를 조회하고 DTO로 변환하여 반환</summary>
     /// <param name="userIdOrKey">사용자 아이디 또는 고유 키</param>
     public async Task<UserInfoDto?> GetUserInfoAsync(string userIdOrKey)
     {
-        // 아이디 또는 UserId로 계정 조회
         var account = await _db.Accounts
             .Include(a => a.Company)
             .Include(a => a.Department)
@@ -215,11 +154,8 @@ public class UserService : IUserService
         // 이관으로 만들어진 계정만 갖고 있다. 화면이 저쪽 서비스의 자기 레코드를 찾을 때 쓴다.
         var msaSource = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "MsaSource")?.Content;
 
-        // 역할은 실제 배정값을 내려준다.
-        // 예전에는 무조건 "super" 한 개를 만들어 보냈다. 화면 접근 제어가 백엔드 메뉴 기준이라
-        // 당장 티가 나지 않았을 뿐, 이 값을 보고 판단하는 코드가 생기면 전부 관리자로 보인다.
-        // 역할은 세 단계로 걸 수 있다 — 회사 · 부서 · 사람. **셋을 모두 합친다.**
-        // 로그인 토큰과 같은 규칙을 써야 화면과 실제 권한이 어긋나지 않는다.
+        // 역할은 실제 배정값이다. 「super」 하나로 흉내 내면 권한 판단에 쓰일 때 전부 관리자로 보인다.
+        // 역할은 회사·부서·사람 세 단계를 모두 합친다 — 로그인 토큰과 같은 규칙이어야 화면과 실제 권한이 어긋나지 않는다.
         var effective = await _roleAssignments.ResolveEffectiveRolesAsync(account.Id);
         var roleIds = effective.RoleIds;
         var roleNames = effective.RoleNames;
@@ -241,7 +177,6 @@ public class UserService : IUserService
         var emailDetails = account.ProfileDetails?.Where(p => p.DetailType == "Email").Select(p => p.Content).Where(c => c != null).ToList() ?? new List<string>();
         var phoneDetails = account.ProfileDetails?.Where(p => p.DetailType == "Phone").Select(p => p.Content).Where(c => c != null).ToList() ?? new List<string>();
 
-        // 소셜 로그인 연결 정보 조회
         var accountSocials = await _db.AccountSocialLogins
             .Where(l => l.AccountId == account.Id && !l.IsDeleted)
             .OrderBy(l => l.CreatedAt)
@@ -253,7 +188,6 @@ public class UserService : IUserService
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        // 소셜 연결의 이메일도 목록에 누락되지 않도록 중복 없이 합침
         foreach (var s in accountSocials)
         {
             if (!string.IsNullOrWhiteSpace(s.Email) && !emailDetails.Contains(s.Email, StringComparer.OrdinalIgnoreCase))
@@ -262,7 +196,6 @@ public class UserService : IUserService
             }
         }
 
-        // 소셜 결합(Merge) 기록 확인 및 결합된 이메일/전화번호 보완
         var mergeDetails = account.ProfileDetails?.Where(p => p.DetailType == "SocialMerge" || p.DetailType == "MergedSocial").ToList();
         var isMerged = mergeDetails is { Count: > 0 };
         if (mergeDetails != null)
@@ -295,7 +228,6 @@ public class UserService : IUserService
         var providerNames = providers.Select(ProviderDisplayName).ToList();
         var providerText = providerNames.Count > 0 ? string.Join(", ", providerNames) : null;
 
-        // 결합된 소셜 계정 상세 목록 구성
         var mergedSocialAccounts = new List<SocialMergedAccountDto>();
         foreach (var s in accountSocials)
         {
@@ -315,7 +247,6 @@ public class UserService : IUserService
             });
         }
 
-        // AccountSocialLogins에는 없지만 mergeDetails에만 있는 내역이 있으면 보완
         if (mergeDetails != null)
         {
             foreach (var md in mergeDetails)
@@ -339,7 +270,6 @@ public class UserService : IUserService
             }
         }
 
-        // 프론트엔드 요구사항에 맞춰 DTO 구성
         return new UserInfoDto
         {
             Id = account.Id,
@@ -377,7 +307,6 @@ public class UserService : IUserService
             TodoTask = todoTask,
             AccountPasswordNotify = accountPasswordNotify,
 
-            // 계정 이력 (읽기 전용)
             CreatedAt = account.CreatedAt,
             LastLoginAt = account.LastLoginAt,
             LastLoginIp = account.LastLoginIp,
@@ -391,9 +320,7 @@ public class UserService : IUserService
         };
     }
 
-    /// <summary>
-    /// 전체 계정 목록을 조회합니다.
-    /// </summary>
+    /// <summary>전체 계정 목록을 조회한다.</summary>
     public async Task<List<AccountDto>> GetAccountsAsync()
     {
         var accounts = await _db.Accounts
@@ -402,12 +329,10 @@ public class UserService : IUserService
             .Include(a => a.ProfileDetails)
             .ToListAsync();
 
-        // 모든 역할 매핑 정보 조회
         var roleAccounts = await _db.RoleAccounts
             .Include(ra => ra.Role)
             .ToListAsync();
 
-        // 소셜 로그인 연결 정보 조회
         var socialLogins = await _db.AccountSocialLogins
             .Where(l => !l.IsDeleted)
             .ToListAsync();
@@ -419,7 +344,6 @@ public class UserService : IUserService
                 g => g.ToList()
             );
 
-        // accountId 별로 역할 그룹화
         var roleMap = roleAccounts
             .Where(ra => ra.Role != null)
             .GroupBy(ra => ra.AccountId)
@@ -442,7 +366,6 @@ public class UserService : IUserService
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList() ?? new List<string>();
 
-            // 소셜 연결의 이메일도 목록에 누락되지 않도록 중복 없이 합침
             if (accountSocials != null)
             {
                 foreach (var s in accountSocials)
@@ -454,7 +377,6 @@ public class UserService : IUserService
                 }
             }
 
-            // 소셜 결합(Merge) 기록 확인 및 결합된 이메일/전화번호 보완
             var mergeDetails = a.ProfileDetails?.Where(p => p.DetailType == "SocialMerge" || p.DetailType == "MergedSocial").ToList();
             var isMerged = mergeDetails is { Count: > 0 };
             if (mergeDetails != null)
@@ -505,14 +427,12 @@ public class UserService : IUserService
                 Phones = phoneDetails!,
                 Status = statusDetail?.Content ?? "ACTIVE",
 
-                // 소셜 연동 및 결합 정보
                 SocialProviders = providers,
                 IsSocialLinked = isLinked,
                 IsSocialMerged = isMerged,
                 SocialProviderText = providerText,
 
-                // 값이 없으면 켜진 것으로 본다. 설정을 안 건드린 계정이
-                // 조용히 꺼지면 워터마크가 있는 이유가 사라진다.
+                // 값이 없으면 켜진 것으로 본다 — 설정을 안 건드린 계정이 조용히 꺼지면 안 된다.
                 Watermark = WatermarkOf(a),
                 CompanyId = a.CompanyId,
                 CompanyName = a.Company?.Name,
@@ -520,9 +440,7 @@ public class UserService : IUserService
                 DeptName = a.Department?.Name,
                 CreatedAt = a.CreatedAt,
 
-                // 「들어온 때」와 「마지막으로 쓴 때」. 둘 다 계정 표의 칸이라
-                // 조인이 없다 — 기록 표를 줄마다 집계하면 예순 줄짜리 목록이
-                // 수만 줄을 훑게 된다(DTO 머리말).
+                // 들어온 때와 마지막 사용 때는 계정 표의 칸이라 조인이 없다 — 기록 표를 줄마다 집계하지 않는다.
                 LastLoginAt = a.LastLoginAt,
                 LastLoginIp = a.LastLoginIp,
                 LastSeenAt = a.LastSeenAt,
@@ -530,8 +448,7 @@ public class UserService : IUserService
                 RoleIds = rolesInfo?.RoleIds ?? new List<string>(),
                 RoleNames = rolesInfo?.RoleNames ?? new List<string>(),
 
-                // DTO 에는 예전부터 있었는데 여기서 채우지 않아 늘 null 이었다.
-                // `ProfileDetails` 는 이미 Include 로 읽고 있으므로 추가 조회가 없다.
+                // ProfileDetails 는 위에서 Include 로 읽으므로 추가 조회가 없다.
                 Avatar = avatarDetail?.Content,
                 AvatarGroupId = a.AvatarGroupId,
 
@@ -540,35 +457,13 @@ public class UserService : IUserService
                 BirthDateIsLunar = a.BirthDateIsLunar,
                 BirthdayCelebrated = a.BirthdayCelebrated,
 
-                // 개발 업무용 확장 속성(사번 · 장비 · 계정 발급 현황 …).
-                // `ProfileDetails` 는 이미 Include 로 읽고 있어 추가 조회가 없다.
+                // 개발 업무용 확장 속성 — ProfileDetails 를 이미 Include 로 읽으므로 추가 조회가 없다.
                 DevAttributes = DevAttributesOf(a),
             };
         }).ToList();
     }
 
-    /// <summary>
-    /// 신규 계정을 생성합니다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// [비밀번호를 평문으로 넣던 자리다]
-    /// </para>
-    ///
-    /// <para>
-    /// 한동안 <c>Password = "1234"</c> 였다. <see cref="PasswordHasher.Verify"/> 가
-    /// 해시 형식이 아닌 저장값을 평문으로 보고 비교하는(의도된 하위호환) 덕분에
-    /// 로그인은 됐고, 로그인에 성공하면 그때 해시로 승격됐다. 문제는
-    /// <b>한 번도 로그인하지 않은 계정</b>이다 — 그런 계정은 DB 에 비밀번호가
-    /// 그대로 보이는 채로 남는다. 만들어만 두고 아직 안 쓰는 계정이라 오래 남는다.
-    /// </para>
-    ///
-    /// <para>
-    /// 지금은 <see cref="InitialPassword"/> 가 정한 값을 해시해 넣고, 발급한
-    /// 평문은 <see cref="AccountDto.InitialPassword"/> 로 <b>이 응답에만</b> 실어
-    /// 보낸다. 그리고 만료 시계를 이미 지난 시각으로 두어 첫 로그인에서 바꾸게 한다.
-    /// </para>
-    /// </remarks>
+    /// <summary>신규 계정을 만든다. 비밀번호는 InitialPassword 가 정한 값을 해시로 저장하고, 평문은 이 응답에만 실어 보내며, 만료 시계를 지나게 해 첫 로그인에서 바꾸게 한다.</summary>
     public async Task<AccountDto> CreateAccountAsync(CreateAccountDto dto)
     {
         string? validDeptId = null;
@@ -583,8 +478,7 @@ public class UserService : IUserService
             }
         }
 
-        // 발급한 평문은 여기서만 손에 있다. 저장은 해시로 하고, 이 값은
-        // 응답에 한 번 실어 보낸 뒤 버린다 — 로그에도 남기지 않는다.
+        // 발급한 평문은 응답에 한 번 실어 보낸 뒤 버린다 — 로그에도 남기지 않는다.
         var initialPassword = InitialPassword.Issue(_config);
 
         var account = new Account
@@ -594,8 +488,7 @@ public class UserService : IUserService
             RealName = dto.UserName,
             Password = PasswordHasher.Hash(initialPassword),
 
-            // 첫 로그인에서 곧바로 바꾸게 한다. 90일 정책이 그대로 그 일을 하므로
-            // 「첫 로그인인가」를 따로 두지 않는다 — PasswordPolicy 참고.
+            // 첫 로그인 변경은 90일 정책이 맡는다 — 「첫 로그인」 플래그는 두지 않는다(PasswordPolicy 참고).
             PasswordChangedAt = PasswordPolicy.AlreadyExpiredAt(
                 PasswordPolicy.ExpiryDays(_config), DateTime.UtcNow),
 
@@ -608,15 +501,13 @@ public class UserService : IUserService
 
         _db.Accounts.Add(account);
 
-        // 등록할 때 끄고 만들 수 있다. 켜는 것은 기본값이라 적지 않는다 —
-        // 값이 없는 것이 곧 켜진 것이다.
+        // 등록할 때 끄고 만들 수 있다. 값이 없는 것이 곧 켜진 것이다.
         if (dto.Watermark is false)
         {
             UpsertWatermark(account, false);
         }
 
-        // 개발 업무용 확장 속성. 등록할 때 함께 적을 수 있다 — 안 적으면
-        // (`null`) 아무 줄도 만들지 않는다.
+        // 확장 속성은 함께 적을 수 있다 — null 이면 줄을 만들지 않는다.
         SyncDevAttributes(account, dto.DevAttributes);
 
         var emailsToSave = dto.Emails?.ToList() ?? new List<string>();
@@ -671,7 +562,6 @@ public class UserService : IUserService
             IsPrimary = true
         });
 
-        // 역할 매핑 추가
         if (dto.RoleIds != null && dto.RoleIds.Any())
         {
             foreach (var roleId in dto.RoleIds)
@@ -693,7 +583,6 @@ public class UserService : IUserService
             deptName = dept?.Name;
         }
 
-        // 반환할 역할명 조회
         var roleNames = new List<string>();
         if (dto.RoleIds != null && dto.RoleIds.Any())
         {
@@ -722,9 +611,7 @@ public class UserService : IUserService
             BirthDateIsLunar = account.BirthDateIsLunar,
             BirthdayCelebrated = account.BirthdayCelebrated,
 
-            // 방금 넣은 것을 그대로 돌려준다 — `SyncDevAttributes` 가 빈 값을
-            // 걸러 내므로 DB 에 들어간 것과 한 칸씩 다를 수 있다. 등록 응답은
-            // 발급 비밀번호를 보여 주는 자리라 목록을 다시 읽는다.
+            // 방금 넣은 것을 돌려준다 — 빈 값은 SyncDevAttributes 가 걸러 DB 와 다를 수 있다. 등록 응답은 발급 비밀번호를 보여 주므로 목록을 다시 읽는다.
             DevAttributes = dto.DevAttributes ?? [],
 
             // 발급한 평문을 돌려주는 유일한 자리. 다음 조회부터는 null 이다.
@@ -732,9 +619,7 @@ public class UserService : IUserService
         };
     }
 
-    /// <summary>
-    /// 기존 계정 정보를 수정합니다.
-    /// </summary>
+    /// <summary>기존 계정 정보를 수정한다.</summary>
     public async Task<bool> UpdateAccountAsync(string id, UpdateAccountDto dto)
     {
         var account = await _db.Accounts
@@ -751,18 +636,16 @@ public class UserService : IUserService
         account.BirthDateIsLunar = dto.BirthDateIsLunar;
         account.BirthdayCelebrated = dto.BirthdayCelebrated;
 
-        // 워터마크. `null` 은 「건드리지 않음」이라 그 값을 보내지 않는
-        // 호출(다른 화면·옛 클라이언트)이 설정을 지우지 않는다.
+        // 워터마크 null 은 건드리지 않음 — 이 값을 모르는 호출이 설정을 지우지 않게 한다.
         if (dto.Watermark is { } watermark)
         {
             UpsertWatermark(account, watermark);
         }
 
-        // 개발 업무용 확장 속성. `null` 이면 건드리지 않는다(머리말).
+        // 개발 업무용 확장 속성: null 이면 건드리지 않는다.
         SyncDevAttributes(account, dto.DevAttributes);
 
-        // 부서가 있으면 그 부서의 회사를 소속으로 삼는다. 부서 없이 회사만
-        // 고른 계정은 회사 소속을 유지한다.
+        // 부서가 있으면 그 부서의 회사를 소속으로 삼는다. 회사만 고른 계정은 회사 소속을 유지한다.
         if (!string.IsNullOrEmpty(dto.DeptId))
         {
             var dept = await _db.Departments.FindAsync(dto.DeptId);
@@ -790,7 +673,6 @@ public class UserService : IUserService
             account.CompanyId = null;
         }
 
-        // Email 업데이트
         var existingEmails = account.ProfileDetails?.Where(p => p.DetailType == "Email").ToList() ?? new List<AccountProfileDetail>();
         foreach (var e in existingEmails) _db.AccountProfileDetails.Remove(e);
         
@@ -812,7 +694,6 @@ public class UserService : IUserService
             }
         }
 
-        // Phone 업데이트
         var existingPhones = account.ProfileDetails?.Where(p => p.DetailType == "Phone").ToList() ?? new List<AccountProfileDetail>();
         foreach (var p in existingPhones) _db.AccountProfileDetails.Remove(p);
         
@@ -834,7 +715,6 @@ public class UserService : IUserService
             }
         }
 
-        // Status 업데이트
         var statusDetail = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Status");
         if (statusDetail != null)
         {
@@ -852,7 +732,6 @@ public class UserService : IUserService
             });
         }
 
-        // 역할 매핑 업데이트
         var existingRoleAccounts = await _db.RoleAccounts
             .Where(ra => ra.AccountId == id)
             .ToListAsync();
@@ -875,9 +754,7 @@ public class UserService : IUserService
         return true;
     }
 
-    /// <summary>
-    /// 계정을 삭제합니다.
-    /// </summary>
+    /// <summary>계정을 삭제한다.</summary>
     public async Task<bool> DeleteAccountAsync(string id)
     {
         var account = await _db.Accounts
@@ -896,43 +773,10 @@ public class UserService : IUserService
         return true;
     }
 
-    /// <summary>
-    /// 관리자가 그 계정의 비밀번호를 초기화한다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// [등록과 같은 길을 쓴다]
-    /// </para>
-    ///
-    /// <para>
-    /// 발급(<see cref="InitialPassword.Issue"/>) · 해시 저장 · 만료 시계를
-    /// <see cref="CreateAccountAsync"/> 와 똑같이 한다. 「관리자가 건네주는
-    /// 비밀번호」라는 점에서 둘은 같은 일이고, 갈라 적으면 한쪽만 고쳐져
-    /// <b>초기화한 계정만 비밀번호를 안 바꿔도 되는</b> 식으로 어긋난다.
-    /// </para>
-    ///
-    /// <para>
-    /// [발급한 평문은 여기서만 손에 있다]
-    /// </para>
-    ///
-    /// <para>
-    /// 저장은 해시뿐이라 돌려준 뒤에는 서버에도 없다. 로그에도 적지 않는다 —
-    /// 로그는 사람이 많이 보고 오래 남는다.
-    /// </para>
-    ///
-    /// <para>
-    /// [비밀번호 찾기 링크는 건드리지 않는다]
-    /// </para>
-    ///
-    /// <para>
-    /// 아직 안 쓴 링크가 남아 있어도 그대로 둔다. 그 링크를 쓰면 본인이 정한
-    /// 값이 되고 — 그것도 「본인이 비밀번호를 바꾼 것」이라 문제가 없다.
-    /// </para>
-    /// </remarks>
+    /// <summary>관리자가 그 계정의 비밀번호를 초기화한다. <see cref="CreateAccountAsync"/> 와 같은 방식으로 발급·해시 저장·만료 처리하고, 발급한 평문은 응답에서만 보낸다. 아직 안 쓴 비밀번호 찾기 링크는 건드리지 않는다.</summary>
     public async Task<IssuedPasswordDto?> ResetAccountPasswordAsync(string id)
     {
-        // 화면은 계정 식별자로 부르지만 로그인 아이디로도 찾을 수 있게 둔다 —
-        // 다른 서비스가 손에 든 것이 그쪽일 때가 있다(ChangePasswordAsync 와 같다).
+        // 계정 식별자 외에 로그인 아이디로도 찾는다 — 다른 서비스가 손에 든 것이 그쪽일 때가 있다.
         var account = await _db.Accounts
             .FirstOrDefaultAsync(a => a.Id == id || a.UserId == id);
 
@@ -942,8 +786,7 @@ public class UserService : IUserService
 
         account.Password = PasswordHasher.Hash(issued);
 
-        // 받은 사람이 첫 로그인에서 곧바로 바꾸게 한다. 관리자 손을 거쳐
-        // 전달되는 값이라 애초에 만료된 것으로 두는 편이 사실에 가깝다.
+        // 관리자를 거쳐 전달되는 값이라 처음부터 만료된 것으로 둔다 — 받은 사람이 첫 로그인에서 바꾼다.
         account.PasswordChangedAt = PasswordPolicy.AlreadyExpiredAt(
             PasswordPolicy.ExpiryDays(_config), DateTime.UtcNow);
 
@@ -953,17 +796,13 @@ public class UserService : IUserService
         {
             LoginId = account.UserId,
 
-            // 이름 칸은 비어 있을 수 있다(`Account.UserName` 이 nullable).
-            // 창에 「누구의 것인지」로 뜨는 값이라 null 을 그대로 넘기지 않는다.
+            // Account.UserName 은 nullable 이라 null 을 그대로 넘기지 않는다.
             UserName = account.UserName ?? string.Empty,
             Password = issued
         };
     }
 
-    /// <summary>
-    /// 로그인한 사용자의 프로필 정보를 업데이트합니다.
-    /// 이메일·전화번호는 다른 계정이 이미 쓰고 있으면 거부한다 — Error 에 사람이 읽을 이유를 담는다.
-    /// </summary>
+    /// <summary>로그인한 사용자의 프로필을 업데이트한다. 이메일·전화번호가 다른 계정에서 이미 쓰이면 거부하고, 이유를 Error 에 담는다.</summary>
     public async Task<(bool Success, string? Error)> UpdateProfileAsync(string userId, UpdateProfileDto dto)
     {
         var account = await _db.Accounts
@@ -972,7 +811,6 @@ public class UserService : IUserService
 
         if (account == null) return (false, "계정을 찾을 수 없습니다.");
 
-        // ── 이메일 목록 정리 및 중복 검사 ──
         List<string>? emailsToSave = null;
         if (dto.Emails != null)
         {
@@ -1006,7 +844,7 @@ public class UserService : IUserService
                         p.Content.ToLower() == lower);
                     if (taken) return (false, $"이미 다른 사용자가 쓰고 있는 이메일입니다: {email}");
 
-                    // 이메일 변경 시 인증 확인: 기존에 없던 새 이메일은 이메일 인증이 완료되어야 함
+                    // 기존에 없던 새 이메일은 이메일 인증을 마쳐야 한다.
                     if (_emailVerification != null && !_emailVerification.IsVerified(account.Id, email, dto.EmailVerificationToken))
                     {
                         return (false, $"이메일 변경은 이메일 인증이 완료되어야 처리할 수 있습니다: {email}");
@@ -1015,7 +853,6 @@ public class UserService : IUserService
             }
         }
 
-        // ── 전화번호 목록 정리 및 중복 검사 ──
         static string Digits(string? s) => new((s ?? "").Where(char.IsDigit).ToArray());
 
         List<string>? phonesToSave = null;
@@ -1056,14 +893,12 @@ public class UserService : IUserService
             }
         }
 
-        // UserName(RealName) 업데이트
         if (!string.IsNullOrEmpty(dto.RealName))
         {
             account.UserName = dto.RealName;
             account.RealName = dto.RealName;
         }
 
-        // Introduction 업데이트
         var introDetail = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Introduction");
         if (introDetail != null)
         {
@@ -1081,7 +916,6 @@ public class UserService : IUserService
             });
         }
 
-        // Email 업데이트
         if (emailsToSave != null)
         {
             var existingEmailDetails = account.ProfileDetails?.Where(p => p.DetailType == "Email").ToList() ?? new List<AccountProfileDetail>();
@@ -1107,7 +941,6 @@ public class UserService : IUserService
             }
         }
 
-        // Phone 업데이트
         if (phonesToSave != null)
         {
             var existingPhoneDetails = account.ProfileDetails?.Where(p => p.DetailType == "Phone").ToList() ?? new List<AccountProfileDetail>();
@@ -1125,7 +958,6 @@ public class UserService : IUserService
             }
         }
 
-        // Avatar 업데이트
         if (dto.Avatar != null)
         {
             var avatarDetail = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Avatar");
@@ -1146,14 +978,13 @@ public class UserService : IUserService
             }
         }
 
-        // AvatarGroupId 업데이트
         if (dto.AvatarGroupId != null)
         {
             account.AvatarGroupId = dto.AvatarGroupId;
             _db.Entry(account).State = EntityState.Modified;
         }
 
-        // 생년월일 업데이트 — null 은 '건드리지 않음', 빈 문자열은 '지움'.
+        // 생년월일: null 은 건드리지 않음, 빈 문자열은 지움.
         if (dto.BirthDate != null)
         {
             if (string.IsNullOrWhiteSpace(dto.BirthDate))
@@ -1180,9 +1011,7 @@ public class UserService : IUserService
         return (true, null);
     }
 
-    /// <summary>
-    /// 로그인한 사용자의 비밀번호를 변경합니다.
-    /// </summary>
+    /// <summary>로그인한 사용자의 비밀번호를 변경한다.</summary>
     public async Task<ChangePasswordResult> ChangePasswordAsync(string userId, ChangePasswordDto dto)
     {
         var account = await _db.Accounts
@@ -1190,7 +1019,7 @@ public class UserService : IUserService
 
         if (account == null) return ChangePasswordResult.AccountNotFound;
 
-        // 이전 비밀번호 검증 (저장값이 평문인 계정도 그대로 통과한다 — PasswordHasher 참고)
+        // 이전 비밀번호 검증 — 평문으로 남은 계정도 통과한다(PasswordHasher 참고).
         if (!PasswordHasher.Verify(account.Password, dto.OldPassword))
         {
             return ChangePasswordResult.OldPasswordMismatch;
@@ -1201,29 +1030,20 @@ public class UserService : IUserService
             return ChangePasswordResult.NewPasswordEmpty;
         }
 
-        // 지금 쓰는 것과 같은 값이면 막는다.
-        // 90일마다 바꾸라고 요구하면서 같은 값을 허용하면 정책이 아무 일도 하지 않는다.
+        // 지금 값과 같으면 막는다 — 90일마다 바꾸게 하면서 같은 값을 허용하면 정책이 무의미해진다.
         if (PasswordHasher.Verify(account.Password, dto.NewPassword))
         {
             return ChangePasswordResult.SameAsCurrent;
         }
 
-        // 새 비밀번호는 항상 해시로 저장한다.
         account.Password = PasswordHasher.Hash(dto.NewPassword);
-        // 만료 시계를 여기서 다시 맞춘다. 이 값이 90일 정책의 기준이다.
+        // 만료 시계를 다시 맞춘다 — 90일 정책의 기준이다.
         account.PasswordChangedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         return ChangePasswordResult.Success;
     }
 
-    /// <summary>
-    /// 비밀번호가 맞는지 확인만 한다. 잠금화면이 쓴다(D7).
-    /// </summary>
-    /// <remarks>
-    /// <b>일부러 아무것도 바꾸지 않는다.</b> 로그인에는 있는 곁일(해시 승격 ·
-    /// 접속 기록 · 만료 시계)을 여기서 하면, 잠금을 푼 것이 로그인 기록으로
-    /// 남아 「접속 기록」 화면이 실제와 달라진다.
-    /// </remarks>
+    /// <summary>비밀번호가 맞는지만 확인한다. 잠금화면이 쓴다. 해시 승격·접속 기록·만료 시계를 건드리지 않는다 — 잠금을 푼 것이 로그인 기록으로 남으면 접속 기록 화면이 실제와 달라진다.</summary>
     public async Task<bool> VerifyPasswordAsync(string userId, string password)
     {
         if (string.IsNullOrEmpty(password))
@@ -1235,13 +1055,11 @@ public class UserService : IUserService
             .AsNoTracking()
             .FirstOrDefaultAsync(a => a.UserId == userId || a.Id == userId);
 
-        // 저장값이 아직 평문인 계정도 그대로 통과한다 — PasswordHasher 참고.
+        // 평문으로 남은 저장값도 통과한다 — PasswordHasher 참고.
         return account is not null && PasswordHasher.Verify(account.Password, password);
     }
 
-    /// <summary>
-    /// 로그인한 사용자의 설정을 업데이트합니다.
-    /// </summary>
+    /// <summary>로그인한 사용자의 설정을 업데이트한다.</summary>
     public async Task<bool> UpdateSettingAsync(string userId, UpdateSettingDto dto)
     {
         var account = await _db.Accounts
@@ -1273,9 +1091,7 @@ public class UserService : IUserService
         return true;
     }
 
-    /// <summary>
-    /// 로그인한 뒤 처음 열리는 화면을 정한다. 계약은 <see cref="IUserService"/> 에 있다.
-    /// </summary>
+    /// <summary>로그인한 뒤 처음 열리는 화면을 정한다. 계약은 <see cref="IUserService"/> 에 있다.</summary>
     public async Task<(bool Success, string? Error)> UpdateHomePathAsync(string userId, string? homePath)
     {
         var path = (homePath ?? string.Empty).Trim();
@@ -1293,9 +1109,7 @@ public class UserService : IUserService
 
         var detail = account.ProfileDetails?.FirstOrDefault(p => p.DetailType == "HomePath");
 
-        // 비웠으면 **줄을 지운다.** 「지정 안 함」을 글자로 적어 두면
-        // (`/workspace` 같은 것) 나중에 기본이 바뀌어도 그 사람만 옛 화면에
-        // 묶인다 — 띠의 「기본값으로」가 열쇠를 지우는 것과 같은 규칙이다.
+        // 비우면 줄을 지운다 — 「지정 안 함」을 글자로 적어 두면 기본값이 바뀔 때 그 사람만 옛 화면에 묶인다.
         if (path.Length == 0)
         {
             if (detail is not null)
@@ -1327,23 +1141,7 @@ public class UserService : IUserService
         return (true, null);
     }
 
-    /// <summary>
-    /// 이 사이트 안을 가리키는 절대 경로인가.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 로그인 화면의 <c>SafeReturnUrl</c> 과 <b>같은 규칙</b>이다. 다를 이유가
-    /// 없다 — 둘 다 「로그인 직후 사용자를 보낼 주소」이고, 그 시점은 사람이
-    /// 주소창을 가장 안 보는 때다. <c>//evil.com</c> 은 프로토콜 상대 URL 이라
-    /// <c>/</c> 로 시작해도 밖으로 나간다.
-    /// </para>
-    /// <para>
-    /// <b>「그런 화면이 있는가」는 보지 않는다.</b> 라우트는 프론트의
-    /// <c>@page</c> 가 갖고 있어서 서버가 알 길이 없다(web/CLAUDE.md 의
-    /// 「라우팅 소유권이 뒤집혔다」). 없는 화면을 고르는 길은 고르개 쪽에서
-    /// 막는다 — 권한이 있는 메뉴만 목록에 올린다.
-    /// </para>
-    /// </remarks>
+    /// <summary>이 사이트 안을 가리키는 절대 경로인지 본다. 로그인 화면의 <c>SafeReturnUrl</c> 과 같은 규칙이다 — <c>//evil.com</c> 은 프로토콜 상대 URL 이라 밖으로 나간다. 화면이 있는지는 보지 않는다(라우트는 프론트 <c>@page</c> 가 갖는다).</summary>
     private static bool IsSiteRelativePath(string path) =>
         path.Length <= 200
         && path[0] == '/'
@@ -1388,7 +1186,6 @@ public class UserService : IUserService
             return (false, "원본 계정과 대상 계정이 동일하여 결합할 수 없습니다.");
         }
 
-        // 1. 소셜 로그인 연결 이전/병합
         var sourceSocials = await _db.AccountSocialLogins
             .Where(l => l.AccountId == sourceAccount.Id)
             .ToListAsync(ct);
@@ -1422,7 +1219,6 @@ public class UserService : IUserService
             }
         }
 
-        // 2. WebAuthn 패스키 자격증명 이전
         var webAuthnCreds = await _db.AccountWebAuthnCredentials
             .Where(c => c.AccountId == sourceAccount.Id)
             .ToListAsync(ct);
@@ -1433,7 +1229,6 @@ public class UserService : IUserService
             cred.Account = targetAccount;
         }
 
-        // 3. 즐겨찾기(MenuFavorites) 병합
         var sourceFavs = await _db.MenuFavorites
             .Where(f => f.AccountId == sourceAccount.Id)
             .ToListAsync(ct);
@@ -1456,7 +1251,6 @@ public class UserService : IUserService
             }
         }
 
-        // 4. 역할(RoleAccounts) 병합
         var sourceRoles = await _db.RoleAccounts
             .Where(ra => ra.AccountId == sourceAccount.Id)
             .ToListAsync(ct);
@@ -1478,7 +1272,6 @@ public class UserService : IUserService
             }
         }
 
-        // 5. 사용자 환경설정(AccountPreferences) 병합
         var sourcePref = await _db.AccountPreferences
             .FirstOrDefaultAsync(p => p.AccountId == sourceAccount.Id, ct);
 
@@ -1498,7 +1291,6 @@ public class UserService : IUserService
             }
         }
 
-        // 6. 로그인 로그(AccountLoginLogs) 이전
         var sourceLogs = await _db.AccountLoginLogs
             .Where(l => l.AccountId == sourceAccount.Id)
             .ToListAsync(ct);
@@ -1508,7 +1300,6 @@ public class UserService : IUserService
             log.AccountId = targetAccount.Id;
         }
 
-        // 7. 프로필 상세 정보(AccountProfileDetails) 병합
         var sourceEmail = sourceAccount.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Email")?.Content;
         var sourcePhone = sourceAccount.ProfileDetails?.FirstOrDefault(p => p.DetailType == "Phone")?.Content;
 
@@ -1518,7 +1309,6 @@ public class UserService : IUserService
             .Where(c => !string.IsNullOrWhiteSpace(c))
             .ToList() ?? [];
 
-        // 원본 계정의 이메일들 이전
         var sourceEmails = sourceAccount.ProfileDetails?
             .Where(p => p.DetailType == "Email")
             .Select(p => p.Content)
@@ -1543,7 +1333,6 @@ public class UserService : IUserService
             }
         }
 
-        // 소셜 로그인 이메일 병합
         foreach (var login in sourceSocials)
         {
             if (!string.IsNullOrWhiteSpace(login.Email) && !existingEmails.Contains(login.Email, StringComparer.OrdinalIgnoreCase))
@@ -1562,7 +1351,6 @@ public class UserService : IUserService
             }
         }
 
-        // 전화번호 병합
         var existingPhones = targetAccount.ProfileDetails?
             .Where(p => p.DetailType == "Phone")
             .Select(p => p.Content)
@@ -1593,7 +1381,6 @@ public class UserService : IUserService
             }
         }
 
-        // 아바타 승계
         if (string.IsNullOrWhiteSpace(targetAccount.AvatarGroupId) && !string.IsNullOrWhiteSpace(sourceAccount.AvatarGroupId))
         {
             targetAccount.AvatarGroupId = sourceAccount.AvatarGroupId;
@@ -1613,7 +1400,6 @@ public class UserService : IUserService
             }
         }
 
-        // 개발 업무용 확장 속성(Dev.) 병합: 대상 계정에 없는 속성 보완
         var sourceDevDetails = sourceAccount.ProfileDetails?
             .Where(p => p.DetailType.StartsWith("Dev.", StringComparison.OrdinalIgnoreCase))
             .ToList() ?? [];
@@ -1639,7 +1425,6 @@ public class UserService : IUserService
             }
         }
 
-        // 기존 결합 이력 이전
         var existingSourceMerges = sourceAccount.ProfileDetails?
             .Where(p => p.DetailType == "SocialMerge" || p.DetailType == "MergedSocial")
             .ToList() ?? [];
@@ -1650,7 +1435,6 @@ public class UserService : IUserService
             sm.Account = targetAccount;
         }
 
-        // 이번 결합 이력(SocialMerge) 기록
         var mergeInfo = $"{sourceEmail}|{sourcePhone}|{approver}|{DateTime.UtcNow:O}";
         if (sourceSocials.Count > 0)
         {
@@ -1684,10 +1468,8 @@ public class UserService : IUserService
             });
         }
 
-        // 1단계 저장: 대상 계정 변경사항 및 이전된 레코드 저장
         await _db.SaveChangesAsync(ct);
 
-        // 2단계 저장: 원본 계정 프로필 상세 및 원본 계정 엔티티 삭제
         if (sourceAccount.ProfileDetails is { Count: > 0 })
         {
             _db.AccountProfileDetails.RemoveRange(sourceAccount.ProfileDetails);
@@ -1700,7 +1482,6 @@ public class UserService : IUserService
             "계정 결합 완료: {SourceLoginId}({SourceId}) -> {TargetLoginId}({TargetId}) (처리자 {Approver})",
             sourceAccount.UserId, sourceAccount.Id, targetAccount.UserId, targetAccount.Id, approver);
 
-        // 알림 발송: 앱 푸시 알림 및 이메일 알림
         if (_notify is not null)
         {
             try

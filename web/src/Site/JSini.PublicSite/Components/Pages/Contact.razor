@@ -1,22 +1,8 @@
 @page "/{Locale}/contact"
 
 @*
-    문의.
-
-    [정적 SSR 폼이다]
-
-    회로가 없으므로 `@@bind` 로 서버 상태를 물고 있지 않는다. 폼을 통째로 POST
-    하고, 서버가 받아 처리한 뒤 그 결과를 그린다 — 옛날 방식 그대로다.
-    Blazor 의 `EditForm Method="post"` + `[SupplyParameterFromForm]` 이
-    위조방지 토큰까지 함께 다뤄 준다.
-
-    [본문이 서식 편집기가 아니라 여러 줄 입력이다]
-
-    원본은 굵게·색·목록이 되는 경량 편집기(contenteditable)를 써서 본문을 HTML 로
-    보냈다. 그건 자바스크립트가 있어야 하고, 받은 HTML 을 서버가 정제해야 한다.
-    문의 한 통에 그 표면을 여는 값이 없다고 보고 평문으로 받는다 —
-    **서버가 어차피 태그를 걷어내고 저장한다.** 서식이 필요해지면 그때
-    편집기와 정제를 함께 넣는다.
+    문의. 정적 SSR 폼이다. 회로가 없어 폼을 통째로 POST 하고 서버가 처리해 결과를 그린다. 위조방지 토큰은 EditForm 이 넣는다.
+    본문은 서식 편집기가 아니라 여러 줄 평문이다(서버가 어차피 태그를 걷어내고 저장한다).
 *@
 
 <PageTitle>@T.Contact.Title — JSINI</PageTitle>
@@ -44,19 +30,9 @@
     }
     else
     {
-        @*
-            위조방지 토큰을 여기에 따로 적지 않는다.
-
-            `FormName` 이 붙은 `EditForm` 은 토큰 칸을 **스스로 하나 넣는다.**
-            여기에 `<AntiforgeryToken />` 을 또 쓰면 같은 이름의 숨은 칸이 둘이 되고,
-            위조방지 검사는 `Form["__RequestVerificationToken"]` 을 **문자열 하나로**
-            읽으므로 두 값이 쉼표로 이어진 꼴(`CfDJ…,CfDJ…`)을 토큰으로 본다.
-            해독이 깨져 **보내기가 늘 400** 이었다 — 화면에는 브라우저의
-            「페이지가 작동하지 않습니다」만 뜨고 폼은 손도 못 댔다.
-
-            맨 `<form>` 으로 쓰는 자리(로그아웃 폼 따위)는 넣어 주는 것이 없으므로
-            거기서는 `<AntiforgeryToken />` 이 맞다. 여기는 아니다.
-        *@
+            @*
+                위조방지 토큰을 여기에 따로 적지 않는다. FormName 이 붙은 EditForm 이 토큰 칸을 스스로 넣으므로 AntiforgeryToken 을 또 쓰면 칸이 둘이 되어 보내기가 늘 400 이 된다.
+            *@
         <EditForm Model="@Input" FormName="contact" OnValidSubmit="@SubmitAsync" method="post" class="form">
             <div class="form__grid">
                 <label class="field">
@@ -97,11 +73,7 @@
             </label>
 
             @*
-                허니팟.
-
-                `display: none` 을 쓰지 않는다 — 요즘 봇은 그것을 보고 건너뛴다.
-                화면 밖으로 밀어 두고 `aria-hidden` · `tabindex="-1"` 로 사람과
-                보조기기의 동선에서 뺀다. 자동완성도 끈다(브라우저가 채우면 사람이 걸린다).
+                허니팟. display:none 을 쓰지 않는다(요즘 봇은 그것을 보고 건너뛴다). 밖으로 밀어 두고 aria-hidden·tabindex=-1 로 사람과 보조기기에서 뺀다.
             *@
             <div class="honeypot" aria-hidden="true">
                 <label>

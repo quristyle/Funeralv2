@@ -17,10 +17,7 @@ public partial class WbsUserBoard
         WbsBoardOptions.TextOf(WbsBoardOptions.Scope, _scope),
         WbsBoardOptions.TextOf(WbsBoardOptions.Who, _who));
 
-    /// <summary>
-    /// 고른 프로젝트의 <b>이름</b>. 화면이 든 것은 코드뿐이고 목록은
-    /// <c>CodeSelect</c> 안에 있어, 그 부품이 <c>@bind-Text</c> 로 올려 준다.
-    /// </summary>
+    /// <summary>고른 프로젝트의 이름. 코드만 들고, 목록은 CodeSelect 가 쥐고 있다.</summary>
     private string? _projectName;
 
     private string? _projectCode;
@@ -45,16 +42,12 @@ public partial class WbsUserBoard
         new("week", "주"),
     ];
 
-    /// <summary>
-    /// 칸의 배경. <b>가장 많은 칸을 1 로 두고 견준다</b> — 절대 건수로 칠하면
-    /// 전체가 적은 프로젝트는 판이 통째로 하얗다.
-    /// </summary>
+    /// <summary>칸의 배경. 가장 많은 칸을 1 로 두고 견준다 — 절대 건수로 칠하면 전체가 적은 프로젝트는 판이 통째로 하얗다.</summary>
     private string? Shade(int cnt)
     {
         if (cnt == 0 || _peak == 0) return null;
 
-        // 0.12 를 바닥으로 둔다. 한 건짜리 칸이 배경과 구분되지 않으면
-        // 「비었다」와 「하나 있다」가 같아 보인다.
+        // 0.12 를 바닥으로 둔다 — 한 건짜리 칸이 배경과 구분되지 않으면 「비었다」와 「하나 있다」가 같아 보인다.
         var ratio = 0.12 + 0.68 * cnt / _peak;
 
         return $"background: color-mix(in srgb, var(--jsini-accent) {ratio * 100:0}%, transparent)";
@@ -99,8 +92,7 @@ public partial class WbsUserBoard
     {
         if (string.IsNullOrWhiteSpace(user)) return Task.CompletedTask;
 
-        // 담당자 잣대와 개발자 잣대가 조건 이름부터 다르다. 잘못 넘기면
-        // 목록이 빈 채로 뜨고, 그것을 「자료가 없다」로 읽게 된다.
+        // 담당자 잣대와 개발자 잣대가 조건 이름부터 다르다 — 잘못 넘기면 목록이 빈 채로 떠서 「자료가 없다」로 읽힌다.
         var userKey = _who == "real" ? "realUser" : "user";
         var period = Weekly ? "week" : "month";
 

@@ -2,34 +2,8 @@
 @attribute [RouteKey("projmng.todo.monitor")]
 
 @*
-    [할일 정산 현황]
-
-    이력: 옛 Blazor `Pages/Home/HomeTodoMonitor.razor` → Vue
-          `views/projmng/home/todo-monitor.vue` → `DynamicGrid` +
-          `sp_home_todo_pay` · `sp_home_todo_exec` → **여기 (`CommGrd` + REST)**
-    API: `projmng/home-todos/pay` · `projmng/home-todos`
-
-    옛 화면은 차트를 붙이려다 그만두고 정산 집계만 부르는 상태였다
-    (`OnLoadWrk` 첫 줄이 `OnLoadPay(); return;` 이었다). Vue 이식본이 그 동작을
-    살리면서 할일 목록도 **탭으로** 함께 붙였다.
-
-    ────────────────────────────────────────────────────────────
-    [탭을 걷어내고 나란히 둔다]
-
-    탭이었던 이유는 탭을 바꿀 때만 그쪽 프로시저를 부르려는 것이었다. 지금은
-    둘 다 한 번에 읽어도 **왕복이 둘**이고 서로 기다릴 이유가 없어 나란히
-    읽는다. 그러면 「누가 얼마나 쌓았나」와 「그날 무엇을 했나」가 **한 그림에**
-    보인다 — 탭이면 둘을 견주려고 오갈 때마다 다시 읽었다.
-
-    `DxTabs` 안에 표를 넣으면 높이가 어긋나는 함정도 함께 사라진다
-    (web/CLAUDE.md 의 `.ad-roletabs` 절).
-
-    [정산은 날짜로 좁히지 않는다]
-
-    담당자별 **누계**다. 옛 화면과 같다 — 날짜 조건은 오른쪽 할일 목록에만
-    걸린다. 「오늘」 칸이 그날 몫을 따로 말해 준다.
-
-    이 화면은 **보기만 한다.** 고치는 것은 [할일] 화면이다.
+할일 정산 현황. 담당자별 누계(정산)와 그날의 할일 목록을 한 그림에 나란히 둔다 — 탭이면 둘을 견주려고 오갈 때마다 다시 읽는다.
+정산은 날짜로 좁히지 않는다(누계, 옛 화면과 같다). 날짜 조건은 오른쪽 할일 목록에만 걸린다. 이 화면은 보기만 하고, 고치는 것은 할일 화면이다.
 *@
 
 @inherits DataPage
@@ -39,7 +13,7 @@
 <CommSch OnSearch="@SearchAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="날짜">
-            @* 오른쪽 목록에만 걸린다(머리말). *@
+            @* 오른쪽 목록에만 걸린다. *@
             <DxDateEdit @bind-Date="_targetDate" Style="width: 150px" />
         </CommSchItem>
 

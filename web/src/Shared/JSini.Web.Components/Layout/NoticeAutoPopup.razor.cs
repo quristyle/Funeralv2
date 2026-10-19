@@ -12,14 +12,7 @@ public partial class NoticeAutoPopup
     [Inject] private ILogger<NoticeAutoPopup> Log { get; set; } = default!;
     [Inject] private PortalBoot Boot { get; set; } = default!;
 
-    /// <summary>
-    /// 브라우저에 「오늘 하루 보지 않기」를 적어 두는 열쇠. Vue 때와 같다.
-    ///
-    /// <para>
-    /// <b>정본은 <see cref="PortalBoot.NoticeDismissedKey"/> 다.</b> 읽는 일은
-    /// 그쪽이 다른 값들과 함께 한 왕복으로 하고, 여기서는 쓰는 데만 쓴다.
-    /// </para>
-    /// </summary>
+    /// <summary>브라우저에 「오늘 하루 보지 않기」를 적어 두는 열쇠. 정본은 PortalBoot.NoticeDismissedKey 다 — 읽는 일은 그쪽이 다른 값과 함께 한 왕복으로 하고 여기서는 쓰는 데만 쓴다.</summary>
     private const string StorageKey = PortalBoot.NoticeDismissedKey;
 
     /// <summary>이 탭에서 이미 닫았다는 표시. 머리말의 표를 보라.</summary>
@@ -123,22 +116,7 @@ public partial class NoticeAutoPopup
         }
     }
 
-    /// <summary>
-    /// 오늘 안 보기로 해 둔 공지를 옮겨 담는다. 날짜가 지났으면 없던 일로 한다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 읽어 오는 일은 <see cref="PortalBoot"/> 가 한다 — 여기는 그 날것 JSON 을
-    /// 받아 푸는 자리다. 그래서 <c>JSException</c> 을 살피지 않는다(JS 를 부르지
-    /// 않으므로 날 수 없다).
-    /// </para>
-    ///
-    /// <para>
-    /// <b>로그인 화면도 같은 값을 읽고 쓴다</b>(theme.js 의 <c>jsiniNotice</c>).
-    /// 칸 이름을 바꾸면 그쪽도 함께 고친다 — 어긋나면 오류가 아니라 「오늘
-    /// 하루 보지 않기가 한쪽에서만 듣는다」로 나온다.
-    /// </para>
-    /// </remarks>
+    /// <summary>오늘 안 보기로 해 둔 공지를 옮겨 담는다. 날짜가 지났으면 없던 것으로 본다. 읽는 일은 PortalBoot 가 하고 여기는 날것 JSON 을 푸는 자리다. 로그인 화면도 같은 값을 읽고 쓰므로(theme.js 의 jsiniNotice) 칸 이름을 바꾸면 그쪽도 함께 고친다 — 어긋나면 오류가 아니라 하루 보지 않기가 한쪽에서만 듣는다.</summary>
     private HashSet<string> ParseDismissed(string? raw)
     {
         try
@@ -164,20 +142,7 @@ public partial class NoticeAutoPopup
         }
     }
 
-    /// <summary>
-    /// 브라우저 기준이 아니라 <b>서버 기준</b> 날짜다.
-    ///
-    /// <para>
-    /// 회로 안에서는 서버 시간밖에 없다. 사용자가 다른 시간대에 있으면
-    /// 「하루」의 경계가 몇 시간 어긋나는데, 어긋나는 결과는 공지를 한 번 더
-    /// 보거나 몇 시간 덜 보는 것뿐이라 시간대를 받아 오지 않는다.
-    /// </para>
-    ///
-    /// <para>
-    /// <b>로그인 화면도 이 기준을 쓴다</b> — 그쪽은 회로가 없지만 서버가
-    /// 날짜를 마크업에 실어 보낸다(<c>PublicNoticePopup.Today</c>).
-    /// </para>
-    /// </summary>
+    /// <summary>브라우저 기준이 아니라 서버 기준 날짜다. 회로 안에서는 서버 시간밖에 없고 어긋나는 결과는 공지를 몇 시간 덜 보거나 더 보는 것뿐이라 시간대를 받아 오지 않는다. 로그인 화면도 이 기준을 쓴다 — 회로가 없지만 서버 날짜를 마크업에 실어 보낸다(PublicNoticePopup.Today).</summary>
     private static string Today() => AppTime.Today.ToString("yyyy-MM-dd");
 
     /// <summary>localStorage 에 적어 두는 모양. Vue 때와 같은 칸 이름이다.</summary>

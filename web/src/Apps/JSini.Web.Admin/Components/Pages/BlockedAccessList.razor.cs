@@ -9,10 +9,7 @@ public partial class BlockedAccessList
 {
     [Inject] private AdminClient Api { get; set; } = default!;
 
-    // ── 보기 셋 ─────────────────────────────────────────────
-    //
-    // **값은 화면 안에서만 쓴다.** 서버로 나가지 않으므로 글자를 바꿔도
-    // 조회가 깨지지 않는다 — 기간·사용자·까닭·검색어와 다른 종류의 조건이다.
+    // 보기 값은 화면 안에서만 쓴다 — 서버로 나가지 않으므로 글자를 바꿔도 조회가 깨지지 않는다.
 
     private const string ViewByScreen = "screen";
     private const string ViewByUser = "user";
@@ -25,21 +22,14 @@ public partial class BlockedAccessList
         new(ViewLog, "기록"),
     ];
 
-    /// <summary>
-    /// 까닭 고르개. <b>서버로 나가는 값이라 글자가 아니라 코드다</b> —
-    /// <c>BlockedAccessReason</c> 의 상수와 같아야 한다.
-    /// </summary>
+    /// <summary>까닭 고르개. 서버로 나가는 값이라 글자가 아니라 코드다 — BlockedAccessReason 상수와 같아야 한다.</summary>
     private static readonly SchOption[] ReasonOptions =
     [
         new(BlockedAccessReason.Unmanaged, "관리 밖"),
         new(BlockedAccessReason.NoPermission, "권한 없음"),
     ];
 
-    /// <summary>
-    /// 기록 목록이 한 번에 받는 최대 줄 수. <b>서버의 값과 같아야 한다</b>
-    /// (<c>BlockedAccessEndpoints.MaxTake</c>) — 작으면 「잘렸다」 안내가 안 뜨고,
-    /// 크면 안 잘린 목록에 그 안내가 뜬다.
-    /// </summary>
+    /// <summary>기록 목록이 한 번에 받는 최대 줄 수. 서버의 MaxTake 와 같아야 한다 — 작으면 「잘렸다」 안내가 안 뜨고 크면 안 잘린 목록에 뜬다.</summary>
     private const int LogCap = 500;
 
     /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
@@ -94,31 +84,19 @@ public partial class BlockedAccessList
         : _detailLog is not null ? "차단 접근 상세"
         : "차단 접근 상세";
 
-    /// <summary>
-    /// 고르개에 세울 사람. <b>아이디를 들고 목록에서 되찾는다</b> — 줄 자체를
-    /// 들고 있으면 다시 조회했을 때 새로 만들어진 줄과 같지 않아 고르개가 빈다.
-    /// </summary>
+    /// <summary>고르개에 세울 사람. 아이디를 들고 목록에서 되찾는다 — 줄 자체를 들고 있으면 다시 조회했을 때 고르개가 빈다.</summary>
     private BlockedAccessByUserDto? PickedUser =>
         _userId is null ? null : _users.FirstOrDefault(u => u.UserId == _userId);
 
-    // ── 타일 넷 ─────────────────────────────────────────────
-    //
-    // **화면별 집계에서 읽는다.** 그쪽이 고른 사람·까닭까지 반영한 값이라,
-    // 보기를 무엇으로 두든 지금 보고 있는 것과 숫자가 맞는다.
+    // 화면별 집계에서 읽는다 — 그쪽이 고른 사람·까닭까지 반영한 값이라 보기와 상관없이 숫자가 맞는다.
 
     private int TotalBlocks => _screens.Sum(s => s.Blocks);
 
-    /// <summary>
-    /// 메뉴가 아예 없어 막힌 화면의 수. <b>사람이 손봐야 하는 수다</b> —
-    /// 나머지 타일은 상태를 말하고 이 하나는 할 일을 말한다.
-    /// </summary>
+    /// <summary>메뉴가 아예 없어 막힌 화면의 수. 사람이 손봐야 하는 수다 — 나머지 타일은 상태를 말하고 이 하나는 할 일을 말한다.</summary>
     private int UnmanagedScreens =>
         _screens.Count(s => s.Reason == BlockedAccessReason.Unmanaged);
 
-    /// <summary>
-    /// 사람 수. 한 사람을 고르면 1 이다 — 사람별 집계는 고른 사람과 무관하게
-    /// (고르개를 채워야 해서) 전체를 들고 있으므로 그 수를 그대로 쓰면 안 된다.
-    /// </summary>
+    /// <summary>사람 수. 한 사람을 고르면 1 이다 — 사람별 집계는 고르개 때문에 전체를 들고 있어 그대로 쓰면 안 된다.</summary>
     private int PeopleCount => _userId is null ? _users.Count : 1;
 
     private string LastBlockText => _screens.Count == 0
@@ -128,21 +106,12 @@ public partial class BlockedAccessList
     /// <summary>타일 아래에 적을 기간. 사람이 고른 날짜 그대로다.</summary>
     private string PeriodText => SchSummary.Period(_from, _to) ?? "전체 기간";
 
-    /// <summary>
-    /// 서버가 잘랐으면 그 한도, 아니면 <c>null</c>. 집계 보기(화면별·사람별)는
-    /// 자르지 않으므로 언제나 <c>null</c> 이다.
-    /// </summary>
+    /// <summary>서버가 잘랐으면 그 한도, 아니면 null. 집계 보기는 자르지 않으므로 언제나 null 이다.</summary>
     private int? Truncated => _view == ViewLog && _logs.Count >= LogCap ? LogCap : null;
 
     protected override Task OnInitializedAsync() => ReloadAsync();
 
-    /// <summary>
-    /// 다시 읽는다.
-    /// </summary>
-    /// <remarks>
-    /// <b>집계 둘은 보기와 무관하게 늘 읽는다</b> — 타일 넷과 사용자 고르개가
-    /// 그것으로 서기 때문이다. 줄이 많은 쪽(기록)만 보고 있을 때 읽는다.
-    /// </remarks>
+    /// <summary>다시 읽는다. 집계 둘은 보기와 무관하게 늘 읽는다 — 타일 넷과 사용자 고르개가 그것으로 선다.</summary>
     private Task ReloadAsync() => LoadAsync(async () =>
     {
         var from = DateOf(_from);
@@ -155,8 +124,7 @@ public partial class BlockedAccessList
             ? await Api.GetBlockedAccessLogsAsync(from, to, _userId, _reason, _keyword, LogCap)
             : [];
 
-        // 고른 사람이 이 기간에는 기록이 없을 수 있다. 그때 고르개만 값을
-        // 들고 있으면 「전체」로 보이면서 조건은 걸려 있는 상태가 된다.
+        // 고른 사람이 이 기간에 기록이 없으면 고르개 값도 함께 푼다 — 안 그러면 「전체」로 보이면서 조건은 걸려 있게 된다.
         if (_userId is not null && _users.All(u => u.UserId != _userId))
         {
             _userId = null;
@@ -189,10 +157,7 @@ public partial class BlockedAccessList
         return ReloadAsync();
     }
 
-    /// <summary>
-    /// 보기를 바꾼다. <b>바로 다시 읽는다</b> — 보기마다 읽어 오는 것이 달라서
-    /// (기록은 그때만 받는다) 조회를 다시 누르게 하면 빈 판이 뜬다.
-    /// </summary>
+    /// <summary>보기를 바꾼다. 바로 다시 읽는다 — 기록은 그 보기에서만 받으므로 조회를 다시 누르게 하면 빈 판이 뜬다.</summary>
     private Task PickViewAsync(string? view)
     {
         _view = string.IsNullOrWhiteSpace(view) ? ViewByScreen : view;
@@ -212,9 +177,7 @@ public partial class BlockedAccessList
         return ReloadAsync();
     }
 
-    /// <summary>
-    /// 화면별 표에서 항목 카드를 골랐을 때. 상세 창을 띄워 차단된 사용자와 시각 정보를 보여준다.
-    /// </summary>
+    /// <summary>화면별 표에서 항목 카드를 골랐을 때 상세 창을 띄운다.</summary>
     private async Task OnScreenPickedAsync(BlockedAccessByScreenDto? row)
     {
         _pickedScreen = row;
@@ -224,10 +187,7 @@ public partial class BlockedAccessList
         }
     }
 
-    /// <summary>
-    /// 화면별 차단 항목 카드를 선택했을 때 상세 창을 연다.
-    /// 해당 화면에서 차단된 사용자와 시각, 주소 등의 정보를 조회해 표시한다.
-    /// </summary>
+    /// <summary>화면별 차단 항목 카드를 골랐을 때 상세 창을 연다. 차단된 사용자와 시각, 주소를 조회해 보여 준다.</summary>
     private async Task OpenScreenDetailAsync(BlockedAccessByScreenDto row)
     {
         _pickedScreen = row;
@@ -357,15 +317,7 @@ public partial class BlockedAccessList
         return ReloadAsync();
     }
 
-    /// <summary>
-    /// 그 화면으로 좁혀 기록을 연다.
-    /// </summary>
-    /// <remarks>
-    /// 화면별 집계는 <b>열쇠로 묶으므로 실제 주소가 사라진다</b>. 「누구의 것을
-    /// 보려 했나」에 답하려면 기록 보기로 내려가야 하고, 그 길을 줄에서 바로
-    /// 열어 준다. 검색어로 넘기는 값이 열쇠인 것은 서버의 검색이 열쇠·주소·
-    /// 경로·화면 클래스를 함께 훑기 때문이다.
-    /// </remarks>
+    /// <summary>그 화면으로 좁혀 기록을 연다. 화면별 집계는 열쇠로 묶어 실제 주소가 사라지므로, 기록 보기로 내려가는 길을 줄에서 바로 열어 준다.</summary>
     private Task OpenScreenLogAsync(BlockedAccessByScreenDto row)
     {
         _pickedScreen = row;
@@ -374,20 +326,11 @@ public partial class BlockedAccessList
         return ReloadAsync();
     }
 
-    /// <summary>
-    /// 까닭에 입히는 모양. <b>「관리 밖」만 눈에 띄게 둔다</b> — 그쪽이 사람이
-    /// 손봐야 하는 줄이고, 둘 다 붉게 칠하면 갈라 둔 뜻이 없어진다.
-    /// </summary>
+    /// <summary>까닭에 입히는 모양. 「관리 밖」만 눈에 띄게 둔다 — 그쪽이 사람이 손봐야 하는 줄이다.</summary>
     private static string ReasonCss(string? reason) =>
         reason == BlockedAccessReason.Unmanaged ? "jsini-text-danger" : "jsini-text-muted";
 
-    /// <summary>
-    /// 고르개가 주는 <c>DateTime?</c> 을 날짜로 바꾼다.
-    /// </summary>
-    /// <remarks>
-    /// <b>한국 달력 날짜다.</b> 사람이 고른 것이 그것이고, 서버는 이 날짜를
-    /// 받아 하루의 경계를 잡는다(docs/utc-time.md).
-    /// </remarks>
+    /// <summary>고르개가 주는 DateTime? 을 날짜로 바꾼다. 한국 달력 날짜다 — 서버는 이 날짜로 하루의 경계를 잡는다(docs/utc-time.md).</summary>
     private static DateOnly? DateOf(DateTime? value) =>
         value is null ? null : DateOnly.FromDateTime(value.Value);
 }

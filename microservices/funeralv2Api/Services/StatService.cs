@@ -5,21 +5,12 @@ using Microsoft.EntityFrameworkCore;
 namespace funeralv2Api.Services;
 
 /// <inheritdoc cref="IStatService"/>
-/// <remarks>
-/// 옛 시스템의 <c>t_goin_pay</c> 자리를 <c>smfr.deceased_facilities</c> 가 맡는다.
-/// 옛 표는 고인 한 명당 세 줄(기본료 · 환경부담금 · 시설관리비)이 고정이었고
-/// 금액은 프로시저가 채웠다. 지금은 행마다 단가가 적히므로,
-/// <b>비용 행이 하나도 없는 고인에게는 기본 항목을 만들어 보여 준다</b> —
-/// 옛 화면이 그렇게 보였기 때문이다. 저장하지는 않는다.
-/// </remarks>
+/// 비용 행이 없는 고인에게는 기본 항목을 보여 주기만 하고 저장하지 않는다.
 public class StatService : IStatService
 {
     private readonly AppDbContext _dbContext;
 
-    /// <summary>
-    /// 비용 행이 없을 때 보여 줄 기본 항목. 옛 시스템에 박혀 있던 값이다.
-    /// 단가를 어디에 둘지는 40번 문서의 D-F1 로 남겨 두었다.
-    /// </summary>
+    /// <summary>비용 행이 없을 때 보여 줄 기본 항목.</summary>
     private static readonly (string Title, decimal Price, bool PerDay)[] DefaultItems =
     {
         ("기본료", 120_000m, true),

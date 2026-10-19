@@ -12,9 +12,7 @@ public partial class Home
     private IReadOnlyList<AdminAuditEntry> Recent => _board?.RecentAudit ?? [];
 
     /// <summary>
-    /// 결제 상태를 **코드표의 차례로** 늘어놓는다. 서버가 준 차례(건수순일 수도,
-    /// 알파벳순일 수도 있다)를 따르면 새로 읽을 때마다 딱지 자리가 바뀌어
-    /// 「미지급이 어디 있었나」를 매번 찾는다. 코드표에 없는 것은 뒤에 붙인다.
+    /// 결제 상태를 코드표의 차례로 늘어놓는다 — 서버 차례(건수순·알파벳순)를 따르면 새로 읽을 때마다 딱지 자리가 바뀐다. 코드표에 없는 것은 뒤에 붙인다.
     /// </summary>
     private IEnumerable<AdminStatusCount> OrderedCounts
     {

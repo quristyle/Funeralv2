@@ -5,80 +5,17 @@ using Microsoft.JSInterop;
 
 namespace JSini.Web.ProjMng.Components.Shared;
 
-/// <summary>
-/// AI 작업 지시의 <b>임시저장</b>. 브라우저에 적어 둔다(<c>localStorage</c>).
-/// </summary>
-/// <remarks>
-/// <para>
-/// [무엇을 고친 것인가]
-/// </para>
-///
-/// <para>
-/// 포털의 탭은 <b>주소 목록일 뿐</b>이고 떠난 화면은 그 자리에서 버려진다
-/// (<c>PortalTabs</c> 머리말). 그래서 작업 내용을 한참 적다가 다른 탭에 잠깐
-/// 다녀오면 <b>적던 것이 통째로 사라졌다.</b> 이 화면은 본문이 길다 — 몇십 분
-/// 적은 것이 한 번의 탭 이동으로 없어진다.
-/// </para>
-///
-/// <para>
-/// [왜 서버가 아니라 브라우저인가]
-/// </para>
-///
-/// <para>
-/// 서버에 적어 두려면 「저장」과 구별되지 않는 저장을 하게 된다 — 쓰다 만 글이
-/// 서버의 본문을 덮어쓰고, 그 본문은 <b>실행기가 집어 가는 바로 그 글</b>이다.
-/// 임시본은 「아직 서버에 없는 것」이어야 해서 브라우저에 둔다.
-/// </para>
-///
-/// <para>
-/// 회로(서버 메모리)에 두지 않는 이유는 그것이 <b>창을 닫으면 함께 사라지기</b>
-/// 때문이다. 실수로 창을 닫은 경우를 살리는 것이 이 기능의 절반이다.
-/// </para>
-///
-/// <para>
-/// [열쇠에 로그인 아이디가 들어간다]
-/// </para>
-///
-/// <para>
-/// 작업 번호는 모두의 것이라, 열쇠를 번호로만 만들면 <b>공용 PC 에서 남의
-/// 임시본이 내 화면에 뜬다.</b> <see cref="Use"/> 로 받은 아이디를 열쇠에 섞는다.
-/// </para>
-///
-/// <para>
-/// [한 열쇠에 전부 담는다]
-/// </para>
-///
-/// <para>
-/// 작업마다 열쇠를 나누면 「무엇이 적혀 있나」를 알려고 저장소를 훑어야 하고,
-/// 그건 JS 왕복이 는다는 뜻이다. 한 덩이로 두면 화면이 뜰 때 <b>왕복 한 번</b>에
-/// 전부 읽고, 그 뒤로는 우리가 들고 있는 것이 정본이다 — 이 열쇠에 쓰는 화면이
-/// 하나뿐이라 그래도 된다.
-/// </para>
-///
-/// <para>
-/// scoped 다 — 회로 하나가 사용자 한 명의 창 하나다.
-/// </para>
-/// </remarks>
+/// <summary>AI 작업 지시의 임시저장. 브라우저(localStorage)에 적어 둔다 — 포털 탭을 옮기면 화면이 버려져 적던 글을 살린다. 서버에 두면 쓰다 만 글이 실행기가 집어 가는 본문을 덮는다.
+/// 열쇠에 로그인 아이디를 섞는다(작업 번호는 모두의 것이라 공용 PC 에서 남의 임시본이 뜬다). 한 열쇠에 전부 담아 읽기 왕복을 한 번으로 한다. scoped — 회로 하나가 창 하나다.</summary>
 public sealed class AiTaskDraftStore(IJSRuntime js, ILogger<AiTaskDraftStore> logger)
 {
     /// <summary>저장소 열쇠의 앞부분. 뒤에 로그인 아이디가 붙는다.</summary>
     public const string KeyPrefix = "jsini-ai-task-drafts:";
 
-    /// <summary>
-    /// 들고 있을 임시본 수. 넘으면 오래된 것부터 버린다 — 한 사람이 동시에
-    /// 손대는 작업이 열 건을 넘지 않는다.
-    /// </summary>
+    /// <summary>들고 있을 임시본 수. 넘으면 오래된 것부터 버린다.</summary>
     private const int MaxDrafts = 10;
 
-    /// <summary>
-    /// 전부 합쳐 이만큼(글자)까지만 들고 있는다.
-    ///
-    /// <para>
-    /// <c>localStorage</c> 는 도메인마다 5MB 안팎이고 그 자리를 탭 고정·공지
-    /// 표시와 나눠 쓴다. 넘치면 브라우저가 <b>쓰기를 통째로 거절</b>하므로
-    /// (그러면 임시저장이 조용히 안 된다) 그 앞에서 우리가 줄인다.
-    /// </para>
-    /// </summary>
+    /// <summary>전부 합쳐 이만큼(글자)까지만 든다. localStorage 는 도메인마다 5MB 안팎이고 탭 고정·공지 표시와 나눠 쓴다 — 넘치면 브라우저가 쓰기를 통째로 거절하므로 그 앞에서 줄인다.</summary>
     private const int MaxChars = 400_000;
 
     /// <summary>이만큼 지난 임시본은 읽을 때 버린다.</summary>
@@ -88,20 +25,13 @@ public sealed class AiTaskDraftStore(IJSRuntime js, ILogger<AiTaskDraftStore> lo
     private Dictionary<long, AiTaskDraft> _map = [];
     private bool _read;
 
-    /// <summary>
-    /// 브라우저가 저장소를 막고 있다(사생활 보호 모드 · 용량 초과).
-    /// <b>화면이 이것을 사람에게 말해야 한다</b> — 임시저장이 안 되는 것을
-    /// 모르고 믿는 편이 아예 없는 것보다 나쁘다.
-    /// </summary>
+    /// <summary>브라우저가 저장소를 막고 있다(사생활 보호 모드 · 용량 초과). 화면이 이것을 사람에게 말해야 한다 — 안 되는 것을 모르고 믿는 편이 아예 없는 것보다 나쁘다.</summary>
     public bool Blocked { get; private set; }
 
     /// <summary>적어 둔 임시본. 열쇠는 작업 번호이고 <c>0</c> 은 아직 저장 안 한 새 작업이다.</summary>
     public IReadOnlyDictionary<long, AiTaskDraft> Items => _map;
 
-    /// <summary>
-    /// 누구의 임시본인지 정한다. 화면이 뜰 때 한 번 부른다.
-    /// 사람이 바뀌면 들고 있던 것을 버리고 다시 읽는다.
-    /// </summary>
+    /// <summary>누구의 임시본인지 정한다. 사람이 바뀌면 들고 있던 것을 버리고 다시 읽는다.</summary>
     public void Use(string? username)
     {
         var key = KeyPrefix + (string.IsNullOrWhiteSpace(username) ? "?" : username.Trim());
@@ -116,12 +46,7 @@ public sealed class AiTaskDraftStore(IJSRuntime js, ILogger<AiTaskDraftStore> lo
         _read = false;
     }
 
-    /// <summary>
-    /// 적어 둔 것을 읽는다. <b>회로가 붙은 뒤에</b> 불러야 한다
-    /// (<c>OnAfterRenderAsync</c>) — 프리렌더 중에는 JS 를 부를 수 없다.
-    ///
-    /// <para>여러 번 불러도 왕복은 한 번이다.</para>
-    /// </summary>
+    /// <summary>적어 둔 것을 읽는다. 회로가 붙은 뒤에 불러야 한다(프리렌더에서는 JS 를 부를 수 없다). 여러 번 불러도 왕복은 한 번이다.</summary>
     public async Task<IReadOnlyDictionary<long, AiTaskDraft>> ReadAsync()
     {
         if (_read)
@@ -139,8 +64,7 @@ public sealed class AiTaskDraftStore(IJSRuntime js, ILogger<AiTaskDraftStore> lo
         }
         catch (Exception ex) when (ex is JSException or JSDisconnectedException or InvalidOperationException)
         {
-            // 저장소를 못 쓰는 브라우저다. 임시저장만 없는 것으로 보고 넘어간다 —
-            // 읽기 실패로 화면을 세우지 않는다.
+            // 저장소를 못 쓰는 브라우저다 — 임시저장만 없는 것으로 보고 읽기 실패로 화면을 세우지 않는다.
             Blocked = true;
             logger.LogDebug(ex, "임시저장을 읽지 못했다.");
             return _map;
@@ -157,8 +81,7 @@ public sealed class AiTaskDraftStore(IJSRuntime js, ILogger<AiTaskDraftStore> lo
         }
         catch (JsonException ex)
         {
-            // 적어 둔 것이 깨졌다. 지우고 넘어간다 — 임시본 때문에 화면이
-            // 안 열리면 안 된다.
+            // 적어 둔 것이 깨졌다 — 지우고 넘어간다. 임시본 때문에 화면이 안 열리면 안 된다.
             logger.LogDebug(ex, "임시저장이 깨져 있어 지운다.");
             _map = [];
             await FlushAsync();
@@ -169,10 +92,7 @@ public sealed class AiTaskDraftStore(IJSRuntime js, ILogger<AiTaskDraftStore> lo
         return _map;
     }
 
-    /// <summary>
-    /// 임시본 하나를 적어 둔다. <see cref="AiTaskDraft.SavedAt"/> 은 여기서 찍는다 —
-    /// 화면이 찍으면 「언제 적힌 것인가」가 화면마다 갈린다.
-    /// </summary>
+    /// <summary>임시본 하나를 적어 둔다. SavedAt 은 여기서 찍는다 — 화면이 찍으면 「언제 적힌 것인가」가 화면마다 갈린다.</summary>
     public Task SaveAsync(AiTaskDraft draft)
     {
         draft.SavedAt = AppTime.UtcNow;
@@ -207,17 +127,13 @@ public sealed class AiTaskDraftStore(IJSRuntime js, ILogger<AiTaskDraftStore> lo
         }
         catch (Exception ex) when (ex is JSException or InvalidOperationException)
         {
-            // 용량을 넘겼거나 저장소가 막혀 있다. **말해 준다** — 아래 줄이
-            // 없으면 임시저장이 안 되는 것을 아무도 모른다.
+            // 용량을 넘겼거나 저장소가 막혀 있다. 말해 줘야 한다 — 아니면 임시저장이 안 되는 것을 아무도 모른다.
             Blocked = true;
             logger.LogDebug(ex, "임시저장을 적지 못했다.");
         }
     }
 
-    /// <summary>
-    /// 오래된 것 · 넘치는 것을 버린다. <b>방금 적은 것은 언제나 남는다</b> —
-    /// 가장 최근이라 마지막까지 살아남는다.
-    /// </summary>
+    /// <summary>오래된 것과 넘치는 것을 버린다. 방금 적은 것은 가장 최근이라 마지막까지 남는다.</summary>
     private void Prune()
     {
         var old = AppTime.UtcNow - Keep;
@@ -244,10 +160,7 @@ public sealed class AiTaskDraftStore(IJSRuntime js, ILogger<AiTaskDraftStore> lo
     }
 }
 
-/// <summary>
-/// 적어 둔 한 벌. <b>사람이 고치는 칸만</b> 담는다 — 상태·실행 이력처럼
-/// 서버가 정하는 값은 담지 않는다(담으면 되살릴 때 옛 상태로 덮어쓴다).
-/// </summary>
+/// <summary>적어 둔 한 벌. 사람이 고치는 칸만 담는다 — 서버가 정하는 값(상태·실행 이력)을 담으면 되살릴 때 옛 상태로 덮어쓴다.</summary>
 public sealed class AiTaskDraft
 {
     /// <summary>어느 작업의 것인가. <c>0</c> 은 아직 저장하지 않은 새 작업이다.</summary>
@@ -263,15 +176,7 @@ public sealed class AiTaskDraft
     public string? NotifyTo { get; set; }
     public string? NotifyWhen { get; set; }
 
-    /// <summary>
-    /// 임시본을 뜰 때 서버가 들고 있던 판(<c>RowVersion</c>).
-    ///
-    /// <para>
-    /// 되살릴 때 이 값과 지금 서버의 것을 견준다. 다르면 <b>그 사이 누군가
-    /// 저장했다</b>는 뜻이고, 그대로 저장하면 그 사람의 글이 덮인다 —
-    /// 화면이 그것을 미리 말해 준다.
-    /// </para>
-    /// </summary>
+    /// <summary>임시본을 뜰 때 서버가 들고 있던 판(RowVersion). 되살릴 때 지금 서버의 것과 견줘, 다르면 그 사이 누군가 저장한 것이라 화면이 미리 말해 준다.</summary>
     public int BaseRowVersion { get; set; }
 
     /// <summary>적어 둔 때. <see cref="AiTaskDraftStore.SaveAsync"/> 가 찍는다.</summary>

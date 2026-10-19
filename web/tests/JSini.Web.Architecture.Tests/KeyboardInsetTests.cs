@@ -3,32 +3,14 @@ using Xunit;
 
 namespace JSini.Web.Architecture.Tests;
 
-/// <summary>
-/// 휴대폰 키보드가 공통 팝업의 바닥을 덮지 않게 막는 한 겹
-/// (<c>keyboard-inset.js</c> + app.css 의 「키보드가 올라오면」 구역)을 지킨다.
-///
-/// <para>
-/// [왜 글자로 검사하나]
-/// </para>
-///
-/// <para>
-/// 여기서 끊기는 자리는 <b>전부 빌드를 통과한다.</b> 브라우저와 CSS 가
-/// <b>글자로</b> 맞잡고 있기 때문이다 — 변수 이름(<c>--jsini-vvh</c>) ·
-/// 클래스 이름(<c>jsini-kb-open</c>) · 스크립트 경로. 어느 하나가 어긋나도
-/// 화면은 멀쩡하고, <b>휴대폰으로 그 창에 글을 적어 보는 사람이 나올 때까지</b>
-/// 아무도 모른다. 그때 보이는 것은 「저장 단추가 안 보인다」 하나뿐이다.
-/// </para>
-/// </summary>
+/// <summary>휴대폰 키보드가 공통 팝업의 바닥을 덮지 않게 막는 한 겹(keyboard-inset.js + app.css)을 지킨다. 변수 이름·클래스 이름·스크립트 경로가 브라우저와 글자로 맞잡고 있어,
+/// 어긋나도 빌드는 통과하고 화면은 멀쩡해서 휴대폰으로 그 창에 글을 적는 사람이 나올 때까지 아무도 모른다.</summary>
 public sealed class KeyboardInsetTests
 {
     // ── 실리는가 ────────────────────────────────────────────────
 
     /// <summary>공통 <c>&lt;head&gt;</c> 가 이 스크립트를 <b>싣는다.</b></summary>
-    /// <remarks>
-    /// 창마다 모듈로 붙이지 않고 여기 한 번 거는 것이 이 설계의 전부다.
-    /// 빠지면 변수가 영영 안 서고 CSS 는 되돌림 값(<c>100dvh</c>)으로 조용히
-    /// 지금까지처럼 동작한다 — 고장 난 티가 안 난다.
-    /// </remarks>
+    /// <summary>창마다 모듈로 붙이지 않고 공통 head 에서 한 번 싣는다. 빠지면 변수가 안 서고 CSS 는 되돌림 값으로 조용히 옛 동작을 한다.</summary>
     [Fact]
     public void 공통_머리가_스크립트를_싣는다()
     {
@@ -56,11 +38,7 @@ public sealed class KeyboardInsetTests
     /// <summary>
     /// 변수를 읽는 자리마다 <b>되돌림 값</b>이 있다.
     /// </summary>
-    /// <remarks>
-    /// <c>visualViewport</c> 가 없는 브라우저와 스크립트가 아직 안 실린 순간에는
-    /// 변수가 비어 있다. 되돌림 값을 빼면 그때 <c>height</c> 가 통째로 무효가
-    /// 되어 <b>창이 내용만큼만 커진다</b> — 꽉 채움이 조용히 풀린다.
-    /// </remarks>
+    /// <summary>변수를 읽는 자리마다 되돌림 값이 있다 — 없으면 변수가 빈 브라우저에서 height 가 통째로 무효가 되어 창이 내용만큼만 커진다.</summary>
     [Fact]
     public void 변수를_읽는_자리마다_되돌림_값이_있다()
     {
@@ -78,10 +56,7 @@ public sealed class KeyboardInsetTests
     /// <summary>
     /// 치수를 바꾸는 규칙은 <b>키보드가 올라와 있을 때만</b> 돈다.
     /// </summary>
-    /// <remarks>
-    /// 늘 걸어 두면 주소창이 접히고 펴지는 것(56px 안팎)과 손가락 확대까지
-    /// 창 크기를 흔든다. 고치려던 것은 키보드 하나다.
-    /// </remarks>
+    /// <summary>치수를 바꾸는 규칙은 키보드가 올라와 있을 때만 돈다 — 늘 걸어 두면 주소창이 접히고 펴지는 것까지 창 크기를 흔든다.</summary>
     [Fact]
     public void 치수를_바꾸는_규칙은_키보드가_올라왔을_때만_돈다()
     {
@@ -109,11 +84,7 @@ public sealed class KeyboardInsetTests
     /// <summary>
     /// 꽉 채운 창을 담는 <b>판부터</b> 줄인다.
     /// </summary>
-    /// <remarks>
-    /// 판(<c>dxbl-modal-root</c>)은 <c>position: fixed; height: 100%</c> 이고
-    /// 창을 <b>가운데 세운다.</b> 그것을 그대로 두고 창만 줄이면 남은 틈이
-    /// 위아래로 반씩 생겨 <b>아래 절반은 여전히 키보드 밑</b>이다.
-    /// </remarks>
+    /// <summary>꽉 채운 창을 담는 판부터 줄인다 — 판은 가운데 세우므로 창만 줄이면 아래 절반이 여전히 키보드 밑에 남는다.</summary>
     [Fact]
     public void 창을_담는_판부터_줄인다()
     {
@@ -153,10 +124,7 @@ public sealed class KeyboardInsetTests
     /// <summary>
     /// 문턱이 <b>접히는 주소창보다 높다.</b>
     /// </summary>
-    /// <remarks>
-    /// 안드로이드 크롬의 주소창은 56px 안팎이다. 문턱이 그보다 낮으면 그냥
-    /// 굴리기만 해도 창이 들썩인다. 키보드는 어떤 기기에서도 200px 을 넘는다.
-    /// </remarks>
+    /// <summary>키보드와 주소창을 가르는 문턱은 접히는 주소창(56px 안팎)보다 높아야 한다. 키보드는 어떤 기기에서도 200px 을 넘는다.</summary>
     [Fact]
     public void 문턱이_주소창보다_높다()
     {
@@ -172,10 +140,7 @@ public sealed class KeyboardInsetTests
     /// <summary>
     /// 확대 배율을 <b>되곱해</b> 견준다.
     /// </summary>
-    /// <remarks>
-    /// 두 배로 키우면 보이는 높이가 절반이 된다. 그대로 견주면 확대한 사람에게는
-    /// <b>키보드가 늘 올라와 있는 것</b>으로 보인다.
-    /// </remarks>
+    /// <summary>확대 배율을 되곱해 견준다 — 그대로 견주면 확대한 사람에게 키보드가 늘 올라와 있는 것으로 보인다.</summary>
     [Fact]
     public void 확대_배율을_되곱해_견준다() =>
         Assert.Contains("vv.scale", Script(), StringComparison.Ordinal);
@@ -183,10 +148,7 @@ public sealed class KeyboardInsetTests
     /// <summary>
     /// iOS 가 쪽을 밀어 올리는 것(<c>scroll</c>)도 듣는다.
     /// </summary>
-    /// <remarks>
-    /// 그때는 높이가 그대로고 <c>offsetTop</c> 만 바뀐다. 안 들으면 창이
-    /// 화면 위로 반쯤 나간 채 남는다.
-    /// </remarks>
+    /// <summary>iOS 가 쪽을 밀어 올리는 scroll 도 듣는다 — 그때는 높이가 그대로고 offsetTop 만 바뀌어, 안 들으면 창이 화면 위로 반쯤 나간다.</summary>
     [Fact]
     public void 보이는_뷰포트의_굴림도_듣는다()
     {

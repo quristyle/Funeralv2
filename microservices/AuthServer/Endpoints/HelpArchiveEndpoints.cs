@@ -8,16 +8,8 @@ namespace AuthServer.Endpoints;
 /// <summary>
 /// 자료실 엔드포인트 (<c>/help/archive</c>)
 /// </summary>
-/// <remarks>
-/// 자료실은 JSini 관리 포털이 관리하고 모든 MSA 사용자에게 공통으로 보인다.
-/// 관리자가 자료를 올리고 나머지 사용자는 설명을 읽고 내려받는다.
-///
-/// 게이트웨이의 <c>/api/auth/**</c> 경로는 Anonymous 라 인증을 걸지 않는다.
-/// 그래서 여기서 UserContext 가 없으면 401 을 돌려준다.
-///
-/// 쓰기 권한은 화면이 아니라 <see cref="IHelpArchiveService"/> 가 판정한다.
-/// 화면의 `v-perm` 은 버튼을 숨기는 장치일 뿐이라 요청을 직접 보내면 통과한다.
-/// </remarks>
+/// 관리자가 올리고 나머지는 읽고 내려받는다. 게이트웨이의 /api/auth/** 는 익명이라 여기서 UserContext 가 없으면 401 이다.
+/// 쓰기 권한은 화면이 아니라 IHelpArchiveService 가 판정한다 — v-perm 은 버튼을 숨길 뿐이라 요청을 직접 보내면 통과한다.
 public static class HelpArchiveEndpoints
 {
     public static void MapHelpArchiveEndpoints(this IEndpointRouteBuilder app)
@@ -50,12 +42,8 @@ public static class HelpArchiveEndpoints
         .WithName("GetHelpArchiveById");
 
         // ── 내려받기 ────────────────────────────────────────────
-        //
-        // 다운로드 수를 세고 FileServer 로 302 로 넘긴다.
-        // 브라우저가 FileServer 를 직접 열면 셀 수가 없어서 여기를 한 번 거친다.
-        //
-        // 응답 봉투(ApiResponse)를 쓰지 않는다 — 브라우저가 그대로 따라가야 하는
-        // 리다이렉트이지, 화면이 읽어서 처리할 데이터가 아니다.
+        // 다운로드 수를 세고 FileServer 로 302 로 넘긴다. 셀 수 없는 직접 접근을 막으려고 여기를 거친다.
+        // 응답 봉투를 쓰지 않는다 — 브라우저가 그대로 따라가는 리다이렉트다.
         group.MapGet("/{id}/files/{fileId}/download", async (string id, string fileId,
             UserContext? user, [FromServices] IHelpArchiveService service) =>
         {

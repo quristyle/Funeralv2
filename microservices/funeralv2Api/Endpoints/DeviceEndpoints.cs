@@ -46,12 +46,8 @@ public static class DeviceEndpoints
             return Results.Ok(result);
         }).WithName("GetDeviceById");
 
-        // 장비 코드로 상세 조회
-        //
-        // [익명 라우트] 게이트웨이가 이 경로를 로그인 없이 통과시킨다(플레이어용).
-        // 장비 코드는 추측 가능하므로 표출과 무관한 망 정보(내부 IP · MAC · 공인 IP)는
-        // 내려보내지 않는다 — AnonymousDisplayProjection 주석 참고 (결정 D-M2).
-        // 포털의 장비 관리 화면은 이 경로를 쓰지 않는다(id 로 조회한다).
+        // 장비 코드로 상세 조회. [익명 라우트] 로그인 없이 통과하므로 표출과 무관한 망 정보는 내려보내지 않는다(AnonymousDisplayProjection).
+        // 포털 장비 관리 화면은 이 경로를 쓰지 않는다(id 로 조회).
         group.MapGet("/code/{code}", async (string code, [FromServices] IDeviceService service) =>
         {
             var result = await service.GetByCodeAsync(code);
@@ -101,11 +97,8 @@ public static class DeviceEndpoints
             return Results.Ok(ApiResponse<bool>.Ok(success));
         }).WithName("UpdateDeviceStatus");
 
-        // 원격 모니터 전원 제어 (기기코드 기준)
-        //
-        // 관리자가 웹에서 특정 사이니지의 화면을 끄거나 켠다.
-        // DB 에 저장하지 않는 즉시 실행 명령이며, 장비가 SignalR 로 접속해 있어야 전달된다.
-        // 대상 장비가 오프라인이면 전달되지 않으므로 그 사실을 응답으로 알려준다.
+        // 원격 모니터 전원 제어(기기코드 기준). DB 에 저장하지 않는 즉시 실행 명령이라 SignalR 연결이 있어야 전달된다.
+        // 오프라인이면 전달되지 않으므로 그 사실을 응답으로 알린다.
         group.MapPost("/screen-power/{code}", async (
             string code,
             [FromQuery] string state,
@@ -128,9 +121,7 @@ public static class DeviceEndpoints
                     ApiResponse<bool>.Fail("state 는 ON 또는 OFF 여야 합니다.", "ERR_INVALID_STATE"));
             }
 
-            // SignalR 그룹 전송은 수신자가 없어도 예외 없이 성공한다.
-            // 그대로 두면 오프라인 장비에 명령을 보내고도 화면에는 "전송 완료"가 떠서
-            // 왜 안 되는지 알 수 없다. 대상 장비의 존재와 접속 상태를 먼저 확인한다.
+            // SignalR 그룹 전송은 수신자가 없어도 성공하므로, 대상 장비의 존재와 접속 상태를 먼저 확인한다.
             var device = await service.GetByCodeAsync(code);
             if (device == null)
             {
@@ -138,9 +129,7 @@ public static class DeviceEndpoints
                     ApiResponse<bool>.Fail($"장비를 찾을 수 없습니다: {code}", "ERR_DEVICE_NOT_FOUND"));
             }
 
-            // DB 의 status 가 아니라 실제 SignalR 연결 여부를 본다.
-            // 서버가 재기동되면 연결은 전부 끊기지만 DB 는 ONLINE 인 채로 남아 있어,
-            // status 만 믿으면 "전송 성공"이라고 답하고 명령은 사라진다.
+            // DB 의 status 는 서버 재기동 뒤에도 ONLINE 으로 남으므로 실제 SignalR 연결 여부로 판단한다.
             if (!DeviceHub.IsDeviceConnected(code))
             {
                 return Results.Ok(
@@ -153,11 +142,8 @@ public static class DeviceEndpoints
             return Results.Ok(ApiResponse<bool>.Ok(true));
         }).WithName("SetDeviceScreenPower");
 
-        // 플레이어 앱 재시작 (기기코드 기준) — 47번 문서 D-RS3.
-        //
-        // OS 재부팅이 아니라 앱 프로세스 재시작이다. 리눅스 장비는 systemd
-        // (Restart=always)가 3초 안에 되살리고, 안드로이드는 키오스크 런처가
-        // 되살릴 때만 유효하다. screen-power 와 같은 즉시 실행 명령 규칙을 따른다.
+        // 플레이어 앱 재시작(OS 재부팅이 아님). 리눅스는 systemd Restart=always 가, 안드로이드는 키오스크 런처가 되살릴 때만 유효하다.
+        // screen-power 와 같은 즉시 실행 명령 규칙을 따른다.
         group.MapPost("/app-restart/{code}", async (
             string code,
             [FromServices] IDeviceService service,

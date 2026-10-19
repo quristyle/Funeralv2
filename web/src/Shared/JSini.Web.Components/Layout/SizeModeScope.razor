@@ -1,35 +1,6 @@
 @*
-    사용자가 고른 크기를 **DevExpress 부품 전체**에 흘린다.
-
-    [어떻게 흘리나 — 클래스 하나로는 안 된다]
-
-    DevExpress 는 크기를 `dxbl-sm`/`dxbl-lg` 클래스로 나타내는데, 그 클래스는
-    **부품 뿌리 자신**에 붙어야 한다(`.dxbl-btn.dxbl-sm` 처럼). 그래서 `<html>`
-    에 한 번 붙여 두는 식으로는 아무 일도 일어나지 않는다.
-
-    대신 부품마다 `[CascadingParameter(Name = "ParentSizeMode")]` 를 열어 두었다
-    (`DxComponentBase.ParentSizeModeCascadeName`). 그 이름으로 값을 흘리면
-    그리드 · 편집기 · 단추 · 팝업이 모두 받아 간다 — 화면 하나하나에
-    `SizeMode=` 를 적을 필요가 없다.
-
-    [왜 라우터 바깥인가]
-
-    팝업 · 알림 · 확인창은 화면 안에 있지 않고 provider 가 따로 그린다.
-    레이아웃 안에서 흘리면 그것들이 빠진다. 라우터를 통째로 감싸면
-    로그인 화면(정적 SSR)까지 함께 받는다.
-
-    [첫 그림이 이미 맞아야 한다]
-
-    크기는 스타일이 아니라 **서버가 만드는 HTML** 이다. 회로가 붙은 뒤에 읽으면
-    Medium 으로 한 번 그려졌다가 다시 그려져 화면이 출렁인다. 그래서 값을
-    두 곳에서 얻는다.
-
-      · 프리렌더 — 요청에 실려 온 쿠키(theme.js 가 굽는다)
-      · 회로 시작 — 프리렌더가 남겨 둔 PersistentComponentState
-
-    회로에는 HttpContext 가 없어서 쿠키를 다시 읽을 수 없다. 두 번째 경로가
-    없으면 회로가 붙는 순간 기본값으로 돌아간다 — 프리렌더만 맞고 그 뒤가
-    틀리는, 가장 알아채기 나쁜 쪽이다.
+    사용자가 고른 크기를 DevExpress 부품 전체에 흘린다. 크기는 클래스 하나로 안 되고 부품 뿌리에 붙어야 해서 값을 CascadingParameter(ParentSizeMode)로 흘린다 — 화면마다 SizeMode 를 적을 필요가 없다.
+    라우터 바깥에 두는 까닭은 팝업 · 알림 · 확인창이 화면 안이 아니라 provider 가 그려서 레이아웃 안에서는 빠지기 때문이다. 크기는 서버가 만드는 HTML 이라 첫 그림부터 맞아야 한다 — 프리렌더는 요청의 쿠키(theme.js 가 굽는다)에서, 회로는 프리렌더가 남긴 PersistentComponentState 에서 얻는다. 회로에는 HttpContext 가 없어 쿠키를 다시 읽을 수 없다.
 *@
 
 @implements IDisposable

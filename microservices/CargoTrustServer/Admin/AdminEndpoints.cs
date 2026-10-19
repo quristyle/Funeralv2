@@ -9,8 +9,7 @@ using Microsoft.Extensions.Options;
 namespace CargoTrustServer.Admin;
 
 /// <summary>
-/// 관리자 — <c>/admin/*</c>. 관리자가 아니면 403 (<see cref="AdminOnlyFilter"/>).
-/// 모든 변경은 audit_log 에 전·후를 남긴다(설계안 30).
+/// 관리자 — /admin/*. 관리자가 아니면 403(AdminOnlyFilter). 모든 변경은 audit_log 에 전·후를 남긴다.
 /// </summary>
 public static class AdminEndpoints
 {

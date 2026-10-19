@@ -10,19 +10,7 @@ using Microsoft.AspNetCore.Components;
 
 namespace JSini.Web.Admin.Components.Pages;
 
-/// <summary>
-/// [회사 관리] — 목록과 고른 회사의 탭을 잇는다.
-/// </summary>
-/// <remarks>
-/// <para>
-/// 고치는 값(<see cref="_edit"/>)은 탭이 아니라 여기에 둔다. 탭은 고른 것만
-/// 그리므로 부서 탭으로 옮겨 가면 수정 탭이 사라지는데, 값까지 거기 두면
-/// 고치던 것이 함께 없어진다.
-/// </para>
-/// <para>
-/// 저장하지 않은 채 다른 회사를 누르면 묻고, 「취소」면 고르던 줄로 되돌린다.
-/// </para>
-/// </remarks>
+/// <summary>[회사 관리] 목록과 고른 회사의 탭을 잇는다. 고치는 값은 탭이 아니라 여기에 둔다 — 탭이 바뀌면 고치던 것이 함께 없어진다. 저장하지 않은 채 다른 회사를 누르면 묻는다.</summary>
 public partial class CompanyList
 {
     [Inject] private AdminClient Api { get; set; } = default!;
@@ -106,21 +94,7 @@ public partial class CompanyList
         return _all.Count;
     }, "등록된 회사가 없습니다.", "회사 목록을 읽지 못했습니다");
 
-    /// <summary>
-    /// 다시 읽은 목록에서 보던 회사를 다시 잡는다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 표의 자동 선택(<c>AutoSelectFirstRow</c>)은 끄고 여기서 첫 회사를 연다.
-    /// <see cref="Shown"/> 이 렌더마다 새 목록이라 표가 매번 「자료가 바뀌었다」로
-    /// 읽고, 새 회사를 적는 동안 첫 줄을 잡아 판을 덮어쓴다.
-    /// </para>
-    /// <para>
-    /// 고치던 것이 있으면 기준(<see cref="_original"/>)만 새 값으로 갈고 친 값은
-    /// 둔다. 순서 칸은 손대지 않았으면 끌어 옮긴 새 숫자를 따라간다 — 옛 숫자가
-    /// 남으면 저장할 때 끌어 놓은 자리를 덮는다.
-    /// </para>
-    /// </remarks>
+    /// <summary>다시 읽은 목록에서 보던 회사를 다시 잡는다. 표의 자동 선택은 끄고 여기서 첫 회사를 연다. 고치던 것이 있으면 기준만 새 값으로 갈고 친 값은 둔다.</summary>
     private void Repick()
     {
         if (_isNew)
@@ -260,10 +234,7 @@ public partial class CompanyList
         return ok;
     }
 
-    /// <summary>
-    /// 표가 칠해 둔 새 줄을 고르던 줄로 되돌린다. 같은 값을 다시 넘기는 것으로는
-    /// DxGrid 가 바뀐 것으로 보지 않아 강조가 누른 줄에 남는다.
-    /// </summary>
+    /// <summary>표가 칠해 둔 새 줄을 고르던 줄로 되돌린다 — 같은 값을 다시 넘기지 않으면 DxGrid 가 바뀐 것으로 보지 않아 강조가 누른 줄에 남는다.</summary>
     private async Task RestoreHighlightAsync()
     {
         if (_grid?.Grid is not { } grid)
@@ -376,10 +347,7 @@ public partial class CompanyList
         return $"회사 「{c.Name}」 을(를) 지웁니다.{scope}\n되돌릴 수 없습니다.";
     }
 
-    /// <summary>
-    /// 줄을 끌어다 놓으면 곧바로 저장한다. 자리는 거른 목록이 아니라
-    /// <see cref="_all"/> 에서 옮긴다 — 보이는 것만 보내면 가려진 회사들의 차례가 날아간다.
-    /// </summary>
+    /// <summary>줄을 끌어다 놓으면 곧바로 저장한다. 자리는 거른 목록이 아니라 _all 에서 옮긴다 — 보이는 것만 보내면 가려진 회사들의 차례가 어긋난다.</summary>
     private async Task OnRowsDroppedAsync(GridItemsDroppedEventArgs e)
     {
         if (e.DroppedItems.FirstOrDefault() is not CompanyDto moved

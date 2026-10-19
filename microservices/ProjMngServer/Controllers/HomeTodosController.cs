@@ -6,11 +6,7 @@ using ProjMngServer.Services;
 namespace ProjMngServer.Controllers;
 
 /// <summary>할 일 — <c>/api/home-todos</c>.</summary>
-/// <remarks>
-/// 등록·수정자는 <b>게이트웨이가 붙여 주는 신원</b>(<c>X-User-Id</c>)으로
-/// 채운다. 옛 화면은 그 값을 본문에 실어 보냈는데, 위조해도 서버가 알 수
-/// 없었다.
-/// </remarks>
+/// 등록·수정자는 게이트웨이가 붙여 주는 신원(X-User-Id)으로만 채운다 — 본문에 실은 값은 위조할 수 있다.
 [ApiController]
 [Route("api/home-todos")]
 public sealed class HomeTodosController(HomeTodoService service) : ControllerBase
@@ -67,10 +63,7 @@ public sealed class HomeTodosController(HomeTodoService service) : ControllerBas
             : NotFound(ApiResponse<object>.Fail("NOT_FOUND", "그 할 일을 찾을 수 없습니다."));
     }
 
-    /// <summary>
-    /// 그 날짜의 되풀이 할 일을 만든다. <b>대상을 받아서</b> 만든다 —
-    /// 옛 프로시저는 사람 둘을 코드에 박아 두었다.
-    /// </summary>
+    /// <summary>그 날짜의 되풀이 할 일을 만든다. 대상을 받아서 만든다.</summary>
     [HttpPost("make")]
     public async Task<IActionResult> MakeAsync([FromBody] MakeTodoRequest request)
     {

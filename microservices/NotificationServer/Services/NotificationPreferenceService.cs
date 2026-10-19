@@ -6,9 +6,7 @@ using NotificationServer.DTOs;
 
 namespace NotificationServer.Services;
 
-/// <summary>
-/// 사람별 알림 수신 설정을 읽고 쓴다.
-/// </summary>
+/// <summary>사람별 알림 수신 설정을 읽고 쓴다.</summary>
 public interface INotificationPreferenceService
 {
     /// <summary>한 사람의 설정. 저장한 적이 없으면 기본값을 <c>Saved = false</c> 로 준다.</summary>
@@ -21,13 +19,7 @@ public interface INotificationPreferenceService
         UpdateNotificationPreferenceDto request,
         string actor, CancellationToken ct = default);
 
-    /// <summary>
-    /// 푸시를 <b>끈</b> 주인들. 발송 직전에 걸러내려고 부른다.
-    /// </summary>
-    /// <remarks>
-    /// "켠 사람" 이 아니라 "끈 사람" 을 가져오는 것이 중요하다 — 행이 없으면 켜짐이므로
-    /// 켠 사람을 물으면 표에 없는 대다수가 빠진다.
-    /// </remarks>
+    /// <summary>푸시를 끈 주인들. 발송 직전에 거르려고 부른다 — 행이 없으면 켜짐이라 켠 사람을 물으면 대다수가 빠진다.</summary>
     Task<HashSet<(string OwnerType, string OwnerKey)>> GetPushDisabledAsync(
         IEnumerable<OwnerRefDto> owners, CancellationToken ct = default);
 
@@ -35,65 +27,29 @@ public interface INotificationPreferenceService
     Task<HashSet<string>> GetEmailDisabledLoginIdsAsync(
         IEnumerable<string> loginIds, CancellationToken ct = default);
 
-    /// <summary>
-    /// <b>댓글 앱 푸시</b>를 끈 주인들. <see cref="GetPushDisabledAsync"/> 와 같은
-    /// 자리에서, 알림구분이 <c>HELPDESK_COMMENT</c> 일 때만 더 본다.
-    /// </summary>
-    /// <remarks>
-    /// 위의 것과 <b>겹쳐 쓰는</b> 값이다 — 푸시 자체를 끈 사람은 이미 저기서
-    /// 빠지고, 이것은 「푸시는 받되 댓글만 안 받겠다」는 사람을 더 덜어 낸다.
-    /// 행이 없으면 켜짐인 것도 같다.
-    /// </remarks>
+    /// <summary>댓글 앱 푸시를 끈 주인들. 푸시 자체를 끈 사람 위에 한 번 더 걸러 낸다.</summary>
     Task<HashSet<(string OwnerType, string OwnerKey)>> GetCommentPushDisabledAsync(
         IEnumerable<OwnerRefDto> owners, CancellationToken ct = default);
 
-    /// <summary>
-    /// <b>댓글 이메일</b>을 끈 포털 로그인 아이디들.
-    /// </summary>
-    /// <remarks>
-    /// 업무 메일 스위치(<see cref="GetEmailDisabledLoginIdsAsync"/>)와 갈래가
-    /// 다르다 — 그쪽은 역할로 가는 메일에만 걸리고, 댓글 메일은 사람을 지목해
-    /// 보내므로 그 길로는 걸러지지 않는다.
-    /// </remarks>
+    /// <summary>댓글 이메일을 끈 포털 로그인 아이디들. 업무 메일 스위치와 갈래가 달라 따로 본다.</summary>
     Task<HashSet<string>> GetCommentEmailDisabledLoginIdsAsync(
         IEnumerable<string> loginIds, CancellationToken ct = default);
 
-    /// <summary>
-    /// 쪽지 메일받기를 <b>켠</b> 포털 로그인 아이디들.
-    /// </summary>
-    /// <remarks>
-    /// 위의 둘과 방향이 반대다. 푸시·업무 메일은 <b>행이 없으면 켜짐</b>이라 "끈
-    /// 사람" 을 물어야 하지만, 쪽지 메일은 <b>행이 없으면 꺼짐</b>이다 — 일부러
-    /// 켠 사람에게만 간다.
-    /// </remarks>
+    /// <summary>쪽지 메일받기를 켠 포털 로그인 아이디들. 행이 없으면 꺼짐이라 켠 사람만 준다(위 둘과 방향이 반대다).</summary>
     Task<HashSet<string>> GetNoteEmailEnabledLoginIdsAsync(
         IEnumerable<string> loginIds, CancellationToken ct = default);
 
-    /// <summary>
-    /// 「내 위치 날씨」를 켜고 <b>위치까지 잡아 둔</b> 사람들.
-    /// </summary>
-    /// <remarks>
-    /// 위경도가 없는 행은 뺀다 — 켜 두기만 하고 위치를 안 준 사람에게는 보낼 곳이
-    /// 없고, 그것을 목록에 남기면 받아 가는 쪽이 매번 걸러야 한다.
-    /// </remarks>
+    /// <summary>내 위치 날씨를 켜고 위치까지 잡아 둔 사람들. 위경도가 없는 행은 뺀다 — 보낼 곳이 없다.</summary>
     Task<List<LocalWeatherSubscriberDto>> GetLocalWeatherSubscribersAsync(
         CancellationToken ct = default);
 
-    /// <summary>
-    /// 「내 위치 날씨」를 보낸 시각을 찍는다. 지역 이름을 함께 주면 그것도 적어 둔다.
-    /// </summary>
+    /// <summary>「내 위치 날씨」를 보낸 시각을 찍는다. 지역 이름을 함께 주면 그것도 적는다.</summary>
     Task MarkLocalWeatherSentAsync(
         string ownerType, string ownerKey, string? place, CancellationToken ct = default);
 }
 
 /// <inheritdoc cref="INotificationPreferenceService" />
-/// <remarks>
-/// <b>이 서비스가 D8-A("보내는 일만 한다")를 어기는 것이 아니다.</b>
-/// 부르는 쪽은 여전히 "누구에게" 를 정한다 — 헬프데스크는 팀을 알고, 장례식장은
-/// 담당자를 안다. 다만 <b>받는 사람 본인이 껐다</b> 는 것은 대상 선택이 아니라
-/// 수신자의 속성이고, 기기 목록이 이미 여기 있으므로 여기서 지키는 것이 맞다.
-/// 부르는 쪽마다 "이 사람이 껐나" 를 기억하게 하면 한 곳만 잊어도 새는 설정이 된다.
-/// </remarks>
+/// 받는 사람 본인이 끈 것은 수신자의 속성이라 여기서 지킨다.
 public class NotificationPreferenceService : INotificationPreferenceService
 {
     private readonly AppDbContext _db;
@@ -148,35 +104,27 @@ public class NotificationPreferenceService : INotificationPreferenceService
         if (request.WeatherLocalEnabled.HasValue) row.WeatherLocalEnabled = request.WeatherLocalEnabled.Value;
         if (request.WeatherHours is not null) row.WeatherHours = NormalizeHours(request.WeatherHours);
 
-        // 위경도는 **짝으로만** 받는다. 하나만 바꾸면 위도는 새 곳, 경도는 옛 곳인
-        // 지점이 만들어져 엉뚱한 동네의 날씨가 간다 — 그 값은 아무도 의심하지 않는다.
+        // 위경도는 짝으로만 받는다 — 하나만 바꾸면 엉뚱한 동네의 날씨가 간다.
         if (request.WeatherLat.HasValue && request.WeatherLon.HasValue)
         {
-            // **좌표가 실제로 달라졌을 때만 「잡은 때」를 다시 찍는다.** 화면은 스위치
-            // 하나를 눌러도 설정 전체를 보내므로(ToggleAsync), 무조건 찍으면 푸시
-            // 스위치를 만질 때마다 위치를 방금 잡은 것이 된다 — 그 값은 「이사한 뒤에도
-            // 옛 동네 날씨가 오는가」를 가리는 유일한 단서라, 늘 오늘이면 쓸모가 없다.
+            // 좌표가 실제로 달라졌을 때만 「잡은 때」를 다시 찍는다(설정 전체가 같이 오므로 무조건 찍으면 방금 잡은 것처럼 보인다).
             var moved = row.WeatherLat != request.WeatherLat.Value
                         || row.WeatherLon != request.WeatherLon.Value;
 
             row.WeatherLat = request.WeatherLat.Value;
             row.WeatherLon = request.WeatherLon.Value;
 
-            // **자리가 안 바뀌었으면 이름을 지우지 않는다.** 저절로 다시 재는 쪽은
-            // (`GeoLocator` 의 조용한 확인) 좌표만 보내는데, 무조건 덮으면 그때마다
-            // 지역 이름이 사라져 설정 화면이 위경도 숫자만 보여 준다. 자리가 바뀌었을
-            // 때는 반대로 **지워야 한다** — 옛 동네 이름이 새 좌표에 붙어 남는다.
+            // 자리가 안 바뀌었으면 지역 이름을 지우지 않는다. 바뀌었을 때는 옛 동네 이름이 새 좌표에 붙지 않게 지운다.
             if (moved || request.WeatherPlace is not null) row.WeatherPlace = request.WeatherPlace;
 
             if (moved || row.WeatherLocatedAt is null) row.WeatherLocatedAt = DateTime.UtcNow;
 
-            // **「확인한 때」는 재어 보낸 쪽만 찍는다.** 좌표가 실려 있다고 찍으면
-            // 스위치 하나를 눌러도(설정 전체가 간다) 방금 확인한 것이 된다.
+            // 「확인한 때」는 재어 보낸 쪽만 찍는다(좌표가 실려 있다고 찍으면 스위치 하나에도 확인한 것이 된다).
             if (request.WeatherLocated == true) row.WeatherSyncedAt = DateTime.UtcNow;
         }
         else if (request.WeatherPlace is not null)
         {
-            // 이름만 오는 경우가 있다 — 발송기가 격자표에서 찾아 채워 보낼 때다.
+            // 이름만 오는 경우가 있다(발송기가 격자표에서 찾아 채워 보낼 때다).
             row.WeatherPlace = request.WeatherPlace;
         }
 
@@ -194,13 +142,7 @@ public class NotificationPreferenceService : INotificationPreferenceService
         IEnumerable<OwnerRefDto> owners, CancellationToken ct = default)
         => DisabledOwnersAsync(owners, p => !p.CommentPushEnabled, ct);
 
-    /// <summary>
-    /// 스위치 하나를 <b>끈</b> 주인들을 고른다. 위의 둘이 같은 몸을 쓴다.
-    /// </summary>
-    /// <remarks>
-    /// <b>"켠 사람" 이 아니라 "끈 사람" 을 묻는 모양이 중요하다</b> — 행이 없으면
-    /// 켜짐이므로 켠 사람을 물으면 표에 없는 대다수가 빠진다.
-    /// </remarks>
+    /// <summary>스위치 하나를 끈 주인들을 고른다. 행이 없으면 켜짐이므로 켠 사람이 아니라 끈 사람을 묻는다.</summary>
     private async Task<HashSet<(string OwnerType, string OwnerKey)>> DisabledOwnersAsync(
         IEnumerable<OwnerRefDto> owners,
         Expression<Func<Entities.NotificationPreference, bool>> isOff,
@@ -213,7 +155,7 @@ public class NotificationPreferenceService : INotificationPreferenceService
         var disabled = new HashSet<(string, string)>();
         if (list.Count == 0) return disabled;
 
-        // 구독 조회와 같은 이유로 종류별로 나눠 IN 질의를 돌린다 (PushSender 주석 참고).
+        // 구독 조회와 같은 이유로 종류별로 나눠 IN 질의를 돈다(PushSender 참고).
         foreach (var group in list.GroupBy(o => o.OwnerType))
         {
             var keys = group.Select(o => o.OwnerKey).Distinct().ToList();
@@ -256,9 +198,7 @@ public class NotificationPreferenceService : INotificationPreferenceService
             .Select(p => p.OwnerKey)
             .ToListAsync(ct);
 
-        // **대소문자를 가리지 않는다.** 부르는 쪽이 아이디를 적어 보내는 자리라
-        // (`toUser`) 사람이 친 글자가 그대로 올 수 있는데, 위의 업무 메일 쪽과
-        // 달리 이쪽은 그 목록이 곧 「빼야 할 사람」이다 — 못 알아보면 껐는데도 간다.
+        // 대소문자를 가리지 않는다(못 알아보면 껐는데도 간다).
         return rows.ToHashSet(StringComparer.OrdinalIgnoreCase);
     }
 
@@ -310,26 +250,17 @@ public class NotificationPreferenceService : INotificationPreferenceService
 
         row.WeatherLocalSentAt = DateTime.UtcNow;
 
-        // 이름은 **비어 있을 때만** 채운다. 사람이 화면에서 고쳐 둔 이름을
-        // 발송기가 매번 덮으면 고친 것이 남지 않는다.
+        // 이름은 비어 있을 때만 채운다(발송기가 매번 덮으면 화면에서 고친 이름이 남지 않는다).
         if (!string.IsNullOrWhiteSpace(place) && string.IsNullOrWhiteSpace(row.WeatherPlace))
         {
             row.WeatherPlace = place;
         }
 
-        // **UpdatedAt 을 건드리지 않는다.** 화면이 그것을 「마지막 저장」으로 보여 주는데,
-        // 알림이 나갈 때마다 바뀌면 사람이 고친 적 없는 설정이 방금 고쳐진 것처럼 보인다.
+        // UpdatedAt 은 건드리지 않는다(알림이 나갈 때마다 바뀌면 고친 적 없는 설정이 방금 고쳐진 것처럼 보인다).
         await _db.SaveChangesAsync(ct);
     }
 
-    /// <summary>
-    /// 시각 목록을 <c>7,18</c> 꼴로 다듬는다. 범위를 벗어난 값과 중복을 버린다.
-    /// </summary>
-    /// <remarks>
-    /// 비어 있으면 <c>null</c> 이다 — 「고르지 않았다」와 「하나도 안 고름」을 같게
-    /// 둔다. 하나도 없으면 보낼 시각이 없어 알림이 조용히 멎는데, 그것은 스위치를
-    /// 끄는 일이지 시각을 고르는 일이 아니다.
-    /// </remarks>
+    /// <summary>시각 목록을 7,18 꼴로 다듬는다. 범위를 벗어난 값과 중복을 버린다. 하나도 없으면 null 이다.</summary>
     private static string? NormalizeHours(string raw)
     {
         var hours = raw

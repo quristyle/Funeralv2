@@ -1,122 +1,65 @@
 namespace AuthServer.DTOs;
 
-/// <summary>
-/// 부서 정보를 전달하기 위한 DTO
-/// </summary>
+/// <summary>부서 정보를 전달하기 위한 DTO</summary>
 public class DepartmentDto
 {
-    /// <summary>
-    /// 부서 아이디 (GUID)
-    /// </summary>
+    /// <summary>부서 아이디 (GUID)</summary>
     public string Id { get; set; } = string.Empty;
 
-    /// <summary>
-    /// 부서명
-    /// </summary>
+    /// <summary>부서명</summary>
     public string Name { get; set; } = string.Empty;
 
-    /// <summary>
-    /// 상위 부서 아이디 (트리 구조용)
-    /// </summary>
+    /// <summary>상위 부서 아이디 (트리 구조용)</summary>
     public string? Pid { get; set; }
 
-    /// <summary>
-    /// 소속 회사 아이디
-    /// </summary>
+    /// <summary>소속 회사 아이디</summary>
     public string? CompanyId { get; set; }
 
-    /// <summary>
-    /// 소속 회사명
-    /// </summary>
+    /// <summary>소속 회사명</summary>
     public string? CompanyName { get; set; }
 
-    /// <summary>
-    /// 부서 설명/메모
-    /// </summary>
+    /// <summary>부서 설명/메모</summary>
     public string? Remark { get; set; }
 
-    /// <summary>
-    /// 부서 상태 (0: 비활성, 1: 활성)
-    /// </summary>
+    /// <summary>부서 상태 (0: 비활성, 1: 활성)</summary>
     public int Status { get; set; }
 
-    /// <summary>
-    /// 정렬 순서
-    /// </summary>
+    /// <summary>정렬 순서</summary>
     public int SortOrder { get; set; }
 
-    /// <summary>
-    /// 이 부서에 **직접** 소속된 사용자 수.
-    /// </summary>
-    /// <remarks>
-    /// 하위 부서의 인원은 포함하지 않는다. 사용자는 부서 하나에만 붙으므로
-    /// (<c>accounts.department_id</c>) 직접 소속이 곧 "이 부서 인원" 이다.
-    /// 하위까지 합친 값이 필요하면 <see cref="TotalUserCount"/> 를 쓴다.
-    /// </remarks>
+    /// <summary>이 부서에 직접 소속된 사용자 수. 하위 부서 인원은 뺀다 — 사용자는 부서 하나에만 붙으므로 직접 소속이 곧 이 부서 인원이다.</summary>
     public int UserCount { get; set; }
 
-    /// <summary>
-    /// 하위 부서까지 합친 사용자 수.
-    /// </summary>
-    /// <remarks>
-    /// 트리를 접어 둔 상태에서 "이 조직 전체에 몇 명인지" 를 보여 줄 때 쓴다.
-    /// 자식이 없으면 <see cref="UserCount"/> 와 같다.
-    /// </remarks>
+    /// <summary>하위 부서까지 합친 사용자 수. 자식이 없으면 UserCount 와 같다.</summary>
     public int TotalUserCount { get; set; }
 
-    /// <summary>
-    /// 하위 부서 목록 (트리 구조용)
-    /// </summary>
+    /// <summary>하위 부서 목록 (트리 구조용)</summary>
     public List<DepartmentDto>? Children { get; set; }
 }
 
-/// <summary>
-/// 부서 생성을 위한 데이터 구조 DTO
-/// </summary>
+/// <summary>부서 생성을 위한 데이터 구조 DTO</summary>
 public class CreateDepartmentDto
 {
-    /// <summary>
-    /// 생성할 부서명
-    /// </summary>
+    /// <summary>생성할 부서명</summary>
     public string Name { get; set; } = string.Empty;
 
-    /// <summary>
-    /// 상위 부서 아이디
-    /// </summary>
+    /// <summary>상위 부서 아이디</summary>
     public string? Pid { get; set; }
 
-    /// <summary>
-    /// 소속 회사 아이디
-    /// </summary>
+    /// <summary>소속 회사 아이디</summary>
     public string? CompanyId { get; set; }
 
-    /// <summary>
-    /// 부서 설명/메모
-    /// </summary>
+    /// <summary>부서 설명/메모</summary>
     public string? Remark { get; set; }
 
-    /// <summary>
-    /// 부서 상태 (0: 비활성, 1: 활성)
-    /// </summary>
+    /// <summary>부서 상태 (0: 비활성, 1: 활성)</summary>
     public int Status { get; set; }
 
-    /// <summary>
-    /// 정렬 순서
-    /// </summary>
+    /// <summary>정렬 순서</summary>
     public int SortOrder { get; set; }
 }
 
-/// <summary>
-/// 끌어 옮긴 뒤의 부서 자리 한 줄.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <b>화면이 확정한 배치를 그대로 받는다.</b> 형제 하나가 움직이면 그 묶음
-/// 전체의 순번이 바뀌므로, 옮긴 한 건만 받으면 서버가 나머지를 어떻게 밀지
-/// 짐작해야 하고 그 짐작이 화면과 어긋난다. 떠난 묶음과 도착한 묶음 둘을
-/// 통째로 받는다 — 메뉴 쪽 <see cref="MenuOrderDto"/> 와 같은 모양이다.
-/// </para>
-/// </remarks>
+/// <summary>끌어 옮긴 뒤의 부서 자리 한 줄. 화면이 확정한 배치를 그대로 받는다 — 옮긴 한 건만 받으면 서버가 나머지 순번을 짐작해야 해서 화면과 어긋난다.</summary>
 public class DeptOrderDto
 {
     /// <summary>부서 아이디</summary>

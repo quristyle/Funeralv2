@@ -5,23 +5,12 @@ using Xunit;
 
 namespace JSini.Web.Architecture.Tests;
 
-/// <summary>
-/// 위치 배관 둘을 지킨다 — <b>움직임을 재는 자</b>와 <b>C# 과 JS 를 잇는 이름</b>.
-///
-/// <para>
-/// 둘 다 <b>틀려도 아무 일이 일어나지 않는</b> 자리다. 자가 틀리면 좌표가
-/// 조용히 안 따라오거나 반대로 GPS 가 흔들 때마다 「잡은 때」가 갱신되고,
-/// 이름이 어긋나면 브라우저 콘솔에만 예외가 찍힌 채 자동 재수집이 멎는다.
-/// </para>
-/// </summary>
+/// <summary>위치 배관 둘을 지킨다 — 움직임을 재는 자와 C# 과 JS 를 잇는 이름. 둘 다 틀려도 예외 없이 조용히 어긋난다(좌표가 안 따라오거나, 이름이 어긋나 자동 재수집이 멎는다).</summary>
 public class GeoLocatorTests
 {
     // ── 움직임을 재는 자 ──────────────────────────────────────
 
-    /// <summary>
-    /// 위도 0.001도는 약 111m 다. <b>문턱(300m)보다 작아야 한다</b> — 이 정도는
-    /// 자리를 옮긴 것이 아니라 GPS 가 흔든 것이다.
-    /// </summary>
+    /// <summary>위도 0.001도는 약 111m 로 문턱(300m)보다 작아야 한다 — GPS 가 흔든 것이지 자리를 옮긴 것이 아니다.</summary>
     [Fact]
     public void 백미터쯤_움직인_것은_자리가_바뀐_것이_아니다()
     {
@@ -41,11 +30,7 @@ public class GeoLocatorTests
         Assert.True(moved >= GeoLocator.MoveThresholdMeters);
     }
 
-    /// <summary>
-    /// <b>경도를 위도와 같은 자로 재면 안 된다.</b> 우리 위도에서 경도 1도는
-    /// 위도 1도의 약 0.81배라, 도 단위 차를 그대로 쓰면 동서 방향 움직임을
-    /// 실제보다 크게 본다 — 그러면 가만히 있는 사람도 자꾸 「이사」가 된다.
-    /// </summary>
+    /// <summary>경도를 위도와 같은 자로 재면 안 된다 — 우리 위도에서 경도 1도는 위도 1도의 약 0.81배라, 동서 움직임을 크게 봐서 가만히 있는 사람도 「이사」가 된다.</summary>
     [Fact]
     public void 동서_거리는_위도에_따라_줄어든다()
     {
@@ -65,18 +50,7 @@ public class GeoLocatorTests
 
     // ── C# 과 JS 를 잇는 이름 ─────────────────────────────────
 
-    /// <summary>
-    /// C# 이 부르는 <c>jsiniGeo.*</c> 가 <c>geo.js</c> 에 실제로 있는가.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>없는 이름을 불러도 화면은 멀쩡하다.</b> Blazor 는 식별자를 못 찾으면
-    /// 던지는데 그 예외는 <c>GeoLocator</c> 가 삼켜(로그로만 남긴다) 「못 잡는
-    /// 브라우저」로 다룬다 — 조용한 확인이 영영 멎어도 아무도 모른다.
-    /// <c>JsIdentifierTests</c> 가 막는 함정(괄호)과 갈래가 다르다: 저쪽은
-    /// 모양이 틀린 것이고 이쪽은 <b>이름이 없어진 것</b>이다.
-    /// </para>
-    /// </remarks>
+    /// <summary>C# 이 부르는 jsiniGeo.* 가 geo.js 에 실제로 있는가. 없는 이름을 부르면 GeoLocator 가 예외를 삼켜 「못 잡는 브라우저」로 다뤄 조용한 확인이 영영 멎어도 모른다.</summary>
     [Fact]
     public void C샤프가_부르는_jsiniGeo_함수가_geo_js_에_다_있다()
     {
@@ -119,11 +93,7 @@ public class GeoLocatorTests
             + string.Join('\n', missing));
     }
 
-    /// <summary>
-    /// 조용한 확인은 <b>권한이 허용된 경우에만</b> 재야 한다. 그 방패가
-    /// <c>quiet</c> 안에 있는지 글자로 확인한다 — 빠지면 아무도 부르지 않은
-    /// 물음창이 화면 전환마다 튀어나온다.
-    /// </summary>
+    /// <summary>조용한 확인은 권한이 허용된 경우에만 잰다 — 그 방패가 quiet 안에 있는지 글자로 확인한다. 빠지면 화면 전환마다 물음창이 튀어나온다.</summary>
     [Fact]
     public void 조용한_확인은_권한을_먼저_본다()
     {
@@ -139,14 +109,10 @@ public class GeoLocatorTests
 
     // ── 고를 수 있는 확인 간격 ────────────────────────────────
     //
-    // 간격을 사람이 고르게 되면서(환경설정의 「위치 확인 간격」) 값이 두 곳에
-    // 생겼다 — 화면이 고른 값과 판정하는 쪽이 보는 값. **어긋나도 예외가 나지
-    // 않고** 「고른 간격과 실제로 도는 간격이 다르다」로만 나타난다.
+    // 간격을 고르게 되면서 값이 두 곳(화면이 고른 값, 판정하는 쪽이 보는 값)에 생겼다.
+    // 어긋나도 예외는 없고 「고른 간격과 도는 간격이 다르다」로만 나타난다.
 
-    /// <summary>
-    /// 모르는 값은 기본값으로 떨어진다. 사람이 저장소를 손으로 고쳤거나
-    /// 고를 수 있는 값이 줄어든 뒤에 옛 값이 남은 경우다.
-    /// </summary>
+    /// <summary>모르는 값은 기본값으로 떨어진다 — 저장소를 손으로 고쳤거나 고를 수 있는 값이 줄어든 뒤 옛 값이 남은 경우다.</summary>
     [Fact]
     public void 모르는_확인_간격은_기본값으로_본다()
     {
@@ -166,21 +132,14 @@ public class GeoLocatorTests
         }
     }
 
-    /// <summary>
-    /// <b>기본값이 고를 수 있는 목록 안에 있어야 한다.</b> 없으면 고르개가
-    /// 빈 칸으로 열리고, 사람은 간격이 정해져 있지 않다고 읽는다.
-    /// </summary>
+    /// <summary>기본값이 고를 수 있는 목록 안에 있어야 한다 — 없으면 고르개가 빈 칸으로 열린다.</summary>
     [Fact]
     public void 기본_확인_간격은_고르개_목록에_있다()
     {
         Assert.Contains(PortalBoot.DefaultGeoSyncMinutes, PortalBoot.GeoSyncMinuteChoices);
     }
 
-    /// <summary>
-    /// <b>고른 적이 없을 때의 간격 하나를 두 곳이 적고 있다.</b>
-    /// <c>GeoLocator.SyncInterval</c>(머리말이 설명하는 값)과
-    /// <c>PortalBoot.DefaultGeoSyncMinutes</c>(고르개의 기본값)이 같아야 한다.
-    /// </summary>
+    /// <summary>고른 적이 없을 때의 간격을 두 곳이 적고 있다 — GeoLocator.SyncInterval 과 PortalBoot.DefaultGeoSyncMinutes 가 같아야 한다.</summary>
     [Fact]
     public void 기본_간격은_두_곳에서_같다()
     {
@@ -189,23 +148,14 @@ public class GeoLocatorTests
             TimeSpan.FromMinutes(PortalBoot.DefaultGeoSyncMinutes));
     }
 
-    /// <summary>
-    /// 한 시간 칸이 있어야 한다. 사람이 고를 수 있는 가장 촘촘한 발송 간격이
-    /// 세 시간이라, 그보다 촘촘한 확인이 없으면 낮에 자리를 옮긴 좌표가
-    /// 다음 발송에 못 댄다(<c>GeoLocator.SyncInterval</c> 머리말).
-    /// </summary>
+    /// <summary>한 시간 칸이 있어야 한다 — 가장 촘촘한 발송 간격이 세 시간이라 그보다 촘촘한 확인이 없으면 낮에 옮긴 좌표가 다음 발송에 못 댄다.</summary>
     [Fact]
     public void 한_시간_칸이_있다()
     {
         Assert.Contains(60, PortalBoot.GeoSyncMinuteChoices);
     }
 
-    /// <summary>
-    /// <b>고른 적이 없을 때 30분이어야 한다.</b> 이 좌표는 날씨만 쓰는 것이
-    /// 아니라 <b>지나온 자리</b>로도 쌓이므로(<c>scom.location_tracks</c>),
-    /// 간격이 곧 이동 경로의 성김이다. 되돌려 놓으면 경로에 한 시간짜리
-    /// 구멍이 생기는데 <b>화면에는 그냥 점이 적게 찍힐 뿐</b>이라 드러나지 않는다.
-    /// </summary>
+    /// <summary>고른 적이 없을 때 30분이어야 한다 — 좌표가 지나온 자리(location_tracks)로도 쌓여, 간격이 곧 이동 경로의 성김이다.</summary>
     [Fact]
     public void 기본_확인_간격은_삼십분이다()
     {
@@ -213,16 +163,7 @@ public class GeoLocatorTests
         Assert.Equal(TimeSpan.FromMinutes(30), GeoLocator.SyncInterval);
     }
 
-    /// <summary>
-    /// 조용한 확인이 받아 쓰는 <b>묵은 좌표의 한도</b>(<c>maximumAge</c>)가
-    /// 재는 간격보다 넉넉히 짧아야 한다.
-    /// </summary>
-    /// <remarks>
-    /// <b>이 둘이 같아지면 경로가 한 칸씩 밀린다.</b> 30분마다 재면서 30분
-    /// 묵은 좌표를 그대로 받아 적으면, 지도에 남는 점은 「그때 어디 있었나」가
-    /// 아니라 「그 전에 어디 있었나」다. 자리를 옮긴 순간이 통째로 어긋나는데
-    /// <b>점은 멀쩡히 찍히므로</b> 화면만 봐서는 알 수 없다.
-    /// </remarks>
+    /// <summary>조용한 확인이 받아 쓰는 묵은 좌표의 한도(maximumAge)는 재는 간격보다 넉넉히 짧아야 한다 — 같아지면 경로가 한 칸씩 밀린다.</summary>
     [Fact]
     public void 조용한_확인은_간격보다_훨씬_덜_묵은_좌표만_받아_쓴다()
     {
@@ -244,15 +185,7 @@ public class GeoLocatorTests
 
     // ── 화면 전환이 없어도 재는가 ─────────────────────────────
 
-    /// <summary>
-    /// <b>권유 창에 시계가 걸려 있어야 한다.</b> 이 부품의 살핌이 도는 계기가
-    /// 레이아웃 재생성 하나뿐이던 동안에는, 한 화면을 열어 두고 일하는 사람의
-    /// 좌표가 간격이 지나도 안 따라왔다(운영 기록에 103분짜리 틈이 있다).
-    /// </summary>
-    /// <remarks>
-    /// 글자로 지킨다. 시계를 걷어 내도 <b>빌드도 다른 테스트도 통과하고</b>,
-    /// 증상은 「어떤 사람의 기록만 띄엄띄엄하다」로만 나타난다.
-    /// </remarks>
+    /// <summary>권유 창에 시계가 걸려 있어야 한다 — 살핌이 레이아웃 재생성 하나에만 걸려 있으면 한 화면을 열어 둔 사람의 좌표가 간격이 지나도 안 따라온다. 글자로 지킨다.</summary>
     [Fact]
     public void 위치_권유창은_다음_잴_때에_시계를_건다()
     {
@@ -267,10 +200,7 @@ public class GeoLocatorTests
         Assert.Contains("_clock?.Cancel()", source, StringComparison.Ordinal);
     }
 
-    /// <summary>
-    /// <b>시계가 깨울 때는 창을 띄우지 않는다.</b> 「나중에」로 닫은 사람에게
-    /// 30분마다 같은 창을 다시 미는 것은 묻는 것이 아니라 조르는 것이다.
-    /// </summary>
+    /// <summary>시계가 깨울 때는 창을 띄우지 않는다 — 「나중에」로 닫은 사람에게 같은 창을 다시 미는 것은 조르는 것이다.</summary>
     [Fact]
     public void 시계가_깨우는_길은_창을_띄우지_않는다()
     {

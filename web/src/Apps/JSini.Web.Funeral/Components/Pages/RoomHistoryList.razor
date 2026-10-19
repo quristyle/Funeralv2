@@ -1,13 +1,7 @@
 @page "/funeral/info/room-history"
 @attribute [RouteKey("funeral.info.room-history")]
 
-@*
-    [호실 사용 이력] — DB 메뉴 `/info/room-history`.
-    이력: Vue `views/funeral/info/room-history/index` → 여기.
-
-    사용 일수는 서버가 센다. 화면에서 `EndTime - StartTime` 으로 재지 않는다 —
-    아직 사용 중인 건은 끝 시각이 없어서 화면마다 "오늘까지" 를 다르게 잡는다.
-*@
+@* [호실 사용 이력] — DB 메뉴 `/info/room-history`. 사용 일수는 서버가 센다. 사용 중인 건은 끝 시각이 없어 화면에서 빼지 않는다. *@
 
 @inherits DataPage
 
@@ -26,8 +20,7 @@
         <Columns>
             <DxGridDataColumn FieldName="@nameof(RoomHistory.BuildingName)" Caption="건물" Width="140" />
             <DxGridDataColumn FieldName="@nameof(RoomHistory.RoomName)" Caption="호실" Width="120" />
-            @* 영정사진. 이름만 있으면 동명이인을 가릴 수가 없다 —
-               서버가 아이디를 함께 주고 있었다. *@
+            @* 영정사진. 이름만으로는 동명이인을 못 가려 아이디도 함께 본다. *@
             <DxGridDataColumn Caption="" Width="60" AllowSort="false">
                 <CellDisplayTemplate Context="cell">
                     @{

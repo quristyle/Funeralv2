@@ -3,40 +3,16 @@ using Npgsql;
 
 namespace ProjMngServer.Services;
 
-/// <summary>
-/// 멈춘 것을 찾아내는 감시자.
-/// </summary>
-/// <remarks>
-/// <para>
-/// 이 기능에서 <b>가장 나쁜 실패는 조용히 멈춰 있는 것</b>이다 —
-/// 「요청」인 채로 아무도 집어 가지 않거나, 「실행중」인 채로 실행기와
-/// 연락이 끊기거나. 둘 다 화면에서는 똑같이 <i>돌고 있는 것처럼</i> 보인다.
-/// </para>
-/// <para>
-/// 그래서 주기적으로 셋을 본다 — 집어가기 제한 시간 · 임대 만료 · 고아 잠금.
-/// </para>
-/// </remarks>
+/// <summary>멈춘 것을 찾아내는 감시자. 이 기능에서 가장 나쁜 실패는 조용히 멈춰 있는 것이다 — 「요청」인 채 아무도 집어 가지 않거나 「실행중」인 채 실행기와 연락이 끊기면, 화면에는 똑같이 돌고 있는 것처럼 보인다.</summary>
 public sealed class AiStaleSweeper(
     IConfiguration configuration, ILogger<AiStaleSweeper> logger) : BackgroundService
 {
     private readonly string? _connectionString = configuration.GetConnectionString("jsini");
 
-    /// <summary>
-    /// 큐에 넣고 이 시간 안에 아무도 집어 가지 않으면 중단으로 본다.
-    /// </summary>
-    /// <remarks>
-    /// 배포 도구가 먼저 쓰던 값이다(<c>Release:PickupTimeoutSeconds</c>) —
-    /// <b>소비자가 안 떠 있다는 뜻이라 빨리 알려 주는 편이 낫다.</b>
-    /// </remarks>
+    /// <summary>큐에 넣고 이 시간 안에 아무도 집어 가지 않으면 중단으로 본다. 소비자가 안 떠 있다는 뜻이라 빨리 알려 주는 편이 낫다.</summary>
     private readonly int _pickupTimeout = configuration.GetValue("AiTasks:PickupTimeoutSeconds", 60);
 
-    /// <summary>
-    /// 로그 줄을 며칠 두나. 0 이면 안 지운다.
-    /// </summary>
-    /// <remarks>
-    /// <b>실행 기록은 남기고 줄만 지운다.</b> 나중에 다시 보는 것은 대개
-    /// 결과문이고, 수천 줄짜리 로그는 그때 쓸모가 거의 없다.
-    /// </remarks>
+    /// <summary>로그 줄을 며칠 두나. 0 이면 안 지운다. 실행 기록은 남기고 줄만 지운다.</summary>
     private readonly int _keepLogDays = configuration.GetValue("AiTasks:KeepLogDays", 90);
 
     private readonly TimeSpan _period =
@@ -63,8 +39,7 @@ public sealed class AiStaleSweeper(
             }
             catch (Exception ex)
             {
-                // 한 번 실패했다고 감시자를 죽이지 않는다. 죽으면 그때부터
-                // 아무도 안 보는데 그 사실조차 안 보인다.
+                // 한 번 실패했다고 감시자를 죽이지 않는다 — 죽으면 아무도 안 보는데 그 사실조차 안 보인다.
                 logger.LogError(ex, "AI 작업 감시 한 바퀴가 실패했습니다.");
             }
         }
@@ -75,11 +50,7 @@ public sealed class AiStaleSweeper(
         await using var db = new NpgsqlConnection(_connectionString);
         await db.OpenAsync(ct);
 
-        // ① 임대 만료 — 실행기와 연락이 끊겼다.
-        //
-        //    **자동으로 다시 돌리지 않는다.** 이 작업은 파일을 고치므로,
-        //    네트워크만 끊긴 경우 CLI 는 아직 돌고 있을 수 있다. 거기서 같은
-        //    일을 또 주면 둘이 같은 저장소를 고친다(설계 6.11).
+        // ① 임대 만료 — 실행기와 연락이 끊겼다. 자동으로 다시 돌리지 않는다: 파일을 고치는 작업이라 CLI 가 아직 돌고 있을 수 있고, 같은 일을 또 주면 둘이 같은 저장소를 고친다.
         var interrupted = await db.QueryAsync<long>("""
             UPDATE projmng.ai_task_run
                SET run_status  = 'interrupted',
@@ -117,20 +88,7 @@ public sealed class AiStaleSweeper(
                 lost.Count, string.Join(",", lost));
         }
 
-        // ② 집어가기 제한 시간 — 큐에 넣었는데 아무도 안 집었다.
-        //
-        //    **실행기가 안 떠 있다는 뜻**이고, 그것이 이 기능의 가장 흔한 고장이다.
-        //    상태를 바꾸지 않고 사유만 적는다 — 실행기가 늦게 떠서 집어 갈 수도
-        //    있으므로, 여기서 '실패' 로 못 박으면 그 뒤 보고가 갈 곳을 잃는다.
-        //
-        //    **고른 AI 이름을 사유에 박아 넣는다.** 실행기가 멀쩡히 떠 있는데도
-        //    이 자리에 오는 길이 하나 더 있기 때문이다 — 집어가기 질의는
-        //    `runner_kind = ANY(실행기가 말한 종류)` 로 거르므로, **그 장비가
-        //    그 CLI 를 안 가졌으면 아무 일도 안 일어난다.** 오류도 로그도 없다.
-        //    실제로 copilot 을 넣고 장비 설정을 옛것으로 둔 동안 코파일럿으로
-        //    시킨 건이 전부 여기 앉아 있었고, 그때 화면이 한 말이
-        //    「실행기가 떠 있는지 확인하십시오」였다 — **떠 있었다.** 그래서
-        //    엉뚱한 곳을 한참 봤다. 이름 한 낱말이 그 시간을 없앤다.
+        // ② 집어가기 제한 시간 — 실행기가 안 떠 있다는 뜻이라 이 기능의 가장 흔한 고장이다. 상태는 바꾸지 않고 사유만 적는다(늦게 떠서 집어 갈 수 있다). 사유에 고른 AI 이름을 넣는다.
         var stalled = await db.ExecuteAsync("""
             UPDATE projmng.ai_task
                SET last_error = '「' || runner_kind || '」 를 돌릴 실행기가 집어 가지 않았습니다.'
@@ -152,11 +110,7 @@ public sealed class AiStaleSweeper(
                 stalled, _pickupTimeout);
         }
 
-        // ③ 고아 잠금 — 실행은 끝났는데 대상이 잠긴 채 남았다.
-        //
-        //    ①·② 로 대부분 풀리지만, 완료 보고 중간에 서버가 내려가면 남을 수
-        //    있다. 그때 증상이 **「그 대상만 아무것도 안 돈다」** 라서 원인을
-        //    찾기가 특히 어렵다.
+        // ③ 고아 잠금 — 실행은 끝났는데 대상이 잠긴 채 남았다. 완료 보고 중에 서버가 내려가면 생기며, 증상이 「그 대상만 아무것도 안 돈다」라 찾기 어렵다.
         var orphan = await db.ExecuteAsync("""
             UPDATE projmng.ai_target t
                SET running_run_key = NULL
@@ -171,11 +125,7 @@ public sealed class AiStaleSweeper(
             logger.LogWarning("끝난 실행이 잡고 있던 대상 잠금 {Count}건을 풀었습니다.", orphan);
         }
 
-        // (4) 오래된 로그 줄.
-        //
-        //     **정하지 않으면 반드시 이 표가 제일 커진다.** 실행 한 번에 수천
-        //     줄이 쌓이고 지우는 사람이 없다. 실행 기록(결과문·바뀐 파일)은
-        //     남기고 **줄만** 지운다 — 나중에 다시 보는 것은 대개 결과문이다.
+        // ④ 오래된 로그 줄 — 정하지 않으면 이 표가 가장 커진다. 실행 기록(결과문·바뀐 파일)은 남기고 줄만 지운다.
         if (_keepLogDays > 0)
         {
             var purged = await db.ExecuteAsync(

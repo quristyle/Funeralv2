@@ -4,18 +4,8 @@ using JSini.Web.Http;
 namespace JSini.Web.LifeEnv.Api;
 
 /// <summary>
-/// 생일 조회·축하 메시지. 게이트웨이의 <c>/auth/birthday/*</c> 로 나간다.
-///
-/// [왜 LifeEnvServer 가 아니라 AuthServer 인가]
-///
-/// 생일은 <b>사람에 딸린 자료</b>다. 생년월일도, 소속도, 축하를 보낼 상대도
-/// 전부 계정 표에 있다. 한때 LifeEnvServer 가 들고 있었는데 계정을 조인하려고
-/// 사용자 표를 복제하게 되어 포털로 옮겼다
-/// (<c>LifeEnvServer/Program.cs</c> 에 그 자취가 주석으로 남아 있다).
-///
-/// 화면이 생활과환경 모듈에 있는 것은 <b>사용자에게 그렇게 보이기 때문</b>이다 —
-/// 기상과 생일이 "오늘 알아 둘 것" 으로 같은 묶음이다. 자료의 주인과 화면의
-/// 자리가 다른 것은 이상한 일이 아니다.
+/// 생일 조회·축하. 게이트웨이의 <c>/auth/birthday/*</c> 로 나간다.
+/// 생일 자료는 사람(계정)에 딸린 것이라 백엔드는 AuthServer 다 — 화면만 생활과환경 모듈에 있다.
 /// </summary>
 public sealed class BirthdayClient(GatewayClient gateway)
 {
@@ -42,12 +32,8 @@ public sealed class BirthdayClient(GatewayClient gateway)
             "auth/birthday/stats" + Query(("companyId", companyId), ("departmentId", departmentId)), ct);
 
     /// <summary>
-    /// 캘린더에 찍을 사건들. 기간은 <c>yyyy-MM-dd</c> 로 넘긴다.
-    ///
-    /// 응답이 FullCalendar 모양인 것은 Vue 화면이 그 라이브러리를 썼기 때문이다.
-    /// Blazor 는 DevExpress 스케줄러를 쓰므로 화면에서 옮겨 담는다 —
-    /// <b>백엔드를 건드리지 않는다.</b> 이행하는 동안 백엔드는 그대로 두는 것이
-    /// 이 저장소의 규칙이다.
+    /// 캘린더에 찍을 사건. 응답이 FullCalendar 모양이라 화면에서 스케줄러 모양으로 옮겨 담는다 — 백엔드는 건드리지 않는다.
+    /// 기간은 yyyy-MM-dd 로 넘긴다.
     /// </summary>
     public Task<IReadOnlyList<BirthdayCalendarEvent>> GetCalendarAsync(
         DateTime start, DateTime end, string? companyId = null, string? departmentId = null,
@@ -99,10 +85,7 @@ public sealed class BirthdayClient(GatewayClient gateway)
 }
 
 /// <summary>
-/// 이 달(또는 지정한 달)의 생일자 한 명.
-///
-/// <c>sealed</c> 가 아닌 이유는 <see cref="BirthdayToday"/> 가 여기에 축하 수
-/// 한 칸만 더해서 쓰기 때문이다. 서버 응답이 실제로 그 관계다.
+/// 이 달(또는 지정한 달)의 생일자 한 명. <c>sealed</c> 가 아닌 것은 <see cref="BirthdayToday"/> 가 이것에 축하 수 한 칸을 더해 쓰기 때문이다.
 /// </summary>
 public class BirthdayPerson
 {
@@ -116,12 +99,7 @@ public class BirthdayPerson
     /// <summary>실제 생년월일.</summary>
     public DateOnly BirthDate { get; set; }
 
-    /// <summary>
-    /// 올해 그 생일이 오는 날.
-    ///
-    /// 음력 생일은 해마다 양력 날짜가 달라져서 <see cref="BirthDate"/> 만으로는
-    /// 캘린더에 찍을 수 없다. 서버가 그 해 기준으로 환산해 준다.
-    /// </summary>
+    /// <summary>올해 그 생일이 오는 날 — 음력 생일은 해마다 달라 BirthDate 만으로는 캘린더에 찍을 수 없다.</summary>
     public DateOnly OccurrenceDate { get; set; }
 
     public bool IsLunar { get; set; }
@@ -151,11 +129,7 @@ public sealed class BirthdayMonthStat
 }
 
 /// <summary>
-/// 축하 메시지 한 건.
-///
-/// 서버가 세 엔드포인트에서 조금씩 다른 모양으로 준다(받은 것 · 보낸 것 ·
-/// 오늘의 것). 화면이 셋을 같은 표로 보여 주므로 <b>합집합 하나</b>로 받는다 —
-/// 안 오는 칸은 <c>null</c> 이다. 셋으로 나누면 화면도 셋이 된다.
+/// 축하 메시지 한 건. 세 엔드포인트의 모양이 조금씩 달라 <b>합집합 하나</b>로 받는다 — 안 오는 칸은 null.
 /// </summary>
 public sealed class BirthdayMessage
 {

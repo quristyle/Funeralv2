@@ -7,12 +7,7 @@ namespace ProjMngServer.Tests;
 /// <summary>
 /// <c>summary_text</c> 평문을 되읽는 규칙. <b>화면과 같은 모양을 약속한다.</b>
 /// </summary>
-/// <remarks>
-/// 담는 쪽(<see cref="AiResultSummary.ToText"/>)과 되읽는 쪽이 짝이고,
-/// 포털의 <c>JSini.Web.ProjMng/Components/Shared/AiRunSummary.Parse</c> 가
-/// <b>세 번째로</b> 같은 모양을 읽는다. 한쪽만 고치면 같은 실행을 두고
-/// 메일과 화면이 다른 말을 한다.
-/// </remarks>
+/// 담는 쪽과 되읽는 쪽이 짝이고, 포털의 AiRunSummary.Parse 도 같은 모양을 읽는다. 한쪽만 고치면 메일과 화면이 다른 말을 한다.
 public class AiResultSummaryParseTests
 {
     [Fact]

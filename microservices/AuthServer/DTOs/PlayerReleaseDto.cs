@@ -3,11 +3,7 @@ namespace AuthServer.DTOs;
 /// <summary>
 /// 플레이어 릴리스 설정. <c>appsettings.json</c> 의 <c>GitHub</c> 절을 읽는다.
 /// </summary>
-/// <remarks>
-/// <b>토큰은 <c>appsettings.Local.json</c>(git 제외)에만 둔다.</b>
-/// 추적 파일에는 자리표시자만 있고, 값이 없으면 화면이 "설정이 필요하다"고 안내한다 —
-/// 기동을 막지는 않는다. 이 기능을 안 쓰는 환경(개발 PC)에서도 서버는 떠야 한다.
-/// </remarks>
+/// 토큰은 appsettings.Local.json(git 제외)에만 둔다 — 값이 없으면 화면이 안내만 띄우고 기동은 막지 않는다.
 public class GitHubOptions
 {
     /// <summary>저장소 소유자 (예: <c>quristyle</c>)</summary>
@@ -78,7 +74,7 @@ public class PlayerReleaseRequestDto
 
     /// <summary>
     /// 릴리스 노트. 비우면 워크플로의 <c>generate_release_notes</c> 가 만든다.
-    /// (지금은 태그만 만들므로 이 값은 기록용이다 — 아래 주석 참고)
+    /// 지금은 태그만 만들므로 이 값은 기록용이다.
     /// </summary>
     public string? Notes { get; set; }
 }
@@ -104,9 +100,7 @@ public class PlayerReleaseRunDto
 
     /// <summary>
     /// 아직 실행을 못 찾았는가.
-    ///
-    /// 태그를 만든 직후에는 GitHub 이 워크플로를 큐에 넣는 데 몇 초가 걸린다.
-    /// 그 사이를 '실패'로 보이지 않게 구분해 둔다.
+    /// 태그 직후에는 GitHub 이 워크플로를 큐에 넣는 데 몇 초 걸리므로, 그 사이를 실패로 보이지 않게 구분한다.
     /// </summary>
     public bool Pending { get; set; }
 
@@ -143,12 +137,7 @@ public class PlayerReleaseJobDto
 /// <summary>
 /// 최신 릴리스와 그 첨부 파일.
 ///
-/// <para>
-/// 다운로드 화면(<c>/system/player-download</c>)이 OS 별 카드에 파일을 짝지어
-/// 보여 주려고 쓴다. <b>화면이 GitHub 을 직접 부르지 않는 이유</b>는 이 파일의
-/// <see cref="PlayerReleaseStatusDto"/> 와 같다 — 비공개 저장소로 바뀌어도
-/// 서버 토큰으로 계속 읽히고, 익명 호출의 시간당 60회 제한에 걸리지 않는다.
-/// </para>
+/// 다운로드 화면이 OS 별 카드에 파일을 짝지을 때 쓴다. 화면이 GitHub 을 직접 부르지 않고 서버 토큰으로 읽는다(익명 호출의 시간당 60회 한도를 피한다).
 /// </summary>
 public class PlayerReleaseLatestDto
 {

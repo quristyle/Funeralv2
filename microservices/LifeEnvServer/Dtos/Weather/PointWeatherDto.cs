@@ -1,16 +1,8 @@
 namespace LifeEnvServer.Dtos;
 
 /// <summary>
-/// <b>등록된 지역이 아니라 한 지점</b>의 날씨 — 「내 위치 날씨」가 쓰는 모양.
+/// 등록된 지역이 아니라 한 지점의 날씨(「내 위치 날씨」). 격자와 지역 이름을 함께 실어 화면이 「여기가 맞나」를 되물을 수 있게 한다.
 /// </summary>
-/// <remarks>
-/// <para>
-/// 기존 화면들은 회사가 등록해 둔 관측 지역(<c>ghub.weather_locations</c>)을 본다.
-/// 이쪽은 브라우저가 준 위경도 한 쌍이고 표에 행이 없다 — 그래서 응답에
-/// <b>어디인지</b>(격자·지역 이름)가 함께 실린다. 화면이 「여기가 맞나」를
-/// 사람에게 되물을 수 있어야 하기 때문이다.
-/// </para>
-/// </remarks>
 public class PointWeatherDto
 {
     public double Lat { get; set; }
@@ -20,18 +12,10 @@ public class PointWeatherDto
     public int Nx { get; set; }
     public int Ny { get; set; }
 
-    /// <summary>
-    /// 가장 가까운 행정구역 이름(예: <c>울산광역시 남구 삼산동</c>).
-    /// 못 찾으면 비어 있다 — 좌표가 바다 위일 수도 있다.
-    /// </summary>
+    /// <summary>가장 가까운 행정구역 이름. 못 찾으면 비어 있다 — 좌표가 바다 위일 수도 있다.</summary>
     public string? Place { get; set; }
 
-    /// <summary>시·도 (예: <c>울산광역시</c>).</summary>
-    /// <remarks>
-    /// <b><see cref="Place"/> 를 쪼갠 것이 아니라 표에서 그대로 온 것이다.</b>
-    /// 화면이 「시·도 / 시·군·구 / 읍·면·동」을 따로 보여 주는데, 붙여 놓은
-    /// 글을 다시 공백으로 가르면 이름 안에 공백이 든 행정구역에서 어긋난다.
-    /// </remarks>
+    /// <summary>시·도 (예: <c>울산광역시</c>). Place 를 쪼갠 것이 아니라 표에서 그대로 온 값이다.</summary>
     public string? Region1 { get; set; }
 
     /// <summary>시·군·구 (예: <c>남구</c>). 세종시처럼 없는 곳도 있다.</summary>
@@ -46,22 +30,7 @@ public class PointWeatherDto
     /// <summary>오늘부터 사흘치 예보. 단기예보가 닿는 데까지만 채운다.</summary>
     public List<PointWeatherDayDto> Days { get; set; } = new();
 
-    /// <summary>
-    /// <b>주간 예보</b> — 내일부터 열흘. <c>weekly=true</c> 로 물었을 때만 찬다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 등록 지역의 <c>mid-term/{id}</c> 와 <b>같은 모양</b>(<see cref="MidTermForecastDto"/>)
-    /// 이다 — 화면이 같은 카드 줄을 그대로 쓴다.
-    /// </para>
-    /// <para>
-    /// <b>기본이 꺼져 있는 까닭.</b> 이것을 채우려면 기상청을 두 번 더 불러야 하는데
-    /// (중기 육상 · 중기 기온), 이 응답을 쓰는 곳 셋 중 둘은 그것이 필요 없다 —
-    /// 알림 본문(<see cref="Services.LocalWeatherNotifyService"/>)은 오늘·내일만 싣고,
-    /// 설정 화면의 미리보기는 「여기가 맞나」를 묻는 자리다. 늘 채우면 그 둘이
-    /// 기상청 왕복 둘만큼 느려지고 알림이 그만큼 늦게 나간다.
-    /// </para>
-    /// </remarks>
+    /// <summary>주간 예보 — 내일부터 열흘. weekly=true 로 물었을 때만 찬다. 기상청 왕복이 둘 늘어 알림 본문과 미리보기는 쓰지 않는다.</summary>
     public List<MidTermForecastDto> Weekly { get; set; } = new();
 
     /// <summary>
@@ -104,17 +73,8 @@ public class PointWeatherDayDto
 }
 
 /// <summary>
-/// <b>날씨 없이 「여기가 어디인가」만</b> — 설정 화면이 저장된 좌표를 열 때 쓴다.
+/// 날씨 없이 「여기가 어디인가」만. 기상청을 부르지 않아 설정 화면을 열 때마다 불러도 된다 — 이름은 우리 격자표에만 있다.
 /// </summary>
-/// <remarks>
-/// <para>
-/// <see cref="PointWeatherDto"/> 와 갈라 둔 까닭은 <b>기상청을 안 부른다</b>는 것
-/// 하나다. 설정 화면은 열릴 때마다 저장된 좌표의 시·도·동을 보여 줘야 하는데,
-/// 그때마다 실황·단기예보를 받아 오면 왕복이 둘 늘고 <b>기상청이 느린 날에는
-/// 지역 이름조차 안 뜬다</b> — 실제로 그랬다. 이름은 우리 표(<c>grid_coordinates</c>)에만
-/// 있으므로 바깥을 안 부르고 답할 수 있다.
-/// </para>
-/// </remarks>
 public class PointPlaceDto
 {
     public double Lat { get; set; }

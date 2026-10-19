@@ -7,55 +7,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace AIAgentServer.Endpoints;
 
-/// <summary>
-/// 사람별 AI 사용량을 꺼내 보는 길. 포털관리의 「AI 사용량」 화면이 쓴다.
-/// </summary>
-/// <remarks>
-/// <para>
-/// [여기에 있는 까닭]
-/// </para>
-///
-/// <para>
-/// 자료를 만드는 쪽이 여기다(<see cref="Services.AiUsageLog"/>). 읽는 길만
-/// 다른 서비스에 두면 같은 표를 둘이 알게 되고, 칸을 늘릴 때 한쪽만 고쳐진다.
-/// </para>
-///
-/// <para>
-/// [<b>그 화면을 볼 수 있는 사람</b>이면 조회한다 — 서버에서 한 번 더 본다]
-/// </para>
-///
-/// <para>
-/// 게이트웨이의 <c>ai-route</c> 는 <c>/api/ai/**</c> 를 통째로 <b>익명</b>으로
-/// 열어 둔다(대화 자체가 그 길로 가기 때문이다). 그래서 화면의 메뉴 권한만
-/// 믿으면 주소를 아는 누구나 <b>동료가 무엇을 얼마나 묻는지</b> 받아 갈 수 있다.
-/// </para>
-///
-/// <para>
-/// 다만 <b>역할 이름을 여기 적지 않는다.</b> 처음에는 배포 현황·오류 추적처럼
-/// 손으로 적어 두었는데, 이 메뉴는 <c>SERVER_ADMIN</c> 에게도 열려 있어서 그
-/// 역할을 가진 사람이 <b>사이드바에는 메뉴가 보이는데 조회하면 403</b> 이었다.
-/// 지금은 사이드바와 <b>같은 표</b>(<c>scom.role_menus</c>)에 묻는다 —
-/// <see cref="Services.MenuAccess"/> 머리말에 자세히 적었다.
-/// </para>
-///
-/// <para>
-/// [집계는 DB 가 한다]
-/// </para>
-///
-/// <para>
-/// 줄을 다 받아다 화면에서 더하지 않는다. 한 달이면 수천 줄이고, 그것을
-/// 회로로 옮기는 것만으로 화면이 느려진다 — 묻는 것은 사람당 한 줄이다.
-/// </para>
-/// </remarks>
+/// <summary>사람별 AI 사용량을 꺼내 보는 길. 포털관리의 「AI 사용량」 화면이 쓴다. 자료를 만드는 쪽이 여기다().</summary>
 public static class AiUsageEndpoints
 {
-    /// <summary>
-    /// 한 번에 돌려주는 최근 호출의 최대 줄 수.
-    /// </summary>
-    /// <remarks>
-    /// 파고드는 자리라 전부 줄 까닭이 없다. <b>잘렸다는 사실을 화면이 말한다</b> —
-    /// 말 없이 자르면 「이 사람은 200번만 썼다」로 읽힌다.
-    /// </remarks>
+    /// <summary>한 번에 돌려주는 최근 호출의 최대 줄 수. 파고드는 자리라 전부 줄 까닭이 없다.</summary>
     private const int RecentCap = 200;
 
     public static void MapAiUsageEndpoints(this IEndpointRouteBuilder app)
@@ -181,11 +136,7 @@ public static class AiUsageEndpoints
         .WithName("GetAiUsageRecent");
     }
 
-    /// <summary>
-    /// 기간과 기능으로 좁힌 줄들. <b>두 길이 같은 조건을 써야 한다</b> —
-    /// 갈라 적으면 집계와 목록의 건수가 어긋나고, 그때 어느 쪽이 맞는지
-    /// 아무도 말할 수 없다.
-    /// </summary>
+    /// <summary>기간과 기능으로 좁힌 줄들. <b>두 길이 같은 조건을 써야 한다</b> — 갈라 적으면 집계와 목록의 건수가 어긋나고, 그때 어느 쪽이 맞는지 아무도 말할 수 없다.</summary>
     private static IQueryable<AiUsageRow> Filtered(
         AiUsageDbContext db, DateTime start, DateTime end, string? feature)
     {
@@ -198,10 +149,7 @@ public static class AiUsageEndpoints
             : query.Where(x => x.Feature == feature);
     }
 
-    /// <summary>
-    /// 로그인 아이디 → 이름. <b>못 찾는 아이디가 있는 것이 정상이다</b> —
-    /// 계정을 지워도 그 사람이 쓴 줄은 남는다.
-    /// </summary>
+    /// <summary>로그인 아이디 → 이름. <b>못 찾는 아이디가 있는 것이 정상이다</b> — 계정을 지워도 그 사람이 쓴 줄은 남는다.</summary>
     private static async Task<Dictionary<string, string?>> NameMapAsync(
         AiUsageDbContext db, IEnumerable<string?> userIds, CancellationToken ct)
     {
@@ -219,14 +167,7 @@ public static class AiUsageEndpoints
             .ToDictionaryAsync(a => a.UserId, a => a.UserName, StringComparer.Ordinal, ct);
     }
 
-    /// <summary>
-    /// 기본 기간은 <b>최근 30일</b>이다. 끝은 <b>받은 날짜의 다음날 0시</b>로
-    /// 잡는다 — 그냥 그 날짜로 두면 그날 하루가 통째로 빠진다.
-    /// </summary>
-    /// <remarks>
-    /// 들어오는 값도 돌려주는 값도 <b>UTC</b>다. 한국 시각으로 바꾸는 일은
-    /// 화면이 보여 주기 직전에 한 번만 한다(docs/utc-time.md).
-    /// </remarks>
+    /// <summary>기본 기간은 <b>최근 30일</b>이다. 끝은 <b>받은 날짜의 다음날 0시</b>로 잡는다 — 그냥 그 날짜로 두면 그날 하루가 통째로 빠진다. 들어오는 값도 돌려주는 값도 UTC다.</summary>
     private static (DateTime Start, DateTime End) Window(DateTime? from, DateTime? to)
     {
         var end = to.HasValue
@@ -246,14 +187,7 @@ public static class AiUsageEndpoints
     /// <summary>열쇠가 아직 안 채워진 DB 를 위한 경로 대비책.</summary>
     private static readonly string[] UsagePaths = ["/admin/status/ai-usage"];
 
-    /// <summary>
-    /// 볼 수 있는 사람인가. 막아야 하면 그 응답을, 통과면 <c>null</c> 을 준다.
-    /// </summary>
-    /// <remarks>
-    /// <b>역할 이름을 여기서 따지지 않는다.</b> 메뉴 권한표에 묻는다 —
-    /// 사이드바가 그 메뉴를 보여 주기로 한 근거와 같은 값이라, 「보이는데
-    /// 누르면 403」이 생기지 않는다(<see cref="MenuAccess"/> 머리말).
-    /// </remarks>
+    /// <summary>볼 수 있는 사람인가. 막아야 하면 그 응답을, 통과면 <c>null</c> 을 준다. 역할 이름을 여기서 따지지 않는다.</summary>
     private static async Task<IResult?> ForbidAsync(
         UserContext? user, HttpContext http, MenuAccess access, CancellationToken ct)
     {

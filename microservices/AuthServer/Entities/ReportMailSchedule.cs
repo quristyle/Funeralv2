@@ -8,42 +8,8 @@ namespace AuthServer.Entities;
 /// 보고서 메일 배치 하나 — <b>어떤 보고서를</b> · <b>어느 역할에게</b> ·
 /// <b>얼마나 자주</b> 보낼지를 묶은 줄.
 /// </summary>
-/// <remarks>
-/// <para>
-/// [왜 AuthServer 인가]
-/// </para>
-///
-/// <para>
-/// 이 배치가 가리키는 것 둘이 모두 <c>scom</c> 에 있다 — 받는 쪽은
-/// 역할(<c>scom.roles</c>)이고, 보낼 보고서의 목록은 메뉴
-/// (<c>scom.system_menus</c>)다. 다른 서비스에 두면 역할·메뉴를 둘이 알게 되고
-/// 한쪽만 고쳐진다(<see cref="MenuUsageLog"/> 머리말과 같은 판단이다).
-/// </para>
-///
-/// <para>
-/// [시각은 한국 벽시계로 적는다 — 이 표만 그렇다]
-/// </para>
-///
-/// <para>
-/// 이 시스템의 시각은 전부 UTC 다(<c>docs/utc-time.md</c>). 그런데
-/// <see cref="SendHourKst"/> 는 「순간」이 아니라 <b>사람이 고른 벽시계 시각</b>
-/// 이다 — 「아침 여덟 시에 받겠다」는 뜻이지 「23:00 UTC 에 받겠다」가 아니다.
-/// UTC 로 적어 두면 지금은 같은 값이지만 그 뜻이 사라져, 설정 화면이 다시
-/// 아홉 시간을 빼서 보여 줘야 하고 거기서 갈린다. 그래서 <b>시·분만</b> 한국
-/// 벽시계로 두고, 실제로 보낸 순간(<see cref="LastSentAt"/>)은 UTC 다.
-/// 그 경계는 <c>docs/utc-time.md</c> 의 표에 한 줄 적어 두었다.
-/// </para>
-///
-/// <para>
-/// [보고서를 메뉴 열쇠로 가리킨다]
-/// </para>
-///
-/// <para>
-/// 고른 보고서는 <c>route_key</c>(예: <c>helpdesk.report.weekly</c>)로 적는다 —
-/// 메뉴 식별자가 아니라 열쇠인 까닭은 <c>web/CLAUDE.md</c> 「연결 고리는 URL 이
-/// 아니라 열쇠다」와 같다. 메일에 싣는 링크도 그 열쇠로 푼다.
-/// </para>
-/// </remarks>
+/// 배치는 scom 에 있는 역할·메뉴를 가리키므로 AuthServer 에 둔다 — 다른 서비스에 두면 둘이 알게 되어 한쪽만 고쳐진다.
+/// SendHourKst 만 한국 벽시계로 둔다(사람이 고른 시각이라 UTC 로 적으면 뜻이 사라진다). 보낸 순간 LastSentAt 은 UTC 다. 고른 보고서는 메뉴 열쇠(route_key)로 가리킨다.
 [Table("report_mail_schedules", Schema = "scom")]
 public class ReportMailSchedule : BaseEntity<string>
 {
@@ -100,10 +66,7 @@ public class ReportMailSchedule : BaseEntity<string>
     /// <summary>
     /// 마지막 발송의 결과. 성공이면 받은 사람 수가, 실패면 까닭이 적힌다.
     /// </summary>
-    /// <remarks>
-    /// <b>화면이 볼 수 있어야 한다.</b> 서버 로그에만 적으면 「메일이 왜 안
-    /// 오지」를 묻는 사람이 닿을 수 없는 자리에 답이 있게 된다.
-    /// </remarks>
+    /// 화면이 볼 수 있어야 한다 — 서버 로그에만 적으면 메일이 왜 안 오는지 묻는 사람이 닿을 수 없다.
     [MaxLength(512)]
     [Column("last_result")]
     public string? LastResult { get; set; }
@@ -118,11 +81,7 @@ public class ReportMailSchedule : BaseEntity<string>
 /// <summary>
 /// 배치가 고른 보고서 하나. 가리키는 값은 메뉴 열쇠(<c>route_key</c>)다.
 /// </summary>
-/// <remarks>
-/// <b>외래키를 메뉴에 걸지 않는다.</b> 메뉴를 지웠다고 배치가 함께 사라지면
-/// 안 되고(그때는 화면이 「없어진 보고서」라고 말해 주는 편이 낫다), 열쇠는
-/// 메뉴 표의 기본키도 아니다.
-/// </remarks>
+/// 외래키를 메뉴에 걸지 않는다 — 메뉴를 지웠다고 배치가 같이 사라지면 안 되고, 열쇠는 메뉴 표의 기본키도 아니다.
 [Table("report_mail_schedule_reports", Schema = "scom")]
 public class ReportMailScheduleReport : BaseEntity<int>
 {
@@ -146,11 +105,7 @@ public class ReportMailScheduleReport : BaseEntity<int>
 /// <summary>
 /// 배치를 받을 역할 하나.
 /// </summary>
-/// <remarks>
-/// <b>사람이 아니라 역할을 적는다.</b> 담당자가 바뀔 때 고칠 곳이 역할 하나로
-/// 끝나야 하기 때문이고, 그것이 이 화면을 만든 까닭 그 자체다
-/// (<c>AccountMailClient.SendToRoleAsync</c> 머리말과 같은 선이다).
-/// </remarks>
+/// 사람이 아니라 역할을 적는다 — 담당자가 바뀔 때 고칠 곳이 역할 하나로 끝나야 하기 때문이다.
 [Table("report_mail_schedule_roles", Schema = "scom")]
 public class ReportMailScheduleRole : BaseEntity<int>
 {

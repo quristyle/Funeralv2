@@ -37,20 +37,9 @@ public partial class BirthdayList
     private int CurrentMonth => _month ?? AppTime.Today.Month;
 
     /// <summary>
-    /// 접힌 조회부의 머리줄에 적을 글 — <b>지금 무엇으로 걸러 본 목록인가</b>.
+    /// 접힌 조회 머리의 글 — 지금 무엇으로 걸러 본 목록인가. 고르지 않은 칸은 「전체」로 적는다(빼면 안 고른 것인지 칸이 없는 것인지 알 수 없다).
+    /// 소속은 아이디가 아니라 이름으로 적는다. 목록을 못 읽었으면 「전체」로 떨어진다.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 고르지 않은 칸을 빼 버리지 않고 「전체」로 적는다. 빼면 「개발팀 · 9 월」
-    /// 이 되는데, 그것만 보고는 <b>회사를 안 고른 것인지 그 칸이 없는 것인지</b>
-    /// 알 수가 없다.
-    /// </para>
-    /// <para>
-    /// 아이디가 아니라 이름으로 적는다. 목록을 아직 못 읽었으면(소속 조회가
-    /// 실패했을 때) 「전체」로 떨어진다 — 아이디를 그대로 적어 두면 사람이
-    /// 읽을 수 없는 글자가 머리줄에 남는다.
-    /// </para>
-    /// </remarks>
     private string ConditionSummary
     {
         get
@@ -92,8 +81,7 @@ public partial class BirthdayList
     }
 
     /// <summary>
-    /// 소속 목록. 실패해도 화면을 죽이지 않는다 — 소속 드롭다운이 안 차는 것과
-    /// 생일 목록을 못 보는 것은 다른 일이다.
+    /// 소속 목록. 실패해도 화면을 죽이지 않는다 — 드롭다운이 안 차는 것과 생일 목록을 못 보는 것은 다른 일이다.
     /// </summary>
     private async Task LoadOrgAsync()
     {
@@ -116,7 +104,7 @@ public partial class BirthdayList
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        // 넷을 나란히. 서로 기다릴 이유가 없다 — 차례로 부르면 왕복이 넷 쌓인다.
+        // 넷을 나란히 부른다 — 차례로 부르면 왕복이 넷 쌓인다.
         var stats = Api.GetStatsAsync(_companyId, _departmentId);
         var today = Api.GetTodayAsync(_companyId, _departmentId);
         var messages = Api.GetTodayMessagesAsync();
@@ -124,8 +112,7 @@ public partial class BirthdayList
 
         await Task.WhenAll(stats, today, messages, people);
 
-        // 통계가 비어 오면 열두 칸을 0 으로 채운다. 타일이 아예 없으면
-        // 「집계가 없다」와 「생일자가 없다」를 구분할 수 없다.
+        // 통계가 비면 열두 칸을 0 으로 채운다 — 타일이 아예 없으면 「집계 없음」과 「생일자 없음」을 구분할 수 없다.
         _stats = stats.Result.Count > 0
             ? [.. stats.Result.OrderBy(s => s.Month)]
             : [.. Months.Select(m => new BirthdayMonthStat { Month = m })];
@@ -134,11 +121,8 @@ public partial class BirthdayList
         _messages = messages.Result;
         _people = people.Result;
 
-        // 얼굴은 목록을 받은 **뒤**에 묻는다. 위 넷과 나란히 걸 수 없다 —
-        // 누구의 얼굴이 필요한지가 그 응답 안에 있다.
-        //
-        // 이것 때문에 조회가 실패하지는 않는다(`EnsureAsync` 가 삼킨다).
-        // 두 목록의 아이디가 겹치지만 그쪽이 걸러 준다.
+        // 얼굴은 목록을 받은 뒤에 묻는다 — 누구의 얼굴이 필요한지가 그 응답 안에 있어서 위 넷과 나란히 걸 수 없다.
+        // 실패해도 조회는 실패하지 않는다(EnsureAsync 가 삼킨다). 두 목록의 아이디가 겹쳐도 그쪽이 걸러 준다.
         await Faces.EnsureAsync(
             _people.Select(p => p.SubjectId).Concat(_today.Select(t => t.SubjectId)));
 
@@ -146,18 +130,9 @@ public partial class BirthdayList
     }, "그 달에 생일자가 없습니다.", "생일 목록을 읽지 못했습니다");
 
     /// <summary>
-    /// 알림 창을 연다.
+    /// 알림 창을 연다. 축하 대상이 아닌 사람(퇴사자·비대상)은 뺀다 — 표에서 보내기가 잠긴 사람에게 알림만 나가면 말이 어긋난다.
+    /// 얼굴도 함께 싣는다 — 창이 스스로 물으면 방금 물어본 아이디를 한 번 더 묻게 된다.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>축하 대상이 아닌 사람은 뺀다.</b> 퇴사자·비대상이 그것인데, 표에서
-    /// 「보내기」가 잠겨 있는 사람에게 알림만 나가면 말이 어긋난다.
-    /// </para>
-    /// <para>
-    /// 얼굴도 함께 실어 보낸다. 창이 스스로 물으면 방금 물어본 아이디를
-    /// 한 번 더 묻게 된다.
-    /// </para>
-    /// </remarks>
     private void OpenNotify(IEnumerable<BirthdayPerson> people)
     {
         _notifyTargets =
@@ -180,8 +155,7 @@ public partial class BirthdayList
     {
         _companyId = companyId;
 
-        // 회사가 바뀌면 부서 선택은 무효다. 남겨 두면 다른 회사의 부서로
-        // 걸러 아무도 나오지 않는다.
+        // 회사가 바뀌면 부서 선택은 무효다 — 남기면 다른 회사의 부서로 걸러 아무도 안 나온다.
         _departmentId = null;
 
         return ReloadAsync();
@@ -210,11 +184,10 @@ public partial class BirthdayList
         if (await RunAsync(() => Api.SendAsync(person.SubjectId, text),
                 $"{person.Name} 님에게 축하를 보냈습니다.", "축하를 보내지 못했습니다"))
         {
-            // 보낸 문구는 지운다. 남겨 두면 같은 글을 두 번 보내기 쉽다.
+            // 보낸 문구는 지운다 — 남기면 같은 글을 두 번 보내기 쉽다.
             _drafts.Remove(person.SubjectId);
 
-            // 오늘의 축하와 축하 수가 달라졌다. 다시 읽지 않으면 방금 보낸 것이
-            // 화면에 없어 사용자가 한 번 더 보낸다.
+            // 축하 수가 달라졌다 — 다시 읽지 않으면 방금 보낸 것이 안 보여 한 번 더 보내게 된다.
             await ReloadAsync();
         }
     }

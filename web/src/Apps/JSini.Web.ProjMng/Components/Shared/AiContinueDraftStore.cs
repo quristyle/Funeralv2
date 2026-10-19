@@ -2,59 +2,7 @@ using Microsoft.JSInterop;
 
 namespace JSini.Web.ProjMng.Components.Shared;
 
-/// <summary>
-/// 「이어서 지시」 창에 적다 만 글의 <b>임시저장</b>. 브라우저에 적어 둔다
-/// (<c>localStorage</c>).
-/// </summary>
-/// <remarks>
-/// <para>
-/// [무엇을 고친 것인가]
-/// </para>
-///
-/// <para>
-/// 끝난 건에 이어서 시킬 것을 적는 자리는 <b>창</b>이다. 그래서 새로고침
-/// 한 번이면 창째 사라지고 적던 글도 함께 없어졌다 — 회선이 흔들려 Blazor 가
-/// 스스로 화면을 다시 띄우는 경우에도 같다. 「빠른 지시」의 큰 글상자는
-/// 이미 막아 두었는데(<see cref="AiAskPrefs"/>) 이 창만 빠져 있었다.
-/// </para>
-///
-/// <para>
-/// [적는 일은 전부 JS 가 한다]
-/// </para>
-///
-/// <para>
-/// 이 클래스는 <c>js/continue-draft.js</c> 를 부르는 얇은 껍데기다. 저장소를
-/// 직접 만지지 않는 까닭은 둘이다.
-/// </para>
-///
-/// <list type="number">
-/// <item>
-/// <b>연결이 끊긴 동안 친 글자가 살아야 한다.</b> C# 은 이벤트가 서버까지
-/// 와야 값을 아는데, 회선이 끊기면 그 이벤트가 오지 않는다. 브라우저의
-/// <c>input</c> 은 연결과 무관하게 돈다.
-/// </item>
-/// <item>
-/// <b>덮어쓰기를 막는다.</b> 한 열쇠에 여러 건이 담기므로, C# 이 제 손에 든
-/// 덩어리를 통째로 다시 적으면 그 사이 브라우저가 적어 둔 방금 친 글자가
-/// 사라진다 — 고치려던 바로 그 사고다. 고쳐 쓰는 길을 JS 한 곳으로 모아
-/// <b>읽고-합치고-적기</b>를 한 번에 시킨다.
-/// </item>
-/// </list>
-///
-/// <para>
-/// [열쇠에 로그인 아이디가 들어간다]
-/// </para>
-///
-/// <para>
-/// 「빠른 지시」는 관리자에게 <b>모두의 카드</b>를 보여 준다. 열쇠를 작업
-/// 번호로만 만들면 공용 PC 에서 남이 적다 만 글이 내 창에 뜬다
-/// (<see cref="AiTaskDraftStore"/> 와 같은 이유다).
-/// </para>
-///
-/// <para>
-/// scoped 다 — 회로 하나가 사용자 한 명의 창 하나다.
-/// </para>
-/// </remarks>
+/// <summary>「이어서 지시」 창에 적다 만 글의 임시저장. 브라우저(localStorage)에 적는다 — 창은 새로고침에 사라지고 회선이 흔들려도 다시 뜨므로. 적는 일은 전부 JS 가 한다: 연결이 끊긴 동안 친 글자가 살아야 하고, 한 열쇠에 여러 건이 담기므로 C# 이 덩어리를 통째로 다시 적으면 그사이 친 글자가 사라진다. 열쇠에 로그인 아이디를 넣어 공용 PC 에서 남의 글이 뜨지 않게 한다.</summary>
 public sealed class AiContinueDraftStore(IJSRuntime js)
 {
     /// <summary>저장소 열쇠의 앞부분. 뒤에 로그인 아이디가 붙는다.</summary>
@@ -72,10 +20,7 @@ public sealed class AiContinueDraftStore(IJSRuntime js)
     public void Use(string? username) =>
         _key = KeyPrefix + (string.IsNullOrWhiteSpace(username) ? "?" : username.Trim());
 
-    /// <summary>
-    /// 적어 둔 한 건을 읽는다. 없거나 못 읽으면 <c>null</c> 이다 —
-    /// <b>그때는 창이 빈 글상자로 열린다.</b>
-    /// </summary>
+    /// <summary>적어 둔 한 건을 읽는다. 없거나 못 읽으면 null 이고, 그때 창은 빈 글상자로 열린다.</summary>
     public async Task<AiContinueDraft?> ReadAsync(long taskKey)
     {
         var module = await ModuleAsync();
@@ -95,12 +40,7 @@ public sealed class AiContinueDraftStore(IJSRuntime js)
         }
     }
 
-    /// <summary>
-    /// 글상자에 실시간 감시를 건다. <b>창이 그려진 뒤에</b> 불러야 한다
-    /// (<c>OnAfterRenderAsync</c>) — 그 전에는 글상자가 DOM 에 없다.
-    /// </summary>
-    /// <param name="selector">글상자를 감싼 상자를 가리키는 CSS 선택자.</param>
-    /// <param name="taskKey">어느 건에 이어서 지시하는 중인가.</param>
+    /// <summary>글상자에 실시간 감시를 건다(창이 그려진 뒤에 불러야 한다). selector 는 글상자를 감싼 상자, taskKey 는 이어서 지시하는 건이다.</summary>
     public async Task AttachAsync(string selector, long taskKey)
     {
         var module = await ModuleAsync();
@@ -157,10 +97,7 @@ public sealed class AiContinueDraftStore(IJSRuntime js)
         }
     }
 
-    /// <summary>
-    /// 모듈을 한 번만 읽어 둔다. <b>못 읽어도 창은 열려야 한다</b> —
-    /// 임시저장이 없는 것은 불편이지만, 여기서 터지면 이어서 지시 자체를 못 한다.
-    /// </summary>
+    /// <summary>모듈을 한 번만 읽어 둔다. 못 읽어도 창은 열려야 한다 — 임시저장이 없는 것은 불편이지만 여기서 터지면 이어서 지시를 못 한다.</summary>
     private async ValueTask<IJSObjectReference?> ModuleAsync()
     {
         if (_module is not null)
@@ -181,12 +118,7 @@ public sealed class AiContinueDraftStore(IJSRuntime js)
     }
 }
 
-/// <summary>
-/// 적어 둔 한 벌. <b>사람이 고치는 칸만</b> 담는다.
-/// </summary>
-/// <remarks>
-/// 칸 이름이 <c>continue-draft.js</c> 가 적는 것과 같아야 한다.
-/// </remarks>
+/// <summary>적어 둔 한 벌. 사람이 고치는 칸만 담는다. 칸 이름은 continue-draft.js 가 적는 것과 같아야 한다.</summary>
 public sealed class AiContinueDraft
 {
     /// <summary>이번에 더 시킬 일. 이것이 비면 임시본 자체가 없는 것으로 본다.</summary>

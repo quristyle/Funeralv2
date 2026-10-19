@@ -11,98 +11,22 @@ using NotificationServer.Services;
 
 namespace NotificationServer.Endpoints;
 
-/// <summary>
-/// 쪽지 엔드포인트 (<c>/api/notification/notes/*</c>)
-/// </summary>
-/// <remarks>
-/// <para>
-/// [왜 알림 서비스에 있나]
-/// </para>
-///
-/// <para>
-/// 쪽지 한 통은 <b>글 하나 + 두드림 둘</b>이다. 그 두드림(앱 푸시 · 메일)은 이미
-/// 전부 이 서비스에 있고, 보내는 사람의 얼굴을 아이콘으로 다는 것도
-/// (<c>IconOwnerKey</c> → <c>IAvatarIconResolver</c>) 여기 있다. 받는 사람을
-/// 아이디·이메일로 푸는 자리도 마찬가지다(<c>EmailEndpoints</c> 의 <c>toUser</c>).
-/// 글을 담을 표 하나만 더하면 되는데 그것 때문에 서비스를 새로 세우면, <b>두드림을
-/// 부르려고 서비스를 건너뛰는 길</b>이 하나 더 생긴다.
-/// </para>
-///
-/// <para>
-/// [이 서비스는 「보내는 일만 한다」는 규칙을 어기는가]
-/// </para>
-///
-/// <para>
-/// 어기지 않는다. 그 규칙이 막는 것은 <b>「누구에게 보낼지」를 이 서비스가 아는
-/// 것</b>이다(팀·회사·담당자 같은 업무 판정). 쪽지의 받는 사람은 업무 판정이 아니라
-/// <b>사람이 손으로 적은 글자</b>이고, 그것을 계정으로 푸는 표는 이 서비스가 원래
-/// 읽는 <c>scom</c> 에 있다.
-/// </para>
-///
-/// <para>
-/// [두드림이 막혀도 쪽지는 성공이다]
-/// </para>
-///
-/// <para>
-/// 푸시가 0 대에 갔다고 실패로 답하면 보낸 사람이 같은 쪽지를 한 번 더 보낸다 —
-/// 그 사이 상대의 쪽지함에는 이미 두 통이 쌓인다. <b>쪽지함에 들어갔으면 성공</b>이고,
-/// 두드림이 어디까지 갔는지는 결과 안에 따로 담는다(<see cref="SendNoteResultDto"/>).
-/// </para>
-///
-/// <para>
-/// [두드림을 <b>보내는 사람이 고르지 않는다</b>]
-/// </para>
-///
-/// <para>
-/// 한동안 쓰는 화면에 「앱 푸시」·「메일」 체크가 있었다. 그런데 그것은 <b>받는
-/// 사람의 사정</b>이다 — 메일을 한 통 더 받을지, 알림을 받을지는 받는 쪽이 자기
-/// 설정에서 정할 일이지 보내는 쪽이 매번 고를 일이 아니다. 지금은 둘로 갈린다.
-/// </para>
-///
-/// <list type="bullet">
-///   <item><description><b>앱 푸시는 닿는 사람에게 늘 간다</b>(끄지 않았고 기기가
-///   있다). 그리고 <b>앱 푸시도 쪽지 메일도 닿지 않는 사람은 아예 받지 못한다</b>
-///   — 쪽지함에만 쌓이면 본인은 왔다는 것조차 모르는데 보낸 쪽은 보냈다고 믿게
-///   되기 때문이다. 그런 사람은 결과의 <c>Blocked</c> 에 담아 이름을 짚어
-///   돌려준다(<c>NoteRecipientDto.CanReceive</c>, 2026-09-24).</description></item>
-///   <item><description><b>메일은 받는 사람이 켜 둔 경우에만</b> 간다
-///   (개인설정의 「쪽지 메일받기」 — 기본은 꺼짐). 본문은 회사 메일 틀을 입힌
-///   HTML 이다(<c>NoticeEmailTemplate</c>).</description></item>
-/// </list>
-/// </remarks>
+/// <summary>쪽지 엔드포인트(/api/notification/notes/*). 두드림(앱 푸시·메일)이 실패해도 쪽지함에 들어갔으면 성공이다.
+/// 메일은 받는 사람이 켠 경우에만 간다.</summary>
 public static class NoteEndpoints
 {
     /// <summary>제목 · 본문의 길이 상한. 화면이 아니라 여기가 정본이다.</summary>
     private const int MaxTitle = 200;
 
-    /// <summary>
-    /// 「전체에서 고르기」가 한 번에 받는 사람 수의 상한.
-    /// </summary>
-    /// <remarks>
-    /// 전 직원이 아니라 <b>쪽지를 받을 길이 있는 사람</b>이라 실제로는 훨씬
-    /// 짧다(2026-10-10 기준 계정 66 중 7). 그래도 상한을 두는 것은, 모두가
-    /// 기기를 등록하는 날 이 목록이 통째로 내려오면 <b>창을 여는 데만 한참
-    /// 걸리기</b> 때문이다. 넘치면 화면이 「더 있다 — 이름으로 찾으십시오」를
-    /// 말한다.
-    /// </remarks>
+    /// <summary>「전체에서 고르기」가 한 번에 주는 받는 사람 수 상한. 목록이 통째로 내려와 창이 늦게 열리는 것을 막는다.</summary>
     private const int MaxDirectory = 200;
 
     private const int MaxBody = 4000;
 
-    /// <summary>
-    /// 쪽지를 눌렀을 때 열 화면. <b>알림과 메일이 같은 곳을 가리킨다.</b>
-    /// </summary>
+    /// <summary>쪽지를 눌렀을 때 열 화면. 알림과 메일이 같은 곳을 가리킨다.</summary>
     private const string InboxUrl = "/admin/note/box";
 
-    /// <summary>
-    /// 한국 시간대. 지어 주는 제목에 <b>사람이 읽는 시각</b>을 적으려고 쓴다.
-    /// </summary>
-    /// <remarks>
-    /// 저장은 UTC 로 한다(<c>Note.SentAt</c>). 제목은 저장된 값이 아니라
-    /// <b>글자</b>라 나중에 화면이 고쳐 줄 수 없어서, 만들 때 이미 한국 시각이어야
-    /// 한다. 리눅스와 윈도우의 아이디가 달라 둘 다 시도한다
-    /// (<c>AuthServer.BirthdayEndpoints</c> 와 같은 꼴).
-    /// </remarks>
+    /// <summary>한국 시간대. 제목 글자에 사람이 읽는 시각을 적을 때만 쓴다. 리눅스와 윈도우의 아이디가 달라 둘 다 시도한다.</summary>
     private static readonly TimeZoneInfo KoreaZone = ResolveKoreaZone();
 
     private static TimeZoneInfo ResolveKoreaZone()
@@ -116,10 +40,7 @@ public static class NoteEndpoints
         var group = app.MapGroup("/notes").WithTags("Notes");
 
         // ── 받는 사람 찾기 ──────────────────────────────────
-        //
-        // 아이디를 정확히 아는 사람은 그냥 치면 되지만, 대개는 이름만 안다.
-        // **보내기는 이 결과를 믿지 않는다** — 같은 규칙으로 다시 푼다
-        // (`NoteRecipientResolver` 머리말).
+        // 보내기는 이 결과를 믿지 않고 같은 규칙으로 다시 푼다(NoteRecipientResolver).
         group.MapGet("/recipients", async (
             UserContext? user,
             [FromServices] INoteRecipientResolver resolver,
@@ -135,13 +56,7 @@ public static class NoteEndpoints
         .WithName("SearchNoteRecipients");
 
         // ── 빠른 선택 ───────────────────────────────────────
-        //
-        // **아무것도 안 친 순간의 화면이다.** 찾기는 두 글자를 쳐야 걸리는데,
-        // 쪽지를 쓰는 사람이 가장 자주 하는 일은 「어제 보낸 그 사람에게 또」이고
-        // 그때 이름을 다시 치는 것은 순전한 낭비다.
-        //
-        // 최근은 **내 보낸함**에서 뽑는다(남의 것은 안 본다). 전체는 받을 길이
-        // 있는 사람 전부라 실제로는 짧다 — 그래도 상한을 둔다.
+        // 최근은 내 보낸함에서, 전체는 받을 길이 있는 사람 상한 안에서 뽑는다.
         group.MapGet("/recipients/quick", async (
             UserContext? user,
             [FromServices] AppDbContext db,
@@ -153,11 +68,7 @@ public static class NoteEndpoints
 
             var want = Math.Clamp(take, 1, 20);
 
-            // **보낸 사람 하나당 한 줄로 접는다.** 같은 사람에게 열 통을 보냈다고
-            // 딱지가 열 개 서면 안 된다. 가장 가까운 때로 줄을 세운다.
-            //
-            // 치운 것까지 본다 — 보낸함에서 지웠다고 「그 사람에게 안 보냈던」
-            // 것이 되지는 않는다.
+            // 사람 하나당 한 줄로 접는다(가장 가까운 때 순). 치운 것도 본다.
             var recentKeys = await db.Notes
                 .Where(n => n.SenderKey == user.UserId && n.ReceiverKey != user.UserId)
                 .GroupBy(n => n.ReceiverKey)
@@ -170,9 +81,7 @@ public static class NoteEndpoints
                 .Select((x, i) => (x.Key, i))
                 .ToDictionary(t => t.Key, t => t.i, StringComparer.Ordinal);
 
-            // **지금도 받을 수 있는 사람만 남긴다.** 그 사이에 기기를 지웠거나
-            // 푸시를 꺼서 못 받게 된 사람이 딱지로 서 있으면, 눌러 담고 보내고
-            // 나서야 막힌 것을 안다.
+            // 지금도 받을 수 있는 사람만 남긴다(눌러 담고 나서야 막힌 것을 아는 일을 막는다).
             var recent = recentKeys.Count == 0
                 ? []
                 : (await resolver.LoadByLoginIdsAsync(recentKeys.Select(x => x.Key), ct))
@@ -180,7 +89,7 @@ public static class NoteEndpoints
                     .OrderBy(r => order.GetValueOrDefault(r.LoginId, int.MaxValue))
                     .ToList();
 
-            // 전체는 하나 더 받아 본다 — **잘렸는지를 알려면** 상한을 넘겨 봐야 한다.
+            // 잘렸는지 알려고 상한보다 하나 더 받는다.
             var all = await resolver.ListReachableAsync(MaxDirectory + 1, ct);
 
             var truncated = all.Count > MaxDirectory;
@@ -190,9 +99,7 @@ public static class NoteEndpoints
                 all = [.. all.Take(MaxDirectory)];
             }
 
-            // **나 자신은 뺀다.** 나에게 쪽지를 쓰는 일이 없지는 않지만 흔하지
-            // 않고, 목록 맨 앞에 서면 잘못 누르기 좋은 자리다. 손으로 적으면
-            // 여전히 보낼 수 있다.
+            // 나 자신은 뺀다(잘못 누르기 쉬운 맨 앞 자리).
             all = [.. all.Where(r => !string.Equals(r.LoginId, user.UserId, StringComparison.Ordinal))];
 
             return Results.Ok(ApiResponse<NoteQuickPickDto>.Ok(new NoteQuickPickDto
@@ -205,17 +112,7 @@ public static class NoteEndpoints
         .WithName("GetNoteQuickPick");
 
         // ── 기기에 닿았다 ───────────────────────────────────
-        //
-        // **쪽지 길 중에 익명인 하나**다(게이트웨이의 notification-note-delivered-route).
-        // 부르는 쪽은 브라우저의 서비스워커이고 거기에는 로그인 토큰이 없다 —
-        // 이 포털의 토큰은 서버가 들고 있고 브라우저로 안 내려온다(BFF).
-        //
-        // 신원 대신 **쪽지 아이디(GUID)** 하나를 열쇠로 쓴다. 할 수 있는 일이
-        // 「닿았다고 찍는 것」뿐이고 그 아이디는 보낸 사람과 받는 사람만 아는
-        // 값이라, 새어도 잃는 것은 **전환 메일 한 통**이다. 거꾸로 이 길이
-        // 없으면 「보냈다」와 「닿았다」를 영영 가를 수 없다.
-        //
-        // **한 번만 찍는다.** 같은 푸시를 두 기기가 받아도 처음 것이 도착 시각이다.
+        // 익명이다(서비스워커가 부르고 토큰이 없어 쪽지 아이디를 열쇠로 쓴다). 한 번만 찍어 처음 도착 시각을 남긴다.
         group.MapPost("/delivered", async (
             [FromBody] NoteDeliveredDto request,
             [FromServices] AppDbContext db,
@@ -223,8 +120,7 @@ public static class NoteEndpoints
         {
             var id = (request.NoteId ?? string.Empty).Trim();
 
-            // **없는 아이디에도 참을 돌려준다.** 404 로 가르면 아이디를 하나씩
-            // 넣어 「있는 쪽지」를 찾아볼 수 있게 된다.
+            // 없는 아이디에도 참을 돌려준다(404 로 가르면 아이디로 쪽지를 찾아볼 수 있다).
             if (id.Length == 0 || id.Length > 64)
             {
                 return Results.Ok(ApiResponse<bool>.Ok(true));
@@ -262,9 +158,7 @@ public static class NoteEndpoints
             var title = (request.Title ?? string.Empty).Trim();
             var body = (request.Body ?? string.Empty).Trim();
 
-            // **제목이 아니라 내용을 받는다.** 제목은 비면 지어 주지만
-            // (`DefaultTitle`) 내용이 비면 지어 줄 것이 없다 — 빈 쪽지는
-            // 받는 사람에게 알림 한 번일 뿐 아무 말도 아니다.
+            // 제목은 비면 지어 주지만 내용은 지어 줄 것이 없다.
             if (body.Length == 0)
             {
                 return Results.BadRequest(ApiResponse<SendNoteResultDto>.Fail(
@@ -283,19 +177,14 @@ public static class NoteEndpoints
 
             var (resolved, unknown) = await resolver.ResolveAsync(tokens, ct);
 
-            // **받을 길이 없는 사람은 받지 못한다.** 앱 푸시(기기가 있고 끄지 않았다)도
-            // 쪽지 메일(켜 두었고 주소가 있다)도 없으면, 쪽지함에만 쌓여 본인은 왔다는
-            // 것조차 모르는데 보낸 쪽은 보냈다고 믿는다 — 그 조용한 어긋남이
-            // 「없는 아이디」보다 나쁘다. 찾기 목록이 같은 값으로 거른다
-            // (`NoteRecipientDto.CanReceive`, 2026-09-24). 전에는 푸시 설정만 보아서,
-            // 기기가 없는 사람에게도 들어가고 메일만 켠 사람은 막혔다.
+            // 받을 길이 없는 사람(앱 푸시도 메일도 없음)은 막는다(쪽지함에만 쌓이면 보낸 쪽이 보냈다고 믿는다).
+            // 찾기 목록도 같은 값으로 거른다(NoteRecipientDto.CanReceive).
             var found = resolved.Where(r => r.CanReceive).ToList();
             var blocked = resolved.Where(r => !r.CanReceive).Select(Display).ToList();
 
             if (found.Count == 0)
             {
-                // **무엇이 틀렸는지 짚어 준다.** 「받는 사람이 없습니다」로만 답하면
-                // 아이디를 잘못 친 것인지 그 사람이 푸시를 꺼 둔 것인지 알 수 없다.
+                // 어느 것이 틀렸는지 짚는다(아이디 오타인지 푸시를 꺼 둔 것인지).
                 var why = new List<string>();
 
                 if (unknown.Count > 0) why.Add($"그런 아이디·이메일이 없습니다: {string.Join(", ", unknown)}");
@@ -311,10 +200,7 @@ public static class NoteEndpoints
 
             var now = DateTime.UtcNow;
 
-            // **제목을 비우면 지어 넣는다.** 쪽지 대부분은 한두 줄이라 제목이
-            // 내용과 같은 말이 되는데, 그렇다고 제목 칸을 없애면 쪽지함의 목록이
-            // 통째로 빈 줄이 된다. 「누가 언제 보냈다」는 목록에서 사람이 실제로
-            // 찾는 두 가지다.
+            // 제목을 비우면 지어 넣는다(보낸 사람·시각이 목록에서 찾는 단서다).
             if (title.Length == 0)
             {
                 title = DefaultTitle(senderName, now);
@@ -337,36 +223,14 @@ public static class NoteEndpoints
 
             db.Notes.AddRange(notes);
 
-            // **글을 먼저 확정한다.** 두드림을 먼저 보내면, 저장이 깨졌을 때
-            // 「알림은 왔는데 쪽지함이 비어 있다」가 된다 — 그쪽이 훨씬 나쁘다.
+            // 글을 먼저 확정한다(두드림을 먼저 보내면 저장 실패 때 알림만 가고 쪽지함은 빈다).
             await db.SaveChangesAsync(ct);
 
             var trouble = new List<string>();
 
             // ── 앱 푸시 ─────────────────────────────────────
-            //
-            // **앱 푸시가 닿는 사람에게만 보낸다.** 메일로만 받는 사람(푸시를 껐거나
-            // 기기가 없다)까지 넣으면 「기기 없음」이 두드림 실패로 적히고, 그 사람들만
-            // 받는 쪽지면 멀쩡히 메일로 간 것이 실패처럼 보인다. 아이콘은 **보낸
-            // 사람의 얼굴**이다(`PushMessageDto.IconOwnerKey`) — 받은 쪽이 먼저 묻는
-            // 것이 「누가 보냈나」라서다.
-            //
-            // **사람마다 따로 보낸다.** 한 번에 보내면 페이로드가 하나라 거기에
-            // 실을 수 있는 쪽지 아이디도 하나인데, 쪽지는 **받는 사람마다 한 줄**
-            // 이다(`Note` 머리말). 아이디를 안 실으면 서비스워커가 되알려 줄 때
-            // 「어느 쪽지가 닿았는지」를 못 말하고, 그러면 전환 메일 판정이
-            // 통째로 서지 않는다(`NoteFallbackMailer`).
-            //
-            // **공짜는 아니다.** `PushSender` 가 발송 한 번마다 대상 펴기 ·
-            // 수신 설정 · 구독 조회 · 기록 남기기를 하므로 그 넷이 사람 수만큼
-            // 는다(서른 명이면 DB 왕복 백여 번). 받는 사람 상한이 서른이고
-            // (`MaxRecipients`) 실제로는 한둘이라 감당할 만한 값으로 보고
-            // 가져가지만, 「묶음 수만 는다」는 아니다.
-            //
-            // **아이콘 조회만은 한 번으로 묶는다.** 보내는 사람이 하나라 얼굴도
-            // 하나인데, 알맹이를 사람마다 새로 만들면 그때마다 다시 푼다.
-            // 같은 객체를 돌려 쓰면 `PushSender.FillIconAsync` 가 두 번째부터
-            // 채워진 `Icon` 을 보고 그냥 지나간다.
+            // 앱 푸시는 닿는 사람에게만 사람마다 보낸다(쪽지 아이디를 실어야 되알림이 어느 쪽지인지 안다).
+            // 아이콘은 한 번만 조회해 같은 객체를 돌려 쓴다(PushSender 가 채운 아이콘을 재사용).
             var pushDevices = 0;
             var pushTargets = found.Where(r => r.PushReachable).ToList();
 
@@ -383,9 +247,7 @@ public static class NoteEndpoints
 
             foreach (var target in pushTargets)
             {
-                // **서비스워커가 「닿았다」고 되알려 줄 때 쥐여 보낼 열쇠.**
-                // 이것 하나로 전환 메일이 「안 읽었다」가 아니라 「안 닿았다」를
-                // 보고 움직인다. 사람마다 갈리는 값은 이것 하나뿐이다.
+                // 서비스워커가 닿았다고 되알려 줄 때 쥐여 보내는 열쇠(전환 메일 판정의 근거).
                 message.Data = noteOf.TryGetValue(target.LoginId, out var mine)
                     ? new Dictionary<string, string> { ["noteId"] = mine.Id }
                     : null;
@@ -407,8 +269,7 @@ public static class NoteEndpoints
                 }
                 catch (Exception ex)
                 {
-                    // **쪽지는 이미 들어갔다.** 두드림 하나 때문에 실패로 답하지 않는다.
-                    // 한 사람이 막혀도 나머지는 계속 보낸다.
+                    // 쪽지는 이미 들어갔으므로 두드림 하나의 실패로 답하지 않는다.
                     logger.LogWarning(ex, "쪽지 앱 알림을 보내지 못했습니다. by={By} to={To}",
                         user.UserId, target.LoginId);
                     trouble.Add($"{Display(target)} 에게 앱 알림을 보내지 못했습니다");
@@ -416,10 +277,7 @@ public static class NoteEndpoints
             }
 
             // ── 메일 ────────────────────────────────────────
-            //
-            // **받는 사람이 켜 둔 경우에만 간다**(개인설정 › 쪽지 메일받기).
-            // 기본이 꺼짐이므로 아무도 안 켰으면 조용히 건너뛴다 — 그것은
-            // 사고가 아니라 사람들의 뜻이라 결과에 적지 않는다.
+            // 받는 사람이 켠 경우에만 보낸다(기본 꺼짐이라 조용히 건너뛴다).
             var emailedKeys = new HashSet<string>(StringComparer.Ordinal);
 
             var wantMail = new List<NoteRecipientDto>();
@@ -439,8 +297,7 @@ public static class NoteEndpoints
 
             if (wantMail.Count > 0)
             {
-                // 주소가 없으면 켜 두었어도 보낼 데가 없다. **조용히 빼지 않고**
-                // 몇 명이 빠졌는지 결과에 적는다.
+                // 주소가 없으면 보낼 데가 없으므로 빠진 사람 수를 결과에 적는다.
                 var withAddress = wantMail
                     .Where(r => !string.IsNullOrWhiteSpace(r.Email))
                     .ToList();
@@ -452,17 +309,12 @@ public static class NoteEndpoints
                     trouble.Add($"쪽지 메일을 켜 두었으나 주소가 없는 사람 {without}명");
                 }
 
-                // **한 사람에 한 통씩 보낸다.** 주소를 쉼표로 이어 한 통으로 보내면
-                // 받는 사람들이 서로의 메일 주소를 보게 된다 — 쪽지는 사람 대 사람의
-                // 글이라 그 명단이 새어서는 안 된다.
+                // 사람마다 한 통씩 보낸다(주소를 한 통에 모으면 서로의 주소가 보인다).
                 foreach (var r in withAddress)
                 {
                     try
                     {
-                        // **틀은 여기서 짜지 않는다.** 평문을 회사 메일 꼴에 입히는
-                        // 일은 한 곳에만 있다(`NoticeEmailTemplate`) — 보내는 자리마다
-                        // HTML 을 짜면 틀이 그 수만큼 복제된다. 평문 갈래도 함께 실어
-                        // 평문으로만 읽는 클라이언트에서 빈 칸이 되지 않게 한다.
+                        // 틀은 NoticeEmailTemplate 에서만 입힌다. 평문 갈래도 함께 실어 평문 클라이언트에서 빈 칸이 되지 않게 한다.
                         await email.SendAsync(
                             r.Email!,
                             title,
@@ -484,9 +336,7 @@ public static class NoteEndpoints
 
             var notifyNote = trouble.Count > 0 ? string.Join(" · ", trouble) : null;
 
-            // 두드림 결과를 쪽지에 적어 둔다 — 보낸함이 그대로 읽는다.
-            // **메일은 사람마다 갈린다**(켠 사람에게만 갔다). 한 값으로 뭉치면
-            // 보낸함이 「메일 보냄」이라고 말하는데 정작 그 사람은 안 받은 꼴이 된다.
+            // 두드림 결과를 사람마다 적는다(한 값으로 뭉치면 안 받은 사람도 보낸 것으로 보인다).
             foreach (var note in notes)
             {
                 note.PushSent = pushDevices > 0;
@@ -524,9 +374,7 @@ public static class NoteEndpoints
         {
             if (user is null) return Results.Unauthorized();
 
-            // **받아 와서 옮긴다.** `Select(n => Row(n))` 처럼 우리 메서드를 투영에
-            // 넣으면 EF 가 번역하지 못해 요청이 통째로 죽는다(게이트웨이에는 502 로
-            // 보인다). 상한이 걸린 목록이라 메모리에서 옮기는 편이 안전하다.
+            // 상한이 걸린 목록이라 DB 에서 받은 뒤 메모리에서 옮긴다(투영에 우리 메서드를 넣으면 EF 가 번역하지 못한다).
             var rows = await Period(
                     db.Notes.Where(n => n.ReceiverKey == user.UserId && !n.ReceiverDeleted),
                     startDate, endDate)
@@ -561,8 +409,7 @@ public static class NoteEndpoints
         .WithName("GetMyNoteSent");
 
         // ── 안 읽은 수 ──────────────────────────────────────
-        //
-        // 상단 띠의 봉투에 붙는 숫자다. **가장 자주 불리는 자리**라 줄을 세기만 한다.
+        // 가장 자주 불리는 자리라 줄을 세기만 한다.
         group.MapGet("/unread-count", async (
             UserContext? user,
             [FromServices] AppDbContext db,
@@ -579,9 +426,7 @@ public static class NoteEndpoints
         .WithName("GetMyNoteUnreadCount");
 
         // ── 읽음 ────────────────────────────────────────────
-        //
-        // **받은 사람만 찍을 수 있다.** 열쇠만 보고 갱신하면 아이디를 아는 사람이
-        // 남의 쪽지를 읽은 것으로 만들 수 있다.
+        // 받은 사람만 찍는다(열쇠만으로 갱신하면 아이디만 아는 사람이 남의 쪽지를 읽음으로 만들 수 있다).
         group.MapPost("/{id}/read", async (
             string id,
             UserContext? user,
@@ -610,9 +455,7 @@ public static class NoteEndpoints
         .WithName("MarkNoteRead");
 
         // ── 치우기 ──────────────────────────────────────────
-        //
-        // **보낸 쪽과 받은 쪽이 따로다.** 보낸 사람이 자기 보낸함에서 치웠다고
-        // 남의 우편함을 비울 수는 없다(`Note` 머리말).
+        // 보낸 쪽과 받은 쪽은 따로 치운다(남의 우편함은 비우지 못한다).
         group.MapDelete("/{id}", async (
             string id,
             UserContext? user,
@@ -633,7 +476,7 @@ public static class NoteEndpoints
             if (note.ReceiverKey == user.UserId) note.ReceiverDeleted = true;
             if (note.SenderKey == user.UserId) note.SenderDeleted = true;
 
-            // 양쪽 다 치운 줄만 실제로 지운다 — 한쪽이라도 보고 있으면 남긴다.
+            // 양쪽 다 치운 줄만 지운다.
             note.IsDeleted = note.ReceiverDeleted && note.SenderDeleted;
             note.UpdatedAt = DateTime.UtcNow;
             note.UpdatedBy = user.UserId;
@@ -644,23 +487,7 @@ public static class NoteEndpoints
         .WithName("DeleteNote");
     }
 
-    /// <summary>
-    /// 제목을 비우고 보냈을 때 대신 적는 한 줄 — <b>「누가 언제 보냈다」</b>.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 쪽지는 대개 한두 줄이라 제목이 내용과 같은 말이 된다. 그래서 쓰는 화면이
-    /// 제목 칸을 접어 두는데(<c>NoteWritePanel</c>), 그렇다고 제목을 빈 채로 두면
-    /// <b>쪽지함 목록이 통째로 빈 줄</b>이 되고 앱 푸시의 본문도 비어 버린다.
-    /// </para>
-    ///
-    /// <para>
-    /// 내용의 첫 줄을 잘라 쓰는 길도 있지만 그러지 않는다 — 목록에서 본문이 한 번,
-    /// 열어서 또 한 번 같은 글자를 읽게 되고, 첫 줄이 「안녕하세요」인 쪽지가
-    /// 여럿이면 목록에서 서로 구별되지 않는다. <b>누가 언제</b>가 그 자리에서
-    /// 사람이 실제로 찾는 두 가지다.
-    /// </para>
-    /// </remarks>
+    /// <summary>제목을 비우고 보냈을 때 대신 적는 「누가 언제 보냈다」 한 줄. 본문 첫 줄은 자르지 않는다.</summary>
     private static string DefaultTitle(string senderName, DateTime sentAtUtc)
     {
         var local = TimeZoneInfo.ConvertTimeFromUtc(
@@ -673,10 +500,7 @@ public static class NoteEndpoints
     private static string Display(NoteRecipientDto r) =>
         string.IsNullOrWhiteSpace(r.Name) ? r.LoginId : r.Name!;
 
-    /// <summary>
-    /// 기간 조건. <paramref name="endDate"/> 는 <b>그 날의 끝까지</b> 넣는다 —
-    /// 날짜만 받는 칸이라 그대로 비교하면 마지막 날이 통째로 빠진다.
-    /// </summary>
+    /// <summary>기간 조건. endDate 는 그 날의 끝까지 넣는다(날짜 칸이라 그대로 비교하면 마지막 날이 빠진다).</summary>
     private static IQueryable<Note> Period(IQueryable<Note> query, DateTime? startDate, DateTime? endDate)
     {
         if (startDate.HasValue)
@@ -692,10 +516,7 @@ public static class NoteEndpoints
         return query;
     }
 
-    /// <summary>
-    /// 엔티티를 화면이 받는 모양으로. <b>그대로 내보내지 않는다</b> — 치운 표시
-    /// 둘은 남의 상태라 화면에 보낼 것이 아니다.
-    /// </summary>
+    /// <summary>화면이 받는 모양으로 옮긴다. 치운 표시 둘은 남의 상태라 그대로 내보내지 않는다.</summary>
     private static NoteRowDto Row(Note n) => new()
     {
         Id = n.Id,

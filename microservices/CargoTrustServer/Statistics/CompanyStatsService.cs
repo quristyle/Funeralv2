@@ -4,11 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace CargoTrustServer.Statistics;
 
-/// <summary>
-/// CompanyStats — 계약 「통계 계산」 표 그대로.
-///
-/// 판정어(「악성」「위험」)는 싣지 않는다(설계안 12). 숫자와 기간·규모만 준다.
-/// </summary>
+/// <summary>거래처 통계 DTO(계약 「통계 계산」 표 그대로). 판정어(악성·위험)는 싣지 않고 숫자·기간·규모만 준다.</summary>
 public record CompanyStatsDto
 {
     public int TotalCount { get; init; }
@@ -54,14 +50,8 @@ public record StatRow(
     decimal PaidAmount);
 
 /// <summary>
-/// 거래처 통계를 계산하는 **유일한 곳**이다.
-///
-/// 사용자 화면(검색 · 상세 · 홈)과 관리자 화면(대시보드 · 통계)이 모두 여기를 부른다.
-/// 두 곳이 식을 따로 가지면 같은 회사의 정상률이 화면마다 달라지고, 그 순간 숫자를 믿을
-/// 이유가 사라진다.
-///
-/// 원본 거래에서 매번 계산한다(집계 테이블 없음). 삭제된 거래와 HIDDEN 거래는 뺀다.
-/// 기간은 운송일(transport_date) 기준이다.
+/// 거래처 통계를 계산하는 유일한 곳. 사용자·관리자 화면이 모두 여기를 부른다 — 식이 둘이면 같은 회사의 정상률이 화면마다 달라진다.
+/// 원본 거래에서 매번 계산하고(집계 테이블 없음), 삭제·HIDDEN 거래는 뺀다. 기간은 운송일 기준이다.
 /// </summary>
 public class CompanyStatsService(CargoTrustDbContext db)
 {

@@ -59,10 +59,7 @@ public partial class RequestDetail : IDisposable
     /// <summary>시스템관리자이고 아직 안 끝난 요청이면 지울 수 있다.</summary>
     private bool CanDeleteRequest => Context.IsSystemAdmin && !IsFinished;
 
-    /// <summary>
-    /// 접수·완료를 누를 수 있는가. 연결이 아니라 담당자 여부를 본다 —
-    /// 담당자 줄은 서버가 접수할 때 만든다.
-    /// </summary>
+    /// <summary>접수·완료를 누를 수 있는가. 연결이 아니라 담당자 여부를 본다 — 담당자 줄은 서버가 접수할 때 만든다.</summary>
     private bool CanHandle => Context.IsAdmin && Permissions.Can(MenuPath, MenuAction.Update);
 
     /// <summary>보고 있는 사람이 글쓴이인가. <c>createdBy</c> 를 먼저, 옛 글은 고객 번호로 본다.</summary>
@@ -84,10 +81,7 @@ public partial class RequestDetail : IDisposable
         }
     }
 
-    /// <summary>
-    /// 접수자가 완료로 닫은 내 글에만 종료를 내놓는다.
-    /// 누를 사람이 대개 고객이라 메뉴 권한은 보지 않는다.
-    /// </summary>
+    /// <summary>접수자가 완료로 닫은 내 글에만 종료를 내놓는다. 누를 사람이 대개 고객이라 메뉴 권한은 보지 않는다.</summary>
     private bool CanClose => IsAuthor && Status is "Completed";
 
     /// <summary>아직 아무도 안 맡은 글인가.</summary>
@@ -105,10 +99,7 @@ public partial class RequestDetail : IDisposable
         var raw => raw,
     };
 
-    /// <summary>
-    /// 상태만 보내고 접수자는 서버가 정한다.
-    /// 반영했는지를 돌려준다 — 재요청이 그것으로 갈린다.
-    /// </summary>
+    /// <summary>상태만 보내고 접수자는 서버가 정한다. 반영했는지를 돌려준다 — 재요청이 그것으로 갈린다.</summary>
     private async Task<bool> ChangeStatusAsync(string status, string label, string? ask = null)
     {
         if (!int.TryParse(Id, out _))
@@ -119,11 +110,10 @@ public partial class RequestDetail : IDisposable
 
         ask ??= (status, IsPending) switch
         {
-            // 「대기」에서 바로 닫는 길이라 무슨 일이 한꺼번에 일어나는지 적는다.
+            // 「대기」에서 바로 닫으면 접수와 완료가 한꺼번에 일어난다.
             ("Completed", true) => $"「{TabTitle}」 을(를) 접수하고 바로 완료로 닫습니다.",
 
-            // 글 주인의 마지막 걸음이라 **무엇을 확인하는 것인지** 적는다.
-            // 여기서 「예」를 누르면 담당자 전원에게 종료 알림이 나간다.
+            // 글 주인의 마지막 걸음 — 여기서 「예」를 누르면 담당자 전원에게 종료 알림이 나간다.
             ("UserCompleted", _) => $"「{TabTitle}」 의 처리 결과를 확인했습니다. 요청을 종료합니다.",
 
             _ => $"「{TabTitle}」 을(를) {label} 처리합니다.",

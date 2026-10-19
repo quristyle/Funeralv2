@@ -58,8 +58,7 @@ public partial class MaintenanceMonitor
             ? [.. dist.Select(kv => new Bucket(kv.Key, kv.Value))]
             : [];
 
-        // 전부 0 이면 보여 줄 것이 없다. 구간 이름만 늘어놓으면 자료가 있는
-        // 것처럼 읽힌다.
+        // 전부 0 이면 보여 줄 것이 없다 — 구간 이름만 늘어놓으면 자료가 있는 것처럼 읽힌다.
         if (_spread.All(b => b.Count == 0))
         {
             _spread = [];

@@ -29,12 +29,9 @@ public partial class ArchiveListPage
     private Archive _edit = new();
     private bool _saving;
 
-    // ── 첨부 (D5) ───────────────────────────────────────────
+    // ── 첨부 ──────────────────────────────────────────
 
-    /// <summary>
-    /// 지금 이 자료에 매달려 있는 파일. <b>저장할 때 이대로 다시 보낸다</b> —
-    /// 서버가 보낸 목록을 최종으로 삼아 빠진 것을 지우기 때문이다.
-    /// </summary>
+    /// <summary>지금 이 자료에 매달린 파일. 저장할 때 이대로 다시 보낸다 — 서버는 보낸 목록을 최종으로 삼아 빠진 것을 지운다.</summary>
     private List<ArchiveFile> _attached = [];
 
     private FilePicker? _picker;
@@ -81,8 +78,7 @@ public partial class ArchiveListPage
             Status = a.Status,
         };
 
-        // 첨부도 복사본이다. 원본 목록을 그대로 쓰면 창에서 「빼기」를 누른 것이
-        // 저장하지 않아도 표에 반영된다.
+        // 첨부도 복사본이다. 원본을 그대로 쓰면 저장하지 않은 「빼기」가 표에 먼저 반영된다.
         _attached = [.. a.Files];
         _picked = [];
         _editing = true;
@@ -99,8 +95,7 @@ public partial class ArchiveListPage
         _saving = true;
         try
         {
-            // ① 새로 고른 파일부터 FileServer 로. 실패하면 자료를 건드리지 않는다 —
-            //    반쯤 저장된 상태를 만들지 않는 편이 낫다.
+            // ① 새로 고른 파일부터 FileServer 로. 실패하면 자료를 건드리지 않는다 — 반쯤 저장된 상태를 만들지 않는다.
             var files = new List<object>(_attached.Count + _picked.Count);
             var sort = 0;
 
@@ -141,8 +136,7 @@ public partial class ArchiveListPage
                 });
             }
 
-            // ② 자료를 저장한다. **`files` 는 보낸 그대로가 최종이다** —
-            //    이미 매달린 것을 함께 실어야 지워지지 않는다(머리말 참고).
+            // ② 자료를 저장한다. files 는 보낸 그대로가 최종이라, 이미 매달린 것도 함께 실어야 지워지지 않는다.
             var body = new
             {
                 title = _edit.Title,

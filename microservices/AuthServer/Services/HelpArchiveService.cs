@@ -5,15 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace AuthServer.Services;
 
-/// <summary>
-/// 자료실 서비스 구현체
-/// </summary>
-/// <remarks>
-/// 자료실은 JSini 관리 포털이 관리하고 모든 MSA 사용자에게 공통으로 보인다.
-///
-/// 쓰기 권한은 화면을 믿지 않고 여기서 다시 확인한다. 화면의 `v-perm` 은
-/// 버튼을 숨기는 장치일 뿐, 요청을 직접 보내면 그냥 통과하기 때문이다.
-/// </remarks>
+/// <summary>자료실 서비스 구현체. 쓰기 권한은 화면을 믿지 않고 여기서 다시 확인한다 — 버튼 숨김은 장치일 뿐이라 요청을 직접 보내면 통과하기 때문이다.</summary>
 public class HelpArchiveService : IHelpArchiveService
 {
     /// <summary>권한을 읽어 올 메뉴 경로</summary>
@@ -141,11 +133,7 @@ public class HelpArchiveService : IHelpArchiveService
         archive.OrderNo = request.OrderNo;
         archive.Status = request.Status;
 
-        // ── 첨부 맞추기 ────────────────────────────────────────
-        //
-        // 보낸 목록이 그대로 남는다. 빠진 것은 지우고 새로 온 것은 넣는다.
-        // 이미 있는 것은 건드리지 않는다 — 지우고 다시 넣으면
-        // 파일별 다운로드 수가 초기화된다.
+        // 첨부 맞추기 — 빠진 것은 지우고 새로 온 것만 넣는다. 이미 있는 것은 건드리지 않는다 — 지우고 다시 넣으면 파일별 다운로드 수가 초기화된다.
         var keep = request.Files.Select(f => f.FileId).ToHashSet();
         var existing = (archive.Files ?? new List<HelpArchiveFile>())
             .Where(f => !f.IsDeleted)

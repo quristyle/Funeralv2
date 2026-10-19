@@ -2,15 +2,7 @@
 @attribute [RouteKey("projmng.wbs.period")]
 
 @*
-    [WBS 기간별 현황]
-
-    이력: 사내망 WBS 대시보드(Vue) `views/Period.vue` → **여기**
-    API: `projmng/wbs-board/stats/monthly` · `…/weekly`
-
-    [주는 금요일까지만 그린다]
-
-    서버가 주의 끝을 월요일 + 4일로 준다. 주말에 잡힌 일정이 거의 없어서
-    일요일까지 그리면 막대 오른쪽이 늘 비어 보인다.
+WBS 기간별 현황. 주는 금요일까지만 그린다 — 서버가 주의 끝을 월요일 + 4일로 주며, 주말에 잡힌 일정이 거의 없어 일요일까지 그리면 막대 오른쪽이 늘 비어 보인다.
 *@
 
 @inherits DataPage

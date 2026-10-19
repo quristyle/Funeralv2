@@ -1,8 +1,6 @@
 namespace HelpDeskServer.Models;
 
-/// <summary>
-/// 푸시 구독 정보 DTO
-/// </summary>
+/// <summary>푸시 구독 정보 DTO</summary>
 public sealed class PushSubscriptionDto
 {
     /// <summary>푸시 서비스 엔드포인트</summary>
@@ -10,9 +8,7 @@ public sealed class PushSubscriptionDto
     /// <summary>암호화 키</summary>
     public KeysDto? Keys { get; set; }
 
-    /// <summary>
-    /// 푸시 구독 암호화 키 DTO
-    /// </summary>
+    /// <summary>푸시 구독 암호화 키 DTO</summary>
     public sealed class KeysDto
     {
         /// <summary>P256DH 키</summary>
@@ -22,9 +18,7 @@ public sealed class PushSubscriptionDto
     }
 }
 
-/// <summary>
-/// 푸시 메시지 내용 DTO
-/// </summary>
+/// <summary>푸시 메시지 내용 DTO</summary>
 public sealed class PushMessageDto
 {
     /// <summary>알림 제목</summary>

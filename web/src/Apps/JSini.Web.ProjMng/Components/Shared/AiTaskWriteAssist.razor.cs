@@ -9,15 +9,7 @@ public partial class AiTaskWriteAssist : IDisposable
     [Inject] private AiTaskAssist Ai { get; set; } = default!;
     [Inject] private Toasts Toasts { get; set; } = default!;
 
-    /// <summary>
-    /// 지금 화면에 있는 지시문을 읽어 오는 길.
-    /// </summary>
-    /// <remarks>
-    /// <b>글자가 아니라 부르는 길을 받는다.</b> 파라미터로 글자를 받으면
-    /// 그 값은 <b>부모가 마지막으로 그린 때</b>의 것이다 — 편집기가 친 글을
-    /// 곧바로 올려 주지 않으므로(<c>CodeEditor.DebounceMs</c>, 기본 300ms)
-    /// 누르는 순간에 읽어야 방금 적은 줄까지 간다.
-    /// </remarks>
+    /// <summary>지금 화면에 있는 지시문을 읽어 오는 길. 글자가 아니라 부르는 길을 받는다 — 파라미터 글자는 부모가 마지막으로 그린 때의 것이고, 편집기가 친 글은 debounce 만큼 늦게 올라오기 때문.</summary>
     [Parameter, EditorRequired] public Func<string?> Content { get; set; } = default!;
 
     /// <summary>도는 중인 작업은 못 고친다. 그때는 단추도 회색이다.</summary>
@@ -34,22 +26,13 @@ public partial class AiTaskWriteAssist : IDisposable
     private string _busyWhat = string.Empty;
     private List<string> _titles = [];
 
-    /// <summary>
-    /// 이번 답을 만든 AI 의 이름. 모르면 <c>null</c> — 공급자가 그 표시를
-    /// 안 보내 줄 수도 있어서 <b>없을 수 있는 값</b>이다.
-    /// </summary>
+    /// <summary>이번 답을 만든 AI 의 이름. 모르면 null — 공급자가 표시를 안 보내 줄 수 있다.</summary>
     private string? _model;
 
-    /// <summary>
-    /// 화면을 떠나면 하던 일을 그만둔다. 로컬 LLM 은 느릴 때 십 초가 넘는데,
-    /// 그 사이에 사람이 나가면 돌아온 답이 <b>없는 화면</b>을 고치려 든다.
-    /// </summary>
+    /// <summary>화면을 떠나면 하던 일을 그만둔다 — 돌아온 답이 없는 화면을 고치려 들지 않게.</summary>
     private CancellationTokenSource? _work;
 
-    /// <summary>
-    /// 창을 연다. <b>지난번에 지은 후보를 들고 열지 않는다</b> —
-    /// 그 사이에 지시문을 고친 사람이 그것을 지금 글의 제목으로 믿는다.
-    /// </summary>
+    /// <summary>창을 연다. 지난번에 지은 후보를 들고 열지 않는다 — 그사이 지시문을 고쳤다면 옛 제목을 지금 글의 제목으로 믿게 된다.</summary>
     private void Open()
     {
         Stop();
@@ -88,9 +71,7 @@ public partial class AiTaskWriteAssist : IDisposable
 
             if (answer.Titles.Count < AiTaskAssist.MinTitles)
             {
-                // **몇 개 안 나온 것을 그냥 보여 주지 않는다.** 하나나 둘만
-                // 뜨면 사람은 그것이 최선이라고 읽는다. 모델이 형식을 어긴
-                // 것이지 후보가 그것뿐인 것이 아니다.
+                // 몇 개 안 나온 것을 그냥 보여 주지 않는다 — 하나나 둘이면 사람은 그것이 최선이라고 읽는다. 모델이 형식을 어긴 것이다.
                 Toasts.Show("제목 후보를 충분히 짓지 못했습니다. 다시 눌러 보십시오.", NoticeTone.Warning);
                 return;
             }
@@ -102,8 +83,7 @@ public partial class AiTaskWriteAssist : IDisposable
         }
         catch (Exception)
         {
-            // 공급자가 전부 막혔거나(429·502) 네트워크가 끊겼다. 까닭을
-            // 그대로 옮겨 봐야 사람이 할 수 있는 일이 없다.
+            // 공급자가 전부 막혔거나 네트워크가 끊겼다. 사람이 할 수 있는 일이 없어 까닭은 적지 않는다.
             Toasts.Show("AI 가 답하지 못했습니다. 잠시 뒤에 다시 눌러 보십시오.", NoticeTone.Error);
         }
         finally
@@ -134,8 +114,7 @@ public partial class AiTaskWriteAssist : IDisposable
 
             await SummaryReady.InvokeAsync(summary.Markdown);
 
-            // 꽂고 나면 판을 닫는다. 요약은 고를 것이 없는 일이라, 판이
-            // 열린 채로 남으면 본문 맨 위에 방금 들어간 것을 가린다.
+            // 꽂고 나면 판을 닫는다 — 열린 채로 남으면 방금 들어간 요약을 본문 맨 위에서 가린다.
             _open = false;
         }
         catch (OperationCanceledException)
@@ -151,18 +130,14 @@ public partial class AiTaskWriteAssist : IDisposable
         }
     }
 
-    /// <summary>
-    /// 지시문을 읽고 기다리는 모양으로 바꾼다. 비어 있으면 <c>null</c> —
-    /// <b>AI 를 부르지 않는다.</b>
-    /// </summary>
+    /// <summary>지시문을 읽고 기다리는 모양으로 바꾼다. 비어 있으면 null — AI 를 부르지 않는다.</summary>
     private string? Begin(string what)
     {
         var content = Content();
 
         if (string.IsNullOrWhiteSpace(content))
         {
-            // 빈 글로 물으면 모델이 **아무 말이나 지어낸다.** 그것이 제목
-            // 후보로 뜨면 사람은 그럴듯해서 고른다.
+            // 빈 글로 물으면 모델이 아무 말이나 지어낸다. 그것이 제목 후보로 뜨면 사람은 그럴듯해서 고른다.
             Toasts.Show("지시 내용을 먼저 채워 주십시오. 그 글을 보고 짓습니다.", NoticeTone.Warning);
             return null;
         }

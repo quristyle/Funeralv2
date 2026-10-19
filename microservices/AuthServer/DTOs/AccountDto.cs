@@ -2,9 +2,7 @@ using System;
 
 namespace AuthServer.DTOs;
 
-/// <summary>
-/// 계정 정보 반환용 DTO
-/// </summary>
+/// <summary>계정 정보 반환용 DTO</summary>
 public class AccountDto
 {
     public string Id { get; set; } = string.Empty;
@@ -21,27 +19,15 @@ public class AccountDto
     public string? DeptName { get; set; }
     public DateTime CreatedAt { get; set; }
 
-    /// <summary>
-    /// 마지막으로 <b>로그인한</b> 시각 (UTC). 한 번도 없으면 <c>null</c>.
-    /// </summary>
-    /// <remarks>
-    /// <c>scom.accounts.last_login_at</c> 그대로다. 줄마다
-    /// <c>account_login_logs</c> 를 집계하지 않는 까닭은 그 표가 계정 하나에
-    /// 수백 줄이고, 목록은 예순 줄을 한꺼번에 그리기 때문이다.
-    /// </remarks>
+    /// <summary>마지막으로 로그인한 시각(UTC). 없으면 null.</summary>
+    /// 목록은 account_login_logs 를 집계하지 않는다 — 계정 하나에 수백 줄이라 목록이 무겁다.
     public DateTime? LastLoginAt { get; set; }
 
     /// <summary>마지막 로그인 때의 접속 IP. 목록의 설명 풍선에 쓴다.</summary>
     public string? LastLoginIp { get; set; }
 
-    /// <summary>
-    /// 마지막으로 포털을 <b>쓴</b> 시각 (UTC). 한 번도 없으면 <c>null</c>.
-    /// </summary>
-    /// <remarks>
-    /// <see cref="LastLoginAt"/> 과 가르는 까닭은 <c>Entities.Account.LastSeenAt</c>
-    /// 머리말에 있다 — 브라우저가 토큰을 들고 있으면 로그인 화면을 안 거치므로
-    /// <b>로그인 시각만 보면 매일 쓰는 사람도 「한 달 전 사람」으로 보인다.</b>
-    /// </remarks>
+    /// <summary>마지막으로 포털을 쓴 시각(UTC). 없으면 null.</summary>
+    /// 로그인 시각만 보면 토큰으로 매일 쓰는 사람도 오래된 사람으로 보이므로 LastSeenAt 을 따로 둔다.
     public DateTime? LastSeenAt { get; set; }
 
     public List<string> RoleIds { get; set; } = new();
@@ -59,14 +45,7 @@ public class AccountDto
     /// <summary>연결된 소셜 공급자 표시 텍스트 (예: "카카오, 네이버")</summary>
     public string? SocialProviderText { get; set; }
 
-    /// <summary>
-    /// 프로필 사진 주소. 프로필의 <c>Avatar</c> 값이다.
-    ///
-    /// <para>
-    /// 값이 <c>/api/file/download/...</c> 형태이면 화면에서 <c>/api/file/thumbnail/...</c> 로
-    /// 바꿔 쓴다(목록에 원본을 그대로 받으면 무겁다). 이 변환은 포털이 이미 쓰는 규칙이다.
-    /// </para>
-    /// </summary>
+    /// <summary>프로필 사진 주소. 목록에서는 썸네일 경로로 바꿔 쓴다.</summary>
     public string? Avatar { get; set; }
 
     /// <summary>
@@ -84,53 +63,20 @@ public class AccountDto
     /// <summary>생일 축하(생일 화면 노출·메시지) 대상인지</summary>
     public bool BirthdayCelebrated { get; set; } = true;
 
-    /// <summary>
-    /// 개발 업무용 확장 속성 — 사번 · 장비 · 계정 발급 현황 ….
-    /// </summary>
-    /// <remarks>
-    /// <c>account_profile_details</c> 의 <c>Dev.*</c> 를 접두사 없이 담는다.
-    /// 자세한 것은 <c>docs/projmng-account-merge.md</c>.
-    /// </remarks>
+    /// <summary>개발 업무용 확장 속성. account_profile_details 의 Dev.* 를 접두사 없이 담는다.</summary>
     public Dictionary<string, string?> DevAttributes { get; set; } = [];
 
-    /// <summary>
-    /// 화면에 로그인 아이디 워터마크를 깔지.
-    ///
-    /// <para>
-    /// <b>관리자가 정한다.</b> 사용자 환경설정에 두지 않는 이유는 이 표시가
-    /// 「찍힌 사진에서 누구 화면인지 드러나게」 하려고 있는 것이라, 당사자가
-    /// 스스로 끌 수 있으면 목적이 사라지기 때문이다.
-    /// </para>
-    ///
-    /// <para>
-    /// <c>account_profile_details</c> 의 <c>Watermark</c> 에 담는다. <b>값이
-    /// 없으면 켜진 것</b>이다 — 설정을 안 건드린 계정이 조용히 꺼지면 안 된다.
-    /// </para>
-    /// </summary>
+    /// <summary>화면에 로그인 아이디 워터마크를 깔지. 관리자가 정하며, 값이 없으면 켜진 것이다.</summary>
     public bool Watermark { get; set; } = true;
 
-    /// <summary>
-    /// 계정을 만들면서 발급한 첫 비밀번호. <b>등록 응답에만 담긴다</b> —
-    /// 목록·수정 응답에서는 언제나 <c>null</c> 이다.
-    ///
-    /// <para>
-    /// 저장은 해시로 하므로 <b>이 순간이 지나면 아무도 값을 알 수 없다.</b>
-    /// 관리자 화면이 이 값을 사람에게 한 번 보여 주고, 그다음은 본인이
-    /// 첫 로그인에서 바꾼다(<see cref="Services.PasswordPolicy.AlreadyExpiredAt"/>).
-    /// </para>
-    /// </summary>
+    /// <summary>계정을 만들면서 발급한 첫 비밀번호. 등록 응답에만 담긴다. 저장은 해시라 이 순간이 지나면 알 수 없다.</summary>
     public string? InitialPassword { get; set; }
 }
 
-/// <summary>
-/// 계정 생성을 위한 DTO
-/// </summary>
+/// <summary>계정 생성을 위한 DTO</summary>
 public class CreateAccountDto
 {
-    /// <summary>
-    /// 워터마크를 깔지. <b><c>null</c> 은 「건드리지 않음」</b>이다 —
-    /// 사진·생년월일과 같은 규칙이다.
-    /// </summary>
+    /// <summary>워터마크. null 은 건드리지 않음.</summary>
     public bool? Watermark { get; set; }
 
     public string LoginId { get; set; } = string.Empty;
@@ -160,9 +106,7 @@ public class CreateAccountDto
 
 }
 
-/// <summary>
-/// 계정 수정을 위한 DTO
-/// </summary>
+/// <summary>계정 수정을 위한 DTO</summary>
 public class UpdateAccountDto
 {
     /// <summary>
@@ -190,34 +134,11 @@ public class UpdateAccountDto
     /// <summary>생일 축하 대상인지</summary>
     public bool BirthdayCelebrated { get; set; } = true;
 
-    /// <summary>
-    /// 개발 업무용 확장 속성.
-    /// </summary>
-    /// <remarks>
-    /// <b><c>null</c> 은 「건드리지 않음」</b>이고, 사전을 주면 그것이 그
-    /// 계정의 전부다(빠진 열쇠는 지운다). 이 속성을 모르는 화면이 저장해도
-    /// 값이 사라지지 않게 하려는 것이다.
-    /// </remarks>
+    /// <summary>개발 업무용 확장 속성. null 은 건드리지 않음, 사전을 주면 그것이 계정의 전부다.</summary>
     public Dictionary<string, string?>? DevAttributes { get; set; }
 }
 
-/// <summary>
-/// 관리자가 비밀번호를 초기화하고 돌려받는 값.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <see cref="AccountDto.InitialPassword"/> 와 같은 성격이다 — <b>발급한 평문이
-/// 손에 있는 유일한 순간</b>이고, 저장은 해시로만 하므로 이 응답을 놓치면
-/// 아무도 그 값을 알 수 없다.
-/// </para>
-///
-/// <para>
-/// 계정 한 벌을 통째로 돌려주지 않는 이유는, 이 길로 바뀌는 것이 비밀번호
-/// 하나뿐이기 때문이다. 계정을 돌려주면 받는 쪽이 그것으로 목록을 갈아 끼우고
-/// 싶어지는데, 그 모양은 조회가 만드는 것(회사명·역할명·알림 상태)과 달라
-/// 조용히 빈 칸이 생긴다.
-/// </para>
-/// </remarks>
+/// <summary>관리자가 비밀번호를 초기화하고 돌려받는 값. 평문은 이 응답에만 담긴다.</summary>
 public class IssuedPasswordDto
 {
     /// <summary>누구의 것인지. 창에 함께 띄워 엉뚱한 사람에게 전하지 않게 한다.</summary>

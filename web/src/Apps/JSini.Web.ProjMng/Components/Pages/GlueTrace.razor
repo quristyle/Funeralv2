@@ -2,36 +2,8 @@
 @attribute [RouteKey("projmng.source.glue")]
 
 @*
-    [Glue 서비스 추적] — DB 메뉴 `/projmng/source/glue`.
-    이력: 옛 Blazor `Pages/Develop/GlueTraceMng.razor` → Vue
-          `views/projmng/develop/glue-trace.vue` → 여기.
-    API: `projmng/activity-infos` (조회) · `md_glue_service`(재수집)
-
-    Glue 프레임워크의 서비스 정의(`*-service.xml` · `*.glue_sql`)를 서버가
-    훑어 DB 에 쌓아 두고, 이 화면이 그것을 읽는다. 액티비티 종류가 `sql` 인
-    행을 고르면 그 쿼리가 편집기에 뜬다.
-
-    [엉뚱한 프로시저를 부르고 있었다]
-
-    이 화면은 `sp_dev_proj_exec` 를 `keyword` 로 부르고 있었다. 그건
-    **프로젝트 목록**이고 `keyword` 라는 파라미터도 없다. 그래서 무엇을 쳐도
-    프로젝트 일곱 건이 나왔다 — Glue 자료는 한 줄도 나온 적이 없다.
-    실제 자료는 `sp_dev_activityinfo_exec` 에 3,947 건 쌓여 있다.
-
-    [거르는 열쇠는 소스다]
-
-    표에 프로젝트 칸이 아예 없다 — `src_rid` 로만 거른다. 그래서 조건줄의
-    프로젝트는 소스 목록을 좁히는 몫이고, 조회에 실제로 쓰이는 값은 소스다.
-
-    [재수집은 되돌릴 수 없다]
-
-    「재수집」은 서버가 파일을 다시 훑어 **그 소스의 자료를 통째로 갈아
-    끼운다.** 조회가 아니라 바꾸는 동작이라 확인을 한 번 받는다. 권한도 조회가
-    아니라 수정 쪽이다.
-
-    옛 프로시저에는 **지우는 갈래가 없어서** 덮어쓰기만 했다. 그래서 파일에서
-    없어진 서비스가 DB 에 그대로 남았고, 재수집해도 사라지지 않으니 사람이 알
-    방법이 없었다. 이제 갈아 끼운다.
+Glue 서비스 추적. 서버가 Glue 서비스 정의(*-service.xml · *.glue_sql)를 훑어 DB 에 쌓아 두고, 이 화면이 그것을 읽는다. 액티비티 종류가 sql 인 행만 쿼리가 편집기에 뜬다.
+거르는 열쇠는 소스(src_rid)다 — 표에 프로젝트 칸이 없어 조건줄의 프로젝트는 소스 목록을 좁힐 뿐이다. 재수집은 그 소스의 자료를 통째로 갈아 끼우므로 확인을 받고 수정 권한으로 묶는다.
 *@
 
 @inherits DataPage

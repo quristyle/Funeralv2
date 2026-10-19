@@ -233,10 +233,7 @@ public static class AdminModerationEndpoints
         audit.AddChange(action, AuditTarget.Transaction, t.TransactionId, before, t);
     }
 
-    /// <summary>
-    /// 처리 완료로 가면 처리 시각·처리자를 채우고, 접수·검토중으로 되돌리면 비운다 —
-    /// 다시 열린 건에 옛 처리 시각이 남아 있으면 「언제 끝났나」를 잘못 읽는다.
-    /// </summary>
+    /// <summary>처리 완료로 가면 처리 시각·처리자를 채우고 다시 열면 비운다 — 다시 열린 건에 옛 처리 시각이 남으면 언제 끝났는지 잘못 읽는다.</summary>
     private static void StampResolved(bool resolved, long adminUserId, Action<DateTimeOffset?> setAt, Action<long?> setBy)
     {
         setAt(resolved ? DateTimeOffset.UtcNow : null);

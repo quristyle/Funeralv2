@@ -1,13 +1,8 @@
 namespace funeralv2Api.DTOs;
 
 /// <summary>
-/// 과금 내역 한 줄. 고인 한 명이 쓴 시설 비용을 모아 놓은 것이다.
+/// 과금 내역 한 줄. 고인 한 명이 쓴 시설 비용을 모은 것이다. 옛 t_goin_pay 자리를 deceased_facilities 가 맡는다.
 /// </summary>
-/// <remarks>
-/// 옛 시스템은 <c>t_goin_pay</c> 에 고인 한 명당 세 줄(기본료·환경부담금·시설관리비)을
-/// 두고 <c>gp_day_apply</c> 가 켜져 있으면 사용일수를 곱했다.
-/// 지금은 <c>smfr.deceased_facilities</c> 가 같은 자리를 맡는다.
-/// </remarks>
 public class BillingDto
 {
     public string DeceasedId { get; set; } = string.Empty;

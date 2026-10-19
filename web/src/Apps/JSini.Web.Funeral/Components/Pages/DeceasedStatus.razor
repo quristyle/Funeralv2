@@ -1,34 +1,9 @@
 @page "/funeral/status/deceased-status"
 @attribute [RouteKey("funeral.status.deceased-status")]
 
-@*
-    [고인 현황] — DB 메뉴 `/status/deceased-status`.
-    이력: Vue `views/funeral/status/deceased-status/index` → 여기.
-
-    한동안 이 화면은 하드코딩한 자료를 보여 주고 있었다. 실제 API 에 붙였다.
-
-    출상 처리와 취소를 여기서 한다. **배정만 바꾸고 인적 사항은 건드리지 않는다** —
-    출상한 뒤에도 고인 자료는 조회와 정산에 쓰이기 때문이다.
-
-    [고인명 검색이 아무 일도 하지 않았다]
-
-    조회 조건을 `keyword` 라는 이름으로 보내고 있었다. 서버가 받는 이름은
-    `name` 이다 — 모르는 이름은 그냥 무시되므로 **오류 없이 전체가 나온다.**
-    게이트웨이로 확인했다: `keyword=홍길동` → 2건(전체), `name=홍길동` → 1건.
-
-    [영정 사진 — D5]
-
-    빈소 디스플레이가 띄우는 그 사진이다. 올릴 자리가 포털 어디에도 없었다.
-
-    두 단계다 — FileServer 에 올려 식별자를 받고, 고인 상세의
-    `memorialPhotoFileId` · `memorialPhotoUrl` 에 매단다. 목록 자료
-    (`Deceased`)에는 그 칸이 없어서 **상세를 읽어 그 위에 얹어 저장한다.**
-    목록 자료로 저장하면 상세에만 있는 칸(상주·계약자·시설)이 통째로 빈 값이 된다.
-
-    **보정본은 건드리지 않는다.** 서버는 보정본(`memorialEditedPhoto*`)이
-    있으면 그쪽을 먼저 골라 플레이어에 준다. 원본만 갈아 끼우면 화면에는
-    옛 보정본이 계속 나오므로, 원본을 새로 올릴 때 보정본을 비운다.
-*@
+@* [고인 현황] — DB 메뉴 `/status/deceased-status`. 출상 처리와 취소를 여기서 한다. 배정만 바꾸고 인적 사항은 건드리지 않는다. 출상한 뒤에도 고인 자료는 조회와 정산에 쓰인다.
+조회 조건 이름은 name 이다. keyword 로 보내면 조용히 무시되어 전체가 나온다.
+영정 사진은 FileServer 에 올린 뒤 고인 상세에 매단다. 목록 자료에는 그 칸이 없어 상세를 읽어 얹어 저장한다. 보정본(memorialEditedPhoto*)이 있으면 서버가 그쪽을 먼저 주므로, 원본을 새로 올릴 때 보정본을 비운다. *@
 
 @inherits DataPage
 
@@ -79,9 +54,7 @@
             </DxGridDataColumn>
         </Columns>
 
-        @* 관리 칸은 CommGrd 가 붙인다. 손으로 「처리」 칸을 두면 화면마다
-           조작 자리가 갈려서, 관리 칸에 있겠거니 하고 오른쪽 끝을 보는
-           사람이 못 찾는다. *@
+        @* 관리 칸은 CommGrd 가 붙인다. 손으로 두면 화면마다 조작 자리가 갈린다. *@
         <RowActions Context="row">
             <PermissionView Action="MenuAction.Update">
                 @if (row.Status == Departed)
@@ -97,7 +70,7 @@
                               Click="@(() => DepartAsync(row))" />
                 }
 
-                @* 영정 사진 (D5). 빈소 디스플레이가 띄우는 그 사진이다. *@
+                @* 영정 사진. 빈소 디스플레이가 띄우는 그 사진이다. *@
                 <DxButton IconCssClass="jsini-icon-image" RenderStyle="ButtonRenderStyle.Link"
                           Title="빈소 디스플레이가 띄우는 사진"
                           Click="@(() => StartPhotoAsync(row))" />
@@ -106,7 +79,7 @@
     </CommGrd>
 </CommCont>
 
-@* ── 영정 사진 (D5) ─────────────────────────────────── *@
+@* ── 영정 사진 ── *@
 <CommPopup @bind-Visible="_photoOpen" HeaderText="@($"영정 사진 · {_photoOf?.Name}")"
          Width="480">
     <BodyContentTemplate>

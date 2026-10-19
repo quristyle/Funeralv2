@@ -4,9 +4,7 @@ using ProjMngServer.Services;
 
 namespace ProjMngServer.Controllers;
 
-/// <summary>
-/// 드롭다운 목록. 옛 <c>sp_projCommon</c> 을 대신한다.
-/// </summary>
+/// <summary>드롭다운 목록.</summary>
 [ApiController]
 [Route("api/proj-codes")]
 public sealed class ProjCodesController(ProjCodeService service) : ControllerBase {

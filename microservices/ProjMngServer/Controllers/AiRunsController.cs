@@ -14,12 +14,7 @@ public sealed class AiRunsController(
     /// <summary>
     /// 로그 꼬리. <b>증분으로 읽는다</b> — 화면이 2~3초마다 이것을 부른다.
     /// </summary>
-    /// <remarks>
-    /// SSE 로 흘리지 않는 이유는 <c>GatewayClient</c> 가 봉투를 통째로 받아
-    /// 벗기는 클라이언트라 <c>text/event-stream</c> 을 못 읽기 때문이다.
-    /// 그 길로 가면 공유 자리에 스트리밍 클라이언트가 하나 더 생기는데
-    /// 얻는 것은 지연 2초뿐이다.
-    /// </remarks>
+    /// SSE 로 흘리지 않는다 — GatewayClient 가 봉투를 통째로 받아 벗기는 클라이언트라 text/event-stream 을 못 읽고, 스트리밍을 더해 얻는 것은 지연 2초뿐이다.
     [HttpGet("{runKey:long}/logs")]
     public async Task<IActionResult> LogsAsync(long runKey, [FromQuery] int fromSeq = 0)
     {
@@ -30,31 +25,8 @@ public sealed class AiRunsController(
     /// <summary>
     /// <b>「처리 요약」을 지금 만든다.</b> 화면의 「요약 다시 만들기」가 부른다.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 요약은 실행이 끝날 때 서버가 적어 둔다. 그 한 번에 AI 가 붐비면 비는데,
-    /// 감시자가 몇 분 뒤 주워 가기는 해도(<c>AiSummaryCatchUp</c>) <b>지금 그 판을
-    /// 보고 있는 사람</b>은 그때까지 빈 자리를 볼 뿐이고 무엇을 기다리는지도 모른다.
-    /// 그래서 사람이 직접 한 번 더 시킬 수 있게 둔다.
-    /// </para>
-    /// <para>
-    /// <b>만드는 일은 서버 한 곳(<see cref="AiRunSummaryWriter"/>)이 그대로 한다.</b>
-    /// 화면이 모델을 직접 부르면 메일에 적힌 요약과 화면의 요약이 다른 말을 하게
-    /// 되고, 그때 어느 쪽이 그 실행의 요약인지 가릴 방법이 없다. 이미 적혀 있으면
-    /// 되읽어 돌려주므로 여러 번 눌러도 한 번만 만든다.
-    /// </para>
-    /// <para>
-    /// <b>못 만들어도 오류가 아니다</b> — 빈 값으로 답한다. 화면은 「아직 못
-    /// 만들었다」를 그대로 보여 주면 되고, 그 사이 감시자가 계속 다시 본다.
-    /// </para>
-    /// <para>
-    /// <b>만들어졌으면 미뤄 둔 결과 메일도 여기서 푼다.</b> 결과 메일은 요약이
-    /// 적힌 뒤에 나가므로(<c>AiRunService.SummarizeThenNotifyAsync</c>), 사람이
-    /// 손으로 요약을 만든 것도 똑같이 메일을 풀어 줄 자리다 — 안 그러면 화면에는
-    /// 요약이 떴는데 메일만 감시자의 다음 바퀴까지 안 간다. <b>이미 나간 건이면
-    /// 그대로 돌아간다</b>(<c>mail_sent_at</c> 자리잡기).
-    /// </para>
-    /// </remarks>
+    /// 요약은 실행이 끝날 때 서버가 적어 두는데 AI 가 붐비면 비므로, 사람이 다시 시킬 수 있게 둔다. 만드는 일은 AiRunSummaryWriter 한 곳이 하고, 못 만들면 오류가 아니라 빈 값이다.
+    /// 만들어졌으면 미뤄 둔 결과 메일도 여기서 풀어 준다(이미 나간 건은 그대로 돌아간다).
     [HttpPost("{runKey:long}/summary")]
     public async Task<IActionResult> SummaryAsync(long runKey, CancellationToken ct)
     {
@@ -72,21 +44,8 @@ public sealed class AiRunsController(
 /// <summary>
 /// <b>실행기가 부르는 경로</b> — <c>/api/ai-runner</c>.
 /// </summary>
-/// <remarks>
-/// <para>
-/// 사람의 로그인이 아니라 <b>run 별 1회용 토큰</b>으로 인증한다
-/// (<c>X-AiTask-Token</c>). 장비에 계정 정보를 두지 않으려는 것이고,
-/// 배포 도구가 먼저 쓰던 방식이다(설계 6.9).
-/// </para>
-/// <para>
-/// <b>집어가기(<c>claim</c>)만 장비 토큰을 쓴다</b> — 그 한 번으로 run 토큰을
-/// 받고, 그 뒤로는 run 토큰이다.
-/// </para>
-/// <para>
-/// 이 경로는 <b>게이트웨이에 열지 않는다.</b> 실행기가 같은 장비 안에서
-/// :5450 을 직접 부른다.
-/// </para>
-/// </remarks>
+/// 사람 로그인이 아니라 run 별 1회용 토큰(X-AiTask-Token)으로 인증한다. 집어가기만 장비 토큰을 쓰고 그 뒤로는 run 토큰이다.
+/// 게이트웨이에 열지 않는다 — 실행기가 같은 장비 안에서 직접 부른다.
 [ApiController]
 [Route("api/ai-runner")]
 public sealed class AiRunnerController(
@@ -139,17 +98,7 @@ public sealed class AiRunnerController(
     /// <summary>
     /// <b>지시에 붙어 온 파일 하나를 실행기가 받아 간다.</b>
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 집어갈 때 온 목록(<c>AiClaim.Files</c>)에는 이름과 크기뿐이다. 바이트를
-    /// 거기 실으면 <b>비어 있어도 1초마다 도는 집어가기</b>가 사진 몇 장을
-    /// 매번 끌고 온다.
-    /// </para>
-    /// <para>
-    /// 여는 열쇠는 <b>run 토큰</b>이고, 나가는 것은 <b>그 실행의 작업에 붙은
-    /// 것</b>뿐이다 — 판정은 서비스에 있다(<c>AiRunService.RunFileAsync</c>).
-    /// </para>
-    /// </remarks>
+    /// 집어가기 목록에는 이름과 크기뿐이다 — 바이트를 거기 실으면 1초마다 도는 집어가기가 사진을 매번 끌고 온다. 여는 열쇠는 run 토큰이고 나가는 것은 그 실행의 작업에 붙은 것뿐이다.
     [HttpGet("runs/{runKey:long}/files/{fileKey:long}")]
     public async Task<IActionResult> RunFileAsync(long runKey, long fileKey)
     {
@@ -186,16 +135,7 @@ public sealed class AiRunnerController(
     /// <summary>
     /// <b>AI CLI 의 <c>/usage</c> 보고.</b> 장비 토큰으로 인증한다.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 집어가기와 같은 토큰이다 — run 토큰이 아니다. 이 보고는 <b>실행과
-    /// 무관하게</b> 주기적으로 올라오므로 묶일 run 이 없다.
-    /// </para>
-    /// <para>
-    /// <b>한도를 하나도 못 읽었어도 200 이다.</b> 이 요청에는 「장비가 살아
-    /// 있다」는 뜻이 함께 실려 있고, 그쪽이 더 자주 쓸모가 있다.
-    /// </para>
-    /// </remarks>
+    /// 집어가기와 같은 장비 토큰이다. 실행과 무관하게 주기적으로 올라와 묶일 run 이 없다. 한도를 하나도 못 읽어도 200 — 「장비가 살아 있다」는 뜻이 함께 실려 있다.
     [HttpPost("usage")]
     public async Task<IActionResult> UsageAsync(
         [FromBody] AiUsageReport req, [FromServices] AiUsageService usage)
@@ -209,13 +149,7 @@ public sealed class AiRunnerController(
     }
 
     // ── 대상의 git 상태 ─────────────────────────────────────
-    //
-    // **서버는 대상 경로를 볼 수 없다.** 컨테이너 안이고 그 경로는 호스트의
-    // 것이다. 그래서 「지금 저 저장소가 어떤 상태인가」에 답할 수 있는 것은
-    // 호스트에 상주하는 실행기뿐이고, 아래 둘이 그 통로다.
-    //
-    // 집어가기와 같은 **장비 토큰**을 쓴다. run 토큰은 실행 한 번에 묶인
-    // 것이라 실행이 없는 이 일에는 쓸 수 없다.
+    // 서버는 대상 경로를 볼 수 없어(컨테이너 안) 호스트의 실행기가 답한다. 집어가기와 같은 장비 토큰을 쓴다 — run 토큰은 실행 한 번에 묶여 있어 이 일에 쓸 수 없다.
 
     /// <summary>이 장비가 들여다볼 대상 목록.</summary>
     [HttpGet("targets")]
@@ -244,11 +178,7 @@ public sealed class AiRunnerController(
     }
 
     // ── 처리 파일 대 보기 ───────────────────────────────────
-    //
-    // 바로 위의 둘과 **같은 까닭으로 여기 있다** — 서버는 대상 경로를 볼 수
-    // 없다. 「AI 결과문에서 뽑은 그 경로가 정말 있는 파일인가」에 답할 수
-    // 있는 것은 호스트에 상주하는 실행기뿐이다
-    // (<c>AiRunFileCheckService</c> 머리말).
+    // 위와 같은 까닭으로 여기 있다 — 추정 경로가 실제 파일인지는 호스트의 실행기만 안다(AiRunFileCheckService).
 
     /// <summary>이 장비가 대 볼 추정 경로들.</summary>
     [HttpGet("file-checks")]
@@ -283,10 +213,7 @@ public sealed class AiRunnerController(
     /// <summary>
     /// 장비 토큰을 본다. 틀리면 그 응답을, 맞으면 <c>null</c> 을 돌려준다.
     /// </summary>
-    /// <remarks>
-    /// 설정에 토큰이 없으면 <b>막는다</b>. 빈 값을 통과시키면 누구나 대상
-    /// 경로 목록을 받아 갈 수 있다 — 집어가기가 같은 이유로 그렇게 한다.
-    /// </remarks>
+    /// 설정에 토큰이 없으면 막는다 — 빈 값을 통과시키면 누구나 대상 경로 목록을 받아 갈 수 있다.
     private IActionResult? RunnerTokenBad()
     {
         if (string.IsNullOrWhiteSpace(RunnerToken))

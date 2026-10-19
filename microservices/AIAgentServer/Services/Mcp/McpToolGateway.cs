@@ -6,20 +6,7 @@ namespace AIAgentServer.Services.Mcp;
 /// <summary>모델에게 보여 줄 도구 하나의 생김새.</summary>
 public sealed record McpToolInfo(string Name, string Description, JsonElement Schema);
 
-/// <summary>
-/// MCP 도구 서버에 붙어 도구 목록을 받고 대신 불러 준다.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <b>도구를 코드에 적지 않는다.</b> 어떤 도구가 있는지는 MCP 서버에게 물어서
-/// 안다 — 서버에 도구를 하나 더하면 이쪽은 고치지 않아도 모델이 그것을 쓸 수
-/// 있게 된다. 그러려고 MCP 를 쓰는 것이다.
-/// </para>
-/// <para>
-/// <b>연결은 한 번만 맺고 아껴 쓴다.</b> 요청마다 붙으면 핸드셰이크가 매번
-/// 들어간다. 끊어지면 다음 부를 때 다시 맺는다.
-/// </para>
-/// </remarks>
+/// <summary>MCP 도구 서버에 붙어 도구 목록을 받고 대신 불러 준다. 도구를 코드에 적지 않는다.</summary>
 public sealed class McpToolGateway : IAsyncDisposable
 {
     private readonly IConfiguration _config;
@@ -52,11 +39,7 @@ public sealed class McpToolGateway : IAsyncDisposable
             t.JsonSchema))];
     }
 
-    /// <summary>
-    /// 도구를 부른다. <b>실패해도 던지지 않는다</b> — 오류 글을 모델에게 그대로
-    /// 돌려주면 모델이 다른 도구를 쓰거나 모른다고 답한다. 예외로 끊으면
-    /// 사람에게는 대화가 통째로 죽은 것으로 보인다.
-    /// </summary>
+    /// <summary>도구를 부른다. <b>실패해도 던지지 않는다</b> — 오류 글을 모델에게 그대로 돌려주면 모델이 다른 도구를 쓰거나 모른다고 답한다. 예외로 끊으면 사람에게는 대화가 통째로 죽은 것으로 보인다.</summary>
     public async Task<string> CallAsync(
         string name, IReadOnlyDictionary<string, object?> args, CancellationToken ct = default)
     {

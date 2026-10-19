@@ -45,14 +45,7 @@ public partial class DeceasedEditor
     /// <summary>영정사진 올리는 중인가. 두 번 고르는 것을 막는다.</summary>
     private bool _uploading;
 
-    /// <summary>
-    /// 지금 걸려 있는 영정사진 주소.
-    ///
-    /// <para>
-    /// 아이디가 있으면 그것으로 만든다 — DB 에 든 <c>MemorialPhotoUrl</c> 은
-    /// <c>/api/file/...</c> 라 포털에서 바로 못 쓴다(<c>FileDownload</c> 가 옮긴다).
-    /// </para>
-    /// </summary>
+    /// <summary>지금 걸려 있는 영정사진 주소. 아이디가 있으면 그것으로 만든다 — DB 의 MemorialPhotoUrl 은 /api/file 주소라 포털에서 바로 못 쓴다.</summary>
     private string? PortraitUrl =>
         _form?.MemorialPhotoFileId is { Length: > 0 } id
             ? FileDownload.UrlFor(id)
@@ -117,10 +110,7 @@ public partial class DeceasedEditor
         IsChief = _form.Mourners.Count == 0,
     });
 
-    /// <summary>
-    /// 대표 상주는 한 명이다. 새로 고르면 앞의 것을 푼다 —
-    /// 둘이 되면 현황판이 어느 쪽을 보여 줄지 서버가 임의로 정하게 된다.
-    /// </summary>
+    /// <summary>대표 상주는 한 명이다. 새로 고르면 앞의 것을 푼다 — 둘이 되면 현황판이 어느 쪽을 보일지 서버가 임의로 정한다.</summary>
     private void SetChief(DeceasedMourner mourner, bool value)
     {
         if (value)
@@ -172,9 +162,8 @@ public partial class DeceasedEditor
         }
     }
 
-    // ── 시설 사용 ───────────────────────────────────────────
-    //
-    // 안치실·염습실처럼 빈소와 따로 쓰는 자리를 적는다. 이 값이 정산으로 간다.
+    // ── 시설 사용 ──
+    // 안치실·염습실처럼 빈소와 따로 쓰는 자리. 이 값이 정산으로 간다.
 
     private void AddFacility()
     {
@@ -182,10 +171,7 @@ public partial class DeceasedEditor
         _form?.Facilities.Add(new DeceasedFacility { UnitPrice = 50000 });
     }
 
-    /// <summary>
-    /// 시작·종료를 넣으면 <b>사용 시간과 금액이 저절로 채워진다.</b>
-    /// 손으로도 고칠 수 있다 — 실제로 쓴 시간이 시계와 다른 경우가 있다.
-    /// </summary>
+    /// <summary>시작·종료를 넣으면 사용 시간과 금액이 채워진다. 손으로도 고칠 수 있다 — 실제로 쓴 시간이 시계와 다를 때가 있다.</summary>
     private static void SetFacilityTime(DeceasedFacility facility, DateTime? start, DateTime? end)
     {
         if (start is not null)
@@ -217,11 +203,8 @@ public partial class DeceasedEditor
         facility.TotalPrice = Math.Round(price * (decimal)facility.UseHours);
     }
 
-    // ── 영정사진 ────────────────────────────────────────────
-    //
-    // 한 장이라 파일 그룹이 아니라 **파일 하나**로 올린다(`file/upload`).
-    // 고르는 즉시 올라가고, 폼은 그 아이디와 주소만 들고 있다가 저장한다.
-    // 저장을 안 누르면 파일만 남고 고인에는 안 붙는다 — 사진 그룹과 같은 사정이다.
+    // ── 영정사진 ──
+    // 한 장이라 파일 그룹이 아니라 파일 하나로 올린다. 저장을 안 누르면 파일만 남고 고인에는 안 붙는다.
 
     private async Task UploadPortraitAsync(InputFileChangeEventArgs e)
     {
@@ -229,8 +212,7 @@ public partial class DeceasedEditor
 
         var file = e.File;
 
-        // 휴대폰으로 찍은 원본이 10MB 를 넘는 일이 흔하다. 영정사진은 한 장이라
-        // 넉넉히 잡아도 부담이 없다.
+        // 휴대폰 원본은 10MB 를 넘는 일이 흔하다. 한 장이라 상한을 넉넉히 둬도 부담이 없다.
         const long maxBytes = 20L * 1024 * 1024;
 
         if (file.Size > maxBytes)
@@ -252,8 +234,7 @@ public partial class DeceasedEditor
 
             buffer.Position = 0;
 
-            // 업무 구분은 Vue 가 쓰던 값 그대로다. FileServer 가 저장 폴더
-            // 이름으로 쓰므로 바꾸면 옛 사진과 새 사진이 갈라진다.
+            // 업무 구분은 FileServer 가 저장 폴더 이름으로 쓴다. 바꾸면 옛 사진과 새 사진이 갈라진다.
             var uploaded = await Upload.UploadAsync(
                 buffer, file.Name, file.ContentType, bizType: "DECEASED");
 
@@ -278,10 +259,7 @@ public partial class DeceasedEditor
         }
     }
 
-    /// <summary>
-    /// 영정사진을 뺀다. <b>파일은 지우지 않는다</b> — 연결만 끊는다.
-    /// 지우면 옛 주소를 들고 있는 화면(플레이어 캐시)이 깨진다.
-    /// </summary>
+    /// <summary>영정사진을 뺀다. 파일은 지우지 않고 연결만 끊는다 — 지우면 옛 주소를 든 화면(플레이어 캐시)이 깨진다.</summary>
     private void ClearPortrait()
     {
         if (_form is null) return;

@@ -1,10 +1,7 @@
 namespace CargoTrustServer.Common;
 
 /// <summary>
-/// 사업자등록번호 — 이 서비스의 거래처 식별자다(설계안 33-3).
-///
-/// 저장은 숫자 10자리만 한다. 하이픈을 섞어 넣으면 같은 회사가 두 줄이 되고,
-/// 그 순간 통계가 둘로 갈라진다. 그래서 받는 곳마다 여기의 <see cref="TryNormalize"/> 를 거친다.
+/// 사업자등록번호 — 거래처 식별자다. 저장은 숫자 10자리만 한다(하이픈이 섞이면 같은 회사가 두 줄이 되어 통계가 갈라진다). 받는 곳마다 TryNormalize 를 거친다.
 /// </summary>
 public static class BusinessNumber
 {

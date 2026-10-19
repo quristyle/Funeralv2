@@ -1,58 +1,7 @@
 @*
-    보낸 한 건의 속 — 차수별 지시와 결과 · 처리 파일 · 로그.
-
-    설계: docs/ai-task-runner.md
-    API: `projmng/ai-tasks` · `projmng/ai-runs/{run}/logs`
-
-    **보여 주는 코드는 한 벌**이다. 같은 것을 봐야 하는 자리가 셋이다 —
-    「빠른 지시」 판 안의 탭 · 포털 탭으로 열리는 화면(`AiTaskViewPage`) ·
-    앱알림과 메일의 「화면에서 보기」.
-
-    [지시와 결과는 차수마다 한 묶음이다]
-
-    「이어서 지시」는 새 건을 만들지 않는다 — 같은 건에 실행이 하나 더 붙고
-    본문은 서버가 「지난 진행 + 이번에 할 일」로 **덮어쓴다.** 그래서 차수마다
-    제 묶음을 준다(가르는 것은 `ai_task_run.seq`, 짓는 법은 `AiTaskTurns`).
-    **마지막 차수만 펴 둔다** — 보러 온 것이 방금 끝난 그 차수다.
-
-    본문으로 올리는 것은 **그 차수에 사람이 적은 글만**이다. 2차부터는
-    서버가 지난 진행을 앞에 덧대므로, 마지막 머리표 뒤만 올리고 앞엣것은
-    「앞에 덧댄 글」로 접는다(`AiTaskAsk.Split`). 보낼 때마다 기계로 붙는
-    네 문단도 걷는다(`AiTaskAlways.Strip`) — **지우지는 않는다.** 그때
-    실제로 간 글은 「왜 AI 가 그렇게 했나」를 되짚는 유일한 단서다.
-
-    [탭 셋 · 처리 요약]
-
-    탭 이름이 숫자를 들고 있다 — 「지시와 결과 (3회) · 처리 파일 (12) ·
-    로그 (840줄)」. 누르기 전에는 빈 탭과 꽉 찬 탭이 똑같이 생겼기 때문이다
-    (모바일 회선이다). 로그 줄 수는 받아 둔 줄이 아니라 서버가 실행 줄에
-    적어 둔 값이다(`LogCount`) — 받아 둔 것만 세면 펴기 전에는 늘 0 이다.
-
-    처리 요약은 **탭 줄 위**다. 탭 안에 두면 로그를 펴는 순간 결론이 통째로
-    사라져 되돌아가야 하고, 돌아가면 로그에서 읽던 자리를 잃는다.
-    값은 서버가 만든 `ai_task_run.summary_text` 를 **읽기만 한다**
-    (`AiRunSummary.Parse`) — 여기서 모델을 다시 부르면 메일의 요약과
-    화면의 요약이 다른 말을 한다.
-
-    처음 열리는 탭은 상태가 고른다(도는 중이면 로그, 그 밖에는 지시와 결과).
-    사람이 한 번이라도 누르면 그 뒤로는 옮기지 않는다(`_pinned`).
-
-    [받아 오는 것 · 안 받아 오는 것]
-
-    **상태는 부모가 준다.** 부모가 이미 5초마다 같은 건을 읽어 `Item` 으로
-    넘기므로 여기서 또 물으면 둘이 어긋날 자리만 생긴다. 스스로 받는 것은
-    부모가 모르는 것뿐이다 — 실행 이력과 로그 줄(새 줄만, `fromSeq`).
-
-    `Live` 는 「지금 보이고 있나」다. 거짓이 되면 들고 있던 것을 놓는다 —
-    다음에 다른 건을 열었을 때 앞 건의 로그가 잠깐 보이지 않게.
-
-    [「남긴 말」과 `Mine`]
-
-    「지시와 결과」 끝의 `AiTaskNotes` 는 **`IsUserRequest` 일 때만** 선다.
-    같은 판이 올린 사람 앞에도 관리자 앞에도 서므로 로그인 아이디를
-    `CreId` 와 견줘 `Mine` 을 넘긴다 — 부르는 경로 · 읽음 찍기 · 안내말
-    셋이 그 값으로 갈린다. 못 읽었으면 거짓이다(관리자 경로는 누구에게나
-    열려 있어 판이 죽지 않는다).
+    보낸 한 건의 속 — 차수별 지시·결과·처리 파일·로그. 설계는 docs/ai-task-runner.md.
+    「이어서 지시」는 같은 건에 실행을 더 붙이고 본문을 서버가 덮어쓰므로, 차수마다 묶음을 나누고 덧댄 지난 진행은 접는다(AiTaskAsk.Split).
+    상태는 부모가 5초마다 읽어 넘긴다. 여기서 스스로 받는 것은 실행 이력과 새 로그 줄뿐이다.
 *@
 
 @implements IDisposable
@@ -60,35 +9,22 @@
 
 @if (Item is { } t)
 {
-    @* 머리띠. **탭을 옮겨도 여기 있는 것은 제자리에 남는다** — 카드에서 보고
-       들어온 값이 사라지면 같은 건인지 확인할 길이 없다. *@
+    @* 머리띠 — 탭을 옮겨도 제자리에 남는다. *@
     <div class="pm-peek__top">
         <span class="jsini-badge jsini-badge--@t.StatusTone">@t.StatusText</span>
 
-        @* 어느 AI 에게 간 건인가. **카드의 그 칩 그대로다** — 글자는 한 자뿐이고
-           가르는 것은 색이다. 라벨도 코드값도 적지 않는다(이름은 `title` 에). *@
+        @* 카드의 칩과 같은 것. 글자는 한 자이고 가르는 것은 색이다. *@
         <span class="pm-ai pm-ai--lg pm-ai--@AiRunnerMark.Tone(t.RunnerKind)"
               title="@KindName(t.RunnerKind)" aria-label="@KindName(t.RunnerKind)">@AiRunnerMark.Letter(t.RunnerKind)</span>
 
-        @* 지시자 — 얼굴이 먼저고 이름이 뒤다(`UserAvatar` 는 카드와 한 벌).
-           「지시자」 라벨은 적지 않는다. 낭독기에게는 `aria-label` 로 말한다. *@
+        @* 지시자 — 얼굴이 먼저, 이름이 뒤다(UserAvatar 는 카드와 한 벌). *@
         <span class="pm-peek__cell pm-peek__cell--who" aria-label="@($"지시자 {Who(t)}")">
             <UserAvatar LoginId="@t.CreId" CssClass="pm-face pm-face--lg" />
             <span class="pm-peek__value">@Who(t)</span>
         </span>
 
-        @* 시각 셋만 라벨을 단다 — 없으면 안 갈린다(작성과 동작이 같은 꼴이다).
-           **라벨은 두 글자로 맞춘다.** 「동작」이 「실행」이 아닌 것은 위 상태
-           배지의 「실행중」과 겹쳐 같은 말이 두 번 서 보이기 때문이다.
-
-           **오늘에서 먼 만큼만 적는다**(`AiTaskWhen.Near`) — 책상에서도 그렇다.
-           머리띠에 서는 건은 거의 오늘·이번 달 것이라 늘 붙던 `yyyy-MM-dd` 열
-           글자가 **거의 늘 같은 글자**였고, 그 자리를 먹는 만큼 갈라 주는
-           시·분이 먼저 눈에 안 들어온다. 떼는 것은 읽는 사람이 되채울 수 있는
-           것뿐이고, 해는 남긴다.
-
-           **연월일은 `title` 에 남긴다.** 짧게 적는 것은 자리를 아끼려는
-           것이지 값을 버리려는 것이 아니다 — 마우스를 올리면 전부 보인다. *@
+        @* 시각 라벨은 두 글자다 — 「동작」이 「실행중」과 겹쳐 같은 말이 두 번 서기 때문이다.
+           시각은 오늘에서 먼 만큼만 적고(AiTaskWhen.Near), 연월일은 title 에 남긴다. *@
         <span class="pm-peek__cell">
             <span class="pm-peek__label">작성</span>
             <span class="pm-peek__value" title="@t.CreDt.Kst("yyyy-MM-dd HH:mm")">@AiTaskWhen.Near(t.CreDt)</span>
@@ -110,15 +46,12 @@
         <PageNotice Tone="NoticeTone.Warning" Text="@($"결과 알림: {t.NotifyError}")" />
     }
 
-    @* 처리 요약은 **탭 줄 위**다(머리말). 답이 있는데 요약이 없으면 그
-       자리에 사정을 적고, 답조차 없으면 칸이 통째로 빠진다. *@
+    @* 처리 요약은 탭 줄 위다. 답은 있는데 요약이 없으면 사정을 적고, 답조차 없으면 칸을 뺀다. *@
     @if (_summary is { } s)
     {
         <div class="pm-peek__summary">
             <div class="pm-peek__head-row">
-                @* **제목이 곧 접는 단추다** — 화살표만 세우면 누를 자리가
-                   손가락보다 작다. 화살표는 글자 하나(▸)를 돌려 쓴다. 두
-                   글자를 갈아 끼우면 폭이 달라져 제목이 좌우로 흔들린다. *@
+                @* 제목이 곧 접는 단추다. 화살표(▸)는 글자 하나를 돌려 쓴다 — 글자를 바꾸면 제목이 흔들린다. *@
                 <h3 class="pm-peek__head">
                     <button type="button" class="pm-peek__fold"
                             @onclick="ToggleSummary"
@@ -131,9 +64,7 @@
                     </button>
                 </h3>
 
-                @* **접어 두어도 읽어 준다** — 음성은 글을 보지 않는 사람을 위한
-                   길이라 펴야 눌리게 하면 그 길이 막힌다. 글자 없이 그림
-                   하나이고, 말은 `title` 과 `aria-label` 에 남긴다. *@
+                @* 접어 두어도 읽어 준다 — 글을 못 보는 사람의 길이라 펴야 눌리게 하면 막힌다. *@
                 <button type="button"
                         class="pm-peek__speech-btn @(_speaking ? "pm-peek__speech-btn--speaking" : null)"
                         @onclick="ToggleSpeechAsync"
@@ -144,8 +75,7 @@
                 </button>
             </div>
 
-            @* 접으면 **알맹이를 아예 안 그린다** — CSS 로만 숨기면 접어 둔
-               뜻이 회로에서는 그대로 실려 나간다. *@
+            @* 접으면 알맹이를 아예 안 그린다 — CSS 로만 숨기면 회로로 그대로 실려 나간다. *@
             @if (_sumOpen)
             {
                 <div class="pm-peek__sum" id="pm-peek-sum">
@@ -204,18 +134,10 @@
     }
 
     <div class="pm-peek__tabs">
-        @* **휴대폰에서 세 이름이 다 보여야 한다**(`pm-tabfit` · `NoScroll`).
-           넘친 탭은 쓸어 넘겨야 닿고 넘겼다는 표시도 없다 — 잰 값은
-           projmng.css 의 「탭 줄은 휴대폰에서 가로로 구르지 않는다」. *@
+        @* 휴대폰에서 세 이름이 다 보여야 한다 — 넘친 탭은 쓸어 넘겨야 닿는다. *@
         <DxTabs @bind-ActiveTabIndex="_tab" TabClick="@OnTabClick"
                 CssClass="pm-tabfit" ScrollMode="TabsScrollMode.NoScroll">
-            @* 탭 한 장이 **부품 한 장**이다. 화면마다 탭 구성이 달라서,
-               덩어리째 두면 쓰려는 화면이 마크업을 통째로 베껴 제 탭을
-               끼워 넣게 된다. 쓰는 쪽은 `DxTabs` 를 제 손으로 세우고 그
-               안에 골라 담는다.
-
-               자료는 여기서 받아 오고 **탭 번호도 여기 것이다**
-               (`TabAsk`·`TabFiles`·`TabLog`) — 부품은 제가 몇 번째인지 모른다. *@
+            @* 탭 한 장이 부품 한 장이다. 탭 번호(TabAsk·TabFiles·TabLog)는 여기서 쥔다. *@
             <AiTaskAskTab Item="@t"
                           Run="@_run"
                           Turns="@_turns"
@@ -230,8 +152,7 @@
 
             <AiTaskFilesTab Item="@t" Run="@_run" Turns="@_changed" />
 
-            @* 줄은 **이 탭을 펴야** 받아 온다(`_logRead`) — 「폈다」를 아는
-               것이 `DxTabs` 를 들고 있는 이쪽이다. *@
+            @* 로그 줄은 이 탭을 펴야 받아 온다(_logRead). *@
             <AiTaskLogTab Lines="@LogLines"
                           Count="@LogCount"
                           StateKey="@($"ai-task:{t.TaskKey}")"

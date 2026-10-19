@@ -3,10 +3,7 @@ namespace ProjMngServer.Models;
 /// <summary>
 /// 프로젝트 한 건과 <b>이 사람이 거기 들어가 있는지</b>.
 /// </summary>
-/// <remarks>
-/// 배정 화면은 체크박스 목록이라 <b>안 들어간 프로젝트도 와야 한다</b> —
-/// 그래야 켤 수 있다. 그래서 「참여 목록」이 아니라 「프로젝트 목록 + 깃발」이다.
-/// </remarks>
+/// 배정 화면은 체크박스 목록이라 안 들어간 프로젝트도 와야 한다 — 그래야 켤 수 있다.
 public sealed class ProjectAssignment
 {
     /// <summary>이 사람이 이 프로젝트에 들어가 있는가.</summary>
@@ -39,20 +36,8 @@ public sealed class ProjectUserRow
 /// <summary>
 /// 참여를 <b>한 번에 여러 건</b> 켜고 끄는 요청.
 /// </summary>
-/// <remarks>
-/// <para>
-/// 기준이 <see cref="PrjRid"/> 이거나 <see cref="UserId"/> 둘 중 하나다 —
-/// 「이 프로젝트에 이 사람들」이거나 「이 사람을 이 프로젝트들에」. 화면의
-/// 축이 그대로 넘어온 것이고, <b>둘 다 주거나 둘 다 비우면 거절한다</b>.
-/// 둘 다 주면 상대 목록을 어느 쪽으로 읽어야 할지 알 수 없다.
-/// </para>
-///
-/// <para>
-/// <see cref="Add"/> 와 <see cref="Remove"/> 에 담기는 것은 <b>상대의 열쇠</b>다.
-/// 프로젝트 기준이면 아이디, 사람 기준이면 프로젝트 번호를 글자로 적은 것.
-/// 한 요청이 한 트랜잭션이라 <b>다 되거나 하나도 안 된다</b>.
-/// </para>
-/// </remarks>
+/// 기준은 PrjRid 나 UserId 둘 중 하나다. 둘 다 주거나 둘 다 비우면 거절한다 — 상대 목록을 어느 쪽으로 읽을지 알 수 없다.
+/// Add 와 Remove 는 상대의 열쇠(프로젝트 기준이면 아이디, 사람 기준이면 프로젝트 번호)를 담고, 한 트랜잭션이라 다 되거나 하나도 안 된다.
 public sealed class ProjectAssignmentBulkRequest
 {
     /// <summary>프로젝트 기준일 때 그 프로젝트.</summary>

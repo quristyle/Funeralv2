@@ -3,27 +3,8 @@
 @attribute [ScreenAccess("projmng.ai.tasks")]
 
 @*
-    보낸 한 건을 펼쳐 보는 화면. 지시마다 주소가 있어야 **앱알림과 메일이
-    그 건을 바로 가리킬 수 있다** — 둘은 같은 한 주소를 싣는다.
-
-    설계: docs/ai-task-runner.md
-    API: `projmng/ai-tasks/{id}`
-
-    「빠른 지시」에서 카드를 누르면 여기로 온다. 주소가 건마다 달라 **여러 건을 열면
-    탭이 여러 개** 선다. 다른 메뉴의 화면들처럼 레이아웃의 메뉴탭으로 표시된다.
-
-    **메뉴가 없는 화면이다**(`scom.system_menus` 에 없다 — 주소에 자료 번호가
-    들어간다). 그래서 사이드바는 비고, 탭의 즐겨찾기도 막혀
-    있다(`PortalTab.Standalone`) — 담기게 두면 사이드바에서 영영 못 푸는 줄이
-    쌓인다. **탭은 우리가 직접 연다**(레이아웃은 메뉴에 있는 화면만 연다).
-    휴대폰에서는 탭 줄이 감춰지므로 레이아웃 헤더에 다른 화면들처럼 화면
-    이름(탭 메뉴)으로 표시된다. 제목은 두 번 정해진다 — 번호로 열고 제목이
-    오면 갈아 끼운다.
-
-    보여 주는 코드는 휴대폰 쪽과 한 벌이다(`AiTaskView`·`AiTaskActions`).
-    이 화면이 따로 하는 일은 **한 건을 스스로 받아 오고 따라가는 것**뿐이다 —
-    휴대폰 쪽은 부모가 넘겨 주지만 여기는 부모가 없다. 지우는 단추와 묻는
-    창도 `AiTaskActions` 것이고, 여기는 **지운 뒤의 뒷정리**만 한다.
+보낸 한 건을 펼쳐 보는 화면. 주소가 건마다 있어야 앱알림·메일이 그 건을 바로 가리킨다. 메뉴가 없는 화면이라 탭은 직접 열고, 즐겨찾기로 담지 못하게 막는다.
+보여 주는 코드는 휴대폰 쪽과 한 벌이고, 이 화면이 따로 하는 일은 한 건을 스스로 받아 오고 따라가는 것뿐이다.
 *@
 
 @inherits DataPage
@@ -39,8 +20,7 @@
         <div class="pm-taskview__head">
             <h2 class="pm-taskview__title">@TabTitle</h2>
 
-            @* 다시 읽기. **따라가기가 꺼져 있는 자리를 메운다** — 결과문·
-               처리 파일·요약은 끝난 뒤에도 뒤늦게 적힌다. *@
+            @* 다시 읽기. 따라가기가 꺼져 있는 자리를 메운다 — 결과문·처리 파일·요약은 끝난 뒤에도 뒤늦게 적힌다. *@
             <DxButton CssClass="@ReloadCss"
                       RenderStyle="ButtonRenderStyle.Link"
                       IconCssClass="jsini-icon-refresh"
@@ -53,8 +33,7 @@
 
         @if (_item is not null)
         {
-            @* `jsini-actbar` 는 **셸에게 하는 말**이다 — 바닥 칸을 제 단추
-               줄로 쓰니 떠다니는 단추는 그 위로 올라서라(app.css). *@
+            @* jsini-actbar 는 셸에게 하는 말이다 — 바닥 칸을 단추 줄로 쓰니 떠다니는 단추는 그 위로 올라서라. *@
             <div class="pm-taskview__acts jsini-actbar">
                 <AiTaskActions Item="@_item"
                                OnChanged="@OnChangedAsync"

@@ -13,21 +13,12 @@ public partial class SidebarFooter
     [Inject] private IHttpContextAccessor Http { get; set; } = default!;
     [Inject] private IJSRuntime Js { get; set; } = default!;
 
-    /// <summary>
-    /// 로그아웃 폼의 아이디. <b>헤더의 것과 달라야 한다</b> —
-    /// 한 쪽에 같은 아이디가 둘이면 JS 가 엉뚱한 것을 제출한다.
-    /// </summary>
+    /// <summary>로그아웃 폼의 아이디. 헤더의 것과 달라야 한다 — 한쪽에 같은 아이디가 둘이면 JS 가 엉뚱한 것을 제출한다.</summary>
     private const string FormId = "jsini-sidebar-logout";
 
     private ConfirmDialog? _confirm;
 
-    /// <summary>
-    /// 묻고, 확인을 받으면 폼을 제출한다.
-    /// </summary>
-    /// <remarks>
-    /// 취소하면 아무 일도 하지 않는다 — 창을 닫는 것(Esc · X)도 취소다
-    /// (<see cref="ConfirmDialog"/> 가 그렇게 다룬다).
-    /// </remarks>
+    /// <summary>묻고 확인을 받으면 폼을 제출한다. 취소하면 아무 일도 하지 않는다 — 창을 닫는 것도 취소다(ConfirmDialog).</summary>
     private async Task AskThenLogoutAsync()
     {
         var who = string.IsNullOrWhiteSpace(Me.DisplayName) ? null : Me.DisplayName;
@@ -48,10 +39,7 @@ public partial class SidebarFooter
             return;
         }
 
-        // **`document.getElementById('…').submit` 을 그대로 부르면 안 된다.**
-        // Blazor 는 식별자를 `.` 으로 쪼개 이름을 하나씩 찾으므로
-        // `getElementById('…')` 라는 이름의 속성을 뒤지고, 없으니 던진다.
-        // 그 예외는 콘솔에만 찍혀서 **화면은 아무 일도 없는 것처럼 보인다.**
+        // getElementById('…').submit 을 그대로 부르면 안 된다 — Blazor 가 식별자를 점으로 쪼개 속성을 뒤지다 던지고, 예외는 콘솔에만 남아 화면은 아무 일도 없는 것처럼 보인다.
         await Js.InvokeVoidAsync("jsiniForm.submit", FormId);
     }
 

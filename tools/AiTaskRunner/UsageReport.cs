@@ -1,12 +1,8 @@
 namespace AiTaskRunner;
 
 /// <summary>
-/// 서버로 올리는 사용량 보고. <b>칸 이름이 서버의 <c>AiUsageReport</c> 와 같아야 한다.</b>
+/// 서버로 올리는 사용량 보고. 칸 이름이 서버의 AiUsageReport 와 같아야 한다 — 어긋나도 예외 없이 기본값으로 지나가 「보고는 갔는데 화면이 비어 있다」로 보인다.
 /// </summary>
-/// <remarks>
-/// 어긋나도 예외가 안 난다 — 서버가 못 읽은 칸을 기본값으로 두고 지나가므로,
-/// 증상이 「보고는 갔다는데 화면이 비어 있다」로만 보인다.
-/// </remarks>
 public sealed class AiUsageReport
 {
     public string RunnerName { get; set; } = string.Empty;
@@ -25,13 +21,7 @@ public sealed class AiUsageReport
     public List<AiUsageItem> Items { get; set; } = [];
 }
 
-/// <summary>한도 한 칸.</summary>
-/// <remarks>
-/// <b>CLI 하나가 한 줄이 아니다.</b> <c>claude</c> 는 계정 하나에 한 줄이지만
-/// <c>agy</c> 는 모델군마다(Gemini · Claude/GPT) 따로 세고, <c>copilot</c> 은
-/// 한도 종류마다(chat · completions · premium) 따로 센다. 그것을 한 줄에
-/// 뭉개면 어느 쪽 숫자인지 알 수 없어지므로 <see cref="BucketNm"/> 로 가른다.
-/// </remarks>
+/// <summary>한도 한 칸. CLI 하나가 한 줄이 아니다 — agy 는 모델군마다, copilot 은 한도 종류마다 따로 센다(BucketNm 으로 가른다).</summary>
 public sealed class AiUsageItem
 {
     public string? RunnerKind { get; set; }
@@ -66,11 +56,7 @@ public sealed class AiUsageItem
 
     public string? PlanNm { get; set; }
 
-    /// <summary>
-    /// 로그인(갱신 토큰)이 끊기는 시각. <b>한도 갱신 시각과 다르다</b> — 저절로
-    /// 다시 차지 않고 사람이 그 장비에 붙어 다시 로그인해야 풀린다.
-    /// </summary>
-    /// <remarks>말해 주는 CLI 만 채운다. 비어 있는 것이 정상이다.</remarks>
+    /// <summary>로그인(갱신 토큰)이 끊기는 시각. 한도 갱신 시각과 다르다 — 사람이 다시 로그인해야 풀린다. 말해 주는 CLI 만 채운다.</summary>
     public DateTime? AuthExpiresAt { get; set; }
 
     /// <summary>CLI 출력 원문. <b>늘 함께 올린다</b> — 형식이 바뀌면 이것만이 단서다.</summary>

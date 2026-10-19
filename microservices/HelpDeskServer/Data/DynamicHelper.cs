@@ -3,14 +3,10 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Reflection;
 
-/// <summary>
-/// 동적 객체 처리를 위한 헬퍼 클래스
-/// </summary>
+/// <summary>동적 객체 처리를 위한 헬퍼 클래스</summary>
 public static class DynamicHelper
 {
-    /// <summary>
-    /// 객체를 속성 이름과 값의 딕셔너리로 변환합니다.
-    /// </summary>
+    /// <summary>객체를 속성 이름과 값의 딕셔너리로 변환합니다.</summary>
     /// <param name="obj">변환할 객체</param>
     /// <returns>속성 이름과 값으로 구성된 딕셔너리</returns>
     public static IDictionary<string, object?> ToDictionary(object obj)

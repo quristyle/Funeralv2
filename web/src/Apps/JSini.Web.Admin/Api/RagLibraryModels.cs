@@ -10,10 +10,7 @@ public sealed class RagCategoryDto
     public string? Description { get; set; }
     public DateTime? IndexedAt { get; set; }
 
-    /// <summary>
-    /// 색인을 만들 때 표에 찍어 둔 문서 수. <b>올린 직후에는 안 바뀐다</b> —
-    /// 지금 몇 건이 올라와 있는지는 <see cref="DocTotal"/> 이다.
-    /// </summary>
+    /// <summary>색인을 만들 때 표에 찍어 둔 문서 수. 올린 직후에는 안 바뀐다 — 지금 몇 건이 올라와 있는지는 <see cref="DocTotal"/> 이다.</summary>
     public int DocCount { get; set; }
 
     /// <summary>지금 올라와 있는 문서 전부. 서버가 셀 때마다 센 값이다.</summary>
@@ -22,16 +19,13 @@ public sealed class RagCategoryDto
     /// <summary>그중 색인에 들어간 것.</summary>
     public int DocIndexed { get; set; }
 
-    /// <summary>아직 색인에 안 들어간 것. <b>「색인 다시 만들기」가 데려갈 수다.</b></summary>
+    /// <summary>아직 색인에 안 들어간 것. 「색인 다시 만들기」가 데려갈 수다.</summary>
     public int DocPending { get; set; }
 
     /// <summary>읽을 수 없어 건너뛴 것과 실패한 것. 색인을 다시 만들어도 안 들어간다.</summary>
     public int DocSkipped { get; set; }
 
-    /// <summary>
-    /// <b>지금 메모리에 올라와 있는</b> 토막 수. 표에 적힌 값이 아니다 —
-    /// 둘이 다르면 색인을 만든 뒤 서비스가 다시 뜨지 않은 것이다.
-    /// </summary>
+    /// <summary>지금 메모리에 올라와 있는 토막 수. 표에 적힌 값이 아니다 — 둘이 다르면 색인을 만든 뒤 서비스가 다시 뜨지 않은 것이다.</summary>
     public int ChunkCount { get; set; }
 }
 
@@ -43,7 +37,7 @@ public sealed class RagFolderDto
     public string Name { get; set; } = string.Empty;
     public int SortNo { get; set; }
 
-    /// <summary>이 분류에 <b>바로</b> 든 문서 수. 하위 분류의 것은 안 센다.</summary>
+    /// <summary>이 분류에 바로 든 문서 수. 하위 분류의 것은 안 센다.</summary>
     public int DocCount { get; set; }
 
     /// <summary>그중 아직 색인에 안 들어간 것.</summary>
@@ -63,21 +57,14 @@ public sealed class RagDocumentDto
 
     public int ChunkCount { get; set; }
 
-    /// <summary>색인에 못 들어간 까닭. <b>조용히 넘기지 않는다.</b></summary>
+    /// <summary>색인에 못 들어간 까닭. 조용히 넘기지 않는다.</summary>
     public string? Error { get; set; }
 
     public DateTime? IndexedAt { get; set; }
     public DateTime CreatedAt { get; set; }
     public string? CreatedBy { get; set; }
 
-    /// <summary>
-    /// 파일 서버의 아이디. <b>내려받기 주소를 짓는 열쇠다.</b>
-    /// </summary>
-    /// <remarks>
-    /// 비어 있으면 아직 파일 서버로 안 옮긴 줄이다 — 그때는 링크를 걸지 않는다.
-    /// 거는 주소가 셸의 중계(<c>FileDownload.UrlFor</c>)인 까닭은 브라우저에
-    /// 게이트웨이 토큰이 없기 때문이다(BFF).
-    /// </remarks>
+    /// <summary>파일 서버의 아이디. 내려받기 주소를 짓는 열쇠다.</summary>
     public Guid? FileId { get; set; }
 }
 
@@ -113,23 +100,12 @@ public sealed class RagFolderNode
     /// <summary>그중 아직 색인에 안 들어간 것.</summary>
     public int DocPending { get; set; }
 
-    /// <summary>
-    /// 하위 분류에 든 문서 수를 모두 더한 것.
-    /// <para>
-    /// 이것을 따로 보이는 까닭 — 묶음 노릇만 하는 분류는 <see cref="DocCount"/>
-    /// 가 0 이다. 그 값만 적으면 **아래에 수십 건이 든 분류가 「0」으로 보여**
-    /// 비어 있는 것으로 읽힌다.
-    /// </para>
-    /// </summary>
+    /// <summary>하위 분류에 든 문서 수를 모두 더한 것. 이것을 따로 보이는 까닭 — 묶음 노릇만 하는 분류는 <see cref="DocCount"/> 가 0 이다. 그 값만 적으면 **아래에
+    /// 수십 건이 든 분류가 「0」으로 보여** 비어 있는 것으로 읽힌다.</summary>
     public int DescendantCount => Children.Sum(c => c.DocCount + c.DescendantCount);
 
-    /// <summary>
-    /// 이 분류와 그 아래에서 아직 색인에 안 들어간 문서 수.
-    /// <para>
-    /// 하위까지 더하는 까닭 — 접지 않는 트리라 눈에는 다 보이지만, 가지가
-    /// 길면 <b>어느 가지를 펴 봐야 하는지</b>는 위에서 알아야 한다.
-    /// </para>
-    /// </summary>
+    /// <summary>이 분류와 그 아래에서 아직 색인에 안 들어간 문서 수. 하위까지 더하는 까닭 — 접지 않는 트리라 눈에는 다 보이지만, 가지가 길면 어느 가지를 펴 봐야 하는지는 위에서 알아야
+    /// 한다.</summary>
     public int PendingTotal => DocPending + Children.Sum(c => c.PendingTotal);
 }
 

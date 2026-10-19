@@ -5,21 +5,8 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace AuthServer.Endpoints;
 
-/// <summary>
-/// 가입 신청(익명 하나)과 승인 처리(관리자 셋).
-/// </summary>
-/// <remarks>
-/// <para>
-/// 한 파일에 둔 이유는 <b>둘이 한 흐름</b>이기 때문이다. 신청서에 무엇을
-/// 받는지와 승인 화면이 무엇을 보는지가 떨어져 있으면 칸 하나를 더할 때
-/// 한쪽만 고치게 된다.
-/// </para>
-/// <para>
-/// 익명 경로에는 게이트웨이에서 <c>public-write</c> 시도 제한을 건다 —
-/// 소개 사이트의 문의 접수와 같은 취지다. 익명 쓰기는 열어 두면 곧 스팸의
-/// 통로가 된다.
-/// </para>
-/// </remarks>
+/// <summary>가입 신청(익명 하나)과 승인 처리(관리자 셋).</summary>
+/// 신청서를 받는 쪽과 승인 화면이 같은 칸을 봐야 해서 한 파일에 둔다. 익명 경로에는 게이트웨이의 public-write 시도 제한을 건다.
 public static class SignupEndpoints
 {
     public static void MapSignupEndpoints(this IEndpointRouteBuilder app)

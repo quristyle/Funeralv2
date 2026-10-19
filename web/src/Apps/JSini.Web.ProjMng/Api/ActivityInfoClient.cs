@@ -2,13 +2,7 @@ using JSini.Web.Http;
 
 namespace JSini.Web.ProjMng.Api;
 
-/// <summary>
-/// Glue 서비스 정의. <b>프로시저를 부르지 않는다.</b>
-/// </summary>
-/// <remarks>
-/// 옛 길은 <c>sp_dev_activityinfo_exec</c> 였다. 그 프로시저에는 <b>지우는
-/// 갈래가 없어서</b> 파일에서 사라진 서비스가 DB 에 영영 남았다.
-/// </remarks>
+/// <summary>Glue 서비스 정의(프로시저를 부르지 않는다). 옛 프로시저에는 지우는 갈래가 없어 파일에서 사라진 서비스가 DB 에 영영 남았다.</summary>
 public sealed class ActivityInfoClient(GatewayClient gateway)
 {
     private const string Url = "projmng/activity-infos";

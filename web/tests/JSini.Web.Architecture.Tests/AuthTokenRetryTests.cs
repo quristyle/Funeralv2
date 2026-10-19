@@ -7,28 +7,8 @@ using Xunit;
 
 namespace JSini.Web.Architecture.Tests;
 
-/// <summary>
-/// 토큰이 만료돼 401 을 받으면 <b>갱신한 토큰으로</b> 다시 보내는지 본다.
-///
-/// <para>
-/// [왜 테스트로 막는가 — 「갱신은 되는데 그 요청만 실패한다」]
-/// </para>
-///
-/// <para>
-/// <see cref="AuthTokenHandler"/> 는 재시도용으로 요청을 복제하는데, 복제는
-/// 헤더를 그대로 베끼므로 <b>방금 만료된 토큰이 그대로 실려 있다.</b> 그리고
-/// 토큰을 붙이는 쪽은 이미 붙어 있는 <c>Authorization</c> 을 덮지 않는다
-/// (부르는 쪽이 직접 실어 준 토큰을 지키려는 규칙이다). 둘이 맞물리면
-/// <b>갱신해 놓고 옛 토큰으로 다시 물어보는 꼴</b>이 되어 또 401 을 받는다.
-/// </para>
-///
-/// <para>
-/// 갱신 자체는 성공하므로 <b>그 뒤의 요청</b>은 멀쩡히 나간다. 실패하는 것은
-/// 만료를 처음 밟은 그 요청들뿐이라, 증상이 <b>「휴대폰을 한참 두었다 돌아오면
-/// 자료를 못 읽고 로그인이 필요하다고 하는데 새로고침하면 된다」</b> 로 나온다 —
-/// 회로가 다시 설 때는 호출 대여섯이 한꺼번에 나가서 그 묶음이 통째로 빈손이 된다.
-/// </para>
-/// </summary>
+/// <summary>토큰이 만료돼 401 을 받으면 갱신한 토큰으로 다시 보내는지 본다. 재시도 복제는 헤더를 그대로 베끼므로 옛 토큰이 실리고,
+/// 붙이는 쪽이 이미 있는 Authorization 을 덮지 않으면 「갱신해 놓고 옛 토큰으로 다시 묻는」 꼴이 되어, 회로가 다시 설 때 호출 여럿이 한꺼번에 빈손이 된다.</summary>
 public sealed class AuthTokenRetryTests
 {
     private const string Stale = "stale-token";
@@ -68,8 +48,7 @@ public sealed class AuthTokenRetryTests
             response.Dispose();
         }
 
-        // 네 번 나가면 앞선 토큰들이 줄줄이 버려진다 — 갱신을 돌려 쓰는 쪽에서는
-        // 그것이 곧 로그아웃이다.
+        // 네 번 나가면 앞선 토큰들이 줄줄이 버려진다 — 갱신을 돌려 쓰는 쪽에서는 그것이 곧 로그아웃이다.
         Assert.Equal(1, inner.Count("http://gateway.test/api/auth/refresh"));
     }
 
@@ -104,10 +83,7 @@ public sealed class AuthTokenRetryTests
     private static HttpRequestMessage Request() =>
         new(HttpMethod.Get, "http://gateway.test/api/things");
 
-    /// <summary>
-    /// 만료된 토큰에는 401, 갱신 요청에는 새 토큰, 그 밖에는 200.
-    /// 오간 요청을 전부 적어 둔다.
-    /// </summary>
+    /// <summary>만료된 토큰에는 401, 갱신 요청에는 새 토큰, 그 밖에는 200 을 돌려주는 가짜 핸들러. 오간 요청을 전부 적어 둔다.</summary>
     private sealed class RecordingHandler : HttpMessageHandler
     {
         private readonly Lock _gate = new();

@@ -1,22 +1,8 @@
 namespace AuthServer.DTOs;
 
-// ============================================================
-// 차단 접근기록 — 프론트의 `JSini.Web.Models/BlockedAccess.cs` 와 짝이다.
-//
-// **시각은 전부 UTC 로 주고받는다.** 한국 시각으로 바꾸는 일은 화면이 보여
-// 주기 직전에 한 번만 한다(docs/utc-time.md).
-//
-// 「집계는 DB 가 한다」 — 줄을 다 받아다 화면에서 더하지 않는다.
-// `MenuUsageDto` 와 같은 선이다.
-// ============================================================
+// 차단 접근기록 — 프론트의 JSini.Web.Models/BlockedAccess.cs 와 짝이다. 시각은 UTC 로 주고받고, 한국 시각은 보여 주기 직전에 한 번만 만든다.
 
-/// <summary>
-/// 포털 셸이 「이 주소를 막았다」고 알릴 때 보내는 것.
-/// </summary>
-/// <remarks>
-/// <b>사람은 담지 않는다.</b> 게이트웨이가 붙여 주는 <c>X-User-Id</c> 로
-/// 서버가 정한다 — 몸체에서 받으면 남의 이름으로 기록을 쌓을 수 있다.
-/// </remarks>
+/// <summary>포털 셸이 「이 주소를 막았다」고 알릴 때 보내는 것. 사람은 담지 않고 게이트웨이의 X-User-Id 로 서버가 정한다 — 몸체에서 받으면 남의 이름으로 기록을 쌓을 수 있다.</summary>
 public sealed class BlockedAccessRecordDto
 {
     /// <summary>막힌 주소. 이것이 없으면 적지 않는다.</summary>
@@ -74,14 +60,7 @@ public sealed class BlockedAccessDto
     public string? ClientIp { get; set; }
 }
 
-/// <summary>
-/// 화면 하나의 기간 차단량. <b>「어떤 화면이 관리 밖인가」에 답하는 표다.</b>
-/// </summary>
-/// <remarks>
-/// 주소로 묶지 않는다 — 상세 화면의 주소에는 매개변수가 들어 있어
-/// (<c>/admin/system/account/{누구}/app</c>) 사람 수만큼 줄이 갈린다.
-/// 묶는 열쇠는 화면의 <c>route_key</c> 이고, 그것이 없는 화면만 주소로 떨어진다.
-/// </remarks>
+/// <summary>화면 하나의 기간 차단량. 「어떤 화면이 관리 밖인가」에 답하는 표다. 주소로 묶지 않는다 — 상세 화면 주소에는 사람 이름이 들어 있어 사람 수만큼 줄이 갈리므로, 묶는 열쇠는 화면이 선언한 열쇠다.</summary>
 public sealed class BlockedAccessByScreenDto
 {
     public string ScreenKey { get; set; } = string.Empty;

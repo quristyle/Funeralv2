@@ -19,8 +19,7 @@ public partial class Home
 
     protected override async Task OnInitializedAsync()
     {
-        // 둘을 나란히 부른다. 순서에 의미가 없고, 소개 사이트에서는 첫 바이트까지의
-        // 시간이 곧 이탈률이다.
+        // 두 덩어리를 나란히 부른다. 소개 사이트에서는 첫 바이트 시간이 곧 이탈률이다.
         var sections = Api.SectionsAsync(L, "home.");
         var posts = Api.PostsAsync(L, 3);
 

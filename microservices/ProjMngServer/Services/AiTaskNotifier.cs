@@ -8,25 +8,9 @@ using Npgsql;
 namespace ProjMngServer.Services;
 
 /// <summary>
-/// 끝난 작업을 메일로 알린다 (설계 8-2).
+/// 끝난 작업을 메일로 알린다. 실행기가 아니라 서버가 보낸다 — 실행 슬롯이 메일에 묶이지 않게.
+/// 못 보내도 작업 상태는 바꾸지 않고 사유만 남긴다.
 /// </summary>
-/// <remarks>
-/// <para>
-/// <b>실행기가 아니라 서버가 보낸다.</b> 실행기가 보내면 작업은 끝났는데
-/// 메일 때문에 실행 슬롯이 묶이고, 메일 실패가 실행 실패처럼 보인다 —
-/// 그 둘은 다른 일이다.
-/// </para>
-/// <para>
-/// <b>큐가 아니라 직발송(<c>/emails/send</c>)을 쓴다.</b> 큐 쪽
-/// (<c>/notification/email</c>)은 결과를 「넣었다」까지만 알 수 있고, 무엇보다
-/// 우리가 피하기로 한 <c>run_script</c> 큐를 다시 탄다(설계 6.2).
-/// 「결과를 메일로 받겠다」는 기능에서 보내졌는지 모르면 절반만 있는 것이다.
-/// </para>
-/// <para>
-/// <b>못 보내도 작업 상태를 바꾸지 않는다.</b> 사유만 남기고 화면이 그것을
-/// 말한다 — 배포 도구가 정한 규칙과 같다(보고에 실패해도 배포는 계속한다).
-/// </para>
-/// </remarks>
 public sealed class AiTaskNotifier(
     IConfiguration configuration, IHttpClientFactory http, ILogger<AiTaskNotifier> logger)
 {
@@ -42,53 +26,21 @@ public sealed class AiTaskNotifier(
     private readonly string? _portalUrl = configuration["AiTasks:PortalUrl"];
 
     /// <summary>
-    /// 결과 앱푸시를 <b>시킨 사람 말고도</b> 받는 역할. 비우면 시킨 사람에게만 간다.
+    /// 결과 앱푸시를 시킨 사람 말고도 받는 역할. 비우면 시킨 사람에게만 간다.
+    /// 역할을 사람으로 푸는 것은 알림 서비스다 — 이 DB 에는 역할표가 없다.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>왜 있나.</b> 결과 알림은 오래도록 <c>notify_to</c> 또는 <c>cre_id</c>
-    /// 한 사람에게만 갔다. 그런데 실제로 이 포털에서 AI 작업을 살피는 사람은
-    /// 시킨 사람 하나가 아니라 <b>시스템 관리자 전원</b>이다 — 실행기가 멈췄는지,
-    /// 남의 지시가 실패로 끝났는지를 알아야 하는 쪽이 그들이다. 받는 길이
-    /// 없으면 「AI 작업 지시」 화면을 스스로 열어 보기 전까지 아무것도 모른다.
-    /// </para>
-    /// <para>
-    /// <b>역할을 사람으로 푸는 것은 알림 서비스다</b>(<c>SendPushDto.Roles</c>) —
-    /// 역할표는 포털 계정 DB(<c>jsiniportal</c> 의 <c>scom.role_accounts</c>)에 있고
-    /// 프로젝트관리는 다른 데이터베이스를 봐서 여기서는 조회조차 못 한다.
-    /// 시킨 사람이 그 역할이어도 <b>한 번만</b> 간다(저쪽이 겹친 주인을 접는다).
-    /// </para>
-    /// <para>
-    /// 「요청이 올라왔다」 알림(<see cref="AiRequestAlerter"/>)과 <b>목록을 따로
-    /// 둔다.</b> 그쪽은 올라온 요청을 <b>처리할</b> 사람이고 이쪽은 끝난 일을
-    /// <b>지켜볼</b> 사람이라, 한 값으로 묶으면 한쪽을 줄이려다 다른 쪽이 멎는다.
-    /// </para>
-    /// </remarks>
     private readonly string[] _resultRoles =
         configuration.GetSection("AiTasks:ResultNotifyRoles").Get<string[]>()
         ?? ["SYSTEM_ADMINISTRATOR"];
 
     /// <summary>
-    /// 그 건 하나를 펴 놓는 화면의 <b>상대 주소</b>
-    /// (<c>web/.../Pages/AiTaskViewPage.razor</c> 의 <c>@@page</c>).
+    /// 그 건 하나를 펴 놓는 화면의 상대 주소. 앱알림과 메일이 같은 한 줄을 쓴다.
+    /// 질의 문자열이 아니라 경로에 번호를 싣는다 — 포털 탭이 질의를 떼고 탭을 가르기 때문.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>앱알림과 메일이 같은 한 줄을 쓴다.</b> 두 벌로 두면 한쪽만 고쳐져
-    /// 어긋나고, 어긋나는 쪽은 언제나 「알림을 눌렀더니 엉뚱한 화면」이다.
-    /// </para>
-    /// <para>
-    /// 질의 문자열(<c>?task=</c>)이 아니라 경로에 번호를 싣는다. 포털의 탭
-    /// 줄이 <b>질의 문자열을 뗀 경로로</b> 탭을 가르므로, 질의로 실으면 여러
-    /// 건을 열어도 탭이 하나만 선다.
-    /// </para>
-    /// </remarks>
     private static string TaskUrl(long taskKey) => $"/projmng/ai/task/{taskKey}";
 
     /// <summary>
-    /// 기록에 적을 <b>받는 쪽</b> 한 줄. 사람 하나가 아니라 「시킨 사람 + 지켜보는
-    /// 역할」이 되었으므로, 로그가 여전히 아이디 하나만 말하면 <b>역할로 간 몫이
-    /// 통째로 안 보인다</b> — 「왜 안 왔나」를 되짚을 때 가장 먼저 보는 줄이다.
+    /// 기록에 적을 받는 쪽 한 줄. 역할로 간 몫도 보여야 「왜 안 왔나」를 되짚을 수 있다.
     /// </summary>
     private string Who(Target target)
     {
@@ -108,55 +60,9 @@ public sealed class AiTaskNotifier(
     }
 
     /// <summary>
-    /// 이 실행의 <b>앱푸시</b>를 보낸다. <b>알림 세 걸음 중 첫째</b>다.
+    /// 이 실행의 앱푸시를 보낸다. 알림 세 걸음 중 첫째.
+    /// 요약·제목은 읽기만 한다 — 기다리는 것은 부르는 쪽이다. 여기서 모델을 부르면 요약 없는 알림이 되살아난다.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// [무엇이 실리나 — 상태·제목만이 아니라 <b>처리 요약</b>까지]
-    /// </para>
-    /// <para>
-    /// 오래도록 푸시 본문은 <c>[완료] 제목</c> 한 줄이었다. 받는 사람이 그
-    /// 한 줄에서 아는 것은 <b>「끝났다」뿐</b>이라, 무엇을 했는지 보려면 늘
-    /// 눌러 들어가야 했다. 지금은 <b>제목 줄에 상태와 작업 제목을, 본문에
-    /// 처리 요약을</b> 싣는다(<see cref="Body"/> 의 「처리 요약」 칸과 같은 값이다).
-    /// 알림창 두 줄로 「무엇을 했나」까지 읽히는 것이 목적이다.
-    /// </para>
-    /// <para>
-    /// <b>요약이 없으면 기다리지 않는다.</b> 이 함수는 <c>summary_text</c> 를
-    /// 읽기만 한다 — 적혀 있으면 싣고, 없으면 대체 본문으로 나간다
-    /// (<see cref="PushFallback"/>). <b>요약을 만드는 일도 기다리는 일도 부르는
-    /// 쪽이 정한다</b>(<c>AiRunService.SummarizeThenNotifyAsync</c>) —
-    /// 여기서 모델을 부르면 「알림을 끈 사람에게만 요약이 없는」 옛 문제가
-    /// 되살아난다.
-    /// </para>
-    /// <para>
-    /// <b>그 대신 부르는 쪽이 짧게 기다려 준다 (2026-10-14).</b> 완료 처리는
-    /// 요약·제목을 <c>AiTasks:PostRunWaitSeconds</c>(기본 30초)까지 기다렸다가
-    /// 이 함수를 부른다 — 로컬 LLM 실측이 1.0~1.6초라 보통은 <b>요약도 바뀐
-    /// 제목도 손에 들린 채로</b> 들어온다. 상한에 걸린 건에서만 대체 본문
-    /// (오류 한 줄, 또는 「바뀐 것 · 할 일」)이 서고, 그것도 <b>적힌 값에서
-    /// 나오므로 서론이 섞이지 않는다.</b>
-    /// </para>
-    /// <para>
-    /// [왜 메일과 갈라 놓았나 — 푸시가 요약을 기다리고 서 있었다]
-    /// </para>
-    /// <para>
-    /// 예전에는 한 함수가 메일과 푸시를 차례로 보냈고, 그 함수는 끝난 실행의
-    /// <b>처리 요약과 자동 제목이 다 만들어진 뒤에야</b> 불렸다
-    /// (<see cref="AiRunSummaryWriter"/> · <see cref="AiTaskTitler"/>, 둘 다 모델을
-    /// 부른다). 그래서 작업이 끝난 시각과 푸시가 나간 시각 사이가
-    /// <b>운영 실측으로 중앙 13초 · 상위 10% 45초 · 최대 177초</b>였다
-    /// (<c>scom.push_send_logs</c> 와 <c>ai_task_run.finished_at</c> 대조, 2026-09-25).
-    /// 받는 사람에게 그것은 그냥 <b>「푸시가 느려졌다」</b>이다.
-    /// </para>
-    /// <para>
-    /// 그 뒤 한 번은 <b>아무것도 안 기다리게</b> 뒤집었는데, 그러면 제목 줄에
-    /// 「빠른 지시」의 <b>지시문 앞부분을 끊어 놓은 글</b>이 선다
-    /// (<c>AiTaskService.NormalizeAsync</c>) — AI 가 다시 지은 제목은 몇 초 뒤에
-    /// 붙으므로, 받는 사람은 알림창과 목록에서 <b>서로 다른 제목</b>을 보게 된다.
-    /// 지금은 <b>상한을 걸고 기다린다</b>(<c>AiTasks:PostRunWaitSeconds</c>).
-    /// </para>
-    /// </remarks>
     public async Task SendPushAsync(long runKey, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(_connectionString))
@@ -168,9 +74,7 @@ public sealed class AiTaskNotifier(
         {
             await using var db = new NpgsqlConnection(_connectionString);
 
-            // **이 실행의 알림 사유를 여기서 비운다.** 푸시가 알림의 첫 걸음이라
-            // 앞선 실행이 남긴 사유를 지우는 자리도 여기다 — 뒤따르는 메일은
-            // 덧붙이기만 한다(<see cref="MarkAsync"/> 의 reset).
+            // 이 실행의 사유를 여기서 비운다 — 푸시가 첫 걸음이고, 뒤따르는 메일은 덧붙인다.
             await MarkAsync(db, runKey, null, reset: true);
 
             var target = await LoadAsync(db, runKey, wantEmail: false, ct);
@@ -182,10 +86,7 @@ public sealed class AiTaskNotifier(
 
             var row = target.Row;
 
-            // 「받는 사람」에 남의 메일 주소를 적은 건은 **그 사람에게는** 푸시로
-            // 보낼 곳이 없다 — 우리가 아는 것은 포털 아이디뿐이고 그 칸은 주소다.
-            // 그래도 지켜보는 역할(<see cref="_resultRoles"/>)이 있으면 그쪽으로는
-            // 간다. 둘 다 없을 때만 조용히 끝낸다.
+            // 주소만 적힌 「받는 사람」은 푸시로 보낼 곳이 없다. 지켜보는 역할이 있으면 그쪽으로만 간다.
             var owners = string.IsNullOrWhiteSpace(target.ToUser)
                 ? Array.Empty<object>()
                 : new object[] { new { ownerType = "jsini", ownerKey = target.ToUser } };
@@ -205,52 +106,24 @@ public sealed class AiTaskNotifier(
                 {
                     owners,
 
-                    // **시킨 사람 말고 지켜보는 사람도 받는다**(<see cref="_resultRoles"/>).
-                    // 겹치면 저쪽이 접으므로 여기서 덜어 내지 않는다.
+                    // 시킨 사람 말고 지켜보는 역할도 받는다. 겹치면 저쪽이 접으므로 여기서 덜지 않는다.
                     roles = _resultRoles,
 
                     message = new
                     {
-                        // **제목 줄은 「어느 건이 어떻게 됐나」다.** 예전에는
-                        // 여기에 「AI 작업 끝남」이라는 붙박이 한 줄이 있었고
-                        // 본문이 그 물음에 답했다 — 알림창에서 가장 크게
-                        // 보이는 자리가 어느 건이든 똑같은 글자에 쓰인 셈이다.
-                        // 그 자리를 상태와 작업 제목에 내주고, 본문은 아래
-                        // 처리 요약에 쓴다.
+                        // 제목 줄은 「어느 건이 어떻게 됐나」다. 상태와 작업 제목을 싣고, 무엇을 했는지는 본문에 쓴다.
                         title = $"[{StatusText(row.TaskStatus)}] {Trim(row.Title, 60)}",
 
-                        // **무엇을 했는지가 여기 실린다**(<see cref="PushBody"/>).
+                        // 본문에 처리 요약이 실린다 (PushBody).
                         body = PushBody(row),
 
-                        // **그 건 하나를 펴 놓는 주소다.** 예전에는 목록
-                        // (`/projmng/ai/tasks`)으로 보냈고, 누른 사람이
-                        // 편집기를 받은 뒤 목록에서 그 건을 눈으로 다시
-                        // 찾아야 했다. 메일의 단추도 같은 주소를 쓴다.
+                        // 그 건 하나를 펴 놓는 주소. 메일 단추도 같은 주소를 쓴다.
                         url = TaskUrl(row.TaskKey),
 
-                        // **아이콘에 지시한 사람의 얼굴을 띄운다.**
-                        //
-                        // 아이디만 넘기고 사진은 알림 서비스가 푼다 — 이 DB
-                        // (projmng)에는 사람의 사진도 메일 주소도 없다(위 주석).
-                        // 사진이 없는 계정이면 저쪽이 사람 형상 그림자를 쓴다.
-                        //
-                        // **받는 사람(`ToUser`)이 아니라 `CreId` 다.** 지금은
-                        // 둘이 같지만, 「받는 사람」 칸을 적어 남에게 보내게
-                        // 되면 갈린다 — 그때 아이콘이 답해야 하는 것은
-                        // 「누가 시킨 일인가」 쪽이다.
+                        // 아이콘은 받는 사람이 아니라 시킨 사람(CreId)의 얼굴이다. 사진은 알림 서비스가 아이디로 푼다 (이 DB 에는 사진도 메일 주소도 없다).
                         iconOwnerKey = row.CreId?.Trim(),
 
-                        // **두 시간 지나면 배달하지 않는다.**
-                        //
-                        // 이 알림이 이 포털에서 가장 잦다 — 최근 일주일
-                        // 발송 254건 중 241건이 이것이다. 웹푸시는 브라우저가
-                        // 꺼져 있으면 푸시 서비스가 들고 기다렸다가 다시 켤 때
-                        // 한꺼번에 내보내므로, 수명을 안 주면(라이브러리 기본
-                        // 28일) 며칠 쉬고 온 사람의 화면에 수십 개가 쏟아진다.
-                        //
-                        // 끝난 작업은 작업 화면과 「내 알림함」에 그대로
-                        // 있으므로 배달을 포기해도 잃는 것이 없다. 사정은
-                        // docs/push-delivery.md 참고.
+                        // 두 시간 지나면 배달하지 않는다 — 끝난 작업은 화면과 내 알림함에 남아 잃는 것이 없다. 수명 설정은 docs/push-delivery.md 참고.
                         ttlSeconds = 7200,
 
                         // 알림구분(공통코드 NOTI_CATEGORY). 요청 알림과 같은 갈래다.
@@ -265,9 +138,7 @@ public sealed class AiTaskNotifier(
 
             if (res.IsSuccessStatusCode)
             {
-                // **「보냈다」와 「보낼 곳이 없었다」는 다른 것이다.**
-                // 2xx 만 보고 넘기면 후자가 여기서 사라진다 —
-                // 까닭은 <see cref="PushOutcome"/> 머리말에 있다.
+                // 「보냈다」와 「보낼 곳이 없었다」는 다르다. 2xx 만 보고 넘기면 후자가 사라진다 (PushOutcome).
                 var body = await res.Content.ReadAsStringAsync(ct);
                 var notSent = PushOutcome.NotSent(res.StatusCode, body);
 
@@ -292,49 +163,19 @@ public sealed class AiTaskNotifier(
         }
         catch (Exception ex)
         {
-            // **작업 상태는 건드리지 않는다.** 알림이 안 갔다고 성공한 일이
-            // 실패가 되면 안 된다.
+            // 작업 상태는 건드리지 않는다. 알림 실패로 성공한 일이 실패가 되지 않게.
             logger.LogWarning(ex, "결과 앱푸시를 보내지 못했습니다 (run {RunKey}).", runKey);
 
-            // **덮어쓴다.** 푸시는 이 실행의 첫 걸음이라 여기서 나는 예외는 언제나
-            // 이번 사유다 — 이어 붙이면 위의 비우기(reset)에 닿기도 전에 터진 갈래
-            // (DB 가 안 열리는 등)에서 **앞 실행의 사유 뒤에 이번 것이 붙는다.**
+            // 덮어쓴다. 앞 실행의 사유가 남으면 이번 사유가 그 뒤에 붙어 섞인다.
             await TryMarkAsync(runKey, ex.Message, reset: true);
         }
     }
 
     /// <summary>
-    /// 이 실행의 결과를 <b>메일로</b> 보낸다. <b>보낼 이유가 없으면 조용히 끝낸다.</b>
+    /// 이 실행의 결과를 메일로 보낸다. 보낼 이유가 없으면 조용히 끝낸다.
+    /// 요약이 없으면 deferUntilSummary 일 때 미루고, 보내기 전에 mail_sent_at 을 먼저 찍어 한 통만 나가게 한다.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>이것만 요약을 기다린다.</b> 메일 본문의 「무엇을 했다나」 칸이 처리 요약을
-    /// 싣기 때문이다. 앱푸시는 그것을 안 쓰므로 먼저 나간다
-    /// (<see cref="SendPushAsync"/>).
-    /// </para>
-    /// <para>
-    /// <b>기다린다는 것이 이제는 「미룬다」는 뜻이다.</b> 예전에는 완료 처리가
-    /// 요약을 만들어 보고 <b>되든 안 되든</b> 여기로 왔다 — 모델이 붐벼 빈손으로
-    /// 돌아온 날에는 요약 없는 메일이 그대로 나갔고, 10분 뒤 따라잡기
-    /// (<see cref="AiSummaryCatchUp"/>)가 요약을 채워도 <b>이미 나간 메일은
-    /// 그대로였다.</b> 받는 사람에게 그것은 「요약이 만들어지기 전에 메일이
-    /// 온다」이다. 지금은 <paramref name="deferUntilSummary"/> 가 켜져 있고
-    /// 요약이 아직 없으면 <b>여기서 보내지 않고 돌아간다</b> — 그 건은
-    /// <c>mail_sent_at</c> 이 빈 채 남고, 요약을 채운 따라잡기가 그 자리에서
-    /// 보낸다.
-    /// </para>
-    /// <para>
-    /// <b>한 통만 나간다.</b> 보내는 길이 둘(완료 처리 · 따라잡기)이 되었으므로
-    /// 보내기 직전에 <c>mail_sent_at</c> 을 <b>먼저 찍어 자리를 잡는다</b> —
-    /// 찍지 못하면(이미 누가 찍었으면) 그대로 돌아간다. 보내 놓고 찍는 순서면
-    /// 두 길이 겹칠 때 같은 메일이 두 통 간다.
-    /// </para>
-    /// </remarks>
-    /// <param name="deferUntilSummary">
-    /// 요약이 아직 없으면 <b>보내지 말고 미룰 것인가</b>. 완료 처리가 부를 때는
-    /// 켠다. 따라잡기가 「이만큼 기다렸으면 됐다」며 마지막으로 부를 때는 끈다 —
-    /// 모델이 며칠째 죽어 있다고 결과 메일까지 영영 안 가면 안 된다.
-    /// </param>
+    /// <param name="deferUntilSummary">요약이 없을 때 미룰지. 완료 처리는 켜고, 따라잡기의 마지막 호출은 끈다.</param>
     public async Task SendMailAsync(
         long runKey, bool deferUntilSummary = false, CancellationToken ct = default)
     {
@@ -351,9 +192,7 @@ public sealed class AiTaskNotifier(
 
             if (target is null)
             {
-                // 「받기」가 꺼졌거나 받을 사람이 없다. **그래도 도장은 찍는다** —
-                // 안 찍으면 따라잡기가 이 건을 「아직 안 보낸 것」으로 보고
-                // 끝없이 다시 집는다.
+                // 받기가 꺼졌거나 받을 사람이 없어도 도장은 찍는다. 안 찍으면 따라잡기가 이 건을 끝없이 다시 집는다.
                 await StampMailAsync(db, runKey, ct);
                 return;
             }
@@ -361,8 +200,7 @@ public sealed class AiTaskNotifier(
             var row = target.Row;
             var to = target.To;
 
-            // 사람이 적은 값이 주소가 아니면 **여기서 말한다.** 저쪽까지 갔다
-            // 오면 「받는 사람이 없습니다」가 되어 어느 칸이 틀렸는지가 흐려진다.
+            // 주소가 아닌 값은 여기서 말한다. 저쪽까지 갔다 오면 어느 칸이 틀렸는지 흐려진다.
             if (!string.IsNullOrWhiteSpace(to)
                 && to.Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                      .Any(one => !System.Net.Mail.MailAddress.TryCreate(one, out _)))
@@ -371,22 +209,15 @@ public sealed class AiTaskNotifier(
                     $"「받는 사람」이 메일 주소가 아닙니다: {to} — 비워 두면 요청한 사람에게 갑니다.",
                     reset: false);
 
-                // 사람이 칸을 고치기 전에는 몇 번을 보내도 같은 답이다. 찍는다.
+                // 칸을 고치기 전에는 몇 번을 보내도 같은 답이다. 도장을 찍는다.
                 await StampMailAsync(db, runKey, ct);
                 return;
             }
 
-            // **처리 요약을 만드는 자리는 여기가 아니다.** 완료 처리가 알림과
-            // 무관하게 먼저 만들어 적어 둔다(<c>AiRunService.SummarizeThenNotifyAsync</c>
-            // → <see cref="AiRunSummaryWriter"/>). 그 자리가 여기로 돌아오면 요약의
-            // 수명이 위 관문들(받기 꺼짐·받는 사람 없음·주소 틀림)에 매달려서
-            // **알림을 끈 사람에게만 요약이 없는** 상태가 된다.
-            //
-            // 여기서는 **적힌 것을 되읽기만 한다.**
+            // 처리 요약은 여기서 만들지 않는다. 완료 처리가 먼저 적어 두고, 여기서는 적힌 것을 되읽기만 한다.
             var summary = AiResultSummary.Parse(row.SummaryText);
 
-            // **요약이 아직 없으면 미룬다.** 단, 애초에 정리할 글이 없는 건
-            // (AI 가 아무 말 없이 끝난 건)은 기다려 봐야 영영 안 생기므로 그냥 보낸다.
+            // 요약이 아직 없으면 미룬다. 애초에 정리할 글이 없는 건(AI 가 말없이 끝난 건)은 그냥 보낸다.
             if (summary is null && deferUntilSummary && !string.IsNullOrWhiteSpace(row.ResultText))
             {
                 logger.LogInformation(
@@ -413,15 +244,10 @@ public sealed class AiTaskNotifier(
                     toUser = target.ToUser,
                     subject = $"[AI 작업] {row.Title} — {StatusText(row.TaskStatus)}",
                     body = Body(row, summary),
-                    // 저쪽 DTO 의 속성 이름은 `Html` 이다. `isHtml` 로 적으면
-                    // 붙지 않고 조용히 기본값이 쓰인다 — 그러면 본문이 태그
-                    // 그대로 보인다.
+                    // 저쪽 DTO 속성은 Html 이다. isHtml 로 적으면 조용히 기본값이 쓰여 태그가 그대로 보인다.
                     html = true,
 
-                    // **알림관리가 이 글자로 가른다.** 역할 대상 이벤트라
-                    // `toUser`(시킨 본인)로 가는 몫은 정책이 가리지 않는다 —
-                    // 까닭은 NotificationServer 의 `PushSender.ExpandOwnersAsync`
-                    // 머리말에 적어 두었다.
+                    // 알림관리가 이 글자로 가른다. 까닭은 NotificationServer 의 PushSender.ExpandOwnersAsync 머리말에 있다.
                     eventCode = "AI_TASK",
                 }),
             };
@@ -444,8 +270,7 @@ public sealed class AiTaskNotifier(
         }
         catch (Exception ex)
         {
-            // **작업 상태는 건드리지 않는다.** 메일이 안 갔다고 성공한 일이
-            // 실패가 되면 안 된다.
+            // 작업 상태는 건드리지 않는다. 메일 실패로 성공한 일이 실패가 되지 않게.
             logger.LogWarning(ex, "결과 메일을 보내지 못했습니다 (run {RunKey}).", runKey);
 
             // 메일은 뒤 걸음이라 앞이 남긴 사유를 지우지 않는다.
@@ -460,13 +285,9 @@ public sealed class AiTaskNotifier(
     private sealed record Target(MailRow Row, string? To, string? ToUser);
 
     /// <summary>
-    /// 보낼 줄을 읽고 <b>보낼 이유가 있는지</b>까지 가린다. 없으면 <c>null</c>.
+    /// 보낼 줄을 읽고 보낼 이유가 있는지 가린다. 없으면 null.
+    /// 푸시·메일 두 길이 이 관문을 함께 쓴다 — 따로 적으면 한쪽만 고쳐져 어긋난다.
     /// </summary>
-    /// <remarks>
-    /// <b>두 길(푸시·메일)이 같은 관문을 쓴다.</b> 갈래마다 따로 적으면 한쪽만
-    /// 고쳐져 「메일은 왔는데 푸시는 안 온다」가 된다 — 받는 사람이 가장
-    /// 설명하기 어려워하는 갈래다.
-    /// </remarks>
     /// <param name="wantEmail">메일 길인가. 아니면 앱푸시 길이다.</param>
     private async Task<Target?> LoadAsync(
         NpgsqlConnection db, long runKey, bool wantEmail, CancellationToken ct)
@@ -508,8 +329,7 @@ public sealed class AiTaskNotifier(
             return null;
         }
 
-        // 「언제 보내나」를 본다. 실패만 받겠다고 한 사람에게 성공 메일을
-        // 보내면 그 옵션이 있으나 마나다.
+        // 실패만 받겠다고 한 사람에게 성공 메일을 보내지 않는다.
         var ok = row.TaskStatus == "succeeded";
 
         if ((row.NotifyWhen == "on_success" && !ok)
@@ -518,15 +338,7 @@ public sealed class AiTaskNotifier(
             return null;
         }
 
-        // **주소와 아이디를 구분해서 보낸다.**
-        //
-        // 이 DB(projmng)에는 사람의 메일 주소가 없다 — 계정은 scom 에 있고
-        // 그쪽은 알림 서비스의 DB 다. 그래서 「요청한 사람에게」는 아이디를
-        // toUser 로 넘겨 저쪽에서 풀게 한다.
-        //
-        // 예전에는 아이디(cre_id)를 그대로 to 에 실었다. 주소 꼴이 아니라서
-        // 알림 서비스가 걸러 버렸고 **「받는 사람」을 비워 둔 건은 한 통도
-        // 나가지 않았다** — notify_error 에 HTTP 400 만 쌓였다.
+        // 주소 칸에 아이디를 실으면 알림 서비스가 걸러 한 통도 안 나간다. 아이디는 toUser 로 넘겨 저쪽이 푼다.
         var to = row.NotifyTo?.Trim();
         var toUser = string.IsNullOrWhiteSpace(to) ? row.CreId?.Trim() : null;
 
@@ -540,23 +352,9 @@ public sealed class AiTaskNotifier(
     }
 
     /// <summary>
-    /// 이 실행의 <b>메일 자리를 잡는다</b> — <c>ai_task_run.mail_sent_at</c> 을
-    /// 지금으로 찍고, <b>찍은 것이 나인지</b>를 돌려준다.
+    /// 이 실행의 메일 자리를 잡는다 — mail_sent_at 을 지금으로 찍고, 찍은 것이 나인지 돌려준다.
+    /// WHERE mail_sent_at IS NULL 이 요점이다. 보낸 뒤에 찍으면 두 길이 겹쳐 같은 메일이 두 통 나간다.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <c>WHERE mail_sent_at IS NULL</c> 한 줄이 요점이다. 보내는 길이 둘
-    /// (완료 처리 · 따라잡기)이라 같은 건을 동시에 집을 수 있는데, 이 갱신이
-    /// 한 문장이므로 <b>둘 중 하나만 1 을 받는다.</b> 읽고 → 판단하고 → 쓰면
-    /// 그 사이에 둘 다 「아직 안 보냈다」를 본다.
-    /// </para>
-    /// <para>
-    /// <b>보내기 전에 찍는다.</b> 보낸 뒤에 찍으면 그 사이에 다른 길이 들어와
-    /// 같은 메일을 한 통 더 보낸다 — 결과 메일은 회수할 수 없으므로 「두 통」이
-    /// 「한 통도 안 감」보다 나쁘다(한 통도 안 간 것은 <c>notify_error</c> 와
-    /// 화면에 남는다).
-    /// </para>
-    /// </remarks>
     private static async Task<bool> StampMailAsync(
         NpgsqlConnection db, long runKey, CancellationToken ct)
     {
@@ -571,8 +369,7 @@ public sealed class AiTaskNotifier(
     }
 
     /// <summary>
-    /// 사유를 남겨 보되 <b>남기지 못해도 그만인</b> 자리. 이미 예외를 처리하는
-    /// 중이라 여기서 또 던지면 남길 곳이 없다.
+    /// 사유를 남겨 보되 못 남겨도 그만인 자리. 이미 예외 처리 중이라 여기서 또 던지면 남길 곳이 없다.
     /// </summary>
     private async Task TryMarkAsync(long runKey, string? error, bool reset)
     {
@@ -588,8 +385,7 @@ public sealed class AiTaskNotifier(
     }
 
     /// <summary>
-    /// 실패 응답에서 사람이 읽을 한 줄만 꺼낸다. 못 꺼내면 빈 문자열이다 —
-    /// <b>JSON 덩어리를 그대로 화면에 올리지 않는다.</b>
+    /// 실패 응답에서 사람이 읽을 한 줄만 꺼낸다. 못 꺼내면 빈 문자열 — JSON 덩어리를 화면에 올리지 않는다.
     /// </summary>
     private static string Reason(string? body)
     {
@@ -617,14 +413,9 @@ public sealed class AiTaskNotifier(
     }
 
     /// <summary>
-    /// 이 실행의 알림 사유(<c>ai_task.notify_error</c>)를 적는다.
+    /// 이 실행의 알림 사유(ai_task.notify_error)를 적는다. 푸시가 먼저, 메일이 나중에 나가므로 뒤엣것이 덮으면 앞의 실패가 사라진다.
+    /// 첫 걸음만 reset 으로 비우고 나머지는 ' / ' 로 잇는다.
     /// </summary>
-    /// <remarks>
-    /// <b>걸음이 둘이라 덮어쓰기와 덧붙이기를 가른다.</b> 앱푸시가 먼저 나가고
-    /// (<see cref="SendPushAsync"/>) 메일이 나중에 나가는데, 뒤엣것이 그냥 덮으면
-    /// <b>「푸시는 안 갔고 메일은 갔다」가 아무 데도 안 남는다.</b> 그래서 첫
-    /// 걸음만 <paramref name="reset"/> 으로 비우고 나머지는 <c> / </c> 로 잇는다.
-    /// </remarks>
     /// <param name="reset">
     /// 참이면 앞의 것을 지우고 이 값만 남긴다(새 실행의 첫 걸음).
     /// 거짓이면 뒤에 잇는다 — <paramref name="error"/> 가 비면 아무것도 안 한다.
@@ -652,12 +443,8 @@ public sealed class AiTaskNotifier(
             return;
         }
 
-        // **이미 적힌 말은 다시 적지 않는다.** 두 걸음이 같은 관문에 걸리는 갈래가
-        // 있다(받는 사람을 알 수 없음 — 푸시도 메일도 같은 말을 한다). 그대로
-        // 이으면 화면에 같은 문장이 두 번 뜬다.
-        //
-        // `LIKE` 가 아니라 `POSITION` 이다 — 사유에 `%` 나 `_` 가 섞여 들어오면
-        // (HTTP 응답을 그대로 실어 나르는 자리가 있다) 패턴으로 읽혀 엉뚱하게 맞는다.
+        // 이미 적힌 말은 다시 적지 않는다. 같은 문장이 두 걸음에서 나오면 화면에 두 번 뜬다.
+        // LIKE 가 아니라 POSITION 이다 — 사유의 % 나 _ 가 패턴으로 읽히면 안 된다.
         await db.ExecuteAsync("""
             UPDATE projmng.ai_task
                SET notify_error = CASE
@@ -669,57 +456,9 @@ public sealed class AiTaskNotifier(
     }
 
     /// <summary>
-    /// 메일 한 통. <b>맨 위 요약만 읽어도 다 알 수 있게</b> 짠다.
+    /// 메일 한 통. 맨 위 요약만 읽어도 다 알 수 있게 짠다 — 차례는 머리띠, 처리 요약, 할 일, 시킨 것·바뀐 것, 전문(화면과 같다).
+    /// 스타일은 인라인과 표 바깥틀로 짠다(메일 앱이 style 블록과 flex 를 무시한다). 결과문·지시문은 반드시 HTML 이스케이프한다.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>이 메일은 대개 휴대폰에서 열린다.</b> 「빠른 지시」 화면의 존재
-    /// 이유가 그것이고, 그 화면에서 보낸 건은 답을 오직 메일로만 본다.
-    /// 그런데 아래로 스크롤해야 알 수 있는 메일은 사실상 안 읽힌다 —
-    /// 제목과 첫 화면에서 끝나야 한다.
-    /// </para>
-    /// <para>
-    /// 그래서 <b>요약이 먼저고 전문이 뒤</b>다. 차례는 이렇게 매긴다 —
-    /// <b>화면(<c>AiTaskView.razor</c>)이 세운 차례와 같다.</b>
-    /// </para>
-    /// <list type="number">
-    ///   <item><description><b>어떻게 됐나</b> — 머리띠. 완료·실패와
-    ///   대상·차수·걸린 시간(<see cref="Headline"/> · <see cref="SubHead"/>)</description></item>
-    ///   <item><description><b>무엇을 했다나</b> — <b>「처리 요약」 한 칸.</b>
-    ///   AI 가 다시 써 준 답이고(<see cref="AiResultSummarizer"/>) 결론 한 문장 ·
-    ///   한 일 · 확인할 것으로 나뉘어 선다(<see cref="SummaryCard"/>).
-    ///   <b>이 칸이 한동안 라벨 뒤 좁은 칸에 접혀 있었다</b> — 값은 내내
-    ///   실려 있었는데도 「요약이 빠졌다」로 읽혔다(2026-10-15)</description></item>
-    ///   <item><description><b>내가 할 일이 있나</b> — 배포됐다 · 커밋만 있다 ·
-    ///   사람이 봐야 한다(<see cref="NextStep"/>). <b>요약 바로 밑이다</b></description></item>
-    ///   <item><description><b>무엇을 시켰나 · 무엇이 바뀌었나</b> — 「한눈에」.
-    ///   지시문 앞부분과 파일 수·증감. <b>답 뒤에 둔다</b>: 답만 있고 물음이
-    ///   없으면 며칠 뒤에 열어 본 사람이 무엇에 대한 메일인지 알 수 없지만,
-    ///   그렇다고 답보다 앞에 설 것도 아니다</description></item>
-    ///   <item><description><b>전문</b> — 지시문·결과문 원문, 처리 파일, 오류</description></item>
-    /// </list>
-    /// <para>
-    /// <b>로그 전문은 붙이지 않는다.</b> 수천 줄이 메일함에 쌓이고, 마스킹을
-    /// 거친 것이라도 메일은 한 번 나가면 회수할 수 없다. 링크로 보낸다.
-    /// </para>
-    /// <para>
-    /// <b>평문이 아니라 HTML 로 보낸다 — 보고서 꼴이다.</b> 평문일 때는
-    /// <c>■</c> 와 <c>═══</c> 로 칸을 흉내 냈는데, 메일 앱마다 글꼴 폭이 달라
-    /// 그 줄맞춤이 다 어긋났다. 특히 휴대폰에서는 한 줄이 접히면서 라벨과 값이
-    /// 섞여 <b>무엇이 답이고 무엇이 다음 항목인지</b>가 사라졌다.
-    /// 표와 색이 그 일을 대신하면 접혀도 칸이 남는다.
-    /// </para>
-    /// <para>
-    /// <b>스타일은 전부 인라인이고 바깥틀은 표다.</b> 메일 앱은 <c>&lt;style&gt;</c>
-    /// 블록과 <c>flex</c>·<c>grid</c> 를 지우거나 무시한다 — 웹에서 쓰던 방식으로
-    /// 짜면 열자마자 칸이 다 풀린다. 폭은 640px 로 묶고 그 안에서만 접히게 한다.
-    /// </para>
-    /// <para>
-    /// <b>결과문·지시문은 반드시 HTML 이스케이프한다.</b> AI 의 답에는 코드가
-    /// 섞여 들어오고, 거기 <c>&lt;div&gt;</c> 하나만 있어도 그 아래 보고서가
-    /// 통째로 무너진다. 마스킹 → 이스케이프 → 붙이기 순서를 지킨다.
-    /// </para>
-    /// </remarks>
     internal string Body(MailRow r, AiResultSummary? summary)
     {
         var accent = Accent(r.TaskStatus);
@@ -746,23 +485,10 @@ public sealed class AiTaskNotifier(
             </td></tr>
             """);
 
-        // ── 처리 요약 — **머리띠 바로 아래가 이 자리다** (2026-10-15) ──
-        //
-        // 오래도록 이 값은 「요약」 표의 한 줄(라벨 `AI 의 답`)이었다. 라벨 칸이
-        // 72px 를 먹고 남은 폭에 결론 한 문장과 점 다섯이 접혀 들어가니,
-        // 휴대폰에서 그것은 답이 아니라 **지시문 밑에 깔린 곁줄**로 보였다 —
-        // 「처리 요약이 빠진 채 메일이 온다」는 말이 거기서 나왔다(값은 내내
-        // 실려 있었다. 나간 메일 47통 모두에 있다).
-        //
-        // 화면(`AiTaskView.razor` 의 `처리 요약`)은 같은 값을 머리띠 바로 아래
-        // 제 칸으로 펴 놓는다. **메일도 그 차례와 모양을 따른다.**
+        // ── 처리 요약 — 머리띠 바로 아래 제 칸. 라벨 칸 안에 접히면 「요약이 빠졌다」로 읽힌다 ──
         sb.Append(SummaryCard(r, summary, accent, tint));
 
-        // **「할 일」은 요약 바로 밑이다.** 요약에서 사람이 제일 알고 싶은 것이
-        // 「내가 가서 해야 하나」라, 지시문과 바뀐 파일 뒤로 밀면 스쳐 지나간다.
-        //
-        // 바탕을 상태색(`tint`)에서 **회색으로 내렸다** — 바로 위 요약 칸이
-        // 그 색을 쓰게 되어, 둘이 나란히 서면 같은 덩이로 읽혔다.
+        // 「할 일」은 요약 바로 밑 — 사람이 가장 알고 싶은 물음이다. 바탕은 회색이다(바로 위 요약과 같은 색이면 한 덩이로 읽힌다).
         sb.Append($"""
             <tr><td style="padding:12px 20px 0 20px;">
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f8f9fa;border:1px solid #e9ecef;border-radius:6px;">
@@ -774,22 +500,14 @@ public sealed class AiTaskNotifier(
             </td></tr>
             """);
 
-        // ── 한눈에 — 시킨 것 · 바뀐 것 ──────────────────────
-        //
-        // **결과·대상·차수·걸린 시간은 여기 없다.** 머리띠의 두 줄이 이미 그것을
-        // 말한다(<see cref="Headline"/> · <see cref="SubHead"/>). 같은 사실을 두 번
-        // 세우면 정작 읽어야 할 줄이 그만큼 아래로 밀린다 — 첫 화면에서 끝나야
-        // 하는 메일에서 그 두 줄이 비싸다.
+        // 결과·대상·차수·시간은 머리띠가 이미 말하므로 여기서 다시 세우지 않는다.
         sb.Append("""
             <tr><td style="padding:18px 20px 0 20px;">
               <div style="font-size:11.5px;font-weight:700;color:#868e96;letter-spacing:.06em;padding-bottom:10px;">한눈에</div>
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="font-size:13.5px;line-height:1.6;">
             """);
 
-        // **무엇을 시켰나.** 답만 있고 물음이 없으면 며칠 뒤의 나는
-        // 이 메일이 무엇에 대한 것인지 알 수 없다. 이어가기 건은 **이번에 시킨
-        // 것만** 뜬다(<see cref="ThisTurn"/>) — 앞에서 그냥 세 줄을 뜨면 지난
-        // 회차의 머리말이 잡힌다.
+        // 무엇을 시켰나. 이어가기 건은 이번에 시킨 것만 뜬다(ThisTurn) — 앞에서 세 줄을 뜨면 지난 회차 머리말이 잡힌다.
         sb.Append(SummaryRow("시킨 것", Lines(Gist(ThisTurn(r.Instruction), lines: 3)) ?? Muted("적힌 것이 없습니다")));
         sb.Append(SummaryRow("바뀐 것", Esc(ChangeGist(r))));
 
@@ -806,19 +524,16 @@ public sealed class AiTaskNotifier(
             sb.Append(Block("시킨 것", SecretMask.Apply(r.Instruction)));
         }
 
-        // 결과문이 비어 있으면 **그 사실을 적는다.** 빈 메일을 보내면
-        // 받는 사람이 메일 사고로 읽는다.
+        // 결과문이 비었으면 그 사실을 적는다. 빈 메일은 메일 사고로 읽힌다.
         //
-        // 위에 정리본을 올렸을 때는 **여기가 「원문」임을 밝힌다.** 같은 라벨이
-        // 두 번 나오면 둘이 어긋나 보일 때 어느 쪽이 손댄 것인지 알 수 없다.
+        // 정리본을 위에 올렸으면 여기가 원문임을 밝힌다 — 같은 라벨이 두 번 나오면 어느 쪽이 고친 것인지 알 수 없다.
         var said = summary is null ? "AI 의 답" : "AI 의 답 (원문)";
 
         sb.Append(string.IsNullOrWhiteSpace(r.ResultText)
             ? Block(said, "(AI 가 아무 말 없이 끝났습니다. 화면에서 로그를 보십시오.)")
             : Block(said, SecretMask.Apply(r.ResultText)));
 
-        // push 한 건은 **따로 적는다.** 같은 「완료」로 뭉개면 코드만 고친 건과
-        // 운영이 바뀐 건을 구분할 수 없다(설계 9.3).
+        // push 한 건은 따로 적는다 — 같은 완료로 뭉개면 코드만 고친 건과 운영이 바뀐 건을 구분할 수 없다.
         if (!string.IsNullOrWhiteSpace(r.PushedCommit))
         {
             sb.Append(Note("배포", $"""운영에 올라갔습니다 — <span style="font-family:ui-monospace,SFMono-Regular,Consolas,monospace;">{Esc(r.PushedCommit)}</span>"""));
@@ -828,10 +543,7 @@ public sealed class AiTaskNotifier(
             sb.Append(Note("브랜치", $"""<span style="font-family:ui-monospace,SFMono-Regular,Consolas,monospace;">{Esc(r.GitBranch)}</span> (아직 올리지 않았습니다)"""));
         }
 
-        // **「처리 파일」이 있으면 그것을 적는다.** `diff_stat` 은 경로를 줄이고
-        // 500자에서 잘려 목록 구실을 못 한다(`changed_files` 가 생긴 까닭 —
-        // deploy/sql/projmng-ai-changed-files-2026-10-12.sql). 그 칸이 생기기
-        // 전의 건에는 아직 옛 값뿐이라 **그때만** 옛 칸을 그대로 쓴다.
+        // 처리 파일이 있으면 그것을 적는다 — diff_stat 은 잘려서 목록 구실을 못 한다. 칸이 없던 옛 건만 옛 값을 쓴다.
         if (ChangedFileText(r.ChangedFiles) is { Length: > 0 } files)
         {
             sb.Append(Block("처리 파일", files));
@@ -843,8 +555,7 @@ public sealed class AiTaskNotifier(
 
         if (!string.IsNullOrWhiteSpace(r.ErrorSummary))
         {
-            // 오류는 **붉은 칸**으로 낸다. 전문 속에 같은 회색으로 섞여 있으면
-            // 실패 메일에서 정작 사유를 못 찾는다.
+            // 오류는 붉은 칸으로 낸다 — 같은 회색이면 실패 메일에서 사유를 못 찾는다.
             sb.Append($"""
                 <tr><td style="padding:16px 20px 0 20px;">
                   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#fff5f5;border:1px solid #ffc9c9;border-radius:6px;">
@@ -923,8 +634,7 @@ public sealed class AiTaskNotifier(
         """;
 
     /// <summary>
-    /// 긴 글 한 덩이. <b>줄바꿈과 사이 띄움을 그대로 둔다</b> — AI 의 답에는
-    /// 표와 목록이 섞여 있어 그것이 무너지면 읽을 수 없다.
+    /// 긴 글 한 덩이. 줄바꿈과 사이 띄움을 그대로 둔다 — AI 답의 표와 목록이 무너지면 읽을 수 없다.
     /// </summary>
     private static string Block(string title, string? text) => $"""
         <tr><td style="padding:12px 20px 0 20px;">
@@ -934,13 +644,8 @@ public sealed class AiTaskNotifier(
         """;
 
     /// <summary>
-    /// 「처리 파일」 목록을 <b>메일에서 읽을 글자</b>로 편다.
+    /// 처리 파일 목록을 메일에서 읽을 글자로 편다. 상태 글자는 한국어 한 마디로 풀어 앞에 붙인다.
     /// </summary>
-    /// <remarks>
-    /// 담긴 모양은 <c>상태\t경로</c> 라 그대로 내면 탭이 메일에서 제멋대로
-    /// 벌어진다. 상태 글자를 <b>한국어 한 마디</b>로 풀어 앞에 붙인다 —
-    /// <c>M</c> 한 글자를 보고 무슨 뜻인지 아는 사람에게 보내는 메일이 아니다.
-    /// </remarks>
     private static string ChangedFileText(string? changed)
     {
         if (string.IsNullOrWhiteSpace(changed))
@@ -971,22 +676,9 @@ public sealed class AiTaskNotifier(
     }
 
     /// <summary>
-    /// git 의 상태 글자 한 자를 한국어로. <b>모르는 글자는 그대로 둔다</b> —
-    /// 지어낸 말보다 낫다.
+    /// git 의 상태 글자 한 자를 한국어로. 모르는 글자는 그대로 둔다.
+    /// 뒤 글자는 결과문에서 뽑은 줄을 실제 파일에 대 본 확인 결과다. 없는 경로도 빼지 않는다.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>뒤에 붙은 한 글자는 확인 표다</b> — git 이 본 것이 아니라 결과문에서
-    /// 뽑은 줄이고(<see cref="AiChangedFiles"/>), 실행기가 그것을 실제 파일에
-    /// 대 본 결과가 거기 적힌다. 메일에서도 그렇게 적어야 받는 사람이 셋을
-    /// 섞지 않는다. <c>-</c> 는 갈래를 모르는 줄이라 말을 붙이지 않는다.
-    /// </para>
-    /// <para>
-    /// <b>없는 경로를 숨기지 않는다.</b> 메일은 목록을 훑고 마는 자리라
-    /// 빼 버리면 「AI 가 고쳤다고 적었는데 그런 파일이 없다」는 사실이
-    /// 아무 데도 안 남는다 — 화면과 같은 판단이다.
-    /// </para>
-    /// </remarks>
     private static string ChangeWord(string mark)
     {
         var check = AiChangedFiles.CheckOf(mark);
@@ -1027,29 +719,9 @@ public sealed class AiTaskNotifier(
         """;
 
     /// <summary>
-    /// 메일의 <b>맨 앞 칸 — 「처리 요약」.</b> 화면의 같은 칸
-    /// (<c>AiTaskView.razor</c> 의 <c>pm-peek__sum</c>)과 <b>차례도 모양도 맞춘다.</b>
+    /// 메일의 맨 앞 칸 「처리 요약」. 화면의 같은 칸과 차례·모양을 맞춘다.
+    /// 라벨 칸 뒤에 두면 답이 곁줄로 접혀 「요약이 빠졌다」로 읽힌다. 글 크기로 차례를 매기고, 요약이 없으면 왜 없는지 적고 결과문 앞줄을 싣는다.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>라벨 칸 뒤에 넣지 않는다.</b> 예전에는 「요약」 표의 한 줄
-    /// (라벨 <c>AI 의 답</c>)이라, 72px 라벨 뒤에 남은 좁은 칸에 결론 한 문장과
-    /// 점 다섯이 접혀 들어갔다. 휴대폰에서 그것은 <b>답이 아니라 곁줄</b>로
-    /// 보인다 — 「요약이 빠진 채 온다」는 제보가 거기서 나왔다. 여기서는
-    /// 폭을 통째로 쓰고, 왼쪽에 상태색 선을 세워 <b>이것이 원문이 아니라
-    /// 정리한 말</b>임을 가른다(화면이 쓰는 것과 같은 손짓이다).
-    /// </para>
-    /// <para>
-    /// <b>글 크기로 차례를 매긴다.</b> 결론 한 문장이 15px/700, 한 일이 13.5px,
-    /// 「확인할 것」이 13px 다. 전부 같은 크기면 눈이 어디부터 읽을지 모르고,
-    /// <b>「한눈에」가 깨지는 자리가 바로 거기</b>다.
-    /// </para>
-    /// <para>
-    /// <b>요약이 없어도 이 칸은 선다.</b> 빈 칸을 그리면 그것이야말로
-    /// 「요약이 빠졌다」로 읽히므로, 그때는 <b>왜 없는지</b>를 적고 결과문
-    /// 앞부분을 대신 싣는다(<see cref="Gist"/> — 옛 방식 그대로다).
-    /// </para>
-    /// </remarks>
     private static string SummaryCard(MailRow r, AiResultSummary? summary, string accent, string tint)
     {
         var sb = new StringBuilder();
@@ -1077,9 +749,7 @@ public sealed class AiTaskNotifier(
                     """);
             }
 
-            // 「확인할 것」은 **AI 가 짚은 것**이고, 아래의 「할 일」은 기계가 아는
-            // 사실(배포됐나 · 커밋만 있나)이다. 근거가 달라서 한 칸에 뭉치지
-            // 않는다 — 가는 선 하나로 가르고 머리말에 다른 색을 준다.
+            // 「확인할 것」은 AI 가 짚은 것이고 「할 일」은 기계가 아는 사실이라, 근거가 달라 한 칸에 뭉치지 않는다.
             if (summary.Checks.Count > 0)
             {
                 sb.Append($"""
@@ -1092,8 +762,7 @@ public sealed class AiTaskNotifier(
         }
         else
         {
-            // **왜 없는지부터 적는다.** 그냥 결과문 앞줄만 세워 두면 그것이
-            // 요약인 줄 알고 「요약이 서론만 적는다」로 읽힌다.
+            // 왜 없는지부터 적는다 — 결과문 앞줄만 세우면 그것이 요약인 줄 알고 서론으로 읽힌다.
             sb.Append("""
                   <div style="font-size:12.5px;line-height:1.6;color:#868e96;padding-bottom:7px;">AI 가 정리한 요약을 받지 못했습니다 — 결과문 앞부분을 대신 싣습니다.</div>
                 """);
@@ -1113,14 +782,8 @@ public sealed class AiTaskNotifier(
     }
 
     /// <summary>
-    /// 점 찍힌 여러 줄. <b>&lt;ul&gt; 을 쓰지 않는다</b> — 메일 앱마다 들여쓰기와
-    /// 점 모양이 제각각이라 다른 칸과 왼쪽이 맞지 않는다. div 로 직접 그린다.
+    /// 점 찍힌 여러 줄. ul 을 쓰지 않는다 — 메일 앱마다 들여쓰기와 점 모양이 달라 다른 칸과 맞지 않는다.
     /// </summary>
-    /// <remarks>
-    /// <b>크기를 밖에서 정한다.</b> 같은 모양을 「한 일」(13.5px)과
-    /// 「확인할 것」(13px)이 함께 쓰는데, 둘이 같은 무게로 서면 결론 → 한 일 →
-    /// 확인할 것으로 내려가는 차례가 무너진다(<see cref="SummaryCard"/>).
-    /// </remarks>
     private static string Bullets(
         IReadOnlyList<string> items, string size = "13.5px", string color = "#343a40")
     {
@@ -1147,8 +810,7 @@ public sealed class AiTaskNotifier(
         $"""<span style="color:#adb5bd;">({Esc(text)})</span>""";
 
     /// <summary>
-    /// HTML 로 나갈 글자를 가린다. <b>이것을 빠뜨리면 보고서가 통째로 무너진다</b> —
-    /// AI 의 답에는 코드가 섞여 들어온다.
+    /// HTML 로 나갈 글자를 가린다. 빠뜨리면 AI 답의 코드 조각 때문에 보고서가 무너진다.
     /// </summary>
     private static string Esc(string? text) =>
         System.Net.WebUtility.HtmlEncode(text ?? string.Empty);
@@ -1170,55 +832,25 @@ public sealed class AiTaskNotifier(
     };
 
     /// <summary>
-    /// 앱푸시 본문 — <b>「무엇을 했나」 몇 줄.</b> 제목 줄이 이미 상태와 작업
-    /// 제목을 말하므로, 여기는 그것을 되풀이하지 않는다.
+    /// 앱푸시 본문. 무엇을 했나 몇 줄 — 제목이 상태와 작업 제목을 말하므로 되풀이하지 않는다.
+    /// 메일 요약과 같은 값을 쓰고 줄머리를 · 로 찍는다(내 알림함 카드는 줄바꿈을 접는다). 길이는 PushBodyMax 에서 끊는다.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>메일의 「처리 요약」 칸과 같은 값을 쓴다</b>(<see cref="SummaryCard"/>). 같은
-    /// 실행을 두 곳에서 다르게 요약하면 「메일에는 이렇게 왔는데 알림에는
-    /// 저렇게 왔다」가 되고, 그때 어느 쪽이 맞는지 가릴 방법이 없다. 다른 것은
-    /// <b>꼴뿐</b>이다 — 저쪽은 HTML 이고 이쪽은 줄바꿈 하나로 쓴다.
-    /// </para>
-    /// <para>
-    /// <b>줄머리를 <c>·</c> 로 찍는 까닭.</b> 알림창은 줄바꿈을 살려 주지만
-    /// 「내 알림함」의 카드는 본문을 <c>&lt;p&gt;</c> 하나에 담아 줄바꿈이
-    /// 공백으로 접힌다. 점이 없으면 그 자리에서 <b>여러 줄이 한 문장처럼</b>
-    /// 붙어 읽힌다.
-    /// </para>
-    /// <para>
-    /// <b>요약이 없어도 빈손으로 두지 않는다.</b> 아직 안 적혔거나(부르는 쪽이
-    /// 기다리다 만 것) 모델이 못 만든 건은 <see cref="PushFallback"/> 이 그
-    /// 자리를 채운다. <b>제목만 있고 본문이 빈 알림은 고장처럼 보인다.</b>
-    /// </para>
-    /// <para>
-    /// 길이를 <see cref="PushBodyMax"/> 에서 끊는다. 웹푸시 규격이 짐을
-    /// 4KB 로 묶기도 하지만, 그보다 <b>알림창이 두어 줄에서 말줄임</b>이라
-    /// 그 뒤는 어차피 아무도 못 읽는다.
-    /// </para>
-    /// </remarks>
     private string PushBody(MailRow r)
     {
         var lines = new List<string>();
 
         if (AiResultSummary.Parse(r.SummaryText) is { } summary)
         {
-            // **제목 줄과 같은 말을 두 번 하지 않는다.** 요약이 적히는 순간
-            // 작업 제목도 그 첫 문장으로 바뀌므로(<see cref="AiRunSummaryWriter"/>
-            // 의 retitle), 제때 온 요약에서는 이 둘이 거의 늘 같은 글이다.
-            // 그대로 실으면 알림창 두 줄이 같은 문장을 반복한다 — 그때는
-            // 한 일(<c>Points</c>)부터 적는 편이 한 줄을 더 쓰는 것이다.
+            // 제목 줄과 같은 말을 두 번 하지 않는다 — 요약이 적히면 작업 제목도 그 첫 문장이 되므로, 그때는 한 일(Points)부터 적는다.
             if (summary.Headline.Length > 0 && !SameLine(summary.Headline, r.Title))
             {
                 lines.Add(Trim(summary.Headline, 110));
             }
 
-            // **한 일은 둘까지만.** 다섯 줄을 다 실어도 알림창은 두어 줄에서
-            // 끊고, 「내 알림함」에서는 그것이 한 문단으로 뭉친다.
+            // 한 일은 둘까지만 — 알림창은 두어 줄에서 끊는다.
             lines.AddRange(summary.Points.Take(2).Select(p => $"· {Trim(p, 80)}"));
 
-            // **「확인할 것」은 한 줄이라도 싣는다.** 사람이 가서 해야 할 일이
-            // 있는지가 알림 앞에서 가장 크게 갈리는 물음이다.
+            // 확인할 것은 한 줄이라도 싣는다 — 사람이 가서 해야 할 일인지가 알림에서 가장 크게 갈린다.
             if (summary.Checks.Count > 0)
             {
                 lines.Add($"확인할 것 · {Trim(summary.Checks[0], 80)}");
@@ -1234,28 +866,9 @@ public sealed class AiTaskNotifier(
     }
 
     /// <summary>
-    /// 요약이 없을 때의 푸시 본문. <b>그 건의 「답」이 어디 있느냐에 따라 갈린다.</b>
+    /// 요약이 없을 때의 푸시 본문. 고친 것이 있으면 변경 요약과 할 일, 실패면 오류 한 줄, 물어보기만 했으면 결과문 앞줄을 싣는다.
+    /// 결과문 앞줄을 무턱대고 뜨면 서론이나 머리글이 두 줄을 다 차지한다 — 그래서 셋으로 가른다.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>결과문 앞줄을 무턱대고 뜨지 않는다.</b> 메일의 대체 요약
-    /// (<see cref="Gist"/>)이 그렇게 하는데, 결과문은 「먼저 파일을
-    /// 찾아보겠습니다」 같은 서론이나 <c>## 작업 내용</c> 같은 머리글로 시작하는
-    /// 일이 잦다 — 메일은 그 아래로 전문이 이어지니 견딜 만하지만, <b>두 줄이
-    /// 전부인 알림창에서는 그 두 줄이 통째로 서론이 된다.</b> 애초에 그 어긋남이
-    /// <see cref="AiResultSummarizer"/> 가 생긴 까닭이다.
-    /// </para>
-    /// <para>그래서 셋으로 가른다.</para>
-    /// <list type="number">
-    ///   <item><description><b>실패한 건</b> — 답은 오류 한 줄이다.</description></item>
-    ///   <item><description><b>고친 것이 있는 건</b> — 답은 글이 아니라 고침이다.
-    ///   무엇이 바뀌었고(<see cref="ChangeGist"/>) 내가 할 일이 있는지
-    ///   (<see cref="NextStep"/>)를 적는다. <b>둘 다 적힌 값에서 나오므로 서론이
-    ///   섞일 자리가 없다.</b></description></item>
-    ///   <item><description><b>고친 것이 없는 건</b>(물어보기만 한 건) — 답이
-    ///   글에 있으니 그때는 앞줄을 뜬다.</description></item>
-    /// </list>
-    /// </remarks>
     private IReadOnlyList<string> PushFallback(MailRow r)
     {
         if (r.TaskStatus != "succeeded" && !string.IsNullOrWhiteSpace(r.ErrorSummary))
@@ -1273,12 +886,11 @@ public sealed class AiTaskNotifier(
             : (IReadOnlyList<string>)[$"{StatusText(r.TaskStatus)} · {r.Seq}차{Took(r)}"];
     }
 
-    /// <summary>앱푸시 본문의 글자 상한. 까닭은 <see cref="PushBody"/> 머리말에 있다.</summary>
+    /// <summary>앱푸시 본문의 글자 상한. 까닭은 PushBody 머리말에 있다.</summary>
     private const int PushBodyMax = 240;
 
     /// <summary>
-    /// 두 줄이 <b>사실상 같은 말인가.</b> 한쪽이 다른 쪽의 앞부분이기만 해도 같다고 본다 —
-    /// 제목 칸은 길이 상한에 걸려 잘린 채 저장되는 길이 있다.
+    /// 두 줄이 사실상 같은 말인가. 한쪽이 다른 쪽의 앞부분이기만 해도 같다고 본다 — 제목 칸은 길이 상한에 잘려 저장되기도 한다.
     /// </summary>
     private static bool SameLine(string? a, string? b)
     {
@@ -1292,14 +904,13 @@ public sealed class AiTaskNotifier(
 
         var (shorter, longer) = x.Length <= y.Length ? (x, y) : (y, x);
 
-        // 너무 짧은 앞부분이 우연히 겹치는 것까지 같다고 보면, 제목이 짧은 건의
-        // 헤드라인이 통째로 빠진다. 열 글자는 그 경계다.
+        // 열 글자 미만의 우연한 겹침은 같다고 보지 않는다 — 짧은 제목의 헤드라인이 통째로 빠지기 때문.
         return shorter.Length >= 10
             && longer.StartsWith(shorter, StringComparison.Ordinal);
     }
 
     /// <summary>
-    /// 요약의 첫 줄. <b>이 한 줄만 읽어도 「무엇이 어떻게 됐는지」가 나와야 한다.</b>
+    /// 요약의 첫 줄. 이 한 줄만 읽어도 무엇이 어떻게 됐는지 나와야 한다.
     /// </summary>
     private static string Headline(MailRow r)
     {
@@ -1326,28 +937,9 @@ public sealed class AiTaskNotifier(
             : string.Empty;
 
     /// <summary>
-    /// 이어가기 지시문에서 <b>이번에 시킨 것만</b> 떼어 낸다.
+    /// 이어가기 지시문에서 이번에 시킨 것만 떼어 낸다. 지난 회차 머리말이 앞에 있으므로 맨 끝의 「## 이번에 할 일」 뒤를 집는다.
+    /// 머리표가 없으면 손대지 않고, 여러 번 이어간 건은 마지막 것을 집는다. 전문 쪽은 그대로 둔다(AI 가 읽은 글자를 가리지 않도록).
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 이어서 지시한 건의 본문은 「<c>## 이전까지의 진행</c>」으로 시작해 지난
-    /// 실행들의 요약이 한참 이어지고, <b>맨 끝</b>에 「<c>## 이번에 할 일</c>」과
-    /// 이번 지시가 붙는다(<c>AiTaskService.BuildContinuation</c> ·
-    /// <c>RetryPrompt</c>). 그래서 앞에서 세 줄을 뜨면 <b>언제나 지난 회차의
-    /// 머리말</b>이 잡힌다 — 2차·3차로 갈수록 메일의 「시킨 것」 칸이 이번 지시와
-    /// 아무 상관 없는 글을 이고 서고, 받는 사람은 그것을 이번에 시킨 것으로 읽는다.
-    /// </para>
-    /// <para>
-    /// <b>머리표가 없으면 손대지 않는다</b>(처음 지시가 그렇다). 여러 번 이어간
-    /// 건은 <b>마지막</b> 것을 집는다 — 지난 요약 안에 그 글자가 우연히 섞여
-    /// 있어도 이번 지시는 언제나 맨 뒤다.
-    /// </para>
-    /// <para>
-    /// <b>전문 쪽은 그대로 둔다.</b> 아래 「전문 · 시킨 것」은 그때 실제로 준
-    /// 글자를 보여 주는 자리라, 거기서까지 잘라 내면 AI 가 무엇을 읽고 답했는지
-    /// 가릴 수 없게 된다.
-    /// </para>
-    /// </remarks>
     private static string? ThisTurn(string? instruction)
     {
         if (string.IsNullOrWhiteSpace(instruction))
@@ -1366,30 +958,14 @@ public sealed class AiTaskNotifier(
 
         var tail = instruction[(at + marker.Length)..];
 
-        // 머리표 뒤가 비었으면 **자르지 않은 쪽이 낫다.** 빈 칸을 보여 주느니
-        // 지난 머리말이라도 있는 편이 「무엇에 대한 메일인가」에 답한다.
+        // 머리표 뒤가 비었으면 자르지 않은 쪽이 낫다 — 지난 머리말이라도 있는 편이 무엇에 대한 메일인지 답한다.
         return string.IsNullOrWhiteSpace(tail) ? instruction : tail;
     }
 
     /// <summary>
-    /// 긴 글에서 <b>앞쪽 몇 줄만</b> 뽑아 한 덩이로 만든다.
+    /// 긴 글에서 앞쪽 몇 줄만 뽑아 한 덩이로 만든다. AI 요약을 못 받았을 때만 쓰인다 — 요약이 실패해도 메일은 나간다.
+    /// 표 구분선이나 밑줄 같은 내용 없는 줄은 건너뛴다.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>이제는 되돌아가는 자리다.</b> 요약은 AI 가 다시 써 주고
-    /// (<see cref="AiResultSummarizer"/>), 이 함수는 <b>그것을 못 받았을 때</b>만
-    /// 쓰인다 — AI 가 안 떠 있거나, 느리거나, JSON 을 안 준 경우다.
-    /// </para>
-    /// <para>
-    /// 오래 이것이 유일한 방법이었던 이유는 「메일 한 통마다 모델을 한 번 더
-    /// 부르고, 그 호출이 실패하면 메일이 안 나간다」였다. 그 걱정을 없앤 것이
-    /// 바로 이 함수가 남아 있다는 사실이다 — <b>요약이 실패해도 메일은 나간다.</b>
-    /// </para>
-    /// <para>
-    /// 표 구분선(<c>|---|</c>)이나 밑줄(<c>====</c>) 같은 <b>내용 없는 줄은
-    /// 건너뛴다.</b> 그것부터 세면 요약 다섯 줄이 장식으로 다 찬다.
-    /// </para>
-    /// </remarks>
     private static IReadOnlyList<string>? Gist(string? text, int lines)
     {
         if (string.IsNullOrWhiteSpace(text))
@@ -1413,16 +989,11 @@ public sealed class AiTaskNotifier(
             return null;
         }
 
-        // **줄을 그대로 돌려준다.** 예전에는 여기서 공백으로 들여쓰기를 붙여
-        // 라벨과 값을 맞췄는데, 그 줄맞춤은 글꼴 폭에 기대는 것이라 메일 앱이
-        // 바뀌면 다 어긋났다. 이제 표가 칸을 잡으므로 줄만 주면 된다.
+        // 줄을 그대로 돌려준다 — 공백으로 들여쓰기를 맞추면 글꼴 폭에 기대게 되므로, 칸은 표가 잡는다.
         return picked;
     }
 
-    /// <summary>
-    /// 마크다운 머리표를 뗀다. <b>요약에서는 <c>##</c> 나 <c>-</c> 가 뜻을 더하지
-    /// 않는다</b> — 글자 수만 먹고, 라벨 뒤에 붙으면 오히려 어수선하다.
-    /// </summary>
+    /// <summary>마크다운 머리표를 뗀다. 요약에서는 ## 나 - 가 뜻을 더하지 않는다.</summary>
     private static string Plain(string line) =>
         line.TrimStart('#', '>', '*', '-', ' ').Trim();
 
@@ -1431,8 +1002,7 @@ public sealed class AiTaskNotifier(
         line.All(c => c is '-' or '=' or '|' or ':' or '_' or '*' or '#' or ' ' or '─' or '═');
 
     /// <summary>
-    /// 무엇이 바뀌었나 한 줄. <c>git diff --stat</c> 의 <b>마지막 요약 줄</b>이
-    /// 이미 그 답이라 그것을 쓴다.
+    /// 무엇이 바뀌었나 한 줄. git diff --stat 의 마지막 요약 줄이 이미 그 답이라 그것을 쓴다.
     /// </summary>
     private static string ChangeGist(MailRow r)
     {
@@ -1446,19 +1016,15 @@ public sealed class AiTaskNotifier(
             .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .ToList();
 
-        // 마지막 줄이 "3 files changed, 120 insertions(+), 4 deletions(-)" 다.
+        // 마지막 줄이 "3 files changed, 120 insertions(+), 4 deletions(-)" 꼴이다. 480자에서 잘려 없을 수도 있으니 그때는 줄 수로 센다.
         var tail = rows.LastOrDefault(l => l.Contains("changed", StringComparison.OrdinalIgnoreCase));
 
-        // 요약 줄이 잘려 없을 수도 있다(480자 상한). 그때는 줄 수로 센다.
         return tail is not null
             ? Trim(tail, 110)
             : $"파일 {rows.Count}개";
     }
 
-    /// <summary>
-    /// <b>내가 할 일이 있나.</b> 요약에서 사람이 제일 알고 싶은 칸이다 —
-    /// 「읽고 끝」인지 「가서 봐야 하는지」가 여기서 갈린다.
-    /// </summary>
+    /// <summary>내가 할 일이 있나. 「읽고 끝」인지 「가서 봐야 하는지」가 여기서 갈린다.</summary>
     private string NextStep(MailRow r)
     {
         if (r.TaskStatus != "succeeded")
@@ -1501,9 +1067,7 @@ public sealed class AiTaskNotifier(
     };
 
     /// <summary>
-    /// 실행·작업을 한 줄로 편 것. <b>시험이 보게 <c>internal</c> 이다</b> —
-    /// 메일 본문(<see cref="Body"/>)이 요약을 제대로 이고 서는지는
-    /// <c>ProjMngServer.Tests</c> 가 이 줄을 손으로 채워 확인한다.
+    /// 실행·작업을 한 줄로 편 것. 시험이 보게 internal 이다 — ProjMngServer.Tests 가 이 줄을 채워 요약이 제대로 서는지 확인한다.
     /// </summary>
     internal sealed class MailRow
     {
@@ -1523,23 +1087,16 @@ public sealed class AiTaskNotifier(
         public string? ResultText { get; set; }
         public string? DiffStat { get; set; }
 
-        /// <summary>
-        /// 「처리 파일」 — 이 실행이 건드린 파일 목록. 한 줄에 <c>상태\t경로</c>.
-        /// <b>화면과 같은 값을 쓴다</b>(<c>projmng.ai_task_run.changed_files</c>) —
-        /// 메일과 화면이 서로 다른 파일 목록을 말하면 어느 쪽이 그 실행의
-        /// 결과인지 가릴 길이 없다.
-        /// </summary>
+        /// <summary>「처리 파일」 — 이 실행이 건드린 파일 목록. 한 줄에 상태\t경로. 화면과 같은 값을 쓴다.</summary>
         public string? ChangedFiles { get; set; }
 
         public string? ErrorSummary { get; set; }
         public string? GitBranch { get; set; }
 
-        /// <summary>그때 실제로 준 지시문. <b>요약에 「무엇을 시켰나」를 적으려면 필요하다.</b></summary>
+        /// <summary>그때 실제로 준 지시문. 요약에 「무엇을 시켰나」를 적으려면 필요하다.</summary>
         public string? Instruction { get; set; }
 
-        /// <summary>
-        /// AI 가 다시 써 준 요약. <b>이미 있으면 모델을 또 부르지 않는다.</b>
-        /// </summary>
+        /// <summary>AI 가 다시 써 준 요약. 이미 있으면 모델을 또 부르지 않는다.</summary>
         public string? SummaryText { get; set; }
     }
 }

@@ -11,10 +11,7 @@ public sealed record SocialButtonItem(string Key, string DisplayName, bool Enabl
 
 public partial class SocialButtons
 {
-    /// <summary>
-    /// 늘 자리를 보이는 공급자. <b>순서가 곧 화면의 순서다</b> — 사내 사용자가
-    /// 가장 많이 쓰는 것부터 둔다.
-    /// </summary>
+    /// <summary>늘 자리를 보이는 공급자. 순서가 곧 화면의 순서다(사내 사용자가 가장 많이 쓰는 것부터).</summary>
     private static readonly (string Key, string DisplayName)[] Known =
     [
         ("kakao", "카카오"),
@@ -34,10 +31,7 @@ public partial class SocialButtons
     [Parameter]
     public string Verb { get; set; } = "로 계속하기";
 
-    /// <summary>
-    /// 참이면 누를 때 [로그인 유지] 체크를 주소에 싣는 표시를 단다
-    /// (<c>data-social-link</c> — 로그인 화면의 스크립트가 읽는다).
-    /// </summary>
+    /// <summary>참이면 누를 때 [로그인 유지] 체크를 주소에 싣는 표시를 단다(data-social-link, 로그인 화면의 스크립트가 읽는다).</summary>
     [Parameter]
     public bool CarryKeepSignedIn { get; set; }
 
@@ -57,10 +51,7 @@ public partial class SocialButtons
             .Select(p => new SocialButtonItem(p.Key.ToLowerInvariant(), p.DisplayName, true)));
     }
 
-    /// <summary>
-    /// 받침이 있으면 「으로」, 없으면 「로」 — 「카카오로」 · 「구글로」 · 「깃허브로」.
-    /// 한글이 아닌 이름은 「로」로 둔다.
-    /// </summary>
+    /// <summary>받침이 있으면 「으로」, 없으면 「로」. 한글이 아닌 이름은 「로」로 둔다.</summary>
     private string Label(SocialButtonItem item)
     {
         var name = item.DisplayName;

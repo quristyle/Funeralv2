@@ -1,42 +1,10 @@
 namespace JSini.Web.Components.Layout;
 
-/// <summary>
-/// 알림함 서랍을 <b>바깥에서</b> 여닫고, 읽은 것을 <b>종에게 되알리는</b> 손잡이.
-/// </summary>
-/// <remarks>
-/// <para>
-/// 서랍과 그것을 여는 종(<c>HeaderTools</c>)이 <b>같은 자리에 있을 수 없어서</b>
-/// 생긴 사이다. 서랍은 휴대폰에서 화면을 다 채워야 하는데, 헤더 안에 두면
-/// 그럴 수가 없다 — <c>.jsini-header</c> 가 <c>z-index: 1030</c> 으로 제
-/// 쌓임 맥락을 만들고, 그 안의 것은 아무리 큰 <c>z-index</c> 를 줘도 맥락
-/// 바깥의 형제(떠다니는 메뉴 단추 1031 · 아래 띠 1030)를 넘지 못한다.
-/// <b>서랍은 펴졌는데 그 위로 띠와 단추가 그대로 떠 있었다.</b>
-/// </para>
-///
-/// <para>
-/// 그래서 서랍은 격자 바깥(<c>MainLayout</c> 맨 끝)으로 옮기고, 종은 헤더에
-/// 남았다. 둘을 잇는 것이 이것이다 — <c>ThemeDrawer</c> 가 테마 서랍과
-/// 사용자 메뉴를 이은 것과 같은 구도다.
-/// </para>
-///
-/// <para>
-/// <b>오가는 것이 세 방향이다.</b> 종 → 서랍은 <see cref="Open"/>(열어라),
-/// 서랍 → 종은 <see cref="NotifyReadAsync"/>(읽었으니 숫자를 다시 세라),
-/// 그리고 종 → 서랍이 하나 더 있다 — <see cref="NotifyChangedAsync"/>
-/// (<b>바깥에서 무언가 달라졌다</b>, 펴져 있으면 목록도 다시 읽어라).
-/// 가운데 것이 없으면 서랍에서 모두 읽음을 눌러도 <b>종의 빨간 숫자가 그대로
-/// 남고</b>, 마지막 것이 없으면 다른 장비에서 읽거나 새 알림이 온 사이
-/// <b>펴 둔 목록만 옛것으로 남는다.</b>
-/// </para>
-///
-/// <para>scoped 다. 한 사람이 열었다고 모두의 서랍이 열리면 안 된다.</para>
-/// </remarks>
+/// <summary>알림함 서랍을 바깥에서 여닫고, 읽은 것을 종에게 되알리는 손잡이. 서랍은 휴대폰에서 화면을 다 채워야 해서 헤더 밖에 둔다 — 헤더는 z-index 1030 의 쌓임 맥락이라 안의 판은 아래 띠·메뉴 단추를 넘지 못한다.
+/// 오가는 것은 셋이다: 종 → 서랍(열어라), 서랍 → 종(읽었으니 숫자를 다시 세라), 종 → 서랍(바깥이 달라졌으니 펴 둔 목록을 다시 읽어라). scoped — 한 사람이 열었다고 모두의 서랍이 열리면 안 된다.</summary>
 public sealed class NotificationDrawer
 {
-    /// <summary>
-    /// 같은 자리에 겹쳐 서는 오른쪽 판 무리. <b>펴기 전에 다른 판을 접는다</b>
-    /// (<see cref="RightDrawerGroup"/>).
-    /// </summary>
+    /// <summary>같은 자리에 겹쳐 서는 오른쪽 판 무리. 펴기 전에 다른 판을 접는다(RightDrawerGroup).</summary>
     private readonly RightDrawerGroup _group;
 
     public NotificationDrawer(RightDrawerGroup group)
@@ -51,14 +19,7 @@ public sealed class NotificationDrawer
     /// <summary>읽음이 찍혔다는 알림. 종(<c>HeaderTools</c>)이 받아 다시 센다.</summary>
     public event Func<Task>? Read;
 
-    /// <summary>
-    /// 바깥 사정이 달라졌다는 알림. <b>서랍이 받아 펴져 있을 때만 다시 읽는다.</b>
-    /// </summary>
-    /// <remarks>
-    /// 종이 숫자를 다시 셀 때(다른 장비에서 읽었거나 새 알림이 왔을 때) 함께
-    /// 울린다. 접혀 있는 서랍은 <b>아무 일도 하지 않는다</b> — 펼 때 어차피
-    /// 새로 읽는다(<c>NotificationInboxDrawer.OnOpenRequested</c>).
-    /// </remarks>
+    /// <summary>바깥 사정이 달라졌다는 알림. 서랍이 펴져 있을 때만 목록을 다시 읽는다 — 접혀 있으면 펼 때 어차피 새로 읽는다.</summary>
     public event Func<Task>? Changed;
 
     /// <summary>서랍을 편다. <b>다른 오른쪽 판을 먼저 접는다.</b></summary>

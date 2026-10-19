@@ -110,8 +110,7 @@ public static class CompanyEndpoints
         if (!BusinessNumber.TryNormalize(bizno, out var digits, out var error))
             return ApiError.BadRequest(error);
 
-        // HIDDEN 회사도 돌려준다. 이 조회는 「등록해도 되나」를 묻는 것이라, 숨김 회사를
-        // 「없다」고 답하면 곧이어 등록이 409 로 튕겨 앞뒤가 안 맞는다. status 칸이 HIDDEN 을 알린다.
+        // HIDDEN 회사도 돌려준다 — 「등록해도 되나」를 묻는 조회라 숨김을 없다고 답하면 등록이 409 로 튕겨 앞뒤가 안 맞는다.
         var company = await db.Companies.AsNoTracking().FirstOrDefaultAsync(c => c.BusinessNumber == digits, ct);
         return company is null ? ApiError.Empty() : Results.Ok(CompanyMap.Info(company, me.IsAdmin));
     }

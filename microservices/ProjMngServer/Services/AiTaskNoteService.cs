@@ -9,39 +9,8 @@ namespace ProjMngServer.Services;
 /// <summary>
 /// AI 작업 요청에 오가는 <b>남길말</b> — <c>projmng.ai_task_note</c>.
 /// </summary>
-/// <remarks>
-/// <para>
-/// 스키마는 <c>deploy/sql/projmng-ai-task-note-2026-09-25.sql</c>.
-/// </para>
-///
-/// <para>
-/// <b>무엇을 푸는가.</b> 일반 사용자가 「AI 작업 요청」 화면에서 올린 지시는
-/// 저장만 되고 아무 데서도 안 돈다 — 관리자가 읽고 대상·AI 를 채워 줘야
-/// 비로소 실행된다. 그 사이에 관리자가 <b>「이렇게 하겠습니다」·「무엇을 더
-/// 알려 주십시오」를 말할 자리가 없었다.</b> 올린 사람 쪽에서는 아무 응답이
-/// 없는 것과 무시당한 것이 구분되지 않는다.
-/// </para>
-///
-/// <para>
-/// <b>지시문에 적지 않는 이유.</b> <c>ai_task.contents</c> 는 실행기에게
-/// 그대로 가는 글이다. 거기에 대화를 적으면 AI 가 그것까지 지시로 읽고,
-/// 올린 사람이 적은 원문도 덮인다.
-/// </para>
-///
-/// <para>
-/// <b>적으면 상대에게 앱푸시가 간다.</b> 관리자가 적으면 올린 사람에게,
-/// 올린 사람이 적으면 관리자 역할 전원에게 간다 — 보내는 일은
-/// <see cref="AiRequestAlerter.FireNote"/> 가 하고 여기서는 기다리지 않는다.
-/// 알림이 못 가도 말은 이미 표에 남아 있다.
-/// </para>
-///
-/// <para>
-/// <b>두 입구가 있다.</b> 관리자 경로(<see cref="ListAsync"/> ·
-/// <see cref="AddAsync"/>)는 번호만 받고, 일반 사용자 경로(<c>Mine…</c>)는
-/// <b>그 요청을 올린 사람인지</b>를 먼저 본다 — 그러지 않으면 로그인한
-/// 누구든 번호만 바꿔 남의 요청에 붙은 말을 읽는다.
-/// </para>
-/// </remarks>
+/// 일반 사용자의 요청은 관리자가 말을 붙여야 움직이므로, 말을 표에 남기고 상대에게 앱푸시를 보낸다. 보내는 일은 AiRequestAlerter.FireNote 가 하고 기다리지 않는다.
+/// 말은 지시문(ai_task.contents)에 적지 않는다 — 실행기가 그 글을 그대로 지시로 읽기 때문이다. 관리자 경로는 번호만 받고, 일반 사용자 경로는 그 요청을 올린 사람인지 먼저 본다.
 public sealed class AiTaskNoteService(
     IConfiguration configuration, AiTaskService tasks, AiRequestAlerter alerts)
 {
@@ -92,10 +61,7 @@ public sealed class AiTaskNoteService(
     /// <param name="contents">남길 말.</param>
     /// <param name="userId">적는 사람.</param>
     /// <param name="userName">적는 사람의 이름. 알림 본문에 쓴다.</param>
-    /// <remarks>
-    /// 올린 사람이 스스로 적은 줄은 <b>적는 순간 읽은 것으로 찍는다</b> —
-    /// 자기 글 때문에 자기 화면에 「새 남긴말」 배지가 서면 안 된다.
-    /// </remarks>
+    /// 올린 사람이 스스로 적은 줄은 적는 순간 읽은 것으로 찍는다 — 자기 글 때문에 자기 화면에 새 말 배지가 서면 안 된다.
     public async Task<AiTaskNoteResult> AddAsync(
         long taskKey, string? contents, string? userId, string? userName = null)
     {
@@ -175,16 +141,7 @@ public sealed class AiTaskNoteService(
     /// <summary>
     /// <b>내가 올린 요청에 붙은 남의 말을 전부 읽은 것으로 찍는다.</b>
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 줄마다 따로 찍지 않는다. 이 화면에서 말을 펴는 일은 <b>한 건을 통째로
-    /// 여는 것</b>이고 그 자리에 붙은 줄은 다 보이므로, 한 줄만 읽고 나머지는
-    /// 안 읽었다고 할 수 있는 모양이 아니다.
-    /// </para>
-    /// <para>
-    /// <b>내가 적은 줄은 건드리지 않는다</b> — 그것은 넣을 때 이미 찍혔다.
-    /// </para>
-    /// </remarks>
+    /// 줄마다 찍지 않는다 — 화면에서 말을 펴면 한 건이 통째로 열려 붙은 줄이 다 보이므로 한 줄만 읽었다고 할 수 없다. 내가 적은 줄은 넣을 때 이미 찍혔으니 건드리지 않는다.
     /// <returns>이번에 읽은 것으로 바뀐 줄 수. 주인이 아니면 <c>null</c>.</returns>
     public async Task<int?> MineMarkReadAsync(long taskKey, string? userId)
     {

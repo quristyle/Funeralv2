@@ -10,21 +10,11 @@ using Piral.Blazor.Orchestrator.Loader;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 로컬 개별 설정을 위한 appsettings.Local.json 추가 (Git 제외).
-// 백엔드 서비스 전부가 쓰는 것과 같은 관례다. 셸에서는 개발용 로그인
-// 미리 채우기(DevLogin)가 이 파일에만 들어간다.
+// appsettings.Local.json(git 제외)을 더한다. 개발용 로그인 미리 채우기(DevLogin)는 이 파일에만 둔다.
 builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
 
-// ── 업무 MFE 모듈 검색 ────────────────────────────────────────────
-//
-// **AddJSiniWebApp 보다 먼저 해야 한다.** 라우트 인벤토리(RouteInventory)가
-// 모듈 어셈블리를 받아야 하는데, 그걸 만드는 것이 AddJSiniWebApp 이기 때문이다.
-// 순서가 뒤바뀌면 인벤토리에 셸의 라우트(/login 등)만 담기고, DB 메뉴 대조가
-// "화면이 하나도 없다" 로 잘못 보고된다.
-//
-// 셸은 모듈 타입을 이름으로 알지 못한다 — 출력 폴더의 JSini.Web.*.dll 을 훑어
-// IPortalModule 구현을 찾을 뿐이다. 그 DLL 이 거기 있는 것은 csproj 의
-// ProjectReference 덕분이고, 그 참조가 빠지면 여기서 0개가 나온다.
+// ── 업무 MFE 모듈 검색 ──
+// AddJSiniWebApp 보다 먼저 해야 한다(라우트 인벤토리가 모듈 어셈블리를 받아야 한다). 셸은 모듈 타입을 모르고 출력 폴더의 JSini.Web.*.dll 에서 IPortalModule 을 찾는다. csproj 의 ProjectReference 가 빠지면 0개다.
 using var discoveryLoggerFactory = LoggerFactory.Create(logging =>
 {
     logging.AddConfiguration(builder.Configuration.GetSection("Logging"));
@@ -36,42 +26,28 @@ var moduleRegistry = PortalModuleRegistry.DiscoverAndRegister(
     builder.Configuration,
     logger: discoveryLoggerFactory.CreateLogger<PortalModuleRegistry>());
 
-// ── 셸 구성 ───────────────────────────────────────────────────────
-//
-// 접두사가 빈 문자열인 것이 요점이다. 모듈이 각자 프로세스이던 시절에는
-// UsePathBase 가 접두사를 떼어 주어 @page 가 상대 경로였지만, 지금은 한
-// 프로세스·한 라우터라 @page 가 곧 전체 경로다(/funeral/status).
+// ── 셸 구성 ──
+// 접두사를 비운다. 한 프로세스·한 라우터라 @page 가 곧 전체 경로다(/funeral/status).
 builder.AddJSiniWebApp(
     routePrefix: string.Empty,
     routeAssemblies: [typeof(Program).Assembly, .. moduleRegistry.Assemblies]);
 
 builder.Services.AddScoped<LoginService>();
 
-// 로그인 전에 부르는 계정 경로들 (가입 신청 · 비밀번호 찾기).
-// 토큰을 붙이지 않는 클라이언트를 쓰는 이유는 그 클래스 주석에 있다.
+// 로그인 전에 부르는 계정 경로(가입 신청 · 비밀번호 찾기). 토큰을 붙이지 않는 클라이언트를 쓴다.
 builder.Services.AddScoped<AccountClient>();
 
 // 셸이 기대하는 모듈 목록(appsettings 의 PortalApps). 진단 화면과 기동 대조에 쓴다.
 var expectedApps = PortalApp.Read(builder.Configuration);
 builder.Services.AddSingleton<IReadOnlyList<PortalApp>>(expectedApps);
 
-// ── Piral.Blazor MFE 오케스트레이션 ───────────────────────────────
-//
-// 모듈 컨테이너(모듈별 DI 격리)와 PageScripts/PageStyles 주입이 여기서 온다.
-//
-// **로더를 갈아 끼운 이유.** 기본 MfDiscoveryLoaderService 는 설정이 없으면
-// feed.piral.cloud 를 본다 — 기동할 때마다 바깥으로 나가고, 그 피드에 우리
-// 파일럿은 없으니 아무것도 싣지 못하면서 기동만 늦어진다. 스냅샷 로더는
-// 로컬 캐시 폴더(Microfrontends:CacheDir)만 본다.
-//
-// 지금 그 폴더는 비어 있다. 모듈은 빌드 시점에 합성되기 때문이다(셸 csproj).
-// 무중단 개별 배포가 필요해지면 각 모듈을 nupkg 파일럿으로 말아 이 폴더에
-// 떨어뜨리는 것이 다음 단계고, **그때 고칠 곳이 이 한 줄이다.**
+// ── Piral.Blazor MFE 오케스트레이션 ──
+// 모듈 컨테이너와 PageScripts/PageStyles 주입을 쓴다. 기본 MfDiscoveryLoaderService(feed.piral.cloud)는 기동 때마다 바깥으로 나가 아무것도 싣지 못하므로, 로컬 캐시 폴더(Microfrontends:CacheDir)만 보는 스냅샷 로더로 갈아 끼운다.
+// 모듈은 빌드 시점에 합성되므로 그 폴더는 지금 비어 있다. 무중단 개별 배포가 필요해지면 모듈을 nupkg 파일럿으로 말아 이 폴더에 둔다.
 builder.Services.AddMicrofrontends<MfSnapshotLoaderService>();
 builder.Host.UseMicrofrontendContainers();
 
-// 로그인 전용 클라이언트. AuthTokenHandler 를 거치지 않는다 — 로그인 시점에는
-// 붙일 토큰이 없고, 응답의 Set-Cookie(리프레시 토큰)를 직접 읽어야 한다.
+// 로그인 전용 클라이언트. AuthTokenHandler 를 거치지 않는다. 로그인 때는 토큰이 없고 Set-Cookie(리프레시 토큰)를 직접 읽어야 한다.
 builder.Services.AddHttpClient(LoginService.HttpClientName, client =>
 {
     var baseUrl = builder.Configuration["Gateway:BaseUrl"] ?? "http://localhost:5265/api/";
@@ -79,32 +55,17 @@ builder.Services.AddHttpClient(LoginService.HttpClientName, client =>
 })
 .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
 {
-    // 쿠키를 우리가 직접 다룬다. HttpClient 가 자동으로 모아 두면 그 통이
-    // 모든 사용자에게 공유되어(핸들러는 재사용된다) 남의 리프레시 쿠키가 섞인다.
+    // 쿠키를 직접 다룬다. 자동 수집하면 핸들러 재사용으로 남의 리프레시 쿠키가 섞인다.
     UseCookies = false,
 })
-// 로그인한 사람의 주소를 게이트웨이로 넘긴다.
-//
-// **이 줄이 빠지면 로그인 속도 제한이 전원 공용 통이 된다** — 게이트웨이는
-// auth-attempts 를 IP 당 분당 10회로 세는데, 그 IP 를 X-Forwarded-For 에서
-// 읽는다. 프론트가 BFF 라 헤더가 없으면 전원이 포털 컨테이너 하나로 보이고,
-// 열한 번째 사람이 비밀번호를 틀리는 순간 나머지가 429 로 막힌다.
-//
-// [익명 클라이언트가 둘인 것에 주의]
-//
-// 로그인만 이 클라이언트를 쓰고(gateway-anonymous), 가입 신청·비밀번호 찾기는
-// JSini.Web.Http 의 AnonymousClientName 을 쓴다. 거의 같은 것이 둘이라
-// **한쪽에만 손대면 그쪽만 조용히 고쳐진다** — 실제로 그렇게 한 번 놓쳤고,
-// 속도 제한 통이 갈리는지 재 보고야 알았다. 둘 다에 이 핸들러가 붙어 있다.
+// 로그인한 사람의 주소를 게이트웨이로 넘긴다. 빠지면 로그인 속도 제한(IP 당 분당 10회)이 포털 컨테이너 하나로 묶여 열한 번째 사람부터 429 가 된다.
+// 익명 클라이언트는 둘(이 로그인용, JSini.Web.Http 의 AnonymousClientName)이라 한쪽만 고치면 그쪽만 조용히 바뀐다. 둘 다 이 핸들러를 붙인다.
 .AddHttpMessageHandler<ClientIpHandler>();
 
 var app = builder.Build();
 
 // ── 기동 진단 ─────────────────────────────────────────────────────
-//
-// 모듈이 0개여도 셸은 멀쩡히 뜬다. 로그인도 되고 첫 화면도 나온다 —
-// 업무 메뉴를 누를 때만 404 다. 실제로 그 상태로 한동안 굴러갔으므로,
-// 눈에 띄게 남긴다.
+// 모듈이 0개여도 셸은 뜨고 업무 메뉴만 404 가 된다. 눈에 띄게 남긴다.
 {
     var modules = moduleRegistry.Modules;
     var routes = app.Services.GetRequiredService<RouteInventory>();
@@ -145,31 +106,15 @@ var app = builder.Build();
 app.UseJSiniWebApp();
 app.UseMicrofrontends();
 
-// **AddAdditionalAssemblies 가 없으면 업무 화면이 전부 404 다.**
-//
-// Routes.razor 의 <Router AdditionalAssemblies="..."> 만으로는 안 된다. 그건
-// 회로가 붙은 뒤 브라우저 안에서 도는 라우팅이고, 첫 요청이 404 냐 아니냐를
-// 정하는 것은 **엔드포인트 라우팅**이다. 엔드포인트 쪽은 여기 적은 어셈블리만
-// 훑는다. 둘 다 적어야 하고, 한쪽만 적으면 증상이 갈린다.
-//   · 여기만 빠짐  → 주소를 직접 쳐도 404 (지금 고친 것)
-//   · Router 만 빠짐 → 첫 화면은 뜨는데 메뉴로 이동하면 못 찾는다
+// AddAdditionalAssemblies 가 없으면 업무 화면이 전부 404 다. Routes.razor 의 Router 만으로는 부족하다(그건 회로 안 라우팅).
+// 첫 요청의 404 여부는 엔드포인트 라우팅이 정하므로 둘 다 적는다. 여기만 빠지면 주소 직접 입력이, Router 만 빠지면 메뉴 이동이 깨진다.
 app.MapMicrofrontends<App>()
     .AddInteractiveServerRenderMode()
     .AddAdditionalAssemblies([.. moduleRegistry.Assemblies]);
 
-// ── 패스키 도전값 중계 ────────────────────────────────────────────
-//
-// 로그인 화면의 「지문·얼굴로 로그인」 단추가 부른다. 브라우저가
-// `navigator.credentials.get()` 에 넘길 설정(도전값 · 후보 열쇠)을 받아 온다.
-//
-// **익명이다.** 로그인하려는 사람에게 토큰이 있을 리 없다. 나가는 값에 비밀은
-// 없고(32바이트 난수와 자격 증명 아이디 목록), 그 목록은 아이디를 적어 넣었을
-// 때만 채워진다 — 아무 아이디나 넣어 보고 「그 계정이 있는지」를 캐낼 수
-// 없도록 AuthServer 는 없는 아이디에도 빈 목록을 그대로 돌려준다.
-//
-// **브라우저가 게이트웨이를 직접 부르게 두지 않는다.** 포털은 BFF 라 바깥으로
-// 나가는 문이 셸 하나여야 한다(web/CLAUDE.md 「인증 — BFF」).
-// 시도 제한은 게이트웨이의 `auth-attempts` 가 건다.
+// ── 패스키 도전값 중계 ──
+// 로그인 화면의 지문·얼굴 단추가 부른다. 익명이다. 나가는 값에 비밀은 없고, 자격 증명 목록은 아이디를 적었을 때만 채워진다(없는 아이디에도 빈 목록을 줘 계정 존재를 숨긴다).
+// 브라우저가 게이트웨이를 직접 부르지 않는다(BFF). 시도 제한은 게이트웨이의 auth-attempts 가 건다.
 app.MapPost("/passkey/options", async (
     LoginService auth, PasskeyOptionsRequest? request,
     CancellationToken cancellationToken) =>
@@ -178,27 +123,15 @@ app.MapPost("/passkey/options", async (
 
     return options is { } value
         ? Results.Json(value)
-        // 까닭을 나누지 않는다 — 브라우저가 할 수 있는 일은 어느 쪽이든
-        // 「지금은 안 된다」를 말하는 것뿐이다.
+        // 까닭을 나누지 않는다. 브라우저가 할 수 있는 일은 「지금은 안 된다」를 말하는 것뿐이다.
         : Results.Json(new { error = "지금은 기기 인증을 쓸 수 없습니다." }, statusCode: 503);
 }).AllowAnonymous();
 
-// ── 소셜 로그인 (구글 · 네이버 · 카카오) ─────────────────────────
-//
-// 브라우저가 지나가는 두 자리를 건다 — 공급자로 보내는 곳과 되돌아오는 곳.
-// **왜 게이트웨이가 아니라 셸에 있어야 하는지**는 그 클래스 머리말에 있다
-// (공급자는 사람을 화면으로 돌려보내야 하는데 게이트웨이의 답은 JSON 이다).
+// ── 소셜 로그인 (구글 · 네이버 · 카카오) ──
+// 브라우저가 지나가는 두 자리(공급자로 보내기 · 되돌아오기)를 셸에 건다. 공급자가 사람을 화면으로 돌려보내야 해서 게이트웨이가 아니다.
 app.MapSocialLoginFlow();
 
-// 로그아웃은 POST 다. GET 으로 두면 이미지 태그 하나로 남을 로그아웃시킬 수 있고
-// (CSRF), 브라우저가 미리 읽어 보는 것만으로도 로그아웃된다.
-//
-// **`?noauto=1` 을 붙여 보낸다 (2026-09-24).** 개발 장비에서는 로그인 화면이
-// `DevLogin` 계정으로 저절로 들어가므로, 맨 `/login` 으로 보내면 로그아웃하자마자
-// 다시 로그인되어 **「로그아웃을 눌렀더니 새로 고침만 된다」**로 보였다.
-// 같은 표시가 패스키 자동 열기도 멈춘다(passkey.js `shouldAutoStart`) — 방금
-// 스스로 나간 사람에게 곧바로 기기 확인을 들이미는 것도 붙잡는 것이다.
-// 둘 다 이 한 번만이고, 다음에 로그인 화면을 열 때는 원래대로 돈다.
+// 로그아웃은 POST 다(GET 이면 이미지 태그 하나로 로그아웃시킬 수 있다). ?noauto=1 을 붙여 자동 로그인을 한 번만 멈춘다. 맨 /login 이면 바로 다시 들어가고, 패스키 자동 열기도 같은 표시로 멈춘다.
 app.MapPost("/logout", async (HttpContext context) =>
 {
     await LoginService.SignOutAsync(context);
@@ -207,9 +140,6 @@ app.MapPost("/logout", async (HttpContext context) =>
 
 app.Run();
 
-/// <summary>
-/// 패스키 도전값을 받을 때 브라우저가 보내는 것. 아이디는 <b>있어도 되고
-/// 없어도 된다</b> — 없으면 기기가 스스로 열쇠를 고른다(아이디를 치지 않는 길).
-/// </summary>
+/// <summary>패스키 도전값 요청. 아이디는 있어도 되고 없어도 된다(없으면 기기가 열쇠를 고른다).</summary>
 /// <param name="Username">로그인 아이디. 비워도 된다.</param>
 internal sealed record PasskeyOptionsRequest(string? Username);

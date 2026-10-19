@@ -5,15 +5,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace AuthServer.Services;
 
-/// <summary>
-/// F.A.Q 서비스 구현체
-/// </summary>
-/// <remarks>
-/// F.A.Q 는 JSini 관리 포털이 관리하고 모든 MSA 사용자에게 공통으로 보인다.
-///
-/// 쓰기 권한은 화면을 믿지 않고 여기서 다시 확인한다. 화면의 `v-perm` 은
-/// 버튼을 숨기는 장치일 뿐, 요청을 직접 보내면 그냥 통과하기 때문이다.
-/// </remarks>
+/// <summary>F.A.Q 서비스 구현체. 쓰기 권한은 화면을 믿지 않고 여기서 다시 확인한다 — 버튼 숨김은 장치일 뿐 요청을 직접 보내면 통과하기 때문이다.</summary>
 public class FaqService : IFaqService
 {
     /// <summary>권한을 읽어 올 메뉴 경로</summary>

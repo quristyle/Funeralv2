@@ -9,56 +9,18 @@ using Message = AIAgentServer.DTOs.Message;
 
 namespace AIAgentServer.Services;
 
-/// <summary>
-/// Claude(Anthropic Messages API)에게 보내는 길. <b>공식 .NET SDK 를 쓴다.</b>
-/// </summary>
-/// <remarks>
-/// <para>
-/// <b>왜 따로 있는가.</b> 나머지 세 공급자(로컬 LLM · Groq · OpenRouter)는 전부
-/// OpenAI 호환이라 <see cref="HttpClient"/> 하나로 같은 본문을 보내면 됐다.
-/// Claude 는 형식이 다르다 — 아래 세 가지가 핵심이다.
-/// </para>
-/// <list type="number">
-///   <item>
-///     <b>지시(system)가 메시지가 아니다.</b> OpenAI 계열은 <c>messages</c> 배열에
-///     <c>role: "system"</c> 을 끼워 넣지만, Claude 는 <b>요청의 별도 항목</b>으로 받는다.
-///     그대로 보내면 400 이다. 그래서 여기서 뽑아 옮긴다.
-///   </item>
-///   <item>
-///     <b>답이 블록 배열이다.</b> <c>choices[0].message.content</c> 가 아니라
-///     <c>content</c> 안에 글자 블록 · 생각 블록이 섞여 온다.
-///   </item>
-///   <item>
-///     <b>거절이 오류가 아니다.</b> 안전 분류기가 막으면 HTTP 200 에
-///     <c>stop_reason: "refusal"</c> 로 온다. 상태 코드만 보면 성공으로 읽힌다.
-///   </item>
-/// </list>
-/// <para>
-/// <b>생각(thinking)은 끄지 않는다.</b> Claude Opus 5 는 기본으로 켜져 있고, 끄면
-/// 생각 태그가 답에 새는 등 알려진 부작용이 있다. 대신 깊이를
-/// <see cref="AiProvider.Effort"/> 로 조절한다 — 비용과 시간이 그쪽에 달려 있다.
-/// </para>
-/// <para>
-/// <b>온도(temperature)는 보내지 않는다.</b> 이 모델 계열에서 빠진 값이라 보내면 400 이다.
-/// 위층이 넘겨주는 값을 여기서 조용히 버린다.
-/// </para>
-/// </remarks>
+/// <summary>Claude(Anthropic Messages API)에게 보내는 길. 공식 .NET SDK 를 쓴다. 나머지 공급자는 OpenAI 호환이라 HttpClient 로 충분하지만,
+/// Claude 는 지시가 별도 항목이고 답이 블록 배열이며 거절이 HTTP 200 으로 온다. 생각(thinking)은 끄지 않고 Effort 로 조절하며, temperature 는 보내지 않는다(400).</summary>
 public sealed class AnthropicTransport
 {
     private readonly ILogger<AnthropicTransport> _logger;
 
-    /// <summary>
-    /// 공급자별 클라이언트. <b>요청마다 새로 만들지 않는다</b> — 안에 HttpClient 가 있어서
-    /// 매번 세우면 소켓이 쌓인다.
-    /// </summary>
+    /// <summary>공급자별 클라이언트. 요청마다 새로 만들면 안의 HttpClient 로 소켓이 쌓인다.</summary>
     private readonly ConcurrentDictionary<string, AnthropicClient> _clients = new();
 
     public AnthropicTransport(ILogger<AnthropicTransport> logger) => _logger = logger;
 
-    /// <summary>
-    /// 한 번 보낸다. <b>실패는 <see cref="AiProviderException"/> 으로 바꿔 던진다</b> —
-    /// 위층의 자동 전환과 모델 바꿔치기가 그 분류를 보고 판단하기 때문이다.
-    /// </summary>
+    /// <summary>한 번 보낸다. 실패는 AiProviderException 으로 바꿔 던진다 — 위층의 자동 전환과 모델 바꿔치기가 그 분류로 판단한다.</summary>
     public async Task<AiResponseBody> SendAsync(
         AiProvider provider,
         string model,
@@ -96,14 +58,8 @@ public sealed class AnthropicTransport
                 return new AnthropicResponseBody(ExtractText(reply));
             }
 
-            // [스트리밍은 여기서 '첫 조각까지' 미리 당겨 온다]
-            //
-            // SDK 의 스트림은 게을러서, 그냥 돌려주면 **위층이 첫 글자를 읽을 때**
-            // 비로소 요청이 나간다. 그러면 인증 실패나 한도 초과가
-            // '이미 답을 흘리기 시작한 뒤' 에 터지고, 그 시점에는 공급자를 바꿀 수 없다.
-            //
-            // 자동 전환은 "한 조각도 내보내기 전에 끝난다" 가 약속이므로,
-            // 첫 이벤트를 여기서 받아 두어 실패가 이 자리에서 터지게 한다.
+            // 스트림은 게을러서 그냥 돌려주면 위층이 첫 글자를 읽을 때 요청이 나간다. 인증·한도 실패가 답을 흘린 뒤에 터지면 공급자를 못 바꾸므로,
+            // 첫 이벤트를 여기서 받아 실패를 이 자리에서 터뜨린다.
             var body = new AnthropicStreamBody(client, parameters, provider, model, _logger);
             await body.PrimeAsync(cancellationToken);
             return body;
@@ -125,8 +81,7 @@ public sealed class AnthropicTransport
 
         return _clients.GetOrAdd(cacheKey, _ =>
         {
-            // 주소는 설정에 반드시 있다 — Preflight(IsConfigured)가 먼저 확인한다.
-            // 경로(/v1/messages)는 SDK 가 붙이므로 호스트까지만 적혀 있다.
+            // 주소는 설정에 반드시 있다(Preflight 가 확인). 경로는 SDK 가 붙이므로 호스트까지만 적는다.
             return new AnthropicClient
             {
                 ApiKey = provider.ApiKey,
@@ -135,20 +90,8 @@ public sealed class AnthropicTransport
         });
     }
 
-    /// <summary>
-    /// OpenAI 식 메시지 목록을 <b>지시 하나 + 대화 차례들</b>로 가른다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>지시는 합친다.</b> 목록 어디에 있든 전부 뽑아 줄바꿈으로 잇는다 — Claude 는
-    /// 지시를 하나만 받는다.
-    /// </para>
-    /// <para>
-    /// <b>앞뒤를 다듬는다.</b> Claude 는 첫 차례가 사용자여야 하고, 마지막이
-    /// 어시스턴트이면 그것을 '이어서 쓰라는 시작 문구' 로 읽는다(이 모델 계열에서는
-    /// 아예 400 이다). 대화 기록을 자르다 보면 둘 다 생길 수 있어 여기서 막는다.
-    /// </para>
-    /// </remarks>
+    /// <summary>OpenAI 식 메시지 목록을 지시 하나와 대화 차례들로 가른다. 지시는 전부 모아 줄바꿈으로 잇고(Claude 는 하나만 받는다),
+    /// 대화 기록을 자르면 생기는 첫 어시스턴트 차례와 마지막 어시스턴트 차례를 떼어 낸다(이어 쓰기 시작 문구로 읽혀 400).</summary>
     private static (string System, List<MessageParam> Turns) Split(List<Message> messages)
     {
         var systems = messages
@@ -165,8 +108,7 @@ public sealed class AnthropicTransport
             var isAssistant =
                 string.Equals(m.role, "assistant", StringComparison.OrdinalIgnoreCase);
 
-            // 첫 차례가 어시스턴트이면 버린다. 문맥을 조금 잃지만, 400 으로 아무 답도
-            // 못 받는 것보다는 낫다.
+            // 첫 차례가 어시스턴트면 버린다. 문맥을 조금 잃어도 400 으로 아무 답도 못 받는 것보다 낫다.
             if (turns.Count == 0 && isAssistant) continue;
 
             turns.Add(new MessageParam
@@ -176,7 +118,7 @@ public sealed class AnthropicTransport
             });
         }
 
-        // 마지막이 어시스턴트이면 떼어 낸다(위 설명 참고).
+        // 마지막이 어시스턴트이면 떼어 낸다.
         while (turns.Count > 0 && turns[^1].Role == Role.Assistant)
         {
             turns.RemoveAt(turns.Count - 1);
@@ -192,13 +134,7 @@ public sealed class AnthropicTransport
             reply.Content.Select(b => b.Value).OfType<TextBlock>().Select(t => t.Text)).Trim();
     }
 
-    /// <summary>
-    /// 안전 분류기가 막은 경우를 <b>성공으로 읽지 않게</b> 한다.
-    /// </summary>
-    /// <remarks>
-    /// HTTP 200 으로 오기 때문에 상태 코드만 보면 정상이다. 답 자리가 비어 있을 뿐이라,
-    /// 거르지 않으면 "모델이 답을 만들지 못했습니다" 라는 <b>엉뚱한 안내</b>가 뜬다.
-    /// </remarks>
+    /// <summary>안전 분류기가 막은 답을 성공으로 읽지 않게 한다. HTTP 200 이라 상태 코드로는 정상이고, 거르지 않으면 「모델이 답을 만들지 못했습니다」라는 엉뚱한 안내가 뜬다.</summary>
     private static void EnsureNotRefused(
         AiProvider provider, string model, string? stopReason, object? stopDetails)
     {
@@ -212,9 +148,7 @@ public sealed class AnthropicTransport
             model: model);
     }
 
-    /// <summary>
-    /// 멈춘 이유를 글자로 바꾼다. <b>없을 수 있다</b> — 스트리밍 도중 이벤트에는 안 실린다.
-    /// </summary>
+    /// <summary>멈춘 이유를 글자로 바꾼다. 스트리밍 도중 이벤트에는 없을 수 있다.</summary>
     private static string? AsText(ApiEnum<string, StopReason>? stopReason) =>
         stopReason is { } value ? (string)value : null;
 
@@ -228,17 +162,7 @@ public sealed class AnthropicTransport
         _ => null,
     };
 
-    /// <summary>
-    /// SDK 예외를 <b>우리 분류</b>로 옮긴다. 위층은 이 분류만 보고 판단한다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>429 를 '계정 전체' 로 본다.</b> Groq · OpenRouter 의 429 는 모델 하나가
-    /// 붐비는 경우가 섞여 있어 모델을 바꿔 다시 불러 볼 값어치가 있었다. Anthropic 의
-    /// 한도는 <b>조직 단위</b>라 모델을 바꿔도 똑같이 막힌다 — 바꿔 부르는 것은
-    /// 요청만 더 태우는 짓이다. 그래서 곧바로 다른 공급자로 넘기게 표시한다.
-    /// </para>
-    /// </remarks>
+    /// <summary>SDK 예외를 우리 분류로 옮긴다. 429 는 계정 전체 한도로 본다 — Anthropic 한도는 조직 단위라 모델을 바꿔도 막히므로 곧바로 다른 공급자로 넘긴다.</summary>
     private AiProviderException Translate(Exception ex, AiProvider provider, string model)
     {
         switch (ex)
@@ -284,9 +208,7 @@ public sealed class AnthropicTransport
                     provider.Key);
 
             case AnthropicApiException api:
-                // **529 Overloaded 는 고장이 아니라 「지금 붐빈다」다.** 한도(429)와
-                // 달리 내 몫을 다 쓴 것이 아니라 상대 사정이고, 우리가 할 일은
-                // 예비 모델·다른 공급자로 넘기는 것이다(`AiProviderException`).
+                // 529 Overloaded 는 고장이 아니라 지금 붐빈다. 한도(429)와 달리 내 몫을 다 쓴 게 아니므로 예비 모델·다른 공급자로 넘긴다(AiProviderException).
                 if (LooksOverloaded(api.Message))
                 {
                     _logger.LogWarning(
@@ -318,10 +240,7 @@ public sealed class AnthropicTransport
         }
     }
 
-    /// <summary>
-    /// 오류 문구가 <b>지금 붐빈다</b>고 말하고 있는지. Claude 는 529 에
-    /// "Overloaded" 를 담아 준다. <c>LLMService.LooksOverloaded</c> 와 같은 판단이다.
-    /// </summary>
+    /// <summary>오류 문구가 지금 붐빈다고 말하는지(529 의 Overloaded). LLMService.LooksOverloaded 와 같은 판단이다.</summary>
     private static bool LooksOverloaded(string message)
     {
         if (string.IsNullOrWhiteSpace(message)) return false;
@@ -348,9 +267,7 @@ public sealed class AnthropicTransport
         }
     }
 
-    /// <summary>
-    /// 흘러나오는 답. <b>첫 이벤트는 미리 받아 둔다</b>(<see cref="PrimeAsync"/>).
-    /// </summary>
+    /// <summary>흘러나오는 답. 첫 이벤트는 미리 받아 둔다(PrimeAsync).</summary>
     private sealed class AnthropicStreamBody : AiResponseBody
     {
         private readonly AnthropicClient _client;
@@ -377,10 +294,7 @@ public sealed class AnthropicTransport
             _logger = logger;
         }
 
-        /// <summary>
-        /// 첫 이벤트를 당겨 온다. <b>요청이 실제로 나가는 순간이 여기다</b> —
-        /// 인증 실패 · 한도 초과 · 접속 실패가 이 자리에서 터져야 위층이 공급자를 바꿀 수 있다.
-        /// </summary>
+        /// <summary>첫 이벤트를 당겨 온다. 요청이 실제로 나가는 순간이라, 인증·한도·접속 실패가 여기서 터져야 위층이 공급자를 바꿀 수 있다.</summary>
         public async Task PrimeAsync(CancellationToken cancellationToken)
         {
             _events = _client.Messages
@@ -422,8 +336,7 @@ public sealed class AnthropicTransport
                 more = await _events.MoveNextAsync();
             }
 
-            // 거절은 답이 비어서 온다. 여기까지 오면 헤더를 이미 보낸 뒤라 예외로
-            // 알릴 수 없으므로 **답 자리에 사실대로 쓴다.**
+            // 거절은 답이 비어서 온다. 헤더를 이미 보낸 뒤라 예외로 알릴 수 없으므로 답 자리에 사실대로 쓴다.
             if (_refusal is not null)
             {
                 _logger.LogWarning(

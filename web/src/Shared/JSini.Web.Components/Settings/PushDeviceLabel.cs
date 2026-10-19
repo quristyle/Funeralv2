@@ -2,37 +2,10 @@ using JSini.Web.Models;
 
 namespace JSini.Web.Components.Settings;
 
-/// <summary>
-/// 구독한 기기 한 대를 <b>사람이 읽는 글자</b>로 바꾼다.
-/// </summary>
-/// <remarks>
-/// <para>
-/// [왜 화면 밖으로 꺼냈나]
-/// </para>
-///
-/// <para>
-/// 원래 <c>NotificationPanel</c> 안의 private 메서드였다. 그 화면은 <b>자기
-/// 기기</b>를 보여 주는 자리인데, 포털관리에 <b>남의 기기</b>를 보는 화면
-/// (<c>/admin/system/account/{아이디}/app</c>)이 생기면서 같은 글자가 두 곳에
-/// 필요해졌다.
-/// </para>
-///
-/// <para>
-/// 복제하면 갈라지는 자리가 뻔하다 — 브라우저 판별은 새 브라우저가 나올 때마다
-/// 손보게 되는데, 그때 한쪽만 고치면 <b>같은 기기가 화면마다 다른 이름으로</b>
-/// 보인다. 그 어긋남은 「내 기기가 목록에 없다」로 신고가 들어온다.
-/// </para>
-/// </remarks>
+/// <summary>구독한 기기 한 대를 사람이 읽는 글자로 바꾼다. 원래 NotificationPanel 안의 메서드였는데, 포털관리에 남의 기기를 보는 화면이 생기면서 같은 글자가 두 곳에 필요해졌다. 복제하면 새 브라우저가 나올 때 한쪽만 고쳐 같은 기기가 화면마다 다른 이름으로 보이고, 그 어긋남은 「내 기기가 목록에 없다」로 신고가 된다.</summary>
 public static class PushDeviceLabel
 {
-    /// <summary>
-    /// 사람이 읽는 기기 이름.
-    ///
-    /// <para>
-    /// <b>Edge·삼성 인터넷을 먼저 가른다.</b> 그 둘은 자기 표시 뒤에 <c>Chrome</c>
-    /// 도 함께 적어서, 순서를 바꾸면 전부 Chrome 으로 보인다.
-    /// </para>
-    /// </summary>
+    /// <summary>사람이 읽는 기기 이름. Edge · 삼성 인터넷을 먼저 가른다 — 그 둘은 자기 표시 뒤에 Chrome 도 함께 적어서 순서를 바꾸면 전부 Chrome 으로 보인다.</summary>
     public static string Name(PushDeviceDto device)
     {
         var metadata = device.Metadata;
@@ -76,21 +49,7 @@ public static class PushDeviceLabel
         return parts.Count > 0 ? string.Join(" · ", parts) : "추가 장비 정보 없음";
     }
 
-    /// <summary>
-    /// <b>앱으로 설치해 쓰는 기기인가.</b>
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 구독할 때 브라우저가 적어 보낸 값 둘을 본다 — <c>isStandalone</c> 과
-    /// <c>displayMode</c>. 앞엣것이 정답이지만 <b>옛 구독에는 없다</b>(그 칸이
-    /// 생기기 전에 등록한 기기). 그때는 표시 방식이 <c>browser</c> 가 아닌지로
-    /// 가른다(<c>standalone</c> · <c>fullscreen</c> · <c>minimal-ui</c>).
-    /// </para>
-    /// <para>
-    /// 둘 다 비어 있으면 <c>null</c> 이다 — <b>「설치 안 함」이 아니라 「모른다」</b>.
-    /// 모르는 것을 「안 함」으로 그리면 옛 기기가 전부 설치 안 한 것으로 보인다.
-    /// </para>
-    /// </remarks>
+    /// <summary>앱으로 설치해 쓰는 기기인가. 구독할 때 브라우저가 적어 보낸 isStandalone 과 displayMode 를 본다 — 앞엣것이 정답이지만 옛 구독에는 없어서 표시 방식이 browser 가 아닌지로 가른다. 둘 다 비어 있으면 null 이다 — 설치 안 함이 아니라 모른다. 모르는 것을 안 함으로 그리면 옛 기기가 전부 설치 안 한 것으로 보인다.</summary>
     public static bool? Installed(PushDeviceDto device)
     {
         var metadata = device.Metadata;
@@ -105,14 +64,7 @@ public static class PushDeviceLabel
             : metadata.DisplayMode != "browser";
     }
 
-    /// <summary>
-    /// 장비 정보가 없을 때 원문 UA 에서 뽑는 이름.
-    ///
-    /// <para>
-    /// <b>원문을 그대로 두지 않는다.</b> 「Mozilla/5.0 (Windows NT 10.0…」 는
-    /// 기기를 고르는 데 아무 도움이 안 된다.
-    /// </para>
-    /// </summary>
+    /// <summary>장비 정보가 없을 때 원문 UA 에서 뽑는 이름. 원문을 그대로 두지 않는다 — 「Mozilla/5.0 (Windows NT 10.0…」 는 기기를 고르는 데 도움이 안 된다.</summary>
     public static string FromUserAgent(string? userAgent)
     {
         if (string.IsNullOrWhiteSpace(userAgent))

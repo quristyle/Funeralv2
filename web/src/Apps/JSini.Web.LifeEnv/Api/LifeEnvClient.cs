@@ -4,12 +4,7 @@ using JSini.Web.Models;
 namespace JSini.Web.LifeEnv.Api;
 
 /// <summary>
-/// LifeEnvServer(기상) 호출. 게이트웨이의 <c>/life</c> 아래로 나간다.
-///
-/// Vue 의 <c>api/life/weather/index.ts</c> 를 잇는다 — 그 파일이 부르던
-/// 엔드포인트만 있다(화면이 안 부르는 API 를 지어내지 않는다).
-/// LifeEnvServer 는 공통 봉투(<c>ApiResponseFilter</c>)를 쓰므로
-/// <see cref="GatewayClient"/> 의 봉투 메서드를 그대로 태운다.
+/// LifeEnvServer(기상) 호출. 게이트웨이의 <c>/life</c> 아래로 나간다. 공통 봉투를 쓰므로 GatewayClient 의 봉투 메서드를 탄다.
 /// </summary>
 public sealed class LifeEnvClient(GatewayClient gateway)
 {
@@ -53,31 +48,13 @@ public sealed class LifeEnvClient(GatewayClient gateway)
     // ── 한 지점(내 위치) ─────────────────────────────────────
 
     /// <summary>
-    /// <b>등록된 지역이 아닌 한 지점</b>의 지금 날씨와 사흘 예보.
-    /// 브라우저가 준 위경도를 그대로 보낸다.
+    /// <b>등록 지역이 아닌 한 지점</b>의 지금 날씨와 사흘 예보. 응답에 어디인가(격자·행정구역 이름)가 함께 와서 화면이 「여기가 맞나」를 되물을 수 있다.
+    /// 알림 설정의 「내 위치 날씨」 미리보기도 같은 길·같은 모양(PointWeatherDto)을 쓴다 — 여기서 갈라지지 않게 한다.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 응답에 <b>어디인가</b>(격자·행정구역 이름)가 함께 실려 온다 — 화면이
-    /// 「여기가 맞나」를 사람에게 되물을 수 있어야 하기 때문이다. 지역 이름은
-    /// 우리 표(<c>grid_coordinates</c>)에서 찾으므로 기상청이 느려도 이름은 온다.
-    /// </para>
-    /// <para>
-    /// <b>같은 길을 <c>NotificationClient</c> 도 부른다</b>(알림 설정 화면의
-    /// 「내 위치 날씨」 미리보기). 엔드포인트 주인은 LifeEnvServer 라 여기에도
-    /// 둔다 — 기상 화면이 날씨 하나 보려고 알림 배관을 끌어오지 않게 하려는
-    /// 것이고, 둘이 <b>같은 응답을 같은 모양</b>(<see cref="PointWeatherDto"/>)
-    /// 으로 받으므로 갈라질 자리가 없다.
-    /// </para>
-    /// </remarks>
     /// <param name="lat">위도.</param>
     /// <param name="lon">경도.</param>
     /// <param name="ct">중단 신호.</param>
-    /// <param name="weekly">
-    /// 참이면 <b>주간 예보</b>(<see cref="PointWeatherDto.Weekly"/>)까지 받는다 —
-    /// 서버가 기상청을 두 번 더 부른다(중기 육상 · 중기 기온). 현황판만 참으로
-    /// 부르고, 설정 화면의 미리보기는 거짓 그대로다.
-    /// </param>
+    /// <param name="weekly">참이면 주간 예보까지 받는다 — 서버가 기상청을 두 번 더 부른다. 현황판만 참으로 부른다.</param>
     public Task<PointWeatherDto?> GetPointWeatherAsync(
         double lat, double lon, bool weekly = false, CancellationToken ct = default)
         => gateway.GetOneAsync<PointWeatherDto>(

@@ -3,18 +3,9 @@ using funeralv2Api.DTOs;
 namespace funeralv2Api.Services;
 
 /// <summary>
-/// 장례식장 업무 설정에 어떤 것이 있는지 적어 둔 곳.
+/// 장례식장 업무 설정 목록(코드·이름·기본값). 값만 account_settings 에 저장한다.
+/// 옛 vben 개인 환경설정과 겹치는 넷(page_tab_view 등)은 옮기지 않았다 — 같은 것을 두 군데서 켜면 어긋난다.
 /// </summary>
-/// <remarks>
-/// 옛 시스템은 설정 이름을 <c>smfr.t_code</c> 에 두고 값을 <c>t_account_conf</c> 에
-/// 두었다. 코드가 여덟뿐이고 늘 코드와 화면이 함께 바뀌었으므로, 표를 하나 더 두는 대신
-/// 여기에 적는다. 값만 <c>smfr.account_settings</c> 에 저장한다.
-///
-/// 옛 여덟 중 넷은 옮기지 않았다 — <c>page_tab_view</c> · <c>side_bar_open</c> ·
-/// <c>side_menu_expend</c> · <c>side_bar_autohide</c> 는 vben 의 개인 환경설정
-/// (탭 표시 · 사이드바 접기)이 이미 하는 일이다. 같은 것을 두 군데서 켜면 서로 어긋난다.
-/// 40번 문서의 D-F3 에 적어 두었다.
-/// </remarks>
 public static class SettingCatalog
 {
     /// <summary>설정 하나의 정의</summary>

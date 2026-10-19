@@ -1,8 +1,6 @@
 namespace AuthServer.DTOs;
 
-/// <summary>
-/// 공지 첨부파일
-/// </summary>
+/// <summary>공지 첨부파일</summary>
 public class NoticeFileDto
 {
     public string Id { get; set; } = string.Empty;
@@ -19,9 +17,7 @@ public class NoticeFileDto
     public string DownloadUrl => $"/api/file/download/id/{FileId}";
 }
 
-/// <summary>
-/// 공지 조회 결과
-/// </summary>
+/// <summary>공지 조회 결과</summary>
 public class NoticeDto
 {
     public string Id { get; set; } = string.Empty;
@@ -47,9 +43,7 @@ public class NoticeDto
     public List<NoticeFileDto> Files { get; set; } = new();
 }
 
-/// <summary>
-/// 공지 등록·수정 요청
-/// </summary>
+/// <summary>공지 등록·수정 요청</summary>
 public class SaveNoticeDto
 {
     public string Title { get; set; } = string.Empty;
@@ -61,16 +55,11 @@ public class SaveNoticeDto
     public int Status { get; set; } = 1;
     public int OrderNo { get; set; }
 
-    /// <summary>
-    /// 첨부파일 목록. 보낸 그대로가 최종 상태가 된다 —
-    /// 빠진 것은 지우고 새로 들어온 것은 추가한다.
-    /// </summary>
+    /// <summary>첨부파일 목록. 보낸 그대로가 최종 상태다 — 빠진 것은 지우고 새로 온 것은 추가한다.</summary>
     public List<SaveNoticeFileDto> Files { get; set; } = new();
 }
 
-/// <summary>
-/// 공지 첨부파일 등록 요청
-/// </summary>
+/// <summary>공지 첨부파일 등록 요청</summary>
 public class SaveNoticeFileDto
 {
     public string FileId { get; set; } = string.Empty;

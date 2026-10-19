@@ -3,66 +3,13 @@ using Microsoft.Extensions.Logging;
 
 namespace JSini.Web.Components.Data;
 
-/// <summary>
-/// <b>로그인 아이디로 사람의 이름과 얼굴을 푼다</b> — <c>auth/user/faces</c>.
-/// </summary>
-/// <remarks>
-/// <para>
-/// [여기로 올라온 까닭 — 세 번째다 (2026-10-15)]
-/// </para>
-///
-/// <para>
-/// 같은 부품이 프로젝트관리와 생활과환경에 한 벌씩 있었다. 저장소의 규칙은
-/// <b>두 모듈이 쓰면 복제, 세 번째부터 승격</b>이고(web/CLAUDE.md), 헬프데스크의
-/// 접수 대시보드가 세 번째가 되어 올렸다 — 베낀 쪽 머리말에 적어 둔
-/// 「세 번째 모듈이 생기면 그때 올린다」를 지킨 것이다. 업무 모듈끼리는 서로
-/// 참조할 수 없으므로 공유하려면 여기 말고는 둘 자리가 없다.
-/// </para>
-///
-/// <para>
-/// [왜 업무 자료에 얼굴이 안 실려 오나]
-/// </para>
-///
-/// <para>
-/// 업무 DB 가 아는 것은 사람의 <b>로그인 아이디</b>뿐이다 — 프로젝트관리는
-/// <c>projmng.ai_task.cre_id</c>, 헬프데스크는 <c>helpdesk.admin.loginid</c>.
-/// 이름과 사진의 정본은 포털 계정(<c>scom.accounts</c> 와 그 확장 속성
-/// <c>Avatar</c>)이고, 업무 서버는 그 스키마를 보지 않는다 — 보게 만들면
-/// 서비스 경계를 넘는다. 그래서 <b>화면이 한 번 더 묻는다.</b>
-/// </para>
-///
-/// <para>
-/// 업무 표에 이름을 베껴 두는 길도 있지만, 그러면 포털에서 이름을 고쳐도
-/// 따라오지 않아 <b>같은 사람이 화면마다 다른 이름</b>으로 선다.
-/// </para>
-///
-/// <para>
-/// [한 번 물어본 것은 다시 묻지 않는다]
-/// </para>
-///
-/// <para>
-/// 목록 화면은 조건을 바꿀 때마다 다시 읽는다. 얼굴까지 그때마다 물으면 같은
-/// 사람을 몇 번이고 묻는다. 그래서 아는 것은 들고 있고 <b>모르는 아이디만</b>
-/// 모아서 한 번에 묻는다.
-/// </para>
-///
-/// <para>
-/// 못 찾은 아이디도 기억한다(<see cref="_asked"/>). 안 그러면 없는 사람 하나
-/// 때문에 조회가 영영 반복된다 — <b>가장 흔한 무한 조회의 모양</b>이다.
-/// </para>
-///
-/// <para>
-/// scoped 다. 회로 하나가 사용자 한 명이고, 그 사람이 화면을 떠나면 함께 사라진다.
-/// </para>
-/// </remarks>
+/// <summary>로그인 아이디로 사람의 이름과 얼굴을 푼다(auth/user/faces). 세 번째 모듈이 쓰게 되어 여기로 올렸다 — 두 모듈이 쓰면 복제, 세 번째부터 승격이 저장소의 규칙이다. 업무 DB 는 로그인 아이디만 알고 이름과 사진의 정본은 포털 계정이라 화면이 한 번 더 묻는다(업무 표에 이름을 베끼면 같은 사람이 화면마다 다른 이름으로 선다).
+/// 한 번 물어본 것은 다시 묻지 않는다 — 아는 것은 들고 모르는 아이디만 모아 한 번에 묻는다. 못 찾은 아이디도 기억한다: 없는 사람 하나 때문에 조회가 영영 반복되는 것이 가장 흔한 무한 조회다. scoped — 회로 하나가 사용자 한 명이다.</summary>
 public sealed class UserFaceClient(GatewayClient gateway, ILogger<UserFaceClient> logger)
 {
     private const string Url = "auth/user/faces";
 
-    /// <summary>
-    /// 한 번에 물어보는 상한. 서버도 같은 수에서 자른다
-    /// (<c>AuthServer/Endpoints/UserEndpoints.cs</c> 의 <c>MaxFaces</c>).
-    /// </summary>
+    /// <summary>한 번에 물어보는 상한. 서버도 같은 수에서 자른다(AuthServer UserEndpoints 의 MaxFaces).</summary>
     private const int Chunk = 100;
 
     private readonly Dictionary<string, UserFace> _known = new(StringComparer.OrdinalIgnoreCase);
@@ -70,10 +17,7 @@ public sealed class UserFaceClient(GatewayClient gateway, ILogger<UserFaceClient
     /// <summary>이미 물어본 아이디. <b>못 찾은 것도 들어 있다.</b></summary>
     private readonly HashSet<string> _asked = new(StringComparer.OrdinalIgnoreCase);
 
-    /// <summary>
-    /// 아는 얼굴. 아직 안 물어봤거나 없는 사람이면 <c>null</c>.
-    /// <b>화면은 그때 첫 글자를 그린다.</b>
-    /// </summary>
+    /// <summary>아는 얼굴. 아직 안 물었거나 없는 사람이면 null — 화면은 그때 첫 글자를 그린다.</summary>
     public UserFace? Get(string? loginId)
         => !string.IsNullOrWhiteSpace(loginId) && _known.TryGetValue(loginId.Trim(), out var face)
             ? face
@@ -85,13 +29,7 @@ public sealed class UserFaceClient(GatewayClient gateway, ILogger<UserFaceClient
     /// <summary>이 사람의 이름. 모르면 <c>null</c> — 부르는 쪽이 아이디로 물러선다.</summary>
     public string? NameOf(string? loginId) => Get(loginId)?.Name;
 
-    /// <summary>
-    /// 이 아이디들의 얼굴을 채워 둔다. <b>모르는 것만 묻는다.</b>
-    /// </summary>
-    /// <remarks>
-    /// <b>실패를 삼킨다.</b> 얼굴이 안 뜨는 것과 목록이 안 뜨는 것은 무게가
-    /// 다르다 — 못 읽으면 첫 글자로 그려진다.
-    /// </remarks>
+    /// <summary>이 아이디들의 얼굴을 채워 둔다. 모르는 것만 묻는다. 실패는 삼킨다 — 얼굴이 안 뜨는 것과 목록이 안 뜨는 것은 무게가 다르다.</summary>
     public async Task EnsureAsync(IEnumerable<string?> loginIds, CancellationToken ct = default)
     {
         var wanted = loginIds
@@ -133,15 +71,7 @@ public sealed class UserFaceClient(GatewayClient gateway, ILogger<UserFaceClient
         }
     }
 
-    /// <summary>
-    /// 아바타 하나가 제 얼굴을 묻는다. <b>같은 그림 차례에 물은 것들을 모아</b>
-    /// 한 번에 보낸다 — 목록 스무 줄이 저마다 부르면 왕복도 스물이 된다.
-    /// </summary>
-    /// <remarks>
-    /// 형제 부품들의 <c>OnParametersSetAsync</c> 는 한 그림 차례 안에서 첫
-    /// <c>await</c> 까지 잇달아 돈다. 그래서 한 번 양보하고 나서 보내면
-    /// 그 사이에 줄을 선 아이디가 모두 한 묶음이 된다.
-    /// </remarks>
+    /// <summary>아바타 하나가 제 얼굴을 묻는다. 같은 그림 차례에 물은 것들을 모아 한 번에 보낸다 — 목록 스무 줄이 저마다 부르면 왕복도 스물이 된다. 형제 부품들의 OnParametersSetAsync 는 한 그림 차례 안에서 첫 await 까지 잇달아 돌아, 한 번 양보하고 보내면 줄 선 아이디가 한 묶음이 된다.</summary>
     public Task WhenKnownAsync(string? loginId)
     {
         if (string.IsNullOrWhiteSpace(loginId))
@@ -250,13 +180,7 @@ public sealed class UserFaceClient(GatewayClient gateway, ILogger<UserFaceClient
         }
     }
 
-    /// <summary>
-    /// 사진을 못 받아 왔다. <b>주소를 버리고 첫 글자로 돌아간다.</b>
-    /// </summary>
-    /// <remarks>
-    /// 브라우저는 그림을 못 받으면 그 자리에 깨진 그림 아이콘을 그리는데,
-    /// 목록에서 그것이 뜨면 사진이 없는 사람보다 더 나쁘게 보인다.
-    /// </remarks>
+    /// <summary>사진을 못 받아 왔다. 주소를 버리고 첫 글자로 돌아간다 — 깨진 그림 아이콘은 사진 없는 사람보다 나쁘게 보인다.</summary>
     public void MarkPhotoUnavailable(string? loginId)
     {
         if (Get(loginId) is not { Photo: not null } face)

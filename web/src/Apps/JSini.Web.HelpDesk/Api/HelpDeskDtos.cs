@@ -1,10 +1,7 @@
 namespace JSini.Web.HelpDesk.Api;
 
-// 헬프데스크 도메인 DTO. HelpDeskServer 의 Models/* 및
-// Vue 의 fronts/apps/jsini-portal/src/api/helpdesk/types.ts 와 대응한다.
-//
-// 서버가 camelCase 로 내려주고 HelpDeskApi 의 JsonOptions 가 대소문자를 가리지
-// 않으므로 [JsonPropertyName] 은 이름이 규칙대로 못 가는 곳에만 붙인다.
+// 헬프데스크 도메인 DTO. 서버는 camelCase 로 내려주고 JsonOptions 가 대소문자를 가리지 않으므로,
+// JsonPropertyName 은 이름이 규칙대로 못 가는 곳에만 붙인다.
 
 /// <summary>모든 엔티티가 공유하는 감사 필드.</summary>
 public abstract class HdEntity
@@ -32,11 +29,7 @@ public sealed class Customer : HdEntity
     public string LoginId { get; set; } = string.Empty;
     public string UserName { get; set; } = string.Empty;
 
-    /// <summary>
-    /// 소속 회사 식별자 — <b>포털</b>(<c>scom.companies.id</c>)의 값이다.
-    /// 헬프데스크에는 회사 표가 없어 이름이 함께 오지 않는다.
-    /// 이름은 <c>HelpDeskContext.CompanyName</c> 으로 푼다.
-    /// </summary>
+    /// <summary>소속 회사 식별자 — 포털(scom.companies.id)의 값이다. 이름은 HelpDeskContext.CompanyName 으로 푼다.</summary>
     public string? CompanyId { get; set; }
     public string? Email { get; set; }
     public string? Photo { get; set; }
@@ -46,13 +39,7 @@ public sealed class Customer : HdEntity
     public bool? IsDeleted { get; set; }
 }
 
-/// <summary>
-/// 개선요청(티켓).
-/// 상태(<see cref="Status"/>)는 서버가 이름으로 실어 보내고
-/// (Completed·Consultation·Delete·InProgress·Negotiation·Pending·Rejected·UserCompleted),
-/// 검색 조건에는 열거형 순번(0~7)을 받는다. 유형은
-/// Addition·Bug·Emergency·Error·Etc·Improvement·Question.
-/// </summary>
+/// <summary>개선요청(티켓). 상태는 서버가 이름으로 실어 보내고, 검색 조건에는 열거형 순번(0~7)을 받는다.</summary>
 public sealed class ImprovementRequest : HdEntity
 {
     public string Title { get; set; } = string.Empty;
@@ -78,23 +65,8 @@ public sealed class ImprovementRequest : HdEntity
     public List<ImprovementComment>? Comments { get; set; }
 }
 
-/// <summary>
-/// 요청 댓글 한 줄. <c>GET requests/{id}/comments</c> 가 주는 모양 그대로다.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <b>칸 이름을 서버에 맞춰 두었다.</b> 한동안 <c>content</c> · <c>authorName</c> ·
-/// <c>parentId</c> 로 적혀 있었는데 서버가 내려주는 것은 <c>commentText</c> ·
-/// <c>author</c> · <c>parentCommentId</c> 다. 이름이 어긋나면 역직렬화가
-/// <b>오류 없이</b> 빈 값을 채우므로, 증상이 「댓글은 몇 건이라는데 내용이
-/// 전부 비어 있다」로 나타난다.
-/// </para>
-/// <para>
-/// <c>commentText</c> 는 <b>HTML 이다</b> — 요청 본문과 같은 서식 편집기로
-/// 쓰고 붙여넣은 그림이 <c>&lt;img&gt;</c> 로 박힌다. 화면에 넣을 때는 반드시
-/// <c>NoticeHtml.Sanitize</c> 를 거친다.
-/// </para>
-/// </remarks>
+/// <summary>요청 댓글 한 줄. 칸 이름은 서버 응답에 맞춘다 — 어긋나면 역직렬화가 오류 없이 빈 값을 채운다.
+/// commentText 는 HTML 이라 화면에 넣을 때 반드시 NoticeHtml.Sanitize 를 거친다.</summary>
 public sealed class ImprovementComment : HdEntity
 {
     public int RequestId { get; set; }
@@ -108,10 +80,7 @@ public sealed class ImprovementComment : HdEntity
     /// <summary>작성자의 <b>헬프데스크 내부</b> 번호. 포털 아이디가 아니다.</summary>
     public int AuthorId { get; set; }
 
-    /// <summary>
-    /// 이 댓글이 달린 부모 댓글. 요청글에 바로 단 댓글이면 <c>null</c> 이다.
-    /// 깊이에 제한이 없다 — 대댓글의 대댓글도 같은 칸 하나로 이어진다.
-    /// </summary>
+    /// <summary>이 댓글이 달린 부모 댓글. 요청글에 바로 단 댓글이면 null. 깊이에 제한이 없다.</summary>
     public int? ParentCommentId { get; set; }
 
     /// <summary>지워진 댓글인가. 자리와 딸린 답글은 남고 내용만 가려진다.</summary>
@@ -137,11 +106,7 @@ public sealed class MyCommentItem
     public List<Attachment>? Attachments { get; set; }
 }
 
-/// <summary>
-/// 댓글 작성자. 담당자(<c>admin</c>)와 고객(<c>customer</c>)은 번호 체계가
-/// 달라서 서버가 <see cref="ImprovementComment.AuthorType"/> 으로 갈라 푼 뒤
-/// 이 모양으로 내려준다.
-/// </summary>
+/// <summary>댓글 작성자. 담당자(admin)와 고객(customer)은 번호 체계가 달라 서버가 AuthorType 으로 갈라 푼 뒤 내려준다.</summary>
 public sealed class CommentAuthor
 {
     public int Id { get; set; }
@@ -151,22 +116,8 @@ public sealed class CommentAuthor
     public string? Photo { get; set; }
 }
 
-/// <summary>첨부파일.</summary>
-/// <remarks>
-/// <para>
-/// <b>칸 이름을 서버에 맞춰 두었다.</b> 한동안 <c>fileName</c> · <c>contentType</c>
-/// 으로 적혀 있었는데 서버(<c>HelpDeskServer/Models/Attachment.cs</c>)가 내려주는
-/// 것은 <c>originalFileName</c> · <c>fileType</c> 이다. 이름이 어긋나면
-/// 역직렬화가 <b>오류 없이</b> 빈 값을 채우므로, 증상이 「첨부는 몇 건이라는데
-/// 이름도 종류도 전부 비어 있다」로 나타난다(<see cref="ImprovementComment"/> 와
-/// 같은 함정이다). 실제 응답으로 대조해 고쳤다 — 2026-09-28.
-/// </para>
-/// <para>
-/// 그림을 그리는 쪽이 보는 것은 <see cref="FileId"/> 다. 그것이 FileServer 가
-/// 발급한 아이디이고, <c>FilePath</c> · <c>StoredFileName</c> 은 FileServer 로
-/// 옮기기 전의 흔적이라 <b>옮긴 첨부에서는 쓰지 않는다</b>.
-/// </para>
-/// </remarks>
+/// <summary>첨부파일. 칸 이름은 서버 응답(originalFileName · fileType)에 맞춘다 — 어긋나면 빈 값으로 채워진다.
+/// 그림은 FileId 로 그린다. FilePath · StoredFileName 은 FileServer 이관 전 흔적이라 옮긴 첨부에서는 쓰지 않는다.</summary>
 public sealed class Attachment : HdEntity
 {
     /// <summary>올릴 때의 파일 이름.</summary>
@@ -209,18 +160,8 @@ public sealed class AuthUserLink
     public DateTime? CreatedAt { get; set; }
 }
 
-/// <summary>
-/// 현재 토큰이 해석된 헬프데스크 신원.
-///
-/// 두 가지를 구분해 담는다.
-/// <list type="bullet">
-///   <item><see cref="IsAdmin"/> — <b>무엇을 할 수 있는가.</b> 포털 역할이 관리자면
-///     계정 연결이 없어도 참이다. 조회·관리 화면을 열지 결정하는 값이다.</item>
-///   <item><see cref="Linked"/> / <see cref="HelpdeskUserId"/> — <b>'내 것'을 가리킬 수
-///     있는가.</b> 작성자·담당자·댓글은 헬프데스크 내부 ID 를 참조하므로 연결이
-///     없으면 "내가 쓴 것"을 찾을 수 없다.</item>
-/// </list>
-/// </summary>
+/// <summary>현재 토큰이 해석된 헬프데스크 신원. IsAdmin 은 무엇을 할 수 있는가(포털 관리자 역할이면 계정 연결 없이도 참).
+/// Linked·HelpdeskUserId 는 '내 것'을 가리킬 수 있는가 — 작성자·담당자·댓글이 내부 ID 를 참조하므로 연결이 없으면 내 글을 못 찾는다.</summary>
 public sealed class HelpdeskIdentity
 {
     public bool? IsAdmin { get; set; }
@@ -238,10 +179,8 @@ public sealed class HelpdeskIdentity
     /// <summary>헬프데스크 표에 적혀 있는 이름. 포털 이름과 다를 수 있다 — 참고용이다.</summary>
     public string? HelpdeskUserName { get; set; }
 
-    // ── 포털 쪽 신원 ───────────────────────────────────────
-    //
-    // 서버가 함께 준다. 옛 화면은 이 정보를 얻으려고 포털의
-    // `funeral/info/my-info` 를 따로 불렀는데, 그럴 필요가 없다.
+    // ── 포털 쪽 신원 ──
+    // 서버가 함께 준다 — 옛 화면처럼 포털 my-info 를 따로 부를 필요가 없다.
 
     /// <summary>포털 로그인 아이디. 계정 연결의 열쇠가 되는 값이다.</summary>
     public string? JsiniUserId { get; set; }
@@ -250,10 +189,7 @@ public sealed class HelpdeskIdentity
 
     public string? JsiniEmail { get; set; }
 
-    /// <summary>
-    /// 포털 역할들. <b>담당자 권한이 여기서 올 수 있다</b> —
-    /// 계정 연결이 없어도 <c>AdminByRole</c> 이 참이 되는 경로다.
-    /// </summary>
+    /// <summary>포털 역할들. 담당자 권한이 여기서 올 수 있다 — 계정 연결이 없어도 AdminByRole 이 참이 되는 경로다.</summary>
     public List<string> JsiniRoles { get; set; } = [];
 }
 
@@ -337,23 +273,8 @@ public sealed class BinarySample
     public DateTime? CreatedAt { get; set; }
 }
 
-/// <summary>
-/// 한 달치 요청 통계. 서버의 <c>MaintenanceReportDto</c> 와 짝이다.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <b>이름을 서버 것과 똑같이 둔다.</b> 한 번 다르게 적었다가
-/// 「응답을 해석하지 못했습니다」로 화면이 비었다 — <c>TotalCreated</c> ·
-/// <c>AvgResolutionTime</c> 처럼 읽기 좋은 이름을 붙였는데 서버는
-/// <c>totalRequests</c> · <c>averageResolutionTimeHours</c> 를 준다.
-/// 봉투를 벗기는 쪽이 대소문자만 무시할 뿐 이름은 그대로 본다.
-/// </para>
-///
-/// <para>
-/// SM 모니터링과 유지보수 현황이 같은 것을 쓴다 — 한쪽만 고치면 두 화면의
-/// 숫자가 달라진다.
-/// </para>
-/// </remarks>
+/// <summary>한 달치 요청 통계. 서버 MaintenanceReportDto 와 짝이다 — 이름을 서버 것과 똑같이 둔다(다르면 해석 실패로 화면이 빈다).
+/// SM 모니터링과 유지보수 현황이 같이 쓴다 — 한쪽만 고치면 두 화면의 숫자가 달라진다.</summary>
 public sealed class MonthlyReport
 {
     public int Year { get; set; }
@@ -375,16 +296,7 @@ public sealed class MonthlyReport
 
     public double ResolutionRate { get; set; }
 
-    /// <summary>
-    /// 상태별 건수. <b>배열이다 — 사전이 아니다.</b>
-    ///
-    /// <para>
-    /// 서버가 <c>Dictionary&lt;string,int&gt;</c> 를 들고 있지만 직렬화하면
-    /// <c>[{"key":"…","value":0}]</c> 로 나간다. 사전으로 받으면 **묶음 전체가
-    /// 해석에 실패해** 화면이 통째로 빈다(실제로 밟았다 —
-    /// 「응답을 해석하지 못했습니다」).
-    /// </para>
-    /// </summary>
+    /// <summary>상태별 건수. 배열이다 — 사전이 아니다. 서버는 사전을 [{key, value}] 로 내보내서, 사전으로 받으면 묶음 전체가 해석에 실패한다.</summary>
     public List<KeyCount>? RequestsByStatus { get; set; }
 
     public List<KeyCount>? RequestsByType { get; set; }
@@ -415,22 +327,8 @@ public sealed class KeyCount
     public int Value { get; set; }
 }
 
-/// <summary>
-/// 본문에 붙여넣은 그림 한 장을 올린 결과 (<c>POST files/image</c>).
-/// </summary>
-/// <remarks>
-/// <para>
-/// <b>첨부(<see cref="Attachment"/>)와 다르다.</b> 이쪽은 <c>attachment</c> 에 줄을
-/// 남기지 않는다 — 그림의 자리는 글 안이고, 첨부 목록에까지 또 뜨면 같은 그림이
-/// 두 번 보인다. 그래서 돌아오는 것도 번호가 아니라 파일 아이디 하나다.
-/// </para>
-/// <para>
-/// <see cref="Url"/> 은 <b>백엔드 정본</b>(<c>/api/file/download/id/{guid}</c>)이라
-/// 브라우저에 그대로 걸 수 없다(포털에는 <c>/api</c> 가 없다). 화면은
-/// <see cref="FileId"/> 로 셸 중계 주소를 만들어 쓴다
-/// (<c>JSini.Web.Components.Data.FileDownload.UrlFor</c>).
-/// </para>
-/// </remarks>
+/// <summary>본문에 붙여넣은 그림 한 장을 올린 결과. 첨부(Attachment)와 달리 줄을 남기지 않는다 — 첨부 목록에 또 뜨면 같은 그림이 두 번 보인다.
+/// Url 은 백엔드 정본이라 포털에서 그대로 걸 수 없다 — 화면은 FileId 로 셸 중계 주소를 만든다(FileDownload.UrlFor).</summary>
 public sealed class UploadedImage
 {
     /// <summary>FileServer 가 발급한 파일 아이디.</summary>

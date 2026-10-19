@@ -3,64 +3,9 @@
 @using System.Data
 
 @*
-    [DB 개체 탐색] — DB 메뉴 `/projmng/db/tools`.
-    이력: 옛 Blazor `Pages/Develop/DBTools.razor` → Vue `views/projmng/develop/db-tools.vue` → 여기.
-    호출: 개발도구 `tablelist` · `proclist`, `/Dev/sql`(미리보기),
-          DB 속성 (`db_pkey='sp_fmt'` — 생성 템플릿). **프로시저가 아니라 REST 다.**
-
-    고른 프로젝트 DB 의 **속을 들여다본다** — 테이블·프로시저·함수·본문·앞 10건.
-
-    [SQL 실행기가 되어 있었다]
-
-    옛 화면은 탐색기인데 이 화면은 SQL 을 쳐서 실행하는 곳이 되어 있었다.
-    그건 옆 화면(「DB 쿼리 테스터」)이 하는 일이라 둘이 같은 화면이 됐고,
-    정작 **탐색은 아무 데서도 할 수 없었다.**
-
-    게다가 부르던 액션(`dbtool_exec`)이 서버에 없다. 등록된 이름을 다 뒤져도
-    없어서 늘 「정의 되지 않았습니다」로 끝났다.
-
-    [등록된 액션만 부를 수 있다]
-
-    개발 도구 통로는 **미리 등록된 질의**를 이름으로 부른다
-    (`projmng.devsqlresp`). DB 종류마다 따로 등록돼 있어, 어떤 종류에는 있고
-    어떤 종류에는 없다.
-
-        POSTGRESQL   tablelist · proclist · columnsOftable · procInfo …
-        MSSQL        위에 더해 viewlist · dblinkInfo · tableFragmentation …
-        MYSQL        tablelist · proclist · columnsOftable · viewlist
-
-    그래서 「이 DB 종류에는 그 목록이 없다」가 정상인 경우가 있다. 화면이
-    그것을 오류가 아니라 안내로 보여 준다.
-
-    [칸 이름을 짐작으로 적고 있었다]
-
-    본문과 이름을 `proc_name` · `proc_body` 같은 이름에서 찾고 있었는데,
-    `proclist` 가 실제로 주는 칸은 `procedurename` · `routine_definition` 이다
-    (직접 불러 확인했다). 그래서 목록은 떠도 **행을 골라도 본문이 안 나왔고**,
-    없는 이름으로 `procInfo` 를 한 번 더 부르고 있었다.
-
-    [프로시저와 함수는 한 번에 읽어 나눈다]
-
-    `proclist` 한 번이 둘 다 준다. 가르는 것은 `pgtype` 이다 — `sql` 이면
-    함수, 그 밖(`plpgsql` 등)이면 프로시저. 옛 화면도 그렇게 갈랐다.
-
-    [「이름으로 거르기」가 EDB 에서만 듣고 있었다]
-
-    거르는 값(`param1`)은 등록된 질의가 받아 쓰는 것인데, **그 질의가 DB 종류마다
-    따로 등록돼 있다.** 실제로 훑어 보니 `param1` 을 쓰는 것은 EDB 의
-    `tablelist` · `proclist` 둘뿐이고 PostgreSQL·MSSQL·MYSQL 은 그 값을 보지
-    않는다. 그래서 이름을 쳐도 목록이 그대로였다 — 오류가 아니라서
-    「거르기가 안 듣는다」로만 보인다.
-
-    등록 질의를 DB 종류마다 고치는 대신 **화면이 거른다**(테이블 관리와 같은
-    판단이다). `param1` 은 계속 보낸다 — 서버가 먼저 좁혀 주면 오가는 양이
-    줄고, 그 위에 한 번 더 걸러도 결과는 같다.
-
-    [미리보기는 생 SQL 이다]
-
-    앞 10건은 등록된 질의가 아니라 문장을 만들어 보낸다. 테이블 이름이 그
-    문장에 들어가므로 **서버가 준 이름만** 쓴다 — 사용자가 친 글자를 넣지 않는다.
-    문법도 DB 종류마다 다르다(`limit` 대 `top`).
+DB 개체 탐색 — 고른 프로젝트 DB 의 테이블·프로시저·함수·본문·앞 10건을 본다(REST, 프로시저 아님).
+등록된 질의만 이름으로 부를 수 있어 DB 종류마다 목록이 다르므로, 없는 목록은 오류가 아니라 안내로 보인다. 칸 이름은 실제 응답(procedurename · routine_definition) 기준이다.
+이름 거르기는 화면이 한다(param1 을 받는 질의는 EDB 뿐이다). 앞 10건은 서버가 준 이름만 넣은 생 SQL 이다.
 *@
 
 @inherits DataPage
@@ -152,8 +97,7 @@ else
                         {
                             <h2 class="pm-subhead">@_routineName</h2>
 
-                            @* 읽기 전용이다. 여기서 고쳐 저장하는 길은 없다 —
-                               프로시저를 바꾸는 것은 배포에 속하는 일이다. *@
+                            @* 읽기 전용이다 — 프로시저를 바꾸는 것은 배포에 속한다. *@
                             <CodeEditor Value="@_routineBody" ReadOnly="true" Height="420px" Language="pgsql" />
                         }
                     </Second>

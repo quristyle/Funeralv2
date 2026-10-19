@@ -36,8 +36,7 @@ public partial class ReportMonthly
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        // 보고서는 `dashboard` 가 아니라 **`requests` 묶음** 밑에 있다.
-        // `year`·`month` 가 필수다 — 없으면 400 이 난다.
+        // 보고서는 requests 묶음 밑이고 year·month 가 필수다 — 없으면 400 이 난다.
         var now = AppTime.TodayDate;
         _periodLabel = $"{now.Year}년 {now.Month}월";
 
@@ -46,15 +45,11 @@ public partial class ReportMonthly
         _rows = JsonTable.From(json);
         _daily = ToDaily(json);
 
-        // 응답이 객체라 표는 비고(위 주석) 차트만 남는다.
-        // 차트에 그릴 것이 있으면 「없습니다」 를 띄우지 않는다.
+        // 응답이 객체라 표는 비고 차트만 남는다 — 차트에 그릴 것이 있으면 「없습니다」를 띄우지 않는다.
         return _rows.Rows.Count + (_daily.Sum(d => d.Requested + d.Completed) > 0 ? 1 : 0);
     }, "집계할 자료가 없습니다.", "월간 리포트를 읽지 못했습니다");
 
-    /// <summary>
-    /// 객체 응답에서 `dailyStats` 만 뽑는다. 칸 이름은 서버
-    /// <c>DailyRequestStatDto</c>(day·requestCount·completedCount)와 대조했다.
-    /// </summary>
+    /// <summary>객체 응답에서 dailyStats 만 뽑는다. 칸 이름은 서버 DailyRequestStatDto 와 대조했다.</summary>
     private static IReadOnlyList<DayPoint> ToDaily(JsonElement json)
     {
         if (json.ValueKind != JsonValueKind.Object

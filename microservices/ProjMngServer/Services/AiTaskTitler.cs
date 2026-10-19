@@ -4,30 +4,8 @@ using Npgsql;
 
 namespace ProjMngServer.Services;
 
-/// <summary>
-/// 끝난 실행을 보고 제목을 다시 짓는다.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <b>제목이 비어 있던 건만</b> 작업이 끝난 뒤 AI 가 지시문과 결과를 보고
-/// 아주 짧은 제목(20자 내외)을 지어 다시 넣는다. 사람이 적은 제목은 읽지도 않는다.
-/// </para>
-/// <para>
-/// <b>보통의 길에서는 여기까지 오지 않는다.</b> 제목은 처리 요약과 <b>같은 한 번의
-/// 모델 호출</b>로 와서 요약을 적는 자리가 함께 붙이고 도장(<c>title_run_key</c>)까지
-/// 찍는다(<see cref="AiRunSummaryWriter"/>). 이 자리는 그 도장이 없는 건 —
-/// 요약을 못 만들었거나 모델이 제목 칸만 빠뜨린 건 — 의 되받기다.
-/// </para>
-/// <para>
-/// 정리된 요약(<c>summary_text</c>)이 있으면 그것의 헤드라인을 읽혀 AI 호출 비용을 아낀다.
-/// </para>
-/// <para>
-/// <b>차수 제목(<c>ai_task_run.turn_title</c>)도 같은 걸음에 채운다</b>(2026-10-15).
-/// 그쪽은 <c>title_auto</c> 를 보지 않는다 — 사람이 적는 자리가 없는 칸이라
-/// 비어 있으면 그냥 아무도 못 지은 것이다. 그래서 <b>사람이 제목을 직접 써 둔
-/// 건에도 여기까지 온다</b>: 건의 제목은 그대로 두고 차수 제목만 채운다.
-/// </para>
-/// </remarks>
+/// <summary>끝난 실행을 보고 제목을 다시 짓는다. 제목이 비어 있던 건만 AI 가 짧은 제목(20자 내외)을 지어 넣는다.</summary>
+/// 보통은 요약과 같은 호출에서 제목이 붙고(AiRunSummaryWriter), 여기는 그 도장이 없는 건만 줍는다. 차수 제목도 같은 걸음에 채운다.
 public sealed class AiTaskTitler(
     IConfiguration configuration,
     AiResultSummarizer summarizer,
@@ -39,9 +17,7 @@ public sealed class AiTaskTitler(
 
     private IDbConnection Open() => new NpgsqlConnection(_connectionString);
 
-    /// <summary>
-    /// 끝난 실행을 보고 제목을 다시 짓는다.
-    /// </summary>
+    /// <summary>끝난 실행을 보고 제목을 다시 짓는다.</summary>
     public async Task TitleAsync(long runKey, CancellationToken ct = default)
     {
         if (ct.IsCancellationRequested)
@@ -78,25 +54,11 @@ public sealed class AiTaskTitler(
                 return;
             }
 
-            // **건의 제목**을 손댈 자리인가. 셋을 본다.
-            //
-            //   · 사람이 쓴 제목은 읽지도 않는다(`title_auto`).
-            //   · 이미 이 실행으로 붙은 제목이면 모델을 또 부르지 않는다 —
-            //     요약과 한 번에 받아 적은 길이다(<see cref="AiRunSummaryWriter"/>).
-            //     여기서 또 부르면 결과 메일이 그만큼 늦고, 같은 실행에 서로
-            //     다른 제목이 두 번 적힌다.
-            //   · **이 작업의 마지막 실행이어야 한다.** 건의 제목은 「마지막
-            //     차수의 제목」이라, 밀린 옛 실행을 주워 부를 때(감시자의
-            //     차수 제목 채우기) 그 한 줄이 **지금 제목을 1차의 것으로
-            //     되돌린다.** 요약 채우기가 `retitle: IsLatest` 로 막아 둔 것과
-            //     같은 자리이고, 2026-10-15 에 실제로 한 번 밟았다 — 옛 실행부터
-            //     훑으니 229건 가운데 173건의 제목이 옛 차수의 것으로 덮였다.
+            // 건의 제목은 이 실행이 마지막이고 사람이 쓴 것이 아닐 때만 손댄다(title_auto). 이미 요약과 함께 붙었으면 다시 부르지 않는다.
+            // 옛 실행을 주워 부를 때 건의 제목을 고치면 지금 제목이 옛 차수 제목으로 되돌아가므로, 마지막 실행이 아니면 건드리지 않는다.
             var needTask = task.TitleAuto && task.TitleRunKey != runKey && task.IsLatest;
 
-            // **차수 제목**을 채울 자리인가. 이쪽은 `title_auto` 를 보지 않는다 —
-            // 사람이 적는 자리가 아예 없는 칸이라, 비어 있으면 그냥 아무도 못 지은
-            // 것이다(시킬 때의 <see cref="AiTurnTitler"/> 도, 끝난 뒤의 요약도
-            // 빈손이었다). 그 칸이 비면 차수 머리줄이 번호와 상태만 말한다.
+            // 차수 제목은 title_auto 와 무관하게 채운다 — 사람이 쓰는 자리가 없고, 비어 있으면 아무도 못 짓는다.
             var needTurn = string.IsNullOrWhiteSpace(task.TurnTitle);
 
             if (!needTask && !needTurn)
@@ -171,10 +133,7 @@ public sealed class AiTaskTitler(
         /// <summary>이 실행의 차수 제목. 비어 있으면 아직 아무도 못 지었다.</summary>
         public string? TurnTitle { get; set; }
 
-        /// <summary>
-        /// 이것이 그 작업의 <b>마지막 실행</b>인가. 거짓이면 건의 제목에 손대지
-        /// 않는다 — 건의 제목은 마지막 차수의 것이다.
-        /// </summary>
+        /// <summary>이 작업의 마지막 실행인가. 거짓이면 건의 제목을 건드리지 않는다.</summary>
         public bool IsLatest { get; set; }
     }
 }

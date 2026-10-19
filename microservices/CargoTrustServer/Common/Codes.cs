@@ -1,21 +1,11 @@
 namespace CargoTrustServer.Common;
 
-// 코드값은 docs/cargotrust/05-api-design.md 「코드표」 그대로다.
-// DB 에는 이름 문자열로, JSON 에도 이름 문자열로 나간다 — 그래서 멤버 이름이 곧 코드다.
-// 대문자 멤버 이름이 C# 관례와 어긋나지만, 이름을 바꾸면 DB 값과 계약이 함께 깨진다.
+// 코드값은 docs/cargotrust/05-api-design.md 의 코드표 그대로다. DB 와 JSON 에 이름 문자열로 나가므로 멤버 이름이 곧 코드다.
 
 /// <summary>결제 상태</summary>
 public enum PaymentStatus { SCHEDULED, PAID, DELAYED, PARTIAL, UNPAID, DISPUTE }
 
-/// <summary>
-/// 「아직 다 받지 못한 것」의 정의. <b>한 곳에만 둔다.</b>
-///
-/// <para>
-/// 미수금(<c>/receivables</c>)과 결제 등록 화면이 같은 묶음을 봐야 한다 —
-/// 한쪽에 있고 다른 쪽에 없으면 사용자는 「받을 돈이 사라졌다」로 읽는다.
-/// 예전에는 이 목록이 서버의 미수금 쪽과 화면 쪽에 따로 적혀 있었다.
-/// </para>
-/// </summary>
+/// <summary>아직 다 받지 못한 것의 정의. 미수금과 결제 등록 화면이 같은 묶음을 봐야 하므로 한 곳에만 둔다.</summary>
 public static class Receivable
 {
     /// <summary>미수금에 드는 상태 — 다 받은 것(PAID · DELAYED)을 뺀 나머지.</summary>
@@ -58,20 +48,10 @@ public enum Confidence { NONE, LOW, MEDIUM, HIGH }
 
 // ── 톨게이트 심야할인 ──────────────────────────────────────────
 
-/// <summary>
-/// 구간 유형. <b>할인 규칙이 여기서 갈린다</b> — 야간창도 다르고 세는 법도 다르다.
-///
-/// <para>
-/// 폐쇄식은 진입·진출 영업소가 나뉘어 「얼마나 오래 밤에 있었나」를 비율로 재고,
-/// 개방식은 요금소를 한 번 지날 뿐이라 <b>통과 시각 한 점</b>으로 본다.
-/// </para>
-/// </summary>
+/// <summary>구간 유형. 할인 규칙이 여기서 갈린다 — 폐쇄식은 야간 비율로, 개방식은 통과 시각 한 점으로 본다.</summary>
 public enum SectionType { CLOSED, OPEN }
 
-/// <summary>
-/// 고속도로 통행료 차종. <b>할인율의 띠를 바꾸지 않는다</b> —
-/// 금액과 「심야할인 대상인가」만 가른다.
-/// </summary>
+/// <summary>통행료 차종. 할인율의 띠를 바꾸지 않고 금액과 심야할인 대상 여부만 가른다.</summary>
 public enum VehicleClass { LIGHT, C1, C2, C3, C4, C5 }
 
 /// <summary>
@@ -83,12 +63,7 @@ public enum VehicleKind { UNKNOWN, PASSENGER, VAN, FREIGHT, SPECIAL }
 /// <summary>번호판 한글 한 자가 말하는 용도.</summary>
 public enum PlateUsage { UNKNOWN, PRIVATE, BUSINESS, DELIVERY, RENTAL }
 
-/// <summary>
-/// 요청 본문의 코드값을 읽는다.
-///
-/// 요청 DTO 의 코드 칸은 enum 이 아니라 문자열로 받는다. enum 으로 받으면 틀린 값이
-/// 바인딩 단계에서 봉투 없는 400 으로 떨어져, 화면이 「무엇이 틀렸는지」를 못 보여 준다.
-/// </summary>
+/// <summary>요청 본문의 코드값을 읽는다. 코드 칸은 enum 이 아니라 문자열로 받아야 틀린 값의 까닭을 화면이 보여 줄 수 있다.</summary>
 public static class Code
 {
     /// <summary>비었으면 null, 알 수 없는 값이면 false.</summary>

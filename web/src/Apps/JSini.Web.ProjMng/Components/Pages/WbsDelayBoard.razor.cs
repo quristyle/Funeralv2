@@ -16,10 +16,7 @@ public partial class WbsDelayBoard
         WbsBoardOptions.TextOf(WbsBoardOptions.Who, _who),
         SchSummary.NameOf(KindOptions, o => o.Value, o => o.Text, _kind));
 
-    /// <summary>
-    /// 고른 프로젝트의 <b>이름</b>. 화면이 든 것은 코드뿐이고 목록은
-    /// <c>CodeSelect</c> 안에 있어, 그 부품이 <c>@bind-Text</c> 로 올려 준다.
-    /// </summary>
+    /// <summary>고른 프로젝트의 이름. 코드만 들고, 목록은 CodeSelect 가 쥐고 있다.</summary>
     private string? _projectName;
 
     private string? _projectCode;
@@ -70,8 +67,7 @@ public partial class WbsDelayBoard
     {
         if (string.IsNullOrWhiteSpace(user)) return;
 
-        // 갈래 이름이 목록 쪽과 다르다 — 여기서는 `all` 이 「하나라도」인데
-        // 목록의 필터는 `any` 다. 그대로 넘기면 조건이 안 걸린다.
+        // 갈래 이름이 목록과 다르다 — 여기서는 all 이 「하나라도」인데 목록의 필터는 any 다. 그대로 넘기면 조건이 안 걸린다.
         var late = _kind == "all" ? "any" : _kind;
         var userKey = _who == "real" ? "realUser" : "user";
 

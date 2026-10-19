@@ -5,13 +5,8 @@ using ProjMngServer.Services;
 
 namespace ProjMngServer.Controllers;
 
-/// <summary>
-/// 소스 정보 — <c>/api/source-infos</c> 와 그 상세.
-/// </summary>
-/// <remarks>
-/// 상세를 <c>/{srcRid}/details</c> 아래에 둔 것은 <b>상세가 홀로 서지
-/// 않기 때문</b>이다 — 늘 어느 소스의 상세다. 경로가 그 관계를 말한다.
-/// </remarks>
+/// <summary>소스 정보 — <c>/api/source-infos</c> 와 그 상세.</summary>
+/// 상세를 /{srcRid}/details 아래에 둔 것은 상세가 늘 어느 소스의 상세이기 때문이다. 경로가 그 관계를 정한다.
 [ApiController]
 [Route("api/source-infos")]
 public sealed class SourceInfosController(SourceInfoService service) : ControllerBase

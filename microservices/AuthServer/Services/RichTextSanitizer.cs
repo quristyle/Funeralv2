@@ -6,26 +6,8 @@ namespace AuthServer.Services;
 /// <summary>
 /// 서식 있는 본문(HTML)을 저장 전에 세탁한다.
 /// </summary>
-/// <remarks>
-/// 왜 필요한가.
-///
-/// 화면의 편집기(tiptap)는 자기 스키마에 없는 태그를 알아서 버린다. 하지만 그것은
-/// **화면 쪽 정리**일 뿐이다. 같은 API 에 직접 요청을 보내면 무엇이든 들어온다.
-/// 그 본문은 조회 화면에서 `v-html` 로 그려지므로, 걸러지지 않으면 남의 화면에서
-/// 스크립트가 도는 길이 된다.
-///
-/// Q&amp;A 는 **일반 사용자도 본문을 쓴다.** 관리자만 쓰는 공지와 사정이 다르다.
-/// 그래서 도움말(F.A.Q · Q&amp;A) 본문은 여기를 반드시 지나게 한다.
-///
-/// 방식은 허용 목록이다. 목록에 없는 것은 지운다 —
-/// 금지 목록으로 막으면 새 태그·속성이 생길 때마다 구멍이 난다.
-///
-/// [영상 넣기]
-/// <c>allowEmbeds</c> 를 켜면 <c>&lt;iframe&gt;</c> 을 남긴다. 다만 아무 주소나 두지 않고
-/// <see cref="EmbedHosts"/> 에 적은 영상 서비스만 통과시킨다. 임의 주소를 허용하면
-/// 관리 화면 안에 남의 페이지를 띄워 버튼을 가리는 길(클릭재킹)이 열린다.
-/// 켜는 자리는 두 곳뿐이다 — F.A.Q 답변(관리자만 쓴다)과 **관리자가 쓴** Q&amp;A 글.
-/// </remarks>
+/// 화면 편집기가 걸러 주지만 같은 API 에 직접 요청하면 무엇이든 들어온다. 본문은 v-html 로 그려지므로 여기서 허용 목록 방식으로 걸러야 한다(금지 목록은 새 태그마다 구멍이 난다).
+/// 영상(iframe)은 allowEmbeds 를 켠 관리자 본문에서만, EmbedHosts 의 서비스 주소만 통과한다 — 임의 주소를 허용하면 관리 화면 위에 남의 페이지를 띄우는 클릭재킹 길이 열린다.
 public static class RichTextSanitizer
 {
     /// <summary>남겨 둘 태그</summary>
@@ -40,9 +22,7 @@ public static class RichTextSanitizer
     };
 
     /// <summary>내용까지 통째로 버릴 태그. 안쪽 글자를 남기면 코드가 새어 나온다.</summary>
-    /// <remarks>
-    /// <c>iframe</c> 도 기본은 여기 있다. <c>allowEmbeds</c> 를 켠 경우에만 예외로 살린다.
-    /// </remarks>
+    /// iframe 도 기본은 여기 있고, allowEmbeds 를 켠 경우에만 살린다.
     private static readonly HashSet<string> DropWithContent = new(StringComparer.OrdinalIgnoreCase)
     {
         "script", "style", "iframe", "object", "embed", "form", "template",
@@ -52,10 +32,7 @@ public static class RichTextSanitizer
     /// <summary>
     /// 영상 넣기를 허용할 호스트. 여기 없는 주소의 iframe 은 버린다.
     /// </summary>
-    /// <remarks>
-    /// 새 서비스를 늘릴 일이 생기면 이 목록에 한 줄 더하면 된다.
-    /// 늘리기 전에 그 서비스가 **남의 페이지를 그대로 띄워 주는 통로**가 아닌지 확인한다.
-    /// </remarks>
+    /// 새 서비스를 늘리기 전에 남의 페이지를 그대로 띄워 주는 통로가 아닌지 확인한다.
     private static readonly HashSet<string> EmbedHosts = new(StringComparer.OrdinalIgnoreCase)
     {
         "www.youtube.com", "youtube.com",
@@ -67,10 +44,7 @@ public static class RichTextSanitizer
     };
 
     /// <summary>iframe 에 남길 속성</summary>
-    /// <remarks>
-    /// <c>srcdoc</c> 은 절대 넣지 않는다 — 주소 검사를 지나지 않고 임의 HTML 을 실행한다.
-    /// <c>name</c> 도 넣지 않는다(창 이름으로 다른 프레임을 겨냥할 수 있다).
-    /// </remarks>
+    /// srcdoc 은 절대 넣지 않는다 — 주소 검사를 지나지 않고 임의 HTML 을 실행한다. name 도 빼서 다른 프레임을 겨냥하지 못하게 한다.
     private static readonly HashSet<string> IframeAttributes = new(StringComparer.OrdinalIgnoreCase)
     {
         "src", "width", "height", "title", "frameborder",
@@ -80,10 +54,7 @@ public static class RichTextSanitizer
     /// <summary>
     /// <c>style</c> 에 남길 CSS 속성. 크기와 여백만 남긴다.
     /// </summary>
-    /// <remarks>
-    /// style 을 그대로 두면 <c>position:fixed</c> 로 화면 전체를 덮을 수 있다.
-    /// 넣으려는 것은 "가로 816, 높이 480" 같은 크기 지정이므로 그것만 통과시킨다.
-    /// </remarks>
+    /// style 을 그대로 두면 position:fixed 로 화면을 덮을 수 있어 크기·여백 속성만 통과시킨다.
     private static readonly HashSet<string> StyleProperties = new(StringComparer.OrdinalIgnoreCase)
     {
         "width", "height", "min-width", "min-height", "max-width", "max-height",
@@ -138,11 +109,7 @@ public static class RichTextSanitizer
     /// <summary>
     /// 알맹이가 없는 본문인지. 태그를 벗겨 낸 글자와 이미지 둘 다 없으면 비어 있다고 본다.
     /// </summary>
-    /// <remarks>
-    /// 편집기는 아무것도 안 써도 `&lt;p&gt;&lt;/p&gt;` 를 보낸다.
-    /// 문자열 길이만 보면 이걸 '내용 있음' 으로 받아들인다.
-    /// 이미지만 붙여넣은 본문은 글자가 없어도 내용이 있는 것이다.
-    /// </remarks>
+    /// 편집기는 아무것도 안 써도 빈 p 를 보내므로 길이로 보면 안 된다. 이미지·영상만 있는 본문은 글자가 없어도 내용이 있다.
     public static bool IsEmpty(string? html)
     {
         if (string.IsNullOrWhiteSpace(html)) return true;
@@ -162,9 +129,7 @@ public static class RichTextSanitizer
     /// <summary>
     /// 노드를 훑어 허용 목록에 맞게 고친다.
     /// </summary>
-    /// <remarks>
     /// 자식을 지우면서 순회하면 목록이 흔들리므로 미리 복사해 두고 돈다.
-    /// </remarks>
     private static void Clean(HtmlNode node, bool allowEmbeds)
     {
         foreach (var child in node.ChildNodes.ToList())
@@ -225,11 +190,7 @@ public static class RichTextSanitizer
     /// <summary>
     /// 영상 iframe 을 손질한다. 남겨도 되는 것이면 참을 돌려준다.
     /// </summary>
-    /// <remarks>
-    /// 주소가 허용 목록 밖이면 거짓을 돌려준다 — 부르는 쪽이 태그를 지운다.
-    /// 상대경로·<c>javascript:</c>·<c>data:</c> 는 모두 여기서 걸린다
-    /// (호스트를 뽑을 수 없으므로 통과하지 못한다).
-    /// </remarks>
+    /// 주소가 허용 목록 밖이면 거짓 — 부르는 쪽이 태그를 지운다. 상대경로·javascript:·data: 는 호스트를 뽑을 수 없어 여기서 걸린다.
     private static bool CleanIframe(HtmlNode node)
     {
         var src = node.GetAttributeValue("src", string.Empty).Trim();

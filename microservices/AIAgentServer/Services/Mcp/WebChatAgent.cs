@@ -18,25 +18,7 @@ public sealed record WebSource(string Title, string Url);
 public sealed record WebEvidence(
     string Text, IReadOnlyList<WebSource> Sources, IReadOnlyList<string> ToolCalls);
 
-/// <summary>
-/// 모델이 도구를 써 가며 답하게 한다.
-/// </summary>
-/// <remarks>
-/// <para>
-/// 모델은 도구를 <b>직접 부르지 못한다.</b> "이 도구를 이런 인자로 불러 달라" 는
-/// 뜻만 내놓을 뿐이고, 실제로 부르고 결과를 다시 넣어 주는 것은 이쪽 일이다.
-/// 그 주고받기를 답이 나올 때까지 반복하는 것이 이 클래스다.
-/// </para>
-/// <para>
-/// <b>횟수를 반드시 막는다.</b> 모델이 같은 검색을 끝없이 되풀이하는 일이 있다 —
-/// 막지 않으면 한 번의 질문이 수십 번의 바깥 요청으로 불어난다.
-/// </para>
-/// <para>
-/// <b>기존 대화 경로(<c>LLMService</c>)를 건드리지 않는다.</b> 거기에는 공급자
-/// 자동전환·사용량 기록이 얽혀 있어, 도구 루프를 끼우면 잘 도는 길을 위험하게
-/// 한다. 도구가 필요한 질문은 이 길로 따로 보낸다.
-/// </para>
-/// </remarks>
+/// <summary>모델이 도구를 써 가며 답하게 한다. 모델은 도구를 직접 부르지 못한다.</summary>
 public sealed class WebChatAgent
 {
     private const string SystemPrompt = """
@@ -145,18 +127,8 @@ public sealed class WebChatAgent
 
     /// <summary>
     /// <b>근거만 모으고 답은 쓰지 않는다.</b> 기존 대화 경로에 끼우기 위한 것이다.
+    /// 답까지 여기서 쓰면 LLMService 가 들고 있는 것들(공급자 자동전환 · 사용량 기록 · 스트리밍)을 통째로 다시 만들어야 한다.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 답까지 여기서 쓰면 <c>LLMService</c> 가 들고 있는 것들(공급자 자동전환 ·
-    /// 사용량 기록 · 스트리밍)을 통째로 다시 만들어야 한다. 그래서 <b>도구를
-    /// 부르는 데까지만</b> 하고, 모은 것을 글로 넘겨 준다 — 답은 원래 길이 쓴다.
-    /// </para>
-    /// <para>
-    /// <b>값이 없으면 null 이다.</b> 모델이 "검색할 필요 없다" 고 판단하면 그대로
-    /// 비워 돌려주고, 대화는 평소처럼 흘러간다.
-    /// </para>
-    /// </remarks>
     public async Task<WebEvidence?> GatherAsync(
         string question, string? provider, CancellationToken ct = default)
     {
@@ -223,11 +195,7 @@ public sealed class WebChatAgent
         return new WebEvidence(gathered.ToString(), Dedup(sources), called);
     }
 
-    /// <summary>
-    /// 근거 모으기 단계의 지시. <b>답을 쓰지 말라</b>고 분명히 적는다 —
-    /// 안 적으면 모델이 도구를 안 부르고 아는 것으로 답해 버려서,
-    /// 그 답은 버려지고 검색도 안 된 채로 끝난다.
-    /// </summary>
+    /// <summary>근거 모으기 단계의 지시. <b>답을 쓰지 말라</b>고 분명히 적는다 — 안 적으면 모델이 도구를 안 부르고 아는 것으로 답해 버려서, 그 답은 버려지고 검색도 안 된 채로 끝난다.</summary>
     private const string GatherPrompt = """
         당신은 질문에 답하기 전에 **자료를 모으는 역할**만 맡습니다. 답을 쓰지 마십시오.
 

@@ -16,9 +16,7 @@ using HelpDeskServer.Data;
 
 namespace HelpDeskServer.Services {
   // Health Check API 응답을 위한 DTO
-  /// <summary>
-  /// 헬스체크 응답
-  /// </summary>
+  /// <summary>헬스체크 응답</summary>
   public class HealthCheckResponse {
 
     [JsonPropertyName("startTime")]
@@ -41,40 +39,28 @@ namespace HelpDeskServer.Services {
 
 
   public class HealthChecks {
-    /// <summary>
-    /// 상태
-    /// </summary>
+    /// <summary>상태</summary>
     [JsonPropertyName("status")]
     public string? Status { get; set; }
-    /// <summary>
-    /// 체크 항목들
-    /// </summary>
+    /// <summary>체크 항목들</summary>
     [JsonPropertyName("checks")]
     public List<HealthCheckItem>? Checks { get; set; }
   }
 
 
-  /// <summary>
-  /// 헬스체크 항목
-  /// </summary>
+  /// <summary>헬스체크 항목</summary>
   public class HealthCheckItem {
-    /// <summary>
-    /// 이름
-    /// </summary>
+    /// <summary>이름</summary>
     [JsonPropertyName("name")]
     public string? Name { get; set; }
 
 
-    /// <summary>
-    /// 상태
-    /// </summary>
+    /// <summary>상태</summary>
     [JsonPropertyName("status")]
     public string? Status { get; set; }
   }
 
-  /// <summary>
-  /// 헬스체크 워커
-  /// </summary>
+  /// <summary>헬스체크 워커</summary>
   public class HealthCheckWorker : BackgroundService {
     private readonly ILogger<HealthCheckWorker> _logger;
     private readonly IServiceScopeFactory _serviceScopeFactory;
@@ -84,14 +70,10 @@ namespace HelpDeskServer.Services {
     private readonly IConfiguration _configuration;
     private readonly HttpClient _httpClient;
 
-    /// <summary>
-    /// 이전 상태가 비정상이었는지 추적하는 플래그
-    /// </summary>
+    /// <summary>이전 상태가 비정상이었는지 추적하는 플래그</summary>
     private bool _wasLastCheckUnhealthy = false; // 이전 상태가 비정상이었는지 추적하는 플래그
 
-    /// <summary>
-    /// 생성자
-    /// </summary>
+    /// <summary>생성자</summary>
     /// <param name="logger"></param>
     /// <param name="serviceScopeFactory"></param>
     /// <param name="sender"></param>
@@ -114,9 +96,7 @@ namespace HelpDeskServer.Services {
       _httpClient = new HttpClient();
     }
 
-    /// <summary>
-    /// 실행 메서드
-    /// </summary>
+    /// <summary>실행 메서드</summary>
     /// <param name="stoppingToken"></param>
     /// <returns></returns>
     protected override async Task ExecuteAsync(CancellationToken stoppingToken) {
@@ -174,7 +154,7 @@ namespace HelpDeskServer.Services {
 
 
 
-              // 이전에는 정상이였는데, 지금 비정상이 된 경우에만 알림
+              // 정상이던 것이 비정상이 된 경우에만 알림
               if (!_wasLastCheckUnhealthy && currentUnhealthyReason != "") {
                 _logger.LogWarning($"Unhealthy services detected: {currentUnhealthyReason}");
                 var adminSubscriptions = await store.GetAdminSubscriptionsAsync();
@@ -199,7 +179,7 @@ namespace HelpDeskServer.Services {
             isCurrentlyUnhealthy = true;
             currentUnhealthyReason = $"API 응답 실패 (상태 코드: {response.StatusCode})";
 
-            // 이전에는 정상이였는데, 지금 비정상이 된 경우에만 알림
+            // 정상이던 것이 비정상이 된 경우에만 알림
             if (!_wasLastCheckUnhealthy) {
               _logger.LogWarning($"Failed to get successful response from health check API. Status code: {response.StatusCode}");
               var adminSubscriptions = await store.GetAdminSubscriptionsAsync();
@@ -255,7 +235,6 @@ namespace HelpDeskServer.Services {
             await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);
 
           }
-          //await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
         }
       }
     }

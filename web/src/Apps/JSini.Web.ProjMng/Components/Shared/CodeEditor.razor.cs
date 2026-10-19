@@ -14,45 +14,19 @@ public partial class CodeEditor
 
     private StandaloneCodeEditor? _editor;
 
-    /// <summary>
-    /// Monaco 스크립트를 다 받았나. <b>받기 전에는 편집기를 그리지 않는다.</b>
-    ///
-    /// <para>
-    /// BlazorMonaco 는 스크립트 세 장을 <c>&lt;head&gt;</c> 에 두라고 하는데,
-    /// 그중 <c>editor.main.js</c> 가 3MB 다. 셸의 머리는 한 벌이라 거기 적으면
-    /// <b>편집기가 없는 화면까지 전부</b> 그것을 받는다 — 포털에서 편집기를
-    /// 쓰는 화면은 아홉 개뿐이다. 그래서 이 부품이 필요할 때 받는다
-    /// (<c>js/monaco-loader.js</c>).
-    /// </para>
-    /// </summary>
+    /// <summary>Monaco 스크립트를 받았나. 받기 전에는 편집기를 그리지 않는다. 셸 머리에 두면 3MB 를 모든 화면이 받는다.</summary>
     private bool _loaded;
 
     /// <summary>스크립트를 받아 오는 쪽. 화면을 벗어나면 놓는다.</summary>
     private IJSObjectReference? _loader;
 
-    /// <summary>
-    /// 편집기 DOM 요소의 id. 한 화면에 편집기가 둘 이상 있을 수 있어
-    /// (예: DB 속성 화면) 겹치지 않는 값을 만든다.
-    /// </summary>
+    /// <summary>편집기 DOM 요소 id. 한 화면에 편집기가 여럿일 수 있어 겹치지 않게 만든다.</summary>
     private readonly string _id = $"pm-editor-{Guid.NewGuid():N}";
 
-    /// <summary>
-    /// 무엇을 넣는 자리인지 알려 주는 한 줄.
-    ///
-    /// **Monaco 에는 자리표시 글자가 없다.** 그래서 편집기 안이 아니라 위에
-    /// 적는다. 이 매개변수가 없던 동안 「DB 테스터」 화면이 500 이었다 —
-    /// 라우트 매개변수와 같은 종류의 실수로, 컴파일은 통과하고 열 때 죽는다.
-    /// </summary>
+    /// <summary>입력 자리의 안내 한 줄. Monaco 에는 자리표시 글자가 없어 편집기 위에 적는다.</summary>
     [Parameter] public string? Placeholder { get; set; }
 
-    /// <summary>
-    /// 편집기 내부 우측 상단 액션 바(복사 + 자동줄바꿈)를 보일지.
-    ///
-    /// <para>
-    /// <b>기본값은 켜져 있다(true).</b> 다른 화면에서도 일관되게
-    /// 복사 및 자동줄바꿈 기능을 사용할 수 있도록 기본 제공한다.
-    /// </para>
-    /// </summary>
+    /// <summary>편집기 우측 상단 액션(복사 · 자동 줄바꿈 · 줄 번호)을 보일지. 기본은 켜짐.</summary>
     [Parameter] public bool ShowActions { get; set; } = true;
 
     /// <summary>하위 호환성을 위한 별칭. 값이 주어지면 ShowActions 에 우선한다.</summary>
@@ -68,39 +42,19 @@ public partial class CodeEditor
 
     private bool _ready;
 
-    /// <summary>
-    /// 자동 줄바꿈 기본값. 기본값은 <b>켜짐(true)</b>이다.
-    /// 에디터가 열릴 때부터 줄바꿈 아이콘이 선택된 상태로 시작한다.
-    /// </summary>
+    /// <summary>자동 줄바꿈 기본값. 켜짐(true)으로 시작한다.</summary>
     [Parameter] public bool WordWrap { get; set; } = true;
 
     /// <summary>자동 줄바꿈 상태. 아이콘 버튼과 Monaco 옵션을 함께 조종한다.</summary>
     private bool _wordWrap = true;
 
-    /// <summary>
-    /// 줄 번호를 보일지. 기본값은 <b>숨김(false)</b>이다.
-    /// </summary>
+    /// <summary>줄 번호를 보일지. 기본은 숨김.</summary>
     [Parameter] public bool ShowLineNumbers { get; set; }
 
     /// <summary>줄 번호 상태. 「…」 메뉴의 스위치와 Monaco 옵션을 함께 조종한다.</summary>
     private bool _lineNumbers;
 
-    /// <summary>
-    /// 편집기 글자 크기(px). <b>본문과 같은 크기를 따라간다.</b>
-    /// </summary>
-    /// <remarks>
-    /// 한동안 12 로 박혀 있었다. 그 값은 테마 크기를 「크게」로 올려도 꿈쩍하지
-    /// 않아서, <b>화면의 다른 글씨는 16px 인데 지시문만 12px</b> 인 채로 남았다 —
-    /// 이 화면에서 사람이 가장 오래 들여다보는 글이 가장 작은 글씨였다.
-    ///
-    /// <para>
-    /// 사다리(<c>--jsini-fs-*</c>)를 CSS 로 걸 수는 없다. Monaco 는
-    /// <c>fontSize</c> 를 <b>숫자로만</b> 받고 줄 높이·커서·여백을 그 숫자로
-    /// 직접 재기 때문에, 바깥에서 <c>font-size</c> 를 덮으면 글자만 커지고
-    /// 커서와 줄 간격이 어긋난다. 그래서 재서 넣는다
-    /// (<c>monaco-loader.js</c> 의 <c>baseFontPx</c>).
-    /// </para>
-    /// </remarks>
+    /// <summary>편집기 글자 크기(px). 본문과 같은 크기를 따른다. 사다리를 CSS 로 못 걸어 재서 넣는다 — Monaco 는 fontSize 를 숫자로만 받고 커서와 줄 간격을 그 숫자로 잰다.</summary>
     private double _fontPx = 14;
 
     protected override void OnInitialized()
@@ -108,27 +62,14 @@ public partial class CodeEditor
         _wordWrap = WordWrap;
         _lineNumbers = ShowLineNumbers;
 
-        // 서랍에서 크기를 바꾸면 다시 재서 밀어 넣는다. 옵션은 편집기를 만들 때
-        // 한 번만 평가되므로(BuildOptions 머리말) 여기서 듣지 않으면 **이미 떠
-        // 있는 편집기만** 옛 크기로 남는다.
+        // 서랍에서 크기를 바꾸면 따라가게 듣는다. 옵션은 만들 때 한 번만 평가되어 여기서 안 들으면 떠 있는 편집기만 옛 크기로 남는다.
         Size.Changed += OnThemeSizeChanged;
     }
 
-    /// <summary>
-    /// <b><c>InvokeAsync</c> 로 넘긴다.</b> 이 알림은 테마 서랍 쪽에서 오고,
-    /// 아래에서 한 번 <c>await</c> 하는 순간 스레드풀로 옮겨 간다 — 회로의
-    /// 동기화 문맥 밖에서 JS 를 부르는 자리가 된다.
-    /// </summary>
+    /// <summary>테마 서랍에서 온 알림. 곧바로 await 하면 회로 문맥 밖에서 JS 를 부르므로 InvokeAsync 로 넘긴다.</summary>
     private void OnThemeSizeChanged() => _ = InvokeAsync(ApplyFontSizeAsync);
 
-    /// <summary>
-    /// 본문 글자 크기를 다시 재서 편집기에 민다.
-    /// </summary>
-    /// <remarks>
-    /// <b>재는 것을 한 박자 미룬다.</b> <c>ThemeSize.Changed</c> 는 화면이 새
-    /// <c>data-dx-size</c> 로 다시 그려지기 <b>전에</b> 오므로, 그 자리에서 바로
-    /// 재면 옛 크기를 읽는다.
-    /// </remarks>
+    /// <summary>본문 글자 크기를 다시 재서 편집기에 민다. 알림은 새 data-dx-size 가 그려지기 전에 오므로 재는 것을 한 박자 미룬다.</summary>
     private async Task ApplyFontSizeAsync()
     {
         if (_loader is not { } loader || _editor is not { } editor)
@@ -191,32 +132,7 @@ public partial class CodeEditor
         }
     }
 
-    /// <summary>
-    /// 편집기 옵션.
-    ///
-    /// 값은 여기서 넣지 않는다 — 옵션은 편집기를 만들 때 <b>한 번만</b> 평가되므로,
-    /// 나중에 바깥에서 값이 바뀌면 반영되지 않는다. 값은 OnAfterRender 에서 민다.
-    /// </summary>
-    /// <remarks>
-    /// <b><see cref="ReadOnly"/> 인 편집기는 휴대폰에서 자판도 부르지 않는다.</b>
-    /// <c>ReadOnly</c> 는 <b>글자가 들어오는 것만</b> 막을 뿐, 글자를 받는 숨은
-    /// 칸은 그대로 서서 초점을 받는다 — 휴대폰은 그것만 보고 자판을 올리므로
-    /// 줄 하나 짚을 때마다 화면 절반이 덮인다. 읽기 전용 편집기(쿼리 들여다보기 ·
-    /// 소스 보기 …)에서는 거기 칠 것이 아예 없다.
-    ///
-    /// <para>
-    /// 두 가지를 같이 적어야 한다. Monaco 가 글자를 받는 길이 숨은
-    /// <c>textarea</c> 와 크롬 계열의 <c>EditContext</c> 로 갈려 있어서다.
-    /// <c>DomReadOnly</c> 는 앞의 것에 <c>readonly</c> 를 달고(그래야 자판이
-    /// 안 올라온다), 뒤의 것은 읽기 전용이라는 말을 듣지 않으므로
-    /// <c>EditContext = false</c> 로 옛 길로 돌려놓는다.
-    /// </para>
-    ///
-    /// <para>
-    /// <b>고칠 수 있는 편집기에는 손대지 않는다</b>(<c>null</c> 로 둔다) —
-    /// 거기서는 자판이 올라오는 것이 할 일이다.
-    /// </para>
-    /// </remarks>
+    /// <summary>편집기 옵션. ReadOnly 편집기는 DomReadOnly 와 EditContext=false 로 자판을 막는다 — 숨은 칸이 초점을 받으면 휴대폰이 자판을 올린다.</summary>
     private StandaloneEditorConstructionOptions BuildOptions(StandaloneCodeEditor editor) => new()
     {
         Language = ToMonacoLanguage(Language),
@@ -233,9 +149,7 @@ public partial class CodeEditor
         RenderLineHighlight = "line",
         SmoothScrolling = true,
 
-        // 막대는 Monaco 가 제 손으로 div 로 그린다 — 브라우저 막대가 아니라
-        // app.css 의 3px 규칙이 닿지 않고, 기본값 14px 로 혼자 굵게 선다.
-        // 화면의 다른 막대와 같은 3px 로 맞춘다.
+        // 막대를 Monaco 가 div 로 그려 app.css 의 3px 규칙이 닿지 않는다 — 화면의 다른 막대와 같은 3px 로 맞춘다.
         Scrollbar = new EditorScrollbarOptions
         {
             VerticalScrollbarSize = 3,
@@ -243,9 +157,7 @@ public partial class CodeEditor
         },
     };
 
-    /// <summary>
-    /// 자동 줄바꿈을 켜거나 끈다. Monaco 의 <c>updateOptions</c> 로 실시간 반영한다.
-    /// </summary>
+    /// <summary>자동 줄바꿈을 켜거나 끈다. updateOptions 로 실시간 반영한다.</summary>
     private async Task SetWordWrapAsync(bool on)
     {
         _wordWrap = on;
@@ -273,14 +185,7 @@ public partial class CodeEditor
         }
     }
 
-    /// <summary>
-    /// 복사할 글을 <b>편집기에서 직접</b> 읽는다.
-    /// </summary>
-    /// <remarks>
-    /// <see cref="Value"/> 를 그대로 주면 안 된다 — 입력을 모아 올리는
-    /// 동안(<see cref="DebounceMs"/>) 그 값은 한 박자 뒤처진 것이라,
-    /// <b>방금 친 글자가 빠진 채로</b> 복사된다.
-    /// </remarks>
+    /// <summary>복사할 글을 편집기에서 직접 읽는다. Value 는 debounce 만큼 뒤처져 방금 친 글자가 빠지기 때문.</summary>
     private async Task<string?> ReadEditorTextAsync()
         => _editor is { } editor ? await editor.GetValue() : Value;
 
@@ -292,14 +197,12 @@ public partial class CodeEditor
                 "import", "./_content/JSini.Web.ProjMng/js/monaco-loader.js");
             _loader = loader;
 
-            // 스크립트를 받는 사이에 화면이 치워질 수 있다(DisposeAsync 가 _loader 를
-            // 비운다). 그대로 이어 부르면 null 로 던지고 **회로가 통째로 끊긴다.**
+            // 스크립트를 받는 사이 화면이 치워질 수 있다. 그때 null 로 이어 부르면 회로가 끊긴다.
             try
             {
                 await loader.InvokeVoidAsync("ensure");
 
-                // **편집기를 그리기 전에 잰다.** 옵션은 만들 때 한 번만 평가되므로
-                // (BuildOptions 머리말) 여기서 놓치면 첫 그림이 기본값으로 뜬다.
+                // 편집기를 그리기 전에 잰다. 옵션은 만들 때 한 번만 평가된다.
                 _fontPx = await loader.InvokeAsync<double>("baseFontPx");
             }
             catch (Exception e) when (e is JSDisconnectedException or ObjectDisposedException)
@@ -324,22 +227,18 @@ public partial class CodeEditor
             return;
         }
 
-        // 편집기가 방금 생겼나. 아래 레이아웃 호출의 조건이 된다 —
-        // `firstRender` 는 이제 **스크립트를 받던 렌더**라 쓸 수 없다.
+        // 편집기가 방금 생겼나. firstRender 는 스크립트를 받던 렌더라 조건으로 쓸 수 없다.
         var born = !_ready;
 
         if (born)
         {
-            // 테마는 문서의 data-theme 를 따라간다(theme.js 가 정한다).
-            // 흰 배경에 밝은 편집기가 얹히면 그 부분만 튀어 보인다.
+            // 테마는 문서의 data-theme 를 따라간다(theme.js).
             var dark = await Js.InvokeAsync<bool>("jsiniTheme.isDark");
             await Global.SetTheme(Js, dark ? "vs-dark" : "vs");
             _ready = true;
         }
 
-        // 바깥에서 바뀐 값만 밀어 넣는다. 편집기가 낸 변경이 아직 debounce 를
-        // 기다리는 동안에는 밀지 않는다 — Value 파라미터는 그 시점에 옛 값이라,
-        // 밀면 사용자가 방금 친 내용을 옛 값으로 되덮는다.
+        // 바깥에서 바뀐 값만 민다. 디바운스 대기 중에 밀면 방금 친 내용을 옛 값이 되덮는다.
         var incoming = Value ?? string.Empty;
         var pushed = false;
 
@@ -352,23 +251,12 @@ public partial class CodeEditor
 
         if (born || pushed)
         {
-            // **값을 밀 때마다 레이아웃을 직접 불러야 한다.**
-            //
-            // AutomaticLayout 을 켜 두어도 Blazor Server 에서는 제때 걸리지 않는다.
-            // 증상이 둘로 나타난다.
-            //   · 첫 렌더 — 편집기는 만들어지고 값도 들어가는데(getValue 는 내용을
-            //     돌려준다) 화면에 줄이 하나도 안 그려진다. 테두리만 있는 빈 칸이다.
-            //   · 값 교체 — 모델은 새 값인데 보이는 줄은 옛 내용 그대로다.
-            //     화면들이 항목을 고를 때마다 편집기 내용을 갈아 끼우므로
-            //     (DB 로직·프로젝트 DB 속성 …) 이쪽이 특히 자주 걸린다.
+            // 값을 밀 때마다 Layout 을 직접 부른다. AutomaticLayout 은 Blazor Server 에서 제때 걸리지 않아 첫 렌더에 줄이 안 그려지고 값 교체 때 옛 내용이 남는다.
             await editor.Layout();
         }
     }
 
-    /// <summary>
-    /// 편집기의 변경 신호. 입력이 <see cref="DebounceMs"/> 만큼 멈춘 뒤에만
-    /// 값을 읽어 올린다 — 연타 중에는 이전 대기를 취소하고 다시 기다린다.
-    /// </summary>
+    /// <summary>편집기 변경 신호. 입력이 DebounceMs 만큼 멈춘 뒤에만 값을 올린다.</summary>
     private async Task OnEditorChangedAsync(ModelContentChangedEvent _)
     {
         _debounce?.Cancel();
@@ -387,9 +275,7 @@ public partial class CodeEditor
             var text = await _editor.GetValue();
             _lastPushed = text;
 
-            // 올리기 전에 대기 표식을 지운다 — ValueChanged 가 부모를 렌더시키고,
-            // 그 렌더의 OnAfterRenderAsync 가 "대기 중" 이라며 새 값 반영을
-            // 건너뛰면 안 된다.
+            // 올리기 전에 대기 표식을 지운다. 부모 렌더가 대기 중으로 보고 새 값 반영을 건너뛰면 안 된다.
             if (ReferenceEquals(_debounce, cts))
             {
                 _debounce = null;
@@ -411,11 +297,7 @@ public partial class CodeEditor
         }
     }
 
-    /// <summary>
-    /// 대기 중인 debounce 를 끊는다. 편집기 자신(모나코 인스턴스)의 파괴는
-    /// BlazorMonaco 의 <c>StandaloneCodeEditor</c> 가 자기 Dispose 에서 한다 —
-    /// 자식 컴포넌트라 이 컴포넌트가 사라질 때 함께 정리된다.
-    /// </summary>
+    /// <summary>대기 중인 debounce 를 끊는다. 편집기 자신은 BlazorMonaco 가 자기 Dispose 에서 치운다.</summary>
     public async ValueTask DisposeAsync()
     {
         Size.Changed -= OnThemeSizeChanged;
@@ -438,11 +320,7 @@ public partial class CodeEditor
         }
     }
 
-    /// <summary>
-    /// 화면이 넘기는 언어 이름을 Monaco 언어 id 로 바꾼다.
-    /// 모르는 이름은 <c>plaintext</c> 로 떨어뜨린다 — 편집 자체는 막지 않는다.
-    /// Vue 의 <c>toMonacoLanguage</c> 와 같은 표를 쓴다.
-    /// </summary>
+    /// <summary>화면이 넘기는 언어 이름을 Monaco 언어 id 로 바꾼다. 모르는 이름은 plaintext 로 떨어뜨린다.</summary>
     private static string ToMonacoLanguage(string? language) =>
         (language ?? string.Empty).Trim().ToLowerInvariant() switch
         {

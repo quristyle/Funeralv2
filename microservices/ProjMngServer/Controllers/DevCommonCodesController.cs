@@ -5,13 +5,8 @@ using ProjMngServer.Services;
 
 namespace ProjMngServer.Controllers;
 
-/// <summary>
-/// 프로젝트관리 공통코드 — <c>/api/dev-common-codes</c>.
-/// </summary>
-/// <remarks>
-/// 이름에 <c>dev-</c> 를 붙인 것은 <b>포털의 공통코드와 다른 표</b>라서다
-/// (`scom` 쪽에 같은 이름의 것이 따로 있다). 경로만 보고 헷갈리지 않게 한다.
-/// </remarks>
+/// <summary>프로젝트관리 공통코드 — <c>/api/dev-common-codes</c>.</summary>
+/// 이름에 dev- 를 붙인 것은 포털 공통코드(scom)와 다른 표이기 때문이다.
 [ApiController]
 [Route("api/dev-common-codes")]
 public sealed class DevCommonCodesController(DevCommonCodeService service) : ControllerBase
@@ -52,10 +47,7 @@ public sealed class DevCommonCodesController(DevCommonCodeService service) : Con
             : Ok(ApiResponse<DevCommonCode>.Ok(updated));
     }
 
-    /// <summary>
-    /// 지운다. <b>딸린 코드가 있는 묶음은 막는다</b> — 표에 외래키가 없어
-    /// DB 가 막아 주지 않고, 지우면 갈 곳 없는 코드만 남는다.
-    /// </summary>
+    /// <summary>지운다. 딸린 코드가 있는 묶음은 막는다 — 외래키가 없어 DB 가 막아 주지 않는다.</summary>
     [HttpDelete("{cmRid:int}")]
     public async Task<IActionResult> DeleteAsync(int cmRid, [FromQuery] string? code)
     {

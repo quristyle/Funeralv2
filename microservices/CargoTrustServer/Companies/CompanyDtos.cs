@@ -108,8 +108,7 @@ public static class CompanyInput
         c.CompanyName = Check.Clean(req.CompanyName)!;
         c.CeoName = Check.Clean(req.CeoName);
         c.Address = Check.Clean(req.Address);
-        // 지역을 비워 보내면 주소의 첫 낱말(「서울 강서구 …」→「서울」)로 채운다.
-        // 검색 결과가 지역으로 묶여 보이는데, 입력하는 사람은 주소만 적는 일이 많다.
+        // 지역을 비우면 주소의 첫 낱말(「서울 강서구 …」→「서울」)로 채운다 — 검색이 지역으로 묶이는데 입력자는 주소만 적는 일이 많다.
         c.Region = Check.Clean(req.Region) ?? FirstWord(c.Address);
         c.Phone = Check.Clean(req.Phone);
         c.BusinessType = Check.Clean(req.BusinessType);

@@ -24,8 +24,7 @@ public partial class ReportList
     private AdminResolve _form = new();
 
     /// <summary>
-    /// 체크칸 옆 글자. 대상 종류에 따라 **무엇이 숨는지**를 말한다 — 「대상 숨김」만으로는
-    /// 거래를 숨기면 통계에서 빠진다는 것이 안 보인다.
+    /// 체크칸 옆 글자. 대상 종류에 따라 무엇이 숨는지 말한다 — 「대상 숨김」만으로는 거래를 숨기면 통계에서 빠진다는 것이 안 보인다.
     /// </summary>
     private string HideLabel => _target?.TargetType?.ToUpperInvariant() switch
     {
@@ -53,8 +52,7 @@ public partial class ReportList
     {
         _target = row;
 
-        // 접수된 채로 열면 「검토중」으로 올려 둔다 — 창을 연 것 자체가 검토를 시작했다는
-        // 뜻이고, 처리 내용만 적고 상태를 안 바꾼 채 저장하는 실수를 줄인다.
+                // 접수된 채로 열면 「검토중」으로 올린다 — 창을 연 것이 검토를 시작했다는 뜻이라, 처리 내용만 적고 상태를 안 바꾸는 실수를 줄인다.
         _form = new AdminResolve
         {
             Status = string.Equals(row.Status, "RECEIVED", StringComparison.OrdinalIgnoreCase) ? "REVIEWING" : row.Status,

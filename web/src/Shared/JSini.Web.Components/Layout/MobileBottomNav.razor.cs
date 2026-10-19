@@ -13,10 +13,7 @@ public partial class MobileBottomNav
     [Inject] private CurrentUser Me { get; set; } = default!;
     [Inject] private PortalBoot Boot { get; set; } = default!;
 
-    /// <summary>
-    /// 지금 띠에 선 칸들. 읽기 전에는 <see cref="BottomNav.Defaults"/> 다 —
-    /// 비워 두면 첫 그림에서 띠가 빈 채로 한 번 지나간다.
-    /// </summary>
+    /// <summary>지금 띠에 선 칸들. 읽기 전에는 BottomNav.Defaults 다 — 비워 두면 첫 그림에서 띠가 빈 채로 한 번 지나간다.</summary>
     private IReadOnlyList<BottomNavItem> _items = BottomNav.Defaults;
 
     private bool _loaded;
@@ -70,23 +67,11 @@ public partial class MobileBottomNav
     private static bool IsProfile(BottomNavItem item) =>
         string.Equals(item.Path, BottomNav.ProfilePath, StringComparison.OrdinalIgnoreCase);
 
-    /// <summary>
-    /// 칸을 눌렀다. <b>무슨 일이 일어나는지는 여기가 정하지 않는다</b> —
-    /// 같은 칸 목록을 넓은 화면 헤더도 그리므로(<see cref="HeaderNavTools"/>)
-    /// 판정을 <see cref="BottomNav.Open"/> 한 곳에 둔다.
-    /// </summary>
+    /// <summary>칸을 눌렀다. 무슨 일이 일어나는지는 여기가 정하지 않는다 — 같은 칸 목록을 넓은 화면 헤더도 그리므로 판정을 BottomNav.Open 한 곳에 둔다.</summary>
     private void Go(BottomNavItem item) =>
         BottomNav.Open(item, Menus.AllMenus, Navigation, Theme, Reveal, UserDrawer);
 
-    /// <summary>
-    /// 두 목록이 같은가. 목록끼리는 통째로 비교하면 <b>참조만 본다</b> —
-    /// 읽어 온 것이 기본값과 똑같을 때 쓸데없이 한 번 더 그리게 된다.
-    ///
-    /// <para>
-    /// 이름을 <c>Equals</c> 로 두지 않는다 — 인자 둘짜리 <c>Equals</c> 는
-    /// <see cref="object.Equals(object, object)"/> 를 가려서 경고가 난다.
-    /// </para>
-    /// </summary>
+    /// <summary>두 목록이 같은가. 참조만 보면 읽어 온 것이 기본값과 같을 때 쓸데없이 한 번 더 그린다. Equals 를 이름으로 두지 않는다 — 인자 둘짜리 Equals 는 object.Equals 를 가려서 경고가 난다.</summary>
     private static bool SameItems(
         IReadOnlyList<BottomNavItem> left, IReadOnlyList<BottomNavItem> right) =>
         ReferenceEquals(left, right)

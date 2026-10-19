@@ -5,20 +5,18 @@ public class SubscribeDto
 {
     public string Endpoint { get; set; } = string.Empty;
 
-    /// <summary>브라우저는 이 둘을 <c>keys</c> 안에 담아 준다. 화면이 펼쳐서 보낸다.</summary>
+    /// <summary>브라우저가 <c>keys</c> 안에 담는 값. 화면이 펼쳐서 보낸다.</summary>
     public string P256dh { get; set; } = string.Empty;
 
     public string Auth { get; set; } = string.Empty;
 
-    /// <summary>
-    /// 주인의 종류. 비우면 서버가 게이트웨이 헤더를 보고 <c>jsini</c> 로 정한다.
-    /// </summary>
+    /// <summary>주인 종류. 비우면 게이트웨이 헤더로 jsini 를 정한다.</summary>
     public string? OwnerType { get; set; }
 
-    /// <summary>주인 식별자. 비우면 로그인한 계정 아이디로 정한다.</summary>
+    /// <summary>주인 식별자. 비우면 로그인 계정 아이디.</summary>
     public string? OwnerKey { get; set; }
 
-    /// <summary>어느 시스템에서 구독했나 (참고용).</summary>
+    /// <summary>구독한 시스템(참고용).</summary>
     public string? Source { get; set; }
 
     public DeviceMetadataDto Metadata { get; set; } = new();
@@ -73,141 +71,37 @@ public class PushMessageDto
     /// <summary>아이콘 주소.</summary>
     public string? Icon { get; set; }
 
-    /// <summary>
-    /// 아이콘에 <b>얼굴을 쓸 사람</b>의 포털 로그인 아이디
-    /// (<c>scom.accounts.user_id</c>). 주면 그 사람의 프로필 사진이 아이콘이 되고,
-    /// 사진이 없으면 사람 형상 그림자가 된다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>받는 사람이 아니라 「시킨 사람」이다.</b> AI 작업 결과 알림은 지시한
-    /// 본인에게 가므로 지금은 둘이 같지만, 남에게 보내는 알림에서도 아이콘이
-    /// 답해야 하는 물음은 <b>「누가 시킨 일인가」</b> 하나다.
-    /// </para>
-    /// <para>
-    /// <see cref="Icon"/> 을 직접 채웠으면 이 값은 보지 않는다 — 주소를 손에 든
-    /// 부르는 쪽의 뜻이 먼저다.
-    /// </para>
-    /// </remarks>
+    /// <summary>아이콘에 쓸 사람의 포털 아이디(받는 사람이 아니라 시킨 사람). Icon 을 채웠으면 무시.</summary>
     public string? IconOwnerKey { get; set; }
 
-    /// <summary>
-    /// 같은 태그의 알림은 브라우저가 하나로 합친다. 같은 건에 대한 갱신을 보낼 때 쓴다.
-    /// </summary>
+    /// <summary>같은 태그끼리 브라우저가 하나로 합친다(같은 건의 갱신용).</summary>
     public string? Tag { get; set; }
 
-    /// <summary>
-    /// <b>푸시 서비스의 대기줄</b>에서 앞의 것을 밀어낼 열쇠 (RFC 8030 <c>Topic</c>).
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <see cref="Tag"/> 와 <b>하는 일이 다르다.</b> 태그는 브라우저가 <b>이미 받은</b>
-    /// 알림창을 겹쳐 그리는 것이고, 이것은 브라우저가 꺼져 있는 동안 <b>푸시 서비스가
-    /// 들고 기다리는 줄</b>에서 같은 값끼리 하나로 줄여 준다. 오래 안 켠 사람에게
-    /// 같은 종류가 스무 건 쏟아지는 것을 막는 쪽은 이쪽이다.
-    /// </para>
-    /// <para>
-    /// 그래서 둘을 따로 둔다 — 배포 알림처럼 <b>켜져 있을 때는 각각 보이는 편이 낫고
-    /// 밀려 있을 때는 마지막 하나면 되는</b> 알림이 있다. 비워 두면 <see cref="Tag"/>
-    /// 를 대신 쓴다(태그로 겹치는 알림은 줄에서도 겹쳐서 곤란할 일이 없다).
-    /// </para>
-    /// <para>
-    /// 규격이 글자를 가린다(base64url 32자 이내). 맞지 않는 값은
-    /// <c>PushSender</c> 가 해시로 접어 보내므로 여기서는 읽을 수 있게 적으면 된다.
-    /// </para>
-    /// </remarks>
+    /// <summary>RFC 8030 Topic. base64url 32자 이내, 맞지 않으면 PushSender 가 해시로 접는다.</summary>
     public string? Topic { get; set; }
 
-    /// <summary>
-    /// 이 알림의 <b>수명</b>(초). 브라우저가 이 시간 안에 안 켜지면 푸시 서비스가 버린다.
-    /// </summary>
-    /// <remarks>
-    /// 비우면 서버 기본값(<c>Push:DefaultTtlSeconds</c>, 6시간)을 쓴다. 지나고 나면
-    /// 의미가 없는 알림일수록 짧게 준다 — 까닭은 <c>PushDeliveryOptions</c> 머리말에 있다.
-    /// </remarks>
+    /// <summary>수명(초). 비우면 Push:DefaultTtlSeconds.</summary>
     public int? TtlSeconds { get; set; }
 
-    /// <summary>
-    /// <b>알림구분</b>. 공통코드 묶음 <c>NOTI_CATEGORY</c> 의 코드값이다
-    /// (<see cref="JSini.Shared.DTOs.PushCategories"/>).
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>브라우저까지 가지 않는다</b> — 기록에만 남는다. 알림창에 뜨는 것은
-    /// 제목·본문·아이콘이고, 이 값은 「내 알림함」과 「발송 이력」이 갈래로
-    /// 거르는 데 쓴다.
-    /// </para>
-    /// <para>
-    /// 비워도 보내진다. 그때 그 줄은 「구분 없음」으로 남는다 —
-    /// <b>구분을 빠뜨린 발송 자리를 찾는 실마리</b>가 그것이다.
-    /// </para>
-    /// </remarks>
+    /// <summary>알림구분(NOTI_CATEGORY). 기록·이력 거르기에만 쓰며 비워도 보낸다.</summary>
     public string? Category { get; set; }
 
-    /// <summary>
-    /// <b>알림 이벤트</b> 코드. 포털관리 「알림관리」가 역할·채널을 매다는 열쇠다
-    /// (<see cref="JSini.Shared.DTOs.NotificationEvents"/>).
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>비워도 된다.</b> 비면 <see cref="Category"/> 를 이벤트 코드로 본다 —
-    /// 지금은 구분 하나에 사건 하나라 그 둘이 같은 글자이기 때문이다. 같은 구분
-    /// 아래에서 사건을 더 잘게 갈라 따로 설정하고 싶을 때만 적어 보낸다.
-    /// </para>
-    /// <para>
-    /// <see cref="Category"/> 와 하는 일이 다르다 — 그쪽은 <b>쌓인 기록을 갈래로
-    /// 묶는 이름표</b>이고 이쪽은 <b>설정이 걸리는 열쇠</b>다. 표에 없는 코드로
-    /// 보내면 정책이 안 걸린 채 그냥 나간다(조용히 막지 않는다).
-    /// </para>
-    /// </remarks>
+    /// <summary>알림 이벤트 코드(NotificationEvents). 정책(역할·채널)의 열쇠. 비우면 Category. 표에 없으면 정책 없이 나간다.</summary>
     public string? EventCode { get; set; }
 
-    /// <summary>화면이 알아서 쓰는 부가 값.</summary>
+    /// <summary>화면이 쓰는 부가 값.</summary>
     public Dictionary<string, string>? Data { get; set; }
 }
 
-/// <summary>
-/// 푸시 발송 요청.
-/// </summary>
-/// <remarks>
-/// <b>누구에게 보낼지는 부르는 쪽이 정한다.</b> 이 서비스는 팀도 회사도 모른다 —
-/// 헬프데스크가 자기 DB 에서 대상을 고른 뒤 그 주인 키 목록을 넘긴다.
-///
-/// <para>
-/// 다만 <b>역할(<see cref="Roles"/>)만은 예외</b>다. 역할표(<c>scom.role_accounts</c>)는
-/// 이 서비스가 원래 접속하는 DB 에 있고 다른 서비스에는 없다 — 메일이 이미 같은
-/// 까닭으로 <see cref="SendEmailDto.ToRole"/> 을 받는다.
-/// </para>
-/// </remarks>
+/// <summary>푸시 발송 요청. 대상은 부르는 쪽이 정하고, Roles 만 이 서비스가 역할표로 푼다.</summary>
 public class SendPushDto
 {
     public List<OwnerRefDto> Owners { get; set; } = new();
 
-    /// <summary>
-    /// 받는 <b>역할</b>(예: <c>SYSTEM_ADMINISTRATOR</c>). 그 역할인 포털 계정
-    /// 전원이 <see cref="Owners"/> 에 더해진다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>주소를 모르는 부르는 쪽을 위해 있다.</b> 다른 서비스는 자기 DB 만 보므로
-    /// 「관리자에게 알려라」를 사람 목록으로 풀지 못한다 — 실제로 프로젝트관리 DB
-    /// (<c>projmng</c>)와 포털 계정 DB(<c>jsiniportal</c>)는 아예 다른 데이터베이스다.
-    /// </para>
-    /// <para>
-    /// <see cref="Owners"/> 와 겹쳐도, 한 사람이 역할 여럿에 걸려도 <b>한 번만</b> 간다.
-    /// </para>
-    /// </remarks>
+    /// <summary>받는 역할. 그 역할 계정 전원을 Owners 에 더한다(중복은 한 번).</summary>
     public List<string>? Roles { get; set; }
 
-    /// <summary>
-    /// 이 주인 키는 <b>빼고</b> 보낸다. 역할로 편 목록에서 특정 사람을 덜어 낼 때 쓴다.
-    /// </summary>
-    /// <remarks>
-    /// <b>「내가 한 일을 나에게 알리지 않는다」가 이 칸의 쓰임이다.</b> 관리자가
-    /// 스스로 올린 요청까지 자기 휴대폰을 울리면, 받는 사람은 알림을 끄게 된다.
-    /// 부르는 쪽이 대상에서 미리 빼려면 역할이 누구를 뜻하는지 알아야 하는데
-    /// (<see cref="Roles"/> 머리말) 그것을 아는 곳이 여기뿐이다.
-    /// </remarks>
+    /// <summary>이 주인 키는 뺀다(내가 한 일을 나에게 알리지 않음).</summary>
     public List<string>? ExcludeOwnerKeys { get; set; }
 
     public PushMessageDto Message { get; set; } = new();
@@ -216,7 +110,7 @@ public class SendPushDto
 /// <summary>발송 결과.</summary>
 public class SendPushResultDto
 {
-    /// <summary>보낸 구독 수 (사람 수가 아니라 기기 수다).</summary>
+    /// <summary>보낸 구독 수(기기 수, 사람 수 아님).</summary>
     public int Sent { get; set; }
 
     /// <summary>실패한 구독 수.</summary>
@@ -225,36 +119,16 @@ public class SendPushResultDto
     /// <summary>죽어서 지운 구독 수 (푸시 서비스가 404/410 을 준 것).</summary>
     public int Removed { get; set; }
 
-    /// <summary>대상 주인 중 구독이 하나도 없던 수. "왜 안 왔나" 를 설명해 준다.</summary>
+    /// <summary>구독이 하나도 없던 대상 주인 수.</summary>
     public int OwnersWithoutSubscription { get; set; }
 
-    /// <summary>본인이 푸시를 꺼 두어 제외한 주인 수. 이것도 "왜 안 왔나" 의 답이다.</summary>
+    /// <summary>본인 설정으로 제외한 주인 수.</summary>
     public int OptedOut { get; set; }
 
-    /// <summary>
-    /// 「알림관리」 정책에 안 들어 제외한 주인 수.
-    /// </summary>
-    /// <remarks>
-    /// <b><see cref="OptedOut"/> 과 가려 센다.</b> 둘 다 「보냈는데 안 갔다」지만
-    /// 고칠 자리가 다르다 — 이쪽은 포털관리의 알림관리, 저쪽은 그 사람의
-    /// 환경설정이다. 뭉뚱그리면 관리자가 남의 설정을 고치러 간다.
-    /// </remarks>
+    /// <summary>알림관리 정책으로 제외한 주인 수(OptedOut 과 따로 센다).</summary>
     public int PolicyExcluded { get; set; }
 
-    /// <summary>
-    /// 같은 알림을 <b>메일로도</b> 받은 주소 수.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b><see cref="Sent"/> 와 더하지 않는다.</b> 저쪽은 기기 수이고 이쪽은
-    /// 주소 수라 단위가 다르다 — 한 사람이 둘 다 셈해지는 것이 정상이다
-    /// (앱으로도 받고 메일로도 받는다).
-    /// </para>
-    /// <para>
-    /// 「이메일」을 켠 역할이 없으면 늘 0 이다. 메일이 나가는 조건은
-    /// <c>PushSender.FanOutEmailAsync</c> 머리말에 있다.
-    /// </para>
-    /// </remarks>
+    /// <summary>메일로 받은 주소 수. 기기 단위인 Sent 와 더하지 않는다.</summary>
     public int Mailed { get; set; }
 
     public string? Message { get; set; }
@@ -263,28 +137,13 @@ public class SendPushResultDto
 /// <summary>이메일 발송 요청.</summary>
 public class SendEmailDto
 {
-    /// <summary>받는 사람. 여럿이면 쉼표로 잇는다 (기존 스크립트 규약이 그렇다).</summary>
+    /// <summary>받는 사람. 여럿이면 쉼표로 잇는다.</summary>
     public string To { get; set; } = string.Empty;
 
-    /// <summary>
-    /// 받는 역할 (예: <c>SYSTEM_ADMINISTRATOR</c>). 지정하면 그 역할 사용자들의
-    /// 대표 이메일(scom)로 보낸다. <see cref="To"/> 와 함께 주면 합쳐진다.
-    /// <b>여럿이면 쉼표로 잇는다</b> — 겹치는 사람은 한 번만 받는다.
-    /// 직발송 <c>/emails/send</c> 만 본다.
-    /// </summary>
+    /// <summary>받는 역할의 대표 메일. To 와 합쳐지며 겹치면 한 번. 직발송 /emails/send 만 본다.</summary>
     public string? ToRole { get; set; }
 
-    /// <summary>
-    /// 받는 <b>사람</b>의 포털 로그인 아이디 (<c>scom.accounts.user_id</c>).
-    /// 여럿이면 쉼표로 잇는다. 직발송 <c>/emails/send</c> 만 본다.
-    /// </summary>
-    /// <remarks>
-    /// <b>주소를 모르는 부르는 쪽을 위해 있다.</b> 다른 서비스는 자기 DB 만
-    /// 보므로 「이 작업을 요청한 사람」까지는 알아도 그 사람의 메일 주소는
-    /// 모른다. 아이디를 그대로 <see cref="To"/> 에 실으면 주소가 아니라서
-    /// 걸러지고 <c>NO_RECIPIENT</c> 로 돌아온다 — 실제로 AI 작업 결과 메일이
-    /// 그렇게 한 통도 못 나갔다.
-    /// </remarks>
+    /// <summary>포털 로그인 아이디(scom.accounts.user_id). 아이디를 To 에 실으면 NO_RECIPIENT. 직발송만 본다.</summary>
     public string? ToUser { get; set; }
 
     public string Subject { get; set; } = string.Empty;
@@ -292,95 +151,23 @@ public class SendEmailDto
     /// <summary>본문 (HTML 허용).</summary>
     public string Body { get; set; } = string.Empty;
 
-    /// <summary>
-    /// 참이면 본문을 HTML 로 보낸다 (직발송 <c>/emails/send</c> 만 본다 —
-    /// 큐 방식은 배포 장비 스크립트가 형식을 정한다).
-    /// </summary>
-    /// <remarks>
-    /// <b>거짓이라고 글자만 나가지는 않는다.</b> 평문으로 온 본문은 서버가
-    /// 회사 메일 틀에 입혀 보낸다(<c>NoticeEmailTemplate</c>) — 평문 갈래도
-    /// 함께 실으므로 글자로만 읽는 클라이언트에서도 그대로 보인다.
-    /// 부르는 쪽이 완성된 문서를 들고 있을 때만 참으로 준다.
-    /// </remarks>
+    /// <summary>참이면 HTML 로 보낸다(직발송만). 거짓이면 평문을 회사 메일 틀에 입힌다.</summary>
     public bool Html { get; set; }
 
-    /// <summary>
-    /// 보낸 사람으로 적을 이름. <b>평문 알림에만 쓴다</b> — 서버가 입히는 틀의
-    /// 서명 줄이 된다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>주소가 아니라 이름이다.</b> 보내는 계정(<c>EmailSettings:User</c>)은
-    /// 하나뿐이라 받는 쪽 메일함에는 언제나 「JSini 포털」로 뜬다. 그런데
-    /// 사람이 짚어 보낸 알림에서 먼저 묻는 것은 <b>「누가 보냈나」</b>다.
-    /// </para>
-    /// <para>
-    /// 서버가 <c>X-User-Id</c> 로 풀지 않고 부르는 쪽이 적어 보낸다 — 그 헤더에는
-    /// 서비스 이름(<c>AI_TASK</c> · <c>SITE_INQUIRY</c>)이 오는 길도 있어서,
-    /// 사람 이름이 아닌 것이 서명 줄에 그대로 실릴 수 있다.
-    /// </para>
-    /// </remarks>
+    /// <summary>보낸 사람 이름(평문 메일의 서명 줄). 보내는 계정이 하나라 부르는 쪽이 적는다.</summary>
     public string? SenderName { get; set; }
 
-    /// <summary>
-    /// <b>알림구분</b>. 공통코드 묶음 <c>NOTI_CATEGORY</c> 의 코드값이다
-    /// (<see cref="JSini.Shared.DTOs.PushCategories"/>).
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>받는 사람이 그 갈래를 껐는지 보는 데 쓴다.</b> 지금 걸리는 것은
-    /// <c>HELPDESK_COMMENT</c> 하나다 — <see cref="ToUser"/> 로 지목해 보내는
-    /// 메일은 원래 본인의 뜻을 보지 않지만(그 칸 머리말), 댓글 알림은
-    /// <b>업무 메일이 아니라 두드림</b>이라 설정 화면에 스위치를 두었다.
-    /// </para>
-    /// <para>
-    /// 비워도 나간다 — 갈래가 없는 메일은 아무도 끈 적이 없는 메일이다.
-    /// <see cref="To"/> 에 주소를 직접 적은 몫은 <b>갈래가 있어도 안 거른다</b>
-    /// (어느 계정인지 확실치 않다).
-    /// </para>
-    /// </remarks>
+    /// <summary>알림구분. 받는 사람이 그 갈래를 껐는지 본다(현재 HELPDESK_COMMENT). To 에 직접 적은 주소는 거르지 않는다.</summary>
     public string? Category { get; set; }
 
-    /// <summary>
-    /// <b>알림 이벤트</b> 코드. 포털관리 「알림관리」가 역할·채널을 매다는 열쇠다
-    /// (<see cref="JSini.Shared.DTOs.NotificationEvents"/>).
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>비워도 된다.</b> 비면 <see cref="Category"/> 를 대신 보고, 그것도 없으면
-    /// 정책이 안 걸린 채 그냥 나간다 — 비밀번호 재설정처럼 <b>갈래가 없는
-    /// 메일</b>은 아무도 끈 적이 없는 메일이다.
-    /// </para>
-    /// <para>
-    /// 구분이 없는데 설정은 걸어야 하는 메일이 둘 있다 — 보고서 메일과 문의
-    /// 접수다. 그 둘은 구분 대신 이 칸에 제 이름을 적어 보낸다
-    /// (<c>REPORT_MAIL</c> · <c>SITE_INQUIRY</c>).
-    /// </para>
-    /// </remarks>
+    /// <summary>알림 이벤트 코드. 비우면 Category, 그것도 없으면 정책 없이 나간다. REPORT_MAIL·SITE_INQUIRY 는 제 이름을 적는다.</summary>
     public string? EventCode { get; set; }
 
-    /// <summary>
-    /// 붙일 파일들. <b>직발송(<c>/emails/send</c>)만 본다</b> — 큐 방식은
-    /// 스풀 JSON 에 제목·본문·받는이 셋만 담는 규약이라 실을 자리가 없다.
-    /// </summary>
+    /// <summary>붙일 파일. 직발송(/emails/send)만 본다.</summary>
     public List<EmailAttachmentDto> Attachments { get; set; } = [];
 }
 
-/// <summary>메일에 붙일 파일 한 개.</summary>
-/// <remarks>
-/// <para>
-/// <b>바이트를 그대로 싣는다.</b> 파일 서버에 올리고 아이디만 넘기는 길도
-/// 있었지만 쓰지 않았다 — 메일 첨부는 보내고 나면 쓸 일이 없는데, 그 길로 가면
-/// <b>아무도 지우지 않는 파일이 보낼 때마다 쌓인다.</b> 알림 서비스가 파일
-/// 서비스를 알아야 하는 것도 이 서비스가 「보내는 일만 한다」는 규칙에 어긋난다.
-/// </para>
-///
-/// <para>
-/// 값을 base64 로 담으므로 <b>실제 크기의 약 1.33배</b>가 오간다. 그래서 상한을
-/// 넉넉히 두지 않는다(<c>EmailEndpoints</c>) — 메일 서버가 어차피 20~25MB 에서
-/// 거절하고, 그 전에 우리가 이유를 말해 주는 편이 낫다.
-/// </para>
-/// </remarks>
+/// <summary>메일 첨부 한 개. 바이트를 싣는다(파일 서버 아이디로 넘기면 보낸 뒤 지울 곳이 없다). base64 라 약 1.33배가 오간다.</summary>
 public class EmailAttachmentDto
 {
     public string FileName { get; set; } = string.Empty;
@@ -392,16 +179,12 @@ public class EmailAttachmentDto
     public string Content { get; set; } = string.Empty;
 }
 
-/// <summary>이메일 발송 결과.</summary>
-/// <remarks>
-/// <b>큐에 넣은 것까지가 이 서비스의 일이다.</b> 실제 발송은 배포 장비의 스크립트가 한다
-/// (SMTP 설정이 이 시스템에 없다). 그래서 "보냈다" 가 아니라 "넣었다" 로 말한다.
-/// </remarks>
+/// <summary>이메일 발송 결과. 큐에 넣은 것까지가 이 서비스 일이다(실제 발송은 배포 장비 스크립트, 그래서 Queued).</summary>
 public class SendEmailResultDto
 {
     public bool Queued { get; set; }
 
-    /// <summary>떨어뜨린 JSON 파일 경로. 문제를 쫓을 때 쓴다.</summary>
+    /// <summary>떨어뜨린 JSON 파일 경로(문제 추적용).</summary>
     public string? SpoolFile { get; set; }
 
     public string? Message { get; set; }
@@ -410,41 +193,30 @@ public class SendEmailResultDto
 /// <summary>화면이 구독을 만들 때 필요한 값.</summary>
 public class VapidPublicKeyDto
 {
-    /// <summary>공개 키. 비밀이 아니다.</summary>
+    /// <summary>공개 키(비밀 아님).</summary>
     public string? PublicKey { get; set; }
 
-    /// <summary>푸시를 쓸 수 있는 상태인가. 거짓이면 화면이 구독 버튼을 숨기면 된다.</summary>
+    /// <summary>거짓이면 화면이 구독 버튼을 숨긴다.</summary>
     public bool Enabled { get; set; }
 }
 
-/// <summary>내 알림 설정 (스위치 넷).</summary>
+/// <summary>내 알림 설정(스위치 넷).</summary>
 public class NotificationPreferenceDto
 {
     public bool PushEnabled { get; set; } = true;
     public bool EmailEnabled { get; set; } = true;
     public bool WeatherEnabled { get; set; }
 
-    /// <summary>
-    /// 쪽지를 메일로도 받을지. <b>기본은 꺼짐이다</b>
-    /// (<c>Entities/NotificationPreference.NoteEmailEnabled</c> 머리말).
-    /// </summary>
+    /// <summary>쪽지를 메일로도 받을지. 기본 꺼짐.</summary>
     public bool NoteEmailEnabled { get; set; }
 
-    /// <summary>
-    /// <b>내 글에 달린 댓글</b>을 앱 푸시로 받는가. 기본은 켜짐이다.
-    /// </summary>
+    /// <summary>내 글에 달린 댓글을 앱 푸시로 받는가. 기본은 켜짐이다.</summary>
     public bool CommentPushEnabled { get; set; } = true;
 
-    /// <summary>
-    /// <b>내 글에 달린 댓글</b>을 이메일로 받는가. 기본은 켜짐이다
-    /// (<c>Entities/NotificationPreference.CommentEmailEnabled</c> 머리말).
-    /// </summary>
+    /// <summary>내 글에 달린 댓글을 이메일로 받는가. 기본은 켜짐이다.</summary>
     public bool CommentEmailEnabled { get; set; } = true;
 
-    /// <summary>
-    /// <b>내 위치 날씨</b>를 받는가. 위 <see cref="WeatherEnabled"/>(기상 특보)와
-    /// 다른 스위치다 — 그쪽은 사건이 있을 때만, 이쪽은 시각마다 온다.
-    /// </summary>
+    /// <summary>내 위치 날씨. 기상 특보와 달리 사건 없이 시각마다 온다.</summary>
     public bool WeatherLocalEnabled { get; set; }
 
     /// <summary>저장된 위경도. 없으면 <see cref="WeatherLocalEnabled"/> 를 켜도 보낼 곳이 없다.</summary>
@@ -452,39 +224,25 @@ public class NotificationPreferenceDto
 
     public double? WeatherLon { get; set; }
 
-    /// <summary>보여 줄 지역 이름. 표시 전용이다.</summary>
+    /// <summary>표시용 지역 이름.</summary>
     public string? WeatherPlace { get; set; }
 
-    /// <summary>받을 시각들(KST, 쉼표로 나눈 0~23). 비면 <c>7,18</c> 이다.</summary>
+    /// <summary>받을 시각(KST, 쉼표로 나눈 0~23). 비면 <c>7,18</c>.</summary>
     public string? WeatherHours { get; set; }
 
-    /// <summary>위치를 마지막으로 <b>잡은</b> 때 — 좌표가 실제로 달라진 때다.</summary>
+    /// <summary>위치를 마지막으로 잡은 때(좌표가 실제로 바뀐 때).</summary>
     public DateTime? WeatherLocatedAt { get; set; }
 
-    /// <summary>
-    /// 위치를 마지막으로 <b>확인한</b> 때. 위의 것과 다르다 — 브라우저가 저절로
-    /// 다시 재어 보고 <b>그대로였을 때도</b> 찍힌다.
-    /// </summary>
-    /// <remarks>
-    /// 이것이 없으면 자동 재수집은 <b>보이지 않는다.</b> 자리가 안 바뀐 사람에게는
-    /// 「잡은 때」가 몇 달 전 그대로라, 위치가 묵은 것인지 그동안 계속 확인해 온
-    /// 것인지 화면이 구분해 말할 수 없다.
-    /// </remarks>
+    /// <summary>위치를 마지막으로 확인한 때. 좌표가 같아도 재수집마다 찍힌다.</summary>
     public DateTime? WeatherSyncedAt { get; set; }
 
-    /// <summary>
-    /// 저장한 적이 있나. 거짓이면 아래 값은 <b>기본값</b>이고 표에는 행이 없다.
-    /// 화면이 "아직 설정하지 않았습니다" 를 말할 수 있게 내려 준다.
-    /// </summary>
+    /// <summary>저장한 적이 있나. 거짓이면 값은 기본값이고 표에 행이 없다.</summary>
     public bool Saved { get; set; }
 
     public DateTime? UpdatedAt { get; set; }
 }
 
-/// <summary>
-/// 알림 설정 변경 요청. <b>비운 항목은 건드리지 않는다</b> — 스위치 하나만 눌러도
-/// 나머지를 덮어쓰지 않도록 모든 값을 nullable 로 둔다.
-/// </summary>
+/// <summary>알림 설정 변경 요청. 비운 항목은 건드리지 않도록 전부 nullable.</summary>
 public class UpdateNotificationPreferenceDto
 {
     public bool? PushEnabled { get; set; }
@@ -500,10 +258,7 @@ public class UpdateNotificationPreferenceDto
 
     public bool? WeatherLocalEnabled { get; set; }
 
-    /// <summary>
-    /// 새로 잡은 위치. <b>둘을 함께 줘야 바뀐다</b> — 위도만 바꾸면 경도와
-    /// 짝이 맞지 않는 지점이 되어 엉뚱한 곳의 날씨가 간다.
-    /// </summary>
+    /// <summary>새 위치. 위도·경도는 함께 줘야 바뀐다(한쪽만 바꾸면 엉뚱한 곳의 날씨).</summary>
     public double? WeatherLat { get; set; }
 
     public double? WeatherLon { get; set; }
@@ -512,48 +267,14 @@ public class UpdateNotificationPreferenceDto
 
     public string? WeatherHours { get; set; }
 
-    /// <summary>
-    /// 이 저장이 <b>브라우저가 방금 위치를 재어 보낸 것</b>인가.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 좌표가 실려 있다고 해서 「방금 쟀다」가 아니다. 설정 화면은 스위치 하나를
-    /// 눌러도 <b>설정 전체</b>를 보내므로(<c>ToggleAsync</c>) 위경도가 늘 함께
-    /// 온다 — 그것으로 「확인한 때」를 찍으면 푸시 스위치를 만질 때마다 위치를
-    /// 방금 확인한 것이 된다. 「잡은 때」에서 이미 한 번 밟은 함정이다.
-    /// </para>
-    /// <para>
-    /// 그래서 <b>재어 보낸 쪽만</b> 이것을 참으로 준다(위치 배관
-    /// <c>GeoLocator</c>). 참일 때만 <c>weather_synced_at</c> 을 찍는다.
-    /// </para>
-    /// </remarks>
+    /// <summary>방금 잰 위치를 보낸 저장인가. 토글 저장에 좌표가 실려도 거짓 — 재어 보낸 GeoLocator 만 참.</summary>
     public bool? WeatherLocated { get; set; }
 
-    /// <summary>
-    /// 브라우저가 말한 오차 반지름(m). <b>설정이 아니다</b> — 이 PUT 에 얹혀
-    /// 올 뿐이고 설정 표에는 안 들어간다.
-    /// </summary>
-    /// <remarks>
-    /// 가는 곳은 <c>scom.location_tracks</c> 한 줄이다. 거기서 쓰이는 까닭은
-    /// <b>믿을 수 없는 점을 가려내는 단서</b>가 이것뿐이기 때문이다 — 실내에서
-    /// 받은 좌표는 오차가 천 미터를 넘기도 하고, 그 점 하나가 「머문 자리」를
-    /// 둘로 쪼갠다. 없이도 돌아가므로 보내지 않아도 된다.
-    /// </remarks>
+    /// <summary>오차 반지름(m). 설정이 아니라 scom.location_tracks 한 줄에만 간다.</summary>
     public double? WeatherAccuracy { get; set; }
 }
 
-/// <summary>
-/// 「내 위치 날씨」를 켠 사람 하나 — <b>생활과환경(LifeEnvServer)이 가져간다.</b>
-/// </summary>
-/// <remarks>
-/// <para>
-/// <b>왜 보내는 쪽이 아니라 받아 가는 모양인가.</b> 날씨를 아는 것은 저쪽이다
-/// (기상청 인증키도 격자 변환도 예보 해석도 전부 거기 있다). 이쪽은 누가 켰는지만
-/// 안다. 그래서 저쪽이 시각마다 이 목록을 받아 가 자기 일을 하고, 만든 문장을
-/// <c>POST /weather-local</c> 로 되돌려 준다 — 기존 기상 이벤트와 같은 방향이다
-/// (LifeEnv → Notification). 방향을 뒤집으면 알림 서비스가 기상청을 알게 된다.
-/// </para>
-/// </remarks>
+/// <summary>「내 위치 날씨」를 켠 사람 하나. 생활과환경(LifeEnvServer)이 가져가 만든 문장을 POST /weather-local 로 되돌린다(방향을 뒤집으면 알림 서비스가 기상청을 알게 된다).</summary>
 public class LocalWeatherSubscriberDto
 {
     public string OwnerType { get; set; } = string.Empty;
@@ -562,24 +283,17 @@ public class LocalWeatherSubscriberDto
     public double Lat { get; set; }
     public double Lon { get; set; }
 
-    /// <summary>표시용 지역 이름. 비어 있으면 저쪽이 격자표에서 찾아 채워 보낸다.</summary>
+    /// <summary>표시용 지역 이름. 비면 저쪽이 격자표에서 채운다.</summary>
     public string? Place { get; set; }
 
-    /// <summary>받기로 한 시각들(KST). 비었으면 저쪽이 기본값 <c>7,18</c> 로 읽는다.</summary>
+    /// <summary>받을 시각(KST). 비면 저쪽 기본값 <c>7,18</c>.</summary>
     public string? Hours { get; set; }
 
-    /// <summary>마지막으로 보낸 때(UTC). 같은 시각 칸을 두 번 울리지 않으려고 함께 보낸다.</summary>
+    /// <summary>마지막 발송 때(UTC). 같은 시각 칸을 두 번 울리지 않게 함께 보낸다.</summary>
     public DateTime? LastSentAt { get; set; }
 }
 
-/// <summary>
-/// 생활과환경이 만들어 보내는 「내 위치 날씨」 한 통.
-/// </summary>
-/// <remarks>
-/// 본문을 <b>저쪽이 만든다.</b> 기온·하늘상태·강수확률을 어떻게 한 줄로 줄일지는
-/// 날씨를 아는 쪽의 판단이고, 여기서 하면 알림 서비스가 기상청 코드값
-/// (<c>SKY</c>·<c>PTY</c>)을 알아야 한다.
-/// </remarks>
+/// <summary>「내 위치 날씨」 한 통. 본문은 저쪽이 만든다(기상청 코드값을 여기서 알지 않으려고).</summary>
 public class SendLocalWeatherDto
 {
     public string OwnerType { get; set; } = "jsini";
@@ -591,17 +305,14 @@ public class SendLocalWeatherDto
     /// <summary>날씨 상태 아이콘 분류.</summary>
     public string? WeatherKind { get; set; }
 
-    /// <summary>
-    /// 찾아낸 지역 이름. 주면 설정에 적어 둔다 — 사람이 처음 위치를 잡을 때는
-    /// 이름을 모르는 채로 저장될 수 있고, 그때 화면에 좌표만 남는다.
-    /// </summary>
+    /// <summary>찾아낸 지역 이름. 주면 설정에 적는다(처음 잡을 때는 이름을 모른 채 저장될 수 있다).</summary>
     public string? Place { get; set; }
 }
 
 /// <summary>내 기기(구독) 한 대.</summary>
 public class PushDeviceDto
 {
-    /// <summary>푸시 서비스 주소. 화면은 이것으로 "지금 이 브라우저" 를 알아본다.</summary>
+    /// <summary>푸시 서비스 주소. 화면이 이것으로 지금 브라우저를 알아본다.</summary>
     public string Endpoint { get; set; } = string.Empty;
 
     public string? Source { get; set; }
@@ -609,65 +320,31 @@ public class PushDeviceDto
     public DateTime? LastSentAt { get; set; }
     public DateTime CreatedAt { get; set; }
 
-    /// <summary>
-    /// 이 기기가 <b>마지막으로 알림을 받았다고 되알려 준 때</b>(UTC).
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <see cref="LastSentAt"/> 과 짝이고, 둘이 갈라지는 자리가 이 칸의 전부다 —
-    /// 보낸 적은 있는데 여기가 비어 있으면 <b>그 기기는 지금 못 받고 있다</b>
-    /// (브라우저 자료를 지웠거나 알림 권한을 껐거나, 켜 둔 적이 없다).
-    /// 푸시 서비스는 그런 구독에도 한동안 성공을 돌려주므로 발송 기록만으로는
-    /// 가릴 수가 없었다(<c>PushSendLog.DeliveredAt</c>).
-    /// </para>
-    /// <para>
-    /// <b>되알림이 생기기 전에 보낸 것은 세지 않는다.</b> 그래서 옛 기기도
-    /// 한 번은 비어 보인다 — 다음 알림 한 통이면 채워진다.
-    /// </para>
-    /// </remarks>
+    /// <summary>기기가 받았다고 되알려 준 때(UTC). LastSentAt 과 갈라지면 그 기기는 못 받고 있다.</summary>
     public DateTime? LastDeliveredAt { get; set; }
 
-    /// <summary>
-    /// 최근 발송 가운데 <b>이 기기에 닿은 것</b>의 수. <see cref="RecentSentCount"/>
-    /// 와 함께 「넷 중 하나」를 말한다.
-    /// </summary>
+    /// <summary>최근 발송 가운데 닿은 수.</summary>
     public int RecentDeliveredCount { get; set; }
 
-    /// <summary>최근 기간에 이 기기로 <b>보낸</b> 성공 발송의 수.</summary>
+    /// <summary>최근 기간 이 기기로 <b>보낸</b> 성공 발송 수.</summary>
     public int RecentSentCount { get; set; }
 
-    /// <summary>연달아 실패한 횟수. 0 이 아니면 그 기기는 못 받고 있을 수 있다.</summary>
+    /// <summary>연속 실패 횟수. 0 이 아니면 못 받고 있을 수 있다.</summary>
     public int FailureCount { get; set; }
     public DeviceMetadataDto Metadata { get; set; } = new();
 }
 
-/// <summary>
-/// 사람 <b>한 명</b>의 알림 상태 — 관리 화면이 여러 명을 한 번에 볼 때 쓴다.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <see cref="MyNotificationStateDto"/> 와 무엇이 다른가 — 그쪽은 <b>자기</b> 것
-/// 하나를 자세히(공개 키 · 기기 목록까지) 받는다. 이쪽은 <b>남의</b> 것을 여럿
-/// 훑는 자리라 기기는 <see cref="DeviceCount"/> 하나로 줄인다. 계정이 예순이
-/// 넘는데 기기 목록을 다 실으면 표 한 줄에 쓰지도 않을 자료가 붙는다.
-/// </para>
-///
-/// <para>
-/// <b><see cref="Saved"/> 를 함께 본다.</b> 거짓이면 아래 스위치 셋은 그 사람이
-/// 고른 값이 아니라 <b>기본값</b>이다(표에 행이 없다). 둘을 구분하지 않으면
-/// 「전부 켜 두었다」와 「한 번도 안 건드렸다」가 같은 그림이 된다.
-/// </para>
-/// </remarks>
+/// <summary>사람 한 명의 알림 상태(관리 화면용). Saved 가 거짓이면 스위치는 기본값.</summary>
 public class OwnerNotificationStateDto
 {
-    /// <summary>주인 식별자. 포털 계정이면 로그인 아이디다.</summary>
+    /// <summary>주인 식별자. 포털 계정이면 로그인 아이디.</summary>
     public string OwnerKey { get; set; } = string.Empty;
 
     public bool PushEnabled { get; set; } = true;
     public bool EmailEnabled { get; set; } = true;
     public bool WeatherEnabled { get; set; }
 
-    /// <summary>쪽지를 메일로도 받는가. 기본은 꺼짐이다.</summary>
+    /// <summary>쪽지를 메일로도 받는가. 기본 꺼짐.</summary>
     public bool NoteEmailEnabled { get; set; }
 
     /// <summary>내 글에 달린 댓글을 앱 푸시로 받는가. 기본은 켜짐이다.</summary>
@@ -676,37 +353,28 @@ public class OwnerNotificationStateDto
     /// <summary>내 글에 달린 댓글을 이메일로 받는가. 기본은 켜짐이다.</summary>
     public bool CommentEmailEnabled { get; set; } = true;
 
-    /// <summary>저장한 적이 있나. 거짓이면 위 스위치들은 기본값이다.</summary>
+    /// <summary>저장한 적이 있나. 거짓이면 스위치는 기본값.</summary>
     public bool Saved { get; set; }
 
-    /// <summary>
-    /// 구독한 기기 수. <b>0 이면 푸시를 켜 두어도 도착할 곳이 없다</b> —
-    /// 스위치만 보면 그것을 알 수 없어 따로 싣는다.
-    /// </summary>
+    /// <summary>구독 기기 수. 0 이면 푸시를 켜도 갈 곳이 없다.</summary>
     public int DeviceCount { get; set; }
 
-    /// <summary>그 사람의 기기 중 가장 최근에 발송이 성공한 시각.</summary>
+    /// <summary>기기 중 가장 최근 발송 성공 시각.</summary>
     public DateTime? LastSentAt { get; set; }
 
     public DateTime? UpdatedAt { get; set; }
 }
 
-/// <summary>
-/// 알림 설정 화면이 한 번에 받는 상태.
-/// </summary>
-/// <remarks>
-/// 화면 하나가 API 넷(공개키 · 설정 · 기기목록 · 계정)을 따로 부르면 순서에 따라
-/// 스위치가 깜빡인다. 한 번에 내려 준다.
-/// </remarks>
+/// <summary>알림 설정 화면이 한 번에 받는 상태(API 넷을 따로 부르면 스위치가 깜빡인다).</summary>
 public class MyNotificationStateDto
 {
-    /// <summary>이 설정의 주인 (표시·확인용).</summary>
+    /// <summary>이 설정의 주인.</summary>
     public string OwnerType { get; set; } = string.Empty;
     public string OwnerKey { get; set; } = string.Empty;
 
     public NotificationPreferenceDto Preference { get; set; } = new();
 
-    /// <summary>서버가 푸시를 보낼 수 있는 상태인가 (VAPID 설정 여부).</summary>
+    /// <summary>서버가 푸시를 보낼 수 있는 상태(VAPID 설정 여부).</summary>
     public bool PushAvailable { get; set; }
 
     /// <summary>브라우저가 구독을 만들 때 쓰는 공개 키.</summary>
@@ -715,15 +383,7 @@ public class MyNotificationStateDto
     public List<PushDeviceDto> Devices { get; set; } = new();
 }
 
-/// <summary>
-/// 발송 이력 한 줄(화면이 받는 모양).
-/// </summary>
-/// <remarks>
-/// <b>엔티티를 그대로 내보내지 않는다.</b> 그 표에는 endpoint 가 들어 있고
-/// 그것은 기기를 특정하는 값이라 화면에 보낼 것이 아니다. 그리고 화면이
-/// 쓰는 이름(<c>targetUser</c>)과 표의 이름(<c>owner_key</c>)이 다르다 —
-/// 표 이름을 화면에 맞추면 이번에는 서버 코드가 어색해진다.
-/// </remarks>
+/// <summary>발송 이력 한 줄. 엔티티를 그대로 내보내지 않는다(endpoint 가 들어 있다).</summary>
 public class PushLogRowDto
 {
     public string Id { get; set; } = string.Empty;
@@ -744,58 +404,24 @@ public class PushLogRowDto
     /// <summary>보낸 사람. 시스템이 보낸 것은 비어 있다.</summary>
     public string? SentBy { get; set; }
 
-    /// <summary>
-    /// 그 기기에 <b>닿았다고 되알려 온 때</b>(UTC). 없으면 <c>null</c> 이다.
-    /// </summary>
-    /// <remarks>
-    /// <see cref="Success"/> 는 「푸시 서비스가 받아 주었다」까지이고 이 값이
-    /// 「기기가 실제로 띄웠다」이다 — 둘이 갈라지는 줄이 곧 못 받고 있는
-    /// 기기다(<c>PushSendLog.DeliveredAt</c>).
-    /// </remarks>
+    /// <summary>기기가 실제로 띄운 때(UTC). Success 는 푸시 서비스 접수까지다.</summary>
     public DateTime? DeliveredAt { get; set; }
 }
 
-/// <summary>
-/// <b>이 기기에 알림이 닿았다</b>는 서비스워커의 보고.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <b>이 길은 익명이다</b>(게이트웨이의 <c>notification-push-delivered-route</c>).
-/// 부르는 쪽은 브라우저의 서비스워커이고 거기에는 로그인 토큰이 없다 — 이
-/// 포털의 토큰은 서버가 들고 있고 브라우저로 안 내려온다(BFF).
-/// </para>
-/// <para>
-/// 신원 대신 <b>묶음 아이디(<see cref="Nid"/>)와 제 구독 주소</b>
-/// (<see cref="Endpoint"/>) 둘을 열쇠로 쓴다. 둘 다 <b>그 알림을 실제로 받은
-/// 기기만 아는 값</b>이고, 할 수 있는 일은 「닿았다고 찍는 것」뿐이다 —
-/// 쪽지 도착 보고(<c>NoteDeliveredDto</c>)와 같은 짜임이다.
-/// </para>
-/// </remarks>
+/// <summary>서비스워커의 「닿았다」 보고. 익명이라 토큰이 없고 묶음 아이디와 구독 주소로 찾는다.</summary>
 public class PushDeliveredDto
 {
-    /// <summary>
-    /// 묶음 아이디. 페이로드의 <c>nid</c> 그대로다(<c>push_send_logs.batch_id</c>).
-    /// </summary>
+    /// <summary>묶음 아이디(페이로드 nid, push_send_logs.batch_id).</summary>
     public string? Nid { get; set; }
 
-    /// <summary>
-    /// 받은 기기의 푸시 구독 주소. 서비스워커가
-    /// <c>registration.pushManager.getSubscription()</c> 으로 얻는다.
-    /// </summary>
-    /// <remarks>
-    /// <b>없으면 아무것도 찍지 않는다.</b> 묶음만으로 찍으면 기기 넷에 보낸
-    /// 알림이 한 대만 받고도 넷 다 닿은 것으로 남아, 이 칸을 만든 까닭이
-    /// 통째로 사라진다.
-    /// </remarks>
+    /// <summary>받은 기기의 구독 주소. 없으면 아무것도 찍지 않는다(묶음만 찍으면 한 대만 받아도 넷 다 닿은 것이 된다).</summary>
     public string? Endpoint { get; set; }
 }
 
-/// <summary>
-/// 알림함 한 줄. <b>발송 한 번이 한 줄</b>이다(기기 수와 무관).
-/// </summary>
+/// <summary>알림함 한 줄. 발송 한 번이 한 줄(기기 수와 무관).</summary>
 public class NotificationRowDto
 {
-    /// <summary>묶음 열쇠. 옛 줄에는 묶음이 없어 줄 아이디가 그대로 온다.</summary>
+    /// <summary>묶음 열쇠. 옛 줄은 줄 아이디.</summary>
     public string Id { get; set; } = string.Empty;
 
     public string? Title { get; set; }
@@ -804,11 +430,7 @@ public class NotificationRowDto
     public DateTime CreatedAt { get; set; }
     public bool IsRead { get; set; }
 
-    /// <summary>
-    /// 알림구분 코드값(<c>NOTI_CATEGORY</c>). <b>이름은 주지 않는다</b> —
-    /// 화면이 공통코드를 이미 읽고 있어서, 여기서 함께 보내면 같은 이름이
-    /// 두 곳에서 오고 공통코드를 고쳤을 때 둘이 어긋난다.
-    /// </summary>
+    /// <summary>알림구분 코드값(NOTI_CATEGORY). 화면이 공통코드로 이름을 읽는다.</summary>
     public string? Category { get; set; }
 
     /// <summary>기기 한 대에라도 갔는가.</summary>
@@ -817,28 +439,11 @@ public class NotificationRowDto
     /// <summary>한 대도 못 갔을 때의 까닭. 갔으면 <c>null</c>.</summary>
     public string? FailureReason { get; set; }
 
-    /// <summary>
-    /// 앱 알림이 띄웠던 아이콘 주소 — 대개 시킨 사람의 프로필 사진이다.
-    /// 지목한 사람이 없는 알림(배포 알림 등)은 <c>null</c>.
-    /// </summary>
-    /// <remarks>
-    /// 왜 이것을 기록에 남겨야 했는지는 <see cref="Entities.PushSendLog.Icon"/>
-    /// 머리말에 있다. <b>칸을 만들기 전에 보낸 줄은 비어 있다</b> — 화면은
-    /// 그때 갈래 그림으로 떨어진다.
-    /// </remarks>
+    /// <summary>앱 알림 아이콘 주소(대개 시킨 사람의 프로필 사진). 칸을 만들기 전 줄은 null.</summary>
     public string? Icon { get; set; }
 }
 
-/// <summary>
-/// 알림함에서 <b>고른 것 여럿</b>에 한꺼번에 거는 요청(읽음 · 치우기).
-/// </summary>
-/// <remarks>
-/// 한 건짜리 길(<c>/inbox/{id}/read</c> · <c>DELETE /inbox/{id}</c>)이 이미
-/// 있는데 묶음 길을 따로 둔 까닭은 <b>왕복 수</b>다. 화면의 머리 체크 하나로
-/// 수백 줄이 잡히는데 그것을 한 줄씩 부르면 그만큼 왕복이 늘고, 중간에
-/// 하나가 실패하면 <b>어디까지 지워졌는지</b>를 사람이 알 수 없다.
-/// 여기서는 한 번의 저장으로 끝나 전부 되거나 전부 안 된다.
-/// </remarks>
+/// <summary>알림함에서 고른 여럿에 거는 요청(읽음 · 치우기). 한 번의 저장으로 묶어 중간 실패 때 부분 처리를 막는다.</summary>
 public class InboxBulkDto
 {
     /// <summary>묶음 열쇠들(<c>batch_id</c> 또는 옛 줄의 아이디).</summary>

@@ -4,32 +4,11 @@ using Xunit;
 
 namespace JSini.Web.Architecture.Tests;
 
-/// <summary>
-/// 다이어그램의 <b>보던 자리</b>(<see cref="ErdViewport"/>)가 JS 와 같은 이름으로
-/// 오가는지 못박는다.
-///
-/// <para>[왜 이것을 테스트하나]</para>
-///
-/// <para>
-/// 이 값은 <b>C# 과 JS 가 글자로 약속한 것</b>이다 — `diagram-viewer.js` 의
-/// <c>viewState()</c> 가 <c>{ scale, dx, dy, minimap }</c> 을 만들고 저장은
-/// 거기에 <c>tools</c>·<c>pinned</c> 를 얹는다. 한쪽 이름을 고치면
-/// <b>아무 데서도 예외가 나지 않고</b> 그 값만 조용히 사라진다. 증상은
-/// 「저장했는데 다음에 열면 배율이 안 돌아온다」 하나뿐이라, 원인이 이름으로
-/// 보이지 않는다.
-/// </para>
-///
-/// <para>
-/// 옛 저장본에는 이 칸이 <b>아예 없다.</b> 그때 기본값으로 읽어 버리면
-/// (배율 1 · 미니맵 켬) 열 때마다 방금 맞춰 둔 화면이 흐트러진다. 그래서
-/// <c>null</c> 이어야 하고, 그것도 여기서 못박는다.
-/// </para>
-/// </summary>
+/// <summary>다이어그램의 보던 자리(ErdViewport)가 JS 와 같은 이름으로 오가는지 못박는다. 이 이름은 C# 과 JS 가 글자로 약속한 것이라, 한쪽을 고치면 예외 없이 그 값만 조용히 사라진다.
+/// 옛 저장본에는 칸이 없으므로 기본값으로 읽지 않고 null 이어야 한다.</summary>
 public sealed class ErdViewportTests
 {
-    /// <summary>
-    /// JS 가 읽고 쓰는 이름 그대로 나가야 한다. <b>이 글자가 계약이다.</b>
-    /// </summary>
+    /// <summary>JS 가 읽고 쓰는 이름 그대로 나가야 한다 — 이 글자가 계약이다.</summary>
     [Fact]
     public void 보던_자리는_JS_와_같은_이름으로_나간다()
     {
@@ -59,9 +38,7 @@ public sealed class ErdViewportTests
         Assert.False(view.GetProperty("pinned").GetBoolean());
     }
 
-    /// <summary>
-    /// JS 가 돌려준 모양을 그대로 읽는다(<c>save()</c> 의 <c>view</c>).
-    /// </summary>
+    /// <summary>JS 가 돌려준 모양을 그대로 읽는다(save() 의 view).</summary>
     [Fact]
     public void JS_가_준_모양을_그대로_읽는다()
     {

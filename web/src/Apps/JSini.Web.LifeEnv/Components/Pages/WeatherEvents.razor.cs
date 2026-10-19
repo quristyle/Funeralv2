@@ -24,10 +24,7 @@ public partial class WeatherEvents
     private bool _onlyUnsent;
 
     /// <summary>
-    /// 「미발송만」은 브라우저에서 거른다. 서버에 그 조건이 없다.
-    ///
-    /// 받아 온 것 안에서만 거르므로, 전체가 많으면 기간을 좁혀야 제대로 보인다.
-    /// 그 사실을 아래 안내가 말해 준다.
+    /// 「미발송만」은 받아 온 것 안에서만 거른다 — 서버에 그 조건이 없어, 전체가 많으면 기간을 좁혀야 제대로 보인다.
     /// </summary>
     private IReadOnlyList<WeatherEventRecord> Shown =>
         _onlyUnsent ? [.. _events.Where(e => !e.IsNotified)] : _events;
@@ -36,9 +33,7 @@ public partial class WeatherEvents
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        // 지역 목록은 고르개와 이름 표시에 함께 쓴다. 한 번만 읽고, 읽어야 할
-        // 때는 기록과 나란히 받는다 — 조건(_locationId)은 이미 화면에 있는
-        // 값이라 지역 목록을 기다릴 이유가 없다.
+        // 지역 목록은 고르개와 이름 표시에 함께 쓴다. 한 번만 읽고, 읽을 때는 기록과 나란히 받는다.
         var locations = _locations.Count == 0 ? Client.GetLocationsAsync() : null;
 
         var events = Client.GetEventsAsync(
@@ -55,8 +50,7 @@ public partial class WeatherEvents
         _events = page?.Items ?? [];
         _total = page?.TotalCount ?? _events.Count;
 
-        // **잘렸으면 반드시 말한다.** 「전부다」로 읽고 넘어가면 없는 것을
-        // 찾게 된다. 조회의 **결과**라 안내 줄이 아니라 토스트로 나간다.
+        // 잘렸으면 반드시 말한다 — 「전부다」로 읽으면 없는 것을 찾게 된다. 결과 자체라 안내 줄이 아니라 토스트로 낸다.
         if (_total > _events.Count)
         {
             Say($"전체 {_total}건 중 {_events.Count}건입니다. 기간이나 지역으로 좁히십시오.");
@@ -68,12 +62,8 @@ public partial class WeatherEvents
     private string LocationName(int? id) =>
         id is null ? "-" : _locations.FirstOrDefault(l => l.Id == id)?.Name ?? "-";
 
-    private async Task DeleteAsync(WeatherEventRecord e)
-    {
-        if (await RunAsync(() => Client.DeleteEventAsync(e.Id),
-                           "지웠습니다. 이미 나간 알림은 되돌아가지 않습니다.", "지우지 못했습니다"))
-        {
-            await ReloadAsync();
-        }
-    }
+    private static string DeleteMessage(WeatherEventRecord _) =>
+        "이 특보 기록을 지웁니다. 이미 나간 알림은 되돌아가지 않습니다.";
+
+    private Task DeleteAsync(WeatherEventRecord e) => Client.DeleteEventAsync(e.Id);
 }

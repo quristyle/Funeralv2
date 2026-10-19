@@ -5,30 +5,21 @@ using Microsoft.EntityFrameworkCore;
 
 namespace AuthServer.Services;
 
-/// <summary>
-/// 접속 기록 서비스 인터페이스
-/// </summary>
+/// <summary>접속 기록 서비스 인터페이스</summary>
 public interface ILoginLogService
 {
-    /// <summary>
-    /// 로그인 시도를 남긴다. 실패해도 예외를 밖으로 내보내지 않는다 —
-    /// 기록은 로그인의 부수 효과일 뿐이고, 기록이 안 됐다고 로그인을 막을 이유가 없다.
-    /// </summary>
+    /// <summary>로그인 시도를 남긴다. 실패해도 예외를 밖으로 내보내지 않는다 — 기록은 로그인의 부수 효과라 기록이 안 됐다고 로그인을 막지 않는다.</summary>
     Task WriteAsync(
         string? accountId, string loginId, bool success,
         string? failReason, string? ip, string? userAgent);
 
-    /// <summary>
-    /// 계정 정보 화면에 보여 줄 활동 정보.
-    /// </summary>
+    /// <summary>계정 정보 화면에 보여 줄 활동 정보.</summary>
     /// <param name="userId">게이트웨이가 넘긴 로그인 아이디</param>
     /// <param name="limit">최근 기록을 몇 줄까지 볼지</param>
     Task<AccountActivityDto> GetActivityAsync(string userId, int limit);
 }
 
-/// <summary>
-/// 접속 기록 서비스 구현체
-/// </summary>
+/// <summary>접속 기록 서비스 구현체</summary>
 public class LoginLogService : ILoginLogService
 {
     /// <summary>'최근 실패' 를 셀 기간</summary>
@@ -137,14 +128,7 @@ public class LoginLogService : ILoginLogService
     private static string? Truncate(string? value, int max)
         => value is null || value.Length <= max ? value : value[..max];
 
-    /// <summary>
-    /// User-Agent 를 `Chrome · Windows` 처럼 줄인다.
-    /// </summary>
-    /// <remarks>
-    /// 원문은 길고 대부분이 잡음이라 화면에 그대로 쓰면 표가 무너진다.
-    /// 정확한 판별이 목적이 아니다 — "내가 쓰는 그 브라우저가 맞는지" 만 알면 된다.
-    /// 원문도 함께 내려주므로 필요하면 화면에서 마우스를 올려 볼 수 있다.
-    /// </remarks>
+    /// <summary>User-Agent 를 <c>Chrome · Windows</c> 처럼 줄인다. 원문은 화면에 그대로 쓰면 표가 무너지므로 원문도 함께 내려준다 — 정확한 판별이 목적이 아니다.</summary>
     private static string? DescribeDevice(string? userAgent)
     {
         if (string.IsNullOrWhiteSpace(userAgent)) return null;

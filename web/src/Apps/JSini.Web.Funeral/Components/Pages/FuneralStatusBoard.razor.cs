@@ -26,8 +26,7 @@ public partial class FuneralStatusBoard
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        // 요약과 목록을 한 번에 받는다. 따로 부르면 두 왕복 사이에 자료가 바뀌어
-        // "사용 중 5" 인데 목록은 4줄인 상태가 생긴다.
+        // 요약과 목록을 한 번에 받는다. 따로 부르면 두 왕복 사이에 자료가 바뀌어 요약과 목록이 어긋난다.
         _board = await Api.GetFuneralStatusBoardAsync(_buildingId, _floorId);
         var rooms = _board?.Rooms ?? [];
 

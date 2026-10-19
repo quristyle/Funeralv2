@@ -2,53 +2,16 @@
 @attribute [RouteKey("admin.system.menu")]
 
 @*
-    [메뉴 관리] — DB 메뉴 `/system/menu`.
-    이력: Vue `views/portal/system/menu` → 여기.
-
-    이 화면도 보기 자료를 그리고 있었다 — 「장례 관리 · 헬프데스크 ·
-    프로젝트관리 · 생활과환경」 네 줄이 코드에 박혀 있었다. 실제 메뉴는 179건이다.
-
-    [화면은 고르는 것이지 적는 것이 아니다]
-
-    Blazor 로 옮기면서 라우팅 소유권이 뒤집혔다. 옛 Vue 는 이 표의
-    `component` 컬럼(파일 경로)으로 라우트를 만들었지만, 지금은 각 화면의
-    `@@page` 가 라우트를 정하고 **이 표는 노출·권한만** 맡는다.
-
-    그래서 여는 화면은 **「화면」 칸에서 목록으로 고른다.** 그 목록은 지금
-    실려 있는 화면 전부다(`RouteInventory`). 없는 화면을 가리킬 방법이
-    없으므로 「메뉴는 보이는데 눌러도 안 열린다」가 여기서 원천 봉쇄된다 —
-    저장소가 열몇 번 밟았다고 적어 둔 함정이 그것이다.
-
-    「경로」 칸은 **권한표와 즐겨찾기의 열쇠**라 남겨 두었고 옛 값 그대로여도
-    된다. 사용자가 실제로 가는 주소는 고른 화면이 정한다.
-    자세한 것은 web/CLAUDE.md 의 「라우팅 소유권이 뒤집혔다」.
-
-    [권한 일곱 가지를 여기서 켠다]
-
-    조회·검색·등록·수정·삭제·출력·엑셀. 화면의 단추가 이 값을 본다
-    (`PermissionView`). 화면을 고치지 않고 DB 에서 껐다 켤 수 있는 자리다.
-
-    [순서 바꾸기와 옮기기는 아직 없다]
-
-    옛 화면은 끌어서 옮기고(`menu/move`) 순서를 바꿀 수 있었다
-    (`menu/reorder`). 그 둘은 **되돌리기 어려운 일괄 변경**이라 —
-    한 번 잘못 끌면 트리 전체가 흐트러지고 되돌릴 버튼이 없다 —
-    상위 메뉴와 순서를 편집 폼에서 값으로 고르게 두었다.
+    [메뉴 관리] DB 메뉴 `/system/menu`. 화면은 「화면」 칸에서 실려 있는 목록으로 고른다 — 없는 화면을 가리킬 수 없어 「보이는데 안 열리는」 메뉴가 생기지 않는다.
+    경로 칸은 권한표·즐겨찾기의 열쇠라 남겼다. 권한 일곱 가지는 여기서 켠다. 끌어 옮기기는 되돌리기 어려워 편집 폼에서 값으로 고른다.
 *@
 
 @inherits DataPage
 @using JSini.Web.Components.Menu
 
-<PageTitle>메뉴 관리 · 포털관리</PageTitle>
+<PageTitle>메뉴 관리</PageTitle>
 
-@* ── 조회 영역 ─────────────────────────────────────────
-   조건 둘은 브라우저 안에서 거른다. 「조회」는 게이트웨이에서 다시 읽는다.
-
-   「등록」이 조건 옆에 있었다. 조건과 동작이 한 줄에 섞이면 어느 것이
-   조건인지가 흐려져서, 이 화면만의 동작 자리(`Actions`)로 옮겼다.
-   표·나무의 아래 띠에 두지 않는 이유는 **이 화면이 저장을 그 부품에 맡기지
-   않는다**는 것이다 — 편집 창을 직접 띄우므로(`OnSave` 를 주지 않는다)
-   `CommGrd`·`CommTree` 는 어느 쪽도 등록 단추를 그리지 않는다. *@
+@* 조건 둘은 브라우저 안에서 거른다. 등록은 조건과 섞이지 않게 동작 자리(Actions)에 둔다 — 이 화면은 저장을 부품에 맡기지 않아 부품은 등록 단추를 그리지 않는다. *@
 <CommSch OnSearch="@ReloadAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="검색어">
@@ -98,33 +61,17 @@
     </div>
 }
 
-@* 끌어 옮기기는 **해 보기 전에는 보이지 않는** 기능이라 한 줄 적어 둔다.
-   거를 때는 목록이 평평해져 끌 수 없다는 것도 함께 말한다 — 안 적으면
-   「어제는 끌렸는데 오늘은 안 된다」로 읽힌다. *@
-@if (_canMove)
-{
-    <div class="ad-stamps">
-        <span class="ad-stamp">
-            @(Filtering
-                ? "검색 중에는 목록이 평평해져 끌 수 없습니다. 검색어를 지우면 나무로 돌아옵니다."
-                : "줄을 끌어 옮기면 상위와 순서가 바뀝니다 — 줄 사이에 놓으면 형제, 줄 위에 놓으면 하위입니다.")
-        </span>
-    </div>
-}
 
-@*
-    검색어가 있으면 나무를 접고 **평평한 목록**으로 보여 준다.
 
-    나무인 채로 거르면 걸린 항목의 조상까지 남겨야 하고(안 남기면 트리가
-    깨진다), 그러면 걸리지도 않은 묶음이 결과에 섞여 무엇이 걸린 것인지
-    알 수 없다. 옛 화면도 검색하면 평평해졌다.
-*@
+@* 검색어가 있으면 나무를 접고 평평한 목록으로 보인다 — 나무인 채 거르면 걸리지 않은 묶음이 결과에 섞인다. *@
 <CommCont>
 @if (Filtering)
 {
     <CommGrd TItem="SystemMenuDto" Data="@Flat" PageSize="30"
-             ExportName="메뉴"
-             Reload="@ReloadAsync">
+             ExportName="메뉴" ColumnResizingMode="ColumnResizingMode.FixedWidth"
+             KeyFieldName="@nameof(SystemMenuDto.Id)"
+             Reload="@ReloadAsync"
+             RowActions="@RowActions">
         <Columns>
             <DxGridDataColumn Caption="메뉴" MinWidth="220">
                 <CellDisplayTemplate Context="cell">
@@ -136,34 +83,19 @@
             </DxGridDataColumn>
             <DxGridDataColumn FieldName="@nameof(SystemMenuDto.Path)" Caption="경로" MinWidth="200" />
             <DxGridDataColumn FieldName="@nameof(SystemMenuDto.Type)" Caption="유형" Width="100" />
-            <DxGridDataColumn Caption="관리" Width="130" AllowSort="false">
-                <CellDisplayTemplate Context="cell">
-                    @RowActions((SystemMenuDto)cell.DataItem)
-                </CellDisplayTemplate>
-            </DxGridDataColumn>
         </Columns>
     </CommGrd>
 }
 else
 {
-    @* ── 끌어 옮기기 ────────────────────────────────────
-       줄을 끌면 **상위와 순서가 함께** 바뀐다. 줄 사이에 놓으면 그 자리의
-       형제가 되고, 줄 위에 놓으면 그 메뉴의 하위가 된다.
-
-       켜는 것만 여기서 정한다 — 수정 권한이 없으면 아예 끌리지 않는다.
-       놓을 자리를 잡는 값 둘(`AllowedDropTarget` · `DropTargetMode`)은
-       `CommTree` 의 기본값이 이 화면이 쓰던 것과 같아서 적지 않는다.
-
-       관리 칸도 `CommTree` 가 그린다. 표 쪽과 같은 조각(`RowActions`)을
-       넘기고 너비를 130 으로 맞춰 두어, 검색어를 지워 표 ↔ 나무가 갈릴 때
-       조작 자리가 옮겨 다니지 않는다. *@
+    @* 줄을 끌면 상위와 순서가 함께 바뀐다(줄 사이면 형제, 줄 위면 하위). 수정 권한이 없으면 끌리지 않는다. 관리 칸은 CommTree 가 그리고 RowActions 로 표와 같은 모양을 준다. *@
     <CommTree TItem="SystemMenuDto" Data="@_menus"
               KeyFieldName="@nameof(SystemMenuDto.Id)"
               ChildrenFieldName="@nameof(SystemMenuDto.Children)"
-              ExportName="메뉴"
+              ExportName="메뉴" ColumnResizingMode="ColumnResizingMode.FixedWidth"
               Reload="@ReloadAsync"
               RowActions="@RowActions"
-              ActionsWidth="130"
+              OnAddChild="@StartChild"
               AllowDragRows="@_canMove"
               ItemsDropped="@OnDroppedAsync">
         <Columns>
@@ -185,14 +117,9 @@ else
             <DxTreeListDataColumn FieldName="@nameof(SystemMenuDto.Path)" Caption="경로" MinWidth="200" />
             <DxTreeListDataColumn FieldName="@nameof(SystemMenuDto.Type)" Caption="유형" Width="100" />
 
-            <DxTreeListDataColumn Caption="순서" Width="70">
-                <CellDisplayTemplate Context="cell">
-                    @(((SystemMenuDto)cell.DataItem).Meta.Order)
-                </CellDisplayTemplate>
-            </DxTreeListDataColumn>
+ 
 
-            @* 권한 일곱 가지를 한 칸에 글자로 압축한다. 일곱 칸으로 벌리면
-               표가 옆으로 넘쳐 정작 메뉴 이름이 안 보인다. *@
+            @* 권한 일곱 가지를 글자로 압축한다 — 일곱 칸으로 벌리면 표가 옆으로 넘친다. *@
             <DxTreeListDataColumn Caption="허용" Width="150">
                 <CellDisplayTemplate Context="cell">
                     <span class="ad-menu__perm">@Permits(((SystemMenuDto)cell.DataItem).Permissions)</span>
@@ -212,53 +139,59 @@ else
 }
 </CommCont>
 
-@* 편집 창을 직접 띄운다. **`CommTree`·`CommGrd` 의 팝업 편집을 쓰지 않는
-   이유는 폼이 이 화면의 것이기 때문이다** — 칸이 스물 남짓이고, 저장 전에
-   이름·경로 중복을 게이트웨이에 물어 보고(`MenuNameExistsAsync`), 「화면」
-   칸은 실려 있는 라우트 목록에서 고른다. 부품의 편집 폼에 그 셋을 얹으면
-   이 화면만 아는 규칙이 공통 부품 쪽으로 새 나간다.
-
-   (한동안 「나무에는 그리드 같은 팝업 편집이 없다」고 적혀 있었는데 그건
-   사실이 아니다 — `TreeListEditMode.PopupEditForm` 이 있고 `CommTree` 가
-   그것을 쓴다. 이 화면이 안 쓰는 것은 위 이유 때문이다.) *@
-@* 창을 `CommPopup` 으로 띄운다. 머리를 잡아 옮길 수 있고, 바깥을 눌러도
-   닫히지 않고, 폼이 화면보다 길면 본문만 구른다 — 셋 다 그 부품의 기본값이라
-   여기서 적지 않는다. 이 화면은 칸이 스물 남짓이라 마지막 것이 특히 걸린다. *@
-<CommPopup @bind-Visible="_editing" HeaderText="@(_isNew ? "메뉴 등록" : "메뉴 수정")"
+@* 편집 창을 직접 띄운다 — 폼이 이 화면의 것이라(칸 스물 남짓, 저장 전 이름·경로 중복을 게이트웨이에 묻고, 화면 칸은 실린 라우트에서 고른다) 부품 팝업을 쓰지 않는다. 창은 CommPopup 으로 띄운다. *@
+<CommPopup @bind-Visible="_editing" HeaderText="@EditHeader"
            Width="720">
     <BodyContentTemplate Context="popup">
         <DxFormLayout CssClass="ad-editform">
-            <DxFormLayoutItem Caption="메뉴 이름" ColSpanMd="6">
+            @* AI 로 채우기. 비어 있는 칸만 채운다 — 사람이 고른 값을 덮지 않는다. *@
+            <DxFormLayoutItem Caption="무엇을 하는 메뉴인가" ColSpanMd="12">
+                <div class="jsini-inline">
+                    <DxTextBox @bind-Text="_brief" />
+                    <DxButton Text="AI 로 채우기" IconCssClass="jsini-icon-robot"
+                              RenderStyle="ButtonRenderStyle.Secondary"
+                              Enabled="@(!_autoFilling)"
+                              Click="@AutoFillAsync" />
+                </div>
+            </DxFormLayoutItem>
+
+            @* 메뉴 코드다 — 화면·권한·즐겨찾기가 이름으로 부르는 영문 식별자다. 옛 한글 이름은 그대로 두고, 새로 만들 때만 형식을 본다. *@
+            <DxFormLayoutItem Caption="메뉴 코드" ColSpanMd="6">
                 <DxTextBox @bind-Text="_edit.Name" />
             </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="제목" ColSpanMd="6">
-                @* 다국어 키를 넣을 수도 있다. 그때는 서버가 표를 찾아 옮겨 준다. *@
-                <DxTextBox @bind-Text="_edit.Meta.Title" />
+            @* 제목은 번역 키다. 키 옆의 AI 추천은 등록할 때만 — 아래 두 칸이 그 키의 한국어·영어 글자다. *@
+            <DxFormLayoutItem Caption="제목 (번역 키)" ColSpanMd="6">
+                <div class="jsini-inline">
+                    <DxTextBox @bind-Text="_edit.Meta.Title" @bind-Text:after="OnTitleKeyChangedAsync" />
+                    @if (_isNew)
+                    {
+                        <AiCodeSuggest Word="@(string.IsNullOrWhiteSpace(_titleKo) ? _edit.Name : _titleKo)" Natural="true" OnPick="@PickTitleKeyAsync" />
+                    }
+                </div>
             </DxFormLayoutItem>
 
-            @* 실려 있는 화면에서 고른다. 타이핑이 아니라 고르기라서
-               없는 화면을 가리킬 방법이 없다 — 이 칸이 이 화면의 핵심이다.
+            <DxFormLayoutItem Caption="제목 · 한국어" ColSpanMd="3">
+                <DxTextBox @bind-Text="_titleKo" />
+            </DxFormLayoutItem>
 
-               **끼워 넣는 메뉴(EMBEDDED)에는 안 보인다.** 그런 메뉴는 셸의 공용
-               화면 하나가 전부 받고 무엇을 띄울지는 아래 「iframe 주소」가
-               정한다. 고를 것이 없는 칸을 남겨 두면 무엇을 골라야 하는지
-               찾다가 아무것이나 고르게 된다. *@
-            @if (!IsEmbedded)
-            {
-                <DxFormLayoutItem Caption="화면" ColSpanMd="12">
-                    <DxComboBox Data="@ScreenChoices" @bind-Value="_edit.RouteKey"
-                                TextFieldName="Text" ValueFieldName="Value"
-                                SearchMode="ListSearchMode.AutoSearch"
-                                SearchFilterCondition="ListSearchFilterCondition.Contains"
-                                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-                </DxFormLayoutItem>
-            }
+            <DxFormLayoutItem Caption="제목 · English" ColSpanMd="3">
+                <DxTextBox @bind-Text="_titleEn" />
+            </DxFormLayoutItem>
 
-            @* 권한표와 즐겨찾기의 열쇠다. 옛 Vue 경로 그대로여도 되고,
-               바꾸면 그 메뉴의 권한과 즐겨찾기가 끊긴다. *@
+            @* 화면이 있는 메뉴(MENU)에서만 쓴다 — 나머지 유형은 화면을 가리키지 않아 칸을 끈다(값은 남긴다). *@
+            <DxFormLayoutItem Caption="화면" ColSpanMd="12">
+                <DxComboBox Data="@ScreenChoices" @bind-Value="_edit.RouteKey"
+                            TextFieldName="Text" ValueFieldName="Value"
+                            Enabled="@UsesScreen"
+                            SearchMode="ListSearchMode.AutoSearch"
+                            SearchFilterCondition="ListSearchFilterCondition.Contains"
+                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+            </DxFormLayoutItem>
+
+            @* 권한표와 즐겨찾기의 열쇠다. 바꾸면 그 메뉴의 권한과 즐겨찾기가 끊긴다. *@
             <DxFormLayoutItem Caption="경로 (권한 열쇠)" ColSpanMd="6">
-                <DxTextBox @bind-Text="_edit.Path" />
+                <DxTextBox @bind-Text="_edit.Path" Enabled="@UsesPath" />
             </DxFormLayoutItem>
 
             <DxFormLayoutItem Caption="유형" ColSpanMd="6">
@@ -276,72 +209,54 @@ else
                 <DxSpinEdit @bind-Value="_edit.Meta.Order" MinValue="0" />
             </DxFormLayoutItem>
 
-            @* 아이콘은 **보고 고른다.** 값이 iconify 이름이라(`lucide:calendar-days`)
-               외우고 있는 사람이 없고, 틀린 이름을 적으면 오류가 아니라 동그라미가
-               나와서 저장은 되고 사이드바에서만 이상해진다(`MenuIcons` 머리말).
-
-               고를 수 있는 목록은 **이 화면이 이미 들고 있는 메뉴에서** 뽑는다 —
-               왜 그렇게 하는지는 `IconPicker` 머리말에 있다. 칸이 한 줄보다
-               높아지므로 폭을 12로 준다. *@
+            @* 아이콘은 보고 고른다 — 값이 iconify 이름이라 틀린 이름은 오류 없이 빈 동그라미가 된다. 고를 목록은 이 화면이 들고 있는 메뉴에서 뽑는다. *@
             <DxFormLayoutItem Caption="아이콘" ColSpanMd="12">
-                <IconPicker @bind-Value="_edit.Meta.Icon" Available="@IconChoices" />
+                <IconPicker @bind-Value="_edit.Meta.Icon" Available="@IconChoices" Enabled="@UsesIcon" />
             </DxFormLayoutItem>
 
             <DxFormLayoutItem Caption="화면 파일" ColSpanMd="12">
-                @* 옛 Vue 경로. 이제 라우팅에 쓰이지 않는다 — 위 주석 참고. *@
+                @* 옛 Vue 경로. 라우팅에는 쓰이지 않는다. *@
                 <DxTextBox @bind-Text="_edit.Component" ReadOnly="true" />
             </DxFormLayoutItem>
 
             <DxFormLayoutItem Caption="바깥 링크" ColSpanMd="12">
-                <DxTextBox @bind-Text="_edit.Meta.Link" />
+                <DxTextBox @bind-Text="_edit.Meta.Link" Enabled="@UsesLink" />
             </DxFormLayoutItem>
 
-            @* iframe 주소. **바깥 링크와 다른 칸이다** — 저것은 새 창으로 나가고
-               이것은 화면 안에 끼워 넣는다. 한 칸으로 뭉개면 「새 창으로 열리는데
-               왜 안 끼워지지」가 된다.
-
-               칸이 아예 없었다. DB 도 서버도 이 값을 오래전부터 들고 있었는데
-               (`scom.system_menus.iframe_src`) 여기서 볼 길이 없어서, 주소를
-               고치려면 DB 를 직접 만져야 했다.
-
-               **이 칸이 곧 화면이다.** 채워 저장하면 그것만으로 메뉴가 열린다 —
-               razor 를 쓰거나 배포할 일이 없다. *@
-            @if (IsEmbedded)
-            {
-                <DxFormLayoutItem Caption="iframe 주소" ColSpanMd="12">
-                    <DxTextBox @bind-Text="_edit.Meta.IframeSrc" />
-                </DxFormLayoutItem>
-            }
+            @* iframe 주소. 바깥 링크와 다른 칸이다 — 이것은 화면 안에 끼워 넣는다. 이 칸이 곧 화면이라 채우면 razor 나 배포 없이 메뉴가 열린다. *@
+            <DxFormLayoutItem Caption="iframe 주소" ColSpanMd="12">
+                <DxTextBox @bind-Text="_edit.Meta.IframeSrc" Enabled="@UsesIframe" />
+            </DxFormLayoutItem>
 
             <DxFormLayoutItem Caption="보이기" ColSpanMd="12">
                 <div class="ad-checks">
                     <DxCheckBox Checked="@(_edit.Status == 1)"
                                 CheckedChanged="@((bool v) => _edit.Status = v ? 1 : 0)">사용</DxCheckBox>
-                    <DxCheckBox @bind-Checked="_edit.Meta.HideInMenu">메뉴에서 숨김</DxCheckBox>
-                    <DxCheckBox @bind-Checked="_edit.Meta.HideChildrenInMenu">하위를 숨김</DxCheckBox>
-                    <DxCheckBox @bind-Checked="_edit.Meta.HideInBreadcrumb">길잡이에서 숨김</DxCheckBox>
-                    <DxCheckBox @bind-Checked="_edit.Meta.HideInTab">탭으로 열지 않음</DxCheckBox>
-                    <DxCheckBox @bind-Checked="_edit.Meta.AffixTab">탭 고정</DxCheckBox>
+                    <DxCheckBox @bind-Checked="_edit.Meta.HideInMenu" Enabled="@UsesVisibility">메뉴에서 숨김</DxCheckBox>
+                    <DxCheckBox @bind-Checked="_edit.Meta.HideChildrenInMenu" Enabled="@UsesChildrenHide">하위를 숨김</DxCheckBox>
+                    <DxCheckBox @bind-Checked="_edit.Meta.HideInBreadcrumb" Enabled="@UsesBreadcrumb">길잡이에서 숨김</DxCheckBox>
+                    <DxCheckBox @bind-Checked="_edit.Meta.HideInTab" Enabled="@UsesVisibility">탭으로 열지 않음</DxCheckBox>
+                    <DxCheckBox @bind-Checked="_edit.Meta.AffixTab" Enabled="@UsesAffixTab">탭 고정</DxCheckBox>
                 </div>
             </DxFormLayoutItem>
 
             <DxFormLayoutItem Caption="기기" ColSpanMd="12">
                 @* 화면 크기별 노출. 사이드바가 이 값으로 메뉴를 거른다. *@
                 <div class="ad-checks">
-                    <DxCheckBox @bind-Checked="_edit.Meta.UseMobile">휴대폰</DxCheckBox>
-                    <DxCheckBox @bind-Checked="_edit.Meta.UseTablet">태블릿</DxCheckBox>
+                    <DxCheckBox @bind-Checked="_edit.Meta.UseMobile" Enabled="@UsesVisibility">휴대폰</DxCheckBox>
+                    <DxCheckBox @bind-Checked="_edit.Meta.UseTablet" Enabled="@UsesVisibility">태블릿</DxCheckBox>
                 </div>
             </DxFormLayoutItem>
 
             <DxFormLayoutItem Caption="허용 동작" ColSpanMd="12">
                 <div class="ad-checks">
-                    <DxCheckBox @bind-Checked="_edit.Permissions.UseView">조회</DxCheckBox>
-                    <DxCheckBox @bind-Checked="_edit.Permissions.UseSearch">검색</DxCheckBox>
-                    <DxCheckBox @bind-Checked="_edit.Permissions.UseCreate">등록</DxCheckBox>
-                    <DxCheckBox @bind-Checked="_edit.Permissions.UseUpdate">수정</DxCheckBox>
-                    <DxCheckBox @bind-Checked="_edit.Permissions.UseDelete">삭제</DxCheckBox>
-                    <DxCheckBox @bind-Checked="_edit.Permissions.UsePrint">출력</DxCheckBox>
-                    <DxCheckBox @bind-Checked="_edit.Permissions.UseExcel">엑셀</DxCheckBox>
+                    <DxCheckBox @bind-Checked="_edit.Permissions.UseView" Enabled="@UsesPermissions">조회</DxCheckBox>
+                    <DxCheckBox @bind-Checked="_edit.Permissions.UseSearch" Enabled="@UsesPermissions">검색</DxCheckBox>
+                    <DxCheckBox @bind-Checked="_edit.Permissions.UseCreate" Enabled="@UsesPermissions">등록</DxCheckBox>
+                    <DxCheckBox @bind-Checked="_edit.Permissions.UseUpdate" Enabled="@UsesPermissions">수정</DxCheckBox>
+                    <DxCheckBox @bind-Checked="_edit.Permissions.UseDelete" Enabled="@UsesPermissions">삭제</DxCheckBox>
+                    <DxCheckBox @bind-Checked="_edit.Permissions.UsePrint" Enabled="@UsesPermissions">출력</DxCheckBox>
+                    <DxCheckBox @bind-Checked="_edit.Permissions.UseExcel" Enabled="@UsesPermissions">엑셀</DxCheckBox>
                 </div>
             </DxFormLayoutItem>
         </DxFormLayout>

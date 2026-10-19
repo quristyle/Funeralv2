@@ -48,10 +48,7 @@ public partial class McModelList
         await LoadItemsAsync();
     }
 
-    /// <summary>
-    /// 고른 모델의 해석 규칙. <b>목록 응답에는 규칙이 없다</b> — 모델 하나를
-    /// 따로 읽어야 딸린 것이 함께 온다(<c>mc-models-full</c> 은 전부를 준다).
-    /// </summary>
+    /// <summary>고른 모델의 해석 규칙. 목록 응답에는 규칙이 없어 모델 하나를 따로 읽어야 딸린 것이 온다(mc-models-full 은 전부를 준다).</summary>
     private async Task LoadItemsAsync()
     {
         try
@@ -103,10 +100,7 @@ public partial class McModelList
         }
     }
 
-    /// <summary>
-    /// 모델을 지운다. <b>딸린 해석 규칙과 보관 전문도 함께 사라진다</b> —
-    /// 서버가 그렇게 지운다. 그래서 지우기 전에 무엇이 딸려 있는지 말해 준다.
-    /// </summary>
+    /// <summary>모델을 지운다. 딸린 해석 규칙과 보관 전문도 서버가 함께 지우므로 지우기 전에 무엇이 딸렸는지 알린다.</summary>
     private async Task DeleteModelAsync(McModel model)
     {
         if (await RunAsync(() => Api.DeleteAsync($"utils/mc-models/{model.Id}"),

@@ -8,20 +8,8 @@ namespace AuthServer.Endpoints;
 /// <summary>
 /// 비밀번호를 잊은 사람이 쓰는 두 경로. <b>둘 다 로그인 없이</b> 부른다.
 /// </summary>
-/// <remarks>
-/// <para>
-/// 게이트웨이의 <c>auth-route</c> 가 <c>/api/auth/**</c> 를 통째로 익명으로
-/// 열어 두므로 여기서 따로 열 것은 없다. 대신 게이트웨이 설정에
-/// <b>시도 제한(<c>auth-attempts</c>)</b>을 걸어 두었다 — 익명이 아무 아이디로나
-/// 두드릴 수 있는 경로이기 때문이다.
-/// </para>
-///
-/// <para>
-/// 비밀번호를 <b>알고 있는</b> 사람이 바꾸는 길은 여기가 아니라
-/// <c>/user/change-password</c> 다. 이쪽은 지금 비밀번호를 물어보지 않는
-/// 대신 메일함을 열 수 있다는 것으로 신원을 대신한다.
-/// </para>
-/// </remarks>
+/// 게이트웨이의 auth-route 가 /api/auth/** 를 익명으로 열어 두므로 여기서 따로 열 것은 없다. 대신 게이트웨이에 시도 제한(auth-attempts)을 걸어 둔다 — 익명이 아무 아이디로나 두드릴 수 있는 경로이기 때문이다.
+/// 알고 있는 사람의 변경은 /user/change-password 다. 이쪽은 비밀번호를 묻지 않는 대신 메일함을 열 수 있다는 것으로 신원을 대신한다.
 public static class PasswordResetEndpoints
 {
     public static void MapPasswordResetEndpoints(this IEndpointRouteBuilder app)
@@ -30,12 +18,7 @@ public static class PasswordResetEndpoints
 
         // ── 링크 보내 달라 ────────────────────────────────────
         //
-        // **언제나 200 이다.** 아이디가 없어도, 이메일이 달라도, 메일 발송이
-        // 실패해도 같은 답을 준다. 답이 갈리는 순간 이 경로가 「그 아이디가
-        // 있는지」를 확인해 주는 도구가 된다.
-        //
-        // 무슨 일이 있었는지는 서버 로그에 남는다 — 「메일이 안 온다」는
-        // 문의가 왔을 때 볼 곳이 거기다.
+                // 언제나 200 이다 — 답이 갈리면 이 경로가 아이디 존재 확인 도구가 된다. 발송 실패 사유는 서버 로그에 남는다.
         group.MapPost("/forgot", async (
             [FromBody] ForgotPasswordDto request,
             [FromServices] IPasswordResetService reset,
@@ -52,9 +35,7 @@ public static class PasswordResetEndpoints
 
         // ── 링크로 다시 정하기 ───────────────────────────────
         //
-        // 여기는 이유를 구분해 준다. 링크를 손에 든 사람에게 「안 됩니다」만
-        // 주면 다시 요청해야 하는지, 다른 값을 넣어야 하는지 알 수 없다.
-        // 어느 답도 계정이 있는지 없는지는 말하지 않는다.
+                // 이유를 구분해 준다 — 링크를 든 사람이 다시 요청할지 다른 값을 넣을지 알아야 한다. 계정이 있는지는 말하지 않는다.
         group.MapPost("/reset", async (
             [FromBody] ResetPasswordDto request,
             [FromServices] IPasswordResetService reset,
@@ -91,8 +72,7 @@ public static class PasswordResetEndpoints
     }
 
     /// <summary>
-    /// 요청한 곳의 아이피. <c>AuthEndpoints</c> 에 같은 것이 있는데, 그쪽은
-    /// private 이고 여섯 줄짜리라 옮겨 적었다. 셋째 곳이 생기면 승격한다.
+    /// AuthEndpoints 에 같은 것이 있으나 private 이라 옮겨 적었다. 셋째 곳이 생기면 공용으로 올린다.
     /// </summary>
     private static string? ClientIp(HttpContext http)
     {

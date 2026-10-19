@@ -17,10 +17,7 @@ public partial class InterfaceList
         SchSummary.NameOf(UseOptions, o => o.Value, o => o.Text, _useYn),
         _q);
 
-    /// <summary>
-    /// 고른 프로젝트의 <b>이름</b>. 화면이 든 것은 코드뿐이고 목록은
-    /// <c>CodeSelect</c> 안에 있어, 그 부품이 <c>@bind-Text</c> 로 올려 준다.
-    /// </summary>
+    /// <summary>고른 프로젝트의 이름. 코드만 들고, 목록은 CodeSelect 가 쥐고 있다.</summary>
     private string? _projectName;
 
     private string _mode = "list";
@@ -97,8 +94,7 @@ public partial class InterfaceList
     private SchOption[] CodeOptions(string? group) =>
         group is not null && _codesByGroup.TryGetValue(group, out var list) ? list : [];
 
-    // `switch` 의 관계 패턴(`< 1024`)을 `@code` 에 쓰지 않는다 — Razor 가 그
-    // `<` 를 여는 태그로 읽고 뒤를 통째로 잘못 자른다(실제로 밟음).
+    // switch 의 관계 패턴(< 1024)은 @code 에 쓰지 않는다 — Razor 가 < 를 여는 태그로 읽어 뒤를 잘못 자른다.
     private static string Size(long bytes)
     {
         if (bytes < 1024) return $"{bytes} B";
@@ -119,10 +115,7 @@ public partial class InterfaceList
 
     protected override Task OnInitializedAsync() => LoadCodesAsync();
 
-    /// <summary>
-    /// 선택목록을 한 번만 읽는다. 갈래가 일곱이라 화면을 옮길 때마다 읽으면
-    /// 왕복이 그만큼 늘고, <b>바뀌지 않는 자료</b>다.
-    /// </summary>
+    /// <summary>선택목록을 한 번만 읽는다. 바뀌지 않는 자료라, 화면을 옮길 때마다 읽으면 왕복만 늘어난다.</summary>
     private async Task LoadCodesAsync()
     {
         var codes = await Api.CodesAsync();
@@ -133,8 +126,7 @@ public partial class InterfaceList
         {
             if (group.Key is null) continue;
 
-            // 이름이 비어 있는 코드가 있다. 그때는 코드라도 보여 준다 —
-            // 빈 줄이 늘어선 고르개는 고를 수가 없다.
+            // 이름이 빈 코드가 있으면 코드라도 보여 준다 — 빈 줄이 늘어선 고르개는 고를 수 없다.
             _codesByGroup[group.Key] =
                 [.. group.Select(c => new SchOption(c.Code, c.CodeNm ?? c.Code ?? string.Empty))];
         }
@@ -248,9 +240,7 @@ public partial class InterfaceList
         _newOpen = true;
     }
 
-    /// <summary>
-    /// 등록은 넷만 받는다 — 코드 · 이름 · 방향 · 상태. 나머지는 상세에서 채운다.
-    /// </summary>
+    /// <summary>등록은 코드·이름·방향·상태 넷만 받는다. 나머지는 상세에서 채운다.</summary>
     private async Task CreateAsync()
     {
         if (ProjectRid is not int rid) return;
@@ -324,10 +314,7 @@ public partial class InterfaceList
         if (saved) await LoadDetailAsync();
     }
 
-    /// <summary>
-    /// 지운다. <b>무엇이 함께 사라지는지</b>와 감추는 길을 먼저 말한다 —
-    /// 실제로 필요한 것은 대개 감추기다(원본의 문구를 그대로 옮겼다).
-    /// </summary>
+    /// <summary>지운다. 함께 사라지는 것과 감추는 길을 먼저 말한다 — 실제로 필요한 것은 대개 감추기다.</summary>
     private async Task DeleteMasterAsync()
     {
         if (ProjectRid is not int rid || _master is null || _confirm is null) return;
@@ -369,8 +356,7 @@ public partial class InterfaceList
             Params = step.Params,
         };
 
-        // 단계 조회는 시스템 **이름**만 준다(뷰가 그렇게 만든다). 고르개는
-        // 번호로 도므로 이름으로 되찾는다.
+        // 단계 조회는 시스템 이름만 준다. 고르개는 번호로 도므로 이름으로 되찾는다.
         _stepSystemId = _systems.FirstOrDefault(s => s.SystemNm == step.SystemNm)?.SystemId;
 
         _stepOpen = true;
@@ -386,8 +372,7 @@ public partial class InterfaceList
             return;
         }
 
-        // **params 를 여기서 검사한다.** 안 막으면 서버가 22P02 로 끊고,
-        // 그 문구는 사람에게 「무엇이 틀렸는지」를 하나도 말해 주지 않는다.
+        // params 를 여기서 검사한다 — 안 막으면 서버가 22P02 로 끊고, 그 문구는 무엇이 틀렸는지 말해 주지 않는다.
         if (!string.IsNullOrWhiteSpace(_step.Params))
         {
             try
@@ -549,13 +534,7 @@ public partial class InterfaceList
 
     // ──────────────────────────────────────────── 관리항목
 
-    /// <summary>
-    /// 필수와 JSON 을 여기서 검사한다.
-    /// </summary>
-    /// <remarks>
-    /// <c>required_yn</c> 은 정의에 적힌 뜻이고 <b>서버는 그것을 강제하지
-    /// 않는다</b> — 화면이 안 막으면 아무도 안 막는다.
-    /// </remarks>
+    /// <summary>필수와 JSON 을 여기서 검사한다. required_yn 은 정의상의 뜻이고 서버는 강제하지 않으니, 화면이 안 막으면 아무도 안 막는다.</summary>
     private async Task SaveAttrsAsync()
     {
         if (ProjectRid is not int rid) return;
@@ -627,13 +606,7 @@ public partial class InterfaceList
         await Api.DeleteFileAsync(rid, _ifId, file.FileId);
     }
 
-    /// <summary>
-    /// 편집 중인 관리항목 하나.
-    /// </summary>
-    /// <remarks>
-    /// 사전에 바로 묶지 않고 줄 목록으로 푸는 까닭 — <c>@@bind</c> 는 사전의
-    /// 칸을 잡지 못하고, 타입마다 다른 편집기를 붙이려면 줄마다 값이 있어야 한다.
-    /// </remarks>
+    /// <summary>편집 중인 관리항목 하나. 사전에 묶지 않고 줄 목록으로 푼다 — @bind 는 사전의 칸을 못 잡고, 타입마다 다른 편집기를 붙이려면 줄마다 값이 있어야 한다.</summary>
     private sealed class AttrEdit
     {
         public int AttrDefId { get; set; }

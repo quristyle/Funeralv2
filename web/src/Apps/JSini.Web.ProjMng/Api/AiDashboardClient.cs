@@ -3,37 +3,13 @@ using JSini.Web.Http;
 
 namespace JSini.Web.ProjMng.Api;
 
-/// <summary>
-/// AI 작업 현황 — <c>projmng/ai-dashboard</c> · <c>ai/providers</c>.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <b>두 군데를 본다.</b> 「얼마나 처리했나」는 프로젝트관리 서버가 자기
-/// 자료를 세어 주고, 「AI 모델이 얼마나 남았나」는 두 곳에서 온다 —
-/// </para>
-/// <list type="bullet">
-///   <item><description>
-///     <b>작업지시가 쓰는 CLI</b>(claude · agy · copilot)의 한도는 실행기가
-///     <c>/usage</c> 로 읽어 올린 것이고, 대시보드 응답에 함께 실려 온다.
-///   </description></item>
-///   <item><description>
-///     <b>포털의 AI 도우미가 쓰는 공급자</b>의 한도는 AIAgentServer 가
-///     응답 헤더에서 주워 둔 것이다(<c>ai/providers</c>). 따로 물어보면
-///     그 호출이 한도를 깎으므로 지나가는 것을 줍는다.
-///   </description></item>
-/// </list>
-/// <para>
-/// 둘은 다른 계정의 다른 한도다. 화면이 한 칸에 뭉개지 않는다.
-/// </para>
-/// </remarks>
+/// <summary>AI 작업 현황. 처리 건수는 프로젝트관리 서버가, CLI 한도는 실행기가(대시보드 응답에 실려), 공급자 한도는 AIAgentServer 가 응답 헤더에서 준다.
+/// 두 한도는 다른 계정의 다른 값이라 화면이 한 칸에 뭉개지 않는다.</summary>
 public sealed class AiDashboardClient(GatewayClient gateway)
 {
     private const string Url = "projmng/ai-dashboard";
 
-    /// <summary>
-    /// 대시보드 한 판. <b>한 번에 다 온다</b> — 조각마다 부르면 화면이
-    /// 조각조각 채워지고 그것이 「자료가 없다」로 읽힌다.
-    /// </summary>
+    /// <summary>대시보드 한 판을 한 번에 받는다. 조각마다 부르면 화면이 조각조각 채워져 「자료가 없다」로 읽힌다.</summary>
     public Task<AiDashboardData?> LoadAsync(
         DateTime? from, DateTime? to, CancellationToken ct = default)
     {
@@ -46,21 +22,7 @@ public sealed class AiDashboardClient(GatewayClient gateway)
             query.Count == 0 ? Url : $"{Url}?{string.Join('&', query)}", ct);
     }
 
-    /// <summary>
-    /// AI CLI 한도만.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>대시보드 화면이 쓰는 자리가 아니다.</b> 그쪽은 한 판을 통째로 받아
-    /// 그 안의 <see cref="AiDashboardData.Usage"/> 를 그린다. 이것은 「빠른
-    /// 지시」의 AI 고르개가 부른다 — 한도 한 줄 적으려고 30일치 집계를 끌고
-    /// 오지 않으려는 것이다.
-    /// </para>
-    /// <para>
-    /// <b>곁들이는 값이라 실패를 삼킨다.</b> 한도를 못 읽는 것과 지시를 못
-    /// 보내는 것은 다른 일이고, 여기서 예외를 올리면 <b>글상자가 안 뜬다.</b>
-    /// </para>
-    /// </remarks>
+    /// <summary>AI CLI 한도만. 곁들이는 값이라 실패는 삼킨다 — 한도를 못 읽는다고 지시 글상자가 안 뜨면 안 된다. 「빠른 지시」 고르개가 쓰며, 30일치 집계를 끌고 오지 않는다.</summary>
     public async Task<IReadOnlyList<AiUsageSnapshot>> UsageAsync(CancellationToken ct = default)
     {
         try
@@ -73,9 +35,7 @@ public sealed class AiDashboardClient(GatewayClient gateway)
         }
     }
 
-    /// <summary>
-    /// AI 공급자 한도. <b>곁들이는 값이다</b> — 못 읽어도 대시보드는 그린다.
-    /// </summary>
+    /// <summary>AI 공급자 한도. 곁들이는 값이라 못 읽어도 대시보드는 그린다.</summary>
     public async Task<AiProviderStatus?> ProvidersAsync(CancellationToken ct = default)
     {
         try
@@ -191,20 +151,7 @@ public sealed class AiDashboardForecast
     public decimal? MonthOverMonth { get; set; }
 }
 
-/// <summary>
-/// AI CLI 한도의 마지막 스냅샷 한 칸.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <b>퍼센트는 「쓴 비율」이다.</b> 남은 비율이 아니다 — 화면도 그대로
-/// 「사용 n%」로 보여 준다. <c>agy</c>·<c>copilot</c> 은 남은 비율로 말하지만
-/// <b>뒤집는 자리는 실행기 한 곳뿐이다</b>(<c>UsageAgy</c>·<c>UsageCopilot</c>) —
-/// 화면에서 또 뒤집으면 원문과 숫자가 어긋나는 순간을 아무도 못 잡는다.
-/// </para>
-/// <para>
-/// <b>CLI 하나가 한 줄이 아니다.</b> <see cref="BucketNm"/> 로 갈린다.
-/// </para>
-/// </remarks>
+/// <summary>AI CLI 한도의 마지막 스냅샷 한 칸. 퍼센트는 쓴 비율이다 — 남은 비율로 뒤집는 자리는 실행기 한 곳뿐이라 화면에서 또 뒤집지 않는다. CLI 하나가 여러 줄이 될 수 있다(BucketNm).</summary>
 public sealed class AiUsageSnapshot
 {
     public long UsageKey { get; set; }
@@ -230,10 +177,7 @@ public sealed class AiUsageSnapshot
     public long? RemainingTokens { get; set; }
     public string? PlanNm { get; set; }
 
-    /// <summary>
-    /// 로그인(갱신 토큰)이 끊기는 시각. <b>한도 갱신 시각과 다르다</b> — 사람이
-    /// 그 장비에서 다시 로그인해야 풀린다.
-    /// </summary>
+    /// <summary>로그인(갱신 토큰)이 끊기는 시각. 한도 갱신 시각과 다르다 — 사람이 그 장비에서 다시 로그인해야 풀린다.</summary>
     public DateTime? AuthExpiresAt { get; set; }
 
     public string? RawText { get; set; }
@@ -257,23 +201,12 @@ public sealed class AiDashboardRecent
     public decimal? Seconds { get; set; }
     public string? ErrorSummary { get; set; }
 
-    /// <summary>
-    /// 시작 시각을 <b>한국 시각</b>으로. 그리드 칸이 이것을 묶는다.
-    /// </summary>
-    /// <remarks>
-    /// <see cref="StartedAt"/> 은 서버가 준 UTC 다(<c>docs/utc-time.md</c>).
-    /// <c>DxGridDataColumn</c> 은 값을 그대로 <c>DisplayFormat</c> 에 넣으므로
-    /// 칸에서 옮길 자리가 없다 — 그래서 여기에 옮긴 값을 하나 더 둔다.
-    /// </remarks>
+    /// <summary>시작 시각을 한국 시각으로. 그리드 칸은 DisplayFormat 에 옮길 자리가 없어 여기 옮긴 값을 따로 둔다 (StartedAt 은 UTC).</summary>
     public DateTime? StartedAtKst => StartedAt.KstTime();
 }
 
-// ── AI 공급자 (AIAgentServer) ───────────────────────────────
-//
-// **관리 모듈에도 비슷한 것이 있다**(`AiProviderStatusDto`). 베끼는 것이
-// 맞다 — 업무 모듈끼리 참조하지 않는 것이 이 저장소의 규칙이고, 두 화면이
-// 같은 응답에서 서로 다른 칸을 본다(저쪽은 하루 한도, 이쪽은 남은 토큰과
-// 갱신 시각). 세 번째가 생기면 그때 공유 자리로 올린다.
+// ── AI 공급자 (AIAgentServer) ──
+// 관리 모듈의 AiProviderStatusDto 와 베낀다 — 업무 모듈끼리 참조하지 않는 것이 규칙이고, 두 화면이 서로 다른 칸을 본다.
 
 /// <summary><c>ai/providers</c> 응답.</summary>
 public sealed class AiProviderStatus
@@ -301,14 +234,7 @@ public sealed class AiProviderItem
     public AiProviderUsage? Usage { get; set; }
 }
 
-/// <summary>
-/// 공급자가 응답 헤더로 준 한도.
-/// </summary>
-/// <remarks>
-/// <b>숫자가 아니라 글자다.</b> 공급자가 <c>1.2M</c> · <c>59.9s</c> 처럼
-/// 보내므로 서버도 받은 그대로 들고 온다 — 화면이 해석해서 고쳐 적으면
-/// 원문과 어긋나는 순간을 아무도 못 잡는다.
-/// </remarks>
+/// <summary>공급자가 응답 헤더로 준 한도. 숫자가 아니라 글자로 들고 온다(1.2M · 59.9s) — 화면이 고쳐 적으면 원문과 어긋난다.</summary>
 public sealed class AiProviderUsage
 {
     public int CallsOk { get; set; }
@@ -326,9 +252,7 @@ public sealed class AiProviderUsage
     public DateTime? ObservedAt { get; set; }
 }
 
-/// <summary>
-/// AI 모델 사용량 추이 한 점 (시간별·일별·월별, 주간 사용량 비율 %).
-/// </summary>
+/// <summary>AI 모델 사용량 추이 한 점. 시간별·일별·월별이 같은 모양을 쓴다.</summary>
 public sealed class AiUsageTrendPoint
 {
     /// <summary>차트 축에 찍을 글자 — 시간별은 <c>HH:00</c>, 일별은 <c>MM-dd</c>, 월별은 <c>yyyy-MM</c>.</summary>

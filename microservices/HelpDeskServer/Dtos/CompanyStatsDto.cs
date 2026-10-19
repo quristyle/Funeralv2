@@ -1,9 +1,7 @@
 
 namespace HelpDeskServer.Dtos;
 
-/// <summary>
-/// 고객사별 요청 통계 DTO
-/// </summary>
+/// <summary>고객사별 요청 통계 DTO</summary>
 public class CompanyStatsDto {
 
 
@@ -25,8 +23,6 @@ public class CompanyStatsDto {
   public int CompletedCount { get; set; }
   /// <summary>반려된 요청 수</summary>
   public int RejectedCount { get; set; }
-  /// <summary>
-  /// 완료율 (반려 제외)
-  /// </summary>
+  /// <summary>완료율 (반려 제외)</summary>
   public double CompletionRate { get; set; }
 }

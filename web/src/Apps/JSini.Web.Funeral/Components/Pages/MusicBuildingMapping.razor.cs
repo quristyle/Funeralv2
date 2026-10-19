@@ -23,8 +23,7 @@ public partial class MusicBuildingMapping
         {
             _musics = await Api.GetMediaSourcesAsync("AUDIO");
 
-            // 첫 음원을 자동으로 골라 준다 — 빈 화면부터 보이면 무엇을 해야
-            // 하는지 알 수 없다. 원본도 그랬다.
+            // 첫 음원을 자동으로 고른다. 빈 화면부터 보이면 무엇을 해야 할지 알 수 없다.
             _musicId ??= _musics.FirstOrDefault()?.Id;
 
             return _musics.Count;

@@ -13,9 +13,7 @@ public static class MenuEndpoints
         var group = app.MapGroup("/menu");
 
         // locale 은 선택이다. 안 주면 ko 로 옮긴다.
-        // 제목의 다국어는 서버가 붙여 meta.titleText 로 내려보낸다 —
-        // 화면이 제목마다 번역 함수를 부르면, 대부분이 키가 아니라서
-        // "그런 키는 없다" 경고만 수백 줄 쏟아진다.
+        // 제목 번역은 서버가 붙여 meta.titleText 로 내려보낸다 — 화면이 제목마다 번역 함수를 부르면 키가 아닌 제목마다 경고가 쏟아진다.
         group.MapGet("/all", async (
             UserContext? user,
             [FromQuery] string? locale,

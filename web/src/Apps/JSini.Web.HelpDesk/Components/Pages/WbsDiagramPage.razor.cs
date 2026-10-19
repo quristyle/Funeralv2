@@ -25,8 +25,7 @@ public partial class WbsDiagramPage
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        // 다이어그램 목록을 주는 주소가 없다(위 주석 참고). WBS 항목을 보여 주고
-        // 그림은 항목별로 `wbs-diagram/{wbsRid}` 에서 꺼낸다.
+        // 다이어그램 목록 주소가 없다 — WBS 항목을 보여 주고 그림은 항목별 wbs-diagram/{wbsRid} 에서 꺼낸다.
         var json = await Api.GetAsync<JsonElement>("wbs");
         _rows = JsonTable.From(json);
         return _rows.Rows.Count;

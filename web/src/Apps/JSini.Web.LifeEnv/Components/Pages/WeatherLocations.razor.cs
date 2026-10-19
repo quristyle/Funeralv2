@@ -19,8 +19,7 @@ public partial class WeatherLocations
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        // 둘을 나란히. 특보구역은 고르개가 쓰는 별개의 목록이라 관측 지역을
-        // 기다릴 이유가 없다.
+        // 둘을 나란히 부른다 — 특보구역은 별개의 목록이라 관측 지역을 기다릴 이유가 없다.
         var locations = Client.GetLocationsAsync();
         var zones = Client.GetWarningZonesAsync();
 
@@ -58,14 +57,8 @@ public partial class WeatherLocations
     }
 
     /// <summary>
-    /// 검색 결과를 폼에 옮긴다.
-    ///
-    /// **격자와 이름뿐이다.** 중기예보·특보구역 코드는 이 검색이 주지 않아
-    /// 아래에서 따로 골라야 한다. 주는 줄 알고 비워 두면 그 지역만 중기예보가
-    /// 조용히 안 들어온다.
-    ///
-    /// 이름은 <b>비어 있을 때만</b> 채운다. 고쳐 쓰던 이름을 검색 한 번으로
-    /// 되돌리면 사용자가 쓴 것이 사라진다.
+    /// 검색 결과를 폼에 옮긴다. 격자와 이름뿐이다 — 중기예보·특보구역 코드는 이 검색이 주지 않아 아래에서 따로 골라야 한다.
+    /// 이름은 비어 있을 때만 채운다. 고쳐 쓰던 이름을 검색 한 번으로 되돌리면 사용자가 쓴 것이 사라진다.
     /// </summary>
     private void Apply(WeatherLocation loc, GridCoordinate g)
     {

@@ -15,14 +15,7 @@ public partial class PushAskPopup
     [Inject] private IJSRuntime Js { get; set; } = default!;
     [Inject] private ILogger<PushAskPopup> Log { get; set; } = default!;
 
-    /// <summary>
-    /// 휴대폰에서 <b>접어 둔 뒤 다시 권하기까지</b>.
-    ///
-    /// <para>
-    /// 15분이다. 더 짧으면 한 업무를 보는 사이에 두 번 뜨고, 더 길면 잠깐
-    /// 들렀다 나가는 사람에게는 한 번도 안 뜬 것과 같다.
-    /// </para>
-    /// </summary>
+    /// <summary>휴대폰에서 접어 둔 뒤 다시 권하기까지 — 15분. 더 짧으면 한 업무를 보는 사이에 두 번 뜨고, 더 길면 잠깐 들렀다 나간 사람에게는 한 번도 안 뜬 것과 같다.</summary>
     private static readonly TimeSpan ReofferAfter = TimeSpan.FromMinutes(15);
 
     /// <summary>지금 이 브라우저의 사정. 창을 띄울지 여기서 갈린다.</summary>
@@ -62,10 +55,7 @@ public partial class PushAskPopup
         _ => "알림을 받으시겠습니까?",
     };
 
-    /// <summary>
-    /// <b>첫 렌더 뒤에</b> 살핀다. 프리렌더 중에는 JS 를 부를 수 없고
-    /// (브라우저가 아직 없다) 이 창의 판단은 전부 브라우저에서 온다.
-    /// </summary>
+    /// <summary>첫 렌더 뒤에 살핀다 — 프리렌더에는 브라우저가 없고 이 창의 판단은 전부 브라우저에서 온다.</summary>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!firstRender)
@@ -73,8 +63,7 @@ public partial class PushAskPopup
             return;
         }
 
-        // ① 브라우저 저장소. **왕복을 따로 내지 않는다** — 레이아웃이 내는
-        //    공용 읽기에 열쇠 셋을 보탠 것이 전부다(`PortalBoot`).
+        // ① 브라우저 저장소. 왕복을 따로 내지 않고 레이아웃의 공용 읽기에 열쇠 셋을 보탠 것이다(PortalBoot).
         var saved = await Boot.ReadAsync();
 
         if (saved.ScreenLocked)
@@ -89,25 +78,14 @@ public partial class PushAskPopup
         await ConsiderAsync();
     }
 
-    /// <summary>
-    /// 지금 권할 것이 있는지 보고, 있으면 창을 연다.
-    ///
-    /// <para>
-    /// <b>부르는 자리가 둘이다</b> — 첫 렌더와, 접어 둔 기한이 지나 시계가
-    /// 깨운 때(<see cref="ScheduleReofferAt"/>). 둘이 같은 판단을 써야 해서
-    /// 한 벌만 둔다.
-    /// </para>
-    /// </summary>
+    /// <summary>지금 권할 것이 있는지 보고 있으면 창을 연다. 첫 렌더와 접어 둔 기한이 지나 시계가 깨운 때 둘 다 부르므로 판단은 한 벌이다.</summary>
     private async Task ConsiderAsync()
     {
         // ② 이 브라우저가 지금 어떤 상태인가. 휴대폰인지도 여기서 온다.
         _browser = await Enroll.StatusAsync();
         _mobile = _browser.Mobile;
 
-        // **기한은 어느 쪽에서도 지킨다.** 전에는 휴대폰에서만 봤다 — 접어 두는
-        // 길이 거기에만 있었기 때문이다. 「오늘 하루 보지 않기」가 생기면서
-        // 데스크톱에서도 기한이 적힐 수 있게 됐고, 여기서 안 보면 그 단추가
-        // 데스크톱에서 **다음 새로고침에 바로 풀린다.**
+        // 기한은 데스크톱에서도 지킨다 — 「오늘 하루 보지 않기」가 생기면서 데스크톱에도 기한이 적히는데, 여기서 안 보면 그 단추가 다음 새로고침에 풀린다.
         if (_snoozeUntil is { } until && DateTime.UtcNow < until)
         {
             // 아직 접어 둔 기한 안이다. 그 시각에 다시 본다.
@@ -124,9 +102,7 @@ public partial class PushAskPopup
         _askInstall = WantsInstall;
         _askSubscribe = WantsSubscribe;
 
-        // ③ 서버가 보낼 수 있는가, 그리고 이 사람이 스스로 끈 적은 없는가.
-        //    **구독을 권할 때만 부른다** — 설치만 권하는 자리에서 이 왕복을
-        //    내면 아무것도 갈리지 않으면서 게이트웨이만 두드린다.
+        // ③ 서버가 보낼 수 있는가, 그리고 스스로 끈 적은 없는가. 구독을 권할 때만 부른다 — 설치만 권하는 자리에서 이 왕복을 내면 아무것도 안 갈리면서 게이트웨이만 두드린다.
         if (_askSubscribe)
         {
             try
@@ -135,14 +111,12 @@ public partial class PushAskPopup
             }
             catch (Exception ex)
             {
-                // 설정을 못 읽었다고 화면을 세우지 않는다. 구독을 못 권한
-                // 것뿐이고, 설치는 그대로 권할 수 있다.
+                // 설정을 못 읽었다고 화면을 세우지 않는다 — 구독만 못 권하고 설치는 그대로 권할 수 있다.
                 Log.LogDebug(ex, "알림 설정을 읽지 못해 구독 권유를 건너뛴다.");
                 _settings = null;
             }
 
-            // **스스로 끈 사람에게는 되묻지 않는다.** 한 번 정한 뜻을 로그인
-            // 할 때마다 되묻는 것은 권유가 아니라 조르기다.
+            // 스스로 끈 사람에게는 되묻지 않는다 — 한 번 정한 뜻을 로그인할 때마다 되묻는 것은 권유가 아니라 조르기다.
             if (_settings is not { PushAvailable: true }
                 || _settings.Preference is { Saved: true, PushEnabled: false })
             {
@@ -150,9 +124,7 @@ public partial class PushAskPopup
             }
         }
 
-        // 데스크톱에서는 **구독을 권할 때만** 이 창을 연다. 앱 설치 하나
-        // 때문에 여태 안 뜨던 자리에서 창이 새로 뜨게 하지 않는다 — 거기서는
-        // 탭으로 써도 알림이 온다.
+        // 데스크톱에서는 구독을 권할 때만 창을 연다 — 앱 설치 하나 때문에 여태 안 뜨던 자리에 새로 뜨게 하지 않는다. 탭으로 써도 알림이 온다.
         if (!_mobile && !_askSubscribe)
         {
             return;
@@ -160,9 +132,7 @@ public partial class PushAskPopup
 
         if (!_askInstall && !_askSubscribe)
         {
-            // 지금은 권할 것이 없다. 휴대폰에서 **아직 다 끝난 것이 아니면**
-            // 나중에 길이 열릴 수 있으므로(설치 신호가 늦게 오는 브라우저가
-            // 있다) 기한을 두고 한 번 더 본다.
+            // 지금은 권할 것이 없다. 휴대폰에서 아직 다 끝난 것이 아니면 설치 신호가 늦게 오는 브라우저가 있으므로 기한을 두고 한 번 더 본다.
             if (_mobile && !Done)
             {
                 ScheduleReofferAt(DateTime.UtcNow.Add(ReofferAfter));
@@ -175,10 +145,7 @@ public partial class PushAskPopup
         StateHasChanged();
     }
 
-    /// <summary>
-    /// 설치를 권할 자리인가. <b>단추를 놓을 수 있는가와는 다른 물음</b>이다 —
-    /// 사파리는 권하되 단추 대신 길을 적어 준다(머리말의 갈래 표).
-    /// </summary>
+    /// <summary>설치를 권할 자리인가. 단추를 놓을 수 있는가와는 다른 물음이다 — 사파리는 권하되 단추 대신 길을 적어 준다.</summary>
     private bool WantsInstall =>
         _browser is { Standalone: false, Installed: false }
         && _browser.InstallHint is "prompt" or "ios";
@@ -187,17 +154,11 @@ public partial class PushAskPopup
     private bool WantsSubscribe =>
         _browser is { Supported: true, Subscribed: false } && _browser.Permission != "denied";
 
-    /// <summary>
-    /// 이 브라우저에서 <b>더 할 일이 없는가</b>. 앱으로 열려 있고 구독도
-    /// 되어 있으면 이 창은 다시 뜨지 않는다 — 되풀이 권유가 멈추는 자리다.
-    /// </summary>
+    /// <summary>이 브라우저에서 더 할 일이 없는가. 앱으로 열려 있고 구독도 되어 있으면 이 창은 다시 뜨지 않는다.</summary>
     private bool Done =>
         _browser is { Subscribed: true } && (_browser.Standalone || _browser.Installed);
 
-    /// <summary>
-    /// 「앱 설치」. <b>이 클릭에서 브라우저의 설치 창이 이어진다</b> — 화면이
-    /// 저절로 부르면 조용히 거절된다(알림 권한과 같다).
-    /// </summary>
+    /// <summary>「앱 설치」. 이 클릭에서 브라우저의 설치 창이 이어진다 — 화면이 저절로 부르면 조용히 거절된다.</summary>
     private async Task InstallAsync()
     {
         if (_busy)
@@ -239,10 +200,7 @@ public partial class PushAskPopup
         }
     }
 
-    /// <summary>
-    /// 「알림 받기」. <b>이 클릭에서 브라우저 권한 요청이 이어진다</b> —
-    /// 절차는 <see cref="PushEnroll"/> 이 갖고 있다(알림 판과 같은 한 벌).
-    /// </summary>
+    /// <summary>「알림 받기」. 이 클릭에서 브라우저 권한 요청이 이어진다 — 절차는 PushEnroll 이 갖고 있다.</summary>
     private async Task SubscribeAsync()
     {
         if (_busy || _settings is null)
@@ -266,20 +224,7 @@ public partial class PushAskPopup
         }
     }
 
-    /// <summary>
-    /// 단추를 누른 뒤. <b>상태를 다시 읽어 남은 일만 남긴다.</b>
-    ///
-    /// <para>
-    /// 설치와 구독을 한 창에서 다루므로 <b>하나를 마쳤다고 닫지 않는다</b> —
-    /// 설치를 끝낸 사람에게 남은 구독 단추를 그 자리에서 마저 보여 준다.
-    /// 둘 다 끝났으면 그때 닫는다.
-    /// </para>
-    ///
-    /// <para>
-    /// 실패했을 때도 여기로 온다. 그때는 상태가 그대로라 창이 열려 있고,
-    /// 까닭은 토스트에 떴다 — 주소창에서 풀고 다시 누를 수 있어야 한다.
-    /// </para>
-    /// </summary>
+    /// <summary>단추를 누른 뒤 상태를 다시 읽어 남은 일만 남긴다. 설치와 구독을 한 창에서 다루므로 하나를 마쳤다고 닫지 않는다 — 둘 다 끝났을 때 닫는다. 실패해도 창은 열려 있고 까닭은 토스트에 뜬다.</summary>
     private async Task AfterActionAsync()
     {
         _browser = await Enroll.StatusAsync();
@@ -295,8 +240,7 @@ public partial class PushAskPopup
 
         _open = false;
 
-        // 데스크톱에서만 표시를 남긴다. 휴대폰은 **끝났으면 애초에 안 뜨고**
-        // (`Done`), 안 끝났으면 기한을 두고 다시 물어야 한다.
+        // 데스크톱에서만 표시를 남긴다 — 휴대폰은 끝났으면 애초에 안 뜨고(Done), 안 끝났으면 기한을 두고 다시 물어야 한다.
         if (!_mobile)
         {
             await RememberAsync(session: true);
@@ -309,15 +253,7 @@ public partial class PushAskPopup
         StateHasChanged();
     }
 
-    /// <summary>
-    /// 「나중에」와 X.
-    ///
-    /// <para>
-    /// 데스크톱에서는 <b>이 탭에서만</b> 그만 묻고, 휴대폰에서는
-    /// <see cref="ReofferAfter"/> 만큼 <b>접어 둔다</b> — 거절이 아니라
-    /// 미루기다(머리말).
-    /// </para>
-    /// </summary>
+    /// <summary>「나중에」와 X. 데스크톱에서는 이 탭에서만 그만 묻고, 휴대폰에서는 ReofferAfter 만큼 접어 둔다 — 거절이 아니라 미루기다.</summary>
     private async Task LaterAsync(bool visible)
     {
         if (visible)
@@ -337,29 +273,7 @@ public partial class PushAskPopup
         }
     }
 
-    /// <summary>「다시 묻지 않기」. 이 브라우저에 영영 적어 둔다(데스크톱만).</summary>
-    /// <summary>
-    /// 「오늘 하루 보지 않기」 — <b>한국 달력으로 오늘이 끝날 때까지</b> 접어 둔다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 「나중에」(15분)와 「다시 묻지 않기」(영영) 사이가 비어 있었다. 설치를
-    /// 지금 할 생각이 없는 사람에게 15분은 너무 짧아 하루에도 몇 번씩 같은
-    /// 창을 보게 되고, 그렇다고 영영 끄기는 아깝다 — 휴대폰에 설치하는 것은
-    /// 실제로 값을 하는 일이라 내일 다시 권할 만하다.
-    /// </para>
-    /// <para>
-    /// <b>스물네 시간이 아니라 「오늘」이다.</b> 저녁에 눌렀는데 다음 날
-    /// 저녁까지 안 뜨면 그것은 하루가 아니라 이틀처럼 느껴진다. 사람이 말하는
-    /// 「오늘 하루」는 달력의 하루이고, 그 달력은 한국 달력이다
-    /// (<c>docs/utc-time.md</c> — 달력 날짜만 한국으로 센다).
-    /// </para>
-    /// <para>
-    /// 적어 두는 값은 <b>UTC 한 순간</b>이다. 접어 두는 장치가 이미 그 꼴을
-    /// 쓰고 있어서(<see cref="PortalBoot.PushAskSnoozeKey"/>) 새로 만들 것이
-    /// 없다 — 여기서는 「내일 0시(한국)」가 UTC 로 언제인지만 셈한다.
-    /// </para>
-    /// </remarks>
+    /// <summary>「오늘 하루 보지 않기」 — 한국 달력으로 오늘이 끝날 때까지 접어 둔다. 「나중에」(15분)와 「다시 묻지 않기」(영영) 사이의 빈자리다. 스물네 시간이 아니라 「오늘」인 까닭은 저녁에 누르고 다음 날 저녁까지 안 뜨면 이틀처럼 느껴져서다. 적는 값은 UTC 한 순간이다.</summary>
     private async Task TodayAsync()
     {
         _open = false;
@@ -367,8 +281,7 @@ public partial class PushAskPopup
         var tomorrowKorea = AppTime.Today.AddDays(1).ToDateTime(TimeOnly.MinValue);
         var untilUtc = AppTime.FromKorea(tomorrowKorea);
 
-        // 이미 지난 값이 되는 일은 없지만(오늘은 늘 내일보다 앞선다), 시계가
-        // 어긋난 기기에서 음수가 나오면 접어 두는 쪽이 터진다. 0 으로 막는다.
+        // 시계가 어긋난 기기에서 음수가 나오면 접는 쪽이 터지므로 0 으로 막는다.
         var span = untilUtc - AppTime.UtcNow;
 
         _snoozeUntil = await Boot.SnoozePushAskAsync(span > TimeSpan.Zero ? span : TimeSpan.Zero);
@@ -382,34 +295,17 @@ public partial class PushAskPopup
         _open = false;
         await RememberAsync(session: false);
 
-        // **아무 말도 하지 않는다.** 끈 것이 아니라 안 묻기로 한 것이라
-        // 알릴 결과가 없고, 토스트를 띄우면 방금 치운 말이 다시 뜬다.
+        // 아무 말도 하지 않는다 — 끈 것이 아니라 안 묻기로 한 것이라 알릴 결과가 없다.
     }
 
-    /// <summary>
-    /// 기한을 적어 두고 그때 다시 뜨게 한다. <b>기한 글자를 굽는 일은
-    /// <see cref="PortalBoot"/> 가 한다</b> — 열쇠와 꼴을 아는 자리가 둘이면
-    /// 한쪽만 고치는 날이 온다.
-    /// </summary>
+    /// <summary>기한을 적어 두고 그때 다시 뜨게 한다. 기한 글자를 굽는 일은 PortalBoot 가 한다 — 열쇠와 꼴을 아는 자리가 둘이면 한쪽만 고치는 날이 온다.</summary>
     private async Task SnoozeAsync()
     {
         _snoozeUntil = await Boot.SnoozePushAskAsync(ReofferAfter);
         ScheduleReofferAt(_snoozeUntil.Value);
     }
 
-    /// <summary>
-    /// <paramref name="until"/> 까지 한 번 자고 일어나 다시 살핀다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>촘촘히 훑지 않는다.</b> 1분마다 상태를 읽으면 회로 하나가 한 시간에
-    /// 왕복 예순을 낸다 — 이 창이 기다리는 것은 「기한이 지났는가」 하나뿐이라
-    /// 그 시각에 한 번만 깨면 된다.
-    /// </para>
-    /// <para>
-    /// 앞서 걸어 둔 시계가 있으면 걷는다. 겹쳐 두면 창이 두 번 열린다.
-    /// </para>
-    /// </remarks>
+    /// <summary>until 까지 한 번 자고 일어나 다시 살핀다. 1분마다 상태를 읽으면 회로가 한 시간에 왕복 예순을 내므로 그 시각에 한 번만 깬다. 앞서 걸어 둔 시계가 있으면 걷는다 — 겹치면 창이 두 번 열린다.</summary>
     private void ScheduleReofferAt(DateTime until)
     {
         _wake?.Cancel();
@@ -430,8 +326,7 @@ public partial class PushAskPopup
                 await Task.Delay(wait, token);
             }
 
-            // **회로의 차례로 돌아와서** 화면을 건드린다. 시계는 회로 밖에서
-            // 도므로 여기서 바로 그리면 렌더링이 엉킨다.
+            // 회로의 차례로 돌아와서 화면을 건드린다 — 시계는 회로 밖에서 돌아 여기서 바로 그리면 렌더링이 엉킨다.
             await InvokeAsync(async () =>
             {
                 if (_open || _busy)
@@ -458,15 +353,7 @@ public partial class PushAskPopup
         }
     }
 
-    /// <summary>
-    /// 닫았다는 표시를 브라우저에 남긴다(데스크톱).
-    ///
-    /// <para>
-    /// <b>부품 수명에 기대지 않는다.</b> 업무를 옮기면 레이아웃이 통째로 다시
-    /// 만들어져 <c>firstRender</c> 가 또 참이 된다 — 공지 팝업이 같은 곳을
-    /// 밟았다(<see cref="NoticeAutoPopup"/> 머리말).
-    /// </para>
-    /// </summary>
+    /// <summary>닫았다는 표시를 브라우저에 남긴다(데스크톱). 부품 수명에 기대지 않는다 — 업무를 옮기면 레이아웃이 다시 만들어져 firstRender 가 또 참이 된다(NoticeAutoPopup 과 같은 곳).</summary>
     private async Task RememberAsync(bool session)
     {
         try
@@ -482,16 +369,12 @@ public partial class PushAskPopup
         }
         catch (JSException ex)
         {
-            // 사생활 보호 모드에서는 setItem 이 던진다. 이번 탭에서 한 번 더
-            // 뜨는 것이 전부라 사용자에게 말할 일이 아니다.
+            // 사생활 보호 모드에서는 setItem 이 던진다 — 이번 탭에서 한 번 더 뜨는 것이 전부라 말할 일이 아니다.
             Log.LogDebug(ex, "구독 권유를 닫았다는 표시를 남기지 못했습니다.");
         }
     }
 
-    /// <summary>
-    /// 자고 있는 시계를 깨워 끝낸다. <b>없으면 업무를 옮길 때마다 시계가
-    /// 하나씩 쌓인다</b> — 레이아웃은 전환마다 새로 만들어진다.
-    /// </summary>
+    /// <summary>자고 있는 시계를 깨워 끝낸다. 없으면 업무를 옮길 때마다 시계가 하나씩 쌓인다 — 레이아웃은 전환마다 새로 만들어진다.</summary>
     public void Dispose()
     {
         _wake?.Cancel();

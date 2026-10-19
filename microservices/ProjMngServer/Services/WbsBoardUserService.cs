@@ -5,32 +5,9 @@ using ProjMngServer.Models;
 
 namespace ProjMngServer.Services;
 
-/// <summary>
-/// 사용자별 화면 설정 — <c>projmng.wbs_user_pref</c>.
-/// </summary>
-/// <remarks>
-/// <para>
-/// [개발자 명부는 여기 없다]
-/// </para>
-///
-/// <para>
-/// 이 서비스가 <c>projmng.wbs_user</c>(사번 · 직급 · 장비 대장 · 계정 발급
-/// 현황)도 다루고 있었다. 2026-09-23 에 그 속성들을 <b>포털 계정</b>으로
-/// 옮기고(<c>scom.account_profile_details</c> 의 <c>Dev.*</c>) 명부와 그
-/// 화면을 걷어냈다 — 같은 사람이 두 곳에 있고 어긋나면 어느 쪽이 맞는지
-/// 알 방법이 없었다. 경위는 <c>docs/projmng-account-merge.md</c>.
-/// </para>
-///
-/// <para>
-/// [누구인지를 가리는 방법도 바뀌었다]
-/// </para>
-///
-/// <para>
-/// 원본은 <b>접속 IP</b> 로 사람을 가려냈다(<c>IpGate.cs</c> — <c>use_ip</c> 와
-/// 대조). 사내망 전용이라 그것이 인증이기도 했다. 포털 안에서는 게이트웨이가
-/// 로그인 계정을 <c>X-User-Id</c> 로 붙여 주므로 그 길을 통째로 걷어냈다.
-/// </para>
-/// </remarks>
+/// <summary>사용자별 화면 설정 — <c>projmng.wbs_user_pref</c>.</summary>
+/// <summary>사용자별 화면 설정(projmng.wbs_user_pref). 개발자 명부는 포털 계정으로 옮겨 여기서는 다루지 않는다.</summary>
+/// 사람을 가리는 것은 포털 로그인 계정(X-User-Id)이다 — 사내망 IP 대조는 걷어냈다(docs/projmng-account-merge.md).
 public sealed class WbsBoardUserService(IConfiguration configuration)
 {
     private readonly string _connectionString =
@@ -41,29 +18,14 @@ public sealed class WbsBoardUserService(IConfiguration configuration)
 
     // ──────────────────────────────────────────────────────── 화면 설정
 
-    /// <summary>
-    /// 설정 이름으로 쓸 수 있는 글자인가. 이 값이 <b>기본키의 일부</b>라
-    /// 아무거나 받으면 표가 쓰레기로 찬다.
-    /// </summary>
+    /// <summary>설정 이름으로 쓸 수 있는 글자인가. 기본키의 일부라 아무거나 받으면 표가 쓰레기로 찬다.</summary>
     public static bool KeyOk(string? key) =>
         !string.IsNullOrEmpty(key)
         && key.Length <= 60
         && key.All(c => char.IsLetterOrDigit(c) || c is '.' or '_' or '-');
 
-    /// <summary>
-    /// 설정 주인. <b>로그인 아이디가 곧 열쇠다.</b>
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 한동안 이 자리가 <c>login_id → bp_id</c> 조회였다 — 명부에 이어진 줄이
-    /// 있으면 사번을 열쇠로 삼았다. 명부를 걷어내면서 그 단계가 사라졌다.
-    /// </para>
-    ///
-    /// <para>
-    /// <b>이미 사번으로 담긴 설정은 그 사람에게 안 보인다.</b> 화면 설정이라
-    /// 다시 고르면 그만이고, 되살리려고 대조표를 두면 명부를 없앤 뜻이 없어진다.
-    /// </para>
-    /// </remarks>
+    /// <summary>설정 주인. 로그인 아이디가 곧 열쇠다.</summary>
+    /// 이미 사번으로 담긴 설정은 그 사람에게 안 보인다 — 화면 설정을 다시 고르면 되고, 대조표는 두지 않는다.
     public static string ResolveOwner(string loginId) => loginId;
 
     public async Task<WbsBoardPref> GetPrefAsync(int prjRid, string owner, string key)

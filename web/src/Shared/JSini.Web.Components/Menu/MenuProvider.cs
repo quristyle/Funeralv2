@@ -5,58 +5,8 @@ using JSini.Web.Http;
 
 namespace JSini.Web.Components.Menu;
 
-/// <summary>
-/// 메뉴 트리를 서버에서 읽고, 권한·화면 크기로 걸러 사이드바에 내놓는다.
-///
-/// scoped 다 — 사용자마다 다른 메뉴를 보고, 화면 크기도 회로마다 다르다.
-///
-/// [Vue 때보다 훨씬 단순해진 자리]
-///
-/// 예전에는 메뉴를 다시 읽을 때 라우트까지 다시 만들어야 했다. 없어진 화면의
-/// 라우트를 <c>router.removeRoute</c> 로 걷어내고, 새 화면의 라우트를 더하고,
-/// 이름이 겹치는지 검사하고… (<c>router/access.ts</c> 의 <c>refreshAccessMenus</c>).
-/// 라우트가 DB 에서 만들어졌기 때문에 생긴 일이었다.
-///
-/// 이제 라우트는 <c>@page</c> 로 고정이라 <b>절대 바뀌지 않는다</b>. 메뉴가
-/// 바뀌면 이 트리만 다시 읽으면 되고, 그 코드가 통째로 사라졌다.
-/// </summary>
-/// <summary>
-/// 걸러 둔 메뉴 트리를 기억하는 통.
-///
-/// [무엇을 막는 것인가]
-///
-/// 사이드바에 들어가는 트리를 만드는 데 두 단계가 있고 둘 다 <b>179노드짜리
-/// 새 객체 그래프</b>를 만든다.
-///
-/// <list type="number">
-///   <item><c>WithHref</c> — 메뉴마다 링크 주소를 풀어 채운다</item>
-///   <item><c>MenuFilter.Filter</c> — 권한과 화면 크기로 거른다</item>
-/// </list>
-///
-/// 왕복도 아니고 조회도 아니라 눈에 안 띄는데, 포털은 <b>업무를 넘나들 때마다
-/// 레이아웃을 새로 만들기 때문에</b>(Piral 모듈 컨테이너가 갈린다) 그 둘이
-/// 화면 전환마다 다시 돌았다. 그리고 결과가 새 객체라
-/// <b><c>DxTreeView</c> 가 179노드를 통째로 다시 그렸다</b> — 값이 한 글자도
-/// 안 달라졌는데 말이다. 아끼려는 것이 계산보다 <b>그 재렌더</b>다.
-///
-/// [수명이 부트스트랩 응답과 같다]
-///
-/// 이 통은 <see cref="Layout.PortalBootstrap.PortalBootstrapWire"/> 안에 산다.
-/// 그래서 <b>열쇠를 만들 필요가 없다</b> — 통이 살아 있다는 것 자체가
-/// 「메뉴와 권한표가 그때 그대로다」라는 뜻이다.
-///
-/// 이것이 요점이다. 권한을 열쇠에 넣거나 TTL 을 따로 두면 <b>권한이 바뀐 뒤에도
-/// 옛 트리를 보여 줄</b> 길이 생기고, 그 틀림은 「권한이 없는데 메뉴가 보인다」
-/// 쪽이다. 통이 응답에 매달려 있으면 응답이 새로 오는 순간 통도 새것이라
-/// 그 길이 아예 없다.
-///
-/// [내용이 불변이라 나눠 써도 된다]
-///
-/// <see cref="MenuNode"/> 는 <c>init</c> 전용 <c>record</c> 다. 그리고 응답은
-/// 사용자별로 통에 담기므로(<see cref="Layout.PortalBootstrapStore"/>) 남의
-/// 메뉴가 섞이지 않는다. 같은 사람이 창을 둘 열면 그 둘이 한 그래프를 함께
-/// 보는데, 아무도 고치지 않으므로 문제가 없다.
-/// </summary>
+/// <summary>메뉴 트리를 서버에서 읽고 권한·화면 크기로 걸러 사이드바에 내놓는다. scoped — 사용자마다 메뉴가 다르고 화면 크기도 회로마다 다르다. 라우트는 @page 로 고정이라 메뉴가 바뀌어도 이 트리만 다시 읽으면 된다.</summary>
+/// <summary>걸러 둔 메뉴 트리를 기억하는 통. 사이드바 트리 만들기는 링크 채우기와 거르기 두 단계로 179노드짜리 새 객체를 만든다 — 업무를 넘나들 때마다 레이아웃이 새로 생겨 화면 전환마다 다시 돌았고, 새 객체라 DxTreeView 가 값이 안 바뀌어도 179노드를 다시 그렸다. 그래서 통을 PortalBootstrapWire 안에 둔다: 통이 살아 있다는 것이 메뉴·권한표가 그때 그대로라는 뜻이라 열쇠가 필요 없다. 권한을 열쇠에 넣으면 권한이 바뀐 뒤에도 옛 트리가 보일 수 있다. 내용은 불변(MenuNode 는 init 전용 record)이라 같은 사람의 창 둘이 나눠 써도 된다.</summary>
 public sealed class MenuTree
 {
     /// <summary>링크를 채운 트리. 화면 크기와 무관하다.</summary>
@@ -102,25 +52,16 @@ public sealed class MenuProvider(
         Reapply();
     }
 
-    /// <summary>
-    /// 이미 받아 둔 메뉴를 채운다. 부트스트랩 한 방(<c>PortalBootstrap</c>)이
-    /// 쓰는 길이다 — 게이트웨이를 다시 부르지 않는다.
-    /// </summary>
+    /// <summary>이미 받아 둔 메뉴를 채운다. 부트스트랩이 쓰는 길이라 게이트웨이를 다시 부르지 않는다.</summary>
     /// <param name="wire">서버가 준 메뉴 목록.</param>
-    /// <param name="memo">
-    /// 만들어 둔 트리를 기억하는 통. 주면 <b>같은 것을 두 번 만들지 않는다</b>.
-    /// 자세한 것은 <see cref="MenuTree"/> 머리말에 있다. 안 주면 매번 만든다 —
-    /// 옛 길(<see cref="ReloadAsync"/>)이 그렇다.
-    /// </param>
+    /// <param name="memo">만들어 둔 트리를 기억하는 통. 주면 같은 것을 두 번 만들지 않는다(MenuTree 머리말). 안 주면 매번 만든다 — 옛 길(ReloadAsync)이 그렇다.</param>
     public void Apply(IReadOnlyList<MenuWireDto> wire, MenuTree? memo = null)
     {
         _memo = memo;
 
         if (memo?.All is { } remembered)
         {
-            // **왕복도 아니고 조회도 아닌데 여기가 비쌌다.** 링크를 채운 트리를
-            // 179노드짜리 새 객체 그래프로 만드는 일이고, 업무를 넘나들 때마다
-            // 레이아웃이 새로 생기니 그때마다 다시 만들고 있었다.
+            // 링크를 채운 트리를 새 객체 그래프로 만드는 일이 비쌌다 — 레이아웃이 업무를 넘나들 때마다 다시 만들고 있었다.
             _all = remembered;
         }
         else
@@ -143,33 +84,14 @@ public sealed class MenuProvider(
         Reapply();
     }
 
-    /// <summary>
-    /// 트리 전체에 링크 주소를 채운다. 외부 링크는 건드리지 않는다 —
-    /// 앱 라우트가 아니라 옮길 대상이 아니다.
-    /// </summary>
+    /// <summary>트리 전체에 링크 주소를 채운다. 외부 링크는 앱 라우트가 아니라 옮길 대상이 아니므로 건드리지 않는다.</summary>
     private MenuNode WithHref(MenuNode node) => node with
     {
         Href = HrefOf(node),
         Children = [.. node.Children.Select(WithHref)],
     };
 
-    /// <summary>
-    /// 이 메뉴가 걸 주소를 정한다. <b>순서가 곧 이행 상태다.</b>
-    ///
-    /// <list type="number">
-    ///   <item>외부 링크는 그대로 나간다.</item>
-    ///   <item><b>끼워 넣는 메뉴(EMBEDDED)는 공용 화면 하나로 보낸다.</b>
-    ///         열쇠를 보지 않는다 — 고를 화면이 없기 때문이다
-    ///         (<see cref="EmbeddedRoute"/>).</item>
-    ///   <item><b>열쇠가 있으면 카탈로그에서 푼다.</b> 이것이 정본이다 —
-    ///         DB 는 URL 을 모르고, 실려 있는 화면이 자기 주소를 안다.</item>
-    ///   <item>열쇠가 없거나 모르는 열쇠면 옛 길로 떨어진다
-    ///         (<c>RouteAliases</c> 가 <c>Path</c> 를 옮긴다).</item>
-    /// </list>
-    ///
-    /// 3번이 남아 있는 동안에는 DB 백필이 안 끝난 것이다. 다 끝나면 3번과
-    /// <c>RouteAliases</c> 를 함께 지운다.
-    /// </summary>
+    /// <summary>이 메뉴가 걸 주소를 정한다. 순서가 곧 이행 상태다: 외부 링크는 그대로, 끼워 넣는 메뉴(EMBEDDED)는 공용 화면으로(고를 화면이 없어 열쇠를 보지 않는다), 열쇠가 있으면 카탈로그에서 푼다(정본 — DB 는 URL 을 모른다), 없거나 모르는 열쇠면 옛 길로 떨어진다(RouteAliases 가 Path 를 옮긴다). 3번이 남아 있으면 DB 백필이 안 끝난 것이고, 다 끝나면 3번과 RouteAliases 를 함께 지운다.</summary>
     private string HrefOf(MenuNode node)
     {
         if (node.IsExternalLink)
@@ -177,9 +99,7 @@ public sealed class MenuProvider(
             return node.Link ?? node.Path;
         }
 
-        // **열쇠보다 앞이다.** 옛 화면 셋의 열쇠가 DB 에 아직 남아 있는데
-        // 그 화면들은 지웠다. 열쇠를 먼저 보면 못 찾아 옛 길로 떨어지고,
-        // 그러면 「준비 중」이 뜬다. 유형과 주소만으로 판단한다.
+        // 열쇠보다 앞이다 — 옛 화면의 열쇠가 DB 에 남아 있어도 그 화면은 지워졌으므로 열쇠를 먼저 보면 준비 중이 뜬다. 유형과 주소만으로 판단한다.
         if (node.IsEmbedded && !string.IsNullOrWhiteSpace(node.IframeSrc))
         {
             return EmbeddedRoute.HrefFor(node.Path);
@@ -188,15 +108,7 @@ public sealed class MenuProvider(
         return routes.Resolve(node.RouteKey) ?? RouteAliases.Resolve(node.Path);
     }
 
-    /// <summary>
-    /// 열쇠는 붙어 있는데 그런 화면이 안 실려 있는 메뉴를 로그로 남긴다.
-    ///
-    /// 이 상태는 <b>메뉴는 보이는데 눌러도 「준비 중」</b>으로 나타난다. 옛
-    /// 경로 불일치와 증상이 같지만 원인이 다르다 — 열쇠를 잘못 적었거나,
-    /// 화면이 지워졌는데 메뉴가 남았거나, 그 모듈이 안 실렸거나다.
-    ///
-    /// 기동을 세우지 않는 이유는 <c>ReportRouteMismatch</c> 와 같다.
-    /// </summary>
+    /// <summary>열쇠는 붙어 있는데 그런 화면이 실려 있지 않은 메뉴를 로그로 남긴다. 보이는데 눌러도 준비 중이 뜨는 상태이고, 원인은 열쇠를 잘못 적었거나 화면이 지워졌거나 모듈이 안 실린 것이다. 기동을 세우지 않는 까닭은 ReportRouteMismatch 와 같다.</summary>
     private void ReportUnresolvedKeys()
     {
         var unresolved = new List<string>();
@@ -240,12 +152,7 @@ public sealed class MenuProvider(
         Reapply();
     }
 
-    /// <summary>
-    /// 이 주소에 이르는 메뉴 줄기를 뿌리부터.
-    ///
-    /// 가장 <b>긴</b> 짝을 고른다. <c>/funeral</c> 과 <c>/funeral/status</c> 가
-    /// 둘 다 있을 때 앞엣것에 먼저 걸리면 브레드크럼이 한 칸에서 멈춘다.
-    /// </summary>
+    /// <summary>이 주소에 이르는 메뉴 줄기를 뿌리부터 돌려준다. 가장 긴 짝을 고른다 — /funeral 과 /funeral/status 가 둘 다 있을 때 앞엣것에 먼저 걸리면 브레드크럼이 한 칸에서 멈춘다.</summary>
     public IReadOnlyList<MenuNode> Trail(string? href)
     {
         if (string.IsNullOrWhiteSpace(href))
@@ -280,24 +187,7 @@ public sealed class MenuProvider(
         }
     }
 
-    /// <summary>
-    /// 들고 있던 원본을 지금 기준으로 다시 거른다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 통이 있으면 <b>앞서 만든 것을 그대로 돌려준다.</b> 값이 같아서 아끼는
-    /// 것이 아니라 <b>참조가 같아야</b> 하기 때문이다 — <c>MenuFilter</c> 는
-    /// 순수 함수라 매번 새 객체 그래프를 만들고(<c>menu with { … }</c>),
-    /// 그러면 <c>DxTreeView</c> 는 자료가 통째로 바뀐 것으로 보아 179노드를
-    /// 다시 그린다. 값이 한 글자도 안 달라졌는데 말이다.
-    /// </para>
-    ///
-    /// <para>
-    /// 열쇠가 화면 크기인 이유는 그것이 <c>MenuFilter</c> 의 나머지 입력이기
-    /// 때문이다. 권한표는 열쇠에 넣지 않는다 — <b>통의 수명이 곧 권한표의
-    /// 수명</b>이라 그럴 필요가 없다(<see cref="MenuTree"/> 머리말).
-    /// </para>
-    /// </remarks>
+    /// <summary>들고 있던 원본을 지금 기준으로 다시 거른다. 통이 있으면 앞서 만든 것을 돌려준다 — 값이 같아서가 아니라 참조가 같아야 DxTreeView 가 자료가 안 바뀐 것으로 보고 다시 그리지 않는다. 열쇠가 화면 크기인 것은 그것이 MenuFilter 의 나머지 입력이기 때문이다. 권한표는 열쇠에 넣지 않는다 — 통의 수명이 곧 권한표의 수명이다.</summary>
     private void Reapply()
     {
         VisibleMenus = Filtered();
@@ -321,18 +211,8 @@ public sealed class MenuProvider(
         return filtered;
     }
 
-    /// <summary>
-    /// DB 의 메뉴 경로와 모듈이 실제로 가진 라우트를 대조한다.
-    ///
-    /// 어긋나는 쪽이 둘 다 문제다.
-    ///   · DB 에 있는데 라우트가 없다 → 메뉴는 보이는데 눌러도 404
-    ///   · 라우트는 있는데 DB 에 없다 → 화면이 있는데 아무도 못 찾는다(권한표에도 없다)
-    ///
-    /// 기동을 세우지는 않는다 — 이행하는 동안에는 어긋나는 것이 정상이고,
-    /// 여기서 죽이면 한 화면 때문에 포털 전체가 안 뜬다. 대신 로그로 정확히
-    /// 몇 개가 어느 쪽으로 어긋났는지 남긴다. 이행이 끝나면 이 로그가 비어야 한다.
-    /// </summary>
-    /// <param name="routePaths">모듈들이 가진 <c>@page</c> 경로 전부</param>
+    /// <summary>DB 의 메뉴 경로와 모듈이 가진 라우트를 대조해 로그로 남긴다. 어긋나는 쪽은 둘 다 문제다 — DB 에만 있으면 보이는데 404, 라우트에만 있으면 화면이 있는데 아무도 못 찾는다. 이행하는 동안 어긋나는 것은 정상이라 기동을 세우지 않는다. 이행이 끝나면 이 로그가 비어야 한다.</summary>
+    /// <param name="routePaths">모듈들이 가진 @page 경로 전부</param>
     public void ReportRouteMismatch(IReadOnlySet<string> routePaths)
     {
         var menuPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -358,9 +238,7 @@ public sealed class MenuProvider(
         {
             foreach (var node in nodes)
             {
-                // 묶음과 외부 링크는 화면이 없는 것이 정상이다.
-                // **Path 가 아니라 LinkTarget 으로 대조한다.** 사용자가 실제로
-                // 열게 되는 주소가 그것이고, 라우트가 있느냐는 그 주소로 판정해야 한다.
+                // 묶음과 외부 링크는 화면이 없는 것이 정상이다. Path 가 아니라 LinkTarget 으로 대조한다 — 사용자가 실제로 열게 되는 주소가 그것이다.
                 if (!node.IsCatalog && !node.IsExternalLink && !string.IsNullOrWhiteSpace(node.LinkTarget))
                 {
                     into.Add(node.LinkTarget);

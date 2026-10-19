@@ -18,16 +18,10 @@ public partial class ParticipationBoard
         Person,
     }
 
-    /// <summary>
-    /// 처음 열릴 때의 기준. 메뉴 두 건이 이 값만 달리해서 같은 화면을 연다.
-    /// 사용자는 화면 안에서 언제든 뒤집을 수 있다.
-    /// </summary>
+    /// <summary>처음 열릴 때의 기준. 메뉴 두 건이 이 값만 달리해 같은 화면을 연다. 사용자는 화면에서 뒤집을 수 있다.</summary>
     [Parameter] public BoardAxis Start { get; set; } = BoardAxis.Project;
 
-    /// <summary>
-    /// 판 한 줄. <b>두 판이 같은 타입을 쓴다</b> — 축을 뒤집으면 왼쪽에 있던
-    /// 것이 오른쪽으로 가므로, 타입을 갈라 두면 같은 자료를 두 번 빚게 된다.
-    /// </summary>
+    /// <summary>판 한 줄. 두 판이 같은 타입을 쓴다 — 축을 뒤집으면 줄이 반대편으로 가므로 타입을 갈라 두면 같은 자료를 두 번 빚게 된다.</summary>
     public sealed class BoardRow
     {
         /// <summary>프로젝트면 <c>prj_rid</c>, 사람이면 <c>user_id</c>.</summary>
@@ -69,10 +63,7 @@ public partial class ParticipationBoard
     /// <summary>아직 안 보낸 변경. <c>상대 열쇠 → 바라는 상태</c>.</summary>
     private readonly Dictionary<string, bool> _queue = new(StringComparer.Ordinal);
 
-    /// <summary>
-    /// 이번 보내기 단위에서 손댄 줄들의 <b>손대기 전</b> 상태. 되돌리기가 이것으로
-    /// 만들어진다(<see cref="Batch"/>).
-    /// </summary>
+    /// <summary>이번 보내기 단위에서 손댄 줄들의 손대기 전 상태. 되돌리기가 이것으로 만들어진다.</summary>
     private readonly Dictionary<string, bool> _before = new(StringComparer.Ordinal);
 
     /// <summary>지금 한 묶음이 나가 있나. 나가 있는 동안 쌓인 것이 다음 묶음이 된다.</summary>
@@ -99,10 +90,7 @@ public partial class ParticipationBoard
 
     private int Removable => _right.Count(r => r.On);
 
-    /// <summary>
-    /// 일괄 요청의 기준. <b>둘 중 하나만 채운다</b> — 둘 다 채우면 상대 열쇠가
-    /// 아이디인지 프로젝트 번호인지 알 수 없어서 서버가 거절한다.
-    /// </summary>
+    /// <summary>일괄 요청의 기준. 둘 중 하나만 채운다 — 둘 다 채우면 상대 열쇠가 아이디인지 프로젝트 번호인지 알 수 없어 서버가 거절한다.</summary>
     private readonly record struct AssignmentScope(int? PrjRid, string? UserId)
     {
         /// <summary>상대 열쇠 하나를 짝으로 편다.</summary>
@@ -111,21 +99,7 @@ public partial class ParticipationBoard
             : (int.Parse(otherKey, System.Globalization.CultureInfo.InvariantCulture), UserId!);
     }
 
-    /// <summary>
-    /// 되돌리기가 보낼 것. <b>「보낸 것」이 아니라 「보내기 전 상태」다.</b>
-    /// </summary>
-    /// <remarks>
-    /// 보낸 것을 뒤집는 방식으로 두면 <b>한 번에 눌린 것이 여러 묶음으로
-    /// 나뉘었을 때 마지막 묶음만 되돌아온다.</b> 연타 열 번이 1+3+6 으로
-    /// 나가면 되돌리기가 여섯 건만 되돌리고, 사용자에게는 「되돌렸는데 반만
-    /// 돌아왔다」로 보인다 — 실제로 그렇게 만들어 놓고 재현했다.
-    ///
-    /// <para>
-    /// 그래서 <b>한 번 보내기 시작해서 대기줄이 빌 때까지</b>를 한 단위로 보고,
-    /// 그 사이에 손댄 줄들의 <b>손대기 전 상태</b>를 담는다. 같은 줄을 켰다
-    /// 껐다 해도 되돌아가는 자리는 하나다.
-    /// </para>
-    /// </remarks>
+    /// <summary>되돌리기가 보낼 것. 「보낸 것」이 아니라 「보내기 전 상태」다 — 보낸 것을 뒤집으면 연타가 여러 묶음으로 나뉠 때 마지막 묶음만 되돌아온다.</summary>
     private sealed record Batch(
         AssignmentScope Scope,
         string ScopeName,
@@ -135,9 +109,7 @@ public partial class ParticipationBoard
         public int Count => Add.Count + Remove.Count;
     }
 
-    /// <summary>
-    /// 찾기 칸. 글자가 바뀔 때마다 그 판만 다시 빚는다 — 왕복은 없다.
-    /// </summary>
+    /// <summary>찾기 칸. 글자가 바뀔 때마다 그 판만 다시 빚는다 — 왕복은 없다.</summary>
     private string LeftQuery
     {
         get => _leftQuery;
@@ -197,14 +169,10 @@ public partial class ParticipationBoard
         await ReloadAsync();
     }
 
-    /// <summary>
-    /// 세 가지를 <b>나란히</b> 읽는다 — 프로젝트 전부 · 계정 전부 · 걸려 있는 짝.
-    /// 이 셋이면 두 축이 다 나오므로 그 뒤로는 왕복이 없다(머리말).
-    /// </summary>
+    /// <summary>프로젝트 전부 · 계정 전부 · 걸려 있는 짝을 나란히 읽는다. 셋이면 두 축이 다 나오므로 그 뒤로는 왕복이 없다.</summary>
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        // 아이디를 비우면 프로젝트 전부가 `Accepted = false` 로 온다. 그 깃발은
-        // 쓰지 않는다 — 짝은 아래 `pairs` 가 알려 준다.
+        // 아이디를 비우면 `Accepted = false` 로 오는 깃발은 쓰지 않는다 — 짝은 `pairs` 가 알려 준다.
         var projects = Api.AssignmentsAsync(null);
         var accounts = Accounts.GetAsync("portal_account");
         var pairs = Api.ListAsync();
@@ -228,15 +196,7 @@ public partial class ParticipationBoard
 
     // ── 판 빚기 ───────────────────────────────────────────
 
-    /// <summary>
-    /// 양쪽을 다시 빚는다. 고른 것은 같은 열쇠로 되찾고, 없으면 <b>첫 줄을 고른다.</b>
-    /// </summary>
-    /// <remarks>
-    /// 아무것도 안 고른 상태로 두지 않는다. DxGrid 는 첫 줄에 초점 표시를
-    /// 그리는데 그때 오른쪽은 「고르면 나옵니다」라고 말해서, <b>고른 것처럼
-    /// 보이는데 아무 일도 안 일어난</b> 화면이 된다. 자료가 이미 다 와 있어
-    /// 첫 줄을 고르는 데 왕복이 들지 않는다.
-    /// </remarks>
+    /// <summary>양쪽을 다시 빚는다. 고른 것은 같은 열쇠로 되찾고, 없으면 첫 줄을 고른다 — 고른 것처럼 보이는데 아무 일도 없는 화면을 막는다.</summary>
     private void Rebuild()
     {
         BuildLeft();
@@ -253,26 +213,14 @@ public partial class ParticipationBoard
             .OrderBy(r => r.Name, StringComparer.CurrentCulture)
             .ToList();
 
-        // 고른 줄은 매번 새 객체가 되므로 같은 열쇠로 다시 잡는다 — 안 잡으면
-        // 표의 강조가 풀린다.
-        //
-        // **걸러져 안 보인다고 놓지는 않는다.** 왼쪽에서 찾기만 했는데 오른쪽이
-        // 통째로 닫히면 하던 일이 끊긴다. 안 보이는 동안 강조가 없을 뿐이고,
-        // 찾기를 지우면 그 줄이 그대로 돌아온다.
+        // 고른 줄은 매번 새 객체라 같은 열쇠로 다시 잡는다. 걸러져 안 보여도 놓지 않는다 — 찾기를 지우면 그 줄이 돌아온다.
         if (_picked is not null && _left.FirstOrDefault(r => r.Key == _picked.Key) is { } again)
         {
             _picked = again;
         }
     }
 
-    /// <summary>
-    /// 오른쪽을 빚는다. <b>참여한 것이 위로 온다.</b>
-    /// </summary>
-    /// <remarks>
-    /// 부르는 자리가 셋뿐이다 — 축을 바꿀 때, 기준을 고를 때, 찾기를 바꿀 때.
-    /// <b>체크할 때는 부르지 않는다</b>: 그때마다 다시 매기면 방금 켠 줄이
-    /// 손가락 밑에서 맨 위로 튀어 올라간다(머리말).
-    /// </remarks>
+    /// <summary>오른쪽을 빚는다. 참여한 것이 위로 온다. 체크할 때는 부르지 않는다 — 방금 켠 줄이 손가락 밑에서 튀어 오르기 때문.</summary>
     private void BuildRight()
     {
         if (_picked is null)
@@ -338,14 +286,12 @@ public partial class ParticipationBoard
             return;
         }
 
-        // 보내던 묶음은 옛 기준의 것이다. 끝나기를 기다리지 않고 축을 뒤집으면
-        // 그 결과가 새 기준의 줄에 얹힌다.
+        // 보내던 묶음은 옛 기준의 것이라 끝나기를 기다린 뒤 축을 옮긴다. 아니면 그 결과가 새 기준의 줄에 얹힌다.
         await WaitForSendAsync();
 
         _axis = axis;
 
-        // 기준이 통째로 바뀌었으므로 고른 것과 찾기를 놓는다. 들고 있어 봐야
-        // 프로젝트 번호를 아이디 자리에 쓰는 꼴이 된다.
+        // 기준이 바뀌었으니 고른 것과 찾기를 놓는다 — 들고 가면 프로젝트 번호를 아이디 자리에 쓰게 된다.
         _picked = null;
         _leftQuery = string.Empty;
         _rightQuery = string.Empty;
@@ -363,8 +309,7 @@ public partial class ParticipationBoard
         _rightQuery = string.Empty;
         _lastToggled = null;
 
-        // 되돌리기는 **방금 보던 기준**의 것이다. 다른 프로젝트로 옮긴 뒤에도
-        // 살려 두면, 눌렀을 때 지금 안 보이는 곳이 바뀐다.
+        // 되돌리기는 방금 보던 기준의 것이다. 다른 곳으로 옮긴 뒤 살려 두면 지금 안 보이는 곳이 바뀐다.
         _undo = null;
 
         BuildRight();
@@ -390,10 +335,7 @@ public partial class ParticipationBoard
         BuildRight();
     }
 
-    /// <summary>
-    /// 참여를 켜고 끈다. <b>화면은 그 자리에서 바뀌고</b> 전송은 뒤에서 한다.
-    /// Shift 를 누른 채였으면 <b>지난번 누른 줄부터 여기까지</b> 함께 건다.
-    /// </summary>
+    /// <summary>참여를 켜고 끈다. 화면은 그 자리에서 바뀌고 전송은 뒤에서 한다. Shift 를 누른 채였으면 지난번 누른 줄부터 여기까지 함께 건다.</summary>
     private Task ToggleAsync(BoardRow row, bool on)
     {
         if (_picked is null)
@@ -411,19 +353,10 @@ public partial class ParticipationBoard
         return QueueAsync(rows.Where(r => r.On != on || ReferenceEquals(r, row)), on);
     }
 
-    /// <summary>
-    /// 보이는 것을 통째로 켜거나 끈다. <b>이미 그 상태인 줄은 보내지 않는다.</b>
-    /// </summary>
+    /// <summary>보이는 것을 통째로 켜거나 끈다. 이미 그 상태인 줄은 보내지 않는다.</summary>
     private Task BulkAsync(bool on) => QueueAsync(_right.Where(r => r.On != on), on);
 
-    /// <summary>
-    /// 방금 보낸 묶음을 <b>거꾸로 한 번 더 보낸다.</b>
-    /// </summary>
-    /// <remarks>
-    /// 되돌린 뒤에는 되돌릴 것이 없다 — 되돌리기를 또 눌러 원래대로 돌아가는
-    /// 것은 「되돌리기」가 아니라 「다시 하기」라서, 같은 단추에 두 뜻을 담으면
-    /// 지금 어느 쪽인지 알 수 없게 된다.
-    /// </remarks>
+    /// <summary>방금 보낸 묶음을 거꾸로 한 번 더 보낸다. 되돌린 뒤에는 되돌릴 것이 없다 — 같은 단추로 되돌리기와 다시 하기를 겸하면 지금 어느 쪽인지 알 수 없다.</summary>
     private async Task UndoAsync()
     {
         if (_undo is not { } batch)
@@ -453,30 +386,13 @@ public partial class ParticipationBoard
             _map.Remove(batch.Scope.Pair(key));
         }
 
-        // 짝 집합에서 통째로 다시 빚는다. 되돌린 줄이 지금 화면에 안 보일 수도
-        // 있어(그새 기준을 옮겼거나 찾기로 좁혔거나) 줄 하나씩 고칠 수 없다.
+        // 짝 집합에서 통째로 다시 빚는다. 되돌릴 줄이 지금 안 보일 수 있어 줄 하나씩은 고칠 수 없다.
         Rebuild();
     }
 
     // ── 보내기 ────────────────────────────────────────────
 
-    /// <summary>
-    /// 바꿀 줄들을 대기줄에 넣고, 아무도 안 보내고 있으면 보내기 시작한다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>첫 변경은 곧바로 나간다.</b> 시간을 두고 모았다가 보내면 그 사이에
-    /// 화면을 옮기거나 브라우저를 닫는 순간 「켰는데 안 들어간」 상태가 생긴다 —
-    /// 옛 화면이 「모아 두었다 저장」을 버린 이유가 그것이고, 여기서도 그 함정은
-    /// 그대로다.
-    /// </para>
-    ///
-    /// <para>
-    /// 대신 <b>보내는 동안 쌓인 것</b>만 묶는다. 연달아 열 번 누르면 첫 번째가
-    /// 혼자 나가고 나머지 아홉이 한 번에 나간다 — 왕복 둘이다. 「보이는 것
-    /// 모두」는 처음부터 한 묶음이라 한 번이다.
-    /// </para>
-    /// </remarks>
+    /// <summary>바꿀 줄들을 대기줄에 넣고, 아무도 안 보내고 있으면 보내기를 시작한다. 첫 변경은 곧바로 나가고(모아 두면 화면을 옮길 때 켠 것이 안 들어간다), 보내는 동안 쌓인 것만 묶는다.</summary>
     private Task QueueAsync(IEnumerable<BoardRow> rows, bool on)
     {
         if (_picked is null)
@@ -484,14 +400,7 @@ public partial class ParticipationBoard
             return Task.CompletedTask;
         }
 
-        // **여기서 기다리면 안 된다.** 한동안 안전판으로 `WaitForSendAsync` 를
-        // 넣어 두었는데, 그러면 연타한 두 번째 클릭이 첫 번째가 끝날 때까지
-        // 서 있다가 **자기 묶음을 따로 보낸다** — 묶으려고 만든 대기줄을
-        // 그 한 줄이 통째로 무력화했다. 열 번 누르면 열 번 나갔고, 증상이
-        // 「되돌리기를 눌렀는데 한 건만 되돌아온다」로만 보였다.
-        //
-        // 기준이 섞일 걱정은 여기 없다. 기준을 옮기는 길 셋(`PickAsync` ·
-        // `SetAxis` · `Drill`)이 **모두 보내던 것을 기다린 뒤** 옮긴다.
+        // 여기서 기다리면 안 된다 — 연타한 두 번째 클릭이 첫 번째가 끝날 때까지 서 있다가 따로 나가 묶음이 무력해진다. 기준 옮기기 셋(PickAsync · SetAxis · Drill)은 보내던 것을 기다린 뒤 옮긴다.
         var scope = Scope;
         var queued = false;
 
@@ -502,8 +411,7 @@ public partial class ParticipationBoard
                 continue;
             }
 
-            // 이번 단위에서 처음 손대는 줄이면 그 전 상태를 적어 둔다.
-            // 켰다 껐다 해도 되돌아갈 자리는 이 한 번 적은 값이다.
+            // 이번 단위에서 처음 손대는 줄이면 그 전 상태를 적는다. 되돌아갈 자리는 이 값이다.
             if (!_before.ContainsKey(row.Key))
             {
                 _before[row.Key] = row.On;
@@ -558,9 +466,7 @@ public partial class ParticipationBoard
                         _before.Remove(key);
                     }
 
-                    // 남은 대기줄도 버린다. 같은 기준에 이어 보내 봐야 화면과
-                    // DB 가 더 벌어지기만 한다 — 무엇이 들어갔는지 다시 읽어야
-                    // 하는 상태이므로 여기서 멈춘다.
+                    // 남은 대기줄도 버린다. 같은 기준에 이어 보내면 화면과 DB 가 더 벌어진다. 다시 읽어야 하는 상태라 여기서 멈춘다.
                     _queue.Clear();
                     break;
                 }
@@ -570,9 +476,7 @@ public partial class ParticipationBoard
         {
             _sending = false;
 
-            // 대기줄이 빈 지금이 한 단위의 끝이다. 되돌리기는 **이 단위 전체**를
-            // 한 번에 되돌린다 — 묶음이 몇 개로 나뉘어 나갔는지는 사용자가 알
-            // 바가 아니다.
+            // 대기줄이 빈 때가 한 단위의 끝이다. 되돌리기는 이 단위 전체를 한 번에 되돌린다.
             _undo = _before.Count == 0
                 ? _undo
                 : new Batch(
@@ -585,10 +489,7 @@ public partial class ParticipationBoard
         }
     }
 
-    /// <summary>
-    /// 한 묶음을 보낸다. <b>한 건짜리도 같은 길로 간다</b> — 갈래를 둘로 두면
-    /// 한쪽에만 걸리는 버그가 생기고, 서버가 어차피 한 건을 한 트랜잭션으로 받는다.
-    /// </summary>
+    /// <summary>한 묶음을 보낸다. 한 건짜리도 같은 길로 간다 — 갈래를 둘로 두면 한쪽에만 걸리는 버그가 생긴다.</summary>
     private Task<bool> SendAsync(
         AssignmentScope scope, IReadOnlyList<string> add, IReadOnlyList<string> remove, string ok)
         => RunAsync(
@@ -643,10 +544,7 @@ public partial class ParticipationBoard
         return shift;
     }
 
-    /// <summary>
-    /// 짝 하나를 켜고 끈 결과를 <b>화면이 들고 있는 것 전부</b>에 옮긴다 —
-    /// 짝 집합 · 오른쪽 줄 · 양쪽의 수. 다시 읽지 않는 이유는 머리말에 있다.
-    /// </summary>
+    /// <summary>짝 하나를 켜고 끈 결과를 화면이 들고 있는 것 전부에 옮긴다 — 짝 집합 · 오른쪽 줄 · 양쪽의 수. 다시 읽지 않는다.</summary>
     private void Apply(BoardRow row, bool on)
     {
         var pair = Scope.Pair(row.Key);

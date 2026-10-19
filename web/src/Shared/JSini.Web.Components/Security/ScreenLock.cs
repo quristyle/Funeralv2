@@ -3,57 +3,13 @@ using Microsoft.JSInterop;
 namespace JSini.Web.Components.Security;
 
 /// <summary>
-/// 잠금화면의 상태. <b>회로 하나(=창 하나)마다 하나다.</b>
-///
-/// <para>
-/// vben 의 <c>LockScreen</c> 을 옮긴 것이다(D7). 자리를 비울 때 화면을 덮고,
-/// 돌아와서 비밀번호를 넣어야 풀린다.
-/// </para>
-///
-/// <para>
-/// <b>이것은 보안 경계가 아니다.</b> 잠긴 동안에도 토큰은 그대로 살아 있고
-/// API 는 여전히 부를 수 있다 — 브라우저 개발자 도구를 열면 우회할 수 있다.
-/// 막으려는 것은 <b>지나가는 사람</b>이지 공격자가 아니다. vben 도 같은 수준이었다.
-/// 진짜로 끊어야 하면 잠그지 말고 로그아웃해야 하고, 그 말을 화면에도 적어 두었다.
-/// </para>
-///
-/// <para>
-/// <b>왜 브라우저에 남기나</b> — 회로 안에만 두면 새로고침 한 번으로 풀린다.
-/// 그러면 「덮어 둔다」는 목적조차 못 한다. 그래서 저장소에 표시를 남기고
-/// 회로가 새로 붙을 때 다시 읽는다.
-/// </para>
-///
-/// <para>
-/// <b>그 저장소가 <c>localStorage</c> 다</b>(2026-09-25에 <c>sessionStorage</c>
-/// 에서 옮겼다). 처음에는 「창을 닫으면 잠금도 함께 사라져야 한다」고 보았는데,
-/// 이 포털은 <b>PWA 로 설치해서 앱처럼 쓴다</b> — 앱을 내리는 것은 자리를 비우는
-/// 흔한 방법이지 잠금을 푸는 방법이 아니다. 세션이면 <b>앱을 껐다 켜는 것만으로
-/// 덮개가 걷혔고</b>, 새로고침은 버티는데 앱 재시작은 못 버티는 잠금은 잠금이
-/// 아니다.
-/// </para>
-///
-/// <para>
-/// <b>지우는 자리는 로그인 화면이다.</b> 기기에 남기면 「지난주에 잠가 둔 화면이
-/// 새 창에 뜬다」가 실제로 생기는데, 그 창을 걷는 유일한 길목이 로그인이다 —
-/// 로그인 화면을 본다는 것은 <b>지금 잠겨 있지 않다</b>는 뜻이고(쿠키가 없거나
-/// 방금 로그아웃했다), 곧 비밀번호를 칠 참이라 덮개를 또 씌울 까닭이 없다.
-/// <c>Login.razor</c> 가 <c>jsiniLock.forget</c> 을 부른다. 안 지우면 잠금화면에서
-/// 로그아웃한 사람이 <b>같은 비밀번호를 연달아 두 번</b> 치게 되고, 남의 기기를
-/// 빌린 사람에게는 자기가 잠근 적 없는 덮개가 뜬다.
-/// </para>
+/// 잠금화면의 상태. 회로(창) 하나마다 하나다. vben 의 LockScreen 을 옮겼다(D7). 자리를 비울 때 덮고, 돌아와 비밀번호나 지문으로 푼다.
+/// <b>보안 경계가 아니다.</b> 잠긴 동안에도 토큰이 살아 있어 개발자 도구로 우회할 수 있다. 막으려는 것은 지나가는 사람이다.
+/// 표시는 <c>localStorage</c> 에 둔다. 세션 저장소면 PWA 를 껐다 켜는 것만으로 덮개가 걷히므로 잠금이 아니다. 지우는 곳은 로그인 화면(<c>Login.razor</c> 의 <c>jsiniLock.forget</c>)이다. 안 지우면 잠금화면에서 로그아웃한 사람이 같은 비밀번호를 두 번 치게 된다.
 /// </summary>
 public sealed class ScreenLock(IJSRuntime js, Layout.PortalBoot boot)
 {
-    /// <summary>
-    /// 브라우저에 남기는 표시.
-    ///
-    /// <para>
-    /// <b>정본은 <see cref="Layout.PortalBoot.ScreenLockedKey"/> 다.</b> 읽는 일은
-    /// 그쪽이 다른 값들과 함께 한 왕복으로 하고, 여기서는 쓰는 데만 쓴다.
-    /// 열쇠를 두 곳에 적으면 한쪽만 고치는 날이 오고, 그때 증상은
-    /// 「잠갔는데 새로고침하면 풀린다」다.
-    /// </para>
-    /// </summary>
+    /// <summary>브라우저에 남기는 표시. 정본은 <see cref="Layout.PortalBoot.ScreenLockedKey"/> 다. 열쇠를 두 곳에 적으면 한쪽만 고치는 날이 오고, 증상은 「잠갔는데 새로고침하면 풀린다」다.</summary>
     private const string StorageKey = Layout.PortalBoot.ScreenLockedKey;
 
     private bool _restored;
@@ -64,17 +20,7 @@ public sealed class ScreenLock(IJSRuntime js, Layout.PortalBoot boot)
     /// <summary>잠기거나 풀렸을 때. 레이아웃이 다시 그리려고 듣는다.</summary>
     public event Action? Changed;
 
-    /// <summary>
-    /// 브라우저에 남은 표시를 읽어 상태를 되살린다.
-    /// <b>회로가 붙은 뒤에</b> 불러야 한다(<c>OnAfterRenderAsync</c>) —
-    /// 프리렌더 중에는 JS 를 부를 수 없다.
-    /// </summary>
-    /// <remarks>
-    /// 저장소를 직접 읽지 않는다. <see cref="Layout.PortalBoot"/> 가 다른 값들과
-    /// 함께 <b>한 왕복으로</b> 읽어 온 것을 받는다 — 왜 그렇게 했는지는 그
-    /// 클래스 머리말에 있다. 못 읽었으면 「안 잠긴 것」으로 온다. 그것이
-    /// 맞는 기본값이다 — 읽기 실패로 화면을 덮으면 풀 방법이 없는 상태에 갇힌다.
-    /// </remarks>
+    /// <summary>브라우저에 남은 표시를 읽어 상태를 되살린다. 회로가 붙은 뒤(OnAfterRenderAsync) 불러야 한다. 값은 PortalBoot 가 다른 값과 한 왕복으로 읽어 온다. 못 읽으면 안 잠긴 것으로 본다. 읽기 실패로 덮으면 풀 길이 없다.</summary>
     public async Task RestoreAsync()
     {
         if (_restored)
@@ -119,8 +65,7 @@ public sealed class ScreenLock(IJSRuntime js, Layout.PortalBoot boot)
         }
         catch (JSException)
         {
-            // 화면은 이미 덮였거나 걷혔다. 표시를 못 남긴 것뿐이라
-            // 새로고침하면 풀린다 — 그것으로 사용자를 막지는 않는다.
+            // 화면은 이미 덮였거나 걷혔다. 표시를 못 남긴 것뿐이라 새로고침하면 풀린다.
         }
 
         Changed?.Invoke();

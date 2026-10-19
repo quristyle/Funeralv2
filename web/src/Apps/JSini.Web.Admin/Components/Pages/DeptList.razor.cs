@@ -32,14 +32,7 @@ public partial class DeptList
     private string? _editingId;
     private SaveDeptDto _form = new();
 
-    /// <summary>
-    /// 이 화면에서 부서를 끌어 옮길 수 있는가. 관리 칸의 「수정」과 <b>같은 판정</b>이다.
-    ///
-    /// <para>
-    /// <c>PermissionView</c> 를 쓸 수 없는 자리라 직접 묻는다 — 끌어 옮기기는
-    /// 그릴지 말지가 아니라 <c>CommTree</c> 의 파라미터로 켜고 끄는 것이다.
-    /// </para>
-    /// </summary>
+    /// <summary>이 화면에서 부서를 끌어 옮길 수 있는가. 관리 칸의 「수정」과 같은 판정이다 — PermissionView 를 쓸 수 없어 직접 묻고, 끌기는 CommTree 의 파라미터로 켜고 끈다.</summary>
     private bool _canMove;
 
     /// <summary>나무를 평평하게 편 것. 부모 찾기와 형제 세기에 쓴다.</summary>
@@ -54,12 +47,7 @@ public partial class DeptList
             ? _depts
             : [.. _depts.Where(d => string.Equals(d.CompanyId, _companyFilter, StringComparison.Ordinal))];
 
-    /// <summary>
-    /// 상위로 고를 수 있는 부서.
-    ///
-    /// 자기 자신과 <b>자기 아래 전부</b>를 뺀다. 자기 아래로 옮기면 나무가
-    /// 고리가 되어 펼치는 순간 목록이 통째로 사라진다.
-    /// </summary>
+    /// <summary>상위로 고를 수 있는 부서. 자기 자신과 자기 아래 전부를 뺀다 — 자기 아래로 옮기면 나무가 고리가 되어 목록이 사라진다.</summary>
     private List<DeptDto> ParentChoices
     {
         get
@@ -78,9 +66,7 @@ public partial class DeptList
 
     protected override Task OnInitializedAsync()
     {
-        // `PermissionView` 와 똑같이 묻는다 — 물어보기만 하고 다시 읽지 않는다.
-        // 프리렌더 때 권한이 아직 없으면 false 가 되지만, 회로가 붙으면 화면이
-        // 다시 만들어지면서 여기도 다시 돈다.
+        // PermissionView 와 같이 묻는다 — 프리렌더 때는 false 이고, 회로가 붙어 화면이 다시 만들어지면 여기도 다시 돈다.
         _canMove = Can(MenuAction.Update);
 
         return ReloadAsync();
@@ -125,22 +111,7 @@ public partial class DeptList
         }
     }
 
-    /// <summary>
-    /// 끌어 옮긴 결과를 저장한다.
-    ///
-    /// <para>
-    /// <b>화면이 배치를 확정해서 보낸다.</b> 형제 하나가 움직이면 그 묶음
-    /// 전체의 순번이 바뀌므로, 옮긴 한 건만 보내면 서버가 나머지를 어떻게
-    /// 밀지 짐작해야 하고 그 짐작이 화면과 어긋난다. 떠난 묶음과 도착한
-    /// 묶음 둘을 다시 번호 붙여 한 번에 보낸다.
-    /// </para>
-    ///
-    /// <para>
-    /// 자리 계산은 <b>옮길 줄을 빼낸 뒤의</b> 형제 목록에서 한다. 빼기 전
-    /// 목록에서 세면 같은 묶음 안에서 아래로 옮길 때 한 칸씩 어긋난다 —
-    /// 자기가 차지하고 있던 자리가 목록에 아직 남아 있기 때문이다.
-    /// </para>
-    /// </summary>
+    /// <summary>끌어 옮긴 결과를 저장한다. 화면이 배치를 확정해서 보낸다 — 떠난 묶음과 도착한 묶음을 다시 번호 붙여 한 번에 보낸다. 자리 계산은 옮길 줄을 뺀 뒤의 형제 목록에서 한다.</summary>
     private async Task OnDroppedAsync(TreeListItemsDroppedEventArgs e)
     {
         if (e.DroppedItems.FirstOrDefault() is not DeptDto moved)
@@ -150,8 +121,7 @@ public partial class DeptList
 
         var target = e.TargetItem as DeptDto;
 
-        // 부서는 회사에 딸린 것이라 회사를 넘나들면 자기 회사와 조상의 회사가
-        // 갈린다. 서버도 막지만 왕복하기 전에 말해 준다.
+        // 부서는 회사에 딸린 것이라 회사를 넘나들면 안 된다 — 서버도 막지만 왕복 전에 말해 준다.
         if (target is not null
             && !string.Equals(target.CompanyId, moved.CompanyId, StringComparison.Ordinal))
         {
@@ -167,8 +137,7 @@ public partial class DeptList
             : inside ? target.Id
             : _parent.GetValueOrDefault(target.Id);
 
-        // 자기 자신이나 자기 하위 아래로는 옮길 수 없다. 서버도 막지만
-        // 왕복하기 전에 말해 준다 — 끌어 놓은 손이 아직 그 자리에 있다.
+        // 자기 자신이나 하위 아래로는 옮길 수 없다 — 서버도 막지만 왕복 전에 말해 준다.
         if (newParentId is not null && IsUnder(newParentId, moved.Id))
         {
             Say("자기 자신이나 하위 부서 아래로는 옮길 수 없습니다.", NoticeTone.Warning);
@@ -212,8 +181,7 @@ public partial class DeptList
             await ReloadAsync();
         }
 
-        // 1 부터 매긴다. 0 은 「한 번도 정하지 않은 값」의 기본값이라 새로
-        // 만든 부서가 맨 앞에 끼어들 자리로 비워 둔다(DeptOrderDto 머리말).
+        // 1 부터 매긴다 — 0 은 정하지 않은 값의 기본값이라 새 부서가 맨 앞에 끼어들지 않도록 비워 둔다.
         void Number(string? parentId, List<DeptDto> rows)
             => items.AddRange(rows.Select((d, i) => new DeptOrderDto
             {
@@ -223,20 +191,13 @@ public partial class DeptList
             }));
     }
 
-    /// <summary>
-    /// 그 부모의 자식들. 최상위는 <b>같은 회사의</b> 뿌리다 — 뿌리 목록에는
-    /// 회사 여럿이 섞여 있으므로(조건이 「전체」일 때) 남의 회사 줄까지 함께
-    /// 번호를 다시 매기면 보고 있지도 않은 회사의 차례가 조용히 바뀐다.
-    /// </summary>
+    /// <summary>그 부모의 자식들. 최상위는 같은 회사의 뿌리다 — 조건이 전체일 때 뿌리 목록에는 회사가 여럿 섞여, 번호를 다시 매기면 보지도 않은 회사의 차례가 바뀐다.</summary>
     private List<DeptDto> Siblings(string? parentId, string? companyId) =>
         parentId is null
             ? [.. _depts.Where(d => string.Equals(d.CompanyId, companyId, StringComparison.Ordinal))]
             : [.. _flat.FirstOrDefault(d => d.Id == parentId)?.Children ?? []];
 
-    /// <summary>
-    /// <paramref name="id"/> 가 <paramref name="ancestorId"/> 자신이거나 그 하위인가.
-    /// 자료가 이미 순환이면 돌지 않도록 걸음 수를 센다.
-    /// </summary>
+    /// <summary>id 가 ancestorId 자신이거나 그 하위인가. 자료가 순환이면 돌지 않게 걸음 수를 센다.</summary>
     private bool IsUnder(string? id, string ancestorId)
     {
         var hops = 0;
@@ -326,13 +287,7 @@ public partial class DeptList
         }
     }
 
-    /// <summary>
-    /// 삭제.
-    ///
-    /// 하위 부서나 소속 인원이 남아 있으면 <b>서버가 막는다.</b> 화면이 미리
-    /// 세어 막지 않는 이유는, 화면이 보고 있는 수가 방금 읽은 값이라
-    /// 그 사이에 바뀌었을 수 있어서다 — 판정은 한 곳에서 한다.
-    /// </summary>
+    /// <summary>삭제. 하위 부서나 소속 인원이 남아 있으면 서버가 막는다 — 화면이 세면 방금 읽은 값이라 그 사이에 바뀌었을 수 있으니 판정은 한 곳에서 한다.</summary>
     private async Task DeleteAsync(DeptDto dept)
     {
         if (await RunAsync(() => Api.DeleteDeptAsync(dept.Id),

@@ -39,11 +39,7 @@ public class SaveFaqDto
 /// <summary>
 /// F.A.Q 목록 응답
 /// </summary>
-/// <remarks>
-/// 목록과 함께 "이 사용자가 관리자인지"를 내려준다.
-/// 화면이 권한 스토어만 보고 판단하면, 권한 정보가 늦게 도착했을 때
-/// 서버 판정과 어긋난 버튼이 보인다. 판정은 서버 한 곳에서 한다.
-/// </remarks>
+/// 목록과 함께 이 사용자가 관리자인지 내려준다 — 권한 스토어만 보고 그리면 권한 정보가 늦게 올 때 서버 판정과 어긋난 버튼이 보인다.
 public class FaqListDto
 {
     public List<FaqDto> Items { get; set; } = new();

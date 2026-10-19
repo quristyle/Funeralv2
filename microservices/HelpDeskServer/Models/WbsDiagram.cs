@@ -3,9 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace HelpDeskServer.Models;
 
-/// <summary>
-/// WBS 항목별 다이어그램 데이터를 저장하는 엔티티
-/// </summary>
+/// <summary>WBS 항목별 다이어그램 데이터를 저장하는 엔티티</summary>
 [Table("wbs_diagram")]
 public class WbsDiagram : BaseEntity
 {

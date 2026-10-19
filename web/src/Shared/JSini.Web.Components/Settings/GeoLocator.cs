@@ -4,146 +4,20 @@ using Microsoft.JSInterop;
 
 namespace JSini.Web.Components.Settings;
 
-/// <summary>
-/// 브라우저에게 위치를 묻고 <b>서버에 저장하는 절차 한 벌</b>.
-/// </summary>
-/// <remarks>
-/// <para>
-/// [왜 절차를 따로 떼어 두나 — <see cref="PushEnroll"/> 와 같은 까닭]
-/// </para>
-///
-/// <para>
-/// 위치를 잡아 저장하는 자리가 넷이다 — 알림 판의 「내 위치 잡기」
-/// (<see cref="NotificationPanel"/>), 로그인 뒤에 뜨는 권유 창
-/// (<c>LocationAskPopup</c>), 그 창이 뒤에서 도는 <b>조용한 확인</b>,
-/// 그리고 내 이동경로(<c>/admin/location/my-track</c>)의 「지금위치 기록」.
-/// 그런데 이 절차에는 <b>순서를 틀리면 조용히 어긋나는 대목이 셋</b> 있다.
-/// </para>
-///
-/// <list type="number">
-///   <item>
-///     <b>좌표를 먼저 저장하고 날씨를 나중에 받는다.</b> 반대로 하면 기상청이
-///     느린 날(실제로 있다) 날씨 조회와 함께 좌표까지 날아가고, 사람은 단추를
-///     다시 눌러야 한다.
-///   </item>
-///   <item>
-///     <b>지역 이름은 날씨와 함께 온다.</b> 좌표를 저장하는 시점에는 아직
-///     모르므로 이름 없이 저장하고, 알게 되면 한 번 더 저장한다.
-///   </item>
-///   <item>
-///     <b>설정 전체를 보내지 않는다.</b> 이 절차는 뒤에서도 돌기 때문에
-///     (조용한 확인) 전체를 보내면 다른 탭에서 방금 바꾼 스위치를 되돌린다.
-///     좌표만 싣는 길이 따로 있다(<see cref="NotificationClient.SaveMyLocationAsync"/>).
-///   </item>
-/// </list>
-///
-/// <para>
-/// [한 번 잡은 뒤에는 저절로 이어진다 — 다만 탭이 열려 있을 때만]
-/// </para>
-///
-/// <para>
-/// 서비스워커에는 <c>geolocation</c> 이 없어 <b>탭이 닫힌 뒤에는 어떤 길로도</b>
-/// 위치를 못 읽는다 — 푸시로 깨워도 <c>periodicsync</c> 로 깨워도 같다(실측과
-/// 까닭은 <c>docs/geolocation-background.md</c>).
-/// 대신 <b>포털이 열려 있는 동안</b>에는 사람이 단추를 누르지
-/// 않아도 다시 잴 수 있다 — 권한이 이미 <c>granted</c> 인 브라우저는
-/// <c>getCurrentPosition</c> 을 물음창 없이 돌려주기 때문이다. 그래서 자리가
-/// 바뀐 사람의 좌표는 <b>다음번에 포털을 열 때</b> 따라온다.
-/// </para>
-///
-/// <para>
-/// 그 확인을 <b>화면을 옮길 때마다 하지는 않는다</b>. 포털은 업무를 넘나들 때마다
-/// 레이아웃을 새로 만들므로(<see cref="PortalBoot"/> 머리말) 그대로 두면 하루에
-/// 수십 번 잰다. <see cref="SyncInterval"/> 만큼 지난 뒤에만 한 번 잰다.
-/// </para>
-///
-/// <para>
-/// <b>화면을 옮기는 것에만 기대지도 않는다.</b> 한 화면을 열어 두고 일하는
-/// 사람은 전환이 없어 아무리 기다려도 안 쟀다 — 운영 기록에 103분짜리 틈이
-/// 그것이다. 그래서 <c>LocationAskPopup</c> 이 <b>다음 잴 때에 시계를 걸어</b>
-/// 두고, 깨면 조용히 한 번 재고 다시 건다. 재는 간격을 정하는 것은 여전히
-/// 이 값이고, 시계는 그 시각을 지키는 장치일 뿐이다.
-/// </para>
-///
-/// <para>
-/// [권한 요청은 사용자 클릭에서 이어져야 한다]
-/// </para>
-///
-/// <para>
-/// <see cref="LocateAsync"/> 는 <b>물음창을 띄울 수 있다.</b> 화면이 뜨자마자
-/// 부르면 아무도 부르지 않은 창이 튀어나오므로 <b>단추의 <c>Click</c> 에서만</b>
-/// 부른다. 뒤에서 도는 쪽은 <see cref="QuietAsync"/> 이고, 그쪽은 권한이 이미
-/// 허용된 경우가 아니면 재어 보지도 않는다.
-/// </para>
-/// </remarks>
+/// <summary>브라우저에 위치를 묻고 서버에 저장하는 절차 한 벌. 저장 자리가 넷이라 절차를 한 곳에 둔다 — 순서를 틀리면 조용히 어긋나는 대목이 셋이다.
+/// (1) 좌표를 먼저 저장하고 날씨는 나중에 받는다 — 반대면 기상청이 느린 날 좌표까지 날아간다. (2) 지역 이름은 날씨와 함께 와서 한 번 더 저장한다. (3) 설정 전체를 보내지 않고 좌표만 보낸다 — 뒤에서 도는 조용한 확인이 전체를 보내면 다른 탭의 스위치를 되돌린다.</summary>
 public sealed class GeoLocator(
     NotificationClient api,
     IJSRuntime js,
     ILogger<GeoLocator> logger)
 {
-    /// <summary>
-    /// 이만큼은 움직여야 <b>자리가 바뀐 것</b>으로 본다(m).
-    /// </summary>
-    /// <remarks>
-    /// 기상청 격자가 <b>5km 칸</b>이라 그 안에서의 움직임은 날씨를 바꾸지 않는다.
-    /// 그런데도 300m 로 잡은 것은 <b>칸의 경계에 사는 사람</b> 때문이다 — 문턱을
-    /// 5km 로 두면 옆 칸으로 넘어간 사람의 좌표가 영영 안 따라온다.
-    /// <para>
-    /// 반대로 문턱이 아예 없으면 GPS 가 가만히 있어도 흔드는 몇십 미터마다
-    /// 「잡은 때」가 갱신되어, 그 값이 <b>이사를 가리는 단서</b> 구실을 못 한다.
-    /// </para>
-    /// </remarks>
+    /// <summary>자리가 바뀌었다고 볼 이동 거리(m). 기상청 격자는 5km 칸이라 칸 안의 움직임은 날씨를 바꾸지 않지만, 칸 경계에 사는 사람 때문에 300m 로 잡는다. 문턱이 없으면 GPS 흔들림마다 「잡은 때」가 갱신돼 이사를 가리는 단서가 못 된다.</summary>
     public const double MoveThresholdMeters = 300;
 
-    /// <summary>
-    /// 조용한 확인 사이의 <b>기본</b> 간격. 이보다 자주 재지 않는다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>30분이다.</b> 세 시간 → 한 시간 → 30분으로 두 번 좁혔고, 좁힌 까닭이
-    /// 저마다 다르다.
-    /// </para>
-    /// <list type="number">
-    ///   <item>
-    ///     <b>세 시간 → 한 시간.</b> 알림이 가는 시각이 보통 아침·저녁 둘
-    ///     (기본값 <c>7,18</c>)이라 그 안에 따라오기만 하면 된다고 봤는데, 알림
-    ///     시각은 사람이 고른다. 「세 시간마다 (6~21시)」를 고른 사람은
-    ///     <b>발송 간격과 확인 간격이 같아져</b>, 낮에 자리를 옮기면 그 좌표가
-    ///     다음 발송에 못 대고 한 칸 늦게 따라왔다.
-    ///   </item>
-    ///   <item>
-    ///     <b>한 시간 → 30분.</b> 이 좌표가 <b>지나온 자리</b>로도 쌓이게 되면서
-    ///     (<c>scom.location_tracks</c> · <c>/admin/location/my-track</c>) 묻는 것이
-    ///     달라졌다. 날씨에는 「지금 어디」 한 점이면 되지만 이동 경로는
-    ///     <b>점 사이가 곧 모르는 자리</b>다. 한 시간 간격이면 점심에 나갔다 온
-    ///     자리가 통째로 안 남는다. 운영 기록의 첫 사흘이 그랬다 — 간격이
-    ///     60·66·103분이고, 그 103분이 「화면을 안 옮겨서 안 쟀다」는 자리다.
-    ///   </item>
-    /// </list>
-    /// <para>
-    /// 더 짧게 두지 않는 까닭은 값이다. 이 간격마다 <b>게이트웨이 왕복 한 번과
-    /// GPS 한 번</b>이 붙고, 휴대폰에서는 잴 때마다 배터리를 쓴다. 30분이면
-    /// 가장 촘촘한 발송 간격(세 시간) 전에 여섯 번 확인하고, 하루 종일 켜 둔
-    /// 사람에게 48점이다 — 하루치를 지도 한 장에 그리기에 알맞은 성김이다.
-    /// </para>
-    /// <para>
-    /// 실제로 재는 것은 이보다 드물다 — 300m 을 안 움직였으면
-    /// (<see cref="MoveThresholdMeters"/>) 기상청을 부르지 않고 돌아선다.
-    /// </para>
-    /// <para>
-    /// <b>사람이 고치면 그쪽을 따른다.</b> 환경설정에서 고른 값이 브라우저에
-    /// 남고(<c>PortalBoot.GeoSyncIntervalKey</c>), 판정하는 쪽은 그것을 본다
-    /// (<c>PortalBoot.GeoSyncInterval</c>). 여기 값은 <b>고른 적이 없을 때</b>의
-    /// 것이고, <c>PortalBoot.DefaultGeoSyncMinutes</c> 와 같아야 한다 —
-    /// 어긋나면 화면에 보이는 간격과 실제로 도는 간격이 달라진다.
-    /// </para>
-    /// </remarks>
+    /// <summary>조용한 확인 사이의 기본 간격(30분). 알림 시각과 같은 간격이면 낮에 옮긴 좌표가 한 칸 늦게 따라오고, 이동 경로가 쌓이면서는 한 시간이면 점심 나들이가 빠진다. 사람이 환경설정에서 고른 값(PortalBoot.GeoSyncInterval)을 따르며, 여기 값은 고른 적이 없을 때의 것이라 PortalBoot.DefaultGeoSyncMinutes 와 같아야 한다.</summary>
     public static readonly TimeSpan SyncInterval = TimeSpan.FromMinutes(30);
 
-    /// <summary>
-    /// 브라우저가 위치를 내줄 사정인가. <b>예외를 삼킨다</b> — 스크립트가 아직
-    /// 안 실렸거나 막아 둔 경우인데, 그때 올바른 동작은 「못 잡는 것으로 본다」다.
-    /// </summary>
+    /// <summary>브라우저가 위치를 내줄 사정인가. 예외는 삼킨다 — 스크립트가 아직 안 실렸거나 막힌 경우이며 그때는 못 잡은 것으로 본다.</summary>
     public async Task<GeoPermissionResult> PermissionAsync()
     {
         try
@@ -161,9 +35,7 @@ public sealed class GeoLocator(
     private static GeoPermissionResult Unknown =>
         new() { Supported = false, Secure = false, State = "unsupported" };
 
-    /// <summary>
-    /// 지금 위치를 묻는다. <b>물음창이 뜰 수 있으므로 단추의 클릭에서만</b> 부른다.
-    /// </summary>
+    /// <summary>지금 위치를 묻는다. 물음창이 뜰 수 있으므로 단추의 클릭에서만 부른다.</summary>
     public async Task<GeoResult> LocateAsync()
     {
         try
@@ -178,10 +50,7 @@ public sealed class GeoLocator(
         }
     }
 
-    /// <summary>
-    /// <b>물음창 없이</b> 지금 위치. 권한이 이미 허용된 경우에만 실제로 잰다.
-    /// 아니면 <see cref="GeoResult.Skipped"/> 가 참인 채로 돌아온다.
-    /// </summary>
+    /// <summary>물음창 없이 지금 위치. 권한이 이미 허용된 경우에만 잰다 — 아니면 GeoResult.Skipped 가 참으로 돌아온다.</summary>
     public async Task<GeoResult> QuietAsync()
     {
         try
@@ -196,10 +65,7 @@ public sealed class GeoLocator(
         }
     }
 
-    /// <summary>
-    /// 지금 위치를 측정하여 이동 경로에 기록하고 저장한다.
-    /// <c>/admin/location/my-track</c> 의 「지금위치 기록」 단추 등에서 부른다.
-    /// </summary>
+    /// <summary>지금 위치를 재어 이동 경로에 기록하고 저장한다(내 이동경로의 「지금위치 기록」).</summary>
     public async Task<GeoSaveResult> RecordCurrentAsync(CancellationToken ct = default)
     {
         var geo = await LocateAsync();
@@ -222,25 +88,14 @@ public sealed class GeoLocator(
         return await SaveAsync(pref, geo, enableLocalWeather: false);
     }
 
-    /// <summary>
-    /// 잡은 좌표를 저장한다. 머리말의 순서 셋을 지킨다.
-    /// </summary>
-    /// <param name="pref">
-    /// 지금 화면이 들고 있는 설정. <b>여기 담긴 값을 함께 고친다</b> — 부르는
-    /// 쪽이 다시 읽지 않아도 화면이 방금 저장한 것을 보여 주도록.
-    /// </param>
+    /// <summary>잡은 좌표를 저장한다. 머리말의 순서 셋을 지킨다.</summary>
+    /// <param name="pref">지금 화면이 든 설정. 여기 담긴 값을 함께 고쳐 화면이 방금 저장한 것을 보여 준다.</param>
     /// <param name="geo">브라우저가 준 좌표.</param>
-    /// <param name="enableLocalWeather">
-    /// 「내 위치 날씨」를 함께 켤지. <b>권유 창에서만 참이다</b> — 거기서 위치를
-    /// 내주는 뜻이 곧 「날씨를 받겠다」이기 때문이다. 설정 화면에서 다시 잡는
-    /// 것은 스위치를 만지는 일이 아니라 거짓이다.
-    /// </param>
+    /// <param name="enableLocalWeather">내 위치 날씨를 함께 켤지. 권유 창에서만 참이다 — 설정 화면에서 다시 잡는 것은 스위치를 만지는 일이 아니므로 거짓이다.</param>
     public async Task<GeoSaveResult> SaveAsync(
         NotificationPreferenceDto pref, GeoResult geo, bool enableLocalWeather)
     {
-        // **자리가 바뀌었나.** 저장된 좌표가 아예 없으면 당연히 바뀐 것이고,
-        // 문턱보다 적게 움직였으면 그대로 본다(그때는 지역 이름도 날씨도
-        // 다시 받지 않는다 — 기상청을 부를 까닭이 없다).
+        // 자리가 바뀌었나. 저장된 좌표가 없으면 바뀐 것이고, 문턱보다 적게 움직였으면 날씨와 이름을 다시 받지 않는다.
         var moved = pref is not { WeatherLat: { } lat, WeatherLon: { } lon }
                     || DistanceMeters(lat, lon, geo.Latitude, geo.Longitude) >= MoveThresholdMeters;
 
@@ -251,9 +106,7 @@ public sealed class GeoLocator(
                 WeatherLat = geo.Latitude,
                 WeatherLon = geo.Longitude,
 
-                // **오차는 이 첫 저장에만 싣는다.** 서버가 기록 한 줄을 만드는
-                // 것이 이때이고(`LocationTrackService.RecordAsync`), 아래 두 번째
-                // 저장은 같은 줄에 이름만 채워 넣는다.
+                // 오차는 이 첫 저장에만 싣는다 — 서버가 기록 한 줄을 만드는 것이 이때이고, 두 번째 저장은 같은 줄에 이름만 채운다.
                 WeatherAccuracy = geo.Accuracy,
 
                 WeatherPlace = !moved ? pref.WeatherPlace : null,
@@ -281,8 +134,7 @@ public sealed class GeoLocator(
 
         if (moved)
         {
-            // 옛 동네 이름이 새 좌표에 붙어 남지 않게 지운다. 서버도 같은
-            // 판단을 한다(`NotificationPreferenceService.SaveAsync`).
+            // 옛 동네 이름이 새 좌표에 붙어 남지 않게 지운다(서버도 같은 판단을 한다).
             pref.WeatherPlace = null;
             pref.WeatherLocatedAt = now;
         }
@@ -293,8 +145,7 @@ public sealed class GeoLocator(
             return new GeoSaveResult(true, "위치를 확인했습니다.", NoticeTone.Info, null, false);
         }
 
-        // 이름을 알아 온다. **여기서 실패해도 저장은 이미 끝났다** — 알림은
-        // 좌표만 있으면 가고, 이름은 발송기가 다음 발송에서 채워 넣는다.
+        // 이름을 알아 온다. 여기서 실패해도 저장은 끝났다 — 알림은 좌표만 있으면 가고 이름은 발송기가 채운다.
         PointWeatherDto? point = null;
 
         try
@@ -308,10 +159,7 @@ public sealed class GeoLocator(
 
         var place = point?.Place;
 
-        // **날씨가 안 와도 이름은 따로 물어 본다.** 기상청이 답하지 않은 날에
-        // 잡으면 이름 칸이 빈 채로 남았는데(운영에 그런 줄이 실제로 있다),
-        // 그러면 설정 화면에는 숫자 두 개만 남고 알림 제목도 「내 위치 날씨」로
-        // 나간다. 이 길은 우리 표만 훑으므로 기상청과 무관하게 답한다.
+        // 날씨가 안 와도 이름은 따로 묻는다 — 기상청이 답하지 않은 날 잡으면 이름 칸이 빈 채 남아 알림 제목도 빈약해진다. 이 길은 우리 표만 훑으므로 기상청과 무관하게 답한다.
         if (string.IsNullOrWhiteSpace(place))
         {
             try
@@ -351,14 +199,7 @@ public sealed class GeoLocator(
         return new GeoSaveResult(true, where, NoticeTone.Info, point, moved);
     }
 
-    /// <summary>
-    /// 두 지점 사이의 거리(m). 하버사인이다.
-    /// </summary>
-    /// <remarks>
-    /// <b>위경도 차를 그대로 재면 안 된다.</b> 경도 1도의 길이는 위도에 따라
-    /// 달라서(적도에서 111km, 우리 위도에서 약 89km) 남북과 동서를 같은 자로
-    /// 재면 동서 방향 움직임을 실제보다 크게 본다.
-    /// </remarks>
+    /// <summary>두 지점 사이의 거리(m). 하버사인. 위경도 차를 그대로 재면 경도 1도의 길이가 위도에 따라 달라 동서 움직임을 실제보다 크게 본다.</summary>
     public static double DistanceMeters(double lat1, double lon1, double lat2, double lon2)
     {
         const double earthRadius = 6_371_000d;
@@ -374,13 +215,11 @@ public sealed class GeoLocator(
     }
 }
 
-/// <summary>
-/// 위치를 저장한 결과.
-/// </summary>
+/// <summary>위치를 저장한 결과.</summary>
 /// <param name="Ok">저장됐나.</param>
 /// <param name="Message">사람에게 보일 말. 부르는 쪽이 토스트로 옮긴다(조용한 확인은 옮기지 않는다).</param>
 /// <param name="Tone">그 말의 결.</param>
-/// <param name="Point">알아 온 날씨. <b>자리가 안 바뀌었으면 <c>null</c></b> 이다 — 부를 까닭이 없어 안 불렀다.</param>
-/// <param name="Moved">자리가 바뀌었나(<see cref="GeoLocator.MoveThresholdMeters"/> 이상).</param>
+/// <param name="Point">알아 온 날씨. 자리가 안 바뀌었으면 null — 부를 까닭이 없어 안 불렀다.</param>
+/// <param name="Moved">자리가 바뀌었나(GeoLocator.MoveThresholdMeters 이상).</param>
 public sealed record GeoSaveResult(
     bool Ok, string Message, NoticeTone Tone, PointWeatherDto? Point, bool Moved);

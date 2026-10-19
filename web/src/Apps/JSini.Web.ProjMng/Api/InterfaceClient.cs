@@ -3,23 +3,14 @@ using JSini.Web.Http;
 
 namespace JSini.Web.ProjMng.Api;
 
-/// <summary>
-/// EAI 인터페이스 카탈로그 — <c>projmng/interfaces</c>.
-/// </summary>
-/// <remarks>
-/// 목록·단계는 <b>뷰</b>에서 오므로 코드값이 이미 이름으로 풀려 있고 단계·메모
-/// 건수도 세어져 있다. 고칠 때만 원본 표로 간다.
-/// </remarks>
+/// <summary>EAI 인터페이스 카탈로그(projmng/interfaces). 목록·단계는 뷰에서 와 코드값이 이미 풀려 있고, 고칠 때만 원본 표로 간다.</summary>
 public sealed class InterfaceClient(GatewayClient gateway)
 {
     private const string Url = "projmng/interfaces";
 
     // ──────────────────────────────────────────── 코드 · 시스템
 
-    /// <summary>
-    /// 선택목록. <b>이것이 비면 화면의 드롭다운이 전부 빈다</b> —
-    /// 표만 만들고 코드 자료를 안 넣으면 그렇게 된다.
-    /// </summary>
+    /// <summary>선택목록. 이것이 비면 화면의 드롭다운이 전부 빈다 — 표만 만들고 코드 자료를 안 넣으면 그렇게 된다.</summary>
     public Task<IReadOnlyList<IfCodeDto>> CodesAsync(
         string? grp = null, CancellationToken ct = default)
         => gateway.GetListAsync<IfCodeDto>(
@@ -127,14 +118,7 @@ public sealed class InterfaceClient(GatewayClient gateway)
         int prjRid, int ifId, CancellationToken ct = default)
         => gateway.GetListAsync<IfFileDto>($"{Url}/{ifId}/files?prjRid={prjRid}", ct);
 
-    /// <summary>
-    /// 첨부를 올린다. 서버가 <c>multipart/form-data</c> 로 받는다.
-    /// </summary>
-    /// <remarks>
-    /// 고른 파일은 이미 셸이 임시 자리에 받아 두었다(<see cref="PickedFile"/>).
-    /// 여기서는 그 바이트를 게이트웨이로 흘려 보내기만 한다 — 메모리에
-    /// 통째로 올리지 않는다.
-    /// </remarks>
+    /// <summary>첨부를 올린다. 서버가 multipart/form-data 로 받는다. 고른 파일은 셸이 임시 자리에 받아 두었으므로 여기서는 바이트를 흘려 보내기만 한다(메모리에 통째로 올리지 않는다).</summary>
     public async Task<IReadOnlyList<IfFileDto>> UploadFilesAsync(
         int prjRid, int ifId, IReadOnlyList<PickedFile> files, CancellationToken ct = default)
     {
@@ -316,10 +300,7 @@ public sealed class IfNoteDto
     public int SortOrder { get; set; }
     public string? UpdatedAt { get; set; }
 
-    /// <summary>
-    /// 화면에서 켜고 끄는 값. DB 는 <c>Y</c>/<c>N</c> 글자라 그 사이를 잇는다 —
-    /// 편집 폼은 <c>@bind-</c> 로만 묶을 수 있고 확인칸은 참·거짓을 받는다.
-    /// </summary>
+    /// <summary>화면에서 켜고 끄는 값. DB 는 Y/N 글자라 그 사이를 잇는다 — 편집 폼은 @bind 로만 묶고 확인칸은 참·거짓을 받는다.</summary>
     public bool Done
     {
         get => DoneYn == "Y";
@@ -327,11 +308,7 @@ public sealed class IfNoteDto
     }
 }
 
-/// <summary>추가 관리항목 한 칸.</summary>
-/// <remarks>
-/// 값이 없는 항목도 <b>한 줄로 온다</b>(정의 × 인터페이스를 펼친 뷰다).
-/// 화면은 이 목록만으로 입력 칸을 만든다.
-/// </remarks>
+/// <summary>추가 관리항목 한 칸. 값이 없는 항목도 한 줄로 온다(정의 × 인터페이스를 펼친 뷰). 화면은 이 목록만으로 입력 칸을 만든다.</summary>
 public sealed class IfAttrDto
 {
     public int AttrDefId { get; set; }

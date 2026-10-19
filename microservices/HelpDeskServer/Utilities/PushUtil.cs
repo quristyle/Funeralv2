@@ -20,9 +20,7 @@ using HtmlAgilityPack;
 
 namespace HelpDeskServer.Utilities;
 
-/// <summary>
-/// push 관련 유틸리티 클래스.
-/// </summary>
+/// <summary>push 관련 유틸리티 클래스.</summary>
 public class PushUtil {
 
   private static string StripHtml(string html) {
@@ -33,9 +31,7 @@ public class PushUtil {
   }
 
 
-  /// <summary>
-  /// 푸시 메시지 전송
-  /// </summary>
+  /// <summary>푸시 메시지 전송</summary>
   /// <param name="title"></param>
   /// <param name="body"></param>
   /// <param name="url"></param>

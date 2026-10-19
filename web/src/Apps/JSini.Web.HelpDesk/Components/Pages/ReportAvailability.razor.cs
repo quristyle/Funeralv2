@@ -46,8 +46,7 @@ public partial class ReportAvailability
         _bars = ToBars(json);
         _analyzed = Num(json, "totalAnalyzed");
 
-        // 응답이 객체라 표는 비고(위 주석) 차트만 남는다.
-        // 차트에 그릴 것이 있으면 「없습니다」 를 띄우지 않는다.
+        // 응답이 객체라 표는 비고 차트만 남는다 — 차트에 그릴 것이 있으면 「없습니다」를 띄우지 않는다.
         return _rows.Rows.Count + (_analyzed > 0 ? 1 : 0);
     }, "집계할 자료가 없습니다.", "가용성 분석을 읽지 못했습니다");
 

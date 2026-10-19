@@ -2,17 +2,8 @@
 @attribute [RouteKey("site.inquiries")]
 
 @*
-    [사이트 문의내역] — DB 메뉴 `/company/site-inquiries`.
-    이력: Vue `views/portal/site/inquiries` → 여기.
-
-    회사 소개 사이트(jsini.co.kr)의 문의 폼으로 들어온 것을 본다.
-
-    [답장은 여기서 보내지 않는다]
-
-    서버에 답장 엔드포인트가 있지만(`/admin/inquiries/{id}/reply`) 메일을
-    보내는 동작이라 되돌릴 수 없다. **상태 전환만 옮겼다** — 실수로 눌러
-    고객에게 빈 메일이 나가는 것보다, 담당자가 메일 도구로 답하고 여기서
-    상태만 바꾸는 편이 낫다. 답장까지 옮길 때는 미리보기와 확인을 함께 붙인다.
+    [사이트 문의내역] — DB 메뉴 /company/site-inquiries. 회사 소개 사이트의 문의 폼으로 들어온 것을 본다.
+    답장은 여기서 보내지 않는다 — 메일 발송이라 되돌릴 수 없어 상태 전환만 옮겼다.
 *@
 
 @inherits DataPage
@@ -62,8 +53,7 @@
                     <dt>연락처</dt><dd>@(q.Phone ?? "-")</dd>
                     <dt>언어</dt><dd>@q.Locale</dd>
 
-                    @* 개인정보 처리 근거. 동의 시각과 접수 출처를 남겨 두어야
-                       나중에 "동의 없이 받았다" 는 다툼에 답할 수 있다. *@
+                    @* 개인정보 처리 근거(동의 시각 · 접수 출처). *@
                     <dt>동의 시각</dt><dd>@q.ConsentedAt.ToString("yyyy-MM-dd HH:mm:ss")</dd>
                     <dt>접수 IP</dt><dd>@(q.ClientIp ?? "-")</dd>
                 </dl>

@@ -44,8 +44,7 @@ public partial class BizSelectConfigList
         c.ServiceCode = "auth";
         c.HttpMethod = "GET";
 
-        // 대부분이 이 셋이다. 비워 두면 드롭다운이 빈 채로 뜨는데, 그 원인이
-        // 화면에서 잘 안 보여서 기본값을 넣어 둔다.
+        // 비워 두면 드롭다운이 빈 채로 떠서 원인을 찾기 어려우므로 기본값을 넣어 둔다.
         c.LabelField = "name";
         c.ValueField = "id";
         c.ResultPath = "result";

@@ -43,12 +43,7 @@ public sealed class FavoriteTreeTests
         Assert.Equal("/a", result[0].Path);
     }
 
-    /// <summary>
-    /// <b>이 화면을 만든 이유.</b> 담아 둔 화면의 위 묶음이 함께 남아야 한다.
-    ///
-    /// 메뉴 제목은 묶음 안에서만 유일하다 — 「목록」이 업무마다 있어서
-    /// 평평하게 늘어놓으면 담아 둔 것이 어느 업무 것인지 알 수 없다.
-    /// </summary>
+    /// <summary>담아 둔 화면의 위 묶음이 함께 남아야 한다 — 메뉴 제목은 묶음 안에서만 유일해서 평평하게 늘어놓으면 어느 업무 것인지 알 수 없다.</summary>
     [Fact]
     public void 담은_화면의_조상_묶음은_함께_남는다()
     {
@@ -68,10 +63,7 @@ public sealed class FavoriteTreeTests
         Assert.Equal("/funeral/room-status", 화면.Path);
     }
 
-    /// <summary>
-    /// 조상은 남기되 <b>형제는 뺀다.</b> 조상을 남기려고 그 아래를 통째로
-    /// 남기면 즐겨찾기 탭이 메뉴 탭과 같아진다.
-    /// </summary>
+    /// <summary>조상은 남기되 형제는 뺀다 — 조상을 남기려고 그 아래를 통째로 남기면 즐겨찾기 탭이 메뉴 탭과 같아진다.</summary>
     [Fact]
     public void 담은_화면의_형제는_빠진다()
     {
@@ -92,11 +84,7 @@ public sealed class FavoriteTreeTests
         Assert.Empty(FavoriteTree.Prune(menus, Favorites()));
     }
 
-    /// <summary>
-    /// 묶음은 담을 수 없다. 묶음의 <see cref="MenuNode.NavigateUrl"/> 은
-    /// <c>null</c> 이라, 담긴 것으로 다루면 눌러도 아무 데도 가지 않는 항목이
-    /// 즐겨찾기에 남는다.
-    /// </summary>
+    /// <summary>묶음은 담을 수 없다 — 묶음은 NavigateUrl 이 null 이라 담으면 눌러도 아무 데도 가지 않는 항목이 남는다.</summary>
     [Fact]
     public void 묶음은_경로가_담겨_있어도_자기로서_남지_않는다()
     {
@@ -106,10 +94,7 @@ public sealed class FavoriteTreeTests
         Assert.Equal(0, FavoriteTree.CountScreens(menus, Favorites("/업무")));
     }
 
-    /// <summary>
-    /// 자식이 있는 <b>화면</b>을 담으면 자기만 남고 자식은 빠진다.
-    /// <c>/funeral/status</c>(현황관리)처럼 자식이 있는 화면이 실제로 있다.
-    /// </summary>
+    /// <summary>자식이 있는 화면을 담으면 자기만 남고 자식은 빠진다 — /funeral/status 처럼 자식이 있는 화면이 실제로 있다.</summary>
     [Fact]
     public void 자식있는_화면을_담으면_자기만_남는다()
     {
@@ -146,10 +131,7 @@ public sealed class FavoriteTreeTests
         Assert.Equal(2, FavoriteTree.CountScreens(result, Favorites("/funeral/status", "/funeral/status/room")));
     }
 
-    /// <summary>
-    /// 사이드바가 이 값을 서버가 준 개수와 견줘, 메뉴에 없는 즐겨찾기를 알린다.
-    /// 묶음은 세지 않는다(위 사례 참고).
-    /// </summary>
+    /// <summary>사이드바가 이 값을 서버가 준 개수와 견줘 메뉴에 없는 즐겨찾기를 알린다. 묶음은 세지 않는다.</summary>
     [Fact]
     public void 담긴_화면_개수를_센다()
     {
@@ -165,10 +147,7 @@ public sealed class FavoriteTreeTests
         Assert.Equal(1, FavoriteTree.CountScreens(menus, Favorites("/a", "/없는화면")));
     }
 
-    /// <summary>
-    /// 원본을 바꾸지 않는다. 즐겨찾기를 담고 뺄 때마다 같은 원본을 다시
-    /// 좁히므로, 좁히기가 원본을 건드리면 두 번째부터 결과가 달라진다.
-    /// </summary>
+    /// <summary>원본을 바꾸지 않는다 — 좁히기가 원본을 건드리면 두 번째부터 결과가 달라진다.</summary>
     [Fact]
     public void 좁히기는_원본을_바꾸지_않는다()
     {

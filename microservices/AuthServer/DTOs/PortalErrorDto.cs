@@ -1,12 +1,6 @@
 namespace AuthServer.DTOs;
 
-/// <summary>
-/// 포털이 보내 오는 오류 한 건. <b>프론트가 채워서 보내는 쪽</b>이다.
-/// </summary>
-/// <remarks>
-/// 받는 쪽에서 길이를 자른다 — 보내는 쪽을 믿고 그대로 넣으면 스택 하나로
-/// 열을 넘겨 저장이 통째로 실패하고, 그러면 <b>오류를 기록하려다 오류가 난다</b>.
-/// </remarks>
+/// <summary>포털이 보내 오는 오류 한 건. 받는 쪽에서 길이를 자른다 — 그대로 넣으면 열을 넘겨 저장이 실패하고 오류 기록 자체가 사라진다.</summary>
 public class PortalErrorReportDto
 {
     /// <summary>화면에 보여 준 번호 그대로 (<c>00-…-00</c>).</summary>
@@ -36,13 +30,7 @@ public class PortalErrorReportDto
     public string? Detail { get; set; }
 }
 
-/// <summary>
-/// 조회 화면이 받는 오류 한 건.
-/// </summary>
-/// <remarks>
-/// 저장한 것을 거의 그대로 돌려준다. 엔티티를 그대로 내보내지 않는 이유는
-/// 다른 DTO 와 같다 — 표를 고칠 때 화면이 말없이 따라 바뀌면 안 된다.
-/// </remarks>
+/// <summary>조회 화면이 받는 오류 한 건. 저장한 것을 거의 그대로 돌려준다 — 엔티티를 그대로 내보내지 않는다.</summary>
 public class PortalErrorDto
 {
     public string Id { get; set; } = string.Empty;

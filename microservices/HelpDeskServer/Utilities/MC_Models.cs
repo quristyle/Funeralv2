@@ -5,9 +5,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace HelpDeskServer.Utilities;
 
-/// <summary>
-/// 특정 장비에 대한 정보
-/// </summary>
+/// <summary>특정 장비에 대한 정보</summary>
 public class MC_Models {
   [Key]
   public int Id { get; set; }
@@ -68,9 +66,7 @@ public class MC_ACK_FIND {
 }
 
 
-/// <summary>
-/// 하나의 전문에 대한 정보
-/// </summary>
+/// <summary>하나의 전문에 대한 정보</summary>
 public class ParseItem {
     [Key]
     public int Id { get; set; }
@@ -110,9 +106,7 @@ public class ParseItem {
 
 
 
-/// <summary>
-/// 하나의 전문에 소속된 테그 정보
-/// </summary>
+/// <summary>하나의 전문에 소속된 테그 정보</summary>
 public class TagItem {
     [Key]
     public int Id { get; set; }
@@ -128,10 +122,7 @@ public class TagItem {
 
     public DataTypeEnum DataType { get; set; } = DataTypeEnum.NUMBER; // "date" or "number", 블록 분석 방식 지정
 
-    /// <summary>
-    /// 태그가 가리키는 원본 바이트 구간을 반환한다.
-    /// 표현 문자열로의 변환은 코드북(<see cref="ITagCodeBook"/>)이 맡는다.
-    /// </summary>
+    /// <summary>태그가 가리키는 원본 바이트 구간을 반환한다. 표현 문자열로의 변환은 코드북(<see cref="ITagCodeBook"/>)이 맡는다.</summary>
     public byte[] getValue(byte[] bytes) {
       if (TagLength <= 0 || TagIdx < 0 || TagIdx + TagLength > bytes.Length) {
         return Array.Empty<byte>();

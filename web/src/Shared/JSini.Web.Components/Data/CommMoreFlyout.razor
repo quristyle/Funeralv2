@@ -1,0 +1,28 @@
+@typeparam TItem
+
+@*
+    관리 칸 「⋮」 가 펴는 판. 표에 하나만 두고 누른 줄을 따라 옮겨 붙는다.
+    표 밖에 두는 까닭은 붙박은 칸과 표의 굴림 상자가 넘친 것을 잘라 내기 때문이다.
+    판 안의 누름은 무엇이든 판을 닫는다 — 단추가 화면의 것이라 일일이 손댈 수 없어
+    거품으로 받는다.
+    **「⋮」 왼쪽 옆으로 편다.** 아래로 펴면 판이 다음 줄들의 「⋮」를 덮어, 다른
+    줄을 고르려던 누름이 판 안의 단추(삭제일 수도 있다)에 떨어진다(재어 확인했다).
+    `StopOutsideClickPropagation` 을 끈다 — 켜 두면 판을 닫은 바깥 누름이 삼켜져
+    다른 줄의 「⋮」를 눌러도 그 줄의 판이 안 열린다.
+*@
+<DxFlyout IsOpen="@Menu.IsOpen"
+          IsOpenChanged="@OnOpenChangedAsync"
+          PositionTarget="@Menu.Target"
+          PreventCloseOnPositionTargetClick="true"
+          StopOutsideClickPropagation="false"
+          Position="FlyoutPosition.Left"
+          CssClass="commgrd__actmenu">
+    <BodyContentTemplate Context="flyout">
+        @if (Menu.Row is TItem row)
+        {
+            <div class="commgrd__actions commgrd__actions--menu" @onclick="@CloseAsync">
+                @Items(new CommMoreRow<TItem>(row, Menu.Index))
+            </div>
+        }
+    </BodyContentTemplate>
+</DxFlyout>

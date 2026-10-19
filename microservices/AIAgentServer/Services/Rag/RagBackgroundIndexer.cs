@@ -5,10 +5,7 @@ using System.Threading.Channels;
 using Microsoft.EntityFrameworkCore;
 using AIAgentServer.Data;
 
-/// <summary>
-/// RAG 문서 등록/삭제 시 백그라운드에서 자동으로 색인을 생성/갱신하는 서비스.
-/// 카테고리별 중복/동시 실행을 방지하고 연속적인 요청을 병합(coalesce)한다.
-/// </summary>
+/// <summary>RAG 문서 등록/삭제 시 백그라운드에서 자동으로 색인을 생성/갱신하는 서비스. 카테고리별 중복/동시 실행을 방지하고 연속적인 요청을 병합(coalesce)한다.</summary>
 public sealed class RagBackgroundIndexer : BackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
@@ -32,10 +29,7 @@ public sealed class RagBackgroundIndexer : BackgroundService
         _logger = logger;
     }
 
-    /// <summary>
-    /// 지정된 카테고리의 백그라운드 색인을 큐에 추가한다.
-    /// 이미 큐에 있거나 실행 중인 경우 중복 실행을 방지하고 필요 시 완료 후 재실행 플래그를 설정한다.
-    /// </summary>
+    /// <summary>지정된 카테고리의 백그라운드 색인을 큐에 추가한다. 이미 큐에 있거나 실행 중인 경우 중복 실행을 방지하고 필요 시 완료 후 재실행 플래그를 설정한다.</summary>
     public void QueueReindex(string categoryId)
     {
         if (string.IsNullOrWhiteSpace(categoryId)) return;
@@ -57,9 +51,7 @@ public sealed class RagBackgroundIndexer : BackgroundService
         }
     }
 
-    /// <summary>
-    /// 수동 색인 호출 시 백그라운드 작업과 충돌하지 않도록 동일한 카테고리 락을 획득하여 색인을 직접 수행한다.
-    /// </summary>
+    /// <summary>수동 색인 호출 시 백그라운드 작업과 충돌하지 않도록 동일한 카테고리 락을 획득하여 색인을 직접 수행한다.</summary>
     public async Task<RagIndexFile> ReindexDirectAsync(string categoryId, RagLibrary lib, CancellationToken ct = default)
     {
         var sem = _categoryLocks.GetOrAdd(categoryId, _ => new SemaphoreSlim(1, 1));

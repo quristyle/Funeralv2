@@ -3,47 +3,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace AuthServer.Entities;
 
-/// <summary>
-/// 차단 한 건 — <b>권한 밖의 화면을 누가 어떤 주소로 열려 했나.</b>
-/// </summary>
-/// <remarks>
-/// <para>
-/// [왜 <c>menu_usage_logs</c> 와 한 표가 아닌가]
-/// </para>
-///
-/// <para>
-/// 저쪽은 <b>열린 화면</b>을 적는다. 둘을 한 표에 섞으면 「누가 포털을 많이
-/// 쓰나」를 묻는 모든 조회가 <b>막힌 줄까지 함께 세게</b> 되고, 그러면
-/// 열람 수가 실제보다 많아진다. 칸 하나로 갈라 두면 조회마다 그 조건을
-/// 빠뜨리지 않아야 하는데, 열람 쪽 조회가 넷이다(기록·사람별·화면별·타임라인).
-/// </para>
-///
-/// <para>
-/// 보는 사람도 다르다. 열람 기록은 「무엇이 쓰이나」를 보는 운영 자료고
-/// 이쪽은 <b>「권한이 어디가 어긋나 있나」</b>를 보는 점검 자료다 — 묻는
-/// 물음이 달라 같은 화면에 두어도 서로를 가린다.
-/// </para>
-///
-/// <para>
-/// [<c>BaseEntity</c> 를 상속하지 않는다]
-/// </para>
-///
-/// <para>
-/// 쌓기만 하고 고치지도 지우지도 않는 표다(<see cref="MenuUsageLog"/> 와 같은
-/// 까닭). <c>updated_at</c>·<c>is_deleted</c> 가 영원히 같은 값인 칸이 된다.
-/// </para>
-///
-/// <para>
-/// [메뉴 식별자를 적지 않는다]
-/// </para>
-///
-/// <para>
-/// 이 표의 줄 절반은 <b>메뉴가 아예 없어서</b> 막힌 것이다
-/// (<c>UNMANAGED</c>). 식별자 칸을 두면 그 줄에서 늘 비어 있고, 비어 있는
-/// 까닭이 「메뉴가 지워졌다」인지 「처음부터 없었다」인지 구분되지 않는다.
-/// 대신 <see cref="Reason"/> 이 그것을 말한다.
-/// </para>
-/// </remarks>
+/// <summary>차단 한 건 — 권한 밖의 화면을 누가 어떤 주소로 열려 했나. 열린 화면을 적는 menu_usage_logs 와 한 표에 섞지 않는다 — 섞으면 「많이 쓰는 화면」과 「막힌 시도」가 한 숫자로 뭉친다.</summary>
 [Table("blocked_access_logs", Schema = "scom")]
 public class BlockedAccessLog
 {
@@ -60,11 +20,7 @@ public class BlockedAccessLog
     [Column("user_id")]
     public string UserId { get; set; } = string.Empty;
 
-    /// <summary>
-    /// 막힌 주소. <b>사람이 실제로 연 그 값</b>이라 매개변수가 들어 있다
-    /// (<c>/admin/system/account/jupark/app</c>) — 「누구의 것을 보려 했나」가
-    /// 이 칸에만 남는다.
-    /// </summary>
+    /// <summary>막힌 주소. 사람이 실제로 연 값이라 매개변수가 들어 있다 — 「누구의 것을 보려 했나」가 이 칸에만 남는다.</summary>
     [Required]
     [MaxLength(512)]
     [Column("href")]
@@ -85,11 +41,7 @@ public class BlockedAccessLog
     [Column("menu_path")]
     public string? MenuPath { get; set; }
 
-    /// <summary>
-    /// 왜 막혔나 — <c>NO_PERMISSION</c>(권한 없음) · <c>UNMANAGED</c>(관리 밖).
-    /// <b>둘을 가르는 것이 이 표의 요점이다</b>: 앞엣것은 권한 화면에서 체크
-    /// 하나면 끝나고, 뒤엣것은 메뉴를 만들거나 코드를 고치기 전에는 안 열린다.
-    /// </summary>
+    /// <summary>왜 막혔나 — NO_PERMISSION(권한 없음) · UNMANAGED(관리 밖). 권한 화면에서 체크 하나면 끝나는 쪽과 메뉴를 만들거나 코드를 고쳐야 하는 쪽을 가르는 것이 이 표의 요점이다.</summary>
     [Required]
     [MaxLength(32)]
     [Column("reason")]
@@ -100,10 +52,7 @@ public class BlockedAccessLog
     [Column("from_path")]
     public string? FromPath { get; set; }
 
-    /// <summary>
-    /// 접속 주소. <b>위조할 수 있는 값이라 보여 주기 전용이다</b> —
-    /// 이것으로 무엇을 판단하지 않는다(<c>ClientAddress</c> 머리말).
-    /// </summary>
+    /// <summary>접속 주소. 위조할 수 있는 값이라 보여 주기 전용이다 — 이것으로 무엇을 판단하지 않는다.</summary>
     [MaxLength(64)]
     [Column("client_ip")]
     public string? ClientIp { get; set; }

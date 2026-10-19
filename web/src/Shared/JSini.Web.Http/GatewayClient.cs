@@ -4,36 +4,12 @@ using System.Text.Json;
 namespace JSini.Web.Http;
 
 /// <summary>
-/// 게이트웨이(:5265)로 나가는 유일한 통로.
-///
-/// [메서드 이름이 봉투 해석을 강제한다]
-///
-/// 봉투는 목록이든 객체 하나든 똑같이 <c>result</c> 배열이라, 봉투만 보고는 둘을
-/// 구분할 수 없다. 구분은 엔드포인트를 아는 사람만 할 수 있으므로 그 선택을
-/// 이름으로 드러낸다 — Vue 의 <c>unwrapList</c> · <c>unwrapOne</c> ·
-/// <c>unwrapPage</c> 와 같은 구도다.
-///
-/// <list type="table">
-///   <item><term>목록을 기대한다</term><description><see cref="GetListAsync{T}"/> — 항상 배열</description></item>
-///   <item><term>객체 하나를 기대한다</term><description><see cref="GetOneAsync{T}"/> — 없으면 <c>null</c></description></item>
-///   <item><term>총건수까지 필요하다</term><description><see cref="GetPageAsync{T}"/> — 서버 쪽 페이징</description></item>
-/// </list>
-///
-/// [모듈은 자기 경로만 부른다]
-///
-/// 게이트웨이 경로가 곧 서비스 경계다(<c>/api/funeral/…</c>, <c>/api/helpdesk/…</c>).
-/// 모듈이 남의 경로를 부르면 아키텍처 테스트가 잡는다 — 그 순간 모듈 사이에
-/// 백엔드를 경유한 결합이 생기기 때문이다.
+/// 게이트웨이(:5265)로 나가는 유일한 통로. 메서드 이름이 봉투 해석 방식을 정한다.
+/// 목록은 <see cref="GetListAsync{T}"/>, 객체 하나는 <see cref="GetOneAsync{T}"/>, 총건수는 <see cref="GetPageAsync{T}"/>. 봉투만으로는 구분할 수 없다.
 /// </summary>
 public sealed class GatewayClient(HttpClient http)
 {
-    /// <summary>
-    /// 봉투를 벗길 때 쓰는 옵션.
-    ///
-    /// 백엔드가 camelCase 로 내려주므로 대소문자를 가리지 않게 열어 둔다 —
-    /// 서비스가 열 개가 넘고 일부는 직렬화 설정을 따로 두고 있어서, 여기서
-    /// 엄격하게 굴면 특정 서비스만 조용히 <c>null</c> 이 된다.
-    /// </summary>
+    /// <summary>봉투를 벗길 때 쓰는 옵션(대소문자 무시). 서비스마다 직렬화 설정이 달라 엄격하면 일부만 조용히 null 이 된다.</summary>
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web)
     {
         PropertyNameCaseInsensitive = true,
@@ -48,10 +24,7 @@ public sealed class GatewayClient(HttpClient http)
         return payload?.Result ?? [];
     }
 
-    /// <summary>
-    /// 객체 하나를 읽는다. 봉투가 객체 하나도 <c>result: [obj]</c> 로 싣기 때문에
-    /// 첫 칸을 꺼낸다. 비어 있으면 <c>null</c>.
-    /// </summary>
+    /// <summary>객체 하나를 읽는다. 봉투가 객체도 <c>result: [obj]</c> 로 싣으므로 첫 칸을 꺼낸다. 없으면 <c>null</c>.</summary>
     public async Task<T?> GetOneAsync<T>(
         string path,
         CancellationToken cancellationToken = default)
@@ -60,10 +33,7 @@ public sealed class GatewayClient(HttpClient http)
         return payload?.Result is { Count: > 0 } rows ? rows[0] : default;
     }
 
-    /// <summary>
-    /// 목록과 총건수를 함께 읽는다. 서버 쪽 페이징을 하는 그리드가 쓴다.
-    /// <c>page.total</c> 이 없으면 받은 건수를 총건수로 본다.
-    /// </summary>
+    /// <summary>목록과 총건수를 함께 읽는다(서버 쪽 페이징). <c>page.total</c> 이 없으면 받은 건수를 총건수로 본다.</summary>
     public async Task<(IReadOnlyList<T> Items, int Total)> GetPageAsync<T>(
         string path,
         CancellationToken cancellationToken = default)
@@ -107,16 +77,7 @@ public sealed class GatewayClient(HttpClient http)
         CancellationToken cancellationToken = default)
         => SendAsync<object>(HttpMethod.Put, path, body, cancellationToken);
 
-    /// <summary>
-    /// <b>보낸 칸만</b> 고치고 결과는 쓰지 않는다.
-    /// </summary>
-    /// <remarks>
-    /// <see cref="PutAsync(string, object?, CancellationToken)"/> 와 갈라 둔 것은
-    /// <b>덮어쓰는 범위가 다르기 때문</b>이다. 한 벌을 통째로 들고 있다가 그중
-    /// 하나를 고쳐 보내는 길은, 들고 있던 한 벌이 낡았을 때 <b>남이 그 사이에
-    /// 바꾼 것을 조용히 되돌린다.</b> 계정에 담겨 기기를 넘나드는 값
-    /// (<c>auth/user/preferences</c>)이 실제로 그 자리에 있다.
-    /// </remarks>
+    /// <summary><b>보낸 칸만</b> 고치고 결과는 쓰지 않는다. PutAsync 와 달리 한 벌을 통째로 덮지 않아 낡은 한 벌이 남의 변경을 되돌리지 않는다.</summary>
     public Task PatchAsync(
         string path,
         object? body,
@@ -129,16 +90,7 @@ public sealed class GatewayClient(HttpClient http)
         CancellationToken cancellationToken = default)
         => SendAsync<object>(HttpMethod.Delete, path, null, cancellationToken);
 
-    /// <summary>
-    /// 보내고 <b>바뀐 목록 전체</b>를 받는다.
-    ///
-    /// 목록을 다루는 API 중에는 한 건을 더한 뒤 그 한 건이 아니라 바뀐 목록을
-    /// 통째로 돌려주는 것이 있다(즐겨찾기가 그렇다). 화면이 손으로 더하고 빼는
-    /// 대신 서버가 준 것을 그대로 쓰면 <b>정렬 순서가 어긋나지 않는다</b> —
-    /// 순서를 서버가 정하기 때문이다.
-    ///
-    /// <see cref="PostAsync{T}"/> 는 첫 칸만 꺼내므로 그 자리에 쓸 수 없다.
-    /// </summary>
+    /// <summary>보내고 <b>바뀐 목록 전체</b>를 받는다. 서버가 순서를 정하므로 화면이 손으로 더하고 빼지 않게 한다.</summary>
     public async Task<IReadOnlyList<T>> PostListAsync<T>(
         string path,
         object? body,
@@ -148,21 +100,8 @@ public sealed class GatewayClient(HttpClient http)
         return payload?.Result ?? [];
     }
 
-    /// <summary>
-    /// <b>파일을 올리고</b> 담긴 목록을 받는다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <see cref="PostListAsync{T}"/> 는 본문을 JSON 으로 굳혀 보내므로 첨부에
-    /// 쓸 수 없고, <see cref="SendRawAsync"/> 는 봉투를 벗기지 않는다 —
-    /// 올린 결과(붙은 번호 같은 것)가 필요하면 그 둘 사이가 빈다.
-    /// </para>
-    /// <para>
-    /// <b>바이트를 메모리에 통째로 올리지 않는다.</b> 부르는 쪽이
-    /// <see cref="MultipartFormDataContent"/> 에 스트림을 담고, 그것을
-    /// <c>Dispose</c> 하는 것도 부르는 쪽이다.
-    /// </para>
-    /// </remarks>
+    /// <summary><b>파일을 올리고</b> 담긴 목록을 받는다. JSON 으로 굳히는 <see cref="PostListAsync{T}"/> 로는 첨부를 보낼 수 없다.</summary>
+    /// <remarks>바이트를 메모리에 올리지 않는다. 스트림을 담은 <see cref="MultipartFormDataContent"/> 의 <c>Dispose</c> 는 부르는 쪽 몫이다.</remarks>
     public async Task<IReadOnlyList<T>> PostFormListAsync<T>(
         string path,
         MultipartFormDataContent form,
@@ -183,8 +122,7 @@ public sealed class GatewayClient(HttpClient http)
             }
             finally
             {
-                // 부르는 쪽이 들고 있는 것을 우리가 죽이지 않는다
-                // (`SendRawAsync` 와 같은 이유).
+            // 부르는 쪽이 든 content 를 우리가 Dispose 하지 않는다.
                 request.Content = null;
             }
         }
@@ -242,16 +180,7 @@ public sealed class GatewayClient(HttpClient http)
         return payload?.Result ?? [];
     }
 
-    /// <summary>
-    /// <c>data.result</c> 가 배열이 아니라 <b>객체 하나</b>인 응답을 읽는다.
-    ///
-    /// 서버가 <c>Result</c>+<c>TotalCount</c> 를 가진 DTO 를 돌려줄 때의 모양이다
-    /// (<c>ApiResponse.IsPassThroughPagedData</c>). 프로젝트관리처럼 행과 함께
-    /// 컬럼 메타를 돌려주는 서비스가 이 모양을 쓴다.
-    ///
-    /// <see cref="GetOneAsync{T}"/> 와 헷갈리기 쉬운데 다른 것이다 —
-    /// 그쪽은 <c>result</c> 가 배열이고 그 <b>첫 칸</b>을 꺼낸다.
-    /// </summary>
+    /// <summary><c>data.result</c> 가 배열이 아니라 객체 하나인 응답을 읽는다(<c>ApiResponse.IsPassThroughPagedData</c>). <see cref="GetOneAsync{T}"/> 는 배열의 첫 칸을 꺼내므로 헷갈리기 쉽다.</summary>
     public async Task<T?> PostObjectAsync<T>(
         string path,
         object? body,
@@ -317,13 +246,7 @@ public sealed class GatewayClient(HttpClient http)
         }
     }
 
-    /// <summary>
-    /// 봉투를 쓰지 않는 응답을 그대로 받는다.
-    ///
-    /// 헬프데스크·프로젝트관리는 옛 시스템에서 이식한 코드라 봉투 없이 맨 JSON 을
-    /// 내려주는 엔드포인트가 남아 있다. 그런 곳에만 쓴다 — 새로 만드는 API 에는
-    /// 쓰지 않는다.
-    /// </summary>
+    /// <summary>봉투를 쓰지 않는 맨 JSON 응답을 그대로 받는다. 옛 시스템에서 이식한 헬프데스크·프로젝트관리의 일부 엔드포인트에만 쓴다.</summary>
     public async Task<T?> GetRawAsync<T>(
         string path,
         CancellationToken cancellationToken = default)
@@ -334,35 +257,13 @@ public sealed class GatewayClient(HttpClient http)
     }
 
     /// <summary>
-    /// 응답을 <b>해석하지 않고</b> 그대로 돌려준다. 부르는 쪽이 <c>Dispose</c> 한다.
-    ///
-    /// <para>
-    /// 파일처럼 JSON 이 아닌 것을 흘려보낼 때 쓴다(<c>FileDownload</c>).
-    /// 헤더만 받은 시점에 돌아오므로 큰 파일도 메모리에 통째로 올리지 않는다.
-    /// </para>
-    ///
-    /// <para>
-    /// <b>상태 코드를 여기서 던지지 않는다.</b> 부르는 쪽이 404 와 403 을 서로
-    /// 다르게 다루는 자리라 판단을 넘긴다.
-    /// </para>
+    /// 응답을 해석하지 않고 돌려준다. 부르는 쪽이 <c>Dispose</c> 한다. 파일처럼 JSON 이 아닌 것에 쓴다(<c>FileDownload</c>).
+    /// 상태 코드는 여기서 던지지 않는다. 404 와 403 을 다르게 다루는 쪽이 판단한다.
     /// </summary>
     /// <param name="method">HTTP 메서드</param>
     /// <param name="path">게이트웨이 기준 경로</param>
-    /// <param name="content">
-    /// 실어 보낼 것. <b>멀티파트를 보낼 때 쓴다</b> — 첨부 올리기가 그렇다.
-    /// 부르는 쪽이 만들고 부르는 쪽이 <c>Dispose</c> 한다.
-    /// </param>
-    /// <param name="bearer">
-    /// 이 요청에만 쓸 토큰. <b>주면 지금 사용자의 토큰 대신 이것이 나간다</b>
-    /// (<c>AuthTokenHandler</c> 는 이미 붙은 <c>Authorization</c> 을 덮지 않는다).
-    ///
-    /// <para>
-    /// 쓰는 곳은 앱알림 아이콘 중계 하나다 — 그 요청은 <b>브라우저가 알림을
-    /// 띄우며 스스로 부르는 것</b>이라 로그인 신원이 없을 수 있고, 대신 알림
-    /// 서비스가 사진 한 장만 여는 열쇠를 주소에 실어 보낸다
-    /// (<c>JSini.Web.Components/Data/FileDownload.cs</c> 의 <c>AvatarTokenKey</c>).
-    /// </para>
-    /// </param>
+    /// <param name="content">실어 보낼 것(멀티파트 포함). 부르는 쪽이 만들고 <c>Dispose</c> 한다.</param>
+    /// <param name="bearer">주면 지금 사용자 토큰 대신 이것이 나간다(<c>AuthTokenHandler</c> 는 이미 붙은 <c>Authorization</c> 을 덮지 않는다). 앱알림 아이콘 중계에서만 쓴다.</param>
     /// <param name="cancellationToken">취소 토큰</param>
     public async Task<HttpResponseMessage> SendRawAsync(
         HttpMethod method,
@@ -396,23 +297,12 @@ public sealed class GatewayClient(HttpClient http)
         }
         finally
         {
-            // `request` 를 버리면 그 안에 담긴 content 도 함께 버려진다.
-            // 부르는 쪽이 들고 있는 것을 우리가 죽이지 않게 떼어 놓는다.
+            // request 를 버리면 content 도 함께 버려지므로 떼어 놓는다.
             request.Content = null;
         }
     }
 
-    /// <summary>
-    /// 봉투 모양을 <b>가리지 않고</b> 객체 하나를 읽는다.
-    ///
-    /// 게이트웨이를 지나는 응답이 세 가지다 —
-    /// <c>{data:{result:[…]}}</c>(funeralv2) · <c>{data:…}</c>(헬프데스크) ·
-    /// 맨 JSON. 앞의 것만 아는 <see cref="GetOneAsync{T}"/> 로는 나머지 둘이
-    /// 「응답을 해석하지 못했습니다」로 끝난다.
-    ///
-    /// <b>새 API 에는 쓰지 않는다.</b> 이미 그렇게 굳어 버린 곳만 받아 준다 —
-    /// 헬프데스크의 푸시 통계, 게이트웨이 자기 상태.
-    /// </summary>
+    /// <summary>봉투 모양을 가리지 않고 객체 하나를 읽는다(<c>{data:{result:[…]}}</c> · <c>{data:…}</c> · 맨 JSON). 새 API 에는 쓰지 않는다. 이미 굳은 곳만 받는다.</summary>
     public async Task<T?> GetFlexibleAsync<T>(
         string path,
         CancellationToken cancellationToken = default)
@@ -425,30 +315,8 @@ public sealed class GatewayClient(HttpClient http)
     }
 
     /// <summary>봉투 모양을 가리지 않고 목록을 읽는다. 무엇이 와도 배열이다.</summary>
-    /// <summary>
-    /// 유연한 봉투에서 목록과 <b>총건수</b>를 함께 읽는다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// [잘렸다는 사실을 화면이 알아야 한다]
-    /// </para>
-    ///
-    /// <para>
-    /// 페이지를 넘기지 않는 화면이 <c>pageSize</c> 만큼만 받아 놓고 그것을
-    /// 전부라고 그리던 자리가 있었다. 표에는 아무 표시가 안 나서 사용자는
-    /// <b>그게 전부라고 읽는다</b> — 느린 것보다 나쁘다.
-    /// </para>
-    ///
-    /// <para>
-    /// 총건수를 함께 받으면 화면이 「전체 N건 중 M건」을 말할 수 있다.
-    /// <c>QnaList</c> 가 이미 그렇게 하고 있고 그 문구를 따른다.
-    /// </para>
-    ///
-    /// <para>
-    /// 총건수를 찾지 못하면 <b>받은 건수를 총건수로 본다</b> — 그러면 화면이
-    /// 「잘렸다」고 말하지 않는다. 없는 숫자를 지어내는 것보다 맞다.
-    /// </para>
-    /// </remarks>
+    /// <summary>유연한 봉투에서 목록과 <b>총건수</b>를 함께 읽는다. 총건수를 찾지 못하면 받은 건수를 총건수로 본다(없는 숫자를 지어내지 않는다).</summary>
+    /// <remarks>화면은 총건수로 「잘렸다」를 알려야 한다. 페이지 크기만큼만 받고 전부처럼 그리면 사용자가 그게 전부라고 읽는다.</remarks>
     public async Task<(IReadOnlyList<T> Items, int Total)> GetFlexibleCountedListAsync<T>(
         string path,
         CancellationToken cancellationToken = default)
@@ -459,10 +327,7 @@ public sealed class GatewayClient(HttpClient http)
         return (items, ReadTotal(envelope) ?? items.Count);
     }
 
-    /// <summary>
-    /// 봉투에서 총건수를 찾는다. 이름이 서비스마다 달라 세 가지를 대 본다 —
-    /// 헬프데스크는 <c>totalcount</c>, 표준 봉투는 <c>page.total</c> 이다.
-    /// </summary>
+    /// <summary>봉투에서 총건수를 찾는다. 서비스마다 이름이 달라 <c>totalcount</c> 와 <c>page.total</c> 을 본다.</summary>
     private static int? ReadTotal(JsonElement? envelope)
     {
         if (envelope is not { ValueKind: JsonValueKind.Object } root)
@@ -517,23 +382,11 @@ public sealed class GatewayClient(HttpClient http)
         return ReadList<T>(await ReadPayloadAsync(path, cancellationToken));
     }
 
-    /// <summary>
-    /// 응답에서 <b>알맹이</b>를 꺼낸다. 세 모양을 차례로 벗긴다.
-    ///
-    /// 봉투가 실패를 담고 있으면(<c>success: false</c>) 그 메시지로 던진다 —
-    /// 그러지 않으면 화면이 「자료가 없습니다」로 잘못 안내한다.
-    /// </summary>
+    /// <summary>응답에서 알맹이를 꺼낸다(세 모양을 차례로 벗긴다). 봉투가 실패(<c>success: false</c>)면 그 메시지로 던진다. 아니면 화면이 「자료가 없습니다」로 잘못 안내한다.</summary>
     private async Task<JsonElement?> ReadPayloadAsync(string path, CancellationToken cancellationToken)
         => (await ReadPayloadWithEnvelopeAsync(path, cancellationToken)).Payload;
 
-    /// <summary>
-    /// 알맹이와 <b>그것을 감싸고 있던 봉투</b>를 함께 돌려준다.
-    /// </summary>
-    /// <remarks>
-    /// 봉투가 필요한 이유는 총건수가 거기 있기 때문이다(<c>totalcount</c> ·
-    /// <c>page.total</c>). 알맹이만 벗겨 내면 「전부인지」를 알 수 없다.
-    /// 봉투가 아닌 응답(맨 배열)이면 봉투 자리가 <c>null</c> 이다.
-    /// </remarks>
+    /// <summary>알맹이와 그것을 감싸던 <b>봉투</b>를 함께 돌려준다. 총건수가 봉투에 있어 알맹이만으로는 「전부인지」를 알 수 없다. 맨 배열이면 봉투는 <c>null</c>.</summary>
     private async Task<(JsonElement? Payload, JsonElement? Envelope)> ReadPayloadWithEnvelopeAsync(
         string path, CancellationToken cancellationToken)
     {
@@ -583,8 +436,7 @@ public sealed class GatewayClient(HttpClient http)
 
             if (!root.TryGetProperty("data", out var data))
             {
-                // 봉투가 아니다. 몸통이 곧 알맹이다 — 그리고 그 몸통에
-                // 총건수가 함께 있는 엔드포인트가 있어(헬프데스크) 봉투로도 넘긴다.
+                // 봉투가 아니면 몸통이 알맹이다. 헬프데스크는 몸통에 총건수가 있어 봉투로도 넘긴다.
                 return (envelope, envelope);
             }
 
@@ -679,13 +531,7 @@ public sealed class GatewayClient(HttpClient http)
         }
     }
 
-    /// <summary>
-    /// HTTP 실패를 <see cref="ApiException"/> 으로 바꾼다.
-    ///
-    /// 실패 응답에도 봉투가 실려 오는 경우가 많으므로(게이트웨이·서비스가 모두
-    /// 봉투로 답한다) 먼저 봉투에서 메시지를 꺼내 본다. 못 꺼내면 상태 코드로
-    /// 만든 일반 메시지를 쓴다.
-    /// </summary>
+    /// <summary>HTTP 실패를 <see cref="ApiException"/> 으로 바꾼다. 실패 응답도 봉투로 오므로 메시지를 먼저 꺼내고, 못 꺼내면 상태 코드 메시지를 쓴다.</summary>
     private static async Task EnsureHttpSuccessAsync(
         HttpResponseMessage response,
         string path,

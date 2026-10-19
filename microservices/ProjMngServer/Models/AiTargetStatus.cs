@@ -1,20 +1,7 @@
 namespace ProjMngServer.Models;
 
-/// <summary>
-/// 대상 하나의 git 상태 스냅샷 — <c>projmng.ai_target_status</c>.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <b>서버가 만든 값이 아니다.</b> ProjMngServer 는 컨테이너 안에서 돌고
-/// 대상 경로는 호스트의 것이라 여기서 <c>git</c> 을 부를 수 없다 — 그 경로를
-/// 실제로 볼 수 있는 것은 호스트에 상주하는 실행기뿐이다. 이 표는 실행기가
-/// 주기적으로 적어 두고 가는 자리고, 화면은 그것을 읽는다.
-/// </para>
-/// <para>
-/// 그래서 값에는 언제나 <see cref="ProbedAt"/> 이 붙는다. <b>화면은 그 시각을
-/// 반드시 같이 보여 준다</b> — 안 보여 주면 사람이 옛 값을 지금 값으로 읽는다.
-/// </para>
-/// </remarks>
+/// <summary>대상 하나의 git 상태 스냅샷 — <c>projmng.ai_target_status</c>.</summary>
+/// 대상 경로는 호스트 것이라 여기서 git 을 부를 수 없다. 실행기가 주기적으로 적어 둔 값이며, 화면은 항상 ProbedAt 을 함께 보여 준다.
 public class AiTargetStatus
 {
     public long TargetKey { get; set; }
@@ -24,10 +11,7 @@ public class AiTargetStatus
 
     public bool PathExists { get; set; }
 
-    /// <summary>
-    /// <c>.git</c> 이 있나. <b>등록된 종류와 다를 수 있다</b> — repo 로 등록해
-    /// 놓고 <c>.git</c> 이 없으면 그 대상의 작업은 준비 단계에서 죽는다.
-    /// </summary>
+    /// <summary>.git 이 있나. 등록된 종류와 다를 수 있다 — repo 로 등록하고 .git 이 없으면 준비 단계에서 죽는다.</summary>
     public bool IsRepo { get; set; }
 
     public string? Branch { get; set; }
@@ -65,14 +49,8 @@ public class AiTargetStatus
     public DateTime? ProbeReqDt { get; set; }
 }
 
-/// <summary>
-/// 화면이 받는 한 줄 — 대상 + 그 대상의 git 상태.
-/// </summary>
-/// <remarks>
-/// 둘을 나눠 내려 화면에서 짝짓게 하지 않는다. 대상은 있는데 상태가 없는
-/// 경우(아직 한 번도 안 봤다)가 정상이라, 나눠 주면 <b>화면마다 바깥 조인을
-/// 다시 짜게 된다.</b>
-/// </remarks>
+/// <summary>화면이 받는 한 줄 — 대상 + 그 대상의 git 상태.</summary>
+/// 대상과 상태를 나눠 내리지 않는다 — 상태가 없는 것이 정상(아직 안 봤다)이라, 나누면 화면마다 짝짓기를 다시 짜게 된다.
 public sealed class AiTargetStatusRow : AiTargetStatus
 {
     public string? TargetNm { get; set; }
@@ -95,10 +73,7 @@ public sealed class AiTargetStatusRow : AiTargetStatus
 }
 
 /// <summary>실행기가 「볼 대상」을 물었을 때 받아 가는 한 줄.</summary>
-/// <remarks>
-/// <b>경로만 준다.</b> 실행기가 알 필요가 없는 값(자격 이름 · push 설정)은
-/// 싣지 않는다 — 이 응답은 장비 토큰 하나로 받아 가는 것이다.
-/// </remarks>
+/// 경로만 준다. 자격 이름·push 설정은 싣지 않는다 — 장비 토큰 하나로 받아 가는 응답이기 때문이다.
 public sealed class AiTargetProbe
 {
     public long TargetKey { get; set; }
@@ -106,9 +81,7 @@ public sealed class AiTargetProbe
     public string? TargetPath { get; set; }
     public string? TargetKind { get; set; }
 
-    /// <summary>
-    /// 주기를 기다리지 말고 <b>지금</b> 보라는 표시. 화면의 「지금 확인」이 찍는다.
-    /// </summary>
+    /// <summary>주기를 기다리지 말고 <b>지금</b> 보라는 표시. 화면의 「지금 확인」이 찍는다.</summary>
     public bool ProbeRequested { get; set; }
 
     /// <summary>마지막으로 본 시각. 실행기가 주기를 이것으로 잰다.</summary>

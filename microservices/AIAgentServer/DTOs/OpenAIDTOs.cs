@@ -4,64 +4,17 @@ public class ChatRequestDto
 {
     public List<Message> Messages { get; set; } = new();
 
-    /// <summary>
-    /// 쓸 AI 공급자(<c>jsini</c> · <c>groq</c>). 사용자가 환경설정에서 고른 값이다.
-    /// </summary>
-    /// <remarks>
-    /// 비어 있거나 모르는 값이면 설정의 기본 공급자로 돈다. 옛 화면이 이 값을 안 보내도
-    /// 그대로 동작해야 하고, 공급자 이름이 바뀌었을 때 옛 값을 든 브라우저가
-    /// AI 기능을 통째로 잃는 것도 막아야 한다.
-    /// </remarks>
+    /// <summary>쓸 AI 공급자 키(jsini · groq). 비었거나 모르는 값이면 기본 공급자로 돈다 — 이름이 바뀐 옛 값을 든 브라우저도 AI 기능을 잃지 않게 하려고다.</summary>
     public string? Provider { get; set; }
 
-    /// <summary>
-    /// 사내 문서(RAG)를 먼저 뒤질지. <b>안 보내면 켠 것으로 본다.</b>
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 켜면 사내 문서를 먼저 찾고, <b>맞는 것이 있으면 웹은 안 뒤진다</b>
-    /// (<c>Mcp:SkipWhenRagScore</c>). 없으면 그때 웹과 모델이 아는 것으로 간다.
-    /// </para>
-    /// <para>
-    /// 끄면 사내 문서를 아예 안 본다 — 쓰임새가 분명하다. 올려 둔 매뉴얼과
-    /// 상관없는 것을 물을 때 그 문서가 끼어들지 않게 하는 것이고,
-    /// 실제로 그렇게 끼어들어 모델이 엉뚱한 답을 한 적이 있다.
-    /// </para>
-    /// <para>
-    /// <b>기본값을 「켬」으로 두는 까닭</b> — 안 보내는 옛 화면과 다른 부르는
-    /// 자리(요약 · 번역 따위)가 지금까지와 같이 돌아야 한다.
-    /// </para>
-    /// </remarks>
+    /// <summary>사내 문서(RAG)를 먼저 뒤질지. 안 보내면 켠 것으로 본다. 맞는 것이 있으면 웹은 안 뒤진다(Mcp:SkipWhenRagScore). 끄면 사내 문서를 아예 안 본다.</summary>
     public bool? PreferRag { get; set; }
 
-    /// <summary>
-    /// 쓸 모델. 사용자가 환경설정에서 고른 값이며 <b>공급자가 모델 선택을 허용할
-    /// 때만</b> 쓰인다(지금은 OpenRouter).
-    /// </summary>
-    /// <remarks>
-    /// <b>믿을 수 없는 입력이다.</b> 브라우저에서 온 문자열이고, OpenRouter 는 같은
-    /// API 로 유료 모델도 부를 수 있다. 서버가 무료 여부를 반드시 확인한다
-    /// (<see cref="AIAgentServer.Services.FreeModelGuard"/>).
-    /// </remarks>
+    /// <summary>쓸 모델(OpenRouter 만 쓴다). 브라우저에서 온 믿을 수 없는 입력이라 서버가 무료 여부를 반드시 확인한다(FreeModelGuard).</summary>
     public string? Model { get; set; }
 
-    /// <summary>
-    /// 어느 대화에 담을지(<c>scom.ai_chat_sessions.id</c>).
-    /// <b>비면 담지 않는다</b> — 오간 말이 어디에도 안 남는다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 담는 일을 <b>서버가 한다.</b> 화면이 답을 다 받은 뒤 따로 올리는 길도
-    /// 있었지만, 그러면 <b>창을 먼저 닫은 대화가 통째로 사라진다</b> — 답은
-    /// 끝까지 흘러갔는데 올리는 쪽이 없어서다. 서버는 자기가 흘려보낸 글자를
-    /// 이미 손에 들고 있다.
-    /// </para>
-    /// <para>
-    /// <b>믿을 수 없는 입력이다.</b> 브라우저에서 온 글자라 남의 대화 열쇠를
-    /// 적어 보낼 수 있다. 담는 쪽이 주인을 조건에 넣어 거른다
-    /// (<c>AiChatStore.RecordTurn</c>) — 남의 것이면 조용히 안 담긴다.
-    /// </para>
-    /// </remarks>
+    /// <summary>담을 대화 열쇠(scom.ai_chat_sessions.id). 비우면 오간 말이 어디에도 안 남는다. 서버가 담는다 — 화면이 따로 올리면 창을 먼저 닫은 대화가 사라진다.
+    /// 남의 열쇠는 AiChatStore.RecordTurn 이 주인을 조건에 넣어 거른다.</summary>
     public string? SessionId { get; set; }
 }
 
@@ -73,81 +26,24 @@ public class OpenAIRequest
     public int max_tokens { get; set; } = 100;
     public bool stream { get; set; } = false;
 
-    /// <summary>
-    /// 스트리밍 응답의 <b>마지막 조각에 토큰 수를 실어 달라</b>는 부탁.
-    /// 스트리밍이 아닐 때는 보내지 않는다(null → 직렬화 제외).
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 비스트리밍 응답에는 <c>usage</c> 가 늘 들어 있지만 <b>스트리밍에는
-    /// 기본으로 없다</b> — 조각마다 토큰 수를 세어 보낼 수 없기 때문이다.
-    /// 이것을 켜면 <c>choices</c> 가 빈 조각이 맨 끝에 한 번 더 오고 거기에
-    /// 합계가 들어 있다. 사람별 사용량이 그 값으로 쌓인다.
-    /// </para>
-    /// <para>
-    /// <b>모르는 공급자가 있어도 안전하다.</b> OpenAI 규격의 값이라 호환
-    /// 공급자는 그대로 받고, 모르는 쪽은 무시한다 — 그때는 토큰 칸이 비고
-    /// (<c>scom.ai_usage_logs</c> 머리말) 호출 건수만 남는다.
-    /// </para>
-    /// </remarks>
+    /// <summary>스트리밍 마지막 조각에 토큰 수를 실어 달라는 부탁. 스트리밍일 때만 보내고 비스트리밍에서는 null 로 빠진다. 모르는 공급자는 무시하므로 토큰 칸이 비고 호출 건수만 남을 수 있다.</summary>
     [System.Text.Json.Serialization.JsonIgnore(
         Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public OpenAIStreamOptions? stream_options { get; set; }
 
-    /// <summary>
-    /// OpenRouter 전용 라우팅 조건. <b>다른 공급자에게는 보내지 않는다</b>(null 이면 빠진다).
-    /// </summary>
+    /// <summary>OpenRouter 전용 라우팅 조건. 다른 공급자에게는 보내지 않는다(null 이면 빠진다).</summary>
     [System.Text.Json.Serialization.JsonIgnore(
         Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
     public OpenRouterProviderPrefs? provider { get; set; }
 }
 
-/// <summary>
-/// OpenRouter 에게 <b>돈이 드는 경로를 쓰지 말라</b>고 요청 본문으로 못 박는 값.
-/// </summary>
-/// <remarks>
-/// <para>
-/// 모델 이름을 우리가 검사하는 것(<see cref="AIAgentServer.Services.FreeModelGuard"/>)과
-/// <b>별개의 두 번째 방어선</b>이다. 우리 판단이 틀렸거나 목록이 최신이 아니어도
-/// 공급자 쪽에서 막히게 둔다.
-/// </para>
-/// <para>
-/// <b>보장하는 것은 <see cref="max_price"/> 다.</b> 전부 0 으로 보내면 OpenRouter 가
-/// 고를 수 있는 경로가 <b>무료뿐</b>이다. 어떤 경로를 고르더라도 이 상한을 넘을 수 없다.
-/// </para>
-/// </remarks>
+/// <summary>OpenRouter 에 돈 드는 경로를 쓰지 말라고 본문으로 못 박는 값. FreeModelGuard 와 별개의 두 번째 방어선이다. 보장하는 것은 max_price 다(전부 0 이면 무료 경로만 남는다).</summary>
 public class OpenRouterProviderPrefs
 {
-    /// <summary>
-    /// 같은 모델을 서비스하는 <b>다른 제공자로 넘기는 것을 허용</b>한다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>처음에는 이것을 껐다가 되돌렸다.</b> "알아서 넘긴다" 가 유료로 새는 통로처럼
-    /// 보였기 때문인데, 두 가지를 잘못 본 것이었다.
-    /// </para>
-    /// <list type="number">
-    ///   <item>
-    ///     이 값이 바꾸는 것은 <b>같은 모델을 서비스하는 상류 제공자</b>다. 모델 이름은
-    ///     그대로이고, OpenRouter 의 가격은 <b>모델 이름</b>에 붙는다 —
-    ///     <c>:free</c> 모델은 누가 서비스하든 0 이다.
-    ///   </item>
-    ///   <item>
-    ///     설령 값이 드는 경로가 있어도 <see cref="max_price"/> 가 0 이라 고를 수 없다.
-    ///     즉 과금 방어는 이 값이 아니라 단가 상한이 한다.
-    ///   </item>
-    /// </list>
-    /// <para>
-    /// 끄면 <b>가용성만 잃는다.</b> 무료 모델의 상류 제공자는 자주 일시적으로
-    /// 한도에 걸리는데(429 "temporarily rate-limited upstream"), 껐을 때는 그 한 곳에
-    /// 묶여 그대로 실패한다. 실제로 이 때문에 정밀 확인이 계속 429 로 떨어졌다.
-    /// </para>
-    /// </remarks>
+    /// <summary>같은 모델을 서비스하는 다른 상류 제공자로 넘기는 것을 허용한다. 가격은 모델 이름에 붙고 max_price 가 0 이라, 과금은 이 값이 아니라 단가 상한이 막는다. 끄면 무료 모델의 상류가 일시적으로 막힐 때 그대로 실패한다.</summary>
     public bool allow_fallbacks { get; set; } = true;
 
-    /// <summary>
-    /// 백만 토큰당 허용 최고 단가. <b>전부 0 이라 무료 경로만 남는다 — 이것이 보장이다.</b>
-    /// </summary>
+    /// <summary>백만 토큰당 허용 최고 단가. 전부 0 이라 무료 경로만 남는다 — 이것이 보장이다.</summary>
     public OpenRouterMaxPrice max_price { get; set; } = new();
 }
 
@@ -181,13 +77,7 @@ public class OpenAIResponse
     public OpenAIUsage? usage { get; set; }
 }
 
-/// <summary>
-/// 공급자가 알려 준 토큰 수. <b>이 호출 한 번의 값</b>이다.
-/// </summary>
-/// <remarks>
-/// 대화는 앞의 기록을 문맥으로 다시 올려 보내므로 <see cref="prompt_tokens"/> 는
-/// 대화가 길어질수록 커진다 — 사용량 화면이 보여 주려는 값이 그것이다.
-/// </remarks>
+/// <summary>공급자가 알려 준 토큰 수. 이 호출 한 번의 값이다. 대화는 기록을 문맥으로 다시 올리므로 prompt_tokens 는 대화가 길어질수록 커진다.</summary>
 public class OpenAIUsage
 {
     public int prompt_tokens { get; set; }
@@ -216,9 +106,6 @@ public class OpenAIStreamResponse
     public string model { get; set; } = string.Empty;
     public List<Choice> choices { get; set; } = new();
 
-    /// <summary>
-    /// 토큰 수. <b>맨 마지막 조각에만</b> 들어 있고 그 조각은
-    /// <see cref="choices"/> 가 비어 있다(<see cref="OpenAIStreamOptions"/>).
-    /// </summary>
+    /// <summary>토큰 수. 맨 마지막 조각에만 들어 있고, 그 조각은 choices 가 비어 있다(OpenAIStreamOptions).</summary>
     public OpenAIUsage? usage { get; set; }
 }

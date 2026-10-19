@@ -35,8 +35,7 @@ public partial class DeviceConfigEditor
 
         var saved = await Api.GetDeviceConfigAsync(DeviceId);
 
-        // 한 번도 설정하지 않은 기기는 행이 없다. 빈 화면 대신 기본값을
-        // 보여 준다 — 어차피 저장하면 만들어질 값이다.
+        // 한 번도 설정하지 않은 기기는 행이 없어 기본값을 보여 준다. 저장하면 어차피 만들어진다.
         _isNew = saved is null;
 
         _form = saved ?? new DeviceConfig

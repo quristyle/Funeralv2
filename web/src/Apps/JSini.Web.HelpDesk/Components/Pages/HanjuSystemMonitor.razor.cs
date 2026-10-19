@@ -10,10 +10,8 @@ public partial class HanjuSystemMonitor
 {
     [Inject] private OadrApi Oadr { get; set; } = default!;
 
-    // ── 판정 기준 ───────────────────────────────────────────
-    //
-    // 옛 화면(`getMetricStatus`)과 같은 값이다. 표의 색·배지와 점수판의 배지가
-    // 같은 수를 봐야 해서 한 곳에 모아 둔다 — 두 곳에 적으면 한쪽만 고쳐진다.
+    // ── 판정 기준 ──
+    // 표의 색·배지와 점수판이 같은 수를 봐야 해서 한 곳에 모았다 — 두 곳에 적으면 한쪽만 고쳐진다.
 
     /// <summary>CPU 사용률(%) — 넘으면 표에서 붉어진다.</summary>
     private const double CpuLimit = 80;
@@ -30,13 +28,10 @@ public partial class HanjuSystemMonitor
     /// <summary>PLE 권장선(초).</summary>
     private const double PleGood = 1000;
 
-    // ── 색 ──────────────────────────────────────────────────
-    //
-    // 옛 화면이 쓰던 값 그대로다. 차트가 여덟 장이고 같은 지표가 1시간·24시간
-    // 두 장에 나뉘어 있어서, 색이 갈리면 같은 것을 보고 있다는 것이 안 읽힌다.
+    // ── 색 ──
+    // 같은 지표가 1시간·24시간 두 차트에 나뉘어 있어 색이 갈리면 같은 것을 보는 것이 안 읽힌다.
 
-    /// <summary>선 색. 흐린 쪽(기준선)은 <b>알파를 넣는다</b> —
-    /// <c>ColorTranslator</c> 는 <c>rgba(...)</c> 를 못 읽어서 직접 짓는다.</summary>
+    /// <summary>선 색. 흐린 쪽(기준선)은 알파를 넣는다 — ColorTranslator 는 rgba(...) 를 못 읽어 직접 짓는다.</summary>
     private static Color Hex(string hex) => ColorTranslator.FromHtml(hex);
 
     private static Color Faint(string hex, int alpha) =>
@@ -53,7 +48,7 @@ public partial class HanjuSystemMonitor
     private static readonly Color TpsFaintColor = Faint("#FF9800", 115);
     private static readonly Color LogColor = Hex("#AB47BC");
 
-    /// <summary>옛 화면과 같은 1분. 다만 <b>스위치를 켠 동안에만</b> 돈다.</summary>
+    /// <summary>1분 자동 조회. 스위치를 켠 동안에만 돈다.</summary>
     protected override TimeSpan RefreshInterval => TimeSpan.FromSeconds(60);
 
     private RealtimeRow? _now;
@@ -68,10 +63,7 @@ public partial class HanjuSystemMonitor
 
     protected override Task OnInitializedAsync() => ReloadAsync();
 
-    /// <summary>
-    /// 스위치. 켜면 시계가 돌고, 끄면 선다 — <b>끌 때 바로 서야 한다.</b>
-    /// 끄고도 한 번 더 읽히면 「껐는데 왜 바뀌나」가 된다.
-    /// </summary>
+    /// <summary>스위치. 끌 때 바로 서야 한다 — 끄고도 한 번 더 읽히면 「껐는데 왜 바뀌나」가 된다.</summary>
     private void ToggleAuto(bool on)
     {
         _auto = on;
@@ -95,11 +87,7 @@ public partial class HanjuSystemMonitor
     /// <summary>자동 조회. 안내 줄을 건드리지 않는다.</summary>
     protected override Task RefreshAsync() => FetchAsync();
 
-    /// <summary>
-    /// 셋을 나란히 부른다. 같은 프로시저에 <c>QueryType</c> 만 다르고, 옛 화면도
-    /// <c>Promise.all</c> 로 한꺼번에 던졌다 — 차례로 기다리면 넷째 판이 뜨기까지
-    /// 왕복이 셋 쌓인다.
-    /// </summary>
+    /// <summary>셋을 나란히 부른다. 같은 프로시저에 QueryType 만 다르고, 차례로 기다리면 왕복이 쌓인다.</summary>
     private async Task FetchAsync()
     {
         var realtime = Oadr.GetServerReportAsync<List<RealtimeRow>>("REALTIME");
@@ -121,10 +109,7 @@ public partial class HanjuSystemMonitor
     /// <summary>점수판 칸 하나의 판정. 배지 글자·색과 한마디를 함께 들고 다닌다.</summary>
     private sealed record Verdict(string Label, string Badge, string Advice);
 
-    /// <summary>
-    /// 점수판 칸 하나의 정의. 제목·기준·설명은 옛 화면의 <c>metricDefinitions</c>,
-    /// 판정은 <c>getMetricStatus</c> 를 그대로 옮긴 것이다.
-    /// </summary>
+    /// <summary>점수판 칸 하나의 정의(제목·기준·설명·판정).</summary>
     private sealed record MetricDef(
         string Key,
         string Title,
@@ -170,10 +155,7 @@ public partial class HanjuSystemMonitor
                           : new("원활", "jsini-badge--success", "통상적인 업무량.")),
     ];
 
-    /// <summary>
-    /// 맨 위 종합 배지. 프로시저가 주는 글자(<c>Server_State</c>)는 영어 한 줄이고
-    /// 「무엇 때문에 Warning 인지」가 그 안에 들어 있다 — 그대로 보여 준다.
-    /// </summary>
+    /// <summary>맨 위 종합 배지. 프로시저가 주는 글자(Server_State)는 영어 한 줄이고, 무엇 때문에 Warning 인지가 그 안에 들어 있어 그대로 보여 준다.</summary>
     private static string StateBadge(string? state) =>
         state is null ? "jsini-badge--muted"
         : state.Equals("Healthy", StringComparison.OrdinalIgnoreCase) ? "jsini-badge--success"
@@ -184,10 +166,8 @@ public partial class HanjuSystemMonitor
     private static string Tip(object? value) =>
         value is double d ? d.ToString("0.##") : value?.ToString() ?? "-";
 
-    // ── OADR 응답 ───────────────────────────────────────────
-    //
-    // 외부 시스템이라 칸 이름이 MSSQL 그대로다(`CPU_SQL_USAGE`). 우리 쪽 이름
-    // 규칙으로는 못 맞추므로 칸마다 `JsonPropertyName` 을 적는다.
+    // ── OADR 응답 ──
+    // 외부 시스템이라 칸 이름이 MSSQL 그대로다 — 우리 규칙으로는 못 맞춰 칸마다 JsonPropertyName 을 적는다.
 
     /// <summary>`QueryType = REALTIME` — 가장 최근 한 줄.</summary>
     public sealed class RealtimeRow
@@ -221,12 +201,8 @@ public partial class HanjuSystemMonitor
         [JsonPropertyName("Avg_Log_Stall")] public double? Log { get; set; }
     }
 
-    // ── 차트·표의 재료 ──────────────────────────────────────
-    //
-    // 기준선(20ms · 1000s · 300s · 500 · 100)이 점마다 같은 값으로 들어 있다.
-    // DevExpress 의 상수선(`DxChartConstantLine`)을 쓰지 않은 까닭은 **범례**다 —
-    // 옛 화면은 그 선들에 이름을 달아 범례에 세웠고(「임계치(20ms)」), 상수선은
-    // 범례에 서지 않아 선만 그어지고 무엇인지 알 수 없게 된다.
+    // ── 차트·표의 재료 ──
+    // 기준선을 상수선(DxChartConstantLine)으로 쓰지 않는 까닭은 범례다 — 상수선은 범례에 서지 않아 선만 그어진다.
 
     /// <summary>1시간 추이의 한 점.</summary>
     public sealed record MinutePoint(string Label, double Cpu, double Io, double Ple, double Tps)
@@ -237,10 +213,7 @@ public partial class HanjuSystemMonitor
         public double TpsHigh => 500;
         public double TpsLow => 100;
 
-        /// <summary>
-        /// 가로축 이름표는 <c>HH:mm</c> 다. <c>CHECK_TIME</c> 은 한주 DB 의 벽시계
-        /// 값이라 표준시 꼬리표가 없다 — 옮기지 않고 글자를 자른다.
-        /// </summary>
+        /// <summary>가로축 이름표는 HH:mm 다. CHECK_TIME 은 한주 DB 의 벽시계 값이라 표준시 꼬리표가 없다 — 옮기지 않고 글자를 자른다.</summary>
         public static MinutePoint From(MinuteRow row) =>
             new(Clock(row.CheckTime), row.Cpu, row.Io, row.Ple, row.Tps);
 
@@ -260,11 +233,7 @@ public partial class HanjuSystemMonitor
         public double PleGood => HanjuSystemMonitor.PleGood;
         public double PleBad => PleCritical;
 
-        /// <summary>
-        /// <c>TimeSlot</c> 은 「2026-10-15 21:00」이다. 차트의 이름표는 시(21)만,
-        /// 표의 칸은 「2026-10-15 21시」로 적는다 — 차트는 스물넷이 한 줄에
-        /// 서야 해서 날짜까지 적을 자리가 없다.
-        /// </summary>
+        /// <summary>TimeSlot 은 날짜와 시각을 함께 든다(「날짜 21:00」 꼴). 차트 이름표는 시만, 표 칸은 날짜까지 적는다 — 차트는 스물넷이 한 줄에 서야 해서 날짜 자리가 없다.</summary>
         public static HourPoint From(DailyRow row)
         {
             var slot = row.TimeSlot ?? string.Empty;

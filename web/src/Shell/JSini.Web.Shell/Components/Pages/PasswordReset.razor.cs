@@ -18,24 +18,16 @@ public partial class PasswordReset
     /// <summary>다시 정했는가. 참이면 로그인 화면으로 가는 길만 보인다.</summary>
     private bool _done;
 
-    /// <summary>
-    /// 링크가 죽었는가(시간이 지났거나 이미 썼다). 참이면 폼 대신
-    /// 「다시 요청」 길만 준다 — 같은 링크로는 무엇을 넣어도 안 된다.
-    /// </summary>
+    /// <summary>링크가 죽었는가(시간이 지났거나 이미 썼다). 참이면 폼 대신 「다시 요청」 길만 준다.</summary>
     private bool _dead;
 
     /// <summary>보내는 중인가. 두 번 눌러 토큰을 태우지 않게 막는다.</summary>
     private bool _busy;
 
-    /// <summary>
-    /// 지금 단추를 잠가야 하는가 — 보내는 중이거나 <b>아직 회로가 안 붙었다</b>.
-    /// 뒤엣것이 왜 필요한지는 폼 위의 주석에 있다.
-    /// </summary>
+    /// <summary>단추를 잠가야 하는가. 보내는 중이거나 아직 회로가 안 붙었다(프리렌더 제출은 GET 이 된다).</summary>
     private bool Blocked => _busy || !RendererInfo.IsInteractive;
 
-    /// <summary>
-    /// 화면에 남겨 둘 안내. <b>토스트를 쓰지 않는 이유는 머리말에 있다.</b>
-    /// </summary>
+    /// <summary>화면에 남겨 둘 안내. 토스트를 쓰지 않는 이유는 머리말에 있다.</summary>
     private string? _notice;
 
     private NoticeTone _tone = NoticeTone.Info;

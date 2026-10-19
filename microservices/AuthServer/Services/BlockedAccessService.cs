@@ -9,19 +9,8 @@ namespace AuthServer.Services;
 /// <summary>
 /// 차단 접근기록 — 쌓는 쪽과 보는 쪽.
 /// </summary>
-/// <remarks>
-/// <para>
-/// 쌓는 길은 하나(<see cref="RecordAsync"/>)고 보는 길은 셋이다. 셋인 까닭은
-/// 같은 자료에 묻는 물음이 다르기 때문이다 —
-/// 「<b>어떤 화면이 관리 밖인가</b>」(화면별) · 「누가 자꾸 막히나」(사람별) ·
-/// 「무엇을 열려 했나」(기록).
-/// </para>
-/// <para>
-/// 첫째가 이 표를 만든 까닭 그 자체다. 새로 만든 화면이 메뉴에도 없고
-/// <c>[ScreenAccess]</c> 신고도 없으면 <b>아무 말 없이 안 열리는데</b>, 그
-/// 사실이 드러나는 자리가 여기뿐이다.
-/// </para>
-/// </remarks>
+/// 쌓는 길은 RecordAsync 하나, 보는 길은 셋(화면별 · 사람별 · 기록)이다 — 같은 자료에 묻는 물음이 다르기 때문이다.
+/// 새 화면이 메뉴에도 없고 [ScreenAccess] 신고도 없으면 아무 말 없이 안 열리는데, 그 사실이 드러나는 자리가 여기뿐이다.
 public interface IBlockedAccessService
 {
     /// <summary>차단 한 건을 적는다. 적을 것이 못 되면 <c>false</c>.</summary>
@@ -51,11 +40,7 @@ public sealed class BlockedAccessService(
     /// <summary>
     /// 얼마나 오래 들고 있을지. 넘은 줄은 적을 때 하루 한 번 걷어낸다.
     /// </summary>
-    /// <remarks>
-    /// 한 해다 — <c>menu_usage_logs</c> 와 같은 값으로 둔다. 둘을 나란히 놓고
-    /// 「이 사람이 그날 무엇을 보고 무엇에서 막혔나」를 보는 일이 생기는데,
-    /// 보관 기간이 다르면 어느 날부터는 한쪽만 남아 그 대조가 조용히 깨진다.
-    /// </remarks>
+    /// 메뉴 사용기록(menu_usage_logs)과 같은 값이어야 한다 — 보관 기간이 다르면 같은 날의 두 기록을 대조할 수 없게 된다.
     private const int RetentionDays = 365;
 
     /// <summary>마지막으로 오래된 줄을 걷어낸 때(UTC).</summary>
@@ -167,7 +152,7 @@ public sealed class BlockedAccessService(
         if (rows.Count == 0) return [];
 
         // 까닭과 마지막 주소는 **줄 단위**로 따로 읽는다. 한 화면에 둘이 섞일 수
-        // 있어서(권한을 준 뒤에도 옛 줄이 남는다) 많은 쪽을 골라야 한다.
+        // 있어서(권한을 준 뒤에도 지난 줄이 남는다) 많은 쪽을 골라야 한다.
         var detail = await Filtered(from, to, userId, reason, keyword)
             .GroupBy(x => new { Key = x.RouteKey ?? x.Href, x.Reason })
             .Select(g => new
@@ -297,10 +282,7 @@ public sealed class BlockedAccessService(
     /// <summary>
     /// 기간·사람·까닭·검색어로 좁힌 줄들.
     /// </summary>
-    /// <remarks>
-    /// <b>세 길이 같은 조건을 써야 한다</b> — 갈라 적으면 집계와 목록의 건수가
-    /// 어긋나고, 그때 어느 쪽이 맞는지 아무도 말할 수 없다.
-    /// </remarks>
+    /// 세 길이 같은 조건을 써야 한다 — 갈라 적으면 집계와 목록의 건수가 어긋난다.
     private IQueryable<BlockedAccessLog> Filtered(
         DateOnly? from, DateOnly? to, string? userId, string? reason, string? keyword)
     {
@@ -346,11 +328,7 @@ public sealed class BlockedAccessService(
     /// <summary>
     /// 경로·열쇠 → <b>지금의</b> 메뉴 제목.
     /// </summary>
-    /// <remarks>
-    /// 열쇠로도 찾는 까닭이 있다. 「관리 밖」으로 막힌 줄에는 경로가 비어 있고
-    /// (가리킬 메뉴가 없어서 막힌 것이다), 그래도 <c>[ScreenAccess]</c> 로 부모를
-    /// 가리킨 화면은 뒤늦게 제 메뉴가 생길 수 있다 — 그때 지난 줄도 이름을 얻는다.
-    /// </remarks>
+    /// 열쇠로도 찾는다 — 관리 밖으로 막힌 줄은 경로가 비어 있고, 나중에 메뉴가 생긴 화면의 지난 줄도 이름을 얻어야 한다.
     private async Task<MenuTitleLookup> TitleMapAsync(
         IEnumerable<string?> paths, IEnumerable<string?> routeKeys, CancellationToken ct)
     {
@@ -439,10 +417,7 @@ public sealed class BlockedAccessService(
     /// <summary>
     /// 오래된 줄을 걷어낸다. 하루 한 번만 실제로 돈다.
     /// </summary>
-    /// <remarks>
-    /// 실패해도 삼킨다 — 청소가 안 돼서 방금 막힌 줄을 못 적으면 본말이
-    /// 뒤집힌다(<c>MenuUsageService.SweepAsync</c> 와 같은 선이다).
-    /// </remarks>
+    /// 실패해도 삼킨다 — 청소가 안 돼서 방금 막힌 줄을 못 적으면 본말이 뒤집힌다.
     private async Task SweepAsync(CancellationToken ct)
     {
         var now = AppTime.UtcNow;

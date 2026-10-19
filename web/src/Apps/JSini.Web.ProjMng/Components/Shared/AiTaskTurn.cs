@@ -2,22 +2,7 @@ using JSini.Web.ProjMng.Api;
 
 namespace JSini.Web.ProjMng.Components.Shared;
 
-/// <summary>
-/// 지시 한 건의 <b>한 차수</b> — 그때 사람이 적은 글과 그 답 한 쌍.
-/// </summary>
-/// <remarks>
-/// <para>
-/// 「이어서 지시」는 새 건을 만들지 않는다 — 같은 건에 실행이 하나 더 붙는다
-/// (<c>AiTaskService.ContinueAsync</c>). 그래서 <b>차수는 실행 줄이다</b>
-/// (<c>ai_task_run.seq</c> · 서버도 이어가기 프롬프트에 「N차」로 적는다).
-/// </para>
-/// <para>
-/// <b>아직 실행 줄이 없는 차수가 하나 있을 수 있다.</b> 보냈는데 아무도 안
-/// 집어 갔거나, 적어만 두고 안 보낸 건이다(<see cref="Run"/> 이 <c>null</c>).
-/// 그 차수에는 지시만 있고 답이 없다 — 그래도 <b>자리는 만든다.</b> 보낸 글이
-/// 어디에도 안 보이면 보는 사람은 그것이 갔는지조차 알 수 없다.
-/// </para>
-/// </remarks>
+/// <summary>지시 한 건의 한 차수 — 그때 사람이 적은 글과 그 답 한 쌍. 차수는 실행 줄(seq)이고, 실행 줄이 없는 차수도 자리는 만든다.</summary>
 public sealed class AiTaskTurn
 {
     /// <summary>몇 차인가. <b>1 부터다</b>(실행 줄의 <c>seq</c>).</summary>
@@ -26,18 +11,10 @@ public sealed class AiTaskTurn
     /// <summary>그 차수의 실행 줄. <b>널이면 아직 안 돈 차수</b>다.</summary>
     public AiTaskRunDto? Run { get; init; }
 
-    /// <summary>
-    /// 그 차수에 <b>사람이 적은 글.</b> 서버가 앞에 덧댄 「지난 진행」은
-    /// <see cref="Lead"/> 로 갈라 두고, <b>늘 따라붙는 문구는 걷어 낸다</b> —
-    /// 읽는 법은 <see cref="AiTaskAsk.Split"/>.
-    /// </summary>
+    /// <summary>그 차수에 사람이 적은 글. 서버가 덧댄 지난 진행은 Lead 로 갈라 둔다(AiTaskAsk.Split).</summary>
     public string? Ask { get; init; }
 
-    /// <summary>
-    /// 그 글 앞에 <b>서버가 덧댄 것</b>(지난 진행 · 재시도 전의 본문).
-    /// 접어 두고, 펴면 그때 실제로 간 글 전부가 보인다 — <b>늘 따라붙는
-    /// 문구도 여기에는 그대로 남는다.</b>
-    /// </summary>
+    /// <summary>서버가 글 앞에 덧댄 지난 진행. 접어 두고, 펴면 그때 실제로 간 글이 보인다.</summary>
     public string? Lead { get; init; }
 
     /// <summary>그 차수의 답 원문(<c>result_text</c>).</summary>
@@ -52,23 +29,7 @@ public sealed class AiTaskTurn
     /// <summary>머리줄 배지 수식어(<c>jsini-badge--*</c>).</summary>
     public required string StatusTone { get; init; }
 
-    /// <summary>
-    /// <b>그 차수의 제목</b> — 상태 배지 옆에 선다. 없을 수 있다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>접힌 머리줄이 번호와 상태만 말하면 어느 것을 펴야 할지 알 수 없다.</b>
-    /// 「2차 · 완료 · 3분 12초」 셋은 어느 차수에나 같은 모양으로 서서, 세 차수가
-    /// 쌓이면 차례로 다 펴 보는 수밖에 없다 — 그 가운데 「무엇을 시킨 차수였나」를
-    /// 말해 주는 것이 하나도 없기 때문이다.
-    /// </para>
-    /// <para>
-    /// 짓는 것은 서버의 AI 다(<c>ai_task_run.turn_title</c>). <b>여기서 지시문
-    /// 첫 줄을 떠다 쓰지 않는다</b> — 그 글은 「…를 고쳐 줘. 그리고 …」처럼 이어지는
-    /// 산문이라 앞 열 글자가 그 차수를 가르지 못하고, 차수마다 비슷한 말로
-    /// 시작하는 일이 흔하다.
-    /// </para>
-    /// </remarks>
+    /// <summary>그 차수의 제목. 서버 AI 가 지은 것을 쓴다 — 지시문 첫 줄을 떠다 쓰면 차수마다 비슷해 가르지 못한다.</summary>
     public string? Title { get; init; }
 
     /// <summary>머리줄에 적을 시각 한 토막. 「시작 시각 · 걸린 시간」이다.</summary>
@@ -86,10 +47,7 @@ public sealed class AiTaskTurn
 /// </summary>
 public static class AiTaskTurns
 {
-    /// <summary>
-    /// 오래된 차수가 앞이다. <b>사람이 읽는 순서</b>이고, 서버가 이어가기
-    /// 프롬프트에 지난 진행을 적는 순서와도 같다.
-    /// </summary>
+    /// <summary>오래된 차수가 앞이다. 사람이 읽는 순서이고 이어가기 프롬프트의 순서와 같다.</summary>
     /// <param name="task">볼 작업. 아직 안 돈 차수의 지시문이 여기 있다.</param>
     /// <param name="runs">실행 이력. <b>서버는 최근 것을 앞에 준다.</b></param>
     public static IReadOnlyList<AiTaskTurn> Build(
@@ -101,10 +59,7 @@ public static class AiTaskTurns
         {
             var (ask, lead) = AiTaskAsk.Split(run.Instruction);
 
-            // 실행 줄에 지시문이 안 남은 옛 건(그 칸이 생기기 전이다).
-            // **한 번만 돈 건이면** 지금 본문이 그때 간 글 그대로다 —
-            // 이어서 지시한 건은 본문이 마지막 차수의 것으로 덮여 있어
-            // 여기에 끌어다 쓰면 1차 자리에 3차 글이 앉는다.
+            // 지시문이 안 남은 옛 건. 한 번만 돈 건만 지금 본문을 쓴다 — 이어서 지시한 건은 본문이 마지막 차수 것이라 1차에 3차 글이 앉는다.
             if (string.IsNullOrWhiteSpace(ask) && runs.Count == 1)
             {
                 (ask, lead) = AiTaskAsk.Split(task.Contents);
@@ -127,8 +82,7 @@ public static class AiTaskTurns
             });
         }
 
-        // 보냈는데 아직 실행 줄이 없는 차수. **돌고 있는 차수가 있을 때는
-        // 만들지 않는다** — 그때는 그 실행 줄이 곧 이 차수다.
+        // 보냈는데 아직 실행 줄이 없는 차수. 돌고 있는 차수가 있으면 만들지 않는다(그 실행 줄이 곧 이 차수다).
         if (runs.Count == 0 || (task.IsBusy && runs.All(r => r.FinishedAt is not null)))
         {
             var (ask, lead) = AiTaskAsk.Split(task.Contents);
@@ -147,9 +101,7 @@ public static class AiTaskTurns
                 StatusTone = task.StatusTone,
                 WhenText = task.IsBusy ? "대기 중" : "-",
 
-                // 실행 줄이 없으니 제목도 거기 없다. 시킬 때 지어 **작업에
-                // 얹어 둔 것**을 쓴다(`ai_task.next_turn_title`) — 집어 가는
-                // 순간 그 값이 실행 줄로 옮겨 가므로 둘이 동시에 차는 일은 없다.
+                // 실행 줄이 없으니 시킬 때 작업에 얹어 둔 제목을 쓴다. 집어 가는 순간 실행 줄로 옮겨져 둘이 동시에 차지 않는다.
                 Title = Trim(task.NextTurnTitle),
             });
         }
@@ -163,42 +115,15 @@ public static class AiTaskTurns
         return list;
     }
 
-    /// <summary>
-    /// 제목 한 줄을 다듬는다. <b>흰 줄만 든 값은 없는 것으로 친다</b> —
-    /// 그리는 쪽이 <c>{ Length: &gt; 0 }</c> 하나로 가릴 수 있게 한다.
-    /// </summary>
+    /// <summary>제목을 다듬는다. 흰 줄만 든 값은 null 로 친다 — 그리는 쪽이 Length 하나로 가리게 한다.</summary>
     private static string? Trim(string? title) =>
         string.IsNullOrWhiteSpace(title) ? null : title.Trim();
 }
 
 /// <summary>
-/// 그 차수에 간 지시문에서 <b>사람이 적은 부분</b>을 가른다.
+/// 지시문에서 사람이 적은 부분을 가른다. 마지막 머리표 뒤만 본문이고, 앞의 덧댄 진행은 Lead 로 접는다.
+/// 문구 걷기(AiTaskAlways.Strip)는 본문에만 한다 — Lead 는 실제로 간 글이라 문구째 보여야 한다.
 /// </summary>
-/// <remarks>
-/// <para>
-/// 2차부터의 지시문은 사람이 적은 글이 아니다. 서버가 <b>지난 진행을 앞에
-/// 덧대</b> 한 덩어리로 만들어 보낸다(<c>AiTaskService.BuildContinuation</c>) —
-/// 「## 이전까지의 진행 … ## 이번에 할 일 … 」. 재시도도 비슷하게 본문 뒤에
-/// 「## 재시도 추가 지시」를 붙인다.
-/// </para>
-/// <para>
-/// 차수별로 펴 놓고 그 덧댄 글까지 그대로 보여 주면, <b>1차의 글이 2차·3차에
-/// 요약된 꼴로 또 서고 또 선다.</b> 같은 말이 세 번 보이는 판에서는 이번 차수에
-/// 무엇을 더 시켰는지가 묻힌다. 그래서 <b>마지막 머리표 뒤만</b> 본문으로 올리고
-/// 앞엣것은 접어 둔다 — 지우지는 않는다. 그때 실제로 간 글이 무엇이었나는
-/// 「왜 AI 가 그렇게 했나」를 되짚을 때 유일한 단서다.
-/// </para>
-/// <para>
-/// <b>머리표가 없으면 통째로 사람의 글이다</b> — 1차가 그렇다.
-/// </para>
-/// <para>
-/// <b>늘 따라붙는 문구도 함께 걷는다</b>(<c>AiTaskAlways.Strip</c>). 그 네
-/// 문단은 사람이 적은 것이 아니라 보낼 때 기계가 붙인 것이고, 지시마다 똑같다 —
-/// 차수마다 깔면 <b>제가 적은 두 줄보다 긴 같은 글이 차수 수만큼 선다.</b>
-/// 걷는 것은 본문뿐이다. 접어 둔 <c>Lead</c> 에는 그대로 남는다 — 그쪽은
-/// 「그때 실제로 간 글」이라 문구째로 보여야 맞다.
-/// </para>
-/// </remarks>
 public static class AiTaskAsk
 {
     /// <summary>이어서 지시가 세우는 머리표(<c>BuildContinuation</c>).</summary>
@@ -207,9 +132,7 @@ public static class AiTaskAsk
     /// <summary>재시도가 세우는 머리표(<c>AiTaskService.RetryAsync</c>).</summary>
     private const string RetryMark = "## 재시도 추가 지시";
 
-    /// <summary>
-    /// (사람이 적은 글, 앞에 덧댄 글)로 가른다. 덧댄 것이 없으면 뒤엣것이 널이다.
-    /// </summary>
+    /// <summary>(사람이 적은 글, 앞에 덧댄 글)로 가른다. 덧댄 것이 없으면 뒤엣것이 널이다.</summary>
     public static (string? Ask, string? Lead) Split(string? instruction)
     {
         if (string.IsNullOrWhiteSpace(instruction))
@@ -220,8 +143,7 @@ public static class AiTaskAsk
         var lines = instruction.Replace("\r\n", "\n").Split('\n');
         var at = -1;
 
-        // **마지막 머리표를 집는다.** 이어서 지시한 건을 다시 재시도하면
-        // 둘이 한 글에 함께 있고, 그때 사람이 마지막에 적은 것은 뒤엣것이다.
+        // 재시도로 머리표가 둘 함께 있으면 마지막 것 뒤가 사람의 글이다.
         for (var i = 0; i < lines.Length; i++)
         {
             var line = lines[i].Trim();
@@ -247,8 +169,7 @@ public static class AiTaskAsk
 
         var lead = string.Join('\n', lines.Take(at)).Trim();
 
-        // **덧댄 글은 걷지 않는다.** 그쪽은 그때 실행기에게 실제로 간 글이고,
-        // 「왜 AI 가 그렇게 했나」를 되짚을 때 문구가 빠져 있으면 안 된다.
+        // 덧댄 글은 걷지 않는다 — 실제로 간 글이라 문구째 보여야 「왜 그렇게 했나」를 되짚을 수 있다.
         return (AiTaskAlways.Strip(ask), lead.Length == 0 ? null : lead);
     }
 }

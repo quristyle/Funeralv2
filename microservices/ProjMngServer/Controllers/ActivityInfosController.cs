@@ -5,9 +5,7 @@ using ProjMngServer.Services;
 
 namespace ProjMngServer.Controllers;
 
-/// <summary>
-/// Glue 서비스 정의. 옛 <c>sp_dev_activityinfo_exec</c> 를 대신한다.
-/// </summary>
+/// <summary>Glue 서비스 정의.</summary>
 [ApiController]
 [Route("api/activity-infos")]
 public sealed class ActivityInfosController(ActivityInfoService service) : ControllerBase {

@@ -3,27 +3,7 @@ using AIAgentServer.DTOs;
 
 namespace AIAgentServer.Services.Rag;
 
-/// <summary>
-/// 대화에 문서를 끼워 넣는다.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <b>찾은 것을 그대로 믿게 하지 않는다.</b> 검색이 늘 맞는 것은 아니라서,
-/// 자료를 넣으면서 "관련이 없으면 무시하고 모른다고 답하라" 를 함께 적는다.
-/// 이 한 줄이 없으면 모델은 엉뚱한 자료라도 그것을 근거로 그럴듯한 답을 짓는다 —
-/// RAG 가 오히려 해로워지는 자리다.
-/// </para>
-/// <para>
-/// <b>출처를 반드시 달게 한다.</b> 틀린 답이 나와도 어느 문서를 고치면 되는지
-/// 알 수 있고, 사람이 원문을 열어 확인할 수 있다. 출처가 없는 RAG 는 그냥
-/// 말을 더 잘하는 모델일 뿐이다.
-/// </para>
-/// <para>
-/// 질문은 <b>마지막 사용자 발언</b>을 쓴다. "그럼 그건 어떻게 해?" 같은 되묻기는
-/// 그것만으로 뜻이 서지 않아 검색이 약해진다 — 앞 대화를 묶어 질문을 다시 쓰는
-/// 것(query rewriting)이 다음 단계지만, 거기에는 LLM 호출이 한 번 더 든다.
-/// </para>
-/// </remarks>
+/// <summary>대화에 문서를 끼워 넣는다. 찾은 것을 그대로 믿게 하지 않는다.</summary>
 public sealed class RagAugmenter
 {
     private readonly RagStore _store;
@@ -43,10 +23,7 @@ public sealed class RagAugmenter
     private bool Enabled => _config.GetValue("Rag:AugmentChat", true);
     private int TopK => _config.GetValue("Rag:TopK", 4);
 
-    /// <summary>
-    /// 대화에서 찾아볼 카테고리. <b>비우면 전부</b>.
-    /// 카테고리가 늘어나 엉뚱한 자료가 섞이기 시작하면 여기를 좁힌다.
-    /// </summary>
+    /// <summary>대화에서 찾아볼 카테고리. <b>비우면 전부</b>. 카테고리가 늘어나 엉뚱한 자료가 섞이기 시작하면 여기를 좁힌다.</summary>
     private string? ChatCategory
     {
         get
@@ -56,16 +33,10 @@ public sealed class RagAugmenter
         }
     }
 
-    /// <summary>
-    /// 이 점수에 못 미치는 토막은 넣지 않는다. 아주 동떨어진 것만 거른다 —
-    /// 문턱을 높이면 <b>조금 비껴간 자료까지 버려서</b> 답할 수 있는 질문에
-    /// 모른다고 하게 된다. 나머지 판단은 모델에게 맡긴다.
-    /// </summary>
+    /// <summary>이 점수에 못 미치는 토막은 넣지 않는다. 아주 동떨어진 것만 거른다 — 문턱을 높이면 <b>조금 비껴간 자료까지 버려서</b> 답할 수 있는 질문에 모른다고 하게 된다. 나머지 판단은 모델에게 맡긴다.</summary>
     private double MinScore => _config.GetValue("Rag:MinVectorScore", 0.40);
 
-    /// <summary>
-    /// 자료를 찾아 <paramref name="messages"/> 앞에 끼운다.
-    /// </summary>
+    /// <summary>자료를 찾아 <paramref name="messages"/> 앞에 끼운다.</summary>
     /// <returns>끼운 결과. 끼우지 않았으면 null.</returns>
     public async Task<RagAugmentResult?> AugmentAsync(
         List<Message> messages, CancellationToken ct = default)
@@ -151,9 +122,7 @@ public sealed class RagAugmenter
     }
 }
 
-/// <summary>
-/// 자료를 끼운 결과.
-/// </summary>
+/// <summary>자료를 끼운 결과.</summary>
 /// <param name="Notice">사람에게 보여 줄 안내.</param>
 /// <param name="TopScore">
 /// 가장 잘 맞은 토막의 점수. <b>"찾았다" 와 "확실하다" 는 다르다</b> —

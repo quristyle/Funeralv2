@@ -38,10 +38,7 @@ public partial class PasswordChange
     private string? _expiryText;
     private NoticeTone _expiryTone = NoticeTone.Info;
 
-    /// <summary>
-    /// 토큰을 챙기고 만료 안내를 읽는다. <b>순서가 중요하다</b> —
-    /// 토큰을 넘기기 전에 게이트웨이를 부르면 401 이 난다.
-    /// </summary>
+    /// <summary>토큰을 챙기고 만료 안내를 읽는다. 순서가 중요하다. 토큰을 넘기기 전에 게이트웨이를 부르면 401 이 난다.</summary>
     protected override async Task OnInitializedAsync()
     {
         var state = await AuthState.GetAuthenticationStateAsync();
@@ -50,15 +47,7 @@ public partial class PasswordChange
         await LoadExpiryAsync();
     }
 
-    /// <summary>
-    /// 「며칠 지났는지 · 며칠 남았는지」를 읽어 안내 줄을 만든다.
-    ///
-    /// <para>
-    /// <c>auth/user/info</c> 는 만료 상태에서도 열려 있는 몇 안 되는 경로다.
-    /// 그래도 실패를 삼키는 이유는, 안내를 못 띄우는 것과 비밀번호를 못 바꾸는
-    /// 것의 무게가 다르기 때문이다. <b>안내가 없어도 바꾸는 일은 되어야 한다.</b>
-    /// </para>
-    /// </summary>
+    /// <summary>며칠 지났고 며칠 남았는지 읽어 안내 줄을 만든다. 실패를 삼키는 것은 안내를 못 띄우는 것과 비밀번호를 못 바꾸는 것의 무게가 달라서다. 안내가 없어도 바꾸는 일은 되어야 한다.</summary>
     private async Task LoadExpiryAsync()
     {
         PasswordStatus? status;
@@ -88,8 +77,7 @@ public partial class PasswordChange
         }
         else if (status.PasswordDaysRemaining is int left && left <= 7)
         {
-            // 이레는 Vue 때와 같은 값이다. 미리 알려 주지 않으면 어느 날
-            // 갑자기 막히는 것으로 보인다.
+            // 이레는 이전 포털과 같은 값이다. 미리 알려 주지 않으면 어느 날 갑자기 막히는 것으로 보인다.
             _expiryTone = NoticeTone.Warning;
             _expiryText = $"비밀번호 사용 기간이 {left}일 남았습니다.";
         }
@@ -114,8 +102,7 @@ public partial class PasswordChange
 
         if (string.Equals(_old, _new, StringComparison.Ordinal))
         {
-            // 서버도 거부한다. 여기서 한 번 더 보는 이유는, 90일마다 바꾸라면서
-            // 같은 값을 받아 주면 정책이 아무 일도 하지 않는 셈이기 때문이다.
+            // 서버도 거부하지만, 90일마다 바꾸라면서 같은 값을 받아 주면 정책이 아무 일도 하지 않는다.
             Warn("지금 쓰는 비밀번호와 다른 값으로 넣으십시오.");
             return;
         }
@@ -135,9 +122,7 @@ public partial class PasswordChange
             _new = null;
             _confirm = null;
 
-            // 만료 안내를 걷는다. 방금 바꿨으니 더 이상 사실이 아니고,
-            // 남겨 두면 「바꿨습니다」 바로 위에 「기간이 지났습니다」가
-            // 붙어 바뀐 것인지 아닌지 알 수 없게 된다.
+            // 만료 안내를 걷는다. 방금 바꿨으니 사실이 아니고, 남겨 두면 바꿨는지 아닌지 알 수 없다.
             _expiryText = null;
         }
         catch (ApiException ex)
@@ -158,24 +143,12 @@ public partial class PasswordChange
         _tone = NoticeTone.Warning;
     }
 
-    /// <summary>
-    /// 로그아웃 폼을 제출해 로그인 화면으로 보낸다. 왜 그냥 두면 안 되는지는
-    /// 머리말의 「바꾼 뒤에는 반드시 다시 로그인시킨다」에 있다.
-    /// </summary>
+    /// <summary>로그아웃 폼을 제출해 로그인 화면으로 보낸다. 그냥 두면 안 되는 까닭은 머리말에 있다.</summary>
     private Task ReloginAsync() =>
-        // 이 줄도 `document.getElementById('…').submit` 이라 아무 일도 하지
-        // 않고 있었다 — 이유는 UserMenu.LogoutAsync 주석에 있다.
+        // 이 줄도 getElementById(…).submit 이라 아무 일도 하지 않았다. UserMenu.LogoutAsync 주석 참고.
         Js.InvokeVoidAsync("jsiniForm.submit", "jsini-password-logout").AsTask();
 
-    /// <summary>
-    /// <c>auth/user/info</c> 에서 만료 안내에 필요한 칸만 꺼낸다.
-    ///
-    /// <para>
-    /// 포털관리의 <c>UserInfoDto</c> 를 쓰지 않는 이유가 둘이다. 셸은 업무
-    /// 모듈의 타입을 이름으로 알지 않고(web/CLAUDE.md), 그쪽 DTO 에는 이 세
-    /// 칸이 아예 없다. 쓰는 곳이 셋이 되면 그때 <c>Models</c> 로 올린다.
-    /// </para>
-    /// </summary>
+    /// <summary>auth/user/info 에서 만료 안내에 필요한 칸만 꺼낸다. 포털관리의 UserInfoDto 를 쓰지 않는다. 셸은 업무 모듈의 타입을 모르고, 그 DTO 에는 이 칸들이 없다.</summary>
     private sealed class PasswordStatus
     {
         /// <summary>만료로 보는 기간(일). 설정 <c>Auth:PasswordExpiryDays</c> 값이다.</summary>

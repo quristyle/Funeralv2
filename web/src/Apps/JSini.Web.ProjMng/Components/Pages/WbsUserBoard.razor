@@ -2,21 +2,7 @@
 @attribute [RouteKey("projmng.wbs.users")]
 
 @*
-    [WBS 개발자별 현황]
-
-    이력: 사내망 WBS 대시보드(Vue) `views/Users.vue` + `components/HeatMatrix.vue`
-          → **여기**
-    API: `projmng/wbs-board/stats/monthly-by-user` · `…/weekly-by-user`
-
-    [표가 아니라 판이다]
-
-    사람 × 기간 매트릭스라 **칸이 자료에 따라 정해진다.** `CommGrd` 는 칸을
-    미리 세우는 부품이고, 실행 시점 칸을 위한 `RuntimeColumns` 는 개발 도구용
-    (칸마다 입력칸이 붙는다)이라 읽기 전용 매트릭스에는 맞지 않는다.
-    그래서 여기만 판을 직접 그린다 — 원본도 같은 이유로 그랬다.
-
-    진한 칸일수록 건수가 많다. 칸을 누르면 그 사람·그 기간으로 좁힌
-    [상세 목록]으로 넘어간다.
+WBS 개발자별 현황. 사람 × 기간 매트릭스라 칸이 자료에 따라 정해지므로 CommGrd 가 아니라 판을 직접 그린다. 진한 칸일수록 건수가 많고, 누르면 그 사람·기간으로 좁힌 상세 목록으로 넘어간다.
 *@
 
 @inherits DataPage

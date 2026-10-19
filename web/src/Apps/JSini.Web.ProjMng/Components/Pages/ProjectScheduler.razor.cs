@@ -19,26 +19,17 @@ public partial class ProjectScheduler
         SchSummary.Or(_kindNames),
         _completeStateName);
 
-    /// <summary>
-    /// 고른 값의 <b>이름</b>들. 화면이 든 것은 코드뿐이고 목록은
-    /// <c>CodeSelect</c> 안에 있어, 그 부품이 <c>@bind-Text</c> 로 올려 준다.
-    /// </summary>
+    /// <summary>고른 값의 이름들. 코드만 들고, 목록은 CodeSelect 가 쥐고 있어 부품이 @bind-Text 로 올려 준다.</summary>
     private string? _projectName;
 
     private string? _kindNames;
 
     private string? _completeStateName;
 
-    /// <summary>
-    /// 새 줄의 기본 구분. 고른 구분이 「전체」일 때 쓴다 — 비워 두면 어느
-    /// 화면에서도 안 보이는 줄이 된다(머리말).
-    /// </summary>
+    /// <summary>새 줄의 기본 구분. 「전체」일 때 쓴다 — 비워 두면 어느 화면에서도 안 보이는 줄이 된다.</summary>
     private const string DefaultKind = "Public";
 
-    /// <summary>
-    /// 이 화면의 보기. <b>구간도 이것이 정한다</b> — 둘을 따로 두면 화면에
-    /// 그려지는 달과 읽어 온 달이 어긋날 수 있다(머리말).
-    /// </summary>
+    /// <summary>보기. 구간도 이것이 정한다 — 둘을 따로 두면 그려지는 달과 읽어 온 달이 어긋난다.</summary>
     private enum CalView { Day, Week, Month, Agenda, Table }
 
     /// <summary>보기 고르개에 서는 차례. 구글과 같이 좁은 것부터 넓은 것으로 간다.</summary>
@@ -59,13 +50,13 @@ public partial class ProjectScheduler
     private string? _projectCode;
     private string? _completeState;
 
-    /// <summary>체크로 고른 구분. <b>비어 있으면 전체</b>다(머리말).</summary>
+    /// <summary>체크로 고른 구분. 비어 있으면 전체다.</summary>
     private IReadOnlyList<string> _scheduleTypes = [];
 
     private DxSchedulerDataStorage? _storage;
     private CalendarItem[] _items = [];
 
-    /// <summary>휴대폰인가. 격자 칸 높이와 한 칸에 담는 막대 수가 갈린다(머리말).</summary>
+    /// <summary>휴대폰인가. 격자 칸 높이와 칸에 담는 막대 수가 갈린다.</summary>
     private bool _isPhone;
 
     /// <summary>격자의 칸들. 앞뒤 달의 자투리까지 들어 있다.</summary>
@@ -106,7 +97,7 @@ public partial class ProjectScheduler
 
     private static DateOnly Today => AppTime.Today;
 
-    /// <summary>보기가 정하는 조회 구간의 단위(머리말).</summary>
+    /// <summary>보기가 정하는 조회 구간의 단위.</summary>
     private DateRangePreset Preset => _view switch
     {
         CalView.Day => DateRangePreset.Day,
@@ -120,14 +111,11 @@ public partial class ProjectScheduler
 
     private string Hint => $"{_rows.Count}건";
 
-    /// <summary>주·일 보기에서만 쓴다 — 월은 우리가 그린다(머리말).</summary>
+    /// <summary>주·일 보기에서만 쓴다. 월은 직접 그린다.</summary>
     private SchedulerViewType ViewType =>
         _view == CalView.Day ? SchedulerViewType.Day : SchedulerViewType.Week;
 
-    /// <summary>
-    /// 머리줄에 적는 지금 보고 있는 곳. 구글과 같은 말투다 —
-    /// 달이면 「2026년 9월」, 주면 「2026년 9월 1일 – 7일」, 날이면 요일까지.
-    /// </summary>
+    /// <summary>머리줄에 적는 지금 보고 있는 곳. 달이면 「2026년 9월」, 주면 기간, 날이면 요일까지 적는다.</summary>
     private string BarTitle
     {
         get
@@ -150,25 +138,10 @@ public partial class ProjectScheduler
         }
     }
 
-    /// <summary>
-    /// 한 칸에 보이는 막대 수. 넘는 것은 「+N개 더보기」가 된다.
-    ///
-    /// <para>
-    /// 칸 높이와 <b>한 몸</b>이다 — 여기를 늘리면 CSS 의 칸 최소 높이도 같이
-    /// 늘려야 마지막 줄이 잘린다. 휴대폰은 한 줄 적게 담는다.
-    /// </para>
-    /// </summary>
+    /// <summary>한 칸에 보이는 막대 수. 넘는 것은 「+N개 더보기」가 된다. 칸 높이와 한 몸이라, 늘리면 CSS 의 칸 최소 높이도 같이 늘려야 마지막 줄이 안 잘린다.</summary>
     private int MaxLanes => _isPhone ? 2 : 3;
 
-    /// <summary>
-    /// 격자·조회가 함께 쓰는 구간. 달 보기는 <b>앞뒤 달의 자투리 날까지</b>
-    /// 넓힌다 — 까닭은 머리말 [보기가 곧 조회 구간이다].
-    ///
-    /// <para>
-    /// 주·일 보기는 손댈 것이 없다. 주는 이미 일요일에서 토요일까지고,
-    /// 하루는 넓힐 앞뒤가 없다.
-    /// </para>
-    /// </summary>
+    /// <summary>격자·조회가 함께 쓰는 구간. 달 보기는 앞뒤 달의 자투리 날까지 넓히고, 주·일 보기는 그대로다.</summary>
     private DateRange GridSpan
     {
         get
@@ -201,8 +174,7 @@ public partial class ProjectScheduler
 
     protected override void OnInitialized()
     {
-        // `PermissionView` 와 **똑같이** 묻는다. 끌어 옮기기·크기 조절은 그릴지
-        // 말지가 아니라 부품의 파라미터로 켜고 끄는 것이라 직접 판정한다.
+        // PermissionView 와 똑같이 묻는다. 끌기·크기 조절은 파라미터로 켜고 끄므로 직접 판정한다.
         var path = CurrentPath;
 
         _canCreate = Permissions.Can(path, MenuAction.Create);
@@ -210,16 +182,9 @@ public partial class ProjectScheduler
         _canDelete = Permissions.Can(path, MenuAction.Delete);
     }
 
-    // **화면을 열 때 여기서 조회하지 않는다.** 프로젝트 고르개가 첫 항목을
-    // 스스로 고르면서 조회를 건다(`AutoSelectFirst`). 둘 다 하면 **프로젝트를
-    // 안 건 조회와 건 조회가 같이 날아가고**, 늦게 돌아온 쪽이 화면에 남는다 —
-    // 프로젝트를 골랐는데 목록은 전체인 상태가 된다. 실제로 그렇게 보였다.
+    // 화면을 열 때 여기서 조회하지 않는다 — 프로젝트 고르개가 첫 항목을 고르며 조회를 건다. 둘 다 하면 늦게 돌아온 쪽이 남아 목록이 전체로 보인다.
 
-    /// <summary>
-    /// 구분 체크가 바뀌었다. <b>바로 조회한다</b> — 프로젝트 고르개와 같다.
-    /// 체크를 만지고 「조회」를 또 눌러야 하면, 누르기 전까지 화면의 딱지와
-    /// 달력이 서로 다른 이야기를 한다.
-    /// </summary>
+    /// <summary>구분 체크가 바뀌었다. 바로 조회한다 — 「조회」를 또 눌러야 하면 딱지와 달력이 서로 다른 이야기를 한다.</summary>
     private Task OnKindsChangedAsync(IEnumerable<string>? kinds)
     {
         _scheduleTypes = kinds is null ? [] : [.. kinds];
@@ -228,7 +193,7 @@ public partial class ProjectScheduler
 
     private Task SearchAsync() => LoadAsync(async () =>
     {
-        // **격자 구간으로 묻는다** — 달 1일~말일이 아니다(머리말).
+        // 격자 구간으로 묻는다 — 달 1일~말일이 아니다.
         var span = GridSpan;
 
         _rows = await Api.ListAsync(
@@ -243,23 +208,12 @@ public partial class ProjectScheduler
         return _rows.Count;
     }, "그 기간에 일정이 없습니다.", "일정표를 읽지 못했습니다");
 
-    /// <summary>
-    /// 화면 크기가 경계를 넘었다. 값만 받는다 — 격자는 같은 것을 그리고
-    /// 칸에 담기는 막대 수(<see cref="MaxLanes"/>)만 그리기 시점에 갈린다.
-    /// </summary>
+    /// <summary>화면 크기가 경계를 넘었다. 값만 받는다 — 칸에 담기는 막대 수(MaxLanes)는 그리는 시점에 갈린다.</summary>
     private void OnPhoneChanged(bool active) => _isPhone = active;
 
     // ── 머리줄 ───────────────────────────────────────────────────
 
-    /// <summary>
-    /// 보기를 바꾼다. <b>구간이 따라 바뀌므로 다시 읽는다.</b>
-    ///
-    /// <para>
-    /// 「일」로 갈 때 기준일을 오늘로 당기지 않는다 — 달을 훑다가 어느 날을
-    /// 눌러 들어오는 길이 있어서(<see cref="OnDayNumberAsync"/>), 여기서
-    /// 되돌리면 그 길이 늘 오늘로 끌려간다.
-    /// </para>
-    /// </summary>
+    /// <summary>보기를 바꾼다. 구간이 따라 바뀌므로 다시 읽는다. 「일」로 갈 때 기준일을 오늘로 당기지 않는다 — 날을 눌러 들어오는 길이 있어, 여기서 되돌리면 그 길이 늘 오늘로 끌려간다.</summary>
     private Task SetViewAsync(CalView view)
     {
         if (view == _view)
@@ -297,10 +251,7 @@ public partial class ProjectScheduler
         return SearchAsync();
     }
 
-    /// <summary>
-    /// 그 날로 간다. 작은 달력과 날짜 누르기가 함께 쓴다 — <b>보기는 그대로</b>
-    /// 두고 기준일만 옮긴다. 구글의 작은 달력도 그렇게 움직인다.
-    /// </summary>
+    /// <summary>그 날로 간다. 작은 달력과 날짜 누르기가 함께 쓴다 — 보기는 그대로 두고 기준일만 옮긴다.</summary>
     private Task JumpAsync(DateOnly day)
     {
         _anchor = day.ToDateTime(TimeOnly.MinValue);
@@ -310,14 +261,7 @@ public partial class ProjectScheduler
         return SearchAsync();
     }
 
-    /// <summary>
-    /// 단축키. 구글과 같은 글쇠다(머리말).
-    ///
-    /// <para>
-    /// <b>표 보기에서는 받지 않는다.</b> 표에는 글자를 치는 칸이 있어서,
-    /// 거기서 친 글쇠가 여기로 올라오면 검색어를 적다가 달이 넘어간다.
-    /// </para>
-    /// </summary>
+    /// <summary>단축키. 표 보기에서는 받지 않는다 — 표의 글자 칸에서 친 글쇠가 여기로 올라와 달이 넘어간다.</summary>
     private Task OnKeyAsync(KeyboardEventArgs e)
     {
         if (_view == CalView.Table || e.CtrlKey || e.AltKey || e.MetaKey)
@@ -377,10 +321,7 @@ public partial class ProjectScheduler
 
     private string MiniTitle => $"{MiniMonth.Year}년 {MiniMonth.Month}월";
 
-    /// <summary>
-    /// 작은 달력의 마흔두 칸. <b>자료를 보지 않는다</b> — 날짜만 세므로
-    /// 달을 넘겨도 조회가 나가지 않는다(구글의 작은 달력과 같다).
-    /// </summary>
+    /// <summary>작은 달력의 마흔두 칸. 날짜만 세므로 달을 넘겨도 조회가 나가지 않는다.</summary>
     private IEnumerable<DateOnly> MiniDays
     {
         get
@@ -409,8 +350,7 @@ public partial class ProjectScheduler
             css.Add("pm-gc-mini__day--today");
         }
 
-        // 지금 보고 있는 구간에 드는 날은 옅게 깔아 둔다 — 큰 달력이 어디를
-        // 보고 있는지가 작은 달력에 그대로 비친다.
+        // 지금 보고 있는 구간에 드는 날은 옅게 깔아, 큰 달력이 보는 곳이 작은 달력에 비친다.
         if (day >= DateOnly.FromDateTime(Range.Start) && day <= DateOnly.FromDateTime(Range.End))
         {
             css.Add("pm-gc-mini__day--in");
@@ -421,20 +361,7 @@ public partial class ProjectScheduler
 
     // ── 달력 재료 ────────────────────────────────────────────────
 
-    /// <summary>
-    /// 읽어 온 줄을 달력 약속으로 옮긴다(주·일 보기의 `DxScheduler` 가 쓴다).
-    ///
-    /// <para>
-    /// **날짜만 있고 시각이 없는 자료다.** 종일 일정으로 그린다 — 시간표처럼
-    /// 그리면 모든 일정이 자정에 붙어 한 줄로 겹친다.
-    /// </para>
-    ///
-    /// <para>
-    /// 끝을 그날 <c>23:59:59</c> 로 둔다. 자정으로 두면 부품이 끝을 여는
-    /// 구간으로 볼 때 **마지막 날이 통째로 빠진다** — 하루짜리 일정이 아예
-    /// 안 그려진다.
-    /// </para>
-    /// </summary>
+    /// <summary>읽어 온 줄을 달력 약속으로 옮긴다. 날짜만 있는 자료라 종일 일정으로 그린다. 끝은 그날 23:59:59 로 둔다 — 자정이면 끝을 여는 구간으로 볼 때 마지막 날이 통째로 빠진다.</summary>
     private void BuildCalendar()
     {
         var today = Today;
@@ -488,10 +415,7 @@ public partial class ProjectScheduler
         return string.Join(" · ", parts);
     }
 
-    /// <summary>
-    /// 색을 고른다. 서버가 내는 상태는 대기·진행·완료 셋이고, **지연**은
-    /// 여기서 센다 — 계획 종료일이 지났는데 아직 안 끝난 것(머리말).
-    /// </summary>
+    /// <summary>색. 서버 상태는 대기·진행·완료 셋이고, 지연은 여기서 센다 — 계획 종료일이 지났는데 안 끝난 것.</summary>
     private static string LabelOf(WbsItemDto w, DateOnly today) => w.WbsState switch
     {
         "COMP" => "COMP",
@@ -518,10 +442,7 @@ public partial class ProjectScheduler
 
     // ── 월 격자 ──────────────────────────────────────────────────
 
-    /// <summary>
-    /// 쓸기로 칠 최소 거리(px). 작게 두면 <b>칸을 누르는 손짓이 쓸기로 새서</b>
-    /// 날을 고르려다 달이 넘어간다.
-    /// </summary>
+    /// <summary>쓸기로 칠 최소 거리(px). 작게 두면 칸을 누르는 손짓이 쓸기로 새어 달이 넘어간다.</summary>
     private const double SwipeMin = 48;
 
     private static readonly DayOfWeek[] Weekdays =
@@ -530,11 +451,7 @@ public partial class ProjectScheduler
         DayOfWeek.Thursday, DayOfWeek.Friday, DayOfWeek.Saturday,
     ];
 
-    /// <summary>
-    /// 요일 이름. <b>문화권을 타지 않게</b> 직접 적는다 — 서버의
-    /// <c>CurrentCulture</c> 가 무엇이냐에 따라 달력 머리가 <c>Sun</c> 으로
-    /// 바뀌면 안 된다.
-    /// </summary>
+    /// <summary>요일 이름. 문화권을 타지 않게 직접 적는다 — 서버 CurrentCulture 에 따라 머리가 바뀌면 안 된다.</summary>
     private static string DowName(DayOfWeek day) => day switch
     {
         DayOfWeek.Sunday => "일",
@@ -553,14 +470,7 @@ public partial class ProjectScheduler
         _ => string.Empty,
     };
 
-    /// <summary>
-    /// 격자를 다시 짠다. <b>읽어 온 줄을 날짜별로 갈라 두는 것</b>이 전부다 —
-    /// 그려질 때마다 세면 한 달에 마흔두 번 훑게 된다.
-    /// </summary>
-    /// <remarks>
-    /// 걸치는 날을 <b>구간 안에서만</b> 돈다. 계획이 몇 해에 걸친 줄이 실제로
-    /// 있어서, 자르지 않고 돌면 한 줄 때문에 천 번을 돈다.
-    /// </remarks>
+    /// <summary>격자를 다시 짠다. 읽어 온 줄을 날짜별로 갈라 두는 것이 핵심이다 — 그려질 때마다 세면 달마다 마흔두 번 훑는다. 걸치는 날은 구간 안에서만 돈다(몇 해짜리 줄이 있어서).</summary>
     private void BuildDays()
     {
         var span = GridSpan;
@@ -603,23 +513,7 @@ public partial class ProjectScheduler
         _days = days;
     }
 
-    /// <summary>
-    /// 주 한 줄씩 막대를 <b>자리(lane)에 나눠 담는다.</b> 구글의 월 보기가
-    /// 하는 일이 이것이다 — 여러 날에 걸친 일이 칸을 가로질러 한 줄로 흐르고,
-    /// 서로 겹치는 것만 아래 줄로 내려간다.
-    ///
-    /// <para>
-    /// 먼저 시작한 것, 같이 시작했으면 <b>긴 것</b>이 위에 선다. 긴 것을
-    /// 위로 올려야 짧은 것들이 그 아래에서 자리를 나눠 갖고, 한 주가
-    /// 들쭉날쭉해지지 않는다.
-    /// </para>
-    ///
-    /// <para>
-    /// 넘치는 것을 여기서 자르지 않는다 — 몇 줄까지 보일지(<see cref="MaxLanes"/>)
-    /// 는 화면 폭에 딸린 값이라 <b>그리는 때</b> 갈린다. 여기서 자르면 폭이
-    /// 바뀔 때마다 다시 짜야 한다.
-    /// </para>
-    /// </summary>
+    /// <summary>주 한 줄씩 막대를 자리(lane)에 나눠 담는다. 먼저 시작한 것, 같이 시작했으면 긴 것이 위에 선다. 넘치는 것은 여기서 자르지 않는다 — 몇 줄까지 보일지는 화면 폭에 달려 그리는 때 갈린다.</summary>
     private void BuildWeeks()
     {
         var weeks = new List<WeekRow>();
@@ -630,8 +524,7 @@ public partial class ProjectScheduler
             var from = days[0].Date;
             var to = days[6].Date;
 
-            // 위에 설 차례를 여기서 정한다 — 먼저 시작한 것, 같이 시작했으면
-            // 긴 것. 자리를 나누는 계산은 `CalendarLanes` 가 한다.
+            // 위에 설 차례 — 먼저 시작한 것, 같이 시작하면 긴 것. 자리 계산은 CalendarLanes 가 한다.
             var ordered = _rows
                 .Select(w => (Row: w, Span: Span(w)))
                 .Where(x => x.Span is not null)
@@ -659,31 +552,12 @@ public partial class ProjectScheduler
     private int HiddenAt(WeekRow week, int col) =>
         week.Bars.Count(b => b.Lane >= MaxLanes && col >= b.Col && col < b.Col + b.Span);
 
-    /// <summary>
-    /// 이 날이 <b>보고 있는 달</b>의 날인가. 아니면 흐리게 그린다.
-    /// 주·일 보기에는 흐릴 자투리가 없으므로 전부 참이다.
-    /// </summary>
+    /// <summary>이 날이 보고 있는 달의 날인가. 아니면 흐리게 그린다. 주·일 보기에는 자투리가 없어 전부 참이다.</summary>
     private bool InAnchorMonth(DateOnly day) =>
         Preset != DateRangePreset.Month
         || (day.Year == _anchor.Year && day.Month == _anchor.Month);
 
-    /// <summary>
-    /// 고른 날을 <b>보고 있는 구간 안으로</b> 붙든다.
-    ///
-    /// <para>
-    /// 달을 넘기면 고른 날이 화면 밖으로 나간다. 그대로 두면 아래 목록이
-    /// <b>안 보이는 날</b>의 일정을 편 채로 남고, 거기서 「등록」을 누르면
-    /// 만든 줄이 지난달로 들어가 저장하자마자 사라진 것처럼 보인다.
-    /// </para>
-    ///
-    /// <para>
-    /// <b>재는 자가 둘이다.</b> 「그냥 둘까」는 격자(<see cref="GridSpan"/>)로,
-    /// 「어디로 데려갈까」는 달(<see cref="Range"/>)로 잰다. 앞의 것을 달로
-    /// 재면 자투리 칸(9월 격자의 10/1)을 누른 순간 조건 하나만 건드려도
-    /// 고른 날이 1일로 튀고, 뒤의 것을 격자로 재면 「등록」의 기본 날이
-    /// <b>지난달</b>이 된다(2025-01 을 여는데 2024-12-29 가 잡힌다).
-    /// </para>
-    /// </summary>
+    /// <summary>고른 날을 보고 있는 구간 안으로 붙든다. 재는 자가 둘이다 — 「그냥 둘까」는 격자(GridSpan)로, 「데려갈까」는 달(Range)로 잰다. 섞어 재면 자투리 칸을 누를 때 고른 날이 1일로 튀거나 「등록」 기본 날이 지난달이 된다.</summary>
     private void SyncSelected()
     {
         var span = GridSpan;
@@ -703,20 +577,7 @@ public partial class ProjectScheduler
         _selected = today >= start && today <= end ? today : start;
     }
 
-    /// <summary>
-    /// 칸의 <b>빈 자리</b>를 눌렀다.
-    ///
-    /// <para>
-    /// 넓은 화면에서는 구글처럼 <b>새 일정</b>이 열린다. 휴대폰에서는 그 날을
-    /// 고르기만 한다 — 손가락은 빗나가고, 빗나간 자리에서 창이 열리면 매번
-    /// 닫아야 한다. 대신 격자 아래 목록이 그 날로 바뀐다.
-    /// </para>
-    ///
-    /// <para>
-    /// 만들 수 없는 사람에게는 그 날을 <b>펼쳐</b> 보여 준다 — 누를 곳이
-    /// 아무 일도 안 하면 화면이 고장 난 것처럼 보인다.
-    /// </para>
-    /// </summary>
+    /// <summary>칸의 빈 자리를 눌렀다. 넓은 화면은 새 일정을 열고, 휴대폰은 그 날을 고르기만 한다(목록이 그 날로 바뀐다). 만들 수 없는 사람에게는 그 날을 펼쳐 보여 준다 — 아무 일도 안 하면 고장 난 것처럼 보인다.</summary>
     private Task OnDayClickAsync(DateOnly day)
     {
         _selected = day;
@@ -738,10 +599,7 @@ public partial class ProjectScheduler
         return Task.CompletedTask;
     }
 
-    /// <summary>
-    /// 날짜 숫자를 눌렀다 — 구글과 같이 <b>그 날 보기</b>로 들어간다.
-    /// 휴대폰에서는 보기를 갈지 않고 그 날을 편다(아래 목록이 그 일을 한다).
-    /// </summary>
+    /// <summary>날짜 숫자를 눌렀다. 구글처럼 그 날 보기로 들어가며, 휴대폰은 보기를 바꾸지 않고 그 날을 편다.</summary>
     private Task OnDayNumberAsync(DateOnly day)
     {
         _selected = day;
@@ -800,20 +658,14 @@ public partial class ProjectScheduler
         return string.Join(' ', css);
     }
 
-    /// <summary>
-    /// 막대를 칸 위에 얹는다. <c>grid-column</c> 으로 <b>칸을 가로지른다</b> —
-    /// 이것이 구글의 월 보기와 우리 옛 판이 갈리는 지점이다.
-    /// </summary>
+    /// <summary>막대를 칸 위에 얹는다. grid-column 으로 칸을 가로지른다.</summary>
     private static string BarStyle(Bar bar) =>
         $"grid-column: {bar.Col + 1} / span {bar.Span}; grid-row: {bar.Lane + 1};";
 
     private string MoreStyle(int col) =>
         $"grid-column: {col + 1}; grid-row: {MaxLanes + 1};";
 
-    /// <summary>
-    /// 막대의 꼴. 주를 넘어가는 쪽은 모서리를 펴 둔다 — 잘린 끝이 둥글면
-    /// <b>거기서 끝난 것</b>으로 보인다.
-    /// </summary>
+    /// <summary>막대의 꼴. 주를 넘어가는 쪽은 모서리를 펴 둔다 — 잘린 끝이 둥글면 거기서 끝난 것으로 보인다.</summary>
     private static string BarCss(Bar bar)
     {
         var css = new List<string>(4) { "pm-gc-bar", $"pm-gc-bar--{Label(bar.Item)}" };
@@ -833,10 +685,7 @@ public partial class ProjectScheduler
             : $"{Title(w)} · {Period(w)} · {rest}";
     }
 
-    /// <summary>
-    /// 칸을 읽어 주는 말. 막대는 글자가 잘려 있고 「+2」 는 소리로 아무
-    /// 뜻이 없어서, 화면 낭독기에는 <b>날짜와 건수</b>를 준다.
-    /// </summary>
+    /// <summary>칸을 읽어 주는 말. 낭독기에는 날짜와 건수를 준다(막대의 글자는 잘려 있다).</summary>
     private static string DayLabel(CalDay day) =>
         day.Items.Count == 0
             ? $"{day.Date.Month}월 {day.Date.Day}일"
@@ -862,15 +711,7 @@ public partial class ProjectScheduler
 
     private static string Label(WbsItemDto w) => LabelOf(w, Today);
 
-    /// <summary>
-    /// 한 줄이 걸치는 날. 한쪽만 적힌 줄은 그 날 하루로 본다.
-    ///
-    /// <para>
-    /// <b>거꾸로 들어간 줄이 있다.</b> 그대로 두면 달력 부품이 음수 길이를
-    /// 만나고, 격자 쪽은 하루도 안 그린다. 여기 한 곳에서 바로잡는다 —
-    /// 달력과 격자가 <b>같은 자를 써야</b> 같은 일정이 같은 날에 뜬다.
-    /// </para>
-    /// </summary>
+    /// <summary>한 줄이 걸치는 날. 한쪽만 적힌 줄은 그날 하루로 본다. 거꾸로 들어간 줄은 여기서 바로잡는다 — 달력과 격자가 같은 자를 써야 같은 날에 뜬다.</summary>
     private static (DateOnly Start, DateOnly End)? Span(WbsItemDto w)
     {
         if (w.PlanSdt is null && w.PlanEdt is null)
@@ -886,14 +727,7 @@ public partial class ProjectScheduler
 
     // ── 끌어 옮기기 (월 격자) ────────────────────────────────────
 
-    /// <summary>
-    /// 막대를 다른 날에 놓았다 — <b>기간은 그대로 두고</b> 통째로 옮긴다.
-    /// 구글에서 사흘짜리 일을 끌면 사흘짜리인 채로 옮겨지는 것과 같다.
-    /// </summary>
-    /// <remarks>
-    /// 놓은 날이 <b>시작일</b>이다. 막대의 어느 지점을 집었는지 브라우저가
-    /// 알려 주지 않으므로, 「집은 자리만큼 어긋나게」는 만들 수 없다.
-    /// </remarks>
+    /// <summary>막대를 다른 날에 놓았다. 기간은 그대로 두고 통째로 옮기며, 놓은 날이 시작일이 된다(집은 자리는 브라우저가 알려 주지 않는다).</summary>
     private async Task DropAsync(DateOnly day)
     {
         var row = _drag;
@@ -927,19 +761,7 @@ public partial class ProjectScheduler
         _touchY = e.Touches[0].ClientY;
     }
 
-    /// <summary>
-    /// 좌우로 쓸면 앞뒤 구간으로 간다.
-    ///
-    /// <para>
-    /// <b>세로로 더 많이 움직였으면 아무 일도 하지 않는다.</b> 이 격자는
-    /// 화면 위쪽에 있어서 쪽을 굴리는 손짓이 여기서 시작한다 — 가로만 보고
-    /// 넘기면 <b>목록을 보려고 내릴 때마다 달이 바뀐다.</b>
-    /// </para>
-    ///
-    /// <para>
-    /// 쓸기는 <b>덤</b>이다. 안 먹어도 머리줄의 ‹ › 가 같은 일을 한다.
-    /// </para>
-    /// </summary>
+    /// <summary>좌우로 쓸면 앞뒤 구간으로 간다. 세로로 더 많이 움직였으면 아무 일도 하지 않는다 — 목록을 보려고 내릴 때마다 달이 바뀌지 않게.</summary>
     private Task OnTouchEndAsync(TouchEventArgs e)
     {
         if (e.ChangedTouches.Length == 0)
@@ -961,10 +783,7 @@ public partial class ProjectScheduler
 
     // ── 편집 창 ──────────────────────────────────────────────────
 
-    /// <summary>
-    /// 부품이 주는 편집 창을 취소하고 우리 창을 연다(머리말).
-    /// 빈 칸을 더블클릭했으면 새로, 일정을 눌렀으면 그 줄을 고치러 연다.
-    /// </summary>
+    /// <summary>부품이 주는 편집 창을 취소하고 우리 창을 연다. 빈 칸은 새로, 일정은 그 줄을 고치러 연다.</summary>
     private void OnFormShowing(SchedulerAppointmentFormEventArgs e)
     {
         e.Cancel = true;
@@ -1001,10 +820,7 @@ public partial class ProjectScheduler
         _editing = true;
     }
 
-    /// <summary>
-    /// 편집 창에 <b>복사본</b>을 띄운다. 목록의 줄을 그대로 묶으면 취소해도
-    /// 화면에는 이미 바뀐 값이 남는다.
-    /// </summary>
+    /// <summary>편집 창에 복사본을 띄운다. 목록 줄을 그대로 묶으면 취소해도 화면에 바뀐 값이 남는다.</summary>
     private void StartEdit(WbsItemDto w)
     {
         _form = Copy(w);
@@ -1014,27 +830,11 @@ public partial class ProjectScheduler
         _editing = true;
     }
 
-    /// <summary>
-    /// 새 줄에 붙일 구분. <b>딱 하나만 고른 상태일 때만</b> 그것을 따른다 —
-    /// 여럿을 고른 채로 등록하면 어느 것에 넣어야 할지 알 수 없고, 임의로
-    /// 첫 번째를 집으면 <b>고른 적 없는 구분으로 조용히 들어간다</b>(머리말).
-    /// </summary>
+    /// <summary>새 줄에 붙일 구분. 하나만 고른 때만 따른다 — 여럿이면 어디에 넣을지 알 수 없고, 임의로 첫째를 집으면 고른 적 없는 구분에 조용히 들어간다.</summary>
     private string NewKind =>
         _scheduleTypes.Count == 1 ? _scheduleTypes[0] : DefaultKind;
 
-    /// <summary>
-    /// 완료 표시를 값으로 옮긴다 — 원본 `OnSubmit` 의 규칙 그대로다.
-    ///
-    /// <para>
-    /// 상태(<c>WbsState</c>)는 적는 칸이 아니다. 서버가 개발 시작·종료일로
-    /// 정하므로 여기서 바꾸는 것도 그 두 날이다.
-    /// </para>
-    ///
-    /// <para>
-    /// **표시를 끄면 개발 종료일을 지운다.** 원본은 끄기만 하고 날짜를 그대로
-    /// 둬서 상태가 완료에 눌어붙었다 — 체크를 풀어도 아무 일이 없었다.
-    /// </para>
-    /// </summary>
+    /// <summary>완료 표시를 값으로 옮긴다(원본 OnSubmit 의 규칙). 상태는 서버가 개발 시작·종료일로 정하므로 바꾸는 것은 그 두 날이다. 표시를 끄면 개발 종료일도 지운다 — 안 지우면 상태가 완료에 눌어붙는다.</summary>
     private void ApplyComplete()
     {
         var today = Today;
@@ -1120,10 +920,7 @@ public partial class ProjectScheduler
 
     // ── 주·일 보기에서 바로 옮기기·지우기 ────────────────────────
 
-    /// <summary>
-    /// 끌어 옮기거나 크기를 바꾼 것. **계획 날짜만 바뀐다** — 나머지 칸은
-    /// 읽어 둔 줄에서 그대로 가져간다(달력이 모르는 칸이 지워지지 않게).
-    /// </summary>
+    /// <summary>끌어 옮기거나 크기를 바꾼 것. 계획 날짜만 바뀌고 나머지 칸은 읽어 둔 줄에서 그대로 가져간다.</summary>
     private async Task OnUpdatingAsync(SchedulerAppointmentOperationEventArgs e)
     {
         var row = Find(e.Appointment.Id);
@@ -1147,10 +944,7 @@ public partial class ProjectScheduler
         await SearchAsync();
     }
 
-    /// <summary>
-    /// 달력에서 지운 것. **부품이 지우기 전에 막고**(<c>Cancel</c>) 먼저 묻는다 —
-    /// 「아니오」를 눌렀는데 화면에서만 사라져 있으면 지운 줄 안다.
-    /// </summary>
+    /// <summary>달력에서 지운 것. 부품이 지우기 전에 막고(Cancel) 먼저 묻는다 — 「아니오」인데 화면에서만 사라지면 안 된다.</summary>
     private async Task OnRemovingAsync(SchedulerAppointmentOperationEventArgs e)
     {
         e.Cancel = true;
@@ -1175,17 +969,13 @@ public partial class ProjectScheduler
 
     // ── 표 쪽 ────────────────────────────────────────────────────
 
-    /// <summary>
-    /// 새 일정은 <b>고른 프로젝트와 구분에 붙는다.</b> 구분을 비워 두면 어느
-    /// 화면에서도 안 보이는 줄이 된다.
-    /// </summary>
+    /// <summary>새 일정은 고른 프로젝트와 구분에 붙는다. 구분을 비우면 어느 화면에서도 안 보이는 줄이 된다.</summary>
     private void FillNew(WbsItemDto w)
     {
         w.PrjRid = ProjectRid;
         w.ScheduleType = NewKind;
 
-        // 고른 기간의 첫날을 기본으로 둔다 — 안 그러면 만든 줄이 지금 보고
-        // 있는 구간 밖으로 떨어져 저장 직후 목록에서 사라진다.
+        // 고른 기간의 첫날을 기본으로 둔다 — 아니면 만든 줄이 보고 있는 구간 밖으로 떨어져 저장 직후 사라진다.
         w.PlanSdt = DateOnly.FromDateTime(Range.Start);
         w.PlanEdt = w.PlanSdt;
     }
@@ -1213,11 +1003,7 @@ public partial class ProjectScheduler
 
     private static DateOnly Day(DateTime value) => DateOnly.FromDateTime(value);
 
-    /// <summary>
-    /// 약속의 <b>마지막 날</b>. 끝이 자정이면 그 앞날이다 — 종일 일정의 끝을
-    /// 여는 구간(다음 날 0시)으로 주는 자리가 있어서, 그대로 받으면 하루가
-    /// 늘어난다.
-    /// </summary>
+    /// <summary>약속의 마지막 날. 끝이 자정이면 그 앞날이다 — 자정을 그대로 받으면 하루가 늘어난다.</summary>
     private static DateOnly LastDay(DxSchedulerAppointmentItem appointment)
     {
         var end = appointment.End;
@@ -1269,17 +1055,13 @@ public partial class ProjectScheduler
         public string LabelId { get; set; } = "READY";
     }
 
-    /// <summary>
-    /// 격자의 한 칸.
-    /// </summary>
+    /// <summary>격자의 한 칸.</summary>
     /// <param name="Date">그 날</param>
     /// <param name="InMonth">보고 있는 달의 날인가 — 아니면 흐리게 그린다</param>
     /// <param name="Items">그 날에 걸치는 일정. <b>걸치기만 해도 들어간다</b></param>
     private sealed record CalDay(DateOnly Date, bool InMonth, IReadOnlyList<WbsItemDto> Items);
 
-    /// <summary>
-    /// 한 주 안에 놓인 막대 하나.
-    /// </summary>
+    /// <summary>주 안에 놓인 막대 하나.</summary>
     /// <param name="Item">그 일정</param>
     /// <param name="Col">이 주의 몇째 칸에서 시작하나 (0=일요일)</param>
     /// <param name="Span">몇 칸을 가로지르나</param>

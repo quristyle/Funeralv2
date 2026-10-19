@@ -4,35 +4,8 @@ using ProjMngServer.Models;
 
 namespace ProjMngServer.Services;
 
-/// <summary>
-/// 시스템 질의 관리. 옛 <c>sp_devsqlresp_base_exec</c> 를 대신하고,
-/// <b>그 프로시저가 다루지 못하던 표 하나를 함께 연다.</b>
-///
-/// <para>
-/// 이 표 둘이 개발 도구 화면의 바닥이다 — 테이블 관리 · 쿼리 테스터 ·
-/// DB 도구가 「테이블 목록」 · 「프로시저 목록」을 물을 때 서버가 여기서
-/// SQL 을 꺼내 쓴다(<c>ConstInfo.dbVsqlResp</c>).
-/// </para>
-///
-/// <para>[옛 프로시저에서 고친 것]</para>
-/// <list type="number">
-///   <item>
-///     <b>삭제가 아무 일도 안 했다.</b> 프로시저에 <c>delete</c> 갈래가 없어,
-///     화면의 「삭제」는 목록만 다시 읽고 끝났다. <b>오류도 안 났다</b> —
-///     지운 줄이 그대로 남아 있는 것을 사람이 눈으로 봐야 알 수 있었다.
-///   </item>
-///   <item>
-///     <b>실제 SQL 을 담은 표(<c>devsqlresp</c>, 48줄)를 아무 화면도 못
-///     열었다.</b> 프로시저가 이름표(<c>devsqlresp_base</c>)만 다뤘기 때문이다.
-///     DB 종류를 하나 늘리거나 질의를 고치려면 DB 를 직접 만져야 했다.
-///   </item>
-///   <item>
-///     이름표를 지울 때 <b>딸린 질의를 확인한다.</b> 표에 외래키가 없어 DB 가
-///     막아 주지 않고, 그냥 지우면 이름표 없는 질의가 남아 어느 화면에서도
-///     안 보인다.
-///   </item>
-/// </list>
-/// </summary>
+/// <summary>시스템 질의 관리(이름표와 DB 종류별 질의).</summary>
+/// 이름표를 지울 때 딸린 질의가 있으면 막는다 — 표에 외래키가 없어 DB 가 막아 주지 않는다.
 public sealed class DbLogicService(IConfiguration configuration) {
 
   private readonly string _connectionString =
@@ -58,15 +31,8 @@ public sealed class DbLogicService(IConfiguration configuration) {
     return [.. rows];
   }
 
-  /// <summary>
-  /// 이름표를 넣거나 고친다. <b>이름이 곧 열쇠</b>라 같은 이름이 있으면 고친다 —
-  /// 옛 프로시저와 같다.
-  /// </summary>
-  /// <remarks>
-  /// <c>ON CONFLICT</c> 를 쓰지 않는다. 이 표에는 <b>제약이 하나도 없어서</b>
-  /// (기본키도 유일 색인도 없다) 걸 자리가 없다. 있으면 그쪽이 맞고, 없는
-  /// 지금은 프로시저가 하던 대로 세어 보고 가른다.
-  /// </remarks>
+  /// <summary>이름표를 넣거나 고친다. 이름이 곧 열쇠라 같은 이름이 있으면 갈린다.</summary>
+  /// 이 표에는 제약이 없어 ON CONFLICT 를 쓸 수 없으므로 세어 보고 가른다.
   public async Task<DbLogicBase?> SaveAsync(DbLogicBase item, CancellationToken ct = default) {
     await using var db = new NpgsqlConnection(_connectionString);
 
@@ -87,9 +53,7 @@ public sealed class DbLogicService(IConfiguration configuration) {
     return (await ListAsync(item.DslCd, ct)).FirstOrDefault();
   }
 
-  /// <summary>
-  /// 이름표를 지운다. <b>딸린 질의가 있으면 막는다</b>(머리말 3).
-  /// </summary>
+  /// <summary>이름표를 지운다. <b>딸린 질의가 있으면 막는다</b>(머리말 3).</summary>
   /// <returns>지웠으면 <c>null</c>, 못 지웠으면 그 이유.</returns>
   public async Task<string?> DeleteAsync(string dslCd, CancellationToken ct = default) {
     await using var db = new NpgsqlConnection(_connectionString);

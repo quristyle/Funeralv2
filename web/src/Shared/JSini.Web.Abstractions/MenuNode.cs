@@ -1,62 +1,21 @@
 namespace JSini.Web.Abstractions;
 
-/// <summary>
-/// 사이드바에 그릴 메뉴 한 칸. <c>/auth/menu/all</c> 응답
-/// (<c>scom.system_menus</c>)을 그대로 옮긴 것이다.
-///
-/// Vue 의 <c>MenuRecordRaw</c> 와 달리 라우트 정보(<c>component</c>)를 담지 않는다.
-/// 라우트는 모듈의 <c>@page</c> 가 소유하고, 여기 있는 <see cref="Path"/> 는
-/// 그 라우트를 <b>가리키는 열쇠</b>일 뿐이다. 권한 판정도 이 경로로 한다.
-/// </summary>
+/// <summary>사이드바에 그릴 메뉴 한 칸(<c>/auth/menu/all</c> 의 scom.system_menus). 라우트 정보는 모듈의 @page 가 가졌고, Path 는 그 라우트를 가리키는 열쇠이자 권한 판정의 열쇠다.</summary>
 public sealed record MenuNode
 {
-    /// <summary>
-    /// 라우트 경로 (<c>/funeral/status</c>). 모듈의 <c>@page</c> 와 같아야 한다.
-    /// 권한표(<c>canView</c>)와 즐겨찾기가 모두 이 값을 열쇠로 쓴다.
-    /// </summary>
+    /// <summary>라우트 경로. 모듈의 @page 와 같아야 한다. 권한표와 즐겨찾기가 이 값을 열쇠로 쓴다.</summary>
     public required string Path { get; init; }
 
-    /// <summary>
-    /// 이 메뉴가 가리키는 화면의 열쇠 (<c>funeral.room-status</c>).
-    /// DB <c>scom.system_menus.route_key</c> 값이다.
-    ///
-    /// <b>링크 주소는 이 값에서 나온다.</b> <see cref="Path"/> 가 아니다 —
-    /// 그쪽은 권한표와 즐겨찾기의 열쇠라 함부로 못 바꾸는 값이고, 그래서 옛
-    /// Vue 경로가 그대로 남아 있다(<c>RouteKeyAttribute</c> 머리말).
-    ///
-    /// 아직 채우지 않은 메뉴는 <c>null</c> 이고, 그때는 <c>RouteAliases</c> 가
-    /// <see cref="Path"/> 를 옮기는 옛 길로 떨어진다.
-    /// </summary>
+    /// <summary>화면 열쇠(<c>funeral.room-status</c>). 링크 주소는 이 값에서 나온다. 비어 있으면 RouteAliases 가 Path 를 옮기는 옛 길로 떨어진다.</summary>
     public string? RouteKey { get; init; }
 
-    /// <summary>
-    /// 사이드바가 실제로 거는 링크 주소.
-    ///
-    /// **<see cref="Path"/> 와 갈라 둔 이유가 있다.** 둘은 이행이 끝날 때까지
-    /// 다를 수 있다 — DB 의 <c>path</c> 는 Vue 시절 경로(<c>/room_status</c>)
-    /// 인데 Blazor 라우트는 업무 접두사가 붙은 <c>/funeral/room-status</c> 다.
-    ///
-    /// 그 차이를 <see cref="Path"/> 쪽에서 흡수하면 안 된다. 권한표와
-    /// 즐겨찾기가 그 값을 열쇠로 쓰기 때문에, 바꾸는 순간 <b>권한이 없는데
-    /// 메뉴가 보이는</b> 쪽으로 틀린다. 그래서 링크만 옮긴다.
-    ///
-    /// 비워 두면 <see cref="Path"/> 를 쓴다.
-    /// </summary>
+    /// <summary>사이드바가 실제로 거는 링크 주소. Path 와 다를 수 있다. 권한표와 즐겨찾기가 Path 를 열쇠로 쓰므로 Path 를 바꾸면 권한이 틀어진다. 링크만 옮긴다. 비우면 Path.</summary>
     public string? Href { get; init; }
 
     /// <summary>사이드바가 걸 주소. <see cref="Href"/> 가 있으면 그것, 없으면 <see cref="Path"/>.</summary>
     public string LinkTarget => string.IsNullOrEmpty(Href) ? Path : Href;
 
-    /// <summary>
-    /// 트리가 링크로 걸 주소. <b>묶음은 <c>null</c> 이다.</b>
-    ///
-    /// 묶음(CATALOG)에 주소를 주면 눌렀을 때 펼치는 대신 어딘가로 가 버린다.
-    /// 그런데 묶음에는 화면이 없으므로 "준비 중" 안내가 뜨고, 사용자는 메뉴가
-    /// 고장 난 줄 안다. <c>null</c> 이면 DevExpress 트리가 펼침만 한다.
-    ///
-    /// <c>DxTreeViewDataMapping.NavigateUrl</c> 이 이 이름을 리플렉션으로 찾으므로
-    /// 이름을 바꾸면 사이드바 링크가 통째로 죽는다.
-    /// </summary>
+    /// <summary>트리가 링크로 거는 주소. 묶음은 null 이다(주소를 주면 눌렀을 때 준비 중 화면으로 간다). DxTreeViewDataMapping.NavigateUrl 이 이 이름을 리플렉션으로 찾으므로 이름을 바꾸면 링크가 죽는다.</summary>
     public string? NavigateUrl => IsCatalog ? null : LinkTarget;
 
     /// <summary>사이드바에 보이는 이름.</summary>
@@ -65,25 +24,10 @@ public sealed record MenuNode
     /// <summary>아이콘 이름. 없으면 기본 아이콘.</summary>
     public string? Icon { get; init; }
 
-    /// <summary>
-    /// 자기 화면이 없는 묶음인가 (<c>type = 'CATALOG'</c>).
-    ///
-    /// 자식이 있다고 다 묶음이 아니다 — <c>/funeral/status</c>(현황관리)는 자식이
-    /// 다섯인 <b>화면 있는 메뉴</b>다. 이걸 묶음으로 다루면 자식이 모두 걸러졌을 때
-    /// 자기 열람 권한이 있는데도 함께 사라지고, 그 위 묶음까지 빈 묶음이 되어
-    /// 사이드바가 통째로 비어 버린다. Vue 에서 겪은 문제라 컬럼을 그대로 들고 온다.
-    /// </summary>
+    /// <summary>자기 화면이 없는 묶음(<c>type = 'CATALOG'</c>). 자식이 있다고 다 묶음이 아니다. 화면이 있는 메뉴를 묶음으로 다루면 자식이 걸러질 때 자기 권한이 있어도 같이 사라진다.</summary>
     public bool IsCatalog { get; init; }
 
-    /// <summary>
-    /// 바깥 화면을 끼워 넣는 메뉴인가 (<c>type = 'EMBEDDED'</c>).
-    ///
-    /// <para>
-    /// 이런 메뉴는 <b>가리킬 화면을 고르지 않는다.</b> 공용 화면 하나가 전부
-    /// 받고, 무엇을 띄울지는 <see cref="IframeSrc"/> 가 정한다. 그래서
-    /// <see cref="RouteKey"/> 가 비어 있어도 정상이고, 남아 있어도 읽지 않는다.
-    /// </para>
-    /// </summary>
+    /// <summary>바깥 화면을 끼워 넣는 메뉴(<c>type = 'EMBEDDED'</c>). 가리킬 화면은 공용 화면이 받고 무엇을 띄울지는 IframeSrc 가 정한다. RouteKey 는 비어 있어도 정상이다.</summary>
     public bool IsEmbedded { get; init; }
 
     /// <summary>휴대폰에서 이 메뉴를 목록에 넣는가 (<c>use_mobile</c>).</summary>
@@ -98,23 +42,7 @@ public sealed record MenuNode
     /// <summary>외부 링크. 있으면 앱 안의 화면이 아니라 새 창으로 연다.</summary>
     public string? Link { get; init; }
 
-    /// <summary>
-    /// iframe 으로 띄울 바깥 주소 (<c>scom.system_menus.iframe_src</c>,
-    /// 유형 <c>EMBEDDED</c>).
-    ///
-    /// <para>
-    /// <see cref="Link"/> 와 다르다. 저것은 <b>새 창으로 나가는</b> 주소고
-    /// 이것은 <b>화면 안에 끼워 넣는</b> 주소다. 한 칸으로 뭉개면 「새 창으로
-    /// 열리는데 왜 안 끼워지지」가 된다 — vben 이 둘을 가른 이유가 그것이다.
-    /// </para>
-    ///
-    /// <para>
-    /// 여기까지 나르는 이유는 <b>화면이 주소를 박아 두지 않게</b> 하려는 것이다.
-    /// 세 화면(서버 모니터 · 장례 프레임 모니터 · JIN 보안)이 저마다
-    /// <c>const string Target</c> 에 같은 값을 적어 두고 있었는데, DB 에는
-    /// 그 값이 이미 있었다. 주소가 바뀌면 배포를 해야 했다.
-    /// </para>
-    /// </summary>
+    /// <summary>iframe 으로 띄울 바깥 주소(EMBEDDED). Link 는 새 창으로 나가는 주소라 다르다. 화면이 주소를 박아 두지 않으려고 DB 값을 그대로 나른다.</summary>
     public string? IframeSrc { get; init; }
 
     /// <summary>같은 부모 안에서의 정렬 순서 (<c>order_no</c>).</summary>

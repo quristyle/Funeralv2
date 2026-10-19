@@ -1,28 +1,10 @@
 namespace CargoTrustServer.Toll;
 
-// 계약은 docs/cargotrust/06-toll-night-discount.md 다.
-//
-// [시각 칸은 KST 벽시계다 — 이 서비스에서 유일한 예외다]
-//
-// 다른 곳은 전부 UTC(DateTimeOffset)로 주고받는다. 여기만 오프셋 없는 DateTime 이고
-// 「한국 시각 몇 시」라는 뜻이다. 까닭은 이 업무의 입력이 **본래 한국의 벽시계**이기
-// 때문이다 — 기사가 아는 것은 「아홉 시 반에 진입」이지 어떤 순간이 아니다.
-//
-// 오프셋을 붙여 받으면 길이 둘로 갈린다. 포털 프론트는 컨테이너 시계가 UTC 인
-// 서버 안에서 돌아서(TZ=Etc/UTC) 「지역 시각」이 UTC 다. 거기서 만든 DateTime 에
-// 오프셋을 붙이면 아홉 시간이 어긋나고, 그 어긋남은 **할인율이 한 띠 밀리는**
-// 모습으로만 드러난다. 그래서 들어올 때부터 KST 로 못 박고, 저장(toll_calc_log)과
-// 응답의 `...Utc` 칸에서만 UTC 로 바꾼다.
+// 계약은 docs/cargotrust/06-toll-night-discount.md 다. 시각 칸은 KST 벽시계다(이 서비스의 유일한 예외).
+// 오프셋을 붙여 받으면 UTC 서버의 지역 시각이 아홉 시간 어긋나 할인율이 한 띠 밀린다 — 들어올 때 KST 로 못 박고, 저장과 ...Utc 칸에서만 UTC 로 바꾼다.
 
 /// <summary>
-/// 정방향 — 시각 둘로 할인율을 낸다.
-///
-/// <para>
-/// <c>SectionType</c> 은 <c>CLOSED</c>(기본) · <c>OPEN</c>.
-/// <c>EntryAt</c> 은 진입 시각(KST)이고 개방식에서는 통과 시각이다.
-/// <c>ExitAt</c> 은 진출 시각(KST) — 개방식에서는 쓰지 않는다.
-/// <c>Save</c> 가 참이면 계산 이력에 남긴다.
-/// </para>
+/// 정방향 — 시각 둘로 할인율을 낸다. EntryAt 은 진입(개방식은 통과) KST, ExitAt 은 진출 KST(개방식은 안 씀). Save 가 참이면 이력에 남긴다.
 /// </summary>
 public record TollCalcRequest(
     string? SectionType,
@@ -37,12 +19,7 @@ public record TollCalcRequest(
 public record TollNightSegment(DateTime FromKst, DateTime ToKst);
 
 /// <summary>
-/// 정방향 결과.
-///
-/// <para>
-/// <c>DelayExitMinutes</c> 는 「진출을 이만큼 늦추면 다음 띠」, <c>DelayEntryMinutes</c> 는
-/// 「진입을 이만큼 늦춰도 다음 띠」다. 그 길이 없으면 각각 null 이다.
-/// </para>
+/// 정방향 결과. DelayExitMinutes 는 진출을 이만큼 늦추면 다음 띠, DelayEntryMinutes 는 진입을 늦춰도 다음 띠다. 길이 없으면 null.
 /// </summary>
 public record TollCalcResult(
     string SectionType,
@@ -68,17 +45,7 @@ public record TollCalcResult(
     string Summary);
 
 /// <summary>
-/// 역방향 — 한쪽 시각과 목표 할인율로 나머지 한쪽을 추천한다.
-///
-/// <para>
-/// <c>Anchor</c> 는 <c>ENTRY</c>(진입이 정해짐, 기본) 또는 <c>EXIT</c>(진출이 정해짐).
-/// </para>
-///
-/// <para>
-/// <c>MinDurationMinutes</c> 는 실제로 걸리는 최소 주행시간이다.
-/// <b>이것이 없으면 역산이 성립하지 않는다</b> — 비율의 분모가 소요시간이라,
-/// 제한이 없으면 「1분 만에 나가면 100%」가 답이 된다.
-/// </para>
+/// 역방향 — 한쪽 시각과 목표 할인율로 나머지를 추천한다. MinDurationMinutes 가 없으면 「1분 만에 나가면 100%」가 답이 되므로 반드시 받는다.
 /// </summary>
 public record TollSuggestRequest(
     string? SectionType,
@@ -91,12 +58,7 @@ public record TollSuggestRequest(
     bool Save = false);
 
 /// <summary>
-/// 추천 하나 — 「이 사이면 된다」와 그때의 결과.
-///
-/// <para>
-/// <c>BestKst</c> 는 권장 시각(가장 짧게 끝나는 쪽)이고,
-/// <c>PairedEntryKst</c> · <c>PairedExitKst</c> 는 그때의 진입·진출이다.
-/// </para>
+/// 추천 하나 — 「이 사이면 된다」. BestKst 는 가장 짧게 끝나는 권장 시각, PairedEntryKst·PairedExitKst 는 그때의 진입·진출이다.
 /// </summary>
 public record TollSuggestOption(
     DateTime FromKst,
@@ -110,13 +72,7 @@ public record TollSuggestOption(
     decimal DiscountPercent);
 
 /// <summary>
-/// 역방향 결과.
-///
-/// <para>
-/// <c>RequiredRatio</c> 는 그 할인율을 받으려면 야간 비율이 얼마 이상이어야 하는가,
-/// <c>Reachable</c> 은 주어진 소요시간 범위 안에서 목표에 닿을 수 있는가,
-/// <c>BestRatio</c> 는 닿지 못할 때 「그러면 얼마까지 되는가」다.
-/// </para>
+/// 역방향 결과. RequiredRatio 는 그 할인율의 필요 야간 비율, Reachable 은 소요 범위 안에서 닿는지, BestRatio 는 못 닿을 때 얼마까지 되는지다.
 /// </summary>
 public record TollSuggestResult(
     string SectionType,
@@ -143,13 +99,7 @@ public record TollSuggestResult(
 public record TollBandDto(decimal MinRatio, decimal? MaxRatioExclusive, decimal DiscountPercent, string Label);
 
 /// <summary>
-/// 지금 쓰는 규칙. 화면이 「무엇을 기준으로 셌는지」를 적어 두려고 받는다.
-///
-/// <para>
-/// 야간창은 <b>글자와 값 둘 다</b> 싣는다 — <c>…WindowLabel</c> 은 사람에게 보여 줄
-/// 한 줄이고, <c>…NightStart</c>·<c>…NightEnd</c>(<c>"21:00"</c> 꼴)는 화면이 셈에 쓴다.
-/// 글자에서 시각을 뽑아 쓰면 글자를 다듬는 날 조용히 깨진다.
-/// </para>
+/// 지금 쓰는 규칙. 야간창은 글자(…WindowLabel)와 값(…NightStart·…NightEnd)을 둘 다 싣는다 — 셈은 값으로 하고, 글자에서 시각을 뽑으면 글자를 다듬는 날 깨진다.
 /// </summary>
 public record TollRulesDto(
     string Code,
@@ -206,14 +156,7 @@ public record TollCalcLogDto(
     DateTimeOffset CreatedAt);
 
 /// <summary>
-/// 구간 하나의 통행료.
-///
-/// <para>
-/// <c>NormalFare</c> 는 고른 차종의 정상요금, <c>DiscountedFare</c> 는 거기에
-/// 우리가 센 심야할인율을 먹인 값이다. <b>할인액을 바깥에서 받아 오지 않는다</b> —
-/// 응답의 시간대별 할인요금 칸은 0 으로 오고, 비율로 할인율을 정하는 곳은
-/// 한 군데여야 한다.
-/// </para>
+/// 구간 하나의 통행료. DiscountedFare 는 정상요금에 우리가 센 할인율을 먹인 값이다 — 할인액은 바깥에서 받지 않는다(응답의 odn*Dc 칸은 0).
 /// </summary>
 public record TollFareDto(
     string FromCode,

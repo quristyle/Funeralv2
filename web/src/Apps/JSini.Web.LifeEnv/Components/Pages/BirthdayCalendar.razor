@@ -2,18 +2,7 @@
 @attribute [RouteKey("life.birthday.calendar")]
 
 @*
-    [월별 생일자 캘린더]
-
-    이력: Vue `views/life/birthday/calendar.vue` → 여기.
-    API: `auth/birthday/calendar` · `auth/birthday/stats`
-
-    한동안 이 화면은 하드코딩한 자료를 보여 주고 있었다. 실제 API 에 붙였다.
-
-    [FullCalendar 응답을 스케줄러로 옮겨 담는다]
-
-    서버 응답이 FullCalendar 모양인 것은 Vue 화면이 그 라이브러리를 썼기
-    때문이다. **백엔드를 건드리지 않는다** — 이행하는 동안 백엔드는 그대로 두는
-    것이 이 저장소의 규칙이고, 옮겨 담는 코드는 이 화면 한 곳이면 된다.
+    월별 생일자 캘린더(API: auth/birthday/calendar · stats). 응답은 FullCalendar 모양이라 이 화면에서 스케줄러 모양으로 옮겨 담는다 — 백엔드는 건드리지 않는다.
 *@
 
 @inherits DataPage

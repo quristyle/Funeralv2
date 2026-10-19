@@ -3,35 +3,7 @@ using ProjMngServer.Models;
 
 namespace ProjMngServer.Services;
 
-/// <summary>
-/// 인터페이스 첨부. <b>표를 만들지 않고 파일 이름에 메타를 담는다.</b>
-/// </summary>
-/// <remarks>
-/// <para>
-/// <c>data/if_files/{프로젝트}/{인터페이스}/{파일번호}__{원래 이름}</c> 한 줄이
-/// 저장소의 전부다. 목록은 디렉터리를 읽어 만든다. 올린 사람·설명까지 남기려면
-/// 표가 필요하지만, 지금 화면이 보여 주는 것은 이름·크기·시각 셋뿐이다.
-/// </para>
-///
-/// <para>
-/// [내려받기를 정적 서비스에 맡기지 않는다]
-/// </para>
-///
-/// <para>
-/// 무엇이 올라오든 <b>늘 첨부로</b> 내려 준다. 정적 경로로 열어 두면 올라온
-/// HTML 이 우리 출처에서 실행된다.
-/// </para>
-///
-/// <para>
-/// [개발 장비에 올린 것은 운영에 없다]
-/// </para>
-///
-/// <para>
-/// 바이트가 그 장비의 파일 시스템에 있고 DB 에는 흔적이 없다. 저장소 전체가
-/// 그런 상태이므로(루트 CLAUDE.md) 새로 생기는 함정은 아니지만, 첨부가 보이지
-/// 않는다는 신고가 오면 <b>여기부터 본다.</b>
-/// </para>
-/// </remarks>
+/// <summary>인터페이스 첨부. 표를 만들지 않고 파일 이름에 메타를 담는다 — 저장소는 <c>data/if_files/{프로젝트}/{인터페이스}/{파일번호}__{원래 이름}</c> 한 줄이고, 목록은 디렉터리를 읽어 만든다.</summary>
 public sealed class InterfaceFileService(IWebHostEnvironment env)
 {
     /// <summary>파일 하나의 최대 크기.</summary>
@@ -48,10 +20,7 @@ public sealed class InterfaceFileService(IWebHostEnvironment env)
     private string DirOf(int prjRid, int ifId) =>
         Path.Combine(Root, prjRid.ToString(), ifId.ToString());
 
-    /// <summary>
-    /// 경로 조작과 제어문자를 막고 길이를 줄인다. <b>확장자는 그대로 둔다</b> —
-    /// 내려받은 사람이 무엇인지 알아야 한다.
-    /// </summary>
+    /// <summary>경로 조작과 제어문자를 막고 길이를 줄인다. 확장자는 그대로 둔다 — 내려받은 사람이 무엇인지 알아야 한다.</summary>
     private static string SafeName(string? name)
     {
         var n = Path.GetFileName(name ?? "").Trim();

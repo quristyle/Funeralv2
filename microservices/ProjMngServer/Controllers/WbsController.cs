@@ -5,9 +5,7 @@ using ProjMngServer.Services;
 
 namespace ProjMngServer.Controllers;
 
-/// <summary>
-/// WBS · 일정표. 옛 <c>sp_proj_wbs_exec</c> · <c>sp_proj_wbs_moniter</c> 를 대신한다.
-/// </summary>
+/// <summary>WBS · 일정표.</summary>
 [ApiController]
 [Route("api/wbs")]
 public sealed class WbsController(WbsService service) : ControllerBase {
@@ -20,16 +18,7 @@ public sealed class WbsController(WbsService service) : ControllerBase {
     }
   }
 
-  /// <summary>
-  /// 목록.
-  ///
-  /// <para>
-  /// <c>scheduleType</c> 은 <b>여러 번 실어도 된다</b> —
-  /// <c>?scheduleType=WBS&amp;scheduleType=Public</c> 이면 둘 다 낸다.
-  /// 일정표 화면이 구분을 체크로 여럿 고른다. 한 번만 실은 옛 호출은
-  /// 그대로 한 칸짜리 배열로 들어오므로 <b>바뀌는 것이 없다.</b>
-  /// </para>
-  /// </summary>
+  /// <summary>목록. <c>scheduleType</c> 은 여러 번 실어도 된다 — 체크로 여럿 고른 구분을 그대로 받는다. 한 번만 실은 옛 호출도 한 칸짜리 배열로 들어온다.</summary>
   [HttpGet]
   public async Task<ActionResult<ApiResponse<IReadOnlyList<WbsItem>>>> List(
       [FromQuery] int? prjRid, [FromQuery] string? compStat, [FromQuery] string[]? scheduleType,

@@ -2,35 +2,8 @@
 @attribute [RouteKey("helpdesk.report.root-cause")]
 
 @*
-    [원인 분석] — DB 메뉴 `/helpdesk/report/root-cause`.
-    이력: Vue `views/helpdesk/report/root-cause` → 여기.
-    엔드포인트: `requests/report/collaboration`
-
-    **서버가 준 대로 보여 주는 화면이다**(AutoGrid). 칸을 손으로 적지 않은
-    이유는 그 부품의 주석에 있다 — 요약하면, 이런 화면이 마흔 개고 백엔드가
-    칸을 더할 때마다 화면을 고치러 가는 것이 이득이 아니기 때문이다.
-
-    매일 들여다보는 화면이 되면 그때 칸을 손으로 적는다.
-
-    [보고서는 서버가 집계한 것을 그대로 본다]
-
-    화면에서 다시 세지 않는다. 세면 같은 숫자를 두 곳에서 계산하게 되고,
-    반드시 어긋난다 — 기간 경계를 어떻게 잡느냐가 늘 다르기 때문이다.
-
-    [응답이 배열이 아니라 객체다 — 표가 늘 비어 있었다]
-
-    `report/collaboration` 은 협업 지표와 우수 협업 사용자 다섯
-    (`topEngagedUsers`)을 담은 <b>객체 하나</b>를 준다. `JsonTable.From` 은
-    배열만 표로 옮기므로 이 화면의 표는 지금까지 한 줄도 나온 적이 없다.
-    그 객체 안의 `topEngagedUsers` 를 아래 차트가 그린다 — 표는 이 화면을
-    손볼 때(칸을 손으로 적을 때) 함께 정리한다.
-
-    [차트 — D3 결정 반영]
-
-    옛 화면은 한주 OADR 의 메모리 배분을 도넛(echarts)으로 그리던 화면이라
-    D3 결정 대상이다. 이관하면서 자료가 협업 보고서로 바뀌었지만 종류는 옛
-    그대로 **도넛**이다 — 우수 협업 사용자 다섯의 기여 점수(`total` =
-    댓글 + 확정×2, 가중치는 서버가 정한다) 구성을 그린다.
+    [원인 분석] — DB 메뉴 `/helpdesk/report/root-cause`. 엔드포인트 `requests/report/collaboration`
+    응답이 객체 하나라 표는 빈다 — 우수 협업 사용자 다섯(topEngagedUsers)의 기여 점수 구성을 도넛으로 그린다. total = 댓글 + 확정×2 (가중치는 서버가 정한다).
 *@
 
 @inherits DataPage

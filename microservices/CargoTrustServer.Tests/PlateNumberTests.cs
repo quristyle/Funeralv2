@@ -5,18 +5,7 @@ using Xunit;
 namespace CargoTrustServer.Tests;
 
 /// <summary>
-/// 번호판 해석.
-///
-/// <para>
-/// 바깥 API 를 안 쓰기로 한 자리라, 여기가 틀리면 <b>차종과 사업용 여부가
-/// 조용히 틀린 채로</b> 차량에 찍힌다. 그리고 그 둘은 심야할인 대상 자격의
-/// 핵심이라 「왜 할인이 안 되지」로만 드러난다.
-/// </para>
-///
-/// <para>
-/// 못 읽는 번호판을 억지로 판정하지 않는 것도 여기서 못 박는다 —
-/// 틀리게 단정하는 것보다 모른다고 두는 편이 낫다.
-/// </para>
+/// 번호판 해석. 바깥 API 를 안 쓰므로 여기가 틀리면 차종·사업용 여부가 조용히 틀린다. 못 읽는 번호판을 억지로 판정하지 않는 것도 여기서 못 박는다.
 /// </summary>
 public class PlateNumberTests
 {
@@ -99,8 +88,7 @@ public class PlateNumberTests
     [Fact]
     public void 자가용_화물차도_있다()
     {
-        // 앞자리는 화물인데 한글이 자가용이다. 둘을 따로 읽어야 이것이 잡힌다 —
-        // 「화물차니까 사업용」으로 뭉치면 대상이 아닌 차가 대상이 된다.
+        // 앞자리는 화물, 한글은 자가용이다. 둘을 따로 읽어야 잡힌다 — 「화물차니까 사업용」으로 뭉치면 대상이 아닌 차가 대상이 된다.
         var r = PlateNumber.Read("80가1234");
 
         Assert.True(r.IsFreight);
@@ -123,8 +111,7 @@ public class PlateNumberTests
         var r = PlateNumber.Read(raw);
 
         Assert.True(r.Unreadable || r.Kind == VehicleKind.UNKNOWN);
-        // **단정하지 않는다.** 모를 때 false 로 두면 「사업용이 아니다」가 되어
-        // 멀쩡한 차가 대상에서 빠진다.
+        // 모를 때 false 로 두면 「사업용이 아니다」가 되어 멀쩡한 차가 대상에서 빠지므로 단정하지 않는다.
         if (r.Unreadable)
         {
             Assert.Null(r.IsBusiness);

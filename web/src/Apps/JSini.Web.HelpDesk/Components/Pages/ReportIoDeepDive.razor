@@ -2,29 +2,8 @@
 @attribute [RouteKey("helpdesk.report.io-deep-dive")]
 
 @*
-    [IO 심층 분석] — DB 메뉴 `/helpdesk/report/io-deep-dive`.
-    이력: Vue `views/helpdesk/report/io-deep-dive` → 여기.
-    엔드포인트: `requests/report/emergency`
-
-    **서버가 준 대로 보여 주는 화면이다**(AutoGrid). 칸을 손으로 적지 않은
-    이유는 그 부품의 주석에 있다 — 요약하면, 이런 화면이 마흔 개고 백엔드가
-    칸을 더할 때마다 화면을 고치러 가는 것이 이득이 아니기 때문이다.
-
-    매일 들여다보는 화면이 되면 그때 칸을 손으로 적는다.
-
-    [보고서는 서버가 집계한 것을 그대로 본다]
-
-    화면에서 다시 세지 않는다. 세면 같은 숫자를 두 곳에서 계산하게 되고,
-    반드시 어긋난다 — 기간 경계를 어떻게 잡느냐가 늘 다르기 때문이다.
-
-    [차트 — D3 결정 반영]
-
-    옛 화면은 한주 OADR 의 3시간 I/O 지연 추이를 선 넉 줄(echarts)로 그리던
-    화면이라 D3 결정 대상이다. 다만 이관하면서 자료가 **진행 중인 긴급 건
-    목록**(id·title·status·time)으로 바뀌었고, 시계열이 아니라서 옛 종류(선)
-    를 그릴 수 없다 — 상태별 <b>막대</b>로 대신한다. 재료는 표와 같은
-    응답이고 따로 부르지 않는다. 이름표에 있던 `companyName`·`count`·
-    `avgHours` 는 서버가 주지 않는 칸이라 실제 응답 칸으로 바로잡았다.
+    [IO 심층 분석] — DB 메뉴 `/helpdesk/report/io-deep-dive`. 엔드포인트 `requests/report/emergency`
+    응답은 진행 중 긴급 건 목록이라 시계열이 아니다 — 상태별 막대로 그린다. companyName·count·avgHours 는 서버가 주지 않는다.
 *@
 
 @inherits DataPage

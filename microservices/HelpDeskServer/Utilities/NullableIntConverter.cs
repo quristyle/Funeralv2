@@ -5,9 +5,7 @@ using System.Text.Json.Serialization;
 
 namespace HelpDeskServer.Utilities;
 
-/// <summary>
-/// JSON 역직렬화 시 빈 문자열("")을 int? 타입의 null로 변환하는 JsonConverter.
-/// </summary>
+/// <summary>JSON 역직렬화 시 빈 문자열("")을 int? 타입의 null로 변환하는 JsonConverter.</summary>
 public class NullableIntConverter : JsonConverter<int?>
 {
     /// <inheritdoc />

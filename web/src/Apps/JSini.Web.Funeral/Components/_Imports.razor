@@ -22,8 +22,6 @@
 @using JSini.Web.Funeral.Components
 @using JSini.Web.Funeral.Components.Shared
 
-@* 이 폴더의 모든 화면은 로그인해야 볼 수 있다.
-   여기 두는 이유: 화면마다 [Authorize] 를 붙이는 방식이면 250개를 옮기는 동안
-   반드시 몇 개를 빠뜨리고, 그 화면만 조용히 공개된다.
-   공개해야 하는 화면만 [AllowAnonymous] 를 명시한다 (로그인·오류). *@
+@* 이 폴더의 화면은 모두 로그인해야 본다. [AllowAnonymous] 는 공개해야 하는 화면(로그인·오류)에만 명시한다.
+화면마다 [Authorize] 를 붙이면 옮기는 동안 몇 개를 빠뜨려 그 화면만 조용히 공개된다. *@
 @attribute [Authorize]

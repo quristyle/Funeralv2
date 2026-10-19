@@ -23,25 +23,19 @@ public partial class AiUsageList
     private string? _feature;
     private string? _keyword;
 
-    /// <summary>
-    /// 고를 수 있는 기능. <b>값은 서버가 적는 글자 그대로다</b>
-    /// (<c>AiFeature</c>) — 한 글자만 달라도 조용한 빈 목록이 된다.
-    /// </summary>
+    /// <summary>고를 수 있는 기능. 값은 서버가 적는 글자 그대로다(AiFeature) — 한 글자만 달라도 조용한 빈 목록이 된다.</summary>
     private static readonly SchOption[] FeatureOptions =
     [
         new("chat-stream", "AI쳇"),
         new("chat", "AI쳇(한 번에)"),
         new("suggest-code", "공통코드 추천"),
         new("suggest-i18n", "번역 추천"),
+        new("suggest-menu", "메뉴 자동 채우기"),
         new("summarize", "내용 요약"),
         new("translate", "로그 번역"),
     ];
 
-    /// <summary>
-    /// 거르기는 브라우저 쪽에서 한다. <b>서버에 사용자 검색 조건이 없다</b> —
-    /// 사람 수가 수십이라 전부 받아 걸러도 가볍고, 기간·기능은 이미 서버가
-    /// 좁혀 준다(그 둘은 줄이 수천이라 서버가 해야 한다).
-    /// </summary>
+    /// <summary>거르기는 브라우저 쪽에서 한다 — 서버에 사용자 검색 조건이 없고 사람 수가 수십이라 전부 받아 걸러도 가볍다. 기간·기능은 줄이 수천이라 서버가 좁힌다.</summary>
     private IReadOnlyList<AiUsageByUserDto> Shown
     {
         get
@@ -60,9 +54,7 @@ public partial class AiUsageList
     }
 
     // ── 타일 넷 ─────────────────────────────────────────────
-    //
-    // **거른 뒤의 값**을 센다(`Shown`). 사용자를 검색해 좁혀 놓고 타일만
-    // 전체를 가리키면, 보고 있는 표와 숫자가 맞지 않는다.
+    // 거른 뒤의 값을 센다 — 사용자를 검색해 좁혀 놓고 타일만 전체를 가리키면 보고 있는 표와 숫자가 맞지 않는다.
 
     private int TotalCalls => Shown.Sum(r => r.Calls);
 
@@ -72,20 +64,13 @@ public partial class AiUsageList
 
     private int PeopleCount => Shown.Count;
 
-    /// <summary>
-    /// 토큰 수를 모르는 호출 수. <b>0 이 아니면 합계가 실제보다 작다</b> —
-    /// 그 사실을 타일이 한 줄로 적는다.
-    /// </summary>
+    /// <summary>토큰 수를 모르는 호출 수. 0 이 아니면 합계가 실제보다 작다 — 타일이 그 사실을 한 줄로 적는다.</summary>
     private int UnknownTokenCalls => Shown.Sum(r => r.UnknownTokenCalls);
 
     /// <summary>타일 아래에 적을 기간. 사람이 고른 날짜 그대로다.</summary>
     private string PeriodText => SchSummary.Period(_from, _to) ?? "전체 기간";
 
-    /// <summary>
-    /// 고른 줄을 들고 있는다. <b>값과 알림을 같이 준다</b> — 알림만 받으면
-    /// 화면이 보관하지 않는다는 뜻이 되어 강조가 곧 풀린다(CommGrd 머리말).
-    /// 오른쪽 클릭 창의 「최근 호출 보기」가 이 값을 쓴다.
-    /// </summary>
+    /// <summary>고른 줄을 들고 있는다 — 값과 알림을 같이 준다. 알림만 받으면 강조가 곧 풀린다(CommGrd 머리말). 오른쪽 클릭 창의 「최근 호출 보기」가 이 값을 쓴다.</summary>
     private void OnPicked(AiUsageByUserDto? row) => _picked = row;
 
     protected override Task OnInitializedAsync() => ReloadAsync();
@@ -105,13 +90,7 @@ public partial class AiUsageList
         return ReloadAsync();
     }
 
-    /// <summary>
-    /// 그 사람의 최근 호출을 건별 사용량 상세 화면으로 연다.
-    /// </summary>
-    /// <remarks>
-    /// <b>같은 조건으로 묻는다</b> — 기간·기능을 실어 보내 상세 화면의 목록이
-    /// 표의 건수와 맞도록 한다.
-    /// </remarks>
+    /// <summary>그 사람의 최근 호출을 건별 사용량 상세 화면으로 연다. 같은 기간·기능을 실어 보내 상세 화면의 건수와 맞춘다.</summary>
     private void OpenDetail(AiUsageByUserDto row)
     {
         _picked = row;
@@ -130,22 +109,11 @@ public partial class AiUsageList
         Navigation.NavigateTo($"/admin/status/ai-usage/detail/{userIdPart}{qs}");
     }
 
-    /// <summary>
-    /// 고르개가 주는 <c>DateTime?</c> 을 날짜로 바꾼다.
-    /// </summary>
-    /// <remarks>
-    /// <b>한국 달력 날짜다.</b> 사람이 고른 것이 그것이고, 서버는 이 날짜를
-    /// 받아 하루의 경계를 잡는다 — 시각으로 보내면 자정 언저리가 어긋난다
-    /// (docs/utc-time.md 의 「달력 날짜만 한국 달력으로 센다」).
-    /// </remarks>
+    /// <summary>고르개가 주는 DateTime? 을 날짜로 바꾼다. 한국 달력 날짜다 — 서버는 이 날짜로 하루의 경계를 잡고, 시각으로 보내면 자정 언저리가 어긋난다(docs/utc-time.md).</summary>
     private static DateOnly? DateOf(DateTime? value) =>
         value is null ? null : DateOnly.FromDateTime(value.Value);
 
-    /// <summary>
-    /// 기능 코드를 사람이 읽을 이름으로. <b>모르는 코드는 그대로 보여 준다</b> —
-    /// 서버에 기능이 늘었는데 목록을 안 고친 경우가 그것이고, 빈 칸으로
-    /// 두면 그 사실이 안 보인다.
-    /// </summary>
+    /// <summary>기능 코드를 사람이 읽을 이름으로. 모르는 코드는 그대로 보여 준다 — 서버에 기능이 늘었는데 목록을 안 고친 경우이고, 빈 칸으로 두면 그 사실이 안 보인다.</summary>
     private static string FeatureText(string feature) =>
         FeatureOptions.FirstOrDefault(o => o.Value == feature)?.Text ?? feature;
 }

@@ -4,9 +4,7 @@ using System.Linq;
 
 namespace AuthServer.DTOs;
 
-/// <summary>
-/// 프론트엔드 그리드(vxe-table) 및 페이징 호환을 위한 공통 목록 래퍼 객체입니다.
-/// </summary>
+/// <summary>프론트엔드 그리드(vxe-table) 및 페이징 호환을 위한 공통 목록 래퍼 객체입니다.</summary>
 public class PagedResult<T>
 {
     [JsonPropertyName("result")]

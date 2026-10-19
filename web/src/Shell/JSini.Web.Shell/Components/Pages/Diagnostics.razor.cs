@@ -43,8 +43,7 @@ public partial class Diagnostics
                 status));
         }
 
-        // 설정에 없는데 붙어 있는 모듈. 있으면 안 되는 상태는 아니지만
-        // (누가 참조만 넣고 설정을 잊었을 수 있다) 보이지 않으면 안 된다.
+        // 설정에 없는데 붙어 있는 모듈. 상태로는 괜찮지만 보이지 않으면 안 된다(참조만 넣고 설정을 잊었을 수 있다).
         foreach (var module in Loaded)
         {
             if (!Expected.Any(e => string.Equals(e.Key, module.Key, StringComparison.OrdinalIgnoreCase)))

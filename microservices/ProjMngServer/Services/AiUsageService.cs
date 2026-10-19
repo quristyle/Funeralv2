@@ -9,18 +9,8 @@ namespace ProjMngServer.Services;
 /// <summary>
 /// 실행기가 올려 주는 AI CLI 한도를 받아 적는다 — <c>projmng.ai_usage_snapshot</c>.
 /// </summary>
-/// <remarks>
-/// <para>
-/// <b>서버가 CLI 를 부르지 않는다.</b> `/usage` 를 아는 것은 CLI 이고 그것은
-/// 실행기 장비에만 있다. 웹 요청을 받는 프로세스에 셸을 여는 권한을 두지
-/// 않는 것이 이 기능 전체의 전제다(<c>docs/ai-task-runner.md</c>).
-/// </para>
-/// <para>
-/// <b>보고가 곧 「살아 있다」는 신호다.</b> 같은 요청으로 <c>ai_runner</c> 의
-/// <c>last_seen_at</c> 을 함께 찍는다 — 그 표에는 지금껏 아무도 쓰지 않아서
-/// 「실행기가 붙어 있나」를 화면이 말할 방법이 없었다.
-/// </para>
-/// </remarks>
+/// 서버는 CLI 를 부르지 않는다 — /usage 를 아는 것은 실행기 장비뿐이다. 웹 요청을 받는 프로세스에 셸을 여는 권한을 두지 않는 것이 이 기능의 전제다(docs/ai-task-runner.md).
+/// 보고가 곧 살아 있다는 신호라 같은 요청으로 ai_runner.last_seen_at 도 찍는다.
 public sealed class AiUsageService(
     IConfiguration configuration, ILogger<AiUsageService> logger, AiUsageCache cache)
 {
@@ -192,14 +182,7 @@ public sealed class AiUsageService(
             saved++;
         }
 
-        // ③ **이번에 안 온 칸은 치운다.** CLI 가 모델군 이름을 바꾸거나
-        //    한도 종류를 하나 접으면, 옛 줄이 아무도 갱신하지 않는 채
-        //    화면에 남는다. 그 줄에는 「언제 기준」이 옛 시각으로 찍혀 있어
-        //    「오래된 값」 딱지가 붙는데, 사람은 그것을 **실행기가 멎었다**로
-        //    읽는다 — 멀쩡한 장비를 들여다보게 만드는 거짓말이다.
-        //
-        //    같은 종류를 이번에 하나라도 받았을 때만 치운다. 통째로 못 읽은
-        //    주기에 지워 버리면 마지막으로 알던 값까지 잃는다.
+        // ③ 이번에 안 온 칸은 치운다 — 지난 줄이 남으면 「실행기가 멎었다」로 읽힌다. 같은 종류를 하나라도 받았을 때만 치운다(통째로 못 읽은 주기에 지우면 마지막 값까지 잃는다).
         foreach (var (kind, buckets) in seen)
         {
             await db.ExecuteAsync("""
@@ -226,11 +209,7 @@ public sealed class AiUsageService(
     /// <summary>
     /// 퍼센트를 0~100 으로 자른다.
     /// </summary>
-    /// <remarks>
-    /// 칸이 <c>numeric(5,2)</c> 라 세 자리가 들어오면 <b>보고 전체가 끊긴다.</b>
-    /// 출력 형식이 바뀌어 엉뚱한 숫자를 주워 왔을 때 그 한 줄 때문에 장비의
-    /// 소식까지 못 받는 쪽이 더 나쁘다.
-    /// </remarks>
+    /// 칸이 numeric(5,2) 라 세 자리가 들어오면 보고 전체가 끊긴다 — 그래서 0~100 으로 자른다.
     private static decimal? Pct(decimal? value)
         => value is null ? null : Math.Clamp(value.Value, 0m, 100m);
 

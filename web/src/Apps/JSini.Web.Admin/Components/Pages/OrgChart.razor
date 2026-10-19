@@ -2,51 +2,14 @@
 @attribute [RouteKey("admin.company.org-chart")]
 
 @*
-    [조직도] — DB 메뉴 `/company/org-chart`.
-    이력: Vue `views/portal/system/company-user/org-chart` → 여기.
-
-    회사 → 부서 → 사람을 **그림 한 장**으로 보고, 끌어다 놓아 소속을 바꾼다.
-
-    ────────────────────────────────────────────────────────────
-    [읽기만 되는 화면이 아니다]
-
-    한동안 여기 있던 것은 부서를 접었다 펴는 목록이었다. 원본을 확인해 보니
-    조직도는 **보는 화면이자 고치는 화면**이다 — 부서를 만들고, 부서를 다른
-    부서 밑으로 옮기고, 사람을 부서로 옮긴다. 그 셋이 빠지면 관리자는
-    부서 관리 화면과 계정 관리 화면을 오가며 같은 일을 해야 한다.
-
-    ────────────────────────────────────────────────────────────
-    [사람을 미리 다 읽는다 — 부서 하나씩이 아니라]
-
-    「펼칠 때 그 부서만 읽기」는 목록에서나 되는 이야기다. 조직도는 한 장에
-    전부 보여 주는 그림이라 처음부터 다 있어야 한다. 대신 **고른 회사 하나**로
-    좁히고(`GetDeptsAsync(회사)`), 부서별 조회를 몇 개씩 묶어 나란히 부른다.
-    원본은 부서 수만큼 순서대로 기다렸다 — 부서가 서른이면 서른 번이다.
-
-    ────────────────────────────────────────────────────────────
-    [옮기는 길이 둘이다 — 끌기와 단추]
-
-    HTML5 끌기는 **모바일 브라우저에서 동작하지 않는다.** 그래서 노드마다
-    [이동] 단추를 두고 팝업에서 대상 부서를 고른다. 부르는 API 는 끌어다
-    놓았을 때와 같은 것이다(`MoveDeptAsync` · `MoveUserDeptAsync`) —
-    같은 일을 하는 저장 경로를 둘로 만들면 한쪽에만 규칙이 붙는다.
-
-    끌기 값은 `DataTransfer` 에 싣지 않고 **회로가 들고 있는다**(`_drag`).
-    Blazor 는 `dragstart` 에서 `dataTransfer.setData` 를 걸 수 없고, 어차피
-    끌기 시작과 놓기가 같은 회로 안에서 일어난다.
-
-    ────────────────────────────────────────────────────────────
-    [화면 이동·확대만 JS 다]
-
-    노드 배치도 연결선도 C# 이 계산한다. 브라우저로 넘긴 것은 끌어서 움직이고
-    휠로 키우는 것 하나뿐이다 — 그것을 회로로 넘기면 마우스가 움직일 때마다
-    서버를 왕복한다. 까닭은 `wwwroot/js/org-chart.js` 머리말에 있다.
+    [조직도] DB 메뉴 `/company/org-chart`. 회사 → 부서 → 사람을 그림 한 장으로 보고, 끌어다 놓거나 [이동] 단추로 소속을 바꾼다.
+    사람은 미리 다 읽는다(회사 하나로 좁혀 부서별 조회를 몇 개씩 묶어 나란히). 끌기 값은 DataTransfer 가 아니라 회로가 들고 있다. 화면 이동·확대만 JS 다.
 *@
 
 @inherits DataPage
 @implements IAsyncDisposable
 
-<PageTitle>조직도 · 포털관리</PageTitle>
+<PageTitle>조직도</PageTitle>
 
 <CommSch OnSearch="@ReloadAsync" MobileSummary="@ConditionSummary">
     <Fields>
@@ -59,8 +22,7 @@
         </CommSchItem>
 
         <CommSchItem Label="방향">
-            @* 단추 두 개로 방향을 바꾼다. DxButtonGroup 은 자식을 `Items` 로 받아
-               그냥 넣으면 열 때 500 이 난다(사람롤 화면 주석 참고). *@
+            @* 단추 두 개로 방향을 바꾼다 — DxButtonGroup 은 자식을 Items 로 받아야 해서 그냥 넣으면 열 때 500 이 난다. *@
             <div class="jsini-inline">
                 <DxButton Text="세로"
                           RenderStyle="@(_vertical ? ButtonRenderStyle.Primary : ButtonRenderStyle.Secondary)"
@@ -74,8 +36,7 @@
 
     <Actions>
         <PermissionView Action="MenuAction.Create">
-            @* 부서가 하나도 없으면 조직도에 회사 노드만 있고 그 카드의 단추는
-               찾기 어렵다. 첫 부서를 만드는 길을 위에도 둔다. *@
+            @* 부서가 하나도 없으면 회사 노드의 단추를 찾기 어려워 첫 부서를 만드는 길을 위에도 둔다. *@
             <DxButton Text="부서 추가" RenderStyle="ButtonRenderStyle.Secondary"
                       Enabled="@(!string.IsNullOrEmpty(_companyId))"
                       Click="@(() => OpenAddDept(null))" />
@@ -104,9 +65,7 @@
                 <button type="button" title="축소" @onclick="@(() => ZoomAsync("zoomOut"))">－</button>
             </div>
 
-            @* 판에는 인라인 스타일을 **적지 않는다.** 화면 이동·확대가 이 판의
-               `transform` 을 쓰는데, Blazor 가 여기에 style 을 다시 쓰면 그 변환이
-               지워진다. 크기는 안쪽 svg 가 정하고, 「화면 맞춤」에는 값을 넘긴다. *@
+            @* 판에는 인라인 스타일을 적지 않는다 — Blazor 가 style 을 다시 쓰면 화면 이동·확대의 transform 이 지워진다. *@
             <div class="ad-orgc__stage" @ref="_stage">
 
                 <svg class="ad-orgc__links" width="@N(_stageWidth)" height="@N(_stageHeight)">
@@ -170,10 +129,7 @@
             }
         </div>
 
-        @* 미소속 사용자.
-
-           행이 싣는 끌기 값은 조직도의 사람 노드와 **같은 모양**이라
-           부서 노드의 놓기 처리를 그대로 쓴다. *@
+        @* 미소속 사용자. 행이 싣는 끌기 값은 사람 노드와 같은 모양이라 부서 노드의 놓기 처리를 그대로 쓴다. *@
         @if (_showUnassigned)
         {
             <div class="ad-orgc__side no-pan">

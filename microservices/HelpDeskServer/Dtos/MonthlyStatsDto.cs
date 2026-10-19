@@ -1,7 +1,5 @@
 namespace HelpDeskServer.Dtos {
-  /// <summary>
-  /// 월별 요청 통계 DTO
-  /// </summary>
+  /// <summary>월별 요청 통계 DTO</summary>
   public class MonthlyStatsDto {
     /// <summary>월 (예: 2025-03)</summary>
     public string Month { get; set; } = string.Empty;

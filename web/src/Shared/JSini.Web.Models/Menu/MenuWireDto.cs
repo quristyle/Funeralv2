@@ -4,19 +4,8 @@ using JSini.Web.Abstractions;
 namespace JSini.Web.Models.Menu;
 
 /// <summary>
-/// <c>GET /auth/menu/all</c> 응답 한 칸. AuthServer 의 <c>MenuDto</c> 와 짝이다.
-///
-/// [Component 를 읽지 않는다]
-///
-/// 이 응답에는 <c>component</c> 칸이 있고 값은 <c>#/views/portal/dashboard/index.vue</c>
-/// 같은 Vue 파일 경로다. Vue 는 그 문자열로 라우트를 만들었지만(<c>import.meta.glob</c>
-/// 매칭), Blazor 는 <c>@page</c> 로 컴파일 시점에 라우트가 정해진다. 그래서 이 칸은
-/// <b>읽지 않는다</b> — DB 는 이제 라우트를 만들지 않고, <see cref="Path"/> 로
-/// "이 라우트를 메뉴에 어떻게 노출할지" 만 정한다.
-///
-/// 그래서 DB 의 <c>path</c> 와 모듈의 <c>@page</c> 가 어긋나면 메뉴는 보이는데
-/// 눌러도 404 가 된다. Vue 때는 런타임 <c>console.warn</c> 으로만 알 수 있었지만,
-/// 이제는 기동 때 대조해서 로그로 남긴다 (<c>MenuProvider.ReportRouteMismatch</c>).
+/// GET /auth/menu/all 응답 한 칸. AuthServer 의 MenuDto 와 짝이다. component 칸(Vue 파일 경로)은 읽지 않는다. 라우트는 모듈의 @page 가 컴파일 시점에 정하고, DB 는 Path 로 메뉴 노출만 정한다.
+/// DB 의 path 와 모듈의 @page 가 어긋나면 메뉴는 보이는데 404 가 된다. 기동 때 대조해 로그로 남긴다(MenuProvider.ReportRouteMismatch).
 /// </summary>
 public sealed class MenuWireDto
 {
@@ -26,15 +15,7 @@ public sealed class MenuWireDto
     [JsonPropertyName("path")]
     public string Path { get; set; } = string.Empty;
 
-    /// <summary>
-    /// 이 메뉴가 가리키는 화면의 열쇠 (<c>funeral.room-status</c>).
-    /// <c>scom.system_menus.route_key</c> 그대로다.
-    ///
-    /// <b>이것이 <see cref="Path"/> 를 대신해 라우트를 찾는 길이다.</b>
-    /// URL 이 바뀌어도 이 값은 그대로이므로 메뉴가 화면을 잃지 않는다.
-    /// 아직 채우지 않은 메뉴는 <c>null</c> 이고, 그때만 옛 길
-    /// (<c>RouteAliases</c> + <see cref="Path"/>)로 떨어진다.
-    /// </summary>
+    /// <summary>이 메뉴가 가리키는 화면의 열쇠(<c>scom.system_menus.route_key</c>). 라우트를 찾는 길이다. URL 이 바뀌어도 이 값은 그대로라 메뉴가 화면을 잃지 않는다. 비어 있으면 옛 길(RouteAliases + Path)로 떨어진다.</summary>
     [JsonPropertyName("routeKey")]
     public string? RouteKey { get; set; }
 
@@ -84,19 +65,7 @@ public sealed class MenuMetaWireDto
     [JsonPropertyName("title")]
     public string Title { get; set; } = string.Empty;
 
-    /// <summary>
-    /// 서버가 옮겨 둔 제목. <b>있으면 이것을 찍는다.</b>
-    ///
-    /// <see cref="Title"/> 에는 번역 키(<c>system.menu.title</c>)와 이미 완성된
-    /// 글자(<c>공통코드</c>)가 섞여 있다. 179건 중 17건이 키다.
-    ///
-    /// 화면이 제목마다 번역 함수를 부르는 방식은 쓰지 않는다 — 대부분이 키가
-    /// 아니라서 "그런 키는 없다" 경고만 수백 줄 쏟아진다(Vue 에서 실제로 그랬고,
-    /// 그게 사이드바가 늦게 뜨던 이유였다). 서버가
-    /// <c>scom.i18n_resources</c> 를 한 번 읽어 <b>찾았을 때만</b> 담아 준다.
-    ///
-    /// 못 찾으면 <c>null</c> 이고, 그때는 저장된 제목이 이미 사람이 읽는 글자라는 뜻이다.
-    /// </summary>
+    /// <summary>서버가 옮겨 둔 제목. 있으면 이것을 찍는다. Title 에는 번역 키와 이미 완성된 글자가 섞여 있다. 화면이 제목마다 번역 함수를 부르면 대부분이 키가 아니라 경고가 쏟아진다. 서버가 i18n 표를 한 번 읽어 찾았을 때만 담고, 못 찾으면 null 이다.</summary>
     [JsonPropertyName("titleText")]
     public string? TitleText { get; set; }
 
@@ -109,13 +78,7 @@ public sealed class MenuMetaWireDto
     [JsonPropertyName("link")]
     public string? Link { get; set; }
 
-    /// <summary>
-    /// iframe 으로 띄울 주소. 유형이 <c>EMBEDDED</c> 인 메뉴가 쓴다.
-    ///
-    /// 서버는 오래전부터 보내고 있었는데 여기 칸이 없어 버려지고 있었다.
-    /// 그래서 <b>메뉴 관리에서 고쳐도 화면이 안 바뀌었다</b> — 화면들이
-    /// 주소를 코드에 박아 두고 있었기 때문이다.
-    /// </summary>
+    /// <summary>iframe 으로 띄울 주소. 유형이 EMBEDDED 인 메뉴가 쓴다. 서버는 오래전부터 보냈는데 이 칸이 없어 버려지고 있었다. 화면들이 주소를 코드에 박아 두던 까닭이다.</summary>
     [JsonPropertyName("iframeSrc")]
     public string? IframeSrc { get; set; }
 

@@ -43,20 +43,7 @@ public partial class UserRoleMap
     private IReadOnlyList<AccountMenuItemDto> _assigned = [];
     private IReadOnlyList<AccountMenuItemDto> _unassigned = [];
 
-    /// <summary>
-    /// 전체 메뉴 나무. <b>구조와 아이콘이 여기에만 있다.</b>
-    ///
-    /// <para>
-    /// 「볼 수 있는 메뉴」 응답(<see cref="AccountMenuItemDto"/>)에는 상위
-    /// 메뉴도 아이콘도 없다 — 길은 <c>Breadcrumb</c> 에 <b>글자로</b> 이어
-    /// 붙여 온다. 그것만으로는 나무를 세울 수 없어서, 사이드바가 쓰는 것과
-    /// 같은 목록을 한 번 더 읽어 맞물린다.
-    /// </para>
-    ///
-    /// <para>
-    /// 대상마다 다시 읽지 않는다 — 사람이 바뀌어도 메뉴 나무는 그대로다.
-    /// </para>
-    /// </summary>
+    /// <summary>전체 메뉴 나무. 구조와 아이콘이 여기에만 있다 — 볼 수 있는 메뉴 응답에는 상위 메뉴와 아이콘이 없어 사이드바와 같은 목록을 한 번 더 읽어 맞춘다. 대상마다 다시 읽지 않는다.</summary>
     private IReadOnlyList<SystemMenuDto> _menus = [];
 
     /// <summary>고른 사람이 볼 수 있는 메뉴만 남긴 나무.</summary>
@@ -75,14 +62,7 @@ public partial class UserRoleMap
         public string Type { get; init; } = string.Empty;
         public bool OpensScreen { get; init; }
 
-        /// <summary>
-        /// 이 줄 <b>자신</b>이 열린 메뉴인가.
-        ///
-        /// <para>
-        /// 거짓이면 <b>자식이 열려서 남은 묶음</b>이다 — 빼면 나무가 끊겨
-        /// 어느 업무의 메뉴인지 알 수 없게 된다. 화면에서 딱지로 가른다.
-        /// </para>
-        /// </summary>
+        /// <summary>이 줄 자신이 열린 메뉴인가. 거짓이면 자식이 열려서 남은 묶음이다 — 빼면 나무가 끊긴다.</summary>
         public bool Granted { get; init; }
 
         /// <summary>이 메뉴를 열어 준 역할 이름들. 묶음 줄은 비어 있다.</summary>
@@ -96,15 +76,7 @@ public partial class UserRoleMap
     /// <summary>이 대상에 <b>직접</b> 걸린 역할 수. 권한 탭의 이름에 붙는다.</summary>
     private int DirectCount => _direct.Count;
 
-    /// <summary>
-    /// 메뉴 칸의 제목.
-    ///
-    /// <para>
-    /// 회사·부서에서는 셀 수가 없어 숫자를 붙이지 않는다 — 붙이면 0 이 되고,
-    /// 0 은 <b>「아무것도 못 본다」로 읽힌다.</b> 그 단계의 역할은 속한 사람에게
-    /// 합쳐져 닿으므로 결과가 사람마다 다르다.
-    /// </para>
-    /// </summary>
+    /// <summary>메뉴 칸의 제목. 회사·부서에서는 셀 수가 없어 숫자를 붙이지 않는다 — 0 은 아무것도 못 본다로 읽힌다.</summary>
     private string MenuTitleText => _mode == Mode.Account
         ? $"볼 수 있는 메뉴 ({_assigned.Count} / {_assigned.Count + _unassigned.Count})"
         : "볼 수 있는 메뉴";
@@ -133,8 +105,7 @@ public partial class UserRoleMap
         _accounts = await LoadAccountsAsync();
         _scopes = await LoadScopesAsync();
 
-        // 메뉴 나무는 **사람과 무관**하다. 대상마다 다시 읽지 않으려고
-        // 여기서 한 번 읽는다(`_menus` 머리말).
+        // 메뉴 나무는 사람과 무관하다 — 대상마다 다시 읽지 않으려고 여기서 한 번 읽는다.
         _menus = await Api.GetSystemMenusAsync();
 
         // 고른 대상이 사라졌으면(회사를 바꿨거나) 오른쪽을 비운다.
@@ -162,12 +133,7 @@ public partial class UserRoleMap
         ];
     }
 
-    /// <summary>
-    /// 회사·부서 목록.
-    ///
-    /// 회사마다 나무를 따로 받아야 한다(<c>tree?companyId=</c>). 회사가 몇 개
-    /// 안 되므로 그만큼 왕복해도 무겁지 않다.
-    /// </summary>
+    /// <summary>회사·부서 목록. 회사마다 나무를 따로 받는다 — 회사가 몇 개 안 되어 그만큼 왕복해도 무겁지 않다.</summary>
     private async Task<IReadOnlyList<Target>> LoadScopesAsync()
     {
         var companies = await Api.GetCompaniesAsync();
@@ -189,26 +155,10 @@ public partial class UserRoleMap
         return targets;
     }
 
-    /// <summary>
-    /// 「볼 수 있는 메뉴」를 <b>사이드바와 같은 나무</b>로 세운다.
-    ///
-    /// <para>
-    /// 전체 메뉴 나무를 훑으면서 <b>그 사람에게 열린 것과 그 조상만</b>
-    /// 남긴다. 사이드바가 보이는 메뉴를 고를 때 하는 일과 같다
-    /// (<c>MenuFilter</c>) — 거기서는 <c>MenuNode</c> 를 다루고 여기서는
-    /// 포털관리의 <c>SystemMenuDto</c> 라 타입이 달라 그 코드를 못 쓴다.
-    /// </para>
-    ///
-    /// <para>
-    /// <b>조상을 남기지 않으면 나무가 끊긴다.</b> 열린 것만 남기면 자식이
-    /// 뿌리로 올라와 어느 업무의 메뉴인지 알 수 없게 되는데, 이 화면에서
-    /// 사람이 확인하려는 것이 바로 그 「어느 업무가 몇 개 열렸나」다.
-    /// </para>
-    /// </summary>
+    /// <summary>볼 수 있는 메뉴를 사이드바와 같은 나무로 세운다. 그 사람에게 열린 것과 조상만 남긴다 — 조상을 빼면 자식이 뿌리로 올라와 어느 업무의 메뉴인지 알 수 없다.</summary>
     private IReadOnlyList<MenuRow> BuildTree()
     {
-        // 열린 메뉴를 아이디로 찾을 수 있게 해 둔다. 109건 × 179줄을
-        // 목록으로 훑으면 그 곱이 그대로 비용이 된다.
+        // 열린 메뉴를 아이디로 찾을 수 있게 해 둔다 — 목록을 훑으면 그 곱이 그대로 비용이 된다.
         var granted = _assigned
             .GroupBy(m => m.Id, StringComparer.Ordinal)
             .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
@@ -244,8 +194,7 @@ public partial class UserRoleMap
                 Icon = node.Meta.Icon,
                 Type = node.Type,
 
-                // 열쇠가 정본이지만 아직 안 채운 메뉴가 26건 남아 있어
-                // 옛 `Component` 도 함께 본다(`MenuGlyph` 머리말).
+                // 열쇠가 정본이지만 아직 안 채운 메뉴가 있어 옛 Component 도 함께 본다.
                 OpensScreen = !string.IsNullOrWhiteSpace(node.RouteKey)
                     || !string.IsNullOrWhiteSpace(node.Component),
 
@@ -261,16 +210,7 @@ public partial class UserRoleMap
         return kept;
     }
 
-    /// <summary>
-    /// 메뉴 이름. <b>사이드바와 같은 규칙</b>이다 — 서버가 번역해 준 것이
-    /// 있으면 그것을, 없으면 저장된 글자를 쓴다.
-    ///
-    /// <para>
-    /// 「볼 수 있는 메뉴」 응답의 <c>Title</c> 을 쓰지 않는 이유가 그것이다 —
-    /// 그쪽은 DB 값 그대로라 <c>system.menu.title</c> 같은 <b>번역 키일 수
-    /// 있다.</b> 그러면 한 화면에서 같은 메뉴가 두 이름으로 보인다.
-    /// </para>
-    /// </summary>
+    /// <summary>메뉴 이름. 사이드바와 같은 규칙이다 — 서버가 번역해 준 것이 있으면 그것을, 없으면 저장된 글자를 쓴다. Title 을 쓰지 않는 까닭은 번역 키일 수 있어서다.</summary>
     private static string MenuTitle(SystemMenuDto m) =>
         !string.IsNullOrWhiteSpace(m.Meta.TitleText) ? m.Meta.TitleText!
         : !string.IsNullOrWhiteSpace(m.Meta.Title) ? m.Meta.Title!

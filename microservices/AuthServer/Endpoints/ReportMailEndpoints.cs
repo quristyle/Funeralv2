@@ -5,35 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace AuthServer.Endpoints;
 
-/// <summary>
-/// 보고서 메일 배치 — 고를 수 있는 보고서, 배치의 등록·수정·삭제, 받는 사람
-/// 미리보기, 지금 한 번 보내기.
-/// </summary>
-/// <remarks>
-/// <para>
-/// [게이트웨이가 <c>/api/auth/**</c> 를 익명으로 열어 둔다 — 서버가 막는다]
-/// </para>
-///
-/// <para>
-/// 로그인이 그 길로 가야 해서 <c>auth-route</c> 는 통째로 익명이다. 그래서
-/// <b>이 길은 서버가 스스로 막아야 한다</b> — 안 막으면 주소를 아는 누구나
-/// 보고서 메일을 아무 역할에게나 쏠 수 있다. 판정은
-/// <see cref="MenuViewAccess"/> 가 <c>scom.role_menus</c> 에 묻는다. 역할
-/// 이름을 여기 적지 않는 까닭은 그 클래스 머리말에 있다.
-/// </para>
-///
-/// <para>
-/// [읽기와 쓰기를 같은 문으로 막는다]
-/// </para>
-///
-/// <para>
-/// 이 화면은 <b>열람 권한이 곧 관리 권한</b>이다. 배치 목록을 볼 수 있다는
-/// 것은 시스템 관리자라는 뜻이고, 권한 항목을 쪼개 두면 「볼 수는 있는데
-/// 저장하면 403」이 되는 자리를 하나 더 만든다. 더 잘게 나눠야 할 날이 오면
-/// 그때 <c>role_menus</c> 의 <c>can_update</c> 를 함께 보면 된다 — 표에 이미
-/// 그 칸이 있다.
-/// </para>
-/// </remarks>
+/// <summary>보고서 메일 배치 — 고를 수 있는 보고서, 배치의 등록·수정·삭제, 받는 사람 미리보기, 지금 한 번 보내기. 게이트웨이가 <c>/api/auth/**</c> 를 익명으로 열어 두므로 로그인은 서버가 막는다.</summary>
 public static class ReportMailEndpoints
 {
     /// <summary>이 화면의 열쇠. 화면이 <c>RouteKey</c> 로 선언한 글자와 같아야 한다.</summary>
@@ -115,8 +87,7 @@ public static class ReportMailEndpoints
             }
             catch (InvalidOperationException ex)
             {
-                // 「보고서를 안 골랐다」 같은 것은 서버 오류가 아니라 사람에게
-                // 할 말이다. 500 으로 던지면 화면이 「저장하지 못했습니다」만 띄운다.
+                // 「보고서를 안 골랐다」는 서버 오류가 아니라 사람에게 할 말이다 — 500 으로 던지면 화면이 「저장하지 못했습니다」만 띄운다.
                 return Results.BadRequest(ApiResponse<ReportMailScheduleDto>.Fail(ex.Message, "INVALID"));
             }
         })
@@ -168,11 +139,7 @@ public static class ReportMailEndpoints
         })
         .WithName("DeleteReportMailSchedule");
 
-        // ── 받게 되는 사람 ──────────────────────────────────
-        //
-        // **보내기 전에 보여 준다.** 역할을 골랐는데 아무에게도 안 가는 일이
-        // 조용히 일어나는 자리가 둘이고(걸린 사람이 없거나 · 이메일이 없거나)
-        // 고치는 자리가 서로 다르다.
+        // 받게 되는 사람은 보내기 전에 보여 준다 — 역할을 골랐는데 아무에게도 안 가는 일이 조용히 일어나는 자리가 둘이다(걸린 사람이 없음 · 이메일이 없음).
         group.MapGet("/{id}/recipients", async (
             string id,
             UserContext? user,
@@ -191,11 +158,7 @@ public static class ReportMailEndpoints
         })
         .WithName("GetReportMailRecipients");
 
-        // ── 지금 한 번 보내기 ───────────────────────────────
-        //
-        // 주기를 기다리지 않고 눌러 본다. **보낸 때(`last_sent_at`)는 찍지
-        // 않는다** — 눌러 본 한 통 때문에 오늘 아침 정기 발송이 건너뛰어지면
-        // 안 된다(서비스 머리말).
+        // 지금 한 번 보내기는 보낸 때(last_sent_at)를 찍지 않는다 — 눌러 본 한 통 때문에 정기 발송이 건너뛰어지면 안 된다.
         group.MapPost("/{id}/send", async (
             string id,
             UserContext? user,
@@ -215,14 +178,7 @@ public static class ReportMailEndpoints
         })
         .WithName("SendReportMailNow");
 
-        // ── 미리받아보기 ────────────────────────────────────
-        //
-        // **본인에게만** 보낸다. 받는 역할을 거치지 않고, 배치를 저장하지
-        // 않아도 되고, DB 에 아무 자국도 안 남긴다(서비스 머리말). 그래서
-        // 받는 쪽 메일함이 우는 일이 없어 화면도 묻지 않고 바로 보낸다.
-        //
-        // 길에 `{id}` 가 없는 까닭은 **저장 전에도 눌러야 하기 때문**이다 —
-        // 지금 고르고 있는 보고서가 몸통으로 온다.
+        // 미리받아보기는 본인에게만 보낸다 — 역할을 거치지 않고 배치를 저장하지 않으며 DB 에 자국도 남기지 않는다. 길에 {id} 가 없는 것은 저장 전에도 누를 수 있기 때문이다.
         group.MapPost("/preview", async (
             UserContext? user,
             HttpContext http,
@@ -235,9 +191,7 @@ public static class ReportMailEndpoints
 
             var (ok, message, result) = await service.SendPreviewAsync(request, user!.UserId, ct);
 
-            // 실패를 성공으로 말하지 않는다. 「고른 보고서가 없다」와 「내
-            // 계정에 이메일이 없다」는 사람이 할 일이 서로 다르고, 화면이
-            // 띄우는 글자가 곧 그 안내다.
+            // 실패를 성공으로 말하지 않는다 — 「고른 보고서가 없다」와 「내 계정에 이메일이 없다」는 할 일이 달라서, 화면이 띄우는 글자가 곧 안내다.
             return ok
                 ? Results.Ok(ApiResponse<ReportMailPreviewResultDto>.Ok(result!, message))
                 : Results.BadRequest(ApiResponse<ReportMailPreviewResultDto>.Fail(message, "PREVIEW_FAILED"));
@@ -245,9 +199,7 @@ public static class ReportMailEndpoints
         .WithName("SendReportMailPreview");
     }
 
-    /// <summary>
-    /// 볼 수 있는 사람인가. 막아야 하면 그 응답을, 통과면 <c>null</c> 을 준다.
-    /// </summary>
+    /// <summary>볼 수 있는 사람인가. 막아야 하면 그 응답을, 통과면 null 을 준다.</summary>
     private static async Task<IResult?> ForbidAsync(
         UserContext? user, HttpContext http, MenuViewAccess access, CancellationToken ct)
     {

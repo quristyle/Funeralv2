@@ -18,9 +18,7 @@ public enum RoleScopeKind
     Account,
 }
 
-/// <summary>
-/// 회사·부서·사람에 역할을 걸고 푸는 서비스.
-/// </summary>
+/// <summary>회사·부서·사람에 역할을 걸고 푸는 서비스.</summary>
 public interface IRoleAssignmentService
 {
     /// <summary>회사 하나의 조직 트리와 각 단계에 걸린 역할을 함께 돌려준다(화면용).</summary>
@@ -32,14 +30,10 @@ public interface IRoleAssignmentService
     /// <summary>대상에서 역할을 푼다. 걸려 있지 않아도 오류가 아니다.</summary>
     Task RemoveAsync(RoleScopeKind kind, string targetId, string roleId);
 
-    /// <summary>
-    /// 그 계정에 실제로 적용되는 역할. 로그인 토큰과 화면이 이 값을 쓴다.
-    /// </summary>
+    /// <summary>그 계정에 실제로 적용되는 역할. 로그인 토큰과 화면이 이 값을 쓴다.</summary>
     Task<EffectiveRolesDto> ResolveEffectiveRolesAsync(string accountId);
 
-    /// <summary>
-    /// 검색용 사람 목록. 회사·부서 이름까지 함께 담아 한 번에 훑을 수 있게 한다.
-    /// </summary>
+    /// <summary>검색용 사람 목록. 회사·부서 이름까지 함께 담아 한 번에 훑을 수 있게 한다.</summary>
     Task<List<AccountPickDto>> GetAccountPickListAsync();
 
     /// <summary>그 계정이 볼 수 있는 메뉴와 볼 수 없는 메뉴.</summary>
@@ -116,29 +110,8 @@ public class RoleAssignmentService : IRoleAssignmentService
         await _db.SaveChangesAsync();
     }
 
-    /// <summary>
-    /// 그 계정에 실제로 적용되는 역할.
-    ///
-    /// <para>
-    /// <b>세 단계를 모두 합친다 — 회사 + 부서 + 사람.</b>
-    /// 회사에 걸린 역할, 그 사람이 속한 부서에 걸린 역할, 사람에게 직접 걸린 역할을
-    /// 전부 갖는다. 어느 한 단계가 다른 단계를 덮어쓰지 않는다.
-    /// </para>
-    ///
-    /// <para>
-    /// 부서는 <b>상위 부서까지 거슬러 올라가며 모두 더한다.</b> 트리 위쪽에 걸어 두면
-    /// 아래 부서가 물려받는다.
-    /// </para>
-    ///
-    /// <para>
-    /// 같은 역할이 여러 단계에 걸려 있어도 결과에는 한 번만 담는다.
-    /// 다만 <see cref="EffectiveRolesDto.Sources"/> 에는 <b>어느 단계에서 왔는지</b>를
-    /// 모두 적어 둔다 — 화면이 "이 역할은 부서에서 온 것" 이라고 알려 주려면 필요하다.
-    /// 그래야 "여기서 뺐는데 왜 아직 있지" 를 곧바로 이해할 수 있다.
-    /// </para>
-    ///
-    /// <para>비활성 역할(<c>status != 1</c>)은 어느 단계에서든 제외한다.</para>
-    /// </summary>
+    /// <summary>그 계정에 실제로 적용되는 역할. 회사 + 부서(상위까지) + 사람을 합친다.</summary>
+    /// 같은 역할이 여러 단계에 걸려도 한 번만 담고 Sources 에 어느 단계에서 왔는지 적는다. 비활성 역할(status != 1)은 제외한다.
     public async Task<EffectiveRolesDto> ResolveEffectiveRolesAsync(string accountId)
     {
         var account = await _db.Accounts.AsNoTracking()
@@ -315,12 +288,8 @@ public class RoleAssignmentService : IRoleAssignmentService
         var companies = await _db.Companies.AsNoTracking().ToDictionaryAsync(c => c.Id, c => c.Name);
         var departments = await _db.Departments.AsNoTracking().ToDictionaryAsync(d => d.Id, d => d.Name);
 
-        // 프로필 사진도 한 번에 읽는다. 사람마다 따로 조회하면 목록 한 번에
-        // 쿼리가 43번 더 나간다(N+1).
-        //
-        // 사진은 프로필 상세의 한 줄(`DetailType = "Avatar"`)로 들어 있다 —
-        // 계정 테이블의 `AvatarGroupId` 는 **파일 묶음**이고, 그중 대표 한 장의
-        // 주소가 여기 저장된다. 화면이 바로 쓸 수 있는 것은 이쪽이다.
+        // 사진은 프로필 상세의 Avatar 한 줄(대표 주소)을 쓴다. 계정의 AvatarGroupId 는 파일 묶음이라 화면이 바로 쓸 수 없다.
+        // 사람마다 따로 조회하면 목록 한 번에 쿼리가 N 번 더 나간다.
         var avatars = await _db.AccountProfileDetails.AsNoTracking()
             .Where(p => p.DetailType == "Avatar" && p.Content != null && p.Content != "")
             .Select(p => new { p.AccountId, p.Content })
@@ -352,19 +321,8 @@ public class RoleAssignmentService : IRoleAssignmentService
         }).ToList();
     }
 
-    /// <summary>
-    /// 그 계정이 볼 수 있는 메뉴와 볼 수 없는 메뉴.
-    ///
-    /// <para>
-    /// 기준은 <c>scom.role_menus</c> 의 <c>can_view</c> 다. 그 사람에게 적용되는 역할
-    /// (회사+부서+사람을 합친 것) 중 하나라도 열어 주면 열린 것으로 본다.
-    /// </para>
-    ///
-    /// <para>
-    /// 비활성 메뉴(<c>status != 1</c>)는 아예 빼놓는다. 라우트가 만들어지지 않아
-    /// 권한이 있든 없든 열 수 없기 때문이다.
-    /// </para>
-    /// </summary>
+    /// <summary>그 계정이 볼 수 있는 메뉴와 볼 수 없는 메뉴. 기준은 role_menus.can_view 이며 역할 하나라도 열면 열린 것이다.</summary>
+    /// 비활성 메뉴(status != 1)는 라우트가 안 만들어져 권한과 무관하게 뺀다.
     public async Task<AccountMenuAccessDto> GetMenuAccessAsync(string accountId)
     {
         var effective = await ResolveEffectiveRolesAsync(accountId);

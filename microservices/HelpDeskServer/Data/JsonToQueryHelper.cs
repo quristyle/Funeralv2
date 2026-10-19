@@ -1,14 +1,10 @@
 using System.Text.Json;
 using Microsoft.Extensions.Primitives;
 
-/// <summary>
-/// JSON 문자열을 IQueryCollection으로 변환하는 헬퍼 클래스
-/// </summary>
+/// <summary>JSON 문자열을 IQueryCollection으로 변환하는 헬퍼 클래스</summary>
 public static class JsonToQueryHelper
 {
-    /// <summary>
-    /// 필터, 정렬, 페이징 정보가 포함된 JSON 문자열을 IQueryCollection으로 변환합니다.
-    /// </summary>
+    /// <summary>필터, 정렬, 페이징 정보가 포함된 JSON 문자열을 IQueryCollection으로 변환합니다.</summary>
     /// <param name="json">변환할 JSON 문자열</param>
     /// <returns>변환된 IQueryCollection</returns>
     public static IQueryCollection ConvertJsonToQuery(string json)
@@ -20,7 +16,6 @@ public static class JsonToQueryHelper
         {
             if (prop.Name.Equals("filters", StringComparison.OrdinalIgnoreCase))
             {
-                // [{ "field":"id", "op":"eq", "value":"10"}]
                 foreach (var filter in prop.Value.EnumerateArray())
                 {
                     var field = filter.GetProperty("field").GetString();
@@ -32,7 +27,6 @@ public static class JsonToQueryHelper
             }
             else if (prop.Name.Equals("sorts", StringComparison.OrdinalIgnoreCase))
             {
-                // [{ "field":"id", "dir":"asc"}]
                 var orderParts = new List<string>();
                 foreach (var sort in prop.Value.EnumerateArray())
                 {

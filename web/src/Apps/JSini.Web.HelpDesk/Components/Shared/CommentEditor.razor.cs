@@ -14,13 +14,7 @@ public partial class CommentEditor
     [Inject] private Toasts Toasts { get; set; } = default!;
     [Inject] private IJSRuntime JS { get; set; } = default!;
 
-    /// <summary>
-    /// 이 칸을 남들과 가르는 이름. 화면에 칸이 둘 이상 뜨므로
-    /// <b>반드시 서로 달라야 한다</b>(파일 머리말).
-    /// </summary>
-    /// <remarks>
-    /// CSS 이름과 DOM 아이디에 그대로 들어간다 — 글자·숫자·<c>-</c> 만 쓴다.
-    /// </remarks>
+    /// <summary>이 칸을 남들과 가르는 이름. 칸이 둘 이상 뜨므로 반드시 서로 달라야 한다. CSS 이름과 DOM 아이디에 그대로 들어가 글자·숫자·- 만 쓴다.</summary>
     [Parameter, EditorRequired] public string Id { get; set; } = "new";
 
     /// <summary>칸 위에 적을 이름표. 비우면 이름표를 안 그린다.</summary>
@@ -29,9 +23,7 @@ public partial class CommentEditor
     /// <summary>보내기 단추에 적을 글자.</summary>
     [Parameter] public string SubmitText { get; set; } = "남기기";
 
-    /// <summary>
-    /// 다 쓴 글과 첨부파일을 받는 쪽. <b>저장할 모양의 HTML</b> 과 고른 파일 목록이 넘어간다.
-    /// </summary>
+    /// <summary>다 쓴 글과 첨부파일을 받는 쪽. 저장할 모양의 HTML 과 고른 파일 목록이 넘어간다.</summary>
     [Parameter] public Func<string, IReadOnlyList<PickedFile>, Task<bool>>? OnSubmit { get; set; }
 
     /// <summary>「취소」. 대리자가 없으면 단추도 안 그린다(뿌리 댓글 칸이 그렇다).</summary>
@@ -42,15 +34,8 @@ public partial class CommentEditor
     private FilePicker? _picker;
     private IReadOnlyList<PickedFile> _files = [];
 
-    /// <summary>
-    /// 이 칸에 글을 쓰는 중인가 — <b>도구줄을 세울지</b>를 가른다.
-    /// </summary>
-    /// <remarks>
-    /// 한 번 참이 되면 **그 글을 보낼 때까지 거짓으로 안 돌아간다.** 포커스가
-    /// 빠질 때 접으면 도구줄을 쓰는 순간에 접힌다 — 글꼴·정렬 단추가 띄우는
-    /// 목록은 문서 끝에 따로 그려져 포커스가 칸 밖으로 나가기 때문이다.
-    /// 까닭은 화면 머리말에 적어 두었다.
-    /// </remarks>
+    /// <summary>이 칸에 글을 쓰는 중인가 — 도구줄을 세울지 가른다. 한 번 참이 되면 보낼 때까지 거짓으로 안 돌아간다.
+    /// 포커스가 빠질 때 접으면 도구줄을 쓰는 순간 접히므로 그렇게 하지 않는다(글꼴·정렬 목록은 문서 끝에 따로 그려진다).</summary>
     private bool _writing;
 
     /// <summary>지금 올리고 있는 그림 수. 0 이 아니면 보내기를 잠근다.</summary>
@@ -66,14 +51,7 @@ public partial class CommentEditor
 
     private string _boundId = string.Empty;
 
-    /// <summary>
-    /// 편집기가 화면에 설 때까지 기다리는 횟수와 사이 간격.
-    /// </summary>
-    /// <remarks>
-    /// <b>재어 보고 정한 값이다</b>(헤드리스 크롬 · DevExpress 26.1.4). 아래
-    /// <see cref="BindEditorAsync"/> 머리말 참고 — 5초면 넉넉하고, 그 안에
-    /// 안 서면 편집기가 아예 안 뜬 것이라 더 기다려도 소용이 없다.
-    /// </remarks>
+    /// <summary>편집기가 설 때까지 기다리는 횟수와 간격. 헤드리스로 재어 정한 값이다 — 5초 안에 안 서면 편집기가 아예 안 뜬 것이라 더 기다려도 소용없다.</summary>
     private const int BindAttempts = 20;
 
     private static readonly TimeSpan BindWait = TimeSpan.FromMilliseconds(250);
@@ -94,9 +72,8 @@ public partial class CommentEditor
 
     protected override void OnParametersSet()
     {
-        // 같은 자리에서 답글 대상만 바뀌면 Blazor 는 이 부품을 다시 만들지
-        // 않는다. 그때 `_bound` 를 그대로 두면 **옛 이름에 걸린 처리기**를
-        // 걸려 있는 것으로 알고 새 칸에는 아무것도 안 건다.
+        // 답글 대상만 바뀌면 Blazor 는 부품을 다시 만들지 않는다. _bound 를 그대로 두면 옛 이름에 걸린 처리기가 있다고 알고
+        // 새 칸에는 아무것도 안 건다.
         if (_boundId != Id)
         {
             _boundId = Id;
@@ -104,20 +81,13 @@ public partial class CommentEditor
             _markup = string.Empty;
             _files = [];
 
-            // 다른 댓글에 답하는 칸이 되었다. 쓰던 글이 비워졌으므로
-            // 도구줄도 처음 모습으로 되돌린다.
+            // 다른 댓글에 답하는 칸이 되면 쓰던 글이 비워졌으므로 도구줄도 처음 모습으로 되돌린다.
             _writing = false;
         }
     }
 
-    /// <summary>
-    /// 칸 안 어딘가가 포커스를 받았다 — <b>이제 글을 쓰는 중</b>이다.
-    /// </summary>
-    /// <remarks>
-    /// <c>focusin</c> 은 거품처럼 올라오므로 글칸이든 도구줄 단추든
-    /// 「남기기」든 다 여기로 온다. 이미 참이면 다시 그리지 않는다 —
-    /// 글자를 칠 때마다 화면을 새로 그리면 커서가 흔들린다.
-    /// </remarks>
+    /// <summary>칸 안 어딘가가 포커스를 받았다 — 이제 글을 쓰는 중이다. focusin 은 거품처럼 올라와 여기로 다 온다.
+    /// 이미 참이면 다시 그리지 않는다(칠 때마다 그리면 커서가 흔들린다).</summary>
     private void StartWriting() => _writing = true;
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -125,31 +95,8 @@ public partial class CommentEditor
         await BindEditorAsync();
     }
 
-    /// <summary>
-    /// 편집기에 붙여넣기·끌어놓기·「그림」 단추 처리기를 건다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>「다음 그리기에 다시 본다」로 두면 안 걸린다 — 재어 보고 잡았다.</b>
-    /// </para>
-    /// <para>
-    /// <c>DxHtmlEditor</c> 는 브라우저 쪽에서 스스로를 세우는 부품이라, 첫
-    /// <c>OnAfterRenderAsync</c> 시점에는 글 쓰는 칸(<c>[contenteditable]</c>)이
-    /// 아직 없다. 그러면 <c>bind</c> 가 거짓을 주는데, <b>그 뒤로 다시 그릴
-    /// 일이 없으면 영영 안 걸린다.</b> 요청 등록 화면(<c>RequestNew</c>)이
-    /// 멀쩡한 것은 그쪽이 임시 보관을 읽느라 <c>StateHasChanged</c> 를 한 번 더
-    /// 부르기 때문이고, <b>우연히 걸리고 있는 것</b>이다.
-    /// </para>
-    /// <para>
-    /// 증상이 나쁘다 — 화면은 멀쩡하고 붙여넣기도 되는 것처럼 보이는데,
-    /// 그림이 <c>data:</c> 로 본문에 박힌다. 캡처 한 장이 회로 수신 한도(4MB)를
-    /// 넘기면 <b>쓰던 글째로 회로가 끊긴다.</b> 헤드리스로 띄워 보고
-    /// <c>data-hd-paste-bound</c> 가 안 붙는 것으로 잡았다.
-    /// </para>
-    /// <para>
-    /// 그래서 <b>걸릴 때까지 기다린다.</b> 한 번 걸리면 다시 돌지 않는다.
-    /// </para>
-    /// </remarks>
+    /// <summary>편집기에 붙여넣기·끌어놓기·「그림」 단추 처리기를 건다. 다음 그리기에 다시 보는 방식으로 두면 안 걸린다 — 첫 그리기에는 글칸이 없고 뒤에 다시 그릴 일이 없으면 영영 안 걸린다.
+    /// 걸릴 때까지 기다리고 한 번 걸리면 다시 돌지 않는다. 안 걸리면 그림이 data: 로 본문에 박혀 회로 수신 한도(4MB)를 넘길 때 글째로 회로가 끊긴다.</summary>
     private async Task BindEditorAsync()
     {
         if (_bound || _binding)
@@ -165,8 +112,7 @@ public partial class CommentEditor
 
             for (var attempt = 0; attempt < BindAttempts && !_bound; attempt++)
             {
-                // 이름은 `Id` 로 만든다. 기다리는 동안 답글 대상이 바뀌면
-                // 새 이름으로 건다(`OnParametersSet` 이 `_bound` 를 내린다).
+                // 이름은 Id 로 만든다 — 기다리는 동안 답글 대상이 바뀌면 새 이름으로 건다(OnParametersSet 이 _bound 를 내린다).
                 _bound = await _editorJs.InvokeAsync<bool>(
                     "bind", EditorSelector, PasteInputId, "." + PictureButtonClass);
 
@@ -178,8 +124,7 @@ public partial class CommentEditor
         }
         catch (JSException)
         {
-            // 브라우저에서 못 걸었다. 붙여넣기는 편집기 기본 동작(data URI)으로
-            // 떨어지고, 보내기 직전의 훑기가 그것을 파일로 바꾼다. 화면은 산다.
+                        // 브라우저에서 못 걸었다 — 붙여넣기는 편집기 기본 동작(data URI)으로 떨어지고, 보내기 직전의 훑기가 파일로 바꾼다.
         }
         catch (InvalidOperationException)
         {
@@ -195,11 +140,7 @@ public partial class CommentEditor
         }
     }
 
-    /// <summary>
-    /// 도구줄의 「그림」 단추에 이름표를 붙인다. <b>바꾸는 것은 이름표뿐이다</b> —
-    /// 누를 때 하는 일만 <c>request-editor.js</c> 가 브라우저 쪽에서 갈아 끼운다.
-    /// 까닭은 <c>RequestNew</c> 의 같은 이름 메서드에 적어 두었다.
-    /// </summary>
+    /// <summary>도구줄의 「그림」 단추에 이름표를 붙인다. 바꾸는 것은 이름표뿐이고 누를 때 하는 일은 request-editor.js 가 갈아 끼운다(까닭은 RequestNew 의 같은 메서드 참고).</summary>
     private void MarkPictureButton(DevExpress.Blazor.Office.IToolbar toolbar)
     {
         var picture = toolbar.Groups[HtmlEditorToolbarGroupNames.InsertElement]
@@ -211,13 +152,7 @@ public partial class CommentEditor
         }
     }
 
-    /// <summary>
-    /// 가로챈 그림이 도착했다. 올리고 그 자리에 <c>&lt;img&gt;</c> 를 꽂는다.
-    /// </summary>
-    /// <remarks>
-    /// 들어오는 길이 셋이다 — 붙여넣기 · 끌어놓기 · 도구줄의 「그림」 단추.
-    /// <b>한 장이 실패해도 나머지는 올린다.</b>
-    /// </remarks>
+    /// <summary>가로챈 그림이 도착했다. 올리고 그 자리에 img 를 꽂는다. 들어오는 길은 셋(붙여넣기·끌어놓기·그림 단추)이고, 한 장이 실패해도 나머지는 올린다.</summary>
     private async Task OnPastedAsync(InputFileChangeEventArgs e)
     {
         List<IBrowserFile> files;
@@ -253,8 +188,7 @@ public partial class CommentEditor
 
             try
             {
-                // 브라우저 스트림은 **이 상호작용 동안에만** 읽을 수 있다.
-                // 그대로 HttpClient 에 물리지 않고 여기서 다 받아 둔다.
+                // 브라우저 스트림은 이 상호작용 동안에만 읽을 수 있다 — 여기서 다 받아 둔다.
                 using var buffer = new MemoryStream();
                 await using (var source = file.OpenReadStream(ContentImages.MaxBytes))
                 {
@@ -279,7 +213,7 @@ public partial class CommentEditor
             }
             catch (TimeoutException)
             {
-                // 바이트가 끝내 안 왔다. **여기서 새어 나가면 회로가 끊긴다.**
+                // 바이트가 끝내 안 왔다 — 여기서 새어 나가면 회로가 끊기므로 한 장 못 넣는 것으로 끝낸다.
                 Toasts.Show($"{file.Name} 을(를) 받는 도중 끊겼습니다. 다시 넣어 주십시오.", NoticeTone.Warning);
             }
             catch (JSException ex)
@@ -306,8 +240,7 @@ public partial class CommentEditor
         }
         catch (JSException)
         {
-            // 꽂지 못했다. 파일은 이미 올라가 있으므로 주소를 알려 준다 —
-            // 아무 말도 안 하면 사람은 그림이 사라진 줄 안다.
+            // 꽂지 못했다 — 파일은 이미 올라가 있으니 주소를 알려 준다. 아무 말도 안 하면 그림이 사라진 줄 안다.
             Toasts.Show($"그림을 글에 넣지 못했습니다. 주소: {url}", NoticeTone.Warning);
         }
         catch (InvalidOperationException)
@@ -358,8 +291,7 @@ public partial class CommentEditor
                 return;
             }
 
-            // 화면에도 반영해 둔다. 저장이 뒤에서 실패했을 때 편집기에 남아
-            // 있는 것이 다시 base64 이면 누를 때마다 같은 일을 되풀이한다.
+            // 화면에도 반영해 둔다 — 저장이 뒤에서 실패했을 때 편집기에 base64 가 남으면 누를 때마다 같은 일을 되풀이한다.
             _markup = absorbed.Url;
 
             var html = RequestContentHtml.ToStored(_markup);
@@ -387,13 +319,7 @@ public partial class CommentEditor
         }
     }
 
-    /// <summary>
-    /// 편집기에서 <b>지금 화면에 있는 글</b>을 읽어 온다.
-    /// </summary>
-    /// <remarks>
-    /// <b>읽지 못하면 있던 값을 그대로 둔다.</b> 여기서 비우면 잘 써 둔 글까지
-    /// 날아가고, 증상이 「가끔 빈 댓글이 올라간다」로만 보인다.
-    /// </remarks>
+    /// <summary>편집기에서 지금 화면에 있는 글을 읽어 온다. 읽지 못하면 있던 값을 그대로 둔다 — 비우면 잘 써 둔 글까지 날아간다.</summary>
     private async Task FlushAsync()
     {
         try

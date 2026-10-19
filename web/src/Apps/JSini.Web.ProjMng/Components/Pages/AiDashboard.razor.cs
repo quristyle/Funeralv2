@@ -13,9 +13,7 @@ public partial class AiDashboard
 
     // ── 색 ──────────────────────────────────────────────────
     //
-    // 상태색은 **예약이다.** 「계열 4」로 다시 쓰지 않는다 — 다시 쓰면
-    // 빨강이 어떤 차트에서는 실패이고 어떤 차트에서는 그냥 넷째가 된다.
-    // 그리고 색만으로 뜻을 지지 않게 글자를 늘 옆에 둔다.
+    // 상태색은 예약이다 — 「계열 4」로 다시 쓰지 않는다(차트마다 빨강의 뜻이 달라진다). 색만으로 뜻을 지지 않게 글자를 옆에 둔다.
 
     /// <summary>계열 1. 크기를 읽는 막대·선이 쓴다.</summary>
     private const string Series1 = "#2a78d6";
@@ -28,9 +26,7 @@ public partial class AiDashboard
     /// <summary>회색. 「취소」처럼 좋지도 나쁘지도 않은 것.</summary>
     private const string Muted = "#898781";
 
-    // DevExpress 차트는 계열 색을 **팔레트 순서**로 받는다.
-    // 계열마다 `Color` 를 적는 길도 있지만 그쪽은 `System.Drawing.Color` 라
-    // 화면에서 hex 를 그대로 쓸 수 없다 — 저장소의 다른 차트도 팔레트를 쓴다.
+    // DevExpress 차트는 계열 색을 팔레트 순서로 받는다. Color 를 적는 길은 System.Drawing.Color 라 hex 를 쓸 수 없어 팔레트를 쓴다.
 
     /// <summary>계열 하나짜리 차트. 크기를 읽는 자리다.</summary>
     private static readonly string[] SinglePalette = [Series1];
@@ -59,8 +55,7 @@ public partial class AiDashboard
 
     // ── 상태 ────────────────────────────────────────────────
 
-    // 기간 고르개가 다루는 것은 **달력 날짜**다. 서버도 한국 달력으로 셈한다
-    // (`AiDashboardService.StartedKst`) — `docs/utc-time.md`.
+    // 기간 고르개는 달력 날짜를 다룬다. 서버도 한국 달력으로 센다(AiDashboardService.StartedKst).
     private DateTime? _from = AppTime.TodayDate.AddDays(-29);
     private DateTime? _to = AppTime.TodayDate;
 
@@ -86,12 +81,10 @@ public partial class AiDashboard
     {
         _data = await Api.LoadAsync(_from, _to) ?? new AiDashboardData();
 
-        // **곁들이는 값이다.** 못 읽어도 대시보드는 그린다 — 클라이언트가
-        // 이미 삼키고 null 을 준다.
+        // 곁들이는 값이다. 못 읽어도 대시보드는 그린다 — 클라이언트가 삼키고 null 을 준다.
         _providers = await Api.ProvidersAsync();
 
-        // 0 건이어도 화면은 타일과 빈 차트를 그린다. 그것이 사실이다.
-        // 「없습니다」는 이 기간에 아무 실행도 없을 때만 띄운다.
+        // 0 건이어도 타일과 빈 차트를 그린다. 「없습니다」는 이 기간에 실행이 없을 때만 띄운다.
         return _data.Summary.Runs;
     }, "이 기간에 처리한 작업이 없습니다.", "현황을 읽지 못했습니다");
 
@@ -104,10 +97,7 @@ public partial class AiDashboard
 
     // ── 도넛 ────────────────────────────────────────────────
 
-    /// <summary>
-    /// 상태 조각. <b>0 건인 상태는 뺀다</b> — 조각은 안 그려지는데 범례만
-    /// 남아 도넛과 범례가 어긋나 보인다.
-    /// </summary>
+    /// <summary>상태 조각. 0 건인 상태는 뺀다 — 조각은 안 그려지는데 범례만 남으면 도넛과 범례가 어긋난다.</summary>
     private List<AiDashboardSlice> StatusSlices =>
     [
         .. Data.ByStatus
@@ -126,9 +116,7 @@ public partial class AiDashboard
     private string[] StatusPalette =>
         [.. StatusSlices.Select(s => StatusColors.GetValueOrDefault(s.Label, Muted))];
 
-    /// <summary>
-    /// 계량기 색. <b>색만으로 뜻을 지지 않는다</b> — 퍼센트 글자가 늘 옆에 있다.
-    /// </summary>
+    /// <summary>계량기 색. 색만으로 뜻을 지지 않는다 — 퍼센트 글자가 늘 옆에 있다.</summary>
     private static string MeterColor(decimal pct)
         => pct >= 90 ? Critical : pct >= 75 ? Serious : pct >= 50 ? Warning : Good;
 
@@ -158,10 +146,7 @@ public partial class AiDashboard
         return tokens.ToString("N0");
     }
 
-    /// <summary>
-    /// 「몇 분 전」. <paramref name="at"/> 은 서버가 준 <b>UTC</b> 다 —
-    /// 견주기는 UTC 끼리, 적을 때만 한국 시각으로 옮긴다.
-    /// </summary>
+    /// <summary>「몇 분 전」. at 은 서버가 준 UTC 라 견주기는 UTC 끼리 하고, 적을 때만 한국 시각으로 옮긴다.</summary>
     private static string Ago(DateTime at)
     {
         var gap = AppTime.UtcNow - at;
@@ -173,21 +158,10 @@ public partial class AiDashboard
             : at.Kst("MM-dd HH:mm");
     }
 
-    /// <summary>
-    /// 한도 값이 오래됐나. <b>「빠른 지시」의 고르개와 같은 잣대를 쓴다</b>
-    /// (<see cref="AiUsageText"/>) — 같은 값을 한쪽은 오래됐다 하고 다른 쪽은
-    /// 아니라고 하면, 둘 다 못 믿게 된다.
-    /// </summary>
+    /// <summary>한도 값이 오래됐나. 「빠른 지시」의 고르개와 같은 잣대(AiUsageText)를 쓴다 — 두 곳이 다르게 판정하면 둘 다 못 믿게 된다.</summary>
     private static bool Stale(DateTime observedAt) => AiUsageText.Stale(observedAt);
 
-    /// <summary>
-    /// 갱신까지 남은 시간. <b>「빠른 지시」의 고르개와 같은 글자를 쓴다</b>
-    /// (<see cref="AiUsageText.Remain"/>).
-    /// </summary>
-    /// <remarks>
-    /// 그려지는 순간을 기준으로 센다 — 화면을 오래 열어 두었으면 다시 조회해야
-    /// 줄어든다. 절대 시각을 옆에 함께 적는 까닭이 그것이다.
-    /// </remarks>
+    /// <summary>갱신까지 남은 시간. 「빠른 지시」와 같은 글자를 쓰며(AiUsageText.Remain), 그려지는 순간을 기준으로 센다 — 그래서 절대 시각을 옆에 함께 적는다.</summary>
     private static string Remain(DateTime resetAt) => AiUsageText.Remain(resetAt);
 
     private string MomText => Forecast.MonthOverMonth is { } mom
@@ -201,16 +175,7 @@ public partial class AiDashboard
         return top <= 0 ? "0" : (runs * 100.0 / top).ToString("0.#");
     }
 
-    /// <summary>
-    /// 한도 칸에 늘 자리를 내 주는 CLI.
-    /// </summary>
-    /// <remarks>
-    /// <b>올라온 것만 그리지 않는다.</b> 그러면 「이 CLI 는 안 쓴다」와
-    /// 「이 CLI 의 보고가 끊겼다」가 화면에서 똑같이 <i>없음</i>으로 보인다 —
-    /// 실제로 antigravity·copilot 이 묻는 길을 못 찾은 채 몇 주를 그렇게
-    /// 비어 있었고, 아무도 고장으로 읽지 않았다.
-    /// <para>여기 없는 종류가 올라오면 그것도 그대로 그린다(아래 UsageKinds).</para>
-    /// </remarks>
+    /// <summary>한도 칸에 늘 자리를 내 주는 CLI. 올라온 것만 그리지 않는다 — 그러면 「안 쓴다」와 「보고가 끊겼다」가 똑같이 없음으로 보인다. 여기 없는 종류가 올라오면 그대로 그린다(UsageKinds).</summary>
     private static readonly string[] KnownKinds = ["claude", "antigravity", "copilot"];
 
     /// <summary>그릴 차례. 아는 셋을 먼저 두고, 처음 보는 종류를 뒤에 붙인다.</summary>
@@ -224,25 +189,16 @@ public partial class AiDashboard
 
     private static string KindText(string? kind) => AiUsageText.Kind(kind);
 
-    /// <summary>
-    /// 이 줄이 「로그인이 끊겼다」인가. <b>「빠른 지시」의 고르개와 같은 잣대다</b>
-    /// (<see cref="AiUsageText.NeedsAuth(AiUsageSnapshot)"/>).
-    /// </summary>
+    /// <summary>이 줄이 「로그인이 끊겼다」인가. 「빠른 지시」의 고르개와 같은 잣대다(AiUsageText.NeedsAuth).</summary>
     private static bool NeedsAuth(AiUsageSnapshot usage) => AiUsageText.NeedsAuth(usage);
 
     /// <summary>까닭을 사람이 읽는 글로 — 기계가 보는 표는 떼어 낸다.</summary>
     private static string Why(AiUsageSnapshot usage) => AiUsageText.Why(usage);
 
-    /// <summary>
-    /// 같은 CLI 안에서 무엇의 한도인가. <b>CLI 가 쓰는 이름을 크게 바꾸지 않는다</b> —
-    /// 원문을 펴 봤을 때 화면의 어느 칸인지 바로 짚을 수 있어야 한다.
-    /// </summary>
+    /// <summary>같은 CLI 안에서 무엇의 한도인가. CLI 가 쓰는 이름을 크게 바꾸지 않는다 — 원문을 펴 봤을 때 화면의 어느 칸인지 바로 짚을 수 있어야 한다.</summary>
     private static string BucketText(AiUsageSnapshot usage) => AiUsageText.Bucket(usage);
 
-    /// <summary>
-    /// 토큰이냐 크레딧이냐. 세는 단위가 다른데 같은 말로 적으면 숫자의 크기가
-    /// 엉뚱하게 읽힌다 — 200 크레딧과 200 토큰은 전혀 다른 이야기다.
-    /// </summary>
+    /// <summary>토큰이냐 크레딧이냐. 세는 단위가 다르므로 같은 말로 적으면 숫자가 엉뚱하게 읽힌다.</summary>
     private static string UnitText(string? kind) => AiUsageText.Unit(kind);
 
     private static string StatusText(string? status) => status switch

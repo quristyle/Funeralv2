@@ -1,19 +1,6 @@
 namespace JSini.PublicSite.Site;
 
-/// <summary>
-/// 화면에 붙박인 문구.
-///
-/// 원본: <c>fronts/apps/jsini-site/src/i18n/messages.ts</c>.
-///
-/// [번역 라이브러리를 얹지 않는 이유]
-///
-/// 이 사이트의 문구는 대부분 DB(<c>site.sections</c>)에서 온다. 여기 남는 것은
-/// 메뉴 이름처럼 코드에 붙은 몇 개뿐이라, 그 정도를 위해 리소스 파일과
-/// 지역화 미들웨어를 얹으면 얻는 것보다 읽을 것이 늘어난다.
-///
-/// 언어를 늘릴 때는 <see cref="Locales"/> 에 코드를 더하고 <see cref="All"/> 에
-/// 한 줄을 더한다. DB 쪽 언어 열도 같은 코드를 쓴다(SiteServer 의 NormalizeLocale).
-/// </summary>
+/// <summary>화면에 붙박인 문구. 이 사이트 문구는 대부분 DB(site.sections)에서 오고, 여기 남는 것은 메뉴 이름처럼 코드에 붙은 몇 개뿐이라 번역 라이브러리를 얹지 않는다. 언어를 늘리면 Locales 와 All 에 한 줄씩 더한다.</summary>
 public static class SiteMessages
 {
     /// <summary>지원하는 언어. 주소의 첫 조각이 이 값이다.</summary>
@@ -22,12 +9,7 @@ public static class SiteMessages
     /// <summary>언어를 못 알아볼 때 쓰는 값.</summary>
     public const string DefaultLocale = "ko";
 
-    /// <summary>
-    /// 바깥에서 들어온 문자열을 아는 값으로만 좁힌다.
-    ///
-    /// 주소의 언어 조각은 사용자가 아무렇게나 칠 수 있다. 좁혀 두지 않으면
-    /// 사전 조회가 <c>KeyNotFoundException</c> 으로 죽는다.
-    /// </summary>
+    /// <summary>바깥에서 들어온 문자열을 아는 값으로만 좁힌다. 주소의 언어 조각은 아무렇게나 칠 수 있어, 좁히지 않으면 사전 조회가 KeyNotFoundException 으로 죽는다.</summary>
     public static string Normalize(string? value) =>
         value is not null && Locales.Contains(value, StringComparer.OrdinalIgnoreCase)
             ? value.ToLowerInvariant()
@@ -221,14 +203,7 @@ public sealed class WorkMessages
     public required string Lead { get; init; }
     public required string CtaLead { get; init; }
 
-    /// <summary>
-    /// 그림 아래에 늘 붙는 한 줄.
-    ///
-    /// 그림은 <b>실제 화면의 캡처가 아니라 그것을 본뜬 재현 이미지</b>다.
-    /// 고객사 시스템 화면에는 고인·상주·담당자·설비 운전값 같은 것이 들어 있어
-    /// 공개 사이트에 올릴 수 없다. 보는 사람이 진짜 캡처로 오해하지 않도록
-    /// 그림마다 이 문장을 붙인다 — <b>빼지 않는다.</b>
-    /// </summary>
+    /// <summary>그림 아래에 늘 붙는 한 줄. 그림은 실제 캡처가 아니라 재현 이미지다(고객사 화면에는 고인·상주 등이 있어 올릴 수 없다). 그래서 그림마다 이 문장을 붙이고 빼지 않는다.</summary>
     public required string MockupNote { get; init; }
 }
 
@@ -264,12 +239,7 @@ public sealed class ContactFormMessages
     public required string Consent { get; init; }
     public required string ConsentTitle { get; init; }
 
-    /// <summary>
-    /// DB(<c>contact.consent</c>)에 동의 문구 블록이 없을 때 대신 쓸 문장.
-    ///
-    /// 법률 문구라 코드 배포 없이 고칠 수 있어야 해서 DB 가 정본이지만,
-    /// 블록이 없다고 <b>동의 문구가 아예 안 보이는 것</b>이 더 나쁘다.
-    /// </summary>
+    /// <summary>DB(contact.consent)에 동의 문구 블록이 없을 때 쓰는 문장. 법률 문구라 DB 가 정본이지만, 블록이 없다고 동의 문구가 아예 안 보이는 것이 더 나쁘다.</summary>
     public required string ConsentFallback { get; init; }
 
     public required string Submit { get; init; }

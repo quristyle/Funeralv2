@@ -3,27 +3,12 @@ using System.Text.Json;
 namespace LifeEnvServer.Utilities;
 
 /// <summary>
-/// 기상청 중기예보 응답 두 벌(<c>getMidLandFcst</c> · <c>getMidTa</c>)을
-/// <b>하루 한 줄</b>로 접는다.
+/// 기상청 중기예보 응답 두 벌(getMidLandFcst · getMidTa)을 하루 한 줄로 접는다. 날짜가 칸 이름 안에 들어 있어(wf4Am · taMin7)
+/// 읽는 일을 등록 지역 수집기와 내 위치 주간 예보가 같이 쓴다. 기상청을 부르지 않으므로 시험이 붙는다.
 /// </summary>
-/// <remarks>
-/// <para>
-/// 두 응답은 날짜가 <b>칸 이름 안에 들어 있는</b> 납작한 모양이다 —
-/// <c>wf4Am</c> · <c>rnSt4Pm</c> · <c>taMin7</c> 처럼 「며칠 뒤」가 이름에 붙어 있고,
-/// 8~10일치는 오전·오후 구분이 아예 없다(<c>wf8</c>). 그것을 읽어 내는 일이
-/// <b>두 군데</b>에 있었다 — 등록 지역을 모아 두는 수집기와 내 위치의 주간 예보다.
-/// 한쪽만 고치면 <b>같은 화면에서 등록 지역과 내 위치가 다른 말을 한다.</b>
-/// </para>
-/// <para>
-/// <b>기상청을 부르지 않는다.</b> 받아 온 글만 읽는다 — 그래야 시험이 붙는다.
-/// </para>
-/// </remarks>
 public static class MidTermForecastReader
 {
-    /// <summary>
-    /// 중기예보 하루치. <c>DayAfter</c> 는 <b>발표일로부터 며칠 뒤인가</b>(3~10)이고,
-    /// <c>Date</c> 는 그것을 발표일에 더한 실제 날짜다.
-    /// </summary>
+    /// <summary>중기예보 하루치. DayAfter 는 발표일 기준 며칠 뒤(3~10), Date 는 그 실제 날짜다.</summary>
     public record Day(
         int DayAfter,
         DateOnly Date,
@@ -34,13 +19,7 @@ public static class MidTermForecastReader
         int MinTemp,
         int MaxTemp);
 
-    /// <summary>
-    /// 두 응답을 3~10일치로 편다. <b>하늘 상태가 통째로 빈 날은 버린다</b> —
-    /// 그 날은 기상청이 아직 안 낸 것이라, 0℃ 짜리 빈 칸을 그리면 거짓말이 된다.
-    /// </summary>
-    /// <param name="landJson"><c>getMidLandFcst</c> 원문. 비면 빈 목록.</param>
-    /// <param name="tempJson"><c>getMidTa</c> 원문. 비면 빈 목록.</param>
-    /// <param name="baseDate"><c>yyyyMMddHHmm</c> 발표 차수. 앞 여덟 자가 날짜 계산의 기준이다.</param>
+    /// <summary>두 응답을 3~10일치로 편다. 하늘 상태가 통째로 빈 날은 기상청이 아직 안 낸 것이므로 버린다.</summary>
     public static List<Day> Read(string? landJson, string? tempJson, string baseDate)
     {
         var days = new List<Day>();

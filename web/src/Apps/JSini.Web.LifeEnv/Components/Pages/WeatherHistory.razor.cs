@@ -41,8 +41,7 @@ public partial class WeatherHistory
         {
             _locations = await Client.GetLocationsAsync();
 
-            // 첫 지역을 골라 둔다. 안 고르면 빈 표만 보이고 무엇을 해야
-            // 하는지 알 수 없다.
+            // 첫 지역을 골라 둔다 — 안 고르면 빈 표만 보이고 무엇을 할지 알 수 없다.
             _locationId = _locations.FirstOrDefault()?.Id;
 
             return _locations.Count;
@@ -77,10 +76,7 @@ public partial class WeatherHistory
     }, "그 기간에 기록이 없습니다.", "실측 이력을 읽지 못했습니다");
 
     /// <summary>
-    /// 전날 같은 시각과의 차이.
-    ///
-    /// 목록은 최근이 위다. 그래서 「전날」은 <b>다음 줄</b>이다 —
-    /// 순서를 잘못 보면 부호가 뒤집힌다.
+    /// 전날 같은 시각과의 차이. 목록은 최근이 위라 「전날」은 다음 줄이다 — 순서를 잘못 보면 부호가 뒤집힌다.
     /// </summary>
     private double? DiffFromPreviousDay(HourlyTemp row)
     {

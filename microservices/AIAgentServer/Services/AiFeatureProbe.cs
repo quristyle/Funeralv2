@@ -4,44 +4,13 @@ using AIAgentServer.Services.Rag;
 
 namespace AIAgentServer.Services;
 
-/// <summary>
-/// 사내 문서 검색(RAG)과 웹 검색(MCP)이 <b>실제로 도는지</b> 눌러 본다.
-/// </summary>
-/// <remarks>
-/// <para>
-/// [설정만 보여 주는 상태 화면은 거짓말을 한다]
-/// </para>
-/// <para>
-/// 「RAG 켜짐 · 토막 1,842개」까지는 설정과 메모리만 읽어도 적을 수 있다.
-/// 그런데 <b>임베딩 서버가 죽어 있어도 그 화면은 똑같이 초록이다</b> — 색인은
-/// 디스크에 남아 있고 설정도 그대로이기 때문이다. 실제로는 그 사이 모든 질문이
-/// 낱말 검색만으로 답하고 있다(<see cref="RagAugmenter"/> 가 임베딩 실패를
-/// 경고만 남기고 넘어간다 — 대화를 멈출 일이 아니므로 그것이 맞다). 그래서
-/// 여기서 <b>한 번 실제로 벡터를 만들어 본다.</b>
-/// </para>
-/// <para>
-/// 웹 검색도 같다. <c>Mcp:Enabled</c> 가 참이어도 McpServer 가 안 떠 있으면
-/// 도구 목록이 빈 채로 돌아오고, 모델은 아무 일 없었다는 듯 아는 것만으로 답한다.
-/// </para>
-/// <para>
-/// [그래서 재어 둔다 — 화면이 10초마다 묻기 때문이다]
-/// </para>
-/// <para>
-/// 임베딩 서버는 <b>CPU 로 돈다.</b> 상태 화면을 띄워 두면 10초마다 한 번씩
-/// 벡터를 만들라는 요청이 가는데, 그 CPU 는 추론 장비가 다른 일에 쓸 것이다.
-/// 그래서 <see cref="Ttl"/> 동안은 재어 둔 값을 준다. 사람이 「지금 확인」을
-/// 누르면 그때만 다시 묻는다.
-/// </para>
-/// </remarks>
+/// <summary>사내 문서 검색(RAG)과 웹 검색(MCP)이 <b>실제로 도는지</b> 눌러 본다. 「RAG 켜짐 · 토막 1,842개」까지는 설정과 메모리만 읽어도 적을 수 있다.</summary>
 public sealed class AiFeatureProbe
 {
     /// <summary>재어 둔 값을 쓰는 동안. 사람이 누르면 이것과 상관없이 다시 묻는다.</summary>
     private static readonly TimeSpan Ttl = TimeSpan.FromMinutes(2);
 
-    /// <summary>
-    /// 임베딩 서버에 보내 볼 글. <b>짧아야 한다</b> — 상태를 보려고 CPU 를
-    /// 오래 물릴 까닭이 없다. 길이가 아니라 "답이 오는가" 를 보는 것이다.
-    /// </summary>
+    /// <summary>임베딩 서버에 보내 볼 글. <b>짧아야 한다</b> — 상태를 보려고 CPU 를 오래 물릴 까닭이 없다. 길이가 아니라 "답이 오는가" 를 보는 것이다.</summary>
     private const string Ping = "상태 확인";
 
     private readonly IServiceScopeFactory _scopes;
@@ -136,15 +105,7 @@ public sealed class AiFeatureProbe
 
     // ── MCP 도구 서버 ───────────────────────────────────────────
 
-    /// <summary>
-    /// McpServer 자신에게 「너는 어떤 검색을 쓰느냐」를 묻는다.
-    /// </summary>
-    /// <remarks>
-    /// <b>검색 뒷단(DuckDuckGo · SearXNG · Brave)은 McpServer 설정이 정한다.</b>
-    /// AIAgentServer 쪽 설정에는 없으므로 여기서 알 길이 그 서버에게 묻는 것뿐이다 —
-    /// 그쪽이 <c>GET /tools</c> 로 알려 준다. MCP 규격 길(<c>/mcp</c>)이 아니라
-    /// 사람이 보라고 열어 둔 평범한 길이다.
-    /// </remarks>
+    /// <summary>McpServer 자신에게 「너는 어떤 검색을 쓰느냐」를 묻는다. 검색 뒷단(DuckDuckGo · SearXNG · Brave)은 McpServer 설정이 정한다.</summary>
     public async Task<McpServerProbe> McpServerAsync(bool force = false, CancellationToken ct = default)
     {
         if (!force && Fresh(_mcp?.CheckedAt)) return _mcp!;
@@ -230,21 +191,7 @@ public sealed class AiFeatureProbe
         }
     }
 
-    /// <summary>
-    /// 받아쓰기 서버를 <b>실제로 한 번 눌러 본다.</b>
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 모델 목록만 물어도 「서버가 떠 있나」는 알 수 있다. 그런데 그것으로는
-    /// <b>모델을 못 올린 상태</b>가 안 갈린다 — 서버는 멀쩡히 200 을 주면서
-    /// 받아쓰기만 전부 실패하는 자리가 있다(가중치를 내려받다 만 경우가 그렇다).
-    /// 임베딩 쪽에서 같은 까닭으로 실제 벡터를 만들어 보는 것과 같다.
-    /// </para>
-    /// <para>
-    /// 그래서 <b>아주 짧은 무음</b>을 만들어 보낸다. 돌아오는 글은 비어 있는
-    /// 것이 맞고, 여기서 보는 것은 글이 아니라 「끝까지 돌았는가」다.
-    /// </para>
-    /// </remarks>
+    /// <summary>받아쓰기 서버를 <b>실제로 한 번 눌러 본다.</b> 모델 목록만 물어도 「서버가 떠 있나」는 알 수 있다.</summary>
     private async Task<SpeechProbe> MeasureSpeechAsync(CancellationToken ct)
     {
         using var scope = _scopes.CreateScope();
@@ -287,10 +234,7 @@ public sealed class AiFeatureProbe
         }
     }
 
-    /// <summary>
-    /// 0.2초짜리 무음 WAV. 16kHz · 16bit · 모노 — whisper 가 안쪽에서 맞추는 모양이라
-    /// 변환 없이 바로 들어간다.
-    /// </summary>
+    /// <summary>0.2초짜리 무음 WAV. 16kHz · 16bit · 모노 — whisper 가 안쪽에서 맞추는 모양이라 변환 없이 바로 들어간다.</summary>
     private static byte[] SilenceWav()
     {
         const int sampleRate = 16000;
@@ -321,9 +265,7 @@ public sealed class AiFeatureProbe
     private static bool Fresh(DateTime? at) => at is { } t && DateTime.UtcNow - t < Ttl;
 }
 
-/// <summary>
-/// 받아쓰기 서버를 한 번 눌러 본 결과.
-/// </summary>
+/// <summary>받아쓰기 서버를 한 번 눌러 본 결과.</summary>
 /// <param name="Language">
 /// 알아들을 말을 일러 주었나. 비어 있으면 서버가 스스로 가린다 —
 /// <b>짧은 말이 엉뚱한 언어로 가려지는</b> 자리라 보통은 채워 둔다.
@@ -337,9 +279,7 @@ public sealed record SpeechProbe(
     string? Message,
     DateTime CheckedAt);
 
-/// <summary>
-/// 임베딩 서버를 한 번 눌러 본 결과.
-/// </summary>
+/// <summary>임베딩 서버를 한 번 눌러 본 결과.</summary>
 /// <param name="Dimensions">
 /// 돌아온 벡터의 차원. <b>색인에 적힌 차원과 다르면 모델이 바뀐 것</b>이고,
 /// 그때는 색인을 통째로 다시 만들어야 한다 — 차원이 다른 벡터끼리는 견줄 수 없다.

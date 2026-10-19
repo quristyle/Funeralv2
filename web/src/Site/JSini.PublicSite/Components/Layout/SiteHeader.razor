@@ -1,11 +1,5 @@
 @*
-    머리글. 상단에 붙어 따라온다.
-
-    [모바일 차림표를 <details> 로 연다]
-
-    원본은 Vue 의 `ref(false)` 로 열고 닫았다. 이 앱에는 회로가 없어 그 상태를
-    서버가 들고 있을 수 없다. `<details>` 는 브라우저가 스스로 여닫으므로
-    자바스크립트도 회로도 필요 없고, 키보드와 스크린 리더 동작도 표준으로 따라온다.
+    머리글. 상단에 붙어 따라온다. 모바일 차림표는 details 로 연다. 회로가 없어 상태를 서버가 들 수 없고, details 는 브라우저가 스스로 여닫는다.
 *@
 
 <header class="site-header">
@@ -20,8 +14,7 @@
                 <NavLink class="site-header__link" href="@item.Href" Match="NavLinkMatch.All">@item.Label</NavLink>
             }
 
-            @* 업무 포털. 사이트 안 차림표와 섞이지 않게 단추 모양으로 둔다 —
-               눌렀을 때 **다른 곳(로그인 화면)으로 나간다**는 것이 모양에서 보여야 한다. *@
+            @* 업무 포털. 사이트 안 차림표와 섞이지 않게 단추 모양으로 둔다(눌렀을 때 다른 곳으로 나간다). *@
             <a class="site-header__portal" href="@PortalUrl" rel="noopener">@T.Nav.Portal →</a>
 
             @* 언어 전환. 지금 보고 있는 화면의 다른 언어 주소로 간다. *@

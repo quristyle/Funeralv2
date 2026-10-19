@@ -7,17 +7,7 @@ namespace ProjMngServer.Tests;
 /// <summary>
 /// 「처리 파일」 목록을 <b>합치는 규칙</b>.
 /// </summary>
-/// <remarks>
-/// <para>
-/// 화면으로는 확인하기 나쁜 자리다 — 실행기가 운영 장비에서 돌고 모델이
-/// 결과문을 읽어 준 뒤에야 값이 생긴다. 규칙을 여기 박아 둔다.
-/// </para>
-/// <para>
-/// 적는 쪽(<see cref="AiChangedFiles.Format"/>)과 읽는 쪽이 짝이고, 포털의
-/// <c>JSini.Web.ProjMng/Components/Shared/AiRunFiles.Parse</c> 가 <b>세 번째로</b>
-/// 같은 모양을 읽는다. 한쪽만 고치면 화면에서 배지가 통째로 사라진다.
-/// </para>
-/// </remarks>
+/// 화면으로는 확인하기 나쁘다 — 값은 운영 장비에서 돌고 모델이 결과문을 읽은 뒤에야 생긴다. 적는 쪽(Format)과 읽는 쪽(포털 AiRunFiles.Parse)은 짝이라 한쪽만 고치면 배지가 사라진다.
 public class AiChangedFilesTests
 {
     /// <summary><b>git 이 먼저고, git 이 이긴다.</b></summary>
@@ -52,8 +42,7 @@ public class AiChangedFilesTests
     }
 
     /// <summary>
-    /// <b>git 이 아무것도 못 준 건</b>이 이 기능이 생긴 까닭이다 — 2026-10-17 에
-    /// 운영의 최근 2주 276건 전부가 그랬다(실행기 바이너리가 옛 것이었다).
+    /// 실행기가 옛 바이너리면 git 이 아무것도 못 주는 건이 생긴다 — 그때도 목록이 비지 않게 하려고 이 기능이 있다.
     /// </summary>
     [Fact]
     public void git_이_빈손이어도_결과문만으로_목록이_선다()
@@ -191,12 +180,9 @@ public class AiChangedFilesTests
         Assert.Equal("외 50개", rows[^1].Path);
     }
 
-    // ── 대 보기 (2026-10-17) ────────────────────────────────
+        // ── 대 보기 ────────────────────────────────────────────
     //
-    // 결과문에서 뽑은 경로에는 **파일이 아닌 것**과 **마디가 빠진 것**이
-    // 섞여 든다. 실제로 대 보는 것은 실행기지만(`AiTaskRunner.FileProbe` —
-    // 서버는 컨테이너 안이라 대상 경로를 못 본다) 그 답을 목록에 새기는
-    // 규칙은 여기 있다.
+        // 결과문에서 뽑은 경로에는 파일이 아닌 것과 마디가 빠진 것이 섞인다. 대 보는 것은 호스트의 실행기이고, 그 답을 목록에 새기는 규칙은 여기 있다.
 
     /// <summary>
     /// <b>대상 위치를 알면 그 뿌리를 뗀다.</b> 모델은 결과문에 장비의 온

@@ -32,10 +32,7 @@ public partial class UserList
     private string? _keyword;
     private string? _status;
 
-    /// <summary>
-    /// 서버가 발급한 비밀번호를 띄우는 창. <b>등록과 초기화가 같이 쓴다</b> —
-    /// 둘 다 「지금 한 번만 보이는 평문」이라 보여 주는 일이 똑같다.
-    /// </summary>
+    /// <summary>서버가 발급한 비밀번호를 띄우는 창. 등록과 초기화가 같이 쓴다 — 둘 다 지금 한 번만 보이는 평문이다.</summary>
     private bool _issuedVisible;
     private string? _issuedLoginId;
     private string? _issuedUserName;
@@ -64,9 +61,7 @@ public partial class UserList
     private IReadOnlyList<AccountDto> MergeTargetCandidates =>
         _all.Where(a => a.Id != _mergeSource?.Id && a.LoginId != _mergeSource?.LoginId).ToList();
 
-    // PENDING 은 거르기에만 있고 편집 목록(StatusOptions)에는 없다. 승인은
-    // [가입 신청] 화면이 하는 일이라, 여기서 손으로 PENDING 을 지정하면
-    // 그 사람이 이유 없이 로그인하지 못한다.
+    // PENDING 은 거르기에만 있다 — 승인은 가입 신청 화면이 하고, 여기서 손으로 지정하면 이유 없이 로그인을 못 한다.
     private static readonly string[] StatusFilters = ["PENDING", "ACTIVE", "LOCKED", "RESIGNED"];
 
     private static readonly object[] StatusOptions =
@@ -105,10 +100,7 @@ public partial class UserList
         }
     }
 
-    /// <summary>
-    /// 화면을 열면 바로 읽는다. 역할·부서도 함께 받는다 — 조회 전에 바로
-    /// 「등록」을 눌러도 편집 폼의 고르개가 비어 있으면 안 되기 때문이다.
-    /// </summary>
+    /// <summary>화면을 열면 바로 읽는다. 역할·부서도 함께 받아 편집 폼의 고르개가 비지 않게 한다.</summary>
     protected override Task OnInitializedAsync() => LoadAsync(async () =>
     {
         var rolesTask = Api.GetRolesAsync();
@@ -142,11 +134,7 @@ public partial class UserList
     }, "계정이 없습니다.", "계정 목록을 읽지 못했습니다");
 
     /// <summary>「조회」와 저장·삭제 뒤가 부른다.</summary>
-    /// <summary>
-    /// 로그인 아이디로 찾는 알림 상태. <b>없을 수 있다</b> — 알림 서버를 못
-    /// 읽었거나(그때는 통이 통째로 비어 있다) 그 사람이 설정을 저장한 적도
-    /// 기기를 붙인 적도 없을 때다.
-    /// </summary>
+    /// <summary>로그인 아이디로 찾는 알림 상태. 없을 수 있다 — 알림 서버를 못 읽었거나 설정·기기가 없을 때다.</summary>
     private readonly Dictionary<string, OwnerNotificationStateDto> _notify =
         new(StringComparer.OrdinalIgnoreCase);
 
@@ -160,8 +148,7 @@ public partial class UserList
             return null;
         }
 
-        // **행이 없으면 기본값이다.** 없는 것을 「꺼짐」으로 그리면 반대로
-        // 말하게 된다(머리말).
+        // 행이 없으면 기본값이다 — 없는 것을 「꺼짐」으로 그리면 반대로 말하게 된다.
         return _notify.TryGetValue(a.LoginId, out var state)
             ? state
             : new OwnerNotificationStateDto { OwnerKey = a.LoginId };
@@ -176,20 +163,7 @@ public partial class UserList
         return _all.Count;
     }, "조건에 맞는 계정이 없습니다.", "계정 목록을 읽지 못했습니다");
 
-    /// <summary>
-    /// 알림 상태를 따로 읽는다.
-    ///
-    /// <para>
-    /// <b>여기서 실패해도 계정 목록은 뜬다.</b> 다른 서비스의 표라 같이 묶으면
-    /// 알림 서버가 죽었을 때 계정 관리가 통째로 안 열린다 — 그 화면은 알림과
-    /// 무관한 일(계정 등록·역할 배정)에도 쓰인다.
-    /// </para>
-    ///
-    /// <para>
-    /// 실패를 토스트로 말하지도 않는다. 계정을 고치러 온 사람에게는 상관없는
-    /// 말이고, 못 읽었다는 것은 <b>그 칸의 「–」</b>가 이미 말한다.
-    /// </para>
-    /// </summary>
+    /// <summary>알림 상태를 따로 읽는다. 여기서 실패해도 계정 목록은 뜬다 — 알림 서버가 죽었다고 계정 관리가 안 열리면 안 된다. 실패는 토스트가 아니라 칸의 「–」가 말한다.</summary>
     private async Task LoadNotifyAsync()
     {
         _notify.Clear();
@@ -208,10 +182,7 @@ public partial class UserList
         }
     }
 
-    /// <summary>
-    /// 스위치 한 칸. <b>저장한 적이 없으면 흐리게</b> 그리고 기본값이라고
-    /// 적는다 — 안 건드린 것과 켜 둔 것은 다른 일이다(머리말).
-    /// </summary>
+    /// <summary>스위치 한 칸. 저장한 적이 없으면 흐리게 그리고 기본값이라고 적는다 — 안 건드린 것과 켜 둔 것은 다르다.</summary>
     private static RenderFragment Switch(
         OwnerNotificationStateDto? state, Func<OwnerNotificationStateDto, bool> pick) => builder =>
     {
@@ -312,10 +283,7 @@ public partial class UserList
         }, string.Empty, "부서 목록을 읽지 못했습니다");
     }
 
-    /// <summary>
-    /// 저장한다. 등록이면 서버가 발급한 첫 비밀번호를 받아 창에 띄운다 —
-    /// <b>그 응답이 그 값을 볼 수 있는 유일한 자리다.</b>
-    /// </summary>
+    /// <summary>저장한다. 등록이면 서버가 발급한 첫 비밀번호를 받아 창에 띄운다 — 그 응답이 그 값을 볼 수 있는 유일한 자리다.</summary>
     private async Task SaveAsync((AccountDto Item, bool IsNew) e)
     {
         var body = new SaveAccountDto
@@ -335,8 +303,7 @@ public partial class UserList
             BirthdayCelebrated = e.Item.BirthdayCelebrated,
             Watermark = e.Item.Watermark,
 
-            // 편집 창이 사전을 제자리에서 고친다(`AccountDto.Dev`) — 여기서
-            // 모으는 단계가 없다.
+            // 편집 창이 사전을 제자리에서 고친다 — 여기서 모으는 단계가 없다.
             DevAttributes = e.Item.DevAttributes,
         };
 
@@ -348,8 +315,7 @@ public partial class UserList
 
         var created = await Api.CreateAccountAsync(body);
 
-        // 값이 없으면 창을 띄우지 않는다 — 빈 칸을 보여 주면 「발급이 안 됐나」로
-        // 읽힌다. 설정으로 고정 비밀번호를 쓰는 경우에도 그 값이 그대로 온다.
+        // 값이 없으면 창을 띄우지 않는다 — 빈 칸은 「발급이 안 됐나」로 읽힌다.
         if (!string.IsNullOrEmpty(created?.InitialPassword))
         {
             ShowIssued(created.LoginId, created.UserName, created.InitialPassword, isReset: false);
@@ -382,34 +348,7 @@ public partial class UserList
 
     private Task DeleteAsync(AccountDto a) => ConfirmDeleteAsync(a);
 
-    /// <summary>
-    /// 그 사람의 비밀번호를 초기화하고, 서버가 발급한 값을 창에 띄운다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// [먼저 묻는다]
-    /// </para>
-    ///
-    /// <para>
-    /// 되돌릴 수 없다 — 지금 쓰던 비밀번호는 해시뿐이라 <b>되살릴 방법이
-    /// 없고</b>, 잘못 눌린 줄의 사람은 다음 로그인에서 막힌다. 표 안의 작은
-    /// 아이콘 단추라 더욱 그렇다(<c>ConfirmDialog</c> 머리말).
-    /// </para>
-    ///
-    /// <para>
-    /// 물음에 <b>누구인지 적는다.</b> 「정말 초기화합니까」만으로는 어느 줄을
-    /// 눌렀는지 확인할 수 없어 묻는 뜻이 절반 없어진다.
-    /// </para>
-    ///
-    /// <para>
-    /// [목록을 다시 읽지 않는다]
-    /// </para>
-    ///
-    /// <para>
-    /// 바뀌는 것이 비밀번호 하나이고 그 값은 목록에 없다. 다시 읽으면 창이
-    /// 떠 있는 동안 표가 깜빡이기만 한다.
-    /// </para>
-    /// </remarks>
+    /// <summary>그 사람의 비밀번호를 초기화하고 서버가 발급한 값을 창에 띄운다. 되돌릴 수 없어 먼저 묻고, 묻는 말에 누구인지 적는다. 목록은 다시 읽지 않는다(바뀌는 것은 목록에 없다).</summary>
     private async Task ResetPasswordAsync(AccountDto a)
     {
         var who = string.IsNullOrWhiteSpace(a.UserName)
@@ -432,8 +371,7 @@ public partial class UserList
             "비밀번호를 초기화했습니다.",
             "비밀번호를 초기화하지 못했습니다");
 
-        // 성공했는데 값이 비어 있으면 창을 띄우지 않는다. 빈 칸을 보여 주면
-        // 「이것이 새 비밀번호인가」로 읽힌다 — 등록과 같은 규칙이다.
+        // 성공했는데 값이 비어 있으면 창을 띄우지 않는다 — 등록과 같은 규칙이다.
         if (ok && !string.IsNullOrEmpty(issued?.Password))
         {
             ShowIssued(issued.LoginId, issued.UserName, issued.Password, isReset: true);
@@ -448,21 +386,13 @@ public partial class UserList
         _issuedPassword = password;
         _issuedIsReset = isReset;
 
-        // 앞서 띄운 창에서 눌러 둔 표시를 지운다. 안 지우면 새 값을 띄우면서
-        // 「복사됨」이라고 적혀 있어, 복사한 적 없는 값을 복사한 줄 안다.
+        // 앞서 띄운 창의 「복사됨」 표시를 지운다 — 안 지우면 복사한 적 없는 값을 복사한 것으로 안다.
         _issuedCopied = false;
 
         _issuedVisible = true;
     }
 
-    /// <summary>
-    /// 발급한 비밀번호를 클립보드로 옮긴다.
-    /// </summary>
-    /// <remarks>
-    /// 실패해도 창은 그대로 둔다 — 칸의 값은 눈앞에 있으니 손으로 옮겨 적을 수
-    /// 있다. <c>jsiniClipboard.copy</c> 가 안전하지 않은 문맥(사내 http)까지
-    /// 감당하고 된 것을 돌려준다.
-    /// </remarks>
+    /// <summary>발급한 비밀번호를 클립보드로 옮긴다. 실패해도 창은 그대로 둔다 — 칸의 값을 손으로 옮겨 적을 수 있다.</summary>
     private async Task CopyIssuedAsync()
     {
         if (string.IsNullOrEmpty(_issuedPassword))
@@ -511,21 +441,7 @@ public partial class UserList
         return flat;
     }
 
-    /// <summary>
-    /// 「얼마나 지났나」 한 마디. 시각 밑에 흐리게 덧붙인다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 예순 줄을 훑는 눈이 찾는 것은 날짜가 아니라 <b>오래된 정도</b>다.
-    /// <c>2026-07-02</c> 를 보고 오늘과 빼는 일을 줄마다 시키면 아무도 안 한다.
-    /// </para>
-    /// <para>
-    /// <b>「오늘·어제」는 한국 달력으로 센다.</b> 서버가 주는 것은 UTC 이고,
-    /// 그대로 빼서 24시간으로 나누면 한국의 오전 아홉 시 전 아홉 시간 동안
-    /// <b>오늘 아침에 쓴 것이 「어제」</b>로 나온다
-    /// (<c>docs/utc-time.md</c>). 날짜로 바꿔 놓고 날 수를 센다.
-    /// </para>
-    /// </remarks>
+    /// <summary>「얼마나 지났나」 한 마디. 시각 밑에 흐리게 덧붙인다. 「오늘·어제」는 한국 달력으로 센다 — UTC 를 그대로 빼면 오전 아홉 시 전까지 오늘 아침 것이 「어제」가 된다(docs/utc-time.md).</summary>
     private static string Ago(DateTime? utc)
     {
         if (utc is null) return string.Empty;
@@ -534,7 +450,7 @@ public partial class UserList
 
         return days switch
         {
-            // 시계가 어긋나 미래로 적힌 줄. 「-3일 전」보다는 아무 말도 안 하는 것이 낫다.
+            // 시계가 어긋나 미래로 적힌 줄은 아무 말도 하지 않는다.
             < 0 => string.Empty,
             0 => "오늘",
             1 => "어제",
@@ -545,14 +461,7 @@ public partial class UserList
         };
     }
 
-    /// <summary>
-    /// 마지막 로그인 칸의 설명 풍선. 접속 IP 가 있으면 함께 적는다.
-    /// </summary>
-    /// <remarks>
-    /// IP 를 제 칸으로 두지 않는 까닭은 칸이 이미 열몇 개라서다 — 하나 더
-    /// 늘리면 그만큼 가로로 더 구른다. 「낯선 데서 들어왔나」를 볼 때만
-    /// 필요한 값이라 마우스를 올린 자리에 둔다.
-    /// </remarks>
+    /// <summary>마지막 로그인 칸의 설명 풍선. 접속 IP 가 있으면 함께 적는다 — IP 는 칸이 늘면 가로로 더 구르므로 마우스를 올린 자리에 둔다.</summary>
     private static string LoginTitle(AccountDto a)
     {
         var at = $"마지막 로그인 {a.LastLoginAt.Kst("yyyy-MM-dd HH:mm:ss")} (한국 시각)";
@@ -592,9 +501,7 @@ public partial class UserList
         _ => provider ?? "-",
     };
 
-    /// <summary>
-    /// 기존 계정을 다른 계정으로 결합하기 위한 팝업을 연다.
-    /// </summary>
+    /// <summary>기존 계정을 다른 계정으로 결합하기 위한 팝업을 연다.</summary>
     private void AskMergeAsync(AccountDto a)
     {
         _mergeSource = a;
@@ -615,9 +522,7 @@ public partial class UserList
         _mergingVisible = true;
     }
 
-    /// <summary>
-    /// 원본 계정을 대상 계정으로 결합한다.
-    /// </summary>
+    /// <summary>원본 계정을 대상 계정으로 결합한다.</summary>
     private async Task MergeAsync()
     {
         if (_mergeSource is null || string.IsNullOrWhiteSpace(_mergeTargetAccountId))

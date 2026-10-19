@@ -1,27 +1,8 @@
 namespace JSini.Web.CargoTrust.Api;
 
-// ────────────────────────────────────────────────────────────────
-// CargoTrustServer 응답·요청 DTO 모음 — 차주(사용자) 쪽.
-//
-// 정본은 docs/cargotrust/05-api-design.md 「자료 모양」이다. 필드 이름을 그
-// 문서 그대로 옮겼다(camelCase 는 GatewayClient 가 대소문자를 가리지 않고 받는다).
-// 한쪽만 고치지 않는다 — 그 문서가 백엔드와 두 MFE 의 약속이다.
-//
-// [관리자 모듈과 공유하지 않는다]
-//
-// 관리자 화면(JSini.Web.CargoTrust.Admin)도 비슷한 모양을 쓰지만 복제한다.
-// 두 모듈이 쓰면 복제가 규칙이고(web/CLAUDE.md), 여기서는 그보다 강한 이유가
-// 있다 — 관리자 DTO 에는 등록자 이름·관리 메모·가리지 않은 사업자번호가 실린다.
-// 한 벌로 합쳐 두면 차주 화면이 그 칸을 그릴 수 있게 되고, 가려야 할 값이
-// 한 줄 실수로 드러난다(설계안 29).
-//
-// [날짜는 DateOnly 다]
-//
-// 서버가 "yyyy-MM-dd" 로 주고 **그 꼴로만 받는다**(DateOnly). DateTime 으로 두면
-// 보낼 때 "2026-09-24T00:00:00" 이 나가 서버가 400 을 낸다. 편집기
-// (DxDateEdit)가 DateTime? 을 쓰는 자리는 폼 모델이 따로 옮긴다
-// (TransactionForm · PaymentForm).
-// ────────────────────────────────────────────────────────────────
+// 차주(사용자) 쪽 응답·요청 DTO. 정본은 docs/cargotrust/05-api-design.md 「자료 모양」이다.
+// 관리자 DTO 와 한 벌로 합치지 않는다 — 관리자 쪽에는 등록자 이름·가리지 않은 사업자번호가 실려, 합치면 차주 화면에서 그 칸이 새어 나온다.
+// 날짜는 DateOnly 라 yyyy-MM-dd 로만 받는다. DateTime 을 보내면 시각이 붙어 400 이 난다. 편집기용 DateTime? 는 폼 모델이 옮긴다.
 
 /// <summary>거래처 기본정보. 사업자번호는 관리자가 아니면 뒤 5자리가 가려져 온다.</summary>
 public sealed class CompanyInfo
@@ -39,14 +20,7 @@ public sealed class CompanyInfo
 }
 
 /// <summary>
-/// 거래처 통계 한 벌. 원본 거래에서 매번 계산한 값이다(설계안 26).
-///
-/// <para>
-/// <see cref="PeriodLabel"/> 과 <see cref="ConfidenceLabel"/> 을 서버가 함께
-/// 주는 이유가 있다 — 화면이 숫자 옆에 **기간과 기준을 반드시 함께 적어야**
-/// 하는데(설계안 26 마지막 줄), 그 글자를 화면마다 지으면 한 화면은
-/// 「최근 90일」, 다른 화면은 「90일」이 되어 같은 숫자가 다른 뜻으로 읽힌다.
-/// </para>
+/// 거래처 통계 한 벌. PeriodLabel·ConfidenceLabel 글자를 서버가 함께 주는 까닭은, 화면마다 지으면 같은 숫자가 다른 뜻으로 읽히기 때문이다.
 /// </summary>
 public sealed class CompanyStats
 {
@@ -109,10 +83,7 @@ public sealed class CompanyDetail
     public int MyTransactionCount { get; set; }
 }
 
-/// <summary>
-/// 공개 거래 한 줄. 출발·도착은 첫 낱말(「경기」)만 오고, 등록자는
-/// <b>가린 이름</b>으로 온다(「이*열」 — 설계안 29). 관리자에게만 그대로 온다.
-/// </summary>
+/// <summary>공개 거래 한 줄. 출발·도착은 첫 낱말만 오고, 등록자는 가린 이름으로 온다(관리자에게만 그대로).</summary>
 public sealed class PublicTransaction
 {
     public long TransactionId { get; set; }
@@ -134,12 +105,7 @@ public sealed class PublicTransaction
 }
 
 /// <summary>
-/// 미지급 거래 목록의 한 줄(<c>/unpaid-transactions</c>).
-///
-/// <para>
-/// <see cref="MyTransaction"/> 과 달리 <b>남의 거래가 섞여 있다.</b> 그래서 메모·검증
-/// 상태처럼 등록자만 볼 칸이 없고, 사업자번호와 등록자 이름은 가린 꼴로 온다.
-/// </para>
+/// 미지급 거래 목록의 한 줄. 남의 거래가 섞여 있어 등록자만 볼 칸(메모·검증 상태)이 없고, 사업자번호와 등록자 이름은 가린 꼴로 온다.
 /// </summary>
 public sealed class UnpaidTransaction
 {
@@ -274,10 +240,7 @@ public sealed class PaymentRequest
     public string? Memo { get; set; }
 }
 
-/// <summary>
-/// 여러 거래를 한 번에 처리하는 요청. 금액이 없는 것이 단건(<see cref="PaymentRequest"/>)과의
-/// 차이다 — 건마다 <b>남은 금액 전액</b>을 넣는다고 서버가 읽는다.
-/// </summary>
+/// <summary>여러 거래를 한 번에 처리하는 요청. 금액이 없는 것이 단건과 다르다 — 건마다 남은 금액 전액을 넣는다고 서버가 읽는다.</summary>
 public sealed class BulkPaymentRequest
 {
     public List<long> TransactionIds { get; set; } = [];
@@ -351,8 +314,7 @@ public sealed class ReceivableSummary
 }
 
 /// <summary>
-/// 미수금 한 건. <see cref="Bucket"/> 이 상태와 다른 것은 <c>SCHEDULED</c> 하나다 —
-/// 예정일이 지난 예정 거래를 서버가 <c>DELAYED</c>(지급 지연) 칸으로 옮겨 준다.
+/// 미수금 한 건. Bucket 이 상태와 다른 것은 SCHEDULED 하나다 — 예정일이 지난 예정 거래를 서버가 DELAYED 칸으로 옮긴다.
 /// </summary>
 public sealed class ReceivableItem
 {
@@ -475,17 +437,8 @@ public sealed class ReviewSaveRequest
     public string? Content { get; set; }
 }
 
-// ────────────────────────────────────────────────────────────────
-// 톨게이트 심야할인 (2026-10-06)
-//
-// [시각 칸은 KST 벽시계다]
-//
-// 이 묶음의 DateTime 에는 오프셋이 없고 「한국 시각 몇 시」라는 뜻이다.
-// 서버 계약(docs/cargotrust/06-toll-night-discount.md)이 그렇게 정해져 있다 —
-// 포털 프론트는 컨테이너 시계가 UTC 인 서버 안에서 돌아서, 오프셋을 붙이는
-// 순간 아홉 시간이 어긋나고 그 어긋남은 **할인율이 한 띠 밀리는** 모습으로만
-// 드러난다. 보낼 때 Kind 를 Unspecified 로 못 박는다(TollCalcDraft).
-// ────────────────────────────────────────────────────────────────
+// 이 묶음의 DateTime 에는 오프셋이 없고 「한국 시각 몇 시」라는 뜻이다(서버 계약 06-toll-night-discount.md).
+// 오프셋을 붙이면 UTC 컨테이너에서 아홉 시간이 어긋나 할인율이 한 띠 밀린다. 보낼 때 Kind 를 Unspecified 로 못 박는다(TollCalcDraft).
 
 /// <summary>할인 띠 하나.</summary>
 public sealed class TollBandInfo
@@ -568,12 +521,7 @@ public sealed class TollCalcResultInfo
     public List<TollNightSegmentInfo> NightSegments { get; set; } = [];
     public List<EligibilityCheckInfo> Checks { get; set; } = [];
     /// <summary>
-    /// 이 차량이 그 할인을 <b>받을 수 있나</b> — <c>OK</c> · <c>CHECK</c> · <c>NO</c> · <c>NONE</c>.
-    ///
-    /// <para>
-    /// 할인율과 다른 물음이다. 할인율은 야간 이용비율로만 정해져 차를 바꿔도 안 바뀌는데,
-    /// 「그래서 이 차가 받나」는 차마다 다르다.
-    /// </para>
+    /// 이 차량이 그 할인을 받을 수 있나(OK · CHECK · NO · NONE). 할인율은 야간 이용비율로만 정해져 차를 바꿔도 안 바뀐다.
     /// </summary>
     public string EligibilityVerdict { get; set; } = "NONE";
 
@@ -608,9 +556,7 @@ public sealed class TollSuggestResultInfo
     public bool Reachable { get; set; }
 
     /// <summary>
-    /// 어떤 길로 찾았나 — <c>DURATION</c> 시각을 두고 소요시간 조절 ·
-    /// <c>SHIFT</c> 소요시간을 두고 <b>시각을 옮김</b> · <c>NONE</c> 못 찾음.
-    /// 추천 카드의 글자가 이것으로 갈린다.
+    /// 찾은 길. DURATION 은 시각을 두고 소요시간을 조절, SHIFT 는 소요시간을 두고 시각을 옮김, NONE 은 못 찾음. 추천 카드의 글자가 이것으로 갈린다.
     /// </summary>
     public string Mode { get; set; } = "NONE";
 
@@ -623,12 +569,7 @@ public sealed class TollSuggestResultInfo
     public string NightWindowLabel { get; set; } = string.Empty;
     public List<EligibilityCheckInfo> Checks { get; set; } = [];
     /// <summary>
-    /// 이 차량이 그 할인을 <b>받을 수 있나</b> — <c>OK</c> · <c>CHECK</c> · <c>NO</c> · <c>NONE</c>.
-    ///
-    /// <para>
-    /// 할인율과 다른 물음이다. 할인율은 야간 이용비율로만 정해져 차를 바꿔도 안 바뀌는데,
-    /// 「그래서 이 차가 받나」는 차마다 다르다.
-    /// </para>
+    /// 이 차량이 그 할인을 받을 수 있나(OK · CHECK · NO · NONE). 할인율은 야간 이용비율로만 정해져 차를 바꿔도 안 바뀐다.
     /// </summary>
     public string EligibilityVerdict { get; set; } = "NONE";
 
@@ -656,14 +597,7 @@ public sealed class TollCalcHistoryInfo
 }
 
 /// <summary>
-/// 번호판이 말한 것.
-///
-/// <para>
-/// 차량번호로 차종·축수를 주는 <b>무료 공개 API 가 없어서</b>, 바깥을 부르는 대신
-/// 번호판을 읽는다. 심야할인 판정에 필요한 셋 중 둘(화물차인가 · 사업용인가)이
-/// 번호판에 이미 적혀 있다. 읽기는 <b>서버가 한다</b> — 화면이 따로 읽으면 두 곳의
-/// 해석이 갈리고, 갈린 쪽을 나중에 가려낼 방법이 없다.
-/// </para>
+/// 번호판이 말한 것. 차종·축수를 주는 무료 공개 API 가 없어 번호판을 읽는다. 읽기는 서버가 하고, 화면이 따로 읽으면 두 해석이 갈린다.
 /// </summary>
 public sealed class PlateReadInfo
 {
@@ -752,12 +686,7 @@ public sealed class TollSuggestRequest
 }
 
 /// <summary>
-/// 구간 하나의 통행료.
-///
-/// <para>
-/// <c>NormalFare</c> 는 고른 차종의 정상요금, <c>DiscountedFare</c> 는 거기에 심야할인율을
-/// 먹인 값이다. 할인액을 바깥에서 받아 오지 않는다 — 비율로 할인율을 정하는 곳은 한 군데다.
-/// </para>
+/// 구간 하나의 통행료. NormalFare 는 정상요금, DiscountedFare 는 거기에 심야할인율을 먹인 값이다. 할인율을 정하는 곳은 서버 한 군데다.
 /// </summary>
 public sealed class TollFareInfo
 {

@@ -1,11 +1,7 @@
 namespace CargoTrustServer.Common;
 
 /// <summary>
-/// 한국 표준시 도우미.
-///
-/// 운송일·지급일은 날짜(DATE)라 「오늘」이 어느 나라의 오늘인지가 판정을 가른다.
-/// 컨테이너 TZ 에 기대지 않고 여기서 KST 로 정한다(LifeEnvServer 와 같은 복사본).
-/// **시각은 UTC(DateTimeOffset)로 저장하고, 날짜 판정만 KST 로 한다.**
+/// 한국 표준시 도우미. 운송일·지급일은 날짜라 「오늘」의 나라가 판정을 가르므로 컨테이너 TZ 에 기대지 않고 KST 로 정한다. 시각은 UTC 로 저장한다.
 /// </summary>
 public static class Kst
 {

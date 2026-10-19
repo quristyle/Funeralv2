@@ -1,15 +1,6 @@
 namespace ProjMngServer.Models;
 
-/// <summary>
-/// AI 가 일할 대상 — <c>projmng.ai_target</c>.
-/// </summary>
-/// <remarks>
-/// <b>사람이 경로를 타이핑하지 않게 하려고 있는 표다.</b>
-/// 화면이 대상을 고르게 하면서 그 값을 자유 입력으로 두면
-/// <c>../../srv/jsini/config</c> 가 들어온다. 등록은 관리자가, 선택은
-/// 작성자가 한다 — 작업 저장에는 <c>targetKey</c> 만 오고 경로 문자열을
-/// 받는 자리가 없다.
-/// </remarks>
+/// <summary>AI 가 일할 대상(<c>projmng.ai_target</c>). 경로를 사람이 타이핑하지 않게 하는 표다 — 자유 입력으로 두면 상위 경로(../)가 들어온다. 등록은 관리자가 하고 선택만 화면이 한다.</summary>
 public sealed class AiTarget
 {
     public long TargetKey { get; set; }
@@ -26,16 +17,10 @@ public sealed class AiTarget
 
     public string? DefaultRef { get; set; } = "main";
 
-    /// <summary>
-    /// 비공개 저장소일 때 쓸 <b>읽기 전용 키의 이름</b>.
-    /// <b>키 자체는 DB 에 넣지 않는다</b> — 실행기만 읽는 파일에 둔다.
-    /// </summary>
+    /// <summary>비공개 저장소일 때 쓸 읽기 전용 키의 이름. 키 자체는 DB 에 넣지 않고 실행기만 읽는 파일에 둔다.</summary>
     public string? CredentialRef { get; set; }
 
-    /// <summary>
-    /// <c>worktree</c> · <c>copy</c> · <c>inplace</c>.
-    /// <c>inplace</c> 는 원본을 직접 고치는 것이라 되돌릴 방법이 백업뿐이다.
-    /// </summary>
+    /// <summary><c>worktree</c> · <c>copy</c> · <c>inplace</c>. <c>inplace</c> 는 원본을 직접 고쳐 되돌릴 방법이 백업뿐이다.</summary>
     public string? IsolationMode { get; set; } = AiTargetIsolation.Worktree;
 
     /// <summary><c>copy</c> 일 때 복사 상한(MB). 넘으면 실행을 거절한다.</summary>
@@ -44,10 +29,7 @@ public sealed class AiTarget
     /// <summary>이 대상에 쓸 수 있는 CLI. 쉼표로 잇는다(<c>claude,antigravity,copilot</c>).</summary>
     public string? RunnerKinds { get; set; } = "claude";
 
-    /// <summary>
-    /// push 를 허용하는 대상인가.
-    /// <b>켜면 그 작업이 곧 운영 배포가 된다.</b>
-    /// </summary>
+    /// <summary>push 를 허용하는 대상인가. <b>켜면 그 작업이 곧 운영 배포가 된다.</b></summary>
     public bool AllowPush { get; set; }
 
     public string? PushRef { get; set; } = "main";
@@ -55,22 +37,12 @@ public sealed class AiTarget
     /// <summary>push 전에 돌릴 검사 — <c>build</c> · <c>test</c> · <c>none</c>.</summary>
     public string? GateMode { get; set; } = "build";
 
-    /// <summary>
-    /// 이 대상을 집을 수 있는 실행기 이름. <b>비면 아무 장비나.</b>
-    /// </summary>
-    /// <remarks>
-    /// DB 는 한 벌인데 대상 경로는 장비마다 다르다. 개발 장비의
-    /// <c>/home/quri/…</c> 를 운영 실행기가 집어 가서 「대상 폴더가 없습니다」로
-    /// 실패한 적이 있다 — 그 뒤로 이 칸이 생겼다.
-    /// </remarks>
+    /// <summary>이 대상을 집을 수 있는 실행기 이름. 비면 아무 장비나. DB 는 한 벌인데 대상 경로는 장비마다 달라서, 이 칸이 없으면 다른 장비가 집어 「폴더가 없습니다」로 실패한다.</summary>
     public string? RunnerNm { get; set; }
 
     public bool IsEnabled { get; set; } = true;
 
-    /// <summary>
-    /// 지금 이 대상에서 도는 실행. <b>대상별 동시 1건 잠금</b>이다 —
-    /// 폴더 대상은 worktree 가 없어 둘이 겹치면 서로의 파일을 덮는다.
-    /// </summary>
+    /// <summary>지금 이 대상에서 도는 실행. 대상별 동시 1건 잠금이다 — 폴더 대상은 worktree 가 없어 둘이 겹치면 서로의 파일을 덮는다.</summary>
     public long? RunningRunKey { get; set; }
 
     public string? Comments { get; set; }

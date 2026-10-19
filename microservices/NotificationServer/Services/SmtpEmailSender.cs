@@ -24,13 +24,7 @@ public class SmtpEmailSender : IEmailSender
         string? textBody = null,
         string? cc = null)
     {
-        // **설정이 없으면 붙어 보지도 않는다.**
-        //
-        // 빈 호스트로 ConnectAsync 를 부르면 MailKit 이 던지는 것은 「인수가
-        // 잘못됐다」 뿐이라, 로그만 보고서는 메일 서버가 죽은 것인지 우리가
-        // 설정을 안 넣은 것인지 가릴 수 없다. 여기서 먼저 멈추고 **비어 있는
-        // 키 이름을 적어** 던진다 — 이 서비스의 메일이 전부 이 한 곳을 거치므로
-        // (비밀번호 찾기·문의 접수·AI 작업 알림) 이 한 줄이 유일한 단서가 된다.
+        // 설정이 없으면 붙어 보지도 않는다(빈 호스트는 MailKit 이 「인수가 잘못됐다」만 던져 원인을 가리므로 키 이름을 적어 먼저 던진다).
         if (!_settings.IsConfigured)
         {
             var missing = _settings.MissingKeys();
@@ -52,13 +46,7 @@ public class SmtpEmailSender : IEmailSender
             message.To.Add(MailboxAddress.Parse(addr));
         }
 
-        // **참조는 받는 사람과 같은 규약으로 온다**(쉼표·세미콜론). 비어 있으면
-        // 칸 자체를 안 만든다 — 빈 Cc 헤더를 붙이면 일부 메일 서버가 거절한다.
-        //
-        // **여기서 주소 꼴을 다시 보지 않는다.** 부르는 쪽이 이미 걸렀고
-        // (`MailEndpoints` · `EmailEndpoints`), 못 알아볼 글자가 오면
-        // `MailboxAddress.Parse` 가 던져 **메일 전체가 안 나간다.** 그것이
-        // 맞는 쪽이다 — 참조를 조용히 떨어뜨리면 보낸 사람은 갔다고 믿는다.
+        // 참조는 받는 사람과 같은 규약이다. 주소 꼴은 여기서 다시 보지 않는다(참조를 조용히 떨어뜨리면 보낸 사람은 갔다고 믿는다).
         foreach (var addr in (cc ?? string.Empty)
                      .Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
@@ -67,9 +55,7 @@ public class SmtpEmailSender : IEmailSender
 
         message.Subject = subject;
 
-        // **붙일 것이 있으면 언제나 BodyBuilder 로 간다.** 평문이어도 그렇다 —
-        // `TextPart` 는 본문 하나짜리라 첨부를 달 자리가 없고, 그대로 두면
-        // 파일을 골라도 **아무 말 없이 본문만 나간다.**
+        // 첨부가 있으면 언제나 BodyBuilder 로 간다(TextPart 는 첨부를 못 달아 파일을 골라도 본문만 나간다).
         if (attachments is { Count: > 0 })
         {
             var builder = new BodyBuilder();
@@ -78,8 +64,7 @@ public class SmtpEmailSender : IEmailSender
             {
                 builder.HtmlBody = body;
 
-                // **평문 갈래도 같이 싣는다.** 주는 쪽이 있을 때만이다 —
-                // 자세한 까닭은 `IEmailSender.SendAsync` 의 `textBody` 주석에 있다.
+                // 평문 갈래도 같이 싣는다 — 주는 쪽이 있을 때만이다(IEmailSender.SendAsync 의 textBody).
                 if (!string.IsNullOrWhiteSpace(textBody)) builder.TextBody = textBody;
             }
             else
@@ -91,8 +76,7 @@ public class SmtpEmailSender : IEmailSender
             {
                 var bytes = Convert.FromBase64String(file.Content);
 
-                // 형식이 비었거나 알아볼 수 없으면 octet-stream 으로 붙인다.
-                // 파싱에서 던지면 **메일 전체가 안 나가므로** 거기서 멈추지 않는다.
+                // 형식이 비었거나 알아볼 수 없으면 octet-stream 으로 붙인다(던지면 메일 전체가 안 나간다).
                 ContentType type;
                 try
                 {
@@ -118,8 +102,7 @@ public class SmtpEmailSender : IEmailSender
                 {
                     HtmlBody = body,
 
-                    // 비워 두면 MailKit 이 평문 갈래를 만들지 않는다 — 그래도
-                    // 되는 것이지, 있는데 안 싣는 것이 아니다(위 주석).
+                    // 비워 두면 MailKit 이 평문 갈래를 만들지 않는다. 있는데 안 싣는 것이 아니다.
                     TextBody = string.IsNullOrWhiteSpace(textBody) ? null : textBody,
                 }.ToMessageBody()
                 : new TextPart("plain") { Text = body };
@@ -127,8 +110,7 @@ public class SmtpEmailSender : IEmailSender
 
         using var client = new SmtpClient();
 
-        // 부르는 쪽(AuthServer 는 20초)보다 먼저 포기해야 실패한 까닭이 우리
-        // 로그에 남는다. MailKit 의 기본값은 2분이라 그냥 두면 저쪽이 먼저 끊는다.
+        // 부르는 쪽(AuthServer 20초)보다 먼저 포기해야 실패 까닭이 우리 로그에 남는다. MailKit 기본 2분은 저쪽이 먼저 끊으므로 줄인다.
         if (_settings.TimeoutMs > 0)
         {
             client.Timeout = _settings.TimeoutMs;
@@ -139,8 +121,7 @@ public class SmtpEmailSender : IEmailSender
             client.ServerCertificateValidationCallback = (s, c, h, e) => true;
         }
 
-        // 587 은 STARTTLS 포트다 — UseSsl(암시적 SSL)로 붙으면 핸드셰이크가 깨진다.
-        // 465 만 접속부터 SSL(SslOnConnect)이고, 그 외에 UseSsl 이면 STARTTLS 로 올린다.
+        // 587 은 STARTTLS 포트라 UseSsl(암시적 SSL)로 붙으면 핸드셰이크가 깨진다(465 만 접속부터 SSL).
         var secure = _settings.Port == 465
             ? MailKit.Security.SecureSocketOptions.SslOnConnect
             : _settings.UseSsl

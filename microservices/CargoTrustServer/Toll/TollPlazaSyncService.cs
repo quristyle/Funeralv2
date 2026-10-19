@@ -12,44 +12,20 @@ public class TollOptions
     public const string Section = "Toll";
 
     /// <summary>
-    /// 영업소 목록을 주는 공개 API 의 주소.
-    /// 자리표시자는 <c>{key}</c> 인증키 · <c>{page}</c> 쪽 번호 · <c>{rows}</c> 쪽 크기.
-    ///
-    /// <para>
-    /// 기본값은 고속도로 공공데이터 포털(data.ex.co.kr)의 <b>상·하행 영업소 목록</b>
-    /// (<c>basicinfo/updownIcList</c>)이다. 2026-10-06 실측으로 477건이 오고
-    /// <c>unitCode</c> 가 전국에서 유일하다 — 그래서 그 값을 열쇠로 쓴다.
-    /// </para>
-    ///
-    /// <para>
-    /// 다른 출처로 바꿔도 된다. 읽는 쪽이 칸 이름을 <b>여러 후보로</b> 찾고
-    /// 줄 배열도 봉투 모양에 기대지 않고 찾으므로, 주소만 갈아 끼우면 된다.
-    /// </para>
+    /// 영업소 목록 공개 API 주소. {key} 인증키 · {page} 쪽 번호 · {rows} 쪽 크기. 기본은 고속도로 공공데이터의 상·하행 영업소 목록이고 unitCode 가 열쇠다.
+    /// 다른 출처로 바꿔도 칸 이름을 여러 후보로 찾으므로 주소만 갈면 된다.
     /// </summary>
     public string PlazaListUrl { get; set; } =
         "https://data.ex.co.kr/openapi/basicinfo/updownIcList?key={key}&type=json&numOfRows={rows}&pageNo={page}";
 
-    /// <summary>
-    /// 영업소간 통행요금을 주는 주소. 자리표시자는 <c>{key}</c> · <c>{from}</c> · <c>{to}</c>.
-    ///
-    /// <para>
-    /// 같은 포털(data.ex.co.kr)이고 <b>같은 인증키</b>를 쓴다 — 키를 따로 받을 필요가 없다.
-    /// </para>
-    /// </summary>
+    /// <summary>영업소간 통행요금 주소. {key} · {from} · {to}. 같은 포털과 같은 인증키를 쓴다.</summary>
     public string FareUrl { get; set; } =
         "https://data.ex.co.kr/openapi/toll/bhoinstIntoTollList?key={key}&type=json&numOfRows=5&pageNo=1&dprtrTolofCd={from}&arrvTolofCd={to}";
 
     /// <summary>공공데이터 인증키. 없으면 동기화를 건너뛰고 까닭을 남긴다.</summary>
     public string? ServiceKey { get; set; }
 
-    /// <summary>
-    /// 한 쪽에 달라고 할 줄 수.
-    ///
-    /// <para>
-    /// <b>달라는 만큼 다 주지 않는다.</b> 1000 을 줘도 99건만 왔다(2026-10-06 실측).
-    /// 그래서 이 값은 희망이고, 실제 멈추는 자리는 「새 줄이 더 안 나오는 쪽」이다.
-    /// </para>
-    /// </summary>
+    /// <summary>한 쪽에 달라고 할 줄 수. 달라는 만큼 다 주지 않으므로(1000 을 줘도 99건) 희망일 뿐이고, 멈추는 자리는 새 줄이 더 안 나올 때다.</summary>
     public int PageRows { get; set; } = 100;
 
     /// <summary>훑을 최대 쪽 수. 쪽 번호를 무시하는 API 를 만나도 돌지 않게 하는 빗장.</summary>
@@ -60,38 +36,8 @@ public class TollOptions
 }
 
 /// <summary>
-/// 영업소를 바깥에서 받아 <b>우리 표에 보관</b>한다.
-///
-/// <para>
-/// [왜 실시간으로 부르지 않는가]
-/// </para>
-///
-/// <para>
-/// 영업소는 1년에 몇 줄 바뀐다. 그런데 계산 화면은 하루에도 여러 번 열린다.
-/// 매번 바깥을 부르면 느린 것은 둘째 치고 — <b>바깥이 죽으면 우리 화면이 함께
-/// 죽는다.</b> 받아서 보관하면 바깥이 조용해도 어제 자료로 계속 돈다.
-/// </para>
-///
-/// <para>
-/// [칸 이름을 하나로 못 박지 않는다]
-/// </para>
-///
-/// <para>
-/// 같은 자료를 공공데이터포털과 고속도로 포털이 서로 다른 칸 이름으로 준다
-/// (<c>unitCode</c> · <c>unitNo</c> · <c>tcsUnitCode</c> …). 하나로 박아 두면
-/// 출처를 바꾸는 순간 조용히 0건이 들어온다. 후보를 늘어놓고 <b>처음 찾은 것</b>을
-/// 쓰고, 열쇠가 되는 칸을 못 찾으면 그 줄은 건너뛰고 수를 센다.
-/// </para>
-///
-/// <para>
-/// [개방식·폐쇄식을 못 알아내면 폐쇄식으로 둔다]
-/// </para>
-///
-/// <para>
-/// 모르는 채로 두면 계산이 아예 안 되고, 개방식으로 두면 <b>아닌 구간에 일괄
-/// 50% 가 붙는다.</b> 둘 중 덜 나쁜 쪽은 폐쇄식이다 — 비율대로 세므로 틀려도
-/// 할인이 과하게 나오지 않는다. 몇 줄이 그렇게 들어왔는지는 결과에 적는다.
-/// </para>
+/// 영업소를 바깥에서 받아 우리 표에 보관한다 — 계산 화면을 열 때마다 바깥을 부르면 바깥이 죽을 때 화면도 죽는다.
+/// 칸 이름은 출처마다 달라 후보를 늘어놓고 처음 찾은 것을 쓴다. 개방식·폐쇄식을 못 알면 폐쇄식으로 둔다(개방식이면 아닌 구간에 일괄 50%가 붙는다).
 /// </summary>
 public class TollPlazaSyncService(
     HttpClient http,
@@ -116,15 +62,7 @@ public class TollPlazaSyncService(
     public bool HasKey =>
         !string.IsNullOrWhiteSpace(options.Value.ServiceKey) && !options.Value.ServiceKey!.StartsWith("__");
 
-    /// <summary>
-    /// 바깥에서 받아 와 표에 반영한다. <b>쪽을 넘겨 가며</b> 끝까지 받는다.
-    ///
-    /// <para>
-    /// 멈추는 자리를 「받은 줄이 0」이 아니라 <b>「새 영업소코드가 하나도 없음」</b>으로
-    /// 잡았다. 쪽 번호를 무시하고 늘 첫 쪽을 주는 API 를 만나면 앞엣것은 영영 돌지만
-    /// 뒤엣것은 두 번째 쪽에서 멈춘다. 쪽 수 빗장(<c>MaxPages</c>)은 그 위의 보험이다.
-    /// </para>
-    /// </summary>
+    /// <summary>바깥에서 받아 표에 반영한다. 쪽을 넘겨 가며 「새 영업소코드가 하나도 없음」에서 멈춘다 — 쪽 번호를 무시하는 API 에서도 끝나게 하는 장치다.</summary>
     public async Task<TollPlazaSyncResult> SyncAsync(CancellationToken ct)
     {
         if (!HasKey)
@@ -200,11 +138,7 @@ public class TollPlazaSyncService(
         };
     }
 
-    /// <summary>
-    /// 받아 온(또는 손으로 올린) 줄을 표에 반영한다. <b>지우지 않는다</b> —
-    /// 한 번 받은 영업소가 다음 응답에 안 보인다고 지우면, 응답이 반쪽만 와도
-    /// 표가 반쪽이 된다. 안 쓰는 줄은 <c>is_active</c> 로 끈다.
-    /// </summary>
+    /// <summary>받아 온(또는 손으로 올린) 줄을 표에 반영한다. 지우지 않는다 — 응답이 반쪽이면 표가 반쪽이 된다. 안 쓰는 줄은 is_active 로 끈다.</summary>
     public async Task<TollPlazaSyncResult> ApplyAsync(
         IReadOnlyList<TollPlazaUpsert> rows, string source, CancellationToken ct)
     {
@@ -294,8 +228,7 @@ public class TollPlazaSyncService(
             var sectionRaw = Str(item, SectionKeys);
             var operatorRaw = Str(item, PrivateKeys);
 
-            // 코드가 "002 " 처럼 뒤에 공백을 달고 온다(2026-10-06 실측). 열쇠가 되는
-            // 값이라 걷어 내지 않으면 같은 영업소가 두 줄이 된다. 다른 칸도 같이 걷는다.
+            // 코드가 "002 " 처럼 뒤에 공백을 달고 온다 — 열쇠라 걷지 않으면 같은 영업소가 두 줄이 된다.
             rows.Add(new TollPlazaUpsert(
                 code.Trim(),
                 name.Trim(),

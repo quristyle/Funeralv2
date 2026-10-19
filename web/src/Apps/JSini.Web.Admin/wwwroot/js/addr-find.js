@@ -39,7 +39,7 @@
 
 const SCRIPT_URL = 'https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js';
 
-/** 받는 중인 스크립트. 단추를 연달아 누를 때 두 번 받지 않게 들고 있는다. */
+/* * 받는 중인 스크립트. 단추를 연달아 누를 때 두 번 받지 않게 들고 있는다. */
 let loading = null;
 
 function loadScript() {
@@ -57,8 +57,7 @@ function loadScript() {
         tag.async = true;
         tag.onload = () => resolve();
         tag.onerror = () => {
-            // **실패를 기억하지 않는다.** 그대로 두면 잠깐 끊겼던 망이
-            // 돌아와도 이 화면이 살아 있는 동안에는 영영 안 열린다.
+            // **실패를 기억하지 않는다.** 그대로 두면 잠깐 끊겼던 망이 돌아와도 이 화면이 살아 있는 동안에는 영영 안 열린다.
             loading = null;
             reject(new Error('주소 검색을 불러오지 못했습니다.'));
         };
@@ -68,12 +67,8 @@ function loadScript() {
     return loading;
 }
 
-/**
- * 도로명 주소 뒤에 붙는 참고 항목. `(역삼동, 대우빌딩)` 꼴이다.
- *
- * 지번을 고른 경우에는 붙이지 않는다 — 지번 주소에는 이미 동 이름이 들어 있어
- * `역삼동 123-45 (역삼동)` 이 된다.
- */
+/* 도로명 주소 뒤에 붙는 참고 항목. `(역삼동, 대우빌딩)` 꼴이다. 지번을 고른 경우에는 붙이지 않는다 — 지번 주소에는 이미 동 이름이 들어 있어 `역삼동 123-45
+   (역삼동)` 이 된다. */
 function reference(data) {
     if (data.userSelectedType !== 'R') {
         return '';
@@ -81,14 +76,12 @@ function reference(data) {
 
     const parts = [];
 
-    // 법정동·법정리. 끝 글자로 가리는 것은 다음이 안내하는 방식 그대로다 —
-    // 그것이 아닌 값(`산`, 번지 조각)이 섞여 들어온다.
+    // 법정동·법정리. 끝 글자로 가리는 것은 다음이 안내하는 방식 그대로다 — 그것이 아닌 값(`산`, 번지 조각)이 섞여 들어온다.
     if (data.bname && /[동|로|가]$/g.test(data.bname)) {
         parts.push(data.bname);
     }
 
-    // 건물 이름은 **공동주택일 때만** 쓸모가 있다. 그 밖에는 상호가 실려 와
-    // 세든 회사의 주소에 남의 간판이 붙는다.
+    // 건물 이름은 **공동주택일 때만** 쓸모가 있다. 그 밖에는 상호가 실려 와 세든 회사의 주소에 남의 간판이 붙는다.
     if (data.buildingName && data.apartment === 'Y') {
         parts.push(data.buildingName);
     }
@@ -96,12 +89,8 @@ function reference(data) {
     return parts.length === 0 ? '' : ` (${parts.join(', ')})`;
 }
 
-/**
- * 주소 찾기 덮개를 띄운다.
- *
- * @returns {Promise<{zipCode: string, address: string}|null>}
- *          고른 주소. 고르지 않고 닫았으면 null.
- */
+/* 주소 찾기 덮개를 띄운다. @returns {Promise<{zipCode: string, address: string}|null>} 고른 주소. 고르지 않고 닫았으면
+   null. */
 export async function pick() {
     await loadScript();
 
@@ -131,9 +120,8 @@ export async function pick() {
         back.appendChild(box);
         document.body.appendChild(back);
 
-        // **한 번만 끝낸다.** 아래 길이 셋(고름·닫개·Esc)인데 다음 위젯은
-        // 고르고 나서 `onclose` 도 부른다 — 막지 않으면 고른 값을 돌려준
-        // 직후 `null` 이 한 번 더 간다.
+        // **한 번만 끝낸다.** 아래 길이 셋(고름·닫개·Esc)인데 다음 위젯은 고르고 나서 `onclose` 도 부른다 — 막지 않으면 고른 값을 돌려준 직후 `null` 이 한 번
+        // 더 간다.
         let done = false;
 
         function finish(result) {
@@ -154,14 +142,12 @@ export async function pick() {
             }
         }
 
-        // 캡처 단계로 듣는다. DevExpress 팝업이 Esc 를 먼저 받아 **뒤에 있는
-        // 편집 창을 닫아 버리기** 때문이다.
+        // 캡처 단계로 듣는다. DevExpress 팝업이 Esc 를 먼저 받아 **뒤에 있는 편집 창을 닫아 버리기** 때문이다.
         document.addEventListener('keydown', onKey, true);
 
         close.addEventListener('click', () => finish(null));
 
-        // 바깥을 눌러도 닫는다. 덮개 자신을 누른 것만 센다 — 안쪽에서
-        // 올라온 클릭(주소 목록 등)까지 받으면 고르는 중에 닫힌다.
+        // 바깥을 눌러도 닫는다. 덮개 자신을 누른 것만 센다 — 안쪽에서 올라온 클릭(주소 목록 등)까지 받으면 고르는 중에 닫힌다.
         back.addEventListener('click', (e) => {
             if (e.target === back) {
                 finish(null);
@@ -180,8 +166,7 @@ export async function pick() {
                 });
             },
 
-            // 사용자가 위젯 안의 뒤로/닫기로 빠져나온 경우. 우리가 이미
-            // 끝냈으면 `finish` 가 무시한다.
+            // 사용자가 위젯 안의 뒤로/닫기로 빠져나온 경우. 우리가 이미 끝냈으면 `finish` 가 무시한다.
             onclose: () => finish(null),
 
             // 덮개 높이를 우리가 정하므로 위젯도 그 높이를 다 쓰게 한다.

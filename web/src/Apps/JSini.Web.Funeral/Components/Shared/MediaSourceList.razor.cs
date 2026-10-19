@@ -47,7 +47,7 @@ public partial class MediaSourceList
 
     private bool _previewing;
 
-    // ── 올리기 (D5) ─────────────────────────────────────────
+    // ── 올리기 ──────────────────────────────────────────
 
     private FilePicker? _picker;
     private PickedFile? _picked;
@@ -78,12 +78,7 @@ public partial class MediaSourceList
         return _all.Count;
     }, "등록된 자료가 없습니다.", "목록을 읽지 못했습니다");
 
-    /// <summary>
-    /// 정보를 저장한다. <b>등록은 없다</b> — 파일을 올릴 길이 아직 없어서다.
-    ///
-    /// 종류를 다시 실어 보낸다. 안 실으면 서버가 빈 값으로 덮어써서 그 자료가
-    /// 어느 화면에도 안 나오게 된다.
-    /// </summary>
+    /// <summary>자료 정보를 저장한다(이름·정렬). 종류를 다시 실어 보내야 서버가 빈 값으로 덮어쓰지 않는다.</summary>
     private Task SaveAsync((MediaSource Item, bool IsNew) e)
     {
         e.Item.SourceType = SourceType;
@@ -92,15 +87,9 @@ public partial class MediaSourceList
 
     private Task DeleteAsync(MediaSource m) => Api.DeleteMediaSourceAsync(m.Id);
 
-    // ── 올리기 (D5) ─────────────────────────────────────────
+    // ── 올리기 ──────────────────────────────────────────
 
-    /// <summary>
-    /// 파일을 고르면 이름 칸을 파일 이름으로 미리 채운다.
-    ///
-    /// 확장자는 뗀다 — 목록에 보일 이름이지 파일 이름이 아니다.
-    /// 사람이 고칠 수 있게 두되 <b>비워 두고 시작하지 않는다.</b> 비워 두면
-    /// 이름을 안 적고 올려 목록이 「(이름 없음)」으로 채워진다.
-    /// </summary>
+    /// <summary>파일을 고르면 이름 칸을 파일 이름(확장자 뺀)으로 미리 채운다. 비워 두고 시작하지 않는다 — 이름 없이 올라가면 목록이 「(이름 없음)」으로 찬다.</summary>
     private void OnPickedAsync(IReadOnlyList<PickedFile> files)
     {
         _picked = files.Count > 0 ? files[0] : null;
@@ -111,9 +100,7 @@ public partial class MediaSourceList
         }
     }
 
-    /// <summary>
-    /// 파일을 올리고 자료로 매단다. <b>두 단계다</b> — 머리말 참고.
-    /// </summary>
+    /// <summary>파일을 올리고 자료로 매단다. 두 단계라 중간에서 끊길 수 있다(머리말 참고).</summary>
     private async Task UploadAsync()
     {
         if (_picked is null || _uploading)
@@ -144,9 +131,8 @@ public partial class MediaSourceList
                 return;
             }
 
-            // ② 자료로 매단다. 여기서 실패하면 **파일은 이미 올라가 있다.**
-            //    그 사실을 말해 준다 — 「등록 실패」로만 알리면 같은 파일을
-            //    몇 번이고 다시 올려 주인 없는 파일만 쌓인다.
+            // ② 자료로 매단다. 여기서 실패하면 파일은 이미 올라가 있으니 그 사실을 알린다.
+            // 「등록 실패」만 보이면 같은 파일을 다시 올려 주인 없는 파일이 쌓인다.
             var linked = await RunAsync(
                 () => Api.CreateMediaSourceAsync(new MediaSource
                 {
@@ -192,10 +178,7 @@ public partial class MediaSourceList
         _previewing = true;
     }
 
-    /// <summary>
-    /// 무엇을 틀 것인가. <b>변환본이 있으면 그것을 먼저 준다</b> —
-    /// 원본이 브라우저가 못 여는 형식이라 변환본이 있는 것이다.
-    /// </summary>
+    /// <summary>무엇을 틀 것인가. 변환본이 있으면 그것을 먼저 준다 — 원본이 브라우저가 못 여는 형식이라 변환본이 있는 것이다.</summary>
     private static string PlayUrl(MediaSource m) =>
         m.HasWebm && !string.IsNullOrWhiteSpace(m.WebmUrl) ? m.WebmUrl
         : !string.IsNullOrWhiteSpace(m.AacUrl) ? m.AacUrl
@@ -218,15 +201,7 @@ public partial class MediaSourceList
         _ => string.Empty,
     };
 
-    /// <summary>
-    /// 마우스를 올렸을 때 나오는 자세한 사정.
-    ///
-    /// <para>
-    /// 실패한 것에는 <b>실행 명령까지</b> 담는다. ffmpeg 이 무엇을 하다 죽었는지는
-    /// 그 줄을 봐야 알 수 있고, 그것을 못 보면 재처리 단추를 눌러 보는 것 말고
-    /// 할 수 있는 일이 없다.
-    /// </para>
-    /// </summary>
+    /// <summary>마우스를 올렸을 때 나오는 사정. 실패한 것에는 실행 명령까지 담는다 — ffmpeg 이 무엇을 하다 죽었는지는 그 줄을 봐야 안다.</summary>
     private static string? StatusDetail(MediaSource m)
     {
         if (!string.Equals(m.Status, "FAILED", StringComparison.Ordinal))
@@ -266,12 +241,7 @@ public partial class MediaSourceList
         return mb >= 1 ? $"{mb:0.0} MB" : $"{Math.Round(bytes.Value / 1024d)} KB";
     }
 
-    /// <summary>
-    /// 변환 재처리.
-    ///
-    /// 성공하면 목록을 다시 읽는다 — 변환은 비동기라 지금 당장 바뀌지는 않지만,
-    /// 무언가 반응이 있어야 두 번 누르지 않는다.
-    /// </summary>
+    /// <summary>변환 재처리. 성공하면 목록을 다시 읽는다 — 변환은 비동기라 바로 안 바뀌어도 반응이 있어야 두 번 누르지 않는다.</summary>
     private async Task RetryAsync(string id, string kind)
     {
         var run = kind switch

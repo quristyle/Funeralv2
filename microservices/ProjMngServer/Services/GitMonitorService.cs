@@ -5,34 +5,11 @@ using ProjMngServer.Models;
 
 namespace ProjMngServer.Services;
 
-/// <summary>
-/// Git 종합 모니터링 — 저장소마다 통계 · 가지 · 태그 · 풀 리퀘스트 ·
-/// Actions 실행 · 커밋 · 기여자를 모은다.
-/// </summary>
-/// <remarks>
-/// <para>
-/// 저장소 하나에 왕복이 <b>일곱 + 가지 수</b>다. GitHub 가 가지 목록에 커밋
-/// 날짜를 안 주기 때문에 묵은 가지를 가리려면 가지마다 한 번씩 더 물어야 한다
-/// — 그래서 <b>화면에 보이는 만큼만</b> 묻는다(<c>BranchDetail</c>, 기본 8).
-/// </para>
-///
-/// <para>
-/// 토큰이 없으면 시간당 60회다. 저장소 하나에 열다섯 번쯤 쓰므로 <b>네 번쯤
-/// 새로 고치면 바닥난다</b> — 캐시가 2분이고 화면이 남은 한도를 보여 주는
-/// 까닭이 그것이다.
-/// </para>
-/// </remarks>
+/// <summary>Git 종합 모니터링 — 저장소마다 통계·가지·태그·PR·Actions·커밋·기여자를 모은다.</summary>
+/// 저장소 하나에 왕복이 일곱 + 가지 수다. 화면에 보이는 가지만 묻고, 토큰이 없으면 시간당 60회라 캐시가 2분이다.
 public sealed class GitMonitorService(IConfiguration configuration, GitHubClient github)
 {
-    /// <summary>
-    /// 담아 둔 결과 한 벌.
-    /// </summary>
-    /// <remarks>
-    /// <b>남은 한도를 여기 같이 담는다.</b> <see cref="GitHubClient"/> 는 요청
-    /// 마다 새로 생기므로(scoped) 캐시로 답하는 요청은 호출을 한 번도 안 해
-    /// 한도를 모른다 — 그러면 화면의 「남은 한도」가 <b>캐시가 듣는 동안 내내
-    /// 비어 있고</b>, 하필 그 칸은 「왜 갑자기 안 보이나」를 보려고 만든 자리다.
-    /// </remarks>
+    /// <summary>담아 둔 결과 한 벌. 남은 한도를 함께 담는다 — 캐시로 답하면 한도를 모르므로 화면 칸이 비어 보인다.</summary>
     private sealed record Entry(
         List<GitMonitorRow> Rows, DateTimeOffset At, int? RateRemaining, int? RateLimit,
         List<GitBlocked> Blocked);
@@ -209,14 +186,7 @@ public sealed class GitMonitorService(IConfiguration configuration, GitHubClient
         row.Branches = row.BranchList.Count;
     }
 
-    /// <summary>
-    /// 가지의 마지막 커밋 날짜를 채운다.
-    /// </summary>
-    /// <remarks>
-    /// <b>일부만 채운다.</b> 가지가 백 개면 왕복도 백 번이라, 화면이 보여 주는
-    /// 만큼만 묻고 「몇 개를 봤는지」를 함께 내보낸다 — 안 밝히면 묵은 가지
-    /// 수를 전체 기준으로 읽는다.
-    /// </remarks>
+    /// <summary>가지의 마지막 커밋 날짜를 채운다. 일부만 채우며, 몇 개를 봤는지 함께 내보낸다.</summary>
     private async Task FillBranchDatesAsync(GitOptions opt, string repo, GitMonitorRow row)
     {
         if (opt.BranchDetail <= 0 || row.BranchList.Count == 0) return;
@@ -426,14 +396,7 @@ public sealed class GitMonitorService(IConfiguration configuration, GitHubClient
 
     // ──────────────────────────────────────────── 토큰이 있어야 보이는 것
 
-    /// <summary>
-    /// 방문·클론 통계(최근 14일).
-    /// </summary>
-    /// <remarks>
-    /// <b>쓰기 권한이 있는 토큰</b>에만 열린다(fine-grained 는
-    /// <c>Administration: Read</c>). 토큰이 없으면 <b>부르지도 않는다</b> —
-    /// 401 을 받아 봐야 남은 한도만 축낸다. 대신 「못 봤다」를 남긴다.
-    /// </remarks>
+    /// <summary>방문·클론 통계(최근 14일). 쓰기 권한 토큰에만 열리므로 토큰이 없으면 부르지 않고 「못 봤다」를 남긴다.</summary>
     private async Task FillTrafficAsync(
         GitOptions opt, string repo, GitMonitorRow row,
         System.Collections.Concurrent.ConcurrentBag<GitBlocked> blocked)
@@ -503,15 +466,8 @@ public sealed class GitMonitorService(IConfiguration configuration, GitHubClient
         row.Traffic = traffic;
     }
 
-    /// <summary>
-    /// 소유자의 GHCR 이미지. 저장소가 아니라 <b>소유자</b>에 매달려 있어
-    /// 소유자마다 한 번만 묻고 줄에 나눠 준다.
-    /// </summary>
-    /// <remarks>
-    /// 이미지에 <c>repository</c> 가 딸려 오므로 어느 저장소 것인지 알 수 있다.
-    /// 배포가 올리는 이미지 열둘이 여기 보이고, <b>운영에 떠 있는 태그와
-    /// 대조하는 자리</b>다. <c>read:packages</c> 가 있는 classic 토큰이 필요하다.
-    /// </remarks>
+    /// <summary>소유자의 GHCR 이미지. 저장소가 아니라 소유자에 매달려 있어 소유자마다 한 번만 묻는다.</summary>
+    /// 이미지에 repository 가 딸려 와 어느 저장소 것인지 알 수 있다. read:packages 가 있는 classic 토큰이 필요하다.
     private async Task FillPackagesAsync(
         GitOptions opt, GitMonitorRow[] rows,
         System.Collections.Concurrent.ConcurrentBag<GitBlocked> blocked)
@@ -579,14 +535,8 @@ public sealed class GitMonitorService(IConfiguration configuration, GitHubClient
         }
     }
 
-    /// <summary>
-    /// 가장 최근에 깨진 실행의 <b>어느 단계에서</b> 깨졌나.
-    /// </summary>
-    /// <remarks>
-    /// 로그를 통째로 받지 않는다 — 실행 로그는 zip 이고 크다. 잡과 단계 이름만
-    /// 봐도 「어디서 깨졌나」는 답이 나오고, 그 이상은 GitHub 에서 보는 편이 낫다.
-    /// <b>표본에 실패가 있을 때만</b> 한 번 더 부른다.
-    /// </remarks>
+    /// <summary>가장 최근에 깨진 실행이 어느 단계에서 깨졌나.</summary>
+    /// 로그 zip 은 크므로 받지 않는다 — 잡과 단계 이름이면 충분하고, 표본에 실패가 있을 때만 부른다.
     private async Task FillFailureAsync(GitOptions opt, string repo, GitMonitorRow row)
     {
         var failed = row.Runs?.LastFailure;

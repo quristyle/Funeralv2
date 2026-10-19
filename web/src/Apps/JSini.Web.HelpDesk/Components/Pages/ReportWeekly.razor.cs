@@ -27,7 +27,7 @@ public partial class ReportWeekly
 
     private sealed record TrendPoint(string Label, int Total, int Completed);
 
-    /// <summary>접수·완료 색 — 옛 화면의 접수·완료 색 그대로.</summary>
+    /// <summary>접수·완료 색.</summary>
     private static readonly string[] TrendPalette = ["#42A5F5", "#66BB6A"];
 
     private IReadOnlyList<TrendPoint> _trend = [];
@@ -39,8 +39,7 @@ public partial class ReportWeekly
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        // `my-monthly-stats` 는 **고객으로 연결된 계정만** 부를 수 있다
-        // (담당자가 부르면 403). 이 화면은 담당자도 보므로 신원에 따라 갈린다.
+        // my-monthly-stats 는 고객으로 연결된 계정만 부를 수 있다(담당자가 부르면 403) — 이 화면은 신원에 따라 갈린다.
         await Context.LoadIdentityAsync();
         _customer = Context.IsLinked && !Context.IsAdmin;
 
@@ -52,10 +51,7 @@ public partial class ReportWeekly
         return _rows.Rows.Count;
     }, "집계할 자료가 없습니다.", "주간 리포트를 읽지 못했습니다");
 
-    /// <summary>
-    /// 표와 같은 응답에서 추이 점을 뽑는다. 칸이 있는지 먼저 본다 —
-    /// 서버가 칸을 바꾸면 차트만 조용히 빠지고 표는 남는다.
-    /// </summary>
+    /// <summary>표와 같은 응답에서 추이 점을 뽑는다. 칸이 있는지 먼저 본다 — 서버가 칸을 바꾸면 차트만 조용히 빠진다.</summary>
     private static IReadOnlyList<TrendPoint> ToTrend(DataTable rows, bool customer)
     {
         var argColumn = customer ? "month" : "week";
@@ -72,7 +68,7 @@ public partial class ReportWeekly
             Cell(r, "completedCount")))];
     }
 
-    /// <summary>서버의 <c>yyyy-MM</c> 을 옛 화면과 같은 <c>n월</c> 로 줄인다.</summary>
+    /// <summary>서버의 yyyy-MM 을 n월로 줄인다.</summary>
     private static string MonthLabel(string? month)
     {
         var parts = (month ?? string.Empty).Split('-');

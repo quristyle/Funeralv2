@@ -2,63 +2,8 @@
 @attribute [RouteKey("projmng.ai.target-status")]
 
 @*
-    [AI 작업 대상의 git 상태]
-
-    설계: docs/ai-task-runner.md 11.7
-    API: `projmng/ai-targets/status`
-
-    「빠른 지시」와 「AI 작업」이 시키는 자리라면, 여기는 **시키기 전과 시킨
-    뒤에 들여다보는 자리**다. 대상은 폴더 아니면 git 저장소고, 저장소라면
-    그것이 지금 어느 가지에 어떤 상태로 앉아 있는지가 작업의 결과를 가른다.
-
-    ────────────────────────────────────────────────────────────
-    [이 화면이 답하는 물음]
-
-      · 시켜도 되나 — 정본이 깨끗한가. 더러우면 원본 직접(inplace) 대상의
-        작업은 **준비 단계에서 죽는다**(`Workspace.PrepareAsync`).
-      · 어디에 서 있나 — 가지와 마지막 커밋. 남이 올린 것보다 뒤처져 있으면
-        거기서 만든 커밋이 남의 것을 되돌릴 수 있고, 이 저장소는 그것이 곧 배포다.
-      · 등록한 대로인가 — `repo` 로 등록해 놓고 `.git` 이 없는 대상은
-        **작업을 돌려 봐야** 알게 된다. 여기서는 「저장소 아님」으로 먼저 보인다.
-      · 치울 것이 남았나 — 실행기가 정본에서 걷어낸 변경은 stash 에 쌓인다
-        (`Workspace.ParkAsync`). 쌓이면 사람이 꺼내야 한다.
-
-    ────────────────────────────────────────────────────────────
-    [여기 보이는 것은 **스냅샷**이다 — 지금 값이 아니다]
-
-    서버는 그 경로를 볼 수 없다. ProjMngServer 는 컨테이너 안에서 돌고 대상
-    경로는 호스트의 것이라, 화면이 눌렀을 때 서버가 `git status` 를 불러
-    줄 방법이 아예 없다(`AiTargetService.ValidatePath` 가 realpath 를 쓰지
-    않는 것과 같은 이유다).
-
-    실제로 들여다보는 것은 **호스트에 상주하는 실행기**다. 그것이 몇 분마다
-    보고 DB 에 적어 두고, 이 화면은 그 줄을 읽는다.
-
-    그래서 **본 시각을 반드시 같이 그린다.** 안 그리면 사람이 옛 값을 지금
-    값으로 읽고, 「깨끗하다」를 믿고 시킨 작업이 더러운 정본에서 죽는다.
-
-    [「지금 확인」은 부탁이지 명령이 아니다]
-
-    누르면 서버가 표시만 남기고, 실행기가 다음 바퀴(15초)에 그것을 보고 온다.
-    그래서 단추를 누른 직후의 화면은 **「확인 중」**이고, 값이 바뀌는 것은
-    조금 뒤다. 기다리는 동안은 이 화면이 5초마다 다시 읽는다 — 기다릴 것이
-    없어지면 **타이머를 끈다.** 열어 두고 잊기 쉬운 화면이라 안 끄면 회로가
-    계속 일한다(「빠른 지시」가 같은 규칙으로 돈다).
-
-    [뒤처짐은 「마지막으로 당겨 온 것」 기준이다]
-
-    실행기가 들여다볼 때 `fetch` 를 하지 않는다. 대상 수만큼의 fetch 가 몇
-    분마다 도는 것도 문제지만, 그보다 **읽으려고 연 화면이 저장소를 바꾸는
-    것**이 문제다. 그래서 앞섬·뒤처짐은 이미 받아 둔 원격 추적 참조로만 세고,
-    화면이 그 사실을 적는다. 정확한 뒤처짐이 필요하면 작업이 시작할 때
-    실행기가 `fetch` 하고 당긴다(설계 7.3).
-
-    [고치는 단추를 두지 않는다]
-
-    당기기·되돌리기·stash 꺼내기를 여기에 붙이고 싶어지는 자리지만 두지
-    않았다. 이 화면은 운영 서버의 정본을 가리키고 있고, 거기서 한 번의
-    오조작이 되돌리기 어려운 자리다. **보는 것과 고치는 것을 가른다** —
-    고칠 일은 지시로 보낸다.
+AI 작업 대상의 git 상태. 시키기 전·뒤에 들여다보는 자리이고, 실행기가 몇 분마다 적어 둔 스냅샷을 읽으므로 본 시각을 반드시 같이 그린다.
+고치는 단추는 두지 않는다 — 보는 것과 고치는 것을 가른다.
 *@
 
 @inherits DataPage
@@ -71,10 +16,7 @@
 <div class="pm-stack">
     <CommCont Title="대상" Hint="@Hint">
         <Actions>
-            @* 「확인」은 고치는 동작이 아니지만 **서버에 자국을 남기는
-               동작**이라 아무나 누르게 두지 않는다. 이 화면에는 등록·수정·
-               삭제가 없으므로 `Create` 를 그 자리로 쓴다 — 메뉴 SQL 이
-               `use_create` 만 켜 두는 이유다. *@
+            @* 확인은 고치는 동작이 아니지만 서버에 자국을 남기므로 Create 권한으로 묶는다(메뉴 SQL 의 use_create). *@
             <PermissionView Action="MenuAction.Create">
                 <DxButton Text="모두 다시 확인"
                           RenderStyle="ButtonRenderStyle.Secondary"
@@ -94,8 +36,7 @@
                     <DxGridDataColumn FieldName="@nameof(AiTargetStatusDto.TargetNm)" Caption="이름"
                                       MinWidth="130" TextAlignment="GridTextAlignment.Left" />
 
-                    @* 등록된 종류와 실제가 어긋나면 여기서 먼저 말한다 —
-                       그 어긋남은 작업을 돌려 봐야 드러나던 것이다. *@
+                    @* 등록된 종류와 실제가 어긋나면 여기서 먼저 말한다 — 작업을 돌려 봐야 드러나던 것이다. *@
                     <DxGridDataColumn Caption="상태" Width="110">
                         <CellDisplayTemplate Context="cell">
                             @{
@@ -119,10 +60,7 @@
                             {
                                 <span class="pm-gitmono">@t.Branch</span>
 
-                                @* 등록된 기준 가지와 다른 데 서 있으면 짚어 준다.
-                                   worktree 대상은 origin/<기준> 에서 갈라지므로
-                                   대개 문제가 아니지만, **원본 직접 대상에서는
-                                   엉뚱한 가지에 커밋이 쌓인다.** *@
+                                @* 등록된 기준 가지와 다르면 짚는다. 원본 직접 대상에서는 엉뚱한 가지에 커밋이 쌓인다. *@
                                 @if (OffDefault(t))
                                 {
                                     <span class="jsini-badge jsini-badge--warn pm-git__tag">기준 @t.DefaultRef</span>
@@ -131,8 +69,7 @@
                         </CellDisplayTemplate>
                     </DxGridDataColumn>
 
-                    @* 앞섬 / 뒤처짐. **fetch 하지 않고 센 값**이라 위 안내가
-                       그 사실을 적는다. *@
+                    @* 앞섬·뒤처짐은 fetch 없이 센 값이라 위 안내가 그 사실을 적는다. *@
                     <DxGridDataColumn FieldName="@nameof(AiTargetStatusDto.SyncText)" Caption="앞섬/뒤처짐"
                                       Width="100" />
 
@@ -156,8 +93,7 @@
                         </CellDisplayTemplate>
                     </DxGridDataColumn>
 
-                    @* 실행기가 정본에서 걷어낸 변경이 쌓이는 곳이다. 0 이면
-                       흐리게 둔다 — 대개 0 이라 숫자를 다 칠하면 읽히지 않는다. *@
+                    @* 정본에서 걷어낸 변경이 쌓이는 곳이다. 0 이면 흐리게 둔다. *@
                     <DxGridDataColumn Caption="stash" Width="70">
                         <CellDisplayTemplate Context="cell">
                             @{
@@ -188,8 +124,7 @@
                         </CellDisplayTemplate>
                     </DxGridDataColumn>
 
-                    @* **이 칸이 이 화면의 양심이다.** 없으면 옛 값이 지금
-                       값으로 읽힌다. *@
+                    @* 이 칸이 이 화면의 양심이다 — 없으면 옛 값이 지금 값으로 읽힌다. *@
                     <DxGridDataColumn Caption="확인" Width="100">
                         <CellDisplayTemplate Context="cell">
                             @{
@@ -240,11 +175,7 @@
         </ChildContent>
     </CommCont>
 
-    @* ── 고른 한 건 ───────────────────────────────────────────
-
-       표에 다 넣을 수 없는 것들이다 — 경로 · 원격 주소 · 커밋 전문 ·
-       정리되지 않은 파일 목록. **표를 넓히는 대신 아래로 뺐다**: 경로는
-       길어서 한 칸에 들어가지 않고, 넣으면 정작 중요한 칸들이 잘린다. *@
+    @* ── 고른 한 건 ── 경로·원격 주소·커밋 전문·정리되지 않은 파일 목록은 표에 못 넣어 아래로 뺀다. *@
     <CommCont Title="자세히">
         @if (_picked is not { } p)
         {
@@ -282,8 +213,7 @@
                         <span class="pm-gitmono">@p.Branch</span>
                         @if (string.IsNullOrWhiteSpace(p.Upstream))
                         {
-                            @* 추적하는 곳이 없으면 앞섬·뒤처짐이 아예 없는 값이다.
-                               「0 / 0」으로 보이면 맞춰져 있는 것으로 읽힌다. *@
+                            @* 추적하는 곳이 없으면 앞섬·뒤처짐이 없는 값이다. 0 / 0 으로 보이면 맞춰진 것으로 읽힌다. *@
                             <span class="pm-ai-dim"> — 추적하는 원격 가지가 없습니다</span>
                         }
                         else
@@ -319,8 +249,7 @@
                                 추적 안 함 @p.Untracked · 충돌 @p.Conflicted
                             </span>
 
-                            @* 숫자만으로는 「무엇이」가 빠진다. 앞 스무 줄만
-                               싣는다 — 수천 줄이 올 수 있는 값이다. *@
+                            @* 숫자만으로는 무엇이 빠졌는지 모르므로 앞 스무 줄만 싣는다. *@
                             @if (p.DirtyFiles is { Length: > 0 } files)
                             {
                                 <pre class="pm-git__files">@files</pre>

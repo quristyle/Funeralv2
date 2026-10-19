@@ -3,95 +3,28 @@ using JSini.Web.Models;
 
 namespace JSini.Web.Components.Settings;
 
-/// <summary>
-/// 쪽지 — <b>사람에게서 사람에게로 가는 짧은 글</b>. 보내고, 받은함·보낸함을 읽고,
-/// 읽음으로 찍고, 치운다.
-/// </summary>
-/// <remarks>
-/// <para>
-/// [왜 업무 모듈이 아니라 여기 있나]
-/// </para>
-///
-/// <para>
-/// <b>쪽지 쓰기가 상단 띠에 있다.</b> 헤더는 셸의 레이아웃이고 레이아웃은 업무
-/// 모듈을 이름으로 알지 못한다(web/CLAUDE.md 의 의존 규칙 4번). 포털관리에 두면
-/// 어느 화면에서나 열리는 그 단추가 이것을 못 쓴다 — <c>NotifySender</c> ·
-/// <c>NoticeClient</c> 가 여기 있는 것과 같은 까닭이다.
-/// </para>
-///
-/// <para>
-/// [<c>NotifySender</c> 와 무엇이 다른가]
-/// </para>
-///
-/// <para>
-/// 그쪽은 <b>이미 아는 사람들</b>(목록에서 고른 줄)에게 두드림 한 번을 보내고
-/// 남는 것은 발송 기록뿐이다. 이쪽은 <b>아이디나 이메일을 적어</b> 사람을 정하고,
-/// 글이 쪽지함에 남는다 — 두드림이 둘 다 막혀도 남는다. 둘을 한 클라이언트로
-/// 묶으면 생일 축하 창이 쪽지함까지 지고 간다.
-/// </para>
-///
-/// <para>
-/// [주소에 <c>notification</c> 이 두 번 나온다]
-/// </para>
-///
-/// <para>
-/// 앞엣것은 게이트웨이 접두사(어느 서비스냐)고 뒤엣것은 서비스 안의 묶음이다.
-/// 하나를 빠뜨리면 404 인데 화면에는 「읽지 못했습니다」로만 보인다.
-/// </para>
-/// </remarks>
+/// <summary>쪽지 — 사람에게서 사람에게로 가는 짧은 글. 보내고, 받은함·보낸함을 읽고, 읽음으로 찍고, 치운다. 쪽지 쓰기는 상단 띠에 있어 셸 레이아웃이 써야 하므로 공용 자리에 둔다(업무 모듈은 서로 참조하지 않는다 — NotifySender · NoticeClient 와 같은 까닭).
+/// NotifySender 와 다르다 — 그쪽은 이미 아는 사람에게 두드림 한 통이고 남는 것은 발송 기록뿐이다. 이쪽은 아이디나 이메일로 사람을 정하고 글이 쪽지함에 남는다. 주소의 notification 이 두 번 나오는 것은 앞엣것이 게이트웨이 접두사, 뒤엣것이 서비스 안의 묶음이라서 하나를 빠뜨리면 404 다.</summary>
 public sealed class NoteClient(GatewayClient gateway)
 {
-    /// <summary>
-    /// 받는 사람을 찾는다 — 아이디 · 이름 · 이메일 어느 것으로 쳐도 걸린다.
-    /// </summary>
-    /// <remarks>
-    /// <b>보내기가 이 결과를 쓰지 않는다.</b> 서버가 사람이 적은 글자에서 다시
-    /// 푼다 — 화면이 푼 아이디를 그대로 믿으면 브라우저에서 갈아 끼워 남의
-    /// 이름으로 보낼 수 있다. 이 호출은 「이 사람이 맞나」를 눈으로 보는 자리다.
-    /// </remarks>
+    /// <summary>받는 사람을 찾는다 — 아이디 · 이름 · 이메일 어느 것으로 쳐도 걸린다. 보내기가 이 결과를 쓰지 않고 서버가 사람이 적은 글자에서 다시 푼다 — 화면이 푼 아이디를 믿으면 남의 이름으로 보낼 수 있다.</summary>
     public Task<IReadOnlyList<NoteRecipientDto>> SearchRecipientsAsync(
         string query, CancellationToken ct = default)
         => gateway.GetListAsync<NoteRecipientDto>(
             $"notification/notes/recipients?q={Uri.EscapeDataString(query)}", ct);
 
-    /// <summary>
-    /// <b>빠른 선택</b> — 아무것도 치지 않은 순간에 내놓을 사람들.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 찾기(<see cref="SearchRecipientsAsync"/>)는 두 글자를 쳐야 걸린다. 그런데
-    /// 쪽지를 쓰는 사람이 가장 자주 하는 일은 <b>어제 보낸 그 사람에게 또 보내는
-    /// 것</b>이라, 그때 이름을 다시 치는 것은 순전한 낭비다.
-    /// </para>
-    /// <para>
-    /// <b>이 결과도 보내기가 믿지 않는다.</b> 화면은 딱지에 아이디를 담을 뿐이고
-    /// 서버가 그 글자에서 다시 푼다 — 찾기와 같은 사정이다.
-    /// </para>
-    /// </remarks>
+    /// <summary>빠른 선택 — 아무것도 치지 않은 순간에 내놓을 사람들. 찾기는 두 글자를 쳐야 걸리는데 가장 자주 하는 일은 어제 보낸 사람에게 또 보내는 것이라 이름을 다시 치는 것은 낭비다. 이 결과도 보내기가 믿지 않는다 — 화면은 딱지에 아이디를 담을 뿐이다.</summary>
     public Task<NoteQuickPickDto?> GetQuickPickAsync(int take = 8, CancellationToken ct = default)
         => gateway.GetOneAsync<NoteQuickPickDto>(
             $"notification/notes/recipients/quick?take={take}", ct);
 
-    /// <summary>
-    /// 쪽지를 보낸다.
-    /// </summary>
-    /// <param name="to">
-    /// 받는 사람. <b>로그인 아이디와 이메일 주소를 섞어</b> 쉼표로 이어 적는다.
-    /// </param>
-    /// <param name="title">
-    /// 제목. <b>비워도 된다</b> — 서버가 「누가 언제 보냈다」로 지어 넣는다.
-    /// </param>
-    /// <param name="body">내용. <b>이쪽이 비면 서버가 막는다.</b></param>
+    /// <summary>쪽지를 보낸다.</summary>
+    /// <param name="to">받는 사람. 로그인 아이디와 이메일 주소를 섞어 쉼표로 잇는다.</param>
+    /// <param name="title">제목. 비워도 된다 — 서버가 「누가 언제 보냈다」로 지어 넣는다.</param>
+    /// <param name="body">내용. 이쪽이 비면 서버가 막는다.</param>
     /// <param name="ct">그만두기.</param>
-    /// <returns>
-    /// 서버가 준 결과. <b><c>PushDevices</c> 가 0 이어도 실패가 아니다</b> —
-    /// 쪽지는 이미 상대의 쪽지함에 있다.
-    /// </returns>
-    /// <remarks>
-    /// <b>두드림을 고르는 값이 없다.</b> 앱 푸시는 늘 가고(푸시를 꺼 둔 사람은
-    /// 아예 받지 못한다), 메일은 <b>받는 사람이 개인설정에서 켜 두었을 때만</b>
-    /// 간다 — 보내는 사람이 정할 일이 아니라서다.
-    /// </remarks>
+    /// <returns>서버가 준 결과. PushDevices 가 0 이어도 실패가 아니다 — 쪽지는 이미 상대의 쪽지함에 있다.</returns>
+    /// <remarks>두드림을 고르는 값이 없다 — 앱 푸시는 늘 가고 메일은 받는 사람이 개인설정에서 켜 두었을 때만 간다. 보내는 사람이 정할 일이 아니다.</remarks>
     public Task<NoteSendResultDto?> SendAsync(
         string to, string? title, string? body,
         CancellationToken ct = default)
@@ -110,14 +43,7 @@ public sealed class NoteClient(GatewayClient gateway)
         DateTime? from = null, DateTime? to = null, CancellationToken ct = default)
         => gateway.GetListAsync<NoteDto>("notification/notes/sent" + Period(from, to), ct);
 
-    /// <summary>
-    /// 안 읽은 쪽지 수. <b>상단 띠의 봉투에 붙는 숫자</b>다.
-    /// </summary>
-    /// <remarks>
-    /// 숫자만 받는 길을 따로 둔 것은, 이것이 <b>화면을 옮길 때마다</b> 불리는
-    /// 자리이기 때문이다. 받은함을 통째로 읽어 세면 쪽지 본문 수백 줄이
-    /// 숫자 하나 때문에 오간다.
-    /// </remarks>
+    /// <summary>안 읽은 쪽지 수. 상단 띠의 봉투에 붙는 숫자다. 숫자만 받는 길을 따로 둔 것은 화면을 옮길 때마다 불리는 자리라서다 — 받은함을 통째로 읽어 세면 쪽지 본문 수백 줄이 숫자 하나 때문에 오간다.</summary>
     public Task<NoteUnreadDto?> GetUnreadCountAsync(CancellationToken ct = default)
         => gateway.GetOneAsync<NoteUnreadDto>("notification/notes/unread-count", ct);
 

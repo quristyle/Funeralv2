@@ -4,15 +4,7 @@ using System.Text.Json;
 
 namespace AIAgentServer.Services.Rag;
 
-/// <summary>
-/// 글을 벡터로 바꾼다. LLM 장비의 임베딩 서버를 부른다.
-/// </summary>
-/// <remarks>
-/// <b>주소를 따로 설정하지 않는다.</b> <see cref="LlmHostMetricsClient"/> 와 같은
-/// 까닭으로 <c>jsini</c> 공급자의 <c>ApiBase</c> 에서 호스트만 떼어 <c>/embed/v1/embeddings</c>
-/// 를 붙인다 — 추론·상태·임베딩이 모두 같은 장비, 같은 nginx, 같은 키다.
-/// 개발 PC 와 운영이 자동으로 갈린다.
-/// </remarks>
+/// <summary>글을 벡터로 바꾼다. LLM 장비의 임베딩 서버를 부른다. 주소를 따로 설정하지 않는다.</summary>
 public sealed class EmbeddingClient
 {
     private readonly HttpClient _http;
@@ -45,10 +37,7 @@ public sealed class EmbeddingClient
     /// <summary>임베딩 서버에 보낼 글의 상한(글자). 문맥 8192 토큰에 넉넉히 들어간다.</summary>
     private const int MaxChars = 3000;
 
-    /// <summary>
-    /// 여러 글을 한 번에 벡터로. <b>한 번에 너무 많이 보내지 않는다</b> —
-    /// 임베딩 서버가 CPU 로 돌고 있어 큰 묶음은 타임아웃을 부른다.
-    /// </summary>
+    /// <summary>여러 글을 한 번에 벡터로. <b>한 번에 너무 많이 보내지 않는다</b> — 임베딩 서버가 CPU 로 돌고 있어 큰 묶음은 타임아웃을 부른다.</summary>
     public async Task<List<float[]>> EmbedAsync(IReadOnlyList<string> texts, CancellationToken ct = default)
     {
         var provider = _registry.Resolve("jsini");
@@ -96,10 +85,7 @@ public sealed class EmbeddingClient
     public async Task<float[]> EmbedOneAsync(string text, CancellationToken ct = default)
         => (await EmbedAsync([text], ct))[0];
 
-    /// <summary>
-    /// 길이를 1 로 맞춘다. 그러면 코사인 유사도가 <b>내적 하나</b>로 끝난다 —
-    /// 검색할 때마다 제곱근을 두 번씩 구하지 않아도 된다.
-    /// </summary>
+    /// <summary>길이를 1 로 맞춘다. 그러면 코사인 유사도가 <b>내적 하나</b>로 끝난다 — 검색할 때마다 제곱근을 두 번씩 구하지 않아도 된다.</summary>
     private static float[] Normalize(float[] v)
     {
         double sum = 0;

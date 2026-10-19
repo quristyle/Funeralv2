@@ -10,14 +10,7 @@ namespace ProjMngServer.Services;
 /// <param name="Headline">한 문장. 무엇을 했나.</param>
 /// <param name="Points">한 일·고친 것. 짧은 명사형 몇 줄.</param>
 /// <param name="Checks">사람이 확인하거나 이어서 해야 할 것. 없을 수 있다.</param>
-/// <param name="Title">
-/// 목록에 걸 <b>아주 짧은 제목</b>(20자 내외). <b>같은 한 번의 호출에서 함께 받는다</b> —
-/// 예전에는 요약을 받은 뒤 제목을 짓는 호출을 한 번 더 했고(<see cref="AiResultSummarizer.MakeTitleAsync"/>),
-/// 결과 메일이 그 둘을 모두 기다리느라 완료 시각에서 멀어졌다. 한 번에 받으면
-/// 모델 왕복이 절반이고, 요약과 제목이 서로 다른 글을 보고 지어질 일도 없다.
-/// <para><b>되읽은 요약(<see cref="Parse"/>)에는 비어 있다</b> — 적어 둔 평문에는
-/// 제목이 없고, 거기까지 왔으면 제목은 이미 붙은 뒤다.</para>
-/// </param>
+/// <param name="Title">목록에 걸 짧은 제목(20자 내외). 같은 호출에서 함께 받는다. 되읽은 요약에는 비어 있다.</param>
 public sealed record AiResultSummary(
     string Headline, IReadOnlyList<string> Points, IReadOnlyList<string> Checks, string Title = "")
 {
@@ -33,9 +26,7 @@ public sealed record AiResultSummary(
     public string TitleOrHeadline => Title.Length > 0 ? Title : Headline;
 
     /// <summary>
-    /// <c>ai_task_run.summary_text</c> 에 남길 꼴. <b>사람이 읽는 평문이어야 한다</b> —
-    /// 이어가기 지시문이 이 칸을 그대로 다음 실행의 문맥으로 올려보낸다
-    /// (<c>AiTaskService.BuildContinuation</c>).
+    /// <c>ai_task_run.summary_text</c> 에 남길 평문. 이어가기 지시문이 이 칸을 그대로 다음 실행의 문맥으로 올린다.
     /// </summary>
     public string ToText()
     {
@@ -120,11 +111,7 @@ public sealed record AiResultSummary(
             }
             else if (!inChecks && points.Count == 0)
             {
-                // **머리표 없는 줄이 또 나오면 결론이 이어진 것이다.**
-                // 그냥 버리면 메일에는 앞 문장만 서고 화면에는 둘 다 서서
-                // (<c>web/.../Shared/AiRunSummary.Parse</c> 는 이어 붙인다)
-                // 같은 실행이 두 말을 하게 된다 — 「요약이 잘려 온다」로 읽히는
-                // 자리다. 두 벌이 같은 모양을 약속하고 있으니 여기도 잇는다.
+                // 머리표 없는 줄이 또 나오면 결론이 이어진 것이다. 버리면 메일과 화면이 다른 말을 하게 되어 여기서 잇는다.
                 headline = $"{headline} {line}";
             }
         }
@@ -136,48 +123,17 @@ public sealed record AiResultSummary(
 }
 
 /// <summary>
-/// 끝난 실행의 결과문을 <b>AI 에게 한 번 더 정리시킨다.</b>
+/// 끝난 실행의 결과문을 AI 에게 한 번 더 정리시킨다. 메일 요약 칸은 결과문의 앞 몇 줄을 떠서 쓰므로 서론이 앉기 쉽다.
+/// 실패하면 null 을 돌려 요약 없이 보내게 하고, 보내기 전에 SecretMask 로 가린다.
 /// </summary>
-/// <remarks>
-/// <para>
-/// <b>왜 이것이 생겼나.</b> 메일의 요약 칸은 결과문의 앞 몇 줄을 그대로 떠서
-/// 보여 줬다. 결과문이 「먼저 파일을 찾아보겠습니다」 같은 말로 시작하거나
-/// 표·코드로 시작하면, <b>답을 가장 잘 보여 줘야 할 자리에 서론이 앉는다.</b>
-/// 결론은 대개 글 끝에 있는데 메일은 첫 화면에서 끝나야 하니 그 둘이 어긋났다.
-/// </para>
-/// <para>
-/// <b>예전에는 이것을 일부러 하지 않았다.</b> 「메일 한 통마다 모델을 한 번 더
-/// 부르고, 그 호출이 실패하면 메일이 안 나간다」가 이유였다. 그 걱정은 그대로
-/// 옳아서, 세 가지로 막아 둔다.
-/// </para>
-/// <list type="number">
-///   <item><description><b>메일이 실제로 나갈 건에만 부른다.</b> 「받기」가 꺼져
-///   있거나 받는 사람이 없어 어차피 안 나갈 건은 여기까지 오지 않는다.</description></item>
-///   <item><description><b>실패하면 null 이다.</b> 던지지 않는다 — 부르는 쪽이
-///   옛 방식(앞 몇 줄 뜨기)으로 그대로 보낸다. <b>요약 때문에 메일이 빠지는 일은
-///   없다.</b></description></item>
-///   <item><description><b>시간을 짧게 건다.</b> 결과 메일은 빨리 와야 뜻이 있다.
-///   기다리느니 옛 방식으로 보내는 편이 낫다.</description></item>
-/// </list>
-/// <para>
-/// <b>보내기 전에 반드시 가린다(<see cref="SecretMask"/>).</b> 결과문에는 운영
-/// 장비에서 긁힌 설정 파일이 섞여 들어올 수 있고, 이 호출은 우리 장비 밖으로
-/// 나갈 수 있는 경로다(공급자가 외부 API 인 경우). 메일보다 앞서 가리는 자리다.
-/// </para>
-/// </remarks>
 public sealed class AiResultSummarizer(
     IConfiguration configuration, IHttpClientFactory http, ILogger<AiResultSummarizer> logger)
 {
-    /// <summary>
-    /// 정리시킬 것인가. <b>끌 수 있어야 한다</b> — AI 가 안 떠 있는 장비에서
-    /// 메일마다 헛호출을 하고 시간만 버리는 일을 막는 손잡이다.
-    /// </summary>
+    /// <summary>AI 로 정리시킬 것인가. AI 가 안 떠 있는 장비에서 메일마다 헛호출을 막는 손잡이다.</summary>
     private readonly bool _enabled =
         configuration.GetValue("AiTasks:SummarizeResult", defaultValue: true);
 
-    /// <summary>
-    /// AI 로 제목을 다시 지을 것인가. 끄는 손잡이만 따로 둔다(AiTasks:MakeTitle).
-    /// </summary>
+    /// <summary>AI 로 제목을 다시 지을 것인가. 끄는 손잡이만 따로 둔다(AiTasks:MakeTitle).</summary>
     private readonly bool _makeTitleEnabled =
         configuration.GetValue("AiTasks:MakeTitle", defaultValue: true);
 
@@ -191,68 +147,44 @@ public sealed class AiResultSummarizer(
     private readonly string? _model = configuration["AiTasks:SummaryModel"];
 
     /// <summary>
-    /// 한 번에 이만큼까지 기다린다.
+    /// 정리 호출의 상한(초). 모델 하나가 8초쯤 쓰므로 여기서 먼저 끊으면 곧 답할 모델을 버리는 셈이다.
     /// </summary>
-    /// <remarks>
-    /// <b>30초였다(2026-09-21 에 올렸다).</b> AI 서비스는 한 번의 <c>/chat</c> 안에서
-    /// 예비 모델을 돌려 가며 부르고, 그래도 안 되면 다른 공급자로 넘긴다 —
-    /// 붐비는 모델 하나가 8초쯤 쓰므로 그 줄이 30초를 넘기는 일이 생긴다.
-    /// <b>여기서 먼저 끊으면 곧 답할 모델을 코앞에서 버리는 셈</b>이고, 그러면
-    /// 모델을 돌려 보는 장치가 있으나 마나다.
-    /// </remarks>
     private readonly int _timeoutSeconds =
         configuration.GetValue("AiTasks:SummaryTimeoutSeconds", defaultValue: 45);
 
     /// <summary>
-    /// <b>제목 한 줄</b>만 받아 오는 호출의 상한(초).
+    /// 제목 한 줄만 받아 오는 호출의 상한(초). 요약과 같게 잡으면 안 된다 — 앱푸시가 이 호출 뒤에 서므로 길게 잡으면 알림 전체가 늦는다.
     /// </summary>
-    /// <remarks>
-    /// 요약과 같은 45초를 쓰면 안 되는 자리다. 이쪽이 만드는 것은 <b>스무 글자</b>라
-    /// 예비 모델을 줄줄이 돌려 볼 값이 없고, 무엇보다 <b>앱푸시가 이 호출 뒤에
-    /// 선다</b>(<c>AiRunService.PrepareSummaryAndTitleAsync</c>) — 길게 잡으면
-    /// 「제목을 못 짓는 모델」 하나가 알림 전체를 그만큼 늦춘다.
-    /// </remarks>
     private readonly int _titleTimeoutSeconds =
         Math.Clamp(configuration.GetValue("AiTasks:TitleTimeoutSeconds", defaultValue: 15), 1, 120);
 
     /// <summary>
-    /// 정리시킬 글의 길이 상한. <b>넉넉히 잡으면 안 된다</b> — 무료 공급자는
-    /// 분당 토큰으로도 한도를 걸어서, 긴 글 한 번이 그 몫을 다 태우고 다음
-    /// 요청을 곧바로 막는다(<c>AI:Providers</c> 의 <c>MaxHistoryChars</c> 주석과 같은 이유).
+    /// 정리시킬 글의 길이 상한. 넉넉히 잡으면 무료 공급자의 분당 토큰 한도를 긴 글 한 번이 다 태운다.
     /// </summary>
     private readonly int _maxChars =
         configuration.GetValue("AiTasks:SummaryMaxChars", defaultValue: 6000);
 
     /// <summary>
-    /// 결과문에서 <b>처리 파일 목록을 뽑아낼 것인가.</b> 요약과 따로 끌 수 있어야
-    /// 한다 — 이쪽은 메일이 기다리는 값이 아니라 화면의 탭 한 장이라, AI 가
-    /// 붐비는 장비에서는 이것만 꺼 두는 선택이 있다.
+    /// 결과문에서 처리 파일 목록을 뽑아낼 것인가. 요약과 따로 끌 수 있어야 한다 — 메일이 기다리는 값이 아니라 화면의 탭이다.
     /// </summary>
     private readonly bool _extractFilesEnabled =
         configuration.GetValue("AiTasks:ExtractChangedFiles", defaultValue: true);
 
     /// <summary>
-    /// 파일 목록을 뽑는 호출의 상한(초).
+    /// 파일 목록을 뽑는 호출의 상한(초). 요약과 나란히 나가므로 더 길게 잡으면 완료 뒤처리 전체의 상한에 먼저 걸린다.
     /// </summary>
-    /// <remarks>
-    /// 요약과 같은 값을 쓴다. 이 호출은 요약과 <b>나란히</b> 나가므로
-    /// (<c>AiRunService.PrepareSummaryAndTitleAsync</c>) 더 길게 잡아 봐야
-    /// 완료 뒤처리 전체의 상한에 먼저 걸린다.
-    /// </remarks>
     private readonly int _extractTimeoutSeconds =
         Math.Clamp(configuration.GetValue("AiTasks:ExtractTimeoutSeconds", defaultValue: 45), 1, 300);
 
     /// <summary>
-    /// 한 번에 몇 개까지 받나. <b>넉넉히 두지 않는다</b> — 모델이 경로를 지어내기
-    /// 시작하면 그 수만큼 거짓이 목록에 선다. git 이 본 것은 이 상한과 무관하게
-    /// 다 들어간다(<see cref="AiChangedFiles.MaxLines"/>).
+    /// 한 번에 받을 파일 수. 모델이 경로를 지어내기 시작하면 그 수만큼 거짓이 목록에 서므로 넉넉히 두지 않는다.
+    /// git 이 본 것은 이 상한과 무관하게 다 들어간다(AiChangedFiles.MaxLines).
     /// </summary>
     private readonly int _extractMaxFiles =
         Math.Clamp(configuration.GetValue("AiTasks:ExtractMaxFiles", defaultValue: 50), 1, 200);
 
     /// <summary>
-    /// 편집자의 성격. <b>사실을 더하지 말라</b>가 이 프롬프트의 전부다 —
-    /// 요약이 원문에 없는 말을 하면 그 메일은 읽을수록 해롭다.
+    /// 편집자의 성격. 사실을 더하지 말라가 이 프롬프트의 전부다 — 원문에 없는 말이 메일에 실리면 해롭다.
     /// </summary>
     private const string SystemPrompt =
         "당신은 기술 보고서 편집자입니다. 개발자가 아닌 사람이 휴대폰에서 읽을 "
@@ -265,9 +197,7 @@ public sealed class AiResultSummarizer(
         + "설명이나 따옴표, 머리말 없이 제목 한 줄만 답하십시오.";
 
     /// <summary>
-    /// <b>아직 돌지 않은 차수</b>의 제목을 짓는 편집자. 위엣것과 성격이 다르다 —
-    /// 손에 든 것이 <b>지시문뿐</b>이라 「무엇을 했나」를 쓸 수가 없고, 쓰게 두면
-    /// 모델이 결과를 지어낸다(「…를 수정 완료」). 그래서 <b>시킨 일</b>을 적게 한다.
+    /// 아직 돌지 않은 차수의 제목을 짓는 편집자. 손에 든 것이 지시문뿐이라 「무엇을 했나」를 쓰게 두면 모델이 결과를 지어내므로 「시킨 일」을 적게 한다.
     /// </summary>
     private const string TurnTitleSystemPrompt =
         "당신은 작업 목록의 제목을 짓는 편집자입니다. 아직 실행되지 않은 지시문만 보고 "
@@ -276,8 +206,7 @@ public sealed class AiResultSummarizer(
         + "설명이나 따옴표, 머리말 없이 제목 한 줄만 답하십시오.";
 
     /// <summary>
-    /// <b>결과문에서 파일 경로만 건져 내는 독자.</b> 글을 쓰는 일이 아니라
-    /// 베껴 적는 일이라, 성격을 「지어내지 말라」 하나로 못 박는다.
+    /// 결과문에서 파일 경로만 베껴 내는 독자. 글을 쓰는 일이 아니므로 「지어내지 말라」 하나로 성격을 못 박는다.
     /// </summary>
     private const string FilesSystemPrompt =
         "당신은 작업 보고서에서 파일 경로를 뽑아내는 도구입니다. 주어진 글에 실제로 "
@@ -351,14 +280,8 @@ public sealed class AiResultSummarizer(
     }
 
     /// <summary>
-    /// 끝난 작업의 지시문과 결과를 보고 20자 내외의 짧은 제목을 짓는다.
+    /// 끝난 작업의 지시문과 결과를 보고 20자 내외의 짧은 제목을 짓는다. 보통은 요약과 같은 호출로 와서, 여기는 빈손이었거나 제목 칸만 빠진 건의 되받기다.
     /// </summary>
-    /// <remarks>
-    /// <b>이제는 되받기다.</b> 보통의 길에서는 제목이 요약과 <b>같은 한 번의
-    /// 호출</b>로 온다(<see cref="AiResultSummary.Title"/>) — 완료 뒤에 모델을
-    /// 두 번 부르면 결과 메일이 그만큼 늦는다. 여기는 그 한 번이 빈손으로
-    /// 돌아왔거나(요약 자체를 못 만든 건) 제목 칸만 빠져 온 건에만 불린다.
-    /// </remarks>
     public async Task<string?> MakeTitleAsync(
         string? instruction, string? resultText, string? summaryHeadline = null, CancellationToken ct = default)
     {
@@ -392,26 +315,9 @@ public sealed class AiResultSummarizer(
     }
 
     /// <summary>
-    /// <b>아직 돌지 않은 차수</b>의 제목을 짓는다 — 손에 든 것이 지시문뿐일 때다.
+    /// 아직 돌지 않은 차수의 제목을 짓는다 — 손에 든 것이 지시문뿐일 때다. 차수마다 제 제목이 있어야 접힌 머리줄로 펼칠 차수를 가린다(AiTurnTitler).
+    /// 여기서 짓는 것은 「시킨 일」이고, 끝난 뒤에는 요약과 같은 호출이 그 값을 덮는다. 제목 생성 손잡이(AiTasks:MakeTitle)를 같이 본다 — 한쪽만 꺼지면 제목이 빠진 차수가 생긴다.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 「이어서 지시」는 새 건을 만들지 않고 같은 건에 실행을 하나 더 붙인다
-    /// (<c>AiTaskService.ContinueAsync</c>). 그래서 <b>차수마다 제 제목</b>이 있어야
-    /// 접어 둔 머리줄만 보고 어느 차수를 펴야 하는지가 갈린다 —
-    /// <c>ai_task_run.turn_title</c> 이 그 자리이고, 이 호출이 그 첫 값을 만든다
-    /// (<see cref="AiTurnTitler"/>).
-    /// </para>
-    /// <para>
-    /// <b>여기서 짓는 것은 「시킨 일」이다.</b> 결과를 본 제목은 끝난 뒤에 요약과
-    /// 같은 한 번의 호출로 와서 이것을 덮는다(<see cref="AiResultSummary.Title"/>) —
-    /// 그쪽이 더 정확하다. 이것은 <b>돌고 있는 동안 비어 있지 않게</b> 하는 값이다.
-    /// </para>
-    /// <para>
-    /// <b>제목 생성 손잡이(<c>AiTasks:MakeTitle</c>)를 함께 본다.</b> 끄면 두 자리가
-    /// 같이 꺼져야 한다 — 한쪽만 꺼지면 「끝난 차수에만 제목이 없는」 꼴이 된다.
-    /// </para>
-    /// </remarks>
     public async Task<string?> MakeTurnTitleAsync(string? instruction, CancellationToken ct = default)
     {
         if (!_makeTitleEnabled || string.IsNullOrWhiteSpace(instruction))
@@ -436,29 +342,9 @@ public sealed class AiResultSummarizer(
     }
 
     /// <summary>
-    /// 결과문을 읽혀 <b>이 실행이 건드린 파일 목록을 뽑아 온다.</b>
-    /// <b>어떤 이유로든 못 하면 null 이다 — 던지지 않는다.</b>
+    /// 결과문을 읽혀 이 실행이 건드린 파일 목록을 뽑아 온다. 못 하면 null — 던지지 않는다.
+    /// 정본은 실행기의 git 목록이고 모델이 적은 줄은 추정이라 합칠 때 git 쪽이 이긴다. 고친 것이 없는 빈 목록과 실패(null)는 다르게 다룬다.
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>왜 모델에게 묻나.</b> 정본은 실행기가 <c>git diff --name-status</c> 로
-    /// 물어 온 목록이다. 그것이 더 정확하지만 늘 손에 들어오지는 않는다 —
-    /// git 이 아닌 대상(폴더 복사본)에는 물을 데가 없고, 실행기가 옛 바이너리면
-    /// 그 칸을 아예 안 보낸다. 그때 「처리 파일」 탭이 통째로 비어 <b>기능이
-    /// 고장난 것처럼</b> 보인다(2026-10-17 에 운영에서 276건 전부가 그랬다).
-    /// </para>
-    /// <para>
-    /// <b>여기서 온 줄은 「추정」이다.</b> 합치는 자리가 그 표를 달고
-    /// (<see cref="AiChangedFiles.Merge"/>), 같은 경로를 git 도 보았으면
-    /// <b>git 쪽이 이긴다</b>. 모델이 「새로 만들었다」고 적은 파일이 실은 이미
-    /// 있던 것을 고친 경우가 흔하다.
-    /// </para>
-    /// <para>
-    /// <b>빈 목록과 실패를 가른다.</b> 고친 파일이 없는 건(물어보기만 한 지시)은
-    /// 빈 목록이고, 모델이 못 받아 준 것은 널이다 — 앞엣것은 다시 부를 일이
-    /// 아니고 뒤엣것은 다음 바퀴에 다시 본다.
-    /// </para>
-    /// </remarks>
     public async Task<IReadOnlyList<AiChangedFile>?> ExtractFilesAsync(
         string? instruction, string? resultText, CancellationToken ct = default)
     {
@@ -501,13 +387,8 @@ public sealed class AiResultSummarizer(
         """;
 
     /// <summary>
-    /// 모델이 준 글에서 파일 목록을 꺼낸다.
+    /// 모델이 준 글에서 파일 목록을 꺼낸다. 첫 <c>{</c> 와 마지막 <c>}</c> 사이만 읽고, 못 읽으면 빈 목록이 아니라 null 이다.
     /// </summary>
-    /// <remarks>
-    /// <b>JSON 울타리를 치는 모델이 있다.</b> 요약 쪽과 같은 수를 쓴다 — 첫
-    /// <c>{</c> 와 마지막 <c>}</c> 사이만 떠서 읽는다. 못 읽으면 <b>빈 목록이
-    /// 아니라 널</b>이다(다음 바퀴에 다시 본다).
-    /// </remarks>
     private IReadOnlyList<AiChangedFile>? FilesFromJson(string reply)
     {
         var start = reply.IndexOf('{');
@@ -568,12 +449,8 @@ public sealed class AiResultSummarizer(
     }
 
     /// <summary>
-    /// 모델이 준 글에서 <b>제목 한 줄</b>만 꺼낸다.
+    /// 모델이 준 글에서 제목 한 줄만 꺼낸다. 따옴표로 감싸거나 설명을 덧붙이는 모델이 있어 앞뒤 따옴표를 떼고 첫 줄만 남긴다.
     /// </summary>
-    /// <remarks>
-    /// 「제목만 답하라」를 지키지 않는 모델이 있다 — 따옴표로 감싸거나 설명을
-    /// 한 줄 더 붙인다. 앞뒤 따옴표를 떼고 <b>첫 줄만</b> 남긴다.
-    /// </remarks>
     private static string? OneLine(string? reply)
     {
         if (string.IsNullOrWhiteSpace(reply))
@@ -653,13 +530,8 @@ public sealed class AiResultSummarizer(
     }
 
     /// <summary>
-    /// 모델이 준 글에서 JSON 을 꺼내 요약으로 만든다.
+    /// 모델이 준 글에서 JSON 을 꺼내 요약으로 만든다. 인사말이나 울타리가 붙어도 첫 <c>{</c> 와 마지막 <c>}</c> 사이만 읽는다. 그래도 안 되면 null 이고 메일은 요약 없이 나간다.
     /// </summary>
-    /// <remarks>
-    /// <b>「JSON 만 답하라」를 지키지 않는 모델이 있다.</b> 앞뒤에 인사말이나
-    /// <c>```json</c> 울타리를 붙인다. 그래서 첫 <c>{</c> 와 마지막 <c>}</c> 사이만
-    /// 떠서 읽는다. 그래도 안 되면 null 이고, 메일은 옛 방식으로 나간다.
-    /// </remarks>
     private AiResultSummary? FromJson(string reply)
     {
         var start = reply.IndexOf('{');

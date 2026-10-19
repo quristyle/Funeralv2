@@ -3,11 +3,7 @@ using Microsoft.EntityFrameworkCore;
 namespace CargoTrustServer.Data;
 
 /// <summary>
-/// CargoTrustServer DB 컨텍스트 — DB: cargotrust, 스키마: cargotrust.
-///
-/// **스키마는 이 코드가 만들지 않는다** — deploy/sql/cargotrust-schema-2026-09-24.sql 이 만든다.
-/// 마이그레이션도 EnsureCreated 도 쓰지 않는다. 다른 서비스에서 초기 마이그레이션이 유실돼
-/// 빈 DB 를 못 세운 일이 있었다 — 여기서는 SQL 파일 하나가 정본이다.
+/// CargoTrustServer DB 컨텍스트(DB·스키마 cargotrust). 스키마는 이 코드가 만들지 않는다 — deploy/sql 의 SQL 파일이 정본이다. EnsureCreated 는 쓰지 않는다.
 /// </summary>
 public class CargoTrustDbContext(DbContextOptions<CargoTrustDbContext> options) : DbContext(options)
 {

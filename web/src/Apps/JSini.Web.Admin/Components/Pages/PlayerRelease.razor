@@ -2,21 +2,12 @@
 @attribute [RouteKey("admin.status.player-release")]
 
 @*
-    [플레이어 릴리스] — DB 메뉴 `/system/player-release`.
-    이력: Vue `views/portal/system/player-release/index` → 여기.
-
-    빈소 디스플레이 플레이어의 배포 상태를 본다.
-
-    [여기서는 배포를 걸지 않는다]
-
-    옛 화면에는 "릴리스" 단추가 있어 태그를 만들고 워크플로를 돌렸다.
-    되돌리기 어려운 동작이라 **상태 확인만 옮겼다** — 배포는 승인 절차를
-    정한 뒤에 붙인다.
+    [플레이어 릴리스] DB 메뉴 `/system/player-release`. 빈소 디스플레이 플레이어의 배포 상태만 본다 — 릴리스 단추(태그 생성·워크플로 실행)는 되돌리기 어려워 옮기지 않았다.
 *@
 
 @inherits DataPage
 
-<PageTitle>플레이어 릴리스 · 포털관리</PageTitle>
+<PageTitle>플레이어 릴리스</PageTitle>
 
 <div class="jsini-toolbar">
     <DxButton Text="새로 고침" RenderStyle="ButtonRenderStyle.Primary" Click="@ReloadAsync" />

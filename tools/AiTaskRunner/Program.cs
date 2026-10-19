@@ -2,20 +2,8 @@ using AiTaskRunner;
 
 using Serilog;
 
-// ============================================================
-// AI 작업 실행기
-// ============================================================
-//
-// 설계: docs/ai-task-runner.md
-//
-// 큐를 듣고, 서버에 「줄 일 있나」를 물어 집고, CLI(claude · agy)를 띄우고,
-// 출력을 서버로 밀어 올리고, 끝나면 보고한다.
-//
-// **받는 포트가 없다.** 큐와 서버로 나가기만 한다 — 그래서 방화벽에 구멍이
-// 필요 없고, 이 프로그램을 밖에서 부를 방법도 없다.
-//
-// **웹 서버와 같은 프로세스에 두지 않는 이유**는 배포 편의가 아니다.
-// 셸을 여는 권한이 웹 요청을 받는 프로세스와 같은 자리에 있으면 안 된다.
+// AI 작업 실행기. 큐를 듣고 서버에 일을 물어 집고, CLI(claude · agy)를 띄워 출력을 서버로 올린다.
+// 받는 포트가 없다 — 큐와 서버로 나가기만 한다. 웹 서버와 같은 프로세스에 두지 않는다(셸을 여는 권한을 웹 요청 처리와 떼기 위해).
 
 var builder = Host.CreateApplicationBuilder(args);
 
@@ -32,11 +20,7 @@ builder.Services.Configure<RunnerOptions>(builder.Configuration.GetSection("Runn
 builder.Services.AddSingleton(sp =>
     sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<RunnerOptions>>().Value);
 
-// 서버로 나가는 통로. 타임아웃을 넉넉히 둔다 — 로그 묶음이 클 수 있고,
-// **첨부도 이 통로로 내려온다**(`ServerClient.DownloadFileAsync`). 첨부 한 장
-// 상한이 100MB 라(`AiTaskFileService.MaxBytes`) 30초로는 한 장에 3MB/s 가
-// 필요하다. 지금은 같은 장비의 127.0.0.1 이라 남지만, 그 전제가 바뀌는 날
-// 증상은 「첨부만 가끔 안 붙는다」라 원인이 타임아웃으로 안 보인다.
+// 서버로 나가는 통로. 첨부도 이 통로로 내려와 넉넉히 둔다(첨부 한 장 최대 100MB). 30초로 두면 첨부만 가끔 실패해 원인이 안 보인다.
 builder.Services.AddHttpClient<ServerClient>((sp, client) =>
 {
     var options = sp.GetRequiredService<RunnerOptions>();
@@ -45,15 +29,12 @@ builder.Services.AddHttpClient<ServerClient>((sp, client) =>
     client.Timeout = TimeSpan.FromMinutes(2);
 });
 
-// 한도 주소를 두드릴 통로. **CLI 로 못 묻는 것만 여기를 탄다**(지금은
-// copilot — 그 CLI 의 `/usage` 는 대화 화면 안에서만 도는 명령이라 `-p` 로
-// 주면 슬래시 명령이 아니라 지시문으로 먹는다). 곁들이는 일이라 짧게 끊는다.
+// CLI 로 못 묻는 한도 조회만 여기를 탄다(지금은 copilot — /usage 는 -p 로 주면 지시문으로 먹는다). 곁들이는 일이라 짧게 끊는다.
 builder.Services.AddHttpClient("usage", client =>
 {
     client.Timeout = TimeSpan.FromSeconds(60);
 
-    // 깃허브의 한도 통로는 편집기 클라이언트만 부르던 자리라, 제 이름을
-    // 대 주지 않으면 거절당할 수 있다.
+    // 깃허브 한도 통로는 클라이언트 이름을 대 줘야 거절당하지 않는다.
     client.DefaultRequestHeaders.UserAgent.ParseAdd("JSini-AiTaskRunner/1.0");
     client.DefaultRequestHeaders.Accept.ParseAdd("application/json");
 });
@@ -66,26 +47,19 @@ builder.Services.AddSingleton<PushGate>();
 builder.Services.AddSingleton<QueueListener>();
 builder.Services.AddHostedService<RunnerWorker>();
 
-// AI CLI 의 한도(`/usage`)를 주기적으로 읽어 서버로 올린다. **본업과 갈라
-// 둔다** — 사용량 조회가 매달려도 집어가기와 하트비트는 그대로 돌아야 한다.
+// AI CLI 의 한도(/usage)를 주기적으로 읽어 올린다. 본업(집어가기·하트비트)과 갈라 둔다 — 조회가 매달려도 본업은 돈다.
 builder.Services.AddHostedService<UsageReporter>();
 
-// 대상이 지금 어떤 상태인가를 주기적으로 적어 둔다. **서버는 그 경로를 볼 수
-// 없다**(컨테이너 안이고 경로는 호스트의 것) — 「대상 git 상태」 화면이 읽는
-// 값을 이쪽이 만든다(설계 11.7).
+// 대상의 git 상태를 주기적으로 적어 둔다. 서버는 호스트 경로를 볼 수 없어 이쪽이 만든다(설계 11.7).
 builder.Services.AddHostedService<TargetStatusWorker>();
 
-// 「처리 파일」의 추정 줄(AI 결과문에서 뽑은 경로)이 **정말 있는 파일인가**를
-// 대 보고 서버에 적는다. 위엣것과 같은 까닭으로 여기 있다 — 대 볼 자리가
-// 호스트의 저장소다. 반 마디짜리 경로는 이때 **온 경로로 펴진다**.
+// 「처리 파일」의 추정 줄이 정말 있는 파일인가를 대 보고 서버에 적는다. 반 마디짜리 경로는 온 경로로 펴진다.
 builder.Services.AddHostedService<FileCheckWorker>();
 
-// 복사본 작업공간은 끝나도 안 지운다(결과가 거기 있다). 그래서 쌓이고,
-// 이것이 오래된 것만 치운다.
+// 복사본 작업공간은 끝나도 안 지운다. 이것이 오래된 것만 치운다.
 builder.Services.AddHostedService<WorkspaceSweeper>();
 
-// AI 서버의 무료 공급자가 전부 막혔을 때 한 줄 추천을 대신 받는 자리.
-// **본업과 갈라 둔다** — 10초짜리 질문이 30분짜리 작업의 자리를 잡지 않는다.
+// AI 서버의 무료 공급자가 전부 막혔을 때 한 줄 추천을 대신 받는 자리. 본업과 갈라 둔다.
 builder.Services.AddHostedService<QuickAskWorker>();
 
 var host = builder.Build();

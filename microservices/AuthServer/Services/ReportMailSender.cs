@@ -8,38 +8,9 @@ using JSini.Shared.DTOs;
 namespace AuthServer.Services;
 
 /// <summary>
-/// 배치 하나를 <b>메일 한 통으로 만들어 내보낸다.</b>
+/// 배치 하나를 메일 한 통으로 만들어 보낸다. 메일에 숫자를 싣지 않고 각자의 화면으로 가는 길을 싣는다 — 자료가 보는 사람마다 달라 서버가 한 벌을 떠서 보내면 남의 숫자가 간다.
+/// 주소는 여기서 풀지 않고 역할 이름을 NotificationServer 에 넘긴다(본인이 꺼 둔 메일 갈래까지 그쪽이 본다).
 /// </summary>
-/// <remarks>
-/// <para>
-/// [메일에 숫자를 담지 않고 <b>보고서로 가는 길</b>을 담는다]
-/// </para>
-///
-/// <para>
-/// 운영 리포트 화면들이 읽는 자료는 <b>보는 사람마다 다르다</b> —
-/// 「운영 모니터링」이 긁어 오는 <c>dashboard/admin-stats</c> 는 이름부터
-/// 「내 배정 현황」이고, 주간·월간도 「내 것」과 「전체」가 갈린다. 그 한 벌을
-/// 서버가 대표로 떠서 열 사람에게 똑같이 보내면 <b>아홉 명은 남의 숫자</b>를
-/// 받는다. 그래서 메일은 「이 보고서들을 볼 때가 되었다」고 알리고 각자의
-/// 화면으로 데려간다 — 거기서는 본인의 권한과 본인의 자료로 그려진다.
-/// </para>
-///
-/// <para>
-/// 숫자를 메일에 담아야 할 날이 오면 손댈 곳은 <see cref="BuildBody"/> 하나다.
-/// 그때 먼저 풀어야 하는 것은 <b>누구의 자료인가</b>이지 HTML 이 아니다.
-/// </para>
-///
-/// <para>
-/// [보내는 길은 하나다]
-/// </para>
-///
-/// <para>
-/// 주소를 여기서 풀지 않는다. 역할 이름을 그대로 NotificationServer 에 넘기면
-/// 그쪽이 <c>scom</c> 으로 풀고, <b>본인이 꺼 둔 메일 갈래까지 본다.</b>
-/// 여기서 주소를 풀어 보내면 그 설정이 조용히 새는 길이 하나 생긴다
-/// (<c>AccountMailClient.SendToRolesAsync</c> 머리말).
-/// </para>
-/// </remarks>
 public class ReportMailSender(
     AccountMailClient mail,
     IConfiguration configuration,
@@ -107,25 +78,9 @@ public class ReportMailSender(
     }
 
     /// <summary>
-    /// <b>누른 사람 본인에게만</b> 한 통 보낸다 — 「미리받아보기」.
+    /// 누른 사람 본인에게만 한 통 보낸다 — 미리받아보기. 역할을 거치지 않고 주소 하나로 보내므로 「메일 알림을 꺼 뒀다」 설정에 막히지 않는다.
+    /// 저장하지 않은 임시 배치도 받는다(저장 전에 메일 꼴을 보기 위해서다).
     /// </summary>
-    /// <remarks>
-    /// <para>
-    /// [역할을 거치지 않는 유일한 길이다]
-    /// </para>
-    /// <para>
-    /// 정기 발송은 주소를 안 풀고 역할 이름만 넘긴다(클래스 머리말). 이쪽은
-    /// 반대로 <b>주소 하나</b>로 보낸다 — 받는 사람이 누른 사람 본인으로
-    /// 이미 정해져 있어 풀 것이 없고, 본인이 지금 달라고 누른 메일을
-    /// 「메일 알림을 꺼 뒀다」로 막으면 아무 일도 안 일어난 것처럼 보인다.
-    /// 그 설정은 <b>남이 보내는 것</b>을 끄려고 있는 것이다.
-    /// </para>
-    /// <para>
-    /// 넘어오는 <paramref name="schedule"/> 은 저장된 줄이 아니어도 된다 —
-    /// 화면에서 고르고 있는 그대로를 담은 임시 객체다. 그래야 저장 전에
-    /// 메일 꼴을 볼 수 있다.
-    /// </para>
-    /// </remarks>
     public async Task<(bool Ok, string Message, int Count, List<string> Missing)> SendPreviewAsync(
         ReportMailSchedule schedule,
         IReadOnlyList<ReportCatalogItemDto> catalog,
@@ -164,13 +119,8 @@ public class ReportMailSender(
     }
 
     /// <summary>
-    /// 고른 열쇠를 <b>지금 메뉴에 있는 보고서</b>와 사라진 것으로 가른다.
-    /// 보낼 수 없으면 그 까닭을 함께 돌려준다.
+    /// 고른 열쇠를 지금 메뉴에 있는 보고서와 사라진 것으로 가른다. 정기 발송과 미리받아보기가 같은 규칙으로 갈라야 미리 본 것이 실제로 가는 것이 된다.
     /// </summary>
-    /// <remarks>
-    /// 정기 발송과 미리받아보기가 <b>같은 규칙으로</b> 갈라야 한다 — 미리 본
-    /// 것과 실제로 가는 것이 다르면 미리보기가 아니다.
-    /// </remarks>
     private static (bool Ok, string Message, List<ReportCatalogItemDto> Live, List<string> Missing) Compose(
         ReportMailSchedule schedule,
         IReadOnlyList<ReportCatalogItemDto> catalog,
@@ -211,14 +161,8 @@ public class ReportMailSender(
             : $"[JSini] 시스템 모니터링 보고서 — {schedule.Name}";
 
     /// <summary>
-    /// 메일 본문(HTML). <b>완성된 문서로 보낸다</b>(<c>html = true</c>) —
-    /// 알림 서버의 평문 틀을 두 겹으로 씌우지 않는다.
+    /// 메일 본문(HTML). 완성된 문서로 보낸다(html = true) — 알림 서버의 평문 틀을 씌우지 않는다. 표와 바깥 스타일시트를 쓰지 않고 style 속성만 쓴다(메일 클라이언트마다 style 태그 처리가 달라 확인할 길이 없다).
     /// </summary>
-    /// <remarks>
-    /// 표나 바깥 스타일시트를 쓰지 않고 <c>style</c> 속성만 쓴다. 메일
-    /// 클라이언트마다 <c>&lt;style&gt;</c> 를 떼어 내는 규칙이 달라서, 그쪽에서
-    /// 무너지면 확인할 길이 없다.
-    /// </remarks>
     private string BuildBody(
         ReportMailSchedule schedule,
         IReadOnlyList<ReportCatalogItemDto> reports,

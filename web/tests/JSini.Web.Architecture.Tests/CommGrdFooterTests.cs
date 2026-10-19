@@ -3,23 +3,8 @@ using Xunit;
 
 namespace JSini.Web.Architecture.Tests;
 
-/// <summary>
-/// <c>CommGrd</c> · <c>CommTree</c> 의 아래 띠(<c>FooterLeft</c> · <c>FooterRight</c>)에
-/// <b>동작</b>을 두지 않는다.
-///
-/// <para>
-/// [왜 막는가]
-/// </para>
-///
-/// <para>
-/// 표의 동작(등록 · 다시 읽기 · 칸별 검색 · 엑셀)은 오른쪽 클릭 창에 있다. 그런데
-/// 화면이 띠에 단추를 따로 두면 <b>같은 표의 동작이 두 자리로 갈린다</b> —
-/// 회사 관리의 사용자 탭이 그랬다(다시 읽기는 창에, 「사람 넣기」는 띠에).
-/// 화면만의 동작은 <c>ContextMenuItems</c> 안에 <c>CommMenuItem</c> 으로 적는다.
-/// 띠에는 「저장 중…」 같은 누를 것이 아닌 표시만 남긴다.
-/// </para>
-///
-/// </summary>
+/// <summary>CommGrd · CommTree 의 아래 띠(FooterLeft · FooterRight)에 동작을 두지 않는다. 표의 동작은 오른쪽 클릭 창에 있어야 하며, 띠에 단추를 따로 두면 같은 동작이 두 자리로 갈린다.
+/// 띠에는 「저장 중…」 같은 누를 것이 아닌 표시만 남긴다.</summary>
 public sealed class CommGrdFooterTests
 {
     private static readonly Regex Footer = new(

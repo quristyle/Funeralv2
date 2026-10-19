@@ -11,7 +11,7 @@ public partial class CustomerDashboard
 
     private DataTable _rows = JsonTable.Empty;
 
-    /// <summary>칸 이름표. 여기 적은 순서가 표의 앞쪽 순서다. 칸 이름은 서버 응답과 대조했다 — 머리 주석 참고.</summary>
+    /// <summary>칸 이름표. 여기 적은 순서가 표의 앞쪽 순서다. 칸 이름은 서버 응답과 대조했다.</summary>
     private static readonly Dictionary<string, string> Captions = new(StringComparer.Ordinal)
     {
         ["companyName"] = "고객사",
@@ -31,7 +31,7 @@ public partial class CustomerDashboard
         string Company, int Pending, int InProgress, int Consultation,
         int Negotiation, int Completed, int Rejected);
 
-    /// <summary>옛 화면(customer.vue)의 상태 팔레트 — 시리즈 순서와 같아야 한다.</summary>
+    /// <summary>상태 팔레트 — 시리즈 순서와 같아야 한다.</summary>
     private static readonly string[] StatusPalette =
         ["#3B82F6", "#F97316", "#EAB308", "#A855F7", "#22C55E", "#EF4444"];
 
@@ -47,11 +47,7 @@ public partial class CustomerDashboard
         return _rows.Rows.Count;
     }, "집계할 고객사가 없습니다.", "고객사 현황을 읽지 못했습니다");
 
-    /// <summary>
-    /// 표와 같은 응답에서 차트 재료를 뽑는다. 칸이 있는지 먼저 본다 —
-    /// AutoGrid 방식 화면이라 서버가 칸을 바꿔도 표는 살아야 하고,
-    /// 그때 차트만 조용히 빠지는 쪽이 화면이 죽는 쪽보다 낫다.
-    /// </summary>
+    /// <summary>표와 같은 응답에서 차트 재료를 뽑는다. 칸이 있는지 먼저 본다 — 서버가 칸을 바꾸면 표는 살아야 하고, 차트만 조용히 빠지는 쪽이 화면이 죽는 쪽보다 낫다.</summary>
     private static IReadOnlyList<CompanyPoint> ToChart(DataTable rows)
     {
         if (!rows.Columns.Contains("companyName"))

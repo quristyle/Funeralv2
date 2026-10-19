@@ -38,9 +38,7 @@ public partial class Downloads
 
     protected override async Task OnInitializedAsync()
     {
-        // **분류로 걸러 달라고 서버에 넘기지 않는다.** 분류 단추를 그리려면
-        // 어차피 전체 목록이 필요하고, 자료실은 목록이 길어야 수십 건이다.
-        // 분류마다 따로 부르면 왕복만 늘고 단추가 사라진다.
+        // 분류로 걸러 달라고 서버에 넘기지 않는다. 분류 단추를 그리려면 전체 목록이 필요하고, 분류마다 부르면 왕복만 늘어난다.
         _items = await Api.DownloadsAsync(L);
         Api.RecordVisit($"/{L}/downloads", L);
     }

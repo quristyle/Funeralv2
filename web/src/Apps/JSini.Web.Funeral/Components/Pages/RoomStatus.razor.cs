@@ -39,12 +39,7 @@ public partial class RoomStatus
     /// <summary>장비가 다 안 붙은 호실 수. 요약 줄에 적는다.</summary>
     private int OfflineRooms => _rooms.Count(r => r.DeviceCount > 0 && r.OnlineDeviceCount < r.DeviceCount);
 
-    /// <summary>
-    /// 화면에 보일 호실.
-    ///
-    /// <b>거르기를 서버에 넘기지 않는다.</b> 요약 숫자(전체·빈 호실)는 걸러지기
-    /// 전 기준이어야 하기 때문이다 — 서버에서 거르면 「전체 호실 3」처럼 보인다.
-    /// </summary>
+    /// <summary>화면에 보일 호실. 거르기는 서버에 넘기지 않는다 — 요약 숫자(전체·빈 호실)는 거르기 전 기준이어야 한다.</summary>
     private IReadOnlyList<FuneralStatus> Shown
     {
         get
@@ -65,11 +60,8 @@ public partial class RoomStatus
         }
     }
 
-    // ── 스스로 새로 고친다 ──────────────────────────────────
-    //
-    // 이 화면은 **상황판으로 띄워 둔다.** 사람이 새로 고침을 누르러 오지
-    // 않는다는 뜻이다. 옛 화면은 60초 폴링 + 실시간 방송 둘 다 썼고,
-    // 여기서는 그것을 그대로 옮긴다 — 폴링은 방송을 놓쳤을 때의 보험이다.
+    // ── 스스로 새로 고친다 ──
+    // 상황판으로 띄워 두는 화면이라 사람이 새로 고치지 않는다. 60초 폴링은 방송을 놓쳤을 때의 보험이다.
 
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(60);
 
@@ -79,10 +71,7 @@ public partial class RoomStatus
     private DateTime? _lastRefreshAt;
     private bool _backgroundRefreshError;
 
-    /// <summary>
-    /// 방송이 몰릴 때 다시 읽기를 묶는 자리. 한 건물의 화면이 동시에 켜지면
-    /// 방송이 수십 개 온다 — 그때마다 읽으면 조회가 그만큼 나간다.
-    /// </summary>
+    /// <summary>방송이 몰리면 다시 읽기를 묶는다. 한 건물이 동시에 켜지면 방송이 수십 개 온다.</summary>
     private CancellationTokenSource? _debounce;
 
     protected override async Task OnInitializedAsync()
@@ -95,15 +84,7 @@ public partial class RoomStatus
         await ReloadAsync();
     }
 
-    /// <summary>
-    /// 0.8초 뒤에 다시 읽는다. 그 사이에 또 불리면 시계를 다시 맞춘다.
-    ///
-    /// <para>
-    /// <b>조용히 읽는다</b> — <c>LoadAsync</c> 를 쓰면 안내 줄이 깜빡이고
-    /// 「조회 결과가 없습니다」가 스스로 떴다 사라진다. 상황판에서 그 깜빡임은
-    /// 사람이 무언가 눌렀다는 신호로 읽힌다.
-    /// </para>
-    /// </summary>
+    /// <summary>0.8초 뒤에 조용히 다시 읽는다. LoadAsync 를 쓰면 안내 줄이 깜빡여 상황판에서 사람이 무언가 누른 것으로 읽힌다.</summary>
     private void ScheduleReload()
     {
         _debounce?.Cancel();
@@ -148,8 +129,7 @@ public partial class RoomStatus
         }
         catch (ApiException)
         {
-            // 마지막 자료는 유지하되, 자동 갱신이 멎었다는 사실은 남겨야
-            // 상황판을 믿고 지나가는 일을 막을 수 있다.
+            // 마지막 자료는 유지하되, 자동 갱신이 멎었다는 사실을 남겨 상황판을 믿고 지나가는 일을 막는다.
             _backgroundRefreshError = true;
             StateHasChanged();
         }
@@ -157,8 +137,6 @@ public partial class RoomStatus
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        // **이름을 붙여 넘긴다.** 첫 인자가 `companyId` 라, 자리로 넘기면
-        // 건물이 회사 자리에 들어가 조건이 통째로 어긋난다.
         _board = await Api.GetRoomBoardAsync(
             buildingId: _buildingId,
             floorId: _floorId,
@@ -184,13 +162,7 @@ public partial class RoomStatus
         return ReloadAsync();
     }
 
-    /// <summary>
-    /// 출상 취소. 그 호실에 고인이 다시 배정된다.
-    ///
-    /// 되돌아갈 호실에 이미 다른 고인이 있으면 <b>서버가 거절한다</b> —
-    /// 화면이 미리 판단하지 않는 이유는, 그 판단이 서버에만 있고 화면이
-    /// 따로 하면 둘이 어긋나기 때문이다.
-    /// </summary>
+    /// <summary>출상 취소. 되돌아갈 호실에 다른 고인이 있으면 서버가 거절한다. 화면이 미리 판단하면 두 판단이 어긋나므로 서버에만 둔다.</summary>
     private async Task CancelDepartureAsync(FuneralStatus room)
     {
         if (room.LastDepartedDeceasedId is not { Length: > 0 } id)
@@ -215,12 +187,7 @@ public partial class RoomStatus
 
     private static string Fmt(DateTime? value) => value?.ToString("yyyy-MM-dd HH:mm") ?? "-";
 
-    /// <summary>
-    /// 시계와 방송 구독을 놓는다.
-    ///
-    /// <b>빠뜨리면 화면을 닫아도 60초마다 조회가 계속 나간다</b> — 상황판으로
-    /// 띄워 두는 화면이라 열고 닫기를 반복하면 그만큼 쌓인다.
-    /// </summary>
+    /// <summary>시계와 방송 구독을 놓는다. 빠뜨리면 화면을 닫아도 60초 조회가 계속 나간다.</summary>
     public void Dispose()
     {
         _poll?.Dispose();

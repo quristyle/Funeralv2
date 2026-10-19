@@ -15,36 +15,21 @@ using Serilog;
 using JSini.Shared.Infrastructure.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
-// ============================================================
-// NotificationServer — 푸시·이메일을 세 시스템이 공유한다 (결정 D8-A)
-// ============================================================
-//
-// 예전에는 푸시·이메일이 **헬프데스크 안에만** 있었다. 그래서
-//
-//   * 포털도 장례식장도 알림을 보내려면 헬프데스크를 거쳐야 했다
-//   * VAPID 키가 두 서비스에 중복으로 박혀 있었다 (그래서 D1 에서도 걸렸다)
-//   * 대상 선택 로직(팀·회사·관리자)이 발송 코드와 얽혀 헬프데스크 밖에서 못 썼다
-//
-// 이 서비스는 **보내는 일만** 한다. 누구에게 보낼지는 부르는 쪽이 정하고
-// 주인 키 목록을 넘긴다.
+// NotificationServer — 푸시·이메일 발송 공용. 받는 사람은 부르는 쪽이 정하고 주인 키 목록을 넘긴다(대상 판정은 여기 없다).
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 로컬 개별 설정 (Git 제외). 다른 서비스들과 같은 자리에 같은 방식으로 둔다.
-// **이 줄이 없으면 아래 키 검사가 뜻대로 동작하지 않는다** — 게이트웨이에서
-// 같은 것을 빠뜨려 토큰이 전부 401 이 된 일이 있었다(D1-B).
+// 로컬 설정(Git 제외). 빠지면 아래 키 검사가 뜻대로 돌지 않는다.
 builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
 
-// 로그 형식을 다른 서비스와 맞춘다. 장애를 쫓을 때 모양이 다르면 시간이 배로 든다.
+// 로그 형식은 다른 서비스와 맞춘다(모양이 다르면 장애를 쫓는 시간이 배로 든다).
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)
     .CreateLogger();
 builder.Host.UseSerilog();
 
 // ── DB ──────────────────────────────────────────────────────
-//
-// 포털 DB(funeralv2 / scom)를 쓴다. 서비스별 DB 가 정석이지만 결정 D2(DB 통합)가
-// 열려 있어, 구독 표 하나 때문에 DB 를 늘리지 않았다. Data/AppDbContext.cs 참고.
+// 포털 DB(funeralv2 / scom). 구독 표 하나 때문에 DB 를 늘리지 않았다 — Data/AppDbContext.cs 참고.
 var connectionString = builder.Configuration.GetConnectionString("jsinicore")
                     ?? builder.Configuration["jsinicore"]
                     ?? Environment.GetEnvironmentVariable("jsinicore");
@@ -54,11 +39,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
         x => x.MigrationsHistoryTable("__EFMigrationsHistory", "scom")));
 
 // ── 인증 ────────────────────────────────────────────────────
-//
-// 게이트웨이가 1차 검증하고 X-User-* 헤더를 붙여 준다. 그래도 토큰이 실려 오면
-// 여기서도 검증한다(게이트웨이 우회 시 최소 방어선).
-//
-// 키는 appsettings.Local.json 에만 있다. 없으면 기동에 실패한다 (결정 D1-B).
+// 게이트웨이가 1차 검증하고 여기서도 검증한다. 키가 없으면 기동에 실패한다.
 var jwtKey = JwtKeyGuard.Require(builder.Configuration, "Jwt:Key", "NotificationServer");
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -79,11 +60,9 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 
 // ── 설정과 서비스 ───────────────────────────────────────────
-//
-// VAPID 키가 **이제 한 곳에만** 있다. 이 서비스를 만든 이유 중 하나다.
+// VAPID 키는 이 서비스 한 곳에만 있다.
 builder.Services.Configure<VapidOptions>(builder.Configuration.GetSection("Vapid"));
-// 푸시 수명·겹침 설정. 없어도 기본값(6시간·high)으로 돈다 — 「오래 안 켜다 켜면
-// 한꺼번에 쏟아진다」를 막는 값들이라 사정은 PushDeliveryOptions 머리말에 있다.
+// 푸시 수명·겹침 설정(없으면 6시간·high). 근거는 PushDeliveryOptions 에 있다.
 builder.Services.Configure<PushDeliveryOptions>(
     builder.Configuration.GetSection(PushDeliveryOptions.SectionName));
 builder.Services.Configure<EmailQueueOptions>(builder.Configuration.GetSection("EmailQueue"));
@@ -92,63 +71,39 @@ builder.Services.AddTransient<IEmailSender, SmtpEmailSender>();
 
 builder.Services.AddScoped<INotificationPreferenceService, NotificationPreferenceService>();
 
-// 알림 정책(포털관리 「알림관리」). **사람의 뜻이 아니라 회사의 규칙이다** —
-// 위의 설정 표와 갈래가 다른 까닭은 NotificationPolicy 머리말에 있다.
-// 발송마다 읽는 표라 짧게 들고 있고(IMemoryCache), 저장할 때 바로 버린다.
+// 알림 정책. 발송마다 읽으므로 짧게 들고 있고 저장할 때 바로 버린다.
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<INotificationPolicyService, NotificationPolicyService>();
 
-// 「이 화면을 볼 수 있는 사람인가」. 게이트웨이는 로그인만 보므로 관리 화면의
-// 조회·저장은 서버가 스스로 막아야 한다 (MenuViewAccess 머리말).
+// 관리 화면 권한은 서버가 스스로 본다(게이트웨이는 로그인만 본다).
 builder.Services.AddSingleton<MenuViewAccess>();
-// 지나온 자리. 설정 저장과 갈라 둔 까닭은 LocationTrackService 머리말에 있다.
+// 지나온 자리 기록(설정 저장과 분리: LocationTrackService 참고).
 builder.Services.AddScoped<ILocationTrackService, LocationTrackService>();
-// 알림 아이콘 한 장을 여는 열쇠. 로그인해 있지 않은 기기에서도 얼굴이 뜨게 한다
-// (AvatarIconTokenFactory 머리말).
+// 알림 아이콘 열쇠 — 로그인하지 않은 기기에서도 얼굴이 뜨게 한다.
 builder.Services.AddSingleton<IAvatarIconTokenFactory, AvatarIconTokenFactory>();
 builder.Services.AddScoped<IAvatarIconResolver, AvatarIconResolver>();
 
-// 로그인 아이디 → 대표 메일. **메일을 내는 자리가 둘**이라 한 곳에 둔다
-// (직발송 /emails/send · PushSender 의 메일 곁가지).
+// 로그인 아이디 → 대표 메일. 메일을 내는 자리가 둘이라 한 곳에 둔다.
 builder.Services.AddScoped<IAccountEmailResolver, AccountEmailResolver>();
 builder.Services.AddScoped<IPushSender, PushSender>();
 
-// 푸시 서비스(FCM 등)로 나가는 연결. **발송마다 새로 맺지 않는다.**
-//
-// WebPushClient 는 아무것도 안 주면 제 HttpClient 를 하나 만든다. 그것을 발송마다
-// 새로 만들면 알림 한 통마다 손잡기를 다시 하고, 쓰고 버린 소켓이 TIME_WAIT 로
-// 남는다. 팩토리가 들고 있는 것을 건네 연결을 물려 쓴다.
-//
-// **핸들러 수명을 늘려 두는 것이 함께 가야 한다.** 기본값은 2분인데 이 알림은
-// 하루 수십 건이 산발로 나가므로, 그대로 두면 거의 모든 발송이 어차피 새 연결로
-// 시작해서 물려 쓰는 뜻이 한 발송 안(기기 여러 대)으로 줄어든다.
-//
-// **제한 시간은 30초다.** 기본값 100초는 이 발송이 기기마다 차례로 도는 자리라
-// 너무 길다 — 한 대가 매달리면 그 뒤의 기기가 전부 그만큼 늦는다. 그렇다고
-// 짧게 잡을 수도 없다: 이 값은 손잡기만이 아니라 **응답까지의 전체 왕복**
-// 한도이고, 운영 실측 왕복이 기기당 중앙 0.62초에 **최대 7.97초**였다
-// (docs/push-delivery.md). 잘 가던 발송을 「전달 실패」로 만들지 않을 만큼
-// 여유를 둔다.
+// 푸시 HttpClient 는 하나를 물려 쓴다(발송마다 맺으면 소켓이 TIME_WAIT 로 쌓인다). 제한 30초는 기기당 전체 왕복 한도다(docs/push-delivery.md).
 builder.Services.AddHttpClient(PushSender.HttpClientName, c =>
 {
     c.Timeout = TimeSpan.FromSeconds(30);
 })
 .SetHandlerLifetime(TimeSpan.FromMinutes(10));
 
-// 쪽지의 받는 사람을 아이디·이메일로 푼다. 이메일을 푸는 것(EmailEndpoints)과
-// 같은 자리이고 scom 을 읽기만 한다 (NoteRecipientResolver 머리말).
+// 쪽지의 받는 사람을 아이디·이메일로 푼다(scom 을 읽기만 한다).
 builder.Services.AddScoped<INoteRecipientResolver, NoteRecipientResolver>();
 builder.Services.AddScoped<IEmailQueueSender, EmailQueueSender>();
 
-// 쪽지 전환 메일 — 앱 푸시가 기기에 안 닿은 쪽지를 뒤늦게 메일로 돌린다.
-// **「보냈다」와 「닿았다」가 다르다**는 것이 이 배치가 있는 까닭이다
-// (NoteFallbackMailer 머리말). NoteFallbackMail:Enabled=false 로 아예 끌 수 있다.
+// 쪽지 전환 메일: 앱 푸시가 안 닿은 쪽지를 메일로 돌린다(NoteFallbackMail:Enabled=false 로 끈다).
 builder.Services.Configure<NoteFallbackMailOptions>(
     builder.Configuration.GetSection("NoteFallbackMail"));
 builder.Services.AddHostedService<NoteFallbackMailer>();
 
-// 배포 알림 — 배포 파이프라인이 「반영 끝」을 알려 오면 슈퍼관리자에게 푸시한다.
-// 토큰이 없으면 엔드포인트가 스스로 닫힌다 (DeployEventEndpoints 머리말).
+// 배포 알림 — 배포 파이프라인이 반영 끝을 알려 오면 슈퍼관리자에게 푸시한다. 토큰이 없으면 엔드포인트가 닫힌다.
 builder.Services.Configure<DeployNotifyOptions>(
     builder.Configuration.GetSection(DeployNotifyOptions.SectionName));
 
@@ -163,12 +118,7 @@ builder.Services.AddHealthChecks();
 
 
 // ── 딸린 것: DB ────────────────────────────────────────────
-//
-// 프로세스가 살아 있는 것과 서비스가 **제 일을 하는 것**은 다르다.
-// DB 가 끊기면 이 서비스는 사실상 아무것도 못 하므로 Unhealthy(503) 로 본다
-// (LLM 처럼 일부 기능만 막히는 경우는 Degraded 를 쓴다).
-//
-// 상태 화면이 '연결 대상' 줄로 보여 준다. 30초 캐시 · 3초 타임아웃은 도우미가 맡는다.
+// 살아 있는 것과 제 일을 하는 것은 다르다(DB 가 끊기면 Unhealthy 503, 일부만 막히면 Degraded).
 builder.Services.AddHealthChecks()
     .AddDependencyCheck("database", async (sp, ct) =>
     {
@@ -205,7 +155,7 @@ app.MapWeatherEventEndpoints(); // 기상 이벤트 발송 (D-G1a) — LifeEnvSe
 app.MapDeployEventEndpoints();  // 배포 반영 알림 — GitHub Actions 의 deploy 잡이 부른다
 app.MapNotificationPolicyEndpoints(); // 알림관리 — 어떤 이벤트를 어느 역할이 어느 길로 받나
 
-// 설정이 반쪽이면 기동할 때 한 번 말해 준다. 조용히 못 보내는 것이 가장 나쁘다.
+// 설정이 반쪽이면 기동할 때 한 번 알린다(조용히 못 보내는 것이 가장 나쁘다).
 app.Lifetime.ApplicationStarted.Register(() =>
 {
     var vapid = app.Services.GetRequiredService<
@@ -216,8 +166,7 @@ app.Lifetime.ApplicationStarted.Register(() =>
     var deploy = app.Services.GetRequiredService<
         Microsoft.Extensions.Options.IOptions<DeployNotifyOptions>>().Value;
 
-    // SMTP 직발송(/emails/send). **지금 메일이 나가는 길은 이쪽이다** —
-    // 위의 EmailQueue 는 옛길이라 「사용 가능」이어도 메일이 나가는 것은 아니다.
+    // SMTP 직발송(/emails/send). 메일이 나가는 길은 이쪽이다.
     var smtp = app.Services.GetRequiredService<
         Microsoft.Extensions.Options.IOptions<EmailSettings>>().Value;
 
@@ -234,10 +183,7 @@ app.Lifetime.ApplicationStarted.Register(() =>
                     "Vapid:Subject·PublicKey·PrivateKey 를 appsettings.Local.json 에 넣으세요.");
     }
 
-    // **가장 조용히 망가지는 자리다.** 비밀번호 찾기는 아이디가 있는지 알려 주지
-    // 않으려고 화면에 언제나 「보냈습니다」를 띄우므로, 이 설정이 비어 있으면
-    // 사용자는 오지 않는 메일을 기다리고 우리는 그런 일이 있었는지도 모른다.
-    // 기동 로그의 이 한 줄이 유일한 예고다.
+    // 설정이 비면 비밀번호 찾기 메일이 조용히 사라진다. 기동 로그의 이 줄이 유일한 예고다.
     if (!smtp.IsConfigured)
     {
         Log.Warning(

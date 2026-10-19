@@ -5,31 +5,7 @@ using ProjModel;
 namespace ProjMngServer.Filters;
 
 /// <summary>
-/// 요청 본문의 <see cref="RequestDto.SSUserId"/> 를 게이트웨이가 붙여 준 신원으로 덮어쓴다.
-///
-/// 이식 전(Blazor WASM) 에는 클라이언트가 로그인한 사용자 아이디를 직접 실어 보냈다.
-/// 브라우저에서 오는 값이라 얼마든지 바꿔 보낼 수 있었고, 저장 프로시저는 그 값을
-/// <c>req_ss_user_id</c> 로 받아 감사·권한 판단에 썼다.
-///
-/// 포털에 붙은 뒤로는 신원의 출처가 하나다 — ApiGateway 가 JWT 를 검증한 뒤 붙이는
-/// <c>X-User-Id</c> 헤더다(ApiGateway/Program.cs 에서 외부에서 들어온 X-User-* 는 먼저 지운다).
-/// 그 값은 JSini 로그인 아이디(<c>scom.accounts.user_id</c>)이고, 프로젝트관리의
-/// <c>projmng.dev_user.user_id</c> 와 같은 체계다.
-///
-/// <para>
-/// [프로시저 이름을 막던 목록이 여기 있었다]
-/// </para>
-/// <para>
-/// <c>sp_proj_login</c> — 아이디·비밀번호를 받아 사용자 행을 돌려주던 이식 전
-/// 자체 로그인이다. 프로시저 이름을 <b>클라이언트가 정하는 통로</b>가 있어서
-/// 라우트를 지우는 것만으로는 막히지 않았고, 그래서 이름으로 막았다.
-/// </para>
-/// <para>
-/// <b>그 통로가 없어졌다</b>(2026-09-12 — <c>/api/Proj</c> · <c>/api/Sys</c>).
-/// 지금 <see cref="RequestDto.ProcName"/> 에 오는 것은 프로시저 이름이 아니라
-/// <c>projmng.devsqlresp</c> 에 <b>등록된 질의 이름</b>(<c>tablelist</c> …)이거나
-/// 파일 훑기 이름(<c>md_*</c>)이다. 막을 이름이 남지 않아 목록을 걷어냈다.
-/// </para>
+/// 요청 본문의 RequestDto.SSUserId 를 게이트웨이가 붙여 준 X-User-Id 로 덮어쓴다. 본문 값은 브라우저에서 바꿔 보낼 수 있어 감사·권한 판단에 쓰면 안 된다.
 /// </summary>
 public class UserIdentityActionFilter : IActionFilter {
 
@@ -47,21 +23,7 @@ public class UserIdentityActionFilter : IActionFilter {
 
   /// <summary>
   /// 포털 계정이 어느 프로젝트관리 사용자에서 왔는지 읽어낸다.
-  ///
-  /// <para>
-  /// 포털 로그인 아이디를 그대로 <c>req_ss_user_id</c> 로 쓰면 이관 계정은 아무것도 못 찾는다.
-  /// 이관 당시 아이디 충돌을 피하려고 접두어를 붙였기 때문이다 —
-  /// <c>projmng.dev_user.user_id = 'jskim'</c> 인데 포털 계정은 <c>pm_jskim</c> 이다.
-  /// 그래서 저장 프로시저가 남기는 감사 값이 존재하지 않는 사용자를 가리키고,
-  /// '내 프로젝트 정보' 같은 화면은 빈 채로 뜬다. 실제로 9명 중 <c>quristyle</c> 한 명만 맞는다.
-  /// </para>
-  ///
-  /// <para>
-  /// 게이트웨이가 실어 보내는 <c>X-User-Msa-Source</c>(<c>projmng:dev_user:jskim</c>)는
-  /// 이관 스크립트가 남긴 기록이라 추정이 아니다. 다만 이 값을 쓰기 시작하면
-  /// <b>감사 컬럼에 쌓이는 값이 달라지므로</b> 기본은 꺼 두고 설정으로 켠다
-  /// (<c>Identity:UseMsaSource</c>).
-  /// </para>
+  /// 포털 로그인 아이디를 그대로 req_ss_user_id 로 쓰면 이관 계정이 찾히지 않는다(이관 때 접두어 pm_ 를 붙였다). 그래서 X-User-Msa-Source(projmng:dev_user:…)로 찾는다 — 감사 칸의 값이 달라지므로 기본은 끄고 Identity:UseMsaSource 로 켠다.
   /// </summary>
   private static string? ProjMngUserIdFrom(string? msaSource) {
     if (string.IsNullOrWhiteSpace(msaSource)) return null;

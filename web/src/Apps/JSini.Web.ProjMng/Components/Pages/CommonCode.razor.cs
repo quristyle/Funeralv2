@@ -50,10 +50,7 @@ public partial class CommonCode
     /// <summary>새 묶음은 상위 코드가 없다 — 그것이 묶음의 정의다.</summary>
     private void FillNewGroup(DevCommonCodeDto c) => c.CmPcd = null;
 
-    /// <summary>
-    /// 새 코드는 <b>고른 묶음에 붙는다.</b> 사용자가 적게 두면 어느 묶음에도
-    /// 안 붙은 줄이 생기고, 그 줄은 어느 화면에도 안 나온다.
-    /// </summary>
+    /// <summary>새 코드는 고른 묶음에 붙는다. 사용자가 적게 두면 어느 묶음에도 안 붙어 어느 화면에도 안 나온다.</summary>
     private void FillNewCode(DevCommonCodeDto c) => c.CmPcd = _group?.CmCd;
 
     private async Task SaveAsync((DevCommonCodeDto Item, bool IsNew) e)
@@ -68,7 +65,7 @@ public partial class CommonCode
         }
     }
 
-    /// <summary>묶음 삭제. 딸린 코드가 있으면 서버가 막는다(머리말).</summary>
+    /// <summary>묶음 삭제. 딸린 코드가 있으면 서버가 막는다.</summary>
     private async Task DeleteGroupAsync(DevCommonCodeDto g)
     {
         await Api.DeleteAsync(g.CmRid, g.CmCd);

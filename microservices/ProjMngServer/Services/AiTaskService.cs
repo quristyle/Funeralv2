@@ -8,18 +8,8 @@ using ProjMngServer.Models;
 
 namespace ProjMngServer.Services;
 
-/// <summary>
-/// AI 작업 — <c>projmng.ai_task</c>.
-/// </summary>
-/// <remarks>
-/// 설계는 <c>docs/ai-task-runner.md</c>.
-///
-/// <para>
-/// <b>이 서비스는 아직 아무것도 실행하지 않는다.</b> 1단계는 「글을 쓰고
-/// 요청을 누르면 상태가 준비중까지 간다」까지다. 큐에 넣는 것과 실행기는
-/// 2단계다.
-/// </para>
-/// </remarks>
+/// <summary>AI 작업(projmng.ai_task). 1단계는 글 저장과 상태 전이까지이고 실행기는 2단계다.</summary>
+/// 설계는 docs/ai-task-runner.md 를 본다.
 public sealed class AiTaskService(
     IConfiguration configuration, AiTargetService targets, AiTaskQueue queue,
     AiRequestAlerter alerts, AiTaskFileService files, AiTurnTitler turnTitler)
@@ -126,19 +116,8 @@ public sealed class AiTaskService(
         a.mod_dt                       AS ModDt
         """;
 
-    /// <summary>
-    /// 목록. 준 조건만 걸린다.
-    /// </summary>
-    /// <remarks>
-    /// <b>본문(<c>contents</c>)까지 함께 읽는다.</b> 목록이 무거워 보이지만
-    /// 이 화면은 왼쪽에서 고르면 오른쪽 편집기에 바로 붙는 구조라, 안 읽으면
-    /// 고를 때마다 한 번 더 다녀와야 한다. 건수가 많아지면 그때 나눈다.
-    /// </remarks>
-    /// <param name="excludeDone">
-    /// 끝난 건을 빼고 본다. <b>「완료」 하나만 빼는 것이 아니다</b> —
-    /// 취소된 건도 사람이 더 할 일이 없다는 점에서 같다. 실패·시간초과·중단은
-    /// <b>남긴다</b>: 그것이 이 화면에서 제일 먼저 봐야 할 줄이다.
-    /// </param>
+    /// <summary>목록. 준 조건만 걸리고 본문까지 함께 읽는다.</summary>
+    /// excludeDone 은 완료·취소만 뺀다. 실패·시간초과·중단은 남긴다.
     public async Task<List<AiTask>> ListAsync(
         string? taskStatus = null, string? requestFlag = null, long? targetKey = null,
         string? keyword = null, long? taskKey = null, bool? userConfirmed = null,
@@ -268,13 +247,8 @@ public sealed class AiTaskService(
             item.IsUserRequest, userId,
         });
 
-        // 미리 올려 둔 첨부를 이 작업에 묶는다. **번호가 생긴 뒤라야 한다** —
-        // 「빠른 지시」는 고르는 순간 올리므로 그때는 묶을 곳이 없다
-        // (`AiTaskFileService` 머리말).
-        //
-        // 못 묶은 것이 있어도 **여기서 되돌리지 않는다.** 사진 한 장 때문에
-        // 지시 자체가 안 나가는 쪽이 더 나쁘고, 몇 장이 붙었는지는 바로 아래
-        // 조회가 `FileCount` 로 돌려준다.
+        // 미리 올린 첨부를 이 작업에 묶는다. 번호가 생긴 뒤라야 하므로 여기서 묶는다.
+        // 못 묶어도 되돌리지 않는다 — 사진 한 장 때문에 지시가 안 나가는 것이 더 나쁘다.
         if (item.FileKeys is { Length: > 0 } fileKeys)
         {
             await files.BindAsync(key, fileKeys, userId);
@@ -283,25 +257,11 @@ public sealed class AiTaskService(
         return await GetAsync(key);
     }
 
-    // ── 일반 사용자가 올리는 요청 ───────────────────────────
-    //
-    // 「AI 작업 요청」 화면(`AiRequestList`)만 쓰는 넷이다. 관리자용
-    // 등록·수정·삭제와 **입구를 갈라 둔 이유는 이 화면을 쓰는 사람이
-    // 관리자가 아니기 때문**이다 — 같은 입구를 쓰면 번호만 바꿔 보내서
-    // 남의 작업을, 그것도 도는 중인 것을 고칠 수 있다.
-    //
-    // 셋 다 `cre_id = 올린 사람` 을 **WHERE 에 넣는다.** 읽고 판단한 뒤
-    // 고치는 두 걸음으로 나누면 그 사이가 비고, 「없는 건」과 「남의 건」을
-    // 가르려다 오히려 남의 건이 있다는 사실을 알려 주게 된다.
+    // 일반 사용자 요청 구간. 관리자 입구와 갈라 둔 까닭은 이 화면 사용자가 관리자가 아니기 때문이다.
+    // 셋 다 cre_id 를 WHERE 에 넣는다 — 읽고 판단한 뒤 고치면 사이가 비고 남의 건을 건드릴 수 있다.
 
-    /// <summary>
-    /// <b>일반 사용자가 지시를 적어 둔다.</b> 저장만 되고 아무 데서도 안 돈다.
-    /// </summary>
-    /// <remarks>
-    /// 화면이 무엇을 보내든 <b>돌게 하는 값은 서버가 전부 지운다</b> —
-    /// 작업 대상 · push · 알림이 그것이다. 대상과 AI 는 나중에 관리자가
-    /// 「AI 작업」 화면에서 채운다.
-    /// </remarks>
+    /// <summary>일반 사용자가 지시를 적는다. 저장만 되고 아무 데서도 돌지 않는다.</summary>
+    /// 대상·push·알림 등 돌게 하는 값은 화면이 무엇을 보내든 서버가 지운다.
     public async Task<AiTask?> CreateUserRequestAsync(AiTask item, string? userId, string? userName = null)
     {
         // **대상을 비운다.** 대상이 있으면 관리자가 요청만 누르면 되는데,
@@ -335,20 +295,8 @@ public sealed class AiTaskService(
         return created;
     }
 
-    /// <summary>
-    /// <b>자기가 올린 요청을 고친다.</b> 아직 아무도 안 건드린 것만.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 제목과 본문만 바뀐다. 대상 · AI · 알림은 관리자의 칸이라 여기서
-    /// 실어 보내도 반영하지 않는다.
-    /// </para>
-    /// <para>
-    /// <b><c>row_version</c> 도 조건에 넣는다.</b> 관리자가 대상을 채우지 않은 채
-    /// 글만 다듬어 둔 사이에 올린 사람이 저장하면 <b>그 손질이 소리 없이
-    /// 덮인다</b> — 관리자 쪽 수정(<see cref="UpdateAsync"/>)도 같은 것을 본다.
-    /// </para>
-    /// </remarks>
+    /// <summary>자기가 올린 요청을 고친다. 아직 아무도 안 건드린 것만.</summary>
+    /// row_version 을 조건에 넣는다 — 관리자가 손본 사이에 저장하면 그 손질이 소리 없이 덮인다.
     public async Task<AiTaskEditResult> UpdateUserRequestAsync(
         long taskKey, AiTask item, string? userId)
     {
@@ -433,10 +381,7 @@ public sealed class AiTaskService(
             : AiTaskEditResult.Ok(null);
     }
 
-    /// <summary>
-    /// 내가 올린 그 건인가. <b>남의 건은 「없다」로 답한다</b> —
-    /// 「당신 것이 아닙니다」는 <b>그 번호에 무엇이 있다는 사실</b>을 알려 준다.
-    /// </summary>
+    /// <summary>내가 올린 건인가. 남의 건은 「없다」로 답해 그 번호에 무엇이 있는지 알리지 않는다.</summary>
     private async Task<AiTask?> FindOwnAsync(long taskKey, string? userId)
     {
         var current = await GetAsync(taskKey);
@@ -448,30 +393,16 @@ public sealed class AiTaskService(
             : null;
     }
 
-    /// <summary>
-    /// 올린 사람이 아직 고칠 수 있나. <b>관리자가 손대기 전까지</b>다.
-    /// </summary>
-    /// <remarks>
-    /// 상태만 보지 않는다. 관리자가 대상을 채워 두었으면 요청 직전이라는 뜻이고,
-    /// 그때 본문이 바뀌면 <b>관리자가 읽고 판단한 글과 실제로 도는 글이 달라진다.</b>
-    /// </remarks>
+    /// <summary>올린 사람이 아직 고칠 수 있나. 관리자가 손대기 전까지다.</summary>
+    /// 대상이 채워져 있으면 관리자가 읽고 판단한 글과 실제 도는 글이 달라지므로 막는다.
     private static bool IsStillEditable(AiTask t) =>
         t.RequestFlag == AiTaskFlag.None
         && t.TaskStatus == AiTaskStatus.Idle
         && t.TargetKey is null
         && t.LastRunKey is null;
 
-    /// <summary>
-    /// 고친다. <b>도는 중에는 본문을 고칠 수 없다</b>(<see cref="AiTaskEditResult"/>).
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 동시 편집은 <c>row_version</c> 으로 막는다. 조건에 그 값을 넣어 두면
-    /// 남이 먼저 고친 경우 <c>UPDATE</c> 가 0건이 되고, 그때 「다른 사람이
-    /// 먼저 고쳤습니다」를 말할 수 있다. 검사 후 갱신으로 나누면 그 사이에
-    /// 끼어드는 것을 막지 못한다.
-    /// </para>
-    /// </remarks>
+    /// <summary>고친다. 도는 중에는 본문을 고칠 수 없다.</summary>
+    /// row_version 을 조건에 넣어 동시 편집을 막는다. 검사 후 갱신으로 나누면 그 사이 끼어드는 것을 못 막는다.
     public async Task<AiTaskEditResult> UpdateAsync(long taskKey, AiTask item, string? userId)
     {
         var titleAuto = string.IsNullOrWhiteSpace(item.Title);
@@ -535,20 +466,8 @@ public sealed class AiTaskService(
         return AiTaskEditResult.Ok(await GetAsync(taskKey));
     }
 
-    /// <summary>
-    /// <b>작업을 요청한다</b> — 요청여부를 <c>requested</c>, 상태를 <c>queued</c> 로.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 여기서 <c>preparing</c> 으로 만들지 않는다. <b>준비중은 실행기가 집었을 때</b>
-    /// 붙는 값이다(설계 6.5). 요청과 집어가기를 한 걸음으로 합치면
-    /// 「요청했는데 아무도 없는 상태」를 표현할 수 없다.
-    /// </para>
-    /// <para>
-    /// 조건을 <c>WHERE</c> 에 다 넣어 <b>한 문장으로</b> 바꾼다. 읽고 판단하고
-    /// 쓰는 세 걸음으로 나누면 두 번 누른 사이에 상태가 바뀌어 있을 수 있다.
-    /// </para>
-    /// </remarks>
+    /// <summary>작업을 요청한다. requested·queued 로 바꾸고 preparing 은 실행기가 집을 때 붙인다.</summary>
+    /// 조건을 WHERE 에 넣어 한 문장으로 바꾼다 — 세 걸음으로 나누면 두 번 누른 사이 상태가 바뀔 수 있다.
     public async Task<AiTaskEditResult> RequestAsync(long taskKey, string? userId)
     {
         var current = await GetAsync(taskKey);
@@ -613,33 +532,17 @@ public sealed class AiTaskService(
             return AiTaskEditResult.Conflict("그 사이에 상태가 바뀌었습니다. 다시 읽으십시오.");
         }
 
-        // **종은 맡기고 간다.** 여기서 기다리면 AMQP 연결 한 번이 사람이 누른
-        // 단추에 그대로 붙는다 — 요청은 이미 DB 에 있고, 종이 늦거나 못 가도
-        // 실행기의 안전망 조회가 집는다(설계 6.6).
+        // 종은 맡기고 간다. 여기서 기다리면 AMQP 연결 한 번이 단추에 붙는다 — 실행기 안전망 조회가 집는다.
         queue.Ring(taskKey);
 
-        // **이 차수의 제목도 맡기고 간다.** 모델 왕복 한 번이라 여기서 기다리면
-        // 사람이 누른 단추가 그만큼 늦게 끝나는데, 제목이 없다고 작업이 못 도는
-        // 것도 아니다. 어디에 적히는지는 <see cref="AiTurnTitler"/>.
-        //
-        // **종을 울린 뒤다.** 순서를 바꾸면 집어가기가 그만큼 늦어진다 —
-        // 먼저 울려 두면 둘이 경합해도 제목은 실행 줄을 찾아간다(그쪽 머리말).
+        // 차수 제목도 맡긴다. 종을 울린 뒤에 해야 집어가기와 경합해도 제목이 실행 줄을 찾아간다.
         _ = turnTitler.PrepareAsync(taskKey);
 
         return AiTaskEditResult.Ok(await GetAsync(taskKey));
     }
 
-    /// <summary>
-    /// 취소를 요청한다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>아직 아무도 안 집어 간 것(<c>queued</c>)은 그 자리에서 취소된다.</b>
-    /// 이미 도는 중이면 요청여부만 <c>cancel_requested</c> 로 남기고 상태는
-    /// 두는데, <b>실제로 돌고 있는 CLI 를 화면에서 지우지 않기 위해서</b>다.
-    /// 실행기가 그 표시를 보고 멈춘 뒤 상태를 바꾼다(2단계).
-    /// </para>
-    /// </remarks>
+    /// <summary>취소를 요청한다. queued 는 그 자리에서 취소하고, 도는 중이면 cancel_requested 로 남긴다.</summary>
+    /// 도는 CLI 를 화면에서 먼저 지우지 않으려고 상태는 실행기가 멈춘 뒤 바꾼다.
     public async Task<AiTaskEditResult> CancelAsync(long taskKey, string? userId)
     {
         var current = await GetAsync(taskKey);
@@ -673,33 +576,8 @@ public sealed class AiTaskService(
         return AiTaskEditResult.Ok(await GetAsync(taskKey));
     }
 
-    /// <summary>
-    /// <b>끝난 작업에 이어서 지시한다</b>(설계 8-3).
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 새 작업을 만들지 않는다 — <b>같은 작업에 실행이 하나 더 붙는다.</b>
-    /// 「해당 요청건에 이어서」라는 말 그대로이고, 이력이 한 줄에 모인다.
-    /// </para>
-    /// <para>
-    /// <b>요약만으로는 절반이다.</b> 요약에는 「A 를 고쳤다」고 적혀 있는데
-    /// 새 작업공간에는 그 변경이 없으면, AI 는 없는 것을 있다고 믿고 쌓거나
-    /// 했던 일을 다시 한다. 그래서 <b>push 했느냐</b>를 프롬프트에 함께 적는다.
-    /// </para>
-    /// <para>
-    /// 그리고 <b>요약을 믿지 않는다.</b> 요약은 AI 의 주장이라 「다 고쳤다」고
-    /// 해 놓고 한 줄도 안 바뀐 경우가 있다. 그래서 <b>기계가 잰 값</b>
-    /// (종료 코드 · 바뀐 파일 · 브랜치)을 나란히 싣는다 — 어긋나면 그 어긋남이
-    /// 프롬프트 안에서 바로 보인다.
-    /// </para>
-    /// <para>
-    /// <b>이 회차부터 다른 AI 에게 맡길 수 있다</b>(<paramref name="runnerKind"/>).
-    /// 한 AI 가 두 번 실패한 것을 세 번째도 같은 AI 에게 시키는 것이 흔한
-    /// 헛걸음이라서다 — 이어서 지시는 지난 진행을 프롬프트에 싣고 가므로
-    /// <b>갈아탄 쪽이 처음부터 다시 읽지 않는다.</b> 안 보내면 지난 회차의
-    /// 실행기가 그대로 간다.
-    /// </para>
-    /// </remarks>
+    /// <summary>끝난 작업에 이어서 지시한다. 새 작업이 아니라 같은 작업에 실행이 하나 더 붙는다.</summary>
+    /// 요약은 AI 의 주장이라 믿지 않고 기계가 잰 값(종료 코드·바뀐 파일·브랜치)을 나란히 싣는다. runnerKind 로 다른 AI 에게 맡길 수 있다.
     public async Task<AiTaskEditResult> ContinueAsync(
         long taskKey, string? addition, string? runnerKind, string? userId)
     {
@@ -784,9 +662,7 @@ public sealed class AiTaskService(
             : AiTaskEditResult.Ok(await GetAsync(taskKey));
     }
 
-    /// <summary>
-    /// <b>진행 중인 작업에 대해 완료 후 이어서 지시할 내용을 예약/저장하거나 취소한다.</b>
-    /// </summary>
+    /// <summary>완료 후 이어서 지시할 내용을 예약·저장하거나 취소한다.</summary>
     public async Task<AiTaskEditResult> SetPendingContinueAsync(
         long taskKey, string? addition, string? runnerKind, string? userId)
     {
@@ -851,9 +727,7 @@ public sealed class AiTaskService(
             : AiTaskEditResult.Ok(await GetAsync(taskKey));
     }
 
-    /// <summary>
-    /// <b>작업을 사용자 확인 완료 처리한다.</b>
-    /// </summary>
+    /// <summary>작업을 사용자 확인 완료 처리한다.</summary>
     public async Task<AiTaskEditResult> ConfirmAsync(long taskKey, string? userId)
     {
         var current = await GetAsync(taskKey);
@@ -879,10 +753,7 @@ public sealed class AiTaskService(
             : AiTaskEditResult.Ok(await GetAsync(taskKey));
     }
 
-    /// <summary>
-    /// <b>실패한 작업을 수동으로 다시 요청한다.</b>
-    /// 추가 지시사항이 있으면 본문 뒤에 덧붙이고, attempt_count 를 0으로 되돌려 다시 queued 로 넣는다.
-    /// </summary>
+    /// <summary>실패한 작업을 수동으로 다시 요청한다. 추가 지시는 본문 뒤에 덧붙이고 attempt_count 를 0 으로 되돌린다.</summary>
     public async Task<AiTaskEditResult> RetryAsync(long taskKey, string? addition, string? runnerKind, string? userId)
     {
         var current = await GetAsync(taskKey);
@@ -956,15 +827,8 @@ public sealed class AiTaskService(
         return AiTaskEditResult.Ok(await GetAsync(taskKey));
     }
 
-    /// <summary>
-    /// 이어가기 지시문을 조립한다.
-    /// </summary>
-    /// <remarks>
-    /// <b>길이가 터지는 것을 막는다.</b> 요약을 계속 앞에 붙이면 다섯 턴째에
-    /// 지난 이야기가 새 지시보다 커지고, 그러면 AI 가 새 지시보다 지난
-    /// 이야기에 무게를 둔다. 최근 셋은 전문, 그 이전은 한 줄로 접고
-    /// <b>접었다는 것을 적는다</b> — 조용히 자르면 그것이 전부인 줄 안다.
-    /// </remarks>
+    /// <summary>이어가기 지시문을 조립한다.</summary>
+    /// 최근 셋은 전문, 그 이전은 한 줄로 접고 접었다는 사실을 적는다 — 조용히 자르면 그것이 전부인 줄 안다.
     private static string BuildContinuation(
         List<PastTurn> past, string addition, string? pushedCommit)
     {
@@ -1069,9 +933,7 @@ public sealed class AiTaskService(
         public string? GitBranch { get; set; }
     }
 
-    /// <summary>
-    /// 지운다. <b>행을 없애지 않는다</b> — 실행 이력이 그 번호를 가리키고 있다.
-    /// </summary>
+    /// <summary>지운다. 행은 남긴다 — 실행 이력이 그 번호를 가리킨다.</summary>
     public async Task<AiTaskEditResult> DeleteAsync(long taskKey, string? userId)
     {
         var current = await GetAsync(taskKey);
@@ -1099,15 +961,8 @@ public sealed class AiTaskService(
 
     // ── 안쪽 ────────────────────────────────────────────────
 
-    /// <summary>
-    /// 빈 값을 채우고 말이 안 되는 조합을 바로잡는다.
-    /// </summary>
-    /// <remarks>
-    /// <b>제목을 서버가 만든다.</b> 비워 두고 저장할 수 있어야 편집기에 바로
-    /// 쓰기 시작할 수 있는데, 목록에 「제목 없음」이 쌓이면 고르지 못한다.
-    /// 본문 첫 제목 줄 → 첫 줄 → 날짜 순으로 떨어진다.
-    /// (LLM 으로 한 줄 요약을 받는 것은 설계 8장이고, 그것은 나중에 붙인다.)
-    /// </remarks>
+    /// <summary>빈 값을 채우고 말이 안 되는 조합을 바로잡는다.</summary>
+    /// 제목은 서버가 만든다. 본문 첫 제목 줄 → 첫 줄 → 날짜 순으로 떨어진다.
     private async Task NormalizeAsync(AiTask item)
     {
         item.Title = string.IsNullOrWhiteSpace(item.Title)
@@ -1200,13 +1055,8 @@ public sealed class AiTaskService(
     }
 }
 
-/// <summary>
-/// 고치기·요청·취소의 결과. <b>「안 됐다」를 이유와 함께 돌려주려고 있다.</b>
-/// </summary>
-/// <remarks>
-/// <c>null</c> 하나로 돌려주면 「없는 번호」와 「지금은 안 되는 상태」가
-/// 구분되지 않는다. 앞엣것은 404 고 뒤엣것은 사람에게 할 말이 있는 409 다.
-/// </remarks>
+/// <summary>고치기·요청·취소의 결과. 안 됐을 때 이유를 함께 돌려준다.</summary>
+/// null 하나로 돌려주면 없는 번호(404)와 지금은 안 되는 상태(409)가 구분되지 않는다.
 public sealed class AiTaskEditResult
 {
     public bool Found { get; private init; } = true;

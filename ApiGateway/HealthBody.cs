@@ -1,21 +1,9 @@
 using System.Text.Json;
 
 /// <summary>
-/// 각 서비스가 <c>/health</c> 본문에 담아 보낸 점검 결과를 읽는다.
+/// 각 서비스가 /health 본문에 담은 점검 결과를 읽는다. 판정은 하지 않고 읽어 올리기만 한다(LLM 주소 등은 그 서비스의 설정이다).
+/// 옛 형식(본문이 "Healthy" 한 글자)은 딸린 것이 없는 것으로 넘어간다. 서비스를 하나씩 바꿀 수 있어야 하기 때문이다.
 /// </summary>
-/// <remarks>
-/// <para>
-/// 형식은 <c>JSini.Shared.Infrastructure/HealthChecks/HealthCheckJson.cs</c> 가 만든다.
-/// 게이트웨이는 <b>판정하지 않고 읽어 올리기만</b> 한다 — LLM 주소·모델명·접속 문자열은
-/// 그 서비스의 설정이고, 게이트웨이가 알아야 할 이유가 없다.
-/// </para>
-///
-/// <para>
-/// <b>옛 형식도 받아 준다.</b> 아직 새 형식으로 바꾸지 않은 서비스는 본문이
-/// <c>Healthy</c> 라는 글자 하나다. 그때는 딸린 것이 없는 것으로 보고 넘어간다 —
-/// 서비스를 하나씩 바꿔 나갈 수 있어야 한다.
-/// </para>
-/// </remarks>
 public sealed class HealthBody
 {
     /// <summary>딸린 것 목록. 없으면 빈 목록이다.</summary>
@@ -61,8 +49,7 @@ public sealed class HealthBody
                     var description = c.TryGetProperty("description", out var d) ? d.GetString() : null;
                     var durationMs = c.TryGetProperty("durationMs", out var dur) && dur.TryGetInt32(out var dv) ? dv : 0;
 
-                    // 'dependency' 태그가 붙은 것만 딸린 것으로 올린다.
-                    // 서비스 내부 점검까지 화면에 늘어놓으면 정작 봐야 할 것이 묻힌다.
+                    // 'dependency' 태그가 붙은 것만 올린다. 내부 점검까지 늘어놓으면 정작 봐야 할 것이 묻힌다.
                     var isDependency = false;
                     if (c.TryGetProperty("tags", out var tags) && tags.ValueKind == JsonValueKind.Array)
                     {

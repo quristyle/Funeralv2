@@ -3,20 +3,9 @@ using Microsoft.Extensions.Options;
 namespace AiTaskRunner;
 
 /// <summary>
-/// 오래된 작업공간을 치운다.
+/// 오래된 작업공간을 치운다. 복사본(폴더 대상)은 끝나도 지우지 않는다 — 그 폴더가 결과의 전부라서.
+/// 기본 14일이 지난 것만 지우고, 지울 때마다 로그를 남긴다.
 /// </summary>
-/// <remarks>
-/// <para>
-/// 복사본(폴더 대상)은 <b>끝나도 지우지 않는다</b> — 그 폴더가 결과의
-/// 전부라 치우면 AI 가 한 일이 통째로 사라진다(실제로 한 번 날렸다).
-/// 그래서 쌓이고, 그래서 이 청소가 필요하다.
-/// </para>
-/// <para>
-/// <b>고칠 것이 남아 있는 자리를 지우는 일</b>이므로 조심스럽게 한다 —
-/// 기본 14일, 그 전에는 건드리지 않는다. 그리고 지울 때마다 로그를 남긴다.
-/// 조용히 지우면 「분명 여기 있었는데」가 된다.
-/// </para>
-/// </remarks>
 public sealed class WorkspaceSweeper(
     IOptions<RunnerOptions> optionsAccessor, ILogger<WorkspaceSweeper> logger) : BackgroundService
 {
@@ -28,8 +17,7 @@ public sealed class WorkspaceSweeper(
 
         logger.LogInformation("작업공간 청소: {Days}일 지난 것을 치웁니다.", keep.TotalDays);
 
-        // 뜨자마자 한 번 돌리지 않는다. 기동 직후는 밀린 작업을 집는 때라
-        // 디스크를 훑는 일을 거기 겹치지 않는다.
+        // 뜨자마자 돌리지 않는다. 기동 직후는 밀린 작업을 집는 때라 디스크 훑기를 겹치지 않는다.
         using var timer = new PeriodicTimer(TimeSpan.FromHours(6));
 
         while (await timer.WaitForNextTickAsync(stoppingToken))

@@ -1,14 +1,6 @@
 namespace JSini.Web.Admin.Api;
 
-/// <summary>
-/// 알림 이벤트 하나 — 무엇이 언제 나가는 알림이고, 지금 어느 역할이 어느
-/// 길로 받게 돼 있나.
-/// </summary>
-/// <remarks>
-/// 서버(<c>NotificationServer</c>)의 <c>NotificationEventDto</c> 와 짝이다.
-/// 이벤트와 정책을 한 덩어리로 받는다 — 왼쪽에서 이벤트를 고르면 오른쪽이
-/// 바로 서야 하는데 나눠 받으면 고를 때마다 왕복이 하나 붙는다.
-/// </remarks>
+/// <summary>알림 이벤트 하나 — 무엇이 언제 나가는 알림이고, 지금 어느 역할이 어느 길로 받게 돼 있나.</summary>
 public sealed class NotifyEventDto
 {
     public string Code { get; set; } = string.Empty;
@@ -33,25 +25,14 @@ public sealed class NotifyEventDto
 
     public bool SupportsEmail { get; set; }
 
-    /// <summary>
-    /// 메일을 <b>푸시 경로가 함께 내나</b>. 참이면 앱 푸시와 <b>같은 내용</b>이
-    /// 메일로 가고, 거짓이면 보내는 쪽이 제 틀로 따로 낸다(가입 신청 메일 ·
-    /// AI 작업 결과 메일). 「이메일」 체크 아래 안내가 이 값으로 갈린다.
-    /// </summary>
+    /// <summary>메일을 푸시 경로가 함께 내나. 참이면 앱 푸시와 같은 내용이 메일로 가고, 거짓이면 보내는 쪽이 제 틀로 따로 낸다(가입 신청 메일 · AI 작업 결과 메일). 「이메일」 체크
+    /// 아래 안내가 이 값으로 갈린다.</summary>
     public bool EmailFromPush { get; set; }
 
     /// <summary>거짓이면 설정을 받아 두되 발송에는 아직 안 걸린다.</summary>
     public bool Governed { get; set; }
 
-    /// <summary>
-    /// 받는 사람의 <b>정본이 이 표인가</b>. 참이면 역할을 하나도 안 걸었을 때
-    /// 「제한 없음」이 아니라 <b>아무에게도 안 간다</b>.
-    /// </summary>
-    /// <remarks>
-    /// 보내는 쪽이 설정 파일에 기본 역할을 적어 두지 않는 이벤트다(소개 사이트
-    /// 문의 접수). 같은 「체크 0 개」가 저쪽에서는 「지금 그대로 나간다」이고
-    /// 여기서는 「한 통도 안 나간다」라, 띠와 카드 색을 이 값으로 가른다.
-    /// </remarks>
+    /// <summary>받는 사람의 정본이 이 표인가. 참이면 역할을 하나도 안 걸었을 때 「제한 없음」이 아니라 아무에게도 안 간다.</summary>
     public bool PolicyRequired { get; set; }
 
     /// <summary>끄면 이 이벤트의 알림이 아무에게도 안 간다.</summary>
@@ -61,10 +42,7 @@ public sealed class NotifyEventDto
 
     public List<NotifyPolicyDto> Policies { get; set; } = [];
 
-    /// <summary>
-    /// 지금 <b>제한이 없는가</b>. <b>서버가 셈해 준다</b> — 「역할 0 개 =
-    /// 아무도 못 받는다」가 가장 흔한 오해라 화면이 다시 세지 않는다.
-    /// </summary>
+    /// <summary>지금 제한이 없는가. 서버가 셈해 준다 — 「역할 0 개 = 아무도 못 받는다」가 가장 흔한 오해라 화면이 다시 세지 않는다.</summary>
     public bool Unrestricted { get; set; }
 
     /// <summary>마지막으로 정책을 고친 때(UTC). 줄이 없으면 <c>null</c>.</summary>
@@ -78,8 +56,7 @@ public sealed class NotifyEventDto
             if (!Governed) return "정책 적용 안 됨";
             if (!IsActive) return "꺼짐";
 
-            // **「제한 없음」을 뜻이 반대인 이벤트에 적지 않는다.** 이 표가
-            // 받는 사람의 정본인 이벤트는 역할이 비면 한 통도 안 나간다.
+            // **「제한 없음」을 뜻이 반대인 이벤트에 적지 않는다.** 이 표가 받는 사람의 정본인 이벤트는 역할이 비면 한 통도 안 나간다.
             if (Unrestricted) return PolicyRequired ? "받는 역할 없음" : "제한 없음";
 
             var push = Policies.Count(p => p.IsActive && p.PushEnabled);
@@ -144,10 +121,7 @@ public sealed class NotifyPolicyPreviewDto
 
     public bool EventDisabled { get; set; }
 
-    /// <summary>
-    /// 받는 사람의 정본이 이 표인가. <see cref="Unrestricted"/> 와 같이 참이면
-    /// 「지금까지와 똑같이」가 아니라 <b>한 통도 안 나간다</b>.
-    /// </summary>
+    /// <summary>받는 사람의 정본이 이 표인가. <see cref="Unrestricted"/> 와 같이 참이면 「지금까지와 똑같이」가 아니라 한 통도 안 나간다.</summary>
     public bool PolicyRequired { get; set; }
 
     public List<NotifyRecipientDto> Recipients { get; set; } = [];
@@ -178,18 +152,12 @@ public sealed class NotifyRecipientDto
 
     public bool EmailOptedOut { get; set; }
 
-    /// <summary>
-    /// 앱 푸시가 <b>실제로 닿나</b>. 정책 · 본인 설정 · 받을 자리 셋이 다 서야 한다.
-    /// </summary>
+    /// <summary>정책 · 본인 설정 · 받을 자리 셋이 다 서야 한다.</summary>
     public bool PushReaches => PushAllowed && !PushOptedOut && HasDevice;
 
-    /// <summary>이메일이 <b>실제로 나가나</b>.</summary>
     public bool EmailReaches => EmailAllowed && !EmailOptedOut && !string.IsNullOrWhiteSpace(Email);
 
-    /// <summary>
-    /// 못 닿는 까닭 한 줄. <b>고칠 자리가 다른 셋을 갈라서 적는다</b> —
-    /// 알림관리 · 그 사람의 환경설정 · 계정 관리.
-    /// </summary>
+    /// <summary>못 닿는 까닭 한 줄. 고칠 자리가 다른 셋을 갈라서 적는다 — 알림관리 · 그 사람의 환경설정 · 계정 관리.</summary>
     public string Why
     {
         get
@@ -221,13 +189,7 @@ public sealed class NotifyRoleDto
     public int AccountCount { get; set; }
 }
 
-/// <summary>
-/// 이벤트의 대상 성격. <b>정책이 하는 일이 이 값에 따라 갈린다.</b>
-/// </summary>
-/// <remarks>
-/// 글자를 코드에 적는 것이 아니라 <b>옮기기만</b> 한다 — 정본은 DB 의
-/// <c>scom.notification_events.target_kind</c> 다.
-/// </remarks>
+/// <summary>이벤트의 대상 성격. 정책이 하는 일이 이 값에 따라 갈린다.</summary>
 public static class NotifyTargetKinds
 {
     public const string Role = "ROLE";
@@ -242,11 +204,7 @@ public static class NotifyTargetKinds
         _ => kind ?? string.Empty,
     };
 
-    /// <summary>
-    /// 정책이 그 이벤트에서 무슨 일을 하는지 한 줄. <b>화면이 이 말을
-    /// 반드시 해야 한다</b> — 같은 체크 칸이 이벤트에 따라 「받는 사람을
-    /// 정한다」와 「거른다」로 뜻이 갈린다.
-    /// </summary>
+    /// <summary>정책이 그 이벤트에서 무슨 일을 하는지 한 줄. 화면이 이 말을 반드시 해야 한다 — 같은 체크 칸이 이벤트에 따라 「받는 사람을 정한다」와 「거른다」로 뜻이 갈린다.</summary>
     public static string Effect(string? kind) => kind switch
     {
         Role => "고른 역할에 걸린 사람에게 보냅니다. 설정 파일에 적힌 역할 대신 이 목록이 쓰입니다.",

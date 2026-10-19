@@ -5,32 +5,8 @@ using Npgsql;
 namespace ProjMngServer.Services;
 
 /// <summary>
-/// 드롭다운 목록. 옛 <c>sp_projCommon</c> 하나가 하던 일을 그대로 받는다.
-///
-/// <para>
-/// 화면의 고르개(<c>CodeSelect</c>)는 전부 이 통로 하나를 <c>codeId</c> 만
-/// 바꿔 부른다. 그래서 이 하나가 안 되면 프로젝트관리 화면 대부분의 조건줄이
-/// 빈 채로 뜬다.
-/// </para>
-///
-/// <para>
-/// 돌려주는 한 줄은 <b>사전</b>이다. <c>code</c> · <c>name</c> · <c>desc</c> 에
-/// 더해 그 표의 칸이 전부 실린다 — 개발 도구 화면들이 고른 항목의
-/// <c>db_nick</c> · <c>db_type</c> · <c>db_schema</c> 를 함께 받아 쓰기 때문이다.
-/// </para>
-///
-/// <para>
-/// <b>옛 프로시저가 안 하던 것 하나.</b> DB 목록 갈래가 <c>a.*</c> 라
-/// <c>db_pwd</c> 까지 브라우저로 나갔다. 쓰는 자리는 없다 — 화면이 읽는 것은
-/// 별칭·종류·스키마 셋뿐이다. 여기서는 보내지 않는다(DB 관리 화면과 같은 판단).
-/// </para>
-///
-/// <para>
-/// <b>그리고 확인된 것 하나.</b> 옛 주석이 「<c>sp_projCommon</c> 이 부르는
-/// 사람을 보는지 확인하지 못했다」고 적어 두었는데, 프로시저를 읽어 보니
-/// <b>본다</b> — <c>projlist</c> 갈래 하나에서만, 그 사람이 참여한 프로젝트로
-/// 좁힌다. 그래서 화면 쪽 통도 사람마다 따로 담는 것이 맞다.
-/// </para>
+/// 드롭다운 목록을 한 통로로 준다. 고르개는 이 통로 하나를 codeId 만 바꿔 부른다.
+/// 한 줄은 사전이다 — code·name·desc 에 그 표의 칸이 전부 실린다(db_nick · db_type · db_schema 를 쓰기 때문이다). DB 목록은 db_pwd 를 내보내지 않고, projlist 만 사람이 참여한 프로젝트로 좁힌다.
 /// </summary>
 public sealed class ProjCodeService(IConfiguration configuration) {
 
@@ -59,7 +35,7 @@ public sealed class ProjCodeService(IConfiguration configuration) {
 
     await using var db = new NpgsqlConnection(_connectionString);
 
-    // 옛 프로시저와 같은 순서다 — 공통코드 묶음이 있으면 그것이 이긴다.
+    // 공통코드 묶음이 있으면 그것이 이긴다.
     var isGroup = await db.ExecuteScalarAsync<bool>(new CommandDefinition(
         "SELECT EXISTS (SELECT 1 FROM projmng.devcomm WHERE cm_pcd = upper(@codeId))",
         new { codeId }, cancellationToken: ct));
@@ -124,8 +100,7 @@ public sealed class ProjCodeService(IConfiguration configuration) {
            ORDER BY a.proc_tp
           """, new { project }, ct),
 
-      // 없는 이름이면 빈 목록이다. 옛 프로시저도 그랬다 — 고르개 하나가
-      // 비는 것뿐이고 화면은 뜬다.
+      // 없는 이름이면 빈 목록이다 — 고르개 하나만 비고 화면은 뜬다.
       _ => [],
     };
   }

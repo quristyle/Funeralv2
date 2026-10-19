@@ -24,7 +24,7 @@ public partial class DeceasedStatus
     private string? _status;
     private IReadOnlyList<Deceased> _rows = [];
 
-    // ── 영정 사진 (D5) ──────────────────────────────────────
+    // ── 영정 사진 ──────────────────────────────────────
 
     private bool _photoOpen;
     private bool _photoSaving;
@@ -32,10 +32,7 @@ public partial class DeceasedStatus
     /// <summary>지금 창을 연 고인. 제목에 이름을 띄운다.</summary>
     private Deceased? _photoOf;
 
-    /// <summary>
-    /// 고인 상세. <b>목록 자료로 저장하면 안 되기 때문에</b> 읽는다 —
-    /// 상세에만 있는 칸(상주·계약자·시설)이 통째로 빈 값이 된다.
-    /// </summary>
+    /// <summary>고인 상세. 목록 자료로 저장하면 상세에만 있는 칸(상주·계약자·시설)이 빈 값이 된다.</summary>
     private DeceasedDetail? _detail;
 
     private FilePicker? _photoPicker;
@@ -52,12 +49,9 @@ public partial class DeceasedStatus
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        // 이 API 는 조건을 사전으로 받는다 (백엔드가 검색 칸을 계속 늘려 와서
-        // 매개변수를 하나씩 붙이는 방식을 그만뒀다). 값이 비면 넣지 않는다 —
-        // 빈 문자열을 보내면 서버가 "빈 이름" 으로 걸러 0건이 된다.
+        // 조건은 사전으로 받는다. 값이 비면 넣지 않는다(빈 문자열은 빈 이름으로 걸러 0건이 된다).
+        // 서버가 받는 이름은 name 이다. keyword 로 보내면 조용히 무시되어 전체가 나온다.
         var query = new Dictionary<string, string?>();
-        // 서버가 받는 이름은 `name` 이다. `keyword` 로 보내면 조용히 무시되고
-        // 전체가 나온다 — 오류가 아니라서 화면만 봐서는 알 수 없다.
         if (!string.IsNullOrWhiteSpace(_keyword)) query["name"] = _keyword;
         if (!string.IsNullOrWhiteSpace(_status)) query["status"] = _status;
 
@@ -83,7 +77,7 @@ public partial class DeceasedStatus
         }
     }
 
-    // ── 영정 사진 (D5) ──────────────────────────────────────
+    // ── 영정 사진 ──────────────────────────────────────
 
     /// <summary>창을 열면서 상세를 읽는다. 지금 무엇이 걸려 있는지 보여 줘야 한다.</summary>
     private async Task StartPhotoAsync(Deceased d)
@@ -100,9 +94,7 @@ public partial class DeceasedStatus
             "고인 자료를 읽지 못했습니다");
     }
 
-    /// <summary>
-    /// 사진을 올려 고인에게 매단다. <b>두 단계다</b> — 머리말 참고.
-    /// </summary>
+    /// <summary>사진을 올려 고인에게 매단다. 올리기와 매달기 두 단계다.</summary>
     private async Task SavePhotoAsync()
     {
         if (_photoPicked is null || _detail is null || _photoOf is null || _photoSaving)
@@ -126,13 +118,11 @@ public partial class DeceasedStatus
                 return;
             }
 
-            // 읽어 둔 상세 **위에 얹어** 저장한다. 새 객체를 만들어 보내면
-            // 상주·계약자·시설이 빈 값으로 덮인다.
+            // 읽어 둔 상세 위에 얹어 저장한다. 새 객체로 보내면 상주·계약자·시설이 빈 값으로 덮인다.
             _detail.MemorialPhotoFileId = uploaded.FileId ?? uploaded.Id;
             _detail.MemorialPhotoUrl = uploaded.BestUrl;
 
-            // 보정본을 비운다. 안 비우면 서버가 그쪽을 먼저 골라, 새로 올렸는데
-            // 빈소 화면에는 옛 사진이 계속 나온다.
+            // 보정본을 비운다. 안 비우면 서버가 그쪽을 먼저 골라 빈소에는 옛 사진이 나온다.
             _detail.MemorialEditedPhotoFileId = null;
             _detail.MemorialEditedPhotoUrl = null;
 

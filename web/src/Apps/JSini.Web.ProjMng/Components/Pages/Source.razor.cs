@@ -11,10 +11,7 @@ public partial class Source
     /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
     private string ConditionSummary => SchSummary.Or(_projectName);
 
-    /// <summary>
-    /// 고른 프로젝트의 <b>이름</b>. 화면이 든 것은 코드뿐이고 목록은
-    /// <c>CodeSelect</c> 안에 있어, 그 부품이 <c>@bind-Text</c> 로 올려 준다.
-    /// </summary>
+    /// <summary>고른 프로젝트의 이름. 코드만 들고, 목록은 CodeSelect 가 쥐고 있다.</summary>
     private string? _projectName;
 
     private IReadOnlyList<SourceInfoDto> _sources = [];
@@ -23,7 +20,7 @@ public partial class Source
     private string? _projectCode;
     private SourceInfoDto? _source;
 
-    /// <summary>편집 창이 붙잡고 있는 <b>사본</b>. 표의 줄이 아니다(머리말).</summary>
+    /// <summary>편집 창이 붙잡고 있는 사본. 표의 줄이 아니다.</summary>
     private SourceInfoDto _form = new();
 
     private bool _editing;
@@ -39,9 +36,7 @@ public partial class Source
 
         if (_source is not null)
         {
-            // 다시 읽은 줄로 갈아 끼운다. 안 바꾸면 오른쪽 제목이 **고치기
-            // 전의 별칭**을 계속 들고 있다. 목록에서 빠졌으면(프로젝트를
-            // 바꿨거나) 오른쪽을 비운다.
+            // 다시 읽은 줄로 갈아 끼운다 — 안 바꾸면 오른쪽 제목이 고치기 전의 별칭을 계속 들고 있다. 목록에서 빠졌으면(프로젝트를 바꿨거나) 오른쪽을 비운다.
             _source = _sources.FirstOrDefault(s => s.SrcRid == _source.SrcRid);
 
             if (_source is null)
@@ -87,7 +82,7 @@ public partial class Source
         _editing = true;
     }
 
-    /// <summary>표의 줄을 그대로 고치지 않으려고 뜬다(머리말).</summary>
+    /// <summary>표의 줄을 그대로 고치지 않으려고 사본을 뜬다.</summary>
     private static SourceInfoDto Copy(SourceInfoDto s) => new()
     {
         SrcRid = s.SrcRid,
@@ -121,7 +116,7 @@ public partial class Source
 
         if (!ok)
         {
-            // 창을 열어 둔다 — 닫으면 적던 것이 사라지고 다시 적어야 한다.
+            // 창을 열어 둔다 — 닫으면 적던 것이 사라진다.
             return;
         }
 
@@ -148,7 +143,7 @@ public partial class Source
             await Api.UpdateDetailAsync(_source.SrcRid, e.Item);
         }
 
-        // URL 패턴이 왼쪽 목록에 올라가므로 함께 다시 읽는다(머리말).
+        // URL 패턴은 왼쪽 목록에도 올라가므로 함께 다시 읽는다.
         await SearchAsync();
     }
 

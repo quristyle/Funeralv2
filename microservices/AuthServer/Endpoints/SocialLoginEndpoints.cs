@@ -9,81 +9,20 @@ using Microsoft.Extensions.Options;
 
 namespace AuthServer.Endpoints;
 
-/// <summary>
-/// 소셜 로그인(구글 · 네이버 · 카카오) — 공급자 목록 · 인가 주소 · 로그인 · 연결 · 끊기.
-/// </summary>
-/// <remarks>
-/// <para>
-/// [경로가 둘로 갈린다 — 패스키와 같은 규칙]
-/// </para>
-///
-/// <list type="table">
-///   <item>
-///     <term><c>/social/providers</c> · <c>/social/authorize</c> · <c>/social/login</c></term>
-///     <description><b>익명이다.</b> 로그인하려는 사람에게 토큰이 있을 리 없다.
-///     대신 게이트웨이가 <c>auth-attempts</c>(IP 당 분당 10회)로 조인다 —
-///     비밀번호 로그인과 같은 통을 쓰지 않으면 이 경로가 그 제한의 우회로가 된다.</description>
-///   </item>
-///   <item>
-///     <term><c>/social/links*</c></term>
-///     <description>로그인한 사람만. <b>내 계정에만</b> 붙이고 뗀다 — 계정 아이디를
-///     요청에서 받지 않고 신원 헤더에서만 읽는 이유가 그것이다.</description>
-///   </item>
-/// </list>
-///
-/// <para>
-/// [로그인 성공 처리를 비밀번호·패스키와 한 벌로 쓴다]
-/// </para>
-///
-/// <para>
-/// 토큰 발급 · 갱신 쿠키 · 파일 쿠키 · 접속 기록 · 비밀번호 만료 판정까지
-/// <see cref="LoginCompletion"/> 한 곳이다. 여기 한 벌을 더 적으면 <b>반드시
-/// 한쪽만 고치는 날이 온다</b> — 그때 증상은 「구글로 들어가면 사진이 안
-/// 보인다」처럼 원인과 멀다.
-/// </para>
-///
-/// <para>
-/// [승인 대기를 401 로 답하지 않는다]
-/// </para>
-///
-/// <para>
-/// 소셜로 처음 들어온 사람에게는 계정이 <b>만들어진다.</b> 그것을 로그인 실패와
-/// 같은 401 로 답하면 셸이 「인증에 실패했습니다」라고 말하게 되고, 사용자는
-/// 자기 신청이 접수됐다는 것을 영영 모른 채 단추를 계속 누른다. 그래서
-/// <c>202 Accepted</c> 로 <b>갈래를 나눠</b> 돌려준다.
-/// </para>
-/// </remarks>
+/// <summary>소셜 로그인(구글·네이버·카카오): 공급자 목록 · 인가 주소 · 로그인 · 연결 · 끊기. 익명 경로와 로그인한 사람 경로를 패스키와 같은 규칙으로 나눈다.</summary>
 public static class SocialLoginEndpoints
 {
     public static void MapSocialLoginEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/social");
 
-        // ── 쓸 수 있는 공급자 (익명) ─────────────────────────────
-        //
-        // 로그인 화면이 단추를 그리려고 부른다. **설정이 안 된 공급자는 아예
-        // 나오지 않는다** — 없는 길로 가는 단추를 그려 두면 눌러 본 사람이
-        // 고장으로 신고한다.
-        //
-        // 나가는 값에 비밀이 없다(열쇠와 표시 이름뿐). ClientId 조차 내보내지
-        // 않는 이유는 인가 주소를 **서버가 지어 주기** 때문이다 — 브라우저는
-        // 그 값을 알 이유가 없다.
+        // 익명 공급자 목록 — 설정이 안 된 공급자는 아예 내보내지 않는다(누르면 고장으로 신고된다). 비밀은 싣지 않는다.
         group.MapGet("/providers", (SocialLoginService social) =>
             Results.Ok(ApiResponse<IReadOnlyList<SocialProviderDto>>.Ok(social.UsableProviders())))
         .AllowAnonymous()
         .WithName("GetSocialProviders");
 
-        // ── 설정 점검 (로그인한 사람) ────────────────────────────
-        //
-        // **`/providers` 로는 「왜 안 되는지」를 볼 수 없다.** 그쪽은 쓸 수 있는
-        // 것만 내보내므로, 열쇠를 안 넣은 상태와 기능을 끈 상태와 공급자를 아예
-        // 안 적은 상태가 **똑같이 빈 목록**으로 보인다. 셋은 할 일이 전혀 다르다.
-        //
-        // 그 조용함이 실제로 사람을 잡는다 — 가입 화면에 단추가 안 서는데 서비스는
-        // 전부 초록이라, 「기능이 아직 없다」로 읽히고 만다. 여기서 갈라 말한다.
-        //
-        // 나가는 값에 **비밀이 없다.** 열쇠가 있는지 없는지(`bool`)만 적고 값은
-        // 담지 않는다. 그래도 설정 상태라 익명에게는 열지 않는다.
+        // 설정 점검은 로그인한 사람만 본다 — /providers 는 쓸 수 있는 것만 내보내서 열쇠 없음·기능 꺼짐·공급자 미기재가 같은 빈 목록으로 보이기 때문이다.
         group.MapGet("/config-status", async (
             UserContext? user, AppDbContext db, SocialLoginService social,
             IOptions<SocialLoginOptions> options, CancellationToken ct) =>
@@ -95,8 +34,7 @@ public static class SocialLoginEndpoints
 
             var opts = options.Value;
 
-            // 공급자별 연결 수를 한 번에 센다. 공급자마다 따로 세면 표 하나에
-            // 질의가 셋이 되고, 그 셋이 서로 다른 시점을 본다.
+            // 공급자별 연결 수는 한 질의로 센다 — 따로 세면 서로 다른 시점을 본다.
             var counts = await db.AccountSocialLogins
                 .Where(l => !l.IsDeleted)
                 .GroupBy(l => l.Provider)
@@ -125,8 +63,7 @@ public static class SocialLoginEndpoints
                 AutoApprove = opts.AutoApprove,
                 LinkByVerifiedEmail = opts.LinkByVerifiedEmail,
 
-                // 화면이 다시 세지 않게 **서버가 센 값**을 준다. `UsableProviders()`
-                // 와 같은 판정을 써야 「단추 수」와 이 숫자가 어긋나지 않는다.
+                // 서버가 센 값을 준다 — UsableProviders() 와 같은 판정을 써야 단추 수와 어긋나지 않는다.
                 UsableCount = social.UsableProviders().Count,
                 LinkedCount = counts.Values.Sum(),
                 Providers = providers,
@@ -135,12 +72,7 @@ public static class SocialLoginEndpoints
         .RequireAuthorization()
         .WithName("GetSocialConfigStatus");
 
-        // ── 인가 화면 주소 (익명) ────────────────────────────────
-        //
-        // `redirectUri` 와 `state` 는 **셸이 정해서 넘긴다.** 여기서 짓지 않는
-        // 까닭은 서비스 머리말에 있다 — AuthServer 는 게이트웨이 뒤라 포털의
-        // 바깥 주소를 모르고, 그 값이 공급자 콘솔에 등록한 것과 글자 하나까지
-        // 같아야 한다.
+        // redirectUri 와 state 는 셸이 정해서 넘긴다 — 공급자 콘솔 등록값과 글자 하나까지 같아야 한다.
         group.MapPost("/authorize", (
             [FromBody] SocialAuthorizeRequestDto request, SocialLoginService social) =>
         {
@@ -172,8 +104,7 @@ public static class SocialLoginEndpoints
 
             if (outcome.Status == SocialLoginStatus.Failed)
             {
-                // 아이디를 모르는 길이라 접속 기록에 적을 이름이 없다. 그래도
-                // 실패를 남겨 두어야 「누가 이 길을 두드리고 있다」를 볼 수 있다.
+                // 아이디를 모르는 길이라 접속 기록에 적을 이름이 없다 — 그래도 실패를 남겨야 누가 두드리는지 보인다.
                 await loginLog.WriteAsync(
                     accountId: null,
                     loginId: $"social:{request.Provider}",
@@ -189,8 +120,7 @@ public static class SocialLoginEndpoints
 
             if (outcome.Status == SocialLoginStatus.Pending)
             {
-                // **성공도 실패도 아니다.** 계정은 만들어졌고 승인을 기다린다.
-                // 202 로 갈래를 나눠 두면 셸이 「신청이 접수됐다」를 말할 수 있다.
+                // 202 는 성공도 실패도 아니다 — 계정은 만들어졌고 승인을 기다린다. 셸이 「신청이 접수됐다」를 말할 수 있게 갈래를 나눈다.
                 logger.LogInformation(
                     "소셜 가입 신청 접수: {LoginId} ({Provider})",
                     outcome.Pending!.LoginId, request.Provider);
@@ -202,8 +132,7 @@ public static class SocialLoginEndpoints
                     statusCode: 202);
             }
 
-            // 상태(승인 대기 · 정지) 판정은 비밀번호·패스키 로그인과 한 벌을 쓴다.
-            // **신원이 밝혀진 다음에 본다** — 먼저 보면 계정이 있는지가 새어 나간다.
+            // 상태(승인 대기·정지) 판정은 신원이 밝혀진 다음에 본다 — 먼저 보면 계정이 있는지가 새어 나간다.
             if (await completion.RejectIfNotActiveAsync(http, outcome.Account!, ct) is { } rejected)
             {
                 return rejected;
@@ -239,10 +168,7 @@ public static class SocialLoginEndpoints
         .RequireAuthorization()
         .WithName("GetMySocialLinks");
 
-        // ── 내 계정에 붙이기 (로그인한 사람) ─────────────────────
-        //
-        // 이 길이 없으면 이미 계정이 있는 사람이 소셜로 들어왔을 때 **두 번째
-        // 계정**이 생긴다. 승인하는 사람은 그것이 같은 사람인지 알 길이 없다.
+        // 내 계정에 붙이기 — 이 길이 없으면 이미 계정이 있는 사람이 소셜로 들어왔을 때 두 번째 계정이 생긴다.
         group.MapPost("/links", async (
             UserContext? user, [FromBody] SocialLoginRequestDto request,
             AppDbContext db, SocialLoginService social, CancellationToken ct) =>
@@ -290,8 +216,7 @@ public static class SocialLoginEndpoints
                     ApiResponse<object>.Fail("연결된 소셜 계정이 아닙니다.", "404"), statusCode: 404);
             }
 
-            // **정말로 지운다.** 표시만 해 두면 같은 소셜 계정을 다시 붙일 때
-            // (공급자, 사용자 번호) 고유 색인에 걸린다. 패스키를 지울 때와 같다.
+            // 정말로 지운다 — 표시만 두면 같은 소셜 계정을 다시 붙일 때 고유 색인에 걸린다.
             db.Remove(link);
             await db.SaveChangesAsync(ct);
 

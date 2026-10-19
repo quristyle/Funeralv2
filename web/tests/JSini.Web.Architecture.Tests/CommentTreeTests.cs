@@ -3,15 +3,7 @@ using Xunit;
 
 namespace JSini.Web.Architecture.Tests;
 
-/// <summary>
-/// 헬프데스크 댓글을 나무로 세우는 규칙(<see cref="CommentTree"/>).
-///
-/// <para>
-/// 여기서 막는 것은 <b>말없이 사라지는 댓글</b>이다. 부모를 못 찾은 줄을
-/// 버리거나 고리를 만난 자리에서 멈추면, 쓴 사람에게는 「내 답글이 안
-/// 올라갔다」로 보이는데 자료에는 멀쩡히 들어 있어 원인이 보이지 않는다.
-/// </para>
-/// </summary>
+/// <summary>헬프데스크 댓글을 나무로 세우는 규칙. 막는 것은 말없이 사라지는 댓글이다 — 부모를 못 찾은 줄을 버리거나 고리에서 멈추면 쓴 사람에게만 안 올라간 것으로 보인다.</summary>
 public sealed class CommentTreeTests
 {
     private static ImprovementComment Row(int id, int? parent = null, int minute = 0) => new()

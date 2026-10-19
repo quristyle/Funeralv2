@@ -2,9 +2,7 @@ using CargoTrustServer.Common;
 
 namespace CargoTrustServer.Data;
 
-// 테이블 정본은 deploy/sql/cargotrust-schema-2026-09-24.sql 이다.
-// 속성 이름은 열 이름의 PascalCase — DbContext 가 snake_case 로 되돌려 붙인다.
-// 열을 여기서 먼저 늘리지 않는다. SQL 파일 아래에 ALTER 를 덧붙인 뒤에 따라 늘린다.
+// 테이블 정본은 deploy/sql/cargotrust-schema-2026-09-24.sql 이다. 열은 여기서 먼저 늘리지 않고 SQL 에 ALTER 를 덧붙인 뒤 따라 늘린다.
 
 /// <summary>거래처. 사업자등록번호(숫자 10자리)가 식별자다.</summary>
 public class Company
@@ -160,7 +158,7 @@ public class AuditLog
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
 }
 
-// ── 톨게이트 심야할인 (2026-10-06) ─────────────────────────────
+// ── 톨게이트 심야할인 ─────────────────────────────
 //
 // 설계: docs/cargotrust/06-toll-night-discount.md
 

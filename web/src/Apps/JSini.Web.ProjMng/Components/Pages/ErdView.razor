@@ -2,46 +2,8 @@
 @attribute [RouteKey("projmng.design.erd")]
 
 @*
-    [ERD]
-
-    이력: 옛 Blazor `Pages/Proj/ProjERD.razor` → Vue `views/projmng/proj/erd.vue` → 여기.
-    프로시저: `sp_dev_db_prop_exec` (`db_pkey='erd'`), 개발도구 `tablelist`
-
-    저장된 ERD JSON 을 읽고, 대상 DB 의 실제 테이블 목록과 합쳐 그린다.
-
-    [칸 목록과 외래키는 **매번 새로 읽는다**]
-
-    상자에 늘어놓는 칸(`erdColumns`)과 초록 점선(`erdRelations`)은 대상 DB 의
-    지금 모습이다. 그래서 **저장본에 남기지 않는다** — 남기면 표가 바뀐 뒤에도
-    옛 칸이 그려지고, 제약을 뗀 뒤에도 선이 남는다. 지워도 다음 불러오기에
-    되살아나는 것이 맞다.
-
-    칸을 펼치면 상자가 커지는데 **그 크기도 저장하지 않는다.** 우리가 보여
-    주려고 늘린 것이지 사람이 정한 크기가 아니라서, 저장해 두면 「컬럼 보기」를
-    끄고 열었을 때 속이 빈 커다란 상자만 남는다. 사람이 직접 끌어 바꾼 크기는
-    그대로 저장된다.
-
-    등록된 질의가 없는 DB 종류에서는 **그 둘만 비고 그림은 뜬다.**
-
-    [사라진 테이블을 지우지 않는다]
-
-    저장본에 있는 것은 배치(x/y)를 유지하고 설명만 갱신한다. 저장본에 없는 새
-    테이블은 더한다. **DB 에서 사라진 테이블은 지우지 않는다** — 옛 화면이 그렇게
-    판단했고 그 판단이 옳다. 테이블 목록 조회가 잠깐 실패했을 때 그림이 통째로
-    비어 버리는 것보다 낫다.
-
-    [테이블 목록을 못 읽고 있었다 — 조용히]
-
-    `isProjDb: true` 로 부르고 있었다. 그 길은 등록된 질의가 아니라
-    **그 DB 의 속성(`dev_db_prop`)에 저장된 사용자 질의**를 이름으로 찾는다.
-    그런데 `tablelist` 라는 속성은 **어느 DB 에도 없다**(30건을 다 훑었다).
-    그래서 서버가 500 을 냈고, 클라이언트가 그 실패를 삼켜 빈 목록이 됐다.
-
-    증상은 「그림은 뜨는데 새 테이블이 안 붙는다」다. 저장본은 그대로 그려지니
-    화면만 봐서는 알 수 없다.
-
-    등록된 질의를 쓰는 보통 길로 부른다 — `db`(종류) · `dbnick`(별칭)이
-    있어야 서버가 접속을 찾는다.
+ERD. 저장된 ERD JSON 을 대상 DB 의 실제 테이블 목록과 합쳐 그린다. 칸 목록·외래키·펼친 상자 크기는 저장하지 않고 매번 새로 읽는다(저장본에 남기면 표가 바뀐 뒤에도 옛 칸이 그려진다).
+DB 에서 사라진 테이블은 지우지 않는다. 표 목록은 등록된 질의(db · dbnick)로 읽는다 — isProjDb 로 부르면 DB 속성에서 찾다가 500 을 삼켜 빈 목록이 된다.
 *@
 
 @inherits DataPage
@@ -59,8 +21,7 @@
                         EtcFix="true" OnChanged="@(item => _dbItem = item)" />
         </CommSchItem>
 
-        @* 한 접속에 그림이 여럿이다(머리말). 조회할 때 함께 읽어 두므로
-           여기서 갈아 끼우는 데 왕복이 들지 않는다. *@
+        @* 한 접속에 그림이 여럿이다. 조회할 때 함께 읽어 두므로 갈아 끼우는 데 왕복이 없다. *@
         <CommSchItem Label="그림">
             <DxComboBox Data="@_drawings" Value="@_prop"
                         TextFieldName="@nameof(DrawingOption.Label)"
@@ -75,31 +36,19 @@
         <DxButton Text="확대" RenderStyle="ButtonRenderStyle.Secondary" Click="@ZoomInAsync" />
         <DxButton Text="맞춤" RenderStyle="ButtonRenderStyle.Secondary" Click="@FitAsync" />
 
-        @* 표 스물몇 개에 칸을 다 펼치면 한 화면에 안 들어온다. 배치만 볼
-           때는 끈다 — 상자가 **이름 한 줄짜리 판**으로 줄고, 그림도 그만큼
-           가벼워진다(배율을 바꿀 때마다 maxgraph 가 다시 재는 값이 줄어든다).
-
-           **바꾸면 그 자리에서 다시 그린다.** 「불러오기」를 또 누르게 하면
-           그 사이에 옮겨 둔 자리가 저장본으로 되돌아간다. *@
+        @* 표가 많으면 칸을 다 펼쳐 한 화면에 안 들어온다. 배치만 볼 때는 끈다 — 바꾸면 그 자리에서 다시 그린다(불러오기를 누르면 옮긴 자리가 저장본으로 되돌아간다). *@
         <DxCheckBox Checked="@_showFields" CheckedChanged="@((bool on) => ShowFieldsAsync(on))">
             컬럼 보기
         </DxCheckBox>
 
         <PermissionView Action="MenuAction.Update">
-            @* 도형을 만드는 것은 아래 도구상자가 맡는다. 여기에는 **고른 것에
-               하는 일**만 둔다. *@
+            @* 도형을 만드는 것은 아래 도구상자가 맡고, 여기는 고른 것에 하는 일만 둔다. *@
 
-            @* 캔버스에서 Delete 로도 같은 일을 한다. 단추를 함께 두는 것은
-               그 키가 있다는 것을 알려 주기 위해서다. *@
+            @* 캔버스에서 Delete 로도 같다. 단추를 두는 것은 그 키가 있다는 것을 알려 주려는 것이다. *@
             <DxButton Text="선택 지우기" RenderStyle="ButtonRenderStyle.Secondary"
                       Click="@DeleteSelectionAsync" />
 
-            @* **저장 안 한 변경은 이 단추가 들고 있다.**
-
-               토스트는 7초면 걷히므로 그 뒤에 온 사람에게는 단서가 없다.
-               안내 줄로 되돌리면 자리를 먹고 표를 위아래로 민다 — 그래서
-               「눌러야 할 단추」 자신이 그 상태를 말하게 한다. 자리도 안 먹고
-               눈길이 가야 할 곳과 표시가 같은 자리다. *@
+            @* 저장 안 한 변경은 이 단추가 들고 있다 — 토스트는 7초면 걷히므로 단서를 여기 둔다. *@
             <DxButton Text="@(_dirty ? "저장 •" : "저장")"
                       RenderStyle="ButtonRenderStyle.Success"
                       CssClass="@(_dirty ? "pm-save--dirty" : null)"
@@ -116,8 +65,7 @@
     <DxButton Text="원형" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => ArrangeAsync("circle"))" />
     <DxButton Text="격자" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => ArrangeAsync("grid"))" />
 
-    @* 배치를 새로 짜지 않고 **겹친 것만** 밀어낸다 — 사람이 놓아 둔 자리를
-       그대로 두고 싶을 때 쓴다. *@
+    @* 배치를 새로 짜지 않고 겹친 것만 밀어낸다 — 사람이 놓아 둔 자리를 그대로 둔다. *@
     <DxButton Text="고루 펼치기" RenderStyle="ButtonRenderStyle.Secondary" Click="@SpreadAsync" />
 </div>
 
@@ -131,13 +79,11 @@
     <div class="pm-diagram-host">
         @if (Loading)
         {
-            @* 대상 DB 에 물어보는 동안 그림은 옛 그대로다. 눌린 것인지 알 수
-               없으면 사람은 다시 누른다 — 덮개가 그것을 막는다. *@
+            @* 대상 DB 에 묻는 동안 그림은 옛 그대로다 — 덮개가 다시 누르는 것을 막는다. *@
             <div class="pm-diagram-loading">불러오는 중…</div>
         }
 
-        @* `OnSave` 를 주면 캔버스가 Ctrl+S 를 가로챈다(안 주면 브라우저의
-           「페이지 저장」이 그대로 열린다). *@
+        @* OnSave 를 주면 캔버스가 Ctrl+S 를 가로챈다(안 주면 브라우저의 페이지 저장이 열린다). *@
         <DiagramViewer @ref="_diagram" Height="100%" OnChanged="@(() => MarkDirty())"
                        OnNotice="@(text => Say(text, NoticeTone.Info))"
                        OnSave="@SaveDiagramAsync" />

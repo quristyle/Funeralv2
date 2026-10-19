@@ -4,12 +4,7 @@ namespace AuthServer.DTOs;
 /// 브라우저에 그대로 넘겨 줄 <c>navigator.credentials</c> 설정과, 그것을
 /// 나중에 대조하기 위한 <b>표 번호</b>.
 /// </summary>
-/// <remarks>
-/// 도전값(challenge)을 브라우저에만 맡길 수는 없다 — 그러면 아무 값이나
-/// 지어내 서명해 올 수 있다. 서버가 자기 쪽에도 5분짜리로 적어 두고
-/// <see cref="SessionId"/> 로 다시 찾는다. 그 보관은
-/// <c>WebAuthnService</c> 가 <c>IMemoryCache</c> 로 한다.
-/// </remarks>
+/// 도전값을 브라우저에만 맡기면 아무 값이나 지어내 서명해 올 수 있으므로, 서버도 5분짜리로 적어 두고 SessionId 로 다시 찾는다(보관은 IMemoryCache).
 public class WebAuthnOptionsDto
 {
     /// <summary>이 도전값을 다시 찾을 번호. 다음 요청에 그대로 실어 보낸다.</summary>

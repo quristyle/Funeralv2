@@ -2,23 +2,9 @@
 @attribute [RouteKey("helpdesk.hanju.health-check")]
 
 @*
-    [헬스체크] — DB 메뉴 `/helpdesk/hanju/health-check`.
-    이력: Vue `views/helpdesk/hanju/health-check` → 여기.
-    프로시저: `P_QURI_SERVER_REPORT` (`QueryType = 'HEALTH_CHECK'`)
-
-    설비·수집기가 살아 있는지 본다.
-
-    [프로시저 하나에 QueryType 만 다르다]
-
-    한주 화면 다섯이 같은 프로시저를 부르고 조회 종류만 다르다. 옛 화면도
-    그랬고, 그 통로를 `OadrApi.GetServerReportAsync` 가 감싼다.
-
-    **서버가 준 대로 보여 준다**(AutoGrid). 프로시저가 돌려주는 칸이 조회
-    종류마다 다르고 늘어나기도 해서, 칸을 박아 두면 새 칸이 조용히 사라진다.
-    [스스로 새로 고치지 않고 있었다]
-
-    옛 화면은 60초마다 되물었다. 설비가 살아 있는지 보는 화면이라 띄워 두는
-    자리인데, 사람이 새로 고침을 눌러야 값이 바뀌고 있었다.
+    [헬스체크] — DB 메뉴 `/helpdesk/hanju/health-check`. 프로시저 `P_QURI_SERVER_REPORT` (QueryType = 'HEALTH_CHECK')
+    칸은 서버가 준 대로 보여 준다(AutoGrid). 칸을 박으면 조회 종류마다 다른 새 칸이 조용히 사라진다.
+    AutoRefreshPage 로 스스로 새로 고친다. 설비가 살아 있는지 띄워 두는 화면이다.
 *@
 
 @inherits AutoRefreshPage

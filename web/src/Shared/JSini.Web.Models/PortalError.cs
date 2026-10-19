@@ -1,24 +1,6 @@
 namespace JSini.Web.Models;
 
-/// <summary>
-/// 오류 한 건. AuthServer 의 <c>PortalErrorDto</c>·<c>PortalErrorReportDto</c> 와 짝이다.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <b>여기 있는 이유 — 보내는 쪽과 보는 쪽이 다른 프로젝트다.</b> 예외를 잡아
-/// 보내는 것은 공용(<c>JSini.Web.Components</c> 의 <c>PortalErrorReporter</c>)이고,
-/// 꺼내 보는 것은 포털관리 모듈의 「오류 추적」 화면이다. 모듈에 두면 공용이
-/// 못 쓰고(의존 규칙 4), 공용에 두면 그 타입이 화면 DTO 로 쓰이게 되어
-/// 자리가 어긋난다.
-/// </para>
-///
-/// <para>
-/// 보내기와 보기가 <b>같은 타입</b>인 것은 일부러다. 둘이 담는 것이 같은데
-/// 나눠 두면 한쪽에만 칸이 늘어난다 — 실제로 가장 흔한 어긋남이 그것이다.
-/// 목록 조회는 <see cref="Detail"/> 이 비어서 오고(스택이 커서 서버가 뺀다),
-/// 번호로 집어 올 때만 채워진다.
-/// </para>
-/// </remarks>
+/// <summary>오류 한 건. AuthServer 의 PortalErrorDto 와 짝이다. 보내는 쪽과 보는 쪽이 다른 프로젝트라 공용에 둔다. 보내기와 보기가 같은 타입인 것은 일부러다(나눠 두면 한쪽에만 칸이 늘어난다). 목록 조회는 Detail 이 비어서 온다.</summary>
 public sealed class PortalErrorDto
 {
     public string Id { get; set; } = string.Empty;

@@ -3,31 +3,8 @@ namespace AuthServer.Services;
 /// <summary>
 /// 비밀번호 사용 기간 정책.
 /// </summary>
-/// <remarks>
-/// 90일마다 비밀번호를 바꾸도록 요구한다. 일수는 설정으로 바꿀 수 있다.
-///
-/// <code>
-/// "Auth": { "PasswordExpiryDays": 90 }
-/// </code>
-///
-/// <para>
-/// <b>0 이나 음수를 넣으면 정책이 꺼진다.</b> 사고가 났을 때 코드를 고치지 않고
-/// 설정 한 줄로 되돌릴 수 있어야 하므로 끄는 길을 남겨 둔다.
-/// </para>
-///
-/// <para>
-/// 기준 시각(<c>password_changed_at</c>)이 null 이면 <b>만료로 보지 않는다.</b>
-/// 기준을 모르는 것과 오래된 것은 다르다. 모른다는 이유로 사용자를 잠그면,
-/// 칸을 새로 만든 직후처럼 데이터가 아직 없는 상황에서 전원이 갇힌다.
-/// </para>
-///
-/// <para>
-/// 판정은 두 곳에서 한다. 이곳(AuthServer)은 화면에 보여 줄 값을 만들고,
-/// 실제 차단은 게이트웨이가 한다(ApiGateway/Program.cs 의 비밀번호 만료 차단).
-/// 게이트웨이는 토큰의 <c>PwdChangedAt</c> 클레임으로 매 요청마다 다시 계산하므로,
-/// 토큰을 받은 뒤에 만료되는 경우(토큰 수명 7일 &gt; 남은 기간)도 놓치지 않는다.
-/// </para>
-/// </remarks>
+/// 90일마다 비밀번호를 바꾸도록 요구한다. 일수는 설정 Auth:PasswordExpiryDays 로 바꾼다. 0 이나 음수는 정책을 끄는 길이다(사고 때 설정 한 줄로 되돌린다).
+/// 기준 시각이 null 이면 만료로 보지 않는다 — 모르는 것과 오래된 것은 다르다. 실제 차단은 게이트웨이가 토큰의 PwdChangedAt 으로 매 요청마다 다시 계산한다.
 public static class PasswordPolicy
 {
     /// <summary>기본 만료 일수.</summary>
@@ -63,18 +40,7 @@ public static class PasswordPolicy
     /// <summary>
     /// <b>이미 만료된 것으로 치는</b> 기준 시각. 새로 만든 계정이 첫 로그인에서
     /// 곧바로 비밀번호를 바꾸도록 이 값을 넣는다.
-    ///
-    /// <para>
-    /// 「첫 로그인이면 바꾸게 한다」를 위해 칸을 새로 만들지 않는 이유가 여기 있다 —
-    /// 이미 있는 90일 정책이 그 일을 그대로 한다. 관리자가 발급한 비밀번호는
-    /// 사람 손을 거쳐 전달되므로 애초에 만료된 것으로 두는 편이 사실에 가깝다.
-    /// </para>
-    ///
-    /// <para>
-    /// 정책이 꺼져 있으면(<paramref name="expiryDays"/> 가 0 이하) 기준 일수를
-    /// 알 수 없으므로 <see cref="DefaultExpiryDays"/> 로 잡는다. 지금은 아무 일도
-    /// 하지 않지만, 나중에 정책을 켜면 그때부터 제대로 걸린다.
-    /// </para>
+    /// 첫 로그인 변경은 새 칸 없이 기존 90일 정책으로 한다 — 발급 비밀번호는 사람 손을 거치므로 만료된 것으로 두는 편이 사실에 가깝다.
     /// </summary>
     public static DateTime AlreadyExpiredAt(int expiryDays, DateTime utcNow) =>
         utcNow.AddDays(-(IsEnabled(expiryDays) ? expiryDays : DefaultExpiryDays) - 1);

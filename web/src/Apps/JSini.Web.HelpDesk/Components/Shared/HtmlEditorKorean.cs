@@ -3,35 +3,8 @@ using DevExpress.Blazor.Office;
 
 namespace JSini.Web.HelpDesk.Components.Shared;
 
-/// <summary>
-/// <see cref="DxHtmlEditor"/> 도구줄의 이름표를 한국어로 바꿔 단다.
-/// </summary>
-/// <remarks>
-/// <para>
-/// <b>DevExpress 가 한국어를 들고 있지 않다.</b> 이 부품의 글귀는 어셈블리 안
-/// <c>DevExpress.Blazor.Resources.LocalizationRes.resources</c> 한 벌뿐이고
-/// (<c>DxBlazorStringId.HtmlEditor_Toolbar_*</c>), 그것을 갈아 끼우려면 문화권
-/// 위성 어셈블리를 따로 만들어 넣어야 한다. 받은 패키지에는 중립 문화권 하나만
-/// 들어 있다 — <c>DevExpress.Blazor.resources</c> 는 이름만 비슷할 뿐 RichEdit·
-/// DevExtreme 의 js·css 를 담은 다른 물건이다.
-/// </para>
-/// <para>
-/// 그래서 번역을 <b>부품 바깥에서</b> 입힌다. <c>CustomizeToolbar</c> 는 도구줄이
-/// 만들어진 뒤 한 번 불리고, 거기서 칸마다 <c>Text</c>·<c>Tooltip</c> 을 다시
-/// 적을 수 있다. 문화권(<c>CurrentUICulture</c>)을 건드리지 않으므로 날짜·숫자
-/// 서식이 함께 흔들릴 일이 없다.
-/// </para>
-/// <para>
-/// <b>둘 다 적는다.</b> 넓은 도구줄에서 보이는 것은 아이콘이라 사람이 읽는 것은
-/// <c>Tooltip</c> 이고, 좁아져 「…」로 접히면 그 안에서는 <c>Text</c> 가 글자로
-/// 선다. 하나만 적으면 둘 중 한 자리가 영어로 남는다.
-/// </para>
-/// <para>
-/// <b>없는 칸은 건너뛴다.</b> 여기 적은 이름은 DevExpress 가 가진 전부이고
-/// 기본 도구줄은 그중 일부만 세운다. 판올림으로 칸이 빠져도 번역이 터지지
-/// 않게 이름으로 찾아 <c>null</c> 이면 그냥 지나간다.
-/// </para>
-/// </remarks>
+/// <summary>DxHtmlEditor 도구줄의 이름표를 한국어로 바꿔 단다. DevExpress 는 한국어 리소스를 들고 있지 않아 부품 바깥에서 CustomizeToolbar 로 칸마다 Text·Tooltip 을 적는다.
+/// 둘 다 적는다 — 넓은 도구줄은 Tooltip 을, 접힌 드롭다운은 Text 를 보인다. 없는 칸은 이름으로 찾아 null 이면 건너뛴다. 문화권은 건드리지 않는다.</summary>
 internal static class HtmlEditorKorean
 {
     /// <summary>묶음 이름표. 접힌 도구줄의 드롭다운 머리에 선다.</summary>
@@ -45,17 +18,7 @@ internal static class HtmlEditorKorean
         (HtmlEditorToolbarGroupNames.Variable, "변수"),
     ];
 
-    /// <summary>
-    /// 칸 하나의 이름표와 설명.
-    /// </summary>
-    /// <remarks>
-    /// <b>어느 묶음에 들었는지는 적지 않는다.</b> 처음에는 묶음까지 적어 두고
-    /// 그 묶음 안에서만 찾았는데, 짐작이 세 칸 어긋나 있었다 — 「인용문」과
-    /// 「코드」는 <c>Paragraph</c> 가 아니라 <c>InsertElement</c> 에,
-    /// 「표」는 <c>InsertElement</c> 가 아니라 <c>Table</c> 에 들어 있다.
-    /// 그 셋만 영어로 남은 채 화면에 떴다. 이름은 도구줄 안에서 하나뿐이므로
-    /// 묶음을 가리지 않고 훑는 편이 짐작할 거리가 없다.
-    /// </remarks>
+    /// <summary>칸 하나의 이름표와 설명. 묶음은 적지 않고 도구줄 전체에서 이름으로 찾는다 — 묶음을 짐작하면 인용문·코드·표가 엉뚱한 묶음에서 찾아져 영어로 남는다.</summary>
     private static readonly (string Name, string Text, string Tooltip)[] Items =
     [
         (HtmlEditorToolbarItemNames.Undo, "실행 취소", "마지막으로 한 일을 되돌립니다."),
@@ -101,11 +64,7 @@ internal static class HtmlEditorKorean
         (HtmlEditorToolbarItemNames.InsertVariableField, "변수", "변수 자리를 넣습니다."),
     ];
 
-    /// <summary>
-    /// 「문단 모양」 안에 담기는 것들. <b>이것만 이름이 아니라 글자로 찾는다</b> —
-    /// DevExpress 가 바깥에 내준 이름 상수는 도구줄 칸까지이고, 그 드롭다운
-    /// 안쪽에는 없다. 영어 글귀는 위 리소스에 박혀 있는 그대로다.
-    /// </summary>
+    /// <summary>문단 모양 안에 담기는 것들. 이것만 이름이 아니라 글자로 찾는다 — 드롭다운 안쪽에는 DevExpress 이름 상수가 없다.</summary>
     private static readonly Dictionary<string, string> ParagraphStyles = new(StringComparer.Ordinal)
     {
         ["Normal text"] = "본문",
@@ -128,8 +87,7 @@ internal static class HtmlEditorKorean
             }
         }
 
-        // 묶음을 가리지 않고 모든 칸을 훑는다. 이름으로 찾되, 그 이름이
-        // 어느 묶음에 들었는지는 묻지 않는다(위 <c>Items</c> 주석).
+        // 묶음을 가리지 않고 모든 칸을 훑는다 — 이름은 도구줄 안에서 하나뿐이다.
         var labels = Items.ToDictionary(x => x.Name, x => (x.Text, x.Tooltip), StringComparer.Ordinal);
 
         for (var g = 0; g < toolbar.Groups.Count; g++)
@@ -151,10 +109,7 @@ internal static class HtmlEditorKorean
         TranslateParagraphStyles(toolbar);
     }
 
-    /// <summary>
-    /// 「문단 모양」 드롭다운 안쪽. 칸이 콤보로 설 때와 드롭다운으로 설 때가
-    /// 갈라져 둘 다 본다 — 어느 쪽이 될지는 부품이 정한다.
-    /// </summary>
+    /// <summary>문단 모양 드롭다운 안쪽. 칸이 콤보로 설 때와 드롭다운으로 설 때 둘 다 본다.</summary>
     private static void TranslateParagraphStyles(IToolbar toolbar)
     {
         switch (Find(toolbar, HtmlEditorToolbarItemNames.ParagraphStyles))

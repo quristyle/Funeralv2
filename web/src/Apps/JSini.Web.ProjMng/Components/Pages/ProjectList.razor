@@ -2,43 +2,8 @@
 @attribute [RouteKey("projmng.proj.manage")]
 
 @*
-    [프로젝트 목록]
-
-    이력: 옛 Blazor `Pages/Proj/ProjMng.razor` (`/projmng`)
-          → Vue `views/projmng/proj/manage.vue`
-          → Blazor `DynamicGrid` + `sp_dev_proj_exec`
-          → **여기 (`CommGrd` + REST)**
-
-    API: `projmng/projects` (GET · POST · PUT)
-
-    관리 대상 프로젝트를 등록·수정한다. **여기 등록된 프로젝트가 나머지 화면의
-    프로젝트 드롭다운(`projlist` 공통코드)에 나온다** — 그래서 저장 뒤 공통코드
-    캐시를 비운다. 안 비우면 방금 만든 프로젝트가 다른 화면에서 안 보인다.
-
-    ────────────────────────────────────────────────────────────
-    [프로시저를 걷어낸 첫 화면이다 — 나머지가 이 본을 따른다]
-
-    옛 길은 `sp_dev_proj_exec` 하나가 조회·등록·수정을 다 했고, 돌아오는 것이
-    칸 메타와 `DataTable` 이라 화면이 `DynamicGrid` 를 쓸 수밖에 없었다.
-    **칸을 미리 알 수 없으니 그릴 방법이 그것뿐이었다.**
-
-    지금은 서버가 타입 있는 목록을 준다(`ProjMngServer.ProjectsController`).
-    그래서 이 화면이 `CommGrd` 를 쓴다 — 나머지 예순 화면과 **같은 부품, 같은
-    아래 띠, 같은 편집 창, 같은 권한 가리개**다.
-
-    바뀐 것을 사용자 쪽에서 보면 이렇다.
-
-    | | 전 (`DynamicGrid`) | 후 (`CommGrd`) |
-    |---|---|---|
-    | 칸 이름 | `prj_rid` · `prj_sdt` (DB 이름) | 번호 · 시작일 |
-    | 편집 | 표 안에서 직접 | 팝업 편집 창 |
-    | 저장 | 여러 행 고쳐 한 번에 | 한 건씩, 누르면 바로 |
-    | 날짜 | 글자 | 달력 |
-    | 실패 | 음수 코드 | 업무 문구 |
-
-    **한 건씩 저장으로 바뀐 것은 의도한 것이다.** 프로젝트는 열 건 남짓이고
-    여러 줄을 한꺼번에 고칠 일이 없다. 일괄 편집이 필요한 화면(WBS · 공통코드)은
-    그 성격을 유지한 채 옮긴다 — `docs/commgrd-dynamicgrid-merge.md`.
+프로젝트 목록. 관리 대상 프로젝트를 등록·수정하며, 여기 등록된 것이 나머지 화면의 프로젝트 드롭다운(projlist 공통코드)에 나온다 — 저장 뒤 공통코드 캐시를 비운다.
+프로시저를 걷어낸 첫 화면이라 CommGrd 를 쓴다. 한 건씩 저장하는 것은 의도다(열 건 남짓이고, 일괄 편집이 필요한 화면은 그대로 둔다).
 *@
 
 @inherits DataPage
@@ -73,8 +38,7 @@
                               TextAlignment="GridTextAlignment.Left" />
             <DxGridDataColumn FieldName="@nameof(ProjectDto.PrjType)" Caption="구분" Width="90" />
 
-            @* 날짜는 `DateOnly` 라 시각이 붙지 않는다 — 옛 화면이 `yyyy-MM-dd` 로
-               잘라 보여 주던 것을 자료형이 대신한다. *@
+            @* 날짜는 DateOnly 라 시각이 붙지 않는다. *@
             <DxGridDataColumn FieldName="@nameof(ProjectDto.PrjSdt)" Caption="시작일" Width="110"
                               DisplayFormat="yyyy-MM-dd" />
             <DxGridDataColumn FieldName="@nameof(ProjectDto.PrjEdt)" Caption="종료일" Width="110"

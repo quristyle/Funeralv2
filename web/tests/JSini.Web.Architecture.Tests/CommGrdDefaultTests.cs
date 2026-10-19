@@ -3,43 +3,13 @@ using Xunit;
 
 namespace JSini.Web.Architecture.Tests;
 
-/// <summary>
-/// 화면이 <c>CommGrd</c> 의 <b>기본값과 같은 값</b>을 다시 적지 않는다.
-///
-/// <para>
-/// [왜 막는가]
-/// </para>
-///
-/// <para>
-/// 공통 그리드를 둔 이유가 「화면마다 손으로 적지 않기」다. 그런데 기본값을
-/// 화면에도 적어 두면 <b>기본값을 바꿔도 그 화면만 안 따라온다.</b> 실제로
-/// 칸별검색을 숨김으로 바꿨을 때 37개 화면이 <c>ShowFilterRow="false"</c> 를
-/// 들고 있어서, 무엇이 기본값이고 무엇이 그 화면의 뜻인지 구분되지 않았다.
-/// </para>
-///
-/// <para>
-/// 기본값과 <b>다른</b> 값은 얼마든지 적어도 된다 — 그것이 그 화면의 뜻이다.
-/// 여기서 막는 것은 <b>같은 값</b>뿐이다.
-/// </para>
-/// </summary>
+/// <summary>화면이 CommGrd 의 기본값과 같은 값을 다시 적지 않는다 — 적어 두면 기본값을 바꿔도 그 화면만 안 따라온다. 기본값과 다른 값은 그 화면의 뜻이라 적어도 된다.</summary>
 public sealed class CommGrdDefaultTests
 {
-    /// <summary>
-    /// <c>CommGrd.razor</c> 가 <c>DxGrid</c> 에 주는 값과 자기 파라미터의 기본값.
-    ///
-    /// 여기를 손으로 옮겨 적는 것이 아니라 <see cref="ReadDefaults"/> 가
-    /// 부품 파일에서 읽는다 — 기본값을 고치면 이 테스트가 따라온다.
-    /// </summary>
+    /// <summary>CommGrd.razor 가 DxGrid 에 주는 값과 자기 파라미터의 기본값. 손으로 옮겨 적지 않고 ReadDefaults 가 부품 파일에서 읽는다.</summary>
     private static readonly Lazy<IReadOnlyDictionary<string, string>> Defaults = new(ReadDefaults);
 
-    /// <summary>
-    /// 화면이 정할 몫이라 대조에서 빼는 것들.
-    ///
-    /// <list type="bullet">
-    /// <item><c>Data</c>·<c>TItem</c> 은 화면마다 다르다.</item>
-    /// <item>펼침 칸 둘은 <c>DetailRowTemplate</c> 유무로 정해지는 계산값이다.</item>
-    /// </list>
-    /// </summary>
+    /// <summary>화면이 정할 몫이라 대조에서 뺀다 — Data·TItem 과 펼침 칸 둘(DetailRowTemplate 유무로 정해지는 계산값).</summary>
     private static readonly HashSet<string> Ignored =
     [
         "Data", "TItem", "DetailRowDisplayMode", "DetailExpandButtonDisplayMode",
@@ -80,12 +50,7 @@ public sealed class CommGrdDefaultTests
             + string.Join("\n  ", offenders));
     }
 
-    /// <summary>
-    /// <c>CommGrd.razor</c> 에서 기본값을 읽는다.
-    ///
-    /// 두 자리를 본다 — <c>DxGrid</c> 여는 태그에 적힌 값과, <c>[Parameter]</c>
-    /// 속성의 초기값이다. 식(<c>@…</c>)으로 준 것은 계산값이라 뺀다.
-    /// </summary>
+    /// <summary>CommGrd.razor 에서 기본값을 읽는다 — DxGrid 여는 태그의 값과 [Parameter] 초기값을 본다. 식(@…)으로 준 것은 계산값이라 뺀다.</summary>
     private static IReadOnlyDictionary<string, string> ReadDefaults()
     {
         var text = RazorSource.Read(Path.Combine(
@@ -111,10 +76,7 @@ public sealed class CommGrdDefaultTests
         return found;
     }
 
-    /// <summary>
-    /// 여는 태그를 통째로 집어낸다. 따옴표 안의 <c>&gt;</c> 는 끝이 아니다 —
-    /// <c>Click="@(() =&gt; …)"</c> 같은 값이 흔하다.
-    /// </summary>
+    /// <summary>여는 태그를 통째로 집어낸다. 따옴표 안의 > 는 끝이 아니다(Click="@(() => …)" 같은 값이 흔하다).</summary>
     private static IEnumerable<(int Start, string Text)> OpeningTags(string text, string name)
     {
         foreach (Match open in Regex.Matches(text, $@"<{name}\b"))

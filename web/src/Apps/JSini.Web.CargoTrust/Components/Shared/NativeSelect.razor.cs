@@ -6,8 +6,7 @@ namespace JSini.Web.CargoTrust.Components.Shared;
 public partial class NativeSelect
 {
     /// <summary>
-    /// 「직접 입력」 줄이 싣는 값. 진짜 값이 될 수 없는 글자라야 한다 —
-    /// 빈 글자를 쓰면 「고르지 않음」과 구별되지 않는다.
+    /// 「직접 입력」 줄의 값. 빈 글자는 「고르지 않음」과 구별되지 않으니 진짜 값이 될 수 없는 글자를 쓴다.
     /// </summary>
     private const string CustomKey = "\u0001free";
 
@@ -19,9 +18,7 @@ public partial class NativeSelect
     [Parameter] public EventCallback<string?> ValueChanged { get; set; }
 
     /// <summary>
-    /// 읽는 기계가 이 칸이 무엇을 고르는 것인지 알게 한다.
-    /// <c>DxFormLayoutItem</c> 의 제목은 <c>label for=</c> 로 묶이지 않아
-    /// 이것이 없으면 「목록 상자」라고만 읽힌다.
+    /// 읽는 기계가 이 칸을 무엇을 고르는 것으로 읽게 한다. DxFormLayoutItem 의 제목은 label for= 로 묶이지 않아 이것이 없으면 「목록 상자」라고만 읽힌다.
     /// </summary>
     [Parameter] public string? Label { get; set; }
 
@@ -45,13 +42,7 @@ public partial class NativeSelect
     private string SelectedKey => _custom ? CustomKey : Value ?? string.Empty;
 
     /// <summary>
-    /// 밖에서 값이 **바뀌어** 들어왔을 때만 글자 칸의 열림을 다시 정한다.
-    ///
-    /// <para>
-    /// 매번 다시 정하면 사람이 「직접 입력」을 고르고 아직 한 글자도 적지 않은
-    /// 사이(값이 <c>null</c> 인 사이)에 칸이 도로 닫힌다. 반대로 한 번 열면
-    /// 끝이라고 두면 「다시 쓰기」로 폼을 비워도 칸이 남는다.
-    /// </para>
+    /// 밖에서 값이 바뀌어 들어왔을 때만 글자 칸의 열림을 다시 정한다. 매번 정하면 「직접 입력」을 고르고 아직 적지 않은 사이에 칸이 닫힌다.
     /// </summary>
     protected override void OnParametersSet()
     {

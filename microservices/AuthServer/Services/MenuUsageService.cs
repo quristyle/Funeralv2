@@ -6,27 +6,10 @@ using Microsoft.EntityFrameworkCore;
 
 namespace AuthServer.Services;
 
-/// <summary>
-/// 메뉴 사용기록 — 쌓는 쪽과 보는 쪽.
-/// </summary>
-/// <remarks>
-/// <para>
-/// 쌓는 길은 하나(<see cref="RecordAsync"/>)고 보는 길은 넷이다. 보는 길이
-/// 여럿인 것은 <b>같은 자료에 묻는 물음이 다르기</b> 때문이다 —
-/// 「누가 많이 쓰나」(사람별) · 「무엇이 많이 쓰이나」(화면별) ·
-/// 「이 사람이 언제 무엇을 보았나」(기록) · 「하루가 어떻게 흘렀나」(타임라인).
-/// </para>
-/// <para>
-/// <b>집계는 DB 가 한다.</b> 줄을 다 받아다 화면에서 더하지 않는다 — 사람
-/// 하나가 하루에 수십 줄을 쌓으므로 한 달이면 수만 줄이고, 그것을 회로로
-/// 옮기는 것만으로 화면이 느려진다.
-/// </para>
-/// </remarks>
+/// <summary>메뉴 사용기록 — 쌓는 길은 하나, 보는 길은 넷이다. 집계는 DB 가 한다.</summary>
 public interface IMenuUsageService
 {
-    /// <summary>
-    /// 열람 한 건을 적는다. 적을 것이 못 되면 <c>false</c> 를 돌려준다.
-    /// </summary>
+    /// <summary>열람 한 건을 적는다. 적을 것이 못 되면 <c>false</c> 를 돌려준다.</summary>
     Task<bool> RecordAsync(string loginId, MenuUsageRecordDto record, CancellationToken ct = default);
 
     /// <summary>기록 목록. 늦은 것부터고 서버가 <paramref name="take"/> 줄에서 자른다.</summary>
@@ -54,19 +37,10 @@ public sealed class MenuUsageService(
     IAccountActivityService activity,
     ILogger<MenuUsageService> logger) : IMenuUsageService
 {
-    /// <summary>
-    /// 얼마나 오래 들고 있을지. 넘은 줄은 적을 때 하루 한 번 걷어낸다.
-    /// </summary>
-    /// <remarks>
-    /// 한 해다. 「작년 이맘때와 견주어 본다」가 이 표로 할 수 있는 가장 먼
-    /// 물음이고, 그보다 오래 들고 있어 봐야 아무도 묻지 않는다.
-    /// </remarks>
+    /// <summary>한 해 보관한다. 넘은 줄은 적을 때 하루 한 번 걷어낸다.</summary>
     private const int RetentionDays = 365;
 
-    /// <summary>
-    /// 마지막으로 오래된 줄을 걷어낸 때(UTC). 배경 작업을 하나 더 두지 않으려고
-    /// <b>적는 길에 얹었다</b> — 아무도 안 쓰는 동안에는 지울 것도 안 생긴다.
-    /// </summary>
+    /// <summary>마지막으로 오래된 줄을 걷어낸 때(UTC). 적는 길에 얹어 두고 별도 배경 작업은 두지 않는다.</summary>
     private static DateTime _lastSweepUtc = DateTime.MinValue;
 
     /// <inheritdoc />
@@ -108,10 +82,7 @@ public sealed class MenuUsageService(
 
         await db.SaveChangesAsync(ct);
 
-        // 화면을 옮긴 것이 「쓰고 있다」의 신호다 — 계정의 마지막 사용시각을
-        // 여기서 민다. 포털은 한 회로 안에서 라우팅만 바뀌어 서버로 요청이
-        // 안 나가므로(이 파일 머리말) **이 길 말고는 찍을 자리가 없다.**
-        // 너무 잦은 갱신은 그쪽이 1분 간격으로 거른다.
+        // 화면 이동이 「쓰고 있다」의 신호다. 포털은 라우팅만 바뀌어 서버로 요청이 안 나가므로 이 길이 유일한 자리다. 갱신은 포털이 1분 간격으로 거른다.
         await activity.TouchAsync(loginId, ct);
 
         await SweepAsync(ct);
@@ -341,13 +312,7 @@ public sealed class MenuUsageService(
         return days;
     }
 
-    /// <summary>
-    /// 기간·사람·검색어로 좁힌 줄들.
-    /// </summary>
-    /// <remarks>
-    /// <b>네 길이 같은 조건을 써야 한다</b> — 갈라 적으면 집계와 목록의 건수가
-    /// 어긋나고, 그때 어느 쪽이 맞는지 아무도 말할 수 없다.
-    /// </remarks>
+    /// <summary>기간·사람·검색어로 좁힌 줄들. 네 길이 같은 조건을 써야 집계와 목록의 건수가 맞는다.</summary>
     private IQueryable<MenuUsageLog> Filtered(
         DateOnly? from, DateOnly? to, string? userId, string? keyword)
     {
@@ -385,21 +350,11 @@ public sealed class MenuUsageService(
     }
 
     /// <summary>한국 표준시의 치우침(시간). 한국은 서머타임이 없어 늘 이 값이다.</summary>
-    /// <remarks>
-    /// <c>AppTime.ToKorea</c> 를 쓸 수 없는 자리다 — 날 자르기를 DB 에
-    /// 시켜야 하는데 <see cref="TimeZoneInfo"/> 는 SQL 로 번역되지 않는다.
-    /// 고정 치우침이라 결과는 같다(한국은 1988년 이후 서머타임이 없다).
-    /// </remarks>
+    /// AppTime 을 쓸 수 없는 자리다 — 날 자르기를 DB 에 시켜야 해서 TimeZoneInfo 가 SQL 로 번역되지 않는다.
     private const int KoreaOffsetHours = 9;
 
-    /// <summary>
-    /// 사람마다 <b>기록이 있는 날</b>의 수. 한국 달력으로 센다.
-    /// </summary>
-    /// <remarks>
-    /// <b>날 자르기는 DB 가 한다</b>(<c>date_trunc</c>). 줄을 받아다 세면
-    /// 기간이 한 달일 때 수만 줄이 회로로 넘어오는데, 그렇게 받아서 얻는 것이
-    /// 사람마다 정수 하나다. 돌아오는 줄은 (사람 × 날) 짝이라 많아야 수천이다.
-    /// </remarks>
+    /// <summary>사람마다 기록이 있는 날의 수. 한국 달력으로 센다.</summary>
+    /// 날 자르기는 DB 가 한다 — 줄을 받아다 세면 한 달치 수만 줄이 회로로 넘어온다.
     private static async Task<Dictionary<string, int>> DayCountsAsync(
         IQueryable<MenuUsageLog> query, CancellationToken ct)
     {
@@ -413,14 +368,7 @@ public sealed class MenuUsageService(
             .ToDictionary(g => g.Key, g => g.Count(), StringComparer.Ordinal);
     }
 
-    /// <summary>
-    /// 경로 → <b>지금의</b> 메뉴 제목.
-    /// </summary>
-    /// <remarks>
-    /// 적어 둔 제목(<see cref="MenuUsageLog.MenuTitle"/>)이 아니라 메뉴 표의
-    /// 값을 쓴다 — 제목을 고치면 지난 기록도 함께 새 이름으로 읽힌다. 메뉴가
-    /// 지워져 못 찾는 경로만 적어 둔 제목으로 떨어진다.
-    /// </remarks>
+    /// <summary>경로 → 지금의 메뉴 제목. 메뉴 표의 값을 쓰고, 지워진 경로만 적어 둔 제목으로 떨어진다.</summary>
     private async Task<MenuTitleMap> TitleMapAsync(
         IEnumerable<string> paths, CancellationToken ct)
     {
@@ -443,10 +391,7 @@ public sealed class MenuUsageService(
         return new MenuTitleMap(map);
     }
 
-    /// <summary>
-    /// 로그인 아이디 → 이름·부서. <b>못 찾는 아이디가 있는 것이 정상이다</b> —
-    /// 계정을 지워도 그 사람이 본 기록은 남는다.
-    /// </summary>
+    /// <summary>로그인 아이디 → 이름·부서. 못 찾는 아이디가 있는 것이 정상이다 — 계정을 지워도 기록은 남는다.</summary>
     private async Task<Dictionary<string, (string? Name, string? Dept)>> WhoMapAsync(
         IEnumerable<string> loginIds, CancellationToken ct)
     {
@@ -486,13 +431,8 @@ public sealed class MenuUsageService(
         }
     }
 
-    /// <summary>
-    /// 오래된 줄을 걷어낸다. 하루 한 번만 실제로 돈다.
-    /// </summary>
-    /// <remarks>
-    /// 실패해도 삼킨다 — 청소가 안 돼서 방금 본 화면의 기록을 못 적으면
-    /// 본말이 뒤집힌다(<c>PortalErrorEndpoints.SweepAsync</c> 와 같은 선이다).
-    /// </remarks>
+    /// <summary>오래된 줄을 걷어낸다. 하루 한 번만 실제로 돈다.</summary>
+    /// 실패해도 삼킨다 — 청소 실패로 방금 본 화면의 기록을 못 적으면 본말이 뒤집힌다.
     private async Task SweepAsync(CancellationToken ct)
     {
         var now = AppTime.UtcNow;

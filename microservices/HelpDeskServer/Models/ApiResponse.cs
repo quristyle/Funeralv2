@@ -23,9 +23,7 @@ using System.Runtime.CompilerServices;
 
 
 namespace HelpDeskServer.Models {
-  /// <summary>
-  /// API 응답을 위한 표준 래퍼 클래스
-  /// </summary>
+  /// <summary>API 응답을 위한 표준 래퍼 클래스</summary>
   /// <typeparam name="T">데이터 페이로드의 타입</typeparam>
   public class ApiResponse<T> {
     /// <summary>요청 성공 여부</summary>
@@ -40,9 +38,7 @@ namespace HelpDeskServer.Models {
     /// <summary>부가 정보</summary>
     public Metadata? Meta { get; set; }
 
-    /// <summary>
-    /// ApiResponse의 새 인스턴스를 초기화합니다.
-    /// </summary>
+    /// <summary>ApiResponse의 새 인스턴스를 초기화합니다.</summary>
     /// <param name="success">요청 성공 여부</param>
     /// <param name="message">응답 메시지</param>
     /// <param name="data">실제 데이터</param>
@@ -55,9 +51,7 @@ namespace HelpDeskServer.Models {
     }
   }
 
-  /// <summary>
-  /// 응답에 대한 부가 정보
-  /// </summary>
+  /// <summary>응답에 대한 부가 정보</summary>
   public class Metadata {
     /// <summary>요청 시작 시간 (UTC)</summary>
     public string RequestTime { get; set; } = string.Empty;
@@ -75,12 +69,7 @@ namespace HelpDeskServer.Models {
     public int? ColumnCount { get; set; }
   }
 
-  /// <summary>
-  /// 표준 API 응답 객체를 생성하는 헬퍼 클래스
-  /// </summary>
-  /// <remarks>
-  /// 이 클래스는 API 응답을 일관된 형식으로 래핑하고, 메타데이터를 추가하며, 민감한 정보를 필터링하는 역할을 합니다.
-  /// </remarks>
+  /// <summary>표준 API 응답 객체를 생성하는 헬퍼 클래스 이 클래스는 API 응답을 일관된 형식으로 래핑하고, 메타데이터를 추가하며, 민감한 정보를 필터링하는 역할을 합니다.</summary>
   public static class ApiResponseBuilder {
     private static readonly HashSet<string> SensitiveFieldNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
     {
@@ -90,16 +79,7 @@ namespace HelpDeskServer.Models {
 
     private const int MaxTraverseDepth = 7;
 
-    /// <summary>
-    /// 업무 규칙으로 <b>미리 알고 막은 것</b>을 같은 봉투에 담아 돌려줍니다.
-    /// </summary>
-    /// <remarks>
-    /// <see cref="CreateAsync{T}"/> 안에서 예외를 던져도 400 이 나가기는 합니다.
-    /// 그런데 그 길은 「An error occurred: 」 를 앞에 붙여 <b>예외 글귀를 그대로</b>
-    /// 내보내므로, 사람이 읽을 안내와 프로그램이 터진 흔적이 한 문장에 섞입니다.
-    /// 화면은 그 문장을 그대로 띄우므로(프론트 <c>RunAsync</c>), 미리 알고 막은
-    /// 것은 이쪽으로 돌려 안내만 남깁니다.
-    /// </remarks>
+    /// <summary>업무 규칙으로 <b>미리 알고 막은 것</b>을 같은 봉투에 담아 돌려줍니다. 안에서 예외를 던져도 400 이 나가기는 합니다.</summary>
     /// <param name="message">화면에 그대로 나갈 안내 문구</param>
     /// <param name="statusCode">HTTP 상태 코드 (기본 400)</param>
     public static IResult Fail(string message, int statusCode = 400) {
@@ -108,9 +88,7 @@ namespace HelpDeskServer.Models {
       return Results.Json(response, statusCode: statusCode);
     }
 
-    /// <summary>
-    /// 비동기 작업을 실행하고 결과를 표준 API 응답 형식으로 래핑합니다.
-    /// </summary>
+    /// <summary>비동기 작업을 실행하고 결과를 표준 API 응답 형식으로 래핑합니다.</summary>
     /// <typeparam name="T">반환될 데이터의 타입</typeparam>
     /// <param name="action">실행할 비동기 작업</param>
     /// <param name="successMessage">성공 시 메시지</param>
@@ -261,13 +239,10 @@ namespace HelpDeskServer.Models {
     };
 
 
-    /// <summary>
-    /// 데이터를 순회하며 ToExpandoWithEnumNames를 적용합니다.
-    /// </summary>
+    /// <summary>데이터를 순회하며 ToExpandoWithEnumNames를 적용합니다.</summary>
     private static object? ProcessData(object? data) {
       if (data is null) {
         return null;
-        //return data;
       }
 
       // 데이터가 컬렉션(List, Array 등)인 경우

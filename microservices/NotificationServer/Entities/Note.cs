@@ -5,48 +5,8 @@ using JSini.Shared.Domain;
 
 namespace NotificationServer.Entities;
 
-/// <summary>
-/// 쪽지 한 통. <b>사람 하나 → 사람 하나</b>가 한 줄이다.
-/// </summary>
-/// <remarks>
-/// <para>
-/// [<see cref="PushSendLog"/> 와 무엇이 다른가]
-/// </para>
-///
-/// <para>
-/// 발송 기록은 <b>보낸 흔적</b>이다 — 기기마다 한 줄이고, 못 보낸 까닭을 적어 두는
-/// 자리이며, 알림함은 그것을 <c>batch_id</c> 로 묶어 「내게 온 소식」처럼 보여 준다.
-/// 그런데 그것은 어디까지나 <b>알림이 남긴 자국</b>이라, 알림을 보내지 않으면
-/// (푸시를 꺼 두었거나 VAPID 가 없거나) 글도 함께 사라진다.
-/// </para>
-///
-/// <para>
-/// 쪽지는 <b>글 자체가 본체다.</b> 푸시와 메일은 「왔다」를 알리는 두드림일 뿐이고,
-/// 둘 다 실패해도 쪽지는 쪽지함에 그대로 있어야 한다. 그래서 발송 기록에 얹지 않고
-/// 표를 따로 둔다 — 얹었다면 알림 정리 규칙이 생기는 날 남의 편지가 함께 지워진다.
-/// </para>
-///
-/// <para>
-/// [주인이 <c>(ownerType, ownerKey)</c> 쌍이 아니라 로그인 아이디 하나다]
-/// </para>
-///
-/// <para>
-/// 구독·설정 표는 헬프데스크 계정(숫자)까지 담아야 해서 종류를 함께 들지만
-/// (<see cref="PushSubscription"/> 머리말), 쪽지는 <b>포털 계정끼리만</b> 주고받는다.
-/// 헬프데스크 고객에게 쪽지를 보내는 일이 생기면 그때 종류 칸을 더한다 — 지금 넣어
-/// 두면 모든 질의에 <c>= 'jsini'</c> 가 따라다니면서 아무것도 가르지 않는다.
-/// </para>
-///
-/// <para>
-/// [지우기는 <b>보낸 쪽·받은 쪽이 따로</b>다]
-/// </para>
-///
-/// <para>
-/// <see cref="BaseEntity{TKey}.IsDeleted"/> 하나로 두면 보낸 사람이 자기 보낸함에서
-/// 치우는 순간 <b>받은 사람의 쪽지까지 사라진다.</b> 편지를 부친 사람이 남의 우편함을
-/// 비울 수는 없으므로 칸을 둘로 나눈다. 둘 다 치운 줄만 실제로 지울 값어치가 있다.
-/// </para>
-/// </remarks>
+/// <summary>쪽지 한 통. 사람 하나 → 사람 하나가 한 줄이다. 글 자체가 본체라 발송 기록(PushSendLog)에 얹지 않고 따로 둔다 — 푸시와 메일이 실패해도 쪽지함에는 남는다.
+/// 주인은 로그인 아이디 하나이고(포털 계정끼리만 주고받는다), 지우기는 보낸 쪽과 받은 쪽이 따로다.</summary>
 [Table("notes", Schema = "scom")]
 public class Note : BaseEntity<string>
 {
@@ -60,14 +20,7 @@ public class Note : BaseEntity<string>
     [Column("sender_key")]
     public string SenderKey { get; set; } = string.Empty;
 
-    /// <summary>
-    /// 보낸 사람의 이름을 <b>그때 모습 그대로</b> 적어 둔다.
-    /// </summary>
-    /// <remarks>
-    /// 아이디로 매번 계정을 다시 읽지 않는 것은 속도 때문만이 아니다. 계정이
-    /// 지워지거나 이름이 바뀌면 <b>옛 쪽지의 보낸 이가 빈칸이 되거나 딴 이름이
-    /// 된다.</b> 받은 편지에 적힌 이름은 받은 그때의 것이어야 한다.
-    /// </remarks>
+    /// <summary>보낸 사람의 이름을 그때 모습 그대로 적어 둔다 — 계정이 지워지거나 이름이 바뀌어도 옛 쪽지의 이름은 그대로다.</summary>
     [Column("sender_name")]
     public string? SenderName { get; set; }
 
@@ -94,41 +47,15 @@ public class Note : BaseEntity<string>
     [Column("read_at")]
     public DateTime? ReadAt { get; set; }
 
-    /// <summary>
-    /// 앱 푸시가 <b>받는 사람의 기기에 실제로 닿은 때</b>(UTC). 안 닿았으면 <c>null</c>.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <see cref="PushSent"/> 와 <b>갈래가 다르다.</b> 그쪽은 「우리가 푸시 서비스에
-    /// 넘겼다」까지고, 이것은 <b>기기의 서비스워커가 받아서 되알려 준</b> 때다
-    /// (<c>push-sw.js</c> → <c>POST /notes/delivered</c>). 웹푸시는 넘긴 것이
-    /// 도착했다는 보장이 없다 — 기기가 꺼져 있으면 푸시 서비스가 수명(TTL, 기본
-    /// 6시간)까지 들고 있다가 <b>조용히 버린다</b>(docs/push-delivery.md).
-    /// </para>
-    /// <para>
-    /// 이 칸이 비어 있는 것이 <b>메일로 전환 발송하는 판정의 근거</b>다
-    /// (<c>NoteFallbackMailer</c>). 「안 읽었다」만 보고 보내면, 알림은 멀쩡히
-    /// 받고 나중에 보려고 둔 사람에게도 메일이 한 통 더 간다.
-    /// </para>
-    /// </remarks>
+    /// <summary>앱 푸시가 받는 사람의 기기에 실제로 닿은 때(UTC). 기기 서비스워커가 되알려 준 때이며, 이 칸이 비면 메일 전환 판정의 근거가 된다(PushSent 는 넘긴 때).</summary>
     [Column("delivered_at")]
     public DateTime? DeliveredAt { get; set; }
 
-    /// <summary>
-    /// <b>전환 메일</b>이 나간 때(UTC). 안 보냈으면 <c>null</c>.
-    /// </summary>
-    /// <remarks>
-    /// <see cref="EmailSent"/> 와 갈래가 다르다. 그쪽은 <b>보낼 때</b> 받는 사람이
-    /// 「쪽지 메일받기」를 켜 두어 함께 나간 것이고, 이것은 <b>나중에</b> 푸시가
-    /// 안 닿은 것을 보고 배치가 대신 보낸 것이다. 칸을 나누지 않으면 전환 메일이
-    /// 한 번 나간 뒤에도 배치가 그 줄을 다시 집어 <b>5분마다 같은 메일</b>을 보낸다.
-    /// </remarks>
+    /// <summary>전환 메일이 나간 때(UTC). 이 칸을 따로 둬야 배치가 같은 쪽지를 5분마다 다시 메일로 보내지 않는다.</summary>
     [Column("fallback_email_at")]
     public DateTime? FallbackEmailAt { get; set; }
 
-    /// <summary>
-    /// 앱 푸시가 기기 한 대에라도 갔는가. <b>「왜 못 받았나」의 절반이 여기 있다.</b>
-    /// </summary>
+    /// <summary>앱 푸시가 기기 한 대에라도 갔는가. 못 받은 까닭의 절반이 여기 있다.</summary>
     [Column("push_sent")]
     public bool PushSent { get; set; }
 
@@ -136,14 +63,7 @@ public class Note : BaseEntity<string>
     [Column("email_sent")]
     public bool EmailSent { get; set; }
 
-    /// <summary>
-    /// 두드림이 막힌 까닭. <b>사람이 읽는 짧은 말</b>로 적는다 — 보낸 사람이
-    /// 보낸함에서 그대로 읽는다.
-    /// </summary>
-    /// <remarks>
-    /// 쪽지 자체는 성공이고 알림만 막힌 경우가 대부분이다. 그것을 적어 두지 않으면
-    /// 「보냈는데 상대가 못 봤다」의 원인을 누구도 되짚을 수 없다.
-    /// </remarks>
+    /// <summary>두드림이 막힌 까닭(사람이 읽는 짧은 말). 쪽지 자체는 성공이고 알림만 막힌 경우가 대부분이다.</summary>
     [Column("notify_note")]
     public string? NotifyNote { get; set; }
 

@@ -5,21 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace AuthServer.Endpoints;
 
-/// <summary>
-/// F.A.Q 엔드포인트
-/// </summary>
-/// <remarks>
-/// F.A.Q 는 JSini 관리 포털이 관리하고 모든 MSA 사용자에게 공통으로 보인다.
-/// 관리자만 등록·수정·삭제하고 나머지 사용자는 읽는다.
-///
-/// 게이트웨이의 `/api/auth/**` 경로는 Anonymous 라 인증을 걸지 않는다.
-/// 그래서 여기서 UserContext 가 없으면 401 을 돌려준다.
-/// (게이트웨이가 토큰을 검증한 뒤에만 X-User-* 헤더를 붙이고,
-///  외부에서 보낸 같은 이름의 헤더는 지운다.)
-///
-/// 쓰기 권한은 화면이 아니라 <see cref="IFaqService"/> 가 판정한다.
-/// 화면의 `v-perm` 은 버튼을 숨기는 장치일 뿐이라 요청을 직접 보내면 통과한다.
-/// </remarks>
+/// <summary>F.A.Q 엔드포인트. 관리자만 등록·수정·삭제하고 나머지는 읽는다. 게이트웨이의 <c>/api/auth/**</c> 는 익명이라 권한을 여기서 직접 본다.</summary>
 public static class FaqEndpoints
 {
     public static void MapFaqEndpoints(this IEndpointRouteBuilder app)

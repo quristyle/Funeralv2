@@ -35,8 +35,7 @@ public partial class DeviceRibbonEditor
             return -1;
         }
 
-        // 이미지 목록은 기기와 무관하다. 한 번만 읽고, 읽어야 할 때는 장식과
-        // 나란히 받는다 — 서로 기다릴 이유가 없다.
+        // 이미지 목록은 기기와 무관해 한 번만 읽는다. 장식과는 나란히 받는다.
         var images = _images.Count == 0 ? Api.GetMediaSourcesAsync("IMAGE") : null;
         var ribbons = Api.GetDeviceRibbonsAsync(DeviceId);
 
@@ -53,8 +52,7 @@ public partial class DeviceRibbonEditor
         DeviceId = DeviceId,
         MediaSourceId = _images.Count > 0 ? _images[0].Id : string.Empty,
 
-        // 가운데 아래쯤에 적당한 크기로 놓는다. 0,0 에 0 크기로 두면
-        // 저장해도 화면에 아무것도 안 보여 「저장이 안 됐다」로 읽힌다.
+        // 가운데 아래쯤에 놓는다. 0 크기로 두면 저장해도 안 보여 「저장이 안 됐다」로 읽힌다.
         PositionLeft = 10,
         PositionTop = 70,
         Width = 80,

@@ -28,19 +28,10 @@ public partial class LockScreen
     /// <summary>이미 물어봤는가. 다시 그릴 때마다 왕복을 하나 더 쓰지 않는다.</summary>
     private bool _browserAsked;
 
-    /// <summary>
-    /// 이 계정에 등록된 기기가 하나도 없다는 것을 <b>눌러 보고</b> 알았다.
-    /// 그 뒤로는 단추를 감춘다 — 남겨 두면 누를 때마다 같은 말만 나온다.
-    /// </summary>
+    /// <summary>이 계정에 등록된 기기가 하나도 없다는 것을 눌러 보고 알았으면 그 뒤로는 단추를 감춘다 — 남겨 두면 누를 때마다 같은 말만 나온다.</summary>
     private bool _passkeyGone;
 
-    /// <summary>지문 단추를 그릴 것인가.</summary>
-    /// <remarks>
-    /// <c>PlatformAuthenticator</c> 까지 보는 것은 잠금화면이 **이 기기 앞에
-    /// 선 사람**을 상대하기 때문이다. 보안 열쇠(USB)만 있는 경우까지 단추를
-    /// 띄우면 자리를 비웠다 돌아온 사람이 꽂을 것을 찾게 된다 — 등록
-    /// 화면(「내 정보 → 보안 설정」)이 그 둘을 가르지 않는 것과 다르다.
-    /// </remarks>
+    /// <summary>지문 단추를 그릴 것인가. PlatformAuthenticator 까지 보는 것은 잠금화면이 이 기기 앞에 선 사람을 상대하기 때문이다 — 보안 열쇠(USB)까지 단추로 띄우면 자리를 비웠다 돌아온 사람이 꽂을 것을 찾게 된다.</summary>
     private bool PasskeyReady =>
         !_passkeyGone && _browser is { Supported: true, PlatformAuthenticator: true };
 
@@ -51,22 +42,7 @@ public partial class LockScreen
 
     protected override void OnParametersSet() => _name = UserName ?? string.Empty;
 
-    /// <summary>
-    /// 잠긴 뒤에 <b>한 번만</b> 브라우저에게 묻는다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>잠기기 전에 묻지 않는다.</b> 이 부품은 로그인한 모든 화면에 얹혀
-    /// 있어서, 미리 물으면 아무도 잠그지 않는 날에도 사람마다 왕복이 하나씩
-    /// 는다(web/CLAUDE.md 「`PortalBoot` 한 곳으로 모은다」가 줄이려던 그 왕복이다).
-    /// </para>
-    /// <para>
-    /// <see cref="OnAfterRenderAsync"/> 인 것은 <b>프리렌더 중에는 JS 를 부를
-    /// 수 없기</b> 때문이다. 새로고침으로 잠긴 채 되살아나는 길도 결국 여기를
-    /// 지난다 — 그때는 <c>ScreenLock.RestoreAsync</c> 가 상태를 바꾸면서
-    /// 다시 그리게 하고, 그 다음 차례가 이 메서드다.
-    /// </para>
-    /// </remarks>
+    /// <summary>잠긴 뒤에 한 번만 브라우저에게 묻는다. 잠기기 전에 묻지 않는다 — 이 부품은 로그인한 모든 화면에 얹혀 미리 물으면 아무도 잠그지 않는 날에도 사람마다 왕복이 는다. OnAfterRenderAsync 인 것은 프리렌더 중에는 JS 를 부를 수 없어서다.</summary>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (!Lock.IsLocked || _browserAsked)
@@ -155,22 +131,7 @@ public partial class LockScreen
         }
     }
 
-    /// <summary>
-    /// 지문·얼굴로 푼다. 왕복이 셋이다 — 도전값 받기 · 기기에게 서명 받기 ·
-    /// 서명 확인받기.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 가운데만 브라우저에서 돌고 나머지 둘은 회로가 게이트웨이를 부른다.
-    /// <b>토큰이 브라우저로 내려가는 자리가 없다</b>(web/CLAUDE.md 「인증 — BFF」).
-    /// 로그인 화면이 셸의 <c>/passkey/options</c> 를 거치는 것은 그 화면에
-    /// 회로가 없어서지, 그쪽이 더 옳아서가 아니다.
-    /// </para>
-    /// <para>
-    /// <b>실패해도 비밀번호 칸을 지우지 않는다.</b> 지문을 대려다 취소한
-    /// 사람이 치던 비밀번호를 잃으면, 고친 것이 아니라 하나 더 망가뜨린 것이다.
-    /// </para>
-    /// </remarks>
+    /// <summary>지문·얼굴로 푼다. 왕복이 셋이다: 도전값 받기 · 기기에게 서명 받기 · 서명 확인받기. 가운데만 브라우저에서 돌고 나머지 둘은 회로가 게이트웨이를 부른다 — 토큰이 브라우저로 내려가는 자리가 없어서다. 실패해도 비밀번호 칸을 지우지 않는다 — 지문을 대려다 취소하면 치던 비밀번호를 잃는다.</summary>
     private async Task UnlockWithPasskeyAsync()
     {
         if (_busy)

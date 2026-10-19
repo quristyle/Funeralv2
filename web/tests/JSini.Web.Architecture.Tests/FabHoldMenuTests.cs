@@ -3,35 +3,13 @@ using Xunit;
 
 namespace JSini.Web.Architecture.Tests;
 
-/// <summary>
-/// 떠다니는 단추를 <b>오래 눌렀을 때</b> 뜨는 창(<c>FabHoldMenu</c>)이 조용히
-/// 어긋나지 않게 지킨다.
-///
-/// <para>
-/// [왜 글자로 검사하나]
-/// </para>
-///
-/// <para>
-/// 이 기능이 끊기는 자리가 <b>전부 빌드를 통과한다.</b> 브라우저와 서버가
-/// <b>글자로</b> 맞잡고 있기 때문이다 — JS 가 부르는 메서드 이름, JS 가
-/// 보내는 갈래 이름(<c>menu</c>·<c>help</c>), 그 갈래를 읽어 내는 CSS 클래스,
-/// 모듈 파일의 경로. 어느 하나가 어긋나도 <b>예외는 브라우저 콘솔에만</b>
-/// 찍히고 화면은 멀쩡하다. 사람 눈에 보이는 것은 「길게 눌러도 아무 일이
-/// 없다」 하나뿐이다(<c>JsIdentifierTests</c> 와 같은 갈래의 함정이다).
-/// </para>
-/// </summary>
+/// <summary>떠다니는 단추를 오래 눌렀을 때 뜨는 창(FabHoldMenu)이 조용히 어긋나지 않게 지킨다. JS 가 부르는 메서드 이름·갈래 이름(menu·help)·CSS 클래스·모듈 경로가 브라우저와 글자로 맞잡고 있어,
+/// 어긋나도 빌드는 통과하고 예외는 콘솔에만 찍힌 채 「길게 눌러도 아무 일이 없다」가 된다.</summary>
 public sealed class FabHoldMenuTests
 {
     // ── 브라우저 ↔ 서버가 맞잡은 글자들 ─────────────────────────
 
-    /// <summary>
-    /// JS 가 부르는 메서드가 <b>실제로 있고</b> <c>[JSInvokable]</c> 이다.
-    /// </summary>
-    /// <remarks>
-    /// 이름을 바꾸면 <c>Could not find '…' method</c> 가 브라우저 콘솔에만
-    /// 찍힌다. 속성을 빼면 <c>…is not marked with [JSInvokable]</c> 이고,
-    /// 역시 화면에는 아무것도 안 뜬다.
-    /// </remarks>
+    /// <summary>JS 가 부르는 메서드가 실제로 있고 [JSInvokable] 이다 — 이름이나 속성이 어긋나면 화면에는 아무것도 안 뜬다.</summary>
     [Fact]
     public void JS_가_부르는_메서드가_실제로_있다()
     {
@@ -47,14 +25,7 @@ public sealed class FabHoldMenuTests
             MenuCode());
     }
 
-    /// <summary>
-    /// 모듈을 들여오는 경로가 <b>실제 파일</b>을 가리킨다.
-    /// </summary>
-    /// <remarks>
-    /// 파일을 옮기거나 이름을 바꾸면 <c>import</c> 가 404 로 떨어지는데,
-    /// 그 예외는 코드비하인드가 <b>삼키고 있다</b>(회로가 닫힌 뒤의 호출을
-    /// 조용히 넘기려고 한 묶음으로 잡는다). 그래서 로그조차 안 남는다.
-    /// </remarks>
+    /// <summary>모듈을 들여오는 경로가 실제 파일을 가리킨다 — 어긋나면 import 404 를 코드비하인드가 삼켜 로그조차 안 남는다.</summary>
     [Fact]
     public void 모듈_경로가_실제_파일을_가리킨다()
     {
@@ -69,14 +40,7 @@ public sealed class FabHoldMenuTests
         Assert.True(File.Exists(path), $"들여오는 모듈이 없다: {import.Groups["rel"].Value}");
     }
 
-    /// <summary>
-    /// JS 가 갈래를 가리는 <b>클래스 이름이 셸이 붙이는 것과 같다.</b>
-    /// </summary>
-    /// <remarks>
-    /// 어긋나면 <c>kindOf</c> 가 <c>null</c> 을 돌려주고 <b>길게 눌러도
-    /// 아무 일도 일어나지 않는다</b> — 그런데 짧게 누르는 것은 그대로 되므로
-    /// 「단추는 멀쩡한데 길게 누르기만 안 된다」가 된다.
-    /// </remarks>
+    /// <summary>JS 가 갈래를 가리는 클래스 이름이 셸이 붙이는 것과 같다 — 어긋나면 길게 눌러도 아무 일이 없다(짧게 누르는 것은 그대로 되어 더 헷갈린다).</summary>
     [Theory]
     [InlineData("jsini-shell__fab--menu")]
     [InlineData("jsini-shell__fab--help")]
@@ -86,13 +50,7 @@ public sealed class FabHoldMenuTests
         Assert.Contains(css, MainLayout(), StringComparison.Ordinal);
     }
 
-    /// <summary>
-    /// JS 가 보내는 갈래 글자를 <b>코드비하인드가 읽어 낸다.</b>
-    /// </summary>
-    /// <remarks>
-    /// <c>help</c> 를 못 알아보면 요청 등록 단추를 길게 눌렀을 때 <b>메뉴 단추의
-    /// 설정이 뜬다</b> — 창은 멀쩡히 뜨므로 「엉뚱한 것이 고쳐진다」로만 보인다.
-    /// </remarks>
+    /// <summary>JS 가 보내는 갈래 글자를 코드비하인드가 읽어 낸다 — help 를 못 알아보면 요청 단추를 길게 눌렀을 때 메뉴 단추의 설정이 뜬다.</summary>
     [Fact]
     public void 갈래_글자를_코드가_읽어_낸다()
     {
@@ -108,20 +66,7 @@ public sealed class FabHoldMenuTests
 
     // ── 뒤따라오는 누름 ─────────────────────────────────────────
 
-    /// <summary>
-    /// 창을 띄운 뒤의 <c>click</c> 을 <b>잡아내기 단계에서</b> 멈춘다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 손가락을 떼면 브라우저가 <c>click</c> 을 쏘고, 그것은 <b>그 단추의
-    /// 원래 일</b>이다(메뉴 여닫기 · 요청 등록으로 가기). 안 막으면 설정 창이
-    /// 뜨면서 <b>동시에 화면이 넘어간다.</b>
-    /// </para>
-    /// <para>
-    /// Blazor 의 처리기는 버블 단계에 있으므로 <b>잡아내기(<c>true</c>)에서
-    /// <c>stopPropagation</c></b> 해야 닿지 않는다. 버블에서 막으면 이미 늦다.
-    /// </para>
-    /// </remarks>
+    /// <summary>창을 띄운 뒤의 click 은 잡아내기 단계에서 멈춘다 — 그 단추의 원래 일이 동시에 일어나지 않게 한다. Blazor 처리기는 버블 단계라 버블에서 막으면 늦다.</summary>
     [Fact]
     public void 뒤따라오는_누름을_잡아내기에서_멈춘다()
     {
@@ -135,25 +80,7 @@ public sealed class FabHoldMenuTests
         Assert.Matches(new Regex(@"\}, true\);"), handler);
     }
 
-    /// <summary>
-    /// 손을 뗄 때 따라오는 <b>가짜 누름</b>을 못 나오게 막는다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 터치를 마우스로 옮긴 가짜 이벤트(<c>mousedown</c>·<c>mouseup</c>·
-    /// <c>click</c>)의 <b>과녁은 단추가 아니라 그 위를 덮은 창의
-    /// 덮개</b>(<c>dxbl-modal-root</c>)다. DevExpress 는 그것을 「바깥을
-    /// 눌렀다」로 읽고 <b>방금 띄운 창을 그 자리에서 닫는다</b> — 실제로
-    /// 그랬다(손을 떼고 7ms 뒤에 사라졌다).
-    /// </para>
-    /// <para>
-    /// 과녁이 단추가 아니므로 아래 <c>click</c> 삼키기로는 걸리지 않는다.
-    /// <b><c>touchend</c> 를 취소해</b> 가짜 이벤트가 아예 안 생기게 하는
-    /// 수밖에 없고, 취소하려면 처리기가 <b><c>passive</c> 가 아니어야</b>
-    /// 한다 — 그 한 가지가 빠지면 브라우저가 <c>preventDefault</c> 를
-    /// <b>조용히 무시한다</b>(콘솔 경고 한 줄이 전부다).
-    /// </para>
-    /// </remarks>
+    /// <summary>손을 뗄 때 따라오는 가짜 누름을 막는다 — 과녁이 단추가 아니라 덮개라 DevExpress 가 바깥 누름으로 읽어 창을 닫는다. touchend 를 취소해야 하며, 처리기가 passive 가 아니어야 취소가 먹는다.</summary>
     [Fact]
     public void 손을_뗄_때의_가짜_누름을_막는다()
     {
@@ -163,29 +90,14 @@ public sealed class FabHoldMenuTests
         Assert.Contains("passive: false", handler, StringComparison.Ordinal);
     }
 
-    /// <summary>
-    /// 브라우저의 바로가기 차림표를 막는다.
-    /// </summary>
-    /// <remarks>
-    /// 안드로이드 크롬은 길게 누른 것을 <c>contextmenu</c> 로도 쏜다. 막지
-    /// 않으면 우리 창 위로 「새 탭에서 열기」가 겹쳐 뜬다.
-    /// </remarks>
+    /// <summary>브라우저의 바로가기 차림표를 막는다 — 안드로이드 크롬은 길게 누른 것을 contextmenu 로도 쏘므로 막지 않으면 우리 창 위로 겹쳐 뜬다.</summary>
     [Fact]
     public void 바로가기_차림표를_막는다() =>
         Assert.Contains("preventDefault", Listener("contextmenu"), StringComparison.Ordinal);
 
     // ── 값은 한 곳에만 담긴다 ───────────────────────────────────
 
-    /// <summary>
-    /// 담는 일을 <b><c>PortalBoot</c> 에 맡긴다</b> — 제 손으로 저장소를
-    /// 건드리지 않는다.
-    /// </summary>
-    /// <remarks>
-    /// 여기서 <c>localStorage</c> 를 직접 쓰면 환경설정 화면과 <b>열쇠가 둘로
-    /// 갈라진다.</b> 그러면 길게 눌러 옮긴 자리가 환경설정에는 안 보이고,
-    /// 사람 눈에는 <b>설정이 안 먹는 것</b>으로 읽힌다. 알림(<c>…Changed</c>)도
-    /// 그 길로만 나가므로 화면이 그 자리에서 안 바뀐다.
-    /// </remarks>
+    /// <summary>담는 일은 PortalBoot 에 맡긴다 — 여기서 localStorage 를 직접 쓰면 환경설정과 열쇠가 둘로 갈라져 설정이 안 먹는 것처럼 보인다.</summary>
     [Fact]
     public void 값을_PortalBoot_한_곳으로만_담는다()
     {
@@ -205,15 +117,7 @@ public sealed class FabHoldMenuTests
         }
     }
 
-    /// <summary>
-    /// 환경설정에서 고친 것도 <b>여기로 온다.</b>
-    /// </summary>
-    /// <remarks>
-    /// <see cref="PortalBoot.ReadAsync"/> 는 회로마다 <b>한 번</b> 읽어 둔 것을
-    /// 돌려주는 자리라(몇 번을 불러도 왕복은 한 번이다) 창을 열 때마다 불러도
-    /// <b>처음 그 값</b>이다. 알림을 안 들으면 환경설정에서 옮긴 뒤에 길게
-    /// 눌렀을 때 <b>옛 자리에 표시가 붙는다.</b>
-    /// </remarks>
+    /// <summary>환경설정에서 고친 것도 여기로 온다. ReadAsync 는 회로마다 한 번 읽은 것을 돌려주므로, 알림을 안 들으면 옛 자리에 표시가 붙는다.</summary>
     [Fact]
     public void 바뀜_알림을_듣는다()
     {
@@ -228,15 +132,7 @@ public sealed class FabHoldMenuTests
         Assert.Contains("Boot.HelpDeskFabPositionChanged -=", code, StringComparison.Ordinal);
     }
 
-    /// <summary>
-    /// 버려진 창을 부르지 않는다 — JS 가 <b>마지막에 건 상대</b>를 들고 있다.
-    /// </summary>
-    /// <remarks>
-    /// 셸의 레이아웃은 업무를 옮길 때마다 새로 생기는데 ES 모듈은 한 번
-    /// 실리면 그대로다. 상대를 안 바꾸면 버려진 창을 계속 부르게 되고, 그
-    /// 호출은 <c>There is no tracked object with id…</c> 로 조용히 떨어진다 —
-    /// <b>업무를 한 번 옮긴 뒤부터</b> 길게 눌러도 아무 일이 없다.
-    /// </remarks>
+    /// <summary>버려진 창을 부르지 않는다 — JS 가 마지막에 건 상대를 들고 있어야 한다. 레이아웃은 업무를 옮길 때마다 새로 생기는데 ES 모듈은 그대로라, 상대를 안 바꾸면 호출이 조용히 떨어진다.</summary>
     [Fact]
     public void 마지막에_건_상대를_부른다()
     {
@@ -255,22 +151,7 @@ public sealed class FabHoldMenuTests
             "건 상대를 바꾸는 줄이 `if (attached) return;` 보다 앞에 없다.");
     }
 
-    /// <summary>
-    /// 고친 값이 <b>읽어 둔 한 벌에도 반영된다.</b>
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <c>PortalBoot.ReadAsync</c> 는 회로마다 <b>한 번</b> 읽어 둔 것을
-    /// 돌려준다. 고친 뒤에 <b>새로 생긴</b> 부품이 그것을 읽으면 고치기 전
-    /// 값을 받고, 바뀜 알림은 그때 이미 지나간 뒤라 들을 수도 없다.
-    /// </para>
-    /// <para>
-    /// 실제로 그랬다 — 길게 눌러 자리를 옮긴 다음 <b>업무를 옮기면</b>
-    /// (셸의 레이아웃이 새로 생긴다) 단추가 옛 귀퉁이로 되돌아갔고,
-    /// 환경설정 화면의 고르개도 옛 자리를 가리켰다. <b>저장은 멀쩡히
-    /// 됐으므로 새로고침하면 나아서</b> 더 헷갈렸다.
-    /// </para>
-    /// </remarks>
+    /// <summary>고친 값은 읽어 둔 한 벌에도 반영된다 — ReadAsync 는 회로마다 한 번 읽은 것을 돌려줘서, 고친 뒤 새로 생긴 부품은 옛 값을 받고 바뀜 알림은 이미 지나가 들을 수 없다.</summary>
     [Theory]
     [InlineData("FabPositionChanged")]
     [InlineData("FabHiddenChanged")]
@@ -294,15 +175,7 @@ public sealed class FabHoldMenuTests
         Assert.Contains("Remember(", before, StringComparison.Ordinal);
     }
 
-    /// <summary>
-    /// 환경설정 화면도 <b>바뀜 알림을 듣는다.</b>
-    /// </summary>
-    /// <remarks>
-    /// 휴대폰에서는 그 화면을 보는 <b>동안에도</b> 떠다니는 단추가 떠 있다.
-    /// 바로 옆에서 길게 눌러 자리를 옮겼는데 아래 고르개가 옛 값을 말하면,
-    /// 사람 눈에는 <b>설정이 안 먹는 것</b>으로 보인다 —
-    /// <c>PortalBoot.ReadAsync</c> 는 화면이 그려질 때 한 번만 읽는다.
-    /// </remarks>
+    /// <summary>환경설정 화면도 바뀜 알림을 듣는다 — 휴대폰에서는 그 화면을 보는 동안에도 단추가 떠 있어서, 옛 값을 말하면 설정이 안 먹는 것으로 보인다.</summary>
     [Theory]
     [InlineData("FabPositionChanged")]
     [InlineData("FabHiddenChanged")]
@@ -318,13 +191,7 @@ public sealed class FabHoldMenuTests
 
     // ── 되돌리는 길 ─────────────────────────────────────────────
 
-    /// <summary>
-    /// 감출 때 <b>되돌리는 길을 말한다.</b>
-    /// </summary>
-    /// <remarks>
-    /// 감춘 단추는 그려지지 않으므로 <b>길게 누를 수도 없다</b> — 이 창으로
-    /// 돌아올 길이 없다. 말해 주지 않으면 「감췄더니 영영 사라졌다」가 된다.
-    /// </remarks>
+    /// <summary>감출 때 되돌리는 길을 말한다 — 감춘 단추는 그려지지 않아 길게 누를 수도 없으므로, 말해 주지 않으면 영영 사라진 것이 된다.</summary>
     [Fact]
     public void 감출_때_되돌리는_길을_말한다()
     {
@@ -338,14 +205,7 @@ public sealed class FabHoldMenuTests
         Assert.Contains("로고", hide, StringComparison.Ordinal);
     }
 
-    /// <summary>
-    /// 환경설정으로 가는 줄이 <b>주소를 글자로 박지 않는다.</b>
-    /// </summary>
-    /// <remarks>
-    /// <c>@page</c> 는 모듈이 소유한 값이라 옮겨 갈 수 있고, 그때 사본이
-    /// 조용히 어긋나면 누른 사람이 「준비 중」을 본다
-    /// (<see cref="PortalHome.SettingsRouteKey"/> 머리말).
-    /// </remarks>
+    /// <summary>환경설정으로 가는 줄은 주소를 글자로 박지 않는다 — @page 는 모듈이 소유해 옮겨 갈 수 있고, 사본이 어긋나면 누른 사람이 「준비 중」을 본다.</summary>
     [Fact]
     public void 환경설정_주소를_글자로_박지_않는다()
     {
@@ -355,22 +215,7 @@ public sealed class FabHoldMenuTests
         Assert.Contains("PortalHome.Resolve", code, StringComparison.Ordinal);
     }
 
-    /// <summary>
-    /// 바깥 누름으로 <b>닫지 않는다</b> — 켜면 <b>뜨자마자 닫힌다.</b>
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 손을 떼며 오는 가짜 누름의 과녁이 <b>창의 덮개</b>라, DevExpress 가
-    /// 그것을 「바깥을 눌렀다」로 읽고 방금 띄운 창을 닫는다. 가짜 누름
-    /// 자체는 <c>touchend</c> 를 취소해 막았는데 <b>그래도 닫혔다</b> —
-    /// DxPopup 은 바깥 누름을 <c>window</c> 의 잡아내기 단계에서 보고 있어서
-    /// (문서보다 먼저다) 우리가 끼어들 자리가 없다.
-    /// </para>
-    /// <para>
-    /// 되돌리기 쉬운 한 줄이고, <b>되돌려도 빌드와 나머지 시험은 전부
-    /// 통과한다.</b>
-    /// </para>
-    /// </remarks>
+    /// <summary>바깥 누름으로 닫지 않는다 — 켜면 뜨자마자 닫힌다. 가짜 누름은 touchend 취소로 막아도 DxPopup 이 window 의 잡아내기 단계에서 바깥 누름을 보므로, 되돌리기 쉬운 한 줄이다.</summary>
     [Fact]
     public void 바깥_누름으로_닫지_않는다() =>
         // 적지 않는 것이 곧 끄는 것이다(`CommPopup` 의 기본값). 머리말에서는
@@ -382,11 +227,7 @@ public sealed class FabHoldMenuTests
     /// <summary>
     /// 오래 누르는 동안 <b>받고 있다는 표시</b>가 있다.
     /// </summary>
-    /// <remarks>
-    /// 길게 누르기는 0.5초 동안 아무 일도 안 일어나는 손짓이다. 표시가 없으면
-    /// 그 사이가 「먹통」으로 읽혀 <b>손을 떼 버린다</b> — 그러면 기능이 있는
-    /// 줄도 모른 채 「안 된다」가 된다.
-    /// </remarks>
+    /// <summary>오래 누르는 동안 받고 있다는 표시가 있다 — 0.5초 동안 아무것도 안 뜨면 먹통으로 읽혀 손을 떼 버린다.</summary>
     [Fact]
     public void 누르고_있는_동안의_표시가_있다()
     {
@@ -397,10 +238,7 @@ public sealed class FabHoldMenuTests
     /// <summary>
     /// 오래 눌러도 <b>브라우저가 끼어들지 않는다.</b>
     /// </summary>
-    /// <remarks>
-    /// 아이폰은 길게 누른 자리에 말풍선(「복사 · 공유」)을 띄우고 글자를
-    /// 고른다. 그것이 먼저 걸리면 우리 창은 뜨지도 못한다.
-    /// </remarks>
+    /// <summary>오래 눌러도 브라우저가 끼어들지 않는다 — 아이폰의 말풍선이 먼저 걸리면 우리 창은 뜨지도 못한다.</summary>
     [Fact]
     public void 아이폰_말풍선과_글자_고르기를_끈다()
     {
@@ -413,11 +251,7 @@ public sealed class FabHoldMenuTests
     /// <summary>
     /// 네 귀퉁이 모두 <b>점이 그 귀퉁이에</b> 찍힌다.
     /// </summary>
-    /// <remarks>
-    /// 하나만 빠지면 그 네모의 점이 왼쪽 위에 몰려(<c>position: absolute</c> 의
-    /// 기본 자리) <b>고르개 둘이 같은 그림</b>이 된다 — 글자를 읽기 전에는
-    /// 어디를 고르는지 알 수 없다.
-    /// </remarks>
+    /// <summary>네 귀퉁이 모두 점이 그 귀퉁이에 찍힌다 — 하나만 빠지면 고르개 둘이 같은 그림이 된다.</summary>
     [Theory]
     [InlineData("top-left")]
     [InlineData("top-right")]
@@ -439,8 +273,7 @@ public sealed class FabHoldMenuTests
 
         Assert.True(start >= 0, $"`fab-hold.js` 에 `{name}` 처리기가 없다.");
 
-        // 다음 처리기 전까지를 몸통으로 본다 — 중괄호를 세지 않는다
-        // (`HelpDeskFabTests.Member` 와 같은 수법).
+        // 다음 처리기 전까지를 몸통으로 본다 — 중괄호를 세지 않는다(HelpDeskFabTests.Member 와 같은 수법).
         var next = js.IndexOf("document.addEventListener(", start + 1, StringComparison.Ordinal);
         return next > 0 ? js[start..next] : js[start..];
     }

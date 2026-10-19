@@ -1,11 +1,7 @@
 namespace LifeEnvServer.Models;
 
 /// <summary>
-/// GHUB 이식 엔티티 공통 컬럼.
-///
-/// 포털 공통(JSini.Shared.Domain.BaseEntity)이 아니라 원본(GHUB skgRestApi)의
-/// BaseEntity 모양을 그대로 둔다 — 컬럼 이름(modified_* 등)이 ASIS 와 같아야
-/// 자료 이관이 복사만으로 끝나기 때문이다. (docs/sql/ghub_schema.sql 머리말)
+/// 이식 엔티티 공통 감사 컬럼. 컬럼 이름이 원본과 같아야 자료 이관이 복사만으로 끝나므로 포털 BaseEntity 를 쓰지 않는다.
 /// </summary>
 public abstract class LifeEnvBaseEntity
 {

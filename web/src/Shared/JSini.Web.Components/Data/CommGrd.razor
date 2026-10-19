@@ -1,27 +1,9 @@
 @*
-    공통 그리드. DevExpress 의 DxGrid 를 감싼다.
-
-    네 가지만 알면 된다.
-
-    1. 선언하지 않은 파라미터는 전부 Extra 로 받아 DxGrid 에 그대로 넘긴다.
-       @@attributes 가 **맨 뒤**라서 화면이 준 값이 아래 기본값을 이긴다.
-       순서를 바꾸면 화면 설정이 조용히 무시된다.
-
-    2. splat 되는 값은 Razor 가 형을 몰라 문자열로 온다. Coerce 가 DxGrid 의
-       파라미터 형을 보고 맞춰 준다. 없으면 ShowFilterRow="true" 가 500 을 낸다.
-
-    3. FocusedRowEnabled 를 켜 두는 이유는 **색**이다. 선택만 켜면 테마의
-       옅은 색(#e7eff9, 흰 바탕 대비 3%)이 걸려 골랐는지 눈에 안 띈다.
-       강조 줄까지 켜면 DevExpress 가 진한 강조색을 칠한다(#0b5699 · 흰 글자).
-       둘 다 테마 값이고 강조색을 바꾸면 함께 따라온다 — 재어 확인했다.
-
-    4. **고른 줄은 이 부품이 파라미터로 받는다**(`SelectedItem` ·
-       `SelectedItemChanged`). splat 으로 넘기지 못하는 값이라 그렇다 —
-       1번의 이유가 여기서는 문자열이 아니라 **대리자**로 나타난다.
-       DxGrid 의 `SelectedDataItemChanged` 는 `EventCallback<object>` 인데,
-       splat 되는 람다는 Razor 가 감싸 주지 않아 맨 `Func<object, Task>` 로
-       들어간다. DevExpress 가 대입할 때 형변환에 실패하고, 화면은 그리기도
-       전에 500 으로 죽는다. 공통코드·기기관리 두 화면이 그렇게 안 열렸다.
+    공통 그리드. DevExpress 의 DxGrid 를 감싼다. 네 가지만 알면 된다.
+    1. 선언하지 않은 파라미터는 전부 Extra 로 받아 DxGrid 에 그대로 넘긴다 — attributes 가 맨 뒤라 화면이 준 값이 기본을 이긴다.
+    2. splat 되는 값은 Razor 가 형을 몰라 문자열로 오므로 Coerce 가 DxGrid 의 파라미터 형을 보고 맞춘다(없으면 ShowFilterRow 가 500 을 낸다).
+    3. FocusedRowEnabled 를 켜 두는 것은 색 때문이다 — 선택만 켜면 옅은 색이 걸려 골랐는지 안 보인다. 둘 다 테마 값이라 강조색을 바꾸면 함께 따라온다.
+    4. 고른 줄(SelectedItem · SelectedItemChanged)은 이 부품이 파라미터로 받는다 — splat 으로 넘기면 대리자가 EventCallback 으로 감싸이지 않아 화면이 그리기도 전에 500 으로 죽는다.
 *@
 
 @typeparam TItem
@@ -46,14 +28,7 @@
        하나뿐이다(`_isPhone` 머리말). 이 부품은 아무것도 그리지 않는다. *@
     <DxLayoutBreakpoint MaxWidth="767" IsActive="_isPhone" IsActiveChanged="@OnPhoneChanged" />
 
-    @* 표의 머리줄 — 제목과 건수. **표 자신이 그리고, 기본으로 켜져 있다.**
-
-       건수를 화면마다 `CommCont Hint="@($"{_rows.Count}건")"` 으로 적어 두면
-       (열몇 화면이 그러고 있었다) 거르개가 걸린 표에서 조용히 틀린다 —
-       칸별 검색은 표 안에서 끝나는 일이라 화면이 든 목록은 그대로다.
-       여기서 그리면 표에 물어볼 수 있다(`_filtered`).
-
-       동작은 두지 않는다 — 표의 동작은 오른쪽 클릭 창이다(`BuildMenu`). *@
+    @* 표의 머리줄(제목과 건수)은 표 자신이 그리고 기본으로 켜져 있다. 화면마다 CommCont Hint 로 건수를 적으면 거르개가 걸린 표에서 조용히 틀리므로 여기서 그린다 — 칸별 검색은 표 안에서 끝나는 일이다. 동작은 두지 않는다. 표의 동작은 오른쪽 클릭 창이다(BuildMenu). *@
     @if (HeadVisible)
     {
         <div class="commgrd__head">
@@ -95,6 +70,7 @@
             ShowSearchBox="false"
             TextWrapEnabled="false"
             SelectionMode="@SelectionMode"
+            KeyFieldName="@KeyFieldName"
             AllowSelectRowByClick="true"
             FocusedRowEnabled="true"
             ColumnResizeMode="@ColumnResizeMode"
@@ -145,19 +121,7 @@
 
             @if (HasActions)
             {
-                @* **오른쪽에 붙박는다.** 칸이 열몇 개인 관리 화면은 가로로
-                   굴러야 하는데, 그때 「수정 · 삭제」가 스크롤 저편으로 사라진다 —
-                   줄 하나를 고치려고 끝까지 굴렸다가 다시 돌아오는 일이 화면
-                   백 개에서 똑같이 난다. 붙박아 두면 굴려도 늘 같은 자리다. *@
-                @* **카드로 펴면 붙박음을 푼다.** 가로로 구를 일이 없어 붙박을
-                   까닭이 없는데, 그대로 두면 DevExpress 가 세로 굴림 막대를
-                   「붙박은 오른쪽 칸만큼」 왼쪽으로 민다 — 카드에서는 그 폭이
-                   카드 전체라, 막대가 **카드 한가운데를 세로로 가른다**
-                   (재어 확인했다 — `right: 338px`). *@
-                @* **칸에는 「⋮」 하나만 둔다.** 단추를 줄마다 늘어놓으면 화면마다 수가
-                   달라 칸 폭이 84~330px 로 갈렸고, 그 폭이 붙박은 오른쪽에서 자료 칸을
-                   그대로 먹었다. 누르면 단추들이 판(`DxFlyout`)으로 펴진다 — 아래 판 참고.
-                   제목은 비운다. 칸이 무엇인지는 「⋮」가 이미 말한다. *@
+                @* 칸에 붙박는다 — 가로로 구르는 관리 화면에서 수정·삭제가 스크롤 저편으로 사라지지 않게 한다. 카드로 펴면 붙박음을 푼다: 가로로 구를 일이 없고, 두면 세로 굴림 막대가 붙박은 칸만큼 왼쪽으로 밀려 카드 한가운데를 가른다. *@
                 <DxGridDataColumn Name="@ActionsColumnName" Caption=""
                                   Width="@ActionsColumnWidth" MinWidth="@ActionsPixels"
                                   FixedPosition="@(Carded ? GridColumnFixedPosition.None : GridColumnFixedPosition.Right)"
@@ -166,14 +130,14 @@
                         @* 누름이 줄로 번지지 않게 끊는다 — 번지면 「줄을 누르면 연다」
                            화면에서 판이 펴지자마자 상세로 넘어간다. *@
                         <span class="commgrd__actions commgrd__more"
-                              id="@ActionsAnchorId(cell.VisibleIndex)"
+                              id="@_more.AnchorId(cell.VisibleIndex)"
                               @onclick:stopPropagation="true"
                               @ondblclick:stopPropagation="true">
                             <DxButton IconCssClass="jsini-icon-more-vertical"
                                       Title="관리"
-                                      CssClass="@(_actionsOpen && _actionsIndex == cell.VisibleIndex ? "commgrd__icon--on" : null)"
+                                      CssClass="@(_more.IsOpenAt(cell.VisibleIndex) ? "commgrd__icon--on" : null)"
                                       RenderStyle="ButtonRenderStyle.Link"
-                                      Click="@(() => ToggleActions(cell.VisibleIndex, cell.DataItem))" />
+                                      Click="@(() => _more.ToggleAsync(cell.VisibleIndex, cell.DataItem))" />
                         </span>
                     </CellDisplayTemplate>
                 </DxGridDataColumn>
@@ -200,80 +164,46 @@
         </DetailRowTemplate>
     </DxGrid>
 
-    @* 관리 칸 「⋮」 가 펴는 판. 표에 하나만 두고 누른 줄을 따라 옮겨 붙는다.
-       표 밖에 두는 까닭은 붙박은 칸과 표의 굴림 상자가 넘친 것을 잘라 내기 때문이다.
-       판 안의 누름은 무엇이든 판을 닫는다(`CloseActions`) — 단추가 화면의 것이라
-       일일이 손댈 수 없어 거품으로 받는다.
-       **「⋮」 왼쪽 옆으로 편다.** 아래로 펴면 판이 다음 줄들의 「⋮」를 덮어, 다른
-       줄을 고르려던 누름이 판 안의 단추(삭제일 수도 있다)에 떨어진다(재어 확인했다).
-       `StopOutsideClickPropagation` 을 끈다 — 켜 두면 판을 닫은 바깥 누름이 삼켜져
-       다른 줄의 「⋮」를 눌러도 그 줄의 판이 안 열린다. *@
+    @* 관리 칸 「⋮」 가 펴는 판. 나무와 같은 부품이다(`CommMoreFlyout`). *@
     @if (HasActions)
     {
-        <DxFlyout IsOpen="@_actionsOpen"
-                  IsOpenChanged="@OnActionsOpenChanged"
-                  PositionTarget="@_actionsTarget"
-                  PreventCloseOnPositionTargetClick="true"
-                  StopOutsideClickPropagation="false"
-                  Position="FlyoutPosition.Left"
-                  CssClass="commgrd__actmenu">
-            <BodyContentTemplate Context="flyout">
-                @if (_actionsRow is TItem row)
+        <CommMoreFlyout TItem="TItem" Menu="@_more" Changed="@OnMenuChanged">
+            <Items Context="m">
+                @if (RowActions is not null)
                 {
-                    var index = _actionsIndex;
-                    <div class="commgrd__actions commgrd__actions--menu" @onclick="@CloseActions">
-                        @if (RowActions is not null)
-                        {
-                            @RowActions(row)
-                        }
-
-                        @* 편집 자리가 표 밖인 화면에는 달지 않는다 — 줄을 누르는
-                           것이 곧 편집이라, 같은 일을 하는 단추가 하나 더 생긴다. *@
-                        @if (EditsInPopup)
-                        {
-                            <PermissionView Action="MenuAction.Update">
-                                <DxButton IconCssClass="jsini-icon-edit"
-                                          Title="수정"
-                                          RenderStyle="ButtonRenderStyle.Link"
-                                          Click="@(() => EditAsync(index))" />
-                            </PermissionView>
-                        }
-
-                        @if (OnDelete.HasDelegate)
-                        {
-                            <PermissionView Action="MenuAction.Delete">
-                                <DxButton IconCssClass="jsini-icon-trash"
-                                          Title="삭제"
-                                          CssClass="commgrd__icon--warn"
-                                          RenderStyle="ButtonRenderStyle.Link"
-                                          Click="@(() => ConfirmDeleteAsync(index, row))" />
-                            </PermissionView>
-                        }
-                    </div>
+                    @RowActions(m.Item)
                 }
-            </BodyContentTemplate>
-        </DxFlyout>
+
+                @* 편집 자리가 표 밖인 화면에는 달지 않는다 — 줄을 누르는
+                   것이 곧 편집이라, 같은 일을 하는 단추가 하나 더 생긴다. *@
+                @if (EditsInPopup)
+                {
+                    <PermissionView Action="MenuAction.Update">
+                        <DxButton IconCssClass="jsini-icon-edit"
+                                  Title="수정"
+                                  RenderStyle="ButtonRenderStyle.Link"
+                                  Click="@(() => EditAsync(m.Index))" />
+                    </PermissionView>
+                }
+
+                @if (OnDelete.HasDelegate)
+                {
+                    <PermissionView Action="MenuAction.Delete">
+                        <DxButton IconCssClass="jsini-icon-trash"
+                                  Title="삭제"
+                                  CssClass="commgrd__icon--warn"
+                                  RenderStyle="ButtonRenderStyle.Link"
+                                  Click="@(() => ConfirmDeleteAsync(m.Index, m.Item))" />
+                    </PermissionView>
+                }
+            </Items>
+        </CommMoreFlyout>
     }
 
     @* DeleteConfirm 을 준 화면만 쓴다. 안 준 화면은 DevExpress 기본 확인창이 뜬다. *@
     <ConfirmDialog @ref="_confirm" />
 
-    @* 표의 도구줄. 페이저 줄이 있으면 그 왼쪽에 겹쳐 앉는다(app.css).
-
-       아이콘 단추의 **좌우 여백**을 「조금작게」에서 멈춘다 — 아이콘 그림은
-       `--jsini-icon-size` 가 멈추는데 여백은 DevExpress 가 `SizeMode` 로
-       정해서 계속 자랐다(`ThemeSize.Chrome` 머리말).
-
-       띠 **안쪽만** 감싼다. 표 자체는 사용자가 고른 크기를 그대로 따라야 한다 —
-       줄 높이가 좁아지면 한 화면에 더 많이 보이는 것이 그 선택의 값이다. *@
-    @* 표의 동작(등록 · 다시 읽기 · 칸별 검색 · 엑셀)은 **오른쪽 클릭 창**에 있다.
-       한동안 아래 띠 왼쪽에 아이콘으로 늘어서 있었는데, 아이콘만으로는 무엇인지
-       알 수 없어 말풍선을 기다려야 했고 표마다 띠 한 줄을 먹었다. 창에서는
-       글자와 함께 보인다. 항목은 열 때마다 권한·상태를 다시 보고 세운다
-       (`BuildMenu`) — 할 수 있는 것이 하나도 없으면 브라우저 창을 막지 않는다.
-
-       화면만의 동작도 같은 창에 올린다(`ContextMenuItems` · `CommMenuItem`).
-       항목 부품은 아무것도 그리지 않고 자기를 알리기만 한다. *@
+                @* 칸에는 「⋮」 하나만 둔다 — 단추를 줄마다 늘어놓으면 칸 폭이 84~330px 로 갈려 붙박은 자리가 흔들린다. 누르면 단추들이 판(DxFlyout)으로 펴진다. 제목은 비운다. *@
     <CascadingValue TValue="ICommMenuHost" Value="this" IsFixed="true">
         @ContextMenuItems
     </CascadingValue>

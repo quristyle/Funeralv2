@@ -121,8 +121,7 @@ public sealed class WbsBoardUserOption
 public sealed class WbsBoardProgress
 {
     /// <summary>
-    /// 기준일. <b>DB 의 <c>projmng.today_kst()</c></b> 다 — 브라우저 시각이 아니다.
-    /// (DB 세션은 UTC 로 돌지만 <b>계획일은 달력 날짜</b>라 한국 달력의 오늘을 쓴다)
+    /// 기준일은 DB 의 projmng.today_kst() 다 — 계획일은 달력 날짜라 브라우저 시각이 아니라 한국 달력의 오늘을 쓴다.
     /// </summary>
     public string? Asof { get; set; }
 

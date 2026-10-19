@@ -4,16 +4,8 @@ using JSini.Web.Http;
 
 namespace JSini.Web.HelpDesk.Api;
 
-/// <summary>
-/// 한주(고객사) OADR 시스템 클라이언트.
-///
-/// 설비 모니터링·리포트·한주 화면들이 읽는 <b>외부 시스템</b>이다. 게이트웨이의
-/// <c>/api/oadr</c> 라우트가 <c>https://nums.hanjucorp.co.kr/oadr</c> 로 중계한다
-/// (브라우저에서 직접 부르면 CORS 에 막힌다).
-///
-/// 외부 시스템이라 봉투 규약이 없다 — 본문을 그대로 받는다. 화면 대부분은
-/// <see cref="ExecuteProcedureAsync{T}"/> 하나에 프로시저 이름만 바꿔 태운다.
-/// </summary>
+/// <summary>한주(고객사) OADR 시스템 클라이언트. 외부 시스템이라 봉투 규약이 없어 본문을 그대로 받는다.
+/// 게이트웨이 /api/oadr 가 중계한다(브라우저에서 직접 부르면 CORS 에 막힌다). 화면 대부분은 ExecuteProcedureAsync 하나에 프로시저 이름만 바꿔 부른다.</summary>
 public sealed class OadrApi(HttpClient http)
 {
     /// <summary>프로시저 파라미터 한 칸. 이름은 <c>@QueryType</c> 처럼 @ 를 붙인다.</summary>

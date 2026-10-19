@@ -30,26 +30,9 @@ public static class CargoAdminFormat
 }
 
 /// <summary>
-/// 감사 기록의 전·후 JSON 을 사람이 읽을 모양으로 편다.
+/// 감사 기록의 전·후 JSON 을 사람이 읽을 모양으로 편다. 글자로 싸여 오든 객체로 오든 같은 결과를 낸다.
+/// 글자면 한 번 더 풀고, 풀리지 않으면 그 글자를 그대로 보인다. 한글은 이스케이프하지 않는다(전·후를 눈으로 대조하려고).
 /// </summary>
-/// <remarks>
-/// <para>
-/// [글자로 싸여 오든 객체로 오든 같은 결과를 낸다]
-/// </para>
-///
-/// <para>
-/// 계약서는 「JSON 문자열」이라 적었다. 서버가 그대로 따르면 값이
-/// <c>"{\"status\":\"ACTIVE\"}"</c> 처럼 한 번 더 싸여 오고, JSONB 를 그대로 흘리면
-/// 객체로 온다. 앞엣것을 그냥 찍으면 역슬래시투성이 한 줄이 된다. 글자면 한 번 더
-/// 풀어 보고, 풀리지 않으면(JSON 이 아닌 글자) 그 글자를 그대로 보인다.
-/// </para>
-///
-/// <para>
-/// 한글은 이스케이프하지 않는다 — 기본 인코더는 「정상」을 <c>정상</c> 로
-/// 적어서 전·후를 눈으로 대조할 수 없다. 이 글자는 <c>&lt;pre&gt;</c> 안에 Razor 가
-/// 다시 HTML 인코딩해서 넣으므로 느슨한 인코더를 써도 안전하다.
-/// </para>
-/// </remarks>
 public static class CargoAdminJson
 {
     private static readonly JsonSerializerOptions Pretty = new()

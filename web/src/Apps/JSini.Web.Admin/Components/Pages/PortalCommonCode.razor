@@ -2,83 +2,16 @@
 @attribute [RouteKey("admin.system.common-code")]
 
 @*
-    [공통코드] — DB 메뉴 `/system/common-code`.
-    이력: Vue `views/portal/system/common-code` → 여기.
-
-    이 화면도 보기 자료를 그리고 있었다 — 「SYS_STATUS · USER_TYPE」 두 묶음과
-    「ACTIVE · INACTIVE」 두 코드가 코드에 박혀 있었다.
-
-    [왼쪽에서 묶음을 고르면 오른쪽이 바뀐다]
-
-    묶음이 수십 개고 그 아래 코드가 수백 개다. 한 표에 다 담으면 묶음 칸이
-    같은 값으로 수십 줄씩 반복된다. 옛 화면도 좌우로 나뉘어 있었다.
-
-    [겹치는 묶음은 나무로 본다]
-
-    묶음에 `IsHierarchical` 이 켜져 있으면 코드가 대·중·소로 겹친다
-    (지역 코드가 그렇다). 그때만 서버에 나무로 달라고 하고 `DxTreeList` 로
-    그린다. 평평한 묶음까지 나무로 그리면 펼침 화살표만 늘어난다.
-
-    [프로젝트관리의 공통코드와 다른 것이다]
-
-    `/projmng/common/code` 는 ProjMng 서버의 저장 프로시저가 다루는 별개 표다.
-    이름이 같아서 헷갈리지만 서로 자료를 주고받지 않는다.
-
-    [옛 화면에 있다가 빠졌던 것 넷 — 되살렸다]
-
-    · **AI 코드 추천** — 이름을 적고 단추를 누르면 영문 코드를 하나 제안한다(`AiCodeSuggest`).
-      묶음 코드와 코드 값 두 자리 모두. 등록할 때만 뜬다.
-    · **코드 값은 수정할 때 잠근다** — 묶음 코드와 같은 이유다. 화면과 저장
-      프로시저가 그 값을 **이름으로** 부르므로, 바꾸면 참조가 조용히 끊긴다.
-      묶음 코드만 잠그고 코드 값은 열려 있었다.
-    · **삭제 전에 묻는다** — 표 안의 작은 단추라 오클릭이 나기 쉽고
-      되돌릴 수 없다. 무엇이 사라지는지 이름까지 보여 준다.
-    · **`d-flex gap-1` 을 걷어냈다** — Bootstrap 유틸리티라 기본 테마인
-      Fluent 에서는 아무 일도 하지 않아 단추가 붙어 나왔다. `jsini-actions` 로.
-
-    [왼쪽 묶음 표는 CommGrd 에 일을 맡긴다]
-
-    등록·수정·삭제 단추를 손으로 적지 않는다. `OnSave`·`OnDelete`·`Reload` 를
-    주면 CommGrd 가 관리 칸의 아이콘과 아래 띠의 등록 단추를 붙이고, 편집
-    팝업·권한 가리기·실패 안내·목록 다시 읽기를 함께 맡는다. 손으로 적은
-    「수정」·「삭제」 링크가 있었는데, 그러면 화면마다 조작 자리와 아이콘이
-    갈라진다 — 남은 것은 **이 화면만의 것**뿐이어야 한다.
-
-    묶음 삭제는 딸린 코드가 함께 사라져서 확인 문구를 이 화면이 정한다
-    (`DeleteConfirm`). 기본 확인창은 어느 줄을 눌렀는지도 말해 주지 않는다.
-
-    [오른쪽 코드 표는 그림이 둘이라 사정이 다르다]
-
-    평평한 묶음은 CommGrd 라 위와 같이 맡긴다. 계층 묶음은 `DxTreeList` 로
-    갈아타는데 **거기에는 관리 칸도 아래 띠도 없다.** 그래서 그 두 개만 손으로
-    그리고, 클래스와 아이콘을 CommGrd 쪽에 맞춰 둔다 — 묶음을 바꿀 때마다
-    수정·삭제·등록 자리가 옮겨 다니지 않아야 한다.
-
-    편집 폼은 `CodeFields` **한 벌**을 두 팝업이 같이 쓴다.
-
-    [화면 구성은 조회 영역 → 자료 영역이다]
-
-    위에 `CommSch`(묶음 조건), 아래에 `CommCont` 둘(묶음 · 그 묶음의 코드).
-    손으로 적던 도구줄이 셋 있었는데 하던 일이 전부 이 둘에 있다 —
-    조건은 `CommSch` 의 `Fields`, 구역 이름은 `CommCont` 의 `Title`·`Hint`,
-    표의 단추는 `CommGrd` 의 아래 띠다.
-
-    **자료 영역이 둘이라 이름을 적는다.** 하나뿐인 화면은 비워 두는 것이
-    맞다 — 사이드바와 브레드크럼이 이미 그 이름을 말하므로, 거기 또 제목을
-    달면 같은 말이 세 곳에 있고 본문만 좁아진다.
+    [공통코드] DB 메뉴 `/system/common-code`. 왼쪽에서 묶음을 고르면 오른쪽 코드가 바뀐다 — 묶음이 나무(IsHierarchical)일 때만 CommTree 로 그린다.
+    등록·수정·삭제 단추와 편집 창은 CommGrd·CommTree 에 맡긴다. 프로젝트관리의 공통코드(/projmng/common/code)는 별개 표라 서로 자료를 주고받지 않는다.
+    묶음 삭제는 딸린 코드가 함께 사라지므로 확인 문구를 이 화면이 정한다. 코드 값은 수정할 때 잠근다 — 프로시저가 그 값을 이름으로 부른다.
 *@
 
 @inherits DataPage
 
-<PageTitle>공통코드 · 포털관리</PageTitle>
+<PageTitle>공통코드</PageTitle>
 
-@* ── 조회 영역 ─────────────────────────────────────────
-   조건은 묶음 하나뿐이고 거르는 일도 브라우저 안에서 끝난다(`ShownGroups`).
-   그래도 판을 세우는 이유는 **자리**다 — 조건을 표 안 도구줄에 두면 화면마다
-   위치가 달라지고, 칸이 늘어난 표에서는 가로 스크롤 저편으로 밀려난다.
-
-   「조회」는 게이트웨이에서 묶음을 다시 읽는다. 「등록」을 여기 두지 않는다 —
-   표 아래 띠에 이미 있다. *@
+@* ── 조회 영역 ── 조건은 묶음 하나뿐이고 거르는 일은 브라우저 안에서 끝난다. 판을 세우는 이유는 자리다 — 도구줄에 두면 화면마다 위치가 달라진다. 「등록」은 표 아래 띠에 있다. *@
 <CommSch OnSearch="@ReloadGroupsAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="묶음">
@@ -88,23 +21,11 @@
     </Fields>
 </CommSch>
 
-@* ── 자료 영역 둘 ───────────────────────────────────────
-   왼쪽에서 고르면 오른쪽이 바뀐다. 자료 영역이 둘이라 **이름이 필요하다** —
-   하나뿐이면 사이드바·브레드크럼이 이미 그 이름을 말하므로 비워 두는 것이
-   맞지만, 둘이면 어느 쪽이 무엇인지 적어야 한다.
-
-   좌우로 앉히는 일은 `ad-split` 이 한다(admin.css). 좁은 화면에서는 위아래로
-   쌓인다 — 320px 짜리 판 둘을 나란히 두면 둘 다 못 읽는다. *@
+@* ── 자료 영역 둘 ── 왼쪽에서 고르면 오른쪽이 바뀐다. 둘이라 이름이 필요하다(하나면 사이드바가 이름을 말해 비운다). 좁은 화면에서는 위아래로 쌓인다(ad-split). *@
 <div class="ad-split">
 
     <CommCont Title="코드 묶음" CssClass="ad-split__side">
-        @* 고른 줄이 바뀌면 오른쪽을 다시 읽어야 하므로 `@@bind-` 대신
-           값과 변경을 따로 받는다. 둘을 같이 쓸 수는 없다.
-
-           DevExpress 이름(`SelectedDataItem*`)을 직접 주면 안 된다 — CommGrd 가
-           선언하지 않은 이름은 splat 으로 흘러가고, 그러면 Razor 가 람다를
-           `EventCallback` 으로 감싸 주지 않아 이 화면이 500 으로 죽는다.
-           실제로 그래서 안 열리고 있었다. CommGrd 의 이름을 쓴다. *@
+        @* 고른 줄이 바뀌면 오른쪽을 다시 읽어야 해서 bind 대신 값과 변경을 따로 받는다. DevExpress 이름(SelectedDataItem*)을 직접 주면 CommGrd 가 선언하지 않은 이름이 splat 으로 흘러 500 이 난다 — CommGrd 의 이름을 쓴다. *@
         <CommGrd TItem="CommonCodeGroupDto" Data="@ShownGroups"
                  SelectedItem="@_group"
                  SelectedItemChanged="@OnGroupChangedAsync"
@@ -122,14 +43,7 @@
                 <DxGridDataColumn FieldName="@nameof(CommonCodeGroupDto.GroupName)" Caption="묶음 이름" MinWidth="130" />
             </Columns>
 
-            @* ── 묶음 편집 ──────────────────────────────────
-               DevExpress 가 만든 **편집 모델**(원본의 사본)이 넘어온다.
-               여기서 고쳐도 취소하면 표에는 남지 않는다.
-
-               지역 변수로 한 번 받아 두고 `@@bind-` 는 그 변수에 건다.
-               `@@bind-Text="((CommonCodeGroupDto)edit.EditModel).GroupCode"` 처럼
-               식 안에 형변환을 끼우면 DevExpress 가 검증 식을 만들지 못해
-               팝업이 그냥 안 열린다(EditFormBindingTests 주석 참고). *@
+            @* ── 묶음 편집 ── DevExpress 편집 모델(원본의 사본)이 넘어온다 — 여기서 고쳐도 취소하면 표에 남지 않는다. 지역 변수로 받아 bind 를 건다(식 안의 형변환은 팝업을 말없이 안 열리게 한다). *@
             <EditFormTemplate Context="edit">
                 @{
                     var grp = (CommonCodeGroupDto)edit.EditModel;
@@ -175,57 +89,44 @@
     }
     else
     {
-        @* 제목이 곧 고른 묶음이다. 이름은 `Title`, 코드는 그 옆에 옅게 붙는
-           `Hint` 로 간다 — 손으로 적던 도구줄이 하던 일이 그 둘이었다. *@
+        @* 제목이 곧 고른 묶음이다 — 이름은 Title, 코드는 옅게 Hint 로 간다. *@
         <CommCont Title="@_group.GroupName" Hint="@_group.GroupCode" CssClass="ad-split__main">
             <Actions>
                 @if (_group.IsHierarchical)
                 {
-                    @* 코드가 대·중·소로 겹치는 묶음이라 아래를 나무로 그린다.
-                       왜 그림이 둘인지 알려 주는 유일한 표시다. *@
+                    @* 코드가 대·중·소로 겹치는 묶음이라 아래를 나무로 그린다 — 왜 그림이 둘인지 알려 주는 유일한 표시다. *@
                     <span class="jsini-badge jsini-badge--warn">계층</span>
                 }
             </Actions>
             <ChildContent>
                 @if (_group.IsHierarchical)
                 {
-                    <DxTreeList Data="@_codes"
-                            ChildrenFieldName="@nameof(CommonCodeDto.Children)"
-                            KeyFieldName="@nameof(CommonCodeDto.Id)">
-                    <Columns>
-                        <DxTreeListDataColumn FieldName="@nameof(CommonCodeDto.CodeName)" Caption="이름" MinWidth="200" />
-                        <DxTreeListDataColumn FieldName="@nameof(CommonCodeDto.CodeValue)" Caption="값" Width="150" />
-                        <DxTreeListDataColumn FieldName="@nameof(CommonCodeDto.SortOrder)" Caption="순서" Width="80" />
-                        <DxTreeListDataColumn Caption="상태" Width="90">
-                            <CellDisplayTemplate Context="cell">
-                                @StatusBadge((CommonCodeDto)cell.DataItem)
-                            </CellDisplayTemplate>
-                        </DxTreeListDataColumn>
-                        <DxTreeListDataColumn Caption="관리" Width="130" AllowSort="false">
-                            <CellDisplayTemplate Context="cell">
-                                @CodeActions((CommonCodeDto)cell.DataItem)
-                            </CellDisplayTemplate>
-                        </DxTreeListDataColumn>
-                    </Columns>
-                </DxTreeList>
+                    <CommTree TItem="CommonCodeDto" Data="@_codes"
+                              KeyFieldName="@nameof(CommonCodeDto.Id)"
+                              ChildrenFieldName="@nameof(CommonCodeDto.Children)"
+                              EditFormTitle="코드"
+                              ExportName="@($"{_group.GroupCode} 코드")"
+                              OnNew="@FillNewChildCode"
+                              OnEditOpen="@OnCodeEditOpen"
+                              OnSave="@SaveTreeCodeAsync"
+                              OnDelete="@DeleteCodeAsync"
+                              DeleteConfirm="@CodeDeleteMessage"
+                              Reload="@ReloadCodesAsync">
+                        <Columns>
+                            <DxTreeListDataColumn FieldName="@nameof(CommonCodeDto.CodeName)" Caption="이름" MinWidth="200" />
+                            <DxTreeListDataColumn FieldName="@nameof(CommonCodeDto.CodeValue)" Caption="값" Width="150" />
+                            <DxTreeListDataColumn FieldName="@nameof(CommonCodeDto.SortOrder)" Caption="순서" Width="80" />
+                            <DxTreeListDataColumn Caption="상태" Width="90">
+                                <CellDisplayTemplate Context="cell">
+                                    @StatusBadge((CommonCodeDto)cell.DataItem)
+                                </CellDisplayTemplate>
+                            </DxTreeListDataColumn>
+                        </Columns>
 
-                @* 표 아래 띠. `DxTreeList` 에는 CommGrd 의 그 띠가 없어서 여기서
-                   그린다 — 클래스를 CommGrd 와 같은 것으로 써서 평평한 묶음과
-                   **같은 자리에 같은 아이콘**이 온다. 위쪽에 「코드 등록」 단추를
-                   따로 두면 묶음을 바꿀 때마다 등록 자리가 위아래로 옮겨 다닌다. *@
-                <div class="commgrd__footer">
-                    <PermissionView Action="MenuAction.Create">
-                        <DxButton IconCssClass="jsini-icon-plus" Title="등록"
-                                  RenderStyle="ButtonRenderStyle.Link"
-                                  Click="@StartNewCode" />
-                    </PermissionView>
-
-                    <DxButton IconCssClass="jsini-icon-refresh" Title="다시 읽기"
-                              RenderStyle="ButtonRenderStyle.Link"
-                              Click="@ReloadCodesAsync" />
-
-                    <div class="commgrd__spacer"></div>
-                </div>
+                        <EditFormTemplate Context="edit">
+                            @CodeFields((CommonCodeDto)edit.EditModel)
+                        </EditFormTemplate>
+                    </CommTree>
                 }
                 else
                 {
@@ -262,25 +163,6 @@
     }
 </div>
 
-@* ── 코드 편집 (나무일 때만) ─────────────────────────────
-   평평한 묶음은 CommGrd 가 자기 편집 팝업을 띄운다. `DxTreeList` 에는 그것이
-   없어서 이 팝업이 남아 있다. 폼은 `CodeFields` 한 벌을 둘이 같이 쓴다 —
-   두 벌로 두면 한쪽에만 칸이 늘어난다. *@
-<CommPopup @bind-Visible="_editingCode" HeaderText="@(_newCode ? "코드 등록" : "코드 수정")"
-         Width="560">
-    <BodyContentTemplate Context="popup">
-        @CodeFields(_codeEdit)
-    </BodyContentTemplate>
-
-    <FooterContentTemplate Context="popupContext">
-        <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveEditingCodeAsync" />
-        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _editingCode = false)" />
-    </FooterContentTemplate>
-</CommPopup>
-
-@* 삭제 확인. 옛 Vue 화면의 Popconfirm 자리다 — 옮기면서 빠져 있었다.
-   나무일 때 쓴다. 평평한 묶음의 삭제는 CommGrd 가 `DeleteConfirm` 으로 묻는다. *@
-<ConfirmDialog @ref="_confirm" />
 
 @code {
     private RenderFragment StatusBadge(CommonCodeDto c) =>@<span class="jsini-badge @(c.Status == 1 ? "jsini-badge--on" : "jsini-badge--off")">
@@ -288,27 +170,7 @@
     </span>;
 
     /// <summary>
-    /// 나무의 관리 칸. <b>평평한 묶음에는 없다</b> — 거기는 CommGrd 가
-    /// 아이콘을 붙인다. `DxTreeList` 에 그 흐름이 없어서 남아 있는 것이고,
-    /// 아이콘과 문구를 CommGrd 쪽에 맞춰 둔다.
-    /// </summary>
-    private RenderFragment CodeActions(CommonCodeDto c) =>@<div class="jsini-actions">
-        <PermissionView Action="MenuAction.Update">
-            <DxButton IconCssClass="jsini-icon-edit" Title="수정"
-                      RenderStyle="ButtonRenderStyle.Link"
-                      Click="@(() => StartEditCode(c))" />
-        </PermissionView>
-        <PermissionView Action="MenuAction.Delete">
-            <DxButton IconCssClass="jsini-icon-trash" Title="삭제"
-                      CssClass="commgrd__icon--warn"
-                      RenderStyle="ButtonRenderStyle.Link"
-                      Click="@(() => ConfirmDeleteCodeAsync(c))" />
-        </PermissionView>
-    </div>;
-
-    /// <summary>
-    /// 코드 편집 폼. CommGrd 의 편집 팝업과 나무용 팝업이 <b>이 한 벌</b>을
-    /// 같이 쓴다.
+    /// 코드 편집 폼. CommGrd 와 CommTree 의 편집 창이 <b>이 한 벌</b>을 같이 쓴다.
     ///
     /// <para>
     /// <b>편집기는 반드시 <c>@@bind-</c> 로 묶는다.</b> 여기는
@@ -320,8 +182,7 @@
     /// </summary>
     private RenderFragment CodeFields(CommonCodeDto c) =>@<DxFormLayout CssClass="ad-editform">
         <DxFormLayoutItem Caption="값" ColSpanMd="6">
-            @* 묶음 코드와 같은 이유로 등록할 때만 정한다 — 화면과 프로시저가
-               이 값을 이름으로 부른다. 바꾸면 참조가 조용히 끊긴다. *@
+            @* 묶음 코드와 같은 이유로 등록할 때만 정한다 — 화면과 프로시저가 이 값을 이름으로 부른다. 바꾸면 참조가 조용히 끊긴다. *@
             <DxTextBox @bind-Text="c.CodeValue" ReadOnly="@(!_newCode)" />
         </DxFormLayoutItem>
 

@@ -2,22 +2,8 @@
 @attribute [RouteKey("projmng.ai.tasks")]
 
 @*
-    [AI 작업 지시] — 왼쪽에서 고르고 오른쪽에서 고친다.
-
-    설계: docs/ai-task-runner.md
-    API: `projmng/ai-tasks` · `projmng/ai-targets`
-
-    오른쪽 탭 넷은 **부품 넷**이다(`AiTaskWriteTab` · `AiTaskAskTab` ·
-    `AiTaskFilesTab` · `AiTaskLogTab`). 보는 쪽 셋은 앱알림·메일로 들어가는
-    화면(`AiTaskView`)과 **같은 부품**이다 — 두 벌로 두면 한쪽만 고쳐진다.
-    탭 번호는 이 화면 것이다(`TabWrite` 머리말).
-
-    적던 것은 `localStorage` 에 적어 둔다(`AiTaskDraftStore`). 포털 탭은
-    주소 목록일 뿐이라 떠난 화면이 그 자리에서 버려지기 때문이다.
-    **임시본은 저장이 아니다** — 이 브라우저에만 있고 실행기는 못 본다.
-
-    요청여부와 상태를 **둘 다** 보여 준다. 하나로 합치면 「취소를 눌렀는데
-    아직 돌고 있다」를 말할 수 없다.
+AI 작업 지시 — 왼쪽에서 고르고 오른쪽에서 고친다. 오른쪽 탭 넷은 부품 넷이고(보는 쪽 셋은 AiTaskView 와 같은 부품), 탭 번호는 이 화면 것이다.
+적던 것은 localStorage 임시본(AiTaskDraftStore)이라 이 브라우저에만 있고 실행기는 못 본다. 요청여부와 상태는 둘 다 보여 준다 — 취소 직후의 「아직 돈다」를 말하려고.
 *@
 
 @using System.Text.Json
@@ -27,15 +13,12 @@
 
 <PageTitle>AI 작업 · 프로젝트관리</PageTitle>
 
-@* 휴대폰 경계는 **CSS 와 같은 767px** 다. 어긋나면 넓은 화면이 휴대폰
-   차림으로 선다. 쪽은 통째로 구르지 않는다 — 구르는 것은 왼쪽 목록과
-   오른쪽 탭 안쪽뿐이고, 높이는 재지 않고 남은 만큼 받아 쓴다(projmng.css). *@
+@* 휴대폰 경계는 CSS 와 같은 767px 다. 쪽은 통째로 구르지 않고, 구르는 것은 왼쪽 목록과 오른쪽 탭 안쪽뿐이다. *@
 <DxLayoutBreakpoint MaxWidth="767" IsActive="_isPhone" IsActiveChanged="@OnPhoneChanged" />
 
 <div class="pm-ai-page @(_isPhone ? "pm-ai-page--phone" : null)">
 
-@* 조회 조건. 접는 일은 `CommSch` 가 한다 — 휴대폰에서는 제 머리줄로
-   접히고 `MobileSummary` 가 그 줄에 고른 조건을 적는다. *@
+@* 조회 조건. 접는 일은 CommSch 가 한다 — 휴대폰에서는 MobileSummary 가 접힌 줄에 고른 조건을 적는다. *@
 <CommSch OnSearch="@SearchAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="상태">
@@ -62,8 +45,7 @@
                         Style="width: 200px" />
         </CommSchItem>
 
-        @* 일반 사용자가 올린 요청만 뽑는 칸. **좁히지 않으면 안 보인다** —
-           관리자가 쓰다 만 글과 값이 하나도 다르지 않다. *@
+        @* 일반 사용자가 올린 요청만 뽑는다 — 좁히지 않으면 관리자가 쓰다 만 글과 구별이 안 된다. *@
         <CommSchItem Label="출처">
             <DxComboBox Data="@SourceFilters" @bind-Value="_source"
                         TextFieldName="@nameof(PickOption.Text)"
@@ -72,16 +54,14 @@
                         CssClass="pm-code-select" />
         </CommSchItem>
 
-        @* 제목과 **본문**을 함께 훑는다. 라벨에 그 사실을 적는다 —
-           라벨을 붙인 칸에 자리표시 글자를 두지 않는 것이 포털 규칙이다. *@
+        @* 제목과 본문을 함께 훑는다. 라벨에 그 사실을 적는다. *@
         <CommSchItem Label="제목·내용">
             <DxTextBox @bind-Text="_keyword" @bind-Text:after="SearchAsync"
                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
                        Style="width: 220px" />
         </CommSchItem>
 
-        @* 켜면 끝난 건이 빠진다. **실패는 남는다**(`_excludeDone` 머리말).
-           「조회」를 안 눌러도 그 자리에서 다시 읽는다. *@
+        @* 켜면 끝난 건이 빠진다. 실패는 남는다. 「조회」를 안 눌러도 그 자리에서 다시 읽는다. *@
         <CommSchItem>
             <div class="d-flex" style="gap: 1rem;">
                 <DxCheckBox @bind-Checked="_excludeDone" @bind-Checked:after="SearchAsync"
@@ -259,13 +239,10 @@
                      CreateTitle="새 작업"
                      SelectedItem="@_picked"
                      SelectedItemChanged="@PickAsync">
-                @* 편집 폼을 주지 않았으므로 아래 띠의 ＋ 는 창을 열지 않고 새
-                   줄을 이 화면으로 넘긴다 — 줄을 누르는 것이 곧 편집이다. *@
+                @* 편집 폼을 주지 않았으므로 아래 띠의 ＋ 는 창을 열지 않고 새 줄을 이 화면으로 넘긴다. *@
 
                 <Columns>
-                    @* 칸은 둘뿐이다. 34% 짜리 판이라 다섯을 늘어놓으면 제목이
-                       서너 글자만 남는다 — 대상·시각은 제목 아래 잔글씨로 붙인다.
-                       요청여부는 상태와 한 칸에 **나란히** 둔다(합치지 않는다). *@
+                    @* 칸은 둘뿐이다 — 대상·시각은 제목 아래 잔글씨로 붙인다. 요청여부는 상태와 한 칸에 나란히 둔다. *@
                     <DxGridDataColumn FieldName="@nameof(AiTaskDto.Title)" Caption="작업" MinWidth="200"
                                       TextAlignment="GridTextAlignment.Left">
                         <CellDisplayTemplate Context="cell">
@@ -351,8 +328,7 @@
 
 
 
-            @* 저장소가 막혔거나 가득 찼다. **조용히 넘어가지 않는다** —
-               임시저장을 모른 채 믿고 있는 편이 아예 없는 것보다 나쁘다. *@
+            @* 저장소가 막혔거나 가득 찼다. 조용히 넘어가지 않는다 — 임시저장을 모른 채 믿는 것이 아예 없는 것보다 나쁘다. *@
             @if (Drafts.Blocked)
             {
                 <PageNotice Tone="NoticeTone.Warning"
@@ -370,9 +346,7 @@
                 <PageNotice Tone="NoticeTone.Warning" Text="@($"결과 알림: {_edit.NotifyError}")" />
             }
 
-            @* 실행 차수 띠. 탭 밖에 두어 어느 탭에서든 보이고 고를 수 있다.
-               **고른 차수를 따르는 것은 「처리 파일」과 「로그」뿐**이다 —
-               「지시와 결과」는 차수를 통째로 쌓아 보여 준다. *@
+            @* 실행 차수 띠. 탭 밖에 두어 어느 탭에서든 보인다. 고른 차수를 따르는 것은 처리 파일과 로그뿐이다. *@
             @if (_runs.Count > 0)
             {
                 <div class="pm-ai-runs-bar">
@@ -404,11 +378,7 @@
                 </div>
             }
 
-            @* 탭 넷은 부품 넷이다(머리말). 탭 번호는 이 화면 것이고
-               (`TabWrite`·`TabAsk`·`TabFiles`·`TabLog`) 부품은 제가 몇 번째인지
-               모른다. **휴대폰에서 네 이름이 다 보여야 한다**(`pm-tabfit` ·
-               `NoScroll`) — 그냥 두면 마지막 탭이 밖으로 나가고 DevExpress 가
-               그것을 쓸어 넘겨 찾게 한다. *@
+            @* 휴대폰에서 탭 넷의 이름이 다 보여야 한다(pm-tabfit · NoScroll) — 그냥 두면 마지막 탭이 밖으로 나가 DevExpress 가 쓸어 넘긴다. *@
             <DxTabs @bind-ActiveTabIndex="_tab" TabClick="@OnTabClick"
                     CssClass="pm-ai-tabs pm-tabfit" ScrollMode="TabsScrollMode.NoScroll">
                 @* 고친 값은 `_edit` 에 바로 들어간다 — 저장도 요청도 여기가 한다. *@
@@ -435,8 +405,7 @@
                                 OnDiscardDraft="@DiscardDraftAsync"
                                 OnDelete="@AskDeleteAsync" />
 
-                @* 보는 자리 셋은 **서버가 들고 있는 그대로**를 깐다(`AskItem`) —
-                   고치는 중인 `_edit` 를 넘기면 안 보낸 글이 「보낸 지시」에 앉는다. *@
+                @* 보는 자리 셋은 서버가 들고 있는 그대로(AskItem)를 깐다 — 고치는 중인 _edit 를 넘기면 안 보낸 글이 보낸 지시에 앉는다. *@
                 <AiTaskAskTab Item="@AskItem"
                               Run="@_openRun"
                               Turns="@_turns"
@@ -448,8 +417,7 @@
 
                 <AiTaskFilesTab Item="@AskItem" Run="@_openRun" Turns="@_changed" />
 
-                @* 줄은 **고른 차수의 것**이다(`_openRun`). 안 따르면 1차를 눌러도
-                   3차 로그가 그대로 서서 띠가 먹통으로 보인다. *@
+                @* 줄은 고른 차수의 것이다(_openRun). 안 따르면 1차를 눌러도 3차 로그가 서서 띠가 먹통으로 보인다. *@
                 <AiTaskLogTab Lines="@LogLines"
                               Count="@LogCount"
                               StateKey="@LogStateKey"
@@ -465,11 +433,7 @@
 
 <ConfirmDialog @ref="_confirm" />
 
-@* 적어 둔 것 목록. **표가 아니라 창이다** — 임시본은 이 브라우저에만 있는
-   곁가지라 서버 자료와 한 판에 섞으면 같은 줄로 보인다.
-
-   내용은 `BodyContentTemplate` 안에 넣는다 — `CommPopup` 에 `ChildContent`
-   가 없어서 그냥 넣으면 열리는 순간 500 이 난다. *@
+@* 적어 둔 것 목록. 표가 아니라 창이다 — 임시본은 이 브라우저에만 있는 곁가지라 서버 자료와 한 판에 섞으면 같은 줄로 보인다. 내용은 BodyContentTemplate 에 넣는다(CommPopup 에 ChildContent 가 없어 그냥 넣으면 열리는 순간 500). *@
 <CommPopup @bind-Visible="_draftsOpen" HeaderText="임시저장 불러오기" Width="640px">
     <BodyContentTemplate>
         <PageNotice Tone="NoticeTone.Info"

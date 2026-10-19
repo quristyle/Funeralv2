@@ -2,55 +2,19 @@
 @attribute [RouteKey("admin.status.ai-usage")]
 
 @*
-    [AI 사용량] — DB 메뉴 `/admin/status/ai-usage`.
-
-    **상태관리 묶음에 둔다.** 바로 옆이 「LLM 장비 상태」다 — 그쪽이 장비가
-    어떤가를 보고 이쪽이 그 장비를 누가 쓰는가를 본다. 한 자리에 있어야
-    「느리다」를 받았을 때 장비 탓인지 사람이 몰린 탓인지 바로 가른다.
-
-    「누가 AI 를 얼마나 쓰고 있나」를 사람 단위로 본다. AI쳇(`/site/ai/chat`)과
-    헤더의 🤖 서랍이 같은 길로 가므로 둘이 한 줄에 합쳐진다.
-
-    ────────────────────────────────────────────────────────────
-    [LLM 서버에는 물어볼 수가 없다]
-
-    llama.cpp 는 토큰 수를 응답에 실어 주지만(`usage`) 그것은 **요청 한 건의
-    값**이고, 포털의 모든 요청이 API 키 하나로 들어가므로 그쪽에서는 전부 같은
-    손님이다. 사람을 아는 자리는 **AIAgentServer 하나뿐**이다 — 게이트웨이가
-    붙여 주는 `X-User-Id` 가 거기까지만 온다.
-
-    그래서 호출이 지나갈 때 줍어 적어 두고(`scom.ai_usage_logs`) 이 화면은
-    그 줄을 더해 본다. **LLM 장비를 켜기 전의 값은 없다** — 쌓기 시작한
-    2026-10-08 이후만 보인다.
-
-    ────────────────────────────────────────────────────────────
-    [모르는 토큰을 0 으로 치지 않는다]
-
-    토큰 수를 안 돌려주는 경우가 있다(공급자가 안 주거나 스트림이 중간에
-    끊겼을 때). 그것을 0 으로 더하면 합계가 **조용히 작아진다** — 적게 쓴
-    사람과 덜 세어진 사람이 같은 그림이 된다.
-
-    그래서 서버가 「모르는 건수」를 함께 주고(`UnknownTokenCalls`) 화면이
-    그 줄에 표시를 단다. 숫자가 틀렸다는 뜻이 아니라 **그만큼이 빠져 있다**는
-    뜻이다.
-
-    ────────────────────────────────────────────────────────────
-    [집계가 답하지 못하는 것은 줄을 눌러 본다]
-
-    「누가 많이 쓰나」까지가 표의 몫이고 「왜 많은가」는 호출 하나하나를 봐야
-    나온다 — 대화가 길어서인지(보낸 토큰이 크다) 자동완성을 많이 쓴 것인지.
-    줄을 두 번 누르면 그 사람의 최근 호출이 뜬다.
+    [AI 사용량] DB 메뉴 `/admin/status/ai-usage`. 상태관리 묶음에서 옆의 LLM 장비 상태와 나란히 읽는다 — 느리다는 말이 장비 탓인지 사람이 몰린 탓인지 가른다.
+    사람을 아는 자리는 AIAgentServer 하나라 호출이 지나갈 때 scom.ai_usage_logs 에 적어 둔다 — LLM 장비를 켜기 전의 값은 없다.
+    토큰 수를 안 준 호출은 0 으로 더하지 않는다 — 합계가 조용히 작아진다. 모르는 건수를 따로 세어 표시한다. 누가 많이 쓰는지는 표가, 왜 많은지는 호출 하나하나를 눌러 본다.
 *@
 
 @inherits DataPage
 
-<PageTitle>AI 사용량 · 포털관리</PageTitle>
+<PageTitle>AI 사용량</PageTitle>
 
 <CommSch OnSearch="@ReloadAsync" OnReset="@Reset" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="기간">
-            @* 기본은 최근 30일이다. 이 화면을 여는 까닭이 대개 「요즘 누가
-               많이 쓰나」라서, 처음부터 전부 더해 보여 줄 값이 없다. *@
+            @* 기본은 최근 30일이다 — 요즘 누가 많이 쓰나를 보려고 여는 화면이라 처음부터 전부 더해 보이지 않는다. *@
             <div class="ad-checks">
                 <DxDateEdit @bind-Date="_from" CssClass="ad-editform__date" />
                 <span class="jsini-text-muted">~</span>
@@ -72,9 +36,7 @@
     </Fields>
 </CommSch>
 
-@* 타일 넷. **표가 답하지 않는 것만 올린다** — 표는 사람별이라 「전체가
-   얼마인가」를 읽으려면 눈으로 더해야 한다. 사람 수가 여기 있는 것은
-   「열 명이 쓰는 백만 토큰」과 「한 명이 쓰는 백만 토큰」이 다른 일이라서다. *@
+@* 타일 넷. 표가 답하지 않는 「전체 얼마인가」만 올린다 — 사람 수가 같이 있어야 「열 명이 쓰는 백만 토큰」과 「한 명이 쓰는 백만 토큰」이 구분된다. *@
 <div class="jsini-stats">
     <div class="jsini-stat">
         <div class="jsini-stat__label">호출</div>
@@ -131,8 +93,7 @@
                     }
                     else
                     {
-                        @* 0 이 아니면 눈에 띄어야 한다 — 「많이 쓰는데 자꾸
-                           실패한다」가 한도·장비 문제의 첫 신호다. *@
+                        @* 0 이 아니면 눈에 띄어야 한다 — 많이 쓰는데 자주 실패한다가 한도·장비 문제의 첫 신호다. *@
                         <span class="jsini-badge jsini-badge--warn">@row.FailedCalls.ToString("N0")</span>
                     }
                 </CellDisplayTemplate>
@@ -152,8 +113,7 @@
                     <span>@row.TotalTokens.ToString("N0")</span>
                     @if (row.UnknownTokenCalls > 0)
                     {
-                        @* 「모르는 것」과 「0」을 가른다(머리말). 칸이 좁아
-                           말풍선에 까닭을 적는다. *@
+                        @* 모르는 것과 0 을 가른다 — 칸이 좁아 말풍선에 까닭을 적는다. *@
                         <span class="jsini-text-muted"
                               title="@($"{row.UnknownTokenCalls:N0}건은 공급자가 토큰 수를 알려 주지 않아 이 합계에서 빠져 있습니다.")">
                             +?
@@ -173,8 +133,7 @@
 
             <DxGridDataColumn Caption="마지막" Width="130">
                 <CellDisplayTemplate Context="cell">
-                    @* 서버가 주는 값은 UTC 다. 한국 시각은 **보여 주기 직전에
-                       한 번만** 만든다(docs/utc-time.md). *@
+                    @* 서버가 주는 값은 UTC 다 — 한국 시각은 보여 주기 직전에 한 번만 만든다(docs/utc-time.md). *@
                     @(((AiUsageByUserDto)cell.DataItem).LastCallAt.Kst("MM-dd HH:mm"))
                 </CellDisplayTemplate>
             </DxGridDataColumn>

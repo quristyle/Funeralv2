@@ -5,9 +5,7 @@ using ProjMngServer.Services;
 
 namespace ProjMngServer.Controllers;
 
-/// <summary>
-/// 시스템 질의 관리. 옛 <c>sp_devsqlresp_base_exec</c> 를 대신한다.
-/// </summary>
+/// <summary>시스템 질의 관리.</summary>
 [ApiController]
 [Route("api/db-logics")]
 public sealed class DbLogicsController(DbLogicService service) : ControllerBase {

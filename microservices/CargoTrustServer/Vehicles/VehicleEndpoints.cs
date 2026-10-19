@@ -52,18 +52,7 @@ public record VehicleSaveRequest(
     string? Memo = null);
 
 /// <summary>
-/// 내 차량 — <c>/vehicles/*</c>.
-///
-/// <para>
-/// [차량번호는 남에게 안 간다]
-/// </para>
-///
-/// <para>
-/// 이 묶음이 내보내는 줄은 <b>부른 사람 자신의 차량</b>뿐이다. 거래·후기처럼
-/// 남이 보는 자리에는 차량이 실리지 않는다 — 번호판은 사람과 차를 한 번에
-/// 가리키는 값이라 이름을 가리는 것(<c>PersonName</c>)만으로는 모자란다.
-/// 관리자는 계정관리 쪽 <c>/admin/vehicles</c> 로 본다.
-/// </para>
+/// 내 차량(/vehicles/*). 내보내는 줄은 부른 사람 자신의 차량뿐이다 — 번호판은 사람과 차를 한 번에 가리키므로 남이 보는 자리에는 싣지 않는다. 관리자는 /admin/vehicles 로 본다.
 /// </summary>
 public static class VehicleEndpoints
 {
@@ -78,10 +67,7 @@ public static class VehicleEndpoints
         group.MapDelete("/{id:long}", Delete).WithSummary("차량 삭제(표시만)");
     }
 
-    /// <summary>
-    /// 번호판만 읽어 돌려준다. <b>저장하지 않는다</b> — 화면이 칸을 채우기 전에
-    /// 「이렇게 읽었다」를 먼저 보여 주고, 사람이 그 위에서 고치게 한다.
-    /// </summary>
+    /// <summary>번호판만 읽어 돌려준다. 저장하지 않는다 — 화면이 칸을 채우기 전에 「이렇게 읽었다」를 보여 주고 사람이 고치게 한다.</summary>
     private static IResult ReadPlate(string? no) =>
         Results.Ok(VehicleMap.Plate(PlateNumber.Read(no)));
 
@@ -111,15 +97,13 @@ public static class VehicleEndpoints
             HasHipass = req.HasHipass,
             Memo = Check.Clean(req.Memo),
         };
-        // 번호판은 **서버가 읽는다.** 화면이 읽어 보낸 값을 그대로 믿으면 두 곳의
-        // 해석이 갈릴 수 있고, 갈린 쪽을 나중에 가려낼 방법이 없다.
+        // 번호판은 서버가 읽는다. 화면이 보낸 값을 그대로 믿으면 두 곳의 해석이 갈려 가려낼 수 없다.
         Stamp(vehicle);
 
         db.Vehicles.Add(vehicle);
         await db.SaveChangesAsync(ct);
 
-        // 첫 대는 말없이 기본 차량이 된다 — 한 대뿐인데 「기본으로 지정」을 한 번 더
-        // 누르게 할 이유가 없다.
+        // 첫 대는 말없이 기본 차량이 된다 — 한 대뿐인데 「기본으로 지정」을 누르게 할 이유가 없다.
         var onlyOne = await db.Vehicles.CountAsync(v => v.UserId == me.UserId && !v.IsDeleted, ct) == 1;
         if (req.IsDefault || onlyOne) await MakeDefaultAsync(db, me.UserId, vehicle, ct);
 
@@ -195,8 +179,7 @@ public static class VehicleEndpoints
         plate = string.Empty;
         cls = VehicleClass.C4;
 
-        // 번호판은 사람마다 「12가3456」·「12 가 3456」처럼 띄어 적는다. 공백을 걷어 내
-        // 한 모양으로 저장한다 — 안 그러면 같은 차가 두 줄이 된다.
+        // 번호판은 「12가3456」·「12 가 3456」처럼 띄어 적히므로 공백을 걷어 한 모양으로 저장한다 — 안 그러면 같은 차가 두 줄이 된다.
         var cleaned = new string((req.PlateNo ?? string.Empty).Where(c => !char.IsWhiteSpace(c)).ToArray());
         if (cleaned.Length == 0) return "차량번호를 입력하세요.";
         if (cleaned.Length > 20) return "차량번호는 20자까지입니다.";

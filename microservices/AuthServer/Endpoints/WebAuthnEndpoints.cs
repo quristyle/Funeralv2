@@ -8,42 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace AuthServer.Endpoints;
 
-/// <summary>
-/// 패스키(지문·얼굴) — 등록 · 목록 · 삭제 · 로그인.
-/// </summary>
-/// <remarks>
-/// <para>
-/// [경로가 둘로 갈린다]
-/// </para>
-///
-/// <list type="table">
-///   <item>
-///     <term><c>/webauthn/login/*</c></term>
-///     <description><b>익명이다.</b> 로그인하려는 사람에게 토큰이 있을 리 없다.
-///     대신 게이트웨이가 <c>auth-attempts</c>(IP 당 분당 10회)로 조인다 —
-///     비밀번호 로그인과 같은 통을 쓰지 않으면 이 경로가 그 제한의 우회로가 된다.</description>
-///   </item>
-///   <item>
-///     <term>나머지</term>
-///     <description>로그인한 사람만. <b>내 계정에만</b> 붙이고 뗄 수 있다 —
-///     계정 아이디를 요청에서 받지 않고 신원 헤더에서만 읽는 이유가 그것이다.
-///     잠금화면이 쓰는 <c>/webauthn/verify*</c> 도 여기 속한다. 그쪽은 시도
-///     제한만 로그인과 같은 통(<c>auth-attempts</c>)으로 받는다.</description>
-///   </item>
-/// </list>
-///
-/// <para>
-/// [로그인 성공 처리를 비밀번호 로그인과 한 벌로 쓴다]
-/// </para>
-///
-/// <para>
-/// 토큰 발급 · 갱신 쿠키 · 파일 쿠키 · 접속 기록 · 비밀번호 만료 판정까지,
-/// 「로그인이 됐다」 뒤에 따라붙는 일이 여섯이다. 여기 한 벌을 더 적어 두면
-/// <b>반드시 한쪽만 고치는 날이 온다</b> — 그때 증상은 「지문으로 들어가면
-/// 사진이 안 보인다」처럼 원인과 멀다. 그래서 <see cref="LoginCompletion"/>
-/// 한 곳에 모으고 <c>AuthEndpoints</c> 의 비밀번호 로그인도 그것을 부른다.
-/// </para>
-/// </remarks>
+/// <summary>패스키(지문·얼굴) — 등록 · 목록 · 삭제 · 로그인. <c>/webauthn/login/*</c> 은 익명이고 나머지는 로그인한 사람만 쓴다.</summary>
 public static class WebAuthnEndpoints
 {
     public static void MapWebAuthnEndpoints(this IEndpointRouteBuilder app)
@@ -155,9 +120,7 @@ public static class WebAuthnEndpoints
                 return Results.Json(ApiResponse<object>.Fail("등록된 기기가 아닙니다.", "404"), statusCode: 404);
             }
 
-            // **정말로 지운다.** 표시만 해 두면 같은 기기로 다시 등록할 때
-            // 자격 증명 아이디 고유 색인에 걸린다. 잃어버린 기기를 끊는 것이
-            // 이 단추의 일이라, 흔적을 남기는 것보다 확실히 없애는 편이 맞다.
+            // 정말로 지운다 — 표시만 두면 같은 기기를 다시 등록할 때 자격 증명 아이디 고유 색인에 걸린다. 잃어버린 기기를 끊는 일이라 흔적을 남기지 않는다.
             db.Remove(credential);
             await db.SaveChangesAsync(ct);
 
@@ -196,15 +159,13 @@ public static class WebAuthnEndpoints
 
             if (account is null)
             {
-                // 계정이 사라졌는데 패스키만 남은 경우다. 외래 키가 막고 있어
-                // 정상 경로로는 생기지 않지만, 생기면 조용히 통과시키면 안 된다.
+                // 계정이 사라졌는데 패스키만 남은 경우다 — 외래 키가 막아 정상 경로로는 생기지 않으며, 생기면 조용히 통과시키지 않는다.
                 logger.LogWarning("패스키의 주인 계정이 없다: {AccountId}", verified.Credential!.AccountId);
                 return Results.Json(
                     ApiResponse<object>.Fail("기기 인증에 실패했습니다.", "401"), statusCode: 401);
             }
 
-            // 승인 대기·정지 계정을 막는다. **비밀번호 로그인과 같은 판정이다** —
-            // 여기를 빠뜨리면 정지된 계정이 등록해 둔 지문으로는 그대로 들어온다.
+            // 승인 대기·정지 계정을 막는다 — 비밀번호 로그인과 같은 판정이다. 빠뜨리면 정지된 계정이 등록해 둔 지문으로 들어온다.
             if (await completion.RejectIfNotActiveAsync(http, account, ct) is { } rejected)
             {
                 return rejected;
@@ -216,20 +177,7 @@ public static class WebAuthnEndpoints
         .AllowAnonymous()
         .WithName("LoginWithWebAuthn");
 
-        // ── 본인 확인 (잠금화면) ─────────────────────────────────
-        //
-        // **아무것도 바꾸지 않는다.** 지금 로그인한 사람의 기기가 맞는지만
-        // 보고 참·거짓을 준다. `/user/verify-password` 의 지문판이고,
-        // 그 경로가 왜 그렇게 생겼는지가 여기에도 그대로 적용된다.
-        //
-        // **로그인(`/login`)을 다시 부르면 안 된다.** 그러면 새 토큰이
-        // 발급되어 기존 세션과 섞인다 — 잠금을 푸는 일이 조용히 재로그인이
-        // 된다. 게다가 그 경로는 익명이라 **누구의 지문이든** 통과하고,
-        // 잠근 사람이 아닌 옆 사람의 화면이 열린다.
-        //
-        // **실패해도 401 이 아니라 200 + false 다.** 401 을 주면 프런트의
-        // `AuthTokenHandler` 가 세션이 죽은 것으로 읽고 토큰을 버려서,
-        // 지문 한 번 잘못 대면 **화면 전체가 로그아웃된다.**
+        // 본인 확인(잠금화면). 아무것도 바꾸지 않고 지금 로그인한 사람의 기기가 맞는지만 참·거짓으로 준다. <c>/user/verify-password</c> 의 지문판이다 — 로그인(<c>/login</c>)을 다시 부르면 새 토큰이 발급되어 세션이 섞이므로 따로 둔다.</summary>
 
         group.MapPost("/verify/options", async (
             UserContext? user, AppDbContext db, WebAuthnService webAuthn, CancellationToken ct) =>
@@ -271,9 +219,7 @@ public static class WebAuthnEndpoints
 
             if (!verified.Ok)
             {
-                // 까닭은 **기록에만** 남긴다. 화면에는 거짓만 준다 —
-                // 「등록된 기기가 아니다」와 「서명이 틀렸다」를 갈라 주면
-                // 잠긴 화면 앞에서 남의 기기를 골라내는 데 쓰인다.
+                // 까닭은 기록에만 남긴다 — 화면에는 거짓만 준다. 「등록된 기기가 아니다」와 「서명이 틀렸다」를 갈라 주면 남의 기기를 골라내는 데 쓰인다.
                 logger.LogInformation(
                     "패스키 잠금 해제 실패: {Username} ({Reason})", account.UserId, verified.Message);
 
@@ -286,10 +232,7 @@ public static class WebAuthnEndpoints
         .WithName("VerifyWebAuthn");
     }
 
-    /// <summary>
-    /// 내 것인 패스키만 꺼낸다. <b>아이디만으로 찾지 않는다</b> — 그러면 남의
-    /// 줄 번호를 넣어 지울 수 있다.
-    /// </summary>
+    /// <summary>내 것인 패스키만 꺼낸다. 아이디만으로 찾지 않는다 — 그러면 남의 줄 번호를 넣어 지울 수 있다.</summary>
     private static async Task<AccountWebAuthnCredential?> FindMineAsync(
         AppDbContext db, UserContext? user, string id, CancellationToken ct)
     {
@@ -314,10 +257,7 @@ public static class WebAuthnEndpoints
         LastUsedAt = c.LastUsedAt,
     };
 
-    /// <summary>
-    /// 로그인 설정 요청. 아이디는 <b>있어도 되고 없어도 된다</b> —
-    /// 없으면 기기가 스스로 열쇠를 고른다.
-    /// </summary>
+    /// <summary>로그인 설정 요청. 아이디는 있어도 되고 없어도 된다 — 없으면 기기가 스스로 열쇠를 고른다.</summary>
     public sealed class WebAuthnLoginOptionsRequest
     {
         /// <summary>로그인 아이디. 비워도 된다.</summary>

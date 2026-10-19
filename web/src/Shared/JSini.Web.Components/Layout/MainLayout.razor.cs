@@ -24,19 +24,11 @@ public partial class MainLayout
     [Inject] private PortalTabs Tabs { get; set; } = default!;
     [Inject] private MenuReveal Reveal { get; set; } = default!;
 
-    /// <summary>
-    /// 사용자 판을 접는 손잡이. <b>☰ 로 사이드바를 펼 때 함께 접는다</b> —
-    /// 휴대폰에서 그 판은 헤더 아래를 통째로 덮어서, 안 접으면 펴 놓은
-    /// 메뉴가 판 뒤에 가린다(<see cref="UserMenuDrawer"/> 머리말).
-    /// </summary>
+    /// <summary>사용자 판 접기 손잡이. ☰ 로 사이드바를 펼 때 함께 접는다 — 휴대폰에서 그 판이 헤더 아래를 덮어 안 접으면 메뉴가 가린다.</summary>
     [Inject] private UserMenuDrawer UserDrawer { get; set; } = default!;
     [Inject] private MenuUsageRecorder MenuUsage { get; set; } = default!;
 
-    /// <summary>
-    /// 화면을 열어도 되는가를 정하는 단 한 곳. 이 레이아웃이 쓰는 것은
-    /// <b>메뉴 하나에 대한 판정</b>뿐이다 — 매개변수가 든 상세 화면은 주소만
-    /// 보고 알아볼 수 없어 라우터 앞의 문(<c>ScreenGate</c>)이 맡는다.
-    /// </summary>
+    /// <summary>화면을 열어도 되는지 정하는 단 한 곳. 메뉴 하나에 대한 판정만 한다 — 매개변수가 든 상세 화면은 라우터 앞의 ScreenGate 가 맡는다.</summary>
     [Inject] private Security.ScreenAccess Access { get; set; } = default!;
     [Inject] private AuthenticationStateProvider AuthState { get; set; } = default!;
     [Inject] private NavigationManager Navigation { get; set; } = default!;
@@ -44,18 +36,7 @@ public partial class MainLayout
     [Inject] private ILogger<MainLayout> Log { get; set; } = default!;
     [Inject] private Microsoft.AspNetCore.Http.IHttpContextAccessor HttpContextAccessor { get; set; } = default!;
 
-    /// <summary>
-    /// 셸의 클래스. 접힘은 <c>--collapsed</c>, <b>휴대폰에서 펴진 것은
-    /// <c>--nav-open</c></b> 이다.
-    ///
-    /// <para>
-    /// <b>펴짐을 따로 표시하는 이유</b>는 첫 그림 때문이다. 프리렌더는
-    /// 화면 크기를 모르므로 <c>_isPhone</c> 이 거짓이고 사이드바는 펴진
-    /// 채로 나간다 — 휴대폰이면 그 판이 본문을 덮은 그림이 회로가 붙을
-    /// 때까지 떠 있다. 좁은 화면에서는 이 표시가 붙었을 때만 사이드바를
-    /// 그리게 해 두면(app.css) 그 깜빡임이 없어진다.
-    /// </para>
-    /// </summary>
+    /// <summary>셸의 클래스. 접힘은 --collapsed, 휴대폰에서 펴진 것은 --nav-open. 첫 그림은 화면 크기를 모르므로 이 표시로 좁은 화면의 깜빡임을 막는다.</summary>
     private string ShellCss
     {
         get
@@ -64,49 +45,31 @@ public partial class MainLayout
                 ? (_isPhone ? "jsini-shell jsini-shell--nav-open" : "jsini-shell")
                 : "jsini-shell jsini-shell--collapsed";
 
-            // 떠다니는 단추를 감춘 사람에게 붙는 표시. 감추는 일만 하고
-            // **헤더의 ☰ 를 되돌리지는 않는다** — 휴대폰에서 메뉴를 여는 일은
-            // 로고가 이미 한다(`OnBrandClick`, app.css 의 같은 이름).
+            // 떠다니는 메뉴 단추를 감춘 사람에게 붙는다. 감추기만 하고 헤더의 ☰ 는 되살리지 않는다 — 로고가 메뉴를 여는 길이다.
             if (_fabHidden)
             {
                 css += " jsini-shell--fab-hidden";
             }
 
-            // 헬프데스크 요청 등록 단추를 감춘 사람에게 붙는 표시. **메뉴 단추와
-            // 따로다** — 한 표시로 묶으면 둘 중 하나만 감출 수가 없다.
-            // 권한이 없으면 아예 안 그리므로(`HelpDeskFabAllowed`) 여기 오지 않는다.
+            // 요청 등록 단추를 감춘 사람에게 붙는다. 메뉴 단추와 따로 둔다. 권한이 없으면 여기 오지 않는다.
             if (_hdFabHidden)
             {
                 css += " jsini-shell--hdfab-hidden";
             }
 
-            // 그 단추를 **넓은 화면에도 띄우기로** 한 사람에게 붙는 표시. 떠다니는
-            // 단추 둘은 본래 휴대폰에서만 켜지는데(app.css 의 `@media`), 요청 등록만은
-            // 책상에서도 쓸 일이 있어 물어서 띄운다(`PortalBoot.HelpDeskFabDesktopKey`).
-            //
-            // **감춘 사람에게는 이 표시가 있어도 안 보인다** — app.css 가 감추기 규칙을
-            // 뒤에 두어 이긴다. 「감췄다」는 넓든 좁든 안 보겠다는 말이다.
+            // 요청 등록 단추를 넓은 화면에도 띄우기로 한 사람에게 붙는다. 감춘 사람에게는 이 표시가 있어도 안 보인다(app.css 가 감추기를 뒤에 둔다).
             if (_hdFabDesktop)
             {
                 css += " jsini-shell--hdfab-desktop";
             }
 
-            // 아래 띠를 쓰지 않기로 한 사람에게 붙는 표시. 띠 자체는 아래에서
-            // 안 그리지만, **본문 아래 여백과 단추 자리 올림**은 CSS 가 들고
-            // 있어서 이 표시로만 걷을 수 있다(app.css 의 같은 이름).
+            // 아래 띠를 쓰지 않기로 한 사람에게 붙는다. 여백과 단추 자리 올림을 CSS 가 들고 있어 이 표시로만 걷을 수 있다.
             if (_bottomNavHidden)
             {
                 return css + " jsini-shell--bottomnav-hidden";
             }
 
-            // 띠는 쓰되 **이름만 감추기로** 한 사람에게 붙는 표시. 띠가 얇아지고
-            // (60px → 44px) 띠를 피해 서 있던 아홉 자리가 그만큼 아래로
-            // 내려온다 — 본문이 세로로 16px 을 돌려받는 길이 그것이다.
-            // 값은 CSS 토큰 하나(`--jsini-bottomnav-h`)로 모아 두었다.
-            //
-            // **띠를 아예 안 쓰는 사람에게는 붙이지 않는다.** 위에서 이미
-            // 돌아갔으므로 여기 오지 않는다 — 둘을 함께 붙이면 「없는 띠의
-            // 높이」를 줄이는 규칙이 되어 읽는 사람이 한 번 더 헤맨다.
+            // 띠는 쓰되 이름만 감춘 사람에게 붙는다. 띠가 얇아져 본문이 16px 을 돌려받는다 — 값은 --jsini-bottomnav-h 한 토큰에 모은다.
             return _bottomNavLabelsHidden ? css + " jsini-shell--bottomnav-nolabel" : css;
         }
     }
@@ -115,76 +78,19 @@ public partial class MainLayout
     private bool _isPhone;
     private bool _isTablet;
 
-    /// <summary>
-    /// 사이드바 폭(px). <b>기본값은 DevExpress 데모의 330px 이다</b>
-    /// (`--jsini-sidebar-width` 와 같은 값이라야 휴대폰 갈래와 어긋나지 않는다).
-    ///
-    /// <para>
-    /// 끌어 놓으면 이 값이 바뀌고 브라우저에 남는다. <b>사용자가 아니라
-    /// 기기에 남기는 이유</b>는 알맞은 폭이 화면 크기에 딸린 것이기 때문이다 —
-    /// 노트북에서 좁혀 둔 폭이 사무실 큰 모니터에 따라오면 그때는 그것이
-    /// 불편이 된다.
-    /// </para>
-    /// </summary>
+    /// <summary>사이드바 폭(px). 기본 330px — DevExpress 데모 값이고 --jsini-sidebar-width 와 같아야 휴대폰 갈래와 어긋나지 않는다. 기기에 남긴다 — 알맞은 폭이 화면 크기에 딸린다.</summary>
     private int _sidebarWidth = 330;
 
-    /// <summary>
-    /// 끌어서 이 폭 <b>이하</b>로 좁히면 붙잡지 않고 접는다(px).
-    ///
-    /// <para>
-    /// 100px 안쪽은 메뉴 글자가 거의 남지 않아 쓸 수 있는 폭이 아니다. 거기까지
-    /// 끌었다는 것은 「좁게 쓰겠다」가 아니라 「치우겠다」이므로, 그 뜻대로
-    /// 접는다 — ☰ 로 접은 것과 <b>같은 접힘</b>이라 아무 길로나 다시 펴진다.
-    /// </para>
-    ///
-    /// <para>
-    /// 판의 <c>MinSize</c>(90px)보다 커야 한다. 같거나 작으면 끌어서는 닿을
-    /// 수 없는 값이라 이 갈래가 영영 안 걸린다. <b>지금은 그 사이가 10px 뿐</b>이라,
-    /// 더 왼쪽으로 끌면 부품이 90px 에 붙잡아 주는 덕에 그대로 접힘으로 간다.
-    /// </para>
-    /// </summary>
+    /// <summary>끌어서 이 폭 이하로 좁히면 붙잡지 않고 접는다(px). 판의 MinSize(90px)보다 커야 이 갈래가 걸린다 — 지금은 10px 차이뿐이라 부품이 90px 에 붙잡아 접힘으로 간다.</summary>
     private const int SidebarSnapPx = 100;
 
-    /// <summary>
-    /// 끌어 접은 그 순간의 <b>이전 폭</b>(px). 다시 펼 때 이 폭으로 되돌린다.
-    ///
-    /// <para>
-    /// 끌어 놓은 좁은 폭(예: 120px)을 그대로 두면 다시 폈을 때 <b>글자가 잘린
-    /// 사이드바</b>가 나온다. 접는 것이 뜻이었으므로 폭은 접기 직전에 쓰던
-    /// 것을 그대로 기억해 둔다 — 저장소에도 좁은 폭은 담지 않는다.
-    /// </para>
-    ///
-    /// <para>
-    /// <b>접힌 동안에는 <see cref="_sidebarWidth"/> 가 끌어 놓은 좁은 값이다.</b>
-    /// 부품이 알고 있는 폭과 우리가 그리는 폭을 어긋나지 않게 두려는 것이다 —
-    /// 어긋나면 <c>Size</c> 속성이 「안 바뀐 값」으로 보여 다시 펼 때 부품에
-    /// 전해지지 않는다.
-    /// </para>
-    /// </summary>
+    /// <summary>끌어 접은 순간의 이전 폭(px). 다시 펼 때 이 값으로 되돌린다 — 좁은 폭을 그대로 두면 글자가 잘린 사이드바가 나온다. 접힌 동안 _sidebarWidth 는 끌어 놓은 좁은 값이다.</summary>
     private int? _widthBeforeSnap;
 
-    /// <summary>
-    /// 저장해 둔 폭을 이미 읽었나. <b>한 번만 읽는다</b> — 읽기는
-    /// <see cref="PortalBoot"/> 의 공용 왕복에 실려 오고, 두 번째부터는
-    /// 사용자가 방금 끌어 놓은 값을 옛 값으로 되돌리게 된다.
-    /// </summary>
+    /// <summary>저장해 둔 폭을 읽었는가. 한 번만 읽는다 — 두 번째부터는 방금 끌어 놓은 값을 옛 값으로 되돌린다.</summary>
     private bool _widthRestored;
 
-    /// <summary>
-    /// 휴대폰에서 메뉴를 편 그 순간의 <b>뒤로 가기 횟수</b>(theme.js
-    /// <c>jsiniHistory</c>). 이동할 때 다시 물어 늘었으면 뒤로 가기다.
-    ///
-    /// <para>
-    /// 메뉴를 펼 때마다 다시 적는다. 그래야 <b>지난번에 삼킨 뒤로 가기가
-    /// 이번 이동을 막지 않는다</b> — 한 번 적고 말면 그 뒤의 첫 메뉴 선택이
-    /// 뒤로 가기로 읽혀 화면이 안 열린다.
-    /// </para>
-    ///
-    /// <para>
-    /// <c>null</c> 이면 가로채지 않는다 — 메뉴가 접혀 있거나, 횟수를 못 읽었을
-    /// 때다. 못 읽었으면 뒤로 가기가 예전처럼 화면을 옮긴다(조용히 진다).
-    /// </para>
-    /// </summary>
+    /// <summary>휴대폰에서 메뉴를 편 순간의 뒤로 가기 횟수(theme.js jsiniHistory). 메뉴를 펼 때마다 다시 적어야 지난번 삼킨 뒤로 가기가 이번 이동을 막지 않는다. null 이면 가로채지 않는다.</summary>
     private long? _popsAtOpen;
 
     /// <summary>지금 화면의 메뉴 줄기. 브레드크럼이 쓴다.</summary>
@@ -208,10 +114,7 @@ public partial class MainLayout
     /// <summary>모바일 화면의 떠다니는 메뉴 단추(FAB) 위치.</summary>
     private string _fabPosition = "bottom-left";
 
-    /// <summary>
-    /// 그 단추를 감춰 두었는가. 감춰도 <b>헤더의 ☰ 는 되살리지 않는다</b> —
-    /// 휴대폰에서 메뉴를 여는 일은 로고가 한다(<see cref="OnBrandClick"/>).
-    /// </summary>
+    /// <summary>그 단추를 감췄는가. 감춰도 헤더의 ☰ 는 되살리지 않는다 — 휴대폰에서 메뉴를 여는 길은 로고가 맡는다.</summary>
     private bool _fabHidden = true;
 
     /// <summary>헬프데스크 요청 등록 단추의 위치. 기본은 메뉴 단추의 반대 귀퉁이다.</summary>
@@ -220,44 +123,13 @@ public partial class MainLayout
     /// <summary>그 단추를 감춰 두었는가. 기본은 <c>true</c> — 권한이 있으면 보인다.</summary>
     private bool _hdFabHidden = true;
 
-    /// <summary>
-    /// 그 단추를 <b>넓은 화면에도 띄우기로</b> 했는가. 기본은 <c>false</c> —
-    /// 휴대폰에서만 뜬다(<see cref="PortalBoot.HelpDeskFabDesktopKey"/>).
-    /// </summary>
+    /// <summary>요청 등록 단추를 넓은 화면에도 띄우기로 했는가. 기본은 false — 휴대폰에서만 뜬다.</summary>
     private bool _hdFabDesktop;
 
     /// <summary>요청 등록 단추가 여는 화면. 권한을 묻는 열쇠도 이 경로다.</summary>
     private const string HelpDeskNewPath = "/helpdesk/request/new";
 
-    /// <summary>
-    /// 요청 등록 단추를 <b>그려도 되는가</b>. 그 화면을 열 수 있는 사람만이다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>권한표를 받기 전에는 그리지 않는다.</b> <see cref="MayOpen"/> 는 반대로
-    /// (받기 전에는 막지 않는다) 판정하는데, 저기는 <b>이미 있던 메뉴가 한 번
-    /// 깜빡이는</b> 일이고 여기는 <b>없던 단추가 떴다가 사라지는</b> 일이라 눈에
-    /// 띄는 쪽이 다르다. 권한표는 부트스트랩 한 방에 실려 오므로 늦어 봐야
-    /// 첫 그림 하나다.
-    /// </para>
-    /// <para>
-    /// <b>감췄는지는 여기서 안 따진다.</b> 그쪽은 CSS 가 한다
-    /// (<c>.jsini-shell--hdfab-hidden</c>) — 화면 크기로 마크업을 갈아 끼우지
-    /// 않는 이 파일의 규칙 그대로다.
-    /// </para>
-    /// <para>
-    /// <b>이미 그 화면이면 그리지 않는다</b>(<see cref="OnHelpDeskNewPage"/>).
-    /// 거기서 이 단추는 <b>눌러도 아무 일도 안 일어난다</b>
-    /// (<see cref="OpenHelpDeskRequest"/> 가 같은 주소로는 안 옮긴다 — 옮기면
-    /// 적던 글이 비워진다). 아무 일도 안 일어나는 단추는 사람에게 「고장」으로
-    /// 읽히고, 게다가 그 화면은 글칸이 화면을 가득 채우는 자리라 귀퉁이
-    /// 한 칸이 아깝다.
-    /// </para>
-    /// <para>
-    /// 주소가 바뀌면 다시 셈한다 — <see cref="OnLocationChanged"/> 가
-    /// <c>StateHasChanged</c> 를 부른다.
-    /// </para>
-    /// </remarks>
+    /// <summary>요청 등록 단추를 그려도 되는가 — 그 화면을 열 수 있는 사람만. 권한표를 받기 전에는 그리지 않는다. 이미 그 화면이면 그리지 않는다 — 눌러도 아무 일이 없는 단추가 되기 때문이다.</summary>
     private bool HelpDeskFabAllowed =>
         Permissions.IsLoaded && Permissions.CanView(HelpDeskNewPath) && !OnHelpDeskNewPage;
 
@@ -272,50 +144,13 @@ public partial class MainLayout
     private bool OnAiChatPage =>
         AiChatPaths.Any(p => string.Equals(CurrentHref(), p, StringComparison.OrdinalIgnoreCase));
 
-    /// <summary>
-    /// 요청 등록 단추를 <b>한 칸 밀어야 하는가</b>. 메뉴 단추와 같은 귀퉁이에
-    /// 둘 다 서 있을 때다.
-    /// </summary>
-    /// <remarks>
-    /// 미는 일 자체는 CSS 가 한다(<c>.jsini-shell__fab--stacked</c>). 여기서 정하는
-    /// 것은 <b>밀지 말지</b>뿐이다 — 메뉴 단추를 감춰 둔 사람에게까지 밀면 귀퉁이가
-    /// 비었는데 단추만 3rem 떠 있는 그림이 된다.
-    /// </remarks>
+    /// <summary>요청 등록 단추를 한 칸 밀어야 하는가. 메뉴 단추와 같은 귀퉁이에 둘 다 설 때만 — 메뉴 단추를 감췄으면 밀지 않는다.</summary>
     private bool HelpDeskFabStacked => !_fabHidden && _hdFabPosition == _fabPosition;
 
     /// <summary>오른쪽 아래 귀퉁이를 가리키는 값. 네 자리 중 하나다.</summary>
     private const string BottomRight = "bottom-right";
 
-    /// <summary>
-    /// 「위로 가기」 단추에 붙일 <b>밀어 올리는 표시</b>. 그 단추는 늘 오른쪽
-    /// 아래이므로, 거기 이미 선 떠다니는 단추의 수만큼 한 칸씩 민다
-    /// (<c>--stacked</c> · <c>--stacked2</c> — 미는 일은 app.css 가 한다).
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>넓은 화면에서는 셈이 다르다.</b> 거기서는 저 단추 둘이 본래 안 보이므로
-    /// (app.css 의 <c>@media (max-width: 767px)</c> 안에서만 켠다) 자리를 비켜 주면
-    /// <b>아무도 없는 귀퉁이 위에 떠 있는 단추</b>가 된다. 다만 요청 등록 단추만은
-    /// <b>넓은 화면에도 띄울 수 있어</b>(<see cref="_hdFabDesktop"/>), 그렇게 해 둔
-    /// 사람에게는 한 칸 비켜 줘야 한다 — 안 그러면 오른쪽 아래에서 동그라미 둘이
-    /// 포개지고, <b>위엣것만 눌린다.</b>
-    /// </para>
-    /// <para>
-    /// 이 파일이 화면 크기로 마크업을 갈아 끼우지 않는다는 규칙과 어긋나지 않는다 —
-    /// 갈아 끼우는 것은 클래스 한 칸이고, <see cref="ShellCss"/> 가 <c>--nav-open</c>
-    /// 을 붙이는 것과 같은 자리다.
-    /// </para>
-    /// <para>
-    /// <b>첫 그림에서는 안 민다</b>(프리렌더는 화면 크기를 모르므로
-    /// <see cref="_isPhone"/> 이 거짓이다). 이 단추는 본문을 300px 넘게 내려야
-    /// 뜨는데 그때는 회로가 이미 붙어 있어서, 사람 눈에 닿는 자리가 아니다.
-    /// </para>
-    /// <para>
-    /// 세는 기준이 <see cref="HelpDeskFabStacked"/> 와 맞물린다 — 저쪽이
-    /// 한 칸 밀려 섰으면 여기서는 두 칸 위다. 그래서 <b>보이는 단추만</b>
-    /// 센다(감춘 것 · 권한이 없어 안 그리는 것은 자리를 차지하지 않는다).
-    /// </para>
-    /// </remarks>
+    /// <summary>위로 가기 단추에 붙일 밀어 올리는 표시. 보이는 떠다니는 단추 수만큼 한 칸씩 민다(감춘 것·권한 없는 것은 세지 않는다). 넓은 화면에서 요청 등록 단추를 띄운 사람에게는 한 칸 비켜 준다. 첫 그림에서는 밀지 않는다.</summary>
     private string ScrollTopFabCss
     {
         get
@@ -349,24 +184,13 @@ public partial class MainLayout
         }
     }
 
-    /// <summary>
-    /// 휴대폰 아래 띠를 <b>쓰지 않기로</b> 했는가. 기본은 <c>false</c> — 쓴다.
-    /// 읽어 오기 전에도 그 값이라 한 번도 안 고친 사람에게 띠가 깜빡이지 않는다.
-    /// </summary>
+    /// <summary>휴대폰 아래 띠를 쓰지 않기로 했는가. 기본은 false — 읽기 전 값이 기본이라 깜빡이지 않는다.</summary>
     private bool _bottomNavHidden;
 
-    /// <summary>
-    /// 그 띠의 칸에서 <b>이름을 감추기로</b> 했는가. 기본은 <c>false</c> —
-    /// 이름이 보인다. 이것도 읽기 전의 값이 기본값이라 띠가 얇아졌다 두꺼워지는
-    /// 번쩍임이 없다.
-    /// </summary>
+    /// <summary>띠 칸에서 이름을 감추기로 했는가. 기본은 false. 읽기 전 기본값이 있어 띠가 떴다 두꺼워지지 않는다.</summary>
     private bool _bottomNavLabelsHidden;
 
-    /// <summary>
-    /// 같은 칸들을 <b>넓은 화면 헤더에 세우지 않기로</b> 했는가. 기본은
-    /// <c>false</c> — 선다. 읽기 전의 값이 기본값이라 단추들이 떴다 사라지는
-    /// 번쩍임이 없다.
-    /// </summary>
+    /// <summary>칸들을 넓은 화면 헤더에 세우지 않기로 했는가. 기본은 false — 읽기 전 값이 기본이라 단추가 떴다 사라지지 않는다.</summary>
     private bool _bottomNavDesktopHidden;
 
     private string _toastPosition = "bottom-right";
@@ -384,23 +208,17 @@ public partial class MainLayout
             }
         }
 
-        // 탭 줄이 볼 수 없는 화면을 세우지 않게 한다 — 고정 탭을 되살릴 때와
-        // 이미 열린 탭을 걷을 때 같은 판정을 쓴다(`PortalTabs.CanShow`).
-        // 레이아웃은 업무를 옮길 때마다 새로 생기지만 서비스는 회로마다 하나라
-        // 누가 채워도 같은 판정이다. 그래서 치울 때 비우지 않는다.
+        // 탭 줄이 볼 수 없는 화면을 세우지 않게, 되살릴 때와 걷을 때 같은 판정(PortalTabs.CanShow)을 쓴다. 서비스는 회로마다 하나라 치울 때 비우지 않는다.
         Tabs.CanShow = CanShowHref;
 
         Menus.MenusChanged += OnMenusChanged;
         Navigation.LocationChanged += OnLocationChanged;
         _navigating = Navigation.RegisterLocationChangingHandler(OnNavigating);
 
-        // 브레드크럼을 눌렀다. 사이드바가 접혀 있으면 **여기서 편다** —
-        // 트리 쪽에서는 못 한다. 접힘은 이 레이아웃이 들고 있는 상태다.
+        // 브레드크럼을 누르면 사이드바가 접혀 있을 때 여기서 편다 — 접힘은 이 레이아웃이 든 상태라 트리 쪽에서는 못 한다.
         Reveal.Requested += OnMenuRevealRequested;
 
-        // 헤더의 권한 그룹이 이 값으로 그려진다. 내 정보는 부트스트랩이
-        // 끝나야 실리므로, 안 듣고 있으면 **그다음 렌더가 올 때까지 비어
-        // 있다** — 메뉴를 한 번 누르기 전에는 로고 옆이 빈 채로 남는다.
+        // 헤더의 권한 그룹은 이 값으로 그려진다. 내 정보는 부트스트랩이 끝나야 실리므로 듣지 않으면 다음 렌더까지 비어 있다.
         Me.Changed += OnMeChanged;
 
         // 환경설정 등에서 모바일 메뉴 단추 위치가 바뀌면 즉시 화면에 반영한다.
@@ -485,35 +303,7 @@ public partial class MainLayout
 
     private void OnMeChanged() => InvokeAsync(StateHasChanged);
 
-    /// <summary>
-    /// 브레드크럼이 「이 메뉴를 사이드바에서 보여 달라」고 했다.
-    /// <b>이쪽이 할 일은 판을 펴는 것 하나다</b> — 어느 가지를 펼지는
-    /// <c>SidebarMenu</c> 가 같은 부탁을 받아 처리한다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 휴대폰에서도 편다. 그때 사이드바는 본문을 덮지만, 「메뉴를 보여
-    /// 달라」고 누른 참이라 그것이 바라는 것이다 — 화면을 옮기면
-    /// <c>OnLocationChanged</c> 가 다시 접는다.
-    /// </para>
-    /// <para>
-    /// [아래 띠의 「메뉴」 칸만 다시 누르면 접는다]
-    /// </para>
-    /// <para>
-    /// 그 칸이 보내는 것은 메뉴 경로가 아니라 <see cref="BottomNav.MenuPath"/>
-    /// 라는 표시다(<c>MobileBottomNav.Go</c>). 그것은 <b>햄버거 단추와 같은
-    /// 물건</b>이라 여닫이여야 한다 — 떠다니는 단추·로고가 이미 그렇게
-    /// 동작하는데(<see cref="ToggleSidebarAsync"/>) 이 칸만 펴기만 하면,
-    /// 판이 덮여 있는 채로 <b>방금 누른 그 자리를 다시 눌러도 아무 일이
-    /// 없다.</b> 띠는 사이드바 위(z-index 1030)에 남아 있어서 눌리기는 한다.
-    /// </para>
-    /// <para>
-    /// 브레드크럼이 보내는 것은 언제나 실제 메뉴 경로라 여기 걸리지 않는다
-    /// (표시는 <c>#</c> 로 시작해 메뉴 경로와 절대 겹치지 않는다).
-    /// <b>그쪽은 접으면 안 된다</b> — 「이 메뉴를 보여 달라」에 판을 닫는 것은
-    /// 부탁의 반대다.
-    /// </para>
-    /// </remarks>
+    /// <summary>브레드크럼이 「이 메뉴를 사이드바에서 보여 달라」고 할 때 판을 편다(접지 않는다). 아래 띠의 「메뉴」 칸은 햄버거와 같은 여닫이여야 한다 — 펴기만 하면 덮인 판에서 다시 눌러도 아무 일이 없다.</summary>
     private void OnMenuRevealRequested(string path) => InvokeAsync(async () =>
     {
         if (_sidebarOpen)
@@ -530,56 +320,13 @@ public partial class MainLayout
         await OpenSidebarAsync();
         StateHasChanged();
     });
-
-    /// <summary>
-    /// **토큰이 먼저다.** 게이트웨이를 부르려면 있어야 하고, 이 값은
-    /// `AuthenticationStateProvider` 에서만 나오는데 그건 **Razor 컴포넌트
-    /// 안에서만** 물을 수 있다. HTTP 핸들러에서 물으면 예외로 죽는다.
-    ///
-    /// <para>
-    /// 그다음 권한표 · 메뉴 · 즐겨찾기 · 내정보를 <b>한 번의 왕복</b>으로
-    /// 받는다(<see cref="PortalBootstrap"/>). 넷을 순차로 부르던 자리였고,
-    /// 이 레이아웃은 <b>업무 모듈을 넘나들 때마다 새로 만들어지므로</b>
-    /// 그 왕복이 화면 전환 횟수만큼 났다.
-    /// </para>
-    ///
-    /// <para>
-    /// 넷 사이의 순서 제약(권한표 → 메뉴 → 즐겨찾기 → 얼굴)은 없어진 것이
-    /// 아니라 <see cref="PortalBootstrap"/> 안으로 옮겨 갔다. 부트스트랩이
-    /// 안 되는 환경에서는 거기서 옛 방식으로 떨어진다.
-    /// </para>
-    /// </summary>
-    /// <summary>
-    /// 이 프로세스에서 레이아웃이 몇 번 만들어졌나. <b>아래 로그가 쓴다.</b>
-    /// </summary>
+    /// <summary>토큰이 먼저다 — 게이트웨이를 부르려면 있어야 하고 AuthenticationStateProvider 는 Razor 컴포넌트 안에서만 물을 수 있다. 권한표·메뉴·즐겨찾기·내 정보는 PortalBootstrap 이 한 번의 왕복으로 받는다.</summary>
+    /// <summary>이 프로세스에서 레이아웃이 몇 번 만들어졌나. 아래 로그가 쓴다.</summary>
     private static int _created;
 
     protected override async Task OnInitializedAsync()
     {
-        // ── 이 줄이 C-4 를 판정한다 ───────────────────────────
-        //
-        // `web/CLAUDE.md` 와 성능 감사 문서가 「업무를 넘나들 때마다 레이아웃이
-        // 통째로 다시 만들어진다」고 적어 두었고, 부트스트랩 통·참조자료 통·
-        // PortalBoot 가 다 그 전제로 만들어졌다. 그런데 코드를 읽으면 그렇게
-        // 될 이유가 안 보인다.
-        //
-        //   · Routes.razor 는 **기본** Router · AuthorizeRouteView 를 쓴다.
-        //     Piral 의 MfRouter · MfRouteView 는 우리 렌더 트리에 없다.
-        //   · 업무 모듈은 `@layout` 을 선언하지 않는다 — 전부 DefaultLayout 이라
-        //     LayoutView 가 보는 Layout 타입이 바뀌지 않는다.
-        //   · MapMicrofrontends<App> 은 MapRazorComponents 래퍼이고 App 을
-        //     열쇠 붙은 부품으로 감싸지 않는다.
-        //   · UseMicrofrontendContainers 는 DI 공장을 Autofac 으로 바꾸는 것이라
-        //     렌더 트리를 건드리지 않는다.
-        //
-        // 그러면 레이아웃 인스턴스는 유지되어야 하고, 위 세 통은 **없어도 되는**
-        // 것이 된다. 반대로 정말 다시 만들어진다면 원인이 아직 안 밝혀진 것이다.
-        //
-        // 읽는 방법: 로그인해서 사이드바로 업무를 두세 번 옮기고 이 로그를 본다.
-        //   · 쪽을 새로 열 때만 찍힌다        → 유지된다. 뿌리 문제는 없다.
-        //   · 업무를 옮길 때마다 숫자가 오른다 → 정말 다시 만들어진다.
-        //
-        // **판정이 끝나면 이 로그를 지운다.** 남겨 두면 평상시 로그가 된다.
+        // 레이아웃이 업무를 넘나들 때 실제로 다시 만들어지는지 보는 로그다 — 쪽을 새로 열 때만 찍히면 유지되는 것이다. 판정이 끝나면 이 로그를 지운다.
         Log.LogInformation(
             "포털 레이아웃을 새로 만들었다 ({Count}번째, 주소 {Uri}). "
             + "업무를 옮길 때마다 이 숫자가 오르면 감사 문서의 C-4 가 사실이다.",
@@ -590,70 +337,24 @@ public partial class MainLayout
         Tokens.Initialize(state.User);
         _userName = state.User.Identity?.Name;
 
-        // 워터마크에 쓸 이름을 여기서 넘긴다. **JS 를 부르지 않는다** —
-        // `PortalBoot` 가 잠금 표시·공지 표시·고정 탭·테마를 읽는
-        // **같은 왕복에** 태워 보낸다. 워터마크가 무엇이고 왜 있는지는
-        // OnAfterRenderAsync 머리말에 있다.
-        //
-        // **아래 `Bootstrap.LoadAsync` 보다 앞이어야 한다.** 그것은 게이트웨이를
-        // 부르므로 반드시 한 번 양보하고, 그 순간 Blazor 가 중간 그림을 그리면서
-        // 자식 부품이 생긴다. Blazor 는 `OnAfterRenderAsync` 를 **자식부터**
-        // 부르므로, 뒤에 두면 브라우저 상태를 처음 읽는 사람이 `TabBar` 나
-        // `NoticeAutoPopup` 이 되고 그 왕복에는 이름이 안 실린다.
-        //
-        // 그렇게 되어도 워터마크가 빠지지는 않는다 — `PortalBoot` 가 늦게 온
-        // 이름을 혼자 한 번 걸어 준다. 다만 왕복이 하나 늘어난다.
+        // 워터마크 이름은 JS 를 부르지 않고 PortalBoot 의 같은 왕복에 태운다. Bootstrap.LoadAsync 보다 앞이어야 한다 — 뒤면 자식이 이름 없는 왕복을 낸다. 늦으면 PortalBoot 가 혼자 한 번 건다.
         Boot.UseWatermark(_userName);
 
         await Bootstrap.LoadAsync(state.User);
 
-        // 부트스트랩이 관리자가 정한 설정을 실어 온다. 그때 비로소 「이 사람은
-        // 워터마크를 끈다」를 알 수 있어서, 위에서 한 번 깔아 둔 것을 여기서
-        // 걷는다. **순서를 뒤집지 않는다** — 모르는 동안은 깔아 두는 쪽이
-        // 맞다(빠지는 쪽이 사고다).
+        // 부트스트랩이 관리자 설정을 실어 오면 여기서 워터마크를 걷는다. 모르는 동안은 깔아 두는 쪽이 맞다 — 빠지는 쪽이 사고다.
         await ApplyWatermarkAsync();
 
-        // 관리자가 방금 바꿨을 수 있다. 30초마다 내 설정을 되묻는다 —
-        // 워터마크는 **관리자가 켜면 그 사람 화면에 나타나야** 하는 것이라
-        // 다음 로그인까지 기다릴 수 없다.
+        // 관리자가 바꿨을 수 있어 30초마다 내 설정을 되묻는다 — 관리자가 켜면 다음 로그인을 기다리지 않고 나타나야 한다.
         StartWatermarkWatch();
 
         Track();
     }
 
-    /// <summary>
-    /// 브라우저에 남아 있던 것을 되살린다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 잠금 표시는 브라우저에 남는다(localStorage — <c>ScreenLock</c> 머리말).
-    /// 새로고침해도, <b>PWA 앱을 껐다 켜도</b> 덮개가 다시 덮이게 하려면 회로가
-    /// 붙은 <b>뒤에</b> 읽어야 한다 — 프리렌더 중에는 JS 를 부를 수 없다.
-    /// </para>
-    ///
-    /// <para>
-    /// <b>워터마크를 여기서 걸지 않는다.</b> 로그인 아이디를 화면 위에 옅게
-    /// 깔아 <b>찍힌 사진에서 누구 화면인지 드러나게</b> 하는 것이고(촬영을
-    /// 막으려는 것이 아니다 — 막을 수 없다), 옛 포털도 같은 이유로 켜 두었다.
-    /// 여전히 걸리지만 <b>왕복을 따로 내지 않는다</b> — 이름을
-    /// <see cref="OnInitializedAsync"/> 에서 <see cref="PortalBoot"/> 에 넘겨
-    /// 두고, 그것이 잠금 표시·공지 표시·고정 탭·테마를 읽는 <b>같은 왕복</b>에
-    /// 태워 보낸다.
-    /// </para>
-    /// </remarks>
+    /// <summary>브라우저에 남아 있던 것(잠금 · 고정 탭 · 사이드바 폭 · 테마)을 회로가 붙은 뒤 되살린다 — 프리렌더 중에는 JS 를 부를 수 없다. 워터마크는 여기서 걸지 않고 이름을 PortalBoot 에 넘겨 같은 왕복에 태운다(찍힌 사진에서 누구 화면인지 드러내려는 것이다).</summary>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        // **본문이 갈린 그림에서만 알린다** (`_bodyChanged`).
-        //
-        // 아무 그림에서나 알리면 표시가 그 자리에서 걷힌다. 주소가 바뀌면
-        // 그림이 **두 번** 그려지기 때문이다 — 탭·브레드크럼을 맞추려고
-        // 여기서 한 번(`OnLocationChanged`), 라우터가 새 화면을 끼우며 한 번.
-        // 앞엣것에는 새 화면이 아직 없어서 잡은 조회도 없고, 그래서 곧바로
-        // 끝나 버린다. 실제로 그렇게 만들어 놓고 재 보니 켜졌다 꺼지는 데
-        // 35ms 였다 — 사람 눈에는 아무 일도 안 일어난 것과 같다.
-        //
-        // 뒤엣것에서는 이 콜백이 **자식보다 나중**에 불리므로(Blazor 가 자식을
-        // 먼저 부른다) 새 화면의 조회가 이미 잡혀 있다.
+        // 표시는 본문이 갈린 그림에서만 알린다 — 주소가 바뀌면 그림이 두 번 그려지는데 앞엣것에는 새 화면이 없어 곧바로 끝나 버린다. 이 콜백은 자식보다 나중에 불리므로 새 화면의 조회가 이미 잡혀 있다.
         if (_bodyChanged)
         {
             _bodyChanged = false;
@@ -670,22 +371,7 @@ public partial class MainLayout
         await Lock.RestoreAsync();
     }
 
-    /// <summary>
-    /// 지난번에 끌어 둔 사이드바 폭을 되살린다.
-    ///
-    /// <para>
-    /// <b>왕복을 따로 내지 않는다</b> — <see cref="PortalBoot"/> 가 잠금 표시·
-    /// 공지 표시·고정 탭·테마를 읽는 그 한 번에 실려 온다(열쇠를 그쪽 목록에
-    /// 한 줄 더한 것이 전부다).
-    /// </para>
-    ///
-    /// <para>
-    /// 그래서 <b>첫 그림은 기본 폭(330px)이고</b> 회로가 붙은 뒤 저장된 폭으로
-    /// 한 번 바뀐다. 고정 탭도 같은 자리에서 같은 방식으로 되살아난다.
-    /// 첫 그림부터 맞추려면 값이 쿠키에 있어야 하는데(테마 크기가 그렇다)
-    /// 그건 theme.js 가 굽는 것들과 한 묶음으로 다룰 일이다.
-    /// </para>
-    /// </summary>
+    /// <summary>끌어 둔 사이드바 폭을 되살린다. PortalBoot 의 같은 왕복에 실려 오므로 왕복은 따로 없다. 첫 그림은 기본 폭(330px)이고 회로가 붙은 뒤 저장된 폭으로 한 번 바뀐다.</summary>
     private async Task RestoreSidebarWidthAsync()
     {
         if (_widthRestored)
@@ -704,10 +390,7 @@ public partial class MainLayout
         StateHasChanged();
     }
 
-    /// <summary>
-    /// 저장해 둔 모바일 메뉴 단추 위치를 되살린다.
-    /// <see cref="PortalBoot"/> 의 단일 왕복으로 읽어 오며, 변경 사항이 있으면 화면을 갱신한다.
-    /// </summary>
+    /// <summary>저장해 둔 모바일 메뉴 단추 위치를 되살린다. PortalBoot 의 단일 왕복으로 읽는다.</summary>
     private async Task RestoreFabPositionAsync()
     {
         var state = await Boot.ReadAsync();
@@ -776,19 +459,10 @@ public partial class MainLayout
         }
     }
 
-    /// <summary>
-    /// 새 화면이 끼워졌다. 본문이 갈렸는지 보고, 화면 크기에 맞춘 일
-    /// (<see cref="ApplyViewport"/>)을 한 번 더 한다.
-    ///
-    /// Vue 에서는 `matchMedia` 를 직접 구독했다. Blazor Server 는 브라우저 상태를
-    /// 모르므로 DevExpress 의 DxLayoutBreakpoint 가 알려 주는 것을 받아 옮긴다.
-    /// 경계값(767 / 1023)은 Vue 때와 같아야 한다 — 사용자가 같은 기기에서
-    /// 다른 메뉴를 보면 안 된다.
-    /// </summary>
+    /// <summary>새 화면이 끼워졌다. 본문이 갈렸는지 보고 화면 크기 판정(ApplyViewport)을 한 번 더 한다. 경계값 767·1023 은 셸 CSS 와 같아야 한다.</summary>
     protected override void OnParametersSet()
     {
-        // 본문이 갈렸는가. 라우터가 새 화면을 끼울 때만 참조가 바뀐다 —
-        // 까닭은 `OnAfterRenderAsync` 에 적어 두었다.
+        // 본문이 갈렸는가 — 라우터가 새 화면을 끼울 때만 참조가 바뀐다.
         if (!ReferenceEquals(_body, Body))
         {
             _body = Body;
@@ -814,15 +488,7 @@ public partial class MainLayout
         ApplyViewport();
     }
 
-    /// <summary>
-    /// 지금 화면 크기에 맞춰 <b>메뉴를 거르고, 휴대폰이면 사이드바를 접는다.</b>
-    ///
-    /// <para>
-    /// 부르는 자리가 둘이다 — 화면이 갈릴 때(<c>OnParametersSet</c>)와
-    /// <b>화면 크기가 갈릴 때</b>(위 두 갈고리). 뒤쪽이 없으면 휴대폰으로
-    /// 처음 들어온 사람이 메뉴를 한 번 누르기 전까지 덮개를 걷지 못한다.
-    /// </para>
-    /// </summary>
+    /// <summary>지금 화면 크기에 맞춰 메뉴를 거르고, 휴대폰이면 사이드바를 접는다. 부르는 자리는 둘이다 — 화면이 갈릴 때(OnParametersSet)와 화면 크기가 갈릴 때. 뒤쪽이 없으면 휴대폰으로 처음 들어온 사람이 메뉴를 한 번 누르기 전까지 덮개를 걷지 못한다.</summary>
     private void ApplyViewport()
     {
         var viewport = _isPhone ? Viewport.Phone
@@ -838,17 +504,7 @@ public partial class MainLayout
         }
     }
 
-    /// <summary>
-    /// 헤더를 눌렀다. <b>휴대폰에서 메뉴가 펴져 있으면 그것부터 닫는다.</b>
-    /// 누른 단추가 하던 일은 막지 않는다 — 함께 일어난다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 넓은 화면에서는 아무 일도 하지 않는다. 그때 사이드바는 덮개가 아니라
-    /// <b>늘 자리를 차지하는 판</b>이라 본문과 겹치지 않고, 헤더를 눌렀다고
-    /// 접히면 폭을 끌어 맞춰 둔 사람의 자리가 사라진다.
-    /// </para>
-    /// </remarks>
+    /// <summary>헤더를 눌렀다. 휴대폰에서 메뉴가 펴져 있으면 먼저 닫는다 — 누른 단추가 하던 일은 막지 않고 함께 일어난다. 넓은 화면에서는 아무 일도 하지 않는다 — 사이드바는 본문과 겹치지 않는 늘 자리를 차지하는 판이라 접으면 사용자가 맞춰 둔 폭이 사라진다.</summary>
     private void OnHeaderClick()
     {
         if (_isPhone && _sidebarOpen)
@@ -857,14 +513,7 @@ public partial class MainLayout
         }
     }
 
-    /// <summary>
-    /// 로고를 누르면 <b>휴대폰에서는 메뉴를 여닫는다</b>(넓은 화면에서는 하던
-    /// 대로 <c>/</c> 로 간다 — 기본 이동을 막는 것도 휴대폰일 때뿐이다).
-    /// </summary>
-    /// <remarks>
-    /// <b>떠다니는 단추를 감춘 사람에게는 이것이 유일하게 여는 길이다.</b>
-    /// 그래서 감출 때 헤더의 ☰ 를 되돌리지 않는다(<c>_fabHidden</c>).
-    /// </remarks>
+    /// <summary>로고를 누르면 휴대폰에서는 메뉴를 여닫는다(넓은 화면에서는 기본대로 / 로 간다). 떠다니는 단추를 감춘 사람에게는 이것이 유일하게 여는 길이라 감출 때 헤더의 ☰ 를 되돌리지 않는다(_fabHidden).</summary>
     private Task OnBrandClick(Microsoft.AspNetCore.Components.Web.MouseEventArgs e)
     {
         if (_isPhone)
@@ -885,16 +534,7 @@ public partial class MainLayout
         return Task.CompletedTask;
     }
 
-    /// <summary>
-    /// 사이드바를 편다. <b>휴대폰이면 지금까지의 뒤로 가기 횟수를 적어 둔다</b> —
-    /// 이다음 이동이 뒤로 가기인지는 그 수가 늘었는지로 가린다
-    /// (<see cref="WentBackAsync"/>).
-    /// </summary>
-    /// <remarks>
-    /// 펴는 길이 둘(☰ · 브레드크럼)이라 여기 한 곳으로 모은다. 한쪽에서
-    /// 적기를 빠뜨리면 <b>그쪽으로 연 메뉴만</b> 뒤로 가기로 안 닫히고,
-    /// 그런 어긋남은 화면만 봐서는 까닭을 알 수 없다.
-    /// </remarks>
+    /// <summary>사이드바를 편다. 휴대폰이면 지금까지의 뒤로 가기 횟수를 적는다 — 이다음 이동이 뒤로 가기인지는 그 수가 늘었는지로 가린다. 펴는 길이 둘(☰ · 브레드크럼)이라 여기 한 곳으로 모은다 — 한쪽에서 적기를 빠뜨리면 그쪽으로 연 메뉴만 뒤로 가기로 안 닫힌다.</summary>
     private async Task OpenSidebarAsync()
     {
         UserDrawer.Close();
@@ -921,32 +561,14 @@ public partial class MainLayout
         }
     }
 
-    /// <summary>
-    /// 사이드바를 접는다. <b>적어 둔 뒤로 가기 횟수도 함께 버린다</b> —
-    /// 남겨 두면 다음에 편 메뉴에서 첫 이동이 뒤로 가기로 읽힌다.
-    /// </summary>
+    /// <summary>사이드바를 접는다. 적어 둔 뒤로 가기 횟수도 함께 버린다 — 남기면 다음에 편 메뉴에서 첫 이동이 뒤로 가기로 읽힌다.</summary>
     private void CloseSidebar()
     {
         _sidebarOpen = false;
         _popsAtOpen = null;
     }
 
-    /// <summary>
-    /// 떠다니는 <b>요청 등록</b> 단추를 눌렀다. 헬프데스크 요청 등록 화면으로 간다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>메뉴가 펴져 있으면 먼저 접는다.</b> 이 단추는 덮개보다 위에 떠 있어
-    /// (z-index 1031) 메뉴를 펴 둔 채로도 눌리는데, 접지 않고 옮기면 <b>새 화면
-    /// 위에 사이드바가 덮인 채</b>로 도착한다 — 휴대폰에서는 그것이 화면 전체다.
-    /// </para>
-    /// <para>
-    /// <b>이미 그 화면이면 아무것도 하지 않는다.</b> 같은 주소로 다시 옮기면
-    /// 적던 글이 비워진다. 이제는 거기서 단추 자체를 안 그리므로
-    /// (<see cref="HelpDeskFabAllowed"/>) 이 갈래로 오는 길이 없지만,
-    /// <b>두 판정이 갈라지면 글이 날아가는 쪽으로 틀린다</b> — 남겨 둔다.
-    /// </para>
-    /// </remarks>
+    /// <summary>떠다니는 요청 등록 단추를 눌렀다. 메뉴가 펴져 있으면 먼저 접는다 — 덮개보다 위에 떠서 메뉴를 펴 둔 채로도 눌리는데, 접지 않고 옮기면 새 화면 위에 사이드바가 덮인 채 도착한다. 이미 그 화면이면 아무것도 하지 않는다 — 같은 주소로 다시 옮기면 적던 글이 비워진다.</summary>
     private void OpenHelpDeskRequest()
     {
         if (_sidebarOpen)
@@ -962,20 +584,7 @@ public partial class MainLayout
         Navigation.NavigateTo(HelpDeskNewPath);
     }
 
-    /// <summary>
-    /// 스플리터의 접기 화살표(구분선 가운데)로 접었다 폈다.
-    ///
-    /// <para>
-    /// 헤더의 ☰ 와 <b>같은 상태를 나눠 쓴다.</b> 따로 두면 화살표로 접고
-    /// ☰ 를 누를 때 아무 일도 안 일어나는 것처럼 보인다 — 부품은 접혀 있다고
-    /// 알고 우리는 펴져 있다고 알기 때문이다.
-    /// </para>
-    /// </summary>
-    /// <remarks>
-    /// 휴대폰에서는 이 이벤트가 오지 않는다 — 구분선을 감춰 두어(app.css)
-    /// 끌 자리도 화살표도 없다. 그래서 여기서는 뒤로 가기 횟수를 적지 않고,
-    /// 접을 때 버리기만 한다.
-    /// </remarks>
+    /// <summary>스플리터의 접기 화살표로 접었다 폈다. 헤더의 ☰ 와 같은 상태를 나눠 쓴다 — 따로 두면 화살표로 접은 뒤 ☰ 가 아무 일도 안 하는 것처럼 보인다. 휴대폰에서는 이 이벤트가 오지 않는다(구분선을 감춘다) — 여기서는 접을 때 뒤로 가기 횟수를 버리기만 한다.</summary>
     private void OnSidebarCollapsedChanged(bool collapsed)
     {
         if (collapsed)
@@ -988,16 +597,7 @@ public partial class MainLayout
         RestoreSnappedWidth();
     }
 
-    /// <summary>
-    /// 끌어서 접었다면(<see cref="SidebarSnapPx"/>) 그때의 폭으로 되돌린다.
-    /// 다시 펴는 모든 길에서 부른다.
-    /// </summary>
-    /// <remarks>
-    /// <b>펴는 그 그림에서 함께 바꾼다.</b> 접을 때 미리 되돌려 놓으면
-    /// <c>Size</c> 속성 값이 접기 전과 같아져 Blazor 가 「안 바뀌었다」고 보고
-    /// 부품에 전하지 않는다 — 그러면 다시 편 사이드바가 끌어 놓았던 좁은
-    /// 폭 그대로 나온다.
-    /// </remarks>
+    /// <summary>끌어서 접었다면(SidebarSnapPx) 그때의 폭으로 되돌린다. 다시 펴는 모든 길에서 부른다 — 접을 때 미리 되돌리면 Size 속성이 접기 전과 같아져 Blazor 가 바뀌었다고 전하지 않아 다시 편 사이드바가 끌어 놓았던 폭 그대로 나온다.</summary>
     private void RestoreSnappedWidth()
     {
         if (_widthBeforeSnap is int px)
@@ -1007,22 +607,7 @@ public partial class MainLayout
         }
     }
 
-    /// <summary>
-    /// 끌어서 폭을 바꿨다. 브라우저에 적어 둔다.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// 넘어오는 값은 <c>"312px"</c> 처럼 <b>단위가 붙은 글자</b>다. 숫자만
-    /// 떠서 담는다 — 저장한 값을 다음에 읽어 다시 <c>px</c> 를 붙이므로,
-    /// 단위째 담아 두면 <c>"312pxpx"</c> 가 되는 자리가 생긴다.
-    /// </para>
-    ///
-    /// <para>
-    /// <b>접힌 상태는 담지 않는다.</b> 접으면 부품이 0 을 알려 주는데 그것을
-    /// 담으면 다음에 열 때 폭 0 인 사이드바가 나온다 — 접힘은 접힘으로
-    /// 기억할 일이고(지금은 기억하지 않는다) 폭과 섞지 않는다.
-    /// </para>
-    /// </remarks>
+    /// <summary>끌어서 폭을 바꿨다. 브라우저에 적는다. 넘어오는 값은 "312px" 처럼 단위가 붙은 글자라 숫자만 떠서 담는다 — 단위째 담으면 다음에 px 를 또 붙여 312pxpx 가 된다. 접힌 상태는 담지 않는다 — 접으면 0 이 와서 다음에 폭 0 인 사이드바가 나온다.</summary>
     private async Task OnSidebarResizedAsync(string? size)
     {
         if (!Pixels(size, out var px))
@@ -1057,10 +642,7 @@ public partial class MainLayout
         }
     }
 
-    /// <summary>
-    /// <c>"312px"</c> 에서 312 를 뜬다. 0 이하나 못 읽는 값은 거른다 —
-    /// 접힘(0)과 이상한 값을 여기서 함께 막는다.
-    /// </summary>
+    /// <summary>"312px" 에서 312 를 뜬다. 0 이하나 못 읽는 값은 걸러 접힘(0)과 이상한 값을 함께 막는다.</summary>
     private static bool Pixels(string? size, out int px)
     {
         px = 0;
@@ -1091,42 +673,7 @@ public partial class MainLayout
         InvokeAsync(StateHasChanged);
     }
 
-    /// <summary>
-    /// 옮기기 <b>전에</b> 표시를 켠다. Vue 의 <c>router.beforeEach</c> 자리다.
-    ///
-    /// <para>
-    /// <b><c>LocationChanged</c> 로는 늦는다.</b> 그 이벤트의 구독자 중
-    /// <c>Router</c> 가 우리보다 먼저다(앱이 뜰 때 붙으므로). 라우터는 자기
-    /// 차례에 새 화면을 <b>그 자리에서</b> 만들어 버리고, 그 화면이 조회를
-    /// 잡으려 할 때 표시는 아직 켜지지도 않은 상태다. 잡히지 않은 조회는
-    /// 세지 않으므로(<see cref="PageTransition.Claim"/>) 표시는 곧바로 걷힌다.
-    /// 재 보니 켜졌다 꺼지는 데 1ms 였다.
-    /// </para>
-    ///
-    /// <para>
-    /// 이 갈고리는 라우터가 움직이기 전에 불린다. <b>딱 한 가지 이동만
-    /// 막는다</b> — 휴대폰에서 메뉴가 펴져 있을 때의 뒤로 가기다(아래).
-    /// </para>
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <b>휴대폰에서 메뉴가 펴져 있으면 뒤로 가기를 한 번 삼킨다.</b>
-    /// 덮개를 걷는 것이 먼저고, 한 번 더 누르면 그때 옮겨 간다.
-    /// </para>
-    ///
-    /// <para>
-    /// 뒤로 가기인지는 <see cref="WentBackAsync"/> 가 가린다. <b>이 자리의
-    /// 값만으로는 못 가린다</b> — 뒤로 가기와 코드가 낸 이동이 여기서는
-    /// 똑같이 생겼다(<c>IsNavigationIntercepted</c> 가 둘 다 거짓이다).
-    /// 링크 클릭과만 갈리므로, 그것으로 가르면 <b>헤더의 알림·사용자 메뉴가
-    /// 메뉴 펴진 동안 안 먹는다</b> — 그 둘이 코드로 옮기는 자리다.
-    /// </para>
-    ///
-    /// <para>
-    /// 묻는 것은 <b>휴대폰에서 메뉴가 펴져 있을 때뿐</b>이다. 나머지 이동은
-    /// 예전처럼 아무것도 기다리지 않는다.
-    /// </para>
-    /// </remarks>
+    /// <summary>옮기기 전에 표시를 켠다(Vue 의 router.beforeEach 자리). LocationChanged 로는 늦다 — 라우터가 먼저 새 화면을 만들어 그 화면이 조회를 잡을 때 표시가 아직 안 켜진 상태라 곧바로 걷힌다. 이 갈고리는 딱 한 가지 이동만 막는다: 휴대폰에서 메뉴가 펴져 있을 때의 뒤로 가기는 한 번 삼키고 메뉴부터 닫는다. 뒤로 가기인지는 WentBackAsync 가 가린다 — 이 자리 값만으로는 코드가 낸 이동과 뒤로 가기가 똑같이 생겨 가를 수 없다. 묻는 것은 휴대폰에서 메뉴가 펴져 있을 때뿐이다.</summary>
     private async ValueTask OnNavigating(LocationChangingContext context)
     {
         if (_isPhone && _sidebarOpen && await WentBackAsync())
@@ -1140,14 +687,7 @@ public partial class MainLayout
         Transition.Begin();
     }
 
-    /// <summary>
-    /// 지금 일어난 이동이 <b>뒤로 가기인가.</b> 메뉴를 편 뒤로 뒤로 가기
-    /// 횟수가 늘었으면 그렇다.
-    /// </summary>
-    /// <remarks>
-    /// 못 물었으면 <c>false</c> 다 — 막지 않는 쪽으로 진다. 메뉴가 안 닫히는
-    /// 것과 눌러도 화면이 안 열리는 것은 무게가 다르다.
-    /// </remarks>
+    /// <summary>지금 이동이 뒤로 가기인가 — 메뉴를 편 뒤 뒤로 가기 횟수가 늘었으면 그렇다. 못 물었으면 false(막지 않는 쪽으로 진다).</summary>
     private async Task<bool> WentBackAsync()
     {
         if (_popsAtOpen is not { } marked)
@@ -1183,25 +723,7 @@ public partial class MainLayout
     /// <summary>지금 화면이 메뉴에 있는데 볼 권한이 없다. 본문 대신 안내를 그린다.</summary>
     private bool _denied;
 
-    /// <summary>
-    /// 지금 주소를 보고 탭·브레드크럼·즐겨찾기 열쇠를 맞춘다.
-    /// <b>볼 권한이 없는 화면이면 탭을 열지 않고 본문을 막는다.</b>
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// [2026-09-24 — 권한 없는 화면이 열려 있었다]
-    /// </para>
-    /// <para>
-    /// 권한은 사이드바를 거를 때만 봤다(<c>MenuFilter</c>). 그런데 <see cref="MenuProvider.Trail"/>
-    /// 은 <b>거르기 전</b> 메뉴를 훑으므로, 주소로 들어오면 권한이 없어도 메뉴를 찾아
-    /// 탭을 열고 화면을 그렸다. 브라우저에 적어 둔 고정 탭이 그 길로 매번 되살아났다
-    /// (조직도 권한이 없는 사용자에게 「조직도」 고정 탭).
-    /// </para>
-    /// <para>
-    /// 메뉴에 없는 화면(탭으로 여는 상세 화면 · 진단 화면)은 권한표에 줄이 없으므로
-    /// 여기서 막지 않는다. 그런 화면은 <c>[Authorize]</c> 와 서버가 지킨다.
-    /// </para>
-    /// </remarks>
+    /// <summary>지금 주소를 보고 탭·브레드크럼·즐겨찾기 열쇠를 맞춘다. 볼 권한이 없는 화면이면 탭을 열지 않고 본문을 막는다 — 권한은 거르기 전 메뉴 목록(Trail)을 훑을 때도 봐야 한다.</summary>
     private void Track()
     {
         var href = CurrentHref();
@@ -1217,23 +739,12 @@ public partial class MainLayout
             _menuPath = null;
         }
 
-        // 로그인·오류 화면은 탭으로 만들지 않는다. 메뉴에 없는 화면도 마찬가지다 —
-        // 진단 화면과 "준비 중" 안내가 탭을 채우면 정작 업무 탭이 밀려난다.
+        // 로그인·오류 화면과 메뉴에 없는 화면은 탭으로 만들지 않는다 — 진단 화면이 탭을 채우면 업무 탭이 밀려난다.
         if (_trail.Count > 0 && !_denied)
         {
             Tabs.Open(href, _trail[^1].Title);
 
-            // **이 자리에서 사용기록을 적는다.** 여기까지 왔다는 것은 메뉴에
-            // 있는 화면이고 볼 권한도 있다는 뜻이라, 로그인·오류·「준비 중」이
-            // 저절로 빠진다. 기다리지 않고 실패해도 조용하다 — 기록은 곁다리고
-            // 화면이 본일이다(MenuUsageRecorder 머리말). 이 메서드가 한 회로
-            // 안에서 여러 번 불리는 것은 그쪽이 시각으로 가려낸다.
-            //
-            // **프리렌더에서는 적지 않는다**(실제로 밟음). 첫 그림은 정적 SSR
-            // 요청에서 한 번 그려지고 회로가 붙은 뒤 또 한 번 그려지는데,
-            // 그 둘은 **범위가 달라 각자 제 기록기를 갖는다** — 시각으로 가려
-            // 내는 규칙이 서로를 못 봐서 화면 하나를 연 것이 두 줄로 남았다.
-            // `DataPage` 가 같은 까닭으로 조회를 건너뛴다(CanLoad 머리말).
+            // 사용기록은 여기서 적는다 — 여기까지 왔으면 메뉴에 있고 볼 권한도 있는 화면이다. 프리렌더에서는 적지 않는다: 프리렌더와 회로는 기록기가 따로라 한 화면이 두 줄로 남는다.
             if (RendererInfo.IsInteractive)
             {
                 MenuUsage.Record(_trail[^1], href);
@@ -1244,16 +755,7 @@ public partial class MainLayout
         Tabs.Prune();
     }
 
-    /// <summary>
-    /// 이 메뉴의 화면을 열 수 있는가. <b>판정은 여기서 하지 않는다</b> —
-    /// 사이드바 거르기 · 라우터 앞의 문과 같은 자리에 묻는다
-    /// (<see cref="Security.ScreenAccess.CanOpen"/>).
-    /// </summary>
-    /// <remarks>
-    /// <b>권한표를 받기 전에는 막지 않는다</b>(<see cref="IPermissionContext.IsLoaded"/>) —
-    /// 막으면 새로고침할 때마다 「권한이 없습니다」가 한 번 스친다. 받고 나면 다시 따진다
-    /// (<see cref="OnMenusChanged"/>).
-    /// </remarks>
+    /// <summary>이 메뉴의 화면을 열 수 있는가. 판정은 ScreenAccess.CanOpen 에 맡긴다. 권한표를 받기 전에는 막지 않는다 — 막으면 새로고침마다 「권한이 없습니다」가 한 번 스친다.</summary>
     private bool MayOpen(MenuNode node) => Access.CanOpen(node);
 
     /// <summary>탭 줄에 둬도 되는 주소인가. 메뉴에 없는 화면은 막지 않는다(<see cref="Track"/> 머리말).</summary>
@@ -1277,27 +779,10 @@ public partial class MainLayout
         return "/" + relative.TrimStart('/');
     }
 
-    /// <summary>
-    /// 내 설정을 되묻는 시계. 관리자가 워터마크를 켜고 끄는 것을 이것이 옮긴다.
-    ///
-    /// <para>
-    /// <b>업무를 옮길 때 레이아웃이 새로 만들어진다</b>(이 파일 머리말). 그때
-    /// 옛 레이아웃은 <see cref="Dispose"/> 로 이 시계를 끄고 새 레이아웃이
-    /// 자기 것을 켠다 — 시계가 쌓이지 않는다.
-    /// </para>
-    /// </summary>
+    /// <summary>내 설정을 되묻는 시계. 관리자가 워터마크를 켜고 끄는 것을 옮긴다. 레이아웃이 새로 생기므로 Dispose 에서 끄고, 새 레이아웃이 자기 것을 켠다 — 시계가 쌓이지 않는다.</summary>
     private Timer? _watermarkWatch;
 
-    /// <summary>
-    /// 되묻는 간격.
-    ///
-    /// <para>
-    /// 30초다. 더 짧게 두면 탭마다 게이트웨이 호출이 늘고, 더 길게 두면
-    /// 관리자가 켠 뒤 「왜 안 나오지」 하고 다시 눌러 보게 된다. 이 왕복은
-    /// 헤더가 이미 쓰는 내 정보 조회 하나뿐이라(이름·사진·권한 그룹도 함께
-    /// 새로워진다) 따로 통로를 두지 않았다.
-    /// </para>
-    /// </summary>
+    /// <summary>되묻는 간격 30초. 짧으면 게이트웨이 호출이 늘고 길면 관리자가 켠 뒤 늦게 나온다. 내 정보 조회 하나에 실려 이름·사진·권한 그룹도 함께 새로워진다.</summary>
     private static readonly TimeSpan WatermarkWatchInterval = TimeSpan.FromSeconds(30);
 
     private void StartWatermarkWatch()
@@ -1305,8 +790,7 @@ public partial class MainLayout
         _watermarkWatch?.Dispose();
 
         _watermarkWatch = new Timer(
-            // 회로 밖 스레드에서 온다. `InvokeAsync` 로 회로에 들어가야
-            // JS 호출과 렌더가 안전하다.
+            // 회로 밖 스레드에서 온다 — InvokeAsync 로 회로에 들어가야 JS 호출과 렌더가 안전하다.
             _ => _ = InvokeAsync(RefreshWatermarkAsync),
             null,
             WatermarkWatchInterval,
@@ -1315,8 +799,7 @@ public partial class MainLayout
 
     private async Task RefreshWatermarkAsync()
     {
-        // 실패는 삼킨다. 게이트웨이가 잠깐 안 되는 것과 워터마크가 틀린 것의
-        // 무게가 다르다 — 못 물으면 지금 상태를 그대로 둔다.
+        // 실패는 삼킨다 — 게이트웨이가 잠깐 안 되는 것과 워터마크가 틀린 것은 무게가 다르다. 못 물으면 지금 상태를 그대로 둔다.
         await Me.ReloadAsync();
         await ApplyWatermarkAsync();
     }

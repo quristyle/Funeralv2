@@ -4,22 +4,9 @@ using JSini.Shared.DTOs;
 
 namespace AuthServer.Endpoints;
 
-/// <summary>
-/// 메뉴 기준 권한 현황 (<c>/auth/menu-role</c> 화면).
-/// </summary>
-/// <remarks>
-/// <c>/system/role-map</c> 은 역할에서 출발한다 — "이 역할은 어떤 메뉴를 쓰나".
-/// 이쪽은 반대로 <b>"이 메뉴는 누가 쓸 수 있나"</b> 를 본다.
-///
-/// <para>
-/// <b>읽기만 있다.</b> 저장은 이미 있는 경로를 그대로 쓴다 —
-/// 같은 일을 하는 저장 경로를 두 개 만들면 한쪽에만 규칙이 붙는다.
-/// </para>
-/// <list type="bullet">
-///   <item>역할↔메뉴 권한 → <c>POST /system/role-permission/roles/{roleId}/menus/save</c></item>
-///   <item>역할↔회사·부서·사람 → <c>POST /system/role-scope/assign</c> · <c>/remove</c></item>
-/// </list>
-/// </remarks>
+/// <summary>메뉴 기준 권한 현황 (<c>/auth/menu-role</c> 화면).</summary>
+/// <summary>메뉴 기준 권한 현황(/auth/menu-role 화면). 역할에서 출발하는 role-map 과 반대로 「이 메뉴는 누가 쓰나」를 본다.</summary>
+/// 읽기만 둔다. 저장은 역할-메뉴·역할-범위 기존 경로를 그대로 쓴다 — 같은 저장 경로를 두 개 만들면 한쪽에만 규칙이 붙는다.
 public static class MenuRoleEndpoints
 {
     public static void MapMenuRoleEndpoints(this IEndpointRouteBuilder app)

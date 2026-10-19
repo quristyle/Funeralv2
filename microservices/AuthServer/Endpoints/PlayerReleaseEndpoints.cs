@@ -6,13 +6,8 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace AuthServer.Endpoints;
 
-/// <summary>
-/// 플레이어 릴리스 — 포털 화면이 GitHub 릴리스를 발행하는 통로.
-/// </summary>
-/// <remarks>
-/// 토큰은 서버에만 둔다(<see cref="PlayerReleaseService"/> 주석 참고).
-/// 화면에서 GitHub 을 직접 부르지 않는 이유가 그것이다.
-/// </remarks>
+/// <summary>플레이어 릴리스 — 포털 화면이 GitHub 릴리스를 발행하고 조회한다.</summary>
+/// 토큰은 서버에만 둔다 — 화면에서 GitHub 을 직접 부르지 않는 이유가 그것이다.
 public static class PlayerReleaseEndpoints
 {
     public static void MapPlayerReleaseEndpoints(this IEndpointRouteBuilder app)

@@ -5,45 +5,8 @@ using ProjMngServer.Models;
 
 namespace ProjMngServer.Services;
 
-/// <summary>
-/// 프로젝트관리 공통코드 — <c>projmng.devcomm</c>. <b>프로시저를 쓰지 않는다.</b>
-/// </summary>
-/// <remarks>
-/// <para>
-/// 옛 길은 <c>sp_devcomm_exec</c> 하나가 조회·등록·수정을 다 했다.
-/// 조건 셋을 이어 붙이던 것을 그대로 옮겼다.
-/// </para>
-///
-/// <list type="bullet">
-///   <item><c>cm_rid</c> 를 주면 그 한 건.</item>
-///   <item>
-///     <c>srch_type</c> 이 <b>비어 있지 않으면</b> 묶음만(상위 코드가 빈 줄).
-///     값이 무엇이든 상관없었다 — <c>!= ''</c> 만 봤다. 그래서 여기서는
-///     <see cref="bool"/> 하나로 받는다(<c>groupsOnly</c>).
-///   </item>
-///   <item><c>cm_pcd</c> 를 주면 그 묶음에 속한 코드만.</item>
-/// </list>
-///
-/// <para>
-/// [고친 것 둘 — 프로젝트 표와 같은 결함이다]
-/// </para>
-///
-/// <list type="number">
-///   <item>
-///     <b>번호를 <c>max(cm_rid)+1</c> 로 만들었다.</b> 동시에 둘이 등록하면
-///     같은 번호가 나온다. <c>insert … select</c> 한 문장으로 좁혔다 —
-///     진짜 해법은 시퀀스다.
-///   </item>
-///   <item>
-///     <b>정렬 순서(<c>cm_srt</c>)를 등록에서 안 받았다.</b> 수정에서만
-///     다뤄서 새 코드는 정렬값이 비어 있었고(표에 기본값도 없다), 그러면
-///     <c>ORDER BY cm_srt</c> 에서 <b>맨 앞으로 온다</b>(PostgreSQL 은
-///     <c>NULL</c> 을 오름차순 끝에 두지만 정렬 키가 하나뿐이라 자리가
-///     들쭉날쭉해진다). 이제 등록에서도 받고, 안 주면 999 다 — 옛 수정이
-///     쓰던 기본값과 같은 값이다.
-///   </item>
-/// </list>
-/// </remarks>
+/// <summary>프로젝트관리 공통코드(projmng.devcomm). 조회는 cm_rid · cm_pcd · srch_type 중 하나로 갈린다.</summary>
+/// 번호는 max+1 이라 동시 등록이 겹칠 수 있다 — 진짜 해법은 시퀀스다. 정렬 순서는 등록에서도 받고 안 주면 999 다.
 public sealed class DevCommonCodeService(IConfiguration configuration)
 {
     private readonly string _connectionString =
@@ -66,9 +29,7 @@ public sealed class DevCommonCodeService(IConfiguration configuration)
         cm_rmk  AS CmRmk
         """;
 
-    /// <summary>
-    /// 공통코드 목록.
-    /// </summary>
+    /// <summary>공통코드 목록.</summary>
     /// <param name="groupsOnly">참이면 묶음만(상위 코드가 빈 줄).</param>
     /// <param name="parentCode">그 묶음에 속한 코드만.</param>
     /// <param name="cmRid">한 건만.</param>
@@ -136,15 +97,7 @@ public sealed class DevCommonCodeService(IConfiguration configuration)
         });
     }
 
-    /// <summary>
-    /// 코드를 지운다.
-    ///
-    /// <para>
-    /// <b>묶음을 지우면 그 아래 코드가 남는다.</b> 표에 외래키가 없어 DB 가
-    /// 막아 주지 않으므로, 지우기 전에 딸린 것이 있는지 부르는 쪽이 확인한다
-    /// (<see cref="CountChildrenAsync"/>).
-    /// </para>
-    /// </summary>
+    /// <summary>코드를 지운다. 묶음을 지우면 그 아래 코드가 남으므로 지우기 전에 딸린 것이 있는지 본다.</summary>
     public async Task<bool> DeleteAsync(int cmRid)
     {
         using var db = Open();

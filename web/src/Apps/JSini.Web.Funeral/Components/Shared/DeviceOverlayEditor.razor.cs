@@ -58,8 +58,7 @@ public partial class DeviceOverlayEditor
     {
         DeviceId = DeviceId,
 
-        // 가운데 아래쯤. 0 크기로 두면 저장해도 화면에 안 보여
-        // 「저장이 안 됐다」로 읽힌다.
+        // 가운데 아래쯤에 놓는다. 0 크기면 저장해도 안 보여 「저장이 안 됐다」로 읽힌다.
         PositionLeft = 10,
         PositionTop = 80,
         Width = 80,
