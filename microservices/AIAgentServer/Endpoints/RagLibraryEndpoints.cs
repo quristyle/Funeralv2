@@ -277,6 +277,9 @@ public static class RagLibraryEndpoints
             return Results.Ok(ApiResponse<object>.Ok(saved));
         })
         .DisableAntiforgery()
+        // Kestrel 기본 상한(30,000,000 바이트)이면 화면이 받는 50MB 파일이 「Request body too large」로 끊긴다.
+        // 화면은 한 요청에 한 파일을 보낸다. 폼 상한 기본값(128MB)과 맞춘다.
+        .WithMetadata(new RequestSizeLimitAttribute(128L * 1024 * 1024))
         .WithSummary("문서 올리기 (여러 개)");
 
         group.MapGet("/documents/{docId:long}/download", async (

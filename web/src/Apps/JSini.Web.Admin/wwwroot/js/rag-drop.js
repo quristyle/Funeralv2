@@ -1,5 +1,6 @@
-// RAG 문서함 — 파일을 끌어다 놓아 올린다. Blazor 의 `InputFile` 은 `change` 만 듣는다. 끌어다 놓은 파일은 `drop` 이벤트의
-// `dataTransfer.files` 에 담겨 오는데, **Blazor 쪽 DragEventArgs 로는 그 FileList 를 받을 수 없다.** 그래서 여기서 받아 숨겨 둔 `
+// RAG 문서함 — 파일을 끌어다 놓아 올린다. Blazor 의 `InputFile` 은 `change` 만 듣고, 끌어다 놓은 파일은 `drop` 의
+// `dataTransfer.files` 에 담겨 오는데 **Blazor 쪽 DragEventArgs 로는 그 FileList 를 받을 수 없다.** 그래서 여기서 받아
+// 숨겨 둔 `input` 에 꽂고 `change` 를 일으킨다 — 그다음은 Blazor 가 평소대로 처리한다.
 
 const wired = new WeakMap();
 
@@ -55,14 +56,24 @@ export function wire(zone, input) {
     // 창 밖으로 끌고 나가거나 다른 데 떨구면 `dragleave` 가 안 오는 일이 있다. 그러면 **테가 켜진 채로 남아** 떨구지도 않았는데 기다리는 것처럼 보인다.
     const bail = () => { depth = 0; paint(false); };
 
+    // **판 밖에 떨군 파일은 브라우저가 열어 버린다** — 새 탭에 그 파일이 뜨고 아무것도 안 올라간다. 왼쪽 분류 트리가 특히
+    // 그렇다(분류를 옮기려고 Blazor 가 dragover 를 막아 두어서 drop 이 그대로 기본 동작까지 간다). 판 밖은 놓을 수 없는 자리로 만든다.
+    const guard = (e) => {
+        if (!carriesFiles(e) || zone.contains(e.target)) return;
+        e.preventDefault();
+        if (e.type === 'dragover') e.dataTransfer.dropEffect = 'none';
+    };
+
     zone.addEventListener('dragover', over);
     zone.addEventListener('dragenter', enter);
     zone.addEventListener('dragleave', leave);
     zone.addEventListener('drop', drop);
     document.addEventListener('dragend', bail);
     document.addEventListener('drop', bail);
+    window.addEventListener('dragover', guard, true);
+    window.addEventListener('drop', guard, true);
 
-    wired.set(zone, { over, enter, leave, drop, bail });
+    wired.set(zone, { over, enter, leave, drop, bail, guard });
 }
 
 export function unwire(zone) {
@@ -74,5 +85,7 @@ export function unwire(zone) {
     zone.removeEventListener('drop', h.drop);
     document.removeEventListener('dragend', h.bail);
     document.removeEventListener('drop', h.bail);
+    window.removeEventListener('dragover', h.guard, true);
+    window.removeEventListener('drop', h.guard, true);
     wired.delete(zone);
 }
