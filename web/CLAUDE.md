@@ -596,6 +596,7 @@ FileServer 의 `PublicFileAccessFilter` 가 판정한다 — 로그인 요청이
 없으므로 사방 40px 은 남게 묶는다.
 
 넘기기·닫기·「오늘 하루 보지 않기」는 theme.js 의 `jsiniNotice` 가 받는다.
+「오늘 하루 보지 않기」를 체크하면 현재 공지를 저장하고 팝업을 바로 닫는다.
 그 파일은 `<head>` 에서 동기로 돌고, 팝업 바로 뒤의 인라인 `<script>` 가
 파싱되는 동안 `init` 을 부른다 — `DOMContentLoaded` 를 기다리면 회로를
 걷어낸 이유가 없어진다. 향상된 이동으로 들어온 경우만 `scanNotices` 가 받는다.

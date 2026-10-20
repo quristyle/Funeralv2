@@ -77,6 +77,16 @@ public partial class NoticePopup
             ? OnDismissed.InvokeAsync(notice.Id)
             : Task.CompletedTask;
 
+    private async Task DismissChangedAsync(bool dismiss)
+    {
+        _dismiss = dismiss;
+
+        if (dismiss)
+        {
+            await SetVisibleAsync(false);
+        }
+    }
+
     /// <summary>창이 닫힌다. 위쪽 × 로 닫는 것도 여기로 온다. 체크해 둔 것은 기억한다 — × 는 더 보지 않겠다는 뜻이라 체크를 무시하면 다음에 또 뜬다.</summary>
     private async Task SetVisibleAsync(bool visible)
     {

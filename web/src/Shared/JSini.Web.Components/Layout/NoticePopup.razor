@@ -89,7 +89,10 @@
         else if (Current is not null)
         {
             @* 오늘 하루 보지 않기는 브라우저에만 남는다(localStorage). 미리보기에는 두지 않는다 — 관리자가 확인만 하는 자리라 흔적을 남기면 안 된다. *@
-            <DxCheckBox @bind-Checked="_dismiss">오늘 하루 보지 않기</DxCheckBox>
+            <DxCheckBox Checked="@_dismiss"
+                        CheckedChanged="@((bool dismiss) => DismissChangedAsync(dismiss))">
+                오늘 하루 보지 않기
+            </DxCheckBox>
         }
 
         <span class="jsini-notice-popup__gap"></span>

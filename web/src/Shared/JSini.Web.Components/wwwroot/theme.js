@@ -1384,6 +1384,8 @@
     if (check) {
       check.addEventListener('change', function () {
         picked[live[at].getAttribute('data-notice-id')] = check.checked;
+
+        if (check.checked) close();
       });
     }
 
