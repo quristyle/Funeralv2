@@ -20,6 +20,19 @@ public sealed class RagChunk
     public string[] Terms { get; set; } = [];
 }
 
+/// <summary>대화에서 사내 문서를 어떻게 쓸지.</summary>
+public enum RagMode
+{
+    /// <summary>잘 맞는 문서가 있을 때만 끼우고, 없으면 웹과 모델이 아는 것으로 답한다.</summary>
+    Auto,
+
+    /// <summary>사내 문서로만 답한다. 점수 문턱을 안 두고 웹도 안 찾는다.</summary>
+    Only,
+
+    /// <summary>사내 문서를 보지 않는다.</summary>
+    Off,
+}
+
 /// <summary>검색 결과 한 건.</summary>
 public sealed record RagHit(RagChunk Chunk, double Score, double VectorScore, double KeywordScore);
 

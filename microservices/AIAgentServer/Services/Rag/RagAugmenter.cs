@@ -23,6 +23,12 @@ public sealed class RagAugmenter
     private bool Enabled => _config.GetValue("Rag:AugmentChat", true);
     private int TopK => _config.GetValue("Rag:TopK", 4);
 
+    /// <summary>「사내 자료 전용」에서 끼울 토막 수. 문턱을 안 두는 대신 모델이 가려 쓸 자리를 조금 더 준다.</summary>
+    private int OnlyTopK => _config.GetValue("Rag:OnlyTopK", 6);
+
+    /// <summary>「사내 자료 전용」에서 검색어로 이어 붙일 최근 질문 수. 「자료에서 찾아라」 같은 뒷말만으로는 찾을 것이 없다.</summary>
+    private const int OnlyQueryTurns = 3;
+
     /// <summary>대화에서 찾아볼 카테고리. <b>비우면 전부</b>. 카테고리가 늘어나 엉뚱한 자료가 섞이기 시작하면 여기를 좁힌다.</summary>
     private string? ChatCategory
     {
@@ -37,13 +43,23 @@ public sealed class RagAugmenter
     private double MinScore => _config.GetValue("Rag:MinVectorScore", 0.40);
 
     /// <summary>자료를 찾아 <paramref name="messages"/> 앞에 끼운다.</summary>
+    /// <param name="mode">
+    /// <see cref="RagMode.Only"/> 면 점수 문턱을 안 두고(Rag:AugmentChat 도 안 본다) 자료로만 답하라고 이른다 —
+    /// 사내 질문도 말투에 따라 벡터 점수가 0.5 대로 떨어져 Rag:MinVectorScore 에 걸린다.
+    /// </param>
     /// <returns>끼운 결과. 끼우지 않았으면 null.</returns>
     public async Task<RagAugmentResult?> AugmentAsync(
-        List<Message> messages, CancellationToken ct = default)
+        List<Message> messages, RagMode mode = RagMode.Auto, CancellationToken ct = default)
     {
-        if (!Enabled || _store.Count == 0) return null;
+        var only = mode == RagMode.Only;
+        if (mode == RagMode.Off || (!only && !Enabled) || _store.Count == 0) return null;
 
-        var question = messages.LastOrDefault(m => m.role == "user")?.content;
+        var question = only
+            ? string.Join("\n", messages
+                .Where(m => m.role == "user" && !string.IsNullOrWhiteSpace(m.content))
+                .TakeLast(OnlyQueryTurns)
+                .Select(m => m.content))
+            : messages.LastOrDefault(m => m.role == "user")?.content;
         if (string.IsNullOrWhiteSpace(question)) return null;
 
         IReadOnlyList<RagHit> hits;
@@ -61,8 +77,8 @@ public sealed class RagAugmenter
             }
 
             // 범위를 안 정하면 모든 카테고리를 함께 본다.
-            hits = _store.Search(ChatCategory, question, vector, TopK);
-            if (vector is not null)
+            hits = _store.Search(ChatCategory, question, vector, only ? OnlyTopK : TopK);
+            if (vector is not null && !only)
             {
                 hits = [.. hits.Where(h => h.VectorScore >= MinScore)];
             }
@@ -78,7 +94,7 @@ public sealed class RagAugmenter
         // **이미 있는 시스템 메시지에 덧붙인다.** 새로 끼우면 두 가지가 어긋난다 —
         // EnsureSystemPrompt 가 "시스템 메시지가 있으니 됐다" 며 기본 성격을 건너뛰고,
         // Qwen 템플릿은 두 번째 시스템 메시지를 대화 중간의 turn 으로 흘려보낸다.
-        var block = Build(hits);
+        var block = only ? BuildOnly(hits) : Build(hits);
         var sys = messages.FirstOrDefault(m => m.role == "system");
         if (sys is not null)
         {
@@ -91,7 +107,7 @@ public sealed class RagAugmenter
 
         var sources = hits.Select(h => h.Chunk.Source).Distinct(StringComparer.Ordinal).ToArray();
         return new RagAugmentResult(
-            $"문서 {sources.Length}건을 참고했습니다 — {string.Join(", ", sources)}",
+            $"{(only ? "사내 자료 전용 · " : string.Empty)}문서 {sources.Length}건을 참고했습니다 — {string.Join(", ", sources)}",
             hits.Max(h => h.VectorScore));
     }
 
@@ -108,6 +124,31 @@ public sealed class RagAugmenter
         sb.AppendLine("  문서에서 찾지 못했다고 말한 뒤 아는 범위에서 답하거나 모른다고 한다.");
         sb.AppendLine();
 
+        AppendHits(sb, hits);
+        return sb.ToString();
+    }
+
+    private static string BuildOnly(IReadOnlyList<RagHit> hits)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine("# 사내 자료");
+        sb.AppendLine();
+        sb.AppendLine("아래는 이 조직의 내부 문서에서 질문과 관련있어 보이는 대목을 찾아 온 것이다.");
+        sb.AppendLine("사용자가 **사내 자료로만 답하라**고 골랐다.");
+        sb.AppendLine();
+        sb.AppendLine("- 답은 **오직 아래 자료에 적힌 내용으로만** 만든다. 네가 따로 아는 것이나 짐작을 보태지 않는다.");
+        sb.AppendLine("- 자료에 답이 없으면 지어내지 말고 「사내 자료에서 찾지 못했습니다」라고 말한다.");
+        sb.AppendLine("  가까운 내용이 자료에 있으면 그것만 알려 준다.");
+        sb.AppendLine("- 쓴 자료의 **파일 이름을 답 끝에 반드시 밝힌다.**");
+        sb.AppendLine("- 앞선 대화에서 사내 자료를 볼 수 없다고 답했더라도, 지금은 아래 자료가 주어졌다. 그것으로 답한다.");
+        sb.AppendLine();
+
+        AppendHits(sb, hits);
+        return sb.ToString();
+    }
+
+    private static void AppendHits(StringBuilder sb, IReadOnlyList<RagHit> hits)
+    {
         foreach (var h in hits)
         {
             sb.AppendLine("---");
@@ -117,8 +158,6 @@ public sealed class RagAugmenter
             sb.AppendLine(h.Chunk.Text);
             sb.AppendLine();
         }
-
-        return sb.ToString();
     }
 }
 

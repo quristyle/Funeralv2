@@ -118,14 +118,14 @@ public partial class AiChatPanel
 
     [Inject] private PortalBoot Boot { get; set; } = default!;
 
-    /// <summary>사내 자료(RAG)를 먼저 뒤질지. 기본은 켬이고 기기에 남는다(PortalBoot.AiRagOffKey).</summary>
-    private bool _preferRag = true;
+    /// <summary>사내 자료(RAG)로만 답할지. 기본은 끔이고 기기에 남는다(PortalBoot.AiRagOnlyKey).</summary>
+    private bool _ragOnly;
 
     /// <summary>고르개를 눌렀을 때. 지금 대화에 곧바로 먹는다 — 다음 질문부터 적용되고 받은 답은 그대로 둔다. 저장은 PortalBoot 가 한다.</summary>
-    private async Task OnPreferRagChangedAsync(ChangeEventArgs e)
+    private async Task OnRagOnlyChangedAsync(ChangeEventArgs e)
     {
-        _preferRag = e.Value is bool b ? b : !_preferRag;
-        await Boot.SetAiPreferRagAsync(_preferRag);
+        _ragOnly = e.Value is bool b ? b : !_ragOnly;
+        await Boot.SetAiRagOnlyAsync(_ragOnly);
     }
 
     /// <summary>지금 대화의 제목. 고르개와 이름 바꾸기 칸이 쓴다.</summary>
@@ -404,7 +404,7 @@ public partial class AiChatPanel
             var context = _messages.Take(_messages.Count - 1).ToList();
 
             await foreach (var part in Chat.StreamAsync(
-                context, turnSession, _preferRag, _cts.Token))
+                context, turnSession, _ragOnly, _cts.Token))
             {
                 if (part.IsUsedMarker && part.Notice is { Length: > 0 } used)
                 {
@@ -514,15 +514,15 @@ public partial class AiChatPanel
             try
             {
                 var boot = await Boot.ReadAsync();
-                if (boot.AiPreferRag != _preferRag)
+                if (boot.AiRagOnly != _ragOnly)
                 {
-                    _preferRag = boot.AiPreferRag;
+                    _ragOnly = boot.AiRagOnly;
                     StateHasChanged();
                 }
             }
             catch (Exception ex) when (ex is JSException or InvalidOperationException)
             {
-                // 못 읽으면 기본값(켬)으로 둔다. 대화를 막을 일이 아니다.
+                // 못 읽으면 기본값(끔)으로 둔다. 대화를 막을 일이 아니다.
             }
         }
 

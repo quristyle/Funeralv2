@@ -10,6 +10,13 @@ public class ChatRequestDto
     /// <summary>사내 문서(RAG)를 먼저 뒤질지. 안 보내면 켠 것으로 본다. 맞는 것이 있으면 웹은 안 뒤진다(Mcp:SkipWhenRagScore). 끄면 사내 문서를 아예 안 본다.</summary>
     public bool? PreferRag { get; set; }
 
+    /// <summary>사내 문서(RAG)로만 답한다. 켜면 <see cref="PreferRag"/> 보다 앞선다.</summary>
+    public bool? RagOnly { get; set; }
+
+    public AIAgentServer.Services.Rag.RagMode RagMode => RagOnly == true
+        ? AIAgentServer.Services.Rag.RagMode.Only
+        : PreferRag == false ? AIAgentServer.Services.Rag.RagMode.Off : AIAgentServer.Services.Rag.RagMode.Auto;
+
     /// <summary>쓸 모델(OpenRouter 만 쓴다). 브라우저에서 온 믿을 수 없는 입력이라 서버가 무료 여부를 반드시 확인한다(FreeModelGuard).</summary>
     public string? Model { get; set; }
 

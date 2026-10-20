@@ -112,17 +112,17 @@ public sealed class AiChatClient(HttpClient http)
     /// <param name="messages">여태 오간 말 전부. 문맥으로 함께 올라간다.</param>
     /// <param name="sessionId">주면 서버가 오간 말을 대화로 담는다(<c>AiChatStore</c>). 비우면 아무 데도 안 남는다.</param>
     /// <param name="cancellationToken">서랍을 닫거나 화면을 떠나면 끊는다.</param>
-    /// <param name="preferRag">사내 자료(RAG)를 먼저 뒤진다. 맞는 문서가 있으면 웹은 안 뒤진다.</param>
+    /// <param name="ragOnly">사내 자료(RAG)로만 답하게 한다. 끄면 잘 맞는 문서가 있을 때만 쓰고 나머지는 웹과 모델이 아는 것으로 답한다.</param>
     public async IAsyncEnumerable<AiChatPart> StreamAsync(
         IReadOnlyList<AiChatMessage> messages,
         string? sessionId = null,
-        bool preferRag = true,
+        bool ragOnly = false,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "ai/chat/stream")
         {
             // System.Net.Http.Json 기본이 웹 규칙(camelCase)이라 서버 바인딩과 맞는다.
-            Content = JsonContent.Create(new { messages, sessionId, preferRag }),
+            Content = JsonContent.Create(new { messages, sessionId, ragOnly }),
         };
         request.Headers.Accept.ParseAdd("text/event-stream");
 
