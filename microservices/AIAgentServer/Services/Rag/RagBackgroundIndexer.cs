@@ -75,6 +75,7 @@ public sealed class RagBackgroundIndexer : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("RAG 백그라운드 색인 서비스가 시작되었습니다.");
+        _ = SweepPendingAsync(stoppingToken);
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -153,6 +154,65 @@ public sealed class RagBackgroundIndexer : BackgroundService
                     _logger.LogInformation("RAG 색인 중 새 요청이 있어 후속 색인을 예약합니다: {Category}", categoryId);
                 }
             }
+        }
+    }
+
+    private static readonly TimeSpan SweepFirstDelay = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan SweepInterval = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan RetryAfterFailure = TimeSpan.FromMinutes(30);
+
+    /// <summary>색인에 안 든 문서가 남은 카테고리를 주기로 찾아 큐에 다시 넣는다.
+    /// 큐가 메모리에만 있어 서비스가 다시 뜨면 기다리던 작업이 사라지고, 실패한 작업은 스스로 다시 돌지 않는다.
+    /// 색인이 한 번 끝까지 돌면 <c>pending</c> 이 남지 않으므로 저절로 멎는다.</summary>
+    private async Task SweepPendingAsync(CancellationToken ct)
+    {
+        try
+        {
+            await Task.Delay(SweepFirstDelay, ct);
+            using var timer = new PeriodicTimer(SweepInterval);
+            do
+            {
+                try
+                {
+                    await QueuePendingCategoriesAsync(ct);
+                }
+                catch (Exception ex) when (!ct.IsCancellationRequested)
+                {
+                    _logger.LogWarning(ex, "RAG 색인 대기 건 점검 실패");
+                }
+            }
+            while (await timer.WaitForNextTickAsync(ct));
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+        }
+    }
+
+    private async Task QueuePendingCategoriesAsync(CancellationToken ct)
+    {
+        using var scope = _scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AiUsageDbContext>();
+
+        var ids = await db.RagDocuments
+            .Where(d => !d.IsDeleted && d.Status == "pending")
+            .Where(d => db.RagCategories.Any(c => c.Id == d.CategoryId && !c.IsDeleted))
+            .Select(d => d.CategoryId)
+            .Distinct()
+            .ToListAsync(ct);
+
+        foreach (var id in ids)
+        {
+            lock (_sync)
+            {
+                if (_queued.Contains(id) || _running.Contains(id)) continue;
+
+                // 같은 까닭으로 또 실패할 것을 몇 분마다 통째로 다시 임베딩하지 않는다.
+                if (_status.GetValueOrDefault(id) is { State: RagIndexStatus.Failed, FinishedAt: { } failedAt }
+                    && DateTime.UtcNow - failedAt < RetryAfterFailure) continue;
+            }
+
+            _logger.LogInformation("RAG 색인 대기 문서가 남아 있어 다시 큐에 넣습니다: {Category}", id);
+            QueueReindex(id, "auto");
         }
     }
 

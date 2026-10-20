@@ -71,6 +71,12 @@ public partial class RagDocuments
     private RagCategoryDto? Current
         => _categories.FirstOrDefault(c => c.Id == _categoryId);
 
+    /// <summary>보이는 카테고리 전체의 색인 대기 수. 회사를 고르면 그 회사의 것만 센다.</summary>
+    private int PendingAll => _categories.Sum(c => c.DocPending);
+
+    private const string PendingNote =
+        "올리면 곧 자동으로 색인됩니다. 서비스가 다시 떠서 끊긴 것도 몇 분 안에 다시 잡습니다.";
+
     /// <summary>분류에 안 들어간 문서 수. 분류별 수를 이미 받으므로 전체에서 빼서 낸다 — 칸을 따로 두면 둘이 어긋난다.</summary>
     private int LooseCount
     {

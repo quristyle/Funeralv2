@@ -51,9 +51,21 @@
                             <span class="ad-rag__cat-comp">(@c.CompanyName)</span>
                         }
                         <span class="ad-rag__cat-count">@c.ChunkCount</span>
+                        @if (c.DocPending > 0)
+                        {
+                            <span class="ad-rag__cat-pend" title="@($"색인 대기 {c.DocPending}건")">대기 @c.DocPending</span>
+                        }
                     </button>
                 }
             </div>
+
+            @if (_categories.Count > 0)
+            {
+                <span class="@($"jsini-badge {(PendingAll > 0 ? "jsini-badge--warn" : "jsini-badge--muted")}")"
+                      title="@($"보이는 카테고리 {_categories.Count}개 전체에서 아직 색인에 안 든 문서. {PendingNote}")">
+                    전체 색인 대기 @PendingAll
+                </span>
+            }
 
             <DxButton Text="+ 카테고리 추가" RenderStyle="ButtonRenderStyle.Secondary"
                       Click="@OpenNewCategory" />
@@ -69,7 +81,7 @@
                     <span class="jsini-badge jsini-badge--info">문서 @cur.DocTotal</span>
                     @if (cur.DocPending > 0)
                     {
-                        <span class="jsini-badge jsini-badge--warn" title="「색인 다시 만들기」를 눌러야 검색에 들어갑니다.">
+                        <span class="jsini-badge jsini-badge--warn" title="@PendingNote">
                             색인 대기 @cur.DocPending
                         </span>
                     }
@@ -438,7 +450,7 @@
         if (pending > 0)
         {
             <span class="ad-rag__count ad-rag__count--wait"
-                  title="@($"색인에 안 든 문서 {pending}건. 「색인 다시 만들기」를 눌러야 검색에 들어갑니다.")">
+                  title="@($"색인에 안 든 문서 {pending}건. {PendingNote}")">
                 대기 @pending
             </span>
         }
