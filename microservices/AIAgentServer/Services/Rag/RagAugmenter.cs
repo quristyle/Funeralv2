@@ -133,14 +133,16 @@ public sealed class RagAugmenter
         var sb = new StringBuilder();
         sb.AppendLine("# 사내 자료");
         sb.AppendLine();
-        sb.AppendLine("아래는 이 조직의 내부 문서에서 질문과 관련있어 보이는 대목을 찾아 온 것이다.");
+        sb.AppendLine("아래는 이 조직의 내부 문서에서 사용자의 질문으로 찾아 온 대목이다.");
         sb.AppendLine("사용자가 **사내 자료로만 답하라**고 골랐다.");
         sb.AppendLine();
-        sb.AppendLine("- 답은 **오직 아래 자료에 적힌 내용으로만** 만든다. 네가 따로 아는 것이나 짐작을 보태지 않는다.");
-        sb.AppendLine("- 자료에 답이 없으면 지어내지 말고 「사내 자료에서 찾지 못했습니다」라고 말한다.");
-        sb.AppendLine("  가까운 내용이 자료에 있으면 그것만 알려 준다.");
-        sb.AppendLine("- 쓴 자료의 **파일 이름을 답 끝에 반드시 밝힌다.**");
-        sb.AppendLine("- 앞선 대화에서 사내 자료를 볼 수 없다고 답했더라도, 지금은 아래 자료가 주어졌다. 그것으로 답한다.");
+        sb.AppendLine("- 질문의 낱말은 회사·고객·프로젝트 이름일 수 있다. 표현이 자료와 조금 달라도(줄임말, 다른 이름)");
+        sb.AppendLine("  같은 일을 다루는 자료면 그것으로 답한다.");
+        sb.AppendLine("- 자료에 적힌 숫자·표·목록을 그대로 옮겨 정리해 답한다. 웹 검색이나 네가 따로 아는 것을 보태지 않는다.");
+        sb.AppendLine("- 아래 자료 어디에도 질문과 이어지는 내용이 없을 때만 「사내 자료에서 찾지 못했습니다」라고 답한다.");
+        sb.AppendLine("  자료로 답했으면 그 말을 덧붙이지 않는다.");
+        sb.AppendLine("- 쓴 자료의 **파일 이름을 답 끝에 밝힌다.**");
+        sb.AppendLine("- 앞선 대화에서 사내 자료를 볼 수 없다고 했거나 웹으로 답했더라도, 지금은 아래 자료로 다시 답한다.");
         sb.AppendLine();
 
         AppendHits(sb, hits);
