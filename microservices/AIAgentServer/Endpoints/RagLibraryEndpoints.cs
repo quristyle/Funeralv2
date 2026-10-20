@@ -271,7 +271,7 @@ public static class RagLibraryEndpoints
             // 파일이 정상적으로 등록되면 백그라운드에서 색인 처리가 자동으로 진행된다.
             if (anyPending)
             {
-                indexer.QueueReindex(id);
+                indexer.QueueReindex(id, "auto", Who(http));
             }
 
             return Results.Ok(ApiResponse<object>.Ok(saved));
@@ -364,22 +364,16 @@ public static class RagLibraryEndpoints
         }).WithSummary("문서 지우기");
 
         // ── 색인 ────────────────────────────────────────────
+        // 기다리지 않는다 — 큐에 넣고 바로 돌아온다. 몇 분 걸리는 일이라 요청 안에서 돌리면 포털이 180초에 끊는다.
         group.MapPost("/categories/{id}/reindex", async (
             string id, UserContext? user, [FromServices] RagLibrary lib,
-            [FromServices] RagBackgroundIndexer indexer,
+            [FromServices] RagBackgroundIndexer indexer, HttpContext http,
             CancellationToken ct) =>
         {
             try
             {
                 await lib.EnsureCategoryAccessAsync(id, user, ct);
-                var index = await indexer.ReindexDirectAsync(id, lib, ct);
-                return Results.Ok(ApiResponse<object>.Ok(new
-                {
-                    category = id,
-                    chunks = index.Chunks.Count,
-                    dimensions = index.Dimensions,
-                    builtAt = index.BuiltAt,
-                }));
+                return Results.Ok(ApiResponse<object>.Ok(indexer.QueueReindex(id, "manual", Who(http))));
             }
             catch (UnauthorizedAccessException uex)
             {
@@ -387,9 +381,25 @@ public static class RagLibraryEndpoints
             }
             catch (Exception ex)
             {
-                return Results.Ok(ApiResponse<object>.Fail($"색인을 만들지 못했습니다 — {ex.Message}", "C500"));
+                return Results.Ok(ApiResponse<object>.Fail($"색인을 맡기지 못했습니다 — {ex.Message}", "C500"));
             }
-        }).WithSummary("카테고리 색인 다시 만들기");
+        }).WithSummary("카테고리 색인 다시 만들기 (백그라운드로 맡긴다)");
+
+        group.MapGet("/categories/{id}/reindex", async (
+            string id, UserContext? user, [FromServices] RagLibrary lib,
+            [FromServices] RagBackgroundIndexer indexer,
+            CancellationToken ct) =>
+        {
+            try
+            {
+                await lib.EnsureCategoryAccessAsync(id, user, ct);
+                return Results.Ok(ApiResponse<object>.Ok(indexer.GetStatus(id)));
+            }
+            catch (UnauthorizedAccessException uex)
+            {
+                return Results.Ok(ApiResponse<object>.Fail(uex.Message, "C403"));
+            }
+        }).WithSummary("카테고리 색인 작업 상태");
     }
 
     /// <summary>누가 했는지. 게이트웨이가 실어 보내는 로그인 아이디다.</summary>

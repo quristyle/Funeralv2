@@ -6,7 +6,7 @@
 @*
     [RAG 문서함] AI 가 읽을 문서를 올리고 정리하는 자리. 카테고리(RAG 단위) → 분류(트리) → 파일.
     카테고리마다 파일이 하나라 섞이면 안 되는 자료를 나눈다. 분류는 사람이 정리하려고 있을 뿐 검색은 카테고리 전체에서 한다.
-    올리기만 해서는 찾아지지 않는다 — 「색인 다시 만들기」를 눌러야 들어간다(한 번에 몇 분씩 걸려 자동으로 돌리지 않는다). 읽을 수 없는 파일은 상태 칸에 「건너뜀」과 까닭을 적는다.
+    색인은 서버가 백그라운드로 만든다(올리기·지우기 뒤 저절로, 또는 「색인 다시 만들기」). 몇 분씩 걸려 요청 안에서 기다리지 않고, 진행은 머리의 띠가 몇 초마다 읽어 그린다. 읽을 수 없는 파일은 상태 칸에 「건너뜀」과 까닭을 적는다.
 *@
 
 <PageTitle>RAG 문서함</PageTitle>
@@ -80,17 +80,47 @@
                         </span>
                     }
                     <span class="jsini-badge jsini-badge--muted">토막 @cur.ChunkCount</span>
+                    @if (_index is { State: "failed" } bad)
+                    {
+                        <span class="jsini-badge jsini-badge--err" title="@bad.Error">
+                            @($"{bad.FinishedAt?.Kst("MM-dd HH:mm")} 색인 실패")
+                        </span>
+                    }
                 </div>
 
                 <div class="ad-rag__bar-acts">
-                    <DxButton Text="색인 다시 만들기" RenderStyle="ButtonRenderStyle.Primary"
-                              Enabled="@(!_busy)" Click="@ReindexAsync" />
+                    <DxButton Text="@(Indexing ? "색인 중…" : "색인 다시 만들기")" RenderStyle="ButtonRenderStyle.Primary"
+                              Enabled="@(!_busy && !Indexing)" Click="@ReindexAsync" />
                     <DxButton Text="카테고리 지우기" RenderStyle="ButtonRenderStyle.Link"
                               Enabled="@(!_busy)" Click="@DeleteCategoryAsync" />
                 </div>
             </div>
         }
     </div>
+
+    @if (_categoryId is not null && _index is { IsActive: true } job)
+    {
+        <div class="ad-rag__job" role="status">
+            <div class="ad-rag__job-head">
+                <strong>@IndexLabel(job)</strong>
+                <span class="ad-rag__job-meta">
+                    @(job.Trigger == "manual" ? "수동" : "자동")@(string.IsNullOrEmpty(job.RequestedBy) ? "" : $" · {job.RequestedBy}")
+                    @if ((job.StartedAt ?? job.QueuedAt) is { } since)
+                    {
+                        @($" · {since.Kst("HH:mm:ss")} 시작")
+                    }
+                    @if (job.RerunQueued)
+                    {
+                        @(" · 끝나면 한 번 더")
+                    }
+                </span>
+            </div>
+            <div class="ad-rag__up-bar">
+                <div class="@($"ad-rag__up-fill ad-rag__up-fill--{(job.State == "queued" ? "waiting" : "sending")}")"
+                     style="@($"width:{job.Percent.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture)}%")"></div>
+            </div>
+        </div>
+    }
 
     @if (_categoryId is null)
     {

@@ -78,13 +78,34 @@ public sealed class RagUploadedDto
     public string? Error { get; set; }
 }
 
-/// <summary>색인을 다시 만든 결과.</summary>
-public sealed class RagReindexDto
+/// <summary>카테고리 하나의 색인 작업 상태. 서버가 백그라운드로 돌리는 것을 몇 초마다 읽는다.</summary>
+public sealed class RagIndexStatusDto
 {
     public string Category { get; set; } = string.Empty;
-    public int Chunks { get; set; }
-    public int Dimensions { get; set; }
-    public DateTime BuiltAt { get; set; }
+
+    /// <summary><c>idle</c> · <c>queued</c> · <c>running</c> · <c>done</c> · <c>failed</c></summary>
+    public string State { get; set; } = "idle";
+
+    /// <summary><c>read</c>(문서 읽기) · <c>embed</c>(임베딩) · <c>save</c>(저장)</summary>
+    public string? Phase { get; set; }
+
+    public int Done { get; set; }
+    public int Total { get; set; }
+
+    /// <summary><c>manual</c> · <c>auto</c></summary>
+    public string? Trigger { get; set; }
+
+    public string? RequestedBy { get; set; }
+    public DateTime? QueuedAt { get; set; }
+    public DateTime? StartedAt { get; set; }
+    public DateTime? FinishedAt { get; set; }
+    public int? Chunks { get; set; }
+    public string? Error { get; set; }
+    public bool RerunQueued { get; set; }
+
+    public bool IsActive => State is "queued" or "running";
+
+    public double Percent => Total <= 0 ? 0 : Math.Clamp(100.0 * Done / Total, 0, 100);
 }
 
 /// <summary>화면이 그리는 트리 한 칸. 분류를 부모-자식으로 엮은 것이다.</summary>

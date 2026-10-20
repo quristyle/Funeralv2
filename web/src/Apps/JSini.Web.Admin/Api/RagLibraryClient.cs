@@ -166,9 +166,14 @@ public sealed class RagLibraryClient(GatewayClient gateway, HttpClient http)
 
     // ── 색인 ────────────────────────────────────────────────────
 
-    public Task<RagReindexDto?> ReindexAsync(string categoryId, CancellationToken ct = default)
-        => gateway.PostAsync<RagReindexDto>(
+    /// <summary>색인을 백그라운드에 맡긴다. 끝나기를 기다리지 않고 맡긴 뒤의 상태를 돌려준다.</summary>
+    public Task<RagIndexStatusDto?> ReindexAsync(string categoryId, CancellationToken ct = default)
+        => gateway.PostAsync<RagIndexStatusDto>(
             $"ai/rag/categories/{Uri.EscapeDataString(categoryId)}/reindex", new { }, ct);
+
+    public Task<RagIndexStatusDto?> IndexStatusAsync(string categoryId, CancellationToken ct = default)
+        => gateway.GetOneAsync<RagIndexStatusDto>(
+            $"ai/rag/categories/{Uri.EscapeDataString(categoryId)}/reindex", ct);
 
     private sealed class Envelope<T>
     {

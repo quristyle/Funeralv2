@@ -128,40 +128,100 @@ public partial class RagDocuments
 
     private CancellationTokenSource? _pollCts;
 
-    private void StartPollingPendingIndex()
+    /// <summary>지금 고른 카테고리의 색인 작업. 서버가 백그라운드로 돌리므로 몇 초마다 다시 읽는다.</summary>
+    private RagIndexStatusDto? _index;
+
+    private bool Indexing => _index?.IsActive == true;
+
+    /// <summary>색인 작업을 지켜본다. 한 번 읽어 보고, 돌고 있으면 끝날 때까지 2초마다 다시 읽는다.</summary>
+    private void WatchIndex()
     {
         _pollCts?.Cancel();
         _pollCts?.Dispose();
+        _pollCts = null;
+
+        if (_categoryId is not { } categoryId)
+        {
+            _index = null;
+            return;
+        }
+
         _pollCts = new CancellationTokenSource();
-        _ = PollPendingIndexAsync(_pollCts.Token);
+        _ = WatchIndexAsync(categoryId, _pollCts.Token);
     }
 
-    private async Task PollPendingIndexAsync(CancellationToken ct)
+    private async Task WatchIndexAsync(string categoryId, CancellationToken ct)
     {
+        var misses = 0;
+        var sawActive = false;
         try
         {
-            for (var i = 0; i < 20; i++)
+            while (!ct.IsCancellationRequested)
             {
-                await Task.Delay(3000, ct);
-                if (ct.IsCancellationRequested) break;
-
-                await RefreshCountsAsync();
-                await LoadDocumentsAsync();
-                await InvokeAsync(StateHasChanged);
-
-                if ((Current?.DocPending ?? 0) == 0)
+                RagIndexStatusDto? s;
+                try
                 {
-                    break;
+                    s = await Api.IndexStatusAsync(categoryId, ct);
+                    misses = 0;
                 }
+                catch (Exception) when (!ct.IsCancellationRequested && ++misses < 5)
+                {
+                    // 한두 번 못 읽는 것으로 지켜보기를 그만두지 않는다. 일은 서버에서 그대로 돈다.
+                    await Task.Delay(3000, ct);
+                    continue;
+                }
+
+                if (ct.IsCancellationRequested || categoryId != _categoryId) return;
+
+                _index = s;
+                var active = s?.IsActive == true;
+                sawActive |= active;
+
+                if (!active)
+                {
+                    // 지켜보던 작업이 끝났을 때만 알린다. 화면을 열었을 때 남아 있던 지난 결과는 띠로만 보인다.
+                    if (sawActive)
+                    {
+                        if (s?.State == "failed")
+                            Say($"색인을 만들지 못했습니다 — {s.Error}", NoticeTone.Error);
+                        else if (s?.State == "done")
+                            Say($"색인을 다시 만들었습니다. 토막 {s.Chunks ?? 0}개.", NoticeTone.Info);
+
+                        await RefreshCountsAsync();
+                        await LoadDocumentsAsync();
+                    }
+
+                    await InvokeAsync(StateHasChanged);
+                    return;
+                }
+
+                await InvokeAsync(StateHasChanged);
+                await Task.Delay(2000, ct);
             }
         }
         catch (OperationCanceledException)
         {
         }
-        catch
+        catch (Exception ex)
         {
+            Say($"색인 상태를 읽지 못했습니다 — {ex.Message}", NoticeTone.Error);
+            await InvokeAsync(StateHasChanged);
         }
     }
+
+    /// <summary>띠에 적을 한 줄. 몇 개 중 몇 개인지까지 적는다.</summary>
+    private static string IndexLabel(RagIndexStatusDto s) => s.State switch
+    {
+        "queued" => "색인 대기 중",
+        "running" => s.Phase switch
+        {
+            "read" => $"색인 중 · 문서 읽기 {s.Done}/{s.Total}",
+            "embed" => $"색인 중 · 임베딩 {s.Done}/{s.Total}",
+            "save" => "색인 중 · 저장",
+            _ => "색인 중",
+        },
+        _ => string.Empty,
+    };
 
     public async ValueTask DisposeAsync()
     {
@@ -221,10 +281,7 @@ public partial class RagDocuments
 
         await LoadTreeAsync();
         await LoadDocumentsAsync();
-        if (Current?.DocPending > 0)
-        {
-            StartPollingPendingIndex();
-        }
+        WatchIndex();
         return _categories.Count;
     });
 
@@ -277,10 +334,8 @@ public partial class RagDocuments
         _folderLabel = "분류 미지정";
         await LoadTreeAsync();
         await LoadDocumentsAsync();
-        if (Current?.DocPending > 0)
-        {
-            StartPollingPendingIndex();
-        }
+        _index = null;
+        WatchIndex();
     }
 
     private async Task PickFolderAsync(long? id, string label)
@@ -572,7 +627,7 @@ public partial class RagDocuments
 
             if (done > 0 && done > skipped)
             {
-                StartPollingPendingIndex();
+                WatchIndex();
             }
         }
         finally
@@ -641,7 +696,7 @@ public partial class RagDocuments
 
         await LoadDocumentsAsync();
         await RefreshCountsAsync();
-        StartPollingPendingIndex();
+        WatchIndex();
     }
 
     /// <summary>트리에서 분류 하나를 찾는다. 묻는 창에 이름을 적으려고 쓴다.</summary>
@@ -658,7 +713,7 @@ public partial class RagDocuments
 
     // ── 색인 ────────────────────────────────────────────────────
 
-    /// <summary>카테고리를 통째로 다시 색인한다. 올리기만 해서는 찾아지지 않는다 — 올릴 때마다 돌리면 열 번 도는데 한 번에 몇 분씩 걸린다(임베딩이 CPU 로 돈다).</summary>
+    /// <summary>카테고리를 통째로 다시 색인하도록 서버에 맡긴다. 끝나기를 기다리지 않는다 — 몇 분씩 걸려 요청 안에서 기다리면 180초에 끊긴다. 진행은 <see cref="WatchIndex"/> 가 읽어 띠에 그린다.</summary>
     private async Task ReindexAsync()
     {
         if (_categoryId is null) return;
@@ -666,18 +721,16 @@ public partial class RagDocuments
         _busy = true;
         try
         {
-            var r = await Api.ReindexAsync(_categoryId);
-            Say(r is null
-                ? "색인을 만들지 못했습니다."
-                : $"색인을 다시 만들었습니다. 토막 {r.Chunks}개.",
-                r is null ? NoticeTone.Error : NoticeTone.Info);
-
-            await LoadDocumentsAsync();
-            await RefreshCountsAsync();
+            _index = await Api.ReindexAsync(_categoryId);
+            Say(_index?.RerunQueued == true
+                    ? "지금 도는 색인이 끝나면 한 번 더 만듭니다."
+                    : "색인을 백그라운드에서 만듭니다. 화면을 떠나도 계속됩니다.",
+                NoticeTone.Info);
+            WatchIndex();
         }
         catch (Exception ex)
         {
-            Say($"색인을 만들지 못했습니다 — {ex.Message}", NoticeTone.Error);
+            Say($"색인을 맡기지 못했습니다 — {ex.Message}", NoticeTone.Error);
         }
         finally
         {

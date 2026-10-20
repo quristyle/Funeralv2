@@ -448,7 +448,9 @@ public sealed class RagLibrary
     // ── 색인 ────────────────────────────────────────────────────
 
     /// <summary>한 카테고리를 통째로 다시 색인한다. 조금씩 고치지 않는다 — 지금 규모(문서 수십~수백)에서는 다시 만드는 편이 빠르고 틀릴 일이 없다.</summary>
-    public async Task<RagIndexFile> ReindexAsync(string categoryId, CancellationToken ct = default)
+    /// <param name="progress">단계(<c>read</c>·<c>embed</c>·<c>save</c>)와 몇 개 중 몇 개를 했나. 화면이 진행을 그리는 값이다.</param>
+    public async Task<RagIndexFile> ReindexAsync(
+        string categoryId, Action<string, int, int>? progress = null, CancellationToken ct = default)
     {
         var docs = await _db.RagDocuments
             .Where(x => x.CategoryId == categoryId && !x.IsDeleted)
@@ -457,8 +459,10 @@ public sealed class RagLibrary
         var chunks = new List<RagChunk>();
         var seenHash = new HashSet<string>(StringComparer.Ordinal);
 
+        var read = 0;
         foreach (var d in docs)
         {
+            progress?.Invoke("read", read++, docs.Count);
             d.ChunkCount = 0;
             d.IndexedAt = DateTime.UtcNow;
 
@@ -519,6 +523,7 @@ public sealed class RagLibrary
             const int Batch = 16;
             for (var i = 0; i < chunks.Count; i += Batch)
             {
+                progress?.Invoke("embed", i, chunks.Count);
                 var slice = chunks.Skip(i).Take(Batch).ToList();
                 var vectors = await _embed.EmbedAsync(
                     [.. slice.Select(MarkdownChunker.ForEmbedding)], ct);
@@ -527,6 +532,8 @@ public sealed class RagLibrary
                 dims = vectors[0].Length;
             }
         }
+
+        progress?.Invoke("save", chunks.Count, chunks.Count);
 
         var index = new RagIndexFile
         {
