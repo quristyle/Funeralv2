@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using HtmlAgilityPack;
 using UglyToad.PdfPig;
 
@@ -59,14 +60,27 @@ public static class DocumentText
             {
                 var d = new HtmlDocument();
                 d.Load(path);
+
+                // 표 본문을 JSON 으로 싣고 화면에서 그리는 문서가 있다. 그것까지 버리면 머리만 남는다.
+                var data = new StringBuilder();
                 foreach (var tag in new[] { "script", "style" })
                 {
                     var ns = d.DocumentNode.SelectNodes($"//{tag}");
                     if (ns is null) continue;
-                    foreach (var n in ns.ToList()) n.Remove();
+                    foreach (var n in ns.ToList())
+                    {
+                        if (tag == "script"
+                            && n.GetAttributeValue("type", string.Empty).Contains("json", StringComparison.OrdinalIgnoreCase))
+                        {
+                            AppendJson(data, n.InnerText);
+                        }
+
+                        n.Remove();
+                    }
                 }
 
-                return System.Net.WebUtility.HtmlDecode(d.DocumentNode.InnerText ?? string.Empty).Trim();
+                var body = System.Net.WebUtility.HtmlDecode(d.DocumentNode.InnerText ?? string.Empty).Trim();
+                return data.Length == 0 ? body : $"{body}\n\n{data.ToString().Trim()}";
             }
 
             reason = $"읽을 수 없는 형식입니다({ext}). 쓸 수 있는 것: {Describe()}";
@@ -76,6 +90,46 @@ public static class DocumentText
         {
             reason = $"파일을 읽지 못했습니다: {ex.Message}";
             return string.Empty;
+        }
+    }
+
+    /// <summary>JSON 을 「열쇠: 값」 줄로 푼다. 배열의 한 항목이 한 문단이라 토막이 항목 경계에서 갈린다.</summary>
+    private static void AppendJson(StringBuilder sb, string json)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            Walk(sb, doc.RootElement, string.Empty);
+        }
+        catch (JsonException)
+        {
+        }
+    }
+
+    private static void Walk(StringBuilder sb, JsonElement e, string key)
+    {
+        switch (e.ValueKind)
+        {
+            case JsonValueKind.Object:
+                foreach (var p in e.EnumerateObject()) Walk(sb, p.Value, p.Name);
+                break;
+            case JsonValueKind.Array:
+                foreach (var item in e.EnumerateArray())
+                {
+                    Walk(sb, item, key);
+                    if (item.ValueKind == JsonValueKind.Object) sb.AppendLine();
+                }
+
+                break;
+            case JsonValueKind.String:
+                var v = e.GetString();
+                if (!string.IsNullOrWhiteSpace(v)) sb.AppendLine(key.Length > 0 ? $"{key}: {v}" : v);
+                break;
+            case JsonValueKind.Number:
+            case JsonValueKind.True:
+            case JsonValueKind.False:
+                sb.AppendLine(key.Length > 0 ? $"{key}: {e.GetRawText()}" : e.GetRawText());
+                break;
         }
     }
 }
