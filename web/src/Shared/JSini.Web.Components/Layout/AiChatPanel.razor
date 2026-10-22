@@ -326,6 +326,26 @@
                            checked="@_ragOnly" @onchange="OnRagOnlyChangedAsync" />
                     <span class="jsini-chat__opt-text">사내 자료 전용</span>
                 </label>
+
+                @if (_ragOnly && _ragScopes is { Count: > 0 } scopes)
+                {
+                    @* 분류는 카테고리 안의 트리다. 분류를 고르면 하위 분류의 문서까지 찾는다. *@
+                    <select class="jsini-chat__scope" title="사내 자료를 찾을 범위"
+                            value="@SelectedRagScope" @onchange="OnRagScopeChangedAsync">
+                        <option value="">모든 카테고리</option>
+                        @foreach (var c in scopes)
+                        {
+                            var empty = c.ChunkCount == 0;
+                            <optgroup label="@(empty ? $"{c.Name} (색인 없음)" : c.Name)">
+                                <option value="@c.Id" disabled="@empty">@c.Name 전체</option>
+                                @foreach (var f in c.Folders)
+                                {
+                                    <option value="@($"{c.Id}/{f.Id}")" disabled="@empty">@(new string('\u00A0', (f.Depth + 1) * 2))@f.Name</option>
+                                }
+                            </optgroup>
+                        }
+                    </select>
+                }
             </div>
         </div>
     </div>

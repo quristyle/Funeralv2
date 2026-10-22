@@ -100,6 +100,30 @@ public static class RagLibraryEndpoints
             }
         }).WithSummary("RAG 카테고리 지우기 (문서까지 함께)");
 
+        // AI쳇의 「사내 자료 전용」 범위 고르개가 읽는다. 관리 목록과 달리 공용 카테고리도 넣고, 분류는 트리 차례로 펴서 깊이를 붙인다.
+        group.MapGet("/chat-scopes", async (
+            UserContext? user, [FromServices] RagLibrary lib, [FromServices] RagStore store, CancellationToken ct) =>
+        {
+            var result = new List<object>();
+            foreach (var c in await lib.ChatCategoriesAsync(user, ct))
+            {
+                var folders = await lib.FoldersAsync(c.Id, ct);
+                var flat = new List<object>();
+                void Walk(long? parent, int depth)
+                {
+                    foreach (var f in folders.Where(x => x.ParentId == parent))
+                    {
+                        flat.Add(new { f.Id, f.Name, depth });
+                        if (depth < 16) Walk(f.Id, depth + 1);
+                    }
+                }
+                Walk(null, 0);
+
+                result.Add(new { c.Id, c.Name, chunkCount = store.CountOf(c.Id), folders = flat });
+            }
+            return Results.Ok(ApiResponse<object>.Ok(result));
+        }).WithSummary("AI쳇에서 고를 수 있는 사내 자료 범위");
+
         // ── 분류 (트리) ─────────────────────────────────────
         group.MapGet("/categories/{id}/folders", async (
             string id, UserContext? user, [FromServices] RagLibrary lib, CancellationToken ct) =>

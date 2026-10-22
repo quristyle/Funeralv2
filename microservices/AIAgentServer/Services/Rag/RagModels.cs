@@ -33,6 +33,12 @@ public enum RagMode
     Off,
 }
 
+/// <summary>대화에서 사내 자료를 찾을 범위. 사람이 채팅창에서 고른다.</summary>
+/// <param name="Category">찾을 카테고리. null 이면 모든 카테고리.</param>
+/// <param name="DocIds">분류를 골랐을 때 그 분류(하위 포함)에 든 문서 아이디. null 이면 카테고리 전체.</param>
+/// <param name="Label">안내에 보여 줄 이름(「카테고리 › 분류」).</param>
+public sealed record RagScope(string? Category, IReadOnlySet<long>? DocIds, string Label);
+
 /// <summary>검색 결과 한 건.</summary>
 public sealed record RagHit(RagChunk Chunk, double Score, double VectorScore, double KeywordScore);
 

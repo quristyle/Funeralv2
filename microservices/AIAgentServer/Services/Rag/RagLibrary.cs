@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace AIAgentServer.Services.Rag;
 
-/// <summary>RAG 문서를 보관하고 색인한다. 파일 실물은 운영 디스크에 있고 LLM 서버에는 임베딩만 맡긴다. 색인은 카테고리마다 하나다 — 검색은 카테고리 전체에서 하고, 분류는 사람이 정리하려고 있다.</summary>
+/// <summary>RAG 문서를 보관하고 색인한다. 파일 실물은 운영 디스크에 있고 LLM 서버에는 임베딩만 맡긴다. 색인은 카테고리마다 하나다 — 분류는 색인을 가르지 않고, AI쳇에서 분류를 고르면 그 분류의 문서 토막만 걸러 찾는다.</summary>
 public sealed class RagLibrary
 {
     private readonly AiUsageDbContext _db;
@@ -199,6 +199,68 @@ public sealed class RagLibrary
         var doc = await _db.RagDocuments.AsNoTracking().FirstOrDefaultAsync(x => x.Id == docId, ct)
                   ?? throw new InvalidOperationException("없는 문서입니다.");
         await EnsureCategoryAccessAsync(doc.CategoryId, user, ct);
+    }
+
+    /// <summary>대화에서 찾아볼 수 있는 카테고리. 관리자는 전부, 그 밖에는 소속 회사의 것과 회사가 안 정해진 공용의 것이다(관리 권한보다 넓다 — 읽기만 한다).</summary>
+    public async Task<List<RagCategoryRow>> ChatCategoriesAsync(UserContext? user, CancellationToken ct = default)
+    {
+        var rows = await CategoriesAsync(ct);
+        return [.. rows.Where(c => CanReadInChat(c, user))];
+    }
+
+    private static bool CanReadInChat(RagCategoryRow category, UserContext? user)
+        => user is null || user.IsAdmin
+           || string.IsNullOrWhiteSpace(category.CompanyId)
+           || category.CompanyId == user.CompanyId;
+
+    /// <summary>채팅창에서 고른 카테고리·분류를 검색 범위로 바꾼다. 분류는 하위 분류의 문서까지 넣는다.</summary>
+    /// <exception cref="InvalidOperationException">없는 카테고리·분류.</exception>
+    /// <exception cref="UnauthorizedAccessException">볼 수 없는 카테고리.</exception>
+    public async Task<RagScope> ResolveChatScopeAsync(
+        string categoryId, long? folderId, UserContext? user, CancellationToken ct = default)
+    {
+        var category = await GetCategoryAsync(categoryId, ct)
+                       ?? throw new InvalidOperationException($"없는 카테고리입니다: {categoryId}");
+        if (!CanReadInChat(category, user))
+        {
+            throw new UnauthorizedAccessException("소속 회사의 사내 자료만 찾아볼 수 있습니다.");
+        }
+
+        if (folderId is not { } fid) return new RagScope(category.Id, null, category.Name);
+
+        var folders = await FoldersAsync(category.Id, ct);
+        var root = folders.FirstOrDefault(x => x.Id == fid)
+                   ?? throw new InvalidOperationException("없는 분류입니다.");
+
+        var ids = new HashSet<long> { root.Id };
+        var grew = true;
+        while (grew)
+        {
+            grew = false;
+            foreach (var f in folders)
+            {
+                if (f.ParentId is { } p && ids.Contains(p) && ids.Add(f.Id)) grew = true;
+            }
+        }
+
+        var docIds = await _db.RagDocuments.AsNoTracking()
+            .Where(x => x.CategoryId == category.Id && !x.IsDeleted
+                        && x.FolderId != null && ids.Contains(x.FolderId.Value))
+            .Select(x => x.Id)
+            .ToListAsync(ct);
+
+        return new RagScope(category.Id, docIds.ToHashSet(), $"{category.Name} › {FolderPath(folders, root)}");
+    }
+
+    private static string FolderPath(List<RagFolderRow> folders, RagFolderRow leaf)
+    {
+        var names = new List<string>();
+        for (RagFolderRow? f = leaf; f is not null && names.Count < 16;
+             f = f.ParentId is { } p ? folders.FirstOrDefault(x => x.Id == p) : null)
+        {
+            names.Insert(0, f.Name);
+        }
+        return string.Join(" › ", names);
     }
 
     public async Task DeleteCategoryAsync(string id, string? who, CancellationToken ct = default)

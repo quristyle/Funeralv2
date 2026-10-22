@@ -47,9 +47,11 @@ public sealed class RagAugmenter
     /// <see cref="RagMode.Only"/> 면 점수 문턱을 안 두고(Rag:AugmentChat 도 안 본다) 자료로만 답하라고 이른다 —
     /// 사내 질문도 말투에 따라 벡터 점수가 0.5 대로 떨어져 Rag:MinVectorScore 에 걸린다.
     /// </param>
+    /// <param name="scope">사람이 고른 범위. null 이면 Rag:ChatCategory(비었으면 전부)에서 찾는다.</param>
     /// <returns>끼운 결과. 끼우지 않았으면 null.</returns>
     public async Task<RagAugmentResult?> AugmentAsync(
-        List<Message> messages, RagMode mode = RagMode.Auto, CancellationToken ct = default)
+        List<Message> messages, RagMode mode = RagMode.Auto, RagScope? scope = null,
+        CancellationToken ct = default)
     {
         var only = mode == RagMode.Only;
         if (mode == RagMode.Off || (!only && !Enabled) || _store.Count == 0) return null;
@@ -77,7 +79,9 @@ public sealed class RagAugmenter
             }
 
             // 범위를 안 정하면 모든 카테고리를 함께 본다.
-            hits = _store.Search(ChatCategory, question, vector, only ? OnlyTopK : TopK);
+            hits = _store.Search(
+                scope is null ? ChatCategory : scope.Category,
+                question, vector, only ? OnlyTopK : TopK, scope?.DocIds);
             if (vector is not null && !only)
             {
                 hits = [.. hits.Where(h => h.VectorScore >= MinScore)];
@@ -106,8 +110,10 @@ public sealed class RagAugmenter
         }
 
         var sources = hits.Select(h => h.Chunk.Source).Distinct(StringComparer.Ordinal).ToArray();
+        var lead = (only ? "사내 자료 전용 · " : string.Empty)
+                   + (scope is null ? string.Empty : $"{scope.Label} · ");
         return new RagAugmentResult(
-            $"{(only ? "사내 자료 전용 · " : string.Empty)}문서 {sources.Length}건을 참고했습니다 — {string.Join(", ", sources)}",
+            $"{lead}문서 {sources.Length}건을 참고했습니다 — {string.Join(", ", sources)}",
             hits.Max(h => h.VectorScore));
     }
 

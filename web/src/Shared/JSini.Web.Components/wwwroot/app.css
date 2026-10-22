@@ -5768,6 +5768,8 @@ a.jsini-social__btn:focus-visible {
 /* 입력칸 아래 고르개 줄. 「AI는 실수를 할 수 있습니다」 안내가 있던 자리다. */
 .jsini-chat__opts {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   justify-content: center;
   gap: 0.75rem;
   margin: 0.45rem 0 0;
@@ -5794,6 +5796,20 @@ a.jsini-social__btn:focus-visible {
   height: 0.9rem;
   margin: 0;
   accent-color: var(--tb-primary);
+  cursor: pointer;
+}
+
+/* 「사내 자료 전용」을 켰을 때만 서는 범위 고르개. 서랍 폭에서도 한 줄에 서게 폭을 묶는다. */
+.jsini-chat__scope {
+  max-width: 14rem;
+  min-width: 0;
+  padding: 0.1rem 0.35rem;
+  font-size: var(--jsini-fs-xs);
+  color: var(--jsini-text);
+  background: var(--jsini-surface);
+  border: 1px solid var(--jsini-border);
+  border-radius: 0.375rem;
+  text-overflow: ellipsis;
   cursor: pointer;
 }
 

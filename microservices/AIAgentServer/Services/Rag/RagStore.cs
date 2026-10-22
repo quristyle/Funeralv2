@@ -214,8 +214,13 @@ public sealed class RagStore
     /// 카테고리를 나눈 까닭이 "섞이면 안 되는 자료" 라, 쓰는 쪽에서 범위를
     /// 좁히는 것이 보통이다.
     /// </param>
+    /// <param name="docIds">
+    /// 이 문서들에서 나온 토막만 본다(분류로 좁힐 때). null 이면 거르지 않는다.
+    /// 문서함 토막의 출처가 <c>{문서id}:{파일명}</c> 꼴이라 앞머리로 가른다.
+    /// </param>
     public IReadOnlyList<RagHit> Search(
-        string? category, string query, float[]? queryVector, int topK = 5)
+        string? category, string query, float[]? queryVector, int topK = 5,
+        IReadOnlySet<long>? docIds = null)
     {
         var shards = category is null
             ? _shards.Values.ToList()
@@ -232,6 +237,7 @@ public sealed class RagStore
             for (var i = 0; i < sh.Index.Chunks.Count; i++)
             {
                 var c = sh.Index.Chunks[i];
+                if (docIds is not null && !InDocs(c.Source, docIds)) continue;
                 all.Add((c, queryVector is null ? 0 : Dot(c.Vector, queryVector), kw[i]));
             }
         }
@@ -315,6 +321,12 @@ public sealed class RagStore
         }
 
         return picked;
+    }
+
+    private static bool InDocs(string source, IReadOnlySet<long> docIds)
+    {
+        var colon = source.IndexOf(':');
+        return colon > 0 && long.TryParse(source.AsSpan(0, colon), out var id) && docIds.Contains(id);
     }
 
     /// <summary>점수를 등수로 바꾼다. 0점짜리는 넣지 않는다.</summary>

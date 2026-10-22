@@ -329,7 +329,7 @@ public class RagCategoryRow
     public bool IsDeleted { get; set; }
 }
 
-/// <summary>분류 한 칸. 카테고리 안의 트리다. 분류는 보기 좋으라고 있고, 검색은 카테고리 전체에서 한다.</summary>
+/// <summary>분류 한 칸. 카테고리 안의 트리다. AI쳇에서 고르면 그 분류(하위 포함)의 문서만 찾는다.</summary>
 public class RagFolderRow
 {
     public long Id { get; set; }

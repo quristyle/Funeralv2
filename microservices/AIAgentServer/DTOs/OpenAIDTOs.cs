@@ -13,6 +13,12 @@ public class ChatRequestDto
     /// <summary>사내 문서(RAG)로만 답한다. 켜면 <see cref="PreferRag"/> 보다 앞선다.</summary>
     public bool? RagOnly { get; set; }
 
+    /// <summary>사내 문서를 찾을 카테고리. 비우면 설정대로(기본은 전부). 볼 수 있는 것인지는 서버가 다시 확인한다.</summary>
+    public string? RagCategory { get; set; }
+
+    /// <summary>그 카테고리 안의 분류. 하위 분류의 문서까지 찾는다. 카테고리 없이 오면 무시한다.</summary>
+    public long? RagFolderId { get; set; }
+
     public AIAgentServer.Services.Rag.RagMode RagMode => RagOnly == true
         ? AIAgentServer.Services.Rag.RagMode.Only
         : PreferRag == false ? AIAgentServer.Services.Rag.RagMode.Off : AIAgentServer.Services.Rag.RagMode.Auto;

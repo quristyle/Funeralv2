@@ -25,6 +25,22 @@ public static class AIEndpoints
             ? v.GetString()
             : null;
 
+    /// <summary>채팅창에서 고른 사내 자료 범위를 푼다. 안 골랐으면 (null, null), 못 쓰는 범위면 (null, 까닭).</summary>
+    private static async Task<(RagScope? Scope, string? Error)> ResolveRagScopeAsync(
+        AIAgentServer.DTOs.ChatRequestDto request, UserContext? user, RagLibrary lib, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(request.RagCategory)) return (null, null);
+
+        try
+        {
+            return (await lib.ResolveChatScopeAsync(request.RagCategory.Trim(), request.RagFolderId, user, ct), null);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or UnauthorizedAccessException)
+        {
+            return (null, ex.Message);
+        }
+    }
+
     public static void MapAIEndpoints(this IEndpointRouteBuilder app)
     {
         // 게이트웨이가 /api/ai 를 떼고 넘기므로 여기 경로에는 붙지 않는다.
@@ -628,11 +644,20 @@ public static class AIEndpoints
         group.MapPost("/chat", async (
             HttpContext context,
             [FromBody] AIAgentServer.DTOs.ChatRequestDto request,
-            [FromServices] ILLMService llmService) =>
+            UserContext? user,
+            [FromServices] ILLMService llmService,
+            [FromServices] RagLibrary ragLibrary,
+            CancellationToken ct) =>
         {
             if (request.Messages == null || request.Messages.Count == 0)
             {
                 return Results.BadRequest(ApiResponse<object>.Fail("메시지 내역이 없습니다.", "C400"));
+            }
+
+            var (ragScope, scopeError) = await ResolveRagScopeAsync(request, user, ragLibrary, ct);
+            if (scopeError is not null)
+            {
+                return Results.Ok(ApiResponse<object>.Fail(scopeError, "C400"));
             }
 
             var provider = request.Provider ?? ReadProviderHeader(context);
@@ -641,7 +666,7 @@ public static class AIEndpoints
             {
                 var reply = await llmService.ChatAsync(
                     request.Messages, provider, allowFailover: true, model: request.Model,
-                    ragMode: request.RagMode);
+                    ragMode: request.RagMode, ragScope: ragScope);
                 return Results.Ok(ApiResponse<string>.Ok(reply));
             }
             catch (AiProviderException ex)
@@ -654,8 +679,10 @@ public static class AIEndpoints
         group.MapPost("/chat/stream", async (
             HttpContext context,
             [FromBody] AIAgentServer.DTOs.ChatRequestDto request,
+            UserContext? user,
             [FromServices] ILLMService llmService,
-            [FromServices] AiChatStore chatStore) =>
+            [FromServices] AiChatStore chatStore,
+            [FromServices] RagLibrary ragLibrary) =>
         {
             if (request.Messages == null || request.Messages.Count == 0)
             {
@@ -682,10 +709,20 @@ public static class AIEndpoints
             // 오간 말은 서버가 담는다. 답을 다 받은 뒤 화면이 따로 올리면 창을 먼저 닫은 대화가 사라진다. 안내(notice)는 답이 아니라 담지 않는다.
             var answer = new System.Text.StringBuilder();
 
+            // 못 쓰는 범위를 조용히 「전체」로 넓히면 고른 사람은 그 카테고리에서 찾은 줄 안다.
+            var (ragScope, scopeError) = await ResolveRagScopeAsync(
+                request, user, ragLibrary, context.RequestAborted);
+            if (scopeError is not null)
+            {
+                await context.Response.WriteAsync($"data: {JsonSerializer.Serialize("⚠️ " + scopeError)}\n\n");
+                await context.Response.Body.FlushAsync();
+                return;
+            }
+
             try
             {
                 await foreach (var part in llmService.StreamChatAsync(
-                    request.Messages, provider, request.Model, request.RagMode))
+                    request.Messages, provider, request.Model, request.RagMode, ragScope))
                 {
                     if (part.Notice is null && part.Text is { Length: > 0 } saved)
                     {

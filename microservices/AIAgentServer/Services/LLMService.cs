@@ -36,17 +36,19 @@ public interface ILLMService
     /// <param name="allowFailover">접속 실패 시 다른 공급자로 넘길지. 진단(상태 화면 '정밀 확인')은 반드시 false — 넘겨서 답이 나오면 정상으로 잘못 보고한다.</param>
     /// <param name="model">공급자가 모델 선택을 허용할 때만 쓴다. 무료 여부는 서버가 다시 확인한다.</param>
     /// <param name="ragMode">사내 문서를 쓰는 방식. 기본은 잘 맞을 때만 끼우고 나머지는 웹으로 넘긴다.</param>
+    /// <param name="ragScope">사내 문서를 찾을 카테고리·분류. null 이면 설정대로(기본은 전부).</param>
     Task<string> ChatAsync(
         List<Message> messages,
         string? provider = null,
         bool allowFailover = true,
         string? model = null,
-        RagMode ragMode = RagMode.Auto);
+        RagMode ragMode = RagMode.Auto,
+        RagScope? ragScope = null);
 
     /// <inheritdoc cref="ChatAsync"/>
     IAsyncEnumerable<ChatStreamPart> StreamChatAsync(
         List<Message> messages, string? provider = null, string? model = null,
-        RagMode ragMode = RagMode.Auto);
+        RagMode ragMode = RagMode.Auto, RagScope? ragScope = null);
 }
 
 /// <summary>줄 번역 한 번의 결과. 못 옮긴 줄은 원문 그대로다.</summary>
@@ -88,6 +90,11 @@ public class LLMService : ILLMService
         "사내 자료에서 이 질문에 맞는 문서를 찾지 못했습니다. "
         + "「사내 자료 전용」을 끄면 웹과 모델이 아는 것으로 답합니다.";
 
+    private static string RagOnlyNotFoundIn(RagScope? scope) => scope is null
+        ? RagOnlyNotFound
+        : $"「{scope.Label}」에서 이 질문에 맞는 문서를 찾지 못했습니다. "
+          + "찾을 범위를 넓히거나 「사내 자료 전용」을 끄면 더 넓게 찾아 답합니다.";
+
     private readonly HttpClient _httpClient;
     private readonly AiProviderRegistry _registry;
     private readonly FreeModelGuard _freeModelGuard;
@@ -127,18 +134,19 @@ public class LLMService : ILLMService
         string? provider = null,
         bool allowFailover = true,
         string? model = null,
-        RagMode ragMode = RagMode.Auto)
+        RagMode ragMode = RagMode.Auto,
+        RagScope? ragScope = null)
     {
         var target = _registry.Resolve(provider);
         EnsureSystemPrompt(messages, ChatSystemPrompt);
 
         // 사내 문서에서 근거를 찾아 시스템 프롬프트에 붙인다. 못 찾거나 임베딩이 죽어 있으면 조용히 건너뛴다.
-        var ragHit = ragMode == RagMode.Off ? null : await _rag.AugmentAsync(messages, ragMode);
+        var ragHit = ragMode == RagMode.Off ? null : await _rag.AugmentAsync(messages, ragMode, ragScope);
 
         if (ragMode == RagMode.Only)
         {
             // 자료가 없는데 모델에게 넘기면 아는 것으로 지어낸다 — 전용을 고른 사람이 바라는 것이 아니다.
-            if (ragHit is null) return RagOnlyNotFound;
+            if (ragHit is null) return RagOnlyNotFoundIn(ragScope);
         }
         else
         {
@@ -210,13 +218,13 @@ public class LLMService : ILLMService
 
     public async IAsyncEnumerable<ChatStreamPart> StreamChatAsync(
         List<Message> messages, string? provider = null, string? model = null,
-        RagMode ragMode = RagMode.Auto)
+        RagMode ragMode = RagMode.Auto, RagScope? ragScope = null)
     {
         var target = _registry.Resolve(provider);
         EnsureSystemPrompt(messages, ChatSystemPrompt);
 
         // 자료를 붙이고 참고한 것은 답과 섞이지 않게 안내로 보낸다.
-        var ragHit = ragMode == RagMode.Off ? null : await _rag.AugmentAsync(messages, ragMode);
+        var ragHit = ragMode == RagMode.Off ? null : await _rag.AugmentAsync(messages, ragMode, ragScope);
         if (ragHit is not null)
         {
             yield return ChatStreamPart.Info(ragHit.Notice, "rag");
@@ -226,7 +234,7 @@ public class LLMService : ILLMService
         {
             if (ragHit is null)
             {
-                yield return ChatStreamPart.Content(RagOnlyNotFound);
+                yield return ChatStreamPart.Content(RagOnlyNotFoundIn(ragScope));
                 yield break;
             }
         }

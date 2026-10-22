@@ -126,6 +126,57 @@ public partial class AiChatPanel
     {
         _ragOnly = e.Value is bool b ? b : !_ragOnly;
         await Boot.SetAiRagOnlyAsync(_ragOnly);
+        if (_ragOnly) await LoadRagScopesAsync();
+    }
+
+    /// <summary>「사내 자료 전용」에서 고를 수 있는 카테고리·분류. 켤 때 한 번 받는다. null 이면 아직 안 받았거나 못 받은 것이라 고르개를 접는다.</summary>
+    private IReadOnlyList<AiRagScope>? _ragScopes;
+
+    /// <summary>고른 범위. <c>카테고리</c> 또는 <c>카테고리/분류id</c>, 비면 모든 카테고리. 기기에 남는다(PortalBoot.AiRagScopeKey).</summary>
+    private string? _ragScope;
+
+    private async Task LoadRagScopesAsync()
+    {
+        if (_ragScopes is not null) return;
+        try
+        {
+            _ragScopes = await Chat.GetRagScopesAsync();
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException)
+        {
+            // 못 받으면 고르개 없이 모든 카테고리에서 찾는다. 대화를 막을 일이 아니다.
+        }
+    }
+
+    private async Task OnRagScopeChangedAsync(ChangeEventArgs e)
+    {
+        _ragScope = e.Value as string;
+        await Boot.SetAiRagScopeAsync(_ragScope);
+    }
+
+    /// <summary>고른 범위를 보낼 값으로 푼다. 목록에 없는 범위(지워진 카테고리·분류)는 모든 카테고리로 본다 — 고르개도 그렇게 보인다.</summary>
+    private (string? Category, long? FolderId) EffectiveRagScope()
+    {
+        if (_ragScopes is null || string.IsNullOrWhiteSpace(_ragScope)) return (null, null);
+
+        var parts = _ragScope.Split('/', 2);
+        var category = _ragScopes.FirstOrDefault(c => c.Id == parts[0]);
+        if (category is null || category.ChunkCount == 0) return (null, null);
+        if (parts.Length == 1) return (category.Id, null);
+
+        return long.TryParse(parts[1], out var fid) && category.Folders.Any(f => f.Id == fid)
+            ? (category.Id, fid)
+            : (null, null);
+    }
+
+    /// <summary>고르개에 보일 값. 목록에 없는 범위는 「모든 카테고리」로 보인다.</summary>
+    private string SelectedRagScope
+    {
+        get
+        {
+            var (category, folder) = EffectiveRagScope();
+            return category is null ? string.Empty : folder is { } f ? $"{category}/{f}" : category;
+        }
     }
 
     /// <summary>지금 대화의 제목. 고르개와 이름 바꾸기 칸이 쓴다.</summary>
@@ -403,8 +454,10 @@ public partial class AiChatPanel
             // 마지막 빈 칸은 보내지 않는다 — 서버 문맥에 빈 답이 섞인다.
             var context = _messages.Take(_messages.Count - 1).ToList();
 
+            var (ragCategory, ragFolderId) = _ragOnly ? EffectiveRagScope() : (null, null);
+
             await foreach (var part in Chat.StreamAsync(
-                context, turnSession, _ragOnly, _cts.Token))
+                context, turnSession, _ragOnly, ragCategory, ragFolderId, _cts.Token))
             {
                 if (part.IsUsedMarker && part.Notice is { Length: > 0 } used)
                 {
@@ -514,9 +567,11 @@ public partial class AiChatPanel
             try
             {
                 var boot = await Boot.ReadAsync();
+                _ragScope = boot.AiRagScope;
                 if (boot.AiRagOnly != _ragOnly)
                 {
                     _ragOnly = boot.AiRagOnly;
+                    if (_ragOnly) await LoadRagScopesAsync();
                     StateHasChanged();
                 }
             }

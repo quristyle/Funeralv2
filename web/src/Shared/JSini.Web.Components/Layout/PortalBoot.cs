@@ -52,6 +52,9 @@ public sealed class PortalBoot(IJSRuntime js, PortalPrefs prefs, ILogger<PortalB
     /// <summary>AI 대화를 사내 자료(RAG)로만 할지. 적혀 있으면 전용이다. 기기에 남긴다 — 자리마다 묻는 것이 다르다.</summary>
     public const string AiRagOnlyKey = "jsini-ai-rag-only";
 
+    /// <summary>「사내 자료 전용」에서 찾을 범위. <c>카테고리</c> 또는 <c>카테고리/분류id</c>. 없으면 모든 카테고리.</summary>
+    public const string AiRagScopeKey = "jsini-ai-rag-scope";
+
     /// <summary>
     /// 이 브라우저에서 위치를 마지막으로 다룬 시각(UTC, o 꼴). 저장·닫힘·이미 줬음 모두 찍는다.
     /// 서버를 부르기 전에 판단하려고 기기에 둔다 — 화면을 옮길 때마다 서버를 부르지 않게 한다.
@@ -125,6 +128,7 @@ public sealed class PortalBoot(IJSRuntime js, PortalPrefs prefs, ILogger<PortalB
         GeoAskNeverKey,
         GeoSyncedAtKey,
         AiRagOnlyKey,
+        AiRagScopeKey,
         FabPositionKey,
         FabHiddenKey,
         HelpDeskFabPositionKey,
@@ -454,6 +458,23 @@ public sealed class PortalBoot(IJSRuntime js, PortalPrefs prefs, ILogger<PortalB
 
         // 읽어 둔 한 벌도 함께 고친다 — 안 그러면 레이아웃이 새로 생길 때 옛 값이 되살아난다.
         Remember(state => state.WithAiRagOnly(only));
+    }
+
+    /// <summary>「사내 자료 전용」의 찾을 범위를 저장한다. 비우면(모든 카테고리) 열쇠를 지운다.</summary>
+    public async Task SetAiRagScopeAsync(string? scope)
+    {
+        scope = string.IsNullOrWhiteSpace(scope) ? null : scope;
+        try
+        {
+            if (scope is not null) await js.InvokeVoidAsync("localStorage.setItem", AiRagScopeKey, scope);
+            else await js.InvokeVoidAsync("localStorage.removeItem", AiRagScopeKey);
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException)
+        {
+            logger.LogDebug(ex, "사내 자료 범위를 브라우저에 남기지 못했다.");
+        }
+
+        Remember(state => state.WithAiRagScope(scope));
     }
 
     /// <summary>아래 띠를 쓸지가 바뀌었을 때 알린다.</summary>
@@ -825,6 +846,9 @@ public sealed class PortalBoot(IJSRuntime js, PortalPrefs prefs, ILogger<PortalB
         /// <summary>AI 대화를 사내 자료(RAG)로만 할지. 기본은 끔.</summary>
         public bool AiRagOnly { get; private set; }
 
+        /// <summary>「사내 자료 전용」의 찾을 범위(<see cref="AiRagScopeKey"/>). null 이면 모든 카테고리.</summary>
+        public string? AiRagScope { get; private set; }
+
         /// <summary>이 한 벌에서 한 칸만 갈아 끼운 새 것. 다시 읽지 않는다 — 회로당 한 번 읽은 값이라 고치기 전 값이 되살아난다.</summary>
         private BrowserState Patch(Action<BrowserState> change)
         {
@@ -865,6 +889,8 @@ public sealed class PortalBoot(IJSRuntime js, PortalPrefs prefs, ILogger<PortalB
         internal BrowserState WithZoomUnlocked(bool value) => Patch(c => c.ZoomUnlocked = value);
 
         internal BrowserState WithAiRagOnly(bool value) => Patch(c => c.AiRagOnly = value);
+
+        internal BrowserState WithAiRagScope(string? value) => Patch(c => c.AiRagScope = value);
 
         /// <summary>계정에 담긴 것을 얹은 새 한 벌. 계정에 열쇠가 없는 칸(기본값)은 건드리지 않는다.</summary>
         internal BrowserState WithAccountPrefs(PortalPrefsData account) => Patch(c =>
@@ -911,6 +937,7 @@ public sealed class PortalBoot(IJSRuntime js, PortalPrefs prefs, ILogger<PortalB
             GeoSyncMinutes = NormalizeGeoSyncMinutes(Minutes(Get(wire.Local, GeoSyncIntervalKey))),
             ZoomUnlocked = Has(wire.Local, ZoomUnlockedKey),
             AiRagOnly = Has(wire.Local, AiRagOnlyKey),
+            AiRagScope = Get(wire.Local, AiRagScopeKey),
         };
 
         /// <summary>저장해 둔 시각을 UTC 로 푼다. 이상하면 null. AdjustToUniversal 을 빼면 기기 시간대로 풀려 시차만큼 어긋난다.</summary>

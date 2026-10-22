@@ -44,6 +44,12 @@ public sealed record AiTranscript(bool Ok, string Text, string? Message)
 /// <param name="Configured">키까지 채워져 실제로 부를 수 있는 상태인지.</param>
 public sealed record AiChatWho(string Label, bool Configured);
 
+/// <summary>AI쳇에서 고를 수 있는 사내 자료 카테고리. 분류는 트리 차례로 펴서 깊이를 붙여 온다.</summary>
+public sealed record AiRagScope(string Id, string Name, int ChunkCount, IReadOnlyList<AiRagFolder> Folders);
+
+/// <summary>카테고리 안의 분류 한 칸. <see cref="Depth"/> 0 이 카테고리 바로 아래다.</summary>
+public sealed record AiRagFolder(long Id, string Name, int Depth);
+
 /// <summary>
 /// AI 채팅 SSE 스트리밍(<c>POST /api/ai/chat/stream</c>). GatewayClient 는 봉투를 통째로 받아 벗기므로 text/event-stream 을 못 읽어 맨 HttpClient 를 쓴다.
 /// 토큰은 공용 AuthTokenHandler 가 그대로 붙이므로 BFF 구도는 같다. 공급자는 보내지 않는다. 서버가 기본 공급자로 처리한다.
@@ -113,16 +119,20 @@ public sealed class AiChatClient(HttpClient http)
     /// <param name="sessionId">주면 서버가 오간 말을 대화로 담는다(<c>AiChatStore</c>). 비우면 아무 데도 안 남는다.</param>
     /// <param name="cancellationToken">서랍을 닫거나 화면을 떠나면 끊는다.</param>
     /// <param name="ragOnly">사내 자료(RAG)로만 답하게 한다. 끄면 잘 맞는 문서가 있을 때만 쓰고 나머지는 웹과 모델이 아는 것으로 답한다.</param>
+    /// <param name="ragCategory">사내 자료를 찾을 카테고리. 비우면 모든 카테고리.</param>
+    /// <param name="ragFolderId">그 카테고리 안의 분류(하위 분류 포함).</param>
     public async IAsyncEnumerable<AiChatPart> StreamAsync(
         IReadOnlyList<AiChatMessage> messages,
         string? sessionId = null,
         bool ragOnly = false,
+        string? ragCategory = null,
+        long? ragFolderId = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "ai/chat/stream")
         {
             // System.Net.Http.Json 기본이 웹 규칙(camelCase)이라 서버 바인딩과 맞는다.
-            Content = JsonContent.Create(new { messages, sessionId, ragOnly }),
+            Content = JsonContent.Create(new { messages, sessionId, ragOnly, ragCategory, ragFolderId }),
         };
         request.Headers.Accept.ParseAdd("text/event-stream");
 
@@ -218,6 +228,10 @@ public sealed class AiChatClient(HttpClient http)
             return AiTranscript.Failed($"받아쓰기 서버에 닿지 못했습니다 — {ex.Message}");
         }
     }
+
+    /// <summary>「사내 자료 전용」에서 고를 수 있는 카테고리와 분류. 못 받으면 null(고르개를 접는다).</summary>
+    public async Task<IReadOnlyList<AiRagScope>?> GetRagScopesAsync(CancellationToken ct = default)
+        => await UnwrapListAsync<AiRagScope>(await http.GetAsync("ai/rag/chat-scopes", ct), ct);
 
     // ── 대화 보관 ───────────────────────────────────────────
     // 봉투를 여기서 벗긴다(Unwrap). GatewayClient 를 따로 주입하면 같은 서비스로 가는 길이 둘이 된다.
