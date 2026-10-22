@@ -39,9 +39,6 @@ public partial class AiTaskContinuePopup : IDisposable
     private string? _continueKind;
     private bool _hasSavedPending;
 
-    /// <summary>작업 완료 시 자동으로 이어서 지시를 요청할지 여부</summary>
-    private bool _autoSubmitOnComplete = true;
-
     /// <summary>진행 중인 작업 감시용 폴링 토큰</summary>
     private CancellationTokenSource? _pollCts;
 
@@ -134,12 +131,12 @@ public partial class AiTaskContinuePopup : IDisposable
         _continueTaskKey = item.TaskKey;
         _lastItemStatus = item.TaskStatus;
         _lastHandledItem = item;
-        _autoSubmitOnComplete = item.IsBusy;
         _hasSavedPending = item.HasPendingContinue;
 
         if (_hasSavedPending && !string.IsNullOrWhiteSpace(item.PendingContinueAddition))
         {
-            _continueAddition = item.PendingContinueAddition;
+            // 예약본에는 늘 붙는 문구가 들어 있다 — 걷어 보여 주고 저장할 때 다시 붙인다(두 번 붙지 않는다).
+            _continueAddition = AiTaskAlways.Strip(item.PendingContinueAddition);
             if (!string.IsNullOrWhiteSpace(item.PendingContinueRunnerKind))
             {
                 _continueKind = MatchKindCase(item.PendingContinueRunnerKind);
@@ -162,10 +159,11 @@ public partial class AiTaskContinuePopup : IDisposable
             _continueKind = MatchKindCase(item.RunnerKind);
         }
 
+        // 임시본 열쇠는 예약 여부와 상관없이 정한다 — 예약을 고치거나 지울 때도 같은 열쇠를 치운다.
+        ContinueDrafts.Use(await MeAsync());
+
         if (_continueTaskKey > 0 && !_hasSavedPending)
         {
-            ContinueDrafts.Use(await MeAsync());
-
             if (await ContinueDrafts.ReadAsync(_continueTaskKey) is { } draft)
             {
                 _continueAddition = draft.Addition;
@@ -225,11 +223,9 @@ public partial class AiTaskContinuePopup : IDisposable
             if (fresh.TaskStatus == "succeeded")
             {
                 StopPoll();
-                if (!_hasSavedPending && _autoSubmitOnComplete && !string.IsNullOrWhiteSpace(_continueAddition) && !_continuing)
-                {
-                    await DoContinueAsync();
-                }
-                else if (_hasSavedPending)
+
+                // 예약해 둔 것은 서버가 이어서 요청한다. 예약 없이 적어 둔 글은 그대로 두고 단추가 「바로 요청」으로 바뀐다.
+                if (_hasSavedPending)
                 {
                     Close();
                     if (OnContinued.HasDelegate)
@@ -250,8 +246,9 @@ public partial class AiTaskContinuePopup : IDisposable
             else if (fresh.IsFinal && fresh.TaskStatus != "succeeded")
             {
                 StopPoll();
-                _autoSubmitOnComplete = false;
-                _continueError = $"선행 작업이 '{fresh.StatusText}'(으)로 완료되지 않아 자동 요청을 중단했습니다.";
+                _continueError = _hasSavedPending
+                    ? $"작업이 '{fresh.StatusText}'(으)로 끝나 예약한 이어서 지시가 실행되지 않았습니다."
+                    : null;
             }
         }
         else if (!fresh.IsBusy)
@@ -305,6 +302,12 @@ public partial class AiTaskContinuePopup : IDisposable
     {
         if (_continuing) return;
 
+        Hide();
+    }
+
+    /// <summary>창을 닫는다. 요청이 끝난 자리에서도 불리므로 _continuing 을 보지 않는다 — 보면 「이어서 요청」 뒤에 비워진 창이 그대로 남는다.</summary>
+    private void Hide()
+    {
         StopPoll();
 
         _visible = false;
@@ -366,7 +369,7 @@ public partial class AiTaskContinuePopup : IDisposable
 
         if (t.IsBusy)
         {
-            _continueError = "작업이 아직 완료되지 않았습니다. 완료 후 다시 시도하십시오.";
+            await SavePendingContinueAsync();
             return;
         }
 
@@ -382,20 +385,9 @@ public partial class AiTaskContinuePopup : IDisposable
             if (updated is not null)
             {
                 updated = await Api.RequestAsync(t.TaskKey);
-                StopPoll();
+                await ContinueDrafts.ClearAsync(null, t.TaskKey);
 
-                _visible = false;
-                _lastVisible = false;
-                Visible = false;
-
-                _continueRestored = false;
-                _continueSavedAt = null;
-                await ContinueDrafts.ClearAsync(ContinueSelector, t.TaskKey);
-
-                if (VisibleChanged.HasDelegate)
-                {
-                    await VisibleChanged.InvokeAsync(false);
-                }
+                Hide();
 
                 if (updated is not null)
                 {
@@ -439,15 +431,15 @@ public partial class AiTaskContinuePopup : IDisposable
             if (updated is not null)
             {
                 Item = updated;
-                _hasSavedPending = true;
-                await ContinueDrafts.ClearAsync(ContinueSelector, t.TaskKey);
+                await ContinueDrafts.ClearAsync(null, t.TaskKey);
+
+                // 부모에게 알리기 전에 닫는다 — 부모가 다시 읽어 넘겨 준 건으로 창이 상태를 다시 셈하지 않게.
+                Hide();
 
                 if (OnContinued.HasDelegate)
                 {
                     await OnContinued.InvokeAsync(updated);
                 }
-
-                Close();
             }
         }
         catch (ApiException ex)
@@ -481,16 +473,14 @@ public partial class AiTaskContinuePopup : IDisposable
             t.PendingContinueRunnerKind = null;
             t.PendingContinueUserId = null;
             t.PendingContinueAt = null;
-            _hasSavedPending = false;
-            _continueAddition = null;
-            await ContinueDrafts.ClearAsync(ContinueSelector, t.TaskKey);
+            await ContinueDrafts.ClearAsync(null, t.TaskKey);
+
+            Hide();
 
             if (OnContinued.HasDelegate)
             {
                 await OnContinued.InvokeAsync(t);
             }
-
-            Close();
         }
         catch (ApiException ex)
         {

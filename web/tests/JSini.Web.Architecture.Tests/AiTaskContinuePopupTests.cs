@@ -55,11 +55,25 @@ public sealed class AiTaskContinuePopupTests
     }
 
     [Fact]
-    public void 공통_팝업은_진행중_안내와_자동_요청을_지원한다()
+    public void 공통_팝업은_진행중이면_이어서_요청을_예약으로_보낸다()
     {
         var popupText = ReadFile(ContinuePopupPath);
-        Assert.Contains("_autoSubmitOnComplete", popupText, StringComparison.Ordinal);
         Assert.Contains("현재 작업이", popupText, StringComparison.Ordinal);
+        Assert.Contains("Click=\"@SavePendingContinueAsync\"", popupText, StringComparison.Ordinal);
+    }
+
+    /// <summary>
+    /// 요청이 끝난 자리에서 <c>Close()</c> 를 부르면 <c>_continuing</c> 에 걸려 창이 안 닫히고,
+    /// 글상자만 비워진 채 남아 「새 창이 다시 떴다」로 보였다. 그 자리는 <c>Hide()</c> 로 닫고,
+    /// 임시본을 치울 때 글상자는 건드리지 않는다.
+    /// </summary>
+    [Fact]
+    public void 요청이_끝나면_창이_닫히고_글상자를_먼저_비우지_않는다()
+    {
+        var popupCsText = ReadFile(ContinuePopupPath + ".cs");
+
+        Assert.Contains("private void Hide()", popupCsText, StringComparison.Ordinal);
+        Assert.DoesNotContain("ContinueDrafts.ClearAsync(ContinueSelector, t.TaskKey)", popupCsText, StringComparison.Ordinal);
     }
 
     [Fact]

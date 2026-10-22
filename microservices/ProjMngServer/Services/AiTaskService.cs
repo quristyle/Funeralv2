@@ -722,9 +722,30 @@ public sealed class AiTaskService(
              WHERE task_key = @taskKey AND is_deleted = false
             """, new { taskKey, addition = addition.Trim(), kind, userId });
 
-        return updated == 0
-            ? AiTaskEditResult.Conflict("그 사이에 상태가 바뀌었습니다.")
-            : AiTaskEditResult.Ok(await GetAsync(taskKey));
+        if (updated == 0)
+        {
+            return AiTaskEditResult.Conflict("그 사이에 상태가 바뀌었습니다.");
+        }
+
+        // 예약을 적는 사이에 작업이 성공으로 끝났으면 완료 처리(AiRunService)는 이 예약을 못 본 채 지나갔다.
+        // 그대로 두면 끝난 건에 예약만 남아 영영 안 나가므로 여기서 바로 이어서 요청한다.
+        var after = await GetAsync(taskKey);
+
+        if (after is { TaskStatus: AiTaskStatus.Succeeded }
+            && !string.IsNullOrWhiteSpace(after.PendingContinueAddition))
+        {
+            var cont = await ContinueAsync(
+                taskKey, after.PendingContinueAddition, after.PendingContinueRunnerKind, userId);
+
+            if (!cont.IsOk)
+            {
+                return cont;
+            }
+
+            return await RequestAsync(taskKey, userId);
+        }
+
+        return AiTaskEditResult.Ok(after);
     }
 
     /// <summary>작업을 사용자 확인 완료 처리한다.</summary>
