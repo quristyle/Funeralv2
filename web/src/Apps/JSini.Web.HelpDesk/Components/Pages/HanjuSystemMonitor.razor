@@ -308,13 +308,13 @@ else
 
         <DxGridDataColumn Caption="평균 CPU (%)" Width="130" MinWidth="125">
             <CellDisplayTemplate Context="cell">
-                @Warned(((HourPoint)cell.DataItem).Cpu, CpuLimit, "0.00", "%")
+                @Warned(((HourPoint)cell.DataItem).Cpu, CpuLimit, "%")
             </CellDisplayTemplate>
         </DxGridDataColumn>
 
         <DxGridDataColumn Caption="피크 I/O (ms)" Width="135" MinWidth="130">
             <CellDisplayTemplate Context="cell">
-                @Warned(((HourPoint)cell.DataItem).PeakIo, IoLimit, "0.00")
+                @Warned(((HourPoint)cell.DataItem).PeakIo, IoLimit)
             </CellDisplayTemplate>
         </DxGridDataColumn>
 
@@ -332,13 +332,13 @@ else
 
         <DxGridDataColumn Caption="TempDB (ms/s)" Width="160" MinWidth="155">
             <CellDisplayTemplate Context="cell">
-                @Warned(((HourPoint)cell.DataItem).TempDb, StallLimit, "0.00")
+                @Warned(((HourPoint)cell.DataItem).TempDb, StallLimit)
             </CellDisplayTemplate>
         </DxGridDataColumn>
 
         <DxGridDataColumn Caption="Log (ms/s)" Width="125" MinWidth="120">
             <CellDisplayTemplate Context="cell">
-                @Warned(((HourPoint)cell.DataItem).Log, StallLimit, "0.00")
+                @Warned(((HourPoint)cell.DataItem).Log, StallLimit)
             </CellDisplayTemplate>
         </DxGridDataColumn>
 
@@ -402,9 +402,10 @@ else
         }
     };
 
-    @* 넘긴 값은 붉게. 「몇인가」보다 「넘겼나」가 먼저 읽혀야 하는 칸이다. *@
-    private static RenderFragment Warned(double value, double limit, string format, string suffix = "") =>
-        @<span class="@(value > limit ? "hd-sysmon__over" : null)">@value.ToString(format)@suffix</span>;
+    @* 넘긴 값은 붉게. 「몇인가」보다 「넘겼나」가 먼저 읽혀야 하는 칸이다.
+       숫자는 소수점을 반올림 없이 버리고(80.9 → 80), 넘김 판정은 버리기 전 값으로 한다. *@
+    private static RenderFragment Warned(double value, double limit, string suffix = "") =>
+        @<span class="@(value > limit ? "hd-sysmon__over" : null)">@Math.Truncate(value).ToString("0")@suffix</span>;
 
     @* 최소 PLE 만 성한 쪽에도 색을 준다. 「몇인가」보다 「버텼나」를 보는 칸이라 넘김보다 버틴 것이 먼저 읽힌다. *@
     private static RenderFragment MinPle(double value) =>
