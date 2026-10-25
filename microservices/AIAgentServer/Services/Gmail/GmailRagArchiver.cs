@@ -40,8 +40,10 @@ public sealed class GmailRagArchiver(
     private string? DefaultCategory => config["Gmail:RagCategoryId"];
 
     /// <param name="folderId">올릴 분류(RAG 문서함의 폴더). <c>null</c> 이면 카테고리 바로 아래.</param>
+    /// <param name="afterMonths">이만큼 지난 것만 올린다. <c>0</c> 이면 <b>기간을 안 따진다</b> —
+    /// 설정값(기본 6개월)이 화면에 안 보이면 「왜 아무것도 안 올라가나」의 답을 찾을 길이 없다.</param>
     public async Task<Result> RunAsync(
-        string? categoryId, long? folderId, int maxMessages, string? who, CancellationToken ct)
+        string? categoryId, long? folderId, int maxMessages, int? afterMonths, string? who, CancellationToken ct)
     {
         var target = string.IsNullOrWhiteSpace(categoryId) ? DefaultCategory : categoryId;
         if (string.IsNullOrWhiteSpace(target))
@@ -60,11 +62,12 @@ public sealed class GmailRagArchiver(
             if (!ok) return new Result(0, 0, "고른 분류가 그 카테고리의 것이 아닙니다.");
         }
 
-        var cutoff = DateTime.UtcNow.AddMonths(-ArchiveAfterMonths);
+        var months = afterMonths ?? ArchiveAfterMonths;
+        DateTime? cutoff = months > 0 ? DateTime.UtcNow.AddMonths(-months) : null;
 
-        // 날짜가 없는 메일은 「오래됐다」고 볼 근거가 없으므로 건드리지 않는다.
+        // 날짜가 없는 메일은 어느 달로 묶을지 정할 수 없어 건드리지 않는다.
         var pending = await db.GmailMessages.AsNoTracking()
-            .Where(m => m.RagDocId == null && m.SentAt != null && m.SentAt < cutoff)
+            .Where(m => m.RagDocId == null && m.SentAt != null && (cutoff == null || m.SentAt < cutoff))
             .OrderBy(m => m.SentAt)
             .Take(maxMessages)
             .Select(m => new
@@ -75,7 +78,7 @@ public sealed class GmailRagArchiver(
             .ToListAsync(ct);
 
         if (pending.Count == 0)
-            return new Result(0, 0, $"{ArchiveAfterMonths}개월이 지난 메일 중 아직 안 올린 것이 없습니다.");
+            return new Result(0, 0, await WhyNothingAsync(months, ct));
 
         var documents = 0;
         var messages = 0;
@@ -121,6 +124,28 @@ public sealed class GmailRagArchiver(
         if (documents > 0) indexer.QueueReindex(target!, "gmail-archive", who);
 
         return new Result(documents, messages, null);
+    }
+
+    /// <summary>올릴 것이 없을 때 그 까닭을 센다. 한 문장으로 뭉치면 「적재를 아직 안 했다」와
+    /// 「기준 밖이라 안 걸린다」가 구별되지 않아, 사람이 할 일을 못 찾는다 —
+    /// 앞엣것은 적재 단추를 눌러야 하고 뒤엣것은 기준을 넓혀야 한다.</summary>
+    private async Task<string> WhyNothingAsync(int months, CancellationToken ct)
+    {
+        var total = await db.GmailMessages.CountAsync(ct);
+        if (total == 0)
+            return "표에 메일이 한 통도 없습니다. 먼저 mbox 를 적재해 주세요.";
+
+        var left = await db.GmailMessages.CountAsync(m => m.RagDocId == null, ct);
+        if (left == 0)
+            return $"메일 {total:N0}통을 이미 다 올렸습니다.";
+
+        var noDate = await db.GmailMessages.CountAsync(m => m.RagDocId == null && m.SentAt == null, ct);
+        if (noDate == left)
+            return $"안 올린 {left:N0}통이 모두 날짜를 모르는 메일이라 달로 묶을 수 없습니다.";
+
+        return months > 0
+            ? $"안 올린 메일 {left:N0}통이 모두 {months}개월 안의 것입니다. 기준을 「전체」로 바꾸면 올라갑니다."
+            : $"안 올린 메일 {left:N0}통이 모두 날짜를 모르는 것이라 달로 묶을 수 없습니다.";
     }
 
     private static string DocumentName(string accountId, DateTime month, int part, int totalInMonth)

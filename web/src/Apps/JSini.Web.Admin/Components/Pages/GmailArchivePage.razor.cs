@@ -20,6 +20,17 @@ public partial class GmailArchivePage : DataPage, IAsyncDisposable
     /// <summary>적재가 도는 동안 되묻는 간격. 더 잦게 물으면 왕복만 늘고, 더 뜸하면 멎은 것처럼 보인다.</summary>
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(2);
 
+    /// <summary>올릴 기준. 「전체」가 있어야 최근 메일만 있는 메일함도 올릴 수 있다.</summary>
+    private static readonly AgeOption[] Ages =
+    [
+        new(0, "전체 기간"),
+        new(1, "1개월 지난 것"),
+        new(3, "3개월 지난 것"),
+        new(6, "6개월 지난 것"),
+        new(12, "1년 지난 것"),
+        new(24, "2년 지난 것"),
+    ];
+
     private static readonly SchOption[] Kinds =
     [
         new("api", "Gmail API (Workspace)"),
@@ -44,6 +55,18 @@ public partial class GmailArchivePage : DataPage, IAsyncDisposable
     private string? _categoryId;
     private long? _folderId;
     private int _maxMessages = 1000;
+
+    /// <summary>이만큼 지난 메일만 올린다. 0 은 전체. 서버의 기본값(6개월)이 화면에 안 보이면
+    /// 「왜 아무것도 안 올라가나」의 답을 찾을 길이 없어 고르개로 꺼내 둔다.</summary>
+    private int _afterMonths = 6;
+
+    /// <summary>적재 단추가 꺼져 있을 때 그 까닭. <b>꺼진 단추는 스스로 말하지 않는다</b> —
+    /// 메일함을 안 만든 사람은 mbox 를 올려 놓고 다음에 무엇을 할지 알 길이 없다.</summary>
+    private string? ImportBlockedHint => _accounts.Count == 0
+        ? "적재하려면 메일함을 먼저 등록해야 합니다 — 어느 메일함에 부을지 정하는 일입니다. 위의 「메일함 등록」을 누르세요."
+        : _accountId is { Length: > 0 }
+            ? null
+            : "위에서 메일함을 고르면 줄마다 「적재」 단추가 켜집니다.";
 
     private string? _rootHint;
     private string? _archiveHint;
@@ -224,7 +247,7 @@ public partial class GmailArchivePage : DataPage, IAsyncDisposable
 
         await RunAsync(async () =>
         {
-            var result = await Gmail.ArchiveAsync(category, _folderId, _maxMessages);
+            var result = await Gmail.ArchiveAsync(category, _folderId, _maxMessages, _afterMonths);
             _stats = await Gmail.StatsAsync();
 
             // 「남은 것이 없다」와 「카테고리가 없다」는 실패가 아니라 알림이다 — 판 머리에 적는다.
@@ -362,6 +385,9 @@ public partial class GmailArchivePage : DataPage, IAsyncDisposable
             }
         }
     }
+
+    /// <summary>기준 고르개 한 줄.</summary>
+    private sealed record AgeOption(int Months, string Label);
 
     private enum UploadPhase
     {

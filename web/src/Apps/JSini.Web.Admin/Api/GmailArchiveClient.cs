@@ -37,9 +37,10 @@ public sealed class GmailArchiveClient(GatewayClient gateway, HttpClient http)
     /// <summary>오래된 메일을 묶어 RAG 문서로 올린다.
     /// <paramref name="folderId"/> 가 <c>null</c> 이면 카테고리 바로 아래에 둔다.</summary>
     public Task<GmailArchiveResultDto?> ArchiveAsync(
-        string? categoryId, long? folderId, int maxMessages, CancellationToken ct = default) =>
+        string? categoryId, long? folderId, int maxMessages, int afterMonths,
+        CancellationToken ct = default) =>
         gateway.PostAsync<GmailArchiveResultDto>(
-            "ai/gmail/archive", new { categoryId, folderId, maxMessages }, ct);
+            "ai/gmail/archive", new { categoryId, folderId, maxMessages, afterMonths }, ct);
 
     // ── 현황 ────────────────────────────────────────────────
     public Task<IReadOnlyList<GmailStatDto>> StatsAsync(CancellationToken ct = default) =>

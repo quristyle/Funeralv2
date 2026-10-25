@@ -62,7 +62,8 @@
     }
 
     @* ── ① mbox ────────────────────────────────────────── *@
-    <CommCont Title="mbox 파일" Hint="@_rootHint">
+    @* 적재 단추가 꺼지는 까닭을 판 머리에 적는다 — 꺼진 단추는 스스로 말하지 않는다. *@
+    <CommCont Title="mbox 파일" Hint="@(_rootHint ?? ImportBlockedHint)">
         <CommGrd TItem="GmailMboxFileDto"
                  Data="@_files"
                  Unit="개"
@@ -147,6 +148,13 @@
                             CssClass="ad-gmail__folder"
                             ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
             }
+
+            <DxComboBox Data="@Ages"
+                        @bind-Value="@_afterMonths"
+                        TextFieldName="Label"
+                        ValueFieldName="Months"
+                        CssClass="ad-gmail__age"
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Never" />
 
             <DxSpinEdit @bind-Value="@_maxMessages" MinValue="1" MaxValue="20000" CssClass="ad-gmail__num" />
             <span class="jsini-text-muted">통씩</span>

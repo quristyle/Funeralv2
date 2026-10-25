@@ -6105,3 +6105,7 @@
     margin-left: auto;
     color: var(--tb-primary, #0d6efd);
 }
+
+.ad-gmail__age {
+    min-width: 10rem;
+}
