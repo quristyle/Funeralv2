@@ -36,7 +36,11 @@ public sealed class AssistantAgent(
     private const int ToolResultCap = 8000;
 
     /// <summary>업무 비서 시스템 프롬프트. 오늘 한국 날짜를 박아 넣는다 — 모델은 「오늘」을 모르고,
-    /// 사내 자료에 없으면 지어내지 말고 모른다고 하게 못박는다.</summary>
+    /// 사내 자료에 없으면 지어내지 말고 모른다고 하게 못박는다.
+    /// 아래 "답의 근거(요청글 번호, …)" 문구의 "요청글" 은 꾸밈말이 아니다 — 화면(web/.../Assistant.razor.cs
+    /// 의 RequestRefPattern)이 답 글 속에서 그 낱말과 <c>#id</c> 가 붙어 나온 자리만 요청글 상세 화면으로
+    /// 링크를 건다. 이 낱말을 바꾸면(예: "요청 번호") 그 정규식도 함께 고쳐야 한다 — 안 고치면 링크가
+    /// 오류 없이 조용히 사라진다.</summary>
     public static string SystemPrompt(DateTime nowUtc, RagScope? scope)
     {
         var todayKorea = AppTime.ToKorea(nowUtc).ToString("yyyy-MM-dd");

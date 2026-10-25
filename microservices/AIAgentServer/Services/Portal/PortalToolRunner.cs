@@ -69,6 +69,10 @@ public sealed class PortalToolRunner(
             Str(args, "userId"), fromUtc, toUtc, Str(args, "status"), Str(args, "keyword"), take, ct);
 
         var lines = items.Select(RenderRequest).ToList();
+
+        // "요청 글" 이 문자 그대로 web/Assistant.razor.cs 의 RequestRefPattern 이 찾는 낱말이다 —
+        // 화면이 답 글 속 "요청(글)? #id" 모양을 그 낱말로 가려 근거 링크를 건다. 여기 말을 바꾸면
+        // (예: "헬프데스크 글"로) 그 정규식도 함께 고쳐야 한다 — 안 고치면 링크가 오류 없이 조용히 사라진다.
         return PortalToolResult.Render("요청 글", lines, total, take);
     }
 
@@ -80,6 +84,9 @@ public sealed class PortalToolRunner(
         var detail = await helpDesk.GetRequestAsync(id.Value, ct);
         if (detail is null) return $"요청 글 #{id}을(를) 찾지 못했습니다.";
 
+        // 이 머리글은 "요청 글" 없이 바로 #id 로 시작한다 — 화면의 근거 링크 정규식(위 참고)은
+        // 그 낱말이 있어야 걸리므로, 모델이 이 글을 요약하며 "요청글"을 다시 안 붙이면 여기서
+        // 나온 #id 인용은 링크가 안 될 수 있다. 알려진 틈이다(web/.../Assistant.razor.cs 머리말).
         var header = $"#{detail.Id} {detail.Title} [{detail.Status}]\n"
             + $"접수 {PortalDay.ToKorean(detail.RequestedAt)}"
             + (detail.AcceptedAt is { } a ? $", 처리 {PortalDay.ToKorean(a)}" : "")

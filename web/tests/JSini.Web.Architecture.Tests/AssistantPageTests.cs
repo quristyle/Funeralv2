@@ -36,6 +36,7 @@ public sealed class AssistantPageTests
     [InlineData("#9999999999")]
     [InlineData("#12345678901")]
     [InlineData("#2024102500123")]
+    [InlineData("요청글 #99999999999 확인")]
     public void 아주_긴_숫자는_예외_없이_그냥_글자로_남는다(string text)
     {
         var segments = JSini.Web.Admin.Components.Pages.Assistant.AnswerSegments(text).ToList();
@@ -45,15 +46,19 @@ public sealed class AssistantPageTests
     }
 
     /// <summary>
-    /// 자릿수만 맞을 뿐 글 번호가 아닌 자리는 링크가 안 된다 — "매출 순위 #1" · "#000000" ·
-    /// 마크다운 제목 꾸밈("##3단계") · 띄어 쓴 "# 3단계". 반대로 진짜 요청글 번호 모양
-    /// ("#1042")은 걸려야 한다.
+    /// 자릿수가 아니라 <b>문맥</b>(「요청(글)? #」)으로 가른다 — fix round 1 이 자릿수 하한(2자리)
+    /// 으로 "매출 순위 #1" 을 막다가 진짜 한 자리 글 번호("요청글 #7")까지 함께 죽였다(실측: 운영
+    /// 헬프데스크 13건 중 9건이 한 자리). "#000000"(문맥 없음) · 마크다운 제목 꾸밈("##3단계") ·
+    /// 띄어 쓴 "# 3단계" 는 여전히 안 걸려야 하고, "매출 순위 #1"(문맥 없음)도 여전히 안 걸려야
+    /// 하며, "요청글 #7"·"요청글 #1042" 처럼 자릿수에 상관없이 그 낱말이 붙은 자리는 걸려야 한다.
     /// </summary>
     [Theory]
     [InlineData("매출 순위 #1", null)]
     [InlineData("#000000", null)]
     [InlineData("##3단계", null)]
     [InlineData("# 3단계", null)]
+    [InlineData("요청글 #7 확인", 7)]
+    [InlineData("요청 글 #7 확인", 7)]
     [InlineData("요청글 #1042 확인", 1042)]
     public void 그럴듯한_자리만_요청글_번호로_링크된다(string text, int? expectedId)
     {

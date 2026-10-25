@@ -15,16 +15,23 @@ public partial class Assistant
 
     [Inject] private IJSRuntime Js { get; set; } = default!;
 
-    /// <summary>요청글 번호(<c>#1042</c>)를 되짚는다 — 도구 결과가 <c>- #{Id} 제목 [상태] (...)</c>
-    /// 모양으로 적고(<c>PortalToolRunner.RenderRequest</c>) 시스템 프롬프트가 "숫자·글 번호는 도구
-    /// 결과에 적힌 그대로 옮기라"고 못박으므로(<c>AssistantAgent.SystemPrompt</c>) 답에도 그 모양이
-    /// 그대로 나온다. 자릿수를 2~6 으로 묶은 것은 두 가지를 동시에 막는다 —
-    /// 위로는 <c>int.Parse</c> 가 넘칠 걱정이 아예 없고(6자리라야 999999, int 범위에 한참 못
-    /// 미친다 — 모델이 쓸 법한 11자리 같은 수도 그냥 안 걸린다), 아래로는 "매출 순위 #1" 처럼
-    /// 흔한 한 자리 숫자를 글 번호로 잘못 읽는 것을 막는다. <c>(?&lt;!\S)</c> 는 <c>#</c> 앞이
-    /// 글 시작이거나 빈칸이어야 한다는 뜻이라 <c>##3단계</c>(마크다운 제목 꾸밈) 의 두 번째 <c>#</c>
-    /// 는 걸리지 않는다.</summary>
-    private static readonly Regex RequestRefPattern = new(@"(?<!\S)#(\d{2,6})(?!\d)", RegexOptions.Compiled);
+    /// <summary>요청글 번호(<c>#1042</c>)를 되짚는다. <b>자릿수가 아니라 문맥으로 가른다</b> —
+    /// 자릿수 하한을 두면(2자리 이상) "매출 순위 #1" 은 막아도 실제로 한 자리인 글 번호(지금
+    /// 운영 헬프데스크의 13건 중 9건이 한 자리다)가 통째로 안 걸린다. 그래서 자릿수 대신
+    /// AIAgentServer 의 <c>PortalToolRunner</c> 와 <c>AssistantAgent</c> 가 실제로 쓰는 낱말을 그대로
+    /// 요구한다 — <c>PortalToolRunner.SearchRequestsAsync</c> 가 <c>PortalToolResult.Render("요청 글", …)</c>
+    /// 로 머리말을 적고 <c>GetRequestAsync</c> 의 "요청 글 #{id}…" 문구도 같은 낱말을 쓰며,
+    /// <c>AssistantAgent.SystemPrompt</c> 역시 "요청글 번호"라고 못박아 모델이 그 낱말로 근거를
+    /// 대게 유도한다(<c>답의 근거(요청글 번호, 파일 이름 등)를 반드시 밝히십시오</c>). "요청글"
+    /// (붙여쓰기)·"요청 글"(띄어쓰기) 둘 다 받는다 — 코드 안에서도 두 표기가 섞여 있다.
+    /// <b>이 셋 중 하나라도 그 낱말을 바꾸면 이 링크가 아무 오류 없이 조용히 사라진다</b> — 바꿀
+    /// 때는 이 정규식도 함께 고친다. 자릿수 상한(1~6, <c>(?!\d)</c>)은 그래도 남겨 둔다 — 문맥이
+    /// 걸려도 11자리 같은 수가 <c>int.Parse</c> 를 넘기면 안 되므로 두 번째 방어로 둔다.
+    /// <c>get_request</c> 단건 조회가 성공했을 때의 머리글(<c>#{Id} 제목 [상태]</c>)은 이 낱말
+    /// 없이 <c>#</c> 로 바로 시작한다 — 모델이 그 글을 요약하며 "요청글"을 다시 안 붙이면 그
+    /// 인용은 링크가 안 된다(알려진 틈 — 아래 보고서 "확실치 않은 것" 참고).</summary>
+    private static readonly Regex RequestRefPattern = new(
+        @"요청\s?글\s*#(\d{1,6})(?!\d)", RegexOptions.Compiled);
 
     /// <summary>자료 범위(RAG 카테고리) 목록. 못 받으면 빈 목록 — 「모든 카테고리」로만 묻는다.</summary>
     private IReadOnlyList<AssistantScope> _scopes = [];
@@ -181,8 +188,9 @@ public partial class Assistant
     /// (JSini.Web.Architecture.Tests 에 InternalsVisibleTo 가 걸려 있다).
     /// <b>렌더링 도중 도는 이터레이터라 여기서 벗어나는 예외는 바로 회로를 끊는다</b> — 그래서
     /// <see cref="int.TryParse(string?, out int)"/> 로만 수를 읽고(<see cref="RequestRefPattern"/>
-    /// 이 이미 자릿수를 2~6 으로 묶어 넘칠 일은 없지만, 파싱은 절대 실패해서 밖으로 새면 안 된다).
-    /// "#000000" 처럼 자릿수만 맞고 값이 0 인 것은 실제 글 번호가 아니므로 링크 없이 글자만 둔다.</summary>
+    /// 이 이미 자릿수를 1~6 으로 묶어 넘칠 일은 없지만, 파싱은 절대 실패해서 밖으로 새면 안 된다).
+    /// "요청글 #000000" 처럼 문맥·자릿수가 다 맞아도 값이 0 인 것은 실제 글 번호가 아니므로(DB
+    /// 일련번호는 1부터다) 링크 없이 글자만 둔다.</summary>
     internal static IEnumerable<(string Text, int? RequestId)> AnswerSegments(string text)
     {
         var lastIndex = 0;
