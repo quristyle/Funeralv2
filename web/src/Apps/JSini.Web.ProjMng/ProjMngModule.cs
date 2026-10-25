@@ -25,6 +25,7 @@ public sealed class ProjMngModule : IPortalModule
 
         // 자기 자료만 아는 업무 클라이언트. 화면이 타입 있는 목록을 받아 CommGrd 에 붙인다.
         services.AddScoped<ProjectClient>();
+        services.AddScoped<RagCategoryClient>();
         services.AddScoped<ProjectUserClient>();
         services.AddScoped<DevCommonCodeClient>();
         services.AddScoped<AiModelCodes>();

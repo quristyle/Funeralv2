@@ -49,6 +49,10 @@
             <DxGridDataColumn FieldName="@nameof(ProjectDto.PrjUsePay)" Caption="투입비용" Width="110"
                               DisplayFormat="#,##0" TextAlignment="GridTextAlignment.Right" />
 
+            @* 이름은 AI 서버에서 읽어 화면이 채운 것이다(ProjectDto.RagCateText). *@
+            <DxGridDataColumn FieldName="@nameof(ProjectDto.RagCateText)" Caption="RAG 카테고리" MinWidth="140"
+                              TextAlignment="GridTextAlignment.Left" />
+
             <DxGridDataColumn FieldName="@nameof(ProjectDto.PrjSrt)" Caption="순서" Width="70" />
         </Columns>
 
@@ -93,6 +97,23 @@
 
                 <DxFormLayoutItem Caption="투입비용" ColSpanMd="6">
                     <DxSpinEdit @bind-Value="p.PrjUsePay" DisplayFormat="#,##0" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="RAG 카테고리" ColSpanMd="12">
+                    @* RagCates 는 형을 맞춰 둔 창이다. 형변환이나 메서드를 끼우면 팝업이 말없이 안 열린다. *@
+                    <DxTagBox Data="@_cates"
+                              @bind-Values="p.RagCates"
+                              TextFieldName="@nameof(RagCategoryItem.Label)"
+                              ValueFieldName="@nameof(RagCategoryItem.Id)"
+                              ReadOnly="@(_cates.Count == 0)"
+                              NullText="맬 카테고리를 고르세요"
+                              ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                    @if (_cates.Count == 0)
+                    {
+                        @* 목록이 비면 고르개가 매여 있던 열쇠까지 털어 낸다. 잠가서
+                           모르는 채로 연결이 풀리는 일을 막고, 저장도 이 칸을 건너뛴다. *@
+                        <div class="pm-rag-warn">AI 서버에서 카테고리 목록을 읽지 못했습니다. 이 칸은 그대로 둡니다.</div>
+                    }
                 </DxFormLayoutItem>
             </DxFormLayout>
         </EditFormTemplate>

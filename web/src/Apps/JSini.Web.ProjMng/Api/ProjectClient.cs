@@ -49,4 +49,24 @@ public sealed class ProjectDto
 
     /// <summary>서버가 등록할 때만 채운다 — 고쳐도 안 바뀐다.</summary>
     public DateTime? CreDt { get; set; }
+
+    /// <summary>
+    /// 이 프로젝트가 쓰는 RAG 카테고리 열쇠. 이름은 안 온다 — 화면이
+    /// <see cref="RagCategoryClient"/> 로 따로 읽어 맞춘다.
+    /// </summary>
+    /// 저장할 때 <b>여기 담긴 것이 곧 전부</b>다 — 비워 보내면 전부 풀린다.
+    /// <c>null</c> 이면 서버가 연결을 손대지 않는다(카테고리 목록을 못 읽었을 때 쓴다).
+    public List<string>? RagCateIds { get; set; }
+
+    /// <summary>편집 폼의 카테고리 고르개가 묶이는 자리. <see cref="RagCateIds"/> 와 같은 값이다.
+    /// DevExpress 편집기는 팝업 안에서 순수한 멤버 접근인 검증 표현식을 요구해서, 형을 맞춘 창을 따로 둔다.</summary>
+    public IEnumerable<string> RagCates
+    {
+        get => RagCateIds ?? [];
+        set => RagCateIds = [.. value];
+    }
+
+    /// <summary>표에 한 칸으로 보여 줄 카테고리 이름들. <b>서버가 아니라 화면이 채운다</b> —
+    /// 이름은 AI 서버에 있고 여기로는 열쇠만 오기 때문이다.</summary>
+    public string RagCateText { get; set; } = string.Empty;
 }

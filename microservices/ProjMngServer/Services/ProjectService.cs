@@ -51,13 +51,89 @@ public sealed class ProjectService(IConfiguration configuration)
              ORDER BY prj_rid
             """, new { prjRid });
 
-        return [.. rows];
+        var list = rows.ToList();
+        await FillRagAsync(db, list);
+
+        return list;
+    }
+
+    /// <summary>연결 표 한 줄. Dapper 가 이름 있는 튜플을 못 채워서 둔다.</summary>
+    private sealed class RagLink
+    {
+        public int PrjRid { get; set; }
+        public string RagCateId { get; set; } = string.Empty;
+    }
+
+    /// <summary>프로젝트마다 매여 있는 RAG 카테고리를 채운다. 줄마다 묻지 않고 한 번에 읽어 나눠 담는다.</summary>
+    private static async Task FillRagAsync(IDbConnection db, List<Project> items, IDbTransaction? tx = null)
+    {
+        if (items.Count == 0)
+        {
+            return;
+        }
+
+        var map = await db.QueryAsync<RagLink>("""
+            SELECT prj_rid     AS PrjRid,
+                   rag_cate_id AS RagCateId
+              FROM projmng.dev_proj_rag
+             WHERE prj_rid = ANY(@ids)
+             ORDER BY rag_cate_id
+            """, new { ids = items.Select(x => x.PrjRid).ToArray() }, tx);
+
+        var byProject = map
+            .GroupBy(x => x.PrjRid)
+            .ToDictionary(g => g.Key, g => g.Select(x => x.RagCateId).ToList());
+
+        foreach (var item in items)
+        {
+            // 하나도 안 매인 프로젝트는 null 이 아니라 빈 목록이다 — 화면이
+            // 「아직 안 읽었다」와 「매인 것이 없다」를 가리지 않아도 되게.
+            item.RagCateIds = byProject.GetValueOrDefault(item.PrjRid, []);
+        }
+    }
+
+    /// <summary>
+    /// 연결을 <paramref name="ids"/> 그대로 맞춘다 — 빠진 줄은 지우고 새 줄만 넣는다.
+    /// </summary>
+    /// 통째로 지우고 다시 넣지 않는 까닭은 등록일(cre_dt)이다. 그대로 둔 카테고리의
+    /// 등록일까지 매번 새로 찍히면 「언제부터 매였나」를 더는 알 수 없다.
+    private static async Task SaveRagAsync(IDbConnection db, int prjRid, IEnumerable<string>? ids, IDbTransaction? tx = null)
+    {
+        if (ids is null)
+        {
+            return;
+        }
+
+        var keep = ids
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        await db.ExecuteAsync("""
+            DELETE FROM projmng.dev_proj_rag
+             WHERE prj_rid = @prjRid
+               AND NOT (rag_cate_id = ANY(@keep))
+            """, new { prjRid, keep }, tx);
+
+        if (keep.Length == 0)
+        {
+            return;
+        }
+
+        await db.ExecuteAsync("""
+            INSERT INTO projmng.dev_proj_rag (prj_rid, rag_cate_id)
+            SELECT @prjRid, unnest(@keep)
+                ON CONFLICT (prj_rid, rag_cate_id) DO NOTHING
+            """, new { prjRid, keep }, tx);
     }
 
     /// <summary>새 프로젝트. 번호와 등록·수정 일시는 서버가 정한다.</summary>
     public async Task<Project> CreateAsync(Project item)
     {
         using var db = Open();
+        db.Open();
+        using var tx = db.BeginTransaction();
 
         // 번호를 **같은 문장 안에서** 뽑는다. 따로 읽어 두었다가 넣으면 그
         // 사이에 남이 먼저 넣는다. 표가 비어 있을 때를 위해 `coalesce`.
@@ -71,7 +147,14 @@ public sealed class ProjectService(IConfiguration configuration)
                    COALESCE(@PrjSrt, 99999), now(), now()
               FROM projmng.dev_proj
             RETURNING {Columns}
-            """, item);
+            """, item, tx);
+
+        await SaveRagAsync(db, created.PrjRid, item.RagCateIds, tx);
+
+        // 보낸 값을 되뇌지 않고 표를 다시 읽는다 — 안 보냈을 때(null) 응답이
+        // 「매인 것이 없다」고 거짓말하는 것을 막는다.
+        await FillRagAsync(db, [created], tx);
+        tx.Commit();
 
         return created;
     }
@@ -83,8 +166,10 @@ public sealed class ProjectService(IConfiguration configuration)
     public async Task<Project?> UpdateAsync(int prjRid, Project item)
     {
         using var db = Open();
+        db.Open();
+        using var tx = db.BeginTransaction();
 
-        return await db.QuerySingleOrDefaultAsync<Project>($"""
+        var updated = await db.QuerySingleOrDefaultAsync<Project>($"""
             UPDATE projmng.dev_proj
                SET prj_name    = @PrjName,
                    prj_desc    = @PrjDesc,
@@ -110,7 +195,20 @@ public sealed class ProjectService(IConfiguration configuration)
             item.ProjPay,
             item.PrjUsePay,
             item.PrjSrt,
-        });
+        }, tx);
+
+        // 그 번호가 없었으면 연결도 손대지 않는다 — 프로젝트는 없는데 연결만
+        // 남는 줄이 생긴다.
+        if (updated is null)
+        {
+            return null;
+        }
+
+        await SaveRagAsync(db, prjRid, item.RagCateIds, tx);
+        await FillRagAsync(db, [updated], tx);
+        tx.Commit();
+
+        return updated;
     }
 
     /// <summary>
@@ -121,9 +219,18 @@ public sealed class ProjectService(IConfiguration configuration)
     {
         using var db = Open();
 
-        var affected = await db.ExecuteAsync(
-            "DELETE FROM projmng.dev_proj WHERE prj_rid = @prjRid", new { prjRid });
+        db.Open();
+        using var tx = db.BeginTransaction();
 
+        // 외래키가 없어 저절로 안 따라 지워진다. 남겨 두면 그 번호를 나중에
+        // 다른 프로젝트가 물려받았을 때 엉뚱한 카테고리가 딸려 온다.
+        await db.ExecuteAsync(
+            "DELETE FROM projmng.dev_proj_rag WHERE prj_rid = @prjRid", new { prjRid }, tx);
+
+        var affected = await db.ExecuteAsync(
+            "DELETE FROM projmng.dev_proj WHERE prj_rid = @prjRid", new { prjRid }, tx);
+
+        tx.Commit();
         return affected > 0;
     }
 }

@@ -957,6 +957,13 @@
   margin-bottom: 0;
 }
 
+/* 프로젝트 목록의 RAG 카테고리 칸이 잠겼을 때의 까닭. 고르개가 빈 것과 AI 서버를 못 읽은 것이 화면으로는 같아서 적어 준다. */
+.pm-rag-warn {
+  margin-top: var(--jsini-sp-xs);
+  font-size: var(--jsini-fs-sm);
+  color: var(--jsini-text-muted);
+}
+
 /* 끝난 뒤의 일. 체크 셋과 알림 칸은 한 줄이고, 좁아지면 접히되 순서(켠다 → 누구에게 → 언제)는 지킨다. */
 .pm-ai-opts {
   display: flex;

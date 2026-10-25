@@ -42,4 +42,11 @@ public sealed class Project
     /// 등록할 때만 채운다 — 수정 때 덮어쓰면 등록일이 사라진다.
     /// </summary>
     public DateTime? CreDt { get; set; }
+
+    /// <summary>
+    /// 이 프로젝트가 쓰는 RAG 카테고리 열쇠. <c>projmng.dev_proj_rag</c> 의 줄들이다.
+    /// </summary>
+    /// 카테고리 정본은 AIAgentServer 에 있어 여기서는 이름을 모른다 — 열쇠만 오간다.
+    /// 저장할 때 <b>준 목록이 곧 전부</b>다(없는 줄은 지운다). null 이면 손대지 않는다.
+    public List<string>? RagCateIds { get; set; }
 }
