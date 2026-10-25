@@ -23,6 +23,7 @@ public sealed class InternalQueryController(InternalQueryService service, IConfi
     /// 칸 이름을 맞춘다(<c>source, title, startDate, endDate, done, owner</c>) — 도구 하나가 둘을 합친다.
     /// 한 줄에 개발·빌드·검수 세 사람이 걸려 있어 <paramref name="userId"/> 는 셋 중 아무거나
     /// 맞으면 걸리고, 어느 역할로 걸렸는지는 <c>role</c> 칸에 따로 싣는다.
+    /// <c>done</c> 은 화면(WbsService)과 같은 식 — <c>dev_edt</c>(개발 종료일) 유무 — 으로 셈한다.
     /// </summary>
     [HttpGet("schedules")]
     public async Task<IActionResult> SchedulesAsync(
@@ -39,21 +40,33 @@ public sealed class InternalQueryController(InternalQueryService service, IConfi
         {
             source = "projmng",
             title = r.ProcNm,
-            startDate = r.PlanSdt,
-            endDate = r.PlanEdt,
-            // 세 확인 칸(개발·빌드·검수) 중 하나라도 적혀 있으면 확인이 된 것으로 본다 — 이 표에는
-            // 완료를 뜻하는 별도의 참/거짓 칸이 없다.
-            done = !string.IsNullOrWhiteSpace(r.DevChk)
-                   || !string.IsNullOrWhiteSpace(r.BuildChk)
-                   || !string.IsNullOrWhiteSpace(r.QcChk),
+            startDate = r.StartDate,
+            endDate = r.EndDate,
+            done = r.WbsState == "COMP",
             owner = r.DevUser,
+            // READY · RUNNING · COMP — done 하나로는 "아직 시작 전"과 "진행 중"을 못 가른다.
+            state = r.WbsState,
             role = WbsRoleMatch.Of(
                 dev: !string.IsNullOrEmpty(userId) && r.DevUser == userId,
                 build: !string.IsNullOrEmpty(userId) && r.BuildUser == userId,
                 qc: !string.IsNullOrEmpty(userId) && r.QcUser == userId),
+            // dev_chk · build_chk 는 참거짓이 아니라 글로 적은 메모라, comm 과 묶어 그대로 들려준다 —
+            // 비서가 "왜 그런지"를 물으면 인용할 수 있는 유일한 자유 글이다.
+            note = CombineNotes(r.DevChk, r.BuildChk, r.Comm),
         });
 
         return Ok(new { total, items });
+    }
+
+    /// <summary>개발·빌드 확인 메모와 비고를 사람이 읽을 한 덩이 글로 묶는다. 빈 칸은 건너뛴다.</summary>
+    private static string? CombineNotes(string? devChk, string? buildChk, string? comm)
+    {
+        var parts = new[] { devChk, buildChk, comm }
+            .Where(s => !string.IsNullOrWhiteSpace(s))
+            .Select(s => s!.Trim())
+            .ToArray();
+
+        return parts.Length == 0 ? null : string.Join(" / ", parts);
     }
 
     /// <summary>할 일(<c>projmng.home_todo</c>). 사람은 <c>target_user</c> 하나뿐이라 역할 매칭이 없다.</summary>

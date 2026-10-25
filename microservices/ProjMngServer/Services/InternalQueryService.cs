@@ -16,14 +16,16 @@ public sealed class InternalQueryService(IConfiguration configuration)
         ?? throw new InvalidOperationException("연결 문자열 'jsini' 가 없습니다.");
 
     /// <summary>
-    /// 일정(<c>projmng.dev_wbs</c>) 한 줄. 개발·빌드·검수 세 사람과 세 확인 칸을 그대로 들고 와서
-    /// 컨트롤러가 역할 매칭과 done 판정을 계산한다 — SQL 안에서 사람 비교까지 다 해 버리면
-    /// WbsRoleMatch 가 쓸 bool 셋을 다시 못 얻는다.
+    /// 일정(<c>projmng.dev_wbs</c>) 한 줄. 개발·빌드·검수 세 사람을 그대로 들고 와서 컨트롤러가
+    /// 역할 매칭을 계산한다 — SQL 안에서 사람 비교까지 다 해 버리면 WbsRoleMatch 가 쓸 bool 셋을
+    /// 다시 못 얻는다. <c>StartDate</c>·<c>EndDate</c>·<c>WbsState</c> 는 화면(WbsService)과
+    /// 완전히 같은 식으로 미리 계산해 둔다 — 여기서 다르게 셈하면 같은 일감을 두고 화면과
+    /// 비서의 답이 어긋난다.
     /// </summary>
     public sealed record WbsScheduleRow(
-        string? ProcNm, DateOnly? PlanSdt, DateOnly? PlanEdt,
+        string? ProcNm, DateOnly? StartDate, DateOnly? EndDate,
         string? DevUser, string? BuildUser, string? QcUser,
-        string? DevChk, string? BuildChk, string? QcChk);
+        string? DevChk, string? BuildChk, string? Comm, string WbsState);
 
     /// <summary>
     /// 일정 목록의 전체 건수와 한 쪽(<paramref name="take"/>)을 함께 돌려준다.
@@ -46,10 +48,14 @@ public sealed class InternalQueryService(IConfiguration configuration)
             take,
         };
 
+        // 계획 날짜가 비어 있으면 개발 종료일로 본다 — WbsService.Dates 와 똑같은 COALESCE 다.
+        // 여기서 다르게 메우면 plan_sdt 가 빈 줄이 기간 조회에서만 사라진다(화면엔 보이는데 비서는 못 찾는다).
         const string Where = """
              WHERE (@userId = '' OR a.dev_user = @userId OR a.build_user = @userId OR a.qc_user = @userId)
-               AND (@from::date IS NULL OR a.plan_edt IS NULL OR a.plan_edt >= @from)
-               AND (@to::date   IS NULL OR a.plan_sdt IS NULL OR a.plan_sdt <= @to)
+               AND (@from::date IS NULL OR COALESCE(a.plan_edt, a.dev_edt) IS NULL
+                    OR COALESCE(a.plan_edt, a.dev_edt) >= @from)
+               AND (@to::date   IS NULL OR COALESCE(a.plan_sdt, a.dev_edt) IS NULL
+                    OR COALESCE(a.plan_sdt, a.dev_edt) <= @to)
                AND (@keyword = '' OR a.proc_nm ILIKE '%' || @keyword || '%'
                                   OR a.comm    ILIKE '%' || @keyword || '%')
             """;
@@ -59,18 +65,25 @@ public sealed class InternalQueryService(IConfiguration configuration)
             """, parameters, cancellationToken: ct));
 
         var rows = await db.QueryAsync<WbsScheduleRow>(new CommandDefinition($"""
-            SELECT a.proc_nm    AS ProcNm,
-                   a.plan_sdt   AS PlanSdt,
-                   a.plan_edt   AS PlanEdt,
-                   a.dev_user   AS DevUser,
-                   a.build_user AS BuildUser,
-                   a.qc_user    AS QcUser,
-                   a.dev_chk    AS DevChk,
-                   a.build_chk  AS BuildChk,
-                   a.qc_chk     AS QcChk
+            SELECT a.proc_nm                        AS ProcNm,
+                   COALESCE(a.plan_sdt, a.dev_edt)   AS StartDate,
+                   COALESCE(a.plan_edt, a.dev_edt)   AS EndDate,
+                   a.dev_user                        AS DevUser,
+                   a.build_user                      AS BuildUser,
+                   a.qc_user                         AS QcUser,
+                   a.dev_chk                         AS DevChk,
+                   a.build_chk                       AS BuildChk,
+                   a.comm                            AS Comm,
+                   -- WbsService.Columns 의 WbsState 와 한 글자도 다르지 않게 옮긴 식이다.
+                   -- dev_chk/build_chk/qc_chk 는 참거짓 칸이 아니라 자유 글(메모)이라 완료
+                   -- 판정에 못 쓴다 — 진짜 완료는 개발 종료일(dev_edt)의 유무로만 갈린다.
+                   CASE WHEN COALESCE(a.dev_sdt, a.dev_edt) IS NULL THEN 'READY'
+                        WHEN a.dev_edt IS NULL                      THEN 'RUNNING'
+                        ELSE 'COMP'
+                   END                                AS WbsState
               FROM projmng.dev_wbs a
             {Where}
-             ORDER BY a.plan_sdt NULLS LAST, a.wbs_id
+             ORDER BY COALESCE(a.plan_sdt, a.dev_edt) NULLS LAST, a.wbs_id
              LIMIT @take
             """, parameters, cancellationToken: ct));
 
