@@ -1,3 +1,5 @@
+using AIAgentServer.Services.Gmail;
+
 using Microsoft.EntityFrameworkCore;
 
 namespace AIAgentServer.Data;
@@ -41,6 +43,12 @@ public class AiUsageDbContext(DbContextOptions<AiUsageDbContext> options) : DbCo
     // 업무 비서 기록 표. 권한 밖 자료를 넘겨다본 흔적을 남긴다(deploy/sql/ai-assistant-audit-2026-10-25.sql).
 
     public DbSet<AssistantAuditRow> AssistantAudits => Set<AssistantAuditRow>();
+
+    // Gmail 보관함. 길 셋(takeout·api·imap)이 한 표에 쌓인다(deploy/sql/gmail-archive-2026-10-25.sql).
+
+    public DbSet<GmailAccountRow> GmailAccounts => Set<GmailAccountRow>();
+
+    public DbSet<GmailMessageRow> GmailMessages => Set<GmailMessageRow>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -213,6 +221,49 @@ public class AiUsageDbContext(DbContextOptions<AiUsageDbContext> options) : DbCo
             e.Property(x => x.Answer).HasColumnName("answer");
             e.Property(x => x.ElapsedMs).HasColumnName("elapsed_ms");
             e.Property(x => x.Error).HasColumnName("error");
+        });
+
+        modelBuilder.Entity<GmailAccountRow>(e =>
+        {
+            e.ToTable("gmail_accounts", "scom");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("id");
+            e.Property(x => x.Email).HasColumnName("email");
+            e.Property(x => x.OwnerLoginId).HasColumnName("owner_login_id");
+            e.Property(x => x.Kind).HasColumnName("kind");
+            e.Property(x => x.Enabled).HasColumnName("enabled");
+            e.Property(x => x.LastHistoryId).HasColumnName("last_history_id");
+            e.Property(x => x.LastUid).HasColumnName("last_uid");
+            e.Property(x => x.UidValidity).HasColumnName("uid_validity");
+            e.Property(x => x.LastSyncAt).HasColumnName("last_sync_at");
+            e.Property(x => x.LastError).HasColumnName("last_error");
+            e.Property(x => x.CreatedAt).HasColumnName("created_at");
+        });
+
+        modelBuilder.Entity<GmailMessageRow>(e =>
+        {
+            e.ToTable("gmail_messages", "scom");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("id").ValueGeneratedOnAdd();
+            e.Property(x => x.AccountId).HasColumnName("account_id");
+            e.Property(x => x.Source).HasColumnName("source");
+            e.Property(x => x.ProviderMsgId).HasColumnName("provider_msg_id");
+            e.Property(x => x.ThreadId).HasColumnName("thread_id");
+            e.Property(x => x.Rfc822MessageId).HasColumnName("rfc822_message_id");
+            e.Property(x => x.Subject).HasColumnName("subject");
+            e.Property(x => x.FromAddr).HasColumnName("from_addr");
+            e.Property(x => x.FromName).HasColumnName("from_name");
+            e.Property(x => x.ToAddrs).HasColumnName("to_addrs").HasColumnType("jsonb");
+            e.Property(x => x.CcAddrs).HasColumnName("cc_addrs").HasColumnType("jsonb");
+            e.Property(x => x.SentAt).HasColumnName("sent_at");
+            e.Property(x => x.Labels).HasColumnName("labels").HasColumnType("jsonb");
+            e.Property(x => x.Snippet).HasColumnName("snippet");
+            e.Property(x => x.BodyText).HasColumnName("body_text");
+            e.Property(x => x.BodyHtml).HasColumnName("body_html");
+            e.Property(x => x.HasAttachments).HasColumnName("has_attachments");
+            e.Property(x => x.Attachments).HasColumnName("attachments").HasColumnType("jsonb");
+            e.Property(x => x.RagDocId).HasColumnName("rag_doc_id");
+            e.Property(x => x.CreatedAt).HasColumnName("created_at");
         });
     }
 }

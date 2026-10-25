@@ -8,6 +8,7 @@ public sealed class PortalToolRunner(
     HelpDeskGateway helpDesk,
     ProjMngGateway projMng,
     MailGateway mail,
+    AIAgentServer.Services.Gmail.GmailSearch gmail,
     RagStore ragStore,
     EmbeddingClient embed,
     IConfiguration config,
@@ -32,8 +33,11 @@ public sealed class PortalToolRunner(
     /// 다시 부를 수 있다. 예외가 이 호출 경로를 타고 올라가면 McpToolGateway.CallAsync 머리말대로
     /// 사람에게는 대화가 통째로 죽은 것으로 보인다.
     /// </summary>
+    /// <param name="askedBy">묻는 사람의 로그인 아이디. <c>search_gmail</c> 이 <b>본인 메일함만</b>
+    /// 보게 하는 열쇠다 — 다른 도구들과 달리 메일은 권한을 넘어 보여 주면 안 된다.</param>
     public async Task<string> CallAsync(
-        string name, IReadOnlyDictionary<string, object?> args, RagScope? scope, CancellationToken ct = default)
+        string name, IReadOnlyDictionary<string, object?> args, RagScope? scope,
+        string? askedBy = null, CancellationToken ct = default)
     {
         try
         {
@@ -45,6 +49,7 @@ public sealed class PortalToolRunner(
                 "search_schedules" => await SearchSchedulesAsync(args, ct),
                 "search_todos" => await SearchTodosAsync(args, ct),
                 "search_mails" => await SearchMailsAsync(args, ct),
+                "search_gmail" => await SearchGmailAsync(args, askedBy, ct),
                 "search_documents" => await SearchDocumentsAsync(args, scope, ct),
                 _ => "그런 도구가 없습니다.",
             };
@@ -202,6 +207,32 @@ public sealed class PortalToolRunner(
         return PortalToolResult.Render("보낸 메일", lines, total, take);
     }
 
+    /// <summary>받아 온 Gmail 을 찾는다. <b>묻는 사람이 주인인 메일함만</b> 본다 — 범위를 모델이 정하지
+    /// 못하도록 도구 인자에 계정을 받는 자리를 아예 두지 않았다.</summary>
+    private async Task<string> SearchGmailAsync(
+        IReadOnlyDictionary<string, object?> args, string? askedBy, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(askedBy))
+            return "메일은 본인 것만 찾을 수 있는데 누가 묻는지를 알 수 없습니다.";
+
+        var fromDay = ValidDay(args, "from");
+        var toDay = ValidDay(args, "to");
+        var fromAddr = Str(args, "fromAddr");
+        var keyword = Str(args, "keyword");
+        var take = Take(args);
+
+        var mine = await gmail.MyAccountIdsAsync(askedBy, ct);
+        if (mine.Count == 0)
+        {
+            // 「없다」와 「애초에 안 받아 온다」는 다르다 — 모델이 메일이 없다고 단정하면 안 된다.
+            return "이 계정에 연결된 메일함이 없습니다. 받아 온 Gmail 이 없으므로 메일로는 답할 수 없습니다.";
+        }
+
+        var (total, items) = await gmail.SearchAsync(askedBy, fromDay, toDay, fromAddr, keyword, take, ct);
+        var lines = items.Select(RenderGmail).ToList();
+        return PortalToolResult.Render("받아 온 메일", lines, total, take);
+    }
+
     private async Task<string> SearchDocumentsAsync(
         IReadOnlyDictionary<string, object?> args, RagScope? scope, CancellationToken ct)
     {
@@ -295,6 +326,15 @@ public sealed class PortalToolRunner(
         var owner = r.Owner is null ? "" : $", 담당 {r.Owner}";
         var note = string.IsNullOrWhiteSpace(r.Comments) ? "" : $" — {r.Comments}";
         return $"- {r.Title} ({day}, {state}{owner}){note}";
+    }
+
+    internal static string RenderGmail(AIAgentServer.Services.Gmail.GmailSearch.Hit r)
+    {
+        var who = string.IsNullOrWhiteSpace(r.FromName) ? r.FromAddr ?? "(보낸이 모름)" : r.FromName;
+        var when = r.SentAt is null ? "날짜 모름" : PortalDay.ToKorean(r.SentAt.Value);
+        var clip = r.HasAttachments ? " [첨부]" : string.Empty;
+        var snippet = string.IsNullOrWhiteSpace(r.Snippet) ? string.Empty : $"\n    {r.Snippet}";
+        return $"- {r.Subject ?? "(제목 없음)"} — {who} ({when}){clip}{snippet}";
     }
 
     internal static string RenderMail(MailGateway.MailRow r)

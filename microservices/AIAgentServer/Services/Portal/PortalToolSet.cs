@@ -16,7 +16,9 @@ public static class PortalToolSet
     /// </summary>
     public static IReadOnlyList<McpToolInfo> Tools(bool internalEnabled)
     {
-        if (!internalEnabled) return [SearchDocuments];
+        // search_gmail 은 내부 토큰이 없어도 선다 — 받아 온 메일은 다른 서비스에 묻지 않고
+        // 이 서비스가 제 DB(scom.gmail_messages)에서 바로 읽기 때문이다.
+        if (!internalEnabled) return [SearchGmail, SearchDocuments];
 
         return
         [
@@ -26,6 +28,7 @@ public static class PortalToolSet
             SearchSchedules,
             SearchTodos,
             SearchMails,
+            SearchGmail,
             SearchDocuments,
         ];
     }
@@ -123,6 +126,24 @@ public static class PortalToolSet
             "from": { "type": "string", "description": "조회 시작 날짜(yyyy-MM-dd, 한국 날짜)" },
             "to": { "type": "string", "description": "조회 끝 날짜(yyyy-MM-dd, 한국 날짜, 이 날짜까지 포함)" },
             "keyword": { "type": "string", "description": "제목·받는 주소·본문 미리보기에서 찾을 낱말" },
+            "take": { "type": "integer", "description": "가져올 최대 건수(기본 30, 최대 100)" }
+          }
+        }
+        """));
+
+    private static readonly McpToolInfo SearchGmail = new(
+        "search_gmail",
+        "받아 온 Gmail 을 찾는다. 포털이 보낸 메일만 보는 search_mails 와 달리 **받은 메일도** 있다. " +
+        "묻는 사람 본인의 메일함만 보이므로 다른 사람의 메일은 이 도구로 찾을 수 없다 — " +
+        "userId 같은 것을 넘길 자리가 없는 까닭이다.",
+        Schema("""
+        {
+          "type": "object",
+          "properties": {
+            "from": { "type": "string", "description": "조회 시작 날짜(yyyy-MM-dd, 한국 날짜)" },
+            "to": { "type": "string", "description": "조회 끝 날짜(yyyy-MM-dd, 한국 날짜, 이 날짜까지 포함)" },
+            "fromAddr": { "type": "string", "description": "보낸 사람의 메일 주소나 이름(부분 일치)" },
+            "keyword": { "type": "string", "description": "제목·본문에서 찾을 낱말" },
             "take": { "type": "integer", "description": "가져올 최대 건수(기본 30, 최대 100)" }
           }
         }

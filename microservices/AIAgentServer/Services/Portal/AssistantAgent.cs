@@ -192,7 +192,7 @@ public sealed class AssistantAgent(
                     {
                         // 실제로 부르기 직전에 안내부터 흘린다 — 느린 도구일수록 이 순서가 중요하다.
                         await channel.Writer.WriteAsync(ChatStreamPart.Info($"{ToolNotice(name)}…", "tool"), toolCt);
-                        return await toolRunner.CallAsync(name, args, scope, toolCt);
+                        return await toolRunner.CallAsync(name, args, scope, askedBy, toolCt);
                     },
                     messages: jsonMessages,
                     toolSpec: toolSpec,
@@ -278,6 +278,7 @@ public sealed class AssistantAgent(
         "search_schedules" => "일정 뒤지는 중",
         "search_todos" => "할 일 뒤지는 중",
         "search_mails" => "보낸 메일 뒤지는 중",
+        "search_gmail" => "메일함 뒤지는 중",
         "search_documents" => "사내 문서 뒤지는 중",
         _ => "자료 찾는 중",
     };
