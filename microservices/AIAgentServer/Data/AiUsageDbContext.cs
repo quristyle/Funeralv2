@@ -38,6 +38,10 @@ public class AiUsageDbContext(DbContextOptions<AiUsageDbContext> options) : DbCo
 
     public DbSet<RagDocumentRow> RagDocuments => Set<RagDocumentRow>();
 
+    // 업무 비서 기록 표. 권한 밖 자료를 넘겨다본 흔적을 남긴다(deploy/sql/ai-assistant-audit-2026-10-25.sql).
+
+    public DbSet<AssistantAuditRow> AssistantAudits => Set<AssistantAuditRow>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
@@ -193,6 +197,22 @@ public class AiUsageDbContext(DbContextOptions<AiUsageDbContext> options) : DbCo
             e.Property(x => x.CreatedAt).HasColumnName("created_at");
             e.Property(x => x.CreatedBy).HasColumnName("created_by");
             e.Property(x => x.IsDeleted).HasColumnName("is_deleted");
+        });
+
+        modelBuilder.Entity<AssistantAuditRow>(e =>
+        {
+            e.ToTable("ai_assistant_audit", "scom");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("id").ValueGeneratedOnAdd();
+            e.Property(x => x.AskedBy).HasColumnName("asked_by");
+            e.Property(x => x.AskedAt).HasColumnName("asked_at");
+            e.Property(x => x.Question).HasColumnName("question");
+            e.Property(x => x.ScopeCategory).HasColumnName("scope_category");
+            e.Property(x => x.ToolCalls).HasColumnName("tool_calls").HasColumnType("jsonb");
+            e.Property(x => x.Sources).HasColumnName("sources").HasColumnType("jsonb");
+            e.Property(x => x.Answer).HasColumnName("answer");
+            e.Property(x => x.ElapsedMs).HasColumnName("elapsed_ms");
+            e.Property(x => x.Error).HasColumnName("error");
         });
     }
 }
@@ -404,4 +424,35 @@ public class RagDocumentRow
     public DateTime CreatedAt { get; set; }
     public string? CreatedBy { get; set; }
     public bool IsDeleted { get; set; }
+}
+
+/// <summary>업무 비서가 권한 밖 자료를 넘겨다본 흔적 한 줄. <b>답은 자르지 않는다</b> — 무엇이 나갔는지가
+/// 기록의 전부다. 쌓기만 하고 고치지 않는다.</summary>
+public class AssistantAuditRow
+{
+    public long Id { get; set; }
+
+    /// <summary>물은 사람의 로그인 아이디.</summary>
+    public string AskedBy { get; set; } = string.Empty;
+
+    /// <summary>물은 때. <b>UTC 다.</b></summary>
+    public DateTime AskedAt { get; set; }
+
+    public string Question { get; set; } = string.Empty;
+
+    /// <summary>사내 문서 검색 범위로 고른 RAG 카테고리. 안 골랐으면 <c>null</c>.</summary>
+    public string? ScopeCategory { get; set; }
+
+    /// <summary>모델이 부른 도구와 인자. JSON 배열 글.</summary>
+    public string ToolCalls { get; set; } = "[]";
+
+    /// <summary>답의 근거로 삼은 자료. JSON 배열 글.</summary>
+    public string Sources { get; set; } = "[]";
+
+    /// <summary><b>통째로</b> 담는다 — 요약이 아니라 실제로 나간 답 그대로.</summary>
+    public string Answer { get; set; } = string.Empty;
+
+    public long ElapsedMs { get; set; }
+
+    public string? Error { get; set; }
 }
