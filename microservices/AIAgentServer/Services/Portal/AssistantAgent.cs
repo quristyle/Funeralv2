@@ -97,7 +97,10 @@ public sealed class AssistantAgent(
                 {
                     result = await tool(name, ParseArgs(rawArgs), ct);
                 }
-                catch (Exception ex)
+                // 취소는 도구 실패가 아니다 — ct 가 끊겨 난 OperationCanceledException 을 여기서
+                // 글로 바꿔 삼키면, 이미 끊긴 요청인데도 모델을 한 라운드 더 불러 보고서야(그 호출도
+                // 결국 같은 ct 로 터진다) 멈춘다. ct 때문에 난 취소만 그대로 밖으로 내보낸다.
+                catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
                 {
                     // 도구 하나가 죽어도 루프는 멈추지 않는다 — 그 까닭을 도구 결과 글로 바꿔
                     // 모델에게 넘기면, 모델은 나머지 도구로 모은 것만으로 답을 이어 쓴다.
@@ -141,6 +144,11 @@ public sealed class AssistantAgent(
         var question = messages.LastOrDefault(m => m.role == "user")?.content ?? string.Empty;
 
         var target = registry.Resolve("jsini");
+        if (!target.IsConfigured)
+        {
+            throw new InvalidOperationException($"{target.DisplayName} 설정이 완료되지 않았습니다.");
+        }
+
         var internalEnabled = !string.IsNullOrWhiteSpace(config["Assistant:InternalToken"]);
         var toolSpec = BuildToolSpec(PortalToolSet.Tools(internalEnabled));
 
@@ -185,12 +193,13 @@ public sealed class AssistantAgent(
                 called = [];
             }
 
-            await channel.Writer.WriteAsync(ChatStreamPart.Content(answer), ct);
-
             sw.Stop();
-            await SaveAuditAsync(askedBy, question, scope?.Category, called, answer, sw.ElapsedMilliseconds, error, ct);
 
-            channel.Writer.Complete();
+            await FinalizeAsync(
+                channel.Writer,
+                answer,
+                saveCt => SaveAuditAsync(askedBy, question, scope?.Category, called, answer, sw.ElapsedMilliseconds, error, saveCt),
+                ct);
         }, ct);
 
         await foreach (var part in channel.Reader.ReadAllAsync(ct))
@@ -199,6 +208,26 @@ public sealed class AssistantAgent(
         }
 
         await worker;
+    }
+
+    /// <summary>답 쓰기 → 감사 저장 → 채널 닫기, 세 가지를 마무리짓는 자리. <b>사람이 창을 닫아 <paramref name="ct"/>
+    /// 가 끊겨도 뒤 두 가지는 반드시 일어나야 한다</b> — 이 루프가 이미 남의 요청글·일정·메일을 읽은 뒤이므로,
+    /// 그 흔적이 감사표에 안 남는 순간이 가장 위험하다. 그래서 <c>try/finally</c> 로 묶고(끊겨서 쓰기가
+    /// 던져도 finally 는 돈다), 감사 저장은 <paramref name="ct"/> 가 아니라 <see cref="CancellationToken.None"/>
+    /// 으로 부른다 — 같은 토큰을 썼다면 저장도 똑같이 끊겨 기록이 사라진다. <paramref name="saveAudit"/> 를
+    /// 대리자로 뺀 것은 DB 없이(진짜 <see cref="AiUsageDbContext"/> 없이) 이 보장만 따로 시험하기 위해서다.</summary>
+    internal static async Task FinalizeAsync(
+        ChannelWriter<ChatStreamPart> writer, string answer, Func<CancellationToken, Task> saveAudit, CancellationToken ct)
+    {
+        try
+        {
+            await writer.WriteAsync(ChatStreamPart.Content(answer), ct);
+        }
+        finally
+        {
+            await saveAudit(CancellationToken.None);
+            writer.Complete();
+        }
     }
 
     /// <summary>감사 기록은 이 기능의 유일한 쓰기다. 아직 운영 DB에 표를 안 넣었으니 지금은 저장이 늘

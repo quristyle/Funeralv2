@@ -1,5 +1,7 @@
 using System.Text.Json.Nodes;
+using System.Threading.Channels;
 
+using AIAgentServer.Services;
 using AIAgentServer.Services.Portal;
 using AIAgentServer.Services.Rag;
 
@@ -85,5 +87,81 @@ public class AssistantLoopTests
             messages: [], toolSpec: [], maxRounds: 2, ct: default);
 
         Assert.Equal("정리", answer);
+    }
+
+    /// <summary>사람이 창을 닫아 ct 가 끊긴 것은 도구가 죽은 것과 다르다 — 그 까닭을 글로 바꿔 삼키면
+    /// 이미 끊긴 요청인데도 모델을 한 라운드 더 불러 보고서야 멈춘다(그 호출도 결국 같은 ct 로 터진다).
+    /// 리뷰 1라운드 Finding 2: ct 로 인한 OperationCanceledException 은 도구 실패 글로 바뀌지 않고
+    /// 루프 밖으로 그대로 나가야, 모델을 다시 부르지 않고 바로 멈춘다.</summary>
+    [Fact]
+    public async Task 취소된_토큰으로_도구가_터지면_모델을_다시_부르지_않고_그대로_나간다()
+    {
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        var modelCalls = 0;
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => AssistantAgent.RunAsync(
+            call: (m, t, ct) =>
+            {
+                modelCalls++;
+                return Task.FromResult<JsonObject?>(WantsTool(1));
+            },
+            tool: (n, a, ct) => throw new OperationCanceledException(cts.Token),
+            messages: [], toolSpec: [], maxRounds: 5, ct: cts.Token));
+
+        Assert.Equal(1, modelCalls);
+    }
+}
+
+/// <summary>리뷰 1라운드 Finding 1: 사람이 창을 닫아 StreamAsync 의 ct 가 끊기면, 답 스트리밍은
+/// 멈춰도 감사 저장과 채널 닫기는 반드시 일어나야 한다 — 그 순간까지 이미 남의 요청글·일정·메일을
+/// 읽은 뒤이기 때문이다. StreamAsync 자체는 AiProviderRegistry·PortalToolRunner·AiUsageDbContext
+/// 를 전부 DI 로 받아 직접 시험하기 번거로워, 마무리 로직만 떼어 낸 AssistantAgent.FinalizeAsync 를
+/// DB 없이(저장 대리자로) 시험한다.</summary>
+public class AssistantFinalizeTests
+{
+    [Fact]
+    public async Task 취소돼도_감사저장과_채널닫기는_일어난다()
+    {
+        var channel = Channel.CreateUnbounded<ChatStreamPart>();
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        var saveCalls = 0;
+        CancellationToken? savedWith = null;
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => AssistantAgent.FinalizeAsync(
+            channel.Writer,
+            "답",
+            ct =>
+            {
+                saveCalls++;
+                savedWith = ct;
+                return Task.CompletedTask;
+            },
+            cts.Token));
+
+        Assert.Equal(1, saveCalls);
+        // 감사 저장은 끊긴 ct 가 아니라 CancellationToken.None 으로 불러야 저장 자체가
+        // 끊기지 않는다 — 같은 토큰을 그대로 넘겼다면 이 값이 cts.Token 이었을 것이다.
+        Assert.Equal(CancellationToken.None, savedWith);
+        Assert.True(channel.Reader.Completion.IsCompleted);
+    }
+
+    [Fact]
+    public async Task 정상_종료에도_답이_담기고_저장과_닫기가_한번씩_일어난다()
+    {
+        var channel = Channel.CreateUnbounded<ChatStreamPart>();
+        var saveCalls = 0;
+
+        await AssistantAgent.FinalizeAsync(
+            channel.Writer, "답", ct => { saveCalls++; return Task.CompletedTask; }, CancellationToken.None);
+
+        Assert.Equal(1, saveCalls);
+        // Completion 은 쓰기가 끝났다는 것만으론 안 끝난다 — 남은 조각을 다 읽어야 끝난다.
+        Assert.True(channel.Reader.TryRead(out var part));
+        Assert.Equal("답", part!.Text);
+        Assert.True(channel.Reader.Completion.IsCompleted);
     }
 }
