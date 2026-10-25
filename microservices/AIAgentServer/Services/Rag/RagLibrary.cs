@@ -216,12 +216,24 @@ public sealed class RagLibrary
     /// <summary>채팅창에서 고른 카테고리·분류를 검색 범위로 바꾼다. 분류는 하위 분류의 문서까지 넣는다.</summary>
     /// <exception cref="InvalidOperationException">없는 카테고리·분류.</exception>
     /// <exception cref="UnauthorizedAccessException">볼 수 없는 카테고리.</exception>
-    public async Task<RagScope> ResolveChatScopeAsync(
+    public Task<RagScope> ResolveChatScopeAsync(
         string categoryId, long? folderId, UserContext? user, CancellationToken ct = default)
+        => ResolveChatScopeAsync(categoryId, folderId, user, checkAccess: true, ct);
+
+    /// <summary>업무 비서(<c>/assistant/chat</c>)처럼 메뉴·화면 단에서 이미 사람을 슈퍼관리자·임원으로
+    /// 좁혀 둔 호출이 쓴다. 위 오버로드의 <see cref="CanReadInChat"/> 검사를 건너뛰고 범위를 그대로
+    /// 연다 — 일반 대화(위 오버로드)의 동작은 그대로 둔다.</summary>
+    /// <exception cref="InvalidOperationException">없는 카테고리·분류.</exception>
+    public Task<RagScope> ResolveChatScopeAsync(
+        string categoryId, long? folderId, CancellationToken ct = default)
+        => ResolveChatScopeAsync(categoryId, folderId, user: null, checkAccess: false, ct);
+
+    private async Task<RagScope> ResolveChatScopeAsync(
+        string categoryId, long? folderId, UserContext? user, bool checkAccess, CancellationToken ct)
     {
         var category = await GetCategoryAsync(categoryId, ct)
                        ?? throw new InvalidOperationException($"없는 카테고리입니다: {categoryId}");
-        if (!CanReadInChat(category, user))
+        if (checkAccess && !CanReadInChat(category, user))
         {
             throw new UnauthorizedAccessException("소속 회사의 사내 자료만 찾아볼 수 있습니다.");
         }

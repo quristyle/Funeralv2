@@ -134,6 +134,15 @@ builder.Services.AddHttpClient<AIAgentServer.Services.Portal.MailGateway>((sp, c
 
 builder.Services.AddScoped<AIAgentServer.Services.Portal.PortalToolRunner>();
 
+// 업무 비서의 도구 호출 루프. 모델 호출은 jsini 공급자로 직접 가므로 ILLMService 와 같은
+// 접속 시간 설정을 쓴다 — 장비가 꺼져 있을 때 빨리 포기해야 생성이 끊기지 않는다.
+builder.Services.AddHttpClient<AIAgentServer.Services.Portal.AssistantAgent>()
+    .ConfigurePrimaryHttpMessageHandler(sp => new SocketsHttpHandler
+    {
+        ConnectTimeout = sp.GetRequiredService<AiProviderRegistry>().ConnectTimeout,
+    })
+    .ConfigureHttpClient(client => client.Timeout = Timeout.InfiniteTimeSpan);
+
 // LLM 장비 하드웨어 상태. 추론과 같은 주소·같은 키를 쓰므로 설정이 따로 없다.
 builder.Services.AddHttpClient<LlmHostMetricsClient>();
 
@@ -199,6 +208,7 @@ app.UseCors("AllowAll");
 
 app.MapAIEndpoints();
 app.MapRagLibraryEndpoints();
+app.MapAssistantEndpoints();
 
 // 사람별 AI 사용량(포털관리 「AI 사용량」 화면). **관리자만 본다** —
 // 게이트웨이의 ai-route 가 이 묶음을 익명으로 열어 두므로 그쪽에서 한 번 더 본다.
