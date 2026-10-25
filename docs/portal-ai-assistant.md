@@ -240,13 +240,9 @@ id 56 `대형선 업무 이력.html`)이 **운영과 공유하는 바로 그 표
 
 ## 아직 안 된 것
 
-- **`deploy/sql/ai-assistant-audit-2026-10-25.sql` 미적용.** 기록 표가
-  운영 DB 에 없다. 적용 전까지 `/assistant/audit` 는 500 을 돌려주고,
-  모든 대화의 감사 기록은 조용히 유실된다(답 자체는 영향 없다).
-- **`deploy/sql/ai-assistant-menu-2026-10-25.sql` 미적용.** 메뉴 줄이
-  없어 지금은 로그인한 사람이면 누구든 주소로 화면을 열 수 있다
-  (`UNMANAGED` — 메뉴 권한 검사 자체가 안 걸린다). 적용 뒤에도 `role_menus`
-  에 아무도 없으면 전원이 막힌다(`NO_PERMISSION`, 안전한 방향).
+- SQL 두 개는 2026-10-25 운영 DB(`jin114.co.kr:31015/jsiniportal`)에
+  적용했고, 메뉴 권한도 **`SYSTEM_ADMINISTRATOR`(시스템관리자) 하나에만**
+  `can_view` 로 열어 두었다(`scom.role_menus` 1건). 「임원」은 아래 참고.
 - **「임원」역할이 포털에 없다.** 운영 `scom.roles` 17건 어디에도 없다
   (`SYSTEM_ADMINISTRATOR`="슈퍼관리자"는 있다). 이 역할을 포털관리 ›
   권한관리 › 역할 관리에서 만들고 대상 계정을 넣은 뒤, 메뉴 권한 화면에서
@@ -256,10 +252,13 @@ id 56 `대형선 업무 이력.html`)이 **운영과 공유하는 바로 그 표
 - **`scom.portal_mails` 가 비어 있다(0건).** `search_mails` 는 오늘
   돌려도 항상 0건이다 — 버그가 아니라 자료가 없는 것이다. "메일을
   확인한다"고 할 때 떠올리는 메일은 포털 밖(외부 메일함)일 가능성이 크다.
-- **`Assistant:InternalToken` 이 비어 있다.** 포털 도구 여섯이 꺼져 있다.
-  운영에 올리려면 AIAgentServer 와 HelpDeskServer·ProjMngServer·
-  NotificationServer 네 곳에 같은 값을 넣어야 한다(`scripts/secrets.env`
-  에는 예시만 있다).
+- `Assistant:InternalToken` 은 개발·운영 **둘 다 넣었다**(2026-10-25,
+  같은 값). 개발은 `scripts/secrets.env`, 운영은
+  `/srv/jsini/config/{AIAgentServer,HelpDeskServer,ProjMngServer,
+  NotificationServer}/appsettings.Local.json` 네 곳 — 비밀값은 compose
+  환경변수가 아니라 이 마운트로만 들어가므로 **값을 바꾸면 그 네 컨테이너를
+  다시 올려야 한다**. 양쪽 모두 `/internal/*` 셋이 토큰 없음·틀린 토큰에
+  404, 맞는 토큰에 200 임을 재서 확인했다.
 - **WBS(`projmng.dev_wbs`) 담당자 칸은 사람이 손으로 적은 자유 글이다.**
   `dev_user`·`build_user`·`qc_user` 석 자리에 로그인 아이디(`quristyle`)와
   사람 이름(김병만·김지수·남은·박경수)이 섞여 있고, `박경수/완료`처럼
