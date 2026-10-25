@@ -54,6 +54,14 @@
     **접수·완료·종료**도 같은 길로 간다 — 그 전에는 보내는 쪽이 **옛 포털이
     채우던 빈 구독표**를 보고 있어서 완료 알림이 한 통도 안 나갔다:
     [docs/helpdesk-status-notify.md](docs/helpdesk-status-notify.md)
+    **슈퍼관리자·임원 전용 업무 비서**(`/admin/ai/assistant`)는 사내 문서(RAG)뿐
+    아니라 헬프데스크·프로젝트관리·메일 같은 **포털 업무 데이터**도 가로질러
+    답한다 — 색인하지 않고 모델에게 **도구**를 쥐어 준다(범위 질의·매분 바뀌는
+    자료라 RAG 와 안 맞는다). 묻는 사람의 평소 권한을 넘어서 답하므로 **질문과
+    답 전문이 통째로 기록**된다. 실측 결과 지어냄(없는 것을 지어내는 것)은
+    0건이었으나, 질문 다섯 중 셋은 **도구를 건너뛰고 "모른다"고 답해 버렸다**
+    (정답이 있는데도) — 고칠 자리와 아직 안 끝난 것(내부 토큰·기록 표·「임원」
+    역할 모두 미적용)은 [docs/portal-ai-assistant.md](docs/portal-ai-assistant.md)
   - `ProjMngServer` (:5450) · `SiteServer` (:5480) 회사 소개 사이트 백엔드
   - `McpServer` (:5510) — 모델이 쓰는 **바깥 도구**를 MCP 규격으로 연다
     (웹 검색 · 페이지 본문 가져오기). AIAgentServer 가 클라이언트로 붙고,
@@ -209,6 +217,9 @@ nginx 설정 정본은 [deploy/nginx/](deploy/nginx/) 에 있다 — Blazor 회�
   열리던 구멍: 기본 차단으로 뒤집은 길과 「차단 접근기록」 화면
 - [docs/account-activity.md](docs/account-activity.md) — 계정의 마지막 로그인과
   **마지막 사용**: 둘을 가른 까닭 · 쌓는 자리 둘 · 결합이 안 옮기던 로그인 시각
+- [docs/portal-ai-assistant.md](docs/portal-ai-assistant.md) — 업무 비서: 포털
+  데이터를 도구로 여는 까닭 · 도구 일곱 · 기록이 답 전문을 담는 까닭 · 실측
+  숫자와 지어냄 0건 · 아직 안 끝난 것(내부 토큰 · 기록 표 · 「임원」 역할)
 - [deploy/llm/README.md](deploy/llm/README.md) — 추론 장비의 상태 수집기 정본과,
   「GPU 를 읽지 못했습니다」를 재부팅 없이 푸는 길
 - [docs/spa-migration-analysis.md](docs/spa-migration-analysis.md) — 현재 시스템의
