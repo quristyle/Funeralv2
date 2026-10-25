@@ -29,6 +29,9 @@ public class AiUsageDbContext(DbContextOptions<AiUsageDbContext> options) : DbCo
     /// <summary>소속 회사 이름을 붙이려고 읽는 매핑. 조회 전용이다.</summary>
     public DbSet<CompanyRow> Companies => Set<CompanyRow>();
 
+    /// <summary>소속 부서 이름을 붙이려고 읽는 매핑. 조회 전용이다.</summary>
+    public DbSet<DepartmentRow> Departments => Set<DepartmentRow>();
+
     public DbSet<RagCategoryRow> RagCategories => Set<RagCategoryRow>();
 
     public DbSet<RagFolderRow> RagFolders => Set<RagFolderRow>();
@@ -64,6 +67,9 @@ public class AiUsageDbContext(DbContextOptions<AiUsageDbContext> options) : DbCo
             e.Property(x => x.Id).HasColumnName("id");
             e.Property(x => x.UserId).HasColumnName("user_id");
             e.Property(x => x.UserName).HasColumnName("user_name");
+            e.Property(x => x.CompanyId).HasColumnName("company_id");
+            e.Property(x => x.DepartmentId).HasColumnName("department_id");
+            e.Property(x => x.IsDeleted).HasColumnName("is_deleted");
         });
 
         modelBuilder.Entity<SystemMenuRow>(e =>
@@ -117,6 +123,14 @@ public class AiUsageDbContext(DbContextOptions<AiUsageDbContext> options) : DbCo
             e.Property(x => x.Id).HasColumnName("id");
             e.Property(x => x.Name).HasColumnName("name");
             e.Property(x => x.IsDeleted).HasColumnName("is_deleted");
+        });
+
+        modelBuilder.Entity<DepartmentRow>(e =>
+        {
+            e.ToTable("departments", "scom");
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasColumnName("id");
+            e.Property(x => x.Name).HasColumnName("name");
         });
 
         modelBuilder.Entity<RagCategoryRow>(e =>
@@ -227,6 +241,21 @@ public class AiUsageAccountRow
     public string UserId { get; set; } = string.Empty;
 
     public string? UserName { get; set; }
+
+    /// <summary>소속 회사 식별자. 비어 있을 수 있다.</summary>
+    public string? CompanyId { get; set; }
+
+    /// <summary>소속 부서 식별자. 비어 있을 수 있다(61명 중 37명만 찼다).</summary>
+    public string? DepartmentId { get; set; }
+
+    public bool IsDeleted { get; set; }
+}
+
+/// <summary>부서 이름을 붙이려고 읽는 한 줄. <b>조회 전용이다.</b></summary>
+public class DepartmentRow
+{
+    public string Id { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
 }
 
 /// <summary>메뉴 한 줄. <b>조회 전용이다</b> — 열쇠로 메뉴를 찾는 데만 쓴다.</summary>
