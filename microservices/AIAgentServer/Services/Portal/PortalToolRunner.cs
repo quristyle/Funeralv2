@@ -58,6 +58,10 @@ public sealed class PortalToolRunner(
     private async Task<string> SearchRequestsAsync(IReadOnlyDictionary<string, object?> args, CancellationToken ct)
     {
         var take = Take(args);
+
+        // HelpDeskServer 의 /internal/requests 는 DateTime? from/to 를 받아 RequestedAt 과
+        // >=/<= 로 그대로 견준다(자기 쪽에서 날짜를 다시 안 바꾼다) — 그래서 한국 날짜를
+        // PortalDay 로 미리 UTC 경계로 바꿔서 보낸다. 직접 산수(±9시간)를 하지 않는다.
         var fromUtc = ParseStartUtc(args, "from");
         var toUtc = ParseEndExclusiveUtc(args, "to");
 
@@ -95,7 +99,10 @@ public sealed class PortalToolRunner(
 
     /// <summary>헬프데스크와 프로젝트관리 일정을 나란히 불러 한 목록으로 합친다. 한쪽이 비어 있어도
     /// (헬프데스크의 일정 표는 운영에서 늘 비어 있다) 다른 쪽 결과는 그대로 나와야 한다 —
-    /// <see cref="Task.WhenAll(Task[])"/> 로 같이 기다릴 뿐, 서로의 결과에 기대지 않는다.</summary>
+    /// <see cref="Task.WhenAll(Task[])"/> 로 같이 기다릴 뿐, 서로의 결과에 기대지 않는다.
+    /// <b>모델이 userId 만 주고 name 을 안 줄 수 있다</b> — 그때 이름 없이 그대로 넘기면 프로젝트관리의
+    /// 손으로 적은 담당자 칸(로그인 아이디가 아니라 이름이 섞여 있다)에서 거의 안 걸린다. 그래서
+    /// 이름이 없으면 <see cref="UserDirectory.FindByIdAsync"/> 로 직접 찾아 채운다(<see cref="ResolveScheduleIdentity"/>).</summary>
     private async Task<string> SearchSchedulesAsync(IReadOnlyDictionary<string, object?> args, CancellationToken ct)
     {
         var userId = Str(args, "userId");
@@ -103,15 +110,30 @@ public sealed class PortalToolRunner(
         var keyword = Str(args, "keyword");
         var take = Take(args);
 
-        // 프로젝트관리는 DateOnly 를 그대로 받으므로 원문 날짜 글자를 그대로 넘긴다.
-        // 헬프데스크는 timestamptz 를 직접 견주므로 UTC 경계로 바꿔서 넘긴다.
+        // 아이디만 왔고 이름이 없을 때만 되찾는다 — 아이디는 유일해서 동명이인 걱정이 없다.
+        // 반대로 이름만 왔을 때는(userId 가 null) 아이디를 거꾸로 추측하지 않는다 — 같은 이름의
+        // 계정이 여럿이면(예: 김지수 셋) 엉뚱한 사람의 아이디를 붙이게 된다.
+        string? lookedUpName = null;
+        if (userId is not null && name is null)
+        {
+            var person = await users.FindByIdAsync(userId, ct);
+            lookedUpName = person?.Name; // 못 찾아도 그냥 null — 아이디만으로 계속 진행한다.
+        }
+
+        var identity = ResolveScheduleIdentity(userId, name, lookedUpName);
+
+        // 프로젝트관리는 DateOnly 를 그대로 받으므로 한국 날짜 글자를 그대로 넘긴다 — 여기서
+        // UTC 로 바꾸면 그 서버가 다시 날짜로 해석할 때 하루가 밀릴 수 있다.
         var fromDay = Str(args, "from");
         var toDay = Str(args, "to");
+
+        // 헬프데스크는 timestamptz(StartDate/EndDate)를 직접 견주는 서버라, 한국 날짜를
+        // PortalDay.StartUtc/EndExclusiveUtc 로 미리 UTC 경계로 바꿔서 넘긴다.
         var fromUtc = fromDay is null ? (DateTime?)null : PortalDay.StartUtc(fromDay);
         var toUtc = toDay is null ? (DateTime?)null : PortalDay.EndExclusiveUtc(toDay);
 
-        var helpDeskTask = helpDesk.SearchSchedulesAsync(userId, fromUtc, toUtc, keyword, take, ct);
-        var projMngTask = projMng.SearchSchedulesAsync(userId, name, fromDay, toDay, keyword, take, ct);
+        var helpDeskTask = helpDesk.SearchSchedulesAsync(identity.UserId, fromUtc, toUtc, keyword, take, ct);
+        var projMngTask = projMng.SearchSchedulesAsync(identity.UserId, identity.Name, fromDay, toDay, keyword, take, ct);
         await Task.WhenAll(helpDeskTask, projMngTask);
 
         var (hTotal, hItems) = helpDeskTask.Result;
@@ -129,6 +151,9 @@ public sealed class PortalToolRunner(
     private async Task<string> SearchTodosAsync(IReadOnlyDictionary<string, object?> args, CancellationToken ct)
     {
         var userId = Str(args, "userId");
+
+        // ProjMngServer 의 /internal/todos 는 DateOnly? 로 그대로 받는다 — 한국 날짜 글자를
+        // 시각 없이 그대로 보낸다(ValidDay 는 형식만 확인하고 바꾸지 않는다).
         var fromDay = ValidDay(args, "from");
         var toDay = ValidDay(args, "to");
         var done = Bool(args, "done");
@@ -142,6 +167,11 @@ public sealed class PortalToolRunner(
     private async Task<string> SearchMailsAsync(IReadOnlyDictionary<string, object?> args, CancellationToken ct)
     {
         var userId = Str(args, "userId");
+
+        // NotificationServer 의 /internal/mails 는 DateTime? 을 받지만, 그 안에서 다시
+        // DateOnly.FromDateTime(f) 로 한국 날짜를 뽑아 자기가 UTC 경계로 바꾼다. 그래서 여기서
+        // 시각 없는 "yyyy-MM-dd" 글자를 그대로 보내야 한다 — 미리 UTC 로 바꿔 보내면 그 인스턴트의
+        // 날짜가 다시 DateOnly.FromDateTime 에 걸려 하루가 밀린다.
         var fromDay = ValidDay(args, "from");
         var toDay = ValidDay(args, "to");
         var keyword = Str(args, "keyword");
@@ -173,6 +203,18 @@ public sealed class PortalToolRunner(
         var lines = hits.Select(h => $"- [{h.Chunk.Source} {h.Chunk.Heading}] {Shorten(h.Chunk.Text)}").ToList();
 
         return PortalToolResult.Render("문서 검색", lines, lines.Count, DocumentTopK);
+    }
+
+    /// <summary>search_schedules 에 프로젝트관리로 넘길 (아이디, 이름)을 정한다. 세 갈래뿐이다 —
+    /// (1) 이름이 이미 왔으면 그대로 쓴다(아이디도 그대로, 둘 다 손대지 않는다).
+    /// (2) 아이디만 왔으면 <paramref name="lookedUpName"/>(되찾은 이름, 없으면 null)으로 채운다.
+    /// (3) 아이디도 이름도 없으면 그대로 둘 다 null.
+    /// <b>이름만으로 아이디를 지어내는 길은 없다</b> — 동명이인이면 엉뚱한 사람의 아이디가 된다.</summary>
+    internal static (string? UserId, string? Name) ResolveScheduleIdentity(
+        string? userId, string? name, string? lookedUpName)
+    {
+        if (name is not null) return (userId, name);
+        return userId is null ? (null, null) : (userId, lookedUpName);
     }
 
     // ── 줄 꾸미기 — 순수 함수라 따로 시험한다 ──────────────────────

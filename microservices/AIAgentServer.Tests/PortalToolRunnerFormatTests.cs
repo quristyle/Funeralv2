@@ -86,4 +86,45 @@ public class PortalToolRunnerFormatTests
         Assert.Contains("공지", line);
         Assert.Contains("a@b.com", line);
     }
+
+    // ── search_schedules 의 (아이디, 이름) 결정 — 아이디만 왔을 때 이름을 되찾아 채우되,
+    // 이름만 왔을 때는 절대 아이디를 지어내지 않는다(동명이인 때문에). ──
+
+    [Fact]
+    public void 아이디만_왔고_되찾은_이름이_있으면_이름을_채운다()
+    {
+        var (userId, name) = PortalToolRunner.ResolveScheduleIdentity("quristyle", null, "박경수");
+
+        Assert.Equal("quristyle", userId);
+        Assert.Equal("박경수", name);
+    }
+
+    [Fact]
+    public void 이름만_왔으면_아이디를_지어내지_않는다()
+    {
+        // userId 가 null 인 채로 들어왔으므로 lookedUpName 은 애초에 계산되지 않는다(호출부에서
+        // 아이디가 없을 때는 되찾기를 안 하므로 여기서도 null 로 둔다) — 그래도 name 은 그대로 살아야 한다.
+        var (userId, name) = PortalToolRunner.ResolveScheduleIdentity(null, "김지수", null);
+
+        Assert.Null(userId);
+        Assert.Equal("김지수", name);
+    }
+
+    [Fact]
+    public void 되찾기에_실패해도_아이디만으로_진행한다()
+    {
+        var (userId, name) = PortalToolRunner.ResolveScheduleIdentity("ghost", null, null);
+
+        Assert.Equal("ghost", userId);
+        Assert.Null(name);
+    }
+
+    [Fact]
+    public void 아이디와_이름이_둘다_왔으면_그대로_둔다()
+    {
+        var (userId, name) = PortalToolRunner.ResolveScheduleIdentity("quristyle", "박경수", "다른이름");
+
+        Assert.Equal("quristyle", userId);
+        Assert.Equal("박경수", name); // lookedUpName 이 아니라 모델이 준 name 이 이긴다.
+    }
 }

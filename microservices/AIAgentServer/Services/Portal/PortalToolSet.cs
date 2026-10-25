@@ -79,15 +79,14 @@ public static class PortalToolSet
     private static readonly McpToolInfo SearchSchedules = new(
         "search_schedules",
         "헬프데스크 일정과 프로젝트관리 일정(WBS)을 함께 찾는다 — 묻는 사람은 일정이 둘 중 어디 있는지 " +
-        "모르므로 이 도구 하나가 양쪽을 합쳐 낸다. 사람으로 찾을 때는 find_user 로 얻은 userId 와 name 을 " +
-        "둘 다 넘겨야 한다 — 프로젝트관리 쪽 담당자 칸은 로그인 아이디가 아니라 손으로 적은 이름이 섞여 있어, " +
-        "이름 없이 아이디만 넘기면 그쪽 결과가 거의 안 걸린다.",
+        "모르므로 이 도구 하나가 양쪽을 합쳐 낸다. userId 만 알아도 된다(이름은 자동으로 찾아 채운다). " +
+        "이름만 알고 아이디를 모르면 name 만 넘긴다 — 동명이인이 있을 수 있어 아이디는 추측하지 않는다.",
         Schema("""
         {
           "type": "object",
           "properties": {
-            "userId": { "type": "string", "description": "포털 로그인 아이디(find_user 로 찾은 값)" },
-            "name": { "type": "string", "description": "사람 이름(find_user 로 찾은 값). userId 와 함께 넘겨야 프로젝트관리 쪽도 찾는다." },
+            "userId": { "type": "string", "description": "포털 로그인 아이디(find_user 로 찾은 값). 이것만 있어도 이름은 자동으로 찾는다." },
+            "name": { "type": "string", "description": "사람 이름. userId 를 모를 때만 넘긴다." },
             "from": { "type": "string", "description": "조회 시작 날짜(yyyy-MM-dd, 한국 날짜)" },
             "to": { "type": "string", "description": "조회 끝 날짜(yyyy-MM-dd, 한국 날짜, 이 날짜까지 포함)" },
             "keyword": { "type": "string", "description": "제목에서 찾을 낱말" },

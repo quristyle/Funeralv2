@@ -36,10 +36,38 @@ public sealed class UserDirectory(IServiceScopeFactory scopes)
             .Take(MaxCandidates)
             .ToList();
 
-        if (ordered.Count == 0) return [];
+        return await AttachOrgAsync(db, ordered, ct);
+    }
 
-        var companyIds = ordered.Select(a => a.CompanyId).Where(id => id != null).Distinct().ToList();
-        var departmentIds = ordered.Select(a => a.DepartmentId).Where(id => id != null).Distinct().ToList();
+    /// <summary>로그인 아이디 하나로 정확히 찾는다. <b>이름과 달리 아이디는 유일하므로</b> 동명이인 걱정 없이
+    /// 바로 한 사람으로 정해진다 — search_schedules 가 아이디만 받았을 때 프로젝트관리 쪽에 넘길 이름을
+    /// 채우려고 쓴다. 못 찾으면 <c>null</c>(지운 계정이거나 포털에 없는 아이디) — 부르는 쪽이 아이디만으로 물러선다.</summary>
+    public async Task<PortalPerson?> FindByIdAsync(string userId, CancellationToken ct = default)
+    {
+        var trimmed = userId.Trim();
+        if (trimmed.Length == 0) return null;
+
+        using var scope = scopes.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AiUsageDbContext>();
+
+        var account = await db.Accounts
+            .AsNoTracking()
+            .FirstOrDefaultAsync(a => !a.IsDeleted && a.UserId == trimmed, ct);
+        if (account is null) return null;
+
+        var people = await AttachOrgAsync(db, [account], ct);
+        return people.Count == 0 ? null : people[0];
+    }
+
+    /// <summary>계정 목록에 회사·부서 이름을 붙인다. <see cref="FindAsync"/>·<see cref="FindByIdAsync"/> 가
+    /// 같은 식으로 조직 이름을 채우므로 한 곳에 모았다.</summary>
+    private static async Task<IReadOnlyList<PortalPerson>> AttachOrgAsync(
+        AiUsageDbContext db, IReadOnlyList<AiUsageAccountRow> accounts, CancellationToken ct)
+    {
+        if (accounts.Count == 0) return [];
+
+        var companyIds = accounts.Select(a => a.CompanyId).Where(id => id != null).Distinct().ToList();
+        var departmentIds = accounts.Select(a => a.DepartmentId).Where(id => id != null).Distinct().ToList();
 
         var companyNames = await db.Companies
             .AsNoTracking()
@@ -51,7 +79,7 @@ public sealed class UserDirectory(IServiceScopeFactory scopes)
             .Where(d => departmentIds.Contains(d.Id))
             .ToDictionaryAsync(d => d.Id, d => d.Name, ct);
 
-        return ordered
+        return accounts
             .Select(a => new PortalPerson(
                 a.UserId,
                 a.UserName ?? a.UserId,
