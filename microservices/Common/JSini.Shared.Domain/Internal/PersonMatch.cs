@@ -34,3 +34,32 @@ public static class WbsRoleMatch
         return string.Join(",", parts);
     }
 }
+
+/// <summary>
+/// WBS 의 개발·빌드·검수 담당 칸(<c>dev_user</c>·<c>build_user</c>·<c>qc_user</c>)은 로그인 아이디가
+/// 아니라 사람이 손으로 적은 글이다 — "박경수/완료" 처럼 뒤에 군더더기가 붙기도 한다. 그래서
+/// 단순 같음 비교나 <c>LIKE '박경수%'</c> 로는 안 된다(뒤엣것은 "박경수영" 같은 다른 사람도 집는다).
+/// 이 칸의 값이 후보(로그인 아이디 또는 이름)를 가리키는지 한 곳에서만 가린다.
+/// </summary>
+public static class WbsPersonMatch
+{
+    /// <summary>
+    /// 칸 값이 후보와 같거나(앞뒤 공백 무시, 대소문자 무시), 후보로 시작하면서 그다음 글자가
+    /// 글자·숫자가 아닐 때(구분자로 군더더기가 붙은 모양) 가리킨 것으로 본다.
+    /// </summary>
+    public static bool Matches(string? columnValue, string? candidate)
+    {
+        if (string.IsNullOrWhiteSpace(columnValue) || string.IsNullOrWhiteSpace(candidate))
+            return false;
+
+        var value = columnValue.Trim();
+        var target = candidate.Trim();
+
+        if (value.Equals(target, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return value.Length > target.Length
+               && value.StartsWith(target, StringComparison.OrdinalIgnoreCase)
+               && !char.IsLetterOrDigit(value[target.Length]);
+    }
+}

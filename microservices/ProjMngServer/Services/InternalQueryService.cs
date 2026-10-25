@@ -1,6 +1,8 @@
 using Dapper;
 using Npgsql;
 
+using JSini.Shared.Internal;
+
 namespace ProjMngServer.Services;
 
 /// <summary>
@@ -33,36 +35,35 @@ public sealed class InternalQueryService(IConfiguration configuration)
     /// <paramref name="to"/> 앞) — 일정은 하루짜리가 아니라 구간이라, 시작일만 보면
     /// 그 주에 걸쳐 있는 긴 일감이 빠진다.
     /// </summary>
+    /// <param name="userId">포털 로그인 아이디. <c>dev_user</c> 가 로그인 아이디 그대로인 한 사람
+    /// (<c>quristyle</c>)에만 걸린다.</param>
+    /// <param name="name">사람 이름. 개발·빌드·검수 칸은 대부분 로그인 아이디가 아니라 손으로
+    /// 적은 이름이라(군더더기 포함) 이 값으로도 찾을 수 있게 한다.</param>
     public async Task<(int Total, IReadOnlyList<WbsScheduleRow> Items)> SchedulesAsync(
-        string? userId, DateOnly? from, DateOnly? to, string? keyword, int take,
+        string? userId, string? name, DateOnly? from, DateOnly? to, string? keyword, int take,
         CancellationToken ct = default)
     {
         await using var db = new NpgsqlConnection(_connectionString);
 
         var parameters = new
         {
-            userId = userId ?? string.Empty,
             from,
             to,
             keyword = keyword ?? string.Empty,
-            take,
         };
 
         // 계획 날짜가 비어 있으면 개발 종료일로 본다 — WbsService.Dates 와 똑같은 COALESCE 다.
         // 여기서 다르게 메우면 plan_sdt 가 빈 줄이 기간 조회에서만 사라진다(화면엔 보이는데 비서는 못 찾는다).
+        // 사람 조건(userId·name)은 여기서 걸지 않는다 — dev_user/build_user/qc_user 가 손으로 적은
+        // 글이라(아래 WbsPersonMatch 참고) SQL 의 단순 비교로는 거를 수 없다.
         const string Where = """
-             WHERE (@userId = '' OR a.dev_user = @userId OR a.build_user = @userId OR a.qc_user = @userId)
-               AND (@from::date IS NULL OR COALESCE(a.plan_edt, a.dev_edt) IS NULL
+             WHERE (@from::date IS NULL OR COALESCE(a.plan_edt, a.dev_edt) IS NULL
                     OR COALESCE(a.plan_edt, a.dev_edt) >= @from)
                AND (@to::date   IS NULL OR COALESCE(a.plan_sdt, a.dev_edt) IS NULL
                     OR COALESCE(a.plan_sdt, a.dev_edt) <= @to)
                AND (@keyword = '' OR a.proc_nm ILIKE '%' || @keyword || '%'
                                   OR a.comm    ILIKE '%' || @keyword || '%')
             """;
-
-        var total = await db.ExecuteScalarAsync<int>(new CommandDefinition($"""
-            SELECT COUNT(*) FROM projmng.dev_wbs a {Where}
-            """, parameters, cancellationToken: ct));
 
         var rows = await db.QueryAsync<WbsScheduleRow>(new CommandDefinition($"""
             SELECT a.proc_nm                        AS ProcNm,
@@ -84,11 +85,23 @@ public sealed class InternalQueryService(IConfiguration configuration)
               FROM projmng.dev_wbs a
             {Where}
              ORDER BY COALESCE(a.plan_sdt, a.dev_edt) NULLS LAST, a.wbs_id
-             LIMIT @take
             """, parameters, cancellationToken: ct));
 
-        return (total, [.. rows]);
+        // 날짜·키워드만 SQL 로 거르고(표가 수백 행뿐이라 전부 읽어도 가볍다), 사람 조건은 여기서
+        // WbsPersonMatch 로 가른다 — 아이디(userId)·이름(name) 중 아무거나로, 세 칸(개발·빌드·검수)
+        // 아무 데나 걸리면 포함한다.
+        var matched = string.IsNullOrWhiteSpace(userId) && string.IsNullOrWhiteSpace(name)
+            ? [.. rows]
+            : rows.Where(r => MatchesPerson(r, userId) || MatchesPerson(r, name)).ToList();
+
+        return (matched.Count, [.. matched.Take(take)]);
     }
+
+    /// <summary>한 줄의 개발·빌드·검수 칸 중 하나라도 후보(아이디 또는 이름)를 가리키는가.</summary>
+    private static bool MatchesPerson(WbsScheduleRow row, string? candidate) =>
+        WbsPersonMatch.Matches(row.DevUser, candidate)
+        || WbsPersonMatch.Matches(row.BuildUser, candidate)
+        || WbsPersonMatch.Matches(row.QcUser, candidate);
 
     /// <summary>할 일(<c>projmng.home_todo</c>) 한 줄 — 내부 조회용 투영. 사람은 <c>target_user</c> 하나뿐이라
     /// 역할 매칭이 필요 없다.</summary>

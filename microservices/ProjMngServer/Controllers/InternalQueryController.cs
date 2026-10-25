@@ -21,20 +21,23 @@ public sealed class InternalQueryController(InternalQueryService service, IConfi
     /// <summary>
     /// 프로젝트관리 일정(<c>projmng.dev_wbs</c>). 헬프데스크의 <c>/internal/schedules</c> 와
     /// 칸 이름을 맞춘다(<c>source, title, startDate, endDate, done, owner</c>) — 도구 하나가 둘을 합친다.
-    /// 한 줄에 개발·빌드·검수 세 사람이 걸려 있어 <paramref name="userId"/> 는 셋 중 아무거나
-    /// 맞으면 걸리고, 어느 역할로 걸렸는지는 <c>role</c> 칸에 따로 싣는다.
-    /// <c>done</c> 은 화면(WbsService)과 같은 식 — <c>dev_edt</c>(개발 종료일) 유무 — 으로 셈한다.
+    /// 한 줄에 개발·빌드·검수 세 사람이 걸려 있고, 그 칸들은 로그인 아이디가 아니라 손으로 적은
+    /// 이름이라(군더더기 포함) <paramref name="userId"/> 뿐 아니라 <paramref name="name"/> 으로도
+    /// 찾을 수 있다 — 아이디·이름 중 아무거나, 세 칸 중 아무거나 맞으면 걸리고, 어느 역할로
+    /// 걸렸는지는 <c>role</c> 칸에 따로 싣는다. <c>done</c> 은 화면(WbsService)과 같은 식 —
+    /// <c>dev_edt</c>(개발 종료일) 유무 — 으로 셈한다.
     /// </summary>
     [HttpGet("schedules")]
     public async Task<IActionResult> SchedulesAsync(
-        [FromQuery] string? userId, [FromQuery] DateOnly? from, [FromQuery] DateOnly? to,
+        [FromQuery] string? userId, [FromQuery] string? name,
+        [FromQuery] DateOnly? from, [FromQuery] DateOnly? to,
         [FromQuery] string? keyword, [FromQuery] int? take, CancellationToken ct)
     {
         if (!IsAllowed) return NotFound();
 
         var takeCount = Math.Clamp(take ?? 30, 1, 100);
 
-        var (total, rows) = await service.SchedulesAsync(userId, from, to, keyword, takeCount, ct);
+        var (total, rows) = await service.SchedulesAsync(userId, name, from, to, keyword, takeCount, ct);
 
         var items = rows.Select(r => new
         {
@@ -47,9 +50,9 @@ public sealed class InternalQueryController(InternalQueryService service, IConfi
             // READY · RUNNING · COMP — done 하나로는 "아직 시작 전"과 "진행 중"을 못 가른다.
             state = r.WbsState,
             role = WbsRoleMatch.Of(
-                dev: !string.IsNullOrEmpty(userId) && r.DevUser == userId,
-                build: !string.IsNullOrEmpty(userId) && r.BuildUser == userId,
-                qc: !string.IsNullOrEmpty(userId) && r.QcUser == userId),
+                dev: WbsPersonMatch.Matches(r.DevUser, userId) || WbsPersonMatch.Matches(r.DevUser, name),
+                build: WbsPersonMatch.Matches(r.BuildUser, userId) || WbsPersonMatch.Matches(r.BuildUser, name),
+                qc: WbsPersonMatch.Matches(r.QcUser, userId) || WbsPersonMatch.Matches(r.QcUser, name)),
             // dev_chk · build_chk 는 참거짓이 아니라 글로 적은 메모라, comm 과 묶어 그대로 들려준다 —
             // 비서가 "왜 그런지"를 물으면 인용할 수 있는 유일한 자유 글이다.
             note = CombineNotes(r.DevChk, r.BuildChk, r.Comm),
