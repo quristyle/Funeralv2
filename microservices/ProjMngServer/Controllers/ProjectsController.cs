@@ -18,6 +18,25 @@ public sealed class ProjectsController(ProjectService service) : ControllerBase
         return Ok(ApiResponse<List<Project>>.Ok(rows));
     }
 
+    /// <summary>
+    /// <b>내가 참여한</b> 프로젝트만. 누구인지는 게이트웨이가 실은 신원(X-User-Id)으로 안다 —
+    /// 요청에서 아이디를 받으면 남의 프로젝트를 달라고 할 수 있다.
+    /// </summary>
+    /// 업무 비서 화면이 「고를 수 있는 프로젝트」를 채울 때 쓴다. 줄마다 매인 RAG
+    /// 카테고리가 함께 오므로 화면이 두 번 묻지 않는다.
+    [HttpGet("mine")]
+    public async Task<IActionResult> MineAsync()
+    {
+        var userId = Request.Headers["X-User-Id"].ToString();
+        if (string.IsNullOrWhiteSpace(userId))
+        {
+            return Unauthorized(ApiResponse<object>.Fail("UNAUTHORIZED", "로그인이 필요합니다."));
+        }
+
+        var rows = await service.ListAsync(userId: userId);
+        return Ok(ApiResponse<List<Project>>.Ok(rows));
+    }
+
     /// <summary>새 프로젝트.</summary>
     [HttpPost]
     public async Task<IActionResult> CreateAsync([FromBody] Project item)

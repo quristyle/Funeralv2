@@ -202,7 +202,12 @@ public sealed class AssistantAgent(
             await FinalizeAsync(
                 channel.Writer,
                 answer,
-                saveCt => SaveAuditAsync(askedBy, question, scope?.Category, called, answer, sw.ElapsedMilliseconds, error, saveCt),
+                // 범위가 여럿이면 쉼표로 잇는다 — 기록은 「무엇을 뒤져 답했나」가 전부라
+                // 하나만 남기면 나머지 카테고리의 자료가 어디서 왔는지 못 되짚는다.
+                saveCt => SaveAuditAsync(
+                    askedBy, question,
+                    scope?.Categories is { Count: > 0 } cats ? string.Join(",", cats) : null,
+                    called, answer, sw.ElapsedMilliseconds, error, saveCt),
                 ct);
         }, ct);
 

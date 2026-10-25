@@ -49,6 +49,9 @@ public sealed class AdminModule : IPortalModule
             .ConfigurePrimaryHttpMessageHandler(ServiceCollectionExtensions.NoCookieJar)
             .AddHttpMessageHandler<AuthTokenHandler>();
 
+        // 업무 비서가 고를 프로젝트 목록. 평범한 JSON 이라 게이트웨이 클라이언트를 쓴다.
+        services.AddScoped<AssistantProjectClient>();
+
         // 업무 비서 대화(SSE). 세 시스템(헬프데스크·프로젝트관리·RAG)을 도구로 도느라 AI쳇보다 오래
         // 걸릴 수 있어 AiChatClient 와 같은 길이로 늘린다. GatewayClient 로는 text/event-stream 을
         // 못 읽어 맨 HttpClient 가 필요하다(AiChatClient 머리말과 같은 사정).

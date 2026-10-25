@@ -6,6 +6,12 @@
 @*
     [업무 비서] 슈퍼관리자·임원이 사내 자료(RAG)와 포털 업무 자료(헬프데스크 요청글 ·
     프로젝트관리 일정·할 일 · 메일)를 가로질러 한국어로 물어보는 대화 화면.
+
+    찾을 범위는 **RAG 카테고리가 아니라 프로젝트로 고른다** — 카테고리 열쇠는 사람이
+    외울 것이 못 되고, 어느 자료가 어느 일에 속하는지는 이미 프로젝트가 알고 있다
+    (포털관리 › 프로젝트 목록에서 프로젝트마다 카테고리를 맨다). 들어와 있는 프로젝트가
+    모두 켜진 채로 뜨고, 꺼서 좁힌다. 하나도 없으면 사내 자료 전체에서 찾는다.
+
     답이 표·목록을 실어 나르기 쉬워야 해서(「10-17일 이후 할 일 전부」 같은 질문이
     줄 수십 개를 돌려준다) 헤더 서랍(AiChatPanel)이 아니라 전체 폭 화면이다.
 
@@ -20,16 +26,19 @@
 
 <div class="assistant">
     <div class="assistant__bar">
-        <select class="assistant__scope" title="찾아볼 자료 범위"
-                value="@(_scope ?? "")" @onchange="OnScopeChanged">
-            <option value="">전체 자료</option>
-            @foreach (var s in _scopes)
-            {
-                <option value="@s.Id" title="@s.Description">
-                    @(s.CompanyName is null ? s.Name : $"{s.Name} ({s.CompanyName})")
-                </option>
-            }
-        </select>
+        @* 들어와 있는 프로젝트가 모두 켜진 채로 뜬다. 꺼서 좁히는 쪽이다. *@
+        <DxTagBox Data="@_projects"
+                  @bind-Values="_picked"
+                  TextFieldName="@nameof(AssistantProject.Label)"
+                  ValueFieldName="@nameof(AssistantProject.PrjRid)"
+                  CssClass="assistant__scope"
+                  NullText="참여한 프로젝트가 없습니다 — 사내 자료 전체에서 찾습니다"
+                  ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+
+        @if (ScopeHint is { Length: > 0 } hint)
+        {
+            <span class="assistant__scope-hint">@hint</span>
+        }
     </div>
 
     <div class="assistant__log" @ref="_logRef">

@@ -13,6 +13,8 @@ public partial class Assistant
 {
     [Inject] private AssistantClient Api { get; set; } = default!;
 
+    [Inject] private AssistantProjectClient Projects { get; set; } = default!;
+
     [Inject] private IJSRuntime Js { get; set; } = default!;
 
     /// <summary>요청글 번호(<c>#1042</c>)를 되짚는다. <b>자릿수가 아니라 문맥으로 가른다</b> —
@@ -31,11 +33,36 @@ public partial class Assistant
     private static readonly Regex RequestRefPattern = new(
         @"요청\s?글\s*#(\d{1,6})(?!\d)", RegexOptions.Compiled);
 
-    /// <summary>자료 범위(RAG 카테고리) 목록. 못 받으면 빈 목록 — 「모든 카테고리」로만 묻는다.</summary>
-    private IReadOnlyList<AssistantScope> _scopes = [];
+    /// <summary>고를 수 있는 프로젝트 — <b>내가 들어가 있는 것</b>. 못 받으면 빈 목록이고,
+    /// 그때는 범위를 못 좁혀 사내 자료 전체에서 찾는다.</summary>
+    private IReadOnlyList<AssistantProject> _projects = [];
 
-    /// <summary>고른 범위의 카테고리 열쇠. 비면 모든 카테고리.</summary>
-    private string? _scope;
+    /// <summary>켜 둔 프로젝트 번호. 처음에는 <see cref="_projects"/> 전부가 켜져 있다.</summary>
+    private IEnumerable<int> _picked = [];
+
+    /// <summary>지금 고른 프로젝트에 매인 카테고리 열쇠 전부. 프로젝트 둘이 같은 카테고리를
+    /// 매고 있을 수 있어 겹친 것을 턴다.</summary>
+    private IReadOnlyList<string> PickedCategories =>
+        [.. _projects
+            .Where(p => _picked.Contains(p.PrjRid))
+            .SelectMany(p => p.RagCateIds)
+            .Distinct(StringComparer.Ordinal)];
+
+    /// <summary>고르개 옆에 적는 한 줄. <b>「고르긴 골랐는데 볼 자료가 없다」를 드러내는 것이
+    /// 일이다</b> — 프로젝트에 카테고리를 안 매어 두면 범위가 비고, 그러면 서버가 사내 문서
+    /// 검색을 거절한다(화면에는 ⚠️ 한 줄로 온다). 그 전에 여기서 보여야 한다.</summary>
+    private string? ScopeHint
+    {
+        get
+        {
+            if (_projects.Count == 0) return null;
+            if (!_picked.Any()) return "고른 프로젝트가 없어 사내 자료 전체에서 찾습니다.";
+
+            return PickedCategories.Count == 0
+                ? "고른 프로젝트에 매인 사내 자료가 없습니다 — 프로젝트 목록에서 RAG 카테고리를 매어 주세요."
+                : null;
+        }
+    }
 
     /// <summary>한 번 묻고 받은 한 덩이 — 질문 · 진행 안내 · 답.</summary>
     private sealed class Turn
@@ -73,11 +100,6 @@ public partial class Assistant
 
     private bool _scrollPending;
 
-    /// <summary>고른 범위가 지금도 목록에 있나. 카테고리가 지워졌는데 값만 남아 있으면 「모든
-    /// 카테고리」로 본다 — 고르개도 그렇게 보인다(AiChatPanel.EffectiveRagScope 와 같은 방어).</summary>
-    private string? EffectiveScope =>
-        string.IsNullOrEmpty(_scope) || !_scopes.Any(s => s.Id == _scope) ? null : _scope;
-
     protected override async Task OnInitializedAsync()
     {
         // 프리렌더에서는 건너뛴다 — 조회가 두 번 나가는 것을 막는다(DataPage.CanLoad 와 같은 사정).
@@ -88,15 +110,18 @@ public partial class Assistant
 
         try
         {
-            _scopes = await Api.ScopesAsync();
+            _projects = await Projects.MineAsync();
+
+            // 들어와 있는 것은 **전부 켠 채로** 시작한다. 고르러 들어온 사람이 아니라
+            // 물어보러 들어온 사람이라, 아무것도 안 고른 빈 칸을 들이밀면 제 자료를
+            // 놔두고 사내 자료 전체를 뒤지게 된다.
+            _picked = [.. _projects.Select(p => p.PrjRid)];
         }
         catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
         {
-            // 범위를 못 받아도 대화는 된다 — 고르개만 비어 「모든 카테고리」로 고정된다.
+            // 프로젝트를 못 받아도 대화는 된다 — 고르개만 비어 사내 자료 전체에서 찾는다.
         }
     }
-
-    private void OnScopeChanged(ChangeEventArgs e) => _scope = e.Value as string;
 
     private async Task OnKeyDownAsync(KeyboardEventArgs e)
     {
@@ -139,9 +164,18 @@ public partial class Assistant
         _cts?.Dispose();
         _cts = new CancellationTokenSource();
 
+        // 고른 프로젝트 이름을 함께 보낸다 — 서버가 모델에게 「이 범위로 좁혀져 있다」고
+        // 이를 때 카테고리 열쇠 대신 사람이 아는 이름이 나간다.
+        var picked = _projects.Where(p => _picked.Contains(p.PrjRid)).ToList();
+        var label = picked.Count == 0 ? null : string.Join(" · ", picked.Select(p => p.Label));
+
+        // 고른 것이 없으면 **아예 안 보낸다**(사내 자료 전체). 골랐는데 매인 카테고리가
+        // 없으면 **빈 목록을 보낸다**(찾을 문서가 없다). 서버가 그 둘을 가른다.
+        var categories = picked.Count == 0 ? null : PickedCategories;
+
         try
         {
-            await foreach (var part in Api.StreamAsync(context, EffectiveScope, _cts.Token))
+            await foreach (var part in Api.StreamAsync(context, categories, label, _cts.Token))
             {
                 if (part.Kind == "tool" && part.Notice is { Length: > 0 } notice)
                 {

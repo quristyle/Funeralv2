@@ -79,9 +79,12 @@ public sealed class RagAugmenter
             }
 
             // 범위를 안 정하면 모든 카테고리를 함께 본다.
+            IReadOnlyCollection<string>? categories = scope is null
+                ? (ChatCategory is { } one ? [one] : null)
+                : scope.Categories;
+
             hits = _store.Search(
-                scope is null ? ChatCategory : scope.Category,
-                question, vector, only ? OnlyTopK : TopK, scope?.DocIds);
+                categories, question, vector, only ? OnlyTopK : TopK, scope?.DocIds);
             if (vector is not null && !only)
             {
                 hits = [.. hits.Where(h => h.VectorScore >= MinScore)];

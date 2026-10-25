@@ -5881,10 +5881,21 @@
 .assistant__bar {
   flex: 0 0 auto;
   padding-bottom: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  align-items: center;
 }
 
 .assistant__scope {
-  max-width: 320px;
+  min-width: 240px;
+  max-width: 520px;
+}
+
+/* 고른 프로젝트에 자료가 안 매여 있을 때의 한 줄. 고르개가 꽉 차 보이는데 범위는 비어 있는 상태라, 묻고 나서 ⚠️ 를 받기 전에 여기서 보여야 한다. */
+.assistant__scope-hint {
+  font-size: var(--jsini-fs-sm);
+  color: var(--jsini-text-muted);
 }
 
 .assistant__log {

@@ -37,7 +37,10 @@ public sealed class ProjectService(IConfiguration configuration)
     /// <summary>
     /// 프로젝트 목록. <paramref name="prjRid"/> 를 주면 그 한 건만.
     /// </summary>
-    public async Task<List<Project>> ListAsync(int? prjRid = null)
+    /// <param name="userId">
+    /// 주면 <b>이 사람이 참여한 프로젝트만</b>(projmng.dev_proj_user_map). 비우면 전부다.
+    /// </param>
+    public async Task<List<Project>> ListAsync(int? prjRid = null, string? userId = null)
     {
         using var db = Open();
 
@@ -46,10 +49,15 @@ public sealed class ProjectService(IConfiguration configuration)
         // 값이 질의문에 섞이지 않는다는 것만 다르다.
         var rows = await db.QueryAsync<Project>($"""
             SELECT {Columns}
-              FROM projmng.dev_proj
-             WHERE (@prjRid IS NULL OR prj_rid = @prjRid)
-             ORDER BY prj_rid
-            """, new { prjRid });
+              FROM projmng.dev_proj p
+             WHERE (@prjRid IS NULL OR p.prj_rid = @prjRid)
+               AND (@userId = '' OR EXISTS (
+                       SELECT 1
+                         FROM projmng.dev_proj_user_map m
+                        WHERE m.prj_rid = p.prj_rid
+                          AND m.user_id = @userId))
+             ORDER BY p.prj_rid
+            """, new { prjRid, userId = userId ?? string.Empty });
 
         var list = rows.ToList();
         await FillRagAsync(db, list);

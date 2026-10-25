@@ -238,7 +238,7 @@ public sealed class RagLibrary
             throw new UnauthorizedAccessException("소속 회사의 사내 자료만 찾아볼 수 있습니다.");
         }
 
-        if (folderId is not { } fid) return new RagScope(category.Id, null, category.Name);
+        if (folderId is not { } fid) return new RagScope([category.Id], null, category.Name);
 
         var folders = await FoldersAsync(category.Id, ct);
         var root = folders.FirstOrDefault(x => x.Id == fid)
@@ -261,7 +261,36 @@ public sealed class RagLibrary
             .Select(x => x.Id)
             .ToListAsync(ct);
 
-        return new RagScope(category.Id, docIds.ToHashSet(), $"{category.Name} › {FolderPath(folders, root)}");
+        return new RagScope([category.Id], docIds.ToHashSet(), $"{category.Name} › {FolderPath(folders, root)}");
+    }
+
+    /// <summary>
+    /// 카테고리 <b>여럿</b>을 한 범위로 묶는다. 업무 비서가 쓴다 — 거기서는 사람이
+    /// 프로젝트를 고르고, 그 프로젝트들에 매인 카테고리가 통째로 넘어온다.
+    /// </summary>
+    /// 분류(폴더)는 안 받는다 — 분류는 카테고리 하나 안의 나무라 여럿일 때 뜻이 없다.
+    /// <b>없는 열쇠는 거절하지 않고 빼고 간다.</b> 프로젝트에 매인 카테고리가 나중에
+    /// 지워질 수 있는데(연결표는 다른 서비스의 DB 라 외래키가 없다), 그때 대화가
+    /// 통째로 막히면 지워진 카테고리 하나가 비서를 멈춰 세운다.
+    /// <param name="label">안내에 보여 줄 이름. 보통 고른 프로젝트 이름이다.</param>
+    /// <returns>쓸 수 있는 카테고리가 하나도 없으면 <c>null</c>.</returns>
+    public async Task<RagScope?> ResolveScopeAsync(
+        IReadOnlyCollection<string> categoryIds, string label, CancellationToken ct = default)
+    {
+        var wanted = categoryIds
+            .Where(x => !string.IsNullOrWhiteSpace(x))
+            .Select(x => x.Trim())
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        if (wanted.Count == 0) return null;
+
+        var found = await _db.RagCategories.AsNoTracking()
+            .Where(x => !x.IsDeleted && wanted.Contains(x.Id))
+            .Select(x => x.Id)
+            .ToListAsync(ct);
+
+        return found.Count == 0 ? null : new RagScope(found, null, label);
     }
 
     private static string FolderPath(List<RagFolderRow> folders, RagFolderRow leaf)

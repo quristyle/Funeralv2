@@ -34,10 +34,17 @@ public enum RagMode
 }
 
 /// <summary>대화에서 사내 자료를 찾을 범위. 사람이 채팅창에서 고른다.</summary>
-/// <param name="Category">찾을 카테고리. null 이면 모든 카테고리.</param>
-/// <param name="DocIds">분류를 골랐을 때 그 분류(하위 포함)에 든 문서 아이디. null 이면 카테고리 전체.</param>
-/// <param name="Label">안내에 보여 줄 이름(「카테고리 › 분류」).</param>
-public sealed record RagScope(string? Category, IReadOnlySet<long>? DocIds, string Label);
+/// <param name="Categories">
+/// 찾을 카테고리들. null 이면 모든 카테고리. <b>여럿인 것은 업무 비서 때문이다</b> —
+/// 거기서는 사람이 카테고리가 아니라 프로젝트를 고르고, 프로젝트 하나에 카테고리가
+/// 여럿 매여 있다(projmng.dev_proj_rag).
+/// </param>
+/// <param name="DocIds">
+/// 분류를 골랐을 때 그 분류(하위 포함)에 든 문서 아이디. null 이면 카테고리 전체.
+/// 분류는 카테고리 하나 안의 나무라 카테고리가 여럿일 때는 쓰지 않는다.
+/// </param>
+/// <param name="Label">안내에 보여 줄 이름(「카테고리 › 분류」· 「프로젝트 둘」).</param>
+public sealed record RagScope(IReadOnlyList<string>? Categories, IReadOnlySet<long>? DocIds, string Label);
 
 /// <summary>검색 결과 한 건.</summary>
 public sealed record RagHit(RagChunk Chunk, double Score, double VectorScore, double KeywordScore);

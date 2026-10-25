@@ -209,7 +209,7 @@ public sealed class PortalToolRunner(
             logger.LogWarning(ex, "문서 검색: 임베딩에 실패해 낱말 검색만 합니다.");
         }
 
-        var hits = ragStore.Search(scope?.Category, query, vector, DocumentTopK, scope?.DocIds);
+        var hits = ragStore.Search(scope?.Categories, query, vector, DocumentTopK, scope?.DocIds);
         var lines = hits.Select(h => $"- [{h.Chunk.Source} {h.Chunk.Heading}] {Shorten(h.Chunk.Text)}").ToList();
 
         return PortalToolResult.Render("문서 검색", lines, lines.Count, DocumentTopK);

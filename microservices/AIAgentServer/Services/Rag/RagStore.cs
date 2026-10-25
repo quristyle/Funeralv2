@@ -221,10 +221,28 @@ public sealed class RagStore
     public IReadOnlyList<RagHit> Search(
         string? category, string query, float[]? queryVector, int topK = 5,
         IReadOnlySet<long>? docIds = null)
+        => Search(category is null ? null : [category], query, queryVector, topK, docIds);
+
+    /// <summary>
+    /// 카테고리 <b>여럿</b>을 한 번에 본다. 업무 비서가 프로젝트에 매인 카테고리들을
+    /// 통째로 넘길 때 쓴다 — 하나씩 찾아 합치면 BM25 순위가 카테고리마다 따로 매겨져
+    /// 섞을 기준이 없어진다.
+    /// </summary>
+    /// <param name="categories">
+    /// 찾을 카테고리들. <b>null 이면 전부</b>, 빈 목록이면 아무것도 안 본다 —
+    /// 「고른 것이 없다」를 「전부」로 읽으면 범위를 좁히려다 넓히는 셈이 된다.
+    /// 없는 열쇠는 조용히 건너뛴다(지워진 카테고리를 매단 프로젝트가 있을 수 있다).
+    /// </param>
+    public IReadOnlyList<RagHit> Search(
+        IReadOnlyCollection<string>? categories, string query, float[]? queryVector, int topK = 5,
+        IReadOnlySet<long>? docIds = null)
     {
-        var shards = category is null
+        var shards = categories is null
             ? _shards.Values.ToList()
-            : _shards.TryGetValue(category, out var one) ? [one] : [];
+            : [.. categories
+                .Distinct(StringComparer.Ordinal)
+                .Select(c => _shards.TryGetValue(c, out var one) ? one : null)
+                .OfType<Shard>()];
 
         if (shards.Count == 0) return [];
 
