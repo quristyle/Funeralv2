@@ -270,6 +270,9 @@ app.MapWbsEndpoints();
 app.MapWbsDiagramEndpoints();
 app.MapAuthLinkEndpoints();
 
+// 업무 비서(AI) 전용 내부 조회. 게이트웨이를 거치지 않고 서버 간 머리글만 본다.
+app.MapInternalQueryEndpoints();
+
 // Push Endpoints
 app.MapPushEndpoints();
 app.MapUserPropertyEndpoints();
