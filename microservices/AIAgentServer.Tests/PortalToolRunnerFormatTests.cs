@@ -58,7 +58,10 @@ public class PortalToolRunnerFormatTests
 
         var line = PortalToolRunner.RenderRequest(row);
 
-        Assert.Contains("#1", line);
+        // "요청 글 #{id}" 모양 — 화면(web/.../Assistant.razor.cs 의 RequestRefPattern)이
+        // 근거 링크를 걸 때 찾는 바로 그 낱말+번호다. GetRequestAsync 의 머리글·못 찾음
+        // 메시지와 한 모양이어야 한다(fix round 3).
+        Assert.Contains("요청 글 #1", line);
         Assert.Contains("글쓴이 김철수", line);
         Assert.Contains("담당 박영희", line);
         Assert.Contains("관련 쓴 글", line);

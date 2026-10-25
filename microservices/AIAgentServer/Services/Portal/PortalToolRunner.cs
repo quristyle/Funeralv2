@@ -73,6 +73,8 @@ public sealed class PortalToolRunner(
         // "요청 글" 이 문자 그대로 web/Assistant.razor.cs 의 RequestRefPattern 이 찾는 낱말이다 —
         // 화면이 답 글 속 "요청(글)? #id" 모양을 그 낱말로 가려 근거 링크를 건다. 여기 말을 바꾸면
         // (예: "헬프데스크 글"로) 그 정규식도 함께 고쳐야 한다 — 안 고치면 링크가 오류 없이 조용히 사라진다.
+        // RenderRequest 가 매 줄마다 같은 낱말을 다시 붙이는 것도 이 때문이다 — 머리말에 한 번만
+        // 적으면 모델이 그 줄만 베껴 답할 때(목록 전체를 다시 안 쓸 때) 낱말이 떨어져 나간다.
         return PortalToolResult.Render("요청 글", lines, total, take);
     }
 
@@ -84,10 +86,11 @@ public sealed class PortalToolRunner(
         var detail = await helpDesk.GetRequestAsync(id.Value, ct);
         if (detail is null) return $"요청 글 #{id}을(를) 찾지 못했습니다.";
 
-        // 이 머리글은 "요청 글" 없이 바로 #id 로 시작한다 — 화면의 근거 링크 정규식(위 참고)은
-        // 그 낱말이 있어야 걸리므로, 모델이 이 글을 요약하며 "요청글"을 다시 안 붙이면 여기서
-        // 나온 #id 인용은 링크가 안 될 수 있다. 알려진 틈이다(web/.../Assistant.razor.cs 머리말).
-        var header = $"#{detail.Id} {detail.Title} [{detail.Status}]\n"
+        // 요청 글을 언급하는 모든 도구 출력이 "요청 글 #id" 한 모양을 쓴다(RenderRequest ·
+        // 바로 위 못 찾음 메시지와 같다) — 화면의 근거 링크 정규식(Assistant.razor.cs 의
+        // RequestRefPattern)이 그 낱말을 찾으므로, 이 글이 가장 자세한 정보를 담는 도구인
+        // 만큼(한 건을 통째로 보여 준다) 여기서 낱말이 빠지면 가장 많이 베껴질 인용이 안 걸린다.
+        var header = $"요청 글 #{detail.Id} {detail.Title} [{detail.Status}]\n"
             + $"접수 {PortalDay.ToKorean(detail.RequestedAt)}"
             + (detail.AcceptedAt is { } a ? $", 처리 {PortalDay.ToKorean(a)}" : "")
             + (detail.CompletedAt is { } c ? $", 완료 {PortalDay.ToKorean(c)}" : "")
@@ -234,7 +237,11 @@ public sealed class PortalToolRunner(
         var assignee = r.AssigneeName is null ? "" : $", 담당 {r.AssigneeName}";
         var company = r.CompanyName is null ? "" : $", {r.CompanyName}";
         var match = string.IsNullOrEmpty(r.Match) ? "" : $", 관련 {r.Match}";
-        return $"- #{r.Id} {r.Title} [{r.Status}] ({period}{done}{author}{assignee}{company}{match})";
+
+        // "요청 글 #{id}" — get_request 의 머리글·못 찾음 메시지와 같은 모양으로 맞춘다
+        // (PortalToolRunner.cs 위 SearchRequestsAsync·GetRequestAsync 주석 참고). 도구마다
+        // 글 번호를 다르게 적으면 화면의 근거 링크가 그중 한쪽에서만 걸린다.
+        return $"- 요청 글 #{r.Id} {r.Title} [{r.Status}] ({period}{done}{author}{assignee}{company}{match})";
     }
 
     /// <summary>헬프데스크 일정 한 줄. <c>Owner</c> 가 이미 사람 이름으로 풀려 있다고 밝혀 적는다 —
