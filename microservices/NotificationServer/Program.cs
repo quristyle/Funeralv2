@@ -151,6 +151,7 @@ app.MapNoteEndpoints();       // 쪽지 — 사람에게서 사람에게로 가�
 app.MapLocationEndpoints();   // 위치를 허용한 계정들 — 좌표가 이 서비스에 있다
 app.MapEmailEndpoints();
 app.MapMailEndpoints();       // 포털 「메일 보내기」 — 사람이 써서 보내고, 보낸 글이 남는다
+app.MapInternalQueryEndpoints(); // 업무 비서(AI) 내부 조회 — 게이트웨이를 거치지 않는다
 app.MapWeatherEventEndpoints(); // 기상 이벤트 발송 (D-G1a) — LifeEnvServer 가 부른다
 app.MapDeployEventEndpoints();  // 배포 반영 알림 — GitHub Actions 의 deploy 잡이 부른다
 app.MapNotificationPolicyEndpoints(); // 알림관리 — 어떤 이벤트를 어느 역할이 어느 길로 받나
