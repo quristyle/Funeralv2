@@ -123,6 +123,30 @@ RAG 문서함은 카테고리 아래에 분류(폴더) 나무를 둔다. 문서�
 거기서 검색된다. 실제로 걸어 보니 「고른 분류가 그 카테고리의 것이 아닙니다」로
 막힌다(2026-10-25 실측).
 
+### 만든 문서의 실물은 **파일 서버**에 있다 — 적재폴더가 아니다
+
+`Gmail:ImportRoot`(mbox 적재 폴더)와 `Rag:UploadRoot`(RAG 적재 폴더)는 **다른 자리이고,
+만들어진 .md 는 둘 중 어디에도 안 들어간다.** 2026-10-17 부터 RAG 문서의 실물은
+**파일 서버**(:5350, bizType `rag`)가 맡는다 — `scom.rag_documents.file_id` 가 가리키고,
+색인할 때 임시로 내려받아 읽는다.
+
+| | 무엇이 있나 |
+|---|---|
+| `Gmail:ImportRoot` | **mbox 원본**. 적재가 끝나도 지우지 않는다(다시 돌릴 수 있게) |
+| `Rag:UploadRoot` (`/srv/jsini/rag/docs`) | **옛 자리.** 새 파일이 안 쌓인다 — `migrate-to-fileserver` 가 여기 있던 것을 파일 서버로 옮겼다 |
+| 파일 서버 | **만들어진 .md 의 정본** |
+
+메일 문서만 그런 것이 아니다. **RAG 문서함 화면에서 손으로 올린 문서도 똑같이**
+파일 서버로 간다(2026-10-25 기준 문서 39건 전부가 `file_id`, `stored_path` 를 쓰는
+줄은 0건). 그래서 적재폴더가 비어 있는 것은 고장이 아니다.
+
+**눈으로 확인하는 길**은 둘이다.
+
+- **포털관리 › 시스템 › RAG 문서함** — 올린 카테고리·분류를 열면 `메일_<계정>_<yyyy-MM>.md`
+  가 보이고 거기서 내려받는다. 상태 칸이 `indexed` 면 색인까지 끝난 것이다.
+- **표로 직접** — `select file_name, category_id, folder_id, status, file_id
+  from scom.rag_documents where file_name like '메일\_%'`
+
 ### 메뉴를 SQL 로 넣으면 AuthServer 를 다시 올려야 보인다
 
 AuthServer 가 메뉴 나무를 통에 담아 두고(`MenuTreeCache`), 그 통은 **메뉴 관리

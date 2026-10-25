@@ -14,6 +14,10 @@ namespace AIAgentServer.Services.Gmail;
 /// 안 걸린다 — 그런 질문에 답하는 것이 RAG 다. 그래서 오래된 것은 뜻으로도 찾을 수 있게 문서로 만든다.
 /// 표에서 지우지는 않는다(<c>rag_doc_id</c> 만 찍는다) — 두 길이 서로를 대신하는 것이 아니라 겹쳐 있다.</para>
 ///
+/// <para><b>만든 글의 실물은 파일 서버가 맡는다</b>(RagLibrary.UploadAsync) — <c>Rag:UploadRoot</c>
+/// 가 아니다. 그 폴더는 2026-10-17 이전의 자리이고 지금은 이사 도구가 거기 있던 것을 파일
+/// 서버로 옮긴다. 화면에서 손으로 올린 문서와 같은 길이라 여기서 따로 할 일이 없다.</para>
+///
 /// <para>한 번 부를 때 <paramref name="maxMessages"/> 만큼만 처리하고 끝난다. 수십만 통을 한 요청에
 /// 담지 않으려는 것이다 — 0 이 돌아올 때까지 다시 부르면 된다.</para></summary>
 public sealed class GmailRagArchiver(
