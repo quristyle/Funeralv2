@@ -9,12 +9,13 @@ namespace JSini.Web.Admin.Components.Pages;
 
 public partial class GmailArchivePage : DataPage, IAsyncDisposable
 {
-    /// <summary>브라우저로 올릴 수 있는 한도. Takeout 은 GB 단위로 쪼개 주는데, 그만한 것은
-    /// 회로를 타고 넘어오지 못한다 — 그런 파일은 서버의 적재 폴더에 직접 둔다.</summary>
-    private const long MaxUploadBytes = 300L * 1024 * 1024;
+    /// <summary>올리기 한도. <b>0 은 제한 없음이다</b> — Takeout 은 메일함 하나가 GB 단위이고
+    /// 쪼갠 묶음도 수 GB 라, 숫자를 박으면 그 자리가 곧 막히는 자리가 된다. 조각으로 흘러가므로
+    /// (고르개 → 셸의 임시 파일 → 게이트웨이 → 적재 폴더) 어느 자리에도 통째로 쌓이지 않는다.</summary>
+    private const long MaxUploadBytes = 0;
 
     private const string UploadHint =
-        "mbox 한 개, 300MB 까지. 더 큰 Takeout 묶음은 서버의 적재 폴더에 직접 둔다.";
+        "mbox 한 개. 크기 제한은 없지만 GB 단위는 서버의 적재 폴더에 직접 두는 쪽이 훨씬 빠르다.";
 
     /// <summary>적재가 도는 동안 되묻는 간격. 더 잦게 물으면 왕복만 늘고, 더 뜸하면 멎은 것처럼 보인다.</summary>
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(2);

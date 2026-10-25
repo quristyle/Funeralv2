@@ -11,7 +11,8 @@ public partial class FilePicker
     /// <summary>몇 개까지. 1 이면 하나만 고르게 하고, 새로 고르면 앞엣것을 갈아 끼운다.</summary>
     [Parameter] public int MaxFiles { get; set; } = 5;
 
-    /// <summary>한 개 최대 크기(바이트). DevExpress 가 넘는 파일에 표시를 붙여 막는다.</summary>
+    /// <summary>한 개 최대 크기(바이트). DevExpress 가 넘는 파일에 표시를 붙여 막는다.
+    /// <b>0 이하면 크기를 따지지 않는다</b> — Takeout mbox 처럼 GB 단위가 들어오는 자리가 있다.</summary>
     [Parameter] public long MaxBytes { get; set; } = 100L * 1024 * 1024;
 
     /// <summary>모두 합쳐 최대 크기(바이트). 0 이면 총량을 따지지 않는다. 메일 첨부 때문에 생겼다 — 서버는 총량 15MB 로 막는데 화면은 한 개 크기만 보고 있어, 5개 × 15MB 를 다 받아 올린 뒤에야 거절됐다. 먼저 말해 주려고 둔 상한이 먼저 말해 주지 못한 셈이다.</summary>
@@ -52,8 +53,15 @@ public partial class FilePicker
     /// <summary>지금 들고 있는 것. 고른 순서를 지킨다.</summary>
     private IReadOnlyList<PickedFile> Files => [.. _byGuid.Values];
 
-    /// <summary>DevExpress 의 MaxFileSize 는 int 다(약 2.1GB). 우리 상한이 그보다 크면 여기서 자른다 — 넘기면 OverflowException 이 아니라 조용히 음수가 되므로 막아 둔다.</summary>
-    private int DxMaxFileSize => (int)Math.Min(MaxBytes, int.MaxValue);
+    /// <summary>크기를 따지지 않는가.</summary>
+    private bool Unlimited => MaxBytes <= 0;
+
+    /// <summary>DevExpress 의 MaxFileSize 는 int 다(약 2.1GB). 우리 상한이 그보다 크면 여기서 자른다 — 넘기면 OverflowException 이 아니라 조용히 음수가 되므로 막아 둔다.
+    /// <b>0 은 DevExpress 에서 「제한 없음」이다</b> — 2.1GB 로 못박으면 그보다 큰 mbox 가 고르기 단계에서 거절된다.</summary>
+    private int DxMaxFileSize => Unlimited ? 0 : (int)Math.Min(MaxBytes, int.MaxValue);
+
+    /// <summary>스트림을 열 때 넘기는 상한. 제한이 없으면 막지 않는다 — 0 을 그대로 넘기면 첫 바이트에서 터진다.</summary>
+    private long ReadLimit => Unlimited ? long.MaxValue : MaxBytes;
 
     private List<string>? AcceptedTypes => string.IsNullOrWhiteSpace(Accept)
         ? null
@@ -69,7 +77,8 @@ public partial class FilePicker
             }
 
             var total = MaxTotalBytes > 0 ? $" · 모두 합쳐 {Human(MaxTotalBytes)}" : string.Empty;
-            return $"최대 {MaxFiles}개 · 한 개 {Human(MaxBytes)} 까지{total}";
+            var one = Unlimited ? "크기 제한 없음" : $"한 개 {Human(MaxBytes)} 까지";
+            return $"최대 {MaxFiles}개 · {one}{total}";
         }
     }
 
@@ -194,7 +203,7 @@ public partial class FilePicker
         var path = Path.Combine(_tempDir, Guid.NewGuid().ToString("N"));
 
         // 진행률은 DevExpress 가 파일마다 막대로 보여 준다 — 우리가 셀 것이 없다.
-        await using var source = file.OpenReadStream(MaxBytes, ct);
+        await using var source = file.OpenReadStream(ReadLimit, ct);
         await using var target = File.Create(path);
 
         await source.CopyToAsync(target, ct);

@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+﻿using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
 using System.Text;
@@ -275,6 +276,22 @@ app.MapHealthChecks("/health").AllowAnonymous();
 
 
 app.UseCors("AllowFrontend");
+
+// Gmail 보관함의 mbox 올리기만 본문 상한을 푼다. Takeout 은 메일함 하나가 GB
+// 단위라 위의 1GB 로도 모자란다. 게이트웨이는 본문을 모으지 않고 흘리므로
+// 상한을 풀어도 여기서 쌓이는 것은 없다 — 받는 쪽(AIAgentServer)이 디스크로
+// 바로 붓는다. **다른 길은 그대로 1GB 다.**
+app.Use(async (context, next) =>
+{
+    if (context.Request.Path.StartsWithSegments("/api/ai/gmail/import/upload",
+            StringComparison.OrdinalIgnoreCase)
+        && context.Features.Get<IHttpMaxRequestBodySizeFeature>() is { IsReadOnly: false } limit)
+    {
+        limit.MaxRequestBodySize = null;
+    }
+
+    await next();
+});
 
 // 레이트 리미터. 정책이 지정된 라우트에만 적용된다.
 app.UseRateLimiter();

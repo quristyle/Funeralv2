@@ -69,8 +69,9 @@ public sealed class AdminModule : IPortalModule
             {
                 client.BaseAddress = new Uri(baseUrl);
 
-                // mbox 는 수백 MB 다. 기본 100초로는 어림없다.
-                client.Timeout = TimeSpan.FromMinutes(30);
+                // mbox 는 GB 단위다. 시간을 재면 그 숫자가 곧 올릴 수 있는 크기의 상한이
+                // 되므로 아예 재지 않는다 — 끊는 것은 사람이 화면을 떠날 때의 취소 토큰이다.
+                client.Timeout = Timeout.InfiniteTimeSpan;
             })
             .ConfigurePrimaryHttpMessageHandler(ServiceCollectionExtensions.NoCookieJar)
             .AddHttpMessageHandler<AuthTokenHandler>();

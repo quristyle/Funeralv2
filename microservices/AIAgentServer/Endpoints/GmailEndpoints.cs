@@ -3,7 +3,10 @@ using AIAgentServer.Services.Gmail;
 
 using JSini.Shared.DTOs;
 
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Net.Http.Headers;
 using Microsoft.EntityFrameworkCore;
 
 namespace AIAgentServer.Endpoints;
@@ -103,8 +106,13 @@ public static class GmailEndpoints
 
         // ── mbox 올리기 ─────────────────────────────────────
         //
-        // Takeout 은 GB 단위로 쪼개 내려 주므로 **디스크로 바로 흘려보낸다** —
-        // 메모리에 받으면 파일 하나가 서비스를 넘어뜨린다.
+        // **크기를 재지 않는다.** Takeout 은 메일함 하나가 GB 단위이고 쪼갠 묶음도
+        // 수 GB 다. 그래서 한도를 걸지 않고 디스크로 바로 흘려보낸다.
+        //
+        // <b>ReadFormAsync 를 쓰면 안 된다.</b> 그쪽은 FormOptions 의 상한
+        // (MultipartBodyLengthLimit 기본 128MB)에 걸리고, 넘지 않더라도 본문을
+        // 통째로 받아 둔 뒤에야 돌려준다. MultipartReader 로 조각을 직접 읽어
+        // 그대로 파일에 붓는다 — 메모리에 남는 것은 버퍼 한 칸뿐이다.
         group.MapPost("/import/upload", async (
             HttpContext http,
             [FromServices] IConfiguration config,
@@ -120,53 +128,72 @@ public static class GmailEndpoints
 
             Directory.CreateDirectory(root);
 
-            if (!http.Request.HasFormContentType)
+            // Kestrel 의 기본 본문 상한(30MB)을 이 요청에서만 푼다. 서비스 전체를
+            // 열면 다른 길까지 무제한이 된다.
+            if (http.Features.Get<IHttpMaxRequestBodySizeFeature>() is { IsReadOnly: false } limit)
+            {
+                limit.MaxRequestBodySize = null;
+            }
+
+            var boundary = MultipartBoundary(http.Request.ContentType);
+            if (boundary is null)
                 return Results.Ok(ApiResponse<object>.Fail("파일을 보내 주세요.", "C400"));
 
-            var form = await http.Request.ReadFormAsync(ct);
-            var file = form.Files.FirstOrDefault();
-            if (file is null || file.Length == 0)
-                return Results.Ok(ApiResponse<object>.Fail("빈 파일입니다.", "C400"));
+            var reader = new MultipartReader(boundary, http.Request.Body);
+            MultipartSection? section;
 
-            // 이름은 끝자리만 쓴다 — 경로가 섞여 들어오면 폴더를 벗어난다.
-            var name = Path.GetFileName(file.FileName);
-            if (string.IsNullOrWhiteSpace(name))
-                return Results.Ok(ApiResponse<object>.Fail("파일 이름이 없습니다.", "C400"));
-
-            if (!name.EndsWith(".mbox", StringComparison.OrdinalIgnoreCase))
-                name += ".mbox";
-
-            var full = Path.Combine(root, name);
-            if (!Path.GetFullPath(full).StartsWith(root + Path.DirectorySeparatorChar, StringComparison.Ordinal))
-                return Results.Ok(ApiResponse<object>.Fail("적재 폴더 밖입니다.", "C400"));
-
-            // 받다 끊기면 반쪽 파일이 남아 적재가 엉킨다 — 임시 이름으로 받고 끝에 바꾼다.
-            var temp = full + ".part";
-            try
+            while ((section = await reader.ReadNextSectionAsync(ct)) is not null)
             {
-                await using (var fs = File.Create(temp))
-                await using (var src = file.OpenReadStream())
+                if (!ContentDispositionHeaderValue.TryParse(section.ContentDisposition, out var disposition)
+                    || !disposition.FileName.HasValue && !disposition.FileNameStar.HasValue)
                 {
-                    await src.CopyToAsync(fs, ct);
+                    continue;
                 }
 
-                File.Move(temp, full, overwrite: true);
-            }
-            catch
-            {
-                if (File.Exists(temp)) File.Delete(temp);
-                throw;
+                // 이름은 끝자리만 쓴다 — 경로가 섞여 들어오면 폴더를 벗어난다.
+                var sent = (disposition.FileNameStar.HasValue ? disposition.FileNameStar : disposition.FileName)
+                    .Value?.Trim('"');
+                var name = Path.GetFileName(sent ?? string.Empty);
+                if (string.IsNullOrWhiteSpace(name))
+                    return Results.Ok(ApiResponse<object>.Fail("파일 이름이 없습니다.", "C400"));
+
+                if (!name.EndsWith(".mbox", StringComparison.OrdinalIgnoreCase)) name += ".mbox";
+
+                var full = Path.Combine(root, name);
+                if (!Path.GetFullPath(full).StartsWith(root + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+                    return Results.Ok(ApiResponse<object>.Fail("적재 폴더 밖입니다.", "C400"));
+
+                // 받다 끊기면 반쪽 파일이 남아 적재가 엉킨다 — 임시 이름으로 받고 끝에 바꾼다.
+                var temp = full + ".part";
+                try
+                {
+                    await using (var fs = new FileStream(
+                        temp, FileMode.Create, FileAccess.Write, FileShare.None,
+                        bufferSize: 1024 * 1024, useAsync: true))
+                    {
+                        await section.Body.CopyToAsync(fs, ct);
+                    }
+
+                    File.Move(temp, full, overwrite: true);
+                }
+                catch
+                {
+                    if (File.Exists(temp)) File.Delete(temp);
+                    throw;
+                }
+
+                return Results.Ok(ApiResponse<object>.Ok(new
+                {
+                    name,
+                    sizeBytes = new FileInfo(full).Length,
+                }));
             }
 
-            return Results.Ok(ApiResponse<object>.Ok(new
-            {
-                name,
-                sizeBytes = new FileInfo(full).Length,
-            }));
+            return Results.Ok(ApiResponse<object>.Fail("빈 파일입니다.", "C400"));
         })
         .DisableAntiforgery()
         .WithName("GmailImportUpload")
-        .WithSummary("mbox 파일을 적재 폴더에 올린다");
+        .WithSummary("mbox 파일을 적재 폴더에 올린다 (크기 제한 없음)");
 
         // ── 적재 시작 ───────────────────────────────────────
         group.MapPost("/import/takeout", async (
@@ -357,6 +384,17 @@ public static class GmailEndpoints
         })
         .WithName("GmailStats")
         .WithSummary("계정·길별로 몇 통이나 쌓였나");
+    }
+
+    /// <summary>multipart 의 경계 글자를 꺼낸다. 없으면 파일을 실은 요청이 아니다.</summary>
+    private static string? MultipartBoundary(string? contentType)
+    {
+        if (string.IsNullOrWhiteSpace(contentType)) return null;
+        if (!MediaTypeHeaderValue.TryParse(contentType, out var media)) return null;
+        if (media.MediaType.Value?.StartsWith("multipart/", StringComparison.OrdinalIgnoreCase) != true) return null;
+
+        var boundary = HeaderUtilities.RemoveQuotes(media.Boundary).Value;
+        return string.IsNullOrWhiteSpace(boundary) ? null : boundary;
     }
 
     private static string? ImportRoot(IConfiguration config)
