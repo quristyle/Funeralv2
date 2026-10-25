@@ -81,7 +81,7 @@
                         <PermissionView Action="MenuAction.Create">
                             <DxButton Text="적재"
                                       RenderStyle="ButtonRenderStyle.Primary"
-                                      Enabled="@(!Loading && _status?.Running != true && _accountId is { Length: > 0 })"
+                                      Enabled="@(!Loading && !Uploading && _status?.Running != true && _accountId is { Length: > 0 })"
                                       Click="@(() => ImportAsync(((GmailMboxFileDto)context.DataItem).Name))" />
                         </PermissionView>
                     </CellDisplayTemplate>
@@ -96,7 +96,29 @@
                             Accept=".mbox"
                             SelectTitle="mbox 고르기"
                             Hint="@UploadHint"
+                            Progress="@OnReceivingAsync"
                             FilesChanged="@UploadAsync" />
+
+                @* DevExpress 막대는 제 구간이 끝나면 「Uploaded」가 되어 뒤에 남은 일을 감춘다.
+                   그래서 단계 이름과 남은 시간을 우리가 따로 적는다. *@
+                @if (_up is { } up)
+                {
+                    <div class="ad-gmail__up" role="status" aria-live="polite">
+                        <div class="ad-gmail__up-bar">
+                            <div class="ad-gmail__up-fill" style="width:@(up.Percent)%"></div>
+                        </div>
+                        <div class="ad-gmail__up-text">
+                            <span class="ad-gmail__up-phase">@up.PhaseLabel</span>
+                            <b>@up.Percent%</b>
+                            <span>@up.SizeLabel</span>
+                            @if (up.SpeedLabel is { } speed)
+                            {
+                                <span>@speed</span>
+                            }
+                            <span class="ad-gmail__up-eta">@(up.EtaLabel ?? "남은 시간 재는 중…")</span>
+                        </div>
+                    </div>
+                }
             </div>
         </PermissionView>
     </CommCont>
@@ -132,7 +154,7 @@
             <PermissionView Action="MenuAction.Create">
                 <DxButton Text="문서 만들기"
                           RenderStyle="ButtonRenderStyle.Primary"
-                          Enabled="@(!Loading && _categoryId is { Length: > 0 })"
+                          Enabled="@(!Loading && !Uploading && _categoryId is { Length: > 0 })"
                           Click="@ArchiveAsync" />
             </PermissionView>
         </div>

@@ -53,6 +53,17 @@ public partial class GmailArchivePage : DataPage, IAsyncDisposable
 
     private CancellationTokenSource? _poll;
 
+    /// <summary>올리는 동안의 진행. 끝나면 <c>null</c> 로 돌린다.</summary>
+    private UploadProgress? _up;
+
+    /// <summary>올리는 중인가. 그동안 적재·문서 만들기 단추를 잠근다 — 같은 파일을 두 번 밀어 넣지 않게.</summary>
+    private bool Uploading => _up is not null;
+
+    /// <summary>화면을 다시 그리는 간격. 바이트가 올 때마다 그리면 500MB 에서 수천 번 그린다.</summary>
+    private static readonly TimeSpan RepaintInterval = TimeSpan.FromMilliseconds(400);
+
+    private DateTime _lastPaint = DateTime.MinValue;
+
     protected override async Task OnInitializedAsync() => await LoadAsync();
 
     private async Task LoadAsync()
@@ -117,6 +128,80 @@ public partial class GmailArchivePage : DataPage, IAsyncDisposable
         }
     }
 
+    /// <summary>브라우저가 보낸 바이트가 포털에 쌓이는 동안. <b>DevExpress 는 이 구간이 끝나면
+    /// 「Uploaded」로 바꾸는데 그때 일이 끝난 것이 아니다</b> — 뒤에 적재 폴더로 보내는 구간이 남는다.</summary>
+    private Task OnReceivingAsync((long Received, long Total) p)
+    {
+        _up = (_up ?? new UploadProgress()).With(UploadPhase.Receiving, p.Received, p.Total);
+        return RepaintAsync();
+    }
+
+    /// <summary>올리기. <b>어떤 예외도 밖으로 내보내지 않는다</b> — 여기서 던지면 회로가 끊겨
+    /// 화면에 「연결이 끊겼습니다」 띠가 뜬다. RunAsync 는 ApiException 만 잡는데 이 길은
+    /// HttpRequestException(413 따위)·IOException 으로도 실패한다.</summary>
+    private async Task UploadAsync(IReadOnlyList<PickedFile> picked)
+    {
+        if (picked.Count == 0) return;
+
+        var one = picked[0];
+        _up = (_up ?? new UploadProgress()).With(UploadPhase.Sending, 0, one.Size);
+
+        try
+        {
+            await using var stream = File.OpenRead(one.TempPath);
+
+            await Gmail.UploadAsync(stream, one.Name, sent =>
+            {
+                _up = _up?.With(UploadPhase.Sending, sent, one.Size);
+                _ = RepaintAsync();
+            });
+
+            _files = await Gmail.FilesAsync();
+            _rootHint = null;
+            Say($"{one.Name} 을(를) 올렸습니다.");
+        }
+        catch (Exception ex)
+        {
+            Say($"{one.Name} 을(를) 올리지 못했습니다 — {Reason(ex)}", NoticeTone.Error);
+        }
+        finally
+        {
+            _up = null;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    /// <summary>사람이 읽을 까닭. 상한에 걸린 것과 길이 끊긴 것은 할 일이 다르다.</summary>
+    private static string Reason(Exception ex) => ex switch
+    {
+        HttpRequestException { StatusCode: System.Net.HttpStatusCode.RequestEntityTooLarge } =>
+            "서버가 크기를 막았습니다. 게이트웨이와 AI 서버가 최신 판인지 확인해 주세요.",
+        HttpRequestException { StatusCode: { } code } => $"서버가 {(int)code} 로 답했습니다.",
+        HttpRequestException => "서버에 닿지 못했습니다.",
+        IOException => "파일을 읽다 끊겼습니다.",
+        _ => ex.Message,
+    };
+
+    /// <summary>진행을 그린다. 시간으로 조이지 않으면 조각마다 그려 회로가 막힌다.</summary>
+    private async Task RepaintAsync()
+    {
+        var now = DateTime.UtcNow;
+        var done = _up is null || _up.Sent >= _up.Total;
+        if (!done && now - _lastPaint < RepaintInterval) return;
+
+        _lastPaint = now;
+
+        try
+        {
+            await InvokeAsync(StateHasChanged);
+        }
+        catch (Exception)
+        {
+            // 보내는 쪽에서 불려 오는 길이라(HttpClient 의 읽기 스레드) 화면이 이미 사라졌을 수 있다.
+            // 그림 한 번을 못 그린 것뿐이고, 올리는 일은 그대로 간다.
+        }
+    }
+
     private async Task ImportAsync(string file)
     {
         if (_accountId is not { Length: > 0 } account) return;
@@ -129,19 +214,7 @@ public partial class GmailArchivePage : DataPage, IAsyncDisposable
         }, $"{file} 적재를 시작했습니다.");
     }
 
-    private async Task UploadAsync(IReadOnlyList<PickedFile> picked)
-    {
-        if (picked.Count == 0) return;
 
-        var one = picked[0];
-        await RunAsync(async () =>
-        {
-            await using var stream = File.OpenRead(one.TempPath);
-            await Gmail.UploadAsync(stream, one.Name);
-            _files = await Gmail.FilesAsync();
-            _rootHint = null;
-        }, $"{one.Name} 을(를) 올렸습니다.");
-    }
 
     private async Task ArchiveAsync()
     {
@@ -286,6 +359,88 @@ public partial class GmailArchivePage : DataPage, IAsyncDisposable
                 }
             }
         }
+    }
+
+    private enum UploadPhase
+    {
+        /// <summary>브라우저 → 포털(회로). 느린 쪽이다.</summary>
+        Receiving,
+
+        /// <summary>포털 → 게이트웨이 → 적재 폴더. 서버끼리라 빠르지만 공짜는 아니다.</summary>
+        Sending,
+    }
+
+    /// <summary>올리는 동안의 진행. 속도는 <b>단계가 바뀐 뒤부터</b> 센다 —
+    /// 처음부터 재면 느린 1단계가 2단계의 남은 시간을 몇 배로 부풀린다.</summary>
+    private sealed class UploadProgress
+    {
+        public UploadPhase Phase { get; private set; }
+
+        public long Sent { get; private set; }
+
+        public long Total { get; private set; }
+
+        private DateTime _since = DateTime.UtcNow;
+
+        private long _base;
+
+        public UploadProgress With(UploadPhase phase, long sent, long total)
+        {
+            if (phase != Phase)
+            {
+                Phase = phase;
+                _since = DateTime.UtcNow;
+                _base = sent;
+            }
+
+            Sent = sent;
+            Total = total;
+            return this;
+        }
+
+        public string PhaseLabel => Phase == UploadPhase.Receiving ? "브라우저 → 포털" : "포털 → 적재 폴더";
+
+        public int Percent => Total > 0 ? (int)Math.Clamp(Sent * 100 / Total, 0, 100) : 0;
+
+        /// <summary>초당 바이트. 아직 잴 것이 모자라면 <c>null</c>.</summary>
+        public double? BytesPerSecond
+        {
+            get
+            {
+                var seconds = (DateTime.UtcNow - _since).TotalSeconds;
+                if (seconds < 1) return null;
+
+                var moved = Sent - _base;
+                return moved <= 0 ? null : moved / seconds;
+            }
+        }
+
+        public string SizeLabel => $"{Human(Sent)} / {Human(Total)}";
+
+        public string? SpeedLabel => BytesPerSecond is { } bps ? $"{Human((long)bps)}/s" : null;
+
+        /// <summary>남은 시간. 속도를 아직 모르면 <c>null</c> — 「계산 중」이 숫자보다 정직하다.</summary>
+        public string? EtaLabel
+        {
+            get
+            {
+                if (BytesPerSecond is not { } bps || bps <= 0) return null;
+
+                var left = TimeSpan.FromSeconds((Total - Sent) / bps);
+                if (left.TotalSeconds < 1) return "곧 끝납니다";
+                if (left.TotalMinutes < 1) return $"{left.Seconds}초 남음";
+                if (left.TotalHours < 1) return $"{left.Minutes}분 {left.Seconds}초 남음";
+                return $"{(int)left.TotalHours}시간 {left.Minutes}분 남음";
+            }
+        }
+
+        private static string Human(long bytes) => bytes switch
+        {
+            >= 1024L * 1024 * 1024 => $"{bytes / 1024.0 / 1024 / 1024:0.#} GB",
+            >= 1024 * 1024 => $"{bytes / 1024.0 / 1024:0.#} MB",
+            >= 1024 => $"{bytes / 1024.0:0.#} KB",
+            _ => $"{bytes} B",
+        };
     }
 
     private sealed class AccountEdit

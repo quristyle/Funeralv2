@@ -6068,3 +6068,40 @@
 .ad-gmail__folder {
     min-width: 18rem;
 }
+
+/* 올리기 진행. DevExpress 막대가 1단계만 말하므로 단계·속도·남은 시간을 따로 적는다. */
+.ad-gmail__up {
+    margin-top: 0.5rem;
+}
+
+.ad-gmail__up-bar {
+    height: 6px;
+    border-radius: 999px;
+    background: var(--bs-secondary-bg, #e9ecef);
+    overflow: hidden;
+}
+
+.ad-gmail__up-fill {
+    height: 100%;
+    background: var(--tb-primary, #0d6efd);
+    transition: width 0.3s linear;
+}
+
+.ad-gmail__up-text {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 0.75rem;
+    margin-top: 0.25rem;
+    font-size: var(--jsini-fs-sm);
+}
+
+.ad-gmail__up-phase {
+    font-weight: 600;
+}
+
+/* 남은 시간이 사람이 실제로 찾는 값이라 끝으로 민다. */
+.ad-gmail__up-eta {
+    margin-left: auto;
+    color: var(--tb-primary, #0d6efd);
+}

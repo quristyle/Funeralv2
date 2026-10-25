@@ -30,6 +30,11 @@ public partial class FilePicker
     /// <summary>고른 것이 바뀔 때마다. 화면은 이 목록을 들고 있다가 저장할 때 읽는다.</summary>
     [Parameter] public EventCallback<IReadOnlyList<PickedFile>> FilesChanged { get; set; }
 
+    /// <summary>바이트를 받는 동안의 진행(받은 만큼, 전체). <b>안 매면 아무 알림도 안 낸다</b> —
+    /// 회로를 타는 알림이라 쓰는 자리에서만 켠다. DevExpress 도 막대를 그리지만 남은 시간이 없고,
+    /// 제 몫이 끝나면 「Uploaded」로 바뀌어 <b>뒤에 남은 일을 끝난 것처럼 보이게</b> 한다.</summary>
+    [Parameter] public EventCallback<(long Received, long Total)> Progress { get; set; }
+
     /// <summary>브라우저에서 고른 파일 이름. 바이트를 받기 전의 선택 상태도 화면에 알린다.</summary>
     [Parameter] public EventCallback<IReadOnlyList<string>> SelectionChanged { get; set; }
 
@@ -43,6 +48,12 @@ public partial class FilePicker
 
     /// <summary>받아 둔 파일. 열쇠는 DevExpress 가 파일마다 붙이는 Guid 다 — 이름으로 열쇠를 삼으면 같은 이름을 두 번 고를 때 한쪽을 뺀 것이 엉뚱한 임시 파일을 지운다.</summary>
     private readonly Dictionary<string, PickedFile> _byGuid = [];
+
+    /// <summary>진행을 알리는 간격. 더 잦으면 회로 왕복만 늘고, 더 뜸하면 막대가 뚝뚝 끊겨 보인다.</summary>
+    private static readonly TimeSpan ProgressInterval = TimeSpan.FromMilliseconds(400);
+
+    /// <summary>진행을 셀 때 한 번에 읽는 크기.</summary>
+    private const int ProgressChunkBytes = 256 * 1024;
 
     /// <summary>이 부품이 만든 임시 폴더. 사라질 때 통째로 지운다.</summary>
     private string? _tempDir;
@@ -202,11 +213,37 @@ public partial class FilePicker
 
         var path = Path.Combine(_tempDir, Guid.NewGuid().ToString("N"));
 
-        // 진행률은 DevExpress 가 파일마다 막대로 보여 준다 — 우리가 셀 것이 없다.
         await using var source = file.OpenReadStream(ReadLimit, ct);
         await using var target = File.Create(path);
 
-        await source.CopyToAsync(target, ct);
+        if (!Progress.HasDelegate)
+        {
+            // 진행을 안 쓰는 자리는 DevExpress 의 막대에 맡긴다.
+            await source.CopyToAsync(target, ct);
+        }
+        else
+        {
+            var total = (long)file.Size;
+            var buffer = new byte[ProgressChunkBytes];
+            long received = 0;
+            var lastSaid = DateTime.UtcNow;
+
+            int n;
+            while ((n = await source.ReadAsync(buffer, ct)) > 0)
+            {
+                await target.WriteAsync(buffer.AsMemory(0, n), ct);
+                received += n;
+
+                // 조각마다 알리면 500MB 에서 수천 번 회로를 왕복한다. 시간으로 조인다.
+                var now = DateTime.UtcNow;
+                if (now - lastSaid < ProgressInterval && received < total) continue;
+
+                lastSaid = now;
+                await Progress.InvokeAsync((received, total));
+            }
+
+            await Progress.InvokeAsync((received, total));
+        }
 
         return new PickedFile(
             file.Name,

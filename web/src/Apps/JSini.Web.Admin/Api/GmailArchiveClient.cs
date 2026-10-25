@@ -52,12 +52,15 @@ public sealed class GmailArchiveClient(GatewayClient gateway, HttpClient http)
             "ai/gmail/sync", new { accountId, maxMessages }, ct);
 
     /// <summary>mbox 하나를 적재 폴더로 올린다. 큰 파일이라 <b>스트림 그대로</b> 보낸다 —
-    /// 바이트 배열로 바꿔 담으면 브라우저 쪽 메모리가 먼저 터진다.</summary>
+    /// 바이트 배열로 바꿔 담으면 브라우저 쪽 메모리가 먼저 터진다.
+    /// <paramref name="onSent"/> 는 보낸 바이트를 알린다(<see cref="CountingStream"/>) —
+    /// 이 구간은 DevExpress 가 「Uploaded」로 바뀐 뒤에도 한참 더 도는 자리다.</summary>
     public async Task<GmailMboxFileDto?> UploadAsync(
-        Stream content, string fileName, CancellationToken ct = default)
+        Stream content, string fileName, Action<long>? onSent = null, CancellationToken ct = default)
     {
         using var form = new MultipartFormDataContent();
-        using var sc = new StreamContent(content);
+        await using var counted = new CountingStream(content, onSent);
+        using var sc = new StreamContent(counted);
         sc.Headers.ContentType = new MediaTypeHeaderValue("application/mbox");
         form.Add(sc, "file", fileName);
 
