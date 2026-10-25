@@ -10,11 +10,21 @@ public sealed class PortalToolRunner(
     MailGateway mail,
     RagStore ragStore,
     EmbeddingClient embed,
+    IConfiguration config,
     ILogger<PortalToolRunner> logger)
 {
     private const int DefaultTake = 30;
     private const int MaxTake = 100;
     private const int DocumentTopK = 6;
+
+    /// <summary>
+    /// 이 점수에 못 미치는 토막은 <b>질문과 상관없는 것으로 보고 버린다</b>.
+    /// <see cref="RagAugmenter"/> 가 대화에 자료를 끼울 때 쓰는 것과 같은 문턱이다.
+    /// </summary>
+    /// 검색은 늘 상위 몇 개를 돌려준다 — 맞는 것이 하나도 없어도 「가장 덜 틀린 것」이 온다.
+    /// 그것을 그대로 모델에게 넘기면, 사람 이름 하나 안 적힌 설계 문서를 받아 들고 그 사람의
+    /// 직함과 한 일을 지어낸다(실제로 그랬다). 문턱 아래는 아예 안 보여 주는 쪽이 맞다.
+    private double MinScore => config.GetValue("Rag:MinVectorScore", 0.40);
 
     /// <summary>
     /// 도구 하나를 부른다. <b>절대 예외를 던지지 않는다</b> — <see cref="PortalDay"/> 가 날짜 형식이
@@ -210,6 +220,19 @@ public sealed class PortalToolRunner(
         }
 
         var hits = ragStore.Search(scope?.Categories, query, vector, DocumentTopK, scope?.DocIds);
+
+        // 임베딩이 됐으면 벡터 점수로, 안 됐으면 낱말 점수가 0 이 아닌 것만 남긴다.
+        // 둘 다 없으면 「가장 덜 틀린 것」만 남아 모델을 속인다.
+        hits = vector is not null
+            ? [.. hits.Where(h => h.VectorScore >= MinScore)]
+            : [.. hits.Where(h => h.KeywordScore > 0)];
+
+        if (hits.Count == 0)
+        {
+            return "문서 검색: 질문과 관련된 사내 문서를 찾지 못했습니다. "
+                 + "없는 내용을 지어내지 말고 찾지 못했다고 답하십시오.";
+        }
+
         var lines = hits.Select(h => $"- [{h.Chunk.Source} {h.Chunk.Heading}] {Shorten(h.Chunk.Text)}").ToList();
 
         return PortalToolResult.Render("문서 검색", lines, lines.Count, DocumentTopK);

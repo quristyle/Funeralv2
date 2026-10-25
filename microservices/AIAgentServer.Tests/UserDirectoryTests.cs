@@ -14,8 +14,15 @@ namespace AIAgentServer.Tests;
 public class UserDirectoryTests
 {
     [Fact]
-    public void 아무도_없으면_없다고_적는다()
-        => Assert.Equal("찾는 이름의 사용자가 없습니다.", UserDirectory.Describe([]));
+    public void 아무도_없으면_계정이_없다고_적고_다음_도구를_이른다()
+    {
+        var s = UserDirectory.Describe([]);
+
+        // 「없다」로 끝내지 않고 다음에 무엇을 할지까지 적어야 한다 — 이 글이 짧아지면
+        // 모델이 바로 답을 맺어 버려, 사내 문서에 그 사람이 있어도 안 본다.
+        Assert.Contains("포털 계정이 없습니다", s, StringComparison.Ordinal);
+        Assert.Contains("search_documents", s, StringComparison.Ordinal);
+    }
 
     [Fact]
     public void 한_명이면_그_사람만_적는다()

@@ -31,7 +31,7 @@ public class AssistantPromptTests
     [Fact]
     public void 고른_카테고리를_프롬프트에_적는다()
     {
-        var p = AssistantAgent.SystemPrompt(DateTime.UtcNow, new RagScope("hanju", null, "한주 › 규정"));
+        var p = AssistantAgent.SystemPrompt(DateTime.UtcNow, new RagScope(["hanju"], null, "한주 › 규정"));
         Assert.Contains("한주 › 규정", p, StringComparison.Ordinal);
     }
 }

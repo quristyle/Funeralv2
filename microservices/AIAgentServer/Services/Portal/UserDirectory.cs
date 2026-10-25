@@ -92,8 +92,12 @@ public sealed class UserDirectory(IServiceScopeFactory scopes)
     /// 늘어놓은 뒤 사용자에게 되물으라고 못박는다 — 회사·부서가 없는 계정도 빈 괄호나 떠 있는 구분자 없이 읽혀야 한다.</summary>
     public static string Describe(IReadOnlyList<PortalPerson> people)
     {
+        // **「포털 계정이 없다」지 「그런 사람이 없다」가 아니다.** 여기서 말을 끊으면
+        // 모델이 바로 "없습니다" 로 답을 맺고, 사내 문서에 그 이름이 가득해도 안 본다.
+        // 다음에 무엇을 해야 하는지까지 적어 준다.
         if (people.Count == 0)
-            return "찾는 이름의 사용자가 없습니다.";
+            return "그 이름의 포털 계정이 없습니다. 계정이 없을 뿐 그런 사람이 없다는 뜻은 아닙니다 — "
+                 + "사람 이름은 사내 문서·요청 글에도 나오므로, search_documents 로 한 번 더 찾아본 뒤 답하십시오.";
 
         if (people.Count == 1)
             return $"{DescribeOne(people[0])} 한 명을 찾았습니다.";

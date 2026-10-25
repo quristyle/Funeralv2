@@ -34,7 +34,8 @@ public static class PortalToolSet
         "find_user",
         "포털 사용자 이름으로 로그인 아이디를 찾는다. 다른 포털 도구(search_requests · search_schedules 등)에 " +
         "넘길 userId 가 필요할 때 먼저 이 도구로 찾는다. 동명이인이면 하나를 고르지 않고 후보를 전부 돌려주니, " +
-        "그럴 때는 사용자에게 어느 사람인지 되물어야 한다.",
+        "그럴 때는 사용자에게 어느 사람인지 되물어야 한다. " +
+        "못 찾아도 그 사람이 없다는 뜻은 아니다 — 포털 계정이 없을 뿐이니 search_documents 로 더 찾아본다.",
         Schema("""
         {
           "type": "object",
@@ -129,8 +130,9 @@ public static class PortalToolSet
 
     private static readonly McpToolInfo SearchDocuments = new(
         "search_documents",
-        "사내 문서함(RAG)에서 질문과 관련된 문서 토막을 찾는다. 제도·규정·사용법처럼 포털 자료로 답해야 " +
-        "하는 질문에 쓴다.",
+        "사내 문서함(RAG)에서 질문과 관련된 문서 토막을 찾는다. 제도·규정·사용법은 물론 " +
+        "사람·조직·프로젝트 이름처럼 **포털 계정이나 업무 기록에는 없는 것**도 문서에는 적혀 있다. " +
+        "다른 도구가 빈손으로 돌아왔으면 답을 맺기 전에 이 도구로 한 번 더 찾는다.",
         Schema("""
         {
           "type": "object",
