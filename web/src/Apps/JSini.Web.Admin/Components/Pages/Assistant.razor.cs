@@ -15,10 +15,16 @@ public partial class Assistant
 
     [Inject] private IJSRuntime Js { get; set; } = default!;
 
-    /// <summary>요청글 번호(<c>#123</c>)를 되짚는다 — 도구 결과와 시스템 프롬프트가 그 모양으로
-    /// 적게 해 두었다(<c>PortalToolRunner.RenderRequest</c>). 모델이 「숫자는 도구 결과에 적힌
-    /// 그대로 옮기라」는 지시를 받으므로 답에도 같은 모양이 나온다.</summary>
-    private static readonly Regex RequestRefPattern = new(@"#(\d+)", RegexOptions.Compiled);
+    /// <summary>요청글 번호(<c>#1042</c>)를 되짚는다 — 도구 결과가 <c>- #{Id} 제목 [상태] (...)</c>
+    /// 모양으로 적고(<c>PortalToolRunner.RenderRequest</c>) 시스템 프롬프트가 "숫자·글 번호는 도구
+    /// 결과에 적힌 그대로 옮기라"고 못박으므로(<c>AssistantAgent.SystemPrompt</c>) 답에도 그 모양이
+    /// 그대로 나온다. 자릿수를 2~6 으로 묶은 것은 두 가지를 동시에 막는다 —
+    /// 위로는 <c>int.Parse</c> 가 넘칠 걱정이 아예 없고(6자리라야 999999, int 범위에 한참 못
+    /// 미친다 — 모델이 쓸 법한 11자리 같은 수도 그냥 안 걸린다), 아래로는 "매출 순위 #1" 처럼
+    /// 흔한 한 자리 숫자를 글 번호로 잘못 읽는 것을 막는다. <c>(?&lt;!\S)</c> 는 <c>#</c> 앞이
+    /// 글 시작이거나 빈칸이어야 한다는 뜻이라 <c>##3단계</c>(마크다운 제목 꾸밈) 의 두 번째 <c>#</c>
+    /// 는 걸리지 않는다.</summary>
+    private static readonly Regex RequestRefPattern = new(@"(?<!\S)#(\d{2,6})(?!\d)", RegexOptions.Compiled);
 
     /// <summary>자료 범위(RAG 카테고리) 목록. 못 받으면 빈 목록 — 「모든 카테고리」로만 묻는다.</summary>
     private IReadOnlyList<AssistantScope> _scopes = [];
@@ -40,6 +46,10 @@ public partial class Assistant
         public string Answer { get; set; } = string.Empty;
 
         public bool Streaming { get; set; }
+
+        /// <summary>중단 단추로 끊겨 답을 못 받았나. 답도 없고 더 이상 돌지도 않는데 아무 표시가
+        /// 없으면 중단한 것인지 그냥 안 온 것인지 가릴 수 없다(Finding 4).</summary>
+        public bool Stopped { get; set; }
     }
 
     private readonly List<Turn> _turns = [];
@@ -143,7 +153,12 @@ public partial class Assistant
         }
         catch (OperationCanceledException)
         {
-            // 중단 단추를 눌렀거나 화면을 떠났다. 알릴 것이 없다.
+            // 중단 단추를 눌렀거나 화면을 떠났다. 이미 답이 좀 왔으면 그걸로 충분하고,
+            // 하나도 못 받았으면 「중단했다」고 적는다 — 안 그러면 무응답과 구별이 안 된다.
+            if (turn.Answer.Length == 0)
+            {
+                turn.Stopped = true;
+            }
         }
         catch (Exception ex)
         {
@@ -159,10 +174,16 @@ public partial class Assistant
     }
 
     /// <summary>답 글을 「보통 글」과 「요청글 번호 링크」 조각으로 가른다. 서버가 HTML 을 안 주므로
-    /// (답은 평문이다) 화면이 직접 <c>#123</c> 을 찾아 <c>/helpdesk/request/detail/123</c> 으로
+    /// (답은 평문이다) 화면이 직접 <c>#1042</c> 을 찾아 <c>/helpdesk/request/detail/1042</c> 으로
     /// 잇는다 — 브리프의 경로(<c>/helpdesk/requests/{id}</c>)는 실제 화면 라우트와 다르다(RequestDetail.razor
-    /// 의 <c>@page</c> 가 정본이다). 안 맞는 경로로 이으면 눌러도 404 라 여기서는 실제 라우트를 쓴다.</summary>
-    private IEnumerable<(string Text, int? RequestId)> AnswerSegments(string text)
+    /// 의 <c>@page</c> 가 정본이다). 안 맞는 경로로 이으면 눌러도 404 라 여기서는 실제 라우트를 쓴다.
+    /// <paramref name="text"/> 의 인스턴스 상태를 안 쓰는 순수 함수라 정적으로 두어 시험이 직접 부른다
+    /// (JSini.Web.Architecture.Tests 에 InternalsVisibleTo 가 걸려 있다).
+    /// <b>렌더링 도중 도는 이터레이터라 여기서 벗어나는 예외는 바로 회로를 끊는다</b> — 그래서
+    /// <see cref="int.TryParse(string?, out int)"/> 로만 수를 읽고(<see cref="RequestRefPattern"/>
+    /// 이 이미 자릿수를 2~6 으로 묶어 넘칠 일은 없지만, 파싱은 절대 실패해서 밖으로 새면 안 된다).
+    /// "#000000" 처럼 자릿수만 맞고 값이 0 인 것은 실제 글 번호가 아니므로 링크 없이 글자만 둔다.</summary>
+    internal static IEnumerable<(string Text, int? RequestId)> AnswerSegments(string text)
     {
         var lastIndex = 0;
 
@@ -173,7 +194,10 @@ public partial class Assistant
                 yield return (text[lastIndex..m.Index], null);
             }
 
-            yield return (m.Value, int.Parse(m.Groups[1].Value));
+            yield return int.TryParse(m.Groups[1].Value, out var id) && id > 0
+                ? (m.Value, id)
+                : (m.Value, null);
+
             lastIndex = m.Index + m.Length;
         }
 

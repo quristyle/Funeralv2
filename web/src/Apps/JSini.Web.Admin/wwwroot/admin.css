@@ -5968,6 +5968,13 @@
   40% { opacity: 1; }
 }
 
+/* 중단 단추로 끊겨 답이 없는 턴 — 아무 표시가 없으면 무응답과 구별이 안 된다. */
+.assistant__stopped {
+  padding: 0.5rem 0.85rem;
+  color: var(--jsini-text-muted);
+  font-size: var(--jsini-fs-sm);
+}
+
 .assistant__input-bar {
   display: flex;
   align-items: flex-end;

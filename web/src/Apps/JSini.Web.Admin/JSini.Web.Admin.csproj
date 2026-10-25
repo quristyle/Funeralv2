@@ -15,6 +15,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- 업무 비서 화면의 글 번호 되짚기(AnswerSegments)처럼 순수 함수인 internal 멤버를
+         시험이 직접 불러 돌리게 한다(AiAskPanel.StatusText 와 같은 관례). -->
+    <InternalsVisibleTo Include="JSini.Web.Architecture.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\Shared\JSini.Web.Abstractions\JSini.Web.Abstractions.csproj" />
     <ProjectReference Include="..\..\Shared\JSini.Web.Components\JSini.Web.Components.csproj" />
     <ProjectReference Include="..\..\Shared\JSini.Web.Http\JSini.Web.Http.csproj" />
