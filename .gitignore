@@ -53,3 +53,6 @@ logs/
 
 # 제어판(devui.sh) 프로세스 번호
 .devui.pid
+
+# superpowers SDD 작업 흔적 (계획 실행용 임시 파일)
+.superpowers/
