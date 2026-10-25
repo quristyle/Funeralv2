@@ -111,6 +111,29 @@ builder.Services.AddSingleton<AIAgentServer.Services.Mcp.McpToolGateway>();
 builder.Services.AddHttpClient<AIAgentServer.Services.Mcp.WebChatAgent>();
 builder.Services.AddScoped<AIAgentServer.Services.Mcp.WebAugmenter>();
 
+// 업무 비서 — 포털 안의 자료(요청 글 · 일정 · 할 일 · 메일)를 도구로 읽는다. 내부 전용 길이라
+// X-Internal-Token 으로만 자격을 증명하고(PortalToolRunner 가 호출마다 싣는다), 그 설정값이
+// 비어 있으면 PortalToolSet 이 문서 검색 하나만 돌려준다 — 토큰 없는 개발 장비에서도 죽지 않는다.
+builder.Services.AddScoped<AIAgentServer.Services.Portal.UserDirectory>();
+
+builder.Services.AddHttpClient<AIAgentServer.Services.Portal.HelpDeskGateway>((sp, client) =>
+{
+    var cfg = sp.GetRequiredService<IConfiguration>();
+    client.BaseAddress = new Uri(cfg["HelpDesk:Endpoint"] is { Length: > 0 } e ? e : "http://localhost:5400");
+});
+builder.Services.AddHttpClient<AIAgentServer.Services.Portal.ProjMngGateway>((sp, client) =>
+{
+    var cfg = sp.GetRequiredService<IConfiguration>();
+    client.BaseAddress = new Uri(cfg["ProjMng:Endpoint"] is { Length: > 0 } e ? e : "http://localhost:5450");
+});
+builder.Services.AddHttpClient<AIAgentServer.Services.Portal.MailGateway>((sp, client) =>
+{
+    var cfg = sp.GetRequiredService<IConfiguration>();
+    client.BaseAddress = new Uri(cfg["Notification:Endpoint"] is { Length: > 0 } e ? e : "http://localhost:5460");
+});
+
+builder.Services.AddScoped<AIAgentServer.Services.Portal.PortalToolRunner>();
+
 // LLM 장비 하드웨어 상태. 추론과 같은 주소·같은 키를 쓰므로 설정이 따로 없다.
 builder.Services.AddHttpClient<LlmHostMetricsClient>();
 
