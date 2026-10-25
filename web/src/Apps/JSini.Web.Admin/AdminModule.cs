@@ -49,6 +49,17 @@ public sealed class AdminModule : IPortalModule
             .ConfigurePrimaryHttpMessageHandler(ServiceCollectionExtensions.NoCookieJar)
             .AddHttpMessageHandler<AuthTokenHandler>();
 
+        // 업무 비서 대화(SSE). 세 시스템(헬프데스크·프로젝트관리·RAG)을 도구로 도느라 AI쳇보다 오래
+        // 걸릴 수 있어 AiChatClient 와 같은 길이로 늘린다. GatewayClient 로는 text/event-stream 을
+        // 못 읽어 맨 HttpClient 가 필요하다(AiChatClient 머리말과 같은 사정).
+        services.AddHttpClient<AssistantClient>(client =>
+            {
+                client.BaseAddress = new Uri(baseUrl);
+                client.Timeout = TimeSpan.FromMinutes(10);
+            })
+            .ConfigurePrimaryHttpMessageHandler(ServiceCollectionExtensions.NoCookieJar)
+            .AddHttpMessageHandler<AuthTokenHandler>();
+
         services.AddHttpClient<NoticeUploadClient>(client =>
             {
                 client.BaseAddress = new Uri(baseUrl);

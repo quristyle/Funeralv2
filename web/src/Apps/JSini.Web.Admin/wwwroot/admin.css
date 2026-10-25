@@ -5867,3 +5867,124 @@
   border-radius: 4px;
 }
 
+/* ── 업무 비서 (/admin/ai/assistant) ────────────────────────────────
+   서랍 AI쳇(jsini-chat)과 같은 틀 — 로그만 구르고 머리·입력칸은 고정이다.
+   셸 본문의 유일한 직속 자식이어야 height:100% 가 먹는다
+   (web/CLAUDE.md 「셸 본문의 직속 자식이 셋이면 높이 규칙이 겹친다」). */
+.assistant {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.assistant__bar {
+  flex: 0 0 auto;
+  padding-bottom: 0.5rem;
+}
+
+.assistant__scope {
+  max-width: 320px;
+}
+
+.assistant__log {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 0.25rem 0;
+}
+
+.assistant__turn {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.assistant__question {
+  align-self: flex-end;
+  max-width: 85%;
+  padding: 0.5rem 0.85rem;
+  border-radius: 0.75rem;
+  background: var(--jsini-accent);
+  color: var(--tb-primary-fg, #fff);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* 도구가 도는 동안의 진행 안내. 답이 오기 전에는 「멎었나」로 읽히기 쉬워 둔다 —
+   끝난 뒤에도 지우지 않는다. 무엇을 뒤져 답했는지가 곧 근거의 일부다. */
+.assistant__progress {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.assistant__progress-item {
+  font-size: var(--jsini-fs-sm);
+  color: var(--jsini-text-muted);
+  background: var(--jsini-surface-muted);
+  border: 1px solid var(--jsini-border);
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+}
+
+.assistant__answer {
+  max-width: 85%;
+  padding: 0.5rem 0.85rem;
+  border-radius: 0.75rem;
+  background: var(--jsini-surface);
+  border: 1px solid var(--jsini-border);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* 답 속 요청글 번호(#123) 링크 — /helpdesk/request/detail/{id} 로 간다. */
+.assistant__cite {
+  font-weight: 600;
+}
+
+.assistant__typing {
+  display: inline-flex;
+  gap: 0.2rem;
+  padding: 0.5rem 0.85rem;
+}
+
+.assistant__typing-dot {
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: var(--jsini-text-muted);
+  animation: assistant-typing 1s infinite ease-in-out;
+}
+
+.assistant__typing-dot:nth-child(2) { animation-delay: 0.15s; }
+.assistant__typing-dot:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes assistant-typing {
+  0%, 80%, 100% { opacity: 0.25; }
+  40% { opacity: 1; }
+}
+
+.assistant__input-bar {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  flex: 0 0 auto;
+  padding-top: 0.5rem;
+}
+
+.assistant__text {
+  flex: 1;
+}
+
+/* 휴대폰에서는 옆으로 밀리지 않는다 — 말풍선이 폭 전체를 쓴다. */
+@media (max-width: 767px) {
+  .assistant__question,
+  .assistant__answer {
+    max-width: 100%;
+  }
+}
+

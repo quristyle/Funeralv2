@@ -1,0 +1,96 @@
+@page "/admin/ai/assistant"
+@attribute [RouteKey("admin.ai.assistant")]
+@inherits BasePage
+@implements IAsyncDisposable
+
+@*
+    [업무 비서] 슈퍼관리자·임원이 사내 자료(RAG)와 포털 업무 자료(헬프데스크 요청글 ·
+    프로젝트관리 일정·할 일 · 메일)를 가로질러 한국어로 물어보는 대화 화면.
+    답이 표·목록을 실어 나르기 쉬워야 해서(「10-17일 이후 할 일 전부」 같은 질문이
+    줄 수십 개를 돌려준다) 헤더 서랍(AiChatPanel)이 아니라 전체 폭 화면이다.
+
+    질문마다 모델이 도구를 불러 포털 자료를 직접 읽어 온다(색인하지 않는다 —
+    AIAgentServer 의 AssistantAgent). 요청글 · 일정 · 메일 세 시스템을 넘나들면
+    몇 초가 걸리므로, 도구가 도는 동안 받는 안내(kind: "tool")를 진행 띠로 그려
+    빈 화면으로 멎은 것처럼 보이지 않게 한다. 답은 도구 루프가 다 끝난 뒤
+    한 번에 통째로 온다 — 글자 단위로 흐르지 않는다.
+*@
+
+<div class="assistant">
+    <div class="assistant__bar">
+        <select class="assistant__scope" title="찾아볼 자료 범위"
+                value="@(_scope ?? "")" @onchange="OnScopeChanged">
+            <option value="">전체 자료</option>
+            @foreach (var s in _scopes)
+            {
+                <option value="@s.Id" title="@s.Description">
+                    @(s.CompanyName is null ? s.Name : $"{s.Name} ({s.CompanyName})")
+                </option>
+            }
+        </select>
+    </div>
+
+    <div class="assistant__log" @ref="_logRef">
+        @foreach (var turn in _turns)
+        {
+            <div class="assistant__turn">
+                <div class="assistant__question">@turn.Question</div>
+
+                @if (turn.ToolNotices.Count > 0)
+                {
+                    <div class="assistant__progress">
+                        @foreach (var notice in turn.ToolNotices)
+                        {
+                            <span class="assistant__progress-item">@notice</span>
+                        }
+                    </div>
+                }
+
+                @if (turn.Answer.Length > 0)
+                {
+                    <div class="assistant__answer">
+                        @foreach (var seg in AnswerSegments(turn.Answer))
+                        {
+                            @if (seg.RequestId is { } id)
+                            {
+                                <a href="@($"/helpdesk/request/detail/{id}")" class="assistant__cite">@seg.Text</a>
+                            }
+                            else
+                            {
+                                @seg.Text
+                            }
+                        }
+                    </div>
+                }
+                else if (turn.Streaming)
+                {
+                    <div class="assistant__typing">
+                        <span class="assistant__typing-dot"></span>
+                        <span class="assistant__typing-dot"></span>
+                        <span class="assistant__typing-dot"></span>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+
+    <div class="assistant__input-bar" @ref="_inputRef" @onkeydown="OnKeyDownAsync">
+        <DxMemo @bind-Text="@_input"
+                BindValueMode="BindValueMode.OnInput"
+                Rows="1"
+                MaxRows="6"
+                ResizeMode="MemoResizeMode.Auto"
+                Enabled="@(!_streaming)"
+                CssClass="assistant__text" />
+
+        @if (_streaming)
+        {
+            <DxButton Text="중단" RenderStyle="ButtonRenderStyle.Secondary" Click="@Stop" />
+        }
+        else
+        {
+            <DxButton Text="보내기" RenderStyle="ButtonRenderStyle.Primary"
+                      Enabled="@(!string.IsNullOrWhiteSpace(_input))" Click="@(() => SendAsync())" />
+        }
+    </div>
+</div>
