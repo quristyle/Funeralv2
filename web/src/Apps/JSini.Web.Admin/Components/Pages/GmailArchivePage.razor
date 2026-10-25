@@ -1,0 +1,169 @@
+@page "/admin/ai/gmail"
+@attribute [RouteKey("admin.ai.gmail")]
+@inherits DataPage
+@implements IAsyncDisposable
+
+@*
+    [Gmail 보관함] Google Takeout 이 내려 주는 mbox 를 포털 DB 로 붓고, 그중 오래된 것을
+    RAG 문서함이 읽을 수 있는 글 파일로 만들어 올리는 자리.
+
+    Takeout 은 **JSON 이 아니라 mbox** 로 내려 준다 — 메일이 MIME 로 줄줄이 이어 붙은 글
+    덩어리라 RAG 가 그대로 읽으면 헤더와 base64 첨부가 본문 행세를 한다. 그래서 두 걸음을
+    나눠 둔다: ① mbox → 표(한 통이 한 줄, 겹침 제거) ② 표 → 달별 문서(제목·보낸이·날짜·본문).
+
+    단계가 순서대로라 세로로 쌓고 쪽이 구르게 둔다(대시보드와 같은 판단) — 감싸면 남은
+    높이를 한 판이 다 먹는다.
+*@
+
+<PageTitle>Gmail 보관함</PageTitle>
+
+<CommSch Foldable="false" OnSearch="@LoadAsync" Busy="@Loading">
+    <Fields>
+        <CommSchItem Label="메일함">
+            <DxComboBox Data="@_accounts"
+                        @bind-Value="@_accountId"
+                        TextFieldName="@nameof(GmailAccountDto.Email)"
+                        ValueFieldName="@nameof(GmailAccountDto.Id)"
+                        NullText="등록된 메일함이 없습니다"
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Never" />
+        </CommSchItem>
+    </Fields>
+    <Actions>
+        <PermissionView Action="MenuAction.Create">
+            <DxButton Text="메일함 등록" RenderStyle="ButtonRenderStyle.Secondary" Click="@OpenAccountAsync" />
+        </PermissionView>
+    </Actions>
+</CommSch>
+
+<div class="ad-gmail">
+
+    @* ── 적재 진행 ──────────────────────────────────────────
+       수십만 통을 읽는 동안 화면이 멎은 것처럼 보이지 않게 2초마다 되묻는다. *@
+    @if (_status is { } st && (st.Running || st.FinishedAt is not null))
+    {
+        <div class="ad-gmail__progress @(st.Running ? "ad-gmail__progress--on" : null)">
+            <span class="ad-gmail__progress-file">@(st.Path ?? "-")</span>
+            <span>읽음 <b>@st.Parsed.ToString("N0")</b></span>
+            <span>넣음 <b>@st.Inserted.ToString("N0")</b></span>
+            <span>겹침 @st.Duplicate.ToString("N0")</span>
+            @if (st.Failed > 0)
+            {
+                <span class="ad-gmail__bad">실패 @st.Failed.ToString("N0")</span>
+            }
+            @if (st.Running)
+            {
+                <span class="ad-gmail__spin">적재 중…</span>
+            }
+            else if (st.Error is { Length: > 0 } err)
+            {
+                <span class="ad-gmail__bad">@err</span>
+            }
+        </div>
+    }
+
+    @* ── ① mbox ────────────────────────────────────────── *@
+    <CommCont Title="mbox 파일" Hint="@_rootHint">
+        <CommGrd TItem="GmailMboxFileDto"
+                 Data="@_files"
+                 Unit="개"
+                 StateKey="admin/ai/gmail/files"
+                 PagerVisible="true">
+            <Columns>
+                <DxGridDataColumn FieldName="@nameof(GmailMboxFileDto.Name)" Caption="파일" TextAlignment="GridTextAlignment.Left" />
+                <DxGridDataColumn FieldName="@nameof(GmailMboxFileDto.SizeLabel)" Caption="크기" Width="100px" TextAlignment="GridTextAlignment.Right" />
+                <DxGridDataColumn FieldName="@nameof(GmailMboxFileDto.ModifiedAt)" Caption="올린 때" Width="160px">
+                    <CellDisplayTemplate>
+                        @(((GmailMboxFileDto)context.DataItem).ModifiedAt?.Kst("yyyy-MM-dd HH:mm"))
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+                <DxGridDataColumn Caption="" Width="96px">
+                    <CellDisplayTemplate>
+                        <PermissionView Action="MenuAction.Create">
+                            <DxButton Text="적재"
+                                      RenderStyle="ButtonRenderStyle.Primary"
+                                      Enabled="@(!Loading && _status?.Running != true && _accountId is { Length: > 0 })"
+                                      Click="@(() => ImportAsync(((GmailMboxFileDto)context.DataItem).Name))" />
+                        </PermissionView>
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+            </Columns>
+        </CommGrd>
+
+        <PermissionView Action="MenuAction.Create">
+            <div class="ad-gmail__upload">
+                <FilePicker MaxFiles="1"
+                            MaxBytes="@MaxUploadBytes"
+                            Accept=".mbox"
+                            SelectTitle="mbox 고르기"
+                            Hint="@UploadHint"
+                            FilesChanged="@UploadAsync" />
+            </div>
+        </PermissionView>
+    </CommCont>
+
+    @* ── ② RAG 문서 만들기 ──────────────────────────────── *@
+    <CommCont Title="RAG 문서 만들기" Hint="@_archiveHint">
+        <div class="ad-gmail__row">
+            <DxComboBox Data="@_categories"
+                        @bind-Value="@_categoryId"
+                        TextFieldName="@nameof(RagCategoryDto.Name)"
+                        ValueFieldName="@nameof(RagCategoryDto.Id)"
+                        NullText="올릴 카테고리"
+                        CssClass="ad-gmail__cate"
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+
+            <DxSpinEdit @bind-Value="@_maxMessages" MinValue="1" MaxValue="20000" CssClass="ad-gmail__num" />
+            <span class="jsini-text-muted">통씩</span>
+
+            <PermissionView Action="MenuAction.Create">
+                <DxButton Text="문서 만들기"
+                          RenderStyle="ButtonRenderStyle.Primary"
+                          Enabled="@(!Loading && _categoryId is { Length: > 0 })"
+                          Click="@ArchiveAsync" />
+            </PermissionView>
+        </div>
+    </CommCont>
+
+    @* ── 쌓인 양 ───────────────────────────────────────── *@
+    <CommCont Title="쌓인 메일">
+        <CommGrd TItem="GmailStatDto" Data="@_stats" ShowHeader="false" PagerVisible="false">
+            <Columns>
+                <DxGridDataColumn FieldName="@nameof(GmailStatDto.AccountId)" Caption="메일함" TextAlignment="GridTextAlignment.Left" />
+                <DxGridDataColumn FieldName="@nameof(GmailStatDto.SourceLabel)" Caption="받은 길" Width="140px" />
+                <DxGridDataColumn FieldName="@nameof(GmailStatDto.Count)" Caption="통" Width="100px" TextAlignment="GridTextAlignment.Right" DisplayFormat="N0" />
+                <DxGridDataColumn Caption="기간" TextAlignment="GridTextAlignment.Left">
+                    <CellDisplayTemplate>
+                        @Period((GmailStatDto)context.DataItem)
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+            </Columns>
+        </CommGrd>
+    </CommCont>
+</div>
+
+@* ── 메일함 등록 ───────────────────────────────────────── *@
+<CommPopup @bind-Visible="@_accountOpen" HeaderText="메일함 등록" Width="460px">
+    <BodyContentTemplate Context="popup">
+        <DxFormLayout>
+            <DxFormLayoutItem Caption="열쇠" ColSpanMd="12">
+                <DxTextBox @bind-Text="@_edit.Id" />
+            </DxFormLayoutItem>
+            <DxFormLayoutItem Caption="메일 주소" ColSpanMd="12">
+                <DxTextBox @bind-Text="@_edit.Email" />
+            </DxFormLayoutItem>
+            <DxFormLayoutItem Caption="받는 길" ColSpanMd="12">
+                <DxComboBox Data="@Kinds"
+                            @bind-Value="@_edit.Kind"
+                            TextFieldName="Text"
+                            ValueFieldName="Value"
+                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Never" />
+            </DxFormLayoutItem>
+        </DxFormLayout>
+        <div class="jsini-hint">열쇠는 이 메일함을 가리키는 짧은 이름이다(imrbiz · personal). 한 번 정하면 안 바꾼다.</div>
+    </BodyContentTemplate>
+
+    <FooterContentTemplate Context="popupFooter">
+        <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveAccountAsync" />
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _accountOpen = false)" />
+    </FooterContentTemplate>
+</CommPopup>

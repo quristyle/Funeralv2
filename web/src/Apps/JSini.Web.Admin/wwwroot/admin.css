@@ -6006,3 +6006,60 @@
   }
 }
 
+
+/* ── Gmail 보관함 (/admin/ai/gmail) ─────────────────────────
+   단계가 순서대로라 세로로 쌓는다. 판 하나가 남은 높이를 다 먹지 않게
+   높이를 주지 않고 쪽이 구르게 둔다. */
+.ad-gmail {
+    display: flex;
+    flex-direction: column;
+    gap: var(--jsini-gap, 0.75rem);
+}
+
+/* 적재 진행 띠. 끝난 뒤에도 결과를 남겨 둔다 — 사라지면 몇 통이 들어갔는지 알 수 없다. */
+.ad-gmail__progress {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem 1rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--bs-border-color, #dee2e6);
+    border-radius: var(--jsini-radius, 6px);
+    font-size: var(--jsini-fs-sm);
+}
+
+.ad-gmail__progress--on {
+    border-color: var(--tb-primary, #0d6efd);
+}
+
+.ad-gmail__progress-file {
+    font-weight: 600;
+    margin-right: auto;
+}
+
+.ad-gmail__bad {
+    color: var(--bs-danger, #d63939);
+}
+
+.ad-gmail__spin {
+    color: var(--tb-primary, #0d6efd);
+}
+
+.ad-gmail__row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.ad-gmail__cate {
+    min-width: 14rem;
+}
+
+.ad-gmail__num {
+    width: 7rem;
+}
+
+.ad-gmail__upload {
+    margin-top: 0.5rem;
+}

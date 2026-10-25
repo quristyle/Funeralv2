@@ -217,6 +217,9 @@ nginx 설정 정본은 [deploy/nginx/](deploy/nginx/) 에 있다 — Blazor 회�
   열리던 구멍: 기본 차단으로 뒤집은 길과 「차단 접근기록」 화면
 - [docs/account-activity.md](docs/account-activity.md) — 계정의 마지막 로그인과
   **마지막 사용**: 둘을 가른 까닭 · 쌓는 자리 둘 · 결합이 안 옮기던 로그인 시각
+- [docs/gmail-archive.md](docs/gmail-archive.md) — Gmail 보관함: 계정 종류가
+  인증을 가르는 까닭(Workspace 는 API · 개인은 IMAP) · 길 셋이 겹칠 때
+  `Message-ID` 로 지우는 자리 · 적재가 폴더를 못 벗어나게 묶은 길
 - [docs/portal-ai-assistant.md](docs/portal-ai-assistant.md) — 업무 비서: 포털
   데이터를 도구로 여는 까닭 · 도구 일곱 · 기록이 답 전문을 담는 까닭 · 실측
   숫자와 지어냄 0건 · 아직 안 끝난 것(내부 토큰 · 기록 표 · 「임원」 역할)

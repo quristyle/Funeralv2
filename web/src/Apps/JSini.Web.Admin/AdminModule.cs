@@ -63,6 +63,18 @@ public sealed class AdminModule : IPortalModule
             .ConfigurePrimaryHttpMessageHandler(ServiceCollectionExtensions.NoCookieJar)
             .AddHttpMessageHandler<AuthTokenHandler>();
 
+        // Gmail 보관함. 읽기는 게이트웨이 클라이언트지만 mbox 올리기가 멀티파트라
+        // RAG 문서함과 같은 방식으로 맨 HttpClient 를 함께 준다.
+        services.AddHttpClient<GmailArchiveClient>(client =>
+            {
+                client.BaseAddress = new Uri(baseUrl);
+
+                // mbox 는 수백 MB 다. 기본 100초로는 어림없다.
+                client.Timeout = TimeSpan.FromMinutes(30);
+            })
+            .ConfigurePrimaryHttpMessageHandler(ServiceCollectionExtensions.NoCookieJar)
+            .AddHttpMessageHandler<AuthTokenHandler>();
+
         services.AddHttpClient<NoticeUploadClient>(client =>
             {
                 client.BaseAddress = new Uri(baseUrl);
