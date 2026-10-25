@@ -56,3 +56,6 @@ logs/
 
 # superpowers SDD 작업 흔적 (계획 실행용 임시 파일)
 .superpowers/
+
+# Takeout 으로 내려받은 메일 원본(mbox). 사람 메일이라 저장소에 절대 안 들어간다.
+data/gmail-import/

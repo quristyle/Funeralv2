@@ -68,6 +68,7 @@
                   NotificationServer/EmailQueueSender -->
     <PackageVersion Include="RabbitMQ.Client" Version="7.2.2" />
     <PackageVersion Include="MailKit" Version="4.17.0" />
+    <PackageVersion Include="MimeKit" Version="4.17.0" />
     <PackageVersion Include="WebPush" Version="1.0.13" />
     <!--
       WebPush 이 Newtonsoft.Json 10.0.3 을 끌고 온다. 그 버전에는 높음 심각도 취약점이

@@ -5,6 +5,10 @@
     <PackageReference Include="ModelContextProtocol" />
     <PackageReference Include="PdfPig" />
     <PackageReference Include="HtmlAgilityPack" />
+    <!-- Takeout mbox 를 읽는다(Services/Gmail/TakeoutImporter.cs). -->
+    <!-- 개인 Gmail 을 IMAP 으로 받는다(Services/Gmail/ImapCollector.cs). -->
+    <PackageReference Include="MailKit" />
+    <PackageReference Include="MimeKit" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
     <!-- 사람별 AI 사용량을 적는 표 하나 때문에 들인다(Data/AiUsageDbContext.cs).
          마이그레이션은 없다 — 표는 deploy/sql 이 만든다. -->
