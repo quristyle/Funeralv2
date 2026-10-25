@@ -35,7 +35,9 @@ public sealed class GmailRagArchiver(
 
     private string? DefaultCategory => config["Gmail:RagCategoryId"];
 
-    public async Task<Result> RunAsync(string? categoryId, int maxMessages, string? who, CancellationToken ct)
+    /// <param name="folderId">올릴 분류(RAG 문서함의 폴더). <c>null</c> 이면 카테고리 바로 아래.</param>
+    public async Task<Result> RunAsync(
+        string? categoryId, long? folderId, int maxMessages, string? who, CancellationToken ct)
     {
         var target = string.IsNullOrWhiteSpace(categoryId) ? DefaultCategory : categoryId;
         if (string.IsNullOrWhiteSpace(target))
@@ -43,6 +45,16 @@ public sealed class GmailRagArchiver(
 
         if (await library.GetCategoryAsync(target, ct) is null)
             return new Result(0, 0, $"그런 RAG 카테고리가 없습니다: {target}");
+
+        // 분류가 그 카테고리의 것인지 본다. 안 보면 남의 카테고리 폴더에 메일을 넣을 수
+        // 있고, 그 문서는 고른 적 없는 카테고리의 색인에 들어가 거기서 검색된다.
+        if (folderId is { } fid)
+        {
+            var ok = await db.RagFolders.AsNoTracking()
+                .AnyAsync(f => f.Id == fid && f.CategoryId == target && !f.IsDeleted, ct);
+
+            if (!ok) return new Result(0, 0, "고른 분류가 그 카테고리의 것이 아닙니다.");
+        }
 
         var cutoff = DateTime.UtcNow.AddMonths(-ArchiveAfterMonths);
 
@@ -85,7 +97,7 @@ public sealed class GmailRagArchiver(
 
                 await using var stream = new MemoryStream(Encoding.UTF8.GetBytes(text));
                 var row = await library.UploadAsync(
-                    target!, folderId: null, name, "text/markdown", stream, who ?? "gmail-archive", ct);
+                    target!, folderId, name, "text/markdown", stream, who ?? "gmail-archive", ct);
 
                 var ids = slice.Select(m => m.Id).ToList();
                 await db.GmailMessages

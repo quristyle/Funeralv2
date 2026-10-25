@@ -35,9 +35,14 @@ public partial class GmailArchivePage : DataPage, IAsyncDisposable
     private IReadOnlyList<GmailStatDto> _stats = [];
     private IReadOnlyList<RagCategoryDto> _categories = [];
 
+    /// <summary>고른 카테고리의 분류들. 나무지만 고르개에는 한 줄씩 「상위 › 하위」로 편다 —
+    /// 깊이를 안 보이면 이름만 같은 분류가 여럿일 때 어느 것인지 알 수 없다.</summary>
+    private IReadOnlyList<FolderOption> _folders = [];
+
     private GmailImportStatusDto? _status;
     private string? _accountId;
     private string? _categoryId;
+    private long? _folderId;
     private int _maxMessages = 1000;
 
     private string? _rootHint;
@@ -88,6 +93,30 @@ public partial class GmailArchivePage : DataPage, IAsyncDisposable
         });
     }
 
+    /// <summary>카테고리를 바꾸면 분류를 다시 읽는다. <b>고른 분류는 반드시 버린다</b> —
+    /// 남겨 두면 다른 카테고리의 분류 번호가 그대로 올라가고, 서버가 거절하므로
+    /// 「분류를 골랐는데 안 된다」가 된다.</summary>
+    private async Task OnCategoryChangedAsync(string? categoryId)
+    {
+        _categoryId = categoryId;
+        _folderId = null;
+        _folders = [];
+        _archiveHint = null;
+
+        if (string.IsNullOrWhiteSpace(categoryId)) return;
+
+        try
+        {
+            _folders = FolderOption.Flatten(await Rag.FoldersAsync(categoryId));
+        }
+        catch (ApiException ex)
+        {
+            // 분류를 못 읽어도 카테고리 바로 아래로는 올릴 수 있다.
+            _folders = [];
+            Say($"분류를 읽지 못했습니다 — {ex.Message}", NoticeTone.Warning);
+        }
+    }
+
     private async Task ImportAsync(string file)
     {
         if (_accountId is not { Length: > 0 } account) return;
@@ -120,7 +149,7 @@ public partial class GmailArchivePage : DataPage, IAsyncDisposable
 
         await RunAsync(async () =>
         {
-            var result = await Gmail.ArchiveAsync(category, _maxMessages);
+            var result = await Gmail.ArchiveAsync(category, _folderId, _maxMessages);
             _stats = await Gmail.StatsAsync();
 
             // 「남은 것이 없다」와 「카테고리가 없다」는 실패가 아니라 알림이다 — 판 머리에 적는다.
@@ -128,7 +157,8 @@ public partial class GmailArchivePage : DataPage, IAsyncDisposable
 
             if (result is { Documents: > 0 })
             {
-                Say($"메일 {result.Messages:N0}통을 문서 {result.Documents}장으로 올렸습니다. 색인은 뒤에서 만들어집니다.");
+                var where = _folders.FirstOrDefault(f => f.Id == _folderId)?.Label ?? "카테고리 바로 아래";
+                Say($"메일 {result.Messages:N0}통을 문서 {result.Documents}장으로 「{where}」에 올렸습니다. 색인은 뒤에서 만들어집니다.");
             }
             else
             {
@@ -227,6 +257,35 @@ public partial class GmailArchivePage : DataPage, IAsyncDisposable
         }
 
         GC.SuppressFinalize(this);
+    }
+
+    /// <summary>고르개 한 줄. 나무를 깊이 순서로 펴면서 「상위 › 하위」 경로를 미리 지어 둔다.</summary>
+    private sealed record FolderOption(long Id, string Label)
+    {
+        public static IReadOnlyList<FolderOption> Flatten(IReadOnlyList<RagFolderDto> folders)
+        {
+            // 뿌리는 ParentId 가 null 이다. 분류 번호가 양수라 0 을 뿌리 자리로 쓴다 —
+            // null 을 사전 열쇠로 쓸 수 없다.
+            var byParent = folders
+                .GroupBy(f => f.ParentId ?? 0)
+                .ToDictionary(g => g.Key, g => g.OrderBy(x => x.SortNo).ThenBy(x => x.Name).ToList());
+
+            var result = new List<FolderOption>();
+            Walk(0, string.Empty);
+            return result;
+
+            void Walk(long parent, string prefix)
+            {
+                if (!byParent.TryGetValue(parent, out var rows)) return;
+
+                foreach (var f in rows)
+                {
+                    var label = prefix.Length == 0 ? f.Name : $"{prefix} › {f.Name}";
+                    result.Add(new FolderOption(f.Id, label));
+                    Walk(f.Id, label);
+                }
+            }
+        }
     }
 
     private sealed class AccountEdit

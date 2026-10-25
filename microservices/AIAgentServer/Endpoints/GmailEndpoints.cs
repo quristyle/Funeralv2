@@ -350,7 +350,7 @@ public static class GmailEndpoints
                 return Results.Ok(ApiResponse<object>.Fail("로그인이 필요합니다.", "C401"));
 
             var max = Math.Clamp(body.MaxMessages ?? 1000, 1, 20000);
-            var result = await archiver.RunAsync(body.CategoryId, max, who, ct);
+            var result = await archiver.RunAsync(body.CategoryId, body.FolderId, max, who, ct);
 
             return Results.Ok(ApiResponse<object>.Ok(new
             {
@@ -450,6 +450,6 @@ public sealed record GmailAccountUpsert(
 
 public sealed record TakeoutImportRequest(string AccountId, string File);
 
-public sealed record GmailArchiveRequest(string? CategoryId, int? MaxMessages);
+public sealed record GmailArchiveRequest(string? CategoryId, long? FolderId, int? MaxMessages);
 
 public sealed record GmailSyncRequest(string AccountId, int? MaxMessages);

@@ -104,13 +104,27 @@
     @* ── ② RAG 문서 만들기 ──────────────────────────────── *@
     <CommCont Title="RAG 문서 만들기" Hint="@_archiveHint">
         <div class="ad-gmail__row">
+            @* 카테고리를 바꾸면 분류를 다시 읽어야 해서 @bind-Value 가 아니라 값·알림을 따로 준다. *@
             <DxComboBox Data="@_categories"
-                        @bind-Value="@_categoryId"
+                        Value="@_categoryId"
+                        ValueChanged="@((string? v) => OnCategoryChangedAsync(v))"
                         TextFieldName="@nameof(RagCategoryDto.Name)"
                         ValueFieldName="@nameof(RagCategoryDto.Id)"
                         NullText="올릴 카테고리"
                         CssClass="ad-gmail__cate"
                         ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+
+            @* 분류가 없는 카테고리에서는 고르개를 세우지 않는다 — 고를 것이 없는 칸이다. *@
+            @if (_folders.Count > 0)
+            {
+                <DxComboBox Data="@_folders"
+                            @bind-Value="@_folderId"
+                            TextFieldName="Label"
+                            ValueFieldName="Id"
+                            NullText="분류 — 안 고르면 카테고리 바로 아래"
+                            CssClass="ad-gmail__folder"
+                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+            }
 
             <DxSpinEdit @bind-Value="@_maxMessages" MinValue="1" MaxValue="20000" CssClass="ad-gmail__num" />
             <span class="jsini-text-muted">통씩</span>
