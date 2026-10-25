@@ -176,6 +176,8 @@ public partial class GmailArchivePage : DataPage, IAsyncDisposable
     {
         HttpRequestException { StatusCode: System.Net.HttpStatusCode.RequestEntityTooLarge } =>
             "서버가 크기를 막았습니다. 게이트웨이와 AI 서버가 최신 판인지 확인해 주세요.",
+        HttpRequestException { StatusCode: System.Net.HttpStatusCode.BadGateway } =>
+            "올리는 동안 뒷단과의 연결이 끊겼습니다(재기동 중이었을 수 있습니다). 다시 시도해 주세요.",
         HttpRequestException { StatusCode: { } code } => $"서버가 {(int)code} 로 답했습니다.",
         HttpRequestException => "서버에 닿지 못했습니다.",
         IOException => "파일을 읽다 끊겼습니다.",

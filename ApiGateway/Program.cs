@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Server.Kestrel.Core.Features;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Security.Claims;
@@ -284,10 +285,20 @@ app.UseCors("AllowFrontend");
 app.Use(async (context, next) =>
 {
     if (context.Request.Path.StartsWithSegments("/api/ai/gmail/import/upload",
-            StringComparison.OrdinalIgnoreCase)
-        && context.Features.Get<IHttpMaxRequestBodySizeFeature>() is { IsReadOnly: false } limit)
+            StringComparison.OrdinalIgnoreCase))
     {
-        limit.MaxRequestBodySize = null;
+        if (context.Features.Get<IHttpMaxRequestBodySizeFeature>() is { IsReadOnly: false } limit)
+        {
+            limit.MaxRequestBodySize = null;
+        }
+
+        // Kestrel 은 본문이 **초당 240바이트** 밑으로 떨어지면 연결을 끊는다(기본값).
+        // 올리는 쪽 회선이 잠깐 가라앉기만 해도 걸리고, 끊긴 연결은 올리는 사람에게
+        // 502 로 보인다 — 몇 분을 기다린 끝에 받는 답이라 특히 나쁘다.
+        if (context.Features.Get<IHttpMinRequestBodyDataRateFeature>() is { } rate)
+        {
+            rate.MinDataRate = null;
+        }
     }
 
     await next();

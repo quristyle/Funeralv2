@@ -63,6 +63,11 @@ services:
       # `docker exec printenv` 로는 안 보인다 — 그쪽은 컨테이너 설정값을 보여 주지
       # 도는 프로세스가 받은 것을 보여 주지 않는다. 확인은 `/proc/1/environ` 으로 한다.
       ReverseProxy__Clusters__mcp_cluster__Destinations__destination1__Address: http://mcp:8080
+
+      # mbox 올리기 전용 클러스터(ai_upload_cluster). 저장소의 주소는 개발 장비 기준
+      # (localhost:5029)이라 컨테이너 안에서는 자기 자신을 가리킨다 — 안 덮으면
+      # **운영의 모든 올리기가 502** 다. 이름에 하이픈이 없는 까닭은 바로 위와 같다.
+      ReverseProxy__Clusters__ai_upload_cluster__Destinations__destination1__Address: http://ai:8080
     volumes:
       - /srv/jsini/config/ApiGateway/appsettings.Local.json:/app/appsettings.Local.json:ro
     depends_on: [auth, file, site, notify, life, cargo, funeral, helpdesk, projmng, ai, mcp]

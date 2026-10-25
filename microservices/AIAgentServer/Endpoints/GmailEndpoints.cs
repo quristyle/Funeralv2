@@ -4,6 +4,7 @@ using AIAgentServer.Services.Gmail;
 using JSini.Shared.DTOs;
 
 using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Server.Kestrel.Core.Features;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Net.Http.Headers;
@@ -133,6 +134,14 @@ public static class GmailEndpoints
             if (http.Features.Get<IHttpMaxRequestBodySizeFeature>() is { IsReadOnly: false } limit)
             {
                 limit.MaxRequestBodySize = null;
+            }
+
+            // 최소 전송 속도(기본 초당 240바이트)도 푼다. 느린 회선에서 GB 짜리를 올리면
+            // 중간에 한 번 가라앉는 것만으로 연결이 끊기고, 그 끊김은 게이트웨이를 거쳐
+            // **502** 로 보인다 — 받는 쪽이 멀쩡한데도 「서버가 죽었다」로 읽힌다.
+            if (http.Features.Get<IHttpMinRequestBodyDataRateFeature>() is { } rate)
+            {
+                rate.MinDataRate = null;
             }
 
             var boundary = MultipartBoundary(http.Request.ContentType);
