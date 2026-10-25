@@ -119,6 +119,7 @@ ReadWritePaths=-/home/lee/.nuget
 ReadWritePaths=-/home/lee/.dotnet
 ReadWritePaths=-/home/lee/.config
 ReadWritePaths=-/home/lee/nums
+ReadWritePaths=-/home/lee/ghub-tdms
 ReadWritePaths=-/srv/ai-targets
 PrivateTmp=yes
 

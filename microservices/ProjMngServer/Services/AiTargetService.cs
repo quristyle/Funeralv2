@@ -16,9 +16,14 @@ public sealed class AiTargetService(IConfiguration configuration)
 
     /// <summary>대상이 놓일 수 있는 뿌리. 설정 AiTasks:AllowedRoots 로 바꾼다.</summary>
     /// 뿌리를 한 곳으로 모아 두면 실행기 systemd 유닛의 ReadWritePaths 를 다시 고칠 일이 없다.
+    /// 빈 칸은 버린다 — 배열은 칸 번호로 덮이므로 덮는 쪽이 남는 칸을 빈 값으로 지우는데,
+    /// 빈 값을 그대로 두면 "/" 로 풀려 모든 경로가 통과한다.
     private readonly string[] _allowedRoots =
         configuration.GetSection("AiTasks:AllowedRoots").Get<string[]>()
-        ?? ["/home/lee", "/srv/ai-targets"];
+            ?.Where(r => !string.IsNullOrWhiteSpace(r)).Select(r => r.Trim()).Distinct().ToArray()
+        is { Length: > 0 } roots
+            ? roots
+            : ["/home/lee", "/srv/ai-targets"];
 
     /// <summary>어떤 경우에도 대상이 될 수 없는 곳.</summary>
     /// 뿌리가 넓어진 뒤로는 이 목록이 뒷단속이 아니라 울타리 본체다.

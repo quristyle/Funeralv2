@@ -232,6 +232,14 @@ services:
       # AI 작업 끝남 알림도 같다. 기본값(127.0.0.1:5460)은 컨테이너 안에서
       # 자기 자신이라 알림이 통째로 안 나간다.
       AiTasks__NotifyUrl: http://notify:8080
+
+      # AI 작업 대상 뿌리. 아래 appsettings.Local.json 이 칸 셋짜리 목록을 들고 있고
+      # 배열은 **칸 번호로** 덮이므로, 여기서 세 칸을 다 덮어야 그 목록이 안 남는다
+      # (셋째 칸은 비워서 지운다 — 빈 칸은 서버가 버린다). 실행기가 그 폴더에 쓰려면
+      # deploy/ai-runner 유닛의 ReadWritePaths 도 따로 있어야 한다.
+      AiTasks__AllowedRoots__0: /home/lee
+      AiTasks__AllowedRoots__1: /srv/ai-targets
+      AiTasks__AllowedRoots__2: ""
     volumes:
       - /srv/jsini/config/ProjMngServer/appsettings.Local.json:/app/appsettings.Local.json:ro
 
