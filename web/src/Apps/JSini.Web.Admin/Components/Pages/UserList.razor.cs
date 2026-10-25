@@ -7,7 +7,7 @@ using JSini.Web.Admin.Api;
 
 namespace JSini.Web.Admin.Components.Pages;
 
-public partial class UserList
+public partial class UserList : IDisposable
 {
     [Inject] private AdminClient Api { get; set; } = default!;
 
@@ -18,6 +18,21 @@ public partial class UserList
     private string ConditionSummary => SchSummary.Of(
         SchSummary.Or(_keyword),
         SchSummary.Or(_status));
+
+    /// <summary>떠날 때 쓰던 모습을 맡기는 곳. 돌아오면 그대로 되찾는다.</summary>
+    [Inject] private ScreenState Screen { get; set; } = default!;
+
+    /// <summary>이 화면이 맡겨 두는 짐의 이름. 표 모습은 CommGrd 가 따로 맡는다.</summary>
+    internal const string StateKey = "admin/system/account";
+
+    /// <summary>떠날 때 챙기는 조건과 읽어 둔 줄. 역할·회사·부서도 함께 든다 —
+    /// 편집 폼의 고르개가 그 값으로 서므로 안 들면 돌아오자마자 고르개가 빈다.</summary>
+    private sealed record Kept(
+        string? Keyword, string? Status,
+        IReadOnlyList<AccountDto> Accounts, IReadOnlyList<RoleDto> Roles,
+        IReadOnlyList<CompanyDto> Companies, IReadOnlyList<DeptDto> Depts);
+
+    private bool _restored;
 
     private IReadOnlyList<AccountDto> _all = [];
     private IReadOnlyList<RoleDto> _roles = [];
@@ -100,8 +115,29 @@ public partial class UserList
         }
     }
 
-    /// <summary>화면을 열면 바로 읽는다. 역할·부서도 함께 받아 편집 폼의 고르개가 비지 않게 한다.</summary>
-    protected override Task OnInitializedAsync() => LoadAsync(async () =>
+    /// <summary>되찾기는 동기에서 한다 — 비동기로 미루면 빈 표가 한 번 그려지고 DxGrid 가
+    /// 그 모습으로 칸 너비와 정렬을 잡는다.</summary>
+    protected override void OnInitialized()
+    {
+        if (Screen.Get<Kept>(StateKey) is not { } kept) return;
+
+        _keyword = kept.Keyword;
+        _status = kept.Status;
+        _all = kept.Accounts;
+        _roles = kept.Roles;
+        _companies = kept.Companies;
+        _newAccountDepts = kept.Depts;
+        _depts = kept.Depts;
+        _restored = kept.Accounts.Count > 0;
+    }
+
+    /// <summary>떠나면서 쓰던 모습을 맡긴다. 떠날 때 한 번만 담는다.</summary>
+    public void Dispose() =>
+        Screen.Set(StateKey, new Kept(_keyword, _status, _all, _roles, _companies, _newAccountDepts));
+
+    /// <summary>화면을 열면 바로 읽는다. 역할·부서도 함께 받아 편집 폼의 고르개가 비지 않게 한다.
+    /// <b>맡겨 둔 줄이 있으면 다시 묻지 않는다</b> — 다시 읽으면 표가 맨 위로 돌아간다.</summary>
+    protected override Task OnInitializedAsync() => _restored ? Task.CompletedTask : LoadAsync(async () =>
     {
         var rolesTask = Api.GetRolesAsync();
         var companiesTask = Api.GetCompaniesAsync();

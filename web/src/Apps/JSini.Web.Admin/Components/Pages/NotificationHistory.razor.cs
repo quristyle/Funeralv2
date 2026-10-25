@@ -34,6 +34,20 @@ public partial class NotificationHistory : IAsyncDisposable
         SchSummary.On(_unreadOnly, "안 읽은 것만"));
 
     /// <summary>조회 기간. 기본은 최근 한 달이다 — 알림은 지우지 않아 자라기만 하고, 서버에 페이징이 없어 기간이 없으면 전부 받아 온다.</summary>
+    /// <summary>떠날 때 쓰던 모습을 맡기는 곳. 돌아오면 그대로 되찾는다.</summary>
+    [Inject] private ScreenState Screen { get; set; } = default!;
+
+    /// <summary>이 화면이 맡겨 두는 짐의 이름. 표 모습은 CommGrd 가 따로 맡는다.</summary>
+    internal const string StateKey = "admin/push/history";
+
+    /// <summary>떠날 때 챙기는 조건과 읽어 둔 줄. 휴대폰에서 「더보기」로 늘린 줄 수(Take)도 든다 —
+    /// 안 들면 스무 번 눌러 펼친 목록이 돌아오자마자 처음으로 접힌다.</summary>
+    private sealed record Kept(
+        DateTime? From, DateTime? To, string? Category, string Keyword, bool UnreadOnly,
+        IReadOnlyList<NotificationDto> Rows, int Take);
+
+    private bool _restored;
+
     private DateTime? _from = AppTime.TodayDate.AddMonths(-1);
     private DateTime? _to = AppTime.TodayDate;
 
@@ -274,6 +288,8 @@ public partial class NotificationHistory : IAsyncDisposable
     /// <summary>손잡이와 모듈을 버린다. 회로가 이미 닫혔으면 조용히 넘어간다.</summary>
     public async ValueTask DisposeAsync()
     {
+        Screen.Set(StateKey, new Kept(_from, _to, _category, _keyword, _unreadOnly, _all, _take));
+
         _swipeRef?.Dispose();
         _swipeRef = null;
 
@@ -352,9 +368,29 @@ public partial class NotificationHistory : IAsyncDisposable
         return ReloadAsync();
     }
 
+    /// <summary>되찾기는 동기에서 한다(DxGrid 가 빈 상태로 모습을 잡지 않게).</summary>
+    protected override void OnInitialized()
+    {
+        if (Screen.Get<Kept>(StateKey) is not { } kept) return;
+
+        _from = kept.From;
+        _to = kept.To;
+        _category = kept.Category;
+        _keyword = kept.Keyword;
+        _unreadOnly = kept.UnreadOnly;
+        _all = kept.Rows;
+        _take = kept.Take;
+        _restored = kept.Rows.Count > 0;
+    }
+
     protected override async Task OnInitializedAsync()
     {
+        // 갈래 목록은 늘 읽는다 — 고르개의 이름이라 맡겨 둘 값이 아니고, 공통코드가 바뀌면 따라야 한다.
         await LoadCategoriesAsync();
+
+        // 맡겨 둔 줄이 있으면 다시 읽지 않는다. 다시 읽으면 표가 맨 위로 돌아가 「그대로」가 깨진다.
+        if (_restored) return;
+
         await ReloadAsync();
     }
 

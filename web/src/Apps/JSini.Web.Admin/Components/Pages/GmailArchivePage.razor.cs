@@ -41,6 +41,9 @@ public partial class GmailArchivePage : DataPage, IAsyncDisposable
 
     [Inject] private RagLibraryClient Rag { get; set; } = default!;
 
+    /// <summary>떠날 때 쓰던 모습을 맡기는 곳. 돌아오면 그대로 되찾는다.</summary>
+    [Inject] private ScreenState Screen { get; set; } = default!;
+
     private IReadOnlyList<GmailAccountDto> _accounts = [];
     private IReadOnlyList<GmailMboxFileDto> _files = [];
     private IReadOnlyList<GmailStatDto> _stats = [];
@@ -87,7 +90,67 @@ public partial class GmailArchivePage : DataPage, IAsyncDisposable
 
     private DateTime _lastPaint = DateTime.MinValue;
 
-    protected override async Task OnInitializedAsync() => await LoadAsync();
+    /// <summary>이 화면이 맡겨 두는 짐의 이름. 표 모습은 CommGrd 가 같은 이름 아래 따로 맡는다.</summary>
+    internal const string StateKey = "admin/ai/gmail";
+
+    /// <summary>떠날 때 챙기는 조건과 읽어 둔 목록. 고른 카테고리의 분류까지 들고 가야
+    /// 돌아왔을 때 고르개가 비어 보이지 않는다.</summary>
+    private sealed record Kept(
+        string? AccountId, string? CategoryId, long? FolderId, int AfterMonths, int MaxMessages,
+        IReadOnlyList<GmailAccountDto> Accounts,
+        IReadOnlyList<GmailMboxFileDto> Files,
+        IReadOnlyList<GmailStatDto> Stats,
+        IReadOnlyList<RagCategoryDto> Categories,
+        IReadOnlyList<FolderOption> Folders,
+        string? RootHint);
+
+    private bool _restored;
+
+    /// <summary>되찾기는 동기에서 한다 — 비동기로 미루면 빈 표가 한 번 그려지고 DxGrid 가
+    /// 그 모습으로 칸 너비를 잡는다.</summary>
+    protected override void OnInitialized()
+    {
+        if (Screen.Get<Kept>(StateKey) is not { } kept) return;
+
+        _accountId = kept.AccountId;
+        _categoryId = kept.CategoryId;
+        _folderId = kept.FolderId;
+        _afterMonths = kept.AfterMonths;
+        _maxMessages = kept.MaxMessages;
+        _accounts = kept.Accounts;
+        _files = kept.Files;
+        _stats = kept.Stats;
+        _categories = kept.Categories;
+        _folders = kept.Folders;
+        _rootHint = kept.RootHint;
+        _restored = kept.Accounts.Count > 0 || kept.Files.Count > 0;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // 맡겨 둔 것이 있으면 다시 묻지 않는다. 다만 적재는 서버에서 계속 돌 수 있으므로
+        // 그 상태만은 한 번 확인한다 — 돌아왔는데 진행 띠가 없으면 멎은 줄로 읽는다.
+        if (_restored)
+        {
+            _status = await SafeStatusAsync();
+            StartPollIfRunning();
+            return;
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task<GmailImportStatusDto?> SafeStatusAsync()
+    {
+        try
+        {
+            return await Gmail.ImportStatusAsync();
+        }
+        catch (ApiException)
+        {
+            return null;
+        }
+    }
 
     private async Task LoadAsync()
     {
@@ -171,13 +234,7 @@ public partial class GmailArchivePage : DataPage, IAsyncDisposable
 
         try
         {
-            await using var stream = File.OpenRead(one.TempPath);
-
-            await Gmail.UploadAsync(stream, one.Name, sent =>
-            {
-                _up = _up?.With(UploadPhase.Sending, sent, one.Size);
-                _ = RepaintAsync();
-            });
+            await SendWithRetryAsync(one);
 
             _files = await Gmail.FilesAsync();
             _rootHint = null;
@@ -193,6 +250,44 @@ public partial class GmailArchivePage : DataPage, IAsyncDisposable
             await InvokeAsync(StateHasChanged);
         }
     }
+
+    /// <summary>보낸다. <b>뒷단이 그 순간 다시 뜨고 있었으면 한 번만 더 시도한다</b> —
+    /// 배포나 재기동과 겹치면 멀쩡한 파일이 502 로 떨어지는데, 수백 MB 를 다시 고르게 하는 것은
+    /// 사람에게 너무 비싸다. 파일은 이미 이 서버의 임시 파일에 있어 다시 보내는 값이 싸다.
+    /// <b>두 번까지만</b> — 뒷단이 아주 죽었으면 되풀이가 답이 아니다.</summary>
+    private async Task SendWithRetryAsync(PickedFile one)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try
+            {
+                await using var stream = File.OpenRead(one.TempPath);
+                _up = _up?.With(UploadPhase.Sending, 0, one.Size);
+
+                await Gmail.UploadAsync(stream, one.Name, sent =>
+                {
+                    _up = _up?.With(UploadPhase.Sending, sent, one.Size);
+                    _ = RepaintAsync();
+                });
+
+                return;
+            }
+            catch (HttpRequestException ex) when (attempt == 1 && IsRestart(ex))
+            {
+                Say("뒷단이 다시 뜨는 중이었습니다. 한 번 더 보냅니다…", NoticeTone.Warning);
+                await Task.Delay(RetryDelay);
+            }
+        }
+    }
+
+    /// <summary>뒷단이 잠깐 자리를 비운 꼴인가. 502·503·504 가 그렇다 — 파일이 틀린 것이 아니다.</summary>
+    private static bool IsRestart(HttpRequestException ex) => ex.StatusCode is
+        System.Net.HttpStatusCode.BadGateway or
+        System.Net.HttpStatusCode.ServiceUnavailable or
+        System.Net.HttpStatusCode.GatewayTimeout;
+
+    /// <summary>다시 보내기 전에 기다리는 시간. 재기동이 끝날 틈을 준다.</summary>
+    private static readonly TimeSpan RetryDelay = TimeSpan.FromSeconds(4);
 
     /// <summary>사람이 읽을 까닭. 상한에 걸린 것과 길이 끊긴 것은 할 일이 다르다.</summary>
     private static string Reason(Exception ex) => ex switch
@@ -347,8 +442,14 @@ public partial class GmailArchivePage : DataPage, IAsyncDisposable
         return $"{from.Kst("yyyy-MM-dd")} ~ {to.Kst("yyyy-MM-dd")}";
     }
 
+    /// <summary>떠나면서 쓰던 모습을 맡기고 되묻기를 끊는다. 되묻기는 따라가지 않는다 —
+    /// 적재는 서버가 하므로 돌아와서 다시 물으면 된다.</summary>
     public async ValueTask DisposeAsync()
     {
+        Screen.Set(StateKey, new Kept(
+            _accountId, _categoryId, _folderId, _afterMonths, _maxMessages,
+            _accounts, _files, _stats, _categories, _folders, _rootHint));
+
         if (_poll is { } cts)
         {
             await cts.CancelAsync();

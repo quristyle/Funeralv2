@@ -4,7 +4,7 @@ using JSini.Web.Admin.Api;
 
 namespace JSini.Web.Admin.Components.Pages;
 
-public partial class AiUsageList
+public partial class AiUsageList : IDisposable
 {
     [Inject] private AdminClient Api { get; set; } = default!;
 
@@ -13,6 +13,9 @@ public partial class AiUsageList
         SchSummary.Period(_from, _to),
         SchSummary.NameOf(FeatureOptions, o => o.Value, o => o.Text, _feature),
         SchSummary.Or(_keyword));
+
+    /// <summary>떠날 때 쓰던 모습을 맡기는 곳. 돌아오면 그대로 되찾는다.</summary>
+    [Inject] private ScreenState Screen { get; set; } = default!;
 
     private IReadOnlyList<AiUsageByUserDto> _all = [];
 
@@ -73,7 +76,41 @@ public partial class AiUsageList
     /// <summary>고른 줄을 들고 있는다 — 값과 알림을 같이 준다. 알림만 받으면 강조가 곧 풀린다(CommGrd 머리말). 오른쪽 클릭 창의 「최근 호출 보기」가 이 값을 쓴다.</summary>
     private void OnPicked(AiUsageByUserDto? row) => _picked = row;
 
-    protected override Task OnInitializedAsync() => ReloadAsync();
+    /// <summary>이 화면이 맡겨 두는 짐의 이름. 표 모습(칸 너비·정렬·구른 자리)은 CommGrd 가 따로 맡는다.</summary>
+    internal const string StateKey = "admin/status/ai-usage";
+
+    /// <summary>떠날 때 챙기는 조건과 그 조건으로 읽어 둔 줄. 돌아오면 다시 묻지 않는다.</summary>
+    private sealed record Kept(
+        DateTime? From, DateTime? To, string? Feature, string? Keyword,
+        IReadOnlyList<AiUsageByUserDto> Rows, string? PickedUserId);
+
+    /// <summary>돌아온 것인가. 참이면 조회를 다시 하지 않는다 — 다시 읽으면 표가 맨 위로 돌아가
+    /// 「그대로」가 깨진다.</summary>
+    private bool _restored;
+
+    /// <summary>되찾기는 동기(OnInitialized)에서 한다. 비동기로 미루면 첫 await 앞에 빈 표가 한 번
+    /// 그려지고, DxGrid 가 그 빈 상태로 자기 모습을 잡아 칸 너비와 정렬이 안 돌아온다.</summary>
+    protected override void OnInitialized()
+    {
+        if (Screen.Get<Kept>(StateKey) is not { } kept) return;
+
+        _from = kept.From;
+        _to = kept.To;
+        _feature = kept.Feature;
+        _keyword = kept.Keyword;
+        _all = kept.Rows;
+        _picked = kept.PickedUserId is { } id ? kept.Rows.FirstOrDefault(r => r.UserId == id) : null;
+        _restored = kept.Rows.Count > 0;
+    }
+
+    /// <summary>맡겨 둔 줄이 있으면 조회하지 않는다. <b>빈손으로 돌아왔으면 조건만 되찾고 조회한다</b> —
+    /// 조회가 끝나기 전에 떠났을 수 있고, 그것을 「다 읽어 둔 것」으로 읽으면 화면이 영영 빈 표가 된다.</summary>
+    protected override Task OnInitializedAsync() => _restored ? Task.CompletedTask : ReloadAsync();
+
+    /// <summary>떠나면서 쓰던 모습을 맡긴다. 떠날 때 한 번만 담는다 — 읽어 둔 줄이 커서
+    /// 글자마다 담으면 기록이 는다. 프리렌더에서도 불리며 그때는 빈 것을 맡긴다.</summary>
+    public void Dispose() =>
+        Screen.Set(StateKey, new Kept(_from, _to, _feature, _keyword, _all, _picked?.UserId));
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {

@@ -187,7 +187,7 @@
     else
     {
     @* 줄을 한 번 누르면 그 알림이 가리키는 화면이 열린다 — 여는 김에 읽음으로 찍는다(PushClickRead). 두 번 누르기는 화면 어디에도 안 보이는 몸짓이라 쓰지 않는다. 줄 누르기는 체크를 하지 않고, 줄 안의 단추는 번짐을 막는다(@onclick:stopPropagation). *@
-    <CommGrd TItem="NotificationDto" Data="@Shown" PageSize="30"
+    <CommGrd TItem="NotificationDto" Data="@Shown" PageSize="30" StateKey="@StateKey"
              ExportName="알림함"
              CssClass="ad-notebox__grid"
              SelectionMode="GridSelectionMode.Multiple"
