@@ -153,6 +153,19 @@ builder.Services.AddHttpClient<SpeechClient>();
 // RAG·웹 검색이 실제로 도는지 눌러 보는 자리. **싱글턴이라야 한다** —
 // 재어 둔 값(2분)을 들고 있어야 상태 화면의 10초 조회가 임베딩 서버의
 // CPU 를 그때마다 물지 않는다.
+// Gmail 보관함. 적재는 한 번에 하나만 돌므로 진행 상태는 싱글턴 하나에 담는다
+// (메모리에만 — 다시 띄우면 지워지고, 적재는 다시 돌리면 된다).
+builder.Services.AddSingleton<AIAgentServer.Services.Gmail.GmailImportStatus>();
+builder.Services.AddScoped<AIAgentServer.Services.Gmail.GmailWriter>();
+builder.Services.AddScoped<AIAgentServer.Services.Gmail.TakeoutImporter>();
+builder.Services.AddScoped<AIAgentServer.Services.Gmail.GmailSearch>();
+builder.Services.AddScoped<AIAgentServer.Services.Gmail.GmailRagArchiver>();
+builder.Services.AddScoped<AIAgentServer.Services.Gmail.ImapCollector>();
+
+// Gmail REST 는 느리게 답할 때가 있다(본문 한 통씩). 기본 100초로는 모자란다.
+builder.Services.AddHttpClient<AIAgentServer.Services.Gmail.GmailApiCollector>(
+    c => c.Timeout = TimeSpan.FromMinutes(5));
+
 builder.Services.AddSingleton<AiFeatureProbe>();
 
 builder.Services.AddHttpClient<ILLMService, LLMService>()
@@ -217,6 +230,10 @@ app.MapAiUsageEndpoints();
 // 내 AI쳇 대화. **권한을 따지지 않는다** — 쪽지처럼 누구나 제 것을 다루는
 // 일이고, 모든 조회가 주인을 조건에 넣으므로 남의 대화는 잡히지 않는다.
 app.MapAiChatSessionEndpoints();
+
+// Gmail 보관함을 채우고 들여다보는 길. 적재는 서버 디스크의 mbox 를 읽으므로
+// 설정(Gmail:ImportRoot)에 적힌 한 칸 안의 파일 이름만 받는다.
+app.MapGmailEndpoints();
 
 string GetServerName()
 {
