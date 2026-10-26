@@ -233,13 +233,12 @@ services:
       # 자기 자신이라 알림이 통째로 안 나간다.
       AiTasks__NotifyUrl: http://notify:8080
 
-      # AI 작업 대상 뿌리. 아래 appsettings.Local.json 이 칸 셋짜리 목록을 들고 있고
-      # 배열은 **칸 번호로** 덮이므로, 여기서 세 칸을 다 덮어야 그 목록이 안 남는다
-      # (셋째 칸은 비워서 지운다 — 빈 칸은 서버가 버린다). 실행기가 그 폴더에 쓰려면
-      # deploy/ai-runner 유닛의 ReadWritePaths 도 따로 있어야 한다.
-      AiTasks__AllowedRoots__0: /home/lee
-      AiTasks__AllowedRoots__1: /srv/ai-targets
-      AiTasks__AllowedRoots__2: ""
+      # AI 작업 대상 뿌리. 아래 appsettings.Local.json 이 AllowedRoots 에 옛 목록을 들고
+      # 있고 그 파일은 환경변수보다 나중에 실려 이기므로, 그 파일에 없는 열쇠로 통째로
+      # 갈아 끼운다. 실행기가 그 폴더에 쓰려면 deploy/ai-runner 유닛의 ReadWritePaths 도
+      # 따로 있어야 한다.
+      AiTasks__AllowedRootsOverride__0: /home/lee
+      AiTasks__AllowedRootsOverride__1: /srv/ai-targets
     volumes:
       - /srv/jsini/config/ProjMngServer/appsettings.Local.json:/app/appsettings.Local.json:ro
 

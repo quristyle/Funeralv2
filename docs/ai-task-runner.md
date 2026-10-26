@@ -3032,15 +3032,17 @@ CLI 가 도는 동안은 대부분 네트워크를 기다린다(API 응답). 다
    가리키는 것이 가장 흔한 우회다.
 3. 허용 뿌리 밑이어야 한다 — `AiTasks:AllowedRoots`
    (운영: `/home/lee` · `/srv/ai-targets`. 정본은 `deploy/docker/docker-compose.prod.yml`
-   의 환경변수다).
+   의 `AiTasks__AllowedRootsOverride__*` 다 — 있으면 `AllowedRoots` 를 통째로 갈아 끼운다).
 
-   > **운영의 `appsettings.Local.json` 이 이 목록을 덮는다.** 그 파일에는 처음 정한
-   > 셋(`/home/lee/Funeralv2` · `/home/lee/nums` · `/srv/ai-targets`)이 남아 있고,
-   > 설정 배열은 통째로가 아니라 **칸 번호로** 덮이므로 칸이 둘뿐인
-   > `appsettings.json` 의 `/home` 은 하나도 살아남지 못했다 — 그래서 멀쩡한
-   > `/home/lee/ghub-tdms` 가 거절됐다(2026-10-26). compose 가 세 칸을 모두 다시
-   > 덮는다(셋째는 빈 값 — 서버가 빈 칸을 버린다. 빈 칸을 남기면 `/` 로 풀려 모든
-   > 경로가 통과한다). 지금 뿌리는 `GET :5450/api/ai-targets/allowed-roots` 로 본다.
+   > **운영의 `appsettings.Local.json` 이 `AllowedRoots` 를 덮는다.** 그 파일에는 처음
+   > 정한 셋(`/home/lee/Funeralv2` · `/home/lee/nums` · `/srv/ai-targets`)이 남아 있고,
+   > 설정 배열은 **칸 번호로** 덮이므로 칸이 둘뿐인 `appsettings.json` 의 `/home` 은
+   > 하나도 살아남지 못했다 — 그래서 멀쩡한 `/home/lee/ghub-tdms` 가 거절됐다
+   > (2026-10-26). 같은 열쇠를 환경변수로 덮어도 **안 된다** — 서비스마다
+   > `Program.cs` 가 Local 파일을 환경변수 **뒤에** 싣기 때문이다(실제로 한 번
+   > 배포하고 확인했다). 그래서 Local 에 없는 열쇠 `AllowedRootsOverride` 를 둔다.
+   > 빈 칸은 서버가 버린다(남기면 `/` 로 풀려 모든 경로가 통과한다).
+   > 지금 뿌리는 `GET :5450/api/ai-targets/allowed-roots` 로 본다.
 
    > **새 폴더를 대상으로 쓰려면 여기부터 늘린다.** 안 늘리면 화면이
    > 「허용된 뿌리 아래여야 합니다」로 거절하는데, 그 문구만 보면 폴더가
