@@ -1,0 +1,75 @@
+@page "/projmng/proj/schedule-note"
+@attribute [RouteKey("projmng.proj.schedule-note")]
+
+@*
+AI 일정 메모. 오른쪽에 적으면 멈춘 뒤 잠깐 있다가 AI 가 날짜·제목·요약을 지어 왼쪽을 채운다. 저장은 일정표(/projmng/proj/scheduler)와 같은 표(dev_wbs)에 한 줄로 들어가고, 적은 본문도 함께(body_text) 남는다.
+왼쪽 칸은 사람이 고칠 수 있다 — 고친 칸은 다음 AI 답이 덮지 않는다(「AI 로 다시 채우기」만 덮는다).
+*@
+
+@inherits DataPage
+
+<PageTitle>AI 일정 메모 · 프로젝트관리</PageTitle>
+
+<SplitPane Size="42">
+    <First>
+        <CommCont Title="일정" Hint="@AiState">
+            <Actions>
+                <DxButton Text="AI 로 다시 채우기" RenderStyle="ButtonRenderStyle.Secondary"
+                          IconCssClass="jsini-icon-robot"
+                          Enabled="@(!string.IsNullOrWhiteSpace(_body))"
+                          Click="@RefillAsync" />
+            </Actions>
+            <ChildContent>
+                <DxFormLayout CssClass="pm-editform pm-snote__form">
+                    <DxFormLayoutItem Caption="프로젝트" ColSpanMd="6">
+                        <CodeSelect CodeId="projlist" @bind-Value="_projectCode" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="구분" ColSpanMd="6">
+                        <CodeSelect CodeId="schedule_type" AutoSelectFirst="false" KeepUnknownValue="true"
+                                    @bind-Value="_kind" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="시작" ColSpanMd="6">
+                        <DxDateEdit Date="@Day(_start)" DateChanged="@((DateTime? d) => Touch(nameof(_start), () => _start = Only(d)))" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="종료" ColSpanMd="6">
+                        <DxDateEdit Date="@Day(_end)" DateChanged="@((DateTime? d) => Touch(nameof(_end), () => _end = Only(d)))" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="제목" ColSpanMd="12">
+                        <DxTextBox Text="@_title" TextChanged="@((string t) => Touch(nameof(_title), () => _title = t))" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="요약" ColSpanMd="12">
+                        <DxMemo Text="@_summary" TextChanged="@((string t) => Touch(nameof(_summary), () => _summary = t))"
+                                Rows="8" />
+                    </DxFormLayoutItem>
+                </DxFormLayout>
+
+                <div class="pm-snote__bar">
+                    <PermissionView Action="@(SavedId is null ? MenuAction.Create : MenuAction.Update)">
+                        <DxButton Text="@(SavedId is null ? "일정에 저장" : "저장한 일정 고치기")"
+                                  RenderStyle="ButtonRenderStyle.Primary" IconCssClass="jsini-icon-check"
+                                  Enabled="@(!Loading)" Click="@SaveAsync" />
+                    </PermissionView>
+
+                    <DxButton Text="새로 쓰기" RenderStyle="ButtonRenderStyle.Secondary"
+                              IconCssClass="jsini-icon-plus" Click="@Reset" />
+
+                    <DxButton Text="일정표 열기" RenderStyle="ButtonRenderStyle.Secondary"
+                              IconCssClass="jsini-icon-calendar"
+                              Click="@(() => Navigation.NavigateTo("/projmng/proj/scheduler"))" />
+                </div>
+            </ChildContent>
+        </CommCont>
+    </First>
+    <Second>
+        <CommCont Title="본문" CssClass="pm-snote__write">
+            <DxMemo Text="@_body" TextChanged="@OnBodyChanged"
+                    BindValueMode="BindValueMode.OnInput"
+                    CssClass="pm-snote__memo" />
+        </CommCont>
+    </Second>
+</SplitPane>

@@ -41,6 +41,12 @@ public sealed class WbsItem {
 
   public string? Comm { get; set; }
 
+  /// <summary>일정 요약. 일정 메모 화면이 채운다. null 로 보내면 저장된 값을 그대로 둔다 — 이 칸을 모르는 화면이 지우지 않게.</summary>
+  public string? Summary { get; set; }
+
+  /// <summary>일정 메모 화면에서 적은 본문 원문. null 이면 그대로 둔다(Summary 와 같다).</summary>
+  public string? BodyText { get; set; }
+
   /// <summary><c>WBS</c> 또는 <c>SCHEDULE</c>. 두 화면을 가르는 값이다.</summary>
   public string? ScheduleType { get; set; }
 

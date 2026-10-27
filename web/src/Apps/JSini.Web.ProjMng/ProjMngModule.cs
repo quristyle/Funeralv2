@@ -58,6 +58,9 @@ public sealed class ProjMngModule : IPortalModule
         // 지시문 돕기(제목 짓기·요약 얹기). 묻는 길은 AI 쳇과 같은 AiChatClient 이고, 이 화면의 AI 고르개(실행할 CLI)와는 다른 길이다.
         services.AddScoped<AiTaskAssist>();
 
+        // AI 일정 메모 — 본문에서 날짜·제목·요약을 짓는다. 같은 AiChatClient 길이다.
+        services.AddScoped<ScheduleNoteAssist>();
+
         // AI 작업 현황. 읽기뿐이다 — 모델 한도는 두 군데를 본다(그 클래스 머리말).
         services.AddScoped<AiDashboardClient>();
 

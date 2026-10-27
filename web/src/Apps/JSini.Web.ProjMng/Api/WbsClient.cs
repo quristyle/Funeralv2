@@ -90,6 +90,12 @@ public sealed class WbsItemDto
 
     public string? Comm { get; set; }
 
+    /// <summary>일정 요약. 일정 메모 화면이 채운다. null 로 보내면 서버가 저장된 값을 그대로 둔다.</summary>
+    public string? Summary { get; set; }
+
+    /// <summary>일정 메모 화면에서 적은 본문 원문. null 이면 그대로 둔다.</summary>
+    public string? BodyText { get; set; }
+
     /// <summary><c>WBS</c> 또는 <c>SCHEDULE</c>.</summary>
     public string? ScheduleType { get; set; }
 

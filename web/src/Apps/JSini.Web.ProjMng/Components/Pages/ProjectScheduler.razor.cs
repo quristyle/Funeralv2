@@ -1040,6 +1040,8 @@ public partial class ProjectScheduler
         QcChk = w.QcChk,
         QcChkDt = w.QcChkDt,
         Comm = w.Comm,
+        Summary = w.Summary,
+        BodyText = w.BodyText,
         ScheduleType = w.ScheduleType,
     };
 

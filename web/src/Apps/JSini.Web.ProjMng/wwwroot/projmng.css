@@ -6174,3 +6174,27 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
     animation: none;
   }
 }
+
+/* ── AI 일정 메모 (`ScheduleNote.razor`) ── 오른쪽 본문 칸이 판 높이를 다 채운다. */
+.pm-snote__bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--jsini-sp-sm, 0.5rem);
+  padding: var(--jsini-sp-md, 0.75rem) var(--jsini-sp-lg, 1rem);
+}
+
+.pm-snote__write .commcont__body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.pm-snote__memo {
+  flex: 1;
+  min-height: 240px;
+}
+
+.pm-snote__memo textarea {
+  height: 100% !important;
+  resize: none;
+}
