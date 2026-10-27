@@ -23,6 +23,14 @@
             <span class="pm-peek__value">@Who(t)</span>
         </span>
 
+        @if (!string.IsNullOrWhiteSpace(t.TargetNm))
+        {
+            <span class="pm-peek__cell" aria-label="@($"대상 {t.TargetNm}")">
+                <span class="pm-peek__label">대상</span>
+                <span class="pm-peek__value">@t.TargetNm</span>
+            </span>
+        }
+
         @* 시각 라벨은 두 글자다 — 「동작」이 「실행중」과 겹쳐 같은 말이 두 번 서기 때문이다.
            시각은 오늘에서 먼 만큼만 적고(AiTaskWhen.Near), 연월일은 title 에 남긴다. *@
         <span class="pm-peek__cell">
