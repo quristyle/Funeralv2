@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.JSInterop;
 using JSini.Web.Http;
 using JSini.Web.Components.Data;
 using JSini.Web.Components.Layout;
@@ -8,12 +9,13 @@ using JSini.Web.ProjMng.Api;
 namespace JSini.Web.ProjMng.Components.Shared;
 
 /// <summary>AI 작업 「이어서 지시」 공통 팝업. 「빠른 지시」와 「AI 작업」이 완료된 작업에 추가 지시를 덧붙여 새로 요청할 때 쓴다.</summary>
-public partial class AiTaskContinuePopup : IDisposable
+public partial class AiTaskContinuePopup : IAsyncDisposable
 {
     [Inject] private AiTaskClient Api { get; set; } = default!;
     [Inject] private AiModelCodes ModelCodes { get; set; } = default!;
     [Inject] private AiDashboardClient Dashboard { get; set; } = default!;
     [Inject] private AiContinueDraftStore ContinueDrafts { get; set; } = default!;
+    [Inject] private IJSRuntime JS { get; set; } = default!;
 
     [CascadingParameter] private Task<AuthenticationState>? AuthState { get; set; }
 
@@ -56,6 +58,10 @@ public partial class AiTaskContinuePopup : IDisposable
     private DateTime? _continueSavedAt;
     private bool _continueAttachPending;
     private long _continueTaskKey;
+
+    /// <summary>Ctrl+Enter 를 받는 JS 모듈(빠른 지시 글상자와 같은 것).</summary>
+    private IJSObjectReference? _submitModule;
+    private DotNetObjectReference<AiTaskContinuePopup>? _submitRef;
 
     private IReadOnlyList<AiModelOption> _kinds = [];
     private bool _kindsRead;
@@ -208,6 +214,43 @@ public partial class AiTaskContinuePopup : IDisposable
 
         _continueAttachPending = false;
         await ContinueDrafts.AttachAsync(ContinueSelector, _continueTaskKey);
+        await AttachSubmitKeyAsync();
+    }
+
+    private async Task AttachSubmitKeyAsync()
+    {
+        try
+        {
+            _submitModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "./_content/JSini.Web.ProjMng/js/ask-draft.js");
+            _submitRef ??= DotNetObjectReference.Create(this);
+            await _submitModule.InvokeVoidAsync("attachSubmitKey", ContinueSelector, _submitRef);
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or InvalidOperationException)
+        {
+        }
+    }
+
+    /// <param name="text">누른 순간 글상자의 글. 회선에 아직 안 올라온 마지막 글자까지 담으려고 JS 가 함께 보낸다.</param>
+    [JSInvokable]
+    public async Task SubmitFromKeyAsync(string? text)
+    {
+        await InvokeAsync(async () =>
+        {
+            if (!_visible || _continuing)
+            {
+                return;
+            }
+
+            _continueAddition = string.IsNullOrWhiteSpace(text) ? null : text;
+
+            // 단추가 꺼져 있을 자리(빈 글)에서는 보내지 않는다. 도는 작업이면 DoContinueAsync 가 예약으로 돌린다.
+            if (!string.IsNullOrWhiteSpace(_continueAddition))
+            {
+                await DoContinueAsync();
+            }
+
+            StateHasChanged();
+        });
     }
 
     /// <summary>작업 상태 전이를 감지하여 완료 시 자동 요청 또는 알림을 처리한다.</summary>
@@ -333,9 +376,21 @@ public partial class AiTaskContinuePopup : IDisposable
         StateHasChanged();
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
         StopPoll();
+        _submitRef?.Dispose();
+
+        if (_submitModule is not null)
+        {
+            try
+            {
+                await _submitModule.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+        }
     }
 
     private async Task PickContinueKindAsync(string? kind)

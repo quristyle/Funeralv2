@@ -1,6 +1,6 @@
 @* AI 작업 「이어서 지시」 팝업. 끝난 작업에는 바로, 도는 작업에는 예약으로 이어서 지시하며, 「빠른 지시」와 「AI 작업」이 이 부품을 공유해 같은 UI 를 쓴다. *@
 
-@implements IDisposable
+@implements IAsyncDisposable
 
 <CommPopup Visible="@_visible"
            VisibleChanged="@OnCommVisibleChanged"
@@ -32,11 +32,11 @@
             <p class="jsini-hint">@ContinueKindNote</p>
         }
 
-        @* 글상자를 제 상자로 감싼다 — 치는 대로 적어 두는 JS 가 잡을 수 있게 인스턴스별 ID 를 부여한다. *@
+        @* 글상자를 제 상자로 감싼다 — 치는 대로 적어 두는 JS 와 Ctrl+Enter 를 받는 JS 가 잡을 수 있게 인스턴스별 ID 를 부여한다. *@
         <div id="@_continueDomId">
             <DxMemo @bind-Text="_continueAddition" Rows="5"
                     BindValueMode="BindValueMode.OnInput"
-                    NullText="이번에 더 시킬 일 — 지난 진행은 서버가 앞에 붙입니다"
+                    NullText="이번에 더 시킬 일 — 지난 진행은 서버가 앞에 붙입니다 (Ctrl+Enter 로 요청)"
                     CssClass="pm-peek__memo" />
         </div>
 
