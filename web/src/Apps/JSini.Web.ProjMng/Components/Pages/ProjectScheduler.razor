@@ -79,18 +79,17 @@
 
                 @if (!_isPhone)
                 {
-                    @* 작은 달력은 자료를 읽지 않는다 — 날짜만 세므로 달을 넘겨도 조회가 나가지 않는다. *@
                     <div class="pm-gc-mini">
                         <div class="pm-gc-mini__head">
                             <span class="pm-gc-mini__title">@MiniTitle</span>
 
                             <button type="button" class="pm-gc-mini__nav" aria-label="이전 달"
-                                    @onclick="@(() => _miniOffset--)">
+                                    @onclick="@(() => StepMiniMonthAsync(-1))">
                                 <i class="jsini-icon-chevron-down pm-gc__chev pm-gc__chev--prev"></i>
                             </button>
 
                             <button type="button" class="pm-gc-mini__nav" aria-label="다음 달"
-                                    @onclick="@(() => _miniOffset++)">
+                                    @onclick="@(() => StepMiniMonthAsync(1))">
                                 <i class="jsini-icon-chevron-down pm-gc__chev pm-gc__chev--next"></i>
                             </button>
                         </div>
@@ -106,10 +105,18 @@
                             @foreach (var day in MiniDays)
                             {
                                 var picked = day;
+                                var count = MiniCount(day);
 
                                 <button type="button" class="@MiniDayCss(day)"
+                                        title="@MiniDayTitle(day, count)"
                                         @onclick="@(() => JumpAsync(picked))">
-                                    @day.Day
+                                    <span class="pm-gc-mini__day-num">@day.Day</span>
+                                    <span class="pm-gc-mini__count-slot">
+                                        @if (count > 0)
+                                        {
+                                            <span class="pm-gc-mini__count">@(count > 99 ? "99+" : count)</span>
+                                        }
+                                    </span>
                                 </button>
                             }
                         </div>

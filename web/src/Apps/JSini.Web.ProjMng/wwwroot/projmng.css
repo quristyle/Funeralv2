@@ -4764,14 +4764,49 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 
 .pm-gc-mini__day {
   aspect-ratio: 1;
-  padding: 0;
+  min-height: 2.125rem;
+  padding: 2px 0 1px;
   font: inherit;
   font-size: var(--jsini-fs-2xs);
   color: var(--jsini-text);
   cursor: pointer;
   background: transparent;
-  border: 0;
+  border: 1px solid transparent;
+  border-radius: var(--jsini-radius-sm);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  position: relative;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.pm-gc-mini__day-num {
+  font-size: var(--jsini-fs-2xs);
+  line-height: 1.1;
+}
+
+.pm-gc-mini__count-slot {
+  height: 0.875rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pm-gc-mini__count {
+  font-size: 0.58rem;
+  line-height: 1;
+  font-weight: 700;
+  color: #fff;
+  background: var(--pm-gc-accent);
   border-radius: var(--jsini-radius-full);
+  min-width: 0.875rem;
+  height: 0.875rem;
+  padding: 0 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .pm-gc-mini__day:hover {
@@ -4788,11 +4823,36 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   background: color-mix(in srgb, var(--pm-gc-accent) 14%, transparent);
 }
 
-/* 오늘이 맨 뒤다 — 보고 있는 구간 안의 오늘도 동그라미가 이겨야 한다. */
+/* 일정이 있는 날 — 굵기, 은은한 배경과 테두리로 구분 */
+.pm-gc-mini__day--has-events {
+  font-weight: 600;
+}
+
+.pm-gc-mini__day--has-events:not(.pm-gc-mini__day--today):not(.pm-gc-mini__day--in) {
+  background: color-mix(in srgb, var(--pm-gc-accent) 6%, transparent);
+  border-color: color-mix(in srgb, var(--pm-gc-accent) 20%, transparent);
+}
+
+.pm-gc-mini__day--in.pm-gc-mini__day--has-events:not(.pm-gc-mini__day--today) {
+  border-color: color-mix(in srgb, var(--pm-gc-accent) 35%, transparent);
+}
+
+/* 오늘이 맨 뒤다 — 보고 있는 구간 안의 오늘도 색상이 이겨야 한다. */
 .pm-gc-mini__day--today {
   font-weight: 700;
   color: #fff;
   background: var(--pm-gc-accent);
+  border-color: var(--pm-gc-accent);
+}
+
+.pm-gc-mini__day--today:hover {
+  background: color-mix(in srgb, var(--pm-gc-accent) 85%, #000);
+}
+
+/* 오늘 날짜 안에 일정이 있을 때 카운트 뱃지 색 반전 */
+.pm-gc-mini__day--today .pm-gc-mini__count {
+  color: var(--pm-gc-accent);
+  background: #fff;
 }
 
 /* ── 월 격자 ─────────────────────────────────────────────────── */

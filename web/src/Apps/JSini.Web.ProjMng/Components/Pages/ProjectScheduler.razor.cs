@@ -283,6 +283,8 @@ public partial class ProjectScheduler
         BuildDays();
         BuildWeeks();
 
+        await RefreshMiniAsync();
+
         return _rows.Count;
     }, "그 기간에 일정이 없습니다.", "일정표를 읽지 못했습니다");
 
@@ -399,13 +401,23 @@ public partial class ProjectScheduler
 
     private string MiniTitle => $"{MiniMonth.Year}년 {MiniMonth.Month}월";
 
-    /// <summary>작은 달력의 마흔두 칸. 날짜만 세므로 달을 넘겨도 조회가 나가지 않는다.</summary>
-    private IEnumerable<DateOnly> MiniDays
+    /// <summary>작은 달력의 마흔두 칸이 걸치는 시작일과 종료일.</summary>
+    private (DateOnly Start, DateOnly End) MiniSpan
     {
         get
         {
             var first = DateOnly.FromDateTime(MiniMonth);
             var start = first.AddDays(-(int)first.DayOfWeek);
+            return (start, start.AddDays(41));
+        }
+    }
+
+    /// <summary>작은 달력의 마흔두 칸.</summary>
+    private IEnumerable<DateOnly> MiniDays
+    {
+        get
+        {
+            var (start, _) = MiniSpan;
 
             for (var i = 0; i < 42; i++)
             {
@@ -414,9 +426,73 @@ public partial class ProjectScheduler
         }
     }
 
+    /// <summary>작은 달력에 표시할 날짜별 일정 갯수.</summary>
+    private Dictionary<DateOnly, int> _miniCounts = new();
+
+    private int MiniCount(DateOnly day) => _miniCounts.GetValueOrDefault(day, 0);
+
+    private string MiniDayTitle(DateOnly day, int count)
+    {
+        var dateStr = $"{day.Year}년 {day.Month}월 {day.Day}일 ({DowName(day.DayOfWeek)})";
+        return count > 0 ? $"{dateStr} · 일정 {count}건" : dateStr;
+    }
+
+    private async Task StepMiniMonthAsync(int direction)
+    {
+        _miniOffset += direction;
+        await RefreshMiniAsync();
+    }
+
+    /// <summary>작은 달력의 날짜별 일정 갯수를 계산한다. 현재 큰 달력의 월과 일치하면 읽어 둔 줄을 재사용하고, 다르면 해당 구간을 읽어 온다.</summary>
+    private async Task RefreshMiniAsync()
+    {
+        var (miniStart, miniEnd) = MiniSpan;
+        var (gridStart, gridEnd) = (DateOnly.FromDateTime(GridSpan.Start), DateOnly.FromDateTime(GridSpan.End));
+
+        if (_miniOffset == 0 && _view == CalView.Month && _rows.Count >= 0 && gridStart <= miniStart && gridEnd >= miniEnd)
+        {
+            BuildMiniCounts(_rows);
+            return;
+        }
+
+        try
+        {
+            var rows = await Api.ListAsync(ProjectRid, _completeState, _scheduleTypes, miniStart, miniEnd);
+            BuildMiniCounts(rows);
+        }
+        catch
+        {
+            _miniCounts = new();
+        }
+    }
+
+    private void BuildMiniCounts(IEnumerable<WbsItemDto> rows)
+    {
+        var counts = new Dictionary<DateOnly, int>();
+        var (miniStart, miniEnd) = MiniSpan;
+
+        foreach (var w in rows)
+        {
+            if (Span(w) is not { } span)
+            {
+                continue;
+            }
+
+            var from = span.Start < miniStart ? miniStart : span.Start;
+            var to = span.End > miniEnd ? miniEnd : span.End;
+
+            for (var d = from; d <= to; d = d.AddDays(1))
+            {
+                counts[d] = counts.TryGetValue(d, out var c) ? c + 1 : 1;
+            }
+        }
+
+        _miniCounts = counts;
+    }
+
     private string MiniDayCss(DateOnly day)
     {
-        var css = new List<string>(4) { "pm-gc-mini__day" };
+        var css = new List<string>(5) { "pm-gc-mini__day" };
 
         if (day.Month != MiniMonth.Month || day.Year != MiniMonth.Year)
         {
@@ -432,6 +508,11 @@ public partial class ProjectScheduler
         if (day >= DateOnly.FromDateTime(Range.Start) && day <= DateOnly.FromDateTime(Range.End))
         {
             css.Add("pm-gc-mini__day--in");
+        }
+
+        if (MiniCount(day) > 0)
+        {
+            css.Add("pm-gc-mini__day--has-events");
         }
 
         return string.Join(' ', css);
