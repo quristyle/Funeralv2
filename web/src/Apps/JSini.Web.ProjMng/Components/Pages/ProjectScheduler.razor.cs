@@ -415,9 +415,13 @@ public partial class ProjectScheduler : IAsyncDisposable
             // 작은 달력의 건수가 따로 읽어야 하는 구간이면 본 조회와 함께 띄운다 — 차례로 기다리면 두 번 왕복한 만큼 늦다.
             var mini = MiniReusesRows ? null : RefreshMiniAsync();
 
-            _rows = await Api.ListAsync(
-                ProjectRid, _completeState, _scheduleTypes,
-                from, to);
+            // 표가 받은 차례 그대로 그리므로 날짜순으로 맞춰 둔다. 칸에 정렬을 걸면 고친 줄이 편집 중에 자리를 옮긴다.
+            _rows = [.. (await Api.ListAsync(
+                    ProjectRid, _completeState, _scheduleTypes,
+                    from, to))
+                .OrderBy(w => w.PlanSdt ?? DateTime.MaxValue)
+                .ThenBy(w => w.PlanEdt ?? DateTime.MaxValue)
+                .ThenBy(w => w.WbsId)];
 
             SyncSelected();
 
