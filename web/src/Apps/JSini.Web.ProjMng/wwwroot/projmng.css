@@ -5105,6 +5105,11 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   text-align: center;
 }
 
+/* 휴대폰은 막대·「+N」이 누름을 받지 않는다 — 아래 칸이 받아야 여러 날 막대의 어느 날을 눌렀는지 그대로 골라진다. */
+.pm-gc-month--phone .pm-gc-week__bars > * {
+  pointer-events: none;
+}
+
 /* ── 일정 목록 ───────────────────────────────────────────────── */
 /* 세 자리(일정 보기 · 휴대폰 격자 아래 · 날 펼침 창)가 같은 줄을 쓴다. */
 

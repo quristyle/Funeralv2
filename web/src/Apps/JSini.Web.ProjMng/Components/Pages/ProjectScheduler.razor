@@ -506,7 +506,7 @@
                                             data-wbs="@bar.Item.WbsId"
                                             draggable="@(_canUpdate ? "true" : "false")"
                                             disabled="@(!_canUpdate)"
-                                            @onclick="@(() => StartEdit(here.Item))">
+                                            @onclick="@(() => OnBarClick(week, here))">
                                         @Title(bar.Item)
                                     </button>
                                 }
@@ -522,7 +522,7 @@
                                         <button type="button" class="pm-gc-week__more"
                                                 style="@MoreStyle(here)"
                                                 aria-label="@($"{hidden}개 더보기")"
-                                                @onclick="@(() => Peek(week.Days[here].Date))">
+                                                @onclick="@(() => OnMoreClick(week.Days[here].Date))">
                                             @(_isPhone ? $"+{hidden}" : $"{hidden}개 더보기")
                                         </button>
                                     }

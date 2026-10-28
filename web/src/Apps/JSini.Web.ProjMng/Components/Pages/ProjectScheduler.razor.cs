@@ -1023,6 +1023,30 @@ public partial class ProjectScheduler : IAsyncDisposable
         return SearchAsync();
     }
 
+    /// <summary>막대를 눌렀다. 휴대폰은 수정창 대신 그 날을 골라 아래 목록을 편다 — 수정은 목록에서 한다.</summary>
+    private void OnBarClick(WeekRow week, Bar bar)
+    {
+        if (_isPhone)
+        {
+            _selected = week.Days[bar.Col].Date;
+            return;
+        }
+
+        StartEdit(bar.Item);
+    }
+
+    /// <summary>「+N」을 눌렀다. 휴대폰은 아래 목록이 이미 그 날 전부라 창을 띄우지 않는다.</summary>
+    private void OnMoreClick(DateOnly day)
+    {
+        if (_isPhone)
+        {
+            _selected = day;
+            return;
+        }
+
+        Peek(day);
+    }
+
     /// <summary>그 날을 작은 창으로 펼친다 — 접힌 것만이 아니라 <b>그 날 전부</b>다.</summary>
     private void Peek(DateOnly day)
     {
