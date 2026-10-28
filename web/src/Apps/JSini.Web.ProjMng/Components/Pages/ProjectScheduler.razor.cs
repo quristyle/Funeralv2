@@ -1592,6 +1592,14 @@ public partial class ProjectScheduler
         await SaveInlineAsync(w);
     }
 
+    private async Task OnInlineBodyTextChangedAsync(WbsItemDto w, string? val)
+    {
+        if (string.Equals(w.BodyText, val, StringComparison.Ordinal)) return;
+
+        w.BodyText = val;
+        await SaveInlineAsync(w);
+    }
+
     // ── 도우미 ───────────────────────────────────────────────────
 
     private WbsItemDto? Find(object? id) =>

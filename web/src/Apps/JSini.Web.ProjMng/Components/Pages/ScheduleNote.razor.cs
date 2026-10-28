@@ -31,6 +31,12 @@ public partial class ScheduleNote : IDisposable
     private string ProjectStorageKey =>
         $"{ProjectStorageKeyPrefix}{(string.IsNullOrWhiteSpace(Me?.Username) ? "?" : Me.Username.Trim())}";
 
+    /// <summary>로그인한 사용자의 성명. 없으면 아이디.</summary>
+    private string? CurrentUserName =>
+        string.IsNullOrWhiteSpace(Me?.DisplayName)
+            ? (string.IsNullOrWhiteSpace(Me?.Username) ? null : Me.Username.Trim())
+            : Me.DisplayName.Trim();
+
     /// <summary>떠날 때 챙기는 입력 내용과 상태. 다른 화면에 갔다 돌아와도 그대로 살린다.</summary>
     private sealed record Kept(
         string? ProjectCode,
@@ -145,7 +151,7 @@ public partial class ScheduleNote : IDisposable
             _failed = null;
             await InvokeAsync(StateHasChanged);
 
-            var draft = await Assist.DraftAsync(body, cts.Token);
+            var draft = await Assist.DraftAsync(body, CurrentUserName, cts.Token);
 
             if (ask != _ask)
             {
@@ -225,7 +231,12 @@ public partial class ScheduleNote : IDisposable
         item.PlanSdt = start.ToDateTime(TimeOnly.MinValue);
         item.PlanEdt = end.ToDateTime(TimeOnly.MinValue);
         item.Summary = _summary?.Trim() ?? string.Empty;
+        item.Comm = _summary?.Trim() ?? string.Empty;
         item.BodyText = _body ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(item.DevUser))
+        {
+            item.DevUser = CurrentUserName;
+        }
 
         var isNew = _saved is null;
         WbsItemDto? saved = null;

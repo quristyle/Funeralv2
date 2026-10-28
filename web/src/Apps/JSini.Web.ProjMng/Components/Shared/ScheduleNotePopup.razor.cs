@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
 using JSini.Web.Abstractions;
 using JSini.Web.Components.Data;
@@ -16,6 +18,8 @@ public partial class ScheduleNotePopup : IDisposable
     [Inject] private IJSRuntime JS { get; set; } = default!;
     [Inject] private CurrentUser Me { get; set; } = default!;
     [Inject] private Toasts Toasts { get; set; } = default!;
+    [Inject] private IServiceScopeFactory ScopeFactory { get; set; } = default!;
+    [Inject] private ILogger<ScheduleNotePopup> Logger { get; set; } = default!;
 
     private const string ProjectStorageKeyPrefix = "jsini-snote-prj:";
     private string ProjectStorageKey =>
@@ -39,9 +43,7 @@ public partial class ScheduleNotePopup : IDisposable
     }
 
     private string? _body;
-    private bool _saving;
     private bool _storageReady;
-    private CancellationTokenSource? _cts;
 
     protected override void OnInitialized()
     {
@@ -128,8 +130,6 @@ public partial class ScheduleNotePopup : IDisposable
 
     private void Close()
     {
-        _saving = false;
-        _cts?.Cancel();
         Reveal.Close();
     }
 
@@ -139,94 +139,108 @@ public partial class ScheduleNotePopup : IDisposable
         return Task.CompletedTask;
     }
 
-    private async Task SaveAsync()
+    private Task SaveAsync()
     {
         if (!int.TryParse(_projectCode, out var prjRid))
         {
             Toasts.Show("프로젝트를 고르십시오.", NoticeTone.Warning);
-            return;
+            return Task.CompletedTask;
         }
 
         if (string.IsNullOrWhiteSpace(_body))
         {
             Toasts.Show("본문을 입력하십시오.", NoticeTone.Warning);
-            return;
+            return Task.CompletedTask;
         }
 
-        _saving = true;
-        _cts?.Cancel();
-        _cts?.Dispose();
-        _cts = new CancellationTokenSource();
-        var ct = _cts.Token;
+        var body = _body.Trim();
+        var prjCode = _projectCode;
+        var currentUserName = !string.IsNullOrWhiteSpace(Me?.DisplayName)
+            ? Me.DisplayName.Trim()
+            : (!string.IsNullOrWhiteSpace(Me?.Username) ? Me.Username.Trim() : null);
 
-        try
+        // 프로젝트 선택 기억
+        _ = RememberProjectAsync(prjCode);
+
+        // 즉시 본문 초기화 및 팝업 닫기 (화면에서 대기 없이 즉시 닫힘)
+        _body = null;
+        Reveal.Close();
+
+        Toasts.Show("일정 메모 저장을 요청했습니다. 백그라운드에서 분석 후 등록됩니다.");
+
+        // 백엔드/백그라운드에서 비동기 처리
+        _ = Task.Run(async () =>
         {
-            await InvokeAsync(StateHasChanged);
-
-            ScheduleDraft? draft = null;
             try
             {
-                draft = await Assist.DraftAsync(_body, ct);
+                using var scope = ScopeFactory.CreateScope();
+                var Assist = scope.ServiceProvider.GetRequiredService<ScheduleNoteAssist>();
+                var Api = scope.ServiceProvider.GetRequiredService<WbsClient>();
+
+                ScheduleDraft? draft = null;
+                try
+                {
+                    draft = await Assist.DraftAsync(body, currentUserName, CancellationToken.None);
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning(ex, "ScheduleNoteAssist 분석 중 오류: 기본값으로 일정 등록 진행");
+                }
+
+                var today = AppTime.Today;
+                var startDate = draft?.Start ?? today;
+                var endDate = draft?.End is { } e && e >= startDate ? e : startDate;
+
+                var startTime = draft?.StartTime ?? TimeOnly.MinValue;
+                var endTime = draft?.EndTime ?? (draft?.StartTime.HasValue == true ? draft.StartTime.Value : TimeOnly.MinValue);
+
+                var startDt = draft?.StartDateTime ?? startDate.ToDateTime(startTime);
+                var endDt = draft?.EndDateTime ?? (draft?.End is not null ? endDate.ToDateTime(endTime) : startDt);
+                if (endDt < startDt) endDt = startDt;
+
+                var title = draft?.Title?.Trim();
+                if (string.IsNullOrWhiteSpace(title))
+                {
+                    var lines = body.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                    title = lines.Length > 0 ? lines[0] : "AI 일정";
+                    if (title.Length > 30) title = title[..30];
+                }
+
+                var summary = draft?.Summary?.Trim() ?? string.Empty;
+                var requester = draft?.Requester?.Trim();
+                var assignee = !string.IsNullOrWhiteSpace(draft?.Assignee)
+                    ? draft.Assignee.Trim()
+                    : currentUserName;
+
+                var item = new WbsItemDto
+                {
+                    PrjRid = prjRid,
+                    ScheduleType = DefaultKind,
+                    ProcNm = title,
+                    PlanSdt = startDt,
+                    PlanEdt = endDt,
+                    ReqUser = requester,
+                    DevUser = assignee,
+                    Summary = summary,
+                    Comm = summary,
+                    BodyText = body
+                };
+
+                await Api.CreateAsync(item);
+                Toasts.Show($"일정에 저장했습니다 — {title}");
             }
-            catch (Exception ex) when (ex is not OperationCanceledException)
+            catch (Exception ex)
             {
-                // AI 호출 실패 시 본문 기반으로 기본 일정 생성
+                Logger.LogError(ex, "일정 백그라운드 등록 실패");
+                Toasts.Show($"일정을 저장하지 못했습니다 — {ex.Message}", NoticeTone.Error);
             }
+        });
 
-            if (ct.IsCancellationRequested) return;
-
-            var today = AppTime.Today;
-            var start = draft?.Start ?? today;
-            var end = draft?.End is { } e && e >= start ? e : start;
-
-            var title = draft?.Title?.Trim();
-            if (string.IsNullOrWhiteSpace(title))
-            {
-                var lines = _body.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-                title = lines.Length > 0 ? lines[0] : "AI 일정";
-                if (title.Length > 30) title = title[..30];
-            }
-
-            var summary = draft?.Summary?.Trim() ?? string.Empty;
-
-            var item = new WbsItemDto
-            {
-                PrjRid = prjRid,
-                ScheduleType = DefaultKind,
-                ProcNm = title,
-                PlanSdt = start.ToDateTime(TimeOnly.MinValue),
-                PlanEdt = end.ToDateTime(TimeOnly.MinValue),
-                Summary = summary,
-                BodyText = _body.Trim()
-            };
-
-            await Api.CreateAsync(item, ct);
-
-            _ = RememberProjectAsync(_projectCode);
-            Toasts.Show("일정에 저장했습니다.");
-
-            _body = null;
-            Reveal.Close();
-        }
-        catch (OperationCanceledException)
-        {
-            // 사용자가 닫았거나 취소됨
-        }
-        catch (Exception ex)
-        {
-            Toasts.Show($"일정을 저장하지 못했습니다 — {ex.Message}", NoticeTone.Error);
-        }
-        finally
-        {
-            _saving = false;
-            await InvokeAsync(StateHasChanged);
-        }
+        return Task.CompletedTask;
     }
 
     public void Dispose()
     {
         Reveal.Changed -= OnRevealChanged;
-        _cts?.Cancel();
-        _cts?.Dispose();
     }
 }

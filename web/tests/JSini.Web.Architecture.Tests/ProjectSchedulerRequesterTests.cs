@@ -27,6 +27,7 @@ public sealed class ProjectSchedulerRequesterTests
         var content = File.ReadAllText(path);
         Assert.Contains("FieldName=\"@nameof(WbsItemDto.ReqUser)\" Caption=\"요청자\"", content);
         Assert.Contains("FieldName=\"@nameof(WbsItemDto.DevUser)\" Caption=\"담당자\"", content);
+        Assert.Contains("FieldName=\"@nameof(WbsItemDto.BodyText)\" Caption=\"원문\"", content);
     }
 
     [Fact]
@@ -40,5 +41,7 @@ public sealed class ProjectSchedulerRequesterTests
         Assert.Contains("@bind-Text=\"Item.ReqUser\"", content);
         Assert.Contains("Caption=\"담당자\"", content);
         Assert.Contains("@bind-Text=\"Item.DevUser\"", content);
+        Assert.Contains("Caption=\"원문\"", content);
+        Assert.Contains("@bind-Text=\"Item.BodyText\"", content);
     }
 }

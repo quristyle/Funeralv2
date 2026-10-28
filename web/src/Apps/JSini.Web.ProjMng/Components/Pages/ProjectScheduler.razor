@@ -412,6 +412,29 @@
                                     }
                                 </CellDisplayTemplate>
                             </DxGridDataColumn>
+
+                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.BodyText)" Caption="원문" MinWidth="140"
+                                              TextAlignment="GridTextAlignment.Left"
+                                              Visible="@(!_isPhone)">
+                                <CellDisplayTemplate Context="cell">
+                                    @{
+                                        var w = (WbsItemDto)cell.DataItem;
+                                    }
+                                    @if (_canUpdate)
+                                    {
+                                        <DxTextBox Text="@w.BodyText"
+                                                   TextChanged="@((string? t) => OnInlineBodyTextChangedAsync(w, t))"
+                                                   BindValueMode="BindValueMode.OnLostFocus"
+                                                   NullText="원문 없음"
+                                                   ValidationEnabled="false"
+                                                   CssClass="pm-inline-edit" />
+                                    }
+                                    else
+                                    {
+                                        <span title="@w.BodyText">@w.BodyText</span>
+                                    }
+                                </CellDisplayTemplate>
+                            </DxGridDataColumn>
                         </Columns>
 
                         <EditFormTemplate Context="edit">
