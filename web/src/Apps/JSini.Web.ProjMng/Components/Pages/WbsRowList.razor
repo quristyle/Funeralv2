@@ -93,6 +93,12 @@ WBS 상세 목록. 다른 화면의 막대·칸을 누르면 조건이 주소로
                 Text="@($"Activity ID 가 정해지지 않은 대상이 {_noIdCount}건 있습니다(NOID-…). ProjectView 링크가 붙지 않습니다 — 관리 칸의 「ID 지정」으로 채웁니다.")" />
 }
 
+@if (PvShownButEmpty)
+{
+    <PageNotice Tone="NoticeTone.Info"
+                Text="PV 칸은 ProjectView 에서 걷어 온 값입니다. 아직 수집한 적이 없어 비어 있습니다 — 수집은 사내망의 ProjectView 수집기가 채웁니다." />
+}
+
 <CommCont Hint="@Hint">
     <CommGrd TItem="WbsBoardRowDto"
              Data="@_rows"
@@ -114,7 +120,7 @@ WBS 상세 목록. 다른 화면의 막대·칸을 누르면 조건이 주소로
 
         <Columns>
             <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.ActivityId)" Caption="Activity ID" Width="120"
-                              Visible="@On("activity_id")">
+                              Visible="@On("activity_id")" VisibleIndex="@Ix("activity_id")">
                 <CellDisplayTemplate Context="cell">
                     @{
                         var r = (WbsBoardRowDto)cell.DataItem;
@@ -132,10 +138,10 @@ WBS 상세 목록. 다른 화면의 막대·칸을 누르면 조건이 주소로
             </DxGridDataColumn>
 
             <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.ModuleText)" Caption="모듈" Width="150"
-                              Visible="@On("systemcode")" TextAlignment="GridTextAlignment.Left" />
+                              Visible="@On("systemcode")" VisibleIndex="@Ix("systemcode")" TextAlignment="GridTextAlignment.Left" />
 
             <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.MenuNm)" Caption="메뉴명" MinWidth="220"
-                              Visible="@On("menu_nm")" TextAlignment="GridTextAlignment.Left">
+                              Visible="@On("menu_nm")" VisibleIndex="@Ix("menu_nm")" TextAlignment="GridTextAlignment.Left">
                 <CellDisplayTemplate Context="cell">
                     @{
                         var r = (WbsBoardRowDto)cell.DataItem;
@@ -151,7 +157,7 @@ WBS 상세 목록. 다른 화면의 막대·칸을 누르면 조건이 주소로
                 </CellDisplayTemplate>
             </DxGridDataColumn>
 
-            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PlanSdt)" Caption="시작일" Width="110" Visible="@On("plan_sdt")">
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PlanSdt)" Caption="시작일" Width="110" Visible="@On("plan_sdt")" VisibleIndex="@Ix("plan_sdt")">
                 <CellDisplayTemplate Context="cell">
                     @{
                         var r = (WbsBoardRowDto)cell.DataItem;
@@ -166,7 +172,7 @@ WBS 상세 목록. 다른 화면의 막대·칸을 누르면 조건이 주소로
                 </CellDisplayTemplate>
             </DxGridDataColumn>
 
-            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PlanEdt)" Caption="종료일" Width="110" Visible="@On("plan_edt")">
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PlanEdt)" Caption="종료일" Width="110" Visible="@On("plan_edt")" VisibleIndex="@Ix("plan_edt")">
                 <CellDisplayTemplate Context="cell">
                     @{
                         var r = (WbsBoardRowDto)cell.DataItem;
@@ -181,10 +187,10 @@ WBS 상세 목록. 다른 화면의 막대·칸을 누르면 조건이 주소로
                 </CellDisplayTemplate>
             </DxGridDataColumn>
 
-            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PlanSdtC)" Caption="실적시작" Width="105" Visible="@On("plan_sdt_c")" />
-            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PlanEdtC)" Caption="실적종료" Width="105" Visible="@On("plan_edt_c")" />
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PlanSdtC)" Caption="실적시작" Width="105" Visible="@On("plan_sdt_c")" VisibleIndex="@Ix("plan_sdt_c")" />
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PlanEdtC)" Caption="실적종료" Width="105" Visible="@On("plan_edt_c")" VisibleIndex="@Ix("plan_edt_c")" />
 
-            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PlanRate)" FilterRowEditorVisible="false" Caption="계획진척률" Width="110" Visible="@On("plan_rate")">
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PlanRate)" FilterRowEditorVisible="false" Caption="계획진척률" Width="110" Visible="@On("plan_rate")" VisibleIndex="@Ix("plan_rate")">
                 <CellDisplayTemplate Context="cell">
                     @{
                         var r = (WbsBoardRowDto)cell.DataItem;
@@ -199,56 +205,63 @@ WBS 상세 목록. 다른 화면의 막대·칸을 누르면 조건이 주소로
                 </CellDisplayTemplate>
             </DxGridDataColumn>
 
-            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.UserNm)" Caption="담당자" Width="140" Visible="@On("user_bp_id")">
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.UserNm)" Caption="담당자" Width="140" Visible="@On("user_bp_id")" VisibleIndex="@Ix("user_bp_id")">
                 <CellDisplayTemplate Context="cell">
                     @PersonCell((WbsBoardRowDto)cell.DataItem, "user_bp_id")
                 </CellDisplayTemplate>
             </DxGridDataColumn>
 
-            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.Complate)" Caption="완료" Width="70" Visible="@On("complate_yn")">
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.Complate)" Caption="완료" Width="70" Visible="@On("complate_yn")" VisibleIndex="@Ix("complate_yn")">
                 <CellDisplayTemplate Context="cell">@CheckCell((WbsBoardRowDto)cell.DataItem, "complate_yn")</CellDisplayTemplate>
+                <FilterRowCellTemplate Context="f">@CheckFilter(f, "complate_yn")</FilterRowCellTemplate>
             </DxGridDataColumn>
 
-            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.UserRealNm)" Caption="개발자" Width="140" Visible="@On("user_real_id")">
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.UserRealNm)" Caption="개발자" Width="140" Visible="@On("user_real_id")" VisibleIndex="@Ix("user_real_id")">
                 <CellDisplayTemplate Context="cell">
                     @PersonCell((WbsBoardRowDto)cell.DataItem, "user_real_id")
                 </CellDisplayTemplate>
             </DxGridDataColumn>
 
-            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.ComplateReal)" Caption="개발자완료" Width="85" Visible="@On("complate_real_yn")">
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.ComplateReal)" Caption="개발자완료" Width="85" Visible="@On("complate_real_yn")" VisibleIndex="@Ix("complate_real_yn")">
                 <CellDisplayTemplate Context="cell">@CheckCell((WbsBoardRowDto)cell.DataItem, "complate_real_yn")</CellDisplayTemplate>
+                <FilterRowCellTemplate Context="f">@CheckFilter(f, "complate_real_yn")</FilterRowCellTemplate>
             </DxGridDataColumn>
 
-            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.Recheck)" Caption="재확인요청" Width="85" Visible="@On("recheck_yn")">
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.Recheck)" Caption="재확인요청" Width="85" Visible="@On("recheck_yn")" VisibleIndex="@Ix("recheck_yn")">
                 <CellDisplayTemplate Context="cell">@CheckCell((WbsBoardRowDto)cell.DataItem, "recheck_yn")</CellDisplayTemplate>
+                <FilterRowCellTemplate Context="f">@CheckFilter(f, "recheck_yn")</FilterRowCellTemplate>
             </DxGridDataColumn>
 
-            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.ComplateBig)" Caption="대형완료" Width="80" Visible="@On("complate_big_yn")">
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.ComplateBig)" Caption="대형완료" Width="80" Visible="@On("complate_big_yn")" VisibleIndex="@Ix("complate_big_yn")">
                 <CellDisplayTemplate Context="cell">@CheckCell((WbsBoardRowDto)cell.DataItem, "complate_big_yn")</CellDisplayTemplate>
+                <FilterRowCellTemplate Context="f">@CheckFilter(f, "complate_big_yn")</FilterRowCellTemplate>
             </DxGridDataColumn>
 
-            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.ComplateRealBig)" Caption="대형개발자완료" Width="105" Visible="@On("complate_real_big_yn")">
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.ComplateRealBig)" Caption="대형개발자완료" Width="105" Visible="@On("complate_real_big_yn")" VisibleIndex="@Ix("complate_real_big_yn")">
                 <CellDisplayTemplate Context="cell">@CheckCell((WbsBoardRowDto)cell.DataItem, "complate_real_big_yn")</CellDisplayTemplate>
+                <FilterRowCellTemplate Context="f">@CheckFilter(f, "complate_real_big_yn")</FilterRowCellTemplate>
             </DxGridDataColumn>
 
-            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.RecheckBig)" Caption="대형재확인요청" Width="105" Visible="@On("recheck_big_yn")">
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.RecheckBig)" Caption="대형재확인요청" Width="105" Visible="@On("recheck_big_yn")" VisibleIndex="@Ix("recheck_big_yn")">
                 <CellDisplayTemplate Context="cell">@CheckCell((WbsBoardRowDto)cell.DataItem, "recheck_big_yn")</CellDisplayTemplate>
+                <FilterRowCellTemplate Context="f">@CheckFilter(f, "recheck_big_yn")</FilterRowCellTemplate>
             </DxGridDataColumn>
 
-            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.DbReadyBig)" Caption="대형DB준비여부" Width="105" Visible="@On("db_ready_big_yn")">
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.DbReadyBig)" Caption="대형DB준비여부" Width="105" Visible="@On("db_ready_big_yn")" VisibleIndex="@Ix("db_ready_big_yn")">
                 <CellDisplayTemplate Context="cell">@CheckCell((WbsBoardRowDto)cell.DataItem, "db_ready_big_yn")</CellDisplayTemplate>
+                <FilterRowCellTemplate Context="f">@CheckFilter(f, "db_ready_big_yn")</FilterRowCellTemplate>
             </DxGridDataColumn>
 
-            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PriorityOrder)" Caption="우선순위" Width="85" Visible="@On("priority_order")">
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PriorityOrder)" Caption="우선순위" Width="85" Visible="@On("priority_order")" VisibleIndex="@Ix("priority_order")">
                 <CellDisplayTemplate Context="cell">
                     @PriorityCell((WbsBoardRowDto)cell.DataItem)
                 </CellDisplayTemplate>
             </DxGridDataColumn>
 
-            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.ProgType)" Caption="화면유형" MinWidth="140" Visible="@On("prog_type")"
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.ProgType)" Caption="화면유형" MinWidth="140" Visible="@On("prog_type")" VisibleIndex="@Ix("prog_type")"
                               TextAlignment="GridTextAlignment.Left" />
 
-            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.TrgUseChk)" Caption="트리거 발화" Width="170" Visible="@On("trg_use_chk")"
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.TrgUseChk)" Caption="트리거 발화" Width="170" Visible="@On("trg_use_chk")" VisibleIndex="@Ix("trg_use_chk")"
                               TextAlignment="GridTextAlignment.Left">
                 <CellDisplayTemplate Context="cell">
                     @{
@@ -258,15 +271,17 @@ WBS 상세 목록. 다른 화면의 막대·칸을 누르면 조건이 주소로
                 </CellDisplayTemplate>
             </DxGridDataColumn>
 
-            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.DwgView)" Caption="도면조회" Width="80" Visible="@On("dwg_view_use")">
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.DwgView)" Caption="도면조회" Width="80" Visible="@On("dwg_view_use")" VisibleIndex="@Ix("dwg_view_use")">
                 <CellDisplayTemplate Context="cell">@CheckCell((WbsBoardRowDto)cell.DataItem, "dwg_view_use")</CellDisplayTemplate>
+                <FilterRowCellTemplate Context="f">@CheckFilter(f, "dwg_view_use")</FilterRowCellTemplate>
             </DxGridDataColumn>
 
-            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.Report)" Caption="리포트" Width="75" Visible="@On("report_use")">
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.Report)" Caption="리포트" Width="75" Visible="@On("report_use")" VisibleIndex="@Ix("report_use")">
                 <CellDisplayTemplate Context="cell">@CheckCell((WbsBoardRowDto)cell.DataItem, "report_use")</CellDisplayTemplate>
+                <FilterRowCellTemplate Context="f">@CheckFilter(f, "report_use")</FilterRowCellTemplate>
             </DxGridDataColumn>
 
-            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.TaskState)" Caption="일감" Width="95" Visible="@On("task_cnt")">
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.TaskState)" Caption="일감" Width="95" Visible="@On("task_cnt")" VisibleIndex="@Ix("task_cnt")">
                 <CellDisplayTemplate Context="cell">
                     @{
                         var r = (WbsBoardRowDto)cell.DataItem;
@@ -278,9 +293,10 @@ WBS 상세 목록. 다른 화면의 막대·칸을 누르면 조건이 주소로
                         @(r.TaskCnt > 0 ? $"{r.TaskDone}/{r.TaskCnt}" : "+")
                     </button>
                 </CellDisplayTemplate>
+                <FilterRowCellTemplate Context="f">@TaskFilter(f)</FilterRowCellTemplate>
             </DxGridDataColumn>
 
-            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.FileCnt)" FilterRowEditorVisible="false" Caption="첨부" Width="80" Visible="@On("file_cnt")">
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.FileCnt)" FilterRowEditorVisible="false" Caption="첨부" Width="80" Visible="@On("file_cnt")" VisibleIndex="@Ix("file_cnt")">
                 <CellDisplayTemplate Context="cell">
                     @{
                         var r = (WbsBoardRowDto)cell.DataItem;
@@ -293,7 +309,7 @@ WBS 상세 목록. 다른 화면의 막대·칸을 누르면 조건이 주소로
                 </CellDisplayTemplate>
             </DxGridDataColumn>
 
-            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PvStageText)" Caption="PV 현재단계" Width="140" Visible="@On("pv_status")">
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PvStageText)" Caption="PV 현재단계" Width="140" Visible="@On("pv_status")" VisibleIndex="@Ix("pv_status")">
                 <CellDisplayTemplate Context="cell">
                     @{
                         var r = (WbsBoardRowDto)cell.DataItem;
@@ -312,10 +328,10 @@ WBS 상세 목록. 다른 화면의 막대·칸을 누르면 조건이 주소로
                 </CellDisplayTemplate>
             </DxGridDataColumn>
 
-            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PvFinishRate)" FilterRowEditorVisible="false" Caption="PV 진척률" Width="90" Visible="@On("pv_finish_rate")"
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PvFinishRate)" FilterRowEditorVisible="false" Caption="PV 진척률" Width="90" Visible="@On("pv_finish_rate")" VisibleIndex="@Ix("pv_finish_rate")"
                               DisplayFormat="0.#'%'" />
 
-            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PvActualSdt)" Caption="PV 실적시작" Width="105" Visible="@On("pv_actual_sdt")">
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PvActualSdt)" Caption="PV 실적시작" Width="105" Visible="@On("pv_actual_sdt")" VisibleIndex="@Ix("pv_actual_sdt")">
                 <CellDisplayTemplate Context="cell">
                     @{
                         var r = (WbsBoardRowDto)cell.DataItem;
@@ -325,12 +341,12 @@ WBS 상세 목록. 다른 화면의 막대·칸을 누르면 조건이 주소로
                 </CellDisplayTemplate>
             </DxGridDataColumn>
 
-            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PvTaskCnt)" FilterRowEditorVisible="false" Caption="PV 일감" Width="80" Visible="@On("pv_task_cnt")" />
-            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PvTaskEdt)" Caption="PV 일감완료일" Width="110" Visible="@On("pv_task_edt")" />
-            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PvWorkers)" Caption="PV 일감담당자" Width="150" Visible="@On("pv_workers")"
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PvTaskCnt)" FilterRowEditorVisible="false" Caption="PV 일감" Width="80" Visible="@On("pv_task_cnt")" VisibleIndex="@Ix("pv_task_cnt")" />
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PvTaskEdt)" Caption="PV 일감완료일" Width="110" Visible="@On("pv_task_edt")" VisibleIndex="@Ix("pv_task_edt")" />
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PvWorkers)" Caption="PV 일감담당자" Width="150" Visible="@On("pv_workers")" VisibleIndex="@Ix("pv_workers")"
                               TextAlignment="GridTextAlignment.Left" />
 
-            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PvNodeEmpty)" FilterRowEditorVisible="false" Caption="PV 빈단계" Width="85" Visible="@On("pv_node_empty")">
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PvNodeEmpty)" FilterRowEditorVisible="false" Caption="PV 빈단계" Width="85" Visible="@On("pv_node_empty")" VisibleIndex="@Ix("pv_node_empty")">
                 <CellDisplayTemplate Context="cell">
                     @{
                         var r = (WbsBoardRowDto)cell.DataItem;
@@ -340,37 +356,91 @@ WBS 상세 목록. 다른 화면의 막대·칸을 누르면 조건이 주소로
                 </CellDisplayTemplate>
             </DxGridDataColumn>
 
-            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PvSnapshotAt)" Caption="PV 수집" Width="130" Visible="@On("pv_snapshot_at")" />
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PvSnapshotAt)" Caption="PV 수집" Width="130" Visible="@On("pv_snapshot_at")" VisibleIndex="@Ix("pv_snapshot_at")" />
         </Columns>
     </CommGrd>
 </CommCont>
 
-@* ──────────────── 보이는 칸 고르기 ──────────────── *@
-<CommPopup @bind-Visible="_colOpen" HeaderText="@($"보이는 칸 고르기 · {VisibleCount}/{WbsRowSchema.Cols.Count}")" Width="620px">
+@* ──────────────── 보이는 칸 고르기 ────────────────
+   왼쪽은 무엇을 볼지(묶음별 체크), 오른쪽은 어떤 차례로 볼지(끌거나 ▲▼). 「확인」 전까지 표는 그대로다. *@
+<CommPopup @bind-Visible="_colOpen" HeaderText="@($"보이는 칸 · {_draft.Count}/{WbsRowSchema.Cols.Count} 선택")" Width="980px">
     <BodyContentTemplate Context="popup">
-        @foreach (var group in WbsRowSchema.Cols.GroupBy(c => c.Group))
-        {
-            <section class="pm-wbs-cols">
-                <h4 class="pm-wbs-cols__head">
-                    @group.Key
-                    <button type="button" class="pm-wbs-cols__all" @onclick="@(() => ToggleGroup(group.Key))">
-                        @(group.All(c => On(c.Key)) ? "모두 끄기" : "모두 켜기")
-                    </button>
-                </h4>
-                <div class="pm-wbs-cols__list">
-                    @foreach (var c in group)
+        <div class="pm-wbs-colbar">
+            <DxTextBox @bind-Text="_colQ" BindValueMode="BindValueMode.OnInput" NullText="칸 이름 검색"
+                       ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" Style="width: 200px" />
+            <DxButton Text="전체" RenderStyle="ButtonRenderStyle.Secondary" Click="@DraftAll" />
+            <DxButton Text="기본만" RenderStyle="ButtonRenderStyle.Secondary" Click="@DraftBase" />
+            <DxButton Text="전부 해제" RenderStyle="ButtonRenderStyle.Secondary" Click="@DraftNone" />
+            <span class="pm-wbs-colbar__gap"></span>
+            <DxButton Text="순서 초기화" RenderStyle="ButtonRenderStyle.Secondary" Click="@DraftSortDefault" />
+            <DxButton Text="되돌리기" RenderStyle="ButtonRenderStyle.Secondary" Click="@DraftRevert" />
+        </div>
+
+        <div class="pm-wbs-colpick">
+            <div class="pm-wbs-colpick__pane">
+                <h4 class="pm-wbs-colpick__title">보이는 칸</h4>
+                <div class="pm-wbs-colpick__groups">
+                    @foreach (var group in PickGroups)
                     {
-                        <DxCheckBox Checked="@On(c.Key)" CheckedChanged="@((bool v) => ToggleCol(c.Key, v))">@c.Label</DxCheckBox>
+                        var (n, all) = GroupCount(group.Key);
+                        <section class="pm-wbs-cols">
+                            <h4 class="pm-wbs-cols__head">
+                                <button type="button" class="pm-wbs-cols__all @(n == all ? "pm-wbs-cols__all--full" : null)"
+                                        @onclick="@(() => ToggleDraftGroup(group.Key))">@group.Key</button>
+                                <span class="jsini-text-muted">@n/@all</span>
+                            </h4>
+                            <div class="pm-wbs-cols__list">
+                                @foreach (var c in group)
+                                {
+                                    <DxCheckBox Checked="@DraftOn(c.Key)" CheckedChanged="@((bool _) => ToggleDraft(c.Key))">@c.Label</DxCheckBox>
+                                }
+                            </div>
+                        </section>
+                    }
+                    @if (!PickGroups.Any())
+                    {
+                        <p class="jsini-text-muted">검색 결과가 없습니다.</p>
                     }
                 </div>
-            </section>
-        }
-        <p class="jsini-hint">@(_colWho is { Length: > 0 } who ? $"{who} 님 설정으로 서버에 보관됩니다." : "이 화면에만 적용됩니다(서버에 보관하지 못했습니다).")</p>
+            </div>
+
+            <div class="pm-wbs-colpick__pane">
+                <h4 class="pm-wbs-colpick__title">표시 순서</h4>
+                <ol class="pm-wbs-colorder">
+                    @for (var i = 0; i < _draft.Count; i++)
+                    {
+                        var at = i;
+                        var key = _draft[at];
+                        <li @key="key" draggable="true"
+                            class="@(_dragFrom == at ? "is-dragging" : null) @(_dragOver == at && _dragFrom != at ? "is-over" : null)"
+                            @ondragstart="@(() => DragStart(at))"
+                            @ondragover="@(() => DragOver(at))" @ondragover:preventDefault="true"
+                            @ondrop="@(() => Drop(at))" @ondrop:preventDefault="true"
+                            @ondragend="@DragEnd">
+                            <span class="pm-wbs-colorder__no">@(at + 1)</span>
+                            <span class="pm-wbs-colorder__grip" title="끌어서 차례를 바꿉니다">⠿</span>
+                            <span class="pm-wbs-colorder__lb">@LabelOf(key)</span>
+                            <span class="pm-wbs-colorder__tag">@GroupOf(key)</span>
+                            <button type="button" class="pm-wbs-colorder__mv" title="위로" disabled="@(at == 0)"
+                                    @onclick="@(() => MoveDraft(at, at - 1))">▲</button>
+                            <button type="button" class="pm-wbs-colorder__mv" title="아래로" disabled="@(at == _draft.Count - 1)"
+                                    @onclick="@(() => MoveDraft(at, at + 1))">▼</button>
+                            <button type="button" class="pm-wbs-colorder__mv pm-wbs-colorder__mv--off" title="이 칸 감추기"
+                                    @onclick="@(() => ToggleDraft(key))">✕</button>
+                        </li>
+                    }
+                    @if (_draft.Count == 0)
+                    {
+                        <li class="pm-wbs-colorder__empty">고른 칸이 없습니다. 왼쪽에서 체크하세요.</li>
+                    }
+                </ol>
+            </div>
+        </div>
+        <p class="jsini-hint">@(_colWho is { Length: > 0 } who ? $"{who} 님 설정으로 서버에 보관됩니다 — 다른 PC 에서 열어도 그대로 보입니다." : "이 화면에만 적용됩니다(서버에 보관하지 못했습니다).")</p>
     </BodyContentTemplate>
     <FooterContentTemplate Context="popup">
-        <DxButton Text="전부 켜기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => ResetCols(true))" />
-        <DxButton Text="기본만" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => ResetCols(false))" />
-        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Primary" Click="@(() => _colOpen = false)" />
+        <DxButton Text="확인" RenderStyle="ButtonRenderStyle.Primary" Enabled="@(_draft.Count > 0)" Click="@ApplyColumnsAsync" />
+        <DxButton Text="취소" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _colOpen = false)" />
     </FooterContentTemplate>
 </CommPopup>
 
@@ -509,6 +579,30 @@ WBS 상세 목록. 다른 화면의 막대·칸을 누르면 조건이 주소로
             <DxButton IconCssClass="jsini-icon-trash" Title="삭제" CssClass="commgrd__icon--warn"
                       RenderStyle="ButtonRenderStyle.Link" Click="@(() => DeleteAsync(row))" />
         </PermissionView>
+    };
+
+    /// <summary>표시 칸의 칸별 검색. 칸마다 켜진 것의 뜻이 달라(완료 · 요청됨 · 사용) 낱말을 갈라 적는다.</summary>
+    private RenderFragment CheckFilter(GridDataColumnFilterRowCellTemplateContext f, string col) => __builder =>
+    {
+        var (on, off) = CheckWords(col);
+        <select class="pm-wbs-fsel @(CheckFilterValue(f) is { Length: > 0 } ? "pm-wbs-fsel--on" : null)"
+                value="@CheckFilterValue(f)" @onchange="@(e => SetCheckFilter(f, e.Value as string))">
+            <option value="">전체</option>
+            <option value="y">@on</option>
+            <option value="n">@off</option>
+        </select>
+    };
+
+    /// <summary>일감 칸의 칸별 검색 — 있고 없음 · 남은 것이 있나로 거른다.</summary>
+    private RenderFragment TaskFilter(GridDataColumnFilterRowCellTemplateContext f) => __builder =>
+    {
+        <select class="pm-wbs-fsel @(TaskFilterValue(f) is { Length: > 0 } ? "pm-wbs-fsel--on" : null)"
+                value="@TaskFilterValue(f)" @onchange="@(e => SetTaskFilter(f, e.Value as string))">
+            <option value="">전체</option>
+            <option value="open">미완료 있음</option>
+            <option value="done">전부 완료</option>
+            <option value="none">일감 없음</option>
+        </select>
     };
 
     /// <summary>표시 칸(o / 빈 값)을 누르는 즉시 고친다.</summary>

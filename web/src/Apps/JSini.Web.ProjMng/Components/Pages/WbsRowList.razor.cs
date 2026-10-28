@@ -1,4 +1,6 @@
 using System.Text.Json;
+using DevExpress.Blazor;
+using DevExpress.Data.Filtering;
 using Microsoft.AspNetCore.Components;
 using JSini.Web.Abstractions;
 using JSini.Web.Components.Data;
@@ -234,17 +236,33 @@ public partial class WbsRowList
 
     // ──────────────────────────────────────────── 보이는 칸
 
-    private HashSet<string> _cols = [.. WbsRowSchema.Cols.Select(c => c.Key)];
+    /// <summary>보이는 칸과 그 차례. 목록의 차례가 곧 표의 칸 차례다(엑셀도 그대로 따른다).</summary>
+    private List<string> _cols = [.. WbsRowSchema.Cols.Select(c => c.Key)];
     private bool _colOpen;
     private string? _colWho;
 
     private bool On(string key) => _cols.Contains(key);
 
+    /// <summary>칸의 자리. 꺼 둔 칸은 뒤로 몰아 켠 칸끼리의 차례를 흐트러뜨리지 않는다.</summary>
+    private int Ix(string key)
+    {
+        var at = _cols.IndexOf(key);
+        return at >= 0 ? at : _cols.Count + SchemaIndex(key);
+    }
+
+    private static int SchemaIndex(string key)
+    {
+        for (var i = 0; i < WbsRowSchema.Cols.Count; i++)
+        {
+            if (WbsRowSchema.Cols[i].Key == key) return i;
+        }
+
+        return WbsRowSchema.Cols.Count;
+    }
+
     private int VisibleCount => _cols.Count;
 
-    private void OpenColumns() => _colOpen = true;
-
-    /// <summary>담긴 값({cols, known})을 지금 칸 목록에 맞춘다. known 은 담을 때 있던 칸이라, 그 뒤에 생긴 칸은 켠 채로 보탠다 — 안 그러면 새 칸이 영영 안 보인다.</summary>
+    /// <summary>담긴 값({cols, known})을 지금 칸 목록에 맞춘다. cols 의 차례를 지키고, known 에 없던 칸(담은 뒤에 생긴 칸)은 켠 채로 뒤에 붙인다 — 안 그러면 새 칸이 영영 안 보인다.</summary>
     private async Task LoadColsAsync(int rid)
     {
         _colsLoadedFor = rid;
@@ -272,8 +290,8 @@ public partial class WbsRowList
             if (picked is null) return;
 
             var all = WbsRowSchema.Cols.Select(x => x.Key).ToList();
-            var keep = picked.Where(all.Contains).ToHashSet();
-            foreach (var fresh in all.Where(a => known?.Contains(a) != true)) keep.Add(fresh);
+            var keep = picked.Where(all.Contains).Distinct().ToList();
+            keep.AddRange(all.Where(a => known?.Contains(a) != true && !keep.Contains(a)));
 
             if (keep.Count > 0) _cols = keep;
         }
@@ -292,7 +310,7 @@ public partial class WbsRowList
         {
             await Prefs.SetPrefAsync(rid, ColsPref, new
             {
-                cols = WbsRowSchema.Cols.Select(c => c.Key).Where(_cols.Contains).ToArray(),
+                cols = _cols.ToArray(),
                 known = WbsRowSchema.Cols.Select(c => c.Key).ToArray(),
             });
         }
@@ -303,32 +321,140 @@ public partial class WbsRowList
         }
     }
 
-    private Task ToggleCol(string key, bool on)
-    {
-        if (!on && _cols.Count <= 1) return Task.CompletedTask;   // 하나는 남긴다
+    // 창 안에서는 사본(_draft)만 만진다. 「확인」을 눌러야 표가 바뀌므로 이것저것 켜 보다 「취소」로 되돌릴 수 있다.
+    private List<string> _draft = [];
+    private string? _colQ;
+    private int _dragFrom = -1;
+    private int _dragOver = -1;
 
-        if (on) _cols.Add(key); else _cols.Remove(key);
-        return SaveColsAsync();
+    private void OpenColumns()
+    {
+        _draft = [.. _cols];
+        _colQ = null;
+        _dragFrom = _dragOver = -1;
+        _colOpen = true;
     }
 
-    private Task ToggleGroup(string group)
+    private bool DraftOn(string key) => _draft.Contains(key);
+
+    private static string LabelOf(string key) => WbsRowSchema.Cols.FirstOrDefault(c => c.Key == key)?.Label ?? key;
+
+    private static string GroupOf(string key) => WbsRowSchema.Cols.FirstOrDefault(c => c.Key == key)?.Group ?? "";
+
+    private bool Matches(WbsRowCol c)
+    {
+        var q = _colQ?.Trim();
+        return string.IsNullOrEmpty(q)
+            || c.Label.Contains(q, StringComparison.OrdinalIgnoreCase)
+            || c.Key.Contains(q, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private IEnumerable<IGrouping<string, WbsRowCol>> PickGroups =>
+        WbsRowSchema.Cols.Where(Matches).GroupBy(c => c.Group);
+
+    /// <summary>켜는 칸은 맨 뒤에 붙는다 — 오른쪽 차례 목록에서 제자리로 옮긴다.</summary>
+    private void ToggleDraft(string key)
+    {
+        if (!_draft.Remove(key)) _draft.Add(key);
+    }
+
+    /// <summary>묶음이 (검색에 걸린 것 중) 전부 켜져 있으면 끄고, 아니면 빠진 것을 뒤에 붙인다.</summary>
+    private void ToggleDraftGroup(string group)
+    {
+        var keys = WbsRowSchema.Cols.Where(c => c.Group == group && Matches(c)).Select(c => c.Key).ToList();
+
+        if (keys.All(_draft.Contains)) _draft.RemoveAll(keys.Contains);
+        else _draft.AddRange(keys.Where(k => !_draft.Contains(k)));
+    }
+
+    private (int On, int All) GroupCount(string group)
     {
         var keys = WbsRowSchema.Cols.Where(c => c.Group == group).Select(c => c.Key).ToList();
-        var allOn = keys.All(_cols.Contains);
+        return (keys.Count(_draft.Contains), keys.Count);
+    }
 
-        foreach (var k in keys)
-        {
-            if (allOn) _cols.Remove(k); else _cols.Add(k);
-        }
+    private void DraftAll() => _draft = [.. WbsRowSchema.Cols.Select(c => c.Key)];
 
-        if (_cols.Count == 0) _cols = [.. WbsRowSchema.BaseCols];
+    private void DraftBase() => _draft = [.. WbsRowSchema.BaseCols];
+
+    private void DraftNone() => _draft = [];
+
+    private void DraftRevert() => _draft = [.. _cols];
+
+    /// <summary>고른 것은 그대로 두고 차례만 처음 정의의 차례로 되돌린다.</summary>
+    private void DraftSortDefault() =>
+        _draft = [.. WbsRowSchema.Cols.Select(c => c.Key).Where(_draft.Contains)];
+
+    private void MoveDraft(int from, int to)
+    {
+        if (from < 0 || from >= _draft.Count || to < 0 || to >= _draft.Count || from == to) return;
+
+        var key = _draft[from];
+        _draft.RemoveAt(from);
+        _draft.Insert(to, key);
+    }
+
+    private void DragStart(int i) => _dragFrom = i;
+
+    private void DragOver(int i) => _dragOver = i;
+
+    private void Drop(int i)
+    {
+        MoveDraft(_dragFrom, i);
+        _dragFrom = _dragOver = -1;
+    }
+
+    private void DragEnd() => _dragFrom = _dragOver = -1;
+
+    private Task ApplyColumnsAsync()
+    {
+        if (_draft.Count == 0) return Task.CompletedTask;   // 하나는 남긴다
+
+        _cols = [.. _draft];
+        _colOpen = false;
         return SaveColsAsync();
     }
 
-    private Task ResetCols(bool all)
+    // ──────────────────────────────────────────── 칸별 검색
+
+    /// <summary>PV 칸을 켰는데 그 값이 한 줄에도 없다 — 빈 칸을 보고 헤매지 않게 까닭을 적는다.</summary>
+    private bool PvShownButEmpty =>
+        _rows.Count > 0
+        && _cols.Any(k => k.StartsWith("pv_", StringComparison.Ordinal))
+        && !_rows.Any(r => !string.IsNullOrEmpty(r.PvSnapshotAt));
+
+    private static (string On, string Off) CheckWords(string col) => col switch
     {
-        _cols = all ? [.. WbsRowSchema.Cols.Select(c => c.Key)] : [.. WbsRowSchema.BaseCols];
-        return SaveColsAsync();
+        "recheck_yn" or "recheck_big_yn" => ("✓ 요청됨", "요청 없음"),
+        "dwg_view_use" or "report_use" => ("✓ 사용", "미사용"),
+        _ => ("✓ 완료", "미완료"),
+    };
+
+    private static string CheckFilterValue(GridDataColumnFilterRowCellTemplateContext f) =>
+        f.FilterCriteria is BinaryOperator { RightOperand: OperandValue { Value: bool b } } ? (b ? "y" : "n") : "";
+
+    private static void SetCheckFilter(GridDataColumnFilterRowCellTemplateContext f, string? value) =>
+        f.FilterCriteria = value is "y" or "n"
+            ? new BinaryOperator(f.DataColumn.FieldName, value == "y", BinaryOperatorType.Equal)
+            : null;
+
+    // 일감 칸의 값(TaskState)은 「없음」·「미완료 n/m」·「완료 n/m」 셋 중 하나로 시작한다.
+    private static readonly (string Value, string Prefix)[] TaskFilterPrefixes =
+        [("open", "미완료"), ("done", "완료"), ("none", "없음")];
+
+    private static string TaskFilterValue(GridDataColumnFilterRowCellTemplateContext f) =>
+        f.FilterCriteria is FunctionOperator { OperatorType: FunctionOperatorType.StartsWith } fn
+        && fn.Operands.Count == 2 && fn.Operands[1] is OperandValue { Value: string prefix }
+            ? TaskFilterPrefixes.FirstOrDefault(p => p.Prefix == prefix).Value ?? ""
+            : "";
+
+    private static void SetTaskFilter(GridDataColumnFilterRowCellTemplateContext f, string? value)
+    {
+        var prefix = TaskFilterPrefixes.FirstOrDefault(p => p.Value == value).Prefix;
+        f.FilterCriteria = prefix is null
+            ? null
+            : new FunctionOperator(FunctionOperatorType.StartsWith,
+                new OperandProperty(f.DataColumn.FieldName), new OperandValue(prefix));
     }
 
     // ──────────────────────────────────────────── 칸에서 바로 고치기
