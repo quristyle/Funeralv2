@@ -86,6 +86,7 @@ builder.Services.AddScoped<IAvatarIconResolver, AvatarIconResolver>();
 // 로그인 아이디 → 대표 메일. 메일을 내는 자리가 둘이라 한 곳에 둔다.
 builder.Services.AddScoped<IAccountEmailResolver, AccountEmailResolver>();
 builder.Services.AddScoped<IPushSender, PushSender>();
+builder.Services.AddScoped<INotificationPolicyPreviewSender, NotificationPolicyPreviewSender>();
 
 // 푸시 HttpClient 는 하나를 물려 쓴다(발송마다 맺으면 소켓이 TIME_WAIT 로 쌓인다). 제한 30초는 기기당 전체 왕복 한도다(docs/push-delivery.md).
 builder.Services.AddHttpClient(PushSender.HttpClientName, c =>

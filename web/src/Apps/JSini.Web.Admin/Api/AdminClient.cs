@@ -823,6 +823,13 @@ public sealed class AdminClient(GatewayClient gateway)
         => gateway.GetOneAsync<NotifyPolicyPreviewDto>(
             $"notification/notification-policies/{Uri.EscapeDataString(eventCode)}/recipients", ct);
 
+    /// <summary>미리받아보기 — 이 이벤트의 알림 한 통을 본인(또는 저장된 정책의 대상자 모두)에게 앱 푸시·이메일로 보낸다.</summary>
+    public Task<NotifyPreviewSendResultDto?> SendNotifyPreviewAsync(
+        string eventCode, bool toTargets, CancellationToken ct = default)
+        => gateway.PostAsync<NotifyPreviewSendResultDto>(
+            $"notification/notification-policies/{Uri.EscapeDataString(eventCode)}/preview-send",
+            new NotifyPreviewSendDto { ToTargets = toTargets }, ct);
+
     /// <summary>내부 장비(192.168.219.229) Ping 응답 및 생존 여부를 조회한다.</summary>
     public Task<ServerPingResultDto?> GetServerPingStatusAsync(
         string? ip = null, int? timeout = null, CancellationToken ct = default)

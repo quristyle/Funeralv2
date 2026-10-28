@@ -131,6 +131,30 @@ public sealed class NotifyPolicyPreviewDto
     public int EmailReachable { get; set; }
 }
 
+/// <summary>미리받아보기 요청. 거짓이면 누른 사람 본인에게만, 참이면 저장된 정책의 대상자 모두에게 보낸다.</summary>
+public sealed class NotifyPreviewSendDto
+{
+    public bool ToTargets { get; set; }
+}
+
+/// <summary>미리받아보기 결과. 푸시는 기기 수, 메일은 주소 수로 센다.</summary>
+public sealed class NotifyPreviewSendResultDto
+{
+    public int PushTargets { get; set; }
+
+    public int PushSent { get; set; }
+
+    public string? PushNote { get; set; }
+
+    public int MailTargets { get; set; }
+
+    public int Mailed { get; set; }
+
+    public int MailFailed { get; set; }
+
+    public string Message { get; set; } = string.Empty;
+}
+
 /// <summary>미리보기 한 줄 — 사람 하나.</summary>
 public sealed class NotifyRecipientDto
 {

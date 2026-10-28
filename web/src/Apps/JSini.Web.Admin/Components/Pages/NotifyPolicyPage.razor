@@ -273,6 +273,14 @@
                             @* 받는 사람 보기는 권한 문을 하나 더 세우지 않는다 — 설정을 볼 수 있는 사람이면 그 목록은 설정을 읽어 푼 것일 뿐이다. *@
                             <DxButton Text="받는 사람" RenderStyle="ButtonRenderStyle.Secondary"
                                       Enabled="@(!Loading)" Click="@OpenRecipientsAsync" />
+                            @* 미리받아보기는 이벤트가 일어나지 않아도 그 알림 한 통을 실제 길(앱 푸시·이메일)로 보낸다. 대상자 쪽은 저장된 정책으로 푼다. *@
+                            <DxButton Text="미리받아보기" RenderStyle="ButtonRenderStyle.Secondary"
+                                      Title="이 알림을 나에게만 앱 푸시·이메일로 보냅니다"
+                                      Enabled="@(!Loading && !_sendingPreview)" Click="@(() => SendPreviewAsync(false))" />
+                            <DxButton Text="대상자 미리받아보기" RenderStyle="ButtonRenderStyle.Secondary"
+                                      Title="저장된 설정의 받는 사람 모두에게 이 알림을 보냅니다"
+                                      Enabled="@(!Loading && !_sendingPreview && CanSendToTargets)"
+                                      Click="@(() => SendPreviewAsync(true))" />
                         </div>
                     </div>
                 }

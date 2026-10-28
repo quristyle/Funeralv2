@@ -151,3 +151,32 @@ public class NotificationRoleDto
     /// <summary>그 역할에 걸린 사람 수.</summary>
     public int AccountCount { get; set; }
 }
+
+/// <summary>미리받아보기 요청. 거짓이면 누른 사람 본인에게만, 참이면 저장된 정책의 대상자 모두에게 보낸다.</summary>
+public class NotificationPolicyPreviewSendDto
+{
+    public bool ToTargets { get; set; }
+}
+
+/// <summary>미리받아보기 결과. 「보냈다」를 길마다 갈라 센다 — 푸시는 기기 수, 메일은 주소 수다.</summary>
+public class NotificationPolicyPreviewSendResultDto
+{
+    /// <summary>앱 푸시를 보내려 한 사람 수.</summary>
+    public int PushTargets { get; set; }
+
+    /// <summary>푸시 서비스가 받아 준 기기 수.</summary>
+    public int PushSent { get; set; }
+
+    /// <summary>푸시 쪽에서 덧붙일 말(구독 없음 · 본인이 끔 · VAPID 없음).</summary>
+    public string? PushNote { get; set; }
+
+    /// <summary>메일을 보내려 한 주소 수.</summary>
+    public int MailTargets { get; set; }
+
+    public int Mailed { get; set; }
+
+    public int MailFailed { get; set; }
+
+    /// <summary>화면에 띄울 한 줄.</summary>
+    public string Message { get; set; } = string.Empty;
+}

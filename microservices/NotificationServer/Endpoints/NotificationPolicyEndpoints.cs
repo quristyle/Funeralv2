@@ -94,6 +94,34 @@ public static class NotificationPolicyEndpoints
                 : Results.Ok(ApiResponse<NotificationPolicyPreviewDto>.Ok(row));
         })
         .WithName("GetNotificationPolicyRecipients");
+
+        // 미리받아보기. 이벤트가 일어나지 않아도 그 알림 한 통을 본인 또는 저장된 정책의 대상자 모두에게 보낸다.
+        group.MapPost("/{eventCode}/preview-send", async (
+            string eventCode,
+            UserContext? user,
+            HttpContext http,
+            [FromBody] NotificationPolicyPreviewSendDto request,
+            [FromServices] INotificationPolicyPreviewSender sender,
+            [FromServices] MenuViewAccess access,
+            CancellationToken ct) =>
+        {
+            if (await ForbidAsync(user, http, access, ct) is { } denied) return denied;
+
+            try
+            {
+                var row = await sender.SendAsync(eventCode, request.ToTargets, user!.UserId, user.Email, ct);
+
+                return row is null
+                    ? Results.NotFound(ApiResponse<NotificationPolicyPreviewSendResultDto>.Fail(
+                        "이벤트를 찾을 수 없습니다.", "NOT_FOUND"))
+                    : Results.Ok(ApiResponse<NotificationPolicyPreviewSendResultDto>.Ok(row, row.Message));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.BadRequest(ApiResponse<NotificationPolicyPreviewSendResultDto>.Fail(ex.Message, "INVALID"));
+            }
+        })
+        .WithName("SendNotificationPolicyPreview");
     }
 
     /// <summary>볼 수 있는 사람인가. 막아야 하면 그 응답을, 통과면 <c>null</c> 을 준다.</summary>

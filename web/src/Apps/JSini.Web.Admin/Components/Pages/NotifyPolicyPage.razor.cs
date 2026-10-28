@@ -971,6 +971,67 @@ public partial class NotifyPolicyPage : IDisposable
         }
     }
 
+    /// <summary>미리받아보기를 보내는 중인가. 두 번 눌러 두 통이 가지 않게 단추를 잠근다.</summary>
+    private bool _sendingPreview;
+
+    /// <summary>대상자가 정해지는가 — 꺼졌거나 역할을 안 걸었으면 서버도 누구에게 보낼지 모른다.</summary>
+    private bool CanSendToTargets => _selected is { Governed: true } && _isActive && !NoRolePicked;
+
+    /// <summary>미리받아보기. 저장 중이면 끝나기를 기다린다 — 대상자는 저장된 값으로 풀린다.</summary>
+    private async Task SendPreviewAsync(bool toTargets)
+    {
+        if (_selected is null || _sendingPreview) return;
+
+        var target = _selected;
+
+        if (_pendingSaves > 0)
+        {
+            await _saveGate.WaitAsync();
+            _saveGate.Release();
+        }
+
+        _sendingPreview = true;
+        try
+        {
+            if (toTargets && _confirm is not null)
+            {
+                var preview = await Api.GetNotifyRecipientsAsync(target.Code);
+                var people = preview?.Recipients.Count ?? 0;
+
+                if (people == 0)
+                {
+                    Say("받을 사람이 없습니다. 고른 역할에 사람이 걸려 있는지 확인하십시오.", NoticeTone.Warning);
+                    return;
+                }
+
+                var asked = await _confirm.AskAsync(
+                    $"「{target.Name}」 미리받아보기를 대상자 {people}명에게 보냅니다. "
+                    + $"(앱 푸시 닿는 사람 {preview!.PushReachable}명 · 이메일 {preview.EmailReachable}명)",
+                    title: "대상자 미리받아보기",
+                    confirmText: "보내기",
+                    confirmStyle: DevExpress.Blazor.ButtonRenderStyle.Primary);
+
+                if (!asked) return;
+            }
+
+            var result = await Api.SendNotifyPreviewAsync(target.Code, toTargets);
+            var who = toTargets ? "대상자" : "나에게";
+            var sentAny = result is not null && (result.PushSent > 0 || result.Mailed > 0);
+
+            Say($"미리받아보기({who}) — {result?.Message}",
+                sentAny ? NoticeTone.Info : NoticeTone.Warning);
+        }
+        catch (ApiException ex)
+        {
+            Say($"미리받아보기를 보내지 못했습니다 — {ex.Message}", NoticeTone.Error);
+        }
+        finally
+        {
+            _sendingPreview = false;
+            StateHasChanged();
+        }
+    }
+
     public void Dispose()
     {
         _saveGate.Dispose();
