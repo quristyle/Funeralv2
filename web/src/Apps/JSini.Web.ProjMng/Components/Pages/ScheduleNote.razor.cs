@@ -13,6 +13,26 @@ public partial class ScheduleNote : IDisposable
 
     [Inject] private ScheduleNoteAssist Assist { get; set; } = default!;
 
+    /// <summary>떠날 때 쓰던 모습을 맡기는 곳. 돌아오면 그대로 되찾는다.</summary>
+    [Inject] private ScreenState Screen { get; set; } = default!;
+
+    /// <summary>이 화면이 맡겨 두는 짐의 이름.</summary>
+    internal const string StateKey = "projmng/proj/schedule-note";
+
+    /// <summary>떠날 때 챙기는 입력 내용과 상태. 다른 화면에 갔다 돌아와도 그대로 살린다.</summary>
+    private sealed record Kept(
+        string? ProjectCode,
+        string? Kind,
+        DateOnly? Start,
+        DateOnly? End,
+        string? Title,
+        string? Summary,
+        string? Body,
+        IReadOnlyCollection<string>? Touched,
+        WbsItemDto? Saved,
+        string? Model,
+        string? Failed);
+
     /// <summary>치기를 멈추고 이만큼 지나야 AI 에게 묻는다. 글자마다 물으면 공급자 한도(429)에 먼저 닿는다.</summary>
     private static readonly TimeSpan Settle = TimeSpan.FromMilliseconds(1200);
 
@@ -185,6 +205,31 @@ public partial class ScheduleNote : IDisposable
         }
     }
 
+    /// <summary>되찾기는 동기(OnInitialized)에서 한다.</summary>
+    protected override void OnInitialized()
+    {
+        if (Screen.Get<Kept>(StateKey) is not { } kept) return;
+
+        _projectCode = kept.ProjectCode;
+        _kind = kept.Kind;
+        _start = kept.Start;
+        _end = kept.End;
+        _title = kept.Title;
+        _summary = kept.Summary;
+        _body = kept.Body;
+        _touched.Clear();
+        if (kept.Touched is not null)
+        {
+            foreach (var t in kept.Touched)
+            {
+                _touched.Add(t);
+            }
+        }
+        _saved = kept.Saved;
+        _model = kept.Model;
+        _failed = kept.Failed;
+    }
+
     private void Reset()
     {
         _pending?.Cancel();
@@ -196,6 +241,7 @@ public partial class ScheduleNote : IDisposable
         _touched.Clear();
         _thinking = false;
         _failed = null;
+        Screen.Clear(StateKey);
     }
 
     private static DateTime? Day(DateOnly? value) => value?.ToDateTime(TimeOnly.MinValue);
@@ -207,5 +253,17 @@ public partial class ScheduleNote : IDisposable
     {
         _pending?.Cancel();
         _pending?.Dispose();
+        Screen.Set(StateKey, new Kept(
+            _projectCode,
+            _kind,
+            _start,
+            _end,
+            _title,
+            _summary,
+            _body,
+            _touched.ToArray(),
+            _saved,
+            _model,
+            _failed));
     }
 }

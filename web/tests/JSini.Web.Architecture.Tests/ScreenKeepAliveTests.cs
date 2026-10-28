@@ -130,6 +130,19 @@ public sealed class ScreenKeepAliveTests
         Assert.Matches(@"StateKey=""@StateKey""", page);
     }
 
+    /// <summary>
+    /// 「AI 일정 메모」가 <b>맡기고 · 찾는</b> 둘을 다 하는가.
+    /// </summary>
+    [Fact]
+    public void 일정메모_화면이_쓰던_모습을_맡기고_찾는다()
+    {
+        var page = ScheduleNote();
+
+        Assert.Matches(@"\[Inject\][^\n]*ScreenState", page);
+        Assert.Matches(@"public void Dispose\(\)[\s\S]{0,200}?Screen\.Set\(StateKey", page);
+        Assert.Matches(@"protected override void OnInitialized\(\)[\s\S]{0,200}?Screen\.Get<\w+>\(StateKey\)", page);
+    }
+
     private static string CommGrd() => RazorSource.Read(Path.Combine(
         SolutionRoot(), "src", "Shared", "JSini.Web.Components", "Data", "CommGrd.razor"));
 
@@ -138,6 +151,9 @@ public sealed class ScreenKeepAliveTests
 
     private static string RequestManage() => RazorSource.Read(Path.Combine(
         SolutionRoot(), "src", "Apps", "JSini.Web.HelpDesk", "Components", "Pages", "RequestManage.razor"));
+
+    private static string ScheduleNote() => RazorSource.Read(Path.Combine(
+        SolutionRoot(), "src", "Apps", "JSini.Web.ProjMng", "Components", "Pages", "ScheduleNote.razor"));
 
     private static string SolutionRoot()
     {
