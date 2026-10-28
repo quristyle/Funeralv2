@@ -12,6 +12,7 @@ namespace ProjMngServer.Controllers;
 [Route("api/wbs-board")]
 public sealed class WbsBoardController(
     WbsBoardService board,
+    WbsBoardRowService rowsSvc,
     WbsProgressService progress,
     WbsDelayService delay) : ControllerBase
 {
@@ -87,6 +88,82 @@ public sealed class WbsBoardController(
             0 => NotFound(ApiResponse<object>.Fail("NOT_FOUND", $"그 화면을 찾을 수 없습니다: {activityId}")),
             _ => Ok(ApiResponse<int>.Ok(affected)),
         };
+    }
+
+    // ──────────────────────────────────────────────────────── 대상 추가·수정·삭제
+
+    private string? LoginId =>
+        Request.Headers.TryGetValue("X-User-Id", out var id) && !string.IsNullOrWhiteSpace(id) ? id.ToString() : null;
+
+    /// <summary>한 줄의 모든 칸. 수정 창이 연다.</summary>
+    [HttpGet("rows/{activityId}/full")]
+    public async Task<IActionResult> RowOneAsync([FromQuery] int prjRid, string activityId)
+        => await rowsSvc.OneAsync(prjRid, activityId) is { } row
+            ? Ok(ApiResponse<List<WbsBoardField>>.Ok(row))
+            : NotFound(ApiResponse<object>.Fail($"그 화면을 찾을 수 없습니다: {activityId}", "NOT_FOUND"));
+
+    /// <summary>새 대상. 본문의 <c>activity_id</c> 를 비우면 임시 번호(NOID-)가 붙는다.</summary>
+    [HttpPost("rows")]
+    public Task<IActionResult> CreateRowAsync([FromQuery] int prjRid, [FromBody] Dictionary<string, JsonElement> body)
+        => GuardAsync(async () =>
+        {
+            var id = body.TryGetValue("activity_id", out var el) ? WbsBoardSql.JsonValue(el) as string : null;
+            return Ok(ApiResponse<string>.Ok(await rowsSvc.CreateAsync(prjRid, id, body)));
+        });
+
+    /// <summary>모든 칸 수정. 일정·실적 날짜도 고칠 수 있다 — 엑셀 WBS 에 없는 대상을 여기서 세우기 때문이다.</summary>
+    [HttpPut("rows/{activityId}")]
+    public Task<IActionResult> UpdateRowAsync(
+        [FromQuery] int prjRid, string activityId, [FromBody] Dictionary<string, JsonElement> body)
+        => GuardAsync(async () => await rowsSvc.UpdateAsync(prjRid, activityId, body) > 0
+            ? Ok(ApiResponse<int>.Ok(1))
+            : NotFound(ApiResponse<object>.Fail($"그 화면을 찾을 수 없습니다: {activityId}", "NOT_FOUND")));
+
+    /// <summary>임시 번호로 세운 줄에 확정 Activity ID 를 채운다.</summary>
+    [HttpPut("rows/{activityId}/activity-id")]
+    public Task<IActionResult> SetRowIdAsync(
+        [FromQuery] int prjRid, string activityId, [FromBody] Dictionary<string, JsonElement> body)
+        => GuardAsync(async () =>
+        {
+            var id = body.TryGetValue("activity_id", out var el) ? WbsBoardSql.JsonValue(el) as string : null;
+            if (string.IsNullOrWhiteSpace(id))
+                return BadRequest(ApiResponse<object>.Fail("Activity ID 를 적으세요.", "INVALID"));
+
+            return await rowsSvc.SetIdAsync(prjRid, activityId, id) > 0
+                ? Ok(ApiResponse<string>.Ok(id.Trim()))
+                : NotFound(ApiResponse<object>.Fail("그 줄을 찾지 못했습니다(이미 채워졌을 수 있습니다).", "NOT_FOUND"));
+        });
+
+    [HttpGet("rows/{activityId}/deps")]
+    public async Task<IActionResult> RowDepsAsync([FromQuery] int prjRid, string activityId)
+        => await rowsSvc.DepsAsync(prjRid, activityId) is { } deps
+            ? Ok(ApiResponse<WbsBoardRowDeps>.Ok(deps))
+            : NotFound(ApiResponse<object>.Fail($"그 화면을 찾을 수 없습니다: {activityId}", "NOT_FOUND"));
+
+    [HttpDelete("rows/{activityId}")]
+    public async Task<IActionResult> DeleteRowAsync([FromQuery] int prjRid, string activityId)
+        => await rowsSvc.DeleteAsync(prjRid, activityId, LoginId) is { } gone
+            ? Ok(ApiResponse<WbsBoardRowDeleted>.Ok(gone))
+            : NotFound(ApiResponse<object>.Fail($"그 화면을 찾을 수 없습니다: {activityId}", "NOT_FOUND"));
+
+    /// <summary>첨부를 올리거나 지운 뒤 그룹과 건수를 적는다.</summary>
+    [HttpPut("rows/{activityId}/files")]
+    public async Task<IActionResult> SetRowFilesAsync(
+        [FromQuery] int prjRid, string activityId, [FromBody] WbsBoardRowFiles body)
+        => await rowsSvc.SetFilesAsync(prjRid, activityId, body.GroupId, body.Count) > 0
+            ? Ok(ApiResponse<int>.Ok(body.Count))
+            : NotFound(ApiResponse<object>.Fail($"그 화면을 찾을 수 없습니다: {activityId}", "NOT_FOUND"));
+
+    private async Task<IActionResult> GuardAsync(Func<Task<IActionResult>> run)
+    {
+        try
+        {
+            return await run();
+        }
+        catch (WbsRowConflict e)
+        {
+            return Conflict(ApiResponse<object>.Fail(e.Message, "CONFLICT"));
+        }
     }
 
     // ──────────────────────────────────────────────────────── 진척률

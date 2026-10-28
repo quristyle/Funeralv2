@@ -1,0 +1,92 @@
+@*
+    상세 목록 한 줄의 일감 창. 메모는 서식(HTML)이라 그릴 때 공지와 같은 정화기를 거친다.
+    재확인요청을 켜고 열면 「확인」 구분과 까닭 한 줄이 미리 실려 온다(OpenAsync 의 div · reason).
+*@
+
+@inherits DataPage
+
+<CommPopup @bind-Visible="_open" HeaderText="@Title" Width="860px">
+    <BodyContentTemplate Context="popup">
+        @if (_reason is { Length: > 0 })
+        {
+            <PageNotice Tone="NoticeTone.Warning" Text="@_reason" />
+        }
+
+        <PermissionView Action="MenuAction.Create">
+            <div class="pm-wbs-task__add">
+                <div class="pm-wbs-task__addhead">
+                    <DxComboBox Data="@WbsRowSchema.TaskDivs" @bind-Value="_newDiv" Style="width: 120px" />
+                    <span class="spacer"></span>
+                    <DxButton Text="+ 추가" RenderStyle="ButtonRenderStyle.Primary" Enabled="@(!_busy)" Click="@AddAsync" />
+                </div>
+                <DxHtmlEditor @bind-Markup="_newMemo" BindMarkupMode="HtmlEditorBindMarkupMode.OnDelayedInput"
+                              InputDelay="150" Height="160px" CssClass="pm-wbs-task__editor" />
+            </div>
+        </PermissionView>
+
+        <div class="pm-wbs-task__filter">
+            <DxComboBox Data="@DoneFilters" @bind-Value="_doneFilter" TextFieldName="Text" ValueFieldName="Value" Style="width: 120px" />
+            <DxComboBox Data="@DivFilters" @bind-Value="_divFilter" TextFieldName="Text" ValueFieldName="Value" Style="width: 120px" />
+            <DxTextBox @bind-Text="_textFilter" BindValueMode="BindValueMode.OnInput" InputDelay="200"
+                       NullText="내용 검색" Style="width: 200px" />
+            <span class="jsini-text-muted">@($"{_tasks.Count(t => t.Done)} / {_tasks.Count} 완료 · 표시 {Shown.Count}건")</span>
+        </div>
+
+        @if (Shown.Count == 0)
+        {
+            <PageNotice Tone="NoticeTone.Info" Text="@(_tasks.Count == 0 ? "일감이 없습니다." : "조건에 맞는 일감이 없습니다.")" />
+        }
+
+        <ul class="pm-wbs-task__list">
+            @foreach (var t in Shown)
+            {
+                <li class="pm-wbs-task__row @(t.Done ? "pm-wbs-task__row--done" : null)" @key="t.TaskId">
+                    <span class="pm-wbs-task__check">
+                        <input type="checkbox" checked="@t.Done" disabled="@(!Can(MenuAction.Update) || _busy)"
+                               title="완료 표시" @onchange="@(() => ToggleDoneAsync(t))" />
+                    </span>
+
+                    <span class="pm-wbs-task__div">@(t.TaskDiv ?? "—")</span>
+
+                    <div class="pm-wbs-task__memo">
+                        @if (_editId == t.TaskId)
+                        {
+                            <DxComboBox Data="@WbsRowSchema.TaskDivs" @bind-Value="_editDiv" Style="width: 120px" />
+                            <DxHtmlEditor @bind-Markup="_editMemo" BindMarkupMode="HtmlEditorBindMarkupMode.OnDelayedInput"
+                                          InputDelay="150" Height="180px" CssClass="pm-wbs-task__editor" />
+                            <div class="jsini-actions">
+                                <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Enabled="@(!_busy)" Click="@(() => SaveEditAsync(t))" />
+                                <DxButton Text="취소" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _editId = null)" />
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="pm-doc pm-wbs-task__html">@((MarkupString)NoticeHtml.Sanitize(t.Memo ?? ""))</div>
+                        }
+                    </div>
+
+                    <span class="pm-wbs-task__at jsini-text-muted">@t.UpdatedAt</span>
+
+                    <span class="jsini-actions">
+                        @if (_editId != t.TaskId)
+                        {
+                            <PermissionView Action="MenuAction.Update">
+                                <DxButton IconCssClass="jsini-icon-edit" Title="수정" RenderStyle="ButtonRenderStyle.Link" Click="@(() => StartEdit(t))" />
+                            </PermissionView>
+                        }
+                        <PermissionView Action="MenuAction.Delete">
+                            <DxButton IconCssClass="jsini-icon-trash" Title="삭제" CssClass="commgrd__icon--warn"
+                                      RenderStyle="ButtonRenderStyle.Link" Click="@(() => DeleteAsync(t))" />
+                        </PermissionView>
+                    </span>
+                </li>
+            }
+        </ul>
+    </BodyContentTemplate>
+
+    <FooterContentTemplate Context="popup">
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _open = false)" />
+    </FooterContentTemplate>
+</CommPopup>
+
+<ConfirmDialog @ref="_confirm" />

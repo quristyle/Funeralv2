@@ -100,6 +100,52 @@ public sealed class WbsBoardClient(GatewayClient gateway, WbsBoardNames names)
         response.EnsureSuccessStatusCode();
     }
 
+    // ──────────────────────────────────────────── 대상 추가·수정·삭제
+
+    /// <summary>한 줄의 모든 칸(칸 이름 → 값). 목록에 안 실리는 긴 글(화면 설명·메모)까지 온다.</summary>
+    public async Task<Dictionary<string, string?>> RowFullAsync(
+        int prjRid, string activityId, CancellationToken ct = default)
+    {
+        var fields = await gateway.GetListAsync<WbsBoardFieldDto>(
+            $"{Url}/rows/{Uri.EscapeDataString(activityId)}/full?prjRid={prjRid}", ct);
+
+        return fields
+            .Where(f => f.Key is not null)
+            .ToDictionary(f => f.Key!, f => f.Value, StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>새 대상. <c>activity_id</c> 를 비우면 서버가 임시 번호(NOID-)를 붙인다.</summary>
+    /// <returns>만든 줄의 Activity ID.</returns>
+    public Task<string?> CreateRowAsync(
+        int prjRid, IReadOnlyDictionary<string, string?> values, CancellationToken ct = default)
+        => gateway.PostAsync<string>($"{Url}/rows?prjRid={prjRid}", values, ct);
+
+    public Task UpdateRowAsync(
+        int prjRid, string activityId, IReadOnlyDictionary<string, string?> values, CancellationToken ct = default)
+        => gateway.PutAsync($"{Url}/rows/{Uri.EscapeDataString(activityId)}?prjRid={prjRid}", values, ct);
+
+    /// <summary>임시 번호로 세운 줄에 확정 Activity ID 를 채운다. 일감이 함께 따라간다.</summary>
+    public Task SetRowIdAsync(int prjRid, string activityId, string newId, CancellationToken ct = default)
+        => gateway.PutAsync(
+            $"{Url}/rows/{Uri.EscapeDataString(activityId)}/activity-id?prjRid={prjRid}",
+            new Dictionary<string, string> { ["activity_id"] = newId }, ct);
+
+    public Task<WbsBoardRowDepsDto?> RowDepsAsync(int prjRid, string activityId, CancellationToken ct = default)
+        => gateway.GetOneAsync<WbsBoardRowDepsDto>(
+            $"{Url}/rows/{Uri.EscapeDataString(activityId)}/deps?prjRid={prjRid}", ct);
+
+    /// <summary>지운다. 줄과 일감은 서버가 보관 표(wbs_work_deleted)에 먼저 담는다.</summary>
+    public async Task<WbsBoardRowDeletedDto?> DeleteRowAsync(int prjRid, string activityId, CancellationToken ct = default)
+        => (await gateway.DeleteListAsync<WbsBoardRowDeletedDto>(
+            $"{Url}/rows/{Uri.EscapeDataString(activityId)}?prjRid={prjRid}", ct)).FirstOrDefault();
+
+    /// <summary>첨부를 고친 뒤 그룹과 건수를 원장에 적는다.</summary>
+    public Task SetRowFilesAsync(
+        int prjRid, string activityId, string? groupId, int count, CancellationToken ct = default)
+        => gateway.PutAsync(
+            $"{Url}/rows/{Uri.EscapeDataString(activityId)}/files?prjRid={prjRid}",
+            new { groupId, count }, ct);
+
     // ──────────────────────────────────────────── 진척률
 
     public Task<WbsBoardProgressDto?> ProgressAsync(
@@ -503,9 +549,128 @@ public sealed class WbsBoardRowDto
         set => DbReadyBigYn = value ? "o" : null;
     }
 
+    public string? DwgViewUse { get; set; }
+    public string? ReportUse { get; set; }
+    public string? PvTestCaseId { get; set; }
+    public string? FileGroupId { get; set; }
+    public int FileCnt { get; set; }
+
+    public decimal? PvFinishRate { get; set; }
+    public string? PvActualSdt { get; set; }
+    public string? PvActualEdt { get; set; }
+    public string? PvSnapshotAt { get; set; }
+    public int? PvTaskCnt { get; set; }
+    public int? PvNodeCnt { get; set; }
+    public int? PvNodeEmpty { get; set; }
+    public string? PvTaskEdt { get; set; }
+    public string? PvWorkers { get; set; }
+    public string? PvStatus { get; set; }
+    public string? PvStatusAt { get; set; }
+    public int? PvStatusCnt { get; set; }
+    public string? PvTaskCode { get; set; }
+
+    /// <summary>대형 재확인 요청.</summary>
+    public bool RecheckBig
+    {
+        get => RecheckBigYn == "o";
+        set => RecheckBigYn = value ? "o" : null;
+    }
+
+    /// <summary>도면 조회 사용.</summary>
+    public bool DwgView
+    {
+        get => DwgViewUse == "o";
+        set => DwgViewUse = value ? "o" : null;
+    }
+
+    /// <summary>리포트 사용.</summary>
+    public bool Report
+    {
+        get => ReportUse == "o";
+        set => ReportUse = value ? "o" : null;
+    }
+
+    /// <summary>모듈 칸에 보이는 글자(코드 + 이름). 칸별 검색·정렬·엑셀이 이것을 본다.</summary>
+    public string ModuleText => string.Join(' ', new[] { Systemcode, SystemNm }.Where(s => !string.IsNullOrWhiteSpace(s)));
+
+    /// <summary>일감 칸의 상태 글자. 칸별 검색이 「미완료」·「완료」·「없음」으로 거른다.</summary>
+    public string TaskState => TaskCnt == 0 ? "없음" : TaskDone < TaskCnt ? $"미완료 {TaskDone}/{TaskCnt}" : $"완료 {TaskDone}/{TaskCnt}";
+
+    /// <summary>PV 현재단계(「(90%) PI검토」).</summary>
+    public string PvStageText => WbsBoardLinks.StageText(this);
+
+    /// <summary>원장 칸 이름으로 표시 값을 읽는다.</summary>
+    public string? ValueOf(string col) => col switch
+    {
+        "complate_yn" => ComplateYn,
+        "complate_real_yn" => ComplateRealYn,
+        "recheck_yn" => RecheckYn,
+        "complate_big_yn" => ComplateBigYn,
+        "complate_real_big_yn" => ComplateRealBigYn,
+        "recheck_big_yn" => RecheckBigYn,
+        "db_ready_big_yn" => DbReadyBigYn,
+        "dwg_view_use" => DwgViewUse,
+        "report_use" => ReportUse,
+        "user_bp_id" => UserBpId,
+        "user_real_id" => UserRealId,
+        "priority_order" => PriorityOrder,
+        _ => null,
+    };
+
+    /// <summary>원장 칸 이름으로 값을 고쳐 적는다. 서버에 보낸 뒤 화면의 줄을 맞추는 데 쓴다.</summary>
+    public void SetValue(string col, string? value)
+    {
+        switch (col)
+        {
+            case "complate_yn": ComplateYn = value; break;
+            case "complate_real_yn": ComplateRealYn = value; break;
+            case "recheck_yn": RecheckYn = value; break;
+            case "complate_big_yn": ComplateBigYn = value; break;
+            case "complate_real_big_yn": ComplateRealBigYn = value; break;
+            case "recheck_big_yn": RecheckBigYn = value; break;
+            case "db_ready_big_yn": DbReadyBigYn = value; break;
+            case "dwg_view_use": DwgViewUse = value; break;
+            case "report_use": ReportUse = value; break;
+            case "user_bp_id": UserBpId = value; break;
+            case "user_real_id": UserRealId = value; break;
+            case "priority_order": PriorityOrder = value; break;
+        }
+    }
+
+    /// <summary>표시 칸이 켜져 있나('o').</summary>
+    public bool Flag(string col) => ValueOf(col) == "o";
+
+    /// <summary>Activity ID 가 아직 없어 임시 번호(NOID-)로 선 줄.</summary>
+    public bool NoId => ActivityId?.StartsWith(WbsBoardLinks.NoIdPrefix, StringComparison.OrdinalIgnoreCase) == true;
+
     /// <summary>일감 건수. 서버가 주는 값이 아니다 — 화면이 WbsBoardTaskClient.CountsAsync 로 받아 채운다.</summary>
     public int TaskCnt { get; set; }
 
     /// <inheritdoc cref="TaskCnt"/>
     public int TaskDone { get; set; }
+}
+
+/// <summary>원장 한 칸(이름 · 값).</summary>
+public sealed class WbsBoardFieldDto
+{
+    public string? Key { get; set; }
+    public string? Value { get; set; }
+}
+
+/// <summary>지우기 전에 함께 사라질 것.</summary>
+public sealed class WbsBoardRowDepsDto
+{
+    public string? ActivityId { get; set; }
+    public string? Systemcode { get; set; }
+    public string? MenuNm { get; set; }
+    public int Tasks { get; set; }
+    public int Files { get; set; }
+}
+
+/// <summary>지운 결과. 되돌릴 자료는 projmng.wbs_work_deleted 의 DelId 줄이다.</summary>
+public sealed class WbsBoardRowDeletedDto
+{
+    public long DelId { get; set; }
+    public string? ActivityId { get; set; }
+    public int Tasks { get; set; }
 }

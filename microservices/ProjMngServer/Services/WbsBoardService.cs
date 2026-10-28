@@ -265,12 +265,32 @@ public sealed class WbsBoardService(IConfiguration configuration)
                  , w.prog_type             as ProgType
                  , w.prog_type_desc        as ProgTypeDesc
                  , w.trg_use_chk           as TrgUseChk
+                 , w.dwg_view_use          as DwgViewUse
+                 , w.report_use            as ReportUse
+                 , w.pv_test_case_id       as PvTestCaseId
+                 , w.file_group_id         as FileGroupId
+                 , w.file_cnt              as FileCnt
+                 , p.pv_finish_rate        as PvFinishRate
+                 , p.pv_actual_sdt::text   as PvActualSdt
+                 , p.pv_actual_edt::text   as PvActualEdt
+                 , to_char(p.pv_snapshot_at at time zone 'Asia/Seoul', 'YYYY-MM-DD HH24:MI') as PvSnapshotAt
+                 , pt.task_cnt             as PvTaskCnt
+                 , pt.node_cnt             as PvNodeCnt
+                 , pt.node_empty           as PvNodeEmpty
+                 , pt.task_edt::text       as PvTaskEdt
+                 , pt.workers              as PvWorkers
+                 , pt.status               as PvStatus
+                 , pt.status_at::text      as PvStatusAt
+                 , pt.status_cnt           as PvStatusCnt
+                 , pt.task_code            as PvTaskCode
                  , {PlanRate}              as PlanRate
                  , {StartLate}             as StartLate
                  , {FinishLate}            as FinishLate
                  , case when {StartLate}  then projmng.today_kst() - w.plan_sdt end as StartDays
                  , case when {FinishLate} then projmng.today_kst() - w.plan_edt end as FinishDays
               from projmng.wbs_work w
+              left join projmng.wbs_pv p on p.prj_rid = w.prj_rid and p.activity_id = w.activity_id
+              left join {PvTaskRollup} pt on pt.activity_id = w.activity_id
              where w.prj_rid = @prjRid
                and {DevWhere(query.Scope, "w")}
                and (@month::text is null

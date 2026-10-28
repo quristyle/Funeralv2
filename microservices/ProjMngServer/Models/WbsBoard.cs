@@ -310,6 +310,17 @@ public sealed class WbsBoardRow
     public string? ProgType { get; set; }
     public string? ProgTypeDesc { get; set; }
     public string? TrgUseChk { get; set; }
+    public string? DwgViewUse { get; set; }
+    public string? ReportUse { get; set; }
+
+    /// <summary>ProjectView 단위테스트 코드(AAC-TC###). 원장에 있고 캐시가 아니다.</summary>
+    public string? PvTestCaseId { get; set; }
+
+    /// <summary>화면설계 문서(FileServer 그룹)와 그 건수.</summary>
+    public string? FileGroupId { get; set; }
+
+    /// <inheritdoc cref="FileGroupId"/>
+    public int FileCnt { get; set; }
 
     public decimal? PlanRate { get; set; }
 
@@ -318,6 +329,45 @@ public sealed class WbsBoardRow
     public int? StartDays { get; set; }
     public int? FinishDays { get; set; }
 
+    // ProjectView 캐시(wbs_pv · wbs_pv_task · wbs_pv_node). 모으는 길은 사내망에만 있어 여기서는 읽기만 한다.
+    public decimal? PvFinishRate { get; set; }
+    public string? PvActualSdt { get; set; }
+    public string? PvActualEdt { get; set; }
+    public string? PvSnapshotAt { get; set; }
+    public int? PvTaskCnt { get; set; }
+    public int? PvNodeCnt { get; set; }
+    public int? PvNodeEmpty { get; set; }
+    public string? PvTaskEdt { get; set; }
+    public string? PvWorkers { get; set; }
+    public string? PvStatus { get; set; }
+    public string? PvStatusAt { get; set; }
+    public int? PvStatusCnt { get; set; }
+    public string? PvTaskCode { get; set; }
+}
+
+/// <summary>지우기 전에 함께 사라질 것.</summary>
+public sealed class WbsBoardRowDeps
+{
+    public string? ActivityId { get; set; }
+    public string? Systemcode { get; set; }
+    public string? MenuNm { get; set; }
+    public int Tasks { get; set; }
+    public int Files { get; set; }
+}
+
+/// <summary>지운 결과. 되돌릴 자료는 <c>projmng.wbs_work_deleted</c> 의 <see cref="DelId"/> 줄에 있다.</summary>
+public sealed class WbsBoardRowDeleted
+{
+    public long DelId { get; set; }
+    public string? ActivityId { get; set; }
+    public int Tasks { get; set; }
+}
+
+/// <summary>첨부를 고친 뒤 원장에 적을 것.</summary>
+public sealed class WbsBoardRowFiles
+{
+    public string? GroupId { get; set; }
+    public int Count { get; set; }
 }
 
 /// <summary>화면별 일감 건수. 상세 목록의 「일감」 칸이 읽는다.</summary>
@@ -374,4 +424,11 @@ public sealed class WbsBoardQuery
     public string? Status { get; set; }
 
     public int? Limit { get; set; }
+}
+
+/// <summary>원장 한 칸(칸 이름 · 글자 값). 수정 창이 모든 칸을 이것의 목록으로 받는다.</summary>
+public sealed class WbsBoardField
+{
+    public string? Key { get; set; }
+    public string? Value { get; set; }
 }

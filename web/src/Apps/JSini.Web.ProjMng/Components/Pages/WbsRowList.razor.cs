@@ -1,5 +1,9 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Components;
+using JSini.Web.Abstractions;
 using JSini.Web.Components.Data;
+using JSini.Web.Components.Layout;
+using JSini.Web.Http;
 using JSini.Web.ProjMng.Api;
 using JSini.Web.ProjMng.Components.Shared;
 
@@ -9,13 +13,24 @@ public partial class WbsRowList
 {
     [Inject] private WbsBoardClient Api { get; set; } = default!;
     [Inject] private WbsBoardTaskClient TaskApi { get; set; } = default!;
+    [Inject] private WbsDevUserClient Prefs { get; set; } = default!;
+    [Inject] private BizOptions Biz { get; set; } = default!;
+    [Inject] private FileGroupClient Files { get; set; } = default!;
+
+    /// <summary>보이는 칸을 담아 두는 설정 이름. 참고 소스와 같은 이름이라 옮겨 온 설정도 읽힌다.</summary>
+    private const string ColsPref = "rows.cols";
+
+    /// <summary>첨부를 담는 FileServer 업무 구분(저장 폴더 이름).</summary>
+    private const string FileBizType = "wbs-row";
 
     /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
     private string ConditionSummary => SchSummary.Of(
         _projectName,
         WbsBoardOptions.TextOf(WbsBoardOptions.Basis, _filter.Basis),
         WbsBoardOptions.TextOf(WbsBoardOptions.Scope, _filter.Scope),
+        _filter.Month, _filter.Week,
         SchSummary.NameOf(_userOptions, o => o.Value, o => o.Text, _filter.User, string.Empty),
+        SchSummary.NameOf(_realOptions, o => o.Value, o => o.Text, _filter.RealUser, string.Empty),
         SchSummary.NameOf(_moduleOptions, o => o.Value, o => o.Text, _filter.Module, string.Empty),
         SchSummary.NameOf(DoneOptions, o => o.Value, o => o.Text, _filter.Done, string.Empty),
         SchSummary.NameOf(LateOptions, o => o.Value, o => o.Text, _filter.Late, string.Empty),
@@ -26,26 +41,29 @@ public partial class WbsRowList
     private string? _projectName;
 
     private string? _projectCode;
-    private readonly WbsBoardFilter _filter = new() { Basis = "edt", Scope = "dev" };
+    private readonly WbsBoardFilter _filter = new() { Basis = "edt", Scope = "dev", Limit = 5000 };
 
     private IReadOnlyList<WbsBoardRowDto> _rows = [];
 
     /// <summary>고른 프로젝트의 원장이 범위·조건과 상관없이 0건이다.</summary>
     private bool _ledgerEmpty;
-    private SchOption[] _userOptions = [];
-    private SchOption[] _moduleOptions = [];
+    private int _noIdCount;
 
-    private bool _taskOpen;
-    private WbsBoardRowDto? _taskRow;
-    private IReadOnlyList<WbsBoardTaskDto> _tasks = [];
+    private SchOption[] _userOptions = [];
+    private SchOption[] _realOptions = [];
+    private SchOption[] _moduleOptions = [];
+    private SchOption[] _monthOptions = [];
+    private SchOption[] _weekOptions = [];
+
+    /// <summary>담당자·개발자 고르개의 사람들(포털 계정). 원장에 적힌 사번이 계정 아이디다.</summary>
+    private SchOption[] _people = [];
 
     private int? ProjectRid => int.TryParse(_projectCode, out var rid) ? rid : null;
 
     private string Hint =>
         $"{_rows.Count(r => r.ComplateYn == "o")} / {_rows.Count}건 완료"
-        + (_rows.Count(r => r.StartLate || r.FinishLate) is var late && late > 0 ? $" · 지연 {late}건" : "");
-
-    private string TaskTitle => _taskRow is null ? "일감" : $"일감 · {_taskRow.MenuNm}";
+        + (_rows.Count(r => r.StartLate || r.FinishLate) is var late && late > 0 ? $" · 지연 {late}건" : "")
+        + (_rows.Count(r => r.RecheckYn == "o" || r.RecheckBigYn == "o") is var re && re > 0 ? $" · 재확인 {re}건" : "");
 
     private static readonly SchOption[] DoneOptions =
     [
@@ -72,6 +90,15 @@ public partial class WbsRowList
         new("none", "지연 없음"),
     ];
 
+    private static readonly SchOption[] PriorityOptions = [new("1", "1 · 선행"), new("2", "2 · 후행")];
+
+    /// <summary>우선순위 고르개 — 기본값(1·2)과 목록에 이미 있는 값.</summary>
+    private IEnumerable<string> Priorities =>
+        new[] { "1", "2" }
+            .Concat(_rows.Select(r => r.PriorityOrder).OfType<string>().Where(p => p.Length > 0))
+            .Distinct()
+            .Order(StringComparer.Ordinal);
+
     /// <summary>다른 화면에서 실려 온 조건을 먼저 읽는다. 화면이 정한 기본값보다 주소가 이긴다 — 안 그러면 차트에서 눌러 넘어왔는데 조건 없는 전체 목록이 뜬다.</summary>
     protected override void OnInitialized()
     {
@@ -93,38 +120,56 @@ public partial class WbsRowList
         _filter.Status = Get("status");
     }
 
+    /// <summary>월과 주는 둘 다 날짜 기준이라 하나를 고르면 다른 하나를 푼다.</summary>
+    private void PickMonth(string? month)
+    {
+        _filter.Month = month;
+        if (month is not null) _filter.Week = null;
+    }
+
+    /// <inheritdoc cref="PickMonth"/>
+    private void PickWeek(string? week)
+    {
+        _filter.Week = week;
+        if (week is not null) _filter.Month = null;
+    }
+
+    private int? _colsLoadedFor;
+
     private Task SearchAsync() => LoadAsync(async () =>
     {
         if (ProjectRid is not int rid)
         {
             _rows = [];
             _ledgerEmpty = false;
+            _noIdCount = 0;
             return 0;
         }
 
-        // 목록·일감 건수·고르개 셋을 나란히 읽는다. 일감 건수는 줄마다 묻지 않으려고 한 번에 받는다.
+        // 목록·일감 건수·고르개를 나란히 읽는다. 일감 건수는 줄마다 묻지 않으려고 한 번에 받는다.
         var rows = Api.RowsAsync(rid, _filter);
         var counts = TaskApi.CountsAsync(rid);
         var users = Api.UsersAsync(rid, _filter.Scope, _filter.Basis, _filter.Month, _filter.Week);
         var modules = Api.ByModuleAsync(rid, _filter.Basis, _filter.Scope);
+        var monthly = Api.MonthlyAsync(rid, _filter.Basis, _filter.Scope);
+        var weekly = Api.WeeklyAsync(rid, _filter.Basis, _filter.Scope);
         var ledger = Api.SummaryAsync(rid, _filter.Basis, "all");
+        var people = _people.Length == 0 ? Biz.GetAsync("portal_account") : Task.FromResult<IReadOnlyList<BizOption>>([]);
+        var cols = _colsLoadedFor == rid ? Task.CompletedTask : LoadColsAsync(rid);
 
-        await Task.WhenAll(rows, counts, users, modules, ledger);
+        await Task.WhenAll(rows, counts, users, modules, monthly, weekly, ledger, people, cols);
 
         _rows = rows.Result;
         _ledgerEmpty = ledger.Result is { Total: 0 };
+        _noIdCount = _rows.Count(r => r.NoId);
 
-        var byActivity = counts.Result
-            .Where(c => c.ActivityId is not null)
-            .ToDictionary(c => c.ActivityId!, c => c);
+        ApplyTaskCounts(counts.Result);
 
-        foreach (var row in _rows)
+        if (people.Result.Count > 0)
         {
-            if (row.ActivityId is not null && byActivity.TryGetValue(row.ActivityId, out var c))
-            {
-                row.TaskCnt = c.Cnt;
-                row.TaskDone = c.Done;
-            }
+            _people = [.. people.Result
+                .OrderBy(p => p.Label, StringComparer.CurrentCulture)
+                .Select(p => new SchOption(p.Value, $"{p.Label} ({p.Value})"))];
         }
 
         _userOptions =
@@ -133,92 +178,563 @@ public partial class WbsRowList
             .. users.Result.Select(u => new SchOption(u.UserBpId, $"{u.UserNm} ({u.Cnt})"))
         ];
 
+        // 개발자 고르개는 따로 묻지 않는다 — 지금 목록에 있는 사람이면 충분하다.
+        _realOptions =
+        [
+            new(null, "전체"),
+            .. _rows
+                .GroupBy(r => r.UserRealId ?? "(미지정)")
+                .OrderBy(g => g.Key, StringComparer.Ordinal)
+                .Select(g => new SchOption(g.Key, $"{g.First().UserRealNm ?? g.Key} ({g.Count()})"))
+        ];
+
         _moduleOptions =
         [
             new(null, "전체"),
             .. modules.Result.Select(m => new SchOption(m.Systemcode, $"{m.Systemcode} {m.SystemNm}"))
         ];
 
+        _monthOptions = [.. monthly.Result.Select(m => new SchOption(m.Bucket, $"{m.Bucket} · {m.Cnt}건"))];
+
+        _weekOptions = [.. weekly.Result.Select(w => new SchOption(
+            w.Bucket, $"{w.Bucket} ({w.WeekStart?[5..]}~{w.WeekEnd?[5..]}) · {w.Cnt}건"))];
+
         return _rows.Count;
     }, "조건에 맞는 화면이 없습니다.", "목록을 읽지 못했습니다");
 
-    /// <summary>고친 칸만 보낸다. 편집 창에 없는 칸은 담지 않는다 — 서버도 화이트리스트로 거르지만, 보내지 않는 편이 뜻이 분명하다.</summary>
-    private async Task SaveAsync((WbsBoardRowDto Item, bool IsNew) e)
+    private void ApplyTaskCounts(IReadOnlyList<WbsBoardTaskCountDto> counts)
     {
-        if (ProjectRid is not int rid || e.Item.ActivityId is null) return;
+        var byActivity = counts
+            .Where(c => c.ActivityId is not null)
+            .ToDictionary(c => c.ActivityId!, c => c);
 
-        var patch = new Dictionary<string, object?>
+        foreach (var row in _rows)
         {
-            ["menu_nm"] = e.Item.MenuNm,
-            ["systemcode"] = e.Item.Systemcode,
-            ["system_nm"] = e.Item.SystemNm,
-            ["user_bp_id"] = e.Item.UserBpId,
-            ["user_real_id"] = e.Item.UserRealId,
-            ["complate_yn"] = e.Item.ComplateYn,
-            ["complate_real_yn"] = e.Item.ComplateRealYn,
-            ["recheck_yn"] = e.Item.RecheckYn,
-            ["complate_big_yn"] = e.Item.ComplateBigYn,
-            ["complate_real_big_yn"] = e.Item.ComplateRealBigYn,
-            ["db_ready_big_yn"] = e.Item.DbReadyBigYn,
-            ["priority_order"] = e.Item.PriorityOrder,
-            ["prog_type"] = e.Item.ProgType,
-            ["prog_type_desc"] = e.Item.ProgTypeDesc,
-        };
+            var hit = row.ActivityId is not null && byActivity.TryGetValue(row.ActivityId, out var c) ? c : null;
+            row.TaskCnt = hit?.Cnt ?? 0;
+            row.TaskDone = hit?.Done ?? 0;
+        }
+    }
 
-        await Api.PatchRowAsync(rid, e.Item.ActivityId, patch);
+    /// <summary>일감 창이 바꾼 뒤 — 목록 전체가 아니라 건수만 다시 받는다.</summary>
+    private async Task ReloadTaskCountsAsync()
+    {
+        if (ProjectRid is not int rid) return;
+
+        try
+        {
+            ApplyTaskCounts(await TaskApi.CountsAsync(rid));
+            StateHasChanged();
+        }
+        catch (ApiException ex)
+        {
+            Say($"일감 건수를 읽지 못했습니다 — {ex.Message}", NoticeTone.Error);
+        }
+    }
+
+    // ──────────────────────────────────────────── 보이는 칸
+
+    private HashSet<string> _cols = [.. WbsRowSchema.Cols.Select(c => c.Key)];
+    private bool _colOpen;
+    private string? _colWho;
+
+    private bool On(string key) => _cols.Contains(key);
+
+    private int VisibleCount => _cols.Count;
+
+    private void OpenColumns() => _colOpen = true;
+
+    /// <summary>담긴 값({cols, known})을 지금 칸 목록에 맞춘다. known 은 담을 때 있던 칸이라, 그 뒤에 생긴 칸은 켠 채로 보탠다 — 안 그러면 새 칸이 영영 안 보인다.</summary>
+    private async Task LoadColsAsync(int rid)
+    {
+        _colsLoadedFor = rid;
+
+        try
+        {
+            var pref = await Prefs.GetPrefAsync(rid, ColsPref);
+            _colWho = pref?.Who;
+
+            if (string.IsNullOrWhiteSpace(pref?.Value)) return;
+
+            using var doc = JsonDocument.Parse(pref.Value);
+            var root = doc.RootElement;
+
+            static List<string>? Keys(JsonElement el) =>
+                el.ValueKind == JsonValueKind.Array
+                    ? [.. el.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.String).Select(x => x.GetString()!)]
+                    : null;
+
+            var picked = root.ValueKind == JsonValueKind.Array
+                ? Keys(root)
+                : root.TryGetProperty("cols", out var c) ? Keys(c) : null;
+            var known = root.ValueKind == JsonValueKind.Object && root.TryGetProperty("known", out var k) ? Keys(k) : picked;
+
+            if (picked is null) return;
+
+            var all = WbsRowSchema.Cols.Select(x => x.Key).ToList();
+            var keep = picked.Where(all.Contains).ToHashSet();
+            foreach (var fresh in all.Where(a => known?.Contains(a) != true)) keep.Add(fresh);
+
+            if (keep.Count > 0) _cols = keep;
+        }
+        catch (Exception ex) when (ex is ApiException or JsonException)
+        {
+            // 설정을 못 읽어도 화면은 전부 보이는 칸으로 선다.
+            _colWho = null;
+        }
+    }
+
+    private async Task SaveColsAsync()
+    {
+        if (ProjectRid is not int rid) return;
+
+        try
+        {
+            await Prefs.SetPrefAsync(rid, ColsPref, new
+            {
+                cols = WbsRowSchema.Cols.Select(c => c.Key).Where(_cols.Contains).ToArray(),
+                known = WbsRowSchema.Cols.Select(c => c.Key).ToArray(),
+            });
+        }
+        catch (ApiException ex)
+        {
+            _colWho = null;
+            Say($"칸 설정을 담지 못했습니다 — {ex.Message}", NoticeTone.Warning);
+        }
+    }
+
+    private Task ToggleCol(string key, bool on)
+    {
+        if (!on && _cols.Count <= 1) return Task.CompletedTask;   // 하나는 남긴다
+
+        if (on) _cols.Add(key); else _cols.Remove(key);
+        return SaveColsAsync();
+    }
+
+    private Task ToggleGroup(string group)
+    {
+        var keys = WbsRowSchema.Cols.Where(c => c.Group == group).Select(c => c.Key).ToList();
+        var allOn = keys.All(_cols.Contains);
+
+        foreach (var k in keys)
+        {
+            if (allOn) _cols.Remove(k); else _cols.Add(k);
+        }
+
+        if (_cols.Count == 0) _cols = [.. WbsRowSchema.BaseCols];
+        return SaveColsAsync();
+    }
+
+    private Task ResetCols(bool all)
+    {
+        _cols = all ? [.. WbsRowSchema.Cols.Select(c => c.Key)] : [.. WbsRowSchema.BaseCols];
+        return SaveColsAsync();
+    }
+
+    // ──────────────────────────────────────────── 칸에서 바로 고치기
+
+    private (string Id, string Col)? _editing;
+    private readonly HashSet<string> _busy = [];
+
+    private static string BusyKey(WbsBoardRowDto r, string col) => $"{r.ActivityId}|{col}";
+
+    private bool Busy(WbsBoardRowDto r, string col) => _busy.Contains(BusyKey(r, col));
+
+    private bool IsEditing(WbsBoardRowDto r, string col) => _editing == (r.ActivityId ?? "", col);
+
+    private void StartEdit(WbsBoardRowDto r, string col)
+    {
+        if (!Can(MenuAction.Update) || r.ActivityId is null) return;
+        _editing = (r.ActivityId, col);
+    }
+
+    private void StopEdit() => _editing = null;
+
+    /// <summary>고르개 목록. 원장에 적힌 값이 계정 목록에 없으면(퇴사자·오타) 그 값을 맨 위에 그대로 둔다 — 안 두면 고르개가 빈칸으로 보여 지운 줄로 읽힌다.</summary>
+    private IEnumerable<SchOption> PeopleFor(string? current)
+        => string.IsNullOrEmpty(current) || _people.Any(p => string.Equals(p.Value, current, StringComparison.OrdinalIgnoreCase))
+            ? _people
+            : [new SchOption(current, $"{current} (계정 없음)"), .. _people];
+
+    private Task OnPickAsync(WbsBoardRowDto r, string col, string? value)
+    {
+        _editing = null;
+        return SaveCellAsync(r, col, string.IsNullOrWhiteSpace(value) ? null : value);
+    }
+
+    /// <summary>재확인 요청을 켜면 사유를 남기도록 일감 창을 「확인」 구분으로 띄운다.</summary>
+    private async Task OnCheckAsync(WbsBoardRowDto r, string col, bool on)
+    {
+        var saved = await SaveCellAsync(r, col, on ? "o" : null);
+
+        if (saved && on && col is "recheck_yn" or "recheck_big_yn")
+        {
+            var big = col == "recheck_big_yn" ? "대형 " : "";
+            await OpenTasksAsync(r, "확인",
+                $"{big}재확인요청을 켰습니다. 무엇을 다시 확인해야 하는지 일감으로 남겨 주세요.");
+        }
+    }
+
+    private async Task<bool> SaveCellAsync(WbsBoardRowDto r, string col, string? value)
+    {
+        if (ProjectRid is not int rid || r.ActivityId is null) return false;
+        if ((r.ValueOf(col) ?? "") == (value ?? "")) return false;
+
+        var key = BusyKey(r, col);
+        var before = r.ValueOf(col);
+
+        _busy.Add(key);
+        r.SetValue(col, value);
+        StateHasChanged();
+
+        try
+        {
+            await Api.PatchRowAsync(rid, r.ActivityId, new Dictionary<string, object?> { [col] = value ?? "" });
+
+            if (col is "user_bp_id" or "user_real_id")
+            {
+                var name = value is null ? null : _people.FirstOrDefault(p => string.Equals(p.Value, value, StringComparison.OrdinalIgnoreCase))?.Text;
+                name = name is null ? value : name[..name.LastIndexOf(" (", StringComparison.Ordinal)];
+                if (col == "user_bp_id") r.UserNm = name; else r.UserRealNm = name;
+            }
+
+            return true;
+        }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException)
+        {
+            r.SetValue(col, before);
+            Say($"고치지 못했습니다 — {ex.Message}", NoticeTone.Error);
+            return false;
+        }
+        finally
+        {
+            _busy.Remove(key);
+            StateHasChanged();
+        }
+    }
+
+    // ──────────────────────────────────────────── 대상 추가 · 수정
+
+    private bool _formOpen;
+    private bool _formBusy;
+
+    /// <summary>고치는 줄의 Activity ID. null 이면 추가다.</summary>
+    private string? _formKey;
+    private Dictionary<string, string?> _form = new(StringComparer.OrdinalIgnoreCase);
+
+    private string FormTitle => _formKey is null
+        ? "대상 추가"
+        : $"대상 수정 · {_formKey} · {Get("menu_nm")}";
+
+    /// <summary>창을 열 때의 값. 저장할 때 고친 칸만 고르는 잣대다.</summary>
+    private Dictionary<string, string?> _formOriginal = new(StringComparer.OrdinalIgnoreCase);
+
+    private string? Get(string key) => _form.TryGetValue(key, out var v) ? v : null;
+
+    private void Set(string key, string? value) => _form[key] = Norm(value);
+
+    private static string? Norm(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
+
+    private DateTime? DateOf(string key)
+        => DateTime.TryParse(Get(key), System.Globalization.CultureInfo.InvariantCulture,
+            System.Globalization.DateTimeStyles.None, out var d) ? d : null;
+
+    private void StartNew()
+    {
+        if (ProjectRid is null) return;
+
+        _formKey = null;
+        _form = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["module"] = "MM",
+            ["module_name"] = "자재관리",
+            ["new_dev2"] = "o",
+        };
+        _formOpen = true;
+    }
+
+    /// <summary>창을 열기 전에 모든 칸을 읽어 둔다 — 열린 뒤에 채우면 빈 창이 먼저 보인다.</summary>
+    private async Task StartEditAsync(WbsBoardRowDto row)
+    {
+        if (ProjectRid is not int rid || row.ActivityId is null) return;
+
+        try
+        {
+            _formOriginal = await Api.RowFullAsync(rid, row.ActivityId);
+            _form = _formOriginal.ToDictionary(kv => kv.Key, kv => Norm(kv.Value), StringComparer.OrdinalIgnoreCase);
+            _formKey = row.ActivityId;
+            _formOpen = true;
+        }
+        catch (ApiException ex)
+        {
+            Say($"대상을 읽지 못했습니다 — {ex.Message}", NoticeTone.Error);
+        }
+    }
+
+    private async Task SaveFormAsync()
+    {
+        if (ProjectRid is not int rid) return;
+
+        var missing = WbsRowSchema.Fields.Where(f => f.Required && string.IsNullOrWhiteSpace(Get(f.Key))).ToList();
+        if (missing.Count > 0)
+        {
+            Say($"필수 항목이 비어 있습니다 — {string.Join(" · ", missing.Select(f => f.Label))}", NoticeTone.Warning);
+            return;
+        }
+
+        // 고친 칸만 보낸다(비운 것도 고친 것이다). 안 건드린 칸까지 보내면 저장 한 번에 원장의 공백·빈 글자가 정리되어 엑셀 WBS 와 어긋난다.
+        var values = WbsRowSchema.Fields
+            .Where(f => _formKey is null
+                ? !string.IsNullOrWhiteSpace(Get(f.Key))
+                : f.Key != "activity_id" && Get(f.Key) != Norm(_formOriginal.GetValueOrDefault(f.Key)))
+            .ToDictionary(f => f.Key, f => (string?)(Get(f.Key) ?? ""));
+
+        if (_formKey is not null && values.Count == 0)
+        {
+            _formOpen = false;
+            return;
+        }
+
+        _formBusy = true;
+
+        try
+        {
+            if (_formKey is null)
+            {
+                var id = await Api.CreateRowAsync(rid, values);
+                _formOpen = false;
+                Say($"「{id} · {Get("menu_nm")}」 을(를) 추가했습니다.");
+
+                // 방금 세운 줄을 찾아갈 길 — 211건 사이에 끼면 눈으로 못 찾는다.
+                _filter.Q = id;
+            }
+            else
+            {
+                await Api.UpdateRowAsync(rid, _formKey, values);
+                _formOpen = false;
+                Say($"「{Get("menu_nm")}」 을(를) 고쳤습니다.");
+            }
+        }
+        catch (ApiException ex)
+        {
+            Say($"저장하지 못했습니다 — {ex.Message}", NoticeTone.Error);
+            return;
+        }
+        finally
+        {
+            _formBusy = false;
+        }
+
+        await SearchAsync();
+    }
+
+    private async Task DeleteFromFormAsync()
+    {
+        var row = _rows.FirstOrDefault(r => r.ActivityId == _formKey);
+        if (row is null) return;
+
+        _formOpen = false;
+        await DeleteAsync(row);
+    }
+
+    // ──────────────────────────────────────────── 삭제
+
+    private ConfirmDialog? _confirm;
+
+    /// <summary>함께 사라질 일감·첨부를 세어 묻는다. 줄과 일감은 서버가 보관 표에 먼저 담는다.</summary>
+    private async Task DeleteAsync(WbsBoardRowDto row)
+    {
+        if (ProjectRid is not int rid || row.ActivityId is null || _confirm is null) return;
+
+        WbsBoardRowDepsDto? deps;
+        try
+        {
+            deps = await Api.RowDepsAsync(rid, row.ActivityId);
+        }
+        catch (ApiException ex)
+        {
+            Say($"지울 대상을 확인하지 못했습니다 — {ex.Message}", NoticeTone.Error);
+            return;
+        }
+
+        var with = new List<string>();
+        if (deps?.Tasks > 0) with.Add($"일감 {deps.Tasks}건");
+        if (deps?.Files > 0) with.Add($"첨부 {deps.Files}건");
+
+        var ok = await _confirm.AskAsync(
+            $"「{row.ActivityId} · {row.MenuNm}」 을(를) 지웁니다."
+            + (with.Count > 0 ? $"\n{string.Join(" · ", with)}도 함께 사라집니다." : "")
+            + "\n줄과 일감은 보관 표(projmng.wbs_work_deleted)에 남습니다.",
+            "대상 삭제");
+
+        if (!ok) return;
+
+        try
+        {
+            var gone = await Api.DeleteRowAsync(rid, row.ActivityId);
+
+            if (row.FileGroupId is { Length: > 0 })
+            {
+                // 첨부는 FileServer 에 있어 원장과 함께 안 지워진다. 남은 것은 보관 번호로 찾는다.
+                Say($"지웠습니다(보관 번호 {gone?.DelId}). 첨부 그룹 {row.FileGroupId} 은 파일 서버에 남아 있습니다.");
+            }
+            else
+            {
+                Say($"「{row.MenuNm}」 을(를) 지웠습니다(보관 번호 {gone?.DelId}"
+                    + (gone?.Tasks > 0 ? $" · 일감 {gone.Tasks}건 함께" : "") + ").");
+            }
+        }
+        catch (ApiException ex)
+        {
+            Say($"지우지 못했습니다 — {ex.Message}", NoticeTone.Error);
+            return;
+        }
+
+        await SearchAsync();
+    }
+
+    // ──────────────────────────────────────────── ID 지정
+
+    private bool _idOpen;
+    private WbsBoardRowDto? _idRow;
+    private string? _idValue;
+
+    /// <summary>보내기 전에 겹치는 ID 를 알려 준다. 서버도 같은 것을 막는다.</summary>
+    private WbsBoardRowDto? IdClash => string.IsNullOrWhiteSpace(_idValue)
+        ? null
+        : _rows.FirstOrDefault(r => r != _idRow && string.Equals(r.ActivityId, _idValue.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    private void StartSetId(WbsBoardRowDto row)
+    {
+        _idRow = row;
+        _idValue = null;
+        _idOpen = true;
+    }
+
+    private async Task SaveIdAsync()
+    {
+        if (ProjectRid is not int rid || _idRow?.ActivityId is null || string.IsNullOrWhiteSpace(_idValue)) return;
+
+        var ok = await RunAsync(
+            () => Api.SetRowIdAsync(rid, _idRow.ActivityId, _idValue.Trim()),
+            $"Activity ID 를 {_idValue.Trim()} 로 채웠습니다.", "ID 를 채우지 못했습니다");
+
+        if (!ok) return;
+
+        _idOpen = false;
+        await SearchAsync();
     }
 
     // ──────────────────────────────────────────── 일감
 
-    private async Task OpenTasksAsync(WbsBoardRowDto row)
-    {
-        _taskRow = row;
-        _taskOpen = true;
+    private WbsTaskPopup? _taskPopup;
 
-        await LoadTasksAsync();
+    private Task OpenTasksAsync(WbsBoardRowDto row) => OpenTasksAsync(row, null, null);
+
+    private Task OpenTasksAsync(WbsBoardRowDto row, string? div, string? reason)
+        => _taskPopup?.OpenAsync(row, div, reason) ?? Task.CompletedTask;
+
+    // ──────────────────────────────────────────── 첨부
+
+    private bool _fileOpen;
+    private WbsBoardRowDto? _fileRow;
+    private IReadOnlyList<GroupFile> _files = [];
+    private IReadOnlyList<PickedFile> _picked = [];
+    private FilePicker? _picker;
+
+    private async Task OpenFilesAsync(WbsBoardRowDto row)
+    {
+        _fileRow = row;
+        _picked = [];
+
+        try
+        {
+            _files = await Files.ListAsync(row.FileGroupId);
+        }
+        catch (ApiException ex)
+        {
+            _files = [];
+            Say($"첨부를 읽지 못했습니다 — {ex.Message}", NoticeTone.Error);
+        }
+
+        _fileOpen = true;
     }
 
-    private Task LoadTasksAsync() => LoadAsync(async () =>
+    private async Task UploadAsync()
     {
-        if (ProjectRid is not int rid || _taskRow?.ActivityId is null)
+        if (ProjectRid is not int rid || _fileRow?.ActivityId is null || _picked.Count == 0) return;
+
+        var streams = new List<Stream>();
+
+        try
         {
-            _tasks = [];
-            return 0;
-        }
-
-        _tasks = await TaskApi.ListAsync(rid, _taskRow.ActivityId);
-        return _tasks.Count;
-    }, "일감이 없습니다.", "일감을 읽지 못했습니다");
-
-    private void FillNewTask(WbsBoardTaskDto task) => task.ActivityId = _taskRow?.ActivityId;
-
-    private async Task SaveTaskAsync((WbsBoardTaskDto Item, bool IsNew) e)
-    {
-        if (ProjectRid is not int rid) return;
-
-        if (e.IsNew)
-        {
-            await TaskApi.CreateAsync(rid, e.Item);
-        }
-        else
-        {
-            await TaskApi.UpdateAsync(rid, e.Item.TaskId, new Dictionary<string, object?>
+            var payload = _picked.Select(p =>
             {
-                ["taskDiv"] = e.Item.TaskDiv,
-                ["memo"] = e.Item.Memo,
-                ["doneYn"] = e.Item.DoneYn,
-            });
+                var s = p.OpenRead();
+                streams.Add(s);
+                return (s, p.Name, (string?)p.ContentType);
+            }).ToList();
+
+            var result = await Files.UploadAsync(_fileRow.FileGroupId, payload, FileBizType);
+            _files = await Files.ListAsync(result.GroupId);
+
+            await Api.SetRowFilesAsync(rid, _fileRow.ActivityId, result.GroupId, _files.Count);
+            _fileRow.FileGroupId = result.GroupId;
+            _fileRow.FileCnt = _files.Count;
+
+            Say($"{payload.Count}개를 올렸습니다.");
+        }
+        catch (ApiException ex)
+        {
+            Say($"올리지 못했습니다 — {ex.Message}", NoticeTone.Error);
+            return;
+        }
+        finally
+        {
+            foreach (var s in streams) await s.DisposeAsync();
         }
 
-        // 건수가 목록의 칸에 걸려 있어 함께 다시 읽는다.
-        await SearchAsync();
+        _picked = [];
+        if (_picker is not null) await _picker.ClearAsync();
     }
 
-    private async Task DeleteTaskAsync(WbsBoardTaskDto task)
+    private async Task DeleteFileAsync(GroupFile file)
     {
-        if (ProjectRid is not int rid) return;
+        if (ProjectRid is not int rid || _fileRow?.ActivityId is null || _confirm is null) return;
 
-        await TaskApi.DeleteAsync(rid, task.TaskId);
-        await SearchAsync();
+        if (!await _confirm.AskAsync($"「{file.OriginalName}」 을(를) 지웁니다.\n되돌릴 수 없습니다.")) return;
+
+        try
+        {
+            await Files.DeleteAsync(file.Id);
+            _files = await Files.ListAsync(_fileRow.FileGroupId);
+
+            await Api.SetRowFilesAsync(rid, _fileRow.ActivityId, _fileRow.FileGroupId, _files.Count);
+            _fileRow.FileCnt = _files.Count;
+        }
+        catch (ApiException ex)
+        {
+            Say($"지우지 못했습니다 — {ex.Message}", NoticeTone.Error);
+        }
+    }
+
+    private static string SizeText(long bytes) => bytes switch
+    {
+        < 1024 => $"{bytes} B",
+        < 1024 * 1024 => $"{bytes / 1024.0:0.#} KB",
+        _ => $"{bytes / 1024.0 / 1024.0:0.#} MB",
+    };
+
+    // ──────────────────────────────────────────── ProjectView
+
+    private static string StageTip(WbsBoardRowDto r)
+    {
+        if (string.IsNullOrEmpty(r.PvStatus))
+            return r.PvTaskCode is null ? "ProjectView 캐시가 없습니다" : "현재단계는 아직 수집되지 않았습니다";
+
+        return $"현재단계 {r.PvStatus}"
+            + (r.PvStatusAt is null ? "" : $" · {r.PvStatusAt} 부터")
+            + (r.PvStatusCnt > 1 ? $" · 일감이 {r.PvStatusCnt}종 단계로 갈려 있어 가장 나중 것을 보여 줍니다" : "")
+            + (r.PvSnapshotAt is null ? "" : $" · {r.PvSnapshotAt} 수집");
     }
 }

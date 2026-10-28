@@ -59,8 +59,54 @@ internal static class WbsBoardSql
         "etc_desc", "comment", "new_dev2", "report_use", "complate_yn",
         "user_real_id", "complate_real_yn", "recheck_yn",
         "complate_big_yn", "complate_real_big_yn", "recheck_big_yn",
-        "db_ready_big_yn",
+        "db_ready_big_yn", "dwg_view_use",
     };
+
+    /// <summary>대상 추가·수정 창이 다루는 칸 전부. 키(activity_id)는 넣지 않는다 — 바꾸는 길은 「ID 지정」 하나다.</summary>
+    public static readonly string[] FormColumns =
+    [
+        "pv_test_case_id", "systemcode", "system_nm", "menu_nm", "program_id", "priority_order",
+        "module", "module_name", "new_dev2",
+        "plan_sdt", "plan_edt", "plan_sdt_c", "plan_edt_c",
+        "user_bp_id", "user_real_id", "complate_yn", "complate_real_yn", "recheck_yn", "comp_desc",
+        "complate_big_yn", "complate_real_big_yn", "recheck_big_yn", "db_ready_big_yn",
+        "prog_type", "asis_cs", "prog_type_desc", "menu_desc",
+        "report_use", "sheet_use", "dwg_view_use", "por_view_use", "mon_req_comp",
+        "trg_exsit_chk", "trg_use_chk", "trg_evt_rel",
+        "comment", "etc_desc",
+    ];
+
+    /// <summary>날짜 칸. 나머지는 전부 글자다.</summary>
+    public static readonly HashSet<string> DateColumns = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "plan_sdt", "plan_edt", "plan_sdt_c", "plan_edt_c",
+    };
+
+    /// <summary>Activity ID 가 아직 없는 줄의 임시 번호 앞머리. 원장의 키라 비워 둘 수 없어 이 번호로 세우고, 「ID 지정」이 확정 ID 로 바꾼다.</summary>
+    public const string NoIdPrefix = "NOID-";
+
+    /// <summary>ProjectView 일감 캐시를 액티비티 하나로 접는다. 일감이 여럿이면 가장 나중에 바뀐 단계를 대표로 삼는다.</summary>
+    public const string PvTaskRollup = """
+        (select t.activity_id
+              , count(*)::int                          as task_cnt
+              , sum(coalesce(t.pv_node_cnt, 0))::int   as node_cnt
+              , sum(coalesce(t.pv_node_empty, 0))::int as node_empty
+              , max(t.pv_plan_edt)                     as task_edt
+              , (array_agg(t.pv_status order by t.pv_status_at desc nulls last)
+                   filter (where t.pv_status is not null))[1] as status
+              , (array_agg(t.pv_task_code order by t.pv_status_at desc nulls last)
+                   filter (where t.pv_task_code is not null))[1] as task_code
+              , max(t.pv_status_at)                    as status_at
+              , count(distinct t.pv_status)::int       as status_cnt
+              , (select string_agg(distinct n.worker_nm, ', ')
+                   from projmng.wbs_pv_node n
+                   join projmng.wbs_pv_task t2 on t2.prj_rid = n.prj_rid and t2.pv_task_id = n.pv_task_id
+                  where t2.prj_rid = t.prj_rid and t2.activity_id = t.activity_id
+                    and n.worker_nm is not null) as workers
+           from projmng.wbs_pv_task t
+          where t.prj_rid = @prjRid
+          group by t.prj_rid, t.activity_id)
+        """;
 
     /// <summary>빈 글자는 <c>null</c> 로 본다. 조건이 「안 걸린다」는 뜻이 되어야 한다.</summary>
     public static string? Nz(string? s) => string.IsNullOrWhiteSpace(s) ? null : s;

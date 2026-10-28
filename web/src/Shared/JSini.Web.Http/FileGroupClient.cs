@@ -70,14 +70,29 @@ public sealed class FileGroupClient(HttpClient http, GatewayClient gateway)
         }
 
         var envelope = JsonSerializer.Deserialize<UploadEnvelope>(body, JsonOptions);
+        var result = envelope is { Success: true } ? ResultOf(envelope.Data) : null;
 
-        if (envelope is null || !envelope.Success || envelope.Data is null)
+        if (result is null || string.IsNullOrWhiteSpace(result.GroupId))
         {
             throw new ApiException(
-                string.IsNullOrWhiteSpace(envelope?.Message) ? "사진을 올리지 못했습니다." : envelope.Message);
+                string.IsNullOrWhiteSpace(envelope?.Message) || envelope.Success ? "사진을 올리지 못했습니다." : envelope.Message);
         }
 
-        return envelope.Data;
+        return result;
+    }
+
+    /// <summary>응답 봉투는 객체도 <c>data.result: [obj]</c> 로 싣는다. 그 모양을 모르고 <c>data</c> 를 바로 읽으면 그룹 아이디가 빈 채로 와서, 올린 파일이 어느 자료에도 안 이어진다.</summary>
+    private static GroupUploadResult? ResultOf(JsonElement data)
+    {
+        if (data.ValueKind != JsonValueKind.Object) return null;
+
+        if (data.TryGetProperty("result", out var rows))
+        {
+            if (rows.ValueKind == JsonValueKind.Array && rows.GetArrayLength() > 0) data = rows[0];
+            else if (rows.ValueKind == JsonValueKind.Object) data = rows;
+        }
+
+        return data.Deserialize<GroupUploadResult>(JsonOptions);
     }
 
     /// <summary>한 장을 지운다. 그룹은 그대로 남는다.</summary>
@@ -115,7 +130,7 @@ public sealed class FileGroupClient(HttpClient http, GatewayClient gateway)
     {
         [JsonPropertyName("success")] public bool Success { get; set; }
         [JsonPropertyName("message")] public string? Message { get; set; }
-        [JsonPropertyName("data")] public GroupUploadResult? Data { get; set; }
+        [JsonPropertyName("data")] public JsonElement Data { get; set; }
     }
 }
 

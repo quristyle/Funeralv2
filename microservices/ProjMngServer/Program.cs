@@ -48,6 +48,7 @@ builder.Services.AddScoped<ProjectPropService>();
 
 // WBS 대시보드 원장(wbs_work). 프로젝트별 공정표(dev_wbs)를 다루는 WbsService 와는 다른 표다.
 builder.Services.AddScoped<WbsBoardService>();
+builder.Services.AddScoped<WbsBoardRowService>();
 builder.Services.AddScoped<WbsProgressService>();
 builder.Services.AddScoped<WbsDelayService>();
 builder.Services.AddScoped<WbsBoardTaskService>();

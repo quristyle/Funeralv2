@@ -3,7 +3,7 @@
 
 @*
 WBS 상세 목록. 다른 화면의 막대·칸을 누르면 조건이 주소로 실려 오므로, 조건은 화면이 정한 기본값보다 주소에서 먼저 읽는다.
-원장은 엑셀 WBS 가 원본이라 줄을 새로 만들지 않고(등록 단추 없음), 일정·실적 날짜는 서버 화이트리스트에 없어 고칠 수 없다. 일감 건수는 한 번에 받아 얹는다(줄마다 묻지 않는다).
+칸마다 바로 고치는 것(체크 · 담당자 · 개발자 · 우선순위)과 줄 전체를 고치는 창(대상 수정)이 따로 있다. 일감·첨부 건수는 한 번에 받아 얹는다(줄마다 묻지 않는다).
 *@
 
 @inherits DataPage
@@ -26,8 +26,27 @@ WBS 상세 목록. 다른 화면의 막대·칸을 누르면 조건이 주소로
                         TextFieldName="Text" ValueFieldName="Value" Style="width: 130px" />
         </CommSchItem>
 
+        <CommSchItem Label="월">
+            <DxComboBox Data="@_monthOptions" Value="@_filter.Month" ValueChanged="@((string? v) => PickMonth(v))"
+                        TextFieldName="Text" ValueFieldName="Value"
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" Style="width: 150px" />
+        </CommSchItem>
+
+        <CommSchItem Label="주">
+            <DxComboBox Data="@_weekOptions" Value="@_filter.Week" ValueChanged="@((string? v) => PickWeek(v))"
+                        TextFieldName="Text" ValueFieldName="Value"
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" Style="width: 210px" />
+        </CommSchItem>
+
         <CommSchItem Label="담당자">
             <DxComboBox Data="@_userOptions" @bind-Value="_filter.User"
+                        TextFieldName="Text" ValueFieldName="Value"
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                        Style="width: 170px" />
+        </CommSchItem>
+
+        <CommSchItem Label="개발자">
+            <DxComboBox Data="@_realOptions" @bind-Value="_filter.RealUser"
                         TextFieldName="Text" ValueFieldName="Value"
                         ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
                         Style="width: 170px" />
@@ -68,243 +87,531 @@ WBS 상세 목록. 다른 화면의 막대·칸을 누르면 조건이 주소로
                 Text="@($"「{_projectName}」 의 WBS 원장(projmng.wbs_work)이 비어 있습니다. 조건을 바꿔도 나오지 않습니다 — 엑셀 WBS 자료를 먼저 적재해야 합니다.")" />
 }
 
+@if (_noIdCount > 0)
+{
+    <PageNotice Tone="NoticeTone.Warning"
+                Text="@($"Activity ID 가 정해지지 않은 대상이 {_noIdCount}건 있습니다(NOID-…). ProjectView 링크가 붙지 않습니다 — 관리 칸의 「ID 지정」으로 채웁니다.")" />
+}
+
 <CommCont Hint="@Hint">
     <CommGrd TItem="WbsBoardRowDto"
              Data="@_rows"
-             EditFormTitle="화면"
              ExportName="WBS 상세 목록"
              EmptyText="조건에 맞는 화면이 없습니다."
-             PageSize="30"
-             OnSave="@SaveAsync"
+             KeyFieldName="@nameof(WbsBoardRowDto.ActivityId)"
+             StateKey="projmng/wbs/rows"
+             ShowFilterRow="true"
              RowActions="@RowActions"
              Reload="@SearchAsync">
+        <ContextMenuItems>
+            <PermissionView Action="MenuAction.Create">
+                <CommMenuItem Text="대상 추가" IconCssClass="jsini-icon-plus"
+                              Enabled="@(ProjectRid is not null)" Click="@StartNew" />
+            </PermissionView>
+            <CommMenuItem Text="@($"보이는 칸 고르기 ({VisibleCount}/{WbsRowSchema.Cols.Count})")"
+                          IconCssClass="jsini-icon-columns" Click="@OpenColumns" />
+        </ContextMenuItems>
+
         <Columns>
-            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.ActivityId)" Caption="액티비티" Width="120" />
-            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.Systemcode)" Caption="모듈" Width="100" />
-            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.MenuNm)" Caption="화면" MinWidth="220"
-                              TextAlignment="GridTextAlignment.Left" />
-
-            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PlanSdt)" Caption="계획시작" Width="105" />
-            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PlanEdt)" Caption="계획종료" Width="105" />
-            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PlanSdtC)" Caption="실적시작" Width="105" />
-            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PlanEdtC)" Caption="실적종료" Width="105" />
-
-            <DxGridDataColumn Caption="진척률" Width="90">
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.ActivityId)" Caption="Activity ID" Width="120"
+                              Visible="@On("activity_id")">
                 <CellDisplayTemplate Context="cell">
                     @{
                         var r = (WbsBoardRowDto)cell.DataItem;
                     }
-                    @WbsBoardOptions.Percent(r.PlanRate)
-                </CellDisplayTemplate>
-            </DxGridDataColumn>
-
-            <DxGridDataColumn Caption="지연" Width="130">
-                <CellDisplayTemplate Context="cell">
-                    @{
-                        var r = (WbsBoardRowDto)cell.DataItem;
-                    }
-                    @if (r.StartLate)
+                    @if (r.NoId)
                     {
-                        <span class="jsini-badge jsini-badge--warn">착수 @r.StartDays</span>
+                        <span class="pm-wbs-noid" title="Activity ID 가 아직 정해지지 않은 줄입니다">@r.ActivityId</span>
                     }
-                    @if (r.FinishLate)
+                    else if (WbsBoardLinks.PvWorkUrl(r) is { } url)
                     {
-                        <span class="jsini-badge jsini-badge--off">종료 @r.FinishDays</span>
+                        <a class="pm-wbs-link" href="@url" target="_blank" rel="noopener noreferrer"
+                           title="ProjectView 작업 상세 (사내망)" @onclick:stopPropagation="true">@r.ActivityId</a>
                     }
                 </CellDisplayTemplate>
             </DxGridDataColumn>
 
-            <DxGridDataColumn Caption="담당자" Width="110">
-                <CellDisplayTemplate Context="cell">
-                    @{
-                        var r = (WbsBoardRowDto)cell.DataItem;
-                    }
-                    @(r.UserNm ?? (string.IsNullOrWhiteSpace(r.UserBpId) ? "미지정" : "미할당"))
-                </CellDisplayTemplate>
-            </DxGridDataColumn>
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.ModuleText)" Caption="모듈" Width="150"
+                              Visible="@On("systemcode")" TextAlignment="GridTextAlignment.Left" />
 
-            <DxGridDataColumn Caption="완료" Width="75">
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.MenuNm)" Caption="메뉴명" MinWidth="220"
+                              Visible="@On("menu_nm")" TextAlignment="GridTextAlignment.Left">
                 <CellDisplayTemplate Context="cell">
                     @{
                         var r = (WbsBoardRowDto)cell.DataItem;
                     }
-                    <span class="jsini-badge @(r.ComplateYn == "o" ? "jsini-badge--on" : "jsini-badge--off")">
-                        @(r.ComplateYn == "o" ? "완료" : "미완")
+                    <span class="pm-wbs-menu">
+                        <span class="pm-wbs-menu__t">@r.MenuNm</span>
+                        @if (Can(MenuAction.Update))
+                        {
+                            <button type="button" class="pm-wbs-menu__edit" title="대상 수정 — 이 줄의 모든 항목을 고칩니다"
+                                    @onclick="@(() => StartEditAsync(r))" @onclick:stopPropagation="true">✎</button>
+                        }
                     </span>
                 </CellDisplayTemplate>
             </DxGridDataColumn>
 
-            <DxGridDataColumn Caption="개발자" Width="110">
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PlanSdt)" Caption="시작일" Width="110" Visible="@On("plan_sdt")">
                 <CellDisplayTemplate Context="cell">
                     @{
                         var r = (WbsBoardRowDto)cell.DataItem;
                     }
-                    @(r.UserRealNm ?? (string.IsNullOrWhiteSpace(r.UserRealId) ? "미지정" : "미할당"))
-                </CellDisplayTemplate>
-            </DxGridDataColumn>
-
-            <DxGridDataColumn Caption="개발완료" Width="85">
-                <CellDisplayTemplate Context="cell">
-                    @{
-                        var r = (WbsBoardRowDto)cell.DataItem;
-                    }
-                    <span class="jsini-badge @(r.ComplateRealYn == "o" ? "jsini-badge--on" : "jsini-badge--off")">
-                        @(r.ComplateRealYn == "o" ? "완료" : "미완")
+                    <span class="@(r.StartLate ? "pm-wbs-late" : null)"
+                          title="@(r.StartLate ? $"착수지연 {r.StartDays}일 — 계획시작일이 지났는데 실적시작일이 비어 있습니다" : null)">
+                        @(r.PlanSdt ?? "—")@if (r.StartLate)
+                        {
+                            <sup>@r.StartDays</sup>
+                        }
                     </span>
                 </CellDisplayTemplate>
             </DxGridDataColumn>
 
-            <DxGridDataColumn Caption="일감" Width="90">
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PlanEdt)" Caption="종료일" Width="110" Visible="@On("plan_edt")">
                 <CellDisplayTemplate Context="cell">
                     @{
                         var r = (WbsBoardRowDto)cell.DataItem;
                     }
-                    @if (r.TaskCnt > 0)
+                    <span class="@(r.FinishLate ? "pm-wbs-late" : null)"
+                          title="@(r.FinishLate ? $"종료지연 {r.FinishDays}일 — 계획종료일이 지났는데 실적종료일이 비어 있습니다" : null)">
+                        @(r.PlanEdt ?? "—")@if (r.FinishLate)
+                        {
+                            <sup>@r.FinishDays</sup>
+                        }
+                    </span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PlanSdtC)" Caption="실적시작" Width="105" Visible="@On("plan_sdt_c")" />
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PlanEdtC)" Caption="실적종료" Width="105" Visible="@On("plan_edt_c")" />
+
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PlanRate)" FilterRowEditorVisible="false" Caption="계획진척률" Width="110" Visible="@On("plan_rate")">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var r = (WbsBoardRowDto)cell.DataItem;
+                    }
+                    @if (r.PlanRate is { } rate)
                     {
-                        <span class="jsini-badge" title="완료 / 전체">@r.TaskDone / @r.TaskCnt</span>
+                        <span class="pm-wbs-rate">
+                            <span class="pm-wbs-rate__bar"><i class="@(rate >= 100 ? "full" : null)" style="width: @(rate.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture))%"></i></span>
+                            <span class="pm-wbs-rate__pct">@WbsBoardOptions.Percent(rate)</span>
+                        </span>
                     }
                 </CellDisplayTemplate>
             </DxGridDataColumn>
 
-            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.ProgType)" Caption="유형" MinWidth="140"
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.UserNm)" Caption="담당자" Width="140" Visible="@On("user_bp_id")">
+                <CellDisplayTemplate Context="cell">
+                    @PersonCell((WbsBoardRowDto)cell.DataItem, "user_bp_id")
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.Complate)" Caption="완료" Width="70" Visible="@On("complate_yn")">
+                <CellDisplayTemplate Context="cell">@CheckCell((WbsBoardRowDto)cell.DataItem, "complate_yn")</CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.UserRealNm)" Caption="개발자" Width="140" Visible="@On("user_real_id")">
+                <CellDisplayTemplate Context="cell">
+                    @PersonCell((WbsBoardRowDto)cell.DataItem, "user_real_id")
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.ComplateReal)" Caption="개발자완료" Width="85" Visible="@On("complate_real_yn")">
+                <CellDisplayTemplate Context="cell">@CheckCell((WbsBoardRowDto)cell.DataItem, "complate_real_yn")</CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.Recheck)" Caption="재확인요청" Width="85" Visible="@On("recheck_yn")">
+                <CellDisplayTemplate Context="cell">@CheckCell((WbsBoardRowDto)cell.DataItem, "recheck_yn")</CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.ComplateBig)" Caption="대형완료" Width="80" Visible="@On("complate_big_yn")">
+                <CellDisplayTemplate Context="cell">@CheckCell((WbsBoardRowDto)cell.DataItem, "complate_big_yn")</CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.ComplateRealBig)" Caption="대형개발자완료" Width="105" Visible="@On("complate_real_big_yn")">
+                <CellDisplayTemplate Context="cell">@CheckCell((WbsBoardRowDto)cell.DataItem, "complate_real_big_yn")</CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.RecheckBig)" Caption="대형재확인요청" Width="105" Visible="@On("recheck_big_yn")">
+                <CellDisplayTemplate Context="cell">@CheckCell((WbsBoardRowDto)cell.DataItem, "recheck_big_yn")</CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.DbReadyBig)" Caption="대형DB준비여부" Width="105" Visible="@On("db_ready_big_yn")">
+                <CellDisplayTemplate Context="cell">@CheckCell((WbsBoardRowDto)cell.DataItem, "db_ready_big_yn")</CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PriorityOrder)" Caption="우선순위" Width="85" Visible="@On("priority_order")">
+                <CellDisplayTemplate Context="cell">
+                    @PriorityCell((WbsBoardRowDto)cell.DataItem)
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.ProgType)" Caption="화면유형" MinWidth="140" Visible="@On("prog_type")"
                               TextAlignment="GridTextAlignment.Left" />
-            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PriorityOrder)" Caption="우선" Width="70" />
+
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.TrgUseChk)" Caption="트리거 발화" Width="170" Visible="@On("trg_use_chk")"
+                              TextAlignment="GridTextAlignment.Left">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var r = (WbsBoardRowDto)cell.DataItem;
+                    }
+                    <span class="pm-wbs-trg pm-wbs-trg--@WbsBoardLinks.TriggerClass(r.TrgUseChk)" title="@r.TrgUseChk">@r.TrgUseChk</span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.DwgView)" Caption="도면조회" Width="80" Visible="@On("dwg_view_use")">
+                <CellDisplayTemplate Context="cell">@CheckCell((WbsBoardRowDto)cell.DataItem, "dwg_view_use")</CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.Report)" Caption="리포트" Width="75" Visible="@On("report_use")">
+                <CellDisplayTemplate Context="cell">@CheckCell((WbsBoardRowDto)cell.DataItem, "report_use")</CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.TaskState)" Caption="일감" Width="95" Visible="@On("task_cnt")">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var r = (WbsBoardRowDto)cell.DataItem;
+                    }
+                    <button type="button"
+                            class="pm-wbs-badge @(r.TaskCnt == 0 ? null : r.TaskDone < r.TaskCnt ? "pm-wbs-badge--open" : "pm-wbs-badge--done")"
+                            title="@(r.TaskCnt > 0 ? $"일감 {r.TaskDone}/{r.TaskCnt} 완료 — 누르면 관리" : "일감 없음 — 누르면 추가")"
+                            @onclick="@(() => OpenTasksAsync(r))" @onclick:stopPropagation="true">
+                        @(r.TaskCnt > 0 ? $"{r.TaskDone}/{r.TaskCnt}" : "+")
+                    </button>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.FileCnt)" FilterRowEditorVisible="false" Caption="첨부" Width="80" Visible="@On("file_cnt")">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var r = (WbsBoardRowDto)cell.DataItem;
+                    }
+                    <button type="button" class="pm-wbs-badge @(r.FileCnt > 0 ? "pm-wbs-badge--open" : null)"
+                            title="@(r.FileCnt > 0 ? $"화면설계 문서 {r.FileCnt}건 — 누르면 보기·추가" : "첨부 없음 — 누르면 추가")"
+                            @onclick="@(() => OpenFilesAsync(r))" @onclick:stopPropagation="true">
+                        @(r.FileCnt > 0 ? $"📎 {r.FileCnt}" : "+")
+                    </button>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PvStageText)" Caption="PV 현재단계" Width="140" Visible="@On("pv_status")">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var r = (WbsBoardRowDto)cell.DataItem;
+                    }
+                    @if (WbsBoardLinks.PvTaskUrl(r) is { } url)
+                    {
+                        <a class="pm-wbs-chip pm-wbs-chip--@WbsBoardLinks.StageClass(r.PvStatus)" href="@url" target="_blank"
+                           rel="noopener noreferrer" title="@StageTip(r)" @onclick:stopPropagation="true">
+                            @(string.IsNullOrEmpty(r.PvStatus) ? r.PvTaskCode : r.PvStageText)
+                        </a>
+                    }
+                    else
+                    {
+                        <span class="jsini-text-muted" title="@StageTip(r)">—</span>
+                    }
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PvFinishRate)" FilterRowEditorVisible="false" Caption="PV 진척률" Width="90" Visible="@On("pv_finish_rate")"
+                              DisplayFormat="0.#'%'" />
+
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PvActualSdt)" Caption="PV 실적시작" Width="105" Visible="@On("pv_actual_sdt")">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var r = (WbsBoardRowDto)cell.DataItem;
+                        var diff = r.PlanSdtC is not null && r.PvActualSdt is not null && r.PlanSdtC != r.PvActualSdt;
+                    }
+                    <span class="@(diff ? "pm-wbs-late" : null)" title="@(diff ? $"WBS {r.PlanSdtC} ↔ PV {r.PvActualSdt}" : null)">@(r.PvActualSdt ?? "—")</span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PvTaskCnt)" FilterRowEditorVisible="false" Caption="PV 일감" Width="80" Visible="@On("pv_task_cnt")" />
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PvTaskEdt)" Caption="PV 일감완료일" Width="110" Visible="@On("pv_task_edt")" />
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PvWorkers)" Caption="PV 일감담당자" Width="150" Visible="@On("pv_workers")"
+                              TextAlignment="GridTextAlignment.Left" />
+
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PvNodeEmpty)" FilterRowEditorVisible="false" Caption="PV 빈단계" Width="85" Visible="@On("pv_node_empty")">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var r = (WbsBoardRowDto)cell.DataItem;
+                    }
+                    <span class="@(r.PvNodeEmpty > 0 ? "pm-wbs-late" : null)"
+                          title="@(r.PvNodeCnt is > 0 ? $"워크플로 단계 {r.PvNodeCnt}개 중 일자·담당자가 빈 것 {r.PvNodeEmpty}개" : null)">@(r.PvNodeEmpty?.ToString() ?? "—")</span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(WbsBoardRowDto.PvSnapshotAt)" Caption="PV 수집" Width="130" Visible="@On("pv_snapshot_at")" />
         </Columns>
-
-        <EditFormTemplate Context="edit">
-            @{
-                var r = (WbsBoardRowDto)edit.EditModel;
-            }
-            <DxFormLayout CssClass="pm-editform">
-                <DxFormLayoutItem Caption="액티비티" ColSpanMd="6">
-                    <DxTextBox Text="@r.ActivityId" ReadOnly="true" />
-                </DxFormLayoutItem>
-
-                <DxFormLayoutItem Caption="화면" ColSpanMd="6">
-                    <DxTextBox @bind-Text="r.MenuNm" />
-                </DxFormLayoutItem>
-
-                <DxFormLayoutItem Caption="모듈" ColSpanMd="6">
-                    <DxTextBox @bind-Text="r.Systemcode" />
-                </DxFormLayoutItem>
-
-                <DxFormLayoutItem Caption="모듈명" ColSpanMd="6">
-                    <DxTextBox @bind-Text="r.SystemNm" />
-                </DxFormLayoutItem>
-
-                <DxFormLayoutItem Caption="담당자 사번" ColSpanMd="6">
-                    <DxTextBox @bind-Text="r.UserBpId" />
-                </DxFormLayoutItem>
-
-                <DxFormLayoutItem Caption="개발자 사번" ColSpanMd="6">
-                    <DxTextBox @bind-Text="r.UserRealId" />
-                </DxFormLayoutItem>
-
-                <DxFormLayoutItem Caption="완료" ColSpanMd="4">
-                    <DxCheckBox @bind-Checked="r.Complate">담당자 완료</DxCheckBox>
-                </DxFormLayoutItem>
-
-                <DxFormLayoutItem Caption="개발완료" ColSpanMd="4">
-                    <DxCheckBox @bind-Checked="r.ComplateReal">개발자 완료</DxCheckBox>
-                </DxFormLayoutItem>
-
-                <DxFormLayoutItem Caption="재확인" ColSpanMd="4">
-                    <DxCheckBox @bind-Checked="r.Recheck">재확인 요청</DxCheckBox>
-                </DxFormLayoutItem>
-
-                <DxFormLayoutItem Caption="대형완료" ColSpanMd="4">
-                    <DxCheckBox @bind-Checked="r.ComplateBig">대형 완료</DxCheckBox>
-                </DxFormLayoutItem>
-
-                <DxFormLayoutItem Caption="대형개발완료" ColSpanMd="4">
-                    <DxCheckBox @bind-Checked="r.ComplateRealBig">대형 개발 완료</DxCheckBox>
-                </DxFormLayoutItem>
-
-                <DxFormLayoutItem Caption="대형DB준비" ColSpanMd="4">
-                    <DxCheckBox @bind-Checked="r.DbReadyBig">준비됨</DxCheckBox>
-                </DxFormLayoutItem>
-
-                <DxFormLayoutItem Caption="우선순위" ColSpanMd="6">
-                    <DxTextBox @bind-Text="r.PriorityOrder" />
-                </DxFormLayoutItem>
-
-                <DxFormLayoutItem Caption="화면 유형" ColSpanMd="6">
-                    <DxTextBox @bind-Text="r.ProgType" />
-                </DxFormLayoutItem>
-
-                <DxFormLayoutItem Caption="기능 요약" ColSpanMd="12">
-                    <DxMemo @bind-Text="r.ProgTypeDesc" Rows="2" />
-                </DxFormLayoutItem>
-
-                <DxFormLayoutItem ColSpanMd="12">
-                    <PageNotice Tone="NoticeTone.Info"
-                                Text="계획·실적 날짜는 엑셀 WBS 가 원본이라 여기서 고칠 수 없습니다." />
-                </DxFormLayoutItem>
-            </DxFormLayout>
-        </EditFormTemplate>
     </CommGrd>
 </CommCont>
 
-<CommPopup @bind-Visible="_taskOpen" HeaderText="@TaskTitle" Width="760px">
-    @* CommPopup 은 ChildContent 를 안 받는다 — 본문을 그냥 넣으면 빌드는 통과하고 화면을 열 때 500 으로 죽는다. *@
+@* ──────────────── 보이는 칸 고르기 ──────────────── *@
+<CommPopup @bind-Visible="_colOpen" HeaderText="@($"보이는 칸 고르기 · {VisibleCount}/{WbsRowSchema.Cols.Count}")" Width="620px">
     <BodyContentTemplate Context="popup">
-        <CommGrd TItem="WbsBoardTaskDto"
-                 Data="@_tasks"
-                 EditFormTitle="일감"
-                 ExportName="일감"
-                 EmptyText="일감이 없습니다."
-                 PageSize="10"
-                 OnNew="@FillNewTask"
-                 OnSave="@SaveTaskAsync"
-                 OnDelete="@DeleteTaskAsync"
-                 DeleteConfirm="@(t => $"「{t.TaskDiv} · {t.Memo}」 을(를) 지웁니다.\n되돌릴 수 없습니다.")"
-                 Reload="@LoadTasksAsync">
-            <Columns>
-                <DxGridDataColumn FieldName="@nameof(WbsBoardTaskDto.TaskDiv)" Caption="구분" Width="120" />
-                <DxGridDataColumn FieldName="@nameof(WbsBoardTaskDto.Memo)" Caption="메모" MinWidth="240"
-                                  TextAlignment="GridTextAlignment.Left" />
-
-                <DxGridDataColumn Caption="완료" Width="80">
-                    <CellDisplayTemplate Context="cell">
-                        @{
-                            var t = (WbsBoardTaskDto)cell.DataItem;
-                        }
-                        <span class="jsini-badge @(t.Done ? "jsini-badge--on" : "jsini-badge--off")">
-                            @(t.Done ? "완료" : "미완")
-                        </span>
-                    </CellDisplayTemplate>
-                </DxGridDataColumn>
-
-                <DxGridDataColumn FieldName="@nameof(WbsBoardTaskDto.UpdatedAt)" Caption="고친 때" Width="130" />
-            </Columns>
-
-            <EditFormTemplate Context="edit">
-                @{
-                    var t = (WbsBoardTaskDto)edit.EditModel;
-                }
-                <DxFormLayout CssClass="pm-editform">
-                    <DxFormLayoutItem Caption="구분" ColSpanMd="12">
-                        <DxTextBox @bind-Text="t.TaskDiv" />
-                    </DxFormLayoutItem>
-
-                    <DxFormLayoutItem Caption="메모" ColSpanMd="12">
-                        <DxMemo @bind-Text="t.Memo" Rows="4" />
-                    </DxFormLayoutItem>
-
-                    <DxFormLayoutItem Caption="완료" ColSpanMd="12">
-                        <DxCheckBox @bind-Checked="t.Done">완료</DxCheckBox>
-                    </DxFormLayoutItem>
-                </DxFormLayout>
-            </EditFormTemplate>
-        </CommGrd>
+        @foreach (var group in WbsRowSchema.Cols.GroupBy(c => c.Group))
+        {
+            <section class="pm-wbs-cols">
+                <h4 class="pm-wbs-cols__head">
+                    @group.Key
+                    <button type="button" class="pm-wbs-cols__all" @onclick="@(() => ToggleGroup(group.Key))">
+                        @(group.All(c => On(c.Key)) ? "모두 끄기" : "모두 켜기")
+                    </button>
+                </h4>
+                <div class="pm-wbs-cols__list">
+                    @foreach (var c in group)
+                    {
+                        <DxCheckBox Checked="@On(c.Key)" CheckedChanged="@((bool v) => ToggleCol(c.Key, v))">@c.Label</DxCheckBox>
+                    }
+                </div>
+            </section>
+        }
+        <p class="jsini-hint">@(_colWho is { Length: > 0 } who ? $"{who} 님 설정으로 서버에 보관됩니다." : "이 화면에만 적용됩니다(서버에 보관하지 못했습니다).")</p>
     </BodyContentTemplate>
+    <FooterContentTemplate Context="popup">
+        <DxButton Text="전부 켜기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => ResetCols(true))" />
+        <DxButton Text="기본만" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => ResetCols(false))" />
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Primary" Click="@(() => _colOpen = false)" />
+    </FooterContentTemplate>
 </CommPopup>
 
+@* ──────────────── 대상 추가 · 수정 ──────────────── *@
+<CommPopup @bind-Visible="_formOpen" HeaderText="@FormTitle" Width="860px">
+    <BodyContentTemplate Context="popup">
+        <DxFormLayout CssClass="pm-editform pm-wbs-form">
+            @foreach (var group in WbsRowSchema.Fields.GroupBy(f => f.Group))
+            {
+                <DxFormLayoutGroup Caption="@group.Key" ColSpanMd="12">
+                    @foreach (var f in group)
+                    {
+                        <DxFormLayoutItem Caption="@(f.Required ? f.Label + " *" : f.Label)" ColSpanMd="@(f.Wide ? 12 : 6)">
+                            @FieldEditor(f)
+                        </DxFormLayoutItem>
+                    }
+                </DxFormLayoutGroup>
+            }
+        </DxFormLayout>
+        @if (_formKey is null)
+        {
+            <div class="jsini-hint">Activity ID 를 비우면 임시 번호(NOID-…)로 세우고, 나중에 「ID 지정」으로 채웁니다.</div>
+        }
+    </BodyContentTemplate>
+    <FooterContentTemplate Context="popup">
+        @if (_formKey is not null)
+        {
+            <PermissionView Action="MenuAction.Delete">
+                <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Danger" Click="@DeleteFromFormAsync" />
+            </PermissionView>
+        }
+        <DxButton Text="@(_formKey is null ? "추가" : "저장")" RenderStyle="ButtonRenderStyle.Primary"
+                  Enabled="@(!_formBusy)" Click="@SaveFormAsync" />
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _formOpen = false)" />
+    </FooterContentTemplate>
+</CommPopup>
+
+@* ──────────────── ID 지정 ──────────────── *@
+<CommPopup @bind-Visible="_idOpen" HeaderText="Activity ID 지정" Width="460px">
+    <BodyContentTemplate Context="popup">
+        <DxFormLayout CssClass="pm-editform">
+            <DxFormLayoutItem Caption="대상" ColSpanMd="12">
+                <DxTextBox Text="@($"{_idRow?.Systemcode} · {_idRow?.MenuNm}")" ReadOnly="true" />
+            </DxFormLayoutItem>
+            <DxFormLayoutItem Caption="Activity ID" ColSpanMd="12">
+                <DxTextBox @bind-Text="_idValue" BindValueMode="BindValueMode.OnInput" />
+            </DxFormLayoutItem>
+        </DxFormLayout>
+        @if (IdClash is { } clash)
+        {
+            <div class="jsini-hint pm-wbs-late">이미 있는 Activity ID 입니다 — @clash.ActivityId · @clash.MenuNm</div>
+        }
+    </BodyContentTemplate>
+    <FooterContentTemplate Context="popup">
+        <DxButton Text="지정" RenderStyle="ButtonRenderStyle.Primary"
+                  Enabled="@(!string.IsNullOrWhiteSpace(_idValue) && IdClash is null)" Click="@SaveIdAsync" />
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _idOpen = false)" />
+    </FooterContentTemplate>
+</CommPopup>
+
+@* ──────────────── 화면설계 문서 첨부 ──────────────── *@
+<CommPopup @bind-Visible="_fileOpen" HeaderText="@($"화면설계 문서 · {_fileRow?.MenuNm}")" Width="640px">
+    <BodyContentTemplate Context="popup">
+        @if (_files.Count == 0)
+        {
+            <PageNotice Tone="NoticeTone.Info" Text="첨부가 없습니다." />
+        }
+        else
+        {
+            <ul class="pm-wbs-files">
+                @foreach (var f in _files)
+                {
+                    <li class="pm-wbs-files__row">
+                        <a href="@FileDownload.UrlFor(f.Id, f.OriginalName)" target="_blank" rel="noopener">@f.OriginalName</a>
+                        <span class="jsini-text-muted">@SizeText(f.Size) · @f.CreatedAt.Kst("yyyy-MM-dd HH:mm")</span>
+                        <PermissionView Action="MenuAction.Delete">
+                            <DxButton IconCssClass="jsini-icon-trash" Title="지우기" RenderStyle="ButtonRenderStyle.Link"
+                                      Click="@(() => DeleteFileAsync(f))" />
+                        </PermissionView>
+                    </li>
+                }
+            </ul>
+        }
+        <PermissionView Action="MenuAction.Update">
+            <FilePicker @ref="_picker" MaxFiles="10" MaxBytes="@(25L * 1024 * 1024)" ShowHint="false"
+                        FilesChanged="@(files => _picked = files)" />
+        </PermissionView>
+    </BodyContentTemplate>
+    <FooterContentTemplate Context="popup">
+        <PermissionView Action="MenuAction.Update">
+            <DxButton Text="올리기" RenderStyle="ButtonRenderStyle.Primary" Enabled="@(_picked.Count > 0)" Click="@UploadAsync" />
+        </PermissionView>
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _fileOpen = false)" />
+    </FooterContentTemplate>
+</CommPopup>
+
+<WbsTaskPopup @ref="_taskPopup" ProjectRid="@ProjectRid" Changed="@ReloadTaskCountsAsync" />
+
+<ConfirmDialog @ref="_confirm" />
+
 @code {
+    /// <summary>관리 칸 「⋮」 가 펴는 단추들. 바깥 주소(ProjectView · 운영/개발 화면)는 사내망에서만 열린다.</summary>
     private RenderFragment<WbsBoardRowDto> RowActions => row => __builder =>
     {
-        <DxButton Text="일감"
-                  RenderStyle="ButtonRenderStyle.Link"
-                  Click="@(() => OpenTasksAsync(row))" />
+        <DxButton Text="일감" RenderStyle="ButtonRenderStyle.Link" Click="@(() => OpenTasksAsync(row))" />
+        <DxButton Text="첨부" RenderStyle="ButtonRenderStyle.Link" Click="@(() => OpenFilesAsync(row))" />
+        @if (WbsBoardLinks.PvWorkUrl(row) is { } work)
+        {
+            <DxButton Text="PV 작업" RenderStyle="ButtonRenderStyle.Link" NavigateUrl="@work" Target="_blank" />
+        }
+        @if (WbsBoardLinks.PvTaskUrl(row) is { } task)
+        {
+            <DxButton Text="PV 일감" RenderStyle="ButtonRenderStyle.Link" NavigateUrl="@task" Target="_blank" />
+        }
+        @if (WbsBoardLinks.PvTestUrl(row) is { } test)
+        {
+            <DxButton Text="PV 단위테스트" RenderStyle="ButtonRenderStyle.Link" NavigateUrl="@test" Target="_blank" />
+        }
+        @if (WbsBoardLinks.OpsUrl(row) is { } ops)
+        {
+            <DxButton Text="운영 화면" RenderStyle="ButtonRenderStyle.Link" NavigateUrl="@ops" Target="_blank" />
+        }
+        @if (WbsBoardLinks.DevUrl(row) is { } dev)
+        {
+            <DxButton Text="개발 화면" RenderStyle="ButtonRenderStyle.Link" NavigateUrl="@dev" Target="_blank" />
+        }
+        <PermissionView Action="MenuAction.Update">
+            <DxButton IconCssClass="jsini-icon-edit" Title="대상 수정" RenderStyle="ButtonRenderStyle.Link"
+                      Click="@(() => StartEditAsync(row))" />
+            @if (row.NoId)
+            {
+                <DxButton Text="ID 지정" RenderStyle="ButtonRenderStyle.Link" Click="@(() => StartSetId(row))" />
+            }
+        </PermissionView>
+        <PermissionView Action="MenuAction.Delete">
+            <DxButton IconCssClass="jsini-icon-trash" Title="삭제" CssClass="commgrd__icon--warn"
+                      RenderStyle="ButtonRenderStyle.Link" Click="@(() => DeleteAsync(row))" />
+        </PermissionView>
+    };
+
+    /// <summary>표시 칸(o / 빈 값)을 누르는 즉시 고친다.</summary>
+    private RenderFragment CheckCell(WbsBoardRowDto r, string col) => __builder =>
+    {
+        var on = r.Flag(col);
+        <span class="pm-wbs-check @(on && col is "recheck_yn" or "recheck_big_yn" ? "pm-wbs-check--recheck" : null) @(Busy(r, col) ? "pm-wbs-busy" : null)"
+              @onclick:stopPropagation="true">
+            <input type="checkbox" checked="@on" disabled="@(!Can(MenuAction.Update) || Busy(r, col))"
+                   @onchange="@(e => OnCheckAsync(r, col, e.Value is true))" />
+        </span>
+    };
+
+    /// <summary>담당자 · 개발자 — 누르면 고르개가 그 자리에 선다.</summary>
+    private RenderFragment PersonCell(WbsBoardRowDto r, string col) => __builder =>
+    {
+        var id = col == "user_bp_id" ? r.UserBpId : r.UserRealId;
+        var nm = col == "user_bp_id" ? r.UserNm : r.UserRealNm;
+
+        if (IsEditing(r, col))
+        {
+            <select class="pm-wbs-pick" value="@(id ?? "")" @onclick:stopPropagation="true"
+                    @onchange="@(e => OnPickAsync(r, col, e.Value as string))" @onblur="@StopEdit">
+                <option value="">(미지정)</option>
+                @foreach (var p in PeopleFor(id))
+                {
+                    <option value="@p.Value">@p.Text</option>
+                }
+            </select>
+        }
+        else
+        {
+            <span class="pm-wbs-person @(Busy(r, col) ? "pm-wbs-busy" : null) @(string.IsNullOrEmpty(id) ? "pm-wbs-person--none" : null)"
+                  title="@(string.IsNullOrEmpty(id) ? "미지정 — 누르면 고릅니다" : id)"
+                  @onclick="@(() => StartEdit(r, col))" @onclick:stopPropagation="true">
+                @if (!string.IsNullOrEmpty(id))
+                {
+                    <b>@nm</b>
+                    @if (!string.Equals(nm, id, StringComparison.OrdinalIgnoreCase))
+                    {
+                        <small>@id</small>
+                    }
+                }
+            </span>
+        }
+    };
+
+    private RenderFragment PriorityCell(WbsBoardRowDto r) => __builder =>
+    {
+        if (IsEditing(r, "priority_order"))
+        {
+            <select class="pm-wbs-pick pm-wbs-pick--sm" value="@(r.PriorityOrder ?? "")" @onclick:stopPropagation="true"
+                    @onchange="@(e => OnPickAsync(r, "priority_order", e.Value as string))" @onblur="@StopEdit">
+                <option value="">(없음)</option>
+                @foreach (var p in Priorities)
+                {
+                    <option value="@p">@p</option>
+                }
+            </select>
+        }
+        else
+        {
+            <span class="pm-wbs-person @(Busy(r, "priority_order") ? "pm-wbs-busy" : null)"
+                  @onclick="@(() => StartEdit(r, "priority_order"))" @onclick:stopPropagation="true">@(r.PriorityOrder ?? "—")</span>
+        }
+    };
+
+    /// <summary>대상 추가·수정 창의 입력칸 하나.</summary>
+    private RenderFragment FieldEditor(WbsRowField f) => __builder =>
+    {
+        switch (f.Kind)
+        {
+            case "check":
+                <DxCheckBox Checked="@(Get(f.Key) == "o")" CheckedChanged="@((bool v) => Set(f.Key, v ? "o" : null))">
+                    @(Get(f.Key) == "o" ? "예 (o)" : "아니오")
+                </DxCheckBox>
+                break;
+
+            case "date":
+                <DxDateEdit TValue="DateTime?" Date="@DateOf(f.Key)" DateChanged="@((DateTime? d) => Set(f.Key, d?.ToString("yyyy-MM-dd")))"
+                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" ValidationEnabled="false" />
+                break;
+
+            case "area":
+                <DxMemo Text="@Get(f.Key)" TextChanged="@((string v) => Set(f.Key, v))" Rows="2" />
+                break;
+
+            case "user":
+                <DxComboBox Data="@PeopleFor(Get(f.Key))" Value="@Get(f.Key)" ValueChanged="@((string? v) => Set(f.Key, v))"
+                            TextFieldName="Text" ValueFieldName="Value" SearchMode="ListSearchMode.AutoSearch"
+                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" ValidationEnabled="false" />
+                break;
+
+            case "prio":
+                <DxComboBox Data="@PriorityOptions" Value="@Get(f.Key)" ValueChanged="@((string? v) => Set(f.Key, v))"
+                            TextFieldName="Text" ValueFieldName="Value"
+                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" ValidationEnabled="false" />
+                break;
+
+            default:
+                <DxTextBox Text="@Get(f.Key)" TextChanged="@((string v) => Set(f.Key, v))"
+                           ReadOnly="@(f.Key == "activity_id" && _formKey is not null)" />
+                break;
+        }
     };
 }
