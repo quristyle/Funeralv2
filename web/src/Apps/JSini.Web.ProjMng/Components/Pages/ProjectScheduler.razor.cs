@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
+using Microsoft.JSInterop;
 using DevExpress.Blazor;
 using JSini.Web.Abstractions;
 using JSini.Web.Components.Data;
@@ -12,6 +13,21 @@ namespace JSini.Web.ProjMng.Components.Pages;
 public partial class ProjectScheduler
 {
     [Inject] private WbsClient Api { get; set; } = default!;
+
+    [Inject] private CommonCodes Codes { get; set; } = default!;
+
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+
+    [Inject] private CurrentUser Me { get; set; } = default!;
+
+    /// <summary>마지막에 고른 프로젝트를 브라우저에 적어 둘 때 쓰는 열쇠 앞부분. 뒤에 로그인 아이디가 붙는다.</summary>
+    internal const string ProjectStorageKeyPrefix = "jsini-sched-prj:";
+
+    private string ProjectStorageKey =>
+        $"{ProjectStorageKeyPrefix}{(string.IsNullOrWhiteSpace(Me?.Username) ? "?" : Me.Username.Trim())}";
+
+    /// <summary>기억해 둔 프로젝트를 읽었는가. 그 전에는 프로젝트 고르개를 그리지 않는다.</summary>
+    private bool _projectRestored;
 
     /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
     private string ConditionSummary => SchSummary.Of(
@@ -183,6 +199,68 @@ public partial class ProjectScheduler
     }
 
     // 화면을 열 때 여기서 조회하지 않는다 — 프로젝트 고르개가 첫 항목을 고르며 조회를 건다. 둘 다 하면 늦게 돌아온 쪽이 남아 목록이 전체로 보인다.
+    // 기억해 둔 프로젝트가 목록에 있으면 고르개는 아무것도 고르지 않으므로(OnChanged 가 안 온다) 그때만 여기서 조회한다.
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await base.OnAfterRenderAsync(firstRender);
+
+        if (!firstRender || _projectRestored) return;
+
+        var remembered = await ReadRememberedProjectAsync();
+        var known = false;
+
+        if (!string.IsNullOrWhiteSpace(remembered))
+        {
+            var list = await Codes.GetAsync("projlist");
+            known = list.Any(i => string.Equals(i.Code, remembered, StringComparison.Ordinal));
+        }
+
+        if (known)
+        {
+            _projectCode = remembered;
+        }
+
+        _projectRestored = true;
+        StateHasChanged();
+
+        if (known)
+        {
+            await SearchAsync();
+        }
+    }
+
+    /// <summary>프로젝트가 바뀌었다(사람이 골랐거나 고르개가 첫 항목을 골랐다). 기억해 두고 조회한다.</summary>
+    private Task OnProjectChangedAsync(CommonCodeItem? item)
+    {
+        _ = RememberProjectAsync(item?.Code);
+        return SearchAsync();
+    }
+
+    private async Task<string?> ReadRememberedProjectAsync()
+    {
+        try
+        {
+            return await JS.InvokeAsync<string?>("localStorage.getItem", ProjectStorageKey);
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or InvalidOperationException)
+        {
+            return null;
+        }
+    }
+
+    private async Task RememberProjectAsync(string? code)
+    {
+        if (string.IsNullOrWhiteSpace(code)) return;
+
+        try
+        {
+            await JS.InvokeVoidAsync("localStorage.setItem", ProjectStorageKey, code);
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or InvalidOperationException)
+        {
+            // 저장소가 막혔거나 창이 닫혔다. 기억만 못 할 뿐이다.
+        }
+    }
 
     /// <summary>구분 체크가 바뀌었다. 바로 조회한다 — 「조회」를 또 눌러야 하면 딱지와 달력이 서로 다른 이야기를 한다.</summary>
     private Task OnKindsChangedAsync(IEnumerable<string>? kinds)

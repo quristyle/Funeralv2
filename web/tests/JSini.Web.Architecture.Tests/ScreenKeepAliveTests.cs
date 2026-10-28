@@ -156,6 +156,21 @@ public sealed class ScreenKeepAliveTests
         Assert.Contains("ProjectStorageKey", page, StringComparison.Ordinal);
     }
 
+    /// <summary>
+    /// 「프로젝트 일정표」가 마지막에 고른 프로젝트를 브라우저에 기억하고, 읽기 전에는 고르개를 그리지 않는가.
+    /// 먼저 그리면 고르개가 첫 항목을 골라 조회를 걸어 기억한 프로젝트가 덮인다.
+    /// </summary>
+    [Fact]
+    public void 일정표_화면이_마지막_프로젝트를_기억한다()
+    {
+        var page = RazorSource.Read(Path.Combine(
+            SolutionRoot(), "src", "Apps", "JSini.Web.ProjMng", "Components", "Pages", "ProjectScheduler.razor"));
+
+        Assert.Contains("localStorage.getItem", page, StringComparison.Ordinal);
+        Assert.Contains("localStorage.setItem", page, StringComparison.Ordinal);
+        Assert.Matches(@"@if \(_projectRestored\)\s*\{\s*<CodeSelect CodeId=""projlist""", page);
+    }
+
     private static string CommGrd() => RazorSource.Read(Path.Combine(
         SolutionRoot(), "src", "Shared", "JSini.Web.Components", "Data", "CommGrd.razor"));
 

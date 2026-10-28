@@ -111,9 +111,13 @@
 
                 <CommSch Stacked="true" OnSearch="@SearchAsync" Busy="@Loading" MobileSummary="@ConditionSummary">
                     <Fields>
+                        @* 기억해 둔 프로젝트를 읽기 전에 그리면 고르개가 첫 항목을 골라 조회를 먼저 건다. *@
                         <CommSchItem Label="프로젝트">
-                            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" @bind-Text="_projectName"
-                                        OnChanged="@(_ => SearchAsync())" />
+                            @if (_projectRestored)
+                            {
+                                <CodeSelect CodeId="projlist" @bind-Value="_projectCode" @bind-Text="_projectName"
+                                            OnChanged="@OnProjectChangedAsync" />
+                            }
                         </CommSchItem>
 
                         @* 체크로 여럿 고른다. 아무것도 안 고르면 전체다. *@
