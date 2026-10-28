@@ -458,7 +458,8 @@
 
                     @foreach (var week in _weeks)
                     {
-                        <div class="pm-gc-week">
+                        @* 끌어 옮기기는 gc-month-drag.js 가 받는다 — 놓을 날을 이 줄의 첫날과 가로 자리로 셈한다. *@
+                        <div class="pm-gc-week" data-start="@week.Days[0].Date.ToString("yyyy-MM-dd")">
                             <div class="pm-gc-week__days">
                                 @foreach (var day in week.Days)
                                 {
@@ -467,9 +468,6 @@
                                     <div class="@DayCss(day)">
                                         <button type="button" class="pm-gc-day__fill"
                                                 aria-label="@DayLabel(day)"
-                                                @ondragover:preventDefault="true"
-                                                @ondragenter="@(() => _dragOver = here.Date)"
-                                                @ondrop="@(() => DropAsync(here.Date))"
                                                 @onclick="@(() => OnDayClickAsync(here.Date))"></button>
 
                                         <button type="button" class="pm-gc-day__num"
@@ -490,9 +488,8 @@
                                             class="@BarCss(bar)"
                                             style="@BarStyle(bar)"
                                             title="@BarTip(bar.Item)"
+                                            data-wbs="@bar.Item.WbsId"
                                             draggable="@(_canUpdate ? "true" : "false")"
-                                            @ondragstart="@(() => _drag = here.Item)"
-                                            @ondragend="@(() => _drag = null)"
                                             disabled="@(!_canUpdate)"
                                             @onclick="@(() => StartEdit(here.Item))">
                                         @Title(bar.Item)

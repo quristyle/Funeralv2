@@ -10,7 +10,7 @@ using JSini.Web.ProjMng.Components.Shared;
 
 namespace JSini.Web.ProjMng.Components.Pages;
 
-public partial class ProjectScheduler
+public partial class ProjectScheduler : IAsyncDisposable
 {
     [Inject] private WbsClient Api { get; set; } = default!;
 
@@ -141,11 +141,10 @@ public partial class ProjectScheduler
     /// <summary>작은 달력이 보고 있는 달 — 큰 달력에서 <b>몇 달 떨어져 있나</b>.</summary>
     private int _miniOffset;
 
-    /// <summary>끌고 있는 일정. 놓을 때 이것을 옮긴다.</summary>
-    private WbsItemDto? _drag;
+    /// <summary>월 격자 끌어 옮기기(gc-month-drag.js)가 놓을 때 부르는 창구.</summary>
+    private DotNetObjectReference<ProjectScheduler>? _dragRef;
 
-    /// <summary>끌기가 지금 걸쳐 있는 칸. 그 칸만 도드라지게 그린다.</summary>
-    private DateOnly? _dragOver;
+    private IJSObjectReference? _dragModule;
 
     /// <summary>쓸기 판정에 쓰는 손가락 시작점. 화면에 그려지는 값이 아니다.</summary>
     private double _touchX;
@@ -276,6 +275,8 @@ public partial class ProjectScheduler
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         await base.OnAfterRenderAsync(firstRender);
+
+        if (firstRender) await AttachDragAsync();
 
         if (!firstRender || _projectRestored) return;
 
@@ -1015,11 +1016,6 @@ public partial class ProjectScheduler
             css.Add("pm-gc-day--on");
         }
 
-        if (_drag is not null && _dragOver == day.Date)
-        {
-            css.Add("pm-gc-day--drop");
-        }
-
         css.Add(day.Date.DayOfWeek switch
         {
             DayOfWeek.Sunday => "pm-gc-day--sun",
@@ -1120,28 +1116,60 @@ public partial class ProjectScheduler
 
     // ── 끌어 옮기기 (월 격자) ────────────────────────────────────
 
-    /// <summary>막대를 다른 날에 놓았다. 기간과 시간은 그대로 두고 통째로 옮기며, 놓은 날이 시작일이 된다(집은 자리는 브라우저가 알려 주지 않는다).</summary>
-    private async Task DropAsync(DateOnly day)
+    /// <summary>막대를 다른 날에 놓았다. 집은 날에서 놓은 날까지 벌어진 만큼 통째로 옮긴다 — 기간과 시각은 그대로다.</summary>
+    [JSInvokable]
+    public async Task MoveByDrag(int wbsId, string from, string to)
     {
-        var row = _drag;
+        var row = _rows.FirstOrDefault(w => w.WbsId == wbsId);
 
-        _drag = null;
-        _dragOver = null;
-
-        if (row is null || !_canUpdate || Span(row) is not { } range || range.Start == day)
+        if (row is null || !_canUpdate
+            || !DateOnly.TryParse(from, out var grabbed) || !DateOnly.TryParse(to, out var dropped)
+            || grabbed == dropped)
         {
             return;
         }
 
+        var shift = dropped.DayNumber - grabbed.DayNumber;
         var next = Copy(row);
-        var daysDiff = day.DayNumber - range.Start.DayNumber;
-        if (next.PlanSdt.HasValue) next.PlanSdt = next.PlanSdt.Value.AddDays(daysDiff);
-        if (next.PlanEdt.HasValue) next.PlanEdt = next.PlanEdt.Value.AddDays(daysDiff);
+        next.PlanSdt = next.PlanSdt?.AddDays(shift);
+        next.PlanEdt = next.PlanEdt?.AddDays(shift);
 
         if (await RunAsync(() => Api.UpdateAsync(next), "옮겼습니다.", "옮기지 못했습니다"))
         {
             await SearchAsync();
         }
+
+        StateHasChanged();
+    }
+
+    private async Task AttachDragAsync()
+    {
+        try
+        {
+            _dragRef ??= DotNetObjectReference.Create(this);
+            _dragModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "./_content/JSini.Web.ProjMng/js/gc-month-drag.js");
+            await _dragModule.InvokeVoidAsync("attach", _dragRef);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (_dragModule is not null)
+            {
+                await _dragModule.InvokeVoidAsync("detach");
+                await _dragModule.DisposeAsync();
+            }
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+
+        _dragRef?.Dispose();
     }
 
     private void OnTouchStart(TouchEventArgs e)
