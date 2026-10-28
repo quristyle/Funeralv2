@@ -46,4 +46,22 @@ public sealed class ProjectSchedulerColumnTests
         var result = (string?)method.Invoke(null, [hours]);
         Assert.Equal(expected, result);
     }
+
+    [Fact]
+    public void ProjectScheduler_다크모드_인라인_편집창_배경색과_글자색_대비_스타일이_정의되어_있다()
+    {
+        var cssPath = Path.Combine(AppContext.BaseDirectory, "../../../../../src/Apps/JSini.Web.ProjMng/wwwroot/projmng.css");
+        Assert.True(File.Exists(cssPath), $"파일이 존재해야 합니다: {cssPath}");
+
+        var css = File.ReadAllText(cssPath);
+
+        // 고정 흰색 배경(#fff)으로 하드코딩되어 다크 모드 글자색과 충돌하던 문제가 없어야 함
+        Assert.DoesNotContain("var(--jsini-bg-surface, #fff)", css);
+
+        // 다크모드 선택자에서 입력박스 배경과 글자색 스타일 정의 여부
+        Assert.Contains(":root[data-theme='dark'] .pm-inline-edit", css);
+        Assert.Contains(":root[data-bs-theme='dark'] .pm-inline-edit", css);
+        Assert.Contains("--dxbl-text-edit-color: var(--tb-text", css);
+        Assert.Contains("color: var(--tb-text, var(--jsini-text, #dee2e6));", css);
+    }
 }

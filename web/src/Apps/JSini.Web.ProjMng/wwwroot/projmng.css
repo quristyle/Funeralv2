@@ -4309,7 +4309,8 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   flex-direction: column;
 }
 
-:root[data-theme='dark'] .pm-gc {
+:root[data-theme='dark'] .pm-gc,
+:root[data-bs-theme='dark'] .pm-gc {
   /* 어두운 바탕에서 #1a73e8 은 글자를 못 읽게 한다 — 구글도 다크에서 올린다. */
   --pm-gc-accent: #8ab4f8;
 }
@@ -6417,6 +6418,7 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 /* ── 일정표: 표 보기 인라인 수정 (`pm-inline-*`) ──────────────── */
 .pm-inline-edit {
   width: 100%;
+  color: var(--tb-text, var(--jsini-text, inherit));
 }
 
 .pm-inline-edit.dxbl-text-edit,
@@ -6427,20 +6429,23 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   border-color: transparent;
   box-shadow: none;
   font-size: 0.84375rem;
+  color: var(--tb-text, var(--jsini-text, inherit));
+  --dxbl-text-edit-color: var(--tb-text, var(--jsini-text, inherit));
+  --dxbl-text-edit-btn-color: var(--tb-text, var(--jsini-text, inherit));
   transition: border-color 0.15s ease-in-out, background-color 0.15s ease-in-out;
 }
 
 .pm-inline-edit.dxbl-text-edit:hover,
 .pm-inline-edit.dxbl-combobox:hover,
 .pm-inline-edit.dxbl-date-edit:hover {
-  background: var(--jsini-bg-surface, #fff);
-  border-color: var(--jsini-border, #d1d5db);
+  background: var(--tb-input-bg, var(--jsini-surface, #fff));
+  border-color: var(--tb-border, var(--jsini-border, #d1d5db));
 }
 
 .pm-inline-edit.dxbl-text-edit:focus-within,
 .pm-inline-edit.dxbl-combobox:focus-within,
 .pm-inline-edit.dxbl-date-edit:focus-within {
-  background: var(--jsini-bg-surface, #fff);
+  background: var(--tb-input-bg, var(--jsini-surface, #fff));
   border-color: var(--pm-gc-accent, #1a73e8);
   box-shadow: 0 0 0 1px var(--pm-gc-accent, #1a73e8);
 }
@@ -6448,6 +6453,52 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 .pm-inline-edit input {
   padding-top: 0.2rem;
   padding-bottom: 0.2rem;
+  color: inherit;
+}
+
+/* 다크 모드: 입력박스의 배경과 글자색 대비 보장 (흰 배경에 흰 글자 방지) */
+:root[data-theme='dark'] .pm-inline-edit,
+:root[data-bs-theme='dark'] .pm-inline-edit {
+  color: var(--tb-text, var(--jsini-text, #dee2e6));
+}
+
+:root[data-theme='dark'] .pm-inline-edit.dxbl-text-edit,
+:root[data-theme='dark'] .pm-inline-edit.dxbl-combobox,
+:root[data-theme='dark'] .pm-inline-edit.dxbl-date-edit,
+:root[data-bs-theme='dark'] .pm-inline-edit.dxbl-text-edit,
+:root[data-bs-theme='dark'] .pm-inline-edit.dxbl-combobox,
+:root[data-bs-theme='dark'] .pm-inline-edit.dxbl-date-edit {
+  color: var(--tb-text, var(--jsini-text, #dee2e6));
+  --dxbl-text-edit-color: var(--tb-text, var(--jsini-text, #dee2e6));
+  --dxbl-text-edit-btn-color: var(--tb-text, var(--jsini-text, #dee2e6));
+}
+
+:root[data-theme='dark'] .pm-inline-edit.dxbl-text-edit:hover,
+:root[data-theme='dark'] .pm-inline-edit.dxbl-combobox:hover,
+:root[data-theme='dark'] .pm-inline-edit.dxbl-date-edit:hover,
+:root[data-bs-theme='dark'] .pm-inline-edit.dxbl-text-edit:hover,
+:root[data-bs-theme='dark'] .pm-inline-edit.dxbl-combobox:hover,
+:root[data-bs-theme='dark'] .pm-inline-edit.dxbl-date-edit:hover {
+  background: var(--tb-input-bg, var(--jsini-surface, #1e2128));
+  border-color: var(--tb-border, var(--jsini-border, #404040));
+  color: var(--tb-text, var(--jsini-text, #dee2e6));
+}
+
+:root[data-theme='dark'] .pm-inline-edit.dxbl-text-edit:focus-within,
+:root[data-theme='dark'] .pm-inline-edit.dxbl-combobox:focus-within,
+:root[data-theme='dark'] .pm-inline-edit.dxbl-date-edit:focus-within,
+:root[data-bs-theme='dark'] .pm-inline-edit.dxbl-text-edit:focus-within,
+:root[data-bs-theme='dark'] .pm-inline-edit.dxbl-combobox:focus-within,
+:root[data-bs-theme='dark'] .pm-inline-edit.dxbl-date-edit:focus-within {
+  background: var(--tb-input-bg, var(--jsini-surface, #1e2128));
+  border-color: var(--pm-gc-accent, #8ab4f8);
+  box-shadow: 0 0 0 1px var(--pm-gc-accent, #8ab4f8);
+  color: var(--tb-text, var(--jsini-text, #dee2e6));
+}
+
+:root[data-theme='dark'] .pm-inline-edit input,
+:root[data-bs-theme='dark'] .pm-inline-edit input {
+  color: var(--tb-text, var(--jsini-text, #dee2e6));
 }
 
 .pm-inline-state-wrapper {
