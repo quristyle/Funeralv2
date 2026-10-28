@@ -166,6 +166,7 @@
                 <CommCont Title="일정표" Hint="@Hint">
                     <CommGrd TItem="WbsItemDto"
                              Data="@_rows"
+                             KeyFieldName="@nameof(WbsItemDto.WbsId)"
                              EditFormTitle="일정"
                              ExportName="일정표"
                              PageSize="30"
@@ -176,33 +177,204 @@
                              DeleteConfirm="@(w => $"「{w.ProcNm}」 을(를) 지웁니다.\n되돌릴 수 없습니다.")"
                              Reload="@SearchAsync">
                         <Columns>
-                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanSdt)" Caption="시작" Width="105"
-                                              DisplayFormat="yyyy-MM-dd" />
-                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanEdt)" Caption="종료" Width="105"
-                                              DisplayFormat="yyyy-MM-dd" />
-                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanGap)" Caption="기간" Width="70"
-                                              Visible="@(!_isPhone)" />
-                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.ProcNm)" Caption="일정" MinWidth="200"
-                                              TextAlignment="GridTextAlignment.Left" />
-                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.ScheduleType)" Caption="구분" Width="90"
-                                              Visible="@(!_isPhone)" />
-                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.ProcTp)" Caption="종류" Width="110"
-                                              Visible="@(!_isPhone)" />
-                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.DevUser)" Caption="담당" Width="90" />
-
-                            <DxGridDataColumn Caption="진행" Width="70">
+                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanSdt)" Caption="시작" Width="130">
                                 <CellDisplayTemplate Context="cell">
                                     @{
                                         var w = (WbsItemDto)cell.DataItem;
                                     }
-                                    <span class="jsini-badge @StateClass(w)">@StateName(w)</span>
+                                    @if (_canUpdate)
+                                    {
+                                        <DxDateEdit Date="@ToDateTime(w.PlanSdt)"
+                                                    DateChanged="@((DateTime? d) => OnInlinePlanSdtChangedAsync(w, d))"
+                                                    DisplayFormat="yyyy-MM-dd"
+                                                    Format="yyyy-MM-dd"
+                                                    ValidationEnabled="false"
+                                                    CssClass="pm-inline-edit" />
+                                    }
+                                    else
+                                    {
+                                        <span>@w.PlanSdt?.ToString("yyyy-MM-dd")</span>
+                                    }
+                                </CellDisplayTemplate>
+                            </DxGridDataColumn>
+
+                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanEdt)" Caption="종료" Width="130">
+                                <CellDisplayTemplate Context="cell">
+                                    @{
+                                        var w = (WbsItemDto)cell.DataItem;
+                                    }
+                                    @if (_canUpdate)
+                                    {
+                                        <DxDateEdit Date="@ToDateTime(w.PlanEdt)"
+                                                    DateChanged="@((DateTime? d) => OnInlinePlanEdtChangedAsync(w, d))"
+                                                    DisplayFormat="yyyy-MM-dd"
+                                                    Format="yyyy-MM-dd"
+                                                    ValidationEnabled="false"
+                                                    CssClass="pm-inline-edit" />
+                                    }
+                                    else
+                                    {
+                                        <span>@w.PlanEdt?.ToString("yyyy-MM-dd")</span>
+                                    }
+                                </CellDisplayTemplate>
+                            </DxGridDataColumn>
+
+                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanGap)" Caption="기간" Width="65"
+                                              Visible="@(!_isPhone)">
+                                <CellDisplayTemplate Context="cell">
+                                    @{
+                                        var w = (WbsItemDto)cell.DataItem;
+                                    }
+                                    <span>@(w.PlanGap.HasValue ? $"{w.PlanGap}일" : "")</span>
+                                </CellDisplayTemplate>
+                            </DxGridDataColumn>
+
+                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.ProcNm)" Caption="일정" MinWidth="180"
+                                              TextAlignment="GridTextAlignment.Left">
+                                <CellDisplayTemplate Context="cell">
+                                    @{
+                                        var w = (WbsItemDto)cell.DataItem;
+                                    }
+                                    @if (_canUpdate)
+                                    {
+                                        <DxTextBox Text="@w.ProcNm"
+                                                   TextChanged="@((string? t) => OnInlineProcNmChangedAsync(w, t))"
+                                                   BindValueMode="BindValueMode.OnLostFocus"
+                                                   NullText="일정명 입력"
+                                                   ValidationEnabled="false"
+                                                   CssClass="pm-inline-edit" />
+                                    }
+                                    else
+                                    {
+                                        <span>@w.ProcNm</span>
+                                    }
+                                </CellDisplayTemplate>
+                            </DxGridDataColumn>
+
+                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.ScheduleType)" Caption="구분" Width="110"
+                                              Visible="@(!_isPhone)">
+                                <CellDisplayTemplate Context="cell">
+                                    @{
+                                        var w = (WbsItemDto)cell.DataItem;
+                                    }
+                                    @if (_canUpdate)
+                                    {
+                                        <DxComboBox Data="@_scheduleTypeCodes"
+                                                    TextFieldName="@nameof(CommonCodeItem.Name)"
+                                                    ValueFieldName="@nameof(CommonCodeItem.Code)"
+                                                    Value="@w.ScheduleType"
+                                                    ValueChanged="@((string? s) => OnInlineScheduleTypeChangedAsync(w, s))"
+                                                    NullText="구분"
+                                                    ValidationEnabled="false"
+                                                    CssClass="pm-inline-edit" />
+                                    }
+                                    else
+                                    {
+                                        <span>@GetScheduleTypeName(w.ScheduleType)</span>
+                                    }
+                                </CellDisplayTemplate>
+                            </DxGridDataColumn>
+
+                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.ProcTp)" Caption="종류" Width="110"
+                                              Visible="@(!_isPhone)">
+                                <CellDisplayTemplate Context="cell">
+                                    @{
+                                        var w = (WbsItemDto)cell.DataItem;
+                                    }
+                                    @if (_canUpdate)
+                                    {
+                                        <DxTextBox Text="@w.ProcTp"
+                                                   TextChanged="@((string? t) => OnInlineProcTpChangedAsync(w, t))"
+                                                   BindValueMode="BindValueMode.OnLostFocus"
+                                                   NullText="종류 입력"
+                                                   ValidationEnabled="false"
+                                                   CssClass="pm-inline-edit" />
+                                    }
+                                    else
+                                    {
+                                        <span>@w.ProcTp</span>
+                                    }
+                                </CellDisplayTemplate>
+                            </DxGridDataColumn>
+
+                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.DevUser)" Caption="담당" Width="130">
+                                <CellDisplayTemplate Context="cell">
+                                    @{
+                                        var w = (WbsItemDto)cell.DataItem;
+                                    }
+                                    @if (_canUpdate)
+                                    {
+                                        <DxComboBox Data="@_userOptions"
+                                                    TextFieldName="@nameof(BizOption.Label)"
+                                                    ValueFieldName="@nameof(BizOption.Value)"
+                                                    Value="@w.DevUser"
+                                                    ValueChanged="@((string? u) => OnInlineDevUserChangedAsync(w, u))"
+                                                    ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                                                    SearchMode="ListSearchMode.AutoSearch"
+                                                    SearchFilterCondition="ListSearchFilterCondition.Contains"
+                                                    AllowUserInput="true"
+                                                    NullText="담당자"
+                                                    ValidationEnabled="false"
+                                                    CssClass="pm-inline-edit" />
+                                    }
+                                    else
+                                    {
+                                        <span>@GetUserDisplayName(w.DevUser)</span>
+                                    }
+                                </CellDisplayTemplate>
+                            </DxGridDataColumn>
+
+                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.WbsState)" Caption="진행" Width="115">
+                                <CellDisplayTemplate Context="cell">
+                                    @{
+                                        var w = (WbsItemDto)cell.DataItem;
+                                    }
+                                    @if (_canUpdate)
+                                    {
+                                        <div class="pm-inline-state-wrapper">
+                                            <DxComboBox Data="@StateOptions"
+                                                        TextFieldName="Name"
+                                                        ValueFieldName="Code"
+                                                        Value="@GetInlineStateCode(w)"
+                                                        ValueChanged="@((string val) => OnInlineStateChangedAsync(w, val))"
+                                                        ValidationEnabled="false"
+                                                        CssClass="pm-inline-edit pm-inline-state" />
+                                            @if (LabelOf(w, Today) == "OVER")
+                                            {
+                                                <span class="jsini-badge jsini-badge--err pm-inline-over-badge" title="계획종료일이 지난 지연 상태입니다">지연</span>
+                                            }
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span class="jsini-badge @StateClass(w)">@StateName(w)</span>
+                                    }
                                 </CellDisplayTemplate>
                             </DxGridDataColumn>
 
                             @* 좁은 화면에서는 이 넷을 접는다 — 아홉 칸을 그대로 두면 표가 가로로 두 배가 되어 제목조차 안 보인다. *@
                             <DxGridDataColumn FieldName="@nameof(WbsItemDto.Comm)" Caption="메모" MinWidth="140"
                                               TextAlignment="GridTextAlignment.Left"
-                                              Visible="@(!_isPhone)" />
+                                              Visible="@(!_isPhone)">
+                                <CellDisplayTemplate Context="cell">
+                                    @{
+                                        var w = (WbsItemDto)cell.DataItem;
+                                    }
+                                    @if (_canUpdate)
+                                    {
+                                        <DxTextBox Text="@w.Comm"
+                                                   TextChanged="@((string? t) => OnInlineCommChangedAsync(w, t))"
+                                                   BindValueMode="BindValueMode.OnLostFocus"
+                                                   NullText="메모 입력"
+                                                   ValidationEnabled="false"
+                                                   CssClass="pm-inline-edit" />
+                                    }
+                                    else
+                                    {
+                                        <span>@w.Comm</span>
+                                    }
+                                </CellDisplayTemplate>
+                            </DxGridDataColumn>
                         </Columns>
 
                         <EditFormTemplate Context="edit">

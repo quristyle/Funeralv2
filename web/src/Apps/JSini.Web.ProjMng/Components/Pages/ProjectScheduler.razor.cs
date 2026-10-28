@@ -16,6 +16,8 @@ public partial class ProjectScheduler
 
     [Inject] private CommonCodes Codes { get; set; } = default!;
 
+    [Inject] private BizOptions Biz { get; set; } = default!;
+
     [Inject] private IJSRuntime JS { get; set; } = default!;
 
     [Inject] private CurrentUser Me { get; set; } = default!;
@@ -59,6 +61,20 @@ public partial class ProjectScheduler
     ];
 
     private IReadOnlyList<WbsItemDto> _rows = [];
+
+    /// <summary>표 보기에서 쓰는 구분 공통코드 목록.</summary>
+    private IReadOnlyList<CommonCodeItem> _scheduleTypeCodes = [];
+
+    /// <summary>표 보기에서 쓰는 담당자(포털 계정) 목록.</summary>
+    private IReadOnlyList<BizOption> _userOptions = [];
+
+    /// <summary>진행 상태 선택 옵션.</summary>
+    private static readonly (string Code, string Name)[] StateOptions =
+    [
+        ("READY", "대기"),
+        ("RUNNING", "진행"),
+        ("COMP", "완료"),
+    ];
 
     private CalView _view = CalView.Month;
     private DateTime _anchor = AppTime.TodayDate;
@@ -212,6 +228,8 @@ public partial class ProjectScheduler
 
         if (!firstRender || _projectRestored) return;
 
+        await EnsureDropdownDataAsync();
+
         var remembered = await ReadRememberedProjectAsync();
         var known = false;
 
@@ -306,17 +324,22 @@ public partial class ProjectScheduler
     // ── 머리줄 ───────────────────────────────────────────────────
 
     /// <summary>보기를 바꾼다. 구간이 따라 바뀌므로 다시 읽는다. 「일」로 갈 때 기준일을 오늘로 당기지 않는다 — 날을 눌러 들어오는 길이 있어, 여기서 되돌리면 그 길이 늘 오늘로 끌려간다.</summary>
-    private Task SetViewAsync(CalView view)
+    private async Task SetViewAsync(CalView view)
     {
         if (view == _view)
         {
-            return Task.CompletedTask;
+            return;
         }
 
         _view = view;
         _miniOffset = 0;
 
-        return SearchAsync();
+        if (view == CalView.Table)
+        {
+            await EnsureDropdownDataAsync();
+        }
+
+        await SearchAsync();
     }
 
     private Task GoTodayAsync()
@@ -1148,6 +1171,186 @@ public partial class ProjectScheduler
     }
 
     private Task DeleteAsync(WbsItemDto w) => Api.DeleteAsync(w.WbsId);
+
+    // ── 표 보기 인라인 즉시 수정 저장 ──────────────────────────────
+
+    private async Task EnsureDropdownDataAsync()
+    {
+        if (_scheduleTypeCodes.Count == 0)
+        {
+            _scheduleTypeCodes = await Codes.GetAsync("schedule_type");
+        }
+
+        if (_userOptions.Count == 0)
+        {
+            _userOptions = await Biz.GetAsync("portal_account");
+        }
+    }
+
+    private static DateTime? ToDateTime(DateOnly? d) =>
+        d?.ToDateTime(TimeOnly.MinValue);
+
+    private string GetScheduleTypeName(string? code)
+    {
+        if (string.IsNullOrWhiteSpace(code)) return string.Empty;
+        var item = _scheduleTypeCodes.FirstOrDefault(c => string.Equals(c.Code, code, StringComparison.OrdinalIgnoreCase));
+        return item?.Name ?? code;
+    }
+
+    private string GetUserDisplayName(string? username)
+    {
+        if (string.IsNullOrWhiteSpace(username)) return string.Empty;
+        var opt = _userOptions.FirstOrDefault(o => string.Equals(o.Value, username, StringComparison.OrdinalIgnoreCase));
+        return opt?.Label ?? username;
+    }
+
+    private static string GetInlineStateCode(WbsItemDto w)
+    {
+        if (w.DevEdt is not null || w.WbsState == "COMP") return "COMP";
+        if (w.DevSdt is not null || w.WbsState == "RUNNING") return "RUNNING";
+        return "READY";
+    }
+
+    /// <summary>표 보기에서 행 값을 변경했을 때 즉시 서버에 저장한다.</summary>
+    private async Task SaveInlineAsync(WbsItemDto w)
+    {
+        if (w.WbsId == 0) return;
+
+        try
+        {
+            var updated = await Api.UpdateAsync(w);
+            if (updated is not null)
+            {
+                w.PlanGap = updated.PlanGap;
+                w.WbsState = updated.WbsState;
+                w.ModUser = updated.ModUser;
+                w.ModDt = updated.ModDt;
+            }
+
+            BuildCalendar();
+            BuildDays();
+            BuildWeeks();
+            StateHasChanged();
+            Say("저장했습니다.", NoticeTone.Info);
+        }
+        catch (Exception ex)
+        {
+            Say($"저장하지 못했습니다 — {ex.Message}", NoticeTone.Error);
+        }
+    }
+
+    private async Task OnInlinePlanSdtChangedAsync(WbsItemDto w, DateTime? d)
+    {
+        var newStart = d is null ? null : (DateOnly?)DateOnly.FromDateTime(d.Value);
+        if (w.PlanSdt == newStart) return;
+
+        w.PlanSdt = newStart;
+        if (w.PlanEdt is not null && w.PlanSdt is not null && w.PlanEdt < w.PlanSdt)
+        {
+            w.PlanEdt = w.PlanSdt;
+        }
+
+        if (w.PlanSdt is not null && w.PlanEdt is not null)
+        {
+            w.PlanGap = (w.PlanEdt.Value.DayNumber - w.PlanSdt.Value.DayNumber) + 1;
+        }
+
+        await SaveInlineAsync(w);
+    }
+
+    private async Task OnInlinePlanEdtChangedAsync(WbsItemDto w, DateTime? d)
+    {
+        var newEnd = d is null ? null : (DateOnly?)DateOnly.FromDateTime(d.Value);
+        if (w.PlanEdt == newEnd) return;
+
+        w.PlanEdt = newEnd;
+        if (w.PlanSdt is not null && w.PlanEdt is not null && w.PlanEdt < w.PlanSdt)
+        {
+            w.PlanSdt = w.PlanEdt;
+        }
+
+        if (w.PlanSdt is not null && w.PlanEdt is not null)
+        {
+            w.PlanGap = (w.PlanEdt.Value.DayNumber - w.PlanSdt.Value.DayNumber) + 1;
+        }
+
+        await SaveInlineAsync(w);
+    }
+
+    private async Task OnInlineProcNmChangedAsync(WbsItemDto w, string? val)
+    {
+        if (string.Equals(w.ProcNm, val, StringComparison.Ordinal)) return;
+        if (string.IsNullOrWhiteSpace(val))
+        {
+            Say("일정 이름을 넣으십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        w.ProcNm = val.Trim();
+        await SaveInlineAsync(w);
+    }
+
+    private async Task OnInlineScheduleTypeChangedAsync(WbsItemDto w, string? val)
+    {
+        if (string.Equals(w.ScheduleType, val, StringComparison.Ordinal)) return;
+
+        w.ScheduleType = string.IsNullOrWhiteSpace(val) ? DefaultKind : val;
+        await SaveInlineAsync(w);
+    }
+
+    private async Task OnInlineProcTpChangedAsync(WbsItemDto w, string? val)
+    {
+        if (string.Equals(w.ProcTp, val, StringComparison.Ordinal)) return;
+
+        w.ProcTp = val;
+        await SaveInlineAsync(w);
+    }
+
+    private async Task OnInlineDevUserChangedAsync(WbsItemDto w, string? val)
+    {
+        if (string.Equals(w.DevUser, val, StringComparison.Ordinal)) return;
+
+        w.DevUser = val ?? string.Empty;
+        await SaveInlineAsync(w);
+    }
+
+    private async Task OnInlineStateChangedAsync(WbsItemDto w, string? val)
+    {
+        var current = GetInlineStateCode(w);
+        if (string.Equals(current, val, StringComparison.Ordinal)) return;
+
+        var today = Today;
+        switch (val)
+        {
+            case "COMP":
+                w.DevSdt ??= today;
+                w.DevEdt = today;
+                if (w.PlanSdt > w.DevEdt) w.PlanSdt = w.DevEdt;
+                if (w.PlanEdt > w.DevEdt) w.PlanEdt = w.DevEdt;
+                w.WbsState = "COMP";
+                break;
+            case "RUNNING":
+                w.DevSdt ??= today;
+                w.DevEdt = null;
+                w.WbsState = "RUNNING";
+                break;
+            default: // READY
+                w.DevSdt = null;
+                w.DevEdt = null;
+                w.WbsState = "READY";
+                break;
+        }
+
+        await SaveInlineAsync(w);
+    }
+
+    private async Task OnInlineCommChangedAsync(WbsItemDto w, string? val)
+    {
+        if (string.Equals(w.Comm, val, StringComparison.Ordinal)) return;
+
+        w.Comm = val;
+        await SaveInlineAsync(w);
+    }
 
     // ── 도우미 ───────────────────────────────────────────────────
 
