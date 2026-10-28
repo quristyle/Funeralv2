@@ -29,6 +29,9 @@ public partial class WbsRowList
     private readonly WbsBoardFilter _filter = new() { Basis = "edt", Scope = "dev" };
 
     private IReadOnlyList<WbsBoardRowDto> _rows = [];
+
+    /// <summary>고른 프로젝트의 원장이 범위·조건과 상관없이 0건이다.</summary>
+    private bool _ledgerEmpty;
     private SchOption[] _userOptions = [];
     private SchOption[] _moduleOptions = [];
 
@@ -95,6 +98,7 @@ public partial class WbsRowList
         if (ProjectRid is not int rid)
         {
             _rows = [];
+            _ledgerEmpty = false;
             return 0;
         }
 
@@ -103,10 +107,12 @@ public partial class WbsRowList
         var counts = TaskApi.CountsAsync(rid);
         var users = Api.UsersAsync(rid, _filter.Scope, _filter.Basis, _filter.Month, _filter.Week);
         var modules = Api.ByModuleAsync(rid, _filter.Basis, _filter.Scope);
+        var ledger = Api.SummaryAsync(rid, _filter.Basis, "all");
 
-        await Task.WhenAll(rows, counts, users, modules);
+        await Task.WhenAll(rows, counts, users, modules, ledger);
 
         _rows = rows.Result;
+        _ledgerEmpty = ledger.Result is { Total: 0 };
 
         var byActivity = counts.Result
             .Where(c => c.ActivityId is not null)
