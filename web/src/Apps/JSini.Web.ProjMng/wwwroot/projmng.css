@@ -4442,8 +4442,8 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 }
 
 .pm-gc__rail {
-  flex: 0 0 13.5rem;
-  width: 13.5rem;
+  flex: 0 0 16rem;
+  width: 16rem;
 }
 
 .pm-gc__main {
@@ -4467,6 +4467,43 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 
   .pm-gc__rail-summary {
     display: none;
+  }
+
+  /* 조건 판을 세로로 세운다. 판의 기본 모양(조건 옆에 단추)대로 두면 기둥 안에서 단추가 폭을 먼저 가져가 칸이 82px 로 눌린다. */
+  .pm-gc .pm-gc__rail .commsch {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: var(--jsini-sp-md);
+    padding: var(--jsini-sp-md);
+  }
+
+  .pm-gc .pm-gc__rail .commsch__fields {
+    flex: none;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: var(--jsini-sp-md);
+  }
+
+  .pm-gc .pm-gc__rail .commsch__item {
+    align-items: stretch;
+  }
+
+  .pm-gc .pm-gc__rail .commsch__item > :last-child {
+    width: 100% !important;
+    min-width: 0;
+  }
+
+  .pm-gc .pm-gc__rail .commsch__actions,
+  .pm-gc .pm-gc__rail .commsch__run {
+    align-self: stretch;
+    margin-left: 0;
+  }
+
+  .pm-gc .pm-gc__rail .commsch__run,
+  .pm-gc .pm-gc__rail .commsch__run .dxbl-btn {
+    flex: 1 1 auto;
   }
 }
 
