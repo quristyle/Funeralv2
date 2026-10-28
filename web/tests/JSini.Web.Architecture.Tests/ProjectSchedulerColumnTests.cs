@@ -30,6 +30,26 @@ public sealed class ProjectSchedulerColumnTests
         Assert.Contains("Caption=\"원문\" MinWidth=\"140\"\n                                              TextAlignment=\"GridTextAlignment.Left\"\n                                              Visible=\"false\"", content);
     }
 
+    [Fact]
+    public void ProjectScheduler_알림컬럼은_가변너비로_관리컬럼이_오른쪽에_고정된다()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "../../../../../src/Apps/JSini.Web.ProjMng/Components/Pages/ProjectScheduler.razor");
+        Assert.True(File.Exists(path), $"파일이 존재해야 합니다: {path}");
+
+        var content = File.ReadAllText(path);
+
+        // 시작, 기간은 왼쪽에 고정되고 알림 컬럼은 고정 Width 없이 가변 너비로 공간을 채워 관리 컬럼이 오른쪽에 고정되도록 함
+        Assert.Contains("FieldName=\"@nameof(WbsItemDto.ProcNm)\" Caption=\"알림\" MinWidth=\"180\"", content);
+        Assert.DoesNotContain("FieldName=\"@nameof(WbsItemDto.ProcNm)\" Caption=\"알림\" Width=\"240\"", content);
+
+        var commGrdPath = Path.Combine(AppContext.BaseDirectory, "../../../../../src/Shared/JSini.Web.Components/Data/CommGrd.razor");
+        Assert.True(File.Exists(commGrdPath), $"CommGrd 파일이 존재해야 합니다: {commGrdPath}");
+
+        var commGrdContent = File.ReadAllText(commGrdPath);
+        Assert.Contains("Name=\"@ActionsColumnName\"", commGrdContent);
+        Assert.Contains("FixedPosition=\"@(Carded ? GridColumnFixedPosition.None : GridColumnFixedPosition.Right)\"", commGrdContent);
+    }
+
     [Theory]
     [InlineData(null, "")]
     [InlineData(0.0, "00 00")]
