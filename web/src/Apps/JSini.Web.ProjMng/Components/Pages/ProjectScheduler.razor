@@ -209,7 +209,7 @@
                              DeleteConfirm="@(w => $"「{w.ProcNm}」 을(를) 지웁니다.\n되돌릴 수 없습니다.")"
                              Reload="@SearchAsync">
                         <Columns>
-                            @* 시작·종료·기간·알림·관리 칸만 보인다. 나머지는 숨긴다. *@
+                            @* 시작·종료·기간·알림·요청자·관리 칸만 보인다. 나머지는 숨긴다. *@
                             <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanSdt)" Caption="시작" Width="150"
                                               FixedPosition="@PinnedColumn">
                                 <CellDisplayTemplate Context="cell">
@@ -336,8 +336,7 @@
                                 </CellDisplayTemplate>
                             </DxGridDataColumn>
 
-                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.ReqUser)" Caption="요청자" Width="110"
-                                              Visible="false">
+                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.ReqUser)" Caption="요청자" Width="110">
                                 <CellDisplayTemplate Context="cell">
                                     @{
                                         var w = (WbsItemDto)cell.DataItem;
