@@ -186,13 +186,20 @@ public partial class MenuList
     {
         // 권한은 셸이 한 번 실어 둔 것을 PermissionView 와 같이 묻기만 한다 — 다시 읽으면 게이트웨이를 두 벌 태운다.
         // 프리렌더 때 못 실려 있으면 false 이고, 회로가 붙어 화면이 다시 만들어지면 여기도 다시 돈다.
-        _canMove = Can(MenuAction.Update);
+        _canEdit = Can(MenuAction.Update);
+        _canMove = _canEdit;
 
         return ReloadAsync();
     }
 
+    /// <summary>이 화면에서 메뉴를 수정할 수 있는가.</summary>
+    private bool _canEdit;
+
     /// <summary>이 화면에서 메뉴를 옮길 수 있는가. 표의 「수정」 단추와 같은 판정이다 — PermissionView 를 쓸 수 없어 직접 묻는다.</summary>
     private bool _canMove;
+
+    /// <summary>화면 유지 스위치를 저장 중인 메뉴 식별자들. 저장 도중 연타를 막는다.</summary>
+    private readonly HashSet<string> _savingKeepAlive = [];
 
     /// <summary>끌어 옮긴 결과를 저장한다. 화면이 배치를 확정해서 보낸다 — 떠난 묶음과 도착한 묶음을 0 부터 다시 번호 붙여 한 번에 보낸다. 자리 계산은 옮길 줄을 뺀 뒤의 형제 목록에서 한다.</summary>
     private async Task OnDroppedAsync(TreeListItemsDroppedEventArgs e)
@@ -784,6 +791,66 @@ public partial class MenuList
         if (await RunAsync(() => Api.DeleteSystemMenuAsync(m.Id), "지웠습니다.", "지우지 못했습니다"))
         {
             await ReloadAsync();
+        }
+    }
+
+    /// <summary>
+    /// 그리드에서 keepAlive(화면 유지) 스위치를 변경했을 때 즉시 서버에 저장한다.
+    /// </summary>
+    private async Task ToggleKeepAliveAsync(SystemMenuDto m, bool value)
+    {
+        if (!_canEdit || _savingKeepAlive.Contains(m.Id) || m.Meta.KeepAlive == value)
+        {
+            return;
+        }
+
+        var previous = m.Meta.KeepAlive;
+        m.Meta.KeepAlive = value;
+        _savingKeepAlive.Add(m.Id);
+
+        var isEmbedded = string.Equals(m.Type, "EMBEDDED", StringComparison.OrdinalIgnoreCase);
+        var usesScreen = string.Equals(m.Type, "MENU", StringComparison.OrdinalIgnoreCase);
+
+        var body = new SaveSystemMenuDto
+        {
+            Name = m.Name,
+            Path = m.Path,
+            RouteKey = usesScreen ? m.RouteKey : null,
+            Component = isEmbedded ? EmbeddedRoute.ScreenFile : m.Component,
+            Pid = m.Pid ?? _parent.GetValueOrDefault(m.Id),
+            Redirect = m.Redirect,
+            Type = m.Type,
+            AuthCode = m.AuthCode,
+            Status = m.Status,
+            Meta = m.Meta,
+            Permissions = m.Permissions,
+        };
+
+        try
+        {
+            var saved = await RunAsync(
+                () => Api.UpdateSystemMenuAsync(m.Id, body),
+                $"「{Title(m)}」 화면 유지를 {(value ? "켰습니다." : "껐습니다.")}",
+                "화면 유지를 저장하지 못했습니다");
+
+            if (!saved)
+            {
+                m.Meta.KeepAlive = previous;
+            }
+            else if (_editing && _editId == m.Id)
+            {
+                _edit.Meta.KeepAlive = value;
+            }
+        }
+        catch (Exception ex)
+        {
+            m.Meta.KeepAlive = previous;
+            Say(ex.Message, NoticeTone.Warning);
+        }
+        finally
+        {
+            _savingKeepAlive.Remove(m.Id);
+            StateHasChanged();
         }
     }
 }

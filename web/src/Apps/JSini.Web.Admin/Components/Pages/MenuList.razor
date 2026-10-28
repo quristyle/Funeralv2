@@ -67,6 +67,19 @@
             </DxGridDataColumn>
             <DxGridDataColumn FieldName="@nameof(SystemMenuDto.Path)" Caption="경로" MinWidth="200" />
             <DxGridDataColumn FieldName="@nameof(SystemMenuDto.Type)" Caption="유형" Width="100" />
+            <DxGridDataColumn Caption="화면 유지" Width="100" TextAlignment="GridTextAlignment.Center">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var m = (SystemMenuDto)cell.DataItem;
+                    }
+                    <div class="ad-menu__switch" title="탭을 옮겨도 화면 유지 (keepAlive)">
+                        <DxCheckBox CheckType="CheckType.Switch"
+                                    Checked="@m.Meta.KeepAlive"
+                                    CheckedChanged="@((bool v) => ToggleKeepAliveAsync(m, v))"
+                                    Enabled="@(_canEdit && !_savingKeepAlive.Contains(m.Id))" />
+                    </div>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
         </Columns>
     </CommGrd>
 }
@@ -101,7 +114,19 @@ else
             <DxTreeListDataColumn FieldName="@nameof(SystemMenuDto.Path)" Caption="경로" MinWidth="200" />
             <DxTreeListDataColumn FieldName="@nameof(SystemMenuDto.Type)" Caption="유형" Width="100" />
 
- 
+            <DxTreeListDataColumn Caption="화면 유지" Width="100" TextAlignment="TreeListTextAlignment.Center">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var m = (SystemMenuDto)cell.DataItem;
+                    }
+                    <div class="ad-menu__switch" title="탭을 옮겨도 화면 유지 (keepAlive)">
+                        <DxCheckBox CheckType="CheckType.Switch"
+                                    Checked="@m.Meta.KeepAlive"
+                                    CheckedChanged="@((bool v) => ToggleKeepAliveAsync(m, v))"
+                                    Enabled="@(_canEdit && !_savingKeepAlive.Contains(m.Id))" />
+                    </div>
+                </CellDisplayTemplate>
+            </DxTreeListDataColumn>
 
             @* 권한 일곱 가지를 글자로 압축한다 — 일곱 칸으로 벌리면 표가 옆으로 넘친다. *@
             <DxTreeListDataColumn Caption="허용" Width="150">

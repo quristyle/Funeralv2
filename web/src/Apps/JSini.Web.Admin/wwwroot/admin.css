@@ -479,6 +479,13 @@
   opacity: 0.75;
 }
 
+.ad-menu__switch {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+}
+
 /* 요약 영역 — 검색영역 아래 컴팩트한 한 줄의 띠. 전체·묶음·화면·숨김·중지 건수를 한 줄로 압축해 본문 트리/그리드 영역을 최대한 넓힌다.
    접히면 두 줄이 되어 표를 밀어내므로 줄바꿈을 막고, 그래도 넘치는 좁은 폭에서는 옆으로 민다. */
 .ad-menu-strip {
