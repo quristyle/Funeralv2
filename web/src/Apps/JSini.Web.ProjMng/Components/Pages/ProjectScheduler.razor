@@ -197,7 +197,7 @@
                              DeleteConfirm="@(w => $"「{w.ProcNm}」 을(를) 지웁니다.\n되돌릴 수 없습니다.")"
                              Reload="@SearchAsync">
                         <Columns>
-                            @* 시작·종료·기간·일정 넷은 늘 보인다 — 휴대폰에서도 접지 않고, 넓은 화면에서는 왼쪽에 붙박아 가로로 굴려도 남는다. *@
+                            @* 시작·기간·알림·관리 칸만 보인다. 나머지는 숨긴다. *@
                             <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanSdt)" Caption="시작" Width="150"
                                               FixedPosition="@PinnedColumn">
                                 <CellDisplayTemplate Context="cell">
@@ -222,7 +222,8 @@
                             </DxGridDataColumn>
 
                             <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanEdt)" Caption="종료" Width="150"
-                                              FixedPosition="@PinnedColumn">
+                                              FixedPosition="@PinnedColumn"
+                                              Visible="false">
                                 <CellDisplayTemplate Context="cell">
                                     @{
                                         var w = (WbsItemDto)cell.DataItem;
@@ -244,18 +245,20 @@
                                 </CellDisplayTemplate>
                             </DxGridDataColumn>
 
-                            @* 기간은 시간으로 적는다 — 하루가 24시간이다(PlanHours). 고치는 칸이 아니라 시작·종료에서 셈한다. *@
+                            @* 기간은 DD HH24 로 표현한다(하루 24시간). *@
                             <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanHours)" Caption="기간" Width="95"
                                               TextAlignment="GridTextAlignment.Right"
                                               FixedPosition="@PinnedColumn">
                                 <CellDisplayTemplate Context="cell">
-                                    <span>@HoursText(((WbsItemDto)cell.DataItem).PlanHours)</span>
+                                    @{
+                                        var w = (WbsItemDto)cell.DataItem;
+                                    }
+                                    <span title="@HoursTip(w.PlanHours)">@HoursText(w.PlanHours)</span>
                                 </CellDisplayTemplate>
                             </DxGridDataColumn>
 
-                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.ProcNm)" Caption="일정" Width="240" MinWidth="180"
-                                              TextAlignment="GridTextAlignment.Left"
-                                              FixedPosition="@PinnedColumn">
+                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.ProcNm)" Caption="알림" Width="240" MinWidth="180"
+                                              TextAlignment="GridTextAlignment.Left">
                                 <CellDisplayTemplate Context="cell">
                                     @{
                                         var w = (WbsItemDto)cell.DataItem;
@@ -265,7 +268,7 @@
                                         <DxTextBox Text="@w.ProcNm"
                                                    TextChanged="@((string? t) => OnInlineProcNmChangedAsync(w, t))"
                                                    BindValueMode="BindValueMode.OnLostFocus"
-                                                   NullText="일정명 입력"
+                                                   NullText="알림명 입력"
                                                    ValidationEnabled="false"
                                                    CssClass="pm-inline-edit" />
                                     }
@@ -277,7 +280,7 @@
                             </DxGridDataColumn>
 
                             <DxGridDataColumn FieldName="@nameof(WbsItemDto.ScheduleType)" Caption="구분" Width="110"
-                                              Visible="@(!_isPhone)">
+                                              Visible="false">
                                 <CellDisplayTemplate Context="cell">
                                     @{
                                         var w = (WbsItemDto)cell.DataItem;
@@ -301,7 +304,7 @@
                             </DxGridDataColumn>
 
                             <DxGridDataColumn FieldName="@nameof(WbsItemDto.ProcTp)" Caption="종류" Width="110"
-                                              Visible="@(!_isPhone)">
+                                              Visible="false">
                                 <CellDisplayTemplate Context="cell">
                                     @{
                                         var w = (WbsItemDto)cell.DataItem;
@@ -322,7 +325,8 @@
                                 </CellDisplayTemplate>
                             </DxGridDataColumn>
 
-                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.ReqUser)" Caption="요청자" Width="110">
+                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.ReqUser)" Caption="요청자" Width="110"
+                                              Visible="false">
                                 <CellDisplayTemplate Context="cell">
                                     @{
                                         var w = (WbsItemDto)cell.DataItem;
@@ -343,7 +347,8 @@
                                 </CellDisplayTemplate>
                             </DxGridDataColumn>
 
-                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.DevUser)" Caption="담당자" Width="130">
+                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.DevUser)" Caption="담당자" Width="130"
+                                              Visible="false">
                                 <CellDisplayTemplate Context="cell">
                                     @{
                                         var w = (WbsItemDto)cell.DataItem;
@@ -370,7 +375,8 @@
                                 </CellDisplayTemplate>
                             </DxGridDataColumn>
 
-                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.WbsState)" Caption="진행" Width="115">
+                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.WbsState)" Caption="진행" Width="115"
+                                              Visible="false">
                                 <CellDisplayTemplate Context="cell">
                                     @{
                                         var w = (WbsItemDto)cell.DataItem;
@@ -401,7 +407,7 @@
                             @* 좁은 화면에서는 이 넷을 접는다 — 아홉 칸을 그대로 두면 표가 가로로 두 배가 되어 제목조차 안 보인다. *@
                             <DxGridDataColumn FieldName="@nameof(WbsItemDto.Comm)" Caption="메모" MinWidth="140"
                                               TextAlignment="GridTextAlignment.Left"
-                                              Visible="@(!_isPhone)">
+                                              Visible="false">
                                 <CellDisplayTemplate Context="cell">
                                     @{
                                         var w = (WbsItemDto)cell.DataItem;
@@ -424,7 +430,7 @@
 
                             <DxGridDataColumn FieldName="@nameof(WbsItemDto.BodyText)" Caption="원문" MinWidth="140"
                                               TextAlignment="GridTextAlignment.Left"
-                                              Visible="@(!_isPhone)">
+                                              Visible="false">
                                 <CellDisplayTemplate Context="cell">
                                     @{
                                         var w = (WbsItemDto)cell.DataItem;
