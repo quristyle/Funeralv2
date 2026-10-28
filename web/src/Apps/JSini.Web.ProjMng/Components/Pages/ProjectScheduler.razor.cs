@@ -373,16 +373,29 @@ public partial class ProjectScheduler : IAsyncDisposable
                 to = DateOnly.FromDateTime(span.End);
             }
 
+            // 작은 달력의 건수가 따로 읽어야 하는 구간이면 본 조회와 함께 띄운다 — 차례로 기다리면 두 번 왕복한 만큼 늦다.
+            var mini = MiniReusesRows ? null : RefreshMiniAsync();
+
             _rows = await Api.ListAsync(
                 ProjectRid, _completeState, _scheduleTypes,
                 from, to);
 
             SyncSelected();
-            BuildCalendar();
-            BuildDays();
-            BuildWeeks();
 
-            await RefreshMiniAsync();
+            // 표 보기에서는 달력 재료를 짜지 않는다 — 그려지지 않는 것을 줄마다 날짜별로 가르느라 표가 늦게 뜬다.
+            // 달력으로 돌아갈 때 SetViewAsync 가 다시 읽으며 짠다.
+            if (_view == CalView.Table)
+            {
+                _editRow = _editRow is null ? null : _rows.FirstOrDefault(w => w.WbsId == _editRow.WbsId);
+            }
+            else
+            {
+                BuildCalendar();
+                BuildDays();
+                BuildWeeks();
+            }
+
+            await (mini ?? RefreshMiniAsync());
 
             return _rows.Count;
         }, "그 기간에 일정이 없습니다.", "일정표를 읽지 못했습니다");
@@ -408,10 +421,15 @@ public partial class ProjectScheduler : IAsyncDisposable
 
         if (_view == CalView.Table)
         {
-            await EnsureDropdownDataAsync();
+            // 구간과 빈 목록을 첫 await 앞에서 정한다. 뒤로 밀면 그 사이 한 번 그려질 때 달 보기에서 읽어 둔
+            // 줄(격자 6주치)이 표로 먼저 깔린다 — 고른 날이 아니라 「전체」를 읽은 것처럼 보이고 그동안 화면이 굳는다.
             _tableStart ??= _selected;
             _tableEnd ??= _selected;
             _selectingRange = false;
+            _rows = [];
+            _editRow = null;
+
+            await EnsureDropdownDataAsync();
         }
 
         await SearchAsync();
@@ -634,9 +652,8 @@ public partial class ProjectScheduler : IAsyncDisposable
     private async Task RefreshMiniAsync()
     {
         var (miniStart, miniEnd) = MiniSpan;
-        var (gridStart, gridEnd) = (DateOnly.FromDateTime(GridSpan.Start), DateOnly.FromDateTime(GridSpan.End));
 
-        if (_miniOffset == 0 && _view == CalView.Month && _rows.Count >= 0 && gridStart <= miniStart && gridEnd >= miniEnd)
+        if (MiniReusesRows)
         {
             BuildMiniCounts(_rows);
             return;
@@ -650,6 +667,23 @@ public partial class ProjectScheduler : IAsyncDisposable
         catch
         {
             _miniCounts = new();
+        }
+    }
+
+    /// <summary>작은 달력이 큰 달력이 읽은 줄을 그대로 쓸 수 있는가 — 같은 달을 보는 월 보기이고 격자가 마흔두 칸을 다 덮을 때다.</summary>
+    private bool MiniReusesRows
+    {
+        get
+        {
+            if (_miniOffset != 0 || _view != CalView.Month)
+            {
+                return false;
+            }
+
+            var (miniStart, miniEnd) = MiniSpan;
+
+            return DateOnly.FromDateTime(GridSpan.Start) <= miniStart
+                && DateOnly.FromDateTime(GridSpan.End) >= miniEnd;
         }
     }
 
@@ -1449,6 +1483,32 @@ public partial class ProjectScheduler : IAsyncDisposable
         }
     }
 
+    /// <summary>표에서 고른 줄. 이 줄만 입력칸으로 그린다(나머지는 글자) — 줄마다 편집 부품을 세우면 표로 바꿀 때 화면이 굳는다.</summary>
+    private WbsItemDto? _editRow;
+
+    private bool IsEditing(WbsItemDto w) =>
+        _canUpdate && _editRow is not null && _editRow.WbsId == w.WbsId;
+
+    private void OnTableRowSelected(WbsItemDto? w) => _editRow = w;
+
+    /// <summary>시작·종료·기간·일정을 왼쪽에 붙박는다. 휴대폰은 표를 카드로 펴므로 붙박지 않는다.</summary>
+    private GridColumnFixedPosition PinnedColumn =>
+        _isPhone ? GridColumnFixedPosition.None : GridColumnFixedPosition.Left;
+
+    /// <summary>기간 칸의 글자. 하루를 24시간으로 센 시간이다 — 「48시간」, 「1시간 30분」.</summary>
+    private static string HoursText(double? hours)
+    {
+        if (hours is not { } h)
+        {
+            return string.Empty;
+        }
+
+        var minutes = (long)Math.Round(h * 60, MidpointRounding.AwayFromZero);
+        var (whole, rest) = (minutes / 60, minutes % 60);
+
+        return rest == 0 ? $"{whole}시간" : $"{whole}시간 {rest}분";
+    }
+
     private static DateTime? ToDateTime(DateOnly? d) =>
         d?.ToDateTime(TimeOnly.MinValue);
 
@@ -1489,9 +1549,7 @@ public partial class ProjectScheduler : IAsyncDisposable
                 w.ModDt = updated.ModDt;
             }
 
-            BuildCalendar();
-            BuildDays();
-            BuildWeeks();
+            // 달력 재료는 짜지 않는다 — 인라인 수정은 표 보기에서만 일어나고, 달력으로 돌아갈 때 다시 읽는다.
             StateHasChanged();
             Say("저장했습니다.", NoticeTone.Info);
         }

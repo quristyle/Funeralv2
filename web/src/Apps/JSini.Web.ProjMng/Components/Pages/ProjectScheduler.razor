@@ -178,6 +178,9 @@
             @if (_view == CalView.Table)
             {
                 <CommCont Title="일정표" Hint="@Hint">
+                    @* 입력칸은 <b>고른 줄에만</b> 세운다. 줄마다 DxDateEdit·DxComboBox 를 아홉 개씩 깔면 표로 바꿀 때마다
+                       수백 개의 부품이 한꺼번에 서서 화면이 얼어붙는다. 나머지 줄은 글자만 그리고, 줄을 누르면 그 줄이 편집칸이 된다.
+                       첫 줄을 저절로 고르지 않는다 — 고르면 열자마자 한 줄이 입력칸으로 서서 그만큼 다시 무거워진다. *@
                     <CommGrd TItem="WbsItemDto"
                              Data="@_rows"
                              KeyFieldName="@nameof(WbsItemDto.WbsId)"
@@ -185,18 +188,23 @@
                              ExportName="일정표"
                              PageSize="30"
                              EmptyText="그 기간에 일정이 없습니다."
+                             AutoSelectFirstRow="false"
+                             SelectedItem="@_editRow"
+                             SelectedItemChanged="@OnTableRowSelected"
                              OnNew="@FillNew"
                              OnSave="@SaveRowAsync"
                              OnDelete="@DeleteAsync"
                              DeleteConfirm="@(w => $"「{w.ProcNm}」 을(를) 지웁니다.\n되돌릴 수 없습니다.")"
                              Reload="@SearchAsync">
                         <Columns>
-                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanSdt)" Caption="시작" Width="160">
+                            @* 시작·종료·기간·일정 넷은 늘 보인다 — 휴대폰에서도 접지 않고, 넓은 화면에서는 왼쪽에 붙박아 가로로 굴려도 남는다. *@
+                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanSdt)" Caption="시작" Width="150"
+                                              FixedPosition="@PinnedColumn">
                                 <CellDisplayTemplate Context="cell">
                                     @{
                                         var w = (WbsItemDto)cell.DataItem;
                                     }
-                                    @if (_canUpdate)
+                                    @if (IsEditing(w))
                                     {
                                         <DxDateEdit Date="@w.PlanSdt"
                                                     DateChanged="@((DateTime? d) => OnInlinePlanSdtChangedAsync(w, d))"
@@ -213,12 +221,13 @@
                                 </CellDisplayTemplate>
                             </DxGridDataColumn>
 
-                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanEdt)" Caption="종료" Width="160">
+                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanEdt)" Caption="종료" Width="150"
+                                              FixedPosition="@PinnedColumn">
                                 <CellDisplayTemplate Context="cell">
                                     @{
                                         var w = (WbsItemDto)cell.DataItem;
                                     }
-                                    @if (_canUpdate)
+                                    @if (IsEditing(w))
                                     {
                                         <DxDateEdit Date="@w.PlanEdt"
                                                     DateChanged="@((DateTime? d) => OnInlinePlanEdtChangedAsync(w, d))"
@@ -235,23 +244,23 @@
                                 </CellDisplayTemplate>
                             </DxGridDataColumn>
 
-                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanGap)" Caption="기간" Width="65"
-                                              Visible="@(!_isPhone)">
+                            @* 기간은 시간으로 적는다 — 하루가 24시간이다(PlanHours). 고치는 칸이 아니라 시작·종료에서 셈한다. *@
+                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanHours)" Caption="기간" Width="95"
+                                              TextAlignment="GridTextAlignment.Right"
+                                              FixedPosition="@PinnedColumn">
                                 <CellDisplayTemplate Context="cell">
-                                    @{
-                                        var w = (WbsItemDto)cell.DataItem;
-                                    }
-                                    <span>@(w.PlanGap.HasValue ? $"{w.PlanGap}일" : "")</span>
+                                    <span>@HoursText(((WbsItemDto)cell.DataItem).PlanHours)</span>
                                 </CellDisplayTemplate>
                             </DxGridDataColumn>
 
-                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.ProcNm)" Caption="일정" MinWidth="180"
-                                              TextAlignment="GridTextAlignment.Left">
+                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.ProcNm)" Caption="일정" Width="240" MinWidth="180"
+                                              TextAlignment="GridTextAlignment.Left"
+                                              FixedPosition="@PinnedColumn">
                                 <CellDisplayTemplate Context="cell">
                                     @{
                                         var w = (WbsItemDto)cell.DataItem;
                                     }
-                                    @if (_canUpdate)
+                                    @if (IsEditing(w))
                                     {
                                         <DxTextBox Text="@w.ProcNm"
                                                    TextChanged="@((string? t) => OnInlineProcNmChangedAsync(w, t))"
@@ -262,7 +271,7 @@
                                     }
                                     else
                                     {
-                                        <span>@w.ProcNm</span>
+                                        <span title="@w.ProcNm">@w.ProcNm</span>
                                     }
                                 </CellDisplayTemplate>
                             </DxGridDataColumn>
@@ -273,7 +282,7 @@
                                     @{
                                         var w = (WbsItemDto)cell.DataItem;
                                     }
-                                    @if (_canUpdate)
+                                    @if (IsEditing(w))
                                     {
                                         <DxComboBox Data="@_scheduleTypeCodes"
                                                     TextFieldName="@nameof(CommonCodeItem.Name)"
@@ -297,7 +306,7 @@
                                     @{
                                         var w = (WbsItemDto)cell.DataItem;
                                     }
-                                    @if (_canUpdate)
+                                    @if (IsEditing(w))
                                     {
                                         <DxTextBox Text="@w.ProcTp"
                                                    TextChanged="@((string? t) => OnInlineProcTpChangedAsync(w, t))"
@@ -318,7 +327,7 @@
                                     @{
                                         var w = (WbsItemDto)cell.DataItem;
                                     }
-                                    @if (_canUpdate)
+                                    @if (IsEditing(w))
                                     {
                                         <DxTextBox Text="@w.ReqUser"
                                                    TextChanged="@((string? t) => OnInlineReqUserChangedAsync(w, t))"
@@ -339,7 +348,7 @@
                                     @{
                                         var w = (WbsItemDto)cell.DataItem;
                                     }
-                                    @if (_canUpdate)
+                                    @if (IsEditing(w))
                                     {
                                         <DxComboBox Data="@_userOptions"
                                                     TextFieldName="@nameof(BizOption.Label)"
@@ -366,7 +375,7 @@
                                     @{
                                         var w = (WbsItemDto)cell.DataItem;
                                     }
-                                    @if (_canUpdate)
+                                    @if (IsEditing(w))
                                     {
                                         <div class="pm-inline-state-wrapper">
                                             <DxComboBox Data="@StateOptions"
@@ -397,7 +406,7 @@
                                     @{
                                         var w = (WbsItemDto)cell.DataItem;
                                     }
-                                    @if (_canUpdate)
+                                    @if (IsEditing(w))
                                     {
                                         <DxTextBox Text="@w.Comm"
                                                    TextChanged="@((string? t) => OnInlineCommChangedAsync(w, t))"
@@ -420,7 +429,7 @@
                                     @{
                                         var w = (WbsItemDto)cell.DataItem;
                                     }
-                                    @if (_canUpdate)
+                                    @if (IsEditing(w))
                                     {
                                         <DxTextBox Text="@w.BodyText"
                                                    TextChanged="@((string? t) => OnInlineBodyTextChangedAsync(w, t))"

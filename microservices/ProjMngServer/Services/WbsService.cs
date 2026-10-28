@@ -123,10 +123,13 @@ public sealed class WbsService(IConfiguration configuration) {
                     AND a.dev_edt IS NOT NULL))
            -- 기간은 **겹침**으로 본다. 시작일만 보면 걸쳐 있는 긴 일감이
            -- 그 주에서 사라진다 — 그것이 일정표에서 제일 보고 싶은 줄이다.
-           AND (@from::timestamptz IS NULL OR COALESCE(a.plan_edt, a.dev_edt) IS NULL
-                OR COALESCE(a.plan_edt, a.dev_edt) >= @from)
-           AND (@to::timestamptz   IS NULL OR COALESCE(a.plan_sdt, a.dev_edt) IS NULL
-                OR COALESCE(a.plan_sdt, a.dev_edt) <= @to)
+           -- 한쪽만 적힌 줄은 그날 하루로 본다(화면의 Span 과 같은 자). 날짜가 하나도
+           -- 없는 줄은 구간을 준 조회에서 뺀다 — 넣으면 어느 날을 골라도 그 줄들이
+           -- 통째로 따라와 「고른 날」이 아니라 「전체 일정」을 읽게 된다.
+           AND (@from::timestamptz IS NULL
+                OR COALESCE(a.plan_edt, a.plan_sdt, a.dev_edt) >= @from)
+           AND (@to::timestamptz   IS NULL
+                OR COALESCE(a.plan_sdt, a.plan_edt, a.dev_edt) <= @to)
          ORDER BY a.proc_id, a.gb1, a.gb2, a.proc_tp, a.proc_nm, a.wbs_id
         """,
         parameters,

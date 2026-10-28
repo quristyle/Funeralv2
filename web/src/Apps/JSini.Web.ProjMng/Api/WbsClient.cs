@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using JSini.Web.Http;
 
 namespace JSini.Web.ProjMng.Api;
@@ -111,6 +112,29 @@ public sealed class WbsItemDto
 
     /// <summary>계획 기간(일). <b>읽기 전용</b> — 서버가 센다.</summary>
     public int? PlanGap { get; set; }
+
+    /// <summary>
+    /// 계획 기간(시간). 일정표의 「기간」 칸이 쓴다 — 하루를 24시간으로 센다.
+    /// 시각이 없는 줄(둘 다 자정)은 종일 일정이라 걸친 날 수 × 24, 시각이 있으면
+    /// 시작에서 종료까지의 실제 시간이다. 한쪽만 적힌 줄은 그날 하루로 본다.
+    /// 서버로 보내지 않는다.
+    /// </summary>
+    [JsonIgnore]
+    public double? PlanHours
+    {
+        get
+        {
+            if (PlanSdt is null && PlanEdt is null) return null;
+
+            var start = PlanSdt ?? PlanEdt!.Value;
+            var end = PlanEdt ?? start;
+            if (end < start) end = start;
+
+            return start.TimeOfDay == TimeSpan.Zero && end.TimeOfDay == TimeSpan.Zero
+                ? ((end.Date - start.Date).Days + 1) * 24d
+                : (end - start).TotalHours;
+        }
+    }
 
     /// <summary>
     /// 진행 상태(<c>READY</c> · <c>RUNNING</c> · <c>COMP</c>). <b>읽기 전용</b> —
