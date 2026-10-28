@@ -119,6 +119,11 @@
                                        IconCssClass="@(IsFavorite(t) ? "jsini-icon-star-on" : "jsini-icon-star")"
                                        Enabled="@(MenuPathOf(t).Length > 0)"
                                        Click="@(() => ToggleFavoriteAsync(t))" />
+
+                    <DxContextMenuItem Text="@(IsKeepAlive(t) ? "화면 유지 끄기 (keepAlive)" : "화면 유지 사용 (keepAlive)")"
+                                       IconCssClass="@(IsKeepAlive(t) ? "jsini-icon-check" : "jsini-icon-blank")"
+                                       Enabled="@(MenuOf(t) is not null)"
+                                       Click="@(() => ToggleKeepAliveAsync(t))" />
                 }
 
                 @* 띠에 넣기 — 띠 칸을 고치는 자리가 환경설정뿐이면 보고 있는 화면을 179건짜리 고르개에서 다시 찾아야 한다. 휴대폰에서는 헤더 이름으로 여는 이 창에서 누른 자리에 바로 넣고 뺀다. 넓은 화면에서도 그린다 — 항목은 어느 길로 열어도 같아야 한다. 띠를 안 쓰기로 한 사람에게는 자리를 비운다. *@

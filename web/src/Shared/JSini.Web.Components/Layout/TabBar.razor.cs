@@ -4,6 +4,7 @@ using Microsoft.JSInterop;
 using DevExpress.Blazor;
 using JSini.Web.Abstractions;
 using JSini.Web.Components.Menu;
+using JSini.Web.Http;
 using System.Text.Json;
 
 namespace JSini.Web.Components.Layout;
@@ -17,6 +18,8 @@ public partial class TabBar
     [Inject] private IJSRuntime Js { get; set; } = default!;
     [Inject] private PortalBoot Boot { get; set; } = default!;
     [Inject] private Toasts Toasts { get; set; } = default!;
+    [Inject] private GatewayClient Gateway { get; set; } = default!;
+    [Inject] private KeepAliveScreens KeepAlive { get; set; } = default!;
 
     /// <summary>아래 띠에 넣을 때 화면 열쇠와 이름을 여기서 꺼낸다. 탭은 주소와 이름만 들고 있어 그것만으로 넣으면 경로가 옮겨 갔을 때 띠 칸이 준비 중으로 떨어진다.</summary>
     [Inject] private IMenuProvider Menus { get; set; } = default!;
@@ -260,9 +263,56 @@ public partial class TabBar
         InvokeAsync(StateHasChanged);
     }
 
+    /// <summary>이 탭의 화면 유지(keepAlive) 설정 여부.</summary>
+    private bool IsKeepAlive(PortalTab tab) => MenuOf(tab)?.KeepAlive ?? false;
+
+    /// <summary>이 탭의 화면 유지(keepAlive) 설정을 토글한다. 메뉴관리와 동일하게 서버의 scom.system_menus.keep_alive 를 갱신한다.</summary>
+    private async Task ToggleKeepAliveAsync(PortalTab tab)
+    {
+        var node = MenuOf(tab);
+        if (node is null)
+        {
+            return;
+        }
+
+        var next = !node.KeepAlive;
+
+        try
+        {
+            await Gateway.PutAsync("auth/menu/keep-alive", new
+            {
+                path = node.Path,
+                routeKey = node.RouteKey,
+                keepAlive = next
+            });
+
+            await Menus.ReloadAsync();
+
+            if (!next)
+            {
+                KeepAlive.Remove(tab.Href);
+            }
+            else if (IsActive(tab))
+            {
+                KeepAlive.Show(tab.Href, true, typeof(MainLayout));
+            }
+
+            Toasts.Show($"「{node.Title}」 화면 유지를 {(next ? "켰습니다." : "껐습니다.")}");
+        }
+        catch (ApiException)
+        {
+            Toasts.Show("화면 유지를 저장하지 못했습니다.", NoticeTone.Warning);
+        }
+        catch (Exception)
+        {
+            Toasts.Show("화면 유지를 저장하지 못했습니다.", NoticeTone.Warning);
+        }
+    }
+
     /// <summary>이 탭이 가리키는 메뉴. 없으면 null — 메뉴에 없는 화면이다.</summary>
     private MenuNode? MenuOf(PortalTab tab) =>
-        BottomNav.Find(new BottomNavItem { Path = tab.Href }, Menus.AllMenus);
+        BottomNav.Find(new BottomNavItem { Path = tab.Href }, Menus.AllMenus)
+        ?? Menus.Trail(tab.Href).LastOrDefault();
 
     /// <summary>이 탭이 띠에 이미 서 있으면 그 자리, 없으면 <c>-1</c>.</summary>
     private int NavIndexOf(PortalTab tab) =>

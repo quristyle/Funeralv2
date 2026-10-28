@@ -140,6 +140,43 @@ public sealed class KeepAliveScreensTests
     }
 
     [Fact]
+    public void 화면유지를_끄면_살려둔_목록에서_제거된다()
+    {
+        var screens = new KeepAliveScreens { Route = Route<PageA>() };
+        screens.Show("/a", keepAlive: true, typeof(MainLayout));
+        screens.Route = Route<PageB>();
+        screens.Show("/b", keepAlive: true, typeof(MainLayout));
+
+        Assert.Equal(2, screens.Items.Count);
+
+        Assert.True(screens.Remove("/a"));
+        Assert.Single(screens.Items);
+        Assert.Equal("/b", screens.Items[0].Href);
+    }
+
+    [Fact]
+    public void 탭바_컨텍스트메뉴에_화면유지_keepAlive_항목이_있다()
+    {
+        var tabBar = RazorSource.Read(Path.Combine(
+            SolutionRoot(), "src", "Shared", "JSini.Web.Components", "Layout", "TabBar.razor"));
+
+        Assert.Contains("IsKeepAlive", tabBar, StringComparison.Ordinal);
+        Assert.Contains("ToggleKeepAliveAsync", tabBar, StringComparison.Ordinal);
+        Assert.Contains("keepAlive", tabBar, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void 탭바_코드비하인드에_화면유지_토글이_구현되어_있다()
+    {
+        var cs = File.ReadAllText(Path.Combine(
+            SolutionRoot(), "src", "Shared", "JSini.Web.Components", "Layout", "TabBar.razor.cs"));
+
+        Assert.Contains("ToggleKeepAliveAsync", cs, StringComparison.Ordinal);
+        Assert.Contains("auth/menu/keep-alive", cs, StringComparison.Ordinal);
+        Assert.Contains("Menus.ReloadAsync", cs, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void 통은_회로마다_하나다()
     {
         var app = File.ReadAllText(Path.Combine(

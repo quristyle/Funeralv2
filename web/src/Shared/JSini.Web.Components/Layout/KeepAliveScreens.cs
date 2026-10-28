@@ -70,6 +70,11 @@ public sealed class KeepAliveScreens
         return _items.RemoveAll(s => !s.Active && !open.Contains(s.Href)) > 0;
     }
 
+    /// <summary>특정 주소의 화면을 살려 둔 목록에서 뺀다(화면 유지를 껐을 때). 활성 여부와 무관하게 즉시 목록에서 뺀다.</summary>
+    /// <returns>목록에서 빠졌는가.</returns>
+    public bool Remove(string href) =>
+        _items.RemoveAll(s => Same(s.Href, href)) > 0;
+
     /// <summary>레이아웃이 새로 생겼다. 옛 레이아웃과 함께 부품도 사라졌으므로 숨은 것까지 한꺼번에 다시 만들지 않게 비운다.</summary>
     public void Reset() => _items.Clear();
 

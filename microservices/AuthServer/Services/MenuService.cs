@@ -261,4 +261,30 @@ public class MenuService : IMenuService
             })
             .ToList();
     }
+
+    /// <summary>메뉴의 keepAlive 설정을 변경한다. 메뉴 관리 화면과 동일하게 scom.system_menus.keep_alive 를 갱신한다.</summary>
+    public async Task<bool> SetKeepAliveAsync(string? path, string? routeKey, bool keepAlive)
+    {
+        var menu = await _context.SystemMenus
+            .FirstOrDefaultAsync(m =>
+                (!string.IsNullOrEmpty(routeKey) && m.RouteKey == routeKey)
+                || (!string.IsNullOrEmpty(path) && m.Path == path));
+
+        if (menu == null && !string.IsNullOrEmpty(path))
+        {
+            var trimmed = path.TrimStart('/');
+            menu = await _context.SystemMenus
+                .FirstOrDefaultAsync(m => m.Path == "/" + trimmed || m.Path == trimmed);
+        }
+
+        if (menu == null)
+        {
+            return false;
+        }
+
+        menu.KeepAlive = keepAlive;
+        await _context.SaveChangesAsync();
+        _cache.Invalidate();
+        return true;
+    }
 }

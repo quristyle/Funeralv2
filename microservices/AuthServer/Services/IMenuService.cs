@@ -42,4 +42,11 @@ public interface IMenuService
     /// <param name="userId">사용자(계정) 아이디 — 게이트웨이가 넘긴 로그인 아이디</param>
     /// <param name="path">메뉴 경로 (예: <c>/help/qna</c>)</param>
     Task<MenuPermissionDto> GetEffectivePermissionAsync(string userId, string path);
+
+    /// <summary>메뉴의 keepAlive 설정을 변경한다. 메뉴 관리 화면과 동일하게 scom.system_menus.keep_alive 를 갱신한다.</summary>
+    /// <param name="path">메뉴 경로 (예: <c>/room_status</c>)</param>
+    /// <param name="routeKey">화면 열쇠 (예: <c>funeral.room-status</c>)</param>
+    /// <param name="keepAlive">화면 유지 여부</param>
+    /// <returns>성공 여부</returns>
+    Task<bool> SetKeepAliveAsync(string? path, string? routeKey, bool keepAlive);
 }

@@ -47,7 +47,26 @@ public static class MenuEndpoints
             return Results.Ok(ApiResponse<List<MenuPermissionDto>>.Ok(permissions));
         })
         .WithName("GetMenuPermissions");
+
+        // 탭 컨텍스트 메뉴 또는 관리 화면에서 화면 유지(keepAlive) 여부를 설정한다.
+        group.MapPut("/keep-alive", async (
+            [FromBody] SetMenuKeepAliveRequest request,
+            [FromServices] IMenuService menuService) =>
+        {
+            var success = await menuService.SetKeepAliveAsync(request.Path, request.RouteKey, request.KeepAlive);
+            return success
+                ? Results.Ok(ApiResponse<bool>.Ok(true))
+                : Results.NotFound(ApiResponse<bool>.Fail("메뉴를 찾을 수 없습니다.", "404"));
+        })
+        .WithName("SetMenuKeepAlive");
     }
+}
+
+public class SetMenuKeepAliveRequest
+{
+    public string? Path { get; set; }
+    public string? RouteKey { get; set; }
+    public bool KeepAlive { get; set; }
 }
 
 public class MoveMenuRequest
