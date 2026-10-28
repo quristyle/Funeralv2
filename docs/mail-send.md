@@ -249,3 +249,22 @@ psql ... -c "select m.subject, m.to_addresses, count(l.id) as 주소
 psql ... -c "select date(occurred_at), count(*), sum(total_tokens)
              from scom.ai_usage_logs where feature = 'summarize' group by 1 order by 1 desc"
 ```
+
+---
+
+## 일정표의 「메일발송」도 이 통로로 간다
+
+프로젝트 일정표(`/projmng/proj/scheduler`) 머리줄의 「메일발송」은 **오늘 앞뒤
+일주일**의 일정을 세로 타임라인(월 · 일 · 요일 · 제목)으로 그린 메일을 보낸다.
+받는 사람은 적고, **참조에는 로그인한 사람의 주소가 저절로 들어간다**
+(`auth/user/card` 로 묻는다 — 계정에 주소가 없으면 참조 없이 나가고 창이 그렇게 말한다).
+
+| | |
+|---|---|
+| 본문 | `web/src/Apps/JSini.Web.ProjMng/Api/ScheduleMail.cs` (`ScheduleMailBody`) |
+| 통로 | 같은 파일의 `ScheduleMailClient` → `POST notification/mails` |
+| 조건 | 화면의 프로젝트 · 구분 · 진행 상태를 따른다. 구간만 화면과 무관하다 |
+
+받는 이가 간부라 본문은 **표와 인라인 스타일만** 쓴다 — Outlook 이 클래스·flex 를
+버려서, 포털 CSS 를 기대하면 받는 쪽에서 통째로 무너진다. 같은 통로라 보낸 글은
+내 보낸 메일함과 발송 기록에 그대로 남는다.

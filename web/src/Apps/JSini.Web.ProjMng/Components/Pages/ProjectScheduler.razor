@@ -49,6 +49,11 @@
             }
         </div>
 
+        <DxButton Text="메일발송" RenderStyle="ButtonRenderStyle.Secondary"
+                  IconCssClass="jsini-icon-mail"
+                  CssClass="pm-gc__mail-btn"
+                  Click="@OpenMailAsync" />
+
         <PermissionView Action="MenuAction.Create">
             <DxButton Text="추가" RenderStyle="ButtonRenderStyle.Primary"
                       IconCssClass="jsini-icon-plus"
@@ -685,6 +690,47 @@
         }
 
         <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _editing = false)" />
+    </FooterContentTemplate>
+</CommPopup>
+
+@* 오늘 앞뒤 일주일 일정을 타임라인 메일로 보낸다. 보는 그대로가 나가도록 본문 미리보기를 함께 둔다. *@
+<CommPopup @bind-Visible="_mailing" HeaderText="일정 메일 발송" Width="760px" MaxHeight="90vh" Scrollable="true">
+    <BodyContentTemplate Context="mailPopup">
+        <DxFormLayout CssClass="pm-editform">
+            <DxFormLayoutItem Caption="받는 사람" ColSpanMd="12">
+                <DxTextBox @bind-Text="_mailTo" BindValueMode="BindValueMode.OnInput" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="참조" ColSpanMd="12">
+                <DxTextBox Text="@(_mailCc ?? string.Empty)" ReadOnly="true" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="제목" ColSpanMd="12">
+                <DxTextBox @bind-Text="_mailSubject" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="인사말" ColSpanMd="12">
+                <DxMemo Text="@_mailMessage" TextChanged="@((string? text) => OnMailMessageChanged(text))" Rows="3" />
+            </DxFormLayoutItem>
+        </DxFormLayout>
+
+        <p class="jsini-hint">여러 주소는 쉼표로 구분합니다. 인사말을 비우면 기본 인사말이 들어갑니다.</p>
+
+        @if (_mailCc is null)
+        {
+            <PageNotice Text="내 계정에 메일 주소가 없어 참조 없이 나갑니다." Tone="NoticeTone.Warning" />
+        }
+
+        <div class="pm-mail-preview">
+            <div class="pm-mail-preview__head">미리보기 · @_mailCount 건</div>
+            <iframe class="pm-mail-preview__frame" title="메일 미리보기" srcdoc="@_mailBody"></iframe>
+        </div>
+    </BodyContentTemplate>
+
+    <FooterContentTemplate Context="mailFooter">
+        <DxButton Text="@(_mailSending ? "보내는 중…" : "발송")" RenderStyle="ButtonRenderStyle.Primary"
+                  IconCssClass="jsini-icon-mail" Enabled="@(!_mailSending)" Click="@SendMailAsync" />
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _mailing = false)" />
     </FooterContentTemplate>
 </CommPopup>
 

@@ -22,6 +22,10 @@ public partial class ProjectScheduler : IAsyncDisposable
 
     [Inject] private CurrentUser Me { get; set; } = default!;
 
+    [Inject] private ScheduleMailClient Mails { get; set; } = default!;
+
+    [Inject] private UserCard Cards { get; set; } = default!;
+
     /// <summary>마지막에 고른 프로젝트를 브라우저에 적어 둘 때 쓰는 열쇠 앞부분. 뒤에 로그인 아이디가 붙는다.</summary>
     internal const string ProjectStorageKeyPrefix = "jsini-sched-prj:";
 
@@ -1826,6 +1830,138 @@ public partial class ProjectScheduler : IAsyncDisposable
 
     /// <summary>월 격자의 한 주. 칸 일곱과 그 위에 얹히는 막대들이다.</summary>
     private sealed record WeekRow(IReadOnlyList<CalDay> Days, IReadOnlyList<Bar> Bars);
+
+    // ── 일정 메일 발송 ───────────────────────────────────────────
+
+    private bool _mailing;
+    private bool _mailSending;
+    private string _mailTo = string.Empty;
+
+    /// <summary>로그인 사용자의 메일 주소. 계정에 없으면 null 이고 참조 없이 나간다.</summary>
+    private string? _mailCc;
+
+    private string _mailSubject = string.Empty;
+    private string? _mailMessage;
+    private string _mailBody = string.Empty;
+    private int _mailCount;
+
+    /// <summary>메일에 실을 일정. 창을 열 때 한 번 읽는다 — 화면이 보던 구간과 달리 늘 오늘 앞뒤 일주일이다.</summary>
+    private IReadOnlyList<ScheduleMailItem> _mailItems = [];
+
+    /// <summary>메일발송 창을 연다. 구간은 오늘 기준 앞뒤 일주일이고, 프로젝트·구분·진행 상태 조건은 화면의 것을 따른다.</summary>
+    private async Task OpenMailAsync()
+    {
+        var today = AppTime.Today;
+        var (from, to) = ScheduleMailBody.Window(today);
+
+        try
+        {
+            var rows = await Api.ListAsync(ProjectRid, _completeState, _scheduleTypes, from, to);
+
+            _mailItems = [.. rows
+                .Where(w => w.PlanSdt is not null || w.PlanEdt is not null)
+                .Select(w =>
+                {
+                    var start = w.PlanSdt ?? w.PlanEdt!.Value;
+                    var end = w.PlanEdt ?? start;
+
+                    return new ScheduleMailItem(start, end < start ? start : end, Title(w));
+                })];
+        }
+        catch (Exception ex)
+        {
+            Say($"메일에 넣을 일정을 읽지 못했습니다 — {ex.Message}", NoticeTone.Error);
+            return;
+        }
+
+        if (_mailCc is null && !string.IsNullOrWhiteSpace(Me?.Username))
+        {
+            var card = await Cards.LoadAsync(Me.Username.Trim());
+            _mailCc = string.IsNullOrWhiteSpace(card?.Email) ? null : card.Email.Trim();
+        }
+
+        _mailSubject = ScheduleMailBody.Subject(today, _projectName);
+        RebuildMailBody();
+        _mailing = true;
+    }
+
+    private void OnMailMessageChanged(string? text)
+    {
+        _mailMessage = text;
+        RebuildMailBody();
+    }
+
+    private void RebuildMailBody()
+    {
+        var today = AppTime.Today;
+        var (from, to) = ScheduleMailBody.Window(today);
+
+        _mailCount = _mailItems.Count(i => DateOnly.FromDateTime(i.End) >= from && DateOnly.FromDateTime(i.Start) <= to);
+        _mailBody = ScheduleMailBody.Build(today, _mailItems, _projectName, CurrentUserName, _mailMessage);
+    }
+
+    /// <summary>받는 사람 칸의 주소들. 쉼표·세미콜론·줄바꿈 어느 것으로 이어도 된다.</summary>
+    private static List<string> SplitMail(string? text) =>
+        [.. (text ?? string.Empty)
+            .Split([',', ';', '\n', '\r', ' '], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct(StringComparer.OrdinalIgnoreCase)];
+
+    private static bool IsMailAddress(string address) =>
+        System.Net.Mail.MailAddress.TryCreate(address, out var parsed)
+        && string.Equals(parsed.Address, address, StringComparison.OrdinalIgnoreCase);
+
+    private async Task SendMailAsync()
+    {
+        if (_mailSending) return;
+
+        var to = SplitMail(_mailTo);
+        var bad = to.Where(a => !IsMailAddress(a)).ToList();
+
+        if (to.Count == 0)
+        {
+            Say("받는 사람 메일 주소를 적으십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        if (bad.Count > 0)
+        {
+            Say($"주소 꼴이 아닙니다 — {string.Join(" · ", bad.Take(5))}", NoticeTone.Warning);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_mailSubject))
+        {
+            Say("메일 제목을 적으십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        _mailSending = true;
+
+        try
+        {
+            RebuildMailBody();
+
+            var ok = await RunAsync(
+                () => Mails.SendAsync(new ScheduleMailRequest
+                {
+                    To = string.Join(",", to),
+                    Cc = _mailCc,
+                    Subject = _mailSubject.Trim(),
+                    Body = _mailBody,
+                }),
+                _mailCc is null ? "메일을 보냈습니다." : $"메일을 보냈습니다. 참조: {_mailCc}",
+                "메일을 보내지 못했습니다");
+
+            if (ok)
+            {
+                _mailing = false;
+            }
+        }
+        finally
+        {
+            _mailSending = false;
+        }
+    }
 
     /// <summary>상태 색. 구글 캘린더의 색조로 옮긴 넷이다.</summary>
     private sealed record StateLabel(string Id, string Caption, System.Drawing.Color Color);
