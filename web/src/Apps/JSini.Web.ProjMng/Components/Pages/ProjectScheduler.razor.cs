@@ -41,7 +41,10 @@ public partial class ProjectScheduler
     private string ConditionSummary => SchSummary.Of(
         _projectName,
         SchSummary.Or(_kindNames),
-        _completeStateName);
+        _completeStateName,
+        _view == CalView.Table && (_tableStart is not null || _tableEnd is not null)
+            ? $"{_tableStart:yyyy-MM-dd} ~ {_tableEnd:yyyy-MM-dd}"
+            : null);
 
     /// <summary>고른 값의 이름들. 코드만 들고, 목록은 CodeSelect 가 쥐고 있어 부품이 @bind-Text 로 올려 준다.</summary>
     private string? _projectName;
@@ -49,6 +52,35 @@ public partial class ProjectScheduler
     private string? _kindNames;
 
     private string? _completeStateName;
+
+    /// <summary>표 형태일 때 조회할 시작일.</summary>
+    private DateOnly? _tableStart;
+
+    /// <summary>표 형태일 때 조회할 종료일.</summary>
+    private DateOnly? _tableEnd;
+
+    /// <summary>작은 캘린더에서 범위 선택 시 첫째 날을 찍고 둘째 날을 대기 중인가.</summary>
+    private bool _selectingRange;
+
+    private DateTime? TableStartDateTime => _tableStart?.ToDateTime(TimeOnly.MinValue);
+    private DateTime? TableEndDateTime => _tableEnd?.ToDateTime(TimeOnly.MinValue);
+
+    private Task OnTableStartChangedAsync(DateTime? val)
+    {
+        _tableStart = val is { } dt ? DateOnly.FromDateTime(dt) : null;
+        _selectingRange = false;
+        return SearchAsync();
+    }
+
+    private Task OnTableEndChangedAsync(DateTime? val)
+    {
+        _tableEnd = val is { } dt ? DateOnly.FromDateTime(dt) : null;
+        _selectingRange = false;
+        return SearchAsync();
+    }
+
+    private DateOnly NewItemStart => _view == CalView.Table && _tableStart is not null ? _tableStart.Value : _selected;
+    private DateOnly NewItemEnd => _view == CalView.Table && _tableEnd is not null ? _tableEnd.Value : _selected;
 
     /// <summary>새 줄의 기본 구분. 「전체」일 때 쓴다 — 비워 두면 어느 화면에서도 안 보이는 줄이 된다.</summary>
     private const string DefaultKind = "Public";
@@ -161,6 +193,19 @@ public partial class ProjectScheduler
             if (_view == CalView.Day)
             {
                 return $"{_anchor.Year}년 {_anchor.Month}월 {_anchor.Day}일 ({DowName(_anchor.DayOfWeek)})";
+            }
+
+            if (_view == CalView.Table)
+            {
+                if (_tableStart is not null && _tableEnd is not null)
+                {
+                    return _tableStart == _tableEnd
+                        ? $"{_tableStart.Value:yyyy년 M월 d일}"
+                        : $"{_tableStart.Value:yyyy년 M월 d일} – {_tableEnd.Value:yyyy년 M월 d일}";
+                }
+                if (_tableStart is not null) return $"{_tableStart.Value:yyyy년 M월 d일} ~";
+                if (_tableEnd is not null) return $"~ {_tableEnd.Value:yyyy년 M월 d일}";
+                return $"{_anchor.Year}년 {_anchor.Month}월";
             }
 
             if (_view != CalView.Week)
@@ -304,12 +349,32 @@ public partial class ProjectScheduler
     {
         await LoadAsync(async () =>
         {
-            // 격자 구간으로 묻는다 — 달 1일~말일이 아니다.
-            var span = GridSpan;
+            DateOnly? from;
+            DateOnly? to;
+
+            if (_view == CalView.Table)
+            {
+                from = _tableStart;
+                to = _tableEnd;
+
+                if (from is not null && to is not null && from > to)
+                {
+                    (from, to) = (to, from);
+                    _tableStart = from;
+                    _tableEnd = to;
+                }
+            }
+            else
+            {
+                // 격자 구간으로 묻는다 — 달 1일~말일이 아니다.
+                var span = GridSpan;
+                from = DateOnly.FromDateTime(span.Start);
+                to = DateOnly.FromDateTime(span.End);
+            }
 
             _rows = await Api.ListAsync(
                 ProjectRid, _completeState, _scheduleTypes,
-                DateOnly.FromDateTime(span.Start), DateOnly.FromDateTime(span.End));
+                from, to);
 
             SyncSelected();
             BuildCalendar();
@@ -340,9 +405,12 @@ public partial class ProjectScheduler
         _view = view;
         _miniOffset = 0;
 
-        if (view == CalView.Table)
+        if (_view == CalView.Table)
         {
             await EnsureDropdownDataAsync();
+            _tableStart ??= _selected;
+            _tableEnd ??= _selected;
+            _selectingRange = false;
         }
 
         await SearchAsync();
@@ -354,12 +422,32 @@ public partial class ProjectScheduler
         _selected = Today;
         _miniOffset = 0;
 
+        if (_view == CalView.Table)
+        {
+            _tableStart = Today;
+            _tableEnd = Today;
+            _selectingRange = false;
+        }
+
         return SearchAsync();
     }
 
     /// <summary>앞뒤 구간으로 옮기고 다시 읽는다. 보기의 단위만큼 움직인다.</summary>
     private Task ShiftAsync(int direction)
     {
+        if (_view == CalView.Table && _tableStart is not null && _tableEnd is not null)
+        {
+            var days = (_tableEnd.Value.DayNumber - _tableStart.Value.DayNumber) + 1;
+            if (days < 1) days = 1;
+            _tableStart = _tableStart.Value.AddDays(days * direction);
+            _tableEnd = _tableEnd.Value.AddDays(days * direction);
+            _anchor = _tableStart.Value.ToDateTime(TimeOnly.MinValue);
+            _selected = _tableStart.Value;
+            _selectingRange = false;
+            _miniOffset = 0;
+            return SearchAsync();
+        }
+
         _anchor = Preset switch
         {
             DateRangePreset.Day => _anchor.AddDays(direction),
@@ -379,7 +467,64 @@ public partial class ProjectScheduler
         _selected = day;
         _miniOffset = 0;
 
+        if (_view == CalView.Table)
+        {
+            _tableStart = day;
+            _tableEnd = day;
+            _selectingRange = false;
+        }
+
         return SearchAsync();
+    }
+
+    /// <summary>작은 달력의 날짜를 클릭했다. 표 형태일 때는 선택한 날 또는 범위로 지정하고, 달력 보기일 때는 그 날로 이동한다.</summary>
+    private async Task OnMiniDayClickAsync(DateOnly day, MouseEventArgs? e = null)
+    {
+        if (_view == CalView.Table)
+        {
+            if (e is not null && e.ShiftKey && _tableStart is not null)
+            {
+                var s = _tableStart.Value;
+                if (day < s)
+                {
+                    _tableStart = day;
+                    _tableEnd = s;
+                }
+                else
+                {
+                    _tableEnd = day;
+                }
+                _selectingRange = false;
+            }
+            else if (_selectingRange && _tableStart is not null)
+            {
+                var s = _tableStart.Value;
+                if (day < s)
+                {
+                    _tableStart = day;
+                    _tableEnd = s;
+                }
+                else
+                {
+                    _tableEnd = day;
+                }
+                _selectingRange = false;
+            }
+            else
+            {
+                _tableStart = day;
+                _tableEnd = day;
+                _selected = day;
+                _selectingRange = true;
+            }
+
+            _anchor = day.ToDateTime(TimeOnly.MinValue);
+            await SearchAsync();
+        }
+        else
+        {
+            await JumpAsync(day);
+        }
     }
 
     /// <summary>단축키. 표 보기에서는 받지 않는다 — 표의 글자 칸에서 친 글쇠가 여기로 올라와 달이 넘어간다.</summary>
@@ -545,10 +690,39 @@ public partial class ProjectScheduler
             css.Add("pm-gc-mini__day--today");
         }
 
-        // 지금 보고 있는 구간에 드는 날은 옅게 깔아, 큰 달력이 보는 곳이 작은 달력에 비친다.
-        if (day >= DateOnly.FromDateTime(Range.Start) && day <= DateOnly.FromDateTime(Range.End))
+        if (_view == CalView.Table)
         {
-            css.Add("pm-gc-mini__day--in");
+            if (_tableStart is not null && _tableEnd is not null)
+            {
+                var s = _tableStart <= _tableEnd ? _tableStart.Value : _tableEnd.Value;
+                var e = _tableStart <= _tableEnd ? _tableEnd.Value : _tableStart.Value;
+
+                if (day == s || day == e)
+                {
+                    css.Add("pm-gc-mini__day--selected");
+                }
+                else if (day > s && day < e)
+                {
+                    css.Add("pm-gc-mini__day--range-mid");
+                }
+            }
+            else if (_tableStart is not null && day == _tableStart.Value)
+            {
+                css.Add("pm-gc-mini__day--selected");
+            }
+        }
+        else
+        {
+            // 지금 보고 있는 구간에 드는 날은 옅게 깔아, 큰 달력이 보는 곳이 작은 달력에 비친다.
+            if (day >= DateOnly.FromDateTime(Range.Start) && day <= DateOnly.FromDateTime(Range.End))
+            {
+                css.Add("pm-gc-mini__day--in");
+            }
+
+            if (day == _selected)
+            {
+                css.Add("pm-gc-mini__day--selected");
+            }
         }
 
         if (MiniCount(day) > 0)
@@ -1162,8 +1336,12 @@ public partial class ProjectScheduler
         w.ScheduleType = NewKind;
 
         // 고른 기간의 첫날을 기본으로 둔다 — 아니면 만든 줄이 보고 있는 구간 밖으로 떨어져 저장 직후 사라진다.
-        w.PlanSdt = DateOnly.FromDateTime(Range.Start);
-        w.PlanEdt = w.PlanSdt;
+        w.PlanSdt = _view == CalView.Table && _tableStart is not null
+            ? _tableStart
+            : DateOnly.FromDateTime(Range.Start);
+        w.PlanEdt = _view == CalView.Table && _tableEnd is not null
+            ? _tableEnd
+            : w.PlanSdt;
         w.DevUser = CurrentUserName;
     }
 

@@ -4855,6 +4855,32 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   background: #fff;
 }
 
+/* 작은 달력에서 선택된 날 및 범위 */
+.pm-gc-mini__day--selected:not(.pm-gc-mini__day--today) {
+  font-weight: 700;
+  color: #fff;
+  background: var(--pm-gc-accent);
+  border-color: var(--pm-gc-accent);
+}
+
+.pm-gc-mini__day--selected:not(.pm-gc-mini__day--today):hover {
+  background: color-mix(in srgb, var(--pm-gc-accent) 85%, #000);
+}
+
+.pm-gc-mini__day--selected:not(.pm-gc-mini__day--today) .pm-gc-mini__count {
+  color: var(--pm-gc-accent);
+  background: #fff;
+}
+
+.pm-gc-mini__day--today.pm-gc-mini__day--selected {
+  outline: 2px solid var(--pm-gc-accent);
+  outline-offset: 1px;
+}
+
+.pm-gc-mini__day--range-mid:not(.pm-gc-mini__day--today):not(.pm-gc-mini__day--selected) {
+  background: color-mix(in srgb, var(--pm-gc-accent) 18%, transparent);
+}
+
 /* ── 월 격자 ─────────────────────────────────────────────────── */
 /* 칸 높이는 막대 줄 수와 한 몸이다 — 화면의 MaxLanes 를 고치면 여기 --pm-gc-cell 도 고친다. */
 
