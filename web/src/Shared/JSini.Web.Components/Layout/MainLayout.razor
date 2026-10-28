@@ -181,6 +181,9 @@
 @* 아바타를 누르면 뜨는 사람 카드 — 격자 바깥에 한 벌만 둔다(안이면 overflow: hidden 에 잘린다). *@
 <UserCardHost IsPhone="@_isPhone" />
 
+@* AI 일정 메모 공통 팝업 호스트 — 격자 바깥에 둔다. *@
+<ScheduleNotePopupHost />
+
 @* 결과 토스트 판의 생김새. 여기 한 곳에만 놓는다 — 화면마다 두면 옮길 때 뜬 것이 사라진다. 적는 값은 기본과 다른 셋뿐: StickToViewport(보이는 화면 안에 세움), MaxToastCount(실패가 1분 남으므로 상한), FreezeOnClick(누르면 안 걷힘). 치수는 app.css 가 맞춘다. *@
 @if (_toastPosition == "center")
 {

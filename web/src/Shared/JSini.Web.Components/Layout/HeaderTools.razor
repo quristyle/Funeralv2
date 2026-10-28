@@ -22,6 +22,15 @@
                   Click="@OpenAsk" />
     }
 
+    @* AI 일정 메모 — 상단에서 항상 접근 가능한 공통 팝업 단추 *@
+    @if (CanShowScheduleNote)
+    {
+        <DxButton RenderStyle="ButtonRenderStyle.Link"
+                  IconCssClass="jsini-icon-calendar"
+                  Title="AI 일정 메모"
+                  Click="@OpenScheduleNote" />
+    }
+
 
     @if (HeaderIcons.IsIconEnabled("favorite"))
     {

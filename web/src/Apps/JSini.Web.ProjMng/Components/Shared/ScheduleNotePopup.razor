@@ -1,0 +1,43 @@
+@*
+    AI 일정 메모 공통 팝업.
+    레이아웃 상단 아이콘에서 항상 접근할 수 있으며, 본문작성부와 저장 버튼, 프로젝트 선택 항목을 제공한다.
+    저장 시 AI 가 본문을 분석하여 날짜·제목·요약을 자동으로 채워 일정표(dev_wbs)에 저장한다.
+*@
+
+<CommPopup Visible="@Reveal.IsOpen"
+           VisibleChanged="@OnVisibleChangedAsync"
+           HeaderText="AI 일정 메모"
+           Width="min(560px, calc(100vw - 2rem))"
+           MaxHeight="86vh"
+           CssClass="pm-snote-popup"
+           CloseOnOutsideClick="false"
+           CloseOnEscape="true">
+    <BodyContentTemplate Context="bodyContext">
+        <DxFormLayout CssClass="pm-editform pm-snote-popup__form">
+            <DxFormLayoutItem Caption="프로젝트" ColSpanMd="12">
+                <CodeSelect CodeId="projlist" AutoSelectFirst="false" KeepUnknownValue="true"
+                            @bind-Value="ProjectCode" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="본문" ColSpanMd="12">
+                <DxMemo @bind-Text="_body"
+                        Rows="9"
+                        Placeholder="일정 내용이나 업무 메모를 작성하세요. 저장 시 AI가 날짜, 제목, 요약을 자동으로 분석하여 일정에 등록합니다."
+                        CssClass="pm-snote-popup__memo" />
+            </DxFormLayoutItem>
+        </DxFormLayout>
+    </BodyContentTemplate>
+
+    <FooterContentTemplate Context="footerContext">
+        <DxButton Text="@(_saving ? "AI 분석 및 저장 중…" : "저장")"
+                  RenderStyle="ButtonRenderStyle.Primary"
+                  IconCssClass="@(_saving ? "jsini-icon-hourglass" : "jsini-icon-check")"
+                  Enabled="@(!_saving)"
+                  Click="@SaveAsync" />
+
+        <DxButton Text="닫기"
+                  RenderStyle="ButtonRenderStyle.Secondary"
+                  Enabled="@(!_saving)"
+                  Click="@CloseAsync" />
+    </FooterContentTemplate>
+</CommPopup>

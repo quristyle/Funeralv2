@@ -6460,3 +6460,9 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   padding: 0.1rem 0.35rem;
   flex-shrink: 0;
 }
+
+/* ── AI 일정 메모 공통 팝업 (`ScheduleNotePopup.razor`) ───── */
+.pm-snote-popup__memo textarea {
+  min-height: 200px;
+  resize: vertical;
+}

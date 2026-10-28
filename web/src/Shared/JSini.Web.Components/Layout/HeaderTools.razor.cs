@@ -16,6 +16,7 @@ public partial class HeaderTools
     [Inject] private NavigationManager Navigation { get; set; } = default!;
     [Inject] private IJSRuntime Js { get; set; } = default!;
     [Inject] private QuickAskReveal Ask { get; set; } = default!;
+    [Inject] private ScheduleNoteReveal ScheduleNote { get; set; } = default!;
     [Inject] private NoteClient Notes { get; set; } = default!;
     [Inject] private NotificationClient Notifications { get; set; } = default!;
     [Inject] private NotificationDrawer NotificationDrawerHandle { get; set; } = default!;
@@ -79,6 +80,9 @@ public partial class HeaderTools
     /// <summary>빠른 지시 단추를 그릴 수 있나. 책상 화면에서는 서랍이 준비되었거나 메뉴 권한이 있으면 그리고, 환경설정에서 켜져 있어야 한다.</summary>
     private bool CanShowAsk => (AskMenu is not null || AskDocks) && HeaderIcons.IsIconEnabled("quick_ask");
 
+    /// <summary>AI 일정 메모 단추를 그릴 수 있나. 레이아웃 상단에 항상 접근 가능한 아이콘이며, 환경설정에서 켜져 있어야 한다.</summary>
+    private bool CanShowScheduleNote => HeaderIcons.IsIconEnabled("schedule_note");
+
     /// <summary>쪽지 단추를 그릴 수 있나. 메뉴 권한이 있고 환경설정에서 켜져 있어야 한다.</summary>
     private bool CanShowNote => (MenuLookup.Find(Menus.VisibleMenus, "admin.note.write", "/admin/note/write") != null || Permissions.CanView("/admin/note/write"))
                                 && HeaderIcons.IsIconEnabled("note");
@@ -112,6 +116,13 @@ public partial class HeaderTools
         {
             Navigation.NavigateTo(AskPath);
         }
+    }
+
+    /// <summary>AI 일정 메모 단추를 눌렀다. 공통 팝업을 연다.</summary>
+    private void OpenScheduleNote()
+    {
+        UserDrawer.Close();
+        ScheduleNote.Toggle();
     }
 
     /// <summary>권한과 화면 크기로 걸러진 목록에서 찾는다(원본 AllMenus 에서 찾으면 볼 수 없는 사람에게도 단추가 나온다).</summary>

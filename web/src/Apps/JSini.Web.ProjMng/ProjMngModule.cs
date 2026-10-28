@@ -86,6 +86,9 @@ public sealed class ProjMngModule : IPortalModule
         // 빠른 지시 알맹이를 헤더 서랍에도 싣는다(책상 화면만). 셸은 모듈 타입을 모르므로 여기서 타입을 건넨다 — 머리말은 QuickAskContent.
         services.AddSingleton(new QuickAskContent(typeof(Components.Shared.AiAskPanel)));
 
+        // AI 일정 메모 공통 팝업 알맹이 등록 (머리말은 ScheduleNotePopupContent).
+        services.AddSingleton(new ScheduleNotePopupContent(typeof(Components.Shared.ScheduleNotePopup)));
+
         // 이 앱 전용 서비스만 등록한다. 게이트웨이 클라이언트·권한·알림은 셸이 이미 올렸다.
     }
 }

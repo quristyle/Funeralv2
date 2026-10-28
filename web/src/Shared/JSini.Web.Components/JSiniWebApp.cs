@@ -264,6 +264,9 @@ public static class JSiniWebApp
         // 빠른 지시 서랍 손잡이. 안의 알맹이는 업무 모듈이 등록한다(QuickAskContent).
         services.AddScoped<QuickAskReveal>();
 
+        // AI 일정 메모 팝업 손잡이. 알맹이는 업무 모듈이 등록한다(ScheduleNotePopupContent).
+        services.AddScoped<Layout.ScheduleNoteReveal>();
+
         // AI 대화 서랍을 헤더 단추에서 여닫는 손잡이. 같은 이유로 scoped 다.
         services.AddScoped<AiChatReveal>();
 

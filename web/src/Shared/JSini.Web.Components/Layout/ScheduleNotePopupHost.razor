@@ -1,0 +1,11 @@
+@*
+    AI 일정 메모 공통 팝업 호스트.
+    모듈이 등록한 ScheduleNotePopupContent 부품을 DynamicComponent 로 그린다.
+    창은 격자 바깥에 둔다.
+*@
+@implements IDisposable
+
+@if (Reveal.IsOpen && Reveal.PopupType is { } popupType)
+{
+    <DynamicComponent Type="@popupType" />
+}
