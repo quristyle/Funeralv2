@@ -1554,11 +1554,11 @@ public partial class ProjectScheduler : IAsyncDisposable
 
     private void OnTableRowSelected(WbsItemDto? w) => _editRow = w;
 
-    /// <summary>시작·기간을 왼쪽에 붙박는다. 휴대폰은 표를 카드로 펴므로 붙박지 않는다.</summary>
+    /// <summary>시작·종료·기간을 왼쪽에 붙박는다. 휴대폰은 표를 카드로 펴므로 붙박지 않는다.</summary>
     private GridColumnFixedPosition PinnedColumn =>
         _isPhone ? GridColumnFixedPosition.None : GridColumnFixedPosition.Left;
 
-    /// <summary>기간 칸의 글자. DD HH24 형식으로 표현한다(하루 24시간, 예: 「01 04」, 「02 00」).</summary>
+    /// <summary>기간 칸의 글자. 하루를 24시간으로 센 총 시간이다 — 「48시간」, 「1시간 30분」.</summary>
     private static string HoursText(double? hours)
     {
         if (hours is not { } h)
@@ -1572,11 +1572,10 @@ public partial class ProjectScheduler : IAsyncDisposable
             minutes = 0;
         }
 
-        var totalHours = minutes / 60;
-        var days = totalHours / 24;
-        var h24 = totalHours % 24;
+        var whole = minutes / 60;
+        var rest = minutes % 60;
 
-        return $"{days:D2} {h24:D2}";
+        return rest == 0 ? $"{whole}시간" : $"{whole}시간 {rest}분";
     }
 
     /// <summary>기간 칸 마우스 오버 시 한글 설명 툴팁.</summary>

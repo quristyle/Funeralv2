@@ -209,7 +209,7 @@
                              DeleteConfirm="@(w => $"「{w.ProcNm}」 을(를) 지웁니다.\n되돌릴 수 없습니다.")"
                              Reload="@SearchAsync">
                         <Columns>
-                            @* 시작·기간·알림·관리 칸만 보인다. 나머지는 숨긴다. *@
+                            @* 시작·종료·기간·알림·관리 칸만 보인다. 나머지는 숨긴다. *@
                             <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanSdt)" Caption="시작" Width="150"
                                               FixedPosition="@PinnedColumn">
                                 <CellDisplayTemplate Context="cell">
@@ -234,8 +234,7 @@
                             </DxGridDataColumn>
 
                             <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanEdt)" Caption="종료" Width="150"
-                                              FixedPosition="@PinnedColumn"
-                                              Visible="false">
+                                              FixedPosition="@PinnedColumn">
                                 <CellDisplayTemplate Context="cell">
                                     @{
                                         var w = (WbsItemDto)cell.DataItem;
@@ -257,7 +256,7 @@
                                 </CellDisplayTemplate>
                             </DxGridDataColumn>
 
-                            @* 기간은 DD HH24 로 표현한다(하루 24시간). *@
+                            @* 기간은 총 시간으로 적는다(하루 24시간, PlanHours). *@
                             <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanHours)" Caption="기간" Width="95"
                                               TextAlignment="GridTextAlignment.Right"
                                               FixedPosition="@PinnedColumn">
