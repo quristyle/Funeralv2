@@ -1837,8 +1837,11 @@ public partial class ProjectScheduler : IAsyncDisposable
     private bool _mailSending;
     private string _mailTo = string.Empty;
 
-    /// <summary>로그인 사용자의 메일 주소. 계정에 없으면 null 이고 참조 없이 나간다.</summary>
-    private string? _mailCc;
+    /// <summary>참조 칸. 처음 열 때 내 메일 주소로 채우고, 그 뒤로는 사람이 고친 그대로 둔다.</summary>
+    private string _mailCc = string.Empty;
+
+    /// <summary>내 계정의 메일 주소를 한 번 찾아봤는지. 없는 사람에게 창을 열 때마다 다시 묻지 않는다.</summary>
+    private bool _myMailLooked;
 
     private string _mailSubject = string.Empty;
     private string? _mailMessage;
@@ -1874,10 +1877,15 @@ public partial class ProjectScheduler : IAsyncDisposable
             return;
         }
 
-        if (_mailCc is null && !string.IsNullOrWhiteSpace(Me?.Username))
+        if (!_myMailLooked && !string.IsNullOrWhiteSpace(Me?.Username))
         {
+            _myMailLooked = true;
             var card = await Cards.LoadAsync(Me.Username.Trim());
-            _mailCc = string.IsNullOrWhiteSpace(card?.Email) ? null : card.Email.Trim();
+
+            if (!string.IsNullOrWhiteSpace(card?.Email) && string.IsNullOrWhiteSpace(_mailCc))
+            {
+                _mailCc = card.Email.Trim();
+            }
         }
 
         _mailSubject = ScheduleMailBody.Subject(today, _projectName);
@@ -1915,7 +1923,8 @@ public partial class ProjectScheduler : IAsyncDisposable
         if (_mailSending) return;
 
         var to = SplitMail(_mailTo);
-        var bad = to.Where(a => !IsMailAddress(a)).ToList();
+        var cc = SplitMail(_mailCc);
+        var bad = to.Concat(cc).Where(a => !IsMailAddress(a)).ToList();
 
         if (to.Count == 0)
         {
@@ -1945,11 +1954,11 @@ public partial class ProjectScheduler : IAsyncDisposable
                 () => Mails.SendAsync(new ScheduleMailRequest
                 {
                     To = string.Join(",", to),
-                    Cc = _mailCc,
+                    Cc = cc.Count == 0 ? null : string.Join(",", cc),
                     Subject = _mailSubject.Trim(),
                     Body = _mailBody,
                 }),
-                _mailCc is null ? "메일을 보냈습니다." : $"메일을 보냈습니다. 참조: {_mailCc}",
+                cc.Count == 0 ? "메일을 보냈습니다." : $"메일을 보냈습니다. 참조: {string.Join(", ", cc)}",
                 "메일을 보내지 못했습니다");
 
             if (ok)
@@ -1961,6 +1970,102 @@ public partial class ProjectScheduler : IAsyncDisposable
         {
             _mailSending = false;
         }
+    }
+
+    // ── 사람 찾기 ──────────────────────────────────────────────
+
+    /// <summary>고른 주소를 어느 칸에 더할지. 창 하나를 받는 사람과 참조가 나눠 쓴다.</summary>
+    private enum MailPickTarget { To, Cc }
+
+    private bool _picking;
+    private MailPickTarget _pickTarget = MailPickTarget.To;
+    private string _pickFilter = string.Empty;
+
+    private IReadOnlyList<ScheduleMailPerson> _people = [];
+    private bool _peopleLoaded;
+
+    private readonly HashSet<string> _pickedIds = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>고를 수 있는 사람 — 메일 주소가 있는 재직자. 보낼 수 없는 줄은 고를 까닭이 없다.</summary>
+    private IReadOnlyList<ScheduleMailPerson> PickRows =>
+        [.. _people
+            .Where(p => !string.IsNullOrWhiteSpace(p.Email))
+            .Where(p => string.Equals(p.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase))
+            .Where(p => string.IsNullOrWhiteSpace(_pickFilter)
+                        || $"{p.UserName} {p.LoginId} {p.Email} {p.DeptName} {p.CompanyName}"
+                             .Contains(_pickFilter.Trim(), StringComparison.OrdinalIgnoreCase))];
+
+    /// <summary>찾기 칸에 친 것이 메일 주소 꼴이면 그 주소. 계정이 없는 상대(거래처)를 그 자리에서 넣는 길이다.</summary>
+    private string? TypedAddress
+    {
+        get
+        {
+            var text = _pickFilter.Trim();
+            return text.Length > 0 && IsMailAddress(text) ? text : null;
+        }
+    }
+
+    private async Task OpenPickerAsync(MailPickTarget target)
+    {
+        _pickTarget = target;
+        _pickFilter = string.Empty;
+        _pickedIds.Clear();
+        _picking = true;
+
+        if (_peopleLoaded) return;
+
+        try
+        {
+            _people = await Mails.GetPeopleAsync();
+            _peopleLoaded = true;
+        }
+        catch (Exception ex)
+        {
+            Say($"사람 목록을 읽지 못했습니다 — {ex.Message}", NoticeTone.Error);
+        }
+    }
+
+    private void TogglePicked(string loginId, bool on)
+    {
+        if (on) _pickedIds.Add(loginId);
+        else _pickedIds.Remove(loginId);
+    }
+
+    /// <summary>고른 사람들의 주소를 칸에 더하고 창을 닫는다.</summary>
+    private void ApplyPicked()
+    {
+        foreach (var person in _people.Where(p => _pickedIds.Contains(p.LoginId)))
+        {
+            AddPickedAddress(person.Email);
+        }
+
+        _picking = false;
+    }
+
+    private void AddTypedAddress()
+    {
+        AddPickedAddress(TypedAddress);
+        _pickFilter = string.Empty;
+    }
+
+    private void AddPickedAddress(string? address)
+    {
+        if (_pickTarget == MailPickTarget.To) _mailTo = AppendMail(_mailTo, address);
+        else _mailCc = AppendMail(_mailCc, address);
+    }
+
+    /// <summary>칸의 주소들 뒤에 하나를 더한다. 이미 있으면 그대로 둔다.</summary>
+    private static string AppendMail(string? text, string? address)
+    {
+        var list = SplitMail(text);
+        var add = address?.Trim();
+
+        if (!string.IsNullOrEmpty(add) && !list.Contains(add, StringComparer.OrdinalIgnoreCase))
+        {
+            list.Add(add);
+        }
+
+        return string.Join(", ", list);
     }
 
     /// <summary>상태 색. 구글 캘린더의 색조로 옮긴 넷이다.</summary>

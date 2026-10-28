@@ -13,6 +13,21 @@ public sealed class ScheduleMailClient(GatewayClient gateway)
 {
     public Task<ScheduleMailResult?> SendAsync(ScheduleMailRequest request, CancellationToken ct = default)
         => gateway.PostAsync<ScheduleMailResult>("notification/mails", request, ct);
+
+    /// <summary>사람 찾기 창의 명단. 포털관리 「메일 보내기」의 「사용자 고르기」와 같은 계정 목록이다.</summary>
+    public Task<IReadOnlyList<ScheduleMailPerson>> GetPeopleAsync(CancellationToken ct = default)
+        => gateway.GetListAsync<ScheduleMailPerson>("auth/system/account/list", ct);
+}
+
+/// <summary>계정 목록 한 줄에서 메일 받는 사람을 고르는 데 쓰는 칸만.</summary>
+public sealed class ScheduleMailPerson
+{
+    public string LoginId { get; set; } = string.Empty;
+    public string UserName { get; set; } = string.Empty;
+    public string? Email { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public string? DeptName { get; set; }
+    public string? CompanyName { get; set; }
 }
 
 /// <summary><c>MailComposeDto</c> 와 짝을 맞춘 보내기 요청. 첨부는 없다.</summary>

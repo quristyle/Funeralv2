@@ -4445,6 +4445,33 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   background: #f3f5f8;
 }
 
+/* 주소 칸 옆의 「사람 찾기」. DevExpress 편집기는 min-width: 0 이 없으면 안 좁아지고 단추를 다음 줄로 민다. */
+.pm-mail-addr {
+  display: flex;
+  align-items: center;
+  gap: var(--jsini-sp-sm, 8px);
+  width: 100%;
+}
+
+.pm-mail-addr > .dxbl-text-edit {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.pm-mail-addr > .dxbl-btn {
+  flex: 0 0 auto;
+}
+
+.pm-mail-pick {
+  display: flex;
+  flex-direction: column;
+  gap: var(--jsini-sp-sm, 8px);
+}
+
+.pm-mail-pick .commgrd {
+  height: min(26rem, 55vh);
+}
+
 /* 조회 중 실선. 자리를 늘 차지하고 색만 켜진다 — 나타났다 사라지면 아래가 들썩인다. */
 .pm-gc__busy {
   position: relative;
