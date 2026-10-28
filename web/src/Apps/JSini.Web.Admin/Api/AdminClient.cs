@@ -823,6 +823,12 @@ public sealed class AdminClient(GatewayClient gateway)
         => gateway.GetOneAsync<NotifyPolicyPreviewDto>(
             $"notification/notification-policies/{Uri.EscapeDataString(eventCode)}/recipients", ct);
 
+    /// <summary>내부 장비(192.168.219.229) Ping 응답 및 생존 여부를 조회한다.</summary>
+    public Task<ServerPingResultDto?> GetServerPingStatusAsync(
+        string? ip = null, int? timeout = null, CancellationToken ct = default)
+        => gateway.GetOneAsync<ServerPingResultDto>(
+            "auth/server-ping" + Query(("ip", ip), ("timeout", timeout)), ct);
+
     /// <summary>쿼리스트링을 만든다. 값이 null 이거나 빈 문자열이면 뺀다.</summary>
     private static string Query(params (string Key, object? Value)[] parameters)
     {

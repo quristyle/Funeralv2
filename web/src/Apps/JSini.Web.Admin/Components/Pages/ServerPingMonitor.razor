@@ -1,0 +1,201 @@
+@page "/admin/status/server-ping"
+@attribute [RouteKey("admin.status.server-ping")]
+@inherits AutoRefreshPage
+
+@*
+    [내부 서버 Ping 모니터링]
+    내부 192.168.219.229 장비로 Ping을 호출하여 서버 생존 여부를 실시간으로 확인한다.
+    장비와 통신이 확인되지 않는 경우(서버 다운) 메일과 앱푸시를 수신할 대상을 표시하며,
+    알림 정책은 /admin/system/notify-policy 에서 관리한다.
+*@
+
+<PageTitle>내부 서버 Ping 모니터링</PageTitle>
+
+@* ── 상단: 192.168.219.229 장비 생존 상태 ── *@
+<DxFormLayout CssClass="ad-deck mb-4">
+    <DxFormLayoutGroup Decoration="FormLayoutGroupDecoration.Card"
+                       ExpandButtonDisplayMode="GroupExpandButtonDisplayMode.None"
+                       ColSpanXs="12"
+                       CssClass="@($"ad-card ad-card--{CardTone}")">
+        <CaptionTemplate>
+            <span class="ad-card__name">내부 장비 (192.168.219.229)</span>
+            <span class="jsini-badge @BadgeClass">@BadgeText</span>
+            <span class="ad-card__sub">ICMP Ping 실시간 모니터링</span>
+        </CaptionTemplate>
+        <Items>
+            <DxFormLayoutItem ColSpanXs="12">
+                <Template>
+                    <div class="ad-tally">
+                        <div class="ad-tally__cell @(PingResult?.IsAlive == true ? "ad-tally--up" : "ad-tally--down")">
+                            <span class="ad-tally__num">@(PingResult?.IsAlive == true ? "정상" : (PingResult == null ? "—" : "중지"))</span>
+                            <span class="ad-tally__label">상태</span>
+                        </div>
+                        <div class="ad-tally__cell">
+                            <span class="ad-tally__num">@(PingResult?.IsAlive == true ? $"{PingResult.RoundtripTimeMs} ms" : "—")</span>
+                            <span class="ad-tally__label">왕복 시간(RTT)</span>
+                        </div>
+                        <div class="ad-tally__cell">
+                            <span class="ad-tally__num">@(PingResult?.TargetIp ?? "192.168.219.229")</span>
+                            <span class="ad-tally__label">장비 IP</span>
+                        </div>
+                        <div class="ad-tally__cell">
+                            <span class="ad-tally__num">@(PingResult?.Status ?? "확인 중")</span>
+                            <span class="ad-tally__label">응답 코드</span>
+                        </div>
+
+                        <div class="ad-tally__tail">
+                            <DxButton Text="다시 확인" RenderStyle="ButtonRenderStyle.Secondary"
+                                      Enabled="@(!_checking)"
+                                      Click="@ReloadAsync" />
+                            <span class="ad-stamp">
+                                @(RefreshedAt is { } at ? $"{at.Kst("HH:mm:ss")} 기준" : "확인 중") · 10초마다
+                            </span>
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrWhiteSpace(PingResult?.Message))
+                    {
+                        <div class="ad-card__why mt-2">
+                            <span class="fw-bold">안내: </span>@PingResult.Message
+                        </div>
+                    }
+                </Template>
+            </DxFormLayoutItem>
+        </Items>
+    </DxFormLayoutGroup>
+</DxFormLayout>
+
+@* ── 하단: 장비 통신 불가(다운) 시 알림 수신 대상 안내 ── *@
+<CommCont Hint="192.168.219.229 장비와 통신이 확인되지 않을 때 메일과 앱 푸시를 수신하는 대상 목록입니다.">
+    <TitleTemplate>
+        <div class="d-flex align-items-center gap-2">
+            <h2 class="commcont__title m-0">서버 다운 시 알림 수신 대상 (메일 · 앱푸시)</h2>
+            <span class="jsini-badge jsini-badge--info">이벤트: SERVER_PING</span>
+        </div>
+    </TitleTemplate>
+    <Actions>
+        <DxButton Text="알림관리 바로가기"
+                  RenderStyle="ButtonRenderStyle.Primary"
+                  IconCssClass="jsini-icon-settings"
+                  Click="@GoToNotifyPolicy" />
+    </Actions>
+    <ChildContent>
+        <div class="alert alert-info py-2 px-3 mb-3 d-flex align-items-center justify-content-between">
+            <div>
+                <strong>알림 연동 정책 안내:</strong>
+                해당 장비(192.168.219.229)와 통신이 불가할 경우 아래 수신자들에게 <strong>이메일</strong> 및 <strong>앱 푸시</strong>가 발송됩니다.
+                수신 역할 및 채널은 <a href="/admin/system/notify-policy" class="alert-link">알림관리(/admin/system/notify-policy)</a> 화면에서 추가하거나 수정할 수 있습니다.
+            </div>
+            <DxButton Text="알림관리(/admin/system/notify-policy)"
+                      RenderStyle="ButtonRenderStyle.Secondary"
+                      Size="ButtonSize.Small"
+                      Click="@GoToNotifyPolicy" />
+        </div>
+
+        @if (_policyPreview == null)
+        {
+            <PageNotice Text="알림 수신 대상을 불러오는 중입니다..." Tone="NoticeTone.Info" />
+        }
+        else if (_policyPreview.EventDisabled)
+        {
+            <PageNotice Tone="NoticeTone.Warning"
+                        Text="알림관리에서 SERVER_PING(내부 서버 Ping) 알림 이벤트가 꺼져 있습니다. 서버가 죽어도 알림이 발송되지 않습니다." />
+        }
+        else if (_policyPreview.Unrestricted)
+        {
+            <PageNotice Tone="NoticeTone.Info"
+                        Text="역할 제한이 설정되어 있지 않습니다. 알림관리(/admin/system/notify-policy)에서 수신 역할을 등록해 주세요." />
+        }
+        else if (_policyPreview.Recipients.Count == 0)
+        {
+            <PageNotice Tone="NoticeTone.Warning"
+                        Text="지정된 역할에 소속된 사용자가 없습니다. 알림관리 또는 역할관리에서 사용자를 배정해 주세요." />
+        }
+        else
+        {
+            <div class="d-flex gap-3 mb-3">
+                <div class="p-2 border rounded bg-light flex-fill text-center">
+                    <div class="text-muted small">앱 푸시 수신 가능 인원</div>
+                    <div class="h4 text-primary m-0">@_policyPreview.PushReachable 명</div>
+                </div>
+                <div class="p-2 border rounded bg-light flex-fill text-center">
+                    <div class="text-muted small">이메일 수신 가능 인원</div>
+                    <div class="h4 text-success m-0">@_policyPreview.EmailReachable 명</div>
+                </div>
+                <div class="p-2 border rounded bg-light flex-fill text-center">
+                    <div class="text-muted small">총 대상 사용자</div>
+                    <div class="h4 text-secondary m-0">@_policyPreview.Recipients.Count 명</div>
+                </div>
+            </div>
+
+            <CommGrd TItem="NotifyRecipientDto"
+                     Data="@_policyPreview.Recipients"
+                     Unit="명"
+                     ShowExcelExport="false"
+                     EmptyText="받는 사람이 없습니다."
+                     AutoSelectFirstRow="false">
+                <Columns>
+                    <DxGridDataColumn FieldName="@nameof(NotifyRecipientDto.UserName)" Caption="이름"
+                                      Width="120" TextAlignment="GridTextAlignment.Left" />
+                    <DxGridDataColumn FieldName="@nameof(NotifyRecipientDto.UserId)" Caption="아이디"
+                                      Width="130" TextAlignment="GridTextAlignment.Left" />
+                    <DxGridDataColumn FieldName="@nameof(NotifyRecipientDto.RoleText)" Caption="역할"
+                                      MinWidth="140" TextAlignment="GridTextAlignment.Left" />
+                    <DxGridDataColumn Caption="앱 푸시" Width="90" TextAlignment="GridTextAlignment.Center">
+                        <CellDisplayTemplate Context="cell">
+                            @if (((NotifyRecipientDto)cell.DataItem).PushReaches)
+                            {
+                                <span class="badge bg-success">수신 가능</span>
+                            }
+                            else if (((NotifyRecipientDto)cell.DataItem).PushAllowed)
+                            {
+                                <span class="badge bg-secondary">수신 불가</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted">—</span>
+                            }
+                        </CellDisplayTemplate>
+                    </DxGridDataColumn>
+                    <DxGridDataColumn Caption="이메일" Width="90" TextAlignment="GridTextAlignment.Center">
+                        <CellDisplayTemplate Context="cell">
+                            @if (((NotifyRecipientDto)cell.DataItem).EmailReaches)
+                            {
+                                <span class="badge bg-success">수신 가능</span>
+                            }
+                            else if (((NotifyRecipientDto)cell.DataItem).EmailAllowed)
+                            {
+                                <span class="badge bg-secondary">수신 불가</span>
+                            }
+                            else
+                            {
+                                <span class="text-muted">—</span>
+                            }
+                        </CellDisplayTemplate>
+                    </DxGridDataColumn>
+                    <DxGridDataColumn FieldName="@nameof(NotifyRecipientDto.Email)" Caption="이메일 주소"
+                                      MinWidth="180" TextAlignment="GridTextAlignment.Left" />
+                    <DxGridDataColumn Caption="상태 / 사유" MinWidth="200" TextAlignment="GridTextAlignment.Left">
+                        <CellDisplayTemplate Context="cell">
+                            @{
+                                var r = (NotifyRecipientDto)cell.DataItem;
+                                if (!string.IsNullOrWhiteSpace(r.Why))
+                                {
+                                    <span class="text-danger small">@r.Why</span>
+                                }
+                                else
+                                {
+                                    <span class="text-success small">정상 수신 대기</span>
+                                }
+                            }
+                        </CellDisplayTemplate>
+                    </DxGridDataColumn>
+                </Columns>
+            </CommGrd>
+
+            <div class="jsini-hint mt-2">
+                * 개인이 본인 환경설정에서 알림을 비활성화한 경우(본인 수신거부), 정책에서 역할을 지정했더라도 발송에서 제외됩니다.
+            </div>
+        }
+    </ChildContent>
+</CommCont>

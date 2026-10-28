@@ -54,6 +54,9 @@ public static class NotificationEvents
 /// <summary>계정 안내 메일(비밀번호 재설정 · 가입 승인·거절). 정책 대상이 아니지만 알림관리 목록에 실제로 있어 코드를 적는다.</summary>
     public const string AccountMail = "ACCOUNT_MAIL";
 
+    /// <summary>내부 서버(192.168.219.229) Ping 모니터링 및 다운 알림. 구분 <c>SERVER_PING</c>.</summary>
+    public const string ServerPing = "SERVER_PING";
+
 /// <summary>
 /// 보관할 꼴로 다듬는다(대문자·앞뒤 공백 제거). 비었으면 <c>null</c>.
 /// <see cref="PushCategories.Normalize"/> 와 규칙이 같아야 한다 — 글자가 갈리면 정책이 조용히 안 걸린다.

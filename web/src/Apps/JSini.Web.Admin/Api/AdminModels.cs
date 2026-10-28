@@ -2013,3 +2013,14 @@ public sealed class MenuSuggestionDto
     public string? Icon { get; set; }
     public string? ScreenKey { get; set; }
 }
+
+/// <summary>내부 장비 Ping 상태 응답 DTO.</summary>
+public sealed class ServerPingResultDto
+{
+    public string TargetIp { get; set; } = "192.168.219.229";
+    public bool IsAlive { get; set; }
+    public long RoundtripTimeMs { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public string? Message { get; set; }
+    public DateTime CheckedAt { get; set; } = DateTime.UtcNow;
+}

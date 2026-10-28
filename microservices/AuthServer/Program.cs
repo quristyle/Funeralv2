@@ -294,6 +294,7 @@ app.MapHelpArchiveEndpoints();
 app.MapMenuRoleEndpoints();
 app.MapPlayerReleaseEndpoints();
 app.MapDeployStatusEndpoints();
+app.MapServerPingEndpoints();
 
 // 포털 프론트가 잡은 미처리 예외. 넣는 길은 익명(공유 비밀)이고 꺼내는 길은
 // 관리자만이다 — 오류 화면의 추적 번호로 까닭을 찾는 자리.
