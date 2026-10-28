@@ -4459,8 +4459,82 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   outline-offset: 2px;
 }
 
-/* 넓은 화면에서는 기둥을 늘 펴 둔다 — 여는 단추를 숨긴다. */
+/* 넓은 화면에서는 기둥을 늘 펴 둔다 — 여는 단추를 숨긴다. 달력이 세로로 남는 공간을 모두 활용하도록 화면을 채운다. */
 @media (min-width: 768px) {
+  .jsini-shell__content:has(> .pm-gc) {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .pm-gc {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .pm-gc__body {
+    flex: 1 1 auto;
+    min-height: 0;
+    align-items: stretch;
+  }
+
+  .pm-gc__rail {
+    overflow-y: auto;
+    max-height: 100%;
+  }
+
+  .pm-gc__main {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .pm-gc-month {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .pm-gc-month__dow {
+    flex: 0 0 auto;
+  }
+
+  .pm-gc-week {
+    flex: 1 1 0;
+  }
+
+  .pm-gc__main .pm-sched {
+    flex: 1 1 auto;
+    height: 100%;
+    min-height: 0;
+  }
+
+  .pm-gc__main > .commcont {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .pm-gc__main > .commcont > .commcont__body {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .pm-gc__main > .pm-gc-agenda {
+    flex: 1 1 auto;
+    height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
   .pm-gc__rail > .pm-gc__rail-body {
     display: block !important;
   }
@@ -4804,7 +4878,7 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   background: color-mix(in srgb, var(--jsini-text) 5%, transparent);
 }
 
-/* 날짜 숫자는 동그라미다 — 폭과 높이를 같게 묶는다(두 자리에서 타원이 되면 구글 것으로 안 보인다). 높이는 날짜줄 변수에서 빼서 잡는다: 픽셀로 박으면 줄을 줄일 때 막대판이 숫자 위로 올라앉는다. */
+/* 날짜 숫자는 오른쪽 상단에 작고 얇게 표시한다. 오늘은 동그라미로 도드라지게 한다. */
 .pm-gc-day__num {
   position: relative;
   z-index: 1;
@@ -4812,9 +4886,10 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   width: calc(var(--pm-gc-num) - 0.25rem);
   height: calc(var(--pm-gc-num) - 0.25rem);
   padding: 0;
-  margin: var(--jsini-sp-3xs) auto 0;
+  margin: var(--jsini-sp-3xs) var(--jsini-sp-2xs) 0 auto;
   font: inherit;
-  font-size: var(--jsini-fs-xs);
+  font-size: var(--jsini-fs-2xs);
+  font-weight: 300;
   line-height: calc(var(--pm-gc-num) - 0.25rem);
   color: var(--jsini-text);
   text-align: center;
@@ -4834,7 +4909,7 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 
 /* 오늘은 파란 동그라미. 구글에서 한 화면에 딱 하나뿐인 표시다. */
 .pm-gc-day--today .pm-gc-day__num {
-  font-weight: 700;
+  font-weight: 600;
   color: #fff;
   background: var(--pm-gc-accent);
 }
