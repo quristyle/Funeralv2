@@ -78,6 +78,8 @@ public abstract class DataPage : BasePage
             {
                 Transition.Release();
             }
+
+            StateHasChanged();
         }
     }
 

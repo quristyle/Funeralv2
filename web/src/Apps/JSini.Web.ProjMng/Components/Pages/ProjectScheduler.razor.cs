@@ -196,6 +196,12 @@ public partial class ProjectScheduler
         _canCreate = Permissions.Can(path, MenuAction.Create);
         _canUpdate = Permissions.Can(path, MenuAction.Update);
         _canDelete = Permissions.Can(path, MenuAction.Delete);
+
+        // 첫 렌더 시 달력 틀이 즉시 표시되도록 초기 격자를 구성한다.
+        SyncSelected();
+        BuildCalendar();
+        BuildDays();
+        BuildWeeks();
     }
 
     // 화면을 열 때 여기서 조회하지 않는다 — 프로젝트 고르개가 첫 항목을 고르며 조회를 건다. 둘 다 하면 늦게 돌아온 쪽이 남아 목록이 전체로 보인다.
@@ -226,6 +232,7 @@ public partial class ProjectScheduler
         if (known)
         {
             await SearchAsync();
+            StateHasChanged();
         }
     }
 
@@ -269,24 +276,29 @@ public partial class ProjectScheduler
         return SearchAsync();
     }
 
-    private Task SearchAsync() => LoadAsync(async () =>
+    private async Task SearchAsync()
     {
-        // 격자 구간으로 묻는다 — 달 1일~말일이 아니다.
-        var span = GridSpan;
+        await LoadAsync(async () =>
+        {
+            // 격자 구간으로 묻는다 — 달 1일~말일이 아니다.
+            var span = GridSpan;
 
-        _rows = await Api.ListAsync(
-            ProjectRid, _completeState, _scheduleTypes,
-            DateOnly.FromDateTime(span.Start), DateOnly.FromDateTime(span.End));
+            _rows = await Api.ListAsync(
+                ProjectRid, _completeState, _scheduleTypes,
+                DateOnly.FromDateTime(span.Start), DateOnly.FromDateTime(span.End));
 
-        SyncSelected();
-        BuildCalendar();
-        BuildDays();
-        BuildWeeks();
+            SyncSelected();
+            BuildCalendar();
+            BuildDays();
+            BuildWeeks();
 
-        await RefreshMiniAsync();
+            await RefreshMiniAsync();
 
-        return _rows.Count;
-    }, "그 기간에 일정이 없습니다.", "일정표를 읽지 못했습니다");
+            return _rows.Count;
+        }, "그 기간에 일정이 없습니다.", "일정표를 읽지 못했습니다");
+
+        StateHasChanged();
+    }
 
     /// <summary>화면 크기가 경계를 넘었다. 값만 받는다 — 칸에 담기는 막대 수(MaxLanes)는 그리는 시점에 갈린다.</summary>
     private void OnPhoneChanged(bool active) => _isPhone = active;
