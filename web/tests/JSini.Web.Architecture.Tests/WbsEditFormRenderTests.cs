@@ -55,7 +55,7 @@ public sealed class WbsEditFormRenderTests
 
     private sealed class InEditContext : ComponentBase
     {
-        private readonly WbsItemDto _item = new() { ProcNm = "일감", PlanSdt = new DateOnly(2026, 1, 5) };
+        private readonly WbsItemDto _item = new() { ProcNm = "일감", PlanSdt = new DateTime(2026, 1, 5, 9, 0, 0) };
 
         protected override void BuildRenderTree(RenderTreeBuilder builder)
         {

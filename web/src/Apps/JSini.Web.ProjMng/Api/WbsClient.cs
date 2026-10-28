@@ -16,14 +16,14 @@ public sealed class WbsClient(GatewayClient gateway)
     /// <param name="ct">취소 토큰</param>
     public Task<IReadOnlyList<WbsItemDto>> ListAsync(
         int? prjRid = null, string? compStat = null, IEnumerable<string>? scheduleTypes = null,
-        DateOnly? from = null, DateOnly? to = null, CancellationToken ct = default)
+        DateTime? from = null, DateTime? to = null, CancellationToken ct = default)
     {
         var query = new List<string>();
 
         if (prjRid is not null) query.Add($"prjRid={prjRid}");
         if (!string.IsNullOrWhiteSpace(compStat)) query.Add($"compStat={Uri.EscapeDataString(compStat)}");
-        if (from is not null) query.Add($"from={from:yyyy-MM-dd}");
-        if (to is not null) query.Add($"to={to:yyyy-MM-dd}");
+        if (from is not null) query.Add($"from={from:yyyy-MM-ddTHH:mm:ss}");
+        if (to is not null) query.Add($"to={to:yyyy-MM-ddTHH:mm:ss}");
 
         foreach (var type in scheduleTypes ?? [])
         {
@@ -36,6 +36,15 @@ public sealed class WbsClient(GatewayClient gateway)
         return gateway.GetListAsync<WbsItemDto>(
             query.Count == 0 ? Url : $"{Url}?{string.Join('&', query)}", ct);
     }
+
+    /// <summary>날짜(DateOnly)로 구간을 넘기는 호출용 오버로드.</summary>
+    public Task<IReadOnlyList<WbsItemDto>> ListAsync(
+        int? prjRid, string? compStat, IEnumerable<string>? scheduleTypes,
+        DateOnly? from, DateOnly? to, CancellationToken ct = default)
+        => ListAsync(
+            prjRid, compStat, scheduleTypes,
+            from?.ToDateTime(TimeOnly.MinValue),
+            to?.ToDateTime(new TimeOnly(23, 59, 59)), ct);
 
     public Task<WbsItemDto?> CreateAsync(WbsItemDto item, CancellationToken ct = default)
         => gateway.PostAsync<WbsItemDto>(Url, item, ct);
@@ -71,10 +80,10 @@ public sealed class WbsItemDto
     public string? DevUser { get; set; }
     public string? ReqUser { get; set; }
 
-    public DateOnly? PlanSdt { get; set; }
-    public DateOnly? PlanEdt { get; set; }
-    public DateOnly? DevSdt { get; set; }
-    public DateOnly? DevEdt { get; set; }
+    public DateTime? PlanSdt { get; set; }
+    public DateTime? PlanEdt { get; set; }
+    public DateTime? DevSdt { get; set; }
+    public DateTime? DevEdt { get; set; }
 
     public string? DevChk { get; set; }
     public string? BuildChk { get; set; }

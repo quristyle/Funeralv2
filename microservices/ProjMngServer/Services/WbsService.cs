@@ -52,7 +52,7 @@ public sealed class WbsService(IConfiguration configuration) {
       a.summary      AS Summary,
       a.body_text    AS BodyText,
       a.schedule_type AS ScheduleType,
-      (COALESCE(a.plan_edt, a.dev_edt) - COALESCE(a.plan_sdt, a.dev_edt)) + 1 AS PlanGap,
+      (COALESCE(a.plan_edt, a.dev_edt)::date - COALESCE(a.plan_sdt, a.dev_edt)::date) + 1 AS PlanGap,
       CASE WHEN COALESCE(a.dev_sdt, a.dev_edt) IS NULL THEN 'READY'
            WHEN a.dev_edt IS NULL                      THEN 'RUNNING'
            ELSE 'COMP'
@@ -71,7 +71,7 @@ public sealed class WbsService(IConfiguration configuration) {
   public async Task<IReadOnlyList<WbsItem>> ListAsync(
       int? prjRid = null, string? compStat = null,
       IReadOnlyCollection<string>? scheduleTypes = null,
-      DateOnly? from = null, DateOnly? to = null, CancellationToken ct = default) {
+      DateTime? from = null, DateTime? to = null, CancellationToken ct = default) {
 
     await using var db = new NpgsqlConnection(_connectionString);
 
@@ -123,9 +123,9 @@ public sealed class WbsService(IConfiguration configuration) {
                     AND a.dev_edt IS NOT NULL))
            -- 기간은 **겹침**으로 본다. 시작일만 보면 걸쳐 있는 긴 일감이
            -- 그 주에서 사라진다 — 그것이 일정표에서 제일 보고 싶은 줄이다.
-           AND (@from::date IS NULL OR COALESCE(a.plan_edt, a.dev_edt) IS NULL
+           AND (@from::timestamptz IS NULL OR COALESCE(a.plan_edt, a.dev_edt) IS NULL
                 OR COALESCE(a.plan_edt, a.dev_edt) >= @from)
-           AND (@to::date   IS NULL OR COALESCE(a.plan_sdt, a.dev_edt) IS NULL
+           AND (@to::timestamptz   IS NULL OR COALESCE(a.plan_sdt, a.dev_edt) IS NULL
                 OR COALESCE(a.plan_sdt, a.dev_edt) <= @to)
          ORDER BY a.proc_id, a.gb1, a.gb2, a.proc_tp, a.proc_nm, a.wbs_id
         """,
@@ -161,8 +161,8 @@ public sealed class WbsService(IConfiguration configuration) {
         SELECT @PrjRid, COALESCE(MAX(wbs_id), 0) + 1,
                @ProcId, @Gb1, @Gb2, @ProcNm, @ProcTp, @ProcLvl,
                @BuildUser, @BuildStatus, COALESCE(@DevUser, ''), @ReqUser,
-               COALESCE(@PlanSdt, @DevSdt, projmng.today_kst()),
-               COALESCE(@PlanEdt, @DevEdt, projmng.today_kst()),
+               COALESCE(@PlanSdt, @DevSdt, now()),
+               COALESCE(@PlanEdt, @DevEdt, now()),
                @DevSdt, @DevEdt,
                @QcUser, @userId, now(), @userId, now(),
                COALESCE(@ScheduleType, 'WBS'), @Comm,
@@ -203,8 +203,8 @@ public sealed class WbsService(IConfiguration configuration) {
                req_user      = @ReqUser,
                dev_sdt       = @DevSdt,
                dev_edt       = @DevEdt,
-               plan_sdt      = COALESCE(@PlanSdt, @DevSdt, @DevEdt, projmng.today_kst()),
-               plan_edt      = COALESCE(@PlanEdt, @DevEdt, projmng.today_kst()),
+               plan_sdt      = COALESCE(@PlanSdt, @DevSdt, @DevEdt, now()),
+               plan_edt      = COALESCE(@PlanEdt, @DevEdt, now()),
                qc_user       = @QcUser,
                schedule_type = COALESCE(@ScheduleType, 'WBS'),
                comm          = @Comm,

@@ -222,8 +222,8 @@ public partial class ScheduleNote : IDisposable
         item.PrjRid = prjRid;
         item.ScheduleType = string.IsNullOrWhiteSpace(_kind) ? DefaultKind : _kind;
         item.ProcNm = _title.Trim();
-        item.PlanSdt = start;
-        item.PlanEdt = end;
+        item.PlanSdt = start.ToDateTime(TimeOnly.MinValue);
+        item.PlanEdt = end.ToDateTime(TimeOnly.MinValue);
         item.Summary = _summary?.Trim() ?? string.Empty;
         item.BodyText = _body ?? string.Empty;
 
@@ -237,8 +237,8 @@ public partial class ScheduleNote : IDisposable
             && saved is not null)
         {
             _saved = saved;
-            _start = saved.PlanSdt;
-            _end = saved.PlanEdt;
+            _start = saved.PlanSdt.HasValue ? DateOnly.FromDateTime(saved.PlanSdt.Value) : null;
+            _end = saved.PlanEdt.HasValue ? DateOnly.FromDateTime(saved.PlanEdt.Value) : null;
             _ = RememberProjectAsync(_projectCode);
         }
     }

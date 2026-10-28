@@ -194,8 +194,8 @@ public partial class ScheduleNotePopup : IDisposable
                 PrjRid = prjRid,
                 ScheduleType = DefaultKind,
                 ProcNm = title,
-                PlanSdt = start,
-                PlanEdt = end,
+                PlanSdt = start.ToDateTime(TimeOnly.MinValue),
+                PlanEdt = end.ToDateTime(TimeOnly.MinValue),
                 Summary = summary,
                 BodyText = _body.Trim()
             };

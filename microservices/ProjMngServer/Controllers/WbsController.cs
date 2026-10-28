@@ -22,7 +22,7 @@ public sealed class WbsController(WbsService service) : ControllerBase {
   [HttpGet]
   public async Task<ActionResult<ApiResponse<IReadOnlyList<WbsItem>>>> List(
       [FromQuery] int? prjRid, [FromQuery] string? compStat, [FromQuery] string[]? scheduleType,
-      [FromQuery] DateOnly? from, [FromQuery] DateOnly? to, CancellationToken ct)
+      [FromQuery] DateTime? from, [FromQuery] DateTime? to, CancellationToken ct)
     => Ok(ApiResponse<IReadOnlyList<WbsItem>>.Ok(
         await service.ListAsync(prjRid, compStat, scheduleType, from, to, ct)));
 

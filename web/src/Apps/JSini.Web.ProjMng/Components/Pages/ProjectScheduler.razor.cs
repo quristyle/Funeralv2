@@ -735,23 +735,35 @@ public partial class ProjectScheduler
 
     // ── 달력 재료 ────────────────────────────────────────────────
 
-    /// <summary>읽어 온 줄을 달력 약속으로 옮긴다. 날짜만 있는 자료라 종일 일정으로 그린다. 끝은 그날 23:59:59 로 둔다 — 자정이면 끝을 여는 구간으로 볼 때 마지막 날이 통째로 빠진다.</summary>
+    /// <summary>읽어 온 줄을 달력 약속으로 옮긴다. 시각이 있으면 시간 격자에, 없으면 종일 일정으로 그린다.</summary>
     private void BuildCalendar()
     {
         var today = Today;
 
         _items = [.. _rows
-            .Select(w => (Row: w, Span: Span(w)))
-            .Where(x => x.Span is not null)
-            .Select(x => new CalendarItem
+            .Select(w => (Row: w, Start: w.PlanSdt ?? w.PlanEdt, End: w.PlanEdt ?? w.PlanSdt))
+            .Where(x => x.Start is not null)
+            .Select(x =>
             {
-                Id = x.Row.WbsId,
-                Subject = Title(x.Row),
-                Description = Describe(x.Row),
-                Start = x.Span!.Value.Start.ToDateTime(TimeOnly.MinValue),
-                End = x.Span!.Value.End.ToDateTime(new TimeOnly(23, 59, 59)),
-                AllDay = true,
-                LabelId = LabelOf(x.Row, today),
+                var start = x.Start!.Value;
+                var end = x.End!.Value;
+                if (end < start) end = start;
+
+                var isAllDay = start.TimeOfDay == TimeSpan.Zero && end.TimeOfDay == TimeSpan.Zero;
+                var schedEnd = isAllDay
+                    ? end.Date.AddDays(1).AddSeconds(-1)
+                    : (end == start ? start.AddHours(1) : end);
+
+                return new CalendarItem
+                {
+                    Id = x.Row.WbsId,
+                    Subject = Title(x.Row),
+                    Description = Describe(x.Row),
+                    Start = start,
+                    End = schedEnd,
+                    AllDay = isAllDay,
+                    LabelId = LabelOf(x.Row, today),
+                };
             })];
 
         _storage = new DxSchedulerDataStorage
@@ -794,7 +806,7 @@ public partial class ProjectScheduler
     private static string LabelOf(WbsItemDto w, DateOnly today) => w.WbsState switch
     {
         "COMP" => "COMP",
-        _ when w.PlanEdt is not null && w.PlanEdt < today => "OVER",
+        _ when w.PlanEdt is not null && DateOnly.FromDateTime(w.PlanEdt.Value) < today => "OVER",
         "RUNNING" => "RUNNING",
         _ => "READY",
     };
@@ -1063,11 +1075,29 @@ public partial class ProjectScheduler
         return rest.Length == 0 ? Period(w) : $"{Period(w)} · {rest}";
     }
 
-    private static string Period(WbsItemDto w) => Span(w) is not { } range
-        ? "기간 없음"
-        : range.Start == range.End
-            ? $"{range.Start:MM.dd}"
-            : $"{range.Start:MM.dd} ~ {range.End:MM.dd}";
+    private static string Period(WbsItemDto w)
+    {
+        if (w.PlanSdt is null && w.PlanEdt is null)
+        {
+            return "기간 없음";
+        }
+
+        var start = w.PlanSdt ?? w.PlanEdt!.Value;
+        var end = w.PlanEdt ?? start;
+        if (end < start) end = start;
+
+        var hasTime = start.TimeOfDay != TimeSpan.Zero || end.TimeOfDay != TimeSpan.Zero;
+        if (!hasTime)
+        {
+            return start.Date == end.Date
+                ? $"{start:MM.dd}"
+                : $"{start:MM.dd} ~ {end:MM.dd}";
+        }
+
+        return start.Date == end.Date
+            ? $"{start:MM.dd HH:mm} ~ {end:HH:mm}"
+            : $"{start:MM.dd HH:mm} ~ {end:MM.dd HH:mm}";
+    }
 
     private static string Label(WbsItemDto w) => LabelOf(w, Today);
 
@@ -1082,12 +1112,15 @@ public partial class ProjectScheduler
         var start = w.PlanSdt ?? w.PlanEdt!.Value;
         var end = w.PlanEdt ?? start;
 
-        return (start, end < start ? start : end);
+        var startDate = DateOnly.FromDateTime(start);
+        var endDate = DateOnly.FromDateTime(end);
+
+        return (startDate, endDate < startDate ? startDate : endDate);
     }
 
     // ── 끌어 옮기기 (월 격자) ────────────────────────────────────
 
-    /// <summary>막대를 다른 날에 놓았다. 기간은 그대로 두고 통째로 옮기며, 놓은 날이 시작일이 된다(집은 자리는 브라우저가 알려 주지 않는다).</summary>
+    /// <summary>막대를 다른 날에 놓았다. 기간과 시간은 그대로 두고 통째로 옮기며, 놓은 날이 시작일이 된다(집은 자리는 브라우저가 알려 주지 않는다).</summary>
     private async Task DropAsync(DateOnly day)
     {
         var row = _drag;
@@ -1101,8 +1134,9 @@ public partial class ProjectScheduler
         }
 
         var next = Copy(row);
-        next.PlanSdt = day;
-        next.PlanEdt = day.AddDays(range.End.DayNumber - range.Start.DayNumber);
+        var daysDiff = day.DayNumber - range.Start.DayNumber;
+        if (next.PlanSdt.HasValue) next.PlanSdt = next.PlanSdt.Value.AddDays(daysDiff);
+        if (next.PlanEdt.HasValue) next.PlanEdt = next.PlanEdt.Value.AddDays(daysDiff);
 
         if (await RunAsync(() => Api.UpdateAsync(next), "옮겼습니다.", "옮기지 못했습니다"))
         {
@@ -1169,8 +1203,8 @@ public partial class ProjectScheduler
         {
             PrjRid = ProjectRid,
             ScheduleType = NewKind,
-            PlanSdt = from,
-            PlanEdt = to < from ? from : to,
+            PlanSdt = from.ToDateTime(TimeOnly.MinValue),
+            PlanEdt = (to < from ? from : to).ToDateTime(TimeOnly.MinValue),
             DevUser = CurrentUserName,
         };
 
@@ -1197,7 +1231,7 @@ public partial class ProjectScheduler
     /// <summary>완료 표시를 값으로 옮긴다(원본 OnSubmit 의 규칙). 상태는 서버가 개발 시작·종료일로 정하므로 바꾸는 것은 그 두 날이다. 표시를 끄면 개발 종료일도 지운다 — 안 지우면 상태가 완료에 눌어붙는다.</summary>
     private void ApplyComplete()
     {
-        var today = Today;
+        var today = AppTime.TodayDate;
 
         if (!_complete)
         {
@@ -1230,8 +1264,13 @@ public partial class ProjectScheduler
 
         if (moveToToday)
         {
-            _form.PlanSdt = Today;
-            _form.PlanEdt = _form.PlanSdt;
+            var today = AppTime.TodayDate;
+            var diff = _form.PlanEdt.HasValue && _form.PlanSdt.HasValue
+                ? _form.PlanEdt.Value - _form.PlanSdt.Value
+                : TimeSpan.Zero;
+            var startTime = _form.PlanSdt?.TimeOfDay ?? TimeSpan.Zero;
+            _form.PlanSdt = today.Add(startTime);
+            _form.PlanEdt = _form.PlanSdt.Value.Add(diff);
         }
 
         if (_form.PlanEdt < _form.PlanSdt)
@@ -1280,7 +1319,7 @@ public partial class ProjectScheduler
 
     // ── 주·일 보기에서 바로 옮기기·지우기 ────────────────────────
 
-    /// <summary>끌어 옮기거나 크기를 바꾼 것. 계획 날짜만 바뀌고 나머지 칸은 읽어 둔 줄에서 그대로 가져간다.</summary>
+    /// <summary>끌어 옮기거나 크기를 바꾼 것. 계획 날짜·시간이 바뀌고 나머지 칸은 읽어 둔 줄에서 그대로 가져간다.</summary>
     private async Task OnUpdatingAsync(SchedulerAppointmentOperationEventArgs e)
     {
         var row = Find(e.Appointment.Id);
@@ -1291,8 +1330,16 @@ public partial class ProjectScheduler
         }
 
         var next = Copy(row);
-        next.PlanSdt = Day(e.Appointment.Start);
-        next.PlanEdt = LastDay(e.Appointment);
+        if (e.Appointment.AllDay)
+        {
+            next.PlanSdt = Day(e.Appointment.Start).ToDateTime(TimeOnly.MinValue);
+            next.PlanEdt = LastDay(e.Appointment).ToDateTime(TimeOnly.MinValue);
+        }
+        else
+        {
+            next.PlanSdt = e.Appointment.Start;
+            next.PlanEdt = e.Appointment.End;
+        }
 
         if (next.PlanSdt == row.PlanSdt && next.PlanEdt == row.PlanEdt)
         {
@@ -1337,10 +1384,10 @@ public partial class ProjectScheduler
 
         // 고른 기간의 첫날을 기본으로 둔다 — 아니면 만든 줄이 보고 있는 구간 밖으로 떨어져 저장 직후 사라진다.
         w.PlanSdt = _view == CalView.Table && _tableStart is not null
-            ? _tableStart
-            : DateOnly.FromDateTime(Range.Start);
+            ? _tableStart.Value.ToDateTime(TimeOnly.MinValue)
+            : Range.Start;
         w.PlanEdt = _view == CalView.Table && _tableEnd is not null
-            ? _tableEnd
+            ? _tableEnd.Value.ToDateTime(TimeOnly.MinValue)
             : w.PlanSdt;
         w.DevUser = CurrentUserName;
     }
@@ -1428,10 +1475,9 @@ public partial class ProjectScheduler
 
     private async Task OnInlinePlanSdtChangedAsync(WbsItemDto w, DateTime? d)
     {
-        var newStart = d is null ? null : (DateOnly?)DateOnly.FromDateTime(d.Value);
-        if (w.PlanSdt == newStart) return;
+        if (w.PlanSdt == d) return;
 
-        w.PlanSdt = newStart;
+        w.PlanSdt = d;
         if (w.PlanEdt is not null && w.PlanSdt is not null && w.PlanEdt < w.PlanSdt)
         {
             w.PlanEdt = w.PlanSdt;
@@ -1439,7 +1485,7 @@ public partial class ProjectScheduler
 
         if (w.PlanSdt is not null && w.PlanEdt is not null)
         {
-            w.PlanGap = (w.PlanEdt.Value.DayNumber - w.PlanSdt.Value.DayNumber) + 1;
+            w.PlanGap = (DateOnly.FromDateTime(w.PlanEdt.Value).DayNumber - DateOnly.FromDateTime(w.PlanSdt.Value).DayNumber) + 1;
         }
 
         await SaveInlineAsync(w);
@@ -1447,10 +1493,9 @@ public partial class ProjectScheduler
 
     private async Task OnInlinePlanEdtChangedAsync(WbsItemDto w, DateTime? d)
     {
-        var newEnd = d is null ? null : (DateOnly?)DateOnly.FromDateTime(d.Value);
-        if (w.PlanEdt == newEnd) return;
+        if (w.PlanEdt == d) return;
 
-        w.PlanEdt = newEnd;
+        w.PlanEdt = d;
         if (w.PlanSdt is not null && w.PlanEdt is not null && w.PlanEdt < w.PlanSdt)
         {
             w.PlanSdt = w.PlanEdt;
@@ -1458,7 +1503,7 @@ public partial class ProjectScheduler
 
         if (w.PlanSdt is not null && w.PlanEdt is not null)
         {
-            w.PlanGap = (w.PlanEdt.Value.DayNumber - w.PlanSdt.Value.DayNumber) + 1;
+            w.PlanGap = (DateOnly.FromDateTime(w.PlanEdt.Value).DayNumber - DateOnly.FromDateTime(w.PlanSdt.Value).DayNumber) + 1;
         }
 
         await SaveInlineAsync(w);
@@ -1514,7 +1559,7 @@ public partial class ProjectScheduler
         var current = GetInlineStateCode(w);
         if (string.Equals(current, val, StringComparison.Ordinal)) return;
 
-        var today = Today;
+        var today = AppTime.TodayDate;
         switch (val)
         {
             case "COMP":

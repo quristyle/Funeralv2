@@ -22,10 +22,10 @@ public sealed class WbsItem {
   public string? DevUser { get; set; }
   public string? ReqUser { get; set; }
 
-  public DateOnly? PlanSdt { get; set; }
-  public DateOnly? PlanEdt { get; set; }
-  public DateOnly? DevSdt { get; set; }
-  public DateOnly? DevEdt { get; set; }
+  public DateTime? PlanSdt { get; set; }
+  public DateTime? PlanEdt { get; set; }
+  public DateTime? DevSdt { get; set; }
+  public DateTime? DevEdt { get; set; }
 
   public string? DevChk { get; set; }
   public string? BuildChk { get; set; }

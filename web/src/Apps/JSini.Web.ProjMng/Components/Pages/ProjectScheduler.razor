@@ -191,44 +191,46 @@
                              DeleteConfirm="@(w => $"「{w.ProcNm}」 을(를) 지웁니다.\n되돌릴 수 없습니다.")"
                              Reload="@SearchAsync">
                         <Columns>
-                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanSdt)" Caption="시작" Width="130">
+                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanSdt)" Caption="시작" Width="160">
                                 <CellDisplayTemplate Context="cell">
                                     @{
                                         var w = (WbsItemDto)cell.DataItem;
                                     }
                                     @if (_canUpdate)
                                     {
-                                        <DxDateEdit Date="@ToDateTime(w.PlanSdt)"
+                                        <DxDateEdit Date="@w.PlanSdt"
                                                     DateChanged="@((DateTime? d) => OnInlinePlanSdtChangedAsync(w, d))"
-                                                    DisplayFormat="yyyy-MM-dd"
-                                                    Format="yyyy-MM-dd"
+                                                    TimeSectionVisible="true"
+                                                    DisplayFormat="yyyy-MM-dd HH:mm"
+                                                    Format="yyyy-MM-dd HH:mm"
                                                     ValidationEnabled="false"
                                                     CssClass="pm-inline-edit" />
                                     }
                                     else
                                     {
-                                        <span>@w.PlanSdt?.ToString("yyyy-MM-dd")</span>
+                                        <span>@w.PlanSdt?.ToString("yyyy-MM-dd HH:mm")</span>
                                     }
                                 </CellDisplayTemplate>
                             </DxGridDataColumn>
 
-                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanEdt)" Caption="종료" Width="130">
+                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanEdt)" Caption="종료" Width="160">
                                 <CellDisplayTemplate Context="cell">
                                     @{
                                         var w = (WbsItemDto)cell.DataItem;
                                     }
                                     @if (_canUpdate)
                                     {
-                                        <DxDateEdit Date="@ToDateTime(w.PlanEdt)"
+                                        <DxDateEdit Date="@w.PlanEdt"
                                                     DateChanged="@((DateTime? d) => OnInlinePlanEdtChangedAsync(w, d))"
-                                                    DisplayFormat="yyyy-MM-dd"
-                                                    Format="yyyy-MM-dd"
+                                                    TimeSectionVisible="true"
+                                                    DisplayFormat="yyyy-MM-dd HH:mm"
+                                                    Format="yyyy-MM-dd HH:mm"
                                                     ValidationEnabled="false"
                                                     CssClass="pm-inline-edit" />
                                     }
                                     else
                                     {
-                                        <span>@w.PlanEdt?.ToString("yyyy-MM-dd")</span>
+                                        <span>@w.PlanEdt?.ToString("yyyy-MM-dd HH:mm")</span>
                                     }
                                 </CellDisplayTemplate>
                             </DxGridDataColumn>
