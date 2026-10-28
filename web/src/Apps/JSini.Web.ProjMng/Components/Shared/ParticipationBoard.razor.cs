@@ -7,6 +7,7 @@ public partial class ParticipationBoard
 {
     [Inject] private ProjectUserClient Api { get; set; } = default!;
     [Inject] private BizOptions Accounts { get; set; } = default!;
+    [Inject] private CommonCodes Codes { get; set; } = default!;
 
     /// <summary>어느 쪽을 기준으로 볼 것인가.</summary>
     public enum BoardAxis
@@ -490,12 +491,22 @@ public partial class ParticipationBoard
     }
 
     /// <summary>한 묶음을 보낸다. 한 건짜리도 같은 길로 간다 — 갈래를 둘로 두면 한쪽에만 걸리는 버그가 생긴다.</summary>
-    private Task<bool> SendAsync(
+    private async Task<bool> SendAsync(
         AssignmentScope scope, IReadOnlyList<string> add, IReadOnlyList<string> remove, string ok)
-        => RunAsync(
+    {
+        var sent = await RunAsync(
             () => Api.SetAssignmentsAsync(scope.PrjRid, scope.UserId, add, remove),
             ok,
             "저장하지 못했습니다");
+
+        // projlist 고르개는 참여한 프로젝트만 담아 사람별로 10분 들고 있다. 안 버리면 방금 넣은 프로젝트가 다른 화면에 그동안 안 나온다.
+        if (sent)
+        {
+            Codes.Clear();
+        }
+
+        return sent;
+    }
 
     private static string Said(AssignmentScope scope, int added, int removed) =>
         (added, removed) switch
