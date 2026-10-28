@@ -25,6 +25,16 @@
 --    psql -d projmng -c 'SET search_path = wbs_import' -f 사내스키마.sql   -- 표 만들기
 --    psql -d projmng -c 'SET search_path = wbs_import' -f wbs_data.sql      -- 자료 넣기
 --
+--    **보관본 압축(`docs/wbs_참고소스/wbs-db-*.zip`)으로 받았으면** 위 둘 대신
+--    `projmng-wbs-stage-from-archive.py` 로 받침 스키마를 채운다. 보관본의
+--    `schema.sql` 은 이름이 `public.` 으로 박혀 있어 여기 그대로 못 푼다.
+--
+--    python3 -I projmng-wbs-stage-from-archive.py <풀어 둔 wbs-db> /tmp/wbs_stage
+--    psql -d projmng -f /tmp/wbs_stage/stage.sql
+--
+--    `hhip_wbs_wrk2` 에서 `activity_id` 가 빈 줄은 못 옮긴다(받는 표의 열쇠다).
+--    2026-10-27 보관본에서는 `[2560] 현지 POR` · `[2561] 현지 POR 전환 이력` 둘이다.
+--
 -- ③ 이 스크립트를 돌린다. `prj` 는 `projmng.dev_proj.prj_rid` 다.
 --
 --    psql -d projmng -v prj=8 -f projmng-wbs-data-load.sql
@@ -150,16 +160,19 @@ SELECT setval(pg_get_serial_sequence('projmng.wbs_task', 'task_id'),
 -- ════════════════════════════════════════════════════════════
 
 INSERT INTO projmng.wbs_docs (prj_rid, title, content, sort_order, updated_by, updated_at)
-SELECT :prj, d.title, d.content, d.sort_order, d.updated_by, d.updated_at
+SELECT :prj, d.title, COALESCE(d.content, ''), d.sort_order, d.updated_by, d.updated_at
   FROM wbs_import.dev_docs d
- WHERE NOT EXISTS (SELECT 1 FROM projmng.wbs_docs x
+ -- 사내 표는 지운 문서를 `deleted_at` 으로 남겨 둔다(휴지통). 받는 표엔 그 칸이 없다.
+ WHERE d.deleted_at IS NULL
+   AND NOT EXISTS (SELECT 1 FROM projmng.wbs_docs x
                     WHERE x.prj_rid = :prj AND x.title = d.title);
 
 -- 화면 설정의 주인이 **로그인 아이디**로 바뀌었다(전에는 사번이었다).
 -- 여기서는 사번 그대로 넣고, 아래 「사번을 계정으로 바꾼다」가 함께 옮긴다 —
 -- 대조표가 그쪽에 있고 두 곳에 두면 한쪽만 고치는 날이 온다.
 INSERT INTO projmng.wbs_user_pref (prj_rid, bp_id, pref_key, pref_val, updated_at)
-SELECT :prj, p.bp_id, p.pref_key, p.pref_val, p.updated_at
+-- 사내 `updated_at` 은 시간대 없는 한국 시각이다. 그대로 넣으면 UTC 로 읽혀 9시간 밀린다.
+SELECT :prj, p.bp_id, p.pref_key, p.pref_val, p.updated_at AT TIME ZONE 'Asia/Seoul'
   FROM wbs_import.dev_user_pref p
 ON CONFLICT (prj_rid, bp_id, pref_key) DO NOTHING;
 
