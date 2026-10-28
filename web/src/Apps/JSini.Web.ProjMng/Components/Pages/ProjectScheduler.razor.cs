@@ -28,6 +28,12 @@ public partial class ProjectScheduler
     private string ProjectStorageKey =>
         $"{ProjectStorageKeyPrefix}{(string.IsNullOrWhiteSpace(Me?.Username) ? "?" : Me.Username.Trim())}";
 
+    /// <summary>로그인한 사용자의 성명. 없으면 아이디. 새 일정 작성 시 담당자로 자동 지정된다.</summary>
+    private string? CurrentUserName =>
+        string.IsNullOrWhiteSpace(Me?.DisplayName)
+            ? (string.IsNullOrWhiteSpace(Me?.Username) ? null : Me.Username.Trim())
+            : Me.DisplayName.Trim();
+
     /// <summary>기억해 둔 프로젝트를 읽었는가. 그 전에는 프로젝트 고르개를 그리지 않는다.</summary>
     private bool _projectRestored;
 
@@ -602,6 +608,7 @@ public partial class ProjectScheduler
     {
         var parts = new List<string>();
 
+        if (!string.IsNullOrWhiteSpace(w.ReqUser)) parts.Add($"요청 {w.ReqUser}");
         if (!string.IsNullOrWhiteSpace(w.DevUser)) parts.Add($"담당 {w.DevUser}");
         if (!string.IsNullOrWhiteSpace(w.ProcTp)) parts.Add(w.ProcTp);
         if (!string.IsNullOrWhiteSpace(w.Comm)) parts.Add(w.Comm);
@@ -990,6 +997,7 @@ public partial class ProjectScheduler
             ScheduleType = NewKind,
             PlanSdt = from,
             PlanEdt = to < from ? from : to,
+            DevUser = CurrentUserName,
         };
 
         _complete = false;
@@ -1156,6 +1164,7 @@ public partial class ProjectScheduler
         // 고른 기간의 첫날을 기본으로 둔다 — 아니면 만든 줄이 보고 있는 구간 밖으로 떨어져 저장 직후 사라진다.
         w.PlanSdt = DateOnly.FromDateTime(Range.Start);
         w.PlanEdt = w.PlanSdt;
+        w.DevUser = CurrentUserName;
     }
 
     private async Task SaveRowAsync((WbsItemDto Item, bool IsNew) e)
@@ -1306,6 +1315,14 @@ public partial class ProjectScheduler
         await SaveInlineAsync(w);
     }
 
+    private async Task OnInlineReqUserChangedAsync(WbsItemDto w, string? val)
+    {
+        if (string.Equals(w.ReqUser, val, StringComparison.Ordinal)) return;
+
+        w.ReqUser = val;
+        await SaveInlineAsync(w);
+    }
+
     private async Task OnInlineDevUserChangedAsync(WbsItemDto w, string? val)
     {
         if (string.Equals(w.DevUser, val, StringComparison.Ordinal)) return;
@@ -1387,6 +1404,7 @@ public partial class ProjectScheduler
         BuildUser = w.BuildUser,
         BuildStatus = w.BuildStatus,
         DevUser = w.DevUser,
+        ReqUser = w.ReqUser,
         PlanSdt = w.PlanSdt,
         PlanEdt = w.PlanEdt,
         DevSdt = w.DevSdt,

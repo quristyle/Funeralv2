@@ -35,6 +35,7 @@ public sealed class WbsService(IConfiguration configuration) {
       a.build_user   AS BuildUser,
       a.build_status AS BuildStatus,
       a.dev_user     AS DevUser,
+      a.req_user     AS ReqUser,
       {Dates},
       a.dev_edt      AS DevEdt,
       a.dev_chk      AS DevChk,
@@ -153,13 +154,13 @@ public sealed class WbsService(IConfiguration configuration) {
     var id = await db.ExecuteScalarAsync<int>(new CommandDefinition("""
         INSERT INTO projmng.dev_wbs
              ( prj_rid, wbs_id, proc_id, gb1, gb2, proc_nm, proc_tp, proc_lvl,
-               build_user, build_status, dev_user,
+               build_user, build_status, dev_user, req_user,
                plan_sdt, plan_edt, dev_sdt, dev_edt,
                qc_user, cre_user, cre_dt, mod_user, mod_dt, schedule_type, comm,
                summary, body_text )
         SELECT @PrjRid, COALESCE(MAX(wbs_id), 0) + 1,
                @ProcId, @Gb1, @Gb2, @ProcNm, @ProcTp, @ProcLvl,
-               @BuildUser, @BuildStatus, COALESCE(@DevUser, ''),
+               @BuildUser, @BuildStatus, COALESCE(@DevUser, ''), @ReqUser,
                COALESCE(@PlanSdt, @DevSdt, projmng.today_kst()),
                COALESCE(@PlanEdt, @DevEdt, projmng.today_kst()),
                @DevSdt, @DevEdt,
@@ -171,7 +172,7 @@ public sealed class WbsService(IConfiguration configuration) {
         """,
         new {
           item.PrjRid, item.ProcId, item.Gb1, item.Gb2, item.ProcNm, item.ProcTp, item.ProcLvl,
-          item.BuildUser, item.BuildStatus, item.DevUser,
+          item.BuildUser, item.BuildStatus, item.DevUser, item.ReqUser,
           item.PlanSdt, item.PlanEdt, item.DevSdt, item.DevEdt,
           item.QcUser, item.ScheduleType, item.Comm, item.Summary, item.BodyText,
           userId,
@@ -199,6 +200,7 @@ public sealed class WbsService(IConfiguration configuration) {
                build_user    = @BuildUser,
                build_status  = @BuildStatus,
                dev_user      = COALESCE(@DevUser, ''),
+               req_user      = @ReqUser,
                dev_sdt       = @DevSdt,
                dev_edt       = @DevEdt,
                plan_sdt      = COALESCE(@PlanSdt, @DevSdt, @DevEdt, projmng.today_kst()),
@@ -214,7 +216,7 @@ public sealed class WbsService(IConfiguration configuration) {
         """,
         new {
           item.WbsId, item.PrjRid, item.ProcId, item.Gb1, item.Gb2, item.ProcNm,
-          item.ProcTp, item.ProcLvl, item.BuildUser, item.BuildStatus, item.DevUser,
+          item.ProcTp, item.ProcLvl, item.BuildUser, item.BuildStatus, item.DevUser, item.ReqUser,
           item.PlanSdt, item.PlanEdt, item.DevSdt, item.DevEdt,
           item.QcUser, item.ScheduleType, item.Comm, item.Summary, item.BodyText,
           userId,

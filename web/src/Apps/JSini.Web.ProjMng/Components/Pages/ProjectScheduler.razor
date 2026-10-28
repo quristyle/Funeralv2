@@ -297,7 +297,28 @@
                                 </CellDisplayTemplate>
                             </DxGridDataColumn>
 
-                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.DevUser)" Caption="담당" Width="130">
+                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.ReqUser)" Caption="요청자" Width="110">
+                                <CellDisplayTemplate Context="cell">
+                                    @{
+                                        var w = (WbsItemDto)cell.DataItem;
+                                    }
+                                    @if (_canUpdate)
+                                    {
+                                        <DxTextBox Text="@w.ReqUser"
+                                                   TextChanged="@((string? t) => OnInlineReqUserChangedAsync(w, t))"
+                                                   BindValueMode="BindValueMode.OnLostFocus"
+                                                   NullText="요청자 입력"
+                                                   ValidationEnabled="false"
+                                                   CssClass="pm-inline-edit" />
+                                    }
+                                    else
+                                    {
+                                        <span>@w.ReqUser</span>
+                                    }
+                                </CellDisplayTemplate>
+                            </DxGridDataColumn>
+
+                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.DevUser)" Caption="담당자" Width="130">
                                 <CellDisplayTemplate Context="cell">
                                     @{
                                         var w = (WbsItemDto)cell.DataItem;

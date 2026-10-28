@@ -8,6 +8,14 @@
         <DxTextBox @bind-Text="Item.ProcNm" />
     </DxFormLayoutItem>
 
+    <DxFormLayoutItem Caption="요청자" ColSpanMd="6">
+        <DxTextBox @bind-Text="Item.ReqUser" />
+    </DxFormLayoutItem>
+
+    <DxFormLayoutItem Caption="담당자" ColSpanMd="6">
+        <DxTextBox @bind-Text="Item.DevUser" />
+    </DxFormLayoutItem>
+
     <DxFormLayoutItem Caption="공정" ColSpanMd="4">
         <DxTextBox @bind-Text="Item.ProcId" />
     </DxFormLayoutItem>
@@ -26,10 +34,6 @@
 
     <DxFormLayoutItem Caption="단계" ColSpanMd="6">
         <DxTextBox @bind-Text="Item.ProcLvl" />
-    </DxFormLayoutItem>
-
-    <DxFormLayoutItem Caption="개발 담당" ColSpanMd="6">
-        <BizSelect Type="portal_account" @bind-Value="Item.DevUser" />
     </DxFormLayoutItem>
 
     <DxFormLayoutItem Caption="빌드 담당" ColSpanMd="6">

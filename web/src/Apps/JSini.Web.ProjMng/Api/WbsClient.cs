@@ -69,6 +69,7 @@ public sealed class WbsItemDto
     public string? BuildUser { get; set; }
     public string? BuildStatus { get; set; }
     public string? DevUser { get; set; }
+    public string? ReqUser { get; set; }
 
     public DateOnly? PlanSdt { get; set; }
     public DateOnly? PlanEdt { get; set; }
