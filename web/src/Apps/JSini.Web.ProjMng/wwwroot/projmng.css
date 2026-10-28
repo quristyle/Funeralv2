@@ -4408,6 +4408,12 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   background: color-mix(in srgb, var(--pm-gc-accent) 14%, transparent);
 }
 
+.pm-gc__add-btn {
+  height: 2rem;
+  padding: 0 var(--jsini-sp-md);
+  white-space: nowrap;
+}
+
 /* 조회 중 실선. 자리를 늘 차지하고 색만 켜진다 — 나타났다 사라지면 아래가 들썩인다. */
 .pm-gc__busy {
   position: relative;
@@ -4637,8 +4643,13 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
     font-size: var(--jsini-fs-xl);
   }
 
+  .pm-gc__add-btn {
+    margin-left: auto;
+  }
+
   /* 보기 고르개는 제목 아래 한 줄을 통째로 갖는다 — 제목 옆에 끼면 둘 다 잘린다. */
   .pm-gc__views {
+    order: 10;
     width: 100%;
     margin-left: 0;
     justify-content: space-between;

@@ -48,6 +48,13 @@
                 </button>
             }
         </div>
+
+        <PermissionView Action="MenuAction.Create">
+            <DxButton Text="추가" RenderStyle="ButtonRenderStyle.Primary"
+                      IconCssClass="jsini-icon-plus"
+                      CssClass="pm-gc__add-btn"
+                      Click="@(() => StartNew(_selected, _selected))" />
+        </PermissionView>
     </div>
 
     @* 조회가 도는 동안 머리줄 아래 실선. 달력 보기에서는 이것 말고 「도는 중」을 말할 자리가 없다. *@
@@ -340,7 +347,7 @@
                              StartDate="@_anchor"
                              ActiveViewType="@ViewType"
                              ShowToolbarArea="false"
-                             AllowCreateAppointment="@_canCreate"
+                             AllowCreateAppointment="false"
                              AllowEditAppointment="@_canUpdate"
                              AllowDeleteAppointment="@_canDelete"
                              AllowDragAppointment="@_canUpdate"

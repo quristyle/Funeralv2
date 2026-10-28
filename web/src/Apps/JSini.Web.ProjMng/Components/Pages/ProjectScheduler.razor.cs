@@ -655,25 +655,10 @@ public partial class ProjectScheduler
         _selected = today >= start && today <= end ? today : start;
     }
 
-    /// <summary>칸의 빈 자리를 눌렀다. 넓은 화면은 새 일정을 열고, 휴대폰은 그 날을 고르기만 한다(목록이 그 날로 바뀐다). 만들 수 없는 사람에게는 그 날을 펼쳐 보여 준다 — 아무 일도 안 하면 고장 난 것처럼 보인다.</summary>
+    /// <summary>칸의 빈 자리를 눌렀다. 날짜의 빈 영역 클릭 시에는 추가창을 띄우지 않고 그 날을 고르기만 한다.</summary>
     private Task OnDayClickAsync(DateOnly day)
     {
         _selected = day;
-
-        if (_isPhone)
-        {
-            return Task.CompletedTask;
-        }
-
-        if (_canCreate)
-        {
-            StartNew(day, day);
-        }
-        else
-        {
-            Peek(day);
-        }
-
         return Task.CompletedTask;
     }
 
@@ -861,7 +846,7 @@ public partial class ProjectScheduler
 
     // ── 편집 창 ──────────────────────────────────────────────────
 
-    /// <summary>부품이 주는 편집 창을 취소하고 우리 창을 연다. 빈 칸은 새로, 일정은 그 줄을 고치러 연다.</summary>
+    /// <summary>부품이 주는 편집 창을 취소하고 우리 창을 연다. 빈 칸 클릭은 무시하고, 일정 클릭 시 그 줄을 고치러 연다.</summary>
     private void OnFormShowing(SchedulerAppointmentFormEventArgs e)
     {
         e.Cancel = true;
@@ -870,7 +855,6 @@ public partial class ProjectScheduler
 
         if (appointment.IsNew || appointment.Id is null)
         {
-            StartNew(Day(appointment.Start), LastDay(appointment));
             return;
         }
 
