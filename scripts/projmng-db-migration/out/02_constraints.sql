@@ -96,7 +96,7 @@ COMMENT ON COLUMN projmng."dev_wbs"."proc_lvl" IS 'level';
 COMMENT ON COLUMN projmng."dev_wbs"."proc_nm" IS 'process name';
 COMMENT ON COLUMN projmng."dev_wbs"."proc_tp" IS 'process type';
 COMMENT ON COLUMN projmng."dev_wbs"."qc_user" IS 'qc';
-COMMENT ON COLUMN projmng."dev_wbs"."schedule_type" IS '일정구분WBS,Private,Public';
+COMMENT ON COLUMN projmng."dev_wbs"."schedule_type" IS '일정구분WBS,Private,Public,Event';
 COMMENT ON COLUMN projmng."dev_wbs"."wbs_id" IS 'wbs seq';
 COMMENT ON COLUMN projmng."devcomm"."cm_rmk" IS '설명';
 COMMENT ON COLUMN projmng."devcomm"."cm_srt" IS '순서';

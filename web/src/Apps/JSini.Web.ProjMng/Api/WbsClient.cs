@@ -10,7 +10,7 @@ public sealed class WbsClient(GatewayClient gateway)
     /// <summary>목록.</summary>
     /// <param name="prjRid">프로젝트</param>
     /// <param name="compStat"><c>READY</c> · <c>RUNNING</c> · <c>COMP</c> · <c>DISCOMP</c></param>
-    /// <param name="scheduleTypes">구분(WBS · Public · Private). 여럿이면 값마다 scheduleType= 을 따로 싣는다 — 쉼표로 잇면 구분값에 쉼표가 들어가는 날 갈라진다. 비면 전체.</param>
+    /// <param name="scheduleTypes">구분(WBS · Public · Private · Event). 여럿이면 값마다 scheduleType= 을 따로 싣는다 — 쉼표로 잇면 구분값에 쉼표가 들어가는 날 갈라진다. 비면 전체.</param>
     /// <param name="from">계획 기간이 이 날 뒤에 걸치는 것만</param>
     /// <param name="to">계획 기간이 이 날 앞에 걸치는 것만</param>
     /// <param name="ct">취소 토큰</param>
