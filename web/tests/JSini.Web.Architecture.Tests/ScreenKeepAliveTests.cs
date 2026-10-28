@@ -143,6 +143,19 @@ public sealed class ScreenKeepAliveTests
         Assert.Matches(@"protected override void OnInitialized\(\)[\s\S]{0,200}?Screen\.Get<\w+>\(StateKey\)", page);
     }
 
+    /// <summary>
+    /// 「AI 일정 메모」가 사용한 프로젝트를 브라우저에 기억하고 복원하는가.
+    /// </summary>
+    [Fact]
+    public void 일정메모_화면이_사용한_프로젝트를_기억한다()
+    {
+        var page = ScheduleNote();
+
+        Assert.Contains("localStorage.getItem", page, StringComparison.Ordinal);
+        Assert.Contains("localStorage.setItem", page, StringComparison.Ordinal);
+        Assert.Contains("ProjectStorageKey", page, StringComparison.Ordinal);
+    }
+
     private static string CommGrd() => RazorSource.Read(Path.Combine(
         SolutionRoot(), "src", "Shared", "JSini.Web.Components", "Data", "CommGrd.razor"));
 

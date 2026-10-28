@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
 using JSini.Web.Abstractions;
 using JSini.Web.Components.Data;
 using JSini.Web.Components.Layout;
@@ -16,8 +17,19 @@ public partial class ScheduleNote : IDisposable
     /// <summary>떠날 때 쓰던 모습을 맡기는 곳. 돌아오면 그대로 되찾는다.</summary>
     [Inject] private ScreenState Screen { get; set; } = default!;
 
+    [Inject] private IJSRuntime JS { get; set; } = default!;
+
+    [Inject] private CurrentUser Me { get; set; } = default!;
+
     /// <summary>이 화면이 맡겨 두는 짐의 이름.</summary>
     internal const string StateKey = "projmng/proj/schedule-note";
+
+    /// <summary>사용한 프로젝트를 브라우저에 적어 둘 때 쓰는 저장소 열쇠 앞부분.</summary>
+    internal const string ProjectStorageKeyPrefix = "jsini-snote-prj:";
+
+    /// <summary>현재 로그인한 사용자별 저장소 열쇠.</summary>
+    private string ProjectStorageKey =>
+        $"{ProjectStorageKeyPrefix}{(string.IsNullOrWhiteSpace(Me?.Username) ? "?" : Me.Username.Trim())}";
 
     /// <summary>떠날 때 챙기는 입력 내용과 상태. 다른 화면에 갔다 돌아와도 그대로 살린다.</summary>
     private sealed record Kept(
@@ -40,6 +52,31 @@ public partial class ScheduleNote : IDisposable
     private const string DefaultKind = "Public";
 
     private string? _projectCode;
+
+    /// <summary>
+    /// 고른 프로젝트. 바꾸면 브라우저 저장소에 적어 두어 다음 접속 때도 같은 프로젝트로 연다.
+    /// </summary>
+    private string? ProjectCode
+    {
+        get => _projectCode;
+        set
+        {
+            if (string.Equals(_projectCode, value, StringComparison.Ordinal)) return;
+
+            _projectCode = value;
+            if (_storageReady && !string.IsNullOrWhiteSpace(value))
+            {
+                _ = RememberProjectAsync(value);
+            }
+        }
+    }
+
+    /// <summary>브라우저 저장소를 읽을 준비가 되었는가. 첫 복원 전에 들어오는 값은 기억을 덮지 않는다.</summary>
+    private bool _storageReady;
+
+    /// <summary>화면을 떠났다 돌아왔을 때 ScreenState 에서 되찾았는가.</summary>
+    private bool _fromScreenState;
+
     private string? _kind = DefaultKind;
     private DateOnly? _start;
     private DateOnly? _end;
@@ -202,6 +239,7 @@ public partial class ScheduleNote : IDisposable
             _saved = saved;
             _start = saved.PlanSdt;
             _end = saved.PlanEdt;
+            _ = RememberProjectAsync(_projectCode);
         }
     }
 
@@ -211,6 +249,7 @@ public partial class ScheduleNote : IDisposable
         if (Screen.Get<Kept>(StateKey) is not { } kept) return;
 
         _projectCode = kept.ProjectCode;
+        _fromScreenState = !string.IsNullOrWhiteSpace(_projectCode);
         _kind = kept.Kind;
         _start = kept.Start;
         _end = kept.End;
@@ -228,6 +267,60 @@ public partial class ScheduleNote : IDisposable
         _saved = kept.Saved;
         _model = kept.Model;
         _failed = kept.Failed;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        try
+        {
+            if (!_fromScreenState)
+            {
+                var remembered = await ReadRememberedProjectAsync();
+                if (!string.IsNullOrWhiteSpace(remembered) && !string.Equals(_projectCode, remembered, StringComparison.Ordinal))
+                {
+                    _projectCode = remembered;
+                    StateHasChanged();
+                }
+            }
+        }
+        finally
+        {
+            _storageReady = true;
+        }
+    }
+
+    /// <summary>브라우저 저장소에서 마지막으로 사용한 프로젝트를 읽는다.</summary>
+    private async Task<string?> ReadRememberedProjectAsync()
+    {
+        try
+        {
+            return await JS.InvokeAsync<string?>("localStorage.getItem", ProjectStorageKey);
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or InvalidOperationException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>사용한 프로젝트를 브라우저 저장소에 적어 둔다.</summary>
+    private async Task RememberProjectAsync(string? code)
+    {
+        if (string.IsNullOrWhiteSpace(code)) return;
+
+        try
+        {
+            await JS.InvokeVoidAsync("localStorage.setItem", ProjectStorageKey, code);
+        }
+        catch (JSDisconnectedException)
+        {
+            // 창이 닫혔다.
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException)
+        {
+            // 저장소가 막혔거나 꽉 찼다.
+        }
     }
 
     private void Reset()
