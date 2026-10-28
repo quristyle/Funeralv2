@@ -45,20 +45,20 @@
     </DxFormLayoutItem>
 
     <DxFormLayoutItem Caption="계획 시작" ColSpanMd="6">
-        <DxDateEdit Date="@Day(Item.PlanSdt)" DateChanged="@((DateTime? d) => Item.PlanSdt = Only(d))" />
+        <DxDateEdit Date="@Day(Item.PlanSdt)" DateChanged="@((DateTime? d) => Item.PlanSdt = Only(d))" ValidationEnabled="false" />
     </DxFormLayoutItem>
 
     <DxFormLayoutItem Caption="계획 종료" ColSpanMd="6">
-        <DxDateEdit Date="@Day(Item.PlanEdt)" DateChanged="@((DateTime? d) => Item.PlanEdt = Only(d))" />
+        <DxDateEdit Date="@Day(Item.PlanEdt)" DateChanged="@((DateTime? d) => Item.PlanEdt = Only(d))" ValidationEnabled="false" />
     </DxFormLayoutItem>
 
     @* 이 둘이 진행 상태를 정한다 — 대기·진행·완료는 적는 칸이 아니다. *@
     <DxFormLayoutItem Caption="개발 시작" ColSpanMd="6">
-        <DxDateEdit Date="@Day(Item.DevSdt)" DateChanged="@((DateTime? d) => Item.DevSdt = Only(d))" />
+        <DxDateEdit Date="@Day(Item.DevSdt)" DateChanged="@((DateTime? d) => Item.DevSdt = Only(d))" ValidationEnabled="false" />
     </DxFormLayoutItem>
 
     <DxFormLayoutItem Caption="개발 종료" ColSpanMd="6">
-        <DxDateEdit Date="@Day(Item.DevEdt)" DateChanged="@((DateTime? d) => Item.DevEdt = Only(d))" />
+        <DxDateEdit Date="@Day(Item.DevEdt)" DateChanged="@((DateTime? d) => Item.DevEdt = Only(d))" ValidationEnabled="false" />
     </DxFormLayoutItem>
 
     <DxFormLayoutItem Caption="메모" ColSpanMd="12">

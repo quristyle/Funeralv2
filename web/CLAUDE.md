@@ -3155,6 +3155,11 @@ BlazorMonaco 는 스크립트 세 장이 전역에 있기를 기대한다. 없�
 끊는다.** 셋 다 `ValidationEnabled="false"` 로 껐다 — 우리는 DevExpress
 검증을 쓰지 않는다.
 
+**`DxDateEdit` 를 `Date`/`DateChanged` 로 묶어도 같다**(`DateExpression`).
+`WbsEditForm` 의 날짜 칸 넷이 그래서 WBS·일정표의 「수정」을 누르는 순간
+노란 띠를 띄웠다. `WbsEditFormRenderTests` 가 편집 창과 같은 `EditContext`
+안에서 그 폼을 실제로 그려 막는다.
+
 ## 회사 소개 사이트 (`src/Site/JSini.PublicSite`)
 
 **정적 SSR 전용이다.** `AddInteractiveServerComponents()` 를 부르지 않는다 —
