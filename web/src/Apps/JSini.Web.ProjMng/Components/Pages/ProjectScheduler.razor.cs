@@ -48,7 +48,8 @@ public partial class ProjectScheduler : IAsyncDisposable
         _completeStateName,
         _view == CalView.Table && (_tableStart is not null || _tableEnd is not null)
             ? $"{_tableStart:yyyy-MM-dd} ~ {_tableEnd:yyyy-MM-dd}"
-            : null);
+            : null,
+        _view == CalView.Table && !string.IsNullOrWhiteSpace(_keyword) ? $"「{_keyword.Trim()}」" : null);
 
     /// <summary>고른 값의 이름들. 코드만 들고, 목록은 CodeSelect 가 쥐고 있어 부품이 @bind-Text 로 올려 준다.</summary>
     private string? _projectName;
@@ -65,6 +66,40 @@ public partial class ProjectScheduler : IAsyncDisposable
 
     /// <summary>작은 캘린더에서 범위 선택 시 첫째 날을 찍고 둘째 날을 대기 중인가.</summary>
     private bool _selectingRange;
+
+    /// <summary>표 보기의 내용 검색어. 제목·메모·원문 어디에든 들어 있으면 남긴다.</summary>
+    private string? _keyword;
+
+    /// <summary>표에 까는 줄. 달력 보기와 작은 달력 건수는 거르지 않은 <see cref="_rows"/> 를 그대로 쓴다.
+    /// 거른 결과를 들고 있는다 — 그릴 때마다 새 목록을 주면 표가 자료가 바뀐 것으로 읽고 고른 줄을 다시 잡는다.</summary>
+    private IReadOnlyList<WbsItemDto> TableRows
+    {
+        get
+        {
+            var key = _keyword?.Trim();
+
+            if (string.IsNullOrEmpty(key))
+            {
+                return _rows;
+            }
+
+            if (!ReferenceEquals(_filteredFrom, _rows) || _filteredKey != key)
+            {
+                _filteredFrom = _rows;
+                _filteredKey = key;
+                _filtered = [.. _rows.Where(w => Has(w.ProcNm, key) || Has(w.Comm, key) || Has(w.BodyText, key))];
+            }
+
+            return _filtered;
+
+            static bool Has(string? text, string key) =>
+                text is not null && text.Contains(key, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    private IReadOnlyList<WbsItemDto>? _filteredFrom;
+    private string? _filteredKey;
+    private IReadOnlyList<WbsItemDto> _filtered = [];
 
     private DateTime? TableStartDateTime => _tableStart?.ToDateTime(TimeOnly.MinValue);
     private DateTime? TableEndDateTime => _tableEnd?.ToDateTime(TimeOnly.MinValue);
@@ -182,7 +217,7 @@ public partial class ProjectScheduler : IAsyncDisposable
 
     private int? ProjectRid => int.TryParse(_projectCode, out var rid) ? rid : null;
 
-    private string Hint => $"{_rows.Count}건";
+    private string Hint => $"{TableRows.Count}건";
 
     /// <summary>주·일 보기에서만 쓴다. 월은 직접 그린다.</summary>
     private SchedulerViewType ViewType =>

@@ -163,6 +163,13 @@
                                             DateChanged="@((DateTime? d) => OnTableEndChangedAsync(d))"
                                             ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
                             </CommSchItem>
+                            @* 읽어 둔 줄을 화면에서 거른다 — 글자마다 서버를 부르지 않는다. *@
+                            <CommSchItem Label="내용">
+                                <DxTextBox @bind-Text="_keyword"
+                                           BindValueMode="BindValueMode.OnInput" InputDelay="300"
+                                           ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                                           ValidationEnabled="false" />
+                            </CommSchItem>
                         }
                     </Fields>
                 </CommSch>
@@ -187,7 +194,7 @@
                        수백 개의 부품이 한꺼번에 서서 화면이 얼어붙는다. 나머지 줄은 글자만 그리고, 줄을 누르면 그 줄이 편집칸이 된다.
                        첫 줄을 저절로 고르지 않는다 — 고르면 열자마자 한 줄이 입력칸으로 서서 그만큼 다시 무거워진다. *@
                     <CommGrd TItem="WbsItemDto"
-                             Data="@_rows"
+                             Data="@TableRows"
                              KeyFieldName="@nameof(WbsItemDto.WbsId)"
                              EditFormTitle="일정"
                              ExportName="일정표"
