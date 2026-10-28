@@ -101,6 +101,16 @@ builder.Services.AddScoped<AuthServer.Services.ReportMailSender>();
 // 때가 된 배치를 찾아 보내는 발송기. **배치 줄이 없으면 아무 일도 안 한다** —
 // `ReportMail:Enabled` 를 false 로 두면 아예 돌지 않는다.
 builder.Services.AddHostedService<AuthServer.Services.ReportMailDispatcher>();
+
+// 내부 장비(192.168.219.229) Ping 감시 — 두절·두절 지속·복구를 SERVER_PING 이벤트로 알린다.
+// 주기와 문턱은 `ServerPing` 설정이고, 받는 사람은 알림관리 정책이 정한다.
+builder.Services.AddHttpClient(AuthServer.Services.ServerPingWatcher.NotifyClient, (sp, c) =>
+{
+    var baseUrl = sp.GetRequiredService<IConfiguration>()["Notify:BaseUrl"] ?? "http://127.0.0.1:5460";
+    c.BaseAddress = new Uri(baseUrl.TrimEnd('/'));
+    c.Timeout = TimeSpan.FromSeconds(15);
+});
+builder.Services.AddHostedService<AuthServer.Services.ServerPingWatcher>();
 builder.Services.AddScoped<IRoleAssignmentService, RoleAssignmentService>();
 // 로그인과 갱신이 **같은 코드로** 토큰을 만들게 한다 (AccessTokenFactory 머리말 참고).
 builder.Services.AddScoped<AccessTokenFactory>();

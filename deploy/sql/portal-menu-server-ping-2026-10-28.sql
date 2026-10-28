@@ -83,7 +83,7 @@ INSERT INTO scom.notification_events (
 VALUES (
     'SERVER_PING',
     '내부 서버 Ping (192.168.219.229)',
-    '192.168.219.229 장비 통신 불가(서버 다운) 시 알림',
+    '192.168.219.229 장비 통신 두절(3회 연속 실패) 시 알림 · 두절이 이어지면 60분마다 다시 · 통신 정상화 시 복구 알림',
     'SERVER_PING',
     'NotificationServer',
     'ROLE',

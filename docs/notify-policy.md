@@ -477,6 +477,24 @@ SiteServer 의 `InquiryMail:ToRole`(= `SYSTEM_ADMINISTRATOR`). 그런데 정책�
 - 누르면 여는 화면: `SERVER_PING` 은 `/admin/status/server-ping`, 나머지는 알림관리.
 - 발송 기록(`push_send_logs`)에 `sent_by` = 누른 사람으로 남는다 — 받은 사람의 「내 알림함」에도 뜬다.
 
+## 내부 서버 Ping — 두절 · 두절 지속 · 복구 (2026-10-28)
+
+`SERVER_PING` 을 내는 것은 화면이 아니라 AuthServer 의 배경 작업(`ServerPingWatcher`)이다.
+화면(`/admin/status/server-ping`)은 10초마다 상태를 **보여 줄 뿐** 알림을 내지 않는다 —
+이 작업이 생기기 전에는 그 화면만 있어서 **두절 알림이 한 통도 안 나갔다**.
+
+| 언제 | 알림 |
+|---|---|
+| 30초마다 Ping 해서 **3회 연속** 실패(첫 실패부터 약 1분) | `[서버 두절]` |
+| 두절이 이어지는 동안 **60분마다** | `[서버 두절 지속] … N시간 M분째` |
+| 두절을 알린 뒤 처음으로 응답 | `[서버 복구] … 두절 시간 약 N분` |
+
+- 한두 번 튀는 실패는 알리지 않고, 두절을 알리지 않았으면 복구도 알리지 않는다(`ServerPingAlertPlan`).
+- 숫자는 `appsettings.json` 의 `ServerPing`(`IntervalSeconds` · `FailThreshold` · `RepeatMinutes` — 0 이면 한 번만).
+- 받는 사람·길은 이 표의 정책이다. 정책에 역할이 없으면 `SYSTEM_ADMINISTRATOR` 로 간다. 메일은 `email_from_push` 로 함께 나간다.
+- 같은 장비의 알림은 기기에서 한 장으로 겹친다(`tag`) — 복구가 두절 알림을 덮는다.
+- 상태는 메모리에만 있다. 두절 중에 AuthServer 가 다시 뜨면 두절 알림이 한 번 더 간다.
+
 ## 권한
 
 메뉴 권한은 `SYSTEM_ADMINISTRATOR` 하나다. 이 화면은 회사의 알림 규칙을 통째로

@@ -66,10 +66,10 @@
 </DxFormLayout>
 
 @* ── 하단: 장비 통신 불가(다운) 시 알림 수신 대상 안내 ── *@
-<CommCont Hint="192.168.219.229 장비와 통신이 확인되지 않을 때 메일과 앱 푸시를 수신하는 대상 목록입니다.">
+<CommCont Hint="192.168.219.229 장비의 두절·복구 알림을 메일과 앱 푸시로 받는 대상 목록입니다.">
     <TitleTemplate>
         <div class="d-flex align-items-center gap-2">
-            <h2 class="commcont__title m-0">서버 다운 시 알림 수신 대상 (메일 · 앱푸시)</h2>
+            <h2 class="commcont__title m-0">서버 두절 · 복구 알림 수신 대상 (메일 · 앱푸시)</h2>
             <span class="jsini-badge jsini-badge--info">이벤트: SERVER_PING</span>
         </div>
     </TitleTemplate>
@@ -83,7 +83,8 @@
         <div class="alert alert-info py-2 px-3 mb-3 d-flex align-items-center justify-content-between">
             <div>
                 <strong>알림 연동 정책 안내:</strong>
-                해당 장비(192.168.219.229)와 통신이 불가할 경우 아래 수신자들에게 <strong>이메일</strong> 및 <strong>앱 푸시</strong>가 발송됩니다.
+                서버가 30초마다 장비를 확인해 <strong>3회 연속(약 1분 반) 응답이 없으면</strong> 아래 수신자들에게 <strong>이메일</strong> 및 <strong>앱 푸시</strong>를 보내고,
+                두절이 이어지면 <strong>60분마다</strong> 다시 보내며, 통신이 <strong>정상화되면 복구 알림</strong>을 보냅니다.
                 수신 역할 및 채널은 <a href="/admin/system/notify-policy" class="alert-link">알림관리(/admin/system/notify-policy)</a> 화면에서 추가하거나 수정할 수 있습니다.
             </div>
             <DxButton Text="알림관리(/admin/system/notify-policy)"

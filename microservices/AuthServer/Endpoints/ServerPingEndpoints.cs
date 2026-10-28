@@ -32,7 +32,7 @@ public static class ServerPingEndpoints
         .WithName("CheckServerPing");
     }
 
-    private static async Task<ServerPingResultDto> PingServerAsync(
+    internal static async Task<ServerPingResultDto> PingServerAsync(
         string targetIp, int timeoutMs, CancellationToken ct)
     {
         var dto = new ServerPingResultDto
