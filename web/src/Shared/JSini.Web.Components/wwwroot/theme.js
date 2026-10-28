@@ -2284,7 +2284,9 @@
       return;
     }
 
-    btn.classList.toggle('is-visible', !!box && box.isConnected && box.scrollTop > THRESHOLD);
+    // 떠난 「화면 유지」 화면의 상자는 DOM 에 남아 있다 — 그것을 들고 있으면 안 보이는 화면을 올리는 단추가 뜬다.
+    var live = !!box && box.isConnected && !box.closest('.jsini-shell__content--parked');
+    btn.classList.toggle('is-visible', live && box.scrollTop > THRESHOLD);
   }
 
   /** 본문 안의 판이 **화면을 대신 구르는** 그 판인가. */
@@ -2302,7 +2304,7 @@
       if (box && !box.isConnected) box = null;
 
       sync();
-    }).observe(content, { childList: true });
+    }).observe(content, { childList: true, attributes: true, attributeFilter: ['class'] });
   }
 
   document.addEventListener('scroll', function (e) {

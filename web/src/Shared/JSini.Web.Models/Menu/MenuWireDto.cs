@@ -49,6 +49,7 @@ public sealed class MenuWireDto
         HideInMenu = Meta.HideInMenu ?? false,
         Link = Meta.Link,
         IframeSrc = Meta.IframeSrc,
+        KeepAlive = Meta.KeepAlive ?? false,
         OrderNo = Meta.Order ?? 0,
         Children = Children?.Select(c => c.ToNode()).ToList() ?? [],
     };
@@ -56,7 +57,7 @@ public sealed class MenuWireDto
 
 /// <summary>
 /// 메뉴의 부가 정보. vben 라우트 메타를 그대로 본뜬 이름들이라 Blazor 에서
-/// 쓰이지 않는 칸이 여럿 있다(<c>keepAlive</c> · <c>affixTab</c> · <c>domCached</c>).
+/// 쓰이지 않는 칸이 여럿 있다(<c>affixTab</c> · <c>domCached</c>).
 /// 그 칸들은 여기 두지 않는다 — 안 쓰는 값을 옮겨 두면 나중에 누가 쓰려다
 /// 아무 효과가 없어 헤맨다.
 /// </summary>
@@ -81,6 +82,10 @@ public sealed class MenuMetaWireDto
     /// <summary>iframe 으로 띄울 주소. 유형이 EMBEDDED 인 메뉴가 쓴다. 서버는 오래전부터 보냈는데 이 칸이 없어 버려지고 있었다. 화면들이 주소를 코드에 박아 두던 까닭이다.</summary>
     [JsonPropertyName("iframeSrc")]
     public string? IframeSrc { get; set; }
+
+    /// <summary>탭을 옮겨도 화면을 살려 둘지(<c>keep_alive</c>).</summary>
+    [JsonPropertyName("keepAlive")]
+    public bool? KeepAlive { get; set; }
 
     [JsonPropertyName("order")]
     public int? Order { get; set; }

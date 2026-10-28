@@ -224,6 +224,13 @@ else
                 </div>
             </DxFormLayoutItem>
 
+            @* 켠 화면은 탭을 옮겨도 부품이 살아 있다 — 입력하던 값·구른 자리·펼친 줄이 그대로다. 보이지 않는 동안에도 돌므로 스스로 갱신하는 화면은 켜지 않는다. *@
+            <DxFormLayoutItem Caption="화면 유지" ColSpanMd="12">
+                <div class="ad-checks">
+                    <DxCheckBox @bind-Checked="_edit.Meta.KeepAlive" Enabled="@UsesKeepAlive">탭을 옮겨도 화면 유지 (keepAlive)</DxCheckBox>
+                </div>
+            </DxFormLayoutItem>
+
             <DxFormLayoutItem Caption="기기" ColSpanMd="12">
                 @* 화면 크기별 노출. 사이드바가 이 값으로 메뉴를 거른다. *@
                 <div class="ad-checks">

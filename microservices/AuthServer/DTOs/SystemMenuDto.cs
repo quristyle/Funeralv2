@@ -71,7 +71,7 @@ public class SystemMenuMetaDto
     public bool HideInTab { get; set; }
 
     /// <summary>페이지 캐싱(Keep-Alive) 여부</summary>
-    public bool KeepAlive { get; set; } = true;
+    public bool KeepAlive { get; set; }
 
     /// <summary>탭 고정 여부</summary>
     public bool AffixTab { get; set; }

@@ -2,7 +2,7 @@ using JSini.Web.Abstractions;
 
 namespace JSini.Web.Components.Layout;
 
-/// <summary>열어 둔 업무 화면 목록(vben 의 탭 바를 옮긴 것). 탭은 주소 목록일 뿐이라 화면 상태를 들고 있지 않는다 — 떠난 화면을 살려 두면 자동 갱신 화면이 보이지 않는 채 서버를 계속 부른다. 탭이 화면을 직접 갈아 끼우지 않고 라우팅 결과를 보고 켠다. scoped — 회로 하나가 곧 창 하나다.</summary>
+/// <summary>열어 둔 업무 화면 목록(vben 의 탭 바를 옮긴 것). 탭은 주소 목록일 뿐이라 화면 상태를 들고 있지 않는다 — 떠난 화면을 살려 두면 자동 갱신 화면이 보이지 않는 채 서버를 계속 부른다. 메뉴에서 「화면 유지」를 켠 화면만 KeepAliveScreens 가 탭이 열린 동안 살려 둔다. 탭이 화면을 직접 갈아 끼우지 않고 라우팅 결과를 보고 켠다. scoped — 회로 하나가 곧 창 하나다.</summary>
 public sealed class PortalTabs
 {
     /// <summary>한 번에 열어 둘 탭 수. 넘으면 가장 오래 안 본 탭부터 닫는다 — 무한정 열면 탭 줄이 여러 줄이 되어 본문이 좁아진다.</summary>

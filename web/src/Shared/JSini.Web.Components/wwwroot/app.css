@@ -1288,6 +1288,24 @@ body.jsini-drawer-resizing {
   position: relative;
 }
 
+/* 본문들의 자리. 「화면 유지」 화면은 저마다 제 본문을 갖고(KeepAliveScreens), 안 보이는 본문은 같은 자리에 겹쳐 세워 둔다. 덮개(.jsini-pageload)도 여기 깔린다. */
+.jsini-shell__stack {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* 떠난 「화면 유지」 화면. display: none 으로 감추지 않는다 — 상자가 없어지면 구른 자리가 0 으로 돌아가고 표가 치수를 다시 잰다. 같은 크기로 겹쳐 두고 그리지만 않는다. content-visibility 가 있어야 안쪽에서 visibility: visible 을 쓴 부품이 비쳐 나오지 않는다. */
+.jsini-shell__content--parked {
+  position: absolute;
+  inset: 0;
+  visibility: hidden;
+  content-visibility: hidden;
+  pointer-events: none;
+}
+
 /* 탭 줄. 데모에는 없지만 브레드크럼 줄과 같은 높이·바탕으로 맞춰 두 줄이 한 덩어리로 보이게 한다. */
 
 .jsini-tabs {

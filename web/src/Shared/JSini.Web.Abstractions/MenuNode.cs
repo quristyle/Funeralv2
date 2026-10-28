@@ -45,6 +45,9 @@ public sealed record MenuNode
     /// <summary>iframe 으로 띄울 바깥 주소(EMBEDDED). Link 는 새 창으로 나가는 주소라 다르다. 화면이 주소를 박아 두지 않으려고 DB 값을 그대로 나른다.</summary>
     public string? IframeSrc { get; init; }
 
+    /// <summary>탭을 옮겨도 화면을 살려 둔다 (<c>keep_alive</c>). 셸의 KeepAliveScreens 가 이 값을 본다.</summary>
+    public bool KeepAlive { get; init; }
+
     /// <summary>같은 부모 안에서의 정렬 순서 (<c>order_no</c>).</summary>
     public int OrderNo { get; init; }
 

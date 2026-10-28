@@ -22,6 +22,7 @@ public partial class MainLayout
     [Inject] private PortalBootstrap Bootstrap { get; set; } = default!;
     [Inject] private PortalBoot Boot { get; set; } = default!;
     [Inject] private PortalTabs Tabs { get; set; } = default!;
+    [Inject] private KeepAliveScreens KeepAlive { get; set; } = default!;
     [Inject] private MenuReveal Reveal { get; set; } = default!;
 
     /// <summary>사용자 판 접기 손잡이. ☰ 로 사이드바를 펼 때 함께 접는다 — 휴대폰에서 그 판이 헤더 아래를 덮어 안 접으면 메뉴가 가린다.</summary>
@@ -210,6 +211,10 @@ public partial class MainLayout
 
         // 탭 줄이 볼 수 없는 화면을 세우지 않게, 되살릴 때와 걷을 때 같은 판정(PortalTabs.CanShow)을 쓴다. 서비스는 회로마다 하나라 치울 때 비우지 않는다.
         Tabs.CanShow = CanShowHref;
+
+        // 살려 둔 화면은 옛 레이아웃과 함께 사라졌다. 비우지 않으면 숨은 것까지 한꺼번에 다시 만들어져 조회가 몰린다.
+        KeepAlive.Reset();
+        Tabs.Changed += OnTabsChanged;
 
         Menus.MenusChanged += OnMenusChanged;
         Navigation.LocationChanged += OnLocationChanged;
@@ -467,6 +472,7 @@ public partial class MainLayout
         {
             _body = Body;
             _bodyChanged = true;
+            ShowKeptScreen();
         }
 
         ApplyViewport();
@@ -755,6 +761,29 @@ public partial class MainLayout
         Tabs.Prune();
     }
 
+    /// <summary>라우터가 화면을 갈았다. 「화면 유지」 메뉴면 살려 둔 것을 꺼낸다. Track 보다 먼저 불린다(라우터가 LocationChanged 를 먼저 듣는다) — 거기서 가르면 첫 그림에 @Body 로 한 벌이 만들어졌다가 버려져 조회가 두 번 돈다.</summary>
+    private void ShowKeptScreen()
+    {
+        var href = CurrentHref();
+        var trail = Menus.Trail(href);
+        var keep = trail.Count > 0 && trail[^1].KeepAlive && MayOpen(trail[^1]);
+
+        KeepAlive.Show(href, keep, typeof(MainLayout));
+    }
+
+    /// <summary>본문 하나의 클래스. 안 보이는 본문은 자리에 세워 둔 채 감춘다 — display: none 이면 구른 자리와 표의 치수가 날아간다.</summary>
+    private static string ContentCss(bool shown) =>
+        shown ? "jsini-shell__content" : "jsini-shell__content jsini-shell__content--parked";
+
+    /// <summary>탭이 닫혔으면 살려 둔 화면도 놓아 준다 — 놓아야 Dispose 가 불려 타이머가 멈춘다.</summary>
+    private void OnTabsChanged()
+    {
+        if (KeepAlive.Retain(Tabs.Items.Select(t => t.Href)))
+        {
+            InvokeAsync(StateHasChanged);
+        }
+    }
+
     /// <summary>이 메뉴의 화면을 열 수 있는가. 판정은 ScreenAccess.CanOpen 에 맡긴다. 권한표를 받기 전에는 막지 않는다 — 막으면 새로고침마다 「권한이 없습니다」가 한 번 스친다.</summary>
     private bool MayOpen(MenuNode node) => Access.CanOpen(node);
 
@@ -812,6 +841,7 @@ public partial class MainLayout
     {
         Menus.MenusChanged -= OnMenusChanged;
         Navigation.LocationChanged -= OnLocationChanged;
+        Tabs.Changed -= OnTabsChanged;
         Reveal.Requested -= OnMenuRevealRequested;
         _navigating?.Dispose();
         Me.Changed -= OnMeChanged;

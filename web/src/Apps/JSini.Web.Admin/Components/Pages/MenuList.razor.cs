@@ -76,6 +76,9 @@ public partial class MenuList
     /// <summary>탭 고정은 화면이 있는 메뉴(화면·내장)에서만.</summary>
     private bool UsesAffixTab => Kind is "EMBEDDED" or "MENU";
 
+    /// <summary>화면 유지는 셸이 직접 그리는 화면(화면·내장)에서만 뜻이 있다.</summary>
+    private bool UsesKeepAlive => Kind is "EMBEDDED" or "MENU";
+
     /// <summary>메뉴에서 숨김·탭·기기 노출은 버튼만 뺀다.</summary>
     private bool UsesVisibility => Kind != "BUTTON";
 

@@ -3564,6 +3564,36 @@ DevExpress 의 클래스 이름(`dxbl-…`)은 판올림마다 바뀔 수 있고
 이 장치는 전부 **끊어져도 화면이 멀쩡하다** — 돌아왔을 때 조건이 비어 있을
 뿐이다. 그래서 `ScreenKeepAliveTests` 가 글자로 지킨다.
 
+#### 메뉴에서 「화면 유지」를 켠 화면은 부품째 살려 둔다 — `KeepAliveScreens`
+
+위 장치는 화면이 **직접** 맡기고 찾는 값만 남는다. 손대지 않은 화면도 통째로
+「그대로」이길 바라면 포털관리 > 메뉴관리의 수정 팝업에서 **「탭을 옮겨도 화면
+유지 (keepAlive)」**를 켠다(`scom.system_menus.keep_alive`, 기본은 꺼짐).
+켠 화면은 탭이 열려 있는 동안 **부품이 죽지 않는다** — 쳐 둔 글자 · 펼친 줄 ·
+표의 구른 자리 · 열린 판이 그대로다. 탭을 닫으면 그때 Dispose 된다.
+
+| 자리 | 하는 일 |
+|---|---|
+| `Routes.razor` 의 `KeepAliveRoute` | 라우터가 고른 화면(`RouteData`)을 적는다. 레이아웃은 그것을 못 받는다. **`ScreenGate` 보다 앞**이어야 레이아웃보다 먼저 적힌다 |
+| `MainLayout.ShowKeptScreen` | 본문이 갈릴 때(`OnParametersSet`) 메뉴의 `KeepAlive` 와 권한을 보고 켤지 가른다. `Track` 에서 가르면 늦다 — 라우터가 `LocationChanged` 를 먼저 들어서 첫 그림에 `@Body` 로 한 벌이 만들어졌다가 버려진다 |
+| `MainLayout.razor` | 살려 둔 화면은 `@Body` 가 아니라 `@key` 를 단 `DynamicComponent` 로 **제 `<main class="jsini-shell__content">` 에** 그린다 |
+| `.jsini-shell__content--parked` | 떠난 본문. **`display: none` 이 아니라** 같은 자리에 겹쳐 세우고 `visibility` · `content-visibility` 로 안 그린다. 상자가 없어지면 구른 자리가 0 으로 돌아간다 |
+
+본문을 화면마다 따로 두는 까닭은 **`.jsini-shell__content > .commcont` 같은
+바로-아래 규칙이 서른 개쯤** 있어서다. 화면을 `<div>` 로 한 겹 싸면 그것들이
+전부 안 걸려 높이 사슬이 끊긴다.
+
+켜기 전에 볼 것 둘.
+
+- **숨은 화면도 돈다.** 타이머·자동 갱신·`LocationChanged` 구독이 보이지 않는
+  채로 계속 서버를 부른다. 스스로 갱신하는 화면(빈소현황 · SM 모니터링)은 켜지
+  않는다. 탭 상한(12)이 곧 살아 있는 화면 수의 상한이다.
+- **새로고침(F5)·레이아웃이 바뀌는 이동**(막힌 화면 · 없는 주소)에서는 함께
+  사라진다. 레이아웃이 새로 생기면 `KeepAliveScreens.Reset()` 으로 비운다 —
+  안 비우면 숨은 화면이 한꺼번에 다시 만들어져 조회가 몰린다.
+
+`KeepAliveScreensTests` 가 위 연결을 지킨다.
+
 ### `CommGrd` 에 `EventCallback` 을 splat 하면 화면이 500 으로 죽는다
 
 **실제로 두 화면이 그래서 안 열리고 있었다**(공통코드 · 기기관리).

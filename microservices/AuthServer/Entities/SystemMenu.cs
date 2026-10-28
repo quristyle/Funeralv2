@@ -85,9 +85,9 @@ public class SystemMenu : BaseEntity<string>
     [Column("hide_in_tab")]
     public bool HideInTab { get; set; } = false;
 
-    /// <summary>페이지 캐싱(Keep-Alive) 적용 여부</summary>
+    /// <summary>탭을 옮겨도 화면을 살려 둘지(Keep-Alive). 켠 화면은 보이지 않는 동안에도 돌므로 기본은 끈다 — DB 기본값과 같아야 한다.</summary>
     [Column("keep_alive")]
-    public bool KeepAlive { get; set; } = true;
+    public bool KeepAlive { get; set; } = false;
 
     /// <summary>탭 고정 여부</summary>
     [Column("affix_tab")]

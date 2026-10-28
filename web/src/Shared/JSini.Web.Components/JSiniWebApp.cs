@@ -218,6 +218,9 @@ public static class JSiniWebApp
         // 떠난 화면의 상태(조건·목록·표 모습)를 맡겨 두는 통. 회로마다 하나다(ScreenState).
         services.AddScoped<ScreenState>();
 
+        // 「화면 유지」 메뉴의 화면을 탭이 열린 동안 살려 두는 통(KeepAliveScreens).
+        services.AddScoped<KeepAliveScreens>();
+
         // 토스트 통. 회로마다 하나여야 한다(싱글턴이면 남의 알림이 뜬다).
         services.AddScoped<Toasts>();
 

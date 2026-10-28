@@ -1254,7 +1254,9 @@ public sealed class SystemMenuMetaDto
     public bool HideChildrenInMenu { get; set; }
     public bool HideInBreadcrumb { get; set; }
     public bool HideInTab { get; set; }
-    public bool KeepAlive { get; set; } = true;
+
+    /// <summary>탭을 옮겨도 화면을 살려 둘지. 셸이 이 값으로 화면을 숨겨 두고 돌아오면 그대로 꺼낸다.</summary>
+    public bool KeepAlive { get; set; }
     public bool AffixTab { get; set; }
     public string? Link { get; set; }
     public string? IframeSrc { get; set; }
