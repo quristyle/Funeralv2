@@ -2025,3 +2025,46 @@ public sealed class ServerPingResultDto
     public string? Message { get; set; }
     public DateTime CheckedAt { get; set; } = DateTime.UtcNow;
 }
+
+/// <summary>내부 서버 Ping 감시 대상 장비 DTO.</summary>
+public sealed class ServerPingTargetDto
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Ip { get; set; } = string.Empty;
+    public int TimeoutMs { get; set; } = 2000;
+    public bool IsActive { get; set; } = true;
+    public int SortOrder { get; set; }
+    public string? Description { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+}
+
+/// <summary>장비 등록 요청 DTO.</summary>
+public sealed class CreateServerPingTargetDto
+{
+    public string Name { get; set; } = string.Empty;
+    public string Ip { get; set; } = string.Empty;
+    public int TimeoutMs { get; set; } = 2000;
+    public bool IsActive { get; set; } = true;
+    public int SortOrder { get; set; }
+    public string? Description { get; set; }
+}
+
+/// <summary>장비 수정 요청 DTO.</summary>
+public sealed class UpdateServerPingTargetDto
+{
+    public string Name { get; set; } = string.Empty;
+    public string Ip { get; set; } = string.Empty;
+    public int TimeoutMs { get; set; } = 2000;
+    public bool IsActive { get; set; } = true;
+    public int SortOrder { get; set; }
+    public string? Description { get; set; }
+}
+
+/// <summary>장비 정보 및 실시간 Ping 상태를 함께 담는 DTO.</summary>
+public sealed class ServerPingDeviceStatusDto
+{
+    public ServerPingTargetDto Target { get; set; } = new();
+    public ServerPingResultDto PingResult { get; set; } = new();
+}

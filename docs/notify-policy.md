@@ -477,12 +477,12 @@ SiteServer 의 `InquiryMail:ToRole`(= `SYSTEM_ADMINISTRATOR`). 그런데 정책�
 - 누르면 여는 화면: `SERVER_PING` 은 `/admin/status/server-ping`, 나머지는 알림관리.
 - 발송 기록(`push_send_logs`)에 `sent_by` = 누른 사람으로 남는다 — 받은 사람의 「내 알림함」에도 뜬다.
 
-## 내부 서버 Ping — 두절 · 두절 지속 · 복구 (2026-10-28, 2026-10-29 확장)
+## 내부 서버 Ping — 두절 · 두절 지속 · 복구 (2026-10-28, 2026-10-29 확장, 2026-10-30 동적 장비 관리 연동)
 
 `SERVER_PING` 을 내는 것은 화면이 아니라 AuthServer 의 배경 작업(`ServerPingWatcher`)이다.
 화면(`/admin/status/server-ping`)은 10초마다 상태를 **보여 줄 뿐** 알림을 내지 않는다 —
 이 작업이 생기기 전에는 그 화면만 있어서 **두절 알림이 한 통도 안 나갔다**.
-2026-10-29부터 기존 그리드 중계 장비(192.168.219.229)에 더해 jin sm 장비(192.168.219.224)도 함께 독립적으로 감시하고 알린다.
+2026-10-30부터 Ping 감시 대상 장비는 관리 화면(`/admin/status/server-ping-manage`)에서 동적으로 등록·수정·삭제하며, `scom.server_ping_targets` 테이블에 저장되어 `ServerPingWatcher`가 주기적으로 동기화하여 감시하고 알린다 (DB 장애 시 설정 파일 fallback 유지).
 
 | 언제 | 알림 |
 |---|---|

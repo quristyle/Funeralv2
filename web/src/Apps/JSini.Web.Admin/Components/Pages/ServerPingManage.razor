@@ -1,0 +1,133 @@
+@page "/admin/status/server-ping-manage"
+@attribute [RouteKey("admin.status.server-ping-manage")]
+
+@*
+    [Ping 감시 장비 관리]
+    내부 네트워크에서 생존 여부를 모니터링할 장비(IP)를 등록, 수정, 삭제하고 사용 여부를 관리한다.
+    여기서 등록/수정한 장비는 /admin/status/server-ping 화면에서 실시간 모니터링되며,
+    AuthServer(ServerPingWatcher)를 통해 두절·복구 시 메일과 앱 푸시 알림을 자동으로 받는다.
+*@
+
+@inherits DataPage
+
+<PageTitle>Ping 감시 장비 관리</PageTitle>
+
+<CommSch OnSearch="@ReloadAsync" OnReset="@ResetAsync" Busy="@Loading" Foldable="false">
+    <Fields>
+        <CommSchItem Label="검색어">
+            <DxTextBox @bind-Text="_keyword"
+                       NullText="장비명 또는 IP 주소"
+                       Style="width: 220px"
+                       ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        </CommSchItem>
+        <CommSchItem Label="감시 상태">
+            <DxCheckBox @bind-Checked="_activeOnly">감시 중인 장비만</DxCheckBox>
+        </CommSchItem>
+    </Fields>
+    <Actions>
+        <DxButton Text="모니터링 화면 바로가기"
+                  RenderStyle="ButtonRenderStyle.Secondary"
+                  IconCssClass="jsini-icon-activity"
+                  Click="@GoToMonitor" />
+    </Actions>
+</CommSch>
+
+<CommCont Title="Ping 감시 대상 장비 목록">
+    <CommGrd TItem="ServerPingTargetDto"
+             Data="@Shown"
+             EditFormTitle="Ping 감시 장비"
+             ExportName="Ping감시장비목록"
+             PageSize="20"
+             Unit="대"
+             OnNew="@FillNew"
+             OnSave="@SaveAsync"
+             OnDelete="@DeleteAsync"
+             Reload="@ReloadAsync">
+        <Columns>
+            <DxGridDataColumn FieldName="@nameof(ServerPingTargetDto.SortOrder)" Caption="순서" Width="70" TextAlignment="GridTextAlignment.Center" />
+            
+            <DxGridDataColumn FieldName="@nameof(ServerPingTargetDto.Name)" Caption="장비명" MinWidth="150" TextAlignment="GridTextAlignment.Left">
+                <CellDisplayTemplate Context="cell">
+                    <span class="fw-bold">@(((ServerPingTargetDto)cell.DataItem).Name)</span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(ServerPingTargetDto.Ip)" Caption="IP 주소" Width="150" TextAlignment="GridTextAlignment.Left">
+                <CellDisplayTemplate Context="cell">
+                    <span class="ad-code">@(((ServerPingTargetDto)cell.DataItem).Ip)</span>
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(ServerPingTargetDto.TimeoutMs)" Caption="타임아웃" Width="100" TextAlignment="GridTextAlignment.Right">
+                <CellDisplayTemplate Context="cell">
+                    @(((ServerPingTargetDto)cell.DataItem).TimeoutMs) ms
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn Caption="감시 여부" Width="110" TextAlignment="GridTextAlignment.Center">
+                <CellDisplayTemplate Context="cell">
+                    @if (((ServerPingTargetDto)cell.DataItem).IsActive)
+                    {
+                        <span class="jsini-badge jsini-badge--on">감시 중</span>
+                    }
+                    else
+                    {
+                        <span class="jsini-badge jsini-badge--off">미감시</span>
+                    }
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
+            <DxGridDataColumn FieldName="@nameof(ServerPingTargetDto.Description)" Caption="비고 / 설명" MinWidth="200" TextAlignment="GridTextAlignment.Left" />
+
+            <DxGridDataColumn Caption="즉시 테스트" Width="120" TextAlignment="GridTextAlignment.Center">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var target = (ServerPingTargetDto)cell.DataItem;
+                    }
+                    <DxButton Text="Ping 시험"
+                              RenderStyle="ButtonRenderStyle.Secondary"
+                              Size="ButtonSize.Small"
+                              Enabled="@(!_testingIps.Contains(target.Ip))"
+                              Click="@(() => TestPingAsync(target))" />
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+        </Columns>
+
+        <EditFormTemplate Context="edit">
+            @{
+                var item = (ServerPingTargetDto)edit.EditModel;
+            }
+            <DxFormLayout CssClass="ad-editform">
+                <DxFormLayoutItem Caption="장비명" ColSpanMd="6">
+                    <DxTextBox @bind-Text="item.Name" NullText="예: 그리드 중계 장비" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="IP 주소" ColSpanMd="6">
+                    <DxTextBox @bind-Text="item.Ip" NullText="예: 192.168.219.229" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="타임아웃(ms)" ColSpanMd="4">
+                    <DxSpinEdit @bind-Value="item.TimeoutMs" MinValue="500" MaxValue="10000" StepValue="500" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="정렬 순서" ColSpanMd="4">
+                    <DxSpinEdit @bind-Value="item.SortOrder" MinValue="0" MaxValue="999" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="감시 여부" ColSpanMd="4">
+                    <DxCheckBox @bind-Checked="item.IsActive">실시간 Ping 감시 활성화</DxCheckBox>
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="비고 / 설명" ColSpanMd="12">
+                    <DxTextBox @bind-Text="item.Description" NullText="장비 용도 및 설치 위치 메모" />
+                </DxFormLayoutItem>
+            </DxFormLayout>
+        </EditFormTemplate>
+    </CommGrd>
+
+    <div class="alert alert-light border mt-3 mb-0 small text-muted">
+        <strong>안내:</strong>
+        여기서 등록하거나 수정한 장비는 <strong>내부 서버 Ping 모니터링(/admin/status/server-ping)</strong> 화면에 즉시 노출되며,
+        배경 감시기(ServerPingWatcher)가 주기적으로 핑을 확인하여 통신 두절 및 정상 복구 시 등록된 알림 정책(SERVER_PING)에 따라 메일 및 앱 푸시를 발송합니다.
+    </div>
+</CommCont>

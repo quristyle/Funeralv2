@@ -836,6 +836,32 @@ public sealed class AdminClient(GatewayClient gateway)
         => gateway.GetOneAsync<ServerPingResultDto>(
             "auth/server-ping" + Query(("ip", ip), ("timeout", timeout)), ct);
 
+    /// <summary>감시 대상 장비 목록을 조회한다.</summary>
+    public Task<IReadOnlyList<ServerPingTargetDto>> GetServerPingTargetsAsync(
+        bool? activeOnly = null, CancellationToken ct = default)
+        => gateway.GetListAsync<ServerPingTargetDto>(
+            "auth/server-ping/targets" + Query(("activeOnly", activeOnly)), ct);
+
+    /// <summary>감시 대상 장비를 등록한다.</summary>
+    public Task<ServerPingTargetDto?> CreateServerPingTargetAsync(
+        CreateServerPingTargetDto dto, CancellationToken ct = default)
+        => gateway.PostAsync<ServerPingTargetDto>("auth/server-ping/targets", dto, ct);
+
+    /// <summary>감시 대상 장비를 수정한다.</summary>
+    public Task<ServerPingTargetDto?> UpdateServerPingTargetAsync(
+        int id, UpdateServerPingTargetDto dto, CancellationToken ct = default)
+        => gateway.PutAsync<ServerPingTargetDto>($"auth/server-ping/targets/{id}", dto, ct);
+
+    /// <summary>감시 대상 장비를 삭제(소프트 삭제)한다.</summary>
+    public Task DeleteServerPingTargetAsync(
+        int id, CancellationToken ct = default)
+        => gateway.DeleteAsync($"auth/server-ping/targets/{id}", ct);
+
+    /// <summary>모든 활성 감시 장비의 실시간 Ping 상태를 조회한다.</summary>
+    public Task<IReadOnlyList<ServerPingDeviceStatusDto>> GetAllServerPingStatusAsync(
+        CancellationToken ct = default)
+        => gateway.GetListAsync<ServerPingDeviceStatusDto>("auth/server-ping/targets-status", ct);
+
     /// <summary>쿼리스트링을 만든다. 값이 null 이거나 빈 문자열이면 뺀다.</summary>
     private static string Query(params (string Key, object? Value)[] parameters)
     {

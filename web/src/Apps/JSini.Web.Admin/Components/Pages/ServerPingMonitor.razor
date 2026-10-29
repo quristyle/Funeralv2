@@ -4,120 +4,112 @@
 
 @*
     [내부 서버 Ping 모니터링]
-    내부 장비(그리드 중계 장비 192.168.219.229 · jin sm 장비 192.168.219.224)로 Ping을 호출하여 서버 생존 여부를 실시간으로 확인한다.
-    장비와 통신이 확인되지 않는 경우(서버 다운) 메일과 앱푸시를 수신할 대상을 표시하며,
-    알림 정책은 /admin/system/notify-policy 에서 관리한다.
+    등록된 내부 장비(그리드 중계 장비 · jin sm 장비 등)로 Ping을 호출하여 서버 생존 여부를 실시간으로 확인한다.
+    새로운 장비 추가 및 관리는 /admin/status/server-ping-manage 화면에서 설정하며,
+    장비와 통신이 확인되지 않는 경우(서버 다운) 메일과 앱푸시를 수신할 대상을 표시하며 알림 정책은 /admin/system/notify-policy 에서 관리한다.
 *@
 
 <PageTitle>내부 서버 Ping 모니터링</PageTitle>
 
-@* ── 상단: 내부 장비 생존 상태 ── *@
-<DxFormLayout CssClass="ad-deck mb-4">
-    <DxFormLayoutGroup Decoration="FormLayoutGroupDecoration.Card"
-                       ExpandButtonDisplayMode="GroupExpandButtonDisplayMode.None"
-                       ColSpanXs="12" ColSpanMd="6"
-                       CssClass="@($"ad-card ad-card--{GetCardTone(GridResult)}")">
-        <CaptionTemplate>
-            <span class="ad-card__name">그리드 중계 장비 (192.168.219.229)</span>
-            <span class="jsini-badge @GetBadgeClass(GridResult)">@GetBadgeText(GridResult)</span>
-            <span class="ad-card__sub">ICMP Ping 실시간 모니터링</span>
-        </CaptionTemplate>
-        <Items>
-            <DxFormLayoutItem ColSpanXs="12">
-                <Template>
-                    <div class="ad-tally">
-                        <div class="ad-tally__cell @(GridResult?.IsAlive == true ? "ad-tally--up" : "ad-tally--down")">
-                            <span class="ad-tally__num">@(GridResult?.IsAlive == true ? "정상" : (GridResult == null ? "—" : "중지"))</span>
-                            <span class="ad-tally__label">상태</span>
-                        </div>
-                        <div class="ad-tally__cell">
-                            <span class="ad-tally__num">@(GridResult?.IsAlive == true ? $"{GridResult.RoundtripTimeMs} ms" : "—")</span>
-                            <span class="ad-tally__label">왕복 시간(RTT)</span>
-                        </div>
-                        <div class="ad-tally__cell">
-                            <span class="ad-tally__num">@(GridResult?.TargetIp ?? TargetGridIp)</span>
-                            <span class="ad-tally__label">장비 IP</span>
-                        </div>
-                        <div class="ad-tally__cell">
-                            <span class="ad-tally__num">@(GridResult?.Status ?? "확인 중")</span>
-                            <span class="ad-tally__label">응답 코드</span>
-                        </div>
+@* ── 상단 도구 모음: 새로고침 및 장비 관리 바로가기 ── *@
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <div>
+        <span class="text-muted small">
+            @(RefreshedAt is { } at ? $"{at.Kst("HH:mm:ss")} 기준" : "확인 중") · 10초마다 자동 갱신
+        </span>
+    </div>
+    <div class="d-flex gap-2">
+        <DxButton Text="다시 확인"
+                  RenderStyle="ButtonRenderStyle.Secondary"
+                  IconCssClass="jsini-icon-refresh"
+                  Enabled="@(!_checking)"
+                  Click="@ReloadAsync" />
+        <DxButton Text="감시 장비 관리"
+                  RenderStyle="ButtonRenderStyle.Primary"
+                  IconCssClass="jsini-icon-settings"
+                  Click="@GoToManage" />
+    </div>
+</div>
 
-                        <div class="ad-tally__tail">
-                            <DxButton Text="다시 확인" RenderStyle="ButtonRenderStyle.Secondary"
-                                      Enabled="@(!_checking)"
-                                      Click="@ReloadAsync" />
-                            <span class="ad-stamp">
-                                @(RefreshedAt is { } at ? $"{at.Kst("HH:mm:ss")} 기준" : "확인 중") · 10초마다
-                            </span>
-                        </div>
-                    </div>
+@* ── 장비 생존 상태 카드 목록 ── *@
+@if (_devices.Count > 0)
+{
+    <DxFormLayout CssClass="ad-deck mb-4">
+        @foreach (var device in _devices)
+        {
+            var ping = device.PingResult;
+            var target = device.Target;
+            <DxFormLayoutGroup Decoration="FormLayoutGroupDecoration.Card"
+                               ExpandButtonDisplayMode="GroupExpandButtonDisplayMode.None"
+                               ColSpanXs="12" ColSpanMd="6"
+                               CssClass="@($"ad-card ad-card--{GetCardTone(ping)}")">
+                <CaptionTemplate>
+                    <span class="ad-card__name">@target.Name (@target.Ip)</span>
+                    <span class="jsini-badge @GetBadgeClass(ping)">@GetBadgeText(ping)</span>
+                    <span class="ad-card__sub">ICMP Ping 실시간 모니터링</span>
+                </CaptionTemplate>
+                <Items>
+                    <DxFormLayoutItem ColSpanXs="12">
+                        <Template>
+                            <div class="ad-tally">
+                                <div class="ad-tally__cell @(ping?.IsAlive == true ? "ad-tally--up" : "ad-tally--down")">
+                                    <span class="ad-tally__num">@(ping?.IsAlive == true ? "정상" : (ping == null ? "—" : "중지"))</span>
+                                    <span class="ad-tally__label">상태</span>
+                                </div>
+                                <div class="ad-tally__cell">
+                                    <span class="ad-tally__num">@(ping?.IsAlive == true ? $"{ping.RoundtripTimeMs} ms" : "—")</span>
+                                    <span class="ad-tally__label">왕복 시간(RTT)</span>
+                                </div>
+                                <div class="ad-tally__cell">
+                                    <span class="ad-tally__num">@target.Ip</span>
+                                    <span class="ad-tally__label">장비 IP</span>
+                                </div>
+                                <div class="ad-tally__cell">
+                                    <span class="ad-tally__num">@(ping?.Status ?? "확인 중")</span>
+                                    <span class="ad-tally__label">응답 코드</span>
+                                </div>
 
-                    @if (!string.IsNullOrWhiteSpace(GridResult?.Message))
-                    {
-                        <div class="ad-card__why mt-2">
-                            <span class="fw-bold">안내: </span>@GridResult.Message
-                        </div>
-                    }
-                </Template>
-            </DxFormLayoutItem>
-        </Items>
-    </DxFormLayoutGroup>
+                                <div class="ad-tally__tail">
+                                    <DxButton Text="확인"
+                                              RenderStyle="ButtonRenderStyle.Secondary"
+                                              Size="ButtonSize.Small"
+                                              Enabled="@(!_checking)"
+                                              Click="@(() => ReloadSingleDeviceAsync(device))" />
+                                </div>
+                            </div>
 
-    <DxFormLayoutGroup Decoration="FormLayoutGroupDecoration.Card"
-                       ExpandButtonDisplayMode="GroupExpandButtonDisplayMode.None"
-                       ColSpanXs="12" ColSpanMd="6"
-                       CssClass="@($"ad-card ad-card--{GetCardTone(JinSmResult)}")">
-        <CaptionTemplate>
-            <span class="ad-card__name">jin sm 장비 (192.168.219.224)</span>
-            <span class="jsini-badge @GetBadgeClass(JinSmResult)">@GetBadgeText(JinSmResult)</span>
-            <span class="ad-card__sub">ICMP Ping 실시간 모니터링</span>
-        </CaptionTemplate>
-        <Items>
-            <DxFormLayoutItem ColSpanXs="12">
-                <Template>
-                    <div class="ad-tally">
-                        <div class="ad-tally__cell @(JinSmResult?.IsAlive == true ? "ad-tally--up" : "ad-tally--down")">
-                            <span class="ad-tally__num">@(JinSmResult?.IsAlive == true ? "정상" : (JinSmResult == null ? "—" : "중지"))</span>
-                            <span class="ad-tally__label">상태</span>
-                        </div>
-                        <div class="ad-tally__cell">
-                            <span class="ad-tally__num">@(JinSmResult?.IsAlive == true ? $"{JinSmResult.RoundtripTimeMs} ms" : "—")</span>
-                            <span class="ad-tally__label">왕복 시간(RTT)</span>
-                        </div>
-                        <div class="ad-tally__cell">
-                            <span class="ad-tally__num">@(JinSmResult?.TargetIp ?? TargetJinSmIp)</span>
-                            <span class="ad-tally__label">장비 IP</span>
-                        </div>
-                        <div class="ad-tally__cell">
-                            <span class="ad-tally__num">@(JinSmResult?.Status ?? "확인 중")</span>
-                            <span class="ad-tally__label">응답 코드</span>
-                        </div>
-
-                        <div class="ad-tally__tail">
-                            <DxButton Text="다시 확인" RenderStyle="ButtonRenderStyle.Secondary"
-                                      Enabled="@(!_checking)"
-                                      Click="@ReloadAsync" />
-                            <span class="ad-stamp">
-                                @(RefreshedAt is { } at ? $"{at.Kst("HH:mm:ss")} 기준" : "확인 중") · 10초마다
-                            </span>
-                        </div>
-                    </div>
-
-                    @if (!string.IsNullOrWhiteSpace(JinSmResult?.Message))
-                    {
-                        <div class="ad-card__why mt-2">
-                            <span class="fw-bold">안내: </span>@JinSmResult.Message
-                        </div>
-                    }
-                </Template>
-            </DxFormLayoutItem>
-        </Items>
-    </DxFormLayoutGroup>
-</DxFormLayout>
+                            @if (!string.IsNullOrWhiteSpace(ping?.Message))
+                            {
+                                <div class="ad-card__why mt-2">
+                                    <span class="fw-bold">안내: </span>@ping.Message
+                                </div>
+                            }
+                        </Template>
+                    </DxFormLayoutItem>
+                </Items>
+            </DxFormLayoutGroup>
+        }
+    </DxFormLayout>
+}
+else if (_initialLoaded)
+{
+    <div class="alert alert-warning py-3 px-4 mb-4 d-flex align-items-center justify-content-between">
+        <div>
+            <strong>등록된 감시 장비가 없습니다.</strong>
+            Ping 감시 대상 장비를 등록해야 실시간 상태를 모니터링할 수 있습니다.
+        </div>
+        <DxButton Text="감시 장비 등록하러 가기"
+                  RenderStyle="ButtonRenderStyle.Primary"
+                  Click="@GoToManage" />
+    </div>
+}
+else
+{
+    <PageNotice Text="내부 장비 Ping 상태를 조회하는 중입니다..." Tone="NoticeTone.Info" />
+}
 
 @* ── 하단: 장비 통신 불가(다운) 시 알림 수신 대상 안내 ── *@
-<CommCont Hint="내부 장비(그리드 중계 192.168.219.229, jin sm 192.168.219.224)의 두절·복구 알림을 메일과 앱 푸시로 받는 대상 목록입니다.">
+<CommCont Hint="내부 감시 장비의 두절·복구 알림을 메일과 앱 푸시로 받는 대상 목록입니다.">
     <TitleTemplate>
         <div class="d-flex align-items-center gap-2">
             <h2 class="commcont__title m-0">서버 두절 · 복구 알림 수신 대상 (메일 · 앱푸시)</h2>
@@ -134,7 +126,7 @@
         <div class="alert alert-info py-2 px-3 mb-3 d-flex align-items-center justify-content-between">
             <div>
                 <strong>알림 연동 정책 안내:</strong>
-                서버가 30초마다 두 장비(<strong>그리드 중계 192.168.219.229</strong> 및 <strong>jin sm 192.168.219.224</strong>)를 확인해 <strong>3회 연속(약 1분 반) 응답이 없으면</strong> 아래 수신자들에게 <strong>이메일</strong> 및 <strong>앱 푸시</strong>를 보내고,
+                서버가 30초마다 등록된 각 감시 장비를 확인해 <strong>3회 연속(약 1분 반) 응답이 없으면</strong> 아래 수신자들에게 <strong>이메일</strong> 및 <strong>앱 푸시</strong>를 보내고,
                 두절이 이어지면 <strong>60분마다</strong> 다시 보내며, 통신이 <strong>정상화되면 복구 알림</strong>을 보냅니다.
                 수신 역할 및 채널은 <a href="/admin/system/notify-policy" class="alert-link">알림관리(/admin/system/notify-policy)</a> 화면에서 추가하거나 수정할 수 있습니다.
             </div>

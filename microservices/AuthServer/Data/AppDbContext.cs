@@ -77,6 +77,9 @@ public class AppDbContext : DbContext
     /// <summary>레이아웃 상단 도구 아이콘 목록 및 기본 사용 여부</summary>
     public DbSet<LayoutHeaderIcon> LayoutHeaderIcons { get; set; }
 
+    /// <summary>내부 서버 Ping 감시 대상 장비 목록</summary>
+    public DbSet<ServerPingTarget> ServerPingTargets { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

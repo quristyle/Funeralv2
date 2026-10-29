@@ -7,16 +7,14 @@ namespace JSini.Web.Admin.Components.Pages;
 
 public partial class ServerPingMonitor
 {
-    private const string TargetGridIp = "192.168.219.229";
-    private const string TargetJinSmIp = "192.168.219.224";
     private const string EventCode = "SERVER_PING";
 
     [Inject] private AdminClient Api { get; set; } = default!;
 
-    private ServerPingResultDto? GridResult { get; set; }
-    private ServerPingResultDto? JinSmResult { get; set; }
+    private List<ServerPingDeviceStatusDto> _devices = [];
     private NotifyPolicyPreviewDto? _policyPreview;
     private bool _checking;
+    private bool _initialLoaded;
 
     /// <summary>10초마다 상태를 다시 확인한다.</summary>
     protected override TimeSpan RefreshInterval => TimeSpan.FromSeconds(10);
@@ -54,12 +52,14 @@ public partial class ServerPingMonitor
         _checking = true;
         try
         {
-            var gridTask = SafeAsync(ct => Api.GetServerPingStatusAsync(TargetGridIp, 2000, ct), GridResult);
-            var jinSmTask = SafeAsync(ct => Api.GetServerPingStatusAsync(TargetJinSmIp, 2000, ct), JinSmResult);
+            var statusTask = SafeAsync(ct => Api.GetAllServerPingStatusAsync(ct), (IReadOnlyList<ServerPingDeviceStatusDto>)_devices);
             var policyTask = SafeAsync(ct => Api.GetNotifyRecipientsAsync(EventCode, ct), _policyPreview);
 
-            GridResult = await gridTask;
-            JinSmResult = await jinSmTask;
+            var items = await statusTask;
+            if (items != null && items.Count > 0)
+            {
+                _devices = items.ToList();
+            }
             _policyPreview = await policyTask;
         }
         finally
@@ -74,15 +74,15 @@ public partial class ServerPingMonitor
         _checking = true;
         try
         {
-            var gridTask = Api.GetServerPingStatusAsync(TargetGridIp, 2000);
-            var jinSmTask = Api.GetServerPingStatusAsync(TargetJinSmIp, 2000);
+            var statusTask = Api.GetAllServerPingStatusAsync();
             var policyTask = SafeAsync(ct => Api.GetNotifyRecipientsAsync(EventCode, ct), _policyPreview);
 
-            await Task.WhenAll(gridTask, jinSmTask, policyTask);
+            await Task.WhenAll(statusTask, policyTask);
 
-            GridResult = await gridTask;
-            JinSmResult = await jinSmTask;
+            var items = await statusTask;
+            _devices = items?.ToList() ?? [];
             _policyPreview = await policyTask;
+            _initialLoaded = true;
         }
         catch (Exception ex)
         {
@@ -91,7 +91,30 @@ public partial class ServerPingMonitor
         finally
         {
             _checking = false;
+            _initialLoaded = true;
         }
+    }
+
+    private async Task ReloadSingleDeviceAsync(ServerPingDeviceStatusDto device)
+    {
+        try
+        {
+            var res = await Api.GetServerPingStatusAsync(device.Target.Ip, device.Target.TimeoutMs);
+            if (res != null)
+            {
+                device.PingResult = res;
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Say($"'{device.Target.Name}' 상태 확인 실패: {ex.Message}", NoticeTone.Warning);
+        }
+    }
+
+    private void GoToManage()
+    {
+        Navigation.NavigateTo("/admin/status/server-ping-manage");
     }
 
     private void GoToNotifyPolicy()

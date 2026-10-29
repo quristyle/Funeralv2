@@ -1,20 +1,24 @@
 using System.Text;
 using System.Text.Json;
+using AuthServer.Data;
 using AuthServer.Endpoints;
 using JSini.Shared.DTOs;
 using JSini.Shared.Infrastructure.Time;
+using Microsoft.EntityFrameworkCore;
 
 namespace AuthServer.Services;
 
 /// <summary>
 /// 내부 장비 Ping 감시기 — 주기마다 Ping 을 쳐서 두절·되풀이·복구를 <c>SERVER_PING</c> 이벤트로 알린다.
-/// 그리드 중계 장비(192.168.219.229)와 jin sm 장비(192.168.219.224) 등 각 장비별로 독립된 실패 횟수 및 두절 상태를 유지한다.
+/// DB(scom.server_ping_targets)에 등록된 활성 장비들을 동적으로 읽어오며, 각 장비별로 독립된 실패 횟수 및 두절 상태를 유지한다.
+/// 새 화면에서 장비가 추가·수정·비활성화되면 다음 주기에 자동으로 반영된다.
 /// 받는 사람과 길(앱 푸시·메일)은 알림관리 정책이 정하고, 여기서 싣는 역할은 정책이 없을 때의 받는 사람이다.
 /// 상태는 메모리에만 있어 두절 중에 서버가 다시 뜨면 두절 알림이 한 번 더 간다.
 /// </summary>
 public sealed class ServerPingWatcher(
     IHttpClientFactory httpFactory,
     IConfiguration configuration,
+    IServiceScopeFactory scopeFactory,
     ILogger<ServerPingWatcher> logger) : BackgroundService
 {
     /// <summary>알림 서버를 부르는 통 이름.</summary>
@@ -27,12 +31,16 @@ public sealed class ServerPingWatcher(
 
     private static readonly TimeSpan Warmup = TimeSpan.FromSeconds(30);
 
-    private sealed class TargetWatchState(string ip, string name, ServerPingAlertPlan plan)
+    private sealed class TargetWatchState(string ip, string name, int timeoutMs, ServerPingAlertPlan plan)
     {
         public string Ip { get; } = ip;
-        public string Name { get; } = name;
+        public string Name { get; set; } = name;
+        public int TimeoutMs { get; set; } = timeoutMs;
         public ServerPingAlertPlan Plan { get; } = plan;
     }
+
+    // IP 기준 감시 상태 맵 (연속 실패 횟수 및 두절 시점 유지)
+    private readonly Dictionary<string, TargetWatchState> _targetStates = new(StringComparer.OrdinalIgnoreCase);
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -45,16 +53,12 @@ public sealed class ServerPingWatcher(
         }
 
         var interval = TimeSpan.FromSeconds(Math.Max(5, section.GetValue("IntervalSeconds", 30)));
-        var timeoutMs = Math.Clamp(section.GetValue("TimeoutMs", 2000), 500, 10000);
+        var defaultTimeoutMs = Math.Clamp(section.GetValue("TimeoutMs", 2000), 500, 10000);
         var failThreshold = section.GetValue("FailThreshold", 3);
         var repeatMinutes = section.GetValue("RepeatMinutes", 60);
 
-        var targets = ResolveTargets(section, failThreshold, repeatMinutes);
-
         logger.LogInformation(
-            "내부 장비 Ping 감시기 시작 — {Count}개 장비({TargetSummary}) · {Seconds}초마다 · 연속 {Threshold}회 실패 시 두절 · 되풀이 {Repeat}분",
-            targets.Count,
-            string.Join(", ", targets.Select(t => $"{t.Name}({t.Ip})")),
+            "내부 장비 Ping 감시기 시작 — {Seconds}초마다 · 연속 {Threshold}회 실패 시 두절 · 되풀이 {Repeat}분 (DB scom.server_ping_targets 연동)",
             interval.TotalSeconds,
             failThreshold,
             repeatMinutes);
@@ -66,13 +70,18 @@ public sealed class ServerPingWatcher(
 
         do
         {
+            // 매 주기마다 DB 및 설정을 통해 활성 장비 목록 갱신
+            await SyncWatchTargetsAsync(section, defaultTimeoutMs, failThreshold, repeatMinutes, stoppingToken);
+
+            var targets = _targetStates.Values.ToList();
+
             foreach (var target in targets)
             {
                 if (stoppingToken.IsCancellationRequested) break;
 
                 try
                 {
-                    var result = await ServerPingEndpoints.PingServerAsync(target.Ip, timeoutMs, stoppingToken);
+                    var result = await ServerPingEndpoints.PingServerAsync(target.Ip, target.TimeoutMs, stoppingToken, target.Name);
                     var now = AppTime.UtcNowOffset;
                     var alert = target.Plan.Observe(result.IsAlive, now);
 
@@ -95,7 +104,77 @@ public sealed class ServerPingWatcher(
         while (await WaitAsync(timer, stoppingToken));
     }
 
-    private static List<TargetWatchState> ResolveTargets(IConfigurationSection section, int failThreshold, int repeatMinutes)
+    private async Task SyncWatchTargetsAsync(
+        IConfigurationSection section, int defaultTimeoutMs, int failThreshold, int repeatMinutes, CancellationToken ct)
+    {
+        var activeIps = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // 1. DB (scom.server_ping_targets) 조회
+        try
+        {
+            using var scope = scopeFactory.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            var dbTargets = await db.ServerPingTargets
+                .AsNoTracking()
+                .Where(x => !x.IsDeleted && x.IsActive)
+                .ToListAsync(ct);
+
+            foreach (var item in dbTargets)
+            {
+                var ip = item.Ip.Trim();
+                if (string.IsNullOrEmpty(ip)) continue;
+
+                activeIps.Add(ip);
+                var timeoutMs = item.TimeoutMs > 0 ? item.TimeoutMs : defaultTimeoutMs;
+                var name = !string.IsNullOrWhiteSpace(item.Name) ? item.Name.Trim() : ServerPingEndpoints.GetDefaultDeviceName(ip);
+
+                if (_targetStates.TryGetValue(ip, out var existing))
+                {
+                    existing.Name = name;
+                    existing.TimeoutMs = timeoutMs;
+                }
+                else
+                {
+                    _targetStates[ip] = new TargetWatchState(
+                        ip, name, timeoutMs, new ServerPingAlertPlan(failThreshold, TimeSpan.FromMinutes(repeatMinutes)));
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Ping 대상 장비 DB 목록 조회 실패 — 기존 등록 장비 및 설정 파일로 유지합니다.");
+        }
+
+        // DB에 장비가 하나도 없거나 DB 접속 실패 시 appsettings.json fallback
+        if (activeIps.Count == 0)
+        {
+            var fallbackTargets = ResolveFallbackTargets(section, defaultTimeoutMs, failThreshold, repeatMinutes);
+            foreach (var fb in fallbackTargets)
+            {
+                activeIps.Add(fb.Ip);
+                if (_targetStates.TryGetValue(fb.Ip, out var existing))
+                {
+                    existing.Name = fb.Name;
+                    existing.TimeoutMs = fb.TimeoutMs;
+                }
+                else
+                {
+                    _targetStates[fb.Ip] = fb;
+                }
+            }
+        }
+
+        // 비활성화되었거나 삭제된 장비는 모니터링 목록에서 제거
+        var removedIps = _targetStates.Keys.Where(ip => !activeIps.Contains(ip)).ToList();
+        foreach (var ip in removedIps)
+        {
+            _targetStates.Remove(ip);
+        }
+    }
+
+    private static List<TargetWatchState> ResolveFallbackTargets(
+        IConfigurationSection section, int defaultTimeoutMs, int failThreshold, int repeatMinutes)
     {
         var targets = new List<TargetWatchState>();
         var seenIps = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -115,7 +194,7 @@ public sealed class ServerPingWatcher(
                 }
 
                 targets.Add(new TargetWatchState(
-                    ip, name, new ServerPingAlertPlan(failThreshold, TimeSpan.FromMinutes(repeatMinutes))));
+                    ip, name, defaultTimeoutMs, new ServerPingAlertPlan(failThreshold, TimeSpan.FromMinutes(repeatMinutes))));
             }
         }
 
@@ -125,6 +204,7 @@ public sealed class ServerPingWatcher(
             targets.Add(new TargetWatchState(
                 ServerPingEndpoints.DefaultTargetIp,
                 ServerPingEndpoints.GetDefaultDeviceName(ServerPingEndpoints.DefaultTargetIp),
+                defaultTimeoutMs,
                 new ServerPingAlertPlan(failThreshold, TimeSpan.FromMinutes(repeatMinutes))));
         }
 
@@ -133,16 +213,7 @@ public sealed class ServerPingWatcher(
             targets.Add(new TargetWatchState(
                 ServerPingEndpoints.JinSmTargetIp,
                 ServerPingEndpoints.GetDefaultDeviceName(ServerPingEndpoints.JinSmTargetIp),
-                new ServerPingAlertPlan(failThreshold, TimeSpan.FromMinutes(repeatMinutes))));
-        }
-
-        // 구 설정(TargetIp) 호환
-        var legacyIp = section["TargetIp"]?.Trim();
-        if (!string.IsNullOrEmpty(legacyIp) && seenIps.Add(legacyIp))
-        {
-            targets.Add(new TargetWatchState(
-                legacyIp,
-                ServerPingEndpoints.GetDefaultDeviceName(legacyIp),
+                defaultTimeoutMs,
                 new ServerPingAlertPlan(failThreshold, TimeSpan.FromMinutes(repeatMinutes))));
         }
 
@@ -163,48 +234,42 @@ public sealed class ServerPingWatcher(
 
         logger.LogWarning("내부 장비 Ping 알림 [{Kind}] {Title} — {Body}", alert.Kind, title, body);
 
+        var client = httpFactory.CreateClient(NotifyClient);
+
+        // 받는 사람은 알림관리 정책에 맡긴다 — 정책이 비었을 때만 FallbackRole(SYSTEM_ADMINISTRATOR) 로 간다.
+        var payload = new
+        {
+            category = NotificationEvents.ServerPing,
+            eventCode = NotificationEvents.ServerPing,
+            title,
+            body,
+            linkUrl = MonitorUrl,
+            roles = new[] { FallbackRole },
+        };
+
         try
         {
-            var payload = JsonSerializer.Serialize(new
-            {
-                roles = new[] { FallbackRole },
-                message = new
-                {
-                    title,
-                    body,
-                    url = MonitorUrl,
-                    category = NotificationEvents.ServerPing,
-                    eventCode = NotificationEvents.ServerPing,
+            using var content = new StringContent(
+                JsonSerializer.Serialize(payload),
+                Encoding.UTF8,
+                "application/json");
 
-                    // 같은 장비의 두절·복구는 기기에서 한 장으로 겹친다(복구가 두절 알림을 덮는다).
-                    tag = $"server-ping:{targetIp}",
-                    topic = $"server-ping-{targetIp.Replace('.', '-')}",
-                    ttlSeconds = 3600,
-                },
-            });
-
-            var http = httpFactory.CreateClient(NotifyClient);
-            using var request = new HttpRequestMessage(HttpMethod.Post, "/notifications/push")
+            var resp = await client.PostAsync("/notifications/push", content, ct);
+            if (!resp.IsSuccessStatusCode)
             {
-                Content = new StringContent(payload, Encoding.UTF8, "application/json"),
-            };
-            request.Headers.Add("X-User-Id", "system:server-ping");
-
-            using var response = await http.SendAsync(request, ct);
-
-            // 202 = 앱 푸시도 메일도 한 통도 안 나갔다(구독 없음·이벤트 꺼짐 등). 까닭은 발송 이력에 남는다.
-            if ((int)response.StatusCode == 202)
-            {
-                logger.LogWarning("내부 장비 Ping 알림: 받은 사람이 없습니다 ({Kind}).", alert.Kind);
-            }
-            else if (!response.IsSuccessStatusCode)
-            {
-                logger.LogWarning("내부 장비 Ping 알림 요청 실패: HTTP {Status} ({Kind})", (int)response.StatusCode, alert.Kind);
+                var errorText = await resp.Content.ReadAsStringAsync(ct);
+                logger.LogError(
+                    "내부 장비 Ping 알림 발송 실패 (HTTP {Status}): {Error}",
+                    (int)resp.StatusCode, errorText);
             }
         }
-        catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
-            logger.LogWarning(ex, "내부 장비 Ping 알림 요청 예외 — NotificationServer 가 꺼져 있을 수 있다");
+            throw;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "내부 장비 Ping 알림 발송 중 통신 실패");
         }
     }
 
@@ -239,7 +304,9 @@ public sealed class ServerPingWatcher(
     internal static string FormatDuration(TimeSpan span)
     {
         if (span < TimeSpan.FromMinutes(1)) return "1분 미만";
+        if (span < TimeSpan.FromHours(1)) return $"{(int)span.TotalMinutes}분";
         var hours = (int)span.TotalHours;
-        return hours > 0 ? $"{hours}시간 {span.Minutes}분" : $"{span.Minutes}분";
+        var minutes = span.Minutes;
+        return minutes == 0 ? $"{hours}시간" : $"{hours}시간 {minutes}분";
     }
 }
