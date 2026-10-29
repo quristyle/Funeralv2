@@ -202,7 +202,7 @@ public partial class ProjectScheduler : IAsyncDisposable
     private ConfirmDialog? _confirm;
 
     /// <summary>월 보기 오른쪽의 「고른 날」 목록이 펴져 있나. 휴대폰은 격자 아래 목록이 늘 있어 쓰지 않는다.</summary>
-    private bool _dayPane;
+    private bool _dayPane = true;
 
     private bool ShowDayPane => _dayPane && _view == CalView.Month && !_isPhone;
 
@@ -1172,14 +1172,6 @@ public partial class ProjectScheduler : IAsyncDisposable
     private static string Title(WbsItemDto w) =>
         string.IsNullOrWhiteSpace(w.ProcNm) ? "(제목 없음)" : w.ProcNm;
 
-    /// <summary>목록 한 줄의 아랫줄 — 기간에 담당·종류·메모를 잇는다.</summary>
-    private static string Detail(WbsItemDto w)
-    {
-        var rest = Describe(w);
-
-        return rest.Length == 0 ? Period(w) : $"{Period(w)} · {rest}";
-    }
-
     private static string Period(WbsItemDto w)
     {
         if (w.PlanSdt is null && w.PlanEdt is null)
@@ -1471,8 +1463,36 @@ public partial class ProjectScheduler : IAsyncDisposable
     /// <summary>저장 중인 줄. 응답 전에 한 번 더 누르면 같은 값으로 두 번 가서 되돌린 것이 안 남는다.</summary>
     private readonly HashSet<int> _toggling = [];
 
-    /// <summary>오른쪽 기둥의 상태 단추. 완료는 개발 종료일 하나로 갈리므로 그것만 넣고 뺀다 — 편집 창과 달리 계획일은 그대로 둔다(당기면 고른 날에서 줄이 사라진다).</summary>
-    private async Task ToggleCompleteAsync(WbsItemDto w)
+    private static string AgendaStateName(WbsItemDto w) => GetInlineStateCode(w) switch
+    {
+        "RUNNING" => "진행",
+        "COMP" => "완료",
+        _ => "대기",
+    };
+
+    private static string AgendaStateClass(WbsItemDto w) => GetInlineStateCode(w) switch
+    {
+        "RUNNING" => "jsini-badge--warn",
+        "COMP" => "jsini-badge--on",
+        _ => "jsini-badge--off",
+    };
+
+    private static string NextAgendaStateAction(WbsItemDto w) => GetInlineStateCode(w) switch
+    {
+        "READY" => "진행으로 변경",
+        "RUNNING" => "완료로 변경",
+        _ => "대기로 변경",
+    };
+
+    private static string NextAgendaStateCode(WbsItemDto w) => GetInlineStateCode(w) switch
+    {
+        "READY" => "RUNNING",
+        "RUNNING" => "COMP",
+        _ => "READY",
+    };
+
+    /// <summary>오른쪽 일정 목록의 상태를 대기 → 진행 → 완료 → 대기로 순환한다.</summary>
+    private async Task CycleAgendaStateAsync(WbsItemDto w)
     {
         if (!_canUpdate || !_toggling.Add(w.WbsId))
         {
@@ -1482,21 +1502,33 @@ public partial class ProjectScheduler : IAsyncDisposable
         try
         {
             var next = Copy(w);
-            var completing = next.DevEdt is null;
+            var nextState = NextAgendaStateCode(w);
+            var nextStateAction = nextState switch
+            {
+                "RUNNING" => "진행으로 변경",
+                "COMP" => "완료로 변경",
+                _ => "대기로 변경",
+            };
 
-            if (completing)
+            switch (nextState)
             {
-                next.DevSdt ??= AppTime.TodayDate;
-                next.DevEdt = AppTime.TodayDate;
-            }
-            else
-            {
-                next.DevEdt = null;
+                case "RUNNING":
+                    next.DevSdt ??= AppTime.TodayDate;
+                    next.DevEdt = null;
+                    break;
+                case "COMP":
+                    next.DevSdt ??= AppTime.TodayDate;
+                    next.DevEdt = AppTime.TodayDate;
+                    break;
+                default:
+                    next.DevSdt = null;
+                    next.DevEdt = null;
+                    break;
             }
 
             if (await RunAsync(() => Api.UpdateAsync(next),
-                    completing ? "완료로 바꿨습니다." : "완료를 해제했습니다.",
-                    completing ? "완료로 바꾸지 못했습니다" : "완료를 해제하지 못했습니다"))
+                    $"상태를 {nextStateAction}했습니다.",
+                    "상태를 변경하지 못했습니다"))
             {
                 await SearchAsync();
             }

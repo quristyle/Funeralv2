@@ -1,4 +1,5 @@
 using System.Reflection;
+using JSini.Web.ProjMng.Api;
 using JSini.Web.ProjMng.Components.Pages;
 using Xunit;
 
@@ -87,5 +88,43 @@ public sealed class ProjectSchedulerColumnTests
         Assert.Contains(":root[data-bs-theme='dark'] .pm-inline-edit", css);
         Assert.Contains("--dxbl-text-edit-color: var(--tb-text", css);
         Assert.Contains("color: var(--tb-text, var(--jsini-text, #dee2e6));", css);
+    }
+
+    [Theory]
+    [InlineData("READY", null, "RUNNING")]
+    [InlineData("RUNNING", null, "COMP")]
+    [InlineData("COMP", "COMP", "READY")]
+    public void ProjectScheduler_일정목록_상태가_대기_진행_완료_순으로_순환한다(
+        string state, string? completedState, string expected)
+    {
+        var item = new WbsItemDto
+        {
+            WbsState = state,
+            DevSdt = state == "READY" ? null : new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+            DevEdt = completedState is null ? null : new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+        };
+        var method = typeof(ProjectScheduler).GetMethod("NextAgendaStateCode", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(method);
+
+        var result = (string?)method.Invoke(null, [item]);
+
+        Assert.Equal(expected, result);
+    }
+
+    [Fact]
+    public void ProjectScheduler_처음부터_오늘목록을_열고_왼쪽_만들기_단추는_없다()
+    {
+        var razorPath = Path.Combine(AppContext.BaseDirectory, "../../../../../src/Apps/JSini.Web.ProjMng/Components/Pages/ProjectScheduler.razor");
+        var codePath = Path.Combine(AppContext.BaseDirectory, "../../../../../src/Apps/JSini.Web.ProjMng/Components/Pages/ProjectScheduler.razor.cs");
+        Assert.True(File.Exists(razorPath), $"파일이 존재해야 합니다: {razorPath}");
+        Assert.True(File.Exists(codePath), $"파일이 존재해야 합니다: {codePath}");
+
+        var razor = File.ReadAllText(razorPath);
+        var code = File.ReadAllText(codePath);
+
+        Assert.Contains("private bool _dayPane = true;", code);
+        Assert.DoesNotContain("class=\"pm-gc__create\"", razor);
+        Assert.Contains("CycleAgendaStateAsync(w)", razor);
+        Assert.Contains("@w.Comm", razor);
     }
 }

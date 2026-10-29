@@ -4302,8 +4302,7 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 /* 휴대폰 판정은 화면이 한다(DxLayoutBreakpoint → _isPhone). 여기서 폭으로 또 가르면 두 곳이 어긋나 아무 규칙도 안 걸린 격자가 뜬다. 왼쪽 기둥의 위 이동만 @media 로 둔다. */
 
 .pm-gc {
-  /* 구글의 파랑. 오늘 동그라미 · 고른 보기 · 끌어 놓을 자리가 이 색이다. */
-  --pm-gc-accent: #1a73e8;
+  --pm-gc-accent: var(--tb-primary, #1a73e8);
 
   display: flex;
   flex-direction: column;
@@ -4373,10 +4372,8 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 
 .pm-gc__title {
   margin: 0;
-  font-size: var(--jsini-fs-2xl);
-
-  /* 구글의 제목은 굵지 않다. 굵게 하면 그 옆 단추들이 다 눌려 보인다. */
-  font-weight: 400;
+  font-size: var(--jsini-fs-xl);
+  font-weight: 600;
   white-space: nowrap;
 }
 
@@ -4385,7 +4382,7 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   margin-left: auto;
   overflow: hidden;
   border: 1px solid var(--jsini-border);
-  border-radius: var(--jsini-radius-full);
+  border-radius: var(--jsini-radius-md);
 }
 
 .pm-gc__view {
@@ -4405,8 +4402,9 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 
 .pm-gc__view--on {
   font-weight: 600;
-  color: var(--pm-gc-accent);
-  background: color-mix(in srgb, var(--pm-gc-accent) 14%, transparent);
+  color: var(--jsini-text);
+  background: color-mix(in srgb, var(--pm-gc-accent) 12%, transparent);
+  box-shadow: inset 0 -2px 0 var(--pm-gc-accent);
 }
 
 .pm-gc__add-btn {
@@ -4728,28 +4726,6 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
     flex: 1;
     padding: 0 var(--jsini-sp-sm);
   }
-}
-
-/* 구글의 「만들기」. 이 화면에서 가장 자주 누르는 단추라 기둥 맨 위에 둔다. */
-.pm-gc__create {
-  display: inline-flex;
-  gap: var(--jsini-sp-sm);
-  align-items: center;
-  height: 2.5rem;
-  padding: 0 var(--jsini-sp-xl);
-  margin-bottom: var(--jsini-sp-lg);
-  font: inherit;
-  font-weight: 600;
-  color: var(--jsini-text);
-  cursor: pointer;
-  background: var(--jsini-surface-raised, var(--jsini-surface));
-  border: 1px solid var(--jsini-border);
-  border-radius: var(--jsini-radius-full);
-  box-shadow: var(--jsini-shadow-sm);
-}
-
-.pm-gc__create:hover {
-  box-shadow: var(--jsini-shadow-md);
 }
 
 /* 색이 무엇을 뜻하는지 적어 둔 줄. */
@@ -5184,10 +5160,8 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   flex: 0 0 18rem;
   width: 18rem;
   min-width: 0;
-  padding: var(--jsini-sp-md);
-  background: var(--jsini-surface-raised, var(--jsini-surface));
-  border: 1px solid var(--jsini-border);
-  border-radius: var(--jsini-radius-lg);
+  padding: 0 0 0 var(--jsini-sp-md);
+  border-left: 1px solid var(--jsini-border);
 }
 
 .pm-gc__day-tools {
@@ -5249,7 +5223,9 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   gap: var(--jsini-sp-sm);
   align-items: center;
   justify-content: space-between;
-  margin-bottom: var(--jsini-sp-sm);
+  padding-bottom: var(--jsini-sp-sm);
+  margin-bottom: var(--jsini-sp-xs);
+  border-bottom: 1px solid var(--jsini-border);
 }
 
 .pm-gc-agenda__title {
@@ -5297,7 +5273,7 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: var(--jsini-sp-2xs);
+  gap: 0;
   min-width: 0;
   padding: 0;
   margin: 0;
@@ -5306,21 +5282,21 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 
 .pm-gc-agenda__item {
   min-width: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--jsini-border) 72%, transparent);
 }
 
 /* 고칠 수 없는 사람에게도 줄은 보인다 — 누르는 것만 막는다(disabled). */
 .pm-gc-agenda__btn {
   display: block;
   width: 100%;
-  padding: var(--jsini-sp-sm) var(--jsini-sp-md);
+  padding: var(--jsini-sp-sm) var(--jsini-sp-sm);
   font: inherit;
   color: var(--jsini-text);
   text-align: left;
   cursor: pointer;
-  background: var(--jsini-surface-raised, var(--jsini-surface));
-  border: 1px solid var(--jsini-border);
-  border-left: 4px solid var(--jsini-border);
-  border-radius: var(--jsini-radius-md);
+  background: transparent;
+  border: 0;
+  border-left: 2px solid var(--jsini-border);
 }
 
 .pm-gc-agenda__btn:disabled {
@@ -5347,10 +5323,13 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 }
 
 .pm-gc-agenda__sub {
-  display: block;
   margin-top: var(--jsini-sp-3xs);
+  overflow: hidden;
   font-size: var(--jsini-fs-xs);
   color: var(--jsini-text-muted);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 /* 오른쪽 기둥은 상태가 따로 누르는 단추라 줄 단추 위 오른쪽 귀퉁이에 얹는다. */
@@ -5366,7 +5345,7 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 .pm-gc-agenda__item--toggle .pm-gc-agenda__state {
   position: absolute;
   top: var(--jsini-sp-sm);
-  right: var(--jsini-sp-md);
+  right: var(--jsini-sp-sm);
   font-family: inherit;
   cursor: pointer;
   border: 1px solid currentColor;

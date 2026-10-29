@@ -70,18 +70,11 @@
         @* ── 왼쪽 기둥 ── 휴대폰에서는 접힌 채로 시작한다 — 가운데는 달력이지 조건이 아니다. *@
         <details class="pm-gc__rail" open="@(!_isPhone)">
             <summary class="pm-gc__rail-summary">
-                <span><i class="jsini-icon-filter"></i> 조회 및 등록</span>
+                <span><i class="jsini-icon-filter"></i> 일정 조건</span>
                 <i class="jsini-icon-chevron-down pm-gc__rail-chevron"></i>
             </summary>
 
             <div class="pm-gc__rail-body">
-                <PermissionView Action="MenuAction.Create">
-                    <button type="button" class="pm-gc__create" title="새 일정 (C)"
-                            @onclick="@(() => StartNew(NewItemStart, NewItemEnd))">
-                        <i class="jsini-icon-plus"></i> 만들기
-                    </button>
-                </PermissionView>
-
                 @if (!_isPhone)
                 {
                     <div class="pm-gc-mini">
@@ -575,7 +568,7 @@
                             <ul class="pm-gc-agenda__items">
                                 @foreach (var w in SelectedItems)
                                 {
-                                    @ItemRow(w)
+                                    @ItemRow(w, toggle: true)
                                 }
                             </ul>
                         }
@@ -833,19 +826,20 @@
                     <span class="pm-gc-agenda__name">@Title(w)</span>
                     @if (!toggle)
                     {
-                        <span class="jsini-badge @StateClass(w)">@StateName(w)</span>
+                        <span class="jsini-badge @AgendaStateClass(w)">@AgendaStateName(w)</span>
                     }
                 </span>
-                <span class="pm-gc-agenda__sub">@Detail(w)</span>
+                @if (!string.IsNullOrWhiteSpace(w.Comm))
+                {
+                    <span class="pm-gc-agenda__sub">@w.Comm</span>
+                }
             </button>
             @if (toggle)
             {
-                var done = w.DevEdt is not null;
-                <button type="button" class="jsini-badge @StateClass(w) pm-gc-agenda__state"
+                <button type="button" class="jsini-badge @AgendaStateClass(w) pm-gc-agenda__state"
                         disabled="@(!_canUpdate || _toggling.Contains(w.WbsId))"
-                        aria-pressed="@(done ? "true" : "false")"
-                        title="@(done ? "누르면 완료를 해제합니다" : "누르면 완료로 바꿉니다")"
-                        @onclick="@(() => ToggleCompleteAsync(w))">@StateName(w)</button>
+                        title="@($"눌러 {NextAgendaStateAction(w)}")"
+                        @onclick="@(() => CycleAgendaStateAsync(w))">@AgendaStateName(w)</button>
             }
         </li>;
 }
