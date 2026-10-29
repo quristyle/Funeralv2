@@ -8,6 +8,9 @@ public class ServerPingResultDto
     /// <summary>검사 대상 IP 주소.</summary>
     public string TargetIp { get; set; } = "192.168.219.229";
 
+    /// <summary>검사 대상 장비명 (예: 그리드 중계 장비, jin sm 장비).</summary>
+    public string? DeviceName { get; set; }
+
     /// <summary>서버 생존(응답 수신) 여부.</summary>
     public bool IsAlive { get; set; }
 

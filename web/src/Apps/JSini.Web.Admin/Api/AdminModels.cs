@@ -2018,6 +2018,7 @@ public sealed class MenuSuggestionDto
 public sealed class ServerPingResultDto
 {
     public string TargetIp { get; set; } = "192.168.219.229";
+    public string? DeviceName { get; set; }
     public bool IsAlive { get; set; }
     public long RoundtripTimeMs { get; set; }
     public string Status { get; set; } = string.Empty;

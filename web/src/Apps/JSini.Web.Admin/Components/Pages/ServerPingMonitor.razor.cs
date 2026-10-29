@@ -6,33 +6,35 @@ namespace JSini.Web.Admin.Components.Pages;
 
 public partial class ServerPingMonitor
 {
-    private const string TargetIp = "192.168.219.229";
+    private const string TargetGridIp = "192.168.219.229";
+    private const string TargetJinSmIp = "192.168.219.244";
     private const string EventCode = "SERVER_PING";
 
     [Inject] private AdminClient Api { get; set; } = default!;
 
-    private ServerPingResultDto? PingResult { get; set; }
+    private ServerPingResultDto? GridResult { get; set; }
+    private ServerPingResultDto? JinSmResult { get; set; }
     private NotifyPolicyPreviewDto? _policyPreview;
     private bool _checking;
 
     /// <summary>10초마다 상태를 다시 확인한다.</summary>
     protected override TimeSpan RefreshInterval => TimeSpan.FromSeconds(10);
 
-    private string CardTone => PingResult?.IsAlive switch
+    private static string GetCardTone(ServerPingResultDto? result) => result?.IsAlive switch
     {
         true => "up",
         false => "down",
         null => "warn",
     };
 
-    private string BadgeText => PingResult?.IsAlive switch
+    private static string GetBadgeText(ServerPingResultDto? result) => result?.IsAlive switch
     {
         true => "정상 응답",
         false => "응답 없음",
         null => "확인 중",
     };
 
-    private string BadgeClass => PingResult?.IsAlive switch
+    private static string GetBadgeClass(ServerPingResultDto? result) => result?.IsAlive switch
     {
         true => "jsini-badge--on",
         false => "jsini-badge--err",
@@ -51,8 +53,13 @@ public partial class ServerPingMonitor
         _checking = true;
         try
         {
-            PingResult = await SafeAsync(ct => Api.GetServerPingStatusAsync(TargetIp, 2000, ct), PingResult);
-            _policyPreview = await SafeAsync(ct => Api.GetNotifyRecipientsAsync(EventCode, ct), _policyPreview);
+            var gridTask = SafeAsync(ct => Api.GetServerPingStatusAsync(TargetGridIp, 2000, ct), GridResult);
+            var jinSmTask = SafeAsync(ct => Api.GetServerPingStatusAsync(TargetJinSmIp, 2000, ct), JinSmResult);
+            var policyTask = SafeAsync(ct => Api.GetNotifyRecipientsAsync(EventCode, ct), _policyPreview);
+
+            GridResult = await gridTask;
+            JinSmResult = await jinSmTask;
+            _policyPreview = await policyTask;
         }
         finally
         {
@@ -66,13 +73,19 @@ public partial class ServerPingMonitor
         _checking = true;
         try
         {
-            await LoadOneAsync(
-                () => Api.GetServerPingStatusAsync(TargetIp, 2000),
-                v => PingResult = v,
-                "내부 장비 Ping 상태를 조회하지 못했습니다.",
-                "내부 장비 Ping 조회 실패");
+            var gridTask = Api.GetServerPingStatusAsync(TargetGridIp, 2000);
+            var jinSmTask = Api.GetServerPingStatusAsync(TargetJinSmIp, 2000);
+            var policyTask = SafeAsync(ct => Api.GetNotifyRecipientsAsync(EventCode, ct), _policyPreview);
 
-            _policyPreview = await SafeAsync(ct => Api.GetNotifyRecipientsAsync(EventCode, ct), _policyPreview);
+            await Task.WhenAll(gridTask, jinSmTask, policyTask);
+
+            GridResult = await gridTask;
+            JinSmResult = await jinSmTask;
+            _policyPreview = await policyTask;
+        }
+        catch (Exception ex)
+        {
+            NotifyError("내부 장비 Ping 조회 실패", "내부 장비 Ping 상태를 조회하지 못했습니다: " + ex.Message);
         }
         finally
         {

@@ -7,12 +7,20 @@ using Microsoft.AspNetCore.Mvc;
 namespace AuthServer.Endpoints;
 
 /// <summary>
-/// 내부 장비(192.168.219.229) Ping 모니터링 엔드포인트.
+/// 내부 장비(그리드 중계 192.168.219.229 · jin sm 192.168.219.244 등) Ping 모니터링 엔드포인트.
 /// </summary>
 public static class ServerPingEndpoints
 {
     public const string DefaultTargetIp = "192.168.219.229";
+    public const string JinSmTargetIp = "192.168.219.244";
     private const int DefaultTimeoutMs = 2000;
+
+    public static string GetDefaultDeviceName(string ip) => ip switch
+    {
+        DefaultTargetIp => "그리드 중계 장비",
+        JinSmTargetIp => "jin sm 장비",
+        _ => "내부 장비",
+    };
 
     public static void MapServerPingEndpoints(this IEndpointRouteBuilder app)
     {
@@ -38,6 +46,7 @@ public static class ServerPingEndpoints
         var dto = new ServerPingResultDto
         {
             TargetIp = targetIp,
+            DeviceName = GetDefaultDeviceName(targetIp),
             CheckedAt = DateTime.UtcNow,
         };
 
@@ -115,6 +124,7 @@ public static class ServerPingEndpoints
                     return new ServerPingResultDto
                     {
                         TargetIp = targetIp,
+                        DeviceName = GetDefaultDeviceName(targetIp),
                         IsAlive = true,
                         RoundtripTimeMs = Math.Max(1, sw.ElapsedMilliseconds),
                         Status = "Success",
@@ -129,6 +139,7 @@ public static class ServerPingEndpoints
                     return new ServerPingResultDto
                     {
                         TargetIp = targetIp,
+                        DeviceName = GetDefaultDeviceName(targetIp),
                         IsAlive = false,
                         RoundtripTimeMs = sw.ElapsedMilliseconds,
                         Status = "TimedOut",
@@ -160,6 +171,7 @@ public static class ServerPingEndpoints
                     return new ServerPingResultDto
                     {
                         TargetIp = targetIp,
+                        DeviceName = GetDefaultDeviceName(targetIp),
                         IsAlive = true,
                         RoundtripTimeMs = Math.Max(1, sw.ElapsedMilliseconds),
                         Status = "Success",
@@ -178,6 +190,7 @@ public static class ServerPingEndpoints
         return new ServerPingResultDto
         {
             TargetIp = targetIp,
+            DeviceName = GetDefaultDeviceName(targetIp),
             IsAlive = false,
             RoundtripTimeMs = sw.ElapsedMilliseconds,
             Status = "Unreachable",
