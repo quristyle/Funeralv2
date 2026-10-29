@@ -8,7 +8,7 @@ namespace AuthServer.Services;
 
 /// <summary>
 /// 내부 장비 Ping 감시기 — 주기마다 Ping 을 쳐서 두절·되풀이·복구를 <c>SERVER_PING</c> 이벤트로 알린다.
-/// 그리드 중계 장비(192.168.219.229)와 jin sm 장비(192.168.219.244) 등 각 장비별로 독립된 실패 횟수 및 두절 상태를 유지한다.
+/// 그리드 중계 장비(192.168.219.229)와 jin sm 장비(192.168.219.224) 등 각 장비별로 독립된 실패 횟수 및 두절 상태를 유지한다.
 /// 받는 사람과 길(앱 푸시·메일)은 알림관리 정책이 정하고, 여기서 싣는 역할은 정책이 없을 때의 받는 사람이다.
 /// 상태는 메모리에만 있어 두절 중에 서버가 다시 뜨면 두절 알림이 한 번 더 간다.
 /// </summary>
@@ -119,7 +119,7 @@ public sealed class ServerPingWatcher(
             }
         }
 
-        // 기본 장비: 그리드 중계 장비(192.168.219.229) & jin sm 장비(192.168.219.244)
+        // 기본 장비: 그리드 중계 장비(192.168.219.229) & jin sm 장비(192.168.219.224)
         if (seenIps.Add(ServerPingEndpoints.DefaultTargetIp))
         {
             targets.Add(new TargetWatchState(

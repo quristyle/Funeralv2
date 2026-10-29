@@ -830,7 +830,7 @@ public sealed class AdminClient(GatewayClient gateway)
             $"notification/notification-policies/{Uri.EscapeDataString(eventCode)}/preview-send",
             new NotifyPreviewSendDto { ToTargets = toTargets }, ct);
 
-    /// <summary>내부 장비(그리드 중계 192.168.219.229, jin sm 192.168.219.244 등) Ping 응답 및 생존 여부를 조회한다.</summary>
+    /// <summary>내부 장비(그리드 중계 192.168.219.229, jin sm 192.168.219.224 등) Ping 응답 및 생존 여부를 조회한다.</summary>
     public Task<ServerPingResultDto?> GetServerPingStatusAsync(
         string? ip = null, int? timeout = null, CancellationToken ct = default)
         => gateway.GetOneAsync<ServerPingResultDto>(

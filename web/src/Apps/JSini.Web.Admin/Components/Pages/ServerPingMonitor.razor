@@ -4,7 +4,7 @@
 
 @*
     [내부 서버 Ping 모니터링]
-    내부 장비(그리드 중계 장비 192.168.219.229 · jin sm 장비 192.168.219.244)로 Ping을 호출하여 서버 생존 여부를 실시간으로 확인한다.
+    내부 장비(그리드 중계 장비 192.168.219.229 · jin sm 장비 192.168.219.224)로 Ping을 호출하여 서버 생존 여부를 실시간으로 확인한다.
     장비와 통신이 확인되지 않는 경우(서버 다운) 메일과 앱푸시를 수신할 대상을 표시하며,
     알림 정책은 /admin/system/notify-policy 에서 관리한다.
 *@
@@ -69,7 +69,7 @@
                        ColSpanXs="12" ColSpanMd="6"
                        CssClass="@($"ad-card ad-card--{GetCardTone(JinSmResult)}")">
         <CaptionTemplate>
-            <span class="ad-card__name">jin sm 장비 (192.168.219.244)</span>
+            <span class="ad-card__name">jin sm 장비 (192.168.219.224)</span>
             <span class="jsini-badge @GetBadgeClass(JinSmResult)">@GetBadgeText(JinSmResult)</span>
             <span class="ad-card__sub">ICMP Ping 실시간 모니터링</span>
         </CaptionTemplate>
@@ -117,7 +117,7 @@
 </DxFormLayout>
 
 @* ── 하단: 장비 통신 불가(다운) 시 알림 수신 대상 안내 ── *@
-<CommCont Hint="내부 장비(그리드 중계 192.168.219.229, jin sm 192.168.219.244)의 두절·복구 알림을 메일과 앱 푸시로 받는 대상 목록입니다.">
+<CommCont Hint="내부 장비(그리드 중계 192.168.219.229, jin sm 192.168.219.224)의 두절·복구 알림을 메일과 앱 푸시로 받는 대상 목록입니다.">
     <TitleTemplate>
         <div class="d-flex align-items-center gap-2">
             <h2 class="commcont__title m-0">서버 두절 · 복구 알림 수신 대상 (메일 · 앱푸시)</h2>
@@ -134,7 +134,7 @@
         <div class="alert alert-info py-2 px-3 mb-3 d-flex align-items-center justify-content-between">
             <div>
                 <strong>알림 연동 정책 안내:</strong>
-                서버가 30초마다 두 장비(<strong>그리드 중계 192.168.219.229</strong> 및 <strong>jin sm 192.168.219.244</strong>)를 확인해 <strong>3회 연속(약 1분 반) 응답이 없으면</strong> 아래 수신자들에게 <strong>이메일</strong> 및 <strong>앱 푸시</strong>를 보내고,
+                서버가 30초마다 두 장비(<strong>그리드 중계 192.168.219.229</strong> 및 <strong>jin sm 192.168.219.224</strong>)를 확인해 <strong>3회 연속(약 1분 반) 응답이 없으면</strong> 아래 수신자들에게 <strong>이메일</strong> 및 <strong>앱 푸시</strong>를 보내고,
                 두절이 이어지면 <strong>60분마다</strong> 다시 보내며, 통신이 <strong>정상화되면 복구 알림</strong>을 보냅니다.
                 수신 역할 및 채널은 <a href="/admin/system/notify-policy" class="alert-link">알림관리(/admin/system/notify-policy)</a> 화면에서 추가하거나 수정할 수 있습니다.
             </div>

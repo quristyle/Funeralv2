@@ -102,7 +102,7 @@ builder.Services.AddScoped<AuthServer.Services.ReportMailSender>();
 // `ReportMail:Enabled` 를 false 로 두면 아예 돌지 않는다.
 builder.Services.AddHostedService<AuthServer.Services.ReportMailDispatcher>();
 
-// 내부 장비(그리드 중계 192.168.219.229 · jin sm 192.168.219.244) Ping 감시 — 두절·두절 지속·복구를 SERVER_PING 이벤트로 알린다.
+// 내부 장비(그리드 중계 192.168.219.229 · jin sm 192.168.219.224) Ping 감시 — 두절·두절 지속·복구를 SERVER_PING 이벤트로 알린다.
 // 주기와 문턱은 `ServerPing` 설정이고, 받는 사람은 알림관리 정책이 정한다.
 builder.Services.AddHttpClient(AuthServer.Services.ServerPingWatcher.NotifyClient, (sp, c) =>
 {

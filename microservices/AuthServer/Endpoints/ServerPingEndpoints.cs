@@ -7,12 +7,12 @@ using Microsoft.AspNetCore.Mvc;
 namespace AuthServer.Endpoints;
 
 /// <summary>
-/// 내부 장비(그리드 중계 192.168.219.229 · jin sm 192.168.219.244 등) Ping 모니터링 엔드포인트.
+/// 내부 장비(그리드 중계 192.168.219.229 · jin sm 192.168.219.224 등) Ping 모니터링 엔드포인트.
 /// </summary>
 public static class ServerPingEndpoints
 {
     public const string DefaultTargetIp = "192.168.219.229";
-    public const string JinSmTargetIp = "192.168.219.244";
+    public const string JinSmTargetIp = "192.168.219.224";
     private const int DefaultTimeoutMs = 2000;
 
     public static string GetDefaultDeviceName(string ip) => ip switch

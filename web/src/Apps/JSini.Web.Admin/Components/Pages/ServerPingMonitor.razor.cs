@@ -8,7 +8,7 @@ namespace JSini.Web.Admin.Components.Pages;
 public partial class ServerPingMonitor
 {
     private const string TargetGridIp = "192.168.219.229";
-    private const string TargetJinSmIp = "192.168.219.244";
+    private const string TargetJinSmIp = "192.168.219.224";
     private const string EventCode = "SERVER_PING";
 
     [Inject] private AdminClient Api { get; set; } = default!;

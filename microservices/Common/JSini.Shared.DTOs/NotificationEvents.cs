@@ -54,7 +54,7 @@ public static class NotificationEvents
 /// <summary>계정 안내 메일(비밀번호 재설정 · 가입 승인·거절). 정책 대상이 아니지만 알림관리 목록에 실제로 있어 코드를 적는다.</summary>
     public const string AccountMail = "ACCOUNT_MAIL";
 
-    /// <summary>내부 장비(그리드 중계 192.168.219.229 · jin sm 192.168.219.244) Ping 모니터링 및 두절·복구 알림. 구분 <c>SERVER_PING</c>.</summary>
+    /// <summary>내부 장비(그리드 중계 192.168.219.229 · jin sm 192.168.219.224) Ping 모니터링 및 두절·복구 알림. 구분 <c>SERVER_PING</c>.</summary>
     public const string ServerPing = "SERVER_PING";
 
 /// <summary>
