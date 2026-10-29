@@ -189,6 +189,16 @@ public partial class ProjectScheduler : IAsyncDisposable
     private double _touchX;
     private double _touchY;
 
+    /// <summary>쓸어 넘길 때 밀려 나갔다 들어오는 판. 날 목록(표·목록)과 월 격자가 따로다.</summary>
+    private ElementReference _dayTurnRef;
+    private ElementReference _monthTurnRef;
+
+    private IJSObjectReference? _turnModule;
+
+    /// <summary>새 자료가 그려진 뒤 들어오게 할 방향. 0 이면 할 일이 없다.</summary>
+    private int _turnInDir;
+    private bool _turnInMonth;
+
     private ConfirmDialog? _confirm;
 
     private bool _peeking;
@@ -316,6 +326,13 @@ public partial class ProjectScheduler : IAsyncDisposable
         await base.OnAfterRenderAsync(firstRender);
 
         if (firstRender) await AttachDragAsync();
+
+        if (_turnInDir != 0)
+        {
+            var dir = _turnInDir;
+            _turnInDir = 0;
+            await TurnAsync("turnIn", _turnInMonth ? _monthTurnRef : _dayTurnRef, dir);
+        }
 
         if (!firstRender || _projectRestored) return;
 
@@ -1265,6 +1282,11 @@ public partial class ProjectScheduler : IAsyncDisposable
                 await _dragModule.InvokeVoidAsync("detach");
                 await _dragModule.DisposeAsync();
             }
+
+            if (_turnModule is not null)
+            {
+                await _turnModule.DisposeAsync();
+            }
         }
         catch (JSDisconnectedException)
         {
@@ -1289,7 +1311,7 @@ public partial class ProjectScheduler : IAsyncDisposable
     {
         var direction = SwipeDirection(e);
 
-        return direction == 0 ? Task.CompletedTask : ShiftAsync(direction);
+        return direction == 0 ? Task.CompletedTask : TurnPageAsync(direction, month: true, () => ShiftAsync(direction));
     }
 
     /// <summary>휴대폰에서 일정 목록·표를 좌우로 쓸면 하루 앞뒤로 간다. 월 격자의 쓸기는 그대로 달을 넘긴다.</summary>
@@ -1297,7 +1319,45 @@ public partial class ProjectScheduler : IAsyncDisposable
     {
         var direction = _isPhone ? SwipeDirection(e) : 0;
 
-        return direction == 0 ? Task.CompletedTask : StepDayAsync(direction);
+        return direction == 0 ? Task.CompletedTask : TurnPageAsync(direction, month: false, () => StepDayAsync(direction));
+    }
+
+    /// <summary>
+    /// 판을 쓴 쪽으로 밀어 내고, 새 자료가 그려진 뒤 반대쪽에서 들여온다 — 자료만 바뀌면 넘어간 줄 모른다.
+    /// 들여오기는 그림이 끝난 뒤(OnAfterRenderAsync)라야 새 줄이 움직인다. 조회가 실패해도 들여와야 판이 흐린 채로 안 남는다.
+    /// </summary>
+    private async Task TurnPageAsync(int direction, bool month, Func<Task> step)
+    {
+        await TurnAsync("turnOut", month ? _monthTurnRef : _dayTurnRef, direction);
+
+        try
+        {
+            await step();
+        }
+        finally
+        {
+            _turnInDir = direction;
+            _turnInMonth = month;
+            StateHasChanged();
+        }
+    }
+
+    private async Task TurnAsync(string move, ElementReference target, int direction)
+    {
+        if (target.Context is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _turnModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "./_content/JSini.Web.ProjMng/js/gc-swipe-turn.js");
+            await _turnModule.InvokeVoidAsync(move, target, direction);
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or InvalidOperationException)
+        {
+            // 움직임은 곁다리다 — 못 그려도 날은 넘어가 있다.
+        }
     }
 
     /// <summary>쓴 방향. 왼쪽으로 쓸면 다음(+1)이다 — 종이를 넘기는 쪽과 같다. 세로로 더 많이 움직였으면 0 이다 — 목록을 내릴 때마다 넘어가지 않게.</summary>
