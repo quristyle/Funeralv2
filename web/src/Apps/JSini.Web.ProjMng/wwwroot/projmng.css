@@ -5178,8 +5178,67 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   pointer-events: none;
 }
 
+/* ── 오른쪽 기둥: 월 격자에서 고른 날 ─────────────────────── */
+
+.pm-gc__day {
+  flex: 0 0 18rem;
+  width: 18rem;
+  min-width: 0;
+  padding: var(--jsini-sp-md);
+  background: var(--jsini-surface-raised, var(--jsini-surface));
+  border: 1px solid var(--jsini-border);
+  border-radius: var(--jsini-radius-lg);
+}
+
+.pm-gc__day-tools {
+  display: flex;
+  gap: var(--jsini-sp-xs, 0.25rem);
+  align-items: center;
+}
+
+.pm-gc__day-close {
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  font-size: var(--jsini-fs-lg, 1.125rem);
+  line-height: 1;
+  color: var(--jsini-text-muted);
+  background: none;
+  border: 0;
+  border-radius: var(--jsini-radius-md);
+  cursor: pointer;
+}
+
+.pm-gc__day-close:hover {
+  background: var(--jsini-hover, rgba(0, 0, 0, 0.05));
+}
+
+/* 넓은 화면에서는 달력 옆 기둥으로 서서 제 안에서만 구른다. */
+@media (min-width: 768px) {
+  .pm-gc__day {
+    overflow-y: auto;
+    max-height: 100%;
+  }
+}
+
+/* 태블릿 폭에서는 세 기둥이 달력 몫을 다 먹지 않게 좁힌다. */
+@media (min-width: 768px) and (max-width: 1199px) {
+  .pm-gc__day {
+    flex-basis: 14rem;
+    width: 14rem;
+  }
+}
+
+/* 좁은 화면에서는 달력 아래로 내려선다. */
+@media (max-width: 767px) {
+  .pm-gc__day {
+    flex: none;
+    width: 100%;
+  }
+}
+
 /* ── 일정 목록 ───────────────────────────────────────────────── */
-/* 세 자리(일정 보기 · 휴대폰 격자 아래 · 날 펼침 창)가 같은 줄을 쓴다. */
+/* 세 자리(일정 보기 · 휴대폰 격자 아래 · 월 보기 오른쪽 기둥)가 같은 줄을 쓴다. */
 
 .pm-gc-agenda--under {
   margin-top: var(--jsini-sp-lg);

@@ -201,8 +201,10 @@ public partial class ProjectScheduler : IAsyncDisposable
 
     private ConfirmDialog? _confirm;
 
-    private bool _peeking;
-    private DateOnly _peekDay = AppTime.Today;
+    /// <summary>월 보기 오른쪽의 「고른 날」 목록이 펴져 있나. 휴대폰은 격자 아래 목록이 늘 있어 쓰지 않는다.</summary>
+    private bool _dayPane;
+
+    private bool ShowDayPane => _dayPane && _view == CalView.Month && !_isPhone;
 
     private bool _editing;
     private bool _isNew;
@@ -294,14 +296,8 @@ public partial class ProjectScheduler : IAsyncDisposable
     private IReadOnlyList<WbsItemDto> SelectedItems =>
         _days.FirstOrDefault(d => d.Date == _selected)?.Items ?? [];
 
-    private IReadOnlyList<WbsItemDto> PeekItems =>
-        _days.FirstOrDefault(d => d.Date == _peekDay)?.Items ?? [];
-
     private string AgendaTitle =>
         $"{_selected.Month}월 {_selected.Day}일 ({DowName(_selected.DayOfWeek)})";
-
-    private string PeekTitle =>
-        $"{_peekDay.Month}월 {_peekDay.Day}일 ({DowName(_peekDay.DayOfWeek)})";
 
     protected override void OnInitialized()
     {
@@ -1059,10 +1055,11 @@ public partial class ProjectScheduler : IAsyncDisposable
         _selected = today >= start && today <= end ? today : start;
     }
 
-    /// <summary>칸의 빈 자리를 눌렀다. 날짜의 빈 영역 클릭 시에는 추가창을 띄우지 않고 그 날을 고르기만 한다.</summary>
+    /// <summary>칸의 빈 자리를 눌렀다. 그 날을 고르고 오른쪽에 그 날의 목록을 편다(휴대폰은 격자 아래 목록이 받는다).</summary>
     private Task OnDayClickAsync(DateOnly day)
     {
         _selected = day;
+        _dayPane = true;
         return Task.CompletedTask;
     }
 
@@ -1104,15 +1101,9 @@ public partial class ProjectScheduler : IAsyncDisposable
             return;
         }
 
-        Peek(day);
-    }
-
-    /// <summary>그 날을 작은 창으로 펼친다 — 접힌 것만이 아니라 <b>그 날 전부</b>다.</summary>
-    private void Peek(DateOnly day)
-    {
-        _peekDay = day;
+        // 오른쪽 목록이 그 날 전부라 창을 따로 띄우지 않는다.
         _selected = day;
-        _peeking = true;
+        _dayPane = true;
     }
 
     private string DayCss(CalDay day)
@@ -1442,7 +1433,6 @@ public partial class ProjectScheduler : IAsyncDisposable
 
         _complete = false;
         _isNew = true;
-        _peeking = false;
         _editing = true;
     }
 
@@ -1452,7 +1442,6 @@ public partial class ProjectScheduler : IAsyncDisposable
         _form = Copy(w);
         _complete = w.DevEdt is not null;
         _isNew = false;
-        _peeking = false;
         _editing = true;
     }
 

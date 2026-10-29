@@ -635,36 +635,43 @@
                 </DxScheduler>
             }
         </div>
+
+        @* ── 오른쪽 기둥 ── 월 격자에서 고른 날의 일정. 날을 누르면 펴지고 × 로 접는다. *@
+        @if (ShowDayPane)
+        {
+            <aside class="pm-gc__day" aria-label="@($"{AgendaTitle} 일정")">
+                <div class="pm-gc-agenda__head">
+                    <span class="pm-gc-agenda__title">@AgendaTitle</span>
+
+                    <span class="pm-gc__day-tools">
+                        <PermissionView Action="MenuAction.Create">
+                            <DxButton Text="등록" RenderStyle="ButtonRenderStyle.Primary"
+                                      IconCssClass="jsini-icon-plus"
+                                      Click="@(() => StartNew(_selected, _selected))" />
+                        </PermissionView>
+
+                        <button type="button" class="pm-gc__day-close" aria-label="닫기" title="닫기"
+                                @onclick="@(() => _dayPane = false)">×</button>
+                    </span>
+                </div>
+
+                @if (SelectedItems.Count == 0)
+                {
+                    <p class="pm-gc-agenda__empty">이 날은 일정이 없습니다.</p>
+                }
+                else
+                {
+                    <ul class="pm-gc-agenda__items">
+                        @foreach (var w in SelectedItems)
+                        {
+                            @ItemRow(w)
+                        }
+                    </ul>
+                }
+            </aside>
+        }
     </div>
 </div>
-
-@* 칸을 눌렀을 때 그 날 전부를 펼쳐 보여 주는 작은 창(구글의 「+N개 더보기」). *@
-<CommPopup @bind-Visible="_peeking" HeaderText="@PeekTitle" Width="420px" MaxHeight="70vh">
-    <BodyContentTemplate Context="peek">
-        @if (PeekItems.Count == 0)
-        {
-            <p class="pm-gc-agenda__empty">이 날은 일정이 없습니다.</p>
-        }
-        else
-        {
-            <ul class="pm-gc-agenda__items">
-                @foreach (var w in PeekItems)
-                {
-                    @ItemRow(w)
-                }
-            </ul>
-        }
-    </BodyContentTemplate>
-
-    <FooterContentTemplate Context="peekFooter">
-        <PermissionView Action="MenuAction.Create">
-            <DxButton Text="일정 등록" RenderStyle="ButtonRenderStyle.Primary" IconCssClass="jsini-icon-plus"
-                      Click="@(() => StartNew(_peekDay, _peekDay))" />
-        </PermissionView>
-
-        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _peeking = false)" />
-    </FooterContentTemplate>
-</CommPopup>
 
 @* 달력에서 여는 편집 창. 표의 편집 창과 같은 칸(WbsEditForm)에 이 화면만 필요한 셋(프로젝트·구분·완료)을 앞에 얹었다. *@
 <CommPopup @bind-Visible="_editing" HeaderText="@(_isNew ? "일정 등록" : "일정 수정")"
@@ -813,7 +820,7 @@
 
 <ConfirmDialog @ref="_confirm" />
 
-@* 목록 한 줄. 달력 아래·작은 창·일정 보기가 같은 줄을 쓴다 — 셋이 갈리면 같은 일정이 자리마다 달리 적힌다. *@
+@* 목록 한 줄. 달력 아래·오른쪽 기둥·일정 보기가 같은 줄을 쓴다 — 셋이 갈리면 같은 일정이 자리마다 달리 적힌다. *@
 
 @code {
     private RenderFragment ItemRow(WbsItemDto w) =>
