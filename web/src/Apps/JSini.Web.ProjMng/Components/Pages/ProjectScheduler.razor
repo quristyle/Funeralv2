@@ -189,6 +189,8 @@
 
             @if (_view == CalView.Table)
             {
+                @* 휴대폰은 표를 카드로 펴서 가로로 굴릴 것이 없다 — 좌우로 쓸면 하루 앞뒤로 간다. *@
+                <div class="pm-gc-swipe" @ontouchstart="@OnTouchStart" @ontouchend="@OnDaySwipeEndAsync">
                 <CommCont Title="일정표" Hint="@Hint">
                     @* 입력칸은 <b>고른 줄에만</b> 세운다. 줄마다 DxDateEdit·DxComboBox 를 아홉 개씩 깔면 표로 바꿀 때마다
                        수백 개의 부품이 한꺼번에 서서 화면이 얼어붙는다. 나머지 줄은 글자만 그리고, 줄을 누르면 그 줄이 편집칸이 된다.
@@ -469,6 +471,7 @@
                         </EditFormTemplate>
                     </CommGrd>
                 </CommCont>
+                </div>
             }
             else if (_view == CalView.Month)
             {
@@ -547,7 +550,10 @@
                 @if (_isPhone)
                 {
                     @* 격자 아래 고른 날의 목록. 구글 캘린더 앱과 같은 자리다. *@
-                    <div class="pm-gc-agenda pm-gc-agenda--under">
+                    @* 격자를 쓸면 달이, 이 목록을 쓸면 날이 넘어간다. *@
+                    <div class="pm-gc-agenda pm-gc-agenda--under"
+                         @ontouchstart="@OnTouchStart"
+                         @ontouchend="@OnDaySwipeEndAsync">
                         <div class="pm-gc-agenda__head">
                             <span class="pm-gc-agenda__title">@AgendaTitle</span>
 
@@ -577,7 +583,9 @@
             else if (_view == CalView.Agenda || _isPhone)
             {
                 @* 일정 목록. 휴대폰의 주·일 보기도 여기로 온다 — 시각 없는 종일 일정은 시간 격자에서 자정 줄에 다 붙는다. *@
-                <div class="pm-gc-agenda">
+                <div class="pm-gc-agenda"
+                     @ontouchstart="@OnTouchStart"
+                     @ontouchend="@OnDaySwipeEndAsync">
                     @if (_days.All(d => d.Items.Count == 0))
                     {
                         <p class="pm-gc-agenda__empty">이 기간에 일정이 없습니다.</p>

@@ -4578,14 +4578,16 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
     min-height: 0;
   }
 
-  .pm-gc__main > .commcont {
+  /* 표 보기의 쓸기 받개. 높이를 표에 그대로 넘긴다. */
+  .pm-gc__main > .pm-gc-swipe,
+  .pm-gc__main > .pm-gc-swipe > .commcont {
     flex: 1 1 auto;
     min-height: 0;
     display: flex;
     flex-direction: column;
   }
 
-  .pm-gc__main > .commcont > .commcont__body {
+  .pm-gc__main > .pm-gc-swipe > .commcont > .commcont__body {
     flex: 1 1 auto;
     min-height: 0;
     display: flex;

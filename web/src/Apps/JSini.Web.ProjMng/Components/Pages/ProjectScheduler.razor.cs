@@ -1284,12 +1284,28 @@ public partial class ProjectScheduler : IAsyncDisposable
         _touchY = e.Touches[0].ClientY;
     }
 
-    /// <summary>좌우로 쓸면 앞뒤 구간으로 간다. 세로로 더 많이 움직였으면 아무 일도 하지 않는다 — 목록을 보려고 내릴 때마다 달이 바뀌지 않게.</summary>
+    /// <summary>좌우로 쓸면 앞뒤 구간으로 간다.</summary>
     private Task OnTouchEndAsync(TouchEventArgs e)
+    {
+        var direction = SwipeDirection(e);
+
+        return direction == 0 ? Task.CompletedTask : ShiftAsync(direction);
+    }
+
+    /// <summary>휴대폰에서 일정 목록·표를 좌우로 쓸면 하루 앞뒤로 간다. 월 격자의 쓸기는 그대로 달을 넘긴다.</summary>
+    private Task OnDaySwipeEndAsync(TouchEventArgs e)
+    {
+        var direction = _isPhone ? SwipeDirection(e) : 0;
+
+        return direction == 0 ? Task.CompletedTask : StepDayAsync(direction);
+    }
+
+    /// <summary>쓴 방향. 왼쪽으로 쓸면 다음(+1)이다 — 종이를 넘기는 쪽과 같다. 세로로 더 많이 움직였으면 0 이다 — 목록을 내릴 때마다 넘어가지 않게.</summary>
+    private int SwipeDirection(TouchEventArgs e)
     {
         if (e.ChangedTouches.Length == 0)
         {
-            return Task.CompletedTask;
+            return 0;
         }
 
         var dx = e.ChangedTouches[0].ClientX - _touchX;
@@ -1297,11 +1313,38 @@ public partial class ProjectScheduler : IAsyncDisposable
 
         if (Math.Abs(dx) < SwipeMin || Math.Abs(dy) >= Math.Abs(dx))
         {
-            return Task.CompletedTask;
+            return 0;
         }
 
-        // 왼쪽으로 쓸면 다음 달이다 — 종이를 넘기는 쪽과 같다.
-        return ShiftAsync(dx < 0 ? 1 : -1);
+        return dx < 0 ? 1 : -1;
+    }
+
+    /// <summary>하루 앞뒤로 간다. 월 보기에서 같은 달 안이면 고른 날만 옮긴다 — 이미 읽어 둔 달이라 다시 읽을 까닭이 없다.</summary>
+    private Task StepDayAsync(int direction)
+    {
+        switch (_view)
+        {
+            case CalView.Table:
+                return JumpAsync((_tableStart ?? _selected).AddDays(direction));
+
+            case CalView.Month:
+                var day = _selected.AddDays(direction);
+
+                if (day.Year == _anchor.Year && day.Month == _anchor.Month)
+                {
+                    _selected = day;
+                    return Task.CompletedTask;
+                }
+
+                return JumpAsync(day);
+
+            case CalView.Day:
+                return JumpAsync(DateOnly.FromDateTime(_anchor).AddDays(direction));
+
+            // 주·목록은 하루씩 옮기면 같은 구간이 그대로 보인다 — 보기의 단위만큼 간다.
+            default:
+                return ShiftAsync(direction);
+        }
     }
 
     // ── 편집 창 ──────────────────────────────────────────────────
