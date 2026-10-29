@@ -699,6 +699,9 @@
 
         @if (!_isNew)
         {
+            <PermissionView Action="MenuAction.Create">
+                <DxButton Text="복제" RenderStyle="ButtonRenderStyle.Secondary" Click="@DuplicateFormAsync" />
+            </PermissionView>
             <PermissionView Action="MenuAction.Delete">
                 <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Danger" Click="@DeleteFormAsync" />
             </PermissionView>

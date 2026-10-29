@@ -1470,6 +1470,62 @@ public partial class ProjectScheduler : IAsyncDisposable
         }
     }
 
+    /// <summary>현재 일정을 복제하여 새로 등록하고, 복제된 일정의 수정 창 역할을 이어간다. 원문(BodyText)은 제외한다.</summary>
+    private async Task DuplicateFormAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_form.ProcNm))
+        {
+            Say("일정 이름을 넣으십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        if (_form.PrjRid is null)
+        {
+            Say("프로젝트를 고르십시오.", NoticeTone.Warning);
+            return;
+        }
+
+        if (_form.PlanEdt < _form.PlanSdt)
+        {
+            Say("종료일이 시작일보다 앞섭니다.", NoticeTone.Warning);
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(_form.ScheduleType))
+        {
+            _form.ScheduleType = NewKind;
+        }
+
+        ApplyComplete();
+
+        var clone = Copy(_form);
+        clone.WbsId = 0;
+        clone.BodyText = null;
+
+        WbsItemDto? created = null;
+
+        if (await RunAsync(
+                async () => created = await Api.CreateAsync(clone),
+                "복제했습니다.",
+                "복제하지 못했습니다"))
+        {
+            await SearchAsync();
+
+            if (created is not null)
+            {
+                _form = Copy(created);
+                _complete = created.DevEdt is not null;
+            }
+            else
+            {
+                _form = clone;
+            }
+
+            _isNew = false;
+            _editing = true;
+        }
+    }
+
     private async Task DeleteFormAsync()
     {
         if (_isNew || _confirm is null)
