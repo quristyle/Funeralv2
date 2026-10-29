@@ -5353,6 +5353,34 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   color: var(--jsini-text-muted);
 }
 
+/* 오른쪽 기둥은 상태가 따로 누르는 단추라 줄 단추 위 오른쪽 귀퉁이에 얹는다. */
+.pm-gc-agenda__item--toggle {
+  position: relative;
+}
+
+.pm-gc-agenda__item--toggle .pm-gc-agenda__top {
+  padding-right: 3.5rem;
+}
+
+/* tabler.css 가 맨 마지막에 실려 .jsini-badge 의 border:0 이 이기므로 한 겹 겹쳐 적는다. */
+.pm-gc-agenda__item--toggle .pm-gc-agenda__state {
+  position: absolute;
+  top: var(--jsini-sp-sm);
+  right: var(--jsini-sp-md);
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid currentColor;
+}
+
+.pm-gc-agenda__item--toggle .pm-gc-agenda__state:hover:not(:disabled) {
+  filter: brightness(0.92);
+}
+
+.pm-gc-agenda__item--toggle .pm-gc-agenda__state:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
 /* 묻는 창의 AI 고르개는 한 줄이다 — 한도는 고르개 칸 안에 있고 라벨은 두지 않는다(화면에 AI 이름이 이미 있다). */
 .pm-peek__field {
   display: flex;

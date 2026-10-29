@@ -1468,6 +1468,45 @@ public partial class ProjectScheduler : IAsyncDisposable
         if (_form.PlanEdt > _form.DevEdt) _form.PlanEdt = _form.DevEdt;
     }
 
+    /// <summary>저장 중인 줄. 응답 전에 한 번 더 누르면 같은 값으로 두 번 가서 되돌린 것이 안 남는다.</summary>
+    private readonly HashSet<int> _toggling = [];
+
+    /// <summary>오른쪽 기둥의 상태 단추. 완료는 개발 종료일 하나로 갈리므로 그것만 넣고 뺀다 — 편집 창과 달리 계획일은 그대로 둔다(당기면 고른 날에서 줄이 사라진다).</summary>
+    private async Task ToggleCompleteAsync(WbsItemDto w)
+    {
+        if (!_canUpdate || !_toggling.Add(w.WbsId))
+        {
+            return;
+        }
+
+        try
+        {
+            var next = Copy(w);
+            var completing = next.DevEdt is null;
+
+            if (completing)
+            {
+                next.DevSdt ??= AppTime.TodayDate;
+                next.DevEdt = AppTime.TodayDate;
+            }
+            else
+            {
+                next.DevEdt = null;
+            }
+
+            if (await RunAsync(() => Api.UpdateAsync(next),
+                    completing ? "완료로 바꿨습니다." : "완료를 해제했습니다.",
+                    completing ? "완료로 바꾸지 못했습니다" : "완료를 해제하지 못했습니다"))
+            {
+                await SearchAsync();
+            }
+        }
+        finally
+        {
+            _toggling.Remove(w.WbsId);
+        }
+    }
+
     /// <param name="moveToToday">원본의 「오늘로 옮겨 저장」. 계획을 오늘 하루로 옮긴다.</param>
     private async Task SaveFormAsync(bool moveToToday)
     {

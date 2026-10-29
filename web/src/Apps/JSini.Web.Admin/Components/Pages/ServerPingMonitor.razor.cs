@@ -1,5 +1,6 @@
 using JSini.Web.Admin.Api;
 using JSini.Web.Components.Data;
+using JSini.Web.Components.Layout;
 using Microsoft.AspNetCore.Components;
 
 namespace JSini.Web.Admin.Components.Pages;
@@ -85,7 +86,7 @@ public partial class ServerPingMonitor
         }
         catch (Exception ex)
         {
-            NotifyError("내부 장비 Ping 조회 실패", "내부 장비 Ping 상태를 조회하지 못했습니다: " + ex.Message);
+            Say("내부 장비 Ping 상태를 조회하지 못했습니다: " + ex.Message, NoticeTone.Error);
         }
         finally
         {

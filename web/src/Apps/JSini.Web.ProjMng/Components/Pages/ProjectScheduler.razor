@@ -664,7 +664,7 @@
                     <ul class="pm-gc-agenda__items">
                         @foreach (var w in SelectedItems)
                         {
-                            @ItemRow(w)
+                            @ItemRow(w, toggle: true)
                         }
                     </ul>
                 }
@@ -823,16 +823,29 @@
 @* 목록 한 줄. 달력 아래·오른쪽 기둥·일정 보기가 같은 줄을 쓴다 — 셋이 갈리면 같은 일정이 자리마다 달리 적힌다. *@
 
 @code {
-    private RenderFragment ItemRow(WbsItemDto w) =>
-        @<li class="pm-gc-agenda__item pm-gc-agenda__item--@Label(w)">
+    // toggle 이면 상태가 줄 단추 밖의 제 단추가 된다 — 단추 안에 단추를 넣으면 브라우저가 바깥 단추를 둘로 쪼갠다.
+    private RenderFragment ItemRow(WbsItemDto w, bool toggle = false) =>
+        @<li class="pm-gc-agenda__item pm-gc-agenda__item--@Label(w) @(toggle ? "pm-gc-agenda__item--toggle" : null)">
             <button type="button" class="pm-gc-agenda__btn"
                     disabled="@(!_canUpdate)"
                     @onclick="@(() => StartEdit(w))">
                 <span class="pm-gc-agenda__top">
                     <span class="pm-gc-agenda__name">@Title(w)</span>
-                    <span class="jsini-badge @StateClass(w)">@StateName(w)</span>
+                    @if (!toggle)
+                    {
+                        <span class="jsini-badge @StateClass(w)">@StateName(w)</span>
+                    }
                 </span>
                 <span class="pm-gc-agenda__sub">@Detail(w)</span>
             </button>
+            @if (toggle)
+            {
+                var done = w.DevEdt is not null;
+                <button type="button" class="jsini-badge @StateClass(w) pm-gc-agenda__state"
+                        disabled="@(!_canUpdate || _toggling.Contains(w.WbsId))"
+                        aria-pressed="@(done ? "true" : "false")"
+                        title="@(done ? "누르면 완료를 해제합니다" : "누르면 완료로 바꿉니다")"
+                        @onclick="@(() => ToggleCompleteAsync(w))">@StateName(w)</button>
+            }
         </li>;
 }
