@@ -1,7 +1,7 @@
-using System.Drawing;
 using System.Text.Json.Serialization;
 using JSini.Web.Components.Data;
 using JSini.Web.HelpDesk.Api;
+using JSini.Web.HelpDesk.Components.Shared;
 using Microsoft.AspNetCore.Components;
 
 namespace JSini.Web.HelpDesk.Components.Pages;
@@ -28,26 +28,6 @@ public partial class HanjuSystemMonitor
     /// <summary>PLE 권장선(초).</summary>
     private const double PleGood = 1000;
 
-    // ── 색 ──
-    // 같은 지표가 1시간·24시간 두 차트에 나뉘어 있어 색이 갈리면 같은 것을 보는 것이 안 읽힌다.
-
-    /// <summary>선 색. 흐린 쪽(기준선)은 알파를 넣는다 — ColorTranslator 는 rgba(...) 를 못 읽어 직접 짓는다.</summary>
-    private static Color Hex(string hex) => ColorTranslator.FromHtml(hex);
-
-    private static Color Faint(string hex, int alpha) =>
-        Color.FromArgb(alpha, ColorTranslator.FromHtml(hex));
-
-    private static readonly Color CpuColor = Hex("#42A5F5");
-    private static readonly Color CpuFaintColor = Faint("#2196F3", 115);
-    private static readonly Color IoColor = Hex("#EF5350");
-    private static readonly Color IoFaintColor = Faint("#EF5350", 128);
-    private static readonly Color PleColor = Hex("#66BB6A");
-    private static readonly Color PleAvgColor = Hex("#2196F3");
-    private static readonly Color PleFaintColor = Faint("#4CAF50", 153);
-    private static readonly Color TpsColor = Hex("#FFA726");
-    private static readonly Color TpsFaintColor = Faint("#FF9800", 115);
-    private static readonly Color LogColor = Hex("#AB47BC");
-
     /// <summary>1분 자동 조회. 스위치를 켠 동안에만 돈다.</summary>
     protected override TimeSpan RefreshInterval => TimeSpan.FromSeconds(60);
 
@@ -61,9 +41,6 @@ public partial class HanjuSystemMonitor
     private static readonly IReadOnlyList<string> HourTitles =
         ["24H CPU Load (%)", "24H I/O Latency (ms)", "24H Memory Stability", "24H Subsystem Stalls"];
 
-    /// <summary>24시간 차트를 그릴 차례인가. 첫 자료가 그려진 다음 그림에서 켠다 — 여덟 장을 한 그림에 몰면 그리는 동안 브라우저가 멎는다.</summary>
-    private bool _showHours;
-
     private RealtimeRow? _now;
     private IReadOnlyList<MinutePoint> _minutes = [];
     private IReadOnlyList<HourPoint> _hours = [];
@@ -71,23 +48,29 @@ public partial class HanjuSystemMonitor
     /// <summary>표에 거는 것. 차트와 달리 <b>늦은 시간대부터</b> 센다.</summary>
     private IReadOnlyList<HourPoint> _rows = [];
 
+    // ── 경량 SVG 차트용 라벨 및 시리즈 ──
+    private IReadOnlyList<string> _minuteLabels = [];
+    private IReadOnlyList<string> _hourLabels = [];
+
+    private IReadOnlyList<SysMonSeries> _chart1hCpu = [];
+    private IReadOnlyList<SysMonSeries> _chart1hIo = [];
+    private IReadOnlyList<SysMonRefLine> _refLines1hIo = [];
+    private IReadOnlyList<SysMonSeries> _chart1hPle = [];
+    private IReadOnlyList<SysMonRefLine> _refLines1hPle = [];
+    private IReadOnlyList<SysMonSeries> _chart1hTps = [];
+    private IReadOnlyList<SysMonRefLine> _refLines1hTps = [];
+
+    private IReadOnlyList<SysMonSeries> _chart24hCpu = [];
+    private IReadOnlyList<SysMonSeries> _chart24hIo = [];
+    private IReadOnlyList<SysMonRefLine> _refLines24hIo = [];
+    private IReadOnlyList<SysMonSeries> _chart24hPle = [];
+    private IReadOnlyList<SysMonRefLine> _refLines24hPle = [];
+    private IReadOnlyList<SysMonSeries> _chart24hStalls = [];
+
     private bool _auto;
     private string _updatedAt = "-";
 
     protected override Task OnInitializedAsync() => ReloadAsync();
-
-    protected override async Task OnAfterRenderAsync(bool firstRender)
-    {
-        if (_showHours || _hours.Count == 0)
-        {
-            return;
-        }
-
-        // 점수판·1시간 차트가 브라우저에 그려질 틈을 준 뒤 24시간 차트를 얹는다.
-        await Task.Delay(120);
-        _showHours = true;
-        StateHasChanged();
-    }
 
     /// <summary>스위치. 끌 때 바로 서야 한다 — 끄고도 한 번 더 읽히면 「껐는데 왜 바뀌나」가 된다.</summary>
     private void ToggleAuto(bool on)
@@ -126,6 +109,47 @@ public partial class HanjuSystemMonitor
         _minutes = [.. (monitoring.Result ?? []).Select(MinutePoint.From)];
         _hours = [.. (daily.Result ?? []).Select(HourPoint.From)];
         _rows = [.. _hours.OrderByDescending(h => h.Slot, StringComparer.Ordinal)];
+
+        // SVG 차트용 라벨
+        _minuteLabels = _minutes.Select(m => m.Label).ToList();
+        _hourLabels = _hours.Select(h => $"{h.Label}시").ToList();
+
+        // 1H 고해상도 차트 데이터
+        _chart1hCpu = [new("CPU", "#42A5F5", _minutes.Select(m => m.Cpu).ToList())];
+        _chart1hIo = [new("I/O", "#EF5350", _minutes.Select(m => m.Io).ToList())];
+        _refLines1hIo = [new("기준선(20ms)", IoLimit, "#EF5350", "4 4")];
+        _chart1hPle = [new("PLE", "#66BB6A", _minutes.Select(m => m.Ple).ToList())];
+        _refLines1hPle =
+        [
+            new("권장(1000s)", PleGood, "#4CAF50", "2 3"),
+            new("위기(300s)", PleCritical, "#EF5350", "2 3"),
+        ];
+        _chart1hTps = [new("TPS", "#FFA726", _minutes.Select(m => m.Tps).ToList())];
+        _refLines1hTps =
+        [
+            new("상한(500)", 500, "#FFA726", "4 4"),
+            new("하한(100)", 100, "#2196F3", "4 4"),
+        ];
+
+        // 24H 장기 추이 차트 데이터
+        _chart24hCpu = [new("평균 CPU (%)", "#42A5F5", _hours.Select(h => h.Cpu).ToList(), IsArea: true, AreaOpacity: 0.15)];
+        _chart24hIo = [new("피크 I/O (ms)", "#EF5350", _hours.Select(h => h.PeakIo).ToList(), IsArea: true, AreaOpacity: 0.15)];
+        _refLines24hIo = [new("임계치(20ms)", IoLimit, "#EF5350", "2 3")];
+        _chart24hPle =
+        [
+            new("평균 PLE (s)", "#2196F3", _hours.Select(h => h.AvgPle).ToList()),
+            new("최소 PLE (s)", "#FFA726", _hours.Select(h => h.MinPle).ToList(), DashStyle: "2 3"),
+        ];
+        _refLines24hPle =
+        [
+            new("권장선(1000s)", PleGood, "#4CAF50", "4 4"),
+            new("위기선(300s)", PleCritical, "#EF5350", "4 4"),
+        ];
+        _chart24hStalls =
+        [
+            new("TempDB 지연", "#66BB6A", _hours.Select(h => h.TempDb).ToList(), IsArea: true, AreaOpacity: 0.2),
+            new("로그 지연", "#AB47BC", _hours.Select(h => h.Log).ToList(), IsArea: true, AreaOpacity: 0.15),
+        ];
 
         _updatedAt = AppTime.UtcNow.Kst("HH:mm:ss");
     }
@@ -188,10 +212,6 @@ public partial class HanjuSystemMonitor
         : state.Contains("Warning", StringComparison.OrdinalIgnoreCase) ? "jsini-badge--warn"
         : "jsini-badge--err";
 
-    /// <summary>말풍선의 수. 소수가 열두 자리까지 나오는 값이 섞여 있다.</summary>
-    private static string Tip(object? value) =>
-        value is double d ? d.ToString("0.##") : value?.ToString() ?? "-";
-
     // ── OADR 응답 ──
     // 외부 시스템이라 칸 이름이 MSSQL 그대로다 — 우리 규칙으로는 못 맞춰 칸마다 JsonPropertyName 을 적는다.
 
@@ -228,7 +248,6 @@ public partial class HanjuSystemMonitor
     }
 
     // ── 차트·표의 재료 ──
-    // 기준선을 상수선(DxChartConstantLine)으로 쓰지 않는 까닭은 범례다 — 상수선은 범례에 서지 않아 선만 그어진다.
 
     /// <summary>1시간 추이의 한 점.</summary>
     public sealed record MinutePoint(string Label, double Cpu, double Io, double Ple, double Tps)

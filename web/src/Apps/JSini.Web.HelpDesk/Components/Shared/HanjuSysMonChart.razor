@@ -1,0 +1,142 @@
+@using System.Globalization
+
+<div class="hd-sysmon-chartbox" style="height: @Height;">
+    @if (ShowLegend)
+    {
+        <div class="hd-sysmon-legend">
+            @foreach (var s in Series)
+            {
+                <span class="hd-sysmon-legend__item">
+                    <span class="hd-sysmon-legend__swatch" style="background-color: @s.Color;"></span>
+                    <span class="hd-sysmon-legend__name">@s.Name</span>
+                </span>
+            }
+            @if (RefLines is not null)
+            {
+                @foreach (var r in RefLines)
+                {
+                    <span class="hd-sysmon-legend__item">
+                        <span class="hd-sysmon-legend__dash" style="border-top-color: @r.Color;"></span>
+                        <span class="hd-sysmon-legend__name">@r.Name</span>
+                    </span>
+                }
+            }
+        </div>
+    }
+
+    <svg viewBox="0 0 500 @ViewBoxHeight"
+         preserveAspectRatio="none"
+         class="hd-sysmon-chart"
+         aria-label="모니터링 차트">
+        <defs>
+            @foreach (var s in Series.Where(x => x.IsArea))
+            {
+                var gradId = $"grad_{Math.Abs(s.Name.GetHashCode())}";
+                <linearGradient id="@gradId" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="@s.Color" stop-opacity="@(s.AreaOpacity * 1.5)" />
+                    <stop offset="100%" stop-color="@s.Color" stop-opacity="0.02" />
+                </linearGradient>
+            }
+        </defs>
+
+        <!-- Y축 눈금선 및 라벨 -->
+        @foreach (var tick in YTicks)
+        {
+            var y = GetY(tick);
+            <line x1="@MarginLeft.ToString("0.#", CultureInfo.InvariantCulture)"
+                  y1="@y.ToString("0.#", CultureInfo.InvariantCulture)"
+                  x2="@((MarginLeft + PlotWidth).ToString("0.#", CultureInfo.InvariantCulture))"
+                  y2="@y.ToString("0.#", CultureInfo.InvariantCulture)"
+                  stroke="var(--jsini-border, #e5e7eb)"
+                  stroke-dasharray="2 2"
+                  stroke-width="0.8" />
+            @((MarkupString)$"<text x=\"{(MarginLeft - 6).ToString("0.#", CultureInfo.InvariantCulture)}\" y=\"{(y + 3.5).ToString("0.#", CultureInfo.InvariantCulture)}\" font-size=\"10\" font-family=\"system-ui, -apple-system, sans-serif\" fill=\"var(--jsini-text-muted, #888)\" text-anchor=\"end\">{FormatNumber(tick)}</text>")
+        }
+
+        <!-- 기준선(RefLines) -->
+        @if (RefLines is not null)
+        {
+            @foreach (var r in RefLines)
+            {
+                var y = GetY(r.Value);
+                if (y >= MarginTop && y <= BottomY)
+                {
+                    <line x1="@MarginLeft.ToString("0.#", CultureInfo.InvariantCulture)"
+                          y1="@y.ToString("0.#", CultureInfo.InvariantCulture)"
+                          x2="@((MarginLeft + PlotWidth).ToString("0.#", CultureInfo.InvariantCulture))"
+                          y2="@y.ToString("0.#", CultureInfo.InvariantCulture)"
+                          stroke="@r.Color"
+                          stroke-dasharray="@r.DashStyle"
+                          stroke-width="1.2" />
+                }
+            }
+        }
+
+        <!-- X축 하단선 및 눈금/라벨 -->
+        <line x1="@MarginLeft.ToString("0.#", CultureInfo.InvariantCulture)"
+              y1="@BottomY.ToString("0.#", CultureInfo.InvariantCulture)"
+              x2="@((MarginLeft + PlotWidth).ToString("0.#", CultureInfo.InvariantCulture))"
+              y2="@BottomY.ToString("0.#", CultureInfo.InvariantCulture)"
+              stroke="var(--jsini-border, #e5e7eb)"
+              stroke-width="1" />
+
+        @foreach (var idx in VisibleXIndices)
+        {
+            var x = GetX(idx);
+            <line x1="@x.ToString("0.#", CultureInfo.InvariantCulture)"
+                  y1="@BottomY.ToString("0.#", CultureInfo.InvariantCulture)"
+                  x2="@x.ToString("0.#", CultureInfo.InvariantCulture)"
+                  y2="@((BottomY + 4).ToString("0.#", CultureInfo.InvariantCulture))"
+                  stroke="var(--jsini-border, #e5e7eb)"
+                  stroke-width="1" />
+            @((MarkupString)$"<text x=\"{x.ToString("0.#", CultureInfo.InvariantCulture)}\" y=\"{(BottomY + 16).ToString("0.#", CultureInfo.InvariantCulture)}\" font-size=\"10\" font-family=\"system-ui, -apple-system, sans-serif\" fill=\"var(--jsini-text-muted, #888)\" text-anchor=\"middle\">{Labels[idx]}</text>")
+        }
+
+        <!-- 시리즈 곡선 및 면적 -->
+        @foreach (var s in Series)
+        {
+            if (s.IsArea)
+            {
+                var gradId = $"grad_{Math.Abs(s.Name.GetHashCode())}";
+                var areaPath = BuildAreaPath(s.Values);
+                if (!string.IsNullOrEmpty(areaPath))
+                {
+                    <path d="@areaPath" fill="url(#@gradId)" />
+                }
+            }
+
+            var linePath = BuildSplinePath(s.Values);
+            if (!string.IsNullOrEmpty(linePath))
+            {
+                <path d="@linePath"
+                      fill="none"
+                      stroke="@s.Color"
+                      stroke-width="2"
+                      stroke-dasharray="@(s.DashStyle ?? "none")"
+                      stroke-linejoin="round"
+                      stroke-linecap="round" />
+            }
+        }
+
+        <!-- 마우스 호버 감지 슬라이스 및 툴팁 (JS 실행 없이 브라우저 네이티브 렌더링) -->
+        @if (Labels.Count > 0)
+        {
+            var n = Labels.Count;
+            var sliceW = PlotWidth / Math.Max(1.0, n - 1.0);
+            @for (int i = 0; i < n; i++)
+            {
+                var curX = (i == 0) ? MarginLeft : (GetX(i) - sliceW / 2.0);
+                var curW = (i == 0 || i == n - 1) ? (sliceW / 2.0) : sliceW;
+                var tip = GetTooltipText(i);
+                <rect x="@curX.ToString("0.#", CultureInfo.InvariantCulture)"
+                      y="@MarginTop.ToString("0.#", CultureInfo.InvariantCulture)"
+                      width="@curW.ToString("0.#", CultureInfo.InvariantCulture)"
+                      height="@PlotHeight.ToString("0.#", CultureInfo.InvariantCulture)"
+                      class="hd-sysmon-slice"
+                      fill="transparent">
+                    <title>@tip</title>
+                </rect>
+            }
+        }
+    </svg>
+</div>

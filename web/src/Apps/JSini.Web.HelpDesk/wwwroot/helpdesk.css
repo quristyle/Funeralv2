@@ -1968,6 +1968,66 @@
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
+/* ── 경량 SVG 모니터링 차트 (0ms JS 블로킹으로 부드러운 화면 전환) ── */
+.hd-sysmon-chartbox {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  position: relative;
+}
+
+.hd-sysmon-chart {
+  display: block;
+  width: 100%;
+  flex: 1 1 auto;
+  overflow: visible;
+}
+
+.hd-sysmon-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  margin-bottom: 0.35rem;
+  font-size: var(--jsini-fs-xs, 0.75rem);
+}
+
+.hd-sysmon-legend__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--jsini-text, #333);
+}
+
+.hd-sysmon-legend__swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.hd-sysmon-legend__dash {
+  display: inline-block;
+  width: 14px;
+  height: 0;
+  border-top: 2px dashed currentColor;
+}
+
+.hd-sysmon-legend__name {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.hd-sysmon-slice {
+  cursor: crosshair;
+  transition: fill 0.1s ease;
+}
+
+.hd-sysmon-slice:hover {
+  fill: var(--jsini-hover-bg, rgba(0, 0, 0, 0.05));
+}
+
 /* 표에서 임계치를 넘긴 수 · 버틴 수. */
 .hd-sysmon__over {
   font-weight: 700;
