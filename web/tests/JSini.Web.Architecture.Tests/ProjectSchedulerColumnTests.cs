@@ -111,6 +111,26 @@ public sealed class ProjectSchedulerColumnTests
         Assert.Equal(expected, result);
     }
 
+    [Theory]
+    [InlineData(null, "지연", "COMP")]
+    [InlineData("2026-01-01", "지연", "COMP")]
+    public void ProjectScheduler_일정목록_지연은_지연으로_보이고_누르면_완료로_간다(
+        string? devSdt, string expectedName, string expectedNext)
+    {
+        var item = new WbsItemDto
+        {
+            WbsState = devSdt is null ? "READY" : "RUNNING",
+            DevSdt = devSdt is null ? null : DateTime.SpecifyKind(DateTime.Parse(devSdt), DateTimeKind.Utc),
+            PlanEdt = new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc),
+        };
+
+        var name = (string?)typeof(ProjectScheduler).GetMethod("AgendaStateName", BindingFlags.NonPublic | BindingFlags.Static)!.Invoke(null, [item]);
+        var next = (string?)typeof(ProjectScheduler).GetMethod("NextAgendaStateCode", BindingFlags.NonPublic | BindingFlags.Static)!.Invoke(null, [item]);
+
+        Assert.Equal(expectedName, name);
+        Assert.Equal(expectedNext, next);
+    }
+
     [Fact]
     public void ProjectScheduler_처음부터_오늘목록을_열고_왼쪽_만들기_단추는_없다()
     {

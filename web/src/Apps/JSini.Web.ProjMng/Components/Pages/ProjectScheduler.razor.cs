@@ -1463,35 +1463,46 @@ public partial class ProjectScheduler : IAsyncDisposable
     /// <summary>저장 중인 줄. 응답 전에 한 번 더 누르면 같은 값으로 두 번 가서 되돌린 것이 안 남는다.</summary>
     private readonly HashSet<int> _toggling = [];
 
-    private static string AgendaStateName(WbsItemDto w) => GetInlineStateCode(w) switch
+    /// <summary>오른쪽 일정 목록의 상태. 대기·진행·완료에 지연(계획 종료일이 지났는데 안 끝난 것)을 얹는다.</summary>
+    private static string AgendaStateCode(WbsItemDto w) => GetInlineStateCode(w) switch
     {
+        "COMP" => "COMP",
+        _ when w.PlanEdt is not null && DateOnly.FromDateTime(w.PlanEdt.Value) < Today => "OVER",
+        var code => code,
+    };
+
+    private static string AgendaStateName(WbsItemDto w) => AgendaStateCode(w) switch
+    {
+        "OVER" => "지연",
         "RUNNING" => "진행",
         "COMP" => "완료",
         _ => "대기",
     };
 
-    private static string AgendaStateClass(WbsItemDto w) => GetInlineStateCode(w) switch
+    private static string AgendaStateClass(WbsItemDto w) => AgendaStateCode(w) switch
     {
+        "OVER" => "jsini-badge--err",
         "RUNNING" => "jsini-badge--warn",
         "COMP" => "jsini-badge--on",
         _ => "jsini-badge--off",
     };
 
-    private static string NextAgendaStateAction(WbsItemDto w) => GetInlineStateCode(w) switch
+    private static string NextAgendaStateAction(WbsItemDto w) => NextAgendaStateCode(w) switch
     {
-        "READY" => "진행으로 변경",
-        "RUNNING" => "완료로 변경",
+        "RUNNING" => "진행으로 변경",
+        "COMP" => "완료로 변경",
         _ => "대기로 변경",
     };
 
-    private static string NextAgendaStateCode(WbsItemDto w) => GetInlineStateCode(w) switch
+    /// <summary>지연은 대기든 진행이든 같은 「지연」으로 보이므로 둘 사이를 오가면 눌러도 안 바뀐 것처럼 보인다 — 바로 완료로 넘긴다.</summary>
+    private static string NextAgendaStateCode(WbsItemDto w) => AgendaStateCode(w) switch
     {
         "READY" => "RUNNING",
-        "RUNNING" => "COMP",
+        "RUNNING" or "OVER" => "COMP",
         _ => "READY",
     };
 
-    /// <summary>오른쪽 일정 목록의 상태를 대기 → 진행 → 완료 → 대기로 순환한다.</summary>
+    /// <summary>오른쪽 일정 목록의 상태를 대기 → 진행 → 완료 → 대기로 순환한다. 지연은 완료로 간다.</summary>
     private async Task CycleAgendaStateAsync(WbsItemDto w)
     {
         if (!_canUpdate || !_toggling.Add(w.WbsId))
@@ -1503,12 +1514,7 @@ public partial class ProjectScheduler : IAsyncDisposable
         {
             var next = Copy(w);
             var nextState = NextAgendaStateCode(w);
-            var nextStateAction = nextState switch
-            {
-                "RUNNING" => "진행으로 변경",
-                "COMP" => "완료로 변경",
-                _ => "대기로 변경",
-            };
+            var nextStateAction = NextAgendaStateAction(w);
 
             switch (nextState)
             {
