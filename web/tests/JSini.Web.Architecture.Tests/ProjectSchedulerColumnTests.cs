@@ -1,4 +1,5 @@
 using System.Reflection;
+using JSini.Web.Components.Data;
 using JSini.Web.ProjMng.Api;
 using JSini.Web.ProjMng.Components.Pages;
 using Xunit;
@@ -146,5 +147,69 @@ public sealed class ProjectSchedulerColumnTests
         Assert.DoesNotContain("class=\"pm-gc__create\"", razor);
         Assert.Contains("CycleAgendaStateAsync(w)", razor);
         Assert.Contains("@w.Comm", razor);
+    }
+
+    [Fact]
+    public void ProjectScheduler_일정보기_상태단추와_수정팝업_상태선택이_대기_진행중_완료를_쓴다()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "../../../../../src/Apps/JSini.Web.ProjMng/Components/Pages/ProjectScheduler.razor");
+        var razor = File.ReadAllText(path);
+        var popupStart = razor.IndexOf("<CommPopup @bind-Visible=\"_editing\"", StringComparison.Ordinal);
+        Assert.True(popupStart >= 0);
+        var popupEnd = razor.IndexOf("</CommPopup>", popupStart, StringComparison.Ordinal);
+        Assert.True(popupEnd > popupStart);
+        var popup = razor[popupStart..popupEnd];
+
+        var agendaStart = razor.IndexOf("else if (_view == CalView.Agenda || _isPhone)", StringComparison.Ordinal);
+        var schedulerStart = agendaStart < 0
+            ? -1
+            : razor.IndexOf("else if (_storage is not null)", agendaStart, StringComparison.Ordinal);
+        Assert.True(agendaStart >= 0 && schedulerStart > agendaStart);
+        Assert.Contains("@ItemRow(w, toggle: true)", razor[agendaStart..schedulerStart]);
+        Assert.Contains("CycleAgendaStateAsync(w)", razor);
+        Assert.Contains("Caption=\"진행 상태\"", popup);
+        Assert.Contains("Data=\"@StateOptions\"", popup);
+        Assert.DoesNotContain("<DxCheckBox", popup);
+
+        var options = typeof(ProjectScheduler).GetField("StateOptions", BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.NotNull(options);
+        var names = ((string Code, string Name)[])options.GetValue(null)!;
+        Assert.Equal(new[] { "대기", "진행중", "완료" }, names.Select(option => option.Name));
+    }
+
+    [Theory]
+    [InlineData("READY")]
+    [InlineData("RUNNING")]
+    [InlineData("COMP")]
+    public void ProjectScheduler_편집팝업_선택상태를_개발시작종료일로_저장한다(string state)
+    {
+        var today = AppTime.TodayDate;
+        var item = new WbsItemDto
+        {
+            WbsState = "COMP",
+            DevSdt = today.AddDays(-2).ToDateTime(TimeOnly.MinValue),
+            DevEdt = today.AddDays(-1).ToDateTime(TimeOnly.MinValue),
+        };
+        var scheduler = new ProjectScheduler();
+        typeof(ProjectScheduler).GetField("_form", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(scheduler, item);
+        typeof(ProjectScheduler).GetField("_formState", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(scheduler, state);
+
+        typeof(ProjectScheduler).GetMethod("ApplyFormState", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(scheduler, null);
+
+        switch (state)
+        {
+            case "READY":
+                Assert.Null(item.DevSdt);
+                Assert.Null(item.DevEdt);
+                break;
+            case "RUNNING":
+                Assert.Equal(today.AddDays(-2).ToDateTime(TimeOnly.MinValue), item.DevSdt);
+                Assert.Null(item.DevEdt);
+                break;
+            case "COMP":
+                Assert.Equal(today.AddDays(-2).ToDateTime(TimeOnly.MinValue), item.DevSdt);
+                Assert.Equal(today.AddDays(-1).ToDateTime(TimeOnly.MinValue), item.DevEdt);
+                break;
+        }
     }
 }

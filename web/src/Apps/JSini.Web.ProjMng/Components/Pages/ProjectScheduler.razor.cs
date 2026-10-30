@@ -149,7 +149,7 @@ public partial class ProjectScheduler : IAsyncDisposable
     private static readonly (string Code, string Name)[] StateOptions =
     [
         ("READY", "대기"),
-        ("RUNNING", "진행"),
+        ("RUNNING", "진행중"),
         ("COMP", "완료"),
     ];
 
@@ -208,7 +208,7 @@ public partial class ProjectScheduler : IAsyncDisposable
 
     private bool _editing;
     private bool _isNew;
-    private bool _complete;
+    private string _formState = "READY";
     private WbsItemDto _form = new();
 
     private bool _canCreate;
@@ -906,7 +906,7 @@ public partial class ProjectScheduler : IAsyncDisposable
     {
         "COMP" => "완료",
         "OVER" => "지연",
-        "RUNNING" => "진행",
+        "RUNNING" => "진행중",
         _ => "대기",
     };
 
@@ -1423,7 +1423,7 @@ public partial class ProjectScheduler : IAsyncDisposable
             DevUser = CurrentUserName,
         };
 
-        _complete = false;
+        _formState = "READY";
         _isNew = true;
         _editing = true;
     }
@@ -1432,7 +1432,7 @@ public partial class ProjectScheduler : IAsyncDisposable
     private void StartEdit(WbsItemDto w)
     {
         _form = Copy(w);
-        _complete = w.DevEdt is not null;
+        _formState = GetInlineStateCode(w);
         _isNew = false;
         _editing = true;
     }
@@ -1441,23 +1441,37 @@ public partial class ProjectScheduler : IAsyncDisposable
     private string NewKind =>
         _scheduleTypes.Count == 1 ? _scheduleTypes[0] : DefaultKind;
 
-    /// <summary>완료 표시를 값으로 옮긴다(원본 OnSubmit 의 규칙). 상태는 서버가 개발 시작·종료일로 정하므로 바꾸는 것은 그 두 날이다. 표시를 끄면 개발 종료일도 지운다 — 안 지우면 상태가 완료에 눌어붙는다.</summary>
-    private void ApplyComplete()
+    /// <summary>상태 선택을 서버가 판정하는 개발 시작·종료일과 상태 코드로 옮긴다.</summary>
+    private void OnFormStateChanged(string? state)
+    {
+        if (state is "READY" or "RUNNING" or "COMP")
+        {
+            _formState = state;
+        }
+    }
+
+    /// <summary>고른 상태를 WBS 의 개발 시작·종료일로 옮긴다.</summary>
+    private void ApplyFormState()
     {
         var today = AppTime.TodayDate;
 
-        if (!_complete)
+        switch (_formState)
         {
-            _form.DevEdt = null;
-            return;
+            case "RUNNING":
+                _form.DevSdt ??= today;
+                _form.DevEdt = null;
+                break;
+            case "COMP":
+                _form.DevSdt ??= today;
+                _form.DevEdt ??= today;
+                if (_form.PlanSdt > _form.DevEdt) _form.PlanSdt = _form.DevEdt;
+                if (_form.PlanEdt > _form.DevEdt) _form.PlanEdt = _form.DevEdt;
+                break;
+            default:
+                _form.DevSdt = null;
+                _form.DevEdt = null;
+                break;
         }
-
-        _form.DevSdt ??= today;
-        _form.DevEdt ??= today;
-
-        // 계획이 끝난 날보다 뒤에 남아 있으면 「완료인데 아직 계획 중」이 된다.
-        if (_form.PlanSdt > _form.DevEdt) _form.PlanSdt = _form.DevEdt;
-        if (_form.PlanEdt > _form.DevEdt) _form.PlanEdt = _form.DevEdt;
     }
 
     /// <summary>저장 중인 줄. 응답 전에 한 번 더 누르면 같은 값으로 두 번 가서 되돌린 것이 안 남는다.</summary>
@@ -1474,7 +1488,7 @@ public partial class ProjectScheduler : IAsyncDisposable
     private static string AgendaStateName(WbsItemDto w) => AgendaStateCode(w) switch
     {
         "OVER" => "지연",
-        "RUNNING" => "진행",
+        "RUNNING" => "진행중",
         "COMP" => "완료",
         _ => "대기",
     };
@@ -1489,7 +1503,7 @@ public partial class ProjectScheduler : IAsyncDisposable
 
     private static string NextAgendaStateAction(WbsItemDto w) => NextAgendaStateCode(w) switch
     {
-        "RUNNING" => "진행으로 변경",
+        "RUNNING" => "진행중으로 변경",
         "COMP" => "완료로 변경",
         _ => "대기로 변경",
     };
@@ -1531,7 +1545,6 @@ public partial class ProjectScheduler : IAsyncDisposable
                     next.DevEdt = null;
                     break;
             }
-
             if (await RunAsync(() => Api.UpdateAsync(next),
                     $"상태를 {nextStateAction}했습니다.",
                     "상태를 변경하지 못했습니다"))
@@ -1582,7 +1595,7 @@ public partial class ProjectScheduler : IAsyncDisposable
             _form.ScheduleType = NewKind;
         }
 
-        ApplyComplete();
+        ApplyFormState();
 
         var isNew = _isNew;
 
@@ -1622,7 +1635,7 @@ public partial class ProjectScheduler : IAsyncDisposable
             _form.ScheduleType = NewKind;
         }
 
-        ApplyComplete();
+        ApplyFormState();
 
         var clone = Copy(_form);
         clone.WbsId = 0;
@@ -1640,7 +1653,7 @@ public partial class ProjectScheduler : IAsyncDisposable
             if (created is not null)
             {
                 _form = Copy(created);
-                _complete = created.DevEdt is not null;
+                _formState = GetInlineStateCode(created);
             }
             else
             {
@@ -2337,7 +2350,7 @@ public partial class ProjectScheduler : IAsyncDisposable
     private static readonly StateLabel[] StateLabels =
     [
         new("READY", "대기", System.Drawing.Color.FromArgb(0xF9, 0xAB, 0x00)),
-        new("RUNNING", "진행", System.Drawing.Color.FromArgb(0x1A, 0x73, 0xE8)),
+        new("RUNNING", "진행중", System.Drawing.Color.FromArgb(0x1A, 0x73, 0xE8)),
         new("OVER", "지연", System.Drawing.Color.FromArgb(0xD9, 0x30, 0x25)),
         new("COMP", "완료", System.Drawing.Color.FromArgb(0x80, 0x86, 0x8B)),
     ];

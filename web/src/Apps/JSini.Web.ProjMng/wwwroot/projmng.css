@@ -957,6 +957,27 @@
   margin-bottom: 0;
 }
 
+/* 일정 편집 폼은 라벨을 입력칸 테두리에 걸쳐 세워 세로 높이를 줄인다. */
+.pm-scheduler-edit .pm-editform .dxbl-fl-item.dxbl-fl-item-horizontal {
+  position: relative;
+  padding-top: 0.35rem;
+  margin-bottom: var(--jsini-sp-sm);
+}
+
+.pm-scheduler-edit .pm-editform .dxbl-fl-item.dxbl-fl-item-horizontal > .dxbl-fl-cpt {
+  position: absolute;
+  z-index: 1;
+  top: 0.35rem;
+  left: 0.75rem;
+  width: auto !important;
+  max-width: calc(100% - 1.5rem);
+  margin: 0;
+  padding: 0 0.25rem;
+  line-height: 1;
+  background: var(--jsini-field-label-bg, var(--tb-surface));
+  transform: translateY(-50%);
+}
+
 /* 프로젝트 목록의 RAG 카테고리 칸이 잠겼을 때의 까닭. 고르개가 빈 것과 AI 서버를 못 읽은 것이 화면으로는 같아서 적어 준다. */
 .pm-rag-warn {
   margin-top: var(--jsini-sp-xs);
