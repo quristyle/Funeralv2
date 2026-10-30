@@ -173,8 +173,9 @@ public sealed class ProjectSchedulerColumnTests
 
         var options = typeof(ProjectScheduler).GetField("StateOptions", BindingFlags.NonPublic | BindingFlags.Static);
         Assert.NotNull(options);
-        var names = ((string Code, string Name)[])options.GetValue(null)!;
-        Assert.Equal(new[] { "대기", "진행중", "완료" }, names.Select(option => option.Name));
+        var names = ((Array)options.GetValue(null)!).Cast<object>()
+            .Select(option => (string)option.GetType().GetProperty("Name")!.GetValue(option)!);
+        Assert.Equal(new[] { "대기", "진행중", "완료" }, names);
     }
 
     [Theory]
@@ -183,7 +184,7 @@ public sealed class ProjectSchedulerColumnTests
     [InlineData("COMP")]
     public void ProjectScheduler_편집팝업_선택상태를_개발시작종료일로_저장한다(string state)
     {
-        var today = AppTime.TodayDate;
+        var today = AppTime.Today;
         var item = new WbsItemDto
         {
             WbsState = "COMP",

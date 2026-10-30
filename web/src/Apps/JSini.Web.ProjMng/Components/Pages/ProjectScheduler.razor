@@ -391,7 +391,7 @@
                                     @if (IsEditing(w))
                                     {
                                         <div class="pm-inline-state-wrapper">
-                                            <DxComboBox Data="@StateOptions"
+                                            <DxComboBox Data="@StateOptions" TData="StateOption" TValue="string"
                                                         TextFieldName="Name"
                                                         ValueFieldName="Code"
                                                         Value="@GetInlineStateCode(w)"
@@ -685,7 +685,7 @@
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="진행 상태" ColSpanMd="12">
-                    <DxComboBox Data="@StateOptions" TextFieldName="Name" ValueFieldName="Code"
+                    <DxComboBox Data="@StateOptions" TData="StateOption" TValue="string" TextFieldName="Name" ValueFieldName="Code"
                                 Value="@_formState" ValueChanged="@OnFormStateChanged"
                                 ValidationEnabled="false" />
                 </DxFormLayoutItem>

@@ -146,11 +146,14 @@ public partial class ProjectScheduler : IAsyncDisposable
     private IReadOnlyList<BizOption> _userOptions = [];
 
     /// <summary>진행 상태 선택 옵션.</summary>
-    private static readonly (string Code, string Name)[] StateOptions =
+    /// <summary>진행 상태 고르개의 한 칸. DevExpress 는 칸 이름을 속성에서 찾으므로 튜플로 두면 안 된다.</summary>
+    private sealed record StateOption(string Code, string Name);
+
+    private static readonly StateOption[] StateOptions =
     [
-        ("READY", "대기"),
-        ("RUNNING", "진행중"),
-        ("COMP", "완료"),
+        new("READY", "대기"),
+        new("RUNNING", "진행중"),
+        new("COMP", "완료"),
     ];
 
     private CalView _view = CalView.Month;

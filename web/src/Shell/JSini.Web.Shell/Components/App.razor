@@ -13,6 +13,9 @@
     @* 휴대폰·태블릿에서 두 손가락 확대를 잠근다. 이 태그 바로 뒤여야 한다. defer·async 없이 첫 그림 전에 서야 하고, 회로가 없는 정적 SSR 에서도 걸려야 해서 스스로 돈다. 넓은 화면은 건드리지 않는다. *@
     <script src="@Assets["js/zoom.js"]"></script>
 
+    @* 카카오톡 인앱 브라우저면 기본 브라우저로 넘긴다. 회로·스타일을 받기 전에 떠나야 해서 defer 없이 head 에서 돈다. *@
+    <script src="@Assets["js/kakao-external.js"]"></script>
+
     <JSiniHead />
 
     @*
