@@ -67,11 +67,13 @@ public sealed class WbsService(IConfiguration configuration) {
   /// <param name="scheduleTypes">구분으로 좁힌다. 여럿을 받고 비어 있으면 가리지 않는다.</param>
   /// <param name="from">계획 기간이 이 날 뒤에 걸치는 것만.</param>
   /// <param name="to">계획 기간이 이 날 앞에 걸치는 것만.</param>
+  /// <param name="memberId">프로젝트를 안 골랐을 때 이 사람이 참여한 프로젝트로 좁힌다.</param>
   /// <param name="ct">취소 토큰</param>
   public async Task<IReadOnlyList<WbsItem>> ListAsync(
       int? prjRid = null, string? compStat = null,
       IReadOnlyCollection<string>? scheduleTypes = null,
-      DateTime? from = null, DateTime? to = null, CancellationToken ct = default) {
+      DateTime? from = null, DateTime? to = null, string? memberId = null,
+      CancellationToken ct = default) {
 
     await using var db = new NpgsqlConnection(_connectionString);
 
@@ -92,6 +94,17 @@ public sealed class WbsService(IConfiguration configuration) {
     // 형을 알 수 없는 파라미터를 만들고 Npgsql 이 그 자리에서 던진다.
     var typeFilter = string.Empty;
 
+    // 프로젝트를 안 고르고 사람을 주면 그 사람이 참여한 프로젝트 전부다 — projlist 와 같은 자.
+    var memberFilter = string.Empty;
+
+    if (prjRid is null && !string.IsNullOrWhiteSpace(memberId)) {
+      memberFilter = """
+          AND a.prj_rid IN (SELECT prj_rid FROM projmng.dev_proj_user_map
+                             WHERE user_id = @memberId)
+          """;
+      parameters.Add("memberId", memberId);
+    }
+
     if (types.Length > 0) {
       // IN @scheduleTypes 로 쓰면 안 된다 — DynamicParameters.Add 로 넣은 배열은 펼쳐지지 않아 PostgreSQL 이 문법 오류를 낸다. 배열 하나를 받는 = ANY(…) 를 쓴다(Npgsql 이 string[] 을 text[] 로 보낸다).
       typeFilter = "AND a.schedule_type = ANY(@scheduleTypes)";
@@ -103,6 +116,7 @@ public sealed class WbsService(IConfiguration configuration) {
           FROM projmng.dev_wbs a
          WHERE (@prjRid::int IS NULL OR a.prj_rid = @prjRid)
            {typeFilter}
+           {memberFilter}
            AND (@compStat = ''
                 OR (@compStat = 'READY'
                     AND COALESCE(a.plan_sdt, a.dev_edt) IS NOT NULL

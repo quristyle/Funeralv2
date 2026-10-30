@@ -5128,6 +5128,44 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   color: #3c2f00;
 }
 
+/* 「전체」로 볼 때 막대 왼쪽 띠와 앞머리 이름이 프로젝트를 가른다. 바탕은 그대로 상태 색이다. */
+.pm-gc-bar--prj {
+  box-shadow: inset 4px 0 0 var(--pm-prj, transparent);
+  padding-left: calc(var(--jsini-sp-xs) + 4px);
+}
+
+.pm-gc-bar__prj {
+  margin-right: var(--jsini-sp-2xs);
+  font-weight: 700;
+}
+
+.pm-gc-bar__prj::after {
+  content: " ·";
+}
+
+/* 목록·표에서 일정이 어느 프로젝트의 것인지 적는 딱지. 색은 막대 왼쪽 띠와 같다. */
+.pm-gc-prj {
+  display: inline-block;
+  max-width: 100%;
+  padding: 0 var(--jsini-sp-xs);
+  overflow: hidden;
+  font-size: var(--jsini-fs-2xs);
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--pm-prj, var(--jsini-text-muted));
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+  background: color-mix(in srgb, var(--pm-prj, #5f6368) 12%, transparent);
+  border-radius: var(--jsini-radius-sm);
+}
+
+/* 오른쪽 귀퉁이의 상태 단추와 겹치지 않게 그만큼 비운다. */
+.pm-gc-agenda__btn > .pm-gc-prj {
+  max-width: calc(100% - 3.5rem);
+  margin-bottom: var(--jsini-sp-3xs);
+}
+
 /* 주를 넘어가는 쪽은 모서리를 편다 — 잘린 끝이 둥글면 거기서 끝난 일로 보인다. */
 .pm-gc-bar--clip-s {
   margin-left: 0;

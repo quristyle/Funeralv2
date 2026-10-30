@@ -14,14 +14,16 @@ public sealed class WbsClient(GatewayClient gateway)
     /// <param name="scheduleTypes">구분(WBS · Public · Private · Event). 여럿이면 값마다 scheduleType= 을 따로 싣는다 — 쉼표로 잇면 구분값에 쉼표가 들어가는 날 갈라진다. 비면 전체.</param>
     /// <param name="from">계획 기간이 이 날 뒤에 걸치는 것만</param>
     /// <param name="to">계획 기간이 이 날 앞에 걸치는 것만</param>
+    /// <param name="mine">프로젝트를 안 주었을 때 내가 참여한 프로젝트 전부로 좁힌다</param>
     /// <param name="ct">취소 토큰</param>
     public Task<IReadOnlyList<WbsItemDto>> ListAsync(
         int? prjRid = null, string? compStat = null, IEnumerable<string>? scheduleTypes = null,
-        DateTime? from = null, DateTime? to = null, CancellationToken ct = default)
+        DateTime? from = null, DateTime? to = null, bool mine = false, CancellationToken ct = default)
     {
         var query = new List<string>();
 
         if (prjRid is not null) query.Add($"prjRid={prjRid}");
+        else if (mine) query.Add("mine=true");
         if (!string.IsNullOrWhiteSpace(compStat)) query.Add($"compStat={Uri.EscapeDataString(compStat)}");
         if (from is not null) query.Add($"from={from:yyyy-MM-ddTHH:mm:ss}");
         if (to is not null) query.Add($"to={to:yyyy-MM-ddTHH:mm:ss}");
@@ -41,11 +43,11 @@ public sealed class WbsClient(GatewayClient gateway)
     /// <summary>날짜(DateOnly)로 구간을 넘기는 호출용 오버로드.</summary>
     public Task<IReadOnlyList<WbsItemDto>> ListAsync(
         int? prjRid, string? compStat, IEnumerable<string>? scheduleTypes,
-        DateOnly? from, DateOnly? to, CancellationToken ct = default)
+        DateOnly? from, DateOnly? to, bool mine = false, CancellationToken ct = default)
         => ListAsync(
             prjRid, compStat, scheduleTypes,
             from?.ToDateTime(TimeOnly.MinValue),
-            to?.ToDateTime(new TimeOnly(23, 59, 59)), ct);
+            to?.ToDateTime(new TimeOnly(23, 59, 59)), mine, ct);
 
     public Task<WbsItemDto?> CreateAsync(WbsItemDto item, CancellationToken ct = default)
         => gateway.PostAsync<WbsItemDto>(Url, item, ct);

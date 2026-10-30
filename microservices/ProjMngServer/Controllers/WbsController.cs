@@ -18,13 +18,15 @@ public sealed class WbsController(WbsService service) : ControllerBase {
     }
   }
 
-  /// <summary>목록. <c>scheduleType</c> 은 여러 번 실어도 된다 — 체크로 여럿 고른 구분을 그대로 받는다. 한 번만 실은 옛 호출도 한 칸짜리 배열로 들어온다.</summary>
+  /// <summary>목록. <c>scheduleType</c> 은 여러 번 실어도 된다 — 체크로 여럿 고른 구분을 그대로 받는다. 한 번만 실은 옛 호출도 한 칸짜리 배열로 들어온다.
+  /// <c>mine</c> 이면 프로젝트 대신 부르는 사람이 참여한 프로젝트 전부를 본다(일정표의 「전체」).</summary>
   [HttpGet]
   public async Task<ActionResult<ApiResponse<IReadOnlyList<WbsItem>>>> List(
       [FromQuery] int? prjRid, [FromQuery] string? compStat, [FromQuery] string[]? scheduleType,
-      [FromQuery] DateTime? from, [FromQuery] DateTime? to, CancellationToken ct)
+      [FromQuery] DateTime? from, [FromQuery] DateTime? to, [FromQuery] bool mine, CancellationToken ct)
     => Ok(ApiResponse<IReadOnlyList<WbsItem>>.Ok(
-        await service.ListAsync(prjRid, compStat, scheduleType, from, to, ct)));
+        await service.ListAsync(prjRid, compStat, scheduleType, from, to,
+            mine ? Request.Headers["X-User-Id"].ToString() : null, ct)));
 
   /// <summary>한 건.</summary>
   [HttpGet("{wbsId:int}")]

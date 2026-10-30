@@ -123,11 +123,13 @@
 
                 <CommSch Stacked="true" OnSearch="@SearchAsync" Busy="@Loading" MobileSummary="@ConditionSummary">
                     <Fields>
-                        @* 기억해 둔 프로젝트를 읽기 전에 그리면 고르개가 첫 항목을 골라 조회를 먼저 건다. *@
+                        @* 기억해 둔 프로젝트를 읽기 전에 그리면 고르개가 첫 항목을 골라 조회를 먼저 건다.
+                           「전체」(또는 지우기)는 내가 참여한 프로젝트 전부다. *@
                         <CommSchItem Label="프로젝트">
                             @if (_projectRestored)
                             {
-                                <CodeSelect CodeId="projlist" @bind-Value="_projectCode" @bind-Text="_projectName"
+                                <CodeSelect CodeId="projlist" ShowAll="true" AllowClear="true"
+                                            @bind-Value="_projectCode" @bind-Text="_projectName"
                                             OnChanged="@OnProjectChangedAsync" />
                             }
                         </CommSchItem>
@@ -262,6 +264,17 @@
                                         var w = (WbsItemDto)cell.DataItem;
                                     }
                                     <span title="@HoursTip(w.PlanHours)">@HoursText(w.PlanHours)</span>
+                                </CellDisplayTemplate>
+                            </DxGridDataColumn>
+
+                            @* 「전체」로 볼 때만 선다 — 하나를 골랐으면 모든 줄이 같은 값이다. *@
+                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.PrjRid)" Caption="프로젝트" Width="140"
+                                              Visible="@AllProjects">
+                                <CellDisplayTemplate Context="cell">
+                                    @{
+                                        var w = (WbsItemDto)cell.DataItem;
+                                    }
+                                    <span class="pm-gc-prj" style="--pm-prj: @ProjectColor(w)" title="@ProjectName(w)">@ProjectName(w)</span>
                                 </CellDisplayTemplate>
                             </DxGridDataColumn>
 
@@ -516,6 +529,10 @@
                                             draggable="@(_canUpdate ? "true" : "false")"
                                             disabled="@(!_canUpdate)"
                                             @onclick="@(() => OnBarClick(week, here))">
+                                        @if (ProjectTag(bar.Item) is { } prj)
+                                        {
+                                            <span class="pm-gc-bar__prj">@prj</span>
+                                        }
                                         @Title(bar.Item)
                                     </button>
                                 }
@@ -824,6 +841,10 @@
             <button type="button" class="pm-gc-agenda__btn"
                     disabled="@(!_canUpdate)"
                     @onclick="@(() => StartEdit(w))">
+                @if (ProjectTag(w) is { } prj)
+                {
+                    <span class="pm-gc-prj" style="--pm-prj: @ProjectColor(w)">@prj</span>
+                }
                 <span class="pm-gc-agenda__top">
                     <span class="pm-gc-agenda__name">@Title(w)</span>
                     @if (!toggle)

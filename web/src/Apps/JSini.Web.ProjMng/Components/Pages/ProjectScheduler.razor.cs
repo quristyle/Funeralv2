@@ -29,6 +29,9 @@ public partial class ProjectScheduler : IAsyncDisposable
     /// <summary>마지막에 고른 프로젝트를 브라우저에 적어 둘 때 쓰는 열쇠 앞부분. 뒤에 로그인 아이디가 붙는다.</summary>
     internal const string ProjectStorageKeyPrefix = "jsini-sched-prj:";
 
+    /// <summary>「전체」를 골라 둔 것을 적어 두는 값. 빈 글자는 「기억한 것 없음」과 갈리지 않는다.</summary>
+    internal const string AllProjectsMark = "*";
+
     private string ProjectStorageKey =>
         $"{ProjectStorageKeyPrefix}{(string.IsNullOrWhiteSpace(Me?.Username) ? "?" : Me.Username.Trim())}";
 
@@ -232,6 +235,46 @@ public partial class ProjectScheduler : IAsyncDisposable
 
     private int? ProjectRid => int.TryParse(_projectCode, out var rid) ? rid : null;
 
+    /// <summary>프로젝트를 「전체」로 보고 있나 — 내가 참여한 프로젝트 전부의 일정이 섞여 온다. 그때만 줄마다 프로젝트를 적는다.</summary>
+    private bool AllProjects => ProjectRid is null;
+
+    /// <summary>프로젝트 번호 → 이름·색. projlist 차례로 색을 매겨 같은 프로젝트는 어느 보기에서나 같은 색이다.</summary>
+    private Dictionary<int, (string Name, string Color)> _projects = new();
+
+    /// <summary>프로젝트 구별 색. 상태 색(노랑·파랑·빨강·회색)과 겹치지 않는 것으로 골랐다.</summary>
+    private static readonly string[] ProjectColors =
+    [
+        "#188038", "#9334e6", "#e8710a", "#007b83", "#c5221f",
+        "#3949ab", "#b06000", "#d01884", "#5f6368", "#0b8043",
+    ];
+
+    private string? ProjectName(WbsItemDto w) =>
+        w.PrjRid is { } rid
+            ? _projects.TryGetValue(rid, out var p) ? p.Name : $"프로젝트 {rid}"
+            : null;
+
+    private string ProjectColor(WbsItemDto w) =>
+        w.PrjRid is { } rid && _projects.TryGetValue(rid, out var p) ? p.Color : "#5f6368";
+
+    /// <summary>「전체」일 때만 붙는 프로젝트 이름. 하나를 골랐으면 모든 줄이 같은 말이라 적지 않는다.</summary>
+    private string? ProjectTag(WbsItemDto w) => AllProjects ? ProjectName(w) : null;
+
+    private async Task LoadProjectsAsync()
+    {
+        var list = await Codes.GetAsync("projlist");
+        var map = new Dictionary<int, (string, string)>();
+
+        foreach (var item in list)
+        {
+            if (int.TryParse(item.Code, out var rid) && !map.ContainsKey(rid))
+            {
+                map[rid] = (item.Name, ProjectColors[map.Count % ProjectColors.Length]);
+            }
+        }
+
+        _projects = map;
+    }
+
     private string Hint => $"{TableRows.Count}건";
 
     /// <summary>주·일 보기에서만 쓴다. 월은 직접 그린다.</summary>
@@ -340,15 +383,22 @@ public partial class ProjectScheduler : IAsyncDisposable
         var remembered = await ReadRememberedProjectAsync();
         var known = false;
 
-        if (!string.IsNullOrWhiteSpace(remembered))
+        await LoadProjectsAsync();
+
+        if (remembered == AllProjectsMark)
+        {
+            known = true;
+            _projectCode = string.Empty;
+        }
+        else if (!string.IsNullOrWhiteSpace(remembered))
         {
             var list = await Codes.GetAsync("projlist");
             known = list.Any(i => string.Equals(i.Code, remembered, StringComparison.Ordinal));
-        }
 
-        if (known)
-        {
-            _projectCode = remembered;
+            if (known)
+            {
+                _projectCode = remembered;
+            }
         }
 
         _projectRestored = true;
@@ -364,7 +414,14 @@ public partial class ProjectScheduler : IAsyncDisposable
     /// <summary>프로젝트가 바뀌었다(사람이 골랐거나 고르개가 첫 항목을 골랐다). 기억해 두고 조회한다.</summary>
     private Task OnProjectChangedAsync(CommonCodeItem? item)
     {
-        _ = RememberProjectAsync(item?.Code);
+        // 지우기 단추로 비우면 「전체」로 돌린다 — 빈 칸으로 두면 무엇을 보고 있는지 칸이 말하지 않는다.
+        if (string.IsNullOrEmpty(item?.Code))
+        {
+            _projectCode = string.Empty;
+            _projectName = "전체";
+        }
+
+        _ = RememberProjectAsync(string.IsNullOrEmpty(item?.Code) ? AllProjectsMark : item.Code);
         return SearchAsync();
     }
 
@@ -434,7 +491,7 @@ public partial class ProjectScheduler : IAsyncDisposable
             // 표가 받은 차례 그대로 그리므로 날짜순으로 맞춰 둔다. 칸에 정렬을 걸면 고친 줄이 편집 중에 자리를 옮긴다.
             _rows = [.. (await Api.ListAsync(
                     ProjectRid, _completeState, _scheduleTypes,
-                    from, to))
+                    from, to, mine: AllProjects))
                 .OrderBy(w => w.PlanSdt ?? DateTime.MaxValue)
                 .ThenBy(w => w.PlanEdt ?? DateTime.MaxValue)
                 .ThenBy(w => w.WbsId)];
@@ -720,7 +777,7 @@ public partial class ProjectScheduler : IAsyncDisposable
 
         try
         {
-            var rows = await Api.ListAsync(ProjectRid, _completeState, _scheduleTypes, miniStart, miniEnd);
+            var rows = await Api.ListAsync(ProjectRid, _completeState, _scheduleTypes, miniStart, miniEnd, mine: AllProjects);
             BuildMiniCounts(rows);
         }
         catch
@@ -851,7 +908,7 @@ public partial class ProjectScheduler : IAsyncDisposable
                 return new CalendarItem
                 {
                     Id = x.Row.WbsId,
-                    Subject = Title(x.Row),
+                    Subject = ProjectTag(x.Row) is { } prj ? $"[{prj}] {Title(x.Row)}" : Title(x.Row),
                     Description = Describe(x.Row),
                     Start = start,
                     End = schedEnd,
@@ -1139,30 +1196,34 @@ public partial class ProjectScheduler : IAsyncDisposable
     }
 
     /// <summary>막대를 칸 위에 얹는다. grid-column 으로 칸을 가로지른다.</summary>
-    private static string BarStyle(Bar bar) =>
-        $"grid-column: {bar.Col + 1} / span {bar.Span}; grid-row: {bar.Lane + 1};";
+    private string BarStyle(Bar bar) =>
+        AllProjects
+            ? $"grid-column: {bar.Col + 1} / span {bar.Span}; grid-row: {bar.Lane + 1}; --pm-prj: {ProjectColor(bar.Item)};"
+            : $"grid-column: {bar.Col + 1} / span {bar.Span}; grid-row: {bar.Lane + 1};";
 
     private string MoreStyle(int col) =>
         $"grid-column: {col + 1}; grid-row: {MaxLanes + 1};";
 
     /// <summary>막대의 꼴. 주를 넘어가는 쪽은 모서리를 펴 둔다 — 잘린 끝이 둥글면 거기서 끝난 것으로 보인다.</summary>
-    private static string BarCss(Bar bar)
+    private string BarCss(Bar bar)
     {
         var css = new List<string>(4) { "pm-gc-bar", $"pm-gc-bar--{Label(bar.Item)}" };
 
         if (bar.ClipStart) css.Add("pm-gc-bar--clip-s");
+        if (AllProjects) css.Add("pm-gc-bar--prj");
         if (bar.ClipEnd) css.Add("pm-gc-bar--clip-e");
 
         return string.Join(' ', css);
     }
 
-    private static string BarTip(WbsItemDto w)
+    private string BarTip(WbsItemDto w)
     {
         var rest = Describe(w);
+        var head = ProjectTag(w) is { } prj ? $"[{prj}] {Title(w)}" : Title(w);
 
         return rest.Length == 0
-            ? $"{Title(w)} · {Period(w)}"
-            : $"{Title(w)} · {Period(w)} · {rest}";
+            ? $"{head} · {Period(w)}"
+            : $"{head} · {Period(w)} · {rest}";
     }
 
     /// <summary>칸을 읽어 주는 말. 낭독기에는 날짜와 건수를 준다(막대의 글자는 잘려 있다).</summary>
@@ -2138,7 +2199,7 @@ public partial class ProjectScheduler : IAsyncDisposable
 
         try
         {
-            var rows = await Api.ListAsync(ProjectRid, _completeState, _scheduleTypes, from, to);
+            var rows = await Api.ListAsync(ProjectRid, _completeState, _scheduleTypes, from, to, mine: AllProjects);
 
             _mailItems = [.. rows
                 .Where(w => w.PlanSdt is not null || w.PlanEdt is not null)
@@ -2147,7 +2208,9 @@ public partial class ProjectScheduler : IAsyncDisposable
                     var start = w.PlanSdt ?? w.PlanEdt!.Value;
                     var end = w.PlanEdt ?? start;
 
-                    return new ScheduleMailItem(start, end < start ? start : end, Title(w));
+                    var title = ProjectTag(w) is { } prj ? $"[{prj}] {Title(w)}" : Title(w);
+
+                    return new ScheduleMailItem(start, end < start ? start : end, title);
                 })];
         }
         catch (Exception ex)
@@ -2167,7 +2230,7 @@ public partial class ProjectScheduler : IAsyncDisposable
             }
         }
 
-        _mailSubject = ScheduleMailBody.Subject(today, _projectName);
+        _mailSubject = ScheduleMailBody.Subject(today, AllProjects ? null : _projectName);
         RebuildMailBody();
         _mailing = true;
     }
@@ -2184,7 +2247,7 @@ public partial class ProjectScheduler : IAsyncDisposable
         var (from, to) = ScheduleMailBody.Window(today);
 
         _mailCount = _mailItems.Count(i => DateOnly.FromDateTime(i.End) >= from && DateOnly.FromDateTime(i.Start) <= to);
-        _mailBody = ScheduleMailBody.Build(today, _mailItems, _projectName, CurrentUserName, _mailMessage);
+        _mailBody = ScheduleMailBody.Build(today, _mailItems, AllProjects ? null : _projectName, CurrentUserName, _mailMessage);
     }
 
     /// <summary>받는 사람 칸의 주소들. 쉼표·세미콜론·줄바꿈 어느 것으로 이어도 된다.</summary>
