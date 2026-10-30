@@ -97,4 +97,19 @@ public sealed class ScheduleNotePopupTests
         Assert.Contains("Assist.DraftAsync", code, StringComparison.Ordinal);
         Assert.Contains("Api.CreateAsync", code, StringComparison.Ordinal);
     }
+
+    [Fact]
+    public void ScheduleNotePopup_본문작성창에서_Ctrl_Enter_입력시_저장을_수행한다()
+    {
+        var razor = Read("web", "src", "Apps", "JSini.Web.ProjMng", "Components", "Shared", "ScheduleNotePopup.razor");
+        var code = Read("web", "src", "Apps", "JSini.Web.ProjMng", "Components", "Shared", "ScheduleNotePopup.razor.cs");
+
+        // 본문 작성창 영역에 onkeydown 핸들러가 연결되어 있어야 함
+        Assert.Contains("@onkeydown=\"@OnKeyDownAsync\"", razor, StringComparison.Ordinal);
+
+        // 코드 비하인드에 OnKeyDownAsync 가 있고, CtrlKey/MetaKey 와 SaveAsync 가 연결되어 있어야 함
+        Assert.Contains("OnKeyDownAsync(KeyboardEventArgs", code, StringComparison.Ordinal);
+        Assert.Contains("e.CtrlKey", code, StringComparison.Ordinal);
+        Assert.Contains("SaveAsync()", code, StringComparison.Ordinal);
+    }
 }

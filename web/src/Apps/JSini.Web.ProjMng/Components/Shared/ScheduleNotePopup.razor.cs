@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.JSInterop;
@@ -137,6 +138,17 @@ public partial class ScheduleNotePopup : IDisposable
     {
         Close();
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// 본문 작성창에서 Ctrl+Enter(또는 Mac의 Cmd+Enter) 입력 시 저장을 실행한다.
+    /// </summary>
+    private async Task OnKeyDownAsync(KeyboardEventArgs e)
+    {
+        if (e.Key is "Enter" or "NumpadEnter" && (e.CtrlKey || e.MetaKey))
+        {
+            await SaveAsync();
+        }
     }
 
     private Task SaveAsync()
