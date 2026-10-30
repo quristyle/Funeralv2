@@ -5,7 +5,7 @@ namespace JSini.Shared.DTOs;
 /// </summary>
 public class ServerPingResultDto
 {
-    /// <summary>검사 대상 IP 주소.</summary>
+    /// <summary>검사 대상 IP 주소 또는 도메인(호스트명).</summary>
     public string TargetIp { get; set; } = "192.168.219.229";
 
     /// <summary>검사 대상 장비명 (예: 그리드 중계 장비, jin sm 장비).</summary>

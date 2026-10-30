@@ -74,7 +74,7 @@ public partial class ServerPingManage
 
         if (string.IsNullOrWhiteSpace(e.Item.Ip))
         {
-            throw new ApiException("IP 주소를 입력해 주세요.");
+            throw new ApiException("IP 주소 또는 도메인을 입력해 주세요.");
         }
 
         if (e.IsNew)

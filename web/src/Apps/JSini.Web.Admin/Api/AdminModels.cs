@@ -2017,6 +2017,7 @@ public sealed class MenuSuggestionDto
 /// <summary>내부 장비 Ping 상태 응답 DTO.</summary>
 public sealed class ServerPingResultDto
 {
+    /// <summary>검사 대상 IP 주소 또는 도메인.</summary>
     public string TargetIp { get; set; } = "192.168.219.229";
     public string? DeviceName { get; set; }
     public bool IsAlive { get; set; }

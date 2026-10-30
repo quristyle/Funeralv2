@@ -16,7 +16,7 @@
     <Fields>
         <CommSchItem Label="검색어">
             <DxTextBox @bind-Text="_keyword"
-                       NullText="장비명 또는 IP 주소"
+                       NullText="장비명 또는 IP/도메인"
                        Style="width: 220px"
                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
         </CommSchItem>
@@ -52,7 +52,7 @@
                 </CellDisplayTemplate>
             </DxGridDataColumn>
 
-            <DxGridDataColumn FieldName="@nameof(ServerPingTargetDto.Ip)" Caption="IP 주소" Width="150" TextAlignment="GridTextAlignment.Left">
+            <DxGridDataColumn FieldName="@nameof(ServerPingTargetDto.Ip)" Caption="IP / 도메인" MinWidth="160" TextAlignment="GridTextAlignment.Left">
                 <CellDisplayTemplate Context="cell">
                     <span class="ad-code">@(((ServerPingTargetDto)cell.DataItem).Ip)</span>
                 </CellDisplayTemplate>
@@ -102,8 +102,8 @@
                     <DxTextBox @bind-Text="item.Name" NullText="예: 그리드 중계 장비" />
                 </DxFormLayoutItem>
 
-                <DxFormLayoutItem Caption="IP 주소" ColSpanMd="6">
-                    <DxTextBox @bind-Text="item.Ip" NullText="예: 192.168.219.229" />
+                <DxFormLayoutItem Caption="IP 주소 / 도메인" ColSpanMd="6">
+                    <DxTextBox @bind-Text="item.Ip" NullText="예: 192.168.219.229 또는 funeralfr.jsini.co.kr" />
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="타임아웃(ms)" ColSpanMd="4">
@@ -127,7 +127,8 @@
 
     <div class="alert alert-light border mt-3 mb-0 small text-muted">
         <strong>안내:</strong>
-        여기서 등록하거나 수정한 장비는 <strong>내부 서버 Ping 모니터링(/admin/status/server-ping)</strong> 화면에 즉시 노출되며,
-        배경 감시기(ServerPingWatcher)가 주기적으로 핑을 확인하여 통신 두절 및 정상 복구 시 등록된 알림 정책(SERVER_PING)에 따라 메일 및 앱 푸시를 발송합니다.
+        IP 주소(예: 192.168.219.229)뿐만 아니라 도메인 이름(FQDN, 예: funeralfr.jsini.co.kr)도 등록하여 검사할 수 있습니다.
+        등록된 장비는 <strong>내부 서버 Ping 모니터링(/admin/status/server-ping)</strong> 화면에 즉시 노출되며,
+        배경 감시기(ServerPingWatcher)가 주기적으로 핑 및 생존 여부를 확인하여 통신 두절 및 정상 복구 시 등록된 알림 정책(SERVER_PING)에 따라 메일 및 앱 푸시를 발송합니다.
     </div>
 </CommCont>

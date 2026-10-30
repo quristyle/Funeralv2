@@ -20,7 +20,7 @@ public class ServerPingTarget
     public string Name { get; set; } = string.Empty;
 
     [Required]
-    [MaxLength(50)]
+    [MaxLength(255)]
     [Column("ip")]
     public string Ip { get; set; } = string.Empty;
 

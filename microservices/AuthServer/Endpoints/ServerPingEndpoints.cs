@@ -1,6 +1,8 @@
 using System.Diagnostics;
+using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
+using System.Text.RegularExpressions;
 using AuthServer.Data;
 using AuthServer.Entities;
 using JSini.Shared.DTOs;
@@ -79,12 +81,15 @@ public static class ServerPingEndpoints
                 return Results.BadRequest(ApiResponse<ServerPingTargetDto>.Fail("장비명을 입력해 주세요."));
 
             if (string.IsNullOrWhiteSpace(input.Ip))
-                return Results.BadRequest(ApiResponse<ServerPingTargetDto>.Fail("IP 주소를 입력해 주세요."));
+                return Results.BadRequest(ApiResponse<ServerPingTargetDto>.Fail("IP 주소 또는 도메인을 입력해 주세요."));
+
+            var (normalizedHost, _) = NormalizeTarget(input.Ip);
+            var effectiveIp = string.IsNullOrWhiteSpace(normalizedHost) ? input.Ip.Trim() : normalizedHost;
 
             var entity = new ServerPingTarget
             {
                 Name = input.Name.Trim(),
-                Ip = input.Ip.Trim(),
+                Ip = effectiveIp,
                 TimeoutMs = input.TimeoutMs > 0 ? input.TimeoutMs : 2000,
                 IsActive = input.IsActive,
                 SortOrder = input.SortOrder,
@@ -118,10 +123,13 @@ public static class ServerPingEndpoints
                 return Results.BadRequest(ApiResponse<ServerPingTargetDto>.Fail("장비명을 입력해 주세요."));
 
             if (string.IsNullOrWhiteSpace(input.Ip))
-                return Results.BadRequest(ApiResponse<ServerPingTargetDto>.Fail("IP 주소를 입력해 주세요."));
+                return Results.BadRequest(ApiResponse<ServerPingTargetDto>.Fail("IP 주소 또는 도메인을 입력해 주세요."));
+
+            var (normalizedHost, _) = NormalizeTarget(input.Ip);
+            var effectiveIp = string.IsNullOrWhiteSpace(normalizedHost) ? input.Ip.Trim() : normalizedHost;
 
             entity.Name = input.Name.Trim();
-            entity.Ip = input.Ip.Trim();
+            entity.Ip = effectiveIp;
             entity.TimeoutMs = input.TimeoutMs > 0 ? input.TimeoutMs : 2000;
             entity.IsActive = input.IsActive;
             entity.SortOrder = input.SortOrder;
@@ -198,75 +206,138 @@ public static class ServerPingEndpoints
         UpdatedAt = entity.UpdatedAt,
     };
 
+    /// <summary>
+    /// 입력된 IP 또는 도메인 주소에서 프로토콜, 경로, 포트 등을 정규화하여 호스트명과 포트를 분리한다.
+    /// </summary>
+    public static (string Host, int? Port) NormalizeTarget(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return (string.Empty, null);
+        var trimmed = input.Trim();
+
+        // http:// 또는 https:// 접두사 제거
+        if (trimmed.StartsWith("http://", StringComparison.OrdinalIgnoreCase))
+            trimmed = trimmed.Substring(7);
+        else if (trimmed.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            trimmed = trimmed.Substring(8);
+
+        // 경로(/...) 제거
+        var slashIdx = trimmed.IndexOf('/');
+        if (slashIdx >= 0)
+            trimmed = trimmed.Substring(0, slashIdx);
+
+        int? port = null;
+        var colonIdx = trimmed.LastIndexOf(':');
+        if (colonIdx >= 0 && int.TryParse(trimmed.Substring(colonIdx + 1), out var p) && p > 0 && p <= 65535)
+        {
+            port = p;
+            trimmed = trimmed.Substring(0, colonIdx);
+        }
+
+        return (trimmed.TrimEnd('.'), port);
+    }
+
     internal static async Task<ServerPingResultDto> PingServerAsync(
         string targetIp, int timeoutMs, CancellationToken ct, string? deviceName = null)
     {
-        var name = !string.IsNullOrWhiteSpace(deviceName) ? deviceName : GetDefaultDeviceName(targetIp);
+        var (host, customPort) = NormalizeTarget(targetIp);
+        var effectiveTarget = string.IsNullOrWhiteSpace(host) ? (targetIp?.Trim() ?? string.Empty) : host;
+        var name = !string.IsNullOrWhiteSpace(deviceName) ? deviceName : GetDefaultDeviceName(effectiveTarget);
+
         var dto = new ServerPingResultDto
         {
-            TargetIp = targetIp,
+            TargetIp = targetIp ?? string.Empty,
             DeviceName = name,
             CheckedAt = DateTime.UtcNow,
         };
 
+        if (string.IsNullOrWhiteSpace(effectiveTarget))
+        {
+            dto.Status = "Error";
+            dto.Message = "IP 주소 또는 도메인을 입력해 주세요.";
+            return dto;
+        }
+
+        IPAddress? resolvedIp = null;
+        bool isDomain = !IPAddress.TryParse(effectiveTarget, out resolvedIp);
+
+        // 도메인인 경우 DNS 조회 시도
+        if (isDomain)
+        {
+            try
+            {
+                var addresses = await Dns.GetHostAddressesAsync(effectiveTarget, ct);
+                if (addresses.Length > 0)
+                {
+                    resolvedIp = addresses[0];
+                }
+            }
+            catch (Exception ex)
+            {
+                dto.IsAlive = false;
+                dto.Status = "DnsError";
+                dto.Message = $"도메인 조회 실패 ({ex.Message})";
+                return dto;
+            }
+        }
+
+        var ipDisplay = isDomain && resolvedIp != null ? $" [{resolvedIp}]" : string.Empty;
         var sw = Stopwatch.StartNew();
 
         // 1. .NET Ping 클래스 시도
         try
         {
             using var pinger = new Ping();
-            var reply = await pinger.SendPingAsync(targetIp, timeoutMs);
+            var reply = await pinger.SendPingAsync(effectiveTarget, timeoutMs);
             sw.Stop();
-
-            dto.RoundtripTimeMs = reply.RoundtripTime;
-            dto.Status = reply.Status.ToString();
 
             if (reply.Status == IPStatus.Success)
             {
                 dto.IsAlive = true;
-                dto.Message = $"정상 응답 수신 ({reply.RoundtripTime}ms)";
+                dto.RoundtripTimeMs = reply.RoundtripTime;
+                dto.Status = reply.Status.ToString();
+                dto.Message = $"정상 응답 수신 ({reply.RoundtripTime}ms{ipDisplay})";
                 return dto;
             }
-            else
-            {
-                dto.IsAlive = false;
-                dto.Message = $"응답 실패: {reply.Status}";
-            }
         }
-        catch (PingException pex)
+        catch (PingException)
         {
-            sw.Stop();
-            // Linux 컨테이너 등 raw socket 권한 부재(Operation not permitted) 환경 대응
-            return await FallbackPingAsync(targetIp, timeoutMs, pex.InnerException?.Message ?? pex.Message, name, ct);
+            // raw socket 권한 부재 또는 ICMP 차단 환경 -> Fallback으로 진행
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            sw.Stop();
-            return await FallbackPingAsync(targetIp, timeoutMs, ex.Message, name, ct);
+            // 기타 오류 -> Fallback으로 진행
         }
 
-        return dto;
+        // 2. ICMP 차단/실패 환경(클라우드 호스트 등) 대응: TCP 연결 및 Fallback 검사
+        var connectTarget = resolvedIp?.ToString() ?? effectiveTarget;
+        var fallback = await FallbackPingAsync(effectiveTarget, connectTarget, customPort, timeoutMs, name, ipDisplay, ct);
+        return fallback;
     }
 
     /// <summary>
-    /// Ping 권한이 없는 환경(Docker 컨테이너 등)을 위한 대체 생존 검사.
-    /// 일반적인 열린 포트(80, 443, 22, 445 등)로의 빠른 TCP 연결 시도로 생존 여부를 가늠한다.
+    /// Ping(ICMP) 권한이 없거나 방화벽으로 ICMP가 차단된 환경(Docker 컨테이너, 클라우드 호스트 등)을 위한 대체 생존 검사.
+    /// 주요 서비스 포트로의 빠른 TCP 연결 시도로 호스트 생존 여부를 가늠한다.
     /// </summary>
     private static async Task<ServerPingResultDto> FallbackPingAsync(
-        string targetIp, int timeoutMs, string originalError, string deviceName, CancellationToken ct)
+        string host, string connectTarget, int? customPort, int timeoutMs, string deviceName, string ipDisplay, CancellationToken ct)
     {
-        var candidatePorts = new[] { 80, 443, 22, 445, 139, 8080 };
+        var candidatePorts = new List<int>();
+        if (customPort.HasValue) candidatePorts.Add(customPort.Value);
+        // 범용 웹/원격접속/DB 포트 (도메인 서버 등에서 주로 열려있는 서비스 포트)
+        candidatePorts.AddRange(new[] { 80, 443, 22, 8080, 1521, 3306, 5432, 445, 139 });
+
         var sw = Stopwatch.StartNew();
 
         foreach (var port in candidatePorts)
         {
+            if (ct.IsCancellationRequested) break;
             try
             {
                 using var client = new TcpClient();
                 using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
                 cts.CancelAfter(Math.Min(timeoutMs, 500));
 
-                var connectTask = client.ConnectAsync(targetIp, port);
+                var connectTask = client.ConnectAsync(connectTarget, port);
                 var completed = await Task.WhenAny(connectTask, Task.Delay(Math.Min(timeoutMs, 500), cts.Token));
 
                 if (completed == connectTask && client.Connected)
@@ -274,28 +345,28 @@ public static class ServerPingEndpoints
                     sw.Stop();
                     return new ServerPingResultDto
                     {
-                        TargetIp = targetIp,
+                        TargetIp = host,
                         DeviceName = deviceName,
                         IsAlive = true,
                         RoundtripTimeMs = Math.Max(1, sw.ElapsedMilliseconds),
                         Status = "Success",
-                        Message = $"정상 응답 수신 (TCP {port} 포트 연결됨)",
+                        Message = $"정상 응답 수신 (TCP {port} 포트 연결됨{ipDisplay})",
                         CheckedAt = DateTime.UtcNow,
                     };
                 }
             }
             catch (SocketException sex) when (sex.SocketErrorCode is SocketError.ConnectionRefused or SocketError.AccessDenied)
             {
-                // 포트가 닫혀있다는 응답(RST)을 보냈다는 것은 해당 IP의 호스트가 살아있음을 의미
+                // 포트가 닫혀있다는 응답(RST)을 보냈다는 것은 해당 IP/도메인의 호스트가 살아있음을 의미
                 sw.Stop();
                 return new ServerPingResultDto
                 {
-                    TargetIp = targetIp,
+                    TargetIp = host,
                     DeviceName = deviceName,
                     IsAlive = true,
                     RoundtripTimeMs = Math.Max(1, sw.ElapsedMilliseconds),
                     Status = "Success",
-                    Message = $"호스트 생존 확인 (포트 {port} 응답 확인됨)",
+                    Message = $"호스트 생존 확인 (포트 {port} 응답 확인됨{ipDisplay})",
                     CheckedAt = DateTime.UtcNow,
                 };
             }
@@ -305,53 +376,56 @@ public static class ServerPingEndpoints
             }
         }
 
-        // 마지막 수단: OS ping CLI (/bin/ping) 1회 시도
-        try
+        // 마지막 수단: OS ping CLI (/bin/ping) 1회 시도 (호스트명 안전 검사)
+        if (Regex.IsMatch(host, @"^[a-zA-Z0-9.\-_]+$"))
         {
-            var psi = new ProcessStartInfo
+            try
             {
-                FileName = "ping",
-                Arguments = $"-c 1 -W {Math.Max(1, timeoutMs / 1000)} {targetIp}",
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-            };
-
-            using var proc = Process.Start(psi);
-            if (proc != null)
-            {
-                await proc.WaitForExitAsync(ct);
-                if (proc.ExitCode == 0)
+                var psi = new ProcessStartInfo
                 {
-                    sw.Stop();
-                    return new ServerPingResultDto
+                    FileName = "ping",
+                    Arguments = $"-c 1 -W {Math.Max(1, timeoutMs / 1000)} {host}",
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                };
+
+                using var proc = Process.Start(psi);
+                if (proc != null)
+                {
+                    await proc.WaitForExitAsync(ct);
+                    if (proc.ExitCode == 0)
                     {
-                        TargetIp = targetIp,
-                        DeviceName = deviceName,
-                        IsAlive = true,
-                        RoundtripTimeMs = Math.Max(1, sw.ElapsedMilliseconds),
-                        Status = "Success",
-                        Message = "정상 응답 수신 (CLI Ping)",
-                        CheckedAt = DateTime.UtcNow,
-                    };
+                        sw.Stop();
+                        return new ServerPingResultDto
+                        {
+                            TargetIp = host,
+                            DeviceName = deviceName,
+                            IsAlive = true,
+                            RoundtripTimeMs = Math.Max(1, sw.ElapsedMilliseconds),
+                            Status = "Success",
+                            Message = $"정상 응답 수신 (CLI Ping{ipDisplay})",
+                            CheckedAt = DateTime.UtcNow,
+                        };
+                    }
                 }
             }
-        }
-        catch
-        {
-            // CLI도 불가하면 실패 처리
+            catch
+            {
+                // CLI 불가 시 무시
+            }
         }
 
         sw.Stop();
         return new ServerPingResultDto
         {
-            TargetIp = targetIp,
+            TargetIp = host,
             DeviceName = deviceName,
             IsAlive = false,
             RoundtripTimeMs = sw.ElapsedMilliseconds,
             Status = "Unreachable",
-            Message = $"통신 불가 ({originalError})",
+            Message = $"통신 불가 (응답 없음{ipDisplay})",
             CheckedAt = DateTime.UtcNow,
         };
     }
