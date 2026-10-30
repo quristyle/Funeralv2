@@ -191,6 +191,9 @@ public partial class ProjectScheduler : IAsyncDisposable
 
     private IJSObjectReference? _dragModule;
 
+    /// <summary>화면 유지(keep-alive)로 일정표가 둘 살 때 끌기 모듈이 제 화면을 가려내는 열쇠. 격자의 data-drag-owner 에 적는다.</summary>
+    private readonly string _dragOwner = Guid.NewGuid().ToString("N");
+
     /// <summary>쓸기 판정에 쓰는 손가락 시작점. 화면에 그려지는 값이 아니다.</summary>
     private double _touchX;
     private double _touchY;
@@ -1313,7 +1316,7 @@ public partial class ProjectScheduler : IAsyncDisposable
         {
             _dragRef ??= DotNetObjectReference.Create(this);
             _dragModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "./_content/JSini.Web.ProjMng/js/gc-month-drag.js");
-            await _dragModule.InvokeVoidAsync("attach", _dragRef);
+            await _dragModule.InvokeVoidAsync("attach", _dragRef, _dragOwner);
         }
         catch (JSDisconnectedException)
         {
@@ -1326,7 +1329,7 @@ public partial class ProjectScheduler : IAsyncDisposable
         {
             if (_dragModule is not null)
             {
-                await _dragModule.InvokeVoidAsync("detach");
+                await _dragModule.InvokeVoidAsync("detach", _dragOwner);
                 await _dragModule.DisposeAsync();
             }
 

@@ -483,6 +483,7 @@
             {
                 @* 주 한 줄씩 직접 배치한다 — 여러 날에 걸친 일이 칸을 가로질러 하나의 막대로 흐른다. *@
                 <div class="pm-gc-month @(_isPhone ? "pm-gc-month--phone" : null)"
+                     data-drag-owner="@_dragOwner"
                      @ref="_monthTurnRef"
                      @ontouchstart="@OnTouchStart"
                      @ontouchend="@OnTouchEndAsync">
@@ -526,7 +527,7 @@
                                             style="@BarStyle(bar)"
                                             title="@BarTip(bar.Item)"
                                             data-wbs="@bar.Item.WbsId"
-                                            draggable="@(_canUpdate ? "true" : "false")"
+                                            data-drag="@_canUpdate"
                                             disabled="@(!_canUpdate)"
                                             @onclick="@(() => OnBarClick(week, here))">
                                         @if (ProjectTag(bar.Item) is { } prj)

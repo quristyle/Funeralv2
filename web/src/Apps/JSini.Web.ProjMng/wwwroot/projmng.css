@@ -5123,6 +5123,13 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   opacity: 0.45;
 }
 
+/* 끄는 동안은 손 밑이 무엇이든 잡은 손 모양이다 — 칸·날짜 숫자 단추의 pointer 가 이기면 놓을 수 없는 자리처럼 보인다. */
+[data-pm-gc-dragging],
+[data-pm-gc-dragging] * {
+  cursor: grabbing !important;
+  user-select: none;
+}
+
 /* 노랑 위의 흰 글자는 안 읽힌다 — 이 하나만 글자색을 뒤집는다. */
 .pm-gc-bar--READY {
   color: #3c2f00;
