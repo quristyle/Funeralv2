@@ -204,13 +204,46 @@
                     </Fields>
                 </CommSch>
 
-                @* 색은 자료의 일부라 범례가 없으면 빨간 막대가 그냥 「빨간 것」이 된다. 색이 무엇인지 적어 둔다. *@
-                <ul class="pm-gc__legend">
-                    @foreach (var label in StateLabels)
-                    {
-                        <li><span class="pm-gc__dot pm-gc__dot--@label.Id"></span>@label.Caption</li>
-                    }
-                </ul>
+                @* 색은 자료의 일부라 범례가 없으면 빨간 막대가 그냥 「빨간 것」이 된다. 색이 무엇인지 적어 둔다.
+                   범례는 누름 단추다 — 눌린 것만 보인다(다시 읽지 않고 읽어 둔 줄을 거른다). *@
+                <div class="pm-gc__legend-group" role="group" aria-label="진행상태 범례">
+                    <span class="pm-gc__legend-title">
+                        진행상태
+                        @if (LegendFiltering)
+                        {
+                            <button type="button" class="pm-gc__legend-all" @onclick="@ShowAllLegend">모두 보기</button>
+                        }
+                    </span>
+                    <ul class="pm-gc__legend">
+                        @foreach (var label in StateLabels)
+                        {
+                            var on = StateShown(label.Id);
+                            <li>
+                                <button type="button" class="pm-gc__legend-btn @(on ? "pm-gc__legend-btn--on" : "")"
+                                        aria-pressed="@(on ? "true" : "false")"
+                                        title="@(on ? $"「{label.Caption}」 숨기기" : $"「{label.Caption}」 보이기")"
+                                        @onclick="@(() => ToggleState(label.Id))">
+                                    <span class="pm-gc__dot pm-gc__dot--@label.Id"></span>@label.Caption
+                                </button>
+                            </li>
+                        }
+                    </ul>
+                </div>
+                <div class="pm-gc__legend-group" role="group" aria-label="추가대상 범례">
+                    <span class="pm-gc__legend-title">추가대상</span>
+                    <ul class="pm-gc__legend">
+                        @foreach (var (code, caption) in TargetLegend)
+                        {
+                            var on = TargetShown(code);
+                            <li>
+                                <button type="button" class="pm-gc__legend-btn @(on ? "pm-gc__legend-btn--on" : "")"
+                                        aria-pressed="@(on ? "true" : "false")"
+                                        title="@(on ? $"「{caption}」 숨기기" : $"「{caption}」 보이기")"
+                                        @onclick="@(() => ToggleTarget(code))">@caption</button>
+                            </li>
+                        }
+                    </ul>
+                </div>
             </div>
         </details>
 

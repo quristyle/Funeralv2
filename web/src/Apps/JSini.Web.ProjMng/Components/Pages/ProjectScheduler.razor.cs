@@ -81,7 +81,7 @@ public partial class ProjectScheduler : IAsyncDisposable
     /// <summary>내용 검색 대상: 원본(BodyText).</summary>
     private bool _searchOriginal;
 
-    /// <summary>표에 까는 줄. 달력 보기와 작은 달력 건수는 거르지 않은 <see cref="_rows"/> 를 그대로 쓴다.
+    /// <summary>표에 까는 줄. 범례로 끈 것과 내용 검색에 안 걸린 것을 뺀다(달력 보기와 작은 달력은 범례만 거른다).
     /// 거른 결과를 들고 있는다 — 그릴 때마다 새 목록을 주면 표가 자료가 바뀐 것으로 읽고 고른 줄을 다시 잡는다.</summary>
     private IReadOnlyList<WbsItemDto> TableRows
     {
@@ -89,7 +89,7 @@ public partial class ProjectScheduler : IAsyncDisposable
         {
             var key = _keyword?.Trim();
 
-            if (string.IsNullOrEmpty(key))
+            if (string.IsNullOrEmpty(key) && !LegendFiltering)
             {
                 return _rows;
             }
@@ -98,14 +98,17 @@ public partial class ProjectScheduler : IAsyncDisposable
                 || _filteredKey != key
                 || _filteredTitle != _searchTitle
                 || _filteredMemo != _searchMemo
-                || _filteredOriginal != _searchOriginal)
+                || _filteredOriginal != _searchOriginal
+                || _filteredLegend != _legendVersion)
             {
                 _filteredFrom = _rows;
                 _filteredKey = key;
                 _filteredTitle = _searchTitle;
                 _filteredMemo = _searchMemo;
                 _filteredOriginal = _searchOriginal;
-                _filtered = [.. _rows.Where(w =>
+                _filteredLegend = _legendVersion;
+                _filtered = [.. Visible(_rows).Where(w =>
+                    string.IsNullOrEmpty(key) ||
                     (_searchTitle && Has(w.ProcNm, key)) ||
                     (_searchMemo && Has(w.Comm, key)) ||
                     (_searchOriginal && Has(w.BodyText, key)))];
@@ -123,6 +126,7 @@ public partial class ProjectScheduler : IAsyncDisposable
     private bool _filteredTitle;
     private bool _filteredMemo;
     private bool _filteredOriginal;
+    private int _filteredLegend;
     private IReadOnlyList<WbsItemDto> _filtered = [];
 
     private IReadOnlyList<WbsItemDto>? _userFilterFrom;
@@ -419,6 +423,19 @@ public partial class ProjectScheduler : IAsyncDisposable
         {
             await AttachDragAsync();
             await AttachDeleteKeyAsync();
+
+            // 추가대상 범례를 공통코드 차례로 세운다 — 못 읽으면 기본 차례로 남는다.
+            if (_addTargetCodes.Count == 0)
+            {
+                try
+                {
+                    _addTargetCodes = await Codes.GetAsync(AddTargets.CodeId);
+                    StateHasChanged();
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                }
+            }
         }
 
         if (_focusTitle)
@@ -880,6 +897,9 @@ public partial class ProjectScheduler : IAsyncDisposable
     /// <summary>작은 달력에 표시할 날짜별 일정 갯수.</summary>
     private Dictionary<DateOnly, int> _miniCounts = new();
 
+    /// <summary>작은 달력이 따로 읽어 온 줄. 범례를 바꿀 때 다시 읽지 않고 센다.</summary>
+    private IReadOnlyList<WbsItemDto> _miniRows = [];
+
     private int MiniCount(DateOnly day) => _miniCounts.GetValueOrDefault(day, 0);
 
     private string MiniDayTitle(DateOnly day, int count)
@@ -908,6 +928,7 @@ public partial class ProjectScheduler : IAsyncDisposable
         try
         {
             var rows = await Api.ListAsync(ProjectRid, _completeState, _scheduleTypes, miniStart, miniEnd, mine: AllProjects);
+            _miniRows = rows;
             BuildMiniCounts(rows);
         }
         catch
@@ -938,7 +959,7 @@ public partial class ProjectScheduler : IAsyncDisposable
         var counts = new Dictionary<DateOnly, int>();
         var (miniStart, miniEnd) = MiniSpan;
 
-        foreach (var w in rows)
+        foreach (var w in Visible(rows))
         {
             if (Span(w) is not { } span)
             {
@@ -1070,7 +1091,7 @@ public partial class ProjectScheduler : IAsyncDisposable
     {
         var today = Today;
 
-        _items = [.. _rows
+        _items = [.. Visible(_rows)
             .Select(w => (Row: w, Start: w.PlanSdt ?? w.PlanEdt, End: w.PlanEdt ?? w.PlanSdt))
             .Where(x => x.Start is not null)
             .Select(x =>
@@ -1199,7 +1220,7 @@ public partial class ProjectScheduler : IAsyncDisposable
 
         var byDay = new Dictionary<DateOnly, List<WbsItemDto>>();
 
-        foreach (var w in _rows.OrderBy(w => w.PlanSdt).ThenBy(w => w.ProcNm, StringComparer.Ordinal))
+        foreach (var w in Visible(_rows).OrderBy(w => w.PlanSdt).ThenBy(w => w.ProcNm, StringComparer.Ordinal))
         {
             if (Span(w) is not { } range)
             {
@@ -1245,7 +1266,7 @@ public partial class ProjectScheduler : IAsyncDisposable
             var to = days[6].Date;
 
             // 위에 설 차례 — 먼저 시작한 것, 같이 시작하면 긴 것. 자리 계산은 CalendarLanes 가 한다.
-            var ordered = _rows
+            var ordered = Visible(_rows)
                 .Select(w => (Row: w, Span: Span(w)))
                 .Where(x => x.Span is not null)
                 .Select(x => (x.Row, x.Span!.Value.Start, x.Span!.Value.End))
@@ -2566,6 +2587,77 @@ public partial class ProjectScheduler : IAsyncDisposable
         SyncMiniMonth();
 
         await SearchAsync();
+    }
+
+    // ── 범례 거르기 ──────────────────────────────────────────────
+
+    /// <summary>범례에서 끈 진행상태(LabelOf 값). 비어 있으면 다 보인다 — 처음에는 모든 범례가 눌려 있다.</summary>
+    private readonly HashSet<string> _hiddenStates = new(StringComparer.Ordinal);
+
+    /// <summary>범례에서 끈 추가대상(대문자 코드, 비움은 빈 글자).</summary>
+    private readonly HashSet<string> _hiddenTargets = new(StringComparer.Ordinal);
+
+    /// <summary>범례를 누를 때마다 오른다. 표가 거른 결과를 다시 짤지 이것으로 안다.</summary>
+    private int _legendVersion;
+
+    private bool LegendFiltering => _hiddenStates.Count > 0 || _hiddenTargets.Count > 0;
+
+    /// <summary>추가대상 범례. 공통코드를 읽었으면 그 차례, 아니면 기본 차례에 「없음」을 붙인다 — 비운 줄도 끌 수 있어야 한다.</summary>
+    private IEnumerable<(string Code, string Caption)> TargetLegend =>
+        (_addTargetCodes.Count > 0
+            ? _addTargetCodes
+                .Where(c => !string.IsNullOrWhiteSpace(c.Code))
+                .Select(c => (TargetKey(c.Code), string.IsNullOrWhiteSpace(c.Name) ? AddTargets.Name(c.Code)! : c.Name))
+            : FallbackAddTargets.Select(c => (c, AddTargets.Name(c)!)))
+        .Append((string.Empty, "없음"));
+
+    private static string TargetKey(string? code) => code?.Trim().ToUpperInvariant() ?? string.Empty;
+
+    /// <summary>오늘을 기준으로 상태를 세므로(지연) 그릴 때마다 다시 판정한다.</summary>
+    private IEnumerable<WbsItemDto> Visible(IEnumerable<WbsItemDto> rows) =>
+        LegendFiltering
+            ? rows.Where(w => !_hiddenStates.Contains(LabelOf(w, Today)) && !_hiddenTargets.Contains(TargetKey(w.AddTarget)))
+            : rows;
+
+    private bool StateShown(string id) => !_hiddenStates.Contains(id);
+
+    private bool TargetShown(string code) => !_hiddenTargets.Contains(code);
+
+    private void ToggleState(string id) => ToggleLegend(_hiddenStates, id);
+
+    private void ToggleTarget(string code) => ToggleLegend(_hiddenTargets, code);
+
+    private void ToggleLegend(HashSet<string> hidden, string key)
+    {
+        if (!hidden.Remove(key))
+        {
+            hidden.Add(key);
+        }
+
+        ApplyLegend();
+    }
+
+    /// <summary>범례를 모두 다시 누른다.</summary>
+    private void ShowAllLegend()
+    {
+        _hiddenStates.Clear();
+        _hiddenTargets.Clear();
+        ApplyLegend();
+    }
+
+    /// <summary>다시 읽지 않는다 — 읽어 둔 줄에서 거르기만 한다.</summary>
+    private void ApplyLegend()
+    {
+        _legendVersion++;
+
+        if (_view != CalView.Table)
+        {
+            BuildCalendar();
+            BuildDays();
+            BuildWeeks();
+        }
+
+        BuildMiniCounts(MiniReusesRows ? _rows : _miniRows);
     }
 
     /// <summary>상태 색. 구글 캘린더의 색조로 옮긴 넷이다.</summary>

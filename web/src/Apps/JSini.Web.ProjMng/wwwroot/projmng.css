@@ -5033,13 +5033,37 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   }
 }
 
-/* 색이 무엇을 뜻하는지 적어 둔 줄. */
+/* 색이 무엇을 뜻하는지 적어 둔 줄. 칸마다 누름 단추라 눌린 것만 달력·표에 보인다. */
+.pm-gc__legend-group {
+  margin: var(--jsini-sp-md) 0 0;
+}
+
+.pm-gc__legend-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--jsini-sp-2xs);
+  font-size: var(--jsini-fs-xs);
+  font-weight: 600;
+  color: var(--jsini-text-muted);
+}
+
+.pm-gc__legend-all {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: var(--jsini-fs-xs);
+  font-weight: 400;
+  color: var(--pm-gc-accent, #1a73e8);
+  cursor: pointer;
+}
+
 .pm-gc__legend {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--jsini-sp-xs) var(--jsini-sp-md);
+  gap: var(--jsini-sp-2xs);
   padding: 0;
-  margin: var(--jsini-sp-md) 0 0;
+  margin: 0;
   font-size: var(--jsini-fs-xs);
   color: var(--jsini-text-muted);
   list-style: none;
@@ -5047,8 +5071,41 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 
 .pm-gc__legend li {
   display: flex;
+}
+
+/* 떼어 둔 단추는 평평하고 흐리게, 눌린 단추는 들어간 것처럼 짙게 — 켜짐/꺼짐이 색 없이도 갈린다. */
+.pm-gc__legend-btn {
+  display: inline-flex;
   gap: var(--jsini-sp-2xs);
   align-items: center;
+  padding: 0.125rem 0.5rem;
+  border: 1px solid var(--jsini-border, #d1d5db);
+  border-radius: var(--jsini-radius-sm, 4px);
+  background: transparent;
+  color: var(--jsini-text-muted, #6b7280);
+  font-size: var(--jsini-fs-xs);
+  line-height: 1.5;
+  cursor: pointer;
+  user-select: none;
+  opacity: 0.55;
+  transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, opacity 0.15s ease-in-out;
+}
+
+.pm-gc__legend-btn:not(.pm-gc__legend-btn--on) {
+  text-decoration: line-through;
+}
+
+.pm-gc__legend-btn:hover {
+  border-color: var(--pm-gc-accent, #1a73e8);
+  opacity: 1;
+}
+
+.pm-gc__legend-btn--on {
+  border-color: color-mix(in srgb, var(--pm-gc-accent, #1a73e8) 45%, var(--jsini-border, #d1d5db));
+  background: color-mix(in srgb, var(--pm-gc-accent, #1a73e8) 12%, transparent);
+  color: var(--jsini-text, inherit);
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.15);
+  opacity: 1;
 }
 
 .pm-gc__dot {
