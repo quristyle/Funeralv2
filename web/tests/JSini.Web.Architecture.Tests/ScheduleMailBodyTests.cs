@@ -96,7 +96,8 @@ public sealed class ScheduleMailBodyTests
     [InlineData("REQUEST", "요구")]
     [InlineData("DINNER", "회식")]
     [InlineData("VACATION", "휴가")]
-    public void 이슈_공지_요구_회식_휴가도_추가대상_이름과_딱지가_선다(string code, string name)
+    [InlineData("OUTING", "외출")]
+    public void 이슈_공지_요구_회식_휴가_외출도_추가대상_이름과_딱지가_선다(string code, string name)
     {
         Assert.Equal(name, AddTargets.Name(code));
 

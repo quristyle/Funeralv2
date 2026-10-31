@@ -51,7 +51,7 @@ public sealed class WbsItem {
   /// <summary>공통코드 SCHEDULE_TYPE(<c>WBS</c> · <c>Private</c> · <c>Public</c> · <c>Event</c>). WBS 화면과 일정표를 가르는 값이다.</summary>
   public string? ScheduleType { get; set; }
 
-  /// <summary>추가대상 — 공통코드 ADD_TARGET(ADD · CHANGE · MOVE · ISSUE · NOTICE · REQUEST · DINNER · VACATION). null 이면 저장된 값을 그대로 두고, 빈 글자면 지운다.</summary>
+  /// <summary>추가대상 — 공통코드 ADD_TARGET(ADD · CHANGE · MOVE · ISSUE · NOTICE · REQUEST · DINNER · VACATION · OUTING). null 이면 저장된 값을 그대로 두고, 빈 글자면 지운다.</summary>
   public string? AddTarget { get; set; }
 
   /// <summary>폐기했나(discard_dt 유무). 저장 때 null 이면 그대로 두고, 참이면 폐기 시각을 찍고, 거짓이면 지운다.</summary>
