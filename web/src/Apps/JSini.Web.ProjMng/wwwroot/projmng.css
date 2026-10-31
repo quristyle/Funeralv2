@@ -5015,7 +5015,8 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 .pm-gc__dot--DISCARD,
 .pm-gc-bar--DISCARD { background: #bdc1c6; }
 
-.pm-gc-bar--DISCARD { color: #5f6368; text-decoration: line-through; }
+/* 뒤에 오는 .pm-gc-bar 의 흰 글자를 이기려고 클래스를 겹친다. */
+.pm-gc-bar.pm-gc-bar--DISCARD { color: #5f6368; text-decoration: line-through; }
 
 /* 일요일 빨강 · 토요일 파랑. 요일 머리와 날짜 숫자가 함께 쓴다. */
 .pm-gc__sun { color: #d93025; }
@@ -8084,4 +8085,54 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   background: #e8eaed;
   color: #5f6368;
   border: 1px dashed #9aa0a6;
+}
+
+/* 폐기 — 다크모드. 위의 밝은 회색 바탕이 어두운 표에서 흰 띠로 튀고 #5f6368 글자는 바탕에 묻힌다. 바탕은 살짝만 띄우고 글자를 밝힌다. */
+:root[data-theme='dark'] .commgrd .dxbl-grid .dxbl-grid-table > tbody > tr.pm-row--discard.pm-row--discard > td,
+:root[data-theme='dark'] .commgrd .dxbl-grid .dxbl-grid-table > tbody > tr.pm-row--discard.pm-row--discard > td.dxbl-grid-fixed-cell,
+:root[data-bs-theme='dark'] .commgrd .dxbl-grid .dxbl-grid-table > tbody > tr.pm-row--discard.pm-row--discard > td,
+:root[data-bs-theme='dark'] .commgrd .dxbl-grid .dxbl-grid-table > tbody > tr.pm-row--discard.pm-row--discard > td.dxbl-grid-fixed-cell {
+  background-color: color-mix(in srgb, var(--tb-surface, #262626) 88%, #9aa0a6);
+  color: #9aa0a6;
+}
+
+:root[data-theme='dark'] .commgrd .dxbl-grid .dxbl-grid-table > tbody > tr.pm-row--discard.pm-row--discard > td:first-child,
+:root[data-bs-theme='dark'] .commgrd .dxbl-grid .dxbl-grid-table > tbody > tr.pm-row--discard.pm-row--discard > td:first-child {
+  box-shadow: inset 3px 0 0 #80868b;
+}
+
+:root[data-theme='dark'] .commgrd tr.pm-row--discard:not(.dxbl-grid-selected-row) > td span:not(.jsini-badge),
+:root[data-bs-theme='dark'] .commgrd tr.pm-row--discard:not(.dxbl-grid-selected-row) > td span:not(.jsini-badge) {
+  text-decoration-color: #80868b;
+}
+
+:root[data-theme='dark'] .jsini-badge.pm-badge--discard,
+:root[data-bs-theme='dark'] .jsini-badge.pm-badge--discard {
+  background: rgba(154, 160, 166, 0.14);
+  color: #bdc1c6;
+  border-color: #80868b;
+}
+
+:root[data-theme='dark'] .pm-statecycle--discard,
+:root[data-bs-theme='dark'] .pm-statecycle--discard {
+  color: #bdc1c6;
+}
+
+:root[data-theme='dark'] .pm-gc__dot--DISCARD,
+:root[data-theme='dark'] .pm-gc-bar.pm-gc-bar--DISCARD,
+:root[data-bs-theme='dark'] .pm-gc__dot--DISCARD,
+:root[data-bs-theme='dark'] .pm-gc-bar.pm-gc-bar--DISCARD {
+  background: #5f6368;
+}
+
+:root[data-theme='dark'] .pm-gc-bar.pm-gc-bar--DISCARD,
+:root[data-bs-theme='dark'] .pm-gc-bar.pm-gc-bar--DISCARD {
+  color: #dadce0;
+}
+
+:root[data-theme='dark'] .pm-gc-agenda__item--DISCARD .pm-gc-agenda__btn,
+:root[data-theme='dark'] .pm-find__item.pm-gc-agenda__item--DISCARD,
+:root[data-bs-theme='dark'] .pm-gc-agenda__item--DISCARD .pm-gc-agenda__btn,
+:root[data-bs-theme='dark'] .pm-find__item.pm-gc-agenda__item--DISCARD {
+  border-left-color: #80868b;
 }

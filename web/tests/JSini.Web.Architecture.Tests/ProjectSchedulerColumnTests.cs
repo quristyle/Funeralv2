@@ -259,6 +259,11 @@ public sealed class ProjectSchedulerColumnTests
         Assert.Contains("RowCssClass=\"@TableRowClass\"", razor);
         Assert.Contains("tr.pm-row--discard", css);
         Assert.Contains("line-through", css);
+        // 밝은 회색 바탕·글자는 다크모드에서 흰 띠가 되거나 묻힌다 — 두 테마 표지 모두에 덮어쓰기가 있어야 한다.
+        Assert.Contains(":root[data-theme='dark'] .commgrd .dxbl-grid .dxbl-grid-table > tbody > tr.pm-row--discard", css);
+        Assert.Contains(":root[data-bs-theme='dark'] .commgrd .dxbl-grid .dxbl-grid-table > tbody > tr.pm-row--discard", css);
+        Assert.Contains(":root[data-bs-theme='dark'] .jsini-badge.pm-badge--discard", css);
+        Assert.Contains(":root[data-bs-theme='dark'] .pm-gc-bar.pm-gc-bar--DISCARD", css);
 
         // 폐기는 개발 날짜를 지우지 않는다 — 되돌리면 그 전 상태(완료)로 돌아간다.
         var w = new WbsItemDto { DevSdt = new DateTime(2026, 10, 1), DevEdt = new DateTime(2026, 10, 2) };
