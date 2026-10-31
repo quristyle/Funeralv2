@@ -40,9 +40,6 @@ public partial class ScheduleMailPage : IDisposable
     /// <summary>템플릿 고르개의 「기본 틀」. DB 번호는 1부터라 0 과 안 겹친다.</summary>
     private const long DefaultTemplateId = 0;
 
-    /// <summary>한 번에 실을 수 있는 기간. 넘으면 타임라인이 메일 한 통으로 감당 못 할 만큼 길어진다.</summary>
-    private const int MaxMailDays = 366;
-
     /// <summary>탭을 옮겼다 와도 쓰던 그대로 — 보내거나 닫으면 버린다.</summary>
     private sealed class Draft
     {
@@ -219,12 +216,6 @@ public partial class ScheduleMailPage : IDisposable
         if (_d.Until < _d.From)
         {
             Say("기간의 끝이 시작보다 앞입니다.", NoticeTone.Warning);
-            return false;
-        }
-
-        if (_d.Until.DayNumber - _d.From.DayNumber + 1 > MaxMailDays)
-        {
-            Say($"기간은 {MaxMailDays}일까지 고를 수 있습니다.", NoticeTone.Warning);
             return false;
         }
 
