@@ -130,6 +130,9 @@ PK `dev_proj_user_map_pk` (`prj_rid`, `user_id`).
 | `ADD_TARGET` | `ADD` | 추가 | 1 |
 | `ADD_TARGET` | `CHANGE` | 변경 | 2 |
 | `ADD_TARGET` | `MOVE` | 이동 | 3 |
+| `ADD_TARGET` | `ISSUE` | 이슈 | 4 |
+| `ADD_TARGET` | `NOTICE` | 공지 | 5 |
+| `ADD_TARGET` | `REQUEST` | 요구 | 6 |
 
 ## 직접 보기
 

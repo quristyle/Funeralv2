@@ -89,4 +89,22 @@ public sealed class ScheduleMailBodyTests
         Assert.Contains("dashed", html[..gone][^900..]);
         Assert.Contains(">추가</span>", html);
     }
+
+    [Theory]
+    [InlineData("ISSUE", "이슈")]
+    [InlineData("NOTICE", "공지")]
+    [InlineData("REQUEST", "요구")]
+    public void 이슈_공지_요구도_추가대상_이름과_딱지가_선다(string code, string name)
+    {
+        Assert.Equal(name, AddTargets.Name(code));
+
+        var day = new DateTime(2026, 11, 2);
+        var html = ScheduleMailBody.Build(new ScheduleMailInput(
+            new DateOnly(2026, 10, 24), new DateOnly(2026, 11, 7), new DateOnly(2026, 10, 31),
+            [new(day, day, "일정", null, null, code)],
+            "견본", "보내는이", null));
+
+        Assert.Contains($">{name}</span>", html);
+        Assert.DoesNotContain("#f0f2f5", html[..html.IndexOf($">{name}</span>", StringComparison.Ordinal)][^300..]);
+    }
 }

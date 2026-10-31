@@ -53,7 +53,7 @@ public sealed class ScheduleMailResult
 
 /// <summary>
 /// 메일에 실을 일정 한 건. 날짜는 일정표가 그리는 그 벽시계 값이다.
-/// 사람은 보이는 이름으로 받는다. 추가대상은 공통코드 값(ADD · CHANGE · MOVE)이다.
+/// 사람은 보이는 이름으로 받는다. 추가대상은 공통코드 값(ADD · CHANGE · MOVE · ISSUE · NOTICE · REQUEST)이다.
 /// 폐기한 일정도 빼지 않고 싣는다 — 받는 이가 「없어진 것」과 「버린 것」을 가를 수 있게 흐리게 긋는다.
 /// </summary>
 public sealed record ScheduleMailItem(
@@ -421,6 +421,9 @@ public static class ScheduleMailBody
             "ADD" => ("#1a7f37", "#e6f4ea"),
             "CHANGE" => ("#b35900", "#fff1e0"),
             "MOVE" => ("#2f6fdb", "#e8f0fe"),
+            "ISSUE" => ("#c5221f", "#fce8e6"),
+            "NOTICE" => ("#7b1fa2", "#f3e8fd"),
+            "REQUEST" => ("#00796b", "#e0f2f1"),
             _ => (Muted, "#f0f2f5"),
         };
 
