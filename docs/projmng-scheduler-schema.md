@@ -59,6 +59,7 @@ ProjectScheduler.razor (web/src/Apps/JSini.Web.ProjMng/Components/Pages)
 | `body_text` | text | | | 일정 메모 원문. 수정 때 null 이면 그대로 둔다 |
 | `req_user` | varchar(1000) | | | 요청자 성명 |
 | `add_target` | varchar(20) | | | 추가대상 — `ADD` 추가 · `CHANGE` 변경 · `MOVE` 이동 |
+| `discard_dt` | timestamptz | | | **폐기한 때.** 있으면 진행 상태가 폐기다(`deploy/sql/projmng-wbs-discard-2026-10-31.sql`) |
 
 제약: `dev_wbs_unique` UNIQUE(`wbs_id`) · `dev_wbs_unique_1` UNIQUE(`prj_rid`, `wbs_id`).
 기본 키와 외래 키는 없다.
@@ -68,9 +69,13 @@ ProjectScheduler.razor (web/src/Apps/JSini.Web.ProjMng/Components/Pages)
 | 응답 칸 | 셈 |
 |---|---|
 | `PlanGap` | `COALESCE(plan_edt, dev_edt)::date - COALESCE(plan_sdt, dev_edt)::date + 1` (일) |
-| `WbsState` | `dev_sdt`·`dev_edt` 둘 다 없으면 `READY`, `dev_edt` 가 없으면 `RUNNING`, 아니면 `COMP` |
+| `Discarded` | `discard_dt IS NOT NULL` |
+| `WbsState` | `discard_dt` 가 있으면 `DISCARD`, `dev_sdt`·`dev_edt` 둘 다 없으면 `READY`, `dev_edt` 가 없으면 `RUNNING`, 아니면 `COMP` |
 
 진행 상태는 **따로 적는 칸이 없다** — 화면의 「진행중으로 변경」은 `dev_sdt` 를, 「완료」는 `dev_edt` 를 채우는 것이다.
+「폐기」만 제 칸(`discard_dt`)을 찍고 개발 날짜는 그대로 둔다 — 폐기를 풀면 그 전 상태로 돌아간다.
+저장 때 `Discarded` 가 null 이면 그대로 두고(WBS 화면처럼 모르는 쪽), 참이면 찍고, 거짓이면 지운다.
+목록 거르개(`compStat`)의 `READY`·`RUNNING`·`COMP`·`DISCOMP` 는 폐기한 줄을 빼고, `DISCARD` 로만 잡힌다.
 
 ### 조회 조건
 

@@ -63,4 +63,30 @@ public sealed class ScheduleMailBodyTests
         Assert.Contains(">추가</span>", html);
         Assert.DoesNotContain(">이동</span>", html);
     }
+
+    [Fact]
+    public void 폐기한_일정은_빠지지_않고_취소선과_폐기_딱지로_흐려진다()
+    {
+        var nov2 = new DateTime(2026, 11, 2);
+        var input = new ScheduleMailInput(
+            new DateOnly(2026, 10, 24), new DateOnly(2026, 11, 7), new DateOnly(2026, 10, 31),
+            [
+                new(nov2, nov2, "살아 있는 일정"),
+                new(nov2, nov2, "버린 일정", null, "박담당", "ADD", Discarded: true),
+            ],
+            "견본", "보내는이", null);
+
+        var html = ScheduleMailBody.Build(input);
+
+        var gone = html.IndexOf("버린 일정", StringComparison.Ordinal);
+        var alive = html.IndexOf("살아 있는 일정", StringComparison.Ordinal);
+        Assert.True(gone > 0 && alive > 0);
+
+        // 제목 바로 앞의 스타일에 취소선이 있는 것은 폐기한 쪽뿐이다.
+        Assert.Contains("text-decoration:line-through;\">버린 일정", html);
+        Assert.DoesNotContain("line-through;\">살아 있는 일정", html);
+        Assert.Contains(">폐기</span>", html);
+        Assert.Contains("dashed", html[..gone][^900..]);
+        Assert.Contains(">추가</span>", html);
+    }
 }

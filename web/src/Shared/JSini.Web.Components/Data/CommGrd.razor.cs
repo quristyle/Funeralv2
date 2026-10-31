@@ -115,6 +115,9 @@ public partial class CommGrd<TItem>
     /// <summary>목록을 다시 읽는다. 저장·삭제 뒤에도 부른다.</summary>
     [Parameter] public EventCallback Reload { get; set; }
 
+    /// <summary>줄마다 덧붙일 CSS 클래스. 줄의 상태(폐기·마감 …)를 줄 전체의 생김새로 보여 줄 때 쓴다. null 이면 붙이지 않는다.</summary>
+    [Parameter] public Func<TItem, string?>? RowCssClass { get; set; }
+
     /// <summary>삭제 확인 문구. 주면 기본 확인창 대신 ConfirmDialog 로 묻는다 — 딸린 것이 함께 사라지는 자리에 쓴다.</summary>
     [Parameter] public Func<TItem, string>? DeleteConfirm { get; set; }
 
@@ -734,11 +737,17 @@ public partial class CommGrd<TItem>
     /// <summary>짝수 줄에 표시 클래스를 붙인다. 색은 CSS 가 정한다. 쪽 안의 자리로 세야 쪽을 넘겨도 무늬가 뒤집히지 않는다.</summary>
     private void OnCustomizeElement(GridCustomizeElementEventArgs e)
     {
-        if (AlternateRows
-            && e.ElementType == GridElementType.DataRow
-            && (e.VisibleIndex - PageOffset) % 2 == 1)
+        if (e.ElementType == GridElementType.DataRow)
         {
-            e.CssClass = "commgrd__row--alt";
+            var alt = AlternateRows && (e.VisibleIndex - PageOffset) % 2 == 1 ? "commgrd__row--alt" : null;
+            var own = RowCssClass is not null && e.Grid.GetDataItem(e.VisibleIndex) is TItem item ? RowCssClass(item) : null;
+            var css = string.Join(' ', new[] { alt, own }.Where(c => !string.IsNullOrWhiteSpace(c)));
+
+            if (css.Length > 0)
+            {
+                e.CssClass = css;
+            }
+
             return;
         }
 

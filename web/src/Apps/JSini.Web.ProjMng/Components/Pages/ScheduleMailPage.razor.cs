@@ -262,7 +262,8 @@ public partial class ScheduleMailPage : IDisposable
                     var end = w.PlanEdt ?? start;
 
                     return new ScheduleMailItem(start, end < start ? start : end, Title(w),
-                        w.ReqUser, PersonName(w.DevUser), w.AddTarget);
+                        w.ReqUser, PersonName(w.DevUser), w.AddTarget,
+                        Discarded: w.Discarded == true || w.WbsState == "DISCARD");
                 })];
 
             _d.Loaded = (_d.From, _d.Until);

@@ -54,12 +54,15 @@ public sealed class WbsItem {
   /// <summary>추가대상 — 공통코드 ADD_TARGET(ADD · CHANGE · MOVE). null 이면 저장된 값을 그대로 두고, 빈 글자면 지운다.</summary>
   public string? AddTarget { get; set; }
 
+  /// <summary>폐기했나(discard_dt 유무). 저장 때 null 이면 그대로 두고, 참이면 폐기 시각을 찍고, 거짓이면 지운다.</summary>
+  public bool? Discarded { get; set; }
+
   /// <summary>계획 기간(일). <b>읽기 전용</b> — 서버가 센다.</summary>
   public int? PlanGap { get; set; }
 
   /// <summary>
-  /// 진행 상태(<c>READY</c> · <c>RUNNING</c> · <c>COMP</c>). <b>읽기 전용</b>.
-  /// 개발 시작·종료일로 정해진다 — 따로 적는 칸이 아니다.
+  /// 진행 상태(<c>READY</c> · <c>RUNNING</c> · <c>COMP</c> · <c>DISCARD</c>). <b>읽기 전용</b>.
+  /// 폐기 시각이 있으면 폐기, 아니면 개발 시작·종료일로 정해진다.
   /// </summary>
   public string? WbsState { get; set; }
 }

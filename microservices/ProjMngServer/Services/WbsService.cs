@@ -53,8 +53,10 @@ public sealed class WbsService(IConfiguration configuration) {
       a.body_text    AS BodyText,
       a.schedule_type AS ScheduleType,
       a.add_target   AS AddTarget,
+      (a.discard_dt IS NOT NULL) AS Discarded,
       (COALESCE(a.plan_edt, a.dev_edt)::date - COALESCE(a.plan_sdt, a.dev_edt)::date) + 1 AS PlanGap,
-      CASE WHEN COALESCE(a.dev_sdt, a.dev_edt) IS NULL THEN 'READY'
+      CASE WHEN a.discard_dt IS NOT NULL                THEN 'DISCARD'
+           WHEN COALESCE(a.dev_sdt, a.dev_edt) IS NULL THEN 'READY'
            WHEN a.dev_edt IS NULL                      THEN 'RUNNING'
            ELSE 'COMP'
       END AS WbsState
@@ -64,7 +66,7 @@ public sealed class WbsService(IConfiguration configuration) {
   /// 목록을 읽는다.
   /// </summary>
   /// <param name="prjRid">프로젝트. 이 화면들은 프로젝트 없이 보지 않는다.</param>
-  /// <param name="compStat">진행 상태로 좁힌다(READY · RUNNING · COMP · DISCOMP — 아직 안 끝난 것 전부).</param>
+  /// <param name="compStat">진행 상태로 좁힌다(READY · RUNNING · COMP · DISCOMP — 아직 안 끝난 것 전부 · DISCARD). 폐기한 줄은 DISCARD 로만 잡힌다.</param>
   /// <param name="scheduleTypes">구분으로 좁힌다. 여럿을 받고 비어 있으면 가리지 않는다.</param>
   /// <param name="from">계획 기간이 이 날 뒤에 걸치는 것만.</param>
   /// <param name="to">계획 기간이 이 날 앞에 걸치는 것만.</param>
@@ -119,7 +121,9 @@ public sealed class WbsService(IConfiguration configuration) {
            {typeFilter}
            {memberFilter}
            AND (@compStat = ''
-                OR (@compStat = 'READY'
+                OR (@compStat = 'DISCARD' AND a.discard_dt IS NOT NULL)
+                OR (@compStat <> 'DISCARD' AND a.discard_dt IS NULL AND (
+                   (@compStat = 'READY'
                     AND COALESCE(a.plan_sdt, a.dev_edt) IS NOT NULL
                     AND COALESCE(a.plan_edt, a.dev_edt) IS NOT NULL
                     AND COALESCE(a.dev_sdt,  a.dev_edt) IS NULL)
@@ -135,7 +139,7 @@ public sealed class WbsService(IConfiguration configuration) {
                 OR (@compStat = 'COMP'
                     AND COALESCE(a.plan_sdt, a.dev_edt) IS NOT NULL
                     AND COALESCE(a.plan_edt, a.dev_edt) IS NOT NULL
-                    AND a.dev_edt IS NOT NULL))
+                    AND a.dev_edt IS NOT NULL))))
            -- 기간은 **겹침**으로 본다. 시작일만 보면 걸쳐 있는 긴 일감이
            -- 그 주에서 사라진다 — 그것이 일정표에서 제일 보고 싶은 줄이다.
            -- 한쪽만 적힌 줄은 그날 하루로 본다(화면의 Span 과 같은 자). 날짜가 하나도
@@ -175,7 +179,7 @@ public sealed class WbsService(IConfiguration configuration) {
                build_user, build_status, dev_user, req_user,
                plan_sdt, plan_edt, dev_sdt, dev_edt,
                qc_user, cre_user, cre_dt, mod_user, mod_dt, schedule_type, comm,
-               summary, body_text, add_target )
+               summary, body_text, add_target, discard_dt )
         SELECT @PrjRid, COALESCE(MAX(wbs_id), 0) + 1,
                @ProcId, @Gb1, @Gb2, @ProcNm, @ProcTp, @ProcLvl,
                @BuildUser, @BuildStatus, COALESCE(@DevUser, ''), @ReqUser,
@@ -184,7 +188,8 @@ public sealed class WbsService(IConfiguration configuration) {
                @DevSdt, @DevEdt,
                @QcUser, @userId, now(), @userId, now(),
                COALESCE(@ScheduleType, 'WBS'), @Comm,
-               @Summary, @BodyText, NULLIF(@AddTarget, '')
+               @Summary, @BodyText, NULLIF(@AddTarget, ''),
+               CASE WHEN @Discarded THEN now() END
           FROM projmng.dev_wbs
         RETURNING wbs_id
         """,
@@ -193,6 +198,7 @@ public sealed class WbsService(IConfiguration configuration) {
           item.BuildUser, item.BuildStatus, item.DevUser, item.ReqUser,
           item.PlanSdt, item.PlanEdt, item.DevSdt, item.DevEdt,
           item.QcUser, item.ScheduleType, item.Comm, item.Summary, item.BodyText, item.AddTarget,
+          item.Discarded,
           userId,
         },
         cancellationToken: ct));
@@ -229,6 +235,9 @@ public sealed class WbsService(IConfiguration configuration) {
                summary       = COALESCE(@Summary, summary),
                body_text     = COALESCE(@BodyText, body_text),
                add_target    = NULLIF(COALESCE(@AddTarget, add_target), ''),
+               discard_dt    = CASE WHEN @Discarded IS NULL THEN discard_dt
+                                    WHEN @Discarded THEN COALESCE(discard_dt, now())
+                                    ELSE NULL END,
                mod_user      = @userId,
                mod_dt        = now()
          WHERE wbs_id = @WbsId
@@ -238,6 +247,7 @@ public sealed class WbsService(IConfiguration configuration) {
           item.ProcTp, item.ProcLvl, item.BuildUser, item.BuildStatus, item.DevUser, item.ReqUser,
           item.PlanSdt, item.PlanEdt, item.DevSdt, item.DevEdt,
           item.QcUser, item.ScheduleType, item.Comm, item.Summary, item.BodyText, item.AddTarget,
+          item.Discarded,
           userId,
         },
         cancellationToken: ct));

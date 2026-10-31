@@ -1069,9 +1069,10 @@ public partial class ProjectScheduler : IAsyncDisposable
         return string.Join(" · ", parts);
     }
 
-    /// <summary>색. 서버 상태는 대기·진행·완료 셋이고, 지연은 여기서 센다 — 계획 종료일이 지났는데 안 끝난 것.</summary>
+    /// <summary>색. 서버 상태는 대기·진행·완료·폐기 넷이고, 지연은 여기서 센다 — 계획 종료일이 지났는데 안 끝난 것.</summary>
     private static string LabelOf(WbsItemDto w, DateOnly today) => w.WbsState switch
     {
+        _ when IsDiscarded(w) => "DISCARD",
         "COMP" => "COMP",
         _ when w.PlanEdt is not null && DateOnly.FromDateTime(w.PlanEdt.Value) < today => "OVER",
         "RUNNING" => "RUNNING",
@@ -1080,6 +1081,7 @@ public partial class ProjectScheduler : IAsyncDisposable
 
     private static string StateName(WbsItemDto w) => LabelOf(w, Today) switch
     {
+        "DISCARD" => "폐기",
         "COMP" => "완료",
         "OVER" => "지연",
         "RUNNING" => "진행중",
@@ -1088,6 +1090,7 @@ public partial class ProjectScheduler : IAsyncDisposable
 
     private static string StateClass(WbsItemDto w) => LabelOf(w, Today) switch
     {
+        "DISCARD" => "jsini-badge--off pm-badge--discard",
         "COMP" => "jsini-badge--on",
         "OVER" => "jsini-badge--err",
         "RUNNING" => "jsini-badge--warn",
@@ -1633,6 +1636,7 @@ public partial class ProjectScheduler : IAsyncDisposable
     /// <summary>오른쪽 일정 목록의 상태. 대기·진행·완료에 지연(계획 종료일이 지났는데 안 끝난 것)을 얹는다.</summary>
     private static string AgendaStateCode(WbsItemDto w) => GetInlineStateCode(w) switch
     {
+        "DISCARD" => "DISCARD",
         "COMP" => "COMP",
         _ when w.PlanEdt is not null && DateOnly.FromDateTime(w.PlanEdt.Value) < Today => "OVER",
         var code => code,
@@ -1640,6 +1644,7 @@ public partial class ProjectScheduler : IAsyncDisposable
 
     private static string AgendaStateName(WbsItemDto w) => AgendaStateCode(w) switch
     {
+        "DISCARD" => "폐기",
         "OVER" => "지연",
         "RUNNING" => "진행중",
         "COMP" => "완료",
@@ -1648,6 +1653,7 @@ public partial class ProjectScheduler : IAsyncDisposable
 
     private static string AgendaStateClass(WbsItemDto w) => AgendaStateCode(w) switch
     {
+        "DISCARD" => "jsini-badge--off pm-badge--discard",
         "OVER" => "jsini-badge--err",
         "RUNNING" => "jsini-badge--warn",
         "COMP" => "jsini-badge--on",
@@ -1680,6 +1686,7 @@ public partial class ProjectScheduler : IAsyncDisposable
         try
         {
             var next = Copy(w);
+            next.Discarded = false;
             var nextState = NextAgendaStateCode(w);
             var nextStateAction = NextAgendaStateAction(w);
 
@@ -1945,6 +1952,11 @@ public partial class ProjectScheduler : IAsyncDisposable
 
     private static string GetInlineStateCode(WbsItemDto w) => ScheduleEditPopup.StateCode(w);
 
+    private static bool IsDiscarded(WbsItemDto w) => GetInlineStateCode(w) == "DISCARD";
+
+    /// <summary>표의 줄 표시. 폐기한 일정은 줄 전체를 흐리고 글자에 줄을 긋는다(projmng.css).</summary>
+    private static string? TableRowClass(WbsItemDto w) => IsDiscarded(w) ? "pm-row--discard" : null;
+
     /// <summary>표 보기에서 행 값을 변경했을 때 즉시 서버에 저장한다.</summary>
     private async Task SaveInlineAsync(WbsItemDto w)
     {
@@ -1957,6 +1969,7 @@ public partial class ProjectScheduler : IAsyncDisposable
             {
                 w.PlanGap = updated.PlanGap;
                 w.WbsState = updated.WbsState;
+                w.Discarded = updated.Discarded;
                 w.ModUser = updated.ModUser;
                 w.ModDt = updated.ModDt;
             }
@@ -2117,27 +2130,7 @@ public partial class ProjectScheduler : IAsyncDisposable
         var current = GetInlineStateCode(w);
         if (string.Equals(current, val, StringComparison.Ordinal)) return;
 
-        var today = AppTime.TodayDate;
-        switch (val)
-        {
-            case "COMP":
-                w.DevSdt ??= today;
-                w.DevEdt = today;
-                if (w.PlanSdt > w.DevEdt) w.PlanSdt = w.DevEdt;
-                if (w.PlanEdt > w.DevEdt) w.PlanEdt = w.DevEdt;
-                w.WbsState = "COMP";
-                break;
-            case "RUNNING":
-                w.DevSdt ??= today;
-                w.DevEdt = null;
-                w.WbsState = "RUNNING";
-                break;
-            default: // READY
-                w.DevSdt = null;
-                w.DevEdt = null;
-                w.WbsState = "READY";
-                break;
-        }
+        ScheduleEditPopup.ApplyState(w, val ?? "READY", AppTime.TodayDate);
 
         await SaveInlineAsync(w);
     }
@@ -2356,5 +2349,6 @@ public partial class ProjectScheduler : IAsyncDisposable
         new("RUNNING", "진행중", System.Drawing.Color.FromArgb(0x1A, 0x73, 0xE8)),
         new("OVER", "지연", System.Drawing.Color.FromArgb(0xD9, 0x30, 0x25)),
         new("COMP", "완료", System.Drawing.Color.FromArgb(0x80, 0x86, 0x8B)),
+        new("DISCARD", "폐기", System.Drawing.Color.FromArgb(0xBD, 0xC1, 0xC6)),
     ];
 }

@@ -54,10 +54,12 @@ public sealed class ScheduleMailResult
 /// <summary>
 /// 메일에 실을 일정 한 건. 날짜는 일정표가 그리는 그 벽시계 값이다.
 /// 사람은 보이는 이름으로 받는다. 추가대상은 공통코드 값(ADD · CHANGE · MOVE)이다.
+/// 폐기한 일정도 빼지 않고 싣는다 — 받는 이가 「없어진 것」과 「버린 것」을 가를 수 있게 흐리게 긋는다.
 /// </summary>
 public sealed record ScheduleMailItem(
     DateTime Start, DateTime End, string Title,
-    string? Requester = null, string? Assignee = null, string? AddTarget = null);
+    string? Requester = null, string? Assignee = null, string? AddTarget = null,
+    bool Discarded = false);
 
 /// <summary>본문을 채울 재료. 기간은 사람이 고른 것이고, 「지난·앞으로」를 가르는 기준은 늘 오늘이다.</summary>
 public sealed record ScheduleMailInput(
@@ -85,6 +87,12 @@ public static class ScheduleMailBody
     private const string Accent = "#2f6fdb";
     private const string Muted = "#6b7785";
     private const string Line = "#d9e0e8";
+    private const string Discarded = "#f1f3f4";
+    private const string DiscardedLine = "#9aa0a6";
+    private const string DiscardedText = "#9aa0a6";
+
+    private static readonly string DiscardBadge =
+        $"<span style=\"display:inline-block;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:700;line-height:14px;color:#5f6368;background:#e8eaed;border:1px dashed {DiscardedLine};\">폐기</span>";
 
     /// <summary>템플릿에 쓸 수 있는 치환자. 관리 화면이 이 표를 그대로 보여 준다.</summary>
     public static readonly IReadOnlyList<(string Key, string Text)> Placeholders =
@@ -338,14 +346,20 @@ public static class ScheduleMailBody
             foreach (var item in list)
             {
                 var sub = SubText(item);
-                var badge = TargetBadge(item.AddTarget);
+                var badge = item.Discarded ? DiscardBadge + (TargetBadge(item.AddTarget) is { } t ? " " + t : string.Empty)
+                    : TargetBadge(item.AddTarget);
 
-                sb.Append($"<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"margin:0 0 6px 0;background:{(isToday ? "#f4f8ff" : "#fbfcfd")};border:1px solid {Line};border-left:3px solid {(day < today ? "#b7c2ce" : Accent)};border-radius:6px;\"><tr>");
+                // 폐기한 일정은 회색 바탕 · 점선 띠 · 취소선으로 흐린다. 메일 프로그램이 CSS 클래스를 버리므로 인라인으로만 적는다.
+                var cardBg = item.Discarded ? Discarded : isToday ? "#f4f8ff" : "#fbfcfd";
+                var edge = item.Discarded ? $"3px dashed {DiscardedLine}" : $"3px solid {(day < today ? "#b7c2ce" : Accent)}";
+                var strike = item.Discarded ? "text-decoration:line-through;" : string.Empty;
+
+                sb.Append($"<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"margin:0 0 6px 0;background:{cardBg};border:1px solid {Line};border-left:{edge};border-radius:6px;\"><tr>");
                 sb.Append("<td valign=\"middle\" style=\"padding:10px 14px;\">");
-                sb.Append($"<div style=\"font-size:14px;font-weight:700;color:#222222;\">{Enc(item.Title)}</div>");
+                sb.Append($"<div style=\"font-size:14px;font-weight:700;color:{(item.Discarded ? DiscardedText : "#222222")};{strike}\">{Enc(item.Title)}</div>");
                 if (sub is not null)
                 {
-                    sb.Append($"<div style=\"margin-top:3px;font-size:12px;color:{Muted};\">{sub}</div>");
+                    sb.Append($"<div style=\"margin-top:3px;font-size:12px;color:{(item.Discarded ? DiscardedText : Muted)};{strike}\">{sub}</div>");
                 }
                 sb.Append("</td>");
                 if (badge is not null)

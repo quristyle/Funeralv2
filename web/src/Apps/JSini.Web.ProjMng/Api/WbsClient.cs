@@ -10,7 +10,7 @@ public sealed class WbsClient(GatewayClient gateway)
 
     /// <summary>목록.</summary>
     /// <param name="prjRid">프로젝트</param>
-    /// <param name="compStat"><c>READY</c> · <c>RUNNING</c> · <c>COMP</c> · <c>DISCOMP</c></param>
+    /// <param name="compStat"><c>READY</c> · <c>RUNNING</c> · <c>COMP</c> · <c>DISCOMP</c> · <c>DISCARD</c>. 폐기한 줄은 DISCARD 로만 잡힌다</param>
     /// <param name="scheduleTypes">구분(WBS · Public · Private · Event). 여럿이면 값마다 scheduleType= 을 따로 싣는다 — 쉼표로 잇면 구분값에 쉼표가 들어가는 날 갈라진다. 비면 전체.</param>
     /// <param name="from">계획 기간이 이 날 뒤에 걸치는 것만</param>
     /// <param name="to">계획 기간이 이 날 앞에 걸치는 것만</param>
@@ -118,6 +118,9 @@ public sealed class WbsItemDto
     /// </summary>
     public string? AddTarget { get; set; }
 
+    /// <summary>폐기했나. null 로 보내면 서버가 그대로 두고, 참이면 폐기 시각을 찍고, 거짓이면 지운다.</summary>
+    public bool? Discarded { get; set; }
+
     /// <summary>계획 기간(일). <b>읽기 전용</b> — 서버가 센다.</summary>
     public int? PlanGap { get; set; }
 
@@ -145,14 +148,15 @@ public sealed class WbsItemDto
     }
 
     /// <summary>
-    /// 진행 상태(<c>READY</c> · <c>RUNNING</c> · <c>COMP</c>). <b>읽기 전용</b> —
-    /// 개발 시작·종료일로 정해진다.
+    /// 진행 상태(<c>READY</c> · <c>RUNNING</c> · <c>COMP</c> · <c>DISCARD</c>). <b>읽기 전용</b> —
+    /// 폐기 시각이 있으면 폐기, 아니면 개발 시작·종료일로 정해진다.
     /// </summary>
     public string? WbsState { get; set; }
 
     /// <summary>화면에 보여 줄 상태 이름.</summary>
     public string StateName => WbsState switch
     {
+        "DISCARD" => "폐기",
         "COMP" => "완료",
         "RUNNING" => "진행",
         "READY" => "대기",
@@ -164,6 +168,7 @@ public sealed class WbsItemDto
     {
         "COMP" => "jsini-badge--on",
         "RUNNING" => "jsini-badge--warn",
+        "DISCARD" => "jsini-badge--off pm-badge--discard",
         _ => "jsini-badge--off",
     };
 }

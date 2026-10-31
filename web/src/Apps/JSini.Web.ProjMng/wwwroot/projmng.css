@@ -4993,7 +4993,7 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   border-radius: var(--jsini-radius-full);
 }
 
-/* 상태 넷의 색. 화면(StateLabels)과 같은 값이어야 한다 — 주·일 보기는 부품이, 월 보기는 여기가 칠한다. */
+/* 상태 다섯의 색. 화면(StateLabels)과 같은 값이어야 한다 — 주·일 보기는 부품이, 월 보기는 여기가 칠한다. */
 .pm-gc__dot--READY,
 .pm-gc-bar--READY { background: #f9ab00; }
 
@@ -5005,6 +5005,11 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 
 .pm-gc__dot--COMP,
 .pm-gc-bar--COMP { background: #80868b; }
+
+.pm-gc__dot--DISCARD,
+.pm-gc-bar--DISCARD { background: #bdc1c6; }
+
+.pm-gc-bar--DISCARD { color: #5f6368; text-decoration: line-through; }
 
 /* 일요일 빨강 · 토요일 파랑. 요일 머리와 날짜 숫자가 함께 쓴다. */
 .pm-gc__sun { color: #d93025; }
@@ -5623,6 +5628,9 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 .pm-gc-agenda__item--RUNNING .pm-gc-agenda__btn { border-left-color: #1a73e8; }
 .pm-gc-agenda__item--OVER .pm-gc-agenda__btn { border-left-color: #d93025; }
 .pm-gc-agenda__item--COMP .pm-gc-agenda__btn { border-left-color: #80868b; }
+.pm-gc-agenda__item--DISCARD .pm-gc-agenda__btn { border-left-color: #bdc1c6; border-left-style: dashed; }
+.pm-gc-agenda__item--DISCARD .pm-gc-agenda__name,
+.pm-gc-agenda__item--DISCARD .pm-gc-agenda__sub { color: var(--jsini-text-muted, #80868b); text-decoration: line-through; }
 
 .pm-gc-agenda__top {
   display: flex;
@@ -7330,6 +7338,8 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 .pm-find__item.pm-gc-agenda__item--RUNNING { border-left-color: #1a73e8; }
 .pm-find__item.pm-gc-agenda__item--OVER { border-left-color: #d93025; }
 .pm-find__item.pm-gc-agenda__item--COMP { border-left-color: #80868b; }
+.pm-find__item.pm-gc-agenda__item--DISCARD { border-left-color: #bdc1c6; border-left-style: dashed; }
+.pm-find__item.pm-gc-agenda__item--DISCARD .pm-find__name { text-decoration: line-through; }
 
 .pm-find__date {
   font-size: var(--jsini-fs-sm);
@@ -7958,4 +7968,28 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   background: transparent;
   border-style: dashed;
   color: var(--jsini-text-muted, #6b7280);
+}
+
+/* 폐기한 일정 — 표의 줄 전체를 흐리고 글자에 줄을 긋는다. 왼쪽 띠는 점선 딱지와 함께 「지운 것이 아니라 버린 것」을 가른다.
+   줄무늬·붙박이 칸 규칙(tabler.css, 맨 뒤에 실린다)을 이기려고 클래스를 겹쳐 자릿수를 올렸다. 고른 줄은 !important 로 고른 색이 이긴다. */
+.commgrd .dxbl-grid .dxbl-grid-table > tbody > tr.pm-row--discard.pm-row--discard > td,
+.commgrd .dxbl-grid .dxbl-grid-table > tbody > tr.pm-row--discard.pm-row--discard > td.dxbl-grid-fixed-cell {
+  background-color: #f1f3f4;
+  color: #9aa0a6;
+}
+
+.commgrd .dxbl-grid .dxbl-grid-table > tbody > tr.pm-row--discard.pm-row--discard > td:first-child {
+  box-shadow: inset 3px 0 0 #bdc1c6;
+}
+
+/* 편집칸이 선 줄(고른 줄)은 긋지 않는다 — 고치려고 고른 줄의 입력값까지 그으면 읽기 어렵다. */
+.commgrd tr.pm-row--discard:not(.dxbl-grid-selected-row) > td span:not(.jsini-badge) {
+  text-decoration: line-through;
+  text-decoration-color: #9aa0a6;
+}
+
+.jsini-badge.pm-badge--discard {
+  background: #e8eaed;
+  color: #5f6368;
+  border: 1px dashed #9aa0a6;
 }

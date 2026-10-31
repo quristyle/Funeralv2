@@ -78,7 +78,8 @@ public sealed class InternalQueryService(IConfiguration configuration)
                    -- WbsService.Columns 의 WbsState 와 한 글자도 다르지 않게 옮긴 식이다.
                    -- dev_chk/build_chk/qc_chk 는 참거짓 칸이 아니라 자유 글(메모)이라 완료
                    -- 판정에 못 쓴다 — 진짜 완료는 개발 종료일(dev_edt)의 유무로만 갈린다.
-                   CASE WHEN COALESCE(a.dev_sdt, a.dev_edt) IS NULL THEN 'READY'
+                   CASE WHEN a.discard_dt IS NOT NULL                THEN 'DISCARD'
+                        WHEN COALESCE(a.dev_sdt, a.dev_edt) IS NULL THEN 'READY'
                         WHEN a.dev_edt IS NULL                      THEN 'RUNNING'
                         ELSE 'COMP'
                    END                                AS WbsState

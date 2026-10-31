@@ -26,6 +26,7 @@ public partial class ScheduleEditPopup
         new("READY", "대기"),
         new("RUNNING", "진행중"),
         new("COMP", "완료"),
+        new("DISCARD", "폐기"),
     ];
 
     private bool _visible;
@@ -62,40 +63,49 @@ public partial class ScheduleEditPopup
 
     private void OnFormStateChanged(string? state)
     {
-        if (state is "READY" or "RUNNING" or "COMP")
+        if (state is "READY" or "RUNNING" or "COMP" or "DISCARD")
         {
             _formState = state;
         }
     }
 
-    /// <summary>줄의 진행 상태. 개발 종료일이 있으면 완료, 시작일만 있으면 진행중이다.</summary>
+    /// <summary>줄의 진행 상태. 폐기가 먼저고, 개발 종료일이 있으면 완료, 시작일만 있으면 진행중이다.</summary>
     internal static string StateCode(WbsItemDto w)
     {
+        if (w.Discarded == true || w.WbsState == "DISCARD") return "DISCARD";
         if (w.DevEdt is not null || w.WbsState == "COMP") return "COMP";
         if (w.DevSdt is not null || w.WbsState == "RUNNING") return "RUNNING";
         return "READY";
     }
 
-    /// <summary>고른 상태를 서버가 판정하는 개발 시작·종료일로 옮긴다.</summary>
-    private void ApplyFormState()
-    {
-        var today = AppTime.TodayDate;
+    /// <summary>고른 상태를 서버가 판정하는 폐기 여부와 개발 시작·종료일로 옮긴다.</summary>
+    private void ApplyFormState() => ApplyState(_form, _formState, AppTime.TodayDate);
 
-        switch (_formState)
+    /// <summary>
+    /// 상태 하나를 줄에 옮긴다. 폐기는 개발 날짜를 그대로 둔다 — 폐기를 되돌리면 그 전 상태로 돌아가야 한다.
+    /// </summary>
+    internal static void ApplyState(WbsItemDto form, string state, DateTime today)
+    {
+        form.Discarded = state == "DISCARD";
+        form.WbsState = state;
+
+        switch (state)
         {
+            case "DISCARD":
+                break;
             case "RUNNING":
-                _form.DevSdt ??= today;
-                _form.DevEdt = null;
+                form.DevSdt ??= today;
+                form.DevEdt = null;
                 break;
             case "COMP":
-                _form.DevSdt ??= today;
-                _form.DevEdt ??= today;
-                if (_form.PlanSdt > _form.DevEdt) _form.PlanSdt = _form.DevEdt;
-                if (_form.PlanEdt > _form.DevEdt) _form.PlanEdt = _form.DevEdt;
+                form.DevSdt ??= today;
+                form.DevEdt ??= today;
+                if (form.PlanSdt > form.DevEdt) form.PlanSdt = form.DevEdt;
+                if (form.PlanEdt > form.DevEdt) form.PlanEdt = form.DevEdt;
                 break;
             default:
-                _form.DevSdt = null;
-                _form.DevEdt = null;
+                form.DevSdt = null;
+                form.DevEdt = null;
                 break;
         }
     }
@@ -253,5 +263,6 @@ public partial class ScheduleEditPopup
         BodyText = w.BodyText,
         ScheduleType = w.ScheduleType,
         AddTarget = w.AddTarget,
+        Discarded = w.Discarded,
     };
 }

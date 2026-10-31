@@ -152,7 +152,7 @@ public sealed class ProjectSchedulerColumnTests
     }
 
     [Fact]
-    public void ProjectScheduler_일정보기_상태단추와_수정팝업_상태선택이_대기_진행중_완료를_쓴다()
+    public void ProjectScheduler_일정보기_상태단추와_수정팝업_상태선택이_대기_진행중_완료_폐기를_쓴다()
     {
         var path = Path.Combine(AppContext.BaseDirectory, "../../../../../src/Apps/JSini.Web.ProjMng/Components/Pages/ProjectScheduler.razor");
         var razor = File.ReadAllText(path);
@@ -171,7 +171,7 @@ public sealed class ProjectSchedulerColumnTests
         Assert.DoesNotContain("<DxCheckBox", popup);
 
         var names = ScheduleEditPopup.StateOptions.Select(option => option.Name);
-        Assert.Equal(new[] { "대기", "진행중", "완료" }, names);
+        Assert.Equal(new[] { "대기", "진행중", "완료", "폐기" }, names);
     }
 
     [Fact]
@@ -229,5 +229,29 @@ public sealed class ProjectSchedulerColumnTests
                 Assert.Equal(today.AddDays(-1).ToDateTime(TimeOnly.MinValue), item.DevEdt);
                 break;
         }
+    }
+
+    [Fact]
+    public void ProjectScheduler_폐기한_일정은_표의_줄_전체가_폐기_표시를_단다()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "../../../../../src/Apps/JSini.Web.ProjMng/Components/Pages/ProjectScheduler.razor");
+        var razor = File.ReadAllText(path);
+        var css = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "../../../../../src/Apps/JSini.Web.ProjMng/wwwroot/projmng.css"));
+
+        Assert.Contains("RowCssClass=\"@TableRowClass\"", razor);
+        Assert.Contains("tr.pm-row--discard", css);
+        Assert.Contains("line-through", css);
+
+        // 폐기는 개발 날짜를 지우지 않는다 — 되돌리면 그 전 상태(완료)로 돌아간다.
+        var w = new WbsItemDto { DevSdt = new DateTime(2026, 10, 1), DevEdt = new DateTime(2026, 10, 2) };
+        ScheduleEditPopup.ApplyState(w, "DISCARD", new DateTime(2026, 10, 31));
+        Assert.True(w.Discarded);
+        Assert.Equal("DISCARD", ScheduleEditPopup.StateCode(w));
+        Assert.NotNull(w.DevEdt);
+
+        ScheduleEditPopup.ApplyState(w, "COMP", new DateTime(2026, 10, 31));
+        Assert.False(w.Discarded);
+        Assert.Equal("COMP", ScheduleEditPopup.StateCode(w));
+        Assert.Equal(new DateTime(2026, 10, 2), w.DevEdt);
     }
 }
