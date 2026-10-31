@@ -28,6 +28,7 @@ public sealed class WbsEditFormRenderTests
         services.AddSingleton<IJSRuntime, NoJs>();
         services.AddSingleton<NavigationManager, Nav>();
         services.AddSingleton(await EmptyBizOptionsAsync());
+        services.AddSingleton(await EmptyCommonCodesAsync());
 
         await using var provider = services.BuildServiceProvider();
         await using var renderer = new HtmlRenderer(provider, provider.GetRequiredService<ILoggerFactory>());
@@ -51,6 +52,34 @@ public sealed class WbsEditFormRenderTests
             () => Task.FromResult<IReadOnlyList<BizSelectConfig>?>([]));
 
         return new BizOptions(null!, null!, data, NullLogger<BizOptions>.Instance);
+    }
+
+    /// <summary>공통코드 고르개(추가대상)가 게이트웨이를 부르지 않게 그 목록을 빈 채로 통에 미리 담는다.</summary>
+    private static async Task<CommonCodes> EmptyCommonCodesAsync()
+    {
+        var store = new ReferenceDataStore(
+            new MemoryCache(new MemoryCacheOptions()),
+            NullLogger<ReferenceDataStore>.Instance);
+        var data = new ReferenceData(store, new FixedToken());
+
+        await data.PerUserAsync<IReadOnlyList<CommonCodeItem>>(
+            CommonCodes.Group, $"{AddTargets.CodeId} ",
+            () => Task.FromResult<IReadOnlyList<CommonCodeItem>?>([]));
+
+        return new CommonCodes(null!, data);
+    }
+
+    private sealed class FixedToken : JSini.Web.Http.ITokenStore
+    {
+        public void Initialize(System.Security.Claims.ClaimsPrincipal user) { }
+
+        public ValueTask<string?> GetAccessTokenAsync(CancellationToken cancellationToken = default) => new("test");
+
+        public ValueTask<string?> GetRefreshCookieAsync(CancellationToken cancellationToken = default) => new((string?)null);
+
+        public void UpdateAccessToken(string accessToken) { }
+
+        public void Clear() { }
     }
 
     private sealed class InEditContext : ComponentBase

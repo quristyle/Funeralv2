@@ -142,6 +142,9 @@ public partial class ProjectScheduler : IAsyncDisposable
     /// <summary>표 보기에서 쓰는 구분 공통코드 목록.</summary>
     private IReadOnlyList<CommonCodeItem> _scheduleTypeCodes = [];
 
+    /// <summary>표 보기에서 쓰는 추가대상 공통코드 목록.</summary>
+    private IReadOnlyList<CommonCodeItem> _addTargetCodes = [];
+
     /// <summary>표 보기에서 쓰는 담당자(포털 계정) 목록.</summary>
     private IReadOnlyList<BizOption> _userOptions = [];
 
@@ -1961,6 +1964,11 @@ public partial class ProjectScheduler : IAsyncDisposable
             _scheduleTypeCodes = await Codes.GetAsync("schedule_type");
         }
 
+        if (_addTargetCodes.Count == 0)
+        {
+            _addTargetCodes = await Codes.GetAsync(AddTargets.CodeId);
+        }
+
         if (_userOptions.Count == 0)
         {
             _userOptions = await Biz.GetAsync("portal_account");
@@ -2133,6 +2141,15 @@ public partial class ProjectScheduler : IAsyncDisposable
         await SaveInlineAsync(w);
     }
 
+    private async Task OnInlineAddTargetChangedAsync(WbsItemDto w, string? val)
+    {
+        if (string.Equals(w.AddTarget ?? string.Empty, val ?? string.Empty, StringComparison.Ordinal)) return;
+
+        // 지운 것은 빈 글자로 보낸다 — null 은 서버가 「그대로 둔다」로 읽는다.
+        w.AddTarget = val ?? string.Empty;
+        await SaveInlineAsync(w);
+    }
+
     private async Task OnInlineProcTpChangedAsync(WbsItemDto w, string? val)
     {
         if (string.Equals(w.ProcTp, val, StringComparison.Ordinal)) return;
@@ -2253,6 +2270,7 @@ public partial class ProjectScheduler : IAsyncDisposable
         Summary = w.Summary,
         BodyText = w.BodyText,
         ScheduleType = w.ScheduleType,
+        AddTarget = w.AddTarget,
     };
 
     /// <summary>주·일 보기의 약속. 부품이 끌어 옮길 때 여기 값을 고치므로 <b>쓸 수 있어야 한다</b>.</summary>

@@ -235,10 +235,10 @@ public partial class MailTemplateList
 
         var input = new ScheduleMailInput(from, to, today,
         [
-            new(at.AddDays(-3), at.AddDays(-3), "[견본] 요구사항 검토 회의"),
-            new(at.AddHours(10), at.AddHours(11), "[견본] 주간 진행 점검"),
-            new(at.AddDays(2), at.AddDays(4), "[견본] 통합 시험"),
-            new(at.AddDays(6), at.AddDays(6), "[견본] 중간 보고"),
+            new(at.AddDays(-3), at.AddDays(-3), "[견본] 요구사항 검토 회의", "김요청", "홍길동"),
+            new(at.AddHours(10), at.AddHours(11), "[견본] 주간 진행 점검", null, "홍길동", "CHANGE"),
+            new(at.AddDays(2), at.AddDays(4), "[견본] 통합 시험", "이고객", "박담당", "ADD"),
+            new(at.AddDays(6), at.AddDays(6), "[견본] 중간 보고", null, null, "MOVE"),
         ], "견본 프로젝트", "홍길동", null);
 
         _previewSubject = ScheduleMailBody.Subject(input, _form.Subject);

@@ -51,6 +51,9 @@ public sealed class WbsItem {
   /// <summary><c>WBS</c> 또는 <c>SCHEDULE</c>. 두 화면을 가르는 값이다.</summary>
   public string? ScheduleType { get; set; }
 
+  /// <summary>추가대상 — 공통코드 ADD_TARGET(ADD · CHANGE · MOVE). null 이면 저장된 값을 그대로 두고, 빈 글자면 지운다.</summary>
+  public string? AddTarget { get; set; }
+
   /// <summary>계획 기간(일). <b>읽기 전용</b> — 서버가 센다.</summary>
   public int? PlanGap { get; set; }
 

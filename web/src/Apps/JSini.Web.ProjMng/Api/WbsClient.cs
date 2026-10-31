@@ -112,6 +112,12 @@ public sealed class WbsItemDto
     /// <summary><c>WBS</c> 또는 <c>SCHEDULE</c>.</summary>
     public string? ScheduleType { get; set; }
 
+    /// <summary>
+    /// 추가대상 — 공통코드 <see cref="AddTargets.CodeId"/>(ADD · CHANGE · MOVE).
+    /// null 로 보내면 서버가 저장된 값을 그대로 두고, 빈 글자면 지운다.
+    /// </summary>
+    public string? AddTarget { get; set; }
+
     /// <summary>계획 기간(일). <b>읽기 전용</b> — 서버가 센다.</summary>
     public int? PlanGap { get; set; }
 
@@ -159,6 +165,21 @@ public sealed class WbsItemDto
         "COMP" => "jsini-badge--on",
         "RUNNING" => "jsini-badge--warn",
         _ => "jsini-badge--off",
+    };
+}
+
+/// <summary>일정의 추가대상. 목록의 정본은 공통코드이고, 이름은 메일처럼 코드를 못 읽는 자리에서 쓴다.</summary>
+public static class AddTargets
+{
+    public const string CodeId = "ADD_TARGET";
+
+    public static string? Name(string? code) => code?.Trim().ToUpperInvariant() switch
+    {
+        null or "" => null,
+        "ADD" => "추가",
+        "CHANGE" => "변경",
+        "MOVE" => "이동",
+        _ => code.Trim(),
     };
 }
 

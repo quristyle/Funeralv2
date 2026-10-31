@@ -51,8 +51,13 @@ public sealed class ScheduleMailResult
     public string? Message { get; set; }
 }
 
-/// <summary>메일에 실을 일정 한 건. 날짜는 일정표가 그리는 그 벽시계 값이다.</summary>
-public sealed record ScheduleMailItem(DateTime Start, DateTime End, string Title);
+/// <summary>
+/// 메일에 실을 일정 한 건. 날짜는 일정표가 그리는 그 벽시계 값이다.
+/// 사람은 보이는 이름으로 받는다. 추가대상은 공통코드 값(ADD · CHANGE · MOVE)이다.
+/// </summary>
+public sealed record ScheduleMailItem(
+    DateTime Start, DateTime End, string Title,
+    string? Requester = null, string? Assignee = null, string? AddTarget = null);
 
 /// <summary>본문을 채울 재료. 기간은 사람이 고른 것이고, 「지난·앞으로」를 가르는 기준은 늘 오늘이다.</summary>
 public sealed record ScheduleMailInput(
@@ -242,13 +247,14 @@ public static class ScheduleMailBody
         }
 
         var sb = new StringBuilder();
+        var withYear = from.Year != to.Year;
         var pastDays = days.Where(d => d.Key < today).ToList();
         var nextDays = days.Where(d => d.Key >= today).ToList();
 
         if (pastDays.Count > 0)
         {
             sb.Append(Section("지난 일정", "진행된 일정"));
-            sb.Append(Timeline(pastDays, today));
+            sb.Append(Timeline(pastDays, today, withYear));
         }
 
         // 오늘이 기간 안이면 일정이 없어도 「오늘」 칸을 세운다 — 어디가 지금인지 보이게.
@@ -260,7 +266,7 @@ public static class ScheduleMailBody
         if (nextDays.Count > 0)
         {
             sb.Append(Section(todayInRange ? "오늘 · 앞으로" : "앞으로", "예정된 일정"));
-            sb.Append(Timeline(nextDays, today));
+            sb.Append(Timeline(nextDays, today, withYear));
         }
 
         return sb.ToString();
@@ -277,14 +283,22 @@ public static class ScheduleMailBody
         + $"<span style=\"font-size:15px;font-weight:700;color:{Navy};\">{title}</span>"
         + $"<span style=\"margin-left:8px;font-size:12px;color:{Muted};\">{sub}</span></div>";
 
-    private static string Timeline(IEnumerable<KeyValuePair<DateOnly, List<ScheduleMailItem>>> days, DateOnly today)
+    private static string Timeline(IEnumerable<KeyValuePair<DateOnly, List<ScheduleMailItem>>> days, DateOnly today, bool withYear)
     {
         var sb = new StringBuilder();
+        (int Year, int Month)? month = null;
 
         sb.Append("<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\">");
 
         foreach (var (day, list) in days)
         {
+            // 날짜 상자에 월을 안 적으므로, 달이 바뀌는 자리(와 구역의 첫 줄)에 그 달을 적은 선을 긋는다.
+            if (month != (day.Year, day.Month))
+            {
+                month = (day.Year, day.Month);
+                sb.Append(MonthDivider(day, withYear));
+            }
+
             var isToday = day == today;
             var weekend = day.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
             var dowColor = day.DayOfWeek == DayOfWeek.Sunday ? "#d64545"
@@ -295,18 +309,17 @@ public static class ScheduleMailBody
 
             sb.Append("<tr>");
 
-            // 날짜 상자: 월 · 일 · 요일
+            // 날짜 상자: 일 (요일)
             sb.Append("<td width=\"74\" valign=\"top\" style=\"padding:0 0 14px 0;\">");
-            sb.Append($"<table role=\"presentation\" width=\"64\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"background:{boxBg};border:1px solid {(isToday ? Accent : Line)};border-radius:8px;\"><tr><td align=\"center\" style=\"padding:6px 0;\">");
-            sb.Append($"<div style=\"font-size:11px;color:{(isToday ? "#dbe7ff" : Muted)};\">{day.Month}월</div>");
-            sb.Append($"<div style=\"font-size:22px;line-height:26px;font-weight:700;color:{boxFg};\">{day.Day}</div>");
-            sb.Append($"<div style=\"font-size:11px;font-weight:700;color:{(isToday ? "#ffffff" : dowColor)};\">{Ko.DateTimeFormat.GetDayName(day.DayOfWeek)}</div>");
+            sb.Append($"<table role=\"presentation\" width=\"64\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"background:{boxBg};border:1px solid {(isToday ? Accent : Line)};border-radius:8px;\"><tr><td align=\"center\" style=\"padding:7px 0;white-space:nowrap;\">");
+            sb.Append($"<span style=\"font-size:20px;line-height:24px;font-weight:700;color:{boxFg};\">{day.Day}</span>");
+            sb.Append($"<span style=\"margin-left:2px;font-size:11px;font-weight:700;color:{(isToday ? "#ffffff" : dowColor)};\">({Dow(day)})</span>");
             sb.Append("</td></tr></table>");
             sb.Append("</td>");
 
             // 세로 줄과 점
             sb.Append($"<td width=\"22\" valign=\"top\" style=\"padding:0;border-left:2px solid {Line};\">");
-            sb.Append($"<div style=\"width:12px;height:12px;margin:22px 0 0 -9px;border-radius:50%;background:{dot};border:2px solid #ffffff;\"></div>");
+            sb.Append($"<div style=\"width:12px;height:12px;margin:14px 0 0 -9px;border-radius:50%;background:{dot};border:2px solid #ffffff;\"></div>");
             sb.Append("</td>");
 
             // 그날의 일정
@@ -324,15 +337,22 @@ public static class ScheduleMailBody
 
             foreach (var item in list)
             {
-                var period = PeriodText(item);
+                var sub = SubText(item);
+                var badge = TargetBadge(item.AddTarget);
 
-                sb.Append($"<div style=\"margin:0 0 6px 0;padding:10px 14px;background:{(isToday ? "#f4f8ff" : "#fbfcfd")};border:1px solid {Line};border-left:3px solid {(day < today ? "#b7c2ce" : Accent)};border-radius:6px;\">");
+                sb.Append($"<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"margin:0 0 6px 0;background:{(isToday ? "#f4f8ff" : "#fbfcfd")};border:1px solid {Line};border-left:3px solid {(day < today ? "#b7c2ce" : Accent)};border-radius:6px;\"><tr>");
+                sb.Append("<td valign=\"middle\" style=\"padding:10px 14px;\">");
                 sb.Append($"<div style=\"font-size:14px;font-weight:700;color:#222222;\">{Enc(item.Title)}</div>");
-                if (period is not null)
+                if (sub is not null)
                 {
-                    sb.Append($"<div style=\"margin-top:3px;font-size:12px;color:{Muted};\">{period}</div>");
+                    sb.Append($"<div style=\"margin-top:3px;font-size:12px;color:{Muted};\">{sub}</div>");
                 }
-                sb.Append("</div>");
+                sb.Append("</td>");
+                if (badge is not null)
+                {
+                    sb.Append($"<td width=\"1\" align=\"right\" valign=\"middle\" style=\"padding:10px 12px 10px 0;white-space:nowrap;\">{badge}</td>");
+                }
+                sb.Append("</tr></table>");
             }
 
             sb.Append("</td></tr>");
@@ -343,27 +363,54 @@ public static class ScheduleMailBody
         return sb.ToString();
     }
 
-    /// <summary>제목 아래 한 줄. 하루짜리 종일 일정은 날짜 상자가 이미 말하므로 적지 않는다.</summary>
-    private static string? PeriodText(ScheduleMailItem item)
+    /// <summary>달이 바뀌는 자리의 구분선. 기간이 해를 넘으면 해도 적는다.</summary>
+    private static string MonthDivider(DateOnly day, bool withYear)
     {
-        var start = item.Start;
-        var end = item.End < item.Start ? item.Start : item.End;
-        var hasTime = start.TimeOfDay != TimeSpan.Zero || end.TimeOfDay != TimeSpan.Zero;
-        var startDay = DateOnly.FromDateTime(start);
-        var endDay = DateOnly.FromDateTime(end);
+        var label = withYear ? $"{day.Year}년 {day.Month}월" : $"{day.Month}월";
 
-        if (startDay == endDay)
+        return "<tr><td colspan=\"3\" style=\"padding:4px 0 12px 0;\">"
+            + "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\"><tr>"
+            + $"<td width=\"1\" style=\"padding:0 10px 0 0;white-space:nowrap;font-size:13px;font-weight:700;color:{Navy};\">{label}</td>"
+            + $"<td style=\"border-bottom:1px solid {Line};font-size:1px;line-height:1px;\">&nbsp;</td>"
+            + "</tr></table></td></tr>";
+    }
+
+    /// <summary>제목 아래 한 줄 — 요청자 · 담당자. 여러 날에 걸친 일정은 날짜 구간을 덧붙인다(시각은 적지 않는다).</summary>
+    private static string? SubText(ScheduleMailItem item)
+    {
+        var parts = new List<string>();
+
+        if (!string.IsNullOrWhiteSpace(item.Requester)) parts.Add($"요청자 {Enc(item.Requester.Trim())}");
+        if (!string.IsNullOrWhiteSpace(item.Assignee)) parts.Add($"담당자 {Enc(item.Assignee.Trim())}");
+
+        var startDay = DateOnly.FromDateTime(item.Start);
+        var endDay = DateOnly.FromDateTime(item.End < item.Start ? item.Start : item.End);
+
+        if (endDay > startDay)
         {
-            return hasTime ? $"{start:HH:mm} ~ {end:HH:mm}" : null;
+            parts.Add($"{Md(startDay)}({Dow(startDay)}) ~ {Md(endDay)}({Dow(endDay)}) · {endDay.DayNumber - startDay.DayNumber + 1}일간");
         }
 
-        var range = hasTime
-            ? $"{Md(startDay)}({Dow(startDay)}) {start:HH:mm} ~ {Md(endDay)}({Dow(endDay)}) {end:HH:mm}"
-            : $"{Md(startDay)}({Dow(startDay)}) ~ {Md(endDay)}({Dow(endDay)})";
+        return parts.Count == 0 ? null : string.Join(" · ", parts);
+    }
 
-        var days = endDay.DayNumber - startDay.DayNumber + 1;
+    /// <summary>추가대상 딱지. 값이 없으면 그리지 않는다.</summary>
+    private static string? TargetBadge(string? code)
+    {
+        if (AddTargets.Name(code) is not { } name)
+        {
+            return null;
+        }
 
-        return $"{range} · {days}일간";
+        var (fg, bg) = code!.Trim().ToUpperInvariant() switch
+        {
+            "ADD" => ("#1a7f37", "#e6f4ea"),
+            "CHANGE" => ("#b35900", "#fff1e0"),
+            "MOVE" => ("#2f6fdb", "#e8f0fe"),
+            _ => (Muted, "#f0f2f5"),
+        };
+
+        return $"<span style=\"display:inline-block;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:700;line-height:14px;color:{fg};background:{bg};border:1px solid {fg};\">{Enc(name)}</span>";
     }
 
     private static string Md(DateOnly d) => $"{d.Month}/{d.Day}";

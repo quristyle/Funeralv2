@@ -22,6 +22,7 @@ public partial class ScheduleMailPage : IDisposable
 {
     [Inject] private WbsClient Api { get; set; } = default!;
     [Inject] private CommonCodes Codes { get; set; } = default!;
+    [Inject] private BizOptions Biz { get; set; } = default!;
     [Inject] private CurrentUser Me { get; set; } = default!;
     [Inject] private ScheduleMailClient Mails { get; set; } = default!;
     [Inject] private MailTemplateClient MailTemplates { get; set; } = default!;
@@ -73,6 +74,9 @@ public partial class ScheduleMailPage : IDisposable
     private ConfirmDialog? _confirm;
 
     private Dictionary<int, string> _projects = new();
+
+    /// <summary>담당자 칸은 로그인 아이디라 메일에는 계정 이름으로 옮겨 적는다.</summary>
+    private Dictionary<string, string> _names = new(StringComparer.OrdinalIgnoreCase);
 
     private MailTemplateDto? MailTemplate => _d.Templates.FirstOrDefault(t => t.TplId == _d.TplId);
 
@@ -188,6 +192,30 @@ public partial class ScheduleMailPage : IDisposable
         return $"[{prj}] {title}";
     }
 
+    private async Task LoadPeopleAsync()
+    {
+        if (_names.Count > 0)
+        {
+            return;
+        }
+
+        try
+        {
+            foreach (var o in await Biz.GetAsync("portal_account"))
+            {
+                _names.TryAdd(o.Value, o.Label);
+            }
+        }
+        catch
+        {
+            // 이름을 못 읽어도 아이디로 적는다.
+        }
+    }
+
+    private string? PersonName(string? id) =>
+        string.IsNullOrWhiteSpace(id) ? null
+        : _names.TryGetValue(id.Trim(), out var name) ? name : id.Trim();
+
     /// <summary>템플릿 목록. 못 읽어도 화면은 연다 — 기본 틀로는 보낼 수 있다.</summary>
     private async Task LoadTemplatesAsync()
     {
@@ -225,6 +253,7 @@ public partial class ScheduleMailPage : IDisposable
         {
             var s = _d.Scope;
             var rows = await Api.ListAsync(s.ProjectRid, s.CompleteState, s.ScheduleTypes, _d.From, _d.Until, mine: s.AllProjects);
+            await LoadPeopleAsync();
 
             _d.Items = [.. rows
                 .Where(w => w.PlanSdt is not null || w.PlanEdt is not null)
@@ -233,7 +262,8 @@ public partial class ScheduleMailPage : IDisposable
                     var start = w.PlanSdt ?? w.PlanEdt!.Value;
                     var end = w.PlanEdt ?? start;
 
-                    return new ScheduleMailItem(start, end < start ? start : end, Title(w));
+                    return new ScheduleMailItem(start, end < start ? start : end, Title(w),
+                        w.ReqUser, PersonName(w.DevUser), w.AddTarget);
                 })];
 
             _d.Loaded = (_d.From, _d.Until);

@@ -16,6 +16,13 @@
         <DxTextBox @bind-Text="Item.DevUser" />
     </DxFormLayoutItem>
 
+    @* 지우면 null 이 아니라 빈 글자로 보낸다 — null 은 서버가 「그대로 둔다」로 읽는다. *@
+    <DxFormLayoutItem Caption="추가대상" ColSpanMd="6">
+        <CodeSelect CodeId="@AddTargets.CodeId" Value="@Item.AddTarget"
+                    ValueChanged="@((string? code) => Item.AddTarget = code ?? string.Empty)"
+                    AutoSelectFirst="false" AllowClear="true" KeepUnknownValue="true" />
+    </DxFormLayoutItem>
+
     <DxFormLayoutItem Caption="공정" ColSpanMd="4">
         <DxTextBox @bind-Text="Item.ProcId" />
     </DxFormLayoutItem>

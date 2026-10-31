@@ -407,6 +407,30 @@
                                 </CellDisplayTemplate>
                             </DxGridDataColumn>
 
+                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.AddTarget)" Caption="추가대상" Width="100">
+                                <CellDisplayTemplate Context="cell">
+                                    @{
+                                        var w = (WbsItemDto)cell.DataItem;
+                                    }
+                                    @if (IsEditing(w))
+                                    {
+                                        <DxComboBox Data="@_addTargetCodes"
+                                                    TextFieldName="@nameof(CommonCodeItem.Name)"
+                                                    ValueFieldName="@nameof(CommonCodeItem.Code)"
+                                                    Value="@w.AddTarget"
+                                                    ValueChanged="@((string? s) => OnInlineAddTargetChangedAsync(w, s))"
+                                                    ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                                                    NullText="추가대상"
+                                                    ValidationEnabled="false"
+                                                    CssClass="pm-inline-edit" />
+                                    }
+                                    else if (AddTargets.Name(w.AddTarget) is { } target)
+                                    {
+                                        <span class="jsini-badge jsini-badge--warn">@target</span>
+                                    }
+                                </CellDisplayTemplate>
+                            </DxGridDataColumn>
+
                             <DxGridDataColumn FieldName="@nameof(WbsItemDto.WbsState)" Caption="진행" Width="115"
                                               Visible="false">
                                 <CellDisplayTemplate Context="cell">

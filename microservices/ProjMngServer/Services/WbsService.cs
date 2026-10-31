@@ -52,6 +52,7 @@ public sealed class WbsService(IConfiguration configuration) {
       a.summary      AS Summary,
       a.body_text    AS BodyText,
       a.schedule_type AS ScheduleType,
+      a.add_target   AS AddTarget,
       (COALESCE(a.plan_edt, a.dev_edt)::date - COALESCE(a.plan_sdt, a.dev_edt)::date) + 1 AS PlanGap,
       CASE WHEN COALESCE(a.dev_sdt, a.dev_edt) IS NULL THEN 'READY'
            WHEN a.dev_edt IS NULL                      THEN 'RUNNING'
@@ -174,7 +175,7 @@ public sealed class WbsService(IConfiguration configuration) {
                build_user, build_status, dev_user, req_user,
                plan_sdt, plan_edt, dev_sdt, dev_edt,
                qc_user, cre_user, cre_dt, mod_user, mod_dt, schedule_type, comm,
-               summary, body_text )
+               summary, body_text, add_target )
         SELECT @PrjRid, COALESCE(MAX(wbs_id), 0) + 1,
                @ProcId, @Gb1, @Gb2, @ProcNm, @ProcTp, @ProcLvl,
                @BuildUser, @BuildStatus, COALESCE(@DevUser, ''), @ReqUser,
@@ -183,7 +184,7 @@ public sealed class WbsService(IConfiguration configuration) {
                @DevSdt, @DevEdt,
                @QcUser, @userId, now(), @userId, now(),
                COALESCE(@ScheduleType, 'WBS'), @Comm,
-               @Summary, @BodyText
+               @Summary, @BodyText, NULLIF(@AddTarget, '')
           FROM projmng.dev_wbs
         RETURNING wbs_id
         """,
@@ -191,7 +192,7 @@ public sealed class WbsService(IConfiguration configuration) {
           item.PrjRid, item.ProcId, item.Gb1, item.Gb2, item.ProcNm, item.ProcTp, item.ProcLvl,
           item.BuildUser, item.BuildStatus, item.DevUser, item.ReqUser,
           item.PlanSdt, item.PlanEdt, item.DevSdt, item.DevEdt,
-          item.QcUser, item.ScheduleType, item.Comm, item.Summary, item.BodyText,
+          item.QcUser, item.ScheduleType, item.Comm, item.Summary, item.BodyText, item.AddTarget,
           userId,
         },
         cancellationToken: ct));
@@ -227,6 +228,7 @@ public sealed class WbsService(IConfiguration configuration) {
                comm          = @Comm,
                summary       = COALESCE(@Summary, summary),
                body_text     = COALESCE(@BodyText, body_text),
+               add_target    = NULLIF(COALESCE(@AddTarget, add_target), ''),
                mod_user      = @userId,
                mod_dt        = now()
          WHERE wbs_id = @WbsId
@@ -235,7 +237,7 @@ public sealed class WbsService(IConfiguration configuration) {
           item.WbsId, item.PrjRid, item.ProcId, item.Gb1, item.Gb2, item.ProcNm,
           item.ProcTp, item.ProcLvl, item.BuildUser, item.BuildStatus, item.DevUser, item.ReqUser,
           item.PlanSdt, item.PlanEdt, item.DevSdt, item.DevEdt,
-          item.QcUser, item.ScheduleType, item.Comm, item.Summary, item.BodyText,
+          item.QcUser, item.ScheduleType, item.Comm, item.Summary, item.BodyText, item.AddTarget,
           userId,
         },
         cancellationToken: ct));
