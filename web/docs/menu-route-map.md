@@ -31,8 +31,8 @@
   JSini 관리 포털(AuthServer)이 단독으로 맡는다.
 ※ 요청 수정(`/helpdesk/request/edit/:id` — `HD_REQ_EDIT`)은 2026-09-28 에
   걷어냈다. 그 화면이 하던 일은 상태 고르기 하나였고 지금은 요청 상세가
-  「접수」·「완료」·「종료」 단추로 한다. DB 메뉴는 `status = 0` 으로 재웠다
-  (`deploy/sql/helpdesk-request-close-2026-09-28.sql`).
+  「접수」·「완료」·「종료」 단추로 한다. DB 메뉴는 2026-10-31 에 지웠다
+  (`deploy/sql/portal-menu-helpdesk-request-edit-remove-2026-10-31.sql`).
 ※ 내 요청(`/helpdesk/request/list` — `HD_REQ_LIST`)은 2026-10-05 에 걷어냈다.
   요청자가 제 것만 보던 목록인데, 「요청 처리」(`/helpdesk/request/manage`)에서
   요청자를 나로 두고 기간을 비우면 같은 것이 나온다 — 고객으로 연결된 계정은
