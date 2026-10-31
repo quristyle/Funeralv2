@@ -160,6 +160,12 @@
                      ExportName="@($"이동기록 {DateKey}")"
                      Reload="@ReloadAsync">
                 <Columns>
+                    <DxGridDataColumn Caption="일자" Width="100">
+                        <CellDisplayTemplate Context="cell">
+                            @(((LocationTrackPointDto)cell.DataItem).RecordedAt.Kst("yyyy-MM-dd"))
+                        </CellDisplayTemplate>
+                    </DxGridDataColumn>
+
                     <DxGridDataColumn Caption="시각" Width="80">
                         <CellDisplayTemplate Context="cell">
                             @(((LocationTrackPointDto)cell.DataItem).RecordedAt.Kst("HH:mm:ss"))
