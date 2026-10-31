@@ -9,28 +9,29 @@ namespace JSini.Web.Architecture.Tests;
 public sealed class ProjectSchedulerColumnTests
 {
     [Fact]
-    public void ProjectScheduler_그리드에_시작_종료_기간_알림_요청자_컬럼이_노출되고_나머지는_숨김처리된다()
+    public void ProjectScheduler_그리드에_시작_종료_기간_알림_요청자_담당자_컬럼이_노출되고_나머지는_숨김처리된다()
     {
         var path = Path.Combine(AppContext.BaseDirectory, "../../../../../src/Apps/JSini.Web.ProjMng/Components/Pages/ProjectScheduler.razor");
         Assert.True(File.Exists(path), $"파일이 존재해야 합니다: {path}");
 
         var content = File.ReadAllText(path);
 
-        // 노출 컬럼 (시작, 종료, 기간, 알림, 요청자)
+        // 노출 컬럼 (시작, 종료, 기간, 알림, 요청자, 담당자)
         Assert.Contains("Caption=\"시작\"", content);
         Assert.Contains("Caption=\"종료\"", content);
         Assert.Contains("Caption=\"기간\"", content);
         Assert.Contains("Caption=\"알림\"", content);
         Assert.Contains("Caption=\"요청자\" Width=\"110\"", content);
         Assert.DoesNotContain("Caption=\"요청자\" Width=\"110\"\n                                              Visible=\"false\"", content);
+        Assert.Contains("Caption=\"담당자\" Width=\"130\">", content);
+        Assert.DoesNotContain("Caption=\"담당자\" Width=\"130\"\n                                              Visible=\"false\"", content);
 
         // 종료 컬럼은 숨김(Visible="false")되지 않고 노출되어야 함
         Assert.DoesNotContain("Caption=\"종료\" Width=\"150\"\n                                              FixedPosition=\"@PinnedColumn\"\n                                              Visible=\"false\"", content);
 
-        // 숨김 컬럼 (구분, 종류, 담당자, 진행, 메모, 원문)
+        // 숨김 컬럼 (구분, 종류, 진행, 메모, 원문)
         Assert.Contains("Caption=\"구분\" Width=\"110\"\n                                              Visible=\"false\"", content);
         Assert.Contains("Caption=\"종류\" Width=\"110\"\n                                              Visible=\"false\"", content);
-        Assert.Contains("Caption=\"담당자\" Width=\"130\"\n                                              Visible=\"false\"", content);
         Assert.Contains("Caption=\"진행\" Width=\"115\"\n                                              Visible=\"false\"", content);
         Assert.Contains("Caption=\"메모\" MinWidth=\"140\"\n                                              TextAlignment=\"GridTextAlignment.Left\"\n                                              Visible=\"false\"", content);
         Assert.Contains("Caption=\"원문\" MinWidth=\"140\"\n                                              TextAlignment=\"GridTextAlignment.Left\"\n                                              Visible=\"false\"", content);
