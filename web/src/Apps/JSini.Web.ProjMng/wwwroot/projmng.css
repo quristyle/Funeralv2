@@ -7041,23 +7041,41 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 .pm-wbs-banner__btn { border: none; background: none; color: inherit; font-weight: 600; cursor: pointer; text-decoration: underline; padding: 0 4px; }
 
 
-/* ── 일정 메일 발송 화면 (`ScheduleMailPage`) ── 쪽이 구르고 단추 줄은 바닥에 붙는다. 폭은 묶지 않는다 — 본문 편집기가 넓을수록 표가 덜 접힌다. */
-.pm-mailpage {
-  width: 100%;
-  min-width: 0;
-}
-
+/* ── 일정 메일 발송 화면 (`ScheduleMailPage`) ── 왼쪽은 조건, 오른쪽은 본문(SplitPane). 단추 줄은 판 밖 바닥 칸에 서서 어느 판도 가리지 않는다. */
 .pm-mailpage__scope {
   font-weight: 500;
 }
 
+/* 본문 판은 편집기가 판 높이를 채운다. Height="100%" 가 먹으려면 판에서 iframe·Monaco 까지 flex 사슬이 끊기지 않아야 한다. */
+.pm-splitpane__second > .pm-mailpage__body {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  margin-top: 0;
+}
+
+.pm-mailpage__body > .pm-mailedit {
+  flex: 1;
+  min-height: 0;
+}
+
+.pm-mailpage__body .pm-mailedit__frame,
+.pm-mailpage__body .pm-editor {
+  flex: 1;
+  min-height: 0;
+}
+
+.pm-mailpage__body .pm-mailedit__frame {
+  height: auto;
+}
+
 .pm-mailpage__acts {
-  position: sticky;
-  bottom: 0;
+  flex: 0 0 auto;
   display: flex;
   justify-content: flex-end;
   gap: var(--jsini-sp-sm, 8px);
-  margin-top: var(--jsini-sp-md);
+  margin-top: var(--jsini-sp-sm, 8px);
   padding: var(--jsini-sp-sm, 8px) 0;
   background: var(--jsini-surface, #fff);
   border-top: 1px solid var(--jsini-border);
