@@ -137,6 +137,41 @@ public sealed class ScheduleNoteAssistTests
     }
 
     [Fact]
+    public void 날짜마다_뽑은_일정은_그날이_계획시작_종료가_된다()
+    {
+        // "9월1일 홍길동이 방구를 끼었다. 그러고 9/15 에 똥까지 싸더라." 에 로컬 모델이 실제로 준 답
+        var json = """
+            {"schedules":[{"start":"2026-09-01","start_time":null,"end":"2026-09-01","end_time":null,"title":"홍길동 방구낀날","summary":"홍길동이 방구를 끼었다.","requester":null,"assignee":"홍길동"},{"start":"2026-09-15","start_time":null,"end":"2026-09-15","end_time":null,"title":"홍길동 똥싼날","summary":"홍길동이 똥을 쌌다.","requester":null,"assignee":"홍길동"}]}
+            """;
+
+        var drafts = ScheduleNoteAssist.ParseMany(json, "이순신", "qwen");
+
+        Assert.False(ScheduleNoteAssist.IsBlank(drafts));
+        Assert.Collection(drafts,
+            d =>
+            {
+                Assert.Equal("홍길동 방구낀날", d.Title);
+                Assert.Equal(new DateTime(2026, 9, 1), d.StartDateTime);
+                Assert.Equal(new DateTime(2026, 9, 1), d.EndDateTime);
+            },
+            d =>
+            {
+                Assert.Equal("홍길동 똥싼날", d.Title);
+                Assert.Equal(new DateTime(2026, 9, 15), d.StartDateTime);
+                Assert.Equal(new DateTime(2026, 9, 15), d.EndDateTime);
+            });
+    }
+
+    [Theory]
+    [InlineData("{\"schedules\":[]}", true)]
+    [InlineData("모르겠습니다", true)]
+    [InlineData("{\"schedules\":[{\"title\":\"가\"}]}", false)]
+    public void 빈_답이면_다시_물을_대상이다(string answer, bool blank)
+    {
+        Assert.Equal(blank, ScheduleNoteAssist.IsBlank(ScheduleNoteAssist.ParseMany(answer, "홍길동", null)));
+    }
+
+    [Fact]
     public void 너무_많이_쪼개면_상한에서_자른다()
     {
         var items = string.Join(",", Enumerable.Range(1, 30).Select(i => $"{{\"title\":\"{i}\"}}"));

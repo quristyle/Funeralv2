@@ -113,35 +113,54 @@ public sealed class ScheduleNoteAssist(AiChatClient ai)
             ? $"- 기본 담당자 성명은 \"{defaultAssignee.Trim()}\" 이다."
             : string.Empty;
 
-        var (answer, model) = await AskAsync(
+        var prompt =
             $$"""
-              너는 업무 메모를 읽고 일정표에 올릴 일정으로 정리하는 사람이다.
+              너는 메모를 읽고 그 안에 적힌 일을 날짜별 일정으로 뽑아 일정표에 올리는 사람이다.
               오늘은 {{today:yyyy-MM-dd}} ({{today.ToString("dddd", CultureInfo.GetCultureInfo("ko-KR"))}}) 이다.
               {{assigneeHint}}
 
-              아래 메모를 읽고 JSON 하나만 써라. 다른 말은 쓰지 않는다.
-              {"schedules":[{"start":"yyyy-MM-dd","start_time":"HH:mm","end":"yyyy-MM-dd","end_time":"HH:mm","title":"제목","summary":"요약","requester":"요구자","assignee":"담당자"}]}
+              메모에 나오는 날짜마다 그날 있었던 일·할 일을 일정 한 건으로 만든다.
+              업무가 아닌 일, 이미 지난 일, 사소한 일이라도 날짜와 함께 적혀 있으면 빼지 않는다.
+              schedules 를 비워 두면 안 된다 — 날짜가 하나도 없으면 메모 전체를 오늘 날짜 한 건으로 만든다.
+
+              예) 메모: "9월1일 홍길동이 방구를 끼었다. 그러고 9/15 에 똥까지 싸더라."
+              답: {"schedules":[{"start":"{{today.Year}}-09-01","start_time":null,"end":"{{today.Year}}-09-01","end_time":null,"title":"홍길동 방구낀날","summary":"홍길동이 방구를 끼었다.","requester":null,"assignee":"홍길동"},{"start":"{{today.Year}}-09-15","start_time":null,"end":"{{today.Year}}-09-15","end_time":null,"title":"홍길동 똥싼날","summary":"홍길동이 똥을 쌌다.","requester":null,"assignee":"홍길동"}]}
+
+              아래 메모를 읽고 위와 같은 꼴의 JSON 하나만 써라. 다른 말은 쓰지 않는다.
 
               규칙:
               - 한국어로 쓴다.
-              - 메모에 날짜·대상·할 일이 서로 다른 일정이 여럿 있으면 schedules 에 하나씩 따로 담는다(최대 {{MaxDrafts}}건).
-                한 가지 일을 여러 줄로 풀어 쓴 것이면 한 건이다. 일정이 하나뿐이어도 schedules 는 배열로 쓰고, 비워 두지 않는다.
-              - start 는 일정이 시작하는 날, end 는 끝나는 날이다. 하루짜리면 둘이 같다.
-              - start_time, end_time 은 메모에 시작/종료 시간이 명시되어 있으면 "HH:mm"(24시간 형식)으로 적는다. 시간 정보가 없으면 null 로 둔다.
+              - 날짜·대상·할 일이 서로 다른 일정은 schedules 에 하나씩 따로 담는다(최대 {{MaxDrafts}}건).
+                한 가지 일을 여러 줄로 풀어 쓴 것이면 한 건이다.
+              - 날짜는 "9월1일", "9/1", "9.1", "2026-09-01", "1일" 처럼 어떤 꼴로 적혀도 읽는다. 해가 없으면 오늘이 속한 해({{today.Year}})로 본다.
+              - start 는 시작하는 날, end 는 끝나는 날이다. 「9/1~9/3」처럼 기간이거나 한 일의 착수일과 마감일이 함께 적혀 있으면 한 건으로 두고 end 를 끝나는 날로, 하루짜리면 둘이 같다.
+              - start_time, end_time 은 시각이 적혀 있으면 "HH:mm"(24시간)으로, 없으면 null 이다.
               - 「내일」「다음 주 금요일」처럼 상대적인 날은 오늘을 기준으로 실제 날짜로 바꾼다.
-              - 메모에 날짜가 전혀 없으면 start 와 end 를 오늘로 둔다.
-              - title 은 서른 글자를 넘기지 않는다. 무엇을 하는 일정인지 드러나게 쓴다.
-              - summary 는 그 일정에 해당하는 내용만 두 줄에서 네 줄로, 메모에 없는 말을 지어내지 않는다. 줄은 \n 으로 가른다.
-              - requester 는 일정을 요구/요청한 사람의 성명을 적는다. 메모에 없으면 null 로 둔다.
-              - assignee 는 일정의 담당자 성명을 적는다. 메모에 별도 담당자 언급이 없으면 기본 담당자({{defaultAssignee ?? "null"}})를 쓴다.
+              - title 은 서른 글자를 넘기지 않는다. 누가 무엇을 하는(한) 일정인지 드러나게 쓴다.
+              - summary 는 그 일정에 해당하는 내용만 한 줄에서 네 줄로, 메모에 없는 말을 지어내지 않는다. 줄은 \n 으로 가른다.
+              - requester 는 일정을 요구/요청한 사람의 성명이다. 메모에 없으면 null 이다.
+              - assignee 는 그 일을 하는(한) 사람의 성명이다. 메모에 없으면 기본 담당자({{defaultAssignee ?? "null"}})를 쓴다.
 
               메모:
               {{text}}
-              """,
-            cancellationToken);
+              """;
 
-        return ParseMany(answer, defaultAssignee, model);
+        // 로컬 모델이 지난 일·업무 아닌 일을 「일정이 아니다」로 보고 빈 배열을 주는 일이 있어 한 번 더 묻는다.
+        var (answer, model) = await AskAsync(prompt, cancellationToken);
+        var drafts = ParseMany(answer, defaultAssignee, model);
+
+        if (IsBlank(drafts))
+        {
+            (answer, model) = await AskAsync(prompt, cancellationToken);
+            drafts = ParseMany(answer, defaultAssignee, model);
+        }
+
+        return drafts;
     }
+
+    /// <summary>답을 하나도 못 읽어 빈 칸 한 건만 남았나.</summary>
+    internal static bool IsBlank(IReadOnlyList<ScheduleDraft> drafts) =>
+        drafts.Count == 1 && drafts[0] is { Start: null, Title: null, Summary: null };
 
     /// <summary>한 메모에서 가르는 일정의 상한. 모델이 줄마다 한 건씩 쪼개 일정표를 덮는 것을 막는다.</summary>
     internal const int MaxDrafts = 10;
