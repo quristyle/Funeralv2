@@ -169,11 +169,21 @@
                             <CommSchItem Label="시작일">
                                 <DxDateEdit Date="@TableStartDateTime"
                                             DateChanged="@((DateTime? d) => OnTableStartChangedAsync(d))"
+                                            Mask="yyyy-MM-dd"
+                                            DisplayFormat="yyyy-MM-dd"
+                                            Format="yyyy-MM-dd"
+                                            AllowUpDownArrowKeys="true"
+                                            AllowMouseWheel="true"
                                             ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
                             </CommSchItem>
                             <CommSchItem Label="종료일">
                                 <DxDateEdit Date="@TableEndDateTime"
                                             DateChanged="@((DateTime? d) => OnTableEndChangedAsync(d))"
+                                            Mask="yyyy-MM-dd"
+                                            DisplayFormat="yyyy-MM-dd"
+                                            Format="yyyy-MM-dd"
+                                            AllowUpDownArrowKeys="true"
+                                            AllowMouseWheel="true"
                                             ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
                             </CommSchItem>
                             @* 읽어 둔 줄을 화면에서 거른다 — 글자마다 서버를 부르지 않는다. *@
@@ -763,12 +773,22 @@
                 <label class="pm-find__field">
                     <span class="pm-find__label">시작일</span>
                     <DxDateEdit @bind-Date="_findFrom"
+                                Mask="yyyy-MM-dd"
+                                DisplayFormat="yyyy-MM-dd"
+                                Format="yyyy-MM-dd"
+                                AllowUpDownArrowKeys="true"
+                                AllowMouseWheel="true"
                                 ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
                                 ValidationEnabled="false" />
                 </label>
                 <label class="pm-find__field">
                     <span class="pm-find__label">종료일</span>
                     <DxDateEdit @bind-Date="_findTo"
+                                Mask="yyyy-MM-dd"
+                                DisplayFormat="yyyy-MM-dd"
+                                Format="yyyy-MM-dd"
+                                AllowUpDownArrowKeys="true"
+                                AllowMouseWheel="true"
                                 ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
                                 ValidationEnabled="false" />
                 </label>

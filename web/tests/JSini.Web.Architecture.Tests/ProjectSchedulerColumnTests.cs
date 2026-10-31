@@ -308,4 +308,19 @@ public sealed class ProjectSchedulerColumnTests
         Assert.Equal(planEdt, w2.PlanEdt);
         Assert.Equal(devSdt, w2.DevSdt);
     }
+
+    [Fact]
+    public void ProjectScheduler_시작일_종료일_조건항목에_날짜마스크와_방향키_조절이_활성화되어_있다()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "../../../../../src/Apps/JSini.Web.ProjMng/Components/Pages/ProjectScheduler.razor");
+        Assert.True(File.Exists(path), $"파일이 존재해야 합니다: {path}");
+
+        var content = File.ReadAllText(path);
+
+        // 시작일 DateEdit 에 Mask 와 AllowUpDownArrowKeys 가 설정되어 방향키로 년·월·일 변경이 가능해야 함
+        Assert.Contains("Date=\"@TableStartDateTime\"", content);
+        Assert.Contains("Date=\"@TableEndDateTime\"", content);
+        Assert.Contains("AllowUpDownArrowKeys=\"true\"", content);
+        Assert.Contains("Mask=\"yyyy-MM-dd\"", content);
+    }
 }
