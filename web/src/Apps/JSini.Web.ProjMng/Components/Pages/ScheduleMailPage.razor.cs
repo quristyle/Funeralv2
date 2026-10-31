@@ -44,7 +44,7 @@ public partial class ScheduleMailPage : IDisposable
     /// <summary>탭을 옮겼다 와도 쓰던 그대로 — 보내거나 닫으면 버린다.</summary>
     private sealed class Draft
     {
-        public required ScheduleMailScope Scope { get; init; }
+        public required ScheduleMailScope Scope { get; set; }
         public string To = string.Empty;
         public string Cc = string.Empty;
         public bool MyMailLooked;
@@ -85,9 +85,8 @@ public partial class ScheduleMailPage : IDisposable
             ? (string.IsNullOrWhiteSpace(Me?.Username) ? null : Me.Username.Trim())
             : Me.DisplayName.Trim();
 
-    private string ScopeText => _d.Scope.AllProjects
-        ? "내가 참여한 프로젝트 전체"
-        : _d.Scope.ProjectName ?? $"프로젝트 {_d.Scope.ProjectRid}";
+    /// <summary>프로젝트 고르개의 값. 빈 글자가 「전체」다.</summary>
+    private string ScopeCode => _d.Scope.ProjectRid?.ToString() ?? string.Empty;
 
     protected override void OnInitialized()
     {
@@ -289,6 +288,31 @@ public partial class ScheduleMailPage : IDisposable
 
         _d.TplId = id;
         RebuildBody();
+    }
+
+    /// <summary>프로젝트를 바꿨다. 일정을 다시 읽고 본문을 새로 만든다 — 직접 고친 본문이면 먼저 묻는다.</summary>
+    private async Task PickProjectAsync(CommonCodeItem? item)
+    {
+        int? rid = int.TryParse(item?.Code, out var parsed) ? parsed : null;
+
+        // 첫 그림에서 고르개가 스스로 맞춘 값이거나 같은 것을 다시 고른 것이다.
+        if (!_d.Ready || rid == _d.Scope.ProjectRid || !await ConfirmOverwriteAsync())
+        {
+            return;
+        }
+
+        // Stamp 는 그대로 둔다 — 바뀌면 탭을 옮겼다 올 때 쓰던 것을 버린다.
+        _d.Scope = _d.Scope with { ProjectRid = rid, ProjectName = rid is null ? null : item?.Name };
+
+        if (_d.Scope.AllProjects && _projects.Count == 0)
+        {
+            await LoadProjectsAsync();
+        }
+
+        if (await LoadItemsAsync())
+        {
+            RebuildBody();
+        }
     }
 
     /// <summary>「본문 다시 만들기」. 고른 기간의 일정을 다시 읽고 본문을 새로 만든다.</summary>

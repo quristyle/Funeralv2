@@ -7073,10 +7073,6 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 
 
 /* ── 일정 메일 발송 화면 (`ScheduleMailPage`) ── 왼쪽은 조건, 오른쪽은 본문(SplitPane). 단추 줄은 판 밖 바닥 칸에 서서 어느 판도 가리지 않는다. */
-.pm-mailpage__scope {
-  font-weight: 500;
-}
-
 /* 본문 판은 편집기가 판 높이를 채운다. Height="100%" 가 먹으려면 판에서 iframe·Monaco 까지 flex 사슬이 끊기지 않아야 한다. */
 .pm-splitpane__second > .pm-mailpage__body {
   display: flex;

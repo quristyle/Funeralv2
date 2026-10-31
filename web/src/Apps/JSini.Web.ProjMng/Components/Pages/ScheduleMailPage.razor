@@ -17,8 +17,10 @@
     <First>
         <CommCont>
             <DxFormLayout CssClass="pm-editform">
-                <DxFormLayoutItem Caption="대상 일정" ColSpanMd="12">
-                    <span class="pm-mailpage__scope">@ScopeText</span>
+                @* 「전체」는 내가 참여한 프로젝트 전부다. 일정표에서 넘겨받은 것으로 열리고, 바꾸면 그 프로젝트의 일정을 다시 읽는다. *@
+                <DxFormLayoutItem Caption="프로젝트" ColSpanMd="12">
+                    <CodeSelect CodeId="projlist" ShowAll="true" AllowClear="true"
+                                Value="@ScopeCode" OnChanged="@PickProjectAsync" />
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="받는 사람" ColSpanMd="12">
