@@ -5668,14 +5668,33 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 }
 
 .pm-gc-agenda__item--toggle .pm-gc-agenda__top {
-  padding-right: 3.5rem;
+  padding-right: 8.5rem;
+}
+
+/* 추가대상·상태 두 단추를 한 묶음으로 오른쪽 귀퉁이에 얹는다. */
+.pm-gc-agenda__item--toggle .pm-gc-agenda__tools {
+  position: absolute;
+  top: var(--jsini-sp-sm);
+  right: var(--jsini-sp-sm);
+  display: inline-flex;
+  gap: var(--jsini-sp-xs, 0.25rem);
+  align-items: center;
+}
+
+.pm-gc-agenda__item--toggle .pm-gc-agenda__target {
+  min-width: 0;
+  padding: 0 0.5rem;
+  font-family: inherit;
+  font-size: var(--jsini-fs-xs, 0.75rem);
+}
+
+.pm-gc-agenda__item--toggle .pm-gc-agenda__target:disabled {
+  cursor: default;
+  opacity: 0.7;
 }
 
 /* tabler.css 가 맨 마지막에 실려 .jsini-badge 의 border:0 이 이기므로 한 겹 겹쳐 적는다. */
 .pm-gc-agenda__item--toggle .pm-gc-agenda__state {
-  position: absolute;
-  top: var(--jsini-sp-sm);
-  right: var(--jsini-sp-sm);
   font-family: inherit;
   cursor: pointer;
   border: 1px solid currentColor;

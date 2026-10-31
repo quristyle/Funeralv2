@@ -1743,6 +1743,14 @@ public partial class ProjectScheduler : IAsyncDisposable
             return;
         }
 
+        // 추가대상 단추가 미뤄 둔 저장은 거둔다 — 이 저장이 바뀐 추가대상을 함께 싣고, 남겨 두면 옛 상태로 덮는다.
+        if (_cycleSaves.Remove(w.WbsId, out var pending))
+        {
+            pending.Cancel();
+            pending.Dispose();
+            _stateOrigins.Remove(w.WbsId);
+        }
+
         try
         {
             var next = Copy(w);
