@@ -99,8 +99,9 @@ public sealed class ProjectSchedulerColumnTests
     [Theory]
     [InlineData("READY", null, "RUNNING")]
     [InlineData("RUNNING", null, "COMP")]
-    [InlineData("COMP", "COMP", "READY")]
-    public void ProjectScheduler_일정목록_상태가_대기_진행_완료_순으로_순환한다(
+    [InlineData("COMP", "COMP", "DISCARD")]
+    [InlineData("DISCARD", null, "READY")]
+    public void ProjectScheduler_일정목록_상태가_대기_진행_완료_폐기_순으로_순환한다(
         string state, string? completedState, string expected)
     {
         var item = new WbsItemDto
@@ -118,10 +119,10 @@ public sealed class ProjectSchedulerColumnTests
     }
 
     [Theory]
-    [InlineData(null, "지연", "COMP")]
-    [InlineData("2026-01-01", "지연", "COMP")]
-    public void ProjectScheduler_일정목록_지연은_지연으로_보이고_누르면_완료로_간다(
-        string? devSdt, string expectedName, string expectedNext)
+    [InlineData(null, "지연", "대기", "RUNNING")]
+    [InlineData("2026-01-01", "지연", "진행중", "COMP")]
+    public void ProjectScheduler_일정목록_지연이어도_단추는_실제_상태를_적고_다음_상태로_간다(
+        string? devSdt, string expectedName, string expectedToggle, string expectedNext)
     {
         var item = new WbsItemDto
         {
@@ -131,9 +132,11 @@ public sealed class ProjectSchedulerColumnTests
         };
 
         var name = (string?)typeof(ProjectScheduler).GetMethod("AgendaStateName", BindingFlags.NonPublic | BindingFlags.Static)!.Invoke(null, [item]);
+        var toggle = (string?)typeof(ProjectScheduler).GetMethod("AgendaToggleName", BindingFlags.NonPublic | BindingFlags.Static)!.Invoke(null, [item]);
         var next = (string?)typeof(ProjectScheduler).GetMethod("NextAgendaStateCode", BindingFlags.NonPublic | BindingFlags.Static)!.Invoke(null, [item]);
 
         Assert.Equal(expectedName, name);
+        Assert.Equal(expectedToggle, toggle);
         Assert.Equal(expectedNext, next);
     }
 

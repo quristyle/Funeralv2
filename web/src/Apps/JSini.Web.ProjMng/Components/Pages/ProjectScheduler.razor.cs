@@ -1737,18 +1737,32 @@ public partial class ProjectScheduler : IAsyncDisposable
     {
         "RUNNING" => "진행중으로 변경",
         "COMP" => "완료로 변경",
+        "DISCARD" => "폐기로 변경",
         _ => "대기로 변경",
     };
 
-    /// <summary>지연은 대기든 진행이든 같은 「지연」으로 보이므로 둘 사이를 오가면 눌러도 안 바뀐 것처럼 보인다 — 바로 완료로 넘긴다.</summary>
-    private static string NextAgendaStateCode(WbsItemDto w) => AgendaStateCode(w) switch
+    /// <summary>
+    /// 표 보기와 같은 차례(대기 → 진행중 → 완료 → 폐기 → 대기)로 돈다. 지연은 상태가 아니라 날짜에서 세는 것이라
+    /// 차례를 실제 상태에서 잡는다 — 지연에서 잡으면 대기·진행중이 모두 「지연」으로 보여 완료와만 오간다.
+    /// </summary>
+    private static string NextAgendaStateCode(WbsItemDto w)
     {
-        "READY" => "RUNNING",
-        "RUNNING" or "OVER" => "COMP",
-        _ => "READY",
-    };
+        var at = Array.IndexOf(RowStateCycle, GetInlineStateCode(w));
+        return RowStateCycle[(at + 1) % RowStateCycle.Length];
+    }
 
-    /// <summary>오른쪽 일정 목록의 상태를 대기 → 진행 → 완료 → 대기로 순환한다. 지연은 완료로 간다.</summary>
+    /// <summary>상태 단추의 글자. 지연이어도 실제 상태를 적어야 누를 때마다 바뀐 것이 보인다 — 지연은 색으로 남긴다.</summary>
+    private static string AgendaToggleName(WbsItemDto w) => StateCodeName(GetInlineStateCode(w));
+
+    private static string AgendaToggleClass(WbsItemDto w) => AgendaStateCode(w) == "OVER"
+        ? "jsini-badge--err"
+        : AgendaStateClass(w);
+
+    private static string AgendaToggleTitle(WbsItemDto w) => AgendaStateCode(w) == "OVER"
+        ? $"계획종료일이 지난 지연 일정입니다 · 눌러 {NextAgendaStateAction(w)}"
+        : $"눌러 {NextAgendaStateAction(w)}";
+
+    /// <summary>오른쪽 일정 목록의 상태를 대기 → 진행중 → 완료 → 폐기 → 대기로 순환한다.</summary>
     private async Task CycleAgendaStateAsync(WbsItemDto w)
     {
         if (!_canUpdate || !_toggling.Add(w.WbsId))
@@ -1767,12 +1781,16 @@ public partial class ProjectScheduler : IAsyncDisposable
         try
         {
             var next = Copy(w);
-            next.Discarded = false;
             var nextState = NextAgendaStateCode(w);
             var nextStateAction = NextAgendaStateAction(w);
+            next.Discarded = nextState == "DISCARD";
+            next.WbsState = nextState;
 
             switch (nextState)
             {
+                case "DISCARD":
+                    // 개발 날짜는 그대로 둔다 — 폐기를 되돌릴 때 그 전 상태를 알아볼 실마리다.
+                    break;
                 case "RUNNING":
                     next.DevSdt ??= AppTime.TodayDate;
                     next.DevEdt = null;

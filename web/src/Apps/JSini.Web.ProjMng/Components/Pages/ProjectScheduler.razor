@@ -910,10 +910,10 @@
                             disabled="@(!_canUpdate || _toggling.Contains(w.WbsId))"
                             title="누를 때마다 다음 추가대상으로 바뀝니다 (비움 포함)"
                             @onclick="@(() => CycleAddTarget(w))">@(targetName ?? "추가대상")</button>
-                    <button type="button" class="jsini-badge @AgendaStateClass(w) pm-gc-agenda__state"
+                    <button type="button" class="jsini-badge @AgendaToggleClass(w) pm-gc-agenda__state"
                             disabled="@(!_canUpdate || _toggling.Contains(w.WbsId))"
-                            title="@($"눌러 {NextAgendaStateAction(w)}")"
-                            @onclick="@(() => CycleAgendaStateAsync(w))">@AgendaStateName(w)</button>
+                            title="@AgendaToggleTitle(w)"
+                            @onclick="@(() => CycleAgendaStateAsync(w))">@AgendaToggleName(w)</button>
                 </span>
             }
         </li>;
