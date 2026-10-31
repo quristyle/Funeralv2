@@ -171,7 +171,7 @@ public partial class ScheduleEditPopup
         }
     }
 
-    /// <summary>지금 값으로 새 일정을 하나 더 만들고, 창은 만든 쪽을 고치는 창으로 이어 간다. 원문(BodyText)은 옮기지 않는다.</summary>
+    /// <summary>현재 보여지는 정보를 저장하고 동일한 내용(메모·원문 포함)으로 복제하여 팝업을 복제된 일정으로 이어 간다.</summary>
     private async Task DuplicateAsync()
     {
         if (!Validate())
@@ -179,18 +179,43 @@ public partial class ScheduleEditPopup
             return;
         }
 
-        var clone = Copy(_form);
-        clone.WbsId = 0;
-        clone.BodyText = null;
-
         WbsItemDto? created = null;
+        WbsItemDto? clone = null;
 
-        if (await RunAsync(async () => created = await Api.CreateAsync(clone), "복제했습니다.", "복제하지 못했습니다"))
+        if (await RunAsync(async () =>
+            {
+                // 1. 현재 보여지는 정보 저장
+                if (_isNew)
+                {
+                    var saved = await Api.CreateAsync(_form);
+                    if (saved is not null)
+                    {
+                        _form = Copy(saved);
+                        _isNew = false;
+                    }
+                }
+                else
+                {
+                    var saved = await Api.UpdateAsync(_form);
+                    if (saved is not null)
+                    {
+                        _form = Copy(saved);
+                    }
+                }
+
+                // 2. 현재 정보와 동일한 내용으로 복제 (메모, 원문 포함)
+                clone = Copy(_form);
+                clone.WbsId = 0;
+
+                created = await Api.CreateAsync(clone);
+            }, "복제했습니다.", "복제하지 못했습니다"))
         {
-            _form = created is not null ? Copy(created) : clone;
+            // 3. 복제된 내용이 팝업에 보여지도록 갱신
+            _form = created is not null ? Copy(created) : (clone ?? _form);
             _formState = StateCode(_form);
             _isNew = false;
             await Changed.InvokeAsync();
+            StateHasChanged();
         }
     }
 
@@ -264,5 +289,6 @@ public partial class ScheduleEditPopup
         ScheduleType = w.ScheduleType,
         AddTarget = w.AddTarget,
         Discarded = w.Discarded,
+        WbsState = w.WbsState,
     };
 }
