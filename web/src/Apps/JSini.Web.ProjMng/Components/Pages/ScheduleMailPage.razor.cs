@@ -263,7 +263,9 @@ public partial class ScheduleMailPage : IDisposable
 
                     return new ScheduleMailItem(start, end < start ? start : end, Title(w),
                         w.ReqUser, PersonName(w.DevUser), w.AddTarget,
-                        Discarded: w.Discarded == true || w.WbsState == "DISCARD");
+                        Discarded: ScheduleEditPopup.StateCode(w) == "DISCARD",
+                        Completed: ScheduleEditPopup.StateCode(w) == "COMP",
+                        PlanEnd: w.PlanEdt is { } pe ? DateOnly.FromDateTime(pe) : null);
                 })];
 
             _d.Loaded = (_d.From, _d.Until);

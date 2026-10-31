@@ -55,11 +55,19 @@ public sealed class ScheduleMailResult
 /// 메일에 실을 일정 한 건. 날짜는 일정표가 그리는 그 벽시계 값이다.
 /// 사람은 보이는 이름으로 받는다. 추가대상은 공통코드 값(ADD · CHANGE · MOVE · ISSUE · NOTICE · REQUEST · DINNER · VACATION · OUTING · UNDESIGNED)이다.
 /// 폐기한 일정도 빼지 않고 싣는다 — 받는 이가 「없어진 것」과 「버린 것」을 가를 수 있게 흐리게 긋는다.
+/// <paramref name="PlanEnd"/> 는 계획 종료일이 적혀 있을 때만 준다 — 지연은 그 날짜로만 센다(일정표의 「지연」 딱지와 같은 판정).
 /// </summary>
 public sealed record ScheduleMailItem(
     DateTime Start, DateTime End, string Title,
     string? Requester = null, string? Assignee = null, string? AddTarget = null,
-    bool Discarded = false);
+    bool Discarded = false, bool Completed = false, DateOnly? PlanEnd = null)
+{
+    /// <summary>지연 — 폐기·완료가 아닌데 계획 종료일이 오늘보다 앞이다.</summary>
+    public bool IsDelayed(DateOnly today) => !Discarded && !Completed && PlanEnd is { } end && end < today;
+
+    /// <summary>계획 종료일에서 오늘까지 넘긴 날 수. 지연이 아니면 0.</summary>
+    public int DelayDays(DateOnly today) => IsDelayed(today) ? today.DayNumber - PlanEnd!.Value.DayNumber : 0;
+}
 
 /// <summary>본문을 채울 재료. 기간은 사람이 고른 것이고, 「지난·앞으로」를 가르는 기준은 늘 오늘이다.</summary>
 public sealed record ScheduleMailInput(
@@ -90,6 +98,8 @@ public static class ScheduleMailBody
     private const string Discarded = "#f1f3f4";
     private const string DiscardedLine = "#9aa0a6";
     private const string DiscardedText = "#9aa0a6";
+    private const string Delayed = "#c5221f";
+    private const string DelayedBg = "#fff5f5";
 
     private static readonly string DiscardBadge =
         $"<span style=\"display:inline-block;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:700;line-height:14px;color:#5f6368;background:#e8eaed;border:1px dashed {DiscardedLine};\">폐기</span>";
@@ -109,7 +119,8 @@ public static class ScheduleMailBody
         ("pastCount", "오늘 전 일정 건수"),
         ("todayCount", "오늘 일정 건수"),
         ("aheadCount", "오늘 뒤 일정 건수"),
-        ("summary", "건수 요약 세 칸 (HTML)"),
+        ("delayCount", "지연 일정 건수 (계획 종료일이 지났는데 완료·폐기가 아닌 것)"),
+        ("summary", "건수 요약 세 칸 + 지연 안내 (HTML)"),
         ("timeline", "날짜별 일정 타임라인 (HTML)"),
     ];
 
@@ -155,6 +166,7 @@ public static class ScheduleMailBody
         var past = days.Where(d => d.Key < today).Sum(d => d.Value.Count);
         var todayCount = days.GetValueOrDefault(today)?.Count ?? 0;
         var ahead = days.Where(d => d.Key > today).Sum(d => d.Value.Count);
+        var delayed = days.Sum(d => d.Value.Count(i => i.IsDelayed(today)));
 
         string T(string text) => html ? Enc(text) : text;
 
@@ -183,7 +195,8 @@ public static class ScheduleMailBody
             ["pastCount"] = past.ToString(Ko),
             ["todayCount"] = todayCount.ToString(Ko),
             ["aheadCount"] = ahead.ToString(Ko),
-            ["summary"] = html ? Summary(past, todayCount, ahead) : string.Empty,
+            ["delayCount"] = delayed.ToString(Ko),
+            ["summary"] = html ? Summary(past, todayCount, ahead, delayed) : string.Empty,
             ["timeline"] = html ? TimelineBlock(days, from, to, today) : string.Empty,
         };
     }
@@ -230,7 +243,7 @@ public static class ScheduleMailBody
         return sb.ToString();
     }
 
-    private static string Summary(int past, int today, int ahead)
+    private static string Summary(int past, int today, int ahead, int delayed)
     {
         var sb = new StringBuilder();
 
@@ -241,6 +254,12 @@ public static class ScheduleMailBody
         sb.Append("<td width=\"12\"></td>");
         sb.Append(Stat("앞으로", ahead, Navy, "#f6f8fa"));
         sb.Append("</tr></table>");
+
+        if (delayed > 0)
+        {
+            sb.Append($"<div style=\"margin-top:10px;padding:9px 14px;font-size:13px;font-weight:700;color:{Delayed};background:{DelayedBg};border:1px solid {Delayed};border-radius:8px;\">")
+              .Append($"⚠ 지연 일정 {delayed}건 — 계획 종료일이 지났는데 아직 끝나지 않았습니다.</div>");
+        }
 
         return sb.ToString();
     }
@@ -346,12 +365,19 @@ public static class ScheduleMailBody
             foreach (var item in list)
             {
                 var sub = SubText(item);
-                var badge = item.Discarded ? DiscardBadge + (TargetBadge(item.AddTarget) is { } t ? " " + t : string.Empty)
-                    : TargetBadge(item.AddTarget);
+                var delayed = item.IsDelayed(today);
+                var badge = string.Join(" ", new[]
+                {
+                    item.Discarded ? DiscardBadge : null,
+                    delayed ? DelayBadge(item.DelayDays(today)) : null,
+                    TargetBadge(item.AddTarget),
+                }.Where(b => b is not null));
 
-                // 폐기한 일정은 회색 바탕 · 점선 띠 · 취소선으로 흐린다. 메일 프로그램이 CSS 클래스를 버리므로 인라인으로만 적는다.
-                var cardBg = item.Discarded ? Discarded : isToday ? "#f4f8ff" : "#fbfcfd";
-                var edge = item.Discarded ? $"3px dashed {DiscardedLine}" : $"3px solid {(day < today ? "#b7c2ce" : Accent)}";
+                // 폐기한 일정은 회색 바탕 · 점선 띠 · 취소선으로 흐리고, 지연은 붉은 띠·바탕으로 세운다. 메일 프로그램이 CSS 클래스를 버리므로 인라인으로만 적는다.
+                var cardBg = item.Discarded ? Discarded : delayed ? DelayedBg : isToday ? "#f4f8ff" : "#fbfcfd";
+                var edge = item.Discarded ? $"3px dashed {DiscardedLine}"
+                    : delayed ? $"3px solid {Delayed}"
+                    : $"3px solid {(day < today ? "#b7c2ce" : Accent)}";
                 var strike = item.Discarded ? "text-decoration:line-through;" : string.Empty;
 
                 sb.Append($"<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"margin:0 0 6px 0;background:{cardBg};border:1px solid {Line};border-left:{edge};border-radius:6px;\"><tr>");
@@ -362,7 +388,7 @@ public static class ScheduleMailBody
                     sb.Append($"<div style=\"margin-top:3px;font-size:12px;color:{(item.Discarded ? DiscardedText : Muted)};{strike}\">{sub}</div>");
                 }
                 sb.Append("</td>");
-                if (badge is not null)
+                if (badge.Length > 0)
                 {
                     sb.Append($"<td width=\"1\" align=\"right\" valign=\"middle\" style=\"padding:10px 12px 10px 0;white-space:nowrap;\">{badge}</td>");
                 }
@@ -407,6 +433,10 @@ public static class ScheduleMailBody
 
         return parts.Count == 0 ? null : string.Join(" · ", parts);
     }
+
+    /// <summary>지연 딱지 — 계획 종료일을 넘긴 날 수를 함께 적는다.</summary>
+    private static string DelayBadge(int days) =>
+        $"<span style=\"display:inline-block;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:700;line-height:14px;color:#ffffff;background:{Delayed};border:1px solid {Delayed};\">지연 {days}일</span>";
 
     /// <summary>추가대상 딱지. 값이 없으면 그리지 않는다.</summary>
     private static string? TargetBadge(string? code)

@@ -111,4 +111,36 @@ public sealed class ScheduleMailBodyTests
         Assert.Contains($">{name}</span>", html);
         Assert.DoesNotContain("#f0f2f5", html[..html.IndexOf($">{name}</span>", StringComparison.Ordinal)][^300..]);
     }
+    [Fact]
+    public void 계획_종료일이_지났는데_안_끝난_일정에만_지연_딱지와_안내가_선다()
+    {
+        var oct27 = new DateTime(2026, 10, 27);
+        var input = new ScheduleMailInput(
+            new DateOnly(2026, 10, 24), new DateOnly(2026, 11, 7), new DateOnly(2026, 10, 31),
+            [
+                new(oct27, oct27.AddDays(1), "늦은 일정", null, "박담당", "ADD", PlanEnd: new DateOnly(2026, 10, 28)),
+                new(oct27, oct27, "끝낸 일정", Completed: true, PlanEnd: new DateOnly(2026, 10, 27)),
+                new(oct27, oct27, "버린 일정", Discarded: true, PlanEnd: new DateOnly(2026, 10, 27)),
+                new(oct27, oct27, "종료일 없는 일정"),
+                new(oct27, new DateTime(2026, 11, 3), "아직 기한 안", PlanEnd: new DateOnly(2026, 11, 3)),
+            ],
+            "견본", "보내는이", null);
+
+        var html = ScheduleMailBody.Build(input);
+
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(html, ">지연 \\d+일</span>"));
+        Assert.Contains(">지연 3일</span>", html);
+        Assert.Contains("지연 일정 1건", html);
+        Assert.Equal("1", ScheduleMailBody.Values(input, html: false)["delayCount"]);
+
+        // 지연 딱지는 추가대상 딱지와 같은 칸에 앞서 선다.
+        var late = html.IndexOf(">지연 3일</span>", StringComparison.Ordinal);
+        Assert.True(late < html.IndexOf(">추가</span>", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void 지연이_없으면_안내_줄도_없다()
+    {
+        Assert.DoesNotContain("지연 일정", Body());
+    }
 }
