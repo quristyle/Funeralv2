@@ -496,9 +496,11 @@ a { color: var(--tb-primary); }
   border-right-color: transparent;
 }
 
-/* 공통 표(CommGrd)만 칸 사이에 옅은 세로선을 되살린다. 판 안의 표는 --dxbl-grid-border-width 가 0 이라 변수로는 안 살아나서 폭까지 적는다. */
+/* 공통 표(CommGrd·CommTree)만 칸 사이에 옅은 세로선을 되살린다. 판 안의 표는 --dxbl-grid-border-width 가 0 이라 변수로는 안 살아나서 폭까지 적는다. */
 .commgrd .dxbl-grid-table > thead > tr > th + th,
-.commgrd .dxbl-grid-table > tbody > tr > td + td {
+.commgrd .dxbl-grid-table > tbody > tr > td + td,
+.commtree .dxbl-grid-table > thead > tr > th + th,
+.commtree .dxbl-grid-table > tbody > tr > td + td {
   border-left: 1px solid var(--tb-border-soft);
 }
 
