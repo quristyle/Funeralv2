@@ -7111,3 +7111,62 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   background: var(--jsini-surface, #fff);
   border-top: 1px solid var(--jsini-border);
 }
+
+/* 좁은 화면(SplitPane 이 위아래로 서는 900px)에서는 분할을 풀어 조건 → 본문으로 쌓고 쪽이 구른다. 반씩 나눈 판 안에서 또 굴리면 조건도 편집기도 손가락 한 마디만 보인다.
+   마크업을 갈아 끼우지 않고 상자만 지운다 — 갈아 끼우면 편집기 iframe 이 다시 만들어져 고치던 본문을 잃는다(AI 작업 화면과 같은 수). */
+@media (max-width: 900px) {
+  .jsini-shell__content:has(> .pm-mailpage__split) {
+    overflow-y: auto;
+  }
+
+  .pm-mailpage__split,
+  .pm-mailpage__split > .pm-splitpane__ui,
+  .pm-mailpage__split > .pm-splitpane__ui > .dxbl-splitter-pane,
+  .pm-mailpage__split > .pm-splitpane__ui > .dxbl-splitter-pane > .dxbl-splitter-pane-content {
+    display: contents !important;
+    /* 지운 상자에 overflow: hidden 이 남으면 DevExpress 가 그 0×0 상자를 드롭다운을 가두는 틀로 센다. */
+    overflow: visible !important;
+  }
+
+  .pm-mailpage__split > .pm-splitpane__ui > .dxbl-splitter-separator {
+    display: none !important;
+  }
+
+  .pm-mailpage__split .pm-splitpane__first,
+  .pm-mailpage__split .pm-splitpane__second {
+    display: block;
+    flex: none;
+    overflow: visible;
+    padding: 0 !important;
+  }
+
+  .pm-mailpage__split .pm-splitpane__second {
+    margin-top: var(--jsini-sp-lg);
+  }
+
+  .pm-mailpage__split .commcont {
+    height: auto;
+    min-height: 0;
+  }
+
+  /* 판 높이가 없으니 편집기는 제 키를 갖는다. 편집기가 인라인으로 거는 100% 를 이기려면 !important 가 있어야 한다. */
+  .pm-mailpage__split .pm-mailedit {
+    --pm-mailedit-h: max(60vh, 18rem) !important;
+  }
+
+  .pm-mailpage__split .pm-mailedit__frame,
+  .pm-mailpage__split .pm-editor {
+    flex: none;
+  }
+
+  .pm-mailpage__split .pm-mailedit__frame {
+    height: var(--pm-mailedit-h);
+  }
+
+  /* 쪽이 구르는 동안에도 발송 단추가 보이게 바닥에 붙인다. */
+  .pm-mailpage__acts {
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+  }
+}

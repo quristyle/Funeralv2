@@ -5,7 +5,7 @@
 
 <DxLayoutBreakpoint MaxWidth="900" @bind-IsActive="_isNarrow" />
 
-<div class="pm-splitpane">
+<div class="pm-splitpane @CssClass">
     <DxSplitter CssClass="pm-splitpane__ui"
                 Orientation="@(_isNarrow ? Orientation.Vertical : Orientation.Horizontal)">
         <Panes>
