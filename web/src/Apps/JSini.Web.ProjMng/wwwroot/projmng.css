@@ -4434,7 +4434,8 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   white-space: nowrap;
 }
 
-/* 일정 메일 발송. 단추는 「추가」와 같은 높이로 선다. */
+/* 일정 메일 발송·일정 찾기. 단추는 「추가」와 같은 높이로 선다. */
+.pm-gc__find-btn,
 .pm-gc__mail-btn {
   height: 2rem;
   padding: 0 var(--jsini-sp-md);
@@ -4877,11 +4878,12 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
     margin-left: auto;
   }
 
-  /* 메일발송이 앞에 서면 오른쪽으로 미는 일은 그쪽이 맡는다. */
-  .pm-gc__mail-btn {
+  /* 맨 앞 단추(일정찾기)가 오른쪽으로 미는 일을 맡는다. */
+  .pm-gc__find-btn {
     margin-left: auto;
   }
 
+  .pm-gc__find-btn ~ .pm-gc__mail-btn,
   .pm-gc__mail-btn ~ .pm-gc__add-btn {
     margin-left: 0;
   }
@@ -7164,5 +7166,139 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
     position: sticky;
     bottom: 0;
     z-index: 10;
+  }
+}
+
+/* ── 일정 찾기 창 ── 조건 한 줄(좁으면 접혀 내린다) 아래 찾은 일정 목록. 줄을 누르면 그 달로 간다. */
+.pm-find {
+  display: flex;
+  flex-direction: column;
+  gap: var(--jsini-sp-sm);
+}
+
+.pm-find__cond {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--jsini-sp-sm);
+}
+
+.pm-find__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1 1 9rem;
+  min-width: 0;
+  margin: 0;
+}
+
+.pm-find__field--word {
+  flex: 2 1 12rem;
+}
+
+.pm-find__field .dxbl-text-edit {
+  min-width: 0;
+}
+
+.pm-find__label {
+  font-size: var(--jsini-fs-sm);
+  font-weight: 500;
+  color: var(--jsini-text-muted, inherit);
+}
+
+.pm-find__go {
+  flex: 0 0 auto;
+}
+
+.pm-find__scope,
+.pm-find__count,
+.pm-find__empty {
+  margin: 0;
+  font-size: var(--jsini-fs-sm);
+  color: var(--jsini-text-muted, inherit);
+}
+
+.pm-find__empty {
+  padding: var(--jsini-sp-md) 0;
+  text-align: center;
+}
+
+.pm-find__list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pm-find__item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  column-gap: var(--jsini-sp-sm);
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--jsini-border);
+  border-left-width: 4px;
+  border-radius: var(--jsini-radius-md);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.pm-find__item:hover:not(:disabled),
+.pm-find__item:focus-visible {
+  background: color-mix(in srgb, var(--bs-primary, #1a73e8) 8%, transparent);
+}
+
+.pm-find__item:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* 왼쪽 선 색이 진행 상태다 — 달력 막대와 같은 넷. */
+.pm-find__item.pm-gc-agenda__item--READY { border-left-color: #f9ab00; }
+.pm-find__item.pm-gc-agenda__item--RUNNING { border-left-color: #1a73e8; }
+.pm-find__item.pm-gc-agenda__item--OVER { border-left-color: #d93025; }
+.pm-find__item.pm-gc-agenda__item--COMP { border-left-color: #80868b; }
+
+.pm-find__date {
+  font-size: var(--jsini-fs-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--jsini-text-muted, inherit);
+}
+
+.pm-find__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+}
+
+.pm-find__name > .pm-gc-prj {
+  margin-right: 0.25rem;
+}
+
+.pm-find__sub {
+  grid-column: 1 / -1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--jsini-fs-sm);
+  color: var(--jsini-text-muted, inherit);
+}
+
+@media (max-width: 767px) {
+  .pm-find__item {
+    grid-template-columns: 1fr auto;
+  }
+
+  .pm-find__date {
+    grid-column: 1 / -1;
   }
 }

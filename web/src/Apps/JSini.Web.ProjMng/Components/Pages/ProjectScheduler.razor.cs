@@ -2317,6 +2317,127 @@ public partial class ProjectScheduler : IAsyncDisposable
         Navigation.NavigateTo(ScheduleMailPage.Href);
     }
 
+    // ── 일정 찾기 ───────────────────────────────────────────────
+
+    private bool _findOpen;
+
+    private bool _finding;
+
+    private string? _findKeyword;
+
+    /// <summary>찾는 기간. 기본은 오늘 앞뒤 1년이고, 비우면 그쪽 끝을 묶지 않는다.</summary>
+    private DateTime? _findFrom;
+
+    private DateTime? _findTo;
+
+    /// <summary>찾은 줄. null 은 아직 찾지 않았다는 뜻이다 — 「찾은 것 없음」과 갈린다.</summary>
+    private List<WbsItemDto>? _findHits;
+
+    /// <summary>찾는 범위. 프로젝트·구분·진행은 화면 조건을 그대로 쓴다 — 찾은 일정이 달력에서 걸러져 안 보이는 일이 없게.</summary>
+    private string FindScopeText => "범위: " + SchSummary.Of(
+        _projectName, SchSummary.Or(_kindNames), _completeStateName);
+
+    /// <summary>창을 연다. 기간은 처음 열 때만 채운다 — 닫았다 다시 열면 전에 찾던 조건과 결과가 그대로다.</summary>
+    private async Task OpenFind()
+    {
+        if (_findFrom is null && _findTo is null && _findHits is null)
+        {
+            _findFrom = AppTime.TodayDate.AddYears(-1);
+            _findTo = AppTime.TodayDate.AddYears(1);
+        }
+
+        _findOpen = true;
+
+        // 담당자 이름으로도 찾으므로 계정 목록을 미리 받아 둔다.
+        await EnsureDropdownDataAsync();
+    }
+
+    private Task OnFindKeyAsync(KeyboardEventArgs e) =>
+        e.Key == "Enter" && !_finding ? FindAsync() : Task.CompletedTask;
+
+    private async Task FindAsync()
+    {
+        _finding = true;
+        StateHasChanged();
+
+        try
+        {
+            var (from, to) = (_findFrom, _findTo);
+            if (from is not null && to is not null && from > to)
+            {
+                (from, to) = (to, from);
+                (_findFrom, _findTo) = (from, to);
+            }
+
+            var rows = await Api.ListAsync(
+                ProjectRid, _completeState, _scheduleTypes,
+                from is null ? null : DateOnly.FromDateTime(from.Value),
+                to is null ? null : DateOnly.FromDateTime(to.Value),
+                mine: AllProjects);
+
+            var word = _findKeyword?.Trim();
+
+            _findHits = [.. rows
+                .Where(w => string.IsNullOrEmpty(word) || FindMatches(w, word))
+                .OrderBy(w => w.PlanSdt ?? w.PlanEdt ?? DateTime.MaxValue)
+                .ThenBy(w => w.WbsId)];
+        }
+        catch (Exception ex)
+        {
+            _findHits = null;
+            Say($"일정을 찾지 못했습니다: {ex.Message}", NoticeTone.Error);
+        }
+        finally
+        {
+            _finding = false;
+        }
+    }
+
+    /// <summary>제목·메모·원문·종류·요청자·담당자(아이디와 이름) 어디에든 들어 있으면 맞다.</summary>
+    private bool FindMatches(WbsItemDto w, string word)
+    {
+        bool Has(string? s) => s?.Contains(word, StringComparison.OrdinalIgnoreCase) == true;
+
+        return Has(w.ProcNm) || Has(w.Comm) || Has(w.BodyText) || Has(w.ProcTp)
+            || Has(w.ReqUser) || Has(w.DevUser) || Has(GetUserDisplayName(w.DevUser));
+    }
+
+    /// <summary>찾은 줄의 기간. 여러 해에 걸쳐 찾으므로 해까지 적는다.</summary>
+    private static string FoundPeriod(WbsItemDto w)
+    {
+        var start = w.PlanSdt ?? w.PlanEdt;
+        if (start is null)
+        {
+            return "기간 없음";
+        }
+
+        var end = w.PlanEdt ?? start.Value;
+        return end.Date > start.Value.Date
+            ? $"{start:yyyy-MM-dd} ~ {end:yyyy-MM-dd}"
+            : $"{start:yyyy-MM-dd}";
+    }
+
+    /// <summary>찾은 일정으로 간다. 월 보기로 바꾸고 그 일정이 시작하는 달을 펴서 그 날을 고른다(오른쪽 목록도 그 날로 펴진다).</summary>
+    private async Task GoToFoundAsync(WbsItemDto w)
+    {
+        if ((w.PlanSdt ?? w.PlanEdt) is not { } at)
+        {
+            return;
+        }
+
+        var day = DateOnly.FromDateTime(at);
+
+        _findOpen = false;
+        _view = CalView.Month;
+        _editRow = null;
+        _anchor = day.ToDateTime(TimeOnly.MinValue);
+        _selected = day;
+        _dayPane = true;
+        SyncMiniMonth();
+
+        await SearchAsync();
+    }
+
     /// <summary>상태 색. 구글 캘린더의 색조로 옮긴 넷이다.</summary>
     private sealed record StateLabel(string Id, string Caption, System.Drawing.Color Color);
 

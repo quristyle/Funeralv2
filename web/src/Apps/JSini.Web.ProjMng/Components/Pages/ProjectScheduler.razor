@@ -49,6 +49,11 @@
             }
         </div>
 
+        <DxButton Text="일정찾기" RenderStyle="ButtonRenderStyle.Secondary"
+                  IconCssClass="jsini-icon-search"
+                  CssClass="pm-gc__find-btn"
+                  Click="@OpenFind" />
+
         <DxButton Text="메일발송" RenderStyle="ButtonRenderStyle.Secondary"
                   IconCssClass="jsini-icon-mail"
                   CssClass="pm-gc__mail-btn"
@@ -768,6 +773,82 @@
 
         <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _editing = false)" />
     </FooterContentTemplate>
+</CommPopup>
+
+@* 일정 찾기. 프로젝트·구분은 지금 화면의 조건을 따르고, 찾은 줄을 누르면 그 달 달력으로 가서 그 날을 고른다. *@
+<CommPopup @bind-Visible="_findOpen" HeaderText="일정 찾기"
+           Width="640px" MaxHeight="80vh" Scrollable="true" ShowFooter="false">
+    <BodyContentTemplate Context="popup">
+        <div class="pm-find">
+            <div class="pm-find__cond">
+                @* Enter 로 바로 찾는다 — 글쇠 누름은 칸을 감싼 자리에서 받는다. *@
+                <label class="pm-find__field pm-find__field--word" @onkeydown="@OnFindKeyAsync">
+                    <span class="pm-find__label">검색어</span>
+                    <DxTextBox @bind-Text="_findKeyword"
+                               BindValueMode="BindValueMode.OnInput"
+                               ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                               ValidationEnabled="false" />
+                </label>
+                <label class="pm-find__field">
+                    <span class="pm-find__label">시작일</span>
+                    <DxDateEdit @bind-Date="_findFrom"
+                                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                                ValidationEnabled="false" />
+                </label>
+                <label class="pm-find__field">
+                    <span class="pm-find__label">종료일</span>
+                    <DxDateEdit @bind-Date="_findTo"
+                                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                                ValidationEnabled="false" />
+                </label>
+                <DxButton Text="찾기" RenderStyle="ButtonRenderStyle.Primary"
+                          IconCssClass="jsini-icon-search"
+                          CssClass="pm-find__go"
+                          Enabled="@(!_finding)"
+                          Click="@FindAsync" />
+            </div>
+
+            <p class="pm-find__scope">@FindScopeText</p>
+
+            @if (_finding)
+            {
+                <p class="pm-find__empty">찾는 중입니다…</p>
+            }
+            else if (_findHits is { Count: 0 })
+            {
+                <p class="pm-find__empty">찾은 일정이 없습니다.</p>
+            }
+            else if (_findHits is not null)
+            {
+                <p class="pm-find__count">@(_findHits.Count)건</p>
+                <ul class="pm-find__list">
+                    @foreach (var w in _findHits)
+                    {
+                        var hit = w;
+                        <li>
+                            <button type="button" class="pm-find__item pm-gc-agenda__item--@Label(w)"
+                                    disabled="@(w.PlanSdt is null && w.PlanEdt is null)"
+                                    @onclick="@(() => GoToFoundAsync(hit))">
+                                <span class="pm-find__date">@FoundPeriod(w)</span>
+                                <span class="pm-find__name">
+                                    @if (ProjectTag(w) is { } prj)
+                                    {
+                                        <span class="pm-gc-prj" style="--pm-prj: @ProjectColor(w)">@prj</span>
+                                    }
+                                    @Title(w)
+                                </span>
+                                <span class="jsini-badge @AgendaStateClass(w)">@AgendaStateName(w)</span>
+                                @if (!string.IsNullOrWhiteSpace(w.Comm))
+                                {
+                                    <span class="pm-find__sub">@w.Comm</span>
+                                }
+                            </button>
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+    </BodyContentTemplate>
 </CommPopup>
 
 <ConfirmDialog @ref="_confirm" />
