@@ -205,6 +205,10 @@ public partial class ProjectScheduler : IAsyncDisposable
 
     private IJSObjectReference? _turnModule;
 
+    /// <summary>표 보기에서 고른 줄을 Delete 글쇠로 지운다(gc-table-delete.js). 끌기와 같은 창구(_dragRef)로 부른다.</summary>
+    private ElementReference _mainRef;
+    private IJSObjectReference? _deleteKeyModule;
+
     /// <summary>새 자료가 그려진 뒤 들어오게 할 방향. 0 이면 할 일이 없다.</summary>
     private int _turnInDir;
     private bool _turnInMonth;
@@ -371,7 +375,11 @@ public partial class ProjectScheduler : IAsyncDisposable
     {
         await base.OnAfterRenderAsync(firstRender);
 
-        if (firstRender) await AttachDragAsync();
+        if (firstRender)
+        {
+            await AttachDragAsync();
+            await AttachDeleteKeyAsync();
+        }
 
         if (_turnInDir != 0)
         {
@@ -1438,6 +1446,19 @@ public partial class ProjectScheduler : IAsyncDisposable
         }
     }
 
+    private async Task AttachDeleteKeyAsync()
+    {
+        try
+        {
+            _dragRef ??= DotNetObjectReference.Create(this);
+            _deleteKeyModule ??= await JS.InvokeAsync<IJSObjectReference>("import", "./_content/JSini.Web.ProjMng/js/gc-table-delete.js");
+            await _deleteKeyModule.InvokeVoidAsync("attach", _mainRef, _dragRef);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
         try
@@ -1451,6 +1472,12 @@ public partial class ProjectScheduler : IAsyncDisposable
             if (_turnModule is not null)
             {
                 await _turnModule.DisposeAsync();
+            }
+
+            if (_deleteKeyModule is not null)
+            {
+                await _deleteKeyModule.InvokeVoidAsync("detach", _mainRef);
+                await _deleteKeyModule.DisposeAsync();
             }
         }
         catch (JSDisconnectedException)
@@ -1954,6 +1981,31 @@ public partial class ProjectScheduler : IAsyncDisposable
     }
 
     private Task DeleteAsync(WbsItemDto w) => Api.DeleteAsync(w.WbsId);
+
+    /// <summary>표에서 고른 줄을 Delete 글쇠로 지운다. 「⋮」의 삭제와 같은 확인을 거친다. 편집 창이 떠 있으면 그 창의 일이라 받지 않는다.</summary>
+    [JSInvokable]
+    public async Task DeleteByKey()
+    {
+        var row = _editRow;
+
+        if (_view != CalView.Table || !_canDelete || _editing || row is null || _confirm is null)
+        {
+            return;
+        }
+
+        if (!await _confirm.AskAsync($"「{row.ProcNm}」 을(를) 지웁니다.\n되돌릴 수 없습니다."))
+        {
+            return;
+        }
+
+        if (await RunAsync(() => Api.DeleteAsync(row.WbsId), "지웠습니다.", "지우지 못했습니다"))
+        {
+            _editRow = null;
+            await SearchAsync();
+        }
+
+        StateHasChanged();
+    }
 
     // ── 표 보기 인라인 즉시 수정 저장 ──────────────────────────────
 

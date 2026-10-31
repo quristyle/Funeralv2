@@ -198,7 +198,7 @@
         </details>
 
         @* ── 달력 판 ── 단축키는 여기 촛점이 있을 때만 받는다. *@
-        <div class="pm-gc__main" tabindex="0" @onkeydown="@OnKeyAsync">
+        <div class="pm-gc__main" tabindex="0" @ref="_mainRef" @onkeydown="@OnKeyAsync">
 
             @if (_view == CalView.Table)
             {
