@@ -3287,6 +3287,17 @@
   gap: 0.25rem;
 }
 
+.ad-geomap__zoom .dxbl-btn {
+  width: 1.75rem;
+  height: 1.75rem;
+  min-width: 0;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  --jsini-icon-size: 0.85rem;
+}
+
 /* 타일을 내주는 쪽이 요구하는 표시. 오른쪽 아래에 작게. */
 .ad-geomap__credit {
   position: absolute;

@@ -179,10 +179,16 @@
             <div class="ad-geomap__stage" @ref="_stage"></div>
 
             <div class="ad-geomap__zoom">
-                <DxButton Text="+" RenderStyle="ButtonRenderStyle.Secondary"
-                          Title="확대" Click="@(() => ZoomAsync(1))" />
-                <DxButton Text="−" RenderStyle="ButtonRenderStyle.Secondary"
-                          Title="축소" Click="@(() => ZoomAsync(-1))" />
+                <DxButton RenderStyle="ButtonRenderStyle.Secondary"
+                          SizeMode="SizeMode.Small"
+                          IconCssClass="jsini-icon-plus"
+                          Title="확대" aria-label="확대"
+                          Click="@(() => ZoomAsync(1))" />
+                <DxButton RenderStyle="ButtonRenderStyle.Secondary"
+                          SizeMode="SizeMode.Small"
+                          IconCssClass="jsini-icon-subtract"
+                          Title="축소" aria-label="축소"
+                          Click="@(() => ZoomAsync(-1))" />
             </div>
 
             @* 타일을 내주는 쪽이 요구하는 표시다. 지도 위에 얹어 자리를 안 먹는다. *@
