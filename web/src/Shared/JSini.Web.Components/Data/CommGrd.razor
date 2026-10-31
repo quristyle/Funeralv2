@@ -28,7 +28,7 @@
        하나뿐이다(`_isPhone` 머리말). 이 부품은 아무것도 그리지 않는다. *@
     <DxLayoutBreakpoint MaxWidth="767" IsActive="_isPhone" IsActiveChanged="@OnPhoneChanged" />
 
-    @* 표의 머리줄(제목과 건수)은 표 자신이 그리고 기본으로 켜져 있다. 화면마다 CommCont Hint 로 건수를 적으면 거르개가 걸린 표에서 조용히 틀리므로 여기서 그린다 — 칸별 검색은 표 안에서 끝나는 일이다. 동작은 두지 않는다. 표의 동작은 오른쪽 클릭 창이다(BuildMenu). *@
+    @* 표의 머리줄(제목과 건수). 건수 표시는 기본으로 꺼져 있고(ShowHeaderCount=false), 제목(Title)이 있거나 건수를 켰을 때만 그린다. *@
     @if (HeadVisible)
     {
         <div class="commgrd__head">
@@ -37,7 +37,7 @@
                 <h3 class="commgrd__title">@Title</h3>
             }
 
-            @if (_total is { } total)
+            @if (ShowHeaderCount && _total is { } total)
             {
                 @* 숫자만 진하게. 「총」·낱자(「건」)는 읽을 값이 아니라 단위라서
                    옅게 두면 눈이 수에 먼저 닿는다. 거르개가 걸렸을 때는
@@ -221,12 +221,84 @@
         </Items>
     </DxContextMenu>
 
-    @* 아래 띠에는 **동작이 아닌 것**만 남는다(「저장 중…」 같은 상태 표시).
-       동작은 `ContextMenuItems` 로 창에 올린다. 없으면 띠를 그리지 않는다. *@
-    @if (ShowFooter && (FooterLeft is not null || FooterRight is not null))
+    @* 아래 띠: 건수, 동작 단추, 화면 추가 요소가 페이지네비게이션 영역에 표시된다. *@
+    @if (ShowFooter && HasFooterContent)
     {
         <CascadingValue Name="@ThemeSize.CascadeName" TValue="SizeMode?" Value="@Size.Chrome">
         <div class="commgrd__footer">
+            @if (ShowFooterCount && _total is { } total)
+            {
+                <span class="commgrd__total commgrd__total--footer">
+                    @if (_filtered is { } shown && shown != total)
+                    {
+                        <text>총 @Count(total)<span class="commgrd__unit">@Unit</span> 중 <b>@Count(shown)</b><span class="commgrd__unit">@Unit</span></text>
+                    }
+                    else
+                    {
+                        <text>총 <b>@Count(total)</b><span class="commgrd__unit">@Unit</span></text>
+                    }
+                </span>
+            }
+
+            @if (ShowFooterActions)
+            {
+                @if (OnSave.HasDelegate)
+                {
+                    <PermissionView Action="MenuAction.Create">
+                        <DxButton IconCssClass="jsini-icon-plus"
+                                  Title="@CreateTitle"
+                                  RenderStyle="ButtonRenderStyle.Link"
+                                  Click="@CreateAsync" />
+                    </PermissionView>
+                }
+
+                @foreach (var mine in _screenItems)
+                {
+                    <DxButton IconCssClass="@mine.IconCssClass"
+                              Text="@(string.IsNullOrEmpty(mine.IconCssClass) ? mine.Text : null)"
+                              Title="@mine.Text"
+                              RenderStyle="ButtonRenderStyle.Link"
+                              Enabled="@mine.Enabled"
+                              Click="@mine.Click" />
+                }
+
+                @if (Reload.HasDelegate)
+                {
+                    <DxButton IconCssClass="jsini-icon-refresh"
+                              Title="다시 읽기"
+                              RenderStyle="ButtonRenderStyle.Link"
+                              Click="@(() => Reload.InvokeAsync())" />
+                }
+
+                @if (ShowFilterToggle && !Carded)
+                {
+                    <DxButton IconCssClass="jsini-icon-filter"
+                              Title="@(_filterRow ? "칸별 검색 줄 감추기" : "칸별 검색 줄 보이기")"
+                              RenderStyle="ButtonRenderStyle.Link"
+                              CssClass="@(_filterRow ? "commgrd__icon--on" : null)"
+                              Click="@ToggleFilterRow" />
+                }
+
+                @if (_hasFilter)
+                {
+                    <DxButton IconCssClass="jsini-icon-filter-off"
+                              Title="칸별 검색 지우기"
+                              RenderStyle="ButtonRenderStyle.Link"
+                              CssClass="commgrd__icon--warn"
+                              Click="@ClearFilter" />
+                }
+
+                @if (ShowExcelExport)
+                {
+                    <PermissionView Action="MenuAction.Excel">
+                        <DxButton IconCssClass="jsini-icon-excel"
+                                  Title="@($"{ExportName} 을(를) 엑셀로 내려받기")"
+                                  RenderStyle="ButtonRenderStyle.Link"
+                                  Click="@ExportAsync" />
+                    </PermissionView>
+                }
+            }
+
             @FooterLeft
 
             <div class="commgrd__spacer"></div>

@@ -58,6 +58,18 @@ public partial class CommGrd<TItem>
     /// <summary>머리줄(제목·건수)을 그릴지. 기본으로 켠다. 끄는 자리는 줄이 서넛뿐인 작은 표다.</summary>
     [Parameter] public bool ShowHeader { get; set; } = true;
 
+    /// <summary>머리줄(상단)에 건수를 표시할지 여부. 기본은 거짓(보이지 않음). 보이고 싶으면 ShowHeaderCount="true".</summary>
+    [Parameter] public bool ShowHeaderCount { get; set; }
+
+    /// <summary>아래 띠(페이지네비게이션 영역)에 건수를 표시할지 여부. 기본은 참(보임).</summary>
+    [Parameter] public bool ShowFooterCount { get; set; } = true;
+
+    /// <summary>아래 띠(페이지네비게이션 영역)에 contextmenu 에 있던 동작 단추(등록·다시읽기·검색줄·엑셀 등)를 표시할지 여부. 기본은 참(보임).</summary>
+    [Parameter] public bool ShowFooterActions { get; set; } = true;
+
+    /// <summary>페이지네비게이션 영역(페이저)을 보일지 여부. 기본은 참(보임).</summary>
+    [Parameter] public bool PagerVisible { get; set; } = true;
+
     /// <summary>자료가 없을 때 보여 줄 문구.</summary>
     [Parameter] public string EmptyText { get; set; } = "표시할 자료가 없습니다.";
 
@@ -161,7 +173,22 @@ public partial class CommGrd<TItem>
 
     /// <summary>머리줄을 그리는가. 적을 것이 없으면 켜 두어도 안 그린다.</summary>
     private bool HeadVisible =>
-        ShowHeader && (!string.IsNullOrWhiteSpace(Title) || _total is not null);
+        ShowHeader && (!string.IsNullOrWhiteSpace(Title) || (ShowHeaderCount && _total is not null));
+
+    /// <summary>아래 띠(페이지네비게이션 영역)에 표시할 내용이 있는가.</summary>
+    private bool HasFooterContent =>
+        (ShowFooterCount && _total is not null)
+        || (ShowFooterActions && HasAnyFooterAction)
+        || FooterLeft is not null
+        || FooterRight is not null;
+
+    private bool HasAnyFooterAction =>
+        (OnSave.HasDelegate && Can(MenuAction.Create))
+        || Reload.HasDelegate
+        || (ShowFilterToggle && !Carded)
+        || _hasFilter
+        || (ShowExcelExport && Can(MenuAction.Excel))
+        || _screenItems.Count > 0;
 
     /// <summary>천 단위를 끊어 적는다. 서식은 자리에 따라 흔들리면 안 되므로 불변 문화다.</summary>
     private static string Count(int value) =>
@@ -336,7 +363,7 @@ public partial class CommGrd<TItem>
     private void ApplyScrollMode()
     {
         _virtualScroll = VirtualScrolling();
-        _pagerVisible = Read("PagerVisible") is true;
+        _pagerVisible = Read("PagerVisible") is bool pv ? pv : PagerVisible;
         _pageSize = Read("PageSize") is int size ? size : DefaultPageSize;
 
         if (!Carded)
@@ -369,7 +396,12 @@ public partial class CommGrd<TItem>
             return true;
         }
 
-        return Read("PagerVisible") is not true;
+        if (Read("PagerVisible") is bool pv)
+        {
+            return !pv;
+        }
+
+        return !PagerVisible;
     }
 
     /// <summary>splat 으로 들어온 값 하나를 이름으로 찾는다.</summary>
@@ -408,7 +440,7 @@ public partial class CommGrd<TItem>
         }
 
         // 거른 뒤 건수는 렌더 뒤에 읽고, 값이 바뀌었을 때만 다시 그린다(그냥 부르면 끝없이 돈다).
-        if (HeadVisible && _grid is not null)
+        if (((HeadVisible && ShowHeaderCount) || (ShowFooter && ShowFooterCount)) && _grid is not null)
         {
             var shown = _hasFilter ? _grid.GetVisibleRowCount() : (int?)null;
 
@@ -596,15 +628,14 @@ public partial class CommGrd<TItem>
     void ICommMenuHost.Add(CommMenuItem item)
     {
         _screenItems.Add(item);
-
-        // 기본 동작이 없는 표는 첫 항목이 들어와야 창이 생긴다. 브라우저 창을 막을지는 렌더 때 정해지므로 한 번 다시 그린다.
-        if (_screenItems.Count == 1)
-        {
-            StateHasChanged();
-        }
+        StateHasChanged();
     }
 
-    void ICommMenuHost.Remove(CommMenuItem item) => _screenItems.Remove(item);
+    void ICommMenuHost.Remove(CommMenuItem item)
+    {
+        _screenItems.Remove(item);
+        StateHasChanged();
+    }
 
     /// <summary>오른쪽 클릭 창에 올릴 것. 아래 띠 아이콘과 같은 조건이다(등록·엑셀은 권한, 칸별 검색 지우기는 걸린 조건이 있을 때).</summary>
     private List<GridMenuItem> BuildMenu()

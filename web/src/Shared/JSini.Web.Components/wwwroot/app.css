@@ -2380,6 +2380,12 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   font-weight: 400;
 }
 
+/* 아래 띠(페이지네비게이션 영역)의 건수 표시 */
+.commgrd__total--footer {
+  padding: 0 0.4rem;
+  white-space: nowrap;
+}
+
 /* 표 위 도구줄. 조회 영역(CommSch)을 따로 둔 화면에서는 그려지지 않는다. */
 .commgrd__toolbar {
   display: flex;
@@ -2568,9 +2574,9 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   justify-content: flex-end;
   min-height: var(--commgrd-bar-height);
 
-  /* 왼쪽에 아이콘 자리를 비워 둔다. 표가 좁아도 페이저가 아이콘 위로
+  /* 왼쪽에 아이콘과 건수 자리를 비워 둔다. 표가 좁아도 페이저가 아이콘/건수 위로
      올라오지 않는다. */
-  padding-left: 10rem;
+  padding-left: 18rem;
 }
 
 /* 그 줄 왼쪽에 얹는다. 폭은 내용만큼만 차지하므로 페이저 클릭을 가리지 않는다. */
