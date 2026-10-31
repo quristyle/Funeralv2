@@ -1,0 +1,25 @@
+@*
+    표 필터 줄 칸 하나를 「표에 있는 값 + 빈값」 체크 목록으로 거른다.
+    DxTagBox 는 체크칸을 못 그려서 CodeSelect 처럼 DxDropDownBox + DxListBox(ShowCheckboxes) 로 짰다.
+*@
+<DxDropDownBox Value="@BoxValue"
+               ValueChanged="@((object? value) => OnBoxValueChanged(value))"
+               QueryDisplayText="@(_ => BoxText)"
+               NullText="전체"
+               DropDownWidthMode="DropDownWidthMode.ContentOrEditorWidth"
+               ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+               ValidationEnabled="false"
+               CssClass="pm-grid-check-filter">
+    <DropDownBodyTemplate>
+        <DxListBox TData="GridCheckFilterOption" TValue="string"
+                   Data="@Options"
+                   TextFieldName="@nameof(GridCheckFilterOption.Text)"
+                   ValueFieldName="@nameof(GridCheckFilterOption.Value)"
+                   Values="@Picked"
+                   ValuesChanged="@((IEnumerable<string> values) => Apply(values))"
+                   SelectionMode="ListBoxSelectionMode.Multiple"
+                   ShowCheckboxes="true"
+                   ValidationEnabled="false"
+                   CssClass="pm-code-checks" />
+    </DropDownBodyTemplate>
+</DxDropDownBox>
