@@ -496,6 +496,12 @@ a { color: var(--tb-primary); }
   border-right-color: transparent;
 }
 
+/* 공통 표(CommGrd)만 칸 사이에 옅은 세로선을 되살린다. 판 안의 표는 --dxbl-grid-border-width 가 0 이라 변수로는 안 살아나서 폭까지 적는다. */
+.commgrd .dxbl-grid-table > thead > tr > th + th,
+.commgrd .dxbl-grid-table > tbody > tr > td + td {
+  border-left: 1px solid var(--tb-border-soft);
+}
+
 /* 고른 줄 — 진한 강조색 면이 아니라 옅은 강조 + 왼쪽 막대(Tabler 목록의 활성 표시). */
 .dxbl-grid .dxbl-grid-focused-row > td,
 .dxbl-grid .dxbl-grid-selected-row > td {
