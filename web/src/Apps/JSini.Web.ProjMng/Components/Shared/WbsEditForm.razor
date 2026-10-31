@@ -3,80 +3,82 @@
     목록에는 나오는데 고칠 길이 없던 칸(gb1 · gb2 · proc_lvl · build_user 등)도 이제 저장된다.
 *@
 
-<DxFormLayout CssClass="pm-editform">
-    <DxFormLayoutItem Caption="일감" ColSpanMd="12">
+<DxFormLayout CssClass="@(Compact ? "pm-editform pm-editform--float" : "pm-editform")">
+    @Leading
+
+    <DxFormLayoutItem Caption="일감" ColSpanMd="12" ColSpanLg="@(Compact ? 6 : 12)">
         <DxTextBox @bind-Text="Item.ProcNm" />
     </DxFormLayoutItem>
 
-    <DxFormLayoutItem Caption="요청자" ColSpanMd="6">
+    <DxFormLayoutItem Caption="요청자" ColSpanMd="6" ColSpanLg="@(Compact ? 3 : 6)">
         <DxTextBox @bind-Text="Item.ReqUser" />
     </DxFormLayoutItem>
 
-    <DxFormLayoutItem Caption="담당자" ColSpanMd="6">
+    <DxFormLayoutItem Caption="담당자" ColSpanMd="6" ColSpanLg="@(Compact ? 3 : 6)">
         <DxTextBox @bind-Text="Item.DevUser" />
     </DxFormLayoutItem>
 
     @* 지우면 null 이 아니라 빈 글자로 보낸다 — null 은 서버가 「그대로 둔다」로 읽는다. *@
-    <DxFormLayoutItem Caption="추가대상" ColSpanMd="6">
+    <DxFormLayoutItem Caption="추가대상" ColSpanMd="6" ColSpanLg="@(Compact ? 2 : 6)">
         <CodeSelect CodeId="@AddTargets.CodeId" Value="@Item.AddTarget"
                     ValueChanged="@((string? code) => Item.AddTarget = code ?? string.Empty)"
                     AutoSelectFirst="false" AllowClear="true" KeepUnknownValue="true" />
     </DxFormLayoutItem>
 
-    <DxFormLayoutItem Caption="공정" ColSpanMd="4">
+    <DxFormLayoutItem Caption="공정" ColSpanMd="4" ColSpanLg="@(Compact ? 2 : 4)">
         <DxTextBox @bind-Text="Item.ProcId" />
     </DxFormLayoutItem>
 
-    <DxFormLayoutItem Caption="구분1" ColSpanMd="4">
+    <DxFormLayoutItem Caption="구분1" ColSpanMd="4" ColSpanLg="@(Compact ? 2 : 4)">
         <DxTextBox @bind-Text="Item.Gb1" />
     </DxFormLayoutItem>
 
-    <DxFormLayoutItem Caption="구분2" ColSpanMd="4">
+    <DxFormLayoutItem Caption="구분2" ColSpanMd="4" ColSpanLg="@(Compact ? 2 : 4)">
         <DxTextBox @bind-Text="Item.Gb2" />
     </DxFormLayoutItem>
 
-    <DxFormLayoutItem Caption="종류" ColSpanMd="6">
+    <DxFormLayoutItem Caption="종류" ColSpanMd="6" ColSpanLg="@(Compact ? 2 : 6)">
         <DxTextBox @bind-Text="Item.ProcTp" />
     </DxFormLayoutItem>
 
-    <DxFormLayoutItem Caption="단계" ColSpanMd="6">
+    <DxFormLayoutItem Caption="단계" ColSpanMd="6" ColSpanLg="@(Compact ? 2 : 6)">
         <DxTextBox @bind-Text="Item.ProcLvl" />
     </DxFormLayoutItem>
 
-    <DxFormLayoutItem Caption="빌드 담당" ColSpanMd="6">
+    <DxFormLayoutItem Caption="빌드 담당" ColSpanMd="6" ColSpanLg="@(Compact ? 4 : 6)">
         <BizSelect Type="portal_account" @bind-Value="Item.BuildUser" />
     </DxFormLayoutItem>
 
-    <DxFormLayoutItem Caption="검수 담당" ColSpanMd="6">
+    <DxFormLayoutItem Caption="검수 담당" ColSpanMd="6" ColSpanLg="@(Compact ? 4 : 6)">
         <BizSelect Type="portal_account" @bind-Value="Item.QcUser" />
     </DxFormLayoutItem>
 
-    <DxFormLayoutItem Caption="빌드 상태" ColSpanMd="6">
+    <DxFormLayoutItem Caption="빌드 상태" ColSpanMd="6" ColSpanLg="@(Compact ? 4 : 6)">
         <DxTextBox @bind-Text="Item.BuildStatus" />
     </DxFormLayoutItem>
 
-    <DxFormLayoutItem Caption="계획 시작" ColSpanMd="6">
+    <DxFormLayoutItem Caption="계획 시작" ColSpanMd="6" ColSpanLg="@(Compact ? 3 : 6)">
         <DxDateEdit @bind-Date="Item.PlanSdt" TimeSectionVisible="true" DisplayFormat="yyyy-MM-dd HH:mm" Format="yyyy-MM-dd HH:mm" ValidationEnabled="false" />
     </DxFormLayoutItem>
 
-    <DxFormLayoutItem Caption="계획 종료" ColSpanMd="6">
+    <DxFormLayoutItem Caption="계획 종료" ColSpanMd="6" ColSpanLg="@(Compact ? 3 : 6)">
         <DxDateEdit @bind-Date="Item.PlanEdt" TimeSectionVisible="true" DisplayFormat="yyyy-MM-dd HH:mm" Format="yyyy-MM-dd HH:mm" ValidationEnabled="false" />
     </DxFormLayoutItem>
 
     @* 이 둘이 진행 상태를 정한다 — 대기·진행·완료는 적는 칸이 아니다. *@
-    <DxFormLayoutItem Caption="개발 시작" ColSpanMd="6">
+    <DxFormLayoutItem Caption="개발 시작" ColSpanMd="6" ColSpanLg="@(Compact ? 3 : 6)">
         <DxDateEdit @bind-Date="Item.DevSdt" TimeSectionVisible="true" DisplayFormat="yyyy-MM-dd HH:mm" Format="yyyy-MM-dd HH:mm" ValidationEnabled="false" />
     </DxFormLayoutItem>
 
-    <DxFormLayoutItem Caption="개발 종료" ColSpanMd="6">
+    <DxFormLayoutItem Caption="개발 종료" ColSpanMd="6" ColSpanLg="@(Compact ? 3 : 6)">
         <DxDateEdit @bind-Date="Item.DevEdt" TimeSectionVisible="true" DisplayFormat="yyyy-MM-dd HH:mm" Format="yyyy-MM-dd HH:mm" ValidationEnabled="false" />
     </DxFormLayoutItem>
 
-    <DxFormLayoutItem Caption="메모" ColSpanMd="12">
-        <DxMemo @bind-Text="Item.Comm" Rows="3" />
+    <DxFormLayoutItem Caption="메모" ColSpanMd="12" ColSpanLg="@(Compact ? 6 : 12)">
+        <DxMemo @bind-Text="Item.Comm" Rows="@(Compact ? 4 : 3)" />
     </DxFormLayoutItem>
 
-    <DxFormLayoutItem Caption="원문" ColSpanMd="12">
+    <DxFormLayoutItem Caption="원문" ColSpanMd="12" ColSpanLg="@(Compact ? 6 : 12)">
         <DxMemo @bind-Text="Item.BodyText" Rows="4" />
     </DxFormLayoutItem>
 </DxFormLayout>

@@ -957,25 +957,45 @@
   margin-bottom: 0;
 }
 
-/* 일정 편집 폼은 라벨을 입력칸 테두리에 걸쳐 세워 세로 높이를 줄인다. */
-.pm-scheduler-edit .pm-editform .dxbl-fl-item.dxbl-fl-item-horizontal {
-  position: relative;
-  padding-top: 0.35rem;
-  margin-bottom: var(--jsini-sp-sm);
+/* 떠 있는 라벨 폼(`WbsEditForm Compact`). 라벨을 입력칸 위 테두리 왼쪽에 걸쳐 세워 한 칸에 한 줄씩 아낀다.
+   tabler.css 가 라벨을 칸 위로 세우는 규칙(클래스 넷)보다 하나 더 겹쳐 적어야 이긴다 — 그 파일이 맨 마지막에 실린다. */
+.dxbl-fl.pm-editform--float {
+  --dxbl-fl-item-spacing-y: 0.5rem;
+  --dxbl-fl-item-spacing-x: 0.625rem;
 }
 
-.pm-scheduler-edit .pm-editform .dxbl-fl-item.dxbl-fl-item-horizontal > .dxbl-fl-cpt {
+.dxbl-fl.pm-editform--float .dxbl-fl-item,
+.dxbl-fl.pm-editform--float .dxbl-fl-item.dxbl-fl-item-horizontal {
+  position: relative;
+  padding-top: 0.5rem;
+  margin-bottom: 0;
+}
+
+.dxbl-fl.pm-editform--float .dxbl-fl-item > .dxbl-fl-cpt,
+.dxbl-fl.pm-editform--float .dxbl-fl-item.dxbl-fl-item-horizontal > .dxbl-fl-cpt {
   position: absolute;
-  z-index: 1;
-  top: 0.35rem;
-  left: 0.75rem;
+  z-index: 3;
+  top: 0;
+  left: 0.5rem;
   width: auto !important;
-  max-width: calc(100% - 1.5rem);
+  max-width: calc(100% - 1rem);
   margin: 0;
   padding: 0 0.25rem;
-  line-height: 1;
-  background: var(--jsini-field-label-bg, var(--tb-surface));
-  transform: translateY(-50%);
+  font-size: var(--jsini-fs-xs, 0.75rem);
+  font-weight: 500;
+  line-height: 1rem;
+  color: var(--jsini-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: var(--jsini-field-label-bg, var(--jsini-surface-raised));
+  border-radius: 3px;
+  pointer-events: none;
+}
+
+/* 마지막 줄 여백 규칙(`:nth-last-child(-n + 4)`)은 칸 수를 넷으로 어림한 것이라 여기서는 안 맞는다. */
+.dxbl-fl.pm-editform--float .dxbl-fl-item:nth-last-child(-n + 4) {
+  margin-bottom: 0;
 }
 
 /* 프로젝트 목록의 RAG 카테고리 칸이 잠겼을 때의 까닭. 고르개가 빈 것과 AI 서버를 못 읽은 것이 화면으로는 같아서 적어 준다. */

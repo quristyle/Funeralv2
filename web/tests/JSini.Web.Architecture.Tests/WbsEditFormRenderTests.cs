@@ -22,6 +22,14 @@ public sealed class WbsEditFormRenderTests
     [Fact]
     public async Task 편집_창_안에서_WBS_폼이_그려진다()
     {
+        var html = await RenderAsync(compact: false);
+
+        Assert.Contains("dxbl-date-edit", html);
+        Assert.DoesNotContain("pm-editform--float", html);
+    }
+
+    private static async Task<string> RenderAsync(bool compact)
+    {
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddDevExpressBlazor();
@@ -33,10 +41,21 @@ public sealed class WbsEditFormRenderTests
         await using var provider = services.BuildServiceProvider();
         await using var renderer = new HtmlRenderer(provider, provider.GetRequiredService<ILoggerFactory>());
 
-        var html = await renderer.Dispatcher.InvokeAsync(async () =>
-            (await renderer.RenderComponentAsync<InEditContext>()).ToHtmlString());
+        return await renderer.Dispatcher.InvokeAsync(async () =>
+            (await renderer.RenderComponentAsync<InEditContext>(ParameterView.FromDictionary(
+                new Dictionary<string, object?> { [nameof(InEditContext.Compact)] = compact }))).ToHtmlString());
+    }
 
-        Assert.Contains("dxbl-date-edit", html);
+    /// <summary>일정표의 편집 창은 앞에 얹은 칸까지 한 격자에 두고 넓은 창에서 네 칸씩 늘어놓는다 — 폼이 둘로 갈리면 줄이 맞지 않는다.</summary>
+    [Fact]
+    public async Task 촘촘한_폼은_앞칸과_같은_격자에_떠_있는_라벨로_그려진다()
+    {
+        var html = await RenderAsync(compact: true);
+
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(html, "<dxbl-form-layout "));
+        Assert.Contains("pm-editform--float", html);
+        Assert.Contains("data-lead", html);
+        Assert.Contains("dxbl-col-lg-3", html);
     }
 
     /// <summary>계정 고르개가 목록을 읽지 않게 메타데이터를 빈 채로 통에 미리 담는다 — 그 고르개는 설정이 없으면 빈 목록으로 지나간다.</summary>
@@ -84,6 +103,8 @@ public sealed class WbsEditFormRenderTests
 
     private sealed class InEditContext : ComponentBase
     {
+        [Parameter] public bool Compact { get; set; }
+
         private readonly WbsItemDto _item = new() { ProcNm = "일감", PlanSdt = new DateTime(2026, 1, 5, 9, 0, 0) };
 
         protected override void BuildRenderTree(RenderTreeBuilder builder)
@@ -94,6 +115,16 @@ public sealed class WbsEditFormRenderTests
             {
                 inner.OpenComponent<WbsEditForm>(0);
                 inner.AddAttribute(1, nameof(WbsEditForm.Item), _item);
+                if (Compact)
+                {
+                    inner.AddAttribute(2, nameof(WbsEditForm.Compact), true);
+                    inner.AddAttribute(3, nameof(WbsEditForm.Leading), (RenderFragment)(lead =>
+                    {
+                        lead.OpenElement(0, "span");
+                        lead.AddAttribute(1, "data-lead", "1");
+                        lead.CloseElement();
+                    }));
+                }
                 inner.CloseComponent();
             }));
             builder.CloseComponent();

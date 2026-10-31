@@ -727,30 +727,30 @@
 
 @* 달력에서 여는 편집 창. 표의 편집 창과 같은 칸(WbsEditForm)에 이 화면만 필요한 프로젝트·구분·진행 상태를 앞에 얹었다. *@
 <CommPopup @bind-Visible="_editing" HeaderText="@(_isNew ? "일정 등록" : "일정 수정")"
-           Width="680px" MaxHeight="80vh" Scrollable="true">
+           Width="940px" MaxHeight="92vh" Scrollable="true">
     <BodyContentTemplate Context="popup">
         <div class="pm-scheduler-edit">
-            <DxFormLayout CssClass="pm-editform">
-                <DxFormLayoutItem Caption="프로젝트" ColSpanMd="6">
-                    <CodeSelect CodeId="projlist" AutoSelectFirst="false" KeepUnknownValue="true"
-                                Value="@(_form.PrjRid?.ToString())"
-                                ValueChanged="@((string? code) => _form.PrjRid = int.TryParse(code, out var rid) ? rid : null)" />
-                </DxFormLayoutItem>
+            <WbsEditForm Item="@_form" Compact="true">
+                <Leading>
+                    <DxFormLayoutItem Caption="프로젝트" ColSpanMd="6" ColSpanLg="4">
+                        <CodeSelect CodeId="projlist" AutoSelectFirst="false" KeepUnknownValue="true"
+                                    Value="@(_form.PrjRid?.ToString())"
+                                    ValueChanged="@((string? code) => _form.PrjRid = int.TryParse(code, out var rid) ? rid : null)" />
+                    </DxFormLayoutItem>
 
-                <DxFormLayoutItem Caption="구분" ColSpanMd="6">
-                    @* 저장된 값이 코드표에 없어도 지우지 않는다 — 옛 값이 그대로 남은 줄이 있다. *@
-                    <CodeSelect CodeId="schedule_type" AutoSelectFirst="false" KeepUnknownValue="true"
-                                @bind-Value="_form.ScheduleType" />
-                </DxFormLayoutItem>
+                    <DxFormLayoutItem Caption="구분" ColSpanMd="6" ColSpanLg="4">
+                        @* 저장된 값이 코드표에 없어도 지우지 않는다 — 옛 값이 그대로 남은 줄이 있다. *@
+                        <CodeSelect CodeId="schedule_type" AutoSelectFirst="false" KeepUnknownValue="true"
+                                    @bind-Value="_form.ScheduleType" />
+                    </DxFormLayoutItem>
 
-                <DxFormLayoutItem Caption="진행 상태" ColSpanMd="12">
-                    <DxComboBox Data="@StateOptions" TData="StateOption" TValue="string" TextFieldName="Name" ValueFieldName="Code"
-                                Value="@_formState" ValueChanged="@OnFormStateChanged"
-                                ValidationEnabled="false" />
-                </DxFormLayoutItem>
-            </DxFormLayout>
-
-            <WbsEditForm Item="@_form" />
+                    <DxFormLayoutItem Caption="진행 상태" ColSpanMd="12" ColSpanLg="4">
+                        <DxComboBox Data="@StateOptions" TData="StateOption" TValue="string" TextFieldName="Name" ValueFieldName="Code"
+                                    Value="@_formState" ValueChanged="@OnFormStateChanged"
+                                    ValidationEnabled="false" />
+                    </DxFormLayoutItem>
+                </Leading>
+            </WbsEditForm>
         </div>
     </BodyContentTemplate>
 
