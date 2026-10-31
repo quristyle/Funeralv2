@@ -8,11 +8,13 @@
  * 한 번 그려진 화면을 보고 나서 바뀌는 것을 본다(FOUC). 그래서 이 파일은
  * <head> 안에서 동기로 돈다.
  *
- * [스타일시트를 미리 싣지 않는다]
+ * [늘 쓰는 두 장은 마크업이 싣는다]
  *
- * DevExpress Classic 테마가 **하나에 2.8MB** 다. 넷을 미리 실으면 11MB 를
- * 내려받는다. 그래서 필요한 것만 그때그때 <link> 로 붙이고, 한 번 붙인 것은
- * 지우지 않는다(`disabled` 로만 끈다) — 되돌아갈 때 다시 받지 않게.
+ * Bootstrap 본체와 DevExpress 다리는 JSiniHead 가 <link> 로 붙박아 둔다 —
+ * 여기서 꽂으면 브라우저가 첫 그림을 기다려 주지 않아 깨진 화면이 스친다.
+ * 이 스크립트는 `data-jsini-theme-src` 로 그것을 찾아 제 것으로 받아 쓰고,
+ * 거기 없는 것만 그때그때 붙인다. 한 번 붙인 것은 지우지 않는다
+ * (`disabled` 로만 끈다) — 되돌아갈 때 다시 받지 않게.
  *
  * [바꿀 때 번쩍이지 않게 하는 법]
  *
@@ -252,6 +254,7 @@
    * 방법도 있지만, <link> 를 옮기면 잠깐 스타일이 빠져 번쩍인다.
    */
   function priorityOf(href) {
+    href = href || '';
     if (href.indexOf(FLUENT) === 0) {
       if (href.indexOf('core') >= 0) return 10;
       if (href.indexOf('global') >= 0) return 11;
@@ -288,7 +291,8 @@
     var existing = document.head.querySelectorAll('link[data-jsini-theme]');
 
     for (var i = 0; i < existing.length; i++) {
-      if (priorityOf(existing[i].getAttribute('href')) > priority) {
+      var at = existing[i].getAttribute('data-jsini-theme-src') || existing[i].getAttribute('href');
+      if (priorityOf(at) > priority) {
         document.head.insertBefore(link, existing[i]);
         return;
       }
@@ -338,8 +342,37 @@
    * 스타일시트를 붙인다(이미 있으면 그대로 쓴다).
    * 다 실렸을 때 콜백을 부른다 — 실패해도 부른다(그 테마만 안 예뻐질 뿐이다).
    */
+  /**
+   * 마크업이 붙박아 둔 <link> 를 받아 쓴다. 파서가 읽은 스타일시트는 이 스크립트보다
+   * 먼저 다 받아지므로 대개 `sheet` 가 이미 있다 — 없으면(못 받았거나 아직이면) 기다린다.
+   */
+  function adopt(href) {
+    var found = document.head.querySelectorAll('link[data-jsini-theme-src]');
+
+    for (var i = 0; i < found.length; i++) {
+      if (found[i].getAttribute('data-jsini-theme-src') !== href) continue;
+
+      var link = found[i];
+      var ready = false;
+      try { ready = !!(link.sheet && link.sheet.cssRules); } catch (e) { ready = !!link.sheet; }
+
+      if (ready) {
+        link.__loaded = true;
+      } else {
+        link.addEventListener('load', function () { settle(link); }, { once: true });
+        link.addEventListener('error', function () { settle(link); }, { once: true });
+        window.setTimeout(function () { settle(link); }, 4000);
+      }
+
+      links[href] = link;
+      return link;
+    }
+
+    return null;
+  }
+
   function ensure(href, onReady, startEnabled) {
-    var link = links[href];
+    var link = links[href] || adopt(href);
 
     if (!link) {
       link = document.createElement('link');

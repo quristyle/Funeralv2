@@ -769,7 +769,29 @@ preview.tabler.io 의 생김새를 옮겼다. Fluent · Classic · Bootswatch �
 아래 절들은 여러 테마를 고르던 시절의 기록이다. 스타일시트를 번쩍임 없이 갈아
 끼우는 장치(`media='not all'`)와 크기 모드는 지금도 그대로 쓴다.
 
-### 테마 — `<head>` 에 테마 `<link>` 를 적지 않는다
+### 늘 쓰는 테마 두 장은 `<head>` 에 **붙박는다** (2026-10-31)
+
+Tabler 하나로 줄면서 테마 스타일시트가 **늘 같은 두 장**(Bootstrap 본체 ·
+DevExpress `bootstrap-external.bs5.min.css`)이 됐는데, 그것을 여전히 theme.js 가
+`createElement` 로 꽂고 있었다. **스크립트가 꽂은 `<link>` 는 브라우저가 첫 그림을
+기다려 주지 않는다**(파서가 읽은 `<link>` 만 그림을 막는다). 그래서 새로고침·첫
+접속마다 Bootstrap 없는 깨진 화면이 먼저 그려졌다가 바뀌었다.
+
+지금은 `JSiniHead` 가 두 장을 `theme.js` **앞에** 붙박고, theme.js 는
+`data-jsini-theme-src` 로 그것을 찾아 제 것으로 받아 쓴다(`adopt` — 다시 꽂지 않는다).
+Bootstrap 은 `@Assets` 를 거쳐 지문 주소(immutable)가 되어 304 왕복도 없어졌다.
+
+재어 본 값(publish + 헤드리스 크롬, Bootstrap 응답만 1.5초 늦춘 프록시 뒤):
+
+| | 첫 그림(FCP) | Bootstrap 도착 |
+|---|---|---|
+| 전 (스크립트가 꽂음) | **60ms** — 깨진 화면 | 1537ms |
+| 후 (붙박음) | 4156ms — Bootstrap **뒤** | 1963ms |
+
+> 아래 절은 테마를 여럿 고르던 시절의 기록이다. 갈아 끼우는 장치(`ensure`·
+> `media='not all'`)는 그대로 남아 있고, 붙박은 두 장도 그 장치가 관리한다.
+
+### 테마 — (옛 규칙) `<head>` 에 테마 `<link>` 를 적지 않는다
 
 고를 수 있는 것이 스물둘이고(Fluent 22조합 · Classic 넷 · Bootstrap 여섯)
 Classic 은 한 장이 2.8MB 다. 다 적으면 첫 방문에 십몇 MB 를 받는다.
