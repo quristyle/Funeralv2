@@ -24,6 +24,21 @@
         </CommSchItem>
     </Fields>
     <Actions>
+        @if (!Filtering)
+        {
+            <DxButton IconCssClass="jsini-icon-unfold" Title="모두 펼치기" aria-label="모두 펼치기"
+                      RenderStyle="ButtonRenderStyle.Secondary"
+                      Click="@ExpandAll" />
+            <DxButton IconCssClass="jsini-icon-fold" Title="모두 접기" aria-label="모두 접기"
+                      RenderStyle="ButtonRenderStyle.Secondary"
+                      Click="@CollapseAll" />
+            <DxButton IconCssClass="jsini-icon-child-unfold" Title="선택 하위 모두 펼치기" aria-label="선택 하위 모두 펼치기"
+                      RenderStyle="ButtonRenderStyle.Secondary"
+                      Click="@ExpandSelectedSubtree" />
+            <DxButton IconCssClass="jsini-icon-child-fold" Title="선택 하위 모두 접기" aria-label="선택 하위 모두 접기"
+                      RenderStyle="ButtonRenderStyle.Secondary"
+                      Click="@CollapseSelectedSubtree" />
+        }
         <PermissionView Action="MenuAction.Create">
             <DxButton Text="등록" RenderStyle="ButtonRenderStyle.Secondary"
                       IconCssClass="jsini-icon-plus" Click="@StartNew" />
@@ -86,7 +101,7 @@
 else
 {
     @* 줄을 끌면 상위와 순서가 함께 바뀐다(줄 사이면 형제, 줄 위면 하위). 수정 권한이 없으면 끌리지 않는다. 관리 칸은 CommTree 가 그리고 RowActions 로 표와 같은 모양을 준다. *@
-    <CommTree TItem="SystemMenuDto" Data="@_menus"
+    <CommTree @ref="_treeRef" TItem="SystemMenuDto" Data="@_menus"
               KeyFieldName="@nameof(SystemMenuDto.Id)"
               ChildrenFieldName="@nameof(SystemMenuDto.Children)"
               ExportName="메뉴" ColumnResizingMode="ColumnResizingMode.FixedWidth"
@@ -94,7 +109,13 @@ else
               RowActions="@RowActions"
               OnAddChild="@StartChild"
               AllowDragRows="@_canMove"
-              ItemsDropped="@OnDroppedAsync">
+              ItemsDropped="@OnDroppedAsync"
+              SelectedItem="@_selectedMenu"
+              SelectedItemChanged="@OnSelectedMenuChanged">
+        <ContextMenuItems>
+            <CommMenuItem Text="선택 하위 모두 펼치기" IconCssClass="jsini-icon-child-unfold" Click="@ExpandSelectedSubtree" />
+            <CommMenuItem Text="선택 하위 모두 접기" IconCssClass="jsini-icon-child-fold" Click="@CollapseSelectedSubtree" />
+        </ContextMenuItems>
         <Columns>
             <DxTreeListDataColumn Caption="메뉴" MinWidth="240">
                 <CellDisplayTemplate Context="cell">

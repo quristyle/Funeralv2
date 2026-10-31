@@ -23,6 +23,9 @@ public partial class MenuList
 
     private IReadOnlyList<SystemMenuDto> _menus = [];
 
+    private CommTree<SystemMenuDto>? _treeRef;
+    private SystemMenuDto? _selectedMenu;
+
     /// <summary>펴 놓은 전체. 검색·상위 고르개·줄기 만들기가 쓴다.</summary>
     private List<SystemMenuDto> _flat = [];
 
@@ -345,6 +348,160 @@ public partial class MenuList
             _flat.Count(m => InSlice(m, MenuSlice.Screens)),
             _flat.Count(m => InSlice(m, MenuSlice.Hidden)),
             _flat.Count(m => InSlice(m, MenuSlice.Stopped)));
+
+        if (_selectedMenu is not null)
+        {
+            _selectedMenu = _flat.FirstOrDefault(m => m.Id == _selectedMenu.Id);
+        }
+    }
+
+    private void OnSelectedMenuChanged(SystemMenuDto? menu)
+    {
+        _selectedMenu = menu;
+    }
+
+    /// <summary>그리드(트리)의 모든 노드를 펼친다.</summary>
+    private void ExpandAll()
+    {
+        _treeRef?.ExpandAll();
+    }
+
+    /// <summary>그리드(트리)의 모든 노드를 접는다.</summary>
+    private void CollapseAll()
+    {
+        _treeRef?.CollapseAll();
+    }
+
+    /// <summary>선택한 메뉴와 그 하위 노드를 모두 펼친다.</summary>
+    private void ExpandSelectedSubtree()
+    {
+        var target = _selectedMenu ?? _treeRef?.Tree?.GetFocusedDataItem() as SystemMenuDto;
+        if (target is null)
+        {
+            Say("하위를 펼칠 메뉴를 먼저 선택해 주세요.", NoticeTone.Warning);
+            return;
+        }
+
+        if (_treeRef?.Tree is null)
+        {
+            return;
+        }
+
+        EnsureAncestorsExpanded(target);
+
+        var targetIds = new HashSet<string>(StringComparer.Ordinal);
+        CollectSubtreeIds(target, targetIds);
+
+        bool expanded;
+        int safety = 0;
+        do
+        {
+            expanded = false;
+            int count = _treeRef.Tree.GetVisibleRowCount();
+            for (int i = 0; i < count; i++)
+            {
+                if (_treeRef.Tree.GetDataItem(i) is SystemMenuDto m && targetIds.Contains(m.Id))
+                {
+                    if (!_treeRef.Tree.IsRowExpanded(i))
+                    {
+                        _treeRef.Tree.ExpandRow(i);
+                        expanded = true;
+                        break;
+                    }
+                }
+            }
+        } while (expanded && ++safety < 500);
+    }
+
+    /// <summary>선택한 메뉴와 그 하위 노드를 모두 접는다.</summary>
+    private void CollapseSelectedSubtree()
+    {
+        var target = _selectedMenu ?? _treeRef?.Tree?.GetFocusedDataItem() as SystemMenuDto;
+        if (target is null)
+        {
+            Say("하위를 접을 메뉴를 먼저 선택해 주세요.", NoticeTone.Warning);
+            return;
+        }
+
+        if (_treeRef?.Tree is null)
+        {
+            return;
+        }
+
+        var targetIds = new HashSet<string>(StringComparer.Ordinal);
+        CollectSubtreeIds(target, targetIds);
+
+        bool collapsed;
+        int safety = 0;
+        do
+        {
+            collapsed = false;
+            int count = _treeRef.Tree.GetVisibleRowCount();
+            for (int i = count - 1; i >= 0; i--)
+            {
+                if (_treeRef.Tree.GetDataItem(i) is SystemMenuDto m && targetIds.Contains(m.Id))
+                {
+                    if (_treeRef.Tree.IsRowExpanded(i))
+                    {
+                        _treeRef.Tree.CollapseRow(i);
+                        collapsed = true;
+                        break;
+                    }
+                }
+            }
+        } while (collapsed && ++safety < 500);
+    }
+
+    private void CollectSubtreeIds(SystemMenuDto node, HashSet<string> ids)
+    {
+        ids.Add(node.Id);
+        if (node.Children is { Count: > 0 })
+        {
+            foreach (var child in node.Children)
+            {
+                CollectSubtreeIds(child, ids);
+            }
+        }
+        else
+        {
+            foreach (var child in _flat.Where(m => string.Equals(m.Pid, node.Id, StringComparison.Ordinal)))
+            {
+                if (ids.Add(child.Id))
+                {
+                    CollectSubtreeIds(child, ids);
+                }
+            }
+        }
+    }
+
+    private void EnsureAncestorsExpanded(SystemMenuDto target)
+    {
+        if (_treeRef?.Tree is null) return;
+
+        var chain = new List<string>();
+        var currentId = target.Pid;
+        int hops = 0;
+        while (currentId is not null && ++hops <= _flat.Count)
+        {
+            chain.Insert(0, currentId);
+            currentId = _parent.GetValueOrDefault(currentId);
+        }
+
+        foreach (var ancestorId in chain)
+        {
+            int count = _treeRef.Tree.GetVisibleRowCount();
+            for (int i = 0; i < count; i++)
+            {
+                if (_treeRef.Tree.GetDataItem(i) is SystemMenuDto m && string.Equals(m.Id, ancestorId, StringComparison.Ordinal))
+                {
+                    if (!_treeRef.Tree.IsRowExpanded(i))
+                    {
+                        _treeRef.Tree.ExpandRow(i);
+                    }
+                    break;
+                }
+            }
+        }
     }
 
     /// <summary>사람이 읽는 제목. 서버가 다국어 표에서 찾아 TitleText 에 넣고, 못 찾으면 Title 이 글자다.</summary>

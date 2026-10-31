@@ -292,23 +292,30 @@ public partial class CommTree<TItem>
         return Task.CompletedTask;
     }
 
+    /// <summary>모두 펼친다. 바깥에서도 부를 수 있다.</summary>
+    public void ExpandAll()
+    {
+        _expanded = true;
+        _tree?.ExpandAll();
+    }
+
+    /// <summary>모두 접는다. 바깥에서도 부를 수 있다.</summary>
+    public void CollapseAll()
+    {
+        _expanded = false;
+        _tree?.CollapseAll();
+    }
+
     /// <summary>모두 펼치기 · 모두 접기. AutoExpandAllNodes 는 사람이 접은 것을 다음 렌더에 다시 펴므로 쓰지 않고 한 번만 부른다.</summary>
     private void ToggleExpand()
     {
-        if (_tree is null)
-        {
-            return;
-        }
-
-        _expanded = !_expanded;
-
         if (_expanded)
         {
-            _tree.ExpandAll();
+            CollapseAll();
         }
         else
         {
-            _tree.CollapseAll();
+            ExpandAll();
         }
     }
 
