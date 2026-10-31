@@ -332,6 +332,11 @@
                                 <span class="pm-ask__ack-mark">✓</span>
                                 <span class="pm-ask__ack-text">확인</span>
                             </span>
+
+                            @* 마우스로는 밀기가 낯설어 같은 처리를 단추 하나로도 준다. 누름은 ask-swipe.js 가 받아 밀었을 때와 같은 띠를 연다.
+                               휴대폰에서는 CSS 가 감춘다(밀면 되고, 손가락에 비해 작다). *@
+                            <button type="button" class="pm-ask__done"
+                                    title="사용자 완료" aria-label="사용자 완료">✓</button>
                         }
 
                         <button type="button" class="pm-ask__head"

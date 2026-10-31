@@ -2906,8 +2906,54 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   transition: transform var(--pm-ask-swipe-ms) ease;
 }
 
+/* 마우스로 누르는 완료 단추. 밀기와 같은 commit 을 타므로 띠·스러짐이 같다. 손가락 기기에서는 감춘다 — 밀면 되고, 본문 위에 떠서 누름을 가로챈다. */
+.pm-ask__done {
+  display: none;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .pm-ask__item[data-swipe] > .pm-ask__done {
+    position: absolute;
+    top: 50%;
+    right: 0.45rem;
+    z-index: 3;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    padding: 0;
+    border: 1px solid color-mix(in srgb, #2e7d32 45%, var(--jsini-border));
+    border-radius: 50%;
+    background: var(--jsini-surface);
+    color: #2e7d32;
+    font-size: var(--jsini-fs-sm);
+    line-height: 1;
+    cursor: pointer;
+    opacity: calc(0.55 * (1 - var(--pm-ask-ready)));
+    transform: translateY(-50%);
+    transition: opacity 120ms ease, background-color 120ms ease, color 120ms ease;
+  }
+
+  .pm-ask__item[data-swipe]:hover > .pm-ask__done,
+  .pm-ask__item[data-swipe] > .pm-ask__done:focus-visible {
+    opacity: calc(1 - var(--pm-ask-ready));
+  }
+
+  .pm-ask__item[data-swipe] > .pm-ask__done:hover {
+    background: #2e7d32;
+    color: #fff;
+  }
+
+  /* 단추가 제목 끝을 덮지 않게 그만큼 비워 둔다. 좁은 창의 padding 줄임(.pm-ask … .pm-ask__head)보다 앞서도록 한 겹 더 적는다. */
+  .pm-ask .pm-ask__item[data-swipe] > .pm-ask__head {
+    padding-right: 2.6rem;
+  }
+}
+
 /* 움직임을 줄여 달라고 한 사람에게는 결과만 준다. 카드는 바로 사라지고 띠는 열리지 않는다. */
 @media (prefers-reduced-motion: reduce) {
+  .pm-ask__item[data-swipe] > .pm-ask__done,
   .pm-ask__item[data-swipe],
   .pm-ask__item[data-swipe] > .pm-ask__head,
   .pm-ask__ack,

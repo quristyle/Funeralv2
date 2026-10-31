@@ -198,4 +198,20 @@ export function attachSwipe(selector, dotnet) {
     e.preventDefault();
     e.stopPropagation();
   }, true);
+
+  // 완료 단추(데스크톱)는 오른쪽 끝까지 민 것과 같다 — 띠가 열리는 모습까지 같게 commit 으로 보낸다.
+  root.addEventListener('click', (e) => {
+    const btn = e.target.closest ? e.target.closest('.pm-ask__done') : null;
+    if (!btn || !root.contains(btn)) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const el = btn.closest('.pm-ask__item[data-swipe]');
+    if (!el || card || acking || !allows(el, 1)) return;
+
+    width = el.clientWidth || 1;
+    set(el, '--pm-ask-swipe-ms', `${ACK_MS}ms`);
+    commit(el, 1);
+  });
 }
