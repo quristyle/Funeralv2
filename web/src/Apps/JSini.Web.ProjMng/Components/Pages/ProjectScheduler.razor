@@ -188,10 +188,17 @@
                             </CommSchItem>
                             @* 읽어 둔 줄을 화면에서 거른다 — 글자마다 서버를 부르지 않는다. *@
                             <CommSchItem Label="내용">
-                                <DxTextBox @bind-Text="_keyword"
-                                           BindValueMode="BindValueMode.OnInput" InputDelay="300"
-                                           ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
-                                           ValidationEnabled="false" />
+                                <div class="pm-gc__keyword-box">
+                                    <DxTextBox @bind-Text="_keyword"
+                                               BindValueMode="BindValueMode.OnInput" InputDelay="300"
+                                               ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                                               ValidationEnabled="false" />
+                                    <div class="pm-gc__keyword-targets">
+                                        <DxCheckBox @bind-Checked="_searchTitle">제목</DxCheckBox>
+                                        <DxCheckBox @bind-Checked="_searchMemo">메모</DxCheckBox>
+                                        <DxCheckBox @bind-Checked="_searchOriginal">원본</DxCheckBox>
+                                    </div>
+                                </div>
                             </CommSchItem>
                         }
                     </Fields>

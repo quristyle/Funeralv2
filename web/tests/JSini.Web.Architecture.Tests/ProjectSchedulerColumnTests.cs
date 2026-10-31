@@ -323,4 +323,104 @@ public sealed class ProjectSchedulerColumnTests
         Assert.Contains("AllowUpDownArrowKeys=\"true\"", content);
         Assert.Contains("Mask=\"yyyy-MM-dd\"", content);
     }
+
+    [Fact]
+    public void ProjectScheduler_내용검색_제목_메모_원본_체크박스가_정의되고_기본값은_제목이다()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "../../../../../src/Apps/JSini.Web.ProjMng/Components/Pages/ProjectScheduler.razor");
+        Assert.True(File.Exists(path), $"파일이 존재해야 합니다: {path}");
+
+        var content = File.ReadAllText(path);
+
+        // 입력값 아래에 제목, 메모, 원본 체크박스가 정의되어 있어야 함
+        Assert.Contains("@bind-Checked=\"_searchTitle\">제목</DxCheckBox>", content);
+        Assert.Contains("@bind-Checked=\"_searchMemo\">메모</DxCheckBox>", content);
+        Assert.Contains("@bind-Checked=\"_searchOriginal\">원본</DxCheckBox>", content);
+
+        var page = new ProjectScheduler();
+        var searchTitle = typeof(ProjectScheduler).GetField("_searchTitle", BindingFlags.NonPublic | BindingFlags.Instance)?.GetValue(page);
+        var searchMemo = typeof(ProjectScheduler).GetField("_searchMemo", BindingFlags.NonPublic | BindingFlags.Instance)?.GetValue(page);
+        var searchOriginal = typeof(ProjectScheduler).GetField("_searchOriginal", BindingFlags.NonPublic | BindingFlags.Instance)?.GetValue(page);
+
+        // 기본값은 제목만 체크 상태
+        Assert.Equal(true, searchTitle);
+        Assert.Equal(false, searchMemo);
+        Assert.Equal(false, searchOriginal);
+    }
+
+    [Fact]
+    public void ProjectScheduler_내용검색_체크박스에_해당하는_조건만_필터링된다()
+    {
+        var page = new ProjectScheduler();
+        var rowsField = typeof(ProjectScheduler).GetField("_rows", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        var keywordField = typeof(ProjectScheduler).GetField("_keyword", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        var searchTitleField = typeof(ProjectScheduler).GetField("_searchTitle", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        var searchMemoField = typeof(ProjectScheduler).GetField("_searchMemo", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        var searchOriginalField = typeof(ProjectScheduler).GetField("_searchOriginal", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        var tableRowsProp = typeof(ProjectScheduler).GetProperty("TableRows", BindingFlags.NonPublic | BindingFlags.Instance)!;
+
+        var item1 = new WbsItemDto { WbsId = 1, ProcNm = "통합 검색 개발", Comm = "진행 메모", BodyText = "원문 내용" };
+        var item2 = new WbsItemDto { WbsId = 2, ProcNm = "공지사항 작업", Comm = "검색 기능 추가", BodyText = "원문 내용" };
+        var item3 = new WbsItemDto { WbsId = 3, ProcNm = "디자인 작업", Comm = "진행 메모", BodyText = "상세 검색 요구" };
+
+        rowsField.SetValue(page, new List<WbsItemDto> { item1, item2, item3 });
+
+        // 검색어 설정
+        keywordField.SetValue(page, "검색");
+
+        // 1. 기본값: 제목만 체크 -> item1 만 조회
+        searchTitleField.SetValue(page, true);
+        searchMemoField.SetValue(page, false);
+        searchOriginalField.SetValue(page, false);
+        var rows1 = (IReadOnlyList<WbsItemDto>)tableRowsProp.GetValue(page)!;
+        Assert.Single(rows1);
+        Assert.Equal(1, rows1[0].WbsId);
+
+        // 2. 메모만 체크 -> item2 만 조회
+        searchTitleField.SetValue(page, false);
+        searchMemoField.SetValue(page, true);
+        searchOriginalField.SetValue(page, false);
+        var rows2 = (IReadOnlyList<WbsItemDto>)tableRowsProp.GetValue(page)!;
+        Assert.Single(rows2);
+        Assert.Equal(2, rows2[0].WbsId);
+
+        // 3. 원본만 체크 -> item3 만 조회
+        searchTitleField.SetValue(page, false);
+        searchMemoField.SetValue(page, false);
+        searchOriginalField.SetValue(page, true);
+        var rows3 = (IReadOnlyList<WbsItemDto>)tableRowsProp.GetValue(page)!;
+        Assert.Single(rows3);
+        Assert.Equal(3, rows3[0].WbsId);
+
+        // 4. 제목 + 원본 체크 -> item1, item3 조회
+        searchTitleField.SetValue(page, true);
+        searchMemoField.SetValue(page, false);
+        searchOriginalField.SetValue(page, true);
+        var rows4 = (IReadOnlyList<WbsItemDto>)tableRowsProp.GetValue(page)!;
+        Assert.Equal(2, rows4.Count);
+        Assert.Contains(rows4, w => w.WbsId == 1);
+        Assert.Contains(rows4, w => w.WbsId == 3);
+
+        // 5. 모두 체크 해제 -> 검색어가 있으면 0건
+        searchTitleField.SetValue(page, false);
+        searchMemoField.SetValue(page, false);
+        searchOriginalField.SetValue(page, false);
+        var rows5 = (IReadOnlyList<WbsItemDto>)tableRowsProp.GetValue(page)!;
+        Assert.Empty(rows5);
+    }
+
+    [Fact]
+    public void ProjectScheduler_조회영역_라벨_오버랩_플로팅_스타일이_정의되어_있다()
+    {
+        var cssPath = Path.Combine(AppContext.BaseDirectory, "../../../../../src/Apps/JSini.Web.ProjMng/wwwroot/projmng.css");
+        Assert.True(File.Exists(cssPath), $"CSS 파일이 존재해야 합니다: {cssPath}");
+
+        var css = File.ReadAllText(cssPath);
+
+        // 일정수정 팝업과 동일하게 라벨이 컨트롤과 겹쳐지는 floating 스타일 정의 확인
+        Assert.Contains(".pm-gc__rail .commsch .commsch__item", css);
+        Assert.Contains(".pm-gc__rail .commsch .commsch__label", css);
+        Assert.Contains("position: absolute", css);
+        Assert.Contains("var(--jsini-field-label-bg", css);
+    }
 }

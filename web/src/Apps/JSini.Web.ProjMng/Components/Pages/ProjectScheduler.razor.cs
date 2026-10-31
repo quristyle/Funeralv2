@@ -69,8 +69,17 @@ public partial class ProjectScheduler : IAsyncDisposable
     /// <summary>끄는 동안 손이 지금 올라가 있는 날. 놓으면 여기까지가 구간이다.</summary>
     private DateOnly? _miniDragTo;
 
-    /// <summary>표 보기의 내용 검색어. 제목·메모·원문 어디에든 들어 있으면 남긴다.</summary>
+    /// <summary>표 보기의 내용 검색어. 체크된 대상(제목·메모·원본)에 들어 있으면 남긴다.</summary>
     private string? _keyword;
+
+    /// <summary>내용 검색 대상: 제목(ProcNm). 기본값은 true.</summary>
+    private bool _searchTitle = true;
+
+    /// <summary>내용 검색 대상: 메모(Comm).</summary>
+    private bool _searchMemo;
+
+    /// <summary>내용 검색 대상: 원본(BodyText).</summary>
+    private bool _searchOriginal;
 
     /// <summary>표에 까는 줄. 달력 보기와 작은 달력 건수는 거르지 않은 <see cref="_rows"/> 를 그대로 쓴다.
     /// 거른 결과를 들고 있는다 — 그릴 때마다 새 목록을 주면 표가 자료가 바뀐 것으로 읽고 고른 줄을 다시 잡는다.</summary>
@@ -85,11 +94,21 @@ public partial class ProjectScheduler : IAsyncDisposable
                 return _rows;
             }
 
-            if (!ReferenceEquals(_filteredFrom, _rows) || _filteredKey != key)
+            if (!ReferenceEquals(_filteredFrom, _rows)
+                || _filteredKey != key
+                || _filteredTitle != _searchTitle
+                || _filteredMemo != _searchMemo
+                || _filteredOriginal != _searchOriginal)
             {
                 _filteredFrom = _rows;
                 _filteredKey = key;
-                _filtered = [.. _rows.Where(w => Has(w.ProcNm, key) || Has(w.Comm, key) || Has(w.BodyText, key))];
+                _filteredTitle = _searchTitle;
+                _filteredMemo = _searchMemo;
+                _filteredOriginal = _searchOriginal;
+                _filtered = [.. _rows.Where(w =>
+                    (_searchTitle && Has(w.ProcNm, key)) ||
+                    (_searchMemo && Has(w.Comm, key)) ||
+                    (_searchOriginal && Has(w.BodyText, key)))];
             }
 
             return _filtered;
@@ -101,6 +120,9 @@ public partial class ProjectScheduler : IAsyncDisposable
 
     private IReadOnlyList<WbsItemDto>? _filteredFrom;
     private string? _filteredKey;
+    private bool _filteredTitle;
+    private bool _filteredMemo;
+    private bool _filteredOriginal;
     private IReadOnlyList<WbsItemDto> _filtered = [];
 
     private IReadOnlyList<WbsItemDto>? _userFilterFrom;
