@@ -48,7 +48,7 @@ public sealed class WbsItem {
   /// <summary>일정 메모 화면에서 적은 본문 원문. null 이면 그대로 둔다(Summary 와 같다).</summary>
   public string? BodyText { get; set; }
 
-  /// <summary><c>WBS</c> 또는 <c>SCHEDULE</c>. 두 화면을 가르는 값이다.</summary>
+  /// <summary>공통코드 SCHEDULE_TYPE(<c>WBS</c> · <c>Private</c> · <c>Public</c> · <c>Event</c>). WBS 화면과 일정표를 가르는 값이다.</summary>
   public string? ScheduleType { get; set; }
 
   /// <summary>추가대상 — 공통코드 ADD_TARGET(ADD · CHANGE · MOVE). null 이면 저장된 값을 그대로 두고, 빈 글자면 지운다.</summary>

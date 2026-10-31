@@ -5,7 +5,7 @@ using ProjMngServer.Models;
 namespace ProjMngServer.Services;
 
 /// <summary>
-/// WBS · 일정표. sp_proj_wbs_exec · sp_proj_wbs_moniter 프로시저를 대신한다. 두 화면이 같은 표를 본다 — schedule_type 이 WBS 면 산출물 단위, SCHEDULE 이면 날짜 단위다.
+/// WBS · 일정표. sp_proj_wbs_exec · sp_proj_wbs_moniter 프로시저를 대신한다. 두 화면이 같은 표를 본다 — schedule_type 이 WBS 면 산출물 단위, 그 밖(Private · Public · Event)이면 날짜 단위다.
 /// 조회는 표를 고치지 않고(빈 날짜는 읽을 때만 COALESCE 로 메운다), 수정은 고친 사람을 남기며, 담당이 비어도 기본값으로 저장한다.
 /// </summary>
 public sealed class WbsService(IConfiguration configuration) {
