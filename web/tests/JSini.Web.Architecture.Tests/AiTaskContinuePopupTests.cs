@@ -109,6 +109,8 @@ public sealed class AiTaskContinuePopupTests
 
         Assert.Contains("public bool AllowResize { get; set; } = true;", commPopupCsText, StringComparison.Ordinal);
         Assert.Contains("public bool FullOnMobile { get; set; } = true;", commPopupCsText, StringComparison.Ordinal);
+        Assert.Contains("public string? Width { get; set; }", commPopupCsText, StringComparison.Ordinal);
+        Assert.Contains("public string? Height { get; set; }", commPopupCsText, StringComparison.Ordinal);
         Assert.Contains("public string? MinWidth { get; set; }", commPopupCsText, StringComparison.Ordinal);
         Assert.Contains("public string? MinHeight { get; set; }", commPopupCsText, StringComparison.Ordinal);
         Assert.Contains("jsini-popup--full-mobile", commPopupCsText, StringComparison.Ordinal);
@@ -116,6 +118,7 @@ public sealed class AiTaskContinuePopupTests
         var commPopupRazorPath = "src/Shared/JSini.Web.Components/Data/CommPopup.razor";
         var commPopupRazorText = ReadFile(commPopupRazorPath);
         Assert.Contains("AllowResize=\"@AllowResize\"", commPopupRazorText, StringComparison.Ordinal);
+        Assert.Contains("Height=\"@Height\"", commPopupRazorText, StringComparison.Ordinal);
     }
 
     private static string ReadFile(string relative)

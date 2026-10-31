@@ -17,6 +17,9 @@ public partial class CommPopup
     /// <summary>창의 너비(<c>520</c> · <c>min(640px, calc(100vw - 2rem))</c>).</summary>
     [Parameter] public string? Width { get; set; }
 
+    /// <summary>창의 높이.</summary>
+    [Parameter] public string? Height { get; set; }
+
     /// <summary>창의 최대 높이. 없으면 폼이 화면보다 길어질 때 바닥 단추가 화면 밖으로 나간다.</summary>
     [Parameter] public string MaxHeight { get; set; } = "86vh";
 

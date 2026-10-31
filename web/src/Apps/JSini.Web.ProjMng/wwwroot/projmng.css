@@ -8136,3 +8136,115 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 :root[data-bs-theme='dark'] .pm-find__item.pm-gc-agenda__item--DISCARD {
   border-left-color: #80868b;
 }
+
+/* ── 일정표 일정수정 팝업 (`ScheduleEditPopup`) ───────────────── */
+/* 데스크톱에서 창 크기를 늘리면 상단 입력칸은 제자리를 지키고 아래쪽 메모·원문이 남은 높이를 채운다. */
+.dxbl-popup.pm-scheduler-edit-popup .dxbl-modal-content {
+  height: 100% !important;
+  max-height: none !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.dxbl-popup.pm-scheduler-edit-popup .dxbl-modal-body {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+}
+
+.pm-scheduler-edit {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: 100% !important;
+}
+
+.pm-scheduler-edit .dxbl-fl {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  height: 100% !important;
+}
+
+@media (min-width: 768px) {
+  .pm-scheduler-edit .dxbl-fl > div,
+  .pm-scheduler-edit .dxbl-fl > .row {
+    display: grid !important;
+    grid-template-columns: repeat(12, minmax(0, 1fr)) !important;
+    grid-template-rows: auto auto auto auto auto 1fr !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    row-gap: var(--dxbl-fl-item-spacing-y, 0.5rem) !important;
+    column-gap: var(--dxbl-fl-item-spacing-x, 0.625rem) !important;
+  }
+
+  .pm-scheduler-edit .dxbl-fl .dxbl-fl-item {
+    width: auto !important;
+    max-width: none !important;
+    flex: none !important;
+    min-width: 0 !important;
+  }
+
+  .pm-scheduler-edit .dxbl-fl .dxbl-fl-item.dxbl-col-lg-2 {
+    grid-column: span 2 !important;
+  }
+  .pm-scheduler-edit .dxbl-fl .dxbl-fl-item.dxbl-col-lg-3 {
+    grid-column: span 3 !important;
+  }
+  .pm-scheduler-edit .dxbl-fl .dxbl-fl-item.dxbl-col-lg-4 {
+    grid-column: span 4 !important;
+  }
+  .pm-scheduler-edit .dxbl-fl .dxbl-fl-item.dxbl-col-lg-6 {
+    grid-column: span 6 !important;
+  }
+  .pm-scheduler-edit .dxbl-fl .dxbl-fl-item.dxbl-col-lg-12 {
+    grid-column: span 12 !important;
+  }
+
+  /* 마지막 2개 항목: 메모와 원문 */
+  .pm-scheduler-edit .dxbl-fl .dxbl-fl-item:nth-last-child(-n + 2) {
+    display: flex !important;
+    flex-direction: column !important;
+    min-height: 120px !important;
+    height: 100% !important;
+    grid-row: 6 !important;
+  }
+
+  .pm-scheduler-edit .dxbl-fl .dxbl-fl-item:nth-last-child(-n + 2) > .dxbl-fl-ctrl {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    height: 100% !important;
+  }
+
+  .pm-scheduler-edit .dxbl-fl .dxbl-fl-item:nth-last-child(-n + 2) .dxbl-memo-edit {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    height: 100% !important;
+  }
+
+  .pm-scheduler-edit .dxbl-fl .dxbl-fl-item:nth-last-child(-n + 2) .dxbl-memo-scroll-container {
+    display: flex !important;
+    flex-direction: column !important;
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    height: 100% !important;
+  }
+
+  .pm-scheduler-edit .dxbl-fl .dxbl-fl-item:nth-last-child(-n + 2) textarea,
+  .pm-scheduler-edit .dxbl-fl .dxbl-fl-item:nth-last-child(-n + 2) textarea.dxbl-v-resize {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    height: 100% !important;
+    resize: none !important;
+  }
+}
+

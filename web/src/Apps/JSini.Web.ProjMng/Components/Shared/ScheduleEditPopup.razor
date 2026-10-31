@@ -4,7 +4,8 @@
 *@
 
 <CommPopup @bind-Visible="_visible" HeaderText="@(_isNew ? "일정 등록" : "일정 수정")"
-           Width="940px" MaxHeight="92vh" Scrollable="true">
+           Width="940px" Height="700px" MinWidth="720px" MinHeight="640px" MaxHeight="92vh" Scrollable="true"
+           CssClass="pm-scheduler-edit-popup">
     <BodyContentTemplate Context="popup">
         <div class="pm-scheduler-edit">
             <WbsEditForm Item="@_form" Compact="true">
