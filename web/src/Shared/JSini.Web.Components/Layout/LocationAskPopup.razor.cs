@@ -20,6 +20,8 @@ public partial class LocationAskPopup
 
     private bool _open;
     private bool _busy;
+    private bool _savingTrack;
+    private DotNetObjectReference<LocationAskPopup>? _selfReference;
 
     /// <summary>첫 렌더 뒤에 살핀다 — 프리렌더에는 브라우저가 없다. 싼 것부터 본다(브라우저 저장소 → JS → 게이트웨이). 게이트웨이까지 가는 것은 간격마다 한 번뿐이다. 살핀 뒤 시계를 건다 — 화면 전환에만 기대면 한 화면을 오래 여는 사람은 영영 안 잰다.</summary>
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -29,10 +31,15 @@ public partial class LocationAskPopup
             return;
         }
 
+        _selfReference = DotNetObjectReference.Create(this);
+
         await ConsiderAsync();
 
         // 살핀 결과와 무관하게 건다 — 지금 못 잰 까닭(권한 미허용, 창이 떠 있음)은 조금 뒤에 풀린다.
         ScheduleNextSync();
+
+        // 사용자가 화면을 열고 쓸 때 조용히 위치 변동을 감지하여 수집한다.
+        await StartActiveTrackingAsync();
     }
 
     /// <summary>지금 무엇을 할 때인가를 살핀다. 첫 렌더에서만 부른다 — 시계가 깨울 때는 SyncOnScheduleAsync 가 가고 창을 띄우지 않는다.</summary>
@@ -42,12 +49,6 @@ public partial class LocationAskPopup
         var saved = await Boot.ReadAsync();
 
         if (saved.ScreenLocked)
-        {
-            return;
-        }
-
-        // 간격 안에 이미 다룬 브라우저면 여기서 끝이다 — 물었든 쟀든 줬더라를 알았든 표시가 남아 있다.
-        if (!IsDue())
         {
             return;
         }
@@ -65,6 +66,12 @@ public partial class LocationAskPopup
         // ③ 물을 사람인가 — 게이트웨이보다 먼저 브라우저에 묻는다. 알림을 안 받는 사람에게 위치를 물으면 받아 두고 쓸 데가 없다. 권한이 이미 허용돼 있으면 잴 일이라 이 물음을 건너뛴다.
         if (canAsk && !permission.Granted)
         {
+            // 권한 미허용 상태에서 권유 창 띄우기는 설정 간격(기본 30분)을 지킨다.
+            if (!IsDue())
+            {
+                return;
+            }
+
             var browser = await Enroll.StatusAsync();
             canAsk = browser is { Supported: true, Subscribed: true };
         }
@@ -85,7 +92,11 @@ public partial class LocationAskPopup
             // 이미 준 사람에게는 묻지 않는다. 대신 조용히 확인한다.
             if (permission.Granted)
             {
-                await SyncQuietlyAsync();
+                // 화면을 새로 열었을 때 방금(1분 이내) 잰 것이 아니면 조용히 확인하여 최신 위치 변동을 놓치지 않는다.
+                if (IsQuietDue())
+                {
+                    await SyncQuietlyAsync();
+                }
             }
             else
             {
@@ -96,7 +107,12 @@ public partial class LocationAskPopup
             return;
         }
 
-        // ⑤ 좌표가 없다. 권한이 허용돼 있어도 묻고 나서 받는다 — 물음창 없이 가져가면 받는 것이 아니라 집어 가는 것이다. 여기서 물러나는 길은 모두 표시를 남긴다(서버까지 갔다 온 뒤라 안 남기면 매번 되풀이된다).
+        // ⑤ 좌표가 없다. 팝업 권유는 IsDue() 간격을 지킨다.
+        if (!IsDue())
+        {
+            return;
+        }
+
         if (!canAsk || _settings is not { PushAvailable: true })
         {
             // 다시 묻지 않기를 눌렀거나 서버에 VAPID 키가 없어 알림이 안 오는 경우다. 뒤엣것에서 위치를 묻는 것은 줄 것 없이 받기만 하는 일이다.
@@ -120,6 +136,11 @@ public partial class LocationAskPopup
         _open = true;
         StateHasChanged();
     }
+
+    /// <summary>화면을 열었을 때 조용히 다시 잴 때인가. 너무 잦은 연속 호출(1분 미만)만 거르고, 자리를 옮겼을 가능성을 놓치지 않는다.</summary>
+    private bool IsQuietDue() =>
+        Boot.GeoSyncedAt is not { } last
+        || DateTime.UtcNow - last >= TimeSpan.FromMinutes(1);
 
     /// <summary>이 브라우저에서 위치를 다룬 지 고른 간격만큼 지났나(고른 적이 없으면 GeoLocator.SyncInterval 과 같은 30분). 서버를 부르기 전에 이것으로 거른다. 읽어 온 상태가 아니라 PortalBoot 이 든 값을 본다 — 읽은 사진은 회로가 붙던 순간의 것이라 같은 회로에서 시계가 되풀이 물으면 쟀는데도 영영 잴 때가 된다.</summary>
     private bool IsDue() =>
@@ -164,6 +185,7 @@ public partial class LocationAskPopup
             _open = false;
             await RememberAsync(session: true);
             await StampSyncAsync();
+            await StartActiveTrackingAsync();
         }
         finally
         {
@@ -174,19 +196,32 @@ public partial class LocationAskPopup
     /// <summary>좌표를 이미 준 사람의 자리를 조용히 다시 잰다. 아무 말도 하지 않는다 — 곁다리로 도는 일이고 결과는 설정 화면의 「확인한 때」에 남는다. 좌표를 준 사람에게만 부른다 — 권한이 허용됐다고 받아 두지는 않는다.</summary>
     private async Task SyncQuietlyAsync()
     {
-        var geo = await Geo.QuietAsync();
-
-        if (!geo.Ok)
+        if (_savingTrack)
         {
-            // 못 쟀으면 표시도 남기지 않는다 — 다음 화면이나 다음 시계에서 다시 해 본다.
             return;
         }
 
-        var result = await Geo.SaveAsync(_settings!.Preference, geo, enableLocalWeather: false);
-
-        if (result.Ok)
+        _savingTrack = true;
+        try
         {
-            await StampSyncAsync();
+            var geo = await Geo.QuietAsync();
+
+            if (!geo.Ok)
+            {
+                // 못 쟀으면 표시도 남기지 않는다 — 다음 화면이나 다음 시계에서 다시 해 본다.
+                return;
+            }
+
+            var result = await Geo.SaveAsync(_settings!.Preference, geo, enableLocalWeather: false);
+
+            if (result.Ok)
+            {
+                await StampSyncAsync();
+            }
+        }
+        finally
+        {
+            _savingTrack = false;
         }
     }
 
@@ -357,11 +392,88 @@ public partial class LocationAskPopup
         await SyncQuietlyAsync();
     }
 
+    /// <summary>사용자가 화면을 열고 쓰는 동안 조용히 위치 변동을 쫓도록 브라우저에 등록한다.</summary>
+    private async Task StartActiveTrackingAsync()
+    {
+        if (_selfReference is null)
+        {
+            return;
+        }
+
+        try
+        {
+            await Js.InvokeVoidAsync("jsiniGeo.startWatch", _selfReference);
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException)
+        {
+            Log.LogDebug(ex, "위치 추적기를 시작하지 못했습니다.");
+        }
+    }
+
+    /// <summary>화면을 닫거나 다른 업무로 옮길 때 위치 추적을 멈춘다.</summary>
+    private async Task StopActiveTrackingAsync()
+    {
+        try
+        {
+            await Js.InvokeVoidAsync("jsiniGeo.stopWatch");
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException)
+        {
+            Log.LogDebug(ex, "위치 추적기를 멈추지 못했습니다.");
+        }
+    }
+
+    /// <summary>
+    /// 화면이 열려 있는 동안 브라우저가 위치 변동이나 화면 활성화를 감지하여 알려 온다.
+    /// 사용자가 알아채지 못하게 조용히 수집하여 이동 경로(scom.location_tracks)에 기록한다.
+    /// </summary>
+    [JSInvokable]
+    public async Task OnLocationTrackReportAsync(double lat, double lon, double? accuracy)
+    {
+        if (_savingTrack || _open || _busy)
+        {
+            return;
+        }
+
+        _savingTrack = true;
+        try
+        {
+            if (!await LoadSettingsAsync() || !HasLocation)
+            {
+                return;
+            }
+
+            var geo = new GeoResult
+            {
+                Ok = true,
+                Latitude = lat,
+                Longitude = lon,
+                Accuracy = accuracy,
+            };
+
+            var result = await Geo.SaveAsync(_settings!.Preference, geo, enableLocalWeather: false);
+
+            if (result.Ok)
+            {
+                await StampSyncAsync();
+            }
+        }
+        finally
+        {
+            _savingTrack = false;
+        }
+    }
+
     /// <summary>시계를 걷는다. 업무를 옮기면 이 부품이 통째로 사라진다.</summary>
     public void Dispose()
     {
         _clock?.Cancel();
         _clock?.Dispose();
         _clock = null;
+
+        _selfReference?.Dispose();
+        _selfReference = null;
+
+        _ = StopActiveTrackingAsync();
     }
 }

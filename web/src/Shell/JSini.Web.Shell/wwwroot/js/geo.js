@@ -164,7 +164,171 @@
         }
     }
 
+    /**
+     * 화면을 열고 쓰는 동안 조용히 위치 변동을 쫓는다.
+     *
+     * ── 왜 필요한가 ───────────────────────────────────────────────
+     * PWA/모바일 환경에서는 브라우저가 백그라운드로 가면 타이머와 웹소켓이 멈추고,
+     * 서비스워커에는 geolocation 이 없어 백그라운드 수집이 불가능하다.
+     * 사용자가 화면을 열었을 때(visibilitychange, focus)와 화면을 열고 활동하는 동안
+     * 위치 변화를 놓치지 않고 조용히(권한이 이미 허용된 경우에만) 수집하여
+     * /admin/location/my-track 에 이동 경로가 성기지 않게 남도록 한다.
+     */
+    let watchId = null;
+    let watchDotnet = null;
+    let lastReportedLat = null;
+    let lastReportedLon = null;
+    let lastReportedAt = 0;
+    let isTrackingBound = false;
+
+    /** 두 지점 사이의 거리(m) — 하버사인 */
+    function distanceMeters(lat1, lon1, lat2, lon2) {
+        const R = 6371000;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                  Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        return 2 * R * Math.asin(Math.min(1, Math.sqrt(a)));
+    }
+
+    /** C# 으로 좌표 한 점을 조용히 넘긴다. */
+    async function reportTrackPoint(lat, lon, accuracy) {
+        if (!watchDotnet) return;
+        lastReportedLat = lat;
+        lastReportedLon = lon;
+        lastReportedAt = Date.now();
+        try {
+            await watchDotnet.invokeMethodAsync('OnLocationTrackReportAsync', lat, lon, accuracy);
+        } catch {
+            // 회로가 끊겼거나 이미 해제된 경우 조용히 삼킨다
+        }
+    }
+
+    /** 위치를 한 번 조용히 재어 보고 조건이 맞으면 C# 에 알린다. */
+    async function sampleQuietly(force) {
+        if (!watchDotnet || document.visibilityState === 'hidden') return;
+
+        const perm = await permission();
+        if (perm.state !== 'granted') return;
+
+        const now = Date.now();
+        // 마지막 보고 후 30초 안에는 중복으로 재지 않는다(연속 탭 전환 등 방지)
+        if (!force && lastReportedAt && (now - lastReportedAt < 30000)) return;
+
+        const got = await locate({
+            enableHighAccuracy: false,
+            maximumAge: 30000,
+            timeout: 10000,
+        });
+
+        if (!got.ok) return;
+
+        const dist = (lastReportedLat !== null && lastReportedLon !== null)
+            ? distanceMeters(lastReportedLat, lastReportedLon, got.latitude, got.longitude)
+            : 999999;
+
+        // 50m 이상 이동했거나, 3분 이상 지났거나, 첫 보고인 경우 보고
+        if (force || dist >= 50 || (now - lastReportedAt >= 180000)) {
+            await reportTrackPoint(got.latitude, got.longitude, got.accuracy);
+        }
+    }
+
+    /** watchPosition 에서 좌표가 변했을 때 브라우저가 부른다. */
+    function onWatchPosition(pos) {
+        if (!pos || !pos.coords || !watchDotnet) return;
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+        const accuracy = pos.coords.accuracy;
+
+        const now = Date.now();
+        const dist = (lastReportedLat !== null && lastReportedLon !== null)
+            ? distanceMeters(lastReportedLat, lastReportedLon, lat, lon)
+            : 999999;
+
+        // 50m 이상 이동했으면 10초 쿨다운 후 보고, 정지 상태라도 3분 지났으면 보고
+        if (dist >= 50 && (now - lastReportedAt >= 10000)) {
+            reportTrackPoint(lat, lon, accuracy);
+        } else if (now - lastReportedAt >= 180000) {
+            reportTrackPoint(lat, lon, accuracy);
+        }
+    }
+
+    function beginWatch() {
+        if (watchId !== null || !('geolocation' in navigator)) return;
+        try {
+            watchId = navigator.geolocation.watchPosition(
+                onWatchPosition,
+                () => { /* 조용한 오류는 무시 */ },
+                {
+                    enableHighAccuracy: false,
+                    timeout: 20000,
+                    maximumAge: 30000,
+                }
+            );
+        } catch {
+            watchId = null;
+        }
+    }
+
+    function endWatch() {
+        if (watchId !== null && 'geolocation' in navigator) {
+            try {
+                navigator.geolocation.clearWatch(watchId);
+            } catch { }
+            watchId = null;
+        }
+    }
+
+    function handleVisibility() {
+        if (document.visibilityState === 'visible') {
+            beginWatch();
+            sampleQuietly(false);
+        } else {
+            endWatch();
+        }
+    }
+
+    function handleFocus() {
+        if (document.visibilityState === 'visible') {
+            sampleQuietly(false);
+        }
+    }
+
+    function handleUserActivity() {
+        const now = Date.now();
+        // 2분 이상 지난 상태에서 사용자가 화면을 조작하면 1회 확인
+        if (now - lastReportedAt >= 120000) {
+            sampleQuietly(false);
+        }
+    }
+
+    /** 화면을 열고 쓰는 동안 조용히 위치 변동을 쫓기 시작한다. */
+    function startWatch(dotnet) {
+        stopWatch();
+        watchDotnet = dotnet;
+
+        if (!isTrackingBound) {
+            isTrackingBound = true;
+            document.addEventListener('visibilitychange', handleVisibility);
+            window.addEventListener('focus', handleFocus);
+            window.addEventListener('online', handleFocus);
+            document.addEventListener('click', handleUserActivity, { passive: true });
+        }
+
+        if (document.visibilityState === 'visible') {
+            beginWatch();
+            sampleQuietly(false);
+        }
+    }
+
+    /** 조용한 위치 추적을 멈춘다. */
+    function stopWatch() {
+        endWatch();
+        watchDotnet = null;
+    }
+
     // **`locate` 는 인자 없이 부른다.** C# 쪽은 `jsiniGeo.locate` 를 그대로
     // 부르고(인자를 안 넘긴다), 옵션은 이 파일 안의 `quiet` 만 쓴다.
-    window.jsiniGeo = { locate, quiet, permission };
+    window.jsiniGeo = { locate, quiet, permission, startWatch, stopWatch };
 })();

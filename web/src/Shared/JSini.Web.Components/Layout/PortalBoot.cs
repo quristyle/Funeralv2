@@ -633,6 +633,9 @@ public sealed class PortalBoot(IJSRuntime js, PortalPrefs prefs, ILogger<PortalB
         _geoSyncMinutes = state.GeoSyncMinutes;
     }
 
+    /// <summary>위치 확인·기록이 성공했을 때 알린다. 이동 경로 화면 등이 보고 있는 오늘 지도를 갱신할 수 있다.</summary>
+    public event Action? GeoSynced;
+
     /// <summary>방금 다뤘다고 브라우저에 적는다(UTC). 못 적어도 회로가 든 값은 고친다 — 사생활 보호 모드에서 setItem 이 던져도 시계는 멈추지 않는다.</summary>
     public async Task<DateTime> StampGeoSyncAsync()
     {
@@ -650,6 +653,8 @@ public sealed class PortalBoot(IJSRuntime js, PortalPrefs prefs, ILogger<PortalB
         {
             logger.LogDebug(ex, "위치를 확인한 때를 브라우저에 적지 못했다.");
         }
+
+        GeoSynced?.Invoke();
 
         return now;
     }

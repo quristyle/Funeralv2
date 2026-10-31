@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Components;
 using Microsoft.JSInterop;
 using JSini.Web.Models;
 using JSini.Web.Components.Data;
+using JSini.Web.Components.Layout;
 using JSini.Web.Components.Settings;
 using JSini.Web.Admin.Api;
 
@@ -11,6 +12,7 @@ public partial class MyTrackPage
 {
     [Inject] private AdminClient Api { get; set; } = default!;
     [Inject] private GeoLocator Geo { get; set; } = default!;
+    [Inject] private PortalBoot Boot { get; set; } = default!;
     [Inject] private IJSRuntime Js { get; set; } = default!;
 
     /// <summary>지금 위치를 재어 기록하는 중인가. 단추를 잠근다.</summary>
@@ -94,7 +96,20 @@ public partial class MyTrackPage
         SchSummary.On(_raw, "원시 기록"),
         $"머문 곳 {Stays.Count}곳");
 
-    protected override Task OnInitializedAsync() => ReloadAsync();
+    protected override Task OnInitializedAsync()
+    {
+        Boot.GeoSynced += OnGeoSynced;
+        return ReloadAsync();
+    }
+
+    /// <summary>위치가 새로 기록되면 오늘 경로를 다시 읽어 지도와 목록에 즉시 반영한다.</summary>
+    private void OnGeoSynced()
+    {
+        if (_date == AppTime.TodayDate && !_recording && !Loading)
+        {
+            _ = InvokeAsync(ReloadAsync);
+        }
+    }
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
@@ -340,6 +355,8 @@ public partial class MyTrackPage
 
     public async ValueTask DisposeAsync()
     {
+        Boot.GeoSynced -= OnGeoSynced;
+
         // 회로가 끊겼으면 JS 를 부를 수 없다 — 화면을 옮기며 늘 지나는 길이라 예외를 남기지 않는다.
         try
         {
