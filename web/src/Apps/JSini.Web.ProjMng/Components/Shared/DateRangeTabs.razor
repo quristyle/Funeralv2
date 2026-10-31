@@ -34,6 +34,10 @@
     {
         <DxDateEdit Date="@Anchor"
                     DateChanged="@((DateTime date) => SetAnchorAsync(date))"
-                    CssClass="pm-dates__edit" />
+                    CssClass="pm-dates__edit"
+                    Mask="yyyy-MM-dd"
+                    DisplayFormat="yyyy-MM-dd"
+                    Format="yyyy-MM-dd"
+                    AllowUpDownArrowKeys="true" />
     }
 </div>

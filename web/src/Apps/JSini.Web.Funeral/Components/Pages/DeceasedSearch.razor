@@ -10,8 +10,8 @@
 <BuildingFilter @bind-BuildingId="_buildingId" @bind-RoomId="_roomId" ShowRoom="true" Search="@ReloadAsync" SummaryExtra="@ConditionSummary">
     <DxTextBox @bind-Text="_keyword" NullText="고인·상주명" Style="width: 180px"
                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-    <DxDateEdit @bind-Date="_from" NullText="시작일" Style="width: 150px" />
-    <DxDateEdit @bind-Date="_to" NullText="종료일" Style="width: 150px" />
+    <DxDateEdit @bind-Date="_from" NullText="시작일" Style="width: 150px" Mask="yyyy-MM-dd" DisplayFormat="yyyy-MM-dd" Format="yyyy-MM-dd" AllowUpDownArrowKeys="true" />
+    <DxDateEdit @bind-Date="_to" NullText="종료일" Style="width: 150px" Mask="yyyy-MM-dd" DisplayFormat="yyyy-MM-dd" Format="yyyy-MM-dd" AllowUpDownArrowKeys="true" />
 </BuildingFilter>
 
 <CommCont>

@@ -27,16 +27,32 @@
         {
             <CommSchItem Label="입실">
                 <DxDateEdit @bind-Date="_enterFrom"
-                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                            Mask="yyyy-MM-dd"
+                            DisplayFormat="yyyy-MM-dd"
+                            Format="yyyy-MM-dd"
+                            AllowUpDownArrowKeys="true" />
                 <DxDateEdit @bind-Date="_enterTo"
-                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                            Mask="yyyy-MM-dd"
+                            DisplayFormat="yyyy-MM-dd"
+                            Format="yyyy-MM-dd"
+                            AllowUpDownArrowKeys="true" />
             </CommSchItem>
 
             <CommSchItem Label="발인">
                 <DxDateEdit @bind-Date="_funeralFrom"
-                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                            Mask="yyyy-MM-dd"
+                            DisplayFormat="yyyy-MM-dd"
+                            Format="yyyy-MM-dd"
+                            AllowUpDownArrowKeys="true" />
                 <DxDateEdit @bind-Date="_funeralTo"
-                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                            Mask="yyyy-MM-dd"
+                            DisplayFormat="yyyy-MM-dd"
+                            Format="yyyy-MM-dd"
+                            AllowUpDownArrowKeys="true" />
             </CommSchItem>
         }
     </ChildContent>

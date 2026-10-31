@@ -16,9 +16,9 @@
         <CommSchItem Label="기간">
             @* 기본은 최근 7일이다. 요즘 누가 무엇을 보는지가 이 화면을 여는 까닭이다. *@
             <div class="ad-checks">
-                <DxDateEdit @bind-Date="_from" CssClass="ad-editform__date" />
+                <DxDateEdit @bind-Date="_from" CssClass="ad-editform__date" Mask="yyyy-MM-dd" DisplayFormat="yyyy-MM-dd" Format="yyyy-MM-dd" AllowUpDownArrowKeys="true" />
                 <span class="jsini-text-muted">~</span>
-                <DxDateEdit @bind-Date="_to" CssClass="ad-editform__date" />
+                <DxDateEdit @bind-Date="_to" CssClass="ad-editform__date" Mask="yyyy-MM-dd" DisplayFormat="yyyy-MM-dd" Format="yyyy-MM-dd" AllowUpDownArrowKeys="true" />
             </div>
         </CommSchItem>
 

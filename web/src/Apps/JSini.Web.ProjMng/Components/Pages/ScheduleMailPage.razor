@@ -43,9 +43,9 @@
 
                 <DxFormLayoutItem Caption="기간" ColSpanMd="12">
                     <div class="pm-mail-range">
-                        <DxDateEdit Date="@_d.From" DateChanged="@((DateOnly d) => _d.From = d)" />
+                        <DxDateEdit Date="@_d.From" DateChanged="@((DateOnly d) => _d.From = d)" Mask="yyyy-MM-dd" DisplayFormat="yyyy-MM-dd" Format="yyyy-MM-dd" AllowUpDownArrowKeys="true" />
                         <span>~</span>
-                        <DxDateEdit Date="@_d.Until" DateChanged="@((DateOnly d) => _d.Until = d)" />
+                        <DxDateEdit Date="@_d.Until" DateChanged="@((DateOnly d) => _d.Until = d)" Mask="yyyy-MM-dd" DisplayFormat="yyyy-MM-dd" Format="yyyy-MM-dd" AllowUpDownArrowKeys="true" />
                     </div>
                 </DxFormLayoutItem>
 

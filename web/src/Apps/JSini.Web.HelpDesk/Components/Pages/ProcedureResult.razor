@@ -88,14 +88,18 @@
                                                     TimeSectionVisible="true"
                                                     Format="yyyy-MM-dd HH:mm:ss"
                                                     DisplayFormat="yyyy-MM-dd HH:mm:ss"
-                                                    ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                                                    ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                                                    Mask="yyyy-MM-dd HH:mm:ss"
+                                                    AllowUpDownArrowKeys="true" />
                                     }
                                     else if (IsDateType(parameter.DataType))
                                     {
                                         <DxDateEdit @bind-Date="parameter.DateValue"
                                                     Format="yyyy-MM-dd"
                                                     DisplayFormat="yyyy-MM-dd"
-                                                    ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                                                    ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                                                    Mask="yyyy-MM-dd"
+                                                    AllowUpDownArrowKeys="true" />
                                     }
                                     else
                                     {

@@ -15,10 +15,10 @@ AI 작업 현황. 세는 단위는 「실행」이다(재시도가 보이게). �
 <CommSch OnSearch="@SearchAsync" Busy="@Loading" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="기간">
-            <DxDateEdit @bind-Date="_from" Style="width: 150px" />
+            <DxDateEdit @bind-Date="_from" Style="width: 150px" Mask="yyyy-MM-dd" DisplayFormat="yyyy-MM-dd" Format="yyyy-MM-dd" AllowUpDownArrowKeys="true" />
         </CommSchItem>
         <CommSchItem Label="~">
-            <DxDateEdit @bind-Date="_to" Style="width: 150px" />
+            <DxDateEdit @bind-Date="_to" Style="width: 150px" Mask="yyyy-MM-dd" DisplayFormat="yyyy-MM-dd" Format="yyyy-MM-dd" AllowUpDownArrowKeys="true" />
         </CommSchItem>
     </Fields>
     <Actions>

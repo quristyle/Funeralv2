@@ -16,10 +16,10 @@
                         Style="width: 130px" />
         </CommSchItem>
         <CommSchItem Label="운송일(부터)">
-            <DxDateEdit @bind-Date="_from" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" Style="width: 150px" />
+            <DxDateEdit @bind-Date="_from" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" Style="width: 150px" Mask="yyyy-MM-dd" DisplayFormat="yyyy-MM-dd" Format="yyyy-MM-dd" AllowUpDownArrowKeys="true" />
         </CommSchItem>
         <CommSchItem Label="운송일(까지)">
-            <DxDateEdit @bind-Date="_to" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" Style="width: 150px" />
+            <DxDateEdit @bind-Date="_to" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" Style="width: 150px" Mask="yyyy-MM-dd" DisplayFormat="yyyy-MM-dd" Format="yyyy-MM-dd" AllowUpDownArrowKeys="true" />
         </CommSchItem>
         <CommSchItem Label="거래처">
             <DxComboBox Data="@_companies" @bind-Value="_companyId"

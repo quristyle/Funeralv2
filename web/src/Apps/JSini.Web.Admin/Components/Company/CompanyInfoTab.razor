@@ -41,7 +41,7 @@
         </DxFormLayoutItem>
 
         <DxFormLayoutItem Caption="승인일" ColSpanMd="4">
-            <DxDateEdit @bind-Date="Edit.ApprovalDate" />
+            <DxDateEdit @bind-Date="Edit.ApprovalDate" Mask="yyyy-MM-dd" DisplayFormat="yyyy-MM-dd" Format="yyyy-MM-dd" AllowUpDownArrowKeys="true" />
         </DxFormLayoutItem>
         <DxFormLayoutItem Caption="순서" ColSpanMd="4">
             <DxSpinEdit @bind-Value="Edit.SortOrder" MinValue="0" />

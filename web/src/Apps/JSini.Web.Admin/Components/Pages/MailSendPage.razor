@@ -224,10 +224,10 @@
                      Busy="@Loading" MobileSummary="@SentSummary">
                 <Fields>
                     <CommSchItem Label="기간">
-                        <DxDateEdit @bind-Date="_sentFrom" Style="width: 140px" />
+                        <DxDateEdit @bind-Date="_sentFrom" Style="width: 140px" Mask="yyyy-MM-dd" DisplayFormat="yyyy-MM-dd" Format="yyyy-MM-dd" AllowUpDownArrowKeys="true" />
                     </CommSchItem>
                     <CommSchItem Label="~">
-                        <DxDateEdit @bind-Date="_sentTo" Style="width: 140px" />
+                        <DxDateEdit @bind-Date="_sentTo" Style="width: 140px" Mask="yyyy-MM-dd" DisplayFormat="yyyy-MM-dd" Format="yyyy-MM-dd" AllowUpDownArrowKeys="true" />
                     </CommSchItem>
                     <CommSchItem Label="검색어">
                         <DxTextBox @bind-Text="_sentKeyword" Style="width: 220px"

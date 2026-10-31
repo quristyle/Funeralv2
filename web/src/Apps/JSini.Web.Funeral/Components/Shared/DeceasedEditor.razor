@@ -37,13 +37,13 @@
                     </DeviceField>
 
                     <DeviceField Label="임종">
-                        <DxDateEdit @bind-Date="_form.DeathDate" />
+                        <DxDateEdit @bind-Date="_form.DeathDate" Mask="yyyy-MM-dd" DisplayFormat="yyyy-MM-dd" Format="yyyy-MM-dd" AllowUpDownArrowKeys="true" />
                     </DeviceField>
                     <DeviceField Label="발인">
-                        <DxDateEdit @bind-Date="_form.FuneralDate" TimeSectionVisible="true" />
+                        <DxDateEdit @bind-Date="_form.FuneralDate" TimeSectionVisible="true" Mask="yyyy-MM-dd HH:mm" DisplayFormat="yyyy-MM-dd HH:mm" Format="yyyy-MM-dd HH:mm" AllowUpDownArrowKeys="true" />
                     </DeviceField>
                     <DeviceField Label="장지 일시">
-                        <DxDateEdit @bind-Date="_form.BurialDate" TimeSectionVisible="true" />
+                        <DxDateEdit @bind-Date="_form.BurialDate" TimeSectionVisible="true" Mask="yyyy-MM-dd HH:mm" DisplayFormat="yyyy-MM-dd HH:mm" Format="yyyy-MM-dd HH:mm" AllowUpDownArrowKeys="true" />
                     </DeviceField>
                     <DeviceField Label="장지">
                         <DxTextBox @bind-Text="_form.BurialPlot" />
@@ -148,14 +148,22 @@
                                 <DxDateEdit Date="@facility.StartTime"
                                             DateChanged="@((DateTime? v) => SetFacilityTime(facility, v, null))"
                                             DateExpression="@(() => facility.StartTime)"
-                                            TimeSectionVisible="true" />
+                                            TimeSectionVisible="true"
+                                            Mask="yyyy-MM-dd HH:mm"
+                                            DisplayFormat="yyyy-MM-dd HH:mm"
+                                            Format="yyyy-MM-dd HH:mm"
+                                            AllowUpDownArrowKeys="true" />
                             </DeviceField>
 
                             <DeviceField Label="종료">
                                 <DxDateEdit Date="@facility.EndTime"
                                             DateChanged="@((DateTime? v) => SetFacilityTime(facility, null, v))"
                                             DateExpression="@(() => facility.EndTime)"
-                                            TimeSectionVisible="true" />
+                                            TimeSectionVisible="true"
+                                            Mask="yyyy-MM-dd HH:mm"
+                                            DisplayFormat="yyyy-MM-dd HH:mm"
+                                            Format="yyyy-MM-dd HH:mm"
+                                            AllowUpDownArrowKeys="true" />
                             </DeviceField>
 
                             <DeviceField Label="사용 시간">

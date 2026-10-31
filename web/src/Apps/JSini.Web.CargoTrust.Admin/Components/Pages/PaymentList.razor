@@ -14,11 +14,19 @@
     <Fields>
         <CommSchItem Label="지급일">
             <DxDateEdit @bind-Date="_from" Style="width: 140px"
-                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                        Mask="yyyy-MM-dd"
+                        DisplayFormat="yyyy-MM-dd"
+                        Format="yyyy-MM-dd"
+                        AllowUpDownArrowKeys="true" />
         </CommSchItem>
         <CommSchItem Label="~">
             <DxDateEdit @bind-Date="_to" Style="width: 140px"
-                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                        Mask="yyyy-MM-dd"
+                        DisplayFormat="yyyy-MM-dd"
+                        Format="yyyy-MM-dd"
+                        AllowUpDownArrowKeys="true" />
         </CommSchItem>
     </Fields>
 </CommSch>

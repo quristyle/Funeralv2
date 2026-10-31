@@ -83,14 +83,22 @@
                     @* 폭은 CSS 가 준다(.hd-period__date). 인라인으로 적으면 휴대폰에서 못 걷는다. *@
                     <DxDateEdit @bind-Date="_from" @bind-Date:after="ReloadAsync"
                                 CssClass="hd-period__date"
-                                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                                Mask="yyyy-MM-dd"
+                                DisplayFormat="yyyy-MM-dd"
+                                Format="yyyy-MM-dd"
+                                AllowUpDownArrowKeys="true" />
 
                     @* 「~」는 낭독기에서 뺀다 — 날짜 칸 둘이 이미 차례로 읽힌다. *@
                     <span class="hd-period__tilde" aria-hidden="true">~</span>
 
                     <DxDateEdit @bind-Date="_to" @bind-Date:after="ReloadAsync"
                                 CssClass="hd-period__date"
-                                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                                Mask="yyyy-MM-dd"
+                                DisplayFormat="yyyy-MM-dd"
+                                Format="yyyy-MM-dd"
+                                AllowUpDownArrowKeys="true" />
                 </div>
             </div>
         </CommSchItem>

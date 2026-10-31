@@ -328,7 +328,7 @@
                 @* 날짜와 네모 둘은 한 가지 일이라 한 표제 아래 둔다. *@
                 <DxFormLayoutItem Caption="생일" ColSpanMd="12">
                     <div class="ad-checks">
-                        <DxDateEdit @bind-Date="a.BirthDateTime" CssClass="ad-editform__date" />
+                        <DxDateEdit @bind-Date="a.BirthDateTime" CssClass="ad-editform__date" Mask="yyyy-MM-dd" DisplayFormat="yyyy-MM-dd" Format="yyyy-MM-dd" AllowUpDownArrowKeys="true" />
                         <DxCheckBox @bind-Checked="a.BirthDateIsLunar">음력</DxCheckBox>
                         <DxCheckBox @bind-Checked="a.BirthdayCelebrated">생일 목록에 넣는다</DxCheckBox>
                     </div>

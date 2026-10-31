@@ -19,11 +19,19 @@
     <Fields>
         <CommSchItem Label="기간">
             <DxDateEdit Date="@_from" DateChanged="@((DateTime? d) => OnFromChangedAsync(d))"
-                        Style="width: 140px" />
+                        Style="width: 140px"
+                        Mask="yyyy-MM-dd"
+                        DisplayFormat="yyyy-MM-dd"
+                        Format="yyyy-MM-dd"
+                        AllowUpDownArrowKeys="true" />
         </CommSchItem>
         <CommSchItem Label="~">
             <DxDateEdit Date="@_to" DateChanged="@((DateTime? d) => OnToChangedAsync(d))"
-                        Style="width: 140px" />
+                        Style="width: 140px"
+                        Mask="yyyy-MM-dd"
+                        DisplayFormat="yyyy-MM-dd"
+                        Format="yyyy-MM-dd"
+                        AllowUpDownArrowKeys="true" />
         </CommSchItem>
         <CommSchItem Label="구분">
             @* 갈래 목록은 공통코드(NOTI_CATEGORY)가 갖는다 — 화면에 박으면 갈래 하나 늘리는 데 배포가 필요하다. 기간 안에 없는 것을 좁히는 조건이라 서버로 보낸다. *@

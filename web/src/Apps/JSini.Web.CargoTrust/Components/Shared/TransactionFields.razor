@@ -7,10 +7,10 @@
     </DxFormLayoutItem>
 
     <DxFormLayoutItem Caption="운송일" ColSpanMd="6">
-        <DxDateEdit @bind-Date="Draft.TransportDate" />
+        <DxDateEdit @bind-Date="Draft.TransportDate" Mask="yyyy-MM-dd" DisplayFormat="yyyy-MM-dd" Format="yyyy-MM-dd" AllowUpDownArrowKeys="true" />
     </DxFormLayoutItem>
     <DxFormLayoutItem Caption="예정 지급일" ColSpanMd="6">
-        <DxDateEdit @bind-Date="Draft.ExpectedPaymentDate" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        <DxDateEdit @bind-Date="Draft.ExpectedPaymentDate" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" Mask="yyyy-MM-dd" DisplayFormat="yyyy-MM-dd" Format="yyyy-MM-dd" AllowUpDownArrowKeys="true" />
     </DxFormLayoutItem>
 
     <DxFormLayoutItem Caption="출발지" ColSpanMd="6">

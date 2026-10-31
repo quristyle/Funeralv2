@@ -16,9 +16,9 @@
         <CommSchItem Label="기간">
             @* 기본은 최근 30일이다 — 요즘 누가 많이 쓰나를 보려고 여는 화면이라 처음부터 전부 더해 보이지 않는다. *@
             <div class="ad-checks">
-                <DxDateEdit @bind-Date="_from" CssClass="ad-editform__date" />
+                <DxDateEdit @bind-Date="_from" CssClass="ad-editform__date" Mask="yyyy-MM-dd" DisplayFormat="yyyy-MM-dd" Format="yyyy-MM-dd" AllowUpDownArrowKeys="true" />
                 <span class="jsini-text-muted">~</span>
-                <DxDateEdit @bind-Date="_to" CssClass="ad-editform__date" />
+                <DxDateEdit @bind-Date="_to" CssClass="ad-editform__date" Mask="yyyy-MM-dd" DisplayFormat="yyyy-MM-dd" Format="yyyy-MM-dd" AllowUpDownArrowKeys="true" />
             </div>
         </CommSchItem>
 

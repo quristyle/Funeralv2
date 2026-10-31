@@ -13,7 +13,7 @@
 <CommSch OnSearch="@SearchAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="날짜">
-            <DxDateEdit @bind-Date="_targetDate" Style="width: 150px" />
+            <DxDateEdit @bind-Date="_targetDate" Style="width: 150px" Mask="yyyy-MM-dd" DisplayFormat="yyyy-MM-dd" Format="yyyy-MM-dd" AllowUpDownArrowKeys="true" />
         </CommSchItem>
 
         <CommSchItem Label="사람">
@@ -87,7 +87,7 @@
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="날짜" ColSpanMd="6">
-                    <DxDateEdit @bind-Date="t.TargetDay" />
+                    <DxDateEdit @bind-Date="t.TargetDay" Mask="yyyy-MM-dd" DisplayFormat="yyyy-MM-dd" Format="yyyy-MM-dd" AllowUpDownArrowKeys="true" />
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="사람" ColSpanMd="6">

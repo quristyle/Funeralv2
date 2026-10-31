@@ -8,8 +8,8 @@
 <PageTitle>요금 내역 · 장례식장</PageTitle>
 
 <BuildingFilter @bind-BuildingId="_buildingId" Search="@ReloadAsync" SummaryExtra="@ConditionSummary">
-    <DxDateEdit @bind-Date="_from" NullText="시작일" Style="width: 150px" />
-    <DxDateEdit @bind-Date="_to" NullText="종료일" Style="width: 150px" />
+    <DxDateEdit @bind-Date="_from" NullText="시작일" Style="width: 150px" Mask="yyyy-MM-dd" DisplayFormat="yyyy-MM-dd" Format="yyyy-MM-dd" AllowUpDownArrowKeys="true" />
+    <DxDateEdit @bind-Date="_to" NullText="종료일" Style="width: 150px" Mask="yyyy-MM-dd" DisplayFormat="yyyy-MM-dd" Format="yyyy-MM-dd" AllowUpDownArrowKeys="true" />
 </BuildingFilter>
 
 @if (_summary is not null)

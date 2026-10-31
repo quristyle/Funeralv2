@@ -961,7 +961,11 @@ WBS 상세 목록. 다른 화면의 막대·칸을 누르면 조건이 주소로
 
             case "date":
                 <DxDateEdit TValue="DateTime?" Date="@DateOf(f.Key)" DateChanged="@((DateTime? d) => Set(f.Key, d?.ToString("yyyy-MM-dd")))"
-                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" ValidationEnabled="false" />
+                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" ValidationEnabled="false"
+                            Mask="yyyy-MM-dd"
+                            DisplayFormat="yyyy-MM-dd"
+                            Format="yyyy-MM-dd"
+                            AllowUpDownArrowKeys="true" />
                 break;
 
             case "area":

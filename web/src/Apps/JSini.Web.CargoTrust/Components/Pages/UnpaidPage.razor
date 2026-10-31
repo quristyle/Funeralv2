@@ -16,10 +16,10 @@
                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" Style="width: 210px" />
         </CommSchItem>
         <CommSchItem Label="운송일(부터)">
-            <DxDateEdit @bind-Date="_from" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" Style="width: 150px" />
+            <DxDateEdit @bind-Date="_from" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" Style="width: 150px" Mask="yyyy-MM-dd" DisplayFormat="yyyy-MM-dd" Format="yyyy-MM-dd" AllowUpDownArrowKeys="true" />
         </CommSchItem>
         <CommSchItem Label="운송일(까지)">
-            <DxDateEdit @bind-Date="_to" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" Style="width: 150px" />
+            <DxDateEdit @bind-Date="_to" ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" Style="width: 150px" Mask="yyyy-MM-dd" DisplayFormat="yyyy-MM-dd" Format="yyyy-MM-dd" AllowUpDownArrowKeys="true" />
         </CommSchItem>
         <CommSchItem>
             <DxCheckBox @bind-Checked="_mine">내가 등록한 것만</DxCheckBox>

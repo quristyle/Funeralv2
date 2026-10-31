@@ -15,10 +15,10 @@
 <CommSch OnSearch="@ReloadAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="기간">
-            <DxDateEdit @bind-Date="_from" Style="width: 140px" />
+            <DxDateEdit @bind-Date="_from" Style="width: 140px" Mask="yyyy-MM-dd" DisplayFormat="yyyy-MM-dd" Format="yyyy-MM-dd" AllowUpDownArrowKeys="true" />
         </CommSchItem>
         <CommSchItem Label="~">
-            <DxDateEdit @bind-Date="_to" Style="width: 140px" />
+            <DxDateEdit @bind-Date="_to" Style="width: 140px" Mask="yyyy-MM-dd" DisplayFormat="yyyy-MM-dd" Format="yyyy-MM-dd" AllowUpDownArrowKeys="true" />
         </CommSchItem>
         <CommSchItem Label="구분">
             @* 갈래 목록의 정본은 공통코드(NOTI_CATEGORY)다. 마지막 「구분 없음」은 구분을 빠뜨린 발송을 찾는 자리다(PushCategoryClient.Unset). *@

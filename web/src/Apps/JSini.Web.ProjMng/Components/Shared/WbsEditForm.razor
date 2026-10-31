@@ -58,20 +58,20 @@
     </DxFormLayoutItem>
 
     <DxFormLayoutItem Caption="계획 시작" ColSpanMd="6" ColSpanLg="@(Compact ? 3 : 6)">
-        <DxDateEdit @bind-Date="Item.PlanSdt" TimeSectionVisible="true" DisplayFormat="yyyy-MM-dd HH:mm" Format="yyyy-MM-dd HH:mm" ValidationEnabled="false" />
+        <DxDateEdit @bind-Date="Item.PlanSdt" TimeSectionVisible="true" DisplayFormat="yyyy-MM-dd HH:mm" Format="yyyy-MM-dd HH:mm" ValidationEnabled="false" Mask="yyyy-MM-dd HH:mm" AllowUpDownArrowKeys="true" />
     </DxFormLayoutItem>
 
     <DxFormLayoutItem Caption="계획 종료" ColSpanMd="6" ColSpanLg="@(Compact ? 3 : 6)">
-        <DxDateEdit @bind-Date="Item.PlanEdt" TimeSectionVisible="true" DisplayFormat="yyyy-MM-dd HH:mm" Format="yyyy-MM-dd HH:mm" ValidationEnabled="false" />
+        <DxDateEdit @bind-Date="Item.PlanEdt" TimeSectionVisible="true" DisplayFormat="yyyy-MM-dd HH:mm" Format="yyyy-MM-dd HH:mm" ValidationEnabled="false" Mask="yyyy-MM-dd HH:mm" AllowUpDownArrowKeys="true" />
     </DxFormLayoutItem>
 
     @* 이 둘이 진행 상태를 정한다 — 대기·진행·완료는 적는 칸이 아니다. *@
     <DxFormLayoutItem Caption="개발 시작" ColSpanMd="6" ColSpanLg="@(Compact ? 3 : 6)">
-        <DxDateEdit @bind-Date="Item.DevSdt" TimeSectionVisible="true" DisplayFormat="yyyy-MM-dd HH:mm" Format="yyyy-MM-dd HH:mm" ValidationEnabled="false" />
+        <DxDateEdit @bind-Date="Item.DevSdt" TimeSectionVisible="true" DisplayFormat="yyyy-MM-dd HH:mm" Format="yyyy-MM-dd HH:mm" ValidationEnabled="false" Mask="yyyy-MM-dd HH:mm" AllowUpDownArrowKeys="true" />
     </DxFormLayoutItem>
 
     <DxFormLayoutItem Caption="개발 종료" ColSpanMd="6" ColSpanLg="@(Compact ? 3 : 6)">
-        <DxDateEdit @bind-Date="Item.DevEdt" TimeSectionVisible="true" DisplayFormat="yyyy-MM-dd HH:mm" Format="yyyy-MM-dd HH:mm" ValidationEnabled="false" />
+        <DxDateEdit @bind-Date="Item.DevEdt" TimeSectionVisible="true" DisplayFormat="yyyy-MM-dd HH:mm" Format="yyyy-MM-dd HH:mm" ValidationEnabled="false" Mask="yyyy-MM-dd HH:mm" AllowUpDownArrowKeys="true" />
     </DxFormLayoutItem>
 
     <DxFormLayoutItem Caption="메모" ColSpanMd="12" ColSpanLg="@(Compact ? 6 : 12)">

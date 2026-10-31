@@ -135,11 +135,11 @@
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="게시 시작" ColSpanMd="6">
-                    <DxDateEdit @bind-Date="n.StartAt" TimeSectionVisible="true" />
+                    <DxDateEdit @bind-Date="n.StartAt" TimeSectionVisible="true" Mask="yyyy-MM-dd HH:mm" DisplayFormat="yyyy-MM-dd HH:mm" Format="yyyy-MM-dd HH:mm" AllowUpDownArrowKeys="true" />
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="게시 종료" ColSpanMd="6">
-                    <DxDateEdit @bind-Date="n.EndAt" TimeSectionVisible="true" />
+                    <DxDateEdit @bind-Date="n.EndAt" TimeSectionVisible="true" Mask="yyyy-MM-dd HH:mm" DisplayFormat="yyyy-MM-dd HH:mm" Format="yyyy-MM-dd HH:mm" AllowUpDownArrowKeys="true" />
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="정렬 순서" ColSpanMd="4">
