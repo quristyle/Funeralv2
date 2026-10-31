@@ -44,9 +44,6 @@
                         <DxDateEdit Date="@_d.From" DateChanged="@((DateOnly d) => _d.From = d)" />
                         <span>~</span>
                         <DxDateEdit Date="@_d.Until" DateChanged="@((DateOnly d) => _d.Until = d)" />
-                        <DxButton Text="@(_loading ? "가져오는 중…" : "다시 가져오기")" RenderStyle="ButtonRenderStyle.Secondary"
-                                  IconCssClass="jsini-icon-refresh" Enabled="@(!_loading)"
-                                  Click="@ReloadItemsAsync" />
                     </div>
                 </DxFormLayoutItem>
 
@@ -75,8 +72,8 @@
         <div class="pm-mail-preview pm-mailpage__body">
             <div class="pm-mail-preview__head">
                 <span>본문 · @_d.Count 건@(_d.Edited ? " · 직접 고침" : null)</span>
-                <DxButton Text="본문 다시 만들기" RenderStyle="ButtonRenderStyle.Link"
-                          IconCssClass="jsini-icon-refresh" Click="@RebuildBodyAsync" />
+                <DxButton Text="@(_loading ? "가져오는 중…" : "본문 다시 만들기")" RenderStyle="ButtonRenderStyle.Link"
+                          IconCssClass="jsini-icon-refresh" Enabled="@(!_loading)" Click="@RebuildBodyAsync" />
             </div>
             <MailHtmlEditor @ref="_editor" Value="@_d.Body" ValueChanged="@OnBodyEdited" Height="100%" />
         </div>

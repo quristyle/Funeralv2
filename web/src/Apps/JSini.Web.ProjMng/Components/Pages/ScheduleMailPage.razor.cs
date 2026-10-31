@@ -280,21 +280,6 @@ public partial class ScheduleMailPage : IDisposable
         }
     }
 
-    /// <summary>「다시 가져오기」. 직접 고친 본문이 있으면 덮기 전에 묻는다.</summary>
-    private async Task ReloadItemsAsync()
-    {
-        if (!await ConfirmOverwriteAsync())
-        {
-            return;
-        }
-
-        if (await LoadItemsAsync())
-        {
-            RebuildBody();
-            Say($"{_d.From:yyyy.MM.dd} ~ {_d.Until:yyyy.MM.dd} 일정 {_d.Count}건을 다시 가져왔습니다.");
-        }
-    }
-
     private async Task PickTemplateAsync(long id)
     {
         if (id == _d.TplId || !await ConfirmOverwriteAsync())
@@ -306,11 +291,18 @@ public partial class ScheduleMailPage : IDisposable
         RebuildBody();
     }
 
+    /// <summary>「본문 다시 만들기」. 고른 기간의 일정을 다시 읽고 본문을 새로 만든다.</summary>
     private async Task RebuildBodyAsync()
     {
-        if (await ConfirmOverwriteAsync())
+        if (!await ConfirmOverwriteAsync())
+        {
+            return;
+        }
+
+        if (await LoadItemsAsync())
         {
             RebuildBody();
+            Say($"{_d.From:yyyy.MM.dd} ~ {_d.Until:yyyy.MM.dd} 일정 {_d.Count}건으로 본문을 다시 만들었습니다.");
         }
     }
 
