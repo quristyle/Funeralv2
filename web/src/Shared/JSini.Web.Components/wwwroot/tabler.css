@@ -504,6 +504,14 @@ a { color: var(--tb-primary); }
   border-left: 1px solid var(--tb-border-soft);
 }
 
+/* 왼쪽에 붙박은 칸 바로 뒤에서는 DevExpress 가 다음 칸의 왼쪽 선을 0 으로 지우고(자릿수가 위 규칙보다 높다) 붙박은 칸의 오른쪽 선으로 대신 긋는데, 그 폭이 판 안에서 0px 라 선이 통째로 사라진다. 붙박은 칸 쪽에 그어야 굴려도 경계에 붙어 다닌다. */
+.commgrd .dxbl-grid-table > thead > tr > th.dxbl-grid-last-fixed-left-cell,
+.commgrd .dxbl-grid-table > tbody > tr > td.dxbl-grid-last-fixed-left-cell,
+.commtree .dxbl-grid-table > thead > tr > th.dxbl-grid-last-fixed-left-cell,
+.commtree .dxbl-grid-table > tbody > tr > td.dxbl-grid-last-fixed-left-cell {
+  border-right: 1px solid var(--tb-border-soft);
+}
+
 /* 고른 줄 — 진한 강조색 면이 아니라 옅은 강조 + 왼쪽 막대(Tabler 목록의 활성 표시). */
 .dxbl-grid .dxbl-grid-focused-row > td,
 .dxbl-grid .dxbl-grid-selected-row > td {
