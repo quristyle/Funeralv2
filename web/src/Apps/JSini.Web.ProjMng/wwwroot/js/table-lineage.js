@@ -7,6 +7,10 @@
 //
 // 끌기·확대·잇기·경유점은 전부 여기서 끝낸다. 회로로 넘기면 마우스가 움직일 때마다 왕복한다.
 // 서버로 올라가는 것은 「골랐다」·「바뀌었다」·「레인을 눌렀다」 셋뿐이다.
+//
+// 업무항목을 고르면 그 항목의 칸과 그 칸끼리의 선만 DOM 에 만든다(scope). 흐리게 둔 채
+// 전부 그리면 M20 에서 칸 543 · 선 1995 가 늘 살아 있어 끌기·확대가 버벅인다.
+// 「칸을 눌러 담기」 동안은 담을 칸이 보여야 하므로 전부 그린다.
 
 const GRID = 20;              // 칸이 붙는 눈금. 옮겨 온 배치가 전부 20 의 배수다 — 어긋나면 첫 끌기에서 칸이 튄다
 const NODE_W = 196;
@@ -55,7 +59,8 @@ class Lineage {
     this.byId = new Map();
     this.adj = new Map();     // 칸 id → 닿는 선들
     this.view = { x: 0, y: 0, z: 1 };
-    this.filter = { q: '', kinds: [], flows: [], lane: null, onlyLinked: false, keep: null, solo: false, picking: false, seqOn: false, hover: true, dbTables: null };
+    this.filter = { q: '', kinds: [], flows: [], lane: null, onlyLinked: false, keep: null, item: null, picking: false, seqOn: false, hover: true, dbTables: null };
+    this.scope = null;        // 그린 칸들(Set). null 이면 전부
     this.sel = null;          // { kind:'node'|'edge', id }
     this.hoverId = null;
     this.linking = false;
@@ -115,6 +120,8 @@ class Lineage {
     this.hoverId = null;
     this.linkFrom = null;
     this.dirtySent = false;
+    // 고른 업무항목은 화면이 곧 다시 알려 준다 — 옛 범위로 한 번 그렸다가 또 그리지 않게 비운다.
+    this.filter = { ...this.filter, keep: null, item: null, picking: false };
     this.reindex();
     this.renderAll();
     if (!keepView) requestAnimationFrame(() => this.fit());
@@ -181,16 +188,34 @@ class Lineage {
 
   // ───────────────────────── 그리기 ─────────────────────────
 
+  /** 그릴 칸. 업무항목을 골랐고 담는 중이 아니면 그 항목의 칸만(비어 있으면 하나도 없다). */
+  scopeOf(f) {
+    return !f.picking && Array.isArray(f.keep) ? new Set(f.keep) : null;
+  }
+
   renderAll() {
+    this.scope = this.scopeOf(this.filter);
+    const inScope = (id) => !this.scope || this.scope.has(id);
     this.renderLanes();
     this.nodeLayer.innerHTML = '';
     this.nodeEls = new Map();
-    for (const n of this.nodes) this.nodeLayer.append(this.makeNode(n));
+    const shown = this.nodes.filter((n) => inScope(n.id));
+    const frag = document.createDocumentFragment();
+    for (const n of shown) frag.append(this.makeNode(n));
+    this.nodeLayer.append(frag);
     // 칸 크기를 잰 뒤에 선을 긋는다 — 끝점이 칸 테두리에 붙어야 한다.
-    for (const n of this.nodes) this.measure(n);
+    for (const n of shown) this.measure(n);
     this.svg.querySelectorAll('g.tl-e').forEach((g) => g.remove());
     this.edgeEls = new Map();
-    for (const e of this.edges) this.svg.append(this.makeEdge(e));
+    const lines = document.createDocumentFragment();
+    for (const e of this.edges) if (inScope(e.source) && inScope(e.target)) lines.append(this.makeEdge(e));
+    this.svg.append(lines);
+    if (this.hoverId && !this.nodeEls.has(this.hoverId)) this.hoverId = null;
+    if (this.linkFrom && !this.nodeEls.has(this.linkFrom)) this.linkFrom = null;
+    // 고른 것이 범위 밖으로 나갔으면 놓는다 — 오른쪽 판이 안 보이는 칸을 붙들고 있지 않게.
+    if (this.sel && !(this.sel.kind === 'node' ? this.nodeEls : this.edgeEls).has(this.sel.id)) {
+      this.select(null);
+    }
     this.paint();
     this.applyView();
   }
@@ -328,8 +353,14 @@ class Lineage {
   // ───────────────────────── 거르기 · 칠하기 ─────────────────────────
 
   setFilter(f) {
+    const prev = this.filter;
     this.filter = { ...this.filter, ...f };
-    this.paint();
+    const was = this.scope, now = this.scopeOf(this.filter);
+    const same = was === now || (!!was && !!now && was.size === now.size && [...now].every((x) => was.has(x)));
+    if (same) { this.paint(); return; }
+    this.renderAll();
+    // 다른 업무항목으로 옮겼을 때만 맞춘다 — 담기를 켜고 끌 때는 보던 자리에 그대로 둔다.
+    if ((prev.item ?? null) !== (this.filter.item ?? null)) requestAnimationFrame(() => this.fit());
   }
 
   focusId() { return this.sel?.kind === 'node' ? this.sel.id : (this.filter.hover ? this.hoverId : null); }
@@ -374,7 +405,8 @@ class Lineage {
       d.classList.toggle('is-from', this.linkFrom === n.id);
       // 대상 DB 에서 표 목록을 받아 왔을 때만 가른다. 프로시저·외부 칸은 표 목록에 없는 것이 정상이다.
       d.classList.toggle('is-missing', !!db && ['master', 'ledger', 'derived', 'snap'].includes(n.data.kind || 'master') && !db.has(n.id.toUpperCase()));
-      d.hidden = !picking && !!f.solo && !!pin && !pinned(n.id);
+      // 범위를 정한 뒤에 놓은 칸은 DOM 에 있어도 범위 밖이면 숨긴다.
+      d.hidden = !!this.scope && !this.scope.has(n.id);
     }
 
     const kinds = new Set(f.kinds || []);
@@ -389,7 +421,7 @@ class Lineage {
       const selected = this.sel?.kind === 'edge' && this.sel.id === e.id;
       // 선 보기에서 안 고른 종류는 흐리지 않고 아예 안 그린다 — 1995개를 흐린 채 두면 끌기·확대가 계속 무겁다.
       // 다만 고른 칸에 닿는 선과 고른 선은 종류와 무관하게 세운다 — 칸을 눌렀는데 아무 선도 없으면 그 칸이 어디와 이어지는지 볼 길이 없다.
-      const show = selected || (!picking && ((inKind && !(f.solo && pin && !inPin)) || (hit && inFlow)));
+      const show = selected || (!picking && (inKind || (hit && inFlow)));
       const dim = !selected && (!inFlow || (!!id && !hit && !inPin));
       g.style.display = show ? '' : 'none';
       g.classList.toggle('is-dim', dim);
@@ -428,7 +460,7 @@ class Lineage {
   bounds(onlyVisible) {
     let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
     for (const n of this.nodes) {
-      if (onlyVisible && this.nodeEls.get(n.id)?.hidden) continue;
+      if (onlyVisible) { const d = this.nodeEls.get(n.id); if (!d || d.hidden) continue; }
       x1 = Math.min(x1, n.position.x); y1 = Math.min(y1, n.position.y);
       x2 = Math.max(x2, n.position.x + (n._w || NODE_W)); y2 = Math.max(y2, n.position.y + (n._h || NODE_H));
     }
@@ -463,17 +495,18 @@ class Lineage {
     return { x: (clientX - box.left - this.view.x) / this.view.z, y: (clientY - box.top - this.view.y) / this.view.z };
   }
 
-  /** 그 칸으로 가서 고른다. */
+  /** 그 칸으로 가서 고른다. 도면에 없으면 'missing', 고른 업무항목 밖이라 안 그렸으면 'out'. */
   goTo(id) {
     const n = this.byId.get(id);
-    if (!n) return false;
+    if (!n) return 'missing';
+    if (!this.nodeEls.has(id)) return 'out';
     const box = this.host.getBoundingClientRect();
     const z = Math.max(this.view.z, 0.9);
     this.view = { z, x: box.width / 2 - (n.position.x + (n._w || NODE_W) / 2) * z, y: box.height / 2 - (n.position.y + (n._h || NODE_H) / 2) * z };
     this.applyView();
     this.select({ kind: 'node', id });
     this.flash([id]);
-    return true;
+    return 'ok';
   }
 
   flash(ids) {
@@ -499,14 +532,14 @@ class Lineage {
     this.map.style.display = '';
     const c = this.map.getContext('2d');
     const W = this.map.width, H = this.map.height;
-    const b = this.bounds(false);
+    const b = this.bounds(true);
     const s = Math.min(W / (b.x2 - b.x1 + 80), H / (b.y2 - b.y1 + 80));
     const ox = -b.x1 * s + (W - (b.x2 - b.x1) * s) / 2, oy = -b.y1 * s + (H - (b.y2 - b.y1) * s) / 2;
     this._mapT = { s, ox, oy };
     c.clearRect(0, 0, W, H);
     for (const n of this.nodes) {
       const d = this.nodeEls.get(n.id);
-      if (d?.hidden) continue;
+      if (!d || d.hidden) continue;
       c.fillStyle = d?.classList.contains('is-hot') ? '#206bc4' : d?.classList.contains('is-dim') ? '#d5d9de' : '#8b97a5';
       c.fillRect(ox + n.position.x * s, oy + n.position.y * s, Math.max(2, (n._w || NODE_W) * s), Math.max(1.5, (n._h || NODE_H) * s));
     }
@@ -563,14 +596,15 @@ class Lineage {
         for (const f of this.flows) if (Array.isArray(f.nodes)) f.nodes = f.nodes.map((x) => (x === id ? next : x));
         const d = this.nodeEls.get(id);
         this.nodeEls.delete(id);
-        this.nodeEls.set(next, d);
-        d.dataset.id = next;
+        if (d) { this.nodeEls.set(next, d); d.dataset.id = next; }
+        if (this.scope?.delete(id)) this.scope.add(next);
         if (this.sel?.id === id) this.sel.id = next;
         this.reindex();
       }
     }
     Object.assign(n.data, patch);
-    this.fillNode(this.nodeEls.get(n.id), n);
+    const d = this.nodeEls.get(n.id);
+    if (d) this.fillNode(d, n);
     this.measure(n);
     this.redrawEdgesOf(n.id);
     this.paint();
@@ -692,7 +726,8 @@ class Lineage {
       const kr = map[node.id.toUpperCase()] ?? map[node.id];
       if (kr && !node.data.kr) {
         node.data.kr = kr;
-        this.fillNode(this.nodeEls.get(node.id), node);
+        const d = this.nodeEls.get(node.id);
+        if (d) this.fillNode(d, node);
         n++;
       }
     }

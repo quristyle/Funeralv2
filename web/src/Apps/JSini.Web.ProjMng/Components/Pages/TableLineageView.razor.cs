@@ -74,7 +74,6 @@ public partial class TableLineageView
     private string? _renaming;
     private string? _renameText;
     private string? _newItem;
-    private bool _solo;
     private bool _picking;
 
     // ── 고른 것 ──
@@ -110,14 +109,19 @@ public partial class TableLineageView
             var kw = _q.Trim();
             if (kw.Length == 0 || _summary is null) return [];
 
+            // 업무항목을 고르면 캔버스에 그 항목의 표만 있다 — 찾기도 그 안에서만 한다.
+            var scope = DrawnScope;
             return
             [
-                .. _summary.Tables.Where(t =>
+                .. _summary.Tables.Where(t => scope is null || scope.Contains(t.Id)).Where(t =>
                     t.Id.Contains(kw, StringComparison.OrdinalIgnoreCase)
                     || (t.Kr ?? string.Empty).Contains(kw, StringComparison.OrdinalIgnoreCase))
             ];
         }
     }
+
+    /// <summary>캔버스가 그린 표. null 이면 전부다 — 담는 중에는 담을 표가 보여야 하므로 전부 그린다.</summary>
+    private HashSet<string>? DrawnScope => _picking || CurItem is not { } item ? null : [.. item.Tables];
 
     private bool HasFilter => _q.Length > 0 || _flows.Count > 0 || _lane is not null || _itemId is not null || _onlyLinked;
 
@@ -202,7 +206,7 @@ public partial class TableLineageView
         lane = _lane,
         onlyLinked = _onlyLinked,
         keep = CurItem?.Tables.ToArray(),
-        solo = _solo,
+        item = _itemId,
         picking = _picking && CurItem is not null,
         seqOn = CurItem is not null,
         hover = _hover,
@@ -273,7 +277,6 @@ public partial class TableLineageView
             _q = string.Empty;
             _onlyLinked = false;
             _itemId = null;
-            _solo = false;
             _picking = false;
             _selNode = null;
             _selEdge = null;
@@ -602,7 +605,6 @@ public partial class TableLineageView
         _lane = null;
         _itemId = null;
         _onlyLinked = false;
-        _solo = false;
         _picking = false;
         await PushFilterAsync();
     }
@@ -613,12 +615,6 @@ public partial class TableLineageView
     {
         _itemId = _itemId == id ? null : id;
         if (_itemId is null) _picking = false;
-        await PushFilterAsync();
-    }
-
-    private async Task SetSoloAsync(bool on)
-    {
-        _solo = on;
         await PushFilterAsync();
     }
 
@@ -746,6 +742,7 @@ public partial class TableLineageView
         }
 
         await RefreshSummaryAsync();
+        await PushFilterAsync();
     }
 
     private Task ApplyEdgeAsync() => PatchEdgeAsync(new
@@ -769,9 +766,14 @@ public partial class TableLineageView
     private async Task GoToAsync(string id)
     {
         if (_instance is null) return;
-        if (!await _instance.InvokeAsync<bool>("goTo", id))
+        switch (await _instance.InvokeAsync<string>("goTo", id))
         {
-            Say($"{id} 은(는) 이 도면에 없습니다.", NoticeTone.Warning);
+            case "missing":
+                Say($"{id} 은(는) 이 도면에 없습니다.", NoticeTone.Warning);
+                break;
+            case "out":
+                Say($"{id} 은(는) 고른 업무항목 밖이라 그리지 않았습니다. 업무항목 고르기를 풀면 보입니다.", NoticeTone.Warning);
+                break;
         }
     }
 

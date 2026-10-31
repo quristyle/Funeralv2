@@ -120,7 +120,7 @@
 </div>
 
 <div class="tl-body">
-    @* 업무항목 — 고르면 그 표들만 또렷해진다. 편집모드에서는 칸을 눌러 넣고 뺀다. *@
+    @* 업무항목 — 고르면 그 표들과 그 사이 선만 그린다. 편집모드에서는 전부 그리고 칸을 눌러 넣고 뺀다. *@
     <aside class="tl-side tl-side--items">
         <div class="tl-side__head">
             <b>업무항목</b> <small>@_items.Items.Count</small>
@@ -156,13 +156,9 @@
             }
         </ul>
 
-        @if (_itemId is not null)
+        @if (_itemId is not null && CanEdit)
         {
-            <DxCheckBox Checked="@_solo" CheckedChanged="@((bool on) => SetSoloAsync(on))">이 업무만 그리기</DxCheckBox>
-            @if (CanEdit)
-            {
-                <DxCheckBox Checked="@_picking" CheckedChanged="@((bool on) => SetPickingAsync(on))">칸을 눌러 담기</DxCheckBox>
-            }
+            <DxCheckBox Checked="@_picking" CheckedChanged="@((bool on) => SetPickingAsync(on))">칸을 눌러 담기</DxCheckBox>
         }
 
         @if (CanEdit && _loaded is not null)
