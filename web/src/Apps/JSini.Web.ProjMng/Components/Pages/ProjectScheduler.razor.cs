@@ -2150,13 +2150,64 @@ public partial class ProjectScheduler : IAsyncDisposable
         await SaveInlineAsync(w);
     }
 
-    private async Task OnInlineAddTargetChangedAsync(WbsItemDto w, string? val)
-    {
-        if (string.Equals(w.AddTarget ?? string.Empty, val ?? string.Empty, StringComparison.Ordinal)) return;
+    /// <summary>공통코드를 못 읽었을 때 도는 차례. 공통코드가 있으면 그 차례를 따른다.</summary>
+    private static readonly string[] FallbackAddTargets = ["ADD", "CHANGE", "MOVE"];
 
+    /// <summary>연달아 누른 것은 마지막 값 하나만 저장한다 — 누를 때마다 보내면 응답이 엇갈려 앞의 값이 이길 수 있다.</summary>
+    private readonly Dictionary<int, CancellationTokenSource> _addTargetSaves = [];
+
+    private const int AddTargetSaveDelayMs = 600;
+
+    /// <summary>비움 → 공통코드 차례 → 다시 비움으로 돈다.</summary>
+    private void CycleAddTarget(WbsItemDto w)
+    {
+        var codes = _addTargetCodes.Count > 0
+            ? _addTargetCodes.Select(c => c.Code).Where(c => !string.IsNullOrWhiteSpace(c)).ToList()
+            : [.. FallbackAddTargets];
+
+        var current = w.AddTarget?.Trim() ?? string.Empty;
+        var at = codes.FindIndex(c => string.Equals(c, current, StringComparison.OrdinalIgnoreCase));
+
+        // 비어 있거나 목록에 없는 값이면 첫 코드로, 마지막 코드 다음은 비움이다.
         // 지운 것은 빈 글자로 보낸다 — null 은 서버가 「그대로 둔다」로 읽는다.
-        w.AddTarget = val ?? string.Empty;
-        await SaveInlineAsync(w);
+        w.AddTarget = current.Length == 0 || at < 0
+            ? codes.FirstOrDefault() ?? string.Empty
+            : at + 1 < codes.Count ? codes[at + 1] : string.Empty;
+
+        _ = SaveAddTargetLaterAsync(w);
+    }
+
+    private async Task SaveAddTargetLaterAsync(WbsItemDto w)
+    {
+        if (_addTargetSaves.Remove(w.WbsId, out var previous))
+        {
+            previous.Cancel();
+            previous.Dispose();
+        }
+
+        var cts = new CancellationTokenSource();
+        _addTargetSaves[w.WbsId] = cts;
+
+        try
+        {
+            await Task.Delay(AddTargetSaveDelayMs, cts.Token);
+        }
+        catch (TaskCanceledException)
+        {
+            return;
+        }
+
+        _addTargetSaves.Remove(w.WbsId);
+        cts.Dispose();
+
+        try
+        {
+            await InvokeAsync(() => SaveInlineAsync(w));
+        }
+        catch (ObjectDisposedException)
+        {
+            // 기다리는 사이에 회로가 닫혔다 — 보낼 길이 없다.
+        }
     }
 
     private async Task OnInlineProcTpChangedAsync(WbsItemDto w, string? val)

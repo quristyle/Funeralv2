@@ -7934,3 +7934,28 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   .tl-side--detail { grid-row: 3; }
   .tl-map { display: none !important; }
 }
+
+/* ── 일정표: 표 보기의 추가대상 단추 (`pm-addtarget`) — 누를 때마다 비움 → 추가 → 변경 → 이동 → 비움 ── */
+.pm-addtarget {
+  min-width: 3.5rem;
+  padding: 0.125rem 0.625rem;
+  border: 1px solid var(--tb-border, var(--jsini-border, #d1d5db));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bs-warning, #f59f00) 14%, transparent);
+  color: var(--tb-text, var(--jsini-text, inherit));
+  font-size: var(--jsini-fs-sm, 0.8125rem);
+  line-height: 1.5;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out;
+}
+
+.pm-addtarget:hover {
+  border-color: var(--pm-gc-accent, #1a73e8);
+}
+
+.pm-addtarget--empty {
+  background: transparent;
+  border-style: dashed;
+  color: var(--jsini-text-muted, #6b7280);
+}

@@ -418,17 +418,15 @@
                                     @{
                                         var w = (WbsItemDto)cell.DataItem;
                                     }
-                                    @if (IsEditing(w))
+                                    @if (_canUpdate)
                                     {
-                                        <DxComboBox Data="@_addTargetCodes"
-                                                    TextFieldName="@nameof(CommonCodeItem.Name)"
-                                                    ValueFieldName="@nameof(CommonCodeItem.Code)"
-                                                    Value="@w.AddTarget"
-                                                    ValueChanged="@((string? s) => OnInlineAddTargetChangedAsync(w, s))"
-                                                    ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
-                                                    NullText="추가대상"
-                                                    ValidationEnabled="false"
-                                                    CssClass="pm-inline-edit" />
+                                        @* 줄마다 서는 것이라 DevExpress 부품이 아니라 맨 단추다 — 고른 줄이 아니어도 한 번에 바뀐다 *@
+                                        var targetName = AddTargets.Name(w.AddTarget);
+                                        <button type="button"
+                                                class="pm-addtarget @(targetName is null ? "pm-addtarget--empty" : "")"
+                                                title="누를 때마다 다음 추가대상으로 바뀝니다 (비움 포함)"
+                                                @onclick="@(() => CycleAddTarget(w))"
+                                                @onclick:stopPropagation="true">@(targetName ?? "—")</button>
                                     }
                                     else if (AddTargets.Name(w.AddTarget) is { } target)
                                     {
