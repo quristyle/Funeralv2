@@ -19,6 +19,12 @@
                             @bind-Value="ProjectCode" />
             </DxFormLayoutItem>
 
+            @* AI 가 짓지 않는다 — 고른 코드가 그대로 일정에 실린다. *@
+            <DxFormLayoutItem Caption="추가대상" ColSpanMd="12">
+                <CodeSelect CodeId="@AddTargets.CodeId" AutoSelectFirst="false" AllowClear="true" KeepUnknownValue="true"
+                            @bind-Value="_addTarget" />
+            </DxFormLayoutItem>
+
             <DxFormLayoutItem Caption="본문" ColSpanMd="12">
                 <div class="pm-snote-popup__memo-wrap" @onkeydown="@OnKeyDownAsync">
                     <DxMemo @bind-Text="_body"

@@ -44,6 +44,7 @@ public partial class ScheduleNotePopup : IDisposable
     }
 
     private string? _body;
+    private string? _addTarget;
     private bool _storageReady;
 
     protected override void OnInitialized()
@@ -167,6 +168,7 @@ public partial class ScheduleNotePopup : IDisposable
 
         var body = _body.Trim();
         var prjCode = _projectCode;
+        var addTarget = string.IsNullOrWhiteSpace(_addTarget) ? null : _addTarget.Trim();
         var currentUserName = !string.IsNullOrWhiteSpace(Me?.DisplayName)
             ? Me.DisplayName.Trim()
             : (!string.IsNullOrWhiteSpace(Me?.Username) ? Me.Username.Trim() : null);
@@ -176,6 +178,7 @@ public partial class ScheduleNotePopup : IDisposable
 
         // 즉시 본문 초기화 및 팝업 닫기 (화면에서 대기 없이 즉시 닫힘)
         _body = null;
+        _addTarget = null;
         Reveal.Close();
 
         Toasts.Show("일정 메모 저장을 요청했습니다. 백그라운드에서 분석 후 등록됩니다.");
@@ -235,7 +238,8 @@ public partial class ScheduleNotePopup : IDisposable
                     DevUser = assignee,
                     Summary = summary,
                     Comm = summary,
-                    BodyText = body
+                    BodyText = body,
+                    AddTarget = addTarget
                 };
 
                 await Api.CreateAsync(item);

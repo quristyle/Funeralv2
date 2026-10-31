@@ -99,6 +99,26 @@ public sealed class ScheduleNotePopupTests
     }
 
     [Fact]
+    public void ScheduleNotePopup은_추가대상을_고른_값_그대로_일정에_싣는다()
+    {
+        var razor = Read("web", "src", "Apps", "JSini.Web.ProjMng", "Components", "Shared", "ScheduleNotePopup.razor");
+        var code = Read("web", "src", "Apps", "JSini.Web.ProjMng", "Components", "Shared", "ScheduleNotePopup.razor.cs");
+
+        Assert.Contains("Caption=\"추가대상\"", razor, StringComparison.Ordinal);
+        Assert.Contains("CodeId=\"@AddTargets.CodeId\"", razor, StringComparison.Ordinal);
+        Assert.Contains("@bind-Value=\"_addTarget\"", razor, StringComparison.Ordinal);
+
+        // AI 초안이 아니라 고른 값이 실린다
+        Assert.Contains("AddTarget = addTarget", code, StringComparison.Ordinal);
+        Assert.DoesNotContain("draft?.AddTarget", code, StringComparison.Ordinal);
+
+        // 키보드가 바닥 단추를 덮지 않는 공통 팝업 위에 있어야 한다
+        Assert.Contains("<CommPopup", razor, StringComparison.Ordinal);
+        Assert.DoesNotContain("FullOnMobile=\"false\"", razor, StringComparison.Ordinal);
+        Assert.Contains("<FooterContentTemplate", razor, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ScheduleNotePopup_본문작성창에서_Ctrl_Enter_입력시_저장을_수행한다()
     {
         var razor = Read("web", "src", "Apps", "JSini.Web.ProjMng", "Components", "Shared", "ScheduleNotePopup.razor");
