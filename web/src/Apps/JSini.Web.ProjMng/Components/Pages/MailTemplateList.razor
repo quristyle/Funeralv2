@@ -1,0 +1,123 @@
+@page "/projmng/proj/mail-template"
+@attribute [RouteKey("projmng.proj.mail-template")]
+
+@*
+메일 HTML 템플릿 관리. 왼쪽이 목록, 오른쪽이 고른 한 건의 편집이다.
+프로젝트 일정표의 「메일발송」 창이 「사용」인 것을 골라 쓴다. 본문의 {{timeline}} 같은 치환자가 보낼 때 채워진다.
+*@
+
+@inherits DataPage
+
+<PageTitle>메일 템플릿 · 프로젝트관리</PageTitle>
+
+<div class="pm-split">
+    <CommCont Title="템플릿" CssClass="pm-split__side">
+        <CommGrd TItem="MailTemplateDto"
+                 Data="@_rows"
+                 ExportName="메일템플릿"
+                 EmptyText="등록된 템플릿이 없습니다."
+                 Reload="@LoadListAsync"
+                 SelectedItem="@_picked"
+                 SelectedItemChanged="@PickAsync"
+                 AutoSelectFirstRow="false">
+            <Columns>
+                <DxGridDataColumn FieldName="@nameof(MailTemplateDto.TplNm)" Caption="이름" MinWidth="140"
+                                  TextAlignment="GridTextAlignment.Left" />
+                <DxGridDataColumn FieldName="@nameof(MailTemplateDto.UseYn)" Caption="사용" Width="64">
+                    <CellDisplayTemplate Context="cell">
+                        @(((MailTemplateDto)cell.DataItem).UseYn ? "사용" : "안 씀")
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+                <DxGridDataColumn FieldName="@nameof(MailTemplateDto.SortNo)" Caption="순서" Width="64" />
+            </Columns>
+        </CommGrd>
+    </CommCont>
+
+    <CommCont Title="@(_form is null ? "편집" : _isNew ? "새 템플릿" : $"{_form.TplNm} 편집")"
+              CssClass="pm-split__main pm-mailtpl__main">
+        <Actions>
+            <PermissionView Action="MenuAction.Create">
+                <DxButton Text="새 템플릿" RenderStyle="ButtonRenderStyle.Secondary"
+                          IconCssClass="jsini-icon-plus" Click="@StartNewAsync" />
+            </PermissionView>
+        </Actions>
+
+        <ChildContent>
+            @if (_form is null)
+            {
+                <PageNotice Text="왼쪽에서 템플릿을 고르거나 「새 템플릿」을 누르십시오." Tone="NoticeTone.Info" />
+            }
+            else
+            {
+                <DxFormLayout CssClass="pm-editform pm-mailtpl__form">
+                    <DxFormLayoutItem Caption="이름" ColSpanMd="6">
+                        <DxTextBox @bind-Text="_form.TplNm" ReadOnly="@(!CanSave)" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="순서" ColSpanMd="3">
+                        <DxSpinEdit @bind-Value="_form.SortNo" ReadOnly="@(!CanSave)" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="사용" ColSpanMd="3">
+                        <DxCheckBox @bind-Checked="_form.UseYn" ReadOnly="@(!CanSave)">메일발송에서 고른다</DxCheckBox>
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="설명" ColSpanMd="12">
+                        <DxTextBox @bind-Text="_form.TplDesc" ReadOnly="@(!CanSave)" />
+                    </DxFormLayoutItem>
+
+                    <DxFormLayoutItem Caption="제목" ColSpanMd="12">
+                        <DxTextBox @bind-Text="_form.Subject" ReadOnly="@(!CanSave)" />
+                    </DxFormLayoutItem>
+                </DxFormLayout>
+                <p class="jsini-hint">제목을 비우면 「@ScheduleMailBody.DefaultSubject」 을 씁니다. 제목에도 치환자를 쓸 수 있습니다.</p>
+
+                <div class="pm-mailtpl__keys">
+                    @foreach (var (key, text) in ScheduleMailBody.Placeholders)
+                    {
+                        <button type="button" class="pm-mailtpl__key" title="@text" @onclick="@(() => InsertKeyAsync(key))">{{@key}}</button>
+                    }
+                </div>
+
+                <div class="pm-mailtpl__body">
+                    <MailHtmlEditor @key="_editorKey" @ref="_editor" Value="@_form.BodyHtml"
+                                    ValueChanged="@((string? html) => _form.BodyHtml = html)" Height="56vh" />
+                </div>
+
+                <div class="jsini-actions pm-mailtpl__actions">
+                    @if (CanSave)
+                    {
+                        <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary"
+                                  IconCssClass="jsini-icon-check" Click="@SaveAsync" />
+                        <DxButton Text="기본 틀 불러오기" RenderStyle="ButtonRenderStyle.Secondary"
+                                  Click="@LoadDefaultAsync" />
+                    }
+                    <DxButton Text="견본으로 미리보기" RenderStyle="ButtonRenderStyle.Secondary"
+                              IconCssClass="jsini-icon-eye" Click="@PreviewAsync" />
+                    @if (!_isNew)
+                    {
+                        <PermissionView Action="MenuAction.Delete">
+                            <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Danger"
+                                      IconCssClass="jsini-icon-trash" Click="@DeleteAsync" />
+                        </PermissionView>
+                    }
+                </div>
+            }
+        </ChildContent>
+    </CommCont>
+</div>
+
+@* 치환자를 견본 자료로 채운 모습. 보내는 메일과 같은 함수로 만든다. *@
+<CommPopup @bind-Visible="_previewing" HeaderText="견본 미리보기" Width="min(760px, calc(100vw - 2rem))">
+    <BodyContentTemplate Context="previewPopup">
+        <div class="pm-mail-preview">
+            <div class="pm-mail-preview__head"><span>제목 · @_previewSubject</span></div>
+            <iframe class="pm-mail-preview__frame" title="견본 미리보기" sandbox="" srcdoc="@_previewBody"></iframe>
+        </div>
+    </BodyContentTemplate>
+    <FooterContentTemplate Context="previewFooter">
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _previewing = false)" />
+    </FooterContentTemplate>
+</CommPopup>
+
+<ConfirmDialog @ref="_confirm" />

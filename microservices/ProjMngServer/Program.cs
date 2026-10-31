@@ -37,6 +37,7 @@ builder.Services.AddScoped<DevCommonCodeService>();
 builder.Services.AddScoped<SourceInfoService>();
 builder.Services.AddScoped<ProjectDbService>();
 builder.Services.AddScoped<HomeTodoService>();
+builder.Services.AddScoped<MailTemplateService>();
 
 // 업무 비서(AI)가 쓰는 내부 전용 조회(/internal/*) — 게이트웨이를 거치지 않는다.
 builder.Services.AddScoped<InternalQueryService>();

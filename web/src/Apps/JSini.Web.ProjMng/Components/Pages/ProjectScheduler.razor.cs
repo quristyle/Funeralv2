@@ -2176,8 +2176,17 @@ public partial class ProjectScheduler : IAsyncDisposable
 
     // ── 일정 메일 발송 ───────────────────────────────────────────
 
+    [Inject] private MailTemplateClient MailTemplates { get; set; } = default!;
+
+    /// <summary>템플릿 고르개의 「기본 틀」. DB 번호는 1부터라 0 과 안 겹친다.</summary>
+    private const long DefaultTemplateId = 0;
+
+    /// <summary>한 번에 실을 수 있는 기간. 넘으면 타임라인이 메일 한 통으로 감당 못 할 만큼 길어진다.</summary>
+    private const int MaxMailDays = 366;
+
     private bool _mailing;
     private bool _mailSending;
+    private bool _mailLoading;
     private string _mailTo = string.Empty;
 
     /// <summary>참조 칸. 처음 열 때 내 메일 주소로 채우고, 그 뒤로는 사람이 고친 그대로 둔다.</summary>
@@ -2187,40 +2196,47 @@ public partial class ProjectScheduler : IAsyncDisposable
     private bool _myMailLooked;
 
     private string _mailSubject = string.Empty;
+
+    /// <summary>마지막으로 만들어 넣은 제목. 지금 제목이 이것과 같을 때만 다시 만든다 — 사람이 고친 제목은 안 덮는다.</summary>
+    private string _mailSubjectAuto = string.Empty;
+
     private string? _mailMessage;
     private string _mailBody = string.Empty;
     private int _mailCount;
 
-    /// <summary>메일에 실을 일정. 창을 열 때 한 번 읽는다 — 화면이 보던 구간과 달리 늘 오늘 앞뒤 일주일이다.</summary>
+    /// <summary>사람이 본문을 직접 고쳤나. 참이면 다시 만들기 전에 묻는다.</summary>
+    private bool _mailEdited;
+
+    private MailHtmlEditor? _mailEditor;
+
+    /// <summary>메일에 실을 기간. 처음엔 오늘 앞뒤 일주일이고, 고친 뒤로는 이 화면이 사는 동안 그대로다.</summary>
+    private DateOnly _mailFrom;
+    private DateOnly _mailUntil;
+
+    /// <summary>지금 실려 있는 일정을 가져온 기간. 칸만 고치고 안 가져온 것을 가린다.</summary>
+    private (DateOnly From, DateOnly To) _mailLoaded;
+
     private IReadOnlyList<ScheduleMailItem> _mailItems = [];
 
-    /// <summary>메일발송 창을 연다. 구간은 오늘 기준 앞뒤 일주일이고, 프로젝트·구분·진행 상태 조건은 화면의 것을 따른다.</summary>
+    private IReadOnlyList<MailTemplateDto> _mailTemplates = [];
+    private long _mailTplId = DefaultTemplateId;
+
+    private MailTemplateDto? MailTemplate => _mailTemplates.FirstOrDefault(t => t.TplId == _mailTplId);
+
+    /// <summary>메일발송 창을 연다. 프로젝트·구분·진행 상태 조건은 화면의 것을 따르고, 기간은 창에서 고른다.</summary>
     private async Task OpenMailAsync()
     {
-        var today = AppTime.Today;
-        var (from, to) = ScheduleMailBody.Window(today);
-
-        try
+        if (_mailFrom == default)
         {
-            var rows = await Api.ListAsync(ProjectRid, _completeState, _scheduleTypes, from, to, mine: AllProjects);
-
-            _mailItems = [.. rows
-                .Where(w => w.PlanSdt is not null || w.PlanEdt is not null)
-                .Select(w =>
-                {
-                    var start = w.PlanSdt ?? w.PlanEdt!.Value;
-                    var end = w.PlanEdt ?? start;
-
-                    var title = ProjectTag(w) is { } prj ? $"[{prj}] {Title(w)}" : Title(w);
-
-                    return new ScheduleMailItem(start, end < start ? start : end, title);
-                })];
+            (_mailFrom, _mailUntil) = ScheduleMailBody.Window(AppTime.Today);
         }
-        catch (Exception ex)
+
+        if (!await LoadMailItemsAsync())
         {
-            Say($"메일에 넣을 일정을 읽지 못했습니다 — {ex.Message}", NoticeTone.Error);
             return;
         }
+
+        await LoadMailTemplatesAsync();
 
         if (!_myMailLooked && !string.IsNullOrWhiteSpace(Me?.Username))
         {
@@ -2233,24 +2249,172 @@ public partial class ProjectScheduler : IAsyncDisposable
             }
         }
 
-        _mailSubject = ScheduleMailBody.Subject(today, AllProjects ? null : _projectName);
+        // 창을 다시 열면 늘 새로 만든다 — 지난번에 고친 본문은 그때의 기간·자료로 만든 것이다.
+        _mailSubjectAuto = string.Empty;
         RebuildMailBody();
         _mailing = true;
+    }
+
+    /// <summary>템플릿 목록. 못 읽어도 창은 연다 — 기본 틀로는 보낼 수 있다.</summary>
+    private async Task LoadMailTemplatesAsync()
+    {
+        var basic = new MailTemplateDto { TplId = DefaultTemplateId, TplNm = "기본 틀" };
+
+        try
+        {
+            var rows = await MailTemplates.ListAsync(MailTemplateDto.KindSchedule, usableOnly: true);
+            _mailTemplates = [basic, .. rows];
+        }
+        catch (Exception ex)
+        {
+            _mailTemplates = [basic];
+            Say($"메일 템플릿을 읽지 못해 기본 틀을 씁니다 — {ex.Message}", NoticeTone.Warning);
+        }
+
+        if (MailTemplate is null)
+        {
+            _mailTplId = DefaultTemplateId;
+        }
+    }
+
+    /// <summary>고른 기간의 일정을 읽는다. 기간이 틀렸으면 말하고 거짓을 준다.</summary>
+    private async Task<bool> LoadMailItemsAsync()
+    {
+        if (_mailUntil < _mailFrom)
+        {
+            Say("기간의 끝이 시작보다 앞입니다.", NoticeTone.Warning);
+            return false;
+        }
+
+        if (_mailUntil.DayNumber - _mailFrom.DayNumber + 1 > MaxMailDays)
+        {
+            Say($"기간은 {MaxMailDays}일까지 고를 수 있습니다.", NoticeTone.Warning);
+            return false;
+        }
+
+        _mailLoading = true;
+
+        try
+        {
+            var rows = await Api.ListAsync(ProjectRid, _completeState, _scheduleTypes, _mailFrom, _mailUntil, mine: AllProjects);
+
+            _mailItems = [.. rows
+                .Where(w => w.PlanSdt is not null || w.PlanEdt is not null)
+                .Select(w =>
+                {
+                    var start = w.PlanSdt ?? w.PlanEdt!.Value;
+                    var end = w.PlanEdt ?? start;
+
+                    var title = ProjectTag(w) is { } prj ? $"[{prj}] {Title(w)}" : Title(w);
+
+                    return new ScheduleMailItem(start, end < start ? start : end, title);
+                })];
+
+            _mailLoaded = (_mailFrom, _mailUntil);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Say($"메일에 넣을 일정을 읽지 못했습니다 — {ex.Message}", NoticeTone.Error);
+            return false;
+        }
+        finally
+        {
+            _mailLoading = false;
+        }
+    }
+
+    /// <summary>「다시 가져오기」. 직접 고친 본문이 있으면 덮기 전에 묻는다.</summary>
+    private async Task ReloadMailItemsAsync()
+    {
+        if (!await ConfirmOverwriteAsync())
+        {
+            return;
+        }
+
+        if (await LoadMailItemsAsync())
+        {
+            RebuildMailBody();
+            Say($"{_mailFrom:yyyy.MM.dd} ~ {_mailUntil:yyyy.MM.dd} 일정 {_mailCount}건을 다시 가져왔습니다.");
+        }
+    }
+
+    private async Task PickMailTemplateAsync(long id)
+    {
+        if (id == _mailTplId)
+        {
+            return;
+        }
+
+        if (!await ConfirmOverwriteAsync())
+        {
+            return;
+        }
+
+        _mailTplId = id;
+        RebuildMailBody();
+    }
+
+    private async Task RebuildMailBodyAsync()
+    {
+        if (await ConfirmOverwriteAsync())
+        {
+            RebuildMailBody();
+        }
+    }
+
+    /// <summary>직접 고친 본문을 새로 만든 것으로 덮어도 되는지.</summary>
+    private async Task<bool> ConfirmOverwriteAsync()
+    {
+        if (!_mailEdited || _confirm is null)
+        {
+            return true;
+        }
+
+        return await _confirm.AskAsync(
+            "직접 고친 본문이 새로 만든 본문으로 바뀝니다.\n고친 내용은 사라집니다.",
+            "본문 다시 만들기", "다시 만들기", ButtonRenderStyle.Primary);
     }
 
     private void OnMailMessageChanged(string? text)
     {
         _mailMessage = text;
-        RebuildMailBody();
+
+        // 고친 본문은 인사말 한 글자에 덮지 않는다 — 「본문 다시 만들기」로 반영한다.
+        if (!_mailEdited)
+        {
+            RebuildMailBody();
+        }
     }
 
+    private void OnMailBodyEdited(string? html)
+    {
+        _mailBody = html ?? string.Empty;
+        _mailEdited = true;
+    }
+
+    private ScheduleMailInput MailInput() => new(
+        _mailLoaded.From, _mailLoaded.To, AppTime.Today, _mailItems,
+        AllProjects ? null : _projectName, CurrentUserName, _mailMessage);
+
+    /// <summary>템플릿과 지금 자료로 제목·본문을 새로 만든다.</summary>
     private void RebuildMailBody()
     {
-        var today = AppTime.Today;
-        var (from, to) = ScheduleMailBody.Window(today);
+        var input = MailInput();
+        var tpl = MailTemplate;
 
-        _mailCount = _mailItems.Count(i => DateOnly.FromDateTime(i.End) >= from && DateOnly.FromDateTime(i.Start) <= to);
-        _mailBody = ScheduleMailBody.Build(today, _mailItems, AllProjects ? null : _projectName, CurrentUserName, _mailMessage);
+        _mailCount = ScheduleMailBody.InRange(_mailItems, input.From, input.To).Count();
+        _mailBody = ScheduleMailBody.Build(input, tpl?.BodyHtml);
+        _mailEdited = false;
+
+        var subject = ScheduleMailBody.Subject(input, tpl?.Subject);
+
+        if (string.IsNullOrWhiteSpace(_mailSubject) || _mailSubject == _mailSubjectAuto)
+        {
+            _mailSubject = subject;
+        }
+
+        _mailSubjectAuto = subject;
     }
 
     /// <summary>받는 사람 칸의 주소들. 쉼표·세미콜론·줄바꿈 어느 것으로 이어도 된다.</summary>
@@ -2289,11 +2453,29 @@ public partial class ProjectScheduler : IAsyncDisposable
             return;
         }
 
+        if ((_mailFrom, _mailUntil) != _mailLoaded && _confirm is not null
+            && !await _confirm.AskAsync(
+                $"기간을 고쳤지만 다시 가져오지 않았습니다.\n본문은 {_mailLoaded.From:yyyy.MM.dd} ~ {_mailLoaded.To:yyyy.MM.dd} 의 일정입니다. 그대로 보낼까요?",
+                "기간 확인", "그대로 발송", ButtonRenderStyle.Primary))
+        {
+            return;
+        }
+
         _mailSending = true;
 
         try
         {
-            RebuildMailBody();
+            // 편집 칸은 친 것을 모아서 올리므로, 방금 친 몇 자가 아직 안 왔을 수 있다.
+            if (_mailEditor is not null)
+            {
+                _mailBody = await _mailEditor.FlushAsync() ?? _mailBody;
+            }
+
+            if (string.IsNullOrWhiteSpace(_mailBody))
+            {
+                Say("본문이 비어 있습니다.", NoticeTone.Warning);
+                return;
+            }
 
             var ok = await RunAsync(
                 () => Mails.SendAsync(new ScheduleMailRequest

@@ -4464,6 +4464,157 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   background: #f3f5f8;
 }
 
+.pm-mail-preview__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--jsini-sp-sm, 8px);
+}
+
+/* 기간 칸 둘 + 「다시 가져오기」. 휴대폰에서는 날짜 둘이 한 줄, 단추가 다음 줄로 간다. */
+.pm-mail-range {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--jsini-sp-sm, 8px);
+}
+
+.pm-mail-range .dxbl-date-edit {
+  flex: 1 1 9rem;
+  min-width: 0;
+  max-width: 12rem;
+}
+
+/* ── 메일 본문 편집기 (`MailHtmlEditor`) ─────────────────────── */
+.pm-mailedit {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.pm-mailedit__bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--jsini-sp-sm, 8px);
+  padding: var(--jsini-sp-xs, 4px) var(--jsini-sp-sm, 8px);
+  border-bottom: 1px solid var(--jsini-border);
+}
+
+.pm-mailedit__modes {
+  display: inline-flex;
+  border: 1px solid var(--jsini-border);
+  border-radius: var(--jsini-radius-md, 6px);
+  overflow: hidden;
+}
+
+.pm-mailedit__mode {
+  padding: 2px 12px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: var(--jsini-fs-sm);
+  cursor: pointer;
+}
+
+.pm-mailedit__mode.is-on {
+  background: var(--bs-primary, #2f6fdb);
+  color: #fff;
+}
+
+.pm-mailedit__tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+}
+
+.pm-mailedit__tools[hidden] { display: none; }
+
+.pm-mailedit__tools button,
+.pm-mailedit__color {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.9rem;
+  height: 1.9rem;
+  padding: 0 4px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font-size: var(--jsini-fs-sm);
+  cursor: pointer;
+}
+
+.pm-mailedit__tools button:hover,
+.pm-mailedit__color:hover {
+  border-color: var(--jsini-border);
+  background: color-mix(in srgb, currentColor 6%, transparent);
+}
+
+/* 색 고르개는 글자 위에 투명하게 덮는다 — 네모난 색 칸이 도구줄에서 혼자 커 보인다. */
+.pm-mailedit__color input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.pm-mailedit__color { color: #d64545; font-weight: 700; }
+.pm-mailedit__color--bg { color: #e2c400; }
+
+.pm-mailedit__sep {
+  width: 1px;
+  height: 1.2rem;
+  margin: 0 4px;
+  background: var(--jsini-border);
+}
+
+.pm-mailedit__frame {
+  display: block;
+  width: 100%;
+  height: var(--pm-mailedit-h, 420px);
+  border: 0;
+  background: #f3f5f8;
+}
+
+.pm-mailedit__frame[hidden] { display: none; }
+
+/* ── 메일 템플릿 관리 (`MailTemplateList`) ──────────────────── */
+.pm-mailtpl__form .dxbl-fl { margin-bottom: var(--jsini-sp-sm, 8px); }
+
+.pm-mailtpl__body {
+  border: 1px solid var(--jsini-border);
+  border-radius: var(--jsini-radius-md, 6px);
+  overflow: hidden;
+}
+
+.pm-mailtpl__keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: var(--jsini-sp-sm, 8px) 0;
+}
+
+.pm-mailtpl__key {
+  padding: 1px 8px;
+  border: 1px solid var(--jsini-border);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  font-family: var(--bs-font-monospace, monospace);
+  font-size: var(--jsini-fs-sm);
+  cursor: pointer;
+}
+
+.pm-mailtpl__key:hover { border-color: var(--bs-primary, #2f6fdb); }
+
+.pm-mailtpl__main .commcont__body { overflow: auto; }
+
 /* 주소 칸 옆의 「사람 찾기」. DevExpress 편집기는 min-width: 0 이 없으면 안 좁아지고 단추를 다음 줄로 민다. */
 .pm-mail-addr {
   display: flex;

@@ -34,6 +34,7 @@ public sealed class ProjMngModule : IPortalModule
         services.AddScoped<HomeTodoClient>();
         services.AddScoped<WbsClient>();
         services.AddScoped<ScheduleMailClient>();
+        services.AddScoped<MailTemplateClient>();
         services.AddScoped<DbLogicClient>();
         services.AddScoped<ActivityInfoClient>();
         services.AddScoped<ProjectPropClient>();
