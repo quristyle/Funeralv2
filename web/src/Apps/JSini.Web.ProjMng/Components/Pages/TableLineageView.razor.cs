@@ -17,7 +17,7 @@ public partial class TableLineageView
     [Inject] private IJSRuntime Js { get; set; } = default!;
 
     /// <summary>불러온 접속. 저장은 조회줄이 아니라 이것에 한다 — 저장 안 한 채 DB 고르개를 바꿔도 엉뚱한 접속에 덮이지 않는다.</summary>
-    private sealed record LoadedDb(int DbRid, string Nick, string? Schema, string? Type);
+    private sealed record LoadedDb(int DbRid, string Nick, string? Schema, string? Type, string? NickKey);
 
     public sealed record SeqFlow(int Value, string Text);
 
@@ -48,9 +48,11 @@ public partial class TableLineageView
     private bool _itemsDirty;
     private bool Dirty => _graphDirty || _itemsDirty;
 
-    /// <summary>대상 DB 에서 받은 표 목록. 못 붙었으면 null 이고 그 까닭이 <see cref="_dbNotice"/> 에 있다.</summary>
+    /// <summary>대상 DB 의 객체 목록(표 · 뷰 · 프로시저 · 함수). 못 붙었으면 모아 둔 카탈로그로 채우고, 그것도 없으면 null 이다. 까닭은 <see cref="_dbNotice"/> 에 있다.</summary>
     private List<LineageDbTable>? _dbTables;
     private string? _dbNotice;
+    private ProjectDbPropDto? _catalog;
+    private bool _rereading;
 
     private bool _mapOn = true;
     private bool _linking;
@@ -91,7 +93,14 @@ public partial class TableLineageView
     private IReadOnlyList<LineageDbTable> _picked = [];
     private string? _manualId;
     private string? _manualKr;
-    private string _pickKind = "ledger";
+    private string? _pickType;
+    private string _pickKind = AutoKind;
+
+    /// <summary>놓을 칸 종류를 객체 종류에서 고른다 — 표는 원장, 뷰는 뷰, 프로시저·함수는 그대로.</summary>
+    private const string AutoKind = "auto";
+
+    private static readonly IReadOnlyList<LineageKind> PickKinds =
+        [new(AutoKind, "자동 (객체 종류대로)", ""), .. LineageGraph.NodeKinds];
 
     private bool CanEdit => Can(MenuAction.Update);
 
@@ -125,7 +134,8 @@ public partial class TableLineageView
 
     private bool HasFilter => _q.Length > 0 || _flows.Count > 0 || _lane is not null || _itemId is not null || _onlyLinked;
 
-    private static readonly HashSet<string> TableKinds = ["master", "ledger", "derived", "snap"];
+    /// <summary>대상 DB 에 이름이 있어야 하는 칸 종류. 캔버스의 DB_KINDS 와 같다.</summary>
+    private static readonly HashSet<string> TableKinds = ["master", "ledger", "derived", "snap", "view", "func"];
 
     private HashSet<string> PlacedIds =>
         _summary?.Tables.Select(t => t.Id.ToUpperInvariant()).ToHashSet() ?? [];
@@ -159,6 +169,7 @@ public partial class TableLineageView
         {
             IEnumerable<LineageDbTable> rows = _dbTables ?? [];
             if (_pickHidePlaced) rows = rows.Where(t => !t.Placed);
+            if (_pickType is { } type) rows = rows.Where(t => LineageObjectTypes.GroupOf(t.Type) == type);
 
             var kw = _pickFilter?.Trim();
             return string.IsNullOrEmpty(kw)
@@ -167,6 +178,8 @@ public partial class TableLineageView
                                   || (t.Description ?? string.Empty).Contains(kw, StringComparison.OrdinalIgnoreCase));
         }
     }
+
+    private int TypeCount(string group) => _dbTables?.Count(t => LineageObjectTypes.GroupOf(t.Type) == group) ?? 0;
 
     private int PickCount => _picked.Count(t => !t.Placed) + (string.IsNullOrWhiteSpace(_manualId) ? 0 : 1);
 
@@ -260,16 +273,18 @@ public partial class TableLineageView
             if (_instance is null) return 0;
 
             var propsTask = Dbs.PropsAsync(rid);
-            var tablesTask = ReadDbTablesAsync(item);
+            var tablesTask = ReadDbObjectsAsync(
+                item?.Others.GetValueOrDefault("db_type"), item?.Others.GetValueOrDefault("db_nick"), rid);
             await Task.WhenAll(propsTask, tablesTask);
 
             var props = propsTask.Result;
             _graphProp = Latest(props, LineageGraph.GraphKey);
             _itemsProp = Latest(props, LineageGraph.ItemsKey);
             _seed = Latest(props, LineageGraph.SeedKey);
+            _catalog = Latest(props, LineageGraph.CatalogKey);
             _items = LineageGraph.ParseItems(_itemsProp?.DbPvalue);
 
-            (_dbTables, _dbNotice) = tablesTask.Result;
+            (_dbTables, _dbNotice) = WithCatalog(tablesTask.Result);
 
             _kinds.Clear();
             _flows.Clear();
@@ -294,10 +309,11 @@ public partial class TableLineageView
             _graphDirty = false;
             _itemsDirty = false;
             _loaded = new LoadedDb(rid, item?.Name ?? rid.ToString(),
-                item?.Others.GetValueOrDefault("db_schema"), item?.Others.GetValueOrDefault("db_type"));
+                item?.Others.GetValueOrDefault("db_schema"), item?.Others.GetValueOrDefault("db_type"),
+                item?.Others.GetValueOrDefault("db_nick"));
 
             return _summary.Nodes;
-        }, "도면이 비어 있습니다. 「표 놓기」로 표를 놓으십시오.", "계통도를 읽지 못했습니다");
+        }, "도면이 비어 있습니다. 「객체 놓기」로 표·뷰·프로시저를 놓으십시오.", "계통도를 읽지 못했습니다");
     }
 
     /// <summary>같은 이름이 여럿이면 마지막에 고친 것. 이 표에는 제약이 없어 겹친 줄이 생길 수 있다.</summary>
@@ -307,38 +323,94 @@ public partial class TableLineageView
             .ThenByDescending(p => p.DbPrid)
             .FirstOrDefault();
 
-    /// <summary>대상 DB 의 표 목록. 못 읽어도 던지지 않는다 — 폐쇄망 DB 처럼 붙을 수 없는 접속에서도 저장된 도면은 열려야 한다.</summary>
-    private async Task<(List<LineageDbTable>?, string?)> ReadDbTablesAsync(CommonCodeItem? item)
+    /// <summary>
+    /// 대상 DB 의 객체 목록. 등록 질의 objectlist 를 먼저 묻고, 그 DB 종류에 아직 없으면 옛 tablelist(표만)로 내려간다.
+    /// 못 읽어도 던지지 않는다 — 폐쇄망 DB 처럼 붙을 수 없는 접속에서도 저장된 도면은 열려야 한다.
+    /// </summary>
+    private async Task<(List<LineageDbTable>?, string?)> ReadDbObjectsAsync(string? dbType, string? dbNick, int rid)
     {
         var args = new Dictionary<string, object?>
         {
-            ["db"] = item?.Others.GetValueOrDefault("db_type") ?? string.Empty,
-            ["dbnick"] = item?.Others.GetValueOrDefault("db_nick") ?? string.Empty,
-            ["db_rid"] = _dbCode ?? string.Empty,
+            ["db"] = dbType ?? string.Empty,
+            ["dbnick"] = dbNick ?? string.Empty,
+            ["db_rid"] = rid.ToString(),
+            ["q"] = string.Empty,
         };
 
         try
         {
-            var r = await Client.JsContAsync("tablelist", args);
-            if (r.ProcCode < 0)
+            var r = await Client.JsContAsync("objectlist", args);
+            if (r.ProcCode >= 0)
             {
-                return (null, $"대상 DB 에 붙지 못해 저장된 도면만 그렸습니다 — {r.Message?.Trim()}");
+                return (ToObjects(r, "ObjectName", "ObjectType"), null);
             }
 
-            var list = (r.Rows ?? [])
-                .Select(row => new LineageDbTable
-                {
-                    Name = Pick(row, "TableName", "tablename"),
-                    Description = Pick(row, "Description", "description"),
-                })
-                .Where(t => t.Name.Length > 0)
-                .ToList();
+            // 질의가 없는 것과 DB 에 못 붙은 것을 가른다 — 앞엣것만 옛 질의로 다시 묻는다.
+            if (r.Message?.Contains("정의 되지 않았습니다") != true)
+            {
+                return (null, $"대상 DB 에 붙지 못했습니다 — {r.Message?.Trim()}");
+            }
 
-            return (list, null);
+            var t = await Client.JsContAsync("tablelist", args);
+            return t.ProcCode < 0
+                ? (null, $"대상 DB 에 붙지 못했습니다 — {t.Message?.Trim()}")
+                : (ToObjects(t, "TableName", null), null);
         }
         catch (ApiException ex)
         {
-            return (null, $"대상 DB 에 붙지 못해 저장된 도면만 그렸습니다 — {ex.Message}");
+            return (null, $"대상 DB 에 붙지 못했습니다 — {ex.Message}");
+        }
+    }
+
+    private static List<LineageDbTable> ToObjects(ProjMngResult r, string nameCol, string? typeCol) =>
+        [
+            .. (r.Rows ?? [])
+                .Select(row => new LineageDbTable
+                {
+                    Name = Pick(row, nameCol, nameCol.ToLowerInvariant()),
+                    Description = Pick(row, "Description", "description"),
+                    Type = typeCol is null ? LineageObjectTypes.Table : Pick(row, typeCol, typeCol.ToLowerInvariant()),
+                })
+                .Where(t => t.Name.Length > 0)
+        ];
+
+    /// <summary>못 붙었으면 모아 둔 카탈로그로 고르게 한다. 그것도 없으면 저장된 도면만 그린다.</summary>
+    private (List<LineageDbTable>?, string?) WithCatalog((List<LineageDbTable>? Tables, string? Notice) live)
+    {
+        if (live.Tables is not null) return live;
+
+        var catalog = LineageCatalog.Parse(_catalog?.DbPvalue);
+        if (catalog is null)
+        {
+            return (null, $"{live.Notice} 저장된 도면만 그렸습니다.");
+        }
+
+        return (catalog.Objects, $"{live.Notice} {catalog.At} 에 모아 둔 목록({catalog.Objects.Count}개)으로 고르고 견줍니다.");
+    }
+
+    /// <summary>「DB 에서 다시 읽기」 — 놓기 창을 연 채로 대상 DB 에 다시 묻는다. 그 사이 만든 객체가 목록에 들어온다.</summary>
+    private async Task RereadObjectsAsync()
+    {
+        if (_loaded is null) return;
+
+        _rereading = true;
+        try
+        {
+            // 불러온 접속에 묻는다 — 그 사이 DB 고르개를 바꿨어도 엉뚱한 DB 의 목록이 들어오지 않는다.
+            var live = await ReadDbObjectsAsync(_loaded.Type, _loaded.NickKey, _loaded.DbRid);
+            (_dbTables, _dbNotice) = WithCatalog(live);
+            MarkPlaced();
+            if (_instance is not null)
+            {
+                await _instance.InvokeVoidAsync("setFilter", new { dbTables = _dbTables?.Select(t => t.Name).ToArray() });
+            }
+
+            Say(live.Item1 is { } list ? $"대상 DB 에서 {list.Count}개를 읽었습니다." : _dbNotice ?? "읽지 못했습니다.",
+                live.Item1 is null ? NoticeTone.Warning : NoticeTone.Info);
+        }
+        finally
+        {
+            _rereading = false;
         }
     }
 
@@ -798,12 +870,12 @@ public partial class TableLineageView
         if (_instance is null) return;
 
         var list = _picked.Where(t => !t.Placed)
-            .Select(t => new { id = t.Name, kr = t.Description ?? string.Empty, kind = _pickKind, owner = string.Empty })
+            .Select(t => new { id = t.Name, kr = t.Description ?? string.Empty, kind = KindFor(t.Type), owner = string.Empty })
             .ToList();
 
         if (!string.IsNullOrWhiteSpace(_manualId))
         {
-            list.Add(new { id = _manualId.Trim(), kr = _manualKr?.Trim() ?? string.Empty, kind = _pickKind, owner = string.Empty });
+            list.Add(new { id = _manualId.Trim(), kr = _manualKr?.Trim() ?? string.Empty, kind = KindFor(null), owner = string.Empty });
         }
 
         var placed = await _instance.InvokeAsync<int>("addTables", JsonSerializer.Serialize(list));
@@ -814,9 +886,12 @@ public partial class TableLineageView
         _pickerOpen = false;
 
         Say(placed == list.Count
-            ? $"표 {placed}개를 놓았습니다. 깜빡이는 칸을 끌어 자리를 잡으십시오."
-            : $"표 {placed}개를 놓았습니다 — {list.Count - placed}개는 이미 도면에 있어 건너뛰었습니다.");
+            ? $"{placed}개를 놓았습니다. 깜빡이는 칸을 끌어 자리를 잡으십시오."
+            : $"{placed}개를 놓았습니다 — {list.Count - placed}개는 이미 도면에 있어 건너뛰었습니다.");
     }
+
+    private string KindFor(string? type) =>
+        _pickKind == AutoKind ? LineageObjectTypes.NodeKindOf(type) : _pickKind;
 
     /// <summary>설명이 빈 칸만 대상 DB 의 코멘트로 채운다. 사람이 적은 설명은 덮지 않는다.</summary>
     private async Task FillCommentsAsync()

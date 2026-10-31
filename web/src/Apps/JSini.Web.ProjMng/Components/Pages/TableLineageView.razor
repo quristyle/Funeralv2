@@ -4,7 +4,7 @@
 @*
 테이블 계통도. 고른 DB 접속(= DB 하나 · 스키마 하나)의 표들이 어떤 순서로 자료를 주고받는지 칸과 선으로 그리고 고친다.
 도면은 그 접속의 DB 속성(dev_db_prop · table_lineage)에 담기고, 업무항목은 옆 줄(table_lineage_items)에 따로 담긴다.
-대상 DB 에는 표 목록(tablelist)만 묻는다 — 못 붙어도(폐쇄망 DB) 저장된 도면은 그대로 열린다. 캔버스는 wwwroot/js/table-lineage.js.
+대상 DB 에는 객체 목록(objectlist — 표·뷰·프로시저·함수)만 묻는다 — 못 붙어도(폐쇄망 DB) 저장된 도면은 그대로 열린다. 캔버스는 wwwroot/js/table-lineage.js.
 *@
 
 @inherits DataPage
@@ -31,7 +31,7 @@
         <DxCheckBox Checked="@_mapOn" CheckedChanged="@((bool on) => ToggleMapAsync(on))">미니맵</DxCheckBox>
 
         <PermissionView Action="MenuAction.Update">
-            <DxButton Text="표 놓기" RenderStyle="ButtonRenderStyle.Secondary"
+            <DxButton Text="객체 놓기" RenderStyle="ButtonRenderStyle.Secondary"
                       Enabled="@(_loaded is not null)" Click="@OpenPickerAsync" />
 
             <DxButton Text="@(_linking ? "잇는 중 — 멈춤" : "잇기")"
@@ -285,38 +285,57 @@
             <div class="tl-form__meta">표 @(_summary?.Nodes ?? 0) · 선 @(_summary?.Edges ?? 0)</div>
             @if (_dbTables is not null)
             {
-                <div class="tl-form__meta">대상 DB 의 표 @_dbTables.Count 개 · 도면에 없는 표 @Unplaced 개</div>
+                <div class="tl-form__meta">대상 DB 의 객체 @_dbTables.Count 개 · 도면에 없는 것 @Unplaced 개</div>
                 @if (Missing > 0)
                 {
-                    <div class="tl-form__meta tl-form__meta--warn">점선 칸 @Missing 개는 대상 DB 에 없는 표입니다.</div>
+                    <div class="tl-form__meta tl-form__meta--warn">점선 칸 @Missing 개는 대상 DB 에 없는 이름입니다.</div>
                 }
             }
         }
     </aside>
 </div>
 
-@* 대상 DB 의 표 목록에서 골라 놓는다. 못 붙는 DB 면 이름을 적어 놓는다. *@
-<CommPopup @bind-Visible="_pickerOpen" HeaderText="표 놓기" Width="720px">
+@* 대상 DB 의 객체(표·뷰·프로시저·함수)를 골라 놓는다. 못 붙으면 모아 둔 카탈로그에서, 그것도 없으면 이름을 적어 놓는다. *@
+<CommPopup @bind-Visible="_pickerOpen" HeaderText="객체 놓기" Width="760px">
     <BodyContentTemplate>
-        @if (_dbTables is null)
+        @if (_dbNotice is not null)
         {
             <PageNotice Tone="NoticeTone.Warning"
-                        Text="@($"대상 DB 의 표 목록을 읽지 못했습니다{(_dbNotice is null ? "." : " — " + _dbNotice)} 이름을 직접 적어 놓으십시오.")" />
+                        Text="@(_dbTables is null ? $"{_dbNotice} 이름을 직접 적어 놓으십시오." : _dbNotice)" />
         }
-        else
+
+        <div class="tl-pick__bar">
+            <DxTextBox @bind-Text="_pickFilter" BindValueMode="BindValueMode.OnInput" NullText="이름·설명 거르기"
+                       ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+            <DxCheckBox @bind-Checked="_pickHidePlaced">이미 놓은 것 감추기</DxCheckBox>
+            <DxButton Text="@(_rereading ? "읽는 중…" : "DB 에서 다시 읽기")" RenderStyle="ButtonRenderStyle.Secondary"
+                      Enabled="@(!_rereading)" Click="@RereadObjectsAsync" />
+        </div>
+
+        @if (_dbTables is not null)
         {
-            <div class="tl-pick__bar">
-                <DxTextBox @bind-Text="_pickFilter" BindValueMode="BindValueMode.OnInput" NullText="표 이름·설명 거르기"
-                           ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-                <DxCheckBox @bind-Checked="_pickHidePlaced">이미 놓은 표 감추기</DxCheckBox>
+            <div class="tl-pick__types">
+                <button type="button" class="tl-chip @(_pickType is null ? "is-on" : null)" @onclick="@(() => _pickType = null)">
+                    전체 <small>@_dbTables.Count</small>
+                </button>
+                @foreach (var g in LineageObjectTypes.Groups)
+                {
+                    var count = TypeCount(g.Value);
+                    <button type="button" class="tl-chip @(_pickType == g.Value ? "is-on" : null)" disabled="@(count == 0)"
+                            @onclick="@(() => _pickType = _pickType == g.Value ? null : g.Value)">
+                        @g.Text <small>@count</small>
+                    </button>
+                }
             </div>
+
             <CommGrd TItem="LineageDbTable" Data="@PickRows" PageSize="12" ShowFooterActions="false"
-                     EmptyText="고를 표가 없습니다." AutoSelectFirstRow="false"
+                     EmptyText="고를 객체가 없습니다." AutoSelectFirstRow="false"
                      SelectionMode="GridSelectionMode.Multiple"
                      SelectedItems="@_picked"
                      SelectedItemsChanged="@((IReadOnlyList<LineageDbTable> items) => _picked = items)">
                 <Columns>
-                    <DxGridDataColumn FieldName="@nameof(LineageDbTable.Name)" Caption="표" Width="220" TextAlignment="GridTextAlignment.Left" />
+                    <DxGridDataColumn FieldName="@nameof(LineageDbTable.TypeText)" Caption="종류" Width="90" />
+                    <DxGridDataColumn FieldName="@nameof(LineageDbTable.Name)" Caption="이름" Width="220" TextAlignment="GridTextAlignment.Left" />
                     <DxGridDataColumn FieldName="@nameof(LineageDbTable.Description)" Caption="설명" TextAlignment="GridTextAlignment.Left" />
                     <DxGridDataColumn FieldName="@nameof(LineageDbTable.Placed)" Caption="놓임" Width="70" />
                 </Columns>
@@ -325,7 +344,7 @@
 
         <div class="tl-pick__manual">
             <span class="pm-palette__label">직접 적기</span>
-            <DxTextBox @bind-Text="_manualId" NullText="표 이름" />
+            <DxTextBox @bind-Text="_manualId" NullText="이름" />
             <DxTextBox @bind-Text="_manualKr" NullText="설명" />
         </div>
     </BodyContentTemplate>
@@ -333,7 +352,7 @@
     <FooterContentTemplate Context="pickerPopup">
         <span class="tl-pick__kind">
             놓을 종류
-            <DxComboBox Data="@LineageGraph.NodeKinds" @bind-Value="_pickKind"
+            <DxComboBox Data="@PickKinds" @bind-Value="_pickKind"
                         ValueFieldName="@nameof(LineageKind.Value)" TextFieldName="@nameof(LineageKind.Text)"
                         ValidationEnabled="false" />
         </span>

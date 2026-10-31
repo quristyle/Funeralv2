@@ -7815,6 +7815,19 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   margin: 0.75rem 0 0;
 }
 
+.tl-pick__types {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.tl-pick__bar > .dxbl-text-edit {
+  flex: 1 1 12rem;
+  min-width: 0;
+}
+
 .tl-pick__kind {
   display: inline-flex;
   gap: 0.4rem;
@@ -7977,12 +7990,23 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 .tl-node--iface,
 .tl-node--eai { border-left-color: #a8327d; }
 
-/* 프로시저는 표가 아니다 — 담는 것이 아니라 도는 것이라 이 화면에서 둥근 것은 이것뿐이다. */
-.tl-node--proc {
+/* 프로시저·함수는 표가 아니다 — 담는 것이 아니라 도는 것이라 이 화면에서 둥근 것은 이 둘뿐이다. */
+.tl-node--proc,
+.tl-node--func {
   border-left-width: 1px;
   border-radius: 999px;
   border-color: #b5630b;
   background: color-mix(in srgb, #b5630b 6%, var(--jsini-surface));
+}
+
+.tl-node--func {
+  border-color: #6a4fbf;
+  background: color-mix(in srgb, #6a4fbf 6%, var(--jsini-surface));
+}
+
+/* 뷰는 담지 않고 비춘다 — 왼쪽 띠를 겹줄로 갈라 표와 나란히 서도 한눈에 갈린다. */
+.tl-node--view {
+  border-left: 5px double #0e7c86;
 }
 
 .tl-node__head {

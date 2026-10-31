@@ -33,9 +33,11 @@ const SEQ_COLORS = ['#1D6F9E', '#2E7D4F', '#B5630B', '#6A4FBF', '#0E7C86', '#B32
 
 export const NODE_KINDS = {
   master: '기준', ledger: '원장', derived: '파생', snap: '스냅샷', ext: '외부',
-  batch: '배치', proc: '프로시저', iface: '인터페이스', eai: 'EAI',
+  batch: '배치', proc: '프로시저', view: '뷰', func: '함수', iface: '인터페이스', eai: 'EAI',
 };
-const MARK = { iface: '⇄', eai: '⇶' };
+const MARK = { iface: '⇄', eai: '⇶', view: '◫', func: 'ƒ' };
+// 대상 DB 에 이 이름이 있어야 하는 칸 — 없으면 점선이다. 프로시저(proc)는 옛 도면에서 프로그램 이름으로도 써서 빼 둔다.
+const DB_KINDS = ['master', 'ledger', 'derived', 'snap', 'view', 'func'];
 
 // 그릴 때만 쓰는 표시 — 저장에 실리면 다음에 열 때 그대로 남는다.
 const TRANSIENT = ['dim', 'flash', 'hot', 'near', 'found', 'inItem', 'missing'];
@@ -404,7 +406,7 @@ class Lineage {
       d.classList.toggle('is-sel', this.sel?.kind === 'node' && this.sel.id === n.id);
       d.classList.toggle('is-from', this.linkFrom === n.id);
       // 대상 DB 에서 표 목록을 받아 왔을 때만 가른다. 프로시저·외부 칸은 표 목록에 없는 것이 정상이다.
-      d.classList.toggle('is-missing', !!db && ['master', 'ledger', 'derived', 'snap'].includes(n.data.kind || 'master') && !db.has(n.id.toUpperCase()));
+      d.classList.toggle('is-missing', !!db && DB_KINDS.includes(n.data.kind || 'master') && !db.has(n.id.toUpperCase()));
       // 범위를 정한 뒤에 놓은 칸은 DOM 에 있어도 범위 밖이면 숨긴다.
       d.hidden = !!this.scope && !this.scope.has(n.id);
     }

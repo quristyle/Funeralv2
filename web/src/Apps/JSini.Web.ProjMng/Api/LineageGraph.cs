@@ -19,6 +19,9 @@ public static class LineageGraph
     /// <summary>처음 모습. 옮겨 넣을 때 한 벌 떠 둔다 — 「기본 배치로」가 이것으로 되돌린다.</summary>
     public const string SeedKey = "table_lineage_seed";
 
+    /// <summary>대상 DB 에서 모아 둔 객체 목록과 연결(<c>scripts/projmng-table-lineage-harvest.py</c>). 대상 DB 에 못 붙을 때 「객체 놓기」가 이것으로 고른다.</summary>
+    public const string CatalogKey = "table_lineage_catalog";
+
     /// <summary>속성 종류. ERD 고르개는 <c>entities</c> 를 보고 거르므로 이 줄들이 그쪽 「그림」 목록에 섞이지 않는다.</summary>
     public const string PropType = "lineage";
 
@@ -51,6 +54,8 @@ public static class LineageGraph
         new("ext", "외부", ""),
         new("batch", "배치", ""),
         new("proc", "프로시저", ""),
+        new("view", "뷰", ""),
+        new("func", "함수", ""),
         new("iface", "인터페이스", ""),
         new("eai", "EAI", ""),
     ];
@@ -172,12 +177,107 @@ public sealed class LineageItem
     public List<string> Tables { get; set; } = [];
 }
 
-/// <summary>대상 DB 에서 받은 표 한 줄. 놓기 창의 고르는 표가 쓴다.</summary>
+/// <summary>대상 DB 에서 받은 객체 한 줄(표 · 뷰 · 프로시저 · 함수). 놓기 창의 고르는 표가 쓴다.</summary>
 public sealed class LineageDbTable
 {
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
 
+    /// <summary>등록 질의 objectlist 의 ObjectType. 옛 tablelist 로 받았으면 늘 TABLE 이다.</summary>
+    public string Type { get; set; } = LineageObjectTypes.Table;
+
+    public string TypeText => LineageObjectTypes.TextOf(Type);
+
     /// <summary>이미 도면에 있다. 고를 수 없게 흐리게 둔다.</summary>
     public bool Placed { get; set; }
+}
+
+/// <summary>대상 DB 객체의 종류. 글자는 등록 질의 objectlist 와 하네스 스크립트가 같이 쓴다.</summary>
+public static class LineageObjectTypes
+{
+    public const string Table = "TABLE";
+
+    /// <summary>놓기 창의 종류 고르개. 차례가 곧 칩 차례다 — 구체화 뷰·외부 표는 뷰·표에 묶는다.</summary>
+    public static readonly IReadOnlyList<LineageKind> Groups =
+    [
+        new("TABLE", "표", ""),
+        new("VIEW", "뷰", ""),
+        new("PROCEDURE", "프로시저", ""),
+        new("FUNCTION", "함수", ""),
+    ];
+
+    public static string GroupOf(string? type) => type?.ToUpperInvariant() switch
+    {
+        "VIEW" or "MVIEW" => "VIEW",
+        "PROCEDURE" => "PROCEDURE",
+        "FUNCTION" => "FUNCTION",
+        _ => Table,
+    };
+
+    public static string TextOf(string? type) => type?.ToUpperInvariant() switch
+    {
+        "VIEW" => "뷰",
+        "MVIEW" => "구체화 뷰",
+        "FOREIGN" => "외부 표",
+        "PROCEDURE" => "프로시저",
+        "FUNCTION" => "함수",
+        _ => "표",
+    };
+
+    /// <summary>「자동」으로 놓을 때 칸 종류. 표는 원장으로 두고 사람이 고친다 — 기준인지 파생인지는 DB 가 모른다.</summary>
+    public static string NodeKindOf(string? type) => GroupOf(type) switch
+    {
+        "VIEW" => "view",
+        "PROCEDURE" => "proc",
+        "FUNCTION" => "func",
+        _ => "ledger",
+    };
+}
+
+/// <summary>
+/// 대상 DB 에서 모아 둔 객체와 연결(<see cref="LineageGraph.CatalogKey"/>). 모으는 쪽은 <c>scripts/projmng-table-lineage-harvest.py</c> 다.
+/// 화면은 대상 DB 에 못 붙을 때만 이것을 읽는다 — 붙으면 늘 지금 것이 이긴다.
+/// </summary>
+public sealed class LineageCatalog
+{
+    /// <summary>모은 때(한국 시각 글자 그대로).</summary>
+    public string At { get; set; } = string.Empty;
+
+    public List<LineageDbTable> Objects { get; set; } = [];
+
+    public static LineageCatalog? Parse(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(raw);
+            var root = doc.RootElement;
+            if (!root.TryGetProperty("objects", out var objects) || objects.ValueKind != JsonValueKind.Array) return null;
+
+            return new LineageCatalog
+            {
+                At = root.TryGetProperty("at", out var at) ? at.GetString() ?? string.Empty : string.Empty,
+                Objects =
+                [
+                    .. objects.EnumerateArray()
+                        .Where(o => o.ValueKind == JsonValueKind.Object)
+                        .Select(o => new LineageDbTable
+                        {
+                            Name = Str(o, "name"),
+                            Description = Str(o, "desc"),
+                            Type = Str(o, "type") is { Length: > 0 } t ? t : LineageObjectTypes.Table,
+                        })
+                        .Where(t => t.Name.Length > 0)
+                ],
+            };
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
+
+    private static string Str(JsonElement o, string name) =>
+        o.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? string.Empty : string.Empty;
 }
