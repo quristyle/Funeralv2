@@ -2,6 +2,7 @@ using System.Text.Json;
 using DevExpress.Blazor;
 using DevExpress.Data.Filtering;
 using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
 using JSini.Web.Abstractions;
 using JSini.Web.Components.Data;
 using JSini.Web.Components.Layout;
@@ -18,6 +19,27 @@ public partial class WbsRowList
     [Inject] private WbsDevUserClient Prefs { get; set; } = default!;
     [Inject] private BizOptions Biz { get; set; } = default!;
     [Inject] private FileGroupClient Files { get; set; } = default!;
+    [Inject] private IJSRuntime Js { get; set; } = default!;
+
+    /// <summary>칸 순서·표시 상태가 바뀔 때마다 그리드를 다시 세우는 키.</summary>
+    private int _colsRevision;
+    private string GridKey => $"wbs-grid-{_colsRevision}";
+
+    /// <summary>추가/수정/삭제 직후 사용자에게 안내 띠를 띄운다.</summary>
+    private string? _addedName;
+    private string? _addedId;
+    private string? _savedName;
+    private string? _goneName;
+    private long? _goneDelId;
+
+    private void FilterToAdded()
+    {
+        if (_addedId is not null)
+        {
+            _filter.Q = _addedId;
+            _ = SearchAsync();
+        }
+    }
 
     /// <summary>보이는 칸을 담아 두는 설정 이름. 참고 소스와 같은 이름이라 옮겨 온 설정도 읽힌다.</summary>
     private const string ColsPref = "rows.cols";
@@ -293,7 +315,12 @@ public partial class WbsRowList
             var keep = picked.Where(all.Contains).Distinct().ToList();
             keep.AddRange(all.Where(a => known?.Contains(a) != true && !keep.Contains(a)));
 
-            if (keep.Count > 0) _cols = keep;
+            if (keep.Count > 0)
+            {
+                _cols = keep;
+                _colsRevision++;
+                StateHasChanged();
+            }
         }
         catch (Exception ex) when (ex is ApiException or JsonException)
         {
@@ -406,13 +433,115 @@ public partial class WbsRowList
 
     private void DragEnd() => _dragFrom = _dragOver = -1;
 
-    private Task ApplyColumnsAsync()
+    private async Task ApplyColumnsAsync()
     {
-        if (_draft.Count == 0) return Task.CompletedTask;   // 하나는 남긴다
+        if (_draft.Count == 0) return;   // 하나는 남긴다
 
         _cols = [.. _draft];
+        _colsRevision++;
         _colOpen = false;
-        return SaveColsAsync();
+        await SaveColsAsync();
+        StateHasChanged();
+    }
+
+    // ──────────────────────────────────────────── 화면 열기 메뉴 (운영/개발)
+    private bool _screenMenuOpen;
+    private WbsBoardRowDto? _screenMenuRow;
+
+    private void OpenScreenMenu(WbsBoardRowDto r)
+    {
+        _screenMenuRow = r;
+        _screenMenuOpen = true;
+    }
+
+    // ──────────────────────────────────────────── ProjectView 메뉴 (작업/일감/단위테스트)
+    private bool _pvMenuOpen;
+    private WbsBoardRowDto? _pvMenuRow;
+
+    private void OpenPvMenu(WbsBoardRowDto r)
+    {
+        _pvMenuRow = r;
+        _pvMenuOpen = true;
+    }
+
+    // ──────────────────────────────────────────── ProjectView 데이터 수집 창
+    private bool _pvCollectOpen;
+    private void OpenPvCollect() => _pvCollectOpen = true;
+
+    private string GetPvCollectScript()
+        => WbsPvScripts.BuildPvCacheScript(_rows.Select(r => r.ActivityId).OfType<string>());
+
+    private async Task CopyPvCollectScriptAsync()
+    {
+        try
+        {
+            await Js.InvokeVoidAsync("jsiniClipboard.copy", GetPvCollectScript());
+            Say("ProjectView 데이터 수집 스크립트를 클립보드에 복사했습니다.");
+        }
+        catch
+        {
+            Say("클립보드 복사에 실패했습니다.", NoticeTone.Warning);
+        }
+    }
+
+    // ──────────────────────────────────────────── 단위테스트 상태 일괄 변경 창
+    private bool _testStatusOpen;
+    private string _testStatusValue = "SUCCESS";
+    private string _testTarget = "view";
+
+    private static readonly SchOption[] TestStatusChoices =
+    [
+        new("SUCCESS", "SUCCESS (성공)"),
+        new("UNPERFORMED", "UNPERFORMED (미수행)"),
+        new("IN_PROGRESS", "IN_PROGRESS (진행중)"),
+        new("FAIL", "FAIL (실패)"),
+        new("NA", "NA (해당없음)"),
+        new("NE", "NE"),
+    ];
+
+    private static readonly SchOption[] TestTargetChoices =
+    [
+        new("view", "목록에 보이는 화면"),
+        new("all", "전체 대상"),
+    ];
+
+    private void OpenTestStatus() => _testStatusOpen = true;
+
+    private string GetTestStatusScript()
+    {
+        var map = _rows.Where(r => !string.IsNullOrEmpty(r.ActivityId))
+            .ToDictionary(r => r.ActivityId!, r => r.MenuNm ?? "");
+        return WbsPvScripts.BuildPvTestScript(_testStatusValue, map, null, _testTarget == "view" ? "목록에 보이는 화면" : "전체");
+    }
+
+    private async Task CopyTestStatusScriptAsync()
+    {
+        try
+        {
+            await Js.InvokeVoidAsync("jsiniClipboard.copy", GetTestStatusScript());
+            Say("단위테스트 상태 변경 스크립트를 클립보드에 복사했습니다.");
+        }
+        catch
+        {
+            Say("클립보드 복사에 실패했습니다.", NoticeTone.Warning);
+        }
+    }
+
+    // ──────────────────────────────────────────── 조건 초기화
+    private async Task ResetFiltersAsync()
+    {
+        _filter.Basis = "edt";
+        _filter.Scope = "dev";
+        _filter.Month = null;
+        _filter.Week = null;
+        _filter.User = null;
+        _filter.RealUser = null;
+        _filter.Module = null;
+        _filter.Done = null;
+        _filter.Late = null;
+        _filter.Status = null;
+        _filter.Q = null;
+        await SearchAsync();
     }
 
     // ──────────────────────────────────────────── 칸별 검색
@@ -629,6 +758,10 @@ public partial class WbsRowList
             {
                 var id = await Api.CreateRowAsync(rid, values);
                 _formOpen = false;
+                _addedName = Get("menu_nm");
+                _addedId = id;
+                _savedName = null;
+                _goneName = null;
                 Say($"「{id} · {Get("menu_nm")}」 을(를) 추가했습니다.");
 
                 // 방금 세운 줄을 찾아갈 길 — 211건 사이에 끼면 눈으로 못 찾는다.
@@ -638,6 +771,9 @@ public partial class WbsRowList
             {
                 await Api.UpdateRowAsync(rid, _formKey, values);
                 _formOpen = false;
+                _savedName = Get("menu_nm");
+                _addedName = null;
+                _goneName = null;
                 Say($"「{Get("menu_nm")}」 을(를) 고쳤습니다.");
             }
         }
@@ -698,6 +834,10 @@ public partial class WbsRowList
         try
         {
             var gone = await Api.DeleteRowAsync(rid, row.ActivityId);
+            _goneName = row.MenuNm;
+            _goneDelId = gone?.DelId;
+            _addedName = null;
+            _savedName = null;
 
             if (row.FileGroupId is { Length: > 0 })
             {

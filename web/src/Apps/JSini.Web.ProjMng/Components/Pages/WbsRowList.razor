@@ -78,7 +78,61 @@ WBS 상세 목록. 다른 화면의 막대·칸을 누르면 조건이 주소로
             <DxTextBox @bind-Text="_filter.Q" Style="width: 200px" />
         </CommSchItem>
     </Fields>
+    <Actions>
+        <PermissionView Action="MenuAction.Create">
+            <DxButton Text="대상 추가" RenderStyle="ButtonRenderStyle.Primary"
+                      IconCssClass="jsini-icon-plus" Enabled="@(ProjectRid is not null)" Click="@StartNew" />
+        </PermissionView>
+        <DxButton Text="@($"보이는 칸 ({VisibleCount}/{WbsRowSchema.Cols.Count})")"
+                  RenderStyle="ButtonRenderStyle.Secondary"
+                  IconCssClass="jsini-icon-columns"
+                  Title="@($"보이는 컬럼 및 순서 정의 ({VisibleCount}/{WbsRowSchema.Cols.Count} 선택)")"
+                  Click="@OpenColumns" />
+        <DxButton Text="PV 수집" RenderStyle="ButtonRenderStyle.Secondary"
+                  IconCssClass="jsini-icon-download"
+                  Title="ProjectView 데이터 수집 스크립트"
+                  Click="@OpenPvCollect" />
+        <DxButton Text="단위테스트" RenderStyle="ButtonRenderStyle.Secondary"
+                  IconCssClass="jsini-icon-check"
+                  Title="단위테스트 상태 일괄 변경 스크립트"
+                  Click="@OpenTestStatus" />
+        <DxButton Text="초기화" RenderStyle="ButtonRenderStyle.Secondary"
+                  IconCssClass="jsini-icon-undo"
+                  Title="검색 조건 초기화"
+                  Click="@ResetFiltersAsync" />
+    </Actions>
 </CommSch>
+
+@if (_addedName is not null)
+{
+    <div class="pm-wbs-banner pm-wbs-banner--added">
+        <span><strong>@_addedName</strong> 을(를) 추가했습니다.</span>
+        @if (!string.IsNullOrWhiteSpace(_addedId))
+        {
+            <button type="button" class="pm-wbs-banner__btn" @onclick="@FilterToAdded">이 건만 보기</button>
+        }
+        <span class="pm-wbs-banner__spacer"></span>
+        <button type="button" class="pm-wbs-banner__btn" @onclick="@(() => _addedName = null)">닫기</button>
+    </div>
+}
+
+@if (_savedName is not null)
+{
+    <div class="pm-wbs-banner pm-wbs-banner--saved">
+        <span><strong>@_savedName</strong> 을(를) 고쳤습니다.</span>
+        <span class="pm-wbs-banner__spacer"></span>
+        <button type="button" class="pm-wbs-banner__btn" @onclick="@(() => _savedName = null)">닫기</button>
+    </div>
+}
+
+@if (_goneName is not null)
+{
+    <div class="pm-wbs-banner pm-wbs-banner--gone">
+        <span><strong>@_goneName</strong> 을(를) 지웠습니다@(_goneDelId is not null ? $" (보관 번호 {_goneDelId})" : "").</span>
+        <span class="pm-wbs-banner__spacer"></span>
+        <button type="button" class="pm-wbs-banner__btn" @onclick="@(() => _goneName = null)">닫기</button>
+    </div>
+}
 
 @* 원장 적재는 화면 밖(deploy/sql/projmng-wbs-data-load.sql)이라, 비어 있으면 조건 탓이 아니라고 먼저 말한다. *@
 @if (_ledgerEmpty)
@@ -90,25 +144,54 @@ WBS 상세 목록. 다른 화면의 막대·칸을 누르면 조건이 주소로
 @if (_noIdCount > 0)
 {
     <PageNotice Tone="NoticeTone.Warning"
-                Text="@($"Activity ID 가 정해지지 않은 대상이 {_noIdCount}건 있습니다(NOID-…). ProjectView 링크가 붙지 않습니다 — 관리 칸의 「ID 지정」으로 채웁니다.")" />
+                Text="@($"Activity ID 가 정해지지 않은 대상이 {_noIdCount}건 있습니다(NOID-…). ProjectView 링크가 붙지 않습니다 — 관리 칸 또는 표의 「＋ ID」로 채웁니다.")" />
 }
 
 @if (PvShownButEmpty)
 {
     <PageNotice Tone="NoticeTone.Info"
-                Text="PV 칸은 ProjectView 에서 걷어 온 값입니다. 아직 수집한 적이 없어 비어 있습니다 — 수집은 사내망의 ProjectView 수집기가 채웁니다." />
+                Text="PV 칸은 ProjectView 에서 걷어 온 값입니다. 아직 수집한 적이 없어 비어 있습니다 — 상단 도구줄의 「PV 수집」으로 수집 스크립트를 실행할 수 있습니다." />
 }
 
 <CommCont Hint="@Hint">
-    <CommGrd TItem="WbsBoardRowDto"
+    <CommGrd @key="@GridKey"
+             TItem="WbsBoardRowDto"
              Data="@_rows"
              ExportName="WBS 상세 목록"
              EmptyText="조건에 맞는 화면이 없습니다."
              KeyFieldName="@nameof(WbsBoardRowDto.ActivityId)"
-             StateKey="projmng/wbs/rows"
              ShowFilterRow="true"
              RowActions="@RowActions"
              Reload="@SearchAsync">
+        <Toolbar>
+            <div class="d-flex align-items-center gap-2">
+                <DxButton Text="@($"보이는 칸 ({VisibleCount}/{WbsRowSchema.Cols.Count})")"
+                          RenderStyle="ButtonRenderStyle.Secondary"
+                          IconCssClass="jsini-icon-columns"
+                          Size="ButtonSize.Small"
+                          Title="@($"보이는 컬럼 및 순서 정의 ({VisibleCount}/{WbsRowSchema.Cols.Count} 선택)")"
+                          Click="@OpenColumns" />
+                <PermissionView Action="MenuAction.Create">
+                    <DxButton Text="＋ 대상추가" RenderStyle="ButtonRenderStyle.Primary"
+                              IconCssClass="jsini-icon-plus"
+                              Size="ButtonSize.Small"
+                              Enabled="@(ProjectRid is not null)" Click="@StartNew" />
+                </PermissionView>
+                <DxButton Text="⛁ PV 수집" RenderStyle="ButtonRenderStyle.Secondary"
+                          Size="ButtonSize.Small"
+                          Title="ProjectView 데이터 수집 스크립트"
+                          Click="@OpenPvCollect" />
+                <DxButton Text="✔ 단위테스트" RenderStyle="ButtonRenderStyle.Secondary"
+                          Size="ButtonSize.Small"
+                          Title="단위테스트 상태 일괄 변경 스크립트"
+                          Click="@OpenTestStatus" />
+                <DxButton Text="⊘ 필터 초기화" RenderStyle="ButtonRenderStyle.Secondary"
+                          Size="ButtonSize.Small"
+                          Title="검색 조건 초기화"
+                          Click="@ResetFiltersAsync" />
+            </div>
+        </Toolbar>
+
         <ContextMenuItems>
             <PermissionView Action="MenuAction.Create">
                 <CommMenuItem Text="대상 추가" IconCssClass="jsini-icon-plus"
@@ -116,6 +199,8 @@ WBS 상세 목록. 다른 화면의 막대·칸을 누르면 조건이 주소로
             </PermissionView>
             <CommMenuItem Text="@($"보이는 칸 고르기 ({VisibleCount}/{WbsRowSchema.Cols.Count})")"
                           IconCssClass="jsini-icon-columns" Click="@OpenColumns" />
+            <CommMenuItem Text="PV 수집 스크립트" IconCssClass="jsini-icon-download" Click="@OpenPvCollect" />
+            <CommMenuItem Text="단위테스트 상태 변경" IconCssClass="jsini-icon-check" Click="@OpenTestStatus" />
         </ContextMenuItems>
 
         <Columns>
@@ -127,12 +212,17 @@ WBS 상세 목록. 다른 화면의 막대·칸을 누르면 조건이 주소로
                     }
                     @if (r.NoId)
                     {
-                        <span class="pm-wbs-noid" title="Activity ID 가 아직 정해지지 않은 줄입니다">@r.ActivityId</span>
+                        <button type="button" class="pm-wbs-btn-setid"
+                                title="나중에 확정된 Activity ID 를 채웁니다 — 클릭하여 ID 지정"
+                                @onclick="@(() => StartSetId(r))" @onclick:stopPropagation="true">
+                            ＋ ID
+                        </button>
                     }
-                    else if (WbsBoardLinks.PvWorkUrl(r) is { } url)
+                    else
                     {
-                        <a class="pm-wbs-link" href="@url" target="_blank" rel="noopener noreferrer"
-                           title="ProjectView 작업 상세 (사내망)" @onclick:stopPropagation="true">@r.ActivityId</a>
+                        <a class="pm-wbs-link" href="javascript:void(0)"
+                           title="ProjectView 열기 (작업 · 일감 · 단위테스트)"
+                           @onclick="@(() => OpenPvMenu(r))" @onclick:stopPropagation="true">@r.ActivityId</a>
                     }
                 </CellDisplayTemplate>
             </DxGridDataColumn>
@@ -147,7 +237,11 @@ WBS 상세 목록. 다른 화면의 막대·칸을 누르면 조건이 주소로
                         var r = (WbsBoardRowDto)cell.DataItem;
                     }
                     <span class="pm-wbs-menu">
-                        <span class="pm-wbs-menu__t">@r.MenuNm</span>
+                        <button type="button" class="pm-wbs-menu-link"
+                                title="화면 열기 (운영 / 개발)"
+                                @onclick="@(() => OpenScreenMenu(r))" @onclick:stopPropagation="true">
+                            @r.MenuNm
+                        </button>
                         @if (Can(MenuAction.Update))
                         {
                             <button type="button" class="pm-wbs-menu__edit" title="대상 수정 — 이 줄의 모든 항목을 고칩니다"
@@ -534,6 +628,190 @@ WBS 상세 목록. 다른 화면의 막대·칸을 누르면 조건이 주소로
             <DxButton Text="올리기" RenderStyle="ButtonRenderStyle.Primary" Enabled="@(_picked.Count > 0)" Click="@UploadAsync" />
         </PermissionView>
         <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _fileOpen = false)" />
+    </FooterContentTemplate>
+</CommPopup>
+
+@* ──────────────── 화면 열기 메뉴 (운영 / 개발) ──────────────── *@
+<CommPopup @bind-Visible="_screenMenuOpen" HeaderText="@($"화면 열기 · {_screenMenuRow?.MenuNm}")" Width="440px">
+    <BodyContentTemplate Context="popup">
+        @if (_screenMenuRow is { } r)
+        {
+            var ops = WbsBoardLinks.OpsUrl(r);
+            var dev = WbsBoardLinks.DevUrl(r);
+            var code = WbsBoardLinks.ScreenCodeOf(r.MenuNm);
+
+            <div class="d-flex flex-column gap-3">
+                <div class="p-2 border rounded bg-light">
+                    <div class="fw-bold fs-6 mb-1">@(code ?? "화면코드 없음")</div>
+                    <div class="text-muted small">@r.MenuNm</div>
+                </div>
+
+                <div class="d-grid gap-2">
+                    @if (ops is not null)
+                    {
+                        <a class="btn btn-outline-primary text-start p-2" href="@ops" target="_blank" rel="noopener noreferrer">
+                            <div class="fw-bold">운영 화면 ↗</div>
+                            <small class="text-truncate d-block font-monospace text-muted">@ops</small>
+                        </a>
+                    }
+                    else
+                    {
+                        <button type="button" class="btn btn-outline-secondary text-start p-2" disabled>
+                            <div class="fw-bold">운영 화면</div>
+                            <small class="text-muted">화면코드 또는 모듈을 읽을 수 없습니다</small>
+                        </button>
+                    }
+
+                    @if (dev is not null)
+                    {
+                        <a class="btn btn-outline-success text-start p-2" href="@dev" target="_blank" rel="noopener noreferrer">
+                            <div class="fw-bold">개발 화면 (로컬) ↗</div>
+                            <small class="text-truncate d-block font-monospace text-muted">@dev</small>
+                        </a>
+                    }
+                    else
+                    {
+                        <button type="button" class="btn btn-outline-secondary text-start p-2" disabled>
+                            <div class="fw-bold">개발 화면 (로컬)</div>
+                            <small class="text-muted">모듈 번호(3200+n)를 읽을 수 없습니다</small>
+                        </button>
+                    }
+                </div>
+
+                <div class="small text-muted">
+                    개발 화면은 <b>이 PC</b>에서 해당 모듈(3200+번) 개발서버가 실행 중이어야 열립니다.
+                </div>
+            </div>
+        }
+    </BodyContentTemplate>
+    <FooterContentTemplate Context="popup">
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _screenMenuOpen = false)" />
+    </FooterContentTemplate>
+</CommPopup>
+
+@* ──────────────── ProjectView 메뉴 (작업 / 일감 / 단위테스트) ──────────────── *@
+<CommPopup @bind-Visible="_pvMenuOpen" HeaderText="@($"ProjectView · {_pvMenuRow?.ActivityId}")" Width="440px">
+    <BodyContentTemplate Context="popup">
+        @if (_pvMenuRow is { } r)
+        {
+            var work = WbsBoardLinks.PvWorkUrl(r);
+            var task = WbsBoardLinks.PvTaskUrl(r);
+            var test = WbsBoardLinks.PvTestUrl(r);
+
+            <div class="d-flex flex-column gap-3">
+                <div class="p-2 border rounded bg-light">
+                    <div class="fw-bold fs-6 mb-1">@r.ActivityId</div>
+                    <div class="text-muted small">@r.MenuNm</div>
+                </div>
+
+                <div class="d-grid gap-2">
+                    @if (work is not null)
+                    {
+                        <a class="btn btn-outline-primary text-start p-2" href="@work" target="_blank" rel="noopener noreferrer">
+                            <div class="fw-bold">작업(Activity) 상세 ↗</div>
+                            <small class="text-muted d-block">액티비티 진척 및 일정 상세</small>
+                        </a>
+                    }
+
+                    @if (task is not null)
+                    {
+                        <a class="btn btn-outline-info text-start p-2" href="@task" target="_blank" rel="noopener noreferrer">
+                            <div class="fw-bold">일감(Task) 상세 ↗</div>
+                            <small class="text-muted d-block">@r.PvTaskCode (@(string.IsNullOrEmpty(r.PvStatus) ? "진행" : r.PvStatus))</small>
+                        </a>
+                    }
+                    else
+                    {
+                        <button type="button" class="btn btn-outline-secondary text-start p-2" disabled>
+                            <div class="fw-bold">일감(Task) 상세</div>
+                            <small class="text-muted">일감 코드가 아직 수집되지 않았습니다 (PV 수집 필요)</small>
+                        </button>
+                    }
+
+                    @if (test is not null)
+                    {
+                        <a class="btn btn-outline-success text-start p-2" href="@test" target="_blank" rel="noopener noreferrer">
+                            <div class="fw-bold">단위테스트 상세 ↗</div>
+                            <small class="text-muted d-block">@r.PvTestCaseId</small>
+                        </a>
+                    }
+                    else
+                    {
+                        <button type="button" class="btn btn-outline-secondary text-start p-2" disabled>
+                            <div class="fw-bold">단위테스트 상세</div>
+                            <small class="text-muted">단위테스트 코드가 없습니다</small>
+                        </button>
+                    }
+                </div>
+                <div class="small text-muted">ProjectView 는 사내망 환경에서 새 창으로 열립니다.</div>
+            </div>
+        }
+    </BodyContentTemplate>
+    <FooterContentTemplate Context="popup">
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _pvMenuOpen = false)" />
+    </FooterContentTemplate>
+</CommPopup>
+
+@* ──────────────── ProjectView 데이터 수집 창 ──────────────── *@
+<CommPopup @bind-Visible="_pvCollectOpen" HeaderText="ProjectView 데이터 수집 스크립트" Width="820px">
+    <BodyContentTemplate Context="popup">
+        <div class="d-flex flex-column gap-3">
+            <PageNotice Tone="NoticeTone.Info"
+                        Text="사내망 ProjectView 작업 화면(로그인 상태) 탭에서 F12(콘솔)를 누른 뒤, 아래 스크립트를 복사하여 붙여넣고 Enter를 실행하세요." />
+
+            <div class="d-flex align-items-center gap-2">
+                <span class="fw-bold small">수집 대상: @_rows.Count(r => !r.NoId) 건의 Activity ID</span>
+                <span class="flex-grow-1"></span>
+                <DxButton Text="스크립트 복사" RenderStyle="ButtonRenderStyle.Primary"
+                          IconCssClass="jsini-icon-copy" Click="@CopyPvCollectScriptAsync" />
+            </div>
+
+            <textarea class="form-control font-monospace small" rows="12" readonly
+                      style="background: #f8f9fa; resize: vertical;">@GetPvCollectScript()</textarea>
+            <div class="small text-muted">
+                수집된 결과는 브라우저 콘솔에서 JSON으로 출력되며 자동으로 클립보드에 복사됩니다.
+            </div>
+        </div>
+    </BodyContentTemplate>
+    <FooterContentTemplate Context="popup">
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _pvCollectOpen = false)" />
+    </FooterContentTemplate>
+</CommPopup>
+
+@* ──────────────── ProjectView 단위테스트 상태 일괄 변경 창 ──────────────── *@
+<CommPopup @bind-Visible="_testStatusOpen" HeaderText="ProjectView 단위테스트 상태 일괄 변경" Width="840px">
+    <BodyContentTemplate Context="popup">
+        <div class="d-flex flex-column gap-3">
+            <div class="row g-2 align-items-center">
+                <div class="col-auto"><label class="fw-bold small">변경 상태:</label></div>
+                <div class="col-auto">
+                    <DxComboBox Data="@TestStatusChoices" @bind-Value="_testStatusValue"
+                                TextFieldName="Text" ValueFieldName="Value" Style="width: 170px" />
+                </div>
+                <div class="col-auto ms-3"><label class="fw-bold small">대상:</label></div>
+                <div class="col-auto">
+                    <DxRadioGroup Items="@TestTargetChoices" @bind-Value="_testTarget"
+                                  TextFieldName="Text" ValueFieldName="Value" Layout="RadioGroupLayout.Horizontal" />
+                </div>
+            </div>
+
+            <div class="d-flex align-items-center gap-2">
+                <span class="fw-bold small">대상 화면: @(_testTarget == "view" ? _rows.Count : _rows.Count) 건</span>
+                <span class="flex-grow-1"></span>
+                <DxButton Text="스크립트 복사" RenderStyle="ButtonRenderStyle.Primary"
+                          IconCssClass="jsini-icon-copy" Click="@CopyTestStatusScriptAsync" />
+            </div>
+
+            <textarea class="form-control font-monospace small" rows="12" readonly
+                      style="background: #f8f9fa; resize: vertical;">@GetTestStatusScript()</textarea>
+
+            <div class="small text-muted">
+                ProjectView 탭의 F12 콘솔에 붙여넣고 실행하면 DRY RUN으로 먼저 확인 후 실제 변경(pvSend())할 수 있습니다.
+            </div>
+        </div>
+    </BodyContentTemplate>
+    <FooterContentTemplate Context="popup">
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _testStatusOpen = false)" />
     </FooterContentTemplate>
 </CommPopup>
 
