@@ -7040,3 +7040,24 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 .pm-wbs-banner__spacer { flex: 1; }
 .pm-wbs-banner__btn { border: none; background: none; color: inherit; font-weight: 600; cursor: pointer; text-decoration: underline; padding: 0 4px; }
 
+
+/* ── 일정 메일 발송 화면 (`ScheduleMailPage`) ── 일정표 팝업이던 것을 탭 화면으로 옮겼다. 쪽이 구르고 단추 줄은 바닥에 붙는다. */
+.pm-mailpage {
+  max-width: 72rem;
+}
+
+.pm-mailpage__scope {
+  font-weight: 500;
+}
+
+.pm-mailpage__acts {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--jsini-sp-sm, 8px);
+  margin-top: var(--jsini-sp-md);
+  padding: var(--jsini-sp-sm, 8px) 0;
+  background: var(--jsini-surface, #fff);
+  border-top: 1px solid var(--jsini-border);
+}

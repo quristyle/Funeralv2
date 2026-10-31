@@ -52,7 +52,7 @@
         <DxButton Text="메일발송" RenderStyle="ButtonRenderStyle.Secondary"
                   IconCssClass="jsini-icon-mail"
                   CssClass="pm-gc__mail-btn"
-                  Click="@OpenMailAsync" />
+                  Click="@OpenMail" />
 
         <PermissionView Action="MenuAction.Create">
             <DxButton Text="추가" RenderStyle="ButtonRenderStyle.Primary"
@@ -731,127 +731,6 @@
         }
 
         <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _editing = false)" />
-    </FooterContentTemplate>
-</CommPopup>
-
-@* 고른 기간의 일정을 타임라인 메일로 보낸다. 미리보기가 곧 편집기라 보는 그대로 나간다. *@
-<CommPopup @bind-Visible="_mailing" HeaderText="일정 메일 발송" Width="min(900px, calc(100vw - 2rem))" MaxHeight="92vh" Scrollable="true">
-    <BodyContentTemplate Context="mailPopup">
-        <DxFormLayout CssClass="pm-editform">
-            <DxFormLayoutItem Caption="받는 사람" ColSpanMd="12">
-                <div class="pm-mail-addr">
-                    <DxTextBox @bind-Text="_mailTo" BindValueMode="BindValueMode.OnInput" />
-                    <DxButton Text="사람 찾기" RenderStyle="ButtonRenderStyle.Secondary"
-                              IconCssClass="jsini-icon-user"
-                              Click="@(() => OpenPickerAsync(MailPickTarget.To))" />
-                </div>
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="참조" ColSpanMd="12">
-                <div class="pm-mail-addr">
-                    <DxTextBox @bind-Text="_mailCc" BindValueMode="BindValueMode.OnInput" />
-                    <DxButton Text="사람 찾기" RenderStyle="ButtonRenderStyle.Secondary"
-                              IconCssClass="jsini-icon-user"
-                              Click="@(() => OpenPickerAsync(MailPickTarget.Cc))" />
-                </div>
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="기간" ColSpanMd="7">
-                <div class="pm-mail-range">
-                    <DxDateEdit Date="@_mailFrom" DateChanged="@((DateOnly d) => _mailFrom = d)" />
-                    <span>~</span>
-                    <DxDateEdit Date="@_mailUntil" DateChanged="@((DateOnly d) => _mailUntil = d)" />
-                    <DxButton Text="@(_mailLoading ? "가져오는 중…" : "다시 가져오기")" RenderStyle="ButtonRenderStyle.Secondary"
-                              IconCssClass="jsini-icon-refresh" Enabled="@(!_mailLoading)"
-                              Click="@ReloadMailItemsAsync" />
-                </div>
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="템플릿" ColSpanMd="5">
-                <DxComboBox Data="@_mailTemplates"
-                            TData="MailTemplateDto" TValue="long"
-                            ValueFieldName="@nameof(MailTemplateDto.TplId)"
-                            TextFieldName="@nameof(MailTemplateDto.TplNm)"
-                            Value="@_mailTplId"
-                            ValueChanged="@((long id) => PickMailTemplateAsync(id))" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="제목" ColSpanMd="12">
-                <DxTextBox Text="@_mailSubject" TextChanged="@((string t) => _mailSubject = t ?? string.Empty)" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="인사말" ColSpanMd="12">
-                <DxMemo Text="@_mailMessage" TextChanged="@((string? text) => OnMailMessageChanged(text))" Rows="3" />
-            </DxFormLayoutItem>
-        </DxFormLayout>
-
-        <p class="jsini-hint">여러 주소는 쉼표로 구분합니다. 인사말을 비우면 기본 인사말이 들어갑니다.</p>
-
-        <div class="pm-mail-preview">
-            <div class="pm-mail-preview__head">
-                <span>본문 · @_mailCount 건@(_mailEdited ? " · 직접 고침" : null)</span>
-                <DxButton Text="본문 다시 만들기" RenderStyle="ButtonRenderStyle.Link"
-                          IconCssClass="jsini-icon-refresh" Click="@RebuildMailBodyAsync" />
-            </div>
-            <MailHtmlEditor @ref="_mailEditor" Value="@_mailBody" ValueChanged="@OnMailBodyEdited" Height="52vh" />
-        </div>
-    </BodyContentTemplate>
-
-    <FooterContentTemplate Context="mailFooter">
-        <DxButton Text="@(_mailSending ? "보내는 중…" : "발송")" RenderStyle="ButtonRenderStyle.Primary"
-                  IconCssClass="jsini-icon-mail" Enabled="@(!_mailSending)" Click="@SendMailAsync" />
-        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _mailing = false)" />
-    </FooterContentTemplate>
-</CommPopup>
-
-@* 받는 사람과 참조가 창 하나를 나눠 쓴다. 고른 주소는 칸에 글자로 더해지므로 손으로 고치거나 지울 수 있다. *@
-<CommPopup @bind-Visible="_picking"
-           HeaderText="@(_pickTarget == MailPickTarget.To ? "받는 사람 찾기" : "참조 찾기")"
-           Width="min(44rem, calc(100vw - 2rem))">
-    <BodyContentTemplate Context="pickPopup">
-        <div class="pm-mail-pick">
-            <DxTextBox Text="@_pickFilter"
-                       TextChanged="@((string v) => _pickFilter = v ?? string.Empty)"
-                       BindValueMode="BindValueMode.OnInput"
-                       NullText="이름 · 아이디 · 주소 · 부서로 찾기, 또는 메일 주소 직접 입력" />
-
-            <CommGrd TItem="ScheduleMailPerson"
-                     Data="@PickRows"
-                     ShowHeader="false"
-                     EmptyText="찾는 사람이 없습니다."
-                     AutoSelectFirstRow="false">
-                <Columns>
-                    <DxGridDataColumn Caption="" Width="56">
-                        <CellDisplayTemplate Context="cell">
-                            @{ var row = (ScheduleMailPerson)cell.DataItem; }
-                            <DxCheckBox Checked="@_pickedIds.Contains(row.LoginId)"
-                                        CheckedChanged="@((bool on) => TogglePicked(row.LoginId, on))" />
-                        </CellDisplayTemplate>
-                    </DxGridDataColumn>
-
-                    <DxGridDataColumn FieldName="@nameof(ScheduleMailPerson.UserName)" Caption="이름" Width="110"
-                                      TextAlignment="GridTextAlignment.Left" />
-
-                    <DxGridDataColumn FieldName="@nameof(ScheduleMailPerson.Email)" Caption="메일 주소" MinWidth="200"
-                                      TextAlignment="GridTextAlignment.Left" />
-
-                    <DxGridDataColumn FieldName="@nameof(ScheduleMailPerson.DeptName)" Caption="부서" Width="140"
-                                      TextAlignment="GridTextAlignment.Left" />
-                </Columns>
-            </CommGrd>
-        </div>
-    </BodyContentTemplate>
-
-    <FooterContentTemplate Context="pickFooter">
-        @if (TypedAddress is { } typed)
-        {
-            <DxButton Text="@($"{typed} 넣기")" RenderStyle="ButtonRenderStyle.Secondary"
-                      IconCssClass="jsini-icon-mail" Click="@AddTypedAddress" />
-        }
-
-        <DxButton Text="@($"고른 {_pickedIds.Count}명 넣기")" RenderStyle="ButtonRenderStyle.Primary"
-                  Enabled="@(_pickedIds.Count > 0)" Click="@ApplyPicked" />
-        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _picking = false)" />
     </FooterContentTemplate>
 </CommPopup>
 
