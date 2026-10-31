@@ -39,6 +39,14 @@ public interface INotificationPreferenceService
     Task<HashSet<string>> GetNoteEmailEnabledLoginIdsAsync(
         IEnumerable<string> loginIds, CancellationToken ct = default);
 
+    /// <summary>이 이벤트의 앱 푸시를 본인이 끈 주인들(이벤트별 설정). 정책이 안 걸리는 이벤트는 부르지 않는다.</summary>
+    Task<HashSet<(string OwnerType, string OwnerKey)>> GetEventPushDisabledAsync(
+        string eventCode, IEnumerable<OwnerRefDto> owners, CancellationToken ct = default);
+
+    /// <summary>이 이벤트의 메일을 본인이 끈 포털 로그인 아이디들. 대소문자를 가리지 않는다.</summary>
+    Task<HashSet<string>> GetEventEmailDisabledLoginIdsAsync(
+        string eventCode, IEnumerable<string> loginIds, CancellationToken ct = default);
+
     /// <summary>내 위치 날씨를 켜고 위치까지 잡아 둔 사람들. 위경도가 없는 행은 뺀다 — 보낼 곳이 없다.</summary>
     Task<List<LocalWeatherSubscriberDto>> GetLocalWeatherSubscribersAsync(
         CancellationToken ct = default);
@@ -218,6 +226,50 @@ public class NotificationPreferenceService : INotificationPreferenceService
     }
 
     /// <inheritdoc />
+    public async Task<HashSet<(string OwnerType, string OwnerKey)>> GetEventPushDisabledAsync(
+        string eventCode, IEnumerable<OwnerRefDto> owners, CancellationToken ct = default)
+    {
+        var disabled = new HashSet<(string, string)>();
+
+        var list = owners
+            .Where(o => !string.IsNullOrWhiteSpace(o.OwnerType) && !string.IsNullOrWhiteSpace(o.OwnerKey))
+            .ToList();
+
+        if (string.IsNullOrWhiteSpace(eventCode) || list.Count == 0) return disabled;
+
+        foreach (var group in list.GroupBy(o => o.OwnerType))
+        {
+            var keys = group.Select(o => o.OwnerKey).Distinct().ToList();
+            var rows = await _db.NotificationUserEventPrefs
+                .Where(p => p.EventCode == eventCode && !p.IsDeleted && !p.PushEnabled)
+                .Where(p => p.OwnerType == group.Key && keys.Contains(p.OwnerKey))
+                .Select(p => new { p.OwnerType, p.OwnerKey })
+                .ToListAsync(ct);
+
+            foreach (var r in rows) disabled.Add((r.OwnerType, r.OwnerKey));
+        }
+
+        return disabled;
+    }
+
+    public async Task<HashSet<string>> GetEventEmailDisabledLoginIdsAsync(
+        string eventCode, IEnumerable<string> loginIds, CancellationToken ct = default)
+    {
+        var keys = loginIds.Where(k => !string.IsNullOrWhiteSpace(k)).Distinct().ToList();
+        if (string.IsNullOrWhiteSpace(eventCode) || keys.Count == 0)
+        {
+            return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        var rows = await _db.NotificationUserEventPrefs
+            .Where(p => p.EventCode == eventCode && !p.IsDeleted && !p.EmailEnabled)
+            .Where(p => p.OwnerType == "jsini" && keys.Contains(p.OwnerKey))
+            .Select(p => p.OwnerKey)
+            .ToListAsync(ct);
+
+        return rows.ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+
     public async Task<List<LocalWeatherSubscriberDto>> GetLocalWeatherSubscribersAsync(
         CancellationToken ct = default)
     {

@@ -83,6 +83,7 @@ public class PushSender : IPushSender
 
     /// <summary>이벤트 자체를 껐을 때. 역할과 무관하게 아무에게도 안 간다.</summary>
     private const string ReasonEventDisabled = "알림관리에서 이벤트를 끔";
+    private const string ReasonEventOptedOut = "본인이 이 알림을 끔";
 
     /// <summary>보낼 사람을 확정한다(역할 펴기·제외·알림관리 정책). 푸시를 끈 사람은 여기서 빼지 않는다 — 판정은 GetPushDisabledAsync 한 곳.</summary>
     private async Task<ExpandedOwners> ExpandOwnersAsync(
@@ -293,6 +294,34 @@ public class PushSender : IPushSender
 
             // 빠진 사람도 기록한다(「저 사람만 왜 안 왔나」의 답).
             await LogAsync(request, sentBy, batchId, pushDisabled.ToList(), ReasonOptedOut, ct);
+        }
+
+        // ── 이 이벤트만 끈 사람 ─────────────────────────────
+        // 「내 알림 설정」의 이벤트별 스위치다. 정책이 걸리는 이벤트에만 열쇠가 있다.
+        if (decision.EventCode is { } eventCode)
+        {
+            var eventOff = await _preferences.GetEventPushDisabledAsync(eventCode, owners, ct);
+
+            if (eventOff.Count > 0)
+            {
+                var before = owners.Count;
+                owners = owners
+                    .Where(o => !eventOff.Contains((o.OwnerType, o.OwnerKey)))
+                    .ToList();
+                optedOut += before - owners.Count;
+
+                await LogAsync(request, sentBy, batchId, eventOff.ToList(), ReasonEventOptedOut, ct);
+
+                if (owners.Count == 0)
+                {
+                    return WithMail(new SendPushResultDto
+                    {
+                        OptedOut = optedOut,
+                        PolicyExcluded = policyExcluded,
+                        Message = "대상이 모두 이 알림을 끄고 있습니다."
+                    });
+                }
+            }
         }
 
         // ── 갈래 스위치 ─────────────────────────────────────
@@ -528,6 +557,12 @@ public class PushSender : IPushSender
         // 본인이 끈 것이 마지막 말이다. 행이 없으면 켜짐이다(NotificationPreferenceService 머리말).
         var mailOff = await _preferences.GetEmailDisabledLoginIdsAsync(loginIds, ct);
         var wanted = loginIds.Where(id => !mailOff.Contains(id)).ToList();
+
+        if (decision.EventCode is { } eventCode && wanted.Count > 0)
+        {
+            var eventOff = await _preferences.GetEventEmailDisabledLoginIdsAsync(eventCode, wanted, ct);
+            wanted = wanted.Where(id => !eventOff.Contains(id)).ToList();
+        }
 
         if (wanted.Count == 0)
         {

@@ -55,6 +55,7 @@ public partial class UserMenu
         // 것인가) · 토스트 자리 · 떠다니는 단추 자리를 여기서 고른다
         // (EnvironmentSettingPage 머리말). 테마는 아래 「화면」 묶음이다.
         new("funeral.setting.environment", ["/setting/environment", "/funeral/setting/environment"]),
+        new("funeral.setting.notification", ["/funeral/setting/notification"]),
         new("funeral.setting.work-options", ["/setting/work-options", "/funeral/setting/work-options"]),
         new("funeral.info.my-info", ["/info/my-info", "/funeral/info/my-info"]),
 

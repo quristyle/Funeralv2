@@ -70,6 +70,7 @@ builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("Emai
 builder.Services.AddTransient<IEmailSender, SmtpEmailSender>();
 
 builder.Services.AddScoped<INotificationPreferenceService, NotificationPreferenceService>();
+builder.Services.AddScoped<IMyNotificationEventService, MyNotificationEventService>();
 
 // 알림 정책. 발송마다 읽으므로 짧게 들고 있고 저장할 때 바로 버린다.
 builder.Services.AddMemoryCache();

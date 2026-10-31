@@ -29,10 +29,8 @@ public partial class MigrationPending
     private static readonly IReadOnlyDictionary<string, string> Moved =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
         {
-            // 포털관리의 「알림 설정」. 장례식장 「환경설정」이 같은 판을 열고
-            // 있어서 사이드바 「설정」 묶음에 거의 같은 화면 둘이 나란히 걸려
-            // 있었다 — 환경설정 하나로 합쳤다.
-            ["/admin/push/setting"] = "/funeral/setting/environment",
+            // 포털관리의 「알림 설정」. 지금 그 일을 하는 것은 장례식장 「내 알림 설정」이다.
+            ["/admin/push/setting"] = "/funeral/setting/notification",
         };
 
     /// <summary>지금 주소를 자기 경로로 가진 끼워 넣기 메뉴. 없으면 <c>null</c>.</summary>

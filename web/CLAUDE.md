@@ -1309,7 +1309,7 @@ Blazor Server 에서 **JS 호출 하나는 브라우저까지 갔다 오는 왕�
 | `Shell/wwwroot/push-sw.js` | 서비스워커 — 푸시 수신 · 알림 클릭 |
 | `Shell/wwwroot/js/pwa.js` | 등록 · 구독 · 해제 (JS interop 창구) |
 | `Components/Settings/NotificationPanel.razor` | 그것을 부르고 서버에 옮기는 공용 판 |
-| `Funeral/…/EnvironmentSettingPage.razor` | 그 판을 여는 화면 — 「환경설정」 하나다(2026-09-25에 포털관리의 「알림 설정」을 걷어내고 합쳤다) |
+| `Funeral/…/MyNotificationSettingPage.razor` | 그 판과 **알림별 수신 목록**을 여는 화면 — 「내 알림 설정」(`/funeral/setting/notification`) 하나다. 환경설정에는 길잡이만 있다 |
 | `Shell/wwwroot/pwa-badge-96.png` | 안드로이드 상태 표시줄의 작은 표시(`badge`) — 바로 아래 |
 
 ### 상태 표시줄의 작은 표시는 **알파 채널뿐**이다 (2026-09-28, 실제로 밟음)

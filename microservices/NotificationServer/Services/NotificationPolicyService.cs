@@ -8,13 +8,15 @@ using NotificationServer.Entities;
 namespace NotificationServer.Services;
 
 /// <summary>정책의 판정. Blocked 는 이벤트를 끈 것, Unrestricted 는 걸린 정책이 없어 지금처럼 보내는 것이다.
-/// TargetsRoles 가 참이면 RoleIds 가 받는 사람, 거짓이면 거름막이다.</summary>
+/// TargetsRoles 가 참이면 RoleIds 가 받는 사람, 거짓이면 거름막이다.
+/// EventCode 는 정책이 걸리는 이벤트로 풀린 코드다 — 본인의 이벤트별 설정을 거는 열쇠이고, 정책 밖이면 비어 있다.</summary>
 public sealed record NotificationPolicyDecision(
     bool Blocked,
     bool Unrestricted,
     IReadOnlyList<string> RoleIds,
     bool TargetsRoles,
-    bool MailsFromPush = false)
+    bool MailsFromPush = false,
+    string? EventCode = null)
 {
     /// <summary>정책을 못 찾았거나 걸 것이 없을 때의 값.</summary>
     public static readonly NotificationPolicyDecision Free =
@@ -107,7 +109,8 @@ public sealed class NotificationPolicyService(
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
 
-        if (roleIds.Count == 0) return NotificationPolicyDecision.Free;
+        // 역할이 안 걸려도 본인 설정은 걸려야 한다 — 「제한 없음」이 「끌 수 없음」이 되면 안 된다.
+        if (roleIds.Count == 0) return NotificationPolicyDecision.Free with { EventCode = row.Id };
 
         return new NotificationPolicyDecision(
             Blocked: false,
@@ -117,7 +120,8 @@ public sealed class NotificationPolicyService(
                 row.TargetKind, NotificationTargetKinds.Role, StringComparison.OrdinalIgnoreCase),
 
             // 메일 곁가지의 열쇠다 — 이 값이 참인 이벤트만 푸시 경로가 메일을 함께 낸다.
-            MailsFromPush: row.EmailFromPush);
+            MailsFromPush: row.EmailFromPush,
+            EventCode: row.Id);
     }
 
     /// <summary>이벤트 줄을 찾는다: 정확한 줄 → 앞머리 줄 → 구분 줄. 잘게 나눈 이벤트에 줄이 없어도 구분 줄로 막는다.</summary>
@@ -421,6 +425,17 @@ public sealed class NotificationPolicyService(
             .ToHashSet(StringComparer.Ordinal);
         var mailOff = prefs.Where(p => !p.EmailEnabled).Select(p => p.OwnerKey)
             .ToHashSet(StringComparer.Ordinal);
+
+        // 「내 알림 설정」에서 이 알림만 끈 사람도 못 받는 사람이다(발송 경로와 같은 셈).
+        var eventOff = await db.NotificationUserEventPrefs
+            .AsNoTracking()
+            .Where(p => p.OwnerType == OwnerTypePortal && p.EventCode == code
+                        && !p.IsDeleted && loginIds.Contains(p.OwnerKey))
+            .Select(p => new { p.OwnerKey, p.PushEnabled, p.EmailEnabled })
+            .ToListAsync(ct);
+
+        pushOff.UnionWith(eventOff.Where(p => !p.PushEnabled).Select(p => p.OwnerKey));
+        mailOff.UnionWith(eventOff.Where(p => !p.EmailEnabled).Select(p => p.OwnerKey));
 
         var roleNames = await RoleNamesAsync(ct);
 

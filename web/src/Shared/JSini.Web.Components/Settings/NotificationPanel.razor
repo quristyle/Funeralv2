@@ -3,20 +3,11 @@
 
     이력: Vue `views/portal/system/push/setting` → 포털관리의 화면 → **여기**.
 
-    [쓰는 화면이 하나다 — 「알림 설정」을 걷어냈다]
+    [쓰는 화면이 하나다 — 「내 알림 설정」]
 
-    한동안 이 판을 두 화면이 열었다 — 포털관리의 「알림 설정」
-    (`/admin/push/setting`)과 장례식장의 「환경설정」
-    (`/funeral/setting/environment`). 둘 다 **로그인한 본인의 설정**이라 판은
-    같았고, 다른 것은 보일 조각 둘(시험 발송 · 등록된 기기)뿐이었다.
-
-    그런데 사이드바에서 그 둘이 **같은 묶음(설정) 안에 나란히** 걸려 있었다
-    (DB 의 `HD_PUSH_SETTING` 이 `SETTING` 밑에 있었다). 제목이 다르고 안이 거의
-    같은 화면 둘을 나란히 두면, 사람은 자기 설정이 어느 쪽에 저장되는지를 매번
-    고른다 — 실제로는 같은 자리인데도.
-
-    그래서 **환경설정 하나로 합쳤다.** 알림 설정 화면은 지웠고, 그쪽에만 있던
-    조각 둘도 이 판이 늘 그린다.
+    장례식장 › 설정 › 「내 알림 설정」(`/funeral/setting/notification`)이 이 판과
+    알림별 목록을 함께 연다. 환경설정에는 그 화면으로 가는 길잡이만 남았다 —
+    같은 설정을 두 화면에 두면 사람은 어느 쪽에 저장되는지를 매번 고른다.
 
     [그래도 공용 자리에 남겨 둔다]
 
@@ -144,40 +135,7 @@ else
                         CheckedChanged="@((bool v) => ToggleAsync(p => p.EmailEnabled = v))" />
         </div>
 
-        @* 댓글 알림은 위 두 스위치 아래의 갈래다 — 푸시를 끄면 아무것도 안 오고, 이것만 끄면 댓글 알림만 멎는다. 이메일은 나를 지목해 오므로 업무 메일 스위치와 다른 스위치다. 쪽지와 달리 기본이 켜짐이다 — 댓글은 요청글을 열어야만 보인다. *@
-        <div class="jsini-setting">
-            <div>
-                <div class="jsini-setting__name">댓글 앱알림</div>
-                <div class="jsini-setting__desc">
-                    내가 쓴 헬프데스크 요청글에 댓글이 달리면 앱 알림을 받습니다.
-                </div>
-            </div>
-            <DxCheckBox CheckType="CheckType.Switch"
-                        Checked="@_settings.Preference.CommentPushEnabled"
-                        CheckedChanged="@((bool v) => ToggleAsync(p => p.CommentPushEnabled = v))" />
-        </div>
-
-        <div class="jsini-setting">
-            <div>
-                <div class="jsini-setting__name">댓글 이메일</div>
-                <div class="jsini-setting__desc">같은 댓글 알림을 이메일로도 받습니다.</div>
-            </div>
-            <DxCheckBox CheckType="CheckType.Switch"
-                        Checked="@_settings.Preference.CommentEmailEnabled"
-                        CheckedChanged="@((bool v) => ToggleAsync(p => p.CommentEmailEnabled = v))" />
-        </div>
-
-        @* 쪽지 메일은 업무 메일과 다른 스위치다 — 쪽지는 쪽지함에 남고 앱 푸시로도 오므로 기본은 꺼짐이다. 보내는 화면에는 이 체크가 없다(받는 쪽이 정한다). *@
-        <div class="jsini-setting">
-            <div>
-                <div class="jsini-setting__name">쪽지 메일받기</div>
-                <div class="jsini-setting__desc">받은 쪽지를 메일로도 받습니다.</div>
-            </div>
-            <DxCheckBox CheckType="CheckType.Switch"
-                        Checked="@_settings.Preference.NoteEmailEnabled"
-                        CheckedChanged="@((bool v) => ToggleAsync(p => p.NoteEmailEnabled = v))" />
-        </div>
-
+        @* 댓글·쪽지 메일처럼 알림 하나에 걸린 스위치는 「내 알림 설정」 화면의 알림별 목록이 든다. 여기는 길 전체의 스위치다. *@
         <div class="jsini-setting">
             <div>
                 <div class="jsini-setting__name">기상 특보</div>

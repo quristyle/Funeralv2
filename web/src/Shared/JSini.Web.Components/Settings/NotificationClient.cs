@@ -19,6 +19,17 @@ public sealed class NotificationClient(GatewayClient gateway)
     public Task SaveMyLocationAsync(LocationUpdateDto update, CancellationToken ct = default)
         => gateway.PutAsync("notification/notifications/preferences/me", update, ct);
 
+    /// <summary>내가 받을 수 있는 알림 하나하나와 길마다의 본인 설정. 알림관리가 허락한 것만 온다.</summary>
+    public Task<IReadOnlyList<MyNotificationEventDto>> GetMyEventsAsync(CancellationToken ct = default)
+        => gateway.GetListAsync<MyNotificationEventDto>("notification/notifications/preferences/me/events", ct);
+
+    /// <summary>알림 하나를 길마다 켜고 끈다. 비운 길은 건드리지 않는다. 저장된 줄을 돌려준다.</summary>
+    public Task<MyNotificationEventDto?> SaveMyEventAsync(
+        string code, bool? pushEnabled, bool? emailEnabled, CancellationToken ct = default)
+        => gateway.PutAsync<MyNotificationEventDto>(
+            $"notification/notifications/preferences/me/events/{Uri.EscapeDataString(code)}",
+            new { pushEnabled, emailEnabled }, ct);
+
     /// <summary>등록된 기기 목록. <b>배열이 아니라 <c>{ items, count }</c></b> 다.</summary>
     public Task<PushSubscriptionListDto?> GetMySubscriptionsAsync(CancellationToken ct = default)
         => gateway.GetOneAsync<PushSubscriptionListDto>("notification/notifications/subscriptions/me", ct);

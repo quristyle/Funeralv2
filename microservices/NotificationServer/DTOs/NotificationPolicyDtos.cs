@@ -180,3 +180,31 @@ public class NotificationPolicyPreviewSendResultDto
     /// <summary>화면에 띄울 한 줄.</summary>
     public string Message { get; set; } = string.Empty;
 }
+
+/// <summary>내가 받을 수 있는 알림 하나와 그것을 길마다 받을지(본인 설정). 「내 알림 설정」 화면이 줄 하나로 그린다.</summary>
+public class MyNotificationEventDto
+{
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+
+    /// <summary>ROLE(역할로 오는 업무 알림) · USER(나를 짚어 오는 알림).</summary>
+    public string TargetKind { get; set; } = string.Empty;
+
+    /// <summary>알림관리가 이 사람에게 앱 푸시를 허락했나. 거짓이면 스위치를 켜도 안 오므로 화면이 잠근다.</summary>
+    public bool PushAllowed { get; set; }
+
+    public bool EmailAllowed { get; set; }
+
+    /// <summary>본인 설정. 줄이 없으면 참이다(쪽지 메일만 기본이 꺼짐 — 그 스위치를 그대로 옮긴다).</summary>
+    public bool PushEnabled { get; set; }
+
+    public bool EmailEnabled { get; set; }
+}
+
+/// <summary>이벤트 하나의 본인 설정을 바꾼다. 비운 길은 건드리지 않는다.</summary>
+public class SaveMyNotificationEventDto
+{
+    public bool? PushEnabled { get; set; }
+    public bool? EmailEnabled { get; set; }
+}

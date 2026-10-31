@@ -21,6 +21,9 @@ public class AppDbContext : DbContext
     /// <summary>알림 정책 — 역할 × 이벤트 × 길. 사람의 뜻인 설정 표와 달리 회사의 규칙이다.</summary>
     public DbSet<NotificationPolicy> NotificationPolicies { get; set; } = null!;
 
+    /// <summary>사람 × 이벤트의 본인 설정. 끈 줄만 쓸모가 있고, 정책 다음에 걸린다.</summary>
+    public DbSet<NotificationUserEventPref> NotificationUserEventPrefs { get; set; } = null!;
+
     /// <summary>보낸 기록. 보낸 쪽이 자기 기록을 갖는다(다른 서비스 표에 끼어 쓰지 않는다).</summary>
     public DbSet<PushSendLog> PushSendLogs { get; set; } = null!;
 
@@ -76,6 +79,14 @@ public class AppDbContext : DbContext
 
         // 발송 경로에서 읽는 유일한 표다. 이벤트 코드 하나로 그 줄들을 가져온다.
         modelBuilder.Entity<NotificationPolicy>()
+            .HasIndex(p => p.EventCode);
+
+        // 본인 설정도 (사람, 이벤트)에 한 줄이다. 발송 경로는 이벤트 하나로 끈 사람을 모은다.
+        modelBuilder.Entity<NotificationUserEventPref>()
+            .HasIndex(p => new { p.OwnerType, p.OwnerKey, p.EventCode })
+            .IsUnique();
+
+        modelBuilder.Entity<NotificationUserEventPref>()
             .HasIndex(p => p.EventCode);
 
         // 기록은 **언제나 시간으로 훑는다** — 목록도 통계도 기간이 첫 조건이다.

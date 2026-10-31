@@ -1,0 +1,69 @@
+@page "/funeral/setting/notification"
+@attribute [RouteKey("funeral.setting.notification")]
+
+@* [내 알림 설정] — DB 메뉴 `MY_NOTIFY_SETTING`. 내 알림에 관한 것은 전부 여기서 고친다.
+길 전체의 스위치 · 이 브라우저 · 등록된 기기 · 내 위치 날씨는 공용 판(NotificationPanel)이 그리고, 이 화면은 그 옆에 알림별 목록을 둔다.
+목록은 알림관리가 이 사람에게 허락한 알림만 온다 — 여기서는 끄기만 하고, 정책 밖의 알림을 켤 길은 없다. *@
+
+@inherits DataPage
+
+<PageTitle>내 알림 설정</PageTitle>
+
+<div class="fn-env">
+
+<NotificationPanel />
+
+<div class="fn-env__group">
+
+<h2 class="jsini-subhead">알림별 수신</h2>
+
+@if (_events is null)
+{
+    <PageNotice Tone="NoticeTone.Info" Text="받을 수 있는 알림을 확인하고 있습니다…" />
+}
+else if (_events.Count == 0)
+{
+    <PageNotice Tone="NoticeTone.Info" Text="지금 권한으로 받을 수 있는 알림이 없습니다." />
+}
+else
+{
+    @* 위 「푸시 알림」·「이메일 알림」을 끄면 여기 켜 둔 것도 안 온다 — 길 전체가 먼저다. *@
+    <section class="jsini-settings">
+        @foreach (var ev in _events)
+        {
+            var item = ev;
+
+            <div class="jsini-setting fn-notify__row">
+                <div>
+                    <div class="jsini-setting__name">@item.Name</div>
+                    @if (!string.IsNullOrWhiteSpace(item.Description))
+                    {
+                        <div class="jsini-setting__desc">@item.Description</div>
+                    }
+                </div>
+
+                <div class="fn-notify__switches">
+                    @if (item.PushAllowed)
+                    {
+                        <DxCheckBox CheckType="CheckType.Switch"
+                                    Checked="@item.PushEnabled"
+                                    Enabled="@(!_saving)"
+                                    CheckedChanged="@((bool v) => SaveAsync(item, push: v, email: null))">앱 푸시</DxCheckBox>
+                    }
+
+                    @if (item.EmailAllowed)
+                    {
+                        <DxCheckBox CheckType="CheckType.Switch"
+                                    Checked="@item.EmailEnabled"
+                                    Enabled="@(!_saving)"
+                                    CheckedChanged="@((bool v) => SaveAsync(item, push: null, email: v))">이메일</DxCheckBox>
+                    }
+                </div>
+            </div>
+        }
+    </section>
+}
+
+</div>
+
+</div>

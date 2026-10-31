@@ -387,3 +387,19 @@ public sealed class PointWeatherDayDto
 
     public string? Condition { get; set; }
 }
+
+/// <summary>내가 받을 수 있는 알림 하나와 길마다의 본인 설정. 받을 수 있는지는 알림관리가 정한다(Allowed 가 거짓이면 그 길은 켜도 안 온다).</summary>
+public sealed class MyNotificationEventDto
+{
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
+
+    /// <summary>ROLE(역할로 오는 업무 알림) · USER(나를 짚어 오는 알림).</summary>
+    public string TargetKind { get; set; } = string.Empty;
+
+    public bool PushAllowed { get; set; }
+    public bool EmailAllowed { get; set; }
+    public bool PushEnabled { get; set; }
+    public bool EmailEnabled { get; set; }
+}

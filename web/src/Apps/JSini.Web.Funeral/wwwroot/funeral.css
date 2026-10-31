@@ -812,3 +812,16 @@
   margin: 0;
   flex: 0 0 auto;
 }
+
+/* ── 내 알림 설정: 알림별 수신 (fn-notify) ── 한 줄에 스위치가 둘이라 설명 아래로 내려 나란히 둔다. 좁으면 감긴다. */
+
+.fn-notify__row {
+  display: block;
+}
+
+.fn-notify__switches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  margin-top: 0.5rem;
+}

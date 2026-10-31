@@ -549,6 +549,44 @@ public static class NotificationEndpoints
         })
         .WithName("UpdateMyNotificationPreference");
 
+        // ── 내가 받을 수 있는 알림 하나하나 ─────────────────
+        // 정책이 허락한 것만 내린다. 끄기만 할 수 있고 정책 밖의 것을 켤 길은 없다.
+        group.MapGet("/preferences/me/events", async (
+            UserContext? user,
+            [FromServices] IMyNotificationEventService events,
+            CancellationToken ct) =>
+        {
+            if (user is null) return Results.Unauthorized();
+
+            var list = await events.GetAsync(user.UserId, ct);
+            return Results.Ok(ApiResponse<List<MyNotificationEventDto>>.Ok(list));
+        })
+        .WithName("GetMyNotificationEvents");
+
+        group.MapPut("/preferences/me/events/{eventCode}", async (
+            string eventCode,
+            [FromBody] SaveMyNotificationEventDto request,
+            UserContext? user,
+            [FromServices] IMyNotificationEventService events,
+            CancellationToken ct) =>
+        {
+            if (user is null) return Results.Unauthorized();
+
+            if (request.PushEnabled is null && request.EmailEnabled is null)
+            {
+                return Results.BadRequest(ApiResponse<bool>.Fail(
+                    message: "바꿀 항목이 없습니다.", code: "INVALID"));
+            }
+
+            var saved = await events.SaveAsync(user.UserId, eventCode.Trim().ToUpperInvariant(), request, ct);
+
+            return saved is null
+                ? Results.NotFound(ApiResponse<bool>.Fail(
+                    message: "본인이 설정할 수 있는 알림이 아닙니다.", code: "NOT_FOUND"))
+                : Results.Ok(ApiResponse<MyNotificationEventDto>.Ok(saved));
+        })
+        .WithName("SaveMyNotificationEvent");
+
         // ── 푸시 발송 ───────────────────────────────────────
         group.MapPost("/push", async (
             [FromBody] SendPushDto request,
@@ -590,8 +628,8 @@ public static class NotificationEndpoints
             var message = request ?? new PushMessageDto();
             if (string.IsNullOrWhiteSpace(message.Title)) message.Title = "JSini 포털 시험 알림";
             if (string.IsNullOrWhiteSpace(message.Body)) message.Body = "이 알림이 보이면 설정이 정상입니다.";
-            // 누르면 장례식장 「환경설정」 화면으로 간다.
-            if (string.IsNullOrWhiteSpace(message.Url)) message.Url = "/funeral/setting/environment";
+            // 누르면 「내 알림 설정」 화면으로 간다.
+            if (string.IsNullOrWhiteSpace(message.Url)) message.Url = "/funeral/setting/notification";
 
             // 시험 알림은 수명을 5분으로 준다(늦게 도착하면 뜻이 없다). 열쇠를 줘 여러 번 눌러도 줄은 하나만 남긴다.
             message.TtlSeconds ??= 300;

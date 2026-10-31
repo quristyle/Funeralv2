@@ -111,6 +111,17 @@ public static class EmailEndpoints
                     }
                 }
 
+                // 「내 알림 설정」에서 이 알림의 메일만 끈 사람(정책이 걸리는 이벤트에만 열쇠가 있다).
+                if (decision.EventCode is { } eventCode && ids.Count > 0)
+                {
+                    var eventOff = await prefs.GetEventEmailDisabledLoginIdsAsync(eventCode, ids, ct);
+                    if (eventOff.Count > 0)
+                    {
+                        optedOutUsers.AddRange(ids.Where(eventOff.Contains));
+                        ids = ids.Where(i => !eventOff.Contains(i)).ToList();
+                    }
+                }
+
                 // 정책 거름막은 당사자에게 가는 알림에만 건다(역할 대상은 PushSender.ExpandOwnersAsync 가 본다).
                 if (decision is { Unrestricted: false, TargetsRoles: false })
                 {
@@ -152,7 +163,7 @@ public static class EmailEndpoints
             if (toRoles.Count > 0)
             {
                 // 역할을 여럿 받는다. 쉼표로 모아 한 번 추리므로 두 역할에 걸친 사람도 한 통만 받는다.
-                recipients.AddRange(await ResolveRoleEmailsAsync(db, prefs, toRoles, ct));
+                recipients.AddRange(await ResolveRoleEmailsAsync(db, prefs, toRoles, decision.EventCode, ct));
             }
 
             // 주소 꼴이 아닌 것은 빠지고, 빠진 것은 들고 가서 부르는 쪽이 알게 한다.
@@ -252,7 +263,7 @@ public static class EmailEndpoints
 /// 주인 키는 accounts.user_id 다(role_accounts 는 accounts.id 를 가리켜 맞춰 든다).</summary>
     private static async Task<List<string>> ResolveRoleEmailsAsync(
         AppDbContext db, INotificationPreferenceService prefs,
-        IReadOnlyCollection<string> roleIds, CancellationToken ct)
+        IReadOnlyCollection<string> roleIds, string? eventCode, CancellationToken ct)
     {
         if (roleIds.Count == 0) return [];
 
@@ -273,6 +284,12 @@ public static class EmailEndpoints
 
         var optedOut = await prefs.GetEmailDisabledLoginIdsAsync(
             picked.Select(p => p.UserId), ct);
+
+        if (eventCode is not null)
+        {
+            optedOut.UnionWith(await prefs.GetEventEmailDisabledLoginIdsAsync(
+                eventCode, picked.Select(p => p.UserId), ct));
+        }
 
         return picked
             .Where(p => !optedOut.Contains(p.UserId))
