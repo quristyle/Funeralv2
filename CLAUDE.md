@@ -225,6 +225,8 @@ nginx 설정 정본은 [deploy/nginx/](deploy/nginx/) 에 있다 — Blazor 회�
   숫자와 지어냄 0건 · 아직 안 끝난 것(내부 토큰 · 기록 표 · 「임원」 역할)
 - [deploy/llm/README.md](deploy/llm/README.md) — 추론 장비의 상태 수집기 정본과,
   「GPU 를 읽지 못했습니다」를 재부팅 없이 푸는 길
+- [docs/table-lineage.md](docs/table-lineage.md) — 테이블 계통도: 도면이 **DB 접속마다
+  한 장**인 까닭 · 담는 곳 세 줄 · 폐쇄망 DB(HHIP_MM Oracle)에 못 붙어도 열리는 길
 - [docs/projmng-scheduler-schema.md](docs/projmng-scheduler-schema.md) — 프로젝트 일정표가
   쓰는 표(`projmng.dev_wbs` — **WBS 와 같은 표**)와 곁 표·공통코드의 운영 스키마
 - [docs/spa-migration-analysis.md](docs/spa-migration-analysis.md) — 현재 시스템의

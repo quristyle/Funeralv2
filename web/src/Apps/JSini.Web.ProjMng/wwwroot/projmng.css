@@ -7348,3 +7348,569 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
     grid-column: 1 / -1;
   }
 }
+
+/* ── 테이블 계통도 (`TableLineageView` · js/table-lineage.js) ─────────────── */
+/* 칸·선은 JS 가 직접 그린다. 칸 543 · 선 1995 짜리 도면이 있어 그림 부품(maxgraph)이나 Blazor 마크업으로는 끌기가 버틴다. */
+
+.tl-bar {
+  gap: 0.35rem;
+}
+
+.tl-bar__find {
+  display: inline-block;
+  width: 15rem;
+}
+
+.tl-bar__hits {
+  color: var(--jsini-text-muted, #6b7280);
+  font-size: var(--jsini-fs-sm);
+}
+
+.tl-kindpick {
+  width: 9rem;
+  min-width: 0;
+}
+
+.tl-chip {
+  display: inline-flex;
+  gap: 0.3rem;
+  align-items: center;
+  padding: 0.15rem 0.55rem;
+  border: 1px solid var(--jsini-border);
+  border-radius: 999px;
+  background: var(--jsini-surface);
+  color: inherit;
+  font-size: var(--jsini-fs-sm);
+  cursor: pointer;
+}
+
+.tl-chip i {
+  display: inline-block;
+  width: 0.9rem;
+  height: 3px;
+  border-radius: 2px;
+}
+
+.tl-chip small {
+  color: var(--jsini-text-muted, #6b7280);
+}
+
+.tl-chip.is-on {
+  border-color: var(--jsini-primary, #206bc4);
+  background: color-mix(in srgb, var(--jsini-primary, #206bc4) 12%, var(--jsini-surface));
+}
+
+.tl-chip:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.tl-body {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) 260px;
+  gap: 0.5rem;
+  height: min(74vh, 900px);
+  min-height: 420px;
+}
+
+.tl-side {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-height: 0;
+  padding: 0.5rem;
+  border: 1px solid var(--jsini-border);
+  border-radius: 0.25rem;
+  background: var(--jsini-surface);
+  overflow: auto;
+  font-size: var(--jsini-fs-sm);
+}
+
+.tl-side__head {
+  display: flex;
+  gap: 0.4rem;
+  align-items: baseline;
+}
+
+.tl-side__head small {
+  color: var(--jsini-text-muted, #6b7280);
+}
+
+.tl-items,
+.tl-links {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tl-items {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.tl-items__row {
+  display: flex;
+  gap: 0.15rem;
+  align-items: center;
+  border-radius: 0.2rem;
+}
+
+.tl-items__row.is-on {
+  background: color-mix(in srgb, var(--jsini-primary, #206bc4) 14%, transparent);
+}
+
+.tl-items__pick {
+  display: flex;
+  flex: 1;
+  gap: 0.3rem;
+  justify-content: space-between;
+  min-width: 0;
+  padding: 0.2rem 0.3rem;
+  border: 0;
+  background: none;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tl-items__pick span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tl-items__pick small,
+.tl-links small {
+  color: var(--jsini-text-muted, #6b7280);
+}
+
+.tl-items__rename {
+  flex: 1;
+  min-width: 0;
+}
+
+.tl-items__add {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.tl-items__add > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.tl-ib {
+  padding: 0 0.3rem;
+  border: 0;
+  background: none;
+  color: var(--jsini-text-muted, #6b7280);
+  cursor: pointer;
+}
+
+.tl-ib--rm:hover {
+  color: #b33636;
+}
+
+.tl-links li {
+  display: flex;
+  gap: 0.3rem;
+  align-items: baseline;
+  padding: 0.1rem 0;
+}
+
+.tl-links__dir {
+  width: 1rem;
+  color: var(--jsini-text-muted, #6b7280);
+}
+
+.tl-links__go {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--jsini-primary, #206bc4);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tl-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.tl-form > label {
+  margin-top: 0.2rem;
+  color: var(--jsini-text-muted, #6b7280);
+}
+
+.tl-form__pair,
+.tl-form__row {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.tl-form__pair > * {
+  flex: 1;
+  min-width: 0;
+}
+
+.tl-form__route {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  align-items: baseline;
+}
+
+.tl-form__meta {
+  color: var(--jsini-text-muted, #6b7280);
+}
+
+.tl-form__meta--warn {
+  color: #b5630b;
+}
+
+.tl-stage {
+  position: relative;
+  min-width: 0;
+  border: 1px solid var(--jsini-border);
+  border-radius: 0.25rem;
+  overflow: hidden;
+}
+
+.tl-empty {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--jsini-text-muted, #6b7280);
+  pointer-events: none;
+}
+
+.tl-host {
+  position: absolute;
+  inset: 0;
+}
+
+.tl-pick__bar,
+.tl-pick__manual {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.tl-pick__manual {
+  margin: 0.75rem 0 0;
+}
+
+.tl-pick__kind {
+  display: inline-flex;
+  gap: 0.4rem;
+  align-items: center;
+  margin-right: auto;
+}
+
+/* 캔버스 안쪽. 좌표의 정본은 JS 이고, 여기는 겉모습만 정한다. */
+.tl {
+  overflow: hidden;
+  outline: none;
+  background-color: var(--jsini-surface);
+  background-image: radial-gradient(circle, color-mix(in srgb, var(--jsini-text) 16%, transparent) 1px, transparent 1px);
+  background-size: 20px 20px;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.tl--panning {
+  cursor: grabbing;
+}
+
+.tl-world {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 0;
+  transform-origin: 0 0;
+}
+
+.tl-lane {
+  position: absolute;
+  top: 8px;
+  border-right: 1px dashed color-mix(in srgb, var(--jsini-text) 18%, transparent);
+  background: color-mix(in srgb, var(--jsini-text) 2.5%, transparent);
+}
+
+.tl-lane:nth-child(even) {
+  background: color-mix(in srgb, var(--jsini-text) 5%, transparent);
+}
+
+.tl-lane.is-on {
+  background: color-mix(in srgb, var(--jsini-primary, #206bc4) 9%, transparent);
+}
+
+.tl-lane__head {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  right: 8px;
+  padding: 0.15rem 0.4rem;
+  border: 0;
+  border-radius: 0.2rem;
+  background: color-mix(in srgb, var(--jsini-text) 8%, transparent);
+  color: inherit;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tl-edges {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  overflow: visible;
+}
+
+.tl-e__hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 10;
+  cursor: pointer;
+  pointer-events: stroke;
+}
+
+.tl-e__line {
+  fill: none;
+  pointer-events: none;
+}
+
+.tl-e__label {
+  fill: var(--jsini-text-muted, #6b7280);
+  font-size: 9.5px;
+  text-anchor: middle;
+  paint-order: stroke;
+  stroke: var(--jsini-surface);
+  stroke-width: 3px;
+  pointer-events: none;
+}
+
+.tl-e.is-dim {
+  opacity: 0.07;
+}
+
+.tl-e.is-hi .tl-e__line {
+  stroke: var(--jsini-primary, #206bc4) !important;
+  stroke-width: 2.4px !important;
+}
+
+.tl-e.is-hi .tl-e__label {
+  fill: var(--jsini-primary, #206bc4);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.tl-e.is-sel .tl-e__line {
+  stroke-dasharray: none !important;
+}
+
+.tl-e__seq {
+  display: none;
+  pointer-events: none;
+}
+
+.tl-e.is-seq .tl-e__seq[data-has="1"] {
+  display: inline;
+}
+
+.tl-e__seq text {
+  fill: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+/* 멀리서 볼 때는 글귀를 걷는다 — 읽히지도 않으면서 칸을 덮는다. */
+.tl--far .tl-e__label,
+.tl--far .tl-node__kr small,
+.tl--far .tl-node__warn {
+  display: none;
+}
+
+.tl-node {
+  position: absolute;
+  box-sizing: border-box;
+  min-height: 40px;
+  padding: 0.2rem 0.45rem 0.3rem;
+  border: 1px solid #8b97a5;
+  border-left-width: 4px;
+  border-radius: 3px;
+  background: var(--jsini-surface);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 8%);
+  font-size: 11px;
+  line-height: 1.3;
+  cursor: pointer;
+  transition: opacity 0.12s;
+}
+
+.tl-node--master { border-left-color: #1d6f9e; }
+.tl-node--ledger { border-left-color: #2e7d4f; }
+.tl-node--derived { border-left-color: #b5630b; }
+.tl-node--snap { border-left-color: #0e7c86; }
+.tl-node--ext { border-left-color: #6a4fbf; border-style: dashed; border-left-style: solid; }
+.tl-node--batch { border-left-color: #5c6c7a; }
+.tl-node--iface,
+.tl-node--eai { border-left-color: #a8327d; }
+
+/* 프로시저는 표가 아니다 — 담는 것이 아니라 도는 것이라 이 화면에서 둥근 것은 이것뿐이다. */
+.tl-node--proc {
+  border-left-width: 1px;
+  border-radius: 999px;
+  border-color: #b5630b;
+  background: color-mix(in srgb, #b5630b 6%, var(--jsini-surface));
+}
+
+.tl-node__head {
+  display: flex;
+  gap: 0.3rem;
+  align-items: baseline;
+  white-space: nowrap;
+}
+
+.tl-node__kind {
+  color: var(--jsini-text-muted, #6b7280);
+  font-size: 9.5px;
+}
+
+.tl-node__id {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tl-node__star {
+  color: #e0a800;
+}
+
+.tl-node__owner {
+  margin-left: auto;
+  padding: 0 0.25rem;
+  border-radius: 0.2rem;
+  background: color-mix(in srgb, #6a4fbf 14%, transparent);
+  font-size: 9px;
+}
+
+.tl-node__kr {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tl-node__kr small {
+  color: var(--jsini-text-muted, #6b7280);
+}
+
+.tl-node__warn {
+  color: #b33636;
+  font-size: 10px;
+}
+
+.tl-node__size {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 10px;
+  height: 10px;
+  cursor: nwse-resize;
+}
+
+.tl-node.is-dim { opacity: 0.18; }
+.tl-node.is-near { border-color: var(--jsini-primary, #206bc4); }
+.tl-node.is-hot,
+.tl-node.is-sel { border-color: var(--jsini-primary, #206bc4); box-shadow: 0 0 0 2px color-mix(in srgb, var(--jsini-primary, #206bc4) 35%, transparent); }
+.tl-node.is-found { background: color-mix(in srgb, #e0a800 20%, var(--jsini-surface)); }
+.tl-node.is-in { outline: 2px solid #2e7d4f; outline-offset: 1px; }
+.tl-node.is-from { outline: 2px dashed var(--jsini-primary, #206bc4); outline-offset: 2px; }
+/* 대상 DB 에 없는 표 — 지우지 않는다. 이름이 바뀌었거나 다른 스키마의 표일 수 있다. */
+.tl-node.is-missing { border-style: dashed; }
+
+.tl-node.is-flash {
+  animation: tl-flash 0.65s ease-in-out 4;
+}
+
+@keyframes tl-flash {
+  50% { box-shadow: 0 0 0 6px color-mix(in srgb, #e0a800 55%, transparent); }
+}
+
+.tl--linking .tl-node { cursor: crosshair; }
+
+.tl-pts {
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.tl-pt {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border: 2px solid var(--jsini-primary, #206bc4);
+  border-radius: 50%;
+  background: var(--jsini-surface);
+  cursor: move;
+}
+
+.tl-pt--seed {
+  opacity: 0.55;
+  border-style: dashed;
+}
+
+.tl-map {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  z-index: 2;
+  width: 200px;
+  height: 140px;
+  border: 1px solid var(--jsini-border);
+  border-radius: 0.2rem;
+  background: color-mix(in srgb, var(--jsini-surface) 92%, transparent);
+  cursor: pointer;
+}
+
+.tl-banner:empty {
+  display: none;
+}
+
+.tl-banner {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  z-index: 2;
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  background: var(--jsini-primary, #206bc4);
+  color: #fff;
+  font-size: var(--jsini-fs-sm);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+@media (max-width: 767px) {
+  .tl-body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: 60vh auto auto;
+    height: auto;
+  }
+
+  .tl-stage { grid-row: 1; }
+  .tl-side--items { grid-row: 2; max-height: 40vh; }
+  .tl-side--detail { grid-row: 3; }
+  .tl-map { display: none !important; }
+}

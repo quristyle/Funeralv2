@@ -1,0 +1,353 @@
+@page "/projmng/design/table-lineage"
+@attribute [RouteKey("projmng.design.table-lineage")]
+
+@*
+테이블 계통도. 고른 DB 접속(= DB 하나 · 스키마 하나)의 표들이 어떤 순서로 자료를 주고받는지 칸과 선으로 그리고 고친다.
+도면은 그 접속의 DB 속성(dev_db_prop · table_lineage)에 담기고, 업무항목은 옆 줄(table_lineage_items)에 따로 담긴다.
+대상 DB 에는 표 목록(tablelist)만 묻는다 — 못 붙어도(폐쇄망 DB) 저장된 도면은 그대로 열린다. 캔버스는 wwwroot/js/table-lineage.js.
+*@
+
+@inherits DataPage
+@implements IAsyncDisposable
+
+<PageTitle>테이블 계통도 · 프로젝트관리</PageTitle>
+
+<CommSch OnSearch="@LoadDiagramAsync" SearchText="불러오기" Busy="@Loading" MobileSummary="@ConditionSummary">
+    <Fields>
+        <CommSchItem Label="프로젝트">
+            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" @bind-Text="_projectName" />
+        </CommSchItem>
+
+        <CommSchItem Label="DB">
+            <CodeSelect CodeId="projdb" CodeKey="@(_projectCode ?? string.Empty)" @bind-Value="_dbCode"
+                        EtcFix="true" OnChanged="@(item => _dbItem = item)" />
+        </CommSchItem>
+    </Fields>
+
+    <Actions>
+        <DxButton Text="축소" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => CallAsync("zoomOut"))" />
+        <DxButton Text="확대" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => CallAsync("zoomIn"))" />
+        <DxButton Text="전체 보기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => CallAsync("fit"))" />
+        <DxCheckBox Checked="@_mapOn" CheckedChanged="@((bool on) => ToggleMapAsync(on))">미니맵</DxCheckBox>
+
+        <PermissionView Action="MenuAction.Update">
+            <DxButton Text="표 놓기" RenderStyle="ButtonRenderStyle.Secondary"
+                      Enabled="@(_loaded is not null)" Click="@OpenPickerAsync" />
+
+            <DxButton Text="@(_linking ? "잇는 중 — 멈춤" : "잇기")"
+                      RenderStyle="@(_linking ? ButtonRenderStyle.Primary : ButtonRenderStyle.Secondary)"
+                      Enabled="@(_loaded is not null)" Click="@ToggleLinkAsync" />
+            <DxComboBox Data="@LineageGraph.EdgeKinds" Value="@NewKind"
+                        ValueChanged="@((LineageKind? k) => SetNewKindAsync(k))"
+                        TextFieldName="@nameof(LineageKind.Text)" ValidationEnabled="false"
+                        CssClass="tl-kindpick" />
+
+            <DxButton Text="선택 지우기" RenderStyle="ButtonRenderStyle.Secondary"
+                      Enabled="@(_selNode is not null || _selEdge is not null)" Click="@RemoveSelectionAsync" />
+
+            @if (_seed is not null)
+            {
+                <DxButton Text="@(_resetArmed ? "한 번 더 — 지금 배치를 버립니다" : "기본 배치로")"
+                          RenderStyle="@(_resetArmed ? ButtonRenderStyle.Danger : ButtonRenderStyle.Secondary)"
+                          Click="@ResetToSeedAsync" />
+            }
+
+            <DxButton Text="@(Dirty ? "저장 •" : "저장")" RenderStyle="ButtonRenderStyle.Success"
+                      CssClass="@(Dirty ? "pm-save--dirty" : null)"
+                      Enabled="@(_loaded is not null && !Loading)" Click="@SaveAsync" />
+        </PermissionView>
+    </Actions>
+</CommSch>
+
+@if (_loaded is not null && _dbNotice is not null)
+{
+    <PageNotice Tone="NoticeTone.Warning" Text="@_dbNotice" />
+}
+
+<div class="pm-palette tl-bar">
+    <span class="tl-bar__find" @onkeydown="@OnFindKeyAsync">
+        <DxTextBox Text="@_q" TextChanged="@((string t) => SetQueryAsync(t))"
+                   BindValueMode="BindValueMode.OnInput" InputDelay="250"
+                   NullText="표 찾기 — 이름·설명"
+                   ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+    </span>
+    @if (Found.Count > 0)
+    {
+        <span class="tl-bar__hits">@Found.Count 개</span>
+        <DxButton Text="찾아가기" RenderStyle="ButtonRenderStyle.Secondary" Click="@GoFoundAsync" />
+    }
+
+    <span class="pm-palette__label">선 보기</span>
+    @foreach (var k in LineageGraph.EdgeKinds)
+    {
+        var on = _kinds.Contains(k.Value);
+        var count = _summary?.EdgeCounts.GetValueOrDefault(k.Value) ?? 0;
+        <button type="button" class="tl-chip @(on ? "is-on" : null)" disabled="@(count == 0)"
+                title="@($"'{k.Text}' 선 {count}개")" @onclick="@(() => ToggleKindAsync(k.Value))">
+            <i style="background:@k.Color"></i>@k.Text <small>@count</small>
+        </button>
+    }
+    <button type="button" class="tl-chip" @onclick="@(() => SetAllKindsAsync(_kinds.Count < LineageGraph.EdgeKinds.Count))">
+        @(_kinds.Count < LineageGraph.EdgeKinds.Count ? "모두 켜기" : "모두 끄기")
+    </button>
+    <DxCheckBox Checked="@_onlyLinked" Enabled="@(_kinds.Count > 0)"
+                CheckedChanged="@((bool on) => SetOnlyLinkedAsync(on))">선 있는 칸만</DxCheckBox>
+    <DxCheckBox Checked="@_hover" CheckedChanged="@((bool on) => SetHoverAsync(on))">올려놓아 보기</DxCheckBox>
+
+    @if (_summary?.Flows.Count > 0)
+    {
+        <span class="pm-palette__label">흐름</span>
+        @foreach (var f in _summary.Flows)
+        {
+            <button type="button" class="tl-chip @(_flows.Contains(f.Id) ? "is-on" : null)"
+                    title="@($"{f.Name} — 표 {f.Count}개")" @onclick="@(() => ToggleFlowAsync(f.Id))">
+                @f.Name
+            </button>
+        }
+    }
+
+    @if (_lane is { } lane)
+    {
+        <button type="button" class="tl-chip is-on" title="단계 거르기를 풉니다" @onclick="@(() => SetLaneAsync(null))">
+            단계 @LaneName(lane) ✕
+        </button>
+    }
+
+    @if (HasFilter)
+    {
+        <DxButton Text="거르기 풀기" RenderStyle="ButtonRenderStyle.Link" Click="@ClearFiltersAsync" />
+    }
+</div>
+
+<div class="tl-body">
+    @* 업무항목 — 고르면 그 표들만 또렷해진다. 편집모드에서는 칸을 눌러 넣고 뺀다. *@
+    <aside class="tl-side tl-side--items">
+        <div class="tl-side__head">
+            <b>업무항목</b> <small>@_items.Items.Count</small>
+        </div>
+        <DxTextBox @bind-Text="_itemFilter" BindValueMode="BindValueMode.OnInput" NullText="거르기"
+                   ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+        <ul class="tl-items">
+            @foreach (var it in ShownItems)
+            {
+                var picked = it.Id == _itemId;
+                <li class="tl-items__row @(picked ? "is-on" : null)">
+                    @if (_renaming == it.Id)
+                    {
+                        <DxTextBox @bind-Text="_renameText" CssClass="tl-items__rename" />
+                        <button type="button" class="tl-ib" title="이름 바꾸기" @onclick="@(() => RenameItem(it))">✓</button>
+                        <button type="button" class="tl-ib" title="그만두기" @onclick="@(() => _renaming = null)">✕</button>
+                    }
+                    else
+                    {
+                        <button type="button" class="tl-items__pick" title="@($"{it.Name} — 표 {it.Tables.Count}개")"
+                                @onclick="@(() => PickItemAsync(it.Id))">
+                            <span>@it.Name</span><small>@it.Tables.Count</small>
+                        </button>
+                        @if (CanEdit)
+                        {
+                            <button type="button" class="tl-ib" title="이름 바꾸기"
+                                    @onclick="@(() => { _renaming = it.Id; _renameText = it.Name; })">✎</button>
+                            <button type="button" class="tl-ib tl-ib--rm" title="이 업무항목을 지웁니다 (도면의 표는 그대로)"
+                                    @onclick="@(() => DropItemAsync(it))">✕</button>
+                        }
+                    }
+                </li>
+            }
+        </ul>
+
+        @if (_itemId is not null)
+        {
+            <DxCheckBox Checked="@_solo" CheckedChanged="@((bool on) => SetSoloAsync(on))">이 업무만 그리기</DxCheckBox>
+            @if (CanEdit)
+            {
+                <DxCheckBox Checked="@_picking" CheckedChanged="@((bool on) => SetPickingAsync(on))">칸을 눌러 담기</DxCheckBox>
+            }
+        }
+
+        @if (CanEdit && _loaded is not null)
+        {
+            <div class="tl-items__add">
+                <DxTextBox @bind-Text="_newItem" NullText="새 업무항목 이름" />
+                <DxButton Text="추가" RenderStyle="ButtonRenderStyle.Secondary"
+                          Enabled="@(!string.IsNullOrWhiteSpace(_newItem))" Click="@AddItemAsync" />
+            </div>
+        }
+    </aside>
+
+    <div class="tl-stage">
+        @if (Loading)
+        {
+            <div class="pm-diagram-loading">불러오는 중…</div>
+        }
+        @if (_loaded is null && !Loading)
+        {
+            <div class="tl-empty">프로젝트와 DB 를 고르고 「불러오기」를 누르십시오.</div>
+        }
+        <div class="tl-host" @ref="_host"></div>
+    </div>
+
+    <aside class="tl-side tl-side--detail">
+        @if (_selNode is { } n)
+        {
+            <div class="tl-side__head"><b>@n.Id</b> <small>@KindText(n.Kind)</small></div>
+            <div class="tl-form">
+                <label>이름</label>
+                <DxTextBox @bind-Text="_editId" Enabled="@CanEdit" />
+                <label>설명</label>
+                <DxTextBox @bind-Text="_edit.Kr" Enabled="@CanEdit" />
+                <label>종류</label>
+                <DxComboBox Data="@LineageGraph.NodeKinds" @bind-Value="_edit.Kind"
+                            ValueFieldName="@nameof(LineageKind.Value)" TextFieldName="@nameof(LineageKind.Text)"
+                            ValidationEnabled="false" Enabled="@CanEdit" />
+                <label>PK</label>
+                <DxTextBox @bind-Text="_edit.Pk" Enabled="@CanEdit" />
+                <label>스키마 꼬리표</label>
+                <DxTextBox @bind-Text="_edit.Owner" Enabled="@CanEdit" />
+                <label>메모</label>
+                <DxMemo @bind-Text="_edit.Note" Rows="3" Enabled="@CanEdit" />
+                <label>주의</label>
+                <DxTextBox @bind-Text="_edit.Warn" Enabled="@CanEdit" />
+                <DxCheckBox @bind-Checked="_editStar" Enabled="@CanEdit">별표(핵심 표)</DxCheckBox>
+                @if (n.Rows is { } rows)
+                {
+                    <div class="tl-form__meta">행 수 @rows.ToString("N0")</div>
+                }
+                @if (!string.IsNullOrEmpty(n.Trg))
+                {
+                    <div class="tl-form__meta">트리거 @n.Trg</div>
+                }
+                @if (n.Writers is { Count: > 0 } writers)
+                {
+                    <div class="tl-form__meta">쓰는 곳 @string.Join(" / ", writers)</div>
+                }
+                @if (CanEdit)
+                {
+                    <DxButton Text="적용" RenderStyle="ButtonRenderStyle.Primary" Click="@ApplyNodeAsync" />
+                }
+            </div>
+
+            <div class="tl-side__head"><b>이어진 표</b> <small>@n.Links.Count</small></div>
+            <ul class="tl-links">
+                @foreach (var l in n.Links.OrderBy(l => l.Out).ThenBy(l => l.Other))
+                {
+                    <li>
+                        <span class="tl-links__dir">@(l.Out ? "→" : "←")</span>
+                        <button type="button" class="tl-links__go" @onclick="@(() => GoToAsync(l.Other))">@l.Other</button>
+                        <small>@KindText(l.Ty, true)@(string.IsNullOrEmpty(l.Label) ? null : $" · {l.Label}")</small>
+                        <button type="button" class="tl-ib" title="이 선을 고릅니다" @onclick="@(() => SelectEdgeAsync(l.Edge))">⋯</button>
+                    </li>
+                }
+            </ul>
+        }
+        else if (_selEdge is { } e)
+        {
+            <div class="tl-side__head"><b>선</b> <small>@e.Id</small></div>
+            <div class="tl-form">
+                <div class="tl-form__route">
+                    <button type="button" class="tl-links__go" @onclick="@(() => GoToAsync(e.Source))">@e.Source</button>
+                    →
+                    <button type="button" class="tl-links__go" @onclick="@(() => GoToAsync(e.Target))">@e.Target</button>
+                </div>
+                <label>글귀</label>
+                <DxTextBox @bind-Text="_edgeEdit.Label" Enabled="@CanEdit" />
+                <label>종류</label>
+                <DxComboBox Data="@LineageGraph.EdgeKinds" @bind-Value="_edgeEdit.Ty"
+                            ValueFieldName="@nameof(LineageKind.Value)" TextFieldName="@nameof(LineageKind.Text)"
+                            ValidationEnabled="false" Enabled="@CanEdit" />
+                <DxCheckBox @bind-Checked="_edgeEdit.Key" Enabled="@CanEdit">주요 흐름(굵게)</DxCheckBox>
+                <label>흐름 순번 (0 이면 없음)</label>
+                <DxSpinEdit @bind-Value="_edgeEdit.Seq" MinValue="0" MaxValue="99" Enabled="@CanEdit" />
+                <label>순번 갈래</label>
+                <DxComboBox Data="@SeqFlows" @bind-Value="_edgeEdit.Flow"
+                            ValueFieldName="@nameof(SeqFlow.Value)" TextFieldName="@nameof(SeqFlow.Text)"
+                            ValidationEnabled="false" Enabled="@(CanEdit && _edgeEdit.Seq > 0)" />
+                <label>출발 면 · 도착 면</label>
+                <div class="tl-form__pair">
+                    <DxComboBox Data="@LineageGraph.Sides" @bind-Value="_edgeEdit.SourceHandle"
+                                ValueFieldName="@nameof(LineageKind.Value)" TextFieldName="@nameof(LineageKind.Text)"
+                                ValidationEnabled="false" Enabled="@CanEdit" />
+                    <DxComboBox Data="@LineageGraph.Sides" @bind-Value="_edgeEdit.TargetHandle"
+                                ValueFieldName="@nameof(LineageKind.Value)" TextFieldName="@nameof(LineageKind.Text)"
+                                ValidationEnabled="false" Enabled="@CanEdit" />
+                </div>
+                @if (CanEdit)
+                {
+                    <DxButton Text="적용" RenderStyle="ButtonRenderStyle.Primary" Click="@ApplyEdgeAsync" />
+                    <div class="tl-form__row">
+                        <DxButton Text="방향 뒤집기" RenderStyle="ButtonRenderStyle.Secondary"
+                                  Click="@(() => PatchEdgeAsync(new { flip = true }))" />
+                        <DxButton Text="@($"경유점 지우기 ({e.Pts})")" RenderStyle="ButtonRenderStyle.Secondary"
+                                  Enabled="@(e.Pts > 0)" Click="@(() => PatchEdgeAsync(new { clearPts = true }))" />
+                    </div>
+                }
+            </div>
+        }
+        else if (_loaded is not null)
+        {
+            <div class="tl-side__head"><b>@_loaded.Nick</b> <small>@_loaded.Schema</small></div>
+            <div class="tl-form__meta">표 @(_summary?.Nodes ?? 0) · 선 @(_summary?.Edges ?? 0)</div>
+            @if (_dbTables is not null)
+            {
+                <div class="tl-form__meta">대상 DB 의 표 @_dbTables.Count 개 · 도면에 없는 표 @Unplaced 개</div>
+                @if (Missing > 0)
+                {
+                    <div class="tl-form__meta tl-form__meta--warn">점선 칸 @Missing 개는 대상 DB 에 없는 표입니다.</div>
+                }
+            }
+        }
+    </aside>
+</div>
+
+@* 대상 DB 의 표 목록에서 골라 놓는다. 못 붙는 DB 면 이름을 적어 놓는다. *@
+<CommPopup @bind-Visible="_pickerOpen" HeaderText="표 놓기" Width="720px">
+    <BodyContentTemplate>
+        @if (_dbTables is null)
+        {
+            <PageNotice Tone="NoticeTone.Warning"
+                        Text="@($"대상 DB 의 표 목록을 읽지 못했습니다{(_dbNotice is null ? "." : " — " + _dbNotice)} 이름을 직접 적어 놓으십시오.")" />
+        }
+        else
+        {
+            <div class="tl-pick__bar">
+                <DxTextBox @bind-Text="_pickFilter" BindValueMode="BindValueMode.OnInput" NullText="표 이름·설명 거르기"
+                           ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                <DxCheckBox @bind-Checked="_pickHidePlaced">이미 놓은 표 감추기</DxCheckBox>
+            </div>
+            <CommGrd TItem="LineageDbTable" Data="@PickRows" PageSize="12" ShowFooterActions="false"
+                     EmptyText="고를 표가 없습니다." AutoSelectFirstRow="false"
+                     SelectionMode="GridSelectionMode.Multiple"
+                     SelectedItems="@_picked"
+                     SelectedItemsChanged="@((IReadOnlyList<LineageDbTable> items) => _picked = items)">
+                <Columns>
+                    <DxGridDataColumn FieldName="@nameof(LineageDbTable.Name)" Caption="표" Width="220" TextAlignment="GridTextAlignment.Left" />
+                    <DxGridDataColumn FieldName="@nameof(LineageDbTable.Description)" Caption="설명" TextAlignment="GridTextAlignment.Left" />
+                    <DxGridDataColumn FieldName="@nameof(LineageDbTable.Placed)" Caption="놓임" Width="70" />
+                </Columns>
+            </CommGrd>
+        }
+
+        <div class="tl-pick__manual">
+            <span class="pm-palette__label">직접 적기</span>
+            <DxTextBox @bind-Text="_manualId" NullText="표 이름" />
+            <DxTextBox @bind-Text="_manualKr" NullText="설명" />
+        </div>
+    </BodyContentTemplate>
+
+    <FooterContentTemplate Context="pickerPopup">
+        <span class="tl-pick__kind">
+            놓을 종류
+            <DxComboBox Data="@LineageGraph.NodeKinds" @bind-Value="_pickKind"
+                        ValueFieldName="@nameof(LineageKind.Value)" TextFieldName="@nameof(LineageKind.Text)"
+                        ValidationEnabled="false" />
+        </span>
+        @if (_dbTables is not null && EmptyComments > 0)
+        {
+            <DxButton Text="@($"빈 설명 채우기 ({EmptyComments})")" RenderStyle="ButtonRenderStyle.Secondary"
+                      Click="@FillCommentsAsync" />
+        }
+        <DxButton Text="@($"놓기 ({PickCount})")" RenderStyle="ButtonRenderStyle.Primary"
+                  Enabled="@(PickCount > 0)" Click="@PlaceAsync" />
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _pickerOpen = false)" />
+    </FooterContentTemplate>
+</CommPopup>
