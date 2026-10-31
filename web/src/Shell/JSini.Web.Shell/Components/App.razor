@@ -38,19 +38,6 @@
     <Routes @rendermode="@RenderModeForPage" />
 
     @*
-        회로가 끊기면 뜨는 막대. 없으면 예외로 회로가 내려가도 아무 표시 없이 화면이 굳는다. 기본은 display:none 이고 Blazor 가 켠다.
-        스타일을 인라인에 두는 것은 스타일시트가 안 실렸을 때도 떠야 해서다.
-    *@
-    <div id="blazor-error-ui" style="display: none; position: fixed; bottom: 0; left: 0; right: 0;
-                                     z-index: 1100; padding: 0.9rem 1.2rem; background: #fff3cd;
-                                     color: #664d03; border-top: 1px solid #ffe69c;
-                                     box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.15);">
-        연결이 끊겼습니다. 새로고침하면 다시 이어집니다.
-        <a href="" class="reload">새로고침</a>
-        <a href="" class="dismiss" style="float: right;">닫기</a>
-    </div>
-
-    @*
         끊김 띠(우리가 그린다). 프레임워크는 여기 #components-reconnect-modal 에 상태 클래스만 갈아 끼운다. 대화상자는 두지 않는다.
         누름과 자동 재시도는 js/reconnect.js 가 맡는다(회로가 없어 C# 처리기를 쓸 수 없다).
     *@
