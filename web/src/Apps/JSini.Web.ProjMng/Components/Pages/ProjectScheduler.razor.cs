@@ -1983,6 +1983,15 @@ public partial class ProjectScheduler : IAsyncDisposable
 
     private void OnTableRowSelected(WbsItemDto? w) => _editRow = w;
 
+    /// <summary>표 줄을 두 번 누르면 달력과 같은 편집 창을 연다. 권한이 없으면 달력의 줄 단추처럼 아무 일도 안 한다.</summary>
+    private void OnTableRowDoubleClick(WbsItemDto w)
+    {
+        if (_canUpdate)
+        {
+            StartEdit(w);
+        }
+    }
+
     /// <summary>시작·종료·기간을 왼쪽에 붙박는다. 휴대폰은 표를 카드로 펴므로 붙박지 않는다.</summary>
     private GridColumnFixedPosition PinnedColumn =>
         _isPhone ? GridColumnFixedPosition.None : GridColumnFixedPosition.Left;

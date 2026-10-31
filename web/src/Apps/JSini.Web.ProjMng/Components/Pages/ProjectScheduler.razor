@@ -220,6 +220,7 @@
                              AutoSelectFirstRow="false"
                              SelectedItem="@_editRow"
                              SelectedItemChanged="@OnTableRowSelected"
+                             OnRowDoubleClick="@OnTableRowDoubleClick"
                              OnNew="@FillNew"
                              OnSave="@SaveRowAsync"
                              OnDelete="@DeleteAsync"
@@ -516,6 +517,13 @@
                         <EditFormTemplate Context="edit">
                             <WbsEditForm Item="@((WbsItemDto)edit.EditModel)" />
                         </EditFormTemplate>
+
+                        @* 줄을 두 번 누르는 것과 같은 창이다 — 두 번 누르기는 화면에 안 보이는 몸짓이라 여기에도 둔다. *@
+                        <ContextMenuItems>
+                            <CommMenuItem Text="일정 수정" IconCssClass="jsini-icon-edit"
+                                          Enabled="@(_canUpdate && _editRow is not null)"
+                                          Click="@(() => OnTableRowDoubleClick(_editRow!))" />
+                        </ContextMenuItems>
                     </CommGrd>
                 </CommCont>
                 </div>
