@@ -47,7 +47,7 @@ public partial class MenuList
         string.Equals(_edit.Type, "EMBEDDED", StringComparison.OrdinalIgnoreCase);
 
     // ── 유형별 칸 ───────────────────────────────────────────────
-    // 유형마다 쓰는 칸이 다르다. 쓰지 않는 칸은 지우지 않고 끈다 — 유형을 바꿔 되돌렸을 때 적어 둔 값이 남아야 한다.
+    // 유형마다 쓰는 칸이 다르다. 쓰지 않는 칸은 감추기만 하고 값은 지우지 않는다 — 유형을 바꿔 되돌렸을 때 적어 둔 값이 남아야 한다.
     // 조건은 칸마다 적지 않고 이 목록 한 곳에 둔다 — 유형을 추가할 때 빠뜨리지 않게.
 
     private string Kind => string.IsNullOrWhiteSpace(_edit.Type) ? "MENU" : _edit.Type.Trim().ToUpperInvariant();
@@ -63,6 +63,9 @@ public partial class MenuList
 
     /// <summary>아이콘은 버튼 말고는 모두 쓴다.</summary>
     private bool UsesIcon => Kind != "BUTTON";
+
+    /// <summary>옛 Vue 화면 파일은 화면 메뉴에서, 값이 있을 때만 보인다 — 읽기 전용이라 빈 칸은 뜻이 없다.</summary>
+    private bool UsesComponent => Kind == "MENU" && !string.IsNullOrWhiteSpace(_edit.Component);
 
     /// <summary>바깥 링크는 「바깥 링크」 유형만.</summary>
     private bool UsesLink => Kind == "LINK";
@@ -87,6 +90,16 @@ public partial class MenuList
 
     /// <summary>권한 항목은 묶음·버튼에는 없다 — 구 화면과 같다.</summary>
     private bool UsesPermissions => Kind is not ("BUTTON" or "CATALOG");
+
+    /// <summary>유형 칸 밑에 붙는 한 줄 — 고른 유형이 무엇을 하는지.</summary>
+    private string TypeHint => Kind switch
+    {
+        "CATALOG" => "하위 메뉴를 묶는 폴더입니다. 화면이 없습니다.",
+        "EMBEDDED" => "iframe 주소의 화면을 포털 안에 끼워 넣습니다.",
+        "LINK" => "누르면 바깥 링크 주소로 갑니다. 화면·경로가 없습니다.",
+        "BUTTON" => "화면 안 단추의 권한 항목입니다. 메뉴에 나오지 않습니다.",
+        _ => "포털 화면(razor)을 엽니다.",
+    };
 
     /// <summary>메뉴 코드의 모양. 영문자로 시작하는 영문·숫자 2~40자다.</summary>
     private static readonly Regex MenuCodeShape = new("^[A-Za-z][A-Za-z0-9]{1,39}$");
@@ -875,6 +888,12 @@ public partial class MenuList
         if (ValidatesPath && string.IsNullOrWhiteSpace(_edit.Path))
         {
             Say("이 유형은 경로를 넣어야 합니다.", NoticeTone.Warning);
+            return;
+        }
+
+        if (UsesLink && string.IsNullOrWhiteSpace(_edit.Meta.Link))
+        {
+            Say("바깥 링크 메뉴에는 링크 주소가 있어야 합니다.", NoticeTone.Warning);
             return;
         }
 

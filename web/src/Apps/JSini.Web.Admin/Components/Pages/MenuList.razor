@@ -185,6 +185,19 @@ else
                 </div>
             </DxFormLayoutItem>
 
+            @* 유형이 아래 칸들을 가른다 — 그래서 맨 앞에 둔다. 쓰지 않는 칸은 감추기만 하고 값은 그대로 둔다. *@
+            <DxFormLayoutItem Caption="유형" ColSpanMd="6">
+                <DxComboBox Data="@TypeOptions" @bind-Value="_edit.Type"
+                            TextFieldName="Text" ValueFieldName="Value" />
+                <div class="jsini-hint">@TypeHint</div>
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="상위 메뉴" ColSpanMd="6">
+                <DxComboBox Data="@ParentChoices" @bind-Value="_edit.Pid"
+                            TextFieldName="Text" ValueFieldName="Value"
+                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+            </DxFormLayoutItem>
+
             @* 메뉴 코드다 — 화면·권한·즐겨찾기가 이름으로 부르는 영문 식별자다. 옛 한글 이름은 그대로 두고, 새로 만들 때만 형식을 본다. *@
             <DxFormLayoutItem Caption="메뉴 코드" ColSpanMd="6">
                 <DxTextBox @bind-Text="_edit.Name" />
@@ -201,99 +214,101 @@ else
                 </div>
             </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="제목 · 한국어" ColSpanMd="3">
+            <DxFormLayoutItem Caption="제목 · 한국어" ColSpanMd="4">
                 <DxTextBox @bind-Text="_titleKo" />
             </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="제목 · English" ColSpanMd="3">
+            <DxFormLayoutItem Caption="제목 · English" ColSpanMd="4">
                 <DxTextBox @bind-Text="_titleEn" />
             </DxFormLayoutItem>
 
-            @* 화면이 있는 메뉴(MENU)에서만 쓴다 — 나머지 유형은 화면을 가리키지 않아 칸을 끈다(값은 남긴다). *@
-            <DxFormLayoutItem Caption="화면" ColSpanMd="12">
+            <DxFormLayoutItem Caption="순서" ColSpanMd="4">
+                <DxSpinEdit @bind-Value="_edit.Meta.Order" MinValue="0" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="화면" ColSpanMd="12" Visible="@UsesScreen">
                 <DxComboBox Data="@ScreenChoices" @bind-Value="_edit.RouteKey"
                             TextFieldName="Text" ValueFieldName="Value"
-                            Enabled="@UsesScreen"
                             SearchMode="ListSearchMode.AutoSearch"
                             SearchFilterCondition="ListSearchFilterCondition.Contains"
                             ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
             </DxFormLayoutItem>
 
             @* 권한표와 즐겨찾기의 열쇠다. 바꾸면 그 메뉴의 권한과 즐겨찾기가 끊긴다. *@
-            <DxFormLayoutItem Caption="경로 (권한 열쇠)" ColSpanMd="6">
-                <DxTextBox @bind-Text="_edit.Path" Enabled="@UsesPath" />
+            <DxFormLayoutItem Caption="경로 (권한 열쇠)" ColSpanMd="12" Visible="@UsesPath">
+                <DxTextBox @bind-Text="_edit.Path" />
             </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="유형" ColSpanMd="6">
-                <DxComboBox Data="@TypeOptions" @bind-Value="_edit.Type"
-                            TextFieldName="Text" ValueFieldName="Value" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="상위 메뉴" ColSpanMd="6">
-                <DxComboBox Data="@ParentChoices" @bind-Value="_edit.Pid"
-                            TextFieldName="Text" ValueFieldName="Value"
-                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="순서" ColSpanMd="3">
-                <DxSpinEdit @bind-Value="_edit.Meta.Order" MinValue="0" />
-            </DxFormLayoutItem>
-
-            @* 아이콘은 보고 고른다 — 값이 iconify 이름이라 틀린 이름은 오류 없이 빈 동그라미가 된다. 고를 목록은 이 화면이 들고 있는 메뉴에서 뽑는다. *@
-            <DxFormLayoutItem Caption="아이콘" ColSpanMd="12">
-                <IconPicker @bind-Value="_edit.Meta.Icon" Available="@IconChoices" Enabled="@UsesIcon" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="화면 파일" ColSpanMd="12">
-                @* 옛 Vue 경로. 라우팅에는 쓰이지 않는다. *@
-                <DxTextBox @bind-Text="_edit.Component" ReadOnly="true" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="바깥 링크" ColSpanMd="12">
-                <DxTextBox @bind-Text="_edit.Meta.Link" Enabled="@UsesLink" />
+            <DxFormLayoutItem Caption="바깥 링크" ColSpanMd="12" Visible="@UsesLink">
+                <DxTextBox @bind-Text="_edit.Meta.Link" NullText="https://..." />
             </DxFormLayoutItem>
 
             @* iframe 주소. 바깥 링크와 다른 칸이다 — 이것은 화면 안에 끼워 넣는다. 이 칸이 곧 화면이라 채우면 razor 나 배포 없이 메뉴가 열린다. *@
-            <DxFormLayoutItem Caption="iframe 주소" ColSpanMd="12">
-                <DxTextBox @bind-Text="_edit.Meta.IframeSrc" Enabled="@UsesIframe" />
+            <DxFormLayoutItem Caption="iframe 주소" ColSpanMd="12" Visible="@UsesIframe">
+                <DxTextBox @bind-Text="_edit.Meta.IframeSrc" NullText="https://..." />
+            </DxFormLayoutItem>
+
+            @* 아이콘은 보고 고른다 — 값이 iconify 이름이라 틀린 이름은 오류 없이 빈 동그라미가 된다. 고를 목록은 이 화면이 들고 있는 메뉴에서 뽑는다. *@
+            <DxFormLayoutItem Caption="아이콘" ColSpanMd="12" Visible="@UsesIcon">
+                <IconPicker @bind-Value="_edit.Meta.Icon" Available="@IconChoices" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="화면 파일" ColSpanMd="12" Visible="@UsesComponent">
+                @* 옛 Vue 경로. 라우팅에는 쓰이지 않는다. *@
+                <DxTextBox @bind-Text="_edit.Component" ReadOnly="true" />
             </DxFormLayoutItem>
 
             <DxFormLayoutItem Caption="보이기" ColSpanMd="12">
                 <div class="ad-checks">
                     <DxCheckBox Checked="@(_edit.Status == 1)"
                                 CheckedChanged="@((bool v) => _edit.Status = v ? 1 : 0)">사용</DxCheckBox>
-                    <DxCheckBox @bind-Checked="_edit.Meta.HideInMenu" Enabled="@UsesVisibility">메뉴에서 숨김</DxCheckBox>
-                    <DxCheckBox @bind-Checked="_edit.Meta.HideChildrenInMenu" Enabled="@UsesChildrenHide">하위를 숨김</DxCheckBox>
-                    <DxCheckBox @bind-Checked="_edit.Meta.HideInBreadcrumb" Enabled="@UsesBreadcrumb">길잡이에서 숨김</DxCheckBox>
-                    <DxCheckBox @bind-Checked="_edit.Meta.HideInTab" Enabled="@UsesVisibility">탭으로 열지 않음</DxCheckBox>
-                    <DxCheckBox @bind-Checked="_edit.Meta.AffixTab" Enabled="@UsesAffixTab">탭 고정</DxCheckBox>
+                    @if (UsesVisibility)
+                    {
+                        <DxCheckBox @bind-Checked="_edit.Meta.HideInMenu">메뉴에서 숨김</DxCheckBox>
+                    }
+                    @if (UsesChildrenHide)
+                    {
+                        <DxCheckBox @bind-Checked="_edit.Meta.HideChildrenInMenu">하위를 숨김</DxCheckBox>
+                    }
+                    @if (UsesBreadcrumb)
+                    {
+                        <DxCheckBox @bind-Checked="_edit.Meta.HideInBreadcrumb">길잡이에서 숨김</DxCheckBox>
+                    }
+                    @if (UsesVisibility)
+                    {
+                        <DxCheckBox @bind-Checked="_edit.Meta.HideInTab">탭으로 열지 않음</DxCheckBox>
+                    }
+                    @if (UsesAffixTab)
+                    {
+                        <DxCheckBox @bind-Checked="_edit.Meta.AffixTab">탭 고정</DxCheckBox>
+                    }
                 </div>
             </DxFormLayoutItem>
 
             @* 켠 화면은 탭을 옮겨도 부품이 살아 있다 — 입력하던 값·구른 자리·펼친 줄이 그대로다. 보이지 않는 동안에도 돌므로 스스로 갱신하는 화면은 켜지 않는다. *@
-            <DxFormLayoutItem Caption="화면 유지" ColSpanMd="12">
+            <DxFormLayoutItem Caption="화면 유지" ColSpanMd="12" Visible="@UsesKeepAlive">
                 <div class="ad-checks">
-                    <DxCheckBox @bind-Checked="_edit.Meta.KeepAlive" Enabled="@UsesKeepAlive">탭을 옮겨도 화면 유지 (keepAlive)</DxCheckBox>
+                    <DxCheckBox @bind-Checked="_edit.Meta.KeepAlive">탭을 옮겨도 화면 유지 (keepAlive)</DxCheckBox>
                 </div>
             </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="기기" ColSpanMd="12">
+            <DxFormLayoutItem Caption="기기" ColSpanMd="12" Visible="@UsesVisibility">
                 @* 화면 크기별 노출. 사이드바가 이 값으로 메뉴를 거른다. *@
                 <div class="ad-checks">
-                    <DxCheckBox @bind-Checked="_edit.Meta.UseMobile" Enabled="@UsesVisibility">휴대폰</DxCheckBox>
-                    <DxCheckBox @bind-Checked="_edit.Meta.UseTablet" Enabled="@UsesVisibility">태블릿</DxCheckBox>
+                    <DxCheckBox @bind-Checked="_edit.Meta.UseMobile">휴대폰</DxCheckBox>
+                    <DxCheckBox @bind-Checked="_edit.Meta.UseTablet">태블릿</DxCheckBox>
                 </div>
             </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="허용 동작" ColSpanMd="12">
+            <DxFormLayoutItem Caption="허용 동작" ColSpanMd="12" Visible="@UsesPermissions">
                 <div class="ad-checks">
-                    <DxCheckBox @bind-Checked="_edit.Permissions.UseView" Enabled="@UsesPermissions">조회</DxCheckBox>
-                    <DxCheckBox @bind-Checked="_edit.Permissions.UseSearch" Enabled="@UsesPermissions">검색</DxCheckBox>
-                    <DxCheckBox @bind-Checked="_edit.Permissions.UseCreate" Enabled="@UsesPermissions">등록</DxCheckBox>
-                    <DxCheckBox @bind-Checked="_edit.Permissions.UseUpdate" Enabled="@UsesPermissions">수정</DxCheckBox>
-                    <DxCheckBox @bind-Checked="_edit.Permissions.UseDelete" Enabled="@UsesPermissions">삭제</DxCheckBox>
-                    <DxCheckBox @bind-Checked="_edit.Permissions.UsePrint" Enabled="@UsesPermissions">출력</DxCheckBox>
-                    <DxCheckBox @bind-Checked="_edit.Permissions.UseExcel" Enabled="@UsesPermissions">엑셀</DxCheckBox>
+                    <DxCheckBox @bind-Checked="_edit.Permissions.UseView">조회</DxCheckBox>
+                    <DxCheckBox @bind-Checked="_edit.Permissions.UseSearch">검색</DxCheckBox>
+                    <DxCheckBox @bind-Checked="_edit.Permissions.UseCreate">등록</DxCheckBox>
+                    <DxCheckBox @bind-Checked="_edit.Permissions.UseUpdate">수정</DxCheckBox>
+                    <DxCheckBox @bind-Checked="_edit.Permissions.UseDelete">삭제</DxCheckBox>
+                    <DxCheckBox @bind-Checked="_edit.Permissions.UsePrint">출력</DxCheckBox>
+                    <DxCheckBox @bind-Checked="_edit.Permissions.UseExcel">엑셀</DxCheckBox>
                 </div>
             </DxFormLayoutItem>
         </DxFormLayout>
