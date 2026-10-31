@@ -103,6 +103,69 @@ public partial class ProjectScheduler : IAsyncDisposable
     private string? _filteredKey;
     private IReadOnlyList<WbsItemDto> _filtered = [];
 
+    /// <summary>요청자·담당자 칸 필터의 고르개 한 줄. 값은 칸에 적힌 그대로, 글자는 사람이 읽는 이름이다.</summary>
+    public sealed record UserFilterOption(string Value, string Text);
+
+    private IReadOnlyList<WbsItemDto>? _userFilterFrom;
+    private IReadOnlyList<UserFilterOption> _reqUserFilterOptions = [];
+    private IReadOnlyList<UserFilterOption> _devUserFilterOptions = [];
+
+    /// <summary>표에 깔린 줄에서 요청자 값을 모은다.</summary>
+    private IReadOnlyList<UserFilterOption> ReqUserFilterOptions
+    {
+        get { RefreshUserFilterOptions(); return _reqUserFilterOptions; }
+    }
+
+    /// <summary>표에 깔린 줄에서 담당자 값을 모은다. 계정이면 이름으로 보인다.</summary>
+    private IReadOnlyList<UserFilterOption> DevUserFilterOptions
+    {
+        get { RefreshUserFilterOptions(); return _devUserFilterOptions; }
+    }
+
+    /// <summary>줄이 바뀔 때만 다시 모은다 — 그릴 때마다 새 목록을 주면 펼쳐 둔 고르개가 다시 그려진다.</summary>
+    private void RefreshUserFilterOptions()
+    {
+        var rows = TableRows;
+
+        if (ReferenceEquals(_userFilterFrom, rows))
+        {
+            return;
+        }
+
+        _userFilterFrom = rows;
+        _reqUserFilterOptions = Collect(rows.Select(w => w.ReqUser), v => v);
+        _devUserFilterOptions = Collect(rows.Select(w => w.DevUser), GetUserDisplayName);
+
+        static IReadOnlyList<UserFilterOption> Collect(IEnumerable<string?> values, Func<string, string> text) =>
+        [
+            .. values
+                .Where(v => !string.IsNullOrWhiteSpace(v))
+                .Select(v => v!)
+                .Distinct(StringComparer.Ordinal)
+                .Select(v => new UserFilterOption(v, text(v)))
+                .OrderBy(o => o.Text, StringComparer.CurrentCulture),
+        ];
+    }
+
+    /// <summary>칸에 걸린 기준에서 고른 값을 되읽는다. 값을 따로 들고 있지 않는다 — 표가 기준을 지우면 고르개도 함께 비어야 한다.</summary>
+    private static IEnumerable<string> PickedFilterValues(GridDataColumnFilterRowCellTemplateContext f) => f.FilterCriteria switch
+    {
+        DevExpress.Data.Filtering.InOperator op =>
+            [.. op.Operands.OfType<DevExpress.Data.Filtering.OperandValue>().Select(o => o.Value as string).OfType<string>()],
+        DevExpress.Data.Filtering.BinaryOperator { RightOperand: DevExpress.Data.Filtering.OperandValue { Value: string v } } => [v],
+        _ => [],
+    };
+
+    /// <summary>고른 값들을 「그중 하나와 같다」로 건다. 고른 것이 없으면 기준을 지운다.</summary>
+    private static void SetPickedFilter(GridDataColumnFilterRowCellTemplateContext f, IEnumerable<string>? values)
+    {
+        var list = values?.ToArray() ?? [];
+
+        f.FilterCriteria = list.Length == 0
+            ? null
+            : new DevExpress.Data.Filtering.InOperator(f.DataColumn.FieldName, list);
+    }
+
     private DateTime? TableStartDateTime => _tableStart?.ToDateTime(TimeOnly.MinValue);
     private DateTime? TableEndDateTime => _tableEnd?.ToDateTime(TimeOnly.MinValue);
 

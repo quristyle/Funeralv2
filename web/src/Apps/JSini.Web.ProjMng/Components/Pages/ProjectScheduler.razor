@@ -386,6 +386,20 @@
                                         <span>@w.ReqUser</span>
                                     }
                                 </CellDisplayTemplate>
+
+                                @* 글자를 치는 대신 표에 있는 값에서 여럿 고른다 *@
+                                <FilterRowCellTemplate Context="f">
+                                    <DxTagBox TData="UserFilterOption"
+                                              TValue="string"
+                                              Data="@ReqUserFilterOptions"
+                                              TextFieldName="@nameof(UserFilterOption.Text)"
+                                              ValueFieldName="@nameof(UserFilterOption.Value)"
+                                              Values="@PickedFilterValues(f)"
+                                              ValuesChanged="@((IEnumerable<string> v) => SetPickedFilter(f, v))"
+                                              ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                                              ValidationEnabled="false"
+                                              CssClass="pm-sched-user-filter" />
+                                </FilterRowCellTemplate>
                             </DxGridDataColumn>
 
                             <DxGridDataColumn FieldName="@nameof(WbsItemDto.DevUser)" Caption="담당자" Width="130">
@@ -408,6 +422,20 @@
                                         <span>@GetUserDisplayName(w.DevUser)</span>
                                     }
                                 </CellDisplayTemplate>
+
+                                @* 글자를 치는 대신 표에 있는 값에서 여럿 고른다 *@
+                                <FilterRowCellTemplate Context="f">
+                                    <DxTagBox TData="UserFilterOption"
+                                              TValue="string"
+                                              Data="@DevUserFilterOptions"
+                                              TextFieldName="@nameof(UserFilterOption.Text)"
+                                              ValueFieldName="@nameof(UserFilterOption.Value)"
+                                              Values="@PickedFilterValues(f)"
+                                              ValuesChanged="@((IEnumerable<string> v) => SetPickedFilter(f, v))"
+                                              ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                                              ValidationEnabled="false"
+                                              CssClass="pm-sched-user-filter" />
+                                </FilterRowCellTemplate>
                             </DxGridDataColumn>
 
                             <DxGridDataColumn FieldName="@nameof(WbsItemDto.AddTarget)" Caption="추가대상" Width="100">
