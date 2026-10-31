@@ -695,7 +695,7 @@
                                 <ul class="pm-gc-agenda__items">
                                     @foreach (var w in day.Items)
                                     {
-                                        @ItemRow(w, toggle: true)
+                                        @ItemRow(w, toggle: true, day: day.Date)
                                     }
                                 </ul>
                             </div>
@@ -846,31 +846,65 @@
 
 @code {
     // toggle 이면 상태가 줄 단추 밖의 제 단추가 된다 — 단추 안에 단추를 넣으면 브라우저가 바깥 단추를 둘로 쪼갠다.
-    private RenderFragment ItemRow(WbsItemDto w, bool toggle = false) =>
+    private RenderFragment ItemRow(WbsItemDto w, bool toggle = false, DateOnly? day = null) =>
         @<li class="pm-gc-agenda__item pm-gc-agenda__item--@Label(w) @(toggle ? "pm-gc-agenda__item--toggle" : null)">
-            <button type="button" class="pm-gc-agenda__btn"
-                    disabled="@(!_canUpdate)"
-                    @onclick="@(() => StartEdit(w))">
-                @if (ProjectTag(w) is { } prj)
-                {
-                    <span class="pm-gc-prj" style="--pm-prj: @ProjectColor(w)">@prj</span>
-                }
-                <span class="pm-gc-agenda__top">
-                    <span class="pm-gc-agenda__name">@Title(w)</span>
-                    @if (!toggle)
+            @if (toggle && IsTitleEditing(w, day))
+            {
+                @* 단추 안에는 입력칸을 못 넣으므로 고치는 동안만 줄을 div 로 바꿔 그린다. 글쇠는 화면 단축키(t·d·←…)로 번지지 않게 끊는다. *@
+                <div class="pm-gc-agenda__btn pm-gc-agenda__btn--title">
+                    @if (ProjectTag(w) is { } editPrj)
                     {
-                        <span class="jsini-badge @AgendaStateClass(w)">@AgendaStateName(w)</span>
+                        <span class="pm-gc-prj" style="--pm-prj: @ProjectColor(w)">@editPrj</span>
                     }
-                </span>
-                @if (!string.IsNullOrWhiteSpace(w.Comm))
-                {
-                    <span class="pm-gc-agenda__sub">@w.Comm</span>
-                }
-            </button>
+                    <span class="pm-gc-agenda__top">
+                        <input type="text" class="pm-gc-agenda__title-input"
+                               @ref="_titleInput"
+                               value="@_titleDraft"
+                               maxlength="200"
+                               aria-label="일정 제목"
+                               disabled="@_titleSaving"
+                               @oninput="@(e => _titleDraft = e.Value?.ToString() ?? string.Empty)"
+                               @onkeydown="@(e => OnTitleKeyAsync(w, e))"
+                               @onkeydown:stopPropagation="true"
+                               @onblur="@(() => CommitTitleAsync(w))" />
+                    </span>
+                    @if (!string.IsNullOrWhiteSpace(w.Comm))
+                    {
+                        <span class="pm-gc-agenda__sub">@w.Comm</span>
+                    }
+                </div>
+            }
+            else
+            {
+                <button type="button" class="pm-gc-agenda__btn"
+                        disabled="@(!_canUpdate)"
+                        @onclick="@(() => StartEdit(w))">
+                    @if (ProjectTag(w) is { } prj)
+                    {
+                        <span class="pm-gc-prj" style="--pm-prj: @ProjectColor(w)">@prj</span>
+                    }
+                    <span class="pm-gc-agenda__top">
+                        <span class="pm-gc-agenda__name">@Title(w)</span>
+                        @if (!toggle)
+                        {
+                            <span class="jsini-badge @AgendaStateClass(w)">@AgendaStateName(w)</span>
+                        }
+                    </span>
+                    @if (!string.IsNullOrWhiteSpace(w.Comm))
+                    {
+                        <span class="pm-gc-agenda__sub">@w.Comm</span>
+                    }
+                </button>
+            }
             @if (toggle)
             {
                 var targetName = AddTargets.Name(w.AddTarget);
                 <span class="pm-gc-agenda__tools">
+                    <button type="button" class="pm-gc-agenda__rename"
+                            disabled="@(!_canUpdate || _toggling.Contains(w.WbsId) || IsTitleEditing(w, day))"
+                            title="제목 바로 고치기 (Enter 저장 · Esc 취소)"
+                            aria-label="제목 바로 고치기"
+                            @onclick="@(() => StartTitleEdit(w, day))"><i class="jsini-icon-edit" aria-hidden="true"></i></button>
                     <button type="button"
                             class="pm-addtarget pm-gc-agenda__target @(targetName is null ? "pm-addtarget--empty" : "")"
                             disabled="@(!_canUpdate || _toggling.Contains(w.WbsId))"

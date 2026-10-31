@@ -431,6 +431,19 @@ public partial class ProjectScheduler : IAsyncDisposable
             await AttachDeleteKeyAsync();
         }
 
+        if (_focusTitle)
+        {
+            _focusTitle = false;
+            try
+            {
+                await _titleInput.FocusAsync();
+            }
+            catch (Exception ex) when (ex is JSException or InvalidOperationException or JSDisconnectedException)
+            {
+                // 그리는 사이에 칸이 사라졌다(보기를 바꿨다) — 누를 칸이 없다.
+            }
+        }
+
         if (_turnInDir != 0)
         {
             var dir = _turnInDir;
@@ -1783,6 +1796,117 @@ public partial class ProjectScheduler : IAsyncDisposable
         finally
         {
             _toggling.Remove(w.WbsId);
+        }
+    }
+
+    // ── 일정 보기에서 제목 바로 고치기 ────────────────────────
+
+    /// <summary>제목을 고치는 줄. 여러 날에 걸친 일정은 일정 보기의 날마다 서므로 날까지 묶어 그 자리 하나만 입력칸이 된다.</summary>
+    private (int WbsId, DateOnly? Day)? _titleEdit;
+
+    private string _titleDraft = string.Empty;
+
+    private bool _titleSaving;
+
+    private bool _focusTitle;
+
+    private ElementReference _titleInput;
+
+    private bool IsTitleEditing(WbsItemDto w, DateOnly? day) =>
+        _titleEdit is { } e && e.WbsId == w.WbsId && e.Day == day;
+
+    private void StartTitleEdit(WbsItemDto w, DateOnly? day)
+    {
+        if (!_canUpdate || _titleSaving || _toggling.Contains(w.WbsId))
+        {
+            return;
+        }
+
+        _titleEdit = (w.WbsId, day);
+        _titleDraft = w.ProcNm ?? string.Empty;
+        _focusTitle = true;
+    }
+
+    private void CancelTitleEdit()
+    {
+        _titleEdit = null;
+        _titleDraft = string.Empty;
+    }
+
+    private Task OnTitleKeyAsync(WbsItemDto w, KeyboardEventArgs e)
+    {
+        switch (e.Key)
+        {
+            case "Enter" when !e.IsComposing:
+                return CommitTitleAsync(w);
+            case "Escape":
+                CancelTitleEdit();
+                break;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    /// <summary>Enter·칸 벗어나기가 모두 여기로 온다 — 저장 중이거나 이미 닫힌 칸에서 온 두 번째 부름은 버린다.</summary>
+    private async Task CommitTitleAsync(WbsItemDto w)
+    {
+        if (_titleEdit is not { } edit || edit.WbsId != w.WbsId || _titleSaving)
+        {
+            return;
+        }
+
+        var name = _titleDraft.Trim();
+
+        if (string.Equals(name, w.ProcNm?.Trim() ?? string.Empty, StringComparison.Ordinal))
+        {
+            CancelTitleEdit();
+            return;
+        }
+
+        if (name.Length == 0)
+        {
+            Say("일정 이름을 넣으십시오.", NoticeTone.Warning);
+            CancelTitleEdit();
+            return;
+        }
+
+        // 추가대상 단추가 미뤄 둔 저장은 거둔다 — 줄을 통째로 보내므로 늦게 나가면 옛 제목으로 덮는다. 바뀐 추가대상은 이 저장에 실린다.
+        if (_cycleSaves.Remove(w.WbsId, out var pending))
+        {
+            pending.Cancel();
+            pending.Dispose();
+            _stateOrigins.Remove(w.WbsId);
+        }
+
+        _titleSaving = true;
+        _toggling.Add(w.WbsId);
+
+        try
+        {
+            var next = Copy(w);
+            next.ProcNm = name;
+
+            var updated = await Api.UpdateAsync(next);
+
+            // 같은 일정이 달력·목록 여러 자리에 같은 객체로 서 있다 — 그 객체를 고치면 모두 따라온다.
+            w.ProcNm = name;
+            if (updated is not null)
+            {
+                w.ModUser = updated.ModUser;
+                w.ModDt = updated.ModDt;
+            }
+
+            Say("제목을 바꿨습니다.", NoticeTone.Info);
+        }
+        catch (Exception ex)
+        {
+            Say($"제목을 바꾸지 못했습니다 — {ex.Message}", NoticeTone.Error);
+        }
+        finally
+        {
+            _titleSaving = false;
+            _toggling.Remove(w.WbsId);
+            CancelTitleEdit();
         }
     }
 

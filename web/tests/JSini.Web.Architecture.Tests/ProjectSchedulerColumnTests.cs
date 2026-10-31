@@ -167,7 +167,7 @@ public sealed class ProjectSchedulerColumnTests
             ? -1
             : razor.IndexOf("else if (_storage is not null)", agendaStart, StringComparison.Ordinal);
         Assert.True(agendaStart >= 0 && schedulerStart > agendaStart);
-        Assert.Contains("@ItemRow(w, toggle: true)", razor[agendaStart..schedulerStart]);
+        Assert.Contains("@ItemRow(w, toggle: true, day: day.Date)", razor[agendaStart..schedulerStart]);
         Assert.Contains("CycleAgendaStateAsync(w)", razor);
         Assert.Contains("Caption=\"진행 상태\"", popup);
         Assert.Contains("Data=\"@StateOptions\"", popup);
@@ -175,6 +175,18 @@ public sealed class ProjectSchedulerColumnTests
 
         var names = ScheduleEditPopup.StateOptions.Select(option => option.Name);
         Assert.Equal(new[] { "대기", "진행중", "완료", "폐기" }, names);
+    }
+
+    /// <summary>일정 보기의 제목 칸은 화면 단축키(t·d·w·m·a·←→)를 들은 판 안에 있다 — 글쇠가 번지면 「t」를 칠 때 오늘로 넘어간다.</summary>
+    [Fact]
+    public void ProjectScheduler_일정보기_제목을_바로_고치는_칸은_글쇠를_판으로_번지지_않게_끊는다()
+    {
+        var razor = RazorSource.Read(Path.Combine(AppContext.BaseDirectory, "../../../../../src/Apps/JSini.Web.ProjMng/Components/Pages/ProjectScheduler.razor"));
+
+        Assert.Contains("StartTitleEdit(w, day)", razor);
+        Assert.Contains("class=\"pm-gc-agenda__title-input\"", razor);
+        Assert.Contains("@onkeydown:stopPropagation=\"true\"", razor);
+        Assert.Contains("CommitTitleAsync(w)", razor);
     }
 
     [Fact]

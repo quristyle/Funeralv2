@@ -5668,7 +5668,49 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 }
 
 .pm-gc-agenda__item--toggle .pm-gc-agenda__top {
-  padding-right: 8.5rem;
+  padding-right: 10.25rem;
+}
+
+/* 제목을 고치는 동안의 줄. 단추가 아니라 div 라 누름 표시를 걷는다. */
+.pm-gc-agenda__btn--title {
+  cursor: default;
+}
+
+.pm-gc-agenda__title-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0 var(--jsini-sp-xs, 0.25rem);
+  font: inherit;
+  font-weight: 600;
+  color: var(--jsini-text);
+  background: var(--jsini-surface, transparent);
+  border: 1px solid var(--tb-primary, #1a73e8);
+  border-radius: 4px;
+  outline: none;
+}
+
+.pm-gc-agenda__item--toggle .pm-gc-agenda__rename {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  color: var(--jsini-text-muted);
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+}
+
+.pm-gc-agenda__item--toggle .pm-gc-agenda__rename:hover:not(:disabled) {
+  color: var(--jsini-text);
+  border-color: var(--jsini-border);
+}
+
+.pm-gc-agenda__item--toggle .pm-gc-agenda__rename:disabled {
+  cursor: default;
+  opacity: 0.5;
 }
 
 /* 추가대상·상태 두 단추를 한 묶음으로 오른쪽 귀퉁이에 얹는다. */
