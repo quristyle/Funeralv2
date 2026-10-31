@@ -145,10 +145,12 @@
     </div>
 }
 
-<div class="ad-split ad-split--track @PhoneCss">
+<DxSplitter CssClass="@($"ad-vsplit ad-vsplit--track {PhoneCss}".Trim())" Orientation="Orientation.Horizontal" SeparatorSize="2">
+    <Panes>
 
     @* ── 왼쪽: 목록 ───────────────────────────────────────── *@
-    <CommCont CssClass="ad-split__side" Title="@(_isPhone ? null : ListTitle)">
+    <DxSplitterPane Size="38%" MinSize="320px" MaxSize="65%">
+    <CommCont CssClass="ad-vsplit__pane ad-vsplit__pane--left ad-split__side" Title="@(_isPhone ? null : ListTitle)">
 
         @if (_raw)
         {
@@ -233,9 +235,11 @@
         }
 
     </CommCont>
+    </DxSplitterPane>
 
     @* ── 오른쪽: 지도 ─────────────────────────────────────── *@
-    <CommCont CssClass="ad-split__main">
+    <DxSplitterPane>
+    <CommCont CssClass="ad-vsplit__pane ad-vsplit__pane--right ad-split__main">
 
         <div class="ad-geomap">
             @* 타일 · 선 · 점은 JS 가 붙인다 — 회로로 그리면 끌 때마다 서버를 왕복한다. *@
@@ -288,4 +292,7 @@
         </div>
 
     </CommCont>
-</div>
+    </DxSplitterPane>
+
+    </Panes>
+</DxSplitter>

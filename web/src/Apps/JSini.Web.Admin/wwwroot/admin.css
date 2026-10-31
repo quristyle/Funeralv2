@@ -2997,7 +2997,8 @@
 
 /* 넓은 화면에서는 판이 본문 높이를 채운다. `.ad-split > .commcont` 규칙이 본문을 세로 flex 로 만들어 두므로 여기서 남은 높이를 다 먹으면 된다. */
 @media (min-width: 992px) {
-  .ad-split .ad-geomap {
+  .ad-split .ad-geomap,
+  .ad-vsplit .ad-geomap {
     flex: 1;
     min-height: 0;
   }
@@ -3404,8 +3405,25 @@
 
   /* 선 판만 남긴다. 감추는 쪽이 `display: none` 이라 자리를 안 먹는다. */
   .ad-split--phone.ad-split--map > .ad-split__side,
-  .ad-split--phone.ad-split--list > .ad-split__main {
-    display: none;
+  .ad-split--phone.ad-split--list > .ad-split__main,
+  .ad-vsplit.ad-split--phone.ad-split--map .ad-split__side,
+  .ad-vsplit.ad-split--phone.ad-split--list .ad-split__main {
+    display: none !important;
+  }
+
+  .ad-vsplit.ad-split--phone .ad-vsplit__pane.commcont {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 0;
+  }
+
+  .ad-vsplit.ad-split--phone .ad-vsplit__pane.commcont > .commcont__body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
   }
 
   /* 선 판이 본문의 남은 높이를 다 쓴다. 넓은 화면에서 좌우 분할이 하는 일과 같고(파일 위쪽 `@media (min-width: 992px)` 묶음), 사슬이 한 곳만
