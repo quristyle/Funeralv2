@@ -211,9 +211,6 @@ public partial class ProjectScheduler : IAsyncDisposable
     /// <summary>표 보기에서 쓰는 담당자(포털 계정) 목록.</summary>
     private IReadOnlyList<BizOption> _userOptions = [];
 
-    /// <summary>진행 상태 고르개. 표의 칸과 편집 창이 같은 목록을 쓴다.</summary>
-    private static IReadOnlyList<ScheduleState> StateOptions => ScheduleEditPopup.StateOptions;
-
     private CalView _view = CalView.Month;
     private DateTime _anchor = AppTime.TodayDate;
 
@@ -2107,10 +2104,13 @@ public partial class ProjectScheduler : IAsyncDisposable
     /// <summary>공통코드를 못 읽었을 때 도는 차례. 공통코드가 있으면 그 차례를 따른다.</summary>
     private static readonly string[] FallbackAddTargets = ["ADD", "CHANGE", "MOVE"];
 
-    /// <summary>연달아 누른 것은 마지막 값 하나만 저장한다 — 누를 때마다 보내면 응답이 엇갈려 앞의 값이 이길 수 있다.</summary>
-    private readonly Dictionary<int, CancellationTokenSource> _addTargetSaves = [];
+    /// <summary>
+    /// 추가대상·진행상태 단추를 연달아 누른 것은 마지막 값 하나만 저장한다 — 누를 때마다 보내면 응답이 엇갈려 앞의 값이 이길 수 있다.
+    /// 줄 하나를 통째로 보내므로 두 칸이 대기 하나를 같이 쓴다.
+    /// </summary>
+    private readonly Dictionary<int, CancellationTokenSource> _cycleSaves = [];
 
-    private const int AddTargetSaveDelayMs = 600;
+    private const int CycleSaveDelayMs = 600;
 
     /// <summary>비움 → 공통코드 차례 → 다시 비움으로 돈다.</summary>
     private void CycleAddTarget(WbsItemDto w)
@@ -2128,30 +2128,63 @@ public partial class ProjectScheduler : IAsyncDisposable
             ? codes.FirstOrDefault() ?? string.Empty
             : at + 1 < codes.Count ? codes[at + 1] : string.Empty;
 
-        _ = SaveAddTargetLaterAsync(w);
+        _ = SaveCycledLaterAsync(w);
     }
 
-    private async Task SaveAddTargetLaterAsync(WbsItemDto w)
+    /// <summary>진행상태 단추가 도는 차례. 표에서 고르는 값은 편집 창과 같은 넷이다.</summary>
+    private static readonly string[] RowStateCycle = [.. ScheduleEditPopup.StateOptions.Select(o => o.Code)];
+
+    /// <summary>
+    /// 연달아 누르는 동안 처음 값을 잡아 둔다. 완료를 지나가면 개발·계획 날짜가 오늘로 박히므로,
+    /// 매번 처음 값에서 고른 상태를 다시 얹어야 「지나가기만 한」 상태가 날짜를 남기지 않는다.
+    /// </summary>
+    private readonly Dictionary<int, (DateTime? DevSdt, DateTime? DevEdt, DateTime? PlanSdt, DateTime? PlanEdt)> _stateOrigins = [];
+
+    /// <summary>대기 → 진행중 → 완료 → 폐기 → 대기로 돈다.</summary>
+    private void CycleRowState(WbsItemDto w)
     {
-        if (_addTargetSaves.Remove(w.WbsId, out var previous))
+        var at = Array.IndexOf(RowStateCycle, GetInlineStateCode(w));
+        var next = RowStateCycle[(at + 1) % RowStateCycle.Length];
+
+        if (_stateOrigins.TryGetValue(w.WbsId, out var origin))
+        {
+            (w.DevSdt, w.DevEdt, w.PlanSdt, w.PlanEdt) = origin;
+        }
+        else
+        {
+            _stateOrigins[w.WbsId] = (w.DevSdt, w.DevEdt, w.PlanSdt, w.PlanEdt);
+        }
+
+        ScheduleEditPopup.ApplyState(w, next, AppTime.TodayDate);
+
+        _ = SaveCycledLaterAsync(w);
+    }
+
+    private static string StateCodeName(string code) =>
+        ScheduleEditPopup.StateOptions.FirstOrDefault(o => o.Code == code)?.Name ?? "대기";
+
+    private async Task SaveCycledLaterAsync(WbsItemDto w)
+    {
+        if (_cycleSaves.Remove(w.WbsId, out var previous))
         {
             previous.Cancel();
             previous.Dispose();
         }
 
         var cts = new CancellationTokenSource();
-        _addTargetSaves[w.WbsId] = cts;
+        _cycleSaves[w.WbsId] = cts;
 
         try
         {
-            await Task.Delay(AddTargetSaveDelayMs, cts.Token);
+            await Task.Delay(CycleSaveDelayMs, cts.Token);
         }
         catch (TaskCanceledException)
         {
             return;
         }
 
-        _addTargetSaves.Remove(w.WbsId);
+        _cycleSaves.Remove(w.WbsId);
+        _stateOrigins.Remove(w.WbsId);
         cts.Dispose();
 
         try
@@ -2189,15 +2222,6 @@ public partial class ProjectScheduler : IAsyncDisposable
         await SaveInlineAsync(w);
     }
 
-    private async Task OnInlineStateChangedAsync(WbsItemDto w, string? val)
-    {
-        var current = GetInlineStateCode(w);
-        if (string.Equals(current, val, StringComparison.Ordinal)) return;
-
-        ScheduleEditPopup.ApplyState(w, val ?? "READY", AppTime.TodayDate);
-
-        await SaveInlineAsync(w);
-    }
 
     private async Task OnInlineCommChangedAsync(WbsItemDto w, string? val)
     {

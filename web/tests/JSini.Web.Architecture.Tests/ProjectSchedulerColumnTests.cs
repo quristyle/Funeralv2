@@ -30,10 +30,13 @@ public sealed class ProjectSchedulerColumnTests
         // 종료 컬럼은 숨김(Visible="false")되지 않고 노출되어야 함
         Assert.DoesNotContain("Caption=\"종료\" Width=\"150\"\n                                              FixedPosition=\"@PinnedColumn\"\n                                              Visible=\"false\"", content);
 
-        // 숨김 컬럼 (구분, 종류, 진행, 메모, 원문)
+        // 진행상태는 노출하고, 추가대상처럼 누를 때마다 바뀌는 단추로 고친다.
+        Assert.Contains("Caption=\"진행상태\" Width=\"125\">", content);
+        Assert.Contains("CycleRowState(w)", content);
+
+        // 숨김 컬럼 (구분, 종류, 메모, 원문)
         Assert.Contains("Caption=\"구분\" Width=\"110\"\n                                              Visible=\"false\"", content);
         Assert.Contains("Caption=\"종류\" Width=\"110\"\n                                              Visible=\"false\"", content);
-        Assert.Contains("Caption=\"진행\" Width=\"115\"\n                                              Visible=\"false\"", content);
         Assert.Contains("Caption=\"메모\" MinWidth=\"140\"\n                                              TextAlignment=\"GridTextAlignment.Left\"\n                                              Visible=\"false\"", content);
         Assert.Contains("Caption=\"원문\" MinWidth=\"140\"\n                                              TextAlignment=\"GridTextAlignment.Left\"\n                                              Visible=\"false\"", content);
     }
@@ -253,5 +256,36 @@ public sealed class ProjectSchedulerColumnTests
         Assert.False(w.Discarded);
         Assert.Equal("COMP", ScheduleEditPopup.StateCode(w));
         Assert.Equal(new DateTime(2026, 10, 2), w.DevEdt);
+    }
+
+    [Fact]
+    public void ProjectScheduler_표의_진행상태_단추는_대기_진행중_완료_폐기를_돌고_지나간_상태의_날짜를_남기지_않는다()
+    {
+        var page = new ProjectScheduler();
+        var cycle = typeof(ProjectScheduler).GetMethod("CycleRowState", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        var devSdt = new DateTime(2026, 10, 1, 0, 0, 0, DateTimeKind.Utc);
+        var planEdt = AppTime.TodayDate.AddDays(5);
+        // WbsId 0 은 저장을 건너뛴다 — 회로 없이 차례만 본다.
+        var w = new WbsItemDto { WbsState = "READY", PlanSdt = AppTime.TodayDate.AddDays(1), PlanEdt = planEdt, DevSdt = null };
+
+        var seen = new List<string>();
+        for (var i = 0; i < 5; i++)
+        {
+            cycle.Invoke(page, [w]);
+            seen.Add(ScheduleEditPopup.StateCode(w));
+        }
+
+        Assert.Equal(new[] { "RUNNING", "COMP", "DISCARD", "READY", "RUNNING" }, seen);
+
+        // 완료를 지나 폐기에 멈추면 완료가 당긴 계획 종료일이 처음 값으로 돌아와 있어야 한다.
+        var page2 = new ProjectScheduler();
+        var w2 = new WbsItemDto { WbsState = "RUNNING", DevSdt = devSdt, PlanEdt = planEdt };
+        cycle.Invoke(page2, [w2]);
+        Assert.Equal("COMP", ScheduleEditPopup.StateCode(w2));
+        cycle.Invoke(page2, [w2]);
+        Assert.Equal("DISCARD", ScheduleEditPopup.StateCode(w2));
+        Assert.Null(w2.DevEdt);
+        Assert.Equal(planEdt, w2.PlanEdt);
+        Assert.Equal(devSdt, w2.DevSdt);
     }
 }

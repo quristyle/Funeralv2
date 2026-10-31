@@ -6976,11 +6976,6 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   gap: 0.25rem;
 }
 
-.pm-inline-state.dxbl-combobox {
-  min-width: 68px;
-  max-width: 82px;
-}
-
 .pm-inline-over-badge {
   font-size: 0.75rem;
   padding: 0.1rem 0.35rem;
@@ -7974,6 +7969,36 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   background: transparent;
   border-style: dashed;
   color: var(--jsini-text-muted, #6b7280);
+}
+
+/* ── 일정표: 표 보기의 진행상태 단추 (`pm-statecycle`) — 누를 때마다 대기 → 진행중 → 완료 → 폐기 → 대기. 색은 달력의 상태 색과 같다 ── */
+.pm-statecycle {
+  --pm-state: #f9ab00;
+  min-width: 3.5rem;
+  padding: 0.125rem 0.625rem;
+  border: 1px solid color-mix(in srgb, var(--pm-state) 55%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--pm-state) 16%, transparent);
+  color: var(--tb-text, var(--jsini-text, inherit));
+  font-size: var(--jsini-fs-sm, 0.8125rem);
+  line-height: 1.5;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out;
+}
+
+.pm-statecycle:hover {
+  border-color: var(--pm-gc-accent, #1a73e8);
+}
+
+.pm-statecycle--running { --pm-state: #1a73e8; }
+.pm-statecycle--comp { --pm-state: #80868b; }
+
+.pm-statecycle--discard {
+  --pm-state: #9aa0a6;
+  border-style: dashed;
+  color: #5f6368;
 }
 
 /* 폐기한 일정 — 표의 줄 전체를 흐리고 글자에 줄을 긋는다. 왼쪽 띠는 점선 딱지와 함께 「지운 것이 아니라 버린 것」을 가른다.

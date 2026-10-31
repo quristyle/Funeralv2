@@ -460,32 +460,31 @@
                                 </CellDisplayTemplate>
                             </DxGridDataColumn>
 
-                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.WbsState)" Caption="진행" Width="115"
-                                              Visible="false">
+                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.WbsState)" Caption="진행상태" Width="125">
                                 <CellDisplayTemplate Context="cell">
                                     @{
                                         var w = (WbsItemDto)cell.DataItem;
+                                        var stateCode = GetInlineStateCode(w);
                                     }
-                                    @if (IsEditing(w))
-                                    {
-                                        <div class="pm-inline-state-wrapper">
-                                            <DxComboBox Data="@StateOptions" TData="ScheduleState" TValue="string"
-                                                        TextFieldName="Name"
-                                                        ValueFieldName="Code"
-                                                        Value="@GetInlineStateCode(w)"
-                                                        ValueChanged="@((string val) => OnInlineStateChangedAsync(w, val))"
-                                                        ValidationEnabled="false"
-                                                        CssClass="pm-inline-edit pm-inline-state" />
-                                            @if (LabelOf(w, Today) == "OVER")
-                                            {
-                                                <span class="jsini-badge jsini-badge--err pm-inline-over-badge" title="계획종료일이 지난 지연 상태입니다">지연</span>
-                                            }
-                                        </div>
-                                    }
-                                    else
-                                    {
-                                        <span class="jsini-badge @StateClass(w)">@StateName(w)</span>
-                                    }
+                                    <div class="pm-inline-state-wrapper">
+                                        @if (_canUpdate)
+                                        {
+                                            @* 추가대상과 같은 맨 단추 — 지연은 상태가 아니라 날짜에서 세는 것이라 옆 딱지로 따로 단다 *@
+                                            <button type="button"
+                                                    class="pm-statecycle pm-statecycle--@stateCode.ToLowerInvariant()"
+                                                    title="누를 때마다 다음 진행상태로 바뀝니다 (대기 → 진행중 → 완료 → 폐기)"
+                                                    @onclick="@(() => CycleRowState(w))"
+                                                    @onclick:stopPropagation="true">@StateCodeName(stateCode)</button>
+                                        }
+                                        else
+                                        {
+                                            <span class="jsini-badge @StateClass(w)">@StateName(w)</span>
+                                        }
+                                        @if (_canUpdate && LabelOf(w, Today) == "OVER")
+                                        {
+                                            <span class="jsini-badge jsini-badge--err pm-inline-over-badge" title="계획종료일이 지난 지연 상태입니다">지연</span>
+                                        }
+                                    </div>
                                 </CellDisplayTemplate>
                             </DxGridDataColumn>
 
