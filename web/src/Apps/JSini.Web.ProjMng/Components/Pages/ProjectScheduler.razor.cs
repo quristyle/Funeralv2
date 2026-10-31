@@ -2119,9 +2119,10 @@ public partial class ProjectScheduler : IAsyncDisposable
 
     private async Task OnInlineDevUserChangedAsync(WbsItemDto w, string? val)
     {
-        if (string.Equals(w.DevUser, val, StringComparison.Ordinal)) return;
+        val = val?.Trim() ?? string.Empty;
+        if (string.Equals(w.DevUser ?? string.Empty, val, StringComparison.Ordinal)) return;
 
-        w.DevUser = val ?? string.Empty;
+        w.DevUser = val;
         await SaveInlineAsync(w);
     }
 
