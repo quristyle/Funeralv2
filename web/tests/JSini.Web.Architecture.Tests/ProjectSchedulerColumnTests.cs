@@ -2,6 +2,7 @@ using System.Reflection;
 using JSini.Web.Components.Data;
 using JSini.Web.ProjMng.Api;
 using JSini.Web.ProjMng.Components.Pages;
+using JSini.Web.ProjMng.Components.Shared;
 using Xunit;
 
 namespace JSini.Web.Architecture.Tests;
@@ -155,11 +156,8 @@ public sealed class ProjectSchedulerColumnTests
     {
         var path = Path.Combine(AppContext.BaseDirectory, "../../../../../src/Apps/JSini.Web.ProjMng/Components/Pages/ProjectScheduler.razor");
         var razor = File.ReadAllText(path);
-        var popupStart = razor.IndexOf("<CommPopup @bind-Visible=\"_editing\"", StringComparison.Ordinal);
-        Assert.True(popupStart >= 0);
-        var popupEnd = razor.IndexOf("</CommPopup>", popupStart, StringComparison.Ordinal);
-        Assert.True(popupEnd > popupStart);
-        var popup = razor[popupStart..popupEnd];
+        var popupPath = Path.Combine(AppContext.BaseDirectory, "../../../../../src/Apps/JSini.Web.ProjMng/Components/Shared/ScheduleEditPopup.razor");
+        var popup = File.ReadAllText(popupPath);
 
         var agendaStart = razor.IndexOf("else if (_view == CalView.Agenda || _isPhone)", StringComparison.Ordinal);
         var schedulerStart = agendaStart < 0
@@ -172,11 +170,29 @@ public sealed class ProjectSchedulerColumnTests
         Assert.Contains("Data=\"@StateOptions\"", popup);
         Assert.DoesNotContain("<DxCheckBox", popup);
 
-        var options = typeof(ProjectScheduler).GetField("StateOptions", BindingFlags.NonPublic | BindingFlags.Static);
-        Assert.NotNull(options);
-        var names = ((Array)options.GetValue(null)!).Cast<object>()
-            .Select(option => (string)option.GetType().GetProperty("Name")!.GetValue(option)!);
+        var names = ScheduleEditPopup.StateOptions.Select(option => option.Name);
         Assert.Equal(new[] { "대기", "진행중", "완료" }, names);
+    }
+
+    [Fact]
+    public void ProjectScheduler_등록수정_창은_공통_ScheduleEditPopup_한_벌이다()
+    {
+        var path = Path.Combine(AppContext.BaseDirectory, "../../../../../src/Apps/JSini.Web.ProjMng/Components/Pages/ProjectScheduler.razor");
+        var razor = File.ReadAllText(path);
+
+        // 달력·목록·표가 같은 창을 연다 — 표의 기본 편집 창(EditFormTemplate)이나 화면 안의 편집 CommPopup 을 두지 않는다.
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(razor, "<ScheduleEditPopup "));
+        Assert.DoesNotContain("<EditFormTemplate", razor);
+        Assert.DoesNotContain("<WbsEditForm", razor);
+        Assert.Contains("OnEditOpen=\"@OnGridEditOpen\"", razor);
+
+        var popupPath = Path.Combine(AppContext.BaseDirectory, "../../../../../src/Apps/JSini.Web.ProjMng/Components/Shared/ScheduleEditPopup.razor");
+        var popup = File.ReadAllText(popupPath);
+        Assert.Contains("Caption=\"프로젝트\"", popup);
+        Assert.Contains("Caption=\"구분\"", popup);
+        Assert.Contains("Text=\"오늘로 옮겨 저장\"", popup);
+        Assert.Contains("Text=\"복제\"", popup);
+        Assert.Contains("Text=\"삭제\"", popup);
     }
 
     [Theory]
@@ -192,11 +208,11 @@ public sealed class ProjectSchedulerColumnTests
             DevSdt = today.AddDays(-2).ToDateTime(TimeOnly.MinValue),
             DevEdt = today.AddDays(-1).ToDateTime(TimeOnly.MinValue),
         };
-        var scheduler = new ProjectScheduler();
-        typeof(ProjectScheduler).GetField("_form", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(scheduler, item);
-        typeof(ProjectScheduler).GetField("_formState", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(scheduler, state);
+        var popup = new ScheduleEditPopup();
+        typeof(ScheduleEditPopup).GetField("_form", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(popup, item);
+        typeof(ScheduleEditPopup).GetField("_formState", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(popup, state);
 
-        typeof(ProjectScheduler).GetMethod("ApplyFormState", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(scheduler, null);
+        typeof(ScheduleEditPopup).GetMethod("ApplyFormState", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(popup, null);
 
         switch (state)
         {

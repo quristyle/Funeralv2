@@ -148,16 +148,8 @@ public partial class ProjectScheduler : IAsyncDisposable
     /// <summary>표 보기에서 쓰는 담당자(포털 계정) 목록.</summary>
     private IReadOnlyList<BizOption> _userOptions = [];
 
-    /// <summary>진행 상태 선택 옵션.</summary>
-    /// <summary>진행 상태 고르개의 한 칸. DevExpress 는 칸 이름을 속성에서 찾으므로 튜플로 두면 안 된다.</summary>
-    private sealed record StateOption(string Code, string Name);
-
-    private static readonly StateOption[] StateOptions =
-    [
-        new("READY", "대기"),
-        new("RUNNING", "진행중"),
-        new("COMP", "완료"),
-    ];
+    /// <summary>진행 상태 고르개. 표의 칸과 편집 창이 같은 목록을 쓴다.</summary>
+    private static IReadOnlyList<ScheduleState> StateOptions => ScheduleEditPopup.StateOptions;
 
     private CalView _view = CalView.Month;
     private DateTime _anchor = AppTime.TodayDate;
@@ -220,10 +212,8 @@ public partial class ProjectScheduler : IAsyncDisposable
 
     private bool ShowDayPane => _dayPane && _view == CalView.Month && !_isPhone;
 
-    private bool _editing;
-    private bool _isNew;
-    private string _formState = "READY";
-    private WbsItemDto _form = new();
+    /// <summary>등록·수정 창. 달력·목록·표가 모두 이것을 연다.</summary>
+    private ScheduleEditPopup? _editPopup;
 
     private bool _canCreate;
     private bool _canUpdate;
@@ -1621,67 +1611,21 @@ public partial class ProjectScheduler : IAsyncDisposable
         }
     }
 
-    private void StartNew(DateOnly from, DateOnly to)
-    {
-        _form = new WbsItemDto
+    private void StartNew(DateOnly from, DateOnly to) =>
+        _editPopup?.OpenNew(new WbsItemDto
         {
             PrjRid = ProjectRid,
             ScheduleType = NewKind,
             PlanSdt = from.ToDateTime(TimeOnly.MinValue),
             PlanEdt = (to < from ? from : to).ToDateTime(TimeOnly.MinValue),
             DevUser = CurrentUserName,
-        };
+        });
 
-        _formState = "READY";
-        _isNew = true;
-        _editing = true;
-    }
-
-    /// <summary>편집 창에 복사본을 띄운다. 목록 줄을 그대로 묶으면 취소해도 화면에 바뀐 값이 남는다.</summary>
-    private void StartEdit(WbsItemDto w)
-    {
-        _form = Copy(w);
-        _formState = GetInlineStateCode(w);
-        _isNew = false;
-        _editing = true;
-    }
+    private void StartEdit(WbsItemDto w) => _editPopup?.OpenEdit(w);
 
     /// <summary>새 줄에 붙일 구분. 하나만 고른 때만 따른다 — 여럿이면 어디에 넣을지 알 수 없고, 임의로 첫째를 집으면 고른 적 없는 구분에 조용히 들어간다.</summary>
     private string NewKind =>
         _scheduleTypes.Count == 1 ? _scheduleTypes[0] : DefaultKind;
-
-    /// <summary>상태 선택을 서버가 판정하는 개발 시작·종료일과 상태 코드로 옮긴다.</summary>
-    private void OnFormStateChanged(string? state)
-    {
-        if (state is "READY" or "RUNNING" or "COMP")
-        {
-            _formState = state;
-        }
-    }
-
-    /// <summary>고른 상태를 WBS 의 개발 시작·종료일로 옮긴다.</summary>
-    private void ApplyFormState()
-    {
-        var today = AppTime.TodayDate;
-
-        switch (_formState)
-        {
-            case "RUNNING":
-                _form.DevSdt ??= today;
-                _form.DevEdt = null;
-                break;
-            case "COMP":
-                _form.DevSdt ??= today;
-                _form.DevEdt ??= today;
-                if (_form.PlanSdt > _form.DevEdt) _form.PlanSdt = _form.DevEdt;
-                if (_form.PlanEdt > _form.DevEdt) _form.PlanEdt = _form.DevEdt;
-                break;
-            default:
-                _form.DevSdt = null;
-                _form.DevEdt = null;
-                break;
-        }
-    }
 
     /// <summary>저장 중인 줄. 응답 전에 한 번 더 누르면 같은 값으로 두 번 가서 되돌린 것이 안 남는다.</summary>
     private readonly HashSet<int> _toggling = [];
@@ -1767,132 +1711,6 @@ public partial class ProjectScheduler : IAsyncDisposable
         }
     }
 
-    /// <param name="moveToToday">원본의 「오늘로 옮겨 저장」. 계획을 오늘 하루로 옮긴다.</param>
-    private async Task SaveFormAsync(bool moveToToday)
-    {
-        if (string.IsNullOrWhiteSpace(_form.ProcNm))
-        {
-            Say("일정 이름을 넣으십시오.", NoticeTone.Warning);
-            return;
-        }
-
-        if (_form.PrjRid is null)
-        {
-            Say("프로젝트를 고르십시오.", NoticeTone.Warning);
-            return;
-        }
-
-        if (moveToToday)
-        {
-            var today = AppTime.TodayDate;
-            var diff = _form.PlanEdt.HasValue && _form.PlanSdt.HasValue
-                ? _form.PlanEdt.Value - _form.PlanSdt.Value
-                : TimeSpan.Zero;
-            var startTime = _form.PlanSdt?.TimeOfDay ?? TimeSpan.Zero;
-            _form.PlanSdt = today.Add(startTime);
-            _form.PlanEdt = _form.PlanSdt.Value.Add(diff);
-        }
-
-        if (_form.PlanEdt < _form.PlanSdt)
-        {
-            Say("종료일이 시작일보다 앞섭니다.", NoticeTone.Warning);
-            return;
-        }
-
-        if (string.IsNullOrWhiteSpace(_form.ScheduleType))
-        {
-            _form.ScheduleType = NewKind;
-        }
-
-        ApplyFormState();
-
-        var isNew = _isNew;
-
-        if (await RunAsync(
-                () => isNew ? Api.CreateAsync(_form) : Api.UpdateAsync(_form),
-                isNew ? "등록했습니다." : "저장했습니다.",
-                isNew ? "등록하지 못했습니다" : "저장하지 못했습니다"))
-        {
-            _editing = false;
-            await SearchAsync();
-        }
-    }
-
-    /// <summary>현재 일정을 복제하여 새로 등록하고, 복제된 일정의 수정 창 역할을 이어간다. 원문(BodyText)은 제외한다.</summary>
-    private async Task DuplicateFormAsync()
-    {
-        if (string.IsNullOrWhiteSpace(_form.ProcNm))
-        {
-            Say("일정 이름을 넣으십시오.", NoticeTone.Warning);
-            return;
-        }
-
-        if (_form.PrjRid is null)
-        {
-            Say("프로젝트를 고르십시오.", NoticeTone.Warning);
-            return;
-        }
-
-        if (_form.PlanEdt < _form.PlanSdt)
-        {
-            Say("종료일이 시작일보다 앞섭니다.", NoticeTone.Warning);
-            return;
-        }
-
-        if (string.IsNullOrWhiteSpace(_form.ScheduleType))
-        {
-            _form.ScheduleType = NewKind;
-        }
-
-        ApplyFormState();
-
-        var clone = Copy(_form);
-        clone.WbsId = 0;
-        clone.BodyText = null;
-
-        WbsItemDto? created = null;
-
-        if (await RunAsync(
-                async () => created = await Api.CreateAsync(clone),
-                "복제했습니다.",
-                "복제하지 못했습니다"))
-        {
-            await SearchAsync();
-
-            if (created is not null)
-            {
-                _form = Copy(created);
-                _formState = GetInlineStateCode(created);
-            }
-            else
-            {
-                _form = clone;
-            }
-
-            _isNew = false;
-            _editing = true;
-        }
-    }
-
-    private async Task DeleteFormAsync()
-    {
-        if (_isNew || _confirm is null)
-        {
-            return;
-        }
-
-        if (!await _confirm.AskAsync($"「{_form.ProcNm}」 을(를) 지웁니다.\n되돌릴 수 없습니다."))
-        {
-            return;
-        }
-
-        if (await RunAsync(() => Api.DeleteAsync(_form.WbsId), "지웠습니다.", "지우지 못했습니다"))
-        {
-            _editing = false;
-            await SearchAsync();
-        }
-    }
-
     // ── 주·일 보기에서 바로 옮기기·지우기 ────────────────────────
 
     /// <summary>끌어 옮기거나 크기를 바꾼 것. 계획 날짜·시간이 바뀌고 나머지 칸은 읽어 둔 줄에서 그대로 가져간다.</summary>
@@ -1968,6 +1786,19 @@ public partial class ProjectScheduler : IAsyncDisposable
         w.DevUser = CurrentUserName;
     }
 
+    /// <summary>표의 ＋(아래 띠·오른쪽 클릭 창). FillNew 로 채운 새 줄을 공통 창으로 연다.</summary>
+    private void OnGridEditOpen(WbsItemDto w, bool isNew)
+    {
+        if (isNew)
+        {
+            _editPopup?.OpenNew(w);
+        }
+        else
+        {
+            StartEdit(w);
+        }
+    }
+
     private async Task SaveRowAsync((WbsItemDto Item, bool IsNew) e)
     {
         if (e.IsNew)
@@ -1988,7 +1819,7 @@ public partial class ProjectScheduler : IAsyncDisposable
     {
         var row = _editRow;
 
-        if (_view != CalView.Table || !_canDelete || _editing || row is null || _confirm is null)
+        if (_view != CalView.Table || !_canDelete || _editPopup?.IsOpen == true || row is null || _confirm is null)
         {
             return;
         }
@@ -2112,12 +1943,7 @@ public partial class ProjectScheduler : IAsyncDisposable
         return opt?.Label ?? username;
     }
 
-    private static string GetInlineStateCode(WbsItemDto w)
-    {
-        if (w.DevEdt is not null || w.WbsState == "COMP") return "COMP";
-        if (w.DevSdt is not null || w.WbsState == "RUNNING") return "RUNNING";
-        return "READY";
-    }
+    private static string GetInlineStateCode(WbsItemDto w) => ScheduleEditPopup.StateCode(w);
 
     /// <summary>표 보기에서 행 값을 변경했을 때 즉시 서버에 저장한다.</summary>
     private async Task SaveInlineAsync(WbsItemDto w)
@@ -2354,36 +2180,7 @@ public partial class ProjectScheduler : IAsyncDisposable
         return DateOnly.FromDateTime(end);
     }
 
-    private static WbsItemDto Copy(WbsItemDto w) => new()
-    {
-        WbsId = w.WbsId,
-        PrjRid = w.PrjRid,
-        ProcId = w.ProcId,
-        Gb1 = w.Gb1,
-        Gb2 = w.Gb2,
-        ProcNm = w.ProcNm,
-        ProcTp = w.ProcTp,
-        ProcLvl = w.ProcLvl,
-        BuildUser = w.BuildUser,
-        BuildStatus = w.BuildStatus,
-        DevUser = w.DevUser,
-        ReqUser = w.ReqUser,
-        PlanSdt = w.PlanSdt,
-        PlanEdt = w.PlanEdt,
-        DevSdt = w.DevSdt,
-        DevEdt = w.DevEdt,
-        DevChk = w.DevChk,
-        BuildChk = w.BuildChk,
-        BuildChkDt = w.BuildChkDt,
-        QcUser = w.QcUser,
-        QcChk = w.QcChk,
-        QcChkDt = w.QcChkDt,
-        Comm = w.Comm,
-        Summary = w.Summary,
-        BodyText = w.BodyText,
-        ScheduleType = w.ScheduleType,
-        AddTarget = w.AddTarget,
-    };
+    private static WbsItemDto Copy(WbsItemDto w) => ScheduleEditPopup.Copy(w);
 
     /// <summary>주·일 보기의 약속. 부품이 끌어 옮길 때 여기 값을 고치므로 <b>쓸 수 있어야 한다</b>.</summary>
     private sealed class CalendarItem

@@ -222,6 +222,7 @@
                              SelectedItemChanged="@OnTableRowSelected"
                              OnRowDoubleClick="@OnTableRowDoubleClick"
                              OnNew="@FillNew"
+                             OnEditOpen="@OnGridEditOpen"
                              OnSave="@SaveRowAsync"
                              OnDelete="@DeleteAsync"
                              DeleteConfirm="@(w => $"「{w.ProcNm}」 을(를) 지웁니다.\n되돌릴 수 없습니다.")"
@@ -444,7 +445,7 @@
                                     @if (IsEditing(w))
                                     {
                                         <div class="pm-inline-state-wrapper">
-                                            <DxComboBox Data="@StateOptions" TData="StateOption" TValue="string"
+                                            <DxComboBox Data="@StateOptions" TData="ScheduleState" TValue="string"
                                                         TextFieldName="Name"
                                                         ValueFieldName="Code"
                                                         Value="@GetInlineStateCode(w)"
@@ -512,9 +513,15 @@
                             </DxGridDataColumn>
                         </Columns>
 
-                        <EditFormTemplate Context="edit">
-                            <WbsEditForm Item="@((WbsItemDto)edit.EditModel)" />
-                        </EditFormTemplate>
+                        @* 고치는 자리는 표 밖의 공통 창이다 — EditFormTemplate 을 두면 표의 기본 창이 따로 떠서 칸과 단추가 갈린다. *@
+                        <RowActions Context="row">
+                            <PermissionView Action="MenuAction.Update">
+                                <DxButton IconCssClass="jsini-icon-edit"
+                                          Title="수정"
+                                          RenderStyle="ButtonRenderStyle.Link"
+                                          Click="@(() => OnTableRowDoubleClick(row))" />
+                            </PermissionView>
+                        </RowActions>
 
                         @* 줄을 두 번 누르는 것과 같은 창이다 — 두 번 누르기는 화면에 안 보이는 몸짓이라 여기에도 둔다. *@
                         <ContextMenuItems>
@@ -731,55 +738,8 @@
     </div>
 </div>
 
-@* 달력에서 여는 편집 창. 표의 편집 창과 같은 칸(WbsEditForm)에 이 화면만 필요한 프로젝트·구분·진행 상태를 앞에 얹었다. *@
-<CommPopup @bind-Visible="_editing" HeaderText="@(_isNew ? "일정 등록" : "일정 수정")"
-           Width="940px" MaxHeight="92vh" Scrollable="true">
-    <BodyContentTemplate Context="popup">
-        <div class="pm-scheduler-edit">
-            <WbsEditForm Item="@_form" Compact="true">
-                <Leading>
-                    <DxFormLayoutItem Caption="프로젝트" ColSpanMd="6" ColSpanLg="4">
-                        <CodeSelect CodeId="projlist" AutoSelectFirst="false" KeepUnknownValue="true"
-                                    Value="@(_form.PrjRid?.ToString())"
-                                    ValueChanged="@((string? code) => _form.PrjRid = int.TryParse(code, out var rid) ? rid : null)" />
-                    </DxFormLayoutItem>
-
-                    <DxFormLayoutItem Caption="구분" ColSpanMd="6" ColSpanLg="4">
-                        @* 저장된 값이 코드표에 없어도 지우지 않는다 — 옛 값이 그대로 남은 줄이 있다. *@
-                        <CodeSelect CodeId="schedule_type" AutoSelectFirst="false" KeepUnknownValue="true"
-                                    @bind-Value="_form.ScheduleType" />
-                    </DxFormLayoutItem>
-
-                    <DxFormLayoutItem Caption="진행 상태" ColSpanMd="12" ColSpanLg="4">
-                        <DxComboBox Data="@StateOptions" TData="StateOption" TValue="string" TextFieldName="Name" ValueFieldName="Code"
-                                    Value="@_formState" ValueChanged="@OnFormStateChanged"
-                                    ValidationEnabled="false" />
-                    </DxFormLayoutItem>
-                </Leading>
-            </WbsEditForm>
-        </div>
-    </BodyContentTemplate>
-
-    <FooterContentTemplate Context="popupContext">
-        <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@(() => SaveFormAsync(false))" />
-
-        @* 원본의 `OnTodayAndSave`. 미뤄 둔 일을 오늘로 끌어오는 한 번 누르기다. *@
-        <DxButton Text="오늘로 옮겨 저장" RenderStyle="ButtonRenderStyle.Secondary"
-                  Click="@(() => SaveFormAsync(true))" />
-
-        @if (!_isNew)
-        {
-            <PermissionView Action="MenuAction.Create">
-                <DxButton Text="복제" RenderStyle="ButtonRenderStyle.Secondary" Click="@DuplicateFormAsync" />
-            </PermissionView>
-            <PermissionView Action="MenuAction.Delete">
-                <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Danger" Click="@DeleteFormAsync" />
-            </PermissionView>
-        }
-
-        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _editing = false)" />
-    </FooterContentTemplate>
-</CommPopup>
+@* 등록·수정 창은 보기마다 갈리지 않게 한 벌이다 — 달력·목록·표가 모두 이것을 연다. *@
+<ScheduleEditPopup @ref="_editPopup" DefaultKind="@NewKind" Changed="@SearchAsync" />
 
 @* 일정 찾기. 프로젝트·구분은 지금 화면의 조건을 따르고, 찾은 줄을 누르면 그 달 달력으로 가서 그 날을 고른다. *@
 <CommPopup @bind-Visible="_findOpen" HeaderText="일정 찾기"
