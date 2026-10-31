@@ -24,7 +24,9 @@
                 class="jsini-sidebar__tab @(_tab == Tab.Menu ? "is-on" : "")"
                 aria-selected="@(_tab == Tab.Menu)"
                 title="메뉴"
-                @onclick="@(() => Select(Tab.Menu))">
+                @onclick="@(() => Select(Tab.Menu))"
+                @oncontextmenu="@OpenTabMenuAsync"
+                @oncontextmenu:preventDefault="true">
             <span class="jsini-sidebar__tab-icon jsini-icon-menu" aria-hidden="true"></span>
             <span class="jsini-sidebar__tab-text">메뉴</span>
         </button>
@@ -33,7 +35,9 @@
                 class="jsini-sidebar__tab @(_tab == Tab.Favorites ? "is-on" : "")"
                 aria-selected="@(_tab == Tab.Favorites)"
                 title="즐겨찾기"
-                @onclick="@(() => Select(Tab.Favorites))">
+                @onclick="@(() => Select(Tab.Favorites))"
+                @oncontextmenu="@OpenTabMenuAsync"
+                @oncontextmenu:preventDefault="true">
             <span class="jsini-icon-star-on" aria-hidden="true"></span>
             <span class="jsini-sidebar__tab-text">즐겨찾기</span>
             @if (Favorites.IsLoaded && Favorites.Items.Count > 0)
@@ -42,6 +46,16 @@
             }
         </button>
     </div>
+
+    @* 탭 오른쪽 클릭 창. 관리자가 메뉴·권한을 고친 것을 통의 수명(2분)이나 다시 로그인을 기다리지 않고 받아 온다. *@
+    <DxContextMenu @ref="_tabMenu" CssClass="jsini-tabmenu">
+        <Items>
+            <DxContextMenuItem Text="@(_refreshing ? "메뉴 새로 고치는 중…" : "메뉴 새로 고침")"
+                               IconCssClass="jsini-icon-refresh"
+                               Enabled="@(!_refreshing && Refresh is not null)"
+                               Click="@RefreshMenusAsync" />
+        </Items>
+    </DxContextMenu>
 
     @* ── 3. 고른 탭의 트리 ── @key 로 두 트리를 가른다. 같은 자리에서 타입이 같으면 Blazor 가 한 인스턴스를 재사용해 메뉴 탭의 펼침이 즐겨찾기 탭에 남는다. *@
     @if (_tab == Tab.Menu)

@@ -672,6 +672,16 @@ public partial class MainLayout
                && (px = (int)Math.Round(value)) > 0;
     }
 
+    /// <summary>사이드바 탭의 오른쪽 클릭 창에서 「메뉴 새로 고침」을 눌렀다. 통을 거치지 않고 메뉴·권한표·즐겨찾기를 다시 받는다 — 바뀐 것은 MenusChanged 와 Favorites.Changed 로 퍼진다.</summary>
+    private async Task<bool> RefreshMenusAsync()
+    {
+        var state = await AuthState.GetAuthenticationStateAsync();
+        var fresh = await Bootstrap.RefreshAsync(state.User);
+
+        Track();
+        return fresh;
+    }
+
     private void OnMenusChanged()
     {
         // 메뉴가 늦게 도착하면 그때 브레드크럼과 탭 이름이 채워진다.

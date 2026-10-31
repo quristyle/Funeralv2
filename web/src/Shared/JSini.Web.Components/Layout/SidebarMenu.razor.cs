@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Routing;
+using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 using DevExpress.Blazor;
 using JSini.Web.Abstractions;
@@ -13,6 +14,7 @@ public partial class SidebarMenu
     [Inject] private MenuReveal Reveal { get; set; } = default!;
     [Inject] private NavigationManager Navigation { get; set; } = default!;
     [Inject] private IJSRuntime Js { get; set; } = default!;
+    [Inject] private Toasts Toasts { get; set; } = default!;
 
     /// <summary>그릴 메뉴들. **이미 걸러진 것**이어야 한다.</summary>
     [Parameter, EditorRequired] public IReadOnlyList<MenuNode> Nodes { get; set; } = [];
@@ -23,7 +25,15 @@ public partial class SidebarMenu
     /// <summary>사이드바가 펴져 있나. 접힘은 레이아웃이 들고 있고 여기서는 방금 펴졌는지를 알아채는 데만 쓴다.</summary>
     [Parameter] public bool IsOpen { get; set; } = true;
 
+    /// <summary>메뉴 정보를 서버에서 다시 받는다. 받았으면 true. 레이아웃이 준다 — 메뉴를 그리는 서비스와 같은 것을 다시 채워야 사이드바에 닿는다.</summary>
+    [Parameter] public Func<Task<bool>>? Refresh { get; set; }
+
     private enum Tab { Menu, Favorites }
+
+    private DxContextMenu? _tabMenu;
+
+    /// <summary>다시 받는 중. 연달아 눌러 왕복이 겹치지 않게 막는다.</summary>
+    private bool _refreshing;
 
     private Tab _tab = Tab.Menu;
 
@@ -71,6 +81,41 @@ public partial class SidebarMenu
         {
             _activeShown = null;
             ShowActive();
+        }
+    }
+
+    private async Task OpenTabMenuAsync(MouseEventArgs args)
+    {
+        if (_tabMenu is not null)
+        {
+            await _tabMenu.ShowAsync(args);
+        }
+    }
+
+    private async Task RefreshMenusAsync()
+    {
+        if (Refresh is null || _refreshing)
+        {
+            return;
+        }
+
+        _refreshing = true;
+
+        try
+        {
+            var fresh = await Refresh();
+
+            // 메뉴가 바뀌면 지금 화면의 가지가 접힌 새 트리가 서므로 다시 짚는다.
+            _activeShown = null;
+            ShowActive();
+
+            Toasts.Show(fresh ? "메뉴를 새로 가져왔습니다." : "메뉴를 새로 가져오지 못했습니다.",
+                fresh ? NoticeTone.Info : NoticeTone.Warning);
+        }
+        finally
+        {
+            _refreshing = false;
+            StateHasChanged();
         }
     }
 

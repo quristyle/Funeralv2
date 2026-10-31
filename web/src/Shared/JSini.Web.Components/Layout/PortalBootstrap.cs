@@ -66,6 +66,17 @@ public sealed class PortalBootstrap(
         await LoadSeparatelyAsync(cancellationToken);
     }
 
+    /// <summary>통을 비우고 서버에서 다시 받는다. 관리자가 메뉴·권한을 고친 뒤 통의 수명(2분)을 기다리지 않으려고 사이드바 오른쪽 클릭이 부른다. 받지 못했으면 false — 그때는 옛 길로 넷을 따로 읽은 뒤다.</summary>
+    public async Task<bool> RefreshAsync(ClaimsPrincipal user, CancellationToken cancellationToken = default)
+    {
+        store.Forget(PortalBootstrapStore.KeyFor(user));
+
+        var before = _favoritesWire;
+        await LoadAsync(user, cancellationToken);
+
+        return !ReferenceEquals(before, _favoritesWire);
+    }
+
     /// <summary>받아 둔 한 벌을 넷에 나눠 담는다. 순서는 화면이 필요한 대로다 — 권한표가 먼저여야 메뉴를 담는 순간 이미 걸러진다.</summary>
     private void ApplyAll(PortalBootstrapWire wire)
     {
@@ -90,30 +101,40 @@ public sealed class PortalBootstrap(
     /// <summary>통에 든 설정을 사용자가 바꾼 것과 맞춰 둔다. 즐겨찾기와 같은 까닭이고 더 자주 걸린다 — 스위치를 켜고 업무를 옮기면 안 맞춘 통이 옛 값을 되살려 방금 켠 것이 꺼진 것처럼 보인다. 통에 넣기 전에 걸어도 된다 — 담기는 것은 같은 객체의 참조라 나중에 고쳐도 통 안의 것이 함께 바뀐다.</summary>
     private void KeepPrefsFresh(PortalBootstrapWire wire)
     {
+        // 구독은 한 번만 걸고 맞출 대상은 마지막에 담은 것으로 바꾼다 — 다시 받은 뒤에도 옛 응답만 맞추면 새 통이 옛 값을 되살린다.
+        _prefsWire = wire;
+
         if (_watchingPrefs)
         {
             return;
         }
 
         _watchingPrefs = true;
-        prefs.Changed += payload => wire.Preferences = payload;
+        prefs.Changed += payload => _prefsWire!.Preferences = payload;
     }
 
     private bool _watchingPrefs;
 
+    private PortalBootstrapWire? _prefsWire;
+
     /// <summary>통에 든 즐겨찾기를 사용자가 바꾼 것과 맞춰 둔다. 넷 중 사용자가 스스로 자주 바꾸는 것이 이것뿐이라 특별하다 — 별을 눌러 담고 업무를 옮기면 옛 목록이 되살아나 방금 담은 것이 사라진 것처럼 보인다. 메뉴·권한·내 정보는 관리자가 바꾸는 것이라 통의 수명만큼 늦어도 된다. 이 서비스와 MenuFavorites 는 수명이 같아 구독을 떼지 않아도 함께 사라진다.</summary>
     private void KeepFavoritesFresh(PortalBootstrapWire wire)
     {
+        _favoritesWire = wire;
+
         if (_watchingFavorites)
         {
             return;
         }
 
         _watchingFavorites = true;
-        favorites.Changed += () => wire.Favorites = [.. favorites.Items];
+        favorites.Changed += () => _favoritesWire!.Favorites = [.. favorites.Items];
     }
 
     private bool _watchingFavorites;
+
+    /// <summary>게이트웨이에서 마지막으로 받은 응답. RefreshAsync 가 이것이 바뀌었는지로 새로 받았나를 가린다.</summary>
+    private PortalBootstrapWire? _favoritesWire;
 
     /// <summary>옛 길. 넷을 따로 읽는다. 순서가 넷 다 중요하다 — 권한표가 메뉴보다, 메뉴가 즐겨찾기보다 먼저다(즐겨찾기는 메뉴에서 이름을 붙인다). 헤더의 얼굴은 맨 뒤다 — 얼굴이 늦게 떠도 이름 첫 글자가 자리를 지킨다.</summary>
     private async Task LoadSeparatelyAsync(CancellationToken cancellationToken)
