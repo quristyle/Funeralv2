@@ -88,4 +88,60 @@ public sealed class ScheduleNoteAssistTests
 
         Assert.Equal("홍길동", draft.Assignee);
     }
+
+    [Fact]
+    public void 일정이_여럿이면_여러_건으로_읽는다()
+    {
+        var json = """
+            ```json
+            {"schedules":[
+              {"start":"2026-11-03","title":"울산 점검","summary":"점검"},
+              {"start":"2026-11-05","start_time":"14:00","title":"현업 시연","assignee":"이순열"}
+            ]}
+            ```
+            """;
+
+        var drafts = ScheduleNoteAssist.ParseMany(json, "홍길동", "gpt");
+
+        Assert.Equal(2, drafts.Count);
+        Assert.Equal("울산 점검", drafts[0].Title);
+        Assert.Equal("홍길동", drafts[0].Assignee);
+        Assert.Equal(new DateOnly(2026, 11, 5), drafts[1].Start);
+        Assert.Equal(new TimeOnly(14, 0), drafts[1].StartTime);
+        Assert.Equal("이순열", drafts[1].Assignee);
+    }
+
+    [Fact]
+    public void 맨_배열이나_한_건짜리_객체도_받는다()
+    {
+        Assert.Equal(2, ScheduleNoteAssist.ParseMany(
+            "[{\"title\":\"가\"},{\"title\":\"나\"}]", null, null).Count);
+
+        var single = Assert.Single(ScheduleNoteAssist.ParseMany(
+            "{\"start\":\"2026-11-03\",\"title\":\"한 건\"}", null, null));
+        Assert.Equal("한 건", single.Title);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("모르겠습니다")]
+    [InlineData("{ 깨진 json")]
+    [InlineData("{\"schedules\":[]}")]
+    [InlineData("{\"schedules\":[{}]}")]
+    public void 못_읽어도_최소_한_건은_돌려준다(string? answer)
+    {
+        var draft = Assert.Single(ScheduleNoteAssist.ParseMany(answer, "홍길동", null));
+
+        Assert.Null(draft.Title);
+        Assert.Equal("홍길동", draft.Assignee);
+    }
+
+    [Fact]
+    public void 너무_많이_쪼개면_상한에서_자른다()
+    {
+        var items = string.Join(",", Enumerable.Range(1, 30).Select(i => $"{{\"title\":\"{i}\"}}"));
+
+        Assert.Equal(ScheduleNoteAssist.MaxDrafts,
+            ScheduleNoteAssist.ParseMany($"{{\"schedules\":[{items}]}}", null, null).Count);
+    }
 }

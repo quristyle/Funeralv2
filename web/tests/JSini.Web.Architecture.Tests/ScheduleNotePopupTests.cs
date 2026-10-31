@@ -93,8 +93,8 @@ public sealed class ScheduleNotePopupTests
         Assert.DoesNotContain("DxDateEdit", razor, StringComparison.Ordinal);
         Assert.DoesNotContain("DxTextBox", razor, StringComparison.Ordinal);
 
-        // 코드에서 AI DraftAsync 호출 및 WbsClient.CreateAsync 호출 확인
-        Assert.Contains("Assist.DraftAsync", code, StringComparison.Ordinal);
+        // 코드에서 AI DraftManyAsync(여러 일정으로 가르기) 호출 및 WbsClient.CreateAsync 호출 확인
+        Assert.Contains("Assist.DraftManyAsync", code, StringComparison.Ordinal);
         Assert.Contains("Api.CreateAsync", code, StringComparison.Ordinal);
     }
 

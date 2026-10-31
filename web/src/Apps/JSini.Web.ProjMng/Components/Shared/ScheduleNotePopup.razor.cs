@@ -192,58 +192,57 @@ public partial class ScheduleNotePopup : IDisposable
                 var Assist = scope.ServiceProvider.GetRequiredService<ScheduleNoteAssist>();
                 var Api = scope.ServiceProvider.GetRequiredService<WbsClient>();
 
-                ScheduleDraft? draft = null;
+                IReadOnlyList<ScheduleDraft> drafts = [];
                 try
                 {
-                    draft = await Assist.DraftAsync(body, currentUserName, CancellationToken.None);
+                    drafts = await Assist.DraftManyAsync(body, currentUserName, CancellationToken.None);
                 }
                 catch (Exception ex)
                 {
                     Logger.LogWarning(ex, "ScheduleNoteAssist 분석 중 오류: 기본값으로 일정 등록 진행");
                 }
 
-                var today = AppTime.Today;
-                var startDate = draft?.Start ?? today;
-                var endDate = draft?.End is { } e && e >= startDate ? e : startDate;
-
-                var startTime = draft?.StartTime ?? TimeOnly.MinValue;
-                var endTime = draft?.EndTime ?? (draft?.StartTime.HasValue == true ? draft.StartTime.Value : TimeOnly.MinValue);
-
-                var startDt = draft?.StartDateTime ?? startDate.ToDateTime(startTime);
-                var endDt = draft?.EndDateTime ?? (draft?.End is not null ? endDate.ToDateTime(endTime) : startDt);
-                if (endDt < startDt) endDt = startDt;
-
-                var title = draft?.Title?.Trim();
-                if (string.IsNullOrWhiteSpace(title))
+                // AI 가 실패해도 메모는 버리지 않는다 — 기본값 한 건으로라도 남긴다.
+                if (drafts.Count == 0)
                 {
-                    var lines = body.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-                    title = lines.Length > 0 ? lines[0] : "AI 일정";
-                    if (title.Length > 30) title = title[..30];
+                    drafts = [new ScheduleDraft(null, null, null, null, null, currentUserName, null, null, null)];
                 }
 
-                var summary = draft?.Summary?.Trim() ?? string.Empty;
-                var requester = draft?.Requester?.Trim();
-                var assignee = !string.IsNullOrWhiteSpace(draft?.Assignee)
-                    ? draft.Assignee.Trim()
-                    : currentUserName;
+                var saved = new List<string>();
+                Exception? lastError = null;
 
-                var item = new WbsItemDto
+                foreach (var draft in drafts)
                 {
-                    PrjRid = prjRid,
-                    ScheduleType = DefaultKind,
-                    ProcNm = title,
-                    PlanSdt = startDt,
-                    PlanEdt = endDt,
-                    ReqUser = requester,
-                    DevUser = assignee,
-                    Summary = summary,
-                    Comm = summary,
-                    BodyText = body,
-                    AddTarget = addTarget
-                };
+                    var item = ToItem(draft, prjRid, body, addTarget, currentUserName);
+                    try
+                    {
+                        await Api.CreateAsync(item);
+                        saved.Add(item.ProcNm ?? string.Empty);
+                    }
+                    catch (Exception ex)
+                    {
+                        lastError = ex;
+                        Logger.LogError(ex, "일정 백그라운드 등록 실패 — {Title}", item.ProcNm);
+                    }
+                }
 
-                await Api.CreateAsync(item);
-                Toasts.Show($"일정에 저장했습니다 — {title}");
+                if (saved.Count == 0)
+                {
+                    throw lastError ?? new InvalidOperationException("저장한 일정이 없습니다.");
+                }
+
+                if (saved.Count == 1 && lastError is null)
+                {
+                    Toasts.Show($"일정에 저장했습니다 — {saved[0]}");
+                }
+                else if (lastError is null)
+                {
+                    Toasts.Show($"일정 {saved.Count}건으로 나누어 저장했습니다 — {string.Join(", ", saved)}");
+                }
+                else
+                {
+                    Toasts.Show($"일정 {drafts.Count}건 중 {saved.Count}건만 저장했습니다 — {lastError.Message}", NoticeTone.Warning);
+                }
             }
             catch (Exception ex)
             {
@@ -253,6 +252,45 @@ public partial class ScheduleNotePopup : IDisposable
         });
 
         return Task.CompletedTask;
+    }
+
+    /// <summary>뽑은 일정 한 건을 저장할 줄로 만든다. 원문(BodyText)은 갈라진 일정마다 메모 전체를 그대로 싣는다.</summary>
+    private static WbsItemDto ToItem(ScheduleDraft draft, int prjRid, string body, string? addTarget, string? currentUserName)
+    {
+        var startDate = draft.Start ?? AppTime.Today;
+        var endDate = draft.End is { } e && e >= startDate ? e : startDate;
+
+        var startTime = draft.StartTime ?? TimeOnly.MinValue;
+        var endTime = draft.EndTime ?? draft.StartTime ?? TimeOnly.MinValue;
+
+        var startDt = draft.StartDateTime ?? startDate.ToDateTime(startTime);
+        var endDt = draft.EndDateTime ?? (draft.End is not null ? endDate.ToDateTime(endTime) : startDt);
+        if (endDt < startDt) endDt = startDt;
+
+        var title = draft.Title?.Trim();
+        if (string.IsNullOrWhiteSpace(title))
+        {
+            var lines = body.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            title = lines.Length > 0 ? lines[0] : "AI 일정";
+            if (title.Length > 30) title = title[..30];
+        }
+
+        var summary = draft.Summary?.Trim() ?? string.Empty;
+
+        return new WbsItemDto
+        {
+            PrjRid = prjRid,
+            ScheduleType = DefaultKind,
+            ProcNm = title,
+            PlanSdt = startDt,
+            PlanEdt = endDt,
+            ReqUser = draft.Requester?.Trim(),
+            DevUser = !string.IsNullOrWhiteSpace(draft.Assignee) ? draft.Assignee.Trim() : currentUserName,
+            Summary = summary,
+            Comm = summary,
+            BodyText = body,
+            AddTarget = addTarget
+        };
     }
 
     public void Dispose()
