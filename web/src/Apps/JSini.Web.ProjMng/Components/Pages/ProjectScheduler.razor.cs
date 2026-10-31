@@ -2242,7 +2242,7 @@ public partial class ProjectScheduler : IAsyncDisposable
     }
 
     /// <summary>공통코드를 못 읽었을 때 도는 차례. 공통코드가 있으면 그 차례를 따른다.</summary>
-    private static readonly string[] FallbackAddTargets = ["ADD", "CHANGE", "MOVE", "ISSUE", "NOTICE", "REQUEST", "DINNER", "VACATION", "OUTING"];
+    private static readonly string[] FallbackAddTargets = ["ADD", "CHANGE", "MOVE", "ISSUE", "NOTICE", "REQUEST", "DINNER", "VACATION", "OUTING", "UNDESIGNED"];
 
     /// <summary>
     /// 추가대상·진행상태 단추를 연달아 누른 것은 마지막 값 하나만 저장한다 — 누를 때마다 보내면 응답이 엇갈려 앞의 값이 이길 수 있다.

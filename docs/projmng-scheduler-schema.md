@@ -136,6 +136,7 @@ PK `dev_proj_user_map_pk` (`prj_rid`, `user_id`).
 | `ADD_TARGET` | `DINNER` | 회식 | 7 |
 | `ADD_TARGET` | `VACATION` | 휴가 | 8 |
 | `ADD_TARGET` | `OUTING` | 외출 | 9 |
+| `ADD_TARGET` | `UNDESIGNED` | 미설계 | 10 |
 
 ## 직접 보기
 

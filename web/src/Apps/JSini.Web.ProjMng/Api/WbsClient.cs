@@ -113,7 +113,7 @@ public sealed class WbsItemDto
     public string? ScheduleType { get; set; }
 
     /// <summary>
-    /// 추가대상 — 공통코드 <see cref="AddTargets.CodeId"/>(ADD · CHANGE · MOVE · ISSUE · NOTICE · REQUEST · DINNER · VACATION · OUTING).
+    /// 추가대상 — 공통코드 <see cref="AddTargets.CodeId"/>(ADD · CHANGE · MOVE · ISSUE · NOTICE · REQUEST · DINNER · VACATION · OUTING · UNDESIGNED).
     /// null 로 보내면 서버가 저장된 값을 그대로 두고, 빈 글자면 지운다.
     /// </summary>
     public string? AddTarget { get; set; }
@@ -190,6 +190,7 @@ public static class AddTargets
         "DINNER" => "회식",
         "VACATION" => "휴가",
         "OUTING" => "외출",
+        "UNDESIGNED" => "미설계",
         _ => code.Trim(),
     };
 }
