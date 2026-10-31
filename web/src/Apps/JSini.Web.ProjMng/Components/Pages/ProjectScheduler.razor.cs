@@ -63,8 +63,11 @@ public partial class ProjectScheduler : IAsyncDisposable
     /// <summary>표 형태일 때 조회할 종료일.</summary>
     private DateOnly? _tableEnd;
 
-    /// <summary>작은 캘린더에서 범위 선택 시 첫째 날을 찍고 둘째 날을 대기 중인가.</summary>
-    private bool _selectingRange;
+    /// <summary>작은 달력에서 끌기 시작한 날. 누르고 있는 동안만 값이 있다.</summary>
+    private DateOnly? _miniDragFrom;
+
+    /// <summary>끄는 동안 손이 지금 올라가 있는 날. 놓으면 여기까지가 구간이다.</summary>
+    private DateOnly? _miniDragTo;
 
     /// <summary>표 보기의 내용 검색어. 제목·메모·원문 어디에든 들어 있으면 남긴다.</summary>
     private string? _keyword;
@@ -106,14 +109,12 @@ public partial class ProjectScheduler : IAsyncDisposable
     private Task OnTableStartChangedAsync(DateTime? val)
     {
         _tableStart = val is { } dt ? DateOnly.FromDateTime(dt) : null;
-        _selectingRange = false;
         return SearchAsync();
     }
 
     private Task OnTableEndChangedAsync(DateTime? val)
     {
         _tableEnd = val is { } dt ? DateOnly.FromDateTime(dt) : null;
-        _selectingRange = false;
         return SearchAsync();
     }
 
@@ -179,8 +180,9 @@ public partial class ProjectScheduler : IAsyncDisposable
     /// <summary>고른 날. 휴대폰에서 격자 아래 목록이 이 날의 일정을 편다.</summary>
     private DateOnly _selected = AppTime.Today;
 
-    /// <summary>작은 달력이 보고 있는 달 — 큰 달력에서 <b>몇 달 떨어져 있나</b>.</summary>
-    private int _miniOffset;
+    /// <summary>작은 달력이 보고 있는 달(1일). 큰 달력의 기준일과 따로 든다 — 기준일에서 몇 달 떨어졌나로 셈하면
+    /// 작은 달력을 넘겨 둔 채 날을 누를 때 기준일이 옮겨 가면서 그 거리만큼 달이 한 번 더 튄다.</summary>
+    private DateOnly _miniMonth = FirstOfMonth(AppTime.Today);
 
     /// <summary>월 격자 끌어 옮기기(gc-month-drag.js)가 놓을 때 부르는 창구.</summary>
     private DotNetObjectReference<ProjectScheduler>? _dragRef;
@@ -532,7 +534,7 @@ public partial class ProjectScheduler : IAsyncDisposable
         }
 
         _view = view;
-        _miniOffset = 0;
+        SyncMiniMonth();
 
         if (_view == CalView.Table)
         {
@@ -540,7 +542,6 @@ public partial class ProjectScheduler : IAsyncDisposable
             // 줄(격자 6주치)이 표로 먼저 깔린다 — 고른 날이 아니라 「전체」를 읽은 것처럼 보이고 그동안 화면이 굳는다.
             _tableStart ??= _selected;
             _tableEnd ??= _selected;
-            _selectingRange = false;
             _rows = [];
             _editRow = null;
 
@@ -554,13 +555,12 @@ public partial class ProjectScheduler : IAsyncDisposable
     {
         _anchor = AppTime.TodayDate;
         _selected = Today;
-        _miniOffset = 0;
+        SyncMiniMonth();
 
         if (_view == CalView.Table)
         {
             _tableStart = Today;
             _tableEnd = Today;
-            _selectingRange = false;
         }
 
         return SearchAsync();
@@ -577,8 +577,7 @@ public partial class ProjectScheduler : IAsyncDisposable
             _tableEnd = _tableEnd.Value.AddDays(days * direction);
             _anchor = _tableStart.Value.ToDateTime(TimeOnly.MinValue);
             _selected = _tableStart.Value;
-            _selectingRange = false;
-            _miniOffset = 0;
+            SyncMiniMonth();
             return SearchAsync();
         }
 
@@ -589,7 +588,7 @@ public partial class ProjectScheduler : IAsyncDisposable
             _ => _anchor.AddMonths(direction),
         };
 
-        _miniOffset = 0;
+        SyncMiniMonth();
 
         return SearchAsync();
     }
@@ -599,67 +598,135 @@ public partial class ProjectScheduler : IAsyncDisposable
     {
         _anchor = day.ToDateTime(TimeOnly.MinValue);
         _selected = day;
-        _miniOffset = 0;
+        SyncMiniMonth();
 
         if (_view == CalView.Table)
         {
             _tableStart = day;
             _tableEnd = day;
-            _selectingRange = false;
         }
 
         return SearchAsync();
     }
 
-    /// <summary>작은 달력의 날짜를 클릭했다. 표 형태일 때는 선택한 날 또는 범위로 지정하고, 달력 보기일 때는 그 날로 이동한다.</summary>
-    private async Task OnMiniDayClickAsync(DateOnly day, MouseEventArgs? e = null)
-    {
-        if (_view == CalView.Table)
-        {
-            if (e is not null && e.ShiftKey && _tableStart is not null)
-            {
-                var s = _tableStart.Value;
-                if (day < s)
-                {
-                    _tableStart = day;
-                    _tableEnd = s;
-                }
-                else
-                {
-                    _tableEnd = day;
-                }
-                _selectingRange = false;
-            }
-            else if (_selectingRange && _tableStart is not null)
-            {
-                var s = _tableStart.Value;
-                if (day < s)
-                {
-                    _tableStart = day;
-                    _tableEnd = s;
-                }
-                else
-                {
-                    _tableEnd = day;
-                }
-                _selectingRange = false;
-            }
-            else
-            {
-                _tableStart = day;
-                _tableEnd = day;
-                _selected = day;
-                _selectingRange = true;
-            }
+    // ── 작은 달력 누르기 ─────────────────────────────────────────
+    // 한 번 누르면 그 하루, 끌거나 Shift 를 누른 채 누르면 구간이다. 「첫 클릭은 시작, 다음 클릭은 종료」로 두면
+    // 다른 날 하루를 보려던 다음 클릭이 말없이 종료일이 되어, 누른 적 없는 구간이 선다.
 
-            _anchor = day.ToDateTime(TimeOnly.MinValue);
-            await SearchAsync();
-        }
-        else
+    /// <summary>작은 달력의 날을 눌렀다(왼쪽 단추). Shift 면 그 자리에서 구간을 맺고, 아니면 끌기를 시작한다.</summary>
+    private Task OnMiniDayDownAsync(DateOnly day, MouseEventArgs e)
+    {
+        if (e.Button != 0)
         {
-            await JumpAsync(day);
+            return Task.CompletedTask;
+        }
+
+        if (e.ShiftKey)
+        {
+            _miniDragFrom = null;
+            _miniDragTo = null;
+            return PickMiniRangeAsync(RangeOrigin, day);
+        }
+
+        _miniDragFrom = day;
+        _miniDragTo = day;
+        return Task.CompletedTask;
+    }
+
+    /// <summary>끄는 중에 다른 날로 들어왔다. 놓기 전까지 구간을 미리 비춘다.</summary>
+    private void OnMiniDayEnter(DateOnly day)
+    {
+        if (_miniDragFrom is not null)
+        {
+            _miniDragTo = day;
         }
     }
+
+    /// <summary>손을 뗐다. 격자에 건다 — 칸 사이 틈에서 떼어도 마지막으로 지난 날까지로 맺는다.</summary>
+    private Task OnMiniGridUpAsync()
+    {
+        if (_miniDragFrom is not { } from)
+        {
+            return Task.CompletedTask;
+        }
+
+        var to = _miniDragTo ?? from;
+        _miniDragFrom = null;
+        _miniDragTo = null;
+
+        return from == to ? PickMiniDayAsync(from) : PickMiniRangeAsync(from, to);
+    }
+
+    /// <summary>누른 채로 격자를 벗어났다. 끌기를 거둔다 — 밖에서 뗀 손은 여기로 안 온다.</summary>
+    private void OnMiniGridLeave()
+    {
+        _miniDragFrom = null;
+        _miniDragTo = null;
+    }
+
+    /// <summary>글쇠(Enter·Space)로 눌렀다. 마우스 누름은 내려감·올라옴이 이미 받았으므로 여기서는 건너뛴다(Detail 이 0 이면 글쇠다).</summary>
+    private Task OnMiniDayKeyClickAsync(DateOnly day, MouseEventArgs e)
+    {
+        if (e.Detail != 0)
+        {
+            return Task.CompletedTask;
+        }
+
+        return e.ShiftKey ? PickMiniRangeAsync(RangeOrigin, day) : PickMiniDayAsync(day);
+    }
+
+    /// <summary>Shift 로 구간을 맺을 때 반대쪽 끝. 표 보기면 지금 시작일, 달력 보기면 고른 날이다.</summary>
+    private DateOnly RangeOrigin =>
+        _view == CalView.Table && _tableStart is { } start ? start : _selected;
+
+    /// <summary>하루를 골랐다. 표 보기는 그 하루를 조회하고, 달력 보기는 그 날로 가서 오른쪽에 그 날의 목록을 편다.
+    /// 흐린 칸(앞뒤 달)을 누른 것은 그 달로 가겠다는 뜻이라 작은 달력도 따라 넘긴다.</summary>
+    private Task PickMiniDayAsync(DateOnly day)
+    {
+        var month = FirstOfMonth(day);
+
+        if (_view != CalView.Table)
+        {
+            _dayPane = true;
+            return JumpAsync(day);
+        }
+
+        _tableStart = day;
+        _tableEnd = day;
+        _selected = day;
+        _anchor = day.ToDateTime(TimeOnly.MinValue);
+        _miniMonth = month;
+
+        return SearchAsync();
+    }
+
+    /// <summary>구간을 골랐다. 구간을 펼 수 있는 것은 표 보기뿐이라 달력 보기에서 고르면 표로 넘어간다. 작은 달력의 달은 그대로 둔다.</summary>
+    private async Task PickMiniRangeAsync(DateOnly a, DateOnly b)
+    {
+        var (start, end) = a <= b ? (a, b) : (b, a);
+        var month = _miniMonth;
+
+        _tableStart = start;
+        _tableEnd = end;
+        _selected = start;
+        _anchor = start.ToDateTime(TimeOnly.MinValue);
+
+        if (_view != CalView.Table)
+        {
+            _view = CalView.Table;
+            _rows = [];
+            _editRow = null;
+            await EnsureDropdownDataAsync();
+        }
+
+        _miniMonth = month;
+        await SearchAsync();
+    }
+
+    /// <summary>작은 달력을 큰 달력이 보는 달로 맞춘다.</summary>
+    private void SyncMiniMonth() => _miniMonth = FirstOfMonth(DateOnly.FromDateTime(_anchor));
+
+    private static DateOnly FirstOfMonth(DateOnly day) => new(day.Year, day.Month, 1);
 
     /// <summary>단축키. 표 보기에서는 받지 않는다 — 표의 글자 칸에서 친 글쇠가 여기로 올라와 달이 넘어간다.</summary>
     private Task OnKeyAsync(KeyboardEventArgs e)
@@ -717,7 +784,7 @@ public partial class ProjectScheduler : IAsyncDisposable
 
     // ── 작은 달력 ────────────────────────────────────────────────
 
-    private DateTime MiniMonth => new DateTime(_anchor.Year, _anchor.Month, 1).AddMonths(_miniOffset);
+    private DateOnly MiniMonth => _miniMonth;
 
     private string MiniTitle => $"{MiniMonth.Year}년 {MiniMonth.Month}월";
 
@@ -726,7 +793,7 @@ public partial class ProjectScheduler : IAsyncDisposable
     {
         get
         {
-            var first = DateOnly.FromDateTime(MiniMonth);
+            var first = MiniMonth;
             var start = first.AddDays(-(int)first.DayOfWeek);
             return (start, start.AddDays(41));
         }
@@ -759,7 +826,7 @@ public partial class ProjectScheduler : IAsyncDisposable
 
     private async Task StepMiniMonthAsync(int direction)
     {
-        _miniOffset += direction;
+        _miniMonth = _miniMonth.AddMonths(direction);
         await RefreshMiniAsync();
     }
 
@@ -790,7 +857,7 @@ public partial class ProjectScheduler : IAsyncDisposable
     {
         get
         {
-            if (_miniOffset != 0 || _view != CalView.Month)
+            if (_miniMonth != FirstOfMonth(DateOnly.FromDateTime(_anchor)) || _view != CalView.Month)
             {
                 return false;
             }
@@ -826,6 +893,55 @@ public partial class ProjectScheduler : IAsyncDisposable
         _miniCounts = counts;
     }
 
+    /// <summary>작은 달력에 칠할 구간. 끄는 중이면 미리 보이는 구간, 표 보기면 조회 구간이고, 달력 보기는 없다(고른 하루만 칠한다).</summary>
+    private (DateOnly Start, DateOnly End)? MiniRange
+    {
+        get
+        {
+            if (_miniDragFrom is { } from)
+            {
+                var to = _miniDragTo ?? from;
+                return from <= to ? (from, to) : (to, from);
+            }
+
+            if (_view == CalView.Table && _tableStart is { } s && _tableEnd is { } e)
+            {
+                return s <= e ? (s, e) : (e, s);
+            }
+
+            if (_view == CalView.Table && (_tableStart ?? _tableEnd) is { } one)
+            {
+                return (one, one);
+            }
+
+            return null;
+        }
+    }
+
+    /// <summary>작은 달력 아래에 적는 고른 구간(「10월 3일 (금) ~ 10월 10일 (금) · 8일」). 칠한 칸만으로는 어디서 시작해 어디서 끝나는지,
+    /// 달을 넘어간 끝이 어디인지 안 보인다.</summary>
+    private string? MiniRangeText
+    {
+        get
+        {
+            if (MiniRange is not { } r)
+            {
+                return null;
+            }
+
+            if (r.Start == r.End)
+            {
+                return DayText(r.Start);
+            }
+
+            var days = r.End.DayNumber - r.Start.DayNumber + 1;
+            return $"{DayText(r.Start)} ~ {DayText(r.End)} · {days}일";
+
+            string DayText(DateOnly d) =>
+                (d.Year == Today.Year ? "" : $"{d.Year}년 ") + $"{d.Month}월 {d.Day}일 ({DowName(d.DayOfWeek)})";
+        }
+    }
+
     private string MiniDayCss(DateOnly day)
     {
         var css = new List<string>(5) { "pm-gc-mini__day" };
@@ -840,25 +956,25 @@ public partial class ProjectScheduler : IAsyncDisposable
             css.Add("pm-gc-mini__day--today");
         }
 
-        if (_view == CalView.Table)
+        if (MiniRange is { } range)
         {
-            if (_tableStart is not null && _tableEnd is not null)
-            {
-                var s = _tableStart <= _tableEnd ? _tableStart.Value : _tableEnd.Value;
-                var e = _tableStart <= _tableEnd ? _tableEnd.Value : _tableStart.Value;
-
-                if (day == s || day == e)
-                {
-                    css.Add("pm-gc-mini__day--selected");
-                }
-                else if (day > s && day < e)
-                {
-                    css.Add("pm-gc-mini__day--range-mid");
-                }
-            }
-            else if (_tableStart is not null && day == _tableStart.Value)
+            if (day == range.Start && day == range.End)
             {
                 css.Add("pm-gc-mini__day--selected");
+            }
+            else if (day == range.Start)
+            {
+                css.Add("pm-gc-mini__day--selected");
+                css.Add("pm-gc-mini__day--range-start");
+            }
+            else if (day == range.End)
+            {
+                css.Add("pm-gc-mini__day--selected");
+                css.Add("pm-gc-mini__day--range-end");
+            }
+            else if (day > range.Start && day < range.End)
+            {
+                css.Add("pm-gc-mini__day--range-mid");
             }
         }
         else
@@ -1134,7 +1250,7 @@ public partial class ProjectScheduler : IAsyncDisposable
 
         _anchor = day.ToDateTime(TimeOnly.MinValue);
         _view = CalView.Day;
-        _miniOffset = 0;
+        SyncMiniMonth();
 
         return SearchAsync();
     }

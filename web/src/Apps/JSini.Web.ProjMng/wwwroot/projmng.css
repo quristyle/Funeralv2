@@ -5054,48 +5054,79 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   border-color: color-mix(in srgb, var(--pm-gc-accent) 35%, transparent);
 }
 
-/* 오늘이 맨 뒤다 — 보고 있는 구간 안의 오늘도 색상이 이겨야 한다. */
+/* 오늘은 테두리 고리와 글자색으로만 표시한다. 칠하면 고른 날·구간의 끝과 같은 모양이 되어 어디가 시작인지 안 갈린다. */
 .pm-gc-mini__day--today {
   font-weight: 700;
-  color: #fff;
-  background: var(--pm-gc-accent);
-  border-color: var(--pm-gc-accent);
-}
-
-.pm-gc-mini__day--today:hover {
-  background: color-mix(in srgb, var(--pm-gc-accent) 85%, #000);
-}
-
-/* 오늘 날짜 안에 일정이 있을 때 카운트 뱃지 색 반전 */
-.pm-gc-mini__day--today .pm-gc-mini__count {
   color: var(--pm-gc-accent);
-  background: #fff;
+  box-shadow: inset 0 0 0 1.5px var(--pm-gc-accent);
 }
 
-/* 작은 달력에서 선택된 날 및 범위 */
-.pm-gc-mini__day--selected:not(.pm-gc-mini__day--today) {
+/* 고른 날 · 구간의 시작과 끝. 자릿수를 셋으로 올려 둔다 — 일정이 있는 날의 옅은 바탕(자릿수 셋)이 뒤에서 이기면
+   일정이 있는 시작일만 칠이 빠진다. */
+.pm-gc-mini__grid .pm-gc-mini__day.pm-gc-mini__day--selected {
   font-weight: 700;
   color: #fff;
   background: var(--pm-gc-accent);
   border-color: var(--pm-gc-accent);
 }
 
-.pm-gc-mini__day--selected:not(.pm-gc-mini__day--today):hover {
+.pm-gc-mini__grid .pm-gc-mini__day.pm-gc-mini__day--selected:hover {
   background: color-mix(in srgb, var(--pm-gc-accent) 85%, #000);
 }
 
-.pm-gc-mini__day--selected:not(.pm-gc-mini__day--today) .pm-gc-mini__count {
+.pm-gc-mini__day--selected .pm-gc-mini__count {
   color: var(--pm-gc-accent);
   background: #fff;
 }
 
-.pm-gc-mini__day--today.pm-gc-mini__day--selected {
-  outline: 2px solid var(--pm-gc-accent);
-  outline-offset: 1px;
+/* 오늘이 고른 날이면 칠한 위에 흰 고리를 남긴다. */
+.pm-gc-mini__grid .pm-gc-mini__day.pm-gc-mini__day--today.pm-gc-mini__day--selected {
+  box-shadow: inset 0 0 0 2px #fff;
 }
 
-.pm-gc-mini__day--range-mid:not(.pm-gc-mini__day--today):not(.pm-gc-mini__day--selected) {
-  background: color-mix(in srgb, var(--pm-gc-accent) 18%, transparent);
+/* 구간은 한 띠로 잇는다 — 시작은 왼쪽만, 끝은 오른쪽만 둥글고 가운데는 모서리가 없다. */
+.pm-gc-mini__grid .pm-gc-mini__day.pm-gc-mini__day--range-start {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.pm-gc-mini__grid .pm-gc-mini__day.pm-gc-mini__day--range-end {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.pm-gc-mini__grid .pm-gc-mini__day.pm-gc-mini__day--range-mid {
+  color: var(--jsini-text);
+  background: color-mix(in srgb, var(--pm-gc-accent) 20%, transparent);
+  border-color: transparent;
+  border-radius: 0;
+}
+
+.pm-gc-mini__grid .pm-gc-mini__day.pm-gc-mini__day--range-mid.pm-gc-mini__day--today {
+  color: var(--pm-gc-accent);
+}
+
+/* 끄는 동안 글자가 골라지면 손이 글자 고르기로 먹힌다. */
+.pm-gc-mini__grid {
+  user-select: none;
+}
+
+.pm-gc-mini__grid--dragging .pm-gc-mini__day {
+  cursor: col-resize;
+}
+
+/* 고른 구간을 글자로. 칠한 칸만으로는 달을 넘어간 끝이 안 보인다. */
+.pm-gc-mini__range {
+  display: flex;
+  gap: var(--jsini-sp-2xs);
+  align-items: center;
+  margin-top: var(--jsini-sp-2xs);
+  padding: var(--jsini-sp-3xs) var(--jsini-sp-2xs);
+  font-size: var(--jsini-fs-xs);
+  font-weight: 600;
+  color: var(--pm-gc-accent);
+  background: color-mix(in srgb, var(--pm-gc-accent) 8%, transparent);
+  border-radius: var(--jsini-radius-sm);
 }
 
 /* ── 월 격자 ─────────────────────────────────────────────────── */

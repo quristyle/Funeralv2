@@ -99,7 +99,10 @@
                             }
                         </div>
 
-                        <div class="pm-gc-mini__grid">
+                        @* 누르면 그 하루, 끌거나 Shift+누르기면 구간이다. 놓는 것은 격자가 받는다 — 칸 사이 틈에서 떼어도 맺힌다. *@
+                        <div class="pm-gc-mini__grid @(_miniDragFrom is not null ? "pm-gc-mini__grid--dragging" : null)"
+                             @onmouseup="@OnMiniGridUpAsync"
+                             @onmouseleave="@OnMiniGridLeave">
                             @foreach (var day in MiniDays)
                             {
                                 var picked = day;
@@ -107,7 +110,9 @@
 
                                 <button type="button" class="@MiniDayCss(day)"
                                         title="@MiniDayTitle(day, count)"
-                                        @onclick="@(e => OnMiniDayClickAsync(picked, e))">
+                                        @onmousedown="@(e => OnMiniDayDownAsync(picked, e))"
+                                        @onmouseenter="@(() => OnMiniDayEnter(picked))"
+                                        @onclick="@(e => OnMiniDayKeyClickAsync(picked, e))">
                                     <span class="pm-gc-mini__day-num">@day.Day</span>
                                     <span class="pm-gc-mini__count-slot">
                                         @if (count > 0)
@@ -118,6 +123,14 @@
                                 </button>
                             }
                         </div>
+
+                        @if (MiniRangeText is { } rangeText)
+                        {
+                            <div class="pm-gc-mini__range" aria-live="polite">
+                                <i class="jsini-icon-calendar"></i>
+                                <span>@rangeText</span>
+                            </div>
+                        }
                     </div>
                 }
 
