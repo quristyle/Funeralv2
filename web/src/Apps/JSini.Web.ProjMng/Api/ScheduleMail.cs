@@ -53,7 +53,7 @@ public sealed class ScheduleMailResult
 
 /// <summary>
 /// 메일에 실을 일정 한 건. 날짜는 일정표가 그리는 그 벽시계 값이다.
-/// 사람은 보이는 이름으로 받는다. 추가대상은 공통코드 값(ADD · CHANGE · MOVE · ISSUE · NOTICE · REQUEST · DINNER · VACATION · OUTING · UNDESIGNED)이다.
+/// 사람은 보이는 이름으로 받는다. 추가대상은 공통코드 값(ADD · CHANGE · MOVE · ISSUE · NOTICE · REQUEST · DINNER · VACATION · OUTING · UNDESIGNED · OVERTIME)이다.
 /// 폐기한 일정도 빼지 않고 싣는다 — 받는 이가 「없어진 것」과 「버린 것」을 가를 수 있게 흐리게 긋는다.
 /// <paramref name="PlanEnd"/> 는 계획 종료일이 적혀 있을 때만 준다 — 지연은 그 날짜로만 센다(일정표의 「지연」 딱지와 같은 판정).
 /// </summary>
@@ -458,6 +458,7 @@ public static class ScheduleMailBody
             "VACATION" => ("#5d4037", "#efebe9"),
             "OUTING" => ("#3949ab", "#e8eaf6"),
             "UNDESIGNED" => ("#546e7a", "#eceff1"),
+            "OVERTIME" => ("#4527a0", "#ede7f6"),
             _ => (Muted, "#f0f2f5"),
         };
 

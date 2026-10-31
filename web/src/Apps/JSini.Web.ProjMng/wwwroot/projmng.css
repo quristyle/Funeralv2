@@ -8067,7 +8067,7 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   .tl-map { display: none !important; }
 }
 
-/* ── 일정표: 표 보기의 추가대상 단추 (`pm-addtarget`) — 누를 때마다 비움 → 추가 → 변경 → 이동 → 이슈 → 공지 → 요구 → 회식 → 휴가 → 외출 → 미설계 → 비움 ── */
+/* ── 일정표: 표 보기의 추가대상 단추 (`pm-addtarget`) — 누를 때마다 비움 → 추가 → 변경 → 이동 → 이슈 → 공지 → 요구 → 회식 → 휴가 → 외출 → 미설계 → 야근 → 비움 ── */
 .pm-addtarget {
   min-width: 3.5rem;
   padding: 0.125rem 0.625rem;
