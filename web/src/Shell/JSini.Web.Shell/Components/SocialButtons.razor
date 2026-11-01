@@ -1,9 +1,11 @@
 @*
     소셜 단추. 로그인·가입 신청 두 화면이 함께 쓴다. 공급자 셋은 늘 그린다. 서버가 알려 준 것만 누를 수 있고, 나머지는 「준비 중」으로 잠긴다.
+    링크는 향상된 이동에서 뺀다. 공급자로 가는 바깥 리다이렉트라 fetch 가 실패하고, Blazor 가 전체 이동으로 다시 불러 시작 요청이 두 번 간다.
+    누르면 theme.js(jsiniSocial)가 그 단추를 「이동하는 중」으로 바꾸고 나머지를 잠근다. 공급자를 다녀오는 동안 화면이 그대로라 다시 누르거나 새로고침하게 된다.
     카카오·네이버는 로그인 단추의 바탕색과 상징을 지키라는 규정이 있어 색을 쓴다. 그림은 파일로 받지 않고 마크업에 싣는다(모두가 가장 먼저 받는 화면이라 요청을 늘리지 않는다).
 *@
 
-<div class="jsini-social">
+<div class="jsini-social" aria-live="polite">
     @foreach (var item in Items)
     {
         if (item.Enabled)
@@ -13,6 +15,8 @@
                 <a class="jsini-social__btn jsini-social__btn--@item.Key"
                    data-social-link
                    data-social-base="@Href(item.Key)"
+                   data-social-busy="@BusyText(item)"
+                   data-enhance-nav="false"
                    href="@Href(item.Key)">
                     @Icon(item)
                     <span class="jsini-social__label">@Label(item)</span>
@@ -21,6 +25,8 @@
             else
             {
                 <a class="jsini-social__btn jsini-social__btn--@item.Key"
+                   data-social-busy="@BusyText(item)"
+                   data-enhance-nav="false"
                    href="@Href(item.Key)">
                     @Icon(item)
                     <span class="jsini-social__label">@Label(item)</span>

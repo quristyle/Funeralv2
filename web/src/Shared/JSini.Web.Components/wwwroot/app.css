@@ -3226,6 +3226,68 @@ a.jsini-social__btn:focus-visible {
   letter-spacing: 0.02em;
 }
 
+/* 누른 뒤. 누른 단추는 상징 자리에 도는 표시를 두고, 나머지는 가라앉혀 잠근다(theme.js 의 jsiniSocial). */
+.jsini-social.is-busy .jsini-social__btn {
+  pointer-events: none;
+}
+
+.jsini-social.is-busy .jsini-social__btn:not(.is-busy) {
+  opacity: 0.4;
+  filter: grayscale(0.6);
+}
+
+.jsini-social__btn.is-busy {
+  cursor: progress;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 10%);
+}
+
+.jsini-social__btn.is-busy .jsini-social__icon {
+  visibility: hidden;
+}
+
+.jsini-social__btn.is-busy::before {
+  content: "";
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: -0.625rem;
+  box-sizing: border-box;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: jsini-social-spin 0.7s linear infinite;
+}
+
+/* 아래 띠가 왼쪽에서 오른쪽으로 흐른다. 도는 표시가 작아 한눈에 안 들어오는 사람에게도 「움직이고 있다」가 보인다. */
+.jsini-social__btn.is-busy::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, currentColor, transparent) no-repeat;
+  background-size: 40% 100%;
+  opacity: 0.45;
+  animation: jsini-social-flow 1.2s ease-in-out infinite;
+}
+
+@keyframes jsini-social-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes jsini-social-flow {
+  from { background-position: -40% 0; }
+  to { background-position: 140% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jsini-social__btn.is-busy::before { animation-duration: 2s; }
+  .jsini-social__btn.is-busy::after { animation: none; background-size: 100% 100%; }
+}
+
 /* 처음 누르는 사람이 로그인을 기대했다가 승인 대기를 만나면 고장으로 읽는다. 누르기 전에 말해 두는 한 줄이다. */
 .jsini-login__social-note {
   margin: 0.75rem 0 0;

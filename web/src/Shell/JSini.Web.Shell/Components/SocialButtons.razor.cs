@@ -70,6 +70,9 @@ public partial class SocialButtons
         return name + verb;
     }
 
+    /// <summary>누른 뒤 단추 글자. 공급자 이름에 조사를 붙이지 않는 꼴이라 받침을 따지지 않는다.</summary>
+    private static string BusyText(SocialButtonItem item) => $"{item.DisplayName} 화면으로 이동하는 중…";
+
     private static string Initial(SocialButtonItem item) =>
         item.DisplayName.Length > 0 ? item.DisplayName[..1].ToUpperInvariant() : "?";
 }

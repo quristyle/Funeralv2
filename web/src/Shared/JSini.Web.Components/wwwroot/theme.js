@@ -1794,6 +1794,86 @@
     },
   };
 
+  // ── 소셜 단추를 누른 뒤 ─────────────────────────────────
+  //
+  // 누르면 서버가 게이트웨이에서 인가 주소를 받아 공급자로 보내기까지
+  // 화면이 그대로라, 사람이 다시 누르거나 새로고침한다. 누른 단추는
+  // 「…으로 이동하는 중」과 도는 표시로 바꾸고 나머지는 잠근다.
+  //
+  // 문서에서 한 번만 듣는다 — 로그인·가입 신청 두 화면에 다 있고,
+  // 향상된 이동으로 들어와도 따로 붙일 것이 없다. 표시는 class 와 글자뿐이라
+  // 향상된 이동으로 로그인 화면에 되돌아오면 서버 마크업으로 저절로 걷힌다.
+  var SOCIAL_RETRY_MS = 15000;
+
+  window.jsiniSocial = {
+    /** 단추 하나를 「이동하는 중」으로. 이미 그렇다면 거짓. */
+    start: function (btn) {
+      var group = btn.closest('.jsini-social');
+
+      if (!group || group.classList.contains('is-busy')) return false;
+
+      var label = btn.querySelector('.jsini-social__label');
+
+      group.classList.add('is-busy');
+      group.setAttribute('aria-busy', 'true');
+      btn.classList.add('is-busy');
+
+      if (label) {
+        label.dataset.socialIdle = label.textContent;
+        label.textContent = btn.getAttribute('data-social-busy') || label.textContent;
+      }
+
+      // 공급자가 끝내 답하지 않으면 다시 누를 길은 열어 준다.
+      group.socialTimer = setTimeout(function () {
+        window.jsiniSocial.reset(group);
+      }, SOCIAL_RETRY_MS);
+
+      return true;
+    },
+
+    /** 문서의 소셜 단추를 처음 모양으로. */
+    reset: function (group) {
+      var groups = group ? [group] : document.querySelectorAll('.jsini-social.is-busy');
+
+      for (var i = 0; i < groups.length; i++) {
+        var g = groups[i];
+        var busy = g.querySelectorAll('.jsini-social__btn.is-busy');
+
+        clearTimeout(g.socialTimer);
+        g.classList.remove('is-busy');
+        g.removeAttribute('aria-busy');
+
+        for (var j = 0; j < busy.length; j++) {
+          var label = busy[j].querySelector('.jsini-social__label');
+
+          busy[j].classList.remove('is-busy');
+
+          if (label && label.dataset.socialIdle !== undefined) {
+            label.textContent = label.dataset.socialIdle;
+            delete label.dataset.socialIdle;
+          }
+        }
+      }
+    },
+  };
+
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest && e.target.closest('a.jsini-social__btn[data-social-busy]');
+
+    if (!btn) return;
+
+    // 새 탭으로 여는 누름은 이 화면이 떠나지 않는다.
+    if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+
+    // 두 번째 누름은 삼킨다. 먼저 보낸 state 쿠키를 새것이 덮어 앞의 왕복이 실패한다.
+    if (!window.jsiniSocial.start(btn)) e.preventDefault();
+  });
+
+  // 공급자 화면에서 [뒤로] 오면 브라우저가 떠날 때의 화면(bfcache)을 그대로 보인다.
+  window.addEventListener('pageshow', function (e) {
+    if (e.persisted) window.jsiniSocial.reset();
+  });
+
   /**
    * 문서에 있는 공지 팝업을 모두 살린다.
    *
