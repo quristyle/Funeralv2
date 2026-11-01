@@ -164,7 +164,7 @@ public sealed class InterfaceService(IConfiguration configuration)
                  , m.remark          as Remark
                  , m.use_yn          as UseYn
                  , m.sort_order      as SortOrder
-                 , to_char(m.updated_at, 'YYYY-MM-DD HH24:MI') as UpdatedAt
+                 , to_char(m.updated_at at time zone 'Asia/Seoul', 'YYYY-MM-DD HH24:MI') as UpdatedAt
                  , m.updated_by      as UpdatedBy
                  , f.flow            as Flow
               from projmng.v_if_master m
@@ -225,7 +225,7 @@ public sealed class InterfaceService(IConfiguration configuration)
                  , ext::text      as Ext
                  , sort_order     as SortOrder
                  , use_yn         as UseYn
-                 , to_char(updated_at, 'YYYY-MM-DD HH24:MI') as UpdatedAt
+                 , to_char(updated_at at time zone 'Asia/Seoul', 'YYYY-MM-DD HH24:MI') as UpdatedAt
                  , updated_by     as UpdatedBy
               from projmng.if_master
              where prj_rid = @prjRid and if_id = @ifId
@@ -315,25 +315,27 @@ public sealed class InterfaceService(IConfiguration configuration)
         using var db = Open();
 
         var rows = await db.QueryAsync<IfStepRow>("""
-            select step_id        as StepId
-                 , if_id          as IfId
-                 , step_no        as StepNo
-                 , step_nm        as StepNm
-                 , step_type_cd   as StepTypeCd
-                 , step_type_nm   as StepTypeNm
-                 , system_nm      as SystemNm
-                 , object_owner   as ObjectOwner
-                 , object_nm      as ObjectNm
-                 , object_full_nm as ObjectFullNm
-                 , object_type    as ObjectType
-                 , step_desc      as StepDesc
-                 , params::text   as Params
-                 , ext::text      as Ext
-                 , use_yn         as UseYn
-                 , to_char(updated_at, 'YYYY-MM-DD HH24:MI') as UpdatedAt
-              from projmng.v_if_step
-             where if_id = @ifId
-             order by step_no
+            select v.step_id        as StepId
+                 , v.if_id          as IfId
+                 , v.step_no        as StepNo
+                 , v.step_nm        as StepNm
+                 , v.step_type_cd   as StepTypeCd
+                 , v.step_type_nm   as StepTypeNm
+                 , s.system_id      as SystemId
+                 , v.system_nm      as SystemNm
+                 , v.object_owner   as ObjectOwner
+                 , v.object_nm      as ObjectNm
+                 , v.object_full_nm as ObjectFullNm
+                 , v.object_type    as ObjectType
+                 , v.step_desc      as StepDesc
+                 , v.params::text   as Params
+                 , v.ext::text      as Ext
+                 , v.use_yn         as UseYn
+                 , to_char(v.updated_at at time zone 'Asia/Seoul', 'YYYY-MM-DD HH24:MI') as UpdatedAt
+              from projmng.v_if_step v
+              join projmng.if_step s on s.step_id = v.step_id
+             where v.if_id = @ifId
+             order by v.step_no
             """, new { ifId });
 
         return [.. rows];
@@ -451,7 +453,7 @@ public sealed class InterfaceService(IConfiguration configuration)
                  , n.note_dt::text as NoteDt
                  , n.done_yn      as DoneYn
                  , n.sort_order   as SortOrder
-                 , to_char(n.updated_at, 'YYYY-MM-DD HH24:MI') as UpdatedAt
+                 , to_char(n.updated_at at time zone 'Asia/Seoul', 'YYYY-MM-DD HH24:MI') as UpdatedAt
               from projmng.if_note n
               left join projmng.if_step s on s.step_id = n.step_id
               left join projmng.if_code c on c.code_grp = 'NOTE_TYPE' and c.code = n.note_type_cd
@@ -522,7 +524,7 @@ public sealed class InterfaceService(IConfiguration configuration)
                  , required_yn as RequiredYn
                  , attr_val    as AttrVal
                  , sort_order  as SortOrder
-                 , to_char(updated_at, 'YYYY-MM-DD HH24:MI') as UpdatedAt
+                 , to_char(updated_at at time zone 'Asia/Seoul', 'YYYY-MM-DD HH24:MI') as UpdatedAt
                  , updated_by  as UpdatedBy
               from projmng.v_if_attr
              where if_id = @ifId

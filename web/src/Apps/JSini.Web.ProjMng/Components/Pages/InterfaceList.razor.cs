@@ -1,4 +1,6 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Components;
+using JSini.Web.Abstractions;
 using JSini.Web.Components.Data;
 using JSini.Web.Components.Layout;
 using JSini.Web.ProjMng.Api;
@@ -12,7 +14,7 @@ public partial class InterfaceList
     /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
     private string ConditionSummary => SchSummary.Of(
         _projectName,
-        SchSummary.NameOf(_statusOptions, o => o.Value, o => o.Text, _status),
+        SchSummary.NameOf(StatusFilterOptions, o => o.Value, o => o.Text, _status),
         _domain,
         SchSummary.NameOf(UseOptions, o => o.Value, o => o.Text, _useYn),
         _q);
@@ -28,6 +30,7 @@ public partial class InterfaceList
     private string? _useYn = "Y";
     private string? _q;
 
+    private CommGrd<IfMasterDto>? _grid;
     private IReadOnlyList<IfMasterDto> _rows = [];
 
     private int _ifId;
@@ -41,19 +44,19 @@ public partial class InterfaceList
 
     private FilePicker? _picker;
     private IReadOnlyList<PickedFile> _picked = [];
+    private bool _uploading;
 
     private ConfirmDialog? _confirm;
 
     private bool _newOpen;
     private IfMasterDetailDto _new = new();
+    private int _createdId;
 
     private bool _stepOpen;
     private IfStepDto _step = new();
-    private int? _stepSystemId;
 
     private bool _noteOpen;
     private IfNoteDto _note = new();
-    private int? _noteStepId;
 
     private SchOption[] _statusOptions = [];
     private SchOption[] _directionOptions = [];
@@ -63,14 +66,18 @@ public partial class InterfaceList
     private SchOption[] _objectTypeOptions = [];
     private SchOption[] _noteTypeOptions = [];
     private object[] _systemOptions = [];
-    private object[] _domainOptions = [];
+    private SchOption[] _domainOptions = [new(null, "전체")];
 
     /// <summary>코드 갈래별 목록. <c>CODE</c> 형 관리항목이 이것으로 고르개를 만든다.</summary>
     private readonly Dictionary<string, SchOption[]> _codesByGroup = [];
 
     private int? ProjectRid => int.TryParse(_projectCode, out var rid) ? rid : null;
 
-    private string Hint => $"{_rows.Count}건 · 이슈 {_rows.Sum(r => r.OpenIssueCnt)}건";
+    private string ListHint => $"{_rows.Count}건";
+
+    private bool CanToggleNote => Can(MenuAction.Update);
+
+    private SchOption[] StatusFilterOptions => [new(null, "전체"), .. _statusOptions];
 
     private static readonly SchOption[] UseOptions =
     [
@@ -79,29 +86,51 @@ public partial class InterfaceList
         new(null, "전체"),
     ];
 
-    private static readonly object[] UseYnOptions =
+    private static readonly SchOption[] UseYnOptions =
     [
-        new { Text = "사용", Value = "Y" },
-        new { Text = "미사용", Value = "N" },
+        new("Y", "사용 (Y)"),
+        new("N", "미사용 (N)"),
     ];
 
     private object[] StepOptions =>
     [
-        new { Text = "(인터페이스 전체)", Value = (int?)null },
+        new { Text = "전체", Value = (int?)null },
         .. _steps.Select(s => new { Text = $"{s.StepNo}. {s.StepNm}", Value = (int?)s.StepId })
     ];
 
     private SchOption[] CodeOptions(string? group) =>
         group is not null && _codesByGroup.TryGetValue(group, out var list) ? list : [];
 
-    // switch 의 관계 패턴(< 1024)은 @code 에 쓰지 않는다 — Razor 가 < 를 여는 태그로 읽어 뒤를 잘못 자른다.
-    private static string Size(long bytes)
+    /// <summary>상태 배지의 색. 원본의 여섯 색을 포털 배지 갈래에 맞췄다 — 보류만 맞는 갈래가 없어 이 화면 CSS 에 둔다.</summary>
+    private static string StatusBadge(string? status) => status switch
     {
-        if (bytes < 1024) return $"{bytes} B";
-        if (bytes < 1024 * 1024) return $"{bytes / 1024.0:0.#} KB";
+        "DEV" => "jsini-badge--info",
+        "TEST" => "jsini-badge--warn",
+        "PROD" => "jsini-badge--success",
+        "HOLD" => "if-st-hold",
+        "DROP" => "jsini-badge--err",
+        _ => "jsini-badge--muted",
+    };
 
-        return $"{bytes / 1024.0 / 1024.0:0.#} MB";
-    }
+    /// <summary>원본과 같은 크기 표기 — 1KB 아래도 1 KB 로 올려 적는다(0 KB 가 「빈 파일」로 읽힌다).</summary>
+    private static string Kb(long bytes) =>
+        bytes >= 1024 * 1024
+            ? $"{bytes / 1024.0 / 1024.0:0.0} MB"
+            : $"{Math.Max(1, (long)Math.Round(bytes / 1024.0))} KB";
+
+    private string FileUrl(IfFileDto file) =>
+        ProjectRid is int rid && file.FileId is not null
+            ? FileDownload.InterfaceUrlFor(rid, _ifId, file.FileId, file.Name)
+            : "#";
+
+    /// <summary>DB 의 날짜 칸은 <c>yyyy-MM-dd</c> 글자로 오간다(서버가 <c>::date</c> 로 받는다).</summary>
+    private static DateTime? DateOf(string? ymd) =>
+        DateTime.TryParseExact(ymd, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var d)
+            ? d
+            : null;
+
+    private static string? Ymd(DateTime? date) =>
+        date?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture);
 
     private int IndexOfStep(IfStepDto step)
     {
@@ -140,6 +169,13 @@ public partial class InterfaceList
         _noteTypeOptions = CodeOptions("NOTE_TYPE");
     }
 
+    /// <summary>고르개를 바꾸면 바로 다시 읽는다 — 원본이 그렇게 움직였다. 검색어만 조회 단추(또는 Enter)를 기다린다.</summary>
+    private Task FilterAsync(Action set)
+    {
+        set();
+        return SearchAsync();
+    }
+
     private Task SearchAsync() => LoadAsync(async () =>
     {
         if (ProjectRid is not int rid)
@@ -166,23 +202,22 @@ public partial class InterfaceList
 
         _systemOptions =
         [
-            new { Text = "(없음)", Value = (int?)null },
             .. _systems.Select(s => new { Text = s.SystemNm, Value = (int?)s.SystemId })
         ];
 
-        // 업무 영역은 코드표가 아니라 **쓰인 값**에서 모은다. 원본도 그렇게 했다.
+        // 도메인은 코드표가 아니라 **쓰인 값**에서 모은다 — 원본도 그랬다.
         _domainOptions =
         [
-            new { Text = "전체", Value = (string?)null },
+            new(null, "전체"),
             .. _rows.Select(r => r.DomainCd)
                     .Where(d => !string.IsNullOrWhiteSpace(d))
                     .Distinct()
                     .Order()
-                    .Select(d => new { Text = d, Value = d })
+                    .Select(d => new SchOption(d, d!))
         ];
 
         return _rows.Count;
-    }, "인터페이스가 없습니다.", "인터페이스를 읽지 못했습니다");
+    }, "등록된 인터페이스가 없습니다.", "인터페이스를 읽지 못했습니다");
 
     // ──────────────────────────────────────────── 목록 ↔ 상세
 
@@ -191,6 +226,12 @@ public partial class InterfaceList
         _ifId = ifId;
         _mode = "detail";
 
+        await LoadDetailAsync();
+        await LoadFilesAsync();
+    }
+
+    private async Task ReloadDetailAsync()
+    {
         await LoadDetailAsync();
         await LoadFilesAsync();
     }
@@ -236,15 +277,19 @@ public partial class InterfaceList
 
     private void StartNew()
     {
+        if (ProjectRid is null)
+        {
+            Say("프로젝트를 먼저 고르세요.", NoticeTone.Warning);
+            return;
+        }
+
         _new = new IfMasterDetailDto { StatusCd = "DESIGN", UseYn = "Y" };
         _newOpen = true;
     }
 
-    /// <summary>등록은 코드·이름·방향·상태 넷만 받는다. 나머지는 상세에서 채운다.</summary>
+    /// <summary>등록 창의 「등록」. 아래 띠의 ＋ 와 같은 저장 길(<c>CommGrd.SaveAsync</c>)로 보내고, 만든 것을 바로 연다 — 원본과 같다.</summary>
     private async Task CreateAsync()
     {
-        if (ProjectRid is not int rid) return;
-
         if (string.IsNullOrWhiteSpace(_new.IfCd) || string.IsNullOrWhiteSpace(_new.IfNm)
             || string.IsNullOrWhiteSpace(_new.DirectionCd) || string.IsNullOrWhiteSpace(_new.StatusCd))
         {
@@ -252,28 +297,34 @@ public partial class InterfaceList
             return;
         }
 
-        var code = _new.IfCd;
+        if (_grid is null) return;
+
+        _createdId = 0;
+
+        // 표가 넘겨 주는 줄은 쓰지 않는다 — 등록 창의 값(_new)을 SaveNewAsync 가 읽는다.
+        if (!await _grid.SaveAsync(new IfMasterDto(), true)) return;
+
+        _newOpen = false;
+
+        if (_createdId > 0) await OpenDetailAsync(_createdId);
+    }
+
+    /// <summary>CommGrd 의 OnSave. 등록만 이 길로 온다 — 기본정보 수정은 상세 구역의 단추가 따로 보낸다.</summary>
+    private async Task SaveNewAsync((IfMasterDto Item, bool IsNew) _)
+    {
+        if (ProjectRid is not int rid) return;
 
         var body = new Dictionary<string, object?>
         {
-            ["if_cd"] = _new.IfCd,
-            ["if_nm"] = _new.IfNm,
+            ["if_cd"] = _new.IfCd?.Trim(),
+            ["if_nm"] = _new.IfNm?.Trim(),
             ["direction_cd"] = _new.DirectionCd,
             ["status_cd"] = _new.StatusCd,
+            ["domain_cd"] = _new.DomainCd,
             ["use_yn"] = "Y",
         };
 
-        var made = await RunAsync(
-            () => Api.CreateAsync(rid, body), "등록했습니다.", "등록하지 못했습니다");
-
-        if (!made) return;
-
-        _newOpen = false;
-        await SearchAsync();
-
-        // 만든 것을 바로 연다 — 원본과 같다. 번호는 서버가 정하므로 코드로 되찾는다.
-        var made_row = _rows.FirstOrDefault(r => r.IfCd == code);
-        if (made_row is not null) await OpenDetailAsync(made_row.IfId);
+        _createdId = await Api.CreateAsync(rid, body);
     }
 
     private async Task SaveMasterAsync()
@@ -282,7 +333,7 @@ public partial class InterfaceList
 
         if (string.IsNullOrWhiteSpace(_master.IfCd) || string.IsNullOrWhiteSpace(_master.IfNm))
         {
-            Say("코드와 이름은 필수입니다.", NoticeTone.Warning);
+            Say("인터페이스 코드와 인터페이스명은 필수입니다.", NoticeTone.Warning);
             return;
         }
 
@@ -320,14 +371,14 @@ public partial class InterfaceList
         if (ProjectRid is not int rid || _master is null || _confirm is null) return;
 
         var ok = await _confirm.AskAsync(
-            $"「{_master.IfCd} {_master.IfNm}」 를 지우면 처리 단계 · 메모 · 추가항목이 함께 사라집니다.\n"
-            + "보관이 목적이라면 사용여부를 N 으로 바꾸는 편이 안전합니다.",
-            "인터페이스 삭제", "지운다");
+            $"「{_master.IfCd} {_master.IfNm}」 를 삭제하면 단계 · 메모 · 추가항목이 함께 사라집니다.\n"
+            + "보관이 목적이라면 사용여부를 N 으로 바꾸는 편이 안전합니다.\n\n그래도 삭제할까요?",
+            "인터페이스 삭제");
 
         if (!ok) return;
 
         var gone = await RunAsync(
-            () => Api.DeleteAsync(rid, _ifId), "지웠습니다.", "지우지 못했습니다");
+            () => Api.DeleteAsync(rid, _ifId), "삭제했습니다.", "삭제하지 못했습니다");
 
         if (gone) await BackToListAsync();
     }
@@ -337,7 +388,6 @@ public partial class InterfaceList
     private void StartNewStep()
     {
         _step = new IfStepDto();
-        _stepSystemId = null;
         _stepOpen = true;
     }
 
@@ -349,15 +399,13 @@ public partial class InterfaceList
             StepNo = step.StepNo,
             StepNm = step.StepNm,
             StepTypeCd = step.StepTypeCd,
+            SystemId = step.SystemId,
             ObjectOwner = step.ObjectOwner,
             ObjectNm = step.ObjectNm,
             ObjectType = step.ObjectType,
             StepDesc = step.StepDesc,
             Params = step.Params,
         };
-
-        // 단계 조회는 시스템 이름만 준다. 고르개는 번호로 도므로 이름으로 되찾는다.
-        _stepSystemId = _systems.FirstOrDefault(s => s.SystemNm == step.SystemNm)?.SystemId;
 
         _stepOpen = true;
     }
@@ -368,7 +416,7 @@ public partial class InterfaceList
 
         if (string.IsNullOrWhiteSpace(_step.StepNm))
         {
-            Say("단계 이름은 필수입니다.", NoticeTone.Warning);
+            Say("단계명은 필수입니다.", NoticeTone.Warning);
             return;
         }
 
@@ -390,7 +438,7 @@ public partial class InterfaceList
         {
             ["step_nm"] = _step.StepNm,
             ["step_type_cd"] = _step.StepTypeCd,
-            ["system_id"] = _stepSystemId,
+            ["system_id"] = _step.SystemId,
             ["object_owner"] = _step.ObjectOwner,
             ["object_nm"] = _step.ObjectNm,
             ["object_type"] = _step.ObjectType,
@@ -399,7 +447,7 @@ public partial class InterfaceList
         };
 
         var saved = _step.StepId == 0
-            ? await RunAsync(() => Api.CreateStepAsync(rid, _ifId, body), "단계를 더했습니다.", "단계를 더하지 못했습니다")
+            ? await RunAsync(() => Api.CreateStepAsync(rid, _ifId, body), "단계를 추가했습니다.", "단계를 추가하지 못했습니다")
             : await RunAsync(() => Api.UpdateStepAsync(rid, _ifId, _step.StepId, body), "저장했습니다.", "저장하지 못했습니다");
 
         if (!saved) return;
@@ -413,12 +461,12 @@ public partial class InterfaceList
         if (ProjectRid is not int rid || _confirm is null) return;
 
         var ok = await _confirm.AskAsync(
-            $"{step.StepNo}. {step.StepNm} 단계를 지웁니다.\n되돌릴 수 없습니다.", "단계 삭제");
+            $"단계 {step.StepNo}. {step.StepNm} 을 삭제할까요?", "단계 삭제");
 
         if (!ok) return;
 
         var gone = await RunAsync(
-            () => Api.DeleteStepAsync(rid, _ifId, step.StepId), "지웠습니다.", "지우지 못했습니다");
+            () => Api.DeleteStepAsync(rid, _ifId, step.StepId), "삭제했습니다.", "삭제하지 못했습니다");
 
         if (gone) await LoadDetailAsync();
     }
@@ -441,38 +489,15 @@ public partial class InterfaceList
         if (moved) await LoadDetailAsync();
     }
 
-    // ──────────────────────────────────────────── 메모
+    // ──────────────────────────────────────────── 메모 · 이슈
 
     private void StartNewNote()
     {
-        _note = new IfNoteDto
-        {
-            NoteTypeCd = "MEMO",
-            DoneYn = "N",
-            NoteDt = AppTime.Today.ToString("yyyy-MM-dd"),
-        };
-
-        _noteStepId = null;
+        _note = new IfNoteDto { DoneYn = "N" };
         _noteOpen = true;
     }
 
-    private void EditNote(IfNoteDto note)
-    {
-        _note = new IfNoteDto
-        {
-            NoteId = note.NoteId,
-            NoteTypeCd = note.NoteTypeCd,
-            Title = note.Title,
-            Content = note.Content,
-            WriterNm = note.WriterNm,
-            NoteDt = note.NoteDt,
-            DoneYn = note.DoneYn,
-        };
-
-        _noteStepId = note.StepId;
-        _noteOpen = true;
-    }
-
+    /// <summary>메모는 더하고 지우기만 한다 — 원본에 고치는 길이 없다. 이슈의 해결 표시만 목록에서 켜고 끈다.</summary>
     private async Task SaveNoteAsync()
     {
         if (ProjectRid is not int rid) return;
@@ -483,20 +508,24 @@ public partial class InterfaceList
             return;
         }
 
+        // 유형·내용은 빈 값을 안 보낸다. 서버가 빈 글자를 null 로 바꿔 넣는데 두 칸이 NOT NULL 이라
+        // 그대로 보내면 등록이 끊긴다 — 빼고 보내면 DB 기본값(MEMO · 빈 글)이 들어간다.
         var body = new Dictionary<string, object?>
         {
-            ["note_type_cd"] = _note.NoteTypeCd,
             ["title"] = _note.Title,
-            ["content"] = _note.Content,
-            ["writer_nm"] = _note.WriterNm,
-            ["note_dt"] = _note.NoteDt,
-            ["done_yn"] = _note.DoneYn ?? "N",
-            ["step_id"] = _noteStepId,
+            ["done_yn"] = "N",
+            ["step_id"] = _note.StepId,
+
+            // DB 기본값(current_date)은 UTC 날짜라 아침 아홉 시 전에는 하루 전으로 찍힌다.
+            ["note_dt"] = AppTime.Today.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
         };
 
-        var saved = _note.NoteId == 0
-            ? await RunAsync(() => Api.CreateNoteAsync(rid, _ifId, body), "메모를 더했습니다.", "메모를 더하지 못했습니다")
-            : await RunAsync(() => Api.UpdateNoteAsync(rid, _ifId, _note.NoteId, body), "저장했습니다.", "저장하지 못했습니다");
+        if (!string.IsNullOrWhiteSpace(_note.NoteTypeCd)) body["note_type_cd"] = _note.NoteTypeCd;
+        if (!string.IsNullOrWhiteSpace(_note.Content)) body["content"] = _note.Content;
+        if (!string.IsNullOrWhiteSpace(_note.WriterNm)) body["writer_nm"] = _note.WriterNm;
+
+        var saved = await RunAsync(
+            () => Api.CreateNoteAsync(rid, _ifId, body), "메모를 추가했습니다.", "메모를 추가하지 못했습니다");
 
         if (!saved) return;
 
@@ -504,7 +533,7 @@ public partial class InterfaceList
         await LoadDetailAsync();
     }
 
-    /// <summary>완료를 켜고 끈다. <b>창을 열지 않는다.</b></summary>
+    /// <summary>해결 표시를 켜고 끈다. <b>창을 열지 않는다.</b></summary>
     private async Task ToggleNoteAsync(IfNoteDto note)
     {
         if (ProjectRid is not int rid) return;
@@ -517,19 +546,12 @@ public partial class InterfaceList
         if (saved) await LoadDetailAsync();
     }
 
+    /// <summary>CommGrd 의 OnDelete. 묻는 것과 다시 읽는 것은 표가 한다(DeleteConfirm · Reload).</summary>
     private async Task DeleteNoteAsync(IfNoteDto note)
     {
-        if (ProjectRid is not int rid || _confirm is null) return;
+        if (ProjectRid is not int rid) return;
 
-        var ok = await _confirm.AskAsync(
-            $"「{note.Title}」 메모를 지웁니다.\n되돌릴 수 없습니다.", "메모 삭제");
-
-        if (!ok) return;
-
-        var gone = await RunAsync(
-            () => Api.DeleteNoteAsync(rid, _ifId, note.NoteId), "지웠습니다.", "지우지 못했습니다");
-
-        if (gone) await LoadDetailAsync();
+        await Api.DeleteNoteAsync(rid, _ifId, note.NoteId);
     }
 
     // ──────────────────────────────────────────── 관리항목
@@ -555,12 +577,12 @@ public partial class InterfaceList
             }
             catch (System.Text.Json.JsonException e)
             {
-                Say($"{attr.AttrNm} 이(가) 올바른 JSON 이 아닙니다: {e.Message}", NoticeTone.Warning);
+                Say($"{attr.AttrNm} 이 올바른 JSON 이 아닙니다: {e.Message}", NoticeTone.Warning);
                 return;
             }
         }
 
-        var values = _attrs.ToDictionary(a => a.AttrDefId.ToString(), a => a.Value);
+        var values = _attrs.ToDictionary(a => a.AttrDefId.ToString(CultureInfo.InvariantCulture), a => a.Value);
 
         var saved = await RunAsync(
             () => Api.SaveAttrsAsync(rid, _ifId, values), "관리항목을 저장했습니다.", "저장하지 못했습니다");
@@ -580,23 +602,31 @@ public partial class InterfaceList
 
         _files = await Api.FilesAsync(rid, _ifId);
         return 1;
-    }, "첨부가 없습니다.", "첨부를 읽지 못했습니다");
+    }, "첨부파일이 없습니다.", "첨부파일을 읽지 못했습니다");
 
     private async Task UploadAsync()
     {
-        if (ProjectRid is not int rid || _picked.Count == 0) return;
+        if (ProjectRid is not int rid || _picked.Count == 0 || _uploading) return;
 
         var count = _picked.Count;
+        _uploading = true;
 
-        var sent = await RunAsync(
-            async () => _files = await Api.UploadFilesAsync(rid, _ifId, _picked),
-            $"{count}개를 올렸습니다.", "올리지 못했습니다");
+        try
+        {
+            var sent = await RunAsync(
+                async () => _files = await Api.UploadFilesAsync(rid, _ifId, _picked),
+                $"{count}개를 올렸습니다.", "올리지 못했습니다");
 
-        if (!sent) return;
+            if (!sent) return;
 
-        _picked = [];
+            _picked = [];
 
-        if (_picker is not null) await _picker.ClearAsync();
+            if (_picker is not null) await _picker.ClearAsync();
+        }
+        finally
+        {
+            _uploading = false;
+        }
     }
 
     private async Task DeleteFileAsync(IfFileDto file)
@@ -625,6 +655,13 @@ public partial class InterfaceList
         {
             get => Value == "Y";
             set => Value = value ? "Y" : "N";
+        }
+
+        /// <summary><c>NUMBER</c> 형의 숫자칸. 값은 글자 칸(attr_val) 하나에 담기므로 불변 문화로 오간다.</summary>
+        public decimal? Number
+        {
+            get => decimal.TryParse(Value, NumberStyles.Number, CultureInfo.InvariantCulture, out var n) ? n : null;
+            set => Value = value?.ToString(CultureInfo.InvariantCulture);
         }
     }
 }

@@ -1,0 +1,103 @@
+/* 인터페이스 관리 전용. 표의 줄(tr)은 DevExpress 가 그려 이 화면의 범위 표시가 안 붙으므로 ::deep 으로 닿는다. */
+
+/* 흐름 줄 — 이 화면의 핵심 정보라 목록에서도 이름 바로 밑에 늘 보인다. */
+.if-flow {
+  margin-top: 2px;
+  font-family: var(--jsini-font-mono, ui-monospace, "Cascadia Mono", "D2Coding", monospace);
+  font-size: var(--jsini-fs-xs);
+  color: var(--tb-primary);
+  white-space: normal;
+  word-break: break-word;
+}
+
+.if-flow--big {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  font-size: var(--jsini-fs-sm);
+  background: rgba(var(--tb-primary-rgb), 0.08);
+  border-radius: 6px;
+}
+
+.if-page ::deep tr.if-off {
+  opacity: 0.5;
+}
+
+.if-page ::deep tr.if-done .if-note-title {
+  text-decoration: line-through;
+  color: var(--tb-muted);
+}
+
+.if-bad {
+  font-weight: 700;
+  color: var(--tb-red);
+}
+
+.if-clip {
+  font-weight: 600;
+  color: var(--tb-primary);
+  white-space: nowrap;
+}
+
+.if-muted {
+  margin: 0;
+  color: var(--tb-muted);
+  font-size: var(--jsini-fs-sm);
+}
+
+.if-mono {
+  font-family: var(--jsini-font-mono, ui-monospace, "Cascadia Mono", "D2Coding", monospace);
+  font-size: var(--jsini-fs-xs);
+}
+
+.if-pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.55;
+}
+
+.if-desc {
+  max-width: 420px;
+  font-size: var(--jsini-fs-xs);
+  color: var(--tb-muted);
+}
+
+.if-cut {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 보류 — 포털 배지에 보라 갈래가 없어 여기 둔다. */
+.if-st-hold {
+  background: rgba(124, 58, 237, 0.12);
+  color: #7c3aed;
+}
+
+.if-dl {
+  color: inherit;
+  text-decoration: none;
+}
+
+.if-dl:hover {
+  color: var(--tb-primary);
+  text-decoration: underline;
+}
+
+.if-btnlink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 8px;
+  font-size: var(--jsini-fs-xs);
+  color: inherit;
+  white-space: nowrap;
+  text-decoration: none;
+  border: 1px solid var(--tb-border-color, #e3e5e8);
+  border-radius: 5px;
+}
+
+.if-btnlink:hover {
+  color: var(--tb-primary);
+  border-color: var(--tb-primary);
+}

@@ -114,6 +114,9 @@ public sealed class IfStepRow
     public string? StepNm { get; set; }
     public string? StepTypeCd { get; set; }
     public string? StepTypeNm { get; set; }
+    /// <summary>단계의 시스템 번호. 뷰는 이름만 주므로 원본 표에서 함께 읽는다 — 이름으로 되찾으면 같은 이름이 둘일 때 엉뚱한 것을 고른다.</summary>
+    public int? SystemId { get; set; }
+
     public string? SystemNm { get; set; }
 
     public string? ObjectOwner { get; set; }

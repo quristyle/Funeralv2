@@ -45,9 +45,10 @@ public sealed class InterfaceClient(GatewayClient gateway)
 
     // ──────────────────────────────────────────── 기본정보
 
-    public Task CreateAsync(
+    /// <returns>새 인터페이스 번호. 등록하자마자 상세를 열 때 쓴다.</returns>
+    public Task<int> CreateAsync(
         int prjRid, IReadOnlyDictionary<string, object?> body, CancellationToken ct = default)
-        => gateway.PostAsync($"{Url}?prjRid={prjRid}", body, ct);
+        => gateway.PostAsync<int>($"{Url}?prjRid={prjRid}", body, ct);
 
     public Task UpdateAsync(
         int prjRid, int ifId, IReadOnlyDictionary<string, object?> body, CancellationToken ct = default)
@@ -157,10 +158,6 @@ public sealed class InterfaceClient(GatewayClient gateway)
 
     public Task DeleteFileAsync(int prjRid, int ifId, string fileId, CancellationToken ct = default)
         => gateway.DeleteAsync($"{Url}/{ifId}/files/{Uri.EscapeDataString(fileId)}?prjRid={prjRid}", ct);
-
-    /// <summary>내려받기 주소. 셸의 중계를 거치지 않고 게이트웨이로 바로 간다.</summary>
-    public static string DownloadPath(int prjRid, int ifId, string fileId)
-        => $"{Url}/{ifId}/files/{Uri.EscapeDataString(fileId)}?prjRid={prjRid}";
 }
 
 /// <summary>인터페이스 공통코드 한 줄.</summary>
@@ -224,6 +221,12 @@ public sealed class IfMasterDto
 
     /// <summary>첨부 개수. <b>서버가 주는 값이 아니다</b> — 화면이 따로 받아 채운다.</summary>
     public int FileCnt { get; set; }
+
+    /// <summary>원천과 대상을 한 칸에. 원본 목록이 그렇게 보였고, 칸 둘로 가르면 넓은 표가 하나 더 넓어진다.</summary>
+    public string SystemPath => $"{SrcSystemNm} → {TgtSystemNm}";
+
+    /// <summary>고친 날짜만. 시각까지 적으면 목록 칸이 두 줄로 접힌다.</summary>
+    public string? UpdatedDate => UpdatedAt is { Length: >= 10 } at ? at[..10] : UpdatedAt;
 }
 
 /// <summary>상세의 기본정보.</summary>
@@ -265,6 +268,7 @@ public sealed class IfStepDto
     public string? StepNm { get; set; }
     public string? StepTypeCd { get; set; }
     public string? StepTypeNm { get; set; }
+    public int? SystemId { get; set; }
     public string? SystemNm { get; set; }
     public string? ObjectOwner { get; set; }
     public string? ObjectNm { get; set; }
@@ -299,6 +303,11 @@ public sealed class IfNoteDto
 
     public int SortOrder { get; set; }
     public string? UpdatedAt { get; set; }
+
+    /// <summary>목록의 일자. 적은 날이 없는 옛 줄은 고친 날로 대신한다.</summary>
+    public string? DisplayDate =>
+        !string.IsNullOrWhiteSpace(NoteDt) ? NoteDt
+        : UpdatedAt is { Length: >= 10 } at ? at[..10] : UpdatedAt;
 
     /// <summary>화면에서 켜고 끄는 값. DB 는 Y/N 글자라 그 사이를 잇는다 — 편집 폼은 @bind 로만 묶고 확인칸은 참·거짓을 받는다.</summary>
     public bool Done

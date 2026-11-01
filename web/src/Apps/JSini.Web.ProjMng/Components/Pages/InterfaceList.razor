@@ -2,15 +2,16 @@
 @attribute [RouteKey("projmng.wbs.interfaces")]
 
 @*
-인터페이스 관리. EAI 카탈로그이며 코드값과 추가 관리항목은 DB 에서 읽어 그린다(if_code 가 비면 드롭다운이 통째로 빈다).
-목록과 상세는 한 화면이고(상세가 다섯 구역이라 창에 넣으면 아래가 잘린다), params 는 저장 전에 JSON 을 검사한다. 필수 관리항목은 서버가 강제하지 않으므로 화면이 막는다.
-삭제 문구는 보관(사용여부 N)을 앞세운다 — 지우면 단계·메모·항목이 함께 사라진다.
+인터페이스 관리. 사내망 WBS 도구의 Interfaces.vue 를 옮겼다 — 칸·문구·구역 차례가 그 화면 그대로다.
+코드값과 추가 관리항목은 DB 에서 읽어 그린다(if_code 가 비면 드롭다운이 통째로 빈다).
+목록과 상세는 한 화면이다 — 상세가 다섯 구역이라 창에 넣으면 아래가 잘린다.
 *@
 
 @inherits DataPage
 
 <PageTitle>인터페이스 관리 · 프로젝트관리</PageTitle>
 
+<div class="if-page">
 @if (_mode == "list")
 {
     <CommSch OnSearch="@SearchAsync" MobileSummary="@ConditionSummary">
@@ -20,36 +21,40 @@
             </CommSchItem>
 
             <CommSchItem Label="상태">
-                <DxComboBox Data="@_statusOptions" @bind-Value="_status"
+                <DxComboBox Data="@StatusFilterOptions" Value="@_status" ValueChanged="@((string? v) => FilterAsync(() => _status = v))"
                             TextFieldName="Text" ValueFieldName="Value"
-                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
-                            Style="width: 150px" />
+                            Style="width: 140px" />
             </CommSchItem>
 
-            <CommSchItem Label="업무 영역">
-                <DxComboBox Data="@_domainOptions" @bind-Value="_domain"
+            <CommSchItem Label="도메인">
+                <DxComboBox Data="@_domainOptions" Value="@_domain" ValueChanged="@((string? v) => FilterAsync(() => _domain = v))"
                             TextFieldName="Text" ValueFieldName="Value"
-                            Style="width: 150px" />
+                            Style="width: 140px" />
             </CommSchItem>
 
             <CommSchItem Label="사용">
-                <DxComboBox Data="@UseOptions" @bind-Value="_useYn"
-                            TextFieldName="Text" ValueFieldName="Value" Style="width: 120px" />
+                <DxComboBox Data="@UseOptions" Value="@_useYn" ValueChanged="@((string? v) => FilterAsync(() => _useYn = v))"
+                            TextFieldName="Text" ValueFieldName="Value" Style="width: 110px" />
             </CommSchItem>
 
-            <CommSchItem Label="검색어">
-                <DxTextBox @bind-Text="_q" Style="width: 220px" />
+            <CommSchItem Label="코드 · 이름">
+                <DxTextBox @bind-Text="_q" Style="width: 180px" />
             </CommSchItem>
         </Fields>
     </CommSch>
 
-    <CommCont Hint="@Hint">
-        <CommGrd TItem="IfMasterDto"
+    <CommCont Title="EAI 인터페이스 카탈로그" Hint="@ListHint">
+        <CommGrd @ref="_grid"
+                 TItem="IfMasterDto"
                  Data="@_rows"
                  ExportName="인터페이스"
-                 EmptyText="인터페이스가 없습니다."
+                 EmptyText="등록된 인터페이스가 없습니다."
                  PageSize="25"
-                 RowActions="@RowActions"
+                 CreateTitle="인터페이스 등록"
+                 OnEditOpen="@((_, _) => StartNew())"
+                 OnSave="@SaveNewAsync"
+                 OnRowClick="@(row => OpenDetailAsync(row.IfId))"
+                 RowCssClass="@(row => row.UseYn == "N" ? "if-off" : null)"
                  Reload="@SearchAsync">
             <ContextMenuItems>
                 <PermissionView Action="MenuAction.Create">
@@ -60,49 +65,70 @@
             </ContextMenuItems>
 
             <Columns>
-                <DxGridDataColumn FieldName="@nameof(IfMasterDto.IfCd)" Caption="코드" Width="130" />
-                <DxGridDataColumn FieldName="@nameof(IfMasterDto.IfNm)" Caption="이름" MinWidth="200"
-                                  TextAlignment="GridTextAlignment.Left" />
-                <DxGridDataColumn FieldName="@nameof(IfMasterDto.DirectionNm)" Caption="방향" Width="80" />
-                <DxGridDataColumn FieldName="@nameof(IfMasterDto.SrcSystemNm)" Caption="송신" Width="140" />
-                <DxGridDataColumn FieldName="@nameof(IfMasterDto.TgtSystemNm)" Caption="수신" Width="140" />
-                <DxGridDataColumn FieldName="@nameof(IfMasterDto.StatusNm)" Caption="상태" Width="80" />
-                <DxGridDataColumn FieldName="@nameof(IfMasterDto.CycleNm)" Caption="주기" Width="90" />
-                <DxGridDataColumn FieldName="@nameof(IfMasterDto.DomainCd)" Caption="영역" Width="100" />
+                <DxGridDataColumn FieldName="@nameof(IfMasterDto.IfCd)" Caption="코드" Width="120">
+                    <CellDisplayTemplate Context="cell">
+                        <strong>@(((IfMasterDto)cell.DataItem).IfCd)</strong>
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
 
-                <DxGridDataColumn Caption="단계" Width="70">
+                @* 흐름 줄은 원본에서 줄 아래 한 줄을 통째로 쓴다. 표의 줄을 둘로 쪼갤 수 없어 이름 밑에 붙인다. *@
+                <DxGridDataColumn FieldName="@nameof(IfMasterDto.IfNm)" Caption="인터페이스명" MinWidth="280"
+                                  TextAlignment="GridTextAlignment.Left">
                     <CellDisplayTemplate Context="cell">
                         @{
                             var m = (IfMasterDto)cell.DataItem;
                         }
-                        @(m.StepCnt == 0 ? "—" : m.StepCnt.ToString())
+                        <div>@m.IfNm</div>
+                        <div class="if-flow">@(string.IsNullOrWhiteSpace(m.Flow) ? "단계 미등록" : m.Flow)</div>
                     </CellDisplayTemplate>
                 </DxGridDataColumn>
 
-                <DxGridDataColumn Caption="이슈" Width="70">
+                <DxGridDataColumn FieldName="@nameof(IfMasterDto.DomainCd)" Caption="도메인" Width="80" />
+                <DxGridDataColumn FieldName="@nameof(IfMasterDto.DirectionNm)" Caption="방향" Width="70" />
+
+                <DxGridDataColumn FieldName="@nameof(IfMasterDto.SystemPath)" Caption="원천 → 대상" Width="220"
+                                  TextAlignment="GridTextAlignment.Left" />
+
+                <DxGridDataColumn FieldName="@nameof(IfMasterDto.StatusNm)" Caption="상태" Width="80">
+                    <CellDisplayTemplate Context="cell">
+                        @{
+                            var m = (IfMasterDto)cell.DataItem;
+                        }
+                        <span class="jsini-badge @StatusBadge(m.StatusCd)">@m.StatusNm</span>
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+
+                <DxGridDataColumn FieldName="@nameof(IfMasterDto.CycleNm)" Caption="주기" Width="80" />
+                <DxGridDataColumn FieldName="@nameof(IfMasterDto.StepCnt)" Caption="단계" Width="60" />
+
+                <DxGridDataColumn FieldName="@nameof(IfMasterDto.OpenIssueCnt)" Caption="미해결" Width="70">
                     <CellDisplayTemplate Context="cell">
                         @{
                             var m = (IfMasterDto)cell.DataItem;
                         }
                         @if (m.OpenIssueCnt > 0)
                         {
-                            <span class="jsini-badge jsini-badge--warn" title="아직 안 끝난 이슈">@m.OpenIssueCnt</span>
+                            <span class="if-bad">@m.OpenIssueCnt</span>
                         }
                     </CellDisplayTemplate>
                 </DxGridDataColumn>
 
-                <DxGridDataColumn Caption="첨부" Width="70">
+                <DxGridDataColumn FieldName="@nameof(IfMasterDto.FileCnt)" Caption="첨부" Width="70">
                     <CellDisplayTemplate Context="cell">
                         @{
                             var m = (IfMasterDto)cell.DataItem;
                         }
-                        @(m.FileCnt == 0 ? "" : m.FileCnt.ToString())
+                        @if (m.FileCnt > 0)
+                        {
+                            <span class="if-clip" title="첨부파일">
+                                <span class="jsini-icon-paperclip" aria-hidden="true"></span> @m.FileCnt
+                            </span>
+                        }
                     </CellDisplayTemplate>
                 </DxGridDataColumn>
 
-                <DxGridDataColumn FieldName="@nameof(IfMasterDto.Flow)" Caption="흐름" MinWidth="280"
-                                  TextAlignment="GridTextAlignment.Left" />
-                <DxGridDataColumn FieldName="@nameof(IfMasterDto.UseYn)" Caption="사용" Width="70" />
+                <DxGridDataColumn FieldName="@nameof(IfMasterDto.OwnerNm)" Caption="담당자" Width="90" />
+                <DxGridDataColumn FieldName="@nameof(IfMasterDto.UpdatedDate)" Caption="수정" Width="100" />
             </Columns>
         </CommGrd>
     </CommCont>
@@ -114,93 +140,13 @@ else if (_master is not null)
                   RenderStyle="ButtonRenderStyle.Secondary"
                   Click="@BackToListAsync" />
 
-        <span class="pm-detail-title">@_master.IfCd · @_master.IfNm</span>
+        <DxButton IconCssClass="jsini-icon-refresh" Title="새로 읽기"
+                  RenderStyle="ButtonRenderStyle.Link"
+                  Click="@ReloadDetailAsync" />
     </div>
 
-    <CommCont Title="기본정보" Hint="@($"고친 때 {_master.UpdatedAt} · {_master.UpdatedBy}")">
-        <DxFormLayout CssClass="pm-editform">
-            <DxFormLayoutItem Caption="코드" ColSpanMd="4">
-                <DxTextBox @bind-Text="_master.IfCd" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="이름" ColSpanMd="8">
-                <DxTextBox @bind-Text="_master.IfNm" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="방향" ColSpanMd="4">
-                <DxComboBox Data="@_directionOptions" @bind-Value="_master.DirectionCd"
-                            TextFieldName="Text" ValueFieldName="Value" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="상태" ColSpanMd="4">
-                <DxComboBox Data="@_statusOptions" @bind-Value="_master.StatusCd"
-                            TextFieldName="Text" ValueFieldName="Value" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="주기" ColSpanMd="4">
-                <DxComboBox Data="@_cycleOptions" @bind-Value="_master.CycleCd"
-                            TextFieldName="Text" ValueFieldName="Value" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="송신 시스템" ColSpanMd="6">
-                <DxComboBox Data="@_systemOptions" @bind-Value="_master.SrcSystemId"
-                            TextFieldName="Text" ValueFieldName="Value" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="수신 시스템" ColSpanMd="6">
-                <DxComboBox Data="@_systemOptions" @bind-Value="_master.TgtSystemId"
-                            TextFieldName="Text" ValueFieldName="Value" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="업무 영역" ColSpanMd="4">
-                <DxTextBox @bind-Text="_master.DomainCd" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="계기" ColSpanMd="4">
-                <DxComboBox Data="@_triggerOptions" @bind-Value="_master.TriggerCd"
-                            TextFieldName="Text" ValueFieldName="Value"
-                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="사용" ColSpanMd="4">
-                <DxComboBox Data="@UseYnOptions" @bind-Value="_master.UseYn"
-                            TextFieldName="Text" ValueFieldName="Value" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="담당자" ColSpanMd="4">
-                <DxTextBox @bind-Text="_master.OwnerNm" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="담당 사번" ColSpanMd="4">
-                <DxTextBox @bind-Text="_master.OwnerBpId" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="차례" ColSpanMd="4">
-                <DxSpinEdit @bind-Value="_master.SortOrder" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="계획시작" ColSpanMd="4">
-                <DxTextBox @bind-Text="_master.PlanSdt" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="계획종료" ColSpanMd="4">
-                <DxTextBox @bind-Text="_master.PlanEdt" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="오픈일" ColSpanMd="4">
-                <DxTextBox @bind-Text="_master.OpenDt" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="설명" ColSpanMd="12">
-                <DxMemo @bind-Text="_master.IfDesc" Rows="2" />
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="비고" ColSpanMd="12">
-                <DxMemo @bind-Text="_master.Remark" Rows="2" />
-            </DxFormLayoutItem>
-        </DxFormLayout>
-
-        <div class="jsini-toolbar">
+    <CommCont Title="@($"{_master.IfCd} · {_master.IfNm}")" Hint="@($"수정 {_master.UpdatedAt}")">
+        <Actions>
             <PermissionView Action="MenuAction.Update">
                 <DxButton Text="기본정보 저장"
                           RenderStyle="ButtonRenderStyle.Primary"
@@ -208,153 +154,222 @@ else if (_master is not null)
             </PermissionView>
 
             <PermissionView Action="MenuAction.Delete">
-                <DxButton Text="이 인터페이스 지우기"
+                <DxButton Text="삭제"
                           RenderStyle="ButtonRenderStyle.Secondary"
                           Click="@DeleteMasterAsync" />
             </PermissionView>
-        </div>
+        </Actions>
 
-        @if (!string.IsNullOrWhiteSpace(_flow))
-        {
-            <div class="jsini-hint">흐름 : @_flow</div>
-        }
-    </CommCont>
+        <ChildContent>
+            <p class="if-flow if-flow--big">@(string.IsNullOrWhiteSpace(_flow) ? "단계 미등록" : _flow)</p>
 
-    <CommCont Title="추가 관리항목">
-        @if (_attrs.Count == 0)
-        {
-            <PageNotice Tone="NoticeTone.Info"
-                        Text="정의된 추가 항목이 없습니다." />
-        }
-        else
-        {
             <DxFormLayout CssClass="pm-editform">
-                @foreach (var attr in _attrs)
-                {
-                    <DxFormLayoutItem Caption="@attr.Caption" ColSpanMd="6">
-                        @if (attr.AttrType == "YN")
-                        {
-                            <DxCheckBox @bind-Checked="attr.Flag">예</DxCheckBox>
-                        }
-                        else if (attr.AttrType == "CODE")
-                        {
-                            <DxComboBox Data="@CodeOptions(attr.CodeGrp)" @bind-Value="attr.Value"
-                                        TextFieldName="Text" ValueFieldName="Value"
-                                        ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
-                        }
-                        else if (attr.AttrType == "JSON")
-                        {
-                            <DxMemo @bind-Text="attr.Value" Rows="3" CssClass="pm-paste" />
-                        }
-                        else
-                        {
-                            <DxTextBox @bind-Text="attr.Value" />
-                        }
+                <DxFormLayoutItem Caption="인터페이스 코드" ColSpanMd="6">
+                    <DxTextBox @bind-Text="_master.IfCd" />
+                    <div class="jsini-hint">프로그램의 IF_ID 와 같아야 합니다 (예: 패키지 상수 C_IF_ID).</div>
+                </DxFormLayoutItem>
 
-                        <div class="jsini-hint">@attr.AttrCd · @attr.AttrType</div>
-                    </DxFormLayoutItem>
-                }
+                <DxFormLayoutItem Caption="인터페이스명" ColSpanMd="6">
+                    <DxTextBox @bind-Text="_master.IfNm" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="설명" ColSpanMd="12">
+                    <DxMemo @bind-Text="_master.IfDesc" Rows="2" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="방향" ColSpanMd="3">
+                    <DxComboBox Data="@_directionOptions" @bind-Value="_master.DirectionCd"
+                                TextFieldName="Text" ValueFieldName="Value"
+                                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="상태" ColSpanMd="3">
+                    <DxComboBox Data="@_statusOptions" @bind-Value="_master.StatusCd"
+                                TextFieldName="Text" ValueFieldName="Value" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="주기" ColSpanMd="3">
+                    <DxComboBox Data="@_cycleOptions" @bind-Value="_master.CycleCd"
+                                TextFieldName="Text" ValueFieldName="Value"
+                                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="기동 방식" ColSpanMd="3">
+                    <DxComboBox Data="@_triggerOptions" @bind-Value="_master.TriggerCd"
+                                TextFieldName="Text" ValueFieldName="Value"
+                                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="원천 시스템" ColSpanMd="6">
+                    <DxComboBox Data="@_systemOptions" @bind-Value="_master.SrcSystemId"
+                                TextFieldName="Text" ValueFieldName="Value"
+                                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="대상 시스템" ColSpanMd="6">
+                    <DxComboBox Data="@_systemOptions" @bind-Value="_master.TgtSystemId"
+                                TextFieldName="Text" ValueFieldName="Value"
+                                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="도메인" ColSpanMd="4">
+                    <DxTextBox @bind-Text="_master.DomainCd" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="담당자 성명" ColSpanMd="4">
+                    <DxTextBox @bind-Text="_master.OwnerNm" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="담당자 BP ID" ColSpanMd="4">
+                    <DxTextBox @bind-Text="_master.OwnerBpId" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="계획 시작" ColSpanMd="4">
+                    <DxDateEdit T="DateTime?" Mask="yyyy-MM-dd" AllowUpDownArrowKeys="true" Date="@DateOf(_master.PlanSdt)"
+                                DateChanged="@((DateTime? d) => _master.PlanSdt = Ymd(d))"
+                                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="계획 종료" ColSpanMd="4">
+                    <DxDateEdit T="DateTime?" Mask="yyyy-MM-dd" AllowUpDownArrowKeys="true" Date="@DateOf(_master.PlanEdt)"
+                                DateChanged="@((DateTime? d) => _master.PlanEdt = Ymd(d))"
+                                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="운영 오픈일" ColSpanMd="4">
+                    <DxDateEdit T="DateTime?" Mask="yyyy-MM-dd" AllowUpDownArrowKeys="true" Date="@DateOf(_master.OpenDt)"
+                                DateChanged="@((DateTime? d) => _master.OpenDt = Ymd(d))"
+                                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="비고" ColSpanMd="12">
+                    <DxMemo @bind-Text="_master.Remark" Rows="2" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="사용여부" ColSpanMd="4">
+                    <DxComboBox Data="@UseYnOptions" @bind-Value="_master.UseYn"
+                                TextFieldName="Text" ValueFieldName="Value" />
+                </DxFormLayoutItem>
             </DxFormLayout>
+        </ChildContent>
+    </CommCont>
 
-            <div class="jsini-toolbar">
+    <CommCont Title="처리 단계" Hint="@($"{_steps.Count}건 · step_no 순")">
+        <Actions>
+            <PermissionView Action="MenuAction.Create">
+                <DxButton Text="+ 단계 추가" RenderStyle="ButtonRenderStyle.Secondary" Click="@StartNewStep" />
+            </PermissionView>
+        </Actions>
+
+        <ChildContent>
+            <CommGrd TItem="IfStepDto"
+                     Data="@_steps"
+                     ExportName="처리 단계"
+                     EmptyText="등록된 단계가 없습니다."
+                     PagerVisible="false"
+                     RowActions="@StepActions"
+                     Reload="@LoadDetailAsync">
+                <Columns>
+                    <DxGridDataColumn FieldName="@nameof(IfStepDto.StepNo)" Caption="#" Width="50">
+                        <CellDisplayTemplate Context="cell">
+                            <strong>@(((IfStepDto)cell.DataItem).StepNo)</strong>
+                        </CellDisplayTemplate>
+                    </DxGridDataColumn>
+
+                    <DxGridDataColumn FieldName="@nameof(IfStepDto.StepNm)" Caption="단계명" MinWidth="160"
+                                      TextAlignment="GridTextAlignment.Left" />
+                    <DxGridDataColumn FieldName="@nameof(IfStepDto.StepTypeNm)" Caption="유형" Width="110" />
+                    <DxGridDataColumn FieldName="@nameof(IfStepDto.SystemNm)" Caption="시스템" Width="130" />
+
+                    <DxGridDataColumn FieldName="@nameof(IfStepDto.ObjectFullNm)" Caption="객체" MinWidth="180"
+                                      TextAlignment="GridTextAlignment.Left">
+                        <CellDisplayTemplate Context="cell">
+                            <span class="if-mono">@(((IfStepDto)cell.DataItem).ObjectFullNm)</span>
+                        </CellDisplayTemplate>
+                    </DxGridDataColumn>
+
+                    @* 설명은 여러 줄로 적히므로 적은 사람의 줄바꿈을 그대로 보인다. *@
+                    <DxGridDataColumn FieldName="@nameof(IfStepDto.StepDesc)" Caption="설명" MinWidth="240"
+                                      TextAlignment="GridTextAlignment.Left">
+                        <CellDisplayTemplate Context="cell">
+                            <div class="if-pre if-desc">@(((IfStepDto)cell.DataItem).StepDesc)</div>
+                        </CellDisplayTemplate>
+                    </DxGridDataColumn>
+
+                    <DxGridDataColumn FieldName="@nameof(IfStepDto.Params)" Caption="params" Width="220"
+                                      TextAlignment="GridTextAlignment.Left">
+                        <CellDisplayTemplate Context="cell">
+                            @{
+                                var s = (IfStepDto)cell.DataItem;
+                            }
+                            <div class="if-mono if-cut" title="@s.Params">@s.Params</div>
+                        </CellDisplayTemplate>
+                    </DxGridDataColumn>
+                </Columns>
+            </CommGrd>
+        </ChildContent>
+    </CommCont>
+
+    <CommCont Title="추가 관리항목" Hint="if_attr_def 에 항목을 추가하면 여기에 입력란이 자동으로 늘어납니다">
+        <Actions>
+            @if (_attrs.Count > 0)
+            {
                 <PermissionView Action="MenuAction.Update">
-                    <DxButton Text="관리항목 저장"
-                              RenderStyle="ButtonRenderStyle.Secondary"
-                              Click="@SaveAttrsAsync" />
+                    <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Secondary" Click="@SaveAttrsAsync" />
                 </PermissionView>
-            </div>
-        }
+            }
+        </Actions>
+
+        <ChildContent>
+            @if (_attrs.Count == 0)
+            {
+                <p class="if-muted">정의된 추가 항목이 없습니다.</p>
+            }
+            else
+            {
+                <DxFormLayout CssClass="pm-editform">
+                    @foreach (var attr in _attrs)
+                    {
+                        <DxFormLayoutItem Caption="@attr.Caption" ColSpanMd="6">
+                            @if (attr.AttrType == "CODE")
+                            {
+                                <DxComboBox Data="@CodeOptions(attr.CodeGrp)" @bind-Value="attr.Value"
+                                            TextFieldName="Text" ValueFieldName="Value"
+                                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                            }
+                            else if (attr.AttrType == "YN")
+                            {
+                                <DxCheckBox @bind-Checked="attr.Flag">예 (Y)</DxCheckBox>
+                            }
+                            else if (attr.AttrType == "NUMBER")
+                            {
+                                <DxSpinEdit @bind-Value="attr.Number"
+                                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                            }
+                            else if (attr.AttrType == "DATE")
+                            {
+                                <DxDateEdit T="DateTime?" Mask="yyyy-MM-dd" AllowUpDownArrowKeys="true" Date="@DateOf(attr.Value)"
+                                            DateChanged="@((DateTime? d) => attr.Value = Ymd(d))"
+                                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
+                            }
+                            else if (attr.AttrType == "JSON")
+                            {
+                                <DxMemo @bind-Text="attr.Value" Rows="3" CssClass="pm-paste" />
+                            }
+                            else
+                            {
+                                <DxTextBox @bind-Text="attr.Value" />
+                            }
+
+                            <div class="jsini-hint">@attr.AttrCd · @attr.AttrType</div>
+                        </DxFormLayoutItem>
+                    }
+                </DxFormLayout>
+            }
+        </ChildContent>
     </CommCont>
 
-    <CommCont Title="처리 단계">
-        <CommGrd TItem="IfStepDto"
-                 Data="@_steps"
-                 ExportName="처리 단계"
-                 EmptyText="처리 단계가 없습니다."
-                 PageSize="10"
-                 RowActions="@StepActions"
-                 Reload="@LoadDetailAsync">
-            <ContextMenuItems>
-                <PermissionView Action="MenuAction.Create">
-                    <CommMenuItem Text="단계 추가" IconCssClass="jsini-icon-plus" Click="@StartNewStep" />
-                </PermissionView>
-            </ContextMenuItems>
-
-            <Columns>
-                <DxGridDataColumn FieldName="@nameof(IfStepDto.StepNo)" Caption="차례" Width="70" />
-                <DxGridDataColumn FieldName="@nameof(IfStepDto.StepNm)" Caption="이름" MinWidth="160"
-                                  TextAlignment="GridTextAlignment.Left" />
-                <DxGridDataColumn FieldName="@nameof(IfStepDto.StepTypeNm)" Caption="유형" Width="120" />
-                <DxGridDataColumn FieldName="@nameof(IfStepDto.SystemNm)" Caption="시스템" Width="130" />
-                <DxGridDataColumn FieldName="@nameof(IfStepDto.ObjectFullNm)" Caption="대상" MinWidth="180"
-                                  TextAlignment="GridTextAlignment.Left" />
-                <DxGridDataColumn FieldName="@nameof(IfStepDto.ObjectType)" Caption="종류" Width="100" />
-            </Columns>
-        </CommGrd>
-    </CommCont>
-
-    <CommCont Title="메모 · 이슈">
-        <CommGrd TItem="IfNoteDto"
-                 Data="@_notes"
-                 ExportName="메모"
-                 EmptyText="메모가 없습니다."
-                 PageSize="10"
-                 RowActions="@NoteActions"
-                 Reload="@LoadDetailAsync">
-            <ContextMenuItems>
-                <PermissionView Action="MenuAction.Create">
-                    <CommMenuItem Text="메모 추가" IconCssClass="jsini-icon-plus" Click="@StartNewNote" />
-                </PermissionView>
-            </ContextMenuItems>
-
-            <Columns>
-                <DxGridDataColumn FieldName="@nameof(IfNoteDto.NoteTypeNm)" Caption="갈래" Width="100" />
-                <DxGridDataColumn FieldName="@nameof(IfNoteDto.Title)" Caption="제목" MinWidth="180"
-                                  TextAlignment="GridTextAlignment.Left" />
-                <DxGridDataColumn FieldName="@nameof(IfNoteDto.StepNm)" Caption="붙은 단계" Width="130" />
-                <DxGridDataColumn FieldName="@nameof(IfNoteDto.NoteDt)" Caption="날짜" Width="110" />
-                <DxGridDataColumn FieldName="@nameof(IfNoteDto.WriterNm)" Caption="적은이" Width="100" />
-
-                <DxGridDataColumn Caption="상태" Width="80">
-                    <CellDisplayTemplate Context="cell">
-                        @{
-                            var n = (IfNoteDto)cell.DataItem;
-                        }
-                        <span class="jsini-badge @(n.Done ? "jsini-badge--on" : "jsini-badge--off")">
-                            @(n.Done ? "완료" : "열림")
-                        </span>
-                    </CellDisplayTemplate>
-                </DxGridDataColumn>
-            </Columns>
-        </CommGrd>
-    </CommCont>
-
-    <CommCont Title="첨부">
-        <CommGrd TItem="IfFileDto"
-                 Data="@_files"
-                 ExportName="첨부"
-                 EmptyText="첨부가 없습니다."
-                 PageSize="10"
-                 OnDelete="@DeleteFileAsync"
-                 DeleteConfirm="@(f => $"「{f.Name}」 을(를) 지웁니다.\n되돌릴 수 없습니다.")"
-                 Reload="@LoadFilesAsync">
-            <Columns>
-                <DxGridDataColumn FieldName="@nameof(IfFileDto.Name)" Caption="이름" MinWidth="240"
-                                  TextAlignment="GridTextAlignment.Left" />
-
-                <DxGridDataColumn Caption="크기" Width="110">
-                    <CellDisplayTemplate Context="cell">
-                        @{
-                            var f = (IfFileDto)cell.DataItem;
-                        }
-                        @Size(f.Size)
-                    </CellDisplayTemplate>
-                </DxGridDataColumn>
-
-                <DxGridDataColumn FieldName="@nameof(IfFileDto.Modified)" Caption="올린 때" Width="140" />
-            </Columns>
-        </CommGrd>
-
+    <CommCont Title="첨부파일" Hint="@($"{_files.Count}건 · 파일당 25MB · 한 번에 20개까지")">
         <PermissionView Action="MenuAction.Create">
             <FilePicker @ref="_picker"
                         MaxFiles="20"
@@ -363,74 +378,190 @@ else if (_master is not null)
                         FilesChanged="@(files => _picked = files)" />
 
             <div class="jsini-toolbar">
-                <DxButton Text="올리기"
+                <DxButton Text="@(_uploading ? "올리는 중…" : "올리기")"
                           RenderStyle="ButtonRenderStyle.Primary"
-                          Enabled="@(_picked.Count > 0)"
+                          Enabled="@(_picked.Count > 0 && !_uploading)"
                           Click="@UploadAsync" />
             </div>
         </PermissionView>
+
+        @if (_files.Count == 0)
+        {
+            <p class="if-muted">첨부된 파일이 없습니다.</p>
+        }
+        else
+        {
+            <CommGrd TItem="IfFileDto"
+                     Data="@_files"
+                     ExportName="첨부파일"
+                     PagerVisible="false"
+                     RowActions="@FileActions"
+                     OnDelete="@DeleteFileAsync"
+                     DeleteConfirm="@(f => $"첨부파일 「{f.Name}」 을 삭제할까요?")"
+                     Reload="@LoadFilesAsync">
+                <Columns>
+                    <DxGridDataColumn FieldName="@nameof(IfFileDto.Name)" Caption="파일명" MinWidth="240"
+                                      TextAlignment="GridTextAlignment.Left">
+                        <CellDisplayTemplate Context="cell">
+                            @{
+                                var f = (IfFileDto)cell.DataItem;
+                            }
+                            <a class="if-dl" href="@FileUrl(f)" target="_blank" rel="noopener">@f.Name</a>
+                        </CellDisplayTemplate>
+                    </DxGridDataColumn>
+
+                    <DxGridDataColumn FieldName="@nameof(IfFileDto.Size)" Caption="크기" Width="90">
+                        <CellDisplayTemplate Context="cell">
+                            @Kb(((IfFileDto)cell.DataItem).Size)
+                        </CellDisplayTemplate>
+                    </DxGridDataColumn>
+
+                    <DxGridDataColumn FieldName="@nameof(IfFileDto.Modified)" Caption="올린 시각" Width="140" />
+                </Columns>
+            </CommGrd>
+        }
+    </CommCont>
+
+    <CommCont Title="메모 / 이슈" Hint="@($"{_notes.Count}건")">
+        <Actions>
+            <PermissionView Action="MenuAction.Create">
+                <DxButton Text="+ 추가" RenderStyle="ButtonRenderStyle.Secondary" Click="@StartNewNote" />
+            </PermissionView>
+        </Actions>
+
+        <ChildContent>
+            <CommGrd TItem="IfNoteDto"
+                     Data="@_notes"
+                     ExportName="메모"
+                     EmptyText="메모가 없습니다."
+                     PagerVisible="false"
+                     RowCssClass="@(n => n.Done ? "if-done" : null)"
+                     OnDelete="@DeleteNoteAsync"
+                     DeleteConfirm="@(n => $"「{n.Title}」 메모를 삭제할까요?")"
+                     Reload="@LoadDetailAsync">
+                <Columns>
+                    <DxGridDataColumn FieldName="@nameof(IfNoteDto.NoteTypeNm)" Caption="유형" Width="100">
+                        <CellDisplayTemplate Context="cell">
+                            @{
+                                var n = (IfNoteDto)cell.DataItem;
+                            }
+                            <span class="jsini-badge jsini-badge--muted">@(n.NoteTypeNm ?? n.NoteTypeCd)</span>
+                        </CellDisplayTemplate>
+                    </DxGridDataColumn>
+
+                    <DxGridDataColumn FieldName="@nameof(IfNoteDto.Title)" Caption="제목 / 내용" MinWidth="260"
+                                      TextAlignment="GridTextAlignment.Left">
+                        <CellDisplayTemplate Context="cell">
+                            @{
+                                var n = (IfNoteDto)cell.DataItem;
+                            }
+                            <strong class="if-note-title">@n.Title</strong>
+                            @if (!string.IsNullOrWhiteSpace(n.Content))
+                            {
+                                <div class="if-pre if-muted">@n.Content</div>
+                            }
+                        </CellDisplayTemplate>
+                    </DxGridDataColumn>
+
+                    <DxGridDataColumn FieldName="@nameof(IfNoteDto.StepNm)" Caption="단계" Width="130" />
+                    <DxGridDataColumn FieldName="@nameof(IfNoteDto.WriterNm)" Caption="작성자" Width="90" />
+                    <DxGridDataColumn FieldName="@nameof(IfNoteDto.DisplayDate)" Caption="일자" Width="100" />
+
+                    @* 해결 표시는 이슈에만 있다 — 메모·변경이력은 끝나는 것이 아니다. *@
+                    <DxGridDataColumn FieldName="@nameof(IfNoteDto.DoneYn)" Caption="해결" Width="60">
+                        <CellDisplayTemplate Context="cell">
+                            @{
+                                var n = (IfNoteDto)cell.DataItem;
+                            }
+                            @if (n.NoteTypeCd == "ISSUE")
+                            {
+                                <span title="해결 표시">
+                                    <DxCheckBox Checked="@n.Done"
+                                                Enabled="@CanToggleNote"
+                                                CheckedChanged="@((bool _) => ToggleNoteAsync(n))" />
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="if-muted">·</span>
+                            }
+                        </CellDisplayTemplate>
+                    </DxGridDataColumn>
+                </Columns>
+            </CommGrd>
+        </ChildContent>
     </CommCont>
 }
+</div>
 
-<CommPopup @bind-Visible="_newOpen" HeaderText="인터페이스 등록" Width="520px">
+<CommPopup @bind-Visible="_newOpen" HeaderText="인터페이스 등록" Width="560px">
     <BodyContentTemplate Context="popup">
+        <p class="jsini-hint">코드 · 이름 · 방향 · 상태만 입력하면 됩니다. 단계는 상세에서 추가합니다.</p>
+
         <DxFormLayout CssClass="pm-editform">
-            <DxFormLayoutItem Caption="코드" ColSpanMd="12">
+            <DxFormLayoutItem Caption="인터페이스 코드 *" ColSpanMd="12">
                 <DxTextBox @bind-Text="_new.IfCd" />
-                <div class="jsini-hint">프로젝트 안에서 하나여야 합니다.</div>
+                <div class="jsini-hint">프로그램이 남기는 IF_ID 와 같은 값이어야 합니다.</div>
             </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="이름" ColSpanMd="12">
+            <DxFormLayoutItem Caption="인터페이스명 *" ColSpanMd="12">
                 <DxTextBox @bind-Text="_new.IfNm" />
             </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="방향" ColSpanMd="6">
+            <DxFormLayoutItem Caption="방향 *" ColSpanMd="6">
                 <DxComboBox Data="@_directionOptions" @bind-Value="_new.DirectionCd"
                             TextFieldName="Text" ValueFieldName="Value" />
             </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="상태" ColSpanMd="6">
+            <DxFormLayoutItem Caption="상태 *" ColSpanMd="6">
                 <DxComboBox Data="@_statusOptions" @bind-Value="_new.StatusCd"
                             TextFieldName="Text" ValueFieldName="Value" />
             </DxFormLayoutItem>
-        </DxFormLayout>
 
+            <DxFormLayoutItem Caption="도메인" ColSpanMd="12">
+                <DxTextBox @bind-Text="_new.DomainCd" />
+                <div class="jsini-hint">예: PD · pmm001</div>
+            </DxFormLayoutItem>
+        </DxFormLayout>
     </BodyContentTemplate>
 
     <FooterContentTemplate Context="popup">
         <DxButton Text="등록" RenderStyle="ButtonRenderStyle.Primary" Click="@CreateAsync" />
-        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
+        <DxButton Text="취소" RenderStyle="ButtonRenderStyle.Secondary"
                   Click="@(() => _newOpen = false)" />
     </FooterContentTemplate>
 </CommPopup>
 
-<CommPopup @bind-Visible="_stepOpen" HeaderText="처리 단계" Width="640px">
+<CommPopup @bind-Visible="_stepOpen" HeaderText="@(_step.StepId == 0 ? "단계 추가" : "단계 수정")" Width="680px">
     <BodyContentTemplate Context="popup">
         <DxFormLayout CssClass="pm-editform">
-            <DxFormLayoutItem Caption="이름" ColSpanMd="12">
+            <DxFormLayoutItem Caption="단계명 *" ColSpanMd="12">
                 <DxTextBox @bind-Text="_step.StepNm" />
             </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="유형" ColSpanMd="6">
+            <DxFormLayoutItem Caption="단계 유형" ColSpanMd="6">
                 <DxComboBox Data="@_stepTypeOptions" @bind-Value="_step.StepTypeCd"
                             TextFieldName="Text" ValueFieldName="Value"
                             ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
             </DxFormLayoutItem>
 
             <DxFormLayoutItem Caption="시스템" ColSpanMd="6">
-                <DxComboBox Data="@_systemOptions" @bind-Value="_stepSystemId"
-                            TextFieldName="Text" ValueFieldName="Value" />
+                <DxComboBox Data="@_systemOptions" @bind-Value="_step.SystemId"
+                            TextFieldName="Text" ValueFieldName="Value"
+                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
             </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="대상 소유자" ColSpanMd="6">
+            <DxFormLayoutItem Caption="객체 소유자" ColSpanMd="4">
                 <DxTextBox @bind-Text="_step.ObjectOwner" />
+                <div class="jsini-hint">예: SST02</div>
             </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="대상 이름" ColSpanMd="6">
+            <DxFormLayoutItem Caption="객체명" ColSpanMd="5">
                 <DxTextBox @bind-Text="_step.ObjectNm" />
+                <div class="jsini-hint">예: Z_PD_C_LOCPOR</div>
             </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="대상 종류" ColSpanMd="6">
+            <DxFormLayoutItem Caption="객체 유형" ColSpanMd="3">
                 <DxComboBox Data="@_objectTypeOptions" @bind-Value="_step.ObjectType"
                             TextFieldName="Text" ValueFieldName="Value"
                             ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
@@ -440,51 +571,51 @@ else if (_master is not null)
                 <DxMemo @bind-Text="_step.StepDesc" Rows="3" />
             </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="params" ColSpanMd="12">
-                <DxMemo @bind-Text="_step.Params" Rows="3" CssClass="pm-paste" />
-                <div class="jsini-hint">JSON 입니다. 비워 두면 빈 객체로 들어갑니다.</div>
+            <DxFormLayoutItem Caption="params (JSON)" ColSpanMd="12">
+                <DxMemo @bind-Text="_step.Params" Rows="5" CssClass="pm-paste" />
+                <div class="jsini-hint">예: {"in":[{"name":"P_IFSEQ","type":"VARCHAR2","desc":"I/F Seq. No."}]}</div>
             </DxFormLayoutItem>
         </DxFormLayout>
     </BodyContentTemplate>
 
     <FooterContentTemplate Context="popup">
         <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveStepAsync" />
-        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
+        <DxButton Text="취소" RenderStyle="ButtonRenderStyle.Secondary"
                   Click="@(() => _stepOpen = false)" />
     </FooterContentTemplate>
 </CommPopup>
 
-<CommPopup @bind-Visible="_noteOpen" HeaderText="메모 · 이슈" Width="640px">
+<CommPopup @bind-Visible="_noteOpen" HeaderText="메모 / 이슈 추가" Width="600px">
     <BodyContentTemplate Context="popup">
         <DxFormLayout CssClass="pm-editform">
-            <DxFormLayoutItem Caption="갈래" ColSpanMd="6">
+            <DxFormLayoutItem Caption="유형" ColSpanMd="6">
                 <DxComboBox Data="@_noteTypeOptions" @bind-Value="_note.NoteTypeCd"
-                            TextFieldName="Text" ValueFieldName="Value" />
+                            TextFieldName="Text" ValueFieldName="Value"
+                            ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
             </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="적은이" ColSpanMd="6">
+            <DxFormLayoutItem Caption="작성자" ColSpanMd="6">
                 <DxTextBox @bind-Text="_note.WriterNm" />
             </DxFormLayoutItem>
 
-            <DxFormLayoutItem Caption="붙일 단계" ColSpanMd="12">
-                <DxComboBox Data="@StepOptions" @bind-Value="_noteStepId"
-                            TextFieldName="Text" ValueFieldName="Value" />
-                <div class="jsini-hint">비우면 인터페이스 전체에 붙습니다.</div>
-            </DxFormLayoutItem>
-
-            <DxFormLayoutItem Caption="제목" ColSpanMd="12">
+            <DxFormLayoutItem Caption="제목 *" ColSpanMd="12">
                 <DxTextBox @bind-Text="_note.Title" />
             </DxFormLayoutItem>
 
             <DxFormLayoutItem Caption="내용" ColSpanMd="12">
-                <DxMemo @bind-Text="_note.Content" Rows="5" />
+                <DxMemo @bind-Text="_note.Content" Rows="3" />
+            </DxFormLayoutItem>
+
+            <DxFormLayoutItem Caption="관련 단계" ColSpanMd="12">
+                <DxComboBox Data="@StepOptions" @bind-Value="_note.StepId"
+                            TextFieldName="Text" ValueFieldName="Value" />
             </DxFormLayoutItem>
         </DxFormLayout>
     </BodyContentTemplate>
 
     <FooterContentTemplate Context="popup">
         <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveNoteAsync" />
-        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary"
+        <DxButton Text="취소" RenderStyle="ButtonRenderStyle.Secondary"
                   Click="@(() => _noteOpen = false)" />
     </FooterContentTemplate>
 </CommPopup>
@@ -492,15 +623,8 @@ else if (_master is not null)
 <ConfirmDialog @ref="_confirm" />
 
 @code {
-    private RenderFragment<IfMasterDto> RowActions => row => __builder =>
-    {
-        <DxButton Text="상세"
-                  RenderStyle="ButtonRenderStyle.Link"
-                  Click="@(() => OpenDetailAsync(row.IfId))" />
-    };
-
     /// <summary>
-    /// 단계의 관리 칸 — 위·아래로 옮기기와 편집·삭제.
+    /// 단계의 관리 칸 — 위·아래로 옮기기와 수정·삭제.
     /// </summary>
     /// <remarks>
     /// 차례를 바꾸는 길이 이것뿐이다. 서버는 통째로 다시 매기는 통로를 가지고
@@ -533,22 +657,10 @@ else if (_master is not null)
         </PermissionView>
     };
 
-    private RenderFragment<IfNoteDto> NoteActions => note => __builder =>
+    private RenderFragment<IfFileDto> FileActions => file => __builder =>
     {
-        <PermissionView Action="MenuAction.Update">
-            <DxButton Text="@(note.Done ? "되돌리기" : "완료")"
-                      RenderStyle="ButtonRenderStyle.Link"
-                      Click="@(() => ToggleNoteAsync(note))" />
-
-            <DxButton Text="수정"
-                      RenderStyle="ButtonRenderStyle.Link"
-                      Click="@(() => EditNote(note))" />
-        </PermissionView>
-
-        <PermissionView Action="MenuAction.Delete">
-            <DxButton Text="삭제"
-                      RenderStyle="ButtonRenderStyle.Link"
-                      Click="@(() => DeleteNoteAsync(note))" />
-        </PermissionView>
+        <a class="if-btnlink" href="@FileUrl(file)" target="_blank" rel="noopener">
+            <span class="jsini-icon-download" aria-hidden="true"></span> 내려받기
+        </a>
     };
 }

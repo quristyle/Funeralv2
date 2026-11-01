@@ -38,6 +38,16 @@ public static class FileDownload
             : $"{url}?name={Uri.EscapeDataString(fileName)}";
     }
 
+    /// <summary>프로젝트관리 인터페이스 첨부 하나의 주소. FileServer 가 아니라 ProjMngServer 의 디스크에 있고, 열쇠가 GUID 가 아니라 그 서버가 지은 글자라 갈래를 따로 둔다.</summary>
+    public static string InterfaceUrlFor(int prjRid, int ifId, string fileId, string? fileName = null)
+    {
+        var url = $"{Path}/if/{prjRid}/{ifId}/{Uri.EscapeDataString(fileId)}";
+
+        return string.IsNullOrWhiteSpace(fileName)
+            ? url
+            : $"{url}?name={Uri.EscapeDataString(fileName)}";
+    }
+
     /// <summary>첨부 하나의 썸네일(150x150 WebP) 주소. 작은 그림을 그릴 때 쓴다.</summary>
     public static string ThumbnailUrlFor(string fileId) =>
         $"{Path}/thumbnail/{Uri.EscapeDataString(fileId)}";
@@ -139,6 +149,11 @@ public static class FileDownload
             .RequireAuthorization()
             .WithName("JSiniAiTaskFile");
 
+        // 인터페이스 첨부. 리터럴 if 라 {fileId} 와 겹치지 않는다.
+        endpoints.MapGet($"{Path}/if/{{prjRid:int}}/{{ifId:int}}/{{fileId}}", HandleInterfaceAsync)
+            .RequireAuthorization()
+            .WithName("JSiniInterfaceFile");
+
         // 자료실·플레이어. 횟수를 세는 경로를 거친다. 리터럴 archive 라 {fileId} 와 겹치지 않는다.
         endpoints.MapGet($"{Path}/archive/{{archiveId}}/{{fileId}}", HandleArchiveAsync)
             .RequireAuthorization()
@@ -169,6 +184,22 @@ public static class FileDownload
             // 여기서는 캐시를 열지 않는다 — 캐시본을 쓰면 요청이 서버에 닿지 않아 횟수가 멈춘다.
             cacheable: false);
     }
+
+    /// <summary>인터페이스 첨부를 중계한다. 파일 번호의 모양 검사는 위쪽(InterfaceFileService)이 한다 — 여기서는 주소에 그대로 싣지 않고 이스케이프만 한다.</summary>
+    private static Task HandleInterfaceAsync(
+        int prjRid,
+        int ifId,
+        string fileId,
+        string? name,
+        HttpContext http,
+        GatewayClient gateway,
+        ILoggerFactory loggers,
+        CancellationToken cancellationToken)
+        => RelayAsync(
+            $"projmng/interfaces/{ifId}/files/{Uri.EscapeDataString(fileId)}?prjRid={prjRid}",
+            $"if-{prjRid}-{ifId}-{fileId}", name, http, gateway, loggers, cancellationToken,
+            // 같은 번호로 다시 올라올 일은 없지만 지운 뒤에도 보이면 안 되므로 캐시하지 않는다.
+            cacheable: false);
 
     /// <summary>AI 작업 첨부를 중계한다. 무엇을 어떤 형식으로 낼지는 AiTaskFilesController 가 정한다 — 여기서 또 가르면 두 판정이 갈린다.</summary>
     private static Task HandleAiTaskAsync(

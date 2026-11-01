@@ -1,4 +1,5 @@
 using System.Text;
+using JSini.Shared.Infrastructure.Time;
 using ProjMngServer.Models;
 
 namespace ProjMngServer.Services;
@@ -63,7 +64,7 @@ public sealed class InterfaceFileService(IWebHostEnvironment env)
             FileId = i > 0 ? f.Name[..i] : f.Name,
             Name = i > 0 ? f.Name[(i + Sep.Length)..] : f.Name,
             Size = f.Length,
-            Modified = f.LastWriteTime.ToString("yyyy-MM-dd HH:mm"),
+            Modified = AppTime.ToKorea(f.LastWriteTimeUtc).ToString("yyyy-MM-dd HH:mm"),
         };
     }
 
