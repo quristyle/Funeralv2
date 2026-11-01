@@ -52,7 +52,6 @@
 /projmng/design/{erd,flow,use-case,mind-map}, /projmng/db/{list,code,tools,tester,table},
 /projmng/source/{trace,glue,scaner}, /projmng/comm/common-code,
 /projmng/sys/{db-logic,db-logic-item}, /projmng/todo/{list,monitor},
-/projmng/tool/{sheet,fast-test,com-test,component},
 /projmng/external/{funeral-monitor,jsini} (EMBEDDED iframe 2건)
 
 ## LifeEnv (:5565, /life) — DB path 그대로

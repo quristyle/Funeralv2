@@ -2547,7 +2547,6 @@ Components/Shared/RuntimeColumns.razor 실행 시점에 정해지는 칸 (CommGr
 Components/Shared/WbsEditForm.razor    WBS·일정표가 같이 쓰는 편집 창
 Components/Shared/ScheduleEditPopup.razor 일정표의 등록·수정 창 — 달력·목록·표 보기가 모두 이 한 벌을 연다
 Components/Shared/ParticipationBoard.razor  참여 배정 — 참여자·투입 관리 두 메뉴가 이것 하나를 연다
-Components/Shared/ProjectGrid.razor    읽기 전용 프로젝트 표
 Components/Shared/CodeSelect.razor     공통코드 드롭다운
 Components/Shared/BizSelect.razor      포털 계정 드롭다운
 Components/Shared/SourceSelect.razor   소스 드롭다운
