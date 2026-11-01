@@ -6717,6 +6717,12 @@ a.jsini-social__btn:focus-visible {
   mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M7.2 1h1.6v1.6h2.4A2.8 2.8 0 0 1 14 5.4v5.2a2.8 2.8 0 0 1-2.8 2.8H4.8A2.8 2.8 0 0 1 2 10.6V5.4a2.8 2.8 0 0 1 2.8-2.8h2.4zM5.8 6.6a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4zm4.4 0a1.2 1.2 0 1 0 0 2.4 1.2 1.2 0 0 0 0-2.4zM0 6.4h1.2v3.2H0zm14.8 0H16v3.2h-1.2z'/%3E%3C/svg%3E");
 }
 
+/* 업무 비서(AiAssistantToggle). 옆의 🤖(AI 대화)와 그림이 갈려야 어느 쪽이 사내 업무를 묻는 자리인지 보인다. */
+.jsini-icon-briefcase {
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M6 1.5h4A1.5 1.5 0 0 1 11.5 3v1H14a1.5 1.5 0 0 1 1.5 1.5v7A1.5 1.5 0 0 1 14 14H2A1.5 1.5 0 0 1 .5 12.5v-7A1.5 1.5 0 0 1 2 4h2.5V3A1.5 1.5 0 0 1 6 1.5zM6 3v1h4V3zM.5 7.6v1.2h15V7.6zm6.3-.6h2.4v2.6H6.8z'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill-rule='evenodd' d='M6 1.5h4A1.5 1.5 0 0 1 11.5 3v1H14a1.5 1.5 0 0 1 1.5 1.5v7A1.5 1.5 0 0 1 14 14H2A1.5 1.5 0 0 1 .5 12.5v-7A1.5 1.5 0 0 1 2 4h2.5V3A1.5 1.5 0 0 1 6 1.5zM6 3v1h4V3zM.5 7.6v1.2h15V7.6zm6.3-.6h2.4v2.6H6.8z'/%3E%3C/svg%3E");
+}
+
 /* 첨부 고르기(D5). 생김새는 DevExpress DxFileInput 이 그린다. 여기 남는 것은 부품과 안내 줄을 세로로 쌓는 것뿐이다. DxUpload 은 BFF 라 토큰이 없어 쓸 수 없다. */
 .jsini-picker {
   display: grid;
