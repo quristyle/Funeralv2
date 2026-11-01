@@ -272,6 +272,11 @@ public sealed class WbsBoardDelayRow
 
     public string? PriorityOrder { get; set; }
     public string? ProgType { get; set; }
+
+    // ProjectView 캐시(wbs_pv). 실적시작일 전송 스크립트가 workId 를 박고, 이미 실적시작일이 있는 건을 미리 뺀다.
+    public string? PvWorkId { get; set; }
+    public string? PvProjectId { get; set; }
+    public string? PvActualSdt { get; set; }
 }
 
 /// <summary>

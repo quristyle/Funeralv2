@@ -2,8 +2,8 @@
 @attribute [RouteKey("projmng.wbs.delay")]
 
 @*
-WBS 지연 현황. 착수지연과 종료지연은 독립이라 한 줄이 둘 다일 수 있으므로, 「둘 다」와 「하나라도」를 서버가 따로 준다 — 화면에서 더하지 않는다.
-판정식은 상세 목록의 지연 필터와 같은 한 벌이다(갈라지면 눌러 넘어간 목록의 건수가 여기 숫자와 달라진다).
+WBS 지연 현황(원본 Delay.vue). 착수지연과 종료지연은 독립이라 한 줄이 둘 다일 수 있으므로, 「둘 다」와 「하나라도」를 서버가 따로 준다 — 화면에서 더하지 않는다.
+사람 표의 줄을 누르면 아래 상세 목록만 그 사람 건으로 좁혀 다시 읽는다 — 위의 숫자는 그대로 두어야 좁힌 목록과 견줄 수 있다.
 *@
 
 @inherits DataPage
@@ -20,120 +20,403 @@ WBS 지연 현황. 착수지연과 종료지연은 독립이라 한 줄이 둘 �
             <DxComboBox Data="@WbsBoardOptions.Scope" @bind-Value="_scope"
                         TextFieldName="Text" ValueFieldName="Value" Style="width: 130px" />
         </CommSchItem>
-
-        <CommSchItem Label="잣대">
-            <DxComboBox Data="@WbsBoardOptions.Who" @bind-Value="_who"
-                        TextFieldName="Text" ValueFieldName="Value" Style="width: 130px" />
-        </CommSchItem>
-
-        <CommSchItem Label="갈래">
-            <DxComboBox Data="@KindOptions" @bind-Value="_kind"
-                        TextFieldName="Text" ValueFieldName="Value" Style="width: 140px" />
-        </CommSchItem>
     </Fields>
 </CommSch>
 
-@if (_summary is not null)
-{
-    <div class="jsini-stats">
-        <div class="jsini-stat">
-            <div class="jsini-stat__label">기준일</div>
-            <div class="jsini-stat__value pm-stat--dates">@_summary.Asof</div>
+<div class="pm-delay">
+    @if (_summary is not null)
+    {
+        <p class="pm-delay__asof">
+            기준일 @_summary.Asof
+            @if (_loadedAt is not null)
+            {
+                <span> · 마지막 갱신 @_loadedAt</span>
+            }
+        </p>
+
+        <div class="jsini-stats">
+            <div class="jsini-stat">
+                <div class="jsini-stat__label">@WbsBoardOptions.TextOf(WbsBoardOptions.Scope, _scope)</div>
+                <div class="jsini-stat__value">@_summary.Total</div>
+            </div>
+            <div class="jsini-stat">
+                <div class="jsini-stat__label">착수지연</div>
+                <div class="jsini-stat__value pm-delay__late">
+                    @_summary.StartLate
+                    @if (_summary.MaxStartDays is > 0)
+                    {
+                        <small class="pm-delay__sub">최대 @(_summary.MaxStartDays)일</small>
+                    }
+                </div>
+            </div>
+            <div class="jsini-stat">
+                <div class="jsini-stat__label">종료지연</div>
+                <div class="jsini-stat__value pm-delay__late">
+                    @_summary.FinishLate
+                    @if (_summary.MaxFinishDays is > 0)
+                    {
+                        <small class="pm-delay__sub">최대 @(_summary.MaxFinishDays)일</small>
+                    }
+                </div>
+            </div>
+            <div class="jsini-stat">
+                <div class="jsini-stat__label">착수·종료 모두 지연</div>
+                <div class="jsini-stat__value">@_summary.BothLate</div>
+            </div>
+            <div class="jsini-stat">
+                <div class="jsini-stat__label">지연 항목 (중복 제외)</div>
+                <div class="jsini-stat__value">
+                    @_summary.AnyLate
+                    <small class="pm-delay__sub">/ @_summary.Total · @WbsBoardOptions.Percent(_summary.AnyLate, _summary.Total)</small>
+                </div>
+            </div>
+            <div class="jsini-stat">
+                <div class="jsini-stat__label">기준일 (오늘)</div>
+                <div class="jsini-stat__value pm-stat--dates">@_summary.Asof</div>
+            </div>
         </div>
-        <div class="jsini-stat">
-            <div class="jsini-stat__label">착수지연</div>
-            <div class="jsini-stat__value">@_summary.StartLate</div>
-        </div>
-        <div class="jsini-stat">
-            <div class="jsini-stat__label">종료지연</div>
-            <div class="jsini-stat__value">@_summary.FinishLate</div>
-        </div>
-        <div class="jsini-stat">
-            <div class="jsini-stat__label">둘 다</div>
-            <div class="jsini-stat__value">@_summary.BothLate</div>
-        </div>
-        <div class="jsini-stat">
-            <div class="jsini-stat__label">하나라도</div>
-            <div class="jsini-stat__value">@_summary.AnyLate</div>
-        </div>
-        <div class="jsini-stat">
-            <div class="jsini-stat__label">최장 착수지연</div>
-            <div class="jsini-stat__value">@Days(_summary.MaxStartDays)</div>
-        </div>
-        <div class="jsini-stat">
-            <div class="jsini-stat__label">최장 종료지연</div>
-            <div class="jsini-stat__value">@Days(_summary.MaxFinishDays)</div>
-        </div>
-        <div class="jsini-stat">
-            <div class="jsini-stat__label">전체</div>
-            <div class="jsini-stat__value">@_summary.Total</div>
-        </div>
+    }
+
+    <p class="pm-delay__hint">사람 줄을 누르면 아래 지연 상세 목록이 그 사람 건으로 좁혀집니다. 같은 줄을 한 번 더 누르면 풀립니다.</p>
+
+    <div class="pm-delay__pair">
+        <section class="pm-delay__panel">
+            <CommGrd TItem="WbsBoardDelayUserDto"
+                     Data="@PlanLate"
+                     Title="담당자별 지연"
+                     ExportName="담당자별 지연"
+                     EmptyText="지연 없음"
+                     PagerVisible="false"
+                     AutoSelectFirstRow="false"
+                     OnRowClick="@PickUserAsync"
+                     RowCssClass="@(u => u.UserBpId == _selUser ? "pm-delay__on" : null)"
+                     RowActions="@PlanActions"
+                     Reload="@SearchAsync">
+                <Columns>
+                    <DxGridDataColumn FieldName="@nameof(WbsBoardDelayUserDto.UserNm)" Caption="담당자" MinWidth="150"
+                                      TextAlignment="GridTextAlignment.Left">
+                        <CellDisplayTemplate Context="cell">
+                            @PersonCell(((WbsBoardDelayUserDto)cell.DataItem).UserNm, ((WbsBoardDelayUserDto)cell.DataItem).UserBpId)
+                        </CellDisplayTemplate>
+                    </DxGridDataColumn>
+                    <DxGridDataColumn FieldName="@nameof(WbsBoardDelayUserDto.Assigned)" Caption="담당" Width="70" />
+                    <DxGridDataColumn FieldName="@nameof(WbsBoardDelayUserDto.StartLate)" Caption="착수지연" Width="85">
+                        <CellDisplayTemplate Context="cell">
+                            @LateCount(((WbsBoardDelayUserDto)cell.DataItem).StartLate)
+                        </CellDisplayTemplate>
+                    </DxGridDataColumn>
+                    <DxGridDataColumn FieldName="@nameof(WbsBoardDelayUserDto.FinishLate)" Caption="종료지연" Width="85">
+                        <CellDisplayTemplate Context="cell">
+                            @LateCount(((WbsBoardDelayUserDto)cell.DataItem).FinishLate)
+                        </CellDisplayTemplate>
+                    </DxGridDataColumn>
+                    <DxGridDataColumn FieldName="@nameof(WbsBoardDelayUserDto.AnyLate)" Caption="지연 합" Width="80">
+                        <CellDisplayTemplate Context="cell">
+                            <b>@(((WbsBoardDelayUserDto)cell.DataItem).AnyLate)</b>
+                        </CellDisplayTemplate>
+                    </DxGridDataColumn>
+                </Columns>
+            </CommGrd>
+        </section>
+
+        <section class="pm-delay__panel pm-delay__panel--real">
+            <CommGrd TItem="WbsBoardDelayUserDto"
+                     Data="@RealLate"
+                     Title="개발자별 지연"
+                     ExportName="개발자별 지연"
+                     EmptyText="지연 없음"
+                     PagerVisible="false"
+                     AutoSelectFirstRow="false"
+                     OnRowClick="@PickRealAsync"
+                     RowCssClass="@(u => u.UserBpId == _selReal ? "pm-delay__on" : null)"
+                     RowActions="@RealActions"
+                     Reload="@SearchAsync">
+                <Columns>
+                    <DxGridDataColumn FieldName="@nameof(WbsBoardDelayUserDto.UserNm)" Caption="개발자" MinWidth="150"
+                                      TextAlignment="GridTextAlignment.Left">
+                        <CellDisplayTemplate Context="cell">
+                            @PersonCell(((WbsBoardDelayUserDto)cell.DataItem).UserNm, ((WbsBoardDelayUserDto)cell.DataItem).UserBpId)
+                        </CellDisplayTemplate>
+                    </DxGridDataColumn>
+                    <DxGridDataColumn FieldName="@nameof(WbsBoardDelayUserDto.Assigned)" Caption="담당" Width="70" />
+                    <DxGridDataColumn FieldName="@nameof(WbsBoardDelayUserDto.StartLate)" Caption="착수지연" Width="85">
+                        <CellDisplayTemplate Context="cell">
+                            @LateCount(((WbsBoardDelayUserDto)cell.DataItem).StartLate)
+                        </CellDisplayTemplate>
+                    </DxGridDataColumn>
+                    <DxGridDataColumn FieldName="@nameof(WbsBoardDelayUserDto.FinishLate)" Caption="종료지연" Width="85">
+                        <CellDisplayTemplate Context="cell">
+                            @LateCount(((WbsBoardDelayUserDto)cell.DataItem).FinishLate)
+                        </CellDisplayTemplate>
+                    </DxGridDataColumn>
+                    <DxGridDataColumn FieldName="@nameof(WbsBoardDelayUserDto.AnyLate)" Caption="지연 합" Width="80">
+                        <CellDisplayTemplate Context="cell">
+                            <b>@(((WbsBoardDelayUserDto)cell.DataItem).AnyLate)</b>
+                        </CellDisplayTemplate>
+                    </DxGridDataColumn>
+                </Columns>
+            </CommGrd>
+        </section>
     </div>
-}
 
-<CommGrd TItem="WbsBoardDelayUserDto"
-         Data="@_users"
-         ExportName="사람별 지연"
-         EmptyText="사람별 자료가 없습니다."
-         RowActions="@UserActions"
-         Reload="@SearchAsync">
-    <Columns>
-        <DxGridDataColumn FieldName="@nameof(WbsBoardDelayUserDto.UserNm)" Caption="사람" MinWidth="140"
-                          TextAlignment="GridTextAlignment.Left" />
-        <DxGridDataColumn FieldName="@nameof(WbsBoardDelayUserDto.Assigned)" Caption="배정" Width="80" />
-        <DxGridDataColumn FieldName="@nameof(WbsBoardDelayUserDto.StartLate)" Caption="착수지연" Width="100" />
-        <DxGridDataColumn FieldName="@nameof(WbsBoardDelayUserDto.FinishLate)" Caption="종료지연" Width="100" />
-        <DxGridDataColumn FieldName="@nameof(WbsBoardDelayUserDto.AnyLate)" Caption="하나라도" Width="100" />
-        <DxGridDataColumn FieldName="@nameof(WbsBoardDelayUserDto.UserBpId)" Caption="사번" Width="110" />
-    </Columns>
-</CommGrd>
+    <section class="pm-delay__detail">
+        <CommGrd TItem="WbsBoardDelayRowDto"
+                 Data="@_rows"
+                 Title="지연 상세 목록"
+                 ShowHeaderCount="true"
+                 ExportName="지연 상세"
+                 EmptyText="지연 항목 없음"
+                 PageSize="30"
+                 AutoSelectFirstRow="false"
+                 Reload="@LoadRowsAsync">
+            <Toolbar>
+                <div class="pm-delay__tools">
+                    <DxComboBox Data="@KindOptions" Value="@_kind" ValueChanged="@((string v) => SetKindAsync(v))"
+                                TextFieldName="Text" ValueFieldName="Value" Style="width: 170px" />
 
-<CommGrd TItem="WbsBoardDelayRowDto"
-         Data="@_rows"
-         ExportName="지연 상세"
-         EmptyText="지연된 항목이 없습니다."
-         PageSize="30"
-         Reload="@SearchAsync">
-    <Columns>
-        <DxGridDataColumn FieldName="@nameof(WbsBoardDelayRowDto.ActivityId)" Caption="액티비티" Width="120" />
-        <DxGridDataColumn FieldName="@nameof(WbsBoardDelayRowDto.Systemcode)" Caption="모듈" Width="100" />
-        <DxGridDataColumn FieldName="@nameof(WbsBoardDelayRowDto.MenuNm)" Caption="화면" MinWidth="200"
-                          TextAlignment="GridTextAlignment.Left" />
+                    @if (FilterText is { } filter)
+                    {
+                        <span class="pm-delay__filter">필터: @filter</span>
+                    }
 
-        <DxGridDataColumn Caption="지연" Width="150">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var r = (WbsBoardDelayRowDto)cell.DataItem;
-                }
-                @if (r.StartLate)
-                {
-                    <span class="jsini-badge jsini-badge--warn" title="계획시작일이 지났는데 실적시작일이 없습니다.">
-                        착수 @r.StartDays 일
-                    </span>
-                }
-                @if (r.FinishLate)
-                {
-                    <span class="jsini-badge jsini-badge--off" title="계획종료일이 지났는데 실적종료일이 없습니다.">
-                        종료 @r.FinishDays 일
-                    </span>
-                }
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
+                    @if (HasSel)
+                    {
+                        <DxButton Text="필터 해제" RenderStyle="ButtonRenderStyle.Secondary" Size="ButtonSize.Small"
+                                  Click="@ClearSelAsync" />
+                    }
 
-        <DxGridDataColumn FieldName="@nameof(WbsBoardDelayRowDto.PlanSdt)" Caption="계획시작" Width="110" />
-        <DxGridDataColumn FieldName="@nameof(WbsBoardDelayRowDto.PlanEdt)" Caption="계획종료" Width="110" />
-        <DxGridDataColumn FieldName="@nameof(WbsBoardDelayRowDto.UserNm)" Caption="담당자" Width="110" />
-        <DxGridDataColumn FieldName="@nameof(WbsBoardDelayRowDto.UserRealNm)" Caption="개발자" Width="110" />
-        <DxGridDataColumn FieldName="@nameof(WbsBoardDelayRowDto.ProgType)" Caption="유형" MinWidth="140"
-                          TextAlignment="GridTextAlignment.Left" />
-    </Columns>
-</CommGrd>
+                    <span class="pm-delay__grow"></span>
+
+                    <DxButton Text="상세 목록에서 보기" RenderStyle="ButtonRenderStyle.Secondary" Size="ButtonSize.Small"
+                              Title="지금 조건 그대로 WBS 상세 목록 화면을 엽니다"
+                              Enabled="@(ProjectRid is not null)" Click="@DrillCurrent" />
+
+                    <DxButton Text="@($"ProjectView 실적시작일 전송 ({PvRows.Count})")"
+                              RenderStyle="ButtonRenderStyle.Primary" RenderStyleMode="ButtonRenderStyleMode.Outline"
+                              Size="ButtonSize.Small"
+                              Enabled="@(PvRows.Count > 0)"
+                              Title="@(PvRows.Count > 0
+                                  ? $"실적시작일이 비어 있는 {PvRows.Count}건의 계획시작일을 ProjectView 로 보냅니다"
+                                  : "보낼 대상이 없습니다 (실적시작일이 비어 있는 행이 없음)")"
+                              Click="@OpenPvScript" />
+                </div>
+            </Toolbar>
+
+            <ContextMenuItems>
+                <CommMenuItem Text="상세 목록에서 보기" IconCssClass="jsini-icon-open-in-new"
+                              Enabled="@(ProjectRid is not null)" Click="@DrillCurrent" />
+                <CommMenuItem Text="@($"ProjectView 실적시작일 전송 ({PvRows.Count})")" IconCssClass="jsini-icon-copy"
+                              Enabled="@(PvRows.Count > 0)" Click="@OpenPvScript" />
+            </ContextMenuItems>
+
+            <Columns>
+                <DxGridDataColumn FieldName="@nameof(WbsBoardDelayRowDto.ActivityId)" Caption="Activity ID" Width="120">
+                    <CellDisplayTemplate Context="cell">
+                        @{
+                            var r = (WbsBoardDelayRowDto)cell.DataItem;
+                        }
+                        @if (PvWorkUrl(r) is { } url)
+                        {
+                            <a class="pm-delay__pvlink" href="@url" target="_blank" rel="noopener noreferrer"
+                               title="@($"ProjectView 작업 상세 열기 ({r.ActivityId})")">@r.ActivityId</a>
+                        }
+                        else
+                        {
+                            <span class="pm-delay__muted">@(string.IsNullOrWhiteSpace(r.ActivityId) ? "—" : r.ActivityId)</span>
+                        }
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+
+                <DxGridDataColumn FieldName="@nameof(WbsBoardDelayRowDto.Systemcode)" Caption="모듈" Width="150"
+                                  TextAlignment="GridTextAlignment.Left">
+                    <CellDisplayTemplate Context="cell">
+                        @{
+                            var r = (WbsBoardDelayRowDto)cell.DataItem;
+                        }
+                        @($"{r.Systemcode} {r.SystemNm}".Trim())
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+
+                <DxGridDataColumn FieldName="@nameof(WbsBoardDelayRowDto.MenuNm)" Caption="메뉴명" MinWidth="200"
+                                  TextAlignment="GridTextAlignment.Left" />
+
+                <DxGridDataColumn FieldName="@nameof(WbsBoardDelayRowDto.PlanSdt)" Caption="시작일" Width="105">
+                    <CellDisplayTemplate Context="cell">
+                        @(((WbsBoardDelayRowDto)cell.DataItem).PlanSdt ?? "—")
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+
+                <DxGridDataColumn FieldName="@nameof(WbsBoardDelayRowDto.PlanSdtC)" Caption="실적시작" Width="105">
+                    <CellDisplayTemplate Context="cell">
+                        @{
+                            var r = (WbsBoardDelayRowDto)cell.DataItem;
+                        }
+                        <span class="@(r.StartLate ? "pm-delay__miss" : null)">@(r.PlanSdtC ?? "미입력")</span>
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+
+                <DxGridDataColumn FieldName="@nameof(WbsBoardDelayRowDto.StartDays)" Caption="착수지연" Width="85">
+                    <CellDisplayTemplate Context="cell">
+                        @DaysPill(((WbsBoardDelayRowDto)cell.DataItem).StartDays)
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+
+                <DxGridDataColumn FieldName="@nameof(WbsBoardDelayRowDto.PlanEdt)" Caption="종료일" Width="105">
+                    <CellDisplayTemplate Context="cell">
+                        @(((WbsBoardDelayRowDto)cell.DataItem).PlanEdt ?? "—")
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+
+                <DxGridDataColumn FieldName="@nameof(WbsBoardDelayRowDto.PlanEdtC)" Caption="실적종료" Width="105">
+                    <CellDisplayTemplate Context="cell">
+                        @{
+                            var r = (WbsBoardDelayRowDto)cell.DataItem;
+                        }
+                        <span class="@(r.FinishLate ? "pm-delay__miss" : null)">@(r.PlanEdtC ?? "미입력")</span>
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+
+                <DxGridDataColumn FieldName="@nameof(WbsBoardDelayRowDto.FinishDays)" Caption="종료지연" Width="85">
+                    <CellDisplayTemplate Context="cell">
+                        @DaysPill(((WbsBoardDelayRowDto)cell.DataItem).FinishDays)
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+
+                <DxGridDataColumn FieldName="@nameof(WbsBoardDelayRowDto.UserNm)" Caption="담당자" Width="150"
+                                  TextAlignment="GridTextAlignment.Left">
+                    <CellDisplayTemplate Context="cell">
+                        @{
+                            var r = (WbsBoardDelayRowDto)cell.DataItem;
+                        }
+                        @PersonCell(r.UserNm, r.UserBpId)
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+
+                <DxGridDataColumn FieldName="@nameof(WbsBoardDelayRowDto.UserRealNm)" Caption="개발자" Width="150"
+                                  TextAlignment="GridTextAlignment.Left">
+                    <CellDisplayTemplate Context="cell">
+                        @{
+                            var r = (WbsBoardDelayRowDto)cell.DataItem;
+                        }
+                        @PersonCell(r.UserRealNm, r.UserRealId)
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+
+                <DxGridDataColumn FieldName="@nameof(WbsBoardDelayRowDto.ComplateYn)" Caption="완료" Width="65">
+                    <CellDisplayTemplate Context="cell">
+                        @Check(((WbsBoardDelayRowDto)cell.DataItem).ComplateYn)
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+
+                <DxGridDataColumn FieldName="@nameof(WbsBoardDelayRowDto.ComplateRealYn)" Caption="개발자완료" Width="90">
+                    <CellDisplayTemplate Context="cell">
+                        @Check(((WbsBoardDelayRowDto)cell.DataItem).ComplateRealYn)
+                    </CellDisplayTemplate>
+                </DxGridDataColumn>
+
+                <DxGridDataColumn FieldName="@nameof(WbsBoardDelayRowDto.PriorityOrder)" Caption="우선순위" Width="80" />
+            </Columns>
+        </CommGrd>
+
+        <p class="pm-delay__note">
+            착수지연 = 계획시작일이 <strong>@(_summary?.Asof ?? "기준일")</strong> 이전인데 실적시작일이 비어 있음 ·
+            종료지연 = 계획종료일이 도래했는데 실적종료일이 비어 있음. 지연일수는 기준일과의 일수 차이입니다.
+        </p>
+        <p class="pm-delay__note">
+            <strong>ProjectView 실적시작일 전송</strong> — 위 버튼은 <em>현재 목록 중 실적시작일이 비어 있는
+            @(PvRows.Count)건</em>의 <code>시작일</code>을 ProjectView 의 <code>actualStartDate</code> 로
+            채우는 콘솔 스크립트를 만듭니다. ProjectView 로그인 탭의 F12 → Console 에 붙여넣으면 먼저
+            <code>DRY RUN</code> 으로 대상과 날짜만 출력하고, 콘솔에 <code>pvSend()</code> 를 입력할 때 실제 전송됩니다.
+            ProjectView 에 <strong>이미 실적시작일이 있는 항목은 건너뛰며</strong>,
+            진척률(<code>finishRate</code>)은 조회한 값을 그대로 되돌려 보내 건드리지 않습니다.
+        </p>
+    </section>
+</div>
+
+@* ──────────────── ProjectView 실적시작일 전송 스크립트 창 ──────────────── *@
+<CommPopup @bind-Visible="_pvOpen" HeaderText="ProjectView 실적시작일 전송 스크립트" Width="900px">
+    <BodyContentTemplate Context="popup">
+        <div class="pm-delay__pv">
+            <p class="pm-delay__pvmeta">@PvMeta</p>
+
+            <ol class="pm-delay__steps">
+                <li>아래 스크립트를 복사합니다 (자동 복사가 막히면 칸을 눌러 <code>Ctrl+A</code> · <code>Ctrl+C</code>).</li>
+                <li><strong>ProjectView 로그인 탭</strong>에서 <code>F12 → Console</code> 에 붙여넣고 Enter
+                    → <strong>확인만</strong> 하고 전송하지 않습니다 (DRY RUN).</li>
+                <li>출력된 대상·값이 맞으면 콘솔에 <code>pvSend()</code> 를 입력하고 Enter → <strong>실제 전송</strong>.</li>
+                <li>전송 후 ProjectView 화면을 <strong>새로고침(F5)</strong> 하면 반영된 값이 보입니다.
+                    실패한 건이 있으면 <strong>같은 스크립트를 한 번 더</strong> 돌리면 됩니다 — 이미 맞는 값은 건너뜁니다.</li>
+            </ol>
+
+            <p class="pm-delay__sends">바뀌는 값: actualStartDate (실적시작일) — 진척률·실적종료일은 그대로 둡니다.</p>
+
+            <textarea class="pm-delay__code" readonly spellcheck="false" rows="16">@_pvScript</textarea>
+        </div>
+    </BodyContentTemplate>
+    <FooterContentTemplate Context="popup">
+        <DxButton Text="복사" RenderStyle="ButtonRenderStyle.Primary" IconCssClass="jsini-icon-copy"
+                  Click="@CopyPvScriptAsync" />
+        <DxButton Text="닫기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => _pvOpen = false)" />
+    </FooterContentTemplate>
+</CommPopup>
 
 @code {
-    private RenderFragment<WbsBoardDelayUserDto> UserActions => user => __builder =>
+    private RenderFragment<WbsBoardDelayUserDto> PlanActions => user => __builder =>
     {
-        <DxButton Text="목록"
-                  RenderStyle="ButtonRenderStyle.Link"
-                  Click="@(() => Drill(user.UserBpId))" />
+        <DxButton Text="목록" RenderStyle="ButtonRenderStyle.Link"
+                  Title="이 담당자의 지연 건을 WBS 상세 목록에서 엽니다"
+                  Click="@(() => Drill(user.UserBpId, null))" />
+    };
+
+    private RenderFragment<WbsBoardDelayUserDto> RealActions => user => __builder =>
+    {
+        <DxButton Text="목록" RenderStyle="ButtonRenderStyle.Link"
+                  Title="이 개발자의 지연 건을 WBS 상세 목록에서 엽니다"
+                  Click="@(() => Drill(null, user.UserBpId))" />
+    };
+
+    /// <summary>이름 옆에 사번을 옅게. 계정과 안 이어져 이름이 곧 사번이면 한 번만 적는다.</summary>
+    private RenderFragment PersonCell(string? name, string? id) => __builder =>
+    {
+        if (string.IsNullOrWhiteSpace(name) && string.IsNullOrWhiteSpace(id))
+        {
+            <span class="pm-delay__muted">—</span>
+        }
+        else
+        {
+            <span class="pm-delay__nm">@(name ?? id)</span>
+            @if (!string.IsNullOrWhiteSpace(id) && name != id)
+            {
+                <span class="pm-delay__uid">@id</span>
+            }
+        }
+    };
+
+    private RenderFragment LateCount(int n) => __builder =>
+    {
+        if (n > 0)
+        {
+            <span class="pm-delay__bad">@n</span>
+        }
+    };
+
+    private RenderFragment DaysPill(int? days) => __builder =>
+    {
+        if (days is not null)
+        {
+            <span class="pm-delay__days">@(days)일</span>
+        }
+    };
+
+    private RenderFragment Check(string? yn) => __builder =>
+    {
+        if (yn == "o")
+        {
+            <span class="pm-delay__chk" title="완료">✓</span>
+        }
+        else
+        {
+            <span class="pm-delay__muted">·</span>
+        }
     };
 }

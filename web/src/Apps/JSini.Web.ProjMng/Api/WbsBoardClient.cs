@@ -465,6 +465,11 @@ public sealed class WbsBoardDelayRowDto
     public int? FinishDays { get; set; }
     public string? PriorityOrder { get; set; }
     public string? ProgType { get; set; }
+
+    /// <summary>ProjectView 캐시(wbs_pv). 수집 전이면 셋 다 비어 있다.</summary>
+    public string? PvWorkId { get; set; }
+    public string? PvProjectId { get; set; }
+    public string? PvActualSdt { get; set; }
 }
 
 /// <summary>상세 목록 한 줄.</summary>

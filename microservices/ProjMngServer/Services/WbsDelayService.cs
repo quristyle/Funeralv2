@@ -90,7 +90,11 @@ public sealed class WbsDelayService(IConfiguration configuration)
                  , case when {FinishLate} then projmng.today_kst() - w.plan_edt end as FinishDays
                  , w.priority_order   as PriorityOrder
                  , w.prog_type        as ProgType
+                 , p.pv_work_id       as PvWorkId
+                 , p.pv_project_id    as PvProjectId
+                 , p.pv_actual_sdt::text as PvActualSdt
               from projmng.wbs_work w
+              left join projmng.wbs_pv p on p.prj_rid = w.prj_rid and p.activity_id = w.activity_id
              where w.prj_rid = @prjRid
                and {DevWhere(scope, "w")}
                and {where}
