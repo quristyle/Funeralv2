@@ -21,10 +21,13 @@
     </Fields>
 </CommSch>
 
-@* ── 자료 영역 둘 ── 왼쪽에서 고르면 오른쪽이 바뀐다. 둘이라 이름이 필요하다(하나면 사이드바가 이름을 말해 비운다). 좁은 화면에서는 위아래로 쌓인다(ad-split). *@
-<div class="ad-split">
+@* ── 자료 영역 둘 ── 왼쪽에서 고르면 오른쪽이 바뀐다. 둘이라 이름이 필요하다(하나면 사이드바가 이름을 말해 비운다).
+   판 둘은 DxSplitter(ad-vsplit)로 끌어 나누고 <Panes> 안에 적는다 — 없으면 속이 빈 상자가 나온다. 판은 CommCont 여야 높이를 채운다(admin.css). 좁은 화면에서는 위아래로 쌓인다. *@
+<DxSplitter CssClass="ad-vsplit" Orientation="Orientation.Horizontal" SeparatorSize="2">
+    <Panes>
 
-    <CommCont Title="코드 묶음" CssClass="ad-split__side">
+    <DxSplitterPane Size="30%" MinSize="260px" MaxSize="60%">
+    <CommCont Title="코드 묶음" CssClass="ad-vsplit__pane ad-vsplit__pane--left">
         @* 고른 줄이 바뀌면 오른쪽을 다시 읽어야 해서 bind 대신 값과 변경을 따로 받는다. DevExpress 이름(SelectedDataItem*)을 직접 주면 CommGrd 가 선언하지 않은 이름이 splat 으로 흘러 500 이 난다 — CommGrd 의 이름을 쓴다. *@
         <CommGrd TItem="CommonCodeGroupDto" Data="@ShownGroups"
                  SelectedItem="@_group"
@@ -80,17 +83,19 @@
             </EditFormTemplate>
         </CommGrd>
     </CommCont>
+    </DxSplitterPane>
 
+    <DxSplitterPane>
     @if (_group is null)
     {
-        <CommCont CssClass="ad-split__main">
+        <CommCont CssClass="ad-vsplit__pane ad-vsplit__pane--right">
             <PageNotice Text="왼쪽에서 묶음을 고르십시오." Tone="NoticeTone.Info" />
         </CommCont>
     }
     else
     {
         @* 제목이 곧 고른 묶음이다 — 이름은 Title, 코드는 옅게 Hint 로 간다. *@
-        <CommCont Title="@_group.GroupName" Hint="@_group.GroupCode" CssClass="ad-split__main">
+        <CommCont Title="@_group.GroupName" Hint="@_group.GroupCode" CssClass="ad-vsplit__pane ad-vsplit__pane--right">
             <Actions>
                 @if (_group.IsHierarchical)
                 {
@@ -161,7 +166,10 @@
             </ChildContent>
         </CommCont>
     }
-</div>
+    </DxSplitterPane>
+
+    </Panes>
+</DxSplitter>
 
 
 @code {

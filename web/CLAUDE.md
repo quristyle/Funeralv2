@@ -3465,8 +3465,8 @@ DTO 에 하나 더 둔다(`AiDashboardRecent.StartedAtKst`).
 
   | | 폭 | 쓰는 곳 |
   |---|---|---|
-  | `ad-split` | 격자 고정(26%) | 메뉴롤 · 공통코드 |
-  | `ad-vsplit` | 끌어서 정한다 | 사람롤 |
+  | `ad-split` | 격자 고정(26%) | 메뉴롤 |
+  | `ad-vsplit` | 끌어서 정한다 | 사람롤 · 공통코드 |
 
 - **판 안에서 `CommTree`·`CommGrd` 의 높이를 값으로 주지 않는다.** 아래 띠
   (펼치기·엑셀)가 판 밖으로 밀려나고, 판이 `overflow: hidden` 이라 **눌러야
