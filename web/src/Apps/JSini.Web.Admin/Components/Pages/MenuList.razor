@@ -104,6 +104,7 @@ else
     <CommTree @ref="_treeRef" TItem="SystemMenuDto" Data="@_menus"
               KeyFieldName="@nameof(SystemMenuDto.Id)"
               ChildrenFieldName="@nameof(SystemMenuDto.Children)"
+              PagerVisible="true"
               ExportName="메뉴" ColumnResizingMode="ColumnResizingMode.FixedWidth"
               Reload="@ReloadAsync"
               RowActions="@RowActions"

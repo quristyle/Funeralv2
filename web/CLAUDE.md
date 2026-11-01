@@ -3669,7 +3669,7 @@ SelectedItemChanged="@OnGroupChangedAsync"
 | | 표(`CommGrd`) | 나무(`CommTree`) |
 |---|---|---|
 | 순번 칸 | **기본으로 안 붙는다** — 쓰려면 `ShowRowNumber="true"` | **없다**(붙일 자리가 없다) |
-| 쪽나누기 | 안 쓴다 — 페이저를 감추고 가상 스크롤(`PagerVisible="true"` 로 켠다) | **안 쓴다**(`ShowAllRows`) |
+| 쪽나누기 | 안 쓴다 — 페이저를 감추고 가상 스크롤(`PagerVisible="true"` 로 켠다) | 기본은 끔(`ShowAllRows`) — `PagerVisible="true"` 로 켜면 **뿌리 줄**을 `PageSize`(기본 15)씩 나눈다(메뉴 관리) |
 | 새 줄 | `OnNew(item)` | `OnNew(item, parent)` |
 | 저장 | `OnSave((item, isNew))` | `OnSave((item, isNew, parent))` |
 

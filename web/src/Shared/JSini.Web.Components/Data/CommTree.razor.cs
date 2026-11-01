@@ -63,6 +63,16 @@ public partial class CommTree<TItem>
     /// <summary>아래 띠와 오른쪽 클릭 창을 쓸지. 끄면 등록·다시 읽기·펼치기·칸별 검색·엑셀이 함께 사라진다.</summary>
     [Parameter] public bool ShowFooter { get; set; } = true;
 
+    /// <summary>아래 쪽 넘김(페이지 네비게이션)을 보일지. 기본은 끔 — 쪽은 뿌리 줄만 세어 나눈다.</summary>
+    [Parameter] public bool PagerVisible { get; set; }
+
+    /// <summary>한 쪽에 놓을 <b>뿌리</b> 줄 수. 하위 줄은 제 뿌리와 같은 쪽에 선다. 0 이하면 기본값.</summary>
+    [Parameter] public int PageSize { get; set; } = DefaultPageSize;
+
+    private const int DefaultPageSize = 15;
+
+    private int PageRows => PageSize > 0 ? PageSize : DefaultPageSize;
+
     /// <summary>관리 칸의 「하위 추가」. OnSave 를 준 화면에서만 보인다. 깊이가 정해진 나무(회사 &gt; 부서)에서는 끈다.</summary>
     [Parameter] public bool ShowAddChild { get; set; } = true;
 
