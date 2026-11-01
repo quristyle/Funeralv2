@@ -138,15 +138,30 @@ public partial class VehicleList
             _form.UserName = _accounts.FirstOrDefault(a => a.LoginId == _form.LoginId)?.Text;
         }
 
-        var request = _form.ToRequest();
-        var ok = _form.VehicleId is { } id
-            ? await RunAsync(() => Vehicles.UpdateVehicleAsync(id, request), "차량을 고쳤습니다.", "차량을 고치지 못했습니다")
-            : await RunAsync(() => Vehicles.CreateVehicleAsync(request), "차량을 등록했습니다.", "차량을 등록하지 못했습니다");
+        var ok = _form.IsNew
+            ? await RunAsync(PersistFormAsync, "차량을 등록했습니다.", "차량을 등록하지 못했습니다")
+            : await RunAsync(PersistFormAsync, "차량을 고쳤습니다.", "차량을 고치지 못했습니다");
 
         if (ok)
         {
             _editing = false;
             await ReloadAsync();
+        }
+    }
+
+    /// <summary>표의 OnSave — 주어야 아래 띠에 ＋ 가 선다. 고치는 것은 줄이 아니라 등록 창의 폼이다.</summary>
+    private Task PersistAsync((CargoVehicleDto Item, bool IsNew) _) => PersistFormAsync();
+
+    private async Task PersistFormAsync()
+    {
+        var request = _form.ToRequest();
+        if (_form.VehicleId is { } id)
+        {
+            await Vehicles.UpdateVehicleAsync(id, request);
+        }
+        else
+        {
+            await Vehicles.CreateVehicleAsync(request);
         }
     }
 

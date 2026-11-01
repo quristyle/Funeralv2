@@ -19,10 +19,11 @@
 </CommSch>
 
 <CommCont>
-    <CommGrd TItem="CargoVehicleDto" Data="@_vehicles" ExportName="차량" Reload="@ReloadAsync">
-        <Toolbar>
-            <DxButton Text="차량 등록" RenderStyle="ButtonRenderStyle.Primary" Click="@(() => Open(null))" />
-        </Toolbar>
+    @* 편집 폼을 주지 않으면 아래 띠의 ＋ 가 OnEditOpen 으로 와서 표 밖의 등록 창을 연다. *@
+    <CommGrd TItem="CargoVehicleDto" Data="@_vehicles" ExportName="차량" Reload="@ReloadAsync"
+             CreateTitle="차량 등록"
+             OnEditOpen="@((_, _) => Open(null))"
+             OnSave="@PersistAsync">
         <RowActions Context="row">
             <PermissionView Action="MenuAction.Update">
                 <DxButton IconCssClass="jsini-icon-edit" Title="수정"
