@@ -11,12 +11,12 @@ namespace ProjMngServer.Controllers;
 [Route("api/dev-common-codes")]
 public sealed class DevCommonCodesController(DevCommonCodeService service) : ControllerBase
 {
-    /// <summary>목록. <c>?groupsOnly=true</c> 면 묶음만, <c>?parentCode=</c> 면 그 묶음의 코드만.</summary>
+    /// <summary>목록. <c>?groupsOnly=true</c> 면 묶음만, <c>?parentCode=</c> 면 그 묶음의 코드만. <c>?dbRid=</c> 를 안 주면 공용 코드다.</summary>
     [HttpGet]
     public async Task<IActionResult> ListAsync(
-        [FromQuery] bool groupsOnly, [FromQuery] string? parentCode, [FromQuery] int? cmRid)
+        [FromQuery] bool groupsOnly, [FromQuery] string? parentCode, [FromQuery] int? cmRid, [FromQuery] int? dbRid)
     {
-        var rows = await service.ListAsync(groupsOnly, parentCode, cmRid);
+        var rows = await service.ListAsync(groupsOnly, parentCode, cmRid, dbRid);
         return Ok(ApiResponse<List<DevCommonCode>>.Ok(rows));
     }
 
@@ -53,7 +53,9 @@ public sealed class DevCommonCodesController(DevCommonCodeService service) : Con
     {
         if (!string.IsNullOrWhiteSpace(code))
         {
-            var children = await service.CountChildrenAsync(code);
+            // 딸린 코드는 같은 DB 안에서만 센다 — 다른 DB 에 같은 이름의 묶음이 있을 수 있다.
+            var row = (await service.ListAsync(cmRid: cmRid)).FirstOrDefault();
+            var children = await service.CountChildrenAsync(code, row?.DbRid);
 
             if (children > 0)
             {

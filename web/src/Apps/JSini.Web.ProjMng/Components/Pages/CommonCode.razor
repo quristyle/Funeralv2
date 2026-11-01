@@ -2,13 +2,29 @@
 @attribute [RouteKey("projmng.comm.common-code")]
 
 @*
-공통코드(프로젝트관리). 왼쪽이 묶음, 오른쪽이 그 묶음의 코드이며 같은 표다 — 상위 코드(cm_pcd)가 비면 묶음이다.
-포털 공통코드(scom)와는 아무 관계가 없다. 한 건씩 팝업으로 고치고, 묶음을 지울 때 딸린 코드는 외래키가 없어 서버가 센다.
+공통코드(프로젝트관리). 위에서 프로젝트 → DB(스키마)를 고르면 그 DB 의 공통코드가 나온다. 「공용」은 이 도구 자신이 드롭다운에 쓰는 코드다(db_rid 가 빈 줄).
+왼쪽이 묶음, 오른쪽이 그 묶음의 코드이며 같은 표다 — 상위 코드(cm_pcd)가 비면 묶음이다. 묶음을 지울 때 딸린 코드는 외래키가 없어 서버가 센다.
 *@
 
 @inherits DataPage
 
 <PageTitle>공통코드 · 프로젝트관리</PageTitle>
+
+<CommSch OnSearch="@LoadGroupsAsync" Busy="@Loading" MobileSummary="@ConditionSummary">
+    <Fields>
+        <CommSchItem Label="프로젝트">
+            <CodeSelect CodeId="projlist" @bind-Value="_projectCode" @bind-Text="_projectName"
+                        OnChanged="@(_ => LoadDbsAsync())" />
+        </CommSchItem>
+
+        <CommSchItem Label="DB · 스키마">
+            <DxComboBox Data="@_dbs" Value="@_db"
+                        TextFieldName="@nameof(DbOption.Text)"
+                        ValueChanged="@((DbOption? d) => PickDbAsync(d))"
+                        ValidationEnabled="false" CssClass="pm-code-select" />
+        </CommSchItem>
+    </Fields>
+</CommSch>
 
 <div class="pm-split">
     <CommCont Title="묶음" CssClass="pm-split__side">

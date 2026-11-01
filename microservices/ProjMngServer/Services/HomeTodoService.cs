@@ -43,7 +43,7 @@ public sealed class HomeTodoService(IConfiguration configuration)
             SELECT {Columns}
               FROM projmng.home_todo a
               LEFT JOIN ( SELECT cm_cd, cm_nm FROM projmng.devcomm
-                           WHERE cm_pcd = 'TODO_STATE' ) b
+                           WHERE cm_pcd = 'TODO_STATE' AND db_rid IS NULL ) b
                      ON b.cm_cd = a.todo_state
              -- 널일 수 있는 파라미터에는 **형을 붙인다.** 안 붙이면
              -- PostgreSQL 이 `$5` 의 형을 못 정해 42P08 로 끊는다 —
@@ -149,6 +149,7 @@ public sealed class HomeTodoService(IConfiguration configuration)
                        '', @targetDay, COALESCE(c.cm_val, '0')::bigint, @user, c.cm_val2
                   FROM projmng.devcomm c
                  WHERE c.cm_pcd = 'HOMEWORK'
+                   AND c.db_rid IS NULL
                    AND c.cm_val2 IN ('R', 'M')
                    AND NOT EXISTS (
                        SELECT 1 FROM projmng.home_todo t

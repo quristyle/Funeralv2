@@ -35,9 +35,9 @@ public sealed class ProjCodeService(IConfiguration configuration) {
 
     await using var db = new NpgsqlConnection(_connectionString);
 
-    // 공통코드 묶음이 있으면 그것이 이긴다.
+    // 공통코드 묶음이 있으면 그것이 이긴다. 공용(db_rid 가 빈 줄)만 본다 — 프로젝트 DB 의 코드는 이 도구의 드롭다운이 아니다.
     var isGroup = await db.ExecuteScalarAsync<bool>(new CommandDefinition(
-        "SELECT EXISTS (SELECT 1 FROM projmng.devcomm WHERE cm_pcd = upper(@codeId))",
+        "SELECT EXISTS (SELECT 1 FROM projmng.devcomm WHERE cm_pcd = upper(@codeId) AND db_rid IS NULL)",
         new { codeId }, cancellationToken: ct));
 
     if (isGroup) {
@@ -45,6 +45,7 @@ public sealed class ProjCodeService(IConfiguration configuration) {
           SELECT a.cm_cd AS code, a.cm_nm AS name, a.cm_val AS "desc", a.*
             FROM projmng.devcomm a
            WHERE a.cm_pcd = upper(@codeId)
+             AND a.db_rid IS NULL
            ORDER BY a.cm_srt, a.cm_nm
           """, new { codeId }, ct);
     }

@@ -14,16 +14,18 @@ public sealed class DevCommonCodeClient(GatewayClient gateway, ReferenceData dat
     /// <summary>참조자료 통 안에서의 묶음 이름. 고치는 화면이 이 이름으로 버린다.</summary>
     public const string Group = "projmng.dev-common-code";
 
-    /// <summary>묶음만(상위 코드가 빈 줄).</summary>
-    public async Task<IReadOnlyList<DevCommonCodeDto>> GroupsAsync(CancellationToken ct = default)
-        => await data.SharedAsync<IReadOnlyList<DevCommonCodeDto>>(Group, "groups",
-            () => LoadAsync($"{Url}?groupsOnly=true", ct)) ?? [];
+    /// <summary>그 DB 의 묶음만(상위 코드가 빈 줄). <paramref name="dbRid"/> 를 비우면 공용이다.</summary>
+    public async Task<IReadOnlyList<DevCommonCodeDto>> GroupsAsync(int? dbRid = null, CancellationToken ct = default)
+        => await data.SharedAsync<IReadOnlyList<DevCommonCodeDto>>(Group, $"{dbRid}/groups",
+            () => LoadAsync($"{Url}?groupsOnly=true{DbQuery(dbRid)}", ct)) ?? [];
 
-    /// <summary>그 묶음에 속한 코드.</summary>
+    /// <summary>그 DB 에서 그 묶음에 속한 코드.</summary>
     public async Task<IReadOnlyList<DevCommonCodeDto>> ChildrenAsync(
-        string parentCode, CancellationToken ct = default)
-        => await data.SharedAsync<IReadOnlyList<DevCommonCodeDto>>(Group, $"children/{parentCode}",
-            () => LoadAsync($"{Url}?parentCode={Uri.EscapeDataString(parentCode)}", ct)) ?? [];
+        string parentCode, int? dbRid = null, CancellationToken ct = default)
+        => await data.SharedAsync<IReadOnlyList<DevCommonCodeDto>>(Group, $"{dbRid}/children/{parentCode}",
+            () => LoadAsync($"{Url}?parentCode={Uri.EscapeDataString(parentCode)}{DbQuery(dbRid)}", ct)) ?? [];
+
+    private static string DbQuery(int? dbRid) => dbRid is null ? string.Empty : $"&dbRid={dbRid}";
 
     /// <summary>실제로 읽는다. ApiException 은 여기서 삼키지 않는다 — 삼키면 서버가 죽은 것이 「자료 없음」으로 보인다.</summary>
     private async Task<IReadOnlyList<DevCommonCodeDto>?> LoadAsync(string url, CancellationToken ct)
@@ -77,4 +79,7 @@ public sealed class DevCommonCodeDto
 
     /// <summary>비고. <b>옛 프로시저가 다루지 않던 칸</b>이다.</summary>
     public string? CmRmk { get; set; }
+
+    /// <summary>딸린 프로젝트 DB. <b>비어 있으면 공용</b>이다. 고칠 때 서버가 옮기지 않는다.</summary>
+    public int? DbRid { get; set; }
 }

@@ -18,7 +18,7 @@ public sealed class AiModelCodes(DevCommonCodeClient codes)
     {
         try
         {
-            var rows = await codes.ChildrenAsync(GroupCode, ct);
+            var rows = await codes.ChildrenAsync(GroupCode, ct: ct);
 
             return [.. rows
                 .Where(x => !string.IsNullOrWhiteSpace(x.CmCd))

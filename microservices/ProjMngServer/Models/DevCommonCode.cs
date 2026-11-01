@@ -31,4 +31,7 @@ public sealed class DevCommonCode
 
     /// <summary>비고.</summary>
     public string? CmRmk { get; set; }
+
+    /// <summary>딸린 프로젝트 DB(devdbinfo.db_rid). <b>비어 있으면 공용</b> — 이 도구의 드롭다운이 읽는 코드다.</summary>
+    public int? DbRid { get; set; }
 }

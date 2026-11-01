@@ -119,7 +119,7 @@ PK `dev_proj_user_map_pk` (`prj_rid`, `user_id`).
 
 ### `projmng.devcomm` — 공통코드
 
-`cm_rid` integer(UNIQUE) · `cm_cd` · `cm_nm` · `cm_prop` · `cm_pcd`(묶음) · `cm_val` · `cm_type` · `cm_val2` · `cm_val3` · `cm_srt` integer · `cm_rmk` varchar(2000). 일정표가 읽는 묶음 —
+`cm_rid` integer(UNIQUE) · `cm_cd` · `cm_nm` · `cm_prop` · `cm_pcd`(묶음) · `cm_val` · `cm_type` · `cm_val2` · `cm_val3` · `cm_srt` integer · `cm_rmk` varchar(2000) · `db_rid` integer(프로젝트 DB · 비면 공용). 드롭다운은 **공용(`db_rid IS NULL`)만** 읽는다 — 프로젝트 DB 별 코드는 공통코드 화면에서만 보인다(`deploy/sql/projmng-devcomm-db-scope-2026-11-01.sql`). 일정표가 읽는 묶음 —
 
 | `cm_pcd` | `cm_cd` | `cm_nm` | `cm_srt` |
 |---|---|---|---|
