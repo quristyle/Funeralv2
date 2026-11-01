@@ -1,12 +1,12 @@
 @*
     자료 영역. 조회(CommSch) 아래에서 내용을 담는 판이다. 화면이 백 개를 넘으므로 모양을 한 가지로 둔다.
-    테두리는 두르지 않는다(안의 표에 이미 있다). 제목은 자료 영역이 둘 이상일 때만 적는다 — 하나면 사이드바와 브레드크럼이 이미 말한다.
+    테두리는 두르지 않는다(안의 표에 이미 있다). 제목은 자료 영역이 둘 이상일 때만 적는다 — 하나면 사이드바와 브레드크럼이 이미 말한다. 제목 없이 Hint 만 주면 그 값만 머리줄에 선다.
     쓰는 모양: <CommCont Title="…" Hint="…"> 안에 Actions(단추)와 ChildContent(표)를 넣는다. 단추가 없으면 내용만 넣는다.
 *@
 
 <section class="commcont @CssClass">
 
-    @if (!string.IsNullOrWhiteSpace(Title) || TitleTemplate is not null || Actions is not null)
+    @if (!string.IsNullOrWhiteSpace(Title) || TitleTemplate is not null || !string.IsNullOrWhiteSpace(Hint) || Actions is not null)
     {
         <div class="commcont__head">
             @if (TitleTemplate is not null)

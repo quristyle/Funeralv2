@@ -53,8 +53,6 @@ public partial class ProjectMonitoring
         public string Credt { get; init; } = string.Empty;
     }
 
-    private string TabTitle => _view;
-
     private string TabHint => _view switch
     {
         "WBS" => $"{_wbs.Count}건",
