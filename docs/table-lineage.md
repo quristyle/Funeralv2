@@ -24,7 +24,7 @@
 | `table_lineage` | 도면 |
 | `table_lineage_items` | 업무항목 `{v, items:[{id,name,tables[]}]}` |
 | `table_lineage_seed` | 처음 모습. 「기본 배치로」가 이것을 캔버스에 올린다(저장해야 남는다) |
-| `table_lineage_catalog` | 대상 DB 에서 모아 둔 객체와 연결 `{v, at, source, objects[], relations[]}` (아래) |
+| `table_lineage_catalog` | 대상 DB 에서 모아 둔 객체와 연결 `{v, at, source, objects[], relations[], items[]}` (아래) |
 
 넷 다 `db_ptype = 'lineage'` 다. ERD 화면의 「그림」 고르개는 `entities` 가 있는 줄만
 고르므로 이 줄들이 거기 섞이지 않는다. 업무항목을 도면과 가르는 까닭은 옛 도구와 같다 —
@@ -97,7 +97,7 @@ HHIP_MM 의 두 접속(`hhip-m10` · `hhip-m20`, Oracle `10.103.13.10:1521/ORAHH
 배치는 외래키의 깊이로 단을 나눈다: 기준 표(참조받기만) → 1단 · 2단 · 3단 이상 참조 → 외래키 없는 표 → 뷰 → 함수 · 프로시저.
 한 단이 22칸을 넘으면 옆 칸으로 넘긴다.
 
-- `table_lineage_catalog` · `table_lineage_seed` 는 **늘 새로 쓴다.**
+- `table_lineage_catalog` · `table_lineage_seed` 는 **늘 새로 쓴다.** 업무항목은 아래.
 - `table_lineage`(도면)는 **없을 때만** 넣는다 — 사람이 고친 배치가 거기 있다. 덮으려면 `--force`.
 - 출처(호스트 · DB · 스키마 · 계정 · 서버 판)는 카탈로그와 도면 머리에 남고 **비밀번호는 안 담는다.**
   접속 비밀번호는 `devdbinfo` 에서 읽어 psql 환경변수로만 넘긴다.
@@ -107,6 +107,29 @@ PGPASSWORD=… python3 -I scripts/projmng-table-lineage-harvest.py              
 PGPASSWORD=… python3 -I scripts/projmng-table-lineage-harvest.py --db jsini-comm --force
 PGPASSWORD=… python3 -I scripts/projmng-table-lineage-harvest.py --prj 3 --dry-run
 ```
+
+### 스키마별 업무항목 — `table_lineage_items`
+
+같은 스크립트가 **(DB, 스키마)마다 적어 둔 규칙(`ITEM_RULES`)**으로 객체를 업무항목에 나눠 담는다.
+객체는 이름 무늬에 처음 맞는 항목 **하나**에 들고, 무늬에 안 걸린 함수·프로시저·뷰는 선으로
+가장 많이 닿는 항목에 든다. 그래도 남으면 「기타」다. 같은 묶음은 카탈로그의 `items` 에도 남는다.
+
+- 자동 항목의 `id` 는 `auto-<열쇠>` 다. **사람이 만든 항목(다른 id)은 건드리지 않고**, 자동 항목도
+  이미 있으면 그대로 둔다 — 화면에서 고친 담기가 남는다. 규칙대로 새로 쓰려면 `--force-items`.
+- 규칙이 없는 (DB, 스키마)는 전부 「기타」 하나로 묶인다. 새 접속을 달면 규칙부터 적는다.
+
+| 접속 | 업무항목 (객체 수) |
+|---|---|
+| `funeralfr` | 계정 · 사용자 설정 11 · 권한 역할 · 메뉴 15 · 공통코드 · 회사 8 · 파일 · 삭제 대기열 7 · 시설 이용 · 과금 11 · 고인 · 상주 · 담당자 30 · 건물 · 층 · 호실 17 · 재생 장비 22 · 영상 · 음원 10 · 문의 · 알림 8 · 공통 함수 2 |
+| `jsini-comm` | 계정 · 로그인 7 · 회사 · 부서 · 권한 역할 8 · 메뉴 · 화면 이용 6 · 공통코드 3 · 파일 2 · 알림 · 푸시 · 쪽지 8 · 메일 · 보고서 메일 6 · 공지 · FAQ · Q&A · 자료실 6 · AI 대화 · RAG 7 · 운영 감시 · 기록 4 |
+| `jsini-funeral` | 건물 · 층 · 호실 3 · 고인 · 장례 6 · 장비 · 화면 구성 5 · 미디어 · 음원 배정 2 · 설정 · 시스템 2 |
+| `jsini-helpdesk` | 개선 요청 · 덧글 · 첨부 3 · 고객 · 팀 · 관리자 7 · 권한 역할 · 메뉴 5 · 공지 · 푸시 5 · 프로젝트 · WBS · 일정 5 · 장비 전문 파서 5 · 시스템 1 |
+| `jsini-projmng` | AI 작업 · 실행기 10 · 프로젝트 · 사용자 · 공통 8 · DB 접속 · 질의 · 속성 4 · 소스 · 추적 3 · WBS · 일정 9 · 인터페이스 카탈로그 11 · 공통 함수 4 |
+| `jsini-site` | 소개 문구 · 소식 · 자료실 3 · 문의 · 방문 2 |
+| `jsini-lifeenv` | 관측 지역 · 격자 2 · 기상 특보 6 · 실황 · 예보 수집 4 · 작업 기준 · 대응 3 |
+| `jsini-cargo` | 사용자 · 차량 2 · 거래처 · 신고 3 · 운송 거래 · 결제 4 · 톨게이트 심야할인 4 · 감사 기록 1 |
+
+여덟 접속 모두 「기타」 없이 모든 객체가 항목에 들었다(2026-11-01).
 
 ### jsini통합포탈(prj_rid 1)에 넣은 것 (2026-11-01)
 

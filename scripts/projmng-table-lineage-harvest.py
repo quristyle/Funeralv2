@@ -16,6 +16,9 @@
     table_lineage_seed      위 연결로 자동 배치한 처음 모습 — 화면의 「기본 배치로」가 이것을 올린다
     table_lineage           도면. **아직 없을 때만** 같은 것을 넣는다(--force 면 덮는다)
 
+    table_lineage_items     업무항목 — ITEM_RULES 의 (DB, 스키마)별 규칙으로 객체를 묶는다(id 가 auto-…).
+                            사람이 만든 항목은 그대로 두고, 자동 항목은 없을 때만 넣는다(--force-items 면 새로)
+
 도면을 덮지 않는 까닭은 사람이 화면에서 고친 배치·업무항목이 거기 있기 때문이다.
 카탈로그와 처음 모습은 늘 새로 쓴다 — 다시 돌려도 줄이 늘지 않는다.
 
@@ -25,7 +28,7 @@
 접속 비밀번호는 devdbinfo 에서 읽어 psql 의 환경변수로만 넘긴다. 프로젝트관리 DB 비밀번호는
 환경변수 PGPASSWORD 로 받는다.
 
-    PGPASSWORD=… python3 -I scripts/projmng-table-lineage-harvest.py [--prj 1] [--db jsini-comm] [--force] [--dry-run]
+    PGPASSWORD=… python3 -I scripts/projmng-table-lineage-harvest.py [--prj 1] [--db jsini-comm] [--force] [--force-items] [--dry-run]
 """
 import argparse
 import datetime
@@ -116,6 +119,115 @@ SELECT json_build_object(
          AND p.oid NOT IN (SELECT objid FROM ext))
 )
 """
+
+
+# 업무항목 규칙 — (DB, 스키마) 마다 [(열쇠, 이름, 이름 무늬)]. 객체는 처음 맞는 항목 하나에 든다.
+# 무늬에 안 걸린 함수·프로시저는 선으로 가장 많이 닿는 항목에 들고, 그래도 남으면 「기타」다.
+ITEM_RULES = {
+    ("funeral", "smfr"): [
+        ("account", "계정 · 사용자 설정", r"^(t_account|p_account_|account_)"),
+        ("auth", "권한 역할 · 메뉴", r"^(t_rol|t_menu|p_rol_|p_menu_)"),
+        ("code", "공통코드 · 회사", r"^(t_code|t_company|p_code_|p_cp_)"),
+        ("file", "파일 · 삭제 대기열", r"^(t_file|p_file_)"),
+        ("pay", "시설 이용 · 과금", r"^(t_goin_pay|p_goin_pay|p_goin_use_info|utils_pay)"),
+        ("deceased", "고인 · 상주 · 담당자", r"^(t_goin|t_sangju|t_manager|t_room_goin|p_goin_|p_sangju_|p_manager_|p_room_goin|next_reservation|reservation_)"),
+        ("facility", "건물 · 층 · 호실", r"^(t_build|t_floor|t_room|p_build_|p_floor_|p_room_)"),
+        ("machine", "재생 장비", r"^(t_machine|p_machine_|machine_|p_fr_frinfo_)"),
+        ("media", "영상 · 음원", r"^(t_movie|t_music|p_movie_|p_music_)"),
+        ("qna", "문의 · 알림", r"^(t_qna|t_notification|p_qna_)"),
+        ("util", "공통 함수", r"^utils_"),
+    ],
+    ("jsiniportal", "scom"): [
+        ("account", "계정 · 로그인", r"^(accounts$|account_|password_reset_tokens$)"),
+        ("org", "회사 · 부서 · 권한 역할", r"^(roles|role_|companies|company_|departments)"),
+        ("menu", "메뉴 · 화면 이용", r"^(system_menus|menu_|blocked_access_logs|layout_header_icons|i18n_resources)"),
+        ("code", "공통코드", r"^(common_code|biz_select_configs)"),
+        ("file", "파일", r"^(filegroups|filemetadatas)$"),
+        ("notify", "알림 · 푸시 · 쪽지", r"^(notification_|push_|notes$|birthday_messages)"),
+        ("mail", "메일 · 보고서 메일", r"^(portal_mails|gmail_|report_mail_)"),
+        ("board", "공지 · FAQ · Q&A · 자료실", r"^(notices|notice_files|faqs|qna_posts|help_archive)"),
+        ("ai", "AI 대화 · RAG", r"^(ai_|rag_)"),
+        ("ops", "운영 감시 · 기록", r"^(portal_error_logs|server_ping_targets|location_tracks|__EFMigrationsHistory)$"),
+    ],
+    ("funeralv2", "smfr"): [
+        ("facility", "건물 · 층 · 호실", r"^(buildings|floors|rooms)$"),
+        ("deceased", "고인 · 장례", r"^deceased"),
+        ("device", "장비 · 화면 구성", r"^device"),
+        ("media", "미디어 · 음원 배정", r"^(media_sources|building_music)$"),
+        ("setting", "설정 · 시스템", r"^(account_settings|__EFMigrationsHistory)$"),
+    ],
+    ("helpdesk", "helpdesk"): [
+        ("request", "개선 요청 · 덧글 · 첨부", r"^(improvement|attachment$)"),
+        ("people", "고객 · 팀 · 관리자", r"^(customer|team|teamcompanies|admin|adminteams|auth_user_links|userproperty)$"),
+        ("auth", "권한 역할 · 메뉴", r"^(approle|appuserrole|menu|menurole|rolemenupermission)$"),
+        ("notify", "공지 · 푸시", r"^(notice$|push)"),
+        ("wbs", "프로젝트 · WBS · 일정", r"^(project|wbs|schedules$)"),
+        ("parser", "장비 전문 파서", r"^(binarysample|mc_|parse_items|tag_items)"),
+        ("system", "시스템", r"^__EFMigrationsHistory$"),
+    ],
+    ("projmng", "projmng"): [
+        ("ai", "AI 작업 · 실행기", r"^ai_"),
+        ("project", "프로젝트 · 사용자 · 공통", r"^(dev_proj|devcomm$|home_todo$|mail_template$|dev_excel$)"),
+        ("db", "DB 접속 · 질의 · 속성", r"^(devdbinfo|dev_db_prop|devsqlresp)"),
+        ("source", "소스 · 추적", r"^(dev_srcinfo|dev_activityinfo)"),
+        ("wbs", "WBS · 일정", r"^(dev_wbs|wbs_)"),
+        ("interface", "인터페이스 카탈로그", r"^(v_)?if_"),
+        ("util", "공통 함수", r"^(fn_set_updated_at|nvl|to_ymd|today_kst)$"),
+    ],
+    ("jsinisite", "site"): [
+        ("content", "소개 문구 · 소식 · 자료실", r"^(sections|posts|downloads)$"),
+        ("visitor", "문의 · 방문", r"^(inquiries|visits)$"),
+    ],
+    ("ghub", "ghub"): [
+        ("location", "관측 지역 · 격자", r"^(weather_locations|grid_coordinates)$"),
+        ("warning", "기상 특보", r"^weather_(location_)?warning"),
+        ("forecast", "실황 · 예보 수집", r"^(weather_infos|weather_.*_forecasts)$"),
+        ("standard", "작업 기준 · 대응", r"^(weather_standards|weather_responses|weather_event_records)$"),
+    ],
+    ("cargotrust", "cargotrust"): [
+        ("user", "사용자 · 차량", r"^(app_user|vehicle)$"),
+        ("company", "거래처 · 신고", r"^(company|company_view|report)$"),
+        ("deal", "운송 거래 · 결제", r"^(cargo_transaction|payment_record|transaction_)"),
+        ("toll", "톨게이트 심야할인", r"^toll_"),
+        ("audit", "감사 기록", r"^audit_log$"),
+    ],
+}
+AUTO_ID = "auto-"
+
+
+def make_items(c, objects, relations):
+    """규칙으로 업무항목을 만든다. 표 이름은 도면 칸의 열쇠와 같다."""
+    rules = ITEM_RULES.get((c["db"], c["schema"]), [])
+    home = {}
+    for o in objects:
+        for key, _, pat in rules:
+            if re.search(pat, o["name"]):
+                home[o["name"]] = key
+                break
+    # 무늬에 안 걸린 함수·프로시저는 선으로 닿는 칸이 가장 많이 든 항목으로.
+    for o in objects:
+        if o["name"] in home or o["type"] not in ("PROCEDURE", "FUNCTION", "VIEW", "MVIEW"):
+            continue
+        votes = {}
+        for r in relations:
+            other = r["to"] if r["from"] == o["name"] else r["from"] if r["to"] == o["name"] else None
+            if other in home:
+                votes[home[other]] = votes.get(home[other], 0) + 1
+        if votes:
+            home[o["name"]] = max(votes, key=lambda k: (votes[k], -[x[0] for x in rules].index(k)))
+    items = []
+    for key, name, _ in rules + [("etc", "기타", "")]:
+        members = [o["name"] for o in objects if home.get(o["name"], "etc") == key]
+        if members:
+            items.append({"id": AUTO_ID + key, "name": name, "tables": members})
+    return items
+
+
+def merge_items(old, made, force):
+    """사람이 만든 항목(auto- 아닌 것)은 그대로 두고, 자동 항목은 없을 때만 — force 면 새로 — 넣는다."""
+    keep = [i for i in old if not (force and str(i.get("id", "")).startswith(AUTO_ID))]
+    have = {i.get("id") for i in keep}
+    return keep + [i for i in made if i["id"] not in have]
 
 
 def pm(sql):
@@ -284,6 +396,7 @@ def build(c, h, at):
                "objects": [{"type": o["type"], "name": o["name"], "desc": o.get("desc") or "",
                             "pk": o.get("pk") or "", "rows": o.get("rows")} for o in objects],
                "relations": relations}
+    catalog["items"] = make_items(c, catalog["objects"], relations)
     return graph, catalog
 
 
@@ -306,11 +419,18 @@ COMMIT;""")
     return bool(out.strip()), len(raw.encode("utf-8"))
 
 
+def get(rid, key):
+    raw = pm(f"SELECT db_pvalue FROM projmng.dev_db_prop WHERE db_rid = {int(rid)} AND db_pkey = '{key}' "
+             "ORDER BY mod_dt DESC NULLS LAST LIMIT 1")
+    return json.loads(raw) if raw else None
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--prj", type=int, default=1, help="프로젝트 번호 (기본 1 = jsini통합포탈)")
     ap.add_argument("--db", action="append", default=[], help="이 별칭만 (여러 번 줄 수 있다)")
     ap.add_argument("--force", action="store_true", help="도면(table_lineage)이 이미 있어도 덮는다")
+    ap.add_argument("--force-items", action="store_true", help="자동 업무항목(auto-…)을 규칙대로 새로 쓴다")
     ap.add_argument("--dry-run", action="store_true", help="모으기만 하고 쓰지 않는다")
     args = ap.parse_args()
 
@@ -340,6 +460,7 @@ def main():
         for r in catalog["relations"]:
             rels[r["ty"]] = rels.get(r["ty"], 0) + 1
         print(f"  {head}: 객체 {kinds} · 연결 {rels} · 칸 {len(graph['nodes'])} · 선 {len(graph['edges'])}")
+        print("    업무항목 " + " · ".join(f"{i['name']} {len(i['tables'])}" for i in catalog["items"]))
         if args.dry_run:
             continue
 
@@ -348,6 +469,13 @@ def main():
         made, n3 = put(c["rid"], "table_lineage", graph, "테이블 계통도", only_if_absent=not args.force)
         print(f"    카탈로그 {n1:,} bytes · 처음 배치 {n2:,} bytes · 도면 "
               + (f"{n3:,} bytes {'덮음' if args.force else '새로 넣음'}" if made or args.force else "이미 있어 그대로 둠"))
+        old = (get(c["rid"], "table_lineage_items") or {}).get("items") or []
+        items = merge_items(old, catalog["items"], args.force_items)
+        if items != old:
+            _, n4 = put(c["rid"], "table_lineage_items", {"v": 1, "items": items}, "테이블 계통도 업무항목")
+            print(f"    업무항목 {len(old)} → {len(items)} ({n4:,} bytes)")
+        else:
+            print(f"    업무항목 {len(old)} 그대로")
 
     if fails:
         print(f"붙지 못한 접속 {fails}개 — 위 줄을 보십시오.")
