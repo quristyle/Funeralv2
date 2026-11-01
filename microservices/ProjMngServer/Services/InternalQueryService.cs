@@ -8,8 +8,8 @@ namespace ProjMngServer.Services;
 /// <summary>
 /// 업무 비서(AI)가 쓰는 <b>내부 전용</b> 조회. 게이트웨이의 사람 인증을 거치지 않고,
 /// 서버 간 머리글(<see cref="JSini.Shared.Internal.InternalCallGuard"/>)만 본다 — 평소 권한으로는
-/// 못 보는 다른 프로젝트·다른 사람의 일감까지 비서가 대신 찾아 주기 위한 길이라, 프로젝트로도
-/// 회사로도 거르지 않는다.
+/// 못 보는 다른 프로젝트·다른 사람의 일감까지 비서가 대신 찾아 주기 위한 길이라, 참여 프로젝트로도
+/// 회사로도 거르지 않는다 — 프로젝트로 좁히는 것은 비서가 넘긴 조건(<see cref="WbsProjectFilter"/>)뿐이다.
 /// </summary>
 public sealed class InternalQueryService(IConfiguration configuration)
 {
@@ -27,7 +27,8 @@ public sealed class InternalQueryService(IConfiguration configuration)
     public sealed record WbsScheduleRow(
         string? ProcNm, DateOnly? StartDate, DateOnly? EndDate,
         string? DevUser, string? BuildUser, string? QcUser,
-        string? DevChk, string? BuildChk, string? Comm, string WbsState);
+        string? DevChk, string? BuildChk, string? Comm, string WbsState,
+        int PrjRid, string? PrjName, string? ScheduleType, string? ReqUser);
 
     /// <summary>
     /// 일정 목록의 전체 건수와 한 쪽(<paramref name="take"/>)을 함께 돌려준다.
@@ -41,6 +42,7 @@ public sealed class InternalQueryService(IConfiguration configuration)
     /// 적은 이름이라(군더더기 포함) 이 값으로도 찾을 수 있게 한다.</param>
     public async Task<(int Total, IReadOnlyList<WbsScheduleRow> Items)> SchedulesAsync(
         string? userId, string? name, DateOnly? from, DateOnly? to, string? keyword, int take,
+        WbsProjectFilter? project = null, string? scheduleType = null,
         CancellationToken ct = default)
     {
         await using var db = new NpgsqlConnection(_connectionString);
@@ -50,6 +52,9 @@ public sealed class InternalQueryService(IConfiguration configuration)
             from,
             to,
             keyword = keyword ?? string.Empty,
+            prjRids = project?.PrjRids,
+            project = project?.Text ?? string.Empty,
+            scheduleType = scheduleType ?? string.Empty,
         };
 
         // 계획 날짜가 비어 있으면 개발 종료일로 본다 — WbsService.Dates 와 똑같은 COALESCE 다.
@@ -63,7 +68,8 @@ public sealed class InternalQueryService(IConfiguration configuration)
                     OR COALESCE(a.plan_sdt, a.dev_edt) <= @to)
                AND (@keyword = '' OR a.proc_nm ILIKE '%' || @keyword || '%'
                                   OR a.comm    ILIKE '%' || @keyword || '%')
-            """;
+               AND (@scheduleType = '' OR a.schedule_type ILIKE @scheduleType)
+            """ + ProjectWhere;
 
         var rows = await db.QueryAsync<WbsScheduleRow>(new CommandDefinition($"""
             SELECT a.proc_nm                        AS ProcNm,
@@ -82,8 +88,13 @@ public sealed class InternalQueryService(IConfiguration configuration)
                         WHEN COALESCE(a.dev_sdt, a.dev_edt) IS NULL THEN 'READY'
                         WHEN a.dev_edt IS NULL                      THEN 'RUNNING'
                         ELSE 'COMP'
-                   END                                AS WbsState
+                   END                                AS WbsState,
+                   a.prj_rid                         AS PrjRid,
+                   COALESCE(NULLIF(p.prj_nick, ''), p.prj_name) AS PrjName,
+                   a.schedule_type                   AS ScheduleType,
+                   a.req_user                        AS ReqUser
               FROM projmng.dev_wbs a
+              LEFT JOIN projmng.dev_proj p ON p.prj_rid = a.prj_rid
             {Where}
              ORDER BY COALESCE(a.plan_sdt, a.dev_edt) NULLS LAST, a.wbs_id
             """, parameters, cancellationToken: ct));
@@ -93,9 +104,122 @@ public sealed class InternalQueryService(IConfiguration configuration)
         // 아무 데나 걸리면 포함한다.
         var matched = string.IsNullOrWhiteSpace(userId) && string.IsNullOrWhiteSpace(name)
             ? [.. rows]
-            : rows.Where(r => MatchesPerson(r, userId) || MatchesPerson(r, name)).ToList();
+            : rows.Where(r => MatchesPerson(r, userId) || MatchesPerson(r, name) || TitleNames(r.ProcNm, name)).ToList();
 
         return (matched.Count, [.. matched.Take(take)]);
+    }
+
+    /// <summary>
+    /// 제목이 그 이름을 담는가. 「정일인 휴가」처럼 사람 일을 다른 사람이 적은 줄은 담당 칸에
+    /// 그 사람이 없다 — 이름(아이디 말고)으로 물을 때만, 두 글자 이상일 때만 본다.
+    /// </summary>
+    internal static bool TitleNames(string? title, string? name) =>
+        name is { Length: >= 2 } n && title?.Contains(n.Trim(), StringComparison.OrdinalIgnoreCase) == true;
+
+    /// <summary>프로젝트로 좁히는 조건. 범위에 이어진 프로젝트(<c>prjRids</c>)와 물은 글자(이름·별칭·번호)를 함께 건다.</summary>
+    private const string ProjectWhere = """
+
+               AND (@prjRids::int[] IS NULL OR a.prj_rid = ANY(@prjRids))
+               AND (@project = '' OR a.prj_rid::text = @project
+                    OR p.prj_name ILIKE '%' || @project || '%' OR p.prj_nick ILIKE '%' || @project || '%')
+            """;
+
+    /// <summary>휴가 한 줄. 사람은 제목에서 뽑은 것이고, 못 뽑았으면 null 이다.</summary>
+    public sealed record LeaveRow(
+        string? Person, string Kind, DateOnly? StartDate, DateOnly? EndDate, int? Days,
+        string? Title, string? RecordedBy, int PrjRid, string? PrjName, bool Discarded);
+
+    private sealed record LeaveSource(
+        string? ProcNm, DateOnly? StartDate, DateOnly? EndDate, string? DevUser,
+        int PrjRid, string? PrjName, bool Discarded);
+
+    /// <summary>
+    /// 휴가(<see cref="WbsLeave"/>). 일정표에 휴가 구분이 따로 없어 제목 낱말로 거르고, 사람도 제목에서 뽑는다.
+    /// 「휴가반납」 줄은 빼고 그 수를 <c>Returned</c> 로 함께 돌려준다.
+    /// </summary>
+    public async Task<(int Total, int Returned, IReadOnlyList<LeaveRow> Items)> LeavesAsync(
+        string? name, DateOnly? from, DateOnly? to, WbsProjectFilter? project, int take,
+        CancellationToken ct = default)
+    {
+        await using var db = new NpgsqlConnection(_connectionString);
+
+        var parameters = new
+        {
+            from,
+            to,
+            pattern = WbsLeave.SqlPattern,
+            prjRids = project?.PrjRids,
+            project = project?.Text ?? string.Empty,
+        };
+
+        var rows = await db.QueryAsync<LeaveSource>(new CommandDefinition($"""
+            SELECT a.proc_nm                       AS ProcNm,
+                   COALESCE(a.plan_sdt, a.dev_edt)  AS StartDate,
+                   COALESCE(a.plan_edt, a.dev_edt)  AS EndDate,
+                   a.dev_user                       AS DevUser,
+                   a.prj_rid                        AS PrjRid,
+                   COALESCE(NULLIF(p.prj_nick, ''), p.prj_name) AS PrjName,
+                   a.discard_dt IS NOT NULL         AS Discarded
+              FROM projmng.dev_wbs a
+              LEFT JOIN projmng.dev_proj p ON p.prj_rid = a.prj_rid
+             WHERE a.proc_nm ~ @pattern
+               AND (@from::date IS NULL OR COALESCE(a.plan_edt, a.dev_edt) IS NULL
+                    OR COALESCE(a.plan_edt, a.dev_edt) >= @from)
+               AND (@to::date   IS NULL OR COALESCE(a.plan_sdt, a.dev_edt) IS NULL
+                    OR COALESCE(a.plan_sdt, a.dev_edt) <= @to)
+            {ProjectWhere}
+             ORDER BY COALESCE(a.plan_sdt, a.dev_edt) NULLS LAST, a.wbs_id
+            """, parameters, cancellationToken: ct));
+
+        var returned = 0;
+        var leaves = new List<LeaveRow>();
+        foreach (var r in rows)
+        {
+            var leave = WbsLeave.Parse(r.ProcNm);
+            if (leave is null)
+            {
+                if (r.ProcNm is not null && r.ProcNm.Contains("반납")) returned++;
+                continue;
+            }
+            if (!WbsLeave.IsFor(leave, r.ProcNm, name)) continue;
+
+            int? days = r.StartDate is { } s && r.EndDate is { } e ? e.DayNumber - s.DayNumber + 1 : null;
+            leaves.Add(new LeaveRow(leave.Person, leave.Kind, r.StartDate, r.EndDate, days,
+                r.ProcNm, r.DevUser, r.PrjRid, r.PrjName, r.Discarded));
+        }
+
+        return (leaves.Count, returned, [.. leaves.Take(take)]);
+    }
+
+    /// <summary>프로젝트 한 줄과 그 일정 수(구분별).</summary>
+    public sealed record ProjectRow(
+        int PrjRid, string? PrjName, string? PrjNick, string? PrjDesc, DateOnly? PrjSdt, DateOnly? PrjEdt,
+        int WbsCount, int PublicCount, int PrivateCount, DateOnly? LastPlan);
+
+    /// <summary>프로젝트 목록. 비서가 「어느 프로젝트」를 물을 때 이름·별칭을 번호로 바꾸는 자리다.</summary>
+    public async Task<IReadOnlyList<ProjectRow>> ProjectsAsync(int[]? prjRids, CancellationToken ct = default)
+    {
+        await using var db = new NpgsqlConnection(_connectionString);
+
+        var rows = await db.QueryAsync<ProjectRow>(new CommandDefinition("""
+            SELECT p.prj_rid  AS PrjRid,
+                   p.prj_name AS PrjName,
+                   p.prj_nick AS PrjNick,
+                   p.prj_desc AS PrjDesc,
+                   p.prj_sdt  AS PrjSdt,
+                   p.prj_edt  AS PrjEdt,
+                   COUNT(w.wbs_id) FILTER (WHERE w.schedule_type = 'WBS')::int     AS WbsCount,
+                   COUNT(w.wbs_id) FILTER (WHERE w.schedule_type = 'Public')::int  AS PublicCount,
+                   COUNT(w.wbs_id) FILTER (WHERE w.schedule_type = 'Private')::int AS PrivateCount,
+                   MAX(COALESCE(w.plan_edt, w.plan_sdt))::date AS LastPlan
+              FROM projmng.dev_proj p
+              LEFT JOIN projmng.dev_wbs w ON w.prj_rid = p.prj_rid
+             WHERE (@prjRids::int[] IS NULL OR p.prj_rid = ANY(@prjRids))
+             GROUP BY p.prj_rid, p.prj_name, p.prj_nick, p.prj_desc, p.prj_sdt, p.prj_edt, p.prj_srt
+             ORDER BY p.prj_srt, p.prj_rid
+            """, new { prjRids }, cancellationToken: ct));
+
+        return [.. rows];
     }
 
     /// <summary>한 줄의 개발·빌드·검수 칸 중 하나라도 후보(아이디 또는 이름)를 가리키는가.</summary>
@@ -151,3 +275,6 @@ public sealed class InternalQueryService(IConfiguration configuration)
         return (total, [.. rows]);
     }
 }
+
+/// <summary>프로젝트로 좁히는 조건 — 범위에 이어진 프로젝트 번호들과, 물은 글자(이름·별칭·번호).</summary>
+public sealed record WbsProjectFilter(int[]? PrjRids, string? Text);

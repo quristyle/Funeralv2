@@ -4,7 +4,7 @@ using AIAgentServer.Services.Mcp;
 
 namespace AIAgentServer.Services.Portal;
 
-/// <summary>업무 비서가 모델에게 보여 줄 포털 도구 일곱 가지의 생김새(이름·설명·매개변수 틀). 실제 호출은
+/// <summary>업무 비서가 모델에게 보여 줄 포털 도구의 생김새(이름·설명·매개변수 틀). 실제 호출은
 /// <see cref="PortalToolRunner"/> 가 맡는다 — 여기는 모델이 「무엇을 어떻게 부를 수 있는지」만 적는다.</summary>
 public static class PortalToolSet
 {
@@ -26,6 +26,8 @@ public static class PortalToolSet
             SearchRequests,
             GetRequest,
             SearchSchedules,
+            SearchLeaves,
+            ListProjects,
             SearchTodos,
             SearchMails,
             SearchGmail,
@@ -93,9 +95,41 @@ public static class PortalToolSet
             "name": { "type": "string", "description": "사람 이름. userId 를 모를 때만 넘긴다." },
             "from": { "type": "string", "description": "조회 시작 날짜(yyyy-MM-dd, 한국 날짜)" },
             "to": { "type": "string", "description": "조회 끝 날짜(yyyy-MM-dd, 한국 날짜, 이 날짜까지 포함)" },
-            "keyword": { "type": "string", "description": "제목에서 찾을 낱말" },
+            "keyword": { "type": "string", "description": "제목·메모에서 찾을 낱말" },
+            "project": { "type": "string", "description": "프로젝트 이름·별칭·번호(list_projects 로 본 값). 프로젝트관리 일정만 그 프로젝트로 좁힌다." },
+            "scheduleType": { "type": "string", "description": "프로젝트관리 일정의 구분. WBS(개발 일감) · Public(공용 일정 — 회의·휴가·행사) · Private(개인 일정) 중 하나." },
             "take": { "type": "integer", "description": "가져올 최대 건수(기본 30, 최대 100, 두 출처 합산 기준)" }
           }
+        }
+        """));
+
+    private static readonly McpToolInfo SearchLeaves = new(
+        "search_leaves",
+        "프로젝트 일정표(/projmng/proj/scheduler)에 적힌 휴가·연차·월차·반차·병가를 찾는다. " +
+        "\"누가 언제 휴가를 갔나\", \"휴가 쓴 사람과 날짜\" 같은 질문은 search_schedules 가 아니라 이 도구를 쓴다. " +
+        "휴가는 제목(예: 「정일인 휴가」)으로만 적혀 있어서 사람도 제목에서 뽑는다 — 결과의 「적은 사람」은 휴가 간 " +
+        "사람이 아니다. 「휴가반납」(휴가를 물리고 일한 날)은 빼고 그 수만 알려 준다.",
+        Schema("""
+        {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string", "description": "휴가 간 사람 이름. 비우면 모든 사람." },
+            "from": { "type": "string", "description": "조회 시작 날짜(yyyy-MM-dd, 한국 날짜)" },
+            "to": { "type": "string", "description": "조회 끝 날짜(yyyy-MM-dd, 한국 날짜, 이 날짜까지 포함)" },
+            "project": { "type": "string", "description": "프로젝트 이름·별칭·번호. 비우면 고른 범위의 프로젝트 전부." },
+            "take": { "type": "integer", "description": "가져올 최대 건수(기본 50, 최대 200)" }
+          }
+        }
+        """));
+
+    private static readonly McpToolInfo ListProjects = new(
+        "list_projects",
+        "프로젝트관리의 프로젝트 목록(번호·이름·별칭·기간·구분별 일정 수)을 본다. 질문에 나온 프로젝트 이름을 " +
+        "다른 도구의 project 값으로 바꾸거나, 어떤 프로젝트가 있는지 물을 때 쓴다.",
+        Schema("""
+        {
+          "type": "object",
+          "properties": {}
         }
         """));
 

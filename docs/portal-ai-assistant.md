@@ -33,14 +33,16 @@ OpenAI 규격 `tool_calls` 루프를 최대 `Assistant:MaxToolRounds`(기본 6, 
 `RagAugmenter`·`WebChatAgent`)은 전혀 건드리지 않았다 — 이 화면은 완전히
 별도의 길(`/assistant/*`)로 돈다.
 
-## 도구 일곱
+## 도구
 
 | 도구 | 받는 것 | 닿는 곳 | 비고 |
 |---|---|---|---|
 | `find_user` | 이름 | AuthServer(`scom.accounts`) | 동명이인이면 후보를 전부 돌려준다 — 하나를 임의로 고르지 않는다 |
 | `search_requests` | userId?·from?·to?·status?·keyword?·take | HelpDeskServer | userId 는 글쓴이·담당자·댓글 단 사람 **셋 중 아무거나**로 걸린다 |
 | `get_request` | id | HelpDeskServer | 본문 + 댓글 전부 |
-| `search_schedules` | userId?·name?·from?·to?·keyword?·take | HelpDeskServer + ProjMngServer(`dev_wbs`) | 두 자료원을 한 목록으로 합친다. userId 만 와도 이름을 자동으로 되찾아 WBS 매칭에 쓴다 |
+| `search_schedules` | userId?·name?·from?·to?·keyword?·project?·scheduleType?·take | HelpDeskServer + ProjMngServer(`dev_wbs`) | 두 자료원을 한 목록으로 합친다. userId 만 와도 이름을 자동으로 되찾아 WBS 매칭에 쓴다. 줄마다 프로젝트·구분·요청자를 싣는다 |
+| `search_leaves` | name?·from?·to?·project?·take | ProjMngServer(`dev_wbs`) | 일정표의 휴가·연차·월차·반차·병가. 아래 「프로젝트 DB 자료」 |
+| `list_projects` | (없음) | ProjMngServer(`dev_proj`) | 번호·이름·별칭·기간·구분별 일정 수 |
 | `search_todos` | userId?·from?·to?·done?·take | ProjMngServer(`home_todo`) | |
 | `search_mails` | userId?·from?·to?·keyword?·take | NotificationServer | 보낸 메일함과 알림 직발송 메일을 함께 본다. 받은 메일함은 포털에 없다 |
 | `search_documents` | query·category? | AIAgentServer(`RagStore`) | 이 화면에서만 RAG 도 도구다 — 첫 검색이 빗나가면 모델이 낱말을 바꿔 다시 찾을 수 있다 |
@@ -53,6 +55,43 @@ OpenAI 규격 `tool_calls` 루프를 최대 `Assistant:MaxToolRounds`(기본 6, 
 섞여 있고 `박경수/완료`처럼 뒤에 글자가 붙기도 한다 — 계정과 자동으로
 안 이어진다. 시스템 프롬프트가 이 사정을 모델에게 그대로 알리고, 동명이인이면
 단정하지 말라고 못박는다.
+
+## 프로젝트 DB 자료 — 고른 프로젝트로 좁힌다
+
+화면 위의 프로젝트 고르개(내가 참여한 프로젝트, 처음엔 전부 켜짐)는 두 가지를 정한다.
+
+- **문서 범위** — 그 프로젝트에 매인 RAG 카테고리(`projmng.dev_proj_rag`, 포털관리 ›
+  프로젝트 목록에서 맨다)
+- **DB 자료 범위** — 그 프로젝트 번호(`prj_rid`). 요청의 `projectRids` →
+  `RagScope.ProjectRids` → `search_schedules`·`search_leaves`·`list_projects` 가
+  ProjMngServer `/internal/*` 에 `prjRids` 로 넘긴다
+
+둘을 따로 싣는 까닭: 카테고리가 하나도 안 매인 프로젝트(지금 8개 중 7개)라도
+그 프로젝트의 일정·휴가는 물을 수 있어야 한다. 고른 것이 없으면 프로젝트로 좁히지 않는다.
+
+**왜 SQL 을 모델에게 짜게 하지 않았나.** 「아무 질문이나 DB 에 묻는다」(text-to-SQL)는
+범위가 넓어 보이지만 이 자리에는 안 맞는다 — 이 화면은 평소 권한을 넘어 답하므로 모델이
+짠 SQL 이 무엇을 읽는지 미리 묶을 수 없고, 로컬 모델은 도구 하나 고르는 데서도 자주
+건너뛴다(아래 실측). 대신 **질문 모양마다 도구를 하나씩** 연다. 새 질문 모양이 생기면
+ProjMngServer `InternalQueryController` 에 조회 하나, `PortalToolSet`·`PortalToolRunner` 에
+도구 하나를 더한다(`search_leaves` 가 그 본보기다).
+
+### 휴가는 제목에만 있다
+
+일정표에는 휴가 구분이 따로 없다 — `Public` 일정에 「정일인 휴가」「김원욱 여름휴가」
+「순열월차」처럼 **제목으로** 적는다. 그리고 담당 칸(`dev_user`)은 휴가 간 사람이 아니라
+**적어 넣은 사람**이다(정일인의 휴가를 이순열이 적었다). 그래서 `search_schedules` 로는
+「누가 휴가를 갔나」에 답할 수 없다 — 담당 칸으로 사람을 읽으면 정일인의 휴가가 이순열의
+휴가가 된다.
+
+`search_leaves`(ProjMngServer `WbsLeave`)는 제목 낱말(휴가·연차·월차·반차·병가·휴무·경조·
+대체휴일·리프레시)로 거르고, 사람도 제목에서 뽑는다(꾸밈말 「여름」「오전」은 뗀다).
+「순열월차」처럼 성을 떼고 적은 것은 「이순열」로 물어도 걸린다. **「휴가반납」(휴가를
+물리고 일한 날)은 빼고 그 수만 알린다** — 운영에 「[휴가반납] 박민성 출근 불가」 같은 줄이
+있어 사람이 보면 헷갈릴 수 있다. 일수는 **달력 일수**다(주말·공휴일을 안 뺀다).
+
+2026-11-01 운영 자료로 잰 결과: 휴가 5건(Mnm안전 3 · 수빅자재모듈 2), 휴가반납 3건 제외.
+「이순열」로 물으면 「순열월차」(2025-07-22)와 「이순열 휴가」(2025-08-04~06) 둘이 나온다.
 
 ## 권한을 넘는 호출 — 내부 토큰
 

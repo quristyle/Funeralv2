@@ -44,7 +44,13 @@ public enum RagMode
 /// 분류는 카테고리 하나 안의 나무라 카테고리가 여럿일 때는 쓰지 않는다.
 /// </param>
 /// <param name="Label">안내에 보여 줄 이름(「카테고리 › 분류」· 「프로젝트 둘」).</param>
-public sealed record RagScope(IReadOnlyList<string>? Categories, IReadOnlySet<long>? DocIds, string Label);
+/// <param name="ProjectRids">
+/// 업무 비서에서 고른 프로젝트 번호(<c>projmng.dev_proj.prj_rid</c>). 문서가 아니라 그 프로젝트의
+/// <b>DB 자료</b>(일정·휴가)를 좁히는 데 쓴다. null 이면 프로젝트로 좁히지 않는다.
+/// </param>
+public sealed record RagScope(
+    IReadOnlyList<string>? Categories, IReadOnlySet<long>? DocIds, string Label,
+    IReadOnlyList<int>? ProjectRids = null);
 
 /// <summary>검색 결과 한 건.</summary>
 public sealed record RagHit(RagChunk Chunk, double Score, double VectorScore, double KeywordScore);

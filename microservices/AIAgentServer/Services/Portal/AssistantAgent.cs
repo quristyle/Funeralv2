@@ -44,16 +44,24 @@ public sealed class AssistantAgent(
     public static string SystemPrompt(DateTime nowUtc, RagScope? scope)
     {
         var todayKorea = AppTime.ToKorea(nowUtc).ToString("yyyy-MM-dd");
-        var scopeLine = scope is null
+        var scopeLine = scope?.Categories is null
             ? ""
             : $"\n- 문서 검색 범위는 「{scope.Label}」로 좁혀져 있습니다. 이 범위 밖 자료는 찾지 못합니다.";
+        if (scope?.ProjectRids is { Count: > 0 })
+        {
+            scopeLine += $"\n- 프로젝트 일정·휴가는 고른 프로젝트 「{scope.Label}」 안에서만 찾습니다. 다른 프로젝트 것은 안 보입니다.";
+        }
 
         return $$"""
             당신은 JSini 업무 포털의 업무 비서입니다. 한국어로 자연스럽게 답하십시오.
 
             오늘은 {{todayKorea}}(한국 날짜)입니다. "오늘"·"이번 주"·"다음 주" 같은 말은 이 날짜를 기준으로 셉니다.
 
-            당신에게는 포털 안의 자료(요청 글·일정·할 일·메일·문서)를 읽는 도구가 있습니다. 다음을 반드시 지키십시오.
+            당신에게는 포털 안의 자료(요청 글·일정·휴가·할 일·메일·문서)를 읽는 도구가 있습니다. 다음을 반드시 지키십시오.
+
+            - 사내 문서(search_documents)는 규정·설명서이고, **누가 언제 무엇을 했나**는 업무 DB 에 있습니다.
+              일정·휴가·할 일·요청 글 질문은 문서가 아니라 그 도구부터 쓰십시오. 휴가·연차·월차·반차는
+              search_leaves 가 찾습니다.
 
             - 도구 하나가 빈손이어도 **거기서 답을 맺지 마십시오.** 질문에 아직 답하지 못했으면 남은 도구로
               더 찾아본 뒤에 답하십시오 — 특히 사람·조직·프로젝트 이름은 포털 계정에 없어도 사내 문서에
@@ -276,6 +284,8 @@ public sealed class AssistantAgent(
         "find_user" => "사람 찾는 중",
         "search_requests" or "get_request" => "요청글 뒤지는 중",
         "search_schedules" => "일정 뒤지는 중",
+        "search_leaves" => "휴가 기록 뒤지는 중",
+        "list_projects" => "프로젝트 목록 보는 중",
         "search_todos" => "할 일 뒤지는 중",
         "search_mails" => "보낸 메일 뒤지는 중",
         "search_gmail" => "메일함 뒤지는 중",

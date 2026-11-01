@@ -20,10 +20,12 @@ public class PortalToolSetTests
     }
 
     [Fact]
-    public void 내부_토큰이_있으면_여덟_가지를_연다()
+    public void 내부_토큰이_있으면_열_가지를_연다()
     {
         var names = PortalToolSet.Tools(internalEnabled: true).Select(t => t.Name).ToArray();
-        Assert.Equal(8, names.Length);
+        Assert.Equal(10, names.Length);
+        Assert.Contains("search_leaves", names);
+        Assert.Contains("list_projects", names);
         Assert.Contains("find_user", names);
         Assert.Contains("search_requests", names);
         Assert.Contains("search_mails", names);

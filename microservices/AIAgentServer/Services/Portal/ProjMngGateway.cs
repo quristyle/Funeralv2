@@ -14,7 +14,20 @@ public sealed class ProjMngGateway(HttpClient http, IConfiguration config)
     /// 로그인 아이디일 수도, 사람이 손으로 적은 이름일 수도 있다. 헬프데스크 쪽처럼 이름으로 풀려 있지 않다.</summary>
     public sealed record ScheduleRow(
         string Source, string? Title, DateOnly? StartDate, DateOnly? EndDate, bool Done,
-        string? Owner, string State, string? Role, string? Note);
+        string? Owner, string State, string? Role, string? Note,
+        string? Project = null, string? ScheduleType = null, string? Requester = null);
+
+    /// <summary>휴가 한 줄. <c>Person</c> 은 제목에서 뽑은 사람이고, <c>RecordedBy</c> 는 그 줄을 적은 사람이다.</summary>
+    public sealed record LeaveRow(
+        string? Person, string Kind, DateOnly? StartDate, DateOnly? EndDate, int? Days,
+        string? Title, string? RecordedBy, string? Project, bool Discarded);
+
+    /// <summary>프로젝트 한 줄과 구분별 일정 수.</summary>
+    public sealed record ProjectRow(
+        int PrjRid, string? Name, string? Nick, string? Description, DateOnly? StartDate, DateOnly? EndDate,
+        int Wbs, int PublicSchedules, int PrivateSchedules, DateOnly? LastPlan);
+
+    private sealed record LeaveEnvelope(int Total, int Returned, List<LeaveRow> Items);
 
     /// <summary>할 일 한 줄.</summary>
     public sealed record TodoRow(string? Title, DateOnly? TargetDay, bool Done, string? Owner, string? Comments);
@@ -24,7 +37,8 @@ public sealed class ProjMngGateway(HttpClient http, IConfiguration config)
     /// <summary>프로젝트관리 일정 목록. <paramref name="userId"/>·<paramref name="name"/> 아무거나 맞으면
     /// 걸린다 — 담당자 칸이 손으로 적은 글이라 아이디만으로는 거의 안 걸린다(WbsPersonMatch).</summary>
     public async Task<(int Total, IReadOnlyList<ScheduleRow> Items)> SearchSchedulesAsync(
-        string? userId, string? name, string? from, string? to, string? keyword, int take, CancellationToken ct)
+        string? userId, string? name, string? from, string? to, string? keyword, int take, CancellationToken ct,
+        IReadOnlyList<int>? prjRids = null, string? project = null, string? scheduleType = null)
     {
         var query = BaseQuery(take);
         if (userId is not null) query["userId"] = userId;
@@ -32,6 +46,8 @@ public sealed class ProjMngGateway(HttpClient http, IConfiguration config)
         if (from is not null) query["from"] = from;
         if (to is not null) query["to"] = to;
         if (keyword is not null) query["keyword"] = keyword;
+        if (scheduleType is not null) query["scheduleType"] = scheduleType;
+        AddProject(query, prjRids, project);
 
         var url = QueryHelpers.AddQueryString("/internal/schedules", query);
         var env = await GetAsync<Envelope<ScheduleRow>>(url, ct);
@@ -51,6 +67,37 @@ public sealed class ProjMngGateway(HttpClient http, IConfiguration config)
         var url = QueryHelpers.AddQueryString("/internal/todos", query);
         var env = await GetAsync<Envelope<TodoRow>>(url, ct);
         return env is null ? (0, []) : (env.Total, env.Items);
+    }
+
+    /// <summary>일정표의 휴가. 사람(<paramref name="name"/>)은 담당 칸이 아니라 제목에서 뽑은 이름과 견준다.</summary>
+    public async Task<(int Total, int Returned, IReadOnlyList<LeaveRow> Items)> SearchLeavesAsync(
+        string? name, string? from, string? to, IReadOnlyList<int>? prjRids, string? project, int take, CancellationToken ct)
+    {
+        var query = BaseQuery(take);
+        if (name is not null) query["name"] = name;
+        if (from is not null) query["from"] = from;
+        if (to is not null) query["to"] = to;
+        AddProject(query, prjRids, project);
+
+        var url = QueryHelpers.AddQueryString("/internal/leaves", query);
+        var env = await GetAsync<LeaveEnvelope>(url, ct);
+        return env is null ? (0, 0, []) : (env.Total, env.Returned, env.Items);
+    }
+
+    /// <summary>프로젝트 목록. <paramref name="prjRids"/> 가 있으면 그것만.</summary>
+    public async Task<IReadOnlyList<ProjectRow>> ProjectsAsync(IReadOnlyList<int>? prjRids, CancellationToken ct)
+    {
+        var query = new Dictionary<string, string?>();
+        AddProject(query, prjRids, null);
+
+        var url = QueryHelpers.AddQueryString("/internal/projects", query);
+        return await GetAsync<List<ProjectRow>>(url, ct) ?? [];
+    }
+
+    private static void AddProject(Dictionary<string, string?> query, IReadOnlyList<int>? prjRids, string? project)
+    {
+        if (prjRids is { Count: > 0 }) query["prjRids"] = string.Join(",", prjRids);
+        if (project is not null) query["project"] = project;
     }
 
     private static Dictionary<string, string?> BaseQuery(int take) => new() { ["take"] = take.ToString() };

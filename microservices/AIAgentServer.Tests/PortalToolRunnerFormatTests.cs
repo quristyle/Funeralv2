@@ -50,6 +50,45 @@ public class PortalToolRunnerFormatTests
     }
 
     [Fact]
+    public void 프로젝트관리_일정_줄은_프로젝트와_구분을_적는다()
+    {
+        var row = new ProjMngGateway.ScheduleRow(
+            "projmng", "정일인 휴가", new DateOnly(2026, 10, 22), new DateOnly(2026, 10, 22),
+            false, "이순열", "READY", null, null, "수빅자재모듈", "Public", "김노윤");
+
+        var line = PortalToolRunner.RenderProjMngSchedule(row);
+
+        Assert.Contains("[프로젝트관리 수빅자재모듈]", line);
+        Assert.Contains("구분 Public", line);
+        Assert.Contains("요청자 김노윤", line);
+    }
+
+    /// <summary>휴가 줄은 휴가 간 사람을 앞에 세우고, 적어 넣은 사람은 「적은 이」로 따로 적는다 —
+    /// 담당 칸을 그대로 사람으로 읽으면 정일인의 휴가가 이순열의 휴가가 된다.</summary>
+    [Fact]
+    public void 휴가_줄은_휴가_간_사람과_적은_이를_가른다()
+    {
+        var row = new ProjMngGateway.LeaveRow(
+            "김원욱", "휴가", new DateOnly(2025, 7, 28), new DateOnly(2025, 7, 31), 4,
+            "김원욱 여름휴가", "quristyle", "Mnm안전", false);
+
+        var line = PortalToolRunner.RenderLeave(row);
+
+        Assert.StartsWith("- 김원욱 휴가: 2025-07-28 ~ 2025-07-31, 4일", line);
+        Assert.Contains("적은 이 quristyle", line);
+    }
+
+    [Fact]
+    public void 하루짜리_휴가는_날짜를_한_번만_적는다()
+    {
+        var row = new ProjMngGateway.LeaveRow(
+            "정일인", "휴가", new DateOnly(2026, 10, 22), new DateOnly(2026, 10, 22), 1,
+            "정일인 휴가", "이순열", "수빅자재모듈", false);
+
+        Assert.StartsWith("- 정일인 휴가: 2026-10-22, 1일", PortalToolRunner.RenderLeave(row));
+    }
+
+    [Fact]
     public void 요청_글_줄은_걸린_길을_함께_적는다()
     {
         var row = new HelpDeskGateway.RequestRow(

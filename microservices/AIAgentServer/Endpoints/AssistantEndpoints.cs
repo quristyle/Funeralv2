@@ -82,6 +82,16 @@ public static class AssistantEndpoints
                 scopeError = ex.Message;
             }
 
+            // 고른 프로젝트는 문서 범위와 따로 실린다 — 문서가 하나도 안 매인 프로젝트라도
+            // 그 프로젝트의 일정·휴가는 물을 수 있어야 한다.
+            if (request.ProjectRids is { Count: > 0 } rids)
+            {
+                var label = string.IsNullOrWhiteSpace(request.RagScopeLabel)
+                    ? $"프로젝트 {rids.Count}개"
+                    : request.RagScopeLabel.Trim();
+                scope = (scope ?? new RagScope(null, null, label)) with { ProjectRids = [.. rids.Distinct()] };
+            }
+
             context.Response.Headers.ContentType = "text/event-stream";
             context.Response.Headers.CacheControl = "no-cache";
             context.Response.Headers.Connection = "keep-alive";
@@ -244,6 +254,11 @@ public sealed class AssistantChatRequest
 
     /// <summary>안내에 보여 줄 범위 이름(고른 프로젝트). 비우면 서버가 카테고리 수로 적는다.</summary>
     public string? RagScopeLabel { get; set; }
+
+    /// <summary>
+    /// 고른 프로젝트 번호. 그 프로젝트의 DB 자료(일정·휴가)만 찾는다. 없거나 비면 프로젝트로 좁히지 않는다.
+    /// </summary>
+    public List<int>? ProjectRids { get; set; }
 
     /// <summary>화면이 대화창을 구분하려고 쓰는 자리. 업무 비서는 기록을 세션 단위로 묶지 않으므로
     /// (감사표에 세션 칸이 없다) 지금은 받기만 하고 쓰지 않는다.</summary>

@@ -173,9 +173,12 @@ public partial class Assistant
         // 없으면 **빈 목록을 보낸다**(찾을 문서가 없다). 서버가 그 둘을 가른다.
         var categories = picked.Count == 0 ? null : PickedCategories;
 
+        // 프로젝트 번호는 문서 범위와 따로 간다 — 카테고리가 안 매인 프로젝트도 일정·휴가는 물을 수 있다.
+        var projectRids = picked.Count == 0 ? null : picked.Select(p => p.PrjRid).ToList();
+
         try
         {
-            await foreach (var part in Api.StreamAsync(context, categories, label, _cts.Token))
+            await foreach (var part in Api.StreamAsync(context, categories, label, projectRids, _cts.Token))
             {
                 if (part.Kind == "tool" && part.Notice is { Length: > 0 } notice)
                 {

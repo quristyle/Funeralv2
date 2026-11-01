@@ -21,16 +21,18 @@ public sealed class AssistantClient(HttpClient http)
     /// 「고른 프로젝트가 없다」와 「범위를 안 정했다」를 같게 본다.
     /// </param>
     /// <param name="ragScopeLabel">안내에 보여 줄 범위 이름(고른 프로젝트).</param>
+    /// <param name="projectRids">고른 프로젝트 번호. 그 프로젝트의 DB 자료(일정·휴가)로 좁힌다. 비우면 좁히지 않는다.</param>
     /// <param name="cancellationToken">화면을 떠나거나 중단을 누르면 끊는다.</param>
     public async IAsyncEnumerable<AiChatPart> StreamAsync(
         IReadOnlyList<AiChatMessage> messages,
         IReadOnlyList<string>? ragCategories = null,
         string? ragScopeLabel = null,
+        IReadOnlyList<int>? projectRids = null,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "ai/assistant/chat")
         {
-            Content = JsonContent.Create(new { messages, ragCategories, ragScopeLabel }),
+            Content = JsonContent.Create(new { messages, ragCategories, ragScopeLabel, projectRids }),
         };
         request.Headers.Accept.ParseAdd("text/event-stream");
 

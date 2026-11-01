@@ -46,7 +46,9 @@ public sealed class PortalToolRunner(
                 "find_user" => await FindUserAsync(args, ct),
                 "search_requests" => await SearchRequestsAsync(args, ct),
                 "get_request" => await GetRequestAsync(args, ct),
-                "search_schedules" => await SearchSchedulesAsync(args, ct),
+                "search_schedules" => await SearchSchedulesAsync(args, scope, ct),
+                "search_leaves" => await SearchLeavesAsync(args, scope, ct),
+                "list_projects" => await ListProjectsAsync(scope, ct),
                 "search_todos" => await SearchTodosAsync(args, ct),
                 "search_mails" => await SearchMailsAsync(args, ct),
                 "search_gmail" => await SearchGmailAsync(args, askedBy, ct),
@@ -128,7 +130,8 @@ public sealed class PortalToolRunner(
     /// <b>모델이 userId 만 주고 name 을 안 줄 수 있다</b> — 그때 이름 없이 그대로 넘기면 프로젝트관리의
     /// 손으로 적은 담당자 칸(로그인 아이디가 아니라 이름이 섞여 있다)에서 거의 안 걸린다. 그래서
     /// 이름이 없으면 <see cref="UserDirectory.FindByIdAsync"/> 로 직접 찾아 채운다(<see cref="ResolveScheduleIdentity"/>).</summary>
-    private async Task<string> SearchSchedulesAsync(IReadOnlyDictionary<string, object?> args, CancellationToken ct)
+    private async Task<string> SearchSchedulesAsync(
+        IReadOnlyDictionary<string, object?> args, RagScope? scope, CancellationToken ct)
     {
         var userId = Str(args, "userId");
         var name = Str(args, "name");
@@ -158,7 +161,9 @@ public sealed class PortalToolRunner(
         var toUtc = toDay is null ? (DateTime?)null : PortalDay.EndExclusiveUtc(toDay);
 
         var helpDeskTask = helpDesk.SearchSchedulesAsync(identity.UserId, fromUtc, toUtc, keyword, take, ct);
-        var projMngTask = projMng.SearchSchedulesAsync(identity.UserId, identity.Name, fromDay, toDay, keyword, take, ct);
+        var projMngTask = projMng.SearchSchedulesAsync(
+            identity.UserId, identity.Name, fromDay, toDay, keyword, take, ct,
+            scope?.ProjectRids, Str(args, "project"), Str(args, "scheduleType"));
         await Task.WhenAll(helpDeskTask, projMngTask);
 
         var (hTotal, hItems) = helpDeskTask.Result;
@@ -171,6 +176,28 @@ public sealed class PortalToolRunner(
         var total = hTotal + pTotal;
         var shown = lines.Take(Math.Min(lines.Count, take)).ToList();
         return PortalToolResult.Render("일정", shown, total, take);
+    }
+
+    /// <summary>일정표의 휴가. 고른 프로젝트(<see cref="RagScope.ProjectRids"/>) 안에서만 찾는다.</summary>
+    private async Task<string> SearchLeavesAsync(
+        IReadOnlyDictionary<string, object?> args, RagScope? scope, CancellationToken ct)
+    {
+        var take = Math.Clamp(Int(args, "take") ?? 50, 1, 200);
+
+        var (total, returned, items) = await projMng.SearchLeavesAsync(
+            Str(args, "name"), ValidDay(args, "from"), ValidDay(args, "to"),
+            scope?.ProjectRids, Str(args, "project"), take, ct);
+
+        var result = PortalToolResult.Render("휴가", [.. items.Select(RenderLeave)], total, take);
+
+        // 「없다」로 읽히지 않게 뺀 것을 밝힌다 — 휴가 낱말이 든 줄이 실제로는 있었다.
+        return returned > 0 ? result + $"\n(「휴가반납」 {returned}건은 휴가가 아니라 뺐습니다.)" : result;
+    }
+
+    private async Task<string> ListProjectsAsync(RagScope? scope, CancellationToken ct)
+    {
+        var rows = await projMng.ProjectsAsync(scope?.ProjectRids, ct);
+        return PortalToolResult.Render("프로젝트", [.. rows.Select(RenderProject)], rows.Count, rows.Count);
     }
 
     private async Task<string> SearchTodosAsync(IReadOnlyDictionary<string, object?> args, CancellationToken ct)
@@ -316,7 +343,30 @@ public sealed class PortalToolRunner(
         var owner = r.Owner is null ? "담당(원문) 미정" : $"담당(원문) {r.Owner}";
         var role = string.IsNullOrEmpty(r.Role) ? "" : $", 역할 {r.Role}";
         var note = string.IsNullOrWhiteSpace(r.Note) ? "" : $", 메모 {r.Note}";
-        return $"- [프로젝트관리] {r.Title ?? "(제목 없음)"} ({period}, {r.State}, {owner}{role}{note})";
+        var where = string.IsNullOrWhiteSpace(r.Project) ? "프로젝트관리" : $"프로젝트관리 {r.Project}";
+        var type = string.IsNullOrWhiteSpace(r.ScheduleType) ? "" : $", 구분 {r.ScheduleType}";
+        var requester = string.IsNullOrWhiteSpace(r.Requester) ? "" : $", 요청자 {r.Requester}";
+        return $"- [{where}] {r.Title ?? "(제목 없음)"} ({period}, {r.State}, {owner}{role}{type}{requester}{note})";
+    }
+
+    /// <summary>휴가 한 줄. 사람을 앞에 세우고, 적은 사람은 휴가 간 사람과 헷갈리지 않게 「적은 이」로 따로 적는다.</summary>
+    internal static string RenderLeave(ProjMngGateway.LeaveRow r)
+    {
+        var who = r.Person ?? "(이름 없음)";
+        var period = r.StartDate == r.EndDate ? FormatDay(r.StartDate) : $"{FormatDay(r.StartDate)} ~ {FormatDay(r.EndDate)}";
+        var days = r.Days is { } d ? $", {d}일(달력 기준)" : "";
+        var project = string.IsNullOrWhiteSpace(r.Project) ? "" : $", {r.Project}";
+        var discarded = r.Discarded ? ", 폐기됨" : "";
+        var by = string.IsNullOrWhiteSpace(r.RecordedBy) ? "" : $", 적은 이 {r.RecordedBy}";
+        return $"- {who} {r.Kind}: {period}{days}{project}{discarded} — 제목 「{r.Title}」{by}";
+    }
+
+    internal static string RenderProject(ProjMngGateway.ProjectRow r)
+    {
+        var nick = string.IsNullOrWhiteSpace(r.Nick) || r.Nick == r.Name ? "" : $" ({r.Nick})";
+        return $"- #{r.PrjRid} {r.Name}{nick}: {FormatDay(r.StartDate)} ~ {FormatDay(r.EndDate)}, "
+             + $"WBS {r.Wbs}건 · 공용 일정 {r.PublicSchedules}건 · 개인 일정 {r.PrivateSchedules}건"
+             + (r.LastPlan is { } lp ? $", 마지막 일정 {FormatDay(lp)}" : "");
     }
 
     internal static string RenderTodo(ProjMngGateway.TodoRow r)

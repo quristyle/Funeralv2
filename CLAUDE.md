@@ -221,7 +221,8 @@ nginx 설정 정본은 [deploy/nginx/](deploy/nginx/) 에 있다 — Blazor 회�
   인증을 가르는 까닭(Workspace 는 API · 개인은 IMAP) · 길 셋이 겹칠 때
   `Message-ID` 로 지우는 자리 · 적재가 폴더를 못 벗어나게 묶은 길
 - [docs/portal-ai-assistant.md](docs/portal-ai-assistant.md) — 업무 비서: 포털
-  데이터를 도구로 여는 까닭 · 도구 일곱 · 기록이 답 전문을 담는 까닭 · 실측
+  데이터를 도구로 여는 까닭 · 도구 열 · **고른 프로젝트의 DB 자료(일정·휴가)로
+  좁히는 길과 휴가가 제목에만 있는 사정** · 기록이 답 전문을 담는 까닭 · 실측
   숫자와 지어냄 0건 · 아직 안 끝난 것(내부 토큰 · 기록 표 · 「임원」 역할)
 - [deploy/llm/README.md](deploy/llm/README.md) — 추론 장비의 상태 수집기 정본과,
   「GPU 를 읽지 못했습니다」를 재부팅 없이 푸는 길

@@ -34,6 +34,16 @@ public class AssistantPromptTests
         var p = AssistantAgent.SystemPrompt(DateTime.UtcNow, new RagScope(["hanju"], null, "한주 › 규정"));
         Assert.Contains("한주 › 규정", p, StringComparison.Ordinal);
     }
+
+    /// <summary>프로젝트만 고르고 문서 범위는 안 좁혔으면 「문서 범위가 좁혀졌다」고 말하지 않는다.</summary>
+    [Fact]
+    public void 고른_프로젝트는_일정_범위로_적는다()
+    {
+        var p = AssistantAgent.SystemPrompt(DateTime.UtcNow, new RagScope(null, null, "수빅자재모듈", [8]));
+        Assert.Contains("프로젝트 일정·휴가는 고른 프로젝트 「수빅자재모듈」", p, StringComparison.Ordinal);
+        Assert.DoesNotContain("문서 검색 범위는", p, StringComparison.Ordinal);
+        Assert.Contains("search_leaves", p, StringComparison.Ordinal);
+    }
 }
 
 /// <summary>도구 루프 자체 — 라운드 소진 · 도구 미호출 · 도구 예외 — 를 가짜 모델로 시험한다.

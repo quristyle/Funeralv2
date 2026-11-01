@@ -31,13 +31,16 @@ public sealed class InternalQueryController(InternalQueryService service, IConfi
     public async Task<IActionResult> SchedulesAsync(
         [FromQuery] string? userId, [FromQuery] string? name,
         [FromQuery] DateOnly? from, [FromQuery] DateOnly? to,
-        [FromQuery] string? keyword, [FromQuery] int? take, CancellationToken ct)
+        [FromQuery] string? keyword, [FromQuery] int? take,
+        [FromQuery] string? prjRids, [FromQuery] string? project, [FromQuery] string? scheduleType,
+        CancellationToken ct)
     {
         if (!IsAllowed) return NotFound();
 
         var takeCount = Math.Clamp(take ?? 30, 1, 100);
 
-        var (total, rows) = await service.SchedulesAsync(userId, name, from, to, keyword, takeCount, ct);
+        var (total, rows) = await service.SchedulesAsync(
+            userId, name, from, to, keyword, takeCount, Filter(prjRids, project), Blank(scheduleType), ct);
 
         var items = rows.Select(r => new
         {
@@ -56,10 +59,86 @@ public sealed class InternalQueryController(InternalQueryService service, IConfi
             // dev_chk · build_chk 는 참거짓이 아니라 글로 적은 메모라, comm 과 묶어 그대로 들려준다 —
             // 비서가 "왜 그런지"를 물으면 인용할 수 있는 유일한 자유 글이다.
             note = CombineNotes(r.DevChk, r.BuildChk, r.Comm),
+            project = r.PrjName,
+            scheduleType = r.ScheduleType,
+            requester = r.ReqUser,
         });
 
         return Ok(new { total, items });
     }
+
+    /// <summary>
+    /// 휴가(<see cref="WbsLeave"/>) — 일정표의 제목에서 휴가 줄을 가려 사람·종류·기간·일수를 낸다.
+    /// <paramref name="name"/> 은 담당 칸이 아니라 <b>제목에서 뽑은 사람</b>과 견준다.
+    /// </summary>
+    [HttpGet("leaves")]
+    public async Task<IActionResult> LeavesAsync(
+        [FromQuery] string? name, [FromQuery] DateOnly? from, [FromQuery] DateOnly? to,
+        [FromQuery] string? prjRids, [FromQuery] string? project, [FromQuery] int? take, CancellationToken ct)
+    {
+        if (!IsAllowed) return NotFound();
+
+        var takeCount = Math.Clamp(take ?? 50, 1, 200);
+        var (total, returned, rows) = await service.LeavesAsync(
+            Blank(name), from, to, Filter(prjRids, project), takeCount, ct);
+
+        var items = rows.Select(r => new
+        {
+            person = r.Person,
+            kind = r.Kind,
+            startDate = r.StartDate,
+            endDate = r.EndDate,
+            days = r.Days,
+            title = r.Title,
+            recordedBy = r.RecordedBy,
+            project = r.PrjName,
+            discarded = r.Discarded,
+        });
+
+        return Ok(new { total, returned, items });
+    }
+
+    /// <summary>프로젝트 목록과 구분별 일정 수.</summary>
+    [HttpGet("projects")]
+    public async Task<IActionResult> ProjectsAsync([FromQuery] string? prjRids, CancellationToken ct)
+    {
+        if (!IsAllowed) return NotFound();
+
+        var rows = await service.ProjectsAsync(Rids(prjRids), ct);
+        return Ok(rows.Select(r => new
+        {
+            prjRid = r.PrjRid,
+            name = r.PrjName,
+            nick = r.PrjNick,
+            description = r.PrjDesc,
+            startDate = r.PrjSdt,
+            endDate = r.PrjEdt,
+            wbs = r.WbsCount,
+            publicSchedules = r.PublicCount,
+            privateSchedules = r.PrivateCount,
+            lastPlan = r.LastPlan,
+        }));
+    }
+
+    private static WbsProjectFilter? Filter(string? prjRids, string? project)
+    {
+        var rids = Rids(prjRids);
+        var text = Blank(project);
+        return rids is null && text is null ? null : new WbsProjectFilter(rids, text);
+    }
+
+    /// <summary>쉼표로 이은 프로젝트 번호. 하나도 못 읽으면 null(전체).</summary>
+    private static int[]? Rids(string? csv)
+    {
+        if (string.IsNullOrWhiteSpace(csv)) return null;
+        var rids = csv.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(x => int.TryParse(x, out var n) ? n : (int?)null)
+            .OfType<int>()
+            .ToArray();
+        return rids.Length == 0 ? null : rids;
+    }
+
+    private static string? Blank(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
 
     /// <summary>개발·빌드 확인 메모와 비고를 사람이 읽을 한 덩이 글로 묶는다. 빈 칸은 건너뛴다.</summary>
     private static string? CombineNotes(string? devChk, string? buildChk, string? comm)
