@@ -14,6 +14,9 @@ public partial class WbsEditForm
     /// <summary>같은 격자 맨 앞에 얹을 칸. 따로 폼을 두면 줄이 둘로 갈려 칸이 맞지 않는다.</summary>
     [Parameter] public RenderFragment? Leading { get; set; }
 
+    /// <summary>휴대폰에서 세부 칸(<c>pm-editform__more</c>)을 펴고 접는 단추. 넓은 화면에서는 CSS 가 감춘다.</summary>
+    [Parameter] public RenderFragment? MoreToggle { get; set; }
+
     /// <summary>날짜·시간 변환 도우미 (하위 호환 유지).</summary>
     private static DateTime? Day(DateOnly? value) => value?.ToDateTime(TimeOnly.MinValue);
 

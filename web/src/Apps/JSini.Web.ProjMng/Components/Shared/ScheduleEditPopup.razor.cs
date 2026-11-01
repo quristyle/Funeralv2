@@ -35,6 +35,14 @@ public partial class ScheduleEditPopup
     private string _formState = "READY";
     private WbsItemDto _form = new();
     private ConfirmDialog? _confirm;
+    private bool _showMore;
+
+    /// <summary>휴대폰에서 접어 둔 세부 칸 가운데 값이 든 수. 접힌 채로도 무엇이 적혀 있는지 알게 한다.</summary>
+    private int MoreFilled => new[]
+    {
+        _form.ProcId, _form.Gb1, _form.Gb2, _form.ProcTp, _form.ProcLvl,
+        _form.BuildUser, _form.QcUser, _form.BuildStatus,
+    }.Count(v => !string.IsNullOrWhiteSpace(v));
 
     /// <summary>창이 떠 있는가. 떠 있는 동안 화면의 Delete 글쇠는 창의 일이라 받지 않는다.</summary>
     public bool IsOpen => _visible;
@@ -45,6 +53,7 @@ public partial class ScheduleEditPopup
         _form = seed;
         _formState = "READY";
         _isNew = true;
+        _showMore = false;
         _visible = true;
         StateHasChanged();
     }
@@ -55,6 +64,7 @@ public partial class ScheduleEditPopup
         _form = Copy(item);
         _formState = StateCode(item);
         _isNew = false;
+        _showMore = false;
         _visible = true;
         StateHasChanged();
     }

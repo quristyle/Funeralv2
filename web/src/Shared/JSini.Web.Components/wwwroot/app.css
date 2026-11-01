@@ -7147,15 +7147,19 @@ a.jsini-social__btn:focus-visible {
    ------------------------------------------------------------ */
 
 @media (max-width: 767px) {
+  /* MinWidth·MinHeight 는 데스크톱 창 크기 조절의 하한이다. 인라인 min-width 는 max-width 를 이겨서
+     남겨 두면 720px 창이 390px 휴대폰에서 오른쪽 절반이 잘린 채 뜬다(일정 수정 창에서 실측). */
   .jsini-popup,
   .jsini-gridpopup {
     max-width: calc(100vw - 1.5rem) !important;
+    min-width: 0 !important;
     margin: 0 auto !important;
   }
 
   /* 휴대폰(≤767px)에서 창이 화면을 꽉 채우도록 한다.
      CommPopup 의 FullOnMobile(기본값 true)이 이 규칙을 탄다. */
   .dxbl-modal > .dxbl-modal-root > .dxbl-popup.jsini-popup--full-mobile {
+    min-height: 0 !important;
     width: 100vw !important;
     max-width: 100vw !important;
     height: 100% !important;

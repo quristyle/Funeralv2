@@ -117,4 +117,25 @@ public sealed class ProjectSchedulerRequesterTests
         Assert.Equal(source.WbsState, copied.WbsState);
         Assert.Equal(source.Discarded, copied.Discarded);
     }
+
+    /// <summary>휴대폰에서 일정 수정 창이 화면 안에 들어오고, 세부 칸 여덟은 접혀 메모 뒤로 내려간다. 넓은 화면은 그대로다.</summary>
+    [Fact]
+    public void ScheduleEditPopup_휴대폰에서는_화면폭에_맞고_세부칸을_접는다()
+    {
+        var root = Path.Combine(AppContext.BaseDirectory, "../../../../../src");
+        var popup = File.ReadAllText(Path.Combine(root, "Apps/JSini.Web.ProjMng/Components/Shared/ScheduleEditPopup.razor"));
+        var form = File.ReadAllText(Path.Combine(root, "Apps/JSini.Web.ProjMng/Components/Shared/WbsEditForm.razor"));
+        var css = File.ReadAllText(Path.Combine(root, "Apps/JSini.Web.ProjMng/wwwroot/projmng.css"));
+        var app = File.ReadAllText(Path.Combine(root, "Shared/JSini.Web.Components/wwwroot/app.css"));
+
+        // 인라인 min-width(720px)가 max-width 를 이겨 창이 휴대폰 밖으로 나가던 자리
+        Assert.Contains("min-width: 0 !important;", app);
+        Assert.Contains("min-height: 0 !important;", app);
+
+        Assert.Contains("<MoreToggle>", popup);
+        Assert.Contains("FooterCssClass=\"pm-scheduler-edit-foot\"", popup);
+        Assert.Equal(8, form.Split("CssClass=\"pm-editform__more\"").Length - 1);
+        Assert.Contains(".pm-scheduler-edit:not(.pm-scheduler-edit--more) .dxbl-fl .pm-editform__more", css);
+        Assert.Contains(".dxbl-popup.pm-scheduler-edit-popup .pm-scheduler-edit-foot > .dxbl-btn", css);
+    }
 }

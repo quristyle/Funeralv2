@@ -10,11 +10,11 @@
         <DxTextBox @bind-Text="Item.ProcNm" />
     </DxFormLayoutItem>
 
-    <DxFormLayoutItem Caption="요청자" ColSpanMd="6" ColSpanLg="@(Compact ? 3 : 6)">
+    <DxFormLayoutItem Caption="요청자" ColSpanXs="6" ColSpanMd="6" ColSpanLg="@(Compact ? 3 : 6)">
         <DxTextBox @bind-Text="Item.ReqUser" />
     </DxFormLayoutItem>
 
-    <DxFormLayoutItem Caption="담당자" ColSpanMd="6" ColSpanLg="@(Compact ? 3 : 6)">
+    <DxFormLayoutItem Caption="담당자" ColSpanXs="6" ColSpanMd="6" ColSpanLg="@(Compact ? 3 : 6)">
         <DxTextBox @bind-Text="Item.DevUser" />
     </DxFormLayoutItem>
 
@@ -25,52 +25,60 @@
                     AutoSelectFirst="false" AllowClear="true" KeepUnknownValue="true" />
     </DxFormLayoutItem>
 
-    <DxFormLayoutItem Caption="공정" ColSpanMd="4" ColSpanLg="@(Compact ? 2 : 4)">
+    @* 휴대폰에서 잘 안 쓰는 칸 여덟을 접는 단추. 자리는 여기지만 휴대폰에서는 CSS order 로 메모·원문 뒤로 내려간다. *@
+    @if (MoreToggle is not null)
+    {
+        <DxFormLayoutItem ColSpanMd="12" CssClass="pm-editform__toggle">
+            @MoreToggle
+        </DxFormLayoutItem>
+    }
+
+    <DxFormLayoutItem Caption="공정" ColSpanXs="4" ColSpanMd="4" ColSpanLg="@(Compact ? 2 : 4)" CssClass="pm-editform__more">
         <DxTextBox @bind-Text="Item.ProcId" />
     </DxFormLayoutItem>
 
-    <DxFormLayoutItem Caption="구분1" ColSpanMd="4" ColSpanLg="@(Compact ? 2 : 4)">
+    <DxFormLayoutItem Caption="구분1" ColSpanXs="4" ColSpanMd="4" ColSpanLg="@(Compact ? 2 : 4)" CssClass="pm-editform__more">
         <DxTextBox @bind-Text="Item.Gb1" />
     </DxFormLayoutItem>
 
-    <DxFormLayoutItem Caption="구분2" ColSpanMd="4" ColSpanLg="@(Compact ? 2 : 4)">
+    <DxFormLayoutItem Caption="구분2" ColSpanXs="4" ColSpanMd="4" ColSpanLg="@(Compact ? 2 : 4)" CssClass="pm-editform__more">
         <DxTextBox @bind-Text="Item.Gb2" />
     </DxFormLayoutItem>
 
-    <DxFormLayoutItem Caption="종류" ColSpanMd="6" ColSpanLg="@(Compact ? 2 : 6)">
+    <DxFormLayoutItem Caption="종류" ColSpanXs="6" ColSpanMd="6" ColSpanLg="@(Compact ? 2 : 6)" CssClass="pm-editform__more">
         <DxTextBox @bind-Text="Item.ProcTp" />
     </DxFormLayoutItem>
 
-    <DxFormLayoutItem Caption="단계" ColSpanMd="6" ColSpanLg="@(Compact ? 2 : 6)">
+    <DxFormLayoutItem Caption="단계" ColSpanXs="6" ColSpanMd="6" ColSpanLg="@(Compact ? 2 : 6)" CssClass="pm-editform__more">
         <DxTextBox @bind-Text="Item.ProcLvl" />
     </DxFormLayoutItem>
 
-    <DxFormLayoutItem Caption="빌드 담당" ColSpanMd="6" ColSpanLg="@(Compact ? 4 : 6)">
+    <DxFormLayoutItem Caption="빌드 담당" ColSpanXs="6" ColSpanMd="6" ColSpanLg="@(Compact ? 4 : 6)" CssClass="pm-editform__more">
         <BizSelect Type="portal_account" @bind-Value="Item.BuildUser" />
     </DxFormLayoutItem>
 
-    <DxFormLayoutItem Caption="검수 담당" ColSpanMd="6" ColSpanLg="@(Compact ? 4 : 6)">
+    <DxFormLayoutItem Caption="검수 담당" ColSpanXs="6" ColSpanMd="6" ColSpanLg="@(Compact ? 4 : 6)" CssClass="pm-editform__more">
         <BizSelect Type="portal_account" @bind-Value="Item.QcUser" />
     </DxFormLayoutItem>
 
-    <DxFormLayoutItem Caption="빌드 상태" ColSpanMd="6" ColSpanLg="@(Compact ? 4 : 6)">
+    <DxFormLayoutItem Caption="빌드 상태" ColSpanMd="6" ColSpanLg="@(Compact ? 4 : 6)" CssClass="pm-editform__more">
         <DxTextBox @bind-Text="Item.BuildStatus" />
     </DxFormLayoutItem>
 
-    <DxFormLayoutItem Caption="계획 시작" ColSpanMd="6" ColSpanLg="@(Compact ? 3 : 6)">
+    <DxFormLayoutItem Caption="계획 시작" ColSpanXs="6" ColSpanMd="6" ColSpanLg="@(Compact ? 3 : 6)">
         <DxDateEdit @bind-Date="Item.PlanSdt" TimeSectionVisible="true" DisplayFormat="yyyy-MM-dd HH:mm" Format="yyyy-MM-dd HH:mm" ValidationEnabled="false" Mask="yyyy-MM-dd HH:mm" AllowUpDownArrowKeys="true" />
     </DxFormLayoutItem>
 
-    <DxFormLayoutItem Caption="계획 종료" ColSpanMd="6" ColSpanLg="@(Compact ? 3 : 6)">
+    <DxFormLayoutItem Caption="계획 종료" ColSpanXs="6" ColSpanMd="6" ColSpanLg="@(Compact ? 3 : 6)">
         <DxDateEdit @bind-Date="Item.PlanEdt" TimeSectionVisible="true" DisplayFormat="yyyy-MM-dd HH:mm" Format="yyyy-MM-dd HH:mm" ValidationEnabled="false" Mask="yyyy-MM-dd HH:mm" AllowUpDownArrowKeys="true" />
     </DxFormLayoutItem>
 
     @* 이 둘이 진행 상태를 정한다 — 대기·진행·완료는 적는 칸이 아니다. *@
-    <DxFormLayoutItem Caption="개발 시작" ColSpanMd="6" ColSpanLg="@(Compact ? 3 : 6)">
+    <DxFormLayoutItem Caption="개발 시작" ColSpanXs="6" ColSpanMd="6" ColSpanLg="@(Compact ? 3 : 6)">
         <DxDateEdit @bind-Date="Item.DevSdt" TimeSectionVisible="true" DisplayFormat="yyyy-MM-dd HH:mm" Format="yyyy-MM-dd HH:mm" ValidationEnabled="false" Mask="yyyy-MM-dd HH:mm" AllowUpDownArrowKeys="true" />
     </DxFormLayoutItem>
 
-    <DxFormLayoutItem Caption="개발 종료" ColSpanMd="6" ColSpanLg="@(Compact ? 3 : 6)">
+    <DxFormLayoutItem Caption="개발 종료" ColSpanXs="6" ColSpanMd="6" ColSpanLg="@(Compact ? 3 : 6)">
         <DxDateEdit @bind-Date="Item.DevEdt" TimeSectionVisible="true" DisplayFormat="yyyy-MM-dd HH:mm" Format="yyyy-MM-dd HH:mm" ValidationEnabled="false" Mask="yyyy-MM-dd HH:mm" AllowUpDownArrowKeys="true" />
     </DxFormLayoutItem>
 

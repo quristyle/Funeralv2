@@ -5,9 +5,9 @@
 
 <CommPopup @bind-Visible="_visible" HeaderText="@(_isNew ? "일정 등록" : "일정 수정")"
            Width="940px" Height="700px" MinWidth="720px" MinHeight="640px" MaxHeight="92vh" Scrollable="true"
-           CssClass="pm-scheduler-edit-popup">
+           CssClass="pm-scheduler-edit-popup" FooterCssClass="pm-scheduler-edit-foot">
     <BodyContentTemplate Context="popup">
-        <div class="pm-scheduler-edit">
+        <div class="@(_showMore ? "pm-scheduler-edit pm-scheduler-edit--more" : "pm-scheduler-edit")">
             <WbsEditForm Item="@_form" Compact="true">
                 <Leading>
                     <DxFormLayoutItem Caption="프로젝트" ColSpanMd="6" ColSpanLg="4">
@@ -16,18 +16,29 @@
                                     ValueChanged="@((string? code) => _form.PrjRid = int.TryParse(code, out var rid) ? rid : null)" />
                     </DxFormLayoutItem>
 
-                    <DxFormLayoutItem Caption="구분" ColSpanMd="6" ColSpanLg="4">
+                    <DxFormLayoutItem Caption="구분" ColSpanXs="6" ColSpanMd="6" ColSpanLg="4">
                         @* 저장된 값이 코드표에 없어도 지우지 않는다 — 옛 값이 그대로 남은 줄이 있다. *@
                         <CodeSelect CodeId="schedule_type" AutoSelectFirst="false" KeepUnknownValue="true"
                                     @bind-Value="_form.ScheduleType" />
                     </DxFormLayoutItem>
 
-                    <DxFormLayoutItem Caption="진행 상태" ColSpanMd="12" ColSpanLg="4">
+                    <DxFormLayoutItem Caption="진행 상태" ColSpanXs="6" ColSpanMd="12" ColSpanLg="4">
                         <DxComboBox Data="@StateOptions" TData="ScheduleState" TValue="string" TextFieldName="Name" ValueFieldName="Code"
                                     Value="@_formState" ValueChanged="@OnFormStateChanged"
                                     ValidationEnabled="false" />
                     </DxFormLayoutItem>
                 </Leading>
+                <MoreToggle>
+                    <button type="button" class="pm-scheduler-edit__more" aria-expanded="@(_showMore ? "true" : "false")"
+                            @onclick="@(() => _showMore = !_showMore)">
+                        <span>세부 항목</span>
+                        @if (MoreFilled > 0)
+                        {
+                            <span class="pm-scheduler-edit__more-count">@MoreFilled</span>
+                        }
+                        <i class="jsini-icon-chevron-down pm-scheduler-edit__more-chev"></i>
+                    </button>
+                </MoreToggle>
             </WbsEditForm>
         </div>
     </BodyContentTemplate>
