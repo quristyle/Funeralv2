@@ -2637,11 +2637,28 @@ public partial class ProjectScheduler : IAsyncDisposable
         ApplyLegend();
     }
 
-    /// <summary>범례를 모두 다시 누른다.</summary>
-    private void ShowAllLegend()
+    private bool AllStatesShown => _hiddenStates.Count == 0;
+
+    private bool AllStatesHidden => StateLabels.All(l => _hiddenStates.Contains(l.Id));
+
+    private bool AllTargetsShown => _hiddenTargets.Count == 0;
+
+    private bool AllTargetsHidden => TargetLegend.All(t => _hiddenTargets.Contains(t.Code));
+
+    private void SetAllStates(bool on) => SetAllLegend(_hiddenStates, on, StateLabels.Select(l => l.Id));
+
+    private void SetAllTargets(bool on) => SetAllLegend(_hiddenTargets, on, TargetLegend.Select(t => t.Code));
+
+    /// <summary>한 무리의 범례를 한꺼번에 누르거나 뗀다.</summary>
+    private void SetAllLegend(HashSet<string> hidden, bool on, IEnumerable<string> keys)
     {
-        _hiddenStates.Clear();
-        _hiddenTargets.Clear();
+        hidden.Clear();
+
+        if (!on)
+        {
+            hidden.UnionWith(keys);
+        }
+
         ApplyLegend();
     }
 

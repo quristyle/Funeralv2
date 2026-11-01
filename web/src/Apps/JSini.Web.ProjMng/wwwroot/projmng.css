@@ -5058,6 +5058,17 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   cursor: pointer;
 }
 
+.pm-gc__legend-all:disabled {
+  color: var(--jsini-text-muted, #6b7280);
+  opacity: 0.5;
+  cursor: default;
+}
+
+.pm-gc__legend-alls {
+  display: inline-flex;
+  gap: var(--jsini-sp-sm);
+}
+
 .pm-gc__legend {
   display: flex;
   flex-wrap: wrap;

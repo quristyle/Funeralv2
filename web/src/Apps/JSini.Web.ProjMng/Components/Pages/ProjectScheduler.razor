@@ -209,10 +209,10 @@
                 <div class="pm-gc__legend-group" role="group" aria-label="진행상태 범례">
                     <span class="pm-gc__legend-title">
                         진행상태
-                        @if (LegendFiltering)
-                        {
-                            <button type="button" class="pm-gc__legend-all" @onclick="@ShowAllLegend">모두 보기</button>
-                        }
+                        <span class="pm-gc__legend-alls">
+                            <button type="button" class="pm-gc__legend-all" disabled="@AllStatesShown" @onclick="@(() => SetAllStates(true))">모두 켜기</button>
+                            <button type="button" class="pm-gc__legend-all" disabled="@AllStatesHidden" @onclick="@(() => SetAllStates(false))">모두 끄기</button>
+                        </span>
                     </span>
                     <ul class="pm-gc__legend">
                         @foreach (var label in StateLabels)
@@ -230,7 +230,13 @@
                     </ul>
                 </div>
                 <div class="pm-gc__legend-group" role="group" aria-label="추가대상 범례">
-                    <span class="pm-gc__legend-title">추가대상</span>
+                    <span class="pm-gc__legend-title">
+                        추가대상
+                        <span class="pm-gc__legend-alls">
+                            <button type="button" class="pm-gc__legend-all" disabled="@AllTargetsShown" @onclick="@(() => SetAllTargets(true))">모두 켜기</button>
+                            <button type="button" class="pm-gc__legend-all" disabled="@AllTargetsHidden" @onclick="@(() => SetAllTargets(false))">모두 끄기</button>
+                        </span>
+                    </span>
                     <ul class="pm-gc__legend">
                         @foreach (var (code, caption) in TargetLegend)
                         {
