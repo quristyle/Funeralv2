@@ -21,12 +21,13 @@
     </Fields>
 </CommSch>
 
-<CommCont Title="메타데이터 관리">
+<CommCont>
     <CommGrd TItem="BizSelectConfigDto"
              Data="@Shown"
              EditFormTitle="메타데이터"
              ExportName="메타데이터"
              PageSize="20"
+             ShowHeader="false"
              OnNew="@FillNew"
              OnSave="@SaveAsync"
              OnDelete="@DeleteAsync"
