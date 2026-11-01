@@ -1,0 +1,37 @@
+@*
+WBS 대시보드의 가로 막대 목록(원본 BarChart.vue). 완료분은 같은 막대 안에 진한 색으로 겹친다 — 막대를 둘로 나란히 그리면 줄 수가 두 배가 된다.
+*@
+
+<div class="pm-wbar">
+    @foreach (var it in Items)
+    {
+        var key = it.Key;
+
+        <div class="pm-wbar__row @(Active == key ? "is-on" : null)" @key="key"
+             title="@(it.Sub ?? it.Label)"
+             @onclick="@(() => OnPick.InvokeAsync(key))">
+            <div class="pm-wbar__lab">@it.Label</div>
+            <div class="pm-wbar__track">
+                <div class="pm-wbar__fill" style="width: @Pct(it.Value, Max)%">
+                    @if (it.Done > 0)
+                    {
+                        <div class="pm-wbar__done" style="width: @Pct(it.Done, it.Value)%"
+                             title="@($"{DoneLabel} {it.Done} / {it.Value}")"></div>
+                    }
+                </div>
+            </div>
+            <div class="pm-wbar__val">
+                @it.Value
+                @if (it.Done > 0)
+                {
+                    <span class="pm-wbar__dn">✓@it.Done</span>
+                }
+            </div>
+        </div>
+    }
+
+    @if (Items.Count == 0)
+    {
+        <div class="jsini-text-muted">데이터 없음</div>
+    }
+</div>

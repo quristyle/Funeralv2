@@ -2,8 +2,9 @@
 @attribute [RouteKey("projmng.wbs.modules")]
 
 @*
-WBS 모듈별 현황. 모듈은 서브시스템 코드(systemcode)다.
-계획 기간과 실적 기간을 같은 줄에 둔다 — 실적은 사람이 채우므로 적힌 건수가 전체보다 적은 것이 정상이고, 그 차이로 아직 손도 안 댄 모듈이 보인다.
+WBS 모듈별 현황(원본 Modules.vue). 모듈은 서브시스템 코드(systemcode)다.
+위는 막대 — 진한 부분을 무엇으로 볼지(완료·개발완료·실적종료 입력) 고른다. 아래는 계획·완료·개발완료·실적일 건수를 한 줄에 두는 표다.
+막대나 줄을 누르면 그 모듈로 좁힌 상세 목록으로 넘어간다.
 *@
 
 @inherits DataPage
@@ -28,78 +29,92 @@ WBS 모듈별 현황. 모듈은 서브시스템 코드(systemcode)다.
     </Fields>
 </CommSch>
 
-@if (_rows.Count > 0)
-{
-    <DxChart Data="@_rows" Width="100%" Height="300px">
-        <DxChartBarSeries T="WbsBoardModuleDto" TArgument="string" TValue="int"
-                          ArgumentField="m => m.Systemcode" ValueField="m => m.Cnt" Name="전체" />
-        <DxChartBarSeries T="WbsBoardModuleDto" TArgument="string" TValue="int"
-                          ArgumentField="m => m.Systemcode" ValueField="m => m.Done" Name="완료" />
-        <DxChartTooltip Enabled="true">
-            <div class="jsini-tip">@context.Point.Argument · @context.Point.SeriesName @(context.Point.Value)건</div>
-        </DxChartTooltip>
-    </DxChart>
-}
+<section class="pm-wpanel">
+    <h2 class="pm-wpanel__head">
+        모듈별 건수
+        <span class="pm-wpanel__hint">막대를 누르면 상세 목록으로 이동 · 진한 부분 = @OverlayLabel</span>
+        <span class="pm-wpanel__spacer"></span>
+        <DxComboBox Data="@OverlayOptions" @bind-Value="_overlay"
+                    TextFieldName="Text" ValueFieldName="Value" Style="width: 150px" />
+    </h2>
+    <WbsBarChart Items="@Items" DoneLabel="@OverlayLabel" OnPick="@Drill" />
+</section>
 
-<CommGrd TItem="WbsBoardModuleDto"
-         Data="@_rows"
-         ExportName="모듈별 현황"
-         EmptyText="모듈별 자료가 없습니다."
-         PageSize="25"
-         RowActions="@ModuleActions"
-         Reload="@SearchAsync">
-    <Columns>
-        <DxGridDataColumn FieldName="@nameof(WbsBoardModuleDto.Systemcode)" Caption="모듈" Width="110" />
-        <DxGridDataColumn FieldName="@nameof(WbsBoardModuleDto.SystemNm)" Caption="이름" MinWidth="160"
-                          TextAlignment="GridTextAlignment.Left" />
-        <DxGridDataColumn FieldName="@nameof(WbsBoardModuleDto.Cnt)" Caption="건수" Width="80" />
-        <DxGridDataColumn FieldName="@nameof(WbsBoardModuleDto.Done)" Caption="완료" Width="80" />
+<section class="pm-wpanel">
+    <h2 class="pm-wpanel__head">
+        모듈 상세
+        <span class="pm-wpanel__hint">계획 · 완료 · 개발완료 · 실적일 기준 건수</span>
+    </h2>
 
-        <DxGridDataColumn Caption="완료율" Width="90">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var m = (WbsBoardModuleDto)cell.DataItem;
+    <div class="pm-heat-wrap">
+        <table class="pm-wmod">
+            <thead>
+                <tr>
+                    <th rowspan="2">모듈</th>
+                    <th rowspan="2">이름</th>
+                    <th rowspan="2">건수</th>
+                    <th colspan="2" class="pm-wmod__grp pm-wmod__grp--done">완료</th>
+                    <th colspan="2" class="pm-wmod__grp pm-wmod__grp--dev">개발완료</th>
+                    <th colspan="2" class="pm-wmod__grp pm-wmod__grp--act">실적일 입력</th>
+                    <th colspan="2" class="pm-wmod__grp">계획 기간</th>
+                    <th colspan="2" class="pm-wmod__grp pm-wmod__grp--act">실적 기간</th>
+                </tr>
+                <tr class="pm-wmod__sub">
+                    <th>건</th><th>율</th>
+                    <th>건</th><th>율</th>
+                    <th>시작</th><th>종료</th>
+                    <th>시작</th><th>종료</th>
+                    <th>시작</th><th>종료</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var m in _rows)
+                {
+                    <tr class="pm-wmod__row" @key="m.Systemcode" @onclick="@(() => Drill(m.Systemcode))">
+                        <td class="pm-wmod__code">@m.Systemcode</td>
+                        <td class="pm-wmod__name">@m.SystemNm</td>
+                        <td class="pm-wmod__num">@m.Cnt</td>
+
+                        <td class="pm-wmod__num @Dim(m.Done)">@Blank(m.Done)</td>
+                        <td class="pm-wmod__num pm-wmod__sm @Dim(m.Done)">@(m.Done > 0 ? Pct(m.Done, m.Cnt) : null)</td>
+
+                        <td class="pm-wmod__num pm-wmod__dev @Dim(m.DoneReal)">@Blank(m.DoneReal)</td>
+                        <td class="pm-wmod__num pm-wmod__sm pm-wmod__dev @Dim(m.DoneReal)">@(m.DoneReal > 0 ? Pct(m.DoneReal, m.Cnt) : null)</td>
+
+                        <td class="pm-wmod__num pm-wmod__act @Dim(m.ActSdt)">@Blank(m.ActSdt)</td>
+                        <td class="pm-wmod__num pm-wmod__act @Dim(m.ActEdt)">@Blank(m.ActEdt)</td>
+
+                        <td class="pm-wmod__date">@(m.MinDt ?? "—")</td>
+                        <td class="pm-wmod__date">@(m.MaxDt ?? "—")</td>
+                        <td class="pm-wmod__date pm-wmod__act">@(m.MinAct ?? "—")</td>
+                        <td class="pm-wmod__date pm-wmod__act">@(m.MaxAct ?? "—")</td>
+                    </tr>
                 }
-                @WbsBoardOptions.Percent(m.Done, m.Cnt)
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="2">합계</td>
+                    <td class="pm-wmod__num">@_rows.Sum(r => r.Cnt)</td>
+                    <td class="pm-wmod__num">@_rows.Sum(r => r.Done)</td>
+                    <td class="pm-wmod__num pm-wmod__sm">@Pct(_rows.Sum(r => r.Done), _rows.Sum(r => r.Cnt))</td>
+                    <td class="pm-wmod__num pm-wmod__dev">@_rows.Sum(r => r.DoneReal)</td>
+                    <td class="pm-wmod__num pm-wmod__sm pm-wmod__dev">@Pct(_rows.Sum(r => r.DoneReal), _rows.Sum(r => r.Cnt))</td>
+                    <td class="pm-wmod__num pm-wmod__act">@_rows.Sum(r => r.ActSdt)</td>
+                    <td class="pm-wmod__num pm-wmod__act">@_rows.Sum(r => r.ActEdt)</td>
+                    <td colspan="4"></td>
+                </tr>
+            </tfoot>
+        </table>
 
-        <DxGridDataColumn FieldName="@nameof(WbsBoardModuleDto.DoneBig)" Caption="대형완료" Width="95" />
+        @if (_rows.Count == 0)
+        {
+            <p class="jsini-text-muted pm-heat__empty">데이터 없음</p>
+        }
+    </div>
 
-        <DxGridDataColumn Caption="계획 기간" MinWidth="180">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var m = (WbsBoardModuleDto)cell.DataItem;
-                }
-                @(m.MinDt is null ? "—" : $"{m.MinDt} ~ {m.MaxDt}")
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-
-        <DxGridDataColumn Caption="실적 기간" MinWidth="180">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var m = (WbsBoardModuleDto)cell.DataItem;
-                }
-                @(m.MinAct is null ? "—" : $"{m.MinAct} ~ {m.MaxAct}")
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-
-        <DxGridDataColumn Caption="실적 입력" Width="110">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var m = (WbsBoardModuleDto)cell.DataItem;
-                }
-                <span title="시작 / 종료">@m.ActSdt / @m.ActEdt</span>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-    </Columns>
-</CommGrd>
-
-@code {
-    private RenderFragment<WbsBoardModuleDto> ModuleActions => module => __builder =>
-    {
-        <DxButton Text="목록"
-                  RenderStyle="ButtonRenderStyle.Link"
-                  Click="@(() => Drill(module.Systemcode))" />
-    };
-}
+    <p class="pm-wmod__note">
+        <strong>완료</strong> = complate_yn · <strong>개발완료</strong> = complate_real_yn ·
+        <strong>실적일 입력</strong> = plan_sdt_c / plan_edt_c 가 채워진 건수 ·
+        <strong>실적 기간</strong> = 입력된 실적일자의 최소·최대
+    </p>
+</section>

@@ -1,0 +1,92 @@
+@*
+사람 × 기간 건수 판(원본 HeatMatrix.vue). 칸이 자료에 따라 정해져 CommGrd 가 아니라 표를 직접 그린다.
+칸의 ✓ 뒤 숫자가 그 칸의 완료 건수이고, 바닥 줄이 기간별 합계다.
+*@
+
+<div class="pm-heat-wrap">
+    <table class="pm-heat">
+        <thead>
+            <tr>
+                <th class="pm-heat__name">담당자</th>
+                @foreach (var b in _buckets)
+                {
+                    <th title="@HeadTitle(b)">
+                        @HeadText(b)
+                        @if (HeadSub(b) is { Length: > 0 } sub)
+                        {
+                            <span class="pm-heat__sub">@sub</span>
+                        }
+                    </th>
+                }
+                <th class="pm-heat__total">합계</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var u in _users)
+            {
+                <tr @key="u.Id">
+                    <td class="pm-heat__name">
+                        <span class="pm-heat__nm">@u.Name</span>
+                        @if (u.Id != u.Name)
+                        {
+                            <span class="pm-heat__id">@u.Id</span>
+                        }
+                    </td>
+
+                    @foreach (var b in _buckets)
+                    {
+                        var (cnt, done) = Cell(u.Id, b);
+
+                        <td class="pm-heat__cell @(cnt == 0 ? "is-empty" : null)"
+                            style="@Shade(cnt)"
+                            @onclick="@(() => PickAsync(u.Id, b, cnt))">
+                            @if (cnt > 0)
+                            {
+                                @cnt
+                            }
+                            @if (done > 0)
+                            {
+                                <span class="pm-heat__dn">✓@done</span>
+                            }
+                        </td>
+                    }
+
+                    <td class="pm-heat__total">
+                        @RowCnt(u.Id)
+                        @if (RowDone(u.Id) is > 0 and var rd)
+                        {
+                            <span class="pm-heat__dn">✓@rd</span>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+        <tfoot>
+            <tr>
+                <td class="pm-heat__name">@ColHead 합계</td>
+                @foreach (var b in _buckets)
+                {
+                    <td class="pm-heat__total">
+                        @ColCnt(b)
+                        @if (ColDone(b) is > 0 and var cd)
+                        {
+                            <span class="pm-heat__dn">✓@cd</span>
+                        }
+                    </td>
+                }
+                <td class="pm-heat__total">
+                    @_grand
+                    @if (_grandDone > 0)
+                    {
+                        <span class="pm-heat__dn">✓@_grandDone</span>
+                    }
+                </td>
+            </tr>
+        </tfoot>
+    </table>
+
+    @if (Rows.Count == 0)
+    {
+        <p class="jsini-text-muted pm-heat__empty">데이터 없음</p>
+    }
+</div>

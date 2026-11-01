@@ -6451,7 +6451,7 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   position: relative;
   height: 1.15rem;
   min-width: 6rem;
-  background: var(--jsini-surface-2);
+  background: var(--jsini-surface-muted);
   border-radius: var(--jsini-radius-sm);
   overflow: hidden;
 }
@@ -6510,7 +6510,7 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 }
 
 .pm-heat thead th {
-  background: var(--jsini-surface-2);
+  background: var(--jsini-surface-muted);
   font-weight: 600;
 }
 
@@ -6525,7 +6525,7 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 }
 
 .pm-heat thead .pm-heat__name {
-  background: var(--jsini-surface-2);
+  background: var(--jsini-surface-muted);
 }
 
 .pm-heat__cell {
@@ -6553,7 +6553,396 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 .pm-heat__total {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  background: var(--jsini-surface-2);
+  background: var(--jsini-surface-muted);
+}
+
+.pm-heat tfoot td {
+  font-weight: 600;
+  background: var(--jsini-surface-muted);
+}
+
+/* 주 머리글 아래 줄 — 그 주의 마지막 날(월.일). */
+.pm-heat__sub {
+  display: block;
+  font-weight: 400;
+  font-size: var(--jsini-fs-2xs);
+  color: var(--jsini-text-muted);
+}
+
+.pm-heat__nm {
+  font-weight: 600;
+}
+
+.pm-heat__id {
+  margin-left: var(--jsini-sp-2xs);
+  font-size: var(--jsini-fs-2xs);
+  color: var(--jsini-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.pm-heat__cell:not(.is-empty):hover {
+  outline: 2px solid var(--jsini-accent);
+  outline-offset: -2px;
+}
+
+/* 완료 건수. 칸 색이 짙어도 읽히게 굵게 둔다. */
+.pm-heat__dn {
+  margin-left: 0.25em;
+  font-size: var(--jsini-fs-2xs);
+  font-weight: 600;
+  color: var(--jsini-success, #2fb344);
+}
+
+.pm-heat__empty {
+  margin: var(--jsini-sp-xs);
+}
+
+/* ── WBS 판 (원본 대시보드의 panel) ─────────────────────────── */
+
+.pm-wpanel {
+  margin-bottom: var(--jsini-sp-md);
+  padding: var(--jsini-sp-sm) var(--jsini-sp-md);
+  border: 1px solid var(--jsini-border);
+  border-radius: var(--jsini-radius-md);
+  background: var(--jsini-surface);
+}
+
+/* 개발자 잣대 판은 왼쪽 띠로 담당자 잣대와 가른다. */
+.pm-wpanel--real {
+  border-left: 3px solid var(--jsini-success, #2fb344);
+}
+
+.pm-wpanel--late {
+  border-left: 3px solid var(--jsini-warning, #f59f00);
+}
+
+.pm-wpanel__head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--jsini-sp-xs);
+  margin: 0 0 var(--jsini-sp-xs);
+  font-size: var(--jsini-fs-md);
+  font-weight: 600;
+}
+
+.pm-wpanel__hint {
+  font-size: var(--jsini-fs-xs);
+  font-weight: 400;
+  color: var(--jsini-text-muted);
+}
+
+.pm-wpanel__spacer {
+  flex: 1;
+}
+
+.pm-wpanel__more {
+  font-size: var(--jsini-fs-sm);
+  font-weight: 400;
+  color: var(--jsini-accent);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.pm-wpanel__more:hover {
+  text-decoration: underline;
+}
+
+.pm-wgrid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--jsini-sp-md);
+}
+
+@media (max-width: 767px) {
+  .pm-wgrid2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── 가로 막대 목록 (원본 BarChart) ──────────────────────────── */
+
+.pm-wbar {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.pm-wbar__row {
+  display: grid;
+  grid-template-columns: 7rem 1fr 4.5rem;
+  align-items: center;
+  gap: var(--jsini-sp-xs);
+  padding: 2px 4px;
+  border-radius: var(--jsini-radius-sm);
+  cursor: pointer;
+}
+
+.pm-wbar__row:hover {
+  background: var(--jsini-surface-muted);
+}
+
+.pm-wbar__row.is-on {
+  background: color-mix(in srgb, var(--jsini-accent) 12%, transparent);
+}
+
+.pm-wbar__lab {
+  font-size: var(--jsini-fs-xs);
+  color: var(--jsini-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pm-wbar__row.is-on .pm-wbar__lab {
+  color: var(--jsini-accent);
+  font-weight: 600;
+}
+
+.pm-wbar__track {
+  height: 14px;
+  background: var(--jsini-surface-muted);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.pm-wbar__fill {
+  height: 100%;
+  background: var(--jsini-accent);
+  border-radius: 3px;
+}
+
+/* 완료분은 같은 막대 안에 겹친다. */
+.pm-wbar__done {
+  height: 100%;
+  background: var(--jsini-success, #2fb344);
+  border-radius: 3px 0 0 3px;
+}
+
+.pm-wbar__val {
+  text-align: right;
+  font-size: var(--jsini-fs-sm);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.pm-wbar__dn {
+  margin-left: 0.25em;
+  font-size: var(--jsini-fs-xs);
+  color: var(--jsini-success, #2fb344);
+}
+
+/* ── 모듈 상세 표 · 요약의 사람별 표 ─────────────────────────── */
+
+.pm-wmod {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: var(--jsini-fs-sm);
+}
+
+.pm-wmod th,
+.pm-wmod td {
+  border: 1px solid var(--jsini-border);
+  padding: var(--jsini-sp-2xs) var(--jsini-sp-xs);
+  white-space: nowrap;
+}
+
+.pm-wmod thead th {
+  background: var(--jsini-surface-muted);
+  font-weight: 600;
+  text-align: center;
+}
+
+.pm-wmod__sub th {
+  font-weight: 400;
+  font-size: var(--jsini-fs-xs);
+}
+
+.pm-wmod__grp {
+  font-size: var(--jsini-fs-xs);
+}
+
+.pm-wmod thead .pm-wmod__grp--done {
+  background: var(--jsini-success-soft, var(--jsini-surface-muted));
+  color: var(--jsini-success, inherit);
+}
+
+.pm-wmod thead .pm-wmod__grp--dev {
+  background: var(--jsini-accent-soft);
+  color: var(--jsini-accent);
+}
+
+.pm-wmod thead .pm-wmod__grp--act {
+  background: var(--jsini-warning-soft, var(--jsini-surface-muted));
+  color: var(--jsini-warning, inherit);
+}
+
+.pm-wmod__num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.pm-wmod__sm,
+.pm-wmod__date {
+  font-size: var(--jsini-fs-xs);
+}
+
+.pm-wmod__date {
+  color: var(--jsini-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.pm-wmod__code {
+  font-weight: 600;
+}
+
+.pm-wmod__dev {
+  color: var(--jsini-accent);
+  font-weight: 600;
+}
+
+.pm-wmod__act {
+  color: var(--jsini-warning, inherit);
+}
+
+.pm-wmod .is-dim {
+  color: var(--jsini-text-muted);
+  font-weight: 400;
+}
+
+.pm-wmod__row {
+  cursor: pointer;
+}
+
+.pm-wmod__row:hover {
+  background: var(--jsini-surface-hover);
+}
+
+.pm-wmod tfoot td {
+  font-weight: 600;
+  background: var(--jsini-surface-muted);
+}
+
+.pm-wmod__note {
+  margin: var(--jsini-sp-xs) 0 0;
+  font-size: var(--jsini-fs-xs);
+  color: var(--jsini-text-muted);
+}
+
+.pm-wmod__wide {
+  width: 26%;
+}
+
+.pm-wmod__emptyrow {
+  padding: var(--jsini-sp-md);
+  text-align: center;
+}
+
+.pm-wmod__bad {
+  color: var(--jsini-danger, #d63939);
+  font-weight: 600;
+}
+
+/* 표 칸 안의 진행 막대 + 비율 글자 */
+.pm-wgauge {
+  display: flex;
+  align-items: center;
+  gap: var(--jsini-sp-xs);
+  min-width: 9rem;
+}
+
+.pm-wgauge__track {
+  flex: 1;
+  height: 8px;
+  background: var(--jsini-surface-muted);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.pm-wgauge__bar {
+  height: 100%;
+  background: var(--jsini-success, #2fb344);
+  border-radius: 4px;
+}
+
+.pm-wgauge__bar--dev {
+  background: var(--jsini-accent);
+}
+
+.pm-wgauge__bar--big {
+  background: var(--jsini-text-muted);
+}
+
+.pm-wgauge__pct {
+  min-width: 3rem;
+  text-align: right;
+  font-size: var(--jsini-fs-xs);
+  color: var(--jsini-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── 요약 타일 (원본 cards) ──────────────────────────────────── */
+
+.pm-wcards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr));
+  gap: var(--jsini-sp-xs);
+  margin-bottom: var(--jsini-sp-md);
+}
+
+.pm-wcard {
+  padding: var(--jsini-sp-xs) var(--jsini-sp-sm);
+  border: 1px solid var(--jsini-border);
+  border-radius: var(--jsini-radius-md);
+  background: var(--jsini-surface);
+}
+
+.pm-wcard__k {
+  font-size: var(--jsini-fs-xs);
+  color: var(--jsini-text-muted);
+}
+
+.pm-wcard__v {
+  font-size: var(--jsini-fs-xl);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.pm-wcard__v small {
+  margin-left: 0.25em;
+  font-size: var(--jsini-fs-xs);
+  font-weight: 400;
+  color: var(--jsini-text-muted);
+}
+
+.pm-wcard__v--dates {
+  font-size: var(--jsini-fs-sm);
+}
+
+.pm-wcard--done .pm-wcard__v {
+  color: var(--jsini-success, inherit);
+}
+
+.pm-wcard--dev .pm-wcard__v {
+  color: var(--jsini-accent);
+}
+
+.pm-wcard--bad .pm-wcard__v {
+  color: var(--jsini-danger, #d63939);
+}
+
+.pm-wcard .pm-wgauge__track {
+  margin-top: var(--jsini-sp-2xs);
+  height: 4px;
+}
+
+.pm-wpanel .pm-wcards {
+  margin-bottom: 0;
+}
+
+.pm-wok {
+  margin: var(--jsini-sp-xs) 0 0;
+  color: var(--jsini-success, inherit);
 }
 
 /* 창 안의 구역 제목. 탭으로 나누면 안의 표가 탭 상자보다 커져 아래 단추가 밀려난다 — 그래서 세로로 쌓는다. */
@@ -6561,7 +6950,7 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   margin: var(--jsini-sp-md) 0 var(--jsini-sp-xs);
   font-size: var(--jsini-fs-sm);
   font-weight: 600;
-  color: var(--jsini-text-2);
+  color: var(--jsini-text-muted);
 }
 
 /* 붙여넣는 칸은 줄바꿈을 두고 고정폭으로 본다 — 잘렸는지는 괄호 짝으로만 안다. */
@@ -6649,12 +7038,12 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 }
 
 .pm-toc__item:hover {
-  background: var(--jsini-surface-2);
+  background: var(--jsini-surface-muted);
 }
 
 /* 고른 쪽은 색만으로 가르지 않고 굵기도 준다. */
 .pm-toc__item.is-on {
-  background: var(--jsini-surface-2);
+  background: var(--jsini-surface-muted);
   color: var(--jsini-accent-text);
   font-weight: 600;
 }
@@ -6677,7 +7066,7 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 
 .pm-doc-when {
   font-size: var(--jsini-fs-xs);
-  color: var(--jsini-text-2);
+  color: var(--jsini-text-muted);
   white-space: nowrap;
 }
 

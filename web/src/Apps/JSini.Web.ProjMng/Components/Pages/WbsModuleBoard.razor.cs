@@ -22,9 +22,41 @@ public partial class WbsModuleBoard
     private string _basis = "edt";
     private string _scope = "dev";
 
+    /// <summary>막대 안에 겹쳐 볼 잣대. 원본 기본값이 개발완료다.</summary>
+    private string _overlay = "done_real";
+
+    private static readonly SchOption[] OverlayOptions =
+    [
+        new("done", "완료 기준"),
+        new("done_real", "개발완료 기준"),
+        new("act_edt", "실적종료 입력 기준"),
+    ];
+
     private IReadOnlyList<WbsBoardModuleDto> _rows = [];
 
     private int? ProjectRid => int.TryParse(_projectCode, out var rid) ? rid : null;
+
+    private string OverlayLabel => _overlay switch
+    {
+        "done" => "완료",
+        "act_edt" => "실적종료 입력",
+        _ => "개발완료",
+    };
+
+    private IReadOnlyList<WbsBarItem> Items =>
+    [
+        .. _rows.Where(r => r.Systemcode is not null).Select(r => new WbsBarItem(
+            r.Systemcode!, r.Systemcode!, r.Cnt,
+            _overlay switch { "done" => r.Done, "act_edt" => r.ActEdt, _ => r.DoneReal },
+            $"{r.SystemNm} · 완료 {r.Done} · 개발완료 {r.DoneReal} · 실적종료 {r.ActEdt}"))
+    ];
+
+    private static string Pct(int part, int whole) =>
+        whole == 0 ? "0%" : $"{Math.Round(part * 1000.0 / whole) / 10:0.#}%";
+
+    private static string? Blank(int v) => v == 0 ? null : v.ToString();
+
+    private static string? Dim(int v) => v == 0 ? "is-dim" : null;
 
     private Task SearchAsync() => LoadAsync(async () =>
     {

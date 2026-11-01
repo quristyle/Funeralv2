@@ -274,6 +274,10 @@ public sealed class WbsBoardSummaryDto
     public int Users { get; set; }
     public string? MinDt { get; set; }
     public string? MaxDt { get; set; }
+
+    /// <summary>Activity ID 가 아직 없어 임시 번호(NOID-)로 선 줄.</summary>
+    public int NoActivity { get; set; }
+
     public int Done { get; set; }
     public int DoneReal { get; set; }
 

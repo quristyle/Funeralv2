@@ -2,8 +2,9 @@
 @attribute [RouteKey("projmng.wbs.summary")]
 
 @*
-WBS 요약. 원장은 projmng.wbs_work 로 1줄 = 1화면(메뉴)이며, 프로젝트관리의 WBS 와 이름만 같은 다른 표다.
-complate_big_yn 은 같은 줄을 다른 잣대로 한 번 더 세는 값이라 완료 건수에 더하면 완료율이 100 을 넘는다 — 타일은 나란히 두고 합치지 않는다. 휴대폰에서는 조회부를 접어 담당자 표가 먼저 보이게 한다.
+WBS 요약(원본 Summary.vue). 원장은 projmng.wbs_work 로 1줄 = 1화면(메뉴)이며, 프로젝트관리의 WBS 와 이름만 같은 다른 표다.
+대형 완료는 같은 줄을 다른 잣대로 한 번 더 세는 값이라 완료와 더하지 않고 타일을 따로 둔다.
+지연은 「오늘」 기준이라 기준일 고르개와 무관하다.
 *@
 
 @inherits DataPage
@@ -26,81 +27,159 @@ complate_big_yn 은 같은 줄을 다른 잣대로 한 번 더 세는 값이라 
             <DxComboBox Data="@WbsBoardOptions.Scope" @bind-Value="_scope"
                         TextFieldName="Text" ValueFieldName="Value" Style="width: 130px" />
         </CommSchItem>
-
-        <CommSchItem Label="잣대">
-            <DxComboBox Data="@WbsBoardOptions.Who" @bind-Value="_who"
-                        TextFieldName="Text" ValueFieldName="Value" Style="width: 130px" />
-        </CommSchItem>
     </Fields>
 </CommSch>
 
-@if (_summary is not null)
-{
-    <div class="jsini-stats">
-        <div class="jsini-stat">
-            <div class="jsini-stat__label">전체</div>
-            <div class="jsini-stat__value">@_summary.Total</div>
+@{
+    var s = _summary ?? new WbsBoardSummaryDto();
+    var d = _delay ?? new WbsBoardDelayDto();
+}
+
+<div class="pm-wcards">
+    <div class="pm-wcard">
+        <div class="pm-wcard__k">전체 항목</div>
+        <div class="pm-wcard__v">@Num(s.Total)</div>
+    </div>
+    @Rate("완료", s.Done, s.Total, "pm-wcard--done", null)
+    @Rate("개발완료", s.DoneReal, s.Total, "pm-wcard--dev", "pm-wgauge__bar--dev")
+    @Rate("대형완료", s.DoneBig, s.Total, null, "pm-wgauge__bar--big")
+    @Rate("대형개발완료", s.DoneRealBig, s.Total, null, "pm-wgauge__bar--big")
+    <div class="pm-wcard">
+        <div class="pm-wcard__k">일정 있음</div>
+        <div class="pm-wcard__v">@Num(s.Dated) <small>/ @Num(s.Total)</small></div>
+    </div>
+    <div class="pm-wcard">
+        <div class="pm-wcard__k">모듈</div>
+        <div class="pm-wcard__v">@Num(s.Modules)</div>
+    </div>
+    <div class="pm-wcard">
+        <div class="pm-wcard__k">담당자</div>
+        <div class="pm-wcard__v">@Num(s.Users)</div>
+    </div>
+    <div class="pm-wcard">
+        <div class="pm-wcard__k">계획 기간 (@(_basis == "sdt" ? "시작일" : "종료일") 기준)</div>
+        <div class="pm-wcard__v pm-wcard__v--dates">@(s.MinDt ?? "-") ~ @(s.MaxDt ?? "-")</div>
+    </div>
+    <div class="pm-wcard">
+        <div class="pm-wcard__k">Activity 미지정</div>
+        <div class="pm-wcard__v">@Num(s.NoActivity)</div>
+    </div>
+</div>
+
+<section class="pm-wpanel pm-wpanel--late">
+    <h2 class="pm-wpanel__head">
+        지연 요약
+        <span class="pm-wpanel__hint">
+            기준일 @(d.Asof ?? "-") · 착수지연 = 계획시작일 도래 &amp; 실적시작 없음 ·
+            종료지연 = 계획종료일 도래 &amp; 실적종료 없음
+        </span>
+        <span class="pm-wpanel__spacer"></span>
+        <a class="pm-wpanel__more" href="/projmng/wbs/delay">지연 현황 자세히 →</a>
+    </h2>
+
+    <div class="pm-wcards">
+        <div class="pm-wcard @(d.StartLate > 0 ? "pm-wcard--bad" : null)">
+            <div class="pm-wcard__k">착수지연</div>
+            <div class="pm-wcard__v">
+                @Num(d.StartLate)
+                @if (d.MaxStartDays is > 0)
+                {
+                    <small>최대 @(d.MaxStartDays)일</small>
+                }
+            </div>
         </div>
-        <div class="jsini-stat">
-            <div class="jsini-stat__label">완료(담당자)</div>
-            <div class="jsini-stat__value">@_summary.Done</div>
+        <div class="pm-wcard @(d.FinishLate > 0 ? "pm-wcard--bad" : null)">
+            <div class="pm-wcard__k">종료지연</div>
+            <div class="pm-wcard__v">
+                @Num(d.FinishLate)
+                @if (d.MaxFinishDays is > 0)
+                {
+                    <small>최대 @(d.MaxFinishDays)일</small>
+                }
+            </div>
         </div>
-        <div class="jsini-stat">
-            <div class="jsini-stat__label">완료(개발자)</div>
-            <div class="jsini-stat__value">@_summary.DoneReal</div>
+        <div class="pm-wcard">
+            <div class="pm-wcard__k">착수·종료 모두</div>
+            <div class="pm-wcard__v">@Num(d.BothLate)</div>
         </div>
-        <div class="jsini-stat">
-            <div class="jsini-stat__label">완료율</div>
-            <div class="jsini-stat__value">@WbsBoardOptions.Percent(_summary.Done, _summary.Total)</div>
-        </div>
-        <div class="jsini-stat">
-            <div class="jsini-stat__label">모듈</div>
-            <div class="jsini-stat__value">@_summary.Modules</div>
-        </div>
-        <div class="jsini-stat">
-            <div class="jsini-stat__label">담당자</div>
-            <div class="jsini-stat__value">@_summary.Users</div>
-        </div>
-        <div class="jsini-stat">
-            <div class="jsini-stat__label">대형 완료</div>
-            <div class="jsini-stat__value">@_summary.DoneBig</div>
-        </div>
-        <div class="jsini-stat">
-            <div class="jsini-stat__label">기간</div>
-            <div class="jsini-stat__value pm-stat--dates">@Period</div>
+        <div class="pm-wcard">
+            <div class="pm-wcard__k">지연 항목 (중복 제외)</div>
+            <div class="pm-wcard__v">@Num(d.AnyLate) <small>/ @Num(d.Total) · @PctText(d.AnyLate, d.Total)</small></div>
         </div>
     </div>
 
-    @if (_summary.Total > _summary.Dated)
+    @if (_delay is { AnyLate: 0 })
     {
-        <PageNotice Tone="NoticeTone.Info"
-                    Text="@($"{_summary.Total - _summary.Dated}건은 기준일이 비어 있어 기간·월·주 집계에서 빠집니다.")" />
+        <p class="pm-wok">현재 지연 항목이 없습니다.</p>
     }
-}
+</section>
 
-<CommGrd TItem="UserRow"
-         Data="@_users"
-         ExportName="담당자별 진행률"
-         EmptyText="담당자별 자료가 없습니다."
-         PageSize="20"
-         Reload="@SearchAsync">
-    <Columns>
-        <DxGridDataColumn FieldName="@nameof(UserRow.UserNm)" Caption="담당자" MinWidth="140"
-                          TextAlignment="GridTextAlignment.Left" />
-        <DxGridDataColumn FieldName="@nameof(UserRow.UserBpId)" Caption="사번" Width="110" />
-        <DxGridDataColumn FieldName="@nameof(UserRow.Cnt)" Caption="배정" Width="90" />
-        <DxGridDataColumn FieldName="@nameof(UserRow.Done)" Caption="완료" Width="90" />
+<section class="pm-wpanel">
+    <h2 class="pm-wpanel__head">담당자별 진행 현황</h2>
 
-        <DxGridDataColumn Caption="진행률" MinWidth="180">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var row = (UserRow)cell.DataItem;
+    <div class="pm-heat-wrap">
+        <table class="pm-wmod">
+            <thead>
+                <tr>
+                    <th>담당자</th>
+                    <th>담당</th>
+                    <th>완료</th>
+                    <th class="pm-wmod__wide">진행률</th>
+                    <th>개발완료</th>
+                    <th class="pm-wmod__wide">개발진행률</th>
+                    <th>착수지연</th>
+                    <th>종료지연</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var u in _users)
+                {
+                    var late = DelayOf(u.Id);
+
+                    <tr @key="u.Id">
+                        <td>
+                            <span class="pm-heat__nm">@u.Name</span>
+                            @if (u.Id != u.Name)
+                            {
+                                <span class="pm-heat__id">@u.Id</span>
+                            }
+                        </td>
+                        <td class="pm-wmod__num">@u.Cnt</td>
+                        <td class="pm-wmod__num">@u.Done</td>
+                        <td>@Gauge(u.Done, u.Cnt, null)</td>
+                        <td class="pm-wmod__num">@u.Dev</td>
+                        <td>@Gauge(u.Dev, u.Cnt, "pm-wgauge__bar--dev")</td>
+                        <td class="pm-wmod__num @(late?.StartLate > 0 ? "pm-wmod__bad" : null)">@Blank(late?.StartLate)</td>
+                        <td class="pm-wmod__num @(late?.FinishLate > 0 ? "pm-wmod__bad" : null)">@Blank(late?.FinishLate)</td>
+                    </tr>
                 }
-                <div class="pm-bar" title="@($"{row.Done} / {row.Cnt}")">
-                    <div class="pm-bar__fill" style="width: @(row.Rate)%"></div>
-                    <span class="pm-bar__text">@row.Rate.ToString("0.#")%</span>
-                </div>
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-    </Columns>
-</CommGrd>
+
+                @if (_users.Count == 0)
+                {
+                    <tr>
+                        <td colspan="8" class="jsini-text-muted pm-wmod__emptyrow">데이터 없음</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</section>
+
+@code {
+    private RenderFragment Gauge(int part, int whole, string? bar) => __builder =>
+    {
+        <div class="pm-wgauge">
+            <div class="pm-wgauge__track"><div class="pm-wgauge__bar @bar" style="width: @Width(part, whole)%"></div></div>
+            <span class="pm-wgauge__pct">@PctText(part, whole)</span>
+        </div>
+    };
+
+    private RenderFragment Rate(string label, int part, int whole, string? card, string? bar) => __builder =>
+    {
+        <div class="pm-wcard @card">
+            <div class="pm-wcard__k">@label</div>
+            <div class="pm-wcard__v">@Num(part) <small>/ @Num(whole) · @PctText(part, whole)</small></div>
+            <div class="pm-wgauge__track"><div class="pm-wgauge__bar @bar" style="width: @Width(part, whole)%"></div></div>
+        </div>
+    };
+}

@@ -2,7 +2,8 @@
 @attribute [RouteKey("projmng.wbs.period")]
 
 @*
-WBS 기간별 현황. 주는 금요일까지만 그린다 — 서버가 주의 끝을 월요일 + 4일로 주며, 주말에 잡힌 일정이 거의 없어 일요일까지 그리면 막대 오른쪽이 늘 비어 보인다.
+WBS 기간별 현황(원본 Period.vue). 월·주 막대를 나란히 두고, 막대를 누르면 그 기간으로 좁힌 상세 목록으로 넘어간다.
+주는 금요일까지만 센다 — 서버가 주의 끝을 월요일 + 4일로 준다.
 *@
 
 @inherits DataPage
@@ -13,11 +14,6 @@ WBS 기간별 현황. 주는 금요일까지만 그린다 — 서버가 주의 �
     <Fields>
         <CommSchItem Label="프로젝트">
             <CodeSelect CodeId="projlist" @bind-Value="_projectCode" @bind-Text="_projectName" OnChanged="@(_ => SearchAsync())" />
-        </CommSchItem>
-
-        <CommSchItem Label="단위">
-            <DxComboBox Data="@UnitOptions" @bind-Value="_unit"
-                        TextFieldName="Text" ValueFieldName="Value" Style="width: 110px" />
         </CommSchItem>
 
         <CommSchItem Label="기준일">
@@ -32,51 +28,20 @@ WBS 기간별 현황. 주는 금요일까지만 그린다 — 서버가 주의 �
     </Fields>
 </CommSch>
 
-@if (_rows.Count > 0)
-{
-    <DxChart Data="@_rows" Width="100%" Height="300px">
-        <DxChartBarSeries T="WbsBoardBucketDto" TArgument="string" TValue="int"
-                          ArgumentField="b => b.Bucket" ValueField="b => b.Cnt" Name="전체" />
-        <DxChartBarSeries T="WbsBoardBucketDto" TArgument="string" TValue="int"
-                          ArgumentField="b => b.Bucket" ValueField="b => b.Done" Name="완료" />
-        <DxChartTooltip Enabled="true">
-            <div class="jsini-tip">@context.Point.Argument · @context.Point.SeriesName @(context.Point.Value)건</div>
-        </DxChartTooltip>
-    </DxChart>
-}
+<div class="pm-wgrid2">
+    <section class="pm-wpanel">
+        <h2 class="pm-wpanel__head">
+            월단위 건수
+            <span class="pm-wpanel__hint">막대를 누르면 상세 목록으로 이동</span>
+        </h2>
+        <WbsBarChart Items="@MonthItems" OnPick="@(b => Drill("month", b))" />
+    </section>
 
-<CommGrd TItem="WbsBoardBucketDto"
-         Data="@_rows"
-         ExportName="기간별 현황"
-         EmptyText="기간별 자료가 없습니다."
-         PageSize="24"
-         Reload="@SearchAsync">
-    <Columns>
-        <DxGridDataColumn FieldName="@nameof(WbsBoardBucketDto.Bucket)" Caption="기간" Width="120" />
-
-        <DxGridDataColumn Caption="구간" MinWidth="180" Visible="@Weekly">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var b = (WbsBoardBucketDto)cell.DataItem;
-                }
-                @(b.WeekStart is null ? "—" : $"{b.WeekStart} ~ {b.WeekEnd}")
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-
-        <DxGridDataColumn FieldName="@nameof(WbsBoardBucketDto.Cnt)" Caption="건수" Width="90" />
-        <DxGridDataColumn FieldName="@nameof(WbsBoardBucketDto.Done)" Caption="완료" Width="90" />
-
-        <DxGridDataColumn Caption="완료율" Width="110">
-            <CellDisplayTemplate Context="cell">
-                @{
-                    var b = (WbsBoardBucketDto)cell.DataItem;
-                }
-                @(b.Cnt == 0 ? "—" : $"{b.Done * 100.0 / b.Cnt:0.#}%")
-            </CellDisplayTemplate>
-        </DxGridDataColumn>
-
-        <DxGridDataColumn FieldName="@nameof(WbsBoardBucketDto.Modules)" Caption="모듈" Width="90"
-                          Visible="@(!Weekly)" />
-        <DxGridDataColumn FieldName="@nameof(WbsBoardBucketDto.Users)" Caption="담당자" Width="90" />
-    </Columns>
-</CommGrd>
+    <section class="pm-wpanel">
+        <h2 class="pm-wpanel__head">
+            주단위 건수
+            <span class="pm-wpanel__hint">ISO 주 · 월요일 시작</span>
+        </h2>
+        <WbsBarChart Items="@WeekItems" OnPick="@(b => Drill("week", b))" />
+    </section>
+</div>

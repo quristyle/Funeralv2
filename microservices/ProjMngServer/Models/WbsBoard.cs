@@ -21,6 +21,9 @@ public sealed class WbsBoardSummary
     public string? MinDt { get; set; }
     public string? MaxDt { get; set; }
 
+    /// <summary>Activity ID 가 아직 없는 줄 — 원장 키라 비울 수 없어 임시 번호(NOID-)로 서 있다.</summary>
+    public int NoActivity { get; set; }
+
     /// <summary>담당자 완료(<c>complate_yn = 'o'</c>).</summary>
     public int Done { get; set; }
 

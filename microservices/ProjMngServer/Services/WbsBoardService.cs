@@ -30,6 +30,7 @@ public sealed class WbsBoardService(IConfiguration configuration)
                  , count(distinct user_bp_id)::int                        as Users
                  , min({c})::text                                         as MinDt
                  , max({c})::text                                         as MaxDt
+                 , count(*) filter (where activity_id like @noId)::int     as NoActivity
                  , count(*) filter (where complate_yn = 'o')::int          as Done
                  , count(*) filter (where complate_real_yn = 'o')::int     as DoneReal
                  , count(*) filter (where complate_big_yn = 'o')::int      as DoneBig
@@ -37,7 +38,7 @@ public sealed class WbsBoardService(IConfiguration configuration)
               from projmng.wbs_work
              where prj_rid = @prjRid
                and {DevWhere(scope)}
-            """, new { prjRid });
+            """, new { prjRid, noId = WbsBoardSql.NoIdPrefix + "%" });
     }
 
     // ──────────────────────────────────────────────────────── 기간별

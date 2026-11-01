@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Components;
 using JSini.Web.Components.Data;
 using JSini.Web.ProjMng.Api;
@@ -15,22 +16,32 @@ public partial class WbsSummaryBoard
     private string? _projectName;
     private string _basis = "edt";
     private string _scope = "dev";
-    private string _who = "plan";
 
     private WbsBoardSummaryDto? _summary;
+    private WbsBoardDelayDto? _delay;
+    private Dictionary<string, WbsBoardDelayUserDto> _delayByUser = [];
     private IReadOnlyList<UserRow> _users = [];
 
     private int? ProjectRid => int.TryParse(_projectCode, out var rid) ? rid : null;
 
-    /// <summary>휴대폰에서 접혔을 때 머리줄에 적는 글. 접으면 고르개 넷이 가려지므로, 무엇으로 걸러 본 값인지를 여기서 말해 준다.</summary>
+    /// <summary>휴대폰에서 접혔을 때 머리줄에 적는 글.</summary>
     private string ConditionSummary => SchSummary.Of(
         _projectName,
         WbsBoardOptions.TextOf(WbsBoardOptions.Basis, _basis),
-        WbsBoardOptions.TextOf(WbsBoardOptions.Scope, _scope),
-        WbsBoardOptions.TextOf(WbsBoardOptions.Who, _who));
+        WbsBoardOptions.TextOf(WbsBoardOptions.Scope, _scope));
 
-    private string Period =>
-        _summary?.MinDt is null || _summary.MaxDt is null ? "—" : $"{_summary.MinDt} ~ {_summary.MaxDt}";
+    private string Num(int v) => _summary is null ? "-" : v.ToString("N0", CultureInfo.InvariantCulture);
+
+    /// <summary>원본과 같이 소수 한 자리로 반올림한 비율. 분모가 0 이면 0%.</summary>
+    private static string PctText(int part, int whole) =>
+        $"{(whole == 0 ? 0 : Math.Round(part * 1000.0 / whole) / 10):0.#}%";
+
+    private static string Width(int part, int whole) =>
+        (whole == 0 ? 0 : part * 100.0 / whole).ToString("0.##", CultureInfo.InvariantCulture);
+
+    private static string? Blank(int? v) => v is > 0 ? v.Value.ToString(CultureInfo.InvariantCulture) : null;
+
+    private WbsBoardDelayUserDto? DelayOf(string id) => _delayByUser.GetValueOrDefault(id);
 
     // 화면을 열 때 여기서 조회하지 않는다 — 프로젝트 고르개가 첫 항목을 고르며 조회를 건다. 둘 다 하면 늦게 돌아온 쪽이 남는다.
     private Task SearchAsync() => LoadAsync(async () =>
@@ -38,45 +49,42 @@ public partial class WbsSummaryBoard
         if (ProjectRid is not int rid)
         {
             _summary = null;
+            _delay = null;
+            _delayByUser = [];
             _users = [];
             return 0;
         }
 
         var summary = Api.SummaryAsync(rid, _basis, _scope);
-        var buckets = Api.MonthlyByUserAsync(rid, _basis, _scope, _who);
+        var buckets = Api.MonthlyByUserAsync(rid, _basis, _scope, "plan");
+        var delay = Api.DelayAsync(rid, _scope);
+        var delayByUser = Api.DelayByUserAsync(rid, _scope, "plan");
 
-        await Task.WhenAll(summary, buckets);
+        await Task.WhenAll(summary, buckets, delay, delayByUser);
 
         _summary = summary.Result;
+        _delay = delay.Result;
+        _delayByUser = delayByUser.Result
+            .Where(r => r.UserBpId is not null)
+            .GroupBy(r => r.UserBpId!)
+            .ToDictionary(g => g.Key, g => g.First());
 
-        // 월별로 나뉘어 오는 것을 사람 단위로 합친다. 요약 화면은 기간을
-        // 나누지 않으므로 한 사람이 여러 줄로 보이면 안 된다.
+        // 월별로 나뉘어 오는 것을 사람 단위로 합친다. 완료는 담당자 잣대, 개발완료는 개발자 잣대 — 같은 줄을 두 잣대로 나란히 센다.
         _users =
         [
             .. buckets.Result
-                .GroupBy(b => (b.UserBpId, b.UserNm))
-                .Select(g => new UserRow
-                {
-                    UserBpId = g.Key.UserBpId,
-                    UserNm = g.Key.UserNm,
-                    Cnt = g.Sum(x => x.Cnt),
-                    Done = g.Sum(x => x.Done),
-                })
-                .OrderByDescending(r => r.Cnt)
-                .ThenBy(r => r.UserNm, StringComparer.CurrentCulture)
+                .GroupBy(b => b.UserBpId ?? "")
+                .Select(g => new UserRow(
+                    g.Key,
+                    g.First().UserNm ?? g.Key,
+                    g.Sum(x => x.Cnt),
+                    g.Sum(x => x.DonePlan),
+                    g.Sum(x => x.DoneReal)))
+                .OrderBy(r => r.Name, StringComparer.Create(new CultureInfo("ko-KR"), false))
         ];
 
-        return _users.Count;
+        return _summary?.Total ?? 0;
     }, "자료가 없습니다.", "요약을 읽지 못했습니다");
 
-    /// <summary>사람 한 줄. 월별 자료를 합친 것이라 서버에서 오는 모양과 다르다.</summary>
-    private sealed class UserRow
-    {
-        public string? UserBpId { get; set; }
-        public string? UserNm { get; set; }
-        public int Cnt { get; set; }
-        public int Done { get; set; }
-
-        public double Rate => Cnt == 0 ? 0 : Done * 100.0 / Cnt;
-    }
+    private sealed record UserRow(string Id, string Name, int Cnt, int Done, int Dev);
 }
