@@ -653,24 +653,46 @@
   color: var(--jsini-text-muted);
 }
 
-/* ── 환경설정: 넓으면 상자들을 단으로 흘린다 (fn-env) ── 격자는 한 줄의 키를 나눠 써서 긴 상자 하나가 나머지를 빈칸으로 만든다. 단은 키를 스스로 맞춘다.
-   상자는 break-inside: avoid 로 쪼개지 않는다. 단을 나누는 1300·1900 은 등록된 기기 표가 정한다(좁으면 빼기가 밀린다). container-type 은 쓰지 않는다 — 떠 있는 창의 기준이 바뀐다. */
+/* ── 환경설정: 넓으면 상자들을 단으로 세운다 (fn-env) ── 흘리는 단(columns)은 쓰지 않는다. 안의 DevExpress 부품이 크기를 잴 때마다 판 전체를 다시 나눠
+   배치 한 번이 20ms 를 넘고 마우스까지 굳는다(헤드리스 크롬 1920px 에서 마우스로 훑기 — 배치 한 번 21.7ms ↔ 격자 0.7ms). 격자 칸은 키를 나눠 쓰므로 단은 화면이 감싸개(fn-env__col)로 정한다.
+   1300·1900 은 등록된 기기 표가 정한다(좁으면 빼기가 밀린다). container-type 은 쓰지 않는다 — 떠 있는 창의 기준이 바뀐다. */
 
 @media (min-width: 1300px) {
   .fn-env {
-    columns: 2;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     column-gap: 1.25rem;
+    align-items: start;
 
         /* 아주 넓은 화면에서 단 하나가 700px 을 넘으면 설명이 길어져 왼쪽에 붙여 둔다. 가운데로 모으면 사이드바를 접을 때 글이 미끄러진다. */
     max-width: 1800px;
   }
 
-    /* 단으로 흘릴 상자들. 알림 판의 덩어리 셋은 상자가 없어(display: contents) 이름으로 적는다. */
+    /* 감싸개 셋(환경설정). 단이 둘이면 첫째가 왼쪽을 세로로 다 쓰고 뒤의 둘이 오른쪽에 쌓인다. 남는 키는 아래 칸(2행)이 받아 둘 사이가 벌어지지 않는다. */
+  .fn-env--cols {
+    grid-template-rows: auto 1fr;
+  }
+
+  .fn-env--cols > .fn-env__col:nth-child(1) { grid-column: 1; grid-row: 1 / 3; }
+  .fn-env--cols > .fn-env__col:nth-child(2) { grid-column: 2; grid-row: 1; }
+  .fn-env--cols > .fn-env__col:nth-child(3) { grid-column: 2; grid-row: 2; }
+
+    /* 내 알림 설정은 감싸개 없이 알림 판의 덩어리가 칸이 된다. 덩어리 셋은 왼쪽에 쌓고 알림별 목록이 오른쪽을 세로로 다 쓴다. 남는 키는 3행이 받는다.
+       덩어리는 겉 판(display: contents) 안이라 `>` 로는 안 잡힌다. */
+  .fn-env--notify {
+    grid-template-rows: auto auto 1fr;
+  }
+
+  .fn-env--notify .jsini-npanel__prefs { grid-column: 1; grid-row: 1; }
+  .fn-env--notify .jsini-npanel__browser { grid-column: 1; grid-row: 2; }
+  .fn-env--notify .jsini-npanel__devices { grid-column: 1; grid-row: 3; }
+  .fn-env--notify > .fn-env__group { grid-column: 2; grid-row: 1 / 4; }
+
+    /* 상자를 두를 덩어리들. 알림 판의 덩어리 셋은 겉 판이 상자가 없어(display: contents) 이름으로 적는다. */
   .fn-env .fn-env__group,
   .fn-env .jsini-npanel__prefs,
   .fn-env .jsini-npanel__browser,
   .fn-env .jsini-npanel__devices {
-    break-inside: avoid;
     margin: 0 0 1.25rem;
     padding: 0.1rem 1.1rem 0.9rem;
     border: 1px solid var(--jsini-border);
@@ -710,7 +732,13 @@
 }
 
 @media (min-width: 1900px) {
-  .fn-env { columns: 3; }
+  .fn-env--cols {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-rows: auto;
+  }
+
+  .fn-env--cols > .fn-env__col:nth-child(n) { grid-row: 1; }
+  .fn-env--cols > .fn-env__col:nth-child(3) { grid-column: 3; }
 }
 
 /* ── 환경설정: 휴대폰에서는 기기 표가 제 키로 선다 ── 표를 58vh 에 묶으면 쪽 안에 또 구르는 칸이 생긴다. 휴대폰에서는 상한을 풀어 구르는 것은 쪽 하나로 둔다. */

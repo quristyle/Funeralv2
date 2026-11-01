@@ -10,9 +10,12 @@
 
 <PageTitle>환경설정</PageTitle>
 
-<div class="fn-env">
+<div class="fn-env fn-env--cols">
 
-@* ── 묶음마다 제 상자(fn-env__group) ── 넓은 화면에서 단으로 흘려 키를 맞춘다(funeral.css .fn-env). 한 상자가 길면 쪼갤 수 없다. *@
+@* ── 묶음마다 제 상자(fn-env__group) ── 넓은 화면에서는 감싸개(fn-env__col) 셋을 단으로 세운다(funeral.css .fn-env--cols). 단이 둘이면 뒤의 둘이 오른쪽 단에 쌓인다. 흘리는 단(CSS columns)은 쓰지 않는다 — 안의 DevExpress 부품이 크기를 잴 때마다 판 전체를 다시 나눠 배치 한 번이 20ms 를 넘는다.
+단을 가르는 자리는 휴대폰 묶음의 앞뒤다. 감싸개를 이어 읽으면 지금 차례 그대로라 좁은 화면의 순서는 안 바뀐다. *@
+
+<div class="fn-env__col">
 
 @* ── 홈 화면 ── 계정에 담기는 유일한 값이라 제목을 갈라 둔다. 홈을 안 고르면 로그인 뒤 이 화면으로 떠밀려 온다. *@
 <div class="fn-env__group">
@@ -99,6 +102,10 @@
 </section>
 
 </div>
+
+</div>
+
+<div class="fn-env__col">
 
 @* ── 휴대폰 ── 휴대폰에서만 보이는 줄들. 아래 모바일 하단 네비게이션은 줄이 아니라 판이라 따로 묶는다. *@
 <div class="fn-env__group">
@@ -211,6 +218,10 @@
 </section>
 
 </div>
+
+</div>
+
+<div class="fn-env__col">
 
 @* ── 휴대폰 아래 띠 ── 스위치 하나가 아니라 판이라 제목을 따로 단다. 휴대폰에서만 보이므로 위 묶음 바로 아래에 둔다.
 쓸지와 무엇을 놓을지는 계정에 담는다. 브라우저에 두면 기기마다 띠가 갈려 한 곳에서 고친 것이 다른 곳에 안 간다. *@
@@ -373,6 +384,8 @@
                   NavigateUrl="/admin/push/history" />
     </div>
 </section>
+
+</div>
 
 </div>
 
