@@ -1877,6 +1877,9 @@
 
 .hd-sysmon__auto {
   margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .hd-sysmon__head {

@@ -25,14 +25,15 @@
 <PageTitle>한주운영시스템 모니터링 · 헬프데스크</PageTitle>
 
 <div class="jsini-toolbar hd-sysmon__bar">
-    <DxButton Text="새로 고침" RenderStyle="ButtonRenderStyle.Primary"
-              Click="@ReloadAsync" Enabled="@(!Loading)" />
     <span class="jsini-hint">업데이트: @_updatedAt</span>
 
     <span class="hd-sysmon__auto">
         <DxCheckBox CheckType="CheckType.Switch" Checked="@_auto" CheckedChanged="@((bool on) => ToggleAuto(on))">
             1분 자동 갱신 @(_auto ? "ON" : "OFF")
         </DxCheckBox>
+        <DxButton IconCssClass="jsini-icon-refresh" Title="새로 고침"
+                  RenderStyle="ButtonRenderStyle.Link"
+                  Click="@ReloadAsync" Enabled="@(!Loading)" />
     </span>
 </div>
 
