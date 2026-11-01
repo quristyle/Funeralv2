@@ -79,6 +79,20 @@ public partial class TableLineageView
     private bool _picking;
 
     // ── 고른 것 ──
+    private enum PanelTab { Items, Detail }
+
+    private bool _panelOpen = true;
+    private PanelTab _tab = PanelTab.Items;
+
+    private string DetailTabTitle => _selNode is not null ? "선택한 표" : _selEdge is not null ? "선택한 선" : "선택 정보";
+
+    // 접힌 판의 탭을 누르면 펴면서 그 탭으로 간다. 펴진 채 같은 탭을 다시 눌러도 그대로다.
+    private void OpenTab(PanelTab tab)
+    {
+        _tab = tab;
+        _panelOpen = true;
+    }
+
     private LineageNode? _selNode;
     private LineageNode _edit = new();
     private string? _editId;
@@ -563,6 +577,9 @@ public partial class TableLineageView
                 };
             }
         }
+
+        // 칸이나 선을 고르면 그 정보 탭으로 넘긴다. 접어 둔 판은 펴지 않는다 — 가로를 쓰려고 접은 것이다.
+        if (_selNode is not null || _selEdge is not null) _tab = PanelTab.Detail;
 
         StateHasChanged();
     });

@@ -7625,25 +7625,103 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   cursor: default;
 }
 
+.tl-chip--icon {
+  padding: 0.15rem 0.4rem;
+}
+
 .tl-body {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr) 260px;
+  grid-template-columns: minmax(0, 1fr) 280px;
   gap: 0.5rem;
   height: min(74vh, 900px);
   min-height: 420px;
 }
 
+/* 접으면 탭 단추 띠(세로)만 남는다. 캔버스는 ResizeObserver 로 새 폭을 받는다. */
+.tl-body--folded {
+  grid-template-columns: minmax(0, 1fr) 2.25rem;
+}
+
+.tl-panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border: 1px solid var(--jsini-border);
+  border-radius: 0.25rem;
+  background: var(--jsini-surface);
+  font-size: var(--jsini-fs-sm);
+}
+
+.tl-panel__tabs {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--jsini-border);
+}
+
+.tl-panel__fold,
+.tl-panel__tab {
+  display: inline-flex;
+  gap: 0.3rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem 0.5rem;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.tl-panel__fold {
+  flex: none;
+  color: var(--jsini-text-muted, #6b7280);
+}
+
+.tl-panel__tab {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.tl-panel__tab small {
+  color: var(--jsini-text-muted, #6b7280);
+}
+
+.tl-panel__tab.is-on {
+  border-bottom-color: var(--jsini-primary, #206bc4);
+  color: var(--jsini-primary, #206bc4);
+  font-weight: 600;
+}
+
+.tl-body--folded .tl-panel__tabs {
+  flex-direction: column;
+  border-bottom: 0;
+}
+
+.tl-body--folded .tl-panel__tab {
+  flex: none;
+  padding: 0.5rem 0;
+  border-bottom: 0;
+}
+
+.tl-body--folded .tl-panel__label,
+.tl-body--folded .tl-panel__tab small {
+  display: none;
+}
+
 .tl-side {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: 0.4rem;
   min-height: 0;
   padding: 0.5rem;
-  border: 1px solid var(--jsini-border);
-  border-radius: 0.25rem;
-  background: var(--jsini-surface);
   overflow: auto;
-  font-size: var(--jsini-fs-sm);
+}
+
+.tl-side.is-hidden {
+  display: none;
 }
 
 .tl-side__head {
@@ -7730,6 +7808,13 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 
 .tl-ib--rm:hover {
   color: #b33636;
+}
+
+/* 줄 안의 작은 단추라 공통 아이콘 크기(본문보다 큼)를 글자 크기로 줄인다. */
+.tl-ib [class^='jsini-icon-'],
+.tl-panel__tabs [class^='jsini-icon-'] {
+  width: 1rem;
+  height: 1rem;
 }
 
 .tl-links li {
@@ -8149,13 +8234,16 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 @media (max-width: 767px) {
   .tl-body {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: 60vh auto auto;
+    grid-template-rows: 60vh auto;
     height: auto;
   }
 
-  .tl-stage { grid-row: 1; }
-  .tl-side--items { grid-row: 2; max-height: 40vh; }
-  .tl-side--detail { grid-row: 3; }
+  .tl-body--folded {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .tl-panel { max-height: 50vh; }
+  .tl-body--folded .tl-panel__tabs { flex-direction: row; }
   .tl-map { display: none !important; }
 }
 
