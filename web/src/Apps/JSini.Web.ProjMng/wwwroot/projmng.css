@@ -7022,7 +7022,9 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 }
 
 .pm-toc__item {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: var(--jsini-sp-3xs, 2px);
   width: 100%;
   padding: var(--jsini-sp-2xs) var(--jsini-sp-xs);
   border: 0;
@@ -7048,6 +7050,241 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   font-weight: 600;
 }
 
+/* 제목은 줄이되 표식은 늘 보이게 — 표식이 잘리면 표시한 뜻이 없다. */
+.pm-toc__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 끌기 손잡이 — 가리킬 때만 나온다. 목차가 좁아 늘 두면 제목을 먹는다. */
+.pm-toc__grip {
+  flex: none;
+  width: 0.6rem;
+  font-size: var(--jsini-fs-2xs);
+  color: var(--jsini-text-muted);
+  opacity: 0;
+  cursor: grab;
+}
+
+.pm-toc__item:hover .pm-toc__grip {
+  opacity: 0.7;
+}
+
+.pm-toc__item[draggable="false"] .pm-toc__grip {
+  visibility: hidden;
+}
+
+.pm-toc__item.is-dragging {
+  opacity: 0.4;
+}
+
+/* 놓을 자리를 줄로 보인다 — 위/아래 어디로 들어가는지가 이것으로만 갈린다. */
+.pm-toc__item.is-over-before {
+  box-shadow: inset 0 2px 0 var(--jsini-accent);
+}
+
+.pm-toc__item.is-over-after {
+  box-shadow: inset 0 -2px 0 var(--jsini-accent);
+}
+
+/* 붙인 것 표시 — ⧉ 올린 문서 · ↗ 건 주소. 눌러 보기 전에 글만 있는 쪽인지 갈린다. */
+.pm-toc__bdg {
+  flex: none;
+  padding: 0 3px;
+  font-size: var(--jsini-fs-2xs);
+  line-height: 1.4;
+  border: 1px solid var(--jsini-border);
+  color: var(--jsini-text-muted);
+}
+
+.pm-toc__bdg--in {
+  border-color: var(--jsini-accent);
+  color: var(--jsini-accent-text);
+}
+
+.pm-toc__mk {
+  flex: none;
+  font-size: var(--jsini-fs-2xs);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.pm-toc__mk--new {
+  padding: 2px 4px;
+  border-radius: 3px;
+  background: var(--bs-warning, #f59f00);
+  color: #fff;
+}
+
+.pm-toc__mk--upd {
+  color: var(--bs-warning, #f59f00);
+}
+
+.pm-toc-tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--jsini-sp-2xs);
+  min-height: 0;
+}
+
+.pm-toc-cnt {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--bs-warning, #f59f00);
+  color: #fff;
+  font-size: var(--jsini-fs-xs);
+  font-weight: 700;
+}
+
+.pm-doc-trash {
+  margin-top: var(--jsini-sp-sm);
+  padding-top: var(--jsini-sp-xs);
+  border-top: 1px solid var(--jsini-border);
+}
+
+.pm-doc-trash__head {
+  font-size: var(--jsini-fs-xs);
+  font-weight: 600;
+  color: var(--jsini-text-muted);
+}
+
+.pm-doc-trash__row {
+  padding: var(--jsini-sp-2xs) 0;
+  border-bottom: 1px dashed var(--jsini-border);
+}
+
+.pm-doc-trash__name {
+  font-size: var(--jsini-fs-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 방금 지운 쪽 — 잠깐만 뜨는 띠다. 놓쳐도 휴지통에 남는다. */
+.pm-doc-undo {
+  display: flex;
+  align-items: center;
+  gap: var(--jsini-sp-xs);
+  margin-bottom: var(--jsini-sp-sm);
+  padding: var(--jsini-sp-2xs) var(--jsini-sp-sm);
+  border-left: 3px solid var(--jsini-accent);
+  background: var(--jsini-surface-muted);
+  font-size: var(--jsini-fs-sm);
+}
+
+.pm-doc-undo > span {
+  flex: 1;
+}
+
+.pm-doc-mark {
+  background: var(--bs-warning, #f59f00);
+  color: #fff;
+}
+
+.pm-doc-when > span + span::before {
+  content: "|";
+  margin: 0 6px;
+  color: var(--jsini-border);
+}
+
+.pm-doc-when__none {
+  opacity: 0.6;
+}
+
+/* 긴 글은 붙인 문서가 있을 때 접는다 — 끝을 흐리게 지워 「더 있다」를 보인다. */
+.pm-doc--clip {
+  max-height: 1200px;
+  overflow: hidden;
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 90px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 90px), transparent 100%);
+}
+
+.pm-doc-more {
+  display: block;
+  width: 100%;
+  margin: 0 0 var(--jsini-sp-xs);
+  padding: var(--jsini-sp-2xs);
+  border: 1px solid var(--jsini-border);
+  background: var(--jsini-surface-muted);
+  color: var(--jsini-text-muted);
+  font-size: var(--jsini-fs-xs);
+  cursor: pointer;
+}
+
+/* 여러 장이면 탭으로 가른다. 한 장이 화면 하나만 한 문서라 쌓으면 아래 것이 있는지 굴려 봐야 안다. */
+.pm-doc-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--jsini-border);
+}
+
+.pm-doc-tab {
+  max-width: 230px;
+  padding: 5px 10px;
+  border: 1px solid var(--jsini-border);
+  border-bottom: none;
+  background: var(--jsini-surface-muted);
+  color: var(--jsini-text-muted);
+  font-size: var(--jsini-fs-xs);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.pm-doc-tab.is-on {
+  border-color: var(--jsini-accent);
+  color: var(--jsini-accent-text);
+  font-weight: 600;
+}
+
+.pm-doc-filebar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--jsini-sp-xs);
+  margin-bottom: var(--jsini-sp-2xs);
+  padding: 4px 9px;
+  border: 1px solid var(--jsini-accent);
+  font-size: var(--jsini-fs-xs);
+}
+
+/* 바깥 주소는 빛깔을 달리한다 — 우리 서버의 문서와 섞이지 않게. */
+.pm-doc-filebar.is-ext {
+  border-color: var(--jsini-border);
+  background: var(--jsini-surface-muted);
+}
+
+.pm-doc-filebar__spacer {
+  flex: 1;
+}
+
+.pm-doc-filenote {
+  margin: 0 0 var(--jsini-sp-2xs);
+  font-size: var(--jsini-fs-xs);
+  color: var(--jsini-text-muted);
+}
+
+/* 붙인 문서는 판을 꽉 채운다 — 작게 잡으면 그 안에서 또 굴러 한 문서를 두 겹으로 굴리게 된다. */
+.pm-doc-frame {
+  display: block;
+  width: 100%;
+  height: calc(100vh - 250px);
+  min-height: 420px;
+  border: 1px solid var(--jsini-border);
+  background: #fff;
+}
+
+.pm-doc-frame--short {
+  height: auto;
+  min-height: 60vh;
+}
+
 /* 문서 머리 줄 — 제목 · 고친 때 · 단추들이 한 줄에 앉는다. */
 .pm-doc-head {
   display: flex;
@@ -7065,6 +7302,9 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 }
 
 .pm-doc-when {
+  display: inline-flex;
+  min-width: 0;
+  overflow: hidden;
   font-size: var(--jsini-fs-xs);
   color: var(--jsini-text-muted);
   white-space: nowrap;

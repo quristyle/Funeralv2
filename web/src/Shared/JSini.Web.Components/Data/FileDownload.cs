@@ -48,6 +48,10 @@ public static class FileDownload
             : $"{url}?name={Uri.EscapeDataString(fileName)}";
     }
 
+    /// <summary>WBS 개발자 정보 쪽에 올린 HTML 한 장의 주소. iframe 이 연다 — 내려받기가 아니라 그 자리에 그려지게 내준다.</summary>
+    public static string WbsDocUrlFor(int prjRid, int docId, int fileId) =>
+        $"{Path}/wbs-doc/{prjRid}/{docId}/{fileId}";
+
     /// <summary>첨부 하나의 썸네일(150x150 WebP) 주소. 작은 그림을 그릴 때 쓴다.</summary>
     public static string ThumbnailUrlFor(string fileId) =>
         $"{Path}/thumbnail/{Uri.EscapeDataString(fileId)}";
@@ -154,6 +158,11 @@ public static class FileDownload
             .RequireAuthorization()
             .WithName("JSiniInterfaceFile");
 
+        // WBS 개발자 정보에 올린 HTML. 리터럴 wbs-doc 라 {fileId} 와 겹치지 않는다.
+        endpoints.MapGet($"{Path}/wbs-doc/{{prjRid:int}}/{{docId:int}}/{{fileId:int}}", HandleWbsDocAsync)
+            .RequireAuthorization()
+            .WithName("JSiniWbsDocFile");
+
         // 자료실·플레이어. 횟수를 세는 경로를 거친다. 리터럴 archive 라 {fileId} 와 겹치지 않는다.
         endpoints.MapGet($"{Path}/archive/{{archiveId}}/{{fileId}}", HandleArchiveAsync)
             .RequireAuthorization()
@@ -183,6 +192,54 @@ public static class FileDownload
             file, name, http, gateway, loggers, cancellationToken,
             // 여기서는 캐시를 열지 않는다 — 캐시본을 쓰면 요청이 서버에 닿지 않아 횟수가 멈춘다.
             cacheable: false);
+    }
+
+    /// <summary>WBS 개발자 정보에 올린 HTML 을 그 자리에 그려지게 내준다. 사람이 올린 문서라 CSP sandbox 로 오리진을 떼어 낸다 —
+    /// 안 떼면 문서 속 스크립트가 로그인한 사람의 쿠키로 포털을 부를 수 있다. 새 탭으로 직접 열어도 같은 머리가 걸린다.</summary>
+    private static async Task HandleWbsDocAsync(
+        int prjRid,
+        int docId,
+        int fileId,
+        HttpContext http,
+        GatewayClient gateway,
+        ILoggerFactory loggers,
+        CancellationToken cancellationToken)
+    {
+        HttpResponseMessage upstream;
+
+        try
+        {
+            upstream = await gateway.SendRawAsync(
+                HttpMethod.Get,
+                $"projmng/wbs-board/docs/{docId}/files/{fileId}/content?prjRid={prjRid}",
+                cancellationToken: cancellationToken);
+        }
+        catch (ApiException ex)
+        {
+            loggers.CreateLogger(typeof(FileDownload)).LogWarning(
+                ex, "WBS 문서 {DocId}/{FileId} 를 가져오지 못했습니다.", docId, fileId);
+            http.Response.StatusCode = StatusCodes.Status502BadGateway;
+            return;
+        }
+
+        using var _ = upstream;
+
+        var type = upstream.Content.Headers.ContentType?.MediaType;
+
+        if (!upstream.IsSuccessStatusCode || type is not "text/html")
+        {
+            http.Response.StatusCode = StatusCodes.Status404NotFound;
+            return;
+        }
+
+        http.Response.ContentType = "text/html; charset=utf-8";
+        http.Response.Headers.ContentSecurityPolicy = "sandbox allow-scripts allow-popups allow-forms allow-modals";
+        http.Response.Headers["X-Content-Type-Options"] = "nosniff";
+
+        // 손으로 고쳐 다시 올린 문서를 옛 사본으로 보이지 않게 — 번호가 같아도 내용은 바뀔 수 있다.
+        http.Response.Headers.CacheControl = "private, no-cache";
+
+        await upstream.Content.CopyToAsync(http.Response.Body, cancellationToken);
     }
 
     /// <summary>인터페이스 첨부를 중계한다. 파일 번호의 모양 검사는 위쪽(InterfaceFileService)이 한다 — 여기서는 주소에 그대로 싣지 않고 이스케이프만 한다.</summary>
