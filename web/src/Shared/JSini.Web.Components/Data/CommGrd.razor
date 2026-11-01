@@ -94,6 +94,7 @@
             SelectedDataItemChanged="@OnSelectedDataItemChangedAsync"
             SelectedDataItems="@_selectedMany"
             SelectedDataItemsChanged="@OnSelectedDataItemsChangedAsync"
+            FocusedRowChanged="@OnFocusedRowChangedAsync"
             DetailRowDisplayMode="@(DetailRowTemplate is null ? GridDetailRowDisplayMode.Never : GridDetailRowDisplayMode.Auto)"
             DetailExpandButtonDisplayMode="@(DetailRowTemplate is null ? GridDetailExpandButtonDisplayMode.Never : GridDetailExpandButtonDisplayMode.Auto)"
             @attributes="_forwarded"

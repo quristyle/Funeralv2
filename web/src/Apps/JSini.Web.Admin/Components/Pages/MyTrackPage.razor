@@ -201,6 +201,7 @@
                      ExportName="@($"이동경로 {DateKey}")"
                      SelectedItem="@_picked"
                      SelectedItemChanged="@PickAsync"
+                     FocusedRowChanged="@PickAsync"
                      AutoSelectFirstRow="false"
                      Reload="@ReloadAsync">
                 <Columns>

@@ -127,6 +127,9 @@ public partial class CommGrd<TItem>
     /// <summary>고른 줄이 바뀌었을 때. 여기서 받은 값이 다음 렌더의 선택이 된다.</summary>
     [Parameter] public EventCallback<TItem?> SelectedItemChanged { get; set; }
 
+    /// <summary>포커스된 줄이 바뀌었을 때(키보드 방향키 이동 등). 화면이 아는 형(TItem)으로 넘긴다.</summary>
+    [Parameter] public EventCallback<TItem?> FocusedRowChanged { get; set; }
+
     /// <summary>줄을 두 번 눌렀을 때. 여는 동작에만 쓴다 — 두 번 누르기는 화면에 안 보이는 몸짓이라 되돌리기 어려운 동작은 걸지 않는다.
     /// splat 으로 넘기면 화면이 500 으로 죽으므로 이 이름을 선언해 둔다.</summary>
     [Parameter] public EventCallback<TItem> OnRowDoubleClick { get; set; }
@@ -238,6 +241,12 @@ public partial class CommGrd<TItem>
     /// <summary>첫 줄 자동 고르기를 이미 해 준 자료 묶음. 같은 것이면 다시 안 한다.</summary>
     private object? _autoPickedFor;
 
+    /// <summary>직전 데이터 원본 참조. 데이터가 바뀌면 _userInteracted 를 다시 초기화한다.</summary>
+    private object? _lastData;
+
+    /// <summary>사용자가 행을 클릭하거나 방향키로 탐색했는지 여부. 초기 바인딩 시 DxGrid 가 자동 발생시키는 최초 0번 포커스를 억제하는 데 쓴다.</summary>
+    private bool _userInteracted;
+
     /// <summary>표에 넘길 체크 목록. DevExpress 가 IReadOnlyList&lt;object&gt; 를 받으므로 한 겹 옮긴다.</summary>
     private IReadOnlyList<object>? _selectedMany;
 
@@ -332,6 +341,12 @@ public partial class CommGrd<TItem>
     protected override void OnParametersSet()
     {
         _forwarded = Coerce(Extra);
+
+        if (!ReferenceEquals(_lastData, Data))
+        {
+            _lastData = Data;
+            _userInteracted = false;
+        }
 
         // 자료가 갈리면 관리 판을 닫는다(자동 갱신 화면 머리말).
         _more.ResetIfDataChanged(Data);
@@ -858,14 +873,36 @@ public partial class CommGrd<TItem>
     /// <summary>DxGrid 의 선택 알림을 화면이 아는 형으로 옮긴다. 받는이를 화면으로 두어야 고른 줄에 딸린 칸까지 다시 그려진다.</summary>
     private Task OnSelectedDataItemChangedAsync(object? item)
     {
+        _userInteracted = true;
         _selected = item;
 
         return SelectedItemChanged.InvokeAsync(item is TItem typed ? typed : default);
     }
 
+    /// <summary>DxGrid 의 포커스 줄 변경 알림을 화면이 아는 형으로 옮긴다.</summary>
+    private Task OnFocusedRowChangedAsync(GridFocusedRowChangedEventArgs e)
+    {
+        if (!FocusedRowChanged.HasDelegate)
+        {
+            return Task.CompletedTask;
+        }
+
+        // AutoSelectFirstRow 가 꺼져 있고 아직 선택된 항목이 없는 상태에서,
+        // 자료 바인딩 직후 DxGrid 가 첫 행(0번)으로 자동 발화하는 최초 포커스 이벤트는 억제한다.
+        if (!AutoSelectFirstRow && _selected is null && !_userInteracted && e.VisibleIndex == 0)
+        {
+            return Task.CompletedTask;
+        }
+
+        _userInteracted = true;
+        return FocusedRowChanged.InvokeAsync(e.DataItem is TItem item ? item : default);
+    }
+
     /// <summary>누른 줄을 화면에 넘긴다.</summary>
     private Task OnRowClickAsync(GridRowClickEventArgs e)
     {
+        _userInteracted = true;
+
         if (!OnRowClick.HasDelegate)
         {
             return Task.CompletedTask;
