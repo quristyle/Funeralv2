@@ -48,6 +48,15 @@
             <DxButton IconCssClass="jsini-icon-trash" Title="선택 지우기" RenderStyle="ButtonRenderStyle.Secondary"
                       Enabled="@(_selNode is not null || _selEdge is not null)" Click="@RemoveSelectionAsync" />
 
+            <DxButton IconCssClass="jsini-icon-arrange" Title="보기 좋게 펼치기 — 보이는 표를 선 방향대로 단을 나눠 다시 놓습니다"
+                      RenderStyle="ButtonRenderStyle.Secondary"
+                      Enabled="@((_summary?.Nodes ?? 0) > 1)" Click="@ArrangeAsync" />
+            @if (_canUndoArrange)
+            {
+                <DxButton IconCssClass="jsini-icon-undo" Title="펼치기 전 배치로" RenderStyle="ButtonRenderStyle.Secondary"
+                          Click="@UndoArrangeAsync" />
+            }
+
             @if (_seed is not null)
             {
                 @* 두 번 눌러야 버린다 — 무장된 동안만 글자를 붙여 다음 누름이 무엇인지 보인다. *@

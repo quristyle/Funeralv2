@@ -58,6 +58,9 @@ public partial class TableLineageView
     private bool _linking;
     private LineageKind NewKind { get; set; } = LineageGraph.EdgeKinds[0];
     private bool _resetArmed;
+
+    /// <summary>방금 펼쳤다 — 캔버스가 펼치기 전 자리를 들고 있다. 다시 불러오면 버린다.</summary>
+    private bool _canUndoArrange;
     private bool _reloadArmed;
 
     // ── 거르개 ──
@@ -311,6 +314,7 @@ public partial class TableLineageView
             _selEdge = null;
             _linking = false;
             _resetArmed = false;
+            _canUndoArrange = false;
 
             await _instance.InvokeAsync<bool>("setLinking", false, NewKind.Value);
             _summary = await _instance.InvokeAsync<LineageSummary>(
@@ -526,6 +530,7 @@ public partial class TableLineageView
         }
 
         _resetArmed = false;
+        _canUndoArrange = false;
         _summary = await _instance.InvokeAsync<LineageSummary>("load", _seed.DbPvalue ?? LineageGraph.EmptyGraph, true);
         MarkPlaced();
         await PushFilterAsync();
@@ -533,6 +538,30 @@ public partial class TableLineageView
         _selEdge = null;
         _graphDirty = true;
         Say("처음 배치로 되돌렸습니다. 「저장」을 눌러야 남습니다. 업무항목은 그대로입니다.", NoticeTone.Warning);
+    }
+
+    private async Task ArrangeAsync()
+    {
+        if (_instance is null) return;
+
+        var count = await _instance.InvokeAsync<int>("arrange");
+        if (count == 0)
+        {
+            Say("펼칠 표가 두 개 이상 보여야 합니다.", NoticeTone.Warning);
+            return;
+        }
+
+        _canUndoArrange = true;
+        _graphDirty = true;
+        Say($"표 {count}개를 펼쳤습니다. 「저장」을 눌러야 남습니다.");
+    }
+
+    private async Task UndoArrangeAsync()
+    {
+        if (_instance is null) return;
+
+        _canUndoArrange = false;
+        if (await _instance.InvokeAsync<bool>("undoArrange")) Say("펼치기 전 배치로 되돌렸습니다.");
     }
 
     // ───────────────────────── 캔버스가 올려 주는 것 ─────────────────────────

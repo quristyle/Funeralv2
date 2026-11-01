@@ -122,6 +122,7 @@ class Lineage {
     this.hoverId = null;
     this.linkFrom = null;
     this.dirtySent = false;
+    this._undo = null;
     // 고른 업무항목은 화면이 곧 다시 알려 준다 — 옛 범위로 한 번 그렸다가 또 그리지 않게 비운다.
     this.filter = { ...this.filter, keep: null, item: null, picking: false };
     this.reindex();
@@ -718,6 +719,254 @@ class Lineage {
       this.changed();
     }
     return placed.length;
+  }
+
+  // ───────────────────────── 펼치기 ─────────────────────────
+
+  /**
+   * 보이는 칸을 선 방향(왼쪽 → 오른쪽)으로 단을 나눠 다시 놓는다. 레인이 있으면 단은 레인이고, 같은 레인 안에서 이어진 칸만 옆 칸으로 민다.
+   * 선 보기에서 끈 종류의 선은 단을 정하는 데 안 쓴다 — 읽기 선 수백 개가 한 단으로 몰아 버린다.
+   * 손으로 꺾어 둔 점과 붙일 면은 걷는다 — 칸이 옮겨 간 뒤에는 엉뚱한 곳을 돌아간다. 걷은 것까지 undoArrange 가 되돌린다.
+   */
+  arrange() {
+    const set = this.nodes.filter((n) => { const d = this.nodeEls.get(n.id); return d && !d.hidden; });
+    if (set.length < 2) return 0;
+    const ids = new Set(set.map((n) => n.id));
+    for (const n of set) this.measure(n);
+
+    this._undo = {
+      pos: set.map((n) => [n.id, { ...n.position }]),
+      edges: this.edges.map((e) => [e.id, e.sourceHandle, e.targetHandle, e.data?.pts]),
+      lanes: this.lanes.map((l) => ({ ...l })),
+    };
+
+    const kinds = new Set(this.filter.kinds || []);
+    const pairs = new Map();
+    for (const e of this.edges) {
+      if (e.source === e.target || !ids.has(e.source) || !ids.has(e.target)) continue;
+      if (kinds.size && !kinds.has(kindOf(e.data?.ty).ty)) continue;
+      pairs.set(e.source + '\u0001' + e.target, [e.source, e.target]);
+    }
+    const out = new Map(), inn = new Map();
+    for (const n of set) { out.set(n.id, []); inn.set(n.id, []); }
+    for (const [a, b] of pairs.values()) { out.get(a).push(b); inn.get(b).push(a); }
+
+    const old = this.bounds(true);
+    const whole = !this.scope;
+    const laneIdx = new Map(this.lanes.map((l, i) => [l.i, i]));
+    const useLanes = this.lanes.length > 0;
+    const laneOf = (n) => {
+      if (laneIdx.has(n.data.col)) return laneIdx.get(n.data.col);
+      const cx = n.position.x + n._w / 2;
+      let best = 0, d = Infinity;
+      this.lanes.forEach((l, i) => { const dd = Math.abs(l.x + l.w / 2 - cx); if (dd < d) { d = dd; best = i; } });
+      return best;
+    };
+
+    // 단 매기기 — 고리는 깊이 우선으로 거꾸로 가는 선을 빼고 끊는다. 같이 묶는 범위(group)를 넘는 선은 안 센다.
+    const rankIn = (group) => {
+      const inG = new Set(group.map((n) => n.id));
+      const state = new Map(), order = [], back = new Set();
+      const visit = (id) => {
+        state.set(id, 1);
+        for (const t of out.get(id)) {
+          if (!inG.has(t)) continue;
+          if (state.get(t) === 1) back.add(id + '\u0001' + t);
+          else if (!state.has(t)) visit(t);
+        }
+        state.set(id, 2);
+        order.push(id);
+      };
+      // 위에 있던 칸부터 — 같은 그림을 두 번 펼쳐도 같은 답이 나온다.
+      for (const n of [...group].sort((a, b) => a.position.y - b.position.y || a.position.x - b.position.x)) if (!state.has(n.id)) visit(n.id);
+      const rank = new Map(group.map((n) => [n.id, 0]));
+      for (const id of order.reverse()) {
+        for (const t of out.get(id)) {
+          if (!inG.has(t) || back.has(id + '\u0001' + t)) continue;
+          rank.set(t, Math.max(rank.get(t), rank.get(id) + 1));
+        }
+      }
+      // 내보내기만 하는 칸은 받는 칸 바로 앞으로 당긴다 — 맨 왼쪽에 몰려 긴 선을 늘어뜨리지 않게.
+      for (const id of [...order].reverse()) {
+        if (inn.get(id).some((s) => inG.has(s))) continue;
+        const next = out.get(id).filter((t) => inG.has(t) && !back.has(id + '\u0001' + t)).map((t) => rank.get(t));
+        if (next.length) rank.set(id, Math.max(rank.get(id), Math.min(...next) - 1));
+      }
+      return rank;
+    };
+
+    const linked = (n) => out.get(n.id).length + inn.get(n.id).length > 0;
+    const major = new Map(), minor = new Map();
+    let loose = [];
+    if (useLanes) {
+      // 레인 안에서는 한 줄로 세운다 — 레인 안의 선까지 단으로 가르면 레인마다 옆으로 몇 칸씩 벌어져 그림이 가로로만 길어진다.
+      for (const n of set) { major.set(n.id, laneOf(n)); minor.set(n.id, 0); }
+    } else {
+      const main = set.filter(linked);
+      loose = set.filter((n) => !linked(n));
+      const r = rankIn(main);
+      for (const n of main) { major.set(n.id, r.get(n.id)); minor.set(n.id, 0); }
+    }
+
+    // 단 → 세로 줄. 한 줄이 너무 길면 옆 줄로 접는다 — 한 화면에 안 들어오는 기둥은 읽을 수 없다.
+    const MAX_ROWS = Math.max(10, Math.ceil(Math.sqrt(set.length) * 1.6));
+    const keyOf = (id) => major.get(id) * 1000 + minor.get(id);
+    const colKeys = [...new Set([...major.keys()].map(keyOf))].sort((a, b) => a - b);
+    let cols = colKeys.map((k) => set.filter((n) => major.has(n.id) && keyOf(n.id) === k).sort((a, b) => a.position.y - b.position.y));
+
+    // 줄 안 차례 — 이웃의 평균 자리(무게중심)로 왼쪽→오른쪽, 오른쪽→왼쪽을 몇 번 오간다. 선이 덜 엇갈린다.
+    const where = new Map();
+    const mark = () => cols.forEach((c, ci) => c.forEach((n, i) => where.set(n.id, { c: ci, r: (i + 0.5) / c.length })));
+    mark();
+    for (let pass = 0; pass < 8; pass++) {
+      const ltr = pass % 2 === 0;
+      const seq = ltr ? cols.map((_, i) => i) : cols.map((_, i) => cols.length - 1 - i);
+      for (const ci of seq) {
+        const key = new Map();
+        for (const n of cols[ci]) {
+          const nb = [...inn.get(n.id), ...out.get(n.id)].map((x) => where.get(x)).filter((w) => w && (ltr ? w.c < ci : w.c > ci));
+          key.set(n.id, nb.length ? nb.reduce((s, w) => s + w.r, 0) / nb.length : where.get(n.id).r);
+        }
+        cols[ci].sort((a, b) => key.get(a.id) - key.get(b.id));
+        cols[ci].forEach((n, i) => where.set(n.id, { c: ci, r: (i + 0.5) / cols[ci].length }));
+      }
+    }
+    // 긴 줄 접기는 차례를 정한 뒤에 한다 — 먼저 접으면 이웃끼리 다른 줄로 흩어진다.
+    const folded = [], colMajor = [];
+    cols.forEach((c, ci) => {
+      const m = major.get(c[0].id);
+      for (let i = 0; i < c.length; i += MAX_ROWS) { folded.push(c.slice(i, i + MAX_ROWS)); colMajor.push(m); }
+    });
+    cols = folded;
+
+    // 가로 자리. 단 사이는 넓게(선 이름이 앉는다), 같은 단 안의 줄 사이는 좁게.
+    const GAP_MAJOR = 140, GAP_MINOR = 60, GAP_Y = 40;
+    const colW = cols.map((c) => Math.max(...c.map((n) => n._w)));
+    const colX = [];
+    const top = useLanes ? Math.max(old.y1, 60) : old.y1;
+    if (useLanes && !whole) {
+      // 일부만 펼칠 때 레인은 그대로다 — 칸을 제 레인 안에 세운다.
+      const used = new Map();
+      cols.forEach((c, ci) => {
+        const l = this.lanes[colMajor[ci]];
+        const at = used.get(colMajor[ci]) ?? l.x + 24;
+        colX[ci] = at;
+        used.set(colMajor[ci], at + colW[ci] + GAP_MINOR);
+      });
+    } else if (useLanes) {
+      // 전부 펼칠 때는 레인 띠도 새 자리에 맞춘다. 칸이 없는 레인도 머리글이 읽힐 만큼은 남긴다.
+      let x = Math.min(old.x1, this.lanes[0]?.x ?? old.x1);
+      this.lanes.forEach((l, li) => {
+        const mine = cols.map((_, ci) => ci).filter((ci) => colMajor[ci] === li);
+        const start = snap(x);
+        let cx = start + GRID;
+        mine.forEach((ci, k) => { if (k) cx += GAP_MINOR; colX[ci] = cx; cx += colW[ci]; });
+        l.x = start;
+        l.w = Math.max(160, snap(cx + GRID - start));
+        x = l.x + l.w + GAP_MAJOR - 48;
+      });
+    } else {
+      let x = old.x1;
+      cols.forEach((c, ci) => {
+        if (ci > 0) x += colMajor[ci] === colMajor[ci - 1] ? GAP_MINOR : GAP_MAJOR;
+        colX[ci] = x;
+        x += colW[ci];
+      });
+    }
+
+    // 세로 자리 — 쌓은 뒤, 이웃의 가운데로 끌어당기고 겹침만 푼다.
+    const pos = new Map();
+    const colH = cols.map((c) => c.reduce((s, n) => s + n._h, 0) + GAP_Y * (c.length - 1));
+    const tallest = Math.max(0, ...colH);
+    cols.forEach((c, ci) => {
+      let y = top + (tallest - colH[ci]) / 2;
+      for (const n of c) { pos.set(n.id, { x: colX[ci], y }); y += n._h + GAP_Y; }
+    });
+    // 줄 안의 칸은 촘촘히 붙여 둔 채 줄째 위아래로만 옮긴다 — 칸마다 이웃 쪽으로 끌면 모두 한가운데로 몰려 납작해진다.
+    const mid = (id) => pos.get(id).y + this.byId.get(id)._h / 2;
+    for (let pass = 0; pass < 4; pass++) {
+      cols.forEach((c) => {
+        let sum = 0, cnt = 0;
+        for (const n of c) {
+          const nb = [...inn.get(n.id), ...out.get(n.id)].filter((x) => pos.has(x) && !c.includes(this.byId.get(x)));
+          if (!nb.length) continue;
+          sum += nb.reduce((s2, x) => s2 + mid(x), 0) / nb.length - mid(n.id);
+          cnt++;
+        }
+        if (!cnt) return;
+        const shift = sum / cnt;
+        for (const n of c) pos.get(n.id).y += shift;
+      });
+    }
+    // 위로 삐져나간 만큼 통째로 내린다.
+    const minY = Math.min(...[...pos.values()].map((p) => p.y));
+    if (minY < top) for (const p of pos.values()) p.y += top - minY;
+
+    // 이어진 데가 없는 칸은 아래에 바둑판으로.
+    if (loose.length) {
+      const bottom = pos.size ? Math.max(...[...pos].map(([id, p]) => p.y + this.byId.get(id)._h)) + 80 : top;
+      const per = Math.max(1, Math.min(8, Math.ceil(Math.sqrt(loose.length * 2))));
+      const w = Math.max(...loose.map((n) => n._w)) + 40;
+      loose.sort((a, b) => a.id.localeCompare(b.id));
+      let rowY = bottom, rowH = 0;
+      loose.forEach((n, i) => {
+        if (i && i % per === 0) { rowY += rowH + GAP_Y; rowH = 0; }
+        pos.set(n.id, { x: old.x1 + (i % per) * w, y: rowY });
+        rowH = Math.max(rowH, n._h);
+      });
+    }
+
+    for (const n of set) {
+      const p = pos.get(n.id);
+      if (!p) continue;
+      n.position = { x: snap(p.x), y: snap(p.y) };
+      const d = this.nodeEls.get(n.id);
+      d.style.left = n.position.x + 'px';
+      d.style.top = n.position.y + 'px';
+    }
+
+    for (const e of this.edges) {
+      if (!ids.has(e.source) || !ids.has(e.target)) continue;
+      e.sourceHandle = null;
+      e.targetHandle = null;
+      if (e.data?.pts) delete e.data.pts;
+    }
+
+    this.renderLanes();
+    for (const e of this.edges) this.drawEdge(e);
+    this.paint();
+    requestAnimationFrame(() => this.fit());
+    this.changed();
+    return set.length;
+  }
+
+  /** 펼치기 바로 전으로. 그 뒤에 옮긴 것도 함께 되돌아간다. */
+  undoArrange() {
+    const u = this._undo;
+    if (!u) return false;
+    this._undo = null;
+    for (const [id, p] of u.pos) {
+      const n = this.byId.get(id);
+      if (!n) continue;
+      n.position = p;
+      const d = this.nodeEls.get(id);
+      if (d) { d.style.left = p.x + 'px'; d.style.top = p.y + 'px'; }
+    }
+    const back = new Map(u.edges.map((x) => [x[0], x]));
+    for (const e of this.edges) {
+      const x = back.get(e.id);
+      if (!x) continue;
+      e.sourceHandle = x[1];
+      e.targetHandle = x[2];
+      if (x[3]) e.data.pts = x[3]; else delete e.data.pts;
+    }
+    this.lanes = u.lanes;
+    this.renderLanes();
+    for (const e of this.edges) this.drawEdge(e);
+    this.paint();
+    requestAnimationFrame(() => this.fit());
+    this.changed();
+    return true;
   }
 
   /** 대상 DB 에서 받은 설명을 비어 있는 칸에만 채운다 — 사람이 적은 설명은 덮지 않는다. */
