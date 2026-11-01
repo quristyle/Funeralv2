@@ -108,6 +108,13 @@ ProjMngServer `InternalQueryController` 에 조회 하나, `PortalToolSet`·`Por
 `scripts/secrets.env.example` 에는 이 값이 없다** — 운영에 올리려면 두 곳
 (AIAgentServer 와, 이 토큰을 받는 세 서비스)에 같은 값을 넣어야 한다.
 
+**토큰만 있고 주소가 없으면 도구는 보이는데 전부 실패한다.** 세 서비스의 주소
+(`HelpDesk:Endpoint`·`ProjMng:Endpoint`·`Notification:Endpoint`)는 기본값이
+`localhost` 라 운영 컨테이너 안에서는 자기 자신을 두드린다 — 운영 compose 의
+`ai` 에 컨테이너망 이름으로 적어 둔다. 빠지면 모델이 도구를 바르게 골라 놓고
+「시스템 연결 오류로 조회할 수 없다」고 답하고, 감사 기록의 `error` 칸은 비어
+있다(도구 실패는 답 글로 바뀐다). 그 문구가 보이면 이 셋부터 본다.
+
 ## 기록 — 왜 답을 통째로 남기는가
 
 새 표 `scom.ai_assistant_audit`(EF 마이그레이션이 아니라
