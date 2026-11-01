@@ -1,0 +1,221 @@
+/* 담당자별 · 개발자별을 나란히 둔다. 좁은 화면에서는 한 줄씩 쌓는다. */
+.wpb-grid2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 1rem;
+}
+
+@media (max-width: 1199px) {
+  .wpb-grid2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* 개발자 표는 왼쪽 띠로 담당자 표와 가른다 — 머리글이 같아 둘을 섞어 읽기 쉽다. */
+.wpb ::deep .wpb-real {
+  border-left: 3px solid var(--jsini-success);
+  padding-left: 0.75rem;
+}
+
+/* 누를 수 있는 줄 · 누른 줄 */
+.wpb ::deep tr.wpb-clk {
+  cursor: pointer;
+}
+
+.wpb ::deep tr.wpb-on,
+.wpb ::deep tr.wpb-on > td {
+  cursor: pointer;
+  background: color-mix(in srgb, var(--jsini-accent) 14%, transparent);
+}
+
+/* 막대 + 비율 */
+.wpb-row2 {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: 100%;
+}
+
+.wpb-row2 .wpb-gauge {
+  flex: 1 1 auto;
+}
+
+.wpb-gauge {
+  display: block;
+  height: 8px;
+  min-width: 3rem;
+  background: var(--jsini-surface-muted);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.wpb-gauge--card {
+  height: 4px;
+  margin-top: 0.4rem;
+}
+
+.wpb-gauge__bar {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--jsini-accent);
+  transition: width 0.2s;
+}
+
+.wpb-gauge__bar--done {
+  background: var(--jsini-success);
+}
+
+/* 대형은 별도 트랙이라 회색으로 가른다 — 완료율과 섞어 읽으면 안 된다. */
+.wpb-gauge__bar--big {
+  background: var(--jsini-text-muted);
+}
+
+/* 기간을 다 쓴(100%) 항목 */
+.wpb-gauge__bar--full {
+  background: var(--jsini-warning);
+}
+
+.wpb-pct {
+  min-width: 3rem;
+  text-align: right;
+  font-size: var(--jsini-fs-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.wpb-done {
+  color: var(--jsini-success);
+}
+
+.wpb-big {
+  color: var(--jsini-text-muted);
+}
+
+.wpb-sub {
+  font-size: var(--jsini-fs-sm);
+  font-weight: 400;
+  color: var(--jsini-text-muted);
+}
+
+.wpb-muted {
+  color: var(--jsini-text-muted);
+}
+
+.wpb-gap {
+  margin-left: 0.4rem;
+}
+
+.wpb-nm {
+  font-weight: 600;
+}
+
+.wpb-uid {
+  margin-left: 0.3rem;
+  color: var(--jsini-text-muted);
+  font-size: var(--jsini-fs-2xs);
+  font-variant-numeric: tabular-nums;
+}
+
+.wpb-warn {
+  color: var(--jsini-warning);
+  font-weight: 600;
+}
+
+.wpb-bad {
+  color: var(--jsini-danger);
+  font-weight: 700;
+}
+
+.wpb-chk {
+  color: var(--jsini-success);
+  font-weight: 700;
+}
+
+/* 개발자 미할당 — 상세 목록과 같은 옅은 빗금 */
+.wpb-unset {
+  display: inline-block;
+  width: 100%;
+  min-width: 3.5rem;
+  height: 1.1em;
+  vertical-align: middle;
+  background: repeating-linear-gradient(-45deg, transparent, transparent 5px,
+    var(--jsini-surface-muted) 5px, var(--jsini-surface-muted) 10px);
+}
+
+.wpb-sep {
+  align-self: center;
+  width: 1px;
+  height: 1.1rem;
+  background: var(--jsini-border);
+}
+
+.wpb-pvpick {
+  display: inline-flex;
+}
+
+/* 전송 스크립트 안내 — 캐시가 있으면 강조색, 없으면 회색 */
+.wpb-pvnote {
+  margin: 0 0 0.5rem;
+  padding: 0.35rem 0.6rem;
+  font-size: var(--jsini-fs-sm);
+  color: var(--jsini-accent);
+  background: color-mix(in srgb, var(--jsini-accent) 10%, transparent);
+  border: 1px solid var(--jsini-accent);
+  border-radius: var(--jsini-radius-sm);
+}
+
+.wpb-pvnote--off {
+  color: var(--jsini-text-muted);
+  background: var(--jsini-surface-muted);
+  border-color: var(--jsini-border);
+}
+
+.wpb-selnote {
+  margin: 0 0 0.5rem;
+  font-size: var(--jsini-fs-sm);
+  color: var(--jsini-text-muted);
+}
+
+.wpb-note {
+  margin: 0.5rem 0 0;
+  font-size: var(--jsini-fs-sm);
+  color: var(--jsini-text-muted);
+}
+
+/* 전송 스크립트 창 */
+.wpb-pv {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.wpb-pv__steps {
+  margin: 0;
+  padding-left: 1.25rem;
+  font-size: var(--jsini-fs-sm);
+}
+
+.wpb-pv__sends {
+  margin: 0;
+  font-size: var(--jsini-fs-sm);
+  color: var(--jsini-accent);
+}
+
+.wpb-pv__code {
+  width: 100%;
+  min-height: 16rem;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: var(--jsini-fs-xs);
+  color: var(--jsini-text);
+  background: var(--jsini-surface-muted);
+  border: 1px solid var(--jsini-border);
+  border-radius: var(--jsini-radius-sm);
+  padding: 0.5rem;
+}
+
+@media (max-width: 767px) {
+  .wpb-sep {
+    display: none;
+  }
+}

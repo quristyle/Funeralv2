@@ -202,6 +202,12 @@ public sealed class WbsBoardClient(GatewayClient gateway, WbsBoardNames names)
                 r.UserNm = name(r.UserBpId);
                 r.UserRealNm = name(r.UserRealId);
             }, ct);
+
+    /// <summary>ProjectView 캐시. 비어 있어도 전송 스크립트는 돈다(목록을 통째로 조회하는 느린 길).</summary>
+    public Task<IReadOnlyList<WbsBoardPvCacheDto>> ProgressPvCacheAsync(
+        int prjRid, string? scope = null, CancellationToken ct = default)
+        => gateway.GetListAsync<WbsBoardPvCacheDto>(
+            $"{Url}/progress/pv?{Query(prjRid, ("scope", scope))}", ct);
 }
 
 /// <summary>상세 목록의 조회 조건. 칸이 열둘이라 인자로 늘어놓지 않는다.</summary>
@@ -682,4 +688,14 @@ public sealed class WbsBoardRowDeletedDto
     public long DelId { get; set; }
     public string? ActivityId { get; set; }
     public int Tasks { get; set; }
+}
+
+/// <summary>ProjectView 캐시 한 줄.</summary>
+public sealed class WbsBoardPvCacheDto
+{
+    public string? ActivityId { get; set; }
+    public string? PvProjectId { get; set; }
+    public string? PvWorkId { get; set; }
+    public decimal? PvFinishRate { get; set; }
+    public string? PvSnapshotAt { get; set; }
 }

@@ -440,3 +440,17 @@ public sealed class WbsBoardField
     public string? Key { get; set; }
     public string? Value { get; set; }
 }
+
+/// <summary>ProjectView 캐시 한 줄(<c>projmng.wbs_pv</c>). 진척률 현황이 전송 스크립트를 만들 때 workId 와 지금 값을 본다.</summary>
+public sealed class WbsBoardPvCache
+{
+    public string? ActivityId { get; set; }
+    public string? PvProjectId { get; set; }
+    public string? PvWorkId { get; set; }
+
+    /// <summary>ProjectView 의 지금 진척률. 보낼 값과 같으면 「바뀐 것만」이 뺀다.</summary>
+    public decimal? PvFinishRate { get; set; }
+
+    /// <summary>수집 시각(한국 시각 글자).</summary>
+    public string? PvSnapshotAt { get; set; }
+}

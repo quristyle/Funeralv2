@@ -188,6 +188,11 @@ public sealed class WbsBoardController(
         => Ok(ApiResponse<List<WbsBoardProgressRow>>.Ok(
             await progress.RowsAsync(prjRid, scope, user, realUser, module)));
 
+    /// <summary>ProjectView 캐시(workId · 지금 진척률). 전송 스크립트가 목록 조회를 건너뛰고 바뀐 건만 보내는 데 쓴다.</summary>
+    [HttpGet("progress/pv")]
+    public async Task<IActionResult> ProgressPvAsync([FromQuery] int prjRid, [FromQuery] string? scope)
+        => Ok(ApiResponse<List<WbsBoardPvCache>>.Ok(await progress.PvCacheAsync(prjRid, scope)));
+
     // ──────────────────────────────────────────────────────── 지연
 
     [HttpGet("delay/summary")]

@@ -150,4 +150,25 @@ public sealed class WbsProgressService(IConfiguration configuration)
 
         return [.. rows];
     }
+
+    /// <summary>ProjectView 캐시. 원장에 있는 대상만 준다 — 원장에서 빠진 줄의 workId 가 스크립트에 섞이면 엉뚱한 작업을 고친다.</summary>
+    public async Task<List<WbsBoardPvCache>> PvCacheAsync(int prjRid, string? scope)
+    {
+        using var db = Open();
+
+        var rows = await db.QueryAsync<WbsBoardPvCache>($"""
+            select w.activity_id     as ActivityId
+                 , p.pv_project_id   as PvProjectId
+                 , p.pv_work_id      as PvWorkId
+                 , p.pv_finish_rate  as PvFinishRate
+                 , to_char(p.pv_snapshot_at at time zone 'Asia/Seoul', 'YYYY-MM-DD HH24:MI') as PvSnapshotAt
+              from projmng.wbs_work w
+              join projmng.wbs_pv p on p.prj_rid = w.prj_rid and p.activity_id = w.activity_id
+             where w.prj_rid = @prjRid
+               and {DevWhere(scope, "w")}
+             order by w.activity_id
+            """, new { prjRid });
+
+        return [.. rows];
+    }
 }
