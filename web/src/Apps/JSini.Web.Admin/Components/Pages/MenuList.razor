@@ -66,7 +66,7 @@
 <CommCont>
 @if (Filtering)
 {
-    <CommGrd TItem="SystemMenuDto" Data="@Flat" PageSize="30"
+    <CommGrd TItem="SystemMenuDto" Data="@Flat" PageSize="1000"
              ExportName="메뉴" ColumnResizingMode="ColumnResizingMode.FixedWidth"
              KeyFieldName="@nameof(SystemMenuDto.Id)"
              Reload="@ReloadAsync"
@@ -104,7 +104,7 @@ else
     <CommTree @ref="_treeRef" TItem="SystemMenuDto" Data="@_menus"
               KeyFieldName="@nameof(SystemMenuDto.Id)"
               ChildrenFieldName="@nameof(SystemMenuDto.Children)"
-              PagerVisible="true"
+              PagerVisible="true" PageSize="1000"
               ExportName="메뉴" ColumnResizingMode="ColumnResizingMode.FixedWidth"
               Reload="@ReloadAsync"
               RowActions="@RowActions"
