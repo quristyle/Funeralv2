@@ -73,11 +73,23 @@
     <div class="pm-gc__body">
 
         @* ── 왼쪽 기둥 ── 휴대폰에서는 접힌 채로 시작한다 — 가운데는 달력이지 조건이 아니다. *@
-        <details class="pm-gc__rail" open="@(!_isPhone)">
+        <details class="pm-gc__rail @(RailFolded ? "pm-gc__rail--folded" : null)" open="@(!_isPhone)">
             <summary class="pm-gc__rail-summary">
                 <span><i class="jsini-icon-filter"></i> 일정 조건</span>
                 <i class="jsini-icon-chevron-down pm-gc__rail-chevron"></i>
             </summary>
+
+            @* 월 보기에서만 접는다 — 접으면 달력이 그 폭을 가져간다. *@
+            @if (CanFoldSides)
+            {
+                <button type="button" class="pm-gc__fold pm-gc__fold--rail"
+                        aria-expanded="@(RailFolded ? "false" : "true")"
+                        title="@(RailFolded ? "일정 조건 펴기" : "일정 조건 접기")"
+                        @onclick="@ToggleRail">
+                    <span class="pm-gc__fold-label"><i class="jsini-icon-filter"></i> 일정 조건</span>
+                    <i class="@(RailFolded ? "jsini-icon-chevron-right" : "jsini-icon-chevron-left") pm-gc__fold-icon"></i>
+                </button>
+            }
 
             <div class="pm-gc__rail-body">
                 @if (!_isPhone)
@@ -766,7 +778,7 @@
             }
         </div>
 
-        @* ── 오른쪽 기둥 ── 월 격자에서 고른 날의 일정. 날을 누르면 펴지고 × 로 접는다. *@
+        @* ── 오른쪽 기둥 ── 월 격자에서 고른 날의 일정. 날을 누르면 펴지고 › 로 접는다 — 접혀도 띠로 남아 다시 펼 수 있다. *@
         @if (ShowDayPane)
         {
             <aside class="pm-gc__day" aria-label="@($"{AgendaTitle} 일정")">
@@ -780,8 +792,11 @@
                                       Click="@(() => StartNew(_selected, _selected))" />
                         </PermissionView>
 
-                        <button type="button" class="pm-gc__day-close" aria-label="닫기" title="닫기"
-                                @onclick="@(() => _dayPane = false)">×</button>
+                        <button type="button" class="pm-gc__day-close" aria-label="접기" title="접기"
+                                aria-expanded="true"
+                                @onclick="@(() => _dayPane = false)">
+                            <i class="jsini-icon-chevron-right"></i>
+                        </button>
                     </span>
                 </div>
 
@@ -798,6 +813,17 @@
                         }
                     </ul>
                 }
+            </aside>
+        }
+        else if (CanFoldSides)
+        {
+            <aside class="pm-gc__day pm-gc__day--folded" aria-label="@($"{AgendaTitle} 일정")">
+                <button type="button" class="pm-gc__fold pm-gc__fold--day"
+                        aria-expanded="false" title="고른 날 일정 펴기"
+                        @onclick="@(() => _dayPane = true)">
+                    <i class="jsini-icon-chevron-left pm-gc__fold-icon"></i>
+                    <span class="pm-gc__fold-label">@AgendaTitle</span>
+                </button>
             </aside>
         }
     </div>

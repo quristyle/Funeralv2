@@ -266,6 +266,16 @@ public partial class ProjectScheduler : IAsyncDisposable
 
     private bool ShowDayPane => _dayPane && _view == CalView.Month && !_isPhone;
 
+    /// <summary>왼쪽·오른쪽 기둥을 접을 수 있나. 휴대폰은 기둥이 달력 위아래로 서서 접을 까닭이 없다.</summary>
+    private bool CanFoldSides => _view == CalView.Month && !_isPhone;
+
+    /// <summary>월 보기에서 왼쪽 「일정 조건」 기둥을 접어 두었나. 다른 보기로 가면 펴진 채로 보인다.</summary>
+    private bool _railFolded;
+
+    private bool RailFolded => _railFolded && CanFoldSides;
+
+    private void ToggleRail() => _railFolded = !_railFolded;
+
     /// <summary>등록·수정 창. 달력·목록·표가 모두 이것을 연다.</summary>
     private ScheduleEditPopup? _editPopup;
 

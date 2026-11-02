@@ -5672,6 +5672,90 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   }
 }
 
+/* ── 양쪽 기둥 접기 (월 보기 · 넓은 화면) ───────────────────── */
+/* 접힌 기둥은 세로 띠로 남는다 — 통째로 사라지면 다시 펼 자리가 없다. */
+
+.pm-gc__fold {
+  display: flex;
+  align-items: center;
+  gap: var(--jsini-sp-xs, 0.25rem);
+  width: 100%;
+  padding: 0.35rem 0.25rem;
+  font-size: var(--jsini-fs-sm, 0.8125rem);
+  font-weight: 600;
+  color: var(--jsini-text-muted);
+  background: none;
+  border: 0;
+  border-radius: var(--jsini-radius-md);
+  cursor: pointer;
+}
+
+.pm-gc__fold:hover {
+  color: var(--jsini-text);
+  background: var(--jsini-hover, rgba(0, 0, 0, 0.05));
+}
+
+.pm-gc__fold--rail {
+  justify-content: space-between;
+  margin-bottom: var(--jsini-sp-xs, 0.25rem);
+}
+
+.pm-gc__fold-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
+}
+
+.pm-gc__fold-icon {
+  flex: none;
+}
+
+.pm-gc__rail.pm-gc__rail--folded {
+  flex: 0 0 2.25rem;
+  width: 2.25rem;
+  overflow: hidden;
+}
+
+/* 넓은 화면 규칙이 기둥 속을 !important 로 늘 펴 두므로 자릿수를 하나 더 올려 이긴다. */
+.pm-gc__rail.pm-gc__rail--folded > .pm-gc__rail-body {
+  display: none !important;
+}
+
+.pm-gc__day.pm-gc__day--folded {
+  flex: 0 0 2.25rem;
+  width: 2.25rem;
+  padding: 0;
+  overflow: hidden;
+}
+
+/* 접힌 띠는 위에서부터 아이콘 · 세로 글자로 선다. 띠 전체가 누르는 자리다. */
+.pm-gc__rail--folded .pm-gc__fold,
+.pm-gc__day--folded .pm-gc__fold {
+  flex-direction: column;
+  justify-content: flex-start;
+  height: 100%;
+  min-height: 8rem;
+  padding: 0.5rem 0;
+}
+
+.pm-gc__rail--folded .pm-gc__fold-icon {
+  order: -1;
+}
+
+.pm-gc__rail--folded .pm-gc__fold-label,
+.pm-gc__day--folded .pm-gc__fold-label {
+  writing-mode: vertical-rl;
+}
+
+.pm-gc__rail--folded .pm-gc__fold-label > i {
+  writing-mode: horizontal-tb;
+}
+
+.pm-gc__day-close > i {
+  vertical-align: middle;
+}
+
 /* ── 일정 목록 ───────────────────────────────────────────────── */
 /* 세 자리(일정 보기 · 휴대폰 격자 아래 · 월 보기 오른쪽 기둥)가 같은 줄을 쓴다. */
 
