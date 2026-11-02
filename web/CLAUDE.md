@@ -3385,6 +3385,10 @@ DTO 에 하나 더 둔다(`AiDashboardRecent.StartedAtKst`).
   `PermissionView` 로 감싼다.
   `CommGrd` 는 페이지네비게이션(페이저) 영역이 기본으로 켜지며(`PagerVisible="true"`),
   동작 단추와 건수가 하단 아래 띠에 기본으로 표현된다. 가상 스크롤이 필요하면 `PagerVisible="false"`.
+  페이저에는 **한 쪽 줄 수 고르개**가 기본으로 선다(`PageSizeSelectorVisible` · 항목 10·15·20·30·50·100,
+  화면이 준 `PageSize` 는 목록에 끼워 넣는다 · 항목은 `PageSizeSelectorItems` 로 바꾼다). 사람이 고른 값은
+  화면이 준 `PageSize` 보다 앞서고, `StateKey` 가 있으면 갔다 와도 그대로다. 줄이 서넛뿐인 작은 표만
+  `PageSizeSelectorVisible="false"` 로 끈다.
   > 휴대폰 사파리는 길게 눌러도 오른쪽 클릭이 오지 않는다 — 그 기기에서는 창이 안 뜬다.
 - **관리 칸은 「⋮」 하나다**(제목 없음 · 폭 48px). 누르면 수정 · 삭제 ·
   `RowActions` 단추들이 그 왼쪽으로 판(`DxFlyout`)이 되어 펴지고, 판 안을 누르면

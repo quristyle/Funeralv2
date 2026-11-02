@@ -97,11 +97,15 @@
             FocusedRowChanged="@OnFocusedRowChangedAsync"
             DetailRowDisplayMode="@(DetailRowTemplate is null ? GridDetailRowDisplayMode.Never : GridDetailRowDisplayMode.Auto)"
             DetailExpandButtonDisplayMode="@(DetailRowTemplate is null ? GridDetailExpandButtonDisplayMode.Never : GridDetailExpandButtonDisplayMode.Auto)"
+            PageSizeSelectorAllRowsItemVisible="false"
             @attributes="_forwarded"
             ShowFilterRow="@_filterRow"
             VirtualScrollingEnabled="@_virtualScroll"
             PagerVisible="@_pagerVisible"
-            PageSize="@_pageSize">
+            PageSize="@_pageSize"
+            PageSizeChanged="@OnPageSizeChanged"
+            PageSizeSelectorVisible="@PageSizeSelectorVisible"
+            PageSizeSelectorItems="@PageSizeItems">
 
         <Columns>
             @if (ShowRowNumber)

@@ -7875,6 +7875,36 @@ body {
   font-size: var(--jsini-fs-xs);
 }
 
+/* 한 쪽 줄 수 고르개. 위의 알약 단추 규칙이 고르개 속 펼침 단추까지 2rem 네모로 키우므로 그 안에서는 되돌린다. */
+.commgrd .dxbl-grid-bottom-panel .dxbl-pager-page-size-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: auto;
+  color: var(--jsini-text-muted);
+  font-size: var(--jsini-fs-xs);
+}
+
+.commgrd .dxbl-grid-bottom-panel .dxbl-pager-page-size-selector :is(button, .dxbl-btn) {
+  min-width: 0;
+  height: auto;
+  padding: 0 0.25rem;
+}
+
+.commgrd .dxbl-grid-bottom-panel .dxbl-pager-page-size-selector .dxbl-text-edit {
+  width: 4.5rem;
+}
+
+/* DevExpress 문구(「Page Size:」)를 옮기는 자리가 포털에 없어 이름표만 갈아 끼운다. 이름표는 for 로 고르개와 이어져 있어 그대로 둔다. */
+.commgrd .dxbl-grid-bottom-panel .dxbl-pager-page-size-selector > label {
+  font-size: 0;
+}
+
+.commgrd .dxbl-grid-bottom-panel .dxbl-pager-page-size-selector > label::after {
+  content: "쪽당 줄 수";
+  font-size: var(--jsini-fs-xs);
+}
+
 /* 상태 배지 */
 .jsini-badge {
   border: 0;

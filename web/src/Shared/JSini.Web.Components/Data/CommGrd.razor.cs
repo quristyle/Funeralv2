@@ -70,6 +70,12 @@ public partial class CommGrd<TItem>
     /// <summary>페이지네비게이션 영역(페이저)을 보일지 여부. 기본은 참(보임).</summary>
     [Parameter] public bool PagerVisible { get; set; } = true;
 
+    /// <summary>페이저에 한 쪽 줄 수 고르개를 세울지. 기본은 참. 줄이 서넛뿐인 작은 표만 끈다.</summary>
+    [Parameter] public bool PageSizeSelectorVisible { get; set; } = true;
+
+    /// <summary>쪽 크기 고르개의 항목. 화면이 정한 <c>PageSize</c> 가 없으면 끼워 넣는다.</summary>
+    [Parameter] public IEnumerable<int>? PageSizeSelectorItems { get; set; }
+
     /// <summary>자료가 없을 때 보여 줄 문구.</summary>
     [Parameter] public string EmptyText { get; set; } = "표시할 자료가 없습니다.";
 
@@ -279,6 +285,42 @@ public partial class CommGrd<TItem>
     /// <summary>화면이 따로 정하지 않았을 때의 한 쪽 크기.</summary>
     private const int DefaultPageSize = 15;
 
+    /// <summary>사람이 고르개에서 고른 한 쪽 크기. 화면이 준 값보다 앞선다 — 안 들고 있으면 다음 그림에 화면 값으로 되돌아간다.</summary>
+    private int? _userPageSize;
+
+    private static readonly int[] DefaultPageSizeItems = [10, 15, 20, 30, 50, 100];
+
+    private int[] _pageSizeItems = DefaultPageSizeItems;
+
+    /// <summary>고르개에 세울 항목. 지금 쪽 크기가 목록에 없으면 고르개가 빈칸으로 서므로 끼워 넣는다. 렌더마다 새 배열을 주면 표가 페이저를 다시 그리므로 값이 바뀔 때만 갈아 끼운다.</summary>
+    private int[] PageSizeItems
+    {
+        get
+        {
+            int[] items = [.. (PageSizeSelectorItems ?? DefaultPageSizeItems)
+                .Append(_pageSize)
+                .Where(n => n > 0)
+                .Distinct()
+                .Order()];
+
+            if (!items.SequenceEqual(_pageSizeItems))
+            {
+                _pageSizeItems = items;
+            }
+
+            return _pageSizeItems;
+        }
+    }
+
+    private void OnPageSizeChanged(int size)
+    {
+        if (size > 0)
+        {
+            _userPageSize = size;
+            _pageSize = size;
+        }
+    }
+
     /// <summary>지금 표가 든 줄 수. 셀 수 없는 자료 원본이면 <c>null</c>.</summary>
     private int? _rowCount;
 
@@ -382,7 +424,7 @@ public partial class CommGrd<TItem>
     {
         _virtualScroll = VirtualScrolling();
         _pagerVisible = Read("PagerVisible") is bool pv ? pv : PagerVisible;
-        _pageSize = Read("PageSize") is int size ? size : DefaultPageSize;
+        _pageSize = _userPageSize ?? (Read("PageSize") is int size ? size : DefaultPageSize);
 
         if (!Carded)
         {
@@ -610,6 +652,12 @@ public partial class CommGrd<TItem>
         if (LayoutSlot is { } slot && Screen.Get<GridPersistentLayout>(slot) is { } saved)
         {
             e.Layout = saved;
+
+            // 갔다 오면 고른 쪽 크기도 그대로다. 안 받으면 표는 맡긴 크기로 서는데 다음 그림에 화면 값으로 되돌아간다.
+            if (saved.PageSize is int savedSize && savedSize > 0 && _userPageSize is null)
+            {
+                OnPageSizeChanged(savedSize);
+            }
         }
 
         return Task.CompletedTask;
