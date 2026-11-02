@@ -48,7 +48,7 @@ public interface ILLMService
     /// <inheritdoc cref="ChatAsync"/>
     IAsyncEnumerable<ChatStreamPart> StreamChatAsync(
         List<Message> messages, string? provider = null, string? model = null,
-        RagMode ragMode = RagMode.Auto, RagScope? ragScope = null);
+        RagMode ragMode = RagMode.Auto, RagScope? ragScope = null, bool web = true);
 }
 
 /// <summary>줄 번역 한 번의 결과. 못 옮긴 줄은 원문 그대로다.</summary>
@@ -218,7 +218,7 @@ public class LLMService : ILLMService
 
     public async IAsyncEnumerable<ChatStreamPart> StreamChatAsync(
         List<Message> messages, string? provider = null, string? model = null,
-        RagMode ragMode = RagMode.Auto, RagScope? ragScope = null)
+        RagMode ragMode = RagMode.Auto, RagScope? ragScope = null, bool web = true)
     {
         var target = _registry.Resolve(provider);
         EnsureSystemPrompt(messages, ChatSystemPrompt);
@@ -238,7 +238,7 @@ public class LLMService : ILLMService
                 yield break;
             }
         }
-        else
+        else if (web)
         {
             var webNotice = await _web.AugmentAsync(messages, provider, ragHit?.TopScore ?? 0);
             if (webNotice is not null)

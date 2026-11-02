@@ -722,7 +722,8 @@ public static class AIEndpoints
             try
             {
                 await foreach (var part in llmService.StreamChatAsync(
-                    request.Messages, provider, request.Model, request.RagMode, ragScope))
+                    request.Messages, provider, request.Model, request.RagMode, ragScope,
+                    web: request.Web != false))
                 {
                     if (part.Notice is null && part.Text is { Length: > 0 } saved)
                     {

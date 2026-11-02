@@ -121,18 +121,22 @@ public sealed class AiChatClient(HttpClient http)
     /// <param name="ragOnly">사내 자료(RAG)로만 답하게 한다. 끄면 잘 맞는 문서가 있을 때만 쓰고 나머지는 웹과 모델이 아는 것으로 답한다.</param>
     /// <param name="ragCategory">사내 자료를 찾을 카테고리. 비우면 모든 카테고리.</param>
     /// <param name="ragFolderId">그 카테고리 안의 분류(하위 분류 포함).</param>
+    /// <param name="lookup">사내 자료와 웹에서 찾아 붙일지. 본문만 읽고 옮겨야 하는 일(일정 메모)은 끈다 — 찾아 온 글의 날짜가 섞인다.</param>
     public async IAsyncEnumerable<AiChatPart> StreamAsync(
         IReadOnlyList<AiChatMessage> messages,
         string? sessionId = null,
         bool ragOnly = false,
         string? ragCategory = null,
         long? ragFolderId = null,
-        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        [EnumeratorCancellation] CancellationToken cancellationToken = default,
+        bool lookup = true)
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "ai/chat/stream")
         {
             // System.Net.Http.Json 기본이 웹 규칙(camelCase)이라 서버 바인딩과 맞는다.
-            Content = JsonContent.Create(new { messages, sessionId, ragOnly, ragCategory, ragFolderId }),
+            Content = lookup
+                ? JsonContent.Create(new { messages, sessionId, ragOnly, ragCategory, ragFolderId })
+                : JsonContent.Create(new { messages, sessionId, preferRag = false, web = false }),
         };
         request.Headers.Accept.ParseAdd("text/event-stream");
 

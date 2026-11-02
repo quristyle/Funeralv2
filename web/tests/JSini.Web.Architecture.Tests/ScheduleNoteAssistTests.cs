@@ -179,4 +179,57 @@ public sealed class ScheduleNoteAssistTests
         Assert.Equal(ScheduleNoteAssist.MaxDrafts,
             ScheduleNoteAssist.ParseMany($"{{\"schedules\":[{items}]}}", null, null).Count);
     }
+
+    private static readonly DateOnly Today = new(2026, 11, 2);
+
+    private static ScheduleDraft Pin(string memo, DateOnly start, DateOnly? end = null, TimeOnly? time = null) =>
+        Assert.Single(ScheduleNoteAssist.PinRelativeDay(
+            [new ScheduleDraft(start, end ?? start, "t", "s", null, "이순열", time, null, null)], memo, Today));
+
+    [Theory]
+    [InlineData("오늘 큰정전임 2층 hnix 개발자 환경지원.", 2)]
+    [InlineData("내일 서버 점검", 3)]
+    [InlineData("어제 회식", 1)]
+    public void 오늘_내일만_적힌_메모는_모델이_밀어_적어도_그날로_못박는다(string memo, int day)
+    {
+        var d = Pin(memo, new DateOnly(2026, 11, 3));
+
+        Assert.Equal(new DateOnly(2026, 11, day), d.Start);
+        Assert.Equal(new DateOnly(2026, 11, day), d.End);
+    }
+
+    [Fact]
+    public void 못박아도_기간과_시각은_그대로다()
+    {
+        var d = Pin("오늘 14시 설비 반입", new DateOnly(2026, 11, 3), new DateOnly(2026, 11, 4), new TimeOnly(14, 0));
+
+        Assert.Equal(Today, d.Start);
+        Assert.Equal(Today.AddDays(1), d.End);
+        Assert.Equal(new TimeOnly(14, 0), d.StartTime);
+    }
+
+    [Theory]
+    [InlineData("오늘 정리하고 11월 5일 반영")]
+    [InlineData("오늘 말고 다음 주 화요일")]
+    [InlineData("오늘 하고 내일 마무리")]
+    [InlineData("11/16 운영서버 대상 도출")]
+    [InlineData("hnix 개발환경 지원")]
+    public void 다른_날짜_말이_섞이거나_날을_안_가리키면_손대지_않는다(string memo)
+    {
+        var start = new DateOnly(2026, 11, 5);
+
+        Assert.Equal(start, Pin(memo, start).Start);
+    }
+
+    [Fact]
+    public void 여러_건으로_갈린_일정은_손대지_않는다()
+    {
+        ScheduleDraft[] drafts =
+        [
+            new(new DateOnly(2026, 11, 3), null, "a", null, null),
+            new(new DateOnly(2026, 11, 4), null, "b", null, null),
+        ];
+
+        Assert.Same(drafts, ScheduleNoteAssist.PinRelativeDay(drafts, "오늘 a, b", Today));
+    }
 }

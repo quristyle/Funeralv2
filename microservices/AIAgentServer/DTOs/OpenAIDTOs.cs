@@ -10,6 +10,9 @@ public class ChatRequestDto
     /// <summary>사내 문서(RAG)를 먼저 뒤질지. 안 보내면 켠 것으로 본다. 맞는 것이 있으면 웹은 안 뒤진다(Mcp:SkipWhenRagScore). 끄면 사내 문서를 아예 안 본다.</summary>
     public bool? PreferRag { get; set; }
 
+    /// <summary>웹에서 찾아 붙일지. 안 보내면 켠 것으로 본다. 메모를 일정으로 옮기는 것처럼 본문만 읽어야 하는 일은 끈다 — 찾아 온 글의 날짜가 섞인다.</summary>
+    public bool? Web { get; set; }
+
     /// <summary>사내 문서(RAG)로만 답한다. 켜면 <see cref="PreferRag"/> 보다 앞선다.</summary>
     public bool? RagOnly { get; set; }
 

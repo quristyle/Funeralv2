@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using JSini.Web.Components.Data;
 using JSini.Web.Http;
 
@@ -87,7 +88,7 @@ public sealed class ScheduleNoteAssist(AiChatClient ai)
               """,
             cancellationToken);
 
-        return Parse(answer, defaultAssignee, model);
+        return PinRelativeDay([Parse(answer, defaultAssignee, model)], text, today)[0];
     }
 
     /// <summary>
@@ -155,7 +156,48 @@ public sealed class ScheduleNoteAssist(AiChatClient ai)
             drafts = ParseMany(answer, defaultAssignee, model);
         }
 
-        return drafts;
+        return PinRelativeDay(drafts, text, today);
+    }
+
+    private static readonly (Regex Word, int Days)[] RelativeDays =
+    [
+        (new Regex("오늘|금일|당일"), 0),
+        (new Regex("내일|명일"), 1),
+        (new Regex("모레"), 2),
+        (new Regex("어제|작일"), -1),
+        (new Regex("그제|그저께"), -2),
+    ];
+
+    /// <summary>「9월1일」「3일 뒤」「다음 주」「월요일」처럼 날을 따로 가리키는 말. 하나라도 있으면 모델의 셈을 그대로 둔다.</summary>
+    private static readonly Regex ExplicitDate = new(
+        @"\d+\s*(월|일|주)|\d{1,4}\s*[/.\-]\s*\d{1,2}|요일|(이번|다음|담|지난|저번|차)\s*(주|달)|글피");
+
+    /// <summary>
+    /// 메모가 날을 「오늘」「내일」 같은 말 하나로만 가리키면 그날로 못 박는다. 모델이 오늘을 받아 놓고도 하루 밀어 적는 일이 있고,
+    /// 그런 메모의 날짜는 셈할 것 없이 정해져 있다. 일정이 여럿으로 갈렸거나 다른 날짜 말이 섞이면 손대지 않는다.
+    /// </summary>
+    internal static IReadOnlyList<ScheduleDraft> PinRelativeDay(IReadOnlyList<ScheduleDraft> drafts, string? memo, DateOnly today)
+    {
+        if (drafts.Count != 1 || string.IsNullOrWhiteSpace(memo) || ExplicitDate.IsMatch(memo))
+        {
+            return drafts;
+        }
+
+        var offsets = RelativeDays.Where(r => r.Word.IsMatch(memo)).Select(r => r.Days).Distinct().ToList();
+        if (offsets.Count != 1)
+        {
+            return drafts;
+        }
+
+        var day = today.AddDays(offsets[0]);
+        var draft = drafts[0];
+        if (draft.Start == day)
+        {
+            return drafts;
+        }
+
+        var span = draft is { Start: { } s, End: { } e } ? e.DayNumber - s.DayNumber : 0;
+        return [draft with { Start = day, End = day.AddDays(Math.Max(span, 0)) }];
     }
 
     /// <summary>답을 하나도 못 읽어 빈 칸 한 건만 남았나.</summary>
@@ -349,7 +391,7 @@ public sealed class ScheduleNoteAssist(AiChatClient ai)
 
         await foreach (var part in ai.StreamAsync(
             [new AiChatMessage("user", prompt)], sessionId: null,
-            cancellationToken: cancellationToken))
+            cancellationToken: cancellationToken, lookup: false))
         {
             if (part.IsUsedMarker && part.Notice is { Length: > 0 } used)
             {
