@@ -1419,14 +1419,24 @@ public partial class ProjectScheduler : IAsyncDisposable
         return string.Join(' ', css);
     }
 
+    /// <summary>막대의 말풍선(title). 메모는 제 줄에서 시작하고 적은 줄바꿈을 그대로 둔다 — 「 · 」로 이으면 첫 줄이 앞 정보에 붙어 한 줄로 읽힌다.</summary>
     private string BarTip(WbsItemDto w)
     {
-        var rest = Describe(w);
         var head = ProjectTag(w) is { } prj ? $"[{prj}] {Title(w)}" : Title(w);
+        var lines = new List<string>(4) { $"{head} · {Period(w)}" };
 
-        return rest.Length == 0
-            ? $"{head} · {Period(w)}"
-            : $"{head} · {Period(w)} · {rest}";
+        var who = new List<string>(3);
+        if (!string.IsNullOrWhiteSpace(w.ReqUser)) who.Add($"요청 {w.ReqUser}");
+        if (!string.IsNullOrWhiteSpace(w.DevUser)) who.Add($"담당 {w.DevUser}");
+        if (!string.IsNullOrWhiteSpace(w.ProcTp)) who.Add(w.ProcTp);
+        if (who.Count > 0) lines.Add(string.Join(" · ", who));
+
+        if (!string.IsNullOrWhiteSpace(w.Comm))
+        {
+            lines.Add(w.Comm.Replace("\r\n", "\n").Replace('\r', '\n').Trim('\n'));
+        }
+
+        return string.Join('\n', lines);
     }
 
     /// <summary>칸을 읽어 주는 말. 낭독기에는 날짜와 건수를 준다(막대의 글자는 잘려 있다).</summary>
