@@ -144,6 +144,7 @@ public static class SystemEndpoints
         .WithName("DeleteRole");
 
         // 부서 — allCompanies=true 면 모든 회사의 부서를 준다. 회사 인자를 비우는 것은 전체가 아니라 요청한 사람의 회사다.
+        // 고치기·지우기·옮기기는 회사로 좁히지 않는다 — 만들기가 어느 회사에나 되므로, 좁히면 남의 회사에 만든 부서를 다시 못 고친다.
         group.MapGet("/dept/list", async ([FromQuery] string? companyId, [FromQuery] bool? allCompanies,
             UserContext? userContext, [FromServices] IDepartmentService deptService) =>
         {
@@ -160,16 +161,16 @@ public static class SystemEndpoints
         })
         .WithName("CreateDept");
 
-        group.MapPut("/dept/{id}", async (string id, UserContext? userContext, [FromBody] CreateDepartmentDto request, [FromServices] IDepartmentService deptService) =>
+        group.MapPut("/dept/{id}", async (string id, [FromBody] CreateDepartmentDto request, [FromServices] IDepartmentService deptService) =>
         {
-            var success = await deptService.UpdateDeptAsync(id, request, userContext);
+            var success = await deptService.UpdateDeptAsync(id, request);
             return success ? Results.Ok(ApiResponse<bool>.Ok(true)) : Results.NotFound(ApiResponse<object>.Fail("부서를 찾을 수 없습니다.", "404"));
         })
         .WithName("UpdateDept");
 
-        group.MapDelete("/dept/{id}", async (string id, UserContext? userContext, [FromServices] IDepartmentService deptService) =>
+        group.MapDelete("/dept/{id}", async (string id, [FromServices] IDepartmentService deptService) =>
         {
-            var success = await deptService.DeleteDeptAsync(id, userContext);
+            var success = await deptService.DeleteDeptAsync(id);
             return success ? Results.Ok(ApiResponse<bool>.Ok(true)) : Results.NotFound(ApiResponse<object>.Fail("부서를 찾을 수 없습니다.", "404"));
         })
         .WithName("DeleteDept");
@@ -204,19 +205,19 @@ public static class SystemEndpoints
         .WithName("RemoveUsersFromDept");
 
         // 부서 및 사용자 노드 이동 (조직도 드래그앤드롭용)
-        group.MapPost("/dept/{id}/move", async (string id, [FromQuery] string? parentId, UserContext? userContext, [FromServices] IDepartmentService deptService) =>
+        group.MapPost("/dept/{id}/move", async (string id, [FromQuery] string? parentId, [FromServices] IDepartmentService deptService) =>
         {
-            var success = await deptService.MoveDeptAsync(id, parentId, userContext);
+            var success = await deptService.MoveDeptAsync(id, parentId);
             return success ? Results.Ok(ApiResponse<bool>.Ok(true, "부서가 이동되었습니다.")) : Results.BadRequest(ApiResponse<object>.Fail("부서 이동에 실패했습니다. (순환 참조 등이 의심됩니다.)", "400"));
         })
         .WithName("MoveDept");
 
         // 부서·사용자 노드 이동 — 형제 여러 개의 순번이 한꺼번에 밀리므로 화면이 확정한 배치를 한 번의 왕복으로 저장한다. /dept/{id}/move 는 상위만 바꾼다.
-        group.MapPost("/dept/reorder", async (UserContext? userContext, [FromBody] List<DeptOrderDto> items, [FromServices] IDepartmentService deptService) =>
+        group.MapPost("/dept/reorder", async ([FromBody] List<DeptOrderDto> items, [FromServices] IDepartmentService deptService) =>
         {
             try
             {
-                await deptService.ReorderDeptsAsync(items, userContext);
+                await deptService.ReorderDeptsAsync(items);
                 return Results.Ok(ApiResponse<bool>.Ok(true));
             }
             catch (Exception ex)
@@ -226,9 +227,10 @@ public static class SystemEndpoints
         })
         .WithName("ReorderDepts");
 
-        group.MapPost("/dept/user/move", async ([FromQuery] string accountId, [FromQuery] string? departmentId, UserContext? userContext, [FromServices] IDepartmentService deptService) =>
+        // 부서를 비우고 companyId 를 주면 그 회사 직속(부서 없음)이 된다.
+        group.MapPost("/dept/user/move", async ([FromQuery] string accountId, [FromQuery] string? departmentId, [FromQuery] string? companyId, [FromServices] IDepartmentService deptService) =>
         {
-            var success = await deptService.MoveUserDeptAsync(accountId, departmentId, userContext);
+            var success = await deptService.MoveUserDeptAsync(accountId, departmentId, companyId);
             return success ? Results.Ok(ApiResponse<bool>.Ok(true, "사용자 부서가 이동되었습니다.")) : Results.BadRequest(ApiResponse<object>.Fail("사용자 부서 이동에 실패했습니다.", "400"));
         })
         .WithName("MoveUserDept");

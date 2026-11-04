@@ -14,16 +14,17 @@ public interface IDepartmentService
     Task<List<DepartmentDto>> GetDeptListAsync(
         string? companyId, UserContext? userContext, bool allCompanies = false);
     Task<DepartmentDto> CreateDeptAsync(CreateDepartmentDto request, UserContext? userContext);
-    Task<bool> UpdateDeptAsync(string id, CreateDepartmentDto request, UserContext? userContext);
-    Task<bool> DeleteDeptAsync(string id, UserContext? userContext);
+    Task<bool> UpdateDeptAsync(string id, CreateDepartmentDto request);
+    Task<bool> DeleteDeptAsync(string id);
     
     Task<IEnumerable<AccountDto>> GetDeptUsersAsync(string departmentId);
     Task<IEnumerable<AccountDto>> GetEligibleUsersAsync(string? companyId);
     Task<bool> AssignUsersToDeptAsync(string departmentId, List<string> userIds);
     Task<bool> RemoveUsersFromDeptAsync(List<string> userIds);
-    Task<bool> MoveDeptAsync(string id, string? parentId, UserContext? userContext);
+    Task<bool> MoveDeptAsync(string id, string? parentId);
 
     /// <summary>여러 부서의 상위와 순번을 한 번에 반영한다. 줄 하나가 아니라 배치를 받는다 — <see cref="MoveDeptAsync"/> 는 상위만 바꾸고 순번을 건드리지 않아 끌어 옮긴 자리가 저장되지 않는다.</summary>
-    Task<bool> ReorderDeptsAsync(List<DeptOrderDto> items, UserContext? userContext);
-    Task<bool> MoveUserDeptAsync(string accountId, string? departmentId, UserContext? userContext);
+    Task<bool> ReorderDeptsAsync(List<DeptOrderDto> items);
+    /// <summary>사람의 부서를 바꾼다. 부서를 비우면 <paramref name="companyId"/> 의 회사 직속이 되고, 그것도 비우면 무소속이다.</summary>
+    Task<bool> MoveUserDeptAsync(string accountId, string? departmentId, string? companyId);
 }

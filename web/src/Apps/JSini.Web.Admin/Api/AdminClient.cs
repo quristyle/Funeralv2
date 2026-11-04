@@ -131,6 +131,10 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task<IReadOnlyList<DeptDto>> GetDeptsAsync(CancellationToken ct = default)
         => GetDeptsAsync(null, ct);
 
+    /// <summary>모든 회사의 부서 나무. 부서 관리처럼 회사를 넘나들어 보는 화면이 쓴다 — 회사를 비워 부르면 요청한 사람의 회사로 좁혀져, 조직도에서 다른 회사에 만든 부서가 안 보인다.</summary>
+    public Task<IReadOnlyList<DeptDto>> GetAllDeptsAsync(CancellationToken ct = default)
+        => gateway.GetListAsync<DeptDto>("auth/system/dept/list?allCompanies=true", ct);
+
     /// <summary>부서 나무. 회사를 비우는 것은 「전체」가 아니다 — 서버가 요청한 사람의 회사로 좁힌다(<c>DepartmentService.GetDeptListAsync</c>). 조직도처럼
     /// 남의 회사를 골라 보는 화면은 반드시 식별자를 넘긴다.</summary>
     public Task<IReadOnlyList<DeptDto>> GetDeptsAsync(string? companyId, CancellationToken ct = default)
@@ -166,10 +170,12 @@ public sealed class AdminClient(GatewayClient gateway)
     public Task ReorderDeptsAsync(IReadOnlyList<DeptOrderDto> items, CancellationToken ct = default)
         => gateway.PostAsync("auth/system/dept/reorder", items, ct);
 
-    /// <summary>사람의 부서 소속을 바꾼다. 부서를 비우면 소속이 풀린다.</summary>
-    public Task MoveUserDeptAsync(string accountId, string? departmentId, CancellationToken ct = default)
+    /// <summary>사람의 부서 소속을 바꾼다. 부서를 비우면 <paramref name="companyId"/> 의 회사 직속(부서 없음)이 되고, 그것도 비우면 무소속이다.</summary>
+    public Task MoveUserDeptAsync(
+        string accountId, string? departmentId, string? companyId = null, CancellationToken ct = default)
         => gateway.PostAsync(
-            "auth/system/dept/user/move" + Query(("accountId", accountId), ("departmentId", departmentId)),
+            "auth/system/dept/user/move"
+                + Query(("accountId", accountId), ("departmentId", departmentId), ("companyId", companyId)),
             null, ct);
 
     // ── 다국어 ──────────────────────────────────────────────────

@@ -118,11 +118,9 @@ public class DepartmentService : IDepartmentService
     }
 
     /// <summary>부서 수정</summary>
-    public async Task<bool> UpdateDeptAsync(string id, CreateDepartmentDto request, UserContext? userContext)
+    public async Task<bool> UpdateDeptAsync(string id, CreateDepartmentDto request)
     {
-        var companyId = userContext?.CompanyId;
-        var dept = await _db.Departments
-            .FirstOrDefaultAsync(d => d.Id == id && (string.IsNullOrEmpty(companyId) || d.CompanyId == companyId));
+        var dept = await _db.Departments.FirstOrDefaultAsync(d => d.Id == id);
         
         if (dept == null) return false;
 
@@ -141,11 +139,9 @@ public class DepartmentService : IDepartmentService
     }
 
     /// <summary>부서 삭제</summary>
-    public async Task<bool> DeleteDeptAsync(string id, UserContext? userContext)
+    public async Task<bool> DeleteDeptAsync(string id)
     {
-        var companyId = userContext?.CompanyId;
-        var dept = await _db.Departments
-            .FirstOrDefaultAsync(d => d.Id == id && (string.IsNullOrEmpty(companyId) || d.CompanyId == companyId));
+        var dept = await _db.Departments.FirstOrDefaultAsync(d => d.Id == id);
             
         if (dept == null) return false;
 
@@ -306,8 +302,8 @@ public class DepartmentService : IDepartmentService
 
         foreach (var account in accounts)
         {
+            // 회사는 남긴다 — 부서 없이 회사에만 속한 사람도 정상 소속이다.
             account.DepartmentId = null;
-            account.CompanyId = null; // 소속 회사도 함께 해제하여 무소속으로 지정
         }
 
         // 이 줄이 없으면 응답만 「해제되었습니다」이고 아무것도 저장되지 않는다. 같은 서비스의 다른 메서드는 모두 부른다.
@@ -316,11 +312,9 @@ public class DepartmentService : IDepartmentService
     }
 
     /// <summary>부서 위치 이동 (하위 부서 이동 포함)</summary>
-    public async Task<bool> MoveDeptAsync(string id, string? parentId, UserContext? userContext)
+    public async Task<bool> MoveDeptAsync(string id, string? parentId)
     {
-        var companyId = userContext?.CompanyId;
-        var dept = await _db.Departments
-            .FirstOrDefaultAsync(d => d.Id == id && (string.IsNullOrEmpty(companyId) || d.CompanyId == companyId));
+        var dept = await _db.Departments.FirstOrDefaultAsync(d => d.Id == id);
 
         if (dept == null) return false;
 
@@ -336,7 +330,7 @@ public class DepartmentService : IDepartmentService
     }
 
     /// <inheritdoc />
-    public async Task<bool> ReorderDeptsAsync(List<DeptOrderDto> items, UserContext? userContext)
+    public async Task<bool> ReorderDeptsAsync(List<DeptOrderDto> items)
     {
         if (items == null || items.Count == 0) return true;
 
@@ -350,14 +344,6 @@ public class DepartmentService : IDepartmentService
         if (missing.Count > 0)
         {
             throw new KeyNotFoundException($"부서를 찾을 수 없습니다: {string.Join(", ", missing)}");
-        }
-
-        // 자기 회사 밖은 손대지 못한다. 회사가 없는 신원(전체 관리자)만 전부 만진다 —
-        // MoveDeptAsync 의 판정과 같은 모양이다.
-        var companyId = userContext?.CompanyId;
-        if (!string.IsNullOrEmpty(companyId) && moving.Values.Any(d => d.CompanyId != companyId))
-        {
-            throw new InvalidOperationException("다른 회사의 부서는 옮길 수 없습니다.");
         }
 
         // 새 상위가 같은 회사인지 본다. 상위는 이번에 함께 옮기는 줄일 수도 있고
@@ -432,15 +418,22 @@ public class DepartmentService : IDepartmentService
     }
 
     /// <summary>사용자 부서 이동</summary>
-    public async Task<bool> MoveUserDeptAsync(string accountId, string? departmentId, UserContext? userContext)
+    public async Task<bool> MoveUserDeptAsync(string accountId, string? departmentId, string? companyId)
     {
         var account = await _db.Accounts.FindAsync(accountId);
         if (account == null) return false;
 
         if (string.IsNullOrEmpty(departmentId))
         {
+            // 부서 없이 회사 직속으로 둔다. 회사도 비우면 무소속이다.
+            if (!string.IsNullOrEmpty(companyId)
+                && !await _db.Companies.AnyAsync(c => c.Id == companyId))
+            {
+                return false;
+            }
+
             account.DepartmentId = null;
-            account.CompanyId = null; // 무소속 지정
+            account.CompanyId = string.IsNullOrEmpty(companyId) ? null : companyId;
         }
         else
         {

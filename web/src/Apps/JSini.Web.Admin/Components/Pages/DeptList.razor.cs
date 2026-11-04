@@ -75,7 +75,7 @@ public partial class DeptList
     private Task ReloadAsync() => LoadAsync(async () =>
     {
         // 회사 목록은 부서와 무관하다. 나란히 부른다.
-        var depts = Api.GetDeptsAsync();
+        var depts = Api.GetAllDeptsAsync();
         var companies = Api.GetCompaniesAsync();
 
         await Task.WhenAll(depts, companies);

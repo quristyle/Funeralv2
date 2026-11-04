@@ -167,7 +167,19 @@ public partial class OrgChart
             return 0;
         }
 
-        var depts = await Api.GetDeptsAsync(_companyId);
+        var companyId = _companyId;
+
+        // 부서 없이 회사에만 속한 사람도 정상 소속이다 — 회사 노드 바로 아래에 그린다.
+        // 이 조회는 무소속(회사도 없는) 사람까지 함께 주므로 회사로 한 번 더 거른다.
+        var deptsTask = Api.GetDeptsAsync(companyId);
+        var directTask = Api.GetDeptEligibleUsersAsync(companyId);
+
+        await Task.WhenAll(deptsTask, directTask);
+
+        var depts = deptsTask.Result;
+        var direct = directTask.Result
+            .Where(u => string.Equals(u.CompanyId, companyId, StringComparison.Ordinal))
+            .ToList();
 
         var flat = new List<DeptDto>();
         Flatten(depts, flat);
@@ -190,18 +202,19 @@ public partial class OrgChart
 
         _root = new Node
         {
-            Id = _companyId,
+            Id = companyId,
             Kind = OrgKind.Company,
             Name = _companyName,
             Depth = 0,
         };
 
+        _root.Children.AddRange(direct.Select(u => UserNode(u, companyId, 1)));
         _root.Children.AddRange(BuildDepts(depts, people, 1));
 
         Layout();
         _needsFit = true;
 
-        return flat.Count;
+        return flat.Count + direct.Count;
     }, "이 회사에는 등록된 부서가 없습니다.", "조직도를 읽지 못했습니다");
 
     private static List<Node> BuildDepts(
@@ -227,17 +240,7 @@ public partial class OrgChart
             // 쌓이고 부서는 옆으로 갈라지므로 순서가 곧 그림의 순서가 된다.
             if (people.TryGetValue(dept.Id, out var users))
             {
-                node.Children.AddRange(users.Select(u => new Node
-                {
-                    Id = u.Id,
-                    Kind = OrgKind.User,
-                    Name = string.IsNullOrWhiteSpace(u.UserName) ? u.LoginId : u.UserName,
-                    Depth = depth + 1,
-                    ParentId = dept.Id,
-                    LoginId = u.LoginId,
-                    Email = u.Email,
-                    Avatar = u.Avatar,
-                }));
+                node.Children.AddRange(users.Select(u => UserNode(u, dept.Id, depth + 1)));
             }
 
             node.Children.AddRange(BuildDepts(dept.Children ?? [], people, depth + 1));
@@ -246,6 +249,18 @@ public partial class OrgChart
 
         return nodes;
     }
+
+    private static Node UserNode(AccountDto u, string parentId, int depth) => new()
+    {
+        Id = u.Id,
+        Kind = OrgKind.User,
+        Name = string.IsNullOrWhiteSpace(u.UserName) ? u.LoginId : u.UserName,
+        Depth = depth,
+        ParentId = parentId,
+        LoginId = u.LoginId,
+        Email = u.Email,
+        Avatar = u.Avatar,
+    };
 
     // 원본(Vue)의 계산을 그대로 옮겼다. 사람을 한 칸에 쌓는 것이 핵심이다 — 사람마다 한 칸을 쓰면 여덟 명짜리 부서 하나가 1600px 을 먹는다.
 
@@ -418,7 +433,7 @@ public partial class OrgChart
 
     private void BeginDragUser(string userId) => _drag = (OrgKind.User, userId);
 
-    /// <summary>노드 위에 놓았다. 회사에 놓으면 회사 직속으로, 부서에 놓으면 그 아래로 간다. 사람은 부서에만 놓을 수 있다.</summary>
+    /// <summary>노드 위에 놓았다. 회사에 놓으면 회사 직속(사람은 부서 없음)으로, 부서에 놓으면 그 아래로 간다.</summary>
     private async Task DropAsync(Node target)
     {
         var drag = _drag;
@@ -434,13 +449,8 @@ public partial class OrgChart
 
         if (drag.Value.Kind == OrgKind.User)
         {
-            if (target.Kind == OrgKind.Company)
-            {
-                Say("사람은 부서로만 옮길 수 있습니다.", NoticeTone.Warning);
-                return;
-            }
-
-            await ApplyMoveAsync(OrgKind.User, drag.Value.Id, target.Id);
+            await ApplyMoveAsync(OrgKind.User, drag.Value.Id,
+                target.Kind == OrgKind.Company ? null : target.Id);
             return;
         }
 
@@ -502,35 +512,35 @@ public partial class OrgChart
 
         var target = _moveTarget == ToCompany ? null : _moveTarget;
 
-        if (_moveKind == OrgKind.User && target is null)
-        {
-            Say("사람은 부서로만 옮길 수 있습니다.", NoticeTone.Warning);
-            return;
-        }
-
         if (await ApplyMoveAsync(_moveKind, _moveId, target))
         {
             _moving = false;
         }
     }
 
-    /// <summary>끌어다 놓기와 이동 팝업이 함께 쓰는 저장 경로. 둘로 나누면 한쪽에만 규칙이 붙는다.</summary>
+    /// <summary>끌어다 놓기와 이동 팝업이 함께 쓰는 저장 경로. 둘로 나누면 한쪽에만 규칙이 붙는다. 부서를 비우면 지금 보는 회사의 직속이다.</summary>
     private async Task<bool> ApplyMoveAsync(OrgKind kind, string id, string? targetDeptId)
     {
+        if (targetDeptId is null && string.IsNullOrEmpty(_companyId))
+        {
+            Say("회사를 먼저 고르십시오.", NoticeTone.Warning);
+            return false;
+        }
+
         var ok = await RunAsync(
             () => kind == OrgKind.Dept
                 ? Api.MoveDeptAsync(id, targetDeptId)
-                : Api.MoveUserDeptAsync(id, targetDeptId),
-            kind == OrgKind.Dept
-                ? targetDeptId is null ? "부서를 회사 직속으로 옮겼습니다." : "부서를 옮겼습니다."
-                : "소속을 바꿨습니다.",
+                : Api.MoveUserDeptAsync(id, targetDeptId, targetDeptId is null ? _companyId : null),
+            targetDeptId is null
+                ? kind == OrgKind.Dept ? "부서를 회사 직속으로 옮겼습니다." : "사람을 회사 직속(부서 없음)으로 옮겼습니다."
+                : kind == OrgKind.Dept ? "부서를 옮겼습니다." : "소속을 바꿨습니다.",
             "옮기지 못했습니다");
 
         if (!ok) return false;
 
         await ReloadAsync();
 
-        // 미소속에서 끌어온 사람은 이제 소속이 있다. 목록을 다시 받는다.
+        // 미소속에서 끌어온 사람은 이제 소속(회사)이 있다. 목록을 다시 받는다.
         if (_showUnassigned)
         {
             await LoadUnassignedAsync();
