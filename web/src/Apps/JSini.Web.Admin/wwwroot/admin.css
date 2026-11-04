@@ -154,6 +154,9 @@
 
 .ad-orgc__node--dept { border-left: 3px solid var(--jsini-accent); }
 
+/* 「미소속부서」는 DB 에 없는 가상 부서다 — 점선으로 실제 부서와 가른다. */
+.ad-orgc__node--nodept { border-style: dashed; }
+
 .ad-orgc__node--user { background: var(--jsini-bg); }
 
 .ad-orgc__icon,

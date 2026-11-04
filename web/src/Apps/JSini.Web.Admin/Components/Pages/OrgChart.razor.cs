@@ -20,6 +20,11 @@ public partial class OrgChart
     /// <summary>이동 팝업에서 「회사 직속」을 뜻하는 값. 부서를 옮길 때만 나온다.</summary>
     private const string ToCompany = "__COMPANY__";
 
+    /// <summary>가상 부서 「미소속부서」의 이름과 식별자 앞머리. 식별자는 실제 부서·사람과 겹치지 않게 회사 식별자를 붙인다.</summary>
+    private const string NoDeptName = "미소속부서";
+
+    private const string NoDeptIdPrefix = "__NODEPT__:";
+
     private enum OrgKind { Company, Dept, User }
 
     /// <summary>그려질 노드 하나. 회사·부서·사람이 같은 모양으로 들어온다 — 배치와 연결선이 셋을 가리지 않기 때문이다.</summary>
@@ -38,6 +43,9 @@ public partial class OrgChart
 
         /// <summary>이 부서에 직접 속한 사람 수. 부서 노드만 쓴다.</summary>
         public int UserCount { get; init; }
+
+        /// <summary>「미소속부서」— 부서 없이 회사에만 속한 사람을 담는 가상 부서. DB 에 없으므로 끌기·이동·하위 추가를 막고, 여기에 놓으면 회사 직속이 된다.</summary>
+        public bool IsNoDept { get; init; }
 
         public double X { get; set; }
         public double Y { get; set; }
@@ -169,7 +177,7 @@ public partial class OrgChart
 
         var companyId = _companyId;
 
-        // 부서 없이 회사에만 속한 사람도 정상 소속이다 — 회사 노드 바로 아래에 그린다.
+        // 부서 없이 회사에만 속한 사람도 정상 소속이다 — 회사 아래 가상 부서 「미소속부서」에 담아 그린다.
         // 이 조회는 무소속(회사도 없는) 사람까지 함께 주므로 회사로 한 번 더 거른다.
         var deptsTask = Api.GetDeptsAsync(companyId);
         var directTask = Api.GetDeptEligibleUsersAsync(companyId);
@@ -208,14 +216,29 @@ public partial class OrgChart
             Depth = 0,
         };
 
-        _root.Children.AddRange(direct.Select(u => UserNode(u, companyId, 1)));
         _root.Children.AddRange(BuildDepts(depts, people, 1));
+
+        if (direct.Count > 0)
+        {
+            var noDept = new Node
+            {
+                Id = NoDeptIdPrefix + companyId,
+                Kind = OrgKind.Dept,
+                Name = NoDeptName,
+                Depth = 1,
+                UserCount = direct.Count,
+                IsNoDept = true,
+            };
+
+            noDept.Children.AddRange(direct.Select(u => UserNode(u, noDept.Id, 2)));
+            _root.Children.Add(noDept);
+        }
 
         Layout();
         _needsFit = true;
 
         return flat.Count + direct.Count;
-    }, "이 회사에는 등록된 부서가 없습니다.", "조직도를 읽지 못했습니다");
+    }, "이 회사에는 등록된 부서도 소속 인원도 없습니다.", "조직도를 읽지 못했습니다");
 
     private static List<Node> BuildDepts(
         IEnumerable<DeptDto> depts,
@@ -426,14 +449,14 @@ public partial class OrgChart
 
     private void BeginDrag(Node node)
     {
-        if (node.Kind == OrgKind.Company) return;
+        if (node.Kind == OrgKind.Company || node.IsNoDept) return;
 
         _drag = (node.Kind, node.Id);
     }
 
     private void BeginDragUser(string userId) => _drag = (OrgKind.User, userId);
 
-    /// <summary>노드 위에 놓았다. 회사에 놓으면 회사 직속(사람은 부서 없음)으로, 부서에 놓으면 그 아래로 간다.</summary>
+    /// <summary>노드 위에 놓았다. 회사나 「미소속부서」에 놓으면 회사 직속(사람은 부서 없음)으로, 부서에 놓으면 그 아래로 간다.</summary>
     private async Task DropAsync(Node target)
     {
         var drag = _drag;
@@ -447,16 +470,16 @@ public partial class OrgChart
             return;
         }
 
+        var targetDeptId = target.Kind == OrgKind.Company || target.IsNoDept ? null : target.Id;
+
         if (drag.Value.Kind == OrgKind.User)
         {
-            await ApplyMoveAsync(OrgKind.User, drag.Value.Id,
-                target.Kind == OrgKind.Company ? null : target.Id);
+            await ApplyMoveAsync(OrgKind.User, drag.Value.Id, targetDeptId);
             return;
         }
 
-        // 부서를 회사에 놓으면 상위가 없어진다(회사 직속).
-        await ApplyMoveAsync(OrgKind.Dept, drag.Value.Id,
-            target.Kind == OrgKind.Company ? null : target.Id);
+        // 부서를 회사(또는 미소속부서)에 놓으면 상위가 없어진다(회사 직속).
+        await ApplyMoveAsync(OrgKind.Dept, drag.Value.Id, targetDeptId);
     }
 
     // ── 이동 팝업 (끌기의 터치 대체 경로) ────────────────────
@@ -479,7 +502,8 @@ public partial class OrgChart
         {
             foreach (var node in nodes)
             {
-                if (node.Kind != OrgKind.Dept) continue;
+                // 「미소속부서」는 팝업 맨 위의 회사 직속 단추가 대신한다.
+                if (node.Kind != OrgKind.Dept || node.IsNoDept) continue;
 
                 if (_moveKind == OrgKind.Dept && string.Equals(node.Id, _moveId, StringComparison.Ordinal))
                 {
@@ -532,7 +556,7 @@ public partial class OrgChart
                 ? Api.MoveDeptAsync(id, targetDeptId)
                 : Api.MoveUserDeptAsync(id, targetDeptId, targetDeptId is null ? _companyId : null),
             targetDeptId is null
-                ? kind == OrgKind.Dept ? "부서를 회사 직속으로 옮겼습니다." : "사람을 회사 직속(부서 없음)으로 옮겼습니다."
+                ? kind == OrgKind.Dept ? "부서를 회사 직속으로 옮겼습니다." : "사람을 미소속부서(부서 없이 회사 소속)로 옮겼습니다."
                 : kind == OrgKind.Dept ? "부서를 옮겼습니다." : "소속을 바꿨습니다.",
             "옮기지 못했습니다");
 
@@ -635,7 +659,7 @@ public partial class OrgChart
     private static string Kind(Node node) => node.Kind switch
     {
         OrgKind.Company => "company",
-        OrgKind.Dept => "dept",
+        OrgKind.Dept => node.IsNoDept ? "dept ad-orgc__node--nodept" : "dept",
         _ => "user",
     };
 
@@ -647,7 +671,7 @@ public partial class OrgChart
     };
 
     private string Draggable(Node node) =>
-        CanMove && node.Kind != OrgKind.Company ? "true" : "false";
+        CanMove && node.Kind != OrgKind.Company && !node.IsNoDept ? "true" : "false";
 
     /// <summary>인라인 스타일에 쓸 픽셀 값. 자리 표기가 지역에 따라 흔들리면 안 된다.</summary>
     private static string Px(double value) => N(value) + "px";

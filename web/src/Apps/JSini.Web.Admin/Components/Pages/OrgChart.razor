@@ -91,7 +91,7 @@
                         }
                         else
                         {
-                            <span class="ad-orgc__icon">@(node.Kind == OrgKind.Company ? "회사" : "부서")</span>
+                            <span class="ad-orgc__icon">@(node.Kind == OrgKind.Company ? "회사" : node.IsNoDept ? "가상" : "부서")</span>
                         }
 
                         <span class="ad-orgc__text">
@@ -100,7 +100,7 @@
                         </span>
 
                         @* 단추는 캔버스가 가로채면 안 된다 — `no-pan` 이 그 표시다. *@
-                        @if (node.Kind != OrgKind.User)
+                        @if (node.Kind != OrgKind.User && !node.IsNoDept)
                         {
                             <PermissionView Action="MenuAction.Create">
                                 <button type="button" class="ad-orgc__btn no-pan" title="하위 부서 추가"
@@ -110,10 +110,10 @@
                             </PermissionView>
                         }
 
-                        @if (node.Kind != OrgKind.Company)
+                        @if (node.Kind != OrgKind.Company && !node.IsNoDept)
                         {
                             <PermissionView Action="MenuAction.Update">
-                                <button type="button" class="ad-orgc__btn no-pan" title="다른 부서·회사 직속으로 이동"
+                                <button type="button" class="ad-orgc__btn no-pan" title="다른 부서·미소속부서로 이동"
                                         @onclick="@(() => OpenMove(node.Kind, node.Id, node.Name))">
                                     ↦
                                 </button>
@@ -209,7 +209,7 @@
         <div class="jsini-hint">
             @(_moveKind == OrgKind.Dept
                 ? "이 부서(하위 부서·소속 사용자 포함)를 옮길 곳을 고르십시오."
-                : "이 사람을 소속시킬 부서를 고르십시오. 회사 직속이면 부서 없이 회사에만 속합니다.")
+                : $"이 사람을 소속시킬 부서를 고르십시오. {NoDeptName}를 고르면 부서 없이 회사에만 속합니다.")
         </div>
 
         <div class="ad-orgc__picks">
@@ -219,7 +219,7 @@
                 <button type="button"
                         class="ad-orgc__pick @(_moveTarget == ToCompany ? "ad-orgc__pick--on" : null)"
                         @onclick="@(() => _moveTarget = ToCompany)">
-                    [회사 직속] @_companyName
+                    @(_moveKind == OrgKind.Dept ? $"[회사 직속] {_companyName}" : $"[{NoDeptName}] {_companyName}")
                 </button>
             }
 
