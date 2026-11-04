@@ -99,12 +99,7 @@
 
     <DxSplitterPane>
     <section class="ad-vsplit__pane ad-vsplit__pane--right">
-        @if (_edit is null || _original is null)
-        {
-            <PageNotice Tone="NoticeTone.Info"
-                        Text="왼쪽에서 회사를 고르십시오. 새 회사는 표 아래 ＋ 로 등록합니다." />
-        }
-        else
+        @if (_edit is not null && _original is not null)
         {
             <h2 class="ad-subhead ad-company__head">
                 <span>@(_isNew ? "새 회사" : _original.Name)</span>

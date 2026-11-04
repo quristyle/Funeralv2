@@ -310,7 +310,7 @@ else if (_master is not null)
         </ChildContent>
     </CommCont>
 
-    <CommCont Title="추가 관리항목" Hint="if_attr_def 에 항목을 추가하면 여기에 입력란이 자동으로 늘어납니다">
+    <CommCont Title="추가 관리항목">
         <Actions>
             @if (_attrs.Count > 0)
             {
@@ -496,8 +496,6 @@ else if (_master is not null)
 
 <CommPopup @bind-Visible="_newOpen" HeaderText="인터페이스 등록" Width="560px">
     <BodyContentTemplate Context="popup">
-        <p class="jsini-hint">코드 · 이름 · 방향 · 상태만 입력하면 됩니다. 단계는 상세에서 추가합니다.</p>
-
         <DxFormLayout CssClass="pm-editform">
             <DxFormLayoutItem Caption="인터페이스 코드 *" ColSpanMd="12">
                 <DxTextBox @bind-Text="_new.IfCd" />

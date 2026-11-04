@@ -56,11 +56,7 @@ schema 는 서버가 접속 정보에서 채운다. 이름 거르기는 화면�
     </First>
     <Second>
         <div class="pm-tab-body">
-            @if (_selectedTable is null)
-            {
-                <PageNotice Text="테이블을 고르면 컬럼이 나옵니다." Tone="NoticeTone.Info" />
-            }
-            else
+            @if (_selectedTable is not null)
             {
                 <h2 class="pm-subhead">@_selectedTable · 컬럼</h2>
 

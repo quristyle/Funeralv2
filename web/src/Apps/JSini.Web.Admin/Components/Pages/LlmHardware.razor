@@ -383,22 +383,18 @@ else
                             <dt>걸린 시간</dt>
                             <dd>
                                 @Num(rag.Embedding?.LatencyMs, " ms")
-                                <span class="ad-llm__dim"> · 짧은 글 하나를 벡터로</span>
                             </dd>
                             <dt>물어본 곳</dt><dd class="ad-desc__mono">@(rag.Embedding?.Endpoint ?? "—")</dd>
                             <dt>확인</dt>
                             <dd>
                                 @(rag.Embedding is { } eb ? eb.CheckedAt.Kst("HH:mm:ss") : "—")
-                                <span class="ad-llm__dim"> · 2분마다 (누르면 지금)</span>
+                                <span class="ad-llm__dim"> · 2분마다</span>
                             </dd>
                         </dl>
 
                         @if (rag.Embedding is { Reachable: false, Message: { Length: > 0 } ewhy })
                         {
-                            <div class="ad-card__why">
-                                @ewhy
-                                <span class="ad-llm__dim"> — 그동안에도 대화는 돌아간다(낱말 검색만 한다).</span>
-                            </div>
+                            <div class="ad-card__why">@ewhy</div>
                         }
                         else if (DimensionNote(rag) is { Length: > 0 } dnote)
                         {
@@ -436,12 +432,6 @@ else
                             <dd>@(rag.BuiltAt is { } rb ? rb.Kst("yyyy-MM-dd HH:mm") : "한 번도 만들지 않음")</dd>
                             <dt>설정</dt><dd class="ad-desc__mono">Rag:AugmentChat</dd>
                         </dl>
-                        @if (!rag.AugmentChat)
-                        {
-                            <div class="ad-card__why">
-                                꺼져 있습니다 — 사내 문서를 찾기는 하지만 <b>대화에는 붙이지 않습니다.</b>
-                            </div>
-                        }
                     </Template>
                 </DxFormLayoutItem>
             </Items>
@@ -537,13 +527,12 @@ else
                             <dt>검색 뒷단</dt>
                             <dd>
                                 @SearchName(web.Server?.SearchProvider)
-                                <span class="ad-llm__dim"> · McpServer 설정이 정한다</span>
                             </dd>
                             <dt>걸린 시간</dt><dd>@Num(web.Server?.LatencyMs, " ms")</dd>
                             <dt>확인</dt>
                             <dd>
                                 @(web.Server is { } ws ? ws.CheckedAt.Kst("HH:mm:ss") : "—")
-                                <span class="ad-llm__dim"> · 2분마다 (누르면 지금)</span>
+                                <span class="ad-llm__dim"> · 2분마다</span>
                             </dd>
                         </dl>
 
@@ -592,21 +581,11 @@ else
                     <Template>
                         <dl class="ad-llm__kv">
                             <dt>도구 왕복</dt>
-                            <dd>최대 @Num(web.MaxToolRounds)번<span class="ad-llm__dim"> · 막지 않으면 같은 검색을 되풀이한다</span></dd>
+                            <dd>최대 @Num(web.MaxToolRounds)번</dd>
                             <dt>사내 문서 우선</dt>
                             <dd>점수 @Num(web.SkipWhenRagScore, "", 2) 이상이면 웹을 건너뛴다</dd>
                             <dt>설정</dt><dd class="ad-desc__mono">Mcp:AugmentChat</dd>
                         </dl>
-                        <div class="ad-card__why">
-                            @if (web.AugmentChat)
-                            {
-                                <text>보통 대화에서도 웹을 찾습니다 — 질문마다 「찾아볼까」를 묻는 왕복이 하나 늘어납니다.</text>
-                            }
-                            else
-                            {
-                                <text>보통 대화는 웹을 찾지 않습니다. <b>「웹으로 묻기」(<span class="ad-desc__mono">/chat/web</span>)는 그대로 됩니다.</b></text>
-                            }
-                        </div>
                     </Template>
                 </DxFormLayoutItem>
             </Items>

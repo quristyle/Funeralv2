@@ -55,11 +55,6 @@
 
         <div class="ad-orgc" @ref="_viewport">
 
-            <div class="ad-orgc__legend">
-                끌어다 놓거나 노드의 [이동] 으로 소속을 바꿉니다.
-                확대는 휠·두 손가락, 이동은 빈 곳 끌기입니다.
-            </div>
-
             <div class="ad-orgc__zoom no-pan">
                 <button type="button" title="확대" @onclick="@(() => ZoomAsync("zoomIn"))">＋</button>
                 <button type="button" title="축소" @onclick="@(() => ZoomAsync("zoomOut"))">－</button>
@@ -141,10 +136,6 @@
                               Click="@LoadUnassignedAsync" />
                 </div>
 
-                <div class="ad-orgc__side-hint">
-                    어느 회사에도 속하지 않은 사람입니다.
-                </div>
-
                 <div class="ad-orgc__side-list">
                     @foreach (var user in _unassigned)
                     {
@@ -184,12 +175,6 @@
 
 <CommPopup @bind-Visible="_adding" HeaderText="@AddTitle" Width="420px" ShowFooter="false">
     <BodyContentTemplate>
-        <div class="jsini-hint">
-            @(_addParent is null
-                ? "회사 바로 아래에 새 부서를 만듭니다."
-                : $"'{_addParent.Name}' 아래에 새 부서를 만듭니다.")
-        </div>
-
         <DxTextBox @bind-Text="_addName" NullText="부서명" />
 
         <div class="jsini-toolbar">
@@ -205,12 +190,6 @@
         @{
             var choices = MoveChoices();
         }
-
-        <div class="jsini-hint">
-            @(_moveKind == OrgKind.Dept
-                ? "이 부서(하위 부서·소속 사용자 포함)를 옮길 곳을 고르십시오."
-                : $"이 사람을 소속시킬 부서를 고르십시오. {NoDeptName}를 고르면 부서 없이 회사에만 속합니다.")
-        </div>
 
         <div class="ad-orgc__picks">
             @* 회사 직속 — 회사 노드에 놓았을 때와 같다. 사람이면 부서 없이 회사에만 속한다. *@

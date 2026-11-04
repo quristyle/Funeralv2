@@ -61,7 +61,7 @@
                     else
                     {
                         <DeviceField Label="호실">
-                            <span class="fn-note">@(_form.RoomName ?? "배정 없음") — 목록의 「호실 이동」에서 바꿉니다.</span>
+                            <span class="fn-note">@(_form.RoomName ?? "배정 없음")</span>
                         </DeviceField>
                     }
 
@@ -73,10 +73,7 @@
 
             @* 영정사진은 한 장이라 빈소 화면이 그 자리에 띄우고, 추모 앨범은 여러 장이 도는 파일 그룹이라 부품이 다르다. *@
             <section class="fn-devsec is-on">
-                <h3 class="fn-devsec__head">
-                    사진
-                    <span class="fn-note">영정사진은 3:4 세로가 잘 맞습니다.</span>
-                </h3>
+                <h3 class="fn-devsec__head">사진</h3>
 
                 <div class="fn-devsec__body">
                     <DeviceField Label="영정사진">
@@ -117,10 +114,7 @@
 
             @* 시설 사용: 안치실·염습실처럼 빈소와 따로 쓰는 자리. 이 값이 정산으로 그대로 가고, 시간과 단가를 넣으면 금액이 나온다. *@
             <section class="fn-devsec is-on">
-                <h3 class="fn-devsec__head">
-                    시설 사용
-                    <span class="fn-note">정산의 항목이 됩니다.</span>
-                </h3>
+                <h3 class="fn-devsec__head">시설 사용</h3>
 
                 <div class="jsini-toolbar">
                     <DxButton Text="시설 추가"
@@ -200,10 +194,7 @@
             </section>
 
             <section class="fn-devsec is-on">
-                <h3 class="fn-devsec__head">
-                    상주
-                    <span class="fn-note">대표 상주는 한 명입니다. 새로 고르면 앞의 것이 풀립니다.</span>
-                </h3>
+                <h3 class="fn-devsec__head">상주</h3>
 
                 <div class="jsini-toolbar">
                     <DxButton Text="상주 추가"

@@ -246,10 +246,6 @@ public partial class RoleList
         }
     }
 
-    /// <summary>사용자 정의를 쓰는 메뉴가 하나도 없는가. 칸이 없는 이유를 말해 준다.</summary>
-    private bool NoCustomConfigured =>
-        _menus.Count > 0 && !CustomItems.Any(i => _menus.Any(m => i.Used(m)));
-
     /// <summary>권한이 한 칸이라도 걸린 메뉴 수. 탭 이름에 붙는다.</summary>
     private int GrantedMenuCount =>
         _menus.Count(m => BaseItems.Concat(CustomItems).Any(i => i.Get(m)));

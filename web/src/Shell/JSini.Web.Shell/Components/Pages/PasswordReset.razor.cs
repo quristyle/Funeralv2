@@ -32,12 +32,6 @@ public partial class PasswordReset
 
     private NoticeTone _tone = NoticeTone.Info;
 
-    /// <summary>제목 밑 한 줄. 상태마다 할 말이 다르다.</summary>
-    private string Sub =>
-        string.IsNullOrWhiteSpace(Token) ? "받으신 메일의 링크로 들어와 주십시오."
-        : _done ? "다 됐습니다."
-        : "새로 쓰실 비밀번호를 정해 주십시오.";
-
     private async Task SubmitAsync()
     {
         if (string.IsNullOrEmpty(_new))

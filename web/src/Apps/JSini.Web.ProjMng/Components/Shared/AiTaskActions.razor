@@ -88,7 +88,10 @@
                           UsageSeen="@_usageSeen" />
         </div>
 
-        <p class="jsini-hint">@RetryKindNote</p>
+        @if (!string.IsNullOrWhiteSpace(RetryKindNote))
+        {
+            <p class="jsini-hint">@RetryKindNote</p>
+        }
 
         @* 무엇이 어떻게 끝났는지 — 지난 회차의 자국이다. 거기 적힌 것이 「덧붙일 말」을 정한다. *@
         @if (RetryStatusNote is { Length: > 0 } status)

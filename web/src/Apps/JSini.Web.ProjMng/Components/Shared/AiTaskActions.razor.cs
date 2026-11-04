@@ -171,7 +171,7 @@ public partial class AiTaskActions
             var same = string.Equals(_retryKind, Item?.RunnerKind, StringComparison.OrdinalIgnoreCase);
 
             return same
-                ? "지난 회차와 같은 AI 로 재시도합니다."
+                ? string.Empty
                 : $"지난 회차({KindName(Item?.RunnerKind)})와 다른 AI 에게 맡깁니다 — 지난 진행은 그대로 전달됩니다.";
         }
     }

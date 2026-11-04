@@ -13,7 +13,7 @@
             <PageNotice Tone="NoticeTone.Info"
                         Text="@(_hasSavedPending
                             ? $"현재 작업이 '{Item?.StatusText}' 상태입니다. 아래 내용이 예약되어 있어 작업이 끝나면 이어서 실행됩니다."
-                            : $"현재 작업이 '{Item?.StatusText}' 상태입니다. 「이어서 요청」을 누르면 예약되어 작업이 끝나는 대로 이어서 실행됩니다.")" />
+                            : $"현재 작업이 '{Item?.StatusText}' 상태라 작업이 끝나는 대로 이어서 실행됩니다.")" />
         }
 
         @* 이 회차를 맡을 AI 고르개(AiRunnerPick) — 남은 한도가 그 칸 안에 함께 선다. *@
@@ -36,7 +36,7 @@
         <div id="@_continueDomId">
             <DxMemo @bind-Text="_continueAddition" Rows="5"
                     BindValueMode="BindValueMode.OnInput"
-                    NullText="이번에 더 시킬 일 — 지난 진행은 서버가 앞에 붙입니다 (Ctrl+Enter 로 요청)"
+                    NullText="이번에 더 시킬 일"
                     CssClass="pm-peek__memo" />
         </div>
 

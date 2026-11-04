@@ -444,8 +444,7 @@
     @* Context 이름을 바꿔 둔다 — 안쪽 DxFormLayoutItem 의 기본 이름 context 와 겹치면 Razor 가 컴파일을 거절한다(RZ9999). *@
     <BodyContentTemplate Context="popup">
         <p class="jsini-hint">
-            아래 비밀번호는 <b>지금 한 번만 보입니다.</b> 서버에는 해시로만 남아
-            창을 닫으면 다시 볼 수 없습니다. 본인에게 전달하십시오.
+            아래 비밀번호는 <b>지금 한 번만 보입니다.</b> 창을 닫으면 다시 볼 수 없습니다.
         </p>
 
         <DxFormLayout CssClass="ad-editform">
@@ -459,10 +458,6 @@
                 <DxTextBox Text="@_issuedPassword" ReadOnly="true" />
             </DxFormLayoutItem>
         </DxFormLayout>
-
-        <p class="jsini-hint">
-            본인은 첫 로그인에서 곧바로 비밀번호를 바꾸게 됩니다.
-        </p>
     </BodyContentTemplate>
     <FooterContentTemplate Context="popupContext">
         @* 복사를 먼저 둔다 — 열두 글자를 눈으로 옮겨 적는 것은 틀리기 쉽다. *@

@@ -55,11 +55,7 @@ Glue 서비스 추적. 서버가 Glue 서비스 정의(*-service.xml · *.glue_s
         </CommCont>
     </First>
     <Second>
-        @if (_query is null)
-        {
-            <PageNotice Text="종류가 sql 인 행을 고르면 쿼리가 나옵니다." Tone="NoticeTone.Info" />
-        }
-        else
+        @if (_query is not null)
         {
             <h2 class="pm-subhead">@_queryOf</h2>
             <CodeEditor Value="@_query" ReadOnly="true" Height="420px" Language="pgsql" />
@@ -73,10 +69,6 @@ Glue 서비스 추적. 서버가 Glue 서비스 정의(*-service.xml · *.glue_s
             서버가 등록된 소스 경로를 다시 훑어 <b>이 소스의 Glue 자료를 덮어씁니다.</b>
             되돌릴 수 없습니다.
         </p>
-        <p class="pm-muted">
-            서버 장비에 그 경로가 없으면 아무것도 바꾸지 않고 이유를 알려 줍니다.
-        </p>
-
     </BodyContentTemplate>
 
     <FooterContentTemplate Context="popupContext">

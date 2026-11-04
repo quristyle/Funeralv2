@@ -90,12 +90,7 @@
 
     <DxSplitterPane>
     <section class="ad-vsplit__pane ad-vsplit__pane--right">
-        @if (_role is null)
-        {
-            <PageNotice Tone="NoticeTone.Info"
-                        Text="왼쪽에서 권한을 설정할 역할을 고르십시오." />
-        }
-        else
+        @if (_role is not null)
         {
             <h2 class="ad-subhead">@_role.Name <span class="ad-stamp">@_role.Id</span></h2>
 
@@ -187,13 +182,6 @@
 
                 <DxTabPage Text="@($"메뉴 세부 권한 ({GrantedMenuCount})")">
                     <div class="ad-roletabs__body">
-                        @if (NoCustomConfigured)
-                        {
-                            @* 사용자 정의 칸을 아무 메뉴도 안 쓰면 칸이 안 보이는 것이 고장으로 읽히지 않게 말해 둔다. *@
-                            <PageNotice Tone="NoticeTone.Info"
-                                        Text="사용자 정의 권한(1~8)을 쓰는 메뉴가 없어 그 칸은 감춰 두었습니다. [메뉴 관리]에서 켜면 여기에 나타납니다." />
-                        }
-
                         <CommTree TItem="RoleMenuRow" Data="@_menuTree"
                                   KeyFieldName="@nameof(RoleMenuRow.MenuId)"
                                   ChildrenFieldName="@nameof(RoleMenuRow.Children)"

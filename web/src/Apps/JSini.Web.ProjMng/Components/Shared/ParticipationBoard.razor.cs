@@ -150,10 +150,6 @@ public partial class ParticipationBoard
 
     private string RightSearchHint => ByProject ? "이름 · 아이디로 찾기" : "이름으로 찾기";
 
-    private string PickPrompt => ByProject
-        ? "왼쪽에서 프로젝트를 고르면 넣고 뺄 사람이 나옵니다."
-        : "왼쪽에서 사람을 고르면 넣고 뺄 프로젝트가 나옵니다.";
-
     private string RightTitle => _picked is null
         ? (ByProject ? "참여자" : "참여 프로젝트")
         : ByProject ? $"{_picked.Name} 의 참여자" : $"{_picked.Name} 의 참여 프로젝트";

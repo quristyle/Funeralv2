@@ -51,11 +51,7 @@
 
     <CommCont Title="@(_source is null ? "상세" : $"{_source.SrcNick} 의 패턴")"
               CssClass="pm-split__main">
-        @if (_source is null)
-        {
-            <PageNotice Text="왼쪽에서 소스를 고르면 그 패턴이 나옵니다." Tone="NoticeTone.Info" />
-        }
-        else
+        @if (_source is not null)
         {
             <CommGrd TItem="SourceInfoDetailDto"
                      Data="@_details"

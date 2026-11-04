@@ -111,11 +111,7 @@
     <Second>
         <div class="pm-stack">
             <CommCont Title="@(_db is null ? "속성" : $"{_db.DbNick} 의 속성")">
-                @if (_db is null)
-                {
-                    <PageNotice Text="왼쪽에서 접속을 고르면 그 속성이 나옵니다." Tone="NoticeTone.Info" />
-                }
-                else
+                @if (_db is not null)
                 {
                     <CommGrd TItem="ProjectDbPropDto"
                              Data="@_props"
@@ -183,11 +179,7 @@
                 </Actions>
 
                 <ChildContent>
-                    @if (_prop is null)
-                    {
-                        <PageNotice Text="속성을 고르면 그 값이 편집기에 열립니다." Tone="NoticeTone.Info" />
-                    }
-                    else
+                    @if (_prop is not null)
                     {
                         @* 판 높이를 그대로 받는다(Height="100%") — 320px 로 박으면 편집기만 옛 높이로 남아 아래가 빈다. *@
                         <CodeEditor @bind-Value="_value" Language="pgsql" Height="100%" />

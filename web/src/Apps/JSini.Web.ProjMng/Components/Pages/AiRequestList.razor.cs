@@ -52,11 +52,6 @@ public partial class AiRequestList
 
     private string WriteTitle => _editing is null ? "새 요청" : "요청 고치기";
 
-    /// <summary>판 머리의 한 줄. 이 화면이 무엇을 안 하는지 말한다 — 「저장했는데 왜 안 돌지」가 가장 자주 나오는 물음이다.</summary>
-    private string WriteHint => ReadOnly
-        ? "이미 처리가 시작된 요청입니다. 내용만 볼 수 있습니다."
-        : "적어서 올려 두면 관리자가 내용을 확인하고 작업 위치와 AI 를 정해 실행합니다.";
-
     /// <summary>지금 깔리는 줄. 앞에서부터 자른다 — 목록이 최근 순이라 곧 최근 몇 건이다.</summary>
     private IEnumerable<AiTaskDto> Shown => _rows.Take(ShownCount);
 

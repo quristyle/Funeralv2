@@ -81,27 +81,11 @@
   stroke-dasharray: 3 3;
 }
 
-.ad-orgc__legend,
 .ad-orgc__zoom {
   position: absolute;
   top: 0.6rem;
-  z-index: 2;
-}
-
-.ad-orgc__legend {
-  left: 0.6rem;
-  max-width: 24rem;
-  padding: 0.3rem 0.6rem;
-  border: 1px solid var(--jsini-border);
-  border-radius: 0.4rem;
-  background: var(--jsini-surface);
-  font-size: var(--jsini-fs-xs);
-  color: var(--jsini-text-muted);
-  pointer-events: none;
-}
-
-.ad-orgc__zoom {
   right: 0.6rem;
+  z-index: 2;
   display: flex;
   gap: 0.25rem;
 }
@@ -222,13 +206,6 @@
 }
 
 .ad-orgc__side-title { font-weight: 600; }
-
-.ad-orgc__side-hint {
-  padding: 0.4rem 0.6rem;
-  border-bottom: 1px solid var(--jsini-border);
-  font-size: var(--jsini-fs-xs);
-  color: var(--jsini-text-muted);
-}
 
 .ad-orgc__side-list {
   flex: 1;
@@ -1749,8 +1726,6 @@
   min-width: 0;
   min-height: 2rem;
 }
-
-.ad-sociallite__note { font-size: var(--jsini-fs-sm); }
 
 .ad-sociallist {
   display: flex;
@@ -4944,20 +4919,9 @@
   text-align: left;
 }
 
-.ad-tpl__title { font-weight: 600; }
-
-.ad-tpl__hint {
-  flex: 1;
-  font-size: var(--jsini-fs-sm, 0.85rem);
-  color: var(--jsini-text-muted);
-}
+.ad-tpl__title { flex: 1; font-weight: 600; }
 
 .ad-tpl__body { padding: 0.75rem; }
-
-/* 접힌 머리줄의 설명은 좁은 화면에서 접는다 — 남기면 제목과 화살표가 두 줄로 갈린다. */
-@media (width < 768px) {
-  .ad-tpl__hint { display: none; }
-}
 
 /* ── 본문 편집기 ──────────────────────────────────────────
 
@@ -5248,15 +5212,6 @@
   gap: 0.5rem;
 }
 
-.ad-rag__dim-badge {
-  font-size: 0.72rem;
-  font-weight: 500;
-  color: var(--ad-rag-text-muted);
-  background: var(--tb-surface-2, rgba(128, 128, 128, 0.08));
-  padding: 0.15rem 0.45rem;
-  border-radius: 999px;
-}
-
 .ad-rag__add-btn {
   border: 1px solid var(--ad-rag-border);
   background: var(--tb-surface-2, transparent);
@@ -5420,32 +5375,6 @@
   inset: 0;
   opacity: 0;
   cursor: pointer;
-}
-
-/* 디자인 표준 가이드 배너 (Guide Banner) */
-.ad-rag__guide {
-  font-size: 0.82rem;
-  line-height: 1.6;
-  color: var(--ad-rag-text);
-  background: color-mix(in srgb, var(--ad-rag-accent) 4%, var(--ad-rag-surface));
-  border: 1px solid color-mix(in srgb, var(--ad-rag-accent) 18%, var(--ad-rag-border));
-  border-radius: 0.65rem;
-  padding: 0.75rem 1rem;
-  margin-bottom: 0.85rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.ad-rag__guide-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.4rem;
-}
-
-.ad-rag__guide-bullet {
-  color: var(--ad-rag-accent);
-  font-weight: 700;
 }
 
 /* ── 드래그앤드롭존 피드백 ──────────────────────────────────── */
@@ -5791,15 +5720,7 @@
   font-size: 1.2rem;
   font-weight: 700;
   color: var(--ad-rag-text);
-  margin-bottom: 0.4rem;
-}
-
-.ad-rag__empty-desc {
-  font-size: 0.88rem;
-  color: var(--ad-rag-text-muted);
-  max-width: 420px;
   margin-bottom: 1.25rem;
-  line-height: 1.5;
 }
 
 .ad-rag__empty-docs {
@@ -5829,12 +5750,6 @@
   font-weight: 600;
   color: var(--ad-rag-text);
   margin-bottom: 0.25rem;
-}
-
-.ad-rag__empty-docs-desc {
-  font-size: 0.82rem;
-  color: var(--ad-rag-text-muted);
-  max-width: 360px;
 }
 
 /* ── 폼 & 팝업 ──────────────────────────────────────────────── */

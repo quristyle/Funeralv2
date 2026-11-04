@@ -38,11 +38,7 @@
     </Actions>
 </CommSch>
 
-@if (_musicId is null)
-{
-    <PageNotice Text="음원을 먼저 고르십시오." />
-}
-else
+@if (_musicId is not null)
 {
     <CommCont>
     <CommGrd TItem="BuildingMusicMapping" Data="@_mappings" PageSize="20"

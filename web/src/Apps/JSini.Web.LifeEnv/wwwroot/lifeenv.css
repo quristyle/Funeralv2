@@ -687,14 +687,6 @@
   border-radius: 50%;
 }
 
-/* 넘기기 안내. 손가락으로 보는 화면에만 — 마우스로 여는 화면에는
-   단추 넉 줄과 스크롤 막대가 이미 같은 말을 하고 있다. */
-.le-trend__swipe { display: none; }
-
-@media (hover: none) {
-  .le-trend__swipe { display: inline; }
-}
-
 /* 추이 차트의 말풍선. 글자색은 여기서 정하지 않는다 — 바탕을 DevExpress 테마가 칠해 밝고 어두운 테마에서 뒤집힌다. 흐림은 opacity 로 준다. */
 .le-trend__tip {
   display: flex;

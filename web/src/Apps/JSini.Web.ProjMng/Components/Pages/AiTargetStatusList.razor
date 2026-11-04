@@ -177,11 +177,7 @@ AI 작업 대상의 git 상태. 시키기 전·뒤에 들여다보는 자리이�
 
     @* ── 고른 한 건 ── 경로·원격 주소·커밋 전문·정리되지 않은 파일 목록은 표에 못 넣어 아래로 뺀다. *@
     <CommCont Title="자세히">
-        @if (_picked is not { } p)
-        {
-            <PageNotice Tone="NoticeTone.Info" Text="위에서 대상을 고르십시오." />
-        }
-        else
+        @if (_picked is { } p)
         {
             <dl class="pm-git">
                 <dt>경로</dt>
@@ -263,10 +259,6 @@ AI 작업 대상의 git 상태. 시키기 전·뒤에 들여다보는 자리이�
                     <dt>stash</dt>
                     <dd>
                         @p.StashCount 건.
-                        <span class="pm-ai-dim">
-                            원본 직접으로 돈 작업이 정본에 남긴 변경을 실행기가 여기로 옮깁니다.
-                            살릴 것이 있으면 장비에서 <code>git stash list</code> 로 꺼냅니다.
-                        </span>
                     </dd>
                 }
 

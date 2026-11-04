@@ -43,7 +43,7 @@
                                 <CommGrd TItem="ReportMailScheduleDto"
                                          Data="@_schedules"
                                          ShowExcelExport="false"
-                                         EmptyText="등록된 배치가 없습니다. 「배치 등록」으로 만듭니다."
+                                         EmptyText="등록된 배치가 없습니다."
                                          Unit="개"
                                          Reload="@ReloadAsync"
                                          SelectedItem="@_selected"
@@ -154,12 +154,6 @@
                           Hint="@(_selected is not null ? _selected.Name : null)"
                           CssClass="rm-section rm-section--edit">
                     <div class="rm-edit-body">
-                        @if (_form.IsNew)
-                        {
-                            <PageNotice Text="새 배치를 만들고 있습니다. 왼쪽에서 보고서를 고르고 받을 역할과 주기를 정하십시오."
-                                        Tone="NoticeTone.Info" />
-                        }
-
                         <DxFormLayout CssClass="ad-form">
                             <DxFormLayoutItem Caption="배치 이름" ColSpanMd="12">
                                 <DxTextBox @bind-Text="_form.Name" />
@@ -204,12 +198,6 @@
                         </DxFormLayout>
 
                         <div class="jsini-hint">보낼 시각은 한국 시각입니다. 비우면 08:00 입니다.</div>
-
-                        @* 「지금 보내기」와 가려 적는다 — 하나는 역할 전원에게, 하나는 나에게만 간다. *@
-                        <div class="jsini-hint">
-                            <b>미리받아보기</b>는 지금 고른 보고서를 <b>내 계정의 이메일로만</b> 한 통 보냅니다 —
-                            받는 역할에게는 가지 않고 다음 발송 시각도 바뀌지 않습니다.
-                        </div>
 
                         @if (_selected is { MissingReportKeys.Count: > 0 } missing)
                         {
@@ -268,7 +256,7 @@
         else if (_recipients.Recipients.Count == 0)
         {
             <PageNotice Tone="NoticeTone.Warning"
-                        Text="고른 역할에 걸린 사람이 없습니다. 「사람롤」에서 역할에 사람을 거십시오." />
+                        Text="고른 역할에 걸린 사람이 없습니다." />
         }
         else
         {
@@ -308,10 +296,7 @@
                 <PageNotice Tone="NoticeTone.Warning" Text="@MissingEmailText" />
             }
 
-            <div class="jsini-hint">
-                본인이 <b>메일 알림을 꺼 둔 사람</b>은 여기 보여도 실제로는 빠집니다 —
-                그 설정은 알림 서버가 보낼 때 봅니다.
-            </div>
+            <div class="jsini-hint">본인이 메일 알림을 꺼 둔 사람은 여기 보여도 실제로는 빠집니다.</div>
         }
     </BodyContentTemplate>
 

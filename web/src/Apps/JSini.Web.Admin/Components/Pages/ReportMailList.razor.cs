@@ -133,7 +133,7 @@ public partial class ReportMailList
     private string MissingEmailText => _recipients is null
         ? string.Empty
         : $"{_recipients.Recipients.Count}명 중 {_recipients.DeliverableCount}명에게만 갑니다 — "
-          + "나머지는 계정에 이메일이 없습니다. 「계정 관리」에서 넣으십시오.";
+          + "나머지는 계정에 이메일이 없습니다.";
 
     /// <summary>시각 한 줄. 받은 값은 UTC 라 보여 주기 직전에 한 번만 옮긴다.</summary>
     private static string Stamp(DateTime? utc) => utc.Kst("MM-dd HH:mm");

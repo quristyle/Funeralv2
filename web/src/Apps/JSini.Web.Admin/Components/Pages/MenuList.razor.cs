@@ -91,16 +91,6 @@ public partial class MenuList
     /// <summary>권한 항목은 묶음·버튼에는 없다 — 구 화면과 같다.</summary>
     private bool UsesPermissions => Kind is not ("BUTTON" or "CATALOG");
 
-    /// <summary>유형 칸 밑에 붙는 한 줄 — 고른 유형이 무엇을 하는지.</summary>
-    private string TypeHint => Kind switch
-    {
-        "CATALOG" => "하위 메뉴를 묶는 폴더입니다. 화면이 없습니다.",
-        "EMBEDDED" => "iframe 주소의 화면을 포털 안에 끼워 넣습니다.",
-        "LINK" => "누르면 바깥 링크 주소로 갑니다. 화면·경로가 없습니다.",
-        "BUTTON" => "화면 안 단추의 권한 항목입니다. 메뉴에 나오지 않습니다.",
-        _ => "포털 화면(razor)을 엽니다.",
-    };
-
     /// <summary>메뉴 코드의 모양. 영문자로 시작하는 영문·숫자 2~40자다.</summary>
     private static readonly Regex MenuCodeShape = new("^[A-Za-z][A-Za-z0-9]{1,39}$");
 

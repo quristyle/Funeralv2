@@ -76,11 +76,7 @@
     @* ── 오른쪽: 역할과 그 결과 ─────────────────────── *@
     <DxSplitterPane>
     <section class="ad-vsplit__pane ad-vsplit__pane--right">
-        @if (_selected is null)
-        {
-            <PageNotice Text="왼쪽에서 대상을 고르십시오." Tone="NoticeTone.Info" />
-        }
-        else
+        @if (_selected is not null)
         {
             <h2 class="ad-subhead">@_selected.Name</h2>
 
@@ -134,7 +130,7 @@
             {
                 @* 회사·부서에는 「볼 수 있는 메뉴」가 없다 — 그 단계의 역할은 속한 사람에게 합쳐져 닿으므로, 빈 표를 보이면 「아무것도 못 본다」로 읽힌다. *@
                 <PageNotice Tone="NoticeTone.Info"
-                            Text="회사·부서에는 「볼 수 있는 메뉴」가 없습니다. 그 단계의 역할은 속한 사람에게 합쳐져 닿고, 사람마다 붙은 역할이 달라 결과도 사람마다 다릅니다. [사람] 에서 고르면 그 사람의 결과를 볼 수 있습니다." />
+                            Text="회사·부서에는 「볼 수 있는 메뉴」가 없습니다." />
             }
             else if (_assigned.Count == 0)
             {

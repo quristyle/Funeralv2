@@ -154,8 +154,8 @@ public partial class MessageSendPage
     /// <summary>받는 사람 칸 옆에 적는 한 줄.</summary>
     private string MailToHint =>
         MailToEdited
-            ? $"주소 {MailRecipients.Count}곳 · 직접 고친 값이라 왼쪽에서 더 골라도 채우지 않습니다."
-            : $"주소 {MailRecipients.Count}곳 · 왼쪽에서 고른 사람으로 채웁니다.";
+            ? $"주소 {MailRecipients.Count}곳 · 직접 고침"
+            : $"주소 {MailRecipients.Count}곳";
 
     /// <summary>손으로 고친 것을 버리고 고른 사람의 주소로 되돌린다.</summary>
     private Task ResetMailToAsync()

@@ -78,9 +78,6 @@ public partial class AiTaskWriteTab
     /// <summary>탭 이름을 <b>직접 적고 싶을 때.</b> 비우면 「작성」이다.</summary>
     [Parameter] public string? Text { get; set; }
 
-    /// <summary>고른 것이 없을 때 그 자리에 적을 말.</summary>
-    [Parameter] public string EmptyText { get; set; } = "왼쪽 목록에서 작업을 고르거나 새 작업을 만드십시오.";
-
     /// <summary>탭 이름. 옆의 셋과 달리 숫자를 안 붙인다 — 셀 것이 없다.</summary>
     private string TabText => Text ?? "작성";
 

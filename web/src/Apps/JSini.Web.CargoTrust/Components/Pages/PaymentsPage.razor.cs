@@ -29,8 +29,7 @@ public partial class PaymentsPage
 
     private const string NothingOpen = "아직 받지 않은 거래가 없습니다.";
 
-    private const string NothingAtAll =
-        "등록한 거래가 없습니다. 「거래 등록」으로 운송 건을 먼저 적으면 여기에 받을 것이 모입니다.";
+    private const string NothingAtAll = "등록한 거래가 없습니다.";
 
     protected override Task OnInitializedAsync() => ReloadAsync();
 

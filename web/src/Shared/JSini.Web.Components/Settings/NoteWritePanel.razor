@@ -16,7 +16,7 @@
         <div class="jsini-note__to">
             @if (_picked.Count == 0)
             {
-                <span class="jsini-note__empty">아래에서 고르거나, 아이디·이메일을 적고 Enter 를 누르십시오.</span>
+                <span class="jsini-note__empty">고른 사람이 없습니다.</span>
             }
             else
             {
@@ -161,14 +161,6 @@
         <span class="jsini-note__label">내용</span>
         <DxMemo @bind-Text="@_body" Rows="@BodyRows"
                 NullText="보낼 말을 적으십시오." CssClass="jsini-note__input" />
-    </div>
-
-    @* ── 두드림 ── 고르는 것이 아니라 알려 주는 줄이다. 받는 사람이 정한다. *@
-    <div class="jsini-note__ways">
-        <span class="jsini-note__empty">
-            앱 알림으로 전해집니다. 메일은 받는 사람이 개인설정에서 「쪽지 메일받기」를
-            켜 둔 경우에만 갑니다.
-        </span>
     </div>
 
     @* 보내기 줄. **채우는 모습에서는 바닥에 붙는다**(`position: sticky`) —

@@ -227,12 +227,4 @@ public static class NotifyTargetKinds
         User => "당사자에게 감",
         _ => kind ?? string.Empty,
     };
-
-    /// <summary>정책이 그 이벤트에서 무슨 일을 하는지 한 줄. 화면이 이 말을 반드시 해야 한다 — 같은 체크 칸이 이벤트에 따라 「받는 사람을 정한다」와 「거른다」로 뜻이 갈린다.</summary>
-    public static string Effect(string? kind) => kind switch
-    {
-        Role => "고른 역할에 걸린 사람에게 보냅니다. 설정 파일에 적힌 역할 대신 이 목록이 쓰입니다.",
-        User => "알림을 받을 당사자가 고른 역할 중 하나라도 가지고 있어야 보냅니다.",
-        _ => string.Empty,
-    };
 }

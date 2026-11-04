@@ -159,14 +159,13 @@ public partial class HanjuSystemMonitor
     /// <summary>점수판 칸 하나의 판정. 배지 글자·색과 한마디를 함께 들고 다닌다.</summary>
     private sealed record Verdict(string Label, string Badge, string Advice);
 
-    /// <summary>점수판 칸 하나의 정의(제목·기준·설명·판정).</summary>
+    /// <summary>점수판 칸 하나의 정의(제목·기준·판정).</summary>
     private sealed record MetricDef(
         string Key,
         string Title,
         string Unit,
         string Format,
         string Guide,
-        string Desc,
         Func<RealtimeRow, double> Pick,
         Func<double, Verdict> Judge);
 
@@ -174,7 +173,6 @@ public partial class HanjuSystemMonitor
     [
         new("cpu", "CPU 사용률", "%", "0.##",
             "표준: 70% 이하 유지",
-            "프로세서의 작업 부하량을 의미합니다. 80% 이상 지속 시 쿼리 처리 지연 및 시스템 병목이 발생합니다.",
             r => r.Cpu,
             v => v >= 90 ? new("위험", "jsini-badge--err", "임계치 초과! 점검 요망.")
                : v >= 70 ? new("주의", "jsini-badge--warn", "부하 증가 추세.")
@@ -182,7 +180,6 @@ public partial class HanjuSystemMonitor
 
         new("io", "디스크 응답", "ms", "0",
             "표준: 20ms 이내 정상",
-            "데이터 읽기/쓰기 요청이 완료되는 시간(ms)입니다. 100ms 초과 시 심각한 I/O 병목으로 판단합니다.",
             r => r.Io,
             v => v >= 50 ? new("심각", "jsini-badge--err", "I/O 장애 수준!")
                : v >= 20 ? new("지연", "jsini-badge--warn", "디스크 응답 저하.")
@@ -190,7 +187,6 @@ public partial class HanjuSystemMonitor
 
         new("ple", "메모리 수명(PLE)", "s", "0",
             "권장: 1000s 이상 유지",
-            "Page Life Expectancy. 데이터가 메모리에 머무는 시간(초)입니다. 300초 미만은 메모리 압박이 심각함을 의미합니다.",
             r => r.Ple,
             v => v < 300 ? new("위기", "jsini-badge--err", "메모리 고갈 위험!")
                : v < 1000 ? new("압박", "jsini-badge--warn", "가용 메모리 부족.")
@@ -198,7 +194,6 @@ public partial class HanjuSystemMonitor
 
         new("tps", "초당 처리량(TPS)", "", "0",
             "통상: 100~500 수준",
-            "Batch Requests/sec. 서버가 초당 처리하는 SQL 명령 수입니다. 서비스의 실제 업무 부하를 나타내는 핵심 지표입니다.",
             r => r.Tps,
             v => v >= 1000 ? new("고부하", "jsini-badge--err", "트래픽 폭주 중.")
                : v >= 500 ? new("활발", "jsini-badge--warn", "업무 처리 활발.")

@@ -19,7 +19,6 @@
         <CaptionTemplate>
             <span class="ad-card__name">API Gateway</span>
             <span class="jsini-badge @BadgeOf(GatewayTone)">@LabelOf(GatewayTone)</span>
-            <span class="ad-card__sub">모든 서비스 요청의 단일 진입점</span>
         </CaptionTemplate>
         <Items>
             <DxFormLayoutItem ColSpanXs="12">
@@ -166,11 +165,7 @@
     <div class="ad-msa__detail">
         @if (_pick == PickKind.Container)
         {
-            @if (PickedContainer is not { } box)
-            {
-                <PageNotice Text="왼쪽에서 컨테이너를 고르십시오." Tone="NoticeTone.Info" />
-            }
-            else
+            @if (PickedContainer is { } box)
             {
                 <div class="ad-msa__head">
                     <strong>@(box.Service ?? "(이름 없음)")</strong>
@@ -216,11 +211,7 @@
         }
         else
         {
-            @if (Selected is not { } sel)
-            {
-                <PageNotice Text="왼쪽에서 서비스를 고르십시오." Tone="NoticeTone.Info" />
-            }
-            else
+            @if (Selected is { } sel)
             {
                 var tone = ToneOf(sel.Status);
                 var meta = MetaOf(sel.Cluster);
@@ -417,12 +408,12 @@ else
     @if (!_social.Enabled)
     {
         <PageNotice Tone="NoticeTone.Warning"
-                    Text="소셜 로그인이 꺼져 있습니다 (Auth:Social:Enabled=false). 공급자를 다 채워도 단추가 서지 않습니다." />
+                    Text="소셜 로그인이 꺼져 있습니다 (Auth:Social:Enabled=false)." />
     }
     else if (_social.UsableCount == 0)
     {
         <PageNotice Tone="NoticeTone.Warning"
-                    Text="쓸 수 있는 공급자가 없어 가입·로그인 화면에 소셜 칸이 통째로 없습니다. 아래 카드에서 열쇠가 빠진 공급자를 확인하십시오." />
+                    Text="쓸 수 있는 공급자가 없어 가입·로그인 화면에 소셜 칸이 없습니다." />
     }
     else
     {
@@ -524,9 +515,6 @@ else
                           Click="@(() => _imageListVisible = true)" />
                 <DxButton Text="쌓인 이미지 정리" RenderStyle="ButtonRenderStyle.Secondary"
                           Enabled="@(!_cleaning)" Click="@PreviewCleanupAsync" />
-                <span class="ad-stamp">
-                    사용 중 태그와 최근 것은 보존됩니다.
-                </span>
             </div>
         </div>
     }
@@ -542,9 +530,6 @@ else
         <div class="jsini-toolbar">
             <DxButton Text="쌓인 이미지 정리" RenderStyle="ButtonRenderStyle.Secondary"
                       Enabled="@(!_cleaning)" Click="@PreviewCleanupAsync" />
-            <span class="ad-stamp">
-                사용 중 태그와 저장소마다 최근 것 몇 개는 남깁니다. 지우기 전에 목록을 보여 줍니다.
-            </span>
         </div>
 
         <CommGrd TItem="DockerImageDto" Data="@Images"

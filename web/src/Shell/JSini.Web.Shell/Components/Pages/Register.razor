@@ -26,19 +26,13 @@
     }
     else
     {
-        <p class="jsini-login__sub">
-            관리자가 승인하면 로그인하실 수 있습니다.
-        </p>
+        <div class="jsini-login__gap"></div>
 
         @*
             소셜 계정으로 신청. 폼 밖의 평범한 링크다(공급자 왕복이라 폼으로 할 수 없다). 단추는 SocialButtons 를 쓴다.
         *@
         <div class="jsini-login__social jsini-login__social--top">
             <SocialButtons Providers="_socialProviders" Verb="로 신청하기" />
-
-            <p class="jsini-login__social-note">
-                이름과 이메일을 공급자에게서 받아 신청서를 대신 채웁니다.
-            </p>
         </div>
 
         <div class="jsini-login__or"><span>또는 직접 입력</span></div>

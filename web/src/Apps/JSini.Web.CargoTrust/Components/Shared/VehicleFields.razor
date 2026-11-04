@@ -12,9 +12,12 @@
         <DxTextBox @bind-Text="Draft.Nickname" NullText="큰 차 · 윙바디 …" />
     </DxFormLayoutItem>
 
-    <DxFormLayoutItem ColSpanMd="12" CaptionCssClass="ct-plate-caption">
-        <div class="@PlateToneClass">@PlateText</div>
-    </DxFormLayoutItem>
+    @if (_plate is not null)
+    {
+        <DxFormLayoutItem ColSpanMd="12" CaptionCssClass="ct-plate-caption">
+            <div class="@PlateToneClass">@PlateText</div>
+        </DxFormLayoutItem>
+    }
 
     <DxFormLayoutItem Caption="차종" ColSpanMd="6">
         <DxComboBox Data="@CargoCodes.VehicleClassOptions" @bind-Value="Draft.VehicleClass"
@@ -42,10 +45,3 @@
         <DxMemo @bind-Text="Draft.Memo" Rows="2" />
     </DxFormLayoutItem>
 </DxFormLayout>
-
-<div class="jsini-hint">
-    축수는 안 적어도 됩니다 — <b>하이패스 이용내역에 찍힌 차종</b>으로 확인하실 수 있습니다.
-    심야할인은 사업용 화물차 제도이고, 3축 이상(4·5종)이 본래 대상입니다.
-    3축 미만은 서약서와 하이패스 단말이 조건입니다.
-    차종은 할인율을 바꾸지 않습니다 — 할인율을 정하는 것은 야간 이용비율 하나입니다.
-</div>

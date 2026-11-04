@@ -136,13 +136,11 @@ public partial class NotifyPolicyPage : IDisposable
         _selected is { PolicyRequired: true }
 
             // 이 이벤트는 설정 파일에 기본 역할이 없어 역할이 비면 아무에게도 안 간다 — 「지금까지처럼」과 같은 말을 적으면 끈 줄을 모르고 들어온 문의를 못 본다.
-            ? "받는 역할이 하나도 없습니다 — 이 알림은 지금 아무에게도 가지 않습니다. "
-              + "이 목록이 받는 사람의 정본이라, 보내는 쪽에 적어 둔 기본 역할이 없습니다."
+            ? "받는 역할이 하나도 없습니다 — 이 알림은 지금 아무에게도 가지 않습니다."
 
-            : "역할을 하나도 걸지 않았습니다 — 제한 없이 지금까지와 똑같이 나갑니다. "
-              + "하나라도 걸면 그때부터 이 목록이 기준이 됩니다."
+            : "역할을 하나도 걸지 않았습니다 — 제한 없이 지금까지와 똑같이 나갑니다."
               + (_selected is { SupportsEmail: true, EmailFromPush: true }
-                  ? " 다만 이메일은 지금 한 통도 나가지 않습니다 — 켠 역할이 있어야 보냅니다."
+                  ? " 다만 이메일은 지금 한 통도 나가지 않습니다."
                   : string.Empty);
 
     /// <summary>
@@ -152,14 +150,9 @@ public partial class NotifyPolicyPage : IDisposable
     private NoticeTone NoRoleTone =>
         _selected is { PolicyRequired: true } ? NoticeTone.Warning : NoticeTone.Info;
 
-    /// <summary>정책이 이 이벤트에서 무슨 일을 하는지 한 줄.</summary>
-    private string EffectText => NotifyTargetKinds.Effect(_selected?.TargetKind);
-
     /// <summary>정책이 안 걸리는 이벤트에 띄우는 까닭.</summary>
     private string UngovernedText =>
-        "이 알림은 아직 설정이 걸리지 않습니다 — 보내는 자리가 알림 서버를 거치지 않거나, "
-        + "막으면 안 되는 알림입니다(시험 발송 · 비밀번호 재설정). 목록에 두는 것은 "
-        + "「이런 알림이 나간다」를 숨기지 않기 위해서입니다.";
+        "이 알림은 설정이 걸리지 않습니다.";
 
     private string PushHint => _selected is { SupportsPush: false }
         ? "이 알림은 앱 푸시로 나가지 않습니다."
@@ -660,10 +653,6 @@ public partial class NotifyPolicyPage : IDisposable
 
     private static string RoleMailHint(NotifyEventDto ev) =>
         ev.SupportsEmail ? "이 역할에 이메일로 보냅니다." : "이 알림은 이메일로 나가지 않습니다.";
-
-    private string RoleEffectText => _selectedRole is null
-        ? string.Empty
-        : $"「{_selectedRole.Name}」 역할에 부여된 알림 이벤트 수신 권한을 확인하고 지정합니다. 설정 변경 시 즉시 저장됩니다.";
 
     /// <summary>선택된 역할에 대해 모든 지원 이벤트의 앱 푸시가 켜져 있는지 확인한다.</summary>
     private bool AllRolePush =>

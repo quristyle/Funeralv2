@@ -144,10 +144,6 @@
         {
             <div class="pm-diagram-loading">불러오는 중…</div>
         }
-        @if (_loaded is null && !Loading)
-        {
-            <div class="tl-empty">프로젝트와 DB 를 고르고 「불러오기」를 누르십시오.</div>
-        }
         <div class="tl-host" @ref="_host"></div>
     </div>
 
@@ -345,7 +341,7 @@
         @if (_dbNotice is not null)
         {
             <PageNotice Tone="NoticeTone.Warning"
-                        Text="@(_dbTables is null ? $"{_dbNotice} 이름을 직접 적어 놓으십시오." : _dbNotice)" />
+                        Text="@_dbNotice" />
         }
 
         <div class="tl-pick__bar">

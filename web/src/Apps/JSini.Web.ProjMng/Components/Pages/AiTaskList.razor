@@ -309,15 +309,7 @@ AI 작업 지시 — 왼쪽에서 고르고 오른쪽에서 고친다. 오른쪽
 
     <Second>
     <CommCont Title="@EditTitle" Hint="@EditHint" CssClass="pm-ai-detail-panel h-100">
-        @if (_edit is null)
-        {
-            <div class="pm-ai-empty" role="status">
-                <div class="pm-ai-empty__icon" aria-hidden="true">✦</div>
-                <strong>작업을 선택해 주세요</strong>
-                <p>왼쪽 목록에서 작업을 고르거나, 목록 아래 띠의 ＋ 를 눌러 새 작업을 만듭니다.</p>
-            </div>
-        }
-        else
+        @if (_edit is not null)
         {
             @* 도는 중에는 못 고친다 — 실행기는 이미 옛 본문을 들고 떠났다. *@
             @if (_edit.IsBusy)

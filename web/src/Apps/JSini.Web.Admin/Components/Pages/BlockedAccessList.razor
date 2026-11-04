@@ -67,7 +67,6 @@
     <div class="jsini-stat">
         <div class="jsini-stat__label">관리 밖 화면</div>
         <div class="jsini-stat__value">@UnmanagedScreens.ToString("N0")</div>
-        <div class="jsini-hint">메뉴가 없다</div>
     </div>
     <div class="jsini-stat">
         <div class="jsini-stat__label">사람</div>
@@ -83,7 +82,7 @@
 @if (Truncated is { } cut)
 {
     <PageNotice Tone="NoticeTone.Info"
-                Text="@($"최근 {cut:N0}건만 보여 줍니다. 그 앞의 기록은 기간을 좁히거나 사용자를 고르십시오.")" />
+                Text="@($"최근 {cut:N0}건만 보여 줍니다.")" />
 }
 
 <CommCont>

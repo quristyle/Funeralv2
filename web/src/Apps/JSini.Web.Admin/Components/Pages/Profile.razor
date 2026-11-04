@@ -316,7 +316,6 @@
                                                 <span class="jsini-badge @SocialBadgeClass(provider)">@SocialProviderName(provider)</span>
                                             }
                                         }
-                                        <span class="jsini-text-muted ad-sociallite__note">[계정 정보] 탭에서 결합 상세 확인 가능</span>
                                     </div>
                                 </DxFormLayoutItem>
                             }
@@ -365,11 +364,7 @@
                                       Click="@Revert" />
                         </div>
 
-                        <p class="jsini-hint">
-                            이메일 변경은 이메일 인증을 완료해야 처리할 수 있습니다.
-                            전화번호는 번호를 직접 수정하거나 추가/삭제할 수 있으며, 첫 번째 번호가 대표 연락처로 지정됩니다.
-                            생년월일은 생활과환경의 「생일 목록」이 읽습니다. 비워 두면 그 목록에 나오지 않습니다.
-                        </p>
+                        <p class="jsini-hint">생년월일을 비워 두면 생활과환경의 「생일 목록」에 나오지 않습니다.</p>
                     </DxTabPage>
 
                     @* ── 계정 정보 ─────────────────────────── *@
@@ -705,7 +700,7 @@
                                            ShowCheckboxes="true"
                                            CssClass="ad-pin__list">
                                     <EmptyDataAreaTemplate>
-                                        @(_isPinsStacked ? "아래쪽에서" : "오른쪽에서") 골라 「고정」을 누르십시오.
+                                        고정된 메뉴가 없습니다.
                                     </EmptyDataAreaTemplate>
                                 </DxListBox>
 
@@ -821,11 +816,6 @@
                                         </li>
                                     }
                                 </ul>
-
-                                <p class="jsini-hint">
-                                    기기를 잃어버렸다면 <b>여기서 지우는 것이 그 기기를 끊는
-                                    유일한 방법</b>입니다. 지워도 비밀번호 로그인은 그대로입니다.
-                                </p>
                             }
 
                             @* 연결된 소셜 계정. 붙여 두면 로그인 화면의 그 단추로 아이디 없이 들어온다. 이 자리가 없으면 이미 계정이 있는 사람이 소셜로 들어와 승인 대기 계정이 새로 생기므로, 「이미 들어와 있는 내가 붙인다」가 정상 경로다. 붙이기는 공급자에 다녀오는 이동이다(SocialLoginFlow). *@
@@ -881,11 +871,6 @@
                                         }
                                     </div>
                                 }
-
-                                <p class="jsini-hint">
-                                    끊으면 그 소셜 계정으로는 더 들어올 수 없습니다.
-                                    아이디·비밀번호 로그인은 그대로입니다.
-                                </p>
                             }
 
                             @* 로그인 방식 우선순위. 로그인 화면이 무엇을 먼저 묻는지 정한다 — 이 기기에만 적는다(로그인 전이라 서버는 누구인지 모르고, 패스키는 기기마다 따로다). *@
@@ -903,17 +888,11 @@
                                             CssClass="ad-setting__pick" />
                             </div>
 
-                            <p class="jsini-hint">
-                                우선순위는 <b>이 기기에서만</b> 적용됩니다 — 지문·얼굴은 기기마다
-                                따로 등록하기 때문입니다. 다른 기기에서는 그 기기에서 다시 고릅니다.
-                            </p>
-
                             @foreach (var row in SecurityRows)
                             {
                                 <div class="ad-setting">
                                     <div>
                                         <div class="ad-setting__name">@row.Name</div>
-                                        <div class="ad-setting__desc">@row.Desc</div>
                                     </div>
                                     @* `DxSwitch` 는 DevExpress 에 없다. 켬·끔은 이것뿐이다. *@
                                     <DxCheckBox Checked="@row.Value"
@@ -922,11 +901,7 @@
                             }
                         </section>
 
-                        <p class="jsini-hint">
-                            지문 · 얼굴 로그인을 뺀 나머지 켬·끔은 계정에 기록만 됩니다.
-                            <b>실제 2차 인증 흐름은 아직 붙지 않았습니다</b> — 지금은
-                            의사를 남겨 두는 자리입니다.
-                        </p>
+                        <p class="jsini-hint">위 켬·끔은 계정에 기록만 됩니다. 2차 인증은 아직 연결되지 않았습니다.</p>
                     </DxTabPage>
 
                     @* ── 비밀번호 변경 ─────────────────────── *@
@@ -951,13 +926,6 @@
                             }
                         </DxFormLayout>
 
-                        <p class="jsini-hint">
-                            바꾸고 나면 <b>새 비밀번호로 다시 로그인</b>해야 합니다. 지금
-                            들고 있는 인증에는 바꾸기 전 시각이 들어 있어, 재로그인하지
-                            않으면 바꿨는데도 계속 막힙니다. 그 뒤처리까지 하는 전용
-                            화면에서 처리합니다.
-                        </p>
-
                         <div class="jsini-toolbar">
                             <div class="jsini-toolbar__spacer"></div>
                             <DxButton Text="비밀번호 변경 화면으로" RenderStyle="ButtonRenderStyle.Primary"
@@ -973,7 +941,6 @@
                                 <div class="ad-setting">
                                     <div>
                                         <div class="ad-setting__name">@row.Name</div>
-                                        <div class="ad-setting__desc">@row.Desc</div>
                                     </div>
                                     <DxCheckBox Checked="@row.Value"
                                                 CheckedChanged="@((bool v) => ToggleSettingAsync(row.Field, v))" />

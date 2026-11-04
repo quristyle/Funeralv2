@@ -57,10 +57,7 @@
 
             <PageNotice Text="@_error" Tone="NoticeTone.Error" />
 
-            @* 잠금은 예의 수준이다 — 정말로 끊어야 하면 로그아웃해야 한다고 밝혀 둔다. 로그아웃이 폼 제출인 이유는 UserMenu 와 같다. *@
-            <p class="jsini-lock__hint">
-                자리를 오래 비우거나 남이 쓰는 기기라면 잠금이 아니라 로그아웃이 맞습니다.
-            </p>
+            @* 로그아웃이 폼 제출인 이유는 UserMenu 와 같다. *@
 
             <form action="/logout" method="post" class="jsini-lock__logout">
                 <AntiforgeryToken />

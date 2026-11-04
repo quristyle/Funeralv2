@@ -66,11 +66,7 @@
                        Style="width: 13rem" />
         </Actions>
         <ChildContent>
-            @if (_picked is null)
-            {
-                <PageNotice Tone="NoticeTone.Info" Text="@PickPrompt" />
-            }
-            else
+            @if (_picked is not null)
             {
                 <CommGrd TItem="BoardRow"
                          Data="@_right"

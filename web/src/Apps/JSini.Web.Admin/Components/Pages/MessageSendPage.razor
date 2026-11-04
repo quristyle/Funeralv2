@@ -47,12 +47,6 @@
         @* 제목은 붙잡고 표만 구른다 — 통째로 구르면 「몇 명 고름」도 올라가 버린다. *@
         <h2 class="ad-subhead">받는 사람 (@_picked.Count 명 고름 / 전체 @_accounts.Count 명)</h2>
 
-        @if (_picked.Count == 0)
-        {
-            <PageNotice Tone="NoticeTone.Info"
-                        Text="목록에서 받을 사람을 고르십시오." />
-        }
-
         @* 표로 바꾸면서 칸 머리의 「모두 고르기」·칸별 정렬·아래 띠를 얻었다. 체크 칸은 SelectionMode 가 여럿일 때 화면이 손으로 넣는다(CommGrd 머리말).
            조건줄은 읽어 온 목록 전체를 좁히고, 칸 검색은 그중 한 칸만 본다. *@
         <CommGrd TItem="AccountDto"
@@ -122,10 +116,6 @@
             @* ── 웹푸시 ─────────────────────────────────────────────── *@
             <DxTabPage Text="PWA 발송">
                 <div class="ad-sendform">
-@* 남기는 것은 받는 쪽이 등록해야 도착한다는 것 하나다 — 「보냈는데 안 왔다」의 거의 모든 원인이다. *@
-                    <PageNotice Tone="NoticeTone.Info"
-                                Text="받는 사람이 이 포털을 알림 설정에서 등록해 두어야 도착합니다." />
-
                     <div class="ad-field">
                         <label class="ad-field__label">제목 <span class="ad-field__must">*</span></label>
                         <DxTextBox @bind-Text="_push.Title" ValidationEnabled="false" />
@@ -172,10 +162,7 @@
                         <label class="ad-field__label">묶음 이름(태그)</label>
                         <DxTextBox @bind-Text="_push.Tag"
                                    ValidationEnabled="false" />
-                        <div class="jsini-hint">
-                            같은 태그의 알림은 브라우저가 <b>하나로 합칩니다</b>. 같은 건을 여러 번 갱신해
-                            보낼 때만 적습니다 — 비우면 올 때마다 따로 쌓입니다.
-                        </div>
+                        <div class="jsini-hint">같은 태그의 알림은 하나로 합쳐집니다. 비우면 올 때마다 따로 쌓입니다.</div>
                     </div>
 
                     <div class="jsini-toolbar">
@@ -197,14 +184,14 @@
                     @if (!MailToEdited && _picked.Count > 0 && NoEmail.Count > 0)
                     {
                         <PageNotice Tone="NoticeTone.Warning"
-                                    Text="@($"고른 {_picked.Count}명 중 {NoEmail.Count}명은 이메일 주소가 없어 아래 받는 사람에 안 들어갔습니다 — {string.Join(" · ", NoEmail.Take(5))}{(NoEmail.Count > 5 ? " 외" : "")}. 주소를 알면 직접 적을 수 있습니다.")" />
+                                    Text="@($"고른 {_picked.Count}명 중 {NoEmail.Count}명은 이메일 주소가 없어 아래 받는 사람에 안 들어갔습니다 — {string.Join(" · ", NoEmail.Take(5))}{(NoEmail.Count > 5 ? " 외" : "")}.")" />
                     }
 
                     @* 승인 대기인 사람을 골랐을 때 화면이 그 사실을 말한다 — 가입 안내·보완 요청이 이 화면에서 나가는 메일이다. *@
                     @if (PickedPending.Count > 0)
                     {
                         <PageNotice Tone="NoticeTone.Info"
-                                    Text="@($"고른 사람 중 {PickedPending.Count}명은 아직 승인 대기입니다 — {string.Join(" · ", PickedPending.Take(5))}{(PickedPending.Count > 5 ? " 외" : "")}. 주소가 있으면 메일은 그대로 나갑니다.")" />
+                                    Text="@($"고른 사람 중 {PickedPending.Count}명은 아직 승인 대기입니다 — {string.Join(" · ", PickedPending.Take(5))}{(PickedPending.Count > 5 ? " 외" : "")}.")" />
                     }
 
                     @* 주소 꼴이 아닌 것은 적는 동안 말한다 — 서버는 나머지에게 이미 나간 뒤라 고쳐 다시 보내면 두 번 받는다. *@
@@ -228,11 +215,6 @@
                                       RenderStyle="ButtonRenderStyle.Secondary"
                                       Enabled="@MailToEdited" Click="@ResetMailToAsync" />
                             <span class="jsini-text-muted">@MailToHint</span>
-                        </div>
-
-                        <div class="jsini-hint">
-                            쉼표·세미콜론·줄바꿈으로 나눕니다. <b>왼쪽에서 고르지 않은 사람에게도</b>
-                            주소만 적으면 나갑니다.
                         </div>
                     </div>
 
@@ -279,7 +261,7 @@
             <DxTabPage Text="문자 발송">
                 <div class="ad-sendform">
                     <PageNotice Tone="NoticeTone.Warning"
-                                Text="문자 발송은 아직 연결되지 않았습니다. 보내는 통로(대행사·발신번호 사전등록)가 정해지면 이 화면 그대로 동작합니다. 지금은 눌러도 아무 데도 가지 않습니다." />
+                                Text="문자 발송은 아직 연결되지 않았습니다." />
 
                     @if (_picked.Count > 0 && NoPhone.Count > 0)
                     {
@@ -305,7 +287,6 @@
                     <div class="jsini-toolbar">
                         <DxButton Text="문자 보내기" RenderStyle="ButtonRenderStyle.Primary"
                                   Enabled="false" />
-                        <span class="jsini-text-muted">통로가 연결되면 켜집니다.</span>
                     </div>
                 </div>
             </DxTabPage>
@@ -314,7 +295,7 @@
             <DxTabPage Text="카카오 발송">
                 <div class="ad-sendform">
                     <PageNotice Tone="NoticeTone.Warning"
-                                Text="카카오 알림톡은 아직 연결되지 않았습니다. 채널 등록과 템플릿 심사가 끝나면 이 화면 그대로 동작합니다. 지금은 눌러도 아무 데도 가지 않습니다." />
+                                Text="카카오 알림톡은 아직 연결되지 않았습니다." />
 
                     <div class="ad-field">
                         <label class="ad-field__label">발신 채널</label>
@@ -325,10 +306,6 @@
                         <label class="ad-field__label">템플릿 코드</label>
                         <DxTextBox @bind-Text="_kakao.TemplateCode"
                                    ValidationEnabled="false" />
-                        @* 알림톡은 심사받은 템플릿의 빈칸만 채운다 — 그 성질을 화면이 말하지 않으면 자유 문구를 적고 실패한다. *@
-                        <div class="jsini-hint">
-                            알림톡은 <b>심사받은 템플릿</b>으로만 나갑니다. 아래는 그 템플릿의 빈칸을 채우는 값입니다.
-                        </div>
                     </div>
 
                     <div class="ad-field">
@@ -347,7 +324,6 @@
                     <div class="jsini-toolbar">
                         <DxButton Text="알림톡 보내기" RenderStyle="ButtonRenderStyle.Primary"
                                   Enabled="false" />
-                        <span class="jsini-text-muted">통로가 연결되면 켜집니다.</span>
                     </div>
                 </div>
             </DxTabPage>

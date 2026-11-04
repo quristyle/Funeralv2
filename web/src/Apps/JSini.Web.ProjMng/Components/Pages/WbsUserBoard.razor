@@ -32,7 +32,7 @@ WBS 개발자별 현황(원본 Users.vue). 월·주 × 담당자·개발자 네 
 <section class="pm-wpanel">
     <h2 class="pm-wpanel__head">
         월단위 담당자별 건수
-        <span class="pm-wpanel__hint">@BasisLabel 기준 · 담당자 user_bp_id / 완료 complate_yn · 칸을 누르면 상세 목록으로 이동</span>
+        <span class="pm-wpanel__hint">@BasisLabel 기준</span>
     </h2>
     <WbsHeatMatrix Rows="@_planMonth" ColHead="월" OnPick="@(p => Drill("user", "month", p))" />
 </section>
@@ -48,7 +48,7 @@ WBS 개발자별 현황(원본 Users.vue). 월·주 × 담당자·개발자 네 
 <section class="pm-wpanel pm-wpanel--real">
     <h2 class="pm-wpanel__head">
         월단위 개발자별 건수
-        <span class="pm-wpanel__hint">@BasisLabel 기준 · 개발자 user_real_id / 완료 complate_real_yn</span>
+        <span class="pm-wpanel__hint">@BasisLabel 기준</span>
     </h2>
     <WbsHeatMatrix Rows="@_realMonth" ColHead="월" OnPick="@(p => Drill("realUser", "month", p))" />
 </section>

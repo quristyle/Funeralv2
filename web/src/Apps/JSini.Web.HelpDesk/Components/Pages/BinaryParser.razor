@@ -56,11 +56,10 @@
 
 <CommPopup @bind-Visible="_savingSample" HeaderText="전문 보관" Width="420px">
     <BodyContentTemplate Context="popup">
-        <div class="jsini-hint">
-            @(_sampleId is null
-                ? "새 이름으로 보관합니다."
-                : "불러온 전문을 지금 내용으로 덮어씁니다. 이름을 바꾸면 새로 보관합니다.")
-        </div>
+        @if (_sampleId is not null)
+        {
+            <div class="jsini-hint">불러온 전문을 지금 내용으로 덮어씁니다.</div>
+        }
 
         <DxTextBox @bind-Text="_sampleTitle" NullText="전문 이름" />
 

@@ -149,9 +149,7 @@ else
                     }
                     else
                     {
-                        <p class="le-today__empty">
-                            기상청 실황을 받지 못했습니다. 아래 예보만 보여 드립니다.
-                        </p>
+                        <p class="le-today__empty">기상청 실황을 받지 못했습니다.</p>
                     }
                 </ChildContent>
             </DashboardSection>
@@ -311,11 +309,7 @@ else
                                   RenderStyle="@MetricStyle(TrendMetric.Humid)"
                                   Click="@(() => ShowMetric(TrendMetric.Humid))" />
                     </div>
-                    <span class="jsini-hint">
-                        지난 10시간 실측 · 「지금」 칸부터 예보
-                        @* 넘기기 안내는 손가락 화면에서만 보인다(css). *@
-                        <span class="le-trend__swipe">· 옆으로 쓸어 넘깁니다</span>
-                    </span>
+                    <span class="jsini-hint">지난 10시간 실측 · 「지금」 칸부터 예보</span>
                 </div>
 
                 @* 카드 넷은 한 번 그려 두고 가로 스크롤로 넘긴다(css scroll-snap). 담장(ErrorBoundary)은 차트가 터져도 이 칸만 안내로 바꾸려고 둔다. *@

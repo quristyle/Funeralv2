@@ -16,7 +16,6 @@
     }
 
     <section class="ct-hero">
-        <div class="ct-hero__title">거래처를 검색하십시오</div>
         <div class="ct-hero__search" @onkeydown="@OnSearchKeyAsync">
             <DxTextBox @bind-Text="_q" BindValueMode="BindValueMode.OnInput"
                        NullText="회사명 · 사업자번호 · 대표자"
@@ -58,7 +57,7 @@
         }
         else if (!Loading)
         {
-            <PageNotice Text="아직 본 거래처가 없습니다. 위에서 검색해 거래처 상세를 열면 여기 남습니다." />
+            <PageNotice Text="아직 본 거래처가 없습니다." />
         }
     </CommCont>
 </div>

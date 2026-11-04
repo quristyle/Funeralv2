@@ -101,9 +101,12 @@
                 <DxTextBox @bind-Text="_form.Nickname" NullText="윙바디 · 큰 차 …" />
             </DxFormLayoutItem>
 
-            <DxFormLayoutItem ColSpanMd="12">
-                <div class="@PlateToneClass">@PlateText</div>
-            </DxFormLayoutItem>
+            @if (_plate is not null)
+            {
+                <DxFormLayoutItem ColSpanMd="12">
+                    <div class="@PlateToneClass">@_plate.Summary</div>
+                </DxFormLayoutItem>
+            }
 
             <DxFormLayoutItem Caption="차종" ColSpanMd="6">
                 <DxComboBox Data="@CargoVehicleCodes.ClassOptions" @bind-Value="_form.VehicleClass"
@@ -132,13 +135,6 @@
             </DxFormLayoutItem>
 
         </DxFormLayout>
-
-        <div class="jsini-hint">
-            차량번호를 적고 칸을 떠나면 <b>화물차인지 · 사업용인지를 번호판에서 읽어</b> 채웁니다.
-            축수는 안 적어도 됩니다 — 하이패스 이용내역에 찍힌 차종으로 확인하실 수 있습니다.
-            심야할인은 사업용 화물차 제도이고, 3축 이상(4·5종)이 본래 대상입니다.
-            차종은 할인율을 바꾸지 않습니다 — 할인율을 정하는 것은 야간 이용비율 하나입니다.
-        </div>
     </BodyContentTemplate>
 
     <FooterContentTemplate Context="popup">

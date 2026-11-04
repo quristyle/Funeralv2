@@ -68,11 +68,7 @@
         </Actions>
 
         <ChildContent>
-        @if (_modelId is null)
-        {
-            <PageNotice Text="왼쪽에서 모델을 고르면 그 모델의 해석 규칙이 나옵니다." />
-        }
-        else
+        @if (_modelId is not null)
         {
             <CommGrd TItem="ParseItem" Data="@_items"
                      ExportName="해석규칙"

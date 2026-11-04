@@ -7,8 +7,7 @@
     min-width: 0;
 }
 
-.pm-delay__asof,
-.pm-delay__hint {
+.pm-delay__asof {
     margin: 0;
     font-size: var(--jsini-fs-sm);
     color: var(--jsini-text-muted);

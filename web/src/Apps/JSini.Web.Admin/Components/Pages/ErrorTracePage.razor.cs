@@ -42,7 +42,7 @@ public partial class ErrorTracePage
     private string? ListHint => _rows.Count switch
     {
         0 => null,
-        Cap => $"{Cap}건까지만 읽었습니다. 기간을 좁히십시오.",
+        Cap => $"{Cap}건까지만 읽었습니다.",
         var n => $"{n}건",
     };
 

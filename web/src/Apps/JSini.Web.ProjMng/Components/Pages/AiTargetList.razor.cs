@@ -39,8 +39,8 @@ public partial class AiTargetList
 
     /// <summary>허용 뿌리는 서버가 알려 준 값이다. 화면에 박으면 설정을 바꿨을 때 안내만 옛말이 된다.</summary>
     private string RootsNotice => _roots.Count == 0
-        ? "경로는 서버가 허용한 뿌리 아래여야 합니다. 등록은 관리자만 하고, 작업 화면은 여기 등록된 것에서 고르기만 합니다."
-        : $"경로는 다음 아래여야 합니다 — {string.Join(" · ", _roots)}. 작업 화면은 여기 등록된 것에서 고르기만 합니다.";
+        ? "경로는 서버가 허용한 뿌리 아래여야 합니다."
+        : $"경로는 다음 아래여야 합니다 — {string.Join(" · ", _roots)}.";
 
     protected override async Task OnInitializedAsync()
     {

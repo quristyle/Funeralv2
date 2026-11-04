@@ -82,11 +82,7 @@
     </BodyContentTemplate>
 
     <FooterContentTemplate Context="popupContext">
-        @if (Preview)
-        {
-            <span class="jsini-text-muted">실제 사용자에게 보이는 그대로입니다.</span>
-        }
-        else if (Current is not null)
+        @if (!Preview && Current is not null)
         {
             @* 오늘 하루 보지 않기는 브라우저에만 남는다(localStorage). 미리보기에는 두지 않는다 — 관리자가 확인만 하는 자리라 흔적을 남기면 안 된다. *@
             <DxCheckBox Checked="@_dismiss"

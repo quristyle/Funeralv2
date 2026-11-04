@@ -57,11 +57,7 @@ DB 로직 관리. 개발 도구 화면들(테이블 관리·쿼리 테스터·DB
 
     <CommCont Title="@(_base is null ? "질의" : $"{_base.DslCd} 의 질의")"
               CssClass="pm-split__main">
-        @if (_base is null)
-        {
-            <PageNotice Text="왼쪽에서 이름표를 고르면 그 질의가 나옵니다." Tone="NoticeTone.Info" />
-        }
-        else
+        @if (_base is not null)
         {
             <CommGrd TItem="DbLogicQueryDto"
                      Data="@_queries"

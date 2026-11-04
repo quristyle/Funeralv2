@@ -30,11 +30,7 @@ DB 개체 탐색 — 고른 프로젝트 DB 의 테이블·프로시저·함수�
     </Fields>
 </CommSch>
 
-@if (_dbItem is null)
-{
-    <PageNotice Text="프로젝트와 DB 를 고르십시오." Tone="NoticeTone.Info" />
-}
-else
+@if (_dbItem is not null)
 {
     <DxTabs @bind-ActiveTabIndex="_tab">
         <DxTabPage Text="@($"테이블 {_tables.Table.Rows.Count}")">
@@ -53,11 +49,7 @@ else
                         </CommCont>
                     </First>
                     <Second>
-                        @if (_previewOf is null)
-                        {
-                            <PageNotice Text="테이블을 고르면 앞 10건을 보여 줍니다." Tone="NoticeTone.Info" />
-                        }
-                        else
+                        @if (_previewOf is not null)
                         {
                             <h2 class="pm-subhead">@_previewOf · 앞 10건</h2>
                             <CommGrd TItem="DataRowView" Data="@_preview.Table" ExportName="미리보기"
@@ -89,11 +81,7 @@ else
                         </CommCont>
                     </First>
                     <Second>
-                        @if (_routineName is null)
-                        {
-                            <PageNotice Text="프로시저를 고르면 본문을 보여 줍니다." Tone="NoticeTone.Info" />
-                        }
-                        else
+                        @if (_routineName is not null)
                         {
                             <h2 class="pm-subhead">@_routineName</h2>
 
@@ -121,11 +109,7 @@ else
                         </CommCont>
                     </First>
                     <Second>
-                        @if (_routineName is null)
-                        {
-                            <PageNotice Text="함수를 고르면 본문을 보여 줍니다." Tone="NoticeTone.Info" />
-                        }
-                        else
+                        @if (_routineName is not null)
                         {
                             <h2 class="pm-subhead">@_routineName</h2>
                             <CodeEditor Value="@_routineBody" ReadOnly="true" Height="420px" Language="pgsql" />

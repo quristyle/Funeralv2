@@ -144,13 +144,13 @@ WBS 상세 목록. 다른 화면의 막대·칸을 누르면 조건이 주소로
 @if (_noIdCount > 0)
 {
     <PageNotice Tone="NoticeTone.Warning"
-                Text="@($"Activity ID 가 정해지지 않은 대상이 {_noIdCount}건 있습니다(NOID-…). ProjectView 링크가 붙지 않습니다 — 관리 칸 또는 표의 「＋ ID」로 채웁니다.")" />
+                Text="@($"Activity ID 가 정해지지 않은 대상이 {_noIdCount}건 있습니다(NOID-…). ProjectView 링크가 붙지 않습니다.")" />
 }
 
 @if (PvShownButEmpty)
 {
     <PageNotice Tone="NoticeTone.Info"
-                Text="PV 칸은 ProjectView 에서 걷어 온 값입니다. 아직 수집한 적이 없어 비어 있습니다 — 상단 도구줄의 「PV 수집」으로 수집 스크립트를 실행할 수 있습니다." />
+                Text="PV 칸은 아직 수집한 적이 없어 비어 있습니다." />
 }
 
 <CommCont Hint="@Hint">
@@ -525,12 +525,15 @@ WBS 상세 목록. 다른 화면의 막대·칸을 누르면 조건이 주소로
                     }
                     @if (_draft.Count == 0)
                     {
-                        <li class="pm-wbs-colorder__empty">고른 칸이 없습니다. 왼쪽에서 체크하세요.</li>
+                        <li class="pm-wbs-colorder__empty">고른 칸이 없습니다.</li>
                     }
                 </ol>
             </div>
         </div>
-        <p class="jsini-hint">@(_colWho is { Length: > 0 } who ? $"{who} 님 설정으로 서버에 보관됩니다 — 다른 PC 에서 열어도 그대로 보입니다." : "이 화면에만 적용됩니다(서버에 보관하지 못했습니다).")</p>
+        @if (_colWho is not { Length: > 0 })
+        {
+            <p class="jsini-hint">서버에 보관하지 못해 이 화면에만 적용됩니다.</p>
+        }
     </BodyContentTemplate>
     <FooterContentTemplate Context="popup">
         <DxButton Text="확인" RenderStyle="ButtonRenderStyle.Primary" Enabled="@(_draft.Count > 0)" Click="@ApplyColumnsAsync" />
@@ -556,7 +559,7 @@ WBS 상세 목록. 다른 화면의 막대·칸을 누르면 조건이 주소로
         </DxFormLayout>
         @if (_formKey is null)
         {
-            <div class="jsini-hint">Activity ID 를 비우면 임시 번호(NOID-…)로 세우고, 나중에 「ID 지정」으로 채웁니다.</div>
+            <div class="jsini-hint">Activity ID 를 비우면 임시 번호(NOID-…)로 세웁니다.</div>
         }
     </BodyContentTemplate>
     <FooterContentTemplate Context="popup">
@@ -709,7 +712,6 @@ WBS 상세 목록. 다른 화면의 막대·칸을 누르면 조건이 주소로
                     {
                         <a class="btn btn-outline-primary text-start p-2" href="@work" target="_blank" rel="noopener noreferrer">
                             <div class="fw-bold">작업(Activity) 상세 ↗</div>
-                            <small class="text-muted d-block">액티비티 진척 및 일정 상세</small>
                         </a>
                     }
 
@@ -743,7 +745,6 @@ WBS 상세 목록. 다른 화면의 막대·칸을 누르면 조건이 주소로
                         </button>
                     }
                 </div>
-                <div class="small text-muted">ProjectView 는 사내망 환경에서 새 창으로 열립니다.</div>
             </div>
         }
     </BodyContentTemplate>

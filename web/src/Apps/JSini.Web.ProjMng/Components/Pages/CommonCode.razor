@@ -57,11 +57,7 @@
 
     <CommCont Title="@(_group is null ? "코드" : $"{_group.CmNm} 의 코드")"
               CssClass="pm-split__main">
-        @if (_group is null)
-        {
-            <PageNotice Text="왼쪽에서 묶음을 고르면 그 코드가 나옵니다." Tone="NoticeTone.Info" />
-        }
-        else
+        @if (_group is not null)
         {
             <CommGrd TItem="DevCommonCodeDto"
                      Data="@_codes"

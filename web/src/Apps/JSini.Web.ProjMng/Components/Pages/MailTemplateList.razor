@@ -43,11 +43,7 @@
         </Actions>
 
         <ChildContent>
-            @if (_form is null)
-            {
-                <PageNotice Text="왼쪽에서 템플릿을 고르거나 「새 템플릿」을 누르십시오." Tone="NoticeTone.Info" />
-            }
-            else
+            @if (_form is not null)
             {
                 <DxFormLayout CssClass="pm-editform pm-mailtpl__form">
                     <DxFormLayoutItem Caption="이름" ColSpanMd="6">
@@ -70,7 +66,7 @@
                         <DxTextBox @bind-Text="_form.Subject" ReadOnly="@(!CanSave)" />
                     </DxFormLayoutItem>
                 </DxFormLayout>
-                <p class="jsini-hint">제목을 비우면 「@ScheduleMailBody.DefaultSubject」 을 씁니다. 제목에도 치환자를 쓸 수 있습니다.</p>
+                <p class="jsini-hint">제목을 비우면 「@ScheduleMailBody.DefaultSubject」 을 씁니다.</p>
 
                 <div class="pm-mailtpl__keys">
                     @foreach (var (key, text) in ScheduleMailBody.Placeholders)

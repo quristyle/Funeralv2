@@ -39,9 +39,7 @@
                               IconCssClass="jsini-icon-user"
                               Click="@(() => OpenPickerAsync(PickTarget.To))" />
 
-                    <span class="jsini-text-muted">
-                        쉼표·세미콜론·줄바꿈으로 나눕니다. 지금 @ToAddresses.Count 곳.
-                    </span>
+                    <span class="jsini-text-muted">@ToAddresses.Count 곳</span>
                 </div>
 
                 @* 계정 목록과 갈래가 다르다 — 이쪽은 내가 실제로 보낸 곳이라 계정이 없는 거래처도 여기에만 있다. 누르면 받는 사람에, ＋를 누르면 참조에 든다. *@
@@ -94,7 +92,6 @@
             <div class="ad-tpl">
                 <button type="button" class="ad-tpl__head" @onclick="@(() => _tplOpen = !_tplOpen)">
                     <span class="ad-tpl__title">간편 작성 틀</span>
-                    <span class="ad-tpl__hint">인사말 · 내용 · 맺음말을 적으면 본문을 만들어 줍니다</span>
                     <span class="@(_tplOpen ? "jsini-icon-fold" : "jsini-icon-unfold")"></span>
                 </button>
 
@@ -110,7 +107,7 @@
                         <div class="ad-field">
                             <label class="ad-field__label">내용</label>
                             <DxMemo @bind-Text="_tplBody" Rows="6" ValidationEnabled="false"
-                                    NullText="전하려는 내용을 적으십시오. 빈 줄로 나누면 문단이 됩니다." />
+                                    NullText="전하려는 내용" />
                             @* 제목이 비어 있으면 첫 줄을 제목으로 가져간다 — 제목 없는 메일은 받는 쪽에서 「(제목 없음)」이 되어 그것을 여는 사람은 드물다. *@
                             <div class="jsini-hint">
                                 제목을 아직 안 적었으면 <b>첫 줄이 제목</b>이 됩니다.
@@ -177,12 +174,6 @@
                             BindValueMode="BindValueMode.OnInput"
                             Rows="4" ValidationEnabled="false"
                             CssClass="ad-summary__box" />
-                }
-                else
-                {
-                    <div class="jsini-hint">
-                        본문을 적은 뒤 누르면 핵심을 세 줄로 추려 줍니다. 넣기 전에 고칠 수 있습니다.
-                    </div>
                 }
             </div>
 

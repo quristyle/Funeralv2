@@ -32,7 +32,6 @@ WBS 기간별 현황(원본 Period.vue). 월·주 막대를 나란히 두고, �
     <section class="pm-wpanel">
         <h2 class="pm-wpanel__head">
             월단위 건수
-            <span class="pm-wpanel__hint">막대를 누르면 상세 목록으로 이동</span>
         </h2>
         <WbsBarChart Items="@MonthItems" OnPick="@(b => Drill("month", b))" />
     </section>

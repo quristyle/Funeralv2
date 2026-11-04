@@ -565,13 +565,6 @@
   color: var(--jsini-text-muted);
 }
 
-.fn-pd__note {
-  flex-shrink: 0;
-  padding-top: 0.9rem;
-  font-size: var(--jsini-fs-xs);
-  color: var(--jsini-text-muted);
-}
-
 .fn-pd__tag { display: inline-flex; align-items: center; gap: 0.5rem; }
 
 .fn-pd__link { text-decoration: none; }

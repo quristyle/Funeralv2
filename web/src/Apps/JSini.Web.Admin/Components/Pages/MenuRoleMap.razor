@@ -78,11 +78,7 @@
         @* 오른쪽은 표 둘과 목록 셋이 쌓인다. 판이 남은 높이를 채우므로
            안쪽에서 굴러야 한다 — 안 굴리면 본문의 `overflow: hidden` 에 잘린다. *@
         <div class="ad-menurole">
-        @if (_detail is null)
-        {
-            <PageNotice Text="왼쪽에서 메뉴를 고르십시오." Tone="NoticeTone.Info" />
-        }
-        else
+        @if (_detail is not null)
         {
             <h2 class="ad-section">@MenuName(_detail)</h2>
             <p class="ad-stamp">
@@ -96,7 +92,7 @@
             {
                 @* 메뉴가 아무 권한 항목도 쓰지 않는 경우다 — 빈 표를 보이면 자료를 못 읽은 것처럼 읽힌다. *@
                 <PageNotice Tone="NoticeTone.Warning"
-                            Text="이 메뉴는 쓰는 권한 항목이 하나도 없습니다. [메뉴 관리]에서 먼저 지정하십시오." />
+                            Text="이 메뉴는 쓰는 권한 항목이 하나도 없습니다." />
             }
             else
             {
@@ -160,7 +156,7 @@
             @if (NoTargets)
             {
                 <PageNotice Tone="NoticeTone.Info"
-                            Text="이 메뉴에 닿는 대상이 없습니다. 이 메뉴에 「열람」을 준 역할이 없거나, 그 역할에 회사·부서·사람이 걸려 있지 않습니다. 위에서 역할의 열람을 켜고 저장한 뒤 [역할 관리]에서 대상을 지정하십시오." />
+                            Text="이 메뉴에 닿는 대상이 없습니다." />
             }
             else
             {

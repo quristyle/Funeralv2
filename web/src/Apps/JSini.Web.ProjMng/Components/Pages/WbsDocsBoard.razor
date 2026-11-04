@@ -40,8 +40,7 @@
         <div class="pm-toc" @ref="_tocEl">
             @if (_docs.Count == 0)
             {
-                <PageNotice Tone="NoticeTone.Info"
-                            Text="쪽이 없습니다. 아래 [쪽 추가] 로 시작하십시오." />
+                <PageNotice Tone="NoticeTone.Info" Text="쪽이 없습니다." />
             }
             @foreach (var doc in _docs)
             {
@@ -123,10 +122,10 @@
 
         @if (Current is null)
         {
-            <PageNotice Tone="NoticeTone.Info"
-                        Text="@(_docs.Count == 0
-                                ? "등록된 문서가 없습니다. 왼쪽 [쪽 추가] 로 시작하십시오."
-                                : "왼쪽 목차에서 쪽을 고르십시오.")" />
+            if (_docs.Count == 0)
+            {
+                <PageNotice Tone="NoticeTone.Info" Text="등록된 문서가 없습니다." />
+            }
         }
         else
         {
@@ -204,13 +203,13 @@
                     @if (CanClip)
                     {
                         <button type="button" class="pm-doc-more" @onclick="@(() => _expanded = !_expanded)">
-                            @(_expanded ? "▲ 글 접기" : "▼ 글 펼치기 — 붙인 문서가 아래에 있습니다")
+                            @(_expanded ? "▲ 글 접기" : "▼ 글 펼치기")
                         </button>
                     }
                 }
                 else if (CurrentFiles.Count == 0)
                 {
-                    <PageNotice Tone="NoticeTone.Info" Text="내용이 없습니다. [편집] 을 눌러 적으십시오." />
+                    <PageNotice Tone="NoticeTone.Info" Text="내용이 없습니다." />
                 }
 
                 @if (CurrentFile is { } file)
@@ -252,11 +251,6 @@
                                       RenderStyle="ButtonRenderStyle.Link" Click="@(() => RemoveFileAsync(file))" />
                         </PermissionView>
                     </div>
-
-                    @if (file.IsLink)
-                    {
-                        <p class="pm-doc-filenote">빈 칸으로 보이면 그 사이트가 iframe 을 막아 둔 것입니다 — [새 탭으로 열기] 로 여십시오.</p>
-                    }
 
                     @* 올린 HTML 은 오리진을 떼어 둔다(allow-same-origin 없음) — 셸도 CSP sandbox 머리를 붙인다. 바깥 주소는 그 사이트의 오리진이라 붙여 둔다(빼면 그쪽 로그인이 깨진다). *@
                     <iframe @key="file.Id"
@@ -309,7 +303,7 @@
                 <DxTextBox @bind-Text="_linkName" />
             </DxFormLayoutItem>
         </DxFormLayout>
-        <div class="jsini-hint">이름을 비우면 주소에서 땁니다. https:// 는 생략해도 됩니다.</div>
+        <div class="jsini-hint">이름을 비우면 주소에서 땁니다.</div>
     </BodyContentTemplate>
     <FooterContentTemplate Context="popup">
         <DxButton Text="연결" RenderStyle="ButtonRenderStyle.Primary"

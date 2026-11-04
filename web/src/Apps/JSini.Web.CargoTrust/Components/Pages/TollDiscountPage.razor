@@ -13,7 +13,7 @@
     @* ── 고르는 곳 ─────────────────────────────────────── *@
     <section class="ct-panel ct-toll-form">
 
-        @* 설명은 늘 펴 두지 않는다 — 읽고 나면 다시 안 읽는 글이 자리를 먹는다. 차량 줄 오른쪽 물음표가 연다. *@
+        @* 대상 조건은 늘 펴 두지 않는다 — 차량 줄 오른쪽 물음표가 연다. *@
         @if (_vehicles.Count == 1)
         {
             <div class="ct-toll-vehicle">
@@ -23,7 +23,7 @@
                 </div>
                 <button type="button" class="@HelpButtonClass" @onclick="ToggleHelp"
                         aria-expanded="@(_helpOpen ? "true" : "false")"
-                        aria-label="구간 유형과 대상 조건 보기" title="도움말">?</button>
+                        aria-label="대상 조건 보기" title="도움말">?</button>
             </div>
         }
         else if (_vehicles.Count > 1)
@@ -33,7 +33,7 @@
                     <label class="ct-label">차량</label>
                     <button type="button" class="@HelpButtonClass" @onclick="ToggleHelp"
                             aria-expanded="@(_helpOpen ? "true" : "false")"
-                            aria-label="구간 유형과 대상 조건 보기" title="도움말">?</button>
+                            aria-label="대상 조건 보기" title="도움말">?</button>
                 </div>
                 <ChipGroup Items="@VehicleChips" Value="@_vehicleId" Label="차량"
                            ValueChanged="@(v => PickAsync(() => _vehicleId = v))" />
@@ -43,49 +43,18 @@
         {
             <div class="ct-toll-vehicle">
                 <div class="ct-toll-vehicle-who">
-                    <span class="ct-toll-vehicle-sub">등록한 차량이 없습니다. 할인율 계산은 그대로 됩니다.</span>
+                    <span class="ct-toll-vehicle-sub">등록한 차량이 없습니다.</span>
                 </div>
                 <button type="button" class="@HelpButtonClass" @onclick="ToggleHelp"
                         aria-expanded="@(_helpOpen ? "true" : "false")"
-                        aria-label="구간 유형과 대상 조건 보기" title="도움말">?</button>
+                        aria-label="대상 조건 보기" title="도움말">?</button>
             </div>
         }
 
         @if (_helpOpen)
         {
             <div class="ct-toll-help-body">
-
-                @* 구간 유형은 야간창과 세는 법을 통째로 바꾸는 한 칸이다. 「폐쇄식·개방식」을 알아보는 법(통행권을 뽑았나 · 요금소를 몇 번 지나나)을 칩 아래 한 줄로 둔다. *@
-                <dl class="ct-kinds">
-                    <div class="ct-kind">
-                        <dt>폐쇄식</dt>
-                        <dd>
-                            들어가는 영업소와 나가는 영업소가 <b>따로</b>인 구간입니다.
-                            통행권을 뽑고(하이패스는 진입을 찍고) 나갈 때 냅니다 —
-                            <b>요금소를 두 번</b> 지나고 달린 거리만큼 냅니다.
-                            고속도로 대부분이 이쪽입니다.
-                            <span class="ct-kind-rule">
-                                야간 21:00~06:00 · 그 안에 <b>머문 비율</b>로 20 · 30 · 50%
-                            </span>
-                        </dd>
-                    </div>
-                    <div class="ct-kind">
-                        <dt>개방식</dt>
-                        <dd>
-                            본선에 요금소가 서 있어 지나가며 <b>한 번</b> 내는 구간입니다.
-                            통행권이 없고 거리와 상관없이 정액입니다.
-                            도시고속도로와 짧은 지선이 이쪽이고 전국에 많지 않습니다.
-                            <span class="ct-kind-rule">
-                                야간 23:00~05:00 · <b>통과 시각</b>이 그 안이면 일괄 50%
-                            </span>
-                        </dd>
-                    </div>
-                </dl>
-
                 <TollChecks Items="@Checks" />
-                <div class="jsini-hint">
-                    실제로 깎아 주는 쪽은 한국도로공사입니다. 이 화면은 참고치입니다.
-                </div>
             </div>
         }
 

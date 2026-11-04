@@ -46,7 +46,6 @@
                 <CaptionTemplate>
                     <span class="ad-card__name">@target.Name (@target.Ip)</span>
                     <span class="jsini-badge @GetBadgeClass(ping)">@GetBadgeText(ping)</span>
-                    <span class="ad-card__sub">ICMP Ping 실시간 모니터링</span>
                 </CaptionTemplate>
                 <Items>
                     <DxFormLayoutItem ColSpanXs="12">
@@ -96,7 +95,6 @@ else if (_initialLoaded)
     <div class="alert alert-warning py-3 px-4 mb-4 d-flex align-items-center justify-content-between">
         <div>
             <strong>등록된 감시 장비가 없습니다.</strong>
-            Ping 감시 대상 장비를 등록해야 실시간 상태를 모니터링할 수 있습니다.
         </div>
         <DxButton Text="감시 장비 등록하러 가기"
                   RenderStyle="ButtonRenderStyle.Primary"
@@ -108,8 +106,8 @@ else
     <PageNotice Text="내부 장비 Ping 상태를 조회하는 중입니다..." Tone="NoticeTone.Info" />
 }
 
-@* ── 하단: 장비 통신 불가(다운) 시 알림 수신 대상 안내 ── *@
-<CommCont Hint="내부 감시 장비의 두절·복구 알림을 메일과 앱 푸시로 받는 대상 목록입니다.">
+@* ── 하단: 장비 통신 불가(다운) 시 알림 수신 대상 ── *@
+<CommCont>
     <TitleTemplate>
         <div class="d-flex align-items-center gap-2">
             <h2 class="commcont__title m-0">서버 두절 · 복구 알림 수신 대상 (메일 · 앱푸시)</h2>
@@ -123,19 +121,6 @@ else
                   Click="@GoToNotifyPolicy" />
     </Actions>
     <ChildContent>
-        <div class="alert alert-info py-2 px-3 mb-3 d-flex align-items-center justify-content-between">
-            <div>
-                <strong>알림 연동 정책 안내:</strong>
-                서버가 30초마다 등록된 각 감시 장비를 확인해 <strong>3회 연속(약 1분 반) 응답이 없으면</strong> 아래 수신자들에게 <strong>이메일</strong> 및 <strong>앱 푸시</strong>를 보내고,
-                두절이 이어지면 <strong>60분마다</strong> 다시 보내며, 통신이 <strong>정상화되면 복구 알림</strong>을 보냅니다.
-                수신 역할 및 채널은 <a href="/admin/system/notify-policy" class="alert-link">알림관리(/admin/system/notify-policy)</a> 화면에서 추가하거나 수정할 수 있습니다.
-            </div>
-            <DxButton Text="알림관리(/admin/system/notify-policy)"
-                      RenderStyle="ButtonRenderStyle.Secondary"
-                      Size="ButtonSize.Small"
-                      Click="@GoToNotifyPolicy" />
-        </div>
-
         @if (_policyPreview == null)
         {
             <PageNotice Text="알림 수신 대상을 불러오는 중입니다..." Tone="NoticeTone.Info" />
@@ -148,12 +133,12 @@ else
         else if (_policyPreview.Unrestricted)
         {
             <PageNotice Tone="NoticeTone.Info"
-                        Text="역할 제한이 설정되어 있지 않습니다. 알림관리(/admin/system/notify-policy)에서 수신 역할을 등록해 주세요." />
+                        Text="역할 제한이 설정되어 있지 않습니다." />
         }
         else if (_policyPreview.Recipients.Count == 0)
         {
             <PageNotice Tone="NoticeTone.Warning"
-                        Text="지정된 역할에 소속된 사용자가 없습니다. 알림관리 또는 역할관리에서 사용자를 배정해 주세요." />
+                        Text="지정된 역할에 소속된 사용자가 없습니다." />
         }
         else
         {
@@ -236,10 +221,6 @@ else
                     </DxGridDataColumn>
                 </Columns>
             </CommGrd>
-
-            <div class="jsini-hint mt-2">
-                * 개인이 「내 알림 설정」에서 알림을 끈 경우(본인 수신거부), 정책에서 역할을 지정했더라도 발송에서 제외됩니다.
-            </div>
         }
     </ChildContent>
 </CommCont>

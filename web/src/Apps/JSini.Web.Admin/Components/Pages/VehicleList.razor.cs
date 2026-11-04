@@ -23,10 +23,6 @@ public partial class VehicleList
     private PlateReadDto? _plate;
     private string? _readFor;
 
-    private string PlateText => _plate is null
-        ? "차량번호를 적으면 화물차인지 · 사업용인지를 번호판에서 읽어 채웁니다."
-        : _plate.Summary;
-
     /// <summary>못 읽은 것은 흐리게. 읽었어도 「사업용이 아니다」면 짚어 준다.</summary>
     private string PlateToneClass => _plate switch
     {

@@ -77,8 +77,6 @@ WBS 지연 현황(원본 Delay.vue). 착수지연과 종료지연은 독립이�
         </div>
     }
 
-    <p class="pm-delay__hint">사람 줄을 누르면 아래 지연 상세 목록이 그 사람 건으로 좁혀집니다. 같은 줄을 한 번 더 누르면 풀립니다.</p>
-
     <div class="pm-delay__pair">
         <section class="pm-delay__panel">
             <CommGrd TItem="WbsBoardDelayUserDto"
@@ -321,14 +319,6 @@ WBS 지연 현황(원본 Delay.vue). 착수지연과 종료지연은 독립이�
         <p class="pm-delay__note">
             착수지연 = 계획시작일이 <strong>@(_summary?.Asof ?? "기준일")</strong> 이전인데 실적시작일이 비어 있음 ·
             종료지연 = 계획종료일이 도래했는데 실적종료일이 비어 있음. 지연일수는 기준일과의 일수 차이입니다.
-        </p>
-        <p class="pm-delay__note">
-            <strong>ProjectView 실적시작일 전송</strong> — 위 버튼은 <em>현재 목록 중 실적시작일이 비어 있는
-            @(PvRows.Count)건</em>의 <code>시작일</code>을 ProjectView 의 <code>actualStartDate</code> 로
-            채우는 콘솔 스크립트를 만듭니다. ProjectView 로그인 탭의 F12 → Console 에 붙여넣으면 먼저
-            <code>DRY RUN</code> 으로 대상과 날짜만 출력하고, 콘솔에 <code>pvSend()</code> 를 입력할 때 실제 전송됩니다.
-            ProjectView 에 <strong>이미 실적시작일이 있는 항목은 건너뛰며</strong>,
-            진척률(<code>finishRate</code>)은 조회한 값을 그대로 되돌려 보내 건드리지 않습니다.
         </p>
     </section>
 </div>

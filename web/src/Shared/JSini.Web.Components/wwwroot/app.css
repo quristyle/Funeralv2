@@ -1243,8 +1243,7 @@ body {
   border-color: var(--jsini-accent);
 }
 
-.jsini-iconpick__empty,
-.jsini-iconpick__note {
+.jsini-iconpick__empty {
   margin: 0.5rem 0 0;
   font-size: var(--jsini-fs-2xs);
   color: var(--jsini-text-muted);
@@ -3441,38 +3440,6 @@ a.jsini-social__btn:focus-visible {
 /* 부제가 없는 카드에서 제목과 첫 칸 사이를 벌린다(제목에는 아래 여백이 없다). */
 .jsini-login__gap { height: 2.25rem; }
 
-/* 비밀번호 찾기 뒤 할 일을 적는 차례 목록. 번호는 브라우저에 맡기지 않고 직접 찍는다(글꼴마다 들여쓰기가 달라진다). */
-.jsini-steps {
-  margin: 1.25rem 0;
-  padding: 0;
-  list-style: none;
-  counter-reset: jsini-step;
-  font-size: 0.875rem;
-  line-height: 1.7;
-  color: #1c1c1e;
-}
-
-.jsini-steps li {
-  position: relative;
-  padding: 0 0 0 1.75rem;
-  margin-bottom: 0.6rem;
-}
-
-.jsini-steps li::before {
-  counter-increment: jsini-step;
-  content: counter(jsini-step);
-  position: absolute;
-  left: 0;
-  top: 0.15rem;
-  width: 1.15rem;
-  height: 1.15rem;
-  line-height: 1.15rem;
-  text-align: center;
-  font-size: 0.6875rem;
-  background: #0a0a0a;
-  color: #fff;
-}
-
 /* 카드 안의 안내 줄. 이 카드는 테마를 따라가지 않으므로(흰 바탕에 먹 글씨) 색은 테마 변수가 아니라 고정값을 쓴다. 어두운 테마에서 글자가 사라진 적이 있다. 세 말투는 색이 아니라 왼쪽 글자(i · ! · ×)로 가른다. */
 
 .jsini-login__card .jsini-notice {
@@ -3599,12 +3566,6 @@ a.jsini-social__btn:focus-visible {
 
 .jsini-pending__facts code {
   user-select: all; /* 주소를 한 번에 집어 신고에 붙일 수 있게 */
-}
-
-.jsini-pending__hint {
-  font-size: var(--jsini-fs-md);
-  color: var(--jsini-text-muted);
-  line-height: 1.6;
 }
 
 .jsini-pending__actions {
@@ -4982,15 +4943,8 @@ a.jsini-social__btn:focus-visible {
   border-bottom: 1px solid var(--jsini-border);
 }
 
-.jsini-lock__hint {
-  margin: 1.25rem 0 0.25rem;
-  color: var(--jsini-text-muted);
-  font-size: var(--jsini-fs-sm);
-  line-height: 1.5;
-}
-
 .jsini-lock__logout {
-  margin: 0;
+  margin: 1.25rem 0 0;
 }
 
 /* ── AI 대화 — ChatGPT UI/UX 스타일 (D11) ──────────────────────
@@ -5294,13 +5248,6 @@ a.jsini-social__btn:focus-visible {
   font-size: var(--jsini-fs-sm);
 }
 
-.jsini-chat__history-empty span {
-  display: block;
-  margin-top: 0.25rem;
-  font-size: var(--jsini-fs-xs);
-  opacity: 0.75;
-}
-
 .jsini-chat__history-item {
   display: flex;
   align-items: center;
@@ -5497,15 +5444,7 @@ a.jsini-social__btn:focus-visible {
   font-size: calc(var(--jsini-fs-xl) * 1.1);
   font-weight: 700;
   color: var(--jsini-text);
-  margin: 0 0 0.5rem;
-}
-
-.jsini-chat__welcome-sub {
-  font-size: var(--jsini-fs-sm);
-  color: var(--jsini-text-muted);
-  max-width: 28rem;
   margin: 0 0 1.5rem;
-  line-height: 1.6;
 }
 
 /* 추천 프롬프트 그리드 (ChatGPT Prompt Cards) */
@@ -5555,12 +5494,6 @@ a.jsini-social__btn:focus-visible {
   font-weight: 600;
   color: var(--jsini-text);
   margin-bottom: 0.2rem;
-}
-
-.jsini-chat__prompt-desc {
-  font-size: var(--jsini-fs-xs);
-  color: var(--jsini-text-muted);
-  line-height: 1.4;
 }
 
 /* 메시지 행 (Message Rows) */
@@ -6215,12 +6148,6 @@ a.jsini-social__btn:focus-visible {
   color: var(--jsini-text);
   white-space: pre-wrap;
   word-break: break-word;
-}
-
-.jsini-voice__hint {
-  margin: auto;
-  font-size: var(--jsini-fs-sm);
-  color: var(--jsini-text-muted);
 }
 
 .jsini-voice__actions {
@@ -8879,17 +8806,6 @@ html.jsini-toast-zoomed .dxbl-toast-portal {
   align-items: baseline;
   gap: 0.5rem;
   margin-bottom: 0.6rem;
-}
-
-/* 어떻게 전해지는지 알려 주는 줄. 고르는 자리가 아니라 읽는 자리다(두드림은 받는 사람이 자기 설정에서 정한다). */
-.jsini-note__ways {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 1rem;
-  padding-bottom: 0.6rem;
-  margin-bottom: 0.6rem;
-  border-bottom: 1px solid var(--jsini-border);
 }
 
 .jsini-note__send {

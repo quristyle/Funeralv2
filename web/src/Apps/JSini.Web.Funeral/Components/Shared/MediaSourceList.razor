@@ -150,13 +150,7 @@
                 <img class="fn-preview__player" src="@url" alt="@_preview.Name" />
             }
 
-            <div class="jsini-hint">
-                @if (_preview.HasWebm)
-                {
-                    <text>변환본(H.264)을 틉니다. </text>
-                }
-                @_preview.Url
-            </div>
+            <div class="jsini-hint">@_preview.Url</div>
         }
 
         <div class="jsini-toolbar">

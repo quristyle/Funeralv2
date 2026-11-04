@@ -57,11 +57,7 @@
     </CommGrd>
 </CommCont>
 
-@if (_picked is null)
-{
-    <PageNotice Text="줄을 고르면 그 오류의 스택과 요청 정보가 아래에 펼쳐집니다." />
-}
-else
+@if (_picked is not null)
 {
     <CommCont Title="상세" Hint="@(_detailBusy ? "읽는 중…" : null)">
         <dl class="ad-error__facts">

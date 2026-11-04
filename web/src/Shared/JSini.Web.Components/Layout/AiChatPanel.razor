@@ -88,7 +88,6 @@
                 {
                     <div class="jsini-chat__history-empty">
                         <p>아직 나눈 대화가 없습니다.</p>
-                        <span>새로운 대화를 시작해보세요.</span>
                     </div>
                 }
                 @foreach (var session in _sessions)
@@ -143,37 +142,30 @@
                         <span class="jsini-icon-robot" aria-hidden="true"></span>
                     </div>
                     <h2 class="jsini-chat__welcome-heading">무엇을 도와드릴까요?</h2>
-                    <p class="jsini-chat__welcome-sub">
-                        포털 시스템 사용법, 업무 절차, 기술 관련 질문을 자유롭게 물어보세요.
-                    </p>
 
                     <div class="jsini-chat__prompt-grid">
                         <button type="button" class="jsini-chat__prompt-card"
                                 @onclick="@(() => AskPromptAsync("프로젝트관리 WBS 화면에서 작업 일정과 진척도를 확인하는 방법을 알려줘"))">
                             <span class="jsini-chat__prompt-badge">📋 일정 조회</span>
                             <strong class="jsini-chat__prompt-title">WBS 작업 일정 및 진척도</strong>
-                            <span class="jsini-chat__prompt-desc">프로젝트 일정 확인 방법 안내</span>
                         </button>
 
                         <button type="button" class="jsini-chat__prompt-card"
                                 @onclick="@(() => AskPromptAsync("헬프데스크에서 고장 접수나 지원 요청을 등록하는 절차를 설명해줘"))">
                             <span class="jsini-chat__prompt-badge">🛠️ 지원 요청</span>
                             <strong class="jsini-chat__prompt-title">헬프데스크 요청 등록 절차</strong>
-                            <span class="jsini-chat__prompt-desc">고장 접수 및 업무 지원 신청 안내</span>
                         </button>
 
                         <button type="button" class="jsini-chat__prompt-card"
                                 @onclick="@(() => AskPromptAsync("포털에서 내가 자주 쓰는 메뉴를 찾고 바로가기로 지정하는 방법 알려줘"))">
                             <span class="jsini-chat__prompt-badge">🔍 메뉴 바로가기</span>
                             <strong class="jsini-chat__prompt-title">메뉴 검색 및 즐겨찾기</strong>
-                            <span class="jsini-chat__prompt-desc">주요 기능 찾기 및 하단 띠 설정</span>
                         </button>
 
                         <button type="button" class="jsini-chat__prompt-card"
                                 @onclick="@(() => AskPromptAsync("포털 AI 어시스턴트가 제공하는 주요 기능과 활용 팁을 알려줘"))">
                             <span class="jsini-chat__prompt-badge">💡 AI 활용 팁</span>
                             <strong class="jsini-chat__prompt-title">AI 비서 기능 및 활용 가이드</strong>
-                            <span class="jsini-chat__prompt-desc">빠른 지시와 질의응답 활용 팁</span>
                         </button>
                     </div>
                 </div>
@@ -424,17 +416,6 @@
                     <span class="jsini-voice__said-label">JSini AI</span>
                     <span class="jsini-voice__reply-text">@reply</span>
                 </div>
-            }
-            else if (_heard is null)
-            {
-                @* 보여 줄 말이 아직 없다. **빈 상자로 두지 않는다** — 자리는
-                   오브가 뛰지 않게 고정해 두었으므로, 비우면 까닭 없이 큰
-                   빈 칸이 떠 있고 사람은 그것을 고장으로 읽는다. *@
-                <p class="jsini-voice__hint">
-                    @(_listening
-                        ? "말씀하시면 여기에 받아쓴 글이 보입니다."
-                        : "가운데를 누르고 말씀하세요.")
-                </p>
             }
         </div>
 

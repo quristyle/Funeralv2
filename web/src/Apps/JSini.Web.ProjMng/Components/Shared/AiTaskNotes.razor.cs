@@ -41,13 +41,11 @@ public partial class AiTaskNotes
                             && Item is not null
                             && !string.IsNullOrWhiteSpace(_text);
 
-    private string EmptyText => Mine
-        ? "아직 오간 말이 없습니다. 덧붙일 말이 있으면 아래에 적어 두십시오."
-        : "아직 오간 말이 없습니다.";
+    private const string EmptyText = "아직 오간 말이 없습니다.";
 
     private string WriteHint => Mine
-        ? "관리자에게 덧붙일 말을 적으십시오. 남기면 관리자에게 알림이 갑니다."
-        : "요청한 사람에게 남길 말을 적으십시오. 남기면 그 사람에게 알림이 갑니다.";
+        ? "남기면 관리자에게 알림이 갑니다."
+        : "남기면 요청한 사람에게 알림이 갑니다.";
 
     /// <summary>적은 사람의 이름. 아직 얼굴을 못 읽었으면 아이디다.</summary>
     private string Who(string? loginId) => Faces.Get(loginId)?.Name ?? loginId ?? "-";

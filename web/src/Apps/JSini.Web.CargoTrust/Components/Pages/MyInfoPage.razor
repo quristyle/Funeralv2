@@ -1,8 +1,7 @@
 @page "/cargotrust/me"
 @attribute [RouteKey("cargotrust.me")]
 
-@* 내 정보(/me). 포털 계정과 별개의 줄이며 이름은 포털 이름으로 맞춘다. 사용자 유형·회사 연결·이용 제한은 관리자가 정하므로 고칠 칸이 없다.
-    그 사정을 여기 적어 두지 않으면 운송사가 이의제기 길을 찾지 못한다. *@
+@* 내 정보(/me). 포털 계정과 별개의 줄이며 이름은 포털 이름으로 맞춘다. 사용자 유형·회사 연결·이용 제한은 관리자가 정하므로 고칠 칸이 없다. *@
 
 @inherits DataPage
 
@@ -41,7 +40,6 @@
                 </div>
                 <div><dt>처음 사용</dt><dd>@CargoCodes.Moment(me.CreatedAt)</dd></div>
             </dl>
-            <div class="jsini-hint">사용자 유형과 연결 회사는 관리자가 정합니다. 운송사로 이의제기를 하려면 관리자에게 회사 연결을 요청하십시오.</div>
         </section>
     }
 </div>

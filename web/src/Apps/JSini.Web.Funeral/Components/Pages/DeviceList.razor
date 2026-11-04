@@ -89,11 +89,7 @@
 
 <DeviceEditor @bind-Visible="_editing" DeviceId="@_editingId" OnSaved="@ReloadAsync" />
 
-@if (_selected is null)
-{
-    <PageNotice Text="기기를 고르면 화면 표시 설정이 나옵니다." Tone="NoticeTone.Info" />
-}
-else if (_attribute is not null)
+@if (_selected is not null && _attribute is not null)
 {
     <h2 class="fn-subhead">
         @_selected.Name · 화면 표시 설정
@@ -109,7 +105,7 @@ else if (_attribute is not null)
 
         @if (_isNewAttribute)
         {
-            <span class="fn-note">아직 설정이 없는 기기입니다. 저장하면 만들어집니다.</span>
+            <span class="fn-note">아직 설정이 없는 기기입니다.</span>
         }
     </div>
 

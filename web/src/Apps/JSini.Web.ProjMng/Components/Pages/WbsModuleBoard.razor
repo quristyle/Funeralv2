@@ -32,7 +32,7 @@ WBS 모듈별 현황(원본 Modules.vue). 모듈은 서브시스템 코드(syste
 <section class="pm-wpanel">
     <h2 class="pm-wpanel__head">
         모듈별 건수
-        <span class="pm-wpanel__hint">막대를 누르면 상세 목록으로 이동 · 진한 부분 = @OverlayLabel</span>
+        <span class="pm-wpanel__hint">진한 부분 = @OverlayLabel</span>
         <span class="pm-wpanel__spacer"></span>
         <DxComboBox Data="@OverlayOptions" @bind-Value="_overlay"
                     TextFieldName="Text" ValueFieldName="Value" Style="width: 150px" />
@@ -43,7 +43,6 @@ WBS 모듈별 현황(원본 Modules.vue). 모듈은 서브시스템 코드(syste
 <section class="pm-wpanel">
     <h2 class="pm-wpanel__head">
         모듈 상세
-        <span class="pm-wpanel__hint">계획 · 완료 · 개발완료 · 실적일 기준 건수</span>
     </h2>
 
     <div class="pm-heat-wrap">
@@ -111,10 +110,4 @@ WBS 모듈별 현황(원본 Modules.vue). 모듈은 서브시스템 코드(syste
             <p class="jsini-text-muted pm-heat__empty">데이터 없음</p>
         }
     </div>
-
-    <p class="pm-wmod__note">
-        <strong>완료</strong> = complate_yn · <strong>개발완료</strong> = complate_real_yn ·
-        <strong>실적일 입력</strong> = plan_sdt_c / plan_edt_c 가 채워진 건수 ·
-        <strong>실적 기간</strong> = 입력된 실적일자의 최소·최대
-    </p>
 </section>

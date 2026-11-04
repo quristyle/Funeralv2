@@ -145,7 +145,6 @@
                     ? $"{_myCompanyName}에 등록된 RAG 카테고리가 없습니다" 
                     : "등록된 RAG 카테고리가 없습니다")
             </h3>
-            <p class="ad-rag__empty-desc">문서를 업로드하고 AI 색인을 생성하려면 먼저 카테고리를 추가하세요.</p>
             <DxButton Text="+ 새 카테고리 추가" RenderStyle="ButtonRenderStyle.Primary" Click="@OpenNewCategory" />
         </div>
     }
@@ -158,7 +157,6 @@
                 <div class="ad-rag__tree-head">
                     <div class="ad-rag__tree-title">
                         <span>분류 목록</span>
-                        <span class="ad-rag__dim-badge" title="끌어 놓으면 부모와 차례가 바뀝니다. 색인에는 영향이 없습니다.">드래그 이동</span>
                     </div>
                     <button type="button" class="ad-rag__add-btn"
                             @onclick="@(() => OpenNewFolder(null))" title="최상위 분류 추가">＋</button>
@@ -187,9 +185,7 @@
 
                     @if (_tree.Count == 0)
                     {
-                        <div class="ad-rag__tree-empty">
-                            등록된 분류가 없습니다. 위의 ＋ 로 추가하세요.
-                        </div>
+                        <div class="ad-rag__tree-empty">등록된 분류가 없습니다.</div>
                     }
                 </div>
             </aside>
@@ -207,21 +203,6 @@
                         <InputFile @ref="_fileInput" OnChange="@OnFilesAsync" multiple disabled="@_busy" />
                         <span>@(_busy ? "올리는 중…" : "파일 올리기")</span>
                     </label>
-                </div>
-
-                <div class="ad-rag__guide">
-                    <div class="ad-rag__guide-item">
-                        <span class="ad-rag__guide-bullet">·</span>
-                        <span><strong>파일 업로드:</strong> 영역 내로 파일을 끌어다 놓거나 상단 [파일 올리기] 단추로 선택 (최대 20개, 개당 50MB)</span>
-                    </div>
-                    <div class="ad-rag__guide-item">
-                        <span class="ad-rag__guide-bullet">·</span>
-                        <span><strong>지원 형식:</strong> 글자 파일(.md .txt .csv .json .yaml .log .sql 등) · .pdf · .html</span>
-                    </div>
-                    <div class="ad-rag__guide-item">
-                        <span class="ad-rag__guide-bullet">·</span>
-                        <span><strong>자동 색인:</strong> 파일 등록 또는 삭제 시 백그라운드에서 자동으로 색인이 진행되며, 필요 시 상단의 <strong>「색인 다시 만들기」</strong>로 즉시 수동 실행할 수도 있습니다.</span>
-                    </div>
                 </div>
 
                 <div class="ad-rag__drop-hint">
@@ -288,7 +269,6 @@
                             <span class="jsini-icon-refresh"></span>
                         </div>
                         <div class="ad-rag__empty-docs-title">등록된 문서가 없습니다</div>
-                        <div class="ad-rag__empty-docs-desc">파일을 이 영역에 끌어다 놓거나 상단의 [파일 올리기]로 문서를 등록하세요.</div>
                     </div>
                 }
                 else
@@ -375,25 +355,20 @@
                         <option value="@comp.Id">@comp.Name</option>
                     }
                 </select>
-                <div class="ad-rag__dim">카테고리를 소유할 회사를 선택합니다.</div>
             }
             else
             {
                 <div class="form-control form-control-sm bg-light text-muted">
                     @(!string.IsNullOrEmpty(_myCompanyName) ? _myCompanyName : (_myCompanyId ?? "소속 회사"))
                 </div>
-                <div class="ad-rag__dim">사용자 소속 회사로 자동 지정됩니다.</div>
             }
 
             <label>열쇠</label>
             <DxTextBox @bind-Text="_newCategoryId" NullText="hr-policy" />
-            <div class="ad-rag__dim">
-                영문·숫자·하이픈만. 색인 파일과 폴더 이름이 되므로 한글은 쓸 수 없습니다.
-            </div>
+            <div class="ad-rag__dim">영문·숫자·하이픈만</div>
 
             <label>이름</label>
             <DxTextBox @bind-Text="_newCategoryName" NullText="사내 규정" />
-            <div class="ad-rag__dim">사람이 보는 이름입니다. 한글로 적으세요.</div>
         </div>
     </BodyContentTemplate>
     <FooterContentTemplate Context="popup">

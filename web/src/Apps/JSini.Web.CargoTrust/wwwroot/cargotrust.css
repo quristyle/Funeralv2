@@ -25,11 +25,6 @@
   background: var(--jsini-surface-raised, var(--jsini-surface));
 }
 
-.ct-hero__title {
-  font-size: var(--jsini-fs-xl);
-  font-weight: 700;
-}
-
 .ct-hero__search {
   display: flex;
   gap: var(--jsini-sp-sm);
@@ -616,7 +611,7 @@ a.ct-card:focus-visible {
   color: #fff;
 }
 
-/* 펼친 설명. 고르는 판 안에 들어가므로 둘레를 지우고 왼쪽 선만 남긴다. */
+/* 펼친 대상 조건. 고르는 판 안에 들어가므로 둘레를 지우고 왼쪽 선만 남긴다. */
 .ct-toll-help-body {
   padding-bottom: var(--jsini-sp-sm);
   border-bottom: 1px solid var(--jsini-border);
@@ -824,39 +819,6 @@ a.ct-card:focus-visible {
 }
 
 /* ── 대상 조건 목록 ───────────────────────────────────────── */
-
-/* 구간 유형의 뜻(물음표 안). 「폐쇄식·개방식」은 운영 방식을 부르는 말이라, 알아보는 법(통행권을 뽑았나 · 요금소를 몇 번 지나나)을 함께 적는다. */
-
-.ct-kinds {
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--jsini-sp-xs);
-}
-
-.ct-kind {
-  padding: var(--jsini-sp-sm) var(--jsini-sp-md);
-  border-left: 3px solid var(--jsini-accent);
-  border-radius: var(--jsini-radius-sm);
-  background: var(--jsini-surface-2);
-}
-
-.ct-kind dt {
-  font-weight: 600;
-}
-
-.ct-kind dd {
-  margin: 0;
-  color: var(--jsini-text-dim);
-}
-
-/* 규칙은 제 줄로 내린다. 뜻풀이에 이어 붙이면 「무엇인가」와 「얼마인가」가 한 덩어리로 읽힌다. */
-.ct-kind-rule {
-  display: block;
-  margin-top: var(--jsini-sp-2xs);
-  font-size: var(--jsini-fs-sm);
-}
 
 .ct-checks {
   margin: var(--jsini-sp-md) 0 0;

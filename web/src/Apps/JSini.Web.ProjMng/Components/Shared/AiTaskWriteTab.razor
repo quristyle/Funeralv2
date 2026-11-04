@@ -85,8 +85,7 @@
                 <CodeEditor @bind-Value="t.Contents"
                             Language="markdown"
                             Height="100%"
-                            ReadOnly="@(!CanEdit)"
-                            Placeholder="AI 에게 시킬 일을 적습니다. 첫 줄이 제목이 됩니다." />
+                            ReadOnly="@(!CanEdit)" />
             </div>
 
             <div class="pm-ai-actions">
@@ -135,11 +134,6 @@
                               Click="@(() => OnDelete.InvokeAsync())" />
                 </PermissionView>
             </div>
-        }
-        else
-        {
-            @* 탭을 빼지 않는다 — 찰나에 탭 수가 줄면 부르는 쪽의 탭 번호가 틀린다. *@
-            <p class="pm-peek__dim">@EmptyText</p>
         }
     </div>
 </DxTabPage>

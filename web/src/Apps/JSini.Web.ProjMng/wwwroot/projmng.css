@@ -1096,8 +1096,7 @@
 }
 
 /* 무엇을 기다리는지 적는다. 로컬 LLM 은 십 초를 넘기므로 도는 표시만 있으면 멈춘 줄 알고 다시 누른다. */
-.pm-aiassist__wait,
-.pm-aiassist__hint {
+.pm-aiassist__wait {
   margin: 0;
   color: var(--jsini-text-muted);
 }
@@ -1767,43 +1766,6 @@
   justify-content: end;
 }
 
-.pm-ai-empty {
-  display: grid;
-  min-height: 22rem;
-  place-content: center;
-  justify-items: center;
-  gap: 0.45rem;
-  padding: var(--jsini-sp-xl);
-  border: 1px dashed var(--jsini-border);
-  border-radius: var(--jsini-radius-md, 0.4rem);
-  text-align: center;
-}
-
-.pm-ai-empty__icon {
-  display: grid;
-  width: 2.5rem;
-  height: 2.5rem;
-  place-items: center;
-  margin-bottom: 0.35rem;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--jsini-accent) 12%, transparent);
-  color: var(--jsini-accent-text);
-  font-size: 1.35rem;
-}
-
-.pm-ai-empty p {
-  max-width: 28rem;
-  margin: 0;
-  color: var(--jsini-text-muted);
-  font-size: var(--jsini-fs-sm);
-}
-
-.pm-ai-empty__hint {
-  margin-top: 0.4rem;
-  color: var(--jsini-text-muted);
-  font-size: var(--jsini-fs-xs);
-}
-
 @keyframes pm-ai-pulse {
   50% { opacity: 0.35; transform: scale(0.75); }
 }
@@ -1844,7 +1806,6 @@
   }
 
   .pm-ai-context__meta { justify-content: start; }
-  .pm-ai-empty { min-height: 16rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2745,15 +2706,7 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   font-size: 1.15rem;
   font-weight: 700;
   color: var(--jsini-text);
-  margin-bottom: 0.4rem;
-}
-
-.pm-ask__empty-desc {
-  font-size: 0.85rem;
-  color: var(--jsini-text-muted);
-  max-width: 440px;
   margin-bottom: 1.35rem;
-  line-height: 1.5;
 }
 
 .pm-ask__prompts {
@@ -6123,12 +6076,6 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
     min-height: 0;
     overflow-y: auto;
   }
-
-  /* 아무것도 안 고른 자리. 22rem 을 깔아 두면 판보다 커질 수 있다. */
-  .pm-ai-detail-panel .pm-ai-empty {
-    flex: 1;
-    min-height: 0;
-  }
 }
 
 /* ── 탭 줄은 휴대폰에서 가로로 구르지 않는다 (`pm-tabfit`) ────────── */
@@ -6925,12 +6872,6 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   background: var(--jsini-surface-muted);
 }
 
-.pm-wmod__note {
-  margin: var(--jsini-sp-xs) 0 0;
-  font-size: var(--jsini-fs-xs);
-  color: var(--jsini-text-muted);
-}
-
 .pm-wmod__wide {
   width: 26%;
 }
@@ -7364,12 +7305,6 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 
 .pm-doc-filebar__spacer {
   flex: 1;
-}
-
-.pm-doc-filenote {
-  margin: 0 0 var(--jsini-sp-2xs);
-  font-size: var(--jsini-fs-xs);
-  color: var(--jsini-text-muted);
 }
 
 /* 붙인 문서는 판을 꽉 채운다 — 작게 잡으면 그 안에서 또 굴러 한 문서를 두 겹으로 굴리게 된다. */
@@ -8618,17 +8553,6 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   border: 1px solid var(--jsini-border);
   border-radius: 0.25rem;
   overflow: hidden;
-}
-
-.tl-empty {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--jsini-text-muted, #6b7280);
-  pointer-events: none;
 }
 
 .tl-host {

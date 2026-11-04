@@ -1941,19 +1941,11 @@
   font-weight: 600;
 }
 
-/* 기준 한 줄. 「표준: 70% 이하 유지」처럼 **숫자를 어떻게 읽는지**를 적는
-   자리라 설명(아래)과 굵기로 갈라 둔다. */
+/* 기준 한 줄. 「표준: 70% 이하 유지」처럼 **숫자를 어떻게 읽는지**를 적는 자리다. */
 .hd-sysmon__guide {
   font-size: var(--jsini-fs-xs);
   font-weight: 700;
   color: var(--jsini-accent);
-}
-
-.hd-sysmon__desc {
-  margin: 0;
-  font-size: var(--jsini-fs-xs);
-  line-height: 1.35;
-  color: var(--jsini-text-muted);
 }
 
 /* 한마디. 위에 가로선을 긋는 것은 **판정이 설명이 아니라는 표시**다. */

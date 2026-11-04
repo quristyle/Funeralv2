@@ -49,11 +49,7 @@
         </CommCont>
     </First>
     <Second>
-        @if (_openedPath is null)
-        {
-            <PageNotice Text="왼쪽에서 파일을 고르면 내용을 보여 줍니다." Tone="NoticeTone.Info" />
-        }
-        else
+        @if (_openedPath is not null)
         {
             <h2 class="pm-subhead">@_openedPath</h2>
 

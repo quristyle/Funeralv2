@@ -259,30 +259,29 @@ public partial class Profile
 
     /// <summary>보안 설정과 알림 설정이 같은 모양을 쓴다 — 서버가 둘을 같은 표에 이름·값으로 쌓는다.</summary>
     /// <param name="Name">줄 이름.</param>
-    /// <param name="Desc">아래에 옅게 붙는 설명.</param>
     /// <param name="Value">지금 켜져 있는가.</param>
     /// <param name="Field">저장 이름. <c>nameof(UserInfoDto.…)</c> 로 만든다 — 글자로 적으면 조회와 저장 칸이 어긋날 수 있다.</param>
-    private sealed record SettingRow(string Name, string Desc, bool Value, string Field);
+    private sealed record SettingRow(string Name, bool Value, string Field);
 
     private IReadOnlyList<SettingRow> SecurityRows =>
     [
-        new("보안용 휴대전화", "보안용 휴대전화 사용 여부를 설정합니다.",
+        new("보안용 휴대전화",
             _info!.SecurityPhone, nameof(UserInfoDto.SecurityPhone)),
-        new("보안 질문", "보안 질문 사용 여부를 설정합니다.",
+        new("보안 질문",
             _info.SecurityQuestion, nameof(UserInfoDto.SecurityQuestion)),
-        new("복구 이메일", "복구용 이메일 사용 여부를 설정합니다.",
+        new("복구 이메일",
             _info.SecurityEmail, nameof(UserInfoDto.SecurityEmail)),
-        new("MFA 기기", "2차 인증용 MFA 기기 사용 여부를 설정합니다.",
+        new("MFA 기기",
             _info.SecurityMfa, nameof(UserInfoDto.SecurityMfa)),
     ];
 
     private IReadOnlyList<SettingRow> NoticeRows =>
     [
-        new("계정 비밀번호", "계정·비밀번호와 관련된 알림을 받습니다.",
+        new("계정 비밀번호",
             _info!.AccountPasswordNotify, nameof(UserInfoDto.AccountPasswordNotify)),
-        new("시스템 메시지", "시스템 메시지를 알림으로 받습니다.",
+        new("시스템 메시지",
             _info.SystemMessage, nameof(UserInfoDto.SystemMessage)),
-        new("할 일", "할 일이 생기면 알림으로 받습니다.",
+        new("할 일",
             _info.TodoTask, nameof(UserInfoDto.TodoTask)),
     ];
 
@@ -792,7 +791,7 @@ public partial class Profile
         (false, _) => "이 브라우저에서는 쓸 수 없습니다 (https 로 접속했는지 확인하십시오).",
         (true, 0) when !_browser.PlatformAuthenticator =>
             "이 기기에는 지문·얼굴 인식이 없습니다. 보안 열쇠는 등록할 수 있습니다.",
-        (true, 0) => "등록된 기기가 없습니다. 등록하면 아이디를 치지 않고 들어올 수 있습니다.",
+        (true, 0) => "등록된 기기가 없습니다.",
         (true, var n) => $"기기 {n}대가 등록되어 있습니다.",
     };
 
@@ -1061,7 +1060,7 @@ public partial class Profile
 
     private string SocialSummary => _socialLinks.Count switch
     {
-        0 => "연결해 두면 아이디를 치지 않고 그 계정으로 들어올 수 있습니다.",
+        0 => "연결된 계정이 없습니다.",
         1 => $"{_socialLinks[0].DisplayName} 계정 하나가 연결되어 있습니다.",
         var n => $"{n}개 계정이 연결되어 있습니다.",
     };

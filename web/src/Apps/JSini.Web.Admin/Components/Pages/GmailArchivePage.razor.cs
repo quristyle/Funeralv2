@@ -15,7 +15,7 @@ public partial class GmailArchivePage : DataPage, IAsyncDisposable
     private const long MaxUploadBytes = 0;
 
     private const string UploadHint =
-        "mbox 한 개. 크기 제한은 없지만 GB 단위는 서버의 적재 폴더에 직접 두는 쪽이 훨씬 빠르다.";
+        "mbox 한 개";
 
     /// <summary>적재가 도는 동안 되묻는 간격. 더 잦게 물으면 왕복만 늘고, 더 뜸하면 멎은 것처럼 보인다.</summary>
     private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(2);
@@ -62,14 +62,6 @@ public partial class GmailArchivePage : DataPage, IAsyncDisposable
     /// <summary>이만큼 지난 메일만 올린다. 0 은 전체. 서버의 기본값(6개월)이 화면에 안 보이면
     /// 「왜 아무것도 안 올라가나」의 답을 찾을 길이 없어 고르개로 꺼내 둔다.</summary>
     private int _afterMonths = 6;
-
-    /// <summary>적재 단추가 꺼져 있을 때 그 까닭. <b>꺼진 단추는 스스로 말하지 않는다</b> —
-    /// 메일함을 안 만든 사람은 mbox 를 올려 놓고 다음에 무엇을 할지 알 길이 없다.</summary>
-    private string? ImportBlockedHint => _accounts.Count == 0
-        ? "적재하려면 메일함을 먼저 등록해야 합니다 — 어느 메일함에 부을지 정하는 일입니다. 위의 「메일함 등록」을 누르세요."
-        : _accountId is { Length: > 0 }
-            ? null
-            : "위에서 메일함을 고르면 줄마다 「적재」 단추가 켜집니다.";
 
     private string? _rootHint;
     private string? _archiveHint;
