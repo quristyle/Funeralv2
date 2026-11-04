@@ -5752,6 +5752,24 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   writing-mode: horizontal-tb;
 }
 
+/* 접힌 오른쪽 띠의 일정 수. 0 건이면 흐리게 둔다 — 날을 바꿔 누를 때 수만 바뀐다. */
+.pm-gc__fold-count {
+  min-width: 1.5rem;
+  padding: 0.0625rem 0.3rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.25rem;
+  text-align: center;
+  color: #fff;
+  background: var(--jsini-primary, #206bc4);
+  border-radius: 999px;
+}
+
+.pm-gc__fold-count--zero {
+  color: var(--jsini-text-muted);
+  background: var(--jsini-hover, rgba(0, 0, 0, 0.06));
+}
+
 .pm-gc__day-close > i {
   vertical-align: middle;
 }

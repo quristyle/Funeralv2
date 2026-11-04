@@ -1328,11 +1328,11 @@ public partial class ProjectScheduler : IAsyncDisposable
         _selected = today >= start && today <= end ? today : start;
     }
 
-    /// <summary>칸의 빈 자리를 눌렀다. 그 날을 고르고 오른쪽에 그 날의 목록을 편다(휴대폰은 격자 아래 목록이 받는다).</summary>
+    /// <summary>칸의 빈 자리를 눌렀다. 그 날을 고른다 — 오른쪽 목록을 접어 두었으면 띠의 날짜·일정 수만 바뀌고 펴지지는 않는다
+    /// (휴대폰은 격자 아래 목록이 받는다).</summary>
     private Task OnDayClickAsync(DateOnly day)
     {
         _selected = day;
-        _dayPane = true;
         return Task.CompletedTask;
     }
 

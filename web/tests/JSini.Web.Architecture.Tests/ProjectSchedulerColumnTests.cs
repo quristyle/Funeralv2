@@ -158,6 +158,25 @@ public sealed class ProjectSchedulerColumnTests
     }
 
     [Fact]
+    public void ProjectScheduler_접힌_오른쪽_띠는_일정수를_보이고_날을_눌러도_펴지지_않는다()
+    {
+        var razorPath = Path.Combine(AppContext.BaseDirectory, "../../../../../src/Apps/JSini.Web.ProjMng/Components/Pages/ProjectScheduler.razor");
+        var codePath = Path.Combine(AppContext.BaseDirectory, "../../../../../src/Apps/JSini.Web.ProjMng/Components/Pages/ProjectScheduler.razor.cs");
+        var razor = File.ReadAllText(razorPath);
+        var code = File.ReadAllText(codePath);
+
+        var folded = razor.IndexOf("pm-gc__day pm-gc__day--folded", StringComparison.Ordinal);
+        Assert.True(folded >= 0);
+        Assert.Contains("class=\"pm-gc__fold-count ", razor[folded..]);
+        Assert.Contains("@SelectedItems.Count", razor[folded..]);
+
+        var start = code.IndexOf("private Task OnDayClickAsync(DateOnly day)", StringComparison.Ordinal);
+        Assert.True(start >= 0);
+        var end = code.IndexOf("return Task.CompletedTask;", start, StringComparison.Ordinal);
+        Assert.DoesNotContain("_dayPane = true", code[start..end]);
+    }
+
+    [Fact]
     public void ProjectScheduler_일정보기_상태단추와_수정팝업_상태선택이_대기_진행중_완료_폐기를_쓴다()
     {
         var path = Path.Combine(AppContext.BaseDirectory, "../../../../../src/Apps/JSini.Web.ProjMng/Components/Pages/ProjectScheduler.razor");

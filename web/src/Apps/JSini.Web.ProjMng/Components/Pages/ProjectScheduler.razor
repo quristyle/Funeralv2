@@ -778,7 +778,7 @@
             }
         </div>
 
-        @* ── 오른쪽 기둥 ── 월 격자에서 고른 날의 일정. 날을 누르면 펴지고 › 로 접는다 — 접혀도 띠로 남아 다시 펼 수 있다. *@
+        @* ── 오른쪽 기둥 ── 월 격자에서 고른 날의 일정. › 로 접으면 띠로 남아 고른 날과 그 날 일정 수만 바뀌고, 띠를 눌러야 다시 펴진다. *@
         @if (ShowDayPane)
         {
             <aside class="pm-gc__day" aria-label="@($"{AgendaTitle} 일정")">
@@ -822,6 +822,7 @@
                         aria-expanded="false" title="고른 날 일정 펴기"
                         @onclick="@(() => _dayPane = true)">
                     <i class="jsini-icon-chevron-left pm-gc__fold-icon"></i>
+                    <span class="pm-gc__fold-count @(SelectedItems.Count == 0 ? "pm-gc__fold-count--zero" : null)" title="@($"일정 {SelectedItems.Count}건")">@SelectedItems.Count</span>
                     <span class="pm-gc__fold-label">@AgendaTitle</span>
                 </button>
             </aside>
