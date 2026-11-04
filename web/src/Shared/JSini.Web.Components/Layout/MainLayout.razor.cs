@@ -317,6 +317,7 @@ public partial class MainLayout
             {
                 CloseSidebar();
                 StateHasChanged();
+                await RememberSidebarAsync(true);
             }
 
             return;
@@ -372,6 +373,7 @@ public partial class MainLayout
         }
 
         await RestoreSidebarWidthAsync();
+        await RestoreSidebarCollapsedAsync();
         await RestoreFabPositionAsync();
         await Lock.RestoreAsync();
     }
@@ -394,6 +396,22 @@ public partial class MainLayout
         _sidebarWidth = px;
         StateHasChanged();
     }
+
+    /// <summary>넓은 화면에서 접어 두었던 사이드바를 접힌 채로 되살린다. 접는 쪽으로만 바꾼다 — 휴대폰은 이미 접혀 있고, 펴 둔 사람은 기본이 펴짐이다.</summary>
+    private async Task RestoreSidebarCollapsedAsync()
+    {
+        if (!(await Boot.ReadAsync()).SidebarCollapsed || !_sidebarOpen)
+        {
+            return;
+        }
+
+        CloseSidebar();
+        StateHasChanged();
+    }
+
+    /// <summary>사람이 넓은 화면에서 접고 편 것만 적는다. 휴대폰의 여닫이는 덮개를 걷는 일이라 남기면 데스크톱이 접힌 채 열린다.</summary>
+    private Task RememberSidebarAsync(bool collapsed) =>
+        _isPhone ? Task.CompletedTask : Boot.SetSidebarCollapsedAsync(collapsed);
 
     /// <summary>저장해 둔 모바일 메뉴 단추 위치를 되살린다. PortalBoot 의 단일 왕복으로 읽는다.</summary>
     private async Task RestoreFabPositionAsync()
@@ -529,15 +547,16 @@ public partial class MainLayout
         return Task.CompletedTask;
     }
 
-    private Task ToggleSidebarAsync()
+    private async Task ToggleSidebarAsync()
     {
         if (!_sidebarOpen)
         {
-            return OpenSidebarAsync();
+            await OpenSidebarAsync();
+            return;
         }
 
         CloseSidebar();
-        return Task.CompletedTask;
+        await RememberSidebarAsync(true);
     }
 
     /// <summary>사이드바를 편다. 휴대폰이면 지금까지의 뒤로 가기 횟수를 적는다 — 이다음 이동이 뒤로 가기인지는 그 수가 늘었는지로 가린다. 펴는 길이 둘(☰ · 브레드크럼)이라 여기 한 곳으로 모은다 — 한쪽에서 적기를 빠뜨리면 그쪽으로 연 메뉴만 뒤로 가기로 안 닫힌다.</summary>
@@ -550,6 +569,7 @@ public partial class MainLayout
 
         if (!_isPhone)
         {
+            await RememberSidebarAsync(false);
             return;
         }
 
@@ -591,16 +611,19 @@ public partial class MainLayout
     }
 
     /// <summary>스플리터의 접기 화살표로 접었다 폈다. 헤더의 ☰ 와 같은 상태를 나눠 쓴다 — 따로 두면 화살표로 접은 뒤 ☰ 가 아무 일도 안 하는 것처럼 보인다. 휴대폰에서는 이 이벤트가 오지 않는다(구분선을 감춘다) — 여기서는 접을 때 뒤로 가기 횟수를 버리기만 한다.</summary>
-    private void OnSidebarCollapsedChanged(bool collapsed)
+    private async Task OnSidebarCollapsedChanged(bool collapsed)
     {
         if (collapsed)
         {
             CloseSidebar();
-            return;
+        }
+        else
+        {
+            _sidebarOpen = true;
+            RestoreSnappedWidth();
         }
 
-        _sidebarOpen = true;
-        RestoreSnappedWidth();
+        await RememberSidebarAsync(collapsed);
     }
 
     /// <summary>끌어서 접었다면(SidebarSnapPx) 그때의 폭으로 되돌린다. 다시 펴는 모든 길에서 부른다 — 접을 때 미리 되돌리면 Size 속성이 접기 전과 같아져 Blazor 가 바뀌었다고 전하지 않아 다시 편 사이드바가 끌어 놓았던 폭 그대로 나온다.</summary>
@@ -629,6 +652,7 @@ public partial class MainLayout
             _widthBeforeSnap ??= _sidebarWidth;
             _sidebarWidth = px;
             CloseSidebar();
+            await RememberSidebarAsync(true);
             return;
         }
 

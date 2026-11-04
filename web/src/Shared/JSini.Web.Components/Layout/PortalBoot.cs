@@ -64,6 +64,9 @@ public sealed class PortalBoot(IJSRuntime js, PortalPrefs prefs, ILogger<PortalB
     /// <summary>끌어 넓혀 둔 사이드바 폭(px). 화면 크기에 따라 달라 기기에 남는다.</summary>
     public const string SidebarWidthKey = "jsini-sidebar-width";
 
+    /// <summary>넓은 화면에서 사이드바를 접어 두었는가. 열쇠가 있으면 접힌 것. 휴대폰은 늘 접힌 채 시작하므로 거기서 여닫은 것은 적지 않는다.</summary>
+    public const string SidebarCollapsedKey = "jsini-sidebar-collapsed";
+
     /// <summary>데스크탑에서 끌어 넓힌 오른쪽 서랍 폭(px). 브라우저와 계정에 함께 보존한다.</summary>
     public const string RightDrawerWidthKey = "jsini_right_drawer_width";
 
@@ -121,6 +124,7 @@ public sealed class PortalBoot(IJSRuntime js, PortalPrefs prefs, ILogger<PortalB
         NoticeDismissedKey,
         PinnedTabsKey,
         SidebarWidthKey,
+        SidebarCollapsedKey,
         RightDrawerWidthKey,
         QuickAskDrawerWidthKey,
         PushAskNeverKey,
@@ -441,6 +445,24 @@ public sealed class PortalBoot(IJSRuntime js, PortalPrefs prefs, ILogger<PortalB
 
         Remember(state => state.WithZoomUnlocked(unlocked));
         ZoomUnlockedChanged?.Invoke(unlocked);
+    }
+
+    /// <summary>넓은 화면의 사이드바 접힘을 저장한다. 기본이 펴짐이라 접을 때만 적고, 펴면 열쇠를 지운다.</summary>
+    public async Task SetSidebarCollapsedAsync(bool collapsed)
+    {
+        try
+        {
+            if (collapsed) await js.InvokeVoidAsync("localStorage.setItem", SidebarCollapsedKey, "1");
+            else await js.InvokeVoidAsync("localStorage.removeItem", SidebarCollapsedKey);
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException
+                                       or TaskCanceledException)
+        {
+            logger.LogDebug(ex, "사이드바 접힘을 브라우저에 남기지 못했다.");
+        }
+
+        // 레이아웃이 새로 생기면 읽어 둔 한 벌을 다시 쓰므로 그쪽도 고친다.
+        Remember(state => state.WithSidebarCollapsed(collapsed));
     }
 
     /// <summary>AI 대화를 사내 자료로만 할지 저장한다. 기본이 끔이라 켤 때만 적고, 끄면 열쇠를 지운다.</summary>
@@ -800,6 +822,9 @@ public sealed class PortalBoot(IJSRuntime js, PortalPrefs prefs, ILogger<PortalB
         /// <summary>끌어 넓혀 둔 사이드바 폭(px). 못 읽으면 null — 기본 폭을 쓴다. 여기서 숫자로 옮겨 부품마다 파싱이 갈리지 않게 한다.</summary>
         public int? SidebarWidthPx { get; private init; }
 
+        /// <summary>넓은 화면에서 사이드바를 접어 두었는가. 고른 적이 없으면 false — 펴진 채 시작한다.</summary>
+        public bool SidebarCollapsed { get; private set; }
+
         /// <summary>데스크탑에서 조절해 둔 오른쪽 서랍 폭(px). 없거나 못 읽으면 null — 기본 416px.</summary>
         public int? RightDrawerWidthPx { get; private set; }
 
@@ -861,6 +886,9 @@ public sealed class PortalBoot(IJSRuntime js, PortalPrefs prefs, ILogger<PortalB
             change(copy);
             return copy;
         }
+
+        internal BrowserState WithSidebarCollapsed(bool value) =>
+            Patch(c => c.SidebarCollapsed = value);
 
         internal BrowserState WithRightDrawerWidth(int value) =>
             Patch(c => c.RightDrawerWidthPx = value);
@@ -927,6 +955,7 @@ public sealed class PortalBoot(IJSRuntime js, PortalPrefs prefs, ILogger<PortalB
             GeoSyncedAt = Moment(Get(wire.Local, GeoSyncedAtKey)),
             PinnedTabsJson = Get(wire.Local, PinnedTabsKey),
             SidebarWidthPx = Pixels(Get(wire.Local, SidebarWidthKey)),
+            SidebarCollapsed = Has(wire.Local, SidebarCollapsedKey),
             RightDrawerWidthPx = Pixels(Get(wire.Local, QuickAskDrawerWidthKey))
                 ?? Pixels(Get(wire.Local, RightDrawerWidthKey)),
             Theme = wire.Theme,
