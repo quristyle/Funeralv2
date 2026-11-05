@@ -95,13 +95,17 @@ public partial class OrgChart
     private string _moveName = string.Empty;
     private string? _moveTarget;
 
-    /// <summary>끌고 있는 것. 놓을 때 이 값을 본다.</summary>
-    private (OrgKind Kind, string Id)? _drag;
+    /// <summary>끌기 값(<c>data-drag</c>)의 앞머리. org-chart.js 가 첫 쌍점에서 갈라 <see cref="DropFromJs"/> 로 되돌려 준다.</summary>
+    private const string UserDragPrefix = "user:";
 
+    private const string DeptDragPrefix = "dept:";
+
+    private ElementReference _wrap;
     private ElementReference _viewport;
     private ElementReference _stage;
     private IJSObjectReference? _module;
     private IJSObjectReference? _canvas;
+    private DotNetObjectReference<OrgChart>? _self;
 
     /// <summary>다시 그린 뒤 화면을 맞춰야 하는가. 조회·방향 전환 뒤에 선다.</summary>
     private bool _needsFit;
@@ -139,7 +143,8 @@ public partial class OrgChart
         {
             _module = await Js.InvokeAsync<IJSObjectReference>(
                 "import", "./_content/JSini.Web.Admin/js/org-chart.js");
-            _canvas = await _module.InvokeAsync<IJSObjectReference>("create", _viewport, _stage);
+            _self = DotNetObjectReference.Create(this);
+            _canvas = await _module.InvokeAsync<IJSObjectReference>("create", _viewport, _stage, _wrap, _self);
         }
 
         if (_needsFit && _canvas is not null)
@@ -447,39 +452,60 @@ public partial class OrgChart
 
     // ── 끌어다 놓기 ──────────────────────────────────────────
 
-    private void BeginDrag(Node node)
+    /// <summary>카드를 다른 카드에 놓았다(org-chart.js). 놓는 자리는 <see cref="DropKey"/> 가 정해 둔 노드 식별자다.</summary>
+    [JSInvokable]
+    public async Task DropFromJs(string kind, string id, string targetId)
     {
-        if (node.Kind == OrgKind.Company || node.IsNoDept) return;
+        var target = _nodes.FirstOrDefault(n => string.Equals(n.Id, targetId, StringComparison.Ordinal));
+        if (target is null) return;
 
-        _drag = (node.Kind, node.Id);
+        var dragKind = kind == "dept" ? OrgKind.Dept : OrgKind.User;
+
+        await DropAsync(dragKind, id, target);
+        StateHasChanged();
     }
 
-    private void BeginDragUser(string userId) => _drag = (OrgKind.User, userId);
-
-    /// <summary>노드 위에 놓았다. 회사나 「미소속부서」에 놓으면 회사 직속(사람은 부서 없음)으로, 부서에 놓으면 그 아래로 간다.</summary>
-    private async Task DropAsync(Node target)
+    /// <summary>노드 위에 놓았다. 회사나 「미소속부서」에 놓으면 회사 직속(사람은 부서 없음 → 미소속부서)으로, 부서에 놓으면 그 아래로 간다.</summary>
+    private async Task DropAsync(OrgKind kind, string id, Node target)
     {
-        var drag = _drag;
-        _drag = null;
-
-        if (drag is null || !CanMove) return;
-        if (string.Equals(drag.Value.Id, target.Id, StringComparison.Ordinal)) return;
-
-        if (target.Kind == OrgKind.User)
-        {
-            return;
-        }
+        if (!CanMove || target.Kind == OrgKind.User) return;
+        if (string.Equals(id, target.Id, StringComparison.Ordinal)) return;
 
         var targetDeptId = target.Kind == OrgKind.Company || target.IsNoDept ? null : target.Id;
 
-        if (drag.Value.Kind == OrgKind.User)
+        if (kind == OrgKind.User)
         {
-            await ApplyMoveAsync(OrgKind.User, drag.Value.Id, targetDeptId);
+            // 이미 그 자리에 있으면 저장하지 않는다 — 살짝 끌었다 놓은 것으로 「옮겼습니다」가 뜨면 안 된다.
+            var current = _nodes.FirstOrDefault(n => n.Kind == OrgKind.User && n.Id == id);
+            var currentDeptId = current?.ParentId?.StartsWith(NoDeptIdPrefix, StringComparison.Ordinal) == true ? null : current?.ParentId;
+
+            if (current is not null && currentDeptId == targetDeptId) return;
+
+            await ApplyMoveAsync(OrgKind.User, id, targetDeptId);
+            return;
+        }
+
+        if (targetDeptId is not null && IsUnder(targetDeptId, id))
+        {
+            Say("부서를 자기 하위 부서 아래로 옮길 수 없습니다.", NoticeTone.Warning);
             return;
         }
 
         // 부서를 회사(또는 미소속부서)에 놓으면 상위가 없어진다(회사 직속).
-        await ApplyMoveAsync(OrgKind.Dept, drag.Value.Id, targetDeptId);
+        await ApplyMoveAsync(OrgKind.Dept, id, targetDeptId);
+    }
+
+    /// <summary><paramref name="deptId"/> 가 <paramref name="ancestorId"/> 의 하위(자기 포함)인가.</summary>
+    private bool IsUnder(string deptId, string ancestorId)
+    {
+        var byId = _nodes.Where(n => n.Kind == OrgKind.Dept).ToDictionary(n => n.Id, StringComparer.Ordinal);
+
+        for (var cur = deptId; cur is not null && byId.TryGetValue(cur, out var node); cur = node.ParentId)
+        {
+            if (cur == ancestorId) return true;
+        }
+
+        return false;
     }
 
     // ── 이동 팝업 (끌기의 터치 대체 경로) ────────────────────
@@ -670,8 +696,13 @@ public partial class OrgChart
         _ => node.Email ?? node.LoginId ?? string.Empty,
     };
 
-    private string Draggable(Node node) =>
-        CanMove && node.Kind != OrgKind.Company && !node.IsNoDept ? "true" : "false";
+    private string? DragKey(Node node) =>
+        !CanMove || node.Kind == OrgKind.Company || node.IsNoDept ? null
+        : (node.Kind == OrgKind.User ? UserDragPrefix : DeptDragPrefix) + node.Id;
+
+    /// <summary>놓는 자리. 사람 카드에 놓으면 그 사람이 있는 부서(미소속부서 포함)에 놓은 것으로 친다.</summary>
+    private string? DropKey(Node node) =>
+        !CanMove ? null : node.Kind == OrgKind.User ? node.ParentId : node.Id;
 
     /// <summary>인라인 스타일에 쓸 픽셀 값. 자리 표기가 지역에 따라 흔들리면 안 된다.</summary>
     private static string Px(double value) => N(value) + "px";
@@ -699,5 +730,7 @@ public partial class OrgChart
         catch (JSDisconnectedException)
         {
         }
+
+        _self?.Dispose();
     }
 }

@@ -143,6 +143,29 @@
 
 .ad-orgc__node--user { background: var(--jsini-bg); }
 
+/* 끌어 옮기기(org-chart.js). 유령은 body 에 붙어 손가락을 따라가고, 누름을 받지 않아야 그 아래 놓을 자리를 찾을 수 있다. */
+.ad-orgc__ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 3000;
+  margin: 0;
+  opacity: 0.85;
+  pointer-events: none;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.2);
+}
+
+.ad-orgc--dragging { opacity: 0.4; }
+
+.ad-orgc-wrap--dragging,
+.ad-orgc-wrap--dragging * { cursor: grabbing !important; }
+
+.ad-orgc__node--over {
+  outline: 2px solid var(--jsini-accent);
+  outline-offset: 2px;
+  background: color-mix(in srgb, var(--jsini-accent) 12%, var(--jsini-surface));
+}
+
 .ad-orgc__icon,
 /* 동그라미는 공용 부품(`UserAvatar` · `jsini-face`)이다. 치수와 색만 덮는다. */
 .ad-orgc__face {
@@ -229,6 +252,8 @@
   border: 1px solid var(--jsini-border);
   border-radius: 0.4rem;
   cursor: move;
+  user-select: none;
+  touch-action: pan-y;
 }
 
 .ad-orgc__row + .ad-orgc__row { margin-top: 0.35rem; }

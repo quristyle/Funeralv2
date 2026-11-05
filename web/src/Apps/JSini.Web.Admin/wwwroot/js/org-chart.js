@@ -4,8 +4,8 @@
     ────────────────────────────────────────────────────────────
     [왜 이 일만 JS 인가]
 
-    노드 배치·연결선·드래그 이동은 전부 Blazor(C#)가 한다. 여기 있는 것은
-    **끌어서 움직이고 휠로 키우는 것** 하나뿐이다.
+    노드 배치·연결선·저장은 전부 Blazor(C#)가 한다. 여기 있는 것은
+    **끌어서 움직이고 휠로 키우는 것**과 **카드를 끌어 다른 카드에 놓는 손짓**이다.
 
     그 하나를 회로로 넘기면 마우스를 한 번 움직일 때마다 서버로 갔다 온다.
     Blazor Server 라서 그 왕복이 곧 렉이고, 조직도는 사람이 계속 끌어 보는
@@ -15,9 +15,18 @@
     ────────────────────────────────────────────────────────────
     [노드 위에서 시작한 끌기는 건드리지 않는다]
 
-    노드 카드는 HTML5 드래그로 **부서를 옮기는** 손잡이다. 캔버스가 그 끌기를
-    가로채면 부서를 옮기려는데 화면만 움직인다. 그래서 `.ad-orgc__node` 와
+    노드 카드는 **사람·부서를 옮기는** 손잡이다. 캔버스가 그 끌기를
+    가로채면 옮기려는데 화면만 움직인다. 그래서 `.ad-orgc__node` 와
     `.no-pan` 위에서 시작한 것은 캔버스가 보지 않는다.
+
+    ────────────────────────────────────────────────────────────
+    [카드 옮기기는 HTML5 드래그가 아니라 포인터 이벤트다]
+
+    `draggable` 은 파이어폭스·사파리가 단추가 든 카드에서 끌기를 시작하지 않고,
+    손가락으로는 아예 안 도는 브라우저가 많다 — 크롬에서만 되어 「안 된다」가
+    재현되지 않는다. 끄는 것은 `data-drag`(kind:id), 놓는 자리는 `data-drop`
+    (C# 이 고른 노드 식별자)이 말하고, 놓은 순간에만 `DropFromJs` 로 회로에 간다.
+    손가락은 옆 목록이 세로로 구르므로 0.35초 누르고 있어야 집힌다.
 
     ────────────────────────────────────────────────────────────
     [손가락도 같은 길로 받는다]
@@ -40,7 +49,7 @@ function clamp(value, min, max) {
 
 /* 캔버스를 붙인다. @param viewport 잘라 내는 바깥 상자 (스크롤 없음) @param stage 안에서 움직이는 판. 크기는 Blazor 가 인라인 스타일로
    정해 준다. */
-export function create(viewport, stage) {
+export function create(viewport, stage, root, dotnet) {
     const state = { zoom: 1, x: 0, y: 0 };
 
     /* * 지금 눌려 있는 포인터들. 둘이면 확대다. */
@@ -135,6 +144,160 @@ export function create(viewport, stage) {
         return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
     }
 
+    // ── 카드 끌어 놓기 ──────────────────────────────────────
+
+    const DRAG_SLOP = 5;
+    const TOUCH_HOLD_MS = 350;
+
+    /* * 눌렀지만 아직 끌기로 판정하지 않은 것. */
+    let press = null;
+
+    /* * 끌고 있는 것. */
+    let drag = null;
+
+    function clearPress() {
+        if (press?.timer) clearTimeout(press.timer);
+        press = null;
+    }
+
+    function onDragDown(e) {
+        if (e.button !== 0 && e.pointerType === 'mouse') return;
+        if (e.target.closest?.('button, a, input, .ad-orgc__btn')) return;
+
+        const source = e.target.closest?.('[data-drag]');
+        if (!source || !root.contains(source)) return;
+
+        clearPress();
+        press = { el: source, id: e.pointerId, x: e.clientX, y: e.clientY, ready: e.pointerType !== 'touch' };
+
+        if (!press.ready) {
+            const pending = press;
+            pending.timer = setTimeout(() => {
+                if (press === pending) beginDrag(pending.x, pending.y);
+            }, TOUCH_HOLD_MS);
+        }
+    }
+
+    function beginDrag(x, y) {
+        const source = press.el;
+        const rect = source.getBoundingClientRect();
+        const ghost = source.cloneNode(true);
+
+        ghost.classList.add('ad-orgc__ghost');
+        ghost.removeAttribute('data-drag');
+        ghost.removeAttribute('data-drop');
+        ghost.style.width = `${rect.width}px`;
+        ghost.style.height = `${rect.height}px`;
+        document.body.appendChild(ghost);
+
+        drag = {
+            source,
+            pointerId: press.id,
+            key: source.getAttribute('data-drag'),
+            dx: x - rect.left,
+            dy: y - rect.top,
+            ghost,
+            over: null,
+        };
+
+        clearPress();
+        source.classList.add('ad-orgc--dragging');
+        root.classList.add('ad-orgc-wrap--dragging');
+        moveDrag(x, y);
+    }
+
+    function targetAt(x, y) {
+        const hit = document.elementFromPoint(x, y)?.closest?.('[data-drop]');
+        if (!hit || !root.contains(hit) || hit === drag.source) return null;
+        return hit;
+    }
+
+    function moveDrag(x, y) {
+        drag.ghost.style.transform = `translate(${x - drag.dx}px, ${y - drag.dy}px)`;
+
+        const over = targetAt(x, y);
+        if (over === drag.over) return;
+
+        drag.over?.classList.remove('ad-orgc__node--over');
+        over?.classList.add('ad-orgc__node--over');
+        drag.over = over;
+    }
+
+    function endDrag(commit) {
+        const done = drag;
+        drag = null;
+
+        done.ghost.remove();
+        done.source.classList.remove('ad-orgc--dragging');
+        done.over?.classList.remove('ad-orgc__node--over');
+        root.classList.remove('ad-orgc-wrap--dragging');
+
+        // 놓은 직후 브라우저가 쏘는 click 이 카드의 단추(얼굴 카드 등)를 열지 않게 한 번 삼킨다.
+        const swallow = (ev) => { ev.stopPropagation(); ev.preventDefault(); };
+        window.addEventListener('click', swallow, { capture: true, once: true });
+        setTimeout(() => window.removeEventListener('click', swallow, { capture: true }), 0);
+
+        if (!commit || !done.over) return;
+
+        const sep = done.key.indexOf(':');
+        dotnet?.invokeMethodAsync(
+            'DropFromJs',
+            done.key.slice(0, sep),
+            done.key.slice(sep + 1),
+            done.over.getAttribute('data-drop'));
+    }
+
+    function onDragMove(e) {
+        if (drag && e.pointerId === drag.pointerId) {
+            e.preventDefault();
+            moveDrag(e.clientX, e.clientY);
+            return;
+        }
+
+        if (!press || e.pointerId !== press.id) return;
+
+        const far = Math.hypot(e.clientX - press.x, e.clientY - press.y) > DRAG_SLOP;
+        if (!far) return;
+
+        if (press.ready) {
+            beginDrag(e.clientX, e.clientY);
+        } else {
+            // 손가락이 기다리기 전에 움직였다 — 목록을 굴리려는 것이다.
+            clearPress();
+        }
+    }
+
+    function onDragUp(e) {
+        if (drag && e.pointerId === drag.pointerId) {
+            endDrag(e.type === 'pointerup');
+            return;
+        }
+
+        if (press && e.pointerId === press.id) clearPress();
+    }
+
+    /* * 끄는 동안 손가락 굴림을 막는다. 옆 목록은 `pan-y` 라 막지 않으면 브라우저가 집어 간다. */
+    function onTouchMove(e) {
+        if (drag) e.preventDefault();
+    }
+
+    /* * 이미지·글자를 끌면 브라우저가 제 HTML5 끌기를 시작해 포인터 이벤트가 끊긴다. */
+    function onNativeDrag(e) {
+        if (e.target.closest?.('[data-drag]')) e.preventDefault();
+    }
+
+    function onKey(e) {
+        if (e.key === 'Escape' && drag) endDrag(false);
+    }
+
+    root.addEventListener('pointerdown', onDragDown);
+    window.addEventListener('pointermove', onDragMove, { passive: false });
+    window.addEventListener('pointerup', onDragUp);
+    window.addEventListener('pointercancel', onDragUp);
+    root.addEventListener('touchmove', onTouchMove, { passive: false });
+    root.addEventListener('dragstart', onNativeDrag);
+    window.addEventListener('keydown', onKey);
+
     viewport.addEventListener('wheel', onWheel, { passive: false });
     viewport.addEventListener('pointerdown', onPointerDown);
     viewport.addEventListener('pointermove', onPointerMove);
@@ -201,6 +364,15 @@ export function create(viewport, stage) {
         },
 
         dispose() {
+            if (drag) endDrag(false);
+            clearPress();
+            root.removeEventListener('pointerdown', onDragDown);
+            window.removeEventListener('pointermove', onDragMove);
+            window.removeEventListener('pointerup', onDragUp);
+            window.removeEventListener('pointercancel', onDragUp);
+            root.removeEventListener('touchmove', onTouchMove);
+            root.removeEventListener('dragstart', onNativeDrag);
+            window.removeEventListener('keydown', onKey);
             resizes.disconnect();
             viewport.removeEventListener('wheel', onWheel);
             viewport.removeEventListener('pointerdown', onPointerDown);

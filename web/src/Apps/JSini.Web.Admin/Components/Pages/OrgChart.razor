@@ -3,7 +3,7 @@
 
 @*
     [조직도] DB 메뉴 `/company/org-chart`. 회사 → 부서 → 사람을 그림 한 장으로 보고, 끌어다 놓거나 [이동] 단추로 소속을 바꾼다.
-    사람은 미리 다 읽는다(회사 하나로 좁혀 부서별 조회를 몇 개씩 묶어 나란히). 끌기 값은 DataTransfer 가 아니라 회로가 들고 있다. 화면 이동·확대만 JS 다.
+    사람은 미리 다 읽는다(회사 하나로 좁혀 부서별 조회를 몇 개씩 묶어 나란히). 끌기 손짓·화면 이동·확대는 JS 고, 놓은 결과만 회로로 온다(DropFromJs).
 *@
 
 @inherits DataPage
@@ -51,7 +51,7 @@
 </CommSch>
 
 <CommCont>
-    <div class="ad-orgc-wrap">
+    <div class="ad-orgc-wrap" @ref="_wrap">
 
         <div class="ad-orgc" @ref="_viewport">
 
@@ -74,11 +74,8 @@
                 {
                     <div class="ad-orgc__node ad-orgc__node--@Kind(node)"
                          style="left: @Px(node.X); top: @Px(node.Y)"
-                         draggable="@Draggable(node)"
-                         @ondragstart="@(() => BeginDrag(node))"
-                         @ondragover:preventDefault="true"
-                         @ondrop:preventDefault="true"
-                         @ondrop="@(() => DropAsync(node))">
+                         data-drag="@DragKey(node)"
+                         data-drop="@DropKey(node)">
 
                         @if (node.Kind == OrgKind.User)
                         {
@@ -124,7 +121,7 @@
             }
         </div>
 
-        @* 미소속 사용자. 행이 싣는 끌기 값은 사람 노드와 같은 모양이라 부서 노드의 놓기 처리를 그대로 쓴다. *@
+        @* 미소속 사용자. 행이 싣는 끌기 값(data-drag)은 사람 노드와 같은 모양이라 부서 노드의 놓기 처리를 그대로 쓴다. *@
         @if (_showUnassigned)
         {
             <div class="ad-orgc__side no-pan">
@@ -139,8 +136,7 @@
                 <div class="ad-orgc__side-list">
                     @foreach (var user in _unassigned)
                     {
-                        <div class="ad-orgc__row" draggable="@(CanMove ? "true" : "false")"
-                             @ondragstart="@(() => BeginDragUser(user.Id))">
+                        <div class="ad-orgc__row" data-drag="@(CanMove ? UserDragPrefix + user.Id : null)">
 
                             <UserAvatar Photo="@user.Avatar" LoginId="@user.LoginId"
                                         Name="@(string.IsNullOrWhiteSpace(user.UserName) ? user.LoginId : user.UserName)"
