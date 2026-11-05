@@ -5625,6 +5625,64 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   }
 }
 
+/* ── 달력 판 ↔ 오른쪽 기둥 분할 (DxSplitter) ──────────────── */
+/* 기둥 폭은 판의 Size 가 정한다 — 끌어 둔 폭은 브라우저에 남는다(ProjectScheduler.DayWidthKey). */
+
+.pm-gc__split {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* 판 안쪽 여백은 규칙이 읽는 변수를 덮어 건다. 크기 모드마다 값이 달라 셀렉터를 겨누면 되돌아온다. */
+.pm-gc__split.dxbl-splitter {
+  --dxbl-splitter-pane-padding-x: 0;
+  --dxbl-splitter-pane-padding-y: 0;
+}
+
+/* 판은 기본이 min-height: fit-content 라 안쪽 내용보다 작아지지 않는다 — 달력이 판 밖으로 나간다. */
+.pm-gc__split > .dxbl-splitter-pane {
+  min-width: 0;
+  min-height: 0;
+}
+
+.pm-gc__split > .dxbl-splitter-pane > .dxbl-splitter-pane-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* 판 안에서는 폭을 판에 맡기고 높이를 채운다. 접힌 띠도 같다(판이 36px 로 선다). */
+.pm-gc__split .pm-gc__day,
+.pm-gc__split .pm-gc__day.pm-gc__day--folded {
+  flex: 1 1 auto;
+  width: auto;
+}
+
+.pm-gc__split > .dxbl-splitter-separator {
+  background-color: transparent;
+}
+
+.pm-gc__split > .dxbl-splitter-separator:hover {
+  background-color: var(--jsini-hover, rgba(0, 0, 0, 0.05));
+}
+
+/* 좁은 화면에서는 판의 상자만 지운다 — 달력과 기둥이 다시 몸통의 세로 줄이 된다. 마크업을 갈아 끼우면 달력 판이 새로 만들어진다. */
+@media (max-width: 767px) {
+  .pm-gc__split,
+  .pm-gc__split > .dxbl-splitter-pane,
+  .pm-gc__split > .dxbl-splitter-pane > .dxbl-splitter-pane-content {
+    display: contents !important;
+    overflow: visible !important;
+  }
+
+  .pm-gc__split > .dxbl-splitter-separator {
+    display: none !important;
+  }
+}
+
 /* ── 양쪽 기둥 접기 (월 보기 · 넓은 화면) ───────────────────── */
 /* 접힌 기둥은 세로 띠로 남는다 — 통째로 사라지면 다시 펼 자리가 없다. */
 

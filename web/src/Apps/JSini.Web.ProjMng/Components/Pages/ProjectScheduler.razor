@@ -265,568 +265,584 @@
             </div>
         </details>
 
-        @* ── 달력 판 ── 단축키는 여기 촛점이 있을 때만 받는다. *@
-        <div class="pm-gc__main" tabindex="0" @ref="_mainRef" @onkeydown="@OnKeyAsync">
+        @* ── 달력 판 ↔ 오른쪽 기둥 ── 구분선을 끌어 오른쪽 목록의 폭을 바꾼다. 보기와 폭에 따라 마크업을 갈아 끼우지 않는다 — 달력 판이 새로 만들어지면 Delete 글쇠(gc-table-delete.js)가 붙어 있던 자리를 잃는다. 휴대폰에서는 판의 상자만 지운다(display: contents). *@
+        <DxSplitter CssClass="pm-gc__split" Orientation="Orientation.Horizontal">
+            <Panes>
+                <DxSplitterPane>
 
-            @if (_view == CalView.Table)
-            {
-                @* 휴대폰은 표를 카드로 펴서 가로로 굴릴 것이 없다 — 좌우로 쓸면 하루 앞뒤로 간다. *@
-                <div class="pm-gc-swipe" @ref="_dayTurnRef" @ontouchstart="@OnTouchStart" @ontouchend="@OnDaySwipeEndAsync">
-                <CommCont Hint="@Hint">
-                    @* 입력칸은 <b>고른 줄에만</b> 세운다. 줄마다 DxDateEdit·DxComboBox 를 아홉 개씩 깔면 표로 바꿀 때마다
-                       수백 개의 부품이 한꺼번에 서서 화면이 얼어붙는다. 나머지 줄은 글자만 그리고, 줄을 누르면 그 줄이 편집칸이 된다.
-                       첫 줄을 저절로 고르지 않는다 — 고르면 열자마자 한 줄이 입력칸으로 서서 그만큼 다시 무거워진다. *@
-                    <CommGrd TItem="WbsItemDto"
-                             Data="@TableRows"
-                             KeyFieldName="@nameof(WbsItemDto.WbsId)"
-                             EditFormTitle="일정"
-                             ExportName="일정표"
-                             PageSize="300"
-                             ShowHeader="false"
-                             ShowFilterRow="true"
-                             EmptyText="그 기간에 일정이 없습니다."
-                             AutoSelectFirstRow="false"
-                             RowCssClass="@TableRowClass"
-                             SelectedItem="@_editRow"
-                             SelectedItemChanged="@OnTableRowSelected"
-                             OnRowDoubleClick="@OnTableRowDoubleClick"
-                             OnNew="@FillNew"
-                             OnEditOpen="@OnGridEditOpen"
-                             OnSave="@SaveRowAsync"
-                             OnDelete="@DeleteAsync"
-                             DeleteConfirm="@(w => $"「{w.ProcNm}」 을(를) 지웁니다.\n되돌릴 수 없습니다.")"
-                             Reload="@SearchAsync">
-                        <Columns>
-                            @* 시작·종료·기간·알림·요청자·담당자·관리 칸만 보인다. 나머지는 숨긴다. *@
-                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanSdt)" Caption="시작" Width="150"
-                                              FixedPosition="@PinnedColumn">
-                                <CellDisplayTemplate Context="cell">
-                                    @{
-                                        var w = (WbsItemDto)cell.DataItem;
-                                    }
-                                    @if (IsEditing(w))
-                                    {
-                                        <DxDateEdit Date="@w.PlanSdt"
-                                                    DateChanged="@((DateTime? d) => OnInlinePlanSdtChangedAsync(w, d))"
-                                                    TimeSectionVisible="true"
-                                                    DisplayFormat="yyyy-MM-dd HH:mm"
-                                                    Format="yyyy-MM-dd HH:mm"
-                                                    ValidationEnabled="false"
-                                                    CssClass="pm-inline-edit"
-                                                    Mask="yyyy-MM-dd HH:mm"
-                                                    AllowUpDownArrowKeys="true" />
-                                    }
-                                    else
-                                    {
-                                        <span>@w.PlanSdt?.ToString("yyyy-MM-dd HH:mm")</span>
-                                    }
-                                </CellDisplayTemplate>
-                            </DxGridDataColumn>
+                    @* 단축키는 여기 촛점이 있을 때만 받는다. *@
+                    <div class="pm-gc__main" tabindex="0" @ref="_mainRef" @onkeydown="@OnKeyAsync">
 
-                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanEdt)" Caption="종료" Width="150"
-                                              FixedPosition="@PinnedColumn">
-                                <CellDisplayTemplate Context="cell">
-                                    @{
-                                        var w = (WbsItemDto)cell.DataItem;
-                                    }
-                                    @if (IsEditing(w))
-                                    {
-                                        <DxDateEdit Date="@w.PlanEdt"
-                                                    DateChanged="@((DateTime? d) => OnInlinePlanEdtChangedAsync(w, d))"
-                                                    TimeSectionVisible="true"
-                                                    DisplayFormat="yyyy-MM-dd HH:mm"
-                                                    Format="yyyy-MM-dd HH:mm"
-                                                    ValidationEnabled="false"
-                                                    CssClass="pm-inline-edit"
-                                                    Mask="yyyy-MM-dd HH:mm"
-                                                    AllowUpDownArrowKeys="true" />
-                                    }
-                                    else
-                                    {
-                                        <span>@w.PlanEdt?.ToString("yyyy-MM-dd HH:mm")</span>
-                                    }
-                                </CellDisplayTemplate>
-                            </DxGridDataColumn>
-
-                            @* 기간은 총 시간으로 적는다(하루 24시간, PlanHours). *@
-                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanHours)" Caption="기간" Width="95"
-                                              TextAlignment="GridTextAlignment.Right"
-                                              FixedPosition="@PinnedColumn">
-                                <CellDisplayTemplate Context="cell">
-                                    @{
-                                        var w = (WbsItemDto)cell.DataItem;
-                                    }
-                                    <span title="@HoursTip(w.PlanHours)">@HoursText(w.PlanHours)</span>
-                                </CellDisplayTemplate>
-                            </DxGridDataColumn>
-
-                            @* 「전체」로 볼 때만 선다 — 하나를 골랐으면 모든 줄이 같은 값이다. *@
-                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.PrjRid)" Caption="프로젝트" Width="140"
-                                              Visible="@AllProjects">
-                                <CellDisplayTemplate Context="cell">
-                                    @{
-                                        var w = (WbsItemDto)cell.DataItem;
-                                    }
-                                    <span class="pm-gc-prj" style="--pm-prj: @ProjectColor(w)" title="@ProjectName(w)">@ProjectName(w)</span>
-                                </CellDisplayTemplate>
-                            </DxGridDataColumn>
-
-                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.ProcNm)" Caption="알림" MinWidth="180"
-                                              TextAlignment="GridTextAlignment.Left">
-                                <CellDisplayTemplate Context="cell">
-                                    @{
-                                        var w = (WbsItemDto)cell.DataItem;
-                                    }
-                                    @if (IsEditing(w))
-                                    {
-                                        <DxTextBox Text="@w.ProcNm"
-                                                   TextChanged="@((string? t) => OnInlineProcNmChangedAsync(w, t))"
-                                                   BindValueMode="BindValueMode.OnLostFocus"
-                                                   NullText="알림명 입력"
-                                                   ValidationEnabled="false"
-                                                   CssClass="pm-inline-edit" />
-                                    }
-                                    else
-                                    {
-                                        <span title="@w.ProcNm">@w.ProcNm</span>
-                                    }
-                                </CellDisplayTemplate>
-                            </DxGridDataColumn>
-
-                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.ScheduleType)" Caption="구분" Width="110"
-                                              Visible="false">
-                                <CellDisplayTemplate Context="cell">
-                                    @{
-                                        var w = (WbsItemDto)cell.DataItem;
-                                    }
-                                    @if (IsEditing(w))
-                                    {
-                                        <DxComboBox Data="@_scheduleTypeCodes"
-                                                    TextFieldName="@nameof(CommonCodeItem.Name)"
-                                                    ValueFieldName="@nameof(CommonCodeItem.Code)"
-                                                    Value="@w.ScheduleType"
-                                                    ValueChanged="@((string? s) => OnInlineScheduleTypeChangedAsync(w, s))"
-                                                    NullText="구분"
-                                                    ValidationEnabled="false"
-                                                    CssClass="pm-inline-edit" />
-                                    }
-                                    else
-                                    {
-                                        <span>@GetScheduleTypeName(w.ScheduleType)</span>
-                                    }
-                                </CellDisplayTemplate>
-                            </DxGridDataColumn>
-
-                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.ProcTp)" Caption="종류" Width="110"
-                                              Visible="false">
-                                <CellDisplayTemplate Context="cell">
-                                    @{
-                                        var w = (WbsItemDto)cell.DataItem;
-                                    }
-                                    @if (IsEditing(w))
-                                    {
-                                        <DxTextBox Text="@w.ProcTp"
-                                                   TextChanged="@((string? t) => OnInlineProcTpChangedAsync(w, t))"
-                                                   BindValueMode="BindValueMode.OnLostFocus"
-                                                   NullText="종류 입력"
-                                                   ValidationEnabled="false"
-                                                   CssClass="pm-inline-edit" />
-                                    }
-                                    else
-                                    {
-                                        <span>@w.ProcTp</span>
-                                    }
-                                </CellDisplayTemplate>
-                            </DxGridDataColumn>
-
-                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.ReqUser)" Caption="요청자" Width="110">
-                                <CellDisplayTemplate Context="cell">
-                                    @{
-                                        var w = (WbsItemDto)cell.DataItem;
-                                    }
-                                    @if (IsEditing(w))
-                                    {
-                                        <DxTextBox Text="@w.ReqUser"
-                                                   TextChanged="@((string? t) => OnInlineReqUserChangedAsync(w, t))"
-                                                   BindValueMode="BindValueMode.OnLostFocus"
-                                                   NullText="요청자 입력"
-                                                   ValidationEnabled="false"
-                                                   CssClass="pm-inline-edit" />
-                                    }
-                                    else
-                                    {
-                                        <span>@w.ReqUser</span>
-                                    }
-                                </CellDisplayTemplate>
-
-                                @* 글자를 치는 대신 표에 있는 값(빈값 포함)을 체크해 여럿 고른다 *@
-                                <FilterRowCellTemplate Context="f">
-                                    <GridCheckFilter Filter="@f" Options="@ReqUserFilterOptions" />
-                                </FilterRowCellTemplate>
-                            </DxGridDataColumn>
-
-                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.DevUser)" Caption="담당자" Width="130">
-                                <CellDisplayTemplate Context="cell">
-                                    @{
-                                        var w = (WbsItemDto)cell.DataItem;
-                                    }
-                                    @if (IsEditing(w))
-                                    {
-                                        @* 담당자는 포털 계정이 아니어도 된다(외부 인력 등) — 적은 글자 그대로 담는다. *@
-                                        <DxTextBox Text="@w.DevUser"
-                                                   TextChanged="@((string? t) => OnInlineDevUserChangedAsync(w, t))"
-                                                   BindValueMode="BindValueMode.OnLostFocus"
-                                                   NullText="담당자 입력"
-                                                   ValidationEnabled="false"
-                                                   CssClass="pm-inline-edit" />
-                                    }
-                                    else
-                                    {
-                                        <span>@GetUserDisplayName(w.DevUser)</span>
-                                    }
-                                </CellDisplayTemplate>
-
-                                @* 글자를 치는 대신 표에 있는 값(빈값 포함)을 체크해 여럿 고른다 *@
-                                <FilterRowCellTemplate Context="f">
-                                    <GridCheckFilter Filter="@f" Options="@DevUserFilterOptions" />
-                                </FilterRowCellTemplate>
-                            </DxGridDataColumn>
-
-                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.AddTarget)" Caption="추가대상" Width="100">
-                                <CellDisplayTemplate Context="cell">
-                                    @{
-                                        var w = (WbsItemDto)cell.DataItem;
-                                    }
-                                    @if (_canUpdate)
-                                    {
-                                        @* 줄마다 서는 것이라 DevExpress 부품이 아니라 맨 단추다 — 고른 줄이 아니어도 한 번에 바뀐다 *@
-                                        var targetName = AddTargets.Name(w.AddTarget);
-                                        <button type="button"
-                                                class="pm-addtarget @(targetName is null ? "pm-addtarget--empty" : "")"
-                                                title="누를 때마다 다음 추가대상으로 바뀝니다 (비움 포함)"
-                                                @onclick="@(() => CycleAddTarget(w))"
-                                                @onclick:stopPropagation="true">@(targetName ?? "—")</button>
-                                    }
-                                    else if (AddTargets.Name(w.AddTarget) is { } target)
-                                    {
-                                        <span class="jsini-badge jsini-badge--warn">@target</span>
-                                    }
-                                </CellDisplayTemplate>
-                            </DxGridDataColumn>
-
-                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.WbsState)" Caption="진행상태" Width="125">
-                                <CellDisplayTemplate Context="cell">
-                                    @{
-                                        var w = (WbsItemDto)cell.DataItem;
-                                        var stateCode = GetInlineStateCode(w);
-                                    }
-                                    <div class="pm-inline-state-wrapper">
-                                        @if (_canUpdate)
-                                        {
-                                            @* 추가대상과 같은 맨 단추 — 지연은 상태가 아니라 날짜에서 세는 것이라 옆 딱지로 따로 단다 *@
-                                            <button type="button"
-                                                    class="pm-statecycle pm-statecycle--@stateCode.ToLowerInvariant()"
-                                                    title="누를 때마다 다음 진행상태로 바뀝니다 (대기 → 진행중 → 완료 → 폐기)"
-                                                    @onclick="@(() => CycleRowState(w))"
-                                                    @onclick:stopPropagation="true">@StateCodeName(stateCode)</button>
-                                        }
-                                        else
-                                        {
-                                            <span class="jsini-badge @StateClass(w)">@StateName(w)</span>
-                                        }
-                                        @if (_canUpdate && LabelOf(w, Today) == "OVER")
-                                        {
-                                            <span class="jsini-badge jsini-badge--err pm-inline-over-badge" title="계획종료일이 지난 지연 상태입니다">지연</span>
-                                        }
-                                    </div>
-                                </CellDisplayTemplate>
-                            </DxGridDataColumn>
-
-                            @* 좁은 화면에서는 이 넷을 접는다 — 아홉 칸을 그대로 두면 표가 가로로 두 배가 되어 제목조차 안 보인다. *@
-                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.Comm)" Caption="메모" MinWidth="140"
-                                              TextAlignment="GridTextAlignment.Left"
-                                              Visible="false">
-                                <CellDisplayTemplate Context="cell">
-                                    @{
-                                        var w = (WbsItemDto)cell.DataItem;
-                                    }
-                                    @if (IsEditing(w))
-                                    {
-                                        <DxTextBox Text="@w.Comm"
-                                                   TextChanged="@((string? t) => OnInlineCommChangedAsync(w, t))"
-                                                   BindValueMode="BindValueMode.OnLostFocus"
-                                                   NullText="메모 입력"
-                                                   ValidationEnabled="false"
-                                                   CssClass="pm-inline-edit" />
-                                    }
-                                    else
-                                    {
-                                        <span>@w.Comm</span>
-                                    }
-                                </CellDisplayTemplate>
-                            </DxGridDataColumn>
-
-                            <DxGridDataColumn FieldName="@nameof(WbsItemDto.BodyText)" Caption="원문" MinWidth="140"
-                                              TextAlignment="GridTextAlignment.Left"
-                                              Visible="false">
-                                <CellDisplayTemplate Context="cell">
-                                    @{
-                                        var w = (WbsItemDto)cell.DataItem;
-                                    }
-                                    @if (IsEditing(w))
-                                    {
-                                        <DxTextBox Text="@w.BodyText"
-                                                   TextChanged="@((string? t) => OnInlineBodyTextChangedAsync(w, t))"
-                                                   BindValueMode="BindValueMode.OnLostFocus"
-                                                   NullText="원문 없음"
-                                                   ValidationEnabled="false"
-                                                   CssClass="pm-inline-edit" />
-                                    }
-                                    else
-                                    {
-                                        <span title="@w.BodyText">@w.BodyText</span>
-                                    }
-                                </CellDisplayTemplate>
-                            </DxGridDataColumn>
-                        </Columns>
-
-                        @* 고치는 자리는 표 밖의 공통 창이다 — EditFormTemplate 을 두면 표의 기본 창이 따로 떠서 칸과 단추가 갈린다. *@
-                        <RowActions Context="row">
-                            <PermissionView Action="MenuAction.Update">
-                                <DxButton IconCssClass="jsini-icon-edit"
-                                          Title="수정"
-                                          RenderStyle="ButtonRenderStyle.Link"
-                                          Click="@(() => OnTableRowDoubleClick(row))" />
-                            </PermissionView>
-                        </RowActions>
-
-                        @* 줄을 두 번 누르는 것과 같은 창이다 — 두 번 누르기는 화면에 안 보이는 몸짓이라 여기에도 둔다. *@
-                        <ContextMenuItems>
-                            <CommMenuItem Text="일정 수정" IconCssClass="jsini-icon-edit"
-                                          Enabled="@(_canUpdate && _editRow is not null)"
-                                          Click="@(() => OnTableRowDoubleClick(_editRow!))" />
-                        </ContextMenuItems>
-                    </CommGrd>
-                </CommCont>
-                </div>
-            }
-            else if (_view == CalView.Month)
-            {
-                @* 주 한 줄씩 직접 배치한다 — 여러 날에 걸친 일이 칸을 가로질러 하나의 막대로 흐른다. *@
-                <div class="pm-gc-month @(_isPhone ? "pm-gc-month--phone" : null)"
-                     data-drag-owner="@_dragOwner"
-                     @ref="_monthTurnRef"
-                     @ontouchstart="@OnTouchStart"
-                     @ontouchend="@OnTouchEndAsync">
-                    <div class="pm-gc-month__dow">
-                        @foreach (var dow in Weekdays)
+                        @if (_view == CalView.Table)
                         {
-                            <span class="pm-gc-month__dow-cell @DowCss(dow)">@DowName(dow)</span>
-                        }
-                    </div>
+                            @* 휴대폰은 표를 카드로 펴서 가로로 굴릴 것이 없다 — 좌우로 쓸면 하루 앞뒤로 간다. *@
+                            <div class="pm-gc-swipe" @ref="_dayTurnRef" @ontouchstart="@OnTouchStart" @ontouchend="@OnDaySwipeEndAsync">
+                            <CommCont Hint="@Hint">
+                                @* 입력칸은 <b>고른 줄에만</b> 세운다. 줄마다 DxDateEdit·DxComboBox 를 아홉 개씩 깔면 표로 바꿀 때마다
+                                   수백 개의 부품이 한꺼번에 서서 화면이 얼어붙는다. 나머지 줄은 글자만 그리고, 줄을 누르면 그 줄이 편집칸이 된다.
+                                   첫 줄을 저절로 고르지 않는다 — 고르면 열자마자 한 줄이 입력칸으로 서서 그만큼 다시 무거워진다. *@
+                                <CommGrd TItem="WbsItemDto"
+                                         Data="@TableRows"
+                                         KeyFieldName="@nameof(WbsItemDto.WbsId)"
+                                         EditFormTitle="일정"
+                                         ExportName="일정표"
+                                         PageSize="300"
+                                         ShowHeader="false"
+                                         ShowFilterRow="true"
+                                         EmptyText="그 기간에 일정이 없습니다."
+                                         AutoSelectFirstRow="false"
+                                         RowCssClass="@TableRowClass"
+                                         SelectedItem="@_editRow"
+                                         SelectedItemChanged="@OnTableRowSelected"
+                                         OnRowDoubleClick="@OnTableRowDoubleClick"
+                                         OnNew="@FillNew"
+                                         OnEditOpen="@OnGridEditOpen"
+                                         OnSave="@SaveRowAsync"
+                                         OnDelete="@DeleteAsync"
+                                         DeleteConfirm="@(w => $"「{w.ProcNm}」 을(를) 지웁니다.\n되돌릴 수 없습니다.")"
+                                         Reload="@SearchAsync">
+                                    <Columns>
+                                        @* 시작·종료·기간·알림·요청자·담당자·관리 칸만 보인다. 나머지는 숨긴다. *@
+                                        <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanSdt)" Caption="시작" Width="150"
+                                                          FixedPosition="@PinnedColumn">
+                                            <CellDisplayTemplate Context="cell">
+                                                @{
+                                                    var w = (WbsItemDto)cell.DataItem;
+                                                }
+                                                @if (IsEditing(w))
+                                                {
+                                                    <DxDateEdit Date="@w.PlanSdt"
+                                                                DateChanged="@((DateTime? d) => OnInlinePlanSdtChangedAsync(w, d))"
+                                                                TimeSectionVisible="true"
+                                                                DisplayFormat="yyyy-MM-dd HH:mm"
+                                                                Format="yyyy-MM-dd HH:mm"
+                                                                ValidationEnabled="false"
+                                                                CssClass="pm-inline-edit"
+                                                                Mask="yyyy-MM-dd HH:mm"
+                                                                AllowUpDownArrowKeys="true" />
+                                                }
+                                                else
+                                                {
+                                                    <span>@w.PlanSdt?.ToString("yyyy-MM-dd HH:mm")</span>
+                                                }
+                                            </CellDisplayTemplate>
+                                        </DxGridDataColumn>
 
-                    @foreach (var week in _weeks)
-                    {
-                        @* 끌어 옮기기는 gc-month-drag.js 가 받는다 — 놓을 날을 이 줄의 첫날과 가로 자리로 셈한다. *@
-                        <div class="pm-gc-week" data-start="@week.Days[0].Date.ToString("yyyy-MM-dd")">
-                            <div class="pm-gc-week__days">
-                                @foreach (var day in week.Days)
-                                {
-                                    var here = day;
+                                        <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanEdt)" Caption="종료" Width="150"
+                                                          FixedPosition="@PinnedColumn">
+                                            <CellDisplayTemplate Context="cell">
+                                                @{
+                                                    var w = (WbsItemDto)cell.DataItem;
+                                                }
+                                                @if (IsEditing(w))
+                                                {
+                                                    <DxDateEdit Date="@w.PlanEdt"
+                                                                DateChanged="@((DateTime? d) => OnInlinePlanEdtChangedAsync(w, d))"
+                                                                TimeSectionVisible="true"
+                                                                DisplayFormat="yyyy-MM-dd HH:mm"
+                                                                Format="yyyy-MM-dd HH:mm"
+                                                                ValidationEnabled="false"
+                                                                CssClass="pm-inline-edit"
+                                                                Mask="yyyy-MM-dd HH:mm"
+                                                                AllowUpDownArrowKeys="true" />
+                                                }
+                                                else
+                                                {
+                                                    <span>@w.PlanEdt?.ToString("yyyy-MM-dd HH:mm")</span>
+                                                }
+                                            </CellDisplayTemplate>
+                                        </DxGridDataColumn>
 
-                                    <div class="@DayCss(day)">
-                                        <button type="button" class="pm-gc-day__fill"
-                                                aria-label="@DayLabel(day)"
-                                                @onclick="@(() => OnDayClickAsync(here.Date))"></button>
+                                        @* 기간은 총 시간으로 적는다(하루 24시간, PlanHours). *@
+                                        <DxGridDataColumn FieldName="@nameof(WbsItemDto.PlanHours)" Caption="기간" Width="95"
+                                                          TextAlignment="GridTextAlignment.Right"
+                                                          FixedPosition="@PinnedColumn">
+                                            <CellDisplayTemplate Context="cell">
+                                                @{
+                                                    var w = (WbsItemDto)cell.DataItem;
+                                                }
+                                                <span title="@HoursTip(w.PlanHours)">@HoursText(w.PlanHours)</span>
+                                            </CellDisplayTemplate>
+                                        </DxGridDataColumn>
 
-                                        <button type="button" class="pm-gc-day__num"
-                                                aria-label="@($"{here.Date.Month}월 {here.Date.Day}일 보기")"
-                                                @onclick="@(() => OnDayNumberAsync(here.Date))">
-                                            @day.Date.Day
-                                        </button>
-                                    </div>
-                                }
+                                        @* 「전체」로 볼 때만 선다 — 하나를 골랐으면 모든 줄이 같은 값이다. *@
+                                        <DxGridDataColumn FieldName="@nameof(WbsItemDto.PrjRid)" Caption="프로젝트" Width="140"
+                                                          Visible="@AllProjects">
+                                            <CellDisplayTemplate Context="cell">
+                                                @{
+                                                    var w = (WbsItemDto)cell.DataItem;
+                                                }
+                                                <span class="pm-gc-prj" style="--pm-prj: @ProjectColor(w)" title="@ProjectName(w)">@ProjectName(w)</span>
+                                            </CellDisplayTemplate>
+                                        </DxGridDataColumn>
+
+                                        <DxGridDataColumn FieldName="@nameof(WbsItemDto.ProcNm)" Caption="알림" MinWidth="180"
+                                                          TextAlignment="GridTextAlignment.Left">
+                                            <CellDisplayTemplate Context="cell">
+                                                @{
+                                                    var w = (WbsItemDto)cell.DataItem;
+                                                }
+                                                @if (IsEditing(w))
+                                                {
+                                                    <DxTextBox Text="@w.ProcNm"
+                                                               TextChanged="@((string? t) => OnInlineProcNmChangedAsync(w, t))"
+                                                               BindValueMode="BindValueMode.OnLostFocus"
+                                                               NullText="알림명 입력"
+                                                               ValidationEnabled="false"
+                                                               CssClass="pm-inline-edit" />
+                                                }
+                                                else
+                                                {
+                                                    <span title="@w.ProcNm">@w.ProcNm</span>
+                                                }
+                                            </CellDisplayTemplate>
+                                        </DxGridDataColumn>
+
+                                        <DxGridDataColumn FieldName="@nameof(WbsItemDto.ScheduleType)" Caption="구분" Width="110"
+                                                          Visible="false">
+                                            <CellDisplayTemplate Context="cell">
+                                                @{
+                                                    var w = (WbsItemDto)cell.DataItem;
+                                                }
+                                                @if (IsEditing(w))
+                                                {
+                                                    <DxComboBox Data="@_scheduleTypeCodes"
+                                                                TextFieldName="@nameof(CommonCodeItem.Name)"
+                                                                ValueFieldName="@nameof(CommonCodeItem.Code)"
+                                                                Value="@w.ScheduleType"
+                                                                ValueChanged="@((string? s) => OnInlineScheduleTypeChangedAsync(w, s))"
+                                                                NullText="구분"
+                                                                ValidationEnabled="false"
+                                                                CssClass="pm-inline-edit" />
+                                                }
+                                                else
+                                                {
+                                                    <span>@GetScheduleTypeName(w.ScheduleType)</span>
+                                                }
+                                            </CellDisplayTemplate>
+                                        </DxGridDataColumn>
+
+                                        <DxGridDataColumn FieldName="@nameof(WbsItemDto.ProcTp)" Caption="종류" Width="110"
+                                                          Visible="false">
+                                            <CellDisplayTemplate Context="cell">
+                                                @{
+                                                    var w = (WbsItemDto)cell.DataItem;
+                                                }
+                                                @if (IsEditing(w))
+                                                {
+                                                    <DxTextBox Text="@w.ProcTp"
+                                                               TextChanged="@((string? t) => OnInlineProcTpChangedAsync(w, t))"
+                                                               BindValueMode="BindValueMode.OnLostFocus"
+                                                               NullText="종류 입력"
+                                                               ValidationEnabled="false"
+                                                               CssClass="pm-inline-edit" />
+                                                }
+                                                else
+                                                {
+                                                    <span>@w.ProcTp</span>
+                                                }
+                                            </CellDisplayTemplate>
+                                        </DxGridDataColumn>
+
+                                        <DxGridDataColumn FieldName="@nameof(WbsItemDto.ReqUser)" Caption="요청자" Width="110">
+                                            <CellDisplayTemplate Context="cell">
+                                                @{
+                                                    var w = (WbsItemDto)cell.DataItem;
+                                                }
+                                                @if (IsEditing(w))
+                                                {
+                                                    <DxTextBox Text="@w.ReqUser"
+                                                               TextChanged="@((string? t) => OnInlineReqUserChangedAsync(w, t))"
+                                                               BindValueMode="BindValueMode.OnLostFocus"
+                                                               NullText="요청자 입력"
+                                                               ValidationEnabled="false"
+                                                               CssClass="pm-inline-edit" />
+                                                }
+                                                else
+                                                {
+                                                    <span>@w.ReqUser</span>
+                                                }
+                                            </CellDisplayTemplate>
+
+                                            @* 글자를 치는 대신 표에 있는 값(빈값 포함)을 체크해 여럿 고른다 *@
+                                            <FilterRowCellTemplate Context="f">
+                                                <GridCheckFilter Filter="@f" Options="@ReqUserFilterOptions" />
+                                            </FilterRowCellTemplate>
+                                        </DxGridDataColumn>
+
+                                        <DxGridDataColumn FieldName="@nameof(WbsItemDto.DevUser)" Caption="담당자" Width="130">
+                                            <CellDisplayTemplate Context="cell">
+                                                @{
+                                                    var w = (WbsItemDto)cell.DataItem;
+                                                }
+                                                @if (IsEditing(w))
+                                                {
+                                                    @* 담당자는 포털 계정이 아니어도 된다(외부 인력 등) — 적은 글자 그대로 담는다. *@
+                                                    <DxTextBox Text="@w.DevUser"
+                                                               TextChanged="@((string? t) => OnInlineDevUserChangedAsync(w, t))"
+                                                               BindValueMode="BindValueMode.OnLostFocus"
+                                                               NullText="담당자 입력"
+                                                               ValidationEnabled="false"
+                                                               CssClass="pm-inline-edit" />
+                                                }
+                                                else
+                                                {
+                                                    <span>@GetUserDisplayName(w.DevUser)</span>
+                                                }
+                                            </CellDisplayTemplate>
+
+                                            @* 글자를 치는 대신 표에 있는 값(빈값 포함)을 체크해 여럿 고른다 *@
+                                            <FilterRowCellTemplate Context="f">
+                                                <GridCheckFilter Filter="@f" Options="@DevUserFilterOptions" />
+                                            </FilterRowCellTemplate>
+                                        </DxGridDataColumn>
+
+                                        <DxGridDataColumn FieldName="@nameof(WbsItemDto.AddTarget)" Caption="추가대상" Width="100">
+                                            <CellDisplayTemplate Context="cell">
+                                                @{
+                                                    var w = (WbsItemDto)cell.DataItem;
+                                                }
+                                                @if (_canUpdate)
+                                                {
+                                                    @* 줄마다 서는 것이라 DevExpress 부품이 아니라 맨 단추다 — 고른 줄이 아니어도 한 번에 바뀐다 *@
+                                                    var targetName = AddTargets.Name(w.AddTarget);
+                                                    <button type="button"
+                                                            class="pm-addtarget @(targetName is null ? "pm-addtarget--empty" : "")"
+                                                            title="누를 때마다 다음 추가대상으로 바뀝니다 (비움 포함)"
+                                                            @onclick="@(() => CycleAddTarget(w))"
+                                                            @onclick:stopPropagation="true">@(targetName ?? "—")</button>
+                                                }
+                                                else if (AddTargets.Name(w.AddTarget) is { } target)
+                                                {
+                                                    <span class="jsini-badge jsini-badge--warn">@target</span>
+                                                }
+                                            </CellDisplayTemplate>
+                                        </DxGridDataColumn>
+
+                                        <DxGridDataColumn FieldName="@nameof(WbsItemDto.WbsState)" Caption="진행상태" Width="125">
+                                            <CellDisplayTemplate Context="cell">
+                                                @{
+                                                    var w = (WbsItemDto)cell.DataItem;
+                                                    var stateCode = GetInlineStateCode(w);
+                                                }
+                                                <div class="pm-inline-state-wrapper">
+                                                    @if (_canUpdate)
+                                                    {
+                                                        @* 추가대상과 같은 맨 단추 — 지연은 상태가 아니라 날짜에서 세는 것이라 옆 딱지로 따로 단다 *@
+                                                        <button type="button"
+                                                                class="pm-statecycle pm-statecycle--@stateCode.ToLowerInvariant()"
+                                                                title="누를 때마다 다음 진행상태로 바뀝니다 (대기 → 진행중 → 완료 → 폐기)"
+                                                                @onclick="@(() => CycleRowState(w))"
+                                                                @onclick:stopPropagation="true">@StateCodeName(stateCode)</button>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="jsini-badge @StateClass(w)">@StateName(w)</span>
+                                                    }
+                                                    @if (_canUpdate && LabelOf(w, Today) == "OVER")
+                                                    {
+                                                        <span class="jsini-badge jsini-badge--err pm-inline-over-badge" title="계획종료일이 지난 지연 상태입니다">지연</span>
+                                                    }
+                                                </div>
+                                            </CellDisplayTemplate>
+                                        </DxGridDataColumn>
+
+                                        @* 좁은 화면에서는 이 넷을 접는다 — 아홉 칸을 그대로 두면 표가 가로로 두 배가 되어 제목조차 안 보인다. *@
+                                        <DxGridDataColumn FieldName="@nameof(WbsItemDto.Comm)" Caption="메모" MinWidth="140"
+                                                          TextAlignment="GridTextAlignment.Left"
+                                                          Visible="false">
+                                            <CellDisplayTemplate Context="cell">
+                                                @{
+                                                    var w = (WbsItemDto)cell.DataItem;
+                                                }
+                                                @if (IsEditing(w))
+                                                {
+                                                    <DxTextBox Text="@w.Comm"
+                                                               TextChanged="@((string? t) => OnInlineCommChangedAsync(w, t))"
+                                                               BindValueMode="BindValueMode.OnLostFocus"
+                                                               NullText="메모 입력"
+                                                               ValidationEnabled="false"
+                                                               CssClass="pm-inline-edit" />
+                                                }
+                                                else
+                                                {
+                                                    <span>@w.Comm</span>
+                                                }
+                                            </CellDisplayTemplate>
+                                        </DxGridDataColumn>
+
+                                        <DxGridDataColumn FieldName="@nameof(WbsItemDto.BodyText)" Caption="원문" MinWidth="140"
+                                                          TextAlignment="GridTextAlignment.Left"
+                                                          Visible="false">
+                                            <CellDisplayTemplate Context="cell">
+                                                @{
+                                                    var w = (WbsItemDto)cell.DataItem;
+                                                }
+                                                @if (IsEditing(w))
+                                                {
+                                                    <DxTextBox Text="@w.BodyText"
+                                                               TextChanged="@((string? t) => OnInlineBodyTextChangedAsync(w, t))"
+                                                               BindValueMode="BindValueMode.OnLostFocus"
+                                                               NullText="원문 없음"
+                                                               ValidationEnabled="false"
+                                                               CssClass="pm-inline-edit" />
+                                                }
+                                                else
+                                                {
+                                                    <span title="@w.BodyText">@w.BodyText</span>
+                                                }
+                                            </CellDisplayTemplate>
+                                        </DxGridDataColumn>
+                                    </Columns>
+
+                                    @* 고치는 자리는 표 밖의 공통 창이다 — EditFormTemplate 을 두면 표의 기본 창이 따로 떠서 칸과 단추가 갈린다. *@
+                                    <RowActions Context="row">
+                                        <PermissionView Action="MenuAction.Update">
+                                            <DxButton IconCssClass="jsini-icon-edit"
+                                                      Title="수정"
+                                                      RenderStyle="ButtonRenderStyle.Link"
+                                                      Click="@(() => OnTableRowDoubleClick(row))" />
+                                        </PermissionView>
+                                    </RowActions>
+
+                                    @* 줄을 두 번 누르는 것과 같은 창이다 — 두 번 누르기는 화면에 안 보이는 몸짓이라 여기에도 둔다. *@
+                                    <ContextMenuItems>
+                                        <CommMenuItem Text="일정 수정" IconCssClass="jsini-icon-edit"
+                                                      Enabled="@(_canUpdate && _editRow is not null)"
+                                                      Click="@(() => OnTableRowDoubleClick(_editRow!))" />
+                                    </ContextMenuItems>
+                                </CommGrd>
+                            </CommCont>
                             </div>
-
-                            <div class="pm-gc-week__bars">
-                                @foreach (var bar in week.Bars.Where(b => b.Lane < MaxLanes))
-                                {
-                                    var here = bar;
-
-                                    <button type="button"
-                                            class="@BarCss(bar)"
-                                            style="@BarStyle(bar)"
-                                            title="@BarTip(bar.Item)"
-                                            data-wbs="@bar.Item.WbsId"
-                                            data-drag="@_canUpdate"
-                                            disabled="@(!_canUpdate)"
-                                            @onclick="@(() => OnBarClick(week, here))">
-                                        @if (ProjectTag(bar.Item) is { } prj)
-                                        {
-                                            <span class="pm-gc-bar__prj">@prj</span>
-                                        }
-                                        @Title(bar.Item)
-                                    </button>
-                                }
-
-                                @for (var col = 0; col < 7; col++)
-                                {
-                                    var here = col;
-                                    var hidden = HiddenAt(week, col);
-
-                                    @if (hidden > 0)
+                        }
+                        else if (_view == CalView.Month)
+                        {
+                            @* 주 한 줄씩 직접 배치한다 — 여러 날에 걸친 일이 칸을 가로질러 하나의 막대로 흐른다. *@
+                            <div class="pm-gc-month @(_isPhone ? "pm-gc-month--phone" : null)"
+                                 data-drag-owner="@_dragOwner"
+                                 @ref="_monthTurnRef"
+                                 @ontouchstart="@OnTouchStart"
+                                 @ontouchend="@OnTouchEndAsync">
+                                <div class="pm-gc-month__dow">
+                                    @foreach (var dow in Weekdays)
                                     {
-                                        @* 휴대폰에서는 칸이 좁아 「+2」만 보이고, 읽어 주는 쪽에는 온전한 말을 남긴다. *@
-                                        <button type="button" class="pm-gc-week__more"
-                                                style="@MoreStyle(here)"
-                                                aria-label="@($"{hidden}개 더보기")"
-                                                @onclick="@(() => OnMoreClick(week.Days[here].Date))">
-                                            @(_isPhone ? $"+{hidden}" : $"{hidden}개 더보기")
-                                        </button>
+                                        <span class="pm-gc-month__dow-cell @DowCss(dow)">@DowName(dow)</span>
                                     }
-                                }
-                            </div>
-                        </div>
-                    }
-                </div>
-
-                @if (_isPhone)
-                {
-                    @* 격자 아래 고른 날의 목록. 구글 캘린더 앱과 같은 자리다. *@
-                    @* 격자를 쓸면 달이, 이 목록을 쓸면 날이 넘어간다. *@
-                    <div class="pm-gc-agenda pm-gc-agenda--under"
-                         @ref="_dayTurnRef"
-                         @ontouchstart="@OnTouchStart"
-                         @ontouchend="@OnDaySwipeEndAsync">
-                        <div class="pm-gc-agenda__head">
-                            <span class="pm-gc-agenda__title">@AgendaTitle</span>
-
-                            <PermissionView Action="MenuAction.Create">
-                                <DxButton Text="등록" RenderStyle="ButtonRenderStyle.Primary"
-                                          IconCssClass="jsini-icon-plus"
-                                          Click="@(() => StartNew(_selected, _selected))" />
-                            </PermissionView>
-                        </div>
-
-                        @if (SelectedItems.Count == 0)
-                        {
-                            <p class="pm-gc-agenda__empty">이 날은 일정이 없습니다.</p>
-                        }
-                        else
-                        {
-                            <ul class="pm-gc-agenda__items">
-                                @foreach (var w in SelectedItems)
-                                {
-                                    @ItemRow(w, toggle: true)
-                                }
-                            </ul>
-                        }
-                    </div>
-                }
-            }
-            else if (_view == CalView.Agenda || _isPhone)
-            {
-                @* 일정 목록. 휴대폰의 주·일 보기도 여기로 온다 — 시각 없는 종일 일정은 시간 격자에서 자정 줄에 다 붙는다. *@
-                <div class="pm-gc-agenda"
-                     @ref="_dayTurnRef"
-                     @ontouchstart="@OnTouchStart"
-                     @ontouchend="@OnDaySwipeEndAsync">
-                    @if (_days.All(d => d.Items.Count == 0))
-                    {
-                        <p class="pm-gc-agenda__empty">이 기간에 일정이 없습니다.</p>
-                    }
-                    else
-                    {
-                        @foreach (var day in _days.Where(d => d.Items.Count > 0))
-                        {
-                            <div class="pm-gc-agenda__day @(day.Date == Today ? "pm-gc-agenda__day--today" : null)">
-                                <div class="pm-gc-agenda__date">
-                                    <span class="pm-gc-agenda__dnum">@day.Date.Day</span>
-                                    <span class="pm-gc-agenda__dow @DowCss(day.Date.DayOfWeek)">@DowName(day.Date.DayOfWeek)</span>
-                                    <span class="pm-gc-agenda__month">@(day.Date.Month)월</span>
                                 </div>
 
-                                <ul class="pm-gc-agenda__items">
-                                    @foreach (var w in day.Items)
+                                @foreach (var week in _weeks)
+                                {
+                                    @* 끌어 옮기기는 gc-month-drag.js 가 받는다 — 놓을 날을 이 줄의 첫날과 가로 자리로 셈한다. *@
+                                    <div class="pm-gc-week" data-start="@week.Days[0].Date.ToString("yyyy-MM-dd")">
+                                        <div class="pm-gc-week__days">
+                                            @foreach (var day in week.Days)
+                                            {
+                                                var here = day;
+
+                                                <div class="@DayCss(day)">
+                                                    <button type="button" class="pm-gc-day__fill"
+                                                            aria-label="@DayLabel(day)"
+                                                            @onclick="@(() => OnDayClickAsync(here.Date))"></button>
+
+                                                    <button type="button" class="pm-gc-day__num"
+                                                            aria-label="@($"{here.Date.Month}월 {here.Date.Day}일 보기")"
+                                                            @onclick="@(() => OnDayNumberAsync(here.Date))">
+                                                        @day.Date.Day
+                                                    </button>
+                                                </div>
+                                            }
+                                        </div>
+
+                                        <div class="pm-gc-week__bars">
+                                            @foreach (var bar in week.Bars.Where(b => b.Lane < MaxLanes))
+                                            {
+                                                var here = bar;
+
+                                                <button type="button"
+                                                        class="@BarCss(bar)"
+                                                        style="@BarStyle(bar)"
+                                                        title="@BarTip(bar.Item)"
+                                                        data-wbs="@bar.Item.WbsId"
+                                                        data-drag="@_canUpdate"
+                                                        disabled="@(!_canUpdate)"
+                                                        @onclick="@(() => OnBarClick(week, here))">
+                                                    @if (ProjectTag(bar.Item) is { } prj)
+                                                    {
+                                                        <span class="pm-gc-bar__prj">@prj</span>
+                                                    }
+                                                    @Title(bar.Item)
+                                                </button>
+                                            }
+
+                                            @for (var col = 0; col < 7; col++)
+                                            {
+                                                var here = col;
+                                                var hidden = HiddenAt(week, col);
+
+                                                @if (hidden > 0)
+                                                {
+                                                    @* 휴대폰에서는 칸이 좁아 「+2」만 보이고, 읽어 주는 쪽에는 온전한 말을 남긴다. *@
+                                                    <button type="button" class="pm-gc-week__more"
+                                                            style="@MoreStyle(here)"
+                                                            aria-label="@($"{hidden}개 더보기")"
+                                                            @onclick="@(() => OnMoreClick(week.Days[here].Date))">
+                                                        @(_isPhone ? $"+{hidden}" : $"{hidden}개 더보기")
+                                                    </button>
+                                                }
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+
+                            @if (_isPhone)
+                            {
+                                @* 격자 아래 고른 날의 목록. 구글 캘린더 앱과 같은 자리다. *@
+                                @* 격자를 쓸면 달이, 이 목록을 쓸면 날이 넘어간다. *@
+                                <div class="pm-gc-agenda pm-gc-agenda--under"
+                                     @ref="_dayTurnRef"
+                                     @ontouchstart="@OnTouchStart"
+                                     @ontouchend="@OnDaySwipeEndAsync">
+                                    <div class="pm-gc-agenda__head">
+                                        <span class="pm-gc-agenda__title">@AgendaTitle</span>
+
+                                        <PermissionView Action="MenuAction.Create">
+                                            <DxButton Text="등록" RenderStyle="ButtonRenderStyle.Primary"
+                                                      IconCssClass="jsini-icon-plus"
+                                                      Click="@(() => StartNew(_selected, _selected))" />
+                                        </PermissionView>
+                                    </div>
+
+                                    @if (SelectedItems.Count == 0)
                                     {
-                                        @ItemRow(w, toggle: true, day: day.Date)
+                                        <p class="pm-gc-agenda__empty">이 날은 일정이 없습니다.</p>
                                     }
-                                </ul>
+                                    else
+                                    {
+                                        <ul class="pm-gc-agenda__items">
+                                            @foreach (var w in SelectedItems)
+                                            {
+                                                @ItemRow(w, toggle: true)
+                                            }
+                                        </ul>
+                                    }
+                                </div>
+                            }
+                        }
+                        else if (_view == CalView.Agenda || _isPhone)
+                        {
+                            @* 일정 목록. 휴대폰의 주·일 보기도 여기로 온다 — 시각 없는 종일 일정은 시간 격자에서 자정 줄에 다 붙는다. *@
+                            <div class="pm-gc-agenda"
+                                 @ref="_dayTurnRef"
+                                 @ontouchstart="@OnTouchStart"
+                                 @ontouchend="@OnDaySwipeEndAsync">
+                                @if (_days.All(d => d.Items.Count == 0))
+                                {
+                                    <p class="pm-gc-agenda__empty">이 기간에 일정이 없습니다.</p>
+                                }
+                                else
+                                {
+                                    @foreach (var day in _days.Where(d => d.Items.Count > 0))
+                                    {
+                                        <div class="pm-gc-agenda__day @(day.Date == Today ? "pm-gc-agenda__day--today" : null)">
+                                            <div class="pm-gc-agenda__date">
+                                                <span class="pm-gc-agenda__dnum">@day.Date.Day</span>
+                                                <span class="pm-gc-agenda__dow @DowCss(day.Date.DayOfWeek)">@DowName(day.Date.DayOfWeek)</span>
+                                                <span class="pm-gc-agenda__month">@(day.Date.Month)월</span>
+                                            </div>
+
+                                            <ul class="pm-gc-agenda__items">
+                                                @foreach (var w in day.Items)
+                                                {
+                                                    @ItemRow(w, toggle: true, day: day.Date)
+                                                }
+                                            </ul>
+                                        </div>
+                                    }
+                                }
                             </div>
                         }
-                    }
-                </div>
-            }
-            else if (_storage is not null)
-            {
-                <DxScheduler DataStorage="@_storage"
-                             StartDate="@_anchor"
-                             ActiveViewType="@ViewType"
-                             ShowToolbarArea="false"
-                             AllowCreateAppointment="false"
-                             AllowEditAppointment="@_canUpdate"
-                             AllowDeleteAppointment="@_canDelete"
-                             AllowDragAppointment="@_canUpdate"
-                             AllowResizeAppointment="@_canUpdate"
-                             AppointmentFormShowing="@OnFormShowing"
-                             AppointmentUpdating="@OnUpdatingAsync"
-                             AppointmentRemoving="@OnRemovingAsync"
-                             CssClass="pm-sched">
-                    <DxSchedulerWeekView />
-                    <DxSchedulerDayView />
-                </DxScheduler>
-            }
-        </div>
-
-        @* ── 오른쪽 기둥 ── 월 격자에서 고른 날의 일정. › 로 접으면 띠로 남아 고른 날과 그 날 일정 수만 바뀌고, 띠를 눌러야 다시 펴진다. *@
-        @if (ShowDayPane)
-        {
-            <aside class="pm-gc__day" aria-label="@($"{AgendaTitle} 일정")">
-                <div class="pm-gc-agenda__head">
-                    <span class="pm-gc-agenda__title">@AgendaTitle</span>
-
-                    <span class="pm-gc__day-tools">
-                        <PermissionView Action="MenuAction.Create">
-                            <DxButton Text="등록" RenderStyle="ButtonRenderStyle.Primary"
-                                      IconCssClass="jsini-icon-plus"
-                                      Click="@(() => StartNew(_selected, _selected))" />
-                        </PermissionView>
-
-                        <button type="button" class="pm-gc__day-close" aria-label="접기" title="접기"
-                                aria-expanded="true"
-                                @onclick="@(() => _dayPane = false)">
-                            <i class="jsini-icon-chevron-right"></i>
-                        </button>
-                    </span>
-                </div>
-
-                @if (SelectedItems.Count == 0)
-                {
-                    <p class="pm-gc-agenda__empty">이 날은 일정이 없습니다.</p>
-                }
-                else
-                {
-                    <ul class="pm-gc-agenda__items">
-                        @foreach (var w in SelectedItems)
+                        else if (_storage is not null)
                         {
-                            @ItemRow(w, toggle: true)
+                            <DxScheduler DataStorage="@_storage"
+                                         StartDate="@_anchor"
+                                         ActiveViewType="@ViewType"
+                                         ShowToolbarArea="false"
+                                         AllowCreateAppointment="false"
+                                         AllowEditAppointment="@_canUpdate"
+                                         AllowDeleteAppointment="@_canDelete"
+                                         AllowDragAppointment="@_canUpdate"
+                                         AllowResizeAppointment="@_canUpdate"
+                                         AppointmentFormShowing="@OnFormShowing"
+                                         AppointmentUpdating="@OnUpdatingAsync"
+                                         AppointmentRemoving="@OnRemovingAsync"
+                                         CssClass="pm-sched">
+                                <DxSchedulerWeekView />
+                                <DxSchedulerDayView />
+                            </DxScheduler>
                         }
-                    </ul>
-                }
-            </aside>
-        }
-        else if (CanFoldSides)
-        {
-            <aside class="pm-gc__day pm-gc__day--folded" aria-label="@($"{AgendaTitle} 일정")">
-                <button type="button" class="pm-gc__fold pm-gc__fold--day"
-                        aria-expanded="false" title="고른 날 일정 펴기"
-                        @onclick="@(() => _dayPane = true)">
-                    <i class="jsini-icon-chevron-left pm-gc__fold-icon"></i>
-                    <span class="pm-gc__fold-count @(SelectedItems.Count == 0 ? "pm-gc__fold-count--zero" : null)" title="@($"일정 {SelectedItems.Count}건")">@SelectedItems.Count</span>
-                    <span class="pm-gc__fold-label">@AgendaTitle</span>
-                </button>
-            </aside>
-        }
+                    </div>
+
+                </DxSplitterPane>
+
+                @* ── 오른쪽 기둥 ── 월 격자에서 고른 날의 일정. › 로 접으면 띠로 남아 고른 날과 그 날 일정 수만 바뀌고, 띠를 눌러야 다시 펴진다. 접힌 띠는 끌지 않는다. *@
+                <DxSplitterPane Visible="@CanFoldSides"
+                                Size="@DayPaneSize"
+                                MinSize="@(ShowDayPane ? $"{DayWidthMin}px" : null)"
+                                MaxSize="@(ShowDayPane ? "60%" : null)"
+                                AllowResize="@ShowDayPane"
+                                SizeChanged="@OnDayPaneResizedAsync">
+                    @if (ShowDayPane)
+                    {
+                        <aside class="pm-gc__day" aria-label="@($"{AgendaTitle} 일정")">
+                            <div class="pm-gc-agenda__head">
+                                <span class="pm-gc-agenda__title">@AgendaTitle</span>
+
+                                <span class="pm-gc__day-tools">
+                                    <PermissionView Action="MenuAction.Create">
+                                        <DxButton Text="등록" RenderStyle="ButtonRenderStyle.Primary"
+                                                  IconCssClass="jsini-icon-plus"
+                                                  Click="@(() => StartNew(_selected, _selected))" />
+                                    </PermissionView>
+
+                                    <button type="button" class="pm-gc__day-close" aria-label="접기" title="접기"
+                                            aria-expanded="true"
+                                            @onclick="@(() => _dayPane = false)">
+                                        <i class="jsini-icon-chevron-right"></i>
+                                    </button>
+                                </span>
+                            </div>
+
+                            @if (SelectedItems.Count == 0)
+                            {
+                                <p class="pm-gc-agenda__empty">이 날은 일정이 없습니다.</p>
+                            }
+                            else
+                            {
+                                <ul class="pm-gc-agenda__items">
+                                    @foreach (var w in SelectedItems)
+                                    {
+                                        @ItemRow(w, toggle: true)
+                                    }
+                                </ul>
+                            }
+                        </aside>
+                    }
+                    else if (CanFoldSides)
+                    {
+                        <aside class="pm-gc__day pm-gc__day--folded" aria-label="@($"{AgendaTitle} 일정")">
+                            <button type="button" class="pm-gc__fold pm-gc__fold--day"
+                                    aria-expanded="false" title="고른 날 일정 펴기"
+                                    @onclick="@(() => _dayPane = true)">
+                                <i class="jsini-icon-chevron-left pm-gc__fold-icon"></i>
+                                <span class="pm-gc__fold-count @(SelectedItems.Count == 0 ? "pm-gc__fold-count--zero" : null)" title="@($"일정 {SelectedItems.Count}건")">@SelectedItems.Count</span>
+                                <span class="pm-gc__fold-label">@AgendaTitle</span>
+                            </button>
+                        </aside>
+                    }
+                </DxSplitterPane>
+            </Panes>
+        </DxSplitter>
     </div>
 </div>
 

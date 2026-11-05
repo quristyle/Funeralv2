@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
@@ -266,6 +267,19 @@ public partial class ProjectScheduler : IAsyncDisposable
 
     private bool ShowDayPane => _dayPane && _view == CalView.Month && !_isPhone;
 
+    /// <summary>오른쪽 기둥을 끌어 둔 폭을 적어 두는 브라우저 열쇠. 알맞은 폭은 화면 크기에 딸려 있어 계정이 아니라 기기에 남긴다.</summary>
+    internal const string DayWidthKey = "jsini-sched-day-width";
+
+    private const int DayWidthDefault = 288;
+    private const int DayWidthMin = 200;
+
+    /// <summary>접힌 띠의 폭(2.25rem). 끌지 않는다.</summary>
+    private const string DayFoldedSize = "36px";
+
+    private int _dayWidth = DayWidthDefault;
+
+    private string DayPaneSize => ShowDayPane ? $"{_dayWidth}px" : DayFoldedSize;
+
     /// <summary>왼쪽·오른쪽 기둥을 접을 수 있나. 휴대폰은 기둥이 달력 위아래로 서서 접을 까닭이 없다.</summary>
     private bool CanFoldSides => _view == CalView.Month && !_isPhone;
 
@@ -433,6 +447,7 @@ public partial class ProjectScheduler : IAsyncDisposable
         {
             await AttachDragAsync();
             await AttachDeleteKeyAsync();
+            await RestoreDayWidthAsync();
 
             // 추가대상 범례를 공통코드 차례로 세운다 — 못 읽으면 기본 차례로 남는다.
             if (_addTargetCodes.Count == 0)
@@ -515,6 +530,50 @@ public partial class ProjectScheduler : IAsyncDisposable
 
         _ = RememberProjectAsync(string.IsNullOrEmpty(item?.Code) ? AllProjectsMark : item.Code);
         return SearchAsync();
+    }
+
+    private async Task RestoreDayWidthAsync()
+    {
+        try
+        {
+            var saved = await JS.InvokeAsync<string?>("localStorage.getItem", DayWidthKey);
+            if (int.TryParse(saved, NumberStyles.Integer, CultureInfo.InvariantCulture, out var px)
+                && px >= DayWidthMin && px != _dayWidth)
+            {
+                _dayWidth = px;
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or InvalidOperationException)
+        {
+        }
+    }
+
+    /// <summary>구분선을 끌었다. 넘어오는 값은 "312px" 처럼 단위가 붙은 글자다. 접힌 띠의 폭은 담지 않는다 — 담으면 다음에 펼 때 36px 짜리 목록이 나온다.</summary>
+    private async Task OnDayPaneResizedAsync(string? size)
+    {
+        if (!ShowDayPane
+            || string.IsNullOrWhiteSpace(size)
+            || !size.Trim().EndsWith("px", StringComparison.Ordinal)
+            || !double.TryParse(size.Trim()[..^2], NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
+        {
+            return;
+        }
+
+        var px = (int)Math.Round(value);
+        if (px < DayWidthMin || px == _dayWidth) return;
+
+        _dayWidth = px;
+
+        try
+        {
+            await JS.InvokeVoidAsync("localStorage.setItem", DayWidthKey,
+                px.ToString(CultureInfo.InvariantCulture));
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or InvalidOperationException)
+        {
+            // 저장소가 막혔다. 이 회로 동안만 그 폭이다.
+        }
     }
 
     private async Task<string?> ReadRememberedProjectAsync()
