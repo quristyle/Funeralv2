@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using JSini.Web.Components.Data;
 using JSini.Web.Http;
+using Microsoft.Extensions.Logging;
 
 namespace JSini.Web.ProjMng.Api;
 
@@ -30,7 +31,7 @@ public sealed record ScheduleDraft(
 }
 
 /// <summary>일정 메모 화면의 본문을 읽고 날짜·제목·요약·요구자·담당자를 짓는다. 묻는 길은 AI 쳇과 같은 AiChatClient 다(AiTaskAssist 와 같다).</summary>
-public sealed class ScheduleNoteAssist(AiChatClient ai)
+public sealed class ScheduleNoteAssist(AiChatClient ai, ILogger<ScheduleNoteAssist> logger)
 {
     /// <summary>AI 에게 넘기는 본문의 상한(글자). 넘기면 429·502 로 돌아온다.</summary>
     private const int MaxChars = 6000;
@@ -97,19 +98,73 @@ public sealed class ScheduleNoteAssist(AiChatClient ai)
     /// </summary>
     public async Task<IReadOnlyList<ScheduleDraft>> DraftManyAsync(string? contents, string? defaultAssignee, CancellationToken cancellationToken = default)
     {
+        var blank = new ScheduleDraft(null, null, null, null, null, defaultAssignee, null, null, null);
         var text = contents?.Trim() ?? string.Empty;
 
         if (text.Length == 0)
         {
-            return [new ScheduleDraft(null, null, null, null, null, defaultAssignee, null, null, null)];
+            return [blank];
         }
 
+        if (text.Length > MaxMemoChars)
+        {
+            text = text[..MaxMemoChars];
+        }
+
+        var today = AppTime.Today;
+        var chunks = SplitMemo(text);
+        var drafts = new List<ScheduleDraft>();
+        Exception? lastError = null;
+
+        for (var i = 0; i < chunks.Count; i++)
+        {
+            var chunk = chunks[i];
+            IReadOnlyList<ScheduleDraft> part;
+            try
+            {
+                part = await DraftChunkAsync(chunk, defaultAssignee, today, cancellationToken);
+            }
+            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
+            {
+                lastError = ex;
+                logger.LogWarning(ex, "일정 메모 분석 실패 — 묶음 {Index}/{Count}", i + 1, chunks.Count);
+                part = [blank];
+            }
+
+            // 모델이 끝내 못 읽은 묶음은 날짜가 적힌 줄을 그대로 한 건씩 올린다 — 묶음째 버리지 않는다.
+            if (IsBlank(part))
+            {
+                var lines = FromDatedLines(chunk, defaultAssignee, today);
+                if (lines.Count > 0)
+                {
+                    part = lines;
+                }
+                else if (chunks.Count > 1)
+                {
+                    continue;
+                }
+            }
+
+            drafts.AddRange(part);
+        }
+
+        if (drafts.Count == 0)
+        {
+            if (lastError is not null) throw lastError;
+            return [blank];
+        }
+
+        return PinRelativeDay(drafts.Take(MaxTotalDrafts).ToList(), text, today);
+    }
+
+    /// <summary>메모 한 묶음을 모델에게 묻는다. 빈 답이면 한 번 더 묻는다.</summary>
+    private async Task<IReadOnlyList<ScheduleDraft>> DraftChunkAsync(string text, string? defaultAssignee, DateOnly today, CancellationToken cancellationToken)
+    {
         if (text.Length > MaxChars)
         {
             text = text[..MaxChars];
         }
 
-        var today = AppTime.Today;
         var assigneeHint = !string.IsNullOrWhiteSpace(defaultAssignee)
             ? $"- 기본 담당자 성명은 \"{defaultAssignee.Trim()}\" 이다."
             : string.Empty;
@@ -156,7 +211,109 @@ public sealed class ScheduleNoteAssist(AiChatClient ai)
             drafts = ParseMany(answer, defaultAssignee, model);
         }
 
-        return PinRelativeDay(drafts, text, today);
+        return drafts;
+    }
+
+    /// <summary>
+    /// 한 번에 묻는 날짜 줄의 수. 답 하나의 토큰 상한(공급자마다 1024~2000)에 일정 JSON 이 열몇 건이면
+    /// 답이 중간에 잘려 통째로 못 읽었다(24줄짜리 목록 메모가 그랬다).
+    /// </summary>
+    internal const int ChunkDatedLines = 6;
+
+    /// <summary>메모 하나에서 남기는 일정의 상한.</summary>
+    internal const int MaxTotalDrafts = 100;
+
+    /// <summary>메모 전체에서 읽는 글자의 상한. 묶음 하나는 <see cref="MaxChars"/> 로 다시 묶인다.</summary>
+    private const int MaxMemoChars = 30000;
+
+    /// <summary>머리말(첫 날짜 줄 앞의 지시)이 이보다 길면 묶음마다 되풀이하지 않는다.</summary>
+    private const int MaxPreambleChars = 1000;
+
+    /// <summary>
+    /// 날짜가 적힌 줄이 <see cref="ChunkDatedLines"/> 를 넘으면 그만큼씩 묶음으로 가른다.
+    /// 첫 날짜 줄 앞의 글(「아래 일정을 제목에 …」 같은 지시)은 묶음마다 앞에 붙이고,
+    /// 날짜 없는 줄은 바로 앞 묶음에 딸린다.
+    /// </summary>
+    internal static IReadOnlyList<string> SplitMemo(string text)
+    {
+        var lines = text.Replace("\r\n", "\n").Split('\n');
+        var dated = lines.Count(l => ExplicitDate.IsMatch(l));
+
+        if (dated <= ChunkDatedLines)
+        {
+            return [text];
+        }
+
+        var first = Array.FindIndex(lines, l => ExplicitDate.IsMatch(l));
+        var preamble = string.Join('\n', lines[..first]).Trim();
+        var body = lines[first..];
+
+        if (preamble.Length > MaxPreambleChars)
+        {
+            preamble = string.Empty;
+            body = lines;
+        }
+
+        var chunks = new List<string>();
+        var current = new List<string>();
+        var count = 0;
+
+        void Flush()
+        {
+            if (current.All(string.IsNullOrWhiteSpace)) return;
+            var part = string.Join('\n', current).Trim();
+            chunks.Add(preamble.Length > 0 ? $"{preamble}\n{part}" : part);
+            current.Clear();
+            count = 0;
+        }
+
+        foreach (var line in body)
+        {
+            if (ExplicitDate.IsMatch(line))
+            {
+                if (count == ChunkDatedLines) Flush();
+                count++;
+            }
+            current.Add(line);
+        }
+
+        Flush();
+        return chunks;
+    }
+
+    private static readonly Regex FullDate = new(@"(?<y>\d{4})\s*[-./년]\s*(?<m>\d{1,2})\s*[-./월]\s*(?<d>\d{1,2})\s*일?");
+    private static readonly Regex MonthDay = new(@"(?<m>\d{1,2})\s*월\s*(?<d>\d{1,2})\s*일|(?<![\d.])(?<m>\d{1,2})\s*/\s*(?<d>\d{1,2})(?![\d/])");
+
+    /// <summary>
+    /// 모델 없이 날짜가 적힌 줄마다 한 건을 짓는다(제목은 날짜를 걷어 낸 그 줄). 모델이 답을 못 줄 때만 쓴다.
+    /// 지시문(머리말)의 뜻은 못 살리지만 일정이 통째로 사라지는 것보다 낫다.
+    /// </summary>
+    internal static IReadOnlyList<ScheduleDraft> FromDatedLines(string? text, string? defaultAssignee, DateOnly today)
+    {
+        var drafts = new List<ScheduleDraft>();
+        if (string.IsNullOrWhiteSpace(text)) return drafts;
+
+        foreach (var raw in text.Split('\n'))
+        {
+            var line = raw.Trim();
+            var m = FullDate.Match(line);
+            if (!m.Success) m = MonthDay.Match(line);
+            if (!m.Success) continue;
+
+            var year = m.Groups["y"].Success ? int.Parse(m.Groups["y"].Value) : today.Year;
+            var month = int.Parse(m.Groups["m"].Value);
+            var day = int.Parse(m.Groups["d"].Value);
+            if (month is < 1 or > 12 || day < 1 || day > DateTime.DaysInMonth(year, month)) continue;
+
+            var title = Regex.Replace(line.Remove(m.Index, m.Length), @"\s+", " ").Trim(' ', '-', '~', ':', ',');
+            if (title.Length == 0) continue;
+
+            var date = new DateOnly(year, month, day);
+            drafts.Add(new ScheduleDraft(date, date, title, title, null, defaultAssignee, null, null, null));
+            if (drafts.Count == MaxTotalDrafts) break;
+        }
+
+        return drafts;
     }
 
     private static readonly (Regex Word, int Days)[] RelativeDays =
@@ -228,7 +385,7 @@ public sealed class ScheduleNoteAssist(AiChatClient ai)
 
         if (open < 0 || close <= open)
         {
-            return [empty];
+            return Salvage(answer, defaultAssignee, model) is { Count: > 0 } partial ? partial : [empty];
         }
 
         try
@@ -267,8 +424,63 @@ public sealed class ScheduleNoteAssist(AiChatClient ai)
         }
         catch (JsonException)
         {
-            return [empty];
+            return Salvage(answer, defaultAssignee, model) is { Count: > 0 } partial ? partial : [empty];
         }
+    }
+
+    /// <summary>
+    /// 토큰 상한에 걸려 중간에 끊긴 답에서 다 닫힌 일정 객체만 건진다.
+    /// 첫 <c>[</c> 안의 맨 바깥 <c>{…}</c> 를 하나씩 따로 읽는다.
+    /// </summary>
+    private static List<ScheduleDraft> Salvage(string answer, string? defaultAssignee, string? model)
+    {
+        var drafts = new List<ScheduleDraft>();
+        var arr = answer.IndexOf('[');
+        if (arr < 0) return drafts;
+
+        var depth = 0;
+        var start = -1;
+        var inString = false;
+        var escaped = false;
+
+        for (var i = arr + 1; i < answer.Length && drafts.Count < MaxDrafts; i++)
+        {
+            var c = answer[i];
+            if (inString)
+            {
+                if (escaped) escaped = false;
+                else if (c == '\\') escaped = true;
+                else if (c == '"') inString = false;
+                continue;
+            }
+
+            switch (c)
+            {
+                case '"':
+                    inString = true;
+                    break;
+                case '{':
+                    if (depth++ == 0) start = i;
+                    break;
+                case '}':
+                    if (depth > 0 && --depth == 0 && start >= 0)
+                    {
+                        try
+                        {
+                            using var doc = JsonDocument.Parse(answer[start..(i + 1)]);
+                            var d = FromElement(doc.RootElement, defaultAssignee, model);
+                            if (d.Start is not null || d.Title is not null || d.Summary is not null) drafts.Add(d);
+                        }
+                        catch (JsonException) { }
+                        start = -1;
+                    }
+                    break;
+                case ']' when depth == 0:
+                    return drafts;
+            }
+        }
+
+        return drafts;
     }
 
     /// <summary>모델의 답에서 JSON 한 덩이를 꺼내 읽는다. 앞뒤에 코드 울타리(```)나 설명을 붙여 오는 일이 잦아 첫 { 부터 마지막 } 까지만 본다.</summary>

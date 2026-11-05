@@ -232,4 +232,77 @@ public sealed class ScheduleNoteAssistTests
 
         Assert.Same(drafts, ScheduleNoteAssist.PinRelativeDay(drafts, "오늘 a, b", Today));
     }
+
+    /// <summary>운영에서 통째로 기본값 한 건으로 떨어졌던 메모(일정 25줄)의 앞부분.</summary>
+    private const string LongListMemo = """
+        아래 일정을 제목에 운영반영 을 덧붙여서 표현 해줘.
+        [5120]Por재 불출 예약	2026-12-28
+        [5130]신조 배송	2026-12-28
+        [5140]Packing List 불출 예약	2026-12-28
+        [9120]Mark No.별 강재 Follow-Up	2026-12-28
+        [9160]호선별 강재 원산지 모니터링	2026-12-28
+        [9210]강판/형강 사용 관리	2026-12-28
+        [9270]W/Order 간편화(LOT)	2026-12-28
+        [5150]직불출	2027-01-04
+        [5160]유류 주유 관리	2027-01-04
+        [2560] 현지 POR
+        [5170]석유 매장량 목록	2027-01-04
+        [5180]창고별 배송 관리	2027-01-04
+        [51B0]일반재 불출 확인 관리	2027-01-04
+        [5220]POR 불출 예약 관리	2027-01-04
+        """;
+
+    [Fact]
+    public void 긴_목록_메모는_날짜_줄_여섯씩_묶고_지시문을_묶음마다_붙인다()
+    {
+        var chunks = ScheduleNoteAssist.SplitMemo(LongListMemo.Trim());
+
+        Assert.Equal(3, chunks.Count);
+        Assert.All(chunks, c => Assert.StartsWith("아래 일정을 제목에 운영반영", c));
+        Assert.Contains("[2560] 현지 POR", chunks[1]);   // 날짜 없는 줄은 앞 묶음에 딸린다
+        Assert.Equal(13, chunks.Sum(c => c.Split('\n').Count(l => l.Contains("-12-28") || l.Contains("-01-04"))));
+    }
+
+    [Fact]
+    public void 짧은_메모는_가르지_않는다()
+    {
+        const string memo = "9월1일 홍길동이 방구를 끼었다.\n그러고 9/15 에 똥까지 싸더라.";
+
+        Assert.Equal([memo], ScheduleNoteAssist.SplitMemo(memo));
+    }
+
+    [Fact]
+    public void 답이_토큰_상한에서_끊겨도_다_닫힌_일정은_건진다()
+    {
+        const string answer = "{\"schedules\":[{\"start\":\"2026-12-28\",\"title\":\"[5120]Por재 불출 예약 운영반영\"},"
+            + "{\"start\":\"2026-12-28\",\"title\":\"[5130]신조 {배송} 운영반영\"},{\"start\":\"2026-12-28\",\"tit";
+
+        var drafts = ScheduleNoteAssist.ParseMany(answer, "이순열", null);
+
+        Assert.Equal(2, drafts.Count);
+        Assert.Equal("[5130]신조 {배송} 운영반영", drafts[1].Title);
+        Assert.All(drafts, d => Assert.Equal(new DateOnly(2026, 12, 28), d.Start));
+    }
+
+    [Fact]
+    public void 모델이_못_읽으면_날짜_줄마다_한_건을_짓는다()
+    {
+        var drafts = ScheduleNoteAssist.FromDatedLines(LongListMemo, "이순열", Today);
+
+        Assert.Equal(13, drafts.Count);
+        Assert.Equal("[5120]Por재 불출 예약", drafts[0].Title);
+        Assert.Equal(new DateOnly(2026, 12, 28), drafts[0].Start);
+        Assert.Equal(new DateOnly(2027, 1, 4), drafts[^1].End);
+        Assert.All(drafts, d => Assert.Equal("이순열", d.Assignee));
+    }
+
+    [Theory]
+    [InlineData("11월 16일 운영서버 대상 도출", 11, 16)]
+    [InlineData("운영 반영 12/3", 12, 3)]
+    public void 해가_없는_날짜는_올해로_본다(string line, int month, int day)
+    {
+        var d = Assert.Single(ScheduleNoteAssist.FromDatedLines(line, null, Today));
+
+        Assert.Equal(new DateOnly(Today.Year, month, day), d.Start);
+    }
 }
