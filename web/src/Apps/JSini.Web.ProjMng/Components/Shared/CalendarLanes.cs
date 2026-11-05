@@ -16,18 +16,19 @@ public static class CalendarLanes
         int Index, int Col, int Span, int Lane, bool ClipStart, bool ClipEnd);
 
     /// <summary>한 주는 일곱 칸이다.</summary>
-    private const int Cols = 7;
+    public const int WeekCols = 7;
 
     /// <summary>기간들을 한 주의 줄에 담는다. 차례는 바꾸지 않고(화면이 정한 순서), 넘치는 줄도 자르지 않는다 — 몇 줄을 보일지는 그리는 때 정한다.</summary>
     /// <param name="spans">기간들. 이 주에 걸치지 않는 것은 <b>알아서 건너뛴다</b>.</param>
     /// <param name="from">이 주의 첫날</param>
+    /// <param name="cols">한 줄의 칸 수. 토·일을 숨기면 월요일부터 다섯 칸이다 — 그 밖으로 나간 쪽은 이어지는 것으로 친다.</param>
     /// <returns>담긴 자리들. 넣어 준 차례를 그대로 지킨다.</returns>
     public static IReadOnlyList<Slot> Pack(
-        IReadOnlyList<(DateOnly Start, DateOnly End)> spans, DateOnly from)
+        IReadOnlyList<(DateOnly Start, DateOnly End)> spans, DateOnly from, int cols = WeekCols)
     {
-        var to = from.AddDays(Cols - 1);
+        var to = from.AddDays(cols - 1);
 
-        // 줄마다 어느 칸이 찼는지 든다. 칸이 일곱뿐이라 이보다 단순한 자료는 없다.
+        // 줄마다 어느 칸이 찼는지 든다. 칸이 일곱 이하라 이보다 단순한 자료는 없다.
         var lanes = new List<bool[]>();
         var slots = new List<Slot>(spans.Count);
 
@@ -42,8 +43,8 @@ public static class CalendarLanes
             }
 
             var col = start < from ? 0 : start.DayNumber - from.DayNumber;
-            var endCol = end > to ? Cols - 1 : end.DayNumber - from.DayNumber;
-            var lane = FreeLane(lanes, col, endCol);
+            var endCol = end > to ? cols - 1 : end.DayNumber - from.DayNumber;
+            var lane = FreeLane(lanes, col, endCol, cols);
 
             for (var c = col; c <= endCol; c++)
             {
@@ -57,13 +58,13 @@ public static class CalendarLanes
     }
 
     /// <summary>col 부터 endCol 까지 비어 있는 첫 줄. 없으면 줄을 하나 늘린다 — 위에서부터 채워야 빈 줄이 안 생긴다.</summary>
-    private static int FreeLane(List<bool[]> lanes, int col, int endCol)
+    private static int FreeLane(List<bool[]> lanes, int col, int endCol, int cols)
     {
         for (var lane = 0; ; lane++)
         {
             if (lane == lanes.Count)
             {
-                lanes.Add(new bool[Cols]);
+                lanes.Add(new bool[cols]);
                 return lane;
             }
 

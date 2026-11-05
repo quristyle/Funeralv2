@@ -160,4 +160,30 @@ public sealed class CalendarLaneTests
 
         Assert.Empty(slots);
     }
+
+    [Fact]
+    public void 토일을_숨긴_다섯_칸에서는_주말에_걸친_쪽이_이어지는_것이_된다()
+    {
+        // 월~금 다섯 칸. 일요일에 시작해 토요일에 끝나는 일은 양끝이 잘린 다섯 칸짜리 막대이고,
+        // 토·일에만 있는 일은 자리를 받지 않는다(빈 줄이 남지 않는다).
+        var monday = Sunday.AddDays(1);
+        var saturday = Sunday.AddDays(6);
+
+        var slots = CalendarLanes.Pack(
+            [(saturday, saturday), (Sunday, saturday), (monday.AddDays(2), monday.AddDays(2))],
+            monday, cols: 5);
+
+        Assert.Equal(2, slots.Count);
+
+        var whole = slots[0];
+        Assert.Equal(1, whole.Index);
+        Assert.Equal(0, whole.Col);
+        Assert.Equal(5, whole.Span);
+        Assert.Equal(0, whole.Lane);
+        Assert.True(whole.ClipStart);
+        Assert.True(whole.ClipEnd);
+
+        Assert.Equal(2, slots[1].Col);
+        Assert.Equal(1, slots[1].Lane);
+    }
 }

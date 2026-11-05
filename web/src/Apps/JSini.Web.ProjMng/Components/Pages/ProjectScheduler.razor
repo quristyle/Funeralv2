@@ -216,6 +216,14 @@
                     </Fields>
                 </CommSch>
 
+                @if (_view == CalView.Month)
+                {
+                    <div class="pm-gc__legend-group">
+                        <DxCheckBox Checked="@_hideWeekend"
+                                    CheckedChanged="@((bool hide) => OnHideWeekendChangedAsync(hide))">토·일 숨기기</DxCheckBox>
+                    </div>
+                }
+
                 @* 색은 자료의 일부라 범례가 없으면 빨간 막대가 그냥 「빨간 것」이 된다. 색이 무엇인지 적어 둔다.
                    범례는 누름 단추다 — 눌린 것만 보인다(다시 읽지 않고 읽어 둔 줄을 거른다). *@
                 <div class="pm-gc__legend-group" role="group" aria-label="진행상태 범례">
@@ -619,12 +627,13 @@
                         {
                             @* 주 한 줄씩 직접 배치한다 — 여러 날에 걸친 일이 칸을 가로질러 하나의 막대로 흐른다. *@
                             <div class="pm-gc-month @(_isPhone ? "pm-gc-month--phone" : null)"
+                                 style="--pm-gc-cols: @MonthWeekdays.Length"
                                  data-drag-owner="@_dragOwner"
                                  @ref="_monthTurnRef"
                                  @ontouchstart="@OnTouchStart"
                                  @ontouchend="@OnTouchEndAsync">
                                 <div class="pm-gc-month__dow">
-                                    @foreach (var dow in Weekdays)
+                                    @foreach (var dow in MonthWeekdays)
                                     {
                                         <span class="pm-gc-month__dow-cell @DowCss(dow)">@DowName(dow)</span>
                                     }
@@ -633,7 +642,7 @@
                                 @foreach (var week in _weeks)
                                 {
                                     @* 끌어 옮기기는 gc-month-drag.js 가 받는다 — 놓을 날을 이 줄의 첫날과 가로 자리로 셈한다. *@
-                                    <div class="pm-gc-week" data-start="@week.Days[0].Date.ToString("yyyy-MM-dd")">
+                                    <div class="pm-gc-week" data-start="@week.Days[0].Date.ToString("yyyy-MM-dd")" data-cols="@week.Days.Count">
                                         <div class="pm-gc-week__days">
                                             @foreach (var day in week.Days)
                                             {
@@ -674,7 +683,7 @@
                                                 </button>
                                             }
 
-                                            @for (var col = 0; col < 7; col++)
+                                            @for (var col = 0; col < week.Days.Count; col++)
                                             {
                                                 var here = col;
                                                 var hidden = HiddenAt(week, col);

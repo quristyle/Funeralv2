@@ -5321,7 +5321,7 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 
 .pm-gc-month__dow {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(var(--pm-gc-cols, 7), 1fr);
 }
 
 .pm-gc-month__dow-cell {
@@ -5339,7 +5339,7 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 
 .pm-gc-week__days {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(var(--pm-gc-cols, 7), 1fr);
   height: 100%;
   min-height: var(--pm-gc-cell);
 }
@@ -5436,7 +5436,7 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   left: 0;
   display: grid;
   grid-auto-rows: var(--pm-gc-bar);
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(var(--pm-gc-cols, 7), 1fr);
   gap: var(--pm-gc-gap) 0;
   overflow: hidden;
   pointer-events: none;

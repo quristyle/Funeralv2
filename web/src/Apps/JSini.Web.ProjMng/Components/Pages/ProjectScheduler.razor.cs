@@ -290,6 +290,49 @@ public partial class ProjectScheduler : IAsyncDisposable
 
     private void ToggleRail() => _railFolded = !_railFolded;
 
+    /// <summary>월 격자에서 토·일 칸을 숨기는지 적어 두는 브라우저 열쇠. 열쇠가 없으면 보인다.</summary>
+    internal const string HideWeekendKey = "jsini-sched-hide-weekend";
+
+    /// <summary>월 격자에서 토·일을 숨기나. 주말에는 일정이 드물어 그 두 칸만큼 평일 칸이 넓어진다.</summary>
+    private bool _hideWeekend;
+
+    /// <summary>월 격자 머리에 세울 요일.</summary>
+    private DayOfWeek[] MonthWeekdays => _hideWeekend ? WorkWeekdays : Weekdays;
+
+    private async Task OnHideWeekendChangedAsync(bool hide)
+    {
+        if (hide == _hideWeekend) return;
+
+        _hideWeekend = hide;
+        BuildWeeks();
+
+        try
+        {
+            await JS.InvokeVoidAsync("localStorage.setItem", HideWeekendKey, hide ? "1" : "0");
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or InvalidOperationException)
+        {
+            // 저장소가 막혔다. 이 회로 동안만 그 선택이다.
+        }
+    }
+
+    private async Task RestoreHideWeekendAsync()
+    {
+        try
+        {
+            var saved = await JS.InvokeAsync<string?>("localStorage.getItem", HideWeekendKey);
+            if (saved == "1" && !_hideWeekend)
+            {
+                _hideWeekend = true;
+                BuildWeeks();
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex) when (ex is JSException or JSDisconnectedException or InvalidOperationException)
+        {
+        }
+    }
+
     /// <summary>등록·수정 창. 달력·목록·표가 모두 이것을 연다.</summary>
     private ScheduleEditPopup? _editPopup;
 
@@ -448,6 +491,7 @@ public partial class ProjectScheduler : IAsyncDisposable
             await AttachDragAsync();
             await AttachDeleteKeyAsync();
             await RestoreDayWidthAsync();
+            await RestoreHideWeekendAsync();
 
             // 추가대상 범례를 공통코드 차례로 세운다 — 못 읽으면 기본 차례로 남는다.
             if (_addTargetCodes.Count == 0)
@@ -1261,6 +1305,11 @@ public partial class ProjectScheduler : IAsyncDisposable
         DayOfWeek.Thursday, DayOfWeek.Friday, DayOfWeek.Saturday,
     ];
 
+    private static readonly DayOfWeek[] WorkWeekdays =
+    [
+        DayOfWeek.Monday, DayOfWeek.Tuesday, DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday,
+    ];
+
     /// <summary>요일 이름. 문화권을 타지 않게 직접 적는다 — 서버 CurrentCulture 에 따라 머리가 바뀌면 안 된다.</summary>
     private static string DowName(DayOfWeek day) => day switch
     {
@@ -1330,9 +1379,12 @@ public partial class ProjectScheduler : IAsyncDisposable
 
         for (var i = 0; i + 7 <= _days.Count; i += 7)
         {
-            var days = _days.Skip(i).Take(7).ToList();
+            // 토·일을 숨기면 월~금 다섯 칸만 남는다. 주말에 걸친 쪽은 이어지는 것(모서리 편 막대)으로 그려진다.
+            var days = _hideWeekend
+                ? _days.Skip(i + 1).Take(5).ToList()
+                : _days.Skip(i).Take(7).ToList();
             var from = days[0].Date;
-            var to = days[6].Date;
+            var to = days[^1].Date;
 
             // 위에 설 차례 — 먼저 시작한 것, 같이 시작하면 긴 것. 자리 계산은 CalendarLanes 가 한다.
             var ordered = Visible(_rows)
@@ -1345,7 +1397,7 @@ public partial class ProjectScheduler : IAsyncDisposable
                 .ThenBy(x => x.Row.ProcNm, StringComparer.Ordinal)
                 .ToList();
 
-            var slots = CalendarLanes.Pack([.. ordered.Select(x => (x.Start, x.End))], from);
+            var slots = CalendarLanes.Pack([.. ordered.Select(x => (x.Start, x.End))], from, days.Count);
 
             var bars = slots
                 .Select(s => new Bar(

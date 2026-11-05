@@ -19,12 +19,13 @@ let ghost = null;
 
 const iso = (d) => d.toISOString().slice(0, 10);
 
-/** 주 줄과 가로 좌표로 그 날을 셈한다. 주 줄에는 첫날(일요일)이 data-start 로 적혀 있다. */
+/** 주 줄과 가로 좌표로 그 날을 셈한다. 주 줄에는 첫 칸의 날(일요일, 토·일을 숨기면 월요일)과 칸 수가 적혀 있다. */
 function dayAt(week, x) {
   const box = week.getBoundingClientRect();
   if (box.width <= 0) return null;
 
-  const col = Math.min(6, Math.max(0, Math.floor(((x - box.left) / box.width) * 7)));
+  const cols = Number(week.dataset.cols) || 7;
+  const col = Math.min(cols - 1, Math.max(0, Math.floor(((x - box.left) / box.width) * cols)));
   const start = new Date(week.dataset.start + 'T00:00:00Z');
   start.setUTCDate(start.getUTCDate() + col);
 
