@@ -116,17 +116,22 @@ public sealed class InternalQueryService(IConfiguration configuration)
     /// <summary>
     /// 낱말 거르기. 제목·메모·요약 중 하나에 그대로 든 줄을 먼저 찾고, 하나도 없을 때만 넓혀 다시 본다 —
     /// 「똥싼날」로 물어도 「똥싸기」가 걸린다. 넓혀 걸린 줄에는 무엇으로 걸렸는지 적어 둔다.
+    /// <c>|</c> 로 이은 말은 어느 하나만 걸려도 된다(<see cref="WbsKeyword.Alternatives"/>).
     /// </summary>
     internal static List<WbsScheduleRow> FilterKeyword(List<WbsScheduleRow> rows, string? keyword)
     {
         if (string.IsNullOrWhiteSpace(keyword)) return rows;
 
-        var exact = rows.Where(r => WbsKeyword.Contains(keyword, r.ProcNm, r.Comm, r.Summary)).ToList();
+        var alternatives = WbsKeyword.Alternatives(keyword);
+        if (alternatives.Length == 0) return rows;
+
+        var exact = rows.Where(r => alternatives.Any(k => WbsKeyword.Contains(k, r.ProcNm, r.Comm, r.Summary))).ToList();
         if (exact.Count > 0) return exact;
 
-        var tokens = WbsKeyword.Relax(keyword);
+        var relaxed = alternatives.Select(WbsKeyword.Relax).ToList();
         return [.. rows
-            .Select(r => (Row: r, Hit: WbsKeyword.RelaxedMatch(tokens, r.ProcNm, r.Comm, r.Summary)))
+            .Select(r => (Row: r, Hit: relaxed.Select(t => WbsKeyword.RelaxedMatch(t, r.ProcNm, r.Comm, r.Summary))
+                                              .FirstOrDefault(h => h is not null)))
             .Where(x => x.Hit is not null)
             .Select(x => x.Row with { KeywordMatch = x.Hit })];
     }

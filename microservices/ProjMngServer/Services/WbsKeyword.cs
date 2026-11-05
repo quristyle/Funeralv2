@@ -4,12 +4,18 @@ namespace ProjMngServer.Services;
 /// 일정 낱말 찾기. 묻는 말과 적힌 말은 끝이 다르다 — 「똥싼날」로 묻는데 일정표에는 「똥싸기」로 적혀 있다.
 /// 그대로 든 줄이 하나도 없을 때만 <see cref="Relax"/> 로 낱말마다 앞 두 글자(끝 받침 ㄴ·ㄹ·ㅁ·ㅆ 을 뗀 것까지)로
 /// 넓혀 다시 본다. 처음부터 넓히면 「개발일정」이 「개발」 든 줄을 전부 끌어온다.
+/// 「똥싸기|배변|화장실」처럼 <c>|</c> 로 이은 말은 그중 하나만 걸려도 된다 — 뜻이 같은 다른 말은 글자로는
+/// 못 넓히므로 모델이 지어 넣는다.
 /// </summary>
 public static class WbsKeyword
 {
     /// <summary>낱말이 칸 하나에라도 그대로 들었나(대소문자 무시 — SQL 의 ILIKE 와 같다).</summary>
     public static bool Contains(string keyword, params string?[] fields) =>
         fields.Any(f => f?.Contains(keyword.Trim(), StringComparison.OrdinalIgnoreCase) == true);
+
+    /// <summary><c>|</c> 로 이은 말들을 가른다. 빈 것은 버린다.</summary>
+    public static string[] Alternatives(string keyword) =>
+        keyword.Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
     /// <summary>띄어 쓴 낱말마다 넓힌 후보들. 한글 두 글자로 시작하지 않는 낱말(영문·숫자·한 글자)은 그대로 둔다.</summary>
     public static IReadOnlyList<string[]> Relax(string keyword) =>

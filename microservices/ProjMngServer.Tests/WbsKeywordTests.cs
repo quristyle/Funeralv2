@@ -51,9 +51,26 @@ public class WbsKeywordTests
     public void 없는_것은_넓혀도_없다(string keyword) =>
         Assert.Empty(InternalQueryService.FilterKeyword(Rows, keyword));
 
+    /// <summary>뜻이 같은 다른 말은 글자로 못 넓힌다 — 모델이 「|」 로 이어 넣은 말 중 하나만 걸리면 된다.</summary>
+    [Theory]
+    [InlineData("배변|화장실|똥싸기", "똥싸기")]
+    [InlineData("배변 | 똥싼날", "똥싸기")]
+    [InlineData("병가|병원", "정상준 전임 병원진료반차")]
+    public void 이어_넣은_말_중_하나만_걸려도_찾는다(string keyword, string title)
+    {
+        var hit = Assert.Single(InternalQueryService.FilterKeyword(Rows, keyword));
+        Assert.Equal(title, hit.ProcNm);
+    }
+
     [Fact]
-    public void 낱말이_없으면_거르지_않는다() =>
-        Assert.Equal(3, InternalQueryService.FilterKeyword(Rows, " ").Count);
+    public void 이어_넣은_말이_모두_없으면_없다() =>
+        Assert.Empty(InternalQueryService.FilterKeyword(Rows, "배변|화장실"));
+
+    [Theory]
+    [InlineData(" ")]
+    [InlineData(" | ")]
+    public void 낱말이_없으면_거르지_않는다(string keyword) =>
+        Assert.Equal(3, InternalQueryService.FilterKeyword(Rows, keyword).Count);
 
     [Theory]
     [InlineData("똥싼날", new[] { "똥싼", "똥싸" })]

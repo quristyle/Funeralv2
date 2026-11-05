@@ -160,9 +160,36 @@ public sealed class PortalToolRunner(
         var fromUtc = fromDay is null ? (DateTime?)null : PortalDay.StartUtc(fromDay);
         var toUtc = toDay is null ? (DateTime?)null : PortalDay.EndExclusiveUtc(toDay);
 
-        var helpDeskTask = helpDesk.SearchSchedulesAsync(identity.UserId, fromUtc, toUtc, keyword, take, ct);
+        var (total, lines) = await SearchBothSchedulesAsync(
+            identity.UserId, identity.Name, fromDay, toDay, fromUtc, toUtc, keyword, take, args, scope, ct);
+
+        // 낱말로 찾는데 사람·날짜까지 걸어 0건이면 그 둘을 빼고 다시 본다. 모델은 「나」라고만 해도
+        // 묻는 사람 아이디를 붙이는데, 공용 일정(「똥싸기」)은 남이 담당이라 그 조건에 걸려 「없다」가 된다.
+        var narrowed = identity.UserId is not null || identity.Name is not null || fromDay is not null || toDay is not null;
+        if (total == 0 && keyword is not null && narrowed)
+        {
+            (total, lines) = await SearchBothSchedulesAsync(null, null, null, null, null, null, keyword, take, args, scope, ct);
+            if (total > 0)
+            {
+                return PortalToolResult.Render("일정", lines, total, take)
+                     + "\n(물은 사람·날짜로는 0건이라 그 조건을 빼고 낱말로만 찾은 결과입니다. "
+                     + "담당·날짜가 물은 것과 다를 수 있으니 그대로 밝혀 답하십시오.)";
+            }
+        }
+
+        return PortalToolResult.Render("일정", lines, total, take);
+    }
+
+    private async Task<(int Total, List<string> Lines)> SearchBothSchedulesAsync(
+        string? userId, string? name, string? fromDay, string? toDay, DateTime? fromUtc, DateTime? toUtc,
+        string? keyword, int take, IReadOnlyDictionary<string, object?> args, RagScope? scope, CancellationToken ct)
+    {
+        // 「|」 로 이은 다른 말은 프로젝트관리만 안다 — 헬프데스크에는 첫 말만 넘긴다.
+        var helpDeskKeyword = keyword?.Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                                      .FirstOrDefault();
+        var helpDeskTask = helpDesk.SearchSchedulesAsync(userId, fromUtc, toUtc, helpDeskKeyword, take, ct);
         var projMngTask = projMng.SearchSchedulesAsync(
-            identity.UserId, identity.Name, fromDay, toDay, keyword, take, ct,
+            userId, name, fromDay, toDay, keyword, take, ct,
             scope?.ProjectRids, Str(args, "project"), Str(args, "scheduleType"));
         await Task.WhenAll(helpDeskTask, projMngTask);
 
@@ -173,9 +200,7 @@ public sealed class PortalToolRunner(
         lines.AddRange(hItems.Select(RenderHelpDeskSchedule));
         lines.AddRange(pItems.Select(RenderProjMngSchedule));
 
-        var total = hTotal + pTotal;
-        var shown = lines.Take(Math.Min(lines.Count, take)).ToList();
-        return PortalToolResult.Render("일정", shown, total, take);
+        return (hTotal + pTotal, lines.Take(Math.Min(lines.Count, take)).ToList());
     }
 
     /// <summary>일정표의 휴가. 고른 프로젝트(<see cref="RagScope.ProjectRids"/>) 안에서만 찾는다.</summary>
