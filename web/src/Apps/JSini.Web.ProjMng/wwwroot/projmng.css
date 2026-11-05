@@ -8204,6 +8204,86 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
   flex: 0 0 auto;
 }
 
+.pm-find__conds {
+  display: flex;
+  flex-direction: column;
+  gap: var(--jsini-sp-sm);
+}
+
+.pm-find__targets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem var(--jsini-sp-md);
+}
+
+.pm-find__more,
+.pm-find__reset {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--bs-primary, #1a73e8);
+  font: inherit;
+  font-size: var(--jsini-fs-sm);
+  cursor: pointer;
+}
+
+.pm-find__more .jsini-icon-chevron-down {
+  transform: rotate(-90deg);
+  transition: transform 0.15s;
+}
+
+.pm-find__more .pm-find__more-icon--open {
+  transform: none;
+}
+
+/* 칸별 조건 여섯. 넓으면 세 칸씩, 좁으면 두 칸씩 선다. */
+.pm-find__detail {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--jsini-sp-sm);
+  padding: var(--jsini-sp-sm);
+  border: 1px solid var(--jsini-border);
+  border-radius: var(--jsini-radius-md);
+}
+
+@media (max-width: 767px) {
+  .pm-find__detail {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.pm-find__tools {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.pm-find__reset {
+  align-self: auto;
+  color: var(--jsini-text-muted, inherit);
+}
+
+/* 찾은 줄이 어느 칸에서 걸렸나. */
+.pm-find__in {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.pm-find__tag {
+  padding: 0 0.375rem;
+  border-radius: var(--jsini-radius-md);
+  background: color-mix(in srgb, var(--bs-primary, #1a73e8) 12%, transparent);
+  color: var(--bs-primary, #1a73e8);
+  font-size: var(--jsini-fs-xs);
+  line-height: 1.5;
+}
+
 .pm-find__scope,
 .pm-find__count,
 .pm-find__empty {

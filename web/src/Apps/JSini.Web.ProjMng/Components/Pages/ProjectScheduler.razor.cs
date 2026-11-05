@@ -2797,7 +2797,11 @@ public partial class ProjectScheduler : IAsyncDisposable
 
     private bool _finding;
 
-    private string? _findKeyword;
+    /// <summary>찾는 조건. 검색어·칸별 조건·기간 기준·기간을 한 벌로 들고 있다 — 닫았다 열어도 그대로다.</summary>
+    private readonly ScheduleFindQuery _find = new();
+
+    /// <summary>칸별 조건 구역을 폈나. 조건이 걸려 있으면 접어도 머리에 「걸려 있음」을 적는다.</summary>
+    private bool _findDetail;
 
     /// <summary>찾는 기간. 기본은 오늘 앞뒤 1년이고, 비우면 그쪽 끝을 묶지 않는다.</summary>
     private DateTime? _findFrom;
@@ -2806,6 +2810,32 @@ public partial class ProjectScheduler : IAsyncDisposable
 
     /// <summary>찾은 줄. null 은 아직 찾지 않았다는 뜻이다 — 「찾은 것 없음」과 갈린다.</summary>
     private List<WbsItemDto>? _findHits;
+
+    /// <summary>찾은 줄마다 걸린 칸. 줄 꼬리표와 결과 머리의 칸별 건수가 이것을 쓴다.</summary>
+    private Dictionary<int, FindField> _findHitFields = [];
+
+    /// <summary>찾은 줄의 칸별 건수(「제목 3 · 메모 5」). 검색어·칸 조건 없이 기간만으로 찾으면 비어 있다.</summary>
+    private string? FindFieldCounts =>
+        _findHits is null ? null
+            : SchSummary.Of([.. ScheduleFind.CountByField(_findHitFields.Values).Select(c => $"{c.Name} {c.Count}")]);
+
+    private bool FindTargetOn(FindField f) => _find.Targets.HasFlag(f);
+
+    private void SetFindTarget(FindField f, bool on) =>
+        _find.Targets = on ? _find.Targets | f : _find.Targets & ~f;
+
+    /// <summary>검색어·칸 조건·기간 기준을 처음으로 되돌린다. 기간은 기본(앞뒤 1년)으로.</summary>
+    private void ResetFind()
+    {
+        _find.Keyword = _find.Title = _find.Memo = _find.Original = null;
+        _find.Kind = _find.Assignee = _find.Requester = null;
+        _find.Targets = FindField.All;
+        _find.Basis = ScheduleFind.Overlap;
+        _findFrom = AppTime.TodayDate.AddYears(-1);
+        _findTo = AppTime.TodayDate.AddYears(1);
+        _findHits = null;
+        _findHitFields = [];
+    }
 
     /// <summary>찾는 범위. 프로젝트·구분·진행은 화면 조건을 그대로 쓴다 — 찾은 일정이 달력에서 걸러져 안 보이는 일이 없게.</summary>
     private string FindScopeText => "범위: " + SchSummary.Of(
@@ -2849,12 +2879,24 @@ public partial class ProjectScheduler : IAsyncDisposable
                 to is null ? null : DateOnly.FromDateTime(to.Value),
                 mine: AllProjects);
 
-            var word = _findKeyword?.Trim();
+            _find.From = from is null ? null : DateOnly.FromDateTime(from.Value);
+            _find.To = to is null ? null : DateOnly.FromDateTime(to.Value);
 
+            var hits = new Dictionary<int, FindField>();
             _findHits = [.. rows
-                .Where(w => string.IsNullOrEmpty(word) || FindMatches(w, word))
+                .Where(w =>
+                {
+                    if (ScheduleFind.Match(w, _find, GetUserDisplayName) is not { } hit)
+                    {
+                        return false;
+                    }
+
+                    hits[w.WbsId] = hit;
+                    return true;
+                })
                 .OrderBy(w => w.PlanSdt ?? w.PlanEdt ?? DateTime.MaxValue)
                 .ThenBy(w => w.WbsId)];
+            _findHitFields = hits;
         }
         catch (Exception ex)
         {
@@ -2867,14 +2909,11 @@ public partial class ProjectScheduler : IAsyncDisposable
         }
     }
 
-    /// <summary>제목·메모·원문·종류·요청자·담당자(아이디와 이름) 어디에든 들어 있으면 맞다.</summary>
-    private bool FindMatches(WbsItemDto w, string word)
-    {
-        bool Has(string? s) => s?.Contains(word, StringComparison.OrdinalIgnoreCase) == true;
-
-        return Has(w.ProcNm) || Has(w.Comm) || Has(w.BodyText) || Has(w.ProcTp)
-            || Has(w.ReqUser) || Has(w.DevUser) || Has(GetUserDisplayName(w.DevUser));
-    }
+    /// <summary>그 줄이 어느 칸에서 걸렸나. 꼬리표로 붙인다.</summary>
+    private IEnumerable<string> FoundIn(WbsItemDto w) =>
+        _findHitFields.TryGetValue(w.WbsId, out var hit)
+            ? ScheduleFind.Fields.Where(f => hit.HasFlag(f.Field)).Select(f => f.Name)
+            : [];
 
     /// <summary>찾은 줄의 기간. 여러 해에 걸쳐 찾으므로 해까지 적는다.</summary>
     private static string FoundPeriod(WbsItemDto w)
