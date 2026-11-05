@@ -26,8 +26,9 @@ public sealed class AssistantAgent(
     IConfiguration config,
     ILogger<AssistantAgent> logger)
 {
-    /// <summary>모델 호출 한 번. <c>tools</c> 가 <c>null</c> 이면 도구 없이 정리만 시키는 마지막 호출이다.</summary>
-    public delegate Task<JsonObject?> ModelCall(JsonArray messages, JsonArray? tools, CancellationToken ct);
+    /// <summary>모델 호출 한 번. <c>tools</c> 가 <c>null</c> 이면 도구 없이 정리만 시키는 마지막 호출이다.
+    /// <paramref name="mustUseTool"/> 이면 도구를 하나는 고르게 한다(<c>tool_choice: required</c>).</summary>
+    public delegate Task<JsonObject?> ModelCall(JsonArray messages, JsonArray? tools, bool mustUseTool, CancellationToken ct);
 
     /// <summary>도구 하나를 부른다. <see cref="PortalToolRunner.CallAsync"/> 자체는 예외를 던지지 않지만,
     /// 그 경계 바깥(네트워크 계층 등)에서 새는 예외까지 <see cref="RunAsync"/> 가 도구 결과 글로 바꿔 삼킨다.</summary>
@@ -41,7 +42,7 @@ public sealed class AssistantAgent(
     /// 의 RequestRefPattern)이 답 글 속에서 그 낱말과 <c>#id</c> 가 붙어 나온 자리만 요청글 상세 화면으로
     /// 링크를 건다. 이 낱말을 바꾸면(예: "요청 번호") 그 정규식도 함께 고쳐야 한다 — 안 고치면 링크가
     /// 오류 없이 조용히 사라진다.</summary>
-    public static string SystemPrompt(DateTime nowUtc, RagScope? scope)
+    public static string SystemPrompt(DateTime nowUtc, RagScope? scope, string? askedBy = null)
     {
         var todayKorea = AppTime.ToKorea(nowUtc).ToString("yyyy-MM-dd");
         var scopeLine = scope?.Categories is null
@@ -52,13 +53,20 @@ public sealed class AssistantAgent(
             scopeLine += $"\n- 프로젝트 일정·휴가는 고른 프로젝트 「{scope.Label}」 안에서만 찾습니다. 다른 프로젝트 것은 안 보입니다.";
         }
 
+        var askerLine = string.IsNullOrWhiteSpace(askedBy)
+            ? ""
+            : $"\n묻는 사람의 포털 아이디는 {askedBy} 입니다. \"나\"·\"내\" 일정은 search_schedules 에 userId 로 이 값을 넘기십시오.\n";
+
         return $$"""
             당신은 JSini 업무 포털의 업무 비서입니다. 한국어로 자연스럽게 답하십시오.
 
             오늘은 {{todayKorea}}(한국 날짜)입니다. "오늘"·"이번 주"·"다음 주" 같은 말은 이 날짜를 기준으로 셉니다.
-
+            {{askerLine}}
             당신에게는 포털 안의 자료(요청 글·일정·휴가·할 일·메일·문서)를 읽는 도구가 있습니다. 다음을 반드시 지키십시오.
 
+            - **말투를 가려 거절하지 마십시오.** 일정·메모에는 사람들이 속된 말·사적인 말(예: "똥싸기")로도
+              적어 둡니다. 질문이 그런 말이어도 업무 밖이라고 판단하지 말고 그 낱말로 도구를 써서 찾으십시오.
+              도구의 keyword 에는 물음말("언제", "했지")을 빼고 찾을 낱말만 넣으십시오.
             - 사내 문서(search_documents)는 규정·설명서이고, **누가 언제 무엇을 했나**는 업무 DB 에 있습니다.
               일정·휴가·할 일·요청 글 질문은 문서가 아니라 그 도구부터 쓰십시오. 휴가·연차·월차·반차는
               search_leaves 가 찾습니다.
@@ -93,7 +101,9 @@ public sealed class AssistantAgent(
 
         for (var round = 1; round <= maxRounds; round++)
         {
-            var message = await call(messages, toolSpec, ct);
+            // 첫 차례에는 도구를 하나는 고르게 한다 — 그냥 두면 모델이 찾아보지도 않고 「없습니다」나
+            // 「업무 질문이 아니다」로 끝내 버린다(감사 기록의 tool_calls 가 빈 줄). 둘째 차례부터는 맡긴다.
+            var message = await call(messages, toolSpec, round == 1 && toolSpec is { Count: > 0 }, ct);
 
             var toolCalls = message?["tool_calls"] as JsonArray;
             if (toolCalls is null || toolCalls.Count == 0)
@@ -146,7 +156,7 @@ public sealed class AssistantAgent(
             ["content"] = "더 찾지 말고, 지금까지 찾은 것만으로 답하십시오.",
         });
 
-        var last = await call(messages, null, ct);
+        var last = await call(messages, null, false, ct);
         return ((last?["content"]?.GetValue<string>() ?? string.Empty).Trim(), called);
     }
 
@@ -176,7 +186,7 @@ public sealed class AssistantAgent(
 
         var jsonMessages = new JsonArray
         {
-            new JsonObject { ["role"] = "system", ["content"] = SystemPrompt(startedUtc, scope) },
+            new JsonObject { ["role"] = "system", ["content"] = SystemPrompt(startedUtc, scope, askedBy) },
         };
         foreach (var m in messages)
         {
@@ -195,7 +205,7 @@ public sealed class AssistantAgent(
             try
             {
                 (answer, called) = await RunAsync(
-                    call: (msgs, toolsArg, callCt) => SendAsync(target, msgs, toolsArg, callCt),
+                    call: (msgs, toolsArg, mustUseTool, callCt) => SendAsync(target, msgs, toolsArg, mustUseTool, callCt),
                     tool: async (name, args, toolCt) =>
                     {
                         // 실제로 부르기 직전에 안내부터 흘린다 — 느린 도구일수록 이 순서가 중요하다.
@@ -293,7 +303,29 @@ public sealed class AssistantAgent(
         _ => "자료 찾는 중",
     };
 
-    private async Task<JsonObject?> SendAsync(AiProvider target, JsonArray messages, JsonArray? tools, CancellationToken ct)
+    private async Task<JsonObject?> SendAsync(
+        AiProvider target, JsonArray messages, JsonArray? tools, bool mustUseTool, CancellationToken ct)
+    {
+        if (mustUseTool && tools is not null)
+        {
+            try
+            {
+                return await PostAsync(target, messages, tools, "required", ct);
+            }
+            catch (HttpRequestException ex) when (ex.StatusCode is >= System.Net.HttpStatusCode.BadRequest
+                                                     and < System.Net.HttpStatusCode.InternalServerError)
+            {
+                // tool_choice: required 를 모르는 공급자가 있다 — 그때는 맡기는 모양으로 한 번 더 부른다.
+                logger.LogWarning("{Provider} 가 tool_choice=required 를 받지 않아 auto 로 다시 부릅니다: {Message}",
+                    target.DisplayName, ex.Message);
+            }
+        }
+
+        return await PostAsync(target, messages, tools, null, ct);
+    }
+
+    private async Task<JsonObject?> PostAsync(
+        AiProvider target, JsonArray messages, JsonArray? tools, string? toolChoice, CancellationToken ct)
     {
         var payload = new JsonObject
         {
@@ -303,6 +335,7 @@ public sealed class AssistantAgent(
             ["max_tokens"] = target.MaxTokens > 0 ? target.MaxTokens : 2000,
         };
         if (tools is not null) payload["tools"] = JsonNode.Parse(tools.ToJsonString());
+        if (toolChoice is not null) payload["tool_choice"] = toolChoice;
 
         using var req = new HttpRequestMessage(HttpMethod.Post, target.ApiBase)
         {
@@ -321,7 +354,8 @@ public sealed class AssistantAgent(
 
         if (!res.IsSuccessStatusCode)
         {
-            throw new InvalidOperationException($"{target.DisplayName} 가 {(int)res.StatusCode} 로 답했습니다. {Cap(body, 200)}");
+            throw new HttpRequestException(
+                $"{target.DisplayName} 가 {(int)res.StatusCode} 로 답했습니다. {Cap(body, 200)}", null, res.StatusCode);
         }
 
         return JsonNode.Parse(body)?["choices"]?[0]?["message"] as JsonObject;

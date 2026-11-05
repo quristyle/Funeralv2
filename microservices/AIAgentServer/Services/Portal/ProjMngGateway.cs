@@ -15,7 +15,7 @@ public sealed class ProjMngGateway(HttpClient http, IConfiguration config)
     public sealed record ScheduleRow(
         string Source, string? Title, DateOnly? StartDate, DateOnly? EndDate, bool Done,
         string? Owner, string State, string? Role, string? Note,
-        string? Project = null, string? ScheduleType = null, string? Requester = null);
+        string? Project = null, string? ScheduleType = null, string? Requester = null, string? KeywordMatch = null);
 
     /// <summary>휴가 한 줄. <c>Person</c> 은 제목에서 뽑은 사람이고, <c>RecordedBy</c> 는 그 줄을 적은 사람이다.</summary>
     public sealed record LeaveRow(

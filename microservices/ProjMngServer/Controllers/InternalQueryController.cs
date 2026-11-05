@@ -62,6 +62,7 @@ public sealed class InternalQueryController(InternalQueryService service, IConfi
             project = r.PrjName,
             scheduleType = r.ScheduleType,
             requester = r.ReqUser,
+            keywordMatch = r.KeywordMatch,
         });
 
         return Ok(new { total, items });

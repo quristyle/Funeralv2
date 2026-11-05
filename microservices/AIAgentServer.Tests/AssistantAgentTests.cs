@@ -35,6 +35,15 @@ public class AssistantPromptTests
         Assert.Contains("한주 › 규정", p, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void 묻는_사람과_말투로_거절하지_말라는_것을_적는다()
+    {
+        var p = AssistantAgent.SystemPrompt(DateTime.UtcNow, null, "als900915");
+        Assert.Contains("als900915", p, StringComparison.Ordinal);
+        Assert.Contains("말투를 가려 거절하지 마십시오", p, StringComparison.Ordinal);
+        Assert.DoesNotContain("포털 아이디는", AssistantAgent.SystemPrompt(DateTime.UtcNow, null), StringComparison.Ordinal);
+    }
+
     /// <summary>프로젝트만 고르고 문서 범위는 안 좁혔으면 「문서 범위가 좁혀졌다」고 말하지 않는다.</summary>
     [Fact]
     public void 고른_프로젝트는_일정_범위로_적는다()
@@ -65,7 +74,7 @@ public class AssistantLoopTests
 
         var (answer, called) = await AssistantAgent.RunAsync(
             // 도구를 안 줬다는 것은 마지막 정리 호출이라는 뜻이다.
-            call: (msgs, tools, ct) => Task.FromResult<JsonObject?>(
+            call: (msgs, tools, must, ct) => Task.FromResult<JsonObject?>(
                 tools is null ? Says("찾은 것만 정리했습니다.") : WantsTool(++calls)),
             tool: (name, args, ct) => Task.FromResult("0건"),
             messages: [], toolSpec: [], maxRounds: 3, ct: default);
@@ -78,7 +87,7 @@ public class AssistantLoopTests
     public async Task 도구를_안_부르면_그_답으로_끝낸다()
     {
         var (answer, called) = await AssistantAgent.RunAsync(
-            call: (m, t, ct) => Task.FromResult<JsonObject?>(Says("없습니다.")),
+            call: (m, t, must, ct) => Task.FromResult<JsonObject?>(Says("없습니다.")),
             tool: (n, a, ct) => Task.FromResult(""),
             messages: [], toolSpec: [], maxRounds: 6, ct: default);
 
@@ -91,12 +100,45 @@ public class AssistantLoopTests
     {
         // 세 시스템 가운데 하나가 죽어도 나머지로 답해야 한다.
         var (answer, _) = await AssistantAgent.RunAsync(
-            call: (m, t, ct) => Task.FromResult<JsonObject?>(
+            call: (m, t, must, ct) => Task.FromResult<JsonObject?>(
                 t is null ? Says("정리") : WantsTool(1)),
             tool: (n, a, ct) => throw new HttpRequestException("헬프데스크가 죽었다"),
             messages: [], toolSpec: [], maxRounds: 2, ct: default);
 
         Assert.Equal("정리", answer);
+    }
+
+    /// <summary>첫 차례에만 도구를 강제한다 — 「똥 언제 쌌지」를 업무 밖이라며 도구 없이 거절하던 것을 막는다.
+    /// 둘째 차례부터와 마지막 정리 호출은 강제하지 않는다(강제하면 끝없이 찾는다).</summary>
+    [Fact]
+    public async Task 첫_차례에만_도구를_강제한다()
+    {
+        var seen = new List<bool>();
+        JsonArray spec = [new JsonObject { ["type"] = "function" }];
+
+        await AssistantAgent.RunAsync(
+            call: (m, t, must, ct) =>
+            {
+                seen.Add(must);
+                return Task.FromResult<JsonObject?>(t is null ? Says("정리") : WantsTool(seen.Count));
+            },
+            tool: (n, a, ct) => Task.FromResult("0건"),
+            messages: [], toolSpec: spec, maxRounds: 2, ct: default);
+
+        Assert.Equal([true, false, false], seen);
+    }
+
+    [Fact]
+    public async Task 도구가_없으면_강제하지_않는다()
+    {
+        var seen = new List<bool>();
+
+        await AssistantAgent.RunAsync(
+            call: (m, t, must, ct) => { seen.Add(must); return Task.FromResult<JsonObject?>(Says("없습니다.")); },
+            tool: (n, a, ct) => Task.FromResult(""),
+            messages: [], toolSpec: [], maxRounds: 6, ct: default);
+
+        Assert.Equal([false], seen);
     }
 
     /// <summary>사람이 창을 닫아 ct 가 끊긴 것은 도구가 죽은 것과 다르다 — 그 까닭을 글로 바꿔 삼키면
@@ -112,7 +154,7 @@ public class AssistantLoopTests
         var modelCalls = 0;
 
         await Assert.ThrowsAsync<OperationCanceledException>(() => AssistantAgent.RunAsync(
-            call: (m, t, ct) =>
+            call: (m, t, must, ct) =>
             {
                 modelCalls++;
                 return Task.FromResult<JsonObject?>(WantsTool(1));

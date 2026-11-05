@@ -28,7 +28,11 @@ public sealed class InternalQueryService(IConfiguration configuration)
         string? ProcNm, DateOnly? StartDate, DateOnly? EndDate,
         string? DevUser, string? BuildUser, string? QcUser,
         string? DevChk, string? BuildChk, string? Comm, string WbsState,
-        int PrjRid, string? PrjName, string? ScheduleType, string? ReqUser);
+        int PrjRid, string? PrjName, string? ScheduleType, string? ReqUser, string? Summary)
+    {
+        /// <summary>낱말이 그대로가 아니라 넓혀서(<see cref="WbsKeyword.Relax"/>) 걸렸으면 걸린 후보 글.</summary>
+        public string? KeywordMatch { get; init; }
+    }
 
     /// <summary>
     /// 일정 목록의 전체 건수와 한 쪽(<paramref name="take"/>)을 함께 돌려준다.
@@ -51,7 +55,6 @@ public sealed class InternalQueryService(IConfiguration configuration)
         {
             from,
             to,
-            keyword = keyword ?? string.Empty,
             prjRids = project?.PrjRids,
             project = project?.Text ?? string.Empty,
             scheduleType = scheduleType ?? string.Empty,
@@ -59,15 +62,14 @@ public sealed class InternalQueryService(IConfiguration configuration)
 
         // 계획 날짜가 비어 있으면 개발 종료일로 본다 — WbsService.Dates 와 똑같은 COALESCE 다.
         // 여기서 다르게 메우면 plan_sdt 가 빈 줄이 기간 조회에서만 사라진다(화면엔 보이는데 비서는 못 찾는다).
-        // 사람 조건(userId·name)은 여기서 걸지 않는다 — dev_user/build_user/qc_user 가 손으로 적은
-        // 글이라(아래 WbsPersonMatch 참고) SQL 의 단순 비교로는 거를 수 없다.
+        // 사람 조건(userId·name)과 낱말은 여기서 걸지 않는다 — 담당 칸은 손으로 적은 글이라(아래
+        // WbsPersonMatch 참고) SQL 의 단순 비교로는 못 거르고, 낱말은 그대로 든 것이 없으면 넓혀 다시
+        // 봐야 한다(FilterKeyword).
         const string Where = """
              WHERE (@from::date IS NULL OR COALESCE(a.plan_edt, a.dev_edt) IS NULL
                     OR COALESCE(a.plan_edt, a.dev_edt) >= @from)
                AND (@to::date   IS NULL OR COALESCE(a.plan_sdt, a.dev_edt) IS NULL
                     OR COALESCE(a.plan_sdt, a.dev_edt) <= @to)
-               AND (@keyword = '' OR a.proc_nm ILIKE '%' || @keyword || '%'
-                                  OR a.comm    ILIKE '%' || @keyword || '%')
                AND (@scheduleType = '' OR a.schedule_type ILIKE @scheduleType)
             """ + ProjectWhere;
 
@@ -92,21 +94,41 @@ public sealed class InternalQueryService(IConfiguration configuration)
                    a.prj_rid                         AS PrjRid,
                    COALESCE(NULLIF(p.prj_nick, ''), p.prj_name) AS PrjName,
                    a.schedule_type                   AS ScheduleType,
-                   a.req_user                        AS ReqUser
+                   a.req_user                        AS ReqUser,
+                   a.summary                         AS Summary
               FROM projmng.dev_wbs a
               LEFT JOIN projmng.dev_proj p ON p.prj_rid = a.prj_rid
             {Where}
              ORDER BY COALESCE(a.plan_sdt, a.dev_edt) NULLS LAST, a.wbs_id
             """, parameters, cancellationToken: ct));
 
-        // 날짜·키워드만 SQL 로 거르고(표가 수백 행뿐이라 전부 읽어도 가볍다), 사람 조건은 여기서
+        // 날짜·구분·프로젝트만 SQL 로 거르고(표가 수백 행뿐이라 전부 읽어도 가볍다), 사람 조건은 여기서
         // WbsPersonMatch 로 가른다 — 아이디(userId)·이름(name) 중 아무거나로, 세 칸(개발·빌드·검수)
         // 아무 데나 걸리면 포함한다.
-        var matched = string.IsNullOrWhiteSpace(userId) && string.IsNullOrWhiteSpace(name)
+        List<WbsScheduleRow> people = string.IsNullOrWhiteSpace(userId) && string.IsNullOrWhiteSpace(name)
             ? [.. rows]
             : rows.Where(r => MatchesPerson(r, userId) || MatchesPerson(r, name) || TitleNames(r.ProcNm, name)).ToList();
+        var matched = FilterKeyword(people, keyword);
 
         return (matched.Count, [.. matched.Take(take)]);
+    }
+
+    /// <summary>
+    /// 낱말 거르기. 제목·메모·요약 중 하나에 그대로 든 줄을 먼저 찾고, 하나도 없을 때만 넓혀 다시 본다 —
+    /// 「똥싼날」로 물어도 「똥싸기」가 걸린다. 넓혀 걸린 줄에는 무엇으로 걸렸는지 적어 둔다.
+    /// </summary>
+    internal static List<WbsScheduleRow> FilterKeyword(List<WbsScheduleRow> rows, string? keyword)
+    {
+        if (string.IsNullOrWhiteSpace(keyword)) return rows;
+
+        var exact = rows.Where(r => WbsKeyword.Contains(keyword, r.ProcNm, r.Comm, r.Summary)).ToList();
+        if (exact.Count > 0) return exact;
+
+        var tokens = WbsKeyword.Relax(keyword);
+        return [.. rows
+            .Select(r => (Row: r, Hit: WbsKeyword.RelaxedMatch(tokens, r.ProcNm, r.Comm, r.Summary)))
+            .Where(x => x.Hit is not null)
+            .Select(x => x.Row with { KeywordMatch = x.Hit })];
     }
 
     /// <summary>

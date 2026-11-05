@@ -346,7 +346,9 @@ public sealed class PortalToolRunner(
         var where = string.IsNullOrWhiteSpace(r.Project) ? "프로젝트관리" : $"프로젝트관리 {r.Project}";
         var type = string.IsNullOrWhiteSpace(r.ScheduleType) ? "" : $", 구분 {r.ScheduleType}";
         var requester = string.IsNullOrWhiteSpace(r.Requester) ? "" : $", 요청자 {r.Requester}";
-        return $"- [{where}] {r.Title ?? "(제목 없음)"} ({period}, {r.State}, {owner}{role}{type}{requester}{note})";
+        // 물은 낱말 그대로는 없어 넓혀 찾은 줄이다 — 모델이 「그 낱말은 없다」와 헷갈리지 않게 밝힌다.
+        var relaxed = string.IsNullOrWhiteSpace(r.KeywordMatch) ? "" : $", 낱말을 「{r.KeywordMatch}」로 넓혀 찾음";
+        return $"- [{where}] {r.Title ?? "(제목 없음)"} ({period}, {r.State}, {owner}{role}{type}{requester}{note}{relaxed})";
     }
 
     /// <summary>휴가 한 줄. 사람을 앞에 세우고, 적은 사람은 휴가 간 사람과 헷갈리지 않게 「적은 이」로 따로 적는다.</summary>

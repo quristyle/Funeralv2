@@ -95,7 +95,7 @@ public static class PortalToolSet
             "name": { "type": "string", "description": "사람 이름. userId 를 모를 때만 넘긴다." },
             "from": { "type": "string", "description": "조회 시작 날짜(yyyy-MM-dd, 한국 날짜)" },
             "to": { "type": "string", "description": "조회 끝 날짜(yyyy-MM-dd, 한국 날짜, 이 날짜까지 포함)" },
-            "keyword": { "type": "string", "description": "제목·메모에서 찾을 낱말" },
+            "keyword": { "type": "string", "description": "제목·메모에서 찾을 낱말 하나(예: 회의, 똥싸기). 「언제」「했지」 같은 물음말은 넣지 않는다. 그대로 든 일정이 없으면 앞 두 글자로 넓혀 찾는다(「똥싼날」→「똥싸기」)." },
             "project": { "type": "string", "description": "프로젝트 이름·별칭·번호(list_projects 로 본 값). 프로젝트관리 일정만 그 프로젝트로 좁힌다." },
             "scheduleType": { "type": "string", "description": "프로젝트관리 일정의 구분. WBS(개발 일감) · Public(공용 일정 — 회의·휴가·행사) · Private(개인 일정) 중 하나." },
             "take": { "type": "integer", "description": "가져올 최대 건수(기본 30, 최대 100, 두 출처 합산 기준)" }
