@@ -172,6 +172,7 @@ public partial class ScheduleNotePopup : IDisposable
         var currentUserName = !string.IsNullOrWhiteSpace(Me?.DisplayName)
             ? Me.DisplayName.Trim()
             : (!string.IsNullOrWhiteSpace(Me?.Username) ? Me.Username.Trim() : null);
+        var currentLogin = string.IsNullOrWhiteSpace(Me?.Username) ? null : Me.Username.Trim();
 
         // 프로젝트 선택 기억
         _ = RememberProjectAsync(prjCode);
@@ -191,6 +192,7 @@ public partial class ScheduleNotePopup : IDisposable
                 using var scope = ScopeFactory.CreateScope();
                 var Assist = scope.ServiceProvider.GetRequiredService<ScheduleNoteAssist>();
                 var Api = scope.ServiceProvider.GetRequiredService<WbsClient>();
+                Api.ActingAs = (currentLogin, currentUserName);
 
                 IReadOnlyList<ScheduleDraft> drafts = [];
                 try

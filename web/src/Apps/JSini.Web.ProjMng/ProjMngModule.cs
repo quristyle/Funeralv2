@@ -33,6 +33,9 @@ public sealed class ProjMngModule : IPortalModule
         services.AddScoped<ProjectDbClient>();
         services.AddScoped<HomeTodoClient>();
         services.AddScoped<WbsClient>();
+
+        // 일정이 바뀐 것을 열려 있는 일정표 전부에 알린다 — 다른 사람이 등록한 것도 이 프로세스를 지난다.
+        services.AddSingleton<WbsChangeFeed>();
         services.AddScoped<ScheduleMailClient>();
         services.AddScoped<MailTemplateClient>();
         services.AddScoped<DbLogicClient>();

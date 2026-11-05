@@ -951,7 +951,7 @@
 @code {
     // toggle 이면 상태가 줄 단추 밖의 제 단추가 된다 — 단추 안에 단추를 넣으면 브라우저가 바깥 단추를 둘로 쪼갠다.
     private RenderFragment ItemRow(WbsItemDto w, bool toggle = false, DateOnly? day = null) =>
-        @<li class="pm-gc-agenda__item pm-gc-agenda__item--@Label(w) @(toggle ? "pm-gc-agenda__item--toggle" : null)">
+        @<li class="pm-gc-agenda__item pm-gc-agenda__item--@Label(w) @(toggle ? "pm-gc-agenda__item--toggle" : null) @(IsFresh(w) ? "pm-gc-agenda__item--fresh" : null)">
             @if (toggle && IsTitleEditing(w, day))
             {
                 @* 단추 안에는 입력칸을 못 넣으므로 고치는 동안만 줄을 div 로 바꿔 그린다. 글쇠는 화면 단축키(t·d·←…)로 번지지 않게 끊는다. *@

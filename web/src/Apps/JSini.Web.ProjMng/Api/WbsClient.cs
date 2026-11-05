@@ -1,12 +1,16 @@
 using System.Text.Json.Serialization;
+using JSini.Web.Components.Layout;
 using JSini.Web.Http;
 
 namespace JSini.Web.ProjMng.Api;
 
 /// <summary>WBS · 일정표 REST 클라이언트. 옛 프로시저 둘(sp_proj_wbs_exec · sp_proj_wbs_moniter)을 대신한다. 등록·수정자는 서버가 채운다.</summary>
-public sealed class WbsClient(GatewayClient gateway)
+public sealed class WbsClient(GatewayClient gateway, WbsChangeFeed feed, CurrentUser me)
 {
     private const string Url = "projmng/wbs";
+
+    /// <summary>회로 밖(새 DI 스코프)에서 저장할 때 바꾼 사람을 대신 적는다. 그 스코프의 CurrentUser 는 읽힌 적이 없어 비어 있다.</summary>
+    public (string? Login, string? Name)? ActingAs { get; set; }
 
     /// <summary>목록.</summary>
     /// <param name="prjRid">프로젝트</param>
@@ -49,14 +53,34 @@ public sealed class WbsClient(GatewayClient gateway)
             from?.ToDateTime(TimeOnly.MinValue),
             to?.ToDateTime(new TimeOnly(23, 59, 59)), mine, ct);
 
-    public Task<WbsItemDto?> CreateAsync(WbsItemDto item, CancellationToken ct = default)
-        => gateway.PostAsync<WbsItemDto>(Url, item, ct);
+    public async Task<WbsItemDto?> CreateAsync(WbsItemDto item, CancellationToken ct = default)
+    {
+        var saved = await gateway.PostAsync<WbsItemDto>(Url, item, ct);
+        Announce(WbsChangeKind.Created, saved ?? item);
+        return saved;
+    }
 
-    public Task<WbsItemDto?> UpdateAsync(WbsItemDto item, CancellationToken ct = default)
-        => gateway.PutAsync<WbsItemDto>($"{Url}/{item.WbsId}", item, ct);
+    public async Task<WbsItemDto?> UpdateAsync(WbsItemDto item, CancellationToken ct = default)
+    {
+        var saved = await gateway.PutAsync<WbsItemDto>($"{Url}/{item.WbsId}", item, ct);
+        Announce(WbsChangeKind.Updated, saved ?? item);
+        return saved;
+    }
 
-    public Task DeleteAsync(int wbsId, CancellationToken ct = default)
-        => gateway.DeleteAsync($"{Url}/{wbsId}", ct);
+    public async Task DeleteAsync(int wbsId, CancellationToken ct = default)
+    {
+        await gateway.DeleteAsync($"{Url}/{wbsId}", ct);
+        Announce(WbsChangeKind.Deleted, new WbsItemDto { WbsId = wbsId });
+    }
+
+    private void Announce(WbsChangeKind kind, WbsItemDto item)
+    {
+        var login = ActingAs?.Login ?? me.Username;
+        var name = ActingAs?.Name ?? me.DisplayName ?? login;
+
+        feed.Publish(new WbsChange(kind, item.WbsId, item.PrjRid, item.ProcNm,
+            item.PlanSdt, item.PlanEdt, this, login, name));
+    }
 
     /// <summary>진척 집계. 프로젝트 하나를 본다.</summary>
     public Task<WbsSummaryDto?> SummaryAsync(int prjRid, CancellationToken ct = default)

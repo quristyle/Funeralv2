@@ -9298,3 +9298,43 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
     max-width: 100% !important;
   }
 }
+
+/* 일정표 실시간 반영 — 다른 데서 방금 들어온 일정(AI 일정 메모 · 다른 사람)을 몇 초 칠해 「지금 들어왔다」를 알린다.
+   칠하는 시간은 ProjectScheduler.FreshFor 가 정하고 클래스를 걷는다. 여기서는 처음 몇 번 깜박이고 테만 남긴다. */
+@keyframes pm-fresh-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px var(--jsini-accent, #1a73e8); }
+  50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--jsini-accent, #1a73e8) 35%, transparent); }
+}
+
+@keyframes pm-fresh-wash {
+  from { background-color: color-mix(in srgb, var(--jsini-accent, #1a73e8) 26%, transparent); }
+  to { background-color: color-mix(in srgb, var(--jsini-accent, #1a73e8) 8%, transparent); }
+}
+
+.pm-gc-bar.pm-gc-bar--fresh {
+  position: relative;
+  z-index: 1;
+  animation: pm-fresh-pulse 0.9s ease-in-out 3;
+  box-shadow: 0 0 0 2px var(--jsini-accent, #1a73e8);
+}
+
+.pm-gc-agenda__item.pm-gc-agenda__item--fresh {
+  animation: pm-fresh-wash 1.6s ease-out forwards;
+  box-shadow: inset 3px 0 0 var(--jsini-accent, #1a73e8);
+}
+
+.commgrd .dxbl-grid .dxbl-grid-table > tbody > tr.pm-row--fresh.pm-row--fresh > td {
+  animation: pm-fresh-wash 1.6s ease-out forwards;
+}
+
+.commgrd .dxbl-grid .dxbl-grid-table > tbody > tr.pm-row--fresh.pm-row--fresh > td:first-child {
+  box-shadow: inset 3px 0 0 var(--jsini-accent, #1a73e8);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pm-gc-bar.pm-gc-bar--fresh,
+  .pm-gc-agenda__item.pm-gc-agenda__item--fresh,
+  .commgrd .dxbl-grid .dxbl-grid-table > tbody > tr.pm-row--fresh.pm-row--fresh > td {
+    animation: none;
+  }
+}

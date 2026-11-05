@@ -6,6 +6,7 @@ using DevExpress.Blazor;
 using JSini.Web.Abstractions;
 using JSini.Web.Components.Data;
 using JSini.Web.Components.Layout;
+using JSini.Web.Http;
 using JSini.Web.ProjMng.Api;
 using JSini.Web.ProjMng.Components.Shared;
 
@@ -22,6 +23,8 @@ public partial class ProjectScheduler : IAsyncDisposable
     [Inject] private IJSRuntime JS { get; set; } = default!;
 
     [Inject] private CurrentUser Me { get; set; } = default!;
+
+    [Inject] private WbsChangeFeed Feed { get; set; } = default!;
 
     /// <summary>마지막에 고른 프로젝트를 브라우저에 적어 둘 때 쓰는 열쇠 앞부분. 뒤에 로그인 아이디가 붙는다.</summary>
     internal const string ProjectStorageKeyPrefix = "jsini-sched-prj:";
@@ -473,6 +476,8 @@ public partial class ProjectScheduler : IAsyncDisposable
         _canUpdate = Permissions.Can(path, MenuAction.Update);
         _canDelete = Permissions.Can(path, MenuAction.Delete);
 
+        Feed.Changed += OnWbsChanged;
+
         // 첫 렌더 시 달력 틀이 즉시 표시되도록 초기 격자를 구성한다.
         SyncSelected();
         BuildCalendar();
@@ -655,63 +660,79 @@ public partial class ProjectScheduler : IAsyncDisposable
 
     private async Task SearchAsync()
     {
-        await LoadAsync(async () =>
-        {
-            DateOnly? from;
-            DateOnly? to;
-
-            if (_view == CalView.Table)
-            {
-                from = _tableStart;
-                to = _tableEnd;
-
-                if (from is not null && to is not null && from > to)
-                {
-                    (from, to) = (to, from);
-                    _tableStart = from;
-                    _tableEnd = to;
-                }
-            }
-            else
-            {
-                // 격자 구간으로 묻는다 — 달 1일~말일이 아니다.
-                var span = GridSpan;
-                from = DateOnly.FromDateTime(span.Start);
-                to = DateOnly.FromDateTime(span.End);
-            }
-
-            // 작은 달력의 건수가 따로 읽어야 하는 구간이면 본 조회와 함께 띄운다 — 차례로 기다리면 두 번 왕복한 만큼 늦다.
-            var mini = MiniReusesRows ? null : RefreshMiniAsync();
-
-            // 표가 받은 차례 그대로 그리므로 날짜순으로 맞춰 둔다. 칸에 정렬을 걸면 고친 줄이 편집 중에 자리를 옮긴다.
-            _rows = [.. (await Api.ListAsync(
-                    ProjectRid, _completeState, _scheduleTypes,
-                    from, to, mine: AllProjects))
-                .OrderBy(w => w.PlanSdt ?? DateTime.MaxValue)
-                .ThenBy(w => w.PlanEdt ?? DateTime.MaxValue)
-                .ThenBy(w => w.WbsId)];
-
-            SyncSelected();
-
-            // 표 보기에서는 달력 재료를 짜지 않는다 — 그려지지 않는 것을 줄마다 날짜별로 가르느라 표가 늦게 뜬다.
-            // 달력으로 돌아갈 때 SetViewAsync 가 다시 읽으며 짠다.
-            if (_view == CalView.Table)
-            {
-                _editRow = _editRow is null ? null : _rows.FirstOrDefault(w => w.WbsId == _editRow.WbsId);
-            }
-            else
-            {
-                BuildCalendar();
-                BuildDays();
-                BuildWeeks();
-            }
-
-            await (mini ?? RefreshMiniAsync());
-
-            return _rows.Count;
-        }, "그 기간에 일정이 없습니다.", "일정표를 읽지 못했습니다");
+        await LoadAsync(ReadAsync, "그 기간에 일정이 없습니다.", "일정표를 읽지 못했습니다");
 
         StateHasChanged();
+    }
+
+    /// <summary>늦게 돌아온 조회가 그 뒤에 나간 조회의 결과를 덮지 않게 센다. 실시간 반영이 조회를 하나 더 띄우므로 달을 넘기는 사이에 둘이 엇갈린다.</summary>
+    private int _readGen;
+
+    /// <summary>지금 조건으로 읽어 달력·표·작은 달력을 다시 짠다. 돌려주는 값은 건수다.</summary>
+    private async Task<int> ReadAsync()
+    {
+        var gen = ++_readGen;
+
+        DateOnly? from;
+        DateOnly? to;
+
+        if (_view == CalView.Table)
+        {
+            from = _tableStart;
+            to = _tableEnd;
+
+            if (from is not null && to is not null && from > to)
+            {
+                (from, to) = (to, from);
+                _tableStart = from;
+                _tableEnd = to;
+            }
+        }
+        else
+        {
+            // 격자 구간으로 묻는다 — 달 1일~말일이 아니다.
+            var span = GridSpan;
+            from = DateOnly.FromDateTime(span.Start);
+            to = DateOnly.FromDateTime(span.End);
+        }
+
+        // 작은 달력의 건수가 따로 읽어야 하는 구간이면 본 조회와 함께 띄운다 — 차례로 기다리면 두 번 왕복한 만큼 늦다.
+        var mini = MiniReusesRows ? null : RefreshMiniAsync();
+
+        var read = await Api.ListAsync(
+            ProjectRid, _completeState, _scheduleTypes,
+            from, to, mine: AllProjects);
+
+        if (gen != _readGen)
+        {
+            if (mini is not null) await mini;
+            return _rows.Count;
+        }
+
+        // 표가 받은 차례 그대로 그리므로 날짜순으로 맞춰 둔다. 칸에 정렬을 걸면 고친 줄이 편집 중에 자리를 옮긴다.
+        _rows = [.. read
+            .OrderBy(w => w.PlanSdt ?? DateTime.MaxValue)
+            .ThenBy(w => w.PlanEdt ?? DateTime.MaxValue)
+            .ThenBy(w => w.WbsId)];
+
+        SyncSelected();
+
+        // 표 보기에서는 달력 재료를 짜지 않는다 — 그려지지 않는 것을 줄마다 날짜별로 가르느라 표가 늦게 뜬다.
+        // 달력으로 돌아갈 때 SetViewAsync 가 다시 읽으며 짠다.
+        if (_view == CalView.Table)
+        {
+            _editRow = _editRow is null ? null : _rows.FirstOrDefault(w => w.WbsId == _editRow.WbsId);
+        }
+        else
+        {
+            BuildCalendar();
+            BuildDays();
+            BuildWeeks();
+        }
+
+        await (mini ?? RefreshMiniAsync());
+
+        return _rows.Count;
     }
 
     /// <summary>화면 크기가 경계를 넘었다. 값만 받는다 — 칸에 담기는 막대 수(MaxLanes)는 그리는 시점에 갈린다.</summary>
@@ -1536,6 +1557,7 @@ public partial class ProjectScheduler : IAsyncDisposable
         if (bar.ClipStart) css.Add("pm-gc-bar--clip-s");
         if (AllProjects) css.Add("pm-gc-bar--prj");
         if (bar.ClipEnd) css.Add("pm-gc-bar--clip-e");
+        if (IsFresh(bar.Item)) css.Add("pm-gc-bar--fresh");
 
         return string.Join(' ', css);
     }
@@ -1667,8 +1689,171 @@ public partial class ProjectScheduler : IAsyncDisposable
         }
     }
 
+    // ── 실시간 반영 ─────────────────────────────────────────────
+    // 일정은 이 화면 밖에서도 생긴다 — 상단의 AI 일정 메모 팝업, 다른 사람의 일정표·WBS.
+    // 저장은 모두 WbsClient 를 지나고 WbsChangeFeed 가 포털 안의 모든 회로에 알린다.
+
+    /// <summary>연달아 오는 소식을 한 번의 조회로 묶는 틈. 메모 한 장이 일정 여럿으로 갈려 차례로 저장된다.</summary>
+    private static readonly TimeSpan LiveDebounce = TimeSpan.FromMilliseconds(400);
+
+    /// <summary>새로 들어온 일정을 눈에 띄게 칠해 두는 시간.</summary>
+    private static readonly TimeSpan FreshFor = TimeSpan.FromSeconds(6);
+
+    private readonly List<WbsChange> _liveQueue = [];
+    private readonly CancellationTokenSource _liveCts = new();
+    private bool _liveRunning;
+
+    /// <summary>방금 다른 데서 들어온 일정. 막대·목록·표 줄이 이 번호로 칠해진다.</summary>
+    private HashSet<int> _fresh = [];
+    private int _freshGen;
+
+    private bool IsFresh(WbsItemDto w) => _fresh.Contains(w.WbsId);
+
+    /// <summary>저장한 쪽의 스레드에서 불린다. 화면 상태는 회로에서만 읽으므로 넘겨서 가른다.</summary>
+    private void OnWbsChanged(WbsChange change)
+    {
+        if (_liveCts.IsCancellationRequested) return;
+
+        _ = InvokeAsync(() =>
+        {
+            // 아직 처음 조회 전이면 그 조회가 이것까지 읽는다. 지운 소식에는 프로젝트가 없어 그대로 받는다.
+            if (!_projectRestored
+                || (change.PrjRid is { } prj && !(AllProjects ? _projects.ContainsKey(prj) : prj == ProjectRid)))
+            {
+                return Task.CompletedTask;
+            }
+
+            _liveQueue.Add(change);
+            return _liveRunning ? Task.CompletedTask : RunLiveRefreshAsync();
+        });
+    }
+
+    /// <summary>모인 소식을 한 번에 반영한다. 화면을 덮지 않고(조용히) 다시 읽고, 들어온 일정을 잠깐 칠하고 한마디 한다.
+    /// 사람이 창에서 고치는 중이면 끝날 때까지 기다린다 — 다시 읽으면 고치던 줄이 바뀐다.</summary>
+    private async Task RunLiveRefreshAsync()
+    {
+        _liveRunning = true;
+        var token = _liveCts.Token;
+
+        try
+        {
+            await Task.Delay(LiveDebounce, token);
+
+            while (Loading || _editPopup?.IsOpen == true || _titleEdit is not null || _titleSaving)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(1), token);
+            }
+
+            List<WbsChange> batch = [.. _liveQueue];
+            _liveQueue.Clear();
+
+            try
+            {
+                await ReadAsync();
+            }
+            catch (ApiException)
+            {
+                // 다음 소식이나 사람의 조회가 다시 읽는다. 조용한 반영이 실패를 띄우면 하던 일을 가로막는다.
+                return;
+            }
+
+            // 이 화면이 스스로 저장한 것은 이미 제 손으로 다시 읽고 「저장했습니다」를 띄웠다.
+            var outside = batch.Where(c => !ReferenceEquals(c.Source, Api)).ToList();
+            var arrived = outside
+                .Where(c => c.Kind != WbsChangeKind.Deleted)
+                .Select(c => c.WbsId)
+                .ToHashSet();
+
+            if (arrived.Count > 0)
+            {
+                _fresh = arrived;
+                _ = FadeFreshAsync(++_freshGen, token);
+            }
+
+            if (outside.Count > 0)
+            {
+                Say(LiveMessage(outside));
+            }
+
+            StateHasChanged();
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        finally
+        {
+            _liveRunning = false;
+        }
+
+        // 기다리는 사이에 또 온 소식이 있으면 한 번 더 돈다.
+        if (_liveQueue.Count > 0 && !token.IsCancellationRequested)
+        {
+            await RunLiveRefreshAsync();
+        }
+    }
+
+    private async Task FadeFreshAsync(int gen, CancellationToken token)
+    {
+        try
+        {
+            await Task.Delay(FreshFor, token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        if (gen != _freshGen) return;
+
+        _fresh = [];
+        StateHasChanged();
+    }
+
+    /// <summary>반영한 것을 한 줄로 말한다. 누가 무엇을 언제로 넣었는지, 지금 보는 기간 밖이면 그것도.</summary>
+    private string LiveMessage(IReadOnlyList<WbsChange> changes)
+    {
+        var me = Me?.Username;
+        var actors = changes.Select(c => c.ActorLogin).Distinct().ToList();
+        var mine = actors.Count == 1 && !string.IsNullOrWhiteSpace(me) && string.Equals(actors[0], me, StringComparison.OrdinalIgnoreCase);
+        var who = mine ? null : changes.Select(c => c.ActorName).FirstOrDefault(n => !string.IsNullOrWhiteSpace(n));
+        var subject = who is null ? (mine ? "" : "다른 사용자가 ") : $"{who} 님이 ";
+
+        if (changes.Count == 1)
+        {
+            var c = changes[0];
+            var verb = c.Kind switch
+            {
+                WbsChangeKind.Created => "일정을 등록했습니다",
+                WbsChangeKind.Updated => "일정을 고쳤습니다",
+                _ => "일정을 지웠습니다",
+            };
+
+            if (c.Kind == WbsChangeKind.Deleted)
+            {
+                return mine ? "지운 일정을 일정표에 반영했습니다." : $"{subject}{verb}.";
+            }
+
+            var when = c.Start is { } start ? $" ({start:M/d})" : null;
+            var away = _rows.Any(w => w.WbsId == c.WbsId) ? null : " · 지금 보는 기간 밖";
+            var title = string.IsNullOrWhiteSpace(c.Title) ? null : $" — {c.Title}";
+
+            return mine
+                ? $"일정표에 반영했습니다{title}{when}{away}"
+                : $"{subject}{verb}{title}{when}{away}";
+        }
+
+        var created = changes.Count(c => c.Kind == WbsChangeKind.Created);
+
+        return created == changes.Count
+            ? (mine ? $"일정 {created}건을 일정표에 반영했습니다." : $"{subject}일정 {created}건을 등록했습니다.")
+            : $"{subject}일정 {changes.Count}건을 바꾸어 다시 읽었습니다.";
+    }
+
     public async ValueTask DisposeAsync()
     {
+        Feed.Changed -= OnWbsChanged;
+        _liveCts.Cancel();
+
         try
         {
             if (_dragModule is not null)
@@ -2307,7 +2492,14 @@ public partial class ProjectScheduler : IAsyncDisposable
     private static bool IsDiscarded(WbsItemDto w) => GetInlineStateCode(w) == "DISCARD";
 
     /// <summary>표의 줄 표시. 폐기한 일정은 줄 전체를 흐리고 글자에 줄을 긋는다(projmng.css).</summary>
-    private static string? TableRowClass(WbsItemDto w) => IsDiscarded(w) ? "pm-row--discard" : null;
+    private string? TableRowClass(WbsItemDto w) =>
+        (IsDiscarded(w), IsFresh(w)) switch
+        {
+            (true, true) => "pm-row--discard pm-row--fresh",
+            (true, false) => "pm-row--discard",
+            (false, true) => "pm-row--fresh",
+            _ => null,
+        };
 
     /// <summary>표 보기에서 행 값을 변경했을 때 즉시 서버에 저장한다.</summary>
     private async Task SaveInlineAsync(WbsItemDto w)
