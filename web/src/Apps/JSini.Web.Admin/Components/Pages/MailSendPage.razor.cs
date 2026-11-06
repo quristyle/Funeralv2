@@ -191,6 +191,9 @@ public partial class MailSendPage
     /// <summary>서식 편집기에서 지금 화면의 글을 읽어 _body 에 담는다. 편집기는 값 변화를 늦게 알리므로 직접 묻는다. 읽지 못하면 있던 값을 그대로 둔다.</summary>
     private async Task FlushBodyAsync()
     {
+        // HTML 원문 칸은 값을 바로 묶어 들고 있다 — 편집기가 화면에 없으므로 물을 곳도 없다.
+        if (_htmlMode) return;
+
         try
         {
             _editorJs ??= await JS.InvokeAsync<IJSObjectReference>(
@@ -211,6 +214,26 @@ public partial class MailSendPage
         {
             // 회로가 닫히는 중이다(화면을 옮기는 순간 등). 같은 처리.
         }
+    }
+
+    /// <summary>본문을 HTML 원문으로 고치는 중인가. 그동안은 원문 칸이 정본이고 서식 편집기는 화면에 없다.</summary>
+    private bool _htmlMode;
+
+    /// <summary>서식 편집 ↔ HTML 원문을 오간다. 원문으로 갈 때는 편집기에서 방금 친 글까지 걷어 오고, 돌아올 때는 고친 원문으로 편집기를 새로 세운다.</summary>
+    private async Task SetHtmlModeAsync(bool on)
+    {
+        if (_htmlMode == on) return;
+
+        if (on)
+        {
+            await FlushBodyAsync();
+        }
+        else
+        {
+            _editorKey++;
+        }
+
+        _htmlMode = on;
     }
 
     /// <summary>본문을 통째로 갈아 끼운다. 편집기를 다시 세운다(_editorKey).</summary>

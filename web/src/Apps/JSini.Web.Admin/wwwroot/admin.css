@@ -4855,15 +4855,125 @@
 
 /* ── 메일 보내기 (`/admin/mail/send`) ──────────────────────────
 
-   「메시지 발송」의 메일 탭(`.ad-sendform`)과 **치수를 같이 쓴다** — 둘 다
-   사람이 글을 쓰는 자리라 한 줄이 화면 폭만큼 길어지면 읽기 나쁘다.
-   갈라지는 것은 여기만 가진 것들(최근 주소 딱지 · 간편 틀 · 요약 칸)뿐이다.
+   넓은 화면(≥1200px)에서는 **두 단**이다 — 왼쪽에 받는 사람·참조·간편 틀·첨부,
+   오른쪽에 제목·본문·요약·보내기. 한 단(48rem)으로 묶어 두면 책상 화면의
+   절반 넘게가 비고, 정작 넓어야 할 본문이 그 폭에 갇힌다.
+   좁은 화면에서는 두 단의 상자를 지우고(`display: contents`) 한 줄로 쌓는다 —
+   차례는 `__o-*` 의 `order` 가 정한다(받는 사람 → 제목 → 틀 → 본문 → 요약 →
+   첨부 → 보내기). 마크업을 화면 폭으로 갈라 두 벌 두지 않으려는 것이다.
    ---------------------------------------------------------- */
 
 .ad-mailsend {
+  display: flex;
+  flex-direction: column;
   max-width: 48rem;
   padding-top: 0.75rem;
   padding-right: 0.5rem;
+}
+
+.ad-mailsend__side,
+.ad-mailsend__main { display: contents; }
+
+.ad-mailsend__o-subj  { order: 1; }
+.ad-mailsend__o-tpl   { order: 2; }
+.ad-mailsend__o-body  { order: 3; }
+.ad-mailsend__o-sum   { order: 4; }
+.ad-mailsend__o-files { order: 5; }
+.ad-mailsend__o-send  { order: 6; }
+
+@media (min-width: 1200px) {
+  .ad-mailsend {
+    display: grid;
+    grid-template-columns: minmax(20rem, 28rem) minmax(0, 1fr);
+    align-items: start;
+    gap: 0 1.75rem;
+    max-width: none;
+  }
+
+  .ad-mailsend__side,
+  .ad-mailsend__main {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+}
+
+/* ── 본문 머리: 라벨 · 서식 편집/HTML 고르개 ───────────────── */
+
+.ad-mailsend__bodyhead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.ad-mailsend__modes {
+  display: inline-flex;
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  border-radius: var(--bs-border-radius, 6px);
+  overflow: hidden;
+  margin-bottom: 0.35rem;
+}
+
+.ad-mailsend__mode {
+  border: 0;
+  background: transparent;
+  padding: 0.15rem 0.75rem;
+  font-size: var(--jsini-fs-sm, 0.85rem);
+  color: var(--jsini-text-muted);
+  cursor: pointer;
+}
+
+.ad-mailsend__mode + .ad-mailsend__mode {
+  border-left: 1px solid var(--bs-border-color, #dee2e6);
+}
+
+.ad-mailsend__mode.is-on {
+  background: var(--bs-primary, #206bc4);
+  color: #fff;
+}
+
+/* ── HTML 원문 + 미리보기 ─────────────────────────────────
+
+   본문 단이 넓으면(56rem 이상) 원문과 미리보기를 나란히, 아니면 위아래로 둔다.
+   폭은 화면이 아니라 **본문 단**으로 잰다 — 사이드바를 접고 펴는 것만으로도
+   그 단의 폭이 바뀐다. container-type 은 fixed 자식의 기준이 되므로 팝업이
+   뜨지 않는 이 상자에만 건다. */
+
+.ad-mailsend__html { container-type: inline-size; }
+
+.ad-mailsend__htmlgrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.75rem;
+}
+
+@container (min-width: 56rem) {
+  .ad-mailsend__htmlgrid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}
+
+.ad-mailsend__source textarea {
+  font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  font-size: var(--jsini-fs-sm, 0.85rem);
+  line-height: 1.5;
+  min-height: 20rem;
+  white-space: pre;
+  tab-size: 2;
+}
+
+/* 메일 클라이언트처럼 흰 바탕에 그린다 — 어두운 테마여도 받는 쪽은 대개 흰 바탕이다. */
+.ad-mailsend__preview {
+  width: 100%;
+  min-height: 20rem;
+  border: 1px solid var(--bs-border-color, #dee2e6);
+  border-radius: var(--bs-border-radius, 6px);
+  background: #fff;
+}
+
+@media (min-width: 1200px) {
+  .ad-mailsend__source textarea,
+  .ad-mailsend__preview { min-height: max(24rem, calc(100vh - 26rem)); }
 }
 
 /* 보낸 메일함 탭. 표가 들어오므로 폭을 묶지 않는다 — 묶으면 받는 사람 칸이 줄바꿈되고, 메일 주소는 줄바꿈되면 읽을 수가 없다. */
@@ -4952,8 +5062,13 @@
 
    「메시지 발송」(`.ad-mail-editor`)보다 높다. 그쪽은 왼쪽에 명단이 함께
    서는 좁은 판이고, 여기는 화면을 통째로 쓰는 자리라 메일 한 통이 한눈에
-   들어와야 한다. */
+   들어와야 한다. 넓은 화면의 높이는 위 두 단 구역이 덮는다. */
 .ad-mailsend-editor { min-height: 20rem; }
+
+/* 넓은 화면에서는 본문이 화면 높이를 따라간다 — 고정 높이면 큰 화면에서도 메일 한 통을 굴려 읽는다. */
+@media (min-width: 1200px) {
+  .ad-mailsend-editor { min-height: max(24rem, calc(100vh - 24rem)); }
+}
 
 /* ── AI 요약 ──────────────────────────────────────────────
 

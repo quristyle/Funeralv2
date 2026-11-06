@@ -16,7 +16,9 @@
 
     @* ══ 새 메일 ═══════════════════════════════════════════ *@
     <DxTabPage Text="새 메일">
-        <div class="ad-mailsend">
+        @* 넓은 화면에서는 두 단이다 — 주소·틀·첨부가 왼쪽, 제목·본문·보내기가 오른쪽. 좁은 화면에서는 한 줄로 쌓이고 차례는 order 가 맞춘다(admin.css). *@
+        <div class="ad-mailsend @(_htmlMode ? "ad-mailsend--html" : null)">
+          <div class="ad-mailsend__side">
 
             @* 주소 꼴이 아닌 것은 적는 동안 말한다 — 서버는 나머지에게 이미 나간 뒤라 고쳐 다시 보내면 같은 메일을 두 번 받는다. *@
             @if (BadAddresses.Count > 0)
@@ -26,7 +28,7 @@
             }
 
             @* ── 받는 사람 ───────────────────────────────── *@
-            <div class="ad-field">
+            <div class="ad-field ad-mailsend__o-to">
                 <label class="ad-field__label">받는 사람 <span class="ad-field__must">*</span></label>
 
                 <DxMemo @bind-Text="_to"
@@ -63,7 +65,7 @@
             </div>
 
             @* 숨은참조가 아니다 — 받는 사람 모두에게 보인다. 화면이 그렇다고 말하지 않으면 가려야 할 주소가 어느 날 드러난다. *@
-            <div class="ad-field">
+            <div class="ad-field ad-mailsend__o-to">
                 <label class="ad-field__label">참조 (CC)</label>
 
                 <DxMemo @bind-Text="_cc"
@@ -82,14 +84,8 @@
                 </div>
             </div>
 
-            @* ── 제목 ────────────────────────────────────── *@
-            <div class="ad-field">
-                <label class="ad-field__label">제목 <span class="ad-field__must">*</span></label>
-                <DxTextBox @bind-Text="_subject" ValidationEnabled="false" />
-            </div>
-
             @* 서식 편집기 앞에 두는 디딤돌이다 — 편집기를 열면 빈 칸이라 메일을 자주 안 쓰는 사람은 거기서 멈춘다. 칸 셋으로 나눠 물으면 채우기만 하면 된다. 넣고 나면 편집기가 정본이다. *@
-            <div class="ad-tpl">
+            <div class="ad-tpl ad-mailsend__o-tpl">
                 <button type="button" class="ad-tpl__head" @onclick="@(() => _tplOpen = !_tplOpen)">
                     <span class="ad-tpl__title">간편 작성 틀</span>
                     <span class="@(_tplOpen ? "jsini-icon-fold" : "jsini-icon-unfold")"></span>
@@ -130,20 +126,77 @@
                 }
             </div>
 
-            @* ── 본문 ────────────────────────────────────── *@
-            <div class="ad-field">
-                <label class="ad-field__label">본문 <span class="ad-field__must">*</span></label>
+            @* 파일 서버에 올리지 않고 바이트로 실어 보낸다 — 보내고 나면 쓸 일이 없어 올리면 쌓이기만 한다. 상한(다섯 개 · 합쳐 15MB)은 서버와 맞춘 값이고, 여기서 막는 것은 먼저 말해 주려는 것이다. *@
+            <div class="ad-field ad-mailsend__o-files">
+                <label class="ad-field__label">첨부</label>
 
-                @* 공지·헬프데스크와 같은 부품이다(DxHtmlEditor). @key 를 건 까닭은 코드가 본문을 통째로 갈아 끼우는 자리가 셋(틀 넣기 · 요약 넣기 · 다시 보내기)이라서다. 사람이 치는 동안에는 값이 안 바뀌어 초점이 빠지지 않는다. *@
-                <DxHtmlEditor @key="_editorKey"
-                              Markup="@_body"
-                              MarkupChanged="@(v => _body = v ?? string.Empty)"
-                              BindMarkupMode="HtmlEditorBindMarkupMode.OnDelayedInput"
-                              CssClass="ad-mailsend-editor" />
+                <FilePicker @key="_filePickerKey"
+                            MaxFiles="5"
+                            MaxBytes="15728640"
+                            MaxTotalBytes="15728640"
+                            Hint="다섯 개까지 · 모두 합쳐 15MB 까지"
+                            FilesChanged="@(files => _files = files)" />
+            </div>
+
+          </div>
+
+          <div class="ad-mailsend__main">
+
+            @* ── 제목 ────────────────────────────────────── *@
+            <div class="ad-field ad-mailsend__o-subj">
+                <label class="ad-field__label">제목 <span class="ad-field__must">*</span></label>
+                <DxTextBox @bind-Text="_subject" ValidationEnabled="false" />
+            </div>
+
+            @* ── 본문 ────────────────────────────────────── *@
+            <div class="ad-field ad-mailsend__o-body">
+                <div class="ad-mailsend__bodyhead">
+                    <label class="ad-field__label">본문 <span class="ad-field__must">*</span></label>
+
+                    <div class="ad-mailsend__modes" role="tablist">
+                        <button type="button" role="tab" class="ad-mailsend__mode @(_htmlMode ? null : "is-on")"
+                                aria-selected="@(_htmlMode ? "false" : "true")"
+                                @onclick="@(() => SetHtmlModeAsync(false))">서식 편집</button>
+                        <button type="button" role="tab" class="ad-mailsend__mode @(_htmlMode ? "is-on" : null)"
+                                aria-selected="@(_htmlMode ? "true" : "false")"
+                                @onclick="@(() => SetHtmlModeAsync(true))">HTML</button>
+                    </div>
+                </div>
+
+                @if (_htmlMode)
+                {
+                    @* 원문이 정본이다 — 적은 그대로 나간다. 미리보기는 스크립트를 못 돌리는 iframe 이라 붙여 넣은 HTML 의 스크립트가 이 화면에서 돌지 않는다. *@
+                    <div class="ad-mailsend__html">
+                      <div class="ad-mailsend__htmlgrid">
+                        <DxMemo @bind-Text="_body"
+                                BindValueMode="BindValueMode.OnDelayedInput"
+                                InputDelay="400"
+                                ValidationEnabled="false"
+                                CssClass="ad-mailsend__source" />
+
+                        <iframe class="ad-mailsend__preview" title="본문 미리보기"
+                                sandbox="" srcdoc="@_body"></iframe>
+                      </div>
+                    </div>
+
+                    @* 편집기(Quill)는 제 문서 모형으로 다시 써서 표·인라인 스타일을 바꿀 수 있다 — 돌아가기 전에 알아야 되돌릴 수 있다. *@
+                    <div class="jsini-hint">
+                        서식 편집으로 돌아가면 편집기가 다루지 못하는 서식(표 · 인라인 스타일)은 바뀔 수 있습니다.
+                    </div>
+                }
+                else
+                {
+                    @* 공지·헬프데스크와 같은 부품이다(DxHtmlEditor). @key 를 건 까닭은 코드가 본문을 통째로 갈아 끼우는 자리(틀 넣기 · 요약 넣기 · 다시 보내기 · HTML 에서 돌아오기)가 있어서다. 사람이 치는 동안에는 값이 안 바뀌어 초점이 빠지지 않는다. *@
+                    <DxHtmlEditor @key="_editorKey"
+                                  Markup="@_body"
+                                  MarkupChanged="@(v => _body = v ?? string.Empty)"
+                                  BindMarkupMode="HtmlEditorBindMarkupMode.OnDelayedInput"
+                                  CssClass="ad-mailsend-editor" />
+                }
             </div>
 
             @* AI 요약 — 본문을 추려 맨 위에 넣는다. 긴 메일에서 먼저 읽히는 자리가 거기다. *@
-            <div class="ad-field ad-summary">
+            <div class="ad-field ad-summary ad-mailsend__o-sum">
                 <label class="ad-field__label">AI 요약</label>
 
                 <div class="jsini-inline">
@@ -177,19 +230,7 @@
                 }
             </div>
 
-            @* 파일 서버에 올리지 않고 바이트로 실어 보낸다 — 보내고 나면 쓸 일이 없어 올리면 쌓이기만 한다. 상한(다섯 개 · 합쳐 15MB)은 서버와 맞춘 값이고, 여기서 막는 것은 먼저 말해 주려는 것이다. *@
-            <div class="ad-field">
-                <label class="ad-field__label">첨부</label>
-
-                <FilePicker @key="_filePickerKey"
-                            MaxFiles="5"
-                            MaxBytes="15728640"
-                            MaxTotalBytes="15728640"
-                            Hint="다섯 개까지 · 모두 합쳐 15MB 까지"
-                            FilesChanged="@(files => _files = files)" />
-            </div>
-
-            <div class="jsini-toolbar">
+            <div class="jsini-toolbar ad-mailsend__o-send">
                 <PermissionView Action="MenuAction.Create">
                     <DxButton Text="@($"{ToAddresses.Count}곳으로 보내기")"
                               RenderStyle="ButtonRenderStyle.Primary"
@@ -203,6 +244,7 @@
                           Enabled="@(!_sending)"
                           Click="@ClearCompose" />
             </div>
+          </div>
         </div>
     </DxTabPage>
 
