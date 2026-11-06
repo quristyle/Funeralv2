@@ -4934,24 +4934,7 @@
   color: #fff;
 }
 
-/* ── HTML 원문 + 미리보기 ─────────────────────────────────
-
-   본문 단이 넓으면(56rem 이상) 원문과 미리보기를 나란히, 아니면 위아래로 둔다.
-   폭은 화면이 아니라 **본문 단**으로 잰다 — 사이드바를 접고 펴는 것만으로도
-   그 단의 폭이 바뀐다. container-type 은 fixed 자식의 기준이 되므로 팝업이
-   뜨지 않는 이 상자에만 건다. */
-
-.ad-mailsend__html { container-type: inline-size; }
-
-.ad-mailsend__htmlgrid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 0.75rem;
-}
-
-@container (min-width: 56rem) {
-  .ad-mailsend__htmlgrid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-}
+/* ── HTML 원문 ─────────────────────────────────────────── */
 
 .ad-mailsend__source textarea {
   font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
@@ -4962,18 +4945,8 @@
   tab-size: 2;
 }
 
-/* 메일 클라이언트처럼 흰 바탕에 그린다 — 어두운 테마여도 받는 쪽은 대개 흰 바탕이다. */
-.ad-mailsend__preview {
-  width: 100%;
-  min-height: 20rem;
-  border: 1px solid var(--bs-border-color, #dee2e6);
-  border-radius: var(--bs-border-radius, 6px);
-  background: #fff;
-}
-
 @media (min-width: 1200px) {
-  .ad-mailsend__source textarea,
-  .ad-mailsend__preview { min-height: max(24rem, calc(100vh - 26rem)); }
+  .ad-mailsend__source textarea { min-height: max(24rem, calc(100vh - 26rem)); }
 }
 
 /* 보낸 메일함 탭. 표가 들어오므로 폭을 묶지 않는다 — 묶으면 받는 사람 칸이 줄바꿈되고, 메일 주소는 줄바꿈되면 읽을 수가 없다. */

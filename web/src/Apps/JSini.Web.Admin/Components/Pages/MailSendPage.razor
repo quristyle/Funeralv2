@@ -165,19 +165,12 @@
 
                 @if (_htmlMode)
                 {
-                    @* 원문이 정본이다 — 적은 그대로 나간다. 미리보기는 스크립트를 못 돌리는 iframe 이라 붙여 넣은 HTML 의 스크립트가 이 화면에서 돌지 않는다. *@
-                    <div class="ad-mailsend__html">
-                      <div class="ad-mailsend__htmlgrid">
-                        <DxMemo @bind-Text="_body"
-                                BindValueMode="BindValueMode.OnDelayedInput"
-                                InputDelay="400"
-                                ValidationEnabled="false"
-                                CssClass="ad-mailsend__source" />
-
-                        <iframe class="ad-mailsend__preview" title="본문 미리보기"
-                                sandbox="" srcdoc="@_body"></iframe>
-                      </div>
-                    </div>
+                    @* 원문이 정본이다 — 적은 그대로 나간다. *@
+                    <DxMemo @bind-Text="_body"
+                            BindValueMode="BindValueMode.OnDelayedInput"
+                            InputDelay="400"
+                            ValidationEnabled="false"
+                            CssClass="ad-mailsend__source" />
 
                     @* 편집기(Quill)는 제 문서 모형으로 다시 써서 표·인라인 스타일을 바꿀 수 있다 — 돌아가기 전에 알아야 되돌릴 수 있다. *@
                     <div class="jsini-hint">
@@ -186,11 +179,14 @@
                 }
                 else
                 {
-                    @* 공지·헬프데스크와 같은 부품이다(DxHtmlEditor). @key 를 건 까닭은 코드가 본문을 통째로 갈아 끼우는 자리(틀 넣기 · 요약 넣기 · 다시 보내기 · HTML 에서 돌아오기)가 있어서다. 사람이 치는 동안에는 값이 안 바뀌어 초점이 빠지지 않는다. *@
+                    @* 공지·헬프데스크와 같은 부품이다(DxHtmlEditor). @key 를 건 까닭은 코드가 본문을 통째로 갈아 끼우는 자리(틀 넣기 · 요약 넣기 · 다시 보내기 · HTML 에서 돌아오기)가 있어서다. 사람이 치는 동안에는 값이 안 바뀌어 초점이 빠지지 않는다. 표는 칸 경계를 끌어 너비·높이를 바꾼다. *@
                     <DxHtmlEditor @key="_editorKey"
                                   Markup="@_body"
                                   MarkupChanged="@(v => _body = v ?? string.Empty)"
                                   BindMarkupMode="HtmlEditorBindMarkupMode.OnDelayedInput"
+                                  TableResizeEnabled="true"
+                                  TableColumnMinWidth="40"
+                                  TableRowMinHeight="24"
                                   CssClass="ad-mailsend-editor" />
                 }
             </div>
