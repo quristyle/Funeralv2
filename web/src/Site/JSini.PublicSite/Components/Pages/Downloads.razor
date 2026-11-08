@@ -31,13 +31,31 @@
         </div>
     }
 
-    @if (Shown.Count == 0)
+    @if (Shown.Count == 0 && !ShowAndroidApp)
     {
         <p class="muted text-sm">@T.Common.Empty</p>
     }
     else
     {
         <ul class="dl-list">
+            @if (ShowAndroidApp)
+            {
+                <li class="dl-item">
+                    <div class="dl-item__body">
+                        <p class="dl-item__title">@(L == "en" ? "JSini Portal for Android" : "JSini 포털 안드로이드 앱")</p>
+                        <p class="dl-item__desc">@(L == "en"
+                            ? "Install the latest Android app for the JSini portal."
+                            : "JSini 업무 포털을 앱으로 엽니다. main 배포 때 최신 설치 파일로 갱신됩니다.")</p>
+                        <p class="dl-item__meta">
+                            <span>@AndroidAppFileName</span>
+                            <span> · @FormatSize(_androidAppSize)</span>
+                            <span> · v@_androidAppVersion</span>
+                        </p>
+                    </div>
+                    <a class="btn-outline-dark" href="@($"/downloads/{AndroidAppFileName}")" download>@T.Common.Download</a>
+                </li>
+            }
+
             @foreach (var d in Shown)
             {
                 <li class="dl-item">

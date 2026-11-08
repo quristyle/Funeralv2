@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">JSini 포털</string>
+    <string name="launch_url">https://portal.jsini.co.kr/</string>
+    <string name="launch_scope">https://portal.jsini.co.kr/</string>
+</resources>

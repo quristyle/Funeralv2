@@ -106,6 +106,18 @@ var app = builder.Build();
 app.UseJSiniWebApp();
 app.UseMicrofrontends();
 
+app.MapGet("/.well-known/assetlinks.json", (HttpContext context, IWebHostEnvironment environment) =>
+{
+    var file = environment.WebRootFileProvider.GetFileInfo("android-assetlinks.json");
+    if (!file.Exists)
+    {
+        return Results.NotFound();
+    }
+
+    context.Response.Headers.CacheControl = "no-store";
+    return Results.File(file.CreateReadStream(), "application/json");
+}).AllowAnonymous();
+
 // AddAdditionalAssemblies 가 없으면 업무 화면이 전부 404 다. Routes.razor 의 Router 만으로는 부족하다(그건 회로 안 라우팅).
 // 첫 요청의 404 여부는 엔드포인트 라우팅이 정하므로 둘 다 적는다. 여기만 빠지면 주소 직접 입력이, Router 만 빠지면 메뉴 이동이 깨진다.
 app.MapMicrofrontends<App>()
