@@ -51,7 +51,7 @@ SVG 는 그대로 굽는다(`brand/favicon.svg`). 브랜드 자산 폴더의 파
 | `pwa-icon-192.png` · `pwa-icon-512.png` | PWA 설치 아이콘 | 둥근 타일 + 작은 청록색 점 |
 | `pwa-icon-maskable-512.png` | 안드로이드가 **제 모양으로 깎는** 것 | 네모 가득 + 마크를 작게 |
 | `apple-touch-icon.png` | iOS 홈 화면 (180) | 네모 가득 + 작은 청록색 점 |
-| `android-app/.../ic_launcher*.png` | 안드로이드 앱 | PWA 와 같은 타일·마크 + 작은 초록색 가로 표식 |
+| `android-app/.../ic_launcher*.png` | 안드로이드 앱 | PWA 와 같은 타일·마크 + 작은 초록색 점 |
 
 **마스커블과 iOS 는 모서리를 둥글리지 않는다.** 그쪽은 플랫폼이 자기 모양으로
 (원·둥근네모·물방울) 깎으므로, 우리가 미리 둥글리면 **두 번 깎여** 테두리에
@@ -59,6 +59,8 @@ SVG 는 그대로 굽는다(`brand/favicon.svg`). 브랜드 자산 폴더의 파
 
 마스커블만 마크를 작게 눕힌다(60/100). 안드로이드는 **가운데 80% 원 밖을
 잘라내도 된다**고 보므로, 타일 크기 그대로 두면 S 의 오른쪽이 잘린다.
+TWA 의 적응형 아이콘도 전경에 마크만 투명 배경으로 담고 배경색은 Android 에
+맡긴다. 아이콘 모양이 달라도 마크와 점이 잘리지 않도록 전경을 작게 그린다.
 
 [돌리는 법]
 
@@ -118,7 +120,7 @@ PNG_TARGETS = [
     ("web/src/Shell/JSini.Web.Shell/wwwroot/pwa-icon-maskable-512.png", 512, "maskable", "pwa"),
     ("web/src/Shell/JSini.Web.Shell/wwwroot/apple-touch-icon.png", 180, "square", "pwa"),
     ("android-app/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png", 512, "tile", "android"),
-    ("android-app/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png", 512, "tile", "android"),
+    ("android-app/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png", 512, "adaptive", "android"),
 ]
 
 
@@ -131,8 +133,8 @@ def indicator_svg(kind: str, y: float) -> str:
         return f"""<circle cx="50" cy="{y:.1f}" r="6.8" fill="{COLOR_BG}" />
   <circle cx="50" cy="{y:.1f}" r="4.3" fill="#62c6d0" />"""
     if kind == "android":
-        return f"""<rect x="41" y="{y - 4.5:.1f}" width="18" height="9" rx="4.5" fill="{COLOR_BG}" />
-  <rect x="44" y="{y - 2:.1f}" width="12" height="4" rx="2" fill="#79bd8b" />"""
+        return f"""<circle cx="50" cy="{y:.1f}" r="6.8" fill="{COLOR_BG}" />
+  <circle cx="50" cy="{y:.1f}" r="4.3" fill="#79bd8b" />"""
     raise ValueError(f"알 수 없는 아이콘 표식: {kind}")
 
 
@@ -140,12 +142,13 @@ def svg_for(size: int, style: str = "tile", marker: str | None = None) -> str:
     """
     그 크기·생김새의 SVG 한 장.
 
-    <c>style</c> 은 셋이다 — <c>tile</c>(둥근 모서리) · <c>square</c>(네모
-    가득, 플랫폼이 깎는다) · <c>maskable</c>(네모 가득 + 마크를 작게).
+    <c>style</c> 은 넷이다 — <c>tile</c>(둥근 모서리) · <c>square</c>(네모
+    가득, 플랫폼이 깎는다) · <c>maskable</c>(네모 가득 + 마크를 작게) ·
+    <c>adaptive</c>(투명 전경 + 안전 영역 안의 작은 마크).
     """
     small = style == "tile" and size <= SMALL_AT_OR_BELOW
 
-    if style == "maskable":
+    if style in ("maskable", "adaptive"):
         mark_w, radius = MASKABLE_MARK_W, 0
     elif style == "square":
         mark_w, radius = MARK_W, 0
@@ -158,11 +161,14 @@ def svg_for(size: int, style: str = "tile", marker: str | None = None) -> str:
     x = (TILE - mark_w) / 2
     y = (TILE - mark_w * VIEW_H / VIEW_W) / 2
 
-    marker_y = 81.5 if style == "maskable" else 88
+    marker_y = 78 if style == "adaptive" else 81.5 if style == "maskable" else 88
     marker_markup = f"\n  {indicator_svg(marker, marker_y)}" if marker else ""
+    background = "" if style == "adaptive" else (
+        f'<rect width="{TILE}" height="{TILE}" rx="{radius}" ry="{radius}" fill="{COLOR_BG}" />'
+    )
 
     return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {TILE} {TILE}" width="{size}" height="{size}">
-  <rect width="{TILE}" height="{TILE}" rx="{radius}" ry="{radius}" fill="{COLOR_BG}" />
+  {background}
   <g transform="translate({x:.3f},{y:.3f}) scale({scale:.6f})">
       <path d="{S_PATH}" fill="{COLOR_S}" />
       <path d="{J_PATH}" fill="{COLOR_J}" />
