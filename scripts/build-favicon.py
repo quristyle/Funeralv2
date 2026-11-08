@@ -51,7 +51,7 @@ SVG 는 그대로 굽는다(`brand/favicon.svg`). 브랜드 자산 폴더의 파
 | `pwa-icon-192.png` · `pwa-icon-512.png` | PWA 설치 아이콘 | 둥근 타일 + 작은 청록색 점 |
 | `pwa-icon-maskable-512.png` | 안드로이드가 **제 모양으로 깎는** 것 | 네모 가득 + 마크를 작게 |
 | `apple-touch-icon.png` | iOS 홈 화면 (180) | 네모 가득 + 작은 청록색 점 |
-| `android-app/.../ic_launcher*.png` | 안드로이드 앱 | 작은 초록색 가로 표식 |
+| `android-app/.../ic_launcher*.png` | 안드로이드 앱 | PWA 와 같은 타일·마크 + 작은 초록색 가로 표식 |
 
 **마스커블과 iOS 는 모서리를 둥글리지 않는다.** 그쪽은 플랫폼이 자기 모양으로
 (원·둥근네모·물방울) 깎으므로, 우리가 미리 둥글리면 **두 번 깎여** 테두리에
@@ -117,8 +117,8 @@ PNG_TARGETS = [
     ("web/src/Shell/JSini.Web.Shell/wwwroot/pwa-icon-512.png", 512, "tile", "pwa"),
     ("web/src/Shell/JSini.Web.Shell/wwwroot/pwa-icon-maskable-512.png", 512, "maskable", "pwa"),
     ("web/src/Shell/JSini.Web.Shell/wwwroot/apple-touch-icon.png", 180, "square", "pwa"),
-    ("android-app/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png", 512, "square", "android"),
-    ("android-app/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png", 512, "maskable", "android"),
+    ("android-app/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png", 512, "tile", "android"),
+    ("android-app/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png", 512, "tile", "android"),
 ]
 
 
