@@ -5,4 +5,6 @@
       <path d="M40,0 L84,0 L84,12 L52,12 L52,24 L84,24 L84,60 L40,60 L40,48 L72,48 L72,36 L40,36 Z" fill="#9aa1ab" />
       <path d="M32,12 L44,0 L44,60 L0,60 L0,48 L32,48 Z" fill="#e6e8ea" />
   </g>
+  <rect x="43" y="82.0" width="14" height="14" rx="4" fill="#0a0a0a" />
+  <rect x="46.5" y="85.5" width="7" height="7" rx="1.5" fill="#e6b84a" />
 </svg>

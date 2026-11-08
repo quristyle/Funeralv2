@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-헤더의 JS 마크로 **파비콘과 앱 아이콘**을 굽는다.
+헤더의 JS 마크로 **바로가기·PWA·안드로이드 앱 아이콘**을 굽는다.
 
 [왜 생성기를 두나]
 
@@ -47,11 +47,11 @@ SVG 는 그대로 굽는다(`brand/favicon.svg`). 브랜드 자산 폴더의 파
 
 | 파일 | 무엇 | 생김새 |
 |---|---|---|
-| `brand/favicon.ico` | 탭 아이콘 (크기 여섯) | 둥근 타일 |
-| `brand/favicon.svg` | 그 벡터본 | 〃 |
-| `pwa-icon-192.png` · `pwa-icon-512.png` | 설치한 앱 아이콘 | 〃 |
+| `brand/favicon.ico` · `brand/favicon.svg` | 브라우저 탭·바로가기 | 둥근 타일 + 작은 금색 네모 |
+| `pwa-icon-192.png` · `pwa-icon-512.png` | PWA 설치 아이콘 | 둥근 타일 + 작은 청록색 점 |
 | `pwa-icon-maskable-512.png` | 안드로이드가 **제 모양으로 깎는** 것 | 네모 가득 + 마크를 작게 |
-| `apple-touch-icon.png` | iOS 홈 화면 (180) | 네모 가득 |
+| `apple-touch-icon.png` | iOS 홈 화면 (180) | 네모 가득 + 작은 청록색 점 |
+| `android-app/.../ic_launcher*.png` | 안드로이드 앱 | 작은 초록색 가로 표식 |
 
 **마스커블과 iOS 는 모서리를 둥글리지 않는다.** 그쪽은 플랫폼이 자기 모양으로
 (원·둥근네모·물방울) 깎으므로, 우리가 미리 둥글리면 **두 번 깎여** 테두리에
@@ -111,16 +111,32 @@ SIZES = [16, 32, 48, 64, 128, 256]
 # 그 원의 지름을 넘지 않는 폭이 65 언저리라 60 으로 잡았다.
 MASKABLE_MARK_W = 60
 
-# 굽는 PNG 들. (경로, 크기, 생김새)
+# 굽는 PNG 들. (경로, 크기, 생김새, 구분 표식)
 PNG_TARGETS = [
-    ("web/src/Shell/JSini.Web.Shell/wwwroot/pwa-icon-192.png", 192, "tile"),
-    ("web/src/Shell/JSini.Web.Shell/wwwroot/pwa-icon-512.png", 512, "tile"),
-    ("web/src/Shell/JSini.Web.Shell/wwwroot/pwa-icon-maskable-512.png", 512, "maskable"),
-    ("web/src/Shell/JSini.Web.Shell/wwwroot/apple-touch-icon.png", 180, "square"),
+    ("web/src/Shell/JSini.Web.Shell/wwwroot/pwa-icon-192.png", 192, "tile", "pwa"),
+    ("web/src/Shell/JSini.Web.Shell/wwwroot/pwa-icon-512.png", 512, "tile", "pwa"),
+    ("web/src/Shell/JSini.Web.Shell/wwwroot/pwa-icon-maskable-512.png", 512, "maskable", "pwa"),
+    ("web/src/Shell/JSini.Web.Shell/wwwroot/apple-touch-icon.png", 180, "square", "pwa"),
+    ("android-app/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png", 512, "square", "android"),
+    ("android-app/app/src/main/res/mipmap-xxxhdpi/ic_launcher_foreground.png", 512, "maskable", "android"),
 ]
 
 
-def svg_for(size: int, style: str = "tile") -> str:
+def indicator_svg(kind: str, y: float) -> str:
+    """아이콘 출처를 구분하는 작은 하단 표식."""
+    if kind == "shortcut":
+        return f"""<rect x="43" y="{y - 6:.1f}" width="14" height="14" rx="4" fill="{COLOR_BG}" />
+  <rect x="46.5" y="{y - 2.5:.1f}" width="7" height="7" rx="1.5" fill="#e6b84a" />"""
+    if kind == "pwa":
+        return f"""<circle cx="50" cy="{y:.1f}" r="6.8" fill="{COLOR_BG}" />
+  <circle cx="50" cy="{y:.1f}" r="4.3" fill="#62c6d0" />"""
+    if kind == "android":
+        return f"""<rect x="41" y="{y - 4.5:.1f}" width="18" height="9" rx="4.5" fill="{COLOR_BG}" />
+  <rect x="44" y="{y - 2:.1f}" width="12" height="4" rx="2" fill="#79bd8b" />"""
+    raise ValueError(f"알 수 없는 아이콘 표식: {kind}")
+
+
+def svg_for(size: int, style: str = "tile", marker: str | None = None) -> str:
     """
     그 크기·생김새의 SVG 한 장.
 
@@ -142,22 +158,25 @@ def svg_for(size: int, style: str = "tile") -> str:
     x = (TILE - mark_w) / 2
     y = (TILE - mark_w * VIEW_H / VIEW_W) / 2
 
+    marker_y = 81.5 if style == "maskable" else 88
+    marker_markup = f"\n  {indicator_svg(marker, marker_y)}" if marker else ""
+
     return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {TILE} {TILE}" width="{size}" height="{size}">
   <rect width="{TILE}" height="{TILE}" rx="{radius}" ry="{radius}" fill="{COLOR_BG}" />
   <g transform="translate({x:.3f},{y:.3f}) scale({scale:.6f})">
       <path d="{S_PATH}" fill="{COLOR_S}" />
       <path d="{J_PATH}" fill="{COLOR_J}" />
-  </g>
+  </g>{marker_markup}
 </svg>
 """
 
 
-def render(size: int, style: str = "tile") -> bytes:
+def render(size: int, style: str = "tile", marker: str | None = None) -> bytes:
     """SVG 를 그 크기의 PNG 로. **크기마다 벡터에서 새로 그린다** — 큰 것
     하나를 줄이면 16px 에서 획이 반 픽셀에 걸쳐 흐려진다."""
     out = subprocess.run(
         ["rsvg-convert", "-w", str(size), "-h", str(size), "-f", "png"],
-        input=svg_for(size, style).encode("utf-8"),
+        input=svg_for(size, style, marker).encode("utf-8"),
         capture_output=True,
         check=True,
     )
@@ -197,7 +216,7 @@ def main() -> int:
     brand = root / "web/src/Shared/JSini.Web.Components/wwwroot/brand"
     target = brand / "favicon.ico"
 
-    rendered = {size: render(size) for size in SIZES}
+    rendered = {size: render(size, marker="shortcut") for size in SIZES}
 
     # 크기가 맞는지 확인하고 굽는다. rsvg 가 반올림으로 1px 어긋나면 ICO
     # 목록과 실제 그림이 달라지고, 그때 브라우저는 **말없이 다른 크기를
@@ -213,7 +232,7 @@ def main() -> int:
     # 벡터본도 함께 굽는다. **크기를 적지 않는다** — 쓰는 쪽이 정한다.
     vector = brand / "favicon.svg"
     vector.write_text(
-        svg_for(256).replace(' width="256" height="256"', "")
+        svg_for(256, marker="shortcut").replace(' width="256" height="256"', "")
                     .replace("<svg ", '<svg role="img" ', 1)
                     .replace("<rect", "<title>JSINI</title>\n  <rect", 1),
         encoding="utf-8")
@@ -221,13 +240,12 @@ def main() -> int:
     print(f"구웠다: {target.relative_to(root)} ({target.stat().st_size:,} 바이트, {len(SIZES)}장)")
     print(f"구웠다: {vector.relative_to(root)}")
 
-    # 앱 아이콘. **자리를 옮기지 않는다** — 매니페스트(`manifest.webmanifest`)와
-    # `<link rel="apple-touch-icon">` 이 이 이름을 가리킨다. 이름을 바꾸면
-    # 설치된 앱의 아이콘이 조용히 빈칸이 된다.
-    for rel, size, style in PNG_TARGETS:
+    # 매니페스트·iOS 링크·안드로이드 리소스가 가리키는 파일 이름은 바꾸지 않는다.
+    # 참조가 끊기면 설치된 앱 아이콘이 조용히 빈칸이 된다.
+    for rel, size, style, marker in PNG_TARGETS:
         path = root / rel
-        path.write_bytes(render(size, style))
-        print(f"구웠다: {rel.split('/')[-1]} ({size}px, {style})")
+        path.write_bytes(render(size, style, marker))
+        print(f"구웠다: {rel} ({size}px, {style}, {marker})")
 
     return 0
 
