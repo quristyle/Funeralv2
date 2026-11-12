@@ -7115,6 +7115,45 @@ li:hover > * > .pm-aipick__item .pm-aipick__head .jsini-badge:not([class*='jsini
 
 /* ── 개발자 정보 — 목차와 문서 ────────────────────────────── */
 
+/* 판 안의 CommCont 는 내용만큼 늘고 판이 구른다. 공통 규칙(flex: 1 · min-height: 0)대로 두면 긴 문서가 카드 테두리 밖으로 흘러넘친다. */
+.pm-docs__split .pm-splitpane__first > .commcont,
+.pm-docs__split .pm-splitpane__second > .commcont {
+  flex: 1 0 auto;
+}
+
+/* 좁은 화면(SplitPane 이 위아래로 서는 900px)에서는 분할을 풀어 목차 → 문서로 쌓고 쪽이 구른다(일정 메일 발송 화면과 같은 수).
+   반씩 나눈 판 안에서 또 굴리면 목차도 문서도 손가락 한 마디만 보인다. 마크업은 그대로 두고 상자만 지운다 — 문서 iframe 이 다시 만들어지지 않는다. */
+@media (max-width: 900px) {
+  .jsini-shell__content:has(> .pm-docs__split) {
+    overflow-y: auto;
+  }
+
+  .pm-docs__split,
+  .pm-docs__split > .pm-splitpane__ui,
+  .pm-docs__split > .pm-splitpane__ui > .dxbl-splitter-pane,
+  .pm-docs__split > .pm-splitpane__ui > .dxbl-splitter-pane > .dxbl-splitter-pane-content {
+    display: contents !important;
+    /* 지운 상자에 overflow: hidden 이 남으면 DevExpress 가 그 0×0 상자를 드롭다운을 가두는 틀로 센다. */
+    overflow: visible !important;
+  }
+
+  .pm-docs__split > .pm-splitpane__ui > .dxbl-splitter-separator {
+    display: none !important;
+  }
+
+  .pm-docs__split .pm-splitpane__first,
+  .pm-docs__split .pm-splitpane__second {
+    display: block;
+    flex: none;
+    overflow: visible;
+    padding: 0 !important;
+  }
+
+  .pm-docs__split .pm-splitpane__second {
+    margin-top: var(--jsini-sp-lg);
+  }
+}
+
 /* 목차는 제목만 세운다 — 두 줄로 흐르면 쪽이 많을 때 목차가 본문만큼 길어진다. */
 .pm-toc {
   display: flex;

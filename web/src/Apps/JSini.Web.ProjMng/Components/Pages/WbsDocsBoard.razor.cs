@@ -65,6 +65,7 @@ public partial class WbsDocsBoard : IAsyncDisposable
     private IJSObjectReference? _module;
     private IJSObjectReference? _tocDrag;
     private DotNetObjectReference<WbsDocsBoard>? _self;
+    private bool _attaching;
 
     private int? ProjectRid => int.TryParse(_projectCode, out var rid) ? rid : null;
 
@@ -117,16 +118,22 @@ public partial class WbsDocsBoard : IAsyncDisposable
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        if (!firstRender) return;
+        // 목차는 분할판(DxSplitter) 안에 있어 첫 그림에 아직 안 섰을 수 있다 — 판이 선 그림에서 건다.
+        if (_tocDrag is not null || _attaching || _tocEl.Context is null) return;
+        _attaching = true;
 
         try
         {
-            _module = await Js.InvokeAsync<IJSObjectReference>("import", "./_content/JSini.Web.ProjMng/js/wbs-docs.js");
-            _self = DotNetObjectReference.Create(this);
+            _module ??= await Js.InvokeAsync<IJSObjectReference>("import", "./_content/JSini.Web.ProjMng/js/wbs-docs.js");
+            _self ??= DotNetObjectReference.Create(this);
             _tocDrag = await _module.InvokeAsync<IJSObjectReference>("attachToc", _tocEl, _self);
         }
         catch (JSDisconnectedException)
         {
+        }
+        finally
+        {
+            _attaching = false;
         }
     }
 

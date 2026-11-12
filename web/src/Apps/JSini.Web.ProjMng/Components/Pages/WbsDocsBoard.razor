@@ -19,251 +19,254 @@
     </Fields>
 </CommSch>
 
-<div class="pm-split">
-    <CommCont Title="목차" Hint="@($"{_docs.Count}쪽")" CssClass="pm-split__side">
-        <div class="pm-toc-tools">
-            @if (Unseen > 0)
-            {
-                <span class="pm-toc-cnt" title="@($"마지막으로 본 뒤에 바뀐 쪽 {Unseen}개")">@Unseen</span>
-                <DxButton IconCssClass="jsini-icon-check" Title="모두 읽은 것으로 표시"
-                          RenderStyle="ButtonRenderStyle.Link" Click="@MarkAllSeen" />
-            }
-            @if (_trash.Count > 0)
-            {
-                <DxButton Text="@($"휴지통 {_trash.Count}")" IconCssClass="jsini-icon-trash"
-                          RenderStyle="@(_showTrash ? ButtonRenderStyle.Primary : ButtonRenderStyle.Secondary)"
-                          RenderStyleMode="ButtonRenderStyleMode.Outline"
-                          Title="휴지통 — 되돌릴 수 있습니다" Click="@(() => _showTrash = !_showTrash)" />
-            }
-        </div>
+<SplitPane Size="30" CssClass="pm-docs__split">
+    <First>
+        <CommCont Title="목차" Hint="@($"{_docs.Count}쪽")">
+            <div class="pm-toc-tools">
+                @if (Unseen > 0)
+                {
+                    <span class="pm-toc-cnt" title="@($"마지막으로 본 뒤에 바뀐 쪽 {Unseen}개")">@Unseen</span>
+                    <DxButton IconCssClass="jsini-icon-check" Title="모두 읽은 것으로 표시"
+                              RenderStyle="ButtonRenderStyle.Link" Click="@MarkAllSeen" />
+                }
+                @if (_trash.Count > 0)
+                {
+                    <DxButton Text="@($"휴지통 {_trash.Count}")" IconCssClass="jsini-icon-trash"
+                              RenderStyle="@(_showTrash ? ButtonRenderStyle.Primary : ButtonRenderStyle.Secondary)"
+                              RenderStyleMode="ButtonRenderStyleMode.Outline"
+                              Title="휴지통 — 되돌릴 수 있습니다" Click="@(() => _showTrash = !_showTrash)" />
+                }
+            </div>
 
-        <div class="pm-toc" @ref="_tocEl">
-            @if (_docs.Count == 0)
-            {
-                <PageNotice Tone="NoticeTone.Info" Text="쪽이 없습니다." />
-            }
-            @foreach (var doc in _docs)
-            {
-                var mark = MarkOf(doc);
-                var files = FilesOf(doc.Id);
-                var inner = files.Count(f => !f.IsLink);
-                var outer = files.Count(f => f.IsLink);
+            <div class="pm-toc" @ref="_tocEl">
+                @if (_docs.Count == 0)
+                {
+                    <PageNotice Tone="NoticeTone.Info" Text="쪽이 없습니다." />
+                }
+                @foreach (var doc in _docs)
+                {
+                    var mark = MarkOf(doc);
+                    var files = FilesOf(doc.Id);
+                    var inner = files.Count(f => !f.IsLink);
+                    var outer = files.Count(f => f.IsLink);
 
-                <div class="pm-toc__item @(doc.Id == _selectedId ? "is-on" : null)"
-                     data-doc-id="@doc.Id"
-                     draggable="@(_editing || !Can(MenuAction.Update) ? "false" : "true")"
-                     title="@doc.Title"
-                     @onclick="@(() => SelectAsync(doc.Id))">
-                    <span class="pm-toc__grip" aria-hidden="true">⠿</span>
-                    <span class="pm-toc__title">@doc.Title</span>
-                    @if (inner > 0)
+                    <div class="pm-toc__item @(doc.Id == _selectedId ? "is-on" : null)"
+                         data-doc-id="@doc.Id"
+                         draggable="@(_editing || !Can(MenuAction.Update) ? "false" : "true")"
+                         title="@doc.Title"
+                         @onclick="@(() => SelectAsync(doc.Id))">
+                        <span class="pm-toc__grip" aria-hidden="true">⠿</span>
+                        <span class="pm-toc__title">@doc.Title</span>
+                        @if (inner > 0)
+                        {
+                            <span class="pm-toc__bdg pm-toc__bdg--in" title="@($"올려 둔 HTML 문서 {inner}장")">⧉@(inner > 1 ? inner : null)</span>
+                        }
+                        @if (outer > 0)
+                        {
+                            <span class="pm-toc__bdg" title="@($"주소로 건 화면 {outer}개")">↗@(outer > 1 ? outer : null)</span>
+                        }
+                        @if (mark == SeenMark.New)
+                        {
+                            <span class="pm-toc__mk pm-toc__mk--new" title="처음 보는 쪽입니다">N</span>
+                        }
+                        else if (mark == SeenMark.Changed)
+                        {
+                            <span class="pm-toc__mk pm-toc__mk--upd" title="마지막으로 본 뒤에 내용이 바뀌었습니다">●</span>
+                        }
+                    </div>
+                }
+            </div>
+
+            <div class="jsini-toolbar">
+                <PermissionView Action="MenuAction.Create">
+                    <DxButton Text="쪽 추가"
+                              RenderStyle="ButtonRenderStyle.Secondary"
+                              Enabled="@(ProjectRid is not null)"
+                              Click="@StartNew" />
+                </PermissionView>
+            </div>
+
+            @if (_showTrash && _trash.Count > 0)
+            {
+                <div class="pm-doc-trash">
+                    <div class="pm-doc-trash__head">휴지통</div>
+                    @foreach (var d in _trash)
                     {
-                        <span class="pm-toc__bdg pm-toc__bdg--in" title="@($"올려 둔 HTML 문서 {inner}장")">⧉@(inner > 1 ? inner : null)</span>
-                    }
-                    @if (outer > 0)
-                    {
-                        <span class="pm-toc__bdg" title="@($"주소로 건 화면 {outer}개")">↗@(outer > 1 ? outer : null)</span>
-                    }
-                    @if (mark == SeenMark.New)
-                    {
-                        <span class="pm-toc__mk pm-toc__mk--new" title="처음 보는 쪽입니다">N</span>
-                    }
-                    else if (mark == SeenMark.Changed)
-                    {
-                        <span class="pm-toc__mk pm-toc__mk--upd" title="마지막으로 본 뒤에 내용이 바뀌었습니다">●</span>
+                        <div class="pm-doc-trash__row">
+                            <div class="pm-doc-trash__name" title="@d.Title">@d.Title</div>
+                            <div class="pm-doc-when">@d.DeletedAt@(string.IsNullOrEmpty(d.DeletedBy) ? null : $" · {d.DeletedBy}")</div>
+                            <PermissionView Action="MenuAction.Delete">
+                                <div class="jsini-actions">
+                                    <DxButton Text="되돌리기" RenderStyle="ButtonRenderStyle.Secondary"
+                                              Click="@(() => RestoreAsync(d.Id))" />
+                                    <DxButton Text="완전 삭제" RenderStyle="ButtonRenderStyle.Danger"
+                                              RenderStyleMode="ButtonRenderStyleMode.Outline"
+                                              Click="@(() => PurgeAsync(d))" />
+                                </div>
+                            </PermissionView>
+                        </div>
                     }
                 </div>
             }
-        </div>
-
-        <div class="jsini-toolbar">
-            <PermissionView Action="MenuAction.Create">
-                <DxButton Text="쪽 추가"
-                          RenderStyle="ButtonRenderStyle.Secondary"
-                          Enabled="@(ProjectRid is not null)"
-                          Click="@StartNew" />
-            </PermissionView>
-        </div>
-
-        @if (_showTrash && _trash.Count > 0)
-        {
-            <div class="pm-doc-trash">
-                <div class="pm-doc-trash__head">휴지통</div>
-                @foreach (var d in _trash)
-                {
-                    <div class="pm-doc-trash__row">
-                        <div class="pm-doc-trash__name" title="@d.Title">@d.Title</div>
-                        <div class="pm-doc-when">@d.DeletedAt@(string.IsNullOrEmpty(d.DeletedBy) ? null : $" · {d.DeletedBy}")</div>
-                        <PermissionView Action="MenuAction.Delete">
-                            <div class="jsini-actions">
-                                <DxButton Text="되돌리기" RenderStyle="ButtonRenderStyle.Secondary"
-                                          Click="@(() => RestoreAsync(d.Id))" />
-                                <DxButton Text="완전 삭제" RenderStyle="ButtonRenderStyle.Danger"
-                                          RenderStyleMode="ButtonRenderStyleMode.Outline"
-                                          Click="@(() => PurgeAsync(d))" />
-                            </div>
-                        </PermissionView>
-                    </div>
-                }
-            </div>
-        }
-    </CommCont>
-
-    <CommCont CssClass="pm-split__main">
-        @if (_undo is { } undo)
-        {
-            <div class="pm-doc-undo">
-                <span><b>@undo.Title</b> 을(를) 휴지통으로 보냈습니다.</span>
-                <DxButton Text="되돌리기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => RestoreAsync(undo.Id))" />
-                <DxButton IconCssClass="jsini-icon-close" Title="닫기" RenderStyle="ButtonRenderStyle.Link"
-                          Click="@(() => _undo = null)" />
-            </div>
-        }
-
-        @if (Current is null)
-        {
-            if (_docs.Count == 0)
+        </CommCont>
+    </First>
+    <Second>
+        <CommCont>
+            @if (_undo is { } undo)
             {
-                <PageNotice Tone="NoticeTone.Info" Text="등록된 문서가 없습니다." />
+                <div class="pm-doc-undo">
+                    <span><b>@undo.Title</b> 을(를) 휴지통으로 보냈습니다.</span>
+                    <DxButton Text="되돌리기" RenderStyle="ButtonRenderStyle.Secondary" Click="@(() => RestoreAsync(undo.Id))" />
+                    <DxButton IconCssClass="jsini-icon-close" Title="닫기" RenderStyle="ButtonRenderStyle.Link"
+                              Click="@(() => _undo = null)" />
+                </div>
             }
-        }
-        else
-        {
-            var mark = MarkOf(Current);
 
-            <div class="pm-doc-head">
-                @if (_editing)
-                {
-                    <DxTextBox @bind-Text="_draftTitle" CssClass="pm-doc-title" />
-                }
-                else
-                {
-                    <h3 class="pm-doc-title">@Current.Title</h3>
-                }
-
-                @if (mark != SeenMark.None)
-                {
-                    <span class="jsini-badge pm-doc-mark">@(mark == SeenMark.New ? "새 쪽" : "변경됨")</span>
-                }
-
-                <span class="pm-doc-when">
-                    @if (string.IsNullOrEmpty(Current.CreatedAt))
-                    {
-                        <span class="pm-doc-when__none" title="작성 기록을 남기기 전에 만든 쪽입니다">작성 —</span>
-                    }
-                    else
-                    {
-                        <span>작성 @Current.CreatedAt@(string.IsNullOrEmpty(Current.CreatedBy) ? null : $" · {Current.CreatedBy}")</span>
-                    }
-                    <span>수정 @Current.UpdatedAt · @(string.IsNullOrEmpty(Current.UpdatedBy) ? "수정자 미상" : Current.UpdatedBy)</span>
-                </span>
-
-                @if (_editing)
-                {
-                    <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveAsync" />
-                    <DxButton Text="취소" RenderStyle="ButtonRenderStyle.Secondary" Click="@CancelEdit" />
-                }
-                else
-                {
-                    <DxButton Text="다운로드" IconCssClass="jsini-icon-download" RenderStyle="ButtonRenderStyle.Secondary"
-                              Title="이 쪽을 HTML 파일로 내려받습니다" Click="@DownloadAsync" />
-
-                    <PermissionView Action="MenuAction.Update">
-                        <DxButton Text="@(CurrentFiles.Count > 0 ? $"⧉ 문서 추가 ({CurrentFiles.Count})" : "⧉ 문서 붙이기")"
-                                  RenderStyle="ButtonRenderStyle.Secondary"
-                                  Title="HTML 파일을 올려 이 쪽을 그 문서로 보입니다 (글은 그대로 남습니다)"
-                                  Click="@OpenUpload" />
-                        <DxButton Text="↗ URL 연결" RenderStyle="ButtonRenderStyle.Secondary"
-                                  Title="파일 대신 주소를 걸어 그 화면을 띄웁니다" Click="@OpenLink" />
-                        <DxButton Text="편집" RenderStyle="ButtonRenderStyle.Secondary" Click="@StartEdit" />
-                    </PermissionView>
-
-                    <PermissionView Action="MenuAction.Delete">
-                        <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Secondary" Click="@DeleteAsync" />
-                    </PermissionView>
-                }
-            </div>
-
-            @if (_editing)
+            @if (Current is null)
             {
-                <DxHtmlEditor @bind-Markup="_draftContent"
-                              BindMarkupMode="HtmlEditorBindMarkupMode.OnDelayedInput"
-                              CssClass="pm-doc-editor" />
+                if (_docs.Count == 0)
+                {
+                    <PageNotice Tone="NoticeTone.Info" Text="등록된 문서가 없습니다." />
+                }
             }
             else
             {
-                var hasContent = !string.IsNullOrWhiteSpace(Current.Content);
+                var mark = MarkOf(Current);
 
-                @if (hasContent)
-                {
-                    <div class="pm-doc @(Clipped ? "pm-doc--clip" : null)">
-                        @((MarkupString)NoticeHtml.Sanitize(Current.Content))
-                    </div>
-
-                    @if (CanClip)
+                <div class="pm-doc-head">
+                    @if (_editing)
                     {
-                        <button type="button" class="pm-doc-more" @onclick="@(() => _expanded = !_expanded)">
-                            @(_expanded ? "▲ 글 접기" : "▼ 글 펼치기")
-                        </button>
+                        <DxTextBox @bind-Text="_draftTitle" CssClass="pm-doc-title" />
                     }
-                }
-                else if (CurrentFiles.Count == 0)
-                {
-                    <PageNotice Tone="NoticeTone.Info" Text="내용이 없습니다." />
-                }
-
-                @if (CurrentFile is { } file)
-                {
-                    var labels = TabLabels;
-
-                    @if (CurrentFiles.Count > 1)
+                    else
                     {
-                        <div class="pm-doc-tabs">
-                            @foreach (var f in CurrentFiles)
-                            {
-                                <button type="button" title="@(f.Url ?? f.Name)"
-                                        class="pm-doc-tab @(f.Id == file.Id ? "is-on" : null) @(f.IsLink ? "is-ext" : null)"
-                                        @onclick="@(() => _tabOf[Current.Id] = f.Id)">
-                                    @(f.IsLink ? "↗" : "⧉") @labels[f.Id]
-                                </button>
-                            }
+                        <h3 class="pm-doc-title">@Current.Title</h3>
+                    }
+
+                    @if (mark != SeenMark.None)
+                    {
+                        <span class="jsini-badge pm-doc-mark">@(mark == SeenMark.New ? "새 쪽" : "변경됨")</span>
+                    }
+
+                    <span class="pm-doc-when">
+                        @if (string.IsNullOrEmpty(Current.CreatedAt))
+                        {
+                            <span class="pm-doc-when__none" title="작성 기록을 남기기 전에 만든 쪽입니다">작성 —</span>
+                        }
+                        else
+                        {
+                            <span>작성 @Current.CreatedAt@(string.IsNullOrEmpty(Current.CreatedBy) ? null : $" · {Current.CreatedBy}")</span>
+                        }
+                        <span>수정 @Current.UpdatedAt · @(string.IsNullOrEmpty(Current.UpdatedBy) ? "수정자 미상" : Current.UpdatedBy)</span>
+                    </span>
+
+                    @if (_editing)
+                    {
+                        <DxButton Text="저장" RenderStyle="ButtonRenderStyle.Primary" Click="@SaveAsync" />
+                        <DxButton Text="취소" RenderStyle="ButtonRenderStyle.Secondary" Click="@CancelEdit" />
+                    }
+                    else
+                    {
+                        <DxButton Text="다운로드" IconCssClass="jsini-icon-download" RenderStyle="ButtonRenderStyle.Secondary"
+                                  Title="이 쪽을 HTML 파일로 내려받습니다" Click="@DownloadAsync" />
+
+                        <PermissionView Action="MenuAction.Update">
+                            <DxButton Text="@(CurrentFiles.Count > 0 ? $"⧉ 문서 추가 ({CurrentFiles.Count})" : "⧉ 문서 붙이기")"
+                                      RenderStyle="ButtonRenderStyle.Secondary"
+                                      Title="HTML 파일을 올려 이 쪽을 그 문서로 보입니다 (글은 그대로 남습니다)"
+                                      Click="@OpenUpload" />
+                            <DxButton Text="↗ URL 연결" RenderStyle="ButtonRenderStyle.Secondary"
+                                      Title="파일 대신 주소를 걸어 그 화면을 띄웁니다" Click="@OpenLink" />
+                            <DxButton Text="편집" RenderStyle="ButtonRenderStyle.Secondary" Click="@StartEdit" />
+                        </PermissionView>
+
+                        <PermissionView Action="MenuAction.Delete">
+                            <DxButton Text="삭제" RenderStyle="ButtonRenderStyle.Secondary" Click="@DeleteAsync" />
+                        </PermissionView>
+                    }
+                </div>
+
+                @if (_editing)
+                {
+                    <DxHtmlEditor @bind-Markup="_draftContent"
+                                  BindMarkupMode="HtmlEditorBindMarkupMode.OnDelayedInput"
+                                  CssClass="pm-doc-editor" />
+                }
+                else
+                {
+                    var hasContent = !string.IsNullOrWhiteSpace(Current.Content);
+
+                    @if (hasContent)
+                    {
+                        <div class="pm-doc @(Clipped ? "pm-doc--clip" : null)">
+                            @((MarkupString)NoticeHtml.Sanitize(Current.Content))
                         </div>
+
+                        @if (CanClip)
+                        {
+                            <button type="button" class="pm-doc-more" @onclick="@(() => _expanded = !_expanded)">
+                                @(_expanded ? "▲ 글 접기" : "▼ 글 펼치기")
+                            </button>
+                        }
+                    }
+                    else if (CurrentFiles.Count == 0)
+                    {
+                        <PageNotice Tone="NoticeTone.Info" Text="내용이 없습니다." />
                     }
 
-                    <div class="pm-doc-filebar @(file.IsLink ? "is-ext" : null)">
-                        <b>@(file.IsLink ? "↗" : "⧉") @labels[file.Id]</b>
-                        <span class="pm-doc-when">
-                            @(file.IsLink ? "주소로 연결" : $"올린 사람 {file.UploadedBy ?? "—"}")@(string.IsNullOrEmpty(file.UploadedAt) ? null : $" · {file.UploadedAt}")
-                        </span>
-                        <span class="pm-doc-filebar__spacer"></span>
-                        <PermissionView Action="MenuAction.Update">
-                            @if (CurrentFiles.Count > 1)
-                            {
-                                <DxButton Text="◀" Title="이 탭을 왼쪽으로" RenderStyle="ButtonRenderStyle.Link"
-                                          Enabled="@(CurrentFiles[0].Id != file.Id)" Click="@(() => MoveFileAsync(-1))" />
-                                <DxButton Text="▶" Title="이 탭을 오른쪽으로" RenderStyle="ButtonRenderStyle.Link"
-                                          Enabled="@(CurrentFiles[^1].Id != file.Id)" Click="@(() => MoveFileAsync(1))" />
-                            }
-                        </PermissionView>
-                        <a href="@FrameSrc(file)" target="_blank" rel="noopener noreferrer">새 탭으로 열기 ↗</a>
-                        <PermissionView Action="MenuAction.Update">
-                            <DxButton Text="@(file.IsLink ? "이 연결 내리기" : "이 문서 내리기")"
-                                      RenderStyle="ButtonRenderStyle.Link" Click="@(() => RemoveFileAsync(file))" />
-                        </PermissionView>
-                    </div>
+                    @if (CurrentFile is { } file)
+                    {
+                        var labels = TabLabels;
 
-                    @* 올린 HTML 은 오리진을 떼어 둔다(allow-same-origin 없음) — 셸도 CSP sandbox 머리를 붙인다. 바깥 주소는 그 사이트의 오리진이라 붙여 둔다(빼면 그쪽 로그인이 깨진다). *@
-                    <iframe @key="file.Id"
-                            src="@FrameSrc(file)"
-                            class="pm-doc-frame @(hasContent ? "pm-doc-frame--short" : null)"
-                            title="@file.Name"
-                            sandbox="@(file.IsLink ? "allow-same-origin allow-scripts allow-popups allow-forms" : "allow-scripts allow-popups allow-forms allow-modals")"
-                            loading="lazy"></iframe>
+                        @if (CurrentFiles.Count > 1)
+                        {
+                            <div class="pm-doc-tabs">
+                                @foreach (var f in CurrentFiles)
+                                {
+                                    <button type="button" title="@(f.Url ?? f.Name)"
+                                            class="pm-doc-tab @(f.Id == file.Id ? "is-on" : null) @(f.IsLink ? "is-ext" : null)"
+                                            @onclick="@(() => _tabOf[Current.Id] = f.Id)">
+                                        @(f.IsLink ? "↗" : "⧉") @labels[f.Id]
+                                    </button>
+                                }
+                            </div>
+                        }
+
+                        <div class="pm-doc-filebar @(file.IsLink ? "is-ext" : null)">
+                            <b>@(file.IsLink ? "↗" : "⧉") @labels[file.Id]</b>
+                            <span class="pm-doc-when">
+                                @(file.IsLink ? "주소로 연결" : $"올린 사람 {file.UploadedBy ?? "—"}")@(string.IsNullOrEmpty(file.UploadedAt) ? null : $" · {file.UploadedAt}")
+                            </span>
+                            <span class="pm-doc-filebar__spacer"></span>
+                            <PermissionView Action="MenuAction.Update">
+                                @if (CurrentFiles.Count > 1)
+                                {
+                                    <DxButton Text="◀" Title="이 탭을 왼쪽으로" RenderStyle="ButtonRenderStyle.Link"
+                                              Enabled="@(CurrentFiles[0].Id != file.Id)" Click="@(() => MoveFileAsync(-1))" />
+                                    <DxButton Text="▶" Title="이 탭을 오른쪽으로" RenderStyle="ButtonRenderStyle.Link"
+                                              Enabled="@(CurrentFiles[^1].Id != file.Id)" Click="@(() => MoveFileAsync(1))" />
+                                }
+                            </PermissionView>
+                            <a href="@FrameSrc(file)" target="_blank" rel="noopener noreferrer">새 탭으로 열기 ↗</a>
+                            <PermissionView Action="MenuAction.Update">
+                                <DxButton Text="@(file.IsLink ? "이 연결 내리기" : "이 문서 내리기")"
+                                          RenderStyle="ButtonRenderStyle.Link" Click="@(() => RemoveFileAsync(file))" />
+                            </PermissionView>
+                        </div>
+
+                        @* 올린 HTML 은 오리진을 떼어 둔다(allow-same-origin 없음) — 셸도 CSP sandbox 머리를 붙인다. 바깥 주소는 그 사이트의 오리진이라 붙여 둔다(빼면 그쪽 로그인이 깨진다). *@
+                        <iframe @key="file.Id"
+                                src="@FrameSrc(file)"
+                                class="pm-doc-frame @(hasContent ? "pm-doc-frame--short" : null)"
+                                title="@file.Name"
+                                sandbox="@(file.IsLink ? "allow-same-origin allow-scripts allow-popups allow-forms" : "allow-scripts allow-popups allow-forms allow-modals")"
+                                loading="lazy"></iframe>
+                    }
                 }
             }
-        }
-    </CommCont>
-</div>
+        </CommCont>
+    </Second>
+</SplitPane>
 
 <CommPopup @bind-Visible="_newOpen" HeaderText="쪽 추가" Width="420px">
     <BodyContentTemplate Context="popup">
