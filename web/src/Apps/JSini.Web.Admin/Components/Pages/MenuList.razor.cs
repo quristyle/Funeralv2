@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Authorization;
 using DevExpress.Blazor;
 using JSini.Web.Abstractions;
 using JSini.Web.Components.Data;
@@ -14,6 +15,8 @@ public partial class MenuList
 {
     [Inject] private AdminClient Api { get; set; } = default!;
     [Inject] private RouteInventory Routes { get; set; } = default!;
+    [Inject] private PortalBootstrap Bootstrap { get; set; } = default!;
+    [Inject] private AuthenticationStateProvider AuthState { get; set; } = default!;
 
     /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
     private string ConditionSummary => SchSummary.Of(
@@ -942,6 +945,7 @@ public partial class MenuList
 
         _editing = false;
         await ReloadAsync();
+        await RefreshShellMenusAsync();
     }
 
     private async Task DeleteAsync(SystemMenuDto m)
@@ -957,6 +961,7 @@ public partial class MenuList
         if (await RunAsync(() => Api.DeleteSystemMenuAsync(m.Id), "지웠습니다.", "지우지 못했습니다"))
         {
             await ReloadAsync();
+            await RefreshShellMenusAsync();
         }
     }
 
@@ -1003,9 +1008,14 @@ public partial class MenuList
             {
                 m.Meta.KeepAlive = previous;
             }
-            else if (_editing && _editId == m.Id)
+            else
             {
-                _edit.Meta.KeepAlive = value;
+                if (_editing && _editId == m.Id)
+                {
+                    _edit.Meta.KeepAlive = value;
+                }
+
+                await RefreshShellMenusAsync();
             }
         }
         catch (Exception ex)
@@ -1017,6 +1027,23 @@ public partial class MenuList
         {
             _savingKeepAlive.Remove(m.Id);
             StateHasChanged();
+        }
+    }
+
+    /// <summary>
+    /// 셸이 든 메뉴는 로그인할 때 한 번 받고 회로 안에서는 다시 읽지 않는다. 그대로 두면 여기서 켠 「화면 유지」·숨김·제목이
+    /// 새로고침 전까지 먹지 않는다. 부트스트랩 통(2분)까지 비워 다시 받는다 — 메뉴만 다시 읽으면 F5 때 통이 옛 메뉴를 되살린다.
+    /// </summary>
+    private async Task RefreshShellMenusAsync()
+    {
+        try
+        {
+            var state = await AuthState.GetAuthenticationStateAsync();
+            await Bootstrap.RefreshAsync(state.User);
+        }
+        catch (Exception)
+        {
+            // 저장은 끝났다. 셸 메뉴만 못 받았으면 새로고침 때 맞는다.
         }
     }
 }

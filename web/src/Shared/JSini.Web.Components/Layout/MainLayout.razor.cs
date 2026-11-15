@@ -710,6 +710,7 @@ public partial class MainLayout
     {
         // 메뉴가 늦게 도착하면 그때 브레드크럼과 탭 이름이 채워진다.
         Track();
+        KeepAlive.Release(StillKept);
         InvokeAsync(StateHasChanged);
     }
 
@@ -803,6 +804,20 @@ public partial class MainLayout
         var keep = trail.Count > 0 && trail[^1].KeepAlive && MayOpen(trail[^1]);
 
         KeepAlive.Show(href, keep, typeof(MainLayout));
+        KeepAlive.Release(StillKept);
+    }
+
+    /// <summary>이 주소의 메뉴가 아직 「화면 유지」인가. 메뉴관리에서 끄면 숨은 화면이 탭을 닫을 때까지 타이머째 남는다.</summary>
+    private bool StillKept(string href)
+    {
+        // 메뉴를 못 받았을 때는 판정할 근거가 없다 — 놓으면 살려 둔 화면이 한꺼번에 사라진다.
+        if (Menus.AllMenus.Count == 0)
+        {
+            return true;
+        }
+
+        var trail = Menus.Trail(href);
+        return trail.Count > 0 && trail[^1].KeepAlive && MayOpen(trail[^1]);
     }
 
     /// <summary>본문 하나의 클래스. 안 보이는 본문은 자리에 세워 둔 채 감춘다 — display: none 이면 구른 자리와 표의 치수가 날아간다.</summary>

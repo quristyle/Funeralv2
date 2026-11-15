@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.JSInterop;
 using DevExpress.Blazor;
@@ -20,6 +21,8 @@ public partial class TabBar
     [Inject] private Toasts Toasts { get; set; } = default!;
     [Inject] private GatewayClient Gateway { get; set; } = default!;
     [Inject] private KeepAliveScreens KeepAlive { get; set; } = default!;
+    [Inject] private PortalBootstrap Bootstrap { get; set; } = default!;
+    [Inject] private AuthenticationStateProvider AuthState { get; set; } = default!;
 
     /// <summary>아래 띠에 넣을 때 화면 열쇠와 이름을 여기서 꺼낸다. 탭은 주소와 이름만 들고 있어 그것만으로 넣으면 경로가 옮겨 갔을 때 띠 칸이 준비 중으로 떨어진다.</summary>
     [Inject] private IMenuProvider Menus { get; set; } = default!;
@@ -286,7 +289,9 @@ public partial class TabBar
                 keepAlive = next
             });
 
-            await Menus.ReloadAsync();
+            // 통(2분)까지 비운다 — 메뉴만 다시 읽으면 곧이은 새로고침에 통이 옛 값을 되살린다.
+            var state = await AuthState.GetAuthenticationStateAsync();
+            await Bootstrap.RefreshAsync(state.User);
 
             if (!next)
             {

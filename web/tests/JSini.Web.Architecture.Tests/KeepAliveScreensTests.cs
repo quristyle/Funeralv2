@@ -173,7 +173,28 @@ public sealed class KeepAliveScreensTests
 
         Assert.Contains("ToggleKeepAliveAsync", cs, StringComparison.Ordinal);
         Assert.Contains("auth/menu/keep-alive", cs, StringComparison.Ordinal);
-        Assert.Contains("Menus.ReloadAsync", cs, StringComparison.Ordinal);
+        Assert.Contains("Bootstrap.RefreshAsync", cs, StringComparison.Ordinal);
+    }
+
+    /// <summary>셸 메뉴는 회로 안에서 다시 읽히지 않는다 — 메뉴관리에서 켠 「화면 유지」가 새로고침 전까지 안 먹던 자리다.</summary>
+    [Fact]
+    public void 메뉴관리에서_저장하면_셸_메뉴를_다시_받는다()
+    {
+        var cs = File.ReadAllText(Path.Combine(
+            SolutionRoot(), "src", "Apps", "JSini.Web.Admin", "Components", "Pages", "MenuList.razor.cs"));
+
+        Assert.Contains("Bootstrap.RefreshAsync", cs, StringComparison.Ordinal);
+        Assert.True(System.Text.RegularExpressions.Regex.Matches(cs, @"await RefreshShellMenusAsync\(\)").Count >= 3,
+            "등록·수정 · 삭제 · 화면 유지 스위치 셋 모두 셸 메뉴를 다시 받아야 한다.");
+    }
+
+    [Fact]
+    public void 화면유지를_끄면_숨은_화면을_놓아준다()
+    {
+        var cs = File.ReadAllText(Path.Combine(
+            SolutionRoot(), "src", "Shared", "JSini.Web.Components", "Layout", "MainLayout.razor.cs"));
+
+        Assert.Contains("KeepAlive.Release(StillKept)", cs, StringComparison.Ordinal);
     }
 
     [Fact]

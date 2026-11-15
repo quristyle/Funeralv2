@@ -70,6 +70,11 @@ public sealed class KeepAliveScreens
         return _items.RemoveAll(s => !s.Active && !open.Contains(s.Href)) > 0;
     }
 
+    /// <summary>「화면 유지」가 꺼진 화면을 놓아 준다. 숨어 있는 것만 — 보이는 것은 사람이 떠날 때 버려진다.</summary>
+    /// <returns>하나라도 놓았는가.</returns>
+    public bool Release(Func<string, bool> stillKept) =>
+        _items.RemoveAll(s => !s.Active && !stillKept(s.Href)) > 0;
+
     /// <summary>특정 주소의 화면을 살려 둔 목록에서 뺀다(화면 유지를 껐을 때). 활성 여부와 무관하게 즉시 목록에서 뺀다.</summary>
     /// <returns>목록에서 빠졌는가.</returns>
     public bool Remove(string href) =>
