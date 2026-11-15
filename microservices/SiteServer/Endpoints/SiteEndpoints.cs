@@ -166,13 +166,13 @@ public static class SiteEndpoints
         .WithName("AdminListInquiries");
 
         admin.MapPut("/inquiries/{id:guid}/status", async (
-            Guid id, [FromQuery] string value, UserContext? user,
+            Guid id, [FromBody] InquiryStatusUpdateDto request, UserContext? user,
             [FromServices] Data.SiteDbContext db) =>
         {
             if (user is null) return Unauthorized();
 
-            string[] allowed = ["new", "reading", "answered", "spam"];
-            if (!allowed.Contains(value))
+            string[] allowed = ["new", "reading", "replied", "closed"];
+            if (!allowed.Contains(request.Status))
             {
                 return Results.BadRequest(ApiResponse<bool>.Fail(
                     $"상태는 {string.Join(" · ", allowed)} 중 하나여야 합니다.", "400"));
@@ -185,7 +185,7 @@ public static class SiteEndpoints
                 return Results.NotFound(ApiResponse<bool>.Fail("문의를 찾을 수 없습니다.", "404"));
             }
 
-            row.Status = value;
+            row.Status = request.Status;
             row.UpdatedAt = DateTime.UtcNow;
             row.UpdatedBy = user.UserId;
             await db.SaveChangesAsync();
@@ -233,7 +233,7 @@ public static class SiteEndpoints
             }
 
             // 보낸 기록을 남기고 상태를 '답변 완료' 로 올린다.
-            row.Status = "answered";
+            row.Status = "replied";
             row.InternalNote = string.IsNullOrWhiteSpace(row.InternalNote)
                 ? $"[답장 {DateTime.UtcNow:yyyy-MM-dd HH:mm}Z] {user.UserId} → {to}"
                 : $"{row.InternalNote}\n[답장 {DateTime.UtcNow:yyyy-MM-dd HH:mm}Z] {user.UserId} → {to}";

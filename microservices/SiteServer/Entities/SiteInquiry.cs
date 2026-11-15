@@ -55,7 +55,7 @@ public class SiteInquiry : BaseEntity<Guid>
     /// <summary>언어. 어느 쪽 사이트에서 왔는지 (<c>ko</c> · <c>en</c>)</summary>
     public string Locale { get; set; } = "ko";
 
-    /// <summary>처리 상태. <c>new</c> · <c>reading</c> · <c>answered</c> · <c>spam</c></summary>
+    /// <summary>처리 상태. <c>new</c> · <c>reading</c> · <c>replied</c> · <c>closed</c></summary>
     public string Status { get; set; } = "new";
 
     /// <summary>담당자가 남기는 내부 메모. 방문자에게 보이지 않는다</summary>

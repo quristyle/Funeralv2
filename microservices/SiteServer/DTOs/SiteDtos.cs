@@ -95,6 +95,12 @@ public class InquiryAdminDto
     public DateTime CreatedAt { get; set; }
 }
 
+/// <summary>문의 처리 상태 변경 요청.</summary>
+public class InquiryStatusUpdateDto
+{
+    public string Status { get; set; } = string.Empty;
+}
+
 /// <summary>문의 답장 요청 (관리 화면).</summary>
 public class InquiryReplyDto
 {
