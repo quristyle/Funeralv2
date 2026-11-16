@@ -162,6 +162,18 @@ body {
   visibility: hidden;
 }
 
+/* 탭 줄도 함께 접는다. 높이를 0 으로 줄여 그 자리를 본문이 가져간다(transform 만 주면 빈 띠가 남는다). 탭 메뉴 창은 이 상자 밖에 그려지므로 접어도 안 잘린다. */
+.jsini-shell--header-hidden .jsini-tabs {
+  height: 0;
+  min-height: 0;
+  padding-block: 0;
+  border-bottom-width: 0;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+}
+
 /* 아래 띠에서 이름을 감춘 사람에게 붙는 표시(MainLayout.ShellCss). 띠는 아이콘 한 줄 높이로 얇아지고 그 차이만큼 본문이 돌려받는다. 44px 은 손가락이 빗나가지 않는 최소 높이다. */
 .jsini-shell--bottomnav-nolabel {
   --jsini-bottomnav-h: 44px;
@@ -1315,6 +1327,9 @@ body.jsini-drawer-resizing {
   padding: 0 0.5rem;
   background: var(--jsini-surface);
   border-bottom: 1px solid var(--jsini-border);
+
+  /* 헤더 숨김(grid-template-rows 0.25s)과 같은 박자로 접고 편다. */
+  transition: height 0.25s ease-in-out, opacity 0.25s ease-in-out, visibility 0.25s;
 }
 
 /* 탭이 많아지면 가로로 넘긴다(줄바꿈하면 본문이 그만큼 좁아진다). */
