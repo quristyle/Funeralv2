@@ -15,16 +15,26 @@
 <CommSch OnSearch="@ReloadAsync" MobileSummary="@ConditionSummary">
     <Fields>
         <CommSchItem Label="회사">
-            <DxComboBox Data="@_companyOptions" @bind-Value="_companyId"
+            <DxComboBox Data="@_companyOptions"
                         TextFieldName="@nameof(CompanyDto.Name)" ValueFieldName="@nameof(CompanyDto.Id)"
+                        Value="@_companyId"
+                        ValueChanged="@((string? v) => PickCompanyAsync(v))"
+                        ValueExpression="@(() => _companyId)"
+                        Enabled="@(!_unassignedOnly)"
                         Style="width: 240px" />
+        </CommSchItem>
+
+        <CommSchItem>
+            <DxCheckBox CheckType="CheckType.Switch"
+                        Checked="@_unassignedOnly"
+                        CheckedChanged="@((bool v) => ToggleUnassignedAsync(v))">미소속 사용자</DxCheckBox>
         </CommSchItem>
     </Fields>
     <Actions>
         <PermissionView Action="MenuAction.Create">
             <DxButton Text="사람 넣기" RenderStyle="ButtonRenderStyle.Secondary"
                       IconCssClass="jsini-icon-plus"
-                      Enabled="@(!string.IsNullOrWhiteSpace(_companyId))" Click="@OpenAddAsync" />
+                      Enabled="@(!_unassignedOnly && !string.IsNullOrWhiteSpace(_companyId))" Click="@OpenAddAsync" />
         </PermissionView>
     </Actions>
 </CommSch>
@@ -88,8 +98,11 @@
     /// 「이 줄이 사라진다」는 뜻인데 여기서는 사람이 그대로 남는다.
     /// </summary>
     private RenderFragment<AccountDto> Unlink => user =>@<PermissionView Action="MenuAction.Delete">
-        <DxButton IconCssClass="jsini-icon-subtract" RenderStyle="ButtonRenderStyle.Link"
-                  Title="회사 소속을 푼다. 계정은 남는다"
-                  Click="@(() => RemoveAsync(user))" />
+        @if (!string.IsNullOrEmpty(user.CompanyId))
+        {
+            <DxButton IconCssClass="jsini-icon-subtract" RenderStyle="ButtonRenderStyle.Link"
+                      Title="회사 소속을 푼다. 계정은 남는다"
+                      Click="@(() => RemoveAsync(user))" />
+        }
     </PermissionView>;
 }

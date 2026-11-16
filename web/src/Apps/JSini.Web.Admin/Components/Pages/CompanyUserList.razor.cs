@@ -13,12 +13,14 @@ public partial class CompanyUserList
     private static readonly CompanyDto AllOption = new() { Id = AllCompanyId, Name = "전체" };
 
     /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
-    private string ConditionSummary =>
-        SchSummary.NameOf(_companyOptions, c => c.Id, c => c.Name, _companyId, "전체");
+    private string ConditionSummary => _unassignedOnly
+        ? "미소속 사용자"
+        : SchSummary.NameOf(_companyOptions, c => c.Id, c => c.Name, _companyId, "전체");
 
     private IReadOnlyList<CompanyDto> _companies = [];
     private IReadOnlyList<CompanyDto> _companyOptions = [AllOption];
     private string? _companyId = AllCompanyId;
+    private bool _unassignedOnly;
     private IReadOnlyList<AccountDto> _users = [];
 
     private IReadOnlyList<AccountDto> Shown => _users;
@@ -31,6 +33,18 @@ public partial class CompanyUserList
 
     protected override Task OnInitializedAsync() => ReloadAsync();
 
+    private async Task PickCompanyAsync(string? companyId)
+    {
+        _companyId = companyId;
+        await ReloadAsync();
+    }
+
+    private async Task ToggleUnassignedAsync(bool unassigned)
+    {
+        _unassignedOnly = unassigned;
+        await ReloadAsync();
+    }
+
     private Task ReloadAsync() => LoadAsync(async () =>
     {
         if (_companies.Count == 0)
@@ -39,9 +53,9 @@ public partial class CompanyUserList
             _companyOptions = [AllOption, .._companies];
         }
 
-        _users = await Api.GetCompanyUsersAsync(_companyId);
+        _users = await Api.GetCompanyUsersAsync(_companyId, _unassignedOnly);
         return _users.Count;
-    }, "속한 사용자가 없습니다.", "사용자 목록을 읽지 못했습니다");
+    }, _unassignedOnly ? "미소속 사용자가 없습니다." : "속한 사용자가 없습니다.", "사용자 목록을 읽지 못했습니다");
 
     /// <summary>넣을 후보를 읽는다. 후보는 소속이 없는 사람이다 — 서버가 회사를 가리지 않고, 다른 회사에 속한 사람은 여기 없다.</summary>
     private Task OpenAddAsync() => LoadAsync(async () =>

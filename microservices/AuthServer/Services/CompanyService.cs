@@ -209,7 +209,7 @@ public class CompanyService : ICompanyService
         return true;
     }
 
-    public async Task<IEnumerable<AccountDto>> GetCompanyUsersAsync(string? companyId = null)
+    public async Task<IEnumerable<AccountDto>> GetCompanyUsersAsync(string? companyId = null, bool unassigned = false)
     {
         var query = _context.Accounts
             .Include(a => a.Company)
@@ -217,7 +217,11 @@ public class CompanyService : ICompanyService
             .Include(a => a.ProfileDetails)
             .AsQueryable();
 
-        if (!string.IsNullOrWhiteSpace(companyId) && !companyId.Equals("all", StringComparison.OrdinalIgnoreCase))
+        if (unassigned)
+        {
+            query = query.Where(a => a.CompanyId == null);
+        }
+        else if (!string.IsNullOrWhiteSpace(companyId) && !companyId.Equals("all", StringComparison.OrdinalIgnoreCase))
         {
             query = query.Where(a => a.CompanyId == companyId);
         }

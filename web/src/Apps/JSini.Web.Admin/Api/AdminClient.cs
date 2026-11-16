@@ -112,8 +112,13 @@ public sealed class AdminClient(GatewayClient gateway)
         IReadOnlyList<string> orderedIds, CancellationToken ct = default)
         => gateway.PostAsync("auth/system/companies/reorder", orderedIds, ct);
 
-    public Task<IReadOnlyList<AccountDto>> GetCompanyUsersAsync(string? companyId = null, CancellationToken ct = default)
+    public Task<IReadOnlyList<AccountDto>> GetCompanyUsersAsync(string? companyId = null, bool unassigned = false, CancellationToken ct = default)
     {
+        if (unassigned)
+        {
+            return gateway.GetListAsync<AccountDto>("auth/system/companies/users?unassigned=true", ct);
+        }
+
         var path = string.IsNullOrWhiteSpace(companyId) || companyId.Equals("all", StringComparison.OrdinalIgnoreCase)
             ? "auth/system/companies/users"
             : $"auth/system/companies/{companyId}/users";

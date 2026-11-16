@@ -40,10 +40,10 @@ public static class CompanyEndpoints
         })
         .WithName("RemoveUsersFromCompany");
 
-        // 회사 소속 사용자 목록 조회 (전체 또는 특정 회사)
-        group.MapGet("/users", async ([FromQuery] string? companyId, ICompanyService companyService) =>
+        // 회사 소속 사용자 목록 조회 (전체, 특정 회사, 또는 미소속 사용자)
+        group.MapGet("/users", async ([FromQuery] string? companyId, [FromQuery] bool? unassigned, ICompanyService companyService) =>
         {
-            var users = await companyService.GetCompanyUsersAsync(companyId);
+            var users = await companyService.GetCompanyUsersAsync(companyId, unassigned ?? false);
             return Results.Ok(users);
         })
         .WithName("GetAllOrCompanyUsers");
