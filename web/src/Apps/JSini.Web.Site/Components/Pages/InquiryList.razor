@@ -24,6 +24,8 @@
 <CommCont>
     <CommGrd TItem="InquiryDto" Data="@_rows" PageSize="20"
              ExportName="문의"
+             OnDelete="@DeleteAsync"
+             DeleteConfirm="@(q => $"'{q.Subject}' 문의를 삭제하시겠습니까?")"
              Reload="@ReloadAsync">
         <Columns>
             <DxGridDataColumn FieldName="@nameof(InquiryDto.CreatedAt)" Caption="접수" Width="150" DisplayFormat="yyyy-MM-dd HH:mm" />
@@ -60,17 +62,24 @@
 
                 <div class="st-inquiry__message">@q.Message</div>
 
-                <PermissionView Action="MenuAction.Update">
-                    <div class="st-inquiry__actions">
+                <div class="st-inquiry__actions">
+                    <PermissionView Action="MenuAction.Update">
                         @foreach (var next in Statuses.Where(s => s != q.Status))
                         {
                             <DxButton Text="@($"{StatusText(next)} 으로")"
                                       RenderStyle="ButtonRenderStyle.Secondary"
                                       Click="@(() => SetStatusAsync(q, next))" />
                         }
-                    </div>
-                </PermissionView>
+                    </PermissionView>
+                    <PermissionView Action="MenuAction.Delete">
+                        <DxButton Text="삭제"
+                                  RenderStyle="ButtonRenderStyle.Danger"
+                                  Click="@(() => DeleteInDetailAsync(q))" />
+                    </PermissionView>
+                </div>
             </div>
         </DetailRowTemplate>
     </CommGrd>
 </CommCont>
+
+<ConfirmDialog @ref="_confirm" />

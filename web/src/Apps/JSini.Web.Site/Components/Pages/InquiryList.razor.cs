@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using JSini.Web.Components.Data;
+using JSini.Web.Components.Layout;
 using JSini.Web.Site.Api;
 
 namespace JSini.Web.Site.Components.Pages;
@@ -7,6 +8,8 @@ namespace JSini.Web.Site.Components.Pages;
 public partial class InquiryList
 {
     [Inject] private SiteAdminClient Api { get; set; } = default!;
+
+    private ConfirmDialog? _confirm;
 
     /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
     private string ConditionSummary =>
@@ -32,6 +35,20 @@ public partial class InquiryList
                 $"'{q.Subject}' 를 {StatusText(status)} 으로 바꿨습니다.", "상태를 바꾸지 못했습니다"))
         {
             await ReloadAsync();
+        }
+    }
+
+    private Task DeleteAsync(InquiryDto q) => Api.DeleteInquiryAsync(q.Id);
+
+    private async Task DeleteInDetailAsync(InquiryDto q)
+    {
+        if (_confirm is null) return;
+        if (await _confirm.AskAsync($"'{q.Subject}' 문의를 삭제하시겠습니까?"))
+        {
+            if (await RunAsync(() => Api.DeleteInquiryAsync(q.Id), "삭제했습니다.", "삭제하지 못했습니다"))
+            {
+                await ReloadAsync();
+            }
         }
     }
 

@@ -194,6 +194,28 @@ public static class SiteEndpoints
         })
         .WithName("AdminSetInquiryStatus");
 
+        admin.MapDelete("/inquiries/{id:guid}", async (
+            Guid id, UserContext? user,
+            [FromServices] Data.SiteDbContext db) =>
+        {
+            if (user is null) return Unauthorized();
+
+            var row = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions
+                .FirstOrDefaultAsync(db.Inquiries, x => x.Id == id && !x.IsDeleted);
+            if (row is null)
+            {
+                return Results.NotFound(ApiResponse<bool>.Fail("문의를 찾을 수 없습니다.", "404"));
+            }
+
+            row.IsDeleted = true;
+            row.UpdatedAt = DateTime.UtcNow;
+            row.UpdatedBy = user.UserId;
+            await db.SaveChangesAsync();
+
+            return Results.Ok(ApiResponse<bool>.Ok(true));
+        })
+        .WithName("AdminDeleteInquiry");
+
         // ── 답장 ────────────────────────────────────────────
         // 문의 답장. 주소는 화면이 채우거나 관리자가 적어 보내므로 to 를 요청으로 받는다. 본문은 에디터가 쓴 HTML 이고 메일 틀은 InquiryEmailTemplates 가 입힌다.
         admin.MapPost("/inquiries/{id:guid}/reply", async (

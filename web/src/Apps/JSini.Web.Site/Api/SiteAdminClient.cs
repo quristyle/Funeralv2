@@ -20,6 +20,10 @@ public sealed class SiteAdminClient(GatewayClient gateway)
     /// <summary>문의 처리 상태를 바꾼다.</summary>
     public Task SetStatusAsync(Guid id, string status, CancellationToken ct = default)
         => gateway.PutAsync($"site/admin/inquiries/{id}/status", new { status }, ct);
+
+    /// <summary>문의를 삭제한다(논리 삭제).</summary>
+    public Task DeleteInquiryAsync(Guid id, CancellationToken ct = default)
+        => gateway.DeleteAsync($"site/admin/inquiries/{id}", ct);
 }
 
 /// <summary>
