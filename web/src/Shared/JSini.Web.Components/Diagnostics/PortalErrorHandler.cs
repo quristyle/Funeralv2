@@ -66,7 +66,7 @@ public sealed class PortalErrorHandler(
     }
 
     /// <summary>
-    /// 포털은 nginx·게이트웨이 뒤다. 프록시가 넣어 준 첫 값이 사람의 주소다.
+    /// 포털은 nginx·게이트웨이 뒤다. nginx 가 맨 뒤에 덧붙인 값이 사람의 주소다(앞쪽은 지어낼 수 있다).
     /// </summary>
     private static string? ClientIp(HttpContext http)
     {
@@ -74,7 +74,7 @@ public sealed class PortalErrorHandler(
 
         if (!string.IsNullOrWhiteSpace(forwarded))
         {
-            var first = forwarded.Split(',')[0].Trim();
+            var first = forwarded.Split(',')[^1].Trim();
             if (first.Length > 0) return first;
         }
 

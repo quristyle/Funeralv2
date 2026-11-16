@@ -17,6 +17,9 @@ public static class NotificationEndpoints
     private const string OwnerTypePortal = "jsini";
 
     private const string ChannelPush = Entities.PushSendLog.ChannelPush;
+
+    /// <summary>메시지 발송 화면 밖의 사람이 한 번에 짚을 수 있는 수. 포털 NotifySender.MaxRecipients 와 같다.</summary>
+    private const int MaxOwnersWithoutSendScreen = 50;
     private const string ChannelEmail = Entities.PushSendLog.ChannelEmail;
 
     /// <summary>이 사람에게 온 줄.</summary>
@@ -99,6 +102,16 @@ public static class NotificationEndpoints
             }
             else
             {
+                // 남의 구독을 넘겨받으려면 그 브라우저의 auth 비밀을 들고 와야 한다. endpoint 만 알아서는 남의 기기를 내 이름으로 돌리지 못한다.
+                var sameOwner = existing.OwnerType == ownerType && existing.OwnerKey == ownerKey;
+                var sameBrowser = existing.Auth == request.Auth && existing.P256dh == request.P256dh;
+                if (!sameOwner && !sameBrowser && !CallerAccess.IsService(user, http))
+                {
+                    return Results.Conflict(ApiResponse<bool>.Fail(
+                        message: "다른 계정에 등록된 구독입니다. 이 브라우저에서 알림을 끄고 다시 켜 주세요.",
+                        code: "SUBSCRIPTION_OWNED"));
+                }
+
                 // 키가 갱신될 수 있고, 같은 브라우저를 다른 계정이 쓸 수도 있다.
                 existing.P256dh = request.P256dh;
                 existing.Auth = request.Auth;
@@ -202,11 +215,17 @@ public static class NotificationEndpoints
         // 기기 목록까지 주는 /preferences/me 와 달리 기기는 수로 줄인다.
         group.MapGet("/preferences", async (
             UserContext? user,
+            HttpContext http,
             [FromQuery] string? ownerType,
             [FromServices] AppDbContext db,
+            [FromServices] MenuViewAccess access,
             CancellationToken ct) =>
         {
             if (user is null) return Results.Unauthorized();
+            if (!await CallerAccess.CanUseScreenAsync(user, http, access, ct, CallerAccess.AccountScreen))
+            {
+                return CallerAccess.Forbidden();
+            }
 
             var type = string.IsNullOrWhiteSpace(ownerType) ? "jsini" : ownerType;
 
@@ -283,15 +302,25 @@ public static class NotificationEndpoints
         group.MapGet("/owners/{ownerKey}/app-status", async (
             string ownerKey,
             UserContext? user,
+            HttpContext http,
             [FromServices] AppDbContext db,
             [FromServices] INotificationPreferenceService prefs,
             [FromServices] IOptions<VapidOptions> vapid,
+            [FromServices] MenuViewAccess access,
             [FromQuery] string? ownerType = null,
             [FromQuery] int days = 30,
             [FromQuery] int take = 100,
             CancellationToken ct = default) =>
         {
             if (user is null) return Results.Unauthorized();
+
+            // 내 것은 누구나, 남의 것은 계정 관리 화면을 볼 수 있는 사람만.
+            var isMine = (string.IsNullOrWhiteSpace(ownerType) || ownerType.Trim() == OwnerTypePortal)
+                         && string.Equals(ownerKey?.Trim(), user.UserId, StringComparison.Ordinal);
+            if (!isMine && !await CallerAccess.CanUseScreenAsync(user, http, access, ct, CallerAccess.AccountScreen))
+            {
+                return CallerAccess.Forbidden();
+            }
 
             if (string.IsNullOrWhiteSpace(ownerKey))
             {
@@ -591,10 +620,37 @@ public static class NotificationEndpoints
         group.MapPost("/push", async (
             [FromBody] SendPushDto request,
             UserContext? user,
+            HttpContext http,
             [FromServices] IPushSender sender,
+            [FromServices] INotificationPolicyService policies,
+            [FromServices] MenuViewAccess access,
             CancellationToken ct) =>
         {
             if (user is null) return Results.Unauthorized();
+
+            // 역할 대상(방송)은 서비스 호출과 관리자만. 사람은 받는 사람을 짚어서만 보내고,
+            // 메시지 발송 화면 밖(생일 축하 창)은 몇 명까지만이다.
+            if (!CallerAccess.IsServiceOrAdmin(user, http))
+            {
+                if (request.Roles is { Count: > 0 })
+                {
+                    return CallerAccess.Forbidden("역할 전원에게 보낼 권한이 없습니다.");
+                }
+
+                var decision = await policies.ResolveAsync(
+                    request.Message?.EventCode, request.Message?.Category, NotificationChannel.Push, ct);
+                if (decision.TargetsRoles)
+                {
+                    return CallerAccess.Forbidden("역할 전원에게 가는 알림을 보낼 권한이 없습니다.");
+                }
+
+                if ((request.Owners?.Count ?? 0) > MaxOwnersWithoutSendScreen
+                    && !await CallerAccess.CanUseScreenAsync(user, http, access, ct, CallerAccess.PushSendScreen))
+                {
+                    return CallerAccess.Forbidden(
+                        $"한 번에 {MaxOwnersWithoutSendScreen}명까지만 보낼 수 있습니다. 그보다 많으면 메시지 발송 화면을 쓰십시오.");
+                }
+            }
 
             if (string.IsNullOrWhiteSpace(request.Message?.Title))
             {
@@ -697,7 +753,9 @@ public static class NotificationEndpoints
 
         group.MapGet("/push/logs", async (
             UserContext? user,
+            HttpContext http,
             [FromServices] AppDbContext db,
+            [FromServices] MenuViewAccess access,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 30,
             [FromQuery] bool? isSuccess = null,
@@ -710,6 +768,14 @@ public static class NotificationEndpoints
             CancellationToken ct = default) =>
         {
             if (user is null) return Results.Unauthorized();
+
+            // 발송 이력 화면 밖의 사람은 자기에게 온 줄만 본다.
+            string? ownerTypeFilter = null;
+            if (!await CanSeePushMonitorAsync(user, http, access, ct))
+            {
+                ownerKey = user.UserId;
+                ownerTypeFilter = OwnerTypePortal;
+            }
 
             // 갈래를 주지 않으면 푸시만 본다(메일 줄은 channel=email 로 따로 본다).
             var query = LogQuery(db, startDate, endDate,
@@ -726,6 +792,11 @@ public static class NotificationEndpoints
             if (!string.IsNullOrWhiteSpace(ownerKey))
             {
                 query = query.Where(l => l.OwnerKey == ownerKey);
+            }
+
+            if (ownerTypeFilter is not null)
+            {
+                query = query.Where(l => l.OwnerType == ownerTypeFilter);
             }
 
             query = ByCategory(query, category);
@@ -769,11 +840,14 @@ public static class NotificationEndpoints
         // 현황 화면의 타일 넷.
         group.MapGet("/push/stats", async (
             UserContext? user,
+            HttpContext http,
             [FromServices] AppDbContext db,
+            [FromServices] MenuViewAccess access,
             [FromQuery] int days = 7,
             CancellationToken ct = default) =>
         {
             if (user is null) return Results.Unauthorized();
+            if (!await CanSeePushMonitorAsync(user, http, access, ct)) return CallerAccess.Forbidden();
 
             var from = Since(days);
             var rows = await db.PushSendLogs
@@ -805,11 +879,14 @@ public static class NotificationEndpoints
         // 성공률 추이. 하루 한 점이다.
         group.MapGet("/push/trend", async (
             UserContext? user,
+            HttpContext http,
             [FromServices] AppDbContext db,
+            [FromServices] MenuViewAccess access,
             [FromQuery] int days = 30,
             CancellationToken ct = default) =>
         {
             if (user is null) return Results.Unauthorized();
+            if (!await CanSeePushMonitorAsync(user, http, access, ct)) return CallerAccess.Forbidden();
 
             var from = Since(days);
 
@@ -841,11 +918,14 @@ public static class NotificationEndpoints
         // 실패 사유별 건수. 사유 글자는 PushSender 의 상수라 갈래가 몇 개뿐이다.
         group.MapGet("/push/failure-reasons", async (
             UserContext? user,
+            HttpContext http,
             [FromServices] AppDbContext db,
+            [FromServices] MenuViewAccess access,
             [FromQuery] int days = 7,
             CancellationToken ct = default) =>
         {
             if (user is null) return Results.Unauthorized();
+            if (!await CanSeePushMonitorAsync(user, http, access, ct)) return CallerAccess.Forbidden();
 
             var from = Since(days);
             var rows = await db.PushSendLogs
@@ -1156,10 +1236,14 @@ public static class NotificationEndpoints
         group.MapPost("/email", async (
             [FromBody] SendEmailDto request,
             UserContext? user,
+            HttpContext http,
             [FromServices] IEmailQueueSender sender,
             CancellationToken ct) =>
         {
             if (user is null) return Results.Unauthorized();
+
+            // 받는 주소를 그대로 믿는 옛길이라 아무에게나 보내는 중계가 된다.
+            if (!CallerAccess.IsServiceOrAdmin(user, http)) return CallerAccess.Forbidden();
 
             var result = await sender.SendAsync(request, ct);
 
@@ -1171,6 +1255,12 @@ public static class NotificationEndpoints
         })
         .WithName("SendEmail");
     }
+
+    /// <summary>발송 이력·현황 화면 중 하나를 볼 수 있나. 둘이 같은 발송 기록을 본다.</summary>
+    private static Task<bool> CanSeePushMonitorAsync(
+        UserContext user, HttpContext http, MenuViewAccess access, CancellationToken ct) =>
+        CallerAccess.CanUseScreenAsync(user, http, access, ct,
+            CallerAccess.PushLogsScreen, CallerAccess.PushDashboardScreen);
 
     /// <summary>기간을 건 기록 질의. 세 통계와 목록이 같은 기준을 쓴다. endDate 는 그 날의 끝까지 넣는다.</summary>
     private static IQueryable<Entities.PushSendLog> LogQuery(

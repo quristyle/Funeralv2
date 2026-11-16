@@ -83,7 +83,10 @@ public static class SiteEndpoints
                     ApiResponse<bool>.Fail("개인정보 수집·이용에 동의해야 접수됩니다.", "400"));
             }
 
-            var ip = http.Request.Headers["X-Forwarded-For"].FirstOrDefault()
+            // 맨 뒤 값이 프록시가 덧붙인 실제 주소다. 앞쪽은 보낸 쪽이 지어낼 수 있다.
+            var ip = http.Request.Headers["X-Forwarded-For"].ToString()
+                         .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                         .LastOrDefault()
                      ?? http.Connection.RemoteIpAddress?.ToString();
 
             var id = await svc.CreateInquiryAsync(
@@ -128,11 +131,24 @@ public static class SiteEndpoints
             ApiResponse<bool>.Fail("로그인이 필요합니다.", "401"),
             statusCode: StatusCodes.Status401Unauthorized);
 
+        // 문의에는 바깥 사람의 연락처가 담긴다. 메뉴(/company/site-inquiries)를 쥔 역할과 맞춘다.
+        static bool IsAdmin(UserContext user)
+        {
+            string[] adminRoles = ["SYSTEM_ADMINISTRATOR", "ADMINISTRATOR"];
+            return user.Roles.Append(user.Role)
+                .Any(r => adminRoles.Contains(r.Trim(), StringComparer.OrdinalIgnoreCase));
+        }
+
+        static IResult Forbidden() => Results.Json(
+            ApiResponse<bool>.Fail("문의를 볼 권한이 없습니다.", "403"),
+            statusCode: StatusCodes.Status403Forbidden);
+
         admin.MapGet("/inquiries", async (
             UserContext? user, [FromQuery] string? status,
             [FromServices] Data.SiteDbContext db) =>
         {
             if (user is null) return Unauthorized();
+            if (!IsAdmin(user)) return Forbidden();
 
             var q = db.Inquiries.Where(x => !x.IsDeleted);
             if (!string.IsNullOrWhiteSpace(status))
@@ -170,6 +186,7 @@ public static class SiteEndpoints
             [FromServices] Data.SiteDbContext db) =>
         {
             if (user is null) return Unauthorized();
+            if (!IsAdmin(user)) return Forbidden();
 
             string[] allowed = ["new", "reading", "replied", "closed"];
             if (!allowed.Contains(request.Status))
@@ -199,6 +216,7 @@ public static class SiteEndpoints
             [FromServices] Data.SiteDbContext db) =>
         {
             if (user is null) return Unauthorized();
+            if (!IsAdmin(user)) return Forbidden();
 
             var row = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions
                 .FirstOrDefaultAsync(db.Inquiries, x => x.Id == id && !x.IsDeleted);
@@ -224,6 +242,7 @@ public static class SiteEndpoints
             [FromServices] IInquiryMailNotifier mailer) =>
         {
             if (user is null) return Unauthorized();
+            if (!IsAdmin(user)) return Forbidden();
 
             if (string.IsNullOrWhiteSpace(request.To) ||
                 !System.Net.Mail.MailAddress.TryCreate(request.To.Trim(), out _))

@@ -16,6 +16,7 @@ namespace HelpDeskServer.Models {
     public string Email { get; set; } = string.Empty;
 
     /// <summary>비밀번호 해시</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
     public string PasswordHash { get; set; } = string.Empty;
 
     /// <summary>최초 로그인시 암호 변경 필요 여부</summary>

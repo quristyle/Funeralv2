@@ -48,6 +48,7 @@ public static class NoticeEndpoints
         // 등록
         group.MapPost("/", (AppDbContext db, NoticeCreateDto dto, HttpContext http) => ApiResponseBuilder.CreateAsync(async () =>
         {
+            http.GetHelpdeskPrincipal().RequireAdmin();
             var notice = new Notice
             {
                 Title = dto.Title,
@@ -64,8 +65,9 @@ public static class NoticeEndpoints
         }));
 
         // 수정
-        group.MapPut("/{id}", (AppDbContext db, int id, NoticeCreateDto dto) => ApiResponseBuilder.CreateAsync(async () =>
+        group.MapPut("/{id}", (AppDbContext db, int id, NoticeCreateDto dto, HttpContext http) => ApiResponseBuilder.CreateAsync(async () =>
         {
+            http.GetHelpdeskPrincipal().RequireAdmin();
             var notice = await db.Notices.FindAsync(id);
             if (notice is null) return null;
 
@@ -77,8 +79,9 @@ public static class NoticeEndpoints
         }));
 
         // 삭제
-        group.MapDelete("/{id}", (AppDbContext db, int id) => ApiResponseBuilder.CreateAsync(async () =>
+        group.MapDelete("/{id}", (AppDbContext db, int id, HttpContext http) => ApiResponseBuilder.CreateAsync(async () =>
         {
+            http.GetHelpdeskPrincipal().RequireAdmin();
             var notice = await db.Notices.FindAsync(id);
             if (notice is null) return null;
 

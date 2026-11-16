@@ -167,6 +167,20 @@ public sealed class SourceInfoService(IConfiguration configuration)
         });
     }
 
+    /// <summary>훑기가 뿌리로 쓸 수 있는 경로 전부. 상세는 갈래와 무관하게 경로로 쓰일 수 있어(GetUrlPattern 의 마지막 대안) 함께 담는다.</summary>
+    public async Task<List<string>> ScanRootsAsync()
+    {
+        using var db = Open();
+
+        var rows = await db.QueryAsync<string>("""
+            SELECT src_path FROM projmng.dev_srcinfo WHERE COALESCE(src_path, '') <> ''
+            UNION
+            SELECT url_pattern FROM projmng.dev_srcinfo_dtl WHERE COALESCE(url_pattern, '') <> ''
+            """);
+
+        return [.. rows];
+    }
+
     public async Task<bool> DeleteDetailAsync(int srcDtlRid)
     {
         using var db = Open();

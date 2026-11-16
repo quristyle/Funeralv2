@@ -11,6 +11,9 @@ namespace NotificationServer.Endpoints;
 /// 받는 사람은 부르는 쪽이 정하되 toUser·toRole 은 여기서 scom 을 보고 푼다.</summary>
 public static class EmailEndpoints
 {
+    /// <summary>메일 보내기 화면 밖의 사람이 한 번에 보낼 수 있는 계정 수. 포털 NotifySender.MaxRecipients 와 같다.</summary>
+    private const int MaxUserRecipients = 50;
+
     public static void MapEmailEndpoints(this IEndpointRouteBuilder app)
     {
         var group = app.MapGroup("/emails").WithTags("Emails");
@@ -26,9 +29,28 @@ public static class EmailEndpoints
             [FromServices] INotificationPolicyService policies,
             [FromServices] IAccountEmailResolver addresses,
             [FromServices] ILoggerFactory loggerFactory,
+            [FromServices] MenuViewAccess access,
+            HttpContext http,
             CancellationToken ct) =>
         {
             if (user is null) return Results.Unauthorized();
+
+            // 주소(to)·역할(toRole)을 받으면 아무에게나 보내는 중계가 된다. 메일 보내기 화면 밖의 사람은 계정 아이디(toUser)로만 보낸다(생일 축하 창).
+            var limited = !await CallerAccess.CanUseScreenAsync(user, http, access, ct, CallerAccess.MailSendScreen);
+            if (limited)
+            {
+                var userCount = (request.ToUser ?? string.Empty)
+                    .Split([',', ';'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .Count();
+
+                if (!string.IsNullOrWhiteSpace(request.To) || !string.IsNullOrWhiteSpace(request.ToRole)
+                    || userCount == 0 || userCount > MaxUserRecipients)
+                {
+                    return CallerAccess.Forbidden(
+                        $"메일 주소나 역할로 보낼 권한이 없습니다. 계정 아이디로 {MaxUserRecipients}명까지만 보낼 수 있습니다.");
+                }
+            }
 
             // ── 받는 사람을 **안 적어도 되는 부름이 있다** ──────
             // 받는 역할을 알림관리가 정하는 이벤트는 역할을 안 적어도 된다. 정책으로 푼 뒤에도 0명이면 400 으로 까닭을 적는다.
@@ -76,6 +98,12 @@ public static class EmailEndpoints
 
                 return Results.Ok(ApiResponse<bool>.Ok(false,
                     "알림관리에서 이 이벤트를 꺼 두어 보내지 않았습니다."));
+            }
+
+            // 역할 전원에게 가는 이벤트를 고르면 toUser 만 적어도 방송이 된다.
+            if (limited && decision.TargetsRoles)
+            {
+                return CallerAccess.Forbidden("역할 전원에게 가는 알림을 보낼 권한이 없습니다.");
             }
 
             // 받는 사람을 모은다 — 직접 지정(to) + 역할(toRole) 해석

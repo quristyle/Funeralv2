@@ -13,7 +13,9 @@ public static class AuthLinkEndpoints {
     var group = app.MapGroup("/api/auth-links").WithTags("AuthLinks").RequireAuthorization();
 
     // 등록된 매핑 목록을 반환한다.
-    group.MapGet("/", (AppDbContext db) => ApiResponseBuilder.CreateAsync(async () => {
+    group.MapGet("/", (AppDbContext db, HttpContext http) => ApiResponseBuilder.CreateAsync(async () => {
+      http.GetHelpdeskPrincipal().RequireAdmin();
+
       var links = await db.AuthUserLinks.AsNoTracking()
           .OrderBy(l => l.AuthUserId)
           .ToListAsync();
@@ -74,6 +76,9 @@ public static class AuthLinkEndpoints {
     // 매핑을 추가하거나 덮어쓴다.
     group.MapPost("/", (AppDbContext db, IFuneralAccountLinkService linkService, AuthLinkCreateDto dto, HttpContext http) =>
         ApiResponseBuilder.CreateAsync(async () => {
+          // 연결을 바꾸면 그 포털 계정이 다른 사람의 헬프데스크 레코드로 행세하게 된다.
+          http.GetHelpdeskPrincipal().RequireAdmin();
+
           var userType = dto.UserType?.ToLowerInvariant();
           if (userType is not ("admin" or "customer")) {
             throw new InvalidOperationException("userType 은 admin 또는 customer 여야 합니다.");
@@ -105,8 +110,10 @@ public static class AuthLinkEndpoints {
         }, "계정 연결이 저장되었습니다.", 201));
 
     // 매핑을 제거한다.
-    group.MapDelete("/{id:int}", (AppDbContext db, IFuneralAccountLinkService linkService, int id) =>
+    group.MapDelete("/{id:int}", (AppDbContext db, IFuneralAccountLinkService linkService, int id, HttpContext http) =>
         ApiResponseBuilder.CreateAsync(async () => {
+          http.GetHelpdeskPrincipal().RequireAdmin();
+
           var link = await db.AuthUserLinks.FirstOrDefaultAsync(l => l.Id == id);
           if (link is null) return null;
 

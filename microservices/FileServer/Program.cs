@@ -158,6 +158,13 @@ app.UseSerilogRequestLogging();
 app.UseHttpsRedirection();
 app.UseCors("AllowAll");
 
+// 올린 파일을 브라우저가 종류를 짐작해 HTML·스크립트로 실행하지 못하게 한다.
+app.Use((ctx, next) =>
+{
+    ctx.Response.Headers["X-Content-Type-Options"] = "nosniff";
+    return next(ctx);
+});
+
 // ============================================================
 // 9. API 엔드포인트 등록
 // ============================================================

@@ -51,6 +51,7 @@ public static class WeatherStandardEndpoints
             await db.SaveChangesAsync();
             return Results.Created($"/weather/standards/{standard.Id}", standard);
         })
+        .RequireLifeEnvAdmin()
         .WithName("CreateWeatherStandard")
         .WithSummary("날씨 기준 생성");
 
@@ -80,6 +81,7 @@ public static class WeatherStandardEndpoints
             await db.SaveChangesAsync();
             return Results.Ok(standard);
         })
+        .RequireLifeEnvAdmin()
         .WithName("UpdateWeatherStandard")
         .WithSummary("날씨 기준 수정");
 
@@ -96,6 +98,7 @@ public static class WeatherStandardEndpoints
             await db.SaveChangesAsync();
             return Results.NoContent();
         })
+        .RequireLifeEnvAdmin()
         .WithName("DeleteWeatherStandard")
         .WithSummary("날씨 기준 삭제");
     }

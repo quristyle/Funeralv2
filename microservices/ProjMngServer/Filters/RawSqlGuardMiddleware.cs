@@ -43,15 +43,7 @@ public class RawSqlGuardMiddleware {
 
     var userId = context.Request.Headers["X-User-Id"].ToString();
 
-        // 역할은 여러 개일 수 있다. 게이트웨이가 X-User-Roles 에 전부 실어 보내고,
-        // X-User-Role 에는 첫 번째만 담으므로 반드시 전체 목록을 읽는다.
-    var roles = context.Request.Headers["X-User-Roles"].ToString()
-                       .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-
-    if (roles.Length == 0) {
-      var single = context.Request.Headers["X-User-Role"].ToString();
-      roles = string.IsNullOrWhiteSpace(single) ? Array.Empty<string>() : new[] { single };
-    }
+    var roles = PortalRoles.RolesOf(context.Request);
 
     // 게이트웨이를 지나지 않은 직접 호출은 신원이 없다. 개발 편의를 위해 통과시키되 기록은 남긴다.
     if (string.IsNullOrEmpty(userId)) {

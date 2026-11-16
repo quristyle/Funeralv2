@@ -2,6 +2,7 @@ using HelpDeskServer.Models;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using HelpDeskServer.Data;
+using HelpDeskServer.Services;
 
 namespace HelpDeskServer.Endpoints;
 
@@ -13,25 +14,32 @@ public static class AttachmentEndpoints
     {
         var group = routes.MapGroup("/api/attachments");
 
-        group.MapGet("/", (AppDbContext db) => ApiResponseBuilder.CreateAsync(
-            () => db.Attachments.ToListAsync()
-        ));
-
-        group.MapGet("/{id}", (AppDbContext db, int id) => ApiResponseBuilder.CreateAsync(
-            () => db.Attachments.FirstOrDefaultAsync(a => a.Id == id)
-        ));
-
-        group.MapPost("/", (AppDbContext db, Attachment attachment) => ApiResponseBuilder.CreateAsync(async () =>
+        // 목록·단건은 저장 경로까지 내보내므로 관리자만 본다.
+        // 첨부 행을 직접 만드는 POST 는 두지 않는다 — 경로를 받아 적으면 내려받기가 서버의 아무 파일이나 읽는다. 첨부는 요청·댓글 등록이 만든다.
+        group.MapGet("/", (AppDbContext db, HttpContext http) => ApiResponseBuilder.CreateAsync(async () =>
         {
-            db.Attachments.Add(attachment);
-            await db.SaveChangesAsync();
-            return attachment;
-        }, "Attachment created successfully.", 201));
+            http.GetHelpdeskPrincipal().RequireAdmin();
+            return await db.Attachments.ToListAsync();
+        }));
 
-        group.MapDelete("/{id}", (AppDbContext db, int id) => ApiResponseBuilder.CreateAsync(async () =>
+        group.MapGet("/{id}", (AppDbContext db, int id, HttpContext http) => ApiResponseBuilder.CreateAsync(async () =>
+        {
+            http.GetHelpdeskPrincipal().RequireAdmin();
+            return await db.Attachments.FirstOrDefaultAsync(a => a.Id == id);
+        }));
+
+        group.MapDelete("/{id}", (AppDbContext db, int id, HttpContext http) => ApiResponseBuilder.CreateAsync(async () =>
         {
             var attachment = await db.Attachments.FindAsync(id);
             if (attachment is null) return null;
+
+            var me = http.GetHelpdeskPrincipal();
+            var isUploader = !string.IsNullOrWhiteSpace(me.JsiniUserId) &&
+                string.Equals(attachment.CreatedBy, me.JsiniUserId, StringComparison.OrdinalIgnoreCase);
+            if (!me.IsAdmin && !isUploader)
+            {
+                throw new UnauthorizedAccessException("본인이 올린 첨부만 삭제할 수 있습니다.");
+            }
 
             db.Attachments.Remove(attachment);
             await db.SaveChangesAsync();
@@ -69,9 +77,13 @@ public static class AttachmentEndpoints
                 return Results.NotFound("File not found.");
             }
 
-            var filePath = Path.Combine(attachment.FilePath, attachment.StoredFileName);
+            // 저장 폴더 밖을 가리키는 행(../, 절대경로 파일명)은 내주지 않는다.
+            var baseDir = Path.GetFullPath(
+                Environment.GetEnvironmentVariable("FileStorage_BasePath") ?? "/home/lee/jinAttachment");
+            var basePrefix = Path.EndsInDirectorySeparator(baseDir) ? baseDir : baseDir + Path.DirectorySeparatorChar;
+            var filePath = Path.GetFullPath(Path.Combine(attachment.FilePath, attachment.StoredFileName));
 
-            if (!File.Exists(filePath))
+            if (!filePath.StartsWith(basePrefix, StringComparison.Ordinal) || !File.Exists(filePath))
             {
                 return Results.NotFound("File not found.");
             }

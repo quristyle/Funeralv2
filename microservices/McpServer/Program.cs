@@ -12,7 +12,9 @@ builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, relo
 builder.Host.UseSerilog((ctx, cfg) => cfg.ReadFrom.Configuration(ctx.Configuration));
 
 builder.Services.AddHttpClient<WebSearchService>();
-builder.Services.AddHttpClient<WebFetchService>();
+// 검색 뒷단(SearXNG 는 내부망일 수 있다)은 거르지 않고, 모델이 주소를 고르는 본문 가져오기만 거른다.
+builder.Services.AddHttpClient<WebFetchService>()
+    .ConfigurePrimaryHttpMessageHandler(OutboundGuard.CreateHandler);
 
 // MCP 서버. 도구는 [McpServerToolType] 이 붙은 클래스를 훑어 찾는다 —
 // 도구를 더할 때 여기를 고칠 일이 없다.

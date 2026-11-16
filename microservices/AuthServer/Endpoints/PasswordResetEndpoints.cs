@@ -79,7 +79,7 @@ public static class PasswordResetEndpoints
         var forwarded = http.Request.Headers["X-Forwarded-For"].FirstOrDefault();
 
         var value = !string.IsNullOrWhiteSpace(forwarded)
-            ? forwarded.Split(',')[0].Trim()
+            ? forwarded.Split(',')[^1].Trim()
             : http.Connection.RemoteIpAddress?.ToString();
 
         return value is null || value.Length <= 100 ? value : value[..100];

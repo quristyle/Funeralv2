@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using JSini.Shared.DTOs;
 using Microsoft.AspNetCore.Mvc;
 using ProjMngServer.Models;
@@ -224,7 +226,12 @@ public sealed class AiRunnerController(
                 message: "실행기 토큰이 설정돼 있지 않습니다.", code: "NO_RUNNER_TOKEN"));
         }
 
-        return RunToken == RunnerToken
+        // 길이가 달라도 걸리는 시간이 같도록 해시끼리 견준다.
+        var same = CryptographicOperations.FixedTimeEquals(
+            SHA256.HashData(Encoding.UTF8.GetBytes(RunToken ?? string.Empty)),
+            SHA256.HashData(Encoding.UTF8.GetBytes(RunnerToken)));
+
+        return same
             ? null
             : Unauthorized(ApiResponse<object>.Fail(message: "토큰이 맞지 않습니다.", code: "BAD_TOKEN"));
     }

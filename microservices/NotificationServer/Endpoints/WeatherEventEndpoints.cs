@@ -16,6 +16,7 @@ public static class WeatherEventEndpoints
         app.MapPost("/weather-event", async (
             [FromBody] WeatherEventDto request,
             UserContext? user,
+            HttpContext http,
             [FromServices] AppDbContext db,
             [FromServices] IPushSender push,
             [FromServices] IKakaoAlimtalkSender kakao,
@@ -24,6 +25,7 @@ public static class WeatherEventEndpoints
         {
             var logger = loggerFactory.CreateLogger("WeatherEvent");
             if (user is null) return Results.Unauthorized();
+            if (!CallerAccess.IsServiceOrAdmin(user, http)) return CallerAccess.Forbidden();
 
             if (string.IsNullOrWhiteSpace(request.StandardName))
             {
@@ -78,6 +80,7 @@ public static class WeatherEventEndpoints
         app.MapPost("/weather-warning", async (
             [FromBody] WeatherWarningEventDto request,
             UserContext? user,
+            HttpContext http,
             [FromServices] AppDbContext db,
             [FromServices] IPushSender push,
             [FromServices] ILoggerFactory loggerFactory,
@@ -85,6 +88,7 @@ public static class WeatherEventEndpoints
         {
             var logger = loggerFactory.CreateLogger("WeatherWarning");
             if (user is null) return Results.Unauthorized();
+            if (!CallerAccess.IsServiceOrAdmin(user, http)) return CallerAccess.Forbidden();
 
             if (string.IsNullOrWhiteSpace(request.Title) && string.IsNullOrWhiteSpace(request.Summary))
             {
@@ -152,6 +156,7 @@ public static class WeatherEventEndpoints
         app.MapPost("/weather-local", async (
             [FromBody] SendLocalWeatherDto request,
             UserContext? user,
+            HttpContext http,
             [FromServices] IPushSender push,
             [FromServices] INotificationPreferenceService prefs,
             [FromServices] ILoggerFactory loggerFactory,
@@ -159,6 +164,7 @@ public static class WeatherEventEndpoints
         {
             var logger = loggerFactory.CreateLogger("LocalWeather");
             if (user is null) return Results.Unauthorized();
+            if (!CallerAccess.IsServiceOrAdmin(user, http)) return CallerAccess.Forbidden();
 
             if (string.IsNullOrWhiteSpace(request.OwnerKey))
             {

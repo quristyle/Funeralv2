@@ -99,6 +99,7 @@ public static class WeatherEventEndpoints
             await db.SaveChangesAsync();
             return Results.NoContent();
         })
+        .RequireLifeEnvAdmin()
         .WithName("DeleteWeatherEventRecord")
         .WithSummary("날씨 기준 부합 기록 삭제");
     }

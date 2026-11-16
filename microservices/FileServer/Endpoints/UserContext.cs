@@ -10,6 +10,13 @@ public class UserContext
 {
     public string UserId { get; set; } = string.Empty;
     public string Role { get; set; } = string.Empty;
+    public string[] Roles { get; set; } = [];
+
+    private static readonly string[] AdminRoles = ["ADMINISTRATOR", "SYSTEM_ADMINISTRATOR"];
+
+    public bool IsAdmin => AdminRoles.Any(a =>
+        string.Equals(Role, a, StringComparison.OrdinalIgnoreCase)
+        || Roles.Contains(a, StringComparer.OrdinalIgnoreCase));
 
     /// <summary>
     /// Minimal API 매개변수 바인딩 로직
@@ -18,6 +25,7 @@ public class UserContext
     {
         var userId = context.Request.Headers["X-User-Id"].ToString();
         var role = context.Request.Headers["X-User-Role"].ToString();
+        var roles = context.Request.Headers["X-User-Roles"].ToString();
 
         // 사용자 ID가 없는 경우 null 반환 (엔드포인트에서 체크 가능)
         if (string.IsNullOrEmpty(userId))
@@ -28,7 +36,10 @@ public class UserContext
         var result = new UserContext
         {
             UserId = userId,
-            Role = role
+            Role = role,
+            Roles = string.IsNullOrEmpty(roles)
+                ? []
+                : roles.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
         };
 
         return ValueTask.FromResult<UserContext?>(result);

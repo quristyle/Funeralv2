@@ -30,9 +30,9 @@ public sealed class ClientIpHandler(IHttpContextAccessor accessor) : DelegatingH
 
         if (!string.IsNullOrWhiteSpace(forwarded))
         {
-            // 첫 값이 원래 클라이언트다. 뒤로 갈수록 중간 프록시다.
-            var first = forwarded.Split(',')[0].Trim();
-            if (first.Length > 0) return Truncate(first);
+            // nginx 가 실제 접속 주소를 맨 뒤에 덧붙인다. 앞쪽 값은 방문자가 지어낼 수 있다.
+            var last = forwarded.Split(',')[^1].Trim();
+            if (last.Length > 0) return Truncate(last);
         }
 
         var remote = http.Connection.RemoteIpAddress?.ToString();

@@ -29,7 +29,7 @@ public sealed class ClientAddress
         }
     }
 
-/// <summary>지금 요청을 보낸 클라이언트의 주소. X-Forwarded-For 의 첫 값이 원래 클라이언트다. 헤더가 없으면(개발 장비) 연결 주소를 쓴다. 위조할 수 있다.</summary>
+/// <summary>지금 요청을 보낸 클라이언트의 주소. X-Forwarded-For 의 마지막 값(nginx 가 덧붙인 접속 주소)이다. 앞쪽 값은 클라이언트가 지어낼 수 있다. 헤더가 없으면(개발 장비) 연결 주소를 쓴다.</summary>
     public static string? From(HttpContext? http)
     {
         if (http is null)
@@ -41,11 +41,11 @@ public sealed class ClientAddress
 
         if (!string.IsNullOrWhiteSpace(forwarded))
         {
-            var first = forwarded.Split(',')[0].Trim();
+            var last = forwarded.Split(',')[^1].Trim();
 
-            if (first.Length > 0)
+            if (last.Length > 0)
             {
-                return Truncate(first);
+                return Truncate(last);
             }
         }
 

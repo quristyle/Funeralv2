@@ -68,6 +68,33 @@ public class FileService : IFileService
         return string.IsNullOrEmpty(safeFolder) ? "basecom" : safeFolder.ToLower();
     }
 
+    // 사용자가 보낸 bizType 은 저장 폴더가 되고, funeralv2/ 아래는 익명도 읽는다(PublicFileAccessFilter).
+    // 그래서 하위 폴더는 서버가 아는 이름만 받고, 나머지는 한 마디 폴더 이름만 받는다.
+    private static readonly HashSet<string> KnownNestedBizTypes = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "funeralv2/building",
+    };
+
+    private static readonly System.Text.RegularExpressions.Regex SingleBizFolder =
+        new(@"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$", System.Text.RegularExpressions.RegexOptions.CultureInvariant);
+
+    /// <summary>업로드 요청의 bizType 을 검사한다. 받을 수 없는 값이면 <see cref="ArgumentException"/>.</summary>
+    public static string? ValidateUploadBizType(string? bizType)
+    {
+        if (string.IsNullOrWhiteSpace(bizType))
+        {
+            return bizType;
+        }
+
+        var trimmed = bizType.Trim();
+        if (KnownNestedBizTypes.Contains(trimmed) || SingleBizFolder.IsMatch(trimmed))
+        {
+            return trimmed;
+        }
+
+        throw new ArgumentException($"허용되지 않는 업무 구분(bizType)입니다: {trimmed}");
+    }
+
     private string GetPath(string? bizType, string folderName)
     {
         var bizFolder = GetBizFolder(bizType);
@@ -86,6 +113,8 @@ public class FileService : IFileService
         {
             throw new ArgumentException("파일이 유효하지 않습니다.");
         }
+
+        bizType = ValidateUploadBizType(bizType);
 
         var fileId = Guid.NewGuid();
         var extension = Path.GetExtension(file.FileName);
@@ -1174,13 +1203,12 @@ private async Task NotifyStatusAsync(
             throw new FileNotFoundException("서버 물리 스토리지에 원본 파일이 존재하지 않습니다.");
         }
 
-        using (var image = await Image.LoadAsync(originalPath))
+        var info = await IdentifyBoundedAsync(originalPath);
+        var (outW, outH) = FitWithin(info.Width, info.Height, width, height);
+
+        using (var image = await Image.LoadAsync(BoundedDecoder, originalPath))
         {
-            image.Mutate(x => x.Resize(new ResizeOptions
-            {
-                Size = new Size(width, height),
-                Mode = ResizeMode.Max
-            }));
+            image.Mutate(x => x.Resize(outW, outH));
 
             // WebP 포맷으로 저장
             await image.SaveAsWebpAsync(targetFilePath);
@@ -1188,6 +1216,31 @@ private async Task NotifyStatusAsync(
 
         var stream = new FileStream(targetFilePath, FileMode.Open, FileAccess.Read);
         return (stream, "image/webp");
+    }
+
+    /// <summary>임의 크기 요청의 한 변 상한.</summary>
+    public const int MaxResizeDimension = 2000;
+
+    // 작은 파일이 거대한 그림으로 풀리는 것(압축 폭탄)을 머리만 읽고 막는다.
+    private const long MaxDecodePixels = 50_000_000;
+
+    private static readonly SixLabors.ImageSharp.Formats.DecoderOptions BoundedDecoder = new() { MaxFrames = 100 };
+
+    private static async Task<ImageInfo> IdentifyBoundedAsync(string path)
+    {
+        var info = await Image.IdentifyAsync(BoundedDecoder, path);
+        if ((long)info.Width * info.Height > MaxDecodePixels)
+        {
+            throw new InvalidOperationException("이미지가 너무 커서 변환할 수 없습니다.");
+        }
+        return info;
+    }
+
+    /// <summary>원본 비율을 지키며 상자 안에 맞춘 크기. 원본보다 키우지 않는다.</summary>
+    private static (int Width, int Height) FitWithin(int srcW, int srcH, int boxW, int boxH)
+    {
+        var scale = Math.Min(1.0, Math.Min((double)boxW / srcW, (double)boxH / srcH));
+        return (Math.Max(1, (int)Math.Round(srcW * scale)), Math.Max(1, (int)Math.Round(srcH * scale)));
     }
 
     /// <inheritdoc />
@@ -1216,8 +1269,11 @@ private async Task NotifyStatusAsync(
         var bizType = pathSegments.Length > 0 ? pathSegments[0] : "basecom";
         var cacheFolderPath = GetPath(bizType, "Cache");
 
-        // 임의 크기도 WebP 캐시로 관리
-        var cacheFileName = $"{id}_{width}_{height}.webp";
+        // 캐시 이름은 요청 값이 아니라 실제로 나올 크기로 짓는다 — 요청 값으로 지으면 같은 그림이 width·height 조합마다 쌓인다.
+        var info = await IdentifyBoundedAsync(originalPath);
+        var (outW, outH) = FitWithin(info.Width, info.Height, width, height);
+
+        var cacheFileName = $"{id}_{outW}_{outH}.webp";
         var cachePath = Path.Combine(cacheFolderPath, cacheFileName);
 
         // 캐시가 있으면 즉시 반환
@@ -1228,13 +1284,9 @@ private async Task NotifyStatusAsync(
         }
 
         // 없으면 WebP로 리사이즈 및 캐싱
-        using (var image = await Image.LoadAsync(originalPath))
+        using (var image = await Image.LoadAsync(BoundedDecoder, originalPath))
         {
-            image.Mutate(x => x.Resize(new ResizeOptions
-            {
-                Size = new Size(width, height),
-                Mode = ResizeMode.Max
-            }));
+            image.Mutate(x => x.Resize(outW, outH));
 
             await image.SaveAsWebpAsync(cachePath);
         }
@@ -1309,6 +1361,13 @@ private async Task NotifyStatusAsync(
     }
 
     /// <inheritdoc />
+    public async Task<FileGroup?> GetGroupAsync(Guid groupId)
+    {
+        return await _dbContext.FileGroups
+            .FirstOrDefaultAsync(x => x.Id == groupId && !x.IsDeleted);
+    }
+
+    /// <inheritdoc />
     public async Task<bool> SetPublicAsync(Guid id, bool isPublic, string? userId)
     {
         var metadata = await _dbContext.FileMetadatas
@@ -1334,6 +1393,8 @@ private async Task NotifyStatusAsync(
         {
             throw new ArgumentException("업로드할 파일이 존재하지 않습니다.");
         }
+
+        bizType = ValidateUploadBizType(bizType) ?? "basecom";
 
         // 1. 그룹 ID가 제공되지 않은 경우 생성 및 저장
         FileGroup? group = null;

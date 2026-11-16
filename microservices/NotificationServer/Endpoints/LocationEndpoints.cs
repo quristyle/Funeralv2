@@ -24,11 +24,17 @@ public static class LocationEndpoints
         // 위치를 허용한 계정만 낸다(좌표 없이 실으면 지도는 못 찍고 목록만 길어진다).
         group.MapGet("", async (
             UserContext? user,
+            HttpContext http,
             [FromServices] AppDbContext db,
             [FromServices] INoteRecipientResolver resolver,
+            [FromServices] MenuViewAccess access,
             CancellationToken ct = default) =>
         {
             if (user is null) return Results.Unauthorized();
+            if (!await CallerAccess.CanUseScreenAsync(user, http, access, ct, CallerAccess.LocationMapScreen))
+            {
+                return CallerAccess.Forbidden("위치 지도를 볼 권한이 없습니다.");
+            }
 
             var rows = await db.NotificationPreferences
                 .AsNoTracking()

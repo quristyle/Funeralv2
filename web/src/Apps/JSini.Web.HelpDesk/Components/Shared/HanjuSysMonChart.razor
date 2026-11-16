@@ -89,7 +89,7 @@
                   y2="@((BottomY + 4).ToString("0.#", CultureInfo.InvariantCulture))"
                   stroke="var(--jsini-border, #e5e7eb)"
                   stroke-width="1" />
-            @((MarkupString)$"<text x=\"{x.ToString("0.#", CultureInfo.InvariantCulture)}\" y=\"{(BottomY + 16).ToString("0.#", CultureInfo.InvariantCulture)}\" font-size=\"10\" font-family=\"system-ui, -apple-system, sans-serif\" fill=\"var(--jsini-text-muted, #888)\" text-anchor=\"middle\">{Labels[idx]}</text>")
+            @((MarkupString)$"<text x=\"{x.ToString("0.#", CultureInfo.InvariantCulture)}\" y=\"{(BottomY + 16).ToString("0.#", CultureInfo.InvariantCulture)}\" font-size=\"10\" font-family=\"system-ui, -apple-system, sans-serif\" fill=\"var(--jsini-text-muted, #888)\" text-anchor=\"middle\">{System.Net.WebUtility.HtmlEncode(Labels[idx])}</text>")
         }
 
         <!-- 시리즈 곡선 및 면적 -->

@@ -124,8 +124,8 @@ public sealed class LoginCompletion(
         var forwarded = http.Request.Headers["X-Forwarded-For"].FirstOrDefault();
         if (!string.IsNullOrWhiteSpace(forwarded))
         {
-            var first = forwarded.Split(',')[0].Trim();
-            if (first.Length > 0) return Truncate(first);
+            var last = forwarded.Split(',')[^1].Trim();
+            if (last.Length > 0) return Truncate(last);
         }
 
         return Truncate(http.Connection.RemoteIpAddress?.ToString());

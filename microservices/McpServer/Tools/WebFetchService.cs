@@ -7,11 +7,13 @@ namespace McpServer.Tools;
 public sealed record FetchedPage(string Url, string Title, string Text, bool Truncated);
 
 /// <summary>주소 하나를 열어 사람이 읽는 본문만 뽑는다. HTML 을 그대로 주면 메뉴·광고·스크립트가 본문의 몇 배라 문맥을 먹으므로 script·style·nav 를 걷는다.
-/// 아무 주소나 열지 않는다 — 지어낸 주소나 검색 결과의 내부망 주소를 긁지 않도록 http/https 바깥 주소만 연다.</summary>
+/// 모델이 고른 주소를 그대로 열므로 내부망·장비 자신은 <see cref="OutboundGuard"/> 가 막는다 — 이 클라이언트는 그 처리기로만 만든다(Program.cs).</summary>
 public sealed class WebFetchService
 {
     private static readonly string[] Drop =
         ["script", "style", "nav", "header", "footer", "aside", "noscript", "iframe", "svg", "form"];
+
+    private const int MaxRedirects = 5;
 
     private readonly HttpClient _http;
 
@@ -24,16 +26,58 @@ public sealed class WebFetchService
 
     public async Task<FetchedPage> FetchAsync(string url, int maxChars, CancellationToken ct)
     {
-        if (Reject(url) is { } why)
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var target))
         {
-            return new FetchedPage(url, string.Empty, $"({why})", false);
+            return new FetchedPage(url, string.Empty, $"(http/https 주소가 아닙니다: {url})", false);
         }
 
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         cts.CancelAfter(TimeSpan.FromSeconds(20));
 
-        using var res = await _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cts.Token);
+        // 리다이렉트를 손으로 따라가며 매 홉 주소를 다시 거른다. IP 는 접속마다 OutboundGuard 가 본다.
+        HttpResponseMessage? res = null;
+        try
+        {
+            for (var hop = 0; ; hop++)
+            {
+                if (OutboundGuard.RejectUrl(target) is { } why)
+                {
+                    return new FetchedPage(url, string.Empty, $"({why})", false);
+                }
 
+                try
+                {
+                    res = await _http.GetAsync(target, HttpCompletionOption.ResponseHeadersRead, cts.Token);
+                }
+                catch (HttpRequestException ex)
+                {
+                    return new FetchedPage(url, string.Empty, $"(이 쪽을 열지 못했습니다: {(ex.InnerException as HttpRequestException ?? ex).Message})", false);
+                }
+
+                var code = (int)res.StatusCode;
+                if (code is < 300 or > 399 || res.Headers.Location is null) break;
+
+                if (hop >= MaxRedirects)
+                {
+                    return new FetchedPage(url, string.Empty, "(리다이렉트가 너무 많습니다)", false);
+                }
+
+                var loc = res.Headers.Location;
+                target = loc.IsAbsoluteUri ? loc : new Uri(target, loc);
+                res.Dispose();
+                res = null;
+            }
+
+            return await ReadAsync(url, res!, maxChars, cts.Token);
+        }
+        finally
+        {
+            res?.Dispose();
+        }
+    }
+
+    private static async Task<FetchedPage> ReadAsync(string url, HttpResponseMessage res, int maxChars, CancellationToken ct)
+    {
         // 던지지 않는다 — 404·403 은 흔하고, 예외로 끊으면 대화가 통째로 죽는다. 사실을 글로 돌려주면 모델이 다른 주소를 열거나 못 읽었다고 답한다.
         if (!res.IsSuccessStatusCode)
         {
@@ -49,7 +93,7 @@ public sealed class WebFetchService
             return new FetchedPage(url, string.Empty, $"(글자가 아닌 내용입니다: {type})", false);
         }
 
-        var html = await res.Content.ReadAsStringAsync(cts.Token);
+        var html = await res.Content.ReadAsStringAsync(ct);
 
         var doc = new HtmlDocument();
         doc.LoadHtml(html);
@@ -77,26 +121,5 @@ public sealed class WebFetchService
         if (cut) text = text[..maxChars];
 
         return new FetchedPage(url, title, text, cut);
-    }
-
-    /// <summary>열면 안 되는 주소면 까닭을 돌려준다. 괜찮으면 null. 바깥 주소만 연다.</summary>
-    private static string? Reject(string url)
-    {
-        if (!Uri.TryCreate(url, UriKind.Absolute, out var u)
-            || (u.Scheme != Uri.UriSchemeHttp && u.Scheme != Uri.UriSchemeHttps))
-        {
-            return $"http/https 주소가 아닙니다: {url}";
-        }
-
-        var host = u.Host.ToLowerInvariant();
-        if (host is "localhost" or "127.0.0.1" or "::1"
-            || host.EndsWith(".local", StringComparison.Ordinal)
-            || host.EndsWith(".internal", StringComparison.Ordinal)
-            || Regex.IsMatch(host, @"^(10\.|127\.|192\.168\.|169\.254\.|172\.(1[6-9]|2\d|3[01])\.)"))
-        {
-            return $"내부망 주소는 열지 않습니다: {host}";
-        }
-
-        return null;
     }
 }

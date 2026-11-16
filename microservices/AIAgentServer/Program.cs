@@ -219,6 +219,22 @@ app.UseGlobalExceptionHandler();
 app.UseHttpsRedirection();
 app.UseCors("AllowAll");
 
+// 신원 없는 호출을 막는다. 게이트웨이는 바깥이 보낸 X-User-* 를 지우고 검증한 토큰에서만 다시 싣고,
+// 서버 대 서버 호출(프로젝트관리 AI_TASK 등)도 X-User-Id 를 싣는다 — 비어 있으면 익명 인터넷 요청이다.
+app.Use(async (context, next) =>
+{
+    var path = context.Request.Path;
+    if (path.StartsWithSegments("/health", StringComparison.OrdinalIgnoreCase)
+        || !string.IsNullOrWhiteSpace(context.Request.Headers["X-User-Id"].ToString()))
+    {
+        await next();
+        return;
+    }
+
+    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+    await context.Response.WriteAsJsonAsync(JSini.Shared.DTOs.ApiResponse<object>.Fail("로그인이 필요합니다.", "C401"));
+});
+
 app.MapAIEndpoints();
 app.MapRagLibraryEndpoints();
 app.MapAssistantEndpoints();

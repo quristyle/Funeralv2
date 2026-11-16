@@ -51,6 +51,9 @@ public interface IFileService
     /// </summary>
     Task<FileMetadata?> GetMetadataAsync(Guid id);
 
+    /// <summary>삭제되지 않은 파일 그룹 하나. 없으면 null.</summary>
+    Task<FileServer.Entities.FileGroup?> GetGroupAsync(Guid groupId);
+
     /// <summary>
     /// 익명 열람 허용 여부(<c>is_public</c>) 를 바꾼다.
     /// 대상 파일이 없으면 false 를 돌려준다.

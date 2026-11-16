@@ -165,8 +165,8 @@ public class AppDbContext : DbContext {
         // X-Forwarded-For 헤더 확인 (가장 일반적인 프록시 헤더)
         var forwardedFor = httpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault();
         if (!string.IsNullOrEmpty(forwardedFor)) {
-          // 쉼표로 구분된 IP 목록 중 첫 번째 IP를 사용
-          remoteIpAddress = forwardedFor.Split(',').FirstOrDefault()?.Trim() ?? "";
+          // nginx 가 실제 접속 주소를 맨 뒤에 덧붙인다. 앞쪽 값은 클라이언트가 지어낼 수 있다.
+          remoteIpAddress = forwardedFor.Split(',').LastOrDefault()?.Trim() ?? "";
         }
 
         // 프록시 헤더가 없는 경우 직접 연결된 IP 주소 사용

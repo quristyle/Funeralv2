@@ -1,12 +1,10 @@
-﻿
+﻿using System.Data.Common;
+using Microsoft.Data.SqlClient;
+using Npgsql;
 
 namespace ProjModel;
 
 public class DbInfo {
-
-  public const string mssqlConstrFormat = @"Server={0},{1};Database={2};User Id={3};Password={4};{5}";
-  public const string postgresqlConstrFormat = @"Host={0};Port={1};Database={2};Username={3};Password={4};SearchPath={5};{6}";
-  public const string mysqlConstrFormat = @"Server={0},{1};Database={2};User Id={3};Password={4};{5}";
 
   public string? Db_ip { get; set; }
   public string? Db_port { get; set; }
@@ -21,22 +19,42 @@ public class DbInfo {
   public string? Proj { get; set; }
   public string? Proj_name { get; set; }
 
+  /// <summary>접속 문자열. db_cert 는 덧붙일 옵션 조각이라 먼저 읽고, 접속 대상 칸은 그 위에 덮어 조각이 호스트·계정을 바꾸지 못하게 한다.</summary>
   public string ToConnectionString() {
-    string result = string.Empty;
     switch (Db_type) {
-      case "MSSQL":
-        result = string.Format(mssqlConstrFormat, Db_ip, Db_port, Db_database, Db_id, Db_pwd, Db_cert);
-        break;
+      case "MSSQL": {
+        var b = new SqlConnectionStringBuilder(Db_cert ?? string.Empty) {
+          DataSource = string.IsNullOrWhiteSpace(Db_port) ? Db_ip ?? string.Empty : $"{Db_ip},{Db_port}",
+          InitialCatalog = Db_database ?? string.Empty,
+          UserID = Db_id ?? string.Empty,
+          Password = Db_pwd ?? string.Empty,
+        };
+        return b.ConnectionString;
+      }
       case "POSTGRESQL":
-      case "EDB":
-        result = string.Format(postgresqlConstrFormat, Db_ip, Db_port, Db_database, Db_id, Db_pwd, Db_schema, Db_cert);
-        break;
-      case "MYSQL":
-        result = string.Format(mysqlConstrFormat, Db_ip, Db_port, Db_database, Db_id, Db_pwd);
-        break;
+      case "EDB": {
+        var b = new NpgsqlConnectionStringBuilder(Db_cert ?? string.Empty) {
+          Host = Db_ip,
+          Database = Db_database,
+          Username = Db_id,
+          Password = Db_pwd,
+        };
+        if (!string.IsNullOrWhiteSpace(Db_port)) b.Port = int.Parse(Db_port);
+        if (!string.IsNullOrWhiteSpace(Db_schema)) b.SearchPath = Db_schema;
+        return b.ConnectionString;
+      }
+      case "MYSQL": {
+        var b = new DbConnectionStringBuilder {
+          ["Server"] = Db_ip ?? string.Empty,
+          ["Database"] = Db_database ?? string.Empty,
+          ["User Id"] = Db_id ?? string.Empty,
+          ["Password"] = Db_pwd ?? string.Empty,
+        };
+        if (!string.IsNullOrWhiteSpace(Db_port)) b["Port"] = Db_port;
+        return b.ConnectionString;
+      }
     }
-    return result;
-
+    return string.Empty;
   }
 
   public override string ToString() {

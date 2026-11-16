@@ -224,6 +224,9 @@ if (!string.IsNullOrWhiteSpace(jwtKey)) {
 }
 app.UseAuthorization();
 
+// 포털 사용자는 역할로 가른다. 신원 헤더가 없는 서버 간 호출은 그대로 지나간다.
+app.UseProjMngRoleGate();
+
 // 임의 SQL 실행 경로 보호. 인가 직후에 둔다.
 app.UseRawSqlGuard();
 

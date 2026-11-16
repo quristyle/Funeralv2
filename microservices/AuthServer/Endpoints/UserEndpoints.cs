@@ -189,6 +189,7 @@ public static class UserEndpoints
             [FromBody] SendEmailVerificationDto request,
             [FromServices] AppDbContext db,
             [FromServices] IEmailVerificationService emailVerification,
+            [FromServices] IWebHostEnvironment env,
             CancellationToken ct) =>
         {
             if (user is null)
@@ -212,7 +213,8 @@ public static class UserEndpoints
             {
                 Success = true,
                 Message = message,
-                DevCode = devCode
+                // 운영에서 코드를 돌려주면 메일함을 안 열고도 남의 주소를 내 것으로 인증할 수 있다.
+                DevCode = env.IsDevelopment() ? devCode : null
             }));
         })
         .WithName("SendEmailVerificationCode");

@@ -226,6 +226,9 @@ namespace HelpDeskServer.Models {
         var completionTime = DateTime.UtcNow;
         // 실제 운영 환경에서는 ex.Message 대신 일반적인 오류 메시지를 사용하고, ex는 로깅.
         var response = new ApiResponse<object>(false, $"An error occurred: {ex.Message}", null, CreateMetadata(requestTime, completionTime, stopwatch.ElapsedMilliseconds));
+        if (ex is UnauthorizedAccessException) {
+          return Results.Json(response, statusCode: StatusCodes.Status403Forbidden);
+        }
         return Results.BadRequest(response);
       }
     }

@@ -20,6 +20,7 @@ public class Customer : BaseEntity, IPasswordEnabled
     public string Photo { get; set; } = string.Empty;
 
     /// <summary>비밀번호 해시</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
     public string PasswordHash { get; set; } = string.Empty;
 
     /// <summary>비고</summary>

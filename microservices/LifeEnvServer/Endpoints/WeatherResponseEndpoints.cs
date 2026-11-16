@@ -62,6 +62,7 @@ public static class WeatherResponseEndpoints
             await db.SaveChangesAsync();
             return Results.Created($"/weather/responses/{response.Id}", response);
         })
+        .RequireLifeEnvAdmin()
         .WithName("CreateWeatherResponse")
         .WithSummary("날씨 대응 정보 생성");
 
@@ -81,6 +82,7 @@ public static class WeatherResponseEndpoints
             await db.SaveChangesAsync();
             return Results.Ok(response);
         })
+        .RequireLifeEnvAdmin()
         .WithName("UpdateWeatherResponse")
         .WithSummary("날씨 대응 정보 수정");
 
@@ -97,6 +99,7 @@ public static class WeatherResponseEndpoints
             await db.SaveChangesAsync();
             return Results.NoContent();
         })
+        .RequireLifeEnvAdmin()
         .WithName("DeleteWeatherResponse")
         .WithSummary("날씨 대응 정보 삭제");
 
@@ -120,6 +123,7 @@ public static class WeatherResponseEndpoints
             await db.SaveChangesAsync();
             return Results.Ok();
         })
+        .RequireLifeEnvAdmin()
         .WithName("ReorderWeatherResponses")
         .WithSummary("날씨 대응 정보 순서 변경");
     }

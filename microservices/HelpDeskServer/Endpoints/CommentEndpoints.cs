@@ -159,6 +159,15 @@ public static class CommentEndpoints {
         throw new InvalidOperationException("완료되거나 종료된 요청에는 댓글을 추가 작성할 수 없습니다.");
       }
 
+      // 작성자는 로그인한 사람으로 정한다. 본문 값을 믿으면 남의 이름으로 댓글이 달린다.
+      var me = http.GetHelpdeskPrincipal();
+      comment.Id = 0;
+      comment.IsDel = false;
+      comment.DeletedAt = null;
+      comment.CreatedBy = string.Empty;
+      comment.AuthorId = me.HelpdeskUserId ?? 0;
+      comment.AuthorType = me.LinkedUserType ?? (me.IsAdmin ? "admin" : "customer");
+
       db.Comments.Add(comment);
       await db.SaveChangesAsync();
 
@@ -234,9 +243,14 @@ public static class CommentEndpoints {
       return comment;
     }, "Comment created successfully.", 201));
 
-    group.MapPut("/{id}", (AppDbContext db, int id, ImprovementComment input, ILoggerFactory loggerFactory, IConfiguration configuration, IPushSubscriptionStore store, IWebPushService sender) => ApiResponseBuilder.CreateAsync(async () => {
+    group.MapPut("/{id}", (AppDbContext db, int id, ImprovementComment input, HttpContext http, ILoggerFactory loggerFactory, IConfiguration configuration, IPushSubscriptionStore store, IWebPushService sender) => ApiResponseBuilder.CreateAsync(async () => {
       var comment = await db.Comments.FindAsync(id);
       if (comment is null) return null;
+
+      var me = http.GetHelpdeskPrincipal();
+      if (!me.IsAdmin && !me.IsCommentAuthor(comment)) {
+        throw new UnauthorizedAccessException("본인이 쓴 댓글만 수정할 수 있습니다.");
+      }
 
       var request = await db.Requests.FindAsync(comment.RequestId);
       if (request != null && (request.Status == ImprovementStatus.Completed || request.Status == ImprovementStatus.UserCompleted)) {
@@ -248,19 +262,19 @@ public static class CommentEndpoints {
         comment.CommentText = updatedCommentText;
       }
 
-      comment.RequestId = input.RequestId;
-      // 아래 두 줄은 수정 시 작성자 정보가 바뀌지 않는다면 필요 없을 수 있습니다.
-      comment.AuthorType = input.AuthorType;
-      comment.AuthorId = input.AuthorId;
-
       await db.SaveChangesAsync();
 
       return comment;
     }, "Comment updated successfully."));
 
-    group.MapDelete("/{id}", (AppDbContext db, int id) => ApiResponseBuilder.CreateAsync(async () => {
+    group.MapDelete("/{id}", (AppDbContext db, int id, HttpContext http) => ApiResponseBuilder.CreateAsync(async () => {
       var comment = await db.Comments.FindAsync(id);
       if (comment is null) return null;
+
+      var me = http.GetHelpdeskPrincipal();
+      if (!me.IsAdmin && !me.IsCommentAuthor(comment)) {
+        throw new UnauthorizedAccessException("본인이 쓴 댓글만 삭제할 수 있습니다.");
+      }
 
       var request = await db.Requests.FindAsync(comment.RequestId);
       if (request != null && (request.Status == ImprovementStatus.Completed || request.Status == ImprovementStatus.UserCompleted)) {

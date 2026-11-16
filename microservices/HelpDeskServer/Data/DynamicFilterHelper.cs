@@ -24,6 +24,8 @@ namespace HelpDeskServer.Data {
 
     /// <summary>필터 → 그룹/집계 → having → 정렬 → 페이징 순서로 전체를 적용한다.</summary>
     public static IQueryable ApplyAll<T>(this IQueryable<T> query, IQueryCollection qs) {
+      RejectSensitiveReferences(qs);
+
       // 1) WHERE 필터 적용
 
       query = ApplyWhereFilters(query, qs);
@@ -540,6 +542,22 @@ namespace HelpDeskServer.Data {
       }
 
       return query;
+    }
+
+    /// <summary>민감 필드를 건드리는 질의를 통째로 거절한다. 정확한 토큰만 거르면
+    /// <c>it.admin.PasswordHash</c> 같은 식이나 orderBy·having 으로 값을 한 글자씩 캐낼 수 있다.</summary>
+    private static void RejectSensitiveReferences(IQueryCollection qs) {
+      foreach (var kv in qs) {
+        // remove 는 빼는 쪽이라 민감 필드를 적어도 해가 없다.
+        if (kv.Key.Equals("remove", StringComparison.OrdinalIgnoreCase)) continue;
+        var checkValue = IsSpecialKey(kv.Key);
+        foreach (var s in SensitiveFieldNames) {
+          if (kv.Key.Contains(s, StringComparison.OrdinalIgnoreCase) ||
+              (checkValue && kv.Value.ToString().Contains(s, StringComparison.OrdinalIgnoreCase))) {
+            throw new InvalidOperationException("허용되지 않는 필드가 질의에 포함되어 있습니다.");
+          }
+        }
+      }
     }
 
     /// <summary>특수 제어 키(다른 곳에서 처리)인지 판정한다.</summary>

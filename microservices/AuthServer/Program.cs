@@ -270,6 +270,9 @@ app.UseGlobalExceptionHandler();
 app.UseAuthentication();
 app.UseAuthorization();
 
+// /system · /server-ping 같은 관리 경로는 처리기가 신원을 안 보므로 경로 단위로 막는다.
+app.UseMiddleware<AuthServer.Services.AdminPathGuardMiddleware>();
+
 // 엔드포인트 등록
 app.MapAuthEndpoints();
 

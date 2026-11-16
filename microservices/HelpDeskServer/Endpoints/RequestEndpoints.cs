@@ -633,6 +633,15 @@ public static class RequestEndpoints {
       var req = await db.Requests.FindAsync(id);
       if (req is null) return null;
 
+      // 관리자가 아닌 사람은 자기(회사) 글을 「종료」하는 것만 된다. 접수·완료는 접수자를 박으므로 관리자 몫이다.
+      var me = http.GetHelpdeskPrincipal();
+      if (!me.IsAdmin) {
+        if (input.Status != ImprovementStatus.UserCompleted) {
+          throw new UnauthorizedAccessException("관리자 권한이 필요합니다.");
+        }
+        await me.RequireRequestAccessAsync(db, req, allowSameCompany: true, http.RequestAborted);
+      }
+
       req.Status = input.Status;
       if (input.Status == ImprovementStatus.UserCompleted) { // 사용자 완료시 에는 사용자 완료일자 반영
 
@@ -707,7 +716,9 @@ public static class RequestEndpoints {
 
 
 
-    group.MapPut("/reset/{id}", (AppDbContext db, int id, ImprovementRequest input) => ApiResponseBuilder.CreateAsync(async () => {
+    group.MapPut("/reset/{id}", (AppDbContext db, int id, ImprovementRequest input, HttpContext http) => ApiResponseBuilder.CreateAsync(async () => {
+      http.GetHelpdeskPrincipal().RequireAdmin();
+
       var req = await db.Requests.FindAsync(id);
       if (req is null) return null;
 
@@ -742,6 +753,9 @@ public static class RequestEndpoints {
         var req = await db.Requests.FindAsync(id);
         if (req is null) return null;
 
+        await httpRequest.HttpContext.GetHelpdeskPrincipal()
+            .RequireRequestAccessAsync(db, req, allowSameCompany: true, httpRequest.HttpContext.RequestAborted);
+
         if (req.Status == ImprovementStatus.Completed || req.Status == ImprovementStatus.UserCompleted) {
           throw new InvalidOperationException("완료되거나 종료된 요청은 수정할 수 없습니다.");
         }
@@ -767,7 +781,10 @@ public static class RequestEndpoints {
         if (!string.IsNullOrEmpty(deletedFilesJson)) {
           var deletedFileIds = JsonSerializer.Deserialize<List<int>>(deletedFilesJson);
           if (deletedFileIds != null && deletedFileIds.Any()) {
-            var attachmentsToDelete = await db.Attachments.Where(a => deletedFileIds.Contains(a.Id)).ToListAsync();
+            // 이 글의 첨부만 지운다. 번호만 보면 남의 글 첨부도 지워진다.
+            var attachmentsToDelete = await db.Attachments
+                .Where(a => deletedFileIds.Contains(a.Id) && a.EntityType == "ImprovementRequest" && a.EntityId == req.Id)
+                .ToListAsync();
             foreach (var attachment in attachmentsToDelete) {
               var filePath = Path.Combine(attachment.FilePath, attachment.StoredFileName);
               if (File.Exists(filePath)) {
@@ -820,12 +837,15 @@ public static class RequestEndpoints {
 
 
     // 삭제
-    group.MapDelete("/{id}", (AppDbContext db, int id) => ApiResponseBuilder.CreateAsync(async () => {
+    group.MapDelete("/{id}", (AppDbContext db, int id, HttpContext http) => ApiResponseBuilder.CreateAsync(async () => {
 
       if (id == 231) throw new Exception("삭제 불가 요청입니다.");
 
       var req = await db.Requests.FindAsync(id);
       if (req is null) return null;
+
+      // 지우기는 글 주인까지만 — 같은 회사 동료의 글은 지우지 못한다.
+      await http.GetHelpdeskPrincipal().RequireRequestAccessAsync(db, req, allowSameCompany: false, http.RequestAborted);
 
       if (req.Status == ImprovementStatus.Completed || req.Status == ImprovementStatus.UserCompleted) {
         throw new InvalidOperationException("완료되거나 종료된 요청은 삭제할 수 없습니다.");

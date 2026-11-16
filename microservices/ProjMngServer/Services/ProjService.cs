@@ -272,7 +272,15 @@ public class ProjService : BaseService {
     ResultInfo<Dictionary<string, string>> ri = new ResultInfo<Dictionary<string, string>>();
 
 
-    string fullpath = param.GetValue("fullpath");
+    var roots = _sources.ScanRootsAsync().GetAwaiter().GetResult();
+
+    if (!SourcePathGuard.TryResolve(param.GetValue("fullpath"), roots, out string fullpath, out string reason)) {
+      ri.Code = -88;
+      ri.Message = reason;
+      ri.Data = [];
+      GetRes<Dictionary<string, string>>(ref ri, param, DateTime.UtcNow, DateTime.UtcNow, DateTime.UtcNow);
+      return ri;
+    }
 
     string context = File.ReadAllText(fullpath);
 

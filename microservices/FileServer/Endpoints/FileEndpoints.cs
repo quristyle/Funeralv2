@@ -108,7 +108,9 @@ public static class FileEndpoints
             }
             catch (Exception ex)
             {
-                return Results.Json(ApiResponse<object>.Fail("ERR_FILE_UPLOAD_FAILED", ex.Message), statusCode: StatusCodes.Status500InternalServerError);
+                return ex is ArgumentException
+                    ? Results.BadRequest(ApiResponse<object>.Fail("ERR_FILE_UPLOAD", ex.Message))
+                    : Results.Json(ApiResponse<object>.Fail("ERR_FILE_UPLOAD_FAILED", ex.Message), statusCode: StatusCodes.Status500InternalServerError);
             }
         })
         .WithName("UploadFile")
@@ -140,7 +142,7 @@ public static class FileEndpoints
                 if (Guid.TryParse(fileName, out var id))
                 {
                     var (fileStream, contentType, originalName) = await fileService.DownloadFileAsync(id);
-                    return Results.File(fileStream, contentType, fileDownloadName: originalName, enableRangeProcessing: true);
+                    return Results.File(fileStream, SafeContentType(contentType), fileDownloadName: originalName, enableRangeProcessing: true);
                 }
 
                 return Results.BadRequest(ApiResponse<object>.Fail("ERR_INVALID_FILE_ID", "유효하지 않은 파일 식별자입니다."));
@@ -168,7 +170,7 @@ public static class FileEndpoints
             try
             {
                 var (fileStream, contentType, originalName) = await fileService.DownloadFileAsync(id);
-                return Results.File(fileStream, contentType, fileDownloadName: originalName, enableRangeProcessing: true);
+                return Results.File(fileStream, SafeContentType(contentType), fileDownloadName: originalName, enableRangeProcessing: true);
             }
             catch (FileNotFoundException ex)
             {
@@ -282,6 +284,10 @@ public static class FileEndpoints
                 return Results.BadRequest(ApiResponse<object>.Fail("ERR_INVALID_SIZE", "가로(width)와 세로(height) 크기는 0보다 커야 합니다."));
             }
 
+            // 익명도 부르는 경로라 큰 값으로 메모리·디스크를 먹지 못하게 자른다.
+            width = Math.Min(width, FileService.MaxResizeDimension);
+            height = Math.Min(height, FileService.MaxResizeDimension);
+
             try
             {
                 var (fileStream, contentType) = await fileService.GetResizedImageAsync(id, width, height);
@@ -359,6 +365,17 @@ public static class FileEndpoints
                     statusCode: StatusCodes.Status401Unauthorized);
             }
 
+            // 공개로 켜면 익명에게 열리므로 관리자나 올린 사람만 바꾼다.
+            var target = await fileService.GetMetadataAsync(id);
+            if (target == null)
+            {
+                return Results.NotFound(ApiResponse<object>.Fail("ERR_FILE_NOT_FOUND", "대상 파일을 찾을 수 없습니다."));
+            }
+            if (!userContext.IsAdmin && !IsOwner(target.CreatedBy, userContext.UserId))
+            {
+                return Forbidden("이 파일의 공개 여부를 바꿀 권한이 없습니다.");
+            }
+
             try
             {
                 var changed = await fileService.SetPublicAsync(id, value, userContext.UserId);
@@ -379,8 +396,13 @@ public static class FileEndpoints
         .WithName("SetFilePublic");
 
         // 6. 파일 삭제
-        group.MapDelete("/{id:guid}", async Task<IResult> (Guid id, [FromServices] IFileService fileService) =>
+        group.MapDelete("/{id:guid}", async Task<IResult> (Guid id, [FromServices] IFileService fileService, UserContext? userContext) =>
         {
+            if (userContext != null && !await CanDeleteAsync(fileService, id, userContext))
+            {
+                return Forbidden("이 파일을 지울 권한이 없습니다.");
+            }
+
             try
             {
                 var success = await fileService.DeleteFileAsync(id);
@@ -461,7 +483,9 @@ public static class FileEndpoints
             }
             catch (Exception ex)
             {
-                return Results.Json(ApiResponse<object>.Fail("ERR_GROUP_UPLOAD_FAILED", ex.Message), statusCode: StatusCodes.Status500InternalServerError);
+                return ex is ArgumentException
+                    ? Results.BadRequest(ApiResponse<object>.Fail("ERR_FILE_UPLOAD", ex.Message))
+                    : Results.Json(ApiResponse<object>.Fail("ERR_GROUP_UPLOAD_FAILED", ex.Message), statusCode: StatusCodes.Status500InternalServerError);
             }
         })
         .WithName("UploadGroupFiles")
@@ -613,4 +637,52 @@ public static class FileEndpoints
         })
         .WithName("TriggerAudioOnlyTranscoding");
     }
+
+    // 브라우저가 문서로 열어 우리 도메인에서 스크립트를 돌릴 수 있는 종류.
+    private static readonly string[] ActiveContentTypes =
+        ["text/html", "image/svg+xml", "application/xhtml+xml", "text/xml", "application/xml", "text/javascript", "application/javascript", "application/ecmascript", "text/ecmascript"];
+
+    private static string SafeContentType(string? contentType)
+    {
+        var media = (contentType ?? string.Empty).Split(';')[0].Trim();
+        return media.Length == 0
+               || ActiveContentTypes.Contains(media, StringComparer.OrdinalIgnoreCase)
+               || media.Contains("javascript", StringComparison.OrdinalIgnoreCase)
+            ? "application/octet-stream"
+            : contentType!;
+    }
+
+    private static bool IsOwner(string? createdBy, string userId) =>
+        !string.IsNullOrEmpty(createdBy) && string.Equals(createdBy, userId, StringComparison.Ordinal);
+
+    /// <summary>
+    /// X-User-Id 가 없는 요청은 게이트웨이를 거치지 않은 서비스 간 호출이라 여기서 보지 않는다.
+    /// 그룹 사진(WBS 첨부·건물·고인 사진)은 같은 업무 화면을 쓰는 동료가 서로 지우므로 열어 두고,
+    /// 프로필 그룹과 낱장 파일만 관리자·올린 사람으로 묶는다.
+    /// </summary>
+    private static async Task<bool> CanDeleteAsync(IFileService fileService, Guid id, UserContext user)
+    {
+        if (user.IsAdmin)
+        {
+            return true;
+        }
+
+        var file = await fileService.GetMetadataAsync(id);
+        if (file == null || IsOwner(file.CreatedBy, user.UserId))
+        {
+            // 없는 파일은 아래 삭제가 404 로 답한다.
+            return true;
+        }
+
+        if (file.FileGroupId is { } groupId && await fileService.GetGroupAsync(groupId) is { } group)
+        {
+            return IsOwner(group.CreatedBy, user.UserId)
+                   || !group.BizType.Equals("PROFILE", StringComparison.OrdinalIgnoreCase);
+        }
+
+        return false;
+    }
+
+    private static IResult Forbidden(string message) =>
+        Results.Json(ApiResponse<object>.Fail("ERR_FORBIDDEN", message), statusCode: StatusCodes.Status403Forbidden);
 }

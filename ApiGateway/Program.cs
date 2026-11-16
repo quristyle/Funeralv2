@@ -120,6 +120,11 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization(options =>
 {
     options.FallbackPolicy = options.DefaultPolicy;
+
+    // 한주 OADR 중계(oadr-route). 메뉴 /helpdesk/hanju/* 를 볼 수 있는 역할과 맞춘다.
+    options.AddPolicy("oadr-users", policy => policy
+        .RequireAuthenticatedUser()
+        .RequireRole("SYSTEM_ADMINISTRATOR", "ADMINISTRATOR", "HELPDESK_USER", "PARTNER", "PARTNER_ADMINISTRATOR"));
 });
 
 builder.Services.AddCors(options =>
@@ -138,6 +143,9 @@ builder.Services.AddReverseProxy()
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
     .AddTransforms(transformContext =>
     {
+        // 바깥(고객사) 시스템으로 나가는 길. 우리 토큰·쿠키와 사람 정보를 실어 보내지 않는다.
+        var external = string.Equals(transformContext.Route.ClusterId, "oadr-cluster", StringComparison.OrdinalIgnoreCase);
+
         transformContext.AddRequestTransform(async requestContext =>
         {
             // [보안] 외부에서 보낸 X-User-* 헤더를 무조건 제거하여 위조 방지
@@ -148,6 +156,13 @@ builder.Services.AddReverseProxy()
             requestContext.ProxyRequest.Headers.Remove("X-User-Name");
             requestContext.ProxyRequest.Headers.Remove("X-User-Email");
             requestContext.ProxyRequest.Headers.Remove("X-User-Msa-Source");
+
+            if (external)
+            {
+                requestContext.ProxyRequest.Headers.Remove("Authorization");
+                requestContext.ProxyRequest.Headers.Remove("Cookie");
+                return;
+            }
 
             var user = requestContext.HttpContext.User;
             if (user.Identity?.IsAuthenticated == true)
@@ -204,15 +219,22 @@ builder.Services.AddReverseProxy()
 builder.Services.AddHttpClient();
 builder.Services.AddHealthChecks();
 
+// 속도 제한의 통 열쇠. nginx 는 받은 X-Forwarded-For 뒤에 실제 접속 주소를 덧붙이므로
+// **마지막 값**만 믿을 수 있다. 첫 값은 바깥이 마음대로 적어 보내 통을 매번 새로 만들 수 있다.
+static string ClientIp(HttpContext httpContext)
+{
+    var forwarded = httpContext.Request.Headers["X-Forwarded-For"].ToString();
+    var last = forwarded.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                        .LastOrDefault();
+    return last ?? httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+}
+
 // 레이트 리미팅 — 로그인·비밀번호 초기화 경로에 IP 단위 창(1분 10회)을 건다. 라우트에서 RateLimiterPolicy 로 지정한다.
 builder.Services.AddRateLimiter(options =>
 {
     options.AddPolicy("auth-attempts", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
-            // 프록시 뒤에 있으면 X-Forwarded-For 가 실제 클라이언트다.
-            partitionKey: httpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault()
-                          ?? httpContext.Connection.RemoteIpAddress?.ToString()
-                          ?? "unknown",
+            partitionKey: ClientIp(httpContext),
             factory: _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = 10,
@@ -223,9 +245,7 @@ builder.Services.AddRateLimiter(options =>
     // 로그인 없이 쓰는 경로(소개 사이트 문의)는 분당 3회로 조인다. 캡차 대신 허니팟과 함께 쓰며 외부 스크립트는 부르지 않는다(D-S4).
     options.AddPolicy("public-write", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: httpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault()
-                          ?? httpContext.Connection.RemoteIpAddress?.ToString()
-                          ?? "unknown",
+            partitionKey: ClientIp(httpContext),
             factory: _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = 3,
@@ -237,9 +257,7 @@ builder.Services.AddRateLimiter(options =>
     // 거절되면 멀쩡히 받은 사람에게 메일이 또 가므로 문의보다 느슨하다(분당 60). 절전 해제로 몰리는 푸시와 NAT 공유 IP 를 고려했다.
     options.AddPolicy("push-ack", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: httpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault()
-                          ?? httpContext.Connection.RemoteIpAddress?.ToString()
-                          ?? "unknown",
+            partitionKey: ClientIp(httpContext),
             factory: _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = 60,
@@ -251,9 +269,7 @@ builder.Services.AddRateLimiter(options =>
     // 코드 대입 자체는 막지 못한다. 근본 대책은 아래 장비 토큰(D-M1)이다. SignalR 허브에는 걸지 않는다(거부되면 밀어주기가 끊긴다).
     options.AddPolicy("player-read", httpContext =>
         RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: httpContext.Request.Headers["X-Forwarded-For"].FirstOrDefault()
-                          ?? httpContext.Connection.RemoteIpAddress?.ToString()
-                          ?? "unknown",
+            partitionKey: ClientIp(httpContext),
             factory: _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = 900,
@@ -611,7 +627,9 @@ app.MapGet("/api/gateway/status", async (
         },
         timestamp = DateTime.UtcNow,
     });
-}).AllowAnonymous().WithName("GetGatewayStatus");
+})
+// 뒷단 주소·오류 글을 담고, 부를 때마다 모든 뒷단을 두드리므로 로그인 뒤에만 준다.
+.RequireAuthorization().WithName("GetGatewayStatus");
 
 app.MapReverseProxy();
 

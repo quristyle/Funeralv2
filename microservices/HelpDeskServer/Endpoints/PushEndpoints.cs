@@ -40,26 +40,35 @@ public static class PushEndpoints {
     }).RequireAuthorization();
 
     //구독을 취소합니다.
-    group.MapPost("/unsubscribe", async (PushSubscriptionDto dto, IPushSubscriptionStore store) => {
-      Console.WriteLine("/api/push/unsubscribe");
+    group.MapPost("/unsubscribe", async (PushSubscriptionDto dto, IPushSubscriptionStore store, AppDbContext db, HttpContext http) => {
       if (string.IsNullOrWhiteSpace(dto.Endpoint)) {
         return Results.BadRequest("Endpoint is required.");
       }
+
+      var me = http.GetHelpdeskPrincipal();
+      var owners = await db.PushSubscriptions.AsNoTracking()
+          .Where(s => s.Endpoint == dto.Endpoint)
+          .Select(s => new { s.UserId, s.UserType })
+          .ToListAsync();
+      if (!me.IsAdmin && owners.Any(o => !IsMine(me, o.UserId, o.UserType))) {
+        return Results.Forbid();
+      }
+
       await store.RemoveByEndpointAsync(dto.Endpoint);
       return Results.Ok(new { ok = true });
-    });
+    }).RequireAuthorization();
 
     //모든 사용자에게 푸시 알림을 보냅니다.
-    group.MapPost("/notify", async (PushMessageDto message, IPushSubscriptionStore store, IWebPushService sender, CancellationToken ct) => {
-      Console.WriteLine("/api/push/notify");
+    group.MapPost("/notify", async (PushMessageDto message, IPushSubscriptionStore store, IWebPushService sender, HttpContext http, CancellationToken ct) => {
+      if (!http.GetHelpdeskPrincipal().IsAdmin) return Results.Forbid();
       var subs = await store.GetAllAsync();
       var sent = await sender.BroadcastAsync(subs, message, ct);
       return Results.Ok(new { sent, total = subs.Count });
     });
 
     // 관리자 그룹에게만 푸시 알림을 보냅니다.
-    group.MapPost("/notify-admins", async (PushMessageDto message, IPushSubscriptionStore store, IWebPushService sender, CancellationToken ct) => {
-      Console.WriteLine("/api/push/notify-admins");
+    group.MapPost("/notify-admins", async (PushMessageDto message, IPushSubscriptionStore store, IWebPushService sender, HttpContext http, CancellationToken ct) => {
+      if (!http.GetHelpdeskPrincipal().IsAdmin) return Results.Forbid();
       var adminSubs = await store.GetAdminSubscriptionsAsync();
       var sent = await sender.BroadcastAsync(adminSubs, message, ct);
       return Results.Ok(new { sent, total = adminSubs.Count });
@@ -73,8 +82,8 @@ public static class PushEndpoints {
     // 200 에 `sent: 0` 이 돌아오던 끝점이다.
 
     // 특정 고객사(Company)의 모든 사용자에게 푸시 알림을 보냅니다.
-    group.MapPost("/notify-company/{companyId}", async (string companyId, PushMessageDto message, IPushSubscriptionStore store, IWebPushService sender, CancellationToken ct) => {
-      Console.WriteLine($"/api/push/notify-company/{companyId}");
+    group.MapPost("/notify-company/{companyId}", async (string companyId, PushMessageDto message, IPushSubscriptionStore store, IWebPushService sender, HttpContext http, CancellationToken ct) => {
+      if (!http.GetHelpdeskPrincipal().IsAdmin) return Results.Forbid();
       var companySubs = await store.GetSubscriptionsByCompanyAsync(companyId);
       var sent = await sender.BroadcastAsync(companySubs, message, ct);
       return Results.Ok(new { sent, total = companySubs.Count });
@@ -82,8 +91,8 @@ public static class PushEndpoints {
     .RequireAuthorization(); // 인증된 사용자만 호출 가능
 
     // 특정 사용자 한 명에게만 푸시 알림을 보냅니다.
-    group.MapPost("/notify-user/{userType}/{userId:int}", async (string userType, int userId, PushMessageDto message, IPushSubscriptionStore store, IWebPushService sender, CancellationToken ct) => {
-      Console.WriteLine($"/api/push/notify-user/{userType}/{userId}");
+    group.MapPost("/notify-user/{userType}/{userId:int}", async (string userType, int userId, PushMessageDto message, IPushSubscriptionStore store, IWebPushService sender, HttpContext http, CancellationToken ct) => {
+      if (!http.GetHelpdeskPrincipal().IsAdmin) return Results.Forbid();
       var userSubs = await store.GetSubscriptionsByUserAsync(userId, userType);
       var sent = await sender.BroadcastAsync(userSubs, message, ct);
       return Results.Ok(new { sent, total = userSubs.Count });
@@ -183,29 +192,18 @@ public static class PushEndpoints {
 
     // 특정 알림을 '읽음'으로 표시합니다.
     group.MapPost("/notifications/{id:int}/read", async (int id, AppDbContext db, HttpContext http) => {
-      var uidClaim = http.User.FindFirst("uid");
-      // 서비스 워커에서 호출하는 경우 인증 정보가 없을 수 있습니다.
-      // 인증 정보가 있는 경우에만 권한을 확인합니다.
+      var recipient = await db.PushMessageRecipients.AsNoTracking()
+          .Where(r => r.Id == id)
+          .Select(r => new { r.UserId, r.UserType })
+          .FirstOrDefaultAsync();
+      if (recipient is null) return Results.NotFound();
 
-      /*
-      if (uidClaim is not null && int.TryParse(uidClaim.Value, out var userId))
-      {
-          var recipient = await db.PushMessageRecipients.FindAsync(id);
-          if (recipient is null) return Results.NotFound();
-
-          // 자신의 알림이 아닌 경우 접근을 거부합니다.
-          if (recipient.UserId != userId)
-          {
-              return Results.Forbid();
-          }
+      if (!IsMine(http.GetHelpdeskPrincipal(), recipient.UserId, recipient.UserType)) {
+        return Results.Forbid();
       }
-      */
 
-      // 대상 알림을 찾아 '읽음'으로 표시합니다.
       await db.PushMessageRecipients.Where(r => r.Id == id)
           .ExecuteUpdateAsync(s => s.SetProperty(b => b.IsRead, true).SetProperty(b => b.ReadAt, DateTime.UtcNow));
-
-      await db.SaveChangesAsync();
 
       return Results.Ok(new { ok = true });
     }).RequireAuthorization();
@@ -224,4 +222,9 @@ public static class PushEndpoints {
       return Results.Ok(new { ok = true });
     });
   }
+
+  /// <summary>구독·수신 줄이 지금 사람의 것인가. 담당자와 고객은 번호 체계가 달라 종류까지 맞아야 한다.</summary>
+  private static bool IsMine(HelpdeskPrincipal me, int userId, string? userType) =>
+      me.HelpdeskUserId is { } uid && uid == userId &&
+      string.Equals(me.LinkedUserType, userType, StringComparison.OrdinalIgnoreCase);
 }

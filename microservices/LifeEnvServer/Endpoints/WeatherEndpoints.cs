@@ -66,6 +66,7 @@ public static class WeatherEndpoints {
       await db.SaveChangesAsync();
       return Results.Created($"/weather/locations/{location.Id}", location);
     })
+    .RequireLifeEnvAdmin()
     .WithName("CreateWeatherLocation");
 
     locationGroup.MapPut("/{id:int}", async (LifeEnvDbContext db, int id, WeatherLocation updated, UserContext? user) => {
@@ -87,7 +88,8 @@ public static class WeatherEndpoints {
 
       await db.SaveChangesAsync();
       return Results.Ok(location);
-    });
+    })
+    .RequireLifeEnvAdmin();
 
     locationGroup.MapDelete("/{id:int}", async (LifeEnvDbContext db, int id, UserContext? user) => {
       var location = await db.WeatherLocations.FindAsync(id);
@@ -99,7 +101,8 @@ public static class WeatherEndpoints {
 
       await db.SaveChangesAsync();
       return Results.NoContent();
-    });
+    })
+    .RequireLifeEnvAdmin();
 
     // 관측 지역 순서 변경
     locationGroup.MapPut("/reorder", async (LifeEnvDbContext db, List<WeatherLocationReorderRequest> requests, UserContext? user) => {
@@ -118,6 +121,7 @@ public static class WeatherEndpoints {
       await db.SaveChangesAsync();
       return Results.Ok();
     })
+    .RequireLifeEnvAdmin()
     .WithName("ReorderWeatherLocations")
     .WithSummary("관측 지역 순서 변경");
 

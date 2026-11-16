@@ -72,7 +72,7 @@ public sealed class ProjectDbService(IConfiguration configuration)
         return (await ListAsync(dbRid: id)).FirstOrDefault();
     }
 
-    /// <summary>고친다. 비밀번호를 비워 보내면 기존 값을 지킨다.</summary>
+    /// <summary>고친다. 비밀번호를 비워 보내면 기존 값을 지키되, 접속 대상(종류·호스트·포트·DB·계정)이 바뀌면 지운다.</summary>
     public async Task<ProjectDb?> UpdateAsync(int dbRid, ProjectDb item)
     {
         using var db = Open();
@@ -94,9 +94,18 @@ public sealed class ProjectDbService(IConfiguration configuration)
                    -- 줄이나 다른 경로로 온 저장이 **차례를 지워 버리지 않게** 한다.
                    db_srt      = COALESCE(@DbSrt, db_srt),
 
-                   -- 빈 값이면 그대로 둔다. 목록이 비밀번호를 안 주므로
-                   -- 화면은 대개 빈 채로 보내고, 그때 지워지면 접속이 끊긴다.
-                   db_pwd      = COALESCE(NULLIF(@DbPwd, ''), db_pwd)
+                   -- 목록이 비밀번호를 안 주므로 화면은 대개 빈 채로 보낸다. 그때 대상을 바꾼 것이면
+                   -- 옛 비밀번호를 새 호스트로 보내게 되므로 지운다. 오른쪽 칸 이름은 고치기 전 값이다.
+                   db_pwd      = CASE
+                                   WHEN @DbPwd <> '' THEN @DbPwd
+                                   WHEN COALESCE(db_type::text, '')     IS DISTINCT FROM COALESCE(@DbType::text, '')
+                                     OR COALESCE(db_ip::text, '')       IS DISTINCT FROM COALESCE(@DbIp::text, '')
+                                     OR COALESCE(db_port::text, '')     IS DISTINCT FROM COALESCE(@DbPort::text, '')
+                                     OR COALESCE(db_database::text, '') IS DISTINCT FROM COALESCE(@DbDatabase::text, '')
+                                     OR COALESCE(db_id::text, '')       IS DISTINCT FROM COALESCE(@DbId::text, '')
+                                   THEN NULL
+                                   ELSE db_pwd
+                                 END
              WHERE db_rid = @dbRid
             """, new
         {
