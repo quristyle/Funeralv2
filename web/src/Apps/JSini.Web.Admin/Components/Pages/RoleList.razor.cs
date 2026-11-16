@@ -131,6 +131,8 @@ public partial class RoleList
     // ── 메뉴 권한 ──────────────────────────────────────────
     private IReadOnlyList<RoleMenuDto> _menus = [];
     private IReadOnlyList<RoleMenuRow> _menuTree = [];
+    private CommTree<RoleMenuRow>? _menuTreeRef;
+    private RoleMenuRow? _selectedMenuRow;
 
     /// <summary>이 화면에서 권한을 고칠 수 있는가. 체크박스를 열지 정한다.</summary>
     private bool _canEdit;
@@ -318,6 +320,7 @@ public partial class RoleList
         _users = [];
         _menus = [];
         _menuTree = [];
+        _selectedMenuRow = null;
     }
 
     private Task LoadUsersAsync() => _role is null ? Task.CompletedTask : LoadAsync(async () =>
@@ -447,6 +450,104 @@ public partial class RoleList
 
         Walk(row);
         return all;
+    }
+
+    /// <summary>그리드(트리)의 모든 노드를 펼친다 (모두확장).</summary>
+    public void ExpandAll()
+    {
+        _menuTreeRef?.ExpandAll();
+    }
+
+    public void ExpandAllMenus() => ExpandAll();
+
+    /// <summary>그리드(트리)의 모든 노드를 접는다 (모두축소).</summary>
+    public void CollapseAll()
+    {
+        _menuTreeRef?.CollapseAll();
+    }
+
+    public void CollapseAllMenus() => CollapseAll();
+
+    /// <summary>선택한 메뉴와 그 하위 노드를 모두 펼친다 (선택하위모두열기).</summary>
+    public void ExpandSelectedSubtree()
+    {
+        var target = _selectedMenuRow ?? _menuTreeRef?.Tree?.GetFocusedDataItem() as RoleMenuRow;
+        if (target is null)
+        {
+            Say("하위를 열 메뉴를 먼저 선택해 주세요.", NoticeTone.Warning);
+            return;
+        }
+
+        if (_menuTreeRef?.Tree is null)
+        {
+            return;
+        }
+
+        EnsureAncestorsExpanded(target);
+
+        var targetSubtree = Subtree(target);
+        var targetBranchIds = targetSubtree
+            .Where(r => r.Children.Count > 0)
+            .Select(r => r.MenuId)
+            .ToHashSet(StringComparer.Ordinal);
+
+        if (targetBranchIds.Count == 0)
+        {
+            return;
+        }
+
+        bool expanded;
+        int safety = 0;
+        do
+        {
+            expanded = false;
+            int count = _menuTreeRef.Tree.GetVisibleRowCount();
+            for (int i = 0; i < count; i++)
+            {
+                if (_menuTreeRef.Tree.GetDataItem(i) is RoleMenuRow r && targetBranchIds.Contains(r.MenuId))
+                {
+                    if (!_menuTreeRef.Tree.IsRowExpanded(i))
+                    {
+                        _menuTreeRef.Tree.ExpandRow(i);
+                        expanded = true;
+                        break;
+                    }
+                }
+            }
+        } while (expanded && ++safety < 500);
+    }
+
+    public void ExpandSelectedMenuSubtree() => ExpandSelectedSubtree();
+
+    private void EnsureAncestorsExpanded(RoleMenuRow target)
+    {
+        if (_menuTreeRef?.Tree is null) return;
+
+        var parentMap = _menus.ToDictionary(m => m.MenuId, m => m.ParentId, StringComparer.Ordinal);
+        var chain = new List<string>();
+        var currentId = target.Source.ParentId;
+        int hops = 0;
+        while (!string.IsNullOrWhiteSpace(currentId) && ++hops <= _menus.Count)
+        {
+            chain.Insert(0, currentId);
+            currentId = parentMap.GetValueOrDefault(currentId);
+        }
+
+        foreach (var ancestorId in chain)
+        {
+            int count = _menuTreeRef.Tree.GetVisibleRowCount();
+            for (int i = 0; i < count; i++)
+            {
+                if (_menuTreeRef.Tree.GetDataItem(i) is RoleMenuRow r && string.Equals(r.MenuId, ancestorId, StringComparison.Ordinal))
+                {
+                    if (!_menuTreeRef.Tree.IsRowExpanded(i))
+                    {
+                        _menuTreeRef.Tree.ExpandRow(i);
+                    }
+                    break;
+                }
+            }
+        }
     }
 
     /// <summary>범위 안의 권한을 한 번에 켜거나 끈다. 모두 켜져 있으면 끄고 아니면 켠다. 잠긴 칸은 건너뛴다 — 켜 두면 서버가 꺼서 저장해 화면과 어긋난다.</summary>

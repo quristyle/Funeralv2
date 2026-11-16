@@ -182,12 +182,33 @@
 
                 <DxTabPage Text="@($"메뉴 세부 권한 ({GrantedMenuCount})")">
                     <div class="ad-roletabs__body">
-                        <CommTree TItem="RoleMenuRow" Data="@_menuTree"
+                        <CommTree @ref="_menuTreeRef"
+                                  TItem="RoleMenuRow" Data="@_menuTree"
                                   KeyFieldName="@nameof(RoleMenuRow.MenuId)"
                                   ChildrenFieldName="@nameof(RoleMenuRow.Children)"
                                   ExportName="메뉴 권한"
                                   EmptyText="메뉴가 없습니다."
+                                  SelectedItem="@_selectedMenuRow"
+                                  SelectedItemChanged="@((RoleMenuRow? r) => _selectedMenuRow = r)"
                                   Reload="@(() => LoadMenusAsync())">
+                            <Toolbar>
+                                <DxButton IconCssClass="jsini-icon-unfold" Title="모두 확장" aria-label="모두확장"
+                                          RenderStyle="ButtonRenderStyle.Secondary"
+                                          Click="@ExpandAll" />
+                                <DxButton IconCssClass="jsini-icon-fold" Title="모두 축소" aria-label="모두축소"
+                                          RenderStyle="ButtonRenderStyle.Secondary"
+                                          Click="@CollapseAll" />
+                                <DxButton IconCssClass="jsini-icon-child-unfold" Title="선택 하위 모두 열기" aria-label="선택하위모두열기"
+                                          RenderStyle="ButtonRenderStyle.Secondary"
+                                          Click="@ExpandSelectedSubtree" />
+                            </Toolbar>
+
+                            <ContextMenuItems>
+                                <CommMenuItem Text="모두 확장" IconCssClass="jsini-icon-unfold" Click="@ExpandAll" />
+                                <CommMenuItem Text="모두 축소" IconCssClass="jsini-icon-fold" Click="@CollapseAll" />
+                                <CommMenuItem Text="선택 하위 모두 열기" IconCssClass="jsini-icon-child-unfold" Click="@ExpandSelectedSubtree" />
+                            </ContextMenuItems>
+
                             <FooterLeft>
                                 @* 누르는 즉시 저장되므로 단추 대신 지금 보내는 중인지만 적는다 — 끝나기 전에 다른 역할로 옮겨도 되는지 알 수 있어야 한다. *@
                                 @if (_pendingSaves > 0)
