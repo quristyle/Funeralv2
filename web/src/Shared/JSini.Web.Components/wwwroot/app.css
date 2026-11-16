@@ -2764,8 +2764,61 @@ button.jsini-crumbs__item:hover { opacity: 1; }
    (`jsini-login__*`)은 다섯이 함께 쓴다.
    ---------------------------------------------------------- */
 
+/* 로그인 흐름 카드의 팔레트. 이 카드는 DevExpress·Tabler 변수를 쓰지 않고 먹·흰 두 색으로 서므로 밝기는 여기서만 뒤집는다 — 어두운 쪽에서는 먹이 밝은 글자가 되고 「먹 단추」는 흰 단추가 된다. 공급자 단추(카카오·네이버·구글)는 규정 색이라 뒤집지 않는다. */
+:root {
+  --jsini-auth-page: transparent;
+  --jsini-auth-bg: #fff;
+  --jsini-auth-ink: #0a0a0a;
+  --jsini-auth-on-ink: #fff;
+  --jsini-auth-ink-hover: #2c2c2e;
+  --jsini-auth-text: #1c1c1e;
+  --jsini-auth-muted: #6e6e73;
+  --jsini-auth-subtle: #86868b;
+  --jsini-auth-line: #d2d2d7;
+  --jsini-auth-line-soft: #e8e8ed;
+  --jsini-auth-placeholder: #d2d2d7;
+  --jsini-auth-soft: #f5f5f7;
+  --jsini-auth-danger: #c4302b;
+  --jsini-auth-ok: #1d7a3a;
+  --jsini-auth-soon-bg: #fafafa;
+  --jsini-auth-soon-text: #aeaeb2;
+  --jsini-auth-soon-icon: #c7c7cc;
+  --jsini-auth-chip-bg: #ececf0;
+  --jsini-auth-chip-text: #8e8e93;
+}
+
+/* 바탕은 Tabler 의 남색이 아니라 무채색이다 — 카드가 무채색이라 남색 위에 얹으면 두 색이 따로 논다. 붉은·초록 글씨는 카드 바탕에서 대비 4.5:1 을 넘기게 밝혔다. */
+:root[data-theme='dark'] {
+  --jsini-auth-page: #0f0f10;
+  --jsini-auth-bg: #1c1c1e;
+  --jsini-auth-ink: #f5f5f7;
+  --jsini-auth-on-ink: #0a0a0a;
+  --jsini-auth-ink-hover: #d1d1d6;
+  --jsini-auth-text: #e5e5ea;
+  --jsini-auth-muted: #a1a1a6;
+  --jsini-auth-subtle: #8e8e93;
+  --jsini-auth-line: #48484a;
+  --jsini-auth-line-soft: #2c2c2e;
+  --jsini-auth-placeholder: #636366;
+  --jsini-auth-soft: #2c2c2e;
+  --jsini-auth-danger: #ff6b63;
+  --jsini-auth-ok: #4cd07a;
+  --jsini-auth-soon-bg: #232325;
+  --jsini-auth-soon-text: #636366;
+  --jsini-auth-soon-icon: #48484a;
+  --jsini-auth-chip-bg: #2c2c2e;
+  --jsini-auth-chip-text: #a1a1a6;
+}
+
+/* 체크칸·자동완성·스크롤 막대처럼 브라우저가 그리는 것도 어두운 쪽으로 돌린다. */
+:root[data-theme='dark'] .jsini-bare { color-scheme: dark; }
+
+/* 카드 안 로고는 먹색 그림이라 어두운 바탕에서 사라진다. 회색 둘뿐이라 뒤집기만 하면 된다. */
+:root[data-theme='dark'] .jsini-login__logo { filter: invert(1); }
+
 .jsini-bare {
   min-height: 100vh;
+  background: var(--jsini-auth-page);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2849,7 +2902,7 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   align-items: center;
   justify-content: center;
   padding: 2rem 1rem;
-  background: #fff;
+  background: var(--jsini-auth-bg);
 }
 
 /* 브랜드 판은 넓을 때만 선다. 판 둘을 360px 화면에 나란히 두면 폼이 못 쓴다. */
@@ -2865,8 +2918,8 @@ button.jsini-crumbs__item:hover { opacity: 1; }
 
 .jsini-login__card {
   width: min(23rem, 100%);
-  background: #fff;
-  color: #0a0a0a;
+  background: var(--jsini-auth-bg);
+  color: var(--jsini-auth-ink);
 }
 
 /* 카드 안 로고. 좁은 화면에서만 보인다(위 질의). */
@@ -2883,14 +2936,14 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   font-weight: 700;
   letter-spacing: -0.03em;
   line-height: 1.05;
-  color: #0a0a0a;
+  color: var(--jsini-auth-ink);
 }
 
 .jsini-login__sub {
   margin: 0.75rem 0 2.25rem;
   font-size: 0.875rem;
   line-height: 1.7;
-  color: #6e6e73;
+  color: var(--jsini-auth-muted);
 }
 
 .jsini-login__field {
@@ -2906,16 +2959,16 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.15em;
-  color: #6e6e73;
+  color: var(--jsini-auth-muted);
 }
 
 .jsini-login__input {
   width: 100%;
   padding: 0.75rem 1rem;
-  border: 1px solid #d2d2d7;
+  border: 1px solid var(--jsini-auth-line);
   border-radius: 0;
-  background: #fff;
-  color: #0a0a0a;
+  background: var(--jsini-auth-bg);
+  color: var(--jsini-auth-ink);
   font: inherit;
   font-size: 0.875rem;
   outline: none;
@@ -2923,9 +2976,9 @@ button.jsini-crumbs__item:hover { opacity: 1; }
 }
 
 /* 초점은 테두리만 짙어진다. 그림자나 바탕을 깔면 강조색이 필요해져 이 화면의 규칙이 무너진다. */
-.jsini-login__input:focus { border-color: #0a0a0a; }
+.jsini-login__input:focus { border-color: var(--jsini-auth-ink); }
 
-.jsini-login__input::placeholder { color: #d2d2d7; }
+.jsini-login__input::placeholder { color: var(--jsini-auth-placeholder); }
 
 /* 아이디 기억하기. 네모는 브라우저가 그린다 — 우리가 다시 그리지 않는다. */
 .jsini-login__remember {
@@ -2934,7 +2987,7 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   gap: 0.6rem;
   margin: 0.25rem 0 1.75rem;
   font-size: 0.875rem;
-  color: #1c1c1e;
+  color: var(--jsini-auth-text);
   cursor: pointer;
 }
 
@@ -2943,7 +2996,7 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   height: 1rem;
   margin: 0;
   flex-shrink: 0;
-  accent-color: #0a0a0a;
+  accent-color: var(--jsini-auth-ink);
   cursor: pointer;
 }
 
@@ -2951,10 +3004,10 @@ button.jsini-crumbs__item:hover { opacity: 1; }
 .jsini-login__submit {
   width: 100%;
   padding: 0.75rem 2rem;
-  border: 1px solid #0a0a0a;
+  border: 1px solid var(--jsini-auth-ink);
   border-radius: 0;
   background: transparent;
-  color: #0a0a0a;
+  color: var(--jsini-auth-ink);
   font: inherit;
   font-size: 0.875rem;
   cursor: pointer;
@@ -2963,8 +3016,8 @@ button.jsini-crumbs__item:hover { opacity: 1; }
 
 .jsini-login__submit:hover,
 .jsini-login__submit:focus-visible {
-  background: #0a0a0a;
-  color: #fff;
+  background: var(--jsini-auth-ink);
+  color: var(--jsini-auth-on-ink);
 }
 
 /* 지문·얼굴 단추. 로그인 단추와 같은 모양의 반대말(회색 테두리)이라 기본 동작이 한눈에 보인다. 판은 기본이 감춤이고 passkey.js 가 지원하는 브라우저에서만 꺼낸다(display 를 정하면 hidden 을 이겨 못 쓰는 브라우저에도 보인다). */
@@ -2980,7 +3033,7 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   margin-bottom: 1.25rem;
   font-size: 0.75rem;
   letter-spacing: 0.15em;
-  color: #6e6e73;
+  color: var(--jsini-auth-muted);
 }
 
 .jsini-login__or::before,
@@ -2988,17 +3041,17 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   content: '';
   flex: 1;
   height: 1px;
-  background: #d2d2d7;
+  background: var(--jsini-auth-line);
 }
 
 .jsini-login__passkey-btn {
   width: 100%;
   /* 손가락 과녁 44px 를 넘긴다. 휴대폰에서 누르는 단추다. */
   padding: 0.75rem 2rem;
-  border: 1px solid #d2d2d7;
+  border: 1px solid var(--jsini-auth-line);
   border-radius: 0;
   background: transparent;
-  color: #1c1c1e;
+  color: var(--jsini-auth-text);
   font: inherit;
   font-size: 0.875rem;
   cursor: pointer;
@@ -3007,14 +3060,14 @@ button.jsini-crumbs__item:hover { opacity: 1; }
 
 .jsini-login__passkey-btn:hover,
 .jsini-login__passkey-btn:focus-visible {
-  border-color: #0a0a0a;
-  color: #0a0a0a;
+  border-color: var(--jsini-auth-ink);
+  color: var(--jsini-auth-ink);
 }
 
 /* 기기를 기다리는 동안 눌렸다는 표시를 둔다. 없으면 사용자가 한 번 더 누른다. */
 .jsini-login__passkey-btn:disabled {
-  color: #6e6e73;
-  border-color: #e8e8ed;
+  color: var(--jsini-auth-muted);
+  border-color: var(--jsini-auth-line-soft);
   cursor: progress;
 }
 
@@ -3023,7 +3076,7 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   margin: 0.75rem 0 0;
   font-size: 0.8125rem;
   line-height: 1.6;
-  color: #6e6e73;
+  color: var(--jsini-auth-muted);
 }
 
 /* 지문을 먼저 묻는 기기에서만 걸린다. 딱지는 passkey.js 가 붙인다(서버는 그 값을 모른다. 브라우저의 것이다). 마크업은 두 벌 두지 않고 차례만 바뀐다. */
@@ -3054,55 +3107,55 @@ button.jsini-crumbs__item:hover { opacity: 1; }
 
 /* 기본 동작이 바뀌었으니 무게도 바뀐다. 색 없이 테두리 짙기로만 먼저인지를 말한다. */
 .jsini-login__methods--passkey-first .jsini-login__passkey-btn {
-  border-color: #0a0a0a;
-  color: #0a0a0a;
+  border-color: var(--jsini-auth-ink);
+  color: var(--jsini-auth-ink);
 }
 
 .jsini-login__methods--passkey-first .jsini-login__passkey-btn:hover,
 .jsini-login__methods--passkey-first .jsini-login__passkey-btn:focus-visible {
-  background: #0a0a0a;
-  color: #fff;
+  background: var(--jsini-auth-ink);
+  color: var(--jsini-auth-on-ink);
 }
 
 /* 기기가 답하기를 기다리는 동안은 이쪽이 이겨야 한다. 순서로 이기면 짙은 단추가 눌린 채 남아 눌렸다는 표시가 안 보인다. */
 .jsini-login__methods--passkey-first .jsini-login__passkey-btn:disabled {
   background: transparent;
-  color: #6e6e73;
-  border-color: #e8e8ed;
+  color: var(--jsini-auth-muted);
+  border-color: var(--jsini-auth-line-soft);
 }
 
 .jsini-login__methods--passkey-first .jsini-login__submit {
-  border-color: #d2d2d7;
-  color: #1c1c1e;
+  border-color: var(--jsini-auth-line);
+  color: var(--jsini-auth-text);
 }
 
 .jsini-login__methods--passkey-first .jsini-login__submit:hover,
 .jsini-login__methods--passkey-first .jsini-login__submit:focus-visible {
   background: transparent;
-  border-color: #0a0a0a;
-  color: #0a0a0a;
+  border-color: var(--jsini-auth-ink);
+  color: var(--jsini-auth-ink);
 }
 
 /* 실패 안내. 이 화면에는 색이 없어 붉은 줄이 유일한 색이 되면 그것만 보인다. 먹 테두리를 왼쪽에 세워 대비로 알린다. */
 .jsini-login__error {
   margin-bottom: 1.5rem;
-  border-left: 2px solid #0a0a0a;
+  border-left: 2px solid var(--jsini-auth-ink);
   padding: 0.75rem 1rem;
-  background: #f5f5f7;
+  background: var(--jsini-auth-soft);
   font-size: 0.875rem;
   line-height: 1.6;
-  color: #1c1c1e;
+  color: var(--jsini-auth-text);
 }
 
 /* 실패가 아닌 안내(소셜에서 되돌아온 가입 신청 접수 등). 실패 판과 갈라 둔다. 같은 판으로 그리면 접수된 사람이 자기가 실패한 줄 안다. */
 .jsini-login__notice {
   margin-bottom: 1.5rem;
-  border-left: 2px solid #86868b;
+  border-left: 2px solid var(--jsini-auth-subtle);
   padding: 0.75rem 1rem;
-  background: #f5f5f7;
+  background: var(--jsini-auth-soft);
   font-size: 0.875rem;
   line-height: 1.6;
-  color: #1c1c1e;
+  color: var(--jsini-auth-text);
 }
 
 /* 소셜 로그인·가입. 공급자의 색을 쓴다(카카오·네이버는 로그인 단추의 바탕색과 상징을 지키라는 규정이 있다). 켜지 않은 공급자는 회색으로 가라앉혀 누를 수 없음을 보인다. 기본이 감춤이 아니다(목록을 서버가 준다). */
@@ -3140,7 +3193,7 @@ a.jsini-social__btn:focus-visible {
 }
 
 a.jsini-social__btn:focus-visible {
-  outline: 2px solid #0a0a0a;
+  outline: 2px solid var(--jsini-auth-ink);
   outline-offset: 2px;
 }
 
@@ -3165,8 +3218,8 @@ a.jsini-social__btn:focus-visible {
   display: grid;
   place-items: center;
   border-radius: 50%;
-  background: #0a0a0a;
-  color: #fff;
+  background: var(--jsini-auth-ink);
+  color: var(--jsini-auth-on-ink);
   font-size: 0.6875rem;
   font-weight: 700;
 }
@@ -3191,22 +3244,22 @@ a.jsini-social__btn:focus-visible {
 
 /* 모르는 공급자는 이 카드의 보통 단추 말투를 쓴다. */
 .jsini-social__btn:not(.jsini-social__btn--kakao, .jsini-social__btn--naver, .jsini-social__btn--google) {
-  border-color: #d2d2d7;
-  background: #fff;
-  color: #1c1c1e;
+  border-color: var(--jsini-auth-line);
+  background: var(--jsini-auth-bg);
+  color: var(--jsini-auth-text);
 }
 
 /* 준비 중. 색을 전부 걷고 점선으로 「아직 없는 자리」임을 보인다. */
 .jsini-social__btn.is-soon {
-  border: 1px dashed #d2d2d7;
-  background: #fafafa;
-  color: #aeaeb2;
+  border: 1px dashed var(--jsini-auth-line);
+  background: var(--jsini-auth-soon-bg);
+  color: var(--jsini-auth-soon-text);
   font-weight: 500;
   cursor: not-allowed;
 }
 
 .jsini-social__btn.is-soon .jsini-social__icon {
-  color: #c7c7cc;
+  color: var(--jsini-auth-soon-icon);
   filter: grayscale(1);
   opacity: 0.45;
 }
@@ -3218,8 +3271,8 @@ a.jsini-social__btn:focus-visible {
   transform: translateY(-50%);
   padding: 0.125rem 0.5rem;
   border-radius: 999px;
-  background: #ececf0;
-  color: #8e8e93;
+  background: var(--jsini-auth-chip-bg);
+  color: var(--jsini-auth-chip-text);
   font-size: 0.6875rem;
   font-weight: 600;
   letter-spacing: 0.02em;
@@ -3292,13 +3345,13 @@ a.jsini-social__btn:focus-visible {
   margin: 0.75rem 0 0;
   font-size: 0.8125rem;
   line-height: 1.6;
-  color: #6e6e73;
+  color: var(--jsini-auth-muted);
 }
 
 /* 칸 검증 메시지도 같은 규칙으로 조용히 둔다. */
 .jsini-bare .validation-message {
   font-size: 0.75rem;
-  color: #1c1c1e;
+  color: var(--jsini-auth-text);
 }
 
 /* 가입 신청은 칸이 일곱이라 로그인 카드보다 넓어야 한다. */
@@ -3310,7 +3363,7 @@ a.jsini-social__btn:focus-visible {
 .jsini-login__card--panel {
   margin: 2rem 0;
   padding: 2.5rem 2.25rem 2rem;
-  border: 1px solid #e8e8ed;
+  border: 1px solid var(--jsini-auth-line-soft);
   box-shadow:
     0 1px 2px rgb(0 0 0 / 4%),
     0 16px 40px -16px rgb(0 0 0 / 14%);
@@ -3332,7 +3385,7 @@ a.jsini-social__btn:focus-visible {
   font-weight: 600;
   text-transform: none;
   letter-spacing: 0;
-  color: #1c1c1e;
+  color: var(--jsini-auth-text);
 }
 
 .jsini-login__card--panel .jsini-login__input {
@@ -3354,7 +3407,7 @@ a.jsini-social__btn:focus-visible {
   margin-left: 0.25rem;
   font-size: 0.75rem;
   font-weight: 400;
-  color: #86868b;
+  color: var(--jsini-auth-subtle);
 }
 
 /* 짧은 칸 둘을 나란히. 좁은 화면에서는 한 줄씩 떨어진다. */
@@ -3368,14 +3421,14 @@ a.jsini-social__btn:focus-visible {
 .jsini-login__submit--solid {
   margin-top: 0.5rem;
   padding-block: 0.875rem;
-  background: #0a0a0a;
-  color: #fff;
+  background: var(--jsini-auth-ink);
+  color: var(--jsini-auth-on-ink);
   font-weight: 600;
 }
 
 .jsini-login__submit--solid:hover,
 .jsini-login__submit--solid:focus-visible {
-  background: #2c2c2e;
+  background: var(--jsini-auth-ink-hover);
 }
 
 .jsini-login__submit:disabled {
@@ -3386,8 +3439,8 @@ a.jsini-social__btn:focus-visible {
 /* 가입 신청의 칸별 검증. 틀린 칸만 붉게 두르고 까닭은 칸 바로 아래에 붙인다 — 단추 하나 아래에 모아 적으면 어느 칸인지 다시 찾아야 한다. */
 .jsini-login__input--invalid,
 .jsini-login__input--invalid:focus {
-  border-color: #c4302b;
-  box-shadow: inset 0 0 0 1px #c4302b;
+  border-color: var(--jsini-auth-danger);
+  box-shadow: inset 0 0 0 1px var(--jsini-auth-danger);
 }
 
 .jsini-login__fielderr,
@@ -3397,8 +3450,8 @@ a.jsini-social__btn:focus-visible {
   line-height: 1.4;
 }
 
-.jsini-login__fielderr { color: #c4302b; }
-.jsini-login__fieldok { color: #1d7a3a; }
+.jsini-login__fielderr { color: var(--jsini-auth-danger); }
+.jsini-login__fieldok { color: var(--jsini-auth-ok); }
 
 /* 신청을 보내는 동안 단추 안에서 도는 고리. 단추 글자와 같은 색이다. */
 .jsini-login__submit .jsini-login__spinner {
@@ -3420,12 +3473,12 @@ a.jsini-social__btn:focus-visible {
   margin: 1.5rem 0 0;
   text-align: center;
   font-size: 0.875rem;
-  color: #6e6e73;
+  color: var(--jsini-auth-muted);
 }
 
 .jsini-login__foot a {
   margin-left: 0.25rem;
-  color: #0a0a0a;
+  color: var(--jsini-auth-ink);
   font-weight: 600;
   text-decoration: underline;
   text-underline-offset: 0.2em;
@@ -3457,22 +3510,22 @@ a.jsini-social__btn:focus-visible {
   gap: 0.75rem;
   margin-top: 2rem;
   padding-top: 1.5rem;
-  border-top: 1px solid #d2d2d7;
+  border-top: 1px solid var(--jsini-auth-line);
   font-size: 0.875rem;
 }
 
 .jsini-login__links a {
-  color: #6e6e73;
+  color: var(--jsini-auth-muted);
   text-decoration: none;
   transition: color 0.2s;
 }
 
-.jsini-login__links a:hover { color: #0a0a0a; }
+.jsini-login__links a:hover { color: var(--jsini-auth-ink); }
 
 /* 부제가 없는 카드에서 제목과 첫 칸 사이를 벌린다(제목에는 아래 여백이 없다). */
 .jsini-login__gap { height: 2.25rem; }
 
-/* 카드 안의 안내 줄. 이 카드는 테마를 따라가지 않으므로(흰 바탕에 먹 글씨) 색은 테마 변수가 아니라 고정값을 쓴다. 어두운 테마에서 글자가 사라진 적이 있다. 세 말투는 색이 아니라 왼쪽 글자(i · ! · ×)로 가른다. */
+/* 카드 안의 안내 줄. 색은 DevExpress·Tabler 변수가 아니라 카드 팔레트(--jsini-auth-*)를 쓴다 — 테마 변수를 섞으면 카드 바탕과 글자의 밝기가 갈려 어두운 테마에서 글자가 사라진다. 세 말투는 색이 아니라 왼쪽 글자(i · ! · ×)로 가른다. */
 
 .jsini-login__card .jsini-notice {
   margin: 0 0 1.5rem;
@@ -3480,36 +3533,36 @@ a.jsini-social__btn:focus-visible {
 
   /* 모서리도 그림자도 없다. 이 화면의 다른 상자들이 각져 있다. */
   border: 0;
-  border-left: 2px solid #0a0a0a;
+  border-left: 2px solid var(--jsini-auth-ink);
   border-radius: 0;
   box-shadow: none;
-  background: #f5f5f7;
-  color: #1c1c1e;
+  background: var(--jsini-auth-soft);
+  color: var(--jsini-auth-text);
   font-size: 0.875rem;
 }
 
 .jsini-login__card .jsini-notice::before {
-  color: #0a0a0a;
+  color: var(--jsini-auth-ink);
 }
 
 /* 비밀번호 변경 화면에서 「나중에 하기」. 만료로 끌려온 사람에게는 안 보인다. */
-/* 조용한 링크. 색과 크기를 테마 변수에서 얻지 않는다(카드가 테마를 따르지 않아 어두운 테마에서 사라진다). 카드 아래 링크와 같은 값이다. */
+/* 조용한 링크. 색은 테마 변수가 아니라 카드 팔레트를 쓴다(밝기가 갈리면 어두운 테마에서 사라진다). 카드 아래 링크와 같은 값이다. */
 .jsini-password__back {
   display: block;
   margin-top: 0.9rem;
   text-align: center;
   font-size: 0.875rem;
-  color: #6e6e73;
+  color: var(--jsini-auth-muted);
   text-decoration: none;
   transition: color 0.2s;
 }
 
-.jsini-password__back:hover { color: #0a0a0a; }
+.jsini-password__back:hover { color: var(--jsini-auth-ink); }
 
 /* 카드 안의 곁들이는 한 줄도 같은 이유로 고정한다. */
 .jsini-login__card .jsini-hint {
   font-size: 0.8125rem;
-  color: #6e6e73;
+  color: var(--jsini-auth-muted);
 }
 
 /* 단추처럼 생긴 링크. jsini-login__submit 은 button 기준이라 링크에는 이 둘이 더 필요하다. */
@@ -3534,14 +3587,14 @@ a.jsini-social__btn:focus-visible {
   margin-left: 0.5rem;
   padding: 0.1rem 0.5rem;
   font-size: 0.75rem;
-  color: #6e6e73;
+  color: var(--jsini-auth-muted);
   background: transparent;
-  border: 1px solid #d2d2d7;
+  border: 1px solid var(--jsini-auth-line);
   border-radius: 4px;
   cursor: pointer;
 }
 
-.jsini-message__copy:hover { color: #0a0a0a; }
+.jsini-message__copy:hover { color: var(--jsini-auth-ink); }
 
 /* ── 진단 화면 ───────────────────────────────────────────── */
 
@@ -9078,16 +9131,16 @@ html.jsini-toast-zoomed .dxbl-toast-portal {
   gap: 0.5rem;
   margin: 1.25rem 0 0;
   font-size: 0.75rem;
-  color: #86868b;
+  color: var(--jsini-auth-subtle);
 }
 
 .jsini-login__legal a {
-  color: #6e6e73;
+  color: var(--jsini-auth-muted);
   text-decoration: none;
 }
 
 .jsini-login__legal a:hover {
-  color: #0a0a0a;
+  color: var(--jsini-auth-ink);
   text-decoration: underline;
 }
 
