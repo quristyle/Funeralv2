@@ -209,13 +209,27 @@ public class CompanyService : ICompanyService
         return true;
     }
 
-    public async Task<IEnumerable<AccountDto>> GetCompanyUsersAsync(string companyId)
+    public async Task<IEnumerable<AccountDto>> GetCompanyUsersAsync(string? companyId = null)
     {
-        var accounts = await _context.Accounts
+        var query = _context.Accounts
             .Include(a => a.Company)
             .Include(a => a.Department)
             .Include(a => a.ProfileDetails)
-            .Where(a => a.CompanyId == companyId)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(companyId) && !companyId.Equals("all", StringComparison.OrdinalIgnoreCase))
+        {
+            query = query.Where(a => a.CompanyId == companyId);
+        }
+        else
+        {
+            query = query.Where(a => a.CompanyId != null);
+        }
+
+        var accounts = await query
+            .OrderBy(a => a.Company != null ? a.Company.Name : string.Empty)
+            .ThenBy(a => a.Department != null ? a.Department.Name : string.Empty)
+            .ThenBy(a => a.UserName)
             .ToListAsync();
 
         var roleAccounts = await _context.RoleAccounts

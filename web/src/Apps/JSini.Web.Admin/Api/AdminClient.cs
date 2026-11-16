@@ -112,8 +112,13 @@ public sealed class AdminClient(GatewayClient gateway)
         IReadOnlyList<string> orderedIds, CancellationToken ct = default)
         => gateway.PostAsync("auth/system/companies/reorder", orderedIds, ct);
 
-    public Task<IReadOnlyList<AccountDto>> GetCompanyUsersAsync(string companyId, CancellationToken ct = default)
-        => gateway.GetListAsync<AccountDto>($"auth/system/companies/{companyId}/users", ct);
+    public Task<IReadOnlyList<AccountDto>> GetCompanyUsersAsync(string? companyId = null, CancellationToken ct = default)
+    {
+        var path = string.IsNullOrWhiteSpace(companyId) || companyId.Equals("all", StringComparison.OrdinalIgnoreCase)
+            ? "auth/system/companies/users"
+            : $"auth/system/companies/{companyId}/users";
+        return gateway.GetListAsync<AccountDto>(path, ct);
+    }
 
     /// <summary>아직 어느 회사에도 안 속한 사람. 회사를 가리지 않는다 — 「소속이 없는 사람」이라 어느 회사에 넣든 후보가 같다. 서버가 회사 식별자를 받지 않는 이유가 그것이다.</summary>
     public Task<IReadOnlyList<AccountDto>> GetCompanyEligibleUsersAsync(CancellationToken ct = default)
