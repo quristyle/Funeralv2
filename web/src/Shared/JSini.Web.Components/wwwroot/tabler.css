@@ -312,6 +312,7 @@
   --jsini-shadow-card: var(--tb-shadow-card);
   --jsini-field-h: var(--tb-control-h);
   --jsini-surface-muted: var(--tb-surface-2);
+  --jsini-surface-sunken: var(--tb-body-bg);
   --jsini-accent-text: var(--tb-primary);
   --jsini-focus: rgba(var(--tb-primary-rgb), 0.25);
   --jsini-grid-header: var(--tb-surface-2);

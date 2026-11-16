@@ -7335,6 +7335,7 @@ a.jsini-social__btn:focus-visible {
 
   --jsini-surface-raised: #ffffff;
   --jsini-surface-muted: #eef3f8;
+  --jsini-surface-sunken: #eef3f8;
   --jsini-focus: rgb(32 107 196 / 24%);
   --jsini-shadow-card: 0 1px 2px rgb(24 36 51 / 5%), 0 8px 24px rgb(24 36 51 / 4%);
 }
@@ -7353,6 +7354,7 @@ a.jsini-social__btn:focus-visible {
 
   --jsini-surface-raised: #1e3048;
   --jsini-surface-muted: #142032;
+  --jsini-surface-sunken: #142032;
   --jsini-focus: rgb(66 153 255 / 28%);
   --jsini-shadow-card: 0 1px 2px rgb(0 0 0 / 22%), 0 12px 28px rgb(0 0 0 / 18%);
 }

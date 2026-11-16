@@ -3693,12 +3693,21 @@
   padding: 0.75rem 1rem;
   max-height: 32rem;
   overflow: auto;
+  font-family: var(--bs-font-monospace, monospace);
   font-size: 0.8125rem;
   line-height: 1.5;
-  background: var(--jsini-surface-sunken, #f5f5f7);
+  color: var(--jsini-text);
+  background: var(--jsini-surface-sunken, var(--jsini-bg, #f5f5f7));
   border: 1px solid var(--jsini-border, #e5e7eb);
   border-radius: 6px;
   white-space: pre;
+}
+
+:root[data-bs-theme='dark'] .ad-error__stack,
+:root[data-theme='dark'] .ad-error__stack {
+  color: var(--jsini-text, #e7edf7);
+  background: var(--jsini-surface-sunken, var(--jsini-bg, #182433));
+  border-color: var(--jsini-border, #26334a);
 }
 
 /* ── 차량 관리 — 번호판이 말한 것 ─────────────────────────── */
