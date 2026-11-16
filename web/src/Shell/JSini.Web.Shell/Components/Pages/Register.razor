@@ -6,9 +6,10 @@
 @*
     가입 신청. 누르면 계정이 승인 대기(PENDING)로 만들어지고, 관리자가 승인해야 로그인된다. 부서·역할 칸은 없다(신청자가 권한을 정하면 안 된다). 이메일은 반드시 받는다(승인·거절 안내와 비밀번호 찾기의 열쇠).
     소셜 단추는 같은 승인 대기 계정을 만든다. 로그인 화면과 같은 서버 경로이고 이름만 자리에 맞게 다르다.
+    안내는 토스트가 아니라 화면 안에 그린다 — BareLayout 에는 토스트 판이 없어 Say·RunAsync 로 띄운 말은 아무 데도 안 보인다.
 *@
 
-@inherits DataPage
+@inherits BasePage
 
 <PageTitle>가입 신청 · JSini 포털</PageTitle>
 
@@ -17,6 +18,10 @@
 
     @if (_sent)
     {
+        <div class="jsini-login__notice" role="status" aria-live="polite">
+            가입 신청을 받았습니다(아이디 <b>@_input.LoginId</b>).
+        </div>
+
         <p class="jsini-login__sub">
             관리자가 승인하면 신청하실 때 적으신 이메일로 알려 드립니다.
             승인 전에는 로그인하실 수 없습니다.
@@ -40,22 +45,28 @@
         <div class="jsini-login__row">
             <div class="jsini-login__field">
                 <label class="jsini-login__label" for="reg-id">아이디</label>
-                <input id="reg-id" class="jsini-login__input"
-                       autocomplete="username" @bind="_input.LoginId" />
+                <input id="reg-id" class="@InputClass("loginId")"
+                       autocomplete="username"
+                       aria-invalid="@Invalid("loginId")" @bind="_input.LoginId" @bind:event="oninput" />
+                @FieldError("loginId")
             </div>
 
             <div class="jsini-login__field">
                 <label class="jsini-login__label" for="reg-name">이름</label>
-                <input id="reg-name" class="jsini-login__input"
-                       autocomplete="name" @bind="_input.UserName" />
+                <input id="reg-name" class="@InputClass("userName")"
+                       autocomplete="name"
+                       aria-invalid="@Invalid("userName")" @bind="_input.UserName" @bind:event="oninput" />
+                @FieldError("userName")
             </div>
         </div>
 
         <div class="jsini-login__field">
             <label class="jsini-login__label" for="reg-email">이메일</label>
-            <input id="reg-email" type="email" class="jsini-login__input"
+            <input id="reg-email" type="email" class="@InputClass("email")"
                    placeholder="승인 안내를 이 주소로 보냅니다"
-                   autocomplete="email" @bind="_input.Email" />
+                   autocomplete="email"
+                   aria-invalid="@Invalid("email")" @bind="_input.Email" @bind:event="oninput" />
+            @FieldError("email")
         </div>
 
         <div class="jsini-login__field">
@@ -70,14 +81,22 @@
         <div class="jsini-login__row">
             <div class="jsini-login__field">
                 <label class="jsini-login__label" for="reg-pw">비밀번호</label>
-                <input id="reg-pw" type="password" class="jsini-login__input"
-                       autocomplete="new-password" @bind="_input.Password" />
+                <input id="reg-pw" type="password" class="@InputClass("password")"
+                       autocomplete="new-password" aria-invalid="@Invalid("password")"
+                       @bind="_input.Password" @bind:event="oninput" />
+                @FieldError("password")
             </div>
 
             <div class="jsini-login__field">
                 <label class="jsini-login__label" for="reg-confirm">비밀번호 확인</label>
-                <input id="reg-confirm" type="password" class="jsini-login__input"
-                       autocomplete="new-password" @bind="_input.Confirm" />
+                <input id="reg-confirm" type="password" class="@InputClass("confirm")"
+                       autocomplete="new-password" aria-invalid="@Invalid("confirm")"
+                       @bind="_input.Confirm" @bind:event="oninput" />
+                @FieldError("confirm")
+                @if (ConfirmMatches)
+                {
+                    <p class="jsini-login__fieldok" role="status">비밀번호가 일치합니다.</p>
+                }
             </div>
         </div>
 
@@ -90,9 +109,30 @@
                       rows="3" @bind="_input.Note"></textarea>
         </div>
 
+        @if (!string.IsNullOrWhiteSpace(_notice))
+        {
+            <div class="@(_failed ? "jsini-login__error" : "jsini-login__notice")"
+                 role="@(_failed ? "alert" : "status")" aria-live="@(_failed ? "assertive" : "polite")">
+                @_notice
+            </div>
+        }
+
+        @* 회로가 붙기 전에는 눌러도 아무 일이 없으므로 잠그고 그렇다고 적는다. *@
         <button type="button" class="jsini-login__submit jsini-login__submit--solid"
-                disabled="@Loading" @onclick="@SubmitAsync">
-            신청하기
+                disabled="@Blocked" aria-busy="@(_busy ? "true" : "false")" @onclick="@SubmitAsync">
+            @if (_busy)
+            {
+                <span class="jsini-login__spinner" aria-hidden="true"></span>
+                <span>신청을 보내는 중…</span>
+            }
+            else if (!RendererInfo.IsInteractive)
+            {
+                <span>준비 중…</span>
+            }
+            else
+            {
+                <span>신청하기</span>
+            }
         </button>
 
         <p class="jsini-login__foot">
