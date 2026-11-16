@@ -100,6 +100,9 @@ public partial class OrgChart
 
     private const string DeptDragPrefix = "dept:";
 
+    /// <summary>옆의 미소속 사용자 판이 싣는 놓기 값(<c>data-drop</c>). 노드 식별자와 겹치지 않게 앞머리를 둔다.</summary>
+    private const string UnassignedDropKey = "__UNASSIGNED__";
+
     private ElementReference _wrap;
     private ElementReference _viewport;
     private ElementReference _stage;
@@ -456,6 +459,17 @@ public partial class OrgChart
     [JSInvokable]
     public async Task DropFromJs(string kind, string id, string targetId)
     {
+        if (targetId == UnassignedDropKey)
+        {
+            if (kind == "user")
+            {
+                await UnassignAsync(id);
+                StateHasChanged();
+            }
+
+            return;
+        }
+
         var target = _nodes.FirstOrDefault(n => string.Equals(n.Id, targetId, StringComparison.Ordinal));
         if (target is null) return;
 
@@ -493,6 +507,25 @@ public partial class OrgChart
 
         // 부서를 회사(또는 미소속부서)에 놓으면 상위가 없어진다(회사 직속).
         await ApplyMoveAsync(OrgKind.Dept, id, targetDeptId);
+    }
+
+    /// <summary>미소속 사용자 판에 놓았다. 회사·부서를 함께 비워 무소속으로 만든다. 이미 미소속인 사람(그 판 안에서 끌었다 놓은 것)은 저장하지 않는다.</summary>
+    private async Task UnassignAsync(string id)
+    {
+        if (!CanMove) return;
+        if (_unassigned.Any(u => string.Equals(u.Id, id, StringComparison.Ordinal))) return;
+
+        var name = _nodes.FirstOrDefault(n => n.Kind == OrgKind.User && n.Id == id)?.Name ?? "사용자";
+
+        var ok = await RunAsync(
+            () => Api.MoveUserDeptAsync(id, null, null),
+            $"[{name}] 을(를) [{_companyName}] 소속에서 뺐습니다.",
+            "소속을 풀지 못했습니다");
+
+        if (!ok) return;
+
+        await ReloadAsync();
+        await LoadUnassignedAsync();
     }
 
     /// <summary><paramref name="deptId"/> 가 <paramref name="ancestorId"/> 의 하위(자기 포함)인가.</summary>

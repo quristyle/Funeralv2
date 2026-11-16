@@ -220,6 +220,9 @@
   border-radius: 0.6rem;
 }
 
+/* 판이 overflow: hidden 이라 바깥 테두리는 잘린다 — 안쪽으로 긋는다. */
+.ad-orgc__side.ad-orgc__node--over { outline-offset: -2px; }
+
 .ad-orgc__side-head {
   display: flex;
   align-items: center;

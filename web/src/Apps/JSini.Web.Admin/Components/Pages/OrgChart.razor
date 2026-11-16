@@ -121,10 +121,11 @@
             }
         </div>
 
-        @* 미소속 사용자. 행이 싣는 끌기 값(data-drag)은 사람 노드와 같은 모양이라 부서 노드의 놓기 처리를 그대로 쓴다. *@
+        @* 미소속 사용자. 행이 싣는 끌기 값(data-drag)은 사람 노드와 같은 모양이라 회사·부서 노드의 놓기 처리를 그대로 쓴다. *@
         @if (_showUnassigned)
         {
-            <div class="ad-orgc__side no-pan">
+            @* 판 전체가 놓는 자리다 — 조직도의 사람을 여기 놓으면 회사·부서 소속이 모두 풀린다. *@
+            <div class="ad-orgc__side no-pan" data-drop="@(CanMove ? UnassignedDropKey : null)">
                 <div class="ad-orgc__side-head">
                     <span class="ad-orgc__side-title">미소속 사용자</span>
                     <span class="jsini-text-muted">@_unassigned.Count</span>
