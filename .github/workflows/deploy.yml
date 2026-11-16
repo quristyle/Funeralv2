@@ -294,9 +294,16 @@ jobs:
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
       - name: compose 갱신 후 태그 교체 배포
+        # SMTP_PASSWORD 는 메일 계정 비밀번호다(docs/email-smtp.md). 운영 Local.json 을 여기서
+        # 못 고쳐서 .env 로 넘긴다. 롤백할 때 TAG 줄만 고치고 이 줄은 남긴다.
+        env:
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
         run: |
           cp deploy/docker/docker-compose.prod.yml /srv/jsini/docker-compose.yml
           echo "TAG=${{ github.sha }}" > /srv/jsini/.env
+          if [ -n "$SMTP_PASSWORD" ]; then
+            printf 'SMTP_PASSWORD=%s\n' "$SMTP_PASSWORD" >> /srv/jsini/.env
+          fi
           cd /srv/jsini
           docker compose pull -q
           docker compose up -d

@@ -67,6 +67,13 @@ builder.Services.Configure<PushDeliveryOptions>(
     builder.Configuration.GetSection(PushDeliveryOptions.SectionName));
 builder.Services.Configure<EmailQueueOptions>(builder.Configuration.GetSection("EmailQueue"));
 builder.Services.Configure<EmailSettings>(builder.Configuration.GetSection("EmailSettings"));
+// 운영 appsettings.Local.json 은 환경변수까지 이기는데 여기서 고칠 수 없다. 비밀번호를 바꿀 때는
+// Local 에 없는 이 열쇠(compose 의 EmailSettings__PasswordOverride ← 저장소 시크릿 SMTP_PASSWORD)가 먼저다.
+builder.Services.PostConfigure<EmailSettings>(s =>
+{
+    var overridePassword = builder.Configuration["EmailSettings:PasswordOverride"];
+    if (!string.IsNullOrWhiteSpace(overridePassword)) s.Password = overridePassword;
+});
 builder.Services.AddTransient<IEmailSender, SmtpEmailSender>();
 
 builder.Services.AddScoped<INotificationPreferenceService, NotificationPreferenceService>();

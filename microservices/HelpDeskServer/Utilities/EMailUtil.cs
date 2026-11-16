@@ -143,6 +143,9 @@ public class EMailUtil {
 */
 
 
+  private static string? FirstNonBlank(params string?[] values) =>
+    values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
+
   public static string NormalizeMailTos(string mailTos) {
     if (string.IsNullOrWhiteSpace(mailTos))
       return string.Empty;
@@ -230,7 +233,14 @@ public class EMailUtil {
       var host = configuration.GetValue<string>("Email:JinNets:Host") ?? "jinnets.co.kr";
       var port = configuration.GetValue<int?>("Email:JinNets:Port") ?? 587;
       var user = configuration.GetValue<string>("Email:JinNets:User") ?? "suport@jinnets.co.kr";
-      var pass = configuration.GetValue<string>("Email:JinNets:Password") ?? "b0927bbZ1!";
+      // 운영 appsettings.Local.json 이 환경변수를 이기므로 비밀번호를 바꿀 때는 Local 에 없는 PasswordOverride 가 먼저다.
+      var pass = FirstNonBlank(
+        configuration.GetValue<string>("Email:JinNets:PasswordOverride"),
+        configuration.GetValue<string>("Email:JinNets:Password"));
+      if (pass is null) {
+        logger.LogWarning("SendEmailJinNets: Email:JinNets:Password 가 비어 있어 메일을 보내지 않는다 ({tos})", mailTos);
+        return;
+      }
       var fromDisplay = configuration.GetValue<string>("Email:JinNets:FromDisplay") ?? "지원팀";
       var useSsl = configuration.GetValue<bool?>("Email:JinNets:UseSsl") ?? true; // STARTTLS on port 587
       var timeoutMs = configuration.GetValue<int?>("Email:TimeoutMs") ?? 15000;

@@ -141,6 +141,9 @@ services:
     environment:
       <<: *common-env
       Kestrel__Endpoints__Http__Url: http://0.0.0.0:8080
+      # 메일 계정 비밀번호. 아래 Local.json 이 환경변수를 이겨서 Local 에 없는 열쇠로 덮는다.
+      # 값은 .env 의 SMTP_PASSWORD 이고 배포가 저장소 시크릿에서 적는다 — 비면 Local 값을 쓴다.
+      EmailSettings__PasswordOverride: ${SMTP_PASSWORD:-}
     volumes:
       - /srv/jsini/config/NotificationServer/appsettings.Local.json:/app/appsettings.Local.json:ro
 
@@ -184,6 +187,9 @@ services:
 
       # 시스템관리자 역할 대상 푸시를 NotificationServer로 보낸다.
       Notify__BaseUrl: http://notify:8080
+
+      # 헬프데스크가 직접 보내는 메일(SendEmailJinNets)도 같은 계정이다. notify 와 같은 까닭으로 덮는다.
+      Email__JinNets__PasswordOverride: ${SMTP_PASSWORD:-}
 
       # 회사 정보를 읽는 곳. 헬프데스크는 회사를 스스로 관리하지 않고 포털의
       # `scom.companies` 를 정본으로 본다(요청 통계·고객사 이름). **컨테이너망

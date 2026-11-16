@@ -63,7 +63,23 @@ NotificationServer 의 `POST /emails/send`(SMTP 직발송)다.
 }
 ```
 
-compose 에는 넣지 않는다. 운영의 비밀값은 `/srv/jsini/config/<서비스>/appsettings.Local.json`
+### 비밀번호를 바꿀 때 — 저장소 시크릿 `SMTP_PASSWORD`
+
+운영 `appsettings.Local.json` 은 **환경변수까지 이긴다**(모든 서비스가 env 뒤에 싣는다).
+그 파일을 못 고치는 자리에서 비밀번호를 바꾸려고 **Local 에 없는 열쇠**를 코드가 먼저 읽는다.
+
+| 서비스 | 먼저 읽는 열쇠 | 없으면 |
+|---|---|---|
+| NotificationServer | `EmailSettings:PasswordOverride` | `EmailSettings:Password` |
+| HelpDeskServer (`SendEmailJinNets`) | `Email:JinNets:PasswordOverride` | `Email:JinNets:Password` (둘 다 비면 안 보내고 경고) |
+
+값은 저장소 시크릿 `SMTP_PASSWORD` 하나다. 배포(`deploy.yml`)가 그것을
+`/srv/jsini/.env` 에 `SMTP_PASSWORD=…` 로 적고, compose 가 두 서비스의 위 열쇠로 넘긴다.
+그래서 **비밀번호가 바뀌면 시크릿을 고치고 배포를 한 번 돌리면 된다** —
+git 에는 아무것도 안 들어간다. 롤백할 때 `.env` 의 `TAG` 줄만 고치고 이 줄은 남긴다
+(지우면 Local 의 옛 비밀번호로 돌아간다).
+
+그 밖의 비밀값은 compose 에 넣지 않는다. `/srv/jsini/config/<서비스>/appsettings.Local.json`
 마운트로만 들어간다(`deploy/docker/docker-compose.prod.yml` 머리말).
 
 호스트나 계정을 바꿔야 하면 같은 파일에서 `Host`·`Port`·`User` 를 함께 덮어쓴다.
