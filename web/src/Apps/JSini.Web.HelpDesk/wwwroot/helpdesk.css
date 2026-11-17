@@ -1964,9 +1964,15 @@
   font-style: italic;
 }
 
-/* 차트 여덟 장은 한 줄에 넷씩(1H 넷 · 24H 넷). 기본 300px 로는 사이드바를 편 상태에서 넷째가 혼자 내려가서 220px 로 줄인다 — 본문 930px 에서도 넷이 선다. */
+/* 차트도 묶음마다 늘 넷이라 점수판과 같은 규칙이다 — `auto-fit` 은 중간 폭에서 3+1 로 한 장을 떨어뜨린다. 넷 아니면 둘로만 접는다. */
 .hd-charts--quad {
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+@media (width <= 767px) {
+  .hd-charts--quad {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 /* ── 경량 SVG 모니터링 차트 (0ms JS 블로킹으로 부드러운 화면 전환) ── */
