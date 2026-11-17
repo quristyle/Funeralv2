@@ -348,7 +348,7 @@ public partial class MailSendPage
             .Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
         var box =
-            "<div style=\"border-left:3px solid #4263eb;background:#f1f3f5;"
+            "<div class=\"ad-mailsend__summary-box\" style=\"border-left:3px solid #4263eb;background:#f1f3f5;color:#212529;"
             + "padding:10px 14px;margin:0 0 14px 0;\">"
             + "<div style=\"font-weight:600;margin-bottom:4px;\">요약</div>"
             + string.Join("", lines.Select(l => $"<div>{Escape(l)}</div>"))

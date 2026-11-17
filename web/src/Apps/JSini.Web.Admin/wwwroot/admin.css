@@ -5113,9 +5113,141 @@
   overflow-x: auto;
   border-top: 1px solid var(--bs-border-color, #dee2e6);
   padding-top: 0.75rem;
+  line-height: 1.6;
+  color: var(--jsini-text, inherit);
 }
 
-.ad-mailsend__body img { max-width: 100%; }
+.ad-mailsend__body > :first-child { margin-top: 0; }
+.ad-mailsend__body > :last-child { margin-bottom: 0; }
+.ad-mailsend__body p { margin: 0 0 0.6rem; }
+.ad-mailsend__body img { max-width: 100%; height: auto; }
+
+.ad-mailsend__body a {
+  color: var(--jsini-accent-text, var(--bs-primary, #206bc4));
+  text-decoration: underline;
+}
+
+.ad-mailsend__body table {
+  width: 100%;
+  max-width: 100%;
+  margin: 0 0 0.6rem;
+  border-collapse: collapse;
+}
+
+.ad-mailsend__body th,
+.ad-mailsend__body td {
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--jsini-border, #dee2e6);
+}
+
+.ad-mailsend__body th {
+  font-weight: 600;
+  background: var(--jsini-surface-2, rgba(0, 0, 0, 0.02));
+}
+
+.ad-mailsend__summary-box {
+  border-left: 3px solid var(--jsini-accent, #4263eb);
+  background: var(--jsini-surface-2, #f1f3f5);
+  color: var(--jsini-text, #212529);
+  padding: 10px 14px;
+  margin: 0 0 14px 0;
+  border-radius: 0 var(--jsini-radius-sm, 4px) var(--jsini-radius-sm, 4px) 0;
+}
+
+/* 다크모드에서 보낸 메일 본문:
+   흰 배경에 흰 글씨가 되는 문제 방지.
+   1. 메일 본문과 표, 요약 박스의 글자색을 다크모드 텍스트 토큰으로 맞춘다.
+   2. 본문에 인라인 스타일로 박힌 밝은 바탕색(#ffffff, #f1f3f5 등)을 다크 표면색으로 치환하고 글자색을 보정한다.
+   3. 인라인 스타일로 박힌 짙은 글자색(#000, #333 등)도 다크모드 텍스트로 보정한다. */
+:root[data-bs-theme='dark'] .ad-mailsend__body,
+:root[data-theme='dark'] .ad-mailsend__body {
+  border-top-color: var(--jsini-border, rgba(128, 150, 172, 0.2));
+  color: var(--jsini-text, #e7edf7);
+}
+
+:root[data-bs-theme='dark'] .ad-mailsend__body th,
+:root[data-theme='dark'] .ad-mailsend__body th {
+  background: var(--jsini-surface-2, rgba(255, 255, 255, 0.04));
+  border-color: var(--jsini-border, rgba(128, 150, 172, 0.2));
+  color: var(--jsini-text, #e7edf7);
+}
+
+:root[data-bs-theme='dark'] .ad-mailsend__body td,
+:root[data-theme='dark'] .ad-mailsend__body td {
+  border-color: var(--jsini-border, rgba(128, 150, 172, 0.2));
+  color: var(--jsini-text, #e7edf7);
+}
+
+:root[data-bs-theme='dark'] .ad-mailsend__body a,
+:root[data-theme='dark'] .ad-mailsend__body a {
+  color: var(--jsini-accent-text, #4299e1);
+}
+
+:root[data-bs-theme='dark'] .ad-mailsend__body .ad-mailsend__summary-box,
+:root[data-theme='dark'] .ad-mailsend__body .ad-mailsend__summary-box,
+:root[data-bs-theme='dark'] .ad-mailsend__body [style*="background:#f1f3f5"],
+:root[data-theme='dark'] .ad-mailsend__body [style*="background:#f1f3f5"],
+:root[data-bs-theme='dark'] .ad-mailsend__body [style*="background: #f1f3f5"],
+:root[data-theme='dark'] .ad-mailsend__body [style*="background: #f1f3f5"],
+:root[data-bs-theme='dark'] .ad-mailsend__body [style*="background:#f3f5f8"],
+:root[data-theme='dark'] .ad-mailsend__body [style*="background: #f3f5f8"],
+:root[data-bs-theme='dark'] .ad-mailsend__body [style*="background:#f6f8fa"],
+:root[data-theme='dark'] .ad-mailsend__body [style*="background: #f6f8fa"],
+:root[data-bs-theme='dark'] .ad-mailsend__body [style*="background:#f8f9fa"],
+:root[data-theme='dark'] .ad-mailsend__body [style*="background: #f8f9fa"],
+:root[data-bs-theme='dark'] .ad-mailsend__body [style*="background:#f1f3f4"],
+:root[data-theme='dark'] .ad-mailsend__body [style*="background: #f1f3f4"],
+:root[data-bs-theme='dark'] .ad-mailsend__body [style*="background:#ffffff"],
+:root[data-theme='dark'] .ad-mailsend__body [style*="background: #ffffff"],
+:root[data-bs-theme='dark'] .ad-mailsend__body [style*="background:#fff"],
+:root[data-theme='dark'] .ad-mailsend__body [style*="background: #fff"],
+:root[data-bs-theme='dark'] .ad-mailsend__body [style*="background:white"],
+:root[data-theme='dark'] .ad-mailsend__body [style*="background: white"],
+:root[data-bs-theme='dark'] .ad-mailsend__body [style*="background-color:#ffffff"],
+:root[data-theme='dark'] .ad-mailsend__body [style*="background-color: #ffffff"],
+:root[data-bs-theme='dark'] .ad-mailsend__body [style*="background-color:#fff"],
+:root[data-theme='dark'] .ad-mailsend__body [style*="background-color: #fff"],
+:root[data-bs-theme='dark'] .ad-mailsend__body [style*="background-color:white"],
+:root[data-theme='dark'] .ad-mailsend__body [style*="background-color: white"],
+:root[data-bs-theme='dark'] .ad-mailsend__body [style*="background-color: rgb(255, 255, 255)"],
+:root[data-theme='dark'] .ad-mailsend__body [style*="background-color: rgb(255, 255, 255)"],
+:root[data-bs-theme='dark'] .ad-mailsend__body [style*="background-color:rgb(255,255,255)"],
+:root[data-theme='dark'] .ad-mailsend__body [style*="background-color:rgb(255,255,255)"] {
+  background: var(--jsini-surface-2, rgba(255, 255, 255, 0.06)) !important;
+  color: var(--jsini-text, #e7edf7) !important;
+  border-color: var(--jsini-border, rgba(128, 150, 172, 0.25)) !important;
+}
+
+:root[data-bs-theme='dark'] .ad-mailsend__body [style*="color:#000000"],
+:root[data-theme='dark'] .ad-mailsend__body [style*="color:#000000"],
+:root[data-bs-theme='dark'] .ad-mailsend__body [style*="color: #000000"],
+:root[data-theme='dark'] .ad-mailsend__body [style*="color: #000000"],
+:root[data-bs-theme='dark'] .ad-mailsend__body [style*="color:#000"],
+:root[data-theme='dark'] .ad-mailsend__body [style*="color:#000"],
+:root[data-bs-theme='dark'] .ad-mailsend__body [style*="color: #000"],
+:root[data-theme='dark'] .ad-mailsend__body [style*="color: #000"],
+:root[data-bs-theme='dark'] .ad-mailsend__body [style*="color:#212529"],
+:root[data-theme='dark'] .ad-mailsend__body [style*="color:#212529"],
+:root[data-bs-theme='dark'] .ad-mailsend__body [style*="color: #212529"],
+:root[data-theme='dark'] .ad-mailsend__body [style*="color: #212529"],
+:root[data-bs-theme='dark'] .ad-mailsend__body [style*="color:#333333"],
+:root[data-theme='dark'] .ad-mailsend__body [style*="color:#333333"],
+:root[data-bs-theme='dark'] .ad-mailsend__body [style*="color: #333333"],
+:root[data-theme='dark'] .ad-mailsend__body [style*="color: #333333"],
+:root[data-bs-theme='dark'] .ad-mailsend__body [style*="color:#333"],
+:root[data-theme='dark'] .ad-mailsend__body [style*="color:#333"],
+:root[data-bs-theme='dark'] .ad-mailsend__body [style*="color: #333"],
+:root[data-theme='dark'] .ad-mailsend__body [style*="color: #333"],
+:root[data-bs-theme='dark'] .ad-mailsend__body [style*="color:#5f6368"],
+:root[data-theme='dark'] .ad-mailsend__body [style*="color:#5f6368"],
+:root[data-bs-theme='dark'] .ad-mailsend__body [style*="color: #5f6368"],
+:root[data-theme='dark'] .ad-mailsend__body [style*="color: #5f6368"],
+:root[data-bs-theme='dark'] .ad-mailsend__body [style*="color:#8a96a3"],
+:root[data-theme='dark'] .ad-mailsend__body [style*="color:#8a96a3"],
+:root[data-bs-theme='dark'] .ad-mailsend__body [style*="color: #8a96a3"],
+:root[data-theme='dark'] .ad-mailsend__body [style*="color: #8a96a3"] {
+  color: var(--jsini-text, #e7edf7) !important;
+}
 
 /* ── 차단 접근 상세 ────────────────────────────────────────── */
 .ad-blocked__facts {
