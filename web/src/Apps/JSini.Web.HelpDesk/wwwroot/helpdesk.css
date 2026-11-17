@@ -1892,7 +1892,7 @@
   margin-bottom: 0;
 }
 
-/* 칸이 늘 넷이라 `auto-fit` 을 안 쓴다 — 가로 눕힌 휴대폰 폭에서 3+1 로 한 장만 떨어졌다. 넷 아니면 둘로만 접는다. */
+/* 칸이 늘 넷이라 `auto-fit` 을 쓰지 않는다 — 그것은 중간 폭에서 3+1 로 한 장을 떨어뜨린다. 넷 아니면 둘로만 접는다. */
 .hd-sysmon__cards {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
