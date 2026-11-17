@@ -2473,11 +2473,19 @@
  *   2) 상자의 `scrollHeight`·`clientHeight` 가 지난번과 다르면 내용이 바뀐
  *      것이므로 기준만 새로 잡고 넘어간다.
  *   3) 헤더를 바꾼 직후 전환(0.25s) 동안은 방향을 읽지 않는다.
+ *
+ * **휴대폰에서는 문서 자체도 구른다.** 셸이 100vh 인데 주소창이 펴져 있으면
+ * 보이는 높이가 그보다 작아 문서가 주소창만큼(60px 남짓) 구르고, 그 위치는
+ * 늘 「상단 근처」라 본문을 내릴 때마다 헤더를 되살렸다. 셸이 있으면 문서
+ * 스크롤은 보지 않는다. 휴대폰 폭에서 사용자가 이 기능을 끄면 셸에
+ * jsini-shell--autohide-mobile-off 가 붙는다(환경설정 · MainLayout.ShellCss).
  */
 (function () {
   var SHELL = '.jsini-shell';
   var BOX = '.jsini-shell__content';
   var HIDDEN_CLASS = 'jsini-shell--header-hidden';
+  var MOBILE_OFF_CLASS = 'jsini-shell--autohide-mobile-off';
+  var MOBILE_QUERY = '(max-width: 767px)';
 
   /** 헤더 높이 남짓 내려왔을 때부터 숨김을 허용한다. 상단 근처에서는 늘 보인다. */
   var SCROLL_THRESHOLD = 60;
@@ -2500,7 +2508,8 @@
   /** 상자마다 지난번 위치와 크기를 적어 두는 자리. */
   var STATE = '__jsiniHeaderScrollState';
 
-  var ticking = false;
+  /** 다음 그림에서 살필 상자들. 같은 그림에 둘이 구르면 앞엣것만 받던 것을 둘 다 받는다. */
+  var pending = [];
   var inputUntil = 0;
   var pointerDown = false;
   var touching = false;
@@ -2557,6 +2566,11 @@
     settleUntil = now() + TOGGLE_SETTLE;
   }
 
+  function isOffOnThisScreen(shell) {
+    return shell.classList.contains(MOBILE_OFF_CLASS)
+      && !!window.matchMedia && window.matchMedia(MOBILE_QUERY).matches;
+  }
+
   function isMainScroller(el, content) {
     return el.clientHeight >= content.clientHeight * MIN_RATIO;
   }
@@ -2574,8 +2588,8 @@
     var prev = scroller[STATE];
     scroller[STATE] = { top: top, sh: sh, ch: ch };
 
-    // AI 에이전트 대화 화면이거나 메뉴/서랍이 열려 있는 동안에는 헤더를 숨기지 않는다.
-    if (document.querySelector('.site-ai-chat') || isDrawerOrMenuOpen()) {
+    // AI 에이전트 대화 화면 · 메뉴/서랍이 열려 있는 동안 · 휴대폰에서 이 기능을 끈 사람에게는 헤더를 숨기지 않는다.
+    if (document.querySelector('.site-ai-chat') || isDrawerOrMenuOpen() || isOffOnThisScreen(shell)) {
       setHidden(shell, false);
       return;
     }
@@ -2607,11 +2621,13 @@
   }
 
   function schedule(scroller) {
-    if (ticking) return;
-    ticking = true;
+    if (pending.indexOf(scroller) >= 0) return;
+    pending.push(scroller);
+    if (pending.length > 1) return;
     window.requestAnimationFrame(function () {
-      ticking = false;
-      handleScroll(scroller);
+      var list = pending;
+      pending = [];
+      for (var i = 0; i < list.length; i++) handleScroll(list[i]);
     });
   }
 
@@ -2630,6 +2646,8 @@
   }, { capture: true, passive: true });
 
   window.addEventListener('scroll', function () {
+    // 셸이 있으면 문서는 화면을 구르는 상자가 아니다(머리말의 휴대폰 주소창 이야기).
+    if (document.querySelector(BOX)) return;
     schedule(document.scrollingElement || document.documentElement || document.body);
   }, { passive: true });
 

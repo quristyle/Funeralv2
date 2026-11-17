@@ -191,6 +191,17 @@
                     Checked="@(!_zoomUnlocked)"
                     CheckedChanged="@((bool v) => OnZoomLockedChangedAsync(v))" />
     </div>
+
+    @* 넓은 화면은 늘 숨긴다 — 이 스위치는 휴대폰에서만 듣는다(theme.js 가 폭과 함께 본다). *@
+    <div class="jsini-setting">
+        <div>
+            <div class="jsini-setting__name">모바일 스크롤 시 상단 자동 숨김</div>
+        </div>
+
+        <DxCheckBox CheckType="CheckType.Switch"
+                    Checked="@(!_headerAutoHideMobileOff)"
+                    CheckedChanged="@((bool v) => OnHeaderAutoHideMobileChangedAsync(v))" />
+    </div>
 </section>
 
 </div>

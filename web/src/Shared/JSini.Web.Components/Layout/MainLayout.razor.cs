@@ -64,6 +64,12 @@ public partial class MainLayout
                 css += " jsini-shell--hdfab-desktop";
             }
 
+            // 휴대폰에서 스크롤로 헤더를 숨기지 않기로 한 사람에게 붙는다. 판정은 theme.js 가 이 표시와 폭을 함께 보고 한다.
+            if (_headerAutoHideMobileOff)
+            {
+                css += " jsini-shell--autohide-mobile-off";
+            }
+
             // 아래 띠를 쓰지 않기로 한 사람에게 붙는다. 여백과 단추 자리 올림을 CSS 가 들고 있어 이 표시로만 걷을 수 있다.
             if (_bottomNavHidden)
             {
@@ -188,6 +194,9 @@ public partial class MainLayout
     /// <summary>휴대폰 아래 띠를 쓰지 않기로 했는가. 기본은 false — 읽기 전 값이 기본이라 깜빡이지 않는다.</summary>
     private bool _bottomNavHidden;
 
+    /// <summary>휴대폰에서 스크롤로 헤더를 숨기지 않기로 했는가. 기본은 false — 숨긴다.</summary>
+    private bool _headerAutoHideMobileOff;
+
     /// <summary>띠 칸에서 이름을 감추기로 했는가. 기본은 false. 읽기 전 기본값이 있어 띠가 떴다 두꺼워지지 않는다.</summary>
     private bool _bottomNavLabelsHidden;
 
@@ -234,6 +243,7 @@ public partial class MainLayout
         Boot.HelpDeskFabDesktopChanged += OnHelpDeskFabDesktopChanged;
         Boot.BottomNavHiddenChanged += OnBottomNavHiddenChanged;
         Boot.BottomNavLabelsHiddenChanged += OnBottomNavLabelsHiddenChanged;
+        Boot.HeaderAutoHideMobileOffChanged += OnHeaderAutoHideMobileOffChanged;
         Boot.BottomNavDesktopHiddenChanged += OnBottomNavDesktopHiddenChanged;
         Boot.ToastPositionChanged += OnToastPositionChanged;
     }
@@ -291,6 +301,12 @@ public partial class MainLayout
     private void OnBottomNavHiddenChanged(bool hidden)
     {
         _bottomNavHidden = hidden;
+        InvokeAsync(StateHasChanged);
+    }
+
+    private void OnHeaderAutoHideMobileOffChanged(bool off)
+    {
+        _headerAutoHideMobileOff = off;
         InvokeAsync(StateHasChanged);
     }
 
@@ -447,6 +463,12 @@ public partial class MainLayout
         if (state.BottomNavHidden != _bottomNavHidden)
         {
             _bottomNavHidden = state.BottomNavHidden;
+            changed = true;
+        }
+
+        if (state.HeaderAutoHideMobileOff != _headerAutoHideMobileOff)
+        {
+            _headerAutoHideMobileOff = state.HeaderAutoHideMobileOff;
             changed = true;
         }
 
@@ -901,6 +923,7 @@ public partial class MainLayout
         Boot.HelpDeskFabDesktopChanged -= OnHelpDeskFabDesktopChanged;
         Boot.BottomNavHiddenChanged -= OnBottomNavHiddenChanged;
         Boot.BottomNavLabelsHiddenChanged -= OnBottomNavLabelsHiddenChanged;
+        Boot.HeaderAutoHideMobileOffChanged -= OnHeaderAutoHideMobileOffChanged;
         Boot.BottomNavDesktopHiddenChanged -= OnBottomNavDesktopHiddenChanged;
         Boot.ToastPositionChanged -= OnToastPositionChanged;
         _watermarkWatch?.Dispose();

@@ -197,6 +197,7 @@ public partial class EnvironmentSettingPage
         _helpDeskFabDesktop = state.HelpDeskFabDesktop;
         _selectedToastPosition = state.ToastPosition;
         _zoomUnlocked = state.ZoomUnlocked;
+        _headerAutoHideMobileOff = state.HeaderAutoHideMobileOff;
         _bottomNavHidden = state.BottomNavHidden;
         _bottomNavLabelsHidden = state.BottomNavLabelsHidden;
         _bottomNavDesktopHidden = state.BottomNavDesktopHidden;
@@ -271,6 +272,15 @@ public partial class EnvironmentSettingPage
     {
         _zoomUnlocked = !locked;
         await Boot.SetZoomUnlockedAsync(_zoomUnlocked);
+    }
+
+    /// <summary>휴대폰 헤더 자동 숨김을 껐는가. 기본은 false, 즉 숨긴다. 화면 스위치는 이것을 뒤집어 보인다.</summary>
+    private bool _headerAutoHideMobileOff;
+
+    private async Task OnHeaderAutoHideMobileChangedAsync(bool used)
+    {
+        _headerAutoHideMobileOff = !used;
+        await Boot.SetHeaderAutoHideMobileOffAsync(_headerAutoHideMobileOff);
     }
 
     // ── 휴대폰 아래 띠 ──────────────────────────────────────────

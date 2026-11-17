@@ -25,6 +25,9 @@ public sealed class PortalPrefs(GatewayClient gateway, ILogger<PortalPrefs> logg
     /// <summary>헬프데스크 요청등록 바로가기 단추를 <b>감출지</b>. 없으면 보인다.</summary>
     public const string HelpDeskFabHiddenKey = "portal.helpDeskFab.hidden";
 
+    /// <summary>휴대폰에서 스크롤에 따라 헤더를 숨기는 일을 <b>끌지</b>. 없으면 켜져 있다. 넓은 화면에는 걸리지 않는다.</summary>
+    public const string HeaderAutoHideMobileOffKey = "portal.headerAutoHide.mobileOff";
+
     /// <summary>알림(토스트)이 뜨는 자리. 없으면 <c>bottom-right</c>.</summary>
     public const string ToastPositionKey = "portal.toast.position";
 
