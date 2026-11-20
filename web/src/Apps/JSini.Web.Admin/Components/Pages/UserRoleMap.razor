@@ -139,11 +139,32 @@
             else
             {
                 @* 사이드바와 같은 모양으로 그린다 — 길을 글자로 이어 붙이면 어느 업무의 메뉴가 몇 개 열렸는지 안 읽힌다. 묶음 줄은 자식이 열려서 남은 것이라 「열어 준 역할」 칸이 비고 딱지로 구분한다. *@
-                <CommTree TItem="MenuRow" Data="@_tree"
+                <CommTree @ref="_treeRef"
+                          TItem="MenuRow" Data="@_tree"
                           KeyFieldName="@nameof(MenuRow.Id)"
                           ChildrenFieldName="@nameof(MenuRow.Children)"
                           ExportName="볼 수 있는 메뉴"
-                          EmptyText="열려 있는 메뉴가 없습니다.">
+                          EmptyText="열려 있는 메뉴가 없습니다."
+                          SelectedItem="@_selectedMenuRow"
+                          SelectedItemChanged="@((MenuRow? r) => _selectedMenuRow = r)">
+                    <Toolbar>
+                        <DxButton IconCssClass="jsini-icon-unfold" Title="모두 확장" aria-label="확장"
+                                  RenderStyle="ButtonRenderStyle.Secondary"
+                                  Click="@ExpandAll" />
+                        <DxButton IconCssClass="jsini-icon-fold" Title="모두 축소" aria-label="축소"
+                                  RenderStyle="ButtonRenderStyle.Secondary"
+                                  Click="@CollapseAll" />
+                        <DxButton IconCssClass="jsini-icon-child-unfold" Title="선택 하위 모두 열기" aria-label="선택확장"
+                                  RenderStyle="ButtonRenderStyle.Secondary"
+                                  Click="@ExpandSelectedSubtree" />
+                    </Toolbar>
+
+                    <ContextMenuItems>
+                        <CommMenuItem Text="모두 확장" IconCssClass="jsini-icon-unfold" Click="@ExpandAll" />
+                        <CommMenuItem Text="모두 축소" IconCssClass="jsini-icon-fold" Click="@CollapseAll" />
+                        <CommMenuItem Text="선택 하위 모두 열기" IconCssClass="jsini-icon-child-unfold" Click="@ExpandSelectedSubtree" />
+                    </ContextMenuItems>
+
                     <Columns>
                         <DxTreeListDataColumn Caption="메뉴" MinWidth="240">
                             <CellDisplayTemplate Context="cell">

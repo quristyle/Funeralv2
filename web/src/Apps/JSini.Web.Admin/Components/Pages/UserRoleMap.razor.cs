@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using JSini.Web.Components.Data;
+using JSini.Web.Components.Layout;
 using JSini.Web.Admin.Api;
 
 namespace JSini.Web.Admin.Components.Pages;
@@ -49,6 +50,9 @@ public partial class UserRoleMap
     /// <summary>고른 사람이 볼 수 있는 메뉴만 남긴 나무.</summary>
     private IReadOnlyList<MenuRow> _tree = [];
 
+    private CommTree<MenuRow>? _treeRef;
+    private MenuRow? _selectedMenuRow;
+
     /// <summary>
     /// 나무 한 줄. 메뉴의 생김새(<see cref="SystemMenuDto"/>)와 그 사람의
     /// 권한(<see cref="AccountMenuItemDto"/>)을 합쳐 놓은 것이다.
@@ -56,6 +60,7 @@ public partial class UserRoleMap
     private sealed class MenuRow
     {
         public string Id { get; init; } = string.Empty;
+        public string? ParentId { get; init; }
         public string Title { get; init; } = string.Empty;
         public string Path { get; init; } = string.Empty;
         public string? Icon { get; init; }
@@ -189,6 +194,7 @@ public partial class UserRoleMap
             kept.Add(new MenuRow
             {
                 Id = node.Id,
+                ParentId = node.Pid,
                 Title = MenuTitle(node),
                 Path = node.Path,
                 Icon = node.Meta.Icon,
@@ -235,6 +241,7 @@ public partial class UserRoleMap
         _assigned = [];
         _unassigned = [];
         _tree = [];
+        _selectedMenuRow = null;
 
         await Task.CompletedTask;
     }
@@ -242,6 +249,7 @@ public partial class UserRoleMap
     private Task SelectAsync(Target target)
     {
         _selected = target;
+        _selectedMenuRow = null;
 
         return LoadAsync(async () =>
         {
@@ -386,4 +394,133 @@ public partial class UserRoleMap
     /// <summary>이름에서 만든 색 씨앗. 같은 사람은 늘 같은 색이 된다.</summary>
     private static int Seed(string name) =>
         Math.Abs(name.GetHashCode(StringComparison.Ordinal)) % 360;
+
+    /// <summary>그리드(트리)의 모든 노드를 펼친다 (모두확장).</summary>
+    public void ExpandAll()
+    {
+        _treeRef?.ExpandAll();
+    }
+
+    public void ExpandAllMenus() => ExpandAll();
+
+    /// <summary>그리드(트리)의 모든 노드를 접는다 (모두축소).</summary>
+    public void CollapseAll()
+    {
+        _treeRef?.CollapseAll();
+    }
+
+    public void CollapseAllMenus() => CollapseAll();
+
+    /// <summary>선택한 메뉴와 그 하위 노드를 모두 펼친다 (선택확장).</summary>
+    public void ExpandSelectedSubtree()
+    {
+        var target = _selectedMenuRow ?? _treeRef?.Tree?.GetFocusedDataItem() as MenuRow;
+        if (target is null)
+        {
+            Say("하위를 열 메뉴를 먼저 선택해 주세요.", NoticeTone.Warning);
+            return;
+        }
+
+        if (_treeRef?.Tree is null)
+        {
+            return;
+        }
+
+        EnsureAncestorsExpanded(target);
+
+        var targetSubtree = Subtree(target);
+        var targetBranchIds = targetSubtree
+            .Where(r => r.Children.Count > 0)
+            .Select(r => r.Id)
+            .ToHashSet(StringComparer.Ordinal);
+
+        if (targetBranchIds.Count == 0)
+        {
+            return;
+        }
+
+        bool expanded;
+        int safety = 0;
+        do
+        {
+            expanded = false;
+            int count = _treeRef.Tree.GetVisibleRowCount();
+            for (int i = 0; i < count; i++)
+            {
+                if (_treeRef.Tree.GetDataItem(i) is MenuRow r && targetBranchIds.Contains(r.Id))
+                {
+                    if (!_treeRef.Tree.IsRowExpanded(i))
+                    {
+                        _treeRef.Tree.ExpandRow(i);
+                        expanded = true;
+                        break;
+                    }
+                }
+            }
+        } while (expanded && ++safety < 500);
+    }
+
+    public void ExpandSelectedMenuSubtree() => ExpandSelectedSubtree();
+
+    private void EnsureAncestorsExpanded(MenuRow target)
+    {
+        if (_treeRef?.Tree is null) return;
+
+        var parentMap = new Dictionary<string, string?>(StringComparer.Ordinal);
+        void MapParents(IEnumerable<MenuRow> rows, string? parentId)
+        {
+            foreach (var row in rows)
+            {
+                parentMap[row.Id] = parentId;
+                if (row.Children.Count > 0)
+                {
+                    MapParents(row.Children, row.Id);
+                }
+            }
+        }
+        MapParents(_tree, null);
+
+        var chain = new List<string>();
+        var currentId = parentMap.GetValueOrDefault(target.Id);
+        int hops = 0;
+        int maxHops = parentMap.Count + 10;
+        while (!string.IsNullOrWhiteSpace(currentId) && ++hops <= maxHops)
+        {
+            chain.Insert(0, currentId);
+            currentId = parentMap.GetValueOrDefault(currentId);
+        }
+
+        foreach (var ancestorId in chain)
+        {
+            int count = _treeRef.Tree.GetVisibleRowCount();
+            for (int i = 0; i < count; i++)
+            {
+                if (_treeRef.Tree.GetDataItem(i) is MenuRow r && string.Equals(r.Id, ancestorId, StringComparison.Ordinal))
+                {
+                    if (!_treeRef.Tree.IsRowExpanded(i))
+                    {
+                        _treeRef.Tree.ExpandRow(i);
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
+    private static List<MenuRow> Subtree(MenuRow row)
+    {
+        var all = new List<MenuRow>();
+
+        void Walk(MenuRow node)
+        {
+            all.Add(node);
+            foreach (var child in node.Children)
+            {
+                Walk(child);
+            }
+        }
+
+        Walk(row);
+        return all;
+    }
 }
