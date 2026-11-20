@@ -2676,10 +2676,32 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   color: var(--jsini-text-muted);
 }
 
-/* 나무 아래 띠. 왼쪽 끝이 등록 자리다.
+/* 나무 아래 띠. 왼쪽 끝이 확장·축소·선택확장 아이콘 자리다.
+   페이저 줄이 켜진 경우(.dxbl-grid-bottom-panel), CommGrd 와 마찬가지로 그 줄 왼쪽에 얹는다.
+   페이저 줄이 없는 경우 트리 아래 한 줄로 남는다. */
+.commtree:has(.dxbl-grid-bottom-panel) { position: relative; }
 
-   표와 달리 **페이저 줄에 얹지 않는다** — 쪽나누기를 끄고 있어서 얹을 줄이
-   없다. 화면에서 쪽나누기를 되살리면 이 띠는 페이저 줄 아래 한 줄로 남는다. */
+/* 페이저 줄. 높이를 우리가 정하고 페이저를 오른쪽 끝으로 민다. */
+.commtree:has(.dxbl-grid-bottom-panel) .dxbl-grid-bottom-panel {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: var(--commtree-bar-height);
+
+  /* 왼쪽에 아이콘 자리를 비워 둔다. 트리가 좁아도 페이저가 아이콘 위로 올라오지 않는다. */
+  padding-left: 18rem;
+}
+
+/* 그 줄 왼쪽에 얹는다. 폭은 내용만큼만 차지하므로 페이저 클릭을 가리지 않는다. */
+.commtree:has(.dxbl-grid-bottom-panel) .commtree__footer {
+  position: absolute;
+  left: 0.15rem;
+  bottom: 0;
+  height: var(--commtree-bar-height);
+  min-height: 0;
+  padding: 0;
+}
+
 .commtree__footer {
   display: flex;
   align-items: center;
@@ -2688,7 +2710,7 @@ button.jsini-crumbs__item:hover { opacity: 1; }
   padding: 0.25rem 0.15rem 0;
 
   /* 글자 없이 아이콘만 있는 자리라 조금 키운다. 표의 아래 띠와 같은 값이다. */
-  --jsini-icon-size: 1.35rem;
+  --jsini-icon-size: calc(1.35rem * var(--jsini-chrome-scale));
 }
 
 /* 켜진 토글과, 걸린 조건을 지우는 단추. 색으로만 구분한다. */

@@ -168,17 +168,37 @@
         </Items>
     </DxContextMenu>
 
-    @* 아래 띠에는 **동작이 아닌 것**만 남는다(「저장 중…」 같은 상태 표시).
-       없으면 띠를 그리지 않는다. *@
-    @if (ShowFooter && (FooterLeft is not null || FooterRight is not null))
+    @* 아래 띠: 확장, 축소, 선택확장 아이콘 및 화면 추가 요소가 페이지네비게이션 영역에 표시된다. *@
+    @if (ShowFooter && HasFooterContent)
     {
+        <CascadingValue Name="@ThemeSize.CascadeName" TValue="SizeMode?" Value="@Size.Chrome">
         <div class="commtree__footer">
+            @if (ShowExpandButtons)
+            {
+                <DxButton IconCssClass="jsini-icon-unfold"
+                          Title="모두 확장"
+                          aria-label="확장"
+                          RenderStyle="ButtonRenderStyle.Link"
+                          Click="@ExpandAll" />
+                <DxButton IconCssClass="jsini-icon-fold"
+                          Title="모두 축소"
+                          aria-label="축소"
+                          RenderStyle="ButtonRenderStyle.Link"
+                          Click="@CollapseAll" />
+                <DxButton IconCssClass="jsini-icon-child-unfold"
+                          Title="선택 하위 모두 열기"
+                          aria-label="선택확장"
+                          RenderStyle="ButtonRenderStyle.Link"
+                          Click="@ExpandSelectedSubtree" />
+            }
+
             @FooterLeft
 
             <div class="commtree__spacer"></div>
 
             @FooterRight
         </div>
+        </CascadingValue>
     }
 
 </div>

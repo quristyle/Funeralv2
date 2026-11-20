@@ -8,6 +8,8 @@ namespace JSini.Web.Components.Data;
 
 public partial class CommTree<TItem>
 {
+    [Inject] private ThemeSize Size { get; set; } = default!;
+
     /// <summary>나무에 넣을 자료.</summary>
     [Parameter, EditorRequired] public object Data { get; set; } = default!;
 
@@ -75,6 +77,15 @@ public partial class CommTree<TItem>
 
     /// <summary>관리 칸의 「하위 추가」. OnSave 를 준 화면에서만 보인다. 깊이가 정해진 나무(회사 &gt; 부서)에서는 끈다.</summary>
     [Parameter] public bool ShowAddChild { get; set; } = true;
+
+    /// <summary>확장·축소·선택확장 아이콘 단추를 아래 띠(페이지네비게이션 영역)에 보일지. 기본은 참.</summary>
+    [Parameter] public bool ShowExpandButtons { get; set; } = true;
+
+    /// <summary>아래 띠(페이지네비게이션 영역)에 표시할 내용이 있는가.</summary>
+    private bool HasFooterContent =>
+        ShowExpandButtons
+        || FooterLeft is not null
+        || FooterRight is not null;
 
     /// <summary>모두 펼치기·접기 토글 단추.</summary>
     [Parameter] public bool ShowExpandToggle { get; set; } = true;
@@ -329,6 +340,249 @@ public partial class CommTree<TItem>
         }
     }
 
+    /// <summary>선택한 줄과 그 하위 노드를 모두 펼친다 (선택확장). 바깥에서도 부를 수 있다.</summary>
+    public void ExpandSelectedSubtree()
+    {
+        if (_tree is null)
+        {
+            return;
+        }
+
+        var target = _selected ?? _tree.GetFocusedDataItem() ?? SelectedItem;
+        if (target is null)
+        {
+            Say("하위를 열 항목을 먼저 선택해 주세요.", NoticeTone.Warning);
+            return;
+        }
+
+        EnsureAncestorsExpanded(target);
+
+        var subtreeKeys = CollectSubtreeKeys(target);
+        if (subtreeKeys.Count == 0)
+        {
+            return;
+        }
+
+        bool expanded;
+        int safety = 0;
+        do
+        {
+            expanded = false;
+            int count = _tree.GetVisibleRowCount();
+            for (int i = 0; i < count; i++)
+            {
+                var item = _tree.GetDataItem(i);
+                if (item is not null)
+                {
+                    var key = GetItemKey(item);
+                    if (key is not null && subtreeKeys.Contains(key))
+                    {
+                        if (!_tree.IsRowExpanded(i))
+                        {
+                            _tree.ExpandRow(i);
+                            expanded = true;
+                            break;
+                        }
+                    }
+                }
+            }
+        } while (expanded && ++safety < 500);
+    }
+
+    private string? GetItemKey(object? item)
+    {
+        if (item is null || string.IsNullOrWhiteSpace(KeyFieldName))
+        {
+            return null;
+        }
+
+        var prop = item.GetType().GetProperty(KeyFieldName);
+        var val = prop?.GetValue(item);
+        return val?.ToString();
+    }
+
+    private string? GetParentKey(object? item)
+    {
+        if (item is null || string.IsNullOrWhiteSpace(ParentKeyFieldName))
+        {
+            return null;
+        }
+
+        var prop = item.GetType().GetProperty(ParentKeyFieldName);
+        var val = prop?.GetValue(item);
+        return val?.ToString();
+    }
+
+    private List<object>? GetChildren(object? item)
+    {
+        if (item is null || string.IsNullOrWhiteSpace(ChildrenFieldName))
+        {
+            return null;
+        }
+
+        var prop = item.GetType().GetProperty(ChildrenFieldName);
+        var val = prop?.GetValue(item);
+        if (val is System.Collections.IEnumerable nonGeneric)
+        {
+            var list = new List<object>();
+            foreach (var elem in nonGeneric)
+            {
+                if (elem is not null)
+                {
+                    list.Add(elem);
+                }
+            }
+            return list;
+        }
+
+        return null;
+    }
+
+    private HashSet<string> CollectSubtreeKeys(object target)
+    {
+        var keys = new HashSet<string>(StringComparer.Ordinal);
+        var targetKey = GetItemKey(target);
+        if (targetKey is not null)
+        {
+            keys.Add(targetKey);
+        }
+
+        if (!string.IsNullOrWhiteSpace(ChildrenFieldName))
+        {
+            void WalkChildren(object node)
+            {
+                var children = GetChildren(node);
+                if (children is null) return;
+                foreach (var child in children)
+                {
+                    var childKey = GetItemKey(child);
+                    if (childKey is not null && keys.Add(childKey))
+                    {
+                        WalkChildren(child);
+                    }
+                }
+            }
+            WalkChildren(target);
+        }
+        else if (!string.IsNullOrWhiteSpace(ParentKeyFieldName) && Data is System.Collections.IEnumerable dataEnum)
+        {
+            var childMap = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+            foreach (var item in dataEnum)
+            {
+                if (item is null) continue;
+                var key = GetItemKey(item);
+                var parentKey = GetParentKey(item);
+                if (key is not null && parentKey is not null)
+                {
+                    if (!childMap.TryGetValue(parentKey, out var list))
+                    {
+                        list = new List<string>();
+                        childMap[parentKey] = list;
+                    }
+                    list.Add(key);
+                }
+            }
+
+            void WalkParentMap(string curKey)
+            {
+                if (childMap.TryGetValue(curKey, out var children))
+                {
+                    foreach (var cKey in children)
+                    {
+                        if (keys.Add(cKey))
+                        {
+                            WalkParentMap(cKey);
+                        }
+                    }
+                }
+            }
+
+            if (targetKey is not null)
+            {
+                WalkParentMap(targetKey);
+            }
+        }
+
+        return keys;
+    }
+
+    private void EnsureAncestorsExpanded(object target)
+    {
+        if (_tree is null) return;
+
+        var targetKey = GetItemKey(target);
+        if (string.IsNullOrWhiteSpace(targetKey)) return;
+
+        var parentMap = new Dictionary<string, string?>(StringComparer.Ordinal);
+
+        if (!string.IsNullOrWhiteSpace(ParentKeyFieldName) && Data is System.Collections.IEnumerable dataEnum)
+        {
+            foreach (var item in dataEnum)
+            {
+                if (item is null) continue;
+                var k = GetItemKey(item);
+                var pk = GetParentKey(item);
+                if (k is not null)
+                {
+                    parentMap[k] = pk;
+                }
+            }
+        }
+        else if (!string.IsNullOrWhiteSpace(ChildrenFieldName) && Data is System.Collections.IEnumerable roots)
+        {
+            void MapChildren(IEnumerable<object> nodes, string? parentId)
+            {
+                foreach (var node in nodes)
+                {
+                    var k = GetItemKey(node);
+                    if (k is not null)
+                    {
+                        parentMap[k] = parentId;
+                        var children = GetChildren(node);
+                        if (children is not null)
+                        {
+                            MapChildren(children, k);
+                        }
+                    }
+                }
+            }
+
+            var rootList = new List<object>();
+            foreach (var r in roots)
+            {
+                if (r is not null) rootList.Add(r);
+            }
+            MapChildren(rootList, null);
+        }
+
+        var chain = new List<string>();
+        var currentId = parentMap.GetValueOrDefault(targetKey);
+        int hops = 0;
+        int maxHops = parentMap.Count + 10;
+        while (!string.IsNullOrWhiteSpace(currentId) && ++hops <= maxHops)
+        {
+            chain.Insert(0, currentId);
+            currentId = parentMap.GetValueOrDefault(currentId);
+        }
+
+        foreach (var ancestorId in chain)
+        {
+            int count = _tree.GetVisibleRowCount();
+            for (int i = 0; i < count; i++)
+            {
+                var item = _tree.GetDataItem(i);
+                if (item is not null && string.Equals(GetItemKey(item), ancestorId, StringComparison.Ordinal))
+                {
+                    if (!_tree.IsRowExpanded(i))
+                    {
+                        _tree.ExpandRow(i);
+                    }
+                    break;
+                }
+            }
+        }
+    }
+
     private DxContextMenu? _menu;
 
     /// <summary>창을 여는 순간 세운 항목. 연 뒤에 권한·상태가 바뀌어도 창은 그대로다.</summary>
@@ -386,6 +640,13 @@ public partial class CommTree<TItem>
                 _expanded ? "jsini-icon-fold" : "jsini-icon-unfold",
                 () => { ToggleExpand(); return Task.CompletedTask; },
                 BeginGroup: !Reload.HasDelegate && items.Count > 0));
+        }
+
+        if (ShowExpandButtons)
+        {
+            items.Add(new("선택 하위 모두 열기", "jsini-icon-child-unfold",
+                () => { ExpandSelectedSubtree(); return Task.CompletedTask; },
+                BeginGroup: !ShowExpandToggle && items.Count > 0));
         }
 
         if (ShowFilterToggle)
