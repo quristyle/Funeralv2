@@ -20,8 +20,13 @@ public partial class AiTaskList
     [Inject] private AiTaskDraftStore Drafts { get; set; } = default!;
     [Inject] private IJSRuntime Js { get; set; } = default!;
 
+    [Inject] private CurrentUser CurrentUser { get; set; } = default!;
+
     /// <summary>AI 고르개에 한도를 적는 자리. 대시보드가 아니라 한도 표 하나만 읽는다.</summary>
     [Inject] private AiDashboardClient Dashboard { get; set; } = default!;
+
+    /// <summary>시스템관리자인가. 시스템관리자는 모든 사용자의 작성 작업을 볼 수 있고, 그 외 사용자는 자신이 작성한 작업만 본다.</summary>
+    private bool IsSystemAdmin => CurrentUser.IsSystemAdmin;
 
     /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
     private string ConditionSummary => SchSummary.Of(
@@ -405,6 +410,11 @@ public partial class AiTaskList
             Drafts.Use(_me);
         }
 
+        if (!CurrentUser.IsLoaded)
+        {
+            await CurrentUser.ReloadAsync();
+        }
+
         await LoadModelsAsync();
         await LoadTargetsAsync();
         await SearchAsync();
@@ -524,7 +534,8 @@ public partial class AiTaskList
         _mobilePageCount = 1;
         _rows = await Api.ListAsync(_status, _flag, _targetKey, _keyword,
             userConfirmed: _excludeConfirmed ? false : null,
-            userRequest: UserRequestFilter, excludeDone: _excludeDone, memberTargets: true);
+            userRequest: UserRequestFilter, excludeDone: _excludeDone,
+            mine: !IsSystemAdmin, memberTargets: true);
 
         // 고른 것이 목록에서 빠졌으면 오른쪽을 비운다 — 없는 건을 있다고 믿게 두지 않는다.
         if (_picked is not null && _rows.All(r => r.TaskKey != _picked.TaskKey))

@@ -28,6 +28,9 @@ public sealed class CurrentUser(GatewayClient gateway, ILogger<CurrentUser> logg
     /// <summary>시스템 또는 포털 관리자 여부.</summary>
     public bool IsAdmin => Roles.Contains("ADMINISTRATOR") || Roles.Contains("SYSTEM_ADMINISTRATOR");
 
+    /// <summary>시스템관리자 여부.</summary>
+    public bool IsSystemAdmin => Roles.Contains("SYSTEM_ADMINISTRATOR", StringComparer.OrdinalIgnoreCase);
+
     /// <summary>권한 그룹(헤더 로고 옆). 서버가 이미 내려주는 roleNames 로, 식별자가 아니라 사람이 읽는 이름이다. 여럿이면 이어 붙이고 넘치는 것은 CSS 가 자르며 잘린 것은 title 로 보여 준다.</summary>
     public string? RoleText { get; private set; }
 

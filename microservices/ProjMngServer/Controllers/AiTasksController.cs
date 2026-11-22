@@ -1,5 +1,6 @@
 using JSini.Shared.DTOs;
 using Microsoft.AspNetCore.Mvc;
+using ProjMngServer.Filters;
 using ProjMngServer.Models;
 using ProjMngServer.Services;
 
@@ -40,10 +41,16 @@ public sealed class AiTasksController(
     {
         // mine — 「빠른 지시」의 최근 목록. 내가 보낸 것만 준다.
         // memberTargets — 「AI 작업」 화면. 내가 참여한 프로젝트의 대상에 걸린 것만 준다.
+        // 시스템관리자는 모든 사용자의 작성내용을 볼 수 있고, 그 외 사용자는 자신이 작성한 작업만 본다.
+        var isSystemAdmin = PortalRoles.RolesOf(Request)
+            .Contains("SYSTEM_ADMINISTRATOR", StringComparer.OrdinalIgnoreCase);
+
+        var onlyMine = mine || (PortalRoles.IsPortalCall(Request) && !isSystemAdmin);
+
         var rows = await service.ListAsync(
             status, flag, targetKey, keyword,
             userConfirmed: userConfirmed, userRequest: userRequest,
-            excludeDone: excludeDone, creId: mine ? UserId : null,
+            excludeDone: excludeDone, creId: onlyMine ? UserId : null,
             memberId: memberTargets ? UserId : null);
 
         return Ok(ApiResponse<List<AiTask>>.Ok(rows));
