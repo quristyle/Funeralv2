@@ -12,6 +12,10 @@ public sealed class AiTargetClient(GatewayClient gateway)
         => gateway.GetListAsync<AiTargetDto>(
             onlyEnabled ? $"{Url}?onlyEnabled=true" : Url, ct);
 
+    /// <summary>내가 참여한 프로젝트에 매인 대상만 — 꺼진 것도 온다. 「AI 작업」 화면이 쓴다.</summary>
+    public Task<IReadOnlyList<AiTargetDto>> MemberAsync(CancellationToken ct = default)
+        => gateway.GetListAsync<AiTargetDto>($"{Url}?mine=true", ct);
+
     /// <summary>내가 참여한 프로젝트에 매인, 켜진 대상만. 「빠른 지시」의 고르개가 쓴다 — 프로젝트가 없는 대상은 안 온다.</summary>
     public Task<IReadOnlyList<AiTargetDto>> MineAsync(CancellationToken ct = default)
         => gateway.GetListAsync<AiTargetDto>($"{Url}?onlyEnabled=true&mine=true", ct);

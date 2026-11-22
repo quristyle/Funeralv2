@@ -8,15 +8,18 @@ public sealed class AiTaskClient(GatewayClient gateway)
 {
     private const string Url = "projmng/ai-tasks";
 
-    /// <summary>작업 목록. <c>excludeDone</c> 이면 끝난 건만 빼고, 실패·시간초과·중단은 남긴다.</summary>
+    /// <summary>작업 목록. <c>excludeDone</c> 이면 끝난 건만 빼고, 실패·시간초과·중단은 남긴다.
+    /// <c>memberTargets</c> 면 내가 참여한 프로젝트의 대상에 걸린 것(과 대상이 아직 없는 것)만 온다.</summary>
     public Task<IReadOnlyList<AiTaskDto>> ListAsync(
         string? status = null, string? flag = null, long? targetKey = null,
         string? keyword = null, bool? userConfirmed = null, bool? userRequest = null,
-        bool excludeDone = false, bool mine = false, CancellationToken ct = default)
+        bool excludeDone = false, bool mine = false, bool memberTargets = false,
+        CancellationToken ct = default)
     {
         var query = new List<string>();
 
         if (mine) query.Add("mine=true");
+        if (memberTargets) query.Add("memberTargets=true");
 
         if (!string.IsNullOrWhiteSpace(status)) query.Add($"status={Uri.EscapeDataString(status)}");
         if (!string.IsNullOrWhiteSpace(flag)) query.Add($"flag={Uri.EscapeDataString(flag)}");

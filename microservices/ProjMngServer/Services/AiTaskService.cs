@@ -121,7 +121,8 @@ public sealed class AiTaskService(
     public async Task<List<AiTask>> ListAsync(
         string? taskStatus = null, string? requestFlag = null, long? targetKey = null,
         string? keyword = null, long? taskKey = null, bool? userConfirmed = null,
-        string? creId = null, bool? userRequest = null, bool excludeDone = false)
+        string? creId = null, bool? userRequest = null, bool excludeDone = false,
+        string? memberId = null)
     {
         using var db = Open();
 
@@ -143,6 +144,10 @@ public sealed class AiTaskService(
                -- 브라우저까지 다 간 뒤다.
                AND (@creId = '' OR a.cre_id = @creId)
                AND (@userRequest::boolean IS NULL OR a.is_user_request = @userRequest)
+               -- 참여한 프로젝트의 대상으로 좁힌다. 대상이 아직 없는 요청은 남긴다 — 빼면 대상을 정해 줄 자리가 없다.
+               AND (@memberId::text IS NULL OR a.target_key IS NULL
+                    OR b.prj_rid IN (SELECT m.prj_rid FROM projmng.dev_proj_user_map m
+                                      WHERE m.user_id = @memberId))
                AND (@keyword = '' OR a.title ILIKE '%' || @keyword || '%'
                                   OR a.contents ILIKE '%' || @keyword || '%')
                -- 끝난 건 빼기. **실패한 건은 남는다** — 까닭은 파라미터 설명에.
@@ -159,6 +164,7 @@ public sealed class AiTaskService(
             creId = creId ?? string.Empty,
             userRequest,
             excludeDone,
+            memberId,
         });
 
         var list = rows.AsList();

@@ -504,12 +504,12 @@ public partial class AiTaskList
         }
     }
 
-    /// <summary>대상 목록. 조회 실패로 화면을 막지 않는다 — 대상과 무관하게 작업 목록은 보여야 한다.</summary>
+    /// <summary>대상 목록 — 내가 참여한 프로젝트의 대상만. 조회 실패로 화면을 막지 않는다 — 대상과 무관하게 작업 목록은 보여야 한다.</summary>
     private async Task LoadTargetsAsync()
     {
         try
         {
-            _targets = await TargetApi.ListAsync();
+            _targets = await TargetApi.MemberAsync();
             _enabledTargets = [.. _targets.Where(t => t.IsEnabled)];
         }
         catch (ApiException)
@@ -524,7 +524,7 @@ public partial class AiTaskList
         _mobilePageCount = 1;
         _rows = await Api.ListAsync(_status, _flag, _targetKey, _keyword,
             userConfirmed: _excludeConfirmed ? false : null,
-            userRequest: UserRequestFilter, excludeDone: _excludeDone);
+            userRequest: UserRequestFilter, excludeDone: _excludeDone, memberTargets: true);
 
         // 고른 것이 목록에서 빠졌으면 오른쪽을 비운다 — 없는 건을 있다고 믿게 두지 않는다.
         if (_picked is not null && _rows.All(r => r.TaskKey != _picked.TaskKey))
