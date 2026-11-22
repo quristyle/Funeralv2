@@ -7,6 +7,7 @@ namespace JSini.Web.ProjMng.Components.Pages;
 public partial class AiTargetList
 {
     [Inject] private AiTargetClient Api { get; set; } = default!;
+    [Inject] private ProjectClient ProjectApi { get; set; } = default!;
     [Inject] private AiModelCodes ModelCodes { get; set; } = default!;
 
     public sealed record PickOption(string Value, string Text);
@@ -33,6 +34,7 @@ public partial class AiTargetList
     ];
 
     private IReadOnlyList<AiTargetDto> _rows = [];
+    private IReadOnlyList<ProjectDto> _projects = [];
     private IReadOnlyList<string> _roots = [];
 
     private string Hint => $"{_rows.Count(t => t.IsEnabled)} / {_rows.Count}건 사용";
@@ -46,6 +48,14 @@ public partial class AiTargetList
     {
         var models = await ModelCodes.GetAsync();
         RunnerOptions = [.. models.Select(x => new PickOption(x.Value, x.Text))];
+        try
+        {
+            _projects = await ProjectApi.ListAsync();
+        }
+        catch (ApiException)
+        {
+            _projects = [];
+        }
         await LoadRootsAsync();
         await SearchAsync();
     }
@@ -80,6 +90,7 @@ public partial class AiTargetList
         t.GateMode = "build";
         t.AllowPush = false;
         t.IsEnabled = true;
+        t.PrjRid = null;
     }
 
     private async Task SaveAsync((AiTargetDto Item, bool IsNew) e)

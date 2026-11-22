@@ -53,6 +53,9 @@
             <DxGridDataColumn FieldName="@nameof(ProjectDto.RagCateText)" Caption="RAG 카테고리" MinWidth="140"
                               TextAlignment="GridTextAlignment.Left" />
 
+            <DxGridDataColumn FieldName="@nameof(ProjectDto.AiTargetText)" Caption="AI 작업대상" MinWidth="140"
+                              TextAlignment="GridTextAlignment.Left" />
+
             <DxGridDataColumn FieldName="@nameof(ProjectDto.PrjSrt)" Caption="순서" Width="70" />
         </Columns>
 
@@ -114,6 +117,16 @@
                            모르는 채로 연결이 풀리는 일을 막고, 저장도 이 칸을 건너뛴다. *@
                         <div class="pm-rag-warn">AI 서버에서 카테고리 목록을 읽지 못했습니다. 이 칸은 그대로 둡니다.</div>
                     }
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="AI 작업대상" ColSpanMd="12">
+                    <DxTagBox Data="@_aiTargets"
+                              @bind-Values="p.AiTargets"
+                              TextFieldName="@nameof(AiTargetDto.TargetNm)"
+                              ValueFieldName="@nameof(AiTargetDto.TargetKey)"
+                              ReadOnly="@(_aiTargets.Count == 0)"
+                              NullText="연결할 AI 작업대상을 고르세요"
+                              ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto" />
                 </DxFormLayoutItem>
             </DxFormLayout>
         </EditFormTemplate>

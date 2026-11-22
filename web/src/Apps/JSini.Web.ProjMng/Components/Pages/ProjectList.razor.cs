@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using JSini.Web.Components.Data;
+using JSini.Web.Http;
 using JSini.Web.ProjMng.Api;
 
 namespace JSini.Web.ProjMng.Components.Pages;
@@ -8,6 +9,7 @@ public partial class ProjectList
 {
     [Inject] private ProjectClient Api { get; set; } = default!;
     [Inject] private RagCategoryClient RagApi { get; set; } = default!;
+    [Inject] private AiTargetClient AiTargetApi { get; set; } = default!;
     [Inject] private CommonCodes Codes { get; set; } = default!;
 
     /// <summary>접힌 조회줄에 적을 지금 조건(<c>CommSch.MobileSummary</c>).</summary>
@@ -18,6 +20,9 @@ public partial class ProjectList
 
     /// <summary>고를 수 있는 RAG 카테고리. AI 서버가 멎으면 빈 목록이다.</summary>
     private IReadOnlyList<RagCategoryItem> _cates = [];
+
+    /// <summary>고를 수 있는 AI 작업 대상 목록.</summary>
+    private IReadOnlyList<AiTargetDto> _aiTargets = [];
 
     /// <summary>검색은 브라우저에서 끝낸다. 프로젝트가 열 건 남짓이라 서버로 보낼 값이 없다.</summary>
     private IReadOnlyList<ProjectDto> Shown
@@ -42,15 +47,25 @@ public partial class ProjectList
 
     private Task ReloadAsync() => LoadAsync(async () =>
     {
-        // 둘을 함께 기다린다. 카테고리 쪽은 실패를 삼키므로 목록이 비어
+        // 셋을 함께 기다린다. 카테고리/작업대상 쪽은 실패를 삼키므로 목록이 비어
         // 돌아올 뿐이고, 프로젝트 목록은 그대로 뜬다.
         var load = Api.ListAsync();
         var cates = RagApi.ListAsync();
+        var targets = AiTargetApi.ListAsync();
 
         _all = await load;
         _cates = await cates;
+        try
+        {
+            _aiTargets = await targets;
+        }
+        catch (ApiException)
+        {
+            _aiTargets = [];
+        }
 
         FillCateText();
+        FillTargetText();
         return _all.Count;
     }, "등록된 프로젝트가 없습니다.", "프로젝트 목록을 읽지 못했습니다");
 
@@ -66,6 +81,25 @@ public partial class ProjectList
         }
     }
 
+    /// <summary>표에 보일 AI 작업 대상 이름을 채운다.</summary>
+    private void FillTargetText()
+    {
+        var targetDict = _aiTargets.ToDictionary(x => x.TargetKey, x => x.TargetNm ?? $"#{x.TargetKey}");
+
+        foreach (var p in _all)
+        {
+            if (p.AiTargetKeys is { Count: > 0 })
+            {
+                p.AiTargetText = string.Join(", ",
+                    p.AiTargetKeys.Select(k => targetDict.GetValueOrDefault(k, $"#{k}")));
+            }
+            else if (string.IsNullOrEmpty(p.AiTargetText))
+            {
+                p.AiTargetText = string.Empty;
+            }
+        }
+    }
+
     /// <summary>
     /// 새 줄의 기본값. <b>번호는 넣지 않는다</b> — 서버가 정한다.
     /// </summary>
@@ -73,6 +107,7 @@ public partial class ProjectList
     {
         p.PrjSdt = AppTime.Today;
         p.PrjType = "blazor";
+        p.AiTargetKeys = [];
     }
 
     private async Task SaveAsync((ProjectDto Item, bool IsNew) e)
@@ -83,6 +118,11 @@ public partial class ProjectList
         if (_cates.Count == 0)
         {
             e.Item.RagCateIds = null;
+        }
+
+        if (_aiTargets.Count == 0 && !e.IsNew)
+        {
+            e.Item.AiTargetKeys = null;
         }
 
         if (e.IsNew)

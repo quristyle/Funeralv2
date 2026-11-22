@@ -61,6 +61,7 @@ public sealed class ProjectService(IConfiguration configuration)
 
         var list = rows.ToList();
         await FillRagAsync(db, list);
+        await FillAiTargetsAsync(db, list);
 
         return list;
     }
@@ -136,6 +137,84 @@ public sealed class ProjectService(IConfiguration configuration)
             """, new { prjRid, keep }, tx);
     }
 
+    /// <summary>AI 작업 대상 연결 한 줄.</summary>
+    private sealed class TargetLink
+    {
+        public int PrjRid { get; set; }
+        public long TargetKey { get; set; }
+        public string TargetNm { get; set; } = string.Empty;
+    }
+
+    /// <summary>프로젝트마다 매여 있는 AI 작업 대상을 채운다.</summary>
+    private static async Task FillAiTargetsAsync(IDbConnection db, List<Project> items, IDbTransaction? tx = null)
+    {
+        if (items.Count == 0)
+        {
+            return;
+        }
+
+        var map = await db.QueryAsync<TargetLink>("""
+            SELECT prj_rid    AS PrjRid,
+                   target_key AS TargetKey,
+                   target_nm  AS TargetNm
+              FROM projmng.ai_target
+             WHERE prj_rid = ANY(@ids)
+               AND is_deleted = false
+             ORDER BY target_nm
+            """, new { ids = items.Select(x => x.PrjRid).ToArray() }, tx);
+
+        var byProject = map
+            .GroupBy(x => x.PrjRid)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        foreach (var item in items)
+        {
+            if (byProject.TryGetValue(item.PrjRid, out var targets))
+            {
+                item.AiTargetKeys = targets.Select(x => x.TargetKey).ToList();
+                item.AiTargetText = string.Join(", ", targets.Select(x => x.TargetNm));
+            }
+            else
+            {
+                item.AiTargetKeys = [];
+                item.AiTargetText = string.Empty;
+            }
+        }
+    }
+
+    /// <summary>
+    /// AI 작업 대상 연결을 <paramref name="targetKeys"/> 그대로 맞춘다.
+    /// </summary>
+    private static async Task SaveAiTargetsAsync(IDbConnection db, int prjRid, IEnumerable<long>? targetKeys, IDbTransaction? tx = null)
+    {
+        if (targetKeys is null)
+        {
+            return;
+        }
+
+        var keep = targetKeys.Distinct().ToArray();
+
+        // 기존에 매여 있었는데 빠진 것은 prj_rid = NULL 로 해제
+        await db.ExecuteAsync("""
+            UPDATE projmng.ai_target
+               SET prj_rid = NULL, mod_dt = now()
+             WHERE prj_rid = @prjRid
+               AND NOT (target_key = ANY(@keep))
+               AND is_deleted = false
+            """, new { prjRid, keep }, tx);
+
+        if (keep.Length > 0)
+        {
+            // 새로 또는 계속 매인 것은 prj_rid = @prjRid 로 설정
+            await db.ExecuteAsync("""
+                UPDATE projmng.ai_target
+                   SET prj_rid = @prjRid, mod_dt = now()
+                 WHERE target_key = ANY(@keep)
+                   AND is_deleted = false
+                """, new { prjRid, keep }, tx);
+        }
+    }
+
     /// <summary>새 프로젝트. 번호와 등록·수정 일시는 서버가 정한다.</summary>
     public async Task<Project> CreateAsync(Project item)
     {
@@ -158,10 +237,12 @@ public sealed class ProjectService(IConfiguration configuration)
             """, item, tx);
 
         await SaveRagAsync(db, created.PrjRid, item.RagCateIds, tx);
+        await SaveAiTargetsAsync(db, created.PrjRid, item.AiTargetKeys, tx);
 
         // 보낸 값을 되뇌지 않고 표를 다시 읽는다 — 안 보냈을 때(null) 응답이
         // 「매인 것이 없다」고 거짓말하는 것을 막는다.
         await FillRagAsync(db, [created], tx);
+        await FillAiTargetsAsync(db, [created], tx);
         tx.Commit();
 
         return created;
@@ -213,7 +294,9 @@ public sealed class ProjectService(IConfiguration configuration)
         }
 
         await SaveRagAsync(db, prjRid, item.RagCateIds, tx);
+        await SaveAiTargetsAsync(db, prjRid, item.AiTargetKeys, tx);
         await FillRagAsync(db, [updated], tx);
+        await FillAiTargetsAsync(db, [updated], tx);
         tx.Commit();
 
         return updated;

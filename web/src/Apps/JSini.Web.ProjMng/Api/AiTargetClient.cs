@@ -65,6 +65,18 @@ public sealed class AiTargetDto
 
     public string? Comments { get; set; }
 
+    /// <summary>연결된 프로젝트 번호(<c>projmng.dev_proj.prj_rid</c>).</summary>
+    public int? PrjRid { get; set; }
+
+    /// <summary>연결된 프로젝트명.</summary>
+    public string? PrjName { get; set; }
+
+    /// <summary>연결된 프로젝트 별칭.</summary>
+    public string? PrjNick { get; set; }
+
+    /// <summary>표에 보일 프로젝트 명칭 (별칭 우선, 없으면 프로젝트명).</summary>
+    public string ProjectText => !string.IsNullOrWhiteSpace(PrjNick) ? PrjNick : (!string.IsNullOrWhiteSpace(PrjName) ? PrjName : (PrjRid.HasValue ? $"#{PrjRid}" : string.Empty));
+
     public string? CreId { get; set; }
     public DateTime? CreDt { get; set; }
     public string? ModId { get; set; }

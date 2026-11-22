@@ -28,6 +28,22 @@ AI 작업 대상. 작업 화면은 여기 등록된 것에서 고르기만 하�
             <DxGridDataColumn FieldName="@nameof(AiTargetDto.TargetNm)" Caption="이름" MinWidth="140"
                               TextAlignment="GridTextAlignment.Left" />
 
+            <DxGridDataColumn Caption="프로젝트" Width="130" TextAlignment="GridTextAlignment.Left">
+                <CellDisplayTemplate Context="cell">
+                    @{
+                        var t = (AiTargetDto)cell.DataItem;
+                    }
+                    @if (!string.IsNullOrWhiteSpace(t.ProjectText))
+                    {
+                        <span>@t.ProjectText</span>
+                    }
+                    else
+                    {
+                        <span class="pm-ai-dim">미지정</span>
+                    }
+                </CellDisplayTemplate>
+            </DxGridDataColumn>
+
             <DxGridDataColumn Caption="종류" Width="80">
                 <CellDisplayTemplate Context="cell">
                     @{
@@ -93,6 +109,14 @@ AI 작업 대상. 작업 화면은 여기 등록된 것에서 고르기만 하�
             <DxFormLayout CssClass="pm-editform">
                 <DxFormLayoutItem Caption="이름" ColSpanMd="6">
                     <DxTextBox @bind-Text="t.TargetNm" />
+                </DxFormLayoutItem>
+
+                <DxFormLayoutItem Caption="프로젝트" ColSpanMd="6">
+                    <DxComboBox Data="@_projects" @bind-Value="t.PrjRid"
+                                TextFieldName="@nameof(ProjectDto.PrjNick)"
+                                ValueFieldName="@nameof(ProjectDto.PrjRid)"
+                                ClearButtonDisplayMode="DataEditorClearButtonDisplayMode.Auto"
+                                NullText="연결 프로젝트 선택" />
                 </DxFormLayoutItem>
 
                 <DxFormLayoutItem Caption="종류" ColSpanMd="3">

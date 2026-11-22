@@ -69,6 +69,9 @@ public sealed class AiTargetService(IConfiguration configuration)
         a.is_enabled       AS IsEnabled,
         a.running_run_key  AS RunningRunKey,
         a.comments         AS Comments,
+        a.prj_rid          AS PrjRid,
+        p.prj_name         AS PrjName,
+        p.prj_nick         AS PrjNick,
         a.cre_id           AS CreId,
         a.cre_dt           AS CreDt,
         a.mod_id           AS ModId,
@@ -83,6 +86,7 @@ public sealed class AiTargetService(IConfiguration configuration)
         var rows = await db.QueryAsync<AiTarget>($"""
             SELECT {Columns}
               FROM projmng.ai_target a
+              LEFT JOIN projmng.dev_proj p ON p.prj_rid = a.prj_rid
              -- 널일 수 있는 파라미터에는 형을 붙인다. 안 붙이면 PostgreSQL 이
              -- 형을 못 정해 42P08 로 끊는다 — **비었을 때만** 난다.
              WHERE a.is_deleted = false
@@ -106,18 +110,18 @@ public sealed class AiTargetService(IConfiguration configuration)
                  ( target_nm, target_kind, target_path, repo_url, default_ref,
                    credential_ref, isolation_mode, max_size_mb, runner_kinds,
                    allow_push, push_ref, gate_mode, runner_nm, is_enabled, comments,
-                   cre_id, cre_dt )
+                   prj_rid, cre_id, cre_dt )
             VALUES ( @TargetNm, @TargetKind, @TargetPath, @RepoUrl, @DefaultRef,
                      @CredentialRef, @IsolationMode, @MaxSizeMb, @RunnerKinds,
                      @AllowPush, @PushRef, @GateMode, @RunnerNm, @IsEnabled, @Comments,
-                     @userId, now() )
+                     @PrjRid, @userId, now() )
             RETURNING target_key
             """, new
         {
             item.TargetNm, item.TargetKind, item.TargetPath, item.RepoUrl, item.DefaultRef,
             item.CredentialRef, item.IsolationMode, item.MaxSizeMb, item.RunnerKinds,
             item.AllowPush, item.PushRef, item.GateMode, item.RunnerNm, item.IsEnabled,
-            item.Comments, userId,
+            item.Comments, item.PrjRid, userId,
         });
 
         return await GetAsync(key);
@@ -146,6 +150,7 @@ public sealed class AiTargetService(IConfiguration configuration)
                    runner_nm      = @RunnerNm,
                    is_enabled     = @IsEnabled,
                    comments       = @Comments,
+                   prj_rid        = @PrjRid,
                    mod_id         = @userId,
                    mod_dt         = now()
              WHERE target_key = @targetKey
@@ -155,7 +160,7 @@ public sealed class AiTargetService(IConfiguration configuration)
             targetKey, item.TargetNm, item.TargetKind, item.TargetPath, item.RepoUrl,
             item.DefaultRef, item.CredentialRef, item.IsolationMode, item.MaxSizeMb,
             item.RunnerKinds, item.AllowPush, item.PushRef, item.GateMode,
-            item.RunnerNm, item.IsEnabled, item.Comments, userId,
+            item.RunnerNm, item.IsEnabled, item.Comments, item.PrjRid, userId,
         });
 
         return affected == 0 ? null : await GetAsync(targetKey);

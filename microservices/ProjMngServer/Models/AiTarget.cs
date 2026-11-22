@@ -47,6 +47,15 @@ public sealed class AiTarget
 
     public string? Comments { get; set; }
 
+    /// <summary>연결된 프로젝트 번호(<c>projmng.dev_proj.prj_rid</c>).</summary>
+    public int? PrjRid { get; set; }
+
+    /// <summary>연결된 프로젝트명 (조회 편의용).</summary>
+    public string? PrjName { get; set; }
+
+    /// <summary>연결된 프로젝트 별칭 (조회 편의용).</summary>
+    public string? PrjNick { get; set; }
+
     public string? CreId { get; set; }
     public DateTime? CreDt { get; set; }
     public string? ModId { get; set; }

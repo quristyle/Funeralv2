@@ -49,4 +49,15 @@ public sealed class Project
     /// 카테고리 정본은 AIAgentServer 에 있어 여기서는 이름을 모른다 — 열쇠만 오간다.
     /// 저장할 때 <b>준 목록이 곧 전부</b>다(없는 줄은 지운다). null 이면 손대지 않는다.
     public List<string>? RagCateIds { get; set; }
+
+    /// <summary>
+    /// 이 프로젝트에 매인 AI 작업 대상 열쇠들(<c>projmng.ai_target.target_key</c>).
+    /// 저장할 때 <b>준 목록이 곧 전부</b>다. null 이면 손대지 않는다.
+    /// </summary>
+    public List<long>? AiTargetKeys { get; set; }
+
+    /// <summary>
+    /// 화면 표시용 AI 작업 대상 이름들 (쉼표 구분).
+    /// </summary>
+    public string? AiTargetText { get; set; }
 }

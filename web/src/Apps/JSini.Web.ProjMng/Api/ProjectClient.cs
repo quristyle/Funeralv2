@@ -69,4 +69,17 @@ public sealed class ProjectDto
     /// <summary>표에 한 칸으로 보여 줄 카테고리 이름들. <b>서버가 아니라 화면이 채운다</b> —
     /// 이름은 AI 서버에 있고 여기로는 열쇠만 오기 때문이다.</summary>
     public string RagCateText { get; set; } = string.Empty;
+
+    /// <summary>이 프로젝트에 연결된 AI 작업 대상 열쇠들(<c>projmng.ai_target.target_key</c>).</summary>
+    public List<long>? AiTargetKeys { get; set; }
+
+    /// <summary>편집 폼의 AI 작업 대상 고르개가 묶이는 자리.</summary>
+    public IEnumerable<long> AiTargets
+    {
+        get => AiTargetKeys ?? [];
+        set => AiTargetKeys = [.. value];
+    }
+
+    /// <summary>표에 한 칸으로 보여 줄 AI 작업 대상 이름들.</summary>
+    public string AiTargetText { get; set; } = string.Empty;
 }
