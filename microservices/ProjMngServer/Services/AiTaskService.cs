@@ -220,8 +220,8 @@ public sealed class AiTaskService(
         return list;
     }
 
-    public async Task<AiTask?> GetAsync(long taskKey)
-        => (await ListAsync(taskKey: taskKey)).FirstOrDefault();
+    public async Task<AiTask?> GetAsync(long taskKey, string? creId = null)
+        => (await ListAsync(taskKey: taskKey, creId: creId)).FirstOrDefault();
 
     public async Task<AiTask?> CreateAsync(AiTask item, string? userId)
     {

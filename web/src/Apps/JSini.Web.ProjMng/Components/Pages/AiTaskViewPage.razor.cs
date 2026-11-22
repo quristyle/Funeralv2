@@ -9,9 +9,13 @@ public partial class AiTaskViewPage
 {
     [Inject] private AiTaskClient Api { get; set; } = default!;
     [Inject] private PortalTabs Tabs { get; set; } = default!;
+    [Inject] private CurrentUser CurrentUser { get; set; } = default!;
 
     /// <summary>주소에 실려 온 지시 번호.</summary>
     [Parameter] public long TaskKey { get; set; }
+
+    /// <summary>시스템관리자인가. 시스템관리자는 모든 사용자의 작성 작업을 볼 수 있고, 그 외 사용자는 자신이 작성한 작업만 본다.</summary>
+    private bool IsSystemAdmin => CurrentUser.IsSystemAdmin;
 
     private AiTaskDto? _item;
     private bool _isPhone;
@@ -47,6 +51,11 @@ public partial class AiTaskViewPage
 
         StopPoll();
 
+        if (!CurrentUser.IsLoaded)
+        {
+            await CurrentUser.ReloadAsync();
+        }
+
         // 받아 오기 전에 먼저 연다 — 탭이 늦게 서면 화면은 바뀌었는데 탭 줄은 직전 화면을 켠 채로 남는다.
         Tabs.Open(Href, TabTitle, standalone: true);
 
@@ -56,8 +65,27 @@ public partial class AiTaskViewPage
     /// <summary>한 건을 받아 온다. 못 찾으면 그대로 두고, 화면이 「찾지 못했습니다」로 말한다.</summary>
     private async Task LoadAsync()
     {
+        if (!CurrentUser.IsLoaded)
+        {
+            await CurrentUser.ReloadAsync();
+        }
+
         await LoadOneAsync(
-            async () => await Api.GetAsync(TaskKey),
+            async () =>
+            {
+                var item = await Api.GetAsync(TaskKey);
+                if (item is null)
+                {
+                    return null;
+                }
+
+                if (!IsSystemAdmin && !string.Equals(item.CreId, CurrentUser.Username, StringComparison.OrdinalIgnoreCase))
+                {
+                    return null;
+                }
+
+                return item;
+            },
             item => _item = item,
             failMessage: "지시를 읽지 못했습니다");
 
@@ -134,6 +162,14 @@ public partial class AiTaskViewPage
 
                     if (cts.IsCancellationRequested || fresh is null)
                     {
+                        return;
+                    }
+
+                    if (!IsSystemAdmin && !string.Equals(fresh.CreId, CurrentUser.Username, StringComparison.OrdinalIgnoreCase))
+                    {
+                        _item = null;
+                        StopPoll();
+                        await InvokeAsync(StateHasChanged);
                         return;
                     }
 

@@ -60,6 +60,22 @@ public sealed class AiTaskListPermissionTests
         Assert.Contains("mine: !IsSystemAdmin", source);
     }
 
+    [Fact]
+    public void AiTaskViewPage_LoadAsync는_시스템관리자가_아니면_자신의_작업만_조회한다()
+    {
+        var source = RazorSource.Read(Path.Combine(
+            SolutionRoot(), "src", "Apps", "JSini.Web.ProjMng", "Components", "Pages", "AiTaskViewPage.razor.cs"));
+
+        // CurrentUser 주입 여부 확인
+        Assert.Contains("[Inject] private CurrentUser CurrentUser", source);
+
+        // IsSystemAdmin 프로퍼티 확인
+        Assert.Contains("private bool IsSystemAdmin => CurrentUser.IsSystemAdmin;", source);
+
+        // LoadAsync 에서 본인 확인 로직 확인
+        Assert.Contains("!IsSystemAdmin && !string.Equals(item.CreId, CurrentUser.Username", source);
+    }
+
     private static string SolutionRoot()
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);

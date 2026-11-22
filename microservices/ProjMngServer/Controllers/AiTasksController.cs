@@ -128,17 +128,53 @@ public sealed class AiTasksController(
     /// <summary>한 건에 붙은 말 전부 — <b>관리자 쪽 입구</b>.</summary>
     [HttpGet("{taskKey:long}/notes")]
     public async Task<IActionResult> NotesAsync(long taskKey)
-        => Ok(ApiResponse<List<AiTaskNote>>.Ok(await notes.ListAsync(taskKey)));
+    {
+        var isSystemAdmin = PortalRoles.RolesOf(Request)
+            .Contains("SYSTEM_ADMINISTRATOR", StringComparer.OrdinalIgnoreCase);
+
+        var onlyMine = PortalRoles.IsPortalCall(Request) && !isSystemAdmin;
+        if (onlyMine)
+        {
+            var task = await service.GetAsync(taskKey, creId: UserId);
+            if (task is null)
+            {
+                return NotFound(ApiResponse<List<AiTaskNote>>.Fail(message: "그런 작업이 없습니다.", code: "NOT_FOUND"));
+            }
+        }
+
+        return Ok(ApiResponse<List<AiTaskNote>>.Ok(await notes.ListAsync(taskKey)));
+    }
 
     /// <summary><b>말을 남긴다 — 관리자 쪽 입구.</b> 올린 사람에게 앱푸시가 간다.</summary>
     [HttpPost("{taskKey:long}/notes")]
     public async Task<IActionResult> AddNoteAsync(long taskKey, [FromBody] AiTaskNote item)
-        => RespondNote(await notes.AddAsync(taskKey, item.Contents, UserId, UserName));
+    {
+        var isSystemAdmin = PortalRoles.RolesOf(Request)
+            .Contains("SYSTEM_ADMINISTRATOR", StringComparer.OrdinalIgnoreCase);
+
+        var onlyMine = PortalRoles.IsPortalCall(Request) && !isSystemAdmin;
+        if (onlyMine)
+        {
+            var task = await service.GetAsync(taskKey, creId: UserId);
+            if (task is null)
+            {
+                return NotFound(ApiResponse<AiTaskNote>.Fail(message: "그런 작업이 없습니다.", code: "NOT_FOUND"));
+            }
+        }
+
+        return RespondNote(await notes.AddAsync(taskKey, item.Contents, UserId, UserName));
+    }
 
     [HttpGet("{taskKey:long}")]
     public async Task<IActionResult> GetAsync(long taskKey)
     {
-        var item = await service.GetAsync(taskKey);
+        // 시스템관리자는 모든 사용자의 작성 작업을 볼 수 있고, 그 외 사용자는 자신이 작성한 작업만 본다.
+        var isSystemAdmin = PortalRoles.RolesOf(Request)
+            .Contains("SYSTEM_ADMINISTRATOR", StringComparer.OrdinalIgnoreCase);
+
+        var onlyMine = PortalRoles.IsPortalCall(Request) && !isSystemAdmin;
+
+        var item = await service.GetAsync(taskKey, creId: onlyMine ? UserId : null);
 
         return item is null
             ? NotFound(ApiResponse<AiTask>.Fail(message: "그런 작업이 없습니다.", code: "NOT_FOUND"))
@@ -171,7 +207,22 @@ public sealed class AiTasksController(
     /// <summary>실행 이력. 최근 것이 앞이다.</summary>
     [HttpGet("{taskKey:long}/runs")]
     public async Task<IActionResult> RunsAsync(long taskKey)
-        => Ok(ApiResponse<List<AiTaskRun>>.Ok(await runs.RunsAsync(taskKey)));
+    {
+        var isSystemAdmin = PortalRoles.RolesOf(Request)
+            .Contains("SYSTEM_ADMINISTRATOR", StringComparer.OrdinalIgnoreCase);
+
+        var onlyMine = PortalRoles.IsPortalCall(Request) && !isSystemAdmin;
+        if (onlyMine)
+        {
+            var task = await service.GetAsync(taskKey, creId: UserId);
+            if (task is null)
+            {
+                return NotFound(ApiResponse<List<AiTaskRun>>.Fail(message: "그런 작업이 없습니다.", code: "NOT_FOUND"));
+            }
+        }
+
+        return Ok(ApiResponse<List<AiTaskRun>>.Ok(await runs.RunsAsync(taskKey)));
+    }
 
     /// <summary><b>작업을 요청한다.</b> 요청여부가 <c>requested</c>, 상태가 <c>queued</c> 가 된다.</summary>
     [HttpPost("{taskKey:long}/request")]

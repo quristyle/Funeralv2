@@ -37,4 +37,13 @@ public class AiTasksControllerPermissionTests
         Assert.Contains("onlyMine", source);
         Assert.Contains("creId: onlyMine ? UserId : null", source);
     }
+
+    [Fact]
+    public void GetAsync는_시스템관리자가_아닌_경우_자신이_작성한_작업만_조회한다()
+    {
+        var source = FindAiTasksControllerSource();
+
+        Assert.Contains("GetAsync(long taskKey)", source);
+        Assert.Contains("service.GetAsync(taskKey, creId: onlyMine ? UserId : null)", source);
+    }
 }

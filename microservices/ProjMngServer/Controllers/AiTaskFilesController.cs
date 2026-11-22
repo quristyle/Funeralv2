@@ -1,5 +1,6 @@
 using JSini.Shared.DTOs;
 using Microsoft.AspNetCore.Mvc;
+using ProjMngServer.Filters;
 using ProjMngServer.Models;
 using ProjMngServer.Services;
 
@@ -11,7 +12,7 @@ namespace ProjMngServer.Controllers;
 /// 고르는 순간 담아 두고(작업 번호 없음) 지시를 보낼 때 번호를 FileKeys 에 실어 등록이 묶는다. 실행기는 게이트웨이를 지나지 못해 /api/ai-runner 로 따로 받는다(AiRunnerController).
 [ApiController]
 [Route("api/ai-tasks")]
-public sealed class AiTaskFilesController(AiTaskFileService files) : ControllerBase
+public sealed class AiTaskFilesController(AiTaskFileService files, AiTaskService tasks) : ControllerBase
 {
     /// <summary>요청을 보낸 사람. 없으면 <c>system</c>.</summary>
     /// 본문에 실어 보내지 않는다 — 본문 값은 믿지 않는다(AiTasksController 와 같은 규칙).
@@ -29,7 +30,22 @@ public sealed class AiTaskFilesController(AiTaskFileService files) : ControllerB
     /// <summary>작업 하나에 붙은 첨부 목록. <b>바이트는 오지 않는다.</b></summary>
     [HttpGet("{taskKey:long}/files")]
     public async Task<IActionResult> ListAsync(long taskKey)
-        => Ok(ApiResponse<List<AiTaskFile>>.Ok(await files.ListAsync(taskKey)));
+    {
+        var isSystemAdmin = PortalRoles.RolesOf(Request)
+            .Contains("SYSTEM_ADMINISTRATOR", StringComparer.OrdinalIgnoreCase);
+
+        var onlyMine = PortalRoles.IsPortalCall(Request) && !isSystemAdmin;
+        if (onlyMine)
+        {
+            var task = await tasks.GetAsync(taskKey, creId: UserId);
+            if (task is null)
+            {
+                return NotFound(ApiResponse<List<AiTaskFile>>.Fail(message: "그런 작업이 없습니다.", code: "NOT_FOUND"));
+            }
+        }
+
+        return Ok(ApiResponse<List<AiTaskFile>>.Ok(await files.ListAsync(taskKey)));
+    }
 
     /// <summary>
     /// <b>내가 붙여 두고 아직 안 보낸 것.</b> 화면이 다시 열릴 때 읽는다.
