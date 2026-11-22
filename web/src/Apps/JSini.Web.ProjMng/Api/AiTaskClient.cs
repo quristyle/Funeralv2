@@ -12,9 +12,11 @@ public sealed class AiTaskClient(GatewayClient gateway)
     public Task<IReadOnlyList<AiTaskDto>> ListAsync(
         string? status = null, string? flag = null, long? targetKey = null,
         string? keyword = null, bool? userConfirmed = null, bool? userRequest = null,
-        bool excludeDone = false, CancellationToken ct = default)
+        bool excludeDone = false, bool mine = false, CancellationToken ct = default)
     {
         var query = new List<string>();
+
+        if (mine) query.Add("mine=true");
 
         if (!string.IsNullOrWhiteSpace(status)) query.Add($"status={Uri.EscapeDataString(status)}");
         if (!string.IsNullOrWhiteSpace(flag)) query.Add($"flag={Uri.EscapeDataString(flag)}");

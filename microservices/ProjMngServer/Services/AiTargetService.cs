@@ -78,8 +78,9 @@ public sealed class AiTargetService(IConfiguration configuration)
         a.mod_dt           AS ModDt
         """;
 
-    /// <summary>대상 목록. <paramref name="onlyEnabled"/> 가 참이면 화면에서 고를 수 있는 것만.</summary>
-    public async Task<List<AiTarget>> ListAsync(bool onlyEnabled = false, long? targetKey = null)
+    /// <summary>대상 목록. <paramref name="onlyEnabled"/> 가 참이면 화면에서 고를 수 있는 것만.
+    /// <paramref name="memberId"/> 를 주면 그 사람이 참여한 프로젝트(dev_proj_user_map)에 매인 대상만 — 프로젝트가 없는 대상은 빠진다.</summary>
+    public async Task<List<AiTarget>> ListAsync(bool onlyEnabled = false, long? targetKey = null, string? memberId = null)
     {
         using var db = Open();
 
@@ -92,8 +93,11 @@ public sealed class AiTargetService(IConfiguration configuration)
              WHERE a.is_deleted = false
                AND (@targetKey::bigint IS NULL OR a.target_key = @targetKey)
                AND (@onlyEnabled = false OR a.is_enabled = true)
+               AND (@memberId::text IS NULL
+                    OR a.prj_rid IN (SELECT m.prj_rid FROM projmng.dev_proj_user_map m
+                                      WHERE m.user_id = @memberId))
              ORDER BY a.is_enabled DESC, a.target_nm
-            """, new { targetKey, onlyEnabled });
+            """, new { targetKey, onlyEnabled, memberId });
 
         return [.. rows];
     }

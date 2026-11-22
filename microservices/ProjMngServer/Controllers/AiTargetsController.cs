@@ -17,11 +17,11 @@ public sealed class AiTargetsController(
             ? id.ToString()
             : "system";
 
-    /// <summary>대상 목록. onlyEnabled 를 켜면 고를 수 있는 것만 온다.</summary>
+    /// <summary>대상 목록. onlyEnabled 를 켜면 고를 수 있는 것만, mine 을 켜면 내가 참여한 프로젝트의 대상만 온다.</summary>
     [HttpGet]
-    public async Task<IActionResult> ListAsync([FromQuery] bool onlyEnabled = false)
+    public async Task<IActionResult> ListAsync([FromQuery] bool onlyEnabled = false, [FromQuery] bool mine = false)
     {
-        var rows = await service.ListAsync(onlyEnabled);
+        var rows = await service.ListAsync(onlyEnabled, memberId: mine ? UserId : null);
         return Ok(ApiResponse<List<AiTarget>>.Ok(rows));
     }
 

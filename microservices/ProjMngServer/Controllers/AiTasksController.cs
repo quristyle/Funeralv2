@@ -35,12 +35,13 @@ public sealed class AiTasksController(
         [FromQuery] string? status, [FromQuery] string? flag,
         [FromQuery] long? targetKey, [FromQuery] string? keyword,
         [FromQuery] bool? userConfirmed, [FromQuery] bool? userRequest,
-        [FromQuery] bool excludeDone = false)
+        [FromQuery] bool excludeDone = false, [FromQuery] bool mine = false)
     {
+        // mine — 「빠른 지시」의 최근 목록. 내가 보낸 것만 준다.
         var rows = await service.ListAsync(
             status, flag, targetKey, keyword,
             userConfirmed: userConfirmed, userRequest: userRequest,
-            excludeDone: excludeDone);
+            excludeDone: excludeDone, creId: mine ? UserId : null);
 
         return Ok(ApiResponse<List<AiTask>>.Ok(rows));
     }

@@ -12,6 +12,10 @@ public sealed class AiTargetClient(GatewayClient gateway)
         => gateway.GetListAsync<AiTargetDto>(
             onlyEnabled ? $"{Url}?onlyEnabled=true" : Url, ct);
 
+    /// <summary>내가 참여한 프로젝트에 매인, 켜진 대상만. 「빠른 지시」의 고르개가 쓴다 — 프로젝트가 없는 대상은 안 온다.</summary>
+    public Task<IReadOnlyList<AiTargetDto>> MineAsync(CancellationToken ct = default)
+        => gateway.GetListAsync<AiTargetDto>($"{Url}?onlyEnabled=true&mine=true", ct);
+
     /// <summary>경로를 둘 수 있는 루트를 서버에게 묻는다 — 화면에 규칙을 박으면 서버 설정을 바꿨을 때 안내만 옛말이 된다.</summary>
     public Task<IReadOnlyList<string>> AllowedRootsAsync(CancellationToken ct = default)
         => gateway.GetListAsync<string>($"{Url}/allowed-roots", ct);

@@ -198,7 +198,8 @@ public partial class AiAskPanel
     /// <summary>마지막으로 본 <see cref="Shown"/>. 첫 판은 <c>null</c> 이고, 그때는 <see cref="OnInitializedAsync"/> 가 이미 읽었으므로 또 읽지 않는다.</summary>
     private bool? _shown;
 
-    /// <summary>고른 대상이 허용한 AI 만 고르게 한다(「AI 작업」 화면과 같은 규칙).</summary>
+    /// <summary>고른 대상이 쓸 수 있는 AI(<c>ai_target.runner_kinds</c>)만 고르게 한다.
+    /// 대상을 안 골랐거나 대상이 허용한 AI 가 없으면 빈 목록이다 — 전부로 떨어뜨리면 그 대상에서 못 도는 AI 로 보내 집어 갈 실행기가 없다.</summary>
     private IReadOnlyList<AiModelOption> AllowedKinds
     {
         get
@@ -207,13 +208,12 @@ public partial class AiAskPanel
 
             if (target?.RunnerKinds is not { Length: > 0 } kinds)
             {
-                return AllKinds;
+                return [];
             }
 
             var allowed = kinds.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-            var picked = AllKinds.Where(k => allowed.Contains(k.Value, StringComparer.OrdinalIgnoreCase)).ToList();
 
-            return picked.Count > 0 ? picked : AllKinds;
+            return [.. AllKinds.Where(k => allowed.Contains(k.Value, StringComparer.OrdinalIgnoreCase))];
         }
     }
 
@@ -260,7 +260,8 @@ public partial class AiAskPanel
 
     private bool CanSend =>
         !Busy && !_uploading && _selectedFileNames.Count == 0
-        && _targetKey is not null && !string.IsNullOrWhiteSpace(_text);
+        && _targetKey is not null && !string.IsNullOrWhiteSpace(_text)
+        && AllowedKinds.Any(k => string.Equals(k.Value, _kind, StringComparison.OrdinalIgnoreCase));
 
     private AiTargetDto? SelectedTarget => _targets.FirstOrDefault(t => t.TargetKey == _targetKey);
 
@@ -316,7 +317,7 @@ public partial class AiAskPanel
     /// <summary>로그인 아이디. 못 읽었으면 <c>null</c> 이다.</summary>
     private string? _me;
 
-    /// <summary>내가 올린 건인가. 「새 남긴말」 배지를 내 카드에만 세운다 — 목록에는 남이 보낸 것도 깔린다.</summary>
+    /// <summary>내가 올린 건인가. 「새 남긴말」 배지를 내 카드에만 세운다 — 목록은 서버가 내 것만 주지만 아이디 대소문자·공백이 섞일 수 있어 한 번 더 본다.</summary>
     private bool IsMine(AiTaskDto t) =>
         _me is { Length: > 0 } me
         && string.Equals(me, t.CreId?.Trim(), StringComparison.OrdinalIgnoreCase);
@@ -779,9 +780,9 @@ public partial class AiAskPanel
     {
         await LoadAsync(async () =>
         {
-            _targets = await TargetApi.ListAsync(onlyEnabled: true);
+            _targets = await TargetApi.MineAsync();
             return _targets.Count;
-        }, emptyMessage: "쓸 수 있는 대상이 없습니다.", failMessage: "대상을 읽지 못했습니다");
+        }, emptyMessage: "참여한 프로젝트에 연결된 대상이 없습니다.", failMessage: "대상을 읽지 못했습니다");
 
         // **하나뿐이면 골라 둔다.** 고를 것이 없는 목록을 열게 하지 않는다.
         if (_targetKey is null && _targets.Count == 1)
@@ -792,12 +793,12 @@ public partial class AiAskPanel
         FixKind();
     }
 
-    /// <summary>최근 보낸 것. 내가 보낸 것만 거르지 않으므로 전부 온다 — 쓰는 사람이 여럿이 되면 서버에 조건을 더한다.</summary>
+    /// <summary>최근 보낸 것. 내가 보낸 것만 온다(<c>mine</c> — 서버가 로그인 아이디로 거른다).</summary>
     private async Task LoadRecentAsync()
     {
         await LoadAsync(async () =>
         {
-            Show(await Api.ListAsync(userConfirmed: false));
+            Show(await Api.ListAsync(userConfirmed: false, mine: true));
 
             return _recent.Count;
         }, emptyMessage: string.Empty, failMessage: "보낸 것을 읽지 못했습니다");
@@ -1260,7 +1261,7 @@ public partial class AiAskPanel
     {
         try
         {
-            var rows = await Api.ListAsync(userConfirmed: false, ct: ct);
+            var rows = await Api.ListAsync(userConfirmed: false, mine: true, ct: ct);
 
             if (ct.IsCancellationRequested)
             {
@@ -1270,7 +1271,7 @@ public partial class AiAskPanel
             Show(rows);
             _recentLoaded = true;
 
-            // 따라가는 동안 남이 보낸 건이 끼어든다 — 모르는 아이디만 묻는다.
+            // 얼굴은 모르는 아이디만 묻는다.
             await Faces.EnsureAsync(_all.Select(t => t.CreId), ct);
 
             await InvokeAsync(StateHasChanged);
