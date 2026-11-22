@@ -242,7 +242,7 @@ AI 작업 지시 — 왼쪽에서 고르고 오른쪽에서 고친다. 오른쪽
                 @* 편집 폼을 주지 않았으므로 아래 띠의 ＋ 는 창을 열지 않고 새 줄을 이 화면으로 넘긴다. *@
 
                 <Columns>
-                    @* 칸은 둘뿐이다 — 대상·시각은 제목 아래 잔글씨로 붙인다. 요청여부는 상태와 한 칸에 나란히 둔다. *@
+                    @* 칸은 둘뿐이다 — 대상·요청 시각, 작성자·작성일시는 제목 아래 잔글씨 두 줄로 붙인다. 요청여부는 상태와 한 칸에 나란히 둔다. *@
                     <DxGridDataColumn FieldName="@nameof(AiTaskDto.Title)" Caption="작업" MinWidth="200"
                                       TextAlignment="GridTextAlignment.Left">
                         <CellDisplayTemplate Context="cell">
@@ -268,6 +268,10 @@ AI 작업 지시 — 왼쪽에서 고르고 오른쪽에서 고친다. 오른쪽
                                     {
                                         <span class="pm-ai-dim">· @at.Kst("MM-dd HH:mm")</span>
                                     }
+                                </span>
+                                <span class="pm-ai-row__by">
+                                    <span class="pm-ai-row__by-id" title="작성자">@(string.IsNullOrWhiteSpace(t.CreId) ? "-" : t.CreId)</span>
+                                    <span class="pm-ai-dim" title="작성일시">· @t.CreDt.Kst("yyyy-MM-dd HH:mm", "-")</span>
                                 </span>
                             </div>
                         </CellDisplayTemplate>

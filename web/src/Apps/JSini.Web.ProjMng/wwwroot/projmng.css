@@ -1546,6 +1546,22 @@
   white-space: nowrap;
 }
 
+/* 작성자 아이디와 작성일시. 대상 줄보다 한 단계 옅게 둔다. */
+.pm-ai-row__by {
+  display: flex;
+  gap: 0.35rem;
+  align-items: baseline;
+  font-size: 0.8em;
+  opacity: 0.7;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pm-ai-row__by-id {
+  font-weight: 500;
+}
+
 /* 상태와 요청여부를 한 칸에 나란히. 좁아져도 둘 다 보여야 한다(「취소를 눌렀는데 아직 돌고 있다」). */
 .pm-ai-row__state {
   display: flex;
